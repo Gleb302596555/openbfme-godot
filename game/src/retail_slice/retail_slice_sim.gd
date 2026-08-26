@@ -3,6 +3,12 @@ extends RefCounted
 
 const PlayableUnitAdapter = preload("res://src/retail_slice/playable_unit_runtime_adapter.gd")
 const ParitySystems = preload("res://src/retail_slice/retail_slice_parity.gd")
+const ProjectileSystemScript = preload("res://src/retail_slice/retail_sim_projectiles.gd")
+const EconomySystemScript = preload("res://src/retail_slice/retail_sim_economy.gd")
+const ExperienceSystemScript = preload("res://src/retail_slice/retail_sim_experience.gd")
+const AiSystemScript = preload("res://src/retail_slice/retail_sim_ai.gd")
+const CombatSystemScript = preload("res://src/retail_slice/retail_sim_combat.gd")
+const PersistenceSystemScript = preload("res://src/retail_slice/retail_sim_persistence.gd")
 const FogOfWarScript = preload("res://src/retail_slice/retail_fog_of_war.gd")
 const CommandScript = preload("res://src/retail_slice/retail_command.gd")
 const SelectionPick = preload("res://src/retail_slice/retail_selection_pick.gd")
@@ -331,7 +337,9 @@ func initial_battalion_count() -> int:
 
 
 func _active_spawn_roster() -> Array:
-	return _spawn_roster if not _spawn_roster.is_empty() else DEFAULT_SPAWN_ROSTER
+	# Q80: no DEFAULT_SPAWN_ROSTER fallback — the manifest roster is the
+	# roster, empty included.
+	return _spawn_roster
 
 
 func _roster_team_ids() -> Array:
@@ -1297,6 +1305,75 @@ var respawn_schedules: Dictionary = {} # entity id -> authored due/cost/template
 ## empty-is-absent below.
 var physics_objects: Dictionary = {}
 var _next_physics_object_id := 50000
+## Q81a extraction #1: member-projectile logic lives in
+## retail_sim_projectiles.gd; the sim keeps the authoritative STATE
+## (projectiles/_next_projectile_id — tests read and write it directly, and
+## serialization is untouched) plus one-line delegates under the original
+## names so call sites and tick order are byte-identical.
+var _projectile_system = null
+
+
+func _projectiles_subsystem():
+	if _projectile_system == null:
+		_projectile_system = ProjectileSystemScript.new(self)
+	return _projectile_system
+
+
+## Q81 extraction #2: economy/income logic lives in retail_sim_economy.gd;
+## state (team_resources, per-structure auto_deposit rows) stays on the sim.
+var _economy_system = null
+
+
+## Q81 extraction #3: experience/veterancy logic lives in
+## retail_sim_experience.gd; XP state stays on entity rows.
+var _experience_system = null
+
+
+## Q81 extraction #4: the skirmish-AI controller lives in retail_sim_ai.gd
+## (extracted AS-IS; Q83 Phase 2 replaces its guts with authored data).
+var _ai_system = null
+
+
+## Q81 extraction #5: the damage-resolution core lives in
+## retail_sim_combat.gd; entity/structure state stays on the sim.
+var _combat_system = null
+
+
+## Q81 extraction #6: hashing/snapshot/restore live in
+## retail_sim_persistence.gd; the memoized static digest stays on the sim.
+var _persistence_system = null
+
+
+func _persistence_subsystem():
+	if _persistence_system == null:
+		_persistence_system = PersistenceSystemScript.new(self)
+	return _persistence_system
+
+
+func _combat_subsystem():
+	if _combat_system == null:
+		_combat_system = CombatSystemScript.new(self)
+	return _combat_system
+
+
+func _ai_subsystem():
+	if _ai_system == null:
+		_ai_system = AiSystemScript.new(self)
+	return _ai_system
+
+
+func _experience_subsystem():
+	if _experience_system == null:
+		_experience_system = ExperienceSystemScript.new(self)
+	return _experience_system
+
+
+func _economy_subsystem():
+	if _economy_system == null:
+		_economy_system = EconomySystemScript.new(self)
+	return _economy_system
+
+
 ## Ordinary weapon projectiles are authoritative sim rows, separate from the
 ## physics-object table used by fling/Bezier carriers.
 var projectiles: Dictionary = {}
@@ -1683,6 +1760,11 @@ func setup(map_configuration: Dictionary = {}, gameplay_rules: Dictionary = {}) 
 	_reset_spellbook_match_state()
 	clock_paused = false
 	_apply_gameplay_rules(gameplay_rules if not gameplay_rules.is_empty() else _rules)
+	if configuration_error != "":
+		# Q80: a refused configuration seeds NOTHING. Continuing here is how
+		# half-configured sims used to run on invented fallback tables and
+		# produce plausible-but-wrong results that passed review.
+		return
 	if ring_mechanic_enabled:
 		script_surface_bag["game_mode"] = String(_ring_contract.get("modeToken", "ringheroes"))
 		script_surface_bag["ring_mechanic"] = {
@@ -1702,9 +1784,10 @@ func setup(map_configuration: Dictionary = {}, gameplay_rules: Dictionary = {}) 
 		# historical spawn set exactly; the snapshot serializes by sorted id, so the
 		# per-team pass order never moves the signature.
 		for team in _roster_team_ids():
+			# Q80: an empty authored roster spawns nothing. The old
+			# DEFAULT_SPAWN_ROSTER fallback here invented gondor battalions
+			# for any team whose roster was empty.
 			var team_roster: Array = spawn_roster_for_team(int(team))
-			if team_roster.is_empty():
-				team_roster = DEFAULT_SPAWN_ROSTER
 			for entry_value in team_roster:
 				var entry := entry_value as Dictionary
 				if int(entry.get("team", PLAYER_TEAM)) != int(team):
@@ -2443,9 +2526,9 @@ func _ring_pickup_eligible(candidate: Dictionary) -> bool:
 
 
 func _configure_faction_manifest() -> bool:
-	## Every faction-scoped table flows through the manifest. Absent keys
-	## default to exactly the historical Gondor constants, so a rules
-	## dictionary without a manifest stays byte-identical to the old behavior.
+	## Every faction-scoped table flows through the manifest. The 8 core
+	## tables are REQUIRED (Q80): a rules dictionary without them is refused
+	## by name — invented defaults were removed and never fall back silently.
 	var manifest_value: Variant = _rules.get("faction_manifest", {})
 	if typeof(manifest_value) != TYPE_DICTIONARY:
 		configuration_error = "Faction manifest is not a dictionary"
@@ -4934,7 +5017,9 @@ func _add_battalion(
 func _recorded_damage_type(object_id: String, unit_rule: Dictionary) -> String:
 	## No silent slash default: a combat unit without authored damageType is
 	## recorded, and its structure damage falls to the kind's DEFAULT scalar.
-	var damage_type := String((_unit_damage_types if not _unit_damage_types.is_empty() else UNIT_DAMAGE_TYPES).get(object_id, ""))
+	# Q80: manifest tables are required, so the mirror is authoritative —
+	# no UNIT_DAMAGE_TYPES constant fallback.
+	var damage_type := String(_unit_damage_types.get(object_id, ""))
 	# A weapon whose nuggets author several types has no single damageType by
 	# construction; it is typed per component, not missing a type.
 	if damage_type == "" and not (_unit_damage_components.get(object_id, []) as Array).is_empty():
@@ -5925,22 +6010,7 @@ func _team_has_required_building_filter(team: int, filter: Array) -> bool:
 
 
 func _income_with_upgrade_bonus(team: int, building: Dictionary, base_income: int) -> int:
-	## Authored TerrainResourceBehavior upgrade bonuses (Grand Harvest): the
-	## resource structure's own document declares the percent while the team
-	## owns the technology and maintains the required building.
-	var bundle: Dictionary = structure_upgrade_effects_for_team(team).get(String(building.get("structure_kind", "")), {})
-	var owned: Dictionary = team_upgrades.get(team, {}) as Dictionary
-	var income := base_income
-	for effect_value in Array(bundle.get("effects", [])):
-		var effect := effect_value as Dictionary
-		if String(effect.get("kind", "")) != "income-bonus":
-			continue
-		if not owned.has(String(effect.get("upgrade_id", ""))):
-			continue
-		if not _team_has_required_object(team, String(effect.get("upgrade_must_be_present", ""))):
-			continue
-		income = roundi(income * float(effect.get("bonus_percent", 100.0)) / 100.0)
-	return income
+	return _economy_subsystem().income_with_upgrade_bonus(team, building, base_income)
 
 
 func _queued_command_points_for_team(team: int) -> int:
@@ -8615,38 +8685,7 @@ func _cast_spellbook_scavenger(team: int, effect: Dictionary) -> Dictionary:
 
 
 func _award_scavenger_bounty(attacker_id: int, victim: Dictionary, victim_kind: String) -> int:
-	# This hook is called only at a lethal transition. It still proves ownership
-	# and hostility locally so script/self/friendly deaths can never mint money.
-	if not entities.has(attacker_id):
-		return 0
-	var attacker := entities[attacker_id] as Dictionary
-	if int(attacker.get("health", 0)) <= 0:
-		return 0
-	var killer_team := int(attacker.get("team", -1))
-	if not _is_combatant_team(killer_team) or not _is_hostile(killer_team, int(victim.get("team", -1))):
-		return 0
-	var percent := float(_scavenger_bounty_percent.get(killer_team, 0.0))
-	if percent <= 0.0:
-		return 0
-	var authored_value := -1
-	if victim_kind == "structure":
-		authored_value = int(structure_bounty_values_for_team(int(victim.get("team", -1))).get(String(victim.get("structure_kind", "")), -1))
-	elif victim.has("bounty_value"):
-		authored_value = int(victim.get("bounty_value", -1))
-	if authored_value < 0:
-		return 0
-	var award := maxi(0, floori(float(authored_value) * percent))
-	if award <= 0:
-		return 0
-	team_resources[killer_team] = resources_for_team(killer_team) + award
-	_emit_event("economy.scavenger_bounty", attacker_id, int(victim.get("id", 0)), {
-		"team": killer_team,
-		"victim_kind": victim_kind,
-		"bounty_value": authored_value,
-		"bounty_percent": percent,
-		"amount": award,
-	})
-	return award
+	return _economy_subsystem().award_scavenger_bounty(attacker_id, victim, victim_kind)
 
 
 func cast_power(team: int, power_id: String, point: Vector2) -> Dictionary:
@@ -22507,119 +22546,19 @@ func _step_physics_objects() -> void:
 
 
 func _step_projectiles() -> void:
-	if projectiles.is_empty():
-		return
-	var ids: Array = projectiles.keys()
-	ids.sort()
-	for id_value in ids:
-		var projectile_id := int(id_value)
-		if not projectiles.has(projectile_id):
-			continue
-		var projectile := projectiles[projectile_id] as Dictionary
-		if tick_index < int(projectile.get("impact_tick", tick_index)):
-			continue
-		_resolve_member_projectile_impact(projectile_id, projectile)
+	_projectiles_subsystem().step()
 
 
 func _resolve_member_projectile_impact(projectile_id: int, projectile: Dictionary) -> void:
-	var attacker_id := int(projectile.get("attacker_id", 0))
-	var target_id := int(projectile.get("target_id", 0))
-	var target_kind := String(projectile.get("target_kind", "battalion"))
-	var forced_member := int(projectile.get("member_index", -1))
-	var target_live := _target_alive(target_id, target_kind)
-	if target_live and target_kind == "battalion":
-		var target := entities.get(target_id, {}) as Dictionary
-		var health_values: Array = target.get("member_health", [])
-		if forced_member < 0 or forced_member >= health_values.size() or int(health_values[forced_member]) <= 0:
-			forced_member = -1
-			for index in health_values.size():
-				if int(health_values[index]) > 0:
-					forced_member = index
-					break
-		target_live = forced_member >= 0
-	if not target_live:
-		_emit_event("combat.projectile_cancelled", attacker_id, target_id, {
-			"projectile_token": projectile_id,
-			"projectile_object_id": String(projectile.get("projectile_object_id", "")),
-		})
-		projectiles.erase(projectile_id)
-		return
-	var components := projectile.get("damage_components", []) as Array
-	var death_type := "NORMAL"
-	if not components.is_empty():
-		death_type = String((components[0] as Dictionary).get("death_type", "NORMAL"))
-	_apply_member_damage(
-		attacker_id,
-		int(projectile.get("attacker_member_index", -1)),
-		target_id,
-		maxi(1, int(projectile.get("amount", 1))),
-		target_kind,
-		int(projectile.get("attack_sequence", 0)),
-		forced_member,
-		String(projectile.get("damage_type", "")),
-		death_type,
-		components
-	)
-	# Upgrade-gated projectile nuggets share the shell's impact boundary; none
-	# are allowed to leak damage onto the launch tick.
-	if entities.has(attacker_id):
-		_apply_member_bonus_nuggets(
-			attacker_id,
-			int(projectile.get("attacker_member_index", -1)),
-			entities[attacker_id] as Dictionary,
-			target_id,
-			target_kind,
-			forced_member,
-			{"bonus_nuggets": projectile.get("bonus_nuggets", [])}
-		)
-	var origin := Vector2(projectile.get("origin", Vector2.ZERO))
-	for component_value in components:
-		if typeof(component_value) != TYPE_DICTIONARY:
-			continue
-		var component := component_value as Dictionary
-		var radius := maxf(0.0, float(component.get("radius", 0.0)))
-		if radius <= 0.0:
-			continue
-		_apply_radius_damage(
-			attacker_id,
-			origin,
-			radius,
-			float(component.get("value", 0.0)),
-			String(component.get("damage_type", projectile.get("damage_type", ""))),
-			float(component.get("damage_taper_off", 0.0)),
-			String(projectile.get("radius_damage_affects", "ENEMIES")),
-			target_id,
-			String(component.get("death_type", "NORMAL"))
-		)
-	_emit_event("combat.projectile_impact", attacker_id, target_id, {
-		"projectile_token": projectile_id,
-		"projectile_object_id": String(projectile.get("projectile_object_id", "")),
-		"origin": origin,
-	})
-	projectiles.erase(projectile_id)
+	_projectiles_subsystem().resolve_member_projectile_impact(projectile_id, projectile)
 
 
 func _radius_relation_allowed(attacker_team: int, victim_team: int, affects: String) -> bool:
-	var tokens: Array[String] = []
-	for token_value in affects.to_upper().split(" ", false):
-		var token := String(token_value).strip_edges()
-		if token != "" and not tokens.has(token):
-			tokens.append(token)
-	if _is_hostile(attacker_team, victim_team):
-		return tokens.has("ENEMIES")
-	if _is_combatant_team(victim_team):
-		return tokens.has("ALLIES")
-	return tokens.has("NEUTRALS")
+	return _projectiles_subsystem().radius_relation_allowed(attacker_team, victim_team, affects)
 
 
 func _tapered_radius_amount(amount: float, distance: float, radius: float, taper_off: float) -> int:
-	if amount <= 0.0 or radius <= 0.0 or distance > radius:
-		return 0
-	# OpenSAGE's DamageTaperOff reading: a percentage of the base damage is
-	# removed linearly across the radius. Thus taper=50 leaves 50% at the edge.
-	var edge_loss := clampf(taper_off, 0.0, 100.0) / 100.0
-	var multiplier := 1.0 - edge_loss * clampf(distance / radius, 0.0, 1.0)
-	return maxi(0, roundi(amount * multiplier))
+	return _projectiles_subsystem().tapered_radius_amount(amount, distance, radius, taper_off)
 
 
 func _apply_radius_damage(
@@ -22633,32 +22572,7 @@ func _apply_radius_damage(
 	exclude_target_id: int,
 	death_type: String = "NORMAL"
 ) -> void:
-	if not entities.has(attacker_id):
-		return
-	var attacker_team := int((entities[attacker_id] as Dictionary).get("team", -1))
-	for candidate in _spatial_gather_sorted(origin, radius):
-		if candidate == exclude_target_id or not entities.has(candidate):
-			continue
-		var target := entities[candidate] as Dictionary
-		if int(target.get("health", 0)) <= 0 or not _radius_relation_allowed(attacker_team, int(target.get("team", -1)), affects):
-			continue
-		var distance := origin.distance_to(Vector2(target.get("position", Vector2.ZERO)))
-		var tapered_amount := _tapered_radius_amount(amount, distance, radius, taper_off)
-		if tapered_amount > 0:
-			_apply_member_damage(attacker_id, -1, candidate, tapered_amount, "battalion", 0, -1, damage_type, death_type)
-	var structure_keys: Array = structure_ids()
-	structure_keys.sort()
-	for structure_id_value in structure_keys:
-		var structure_id := int(structure_id_value)
-		if structure_id == exclude_target_id or not structures.has(structure_id):
-			continue
-		var target := structures[structure_id] as Dictionary
-		if int(target.get("health", 0)) <= 0 or not _radius_relation_allowed(attacker_team, int(target.get("team", -1)), affects):
-			continue
-		var distance := origin.distance_to(Vector2(target.get("position", Vector2.ZERO)))
-		var tapered_amount := _tapered_radius_amount(amount, distance, radius, taper_off)
-		if tapered_amount > 0:
-			_apply_structure_damage(attacker_id, structure_id, tapered_amount, damage_type)
+	_projectiles_subsystem().apply_radius_damage(attacker_id, origin, radius, amount, damage_type, taper_off, affects, exclude_target_id, death_type)
 
 
 func _step_airborne_physics_object(id: int, row: Dictionary, gravity_source: float) -> void:
@@ -23064,27 +22978,7 @@ func _apply_passive_area_effect_heal(target: Dictionary, candidate: Dictionary) 
 
 
 func _attach_experience_state(row: Dictionary) -> void:
-	## Spawn-time XP pool for one entity. Fielded units enter at rank 1 with no
-	## experience; retail summons whose chain starts at the top rank (ring
-	## hero, Treebeard) enter at their authored rank. Produced (revived)
-	## heroes restart at the chain's entry rank, matching retail.
-	var rule: Dictionary = _unit_experience_rules.get(String(row.get("unit_type", "")), {})
-	if rule.is_empty():
-		return
-	row["level"] = int(rule.get("initial_rank", 1))
-	row["experience_xp"] = 0
-	row["experience_max_level"] = int(rule.get("max_level", 1))
-	for level_value in Array(rule.get("levels", [])):
-		var level_row := level_value as Dictionary
-		if int(level_row.get("rank", 0)) == int(row["level"]):
-			_apply_experience_level_effects(row, level_row)
-			var receipts: Array[String] = []
-			if not (level_row.get("selection_decal", {}) as Dictionary).is_empty():
-				receipts.append("presentation_binding:SelectionDecal")
-			if not (level_row.get("level_up_presentation", {}) as Dictionary).is_empty():
-				receipts.append("presentation_binding:LevelUpPresentation")
-			if not receipts.is_empty():
-				row["experience_presentation_receipts"] = receipts
+	_experience_subsystem().attach_experience_state(row)
 
 
 func _refresh_banner_carrier_state(row: Dictionary) -> void:
@@ -23443,70 +23337,19 @@ func experience_rule_for_unit(unit_type: String) -> Dictionary:
 
 
 func _experience_level_row(rule: Dictionary, rank: int) -> Dictionary:
-	for row_value in Array(rule.get("levels", [])):
-		var row := row_value as Dictionary
-		if int(row.get("rank", 0)) == rank:
-			return row
-	return {}
+	return _experience_subsystem().experience_level_row(rule, rank)
 
 
 func experience_state(entity_id: int) -> Dictionary:
-	if not entities.has(entity_id):
-		return {}
-	var row: Dictionary = entities[entity_id]
-	var rule: Dictionary = _unit_experience_rules.get(String(row.get("unit_type", "")), {})
-	if rule.is_empty():
-		return {}
-	var level := int(row.get("level", 1))
-	var state: Dictionary = {
-		"level": level,
-		"xp": int(row.get("experience_xp", 0)),
-		"max_level": int(rule.get("max_level", 1)),
-	}
-	for row_value in Array(rule.get("levels", [])):
-		var level_row := row_value as Dictionary
-		if int(level_row.get("rank", 0)) > level:
-			state["next_threshold"] = int(level_row.get("required_experience", 0))
-			break
-	return state
+	return _experience_subsystem().experience_state(entity_id)
 
 
 func experience_unauthored_victims() -> Array[String]:
-	## Victim unit types whose kills paid the recorded default because retail
-	## authors no ExperienceLevel chain for them (never an invented award).
-	var output: Array[String] = []
-	for value in _experience_unauthored_victims.keys():
-		output.append(String(value))
-	output.sort()
-	return output
+	return _experience_subsystem().experience_unauthored_victims()
 
 
 func _award_member_kill_experience(attacker_id: int, target: Dictionary) -> void:
-	# Award stats count at the lethal hook before XP's authored-evidence early
-	# returns. A victim with no ExperienceLevel still counts as a retail kill.
-	_record_cah_member_kill(attacker_id, target)
-	if not entities.has(attacker_id):
-		return
-	var attacker: Dictionary = entities[attacker_id]
-	if int(attacker.get("health", 0)) <= 0:
-		return
-	var victim_rule: Dictionary = _unit_experience_rules.get(String(target.get("unit_type", "")), {})
-	if victim_rule.is_empty():
-		_experience_unauthored_victims[String(target.get("unit_type", ""))] = true
-		return
-	var victim_level := clampi(
-		int(target.get("level", 1)),
-		int(victim_rule.get("initial_rank", 1)),
-		int(victim_rule.get("max_level", 1))
-	)
-	var victim_level_row := _experience_level_row(victim_rule, victim_level)
-	if victim_level_row.get("experience_award_known") == false:
-		_experience_unauthored_victims[String(target.get("unit_type", ""))] = true
-		return
-	var award := int(victim_level_row.get("experience_award", 0))
-	if award <= 0:
-		return
-	_award_experience(attacker, award)
+	_experience_subsystem().award_member_kill_experience(attacker_id, target)
 
 
 func _cah_tally_for(unit_type: String) -> Dictionary:
@@ -23564,81 +23407,11 @@ func _cah_openplay_multiplayer() -> bool:
 
 
 func _award_experience(row: Dictionary, amount: int) -> void:
-	var rule: Dictionary = _unit_experience_rules.get(String(row.get("unit_type", "")), {})
-	if rule.is_empty() or amount <= 0 or int(row.get("health", 0)) <= 0:
-		return
-	# Leadership EXPERIENCE modifiers (and any timed EXPERIENCE buff) scale
-	# the recipient's XP intake — retail's 200% leadership experience rule.
-	var experience_factor := _timed_modifier_product(row, "EXPERIENCE")
-	if experience_factor != 1.0:
-		amount = maxi(1, roundi(float(amount) * experience_factor))
-	var max_level := int(rule.get("max_level", 1))
-	var level := int(row.get("level", 1))
-	# The pool keeps counting at the authored cap (retail's tracker never
-	# stops); only the level-ups stop at the last authored rank.
-	var xp := int(row.get("experience_xp", 0)) + amount
-	row["experience_xp"] = xp
-	# Authored thresholds are cumulative; the next rank is the smallest
-	# authored rank above the live one (chains are not always 1..N).
-	while level < max_level:
-		var next_row: Dictionary = {}
-		for row_value in Array(rule.get("levels", [])):
-			var candidate := row_value as Dictionary
-			if int(candidate.get("rank", 0)) > level:
-				next_row = candidate
-				break
-		if next_row.is_empty() or xp < int(next_row.get("required_experience", 0)):
-			break
-		level = int(next_row.get("rank", level + 1))
-		_apply_experience_level_effects(row, next_row)
-	if level != int(row.get("level", 1)):
-		row["level"] = level
-		_refresh_banner_carrier_state(row)
-		_record_hero_rank_attainment(row)
-		_emit_event("battalion.level_up", int(row.get("id", 0)), 0, {
-			"team": int(row.get("team", -1)),
-			"unit_type": String(row.get("unit_type", "")),
-			"level": level,
-		})
+	_experience_subsystem().award_experience(row, amount)
 
 
 func _apply_experience_level_effects(row: Dictionary, level_row: Dictionary) -> void:
-	## SAGE level modifiers are permanent: additive kinds fold into the
-	## per-member base stat (living members' current health rises by the same
-	## authored amount), exactly the authored magnitudes, never scaled.
-	var health_add := roundi(float(level_row.get("health_add", 0.0)))
-	var damage_add := roundi(float(level_row.get("damage_add", 0.0)))
-	var damage_multiplier := float(level_row.get("damage_multiplier", 1.0))
-	var spell_damage_multiplier := float(level_row.get("spell_damage_multiplier", 1.0))
-	if health_add != 0:
-		row["member_maximum_health"] = int(row.get("member_maximum_health", 0)) + health_add
-		row["maximum_health"] = int(row["member_maximum_health"]) * int(row.get("member_count", 1))
-		var health_values: Array = row.get("member_health", [])
-		for index in range(health_values.size()):
-			if int(health_values[index]) > 0:
-				health_values[index] = mini(int(row["member_maximum_health"]), int(health_values[index]) + health_add)
-		row["member_health"] = health_values
-		var aggregate := 0
-		for value in health_values:
-			aggregate += int(value)
-		row["health"] = aggregate
-	if damage_add != 0 or damage_multiplier != 1.0:
-		row["member_damage"] = roundi(
-			float(int(row.get("member_damage", 0)) + damage_add)
-			* damage_multiplier
-		)
-		row["damage"] = int(row["member_damage"]) * int(row.get("member_count", 1))
-	if spell_damage_multiplier != 1.0:
-		row["spell_damage_multiplier"] = (
-			float(row.get("spell_damage_multiplier", 1.0))
-			* spell_damage_multiplier
-		)
-	var applied: Dictionary = row.get("applied_upgrades", {}) as Dictionary
-	for upgrade_value in Array(level_row.get("upgrades", [])):
-		var upgrade_id := String(upgrade_value)
-		if upgrade_id != "":
-			applied[upgrade_id] = tick_index
-	row["applied_upgrades"] = applied
+	_experience_subsystem().apply_experience_level_effects(row, level_row)
 
 
 func ability_rules_for_unit(unit_type: String) -> Array:
@@ -25657,32 +25430,7 @@ func _summon_unit_type_for(source_object_id: String) -> String:
 
 
 func _apply_ability_experience_grant(hero_row: Dictionary, effect: Dictionary, point: Vector2) -> Dictionary:
-	## LevelGrantSpecialPower (King's Favor / Train Allies): every allied
-	## battalion inside the authored RadiusEffect of the target point passing
-	## the authored AcceptanceFilter gains exactly the authored Experience
-	## through the normal experience pipeline (EXPERIENCE modifiers included).
-	## Only recipients with a converted ExperienceLevel chain count — a unit
-	## retail never authored a chain for is never granted an invented award.
-	var team := int(hero_row.get("team", -1))
-	var amount := int(effect.get("experience", 0))
-	var radius := float(effect.get("radius_scaled", 0.0))
-	if amount <= 0 or radius <= 0.0:
-		return {"ok": false, "reason": "experience-grant-fields-missing"}
-	var filter_text := String(effect.get("affects", ""))
-	var granted := 0
-	for id in living_ids(team):
-		var ally: Dictionary = entities[id]
-		if Vector2(ally.get("position", Vector2.ZERO)).distance_to(point) > radius:
-			continue
-		if not _ability_filter_accepts(ally, filter_text):
-			continue
-		if (_unit_experience_rules.get(String(ally.get("unit_type", "")), {}) as Dictionary).is_empty():
-			continue
-		_award_experience(ally, amount)
-		granted += 1
-	if granted == 0:
-		return {"ok": false, "reason": "no-eligible-allies-in-radius"}
-	return {"ok": true, "reason": "", "effect": "experience-grant", "affected": granted}
+	return _experience_subsystem().apply_ability_experience_grant(hero_row, effect, point)
 
 
 func _apply_ability_arrow_storm(hero_row: Dictionary, effect: Dictionary, point: Vector2) -> Dictionary:
@@ -26186,267 +25934,29 @@ func _step_hero_abilities() -> void:
 
 
 func _step_economy() -> void:
-	# AutoDepositUpdate shares the authoritative economy step but retains each
-	# module's own source-authored cadence. This is not the legacy farm timer:
-	# descriptor-backed structures carry their next-payment frame in hashed
-	# structure state, just as the SAGE module xfers m_depositOnFrame.
-	_step_auto_deposit_updates()
-	
-	var legacy_interval := maxi(1, int(_rules.get("farm_payout_ticks", 50)))
-	var legacy_payout_due := (tick_index % legacy_interval == 0)
-	
-	for id in structure_ids():
-		var row: Dictionary = structures[id]
-		var income := int(row.get("income_per_payout", 0))
-		if income <= 0 or int(row.get("health", 0)) <= 0 or float(row.get("construction_progress", 0.0)) < 1.0:
-			continue
-		
-		# Determine if this structure is due for payout
-		var payout_due := false
-		if row.has("income_interval_ticks") and row.has("next_income_tick"):
-			# Descriptor-authored per-structure cadence (retail IncomeInterval)
-			var next_payout: int = int(row.get("next_income_tick", -1))
-			if tick_index >= next_payout:
-				var interval_ticks: int = int(row.get("income_interval_ticks", 1))
-				row["next_income_tick"] = tick_index + interval_ticks
-				payout_due = true
-		else:
-			# Legacy global farm_payout_ticks cadence
-			payout_due = legacy_payout_due
-		
-		if not payout_due:
-			continue
-		
-		var team := int(row.get("team", -1))
-		income = _income_with_upgrade_bonus(team, row, income)
-		income = _ai_resource_handicap(team, income)
-		team_resources[team] = resources_for_team(team) + income
-		_emit_event("economy.payout", id, 0, {"team": team, "amount": income})
+	_economy_subsystem().step_economy()
 
 
 func _initialize_structure_auto_deposit(structure: Dictionary) -> void:
-	var team := int(structure.get("team", -1))
-	var kind := String(structure.get("structure_kind", ""))
-	var descriptor_team := team
-	if structure.has("auto_deposit_descriptor_team"):
-		descriptor_team = int(structure.get("auto_deposit_descriptor_team", -1))
-	elif team == NEUTRAL_TEAM:
-		# A map-authored neutral object has no controlling-player manifest from
-		# which module data can be reconstructed. Bind only when every roster
-		# manifest that defines this kind agrees on the exact authored rules;
-		# cross-faction ambiguity must be resolved by the map/loader setting the
-		# immutable auto_deposit_descriptor_team contract before creation.
-		var resolved_rules: Array = []
-		var resolved_team := -1
-		for candidate_team in _roster_team_ids():
-			var candidate: Array = (
-				structure_auto_deposit_updates_for_team(candidate_team)
-				.get(kind, []) as Array
-			)
-			if candidate.is_empty():
-				continue
-			if resolved_team < 0:
-				resolved_team = candidate_team
-				resolved_rules = candidate
-			elif candidate != resolved_rules:
-				configuration_error = (
-					"neutral structure %d AutoDepositUpdate descriptor is ambiguous"
-					% int(structure.get("id", 0))
-				)
-				structure.erase("auto_deposit_rules")
-				structure.erase("auto_deposit_state")
-				return
-		descriptor_team = resolved_team
-	if descriptor_team >= 0 and not _roster_team_ids().has(descriptor_team):
-		configuration_error = (
-			"structure %d AutoDepositUpdate descriptor team %d is not rostered"
-			% [int(structure.get("id", 0)), descriptor_team]
-		)
-		structure.erase("auto_deposit_rules")
-		structure.erase("auto_deposit_state")
-		return
-	var rules: Array = []
-	if descriptor_team >= 0:
-		rules = (
-			structure_auto_deposit_updates_for_team(descriptor_team)
-				.get(kind, []) as Array
-		)
-		# Fortress composite pieces: retail authors the keep's income on the
-		# piece object (fortress.ini:983 MenFortressCitadel AutoDepositUpdate
-		# GENERIC_KEEP_MONEY_AMOUNT 25 / GENERIC_KEEP_MONEY_TIME 6000 ms), and
-		# the manifest files those rows under deferred_structure_auto_deposit_
-		# updates[object_id] because the piece is engine-spawned, not built.
-		# The piece IS a live castle_piece row now, so its authored rows bind
-		# here. Owner 2026-08-19: fortresses never earned passive income.
-		if rules.is_empty():
-			var deferred: Dictionary = team_manifest_for(descriptor_team).get(
-				"deferred_structure_auto_deposit_updates", {}
-			) as Dictionary
-			# The manifest keys composite pieces by the retail source object
-			# name (MenFortressCitadel); the row carries both spellings.
-			for key in [String(structure.get("source_object_id", "")), String(structure.get("object_id", ""))]:
-				if key == "" or not deferred.has(key):
-					continue
-				var executable: Array = []
-				for row_value in deferred.get(key, []) as Array:
-					if String((row_value as Dictionary).get("runtimeStatus", "")) == "executable":
-						executable.append(row_value)
-				if not executable.is_empty():
-					rules = executable
-					break
-	if rules.is_empty():
-		structure.erase("auto_deposit_rules")
-		structure.erase("auto_deposit_state")
-		return
-	structure["auto_deposit_descriptor_team"] = descriptor_team
-	structure["auto_deposit_rules"] = rules.duplicate(true)
-	# The historical tiny-slice farm timer is a fallback for structures with no
-	# executable descriptor. Once real AutoDeposit module data is bound, leaving
-	# this non-zero would pay both clocks for the same structure.
-	structure["income_per_payout"] = 0
-	var states: Array[Dictionary] = []
-	for rule_value in structure["auto_deposit_rules"] as Array:
-		var rule := rule_value as Dictionary
-		var timing := rule.get("depositTiming", {}) as Dictionary
-		var interval := maxi(1, int(timing.get("simulationTicks", 0)))
-		states.append(
-			{
-				"next_tick": tick_index + interval,
-				"initialized": false,
-				"capture_bonus_armed": false,
-			}
-		)
-	structure["auto_deposit_state"] = states
+	_economy_subsystem().initialize_structure_auto_deposit(structure)
 
 
 func _auto_deposit_upgrade_boost(team: int, rule: Dictionary) -> int:
-	var completed: Dictionary = team_upgrades.get(team, {}) as Dictionary
-	# The retail module returns the first authored matching pair, not a sum.
-	for boost_value in rule.get("upgradedBoosts", []) as Array:
-		var boost := boost_value as Dictionary
-		if String(boost.get("upgradeType", "")) != "PLAYER":
-			configuration_error = (
-				"AutoDepositUpdate boost '%s' is not a PLAYER upgrade"
-				% String(boost.get("upgradeId", ""))
-			)
-			return 0
-		if completed.has(String(boost.get("upgradeId", ""))):
-			return int(boost.get("boost", 0))
-	return 0
+	return _economy_subsystem().auto_deposit_upgrade_boost(team, rule)
 
 
 func _step_auto_deposit_updates() -> void:
-	for structure_id in structure_ids():
-		var structure: Dictionary = structures[structure_id]
-		var team := int(structure.get("team", -1))
-		var rules: Array = structure.get("auto_deposit_rules", []) as Array
-		var states_value: Variant = structure.get("auto_deposit_state")
-		if rules.is_empty() or typeof(states_value) != TYPE_ARRAY:
-			continue
-		var states := states_value as Array
-		if states.size() != rules.size():
-			configuration_error = (
-				"structure %d AutoDepositUpdate state/rule count drifted"
-				% structure_id
-			)
-			continue
-		for index in rules.size():
-			var rule := rules[index] as Dictionary
-			var state := states[index] as Dictionary
-			if tick_index < int(state.get("next_tick", tick_index + 1)):
-				continue
-			var interval := maxi(
-				1,
-				int(
-					(rule.get("depositTiming", {}) as Dictionary)
-					.get("simulationTicks", 0)
-				)
-			)
-			state["next_tick"] = tick_index + interval
-			if not bool(state.get("initialized", false)):
-				state["initialized"] = true
-				state["capture_bonus_armed"] = true
-			var amount := int(
-				(rule.get("depositAmount", {}) as Dictionary).get("value", 0)
-			)
-			if (
-				not team_resources.has(team)
-				or amount <= 0
-				or int(structure.get("health", 0)) <= 0
-				or float(structure.get("construction_progress", 0.0)) < 1.0
-				or not bool(
-					(rule.get("actualMoney", {}) as Dictionary)
-					.get("value", true)
-				)
-			):
-				continue
-			amount += _auto_deposit_upgrade_boost(team, rule)
-			team_resources[team] = resources_for_team(team) + amount
-			_emit_event(
-				"economy.auto_deposit",
-				structure_id,
-				0,
-				{"team": team, "amount": amount, "module_index": index}
-			)
+	_economy_subsystem().step_auto_deposit_updates()
 
 
 func _award_auto_deposit_capture(
 	structure: Dictionary, new_team: int
 ) -> int:
-	var rules: Array = structure.get("auto_deposit_rules", []) as Array
-	var states_value: Variant = structure.get("auto_deposit_state")
-	if rules.is_empty() or typeof(states_value) != TYPE_ARRAY:
-		return 0
-	var states := states_value as Array
-	if states.size() != rules.size():
-		configuration_error = "captured AutoDepositUpdate state/rule count drifted"
-		return 0
-	var awarded := 0
-	for index in rules.size():
-		var rule := rules[index] as Dictionary
-		var state := states[index] as Dictionary
-		var interval := maxi(
-			1,
-			int(
-				(rule.get("depositTiming", {}) as Dictionary)
-				.get("simulationTicks", 0)
-			)
-		)
-		# SAGE awardInitialCaptureBonus always restarts the regular cadence,
-		# even when the one-shot is not armed or its amount is zero.
-		state["next_tick"] = tick_index + interval
-		var amount := int(
-			(rule.get("initialCaptureBonus", {}) as Dictionary).get("value", 0)
-		)
-		if (
-			not bool(state.get("capture_bonus_armed", false))
-			or amount <= 0
-			or not team_resources.has(new_team)
-		):
-			continue
-		state["capture_bonus_armed"] = false
-		team_resources[new_team] = resources_for_team(new_team) + amount
-		awarded += amount
-		_emit_event(
-			"economy.auto_deposit_capture_bonus",
-			int(structure.get("id", 0)),
-			0,
-			{"team": new_team, "amount": amount, "module_index": index}
-		)
-	return awarded
+	return _economy_subsystem().award_auto_deposit_capture(structure, new_team)
 
 
 func _ai_resource_handicap(team: int, income: int) -> int:
-	## Per-difficulty economy handicap. Non-AI teams and any tier at the neutral
-	## 1000 permille (the legacy/default "medium") return the income untouched, so
-	## the default match's resource curve — and the pinned signature — never move.
-	## Higher tiers gain a deterministic integer bonus, lower tiers a penalty.
-	if not _team_ai_state.has(team):
-		return income
-	var permille := int(_difficulty_profile(team).get("resource_permille", 1000))
-	if permille == 1000:
-		return income
-	return int(income * permille / 1000)
+	return _economy_subsystem().ai_resource_handicap(team, income)
 
 
 func _step_structure_upgrades() -> void:
@@ -27836,28 +27346,11 @@ func _step_member_attacks(attacker_id: int, row: Dictionary, target_id: int, tar
 
 
 func _member_weapon_has_projectile(row: Dictionary) -> bool:
-	return (
-		String(row.get("projectile_object_id", "")) != ""
-		and float(row.get("projectile_speed", 0.0)) > 0.0
-	)
+	return _projectiles_subsystem().member_weapon_has_projectile(row)
 
 
 func _scaled_projectile_components(components: Array, outgoing_amount: int) -> Array:
-	var total := 0.0
-	for component_value in components:
-		if typeof(component_value) == TYPE_DICTIONARY:
-			total += maxf(0.0, float((component_value as Dictionary).get("value", 0.0)))
-	if total <= 0.0:
-		return []
-	var scale := float(outgoing_amount) / total
-	var output: Array = []
-	for component_value in components:
-		if typeof(component_value) != TYPE_DICTIONARY:
-			continue
-		var component := (component_value as Dictionary).duplicate(true)
-		component["value"] = maxf(0.0, float(component.get("value", 0.0)) * scale)
-		output.append(component)
-	return output
+	return _projectiles_subsystem().scaled_projectile_components(components, outgoing_amount)
 
 
 func _launch_member_projectile(
@@ -27871,71 +27364,19 @@ func _launch_member_projectile(
 	weapon_effect: Dictionary,
 	release_token: int
 ) -> void:
-	var target: Dictionary = structures.get(target_id, {}) if target_kind == "structure" else entities.get(target_id, {})
-	if target.is_empty():
-		return
-	var launch_origin := Vector2(row.get("position", Vector2.ZERO))
-	var impact_origin := Vector2(target.get("position", Vector2.ZERO))
-	var distance := launch_origin.distance_to(impact_origin)
-	var speed := float(row.get("projectile_speed", 0.0))
-	var flight_ticks := maxi(1, ceili(distance / speed / TICK_SECONDS))
-	var projectile_id := _next_projectile_id
-	_next_projectile_id += 1
-	projectiles[projectile_id] = {
-		"id": projectile_id,
-		"attacker_id": attacker_id,
-		"attacker_member_index": member_index,
-		"member_index": forced_target,
-		"target_id": target_id,
-		"target_kind": target_kind,
-		"origin": impact_origin,
-		"launch_origin": launch_origin,
-		"launch_tick": tick_index,
-		"impact_tick": tick_index + flight_ticks,
-		"projectile_object_id": String(row.get("projectile_object_id", "")),
-		"amount": swing_damage,
-		"damage_components": _scaled_projectile_components(row.get("damage_components", []) as Array, swing_damage),
-		"damage_type": String(row.get("damage_type", "")),
-		"radius_damage_affects": String(row.get("radius_damage_affects", "ENEMIES")),
-		"release_token": release_token,
-		"attack_sequence": int(row.get("attack_sequence", 0)),
-		"bonus_nuggets": (weapon_effect.get("bonus_nuggets", []) as Array).duplicate(true),
-	}
-	_emit_event("combat.projectile_launched", attacker_id, target_id, {
-		"projectile_token": projectile_id,
-		"impact_tick": tick_index + flight_ticks,
-		"projectile_object_id": String(row.get("projectile_object_id", "")),
-		"team": int(row.get("team", -1)),
-		"launch_position": launch_origin,
-		"target_position": impact_origin,
-		"member_index": member_index,
-		"member_release_token": release_token,
-	})
+	_projectiles_subsystem().launch_member_projectile(attacker_id, member_index, row, target_id, target_kind, forced_target, swing_damage, weapon_effect, release_token)
 
 
 func _apply_member_bonus_nuggets(
 	attacker_id: int,
-	member_index: int,
-	row: Dictionary,
+	attacker_member_index: int,
+	attacker: Dictionary,
 	target_id: int,
 	target_kind: String,
-	forced_target: int,
+	forced_member: int,
 	weapon_effect: Dictionary
 ) -> void:
-	for nugget_value in weapon_effect.get("bonus_nuggets", []) as Array:
-		if not _target_alive(target_id, target_kind):
-			break
-		var nugget: Dictionary = nugget_value
-		var bonus_target: Dictionary = structures.get(target_id, {}) if target_kind == "structure" else entities.get(target_id, {})
-		var bonus_factor := _damage_scalar_factor(nugget.get("scalars", []) as Array, bonus_target, target_kind)
-		var bonus_amount := maxi(0, roundi(float(nugget.get("damage", 0.0)) * bonus_factor))
-		if bonus_amount <= 0:
-			continue
-		_apply_member_damage(
-			attacker_id, member_index, target_id, bonus_amount, target_kind,
-			int(row.get("attack_sequence", 0)), forced_target,
-			String(nugget.get("damage_type", ""))
-		)
+	_combat_subsystem()._apply_member_bonus_nuggets(attacker_id, attacker_member_index, attacker, target_id, target_kind, forced_member, weapon_effect)
 
 
 func _clear_member_attack_schedule(row: Dictionary) -> void:
@@ -29709,57 +29150,7 @@ func _apply_knockback(center: Vector2, radius: float, strength: float, source_te
 
 
 func _apply_damage(attacker_id: int, target_id: int, amount: int, target_kind: String = "battalion", death_type: String = "NORMAL", damage_type_override: String = "") -> void:
-	if target_kind == "structure":
-		_apply_structure_damage(attacker_id, target_id, amount, damage_type_override)
-		return
-	if not entities.has(target_id):
-		return
-	if entity_container.has(target_id):
-		return
-	var target: Dictionary = entities[target_id]
-	if not target.has("inactive_body"):
-		_attach_module_contracts(target)
-	if bool(target.get("indestructible", false)):
-		_emit_event("combat.damage_refused", attacker_id, target_id, {"reason": "inactive-body", "target": "entity"})
-		return
-	var remaining := maxi(0, amount)
-	var damage_type := damage_type_override
-	if damage_type == "" and entities.has(attacker_id):
-		damage_type = String((entities[attacker_id] as Dictionary).get("damage_type", ""))
-	if bool(target.get("highlander_body", false)) and damage_type.to_lower() != "unresistable":
-		var target_member := _choose_target_member(
-			target, attacker_id, 0, int(target.get("attack_sequence", 0))
-		)
-		if target_member >= 0:
-			_apply_member_damage(
-				attacker_id,
-				-1,
-				target_id,
-				remaining,
-				"battalion",
-				int(target.get("attack_sequence", 0)),
-				target_member,
-				damage_type_override,
-				death_type,
-			)
-		return
-	while remaining > 0 and int(target.get("health", 0)) > 0:
-		var target_member := _choose_target_member(target, attacker_id, 0, int(target.get("attack_sequence", 0)))
-		if target_member < 0:
-			break
-		var health_values: Array = target.get("member_health", [])
-		# Each member must receive exactly the raw amount its compiled factors
-		# reduce to a kill; capping at current member health would grind
-		# geometrically against sub-1.0 armor and stall short of lethal.
-		# No override on this path: the attacker's own authored mix applies.
-		var factor := _incoming_damage_factor(attacker_id, target, "battalion", damage_type, _damage_components_for(attacker_id, ""))
-		if factor <= 0.0:
-			# A 0% armor match (e.g. LOGICAL_FIRE vs fortress) makes the hit a
-			# retail no-op; the remaining raw damage has no path through.
-			break
-		var applied := mini(remaining, maxi(1, ceili(float(health_values[target_member]) / factor)))
-		_apply_member_damage(attacker_id, -1, target_id, applied, "battalion", int(target.get("attack_sequence", 0)), target_member, damage_type_override, death_type)
-		remaining -= applied
+	_combat_subsystem()._apply_damage(attacker_id, target_id, amount, target_kind, death_type, damage_type_override)
 
 
 func _incoming_damage_factor(attacker_id: int, target: Dictionary, target_kind: String, damage_type: String, components: Array = []) -> float:
@@ -29893,175 +29284,7 @@ func _apply_member_damage(
 	death_type: String = "NORMAL",
 	damage_components_override: Variant = null
 ) -> void:
-	if target_kind == "structure":
-		_apply_structure_damage(attacker_id, target_id, amount, damage_type_override, damage_components_override)
-		return
-	if not entities.has(target_id):
-		return
-	if entity_container.has(target_id):
-		return
-	var target: Dictionary = entities[target_id]
-	if not target.has("inactive_body"):
-		_attach_module_contracts(target)
-	if bool(target.get("indestructible", false)):
-		_emit_event("combat.damage_refused", attacker_id, target_id, {"reason": "inactive-body", "target": "entity-member"})
-		return
-	if int(target.get("health", 0)) <= 0:
-		return
-	var health_values: Array = target.get("member_health", [])
-	var target_member := forced_target_member
-	if target_member < 0:
-		target_member = _choose_target_member(target, attacker_id, attacker_member_index, attack_sequence)
-	if target_member < 0 or target_member >= health_values.size():
-		return
-	var prior_health := int(health_values[target_member])
-	if prior_health <= 0:
-		return
-	# armor.ini, compiled end-to-end: attacker damage type vs the victim's
-	# authored ArmorSet (a recorded applied armor upgrade swaps the set).
-	var damage_type := damage_type_override
-	# A multi-nugget weapon resolves each component against its own armor
-	# column; an explicit override replaces the mix rather than blending in.
-	var damage_components := (
-		damage_components_override as Array
-		if typeof(damage_components_override) == TYPE_ARRAY
-		else _damage_components_for(attacker_id, damage_type_override)
-	)
-	var weapon_factor := 1.0
-	if entities.has(attacker_id):
-		var attacker: Dictionary = entities[attacker_id]
-		if damage_type == "":
-			damage_type = String(attacker.get("damage_type", ""))
-		var attacker_effect := _applied_weapon_effect(attacker)
-		if not attacker_effect.is_empty():
-			weapon_factor = _damage_scalar_factor(attacker_effect.get("scalars", []) as Array, target, target_kind)
-	var rally_factor := 1.0
-	if (
-		entities.has(attacker_id)
-		and tick_index
-			< int((entities[attacker_id] as Dictionary).get(
-				"rally_until_tick", -1
-			))
-	):
-		rally_factor = float(
-			(entities[attacker_id] as Dictionary).get("rally_damage_mult", 1.5)
-		)
-	var stance_adjusted_amount := 0
-	if bool(target.get("highlander_body", false)):
-		var highlander_amount := _highlander_raw_damage_amount(
-			float(amount) * weapon_factor * rally_factor,
-			prior_health,
-			damage_type,
-			damage_components,
-		)
-		if highlander_amount < 0:
-			_emit_event("combat.damage_refused", attacker_id, target_id, {
-				"reason": "highlander-mixed-unresistable",
-				"target": "member %d of %s" % [
-					target_member, String(target.get("object_id", ""))
-				],
-			})
-			return
-		stance_adjusted_amount = maxi(0, roundi(
-			highlander_amount
-			* _member_body_damage_factor(target, damage_type, damage_components)
-		))
-	else:
-		stance_adjusted_amount = maxi(0, roundi(
-			float(amount)
-			* _incoming_damage_factor(
-				attacker_id,
-				target,
-				target_kind,
-				damage_type,
-				damage_components,
-			)
-		))
-	if rally_factor != 1.0 and not bool(target.get("highlander_body", false)):
-		# Rallying Call: the converted SpellBookRallyingCallModifier leaf
-		# (DAMAGE_MULT 150%, 60s) rides the row from cast time until expiry.
-		stance_adjusted_amount = int(ceil(stance_adjusted_amount * rally_factor))
-	health_values[target_member] = maxi(0, prior_health - stance_adjusted_amount)
-	target["member_health"] = health_values
-	target["last_damage_tick"] = tick_index
-	record_hit_reaction(target_id, float(stance_adjusted_amount))
-	# Authored InvisibilityNugget ForbiddenConditions: the hit breaks a
-	# TAKING_DAMAGE-forbidden cloak on the victim and a FIRING_ANY-forbidden
-	# cloak on the attacker.
-	_break_stealth(target, "TAKING_DAMAGE")
-	if entities.has(attacker_id):
-		var attacker := entities[attacker_id] as Dictionary
-		_break_stealth(attacker, "FIRING_ANY")
-		if attacker.has("special_disguise_channel"):
-			_cancel_special_disguise_row(attacker, "attack", false)
-	var aggregate_health := 0
-	for health_value in health_values:
-		aggregate_health += int(health_value)
-	target["health"] = aggregate_health
-	if not bool(target.get("flammable_internal_damage", false)) and damage_type.to_upper() in ["FLAME", "FIRE"]:
-		record_flame_damage(target_id, float(mini(prior_health, stance_adjusted_amount)))
-	_emit_event("combat.hit", attacker_id, target_id, {
-		"attacker_member_index": attacker_member_index,
-		"target_member_index": target_member,
-		"amount": mini(prior_health, stance_adjusted_amount),
-		"target_member_health": int(health_values[target_member]),
-		"target_object_id": String(target.get("object_id", "")),
-		"damage_type": damage_type,
-		"armor_scalar": _member_armor_scalar(target, damage_type, damage_components),
-		"weapon_factor": weapon_factor,
-	})
-	var defeated_members: Array[int] = []
-	if prior_health > 0 and int(health_values[target_member]) == 0:
-		defeated_members.append(target_member)
-	var death_policy: Dictionary = {}
-	if int(target["health"]) == 0:
-		death_policy = _bookkeep_battalion_death(
-			target_id, target, death_type, defeated_members, attacker_id
-		)
-	else:
-		death_policy = _apply_playable_unit_death_policy(
-			target, death_type, defeated_members
-		)
-	if not defeated_members.is_empty():
-		_emit_event("battalion.member_defeated", attacker_id, target_id, {"member_index": target_member, "object_id": String(target.get("object_id", ""))})
-		_award_scavenger_bounty(attacker_id, target, "unit-member")
-		# Veterancy: the kill pays the victim's authored ExperienceAward at the
-		# victim's current level into the attacker's XP pool.
-		_award_member_kill_experience(attacker_id, target)
-	if int(target["target_id"]) == 0 and int(target["health"]) > 0 and entities.has(attacker_id) \
-			and int(target.get("knockdown_ticks", 0)) <= 0 \
-			and _can_engage_battalion(target, entities[attacker_id] as Dictionary):
-		# Sprawled battalions cannot retaliate, and melee never chases an
-		# airborne attacker it can never reach.
-		var attacker_position := Vector2((entities[attacker_id] as Dictionary)["position"])
-		var target_distance := Vector2(target["position"]).distance_to(attacker_position)
-		if String(target.get("stance", "Battle")) == "HoldGround":
-			# HoldGround retaliates without abandoning its post: engage only if
-			# the attacker is already inside weapon range.
-			if target_distance <= float(target.get("attack_range", 0.0)):
-				target["target_id"] = attacker_id
-				_stamp_order_sequence([target_id])
-				_emit_music("battle")
-		elif _assign_route(target, attacker_position):
-			target["target_id"] = attacker_id
-			_stamp_order_sequence([target_id])
-			_emit_music("battle")
-	if int(target["health"]) == 0:
-		# Banner carriers notify the owning horde before ordinary kill bookkeeping.
-		if bool(target.get("is_banner_carrier", false)):
-			_on_banner_carrier_defeated(target)
-		_emit_event("battalion.defeated", attacker_id, target_id, {
-			"object_id": String(target.get("object_id", "")),
-			"team": int(target.get("team", -1)),
-			"category": String(target.get("category", "")),
-		})
-		if bool(target.get("is_banner_carrier", false)):
-			_on_banner_carrier_defeated(target)
-		if bool(death_policy.get("destroy_object", false)) or bool(target.get("is_banner_carrier", false)):
-			# SAGE DestroyDie::onDie calls destroyObject in the death callback;
-			# it does not enter the ordinary readable-corpse lifetime.
-			# Banner carriers are presentation/sim attachments without corpses.
-			entities.erase(target_id)
+	_combat_subsystem()._apply_member_damage(attacker_id, attacker_member_index, target_id, amount, target_kind, attack_sequence, forced_target_member, damage_type_override, death_type, damage_components_override)
 
 
 func _bookkeep_battalion_death(
@@ -30325,23 +29548,7 @@ func _step_slow_death_core() -> void:
 
 
 func _award_own_guys_die_experience(row: Dictionary, defeated_count: int) -> void:
-	## ExperienceAwardOwnGuysDie belongs to the victim horde's current level:
-	## each of its own member deaths feeds its surviving tracker. A completely
-	## defeated horde has no living tracker to receive the award.
-	if defeated_count <= 0 or int(row.get("health", 0)) <= 0:
-		return
-	var rule := _unit_experience_rules.get(String(row.get("unit_type", "")), {}) as Dictionary
-	if rule.is_empty():
-		return
-	var level_row := _experience_level_row(rule, int(row.get("level", 1)))
-	if not level_row.has("experience_award_own_guys_die"):
-		return
-	var per_member := maxi(0, int(level_row.get("experience_award_own_guys_die", 0)))
-	if per_member <= 0:
-		return
-	var amount := per_member * defeated_count
-	_award_experience(row, amount)
-	_emit_event("experience.own_guys_die", int(row.get("id", 0)), 0, {"members": defeated_count, "amount": amount})
+	_experience_subsystem().award_own_guys_die_experience(row, defeated_count)
 
 
 func _slow_death_fade_ticks(row: Dictionary, death_type: String) -> int:
@@ -30863,149 +30070,7 @@ func _apply_structure_damage(
 	damage_type_override: String = "",
 	damage_components_override: Variant = null
 ) -> void:
-	if not structures.has(target_id):
-		return
-	var target: Dictionary = structures[target_id]
-	if not target.has("inactive_body") and not bool(target.get("structure_module_contracts_attached", false)):
-		_attach_structure_module_contracts(target)
-	if int(target.get("health", 0)) <= 0:
-		return
-	if bool(target.get("indestructible", false)):
-		# Map-authored castle fixtures carry SAGE objectIndestructible verbatim
-		# (Erebor authors it on 501 of 609 fixture rows); retail never damages
-		# those structures, so the sim refuses the damage by name.
-		_emit_event("combat.damage_refused", attacker_id, target_id, {
-			"reason": "indestructible",
-			"target": "structure %s" % String(target.get("structure_kind", "")),
-		})
-		return
-	var damage_type := damage_type_override
-	var damage_components := (
-		damage_components_override as Array
-		if typeof(damage_components_override) == TYPE_ARRAY
-		else _damage_components_for(attacker_id, damage_type_override)
-	)
-	if damage_type == "":
-		damage_type = "default"
-		if entities.has(attacker_id):
-			damage_type = String((entities[attacker_id] as Dictionary).get("damage_type", "default"))
-			if damage_type == "" and not damage_components.is_empty():
-				# Typed per component, not untyped: name the mix so the
-				# per-type remainder accumulator keeps it separate.
-				damage_type = "mixed"
-	var weapon_factor := 1.0
-	if entities.has(attacker_id):
-		var attacker_effect := _applied_weapon_effect(
-			entities[attacker_id] as Dictionary
-		)
-		if not attacker_effect.is_empty():
-			weapon_factor = _damage_scalar_factor(
-				attacker_effect.get("scalars", []) as Array,
-				target,
-				"structure",
-			)
-	var body_amount := float(maxi(0, amount)) * weapon_factor
-	if _structure_uses_highlander_body(target):
-		var highlander_amount := _highlander_raw_damage_amount(
-			body_amount,
-			int(target.get("health", 0)),
-			damage_type,
-			damage_components,
-		)
-		if highlander_amount < 0:
-			_emit_event("combat.damage_refused", attacker_id, target_id, {
-				"reason": "highlander-mixed-unresistable",
-				"target": "structure %s" % String(target.get("structure_kind", "")),
-			})
-			return
-		body_amount = highlander_amount
-	# Every structure kind scales by its own compiled armor.ini table; kinds
-	# without one refuse damage (loud failure logged at configure).
-	var kind := String(target.get("structure_kind", ""))
-	var table: Dictionary = _structure_armor.get(kind, {})
-	if table.is_empty():
-		_emit_event("combat.damage_refused", attacker_id, target_id, {
-			"reason": "missing-compiled-structure-armor",
-			"target": "structure %s" % kind,
-		})
-		return
-	var scalars: Dictionary = table.get("scalars", {})
-	var scalar := 1.0
-	if not damage_components.is_empty():
-		scalar = float(table.get("damage_scalar", 1.0)) * _weighted_armor_scalar(scalars, damage_components, damage_type)
-	else:
-		scalar = float(table.get("damage_scalar", 1.0)) * float(scalars.get(damage_type.to_lower(), scalars.get("default", 1.0)))
-	var remainder_by_type: Dictionary = target.get("damage_remainders", {})
-	var accumulated := (
-		float(remainder_by_type.get(damage_type, 0.0))
-		+ body_amount * scalar
-	)
-	var applied := floori(accumulated)
-	remainder_by_type[damage_type] = accumulated - float(applied)
-	target["damage_remainders"] = remainder_by_type
-	if applied <= 0:
-		return
-	if entities.has(attacker_id):
-		# Firing on a structure breaks a FIRING_ANY-forbidden cloak too.
-		var attacker := entities[attacker_id] as Dictionary
-		_break_stealth(attacker, "FIRING_ANY")
-		if attacker.has("special_disguise_channel"):
-			_cancel_special_disguise_row(attacker, "attack", false)
-	target["health"] = maxi(0, int(target["health"]) - applied)
-	if not bool(target.get("flammable_internal_damage", false)) and damage_type.to_upper() in ["FLAME", "FIRE"]:
-		record_flame_damage(target_id, float(applied))
-	if target.has("horde_transport"):
-		var passenger_damage_ratio := float((target["horde_transport"] as Dictionary).get("damage_ratio", 0.0))
-		var passenger_damage := floori(float(applied) * passenger_damage_ratio)
-		if passenger_damage > 0:
-			for passenger_value in (containment.get(target_id, []) as Array).duplicate():
-				_apply_transport_passenger_damage(attacker_id, int(passenger_value), passenger_damage)
-	var structure_kind := String(target.get("structure_kind", ""))
-	_emit_event("combat.hit_structure", attacker_id, target_id, {
-		"raw_amount": maxi(0, amount),
-		"applied_amount": applied,
-		"damage_type": damage_type,
-		"armor_scalar": scalar,
-		"structure_kind": structure_kind,
-		"team": int(target.get("team", -1)),
-		"health": int(target["health"]),
-		"maximum_health": int(target.get("maximum_health", 0)),
-	})
-	if int(target.get("team", -1)) == PLAYER_TEAM and tick_index - _last_base_under_attack_tick >= EVA_BASE_UNDER_ATTACK_DEBOUNCE_TICKS:
-		# EVA "base under attack" announces the first hit on a player structure,
-		# then stays quiet for the retail 30s TimeBetweenEventsMS debounce.
-		_last_base_under_attack_tick = tick_index
-		_emit_event("eva.base_under_attack", 0, target_id, {"team": PLAYER_TEAM, "structure_kind": structure_kind})
-	if int(target["health"]) == 0:
-		_record_cah_structure_kill(attacker_id, target)
-		_award_scavenger_bounty(attacker_id, target, "structure")
-		var queue: Array = target.get("queue", [])
-		# Queued costs stay spent, matching the deterministic no-refund contract.
-		queue.clear()
-		target["queue"] = queue
-		var upgrade_queue: Array = target.get("upgrade_queue", [])
-		upgrade_queue.clear()
-		target["upgrade_queue"] = upgrade_queue
-		# Authored RefundDie rows (Siege Materials) refund their compiled
-		# percent when the owning team keeps the required building.
-		_apply_structure_death_refund(target)
-		# Structure-carried death modules when contracts were attached at spawn
-		# or are discovered lazily on this first death callback.
-		if not bool(target.get("structure_module_contracts_attached", false)):
-			_attach_structure_module_contracts(target)
-		_dispatch_castle_member_destroyed(target_id, target, attacker_id, "destroyed")
-		_resolve_citadel_slaughter_death(target_id, target)
-		_begin_ship_slow_death(target_id, target, "NORMAL")
-		_schedule_fire_weapon_when_dead(target, "NORMAL", "structure")
-		_expose_rebuild_hole(target_id, target, attacker_id)
-		# Structure-carried CreateObjectDie (debris/refund eggs) when contracts
-		# were attached at spawn or via register_structure_module_contracts.
-		if not bool(target.get("create_object_die", false)):
-			_attach_structure_module_contracts(target)
-		_consume_create_object_die(target, "NORMAL")
-		_emit_event("structure.destroyed", attacker_id, target_id, {"structure_kind": structure_kind, "team": int(target.get("team", -1))})
-		if int(target.get("team", -1)) == PLAYER_TEAM:
-			_emit_event("eva.building_lost", 0, target_id, {"team": PLAYER_TEAM, "structure_kind": structure_kind})
+	_combat_subsystem()._apply_structure_damage(attacker_id, target_id, amount, damage_type_override, damage_components_override)
 
 
 func _target_alive(target_id: int, target_kind: String) -> bool:
@@ -31464,52 +30529,22 @@ func _attach_castle_fixture_garrison(row: Dictionary, garrison: Dictionary) -> v
 	}
 
 func _update_ai_controllers() -> void:
-	## Runs the single data-driven controller once per AI team, in ascending team
-	## order, each on its own difficulty cadence. For the default {0,1} roster this
-	## is exactly one team (team 1 @ medium == legacy), gated on `tick_index % 15`,
-	## so it fires on the identical ticks — and issues the identical commands — the
-	## old ENEMY_TEAM-bound AI did. Iteration is over the sorted AI-state keys so
-	## multiple AI teams resolve deterministically regardless of insertion order.
-	var teams: Array = _team_ai_state.keys()
-	teams.sort()
-	for team_value in teams:
-		var team := int(team_value)
-		var ai_state: Dictionary = _team_ai_state[team]
-		var profile := _difficulty_profile(team)
-		if tick_index % maxi(1, int(profile.get("scan_interval", 15))) != 0:
-			continue
-		_run_ai_for_team(team, profile, ai_state)
+	_ai_subsystem().update_ai_controllers()
 
 
 func _ensure_ai_state(team: int) -> Dictionary:
-	## Lazily materialize a default (legacy/medium) AI-state record for a team so
-	## the back-compat fixture seams below never touch a missing key.
-	if not _team_ai_state.has(team):
-		_team_ai_state[team] = {
-			"difficulty": AI_DEFAULT_DIFFICULTY,
-			"construction_attempted": false,
-			"construction_resolved": false,
-			"build_order_index": 0,
-			"last_wave_tick": 0,
-		}
-	return _team_ai_state[team]
+	return _ai_subsystem().ensure_ai_state(team)
 
 
 func _update_enemy_ai() -> void:
-	## Back-compat shim: fixtures that drove the historical single ENEMY_TEAM AI
-	## directly still resolve to the same code, now at the medium (== legacy) tier.
-	_run_ai_for_team(ENEMY_TEAM, _difficulty_profile(ENEMY_TEAM), _ensure_ai_state(ENEMY_TEAM))
+	_ai_subsystem().run_ai_for_team(ENEMY_TEAM, _difficulty_profile(ENEMY_TEAM), _ensure_ai_state(ENEMY_TEAM))
 
 
 func ai_base_build_order() -> Array[String]:
-	## Back-compat shim over the per-team derivation for the default ENEMY_TEAM.
-	return _ai_build_order_for_team(ENEMY_TEAM)
+	return _ai_subsystem().ai_build_order_for_team(ENEMY_TEAM)
 
 
 func force_ai_construction_complete(team: int = ENEMY_TEAM) -> void:
-	## Test seam: mark a team's AI construction finished and its build order
-	## exhausted, freezing the base-building phase so a fixture can isolate a later
-	## behavior deterministically (replaces the old three-scalar poke).
 	var state := _ensure_ai_state(team)
 	state["construction_attempted"] = true
 	state["construction_resolved"] = true
@@ -31517,153 +30552,7 @@ func force_ai_construction_complete(team: int = ENEMY_TEAM) -> void:
 
 
 func _run_ai_for_team(team: int, profile: Dictionary, ai_state: Dictionary) -> void:
-	if base_loop_enabled and not bool(ai_state.get("construction_attempted", false)):
-		ai_state["construction_attempted"] = true
-		if not _start_ai_farm(team, ai_state):
-			ai_state["construction_resolved"] = true
-		else:
-			ai_state["build_order_index"] = 1
-	if base_loop_enabled and not bool(ai_state.get("construction_resolved", false)) and not _ai_construction_is_viable(team):
-		_abandon_ai_construction(team)
-		ai_state["construction_resolved"] = true
-	if base_loop_enabled and not bool(ai_state.get("construction_resolved", false)):
-		return
-	if base_loop_enabled:
-		_step_ai_base_building(team, ai_state)
-	var queue_interval := maxi(15, int(_rules.get("ai_queue_interval_ticks", 60)) * int(profile.get("queue_interval_permille", 1000)) / 1000)
-	if base_loop_enabled and tick_index % queue_interval == 0:
-		var plan: Array = ai_production_plan_for_team(team)
-		if plan.is_empty():
-			plan = _ai_production_plan if not _ai_production_plan.is_empty() else AI_PRODUCTION_PLAN
-		var team_rules := unit_production_rules_for_team(team)
-		for unit_type in plan:
-			var production_rule: Dictionary = team_rules.get(unit_type, {})
-			if production_rule.is_empty():
-				continue
-			var producer := producer_id(team, String(production_rule.get("producer_kind", "")))
-			if producer != 0:
-				queue_unit(team, producer, unit_type)
-	# Give hostiles one full production window before the first wave. Economy and
-	# production still advance during the preparation time. Higher tiers commit
-	# sooner (shorter attack delay), lower tiers later.
-	var attack_delay := maxi(0, int(_rules.get("ai_attack_delay_ticks", 0)) * int(profile.get("attack_delay_permille", 1000)) / 1000)
-	if base_loop_enabled and tick_index < attack_delay:
-		return
-	# Damaged battalions pull back to regroup (retreat/regroup is strictly hard+;
-	# the neutral tiers pass a 0 threshold and this is a no-op, keeping the default
-	# match byte-identical).
-	if base_loop_enabled:
-		_ai_apply_retreat(team, profile)
-	var weakest := bool(profile.get("weakest_fortress_priority", false))
-	var hostiles := _hostile_living_ids(team)
-	var enemy_fortress := _ai_primary_hostile_fortress(team, weakest) if base_loop_enabled else 0
-	if hostiles.is_empty() and enemy_fortress == 0:
-		return
-	# Fresh units mass into a wave at the fortress muster point and strike
-	# together instead of trickling one battalion at a time.
-	if base_loop_enabled:
-		var wave_size := maxi(2, int(_rules.get("ai_wave_size", 4)) + int(profile.get("wave_size_delta", 0)))
-		var mustering: Array[int] = []
-		for id in living_ids(team):
-			var row: Dictionary = entities[id]
-			if bool(row.get("is_builder", false)) or bool(row.get("ai_in_wave", false)):
-				continue
-			if int(row["target_id"]) != 0:
-				continue
-			mustering.append(id)
-		# A stalled economy must not hold the last understrength group at the
-		# muster point forever — after the patience window it attacks anyway.
-		var patience := int(_rules.get("ai_wave_patience_ticks", 1200)) * int(profile.get("wave_patience_permille", 1000)) / 1000
-		var wave_ready := mustering.size() >= wave_size
-		if not wave_ready and not mustering.is_empty() and tick_index - int(ai_state.get("last_wave_tick", 0)) > patience:
-			wave_ready = true
-		if wave_ready and not mustering.is_empty():
-			ai_state["last_wave_tick"] = tick_index
-			for id in mustering:
-				(entities[id] as Dictionary)["ai_in_wave"] = true
-		else:
-			var muster := _fallback_rally_position(team)
-			var muster_fortress := fortress_id(team)
-			if muster_fortress != 0:
-				muster = Vector2((structures[muster_fortress] as Dictionary).get("rally", muster))
-			for id in mustering:
-				var row: Dictionary = entities[id]
-				if (row["route"] as Array).is_empty() and Vector2(row["position"]).distance_to(muster) > 6.0:
-					if _assign_route(row, muster):
-						row["state"] = "run"
-	for id in living_ids(team):
-		var row: Dictionary = entities[id]
-		# Builders construct; they are not combat battalions and have no weapon.
-		if bool(row.get("is_builder", false)):
-			continue
-		if base_loop_enabled and not bool(row.get("ai_in_wave", false)):
-			continue
-		if int(row["target_id"]) != 0:
-			continue
-		var target_id := 0
-		var target_kind := "battalion"
-		if hostiles.is_empty() and enemy_fortress != 0:
-			target_id = enemy_fortress
-			target_kind = "structure"
-		else:
-			# Nearest hostile, ties to the lowest id. This was the last quadratic
-			# term in the tick: an all-pairs scan of every wave member against
-			# every hostile, unbounded in range, once per team every
-			# AI_CONTROLLER_BASE_INTERVAL ticks.
-			#
-			# Converting it required NORMALISING the tie-break first, which is a
-			# deliberate behaviour change. The old rule was
-			#   distance < closest or (is_equal_approx(distance, closest) and candidate < target_id)
-			# and it could not be reproduced from a neighbourhood query for two
-			# reasons: is_equal_approx is a tolerance comparison and therefore not
-			# transitive, and on an approximate tie the rule reassigned
-			# `closest_distance` to a value that could be slightly LARGER than the
-			# current best, so the running minimum drifted upward. Both make the
-			# winner depend on sequential visit order. The replacement keeps the
-			# same intent - closest, lowest id wins - as an exact total order.
-			target_id = _spatial_nearest_hostile(
-				row, team, Vector2(row["position"]), SPATIAL_UNBOUNDED_RANGE, 0, true
-			)
-			if target_id == 0:
-				# hostiles is non-empty here, so the sweep always finds one; this
-				# only guards a hostile whose row moved out from under the index.
-				target_id = hostiles[0]
-		var target_position := _target_position(target_id, target_kind)
-		var target_distance := Vector2(row["position"]).distance_to(target_position)
-		if target_kind == "structure":
-			# Once no defending battalion remains, the objective fortress is the
-			# strategic target. Assign it before routing so the target's own
-			# footprint is exempt and melee units can close to weapon range.
-			if _ai_assign_target_route_with_backoff(row, target_kind, target_id, target_position, profile):
-				row["target_id"] = target_id
-				row["target_kind"] = target_kind
-				row["attack_windup"] = 0
-				row["state"] = "run"
-				_stamp_order_sequence([id])
-				_emit_music("battle")
-			continue
-		var vision_range := maxf(float(row.get("attack_range", 1.15)), float(row.get("vision_range", 17.5)))
-		if target_distance > vision_range:
-			# Strategic AI can advance toward the opposing base, but it does not gain
-			# a live combat target or attack animation through unexplored distance.
-			# Advance toward the candidate we are actually trying to acquire; when no
-			# hostile battalions remain, target_position is the objective fortress.
-			var strategic_destination := target_position
-			if (row["route"] as Array).is_empty() or Vector2(row.get("destination", row["position"])).distance_to(strategic_destination) > 1.0:
-				if _ai_assign_target_route_with_backoff(row, target_kind, target_id, strategic_destination, profile):
-					row["target_id"] = 0
-					row["target_kind"] = "battalion"
-					row["attack_windup"] = 0
-					row["state"] = "run"
-					_stamp_order_sequence([id])
-			continue
-		if _ai_assign_target_route_with_backoff(row, target_kind, target_id, target_position, profile):
-			row["target_id"] = target_id
-			row["target_kind"] = target_kind
-			row["attack_windup"] = 0
-			row["state"] = "run"
-			_stamp_order_sequence([id])
-			_emit_music("battle")
+	_ai_subsystem().run_ai_for_team(team, profile, ai_state)
 
 
 func _ai_assign_target_route_with_backoff(
@@ -31673,324 +30562,56 @@ func _ai_assign_target_route_with_backoff(
 	target_position: Vector2,
 	profile: Dictionary
 ) -> bool:
-	var topology_revision := 0
-	var component_pair := ""
-	if route_provider != null:
-		if route_provider.has_method("navigation_topology_revision_value"):
-			topology_revision = int(route_provider.call("navigation_topology_revision_value"))
-		if route_provider.has_method("navigation_component_pair_key"):
-			component_pair = String(route_provider.call(
-				"navigation_component_pair_key",
-				Vector2(row.get("position", Vector2.ZERO)),
-				target_position
-			))
-	var order_key := "%s:%d:%s" % [target_kind, target_id, component_pair]
-	var backoff: Dictionary = row.get("ai_route_backoff", {}) as Dictionary
-	if (
-		String(backoff.get("order_key", "")) == order_key
-		and int(backoff.get("topology_revision", -1)) == topology_revision
-		and tick_index < int(backoff.get("retry_tick", 0))
-	):
-		ai_route_backoff_skip_count += 1
-		last_route_rejection = "no-bounded-route"
-		return false
-	if _assign_target_route(row, target_position):
-		row.erase("ai_route_backoff")
-		return true
-	if last_route_rejection != "no-bounded-route":
-		row.erase("ai_route_backoff")
-		return false
-	var failure_count := 1
-	if (
-		String(backoff.get("order_key", "")) == order_key
-		and int(backoff.get("topology_revision", -1)) == topology_revision
-	):
-		failure_count = int(backoff.get("failure_count", 0)) + 1
-	var scan_interval := maxi(1, int(profile.get("scan_interval", 15)))
-	var patience := maxi(scan_interval, int(_rules.get("ai_wave_patience_ticks", 1200)))
-	var retry_delay := scan_interval
-	for _failure in range(failure_count):
-		retry_delay = mini(patience, retry_delay * 2)
-		if retry_delay >= patience:
-			break
-	row["ai_route_backoff"] = {
-		"order_key": order_key,
-		"failure_count": failure_count,
-		"retry_tick": tick_index + retry_delay,
-		"topology_revision": topology_revision,
-	}
-	return false
+	return _ai_subsystem().ai_assign_target_route_with_backoff(row, target_kind, target_id, target_position, profile)
 
 
 func _ai_primary_hostile_fortress(team: int, weakest: bool) -> int:
-	## The objective fortress for `team`. Default (closest) tiers take the lowest-id
-	## hostile team's fortress; for the {0,1} roster that is exactly
-	## `fortress_id(PLAYER_TEAM)`, so the default path is byte-identical. Weakest-
-	## priority tiers (brutal/morgoth) instead march the whole wave onto the
-	## lowest-health hostile fortress (deterministic, tie-broken by id).
-	var best := 0
-	var best_health := 0
-	for other_value in _roster_team_ids():
-		var other := int(other_value)
-		if not _is_hostile(team, other):
-			continue
-		var fortress := fortress_id(other)
-		if fortress == 0:
-			continue
-		var health := int((structures[fortress] as Dictionary).get("health", 0))
-		if best == 0:
-			best = fortress
-			best_health = health
-		elif weakest and health < best_health:
-			best = fortress
-			best_health = health
-	return best
+	return _ai_subsystem().ai_primary_hostile_fortress(team, weakest)
 
 
 func _ai_apply_retreat(team: int, profile: Dictionary) -> void:
-	## Army management (hard+): a committed battalion whose surviving members have
-	## fallen below the tier's retreat fraction pulls out of the current wave and
-	## routes home to regroup, rejoining the next muster. The threshold is a
-	## permille of member count (integer, no floats), so a 0 threshold — every
-	## neutral tier — returns immediately and never perturbs the default match.
-	var permille := int(profile.get("retreat_member_permille", 0))
-	if permille <= 0:
-		return
-	var muster := _fallback_rally_position(team)
-	var muster_fortress := fortress_id(team)
-	if muster_fortress != 0:
-		muster = Vector2((structures[muster_fortress] as Dictionary).get("rally", muster))
-	for id in living_ids(team):
-		var row: Dictionary = entities[id]
-		if bool(row.get("is_builder", false)) or not bool(row.get("ai_in_wave", false)):
-			continue
-		# A battalion already storming an enemy structure presses the assault — it
-		# does not turn tail at the gates (turtling there would cede the base race).
-		if String(row.get("target_kind", "")) == "structure" and int(row.get("target_id", 0)) != 0:
-			continue
-		var members: Array = row.get("member_health", [])
-		if members.is_empty():
-			continue
-		var alive := 0
-		for value in members:
-			if int(value) > 0:
-				alive += 1
-		if alive * 1000 >= members.size() * permille:
-			continue
-		row["ai_in_wave"] = false
-		row["target_id"] = 0
-		row["target_kind"] = "battalion"
-		row["attack_windup"] = 0
-		if _assign_route(row, muster):
-			row["state"] = "run"
+	_ai_subsystem().ai_apply_retreat(team, profile)
 
 
-# After the proven first farm, the AI keeps developing: economy first, then
-# one of each military producer. Provisional order pending a real strategy
-# layer; every site goes through the same admission path as a player build.
 const AI_BUILD_ORDER: Array[String] = [
 	"farm", "barracks", "farm", "archery_range", "stable", "farm", "workshop",
 ]
 
 
 func _step_ai_base_building(team: int, ai_state: Dictionary) -> void:
-	# A dead porter is retrained first, even once the authored build order is
-	# exhausted (factions with few buildable kinds would otherwise never
-	# recover their builder).
-	var living_builders: Array[int] = []
-	for id in living_ids(team):
-		if bool((entities[id] as Dictionary).get("is_builder", false)):
-			living_builders.append(id)
-	if living_builders.is_empty():
-		_ai_train_builder(team)
-		return
-	var order := _ai_build_order_for_team(team)
-	var index := int(ai_state.get("build_order_index", 0))
-	if index >= order.size():
-		return
-	if _ai_construction_is_viable(team):
-		return
-	var kind := String(order[index])
-	var build_rule: Dictionary = structure_build_rules_for_team(team).get(kind, {})
-	if build_rule.is_empty():
-		ai_state["build_order_index"] = index + 1
-		return
-	if resources_for_team(team) < int(build_rule.get("cost", 0)):
-		return
-	var anchor := Vector2((entities[living_builders[0]] as Dictionary).get("position", Vector2.ZERO))
-	var team_fortress := fortress_id(team)
-	if team_fortress != 0:
-		anchor = Vector2((structures[team_fortress] as Dictionary).get("position", Vector2.ZERO))
-	# The default (medium/easy) search is exactly the historical four rings; tiers
-	# that build extra producers get additional outer rings so the larger base has
-	# room. Untouched for the default match, so its placement stays byte-identical.
-	var radii: Array = [10.0, 14.0, 18.0, 22.0]
-	if int(_difficulty_profile(team).get("extra_producer_cycles", 0)) > 0:
-		radii = [10.0, 14.0, 18.0, 22.0, 26.0, 30.0, 34.0, 38.0]
-	if castle_fixtures_enabled:
-		if _try_castle_ai_construction(team, ai_state, living_builders, kind):
-			ai_state["build_order_index"] = index + 1
-		return
-	for radius_value in radii:
-		var radius := float(radius_value)
-		for direction_index in range(8):
-			var angle := TAU * float(direction_index) / 8.0
-			var candidate: Vector2 = anchor + Vector2(cos(angle), sin(angle)) * radius
-			if bool(_issue_construct_for_team(team, living_builders, kind, candidate).get("ok", false)):
-				ai_state["build_order_index"] = index + 1
-				return
+	_ai_subsystem().step_ai_base_building(team, ai_state)
 
 
 func _ai_build_order_for_team(team: int) -> Array[String]:
-	## Faction-derived build order: farm first when the faction declares one,
-	## then each AI-plan unit's producer kind in plan order. The fortress is
-	## never rebuilt (it is the seeded structure). The historical Men order is
-	## just this derivation over the Gondor plan.
-	##
-	## Economy aggression + build variety (hard and up): the tier appends extra
-	## farm->producer CYCLES, giving higher tiers a genuinely larger production
-	## base (more parallel producers + income) — the lasting military-throughput
-	## edge that banked gold alone cannot buy against a producer-bound opponent.
-	## medium/easy add zero cycles, so the default build order is byte-identical.
-	var order: Array[String] = []
-	var has_farm := structure_build_rules_for_team(team).has("farm")
-	var team_rules := unit_production_rules_for_team(team)
-	var producers: Array[String] = []
-	for unit_type_value in ai_production_plan_for_team(team):
-		var rule: Dictionary = team_rules.get(String(unit_type_value), {}) as Dictionary
-		var kind := String(rule.get("producer_kind", ""))
-		if kind != "" and kind != "fortress" and not producers.has(kind):
-			producers.append(kind)
-	if has_farm:
-		order.append("farm")
-	for kind in producers:
-		order.append(kind)
-	var cycles := int(_difficulty_profile(team).get("extra_producer_cycles", 0))
-	for _cycle in range(cycles):
-		if has_farm:
-			order.append("farm")
-		for kind in producers:
-			order.append(kind)
-	return order
+	return _ai_subsystem().ai_build_order_for_team(team)
 
 
 func _ai_train_builder(team: int) -> void:
-	## The porter died: retrain it from the fortress so the base can keep
-	## developing. Never double-queue a builder that is already alive or
-	## already in a production queue.
-	var manifest: Dictionary = team_manifest_for(team)
-	var team_rules := unit_production_rules_for_team(team)
-	for builder_value in manifest.get("builder_unit_ids", []) as Array:
-		var builder_id := String(builder_value)
-		var already_covered := false
-		for id in living_ids(team):
-			if String((entities[id] as Dictionary).get("object_id", "")) == builder_id:
-				already_covered = true
-				break
-		if not already_covered:
-			for structure_id in structure_ids(team):
-				for item_value in Array((structures[structure_id] as Dictionary).get("queue", [])):
-					if String((item_value as Dictionary).get("unit_type", "")) == builder_id:
-						already_covered = true
-						break
-				if already_covered:
-					break
-		if already_covered:
-			return
-		for unit_type_value in team_rules.keys():
-			var unit_type := String(unit_type_value)
-			var rule: Dictionary = team_rules[unit_type]
-			if String(rule.get("object_id", "")) != builder_id:
-				continue
-			var producer := producer_id(team, String(rule.get("producer_kind", "fortress")))
-			if producer != 0:
-				queue_unit(team, producer, unit_type)
-			return
+	_ai_subsystem().ai_train_builder(team)
 
 
 func _start_ai_farm(team: int, ai_state: Dictionary = {}) -> bool:
-	var builder_ids: Array[int] = []
-	for id in living_ids(team):
-		if bool((entities[id] as Dictionary).get("is_builder", false)):
-			builder_ids.append(id)
-	if builder_ids.is_empty():
-		return false
-	if castle_fixtures_enabled:
-		return _try_castle_ai_construction(team, ai_state, builder_ids, "farm")
-	var builder_position := Vector2((entities[builder_ids[0]] as Dictionary).get("position", Vector2.ZERO))
-	# A bounded clockwise search is deterministic and uses the same admission,
-	# obstruction, route, cost, and construction path as a player MenPorter.
-	for direction in [Vector2.UP, Vector2.RIGHT, Vector2.DOWN, Vector2.LEFT]:
-		var candidate: Vector2 = builder_position + direction * 10.0
-		var result := _issue_construct_for_team(team, builder_ids, "farm", candidate)
-		if bool(result.get("ok", false)):
-			return true
-	return false
+	return _ai_subsystem().start_ai_farm(team, ai_state)
 
 
 func _ai_start_waypoint_name(team: int) -> String:
-	if castle_fixtures_enabled and _extra_team_centers.has(team):
-		var center := Vector2(_extra_team_centers[team])
-		var closest_name := ""
-		var closest_distance := INF
-		for name_value in source_player_starts.keys():
-			var name := String(name_value)
-			var distance := center.distance_squared_to(Vector2(source_player_starts[name_value]))
-			if distance < closest_distance:
-				closest_distance = distance
-				closest_name = name
-		if closest_name != "":
-			return closest_name
-	var descriptor := _team_descriptors.get(team, {}) as Dictionary
-	var start_index := int(descriptor.get("start_index", -1))
-	if start_index < 0:
-		start_index = int(_configured_team_start_indices.get(team, -1))
-	if start_index < 0:
-		return ""
-	return "Player_%d_Start" % (start_index + 1)
+	return _ai_subsystem().ai_start_waypoint_name(team)
 
 
 func _castle_ai_home(team: int) -> Dictionary:
-	if _extra_team_centers.has(team):
-		return {"position": Vector2(_extra_team_centers[team]), "source": "castle-start:team-center"}
-	var start_name := _ai_start_waypoint_name(team)
-	if start_name != "" and source_player_starts.has(start_name):
-		return {"position": Vector2(source_player_starts[start_name]), "source": "castle-start:%s" % start_name}
-	return {"position": _team_center(team), "source": "generic-team-center"}
+	return _ai_subsystem().castle_ai_home(team)
 
 
 func _castle_ai_layout(team: int) -> Dictionary:
-	var side_result := team_retail_side(team)
-	var side := String(side_result.get("side", ""))
-	if side == "":
-		return {}
-	for layout_value in _castle_ai_base_layouts:
-		var layout := layout_value as Dictionary
-		if String(layout.get("side", "")).to_lower() == side.to_lower():
-			return layout
-	return {}
+	return _ai_subsystem().castle_ai_layout(team)
 
 
 func _structure_kind_for_source_object(team: int, object_id: String) -> String:
-	var wanted := object_id.to_lower()
-	for kind_value in structure_source_object_ids_for_team(team).keys():
-		var kind := String(kind_value)
-		var sources: Variant = structure_source_object_ids_for_team(team)[kind_value]
-		if typeof(sources) == TYPE_ARRAY:
-			for source_value in sources as Array:
-				if String(source_value).to_lower() == wanted:
-					return kind
-		elif String(sources).to_lower() == wanted:
-			return kind
-	return ""
+	return _ai_subsystem().structure_kind_for_source_object(team, object_id)
 
 
 func _castle_ai_project_source_offset(offset_source: Vector2) -> Vector2:
-	# BSE offsets are SAGE XY. Convert Y to Godot Z, then project through the
-	# same rotated source frame RetailMapData established from the player starts.
-	var source_horizontal := Vector2(offset_source.x, -offset_source.y)
-	var scale := float(_rules.get("source_map_transform_scale", 0.1))
-	return Vector2(source_horizontal.dot(_source_map_axis_x), source_horizontal.dot(_source_map_axis_z)) * scale
+	return _ai_subsystem().castle_ai_project_source_offset(offset_source)
 
 
 const CASTLE_AI_GENERIC_CELL_SOURCE_PREFIX := "generic-navigation-cell:"
@@ -32021,33 +30642,7 @@ const CASTLE_AI_RETAIL_BASE_EXTENT_SOURCE := 291.9753598042349
 
 
 func _castle_ai_authored_candidates(team: int, structure_kind: String) -> Array[Dictionary]:
-	var candidates: Array[Dictionary] = []
-	var home := _castle_ai_home(team)
-	var anchor := Vector2(home["position"])
-	var layout := _castle_ai_layout(team)
-	if not layout.is_empty():
-		for site_value in layout.get("sites", []) as Array:
-			var site := site_value as Dictionary
-			if _structure_kind_for_source_object(team, String(site.get("objectId", ""))) != structure_kind:
-				continue
-			var offset := site.get("offsetSource", []) as Array
-			if offset.size() != 3:
-				continue
-			candidates.append({
-				"position": anchor + _castle_ai_project_source_offset(Vector2(float(offset[0]), float(offset[1]))),
-				"source": "authored-ai-base:%s:site-%d" % [String(layout.get("side", "")), int(site.get("index", -1))],
-			})
-	var start_name := _ai_start_waypoint_name(team)
-	if start_name != "":
-		var prefix := start_name.trim_suffix("Start") + "BuildPlot_"
-		for plot_index in range(1, 9):
-			var waypoint_name := "%s%d" % [prefix, plot_index]
-			if _ai_build_waypoints.has(waypoint_name):
-				candidates.append({
-					"position": Vector2(_ai_build_waypoints[waypoint_name]),
-					"source": "authored-build-plot:%s" % waypoint_name,
-				})
-	return candidates
+	return _ai_subsystem().castle_ai_authored_candidates(team, structure_kind)
 
 
 func _try_castle_ai_site(
@@ -32058,38 +30653,7 @@ func _try_castle_ai_site(
 	candidate: Vector2,
 	source: String
 ) -> bool:
-	var authored_site := source.begins_with("authored-")
-	castle_ai_site_dry_runs += 1
-	var dry_run := _issue_construct_for_team(team, builder_ids, structure_kind, candidate, true, authored_site)
-	if not bool(dry_run.get("ok", false)):
-		var reason := String(dry_run.get("reason", "rejected"))
-		ai_state["last_site_rejection"] = "%s:%s" % [source, reason]
-		# One line per authored site is a bounded, useful receipt. The generic
-		# navigation-cell scan is not: it produced 99,466 identical lines in the
-		# owner's v0.2.8 Minas Tirith boot. Those are summarised once per
-		# (team, structure kind) by the caller instead.
-		if not source.begins_with(CASTLE_AI_GENERIC_CELL_SOURCE_PREFIX):
-			castle_ai_site_reject_prints += 1
-			print("[RetailSliceSim] CASTLE_AI_REJECT team=%d structure=%s site_source=%s reason=%s detail=%s" % [team, structure_kind, source, reason, str(dry_run)])
-		return false
-	var builder := entities[builder_ids[0]] as Dictionary
-	if not parity.can_path_between(Vector2(builder.get("position", Vector2.ZERO)), candidate):
-		ai_state["last_site_rejection"] = "%s:parity-path-impassable" % source
-		return false
-	var route := _query_route_for_row(builder, Vector2(builder.get("position", Vector2.ZERO)), candidate)
-	if not bool(route.get("valid", false)) or (route.get("points", []) as Array).is_empty():
-		ai_state["last_site_rejection"] = "%s:%s" % [source, String(route.get("reason", "route-rejected"))]
-		return false
-	var result := _issue_construct_for_team(team, builder_ids, structure_kind, candidate, false, authored_site)
-	if not bool(result.get("ok", false)):
-		ai_state["last_site_rejection"] = "%s:%s" % [source, String(result.get("reason", "rejected"))]
-		return false
-	ai_state["home_position"] = Vector2(_castle_ai_home(team)["position"])
-	ai_state["home_source"] = String(_castle_ai_home(team)["source"])
-	ai_state["site_source"] = source
-	ai_state.erase("last_site_rejection")
-	print("[RetailSliceSim] CASTLE_AI_SITE team=%d home_source=%s home=%s structure=%s site_source=%s site=%s" % [team, ai_state["home_source"], str(ai_state["home_position"]), structure_kind, source, str(candidate)])
-	return true
+	return _ai_subsystem().try_castle_ai_site(team, ai_state, builder_ids, structure_kind, candidate, source)
 
 
 func _try_castle_ai_construction(
@@ -32098,128 +30662,15 @@ func _try_castle_ai_construction(
 	builder_ids: Array[int],
 	structure_kind: String
 ) -> bool:
-	var builder_position := Vector2((entities[builder_ids[0]] as Dictionary).get("position", Vector2.ZERO))
-	var kind_refusal := _castle_ai_kind_level_refusal(team, builder_ids, structure_kind, builder_position)
-	if kind_refusal != "":
-		ai_state["last_site_rejection"] = "kind-level:%s" % kind_refusal
-		return false
-	var authored_candidates := _castle_ai_authored_candidates(team, structure_kind)
-	# Retail supplies the sites, while the live porter chooses the shortest
-	# deterministic trip. This prevents file/index order from sending a castle
-	# porter across the entire keep before it can establish production.
-	authored_candidates.sort_custom(func(left: Dictionary, right: Dictionary) -> bool:
-		var left_distance := builder_position.distance_squared_to(Vector2(left["position"]))
-		var right_distance := builder_position.distance_squared_to(Vector2(right["position"]))
-		if not is_equal_approx(left_distance, right_distance):
-			return left_distance < right_distance
-		return String(left["source"]) < String(right["source"])
-	)
-	ai_state["start_waypoint"] = _ai_start_waypoint_name(team)
-	ai_state["authored_site_candidates"] = authored_candidates.size()
-	ai_state["available_build_waypoints"] = _ai_build_waypoints.size()
-	print("[RetailSliceSim] CASTLE_AI_CANDIDATES team=%d structure=%s start=%s authored=%d build_waypoints=%d" % [team, structure_kind, String(ai_state["start_waypoint"]), authored_candidates.size(), _ai_build_waypoints.size()])
-	for candidate_value in authored_candidates:
-		var candidate := candidate_value as Dictionary
-		if _try_castle_ai_site(team, ai_state, builder_ids, structure_kind, Vector2(candidate["position"]), String(candidate["source"])):
-			return true
-	if not authored_candidates.is_empty() and ai_state.has("last_site_rejection"):
-		ai_state["authored_site_fallback_reason"] = String(ai_state["last_site_rejection"])
-	# Maps without a usable authored AIBase/build-plot row use the complete
-	# cooked navigation extent. Its dimensions are retail-authored map data, so
-	# the fallback has no guessed distance cap and cannot stop inside a castle's
-	# wall ring. Every candidate still passes the normal placement and route
-	# gates, which prevents building on or behind obstructing fixtures.
-	if route_provider == null or not route_provider.has_method("local_to_grid_cell") or not route_provider.has_method("grid_to_local_horizontal") or not route_provider.has_method("is_navigation_walkable"):
-		return false
-	var home_cell: Vector2i = route_provider.call("local_to_grid_cell", builder_position)
-	var navigation_min := Vector2i(route_provider.get("navigation_grid_min"))
-	var navigation_max := Vector2i(route_provider.get("navigation_grid_max"))
-	var maximum_radius := maxi(
-		maxi(absi(home_cell.x - navigation_min.x), absi(home_cell.x - navigation_max.x)),
-		maxi(absi(home_cell.y - navigation_min.y), absi(home_cell.y - navigation_max.y))
-	)
-	var cursors: Dictionary = ai_state.get("generic_scan_next_radius", {}) as Dictionary
-	var first_radius := clampi(int(cursors.get(structure_kind, 0)), 0, maximum_radius)
-	var budget := _castle_ai_generic_scan_cell_budget(home_cell)
-	var scanned := 0
-	var rejected := 0
-	var top_reason := ""
-	var radius := first_radius
-	while radius <= maximum_radius:
-		if scanned >= budget:
-			break
-		for dy in range(-radius, radius + 1):
-			for dx in range(-radius, radius + 1):
-				if abs(dx) != radius and abs(dy) != radius:
-					continue
-				var cell := home_cell + Vector2i(dx, dy)
-				if not bool(route_provider.call("is_navigation_walkable", cell)):
-					continue
-				var position := Vector2(route_provider.call("grid_to_local_horizontal", cell))
-				scanned += 1
-				if _try_castle_ai_site(team, ai_state, builder_ids, structure_kind, position, "%s%d,%d" % [CASTLE_AI_GENERIC_CELL_SOURCE_PREFIX, cell.x, cell.y]):
-					cursors.erase(structure_kind)
-					_castle_ai_store_scan_cursors(ai_state, cursors)
-					return true
-				rejected += 1
-				if top_reason == "":
-					top_reason = String(ai_state.get("last_site_rejection", "")).get_slice(":", 2)
-		radius += 1
-	# One summary line per (team, structure kind) scan slice replaces the
-	# per-cell CASTLE_AI_REJECT spam. `resume_radius` is -1 when the scan
-	# exhausted the map this tick.
-	var exhausted := radius > maximum_radius
-	if exhausted:
-		cursors.erase(structure_kind)
-	else:
-		cursors[structure_kind] = radius
-	_castle_ai_store_scan_cursors(ai_state, cursors)
-	var summary := "[RetailSliceSim] CASTLE_AI_CELL_SCAN team=%d structure=%s radius=%d..%d max_radius=%d budget=%d scanned=%d rejected=%d resume_radius=%d reason=%s" % [
-		team,
-		structure_kind,
-		first_radius,
-		maxi(first_radius, radius - 1),
-		maximum_radius,
-		budget,
-		scanned,
-		rejected,
-		-1 if exhausted else radius,
-		top_reason if top_reason != "" else "none",
-	]
-	# The AI retries every tick. Once the scan has wrapped, each slice repeats
-	# verbatim, so an unchanged summary is printed once and then stays silent -
-	# a 4,000-tick castle run cannot re-fill a log with it.
-	var logged: Dictionary = _castle_ai_scan_summaries_logged.get(team, {}) as Dictionary
-	if String(logged.get(structure_kind, "")) != summary:
-		logged[structure_kind] = summary
-		_castle_ai_scan_summaries_logged[team] = logged
-		castle_ai_site_reject_prints += 1
-		print(summary)
-	return false
+	return _ai_subsystem().try_castle_ai_construction(team, ai_state, builder_ids, structure_kind)
 
 
 func _castle_ai_store_scan_cursors(ai_state: Dictionary, cursors: Dictionary) -> void:
-	# Written only while a scan is actually mid-map, so maps whose fallback
-	# finishes inside one tick add no key to the serialized AI state.
-	if cursors.is_empty():
-		ai_state.erase("generic_scan_next_radius")
-	else:
-		ai_state["generic_scan_next_radius"] = cursors
+	_ai_subsystem().castle_ai_store_scan_cursors(ai_state, cursors)
 
 
 func _castle_ai_generic_scan_cell_budget(home_cell: Vector2i) -> int:
-	## Cells examinable in one tick = the square of the measured retail base
-	## footprint radius (CASTLE_AI_RETAIL_BASE_EXTENT_SOURCE) expressed in this
-	## map's navigation cells. Cell span is measured from the provider itself,
-	## so no map scale is guessed here.
-	var origin := Vector2(route_provider.call("grid_to_local_horizontal", home_cell))
-	var neighbour := Vector2(route_provider.call("grid_to_local_horizontal", home_cell + Vector2i(1, 0)))
-	var cell_span := origin.distance_to(neighbour)
-	if cell_span <= 0.0:
-		return 1
-	var extent := CASTLE_AI_RETAIL_BASE_EXTENT_SOURCE * float(_rules.get("source_map_transform_scale", 0.1))
-	var radius_cells := maxi(1, int(ceil(extent / cell_span)))
-	return (2 * radius_cells + 1) * (2 * radius_cells + 1)
+	return _ai_subsystem().castle_ai_generic_scan_cell_budget(home_cell)
 
 
 func _castle_ai_kind_level_refusal(
@@ -32228,53 +30679,15 @@ func _castle_ai_kind_level_refusal(
 	structure_kind: String,
 	probe: Vector2
 ) -> String:
-	## Exactly one construct dry-run settles whether the refusal depends on the
-	## site at all. A kind-level reason is printed once per (team, kind) instead
-	## of once per navigation cell.
-	castle_ai_site_dry_runs += 1
-	var receipt := _issue_construct_for_team(team, builder_ids, structure_kind, probe, true, false)
-	if bool(receipt.get("ok", false)):
-		return ""
-	var reason := String(receipt.get("reason", "rejected"))
-	if not CASTLE_AI_KIND_LEVEL_REFUSALS.has(reason):
-		return ""
-	var seen: Dictionary = _castle_ai_kind_refusals_logged.get(team, {}) as Dictionary
-	if String(seen.get(structure_kind, "")) != reason:
-		seen[structure_kind] = reason
-		_castle_ai_kind_refusals_logged[team] = seen
-		castle_ai_site_reject_prints += 1
-		print("[RetailSliceSim] CASTLE_AI_KIND_REJECT team=%d structure=%s reason=%s detail=%s" % [team, structure_kind, reason, str(receipt)])
-	return reason
+	return _ai_subsystem().castle_ai_kind_level_refusal(team, builder_ids, structure_kind, probe)
 
 
 func _ai_construction_is_viable(team: int) -> bool:
-	for id in living_ids(team):
-		var builder: Dictionary = entities[id]
-		if not bool(builder.get("is_builder", false)):
-			continue
-		var construction_id := int(builder.get("construction_id", 0))
-		if construction_id != 0 and structures.has(construction_id) and int((structures[construction_id] as Dictionary).get("health", 0)) > 0:
-			return true
-	return false
+	return _ai_subsystem().ai_construction_is_viable(team)
 
 
 func _abandon_ai_construction(team: int) -> void:
-	for id in entity_ids():
-		var builder: Dictionary = entities[id]
-		if int(builder.get("team", -1)) != team or not bool(builder.get("is_builder", false)) or int(builder.get("construction_id", 0)) == 0:
-			continue
-		var construction_id := int(builder.get("construction_id", 0))
-		if structures.has(construction_id):
-			var site: Dictionary = structures[construction_id]
-			site["builder_id"] = 0
-			if int(site.get("health", 0)) > 0 and float(site.get("construction_progress", 1.0)) < 1.0:
-				site["health"] = 0
-				_emit_event("structure.destroyed", 0, construction_id, {"reason": "construction-builder-unavailable"})
-		builder["construction_id"] = 0
-		builder["order_kind"] = ""
-		_clear_pending_route(builder, true)
-		if int(builder.get("health", 0)) > 0:
-			builder["state"] = "idle"
+	_ai_subsystem().abandon_ai_construction(team)
 
 
 func _build_route(from: Vector2, to: Vector2) -> Array[Vector2]:
@@ -32936,10 +31349,7 @@ func state_snapshot() -> Dictionary:
 
 
 func state_signature() -> String:
-	var value: int = 0x811C9DC5
-	for byte in JSON.stringify(state_snapshot()).to_utf8_buffer():
-		value = ((value ^ int(byte)) * 16777619) & 0xFFFFFFFF
-	return "%08X" % value
+	return _persistence_subsystem().state_signature()
 
 
 func toggle_gate(team: int, structure_id: int) -> Dictionary:
@@ -33077,515 +31487,27 @@ func _command_order_less(a: Dictionary, b: Dictionary) -> bool:
 
 
 func state_hash() -> String:
-	var dynamic_state := _authoritative_state()
-	var static_state: Dictionary = {}
-	for key in _state_hash_static_keys():
-		static_state[key] = dynamic_state[key]
-		dynamic_state.erase(key)
-	if _state_hash_static_digest.is_empty():
-		var static_context := HashingContext.new()
-		static_context.start(HashingContext.HASH_SHA256)
-		static_context.update(var_to_bytes(_canonicalize(static_state)))
-		_state_hash_static_digest = static_context.finish()
-	var context := HashingContext.new()
-	context.start(HashingContext.HASH_SHA256)
-	context.update(_state_hash_static_digest)
-	context.update(var_to_bytes(_canonicalize(dynamic_state)))
-	return context.finish().hex_encode()
+	return _persistence_subsystem().state_hash()
 
 
 func snapshot() -> PackedByteArray:
-	# Event ordering is continuation metadata, not gameplay state: include it in
-	# the restorable envelope without moving the owner-signed authoritative hash.
-	var state := _authoritative_state()
-	state["next_event_sequence"] = _next_event_sequence
-	return var_to_bytes(state)
+	return _persistence_subsystem().snapshot()
 
 
 func restore(bytes: PackedByteArray) -> bool:
-	if bytes.is_empty():
-		return false
-	var decoded: Variant = bytes_to_var(bytes)
-	if typeof(decoded) != TYPE_DICTIONARY:
-		return false
-	var state := decoded as Dictionary
-	for required_key in ["tick_index", "entities", "structures", "team_resources", "pending_commands", "next_dynamic_id"]:
-		if not state.has(required_key):
-			return false
-	_restore_authoritative_state(state)
-	selected_ids.clear()
-	reset_control_groups()
-	events.clear()
-	# Tick-derived, not authoritative: see `_member_fire_ticks`. A restored member
-	# reports no FIRING_* until its next release rather than a guessed window.
-	_member_fire_ticks.clear()
-	last_command_result = null
-	_state_hash_static_digest.clear()
-	return true
+	return _persistence_subsystem().restore(bytes)
 
 
 func _state_hash_static_keys() -> Array[String]:
-	return [
-		"source_map_configured", "ford_gates", "source_player_starts", "playable_outline",
-		"spawn_positions", "home_layout", "rules", "unit_production_rules",
-		"production_unit_order", "ai_production_plan", "unit_damage_types",
-		"unit_damage_components", "unit_armor",
-		"unit_weapon_upgrades", "structure_armor", "spawn_roster", "structure_kinds",
-		"seed_structure_kinds", "structure_max_health", "structure_build_rules",
-		"unit_prerequisites", "structure_upgrade_contracts", "structure_upgrade_effects",
-		"compiled_research_kinds", "unit_upgrade_commands", "unit_level_upgrades", "unit_banner_carriers",
-		"spellbook_ready", "spellbook_document", "spellbook_powers", "spellbook_order",
-		"spellbook_sciences", "spellbook_intrinsic", "science_to_power",
-		"expansion_build_rules", "unit_ability_rules", "unit_experience_rules",
-	]
+	return _persistence_subsystem().state_hash_static_keys()
 
 
 func _authoritative_state() -> Dictionary:
-	# Exclude raw faction_manifest from hash: all load-bearing fields are individually hashed
-	# (unit_production_rules, ai_production_plan, structure_kinds, structure_max_health,
-	# structure_build_rules, unit_damage_types, structure_armor, spawn_roster). Raw dict was
-	# making the pin fragile to non-functional plumbing changes.
-	var rules_without_manifest := _rules.duplicate(true)
-	rules_without_manifest.erase("faction_manifest")
-	var state := {
-		"tick_index": tick_index,
-		"winner": winner,
-		"ai_enabled": ai_enabled,
-		"entities": entities,
-		"structures": structures,
-		"team_resources": team_resources,
-		"team_command_points": team_command_points,
-		"command_point_cap": command_point_cap,
-		"base_loop_enabled": base_loop_enabled,
-		"source_map_configured": source_map_configured,
-		"ford_gates": ford_gates,
-		"source_player_starts": source_player_starts,
-		"playable_outline": playable_outline,
-		"spawn_positions": _spawn_positions,
-		"home_layout": _home_layout,
-		"rules": rules_without_manifest,
-		"unit_production_rules": _unit_production_rules,
-		"completed_hero_identities": _completed_hero_identities,
-		"production_unit_order": _production_unit_order,
-		"ai_production_plan": _ai_production_plan,
-		"unit_damage_types": _unit_damage_types,
-		"unit_damage_components": _unit_damage_components,
-		"unit_armor": _unit_armor,
-		"unit_weapon_upgrades": _unit_weapon_upgrades,
-		"structure_armor": _structure_armor,
-		"spawn_roster": _spawn_roster,
-		"structure_kinds": _structure_kinds,
-		"seed_structure_kinds": _seed_structure_kinds,
-		"structure_max_health": _structure_max_health,
-		"structure_build_rules": _structure_build_rules,
-		"unit_prerequisites": _unit_prerequisites,
-		"structure_upgrade_contracts": _structure_upgrade_contracts,
-		"structure_upgrade_effects": _structure_upgrade_effects,
-		"compiled_research_kinds": _compiled_research_kinds,
-		"unit_upgrade_commands": _unit_upgrade_commands,
-		"unit_level_upgrades": _unit_level_upgrades,
-		"unit_banner_carriers": _unit_banner_carriers,
-		"next_dynamic_id": _next_dynamic_id,
-		"next_dynamic_structure_id": _next_dynamic_structure_id,
-		"next_order_sequence": _next_order_sequence,
-		"team_ai_state": _team_ai_state,
-		"team_upgrades": team_upgrades,
-		"team_power_points": team_power_points,
-		"purchased_powers": purchased_powers,
-		"kills_toward_power_point": _kills_toward_power_point,
-		"spellbook_ready": _spellbook_ready,
-		"spellbook_document": _spellbook_document,
-		"spellbook_powers": _spellbook_powers,
-		"spellbook_order": _spellbook_order,
-		"spellbook_sciences": _spellbook_sciences,
-		"spellbook_intrinsic": _spellbook_intrinsic,
-		"science_to_power": _science_to_power,
-		"team_sciences": _team_sciences,
-		"power_cooldown_until": _power_cooldown_until,
-		"staged_purchases": _staged_purchases,
-		"team_spellbooks": _team_spellbooks,
-		"clock_paused": clock_paused,
-		"pending_power_effects": _pending_power_effects,
-		"active_groves": _active_groves,
-		"summon_despawn_ticks": _summon_despawn_ticks,
-		"expansion_pads": expansion_pads,
-		"expansion_build_rules": _expansion_build_rules,
-		"next_expansion_structure_id": _next_expansion_structure_id,
-		"build_plots_only": build_plots_only,
-		"build_plots": build_plots,
-		"has_hero_units": _has_hero_units,
-		"unit_ability_rules": _unit_ability_rules,
-		"unit_experience_rules": _unit_experience_rules,
-		"pending_commands": _pending_commands,
-	}
-	if scenario_map_placements_enabled:
-		state["scenario_map_placements_enabled"] = true
-		state["scenario_map_placements"] = _scenario_map_placements
-		state["next_scenario_unit_id"] = _next_scenario_unit_id
-		state["next_scenario_structure_id"] = _next_scenario_structure_id
-	# New bounty/passive state is byte-inert for legacy matches. Once authored
-	# content or a cast makes it relevant, it becomes ordinary save/hash state.
-	if not _structure_bounty_values.is_empty():
-		state["structure_bounty_values"] = _structure_bounty_values
-	# Passive scenario props are placement/presentation state. Empty remains
-	# absent so every match without a neutral-prop pack keeps its legacy hash.
-	if not scenario_props.is_empty():
-		state["scenario_props"] = scenario_props
-	if not scenario_bezier_presentation_requests.is_empty():
-		state["scenario_bezier_presentation_requests"] = scenario_bezier_presentation_requests
-		state["next_scenario_prop_id"] = _next_scenario_prop_id
-	var has_consumed_nonpressable := false
-	for consumed_value in _consumed_nonpressable_powers.values():
-		if not (consumed_value as Dictionary).is_empty():
-			has_consumed_nonpressable = true
-			break
-	if has_consumed_nonpressable:
-		state["consumed_nonpressable_powers"] = _consumed_nonpressable_powers
-	var has_scavenger := false
-	for percent_value in _scavenger_bounty_percent.values():
-		if float(percent_value) != 0.0:
-			has_scavenger = true
-			break
-	if has_scavenger:
-		state["scavenger_bounty_percent"] = _scavenger_bounty_percent
-	# EMPTY-IS-ABSENT (the unpackable-bases contract below): the castle-fixture
-	# lane only appears in the hashed state when a match opts in, so the frozen
-	# cross-platform pin and every legacy runner stay byte-identical.
-	if castle_fixtures_enabled:
-		state["castle_fixtures_enabled"] = true
-		state["castle_fixture_placements"] = _castle_fixture_placements
-		state["next_castle_fixture_id"] = _next_castle_fixture_id
-	# EMPTY-IS-ABSENT, deliberately: a match with no configured base flags must
-	# contribute NOTHING for this subsystem, so the frozen cross-platform state
-	# pin keeps proving the addition is inert by default. An unconditional key
-	# here would re-mint the pin for every scenario that never touches bases.
-	if not unpackable_bases.is_empty():
-		state["unpackable_bases"] = unpackable_bases
-	if not _summon_aura_source_ids.is_empty():
-		state["summon_aura_source_ids"] = _summon_aura_source_ids
-	# EMPTY-IS-ABSENT, same contract as above: a match in which nobody casts a
-	# reveal/field ping must contribute nothing, so the frozen cross-platform pin
-	# stays valid for every scenario that never touches this lane.
-	if not _field_pings.is_empty():
-		state["field_pings"] = _field_pings
-	# Same EMPTY-IS-ABSENT contract for the weather lane: a match in which
-	# nobody casts Darkness or Freezing Rain contributes zero bytes.
-	if not _weather_effects.is_empty():
-		state["weather_effects"] = _weather_effects
-	# These selected-pack contracts are absent in legacy/default scenarios. Keep
-	# them out of the byte stream unless configured so unrelated state pins remain
-	# stable, while selected retail matches still hash and snapshot the contracts.
-	if not _banner_respawn_ticks_by_object.is_empty():
-		state["banner_respawn_ticks_by_object"] = _banner_respawn_ticks_by_object
-	if not _castle_behavior_by_source.is_empty():
-		state["castle_behavior_by_source"] = _castle_behavior_by_source
-	if not _cah_award_contracts.is_empty():
-		state["cah_award_contracts"] = _cah_award_contracts
-	if not _cah_award_tallies.is_empty():
-		state["cah_award_tallies"] = _cah_award_tallies
-	if not cah_award_results.is_empty():
-		state["cah_award_results"] = cah_award_results
-	# Same discipline for the map named-object namespace: a match that never
-	# declares one contributes zero bytes (see the store's block comment).
-	if not map_named_object_namespace.is_empty():
-		state["map_named_object_namespace"] = map_named_object_namespace
-	# Same discipline for the script unit references: a match whose scripts
-	# never bind one contributes zero bytes (see the store's block comment).
-	if not script_unit_references.is_empty():
-		state["script_unit_references"] = script_unit_references
-	if not script_entity_references.is_empty():
-		state["script_entity_references"] = script_entity_references
-	if not create_object_die_pending.is_empty():
-		state["create_object_die_pending"] = create_object_die_pending
-	if not physics_objects.is_empty() or _next_physics_object_id != 50000:
-		state["physics_objects"] = physics_objects
-		state["next_physics_object_id"] = _next_physics_object_id
-	if not projectiles.is_empty() or _next_projectile_id != 70000:
-		state["projectiles"] = projectiles
-		state["next_projectile_id"] = _next_projectile_id
-	if not pickup_objects.is_empty() or _next_pickup_object_id != 60000:
-		state["pickup_objects"] = pickup_objects
-		state["next_pickup_object_id"] = _next_pickup_object_id
-	if not _shared_ability_cooldowns.is_empty():
-		state["shared_ability_cooldowns"] = _shared_ability_cooldowns
-	if not respawn_schedules.is_empty():
-		state["respawn_schedules"] = respawn_schedules
-	if parity != null:
-		var parity_state: Dictionary = parity.to_state()
-		if not parity_state.is_empty():
-			state["parity"] = parity_state
-	# And for the script-built OBJECT_TYPE_LIST stores: mutable match state
-	# (retail persists them in save games), zero bytes until a script builds
-	# one (see the store's block comment).
-	if not script_object_type_lists.is_empty():
-		state["script_object_type_lists"] = script_object_type_lists
-	# Named team membership/flags are outcome-bearing. Empty remains absent so
-	# scriptless matches retain their frozen hash.
-	var script_team_view := _script_team_state_view()
-	if not script_team_view.is_empty():
-		state["script_teams"] = script_team_view
-	if not building_permissions_by_team.is_empty():
-		state["building_permissions_by_team"] = building_permissions_by_team
-	if not command_point_overrides_by_team.is_empty():
-		state["command_point_overrides_by_team"] = command_point_overrides_by_team
-	# And for team behavior state (TEAM_STATE + custom-state token sets):
-	# retail save-persists m_state (Team::xfer), the conditions that gate the
-	# AI attack loops read it, and a peer adopting a snapshot must answer
-	# TEAM_STATE_IS exactly as the peer that wrote the state. Zero bytes until
-	# a script writes one (see the store's block comment).
-	if not team_behavior_states.is_empty():
-		state["team_behavior_states"] = team_behavior_states
-	# Sequential-script heads are outcome-bearing AI behavior queues. Empty is
-	# absent so scriptless matches keep frozen hash pins.
-	if not sequential_script_queues.is_empty():
-		state["sequential_script_queues"] = sequential_script_queues
-	if not production_controls_by_team.is_empty():
-		state["production_controls_by_team"] = production_controls_by_team
-	if not tech_buildability.is_empty():
-		state["tech_buildability"] = tech_buildability
-	if not script_team_references.is_empty():
-		state["script_team_references"] = script_team_references
-	if not player_progression.is_empty():
-		state["player_progression"] = player_progression
-	if not player_economy_extras.is_empty():
-		state["player_economy_extras"] = player_economy_extras
-	if not player_diplomacy_overrides.is_empty():
-		state["player_diplomacy_overrides"] = player_diplomacy_overrides
-	if not script_event_counts.is_empty():
-		state["script_event_counts"] = script_event_counts
-	if not containment.is_empty():
-		state["containment"] = containment
-	if not entity_container.is_empty():
-		state["entity_container"] = entity_container
-	if not script_areas.is_empty():
-		state["script_areas"] = script_areas
-	if not script_waypoints.is_empty():
-		state["script_waypoints"] = script_waypoints
-	if not script_waypoint_paths.is_empty():
-		state["script_waypoint_paths"] = script_waypoint_paths
-	if not team_created_edge.is_empty():
-		state["team_created_edge"] = team_created_edge
-	if not match_script_flags.is_empty():
-		state["match_script_flags"] = match_script_flags
-	if not attack_priority_names.is_empty():
-		state["attack_priority_names"] = attack_priority_names
-	if not script_surface_bag.is_empty():
-		state["script_surface_bag"] = script_surface_bag
-	# Audio selector choice is deterministic presentation state. Keep it absent
-	# until the first typed choice so matches without these client modules retain
-	# their frozen hashes, while save/restore resumes the same weighted sequence.
-	if _typed_audio_roll_sequence > 0:
-		state["typed_audio_roll_sequence"] = _typed_audio_roll_sequence
-	# Historical objective state is match state and hash-visible. Empty is
-	# absent so scenarios that never field a hero retain their frozen pins.
-	if not _hero_peak_ranks_by_team.is_empty():
-		state["hero_peak_ranks_by_team"] = _hero_peak_ranks_by_team
-	# And for the logic random stream: the six generator words are the entire
-	# stream state (retail's theGameLogicSeed rides save games and its CRC is
-	# sync-checked - GetGameLogicRandomSeedCRC). Zero bytes until the first
-	# draw, so a scriptless match leaves the frozen pin untouched; an
-	# adopting peer receives the words and continues the identical sequence.
-	if not _logic_random_state.is_empty():
-		state["logic_random_state"] = _logic_random_state
-	# And for the script interpreter's own memory: hashed and serialized
-	# through its canonical view (zero counters/false flags pruned, every
-	# level sorted), so an untouched match contributes zero bytes and state
-	# returned to pristine values returns to the pristine hash exactly.
-	var script_env_view := _script_env_state_view()
-	if not script_env_view.is_empty():
-		state["script_env_state"] = script_env_view
-	return state
+	return _persistence_subsystem().authoritative_state()
 
 
 func _restore_authoritative_state(state: Dictionary) -> void:
-	tick_index = int(state["tick_index"])
-	winner = int(state["winner"])
-	ai_enabled = bool(state["ai_enabled"])
-	entities = state["entities"]
-	structures = state["structures"]
-	scenario_props = state.get("scenario_props", {})
-	scenario_bezier_presentation_requests = state.get(
-		"scenario_bezier_presentation_requests", []
-	)
-	_next_scenario_prop_id = int(state.get("next_scenario_prop_id", 400000))
-	_note_structure_table_mutation()
-	# The structure table was just replaced wholesale; the id-keyed footprint
-	# memo describes the old one.
-	_structure_footprint_radius_cache.clear()
-	team_resources = state["team_resources"]
-	team_command_points = state["team_command_points"]
-	command_point_cap = int(state["command_point_cap"])
-	base_loop_enabled = bool(state["base_loop_enabled"])
-	source_map_configured = bool(state["source_map_configured"])
-	ford_gates = state["ford_gates"]
-	source_player_starts = state["source_player_starts"]
-	playable_outline = state["playable_outline"]
-	_spawn_positions = state["spawn_positions"]
-	_home_layout = state["home_layout"]
-	_rules = state["rules"]
-	_configure_death_weapon_rules_from_rules()
-	ring_mechanic_enabled = bool(_rules.get("allow_ring_heroes", false))
-	_configure_ring_mechanic_contract()
-	_unit_production_rules = state["unit_production_rules"]
-	_completed_hero_identities = state["completed_hero_identities"]
-	_production_unit_order = state["production_unit_order"]
-	_ai_production_plan = state["ai_production_plan"]
-	_unit_damage_types = state["unit_damage_types"]
-	_unit_damage_components = state["unit_damage_components"]
-	_unit_armor = state["unit_armor"]
-	_unit_weapon_upgrades = state["unit_weapon_upgrades"]
-	_structure_armor = state["structure_armor"]
-	_spawn_roster = state["spawn_roster"]
-	_structure_kinds = state["structure_kinds"]
-	_seed_structure_kinds = state["seed_structure_kinds"]
-	_structure_max_health = state["structure_max_health"]
-	_structure_bounty_values = state.get("structure_bounty_values", {})
-	_structure_build_rules = state["structure_build_rules"]
-	_unit_prerequisites = state["unit_prerequisites"]
-	_structure_upgrade_contracts = state["structure_upgrade_contracts"]
-	_structure_upgrade_effects = state["structure_upgrade_effects"]
-	_compiled_research_kinds = state["compiled_research_kinds"]
-	_unit_upgrade_commands = state["unit_upgrade_commands"]
-	_unit_level_upgrades = state["unit_level_upgrades"]
-	_unit_banner_carriers = state.get("unit_banner_carriers", {})
-	_banner_respawn_ticks_by_object = state.get("banner_respawn_ticks_by_object", {})
-	_castle_behavior_by_source = state.get("castle_behavior_by_source", {})
-	_cah_award_contracts = state.get("cah_award_contracts", {})
-	_cah_award_tallies = state.get("cah_award_tallies", {})
-	cah_award_results = state.get("cah_award_results", {})
-	_next_dynamic_id = state["next_dynamic_id"]
-	_next_dynamic_structure_id = int(state["next_dynamic_structure_id"])
-	_next_event_sequence = int(state.get("next_event_sequence", 1))
-	_next_order_sequence = int(state["next_order_sequence"])
-	_typed_audio_roll_sequence = int(state.get("typed_audio_roll_sequence", 0))
-	_team_ai_state = state.get("team_ai_state", {})
-	team_upgrades = state["team_upgrades"]
-	team_power_points = state["team_power_points"]
-	purchased_powers = state["purchased_powers"]
-	_kills_toward_power_point = state["kills_toward_power_point"]
-	_spellbook_ready = bool(state["spellbook_ready"])
-	_spellbook_document = state["spellbook_document"]
-	_spellbook_command_points_upgrade = (
-		(
-			(_spellbook_document.get("registration", {}) as Dictionary).get(
-				"spellBook", {}
-			) as Dictionary
-		).get("commandPointsUpgrade", {}) as Dictionary
-	).duplicate(true)
-	_spellbook_powers = state["spellbook_powers"]
-	_spellbook_order = state["spellbook_order"]
-	_spellbook_sciences = state["spellbook_sciences"]
-	_spellbook_intrinsic = state["spellbook_intrinsic"]
-	_science_to_power = state["science_to_power"]
-	_team_sciences = state["team_sciences"]
-	_power_cooldown_until = state["power_cooldown_until"]
-	_consumed_nonpressable_powers = state.get("consumed_nonpressable_powers", _seed_team_map({}))
-	_scavenger_bounty_percent = state.get("scavenger_bounty_percent", _seed_team_map(0.0))
-	_staged_purchases = state["staged_purchases"]
-	_team_spellbooks = state.get("team_spellbooks", {})
-	clock_paused = bool(state["clock_paused"])
-	_pending_power_effects = state["pending_power_effects"]
-	_active_groves = state["active_groves"]
-	_summon_despawn_ticks = state["summon_despawn_ticks"]
-	_summon_aura_source_ids = state.get("summon_aura_source_ids", {})
-	var adopted_pings: Array[Dictionary] = []
-	for ping_value in Array(state.get("field_pings", [])):
-		if typeof(ping_value) == TYPE_DICTIONARY:
-			adopted_pings.append(ping_value as Dictionary)
-	_field_pings = adopted_pings
-	var adopted_weather: Array[Dictionary] = []
-	for weather_value in Array(state.get("weather_effects", [])):
-		if typeof(weather_value) == TYPE_DICTIONARY:
-			adopted_weather.append(weather_value as Dictionary)
-	_weather_effects = adopted_weather
-	_migrate_restored_weather_sources()
-	expansion_pads = state["expansion_pads"]
-	_expansion_build_rules = state["expansion_build_rules"]
-	_next_expansion_structure_id = int(state["next_expansion_structure_id"])
-	build_plots_only = bool(state.get("build_plots_only", false))
-	build_plots = state.get("build_plots", {})
-	_has_hero_units = bool(state["has_hero_units"])
-	_unit_ability_rules = state["unit_ability_rules"]
-	_unit_experience_rules = state["unit_experience_rules"]
-	_pending_commands = state["pending_commands"]
-	# Absent when empty by construction (empty-is-absent hash discipline).
-	unpackable_bases = state.get("unpackable_bases", {})
-	map_named_object_namespace = state.get("map_named_object_namespace", {})
-	script_unit_references = state.get("script_unit_references", {})
-	script_entity_references = state.get("script_entity_references", {})
-	create_object_die_pending = state.get("create_object_die_pending", [])
-	physics_objects = state.get("physics_objects", {})
-	_next_physics_object_id = int(state.get("next_physics_object_id", 50000))
-	projectiles = state.get("projectiles", {})
-	_next_projectile_id = int(state.get("next_projectile_id", 70000))
-	pickup_objects = state.get("pickup_objects", {})
-	_next_pickup_object_id = int(state.get("next_pickup_object_id", 60000))
-	_shared_ability_cooldowns = state.get("shared_ability_cooldowns", {})
-	respawn_schedules = state.get("respawn_schedules", {})
-	_ensure_parity()
-	if state.has("parity"):
-		parity.from_state(state.get("parity", {}) as Dictionary)
-	else:
-		parity.clear()
-	script_object_type_lists = state.get("script_object_type_lists", {})
-	var restored_script_teams: Dictionary = state.get("script_teams", {})
-	for script_team_name in script_teams.keys():
-		var configured := script_teams[script_team_name] as Dictionary
-		script_teams[script_team_name] = _script_team_definition(configured)
-	for script_team_name in restored_script_teams.keys():
-		script_teams[script_team_name] = (restored_script_teams[script_team_name] as Dictionary).duplicate(true)
-	building_permissions_by_team = state.get("building_permissions_by_team", {})
-	command_point_overrides_by_team = state.get("command_point_overrides_by_team", {})
-	team_behavior_states = state.get("team_behavior_states", {})
-	sequential_script_queues = state.get("sequential_script_queues", {})
-	production_controls_by_team = state.get("production_controls_by_team", {})
-	tech_buildability = state.get("tech_buildability", {})
-	script_team_references = state.get("script_team_references", {})
-	player_progression = state.get("player_progression", {})
-	player_economy_extras = state.get("player_economy_extras", {})
-	player_diplomacy_overrides = state.get("player_diplomacy_overrides", {})
-	script_event_counts = state.get("script_event_counts", {})
-	containment = state.get("containment", {})
-	entity_container = state.get("entity_container", {})
-	script_areas = state.get("script_areas", {})
-	script_waypoints = state.get("script_waypoints", {})
-	script_waypoint_paths = state.get("script_waypoint_paths", {})
-	team_created_edge = state.get("team_created_edge", {})
-	match_script_flags = state.get("match_script_flags", {})
-	attack_priority_names = state.get("attack_priority_names", {})
-	script_surface_bag = state.get("script_surface_bag", {})
-	_hero_peak_ranks_by_team = state.get("hero_peak_ranks_by_team", {})
-	# Absent when the minter never drew (empty-is-absent): the adopter then
-	# also derives the words from the shared rules seed on ITS first draw.
-	_logic_random_state = state.get("logic_random_state", [])
-	# IN PLACE, never rebind: attached SageScriptEnvs share this dictionary by
-	# reference (see the script_env_state block comment), so a rebind here
-	# would silently detach every live script environment from the boundary.
-	script_env_state.clear()
-	script_env_state.merge(state.get("script_env_state", {}))
-	scenario_map_placements_enabled = bool(state.get("scenario_map_placements_enabled", false))
-	_scenario_map_placements = state.get("scenario_map_placements", [])
-	_next_scenario_unit_id = int(state.get("next_scenario_unit_id", SCENARIO_UNIT_FIRST_ID))
-	_next_scenario_structure_id = int(state.get("next_scenario_structure_id", SCENARIO_STRUCTURE_FIRST_ID))
-	castle_fixtures_enabled = bool(state.get("castle_fixtures_enabled", false))
-	_castle_fixture_placements = state.get("castle_fixture_placements", [])
-	_next_castle_fixture_id = int(state.get("next_castle_fixture_id", CASTLE_FIXTURE_FIRST_ID))
-	# Reconstruct the derived team registry + per-team manifest aliases from the
-	# restored authoritative dicts. Roster order matches setup()'s ascending
-	# seeding; the manifest tables realias the restored global tables. Neither is
-	# part of the snapshot, so this does not affect the restored hash.
-	_reseed_roster_from_state()
-	_seed_team_manifest_tables()
-	# Re-apply the legacy forge fallback into any cross-faction team's derived
-	# (unhashed) contract table. Same-faction teams alias the restored global,
-	# which already carries the provisionals, so this is a no-op there and never
-	# mutates hashed state.
-	_register_forge_upgrade_contracts()
-	# Both clocks (sim tick and every attached env's interpreter tick) were
-	# just set from one snapshot: rebase the recorded executor offsets from
-	# those values - the same numbers every peer restoring this snapshot
-	# holds, so the derived offset stays peer-identical.
-	_rebase_script_executor_offsets()
+	_persistence_subsystem().restore_authoritative_state(state)
 
 
 func _reseed_roster_from_state() -> void:
@@ -33600,26 +31522,12 @@ func _reseed_roster_from_state() -> void:
 
 
 func _canonicalize(value: Variant) -> Variant:
-	if typeof(value) == TYPE_DICTIONARY:
-		var source := value as Dictionary
-		var keys := source.keys()
-		keys.sort_custom(_canonical_key_less)
-		var rows: Array = []
-		for key in keys:
-			rows.append([_canonicalize(key), _canonicalize(source[key])])
-		return rows
-	if typeof(value) == TYPE_ARRAY:
-		var rows: Array = []
-		for item in value as Array:
-			rows.append(_canonicalize(item))
-		return rows
-	return value
+	return _persistence_subsystem().canonicalize(value)
 
 
 func _canonical_key_less(a: Variant, b: Variant) -> bool:
-	return "%02d:%s" % [typeof(a), var_to_str(a)] < "%02d:%s" % [typeof(b), var_to_str(b)]
+	return _persistence_subsystem().canonical_key_less(a, b)
 
-# --- script surface residual bag (honest stores; not full retail subsystems) ---
 
 var script_surface_bag: Dictionary = {}  # generic key->value residual stores
 
