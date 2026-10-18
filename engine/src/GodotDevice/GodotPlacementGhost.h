@@ -30,6 +30,8 @@
 #include <vector>
 
 class CastleTemplateStore;
+class CommandStore;
+class Player;
 class GameTextSource;
 class MappedImageCollection;
 class InGameUI;
@@ -50,6 +52,8 @@ public:
 	// `judge` false on a frame the logic worker runs (InGameUI's pose only: PlacementIcons::update)
 	void sync(LiveGame &game, const InGameUI &ui, double deltaSeconds, unsigned ghostOptions, bool judge = true);
 	void clear();
+	// Load the current local builders' placement models during HUD setup, before input.
+	void preload(LiveGame &game, const CommandStore &commands, const Player &player);
 	// the farm placement feedback's sources (community PR #37): the HUD's mapped images (InGameUI PlaceTerrainResourceClaimantDecal names one) and game text
 	void setFeedbackSources(const MappedImageCollection *images, const GameTextSource *text)
 	{
@@ -108,7 +112,8 @@ private:
 	std::unique_ptr<CastleTemplateStore> m_castles;
 	std::unique_ptr<PlacementIcons> m_icons;
 	LiveGame *m_game = nullptr;
-	std::vector<IconView> m_views;
+	std::vector<IconView> m_views; // retained slot caches; inactive slots are hidden
+	size_t m_modelBuilds = 0, m_preloadedTemplates = 0;
 	std::map<std::string, Ref<Texture2D>> m_textures;
 	Ref<W3DModelBuilder> m_textureLoader;
 	W3DInstancer *m_arrow = nullptr;
