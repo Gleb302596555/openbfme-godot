@@ -97,6 +97,28 @@ func fortress() -> Dictionary:
 	return find_own(func(o): return str(o.template).find("Fortress") >= 0 and str(o.template).find("Citadel") >= 0)
 
 
+# lane RELFIX-2: the open ground 450 units beside the fortress, on the side towards the map's middle. Evendim's Men start sits at the east edge (fortress
+# x 4602 of a 5000-unit map), where fortress.x + 450 is off the map: an object there covers no shroud cell, so its owner sees it SHROUDED (RW 0xB4E890) and
+# InGameUI::update deselects it on the next 30th client frame (RW 0x6A2449, no owner test: VISUAL-2 r2), which left the barracks scenario without bubbles
+func beside_fortress(f: Dictionary, dy: float = 0.0) -> Vector2:
+	var census: Dictionary = world.get_census()
+	var side := 1.0
+	if census.has("extent_x") and float(f.x) > float(census.extent_x) * 0.5:
+		side = -1.0
+	return Vector2(float(f.x) + side * 450.0, float(f.y) + dy)
+
+
+# lane RELFIX-2: an object a scenario created is on the map and seen clear by the local player (its own sight or the player's), else why not
+func check_seen(id: int, what: String) -> String:
+	var census: Dictionary = world.get_census()
+	if not census.has("extent_x"):
+		return "no playable extent in the census"
+	var st: int = world.get_object_shroud_status(id)
+	if st != 1 and st != 2:
+		return "%s %d is not seen clear by the local player (shroud status %d, playable extent %s x %s)" % [what, id, st, str(census.extent_x), str(census.extent_y)]
+	return ""
+
+
 func wait_help_shown() -> bool:
 	for i in 60:
 		if bool(help().get("shown", false)) and int(help().get("draws", 0)) > 0:
@@ -225,11 +247,14 @@ func _scenario_barracks() -> String:
 	var f := fortress()
 	if f.is_empty():
 		return "no own fortress citadel"
-	var at := Vector2(f.x + 450.0, f.y)
+	var at := beside_fortress(f)
 	var id: int = world.create_object("GondorBarracks", game._local_index, at.x, at.y, 0.0)
 	if id < 0:
 		return "create_object GondorBarracks failed"
 	await game._step(10)
+	var unseen := check_seen(id, "the barracks")
+	if unseen != "":
+		return unseen
 	var o := find_own(func(x): return int(x.id) == id)
 	if o.is_empty() or not await select_object(o):
 		return "the barracks could not be selected"
@@ -283,10 +308,14 @@ func _scenario_queue() -> String:
 	var f := fortress()
 	if f.is_empty():
 		return "no own fortress citadel"
-	var id: int = world.create_object("GondorBarracks", game._local_index, f.x + 450.0, f.y, 0.0)
+	var at := beside_fortress(f)
+	var id: int = world.create_object("GondorBarracks", game._local_index, at.x, at.y, 0.0)
 	if id < 0:
 		return "create_object GondorBarracks failed"
 	await game._step(10)
+	var unseen := check_seen(id, "the barracks")
+	if unseen != "":
+		return unseen
 	var o := find_own(func(x): return int(x.id) == id)
 	if o.is_empty() or not await select_object(o):
 		return "the barracks could not be selected"
@@ -331,7 +360,7 @@ func _scenario_enemy() -> String:
 	if f.is_empty() or e.is_empty():
 		return "no own fortress or no enemy player"
 	for t in ["GondorBarracks", "MordorGothmog"]:
-		var at := Vector2(f.x + 450.0, f.y + (0.0 if t == "GondorBarracks" else 160.0)) # the open ground east of the fortress (the queue scenario's spot)
+		var at := beside_fortress(f, 0.0 if t == "GondorBarracks" else 160.0) # the open ground beside the fortress (the queue scenario's spot)
 		var id: int = world.create_object(t, int(e.index), at.x, at.y, 0.0)
 		if id < 0:
 			return "create_object %s for the enemy failed" % t
