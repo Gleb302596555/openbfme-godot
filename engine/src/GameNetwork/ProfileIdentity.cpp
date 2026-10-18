@@ -131,7 +131,7 @@ std::string ProfileIdentity::difference(const ProfileIdentity &ours, const Profi
 const std::vector<ProfileIdentity::VerifiedEngine> &ProfileIdentity::verifiedReplayEngines()
 {
 	static const std::vector<VerifiedEngine> v = {
-		{ "976a1229ea71f55c95f05da0b8530fc7b5a5b181663ede0396ee43ae3b6be361", "archive build 593e83cd (before NETLAG-1), fixture engine/tests/data/netlag1/prelane_runahead2.replay" },
+		{ "e2a8e912ec797b1969fafeb7df6d18a264b9aa2723ced5109490ff5b2ce0bfbb", "q19 tree b093e098 with NETLAG-1's command-delay sources reverted (before NETLAG-1), fixture engine/tests/data/netlag1/prelane_runahead2.replay" },
 	};
 	return v;
 }

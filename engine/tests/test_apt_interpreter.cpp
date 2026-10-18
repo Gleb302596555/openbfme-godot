@@ -5,6 +5,7 @@
 // format specification v19 and the retail disassembly in the spec, never from this engine's output.
 // GPL-3.0.
 
+#include "Common/BfmeGame.h"
 #include "doctest.h"
 #include "AptTestUtil.h"
 #include "AptRetail.h"
@@ -448,6 +449,30 @@ TEST_CASE("VM: a function defined inside a function keeps reading and writing th
 	});
 	CHECK(fx.vm.callFunction(next, AptValue(), {}).asInteger() == 13);
 	CHECK(fx.errorsText() == "");
+}
+
+TEST_CASE("VM: BFME1 PushData lookup constants read the active pool")
+{
+	// community PR #36: BFME1 mounted only (Common/BfmeGame.h); RotWK keeps S-013 (the test below)
+	struct Bfme1Mode
+	{
+		bool was = bfme1Mounted();
+		Bfme1Mode() { setBfme1Mounted(true); }
+		~Bfme1Mode() { setBfme1Mounted(was); }
+	} bfme1;
+	Fx fx;
+	REQUIRE(fx.run([&](TestMovie &m, Asm &a) {
+		a.constantPool({ "Options", "Resume Game" });
+		a.defineFunction("label", {}, [&](Asm &f) {
+			f.pushDataIdx({ m.constTyped(APT_CONST_LOOKUP, 0) }).op(APT_OP_RETURN);
+		});
+		setVar(a, "resume", [&] { a.pushDataIdx({ m.constTyped(APT_CONST_LOOKUP, 1) }); });
+	}));
+	CHECK(fx.var("resume").asString() == "Resume Game");
+	REQUIRE(fx.run([&](TestMovie &, Asm &a) { a.constantPool({ "different pool" }); }));
+	AptValue label = fx.var("label");
+	CHECK(fx.vm.callFunction(label, AptValue::object(fx.root), {}).asString() == "Options");
+	CHECK(fx.vm.errors().empty());
 }
 
 TEST_CASE("VM: a function keeps the constant pool and defining timeline of the program that defined it")

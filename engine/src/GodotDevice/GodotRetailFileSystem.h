@@ -9,6 +9,7 @@
 #include "Common/RetailArchivePolicy.h"
 
 #include <godot_cpp/classes/ref_counted.hpp>
+#include <godot_cpp/classes/ref.hpp>
 #include <godot_cpp/variant/array.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
@@ -39,11 +40,20 @@ public:
 	// (hashes cached in user://retail-md5-cache.tsv by path+size+mtime). Returns a report; on any
 	// error nothing is mounted.
 	Dictionary mount_retail();
+	// Standalone BFME1 installation, using its own archives for both menus and gameplay.
+	Dictionary mount_bfme1_path(const String &root);
+	bool is_bfme1() const { return m_bfme1; }
+	const std::string &bfme1_root() const { return m_bfme1Root; }
 	// lane RELEASE-1: the same mount from two folders the player picked on the first-run screen (nothing is read from the
 	// environment or the config file; remembering the pick is InstallSetup.remember's job once this succeeded).
 	Dictionary mount_retail_paths(const String &rotwk, const String &bfme2);
+	// Build a presentation-only source from the verified BFME2 install of this
+	// normal RotWK mount. The returned source never becomes a GameWorld source.
+	Ref<RetailFileSystem> create_bfme2_shell();
 
 	bool is_mounted() const { return m_mounted; }
+	bool is_shell_source() const { return m_shellSource; }
+	String install_root() const;
 	bool file_exists(const String &path) const;
 	PackedByteArray read_file(const String &path);
 	String get_archive_for_file(const String &path) const;
@@ -68,9 +78,14 @@ protected:
 
 private:
 	Dictionary mountFrom(const std::string &rotwkRoot, const std::string &bfme2Root, PackedStringArray errors);
+	Dictionary mountBfme2Shell(const std::string &bfme2Root);
 
 	std::unique_ptr<Win32BIGFileSystem> m_fs;
 	bool m_mounted = false;
+	bool m_shellSource = false;
+	std::string m_installRoot;
+	bool m_bfme1 = false;
+	std::string m_bfme1Root;
 	String m_lastError;
 	std::vector<LooseFileFinding> m_loose;
 	std::vector<MountedArchive> m_mountedArchives;

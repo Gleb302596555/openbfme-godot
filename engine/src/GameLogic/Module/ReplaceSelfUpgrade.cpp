@@ -6,6 +6,7 @@
 #endif
 
 #include "GameLogic/Module/ReplaceSelfUpgrade.h"
+#include "GameLogic/SnapshotXfer.h"
 
 #include "Common/Player.h"
 #include "Common/Thing/ModuleFactory.h"
@@ -272,4 +273,12 @@ void ReplaceSelfUpgrade::registerClass(ModuleFactory &modules)
 		}
 		return std::make_unique<ReplaceSelfUpgrade>(thing, typed);
 	});
+}
+
+// ---- lane SAVE-4b: the snapshots (UpgradeModule's: the classes keep no state of their own) ----
+
+void ReplaceSelfUpgrade::xfer(Xfer &x)
+{
+	SnapshotXfer::version(x, 1, 1);
+	UpgradeModule::xfer(x);
 }

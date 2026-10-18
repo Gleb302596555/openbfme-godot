@@ -3,6 +3,10 @@
 ## belongs to the window (scripts/main.gd). It only shows; main.gd fills it in.
 extends HBoxContainer
 
+signal game_selected(game: String)
+var game_picker: OptionButton
+var missing_games: Label
+
 signal download_games
 signal show_news
 
@@ -81,16 +85,22 @@ func _init() -> void:
 	p.panel.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	left.add_child(p.panel)
 	p.box.add_child(W.h3("Your games"))
+	# community PR #36: the game Play starts, in the games row where the names were (a row of its own made the panel's bottom almost meet What's
+	# New's: the layout check); its items name the versions
+	game_picker = OptionButton.new()
+	game_picker.add_item("RotWK 2.01 · BFME II 1.06")
+	game_picker.add_item("Battle for Middle-earth I 1.03")
+	game_picker.item_selected.connect(func(index: int): game_selected.emit("bfme1" if index == 1 else "bfme2"))
 	var status := W.label("")
 	_games_status = status
-	var names := W.label("RotWK 2.01 · BFME II 1.06")
-	p.box.add_child(W.row(names, status, true))
+	p.box.add_child(W.row(game_picker, status, true))
 	games_found = W.vbox(4)
 	games_where = W.trim_label("", "Muted")
 	games_found.add_child(games_where)
 	p.box.add_child(games_found)
 	games_card = W.vbox(8)
-	games_card.add_child(W.wrap("The Rise of the Witch-king 2.01 and Battle for Middle-earth II 1.06 were not found.", "Muted"))
+	missing_games = W.wrap("The Rise of the Witch-king 2.01 and Battle for Middle-earth II 1.06 were not found.", "Muted")
+	games_card.add_child(missing_games)
 	var grow := W.hbox(12)
 	games_button = W.button("Download the games", "download", "GoldButton", 16)
 	games_button.pressed.connect(func() -> void: download_games.emit())

@@ -60,10 +60,22 @@ const FieldParse kStaticGameLODFields[] = {
 	{ "ShaderMaterialReplacement", INI::parseBool, nullptr, LOD_OFF(shaderMaterialReplacement) },
 	{ "UseHeatEffects", INI::parseBool, nullptr, LOD_OFF(useHeatEffects) },
 	{ "DecalLOD", INI::parseIndexList, at(kDecal), LOD_OFF(decalLOD) },
-	{ "MinParticlePriority", INI::parseIndexList, FXParticleSystem::ParticlePriorityNames, LOD_OFF(minParticlePriority) },       // RW 0xC31AE8
-	{ "MinParticleSkipPriority", INI::parseIndexList, FXParticleSystem::ParticlePriorityNames, LOD_OFF(minParticleSkipPriority) }, // RW 0xC31AE8
+	{ "MinParticlePriority", FXParticleSystem::ParsePriority, FXParticleSystem::ParticlePriorityNames, LOD_OFF(minParticlePriority) },       // RW 0xC31AE8
+	{ "MinParticleSkipPriority", FXParticleSystem::ParsePriority, FXParticleSystem::ParticlePriorityNames, LOD_OFF(minParticleSkipPriority) }, // RW 0xC31AE8
 	{ nullptr, nullptr, nullptr, 0 },
 };
+// community PR #36: BFME1's StaticGameLOD rows (stored, not used) (BFME1 data only, Common/BfmeGame.h); RotWK's table stays the binary's
+const FieldParse kBfme1StaticGameLODFields[] = {
+	{ "UseAnisotropic", INI::parseBool, nullptr, LOD_OFF(useAnisotropic) },
+	{ "UsePixelShaders", INI::parseBool, nullptr, LOD_OFF(usePixelShaders) },
+	{ "UseLightMap", INI::parseBool, nullptr, LOD_OFF(useLightMap) },
+	{ "UseBuildupScaffolds", INI::parseBool, nullptr, LOD_OFF(useBuildupScaffolds) },
+	{ "UseTreeSway", INI::parseBool, nullptr, LOD_OFF(useTreeSway) },
+	{ "UseHighQualityVideo", INI::parseBool, nullptr, LOD_OFF(useHighQualityVideo) },
+	{ nullptr, nullptr, nullptr, 0 },
+};
+const Bfme1FieldRowsRegistration kBfme1StaticGameLODFieldsRegistration(kStaticGameLODFields, kBfme1StaticGameLODFields);
+
 #undef LOD_OFF
 
 // RW 0xDA2228

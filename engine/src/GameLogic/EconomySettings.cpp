@@ -4,6 +4,7 @@
 #include "GameLogic/EconomySettings.h"
 
 #include "Common/ArchiveFileSystem.h"
+#include "Common/BfmeGame.h"
 #include "Common/AsciiString.h"
 #include "Common/INI.h"
 #include "Common/INIException.h"
@@ -51,7 +52,14 @@ void parsePair(INI *ini, void *instance, void *store, const void *userData)
 {
 	EconomySettings::Pair *pair = static_cast<EconomySettings::Pair *>(store);
 	INI::parseInt(ini, instance, &pair->start, nullptr);
-	INI::parseInt(ini, instance, &pair->cap, nullptr);
+	if (ini->bfme1Data())
+	{
+		pair->cap = pair->start; // community PR #36: BFME1's command points are one value (Open-BFME-1 GlobalDataConstructor.cpp); BFME1 data only
+	}
+	else
+	{
+		INI::parseInt(ini, instance, &pair->cap, nullptr);
+	}
 	static_cast<State *>(instance)->seen |= (unsigned long long)(std::uintptr_t)userData;
 }
 
@@ -133,6 +141,15 @@ void skipField(INI *ini, void *, void *, const void *userData)
 	}
 }
 
+// BFME1's combined player-count rows (GoodCommandPointsMP56 / MP78 ...): one value for both slots of the pair array it starts. Open-BFME-1
+// GlobalDataConstructor.cpp:756-759 (+ 0xEA0 .. + 0xEAC) and Player_newMap.cpp: 7 or more players take MP78, 5 or more MP56, else MP4 / MP3 / MP2
+void parsePairTwice(INI *ini, void *instance, void *store, const void *userData)
+{
+	parsePair(ini, instance, store, userData);
+	EconomySettings::Pair *pair = static_cast<EconomySettings::Pair *>(store);
+	pair[1] = pair[0];
+}
+
 #define SEEN_DATA(bit) ((const void *)(std::uintptr_t)(bit))
 #define ES_OFF(member) (int)offsetof(State, values.member)
 
@@ -171,6 +188,16 @@ FieldParse kFields[] = {
 	{ "EvilCommandPointsMP8", parsePair, SEEN_DATA(SEEN_MP0 << 13), ES_OFF(evilMP[6]) },
 	{ nullptr, skipField, nullptr, 0 }
 };
+// community PR #36: BFME1's combined player-count rows (BFME1 data only, Common/BfmeGame.h); RotWK's table stays the binary's
+const FieldParse kBfme1Fields[] = {
+	{ "GoodCommandPointsMP56", parsePairTwice, SEEN_DATA((SEEN_MP0 << 3) | (SEEN_MP0 << 4)), ES_OFF(goodMP[3]) }, // 5 and 6 players
+	{ "GoodCommandPointsMP78", parsePairTwice, SEEN_DATA((SEEN_MP0 << 5) | (SEEN_MP0 << 6)), ES_OFF(goodMP[5]) }, // 7 and 8 players
+	{ "EvilCommandPointsMP56", parsePairTwice, SEEN_DATA((SEEN_MP0 << 10) | (SEEN_MP0 << 11)), ES_OFF(evilMP[3]) },
+	{ "EvilCommandPointsMP78", parsePairTwice, SEEN_DATA((SEEN_MP0 << 12) | (SEEN_MP0 << 13)), ES_OFF(evilMP[5]) },
+	{ nullptr, nullptr, nullptr, 0 },
+};
+const Bfme1FieldRowsRegistration kBfme1FieldsRegistration(kFields, kBfme1Fields);
+
 
 const unsigned long long kAllSeen = (1ull << 13) - 1 | (((1ull << 14) - 1) << 13);
 
@@ -180,6 +207,13 @@ public:
 	explicit Load(ArchiveFileSystem *fs)
 	{
 		m_env.fileSystem = fs;
+		if (fs && isBfme1Data(*fs))
+		{
+			// community PR #36: BFME1's GameData has no TerrainResourceCellSize (its farms have a fixed income, no circular farm grid); a 1.0 cell stands
+			// in. INFERENCE (S-5017)
+			m_state.values.terrainResourceCellSize = 1.0f;
+			m_state.seen |= SEEN_CELL;
+		}
 		RegisterRecordingBlockStubs(m_env.blocks, m_recorder, { "GameData" }, StubExtent::Lenient);
 		m_env.blocks.registerBlock("GameData", [this](INI *ini) {
 			m_state.block = true;

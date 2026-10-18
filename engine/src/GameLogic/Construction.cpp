@@ -282,6 +282,15 @@ Object *Construction::constructOnPlot(Object &plot, const ThingTemplate &what, c
 	}
 	// the plot's pad is drawn away once something stands on it (the pad's own CONSTRUCTION_COMPLETE model state is `Model = None`)
 	setModelConditions(plot, {}, { "CONSTRUCTION_COMPLETE" });
+	// community PR #36, BFME1 data only (docs/BFME1.md; INFERENCE, S-5017): a regular build plot is hidden and unselectable while something stands on it,
+	// and its FoundationAIUpdate watches the occupant to bring it back. RotWK / BFME2 plots are unchanged
+	if (plot.getTemplate()->bfme1Data() && (plot.isKindOfName("BASE_FOUNDATION") || plot.isKindOfName("BASE_DEFENSE_FOUNDATION") || plot.isKindOfName("EXPANSION_PAD")) && member)
+	{
+		plot.setDrawableHidden(true);
+		const int unselectable = ObjectTemplateInfoBuilder::objectStatusIndex("UNSELECTABLE");
+		if (unselectable >= 0) plot.setStatus((unsigned)unselectable, true);
+		foundation->wakeFromInterface(UPDATE_SLEEP_NONE);
+	}
 	if (rises)
 	{
 		hasGettingBuilt(*obj, what);

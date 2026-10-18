@@ -571,6 +571,24 @@ TEST_CASE("asset manager: a malformed file is reported once in Faults and its na
 
 // ---------------------------------------------------------------------------------------------------------------------
 
+TEST_CASE("texture resolution: BFME1 camp floors accept PNG and JPEG replacements")
+{
+	// community PR #36: the layout is the files' (Resolve_W3D_Texture's flatLayout: BFME1 data), not a process flag
+	const auto paired = Resolve_W3D_Texture("GBCastFloorEX2.tga", [](const std::string &p) {
+		return p == "art\\textures\\gbcastfloorex2.jpg" || p == "art\\textures\\gbcastfloorex2.png";
+	}, true);
+	REQUIRE(paired.Found);
+	CHECK(paired.Path == "art\\textures\\gbcastfloorex2.jpg"); // PNG is the alpha mask, not the colour image.
+	for (const std::string ext : { "png", "jpg" })
+	{
+		const std::string path = "art\\textures\\gbcampfloor." + ext;
+		const auto resolved = Resolve_W3D_Texture("GBCampFloor.tga", [&](const std::string &p) { return p == path; }, true);
+		REQUIRE(resolved.Found);
+		CHECK(resolved.Path == path);
+		CHECK_FALSE(resolved.IsDDS);
+	}
+}
+
 TEST_CASE("texture resolution: dds first, then tga, then art\\textures; names are lower-cased; two-letter folder")
 {
 	std::set<std::string> files = { "art\\compiledtextures\\gu\\gumanatarms.dds", "art\\compiledtextures\\ot\\other.tga",

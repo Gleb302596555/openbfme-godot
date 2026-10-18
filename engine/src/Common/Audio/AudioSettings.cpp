@@ -112,6 +112,13 @@ const FieldParse *table1()
 			}
 		}
 		rows.push_back({ nullptr, nullptr, nullptr, 0 });
+		// community PR #36: BFME1's AudioSettings rows (Open-BFME-1 INIAudioSettings.cpp), read only from BFME1 data (Common/BfmeGame.h)
+		static const FieldParse bfme1Rows[] = {
+			{ "3DBufferCallbackCallsPerBufferLength", INI::parseUnsignedInt, nullptr, AS(bufferCallbacks3D) },
+			{ "3DBufferLengthMS", INI::parseUnsignedInt, nullptr, AS(bufferLength3DMS) },
+			{ nullptr, nullptr, nullptr, 0 },
+		};
+		RegisterBfme1FieldRows(rows.data(), bfme1Rows);
 	}
 	return rows.data();
 }

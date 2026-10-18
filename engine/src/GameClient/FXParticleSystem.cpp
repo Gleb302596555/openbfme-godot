@@ -25,6 +25,37 @@ const char *const WindMotionNames[] = { "NONE", "Unused", "PingPong", "Circular"
 namespace
 {
 
+// RotWK / BFME2: INI::parseIndexList over the binary's names. community PR #36, BFME1 data only (Common/BfmeGame.h): BFME1 (Open-BFME-1
+// Rva00D10180.cpp) has semantic priorities rather than RotWK's quality thresholds; INFERENCE (S-5017): CRITICAL / ALWAYS_RENDER map to RotWK's tier 6,
+// the others to tier 2 (BFME1's particle budget is not reproduced)
+void parsePriority(INI *ini, void *instance, void *store, const void *userData)
+{
+	if (!ini->bfme1Data())
+	{
+		INI::parseIndexList(ini, instance, store, userData);
+		return;
+	}
+	const char *token = ini->getNextToken();
+	const char *const bfme1[] = { "NONE", "WEAPON_EXPLOSION", "SCORCHMARK", "DUST_TRAIL", "BUILDUP", "DEBRIS_TRAIL", "UNIT_DAMAGE_FX", "DEATH_EXPLOSION", "SEMI_CONSTANT", "CONSTANT", "WEAPON_TRAIL", "AREA_EFFECT", "CRITICAL", "ALWAYS_RENDER", nullptr };
+	for (int i = 0; ParticlePriorityNames[i]; ++i)
+	{
+		if (AsciiStringUtil::compareNoCase(token, ParticlePriorityNames[i]) == 0)
+		{
+			*(int *)store = i;
+			return;
+		}
+	}
+	for (int i = 1; bfme1[i]; ++i)
+	{
+		if (AsciiStringUtil::compareNoCase(token, bfme1[i]) == 0)
+		{
+			*(int *)store = i >= 12 ? 6 : 2;
+			return;
+		}
+	}
+	*(int *)store = INI::scanIndexList(token, ParticlePriorityNames);
+}
+
 // ---- field parsers --------------------------------------------------------------------------------------------------
 // RW 0x969878: Alpha<N> = low high frame
 void parseAlphaKey(INI *ini, void *, void *store, const void *)
@@ -630,7 +661,7 @@ const FieldParse *ParticleSystemTemplate::systemFieldParse()
 	if (t.empty())
 	{
 		static ParticleSystemInfo d;
-		t.push_back(ROW("Priority", INI::parseIndexList, ParticlePriorityNames, d, m_priority));
+		t.push_back(ROW("Priority", parsePriority, ParticlePriorityNames, d, m_priority));
 		t.push_back(ROW("IsOneShot", INI::parseBool, nullptr, d, m_isOneShot));
 		t.push_back(ROW("Shader", INI::parseIndexList, ParticleShaderNames, d, m_shaderType));
 		t.push_back(ROW("Type", INI::parseIndexList, ParticleTypeNames, d, m_particleType));
@@ -701,6 +732,8 @@ void FXParticleSystemTemplateStore::clear()
 	m_order.clear();
 	m_overrideLoaded = false;
 }
+
+void ParsePriority(INI *ini, void *instance, void *store, const void *userData) { parsePriority(ini, instance, store, userData); }
 
 FXParticleSystemTemplateStore *TheFXParticleSystemTemplateStore = nullptr;
 

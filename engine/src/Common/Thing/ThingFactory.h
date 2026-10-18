@@ -55,7 +55,7 @@ class Team;
 class ThingFactory
 {
 public:
-	ThingFactory(NameKeyGenerator &keys, ModuleFactory &modules, const RwGrammar &grammar);
+	ThingFactory(NameKeyGenerator &keys, ModuleFactory &modules, const RwGrammar &grammar, bool bfme1 = false);
 	~ThingFactory();
 	ThingFactory(const ThingFactory &) = delete;
 	ThingFactory &operator=(const ThingFactory &) = delete;
@@ -106,6 +106,7 @@ public:
 
 	// field slot names: the object table's rows, then the audio table's
 	const std::vector<std::string> &fieldSlotNames() const { return m_slotNames; }
+	bool bfme1Data() const { return m_bfme1; } // community PR #36 (Common/BfmeGame.h)
 	size_t fieldSlotCount() const { return m_slotNames.size(); }
 
 	// how many field lines / blocks have been stored raw so far, by field name (stops S-071, S-072)
@@ -123,7 +124,7 @@ private:
 
 	static void parseField(INI *ini, void *instance, void *store, const void *userData);
 	static Semantic semanticOf(const std::string &semantic);
-	void buildTables();
+	void buildTables(bool bfme1);
 	void noteRaw(const std::string &field) { ++m_rawFieldCounts[field]; }
 
 	NameKeyGenerator &m_keys;
@@ -136,6 +137,7 @@ private:
 	unsigned short m_nextTemplateID = 1;                ///< RW 0x6D1ACD
 
 	std::vector<std::string> m_slotNames;
+	bool m_bfme1 = false; ///< community PR #36: built for BFME1 data (its legacy object rows; its templates answer bfme1Data())
 	std::unordered_map<std::string, size_t> m_slotIndex; ///< m_slotNames' name -> slot (ThingTemplate::findField)
 	std::vector<std::unique_ptr<FieldBinding>> m_bindings;
 	std::vector<FieldParse> m_objectRows;

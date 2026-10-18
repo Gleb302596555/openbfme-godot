@@ -82,17 +82,18 @@ ThingFactory::Semantic ThingFactory::semanticOf(const std::string &s)
 	return (ThingFactory::Semantic)it->second;
 }
 
-ThingFactory::ThingFactory(NameKeyGenerator &keys, ModuleFactory &modules, const RwGrammar &grammar)
+ThingFactory::ThingFactory(NameKeyGenerator &keys, ModuleFactory &modules, const RwGrammar &grammar, bool bfme1)
 	: m_keys(keys)
 	, m_modules(modules)
 	, m_grammar(grammar)
+	, m_bfme1(bfme1)
 {
-	buildTables();
+	buildTables(bfme1);
 }
 
 ThingFactory::~ThingFactory() = default;
 
-void ThingFactory::buildTables()
+void ThingFactory::buildTables(bool bfme1)
 {
 	const RwBinaryData &data = m_grammar.data();
 	std::set<std::string> seen;
@@ -141,6 +142,28 @@ void ThingFactory::buildTables()
 	}
 	build(obj, m_objectRows);
 	build(aud, m_audioRows);
+	if (bfme1)
+	{
+		const std::pair<const char *, Semantic> fields[] = {
+#include "Common/Thing/Bfme1ObjectFields.inc"
+		};
+		m_objectRows.pop_back();
+		for (const auto &field : fields)
+		{
+			if (seen.count(field.first)) continue;
+			auto b = std::make_unique<FieldBinding>();
+			b->factory = this;
+			b->slot = m_slotNames.size();
+			b->name = field.first;
+			b->sem = field.second;
+			m_slotIndex.emplace(b->name, b->slot);
+			m_slotNames.push_back(b->name);
+			m_objectRows.push_back({b->name.c_str(), &ThingFactory::parseField, b.get(), 0});
+			m_bindings.push_back(std::move(b));
+		}
+		m_objectRows.push_back({nullptr, nullptr, nullptr, 0});
+	}
+
 }
 
 void ThingFactory::buildFieldParse(MultiIniFieldParse &p) const
@@ -194,6 +217,7 @@ ThingTemplate *ThingFactory::newTemplate(const std::string &name)
 	ThingTemplate *tt = owned.get();
 	m_arena.push_back(std::move(owned));
 	tt->m_fieldNames = &m_slotNames;
+	tt->m_bfme1 = m_bfme1; // community PR #36
 	tt->m_fieldIndex = &m_slotIndex;
 	tt->m_fields.assign(m_slotNames.size(), FieldValue());
 
@@ -220,6 +244,7 @@ ThingTemplate *ThingFactory::newOverride(ThingTemplate *thingTemplate)
 	ThingTemplate *tt = owned.get();
 	m_arena.push_back(std::move(owned));
 	tt->m_fieldNames = &m_slotNames;
+	tt->m_bfme1 = m_bfme1; // community PR #36
 	tt->m_fieldIndex = &m_slotIndex;
 	tt->copyFrom(child);
 	tt->m_nameString = child->m_nameString; // the override is a copy of the whole template, name and id included
@@ -365,6 +390,7 @@ void ThingFactory::parseField(INI *ini, void *instance, void *, const void *user
 	{
 		tt->m_fields.resize(factory.m_slotNames.size());
 		tt->m_fieldNames = &factory.m_slotNames;
+		tt->m_bfme1 = factory.m_bfme1; // community PR #36
 		tt->m_fieldIndex = &factory.m_slotIndex;
 	}
 	FieldValue &slot = tt->m_fields[b->slot];
@@ -616,6 +642,7 @@ void ThingFactory::parseField(INI *ini, void *instance, void *, const void *user
 			if (ini->getLoadType() == INI_LOAD_CREATE_OVERRIDES)
 			{
 				eraseBlocks();
+				tt->m_productionPrerequisites.clear();
 			}
 			break;
 		default:
@@ -639,7 +666,14 @@ void ThingFactory::parseField(INI *ini, void *instance, void *, const void *user
 	}
 	else
 	{
-		factory.m_grammar.consumeBlock(ini, tt, b->fn);
+		if (b->sem == S_Prerequisites)
+		{
+			ProductionPrerequisite::parseBlock(ini, tt->m_productionPrerequisites);
+		}
+		else
+		{
+			factory.m_grammar.consumeBlock(ini, tt, b->fn);
+		}
 	}
 	const size_t last = ini->getLineNum();
 	for (size_t i = first; i < last; ++i)
@@ -675,7 +709,7 @@ std::vector<std::string> ThingFactory::acceptanceStops() const
 			}
 		}
 	}
-	out.push_back("S-071: " + std::to_string(rawBlockRows) + " object-level nested blocks (LocomotorSet, Prerequisites, UnitSpecificSounds/FX, AutoResolve*, ...) are kept as raw lines");
+	out.push_back("S-071: " + std::to_string(rawBlockRows) + " object-level nested blocks (LocomotorSet, UnitSpecificSounds/FX, AutoResolve*, ...) are kept as raw lines; Prerequisites also retain raw lines for diagnostics while typed rows are parsed");
 	out.push_back("S-072: " + std::to_string(rawRows) + " object-table rows have parse functions with no typed port and are kept as raw tokens; field defaults of a fresh template are not ported (unset fields read as absent)");
 	size_t conditional = 0, dispatch = 0, guarded = 0;
 	for (const auto &kv : data.functions)
