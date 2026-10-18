@@ -812,7 +812,8 @@ TEST_CASE("mapobj runtime: floor WeatherTexture / ForceToBack / StaticModelLODMo
 	CHECK(r.floorDraws == 3);
 	CHECK(r.ignoredDrawFields == std::map<std::string, size_t>({
 		{ "W3DFloorDraw DistanceFog = No", 1 }, { "W3DFloorDraw ForceToBack", 2 }, { "W3DFloorDraw StaticModelLODMode", 1 },
-		{ "W3DFloorDraw WeatherTexture", 1 }, { "W3DPropDraw DistanceFog = No", 2 } }));
+		{ "W3DPropDraw DistanceFog = No", 2 } }));
+	CHECK(r.inferredDrawFields == std::map<std::string, size_t>({ { "W3DFloorDraw WeatherTexture", 1 } })); // S-5015 (community PR #37)
 	CHECK(r.scriptsRun == 0);
 	for (const std::string &st : r.stops)
 	{
@@ -821,7 +822,8 @@ TEST_CASE("mapobj runtime: floor WeatherTexture / ForceToBack / StaticModelLODMo
 	bool s115 = false;
 	for (const std::string &line : s.out.report.stops)
 	{
-		s115 = s115 || (line.rfind("[S-115]", 0) == 0 && line.find("WeatherTexture") != std::string::npos && line.find("ForceToBack") != std::string::npos && line.find("DistanceFog") != std::string::npos);
+		s115 = s115 || (line.rfind("[S-115]", 0) == 0 && line.find("ForceToBack") != std::string::npos && line.find("DistanceFog") != std::string::npos &&
+			line.find("WeatherTexture (the snowy / normal texture swap) is drawn by inference (S-5015") != std::string::npos);
 	}
 	CHECK(s115);
 }

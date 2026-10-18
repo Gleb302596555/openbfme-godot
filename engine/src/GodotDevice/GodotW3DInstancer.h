@@ -32,6 +32,8 @@
 #include <godot_cpp/classes/multi_mesh_instance3d.hpp>
 #include <godot_cpp/classes/node3d.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
+#include <godot_cpp/variant/plane.hpp>
+#include <godot_cpp/variant/typed_array.hpp>
 #include <godot_cpp/variant/transform3d.hpp>
 
 #include <atomic>
@@ -108,7 +110,7 @@ public:
 	// 1 .. 3 and up to three ARGB colours; a Create-a-Hero is kind 3 with its record's three colours) texel by texel BEFORE filtering (RW 0x531C77), as
 	// retail builds the render object "#<model>#<options>" with its own recoloured textures (RW 0x54BDE0). Its instances take no team colour.
 	int64_t add_model_colored(const String &model_name, int64_t kind, const PackedInt64Array &colors);
-	// stop S-4832 (C++ only): the next add_model / add_model_colored builds the model with a ModelConditionState's `Texture = A B` swaps (a building's SNOW
+	// stop S-5015 (C++ only): the next add_model / add_model_colored builds the model with a ModelConditionState's `Texture = A B` swaps (a building's SNOW
 	// state: KBHall.tga -> KBHall_snow.tga): its meshes are built again, under a name that carries Texture_Swap_Suffix, with every texture A loaded as B.
 	// The add clears them.
 	void Set_Build_Texture_Swaps(const std::vector<std::pair<std::string, std::string>> &swaps) { PendingSwaps = swaps; }
@@ -117,6 +119,10 @@ public:
 	// RENDER-1 (stop S-390): the instance is lit by the map's infantry light set (KINDOF_INFANTRY drawables) instead of the objects set;
 	// the buffer stores the palette base as -(base + 1) for it.
 	void set_instance_infantry_light(int64_t instance, bool infantry);
+	// lane VISUAL-2: the tree's vegetation sway type (0 none, 1 .. 10: W3DVegetationSway, RW 0x4EC93A), written to INSTANCE_CUSTOM.w as bone + 1024 * type
+	void set_instance_sway(int64_t instance, int type);
+	// lane VISUAL-2: the instance is lit by the fogged light (a last-seen object in the fog: lights and ambient times w3d_fogged_frac), INSTANCE_CUSTOM.w += 16384
+	void set_instance_fogged(int64_t instance, bool fogged);
 	// lane PROJ-2: the drawable's opacity (RW Drawable +0xB0, the fade of DrawableFade): multiplies every pivot's fade of the instance; 0 draws nothing
 	void set_instance_opacity(int64_t instance, double opacity);
 	// A scene that needs no per-frame work (every instance static) turns the automatic update off and calls update_now() itself after
@@ -137,8 +143,10 @@ public:
 	int get_worker_threads() const { return Workers; }
 	// lane PERF-3 (presentation only): instances whose bounds lie outside the current camera's frustum are not posed; their pose stays pending and is
 	// evaluated in the first update that sees them (and by the bone queries below). Godot draws a MultiMesh whole, so a culled instance is drawn with its
-	// last pose, off screen. Off by default (a scene with other cameras on the same world, or tests reading poses, keeps every pose current)
+	// last pose, off screen. Off by default; additional views must supply their frustum or leave culling disabled.
 	void set_pose_culling(bool enabled) { PoseCulling = enabled; }
+	// An additional presentation camera's six world-space planes; empty removes it. Poses visible in either camera stay current.
+	bool set_extra_pose_frustum(const TypedArray<Plane> &planes);
 	// lane PERF-3 (tests): the palette texels of one instance as the last update wrote them (3 RGBA texels per pivot), empty for an unknown instance
 	PackedFloat32Array get_instance_palette(int64_t instance) const;
 	bool get_pose_culling() const { return PoseCulling; }
@@ -243,6 +251,8 @@ private:
 		HTreePose Pose;
 		float HcPacked = 0.0f;                // W3D_Pack_House_Color or 0 (INSTANCE_CUSTOM.z)
 		bool InfantryLight = false;           // set_instance_infantry_light (INSTANCE_CUSTOM.x < 0)
+		int Sway = 0;                         // lane VISUAL-2: set_instance_sway (INSTANCE_CUSTOM.w += 1024 * Sway)
+		bool Fogged = false;                  // lane VISUAL-2: set_instance_fogged (INSTANCE_CUSTOM.w += 16384)
 		std::vector<std::uint8_t> HiddenSubs; // by sub object index; empty = none hidden (set_instance_hidden_subobjects)
 		bool Removed = false;                 // remove_instance: skipped by the pose and buffer passes
 		float Opacity = 1.0f;                 // set_instance_opacity (lane PROJ-2)
@@ -281,7 +291,7 @@ private:
 	bool AlphaOverride = false; // lane BUILD-5 r3
 	std::map<std::string, std::shared_ptr<MeshGpu>> MeshCache;
 	std::string BuildSuffix; // lane CAH-2: the colour set of the model being built (add_model_colored), part of the mesh cache key
-	std::vector<std::pair<std::string, std::string>> PendingSwaps; // stop S-4832: Set_Build_Texture_Swaps, taken by the next add_model
+	std::vector<std::pair<std::string, std::string>> PendingSwaps; // stop S-5015: Set_Build_Texture_Swaps, taken by the next add_model
 	std::vector<std::unique_ptr<Model>> Models;
 	std::vector<Instance> Instances;
 	std::vector<Ref<ShaderMaterial>> AllMaterials;
@@ -339,6 +349,7 @@ private:
 	// worker threads (pose evaluation and buffer writing are independent per instance / per draw item); lane PERF-2: the slices run on the client job pool
 	int Workers = 1;
 	bool PoseCulling = false;                    // lane PERF-3: set_pose_culling
+	std::vector<Plane> ExtraPoseFrustum;
 	int PoseCulled = 0;                          // instances whose pose the last update left pending (outside the frustum)
 };
 

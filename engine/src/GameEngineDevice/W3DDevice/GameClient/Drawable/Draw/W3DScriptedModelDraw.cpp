@@ -1159,7 +1159,7 @@ void W3DScriptedModelDraw::poseView(W3DDrawPoseView &v) const
 	v.hiddenSubObjects = m_model ? &m_hiddenSubObjects : &noHidden;
 	v.hiddenGeneration = m_hiddenGeneration;
 	static const std::vector<std::pair<std::string, std::string>> noSwaps;
-	v.textureSwaps = m_curModelInfo ? &m_curModelInfo->textures : &noSwaps; // stop S-4832: a SNOW state's look is often its texture swap alone
+	v.textureSwaps = m_curModelInfo ? &m_curModelInfo->textures : &noSwaps; // stop S-5015: a SNOW state's look is often its texture swap alone
 }
 
 bool W3DScriptedModelDraw::modelCondition(const std::string &name)

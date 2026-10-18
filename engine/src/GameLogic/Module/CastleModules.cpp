@@ -6,6 +6,7 @@
 #endif
 
 #include "GameLogic/Module/CastleModules.h"
+#include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/Module/CastleUpgrade.h"
 #include "GameLogic/Object/PartitionManager.h"
 
@@ -117,6 +118,15 @@ const FieldParse kCastleFieldParse[] = {
 	{ "TransferFoundationHealthToCastleUponUnpack", INI::parseBool, nullptr, CB_OFF(m_transferFoundationHealthToCastleUponUnpack) },
 	{ nullptr, nullptr, nullptr, 0 }
 };
+// community PR #36: BFME1's castle flag rows (BFME1 data only, Common/BfmeGame.h); RotWK's table stays the binary's
+const FieldParse kBfme1CastleRows[] = {
+	{ "UseTheNewCastleSystemInsteadOfTheClunkyBuildList", INI::parseBool, nullptr, CB_OFF(m_useNewCastleSystem) },
+	{ "UseSecondaryBuildList", INI::parseBool, nullptr, CB_OFF(m_useSecondaryBuildList) },
+	{ "SidesAllowed", INI::parseAsciiStringVector, nullptr, CB_OFF(m_sidesAllowed) },
+	{ nullptr, nullptr, nullptr, 0 },
+};
+const Bfme1FieldRowsRegistration kBfme1CastleRowsRegistration(kCastleFieldParse, kBfme1CastleRows);
+
 #undef CB_OFF
 
 #define CM_OFF(member) (int)offsetof(CastleMemberBehaviorModuleData, member)
@@ -129,6 +139,14 @@ const FieldParse kCastleMemberFieldParse[] = {
 	{ "CountsForEvaCastleBreached", INI::parseBool, nullptr, CM_OFF(m_countsForEvaCastleBreached) },
 	{ nullptr, nullptr, nullptr, 0 }
 };
+// community PR #36: BFME1's castle member rows (BFME1 data only)
+const FieldParse kBfme1CastleMemberRows[] = {
+	{ "UnderAttackAllyEvaEventIfKeep", INI::parseAsciiString, nullptr, CM_OFF(m_underAttackAllyEvaEventIfKeep) },
+	{ "UnderAttackEvaEventIfKeep", INI::parseAsciiString, nullptr, CM_OFF(m_underAttackEvaEventIfKeep) },
+	{ nullptr, nullptr, nullptr, 0 },
+};
+const Bfme1FieldRowsRegistration kBfme1CastleMemberRowsRegistration(kCastleMemberFieldParse, kBfme1CastleMemberRows);
+
 #undef CM_OFF
 
 float normalizeAngle(float a)
@@ -273,6 +291,19 @@ UpdateSleepTime CastleBehavior::update()
 	switch (m_state)
 	{
 	case STATE_IDLE:
+		if (m_data->m_useNewCastleSystem && !m_bfme1StartChecked)
+		{
+			// BFME1's castle flags (UseTheNewCastleSystemInsteadOfTheClunkyBuildList, a row no RotWK castle has): a match starts with each player's
+			// castle standing. INFERENCE (docs/BFME1.md): on its first update a flag whose owner's faction has a CastleToUnpackForFaction entry
+			// unpacks that castle at once and free (the flag's JUST_BUILT "for instant-build" state); a neutral flag stays capturable for the price.
+			// The retail trigger (the caller of CastleBehavior::initiateUnpack) is not in Open-BFME-1
+			m_bfme1StartChecked = true;
+			const Player *owner = getObject()->getControllingPlayer();
+			if (owner && m_data->entryFor(owner->getSide()))
+			{
+				m_needInstantBuild = true;
+			}
+		}
 		if (tryInstantUnpack())
 		{
 			m_state = STATE_UNPACKED;
@@ -625,8 +656,10 @@ Object *CastleBehavior::createOwnedObject(const CastleTemplateEntry &entry, Play
 	pos.y = SimMath::addf32(castle->getPosition()->y, SimMath::addf32(SimMath::mulf32(entry.x, s), SimMath::mulf32(entry.y, c)));
 	pos.z = SimMath::addf32(castle->getPosition()->z, entry.z);
 	const float angle = normalizeAngle(SimMath::addf32(castleAngle, entry.angle));
-	// RW 0x798951 ff: a template that is not a COMMANDCENTER must have clear ground (options 5 in retail; the clear-path half needs an AI the castle does not have: S-303)
-	if (!templateKindOf(logic, *tt, "COMMANDCENTER") &&
+	// BFME1 authored castle pieces overlap at seams and gateways. They are a
+	// single predefined layout, not independent player building placements.
+	// Keep the RotWK placement check for its castle system.
+	if (!m_data->m_useNewCastleSystem && !templateKindOf(logic, *tt, "COMMANDCENTER") &&
 		BuildPlacement::isLocationLegalToBuild(logic, pos, *tt, angle, LLF_NO_OBJECT_OVERLAP, castle, &owner) != LBC_OK)
 	{
 		return nullptr;
@@ -1309,6 +1342,10 @@ void CastleBehavior::crc(StateHasher &h) const
 	FoundationAIUpdate::crc(h);
 	h.addI32(m_state);
 	h.addBool(m_needInstantBuild);
+	if (m_data->m_useNewCastleSystem)
+	{
+		h.addBool(m_bfme1StartChecked); // BFME1 flags only: RotWK castles keep their hashes
+	}
 	h.addBool(m_keepGone);
 	h.addBool(m_hasWalkOnWall);
 	h.addFloat(m_timer);
@@ -1403,4 +1440,36 @@ void CastleModules::registerAll(ModuleFactory &modules)
 		}
 		return std::make_unique<CastleMemberBehavior>(thing, typed);
 	});
+}
+
+// ---- lane SAVE-4b: the snapshots (OpenBFME native, S-4190: each class's fields in its crc's order; the last error text is the report's) ----------------
+void CastleBehavior::xfer(Xfer &x)
+{
+	SnapshotXfer::version(x, 1, 1);
+	FoundationAIUpdate::xfer(x);
+	SnapshotXfer::enumIn(x, m_state, STATE_IDLE, STATE_ABANDONED, "a castle's state");
+	x.xferBool(&m_needInstantBuild);
+	if (m_data->m_useNewCastleSystem)
+	{
+		x.xferBool(&m_bfme1StartChecked); // community PR #36: a BFME1 castle flag's (in its crc's order; RotWK castles never have the row)
+	}
+	x.xferBool(&m_keepGone);
+	x.xferBool(&m_hasWalkOnWall);
+	x.xferReal(&m_timer);
+	x.xferObjectID(&m_keepId);
+	x.xferUnsignedInt(&m_unpackFrame);
+	for (std::vector<ObjectID> *list : { &m_owned, &m_foundations, &m_members, &m_crew, &m_defenseFoundations })
+	{
+		SnapshotXfer::ids(x, *list);
+	}
+}
+
+void CastleMemberBehavior::xfer(Xfer &x)
+{
+	SnapshotXfer::version(x, 1, 1);
+	xferBehaviorModule(x);
+	x.xferObjectID(&m_castleId);
+	x.xferObjectID(&m_occupantId);
+	x.xferObjectID(&m_keepId);
+	x.xferBool(&m_breached);
 }

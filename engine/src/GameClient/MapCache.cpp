@@ -102,13 +102,14 @@ std::string unescape(const std::string &escaped)
 	return out;
 }
 
-bool parse(const std::string &text, std::vector<MapCacheEntry> &out, std::string *error)
+bool parse(const std::string &text, std::vector<MapCacheEntry> &out, std::string *error, bool bfme1)
 {
 	out.clear();
 	std::istringstream in(text);
 	std::string raw;
 	int lineNo = 0;
 	MapCacheEntry *cur = nullptr;
+	int playerPosition = 0;
 	auto fail = [&](const std::string &msg) {
 		if (error)
 		{
@@ -145,6 +146,21 @@ bool parse(const std::string &text, std::vector<MapCacheEntry> &out, std::string
 				c = c == '\\' ? '/' : (char)std::tolower((unsigned char)c);
 			}
 			cur->name = n;
+			continue;
+		}
+		if (line.rfind("PlayerPosition ", 0) == 0 && bfme1) // community PR #36: BFME1's scenario slot blocks (BFME1 data only)
+		{
+			long long slot = 0;
+			if (playerPosition || !parseInt(trim(line.substr(15)), slot) || slot < 1 || slot > 16) return fail("bad PlayerPosition");
+			playerPosition = (int)slot;
+			continue;
+		}
+		if (playerPosition)
+		{
+			if (line == "END") { playerPosition = 0; continue; }
+			const auto separator = line.find('=');
+			if (separator == std::string::npos) return fail("expected scenario slot setting");
+			cur->playerPositions[playerPosition][trim(line.substr(0, separator))] = trim(line.substr(separator + 1));
 			continue;
 		}
 		if (line == "END")

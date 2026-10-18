@@ -88,6 +88,12 @@ const FieldParse *HordeGarrisonContainModuleData::getFieldParse()
 		{ "ExitOffset", INI::parseCoord3D, nullptr, offsetof(HordeGarrisonContainModuleData, m_exitOffset) },
 		{ nullptr, nullptr, nullptr, 0 }
 	};
+	// community PR #36: BFME1's MaxHordeCapacity row (BFME1 data only, Common/BfmeGame.h); no consumer yet
+	static const FieldParse bfme1Rows[] = {
+		{ "MaxHordeCapacity", INI::parseInt, nullptr, offsetof(HordeGarrisonContainModuleData, m_maxHordeCapacity) },
+		{ nullptr, nullptr, nullptr, 0 }
+	};
+	static const Bfme1FieldRowsRegistration registration(table, bfme1Rows);
 	return table;
 }
 

@@ -58,7 +58,14 @@ enum class ShellAction
 	LoadGameFile,        // AptSaveLoad::Load of a saved game (RW 0x816DBF, state 3): the argument is the file
 	DeleteGameFile,      // AptSaveLoad::Delete confirmed (RW 0x81680D, state 0x14 -> RW 0x81707F): the argument is the file; the host deletes it and lists again
 	QuitMenuSave,        // AptQuitMenu::SaveMenu (RW 0x92179F -> RW 0x816655(3, kind, 1)): the argument is the game type (1 Campaign, 2 Skirmish)
-	QuitMenuLoad         // AptQuitMenu::LoadMenu (RW 0x9217F0 -> RW 0x816655(2, kind, 1))
+	QuitMenuLoad,        // AptQuitMenu::LoadMenu (RW 0x9217F0 -> RW 0x816655(2, kind, 1))
+	OpenProjectWebsite,  // user-initiated, fixed OpenBFME website (no movie-provided URL)
+	// lane CAMPSAVE-1: CampaignMenu.apt (AptCampaignMenu, see AptCampaignMenu.h); the host acts on them
+	CampaignMenuMainMenu,    // OnBttnMainMenu (RW 0x927A88): the menu closes, the main menu
+	CampaignMenuSave,        // OnBttnSaveGame (RW 0x927A93 -> RW 0x816655(3, 1, 0))
+	CampaignMenuLoad,        // OnBttnLoadGame (RW 0x927AA4 -> RW 0x816655(2, 1, 0))
+	CampaignMenuLastMission, // OnBttnLastMission (RW 0x927AB5 -> RW 0x5EC5D1)
+	CampaignMenuNextMission  // OnBttnNextMission (RW 0x927ACF: message 0x21 -> RW 0x5EAE37)
 };
 
 struct ShellRequest

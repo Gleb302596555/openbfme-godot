@@ -69,6 +69,7 @@ public:
 class CreateObjectDie : public BehaviorModule, public DieModuleInterface
 {
 public:
+	OBFME_MODULE_XFER(CreateObjectDie) // lane SAVE-4b
 	CreateObjectDie(Thing *thing, const CreateObjectDieModuleData *data) : BehaviorModule(thing, data), m_data(data) {}
 	DieModuleInterface *getDie() override { return this; }
 	void onDie(const DieModuleInterface::Event &event) override;
@@ -96,6 +97,7 @@ public:
 class FireWeaponWhenDeadBehavior : public UpdateModule, public UpgradeMux, public DieModuleInterface
 {
 public:
+	OBFME_MODULE_XFER(FireWeaponWhenDeadBehavior) // lane SAVE-4b
 	FireWeaponWhenDeadBehavior(Thing *thing, const FireWeaponWhenDeadBehaviorModuleData *data);
 	UpgradeMux *getUpgrade() override { return this; }
 	DieModuleInterface *getDie() override { return this; }
@@ -128,6 +130,7 @@ public:
 class UpgradeDie : public BehaviorModule, public DieModuleInterface
 {
 public:
+	OBFME_MODULE_XFER(UpgradeDie) // lane SAVE-4b: BehaviorModule's (no state)
 	UpgradeDie(Thing *thing, const UpgradeDieModuleData *data) : BehaviorModule(thing, data), m_data(data) {}
 	DieModuleInterface *getDie() override { return this; }
 	void onDie(const DieModuleInterface::Event &event) override;
@@ -150,6 +153,7 @@ public:
 class HeroDie : public BehaviorModule, public DieModuleInterface
 {
 public:
+	OBFME_MODULE_XFER(HeroDie) // lane SAVE-4b: BehaviorModule's (no state)
 	HeroDie(Thing *thing, const HeroDieModuleData *data) : BehaviorModule(thing, data), m_data(data) {}
 	DieModuleInterface *getDie() override { return this; }
 	void onDie(const DieModuleInterface::Event &event) override;

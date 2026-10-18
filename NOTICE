@@ -34,6 +34,11 @@ Copyright (C) 1994-2000 TeCGraf, PUC-Rio, under Lua's own permissive licence rep
 engine/thirdparty/lua-4.0.1/COPYRIGHT; engine/src/Libraries/Lua is the altered source
 version that reproduces EA's fork, plainly marked, see its README.md).
 
+engine/thirdparty/fast_float: fast_float v8.0.2, Copyright (c) 2021 The fast_float
+authors, used under the MIT license (LICENSE-MIT). The unmodified headers and
+the upstream MIT, Apache-2.0 and Boost license texts are retained; the release
+commit and archive checksum are pinned in README.openbfme.md.
+
 launcher/fonts (lane UI-5, the launcher's look): Cinzel (Copyright 2020 The Cinzel Project
 Authors), Cormorant Garamond (Copyright 2015 the Cormorant Project Authors) and Inter (Copyright
 2020 The Inter Project Authors), unmodified, from the Google Fonts repository, licensed under the

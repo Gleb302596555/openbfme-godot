@@ -325,6 +325,35 @@ bool reportEva(const std::string &n, const Coord3D *position)
 	// Eva runs on the audio manager's client clock (presentation time, never the logic clock)
 	return eva->reportEventByName(n, position, mgr->nowMs());
 }
+bool reportEva(int event, const Coord3D *position)
+{
+	const bool hasPosition = position != nullptr;
+	const Coord3D at = hasPosition ? *position : Coord3D{ 0.0f, 0.0f, 0.0f };
+	switch (route(Binding::Manager, [event, hasPosition, at]() { reportEva(event, hasPosition ? &at : nullptr); }))
+	{
+	case Route::Run:
+		break;
+	case Route::Deferred:
+		return true;
+	case Route::Unbound:
+		g_withoutEva.fetch_add(1, std::memory_order_relaxed);
+		return false;
+	}
+	Eva *eva = nullptr;
+	AudioManager *mgr = nullptr;
+	{
+		std::lock_guard<std::mutex> lock(g_bindMutex);
+		eva = g_eva;
+		mgr = g_manager;
+	}
+	if (!eva || !mgr)
+	{
+		g_withoutEva.fetch_add(1, std::memory_order_relaxed);
+		return false;
+	}
+	return eva->reportEvent(event, position, mgr->nowMs());
+}
+
 void installUnitVoiceHandler(UnitVoiceHandler handler, const void *owner)
 {
 	UnitVoiceHandler old;

@@ -102,6 +102,7 @@ void W3DInstancer::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_worker_threads", "count"), &W3DInstancer::set_worker_threads);
 	ClassDB::bind_method(D_METHOD("get_worker_threads"), &W3DInstancer::get_worker_threads);
 	ClassDB::bind_method(D_METHOD("set_pose_culling", "enabled"), &W3DInstancer::set_pose_culling); // lane PERF-3
+	ClassDB::bind_method(D_METHOD("set_extra_pose_frustum", "planes"), &W3DInstancer::set_extra_pose_frustum);
 	ClassDB::bind_method(D_METHOD("get_pose_culling"), &W3DInstancer::get_pose_culling);
 	ClassDB::bind_method(D_METHOD("get_instance_palette", "instance"), &W3DInstancer::get_instance_palette);
 	ClassDB::bind_method(D_METHOD("update_now"), &W3DInstancer::update_now);
@@ -162,6 +163,22 @@ void W3DInstancer::set_instance_infantry_light(int64_t instance, bool infantry)
 {
 	if (instance < 0 || instance >= (int64_t)Instances.size()) return;
 	Instances[(size_t)instance].InfantryLight = infantry;
+	PoseDirty = true;
+	mark_model(instance);
+}
+
+void W3DInstancer::set_instance_sway(int64_t instance, int type)
+{
+	if (instance < 0 || instance >= (int64_t)Instances.size() || type < 0 || type > 10) return;
+	Instances[(size_t)instance].Sway = type;
+	PoseDirty = true;
+	mark_model(instance);
+}
+
+void W3DInstancer::set_instance_fogged(int64_t instance, bool fogged)
+{
+	if (instance < 0 || instance >= (int64_t)Instances.size() || Instances[(size_t)instance].Fogged == fogged) return;
+	Instances[(size_t)instance].Fogged = fogged;
 	PoseDirty = true;
 	mark_model(instance);
 }
@@ -468,7 +485,7 @@ int64_t W3DInstancer::add_model(const String &model_name)
 	{
 		return build_model(model_name);
 	}
-	// stop S-4832: the swapped model's meshes are cached under their own name (after a colour set's suffix: add_model_colored sets that first)
+	// stop S-5015: the swapped model's meshes are cached under their own name (after a colour set's suffix: add_model_colored sets that first)
 	std::vector<std::pair<std::string, std::string>> swaps;
 	swaps.swap(PendingSwaps);
 	const std::string savedSuffix = BuildSuffix;
@@ -1294,7 +1311,7 @@ void W3DInstancer::write_buffers()
 				o[12] = inst.InfantryLight ? -(float)(inst.PaletteOffset + 1) : (float)inst.PaletteOffset;
 				o[13] = fade;
 				o[14] = inst.HcPacked;
-				o[15] = rigid ? (float)bone : 0.0f;
+				o[15] = (float)((rigid ? (int)bone : 0) + 1024 * inst.Sway + (inst.Fogged ? 16384 : 0)); // lane VISUAL-2: the sway type, the fogged light
 				++count;
 			}
 			d.MM->set_buffer(d.Buffer);
@@ -1371,6 +1388,20 @@ Array W3DInstancer::get_mapper_state() const
 	return out;
 }
 
+bool W3DInstancer::set_extra_pose_frustum(const TypedArray<Plane> &planes)
+{
+	if (planes.size() != 0 && planes.size() != 6)
+	{
+		return false;
+	}
+	ExtraPoseFrustum.clear();
+	for (int i = 0; i < planes.size(); ++i)
+	{
+		ExtraPoseFrustum.push_back(planes[i]);
+	}
+	return true;
+}
+
 void W3DInstancer::update_now()
 {
 	if (!Assets) return;
@@ -1386,7 +1417,7 @@ void W3DInstancer::update_now()
 	std::mutex errorMutex;
 	const bool timeMoved = GlobalTime != PosedTime;
 	PosedTime = GlobalTime;
-	// lane PERF-3: pose culling (set_pose_culling): the frustum of the viewport's camera in this node's parent space
+	// lane PERF-3: pose culling (set_pose_culling): the viewport camera's world-space frustum
 	Plane frustum[6];
 	bool cull = false;
 	Transform3D nodeXf;
@@ -1424,6 +1455,18 @@ void W3DInstancer::update_now()
 					{
 						outside = true;
 						break;
+					}
+				}
+				if (outside && !ExtraPoseFrustum.empty())
+				{
+					outside = false;
+					for (const Plane &pl : ExtraPoseFrustum)
+					{
+						if (pl.distance_to(centre) > r)
+						{
+							outside = true;
+							break;
+						}
 					}
 				}
 				if (outside)
