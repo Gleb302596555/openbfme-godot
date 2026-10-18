@@ -43,12 +43,13 @@ func _run() -> void:
 		if not info.get("ok", false) or info.get("models", []).is_empty():
 			continue
 		for team_color in [false, true]:
-			await _render(fs, info.models[0], team_color)
+			var completed: Variant = await _render(fs, info.models[0], team_color)
+			_check(completed == true, "%s render completes (team %s)" % [building, team_color])
 	world.free()
 	print("BUILDING RENDER %s" % ("PASS" if _failures == 0 else "FAIL"))
 	quit(0 if _failures == 0 else 1)
 
-func _render(fs: RefCounted, model_name: String, team_color: bool) -> void:
+func _render(fs: RefCounted, model_name: String, team_color: bool) -> Variant:
 	var viewport := SubViewport.new()
 	viewport.size = Vector2i(256, 256)
 	viewport.own_world_3d = true
@@ -72,7 +73,8 @@ func _render(fs: RefCounted, model_name: String, team_color: bool) -> void:
 		inst.update_now()
 		var model_report: Dictionary = inst.get_model_report(model)
 		_check(model_report.fx_surfaces > 0, "%s includes FX surfaces" % model_name)
-		var radius: float = inst.get_model_radius(model)
+		# Fixed framing for these three retail building fixtures; no viewer-only helper is required.
+		var radius := 200.0
 		var camera := Camera3D.new()
 		camera.projection = Camera3D.PROJECTION_ORTHOGONAL
 		camera.size = radius * 3.0
@@ -92,3 +94,4 @@ func _render(fs: RefCounted, model_name: String, team_color: bool) -> void:
 		# tolerance: rasterization differs by GPU; flat fallback materials lack the retail texture's colour variation.
 		_check(colors.size() > 64, "%s renders textured geometry (%d colours, team %s)" % [model_name, colors.size(), team_color])
 	viewport.free()
+	return model >= 0
