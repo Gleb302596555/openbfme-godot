@@ -486,13 +486,14 @@ void HordeContainModuleData::buildFieldParse(MultiIniFieldParse &p, unsigned ext
 {
 	TransportContainModuleData::buildFieldParse(p, extraOffset + (unsigned)offsetof(HordeContainModuleData, m_transport));
 	p.add(getFieldParse(), extraOffset);
-	// BFME1 compatibility fields are separate from the exact RotWK table.
+	// community PR #36: BFME1's legacy horde rows, read only from BFME1 data (Common/BfmeGame.h): registered with the HordeContain table, not added to
+	// the chain, so RotWK's chain stays the binary's three tables
 	static const FieldParse legacy[] = {
 		{ "UsePorcupineBody", INI::parseBool, nullptr, offsetof(HordeContainModuleData, m_usePorcupineBody) },
 		{ "UpdateWeaponSetFlagsOnHordeToo", INI::parseBool, nullptr, offsetof(HordeContainModuleData, m_updateWeaponSetFlagsOnHordeToo) },
 		{ nullptr, nullptr, nullptr, 0 }
 	};
-	p.add(legacy, extraOffset);
+	static const Bfme1FieldRowsRegistration registration(getFieldParse(), legacy);
 }
 
 void HordeContainModuleData::parseFromINI(INI *ini)

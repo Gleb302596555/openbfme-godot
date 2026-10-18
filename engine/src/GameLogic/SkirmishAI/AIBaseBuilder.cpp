@@ -26,6 +26,7 @@
 #include "Libraries/WWVegas/WWMath/quat.h"
 
 #include <algorithm>
+#include <iterator>
 #include <stdexcept>
 
 namespace
@@ -551,40 +552,30 @@ Object *findFactory(GameLogic &logic, const AISkirmishPlayer &ai, const std::str
 	return nullptr;
 }
 
-// RW 0x9A0838 for every completed structure of the player not seen yet (S-416: RW is told by the structure's completion event)
-void registerFactories(GameLogic &logic, AISkirmishPlayer &ai, const Player &player)
+// RW 0x9A0838 (AIUnitBuilder::registerUnitFactory, lane SAVE-4c review r5): the structure, found by id (RW 0x449681), is listed for every unit of the
+// army and every hero its command set builds (BuildAssistant slot 0x68), and the composition is computed again (+ 0x2C = 1, RW 0x9A097F). Called from
+// the object event (RW 0x8F06BF), synchronously, with no other filter than the event's KindOf FS_FACTORY
+void registerUnitFactory(GameLogic &logic, AISkirmishPlayer &ai, const Player &player, Object &o)
 {
 	AIUnitBuilderState &u = ai.build.units;
-	for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
+	for (const ArmyMemberDefinition &m : ai.army->members)
 	{
-		if (o->getControllingPlayer() != &player || o->isEffectivelyDead() || o->isUnderConstruction() || !o->isKindOfName("STRUCTURE"))
+		const ThingTemplate *tt = logic.things().findTemplate(m.unit);
+		if (tt && BuildAssistant::isInProducersCommandSet(o, tt, -1)) // BuildAssistant slot 0x68
 		{
-			continue;
+			u.factories.insert(std::make_pair(ai.store->keyOf(m.unit), o.getID())); // RW 0x6B7DDE (multimap insert)
 		}
-		if (std::find(u.registeredStructures.begin(), u.registeredStructures.end(), o->getID()) != u.registeredStructures.end())
-		{
-			continue;
-		}
-		u.registeredStructures.push_back(o->getID());
-		for (const ArmyMemberDefinition &m : ai.army->members)
-		{
-			const ThingTemplate *tt = logic.things().findTemplate(m.unit);
-			if (tt && BuildAssistant::isInProducersCommandSet(*o, tt, -1)) // BuildAssistant slot 0x68
-			{
-				u.factories.insert(std::make_pair(ai.store->keyOf(m.unit), o->getID())); // RW 0x6B7DDE (multimap insert)
-			}
-		}
-		// lane DECOMP-2, RW 0x9A08E8 .. 0x9A0975: then every hero name with its index in the player's hero list (Player + 0x758, RW 0x78131E(template, -1, 0))
-		for (const std::string &name : u.heroNames)
-		{
-			const ThingTemplate *tt = logic.things().findTemplate(name);
-			if (tt && BuildAssistant::isInProducersCommandSet(*o, tt, player.heroes().findIndex(*tt, (std::uint32_t)-1, 0)))
-			{
-				u.factories.insert(std::make_pair(ai.store->keyOf(name), o->getID()));
-			}
-		}
-		u.recompute = true; // RW 0x9A097F
 	}
+	// lane DECOMP-2, RW 0x9A08E8 .. 0x9A0975: then every hero name with its index in the player's hero list (Player + 0x758, RW 0x78131E(template, -1, 0))
+	for (const std::string &name : u.heroNames)
+	{
+		const ThingTemplate *tt = logic.things().findTemplate(name);
+		if (tt && BuildAssistant::isInProducersCommandSet(o, tt, player.heroes().findIndex(*tt, (std::uint32_t)-1, 0)))
+		{
+			u.factories.insert(std::make_pair(ai.store->keyOf(name), o.getID()));
+		}
+	}
+	u.recompute = true; // RW 0x9A097F
 }
 
 // RW 0x82FCAB: the member's percent for the current phase, blended by the phase fraction f: f * a + (1 - f) * b (x87, rounded to float on return)
@@ -821,7 +812,6 @@ std::shared_ptr<AIBuildRequest> createBestHero(GameLogic &logic, AISkirmishPlaye
 void updateUnitBuilder(GameLogic &logic, AISkirmishPlayer &ai, const Player &player)
 {
 	AIUnitBuilderState &u = ai.build.units;
-	registerFactories(logic, ai, player);
 	if (u.recompute)
 	{
 		recomputeComposition(logic, ai);
@@ -1772,12 +1762,18 @@ void AIBaseBuilder::onObjectEntered(GameLogic &logic, AISkirmishPlayer &ai, Obje
 {
 	// RW 0x8F069A
 	static const int dozerFactory = kindIndex("DOZER_FACTORY"), dozer = kindIndex("DOZER"), selectable = kindIndex("SELECTABLE"), harvester = kindIndex("HARVESTER");
+	static const int fsFactory = kindIndex("FS_FACTORY");
 	Player *player = logic.players().getNthPlayer(ai.playerIndex);
 	if (isKind(obj, dozerFactory))
 	{
 		ai.build.dozerManager.factories.push_back(obj.getID()); // RW 0x77F51C: manager + 4 push_back
 	}
-	// RW 0x8F06BF: an FS_FACTORY goes to the unit builder (RW 0x9A0838); the port registers factories when first seen complete (S-416)
+	// RW 0x8F06BF: an FS_FACTORY goes to the unit builder (RW 0x9A0838), in the event (a placed structure, one captured back, a command set upgrade's
+	// add); RW 0x9A0383's army is every started AI's (the port's guard: an AI without one makes no unit builder entries)
+	if (player && ai.army && isKind(obj, fsFactory))
+	{
+		registerUnitFactory(logic, ai, *player, obj);
+	}
 	if (player && isKind(obj, dozer) && isKind(obj, selectable) && !isKind(obj, harvester))
 	{
 		addFreeDozer(ai, obj, *player); // RW 0x8F06F5
@@ -1787,7 +1783,7 @@ void AIBaseBuilder::onObjectEntered(GameLogic &logic, AISkirmishPlayer &ai, Obje
 void AIBaseBuilder::onObjectLeft(GameLogic &logic, AISkirmishPlayer &ai, Object &obj)
 {
 	// RW 0x8F0C47
-	static const int dozerFactory = kindIndex("DOZER_FACTORY"), structure = kindIndex("STRUCTURE"), dozer = kindIndex("DOZER");
+	static const int dozerFactory = kindIndex("DOZER_FACTORY"), structure = kindIndex("STRUCTURE"), dozer = kindIndex("DOZER"), fsFactory = kindIndex("FS_FACTORY");
 	AIBuildState &s = ai.build;
 	Player *player = logic.players().getNthPlayer(ai.playerIndex);
 	if (isKind(obj, dozerFactory))
@@ -1799,7 +1795,17 @@ void AIBaseBuilder::onObjectLeft(GameLogic &logic, AISkirmishPlayer &ai, Object 
 			f.erase(it);
 		}
 	}
-	// RW 0x8F0C69: an FS_FACTORY leaves the unit builder (RW 0x9A051D); the port's factory map drops dead factories when it looks them up (S-416)
+	// RW 0x8F0C69: an FS_FACTORY leaves the unit builder (RW 0x9A051D, BFME2 decomp Rva00598149Map.cpp tier A): every entry of the object goes and the
+	// composition is computed again (+ 0x2C = 1, RW 0x9A055D); the event of a death (the object leaving the world) or of a change of owner (the old owner)
+	if (isKind(obj, fsFactory))
+	{
+		auto &f = s.units.factories;
+		for (auto it = f.begin(); it != f.end();)
+		{
+			it = it->second == obj.getID() ? f.erase(it) : std::next(it);
+		}
+		s.units.recompute = true;
+	}
 	const bool dead = obj.isEffectivelyDead();
 	if (isKind(obj, structure) && dead)
 	{
@@ -2017,11 +2023,6 @@ void AIBaseBuilder::crc(const AIBuildState &s, StateHasher &h)
 	{
 		h.addU32(kv.first);
 		h.addU32(kv.second);
-	}
-	h.addU32((std::uint32_t)u.registeredStructures.size());
-	for (ObjectID id : u.registeredStructures)
-	{
-		h.addU32(id);
 	}
 	h.addU32((std::uint32_t)u.composition.size());
 	for (const auto &kv : u.composition)

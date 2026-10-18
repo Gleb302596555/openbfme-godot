@@ -12,12 +12,23 @@
 
 const char *const theAudioPriorityNames[] = { "LOWEST", "LOW", "NORMAL", "HIGH", "CRITICAL", nullptr };
 const char *const theSoundTypeNames[] = { "UI", "WORLD", "SHROUDED", "GLOBAL", "VOICE", "PLAYER", "ALLIES", "ENEMIES", "EVERYONE", "FAKE", "DEFAULT", nullptr };
-// BFME1 uses RANDOM for bit 6; RotWK leaves that slot unavailable to INI files.
-const char *const theAudioControlNames[] = { "LOOP", "SEQUENTIAL", "RANDOMSTART", "INTERRUPT", "FADE_ON_KILL", "FADE_ON_START", "RANDOM", "PLAY_ONE", nullptr };
+// RW 0xD9DB70: the seventh name is the C string "\not used by INI files": a newline character followed by "ot used by INI files" (the author meant
+// "not used"; the escape ate the n). No INI line can name it.
+const char *const theAudioControlNames[] = { "LOOP", "SEQUENTIAL", "RANDOMSTART", "INTERRUPT", "FADE_ON_KILL", "FADE_ON_START", "\not used by INI files", "PLAY_ONE", nullptr };
+// community PR #36 (BFME1 data only): BFME1's control names (lotrbfme.exe 1.03 strings: LOOP, RANDOM, RANDOMSTART, INTERRUPT, FADE_ON_KILL,
+// FADE_ON_START). INFERENCE (S-5017): RANDOM takes RotWK's unused bit 6 (no RotWK code reads it, so a BFME1 event keeps RotWK's random pick, the
+// default without SEQUENTIAL); BFME1's own bit layout was not decoded
+const char *const theBfme1AudioControlNames[] = { "LOOP", "SEQUENTIAL", "RANDOMSTART", "INTERRUPT", "FADE_ON_KILL", "FADE_ON_START", "RANDOM", "PLAY_ONE", nullptr };
 const char *const theSubmixSliderNames[] = { "SOUNDFX", "VOICE", "MUSIC", "AMBIENT", "MOVIE", "NONE", nullptr };
 
 namespace
 {
+// the Control row: RotWK's names, BFME1's in BFME1 data (community PR #36)
+void parseAudioControl(INI *ini, void *instance, void *store, const void *)
+{
+	INI::parseBitString32(ini, instance, store, ini->bfme1Data() ? theBfme1AudioControlNames : theAudioControlNames);
+}
+
 // RW 0x5DA345 (the Sounds / Attack / Decay / Subsounds token grammar). `eventName` is the event being parsed (error text only).
 void parseWeightedTokens(INI *ini, const std::string &eventName, WeightedSoundList &list)
 {
@@ -133,7 +144,7 @@ const FieldParse *AudioEventInfo::getFieldParse()
 		{ "Limit", INI::parseInt, nullptr, AEI(limit) },
 		{ "Priority", INI::parseIndexList, theAudioPriorityNames, AEI(priority) },
 		{ "Type", INI::parseBitString32, theSoundTypeNames, AEI(type) },
-		{ "Control", INI::parseBitString32, theAudioControlNames, AEI(control) },
+		{ "Control", parseAudioControl, theAudioControlNames, AEI(control) },
 		{ "Sounds", parseSoundsList, nullptr, AEI(sounds) },
 		{ "Attack", parseSoundsList, nullptr, AEI(attack) },
 		{ "Decay", parseSoundsList, nullptr, AEI(decay) },
@@ -281,7 +292,7 @@ void ParseMultisoundBlock(INI *ini, AudioEventInfoStore &store)
 
 	struct MultisoundParse
 	{
-		static void parseControl(INI *ini2, void *, void *s, const void *ud) { INI::parseBitString32(ini2, nullptr, s, ud); }
+		static void parseControl(INI *ini2, void *, void *s, const void *ud) { INI::parseBitString32(ini2, nullptr, s, ini2->bfme1Data() ? theBfme1AudioControlNames : ud); }
 		static void parseSubsounds(INI *ini2, void *instance, void *, const void *ud)
 		{
 			AudioEventInfo *self = static_cast<AudioEventInfo *>(instance);

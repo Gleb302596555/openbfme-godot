@@ -18,6 +18,7 @@
 #include "GameClient/MusicScripts.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/LargeGroupAudioLink.h"
+#include "GameLogic/Module/ActiveBody.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectTemplateInfo.h"
@@ -314,15 +315,7 @@ LiveGameAudio::LiveGameAudio(LiveGame &game, AudioManager &audio)
 	// without a shroud manager has no view, which is retail's ThePartitionManager == 0 branch (RW 0x452024): not shrouded
 	q.isShroudClear = [lg](int playerIndex, const Coord3D &pos) {
 		const std::shared_ptr<const LogicSnapshot> s = lg->latestSnapshot();
-		if (!s || !s->shroud)
-		{
-			return true;
-		}
-		if (s->shroud->localPlayer != playerIndex)
-		{
-			return false; // the view holds the local player's cells only (callers ask for the local player; -1: no local player, no clear cell)
-		}
-		return s->shroud->statusAt(pos.x, pos.y) == CELLSHROUD_CLEAR;
+		return shroudClearFor(s.get(), playerIndex, pos);
 	};
 	m_audio.bindWorldQueries(q, this);
 	// lane AUDIO-4: the footsteps' manager plays on this attachment's manager and finds a drawable's object like the owner resolver does
@@ -334,6 +327,23 @@ LiveGameAudio::LiveGameAudio(LiveGame &game, AudioManager &audio)
 	m_lga = std::make_unique<LgaRuntime>();
 	m_lga->link = &m_game.logic().largeGroupAudio();
 	m_game.logic().largeGroupAudio().setSink(m_lga.get());
+}
+
+bool LiveGameAudio::shroudClearFor(const LogicSnapshot *s, int playerIndex, const Coord3D &pos)
+{
+	if (!s || !s->shroud)
+	{
+		return true;
+	}
+	if (s->shroud->localPlayer == -2)
+	{
+		return true; // lane VISUAL-2 r2: the omniscient view (LogicSnapshot::build fills its cells CLEAR; its PlayerView's local index is -1)
+	}
+	if (s->shroud->localPlayer != playerIndex)
+	{
+		return false; // the view holds the local player's cells only (callers ask for the local player; -1: no local player, no clear cell)
+	}
+	return s->shroud->statusAt(pos.x, pos.y) == CELLSHROUD_CLEAR;
 }
 
 bool LiveGameAudio::audioAlive() const
@@ -481,6 +491,8 @@ void LiveGameAudio::evaWatch(const Object &o)
 	// INFERENCE (S-709): retail reports these from the logic's damage and death code (the call sites were not decoded); here the client watches the body:
 	// a health drop of a local player's object reports EvaEventDamagedOwner at its position, a death EvaEventDieOwner / Ally / Enemy by the relationship of the
 	// object's player to the local player. Eva's own TimeBetweenEventsMS / QuietTime rules (Eva.ini) throttle the repeats.
+	// Only a drop that comes with a new damage record (ActiveBody::attemptDamage's frame stamp) is damage: the builder setting a placed structure to 1.0
+	// health when it starts building (DozerAIUpdate, RW 0x85895D), wall spans and max-health changes lower health without an attack.
 	const BodyModuleInterface *body = o.getBodyModule();
 	if (!body)
 	{
@@ -495,6 +507,8 @@ void LiveGameAudio::evaWatch(const Object &o)
 	EvaWatch &w = m_eva[o.getID()];
 	const float health = body->getHealth();
 	const bool dead = o.isEffectivelyDead() || o.isDestroyed();
+	const ActiveBody *active = dynamic_cast<const ActiveBody *>(body);
+	const unsigned damageFrame = active ? active->lastDamageFrame() : 0xFFFFFFFFu;
 	if (w.known && !w.dead)
 	{
 		if (dead)
@@ -508,7 +522,7 @@ void LiveGameAudio::evaWatch(const Object &o)
 				++m_stats.evaDeaths;
 			}
 		}
-		else if (health < w.health && owner == local)
+		else if (health < w.health && owner == local && damageFrame != w.damageFrame)
 		{
 			const std::string ev = evaField(o, "EvaEventDamagedOwner");
 			if (!ev.empty())
@@ -521,6 +535,7 @@ void LiveGameAudio::evaWatch(const Object &o)
 	w.known = true;
 	w.dead = dead;
 	w.health = health;
+	w.damageFrame = damageFrame;
 }
 
 void LiveGameAudio::largeGroupUpdate()

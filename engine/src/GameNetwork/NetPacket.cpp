@@ -345,9 +345,13 @@ void NetPacket::writeGameInfo(NetByteWriter &w, const SkirmishGameInfo &g)
 	}
 	w.i32(g.legendaryHeroes);
 	w.i32((std::int32_t)g.simulationProfile); // lane UBER-1: the simulation profile (Common/SimulationProfile.h)
+	for (const SkirmishGameSlot &s : g.slots)
+	{
+		w.i32(s.handicap); // lane OWNERFIX-2: GameSlot + 0x20 (RotWK's LAN option string carries it as "Handicap=%d", RW 0x8476E6 = BFME2 decomp BfmeAptScreenLanLobby.cpp AptLanLobby::MpOwnerSelectHandicap, tier A)
+	}
 }
 
-bool NetPacket::readGameInfo(NetByteReader &r, SkirmishGameInfo &g, std::string *error)
+bool NetPacket::readGameInfo(NetByteReader &r, SkirmishGameInfo &g, std::string *error, bool profileOptionalAtEnd, bool slotHandicaps)
 {
 	for (SkirmishGameSlot &s : g.slots)
 	{
@@ -401,7 +405,15 @@ bool NetPacket::readGameInfo(NetByteReader &r, SkirmishGameInfo &g, std::string 
 		v = r.i32();
 	}
 	g.legendaryHeroes = r.i32();
-	const std::int32_t profile = r.i32();
+	const bool profileAbsent = profileOptionalAtEnd && !r.failed() && r.atEnd();
+	const std::int32_t profile = profileAbsent ? (std::int32_t)SimulationProfile::Faithful : r.i32();
+	// lane OWNERFIX-2: the slots' handicaps (absent: an older replay / save format, or an announcement without the profile, UBERJOIN-1's case; the LAN
+	// messages that carry them are LANAPI protocol 3 / LANLobby version 4, so an announcement with the profile and without them is truncated)
+	const bool handicapsAbsent = !slotHandicaps || profileAbsent;
+	for (SkirmishGameSlot &s : g.slots)
+	{
+		s.handicap = handicapsAbsent ? 0 : r.i32();
+	}
 	if (r.failed())
 	{
 		return failWith(error, r.badFlag() ? "GameInfo with a flag that is not 0 / 1" : "truncated GameInfo");
@@ -416,6 +428,13 @@ bool NetPacket::readGameInfo(NetByteReader &r, SkirmishGameInfo &g, std::string 
 			{
 				return failWith(error, "GameInfo slot " + std::to_string(i) + " has the field value " + std::to_string(v));
 			}
+		}
+	}
+	for (int i = 0; i < MAX_SLOTS; ++i)
+	{
+		if (!SkirmishGameSlot::handicapValid(g.slots[i].handicap))
+		{
+			return failWith(error, "GameInfo slot " + std::to_string(i) + " has the handicap " + std::to_string(g.slots[i].handicap) + " (0, -5 .. -95)");
 		}
 	}
 	// lane RULES-1: -1 is "not set" (RotWK GameInfo::m_54 = -1 after reset, RW 0x801AAF; the starting money then comes from the InitialResources rule)
@@ -457,7 +476,7 @@ void NetPacket::writeNewGameMessage(NetByteWriter &w, const NewGameMessage &m)
 	writeGameInfo(w, m.game);
 }
 
-bool NetPacket::readNewGameMessage(NetByteReader &r, NewGameMessage &m, std::string *error)
+bool NetPacket::readNewGameMessage(NetByteReader &r, NewGameMessage &m, std::string *error, bool slotHandicaps)
 {
 	const std::uint8_t mode = r.u8();
 	if (mode > 1)
@@ -467,7 +486,7 @@ bool NetPacket::readNewGameMessage(NetByteReader &r, NewGameMessage &m, std::str
 	m.mode = mode ? NewGameMode::Skirmish : NewGameMode::SinglePlayer;
 	m.difficulty = r.i32();
 	m.rankPoints = r.i32();
-	return readGameInfo(r, m.game, error);
+	return readGameInfo(r, m.game, error, false, slotHandicaps);
 }
 
 std::vector<std::uint8_t> NetPacket::encodeCommand(const NetCommandMsg &c, std::string *error)

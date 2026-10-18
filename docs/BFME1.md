@@ -12,17 +12,19 @@ BFME1_INSTALL="/path/to/BFME1" godot --path godot -- --game=bfme1
 Alternatively pass `--bfme1-install=/path/to/BFME1` alongside `--game=bfme1`.
 The installation must contain its BIG archives, including `apt` and `lang`.
 Installed patch archives are included in BFME1 archive order; launcher-generated
-`!!!` graphics overrides are excluded. This mode fingerprints the installed
+`!!!` graphics overrides are excluded and named in the mount report (`excluded_archives`). This mode fingerprints the installed
 archives for content identity, but does not certify them against a retail 1.03
 manifest. The existing RotWK verification policy is unchanged.
 
-The launcher offers **Battle for Middle-earth I** in the Play screen's game selector.
-Its **Game files → Download** action includes BFME1 1.03 (`original-BFME1`),
-installed into `<download folder>/BFME1`. The launcher records `BFME1_INSTALL`
-in `downloaded-installs.cfg` and passes the asset folder when starting BFME1;
-no copy into the application bundle is needed. An existing macOS AIO installation
-is also detected. The command-line equivalent is `--game=bfme1 --play` on the
-launcher; the selection persists. Downloads retain per-file MD5 and size checks.
+The launcher offers **Battle for Middle-earth I** in the Play screen's game selector
+and passes the asset folder when starting BFME1 (`BFME1_INSTALL`, a remembered
+`BFME1_INSTALL=` in the launcher's config, `<games folder>/BFME1`, or an existing
+macOS AIO installation). The command-line equivalent is `--game=bfme1 --play` on
+the launcher; the selection persists. With **Battle for Middle-earth I** chosen,
+**Game files** offers an OPTIONAL download of BFME1 1.03 (the `original-BFME1`
+package, from BFME Arena / bfmeladder.com, a third party: OpenBFME does not host
+it); it goes into `<folder>/BFME1` and is found from then on
+(docs/AIO.md, "BFME1 (optional)").
 
 BFME1 has separate `bfme1-Options.ini` and `bfme1-Skirmish.ini` settings.
 `--game=bfme1` and `--bfme1-install=...` are normal player options, so profiles persist between launches.
@@ -49,6 +51,24 @@ The shared engine reads BFME1's subsystem legend and omits expansion-only
 Stances/Create-a-Hero initialization. Language files under `lang/english` are
 exposed at the root, as expected by existing menu readers. Both the shell and
 in-game text consumers understand CSF.
+
+## Isolation
+
+BFME1 support never changes RotWK / BFME2 behaviour (community PR #36 review). `Common/BfmeGame.h`:
+
+- **Which game:** `isBfme1Data(fs)` (BFME1's `SubsystemLegend.ini` without BFME2's `SubsystemLegendExpansion1.ini`), cached per INI
+  environment (`INIEnvironment::bfme1Data`).
+- **INI rows:** BFME1's extra rows are registered per table (`RegisterBfme1FieldRows`) and found only in BFME1 data; RotWK's tables stay
+  the binary's, so RotWK data still fails on these fields as retail does. Value-level differences (AudioEvent `Control` names, special power
+  `Enum` names, particle priorities, OCL dispositions, command points) ask `INI::bfme1Data()`.
+- **Simulation:** differences ask the template (`ThingTemplate::bfme1Data()`, set by a ThingFactory built for BFME1 data): the vision default,
+  build plots under their occupant, the castle flags. A RotWK game's state hash and saves are unchanged.
+- **Files read through a file system ask that file system:** map chunks (`MapReadOptions::bfme1`, set by every map / base / library reader
+  from its file system), the map cache, and the W3D model and texture layout (`W3DFileSource::FlatAssetLayout`, `Resolve_W3D_Texture`'s
+  `flatLayout`), which the simulation's asset manager (launch bones) also reads.
+- **Client paths with nothing to ask** (the texture decoder's PNG / JPEG sniffing, the Apt VM's type-8 constants, floor picking) ask
+  `bfme1Mounted()`, set by the BFME1 mount once its archives pass `isBfme1Data` and cleared otherwise. It never decides a game rule.
+- What BFME1 mode infers rather than ports is stop **S-5017** (docs/STOPS.md), in the BFME1 mount's report.
 
 ## How the BFME1 data differs
 
@@ -81,9 +101,8 @@ These are the places where BFME1's data or menus differ from RotWK's. Each one i
 - **Ground texture alpha:** JPEG ground textures take priority over paired PNG alpha masks and load their alpha through the same packed-texture merge used by the UI.
 - **Build-plot picking:** plot surfaces use `W3DFloorDraw`, so mouse picking tests their visible floor triangles
   as well as scripted model draws. Hidden floors remain unpickable.
-- **Skirmish maps:** the lobby lists multiplayer `map mp` entries with at least two players, excluding the
-  `test`/`nctest` utility maps. Patch 2.22 also marks co-op campaigns and utility maps as multiplayer;
-  those stay loadable by name but are omitted from the skirmish list.
+- **Skirmish maps:** the lobby lists the mapcache's multiplayer maps, as for RotWK (Sol review r1: no file-name filter; in BFME1 1.03 every
+  multiplayer entry is a `map mp` map with two or more players).
 - **Texture replacements:** PNG/JPEG files are accepted by BFME1 texture lookup (including `GBCampFloor`), and image signatures are recognized even when replacements retain `.dds` filenames.
 - **Palantir commands:** BFME1 uses six fixed `CommandButtons.Command1` … `Command6` slots and `SetCommandButtonState`, rather than BFME2's dynamic content frames. Slot state updates only run when content changes, so show animations can finish.
 - **Command tooltips:** BFME1's legacy cursor blocks are skipped to their `End` when loading help fonts. A native help panel displays the existing command-help text because BFME1 has no BFME2 `OnHelpBoxLoaded` content-frame callback.
@@ -106,7 +125,8 @@ and combat behavior needs further comparison with the original game. Legacy
 fields that lack runtime consumers are retained rather than discarded.
 BFME1 particle priorities currently map to the shared renderer's quality tiers;
 its original particle budget is not reproduced. One shipped unresolved mounted
-Faramir voice reference is retained and logged instead of aborting object loading.
+Faramir voice reference (`UnitSpecificSounds` `VoiceGarrison = FaramirKnightVoiceGarrison`, which no AudioEvent defines) loads as BFME1 loads
+it: BFME1's `UnitSpecificSounds` lines store the event name without looking it up (Open-BFME-1 `ThingTemplate_parseArbitrarySoundsIntoMap.cpp`).
 
 The Living World Good/Evil campaigns and their saves are not implemented. Their
 menu requests display the existing unavailable-screen message instead of trying
