@@ -762,6 +762,20 @@ void ControlBar::update()
 						}
 					}
 				}
+				// Upgrade buttons share the production queue's progress with unit buttons. Availability
+				// remains Purchased while researching; it does not mean the research is complete.
+				if (b->m_command == GUI_COMMAND_OBJECT_UPGRADE || b->m_command == GUI_COMMAND_PLAYER_UPGRADE || b->m_command == GUI_COMMAND_CASTLE_UPGRADE)
+				{
+					const UpgradeTemplate *upgrade = TheUpgradeCenter ? TheUpgradeCenter->findUpgrade(b->m_upgradeName) : nullptr;
+					for (const ProductionEntry *e = pu ? pu->firstProduction() : nullptr; e; e = pu->nextProduction(e))
+					{
+						if (upgrade && e->type == PRODUCTION_UPGRADE && e->upgradeToResearch == upgrade)
+						{
+							cb.timer = e->percentComplete / 100.0f;
+							break;
+						}
+					}
+				}
 				// lane AUTOCAST-1: RW 0x9D2C8C .. 0x9D2D13 (the command button clip's update): the glow shows when the clip's state is not _unused and the
 				// object's AutoAbilityBehavior for the button (its power's, else the first) auto casts this button (RW 0x85D741)
 				if (const AutoAbilityBehavior *aa = AutoAbilityBehavior::forButton(*obj, *b))

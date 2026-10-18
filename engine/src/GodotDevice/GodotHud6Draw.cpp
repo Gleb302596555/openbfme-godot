@@ -3,6 +3,8 @@
 
 #include "GodotDevice/GodotHud6Draw.h"
 
+#include "GameClient/GUI/AptScreens/AptImageMode.h"
+
 #include "GameClient/CommandButtonHelp.h"
 #include "GameClient/ControlBarCommands.h"
 #include "GameClient/ControlBarRadialMenu.h"
@@ -97,13 +99,6 @@ private:
 	AptMenuPlayer *m_player;
 };
 
-const char *kGrayShader = R"(shader_type canvas_item;
-void fragment() {
-	vec4 c = texture(TEXTURE, UV) * COLOR;
-	float g = dot(c.rgb, vec3(0.299, 0.587, 0.114));
-	COLOR = vec4(vec3(g), c.a);
-}
-)";
 } // namespace
 
 Hud6Draw::Hud6Draw(InGameHud &hud, const MappedImageCollection &images, TextureFn textureFor, AptMenuPlayer *player)
@@ -119,6 +114,10 @@ Hud6Draw::~Hud6Draw()
 		if (m_radialItem.is_valid())
 		{
 			rs->free_rid(m_radialItem);
+		}
+		if (m_iconItem.is_valid())
+		{
+			rs->free_rid(m_iconItem);
 		}
 		if (m_grayItem.is_valid())
 		{
@@ -189,7 +188,19 @@ void Hud6Draw::drawRadial(RID parent)
 	if (!m_grayItem.is_valid())
 	{
 		m_grayShader.instantiate();
-		m_grayShader->set_code(kGrayShader);
+		// INFERENCE (S-2701): radial cameos use the ellipse as their mask. Their texture alpha masks foreground art;
+		// the RGB underneath contains the full button background (notably builders and heroes).
+		// Keep the rim/clock on the ordinary alpha-blended item.
+		m_grayShader->set_code(String(aptImageModeShader(APT_IMAGE_SOLID_GRAYSCALE).c_str()));
+		m_iconShader.instantiate();
+		m_iconShader->set_code(String(aptImageModeShader(APT_IMAGE_SOLID).c_str()));
+		m_iconMaterial.instantiate();
+		m_iconMaterial->set_shader(m_iconShader);
+		m_iconItem = rs->canvas_item_create();
+		rs->canvas_item_set_parent(m_iconItem, parent);
+		rs->canvas_item_set_draw_index(m_iconItem, -999);
+		rs->canvas_item_set_material(m_iconItem, m_iconMaterial->get_rid());
+		rs->canvas_item_set_z_index(m_iconItem, -1);
 		m_grayMaterial.instantiate();
 		m_grayMaterial->set_shader(m_grayShader);
 		m_grayItem = rs->canvas_item_create();
@@ -206,6 +217,7 @@ void Hud6Draw::drawRadial(RID parent)
 		rs->canvas_item_set_z_index(m_grayItem, -1);
 		rs->canvas_item_set_z_index(m_radialItem, -1);
 	}
+	rs->canvas_item_clear(m_iconItem);
 	rs->canvas_item_clear(m_grayItem);
 	rs->canvas_item_clear(m_radialItem);
 	const int kSegments = 32;
@@ -251,7 +263,7 @@ void Hud6Draw::drawRadial(RID parent)
 				uvs.push_back(Vector2((src.position.x + ux * src.size.x) / tw, (src.position.y + uy * src.size.y) / th));
 				cols.push_back(argb(op.color)); // lane HUD-7: the ALWAYS_COLOR multiplier (white otherwise)
 			}
-			rs->canvas_item_add_polygon(op.grayscale ? m_grayItem : m_radialItem, pts, cols, uvs, tex->get_rid());
+			rs->canvas_item_add_polygon(op.grayscale ? m_grayItem : m_iconItem, pts, cols, uvs, tex->get_rid());
 			continue;
 		}
 		// CLOCK: the part still to go, clockwise from the top (INFERENCE, S-2701: the inverse clock's wipe)

@@ -53,9 +53,9 @@ private:
 	TextureFn m_textureFor;
 	AptMenuPlayer *m_player;
 	std::unique_ptr<FontMetricsSource> m_metrics;
-	RID m_radialItem, m_grayItem;
-	Ref<Shader> m_grayShader;
-	Ref<ShaderMaterial> m_grayMaterial;
+	RID m_radialItem, m_grayItem, m_iconItem;
+	Ref<Shader> m_grayShader, m_iconShader;
+	Ref<ShaderMaterial> m_grayMaterial, m_iconMaterial;
 	unsigned m_helpDraws = 0, m_radialDraws = 0;
 	unsigned m_attackDraws = 0;  ///< lane DEVPORT-8: draws of the blink window's image
 	std::string m_attackImage;   ///< the image the last draw chose ("" none)

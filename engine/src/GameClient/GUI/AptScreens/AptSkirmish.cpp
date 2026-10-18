@@ -1828,14 +1828,14 @@ std::string AptSkirmish::mapPreviewImage(const MapCacheEntry &map)
 	image.name = name;
 	image.status = IMAGE_STATUS_RAW_TEXTURE;
 	image.textureSize.x = image.textureSize.y = 128;
-	// retail UV -> the port's top-row-first textures: v' = 1 - v (WindowManager::RenderPicture)
+	// Map art needs a vertical flip after the texture loader normalizes TGA storage order.
 	if (m_setup->source().fileExists(base + "_art.tga"))
 	{
 		image.filename = base + "_art.tga";
 		image.uvLo[0] = 0.0f;
-		image.uvLo[1] = 0.0f; // retail (0, 1)
+		image.uvLo[1] = 1.0f;
 		image.uvHi[0] = 1.0f;
-		image.uvHi[1] = 1.0f; // retail (1, 0)
+		image.uvHi[1] = 0.0f;
 	}
 	else if (m_setup->source().fileExists(base + ".tga"))
 	{

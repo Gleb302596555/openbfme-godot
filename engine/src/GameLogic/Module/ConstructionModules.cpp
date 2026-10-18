@@ -132,22 +132,24 @@ FoundationAIUpdate::FoundationAIUpdate(Thing *thing, const FoundationAIUpdateMod
 
 UpdateSleepTime FoundationAIUpdate::update()
 {
-	// RotWK / BFME2: the module never wakes itself (its ctor sleeps forever). community PR #36, BFME1 data only (S-5017): a plot hidden under its occupant
-	// (Construction::constructOnPlot) comes back when the occupant is gone
+	// OpenBFME occupied-plot presentation: Construction::constructOnPlot wakes this module to restore the pad after its occupant is gone.
 	Object *plot = getObject();
-	if (!plot->getTemplate()->bfme1Data() || !(plot->isKindOfName("BASE_FOUNDATION") || plot->isKindOfName("BASE_DEFENSE_FOUNDATION") || plot->isKindOfName("EXPANSION_PAD")))
+	if (!(plot->isKindOfName("BASE_FOUNDATION") || plot->isKindOfName("BASE_DEFENSE_FOUNDATION") || plot->isKindOfName("EXPANSION_PAD")))
 	{
 		return UPDATE_SLEEP_FOREVER;
 	}
- auto *member = dynamic_cast<CastleMemberBehavior *>(plot->findModule("CastleMemberBehavior"));
- Object *occupant = member ? plot->logic().findObjectByID(member->occupantId()) : nullptr;
- if (occupant && !occupant->isDestroyed() && !occupant->isEffectivelyDead()) return UPDATE_SLEEP_NONE;
- if (member) member->setOccupantId(INVALID_ID);
- plot->setDrawableHidden(false);
- const int unselectable = ObjectTemplateInfoBuilder::objectStatusIndex("UNSELECTABLE");
- if (unselectable >= 0) plot->setStatus((unsigned)unselectable, false);
- Construction::setModelConditions(*plot, { "CONSTRUCTION_COMPLETE" }, {});
- return UPDATE_SLEEP_FOREVER;
+	auto *member = dynamic_cast<CastleMemberBehavior *>(plot->findModule("CastleMemberBehavior"));
+	Object *occupant = member ? plot->logic().findObjectByID(member->occupantId()) : nullptr;
+	if (occupant && !occupant->isDestroyed() && !occupant->isEffectivelyDead())
+	{
+		return UPDATE_SLEEP_NONE;
+	}
+	if (member) member->setOccupantId(INVALID_ID);
+	plot->setDrawableHidden(false);
+	const int unselectable = ObjectTemplateInfoBuilder::objectStatusIndex("UNSELECTABLE");
+	if (unselectable >= 0) plot->setStatus((unsigned)unselectable, false);
+	Construction::setModelConditions(*plot, { "CONSTRUCTION_COMPLETE" }, {});
+	return UPDATE_SLEEP_FOREVER;
 }
 
 void FoundationAIUpdate::onCapture(Player *oldOwner, Player *newOwner)

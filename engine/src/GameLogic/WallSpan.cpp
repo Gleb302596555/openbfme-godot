@@ -15,6 +15,7 @@
 #include "Common/Thing/ThingFactory.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/BuildPlacement.h"
+#include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Combat/CombatQueries.h"
 #include "GameLogic/Construction.h"
 #include "GameLogic/GameLogic.h"
@@ -24,6 +25,7 @@
 #include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/SimMath.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <stdexcept>
 
@@ -326,8 +328,45 @@ bool WallSpan::plan(GameLogic &logic, Object &hub, const Coord3D &start, const C
 			t.angle = angle;
 			t.tmpl = tt;
 			t.code = legal(pos, *tt);
+			// A wall may terminate against terrain, but never use this exception to
+			// tunnel through another object or evade buildout/shroud restrictions.
+			// Synthetic worlds without a terrain view keep the existing straight-span behavior.
+			const bool hasTerrain = logic.aiWorld() && logic.aiWorld()->pathfinder().terrainView();
+			const int terrainCode = hasTerrain ? BuildPlacement::isLocationLegalToBuild(logic, pos, *tt, angle,
+				LLF_TERRAIN_RESTRICTIONS, &hub, owner) : LBC_OK;
+			if (terrainCode == LBC_RESTRICTED_TERRAIN || terrainCode == LBC_NOT_FLAT_ENOUGH)
+			{
+				const ThingTemplate *cliff = wh->cliffCapTemplate();
+				if (cliff && t.code == 0 && !out.tiles.empty())
+				{
+					Tile &last = out.tiles.back();
+					const int hubCode = legal(last.pos, *cap);
+					const int hubTerrain = BuildPlacement::isLocationLegalToBuild(logic, last.pos, *cap, angle,
+						LLF_TERRAIN_RESTRICTIONS, &hub, owner);
+					const int cliffCode = legal(pos, *cliff);
+					if (hubCode == 0 && hubTerrain == 0 && cliffCode == 0)
+					{
+						out.cost -= costOf(*last.tmpl, hub);
+						last.tmpl = cap;
+						out.cost += costOf(*cap, hub);
+						t.tmpl = cliff;
+						t.code = 0;
+						out.tiles.push_back(t);
+						out.cost += costOf(*cliff, hub);
+						out.endsOnHub = false;
+						out.endHub = INVALID_ID;
+						endCap = false;
+						out.endCapPlaced = true;
+						if ((int)money < out.cost) out.tiles.back().code = out.worstCode = 7;
+						for (const Tile &tile : out.tiles) out.worstCode = std::max(out.worstCode, tile.code);
+						return true;
+					}
+				}
+				// No safe termination: retain an illegal preview rather than building past terrain.
+				t.code = terrainCode;
+			}
 			out.tiles.push_back(t);
-			// RW 0x795D56: codes 5 / 6 (RotWK's cliff codes) put the cliff cap here: not reachable with the port's codes (S-657)
+			// Terrain termination uses the configured cliff cap (fork terrain-termination policy; S-657).
 			pos.x = SimMath::addf32(sx, pos.x);
 			pos.y = SimMath::addf32(sy, pos.y);
 			out.cost += costOf(*tt, hub);
@@ -499,7 +538,7 @@ std::vector<std::string> WallSpan::stopLines()
 {
 	return {
 		"[S-657] walls: WallHubBehavior and MSG_WALL_HUB_CONSTRUCT_SPAN (RW 0x77C4C3 -> BuildAssistant RW 0x795221 / 0x79586E) are ported for a straight span; not ported: RotWK's legal-build "
-		"codes the plan acts on (5 / 6 cliff cap, 8 blocked mid-way, 10 rebuild of a dead equivalent segment: RW 0x797A96 is not read, the port's codes only refuse a tile), the end-hub link "
+		"codes the plan acts on (5 / 6 cliff cap, 8 blocked mid-way, 10 rebuild of a dead equivalent segment: RW 0x797A96 is not read); INFERENCE: fork terrain termination maps restricted/uneven terrain to the configured cliff cap with a preceding legal hub, retaining collision/shroud/buildout/payment checks; the end-hub link "
 		"path (RW 0x793DB9 then slot 0x58), the filter of the end-hub search (the port takes the owner's WALL_HUBs), the consumers of the linked-piece list (RW 0x856E1F / 0x856E5C), "
 		"CANCEL_NEIGHBORHOOD, WallUpgradeUpdate and CastleUpgrade",
 	};
