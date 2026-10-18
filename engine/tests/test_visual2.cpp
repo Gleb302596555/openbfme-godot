@@ -830,3 +830,45 @@ TEST_CASE("visual2 stops: S-4970 .. S-4974 reach the live report (GodotGameWorld
 	}
 	CHECK(found682);
 }
+
+// lane RELFIX-2: why the hud6 harness (scripts/hud6_player.gd) places its barracks on the map. RW 0x6A2449 .. 0x6A24BF has no owner test: a selected
+// drawable of the local player's own whose status (RW 0x68D8F7) is SHROUDED is deselected too, and an object outside the shroud grid covers no cell, which
+// RW 0xB4E890 answers SHROUDED (total == 0). The same barracks on the map clears its own cells (ShroudClearingRange 160) and stays selected
+TEST_CASE("visual2 r2 retail: an own barracks off the map is SHROUDED for its owner and deselected on the 30th client frame; on the map it stays")
+{
+	if (!hudtest::haveWorld("visual2 r2 retail own object off the map"))
+	{
+		return;
+	}
+	hudtest::SharedWorld &s = hudtest::shared();
+	hudtest::Rig rig(s);
+	const auto context = s.world->enterContext();
+	creeptest::removeCreeps(rig.logic());
+	ShroudManager *sm = rig.logic().shroud();
+	REQUIRE(sm != nullptr);
+	sm->setDisplayed(true);
+	const Coord3D on = farCorner(rig, *sm);
+	const float hiX = sm->originX() + sm->cellSize() * (float)sm->cellCountX();
+	const Coord3D off{ hiX + 52.0f, on.y, 0.0f }; // Evendim's case: fortress.x + 450 = 5052 on a 5000-unit grid
+	std::string err;
+	Object *a = rig.game->createObject("GondorBarracks", rig.index(), on, 0.0f, &err);
+	REQUIRE_MESSAGE(a != nullptr, err);
+	Object *b = rig.game->createObject("GondorBarracks", rig.index(), off, 0.0f, &err);
+	REQUIRE_MESSAGE(b != nullptr, err);
+	const ObjectID onId = a->getID(), offId = b->getID();
+	rig.frame(3);
+	REQUIRE(sm->clientObjectStatus(*rig.logic().findObjectByID(onId), rig.index()) == OBJECTSHROUD_CLEAR);
+	REQUIRE(sm->clientObjectStatus(*rig.logic().findObjectByID(offId), rig.index()) == OBJECTSHROUD_SHROUDED);
+	InGameUI &ui = rig.input->ui();
+	ui.selectObject(onId);
+	ui.selectObject(offId);
+	REQUIRE(ui.isSelected(onId));
+	REQUIRE(ui.isSelected(offId));
+	do
+	{
+		ui.advanceClientFrame();
+	} while (ui.clientFrame() % 30 != 0);
+	rig.input->update();
+	CHECK(ui.isSelected(onId));
+	CHECK_FALSE(ui.isSelected(offId));
+}
