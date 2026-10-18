@@ -18,6 +18,8 @@
 
 #include <godot_cpp/classes/mesh_instance3d.hpp>
 #include <godot_cpp/classes/node3d.hpp>
+#include <godot_cpp/classes/decal.hpp>
+#include <godot_cpp/classes/label.hpp>
 #include <godot_cpp/classes/standard_material3d.hpp>
 #include <godot_cpp/classes/texture2d.hpp>
 #include <godot_cpp/variant/dictionary.hpp>
@@ -28,6 +30,8 @@
 #include <vector>
 
 class CastleTemplateStore;
+class GameTextSource;
+class MappedImageCollection;
 class InGameUI;
 class LiveGame;
 
@@ -46,6 +50,12 @@ public:
 	// `judge` false on a frame the logic worker runs (InGameUI's pose only: PlacementIcons::update)
 	void sync(LiveGame &game, const InGameUI &ui, double deltaSeconds, unsigned ghostOptions, bool judge = true);
 	void clear();
+	// the farm placement feedback's sources (community PR #37): the HUD's mapped images (InGameUI PlaceTerrainResourceClaimantDecal names one) and game text
+	void setFeedbackSources(const MappedImageCollection *images, const GameTextSource *text)
+	{
+		m_images = images;
+		m_text = text;
+	}
 	// { template, castle, anchored, arrow, icons: [ { template, x, y, z, angle, code, tint: Color (a 0: none), bib: "" | "TBBib.tga" | "TBRedBib.tga",
 	//   instances, piece, base_site } ], errors: [...] }
 	Dictionary state() const;
@@ -62,12 +72,19 @@ private:
 	};
 	struct IconView
 	{
+		const ThingTemplate *tt = nullptr;
 		W3DInstancer *inst = nullptr;
 		std::map<std::string, int64_t> models;
 		std::vector<EntryView> entries;
 		MeshInstance3D *bib = nullptr;
 		uint64_t instId = 0, bibId = 0; ///< the nodes' ids (freed by id: GodotPlacementGhost.cpp freeNode)
 		std::string bibTexture;
+		const ThingTemplate *bibTemplate = nullptr; ///< the template the bib quad was built for (a reused wall slot can change template)
+		// lane OWNERFIX-2: the decal shadow of the drawable's current model state (Shadow = SHADOW_ALPHA_DECAL ...: e.g. a well's or a statue's area
+		// of effect on its BUILD_PLACEMENT_CURSOR state)
+		uint64_t shadowDecalId = 0;
+		std::string shadowTexture;
+		float shadowSizeX = 0.0f, shadowSizeY = 0.0f;
 		Color tint = Color(0, 0, 0, 0);
 		bool tintApplied = false;
 		int instances = 0;
@@ -77,9 +94,15 @@ private:
 	void drawIcon(size_t i, PlacementIcons::Icon &icon, IconView &view);
 	void applyTint(IconView &view, const Color &tint);
 	void updateBib(PlacementIcons::Icon &icon, IconView &view);
+	void updateShadowDecal(PlacementIcons::Icon &icon, IconView &view); // lane OWNERFIX-2
 	void updateArrow(const InGameUI &ui);
 	Ref<Texture2D> texture(const std::string &name);
 
+	const MappedImageCollection *m_images = nullptr;
+	const GameTextSource *m_text = nullptr;
+	Decal *m_resourceDecal = nullptr;
+	Label *m_resourceLabel = nullptr;
+	uint64_t m_resourceDecalId = 0, m_resourceLabelId = 0;
 	Node3D *m_parent = nullptr;
 	Ref<RetailFileSystem> m_fs;
 	std::unique_ptr<CastleTemplateStore> m_castles;

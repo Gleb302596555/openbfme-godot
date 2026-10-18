@@ -1,7 +1,8 @@
 // OpenBFME. GPL-3.0.
 //
 // PlacementIcons (lane BUILD-5 r2): the building placement ghost as RotWK makes it, real drawables of the pending template and, for a castle, of its layout's
-// pieces (W3DInGameUI's place icon slots, InGameUI + 0x544: { Drawable *, angle } each, GlobalData + 0xA94 slots). Client only: the drawables live on the
+// pieces (W3DInGameUI's place icon slots, InGameUI + 0x544: { Drawable *, angle } each, GlobalData + 0xA94 slots). Wall spans use WallSpan::plan's tiles so
+// the preview shares construction's segment spacing and snapped destination cap. Client only: the drawables live on the
 // render side and nothing here changes the logic; the legality answers only colour the icons.
 //
 // TARGET FACTS (RotWK game.dat, caveat S-001):
@@ -38,6 +39,7 @@ class CastleTemplateStore;
 class Drawable;
 struct DrawServices;
 class GameLogic;
+class GameTextSource;
 class InGameUI;
 class ThingTemplate;
 
@@ -90,6 +92,15 @@ public:
 	std::vector<Icon> &icons() { return m_icons; }
 	const std::string &templateName() const { return m_template; }
 	bool castle() const { return m_castle; }
+	// the farm placement feedback (BFME2 PlaceTerrainResourceClaimantFeedback, community PR #37): the ghost's TerrainResourceBehavior Radius (0: none)
+	// and the share a claim there would get (TerrainResourceManager::previewShare), read on idle frames
+	float resourceRadius() const { return m_resourceRadius; }
+	float resourceShare() const { return m_resourceShare; }
+	// BFME2 0x4E6455 (Impl::update): the label, GUI:TerrainResourcePercentageClaimable (UnicodeString::format) with the share in percent
+	// (WWMath::Float_To_Long(floor(share * 100 + 0.5))), and its colour (ARGB): green above 0.75, yellow from 0.5, red from 0.25, else black; the decal
+	// takes the same RGB at opacity 0x80 (createPotentialClaimDecal 0x4E65CF)
+	static std::u16string claimantText(const GameTextSource *text, float share);
+	static std::uint32_t claimantColor(float share);
 	// problems (a draw module that does not build, a layout that does not load), each reported once
 	const std::vector<std::string> &errors() const { return m_errors; }
 	// the draw modules' counted problems (a hidden sub object the model lacks; an animation that does not resolve is an error, r4), each once
@@ -100,7 +111,8 @@ public:
 
 private:
 	void rebuild(const InGameUI &ui);
-	std::unique_ptr<Drawable> make(const ThingTemplate &tt);
+	void updateWall(const InGameUI &ui);
+	std::unique_ptr<Drawable> make(const ThingTemplate &tt, size_t slot);
 	void error(const std::string &e);
 	void collectProblems();
 	DrawServices &m_services;
@@ -110,6 +122,8 @@ private:
 	std::string m_template;
 	ObjectID m_source = INVALID_ID;
 	bool m_castle = false;
+	bool m_wall = false;
+	float m_resourceRadius = 0, m_resourceShare = 0;
 	std::vector<std::string> m_errors;
 	std::vector<std::string> m_notes;
 };

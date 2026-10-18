@@ -6,6 +6,7 @@
 #endif
 
 #include "GameLogic/WallSpan.h"
+#include "GameLogic/SnapshotXfer.h"
 
 #include "Common/BuildAssistant.h"
 #include "Common/Player.h"
@@ -502,4 +503,11 @@ std::vector<std::string> WallSpan::stopLines()
 		"path (RW 0x793DB9 then slot 0x58), the filter of the end-hub search (the port takes the owner's WALL_HUBs), the consumers of the linked-piece list (RW 0x856E1F / 0x856E5C), "
 		"CANCEL_NEIGHBORHOOD, WallUpgradeUpdate and CastleUpgrade",
 	};
+}
+
+// ---- lane SAVE-4b: the snapshot (UpdateModule's: the hub keeps no state of its own) ---------------------------------------------------------------------
+void WallHubBehavior::xfer(Xfer &x)
+{
+	SnapshotXfer::version(x, 1, 1);
+	xferUpdateModule(x);
 }

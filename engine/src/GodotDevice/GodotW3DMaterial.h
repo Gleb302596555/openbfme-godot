@@ -80,6 +80,9 @@ public:
 	// lane CAH-2 (S-1408): the colour set of the model being built (W3DInstancer::add_model_colored; kind 0 = none): its house colour textures are
 	// recoloured texel by texel as RW 0x531C77 before any filtering, the mipmaps made from the recoloured level (Recolored_House_Texture)
 	void Set_House_Params(const HouseColorParams &params) { HouseParams = params; }
+	// stop S-5015: the texture swaps of the model being built (W3DInstancer::Set_Build_Texture_Swaps, a ModelConditionState's `Texture = A B` pairs):
+	// a surface texture named A (any case; A = "*": every texture) is loaded as B. Empty by default.
+	void Set_Texture_Swaps(const std::vector<std::pair<std::string, std::string>> &swaps) { TextureSwaps = swaps; }
 	// lane BUILD-5 r3: the surfaces this factory builds belong to a translucent drawable (W3DShaderKey::AlphaOverride); off by default
 	void Set_Alpha_Override(bool on) { AlphaOverride = on; }
 	// RW 0x531C77 applied to the texture `name` (its A8R8G8B8 texels; another format stays as it is, as retail's switch leaves it), then mipmaps; cached
@@ -115,6 +118,7 @@ private:
 	ArchiveFileSystem &Fs;
 	const HouseColorTable *HouseColors = nullptr;
 	HouseColorParams HouseParams;
+	std::vector<std::pair<std::string, std::string>> TextureSwaps; // stop S-5015
 	bool AlphaOverride = false;
 	std::map<std::string, Ref<Shader>> Shaders;
 	std::map<std::string, Ref<Texture2D>> Textures; // by virtual path
@@ -130,6 +134,10 @@ void W3D_Apply_Object_Lighting(const W3DObjectLighting &lighting);
 // globals w3d_fog / w3d_fog_color, W3DHardwareFog.h); colour 0..1 in retail's gamma space
 void W3D_Apply_Fog(bool enabled, const float color[3], float start, float end);
 // lane PLAY-1: the free camera moves every fog range out by `shift` world units (the global w3d_fog_shift; 0 = retail)
+// lane VISUAL-2: the vegetation SwayOffsets 1 .. 10 (W3D axes) the rigid W3D shaders read (w3dshadergen.cpp)
+void W3D_Set_Sway_Offsets(const float offsets[10][3]);
+// lane VISUAL-2: the fogged light fraction (RW 0x46DFD0: FogAlpha / ClearAlpha) a fogged instance's lights and ambient are scaled by
+void W3D_Set_Fogged_Light_Frac(float frac);
 void W3D_Set_Fog_Shift(float shift);
 // The light of the model viewers that show no map (not retail data): ambient 0.3 (defaultw3d.fxo's own AmbientLightColor default),
 // one white light toward (-0.5, -0.5, 0.7) SAGE, for both sets.

@@ -127,9 +127,15 @@ bool writeGameMessage(NetByteWriter &w, const GameMessage &m, std::string *error
 std::unique_ptr<GameMessage> readGameMessage(NetByteReader &r, std::string *error);
 
 void writeGameInfo(NetByteWriter &w, const SkirmishGameInfo &g);
-bool readGameInfo(NetByteReader &r, SkirmishGameInfo &g, std::string *error);
+// lane UBERJOIN-1: `profileOptionalAtEnd`: the simulation profile (the last field) may be absent when the packet ends right before it (the game list's
+// announcement, the one place a GameInfo is the packet's tail: an announcement of a peer that predates UBER-1 lists as Faithful). Present, it is checked as
+// ever (a value this build does not know is refused); a GameInfo with more bytes after it never takes the shortcut
+// lane OWNERFIX-2: the eight slots' handicaps (GameSlot + 0x20) follow the profile; `slotHandicaps` false reads a GameInfo written before they existed (a
+// format 5 / 6 replay or save: every handicap 0). An announcement without the profile has none either (every handicap 0); one with the profile must carry
+// them (the LAN protocol version that carries them refuses older peers first). A handicap outside 0, -5 .. -95 (SkirmishGameSlot::handicapValid) is refused
+bool readGameInfo(NetByteReader &r, SkirmishGameInfo &g, std::string *error, bool profileOptionalAtEnd = false, bool slotHandicaps = true);
 void writeNewGameMessage(NetByteWriter &w, const NewGameMessage &m);
-bool readNewGameMessage(NetByteReader &r, NewGameMessage &m, std::string *error);
+bool readNewGameMessage(NetByteReader &r, NewGameMessage &m, std::string *error, bool slotHandicaps = true);
 } // namespace NetPacket
 
 // One network command (ZH NetCommandMsg and its subclasses, reduced to the commands this lane exchanges)

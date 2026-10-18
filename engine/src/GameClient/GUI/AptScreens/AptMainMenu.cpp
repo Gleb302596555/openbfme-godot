@@ -12,8 +12,12 @@
 #include "GameClient/GUI/AptGadgetLayer.h"
 #include "GameClient/Credits.h"
 #include "Common/INIException.h"
+#include "Common/ArchiveFileSystem.h"
+#include "Common/BfmeGame.h"
+#include "GameClient/OptionPreferences.h"
 
 #include <algorithm>
+#include <filesystem>
 
 namespace
 {
@@ -70,34 +74,58 @@ AptMainMenu::~AptMainMenu()
 	windows().clearRenderCallback("AptMainMenu::RenderCredits");
 }
 
-std::string AptMainMenu::unavailableScreenName(const std::string &action)
+namespace
 {
-	// the main menu's requests that open a screen of their own (the names as the menu's buttons call them). Not Credits: MainMenu.apt's CreditsButton
-	// plays its own _CreditsMovie clip with an exit button (ExitCreditsButton -> ShowMainMenu), the command starts the roll (lane UI-4)
-	static const std::pair<const char *, const char *> kScreens[] = {
-		{ "CreateAHero", "My Heroes (Create-a-Hero)" },
-		{ "LoadGame", "Load Game" },
-		{ "Online", "Online" },
-		{ "BattleSchool", "Battle School" },
-		{ "LevelSelect", "Level Select" },
-		{ "LoadCampaign", "Load Campaign" },
-		{ "ContinueCampaign", "Continue Campaign" },
-		{ "ContinueCampaignNone", "Continue Campaign (no saved campaign progress)" },
-		{ "Expansion1Campaign", "The Rise of the Witch-king campaign" },
-		{ "BonusCampaign", "The bonus campaign" },
-		{ "WarOfTheRing", "War of the Ring" },
-		{ "Tutorial", "The tutorial" },
-		{ "Lan", "Network" },
-		{ "LoadReplay", "Replays" },
-	};
-	for (const auto &row : kScreens)
+// the main menu's requests that open a screen of their own (the names as the menu's buttons call them), and why a build has no screen for it, in the
+// player's words (lane MENUWORK-1: the box says why). Not Credits: MainMenu.apt's CreditsButton plays its own _CreditsMovie clip with an exit button
+// (ExitCreditsButton -> ShowMainMenu), the command starts the roll (lane UI-4)
+struct UnavailableScreen
+{
+	const char *action;
+	const char *name;
+	const char *why;
+};
+const UnavailableScreen kUnavailableScreens[] = {
+	{ "CreateAHero", "My Heroes (Create-a-Hero)", "this build has no screen for it" },
+	{ "LoadGame", "Load Game", "this build has no screen for it" },
+	{ "Online", "Online", "this build has no screen for it" },
+	{ "BattleSchool", "Battle School", "OpenBFME does not have it yet" },
+	{ "LevelSelect", "Level Select", "OpenBFME does not have it yet" },
+	{ "LoadCampaign", "Load Campaign", "OpenBFME does not have it yet" },
+	{ "ContinueCampaign", "Continue Campaign", "this build has no screen for it" },
+	{ "GoodCampaign", "BFME1 Good campaign (Living World)", "OpenBFME does not have it yet" },
+	{ "EvilCampaign", "BFME1 Evil campaign (Living World)", "OpenBFME does not have it yet" },
+	{ "Expansion1Campaign", "The Rise of the Witch-king campaign", "this build has no screen for it" },
+	{ "BonusCampaign", "The bonus campaign", "this build has no screen for it" },
+	{ "WarOfTheRing", "War of the Ring", "its strategy map game is still being rebuilt" },
+	{ "Tutorial", "The tutorial", "OpenBFME does not have it yet" },
+	{ "Lan", "Network", "this build has no screen for it" },
+	{ "LoadReplay", "Replays", "this build has no screen for it" },
+};
+
+const UnavailableScreen *unavailableRow(const std::string &action)
+{
+	for (const UnavailableScreen &row : kUnavailableScreens)
 	{
-		if (action == row.first)
+		if (action == row.action)
 		{
-			return row.second;
+			return &row;
 		}
 	}
-	return std::string();
+	return nullptr;
+}
+} // namespace
+
+std::string AptMainMenu::unavailableScreenName(const std::string &action)
+{
+	const UnavailableScreen *row = unavailableRow(action);
+	return row ? row->name : std::string();
+}
+
+std::string AptMainMenu::unavailableText(const std::string &action)
+{
+	const UnavailableScreen *row = unavailableRow(action);
+	return row ? std::string(row->name) + " is not available yet: " + row->why + "." : std::string();
 }
 
 std::string AptMainMenu::screenUnavailable(const std::string &action)
@@ -115,7 +143,7 @@ std::string AptMainMenu::screenUnavailable(const std::string &action)
 		m_box = std::make_unique<AptMessageBox>(windows(), shell());
 	}
 	m_boxClosed = false;
-	const std::string text = screen + " is not available in this build yet.";
+	const std::string text = unavailableText(action); // lane MENUWORK-1: the box says why
 	m_box->show(AptMessageBox::TYPE_OK, u"OpenBFME", std::u16string(text.begin(), text.end()), [this](int) { m_boxClosed = true; });
 	if (m_box->level() < 0)
 	{
@@ -255,8 +283,19 @@ void AptMainMenu::registerAll()
 	registerCommand("AptMainMenu::OnInitialized", [this](const std::string &) {
 		// the retail body sets preference counters (TimesInGame, FlashTutorial) and the logo mapped image; not ported [S-175]
 		windows().note("unported-command", "AptMainMenu::OnInitialized: preference bookkeeping");
+		// BFME1 (docs/BFME1.md): MainMenu.apt shows its menu bar only when ShowMainMenu() is called; its root stops after the background fade
+		// and no frame script calls it. INFERENCE: the engine's OnInitialized does (Open-BFME-1 declares BfmeAptScreenMainMenu::_bfme_onInitialized,
+		// AptMainMenuConstructor.cpp:275, without its body); without the call no menu button ever appears
+		if (m_env && m_env->fileSystem && isBfme1Data(*m_env->fileSystem))
+		{
+			std::string err;
+			if (level() < 0 || !windows().invokeAS(level(), "ShowMainMenu", {}, nullptr, &err))
+				windows().note("bfme1-main-menu", "ShowMainMenu() could not be called: " + err);
+		}
 	});
 	registerCommand("AptMainMenu::Skirmish", [this](const std::string &) { showSkirmish(); });
+	registerCommand("AptMainMenu::GoodCampaign", [this](const std::string &argument) { request(ShellAction::LoadCampaign, "bfme2:good:" + argument); });
+	registerCommand("AptMainMenu::EvilCampaign", [this](const std::string &argument) { request(ShellAction::LoadCampaign, "bfme2:evil:" + argument); });
 	registerCommand("AptMainMenu::Options", [this](const std::string &argument) {
 		// MainMenu calls GameCode('Options', true|false): advanced or basic (spec 1.10). Lane FB7-1: the menu's state 9 opens it with
 		// RW 0x91ED91(0, 1, 1, advanced) (RW 0x91C37E .. 0x91C38A): no network, the resolution and the advanced options allowed
@@ -280,7 +319,12 @@ void AptMainMenu::registerAll()
 		request(ShellAction::ExitGame, argument);
 		windows().requestShellPop();
 	});
-	for (const CommandRow &row : kRequestCommands)
+	std::vector<CommandRow> requests(std::begin(kRequestCommands), std::end(kRequestCommands));
+	if (m_env && m_env->fileSystem && isBfme1Data(*m_env->fileSystem))
+	{
+		requests.push_back({ "AptMainMenu::Tutorial", ShellAction::Tutorial }); // community PR #36: BFME1 MainMenu.apt's name (BFME1 data only)
+	}
+	for (const CommandRow &row : requests)
 	{
 		const ShellAction action = row.action;
 		const std::string name = row.name;
@@ -289,11 +333,48 @@ void AptMainMenu::registerAll()
 			windows().note("unported-command", name + (argument.empty() ? std::string() : "(" + argument + ")") + ": the request is the whole behaviour so far [S-175]");
 		});
 	}
-	// providers: the values come from preferences and campaign progress, which are not wired [S-175]
-	registerProvider("MainMenuUnlockBonusCampaign", unwiredProvider("MainMenuUnlockBonusCampaign"));
+	// providers: MainMenuLevel and BlinkBattleSchoolOff are not wired [S-175]
+	// lane CAMPSAVE-1: RW 0x91BB6B's cases 2 and 1 (the value "0" first, "1" when true; a setting changes nothing): TheGlobalData + 0xAF5 (Options.ini's BCU
+	// at start, the campaign's end sets it, RW 0x927F4C) and whether the Save folder holds "00000000.sav" (RW 0x6DDE0F). RotWK's MainMenu.apt reads only
+	// the first (its single player page enables BonusCampaign by it); no button of the movie asks the second
+	registerProvider("MainMenuUnlockBonusCampaign", [this](const std::string &, std::string &value, bool setting) {
+		if (!setting)
+		{
+			value = (m_env && m_env->bonusCampaignUnlocked) ? "1" : "0";
+		}
+		return true;
+	});
+	windows().markNumericProvider("MainMenuUnlockBonusCampaign"); // the single player page tests it with Not: "0" must be false (S-1063's inference)
 	registerProvider("MainMenuLevel", unwiredProvider("MainMenuLevel"));
-	registerProvider("MainMenuContinueCampaign", unwiredProvider("MainMenuContinueCampaign"));
+	windows().markNumericProvider("MainMenuContinueCampaign");
+	registerProvider("MainMenuContinueCampaign", [this](const std::string &, std::string &value, bool setting) {
+		if (!setting)
+		{
+			value = (m_env && continueCampaignSaveExists(m_env->saveFolder)) ? "1" : "0";
+		}
+		return true;
+	});
 	registerProvider("BlinkBattleSchoolOff", unwiredProvider("BlinkBattleSchoolOff"));
+	// BFME1 BfmeAptScreenMainMenuProvider.cpp (0x0051E9B0): selectors
+	// 0 (read/write level), 1 (campaign save exists), 3 (FlashTutorial inverted).
+	if (m_env && m_env->fileSystem && isBfme1Data(*m_env->fileSystem))
+	{
+		windows().unregisterProvider("MainMenuLevel");
+		windows().unregisterProvider("MainMenuContinueCampaign");
+		windows().unregisterProvider("BlinkBattleSchoolOff");
+		registerProvider("MainMenuLevel", [this](const std::string &, std::string &value, bool setting) {
+			if (setting) m_mainMenuLevel = value; else value = m_mainMenuLevel;
+			return true;
+		});
+		registerProvider("MainMenuContinueCampaign", [](const std::string &, std::string &value, bool setting) {
+			if (!setting) value = "0"; // Living World campaign save import is not implemented.
+			return true;
+		});
+		registerProvider("BlinkBattleSchoolOff", [this](const std::string &, std::string &value, bool setting) {
+			if (!setting) value = m_env->options && !m_env->options->getYesNo("FlashTutorial", true) ? "1" : "0";
+			return true;
+		});
+	}
 	// the credits render callback (registerAptCallback, RW 0x91D301 binds RW 0x91B1B8): the clip is a component with no window; the device asks the
 	// render callback below for the text it draws in the clip's place
 	registerComponent("AptMainMenu::RenderCredits", [](AptComponentRequest &) -> std::shared_ptr<GameWindow> { return nullptr; });
@@ -303,4 +384,16 @@ void AptMainMenu::registerAll()
 			m_credits->draw(x, y, w, h, out); // RW 0x91B1B8: only with a roll ([RW 0xDEBF50] != 0)
 		}
 	});
+}
+
+bool AptMainMenu::continueCampaignSaveExists(const std::string &saveFolder)
+{
+	// RW 0x91BBBF .. 0x91BBD5: TheGameState RW 0x6DDE0F(L"00000000.sav") -> RW 0x6DD85E (a name without '\\' is taken in the Save folder) -> TheLocalFileSystem
+	// RW 0xA14220 (the file exists)
+	if (saveFolder.empty())
+	{
+		return false;
+	}
+	std::error_code ec;
+	return std::filesystem::is_regular_file(std::filesystem::u8path(saveFolder) / "00000000.sav", ec);
 }

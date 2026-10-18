@@ -1,8 +1,19 @@
 // OpenBFME. GPL-3.0.
 
 #include "GodotDevice/GodotRetailFileSystem.h"
+#include "Common/BfmeGame.h"
+#include "Libraries/WWVegas/WW3D2/assetmgr.h"
 
 #include "Common/RetailArchivePolicy.h"
+#include "Common/ArchiveFile.h"
+#include "Common/MD5.h"
+#include <algorithm>
+#include <filesystem>
+#include <chrono>
+#include <godot_cpp/classes/config_file.hpp>
+#include <godot_cpp/classes/file_access.hpp>
+#include <godot_cpp/classes/dir_access.hpp>
+#include <godot_cpp/classes/os.hpp>
 #include "GameEngineDevice/Win32Device/Common/Win32BIGFileSystem.h"
 
 #include <godot_cpp/classes/project_settings.hpp>
@@ -33,9 +44,14 @@ RetailFileSystem::~RetailFileSystem() = default;
 
 void RetailFileSystem::_bind_methods()
 {
+	ClassDB::bind_method(D_METHOD("mount_bfme1_path", "root"), &RetailFileSystem::mount_bfme1_path);
+	ClassDB::bind_method(D_METHOD("is_bfme1"), &RetailFileSystem::is_bfme1);
 	ClassDB::bind_method(D_METHOD("mount_retail"), &RetailFileSystem::mount_retail);
 	ClassDB::bind_method(D_METHOD("mount_retail_paths", "rotwk", "bfme2"), &RetailFileSystem::mount_retail_paths); // RELEASE-1
+	ClassDB::bind_method(D_METHOD("create_bfme2_shell"), &RetailFileSystem::create_bfme2_shell);
 	ClassDB::bind_method(D_METHOD("is_mounted"), &RetailFileSystem::is_mounted);
+	ClassDB::bind_method(D_METHOD("is_shell_source"), &RetailFileSystem::is_shell_source);
+	ClassDB::bind_method(D_METHOD("install_root"), &RetailFileSystem::install_root);
 	ClassDB::bind_method(D_METHOD("file_exists", "path"), &RetailFileSystem::file_exists);
 	ClassDB::bind_method(D_METHOD("read_file", "path"), &RetailFileSystem::read_file);
 	ClassDB::bind_method(D_METHOD("get_archive_for_file", "path"), &RetailFileSystem::get_archive_for_file);
@@ -45,6 +61,16 @@ void RetailFileSystem::_bind_methods()
 
 Dictionary RetailFileSystem::mount_retail()
 {
+	if (m_shellSource)
+	{
+		m_lastError = "a presentation-only BFME2 source cannot be mounted as a game file system";
+		Dictionary result;
+		PackedStringArray errors;
+		errors.push_back(m_lastError);
+		result["ok"] = false;
+		result["errors"] = errors;
+		return result;
+	}
 	PackedStringArray errors;
 	std::string config = toNative(ProjectSettings::get_singleton()->globalize_path("user://install-paths.cfg"));
 	std::string rotwkRoot;
@@ -63,16 +89,186 @@ Dictionary RetailFileSystem::mount_retail()
 
 Dictionary RetailFileSystem::mount_retail_paths(const String &rotwk, const String &bfme2)
 {
+	if (m_shellSource)
+	{
+		m_lastError = "a presentation-only BFME2 source cannot be mounted as a game file system";
+		Dictionary result;
+		PackedStringArray errors;
+		errors.push_back(m_lastError);
+		result["ok"] = false;
+		result["errors"] = errors;
+		return result;
+	}
 	return mountFrom(toNative(rotwk), toNative(bfme2), PackedStringArray());
+}
+
+Dictionary RetailFileSystem::mount_bfme1_path(const String &root)
+{
+	setBfme1Mounted(false); // Sol review r1: a failed mount leaves no BFME1 client behaviour behind (set again only once this one succeeds)
+	m_fs.reset();
+	m_mounted = false;
+	m_bfme1 = false;
+	m_bfme1Root.clear();
+	m_mountedArchives.clear();
+	m_loose.clear();
+	PackedStringArray errors;
+	auto fs = std::make_unique<Win32BIGFileSystem>();
+	const auto directory = std::filesystem::u8path(toNative(root));
+	std::error_code ec;
+	std::vector<std::string> names;
+	PackedStringArray excluded; // community PR #36 review: reported, never silently skipped (PLAN rule 7)
+	for (std::filesystem::recursive_directory_iterator it(directory, ec), end; !ec && it != end; it.increment(ec))
+	{
+		if (!it->is_regular_file()) continue;
+		auto extension = it->path().extension().u8string();
+		std::transform(extension.begin(), extension.end(), extension.begin(), [](unsigned char c) { return std::tolower(c); });
+		if (extension != ".big") continue;
+		const auto filename = it->path().filename().u8string();
+		auto relative = it->path().lexically_relative(directory).u8string();
+		// the AIO launcher's generated graphics overrides ("!!!*.big") are not BFME1 1.03 data: left out, and named in the report
+		if (filename.rfind("!!!", 0) == 0)
+		{
+			excluded.push_back(toGodot(relative));
+			continue;
+		}
+		std::replace(relative.begin(), relative.end(), '/', '\\');
+		names.push_back(relative);
+	}
+	if (ec) errors.push_back(toGodot("Cannot read BFME1 folder: " + ec.message()));
+	if (names.empty()) errors.push_back("Choose a BFME1 installation containing BIG archives");
+	// BFME1 Win32BIGFileSystem_loadBigFiles.cpp (0x009CDB90): descending
+	// strcmp order, first mounted wins. Do not mix in BFME2/RotWK archives.
+	std::vector<MountedArchive> mounted;
+	Ref<ConfigFile> cache;
+	cache.instantiate();
+	cache->load("user://bfme1-archive-cache.cfg");
+	int hashed = 0, cached = 0;
+	for (const auto &name : BFMEArchiveLoadOrder(names))
+	{
+		if (!errors.is_empty()) break;
+		auto relative = name;
+		std::replace(relative.begin(), relative.end(), '\\', '/');
+		const auto path = (directory / std::filesystem::u8path(relative)).u8string();
+		std::string error;
+		auto archive = fs->openArchiveFile(path, &error);
+		if (!archive) { errors.push_back(toGodot(error)); break; }
+		MountedArchive entry;
+		entry.install = "bfme1";
+		entry.canonicalPath = relative;
+		entry.diskPath = path;
+		entry.size = std::filesystem::file_size(std::filesystem::u8path(path), ec);
+		const auto stamp = std::filesystem::last_write_time(std::filesystem::u8path(path), ec).time_since_epoch().count();
+		const String key = toGodot(MD5::ofBytes(path.data(), path.size()));
+		if (!ec && (int64_t)cache->get_value(key, "size", (int64_t)-1) == (int64_t)entry.size &&
+			(int64_t)cache->get_value(key, "mtime", (int64_t)0) == stamp)
+		{
+			entry.md5 = toNative(cache->get_value(key, "md5", String()));
+			++cached;
+		}
+		if (entry.md5.empty())
+		{
+			entry.md5 = MD5::ofFile(path, &error);
+			++hashed;
+			cache->set_value(key, "size", (int64_t)entry.size);
+			cache->set_value(key, "mtime", (int64_t)stamp);
+			cache->set_value(key, "md5", toGodot(entry.md5));
+		}
+		if (ec || entry.md5.empty()) { errors.push_back(toGodot("Cannot fingerprint " + path + ": " + error)); break; }
+		mounted.push_back(entry);
+		fs->mountArchive(std::move(archive), path, false);
+	}
+	for (const char *required : { "data/ini/gamedata.ini", "data/ini/playertemplate.ini", "maps/mapcache.ini", "MainMenu.apt" })
+	{
+		if (!fs->doesFileExist(required)) errors.push_back(toGodot(std::string("BFME1 installation is missing ") + required));
+	}
+	// Sol review r1: the archives must be BFME1's by the same test every gate uses (isBfme1Data: its legend without BFME2's expansion legend), so the
+	// client paths (bfme1Mounted) and the parsing / simulation (the data) never select different games
+	if (errors.is_empty() && !isBfme1Data(*fs))
+	{
+		errors.push_back("not BFME1 data: Data\\INI\\Default\\SubsystemLegend.ini without SubsystemLegendExpansion1.ini is required (a BFME2 / RotWK install mounts with mount_retail)");
+	}
+	// BFME1 stores these files below lang/<language>; its file-system search
+	// exposes them at the root. Build a transient view of the same bytes so
+	// all existing UI readers see the selected language consistently.
+	if (errors.is_empty())
+	{
+		std::vector<std::pair<std::string, std::vector<std::uint8_t>>> languageFiles;
+		for (const char *name : {"headertemplate.ini", "language.ini"})
+		{
+			if (fs->doesFileExist(name)) continue;
+			std::vector<std::uint8_t> bytes;
+			std::string error;
+			if (!fs->readFile(std::string("lang/english/") + name, bytes, &error)) { errors.push_back(toGodot(error)); break; }
+			languageFiles.emplace_back(name, std::move(bytes));
+		}
+		if (!languageFiles.empty() && errors.is_empty())
+		{
+			auto bytes = std::make_shared<std::vector<std::uint8_t>>();
+			auto be32 = [&](std::uint32_t value) { for (int i = 3; i >= 0; --i) bytes->push_back((std::uint8_t)(value >> (i * 8))); };
+			std::uint32_t header = 16, total = 16;
+			for (const auto &file : languageFiles) header += 9 + file.first.size();
+			total = header;
+			for (const auto &file : languageFiles) total += file.second.size();
+			bytes->insert(bytes->end(), {'B', 'I', 'G', 'F'});
+			// BIG's length word is little-endian; directory words are big-endian.
+			for (int i = 0; i < 4; ++i) bytes->push_back((std::uint8_t)(total >> (i * 8)));
+			be32(languageFiles.size()); be32(header);
+			std::uint32_t offset = header;
+			for (const auto &file : languageFiles)
+			{
+				be32(offset); be32(file.second.size());
+				bytes->insert(bytes->end(), file.first.begin(), file.first.end()); bytes->push_back(0);
+				offset += file.second.size();
+			}
+			for (const auto &file : languageFiles) bytes->insert(bytes->end(), file.second.begin(), file.second.end());
+			std::string error;
+			auto view = fs->openArchiveFromMemory("bfme1-language-view.big", bytes, &error);
+			if (!view) errors.push_back(toGodot(error));
+			else fs->mountArchive(std::move(view), "bfme1-language-view.big", false);
+		}
+	}
+	if (errors.is_empty())
+	{
+		m_fs = std::move(fs);
+		m_mountedArchives = std::move(mounted);
+		m_mounted = true;
+		m_bfme1 = true;
+		m_bfme1Root = toNative(root);
+		setBfme1Mounted(true); // the client paths (Common/BfmeGame.h); the model / texture layout comes from the archives themselves
+	}
+	m_lastError = errors.is_empty() ? String() : String(errors[0]);
+	Dictionary result;
+	result["ok"] = m_mounted;
+	result["errors"] = errors;
+	result["game"] = "bfme1";
+	result["excluded_archives"] = excluded;
+	PackedStringArray stops;
+	for (const std::string &l : bfme1StopLines())
+	{
+		stops.push_back(toGodot(l));
+	}
+	result["stops"] = stops; // S-5017
+	result["archives_hashed"] = hashed;
+	result["md5_cache_hits"] = cached;
+	if (m_mounted) cache->save("user://bfme1-archive-cache.cfg");
+	result["ui_theme"] = "bfme1";
+	result["bfme1_install"] = root;
+	return result;
 }
 
 Dictionary RetailFileSystem::mountFrom(const std::string &rotwkRoot, const std::string &bfme2Root, PackedStringArray errors)
 {
 	Dictionary result;
 	std::string error;
+	setBfme1Mounted(false); // RotWK / BFME2
 	m_fs.reset();
 	m_mounted = false;
+	m_bfme1 = false;
+	m_bfme1Root.clear();
+	m_mountedArchives.clear();
 	m_loose.clear();
+	m_shellSource = false;
+	m_installRoot.clear();
 
 	std::vector<RetailInstall> installs(2);
 	installs[0].label = "rotwk";
@@ -132,6 +328,7 @@ Dictionary RetailFileSystem::mountFrom(const std::string &rotwkRoot, const std::
 		{
 			m_fs = std::move(fs);
 			m_mounted = true;
+			m_installRoot = bfme2Root;
 			m_mountedArchives = report.mounted; // MP-1
 			// PLAN rule 7 / stop S-039: loose map files in the install folders are contamination; they are
 			// reported by the mount and by every map build, never read.
@@ -158,6 +355,118 @@ Dictionary RetailFileSystem::mountFrom(const std::string &rotwkRoot, const std::
 		UtilityFunctions::push_error("RetailFileSystem: ", errors[i]);
 	}
 	return result;
+}
+
+Ref<RetailFileSystem> RetailFileSystem::create_bfme2_shell()
+{
+	if (!m_mounted || m_shellSource)
+	{
+		m_lastError = m_shellSource ? "a presentation-only source cannot create another shell source" : "the normal retail file system is not mounted";
+		return Ref<RetailFileSystem>();
+	}
+	if (m_installRoot.empty())
+	{
+		m_lastError = "the mounted retail file system has no BFME2 install root";
+		return Ref<RetailFileSystem>();
+	}
+	Ref<RetailFileSystem> shell;
+	shell.instantiate();
+	const Dictionary report = shell->mountBfme2Shell(m_installRoot);
+	if (!(bool)report.get("ok", false))
+	{
+		m_lastError = shell->get_last_error();
+		return Ref<RetailFileSystem>();
+	}
+	return shell;
+}
+
+Dictionary RetailFileSystem::mountBfme2Shell(const std::string &bfme2Root)
+{
+	Dictionary result;
+	PackedStringArray errors;
+	m_fs.reset();
+	m_mounted = false;
+	m_shellSource = false;
+	m_installRoot.clear();
+	m_loose.clear();
+	m_mountedArchives.clear();
+
+	RetailInstall install;
+	install.label = "bfme2";
+	install.root = bfme2Root;
+	std::string error;
+	if (!RetailArchivePolicy::loadBuiltin("bfme2-106", install.policy, &error))
+	{
+		errors.push_back(toGodot(error));
+	}
+	result["bfme2_install"] = toGodot(bfme2Root);
+	if (errors.is_empty())
+	{
+		RetailMountOptions options;
+		options.md5CachePath = toNative(ProjectSettings::get_singleton()->globalize_path("user://retail-md5-cache.tsv"));
+		auto fs = std::make_unique<Win32BIGFileSystem>();
+		RetailMountReport report = MountRetailArchives(*fs, { install }, options);
+		for (const std::string &e : report.errors)
+		{
+			errors.push_back(toGodot(e));
+		}
+		Array mounted;
+		for (const MountedArchive &a : report.mounted)
+		{
+			Dictionary d;
+			d["install"] = toGodot(a.install);
+			d["path"] = toGodot(a.canonicalPath);
+			d["disk_path"] = toGodot(a.diskPath);
+			d["size"] = (int64_t)a.size;
+			mounted.push_back(d);
+		}
+		result["mounted"] = mounted;
+		result["archives_hashed"] = report.archivesHashed;
+		result["md5_cache_hits"] = report.md5CacheHits;
+		PackedStringArray excluded;
+		for (const std::string &e : report.excludedFound)
+		{
+			excluded.push_back(toGodot(e));
+		}
+		result["excluded_found"] = excluded;
+		PackedStringArray warnings;
+		for (const std::string &w : report.warnings)
+		{
+			warnings.push_back(toGodot(w));
+			UtilityFunctions::push_warning("RetailFileSystem: ", toGodot(w));
+		}
+		result["warnings"] = warnings;
+		if (report.ok)
+		{
+			std::string scanError;
+			if (!LooseFileScan::scanInstalls({ { "bfme2", bfme2Root } }, m_loose, &scanError))
+			{
+				errors.push_back(toGodot("loose file scan: " + scanError));
+			}
+			if (errors.is_empty())
+			{
+				m_fs = std::move(fs);
+				m_mounted = true;
+				m_shellSource = true;
+				m_installRoot = bfme2Root;
+				m_mountedArchives = report.mounted;
+			}
+		}
+	}
+	result["loose_files"] = get_loose_files();
+	result["ok"] = m_mounted;
+	result["errors"] = errors;
+	m_lastError = errors.is_empty() ? String() : String(errors[0]);
+	for (int64_t i = 0; i < errors.size(); ++i)
+	{
+		UtilityFunctions::push_error("RetailFileSystem: ", errors[i]);
+	}
+	return result;
+}
+
+String RetailFileSystem::install_root() const
+{
+	return toGodot(m_installRoot);
 }
 
 ArchiveFileSystem *RetailFileSystem::archive_fs() const

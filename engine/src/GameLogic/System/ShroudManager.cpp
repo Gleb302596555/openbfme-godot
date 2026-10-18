@@ -805,6 +805,11 @@ void ShroudManager::evaluate(Record &r, int player, const Object *obj)
 	}
 }
 
+bool ShroudManager::hasRecord(const Object &obj) const
+{
+	return recordOf(obj) != nullptr;
+}
+
 ObjectShroudStatus ShroudManager::clientObjectStatus(const Object &obj, int player) const
 {
 	// getObjectStatus without its cache write (the client's read must not change state the simulation hashes)
@@ -899,10 +904,10 @@ ShroudManager::TemplateVision ShroudManager::templateVision(const ThingTemplate 
 	// with another layout resolves again); the VALUES are always the template's current ones
 	enum
 	{
-		F_RANGE, F_SIDE, F_REAR, F_PERFOOT, F_RADIUS, F_MAX, F_MIN, F_SEGMENTS, F_COUNT
+		F_RANGE, F_SIDE, F_REAR, F_PERFOOT, F_RADIUS, F_MAX, F_MIN, F_SEGMENTS, F_VISION, F_COUNT
 	};
 	static const char *const names[F_COUNT] = { "ShroudClearingRange", "VisionSide", "VisionRear", "VisionBonusPercentPerFoot", "VisionBonusTestRadius",
-		"MaxVisionBonusPercent", "MinVisionBonusPercent", "VisionBonusTestSegments" };
+		"MaxVisionBonusPercent", "MinVisionBonusPercent", "VisionBonusTestSegments", "VisionRange" };
 	struct Slots
 	{
 		const std::vector<std::string> *table = nullptr;
@@ -947,6 +952,12 @@ ShroudManager::TemplateVision ShroudManager::templateVision(const ThingTemplate 
 		return fallback;
 	};
 	v.shroudClearingRange = real(F_RANGE, 0.0f);
+	// community PR #36, BFME1 data only: Object::initObject in Open-BFME-1 (as ZH's) gives an object whose ShroudClearingRange is the template default -1
+	// (no row) its VisionRange; Gondor's castle keep relies on it. RotWK / BFME2 keep the port's 0 for an unset row
+	if (tt.bfme1Data() && real(F_RANGE, -1.0f) == -1.0f)
+	{
+		v.shroudClearingRange = real(F_VISION, 0.0f);
+	}
 	v.visionSide = real(F_SIDE, 1.0f);
 	v.visionRear = real(F_REAR, 1.0f);
 	v.bonusPerFoot = real(F_PERFOOT, 0.0f);
@@ -1408,7 +1419,7 @@ std::vector<std::string> ShroudManager::stopLines()
 		"conditions and the INVISIBLE_DETECTED statuses) is lane STEALTH-1's (S-1040 .. S-1042); the shroud does not change for a stealthed object",
 		"[S-567] shroud drawing: one texel per cell with bilinear filtering multiplies the terrain, the water, rivers and roads by ShroudColor * level / 255 "
 		"(ClearAlpha / FogAlpha / ShroudAlpha) inside W3DShroud's one-texel border at ShroudAlpha (RW 0x472480 / 0x472EF4 / 0x472792, lane ZOOM-1); objects the "
-		"local player cannot see are not drawn, fogged ones are not darkened; the roads' shroud is inferred (ZH's road buffer has no shroud pass); the radar "
+		"local player cannot see are not drawn, fogged ones are lit by the fogged light (S-4970); the roads' shroud is inferred (ZH's road buffer has no shroud pass); the radar "
 		"picture is multiplied per pixel; W3DShroud's filter and 4444 texel and W3DRadar's own texture were not read",
 	};
 }
