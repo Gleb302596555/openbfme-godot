@@ -386,6 +386,7 @@ Path *Pathfinder::findGroundPath(PathfindObject *obj, const Coord3D *from, const
 	m_zoneManager.clearPassableFlags(); // RW 0x937C23
 	const PathfindLocomotorInfo ground{ LOCOMOTORSURFACE_GROUND, false, false };
 	Coord3D hierarchicalTarget;
+	m_portalHops.clear(); // lane WALL-2: the hops of this search only (INFERENCE: as findPath empties them, RW 0x6FE7CB)
 	if (!findClosestHierarchicalPath(obj, ground, true, from, rawTo, &hierarchicalTarget))
 	{
 		m_zoneManager.setAllPassable(); // RW 0x937C65

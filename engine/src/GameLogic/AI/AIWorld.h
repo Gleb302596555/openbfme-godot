@@ -70,7 +70,7 @@ struct ObjectMovementInfo
 	float fenceWidth = 0.0f, fenceXOffset = 0.0f;
 	float pathfindDiameter = -1.0f;  // RW +0x53C: <= 0 when unset
 	int slopeLimitIndex = 0;         // RW +0x57C
-	bool canPathThroughGates = false; // RW +0x644
+	bool canPathThroughGates = true; // RW +0x644 (lane WALL-2: the template constructor's default is 1, RW 0x74004B; 2.01's INI only ever writes No)
 	// lane BACKLOG-8: FormationWidth (RW + 0x578, row RW 0xDA4658) / FormationDepth (+ 0x574, row RW 0xDA4668), parseInt; both 1 from the constructor (RW 0x740057)
 	int formationWidth = 1, formationDepth = 1;
 	unsigned crusherLevel = 0, crushableLevel = 0;
@@ -128,6 +128,8 @@ public:
 	bool isEffectivelyDead() const override; // lane MOVE-3: Object + 0x458 bit 0
 	bool hordeFill(int &count, int &slots) const override; // lane MOVE-3: RW 0x6F1584's contain slots 0x7C / 0x70 / 0x114
 	const PathfindWallGeometry *getWallGeometry() const override; // lane WALL-1: from the world's PathfindWallMeshSource, kept while the transform holds
+	bool isSkirmishAIControlled() const override; // lane WALL-2: Waypoint::isValidUnitType's AllowNonSkirmishAI test
+	bool inMoveAwaySearch() const override;       // lane WALL-2: RW AI + 0x3CF (Waypoint::isValidUnitType's type 7 test)
 
 private:
 	// AIWorld::movementInfo of the object's template, remembered with the template it was looked up for (lane PERF-1: the pathfinder and the
@@ -148,6 +150,7 @@ private:
 	mutable bool m_wallLooked = false, m_hasWall = false;
 	mutable Coord3D m_wallPos{ 0.0f, 0.0f, 0.0f };
 	mutable float m_wallAngle = 0.0f, m_wallScale = 0.0f;
+	mutable std::array<std::uint32_t, 19> m_wallBits{}; // lane WALL-2: the model condition the geometry was taken for (the model of the current state)
 	mutable const ThingTemplate *m_wallTemplate = nullptr;
 };
 
@@ -235,6 +238,8 @@ public:
 	// ---- PathfindWorld ----
 	PathfindObject *findObjectByID(PathfindObjectID id) const override;
 	unsigned getFrame() const override;
+	// lane WALL-2: RW 0x6E8454 (see PathfindWorld): the logic's objects in list order, each AI whose path names a waypoint that is gone is told
+	void onPathsLostPortals() const override; // const: the pathfinder holds its world const
 
 	// ---- state hash (MOVE-1: logic state that lives outside the objects) ----
 	// the pathfinder's queues and pools: a summary, O(1) (the grid itself follows from the units' hashed state)
