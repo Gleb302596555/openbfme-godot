@@ -167,3 +167,28 @@ game-specific resolver as model materials. BFME1 names such as `exraindrop.tga`
 resolve to `art/textures/exraindrop.dds`.
 `godot/tests/bfme1_weather_test.gd` checks the resolved path and starts matches
 on Ered Lithui and Nimrodel.
+
+The main menu Games link selects BFME1 or RotWK, remembers the selection, and
+lets the player choose the BFME1 installation folder. Restart applies the selection
+and preserves player arguments. BFME1 texture decoding recognizes DDS, TGA, PNG
+and JPEG signatures even when the installed texture has a misleading extension.
+
+Fork BFME1 improvements ported onto upstream (2026-10-18):
+
+- Texture signatures and RLE button art, normalized patch-model skin weights,
+  rigid influences, health-bar defaults and faction multi-selection portraits.
+  Mesh compatibility stays limited to BFME1 and reports S-020.
+- BFME1 audio RANDOM uses its donor bit layout and is translated into the shared
+  engine's SEQUENTIAL representation; RotWK keeps its own names and flags.
+- BFME1 uses ScoreScreen.apt and its providers after a match, without the RotWK
+  timeline graph. Team ordering is inferred because ScoreScreenData has no alliances.
+- The separate BFME1 library supports inspection, 3D preview, import and persistent
+  installed maps. Imported maps enter both the lobby and game-preparation catalogs.
+  BFME1 map readers retain their own chunk versions. Missing map-authored script
+  libraries and unavailable placements in converted community maps are reported;
+  present-but-invalid data and all RotWK dependencies still fail.
+
+Checks include `game_switcher_test.gd`, `game_switcher_mount_test.gd`,
+`bfme1_map_library_test.gd`, and `bfme1_actions_test.gd`. The latter exercises
+construction, recruitment, combat and outpost capture for faction indexes
+3 (Rohan), 4 (Gondor), 5 (Isengard), and 6 (Mordor).

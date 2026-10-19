@@ -1222,6 +1222,12 @@ func _boot() -> void:
 	_shell = ClassDB.instantiate("AptMenuPlayer")
 	_shell.name = "Shell"
 	add_child(_shell)
+	if _fs.is_bfme1():
+		var map_search := preload("res://scripts/skirmish_map_search.gd").new()
+		map_search.shell = _shell
+		map_search.fs = _fs
+		map_search.world = _world
+		add_child(map_search)
 	_menu_pad = load("res://scripts/menu_pad.gd").new(_shell) # lane OPTS-6: the game controller in the menus
 	add_child(_menu_pad)
 	_save_flow = load("res://scripts/save_flow.gd").new(self) # lane SAVE-2
@@ -1362,7 +1368,7 @@ func _process(delta: float) -> void:
 	Release.set_in_game(_state == State.PLAYING) # lane RELEASE-1: the version corner in the menus only
 	_campaign_check_tick() # lane CAMP-1
 	if _state == State.MENU:
-		if _menu_style == "bfme2" and _frames % 5 == 0 and _shell.shell_stack().size() > 0 and _shell.shell_stack()[-1] == "MainMenu.apt":
+		if not _fs.is_bfme1() and _menu_style == "bfme2" and _frames % 5 == 0 and _shell.shell_stack().size() > 0 and _shell.shell_stack()[-1] == "MainMenu.apt":
 			_hide_bfme2_campaign_buttons() # lane DEVPORT-8: the BFME2 campaigns are not in this tree (BFME2_CAMPAIGNS)
 		if _pending_menu_style != _menu_style and not _switching_menu_style and _clean_main_menu():
 			_switching_menu_style = true
@@ -1658,7 +1664,8 @@ func _clean_main_menu() -> bool:
 
 
 func _configure_menu_style(style: String) -> bool:
-	if style == "bfme2":
+	var use_bfme2: bool = style == "bfme2" and not _fs.is_bfme1()
+	if use_bfme2:
 		if _bfme2_shell_fs == null:
 			_bfme2_shell_fs = _fs.create_bfme2_shell()
 		if _bfme2_shell_fs == null:
@@ -1667,7 +1674,7 @@ func _configure_menu_style(style: String) -> bool:
 		_shell_config["presentation_fs"] = _bfme2_shell_fs
 	else:
 		_shell_config.erase("presentation_fs")
-	var audio_result: Dictionary = _audio.set_shell_source(_bfme2_shell_fs if style == "bfme2" else null)
+	var audio_result: Dictionary = _audio.set_shell_source(_bfme2_shell_fs if use_bfme2 else null)
 	if not audio_result.get("ok", false):
 		_fail("shell music: " + str(audio_result.get("errors", [])))
 		return false
@@ -2366,6 +2373,8 @@ func _install_hud(rep: Dictionary) -> void:
 		print("GAME free camera: on (the zoom-out limit is the map's extent; not retail)")
 	# lane HUD-5: Options.ini AllHealthBars (RW 0x6E6179: "yes" -> true, absent -> false) gates the infantry / cavalry health bars (GlobalData + 0x9BE)
 	var all_bars = _shell.get_option("AllHealthBars") if _shell != null and _shell.has_method("get_option") else null
+	if all_bars == null and _fs.is_bfme1():
+		all_bars = "yes" # BFME1 GlobalData defaults AllHealthBars to on.
 	var zoom_out := _zoom_out_setting()
 	print("GAME max zoom-out: %sx%s" % [str(zoom_out), " (retail)" if zoom_out <= 1.0 else " (OpenBFME option, not retail)"])
 	var wider := _widescreen_setting()
@@ -3790,12 +3799,14 @@ func _exit_to_score_screen() -> void:
 	if not _shell.set_score_screen_from_world(_world):
 		_fail("the score screen has no data")
 		return
-	if not _shell.shell_push("TimeLine.apt"):
-		_fail("the shell refused TimeLine.apt: " + str(_shell.get_shell_report().errors))
+	var score_movie := "ScoreScreen.apt" if _fs.is_bfme1() else "TimeLine.apt"
+	if not _shell.shell_push(score_movie):
+		_fail("the shell refused " + score_movie + ": " + str(_shell.get_shell_report().errors))
 		return
 	_audio.stop_music(false)
 	_audio.play_misc("ScoreScreenMusic") # MiscAudio ScoreScreenMusic
-	_install_graph_overlay()
+	if not _fs.is_bfme1():
+		_install_graph_overlay()
 
 
 ## AptTimeLine::RenderGraph is a device-drawn component (S-1063): the lines of the graph the movie's _graphMode picks, drawn over the movie's graph area.

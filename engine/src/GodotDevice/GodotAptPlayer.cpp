@@ -656,6 +656,13 @@ private:
 	FontFn m_fn;
 };
 
+// Convert only explicitly installed user maps into playable lobby metadata.
+static void addInstalledMaps(WorldSkirmishSetupSource &source, RetailFileSystem &fs)
+{
+ std::vector<MapCacheEntry> entries;fs.append_installed_maps(entries);
+ for(const auto &entry:entries)source.addInstalledMap(entry);
+}
+
 // Everything shell mode owns, in construction order (destroyed in reverse: the Shell and the layer go before the manager).
 struct ShellMode
 {
@@ -860,7 +867,7 @@ struct AptMenuPlayer::Impl
 					ch = (char)std::tolower((unsigned char)ch);
 				}
 				bool paired = false;
-				Ref<godot::Image> packed = stem.size() > 2 ? loadPackedTexture(*textureSource, "art/compiledtextures/" + stem.substr(0, 2) + "/" + stem, &paired) : Ref<godot::Image>();
+				Ref<godot::Image> packed = stem.size() > 2 ? loadPackedTexture(*textureSource, fs.is_valid() && fs->is_bfme1() ? "art/textures/" + stem : "art/compiledtextures/" + stem.substr(0, 2) + "/" + stem, &paired) : Ref<godot::Image>();
 				if (paired)
 				{
 					sm.deviceUnverified.insert("[S-1482] texture " + img->filename + ": the packed .jpg's colour with its .png as the alpha (the loader's merge of the two streams was not read)");
@@ -1313,6 +1320,7 @@ void AptMenuPlayer::_bind_methods()
 	ClassDB::bind_method(D_METHOD("shell_font", "name", "size"), &AptMenuPlayer::shell_font);
 	ClassDB::bind_method(D_METHOD("take_load_progress_calls"), &AptMenuPlayer::take_load_progress_calls);
 	ClassDB::bind_method(D_METHOD("lobby_apply", "spec"), &AptMenuPlayer::lobby_apply);
+	ClassDB::bind_method(D_METHOD("lobby_map_catalog"), &AptMenuPlayer::lobby_map_catalog);
 	ClassDB::bind_method(D_METHOD("lobby_state"), &AptMenuPlayer::lobby_state); // lane UI-6
 	ClassDB::bind_method(D_METHOD("lobby_gadget_rect", "name"), &AptMenuPlayer::lobby_gadget_rect);
 	ClassDB::bind_method(D_METHOD("get_shell_report"), &AptMenuPlayer::get_shell_report);
@@ -1610,10 +1618,11 @@ Dictionary AptMenuPlayer::boot_shell(const Ref<RetailFileSystem> &fs, Object *wo
 	auto sm = std::make_unique<ShellMode>();
 	std::string error;
 	sm->text = std::make_unique<ShellGameText>(m->strings, *fs->archive_fs());
-	if (!sm->setup.load(*world->object_world(), world->logic_settings(), *fs->archive_fs(), &error))
+	if (!sm->setup.load(*world->object_world(), world->logic_settings(), *fs->archive_fs(), &error, fs->is_bfme1()))
 	{
 		errors.push_back(toGodot("the lobby's setup source: " + error));
 	}
+	addInstalledMaps(sm->setup, *fs.ptr());
 	if (!loadGadgetSkinData(*fs->archive_fs(), sm->skins, &error))
 	{
 		errors.push_back(toGodot("gadget skins: " + error));
@@ -2911,6 +2920,23 @@ Dictionary AptMenuPlayer::lobby_gadget_rect(const String &name)
 	return out;
 }
 
+Array AptMenuPlayer::lobby_map_catalog()
+{
+ Array out;if(!m->shell || !m->shell->shell)return out;
+ auto screen=dynamic_cast<AptSkirmish *>(m->shell->shell->findScreenByFilename("Skirmish.apt"));if(!screen || !screen->setup())return out;
+ const auto previousMaps=m->shell->setup.maps().size();
+ addInstalledMaps(m->shell->setup,*m->fs.ptr());
+ if(m->shell->setup.maps().size()!=previousMaps)screen->refreshMapCatalog();
+ const auto &setup=*screen->setup();
+ for(int index:setup.listedMaps()) {
+  const auto &entry=setup.source().maps()[index];Dictionary d;d["key"]=toGodot(entry.name);d["name"]=toGodot(u16ToUtf8(setup.mapBaseDisplayName(entry)));d["description"]=toGodot(u16ToUtf8(setup.mapDescription(entry)));d["players"]=entry.numPlayers;d["official"]=entry.isOfficial;
+  Array starts;for(const auto &s:entry.startPositions){Dictionary p;p["index"]=s.first-1;p["x"]=s.second.x;p["y"]=s.second.y;p["z"]=s.second.z;starts.push_back(p);}d["starts"]=starts;
+  for(const Variant &installed:m->fs->installed_maps()) { Dictionary user=installed;if(String(user["key"])==String(d["key"])) { d.merge(user,true);break; } }
+  out.push_back(d);
+ }
+ return out;
+}
+
 Dictionary AptMenuPlayer::lobby_state()
 {
 	Dictionary out;
@@ -2927,6 +2953,7 @@ Dictionary AptMenuPlayer::lobby_state()
 	const SkirmishGameInfo &g = screen->setup()->info();
 	out["found"] = true;
 	out["map"] = toGodot(g.mapName);
+	out["map_search"] = toGodot(u16ToUtf8(screen->mapSearch()));
 	PackedStringArray mapKeys;
 	for (const auto &key : screen->mapListKeys()) mapKeys.push_back(toGodot(key));
 	out["map_keys"] = mapKeys;
@@ -2936,10 +2963,42 @@ Dictionary AptMenuPlayer::lobby_state()
 		rules.push_back((int64_t)r);
 	}
 	out["rules"] = rules;
+ // Native browser schema follows the mounted data and the retail rule tables.
+ const auto &setup = *screen->setup();
+ auto entries = [](const std::vector<SkirmishComboEntry> &source) {
+  Array result;
+  for (const auto &e : source) { Dictionary d; d["label"] = toGodot(u16ToUtf8(e.text)); d["value"] = e.itemData; result.push_back(d); }
+  return result;
+ };
+ Array factions;
+ for (const auto &e : setup.templateEntries()) {
+  Dictionary d; d["label"] = toGodot(u16ToUtf8(e.text)); d["value"] = e.itemData;
+  if (e.itemData >= 0 && e.itemData < (int)setup.source().factions().size()) {
+   const auto &f = setup.source().factions()[(size_t)e.itemData];
+   d["template"] = toGodot(f.templateName); d["building"] = toGodot(f.startingBuilding); d["side"] = toGodot(f.side);
+  } else { d["template"] = ""; d["building"] = ""; }
+  factions.push_back(d);
+ }
+ out["factions"] = factions; out["teams"] = entries(setup.teamEntries());
+ Array definitions;
+ const auto defaults = MpGameRules::defaults(setup.rulesMode());
+ for (int i = 0; i < NUM_GAME_RULES; ++i) {
+  const auto *combo = MpGameRules::findCombo(setup.rulesMode(), i);
+  const auto *check = MpGameRules::findCheck(setup.rulesMode(), i);
+  if (!combo && !check) continue;
+  // Clan games are an online-only rule, as in the APT rules panel.
+  if (i == RULE_CLAN_GAME) continue;
+  Dictionary d; d["id"] = i; d["label"] = toGodot(u16ToUtf8(setup.ruleName(i)));
+  d["default"] = defaults[(size_t)i]; d["value"] = g.rules[(size_t)i];
+  d["choices"] = combo ? entries(setup.ruleComboEntries(*combo)) : Array(); definitions.push_back(d);
+ }
+ out["rule_definitions"] = definitions; out["legendary_heroes"] = g.legendaryHeroes;
+
 	Array slots;
 	for (const SkirmishGameSlot &s : g.slots)
 	{
 		Dictionary d;
+		d["player_choices"] = entries(setup.playerEntries((int)slots.size()));
 		d["state"] = (int64_t)s.state;
 		d["template"] = (int64_t)s.playerTemplate;
 		d["color"] = (int64_t)s.color;
@@ -3107,11 +3166,19 @@ Dictionary AptMenuPlayer::lobby_apply(const Dictionary &spec)
 			}
 		}
 	}
+	for (const Variant &value : Array(spec.get("browser_rules", Array()))) {
+		const Dictionary rule = value;
+		if (!screen->setBrowserRule((int)(int64_t)rule["id"], (int)(int64_t)rule["value"])) errors.push_back("Invalid map-browser rule");
+	}
+	if (spec.has("browser_legendary") && !screen->setBrowserLegendary((int)(int64_t)spec["browser_legendary"])) errors.push_back("Invalid Legendary Heroes factor");
+	if (spec.has("map_search")) screen->setMapSearch(utf8ToU16(toNative(String(spec["map_search"]))));
 	const Array slots = spec.get("slots", Array());
 	for (int64_t i = 0; i < slots.size(); ++i)
 	{
 		const Dictionary sd = slots[i];
 		const int slot = (int)(int64_t)sd["slot"];
+		if (sd.has("start") && !screen->setLobbyStartPosition(slot, (int)(int64_t)sd["start"]))
+			errors.push_back("Invalid start position");
 		if (sd.has("state"))
 		{
 			GameWindow *combo = screen->slotGadget(slot, "Player");
@@ -3813,7 +3880,7 @@ void AptMenuPlayer::drawCanvas(const AptCanvasList &list)
 						ch = (char)std::tolower((unsigned char)ch);
 					}
 					bool paired = false;
-					Ref<godot::Image> packed = stem.size() > 2 ? loadPackedTexture(*m->source, "art/compiledtextures/" + stem.substr(0, 2) + "/" + stem, &paired) : Ref<godot::Image>();
+					Ref<godot::Image> packed = stem.size() > 2 ? loadPackedTexture(*m->source, m->fs.is_valid() && m->fs->is_bfme1() ? "art/textures/" + stem : "art/compiledtextures/" + stem.substr(0, 2) + "/" + stem, &paired) : Ref<godot::Image>();
 					if (packed.is_valid())
 					{
 						it = m->godotTextures.emplace(img->filename, ImageTexture::create_from_image(packed)).first;
@@ -4209,59 +4276,9 @@ void AptMenuPlayer::drawCanvas(const AptCanvasList &list)
 					}
 					else if (img)
 					{
-						auto it = m->godotTextures.find(img->filename);
-						if (it == m->godotTextures.end())
-						{
-							const AptTextureStore::Entry &entry = m->textures->get(img->filename);
-							if (entry.ok && !entry.rgba.empty())
-							{
-								PackedByteArray px;
-								px.resize((int64_t)entry.rgba.size());
-								memcpy(px.ptrw(), entry.rgba.data(), entry.rgba.size());
-								Ref<godot::Image> image = godot::Image::create_from_data(entry.width, entry.height, false, godot::Image::FORMAT_RGBA8, px);
-								it = m->godotTextures.emplace(img->filename, ImageTexture::create_from_image(image)).first;
-								m->textures->releasePixels(img->filename);
-								m->textureLoads += 1;
-							}
-							else
-							{
-								// lane CAH-1: the packed DDS of the mapped image's texture (art\compiledtextures\<first two letters>\<stem>.dds, as the HUD's
-								// button images: the Create-a-Hero class / type / power icons)
-								std::string stem = img->filename.substr(0, img->filename.find_last_of('.'));
-								for (char &ch : stem)
-								{
-									ch = (char)std::tolower((unsigned char)ch);
-								}
-								std::vector<std::uint8_t> dds;
-								std::string ddsError;
-								Ref<godot::Image> image;
-								if (stem.size() > 2 && m->fs.is_valid() && m->fs->archive_fs() &&
-									m->fs->archive_fs()->readFile("art/compiledtextures/" + stem.substr(0, 2) + "/" + stem + ".dds", dds, &ddsError))
-								{
-									PackedByteArray data;
-									data.resize((int64_t)dds.size());
-									memcpy(data.ptrw(), dds.data(), dds.size());
-									image.instantiate();
-									if (image->load_dds_from_buffer(data) != OK)
-									{
-										image.unref();
-									}
-								}
-								if (image.is_valid())
-								{
-									it = m->godotTextures.emplace(img->filename, ImageTexture::create_from_image(image)).first;
-									m->textureLoads += 1;
-								}
-								else
-								{
-									m->shell->gadgetErrors.insert("texture '" + img->filename + "' of image '" + *record + "': " + entry.error);
-								}
-							}
-						}
-						if (it != m->godotTextures.end())
-						{
-							tex = it->second;
-						}
+						// Mapped-image movie ops use the same archive layout and format
+						// decoding as native gadgets (BFME1 keeps flat art/textures).
+						tex = m->imageTexture(*m->shell, img, *record);
 					}
 					if (tex.is_valid())
 					{

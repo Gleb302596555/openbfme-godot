@@ -163,6 +163,13 @@ void AptPalantir::hook(const std::string &name)
 
 AptPalantir::AptPalantir(WindowManager &windows, Shell &shell) : AptScreen(windows, shell, "Palantir.apt", "AptPalantir")
 {
+	registerCommand("AptPalantir::OnBttnCommand", [this](const std::string &arg) {
+		m_log.push_back("AptPalantir::OnBttnCommand(" + arg + ")");
+		const size_t digit = arg.find_first_of("0123456789");
+		const int i = digit == std::string::npos ? -1 : std::atoi(arg.c_str() + digit) - 1;
+		if (i >= 0 && i < kArcPositions && m_arc[i].created && m_press) m_press(m_arc[i].slot, true);
+	});
+
 	for (const std::string &name : retailCommandNames())
 	{
 		hook(name);

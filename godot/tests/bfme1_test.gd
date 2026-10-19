@@ -34,7 +34,11 @@ func _run() -> void:
 	if not lobby.get("found", false): quit(1); return
 	var keys: PackedStringArray = lobby.get("map_keys", PackedStringArray())
 	assert(not keys.is_empty())
+	var imports := {}
+	for entry in shell.lobby_map_catalog():
+		if entry.get("installed",false): imports[entry.key] = true
 	for key in keys:
+		if imports.has(key): continue # imported maps use isolated aliases
 		assert(key.begins_with("maps/map mp "), key)
 		assert(not key.begins_with("maps/map mp test/"), key)
 		assert(not key.begins_with("maps/map mp nctest/"), key)
@@ -80,5 +84,17 @@ func _run() -> void:
 	assert(outpost_loaded.ok, str(outpost_loaded.get("errors")))
 	for i in 10: world.advance(0.2)
 	print("BFME1 ENEDWAITH outposts loaded")
+	# Converted 2.22 Buckland retains a BFME2-only map-library reference.
+	var buckland := "maps/map mp buckland/map mp buckland.map"
+	if keys.has(buckland):
+		outpost_slots[0].start_pos = 0
+		outpost_slots[1].start_pos = 1
+		outpost_slots[1].player_template = 5 # Mordor
+		var prepared: Dictionary = world.prepare_new_game({"mode":"skirmish","difficulty":1,"rank_points":0,"map_crc":0,"map_size":0,"map_mask":0,"map":buckland,"seed":2159,"starting_cash":-1,"slots":outpost_slots})
+		assert(prepared.ok, str(prepared))
+		var loaded: Dictionary = world.start_new_game({"logic_thread":false})
+		assert(loaded.ok, str(loaded.get("errors")))
+		for i in 50: world.advance(0.2)
+		print("BFME1 BUCKLAND loaded and advanced 10 seconds")
 	print("BFME1 PASS")
 	quit()

@@ -49,6 +49,8 @@ Error decodeTexture(const Ref<Image> &image, const PackedByteArray &buffer, bool
 		{
 			return image->load_jpg_from_buffer(buffer);
 		}
+		// BFME1 PalantirA is TGA content stored under a DDS filename.
+		if (buffer.size() < 4 || std::memcmp(buffer.ptr(), "DDS ", 4) != 0) return image->load_tga_from_buffer(buffer);
 	}
 	return dds ? image->load_dds_from_buffer(buffer) : image->load_tga_from_buffer(buffer);
 }

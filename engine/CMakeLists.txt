@@ -311,6 +311,7 @@ add_library(openbfme_core STATIC
     src/Libraries/Compression/EAC/refdecode.cpp
     src/GameEngineDevice/Win32Device/Common/ArchiveHandle.cpp
     src/GameEngineDevice/Win32Device/Common/Win32BIGFile.cpp
+    src/GameEngineDevice/Win32Device/Common/FolderArchiveFile.cpp
     src/GameEngineDevice/Win32Device/Common/Win32BIGFileSystem.cpp
     src/Libraries/WWVegas/WWLib/chunkio.cpp
     src/Libraries/WWVegas/WW3D2/assetmgr.cpp
