@@ -545,7 +545,7 @@ void Economy::grantBuildingExperience(Object &obj, float points)
 	}
 }
 
-void Economy::noteIncome(Object &obj, Player &owner, int amount)
+void Economy::noteIncome(Object &obj, Player &owner, int amount, float textHeight)
 {
 	++m_incomePayments;
 	IncomeEvent e;
@@ -553,6 +553,8 @@ void Economy::noteIncome(Object &obj, Player &owner, int amount)
 	e.playerIndex = owner.getPlayerIndex();
 	e.amount = amount;
 	e.frame = m_logic.getFrame();
+	e.textPos = *obj.getPosition();
+	e.textPos.z += textHeight;
 	m_incomeLog.push_back(e);
 	if (m_incomeLog.size() > kIncomeLogLimit)
 	{

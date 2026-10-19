@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include "Common/INIDataTypes.h"
 #include "Common/PlayerEconomyHost.h"
 #include "Common/StateHash.h"
 #include "GameLogic/EconomySettings.h"
@@ -148,10 +149,12 @@ public:
 		int playerIndex = 0;
 		int amount = 0;
 		UnsignedInt frame = 0;
+		Coord3D textPos{}; ///< where the floating text appears: the object's position raised by `textHeight` (GameClient/FloatingText.h)
 	};
 	typedef std::function<void(const IncomeEvent &)> IncomeListener;
 	void setIncomeListener(IncomeListener l) { m_incomeListener = std::move(l); }
-	void noteIncome(Object &obj, Player &owner, int amount);
+	// `textHeight`: how far above the object the floating text appears (AutoDepositUpdate 10, TerrainResourceBehavior the geometry's top)
+	void noteIncome(Object &obj, Player &owner, int amount, float textHeight = 10.0f);
 	const std::deque<IncomeEvent> &incomeLog() const { return m_incomeLog; }
 	unsigned long long incomePayments() const { return m_incomePayments; }
 	void clearIncomeLog() { m_incomeLog.clear(); }

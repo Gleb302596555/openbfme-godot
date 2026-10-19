@@ -229,6 +229,18 @@ void InGameHud::bootHud6()
 	{
 		m_hud6Errors.push_back("help box settings: " + error);
 	}
+	{
+		// the money texts' timings (GameClient/FloatingText.h): InGameUI FloatingTextTimeOut / MoveUpSpeed / VanishRate
+		FloatingTextSettings floating;
+		if (FloatingTextSettings::load(m_config.fs, floating, &error))
+		{
+			m_floatingText.setSettings(floating);
+		}
+		else
+		{
+			m_hud6Errors.push_back("floating text settings: " + error);
+		}
+	}
 	if (!commandWindowTooltipDelay(m_config.fs, m_tooltipDelayMs, &error))
 	{
 		m_hud6Errors.push_back("help box delay: " + error);
