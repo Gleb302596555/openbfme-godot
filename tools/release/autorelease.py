@@ -965,8 +965,12 @@ class SyncAudit(audit_package.Audit):
 def is_detached_signature(name: str, data: bytes, depth: int) -> bool:
     """PUBLICCI-1: a release's detached Ed25519 signature (manifest*.json.sig, sign_manifest.py: 64 raw bytes, top level) is random; about
     1 in 992 starts with a valid zlib header (the hosted pull request checks hit one in test_autorelease). Such a file that does NOT decode
-    as zlib is a signature, not a finding; one that decodes is still decoded and checked like any other stream"""
-    return depth == 0 and len(data) == 64 and re.fullmatch(r"(?:.*/)?[^/]+\.json\.sig", name) is not None
+    as zlib is a signature, not a finding; one that decodes is still decoded and checked like any other stream.
+    The signed payload sidecar at a release package root has the same random bytes (one archive layer only)."""
+    if len(data) != 64:
+        return False
+    return (depth == 0 and re.fullmatch(r"(?:.*/)?[^/]+\.json\.sig", name) is not None
+            or depth == 1 and re.fullmatch(r"[^:]+:openbfme-[^/:]+/payload\.json\.sig", name) is not None)
 
 
 def _is_text(data: bytes) -> bool:
