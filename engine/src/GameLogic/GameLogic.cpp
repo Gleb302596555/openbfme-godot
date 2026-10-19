@@ -7,6 +7,7 @@
 #include "Common/PlayerList.h"
 #include "Common/GameState.h" // lane SAVE-4a
 #include "Common/Snapshot.h"
+#include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/NotifyCrushModules.h"
 #include "GameLogic/Module/UpgradeModuleClasses.h"
@@ -252,6 +253,15 @@ Object *GameLogic::newObject(const ThingTemplate *tt, Team *team, const ObjectSt
 float GameLogic::getGroundHeight(float x, float y) const
 {
 	return m_terrain ? m_terrain->getGroundHeight(x, y, nullptr) : 0.0f;
+}
+
+float GameLogic::getHighestLayerHeight(float x, float y) const
+{
+	if (m_aiWorld && m_aiWorld->mapReady())
+	{
+		return m_aiWorld->pathfinder().getHighestLayerHeight(x, y);
+	}
+	return getGroundHeight(x, y);
 }
 
 void GameLogic::reportError(const std::string &text)
