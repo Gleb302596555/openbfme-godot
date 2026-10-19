@@ -541,3 +541,22 @@ TEST_CASE("wall2 raised: a walkway point above a ground obstacle is a destinatio
 	}
 	delete p;
 }
+
+// review (#64): a rebuilt raised layer registers its units' reservations again on the new cells
+TEST_CASE("wall2 raised: a goal reserved on the walkway stays reserved when a change rebuilds the walkway's layer")
+{
+	GatehouseWorld w;
+	LayeredUnit *u = w.unit(1, 250.0f, 100.0f, 60.0f, LAYER_TOP);
+	Coord3D goal{ 300.0f, 100.0f, 60.0f };
+	w.pf->updateGoal(*u, &goal, LAYER_TOP);
+	walkwayPiece(w, 53, 210.0f, 10.0f, 200.0f, 220.0f, 60.0f); // the same height: layer 2 made again
+	bool reserved = false;
+	const PathfindCell *top = w.pf->getCell(LAYER_TOP, 30, 10);
+	REQUIRE(top != nullptr);
+	REQUIRE(top->getLayer() == LAYER_TOP);
+	for (const PathfindOccupant *n = top->occupants(OCC_GROUND_GOAL); n; n = n->next)
+	{
+		reserved = reserved || n->owner == u->id;
+	}
+	CHECK(reserved);
+}

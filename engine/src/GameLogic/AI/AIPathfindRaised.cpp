@@ -162,6 +162,32 @@ PathfindLayerEnum Pathfinder::raisedLayerFor(const PathfindWallSurface &s, Pathf
 
 void Pathfinder::rebuildRaisedLayer(PathfindLayerEnum layer)
 {
+	rebuildRaisedCells(layer);
+	// review (#64): the old cells took the units' reservations on this layer with them (their occupant lists); a slot still registered there is
+	// registered again on the new cells, in unit id order (m_units is a map), so the occupant lists are the same on every machine
+	for (auto &kv : m_units)
+	{
+		for (Slot *s : { &kv.second.pos, &kv.second.goal })
+		{
+			if (!s->occupied || s->layer != layer || s->cells.empty())
+			{
+				continue; // a horde goal keeps no cells (updateGoalAngle)
+			}
+			s->cells.clear();
+			if (PathfindObject *o = m_world ? m_world->findObjectByID(kv.first) : nullptr)
+			{
+				registerSlot(*o, *s);
+			}
+			else
+			{
+				s->occupied = false;
+			}
+		}
+	}
+}
+
+void Pathfinder::rebuildRaisedCells(PathfindLayerEnum layer)
+{
 	RaisedLayer &r = m_raised[(size_t)layer];
 	// RW 0x76848F: the cells go (their records released)
 	for (PathfindCell &c : r.cells)

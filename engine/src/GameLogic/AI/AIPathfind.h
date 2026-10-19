@@ -1176,7 +1176,8 @@ private:
 		return c->getType() == PathfindCell::CELL_BRIDGE_IMPASSABLE ? nullptr : c;
 	}
 	PathfindLayerEnum raisedLayerFor(const PathfindWallSurface &s, PathfindObjectID owner);
-	void rebuildRaisedLayer(PathfindLayerEnum layer);
+	void rebuildRaisedLayer(PathfindLayerEnum layer); // the cells (rebuildRaisedCells), then the units' slots on the layer registered again
+	void rebuildRaisedCells(PathfindLayerEnum layer);
 	void connectRampToRaised(int i, int j, PathfindCell *c, float rampHeight, int corners);
 	void crcRaised(StateHasher &h) const;
 	PathfindLayerEnum wallLayerFor(float height);
