@@ -1116,7 +1116,7 @@ Path *Pathfinder::internalFindPath(PathfindObject *obj, const PathfindLocomotorI
 		note(pathstops::kLargeRectGoal);
 	}
 	m_isTunneling = false;
-	const PathfindLayerEnum destinationLayer = LAYER_GROUND;
+	const PathfindLayerEnum destinationLayer = searchDestinationLayer(*to); // ZH internalFindPath: TheTerrainLogic->getLayerForDestination(to)
 	PathfindCell *goalCell = getCell(destinationLayer, to);
 	if (goalCell == nullptr)
 	{

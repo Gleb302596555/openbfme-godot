@@ -461,10 +461,12 @@ private:
 	PathfindCellInfo *m_info;
 	zoneStorageType m_zone;
 	std::uint16_t m_portal = 0; // lane WALL-2 (see getPortal)
-	// the RW cell dword's fields: type bits 0 .. 3, layer bits 4 .. 9, connect layer bits 10 .. 15, pinched bit 16 (lane WALL-1: the layers are 6 bits, as RW)
+	// the RW cell dword's fields: type bits 0 .. 3, layer bits 4 .. 9, connect layer bits 10 .. 15, pinched bit 16. The port's layers are 7 bits: the
+	// wall layers run to LAYER_LAST 0x40, which 6 bits cannot hold (review #63: the 48th wall height read back as LAYER_INVALID); the fields are not
+	// a saved or hashed layout (the snapshot's class word and the state hash read them through the getters)
 	std::uint32_t m_type : 4;
-	std::uint32_t m_layer : 6;
-	std::uint32_t m_connectsToLayer : 6;
+	std::uint32_t m_layer : 7;
+	std::uint32_t m_connectsToLayer : 7;
 	std::uint32_t m_pinched : 1;
 	std::uint32_t m_bit17 : 1;
 	std::uint32_t m_bit18 : 1;
@@ -983,6 +985,9 @@ public:
 	float getLayerHeight(float x, float y, PathfindLayerEnum layer) const;
 	// ZH TerrainLogic::getHighestLayerForDestination + getLayerHeight: the highest walkable surface at (x, y) (a wall top or a ramp over the terrain)
 	float getHighestLayerHeight(float x, float y) const;
+	// lane WALL-2 (review #63): the layer a search aims at for the point `to`: a raised walkway's when getLayerAt (RW 0x680A75) names one there, else the
+	// ground grid (wall tops and ramps are layers of the ground grid's cells, as before)
+	PathfindLayerEnum searchDestinationLayer(const Coord3D &to) const;
 	// the layer of the walkable surface a point stands on (TerrainLogic::getLayerForDestination RW 0x680A75 / BFME2 0x6802FE: a ramp under it first, then a
 	// raised layer whose passable cell is there and whose height is less than 25 above `z` (RW 0x6EE600), else the ground grid cell's layer). The form
 	// without `z` takes the terrain's height there

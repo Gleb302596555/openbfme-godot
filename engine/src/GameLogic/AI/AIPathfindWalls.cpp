@@ -323,6 +323,7 @@ void Pathfinder::stampRampSurface(const PathfindWallSurface &s)
 void Pathfinder::restampWalls(const PathfindRegion &region)
 {
 	// lane WALL-2: the raised layers whose pieces meet the region are made again (their cells, RW 0x7684F8 / 0x768832), before the ramps join them
+	bool rebuilt = false;
 	if (m_anyRaised)
 	{
 		std::array<bool, 16> touched{};
@@ -341,6 +342,7 @@ void Pathfinder::restampWalls(const PathfindRegion &region)
 			if (touched[(size_t)l])
 			{
 				rebuildRaisedLayer((PathfindLayerEnum)l);
+				rebuilt = true;
 			}
 		}
 	}
@@ -356,9 +358,10 @@ void Pathfinder::restampWalls(const PathfindRegion &region)
 			}
 		}
 	}
+	// a rebuilt raised layer lost every ramp's joint on it, the far ones too (review #63): then every ramp, in insertion order as a full classification
 	for (const WallPiece &p : m_wallPieces)
 	{
-		if (overlaps(p.cells, region))
+		if (rebuilt || overlaps(p.cells, region))
 		{
 			for (const PathfindWallSurface &s : p.ramps)
 			{
@@ -601,9 +604,45 @@ float Pathfinder::getHighestLayerHeight(float x, float y) const
 	{
 		return terrain;
 	}
-	const PathfindLayerEnum layer = getLayerAt(x, y, 1.0e30f); // lane WALL-2: any raised walkway there counts (the highest surface)
-	const float h = layer == LAYER_GROUND ? terrain : getLayerHeight(x, y, layer);
-	return h > terrain ? h : terrain;
+	// the highest surface at the point (ZH TerrainLogic::getHighestLayerForDestination; review #63: getLayerAt names a ramp first and the first raised
+	// layer in index order, not the highest): the terrain, a ramp's surface, the cell's wall top, every raised walkway passable there
+	float best = terrain;
+	const int cx = SimMath::floorToInt(SimMath::mulf32(x, 0.1f)), cy = SimMath::floorToInt(SimMath::mulf32(y, 0.1f));
+	auto take = [&](float h) {
+		if (h > best)
+		{
+			best = h;
+		}
+	};
+	if (isPointOnRamp(x, y))
+	{
+		take(getLayerHeight(x, y, LAYER_RAMP));
+	}
+	if (const PathfindCell *c = m_blockOfMapCells.empty() ? nullptr : cellAt(cx, cy))
+	{
+		if (isWallLayer(c->getLayer()))
+		{
+			take(getLayerHeight(x, y, c->getLayer()));
+		}
+	}
+	if (m_anyRaised)
+	{
+		for (int l = (int)LAYER_TOP; l <= (int)LAYER_RAISED_LAST; ++l)
+		{
+			const PathfindCell *rc = raisedCellAt((PathfindLayerEnum)l, cx, cy);
+			if (rc && rc->getType() != PathfindCell::CELL_BRIDGE_IMPASSABLE)
+			{
+				take(raisedLayerHeight((PathfindLayerEnum)l));
+			}
+		}
+	}
+	return best;
+}
+
+PathfindLayerEnum Pathfinder::searchDestinationLayer(const Coord3D &to) const
+{
+	const PathfindLayerEnum l = getLayerAt(to.x, to.y, to.z);
+	return isRaisedLayer(l) ? l : LAYER_GROUND;
 }
 
 PathfindLayerEnum Pathfinder::updateLayer(const PathfindObject &obj, PathfindLayerEnum nodeLayer) const

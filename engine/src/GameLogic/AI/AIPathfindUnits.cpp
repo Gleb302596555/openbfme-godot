@@ -1354,7 +1354,7 @@ bool Pathfinder::adjustToPossibleDestination(PathfindObject &obj, const Pathfind
 	{
 		return false; // outside of bounds
 	}
-	const PathfindLayerEnum destinationLayer = LAYER_GROUND;
+	const PathfindLayerEnum destinationLayer = searchDestinationLayer(*dest);
 	PathfindCell *goalCell = getCell(destinationLayer, goalCellNdx.x, goalCellNdx.y);
 	Coord3D from = obj.getPosition();
 	PathfindCell *parentCell = getClippedCell(obj.getLayer(), &from);

@@ -421,6 +421,50 @@ TEST_CASE("wall1 walls: S-4840 is in Pathfinder::allStops() and the wall piece r
 	CHECK(raised);
 }
 
+// review (#63): the 48th wall-top height takes the last wall layer, 0x40, which a cell's layer field must hold (it was 6 bits: 0x40 became LAYER_INVALID)
+TEST_CASE("wall1 walls: 48 wall-top heights take the layers 0x11 .. 0x40; the 48th wall's cells keep layer 0x40")
+{
+	SyntheticTerrain terrain{ 80, 60 };
+	TestWorld world;
+	std::vector<WallPieceObject *> pieces;
+	for (int i = 0; i < 48; ++i)
+	{
+		// 8 x 6 pieces 100 apart, each a 40 x 40 wall top at its own height (10 apart: more than the 3.5 that joins two heights)
+		WallPieceObject *p = new WallPieceObject();
+		p->id = (PathfindObjectID)(100 + i);
+		const float cx = 50.0f + (float)(i % 8) * 100.0f, cy = 50.0f + (float)(i / 8) * 100.0f;
+		p->pos = { cx, cy, 0.0f };
+		p->structure = true;
+		p->kinds.insert(PK_WALK_ON_TOP_OF_WALL);
+		p->geometry.type = PATHFIND_GEOMETRY_BOX;
+		p->geometry.majorRadius = 20.0f;
+		p->geometry.minorRadius = 20.0f;
+		const float h = 10.0f * (float)(i + 1);
+		p->walls.walls.push_back(quad(cx - 20.0f, cy - 20.0f, cx + 20.0f, cy + 20.0f, h, h));
+		world.objects[p->id] = p;
+		pieces.push_back(p);
+	}
+	Pathfinder pf(testConfig(), &world);
+	pf.newMap(terrain);
+	for (WallPieceObject *p : pieces)
+	{
+		pf.addObjectToPathfindMap(*p);
+	}
+	REQUIRE(pf.wallHeights().size() == 48u);
+	for (int i = 0; i < 48; ++i)
+	{
+		INFO("piece " << i);
+		const PathfindCell *c = pf.cellAt(5 + (i % 8) * 10, 5 + (i / 8) * 10); // the cell at the piece's centre
+		REQUIRE(c != nullptr);
+		CHECK(c->getLayer() == (PathfindLayerEnum)((int)LAYER_WALL_FIRST + i));
+	}
+	CHECK(pf.cellAt(5 + 7 * 10, 5 + 5 * 10)->getLayer() == LAYER_LAST);
+	for (auto &kv : world.objects)
+	{
+		delete kv.second;
+	}
+}
+
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------
 // retail: Helm's Deep
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------

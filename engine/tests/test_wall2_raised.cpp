@@ -415,3 +415,74 @@ TEST_CASE("wall2 raised: the melee engagement search runs on the destination's l
 	CHECK(w.pf->getLayerAt(onTop.x, onTop.y, onTop.z) == LAYER_TOP);
 	CHECK(onTop.z == 60.0f);
 }
+
+namespace
+{
+// a wall piece with one raised walkway quad at height z, its one-cell footprint at (fx, fy) away from the passage
+WallPieceObject *walkwayPiece(GatehouseWorld &w, PathfindObjectID id, float fx, float fy, float x0, float x1, float z)
+{
+	WallPieceObject *p = new WallPieceObject();
+	p->id = id;
+	p->pos = { fx, fy, 0.0f };
+	p->structure = true;
+	p->kinds.insert(PK_WALK_ON_TOP_OF_WALL);
+	p->geometry.type = PATHFIND_GEOMETRY_BOX;
+	p->geometry.majorRadius = 1.0f;
+	p->geometry.minorRadius = 1.0f;
+	p->walls.raised.push_back(quad(x0, 90.0f, x1, 110.0f, z, z));
+	w.world.objects[id] = p;
+	w.pf->addObjectToPathfindMap(*p);
+	w.zones();
+	return p;
+}
+} // namespace
+
+// review (#63): a search toward a point on a raised walkway aims at the walkway's cell (TerrainLogic::getLayerForDestination RW 0x680A75), not the ground
+// under it
+TEST_CASE("wall2 raised: a unit on the walkway ordered to another point of it stays on the walkway")
+{
+	GatehouseWorld w;
+	LayeredUnit *u = w.unit(1, 250.0f, 100.0f, 60.0f, LAYER_TOP);
+	Coord3D from = u->pos, to{ 350.0f, 100.0f, 60.0f };
+	CHECK(w.pf->searchDestinationLayer(to) == LAYER_TOP);
+	CHECK(w.pf->searchDestinationLayer(Coord3D{ 150.0f, 100.0f, 60.0f }) == LAYER_GROUND); // a wall top: a layer of the ground grid's cells
+	bool partial = true;
+	Path *p = w.pf->findPath(u, groundLoco(), &from, &to, &partial);
+	REQUIRE(p != nullptr);
+	CHECK_FALSE(partial);
+	for (const PathNode *n = p->getFirstNode(); n; n = n->getNext())
+	{
+		CHECK(n->getLayer() == LAYER_TOP);
+	}
+	delete p;
+}
+
+// review (#63): a change that rebuilds a raised layer re-stamps every ramp: the far end's ramp keeps its joint with the walkway
+TEST_CASE("wall2 raised: a piece added at the walkway's left end (its layer rebuilt) leaves the right ramp's joint: the walkway still reaches the right wall")
+{
+	GatehouseWorld w;
+	walkwayPiece(w, 53, 210.0f, 10.0f, 200.0f, 220.0f, 60.0f); // the same height: the walkway's layer, made again
+	LayeredUnit *u = w.unit(1, 300.0f, 100.0f, 60.0f, LAYER_TOP);
+	Coord3D from = u->pos, to{ 455.0f, 105.0f, 60.0f };
+	bool partial = true;
+	Path *p = w.pf->findPath(u, groundLoco(), &from, &to, &partial);
+	REQUIRE(p != nullptr);
+	CHECK_FALSE(partial);
+	bool sawGround = false;
+	for (const PathNode *n = p->getFirstNode(); n; n = n->getNext())
+	{
+		sawGround = sawGround || n->getLayer() == LAYER_GROUND;
+	}
+	CHECK_FALSE(sawGround);
+	CHECK(p->getLastNode()->getLayer() == LAYER_WALL_FIRST);
+	delete p;
+}
+
+// review (#63): the highest layer for a click is the highest surface, not the first raised layer in index order
+TEST_CASE("wall2 raised: under a second walkway at 90 over the first (60) the highest surface is 90; beside it 60")
+{
+	GatehouseWorld w;
+	walkwayPiece(w, 54, 300.0f, 30.0f, 250.0f, 350.0f, 90.0f);
+	CHECK(w.pf->getHighestLayerHeight(300.0f, 100.0f) == 90.0f);
+	CHECK(w.pf->getHighestLayerHeight(220.0f, 100.0f) == 60.0f);
+}
