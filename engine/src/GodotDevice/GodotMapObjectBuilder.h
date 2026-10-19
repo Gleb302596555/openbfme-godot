@@ -86,6 +86,7 @@ private:
 	Dictionary m_report;
 	Ref<RetailFileSystem> m_fs;
 	std::unique_ptr<RetailObjectWorld> m_world;
+	std::unique_ptr<RetailObjectWorld> m_scanWorld; ///< pristine templates, never shared with previews
 	std::unique_ptr<MapObjectOptions> m_options;
 	std::unique_ptr<ArchiveW3DFileSource> m_source;
 	std::unique_ptr<WW3DAssetManager> m_assets;

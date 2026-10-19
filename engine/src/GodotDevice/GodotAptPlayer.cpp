@@ -3144,6 +3144,7 @@ Dictionary AptMenuPlayer::lobby_apply(const Dictionary &spec)
 			GadgetComboBoxSetSelectedPos(combo, row, false);
 		}
 	}
+	if (spec.has("map_search")) screen->setMapSearch(utf8ToU16(toNative(String(spec["map_search"]))));
 	if (spec.has("map"))
 	{
 		const std::string key = toNative(String(spec["map"]));
@@ -3171,14 +3172,11 @@ Dictionary AptMenuPlayer::lobby_apply(const Dictionary &spec)
 		if (!screen->setBrowserRule((int)(int64_t)rule["id"], (int)(int64_t)rule["value"])) errors.push_back("Invalid map-browser rule");
 	}
 	if (spec.has("browser_legendary") && !screen->setBrowserLegendary((int)(int64_t)spec["browser_legendary"])) errors.push_back("Invalid Legendary Heroes factor");
-	if (spec.has("map_search")) screen->setMapSearch(utf8ToU16(toNative(String(spec["map_search"]))));
 	const Array slots = spec.get("slots", Array());
 	for (int64_t i = 0; i < slots.size(); ++i)
 	{
 		const Dictionary sd = slots[i];
 		const int slot = (int)(int64_t)sd["slot"];
-		if (sd.has("start") && !screen->setLobbyStartPosition(slot, (int)(int64_t)sd["start"]))
-			errors.push_back("Invalid start position");
 		if (sd.has("state"))
 		{
 			GameWindow *combo = screen->slotGadget(slot, "Player");
@@ -3191,6 +3189,15 @@ Dictionary AptMenuPlayer::lobby_apply(const Dictionary &spec)
 			{
 				GadgetComboBoxSetSelectedPos(combo, row, false);
 			}
+		}
+		if (sd.has("start") && !screen->setLobbyStartPosition(slot, (int)(int64_t)sd["start"]))
+			errors.push_back("Invalid start position");
+		if (sd.has("player_template"))
+		{
+			GameWindow *combo = screen->slotGadget(slot, "PlayerTemplate");
+			const int row = combo ? itemRow(combo, (std::intptr_t)(int64_t)sd["player_template"]) : -1;
+			if (row < 0) errors.push_back("Invalid player template");
+			else GadgetComboBoxSetSelectedPos(combo, row, false);
 		}
 		if (sd.has("faction"))
 		{

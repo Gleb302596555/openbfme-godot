@@ -192,3 +192,12 @@ Checks include `game_switcher_test.gd`, `game_switcher_mount_test.gd`,
 `bfme1_map_library_test.gd`, and `bfme1_actions_test.gd`. The latter exercises
 construction, recruitment, combat and outpost capture for faction indexes
 3 (Rohan), 4 (Gondor), 5 (Isengard), and 6 (Mordor).
+
+Browser setup preserves numeric faction choices, including Random, clears the
+native map search before choosing a map, and assigns start positions after slot
+state changes. Metadata scans use templates isolated from preview worlds and
+apply overrides to existing objects as well as new definitions. Generated metadata
+uses cache version 6. Map installation identities hash the selected map and all
+copied companions, so companion-only updates install a new payload. Regressions:
+`bfme1_browser_test.gd`, `bfme1_map_scan_test.gd`, and
+`bfme1_map_library_test.gd`.

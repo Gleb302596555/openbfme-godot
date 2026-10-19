@@ -1,6 +1,6 @@
 extends RefCounted
 ## Generated browser metadata, isolated from retail MapCache.ini and invalidated by mounted archive content/order.
-const VERSION = 5
+const VERSION = 6
 var fs: RefCounted
 var scanner: RefCounted
 var directory := ''
@@ -24,10 +24,9 @@ func cached(entry: Dictionary) -> Dictionary:
  cache_hits+=1
  return result
 
-## Scans one map (about 20 ms). `shared`: a MapObjectBuilder whose loaded world is only read (the browser's preview builder, so no second
-## template load); the rare map whose map.ini defines objects it places is scanned with this service's own builder, set up on first need.
-## allow_full false: such a map is returned unscanned ({ needs_map_ini: true }, not cached): its scan loads a second template world and the
-## map.ini (seconds), so the browser runs it only when the map is selected.
+## Scans use a pristine template world separate from preview overrides. Maps with
+## object overrides (including changes to existing templates) need a full scan.
+## allow_full false defers those maps until selected, avoiding background INI loads.
 func generate(entry: Dictionary, shared: RefCounted = null, allow_full := true) -> Dictionary:
  var name=str(entry.key).replace('\\','/').get_file().get_basename()
  var result:Dictionary=shared.scan_definition(fs,name,{'map_ini':false}) if shared!=null else {'needs_map_ini':true}

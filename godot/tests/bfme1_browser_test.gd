@@ -36,6 +36,28 @@ func _run() -> void:
 	browser.show_browser()
 	assert(browser.open)
 	assert(not browser.loaded_catalog.is_empty())
+	# Exercise the browser commit with Random and a newly occupied AI slot.
+	var chosen: Dictionary = browser.loaded_catalog[0]
+	for entry in browser.loaded_catalog:
+		if entry.players == 2: chosen = entry; break
+	assert(shell.lobby_apply({"slots":[{"slot":1,"state":1}]}).ok)
+	assert(shell.lobby_apply({"map_search":"no map matches this review regression"}).ok)
+	assert(shell.lobby_state().map_keys.is_empty())
+	browser.selected = chosen
+	browser.draft = shell.lobby_state().duplicate(true)
+	browser.draft.slots[0].template = -1
+	browser.draft.slots[1].state = 2
+	browser.draft.slots[1].template = -1
+	browser.assignments = {0:0,1:1}
+	assert(browser._commit(), browser.message.text)
+	var committed: Dictionary = shell.lobby_state()
+	assert(committed.map == chosen.key)
+	assert(committed.map_search == "")
+	assert(committed.slots[0].template == -1)
+	assert(committed.slots[1].template == -1)
+	assert(committed.slots[1].state == 2)
+	assert(committed.slots[1].start == 1)
+
 	browser._change_source(1)
 	for i in 30: await process_frame
 	assert(browser.library_catalog.size() == 1)

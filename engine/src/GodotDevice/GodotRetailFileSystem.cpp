@@ -10,6 +10,7 @@
 #include "Common/RetailArchivePolicy.h"
 #include "Common/ArchiveFile.h"
 #include "Common/MD5.h"
+#include "Common/Sha256.h"
 #include <algorithm>
 #include <filesystem>
 #include <chrono>
@@ -598,15 +599,22 @@ godot::Dictionary godot::RetailFileSystem::inspect_library_map(const String &pat
  std::vector<uint8_t> bytes(data.ptr(),data.ptr()+data.size());
  LoadedMap map; std::string error;
  if(!MapReader::load(bytes,toNative(path),MapReadOptions{true, m_bfme1},map,&error))return fail(error);
- // Include sidecar modification times in the alias, so feature caches also expire
- // when a library map's own INI or assets change.
+ // Hash the complete installed payload, including companion INI, strings and
+ // assets. Modification times cannot identify same-second or preserved-time edits.
  auto archive=std::make_unique<LibraryPreviewArchive>();
  if(!archive->folder.open(toNative(path.get_base_dir()),&error))return fail(error);
- String identity=path+String(":")+FileAccess::get_sha256(path);
+ String payload;
  for(const auto &source:archive->folder.paths()) {
-  String disk=path.get_base_dir().path_join(toGodot(source).replace("\\","/"));
-  identity+=toGodot(source)+String::num_uint64(FileAccess::get_modified_time(disk));
+  String rel=toGodot(source).replace("\\","/");
+  if(rel.get_extension().to_lower()=="map" && rel!=path.get_file().to_lower())continue;
+  std::vector<uint8_t> companion;
+  if(!archive->folder.readFile(source,companion,&error))return fail(error);
+  const auto hash=Sha256::hash(companion.data(),companion.size());
+  String digest=toGodot(HexBytes(hash.data(),hash.size()));
+  payload+=String::num_int64(rel.length())+":"+rel+":"+digest+"\n";
  }
+ const String contentId=payload.sha256_text();
+ String identity=path+String(":")+contentId;
  String alias="openbfme_library_"+identity.sha256_text();
  result["key"]=String("maps/")+alias+String("/")+alias+String(".map");
  result["preview_name"]=alias; result["library"]=true; result["official"]=false;
@@ -628,7 +636,7 @@ godot::Dictionary godot::RetailFileSystem::inspect_library_map(const String &pat
  };
  result["name"]=mapText("mapName"); result["description"]=mapText("mapDescription");
  result["snowy"]=map.chunks.hasWorldInfo && map.chunks.worldInfo.getInt("weather")==1;
- result["content_id"]=FileAccess::get_sha256(path); result["file_size"]=data.size();
+ result["content_id"]=contentId; result["file_size"]=data.size();
  result["path"]=path;
  Array starts;
  for(const auto &object:map.chunks.objects) {
@@ -670,7 +678,7 @@ godot::Dictionary godot::RetailFileSystem::install_library_map(const String &pat
  installed_maps(root);
  String installRoot=m_bfme1 && root=="user://installed-maps" ? String("user://bfme1-installed-maps") : root;
  String destination=ProjectSettings::get_singleton()->globalize_path(installRoot).path_join(String(inspected["content_id"]));
- String target=destination.path_join(path.get_file());
+ String target=destination.path_join(path.get_file().to_lower());
  std::error_code ec;
  if(!FileAccess::file_exists(target) && !FileAccess::file_exists(destination.path_join(path.get_file().to_lower()))) {
   const std::string staging=toNative(destination)+".installing";

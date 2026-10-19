@@ -426,8 +426,7 @@ func _commit() -> bool:
   if i>0:change.state=entry.state
   if int(entry.state)>=2:
    change.team=entry.team
-   for faction in draft.get('factions',[]):
-    if int(faction.value)==int(entry.template):change.faction=faction.template
+   change.player_template=int(entry.template)
   slots.append(change)
  var rules=[]
  for key in rule_edits:rules.append({'id':int(key),'value':rule_edits[key]})

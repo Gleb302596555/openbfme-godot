@@ -198,6 +198,7 @@ Dictionary MapObjectBuilder::setup(const Ref<RetailFileSystem> &fs)
 	else if (!m_world || m_fs != fs)
 	{
 		m_fs = fs;
+		m_scanWorld.reset();
 		m_runtime.reset();
 		m_drawables.reset();
 		m_map.reset();
@@ -250,25 +251,28 @@ Dictionary MapObjectBuilder::scan_definition(const Ref<RetailFileSystem> &fs, co
  if (!MapReader::load(bytes, path, MapReadOptions{true, m_fs.is_valid() && m_fs->is_bfme1()}, map, &error)) { errors.push_back(toGodot(error)); return out; }
  // Same WorldInfo weather classification used by LiveGame and MapObjectDrawables.
  out["snowy"] = map.chunks.hasWorldInfo && map.chunks.worldInfo.getInt("weather") == 1;
- // The map.ini only matters when the map places objects the retail INI does not define and the map.ini does: applying it to every map dirtied the scanner's world
- // and cost a full INI reload (about 1 s) per map. The rare map that needs it gets it (and a following one pays the reload).
- bool missing = false;
- std::set<std::string> defined;
- bool definedRead = false;
- for (const auto &object : map.chunks.objects) {
-  if (object.isWaypoint() || object.isLight() || object.isScorch() || (object.m_flags & (FLAG_ROAD_FLAGS | FLAG_BRIDGE_FLAGS))) continue;
-  if (m_world->things().findTemplate(object.m_objectName)) continue;
-  if (!definedRead) { defined = mapIniObjectNames(*fs.ptr(), path); definedRead = true; }
-  if (defined.count(AsciiStringUtil::lowered(object.m_objectName))) { missing = true; break; }
- }
- // options.map_ini false: the world is never changed (the browser scans with its preview's world); a map that needs its map.ini says so
- if (missing && !optBool(options, "map_ini", true)) { out["needs_map_ini"] = true; return out; }
- if (missing) {
-  const auto overrides = m_world->applyMapIni(MapClassification::mapDirectory(name));
+ // Existing templates can also have KindOf overridden. Defer every object override
+ // when a background scan forbids map.ini, not just definitions missing from retail.
+ const bool overridesObjects = !mapIniObjectNames(*fs.ptr(), path).empty();
+ if (overridesObjects && !optBool(options, "map_ini", true)) { out["needs_map_ini"] = true; return out; }
+ // Scans must never inherit or modify the preview's world. Keep a pristine base
+ // for ordinary maps and a disposable world for each map with object overrides.
+ std::unique_ptr<RetailObjectWorld> overridden;
+ auto loadWorld = [&](std::unique_ptr<RetailObjectWorld> &world) {
+  world.reset(new RetailObjectWorld(*fs->archive_fs()));
+  if (!world->load(&error)) errors.push_back(toGodot(error));
+  else for (const auto &e : world->report().errors) errors.push_back(toGodot(e.file + ": " + e.message));
+  if (!errors.is_empty()) { world.reset(); return false; }
+  return true;
+ };
+ if (overridesObjects) {
+  if (!loadWorld(overridden)) return out;
+  const auto overrides = overridden->applyMapIni(MapClassification::mapDirectory(name));
   for (const auto &e : overrides.errors) errors.push_back(toGodot(e));
   if (!errors.is_empty()) return out;
- }
- const auto context = m_world->enterContext();
+ } else if (!m_scanWorld && !loadWorld(m_scanWorld)) return out;
+ RetailObjectWorld &scanWorld = overridesObjects ? *overridden : *m_scanWorld;
+ const auto context = scanWorld.enterContext();
  Array buildings, captureFlags, fortressStarts, unresolved;
  Dictionary counts; counts["outpost"]=0; counts["inn"]=0; counts["signal_fire"]=0; counts["other"]=0;
  std::map<std::string, std::array<uint32_t,7>> masks;
@@ -282,7 +286,7 @@ Dictionary MapObjectBuilder::scan_definition(const Ref<RetailFileSystem> &fs, co
    continue;
   }
   if (object.isLight() || object.isScorch() || (object.m_flags & (FLAG_ROAD_FLAGS | FLAG_BRIDGE_FLAGS))) continue;
-  const auto *tt = m_world->things().findTemplate(object.m_objectName);
+  const auto *tt = scanWorld.things().findTemplate(object.m_objectName);
   if (!tt) { unresolved.push_back(toGodot(object.m_objectName)); continue; }
   tt=tt->getFinalOverride();
   auto found=masks.find(tt->getName());
