@@ -203,11 +203,12 @@ void Pathfinder::clip(Coord3D *from, Coord3D *to)
 
 bool Pathfinder::clientSafeQuickDoesPathExist(const PathfindLocomotorInfo &loco, const Coord3D *from, const Coord3D *to, const PathfindObject *obj)
 {
-	// ZH clientSafeQuickDoesPathExist on the ground layer, with the RW zone model (the terrain variant when an end is a building). Lane WALL-2: with the unit
+	// ZH clientSafeQuickDoesPathExist on the ends' layers (review #63), with the RW zone model (the terrain variant when an end is a building). Lane WALL-2: with the unit
 	// the movement is the unit's (RW 0x6F5D65 .. 0x6F5D91: its SlopeLimitIndex and CanPathThroughGates, RW 0x6EA04D), without one ZH's anonymous movement
 	const PathfindMovement mv = makeMovement(obj, loco);
-	PathfindCell *goalCell = getClippedCell(LAYER_GROUND, to);
-	PathfindCell *parentCell = getClippedCell(LAYER_GROUND, from);
+	// review (#63): the ends' layers, as the search takes them: the goal on a raised walkway is the walkway's cell, the start the unit's layer's
+	PathfindCell *goalCell = getClippedCell(searchDestinationLayer(*to), to);
+	PathfindCell *parentCell = getClippedCell(obj ? obj->getLayer() : LAYER_GROUND, from);
 	if (parentCell == nullptr || goalCell == nullptr)
 	{
 		return false;
@@ -1028,7 +1029,9 @@ Path *Pathfinder::findPath(PathfindObject *obj, const PathfindLocomotorInfo &loc
 	m_portalHops.clear(); // RW 0x6FE7CB (see above): the waypoint vector (+ 0x1C1CC) emptied before the block search (lane WALL-2)
 	m_zoneManager.clearPassableFlags();
 	Coord3D adjustedTo = to;
-	const bool hierarchical = findClosestHierarchicalPath(obj, loco, isHuman, from, &to, &adjustedTo);
+	// the block search runs on the ground layer only (S-162: its bridge links, RW 0x9389CE, are not ported), so a goal on a raised walkway (lane WALL-2)
+	// gets no corridor and the full search runs on every block (review #63: the corridor moved such a goal to the ground beside it, a partial path)
+	const bool hierarchical = !isRaisedLayer(searchDestinationLayer(to)) && findClosestHierarchicalPath(obj, loco, isHuman, from, &to, &adjustedTo);
 	if (!hierarchical)
 	{
 		m_zoneManager.setAllPassable();

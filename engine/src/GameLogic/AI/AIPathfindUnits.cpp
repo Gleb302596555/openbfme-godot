@@ -747,7 +747,7 @@ void Pathfinder::releaseSlot(PathfindObjectID id, Slot &slot)
 	// RW 0x8E1CC4: unlink the unit's node from each cell of the chain; a cell info with no node left is released
 	for (const ICoord2D &c : slot.cells)
 	{
-		PathfindCell *cell = getCell(LAYER_GROUND, c.x, c.y);
+		PathfindCell *cell = getCell(slot.layer, c.x, c.y); // the slot's layer (review #63: a walkway's cells, not the ground under them)
 		if (cell)
 		{
 			cell->removeOccupant(m_pool, slot.kind, id);
@@ -763,7 +763,7 @@ void Pathfinder::registerSlot(PathfindObject &obj, Slot &slot)
 	footprintCells(obj, slot.cell, slot.angleCode, slot.cells);
 	for (const ICoord2D &c : slot.cells)
 	{
-		PathfindCell *cell = getCell(LAYER_GROUND, c.x, c.y);
+		PathfindCell *cell = getCell(slot.layer, c.x, c.y); // lane WALL-2: a raised walkway's cell when the slot is on one, else the ground grid's
 		cell->addOccupant(m_pool, slot.kind, obj.getID(), c);
 	}
 }

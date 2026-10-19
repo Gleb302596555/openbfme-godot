@@ -486,3 +486,58 @@ TEST_CASE("wall2 raised: under a second walkway at 90 over the first (60) the hi
 	CHECK(w.pf->getHighestLayerHeight(300.0f, 100.0f) == 90.0f);
 	CHECK(w.pf->getHighestLayerHeight(220.0f, 100.0f) == 60.0f);
 }
+
+// review (#63): a goal slot on a raised walkway reserves the walkway's cells (Pathfinder::registerSlot / releaseSlot take the slot's layer)
+TEST_CASE("wall2 raised: a goal reserved on the walkway marks the walkway's cells, not the ground under them; removing it clears them")
+{
+	GatehouseWorld w;
+	LayeredUnit *u = w.unit(1, 250.0f, 100.0f, 60.0f, LAYER_TOP);
+	Coord3D goal{ 300.0f, 100.0f, 60.0f };
+	w.pf->updateGoal(*u, &goal, LAYER_TOP);
+	auto reserved = [&](const PathfindCell *c) {
+		for (const PathfindOccupant *n = c ? c->occupants(OCC_GROUND_GOAL) : nullptr; n; n = n->next)
+		{
+			if (n->owner == u->id)
+			{
+				return true;
+			}
+		}
+		return false;
+	};
+	const PathfindCell *top = w.pf->getCell(LAYER_TOP, 30, 10);
+	REQUIRE(top != nullptr);
+	REQUIRE(top->getLayer() == LAYER_TOP);
+	CHECK(reserved(top));
+	CHECK_FALSE(reserved(w.pf->cellAt(30, 10)));
+	w.pf->removeGoal(*u);
+	CHECK_FALSE(reserved(top));
+}
+
+// review (#63): the quick path test before the search takes the ends' layers too: a walkway point above a ground obstacle is a destination
+TEST_CASE("wall2 raised: a walkway point above a ground obstacle is a destination: the quick path test and the search take the walkway's cell")
+{
+	GatehouseWorld w;
+	TestObject *box = new TestObject();
+	box->id = 60;
+	box->pos = { 300.0f, 100.0f, 0.0f };
+	box->structure = true;
+	box->geometry.type = PATHFIND_GEOMETRY_BOX;
+	box->geometry.majorRadius = 20.0f;
+	box->geometry.minorRadius = 10.0f;
+	w.world.objects[box->id] = box;
+	w.pf->addObjectToPathfindMap(*box);
+	w.zones();
+	REQUIRE(w.pf->cellAt(30, 10)->getType() == PathfindCell::CELL_OBSTACLE);
+	LayeredUnit *u = w.unit(1, 250.0f, 100.0f, 60.0f, LAYER_TOP);
+	Coord3D from = u->pos, to{ 300.0f, 100.0f, 60.0f };
+	CHECK(w.pf->clientSafeQuickDoesPathExist(groundLoco(), &from, &to, u));
+	bool partial = true;
+	Path *p = w.pf->findPath(u, groundLoco(), &from, &to, &partial);
+	REQUIRE(p != nullptr);
+	CHECK_FALSE(partial);
+	for (const PathNode *n = p->getFirstNode(); n; n = n->getNext())
+	{
+		CHECK(n->getLayer() == LAYER_TOP);
+	}
+	delete p;
+}
