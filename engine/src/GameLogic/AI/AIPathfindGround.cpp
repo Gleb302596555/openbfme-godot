@@ -387,7 +387,9 @@ Path *Pathfinder::findGroundPath(PathfindObject *obj, const Coord3D *from, const
 	const PathfindLocomotorInfo ground{ LOCOMOTORSURFACE_GROUND, false, false };
 	Coord3D hierarchicalTarget;
 	m_portalHops.clear(); // lane WALL-2: the hops of this search only (INFERENCE: as findPath empties them, RW 0x6FE7CB)
-	if (!findClosestHierarchicalPath(obj, ground, true, from, rawTo, &hierarchicalTarget))
+	// a goal on a raised walkway gets no corridor (S-162: the block search runs on the ground only), as findPath (review #64)
+	const bool raisedGoal = isRaisedLayer(getLayerAt(rawTo->x, rawTo->y, rawTo->z));
+	if (raisedGoal || !findClosestHierarchicalPath(obj, ground, true, from, rawTo, &hierarchicalTarget))
 	{
 		m_zoneManager.setAllPassable(); // RW 0x937C65
 	}
@@ -399,7 +401,9 @@ Path *Pathfinder::findGroundPath(PathfindObject *obj, const Coord3D *from, const
 	Coord3D clipped = *from;
 	clip(&clipped, &adjusted);
 	m_isTunneling = false;
-	const PathfindLayerEnum layer = getLayerAt(adjusted.x, adjusted.y); // TheTerrainLogic::getLayerForDestination (lane WALL-1: a wall top's, as computePath)
+	// TheTerrainLogic::getLayerForDestination at the destination's height (lane WALL-1: a wall top's, as computePath; review #64: with the height, a raised
+	// walkway's, which the terrain's height under it never names)
+	const PathfindLayerEnum layer = getLayerAt(adjusted.x, adjusted.y, adjusted.z);
 	ICoord2D cell;
 	worldToCell(&adjusted, true, &cell);
 	if (diameter != clearCellForDiameter(0, cell.x, cell.y, layer, diameter, true))

@@ -588,3 +588,22 @@ TEST_CASE("wall2 raised: a walkway goal whose footprint reaches the ground besid
 	w.pf->removeGoal(*u);
 	CHECK(nodes(ground) == 0);
 }
+
+// review (#64): a group's formation search (findGroundPath) takes the destination's layer at its height: a walkway point is not the ground under it. The
+// formation search does not reach a walkway, so it makes no path, and the group's march is refused (AIGroup: the generic path, each unit its own move,
+// whose search reaches the walkway) instead of marching to the ground below
+TEST_CASE("wall2 raised: a group's formation search to a walkway point does not end on the ground under it")
+{
+	GatehouseWorld w;
+	LayeredUnit *u = w.unit(1, 150.0f, 100.0f, 60.0f, LAYER_WALL_FIRST);
+	Coord3D from = u->pos, to{ 300.0f, 100.0f, 60.0f };
+	Path *p = w.pf->findGroundPath(u, &from, &to, 1, 0.0f);
+	CHECK(p == nullptr);
+	delete p;
+	bool partial = true;
+	Path *own = w.pf->findPath(u, groundLoco(), &from, &to, &partial); // a unit's own move
+	REQUIRE(own != nullptr);
+	CHECK_FALSE(partial);
+	CHECK(own->getLastNode()->getLayer() == LAYER_TOP);
+	delete own;
+}
