@@ -339,6 +339,9 @@ public:
 	StopSpecialPower(Thing *thing, const StopSpecialPowerModuleData *data); // RW 0x8CABF6
 	bool isReady() const override;                           // RW 0x8CACC6
 	float getPercentReady() const override { return isReady() ? 1.0f : 0.0f; }
+	// the button reads these (the control bar, CommandXlat RW 0x75CC3E): the readiness above, not the recharge timer the base shows (review #64)
+	bool isReadyForDisplay() const override { return isReady(); }
+	float getPercentReadyForDisplay() const override { return getPercentReady(); }
 	void doSpecialPower(unsigned options) override;          // slot 0x28
 	void doSpecialPowerAtObject(Object *target, unsigned options) override { (void)target; doSpecialPower(options); }
 	void doSpecialPowerAtLocation(const Coord3D &loc, unsigned options) override { (void)loc; doSpecialPower(options); }
