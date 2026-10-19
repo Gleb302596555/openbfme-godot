@@ -240,6 +240,10 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 					{
 						ev = std::move(idle.back());
 						idle.pop_back();
+						// Generations belong to one drawable; a pooled instance may now
+						// serve another drawable with the same model and generation.
+						ev.hiddenModel = nullptr;
+						ev.hiddenGeneration = ~0u;
 					}
 					else ev.instance = view.inst->add_instance(mid, xf, String(), 0.0, 1.0);
 					if (ev.instance >= 0 && d.getHouseColor() != 0)
