@@ -246,6 +246,7 @@ public:
 	bool exhaustedOnce() const { return m_exhausted; }
 	// lane PATHPERF-4: above allocate's count the pool grows in blocks up to `maxRecords` (0: fixed, the default); allocate keeps the limit
 	void setGrowthLimit(int maxRecords) { m_growthLimit = maxRecords; }
+	int growthLimit() const { return m_growthLimit; } // lane PATHPERF-4 (the snapshot load: the most records it may hold)
 	int growths() const { return m_growths; }
 	PathfindOccupant *newOccupant();
 	void setExhausted(bool on) { m_exhausted = on; } ///< lane SAVE-4c: a loaded game keeps the flag of the saved one
@@ -561,6 +562,7 @@ public:
 		}
 	}
 	int length() const { return m_len; }
+	int head() const { return m_head; } ///< the next slot pop reads (lane PATHPERF-4: an Uber ring's goes past retail's 512)
 	bool empty() const { return m_head == m_tail; }
 	size_t size() const { return (size_t)((m_tail - m_head + m_len) % m_len); }
 	// the i-th queued id from the head (state hash, MOVE-1)
@@ -845,6 +847,8 @@ public:
 	enum { kUberQueueLength = 16384, kUberBudgetScale = 4, kUberBurstQueue = 120, kUberBurstEnd = 40 };
 	void setUberLimits(bool on);
 	bool uberLimits() const { return m_uberLimits; }
+	bool uberBurst() const { return m_uberBurst; } // lane PATHPERF-4: the request queue is draining a burst (the snapshot keeps it)
+	const PathfindRequestRing &requestRing() const { return m_queue1; } // lane PATHPERF-4: the path request ring (its length and head)
 	// lane PATHPERF-4: the cell-info pool grows past PathfindConfig::cellInfoPoolSize up to this many records (about 100 MB), as retail's grows; the
 	// pathfinder's searches and reservations then no longer fail on a full pool in a big battle
 	enum { kCellInfoPoolMax = 1000000 };

@@ -327,3 +327,104 @@ TEST_CASE("pathperf1: the search memo and the unit index change nothing: a 60 ho
 	CHECK(searches == 60u);
 	CHECK(corridors > 0u);
 }
+
+// lane PATHPERF-4 with upstream's SAVE-4: an Uber game's path queue is longer than retail's ring (kUberQueueLength, not PATHFIND_QUEUE_LEN), its
+// cell info pool grows and a mass order starts a burst; the pathfinder's snapshot keeps all three (version 2: the burst latch)
+TEST_CASE("pathperf4 save: an Uber game saved while a mass order's path burst drains, its request ring past retail's 512 slots, loads into itself "
+		  "and the next 100 frames hash as before")
+{
+	SharedWorld &s = shared();
+	if (!s.mount || !s.world)
+	{
+		MESSAGE("SKIP: " << s.error);
+		return;
+	}
+	ArchiveW3DFileSource source(*s.mount->fs);
+	WW3DAssetManager assets(source);
+	LiveGame game(*s.world, *s.mount->fs, assets, s.options);
+	LiveGame::Options o;
+	o.mapName = "map mp brown lands";
+	o.seed = 4711;
+	o.simulationProfile = SimulationProfile::Uber;
+	o.slots.players.push_back({ "Player_1", "FactionMen", true, 0, 0, 0 });
+	o.slots.players.push_back({ "Player_2", "FactionMordor", false, 1, 0, 1 });
+	std::string error;
+	REQUIRE_MESSAGE(game.load(o, &error), error);
+	Player *pa = game.players().findPlayerWithName("Player_1");
+	REQUIRE(pa != nullptr);
+	GameLogic &logic = game.logic();
+	REQUIRE(logic.aiWorld() != nullptr);
+	const Waypoint *wa = logic.terrain() ? logic.terrain()->findWaypointByName("Player_1_Start") : nullptr;
+	const Waypoint *wb = logic.terrain() ? logic.terrain()->findWaypointByName("Player_2_Start") : nullptr;
+	REQUIRE(wa != nullptr);
+	REQUIRE(wb != nullptr);
+	// 300 soldiers in a block in front of Player_1's base, ordered back and forth across the map
+	const Coord3D home{ wa->location.x + (wb->location.x - wa->location.x) * 0.15f, wa->location.y + (wb->location.y - wa->location.y) * 0.15f, 0.0f };
+	const Coord3D away{ wa->location.x + (wb->location.x - wa->location.x) * 0.5f, wa->location.y + (wb->location.y - wa->location.y) * 0.5f, 0.0f };
+	std::vector<ObjectID> ids;
+	for (int i = 0; i < 300; ++i)
+	{
+		Object *u = game.createObject("GondorFighter", pa->getPlayerIndex(), Coord3D{ home.x + (float)(i % 20) * 15.0f, home.y + (float)(i / 20) * 15.0f, 0.0f }, 0.0f,
+			&error);
+		REQUIRE_MESSAGE(u, error);
+		ids.push_back(u->getID());
+	}
+	for (int i = 0; i < 30; ++i)
+	{
+		REQUIRE(game.advance(0.2) == 1);
+	}
+	Pathfinder &pf = logic.aiWorld()->pathfinder();
+	REQUIRE(pf.uberLimits());
+	auto order = [&](const Coord3D &to) {
+		game.commands().append(selectMsg(pa->getPlayerIndex(), ids));
+		GameMessage mv(MSG_DO_MOVETO, pa->getPlayerIndex());
+		mv.appendLocationArgument(to);
+		game.commands().append(mv);
+	};
+	// three orders, each drained: more than 512 requests went through the ring, so its head is past retail's length
+	for (int k = 0; k < 3; ++k)
+	{
+		order(k % 2 == 0 ? away : home);
+		for (int f = 0; f < 120 && (f < 2 || pf.queuedRequests() > 0); ++f)
+		{
+			REQUIRE(game.advance(0.2) == 1);
+		}
+		REQUIRE(pf.queuedRequests() == 0u);
+	}
+	CHECK(pf.requestRing().length() == (int)Pathfinder::kUberQueueLength);
+	MESSAGE("request ring head after three orders: " << pf.requestRing().head());
+	REQUIRE(pf.requestRing().head() >= (int)PATHFIND_QUEUE_LEN); // tolerance: a precondition (past retail's ring; the exact head is the orders' own count)
+	// a fourth order; saved after the first frame that latched the burst, with requests still waiting
+	order(away);
+	bool latched = false;
+	for (int f = 0; f < 10 && !latched; ++f)
+	{
+		REQUIRE(game.advance(0.2) == 1);
+		latched = pf.uberBurst() && pf.queuedRequests() > 0;
+	}
+	REQUIRE(latched);
+	std::vector<std::uint8_t> snapshot;
+	REQUIRE_MESSAGE(logic.saveSnapshot(snapshot, &error), error);
+	const UnsignedInt savedFrame = logic.getFrame();
+	const std::uint32_t savedHash = logic.computeStateHash();
+	const size_t savedQueued = pf.queuedRequests();
+	std::vector<std::uint32_t> hashes;
+	for (int i = 0; i < 100; ++i)
+	{
+		REQUIRE(game.advance(0.2) == 1);
+		hashes.push_back(logic.computeStateHash());
+	}
+	REQUIRE_MESSAGE(game.loadSnapshot(snapshot, &error), error);
+	Pathfinder &loaded = game.logic().aiWorld()->pathfinder();
+	CHECK(game.logic().getFrame() == savedFrame);
+	CHECK(game.logic().computeStateHash() == savedHash);
+	CHECK(loaded.uberBurst());
+	CHECK(loaded.queuedRequests() == savedQueued);
+	int same = 0;
+	for (size_t i = 0; i < hashes.size(); ++i)
+	{
+		REQUIRE(game.advance(0.2) == 1);
+		same += game.logic().computeStateHash() == hashes[i] ? 1 : 0;
+	}
+	CHECK(same == (int)hashes.size());
+}

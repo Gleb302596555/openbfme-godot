@@ -63,7 +63,7 @@ void PathfindRequestRing::xfer(Xfer &x)
 	x.xferInt(&tail);
 	if (x.isLoading())
 	{
-		if (head < 0 || head >= PATHFIND_QUEUE_LEN || tail < 0 || tail >= PATHFIND_QUEUE_LEN)
+		if (head < 0 || head >= m_len || tail < 0 || tail >= m_len) // lane PATHPERF-4: this ring's length (the game's profile)
 		{
 			throw XferException("pathfinder: a request ring's head " + std::to_string(head) + " / tail " + std::to_string(tail));
 		}
@@ -71,7 +71,7 @@ void PathfindRequestRing::xfer(Xfer &x)
 		m_head = head;
 		m_tail = tail;
 	}
-	for (int s = m_head; s != m_tail; s = (s + 1) % PATHFIND_QUEUE_LEN)
+	for (int s = m_head; s != m_tail; s = (s + 1) % m_len)
 	{
 		x.xferUnsignedInt(&m_slots[(size_t)s]);
 		if (x.isLoading()) // lane SAVE-4e (closed sets): an id the game issued (a later object must not inherit a queued request)
@@ -161,14 +161,14 @@ std::uint32_t Pathfinder::configHash() const
 		h.addI32(v);
 	}
 	h.addU32((std::uint32_t)m_blockOfMapCells.size());
-	h.addI32(m_pool.capacity());
-	return h.value();
+	return h.value(); // the pool's capacity is not here: it grows (lane PATHPERF-4), and a load grows it as it allocates
 }
 
 void Pathfinder::xfer(Xfer &x)
 {
-	XferVersion v{ 1, 1 };
+	XferVersion v{ 1, 2 }; // 2: the Uber profile's burst latch (lane PATHPERF-4)
 	x.xferVersion(v);
+	const int version = v.current;
 	const bool loading = x.isLoading();
 	if (!loading && (!m_open.empty() || m_closedList))
 	{
@@ -250,7 +250,7 @@ void Pathfinder::xfer(Xfer &x)
 		infoCount += c.hasInfo() ? 1u : 0u;
 	}
 	x.xferCount(&infoCount, 10, sizeof(LoadedInfo)); // index, obstacle, flags, kinds
-	if (loading && infoCount > (std::uint32_t)m_pool.capacity())
+	if (loading && infoCount > (std::uint32_t)std::max(m_pool.capacity(), m_pool.growthLimit())) // lane PATHPERF-4: the pool grows up to its limit
 	{
 		throw XferException("pathfinder: the snapshot holds " + std::to_string(infoCount) + " cell infos, more than the pool of " + std::to_string(m_pool.capacity()));
 	}
@@ -311,6 +311,8 @@ void Pathfinder::xfer(Xfer &x)
 	}
 	PathfindZoneManager zoneManager;
 	PathfindRequestRing queue1, queue2;
+	queue1.setLength(m_queue1.length()); // lane PATHPERF-4: the rings of this game's profile
+	queue2.setLength(m_queue2.length());
 	PathfindZoneManager &zm = loading ? zoneManager : m_zoneManager;
 	PathfindRequestRing &q1 = loading ? queue1 : m_queue1, &q2 = loading ? queue2 : m_queue2;
 	zm.xfer(x);
@@ -366,6 +368,12 @@ void Pathfinder::xfer(Xfer &x)
 	}
 	std::vector<std::string> stops = m_stops;
 	AIXfer::reportStrings(x, stops);
+	// version 2 (lane PATHPERF-4): the request queue's burst latch (AIPathfindUnits.cpp; hashed in an Uber game, always false in a Faithful one)
+	bool uberBurst = loading ? false : m_uberBurst;
+	if (version >= 2)
+	{
+		x.xferBool(&uberBurst);
+	}
 	if (!loading)
 	{
 		return;
@@ -508,6 +516,7 @@ void Pathfinder::xfer(Xfer &x)
 	}
 	m_hierLast = -1; // the last search's corridor is that search's scratch (rebuilt by findClosestHierarchicalPath before it is read)
 	m_stops = std::move(stops);
+	m_uberBurst = uberBurst;
 }
 
 void Path::xfer(Xfer &x)
