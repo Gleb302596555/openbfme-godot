@@ -1267,8 +1267,10 @@ func _boot() -> void:
 	_sync_shell_volumes()
 	print("GAME shell booted in %.0f ms: %d strings, lobby seed %d" % [boot.load_ms, boot.strings, boot.seed])
 	# lane CAH-1: the Create-a-Hero builder's and the lobby's heroes: the system heroes of the archives and the profile's MyHero*.cah (RW 0x61EEB6: <user data>\\Save\\)
-	var cah: Dictionary = {"ok":true} if _fs.is_bfme1() else _shell.set_create_a_hero(_world, _cah_profile_dir())
-	print("GAME Create-a-Hero heroes: %d in %s %s" % [cah.get("heroes", 0), _cah_profile_dir(), "" if cah.ok else str(cah.errors)])
+	if not _fs.is_bfme1():
+		var profile_dir := _cah_profile_dir()
+		var cah: Dictionary = _shell.set_create_a_hero(_world, profile_dir)
+		print("GAME Create-a-Hero heroes: %d in %s %s" % [cah.get("heroes", 0), profile_dir, "" if cah.ok else str(cah.errors)])
 	_shell.shell_request.connect(_on_shell_request)
 	_shell.shell_service.connect(_on_shell_service)
 	_shell.shell_screen.connect(_on_shell_screen)

@@ -26,6 +26,9 @@ package, from BFME Arena / bfmeladder.com, a third party: OpenBFME does not host
 it); it goes into `<folder>/BFME1` and is found from then on
 (docs/AIO.md, "BFME1 (optional)").
 
+The complete startup regression is `godot/tests/bfme1_startup_test.gd` (run with
+`BFME1_INSTALL` set and `-- --game=bfme1`).
+
 BFME1 has separate `bfme1-Options.ini` and `bfme1-Skirmish.ini` settings.
 `--game=bfme1` and `--bfme1-install=...` are normal player options, so profiles persist between launches.
 Automation flags such as `--auto` still use an isolated temporary profile file.
@@ -153,3 +156,8 @@ BFME1_INSTALL="/path/to/BFME1" godot --headless --path godot -- --game=bfme1 --a
 ```
 
 `godot/tests/bfme1_quit_test.gd` checks the camp-floor material and all six pause-menu buttons with real movie clicks, including confirmations.
+
+BFME1 `BloodthirstyUpdate` also accepts and stores `NumToSacrifice` and
+`InitiateVoice2`. These legacy fields are refused in RotWK data. Their runtime
+semantics remain unported and are reported by S-5017; the BFME1 donor constructor
+initializes the sacrifice count to 1.
