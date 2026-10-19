@@ -3,6 +3,7 @@
 #include "Common/Audio/AudioEventInfo.h"
 
 #include "Common/AsciiString.h"
+#include "Common/BfmeGame.h"
 #include "Common/INIException.h"
 
 #include <cctype>
@@ -15,20 +16,13 @@ const char *const theSoundTypeNames[] = { "UI", "WORLD", "SHROUDED", "GLOBAL", "
 // RW 0xD9DB70: the seventh name is the C string "\not used by INI files": a newline character followed by "ot used by INI files" (the author meant
 // "not used"; the escape ate the n). No INI line can name it.
 const char *const theAudioControlNames[] = { "LOOP", "SEQUENTIAL", "RANDOMSTART", "INTERRUPT", "FADE_ON_KILL", "FADE_ON_START", "\not used by INI files", "PLAY_ONE", nullptr };
-// community PR #36 (BFME1 data only): BFME1's control names (lotrbfme.exe 1.03 strings: LOOP, RANDOM, RANDOMSTART, INTERRUPT, FADE_ON_KILL,
-// FADE_ON_START). INFERENCE (S-5017): RANDOM takes RotWK's unused bit 6 (no RotWK code reads it, so a BFME1 event keeps RotWK's random pick, the
-// default without SEQUENTIAL); BFME1's own bit layout was not decoded
-const char *const theBfme1AudioControlNames[] = { "LOOP", "SEQUENTIAL", "RANDOMSTART", "INTERRUPT", "FADE_ON_KILL", "FADE_ON_START", "RANDOM", "PLAY_ONE", nullptr };
+// BFME1 VA 0x012A8264 (Open-BFME-1 targets/game/reverse/name_tables.tsv): bit 1 is RANDOM, and an event without it plays its Sounds in order
+// (the ZH AC_RANDOM meaning). RotWK inverted that bit to SEQUENTIAL; the other bits match.
+static const char *const theBfme1AudioControlNames[] = { "LOOP", "RANDOM", "RANDOMSTART", "INTERRUPT", "FADE_ON_KILL", "FADE_ON_START", nullptr };
 const char *const theSubmixSliderNames[] = { "SOUNDFX", "VOICE", "MUSIC", "AMBIENT", "MOVIE", "NONE", nullptr };
 
 namespace
 {
-// the Control row: RotWK's names, BFME1's in BFME1 data (community PR #36)
-void parseAudioControl(INI *ini, void *instance, void *store, const void *)
-{
-	INI::parseBitString32(ini, instance, store, ini->bfme1Data() ? theBfme1AudioControlNames : theAudioControlNames);
-}
-
 // RW 0x5DA345 (the Sounds / Attack / Decay / Subsounds token grammar). `eventName` is the event being parsed (error text only).
 void parseWeightedTokens(INI *ini, const std::string &eventName, WeightedSoundList &list)
 {
@@ -107,6 +101,21 @@ void parseDelayPair(INI *ini, void *, void *store, const void *)
 }
 
 // RW 0x5D9620: `VolumeSliderMultiplier = Slider:<name> Multiplier:<percent>`; appended to the event's list.
+// Control: BFME1 data is read with its own names, and its RANDOM bit is stored as RotWK's SEQUENTIAL (set when RANDOM is absent). The stored
+// value is flipped back first so "+FLAG" / "-FLAG" edit the BFME1 bits of a value copied from the default event.
+void parseAudioControl(INI *ini, void *instance, void *store, const void *userData)
+{
+	if (!ini->bfme1Data())
+	{
+		INI::parseBitString32(ini, instance, store, userData);
+		return;
+	}
+	unsigned *control = (unsigned *)store;
+	*control ^= AC_SEQUENTIAL;
+	INI::parseBitString32(ini, instance, store, theBfme1AudioControlNames);
+	*control ^= AC_SEQUENTIAL;
+}
+
 void parseVolumeSliderMultiplier(INI *ini, void *, void *store, const void *)
 {
 	std::vector<SliderMultiplier> *list = static_cast<std::vector<SliderMultiplier> *>(store);
@@ -292,7 +301,7 @@ void ParseMultisoundBlock(INI *ini, AudioEventInfoStore &store)
 
 	struct MultisoundParse
 	{
-		static void parseControl(INI *ini2, void *, void *s, const void *ud) { INI::parseBitString32(ini2, nullptr, s, ini2->bfme1Data() ? theBfme1AudioControlNames : ud); }
+		static void parseControl(INI *ini2, void *instance, void *s, const void *ud) { parseAudioControl(ini2, instance, s, ud); }
 		static void parseSubsounds(INI *ini2, void *instance, void *, const void *ud)
 		{
 			AudioEventInfo *self = static_cast<AudioEventInfo *>(instance);

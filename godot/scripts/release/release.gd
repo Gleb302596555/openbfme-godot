@@ -272,20 +272,35 @@ func set_in_game(in_game: bool) -> void:
 
 ## Mounts the retail archives (RetailFileSystem `fs`) from the environment, the remembered folders or the first-run screen. Returns the
 ## mount report ({ok, errors, ...}); with ok false the caller fails with the errors.
+func selected_game() -> String:
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--game="):
+			return "bfme1" if arg.trim_prefix("--game=")=="bfme1" else "bfme2"
+	var cfg := ConfigFile.new()
+	cfg.load("user://game-selection.cfg")
+	return "bfme1" if cfg.get_value("game", "selected", "bfme2")=="bfme1" else "bfme2"
+
+
+func bfme1_install() -> String:
+	var candidates: Array[String] = []
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--bfme1-install="): candidates.append(arg.trim_prefix("--bfme1-install="))
+	candidates.append(OS.get_environment("BFME1_INSTALL"))
+	for file in ["user://install-paths.cfg", "user://downloaded-installs.cfg", "user://downloaded-bfme1.cfg"]:
+		if not FileAccess.file_exists(file): continue
+		for line in FileAccess.get_file_as_string(file).split("\n"):
+			if line.begins_with("BFME1_INSTALL="): candidates.append(line.trim_prefix("BFME1_INSTALL=").strip_edges())
+	if OS.get_name()=="macOS":
+		for prefix in ["BFME1CrossOverPrefix", "CrossOverPrefix"]:
+			candidates.append(OS.get_data_dir().path_join("BFMELauncher/Installation/"+prefix+"/drive_c/BFME/BFME1"))
+	for path in candidates:
+		if not path.is_empty() and DirAccess.dir_exists_absolute(path): return path
+	return ""
+
+
 func mount_retail(fs: RefCounted) -> Dictionary:
-	if OS.get_cmdline_user_args().has("--game=bfme1"):
-		var install := OS.get_environment("BFME1_INSTALL")
-		for arg in OS.get_cmdline_user_args():
-			if arg.begins_with("--bfme1-install="): install = arg.trim_prefix("--bfme1-install=")
-		if install.is_empty():
-			# community PR #36: downloaded-bfme1.cfg is the launcher's optional BFME1 download (launcher aio_install.gd BFME1_MARKER)
-			for file in ["user://install-paths.cfg", "user://downloaded-installs.cfg", "user://downloaded-bfme1.cfg"]:
-				if not FileAccess.file_exists(file): continue
-				for line in FileAccess.get_file_as_string(file).split("\n"):
-					if line.begins_with("BFME1_INSTALL="):
-						install = line.trim_prefix("BFME1_INSTALL=").strip_edges()
-				if not install.is_empty(): break
-		return fs.mount_bfme1_path(install)
+	if selected_game()=="bfme1":
+		return fs.mount_bfme1_path(bfme1_install())
 	var setup: RefCounted = ClassDB.instantiate("InstallSetup")
 	var conf: Dictionary = setup.configured()
 	var args := OS.get_cmdline_user_args()
@@ -490,6 +505,22 @@ func _add_watermark() -> void:
 	logs.name = "OpenLogs"
 	logs.pressed.connect(func() -> void: open_log_folder())
 	_watermark.add_child(logs)
+	# Game selector, under the Logs link (menus only, like the rest of the corner)
+	var mods := LinkButton.new()
+	mods.text = "Games"
+	mods.tooltip_text = "Switch between BFME1 and RotWK"
+	mods.underline = LinkButton.UNDERLINE_MODE_ON_HOVER
+	mods.add_theme_font_size_override("font_size", 13)
+	mods.add_theme_color_override("font_color", Color(1, 1, 1, 0.75))
+	mods.add_theme_color_override("font_hover_color", Color(1, 1, 1, 1))
+	mods.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	mods.grow_horizontal = Control.GROW_DIRECTION_BEGIN
+	mods.offset_right = -8
+	mods.offset_top = 40
+	mods.focus_mode = Control.FOCUS_NONE
+	mods.name = "OpenMods"
+	mods.pressed.connect(open_mod_manager)
+	_watermark.add_child(mods)
 	# lane ONEZIP-1: the update check's state (a game started directly), under the Logs link
 	_update_note = Label.new()
 	# a dark plate behind it: the line is longer than the version text and lies over the menu's art
@@ -517,3 +548,12 @@ func _add_watermark() -> void:
 	_watermark.add_child(_update_note)
 	_watermark.name = "ReleaseWatermark"
 	add_child(_watermark)
+
+
+## Game selector (the fork keeps its restart helper in scripts/mod_manager.gd).
+func open_mod_manager() -> void:
+	if get_tree().root.has_node("ModManagerLayer"):
+		return
+	var manager: CanvasLayer = preload("res://scripts/mod_manager.gd").new()
+	manager.name = "ModManagerLayer"
+	get_tree().root.add_child(manager)

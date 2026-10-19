@@ -7,6 +7,7 @@
 
 #include "Common/LooseFileScan.h"
 #include "Common/RetailArchivePolicy.h"
+#include "GameClient/MapCache.h"
 
 #include <godot_cpp/classes/ref_counted.hpp>
 #include <godot_cpp/classes/ref.hpp>
@@ -22,6 +23,7 @@
 
 class Win32BIGFileSystem;
 class ArchiveFileSystem;
+class GameTextTable;
 
 namespace godot
 {
@@ -51,6 +53,11 @@ public:
 	// normal RotWK mount. The returned source never becomes a GameWorld source.
 	Ref<RetailFileSystem> create_bfme2_shell();
 
+ String content_signature() const;
+ Dictionary inspect_library_map(const String &path, bool preview = false);
+ Dictionary install_library_map(const String &path, const String &root = "user://installed-maps");
+ Array installed_maps(const String &root = "user://installed-maps");
+ void append_installed_maps(std::vector<MapCacheEntry> &maps);
 	bool is_mounted() const { return m_mounted; }
 	bool is_shell_source() const { return m_shellSource; }
 	String install_root() const;
@@ -87,6 +94,9 @@ private:
 	bool m_bfme1 = false;
 	std::string m_bfme1Root;
 	String m_lastError;
+ Array m_installedMaps;
+ bool m_installedLoaded = false;
+ std::unique_ptr<GameTextTable> m_libraryText;
 	std::vector<LooseFileFinding> m_loose;
 	std::vector<MountedArchive> m_mountedArchives;
 };

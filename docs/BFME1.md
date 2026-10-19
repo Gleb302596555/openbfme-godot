@@ -26,6 +26,9 @@ package, from BFME Arena / bfmeladder.com, a third party: OpenBFME does not host
 it); it goes into `<folder>/BFME1` and is found from then on
 (docs/AIO.md, "BFME1 (optional)").
 
+The complete startup regression is `godot/tests/bfme1_startup_test.gd` (run with
+`BFME1_INSTALL` set and `-- --game=bfme1`).
+
 BFME1 has separate `bfme1-Options.ini` and `bfme1-Skirmish.ini` settings.
 `--game=bfme1` and `--bfme1-install=...` are normal player options, so profiles persist between launches.
 Automation flags such as `--auto` still use an isolated temporary profile file.
@@ -153,3 +156,48 @@ BFME1_INSTALL="/path/to/BFME1" godot --headless --path godot -- --game=bfme1 --a
 ```
 
 `godot/tests/bfme1_quit_test.gd` checks the camp-floor material and all six pause-menu buttons with real movie clicks, including confirmations.
+
+BFME1 `BloodthirstyUpdate` also accepts and stores `NumToSacrifice` and
+`InitiateVoice2`. These legacy fields are refused in RotWK data. Their runtime
+semantics remain unported and are reported by S-5017; the BFME1 donor constructor
+initializes the sacrifice count to 1.
+
+Standalone texture loads, including map weather particles, use the same
+game-specific resolver as model materials. BFME1 names such as `exraindrop.tga`
+resolve to `art/textures/exraindrop.dds`.
+`godot/tests/bfme1_weather_test.gd` checks the resolved path and starts matches
+on Ered Lithui and Nimrodel.
+
+The main menu Games link selects BFME1 or RotWK, remembers the selection, and
+lets the player choose the BFME1 installation folder. Restart applies the selection
+and preserves player arguments. BFME1 texture decoding recognizes DDS, TGA, PNG
+and JPEG signatures even when the installed texture has a misleading extension.
+
+Fork BFME1 improvements ported onto upstream (2026-10-18):
+
+- Texture signatures and RLE button art, normalized patch-model skin weights,
+  rigid influences, health-bar defaults and faction multi-selection portraits.
+  Mesh compatibility stays limited to BFME1 and reports S-020.
+- BFME1 audio RANDOM uses its donor bit layout and is translated into the shared
+  engine's SEQUENTIAL representation; RotWK keeps its own names and flags.
+- BFME1 uses ScoreScreen.apt and its providers after a match, without the RotWK
+  timeline graph. Team ordering is inferred because ScoreScreenData has no alliances.
+- The separate BFME1 library supports inspection, 3D preview, import and persistent
+  installed maps. Imported maps enter both the lobby and game-preparation catalogs.
+  BFME1 map readers retain their own chunk versions. Missing map-authored script
+  libraries and unavailable placements in converted community maps are reported;
+  present-but-invalid data and all RotWK dependencies still fail.
+
+Checks include `game_switcher_test.gd`, `game_switcher_mount_test.gd`,
+`bfme1_map_library_test.gd`, and `bfme1_actions_test.gd`. The latter exercises
+construction, recruitment, combat and outpost capture for faction indexes
+3 (Rohan), 4 (Gondor), 5 (Isengard), and 6 (Mordor).
+
+Browser setup preserves numeric faction choices, including Random, clears the
+native map search before choosing a map, and assigns start positions after slot
+state changes. Metadata scans use templates isolated from preview worlds and
+apply overrides to existing objects as well as new definitions. Generated metadata
+uses cache version 6. Map installation identities hash the selected map and all
+copied companions, so companion-only updates install a new payload. Regressions:
+`bfme1_browser_test.gd`, `bfme1_map_scan_test.gd`, and
+`bfme1_map_library_test.gd`.

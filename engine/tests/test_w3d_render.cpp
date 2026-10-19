@@ -1,3 +1,4 @@
+#include "Common/BfmeGame.h"
 // OpenBFME unit tests: mesh render data (passes, surfaces, skin weights), HLOD prototypes through the asset manager, texture
 // path resolution and the housecolor.ini table, all on synthetic W3D files. GPL-3.0.
 // Expected values are written down from the W3D format, the ZH / BFME2 source rules cited in the headers, or worked out by
@@ -683,4 +684,38 @@ TEST_CASE("housecolor.ini: blocks map a base texture to its house colour texture
 	CHECK_FALSE(t.Parse("HouseColor\n BaseTexture = A.tga\n HouseTexture = B.tga\n", &error)); // not closed
 	CHECK(error.find("not closed") != std::string::npos);
 	CHECK_FALSE(t.Parse("Colour\nEnd\n", &error));
+}
+
+TEST_CASE("render data: skin weights not summing to 100 are scaled, a second bone without its streams is dropped, rigid meshes ignore influences")
+{
+	struct Restore { bool previous = bfme1Mounted(); ~Restore() { setBfme1Mounted(previous); } } restore;
+	setBfme1Mounted(true);
+	std::string error;
+	MeshRenderData r;
+	SynthMesh s;
+	s.Attributes = W3D_MESH_FLAG_GEOMETRY_TYPE_SKIN;
+	s.Vertices = { { 0, 0, 0 }, { 1, 0, 0 }, { 0, 1, 0 } };
+	s.Triangles = { 0, 1, 2 };
+	s.Influences = { W3dVertInfStruct{ 1, 0, 90, 0 }, W3dVertInfStruct{ 1, 0, 100, 0 }, W3dVertInfStruct{ 1, 0, 100, 0 } };
+	REQUIRE_MESSAGE(buildFrom(s, r, error), error);
+	CHECK(r.UnnormalizedWeightVertices == 1);
+	CHECK(r.Weight0[0] == 1.0f);
+
+	s.Influences = { W3dVertInfStruct{ 1, 2, 50, 50 }, W3dVertInfStruct{ 1, 0, 100, 0 }, W3dVertInfStruct{ 1, 0, 100, 0 } };
+	REQUIRE_MESSAGE(buildFrom(s, r, error), error);
+	CHECK(r.SingleBoneVertices == 1);
+	CHECK_FALSE(r.DualBone);
+	CHECK(r.Weight0[0] == 1.0f);
+	CHECK(r.Weight1[0] == 0.0f);
+
+	SynthMesh rigid = quad();
+	rigid.Influences = { W3dVertInfStruct{ 1, 0, 100, 0 }, W3dVertInfStruct{ 1, 0, 100, 0 }, W3dVertInfStruct{ 1, 0, 100, 0 }, W3dVertInfStruct{ 1, 0, 100, 0 } };
+	MeshRenderData rr;
+	REQUIRE_MESSAGE(buildFrom(rigid, rr, error), error);
+	CHECK(rr.IgnoredInfluences == 4);
+	CHECK_FALSE(rr.Skin);
+	rigid.Vertices2 = rigid.Vertices;
+	rigid.Normals2 = { { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 }, { 0, 0, 1 } };
+	CHECK_FALSE(buildFrom(rigid, r, error));
+	CHECK(error.find("not a skin") != std::string::npos);
 }

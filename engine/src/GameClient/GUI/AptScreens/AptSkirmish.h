@@ -50,6 +50,12 @@ class AptMessageBox;
 class AptSkirmish : public AptScreen
 {
 public:
+ void setMapSearch(const std::u16string &query);
+ const std::u16string &mapSearch() const { return m_mapSearch; }
+ void refreshMapCatalog() { populateMapList(); }
+ bool setLobbyStartPosition(int slot, int position);
+ bool setBrowserRule(int id, int value) { return m_setup && m_setup->setRule(id, value); }
+ bool setBrowserLegendary(int factor) { return m_setup && m_setup->setLegendaryHeroes(factor); }
 	AptSkirmish(WindowManager &windows, Shell &shell, ShellEnvironment &environment);
 	~AptSkirmish() override;
 
@@ -211,6 +217,7 @@ protected:
 	void pruneDeadGadgets();
 
 private:
+ std::u16string m_mapSearch;
 	enum class Leaf
 	{
 		Player,
