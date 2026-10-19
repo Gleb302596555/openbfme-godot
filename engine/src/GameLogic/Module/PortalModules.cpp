@@ -7,6 +7,8 @@
 
 #include "GameLogic/Module/PortalModules.h"
 
+#include "Common/Xfer.h"
+#include "GameLogic/SnapshotXfer.h"
 #include "Common/Player.h"
 #include "Common/StateHash.h"
 #include "Common/Thing/ModuleFactory.h"
@@ -288,8 +290,6 @@ bool DynamicPortalBehaviour::createWaypoints()
 			const std::int64_t frames = SimMath::ftol2(SimMath::pc24MulW((double)LOGICFRAMES_PER_SECOND, (double)m_data->m_activationDelaySeconds)); // RW 0x8640D6
 			activation = (unsigned)frames + obj->logic().getFrame();
 		}
-		const ObjectFilter *filter = m_data->m_objectFilter.get();
-		GameLogic *logic = &obj->logic();
 		for (size_t i = 0; i < list.size(); ++i)
 		{
 			PathfindWaypoint w;
@@ -302,11 +302,7 @@ bool DynamicPortalBehaviour::createWaypoints()
 				w.activationFrame = activation;
 			}
 			// the name "#dynamicportal_wp" (RW 0xC590DC) is not kept; + 0xB8 = 1, + 0xBC = the data's filter: RW 0x7640C1(filter, unit, 0) in Waypoint::isValidUnitType
-			w.filter = [logic, filter](const PathfindObject &o) {
-				static const ObjectFilter kDefault; // RW 0x76406F, the data constructor's filter
-				const ObjectPathfindAdapter *a = dynamic_cast<const ObjectPathfindAdapter *>(&o);
-				return a && ObjectFilterMatch::allows(*logic, filter ? *filter : kDefault, a->object(), nullptr);
-			};
+			w.filter = waypointFilter();
 			m_waypoints[i] = pf->createWaypoint(w);
 		}
 		m_created = true; // RW 0x864224
@@ -462,6 +458,29 @@ bool DynamicPortalBehaviour::isEndPortalAboveWall(Coord3D *pos) const
 	}
 	const Pathfinder *pf = pathfinderOf(*obj);
 	return pf && pf->isPointOnWall(b[(size_t)index], false); // RW 0x6EA857(pos, 0)
+}
+
+std::function<bool(const PathfindObject &)> DynamicPortalBehaviour::waypointFilter() const
+{
+	const ObjectFilter *filter = m_data->m_objectFilter.get();
+	GameLogic *logic = &getObject()->logic();
+	return [logic, filter](const PathfindObject &o) {
+		static const ObjectFilter kDefault; // RW 0x76406F, the data constructor's filter
+		const ObjectPathfindAdapter *a = dynamic_cast<const ObjectPathfindAdapter *>(&o);
+		return a && ObjectFilterMatch::allows(*logic, filter ? *filter : kDefault, a->object(), nullptr);
+	};
+}
+
+void DynamicPortalBehaviour::xfer(Xfer &x)
+{
+	SnapshotXfer::version(x, 1, 1);
+	UpgradeModule::xfer(x);
+	for (int &id : m_waypoints)
+	{
+		x.xferInt(&id);
+	}
+	x.xferBool(&m_created);
+	x.xferBool(&m_disabled);
 }
 
 void DynamicPortalBehaviour::crc(StateHasher &hasher) const
@@ -655,6 +674,20 @@ UpdateSleepTime FakePathfindPortalBehaviour::update()
 		doRegister();
 	}
 	return UPDATE_SLEEP(1);
+}
+
+void FakePathfindPortalBehaviour::xfer(Xfer &x)
+{
+	SnapshotXfer::version(x, 1, 1);
+	xferUpdateModule(x);
+	for (int &id : m_waypoints)
+	{
+		x.xferInt(&id);
+	}
+	x.xferBool(&m_created);
+	x.xferBool(&m_dead);
+	x.xferBool(&m_registered);
+	x.xferBool(&m_gateFound);
 }
 
 void FakePathfindPortalBehaviour::crc(StateHasher &hasher) const

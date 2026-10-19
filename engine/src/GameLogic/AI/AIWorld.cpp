@@ -3,6 +3,7 @@
 
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Object/ObjectGeometry.h"
+#include "GameLogic/Module/PortalModules.h"
 #include "GameLogic/Module/CollideModule.h"
 
 #include "Common/ArchiveFileSystem.h"
@@ -1033,6 +1034,13 @@ static void notifyPathHasInvalidPortals(AIWorld &world, AIUpdateInterface &ai)
 		}
 	}
 	ai.mover().destroyPath();
+}
+
+std::function<bool(const PathfindObject &)> AIWorld::portalFilterOf(PathfindObjectID owner) const
+{
+	Object *o = m_logic.findObjectByID((ObjectID)owner);
+	const DynamicPortalBehaviour *p = o ? DynamicPortalBehaviour::of(*o) : nullptr;
+	return p ? p->waypointFilter() : std::function<bool(const PathfindObject &)>();
 }
 
 void AIWorld::onPathsLostPortals() const

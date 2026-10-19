@@ -21,6 +21,7 @@
 
 #include <cstddef> // size_t (GLIBC-1: GCC 11 does not reach it through <vector>)
 #include <cstdint>
+#include <functional>
 #include <vector>
 
 typedef std::uint32_t PathfindObjectID;
@@ -280,6 +281,8 @@ public:
 	// lane WALL-2: RW 0x6E8454, after portals were removed: every object (the logic's list order) whose AI has a path that names a waypoint no longer there
 	// (RW 0x76573F) is told so (RW 0x668AF8 notifyPathHasInvalidPortals). No AI world: nothing
 	virtual void onPathsLostPortals() const {}
+	// lane WALL-2 (the snapshot load): the unit filter of the portal waypoints `owner` makes (its DynamicPortalBehaviour's ObjectFilter); none: no filter
+	virtual std::function<bool(const PathfindObject &)> portalFilterOf(PathfindObjectID owner) const { (void)owner; return {}; }
 };
 
 // The cell-sampling view of TheTerrainLogic. Coordinates are world units (the pathfinder passes cell corners).

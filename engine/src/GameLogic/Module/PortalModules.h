@@ -66,11 +66,13 @@
 #include "GameLogic/Module/UpgradeModule.h"
 
 #include <array>
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
 class ModuleFactory;
+class PathfindObject;
 class Object;
 struct ObjectFilter;
 
@@ -100,6 +102,7 @@ public:
 class DynamicPortalBehaviour : public UpgradeModule, public CreateModuleInterface, public DieModuleInterface
 {
 public:
+	OBFME_MODULE_XFER(DynamicPortalBehaviour) // the save (SAVE-4b): UpgradeModule's, the portal waypoints' ids and the made / disabled flags (the waypoints are the pathfinder's, obfme:AIWorld)
 	enum { MAX_WAYPOINTS = 6 };
 	DynamicPortalBehaviour(Thing *thing, const DynamicPortalBehaviourModuleData *data);
 	~DynamicPortalBehaviour() override;
@@ -128,6 +131,8 @@ public:
 	const std::array<int, MAX_WAYPOINTS> &waypointIds() const { return m_waypoints; }
 	// RW 0x863983
 	static DynamicPortalBehaviour *of(const Object &obj);
+	// the unit filter of this module's waypoints (+ 0xB8 / + 0xBC: RW 0x7640C1(the data's filter, unit, 0) in Waypoint::isValidUnitType)
+	std::function<bool(const PathfindObject &)> waypointFilter() const;
 
 	static void registerClass(ModuleFactory &modules);
 
@@ -158,6 +163,7 @@ public:
 class FakePathfindPortalBehaviour : public UpdateModule, public CreateModuleInterface, public DieModuleInterface
 {
 public:
+	OBFME_MODULE_XFER(FakePathfindPortalBehaviour) // the save (SAVE-4b): UpdateModule's, the two waypoint ids and the flags
 	FakePathfindPortalBehaviour(Thing *thing, const FakePathfindPortalBehaviourModuleData *data);
 	~FakePathfindPortalBehaviour() override;
 	CreateModuleInterface *getCreate() override { return this; }

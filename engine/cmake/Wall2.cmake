@@ -5,6 +5,7 @@
 list(APPEND OPENBFME_SIM_SOURCES
     src/GameLogic/AI/AIPathfindPortals.cpp
     src/GameLogic/AI/AIPathfindRaised.cpp
+    src/GameLogic/AI/AIPathfindSnapshotWalls.cpp
     src/GameLogic/Module/PortalModules.cpp
 )
 set(OPENBFME_WALL2_TESTS
@@ -12,4 +13,5 @@ set(OPENBFME_WALL2_TESTS
     tests/test_wall2_modules.cpp
     tests/test_wall2_raised.cpp
     tests/test_wall2_fortress.cpp
+    tests/test_walls_snapshot.cpp
 )

@@ -240,6 +240,7 @@ public:
 	unsigned getFrame() const override;
 	// lane WALL-2: RW 0x6E8454 (see PathfindWorld): the logic's objects in list order, each AI whose path names a waypoint that is gone is told
 	void onPathsLostPortals() const override; // const: the pathfinder holds its world const
+	std::function<bool(const PathfindObject &)> portalFilterOf(PathfindObjectID owner) const override; // lane WALL-2: the owner's DynamicPortalBehaviour's
 
 	// ---- state hash (MOVE-1: logic state that lives outside the objects) ----
 	// the pathfinder's queues and pools: a summary, O(1) (the grid itself follows from the units' hashed state)

@@ -564,6 +564,28 @@ private:
 		std::vector<std::uint16_t> portals; // lane WALL-2: RW block + 0 (count) / + 4 (12 waypoint pointers)
 	};
 	bool m_anyPortal = false; // lane WALL-2: a block ever listed a portal (the state hash folds the lists only then: maps without portals hash as before)
+public:
+	// lane WALL-2 (the snapshot, AIPathfindSnapshotWalls.cpp): every block's portal list in block order, as a block holds it
+	std::vector<std::vector<std::uint16_t>> blockPortals() const
+	{
+		std::vector<std::vector<std::uint16_t>> out;
+		for (const Block &b : m_blocks)
+		{
+			out.push_back(b.portals);
+		}
+		return out;
+	}
+	bool anyPortal() const { return m_anyPortal; }
+	void setBlockPortals(std::vector<std::vector<std::uint16_t>> lists, bool any)
+	{
+		for (size_t i = 0; i < m_blocks.size(); ++i)
+		{
+			m_blocks[i].portals = i < lists.size() ? std::move(lists[i]) : std::vector<std::uint16_t>();
+		}
+		m_anyPortal = any;
+	}
+
+private:
 	Block &blockAt(int bx, int by) { return m_blocks[(size_t)bx * (size_t)m_zoneBlockExtent.y + (size_t)by]; }
 	const std::vector<zoneStorageType> &table(int profile, int kind, bool terrainVariant) const;
 	bool joins(const ZoneInfo &a, const ZoneInfo &b, int profile, int kind, bool terrainVariant) const;
@@ -1297,4 +1319,50 @@ private:
 	bool hierarchicalPortals(PathfindCell *c, PathfindCell *goal, zoneStorageType cz, zoneStorageType goalZone, const PathfindMovement &mv, const PathfindObject *obj,
 		int &cellCount);
 	void crcPortals(StateHasher &h) const;
+
+public:
+	// lane WALL-1 / WALL-2: the snapshot's walls (version 2 of the pathfinder's xfer, AIPathfindSnapshotWalls.cpp): read whole and checked, then applied
+	struct WallState
+	{
+		struct Info
+		{
+			std::uint32_t index = 0;
+			PathfindObjectID obstacle = PATHFIND_INVALID_ID;
+			std::uint8_t flags = 0;
+			std::vector<std::uint32_t> owners[OCC_KIND_COUNT];
+		};
+		struct Raised
+		{
+			bool used = false;
+			std::vector<std::pair<PathfindObjectID, PathfindWallSurface>> areas;
+			int height = 0, width = 0, depth = 0;
+			ICoord2D origin{ 0, 0 };
+			std::vector<std::uint32_t> words;
+			std::vector<std::uint16_t> zones, portals;
+			std::vector<Info> infos;
+		};
+		struct Slot
+		{
+			bool used = false, filtered = false;
+			PathfindWaypoint w;
+		};
+		bool loaded = false;
+		std::vector<float> wallHeights;
+		std::vector<WallPiece> wallPieces;
+		bool anyRaised = false;
+		std::array<Raised, 16> raised;
+		std::vector<std::pair<std::uint32_t, std::uint16_t>> portalCells;
+		std::vector<Slot> slots;
+		int waypointCounter = 0;
+		std::vector<int> ids;
+		std::vector<PathfindPortalHop> hops;
+		std::vector<std::vector<std::uint16_t>> blockPortals;
+		bool anyPortal = false;
+	};
+
+private:
+	void xferWalls(Xfer &x, WallState &w);
+	void applyWalls(WallState &w, bool loaded);
+	static std::uint32_t classWord(const PathfindCell &c);
+	static void setClassWordWide(PathfindCell &c, std::uint32_t w);
 };
