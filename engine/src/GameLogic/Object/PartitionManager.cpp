@@ -615,51 +615,42 @@ double PartitionManager::distance(DistanceCalculationType type, const Coord3D &c
 	}
 }
 
-// Not retail (performance): a bound in binary64 (SSE, deterministic) of the distance() value. The exact value carries at most a few 2^-24 relative roundings
-// (the PC24 differences, squares, sums, the float store of type 2, the PC24 root and radius subtraction), so a candidate whose bound exceeds radiusSqr by the
-// relative margin 1e-5 (and, for the bounding types, after an absolute margin of 1e-5 of the magnitudes involved) is rejected by the exact test as well. A
-// NaN compares false and goes to the exact test; so does every candidate near the boundary. lane UBER-2A: plain binary64 operators (the build has
-// -ffp-contract=off and SSE2) instead of the out-of-line SimMath::addD / subD / mulD calls, so the test inlines into the walks; the bound never decides
-// anything itself, it only skips an exact test that would reject (a conservative bound whatever its last bit)
+// Not retail (performance): a bound in binary64 (SSE, deterministic) of the distance() value of a bounding type. The exact value carries at most a few
+// 2^-24 relative roundings (the PC24 differences, squares, sums, the float store of type 2, the PC24 root and radius subtraction), so a candidate whose
+// bound exceeds radiusSqr by the relative margin 1e-5, after an absolute margin of 1e-5 of the magnitudes involved, is rejected by the exact test as
+// well. A NaN compares false and goes to the exact test; so does every candidate near the boundary. The bound never decides anything itself, it only
+// skips an exact test that would reject. Its arithmetic is SimMath's (one SSE2 rounding each, tools/sim/sim_audit.py); the centre types are not bounded:
+// their exact test (no square root) costs no more than the bound would.
 inline bool PartitionManager::surelyBeyond(DistanceCalculationType type, const Coord3D &c, const Entry &e, double radiusSqr) const
 {
-	const Coord3D *p = e.object->getPosition();
-	const double limit = radiusSqr * 1.00001;
-	const double dx = (double)p->x - (double)c.x;
-	const double dy = (double)p->y - (double)c.y;
-	const double s2 = dx * dx + dy * dy;
-	auto absD = [](double v) { return v < 0.0 ? 0.0 - v : v; };
-	switch (type)
+	if (type != FROM_BOUNDINGSPHERE_2D && type != FROM_BOUNDINGSPHERE_3D)
 	{
-		case FROM_CENTER_2D:
-			return s2 > limit;
-		case FROM_CENTER_3D:
-		{
-			const double dz = (double)p->z - (double)c.z;
-			return s2 + dz * dz > limit;
-		}
-		case FROM_BOUNDINGSPHERE_2D:
-		{
-			const double r = (double)entryGeometry(e).circle;
-			const double q = SimMath::sqrtd(s2);
-			const double err = (q + absD(r)) * 1.0e-5 + 1.0e-20;
-			const double lo = (q - r) - err;
-			return lo > 0.0 && lo * lo > limit;
-		}
-		case FROM_BOUNDINGSPHERE_3D:
-		{
-			const Geometry &g = entryGeometry(e);
-			const double dz0 = (double)p->z - (double)c.z;
-			const double dz = dz0 + (double)g.centerZ;
-			const double q = SimMath::sqrtd(s2 + dz * dz);
-			const double mag = (q + absD((double)g.sphere)) + (absD((double)g.centerZ) + absD(dz0));
-			const double err = mag * 1.0e-5 + 1.0e-20;
-			const double lo = (q - (double)g.sphere) - err;
-			return lo > 0.0 && lo * lo > limit;
-		}
-		default:
-			return false;
+		return false;
 	}
+	using SimMath::addD;
+	using SimMath::mulD;
+	using SimMath::subD;
+	const Coord3D *p = e.object->getPosition();
+	const double limit = mulD(radiusSqr, 1.00001);
+	const double dx = subD((double)p->x, (double)c.x);
+	const double dy = subD((double)p->y, (double)c.y);
+	const double s2 = addD(mulD(dx, dx), mulD(dy, dy));
+	if (type == FROM_BOUNDINGSPHERE_2D)
+	{
+		const double r = (double)entryGeometry(e).circle;
+		const double q = SimMath::sqrtd(s2);
+		const double err = addD(mulD(addD(q, SimMath::absD(r)), 1.0e-5), 1.0e-20);
+		const double lo = subD(subD(q, r), err);
+		return lo > 0.0 && mulD(lo, lo) > limit;
+	}
+	const Geometry &g = entryGeometry(e);
+	const double dz0 = subD((double)p->z, (double)c.z);
+	const double dz = addD(dz0, (double)g.centerZ);
+	const double q = SimMath::sqrtd(addD(s2, mulD(dz, dz)));
+	const double mag = addD(addD(q, SimMath::absD((double)g.sphere)), addD(SimMath::absD((double)g.centerZ), SimMath::absD(dz0)));
+	const double err = addD(mulD(mag, 1.0e-5), 1.0e-20);
+	const double lo = subD(subD(q, (double)g.sphere), err);
+	return lo > 0.0 && mulD(lo, lo) > limit;
 }
 
 // RW 0xA3A860 (the recursion kept as written: the node's list, then the children 0, 1 (y low), 2, 3 (y high) that overlap the cell rectangle)
