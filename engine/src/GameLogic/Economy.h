@@ -149,12 +149,21 @@ public:
 		int playerIndex = 0;
 		int amount = 0;
 		UnsignedInt frame = 0;
-		Coord3D textPos{}; ///< where the floating text appears: the object's position raised by `textHeight` (GameClient/FloatingText.h)
+		// the floating text's anchor (GameClient/FloatingText.h): the object's position, raised by 10 (AutoDepositUpdate) or by the geometry's top
+		// (TerrainResourceBehavior: the client works the height out from `templateName`, so a geometry row that does not parse is reported there)
+		enum TextAnchor : std::uint8_t
+		{
+			TEXT_RAISED_10 = 0,
+			TEXT_GEOMETRY_TOP = 1
+		};
+		Coord3D textPos{};
+		TextAnchor textAnchor = TEXT_RAISED_10;
+		std::string templateName;
 	};
 	typedef std::function<void(const IncomeEvent &)> IncomeListener;
 	void setIncomeListener(IncomeListener l) { m_incomeListener = std::move(l); }
-	// `textHeight`: how far above the object the floating text appears (AutoDepositUpdate 10, TerrainResourceBehavior the geometry's top)
-	void noteIncome(Object &obj, Player &owner, int amount, float textHeight = 10.0f);
+	// `anchor`: where the floating text appears (AutoDepositUpdate 10 above the object, TerrainResourceBehavior the geometry's top)
+	void noteIncome(Object &obj, Player &owner, int amount, IncomeEvent::TextAnchor anchor = IncomeEvent::TEXT_RAISED_10);
 	const std::deque<IncomeEvent> &incomeLog() const { return m_incomeLog; }
 	unsigned long long incomePayments() const { return m_incomePayments; }
 	void clearIncomeLog() { m_incomeLog.clear(); }

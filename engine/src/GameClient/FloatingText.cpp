@@ -48,6 +48,7 @@ void FloatingTextList::add(const std::string &text, const Coord3D &pos, std::uin
 	r.color = color;
 	r.pos = pos;
 	r.frameCount = 0;
+	r.addedFrame = frame;
 	r.frameTimeOut = m_settings.timeOutMs == 0 ? frame + (unsigned)(kClientFramesPerSecond / 3.0f)
 	                                           : frame + (unsigned)(0.03f * (float)m_settings.timeOutMs); // BfmeClientFramesPerMillisecond
 	m_records.push_front(std::move(r));
@@ -56,29 +57,45 @@ void FloatingTextList::add(const std::string &text, const Coord3D &pos, std::uin
 
 void FloatingTextList::update(unsigned frame)
 {
-	if (m_haveLastFrame && m_lastFrame == frame)
+	if (!m_haveLastFrame)
+	{
+		// InGameUI_updateFloatingText.cpp: the static last frame starts at the first call's frame, which steps nothing
+		m_haveLastFrame = true;
+		m_lastFrame = frame;
+		return;
+	}
+	if (frame <= m_lastFrame)
 	{
 		return;
 	}
-	m_haveLastFrame = true;
+	const unsigned first = frame - m_lastFrame > kMaxStepFrames ? frame - kMaxStepFrames + 1 : m_lastFrame + 1;
 	m_lastFrame = frame;
-	for (auto it = m_records.begin(); it != m_records.end();)
+	for (unsigned step = first; step <= frame; ++step)
 	{
-		Record &r = *it;
-		++r.frameCount;
-		if (frame > r.frameTimeOut)
+		// one retail update at client frame `step`
+		for (auto it = m_records.begin(); it != m_records.end();)
 		{
-			int a = (int)(r.color >> 24);
-			const int amount = (int)(m_settings.vanishRate / kClientFramesPerSecond * (float)(frame - r.frameTimeOut));
-			a = a - amount < 0 ? 0 : a - amount;
-			r.color = (r.color & 0xFFFFFFu) | ((std::uint32_t)a << 24);
-			if (a <= 0)
+			Record &r = *it;
+			if (step <= r.addedFrame)
 			{
-				it = m_records.erase(it);
+				++it;
 				continue;
 			}
+			++r.frameCount;
+			if (step > r.frameTimeOut)
+			{
+				int a = (int)(r.color >> 24);
+				const int amount = (int)(m_settings.vanishRate / kClientFramesPerSecond * (float)(step - r.frameTimeOut));
+				a = a - amount < 0 ? 0 : a - amount;
+				r.color = (r.color & 0xFFFFFFu) | ((std::uint32_t)a << 24);
+				if (a <= 0)
+				{
+					it = m_records.erase(it);
+					continue;
+				}
+			}
+			++it;
 		}
-		++it;
 	}
 }
 
@@ -102,4 +119,12 @@ void FloatingTextList::ops(const std::function<bool(const Coord3D &, float &, fl
 		op.stageTextSize = kStageTextSize;
 		out.push_back(std::move(op));
 	}
+}
+
+std::vector<std::string> FloatingTextList::acceptanceStops()
+{
+	return { "[S-283] floating text: ported GUI:AddCash from the income log (InGameUIFloatingText.cpp, InGameUI_updateFloatingText.cpp, "
+			 "InGameUI_drawFloatingText.cpp); INFERENCE: FloatingTextTimeOut is milliseconds and FloatingTextMoveUpSpeed / FloatingTextVanishRate are taken "
+			 "as the INI writes them (the parsers' conversions were not read), both divisions use 30 client frames a second (GameEngine + 0x38 not read), "
+			 "and the text is drawn in the HUD's caption font at 15 stage pixels scaled with the window (the display string's font was not read)" };
 }

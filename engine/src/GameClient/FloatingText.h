@@ -44,6 +44,8 @@ public:
 	// INFERENCE (S-283): the text's size in 800 x 600 stage pixels (retail's display string font was not read); the device scales it with the window as the
 	// HUD movies are, so it reads the same at 5K as at 800 x 600
 	static constexpr float kStageTextSize = 15.0f;
+	// a jump longer than this (a long stall) steps this many frames: every record has faded long before (the hold is 30, the fade under 100)
+	static constexpr unsigned kMaxStepFrames = 1800;
 
 	struct Record
 	{
@@ -52,17 +54,21 @@ public:
 		Coord3D pos{};
 		unsigned frameTimeOut = 0;
 		unsigned frameCount = 0;
+		unsigned addedFrame = 0; ///< the client frame of addFloatingText (the record steps on the frames after it)
 	};
 
 	void setSettings(const FloatingTextSettings &s) { m_settings = s; }
 	// addFloatingText at client frame `frame`
 	void add(const std::string &text, const Coord3D &pos, std::uint32_t color, unsigned frame);
-	// updateFloatingText: runs once per new client frame
+	// updateFloatingText for every client frame since the last call (several when a render frame took more than one client frame): each record
+	// steps once per client frame after the one it was added on, so its rise and fade follow the client clock, not the render rate
 	void update(unsigned frame);
 	// drawFloatingText: TEXT ops for the records that project (`project`: world -> window pixel) and pass `visible` (the cell CLEAR for the local player)
 	void ops(const std::function<bool(const Coord3D &, float &x, float &y)> &project, const std::function<bool(const Coord3D &)> &visible,
 		std::vector<IconUIOp> &out) const;
 	void clear() { m_records.clear(); }
+	// the runtime stop of the port's inferences (docs/STOPS.md S-283)
+	static std::vector<std::string> acceptanceStops();
 	const std::list<Record> &records() const { return m_records; }
 	unsigned long long added() const { return m_added; }
 

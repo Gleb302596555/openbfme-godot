@@ -16,7 +16,6 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/ObjectFilter.h"
 #include "GameLogic/ObjectFilterMatch.h"
-#include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/Object/Object.h"
 
 #include <cstddef>
@@ -156,17 +155,8 @@ UpdateSleepTime TerrainResourceBehavior::update()
 		}
 		owner->depositMoney((std::uint32_t)amount, true); // RW 0x8856B6: Money::deposit(amount, &owner + 0x3DC, 1)
 		// the floating text and the debug overlay (RW 0x8856BD .. 0x885737): above the geometry's top (BFME2 decomp TerrainResourceBehaviorUpdate.cpp:
-		// getMaxHeightAbovePosition); client data only, never hashed
-		float textHeight = 0.0f;
-		try
-		{
-			textHeight = ObjectGeometry::maxHeightAbovePosition(ObjectGeometry::shapesOf(*obj->getTemplate()));
-		}
-		catch (const std::exception &)
-		{
-			textHeight = 0.0f; // a geometry row that does not parse is the loader's error; the text then sits at the object's position
-		}
-		economy.noteIncome(*obj, *owner, amount, textHeight);
+		// getMaxHeightAbovePosition, worked out by the client)
+		economy.noteIncome(*obj, *owner, amount, Economy::IncomeEvent::TEXT_GEOMETRY_TOP);
 	}
 	// RW 0x88573C .. 0x885765: the building's experience tracker gets `amount` points whether or not anything was paid (amount <= 0 here is the unscaled one)
 	economy.grantBuildingExperience(*obj, NumericState::sseFromInt32(amount));

@@ -40,6 +40,7 @@
 #include "GameLogic/GameLogicDispatch.h"
 #include "Libraries/Source/Apt/AptLoad.h"
 
+#include <map>
 #include <functional>
 #include <memory>
 #include <set>
@@ -288,6 +289,8 @@ private:
 	FloatingTextList m_floatingText;
 	unsigned long long m_incomeSeen = 0;
 	const GameLogic *m_incomeLogic = nullptr;
+	std::map<std::string, float> m_floatingTextHeights; ///< a template's geometry top (TerrainResourceBehavior's text height), once per template
+	std::vector<std::string> m_floatingTextErrors;      ///< settings that did not load, geometry rows that do not parse: reported as [S-283]
 	unsigned m_spellToggleSeen = 0;           // lane INPUT-1: the SPELL_STORE metas done
 	unsigned m_diplomacySeen = 0;             // lane INPUT-1: the DIPLOMACY metas done
 	unsigned m_hotkeyVersion = ~0u;           // lane INPUT-1: the control bar version the hotkeys were registered for

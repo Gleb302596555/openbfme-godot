@@ -982,6 +982,10 @@ void HudDevice::drawIconOps(RID parent)
 	{
 		for (const IconUIOp &op : hud->iconOps())
 		{
+			if (op.stageTextSize > 0.0f)
+			{
+				continue; // a money text is anchored to its own building and grows through its size (below), not about a group's centre
+			}
 			const Rect2 r(op.x, op.y, op.w, op.h);
 			auto it = groups.find(op.object);
 			if (it == groups.end())
@@ -1005,7 +1009,7 @@ void HudDevice::drawIconOps(RID parent)
 	for (const IconUIOp &raw : hud->iconOps())
 	{
 		IconUIOp op = raw;
-		if (k != 1.0f)
+		if (k != 1.0f && raw.stageTextSize <= 0.0f)
 		{
 			const Vector2 c = groups[raw.object].get_center();
 			op.x = c.x + (raw.x - c.x) * k;

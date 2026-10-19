@@ -238,7 +238,7 @@ void InGameHud::bootHud6()
 		}
 		else
 		{
-			m_hud6Errors.push_back("floating text settings: " + error);
+			m_floatingTextErrors.push_back("settings: " + error);
 		}
 	}
 	if (!commandWindowTooltipDelay(m_config.fs, m_tooltipDelayMs, &error))
@@ -579,5 +579,13 @@ void InGameHud::hud6Stops(std::vector<std::string> &out) const
 	for (const std::string &e : m_hud6Errors)
 	{
 		out.push_back("[S-2703] " + e);
+	}
+	for (const std::string &l : FloatingTextList::acceptanceStops())
+	{
+		out.push_back(l);
+	}
+	for (const std::string &e : m_floatingTextErrors)
+	{
+		out.push_back("[S-283] floating text: " + e);
 	}
 }

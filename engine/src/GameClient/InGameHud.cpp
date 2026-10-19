@@ -11,6 +11,8 @@
 #include "GameLogic/Economy.h"
 #include "GameLogic/System/ShroudManager.h"
 #include "GameClient/UnitHelpSource.h"
+#include "Common/Thing/ThingTemplate.h"
+#include "GameLogic/Object/ObjectGeometry.h"
 
 #include "Common/Audio/AudioEntryPoints.h"
 
@@ -721,9 +723,38 @@ void InGameHud::updateFloatingText(const TacticalView &view, bool shroudDrawn)
 			{
 				continue;
 			}
+			Coord3D pos = e.textPos;
+			if (e.textAnchor == Economy::IncomeEvent::TEXT_GEOMETRY_TOP)
+			{
+				// TerrainResourceBehavior: the text sits on the geometry's top (getMaxHeightAbovePosition); a template whose geometry does not parse
+				// shows no text and is reported (no default height)
+				auto it = m_floatingTextHeights.find(e.templateName);
+				if (it == m_floatingTextHeights.end())
+				{
+					const ThingTemplate *tt = logic.things().findTemplate(e.templateName);
+					try
+					{
+						if (!tt)
+						{
+							throw std::logic_error("the template is not loaded");
+						}
+						it = m_floatingTextHeights.emplace(e.templateName, ObjectGeometry::maxHeightAbovePosition(ObjectGeometry::shapesOf(*tt))).first;
+					}
+					catch (const std::exception &ex)
+					{
+						const std::string error = e.templateName + " geometry: " + ex.what();
+						if (std::find(m_floatingTextErrors.begin(), m_floatingTextErrors.end(), error) == m_floatingTextErrors.end())
+						{
+							m_floatingTextErrors.push_back(error);
+						}
+						continue;
+					}
+				}
+				pos.z += it->second;
+			}
 			const std::string n = std::to_string(e.amount);
 			const std::string text = loadScreenU16ToUtf8(UnitHelpSource::format(format, { std::u16string(n.begin(), n.end()) }));
-			m_floatingText.add(text, e.textPos, (owner->getPlayerColor() & 0xFFFFFFu) | 0xE6000000u, m_clientFrames);
+			m_floatingText.add(text, pos, (owner->getPlayerColor() & 0xFFFFFFu) | 0xE6000000u, m_clientFrames);
 		}
 		m_incomeSeen = paid;
 	}
