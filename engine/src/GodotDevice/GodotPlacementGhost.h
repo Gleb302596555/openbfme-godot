@@ -80,6 +80,7 @@ private:
 		W3DInstancer *inst = nullptr;
 		std::map<std::string, int64_t> models;
 		std::vector<EntryView> entries;
+		std::map<std::string, std::vector<EntryView>> idleEntries; // reusable instances, bounded by peak simultaneous use of each model
 		MeshInstance3D *bib = nullptr;
 		uint64_t instId = 0, bibId = 0; ///< the nodes' ids (freed by id: GodotPlacementGhost.cpp freeNode)
 		std::string bibTexture;
@@ -96,6 +97,7 @@ private:
 	void error(const std::string &e);
 	W3DInstancer *newInstancer(const char *name);
 	void drawIcon(size_t i, PlacementIcons::Icon &icon, IconView &view);
+	void releaseEntry(IconView &view, EntryView &entry);
 	void applyTint(IconView &view, const Color &tint);
 	void updateBib(PlacementIcons::Icon &icon, IconView &view);
 	void updateShadowDecal(PlacementIcons::Icon &icon, IconView &view); // lane OWNERFIX-2

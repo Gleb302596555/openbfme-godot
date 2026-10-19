@@ -158,6 +158,19 @@ W3DInstancer *PlacementGhostRenderer::newInstancer(const char *name)
 	return inst;
 }
 
+void PlacementGhostRenderer::releaseEntry(IconView &view, EntryView &entry)
+{
+	if (view.inst && entry.instance >= 0)
+	{
+		// Preview-only pool: removing an instancer record leaves a tombstone that is
+		// still scanned each update. Retain the instance and its hidden-subobject state
+		// alongside the cached model instead, and refresh its pose/colour on reuse.
+		view.inst->set_instance_opacity(entry.instance, 0.0);
+		view.idleEntries[entry.modelName].push_back(std::move(entry));
+	}
+	entry = EntryView{};
+}
+
 void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, IconView &view)
 {
 	if (view.tt != icon.tt)
@@ -165,10 +178,7 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 		// The destination hub moves between slots as a wall span changes length.
 		// Keep each slot's loaded models instead of rebuilding GPU resources every
 		// time that slot alternates between a segment and the destination hub.
-		for (const EntryView &entry : view.entries)
-		{
-			if (view.inst && entry.instance >= 0) view.inst->remove_instance(entry.instance);
-		}
+		for (EntryView &entry : view.entries) releaseEntry(view, entry);
 		view.entries.clear();
 		if (view.bib) view.bib->hide();
 		if (auto *decal = Object::cast_to<Node3D>(ObjectDB::get_instance(view.shadowDecalId))) decal->hide();
@@ -185,6 +195,7 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 		view.instId = view.inst->get_instance_id();
 	}
 	std::vector<DrawEntry> &entries = d.entries();
+	for (size_t k = entries.size(); k < view.entries.size(); ++k) releaseEntry(view, view.entries[k]);
 	view.entries.resize(entries.size());
 	const Transform3D xf = toTransform(d.getBasis(), *d.getPosition(), d.getInstanceScale());
 	int instances = 0;
@@ -194,6 +205,7 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 		EntryView &ev = view.entries[k];
 		if (e.kind != W3D_DRAWKIND_MODEL || !e.draw)
 		{
+			releaseEntry(view, ev);
 			continue;
 		}
 		W3DDrawPoseView f;
@@ -205,14 +217,8 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 		const std::string model = (f.model && !e.moduleHidden) ? AsciiStringUtil::lowered(*f.modelName) : std::string();
 		if (model != ev.modelName)
 		{
-			if (ev.instance >= 0)
-			{
-				view.inst->remove_instance(ev.instance);
-				ev.instance = -1;
-			}
+			releaseEntry(view, ev);
 			ev.modelName = model;
-			ev.hiddenModel = nullptr;
-			ev.hidden.clear();
 			if (!model.empty())
 			{
 				auto it = view.models.find(model);
@@ -229,7 +235,13 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 				}
 				else
 				{
-					ev.instance = view.inst->add_instance(mid, xf, String(), 0.0, 1.0);
+					auto &idle = view.idleEntries[model];
+					if (!idle.empty())
+					{
+						ev = std::move(idle.back());
+						idle.pop_back();
+					}
+					else ev.instance = view.inst->add_instance(mid, xf, String(), 0.0, 1.0);
 					if (ev.instance >= 0 && d.getHouseColor() != 0)
 					{
 						view.inst->set_instance_house_color(ev.instance, houseColorOf(d.getHouseColor())); // RW 0x674504 (slot 0 only)
@@ -571,7 +583,7 @@ void PlacementGhostRenderer::sync(LiveGame &game, const InGameUI &ui, double del
 		error(e);
 	}
 	// Keep each slot's model/material caches across template changes, cancellation,
-	// and shorter wall spans. drawIcon replaces instances when the slot changes template.
+	// and shorter wall spans. drawIcon pools instances when the slot changes template.
 	if (m_icons->icons().size() > m_views.size()) m_views.resize(m_icons->icons().size());
 	if (ui.isPlacing() && ui.placeHasGhost())
 	{
@@ -601,6 +613,12 @@ Dictionary PlacementGhostRenderer::state() const
 	Dictionary s;
 	s["model_builds"] = (int64_t)m_modelBuilds;
 	s["cached_slots"] = (int64_t)m_views.size();
+	int64_t instanceRecords = 0;
+	for (const IconView &view : m_views)
+	{
+		if (view.inst) instanceRecords += view.inst->get_instance_count();
+	}
+	s["instance_records"] = instanceRecords;
 	s["preloaded_templates"] = (int64_t)m_preloadedTemplates;
 	s["template"] = m_icons ? toGodotString(m_icons->templateName()) : String();
 	s["resource_radius"] = m_icons ? m_icons->resourceRadius() : 0;

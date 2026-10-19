@@ -54,13 +54,16 @@ func _run() -> void:
 	hud.select_object(builder)
 	await _frames()
 	var builds: int = initial.model_builds
-	for name in ["GondorBarracks", "GondorFarm", "GondorBarracks", "GondorFarm"]:
+	var instance_records: int = initial.instance_records
+	for iteration in 24:
+		var name: String = ["GondorBarracks", "GondorFarm"][iteration % 2]
 		var start := Time.get_ticks_usec()
 		_check(hud.press_command_button(name), "%s placement starts" % name)
 		hud.inject_mouse_move(Vector2(640, 260))
 		await _frames()
 		var ghost: Dictionary = hud.get_placement_ghost_state()
 		_check(ghost.template == name and not ghost.icons.is_empty(), "%s preview is active" % name)
+		_check(ghost.instance_records == instance_records, "%s reuses preloaded instance records" % name)
 		_check(ghost.model_builds == builds, "%s selects without building new GPU models" % name)
 		print("PLACEMENT selection ", name, " elapsed_ms=", (Time.get_ticks_usec() - start) / 1000.0)
 		hud.inject_key(1, true) # DIK_ESCAPE: cancel via the real input path
