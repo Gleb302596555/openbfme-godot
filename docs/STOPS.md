@@ -794,7 +794,8 @@ what depends on it.
 
 Capture-flag presentation update (S-090): `LiveScripting` delivers authored
 condition-state enter/leave LuaEvents for CAPTUREFLAG objects on the logic
-owner when the selected condition state changes. This runs the mounted generic
+owner immediately before each client model-condition flush when the selected
+condition state changes, independently of the AI update schedule. This runs the mounted generic
 handler, including its faction-subobject selection, without render-driven
 simulation callbacks. It is an inferred timing bridge: animation-frame and
 script-selected transition events remain unported. The runtime reports the
