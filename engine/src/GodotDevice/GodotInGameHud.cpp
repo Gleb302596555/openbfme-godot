@@ -2048,6 +2048,7 @@ Dictionary InGameHudNode::attach(const Ref<RetailFileSystem> &fs, GameWorld *wor
 	d->hud->input().setPlacementDeferred(true);
 	d->ghost = std::make_unique<PlacementGhostRenderer>(world, fs);
 	d->ghost->setFeedbackSources(&d->images, gameText); // community PR #37: the farm placement decal and label
+	d->ghost->preload(game, world->hud_world()->commands(), *local);
 	{
 		// lane INPUT-1 r2: RotWK's keyboard setup (RW 0x63F024) sets OurLanguage 2 for a German keyboard layout (de-DE / CH / AT / LU / LI): the CommandMap's
 		// Y and Z follow the keys' labels. options.german_keyboard (true / false) overrides the layout the display server reports
