@@ -20,15 +20,11 @@ class WorldSkirmishSetupSource : public SkirmishSetupSource
 {
 public:
 	// `world` must be loaded; `settings` is GameLogicSettingsLoader::load's result. False + *error when the map cache cannot be read.
-	bool load(RetailObjectWorld &world, const GameLogicSettings &settings, ArchiveFileSystem &fs, std::string *error, bool bfme1 = false);
+	bool load(RetailObjectWorld &world, const GameLogicSettings &settings, ArchiveFileSystem &fs, std::string *error);
 
 	const std::vector<SkirmishFaction> &factions() const override { return m_factions; }
 	const std::vector<SkirmishColor> &colors() const override { return m_colors; }
 	const std::vector<MapCacheEntry> &maps() const override { return m_maps; }
- void addInstalledMap(const MapCacheEntry &entry) {
-  for (auto &map : m_maps) if (map.name == entry.name) { map = entry; return; }
-  m_maps.push_back(entry);
- }
 	int defaultStartingCash() const override { return m_defaultStartingCash; }
 	const std::vector<int> &startingCashChoices() const override { return m_cashChoices; }
 	int mapContentsMask(const MapCacheEntry &map) const override;

@@ -70,14 +70,6 @@ func _run() -> void:
 	hud.inject_mouse_button(1,false,Vector2(click.x,click.y),false)
 	for i in 10: await process_frame
 	assert(str(hud.get_state().palantir.last_commands).contains("OnBttnCommand(Command1)"))
-	var at: Dictionary = world.get_object(keep)
-	var soldier: int = world.create_object("GondorFighter", 3, at.x, at.y, 0)
-	# tolerance: the recruited object has a dynamically allocated positive ID.
-	assert(soldier > 0)
-	hud.select_object_with_message(soldier)
-	for i in 120: await process_frame
-	assert(not hud.get_command_buttons().is_empty())
-	assert(hud.find_button_window("CommandButtons.Command1").found)
 	print("BFME1 HUD BUTTONS PASS: building slots, real click, plot tooltip text")
 	quit()
 

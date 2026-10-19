@@ -923,7 +923,6 @@ Dictionary GameWorld::prepare_new_game(const Dictionary &message)
 		return result;
 	}
 	auto start = std::make_unique<NewGameStart>(RandomAlgorithm::ZH_CarryChain);
-	m_fs->append_installed_maps(m_mapCache);
 	if (!NewGame::prepareNewGame(in, m_world->setupPlayerTemplates(), *m_settings, m_mapCache, RandomAlgorithm::ZH_CarryChain, *start, &error))
 	{
 		errors.push_back(toGodot(error));

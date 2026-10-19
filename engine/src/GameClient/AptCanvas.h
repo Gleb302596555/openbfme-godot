@@ -95,10 +95,8 @@ public:
 	std::size_t loadedCount() const { return m_entries.size(); }
 
 private:
-	void decodeEntry(const std::string &path, const std::vector<std::uint8_t> &bytes, Entry &entry);
-	bool isBfme1();
+	static void decodeEntry(const std::string &path, const std::vector<std::uint8_t> &bytes, Entry &entry);
 	AptFileSource &m_source;
-	int m_bfme1 = -1; // -1: not asked yet
 	std::map<std::string, Entry> m_entries; // key: lower-cased name
 };
 

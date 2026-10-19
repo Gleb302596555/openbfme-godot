@@ -80,7 +80,6 @@ public:
 	// age (client frames, <= 40), position (Godot axes), x, y, z (SAGE) }] }
 	Dictionary get_move_hints() const;
 	// presses the command bar button that builds / constructs `template_name` (opening the pages of the set when it is on a later one): what a click on the Palantir does
-	bool activate_command(int slot, bool in_palantir, bool cancel);
 	bool press_command_button(const String &template_name);
 	// lane QA-1: the command bar of the current selection, one entry per shown button: { slot, in_palantir, position (the Palantir position that shows it), name,
 	// command (the retail Command name), template, upgrade, power, state (ButtonState: 0 hidden, 1 enabled, 2 restricted, 3 can't afford, 4 not ready, 5 active),

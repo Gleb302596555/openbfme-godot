@@ -1429,14 +1429,6 @@ void AptSkirmish::setMapSort(int mode)
 	populateMapList();
 }
 
-void AptSkirmish::setMapSearch(const std::u16string &query)
-{
-	const std::u16string trimmed = trimU16(query);
-	if (trimmed == m_mapSearch) return;
-	m_mapSearch = trimmed;
-	populateMapList();
-}
-
 void AptSkirmish::populateMapList()
 {
 	// MpGameSetup's map list fill (RW 0x8460B5; the column widths {8, 2, 70, 10, 10} come from MpGameSetup::InitGadgets RW 0x840906):
@@ -1488,14 +1480,6 @@ void AptSkirmish::populateMapList()
 	for (int index : m_setup->listedMaps())
 	{
 		const MapCacheEntry &m = maps[(std::size_t)index];
-		if (!m_mapSearch.empty()) {
-			const auto name = m_setup->mapDisplayName(m, false);
-			bool matches = false;
-			for (size_t start = 0; start + m_mapSearch.size() <= name.size(); ++start)
-				if (compareNoCase(name.substr(start, m_mapSearch.size()), m_mapSearch) == 0) { matches = true; break; }
-			if (!matches) continue;
-		}
-
 		const int state = RealTimeStatsPreferences::conquestState(stats, m);
 		rows.push_back(Row{ index, state, m_setup->mapDisplayName(m, true) });
 	}
@@ -2549,10 +2533,4 @@ void AptSkirmish::refreshProfileList()
 	{
 		GadgetListBoxSetSelected(m_profileList, selection);
 	}
-}
-
-bool AptSkirmish::setLobbyStartPosition(int slot,int position)
-{
- if(!m_setup || position < -1 || (position>=0 && (!m_setup->findMap(m_setup->info().mapName) || position>=m_setup->findMap(m_setup->info().mapName)->numPlayers)) || !m_setup->setSlotStartPos(slot,position))return false;
- updateMapStartSpots();return true;
 }

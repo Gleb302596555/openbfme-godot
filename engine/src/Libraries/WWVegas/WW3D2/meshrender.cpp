@@ -1,4 +1,3 @@
-#include "Common/BfmeGame.h"
 // OpenBFME: faithful rebuild of The Battle for Middle-earth II: Rise of the Witch-king 2.01.
 // Derived from Command & Conquer Generals Zero Hour, (c) 2001-2003 Electronic Arts Inc., GPL-3.0.
 //
@@ -149,15 +148,13 @@ bool Build_Mesh_Render_Data(const MeshModelClass &mesh, MeshRenderData &out, std
 				out.ZeroWeightVertices++;
 				w0 = 100; // OpenSAGE's reading of 0/0, not a retail fact (header)
 			}
-			const float total = (w0 + w1 == 100) ? 100.0f : (float)(w0 + w1);
-			if (w0 + w1 != 100)
+			else if (w0 + w1 != 100)
 			{
-				// the RotWK corpus always sums to 100; BFME1 patch models carry 99 / 101 (rounding): scaled to sum to 1 (header)
-				if (!bfme1Mounted()) return fail(error, mesh, "influence of vertex " + std::to_string(v) + " has weights " + std::to_string(w0) + " + " + std::to_string(w1) + " (the retail corpus always sums to 100)");
-				out.UnnormalizedWeightVertices++;
+				return fail(error, mesh, "influence of vertex " + std::to_string(v) + " has weights " + std::to_string(w0) + " + " + std::to_string(w1) +
+					" (the retail corpus always sums to 100)");
 			}
-			out.Weight0[v] = (float)w0 / total;
-			out.Weight1[v] = (float)w1 / total;
+			out.Weight0[v] = (float)w0 / 100.0f;
+			out.Weight1[v] = (float)w1 / 100.0f;
 		}
 		bool splitWeights = false;
 		for (size_t v = 0; v < nv; ++v)
@@ -166,15 +163,7 @@ bool Build_Mesh_Render_Data(const MeshModelClass &mesh, MeshRenderData &out, std
 		}
 		if (splitWeights && mesh.Vertices2.empty())
 		{
-			if (!bfme1Mounted()) return fail(error, mesh, "a vertex is weighted to a second bone but the mesh has no second-bone streams");
-			// BFME1 skins (no RotWK mesh) weight a second bone without W3D_CHUNK_VERTICES_2; BFME1's read_vertex_influences (Open-BFME-1
-			// MeshGeometryLoading.cpp, VA 0x00925380) keys its skin runs on the first bone only, so they are drawn rigidly on it (header)
-			for (size_t v = 0; v < nv; ++v)
-			{
-				out.SingleBoneVertices += out.Weight1[v] > 0.0f ? 1 : 0;
-				out.Weight0[v] = 1.0f;
-				out.Weight1[v] = 0.0f;
-			}
+			return fail(error, mesh, "a vertex is weighted to a second bone but the mesh has no second-bone streams");
 		}
 		if (!mesh.Vertices2.empty())
 		{
@@ -196,16 +185,9 @@ bool Build_Mesh_Render_Data(const MeshModelClass &mesh, MeshRenderData &out, std
 			}
 		}
 	}
-	else if (!mesh.Vertices2.empty())
+	else if (!mesh.Influences.empty() || !mesh.Vertices2.empty())
 	{
-		return fail(error, mesh, "a mesh that is not a skin carries second-bone streams");
-	}
-	else if (!mesh.Influences.empty())
-	{
-		if (!bfme1Mounted()) return fail(error, mesh, "a mesh that is not a skin carries influence or second-bone streams");
-		// BFME1 rigid meshes (GDAKNIGHT.FORGED_BLADE, RUROYALGRD_SKN.FORGED_BLADE) keep the exporter's influence chunk; a rigid mesh follows
-		// its sub object's pivot and the influences are not read (header)
-		out.IgnoredInfluences = mesh.Influences.size();
+		return fail(error, mesh, "a mesh that is not a skin carries influence or second-bone streams");
 	}
 	if (!mesh.Tangents.empty())
 	{

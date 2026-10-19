@@ -1293,7 +1293,6 @@ void InGameHudNode::_bind_methods()
 	ClassDB::bind_static_method("InGameHudNode", D_METHOD("image_mode_shader", "mode"), &InGameHudNode::image_mode_shader); // community PR #37
 	ClassDB::bind_method(D_METHOD("get_move_hints"), &InGameHudNode::get_move_hints);
 	ClassDB::bind_method(D_METHOD("press_command_button", "template_name"), &InGameHudNode::press_command_button);
-	ClassDB::bind_method(D_METHOD("activate_command", "slot", "in_palantir", "cancel"), &InGameHudNode::activate_command, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("get_command_buttons"), &InGameHudNode::get_command_buttons);
 	ClassDB::bind_method(D_METHOD("inject_mouse_move", "position"), &InGameHudNode::inject_mouse_move);
 	ClassDB::bind_method(D_METHOD("inject_mouse_button", "button", "down", "position", "double_click"), &InGameHudNode::inject_mouse_button, DEFVAL(false));
@@ -2048,7 +2047,6 @@ Dictionary InGameHudNode::attach(const Ref<RetailFileSystem> &fs, GameWorld *wor
 	d->hud->input().setPlacementDeferred(true);
 	d->ghost = std::make_unique<PlacementGhostRenderer>(world, fs);
 	d->ghost->setFeedbackSources(&d->images, gameText); // community PR #37: the farm placement decal and label
-	d->ghost->preload(game, world->hud_world()->commands(), *local);
 	{
 		// lane INPUT-1 r2: RotWK's keyboard setup (RW 0x63F024) sets OurLanguage 2 for a German keyboard layout (de-DE / CH / AT / LU / LI): the CommandMap's
 		// Y and Z follow the keys' labels. options.german_keyboard (true / false) overrides the layout the display server reports
@@ -3097,20 +3095,6 @@ PackedStringArray InGameHudNode::take_misc_sounds()
 		out.push_back(toGodot(f));
 	}
 	return out;
-}
-
-bool InGameHudNode::activate_command(int slot, bool in_palantir, bool cancel)
-{
-	waitLogic(d.get());
-	if (!d->ready) return false;
-	const auto context = d->hud->enterContext();
-	ControlBar &bar = d->hud->controlBar();
-	bar.update();
-	for (const auto *buttons : { &bar.palantirButtons(), &bar.sideButtons() })
-		for (const auto &button : *buttons)
-			if (button.slot == slot && button.inPalantir == in_palantir && button.button && button.state != ButtonState::Hidden)
-				return cancel ? bar.cancelQueued(slot, in_palantir) : bar.pressButton(slot, in_palantir);
-	return false;
 }
 
 bool InGameHudNode::press_command_button(const String &template_name)
