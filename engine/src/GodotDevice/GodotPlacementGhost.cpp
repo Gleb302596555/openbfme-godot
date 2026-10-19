@@ -8,11 +8,6 @@
 #include <cmath>
 
 #include "Common/AsciiString.h"
-#include "Common/Player.h"
-#include "GameClient/ControlBarCommands.h"
-#include "GameLogic/GameLogic.h"
-#include "GameLogic/Object/Object.h"
-#include <set>
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/Drawable.h"
 #include "GameClient/DrawableManager.h"
@@ -135,7 +130,6 @@ void PlacementGhostRenderer::clear()
 		freeNode(v.shadowDecalId); // lane OWNERFIX-2
 	}
 	m_views.clear();
-	m_modelBuilds = m_preloadedTemplates = 0;
 }
 
 W3DInstancer *PlacementGhostRenderer::newInstancer(const char *name)
@@ -153,22 +147,8 @@ W3DInstancer *PlacementGhostRenderer::newInstancer(const char *name)
 		}
 	}
 	inst->set_house_colors_enabled(true); // before the first add_model (W3DInstancer.h)
-	inst->set_auto_update(false); // drawIcon/updateArrow explicitly update active slots only
 	inst->set_playing(false);             // the drawable's draw module poses it
 	return inst;
-}
-
-void PlacementGhostRenderer::releaseEntry(IconView &view, EntryView &entry)
-{
-	if (view.inst && entry.instance >= 0)
-	{
-		// Preview-only pool: removing an instancer record leaves a tombstone that is
-		// still scanned each update. Retain the instance and its hidden-subobject state
-		// alongside the cached model instead, and refresh its pose/colour on reuse.
-		view.inst->set_instance_opacity(entry.instance, 0.0);
-		view.idleEntries[entry.modelName].push_back(std::move(entry));
-	}
-	entry = EntryView{};
 }
 
 void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, IconView &view)
@@ -178,13 +158,11 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 		// The destination hub moves between slots as a wall span changes length.
 		// Keep each slot's loaded models instead of rebuilding GPU resources every
 		// time that slot alternates between a segment and the destination hub.
-		for (EntryView &entry : view.entries) releaseEntry(view, entry);
+		for (const EntryView &entry : view.entries)
+		{
+			if (view.inst && entry.instance >= 0) view.inst->remove_instance(entry.instance);
+		}
 		view.entries.clear();
-		if (view.bib) view.bib->hide();
-		if (auto *decal = Object::cast_to<Node3D>(ObjectDB::get_instance(view.shadowDecalId))) decal->hide();
-		view.bibTexture.clear();
-		view.shadowTexture.clear();
-		view.shadowSizeX = view.shadowSizeY = 0.0f;
 		view.tt = icon.tt;
 	}
 	Drawable &d = *icon.drawable;
@@ -195,7 +173,6 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 		view.instId = view.inst->get_instance_id();
 	}
 	std::vector<DrawEntry> &entries = d.entries();
-	for (size_t k = entries.size(); k < view.entries.size(); ++k) releaseEntry(view, view.entries[k]);
 	view.entries.resize(entries.size());
 	const Transform3D xf = toTransform(d.getBasis(), *d.getPosition(), d.getInstanceScale());
 	int instances = 0;
@@ -205,7 +182,6 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 		EntryView &ev = view.entries[k];
 		if (e.kind != W3D_DRAWKIND_MODEL || !e.draw)
 		{
-			releaseEntry(view, ev);
 			continue;
 		}
 		W3DDrawPoseView f;
@@ -217,17 +193,18 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 		const std::string model = (f.model && !e.moduleHidden) ? AsciiStringUtil::lowered(*f.modelName) : std::string();
 		if (model != ev.modelName)
 		{
-			releaseEntry(view, ev);
+			if (ev.instance >= 0)
+			{
+				view.inst->remove_instance(ev.instance);
+				ev.instance = -1;
+			}
 			ev.modelName = model;
+			ev.hiddenModel = nullptr;
+			ev.hidden.clear();
 			if (!model.empty())
 			{
 				auto it = view.models.find(model);
 				int64_t mid = it == view.models.end() ? view.inst->add_model(toGodotString(*f.modelName)) : it->second;
-				if (it == view.models.end())
-				{
-					++m_modelBuilds;
-					view.tintApplied = false; // a newly cached model needs the current tint
-				}
 				view.models[model] = mid;
 				if (mid < 0)
 				{
@@ -235,17 +212,7 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 				}
 				else
 				{
-					auto &idle = view.idleEntries[model];
-					if (!idle.empty())
-					{
-						ev = std::move(idle.back());
-						idle.pop_back();
-						// Generations belong to one drawable; a pooled instance may now
-						// serve another drawable with the same model and generation.
-						ev.hiddenModel = nullptr;
-						ev.hiddenGeneration = ~0u;
-					}
-					else ev.instance = view.inst->add_instance(mid, xf, String(), 0.0, 1.0);
+					ev.instance = view.inst->add_instance(mid, xf, String(), 0.0, 1.0);
 					if (ev.instance >= 0 && d.getHouseColor() != 0)
 					{
 						view.inst->set_instance_house_color(ev.instance, houseColorOf(d.getHouseColor())); // RW 0x674504 (slot 0 only)
@@ -258,7 +225,6 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 			continue;
 		}
 		++instances;
-		view.inst->set_instance_house_color(ev.instance, d.getHouseColor() ? houseColorOf(d.getHouseColor()) : Color(0, 0, 0, 0));
 		view.inst->set_instance_transform(ev.instance, xf);
 		view.inst->set_instance_pose_keyed(ev.instance, *f.clip0, f.clipKey0, f.frame0, *f.clip1, f.clipKey1, f.frame1, f.blendPercentage);
 		if (f.model != ev.hiddenModel || f.hiddenGeneration != ev.hiddenGeneration)
@@ -340,9 +306,6 @@ void PlacementGhostRenderer::updateShadowDecal(PlacementIcons::Icon &icon, IconV
 	Ref<Texture2D> tex = texture(file);
 	if (tex.is_null())
 	{
-		if (decal) decal->hide();
-		view.shadowTexture.clear();
-		view.shadowSizeX = view.shadowSizeY = 0.0f;
 		return; // texture() reported it
 	}
 	if (!decal)
@@ -372,9 +335,6 @@ void PlacementGhostRenderer::updateShadowDecal(PlacementIcons::Icon &icon, IconV
 
 void PlacementGhostRenderer::applyTint(IconView &view, const Color &tint)
 {
-	// Retained slots may contain an entire construction menu. Do not walk every
-	// cached mesh each frame unless the tint or loaded model set actually changed.
-	if (view.tintApplied && view.tint == tint) return;
 	// Drawable::colorTint (RW 0x6757BB): the W3D shader's per node tint (w3dshadergen: added to the lights and the ambient, as ZH's W3DScene does); every draw
 	// item node of the icon's own instancer takes it (a model added later takes it on the next frame)
 	const Vector3 t = tint.a > 0.0f ? Vector3(tint.r, tint.g, tint.b) : Vector3();
@@ -425,14 +385,12 @@ void PlacementGhostRenderer::updateBib(PlacementIcons::Icon &icon, IconView &vie
 	const PlacementGhost::Bib bib = PlacementGhost::bibOf(*icon.tt);
 	if (!bib.valid)
 	{
-		if (view.bib) view.bib->hide();
 		error(icon.tt->getName() + ": no bib: " + bib.error);
 		return;
 	}
 	const Ref<Texture2D> t = texture(tex);
 	if (t.is_null())
 	{
-		if (view.bib) view.bib->hide();
 		return;
 	}
 	if (view.bib && view.bibTemplate != icon.tt)
@@ -541,33 +499,6 @@ void PlacementGhostRenderer::updateArrow(const InGameUI &ui)
 	m_arrowShown = m_arrowInstance >= 0;
 }
 
-void PlacementGhostRenderer::preload(LiveGame &game, const CommandStore &commands, const Player &player)
-{
-	// Presentation only: use a separate UI, never queue a command or alter selection.
-	// Only the local player's current construction menus are loaded (including hidden
-	// command-range pages); captured/modded builders still load lazily when first used.
-	std::set<std::string> templates;
-	for (const ::Object *builder = game.logic().getFirstObject(); builder; builder = builder->getNextObject())
-	{
-		if (builder->getControllingPlayer() != &player) continue;
-		const CommandSet *set = commands.findCommandSet(builder->getCommandSetName());
-		if (!set) continue;
-		for (const CommandButton *button : set->m_command)
-		{
-			if (!button || button->m_command != GUI_COMMAND_DOZER_CONSTRUCT) continue;
-			const ThingTemplate *tt = button->getThingTemplate();
-			if (!tt || !templates.insert(tt->getName()).second) continue;
-			InGameUI preview;
-			preview.placeBuildAvailable(tt->getName(), builder->getID(), button);
-			preview.setPlaceGhost(*builder->getPosition(), 0.0f, 0);
-			sync(game, preview, 0.0, 0, true);
-		}
-	}
-	m_preloadedTemplates = templates.size();
-	InGameUI idle;
-	sync(game, idle, 0.0, 0, true); // retain loaded resources, leave every preview hidden
-}
-
 void PlacementGhostRenderer::sync(LiveGame &game, const InGameUI &ui, double deltaSeconds, unsigned ghostOptions, bool judge)
 {
 	if ((&game != m_game || !m_icons) && !judge)
@@ -581,14 +512,27 @@ void PlacementGhostRenderer::sync(LiveGame &game, const InGameUI &ui, double del
 		m_icons.reset(new PlacementIcons(game.drawables().services(), game.logic()));
 		m_icons->setCastleStore(m_castles.get());
 	}
+	const std::string before = m_icons->templateName();
 	m_icons->update(ui, deltaSeconds * 1000.0, ghostOptions, judge);
 	for (const std::string &e : m_icons->errors())
 	{
 		error(e);
 	}
-	// Keep each slot's model/material caches across template changes, cancellation,
-	// and shorter wall spans. drawIcon pools instances when the slot changes template.
-	if (m_icons->icons().size() > m_views.size()) m_views.resize(m_icons->icons().size());
+	if (m_icons->templateName() != before)
+	{
+		clear(); // a new template: new instancers (the models differ)
+	}
+	if (m_icons->icons().size() != m_views.size())
+	{
+		// community PR #37: a wall span's tile count changes as the cursor moves; the slots that stay keep their instancers and models (drawIcon swaps a
+		// slot's template), only the slots past the new count are freed
+		for (size_t i = m_icons->icons().size(); i < m_views.size(); ++i)
+		{
+			freeNode(m_views[i].instId);
+			freeNode(m_views[i].bibId);
+		}
+		m_views.resize(m_icons->icons().size());
+	}
 	if (ui.isPlacing() && ui.placeHasGhost())
 	{
 		for (size_t i = 0; i < m_icons->icons().size(); ++i)
@@ -596,15 +540,21 @@ void PlacementGhostRenderer::sync(LiveGame &game, const InGameUI &ui, double del
 			drawIcon(i, m_icons->icons()[i], m_views[i]);
 		}
 	}
-	for (size_t i = 0; i < m_views.size(); ++i)
+	else
 	{
-		IconView &v = m_views[i];
-		const bool active = ui.isPlacing() && ui.placeHasGhost() && i < m_icons->icons().size();
-		if (v.inst) v.inst->set_visible(active);
-		if (!active)
+		for (IconView &v : m_views)
 		{
-			if (v.bib) v.bib->hide();
-			if (auto *decal = Object::cast_to<Node3D>(ObjectDB::get_instance(v.shadowDecalId))) decal->hide();
+			if (v.inst)
+			{
+				v.inst->set_visible(false);
+			}
+		}
+	}
+	for (IconView &v : m_views)
+	{
+		if (v.inst)
+		{
+			v.inst->set_visible(ui.isPlacing() && ui.placeHasGhost());
 		}
 	}
 	updateArrow(ui);
@@ -615,15 +565,6 @@ void PlacementGhostRenderer::sync(LiveGame &game, const InGameUI &ui, double del
 Dictionary PlacementGhostRenderer::state() const
 {
 	Dictionary s;
-	s["model_builds"] = (int64_t)m_modelBuilds;
-	s["cached_slots"] = (int64_t)m_views.size();
-	int64_t instanceRecords = 0;
-	for (const IconView &view : m_views)
-	{
-		if (view.inst) instanceRecords += view.inst->get_instance_count();
-	}
-	s["instance_records"] = instanceRecords;
-	s["preloaded_templates"] = (int64_t)m_preloadedTemplates;
 	s["template"] = m_icons ? toGodotString(m_icons->templateName()) : String();
 	s["resource_radius"] = m_icons ? m_icons->resourceRadius() : 0;
 	s["resource_share"] = m_icons ? m_icons->resourceShare() : 0;

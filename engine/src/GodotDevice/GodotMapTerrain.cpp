@@ -1,5 +1,3 @@
-#include <godot_cpp/variant/packed_float32_array.hpp>
-#include <godot_cpp/variant/packed_vector2_array.hpp>
 // OpenBFME. GPL-3.0.
 // See GodotDevice/GodotMapTerrain.h.
 
@@ -608,37 +606,6 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 	info["waypoints"] = (int64_t)terrain.waypoints().size();
 	info["blend_version"] = hm.m_blendTileVersion;
 	info["texture_classes"] = (int64_t)hm.m_textureClasses.size();
-	if(!hm.m_data.empty()){auto range=std::minmax_element(hm.m_data.begin(),hm.m_data.end());info["elevation_min"]=*range.first*MAP_HEIGHT_SCALE;info["elevation_max"]=*range.second*MAP_HEIGHT_SCALE;}
-	int roadPoints=0;for(const auto &o:map.chunks.objects)if(o.getFlag(FLAG_ROAD_POINT1))++roadPoints;info["road_segments"]=roadPoints;
-	// the map's bridges: pairs of objects flagged as bridge ends (FLAG_BRIDGE_POINT1 then FLAG_BRIDGE_POINT2); the terrain makes no bridge of them yet (S-161)
-	{
-		Array bridges;
-		for (size_t i = 0; i + 1 < map.chunks.objects.size(); ++i)
-		{
-			const auto &a = map.chunks.objects[i];
-			const auto &b = map.chunks.objects[i + 1];
-			if (a.getFlag(FLAG_BRIDGE_POINT1) && b.getFlag(FLAG_BRIDGE_POINT2))
-			{
-				Dictionary br;
-				br["template"] = toGodot(a.m_objectName);
-				br["from"] = Vector2(a.m_location.x, a.m_location.y);
-				br["to"] = Vector2(b.m_location.x, b.m_location.y);
-				bridges.push_back(br);
-			}
-		}
-		info["bridges"] = bridges;
-	}
-	// options["height_probes"] (PackedVector2Array, SAGE x/y): ground heights for callers that place things without a GameWorld (skirmish map browser)
-	if (options.has("height_probes"))
-	{
-		PackedVector2Array probes = options["height_probes"];
-		PackedFloat32Array heights;
-		for (const Vector2 &p : probes)
-		{
-			heights.push_back(terrain.getGroundHeight(p.x, p.y));
-		}
-		info["probe_heights"] = heights;
-	}
 	info["time_of_day"] = map.chunks.hasGlobalLighting ? map.chunks.lighting.timeOfDay : 0;
 	Array problems;
 	for (const std::string &p : logicProblems)
