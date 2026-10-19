@@ -451,6 +451,17 @@ void Pathfinder::xfer(Xfer &x)
 			throw XferException("pathfinder: cell " + std::to_string(i) + " is in the zone " + std::to_string(zones[i]) + " of " + std::to_string(zm.zoneCount()));
 		}
 	}
+	// lanes WALL-1 / WALL-2: a raised cell's zone too (the raised layers' zones are numbered after the ground's in the same table, AIPathfindZones.cpp)
+	for (const WallState::Raised &r : walls.raised)
+	{
+		for (std::uint16_t z : r.zones)
+		{
+			if (z != 0 && z >= zm.zoneCount())
+			{
+				throw XferException("pathfinder: a raised cell is in the zone " + std::to_string(z) + " of " + std::to_string(zm.zoneCount()));
+			}
+		}
+	}
 	for (const LoadedInfo &li : infos)
 	{
 		object(li.obstacle, "the obstacle of a cell");

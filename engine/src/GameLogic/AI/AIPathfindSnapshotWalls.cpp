@@ -325,6 +325,10 @@ void Pathfinder::xferWalls(Xfer &x, WallState &w)
 		x.xferInt(&wp.id);
 		AIXfer::coord(x, wp.pos);
 		x.xferInt(&wp.type);
+		if (loading && !(wp.type >= PWAYPOINT_NORMAL && wp.type <= PWAYPOINT_PRECLIMB) && wp.type != PWAYPOINT_TYPE7 && wp.type != PWAYPOINT_MINESHAFT)
+		{
+			throw XferException("pathfinder: waypoint " + std::to_string(wp.id) + " has the type " + std::to_string(wp.type));
+		}
 		x.xferInt(&wp.numLinks);
 		if (loading && (wp.numLinks < 0 || wp.numLinks > PathfindWaypoint::MAX_LINKS))
 		{
@@ -446,6 +450,28 @@ void Pathfinder::xferWalls(Xfer &x, WallState &w)
 		if (pc.second > w.slots.size() || !w.slots[pc.second - 1u].used)
 		{
 			throw XferException("pathfinder: a portal marker names slot " + std::to_string(pc.second - 1u) + ", not a used one");
+		}
+	}
+	// a portal marker (raised cells) and a zone block's portal (RW block + 4) name a used waypoint slot by its number + 1 (Pathfinder::waypointOfSlot)
+	auto usedSlot = [&](std::uint32_t slot) { return slot != 0 && slot <= w.slots.size() && w.slots[slot - 1u].used; };
+	for (const WallState::Raised &r : w.raised)
+	{
+		for (std::uint16_t portal : r.portals)
+		{
+			if (portal != 0 && !usedSlot(portal))
+			{
+				throw XferException("pathfinder: a raised cell's portal marker names slot " + std::to_string(portal - 1) + ", not a used one");
+			}
+		}
+	}
+	for (const std::vector<std::uint16_t> &b : w.blockPortals)
+	{
+		for (std::uint16_t p : b)
+		{
+			if (!usedSlot(p))
+			{
+				throw XferException("pathfinder: a zone block's portal names slot " + std::to_string((int)p - 1) + ", not a used one");
+			}
 		}
 	}
 	for (const WallState::Raised &r : w.raised)
