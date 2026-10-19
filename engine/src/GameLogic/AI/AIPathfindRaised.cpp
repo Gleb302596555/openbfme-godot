@@ -162,26 +162,28 @@ PathfindLayerEnum Pathfinder::raisedLayerFor(const PathfindWallSurface &s, Pathf
 
 void Pathfinder::rebuildRaisedLayer(PathfindLayerEnum layer)
 {
-	rebuildRaisedCells(layer);
-	// review (#64): the old cells took the units' reservations on this layer with them (their occupant lists); a slot still registered there is
-	// registered again on the new cells, in unit id order (m_units is a map), so the occupant lists are the same on every machine
+	// review (#63, #64): the units' reservations on this layer are released while the old cells are there (a footprint over the walkway's edge holds
+	// ground cells too, which the rebuild keeps: registering it again alone left a second, stale node on them), then registered again on the new
+	// cells, in unit id order (m_units is a map), so the occupant lists are the same on every machine
+	std::vector<std::pair<PathfindObjectID, Slot *>> again;
 	for (auto &kv : m_units)
 	{
 		for (Slot *s : { &kv.second.pos, &kv.second.goal })
 		{
-			if (!s->occupied || s->layer != layer || s->cells.empty())
+			if (s->occupied && s->layer == layer && !s->cells.empty()) // a horde goal keeps no cells (updateGoalAngle)
 			{
-				continue; // a horde goal keeps no cells (updateGoalAngle)
+				releaseSlot(kv.first, *s);
+				again.push_back({ kv.first, s });
 			}
-			s->cells.clear();
-			if (PathfindObject *o = m_world ? m_world->findObjectByID(kv.first) : nullptr)
-			{
-				registerSlot(*o, *s);
-			}
-			else
-			{
-				s->occupied = false;
-			}
+		}
+	}
+	rebuildRaisedCells(layer);
+	for (const auto &e : again)
+	{
+		if (PathfindObject *o = m_world ? m_world->findObjectByID(e.first) : nullptr)
+		{
+			e.second->occupied = true;
+			registerSlot(*o, *e.second);
 		}
 	}
 }

@@ -560,3 +560,31 @@ TEST_CASE("wall2 raised: a goal reserved on the walkway stays reserved when a ch
 	}
 	CHECK(reserved);
 }
+
+// review (#63): a goal whose footprint reaches over the walkway's edge holds ground cells too; a rebuild of the walkway leaves one node of it there, and
+// removing the goal clears it
+TEST_CASE("wall2 raised: a walkway goal whose footprint reaches the ground beside the walkway keeps one node there through a rebuild; removing it clears it")
+{
+	GatehouseWorld w;
+	LayeredUnit *u = w.unit(1, 250.0f, 105.0f, 60.0f, LAYER_TOP);
+	u->geometry.majorRadius = 25.0f; // a footprint of 5 x 5 cells: rows 8 .. 12 around the goal's row 10, row 12 beside the walkway (y 90 .. 110)
+	Coord3D goal{ 300.0f, 105.0f, 60.0f };
+	w.pf->updateGoal(*u, &goal, LAYER_TOP);
+	auto nodes = [&](const PathfindCell *c) {
+		int n = 0;
+		for (const PathfindOccupant *o = c ? c->occupants(OCC_GROUND_GOAL) : nullptr; o; o = o->next)
+		{
+			n += o->owner == u->id ? 1 : 0;
+		}
+		return n;
+	};
+	const PathfindCell *ground = w.pf->cellAt(30, 12);
+	REQUIRE(ground != nullptr);
+	REQUIRE(w.pf->getCell(LAYER_TOP, 30, 12) == ground); // no walkway cell there: the slot's layer reads the ground grid
+	REQUIRE(nodes(ground) == 1);
+	walkwayPiece(w, 53, 210.0f, 10.0f, 200.0f, 220.0f, 60.0f); // layer 2 made again
+	CHECK(nodes(ground) == 1);
+	CHECK(nodes(w.pf->getCell(LAYER_TOP, 30, 10)) == 1);
+	w.pf->removeGoal(*u);
+	CHECK(nodes(ground) == 0);
+}

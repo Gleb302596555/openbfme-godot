@@ -49,6 +49,7 @@ Path *Pathfinder::findAttackPath(const PathfindObject *obj, const PathfindLocomo
 	// none. The corridor is not ported (S-162, kHierarchical): every block passable, as the search was before findPath kept its corridor between searches
 	note(pathstops::kHierarchical);
 	m_zoneManager.setAllPassable();
+	m_portalHops.clear(); // lane WALL-2: no corridor, so no hops either (review #64: a previous search's hops steered costToGoal; INFERENCE as findPath)
 	int radius = 0;
 	bool center = false;
 	getRadiusAndCenter(obj, radius, center);
