@@ -135,9 +135,8 @@ public:
 	bool loadText(ArchiveFileSystem *fs, const std::string &name, const std::string &text, int loadType, std::string *error);
 
 	// The retail sequence of a game on `mapDir` (as "maps\\map mp evendim" or "map mp evendim"): Data\INI\Default\Weather.ini, Data\INI\Weather.ini,
-	// Data\INI\Default\Environment.ini, Data\INI\Environment.ini (load type 1; the Default files may be missing, as the retail loader allows
-	// (INFERENCE: INI::loadFileDirectory skips a missing file), the other two are required), then the map's map.ini and solo.ini when present
-	// (load type 2). false + *error when a required file is missing or a block fails.
+	// Data\INI\Default\Environment.ini, Data\INI\Environment.ini (load type 1; all four are required, as the game's own startup requires them in
+	// RotWK), then the map's map.ini and solo.ini when present (load type 2). false + *error when one of the four is missing or a block fails.
 	bool loadForMap(ArchiveFileSystem &fs, const std::string &mapDir, std::string *error);
 
 	// SnowManager::reset (RW 0x493547 -> RW 0x600AAD): the overrides go, the base stays

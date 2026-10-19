@@ -99,6 +99,7 @@ struct SnowDrawParams
 class SnowManager
 {
 public:
+	enum { kMaxSnowSpacing = 1 << 20 }; ///< drawParams' bound of a map's SnowSpacing (wider than any map: no particle)
 	SnowManager() : m_heights(64 * 64, 0.0f) {}
 
 	// SnowManager::init (RW 0x600B.. / W3D 0x494642): time 0, then updateIniSettings

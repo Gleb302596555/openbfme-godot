@@ -6,7 +6,9 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawServices.h"
 
 #include <algorithm>
+#include <climits>
 #include <cmath>
+#include <cstdint>
 
 namespace
 {
@@ -245,9 +247,22 @@ SnowDrawParams SnowManager::drawParams(const WeatherSetting &s, int mapWidth, in
 	const int dimY = (int)((float)(mapHeight - mapBorder * 2) * 10.0f);
 	p.stepX = (dimX - p.originX) / p.tiles;
 	p.stepY = (dimY - p.originY) / p.tiles;
-	p.spacing = std::max(1, (int)m_spacing);
-	p.count = (p.stepY * p.stepX) / (p.spacing * p.spacing);
-	p.columns = p.stepX > 0 ? (p.stepX + p.spacing - 1) / p.spacing : 0;
+	// SnowSpacing is any float a map's Weather block writes: at least 1 as retail's max, at most kMaxSnowSpacing (beyond any map: no particle), the
+	// products in 64 bits (a spacing of 46341 or more squared overflows an int, 65536 squared wraps to 0); a NaN draws no snow (review: #59)
+	if (m_spacing != m_spacing)
+	{
+		p.draw = false;
+		p.spacing = 1;
+		p.count = 0;
+		p.columns = 0;
+	}
+	else
+	{
+		p.spacing = m_spacing >= 1.0f ? (m_spacing < (float)kMaxSnowSpacing ? (int)m_spacing : kMaxSnowSpacing) : 1;
+		const std::int64_t count = ((std::int64_t)p.stepY * (std::int64_t)p.stepX) / ((std::int64_t)p.spacing * (std::int64_t)p.spacing);
+		p.count = (int)std::min<std::int64_t>(std::max<std::int64_t>(count, 0), INT_MAX);
+		p.columns = p.stepX > 0 ? (int)(((std::int64_t)p.stepX + p.spacing - 1) / p.spacing) : 0;
+	}
 	p.heightTraveled = m_heightTraveled;
 	p.driftX = m_driftX;
 	p.driftY = m_driftY;

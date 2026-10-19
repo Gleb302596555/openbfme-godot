@@ -358,6 +358,39 @@ TEST_CASE("weather1 snow: the drops' lightning (RW 0x492C35) and its gray (RW 0x
 	CHECK(m.drawParams(w, 100, 100, 10, rnd).color == 127u * 0x10101u + 0xFF000000u);
 }
 
+// review (#59): a map's SnowSpacing is any float its Weather block writes; drawParams bounds it (at least 1 as retail's max, at most
+// SnowManager::kMaxSnowSpacing) and multiplies in 64 bits, so 65536 (squared: 2^32, an int's wrap to a zero divisor) and larger draw no particle
+TEST_CASE("weather1 snow: a map's SnowSpacing of any size draws without an overflow or a zero divisor")
+{
+	struct Case
+	{
+		const char *spacing;
+		int expected; // the drawn spacing
+	};
+	for (const Case &c : { Case{ "65536", 65536 }, Case{ "1000000", 1000000 }, Case{ "1e30", (int)SnowManager::kMaxSnowSpacing }, Case{ "0.5", 1 }, Case{ "-5", 1 } })
+	{
+		CAPTURE(c.spacing);
+		WeatherSettingStore s;
+		std::string error;
+		REQUIRE_MESSAGE(s.loadText(nullptr, "weather.ini", std::string("Weather\n  SnowEnabled = yes\n  IsSnowing = yes\n  SnowSpacing = ") + c.spacing + "\nEnd\n", 1, &error),
+			error);
+		SnowManager m;
+		m.init(s.finalSetting());
+		W3DClientRandom rnd(RandomAlgorithm::RotWK_GameDat_LCG);
+		const SnowDrawParams p = m.drawParams(s.finalSetting(), 100, 100, 10, rnd);
+		CHECK(p.spacing == c.expected);
+		if (c.expected == 1)
+		{
+			CHECK(p.count == p.stepX * p.stepY);
+		}
+		else
+		{
+			CHECK(p.count == 0); // wider than the map's 800 world units: no particle
+			CHECK(p.columns == 1);
+		}
+	}
+}
+
 TEST_CASE("weather1 snow: the quad path's grid (RW 0x4936CB) and one particle's position")
 {
 	WeatherSettingStore s;

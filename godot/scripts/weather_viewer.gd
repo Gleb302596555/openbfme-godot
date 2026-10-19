@@ -187,3 +187,7 @@ func _run() -> void:
 	await _shot(_scenario)
 	if _shots != "":
 		get_tree().quit(0)
+		return
+	# interactive: the weather goes on until the window is closed (review: #59)
+	while true:
+		await _wait(1.0)
