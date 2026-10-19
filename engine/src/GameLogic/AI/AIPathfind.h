@@ -871,8 +871,10 @@ public:
 	// configuration must be the saved ones)
 	void xfer(class Xfer &x);
 
-private:
+public:
 	std::uint32_t configHash() const; ///< the configuration and extent part of crc (a snapshot of another map or AIData is refused)
+
+private:
 	struct Slot
 	{
 		bool occupied = false;

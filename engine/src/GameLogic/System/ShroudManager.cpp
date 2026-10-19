@@ -1342,7 +1342,10 @@ void ShroudManager::update()
 			for (size_t i = begin; i < end; ++i)
 			{
 				Prepared &p = m_prepared[i];
+				std::vector<int> cells = std::move(p.cells); // its storage is kept (review #62: a reset allocated it again for every record, every frame)
 				p = Prepared();
+				p.cells = std::move(cells);
+				p.cells.clear();
 				prepareRecord(m_records[m_preparedOrder[i]], p);
 			}
 		});

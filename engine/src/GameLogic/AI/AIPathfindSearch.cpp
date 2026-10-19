@@ -391,12 +391,16 @@ bool Pathfinder::isLinePassable(const PathfindObject *obj, unsigned acceptableSu
 		}
 		// the rest depends only on the cell and the neighbour it is entered from (checkForMovement's footprint overlap): walkLine steps to a neighbour, and
 		// li.prev is `from`'s cell whenever `from` is set
-		const size_t cellIndex = (size_t)(to - m_blockOfMapCells.data());
+		// the cell by its coordinates and layer, not by its address (review #64: a raised walkway's cells are another array, and a difference of pointers
+		// into different arrays is undefined)
+		const std::uint64_t cellKey = x >= 0 && y >= 0
+			? ((std::uint64_t)x * (std::uint64_t)m_stride + (std::uint64_t)y) * 0x41u + (std::uint64_t)to->getLayer()
+			: 0xFFFFFFFFu;
 		std::uint32_t key = 0;
-		if (memo && cellIndex < 400000000u)
+		if (memo && cellKey < 400000000u)
 		{
 			const unsigned code = from ? (unsigned)((x - li.prev.x + 1) * 3 + (y - li.prev.y + 1)) : 9u;
-			key = (std::uint32_t)(cellIndex * 10u + code + 1u);
+			key = (std::uint32_t)(cellKey * 10u + code + 1u);
 			bool known = false;
 			if (lineMemoFind(key, known))
 			{

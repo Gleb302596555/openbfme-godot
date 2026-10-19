@@ -8,6 +8,7 @@
 #include "doctest.h"
 #include "HudTestUtil.h"
 #include "PerfBenchUtil.h"
+#include "PathfindTestUtil.h"
 
 #include "Common/Player.h"
 #include "GameClient/LiveGame.h"
@@ -427,4 +428,88 @@ TEST_CASE("pathperf4 save: an Uber game saved while a mass order's path burst dr
 		same += game.logic().computeStateHash() == hashes[i] ? 1 : 0;
 	}
 	CHECK(same == (int)hashes.size());
+}
+
+// review (#63): the pathfinder's configuration hash (a snapshot of another configuration is refused) is the value earlier builds wrote: they hashed the
+// pool's capacity, then always the configured size; the configured size is hashed now, so a grown Uber pool keeps it too. The literal was measured with
+// upstream main's Pathfinder::configHash (7f034123 .. 5a68dad4) on this terrain and configuration
+TEST_CASE("pathperf4 save: the pathfinder's configuration hash is the one earlier builds wrote, with the Uber limits on as well")
+{
+	pathtest::SyntheticTerrain terrain{ 40, 20 };
+	pathtest::TestWorld world;
+	Pathfinder pf(pathtest::testConfig(), &world);
+	pf.newMap(terrain);
+	CHECK(pf.configHash() == 56852104u);
+	pf.setUberLimits(true);
+	CHECK(pf.configHash() == 56852104u);
+}
+
+// review (#64): a game started Faithful that switched to Uber (a loaded save handed over to the player's profile, SAVE-2) and moved its request ring past
+// retail's 512 slots saves the rings' lengths, so the snapshot loads into a game whose rings are retail's again
+TEST_CASE("pathperf4 save: a game that switched from Faithful to Uber and moved its request ring past 512 loads into a Faithful game")
+{
+	SharedWorld &s = shared();
+	if (!s.mount || !s.world)
+	{
+		MESSAGE("SKIP: " << s.error);
+		return;
+	}
+	ArchiveW3DFileSource source(*s.mount->fs);
+	WW3DAssetManager assets(source);
+	LiveGame game(*s.world, *s.mount->fs, assets, s.options);
+	LiveGame::Options o;
+	o.mapName = "map mp brown lands";
+	o.seed = 4711;
+	o.slots.players.push_back({ "Player_1", "FactionMen", true, 0, 0, 0 });
+	o.slots.players.push_back({ "Player_2", "FactionMordor", false, 1, 0, 1 });
+	std::string error;
+	REQUIRE_MESSAGE(game.load(o, &error), error);
+	Player *pa = game.players().findPlayerWithName("Player_1");
+	REQUIRE(pa != nullptr);
+	GameLogic &logic = game.logic();
+	const Waypoint *wa = logic.terrain() ? logic.terrain()->findWaypointByName("Player_1_Start") : nullptr;
+	const Waypoint *wb = logic.terrain() ? logic.terrain()->findWaypointByName("Player_2_Start") : nullptr;
+	REQUIRE(wa != nullptr);
+	REQUIRE(wb != nullptr);
+	const Coord3D home{ wa->location.x + (wb->location.x - wa->location.x) * 0.15f, wa->location.y + (wb->location.y - wa->location.y) * 0.15f, 0.0f };
+	const Coord3D away{ wa->location.x + (wb->location.x - wa->location.x) * 0.5f, wa->location.y + (wb->location.y - wa->location.y) * 0.5f, 0.0f };
+	std::vector<ObjectID> ids;
+	for (int i = 0; i < 300; ++i)
+	{
+		Object *u = game.createObject("GondorFighter", pa->getPlayerIndex(), Coord3D{ home.x + (float)(i % 20) * 15.0f, home.y + (float)(i / 20) * 15.0f, 0.0f }, 0.0f,
+			&error);
+		REQUIRE_MESSAGE(u, error);
+		ids.push_back(u->getID());
+	}
+	for (int i = 0; i < 30; ++i)
+	{
+		REQUIRE(game.advance(0.2) == 1);
+	}
+	Pathfinder &pf = logic.aiWorld()->pathfinder();
+	REQUIRE(pf.requestRing().length() == (int)PATHFIND_QUEUE_LEN);
+	logic.setSimulationProfile(SimulationProfile::Uber); // as a handed-over save switches it
+	REQUIRE(game.advance(0.2) == 1);
+	REQUIRE(pf.requestRing().length() == (int)Pathfinder::kUberQueueLength);
+	for (int k = 0; k < 3; ++k)
+	{
+		game.commands().append(selectMsg(pa->getPlayerIndex(), ids));
+		GameMessage mv(MSG_DO_MOVETO, pa->getPlayerIndex());
+		mv.appendLocationArgument(k % 2 == 0 ? away : home);
+		game.commands().append(mv);
+		for (int f = 0; f < 120 && (f < 2 || pf.queuedRequests() > 0); ++f)
+		{
+			REQUIRE(game.advance(0.2) == 1);
+		}
+	}
+	REQUIRE(pf.requestRing().head() >= (int)PATHFIND_QUEUE_LEN); // tolerance: a precondition (past retail's ring; the exact head is the orders' own count)
+	std::vector<std::uint8_t> snapshot;
+	REQUIRE_MESSAGE(logic.saveSnapshot(snapshot, &error), error);
+	const std::uint32_t savedHash = logic.computeStateHash();
+	// the game goes back to Faithful (retail's rings) before the load, as a fresh game of the original setup would be
+	logic.setSimulationProfile(SimulationProfile::Faithful);
+	REQUIRE(game.advance(0.2) == 1);
+	REQUIRE(pf.requestRing().length() == (int)PATHFIND_QUEUE_LEN);
+	REQUIRE_MESSAGE(game.loadSnapshot(snapshot, &error), error);
+	CHECK(game.logic().computeStateHash() == savedHash);
+	CHECK(game.logic().aiWorld()->pathfinder().requestRing().length() == (int)Pathfinder::kUberQueueLength);
 }
