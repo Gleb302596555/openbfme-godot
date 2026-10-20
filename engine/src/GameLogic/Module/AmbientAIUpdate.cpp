@@ -63,9 +63,14 @@ AmbientAIUpdate::AmbientAIUpdate(Thing *thing, const ModuleData *data, bool anim
 
 UpdateSleepTime AmbientAIUpdate::update()
 {
-	// DONOR: BFME2 AnimalAIUpdate::update 0x87EDC9: capture the state BEFORE the base
+	// TARGET: RW AnimalAIUpdate::update 0x882058 (2916 bytes), checked against
+	// BFME2 donor 0x87EDC9: same instruction sequence after image addresses,
+	// source paths and the +0xC4 runtime-layout shift are normalized. Capture the state BEFORE the base
 	// update; first processed position AFTER it; one [0,100] draw per idle update,
 	// then angle [-15,15] and distance [0,MaxWanderDistance] only on success.
+	// RW WanderAIUpdate::update 0x8ACAFA (499 bytes) matches BFME2 0x8A9424
+	// except image addresses and source paths. See docs/AMBIENT_MOVEMENT.md.
+	// S-001: the available target image has disputed provenance.
 	const unsigned state = currentStateId();
 	AIUpdateInterface::update();
 	Object &obj = *getObject();
