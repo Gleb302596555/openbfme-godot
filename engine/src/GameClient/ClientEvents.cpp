@@ -10,6 +10,7 @@
 #include "GameClient/MapObjectDrawables.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/ObjectTemplateInfo.h"
 
 void ClientEventRecorder::observerEvent(Object &obj, ObserverEvent::Kind kind, const Coord3D *at, const std::string &name, float weight)
 {
@@ -229,7 +230,9 @@ void ClientEventRecorder::loadedObject(Object &obj)
 
 void ClientEventRecorder::pushFlush(Object &obj)
 {
-	if (obj.isKindOfName("CAPTUREFLAG"))
+	static const int captureFlagKind = ObjectTemplateInfoBuilder::kindOfIndex("CAPTUREFLAG");
+	const bool captureFlag = captureFlagKind >= 0 && obj.isKindOf((unsigned)captureFlagKind);
+	if (captureFlag)
 	{
 		auto &before = m_animationConditions[obj.getID()];
 		// Dispatch before pushing the flush: Lua can append subobject events.
@@ -237,7 +240,7 @@ void ClientEventRecorder::pushFlush(Object &obj)
 		before = obj.getModelConditionBits();
 	}
 	ClientEvent &e = push(ClientEvent::MODEL_FLUSH, obj);
-	if (obj.isKindOfName("CAPTUREFLAG"))
+	if (captureFlag)
 	{
 		// RW 0x853D31's capture colour: the raising flag belongs visually to the
 		// capturer before ownership transfers. Cancel returns to the current owner.
@@ -307,8 +310,10 @@ std::vector<ClientEvent> ClientEventRecorder::take(bool endOfFrame)
 	// lane ANIM-1: the end of the logic frame, RW 0x6759C4: every dirty drawable's flags reach its draw modules once
 	if (endOfFrame)
 	{
-		for (ObjectID id : m_dirty)
+		// Lua callbacks can append dirty objects; never retain vector iterators.
+		for (size_t i = 0; i < m_dirty.size(); ++i)
 		{
+			const ObjectID id = m_dirty[i];
 			if (Object *o = m_logic.findObjectByID(id))
 			{
 				pushFlush(*o);

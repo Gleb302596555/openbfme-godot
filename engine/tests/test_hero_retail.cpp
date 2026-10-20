@@ -2430,3 +2430,30 @@ TEST_CASE("capture flag presentation: authored capture events select one faction
 	CHECK(g.logic->notedStopHits().count("[S-090] capture flag condition-state LuaEvents run on the logic owner; render-frame and script-transition event timing remain unported") == 1);
 
 }
+
+TEST_CASE("capture flag presentation: callbacks append dirty objects during the same flush")
+{
+	REQUIRE_RETAIL_WORLD(sh);
+	Game g(sh, "FactionMen", "FactionMordor", true);
+	ClientEventRecorder events(*g.logic);
+	g.logic->setClientHooks(&events);
+	struct Detach { GameLogic &logic; ~Detach() { logic.setClientHooks(nullptr); logic.setAnimationConditionEventProc({}); } } detach{ *g.logic };
+	Object *flag = g.make(sh.world->things().findTemplate("CaptureFlag"), g.players.getNeutralPlayer(), 1000, 1000);
+	std::vector<Object *> others;
+	for (int i = 0; i < 64; ++i)
+		others.push_back(g.make(sh.world->things().findTemplate("MenPorter"), g.me, 1100, 1000));
+	events.take();
+	g.logic->setAnimationConditionEventProc([&](Object &, const std::array<std::uint32_t, 19> &) {
+		for (Object *obj : others) obj->setModelConditionState(0x6E, true);
+	});
+	flag->setModelConditionState(0x6E, true);
+	const auto batch = events.take();
+	for (Object *obj : others)
+	{
+		int flushes = 0;
+		for (const auto &event : batch)
+			if (event.kind == ClientEvent::MODEL_FLUSH && event.object == obj->getID()) ++flushes;
+		CHECK(flushes == 1);
+	}
+	CHECK(events.take().empty());
+}
