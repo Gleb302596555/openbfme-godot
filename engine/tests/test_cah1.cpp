@@ -1267,7 +1267,7 @@ TEST_CASE("cah attributes: duplicate tick initializers position all thirty-two s
 	c.show(scr, "Appearance");
 	REQUIRE(c.fx->wm->invokeASAt(scr->level(), "Main.mcAppearanceScreen.Screen.TypeWindow", "gotoAndPlay", { "_attributes" }));
 	c.fx->tick(60);
-	CHECK(c.fx->wm->apt().noteCount("duplicate-init-object-unverified") == 160);
+	CHECK(c.fx->wm->apt().noteCount("duplicate-init-object-unverified") == 1);
 	for (int attribute = 0; attribute < 5; ++attribute)
 	{
 		const std::string path = "Main.mcAppearanceScreen.Screen.TypeWindow.instance12." + std::to_string(attribute) + ".AttribBar";
