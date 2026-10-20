@@ -774,7 +774,10 @@ def test_sync_drops_a_stray_privacy_md_of_the_public_main(world):
 def test_audit_tree_of_the_real_public_tree():
     """the public tree of this checkout's HEAD (the sync recipe) passes the audit: the built-in rules, plus the operator's private
     denylist when OPENBFME_RELEASE_DENYLIST names it on this machine"""
-    tree = autorelease.sync_tree(str(REPO), "HEAD")
+    # PUBLICCI-1: in the public repository (the hosted pull request checks) HEAD already is a public tree: no archive/, no archive line
+    has_archive = "archive" in subprocess.run(["git", "-C", str(REPO), "ls-tree", "--name-only", "HEAD"], capture_output=True, text=True,
+                                              check=True).stdout.split()
+    tree = autorelease.sync_tree(str(REPO), "HEAD") if has_archive else autorelease.git(str(REPO), "rev-parse", "HEAD^{tree}").strip()
     private = os.environ.get("OPENBFME_RELEASE_DENYLIST")
     rules = autorelease.load_denylist(Path(private)) if private else []
     assert autorelease.audit_tree(str(REPO), tree, rules) == []
@@ -1352,6 +1355,31 @@ def test_the_depth_bound_is_a_refusal():
     a = autorelease.SyncAudit()
     a.blob("docs/deep.bin", data)
     assert any("nested deeper than" in p for p in a.problems), a.problems
+
+
+def test_a_signature_that_looks_like_zlib_is_a_signature():
+    """PUBLICCI-1: the hosted checks' first run failed test_returned_artifacts_are_checked_before_signing on a manifest.json.sig whose
+    random bytes began with a valid zlib header ("unreadable zlib data"): 1 in 992 Ed25519 signatures do"""
+    sig = b"\x78\x9c" + bytes(range(7, 69))   # a zlib header, then bytes no inflater accepts
+    assert len(sig) == 64
+    a = autorelease.SyncAudit(PRIVATE, top=True)
+    a.blob("manifest.json.sig", sig)
+    a.blob("out/manifest-macos.json.sig", sig)
+    assert a.problems == []
+    # the exemption is that shape only: another name, another size or a member inside a container stays a finding
+    for name, data in (("manifest.json.bin", sig), ("notes.sig", sig), ("manifest.json.sig", sig + b"\x00"), ("manifest.json.sig", sig[:63])):
+        a = autorelease.SyncAudit(PRIVATE, top=True)
+        a.blob(name, data)
+        assert any("unreadable zlib data" in p for p in a.problems), (name, len(data), a.problems)
+    a = autorelease.SyncAudit(PRIVATE, top=True)
+    a.blob("p.zip", zip_of({"manifest.json.sig": sig}))
+    assert any("unreadable zlib data" in p for p in a.problems), a.problems
+    # a .sig that IS a zlib stream is still decoded and its content checked
+    hidden = zlib.compress(b"built on lab-vm-q".ljust(53, b" "), 0)
+    assert len(hidden) == 64
+    a = autorelease.SyncAudit(PRIVATE, top=True)
+    a.blob("manifest.json.sig", hidden)
+    assert any(p.startswith("denylisted (hosts)") for p in a.problems), a.problems
 
 
 def test_a_swapped_intent_sha_changes_nothing(world):
@@ -2375,8 +2403,8 @@ def _gzip_member(payload: bytes, name: bytes = b"", comment: bytes = b"", extra:
 def test_sol_r3_3_every_gzip_members_header_is_checked(tmp_path, field):
     """Sol r3 P2 (3): two valid gzip members with clean payloads, a host name only in the second member's file name: zero findings, and
     the tree's metadata check accepted it; the comment, extra field and time of a later member too"""
-    rules = autorelease.BUILTIN + PRIVATE + autorelease.compile_rules([{"id": "short", "kind": "word", "pattern": ["qvz"]}], "t")
-    value = b"qvz\x00" if field == "mtime" else b"lab-vm-q"
+    rules = autorelease.BUILTIN + PRIVATE + autorelease.compile_rules([{"id": "short", "kind": "word", "pattern": ["qvzx"]}], "t")
+    value = b"qvzx" if field == "mtime" else b"lab-vm-q"   # RELFIX-3: 4 letters (3 and fewer in binary bytes are chance)
     data = _gzip_member(b"clean one\n") + _gzip_member(b"clean two\n", **{field: value})
     assert gzip.decompress(data) == b"clean one\nclean two\n"
     assert [f for f, _ in autorelease.gzip_headers(data)] == [0, {"name": 8, "comment": 16, "extra": 4, "mtime": 0}[field]]
@@ -2497,15 +2525,45 @@ def test_sol2_a_key_given_twice_is_an_error(tmp_path, text, suffix):
 
 
 @pytest.mark.parametrize("member", [
-    b"\x01\x02qvz\x00\x03",                         # a 3-character literal alone between binary bytes
+    b"\x01\x02qvzx\x00\x03",                        # a 4-character literal alone between binary bytes (RELFIX-3: 3 and fewer are chance)
     "lab-vm-q".encode("utf-16-be"), b"\x00" + "lab-vm-q".encode("utf-16-le"), "lab-vm-q".encode("utf-32-le"),
     b"\x00\x00" + "lab-vm-q".encode("utf-32-be"), b"\xff\x00" + "gästhost".encode("utf-8"),
 ])
 def test_sol3_binary_members_are_read_in_every_encoding(member):
-    rules = PRIVATE + autorelease.compile_rules([{"id": "short", "kind": "word", "pattern": ["qvz", "gästhost"]}], "t")
+    rules = PRIVATE + autorelease.compile_rules([{"id": "short", "kind": "word", "pattern": ["qvzx", "gästhost"]}], "t")
     a = autorelease.SyncAudit(rules)
     a.blob("p.zip", zip_of({"data.bin": b"\x00\x01" + member + b"\x00\xfe"}))
     assert any(p.startswith("denylisted (") and "data.bin" in p for p in a.problems), a.problems
+
+
+def test_relfix3_three_letter_words_count_in_text_but_not_in_binary_bytes():
+    """RELFIX-3: v0.4.9's publish refused 3-letter private words that 100 MB of executables hold by chance (machine code, ICU tables);
+    in binary bytes they are no finding, in a text member, a member name and the notes they still are"""
+    rules = PRIVATE + autorelease.compile_rules([{"id": "short", "kind": "word", "pattern": ["qvz"]}], "t")
+    a = autorelease.SyncAudit(rules)
+    a.blob("p.zip", zip_of({"data.bin": b"\x00\x01\x02qvz\x00\x03\xfe" + "qvz".encode("utf-16-le") + b"\xfe"}))
+    assert not [p for p in a.problems if "denylisted (short)" in p], a.problems
+    for member in ({"notes.txt": b"built on qvz\n"}, {"qvz/data.bin": b"\x00\x01"}):
+        a = autorelease.SyncAudit(rules)
+        a.blob("p.zip", zip_of(member))
+        assert [p for p in a.problems if "denylisted (short)" in p], (member, a.problems)
+    assert autorelease.denylist_hits("notes.md", "built on qvz", rules, check_path=False, metadata=True)
+
+
+def test_relfix4_short_email_shapes_in_binary_bytes_are_chance():
+    """RELFIX-4: the v0.4.9 macOS executables hold "T@9.xk" in ARM64 machine code; 7 characters or fewer in binary bytes is no hit,
+    a real address in the same bytes still is, and in text even a short one is"""
+    rules = autorelease.BUILTIN
+    code = b"\x00K\x00\x00\x00\x00T@9.xk\x00\x00`\x00"
+    assert autorelease.binary_rule_hits(code, rules).get("e-mail") is None
+    assert autorelease.binary_rule_hits(code + b"\x00someone@privatehost.org\x00", rules).get("e-mail")
+    assert autorelease.denylist_hits("notes.md", "write to ab@cd.ef", rules, check_path=False, metadata=True)
+
+
+def test_relfix3_freetype_mailing_lists_are_public():
+    rules = autorelease.BUILTIN
+    assert autorelease.denylist_hits("x.bin", None, rules, data=b"\x00o freetype-devel@nongnu.org\x00") == []
+    assert autorelease.denylist_hits("x.bin", None, rules, data=b"\x00mail someone@privatehost.org\x00")
 
 
 def test_sol3_a_text_member_in_another_encoding_is_refused():
