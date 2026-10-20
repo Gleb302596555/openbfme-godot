@@ -58,4 +58,8 @@ void spawn(const ThingTemplate &tmpl, const ThingFactory &things, const Coord3D 
 // The binary's template equivalence for a slot's UnitType (RW 0x73D5C2): the same template, a name found in the other's EquivalentTo list,
 // or a reskin relation. `memberName` / `unitType` are template names.
 bool unitTypeMatches(const ThingFactory &things, const std::string &unitType, const std::string &memberName);
+
+// RW 0x86C4EA's machine rank: RW 0x6D1305 finds the UnitType's template, ThingTemplate + 0x109 bit 3 is KindOf MACHINE. The slot table of a
+// horde with such a rank is centred on that rank's first slot (HordeContainCore::setMachineTest), in the game and on the map alike
+bool unitTypeIsMachine(const ThingFactory &things, const std::string &unitType);
 } // namespace MapHordeSpawn

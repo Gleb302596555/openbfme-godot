@@ -548,6 +548,16 @@ TEST_CASE("mapobj creation: horde members stand on the formation slots, rotated 
 		"    RankInfo = RankNumber:2 UnitType:Soldier Position:X:30 Y:0 Position:X:30 Y:20 Position:X:30 Y:-20\n"
 		"  End\n"
 		"  KindOf = INFANTRY HORDE\nEnd\n"
+		"Object Ram\n  KindOf = MACHINE VEHICLE\nEnd\n"
+		"Object RamHorde\n"
+		"  Behavior = HordeContain ModuleTag_Horde\n"
+		"    InitialPayload = Ram 1\n"
+		"    Slots = 4\n"
+		"    RankInfo = RankNumber:1 UnitType:Soldier Position:X:40 Y:-10 Position:X:40 Y:10\n"
+		"    RankInfo = RankNumber:2 UnitType:Ram Position:X:10 Y:5\n"
+		"    RankInfo = RankNumber:3 UnitType:Soldier Position:X:-20 Y:0\n"
+		"  End\n"
+		"  KindOf = HORDE\nEnd\n"
 		"Object OverfullHorde\n"
 		"  Behavior = HordeContain ModuleTag_Horde\n"
 		"    InitialPayload = Soldier 4\n"
@@ -557,13 +567,14 @@ TEST_CASE("mapobj creation: horde members stand on the formation slots, rotated 
 		"  KindOf = INFANTRY HORDE\nEnd\n").empty());
 	Scene s;
 	// the horde stands at (200, 300) turned by PI/2: the slot offset (ox, oy) maps to (-oy, ox)
-	s.map.chunks.objects = { object("SoldierHorde", 200, 300, 0, (float)(kPi / 2.0)), object("OverfullHorde", 500, 500, 0, 0.0f) };
+	s.map.chunks.objects = { object("SoldierHorde", 200, 300, 0, (float)(kPi / 2.0)), object("OverfullHorde", 500, 500, 0, 0.0f),
+		object("RamHorde", 800, 800, 0, 0.0f) };
 	s.run(w);
-	// 1 horde parent (draws nothing) + 3 members; the second horde: 2 slots for 4 payload members: 2 placed, 2 unplaced
-	REQUIRE(s.out.drawables.size() == 2 + 3 + 2);
-	CHECK(s.out.report.hordes == 2);
-	CHECK(s.out.report.hordeMembers == 5);
-	CHECK(s.out.report.hordePayload == 7);
+	// 1 horde parent (draws nothing) + 3 members; the second horde: 2 slots for 4 payload members: 2 placed, 2 unplaced; the ram horde: its ram
+	REQUIRE(s.out.drawables.size() == 2 + 3 + 2 + 2);
+	CHECK(s.out.report.hordes == 3);
+	CHECK(s.out.report.hordeMembers == 6);
+	CHECK(s.out.report.hordePayload == 8);
 	CHECK(s.out.report.hordeUnplaced == 2);
 	const MapObjectDrawable &parent = s.out.drawables[0];
 	CHECK_FALSE(parent.hordeMember);
@@ -582,6 +593,13 @@ TEST_CASE("mapobj creation: horde members stand on the formation slots, rotated 
 		CHECK(m.position.z == doctest::Approx(10.0f)); // on the ground (raw 256 = 10)
 		CHECK(m.angle == doctest::Approx((float)(kPi / 2.0)));
 	}
+	// the ram horde's table is centred on its MACHINE rank's first slot (RW 0x86C4EA), not on the mean of its slots (17.5, 1.25): the ram stands on its horde
+	CHECK(MapHordeSpawn::unitTypeIsMachine(w.things, "Ram"));
+	CHECK_FALSE(MapHordeSpawn::unitTypeIsMachine(w.things, "Soldier"));
+	const MapObjectDrawable &ram = s.out.drawables.back();
+	CHECK(ram.hordeMember);
+	CHECK(ram.position.x == 800.0f);
+	CHECK(ram.position.y == 800.0f);
 	// the unit-type matcher: the same template, an EquivalentTo entry, a reskin
 	CHECK(MapHordeSpawn::unitTypeMatches(w.things, "Soldier", "Soldier"));
 	CHECK_FALSE(MapHordeSpawn::unitTypeMatches(w.things, "Soldier", "SoldierHorde"));

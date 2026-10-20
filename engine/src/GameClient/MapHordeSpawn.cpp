@@ -7,6 +7,7 @@
 #include "Common/RandomValue.h"
 #include "GameLogic/Object/Contain/HordeContainBehaviorData.h"
 #include "GameLogic/Object/Contain/HordeContainCore.h"
+#include "GameLogic/ObjectTemplateInfo.h"
 
 #include <variant>
 
@@ -41,6 +42,13 @@ void MapHordeSpawn::bindHordeContainData(ModuleFactory &modules)
 {
 	modules.bindTypedData<HordeContainBehaviorData>("HordeContain", MODULETYPE_BEHAVIOR);
 	modules.bindTypedData<HordeContainBehaviorData>("HorseHordeContain", MODULETYPE_BEHAVIOR);
+}
+
+bool MapHordeSpawn::unitTypeIsMachine(const ThingFactory &things, const std::string &unitType)
+{
+	static const int kMachine = ObjectTemplateInfoBuilder::kindOfIndex("MACHINE");
+	const ThingTemplate *tt = things.findTemplate(unitType);
+	return tt != nullptr && kMachine >= 0 && MaskTest(ObjectTemplateInfoBuilder::build(*tt->getFinalOverride()).kindOf, (unsigned)kMachine);
 }
 
 bool MapHordeSpawn::unitTypeMatches(const ThingFactory &things, const std::string &unitType, const std::string &memberName)
@@ -111,6 +119,7 @@ void MapHordeSpawn::spawn(const ThingTemplate &tmpl, const ThingFactory &things,
 	HordeContainCore core(hd, rng, [&things](const std::string &slotUnitType, const std::string &memberName) {
 		return MapHordeSpawn::unitTypeMatches(things, slotUnitType, memberName);
 	});
+	core.setMachineTest([&things](const std::string &unitType) { return MapHordeSpawn::unitTypeIsMachine(things, unitType); });
 	core.buildSlots(true);
 	result.slots = core.slots().size();
 	if (hd.m_randomOffset.x > 0.0f || hd.m_randomOffset.y > 0.0f)
