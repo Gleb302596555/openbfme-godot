@@ -605,3 +605,65 @@ TEST_CASE("TerrainRoads: four branches on the same side preserve authored strips
 			}
 		}
 }
+
+TEST_CASE("TerrainRoads: short tee and cross arms preserve source strips before any stub changes")
+{
+	WorldHeightMap map=flatMap(40,40,0,0);
+	RoadTypeIndex types;
+	types.byName["r"]={"R","R.tga",20,1,false};
+	for (int degree : {3,4})
+		for (bool reversed : {false,true})
+			for (int shortArm=0;shortArm<degree;++shortArm)
+			{
+				const Point2F directions[]={{1,0},{-1,0},{0,1},{0,-1}};
+				std::vector<MapObject> objects;
+				for (int arm=0;arm<degree;++arm)
+				{
+					const float length=arm==shortArm?5.0f:100.0f;
+					const Point2F end={150+directions[arm].x*length,150+directions[arm].y*length};
+					objects.push_back(roadPoint("R",reversed?end.x:150,reversed?end.y:150,FLAG_ROAD_POINT1));
+					objects.push_back(roadPoint("R",reversed?150:end.x,reversed?150:end.y,FLAG_ROAD_POINT2));
+				}
+				std::vector<RoadStrip> strips;
+				RoadBuildReport report;
+				TerrainRoads::buildStrips(objects,types,map,0,strips,report);
+				REQUIRE(strips.size()==size_t(degree));
+				CHECK(report.teeJoins==0);
+				CHECK(report.fourWayJoins==0);
+				CHECK(report.specialJunctionsPending==1);
+				for (int arm=0;arm<degree;++arm)
+				{
+					std::vector<MapObject> pair(objects.begin()+arm*2,objects.begin()+arm*2+2);
+					std::vector<RoadStrip> source;
+					RoadBuildReport single;
+					TerrainRoads::buildStrips(pair,types,map,0,source,single);
+					REQUIRE(source.size()==1);
+					CHECK(strips[arm].position==source[0].position);
+					CHECK(strips[arm].uv==source[0].uv);
+				}
+			}
+}
+
+TEST_CASE("TerrainRoads: endpoint index isolates coordinates and matches mixed-case road names")
+{
+	WorldHeightMap map=flatMap(30,30,0,0);
+	RoadTypeIndex types;
+	types.byName["r"]={"R","R.tga",20,1,false};
+	std::vector<MapObject> objects;
+	for (int junction=0;junction<64;++junction)
+	{
+		const float x=150.0f+float(junction)*300.0f;
+		for (const Point2F d : std::vector<Point2F>{{-100,0},{100,0},{0,100}})
+		{
+			objects.push_back(roadPoint("r",x,150,FLAG_ROAD_POINT1));
+			objects.push_back(roadPoint("R",x+d.x,150+d.y,FLAG_ROAD_POINT2));
+		}
+	}
+	std::vector<RoadStrip> strips;
+	RoadBuildReport report;
+	TerrainRoads::buildStrips(objects,types,map,0,strips,report);
+	CHECK(report.pairs==192);
+	CHECK(report.teeJoins==64);
+	CHECK(report.specialJunctionsPending==0);
+	CHECK(strips.size()==256);
+}
