@@ -87,6 +87,11 @@ func _ready() -> void:
 	_label.add_theme_color_override("font_outline_color", Color.BLACK)
 	_label.add_theme_constant_override("outline_size", 4)
 	layer.add_child(_label)
+	# the weather is the map's (Weather.ini, the map's map.ini / solo.ini): a missing or unreadable file leaves no report to play
+	var wr: Dictionary = _world.get_weather_report()
+	if not wr.get("loaded", false):
+		_fail("the weather did not load: %s" % [wr.get("errors", ["GameWorld has no weather"])])
+		return
 	_run()
 
 
@@ -124,7 +129,9 @@ func _look_at_base() -> Vector2:
 func _wait(seconds: float) -> void:
 	var t := 0.0
 	while t < seconds:
-		var dt := 1.0 / 30.0
+		# the screenshots step fixed frames of 1 / 30 s (the same shot every run); the interactive playback follows the time the frames took (review of
+		# #59: a fixed step per drawn frame ran 4.8 times too fast at 144 Hz), at most 0.25 s a frame
+		var dt := 1.0 / 30.0 if _shots != "" else clampf(get_process_delta_time(), 0.0, 0.25)
 		_world.advance(dt)
 		t += dt
 		var wr: Dictionary = _world.get_weather_report()
