@@ -117,7 +117,7 @@ func _build_ui(problem: String) -> void:
 	var intro := Label.new()
 	intro.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	intro.text = ("OpenBFME plays on your own copy of the game: The Rise of the Witch-king patched to 2.01 and The Battle for Middle-earth II "
-		+ "patched to 1.06 (English). They stay where they are; OpenBFME only reads them and never changes them.\n"
+		+ "patched to 1.06, in any language. They stay where they are; OpenBFME only reads them and never changes them.\n"
 		+ "Choose the two folders that hold the games' .big files. Folders found on this computer are offered below.")
 	box.add_child(intro)
 	if not problem.is_empty():

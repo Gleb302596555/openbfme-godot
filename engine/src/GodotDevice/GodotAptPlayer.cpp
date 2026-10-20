@@ -63,6 +63,7 @@
 #include "GodotDevice/GodotGameStart.h"
 #include "GodotDevice/GodotGameWorld.h"
 #include "GodotDevice/GodotRetailFileSystem.h"
+#include "Common/RetailArchivePolicy.h"
 #include "Common/ArchiveFileSystem.h"
 #include "GameClient/CreateAHeroHeroList.h"
 #include "GameClient/GUI/AptScreens/AptCreateAHero.h"
@@ -1016,7 +1017,10 @@ struct AptMenuPlayer::Impl
 		{
 			bytes.clear();
 			error.clear();
-			if (!originalSource->readFile("data/lotr.str", bytes, &error) || !strings.parse(bytes, &error))
+			// a non-English install has the compiled lotr.csf instead (GameTextTable::loadRetail)
+			const bool csf = !originalSource->fileExists("data/lotr.str") && originalSource->fileExists("lotr.csf");
+			if (csf ? (!originalSource->readFile("lotr.csf", bytes, &error) || !strings.parseCSF(bytes.data(), bytes.size(), &error))
+					: (!originalSource->readFile("data/lotr.str", bytes, &error) || !strings.parse(bytes, &error)))
 			{
 				errorsOut.push_back(toGodot("original data/lotr.str: " + error));
 			}
@@ -4041,7 +4045,8 @@ void AptMenuPlayer::drawCanvas(const AptCanvasList &list)
 						Dictionary info;
 						if (m->presentationFs.is_valid() && m->presentationFs->is_shell_source() && m->presentationVideos && !title.empty())
 						{
-							const VideoStreamInfo opened = m->presentationVideos->locate(title, toNative(m->presentationFs->install_root()), "", "English");
+							const VideoStreamInfo opened = m->presentationVideos->locate(title, toNative(m->presentationFs->install_root()), "",
+								DetectRetailLanguageOfInstall(toNative(m->presentationFs->install_root()))); // the install's lang\<Language>*.big ("English")
 							info["ok"] = opened.ok;
 							info["full_path"] = toGodot(opened.fullPath);
 							info["error"] = toGodot(opened.error);

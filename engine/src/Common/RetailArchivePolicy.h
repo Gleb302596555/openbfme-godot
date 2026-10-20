@@ -50,6 +50,18 @@
 //    the first one is mounted, so a failure leaves the file system empty
 //  * every *.big found under an install must be in the policy or in that install's explicit
 //    exclusion list (known 2.02/HD archives); anything else is an error
+//
+// Languages: the policies describe English installs. An archive whose `language` is not "ALL" is a language
+// archive (lang/English.big, lang/EnglishAudio.big, lang/englishpatch201.big). LocalizeRetailPolicy looks at the
+// install's lang/*.big: when the English ones are there (or no language is found) the policy is used unchanged.
+// Otherwise the install's language is the stem of its single lang/<language>.big (no "audio"/"patch" in the name),
+// and each language archive is swapped for lang/<Language><suffix>.big, written in the English entry's case style
+// so the load order is the English one. The swapped archive is pinned by engine/data/retail-archives/
+// language-archives.json when that language is known there (German), else it is unpinned: it must exist and open as
+// a valid BIG, its md5 is computed and reported, and the mount warns. OPENBFME_STRICT_LANGUAGE=1 refuses unpinned
+// language archives. An audio archive several languages share (EnglishAudio.big: "EN NL NO PL SV TR") stays the
+// pinned English one when the install has no <language>audio.big of its own. The language-independent archives are
+// verified by md5 exactly as for English.
 
 #pragma once
 
@@ -65,6 +77,8 @@ struct RetailArchiveEntry
 	std::string path; // canonical, forward slashes, retail case (e.g. "apt/MainMenu.big")
 	std::string md5;
 	std::uint64_t size = 0;
+	std::string language; // the policy's "language" ("ALL", "EN", "EN NL NO PL SV TR"); "" when the JSON has none
+	bool pinned = true;   // false: a language archive of a language with no known md5 (LocalizeRetailPolicy): presence + a valid BIG only
 };
 
 // lane CONTRIB-1: one allowed version of one entry of an entry-checked archive
@@ -116,6 +130,24 @@ struct RetailArchivePolicy
 	static bool loadBuiltin(const std::string &id, RetailArchivePolicy &out, std::string *error); // "rotwk-201", "bfme2-106"
 };
 
+// the install language and the archives LocalizeRetailPolicy chose
+struct RetailLanguageChoice
+{
+	std::string language;              // retail-style name ("English", "German"); "" when the folder has no language archive
+	bool english = true;               // true: the policy is used as it is
+	std::vector<std::string> unpinned; // canonical paths of language archives with no known md5 (the mount warns, or refuses in strict mode)
+};
+
+// The language of a folder's lang/*.big (`onDiskSizes` as for ChooseRetailLayout; only the keys are read). "" when none or ambiguous.
+std::string DetectRetailLanguage(const std::map<std::string, std::uint64_t> &onDiskSizes);
+// The same from an install directory on disk (lang/ listed case-insensitively).
+std::string DetectRetailLanguageOfInstall(const std::string &installRoot);
+// The policy for the language the folder holds (see "Languages" above). With an English or language-less folder it is `policy` unchanged.
+RetailArchivePolicy LocalizeRetailPolicy(const RetailArchivePolicy &policy, const std::map<std::string, std::uint64_t> &onDiskSizes,
+	RetailLanguageChoice *choice = nullptr);
+// OPENBFME_STRICT_LANGUAGE is set to a value other than "" / "0"
+bool RetailStrictLanguage();
+
 // lane CONTRIB-1: which layout a folder holds, from the presence and size of the archives that differ between layouts
 struct RetailLayoutChoice
 {
@@ -165,7 +197,8 @@ struct RetailMountReport
 	std::vector<MountedArchive> mounted;   // in load order (earlier wins); empty unless ok
 	std::vector<std::string> excludedFound; // "<install>:<path>" skipped on purpose
 	std::vector<std::string> layouts;       // lane CONTRIB-1: "<install>:<layout id>" of every install whose policy knows several layouts
-	std::vector<std::string> warnings;      // non-fatal (e.g. the md5 cache could not be written)
+	std::vector<std::string> warnings;      // non-fatal (e.g. the md5 cache could not be written, a language archive with no known md5)
+	std::vector<std::string> languages;     // "<install>:<language>" of every install with a language archive ("rotwk:English")
 	int archivesHashed = 0;                 // md5 computed from the file during this mount
 	int md5CacheHits = 0;                   // md5 taken from the cache (path+size+mtime unchanged)
 };

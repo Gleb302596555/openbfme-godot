@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <cstring>
 #include <cstdlib>
+#include <deque>
 #include <filesystem>
 #include <fstream>
 #include <map>
@@ -191,6 +192,13 @@ bool RetailArchivePolicy::parse(const std::string &policyJson, const std::string
 		entry.path = p->string;
 		entry.md5 = AsciiStringUtil::lowered(m->string);
 		entry.size = (std::uint64_t)s->number;
+		if (const JsonValue *l = a.get("language"))
+		{
+			if (l->isString())
+			{
+				entry.language = l->string;
+			}
+		}
 		out.archives.push_back(entry);
 	}
 
@@ -416,6 +424,206 @@ bool RetailArchivePolicy::loadBuiltin(const std::string &id, RetailArchivePolicy
 		return false;
 	}
 	return parse(policy, exclusions, out, error);
+}
+
+namespace
+{
+
+// "lang/<stem>.big" (a key: lower case, '/') -> "<stem>", else ""
+std::string languageStemOf(const std::string &key)
+{
+	if (key.size() <= 9 || key.compare(0, 5, "lang/") != 0 || key.compare(key.size() - 4, 4, ".big") != 0)
+	{
+		return std::string();
+	}
+	const std::string stem = key.substr(5, key.size() - 9);
+	return stem.find('/') == std::string::npos ? stem : std::string();
+}
+
+// a language's own archive: lang/<language>.big (not <language>audio.big or <language>patchNNN.big)
+bool isBaseLanguageStem(const std::string &stem)
+{
+	return !stem.empty() && stem.find("patch") == std::string::npos && (stem.size() < 5 || stem.compare(stem.size() - 5, 5, "audio") != 0);
+}
+
+// a policy archive that belongs to the English language (lang/English*.big, its "language" not ALL)
+bool isLanguageArchive(const RetailArchiveEntry &a)
+{
+	return !a.language.empty() && a.language != "ALL" && normalizedKey(a.path).compare(0, 12, "lang/english") == 0;
+}
+
+// engine/data/retail-archives/language-archives.json: "game|patch|language" (language lower case) -> its archives
+const std::map<std::string, std::vector<RetailArchiveEntry>> &knownLanguageArchives()
+{
+	static const std::map<std::string, std::vector<RetailArchiveEntry>> known = [] {
+		std::map<std::string, std::vector<RetailArchiveEntry>> out;
+		std::string text;
+		JsonValue root;
+		std::string error;
+		if (!GetEmbeddedDataFile("language-archives.json", text) || !JsonValue::parse(text, root, &error))
+		{
+			return out;
+		}
+		const JsonValue *languages = root.get("languages");
+		if (!languages || !languages->isArray())
+		{
+			return out;
+		}
+		for (const JsonValue &l : languages->array)
+		{
+			const JsonValue *game = l.get("game");
+			const JsonValue *patch = l.get("patch");
+			const JsonValue *language = l.get("language");
+			const JsonValue *archives = l.get("archives");
+			if (!game || !game->isString() || !patch || !patch->isString() || !language || !language->isString() || !archives || !archives->isArray())
+			{
+				continue;
+			}
+			std::vector<RetailArchiveEntry> &list = out[game->string + "|" + patch->string + "|" + AsciiStringUtil::lowered(language->string)];
+			for (const JsonValue &a : archives->array)
+			{
+				const JsonValue *p = a.get("path");
+				const JsonValue *m = a.get("md5");
+				const JsonValue *s = a.get("size");
+				if (p && p->isString() && m && m->isString() && Md5Cache::isMd5Hex(AsciiStringUtil::lowered(m->string)) && s && s->isNumber() && s->number > 0)
+				{
+					RetailArchiveEntry e;
+					e.path = p->string;
+					e.md5 = AsciiStringUtil::lowered(m->string);
+					e.size = (std::uint64_t)s->number;
+					e.language = language->string;
+					list.push_back(e);
+				}
+			}
+		}
+		return out;
+	}();
+	return known;
+}
+
+} // namespace
+
+std::string DetectRetailLanguage(const std::map<std::string, std::uint64_t> &onDiskSizes)
+{
+	std::vector<std::string> stems;
+	for (const auto &d : onDiskSizes)
+	{
+		const std::string stem = languageStemOf(normalizedKey(d.first));
+		if (isBaseLanguageStem(stem))
+		{
+			stems.push_back(stem);
+		}
+	}
+	std::string stem;
+	if (std::find(stems.begin(), stems.end(), "english") != stems.end())
+	{
+		stem = "english"; // the English archives win: any other language's archive is then an unknown archive of the English policy
+	}
+	else if (stems.size() == 1)
+	{
+		stem = stems.front();
+	}
+	if (!stem.empty())
+	{
+		stem[0] = (char)std::toupper((unsigned char)stem[0]);
+	}
+	return stem;
+}
+
+std::string DetectRetailLanguageOfInstall(const std::string &installRoot)
+{
+	std::map<std::string, std::uint64_t> keys;
+	std::error_code ec;
+	for (fs::directory_iterator it(fs::u8path(installRoot), ec), end; !ec && it != end; it.increment(ec))
+	{
+		std::error_code dirError;
+		if (!it->is_directory(dirError) || AsciiStringUtil::lowered(it->path().filename().u8string()) != "lang")
+		{
+			continue;
+		}
+		std::error_code langError;
+		for (fs::directory_iterator f(it->path(), langError), fend; !langError && f != fend; f.increment(langError))
+		{
+			keys[normalizedKey("lang/" + f->path().filename().u8string())] = 0;
+		}
+	}
+	return DetectRetailLanguage(keys);
+}
+
+bool RetailStrictLanguage()
+{
+	const char *v = std::getenv("OPENBFME_STRICT_LANGUAGE");
+	return v && *v && std::string(v) != "0";
+}
+
+RetailArchivePolicy LocalizeRetailPolicy(const RetailArchivePolicy &policy, const std::map<std::string, std::uint64_t> &onDiskSizes,
+	RetailLanguageChoice *choice)
+{
+	RetailLanguageChoice local;
+	RetailLanguageChoice &c = choice ? *choice : local;
+	c = RetailLanguageChoice();
+	c.language = DetectRetailLanguage(onDiskSizes);
+	const std::string lower = AsciiStringUtil::lowered(c.language);
+	if (lower.empty() || lower == "english")
+	{
+		return policy; // the English path: the policy as it is
+	}
+	c.english = false;
+	const auto &table = knownLanguageArchives();
+	const auto known = table.find(policy.game + "|" + policy.patch + "|" + lower);
+	// "lang/English.big" -> "lang/German.big", "lang/EnglishAudio.big" -> "lang/GermanAudio.big", "lang/englishpatch201.big" ->
+	// "lang/germanpatch201.big": the English entry's case style, so BFMEArchiveLoadOrder sorts them as it sorts the English ones
+	auto localized = [&c, &lower](const std::string &path) {
+		const bool capital = path.size() > 5 && path[5] == 'E';
+		const std::string stem = capital ? c.language : lower;
+		return path.substr(0, 5) + stem + path.substr(5 + 7); // after "lang/english"
+	};
+	RetailArchivePolicy out = policy;
+	for (RetailArchiveEntry &a : out.archives)
+	{
+		if (!isLanguageArchive(a))
+		{
+			continue;
+		}
+		RetailArchiveEntry l;
+		l.path = localized(a.path);
+		l.language = c.language;
+		if (!onDiskSizes.count(normalizedKey(l.path)) && a.language.find(' ') != std::string::npos && onDiskSizes.count(normalizedKey(a.path)))
+		{
+			continue; // an archive several languages share (EnglishAudio.big: "EN NL NO PL SV TR"): this language uses the English one, pinned
+		}
+		const RetailArchiveEntry *pin = nullptr;
+		if (known != table.end())
+		{
+			for (const RetailArchiveEntry &k : known->second)
+			{
+				if (normalizedKey(k.path) == normalizedKey(l.path))
+				{
+					pin = &k;
+				}
+			}
+		}
+		if (pin)
+		{
+			l.md5 = pin->md5;
+			l.size = pin->size;
+		}
+		else
+		{
+			l.pinned = false;
+			c.unpinned.push_back(l.path);
+		}
+		a = l;
+	}
+	const size_t excluded = out.excluded.size();
+	for (size_t i = 0; i < excluded; ++i)
+	{
+		if (normalizedKey(out.excluded[i]).compare(0, 12, "lang/english") == 0)
+		{
+			out.excluded.push_back(localized(out.excluded[i])); // e.g. 2.02's lang/<language>patch202.big
+		}
+	}
+	return out;
 }
 
 std::vector<RetailArchiveEntry> RetailArchiveLoadOrder(const std::vector<RetailArchiveEntry> &archives)
@@ -756,6 +964,7 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 	{
 		report.errors.push_back("no installs given");
 	}
+	std::deque<RetailArchivePolicy> localizedPolicies; // one per install, its language's (stable addresses)
 
 	for (const RetailInstall &install : installs)
 	{
@@ -794,12 +1003,22 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 			continue;
 		}
 
+		// the install's language (RetailArchivePolicy.h "Languages"): an English folder keeps the policy as it is
+		RetailLanguageChoice language;
+		// kept until the replay: the pending checks point into it (entryCheck)
+		const RetailArchivePolicy &policy = localizedPolicies.emplace_back(LocalizeRetailPolicy(install.policy, onDiskSizes, &language));
+		if (!language.language.empty())
+		{
+			report.languages.push_back(install.label + ":" + language.language);
+		}
+		const bool strictLanguage = RetailStrictLanguage();
+
 		std::map<std::string, bool> known;
-		for (const RetailArchiveEntry &entry : install.policy.archives)
+		for (const RetailArchiveEntry &entry : policy.archives)
 		{
 			known[normalizedKey(entry.path)] = true;
 		}
-		for (const std::string &ex : install.policy.excluded)
+		for (const std::string &ex : policy.excluded)
 		{
 			std::string key = normalizedKey(ex);
 			if (onDisk.count(key))
@@ -813,23 +1032,23 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 			if (!known.count(disk.first))
 			{
 				stepError(install.label + ": unknown archive '" + disk.first +
-					"' is not part of " + install.policy.game + " " + install.policy.patch + " and not a known exclusion");
+					"' is not part of " + policy.game + " " + policy.patch + " and not a known exclusion");
 			}
 		}
 
 		// lane CONTRIB-1: which known layout the folder holds (RetailArchivePolicy.h "Layouts"); none: the error names what the folder has, and the
 		// archives every layout shares are still checked so their own problems show too
-		const RetailLayoutChoice layout = ChooseRetailLayout(install.policy, install.label, onDiskSizes);
+		const RetailLayoutChoice layout = ChooseRetailLayout(policy, install.label, onDiskSizes);
 		if (!layout.ok)
 		{
 			stepError(layout.error);
 		}
-		else if (!install.policy.layouts.empty())
+		else if (!policy.layouts.empty())
 		{
 			report.layouts.push_back(install.label + ":" + layout.layoutId);
 		}
 		const std::string layoutWords = layout.layoutName.empty() ? std::string() : " (" + layout.layoutName + ")";
-		const std::string advice = install.policy.advice.empty() ? std::string() : " " + install.policy.advice;
+		const std::string advice = policy.advice.empty() ? std::string() : " " + policy.advice;
 		for (const RetailArchiveEntry &entry : RetailArchiveLoadOrder(layout.archives))
 		{
 			auto found = onDisk.find(normalizedKey(entry.path));
@@ -838,9 +1057,15 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 				stepError(install.label + ": missing archive " + entry.path + layoutWords);
 				continue;
 			}
-			const RetailEntryCheckedArchive *entryCheck = install.policy.entryCheckOf(entry.path);
+			if (!entry.pinned && strictLanguage)
+			{
+				stepError(install.label + ": " + entry.path + " is a " + language.language + " language archive with no known md5 in this build, and " +
+					"OPENBFME_STRICT_LANGUAGE is set: unset it to mount it unverified");
+				continue;
+			}
+			const RetailEntryCheckedArchive *entryCheck = policy.entryCheckOf(entry.path);
 			std::uint64_t size = (std::uint64_t)fs::file_size(found->second, ec);
-			if (ec || (entryCheck == nullptr && size != entry.size))
+			if (ec || (entryCheck == nullptr && entry.pinned && size != entry.size))
 			{
 				stepError(install.label + ": size mismatch for " + entry.path + ": expected " +
 					std::to_string(entry.size) + ", found " + (ec ? ec.message() : std::to_string(size)) + layoutWords +
@@ -871,6 +1096,10 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 			p.entryCheck = entryCheck;
 			p.layoutName = layoutWords;
 			p.advice = advice;
+			if (!entry.pinned)
+			{
+				p.entry.size = size; // the file's own size (no pin)
+			}
 			if (entryCheck)
 			{
 				// read and checked entry by entry in the replay below (a small archive: Data1.big is under 1 MB)
@@ -884,7 +1113,8 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 			if (!hashOfKey.count(p.key))
 			{
 				auto cached = cache.entries.find(p.key);
-				if (cached == cache.entries.end() || cached->second != entry.md5)
+				// an unpinned language archive: any cached md5 of the same path + size + modification time is its md5
+				if (cached == cache.entries.end() || (entry.pinned && cached->second != entry.md5))
 				{
 					hashOfKey[p.key] = hashes.size();
 					hashes.push_back(KeyHash{ disk, std::string(), std::string() });
@@ -943,7 +1173,7 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 		std::string md5;
 		bool fromCache = false;
 		auto cached = cache.entries.find(p.key);
-		if (cached != cache.entries.end() && cached->second == p.entry.md5)
+		if (cached != cache.entries.end() && (cached->second == p.entry.md5 || !p.entry.pinned))
 		{
 			md5 = cached->second;
 			fromCache = true;
@@ -963,6 +1193,20 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 				cache.entries[p.key] = md5;
 				cache.dirty = true;
 			}
+		}
+		if (!p.entry.pinned)
+		{
+			// a language archive this build has no md5 for: present, opened as a valid BIG below (the transactional open), mounted with its own md5
+			RetailArchiveEntry unpinned = p.entry;
+			unpinned.md5 = md5;
+			report.warnings.push_back(p.install + ": " + p.entry.path + " (" + p.entry.language + ") has no known md5 in this build; it is mounted unverified (md5 " + md5 +
+				", " + std::to_string(p.entry.size) + " bytes). Set OPENBFME_STRICT_LANGUAGE=1 to refuse it.");
+			if (fromCache)
+			{
+				++report.md5CacheHits;
+			}
+			plan.push_back({ p.install, unpinned, p.diskPath });
+			continue;
 		}
 		if (md5 != p.entry.md5)
 		{

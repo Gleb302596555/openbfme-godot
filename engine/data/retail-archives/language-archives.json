@@ -1,0 +1,29 @@
+{
+  "schema": "openbfme.retail-language-archives",
+  "schemaVersion": 1,
+  "note": "Known language archives of non-English retail installs (path, size, md5; hashes only). They replace the policies' English lang/*.big archives (the entries whose language is not ALL) when the install holds that language. A language that is not listed here is still mounted, with a warning (OPENBFME_STRICT_LANGUAGE=1 refuses it). The paths keep the English entries' case style, so the archives sort into the same mount order.",
+  "languages": [
+    {
+      "game": "rotwk",
+      "patch": "2.01",
+      "language": "German",
+      "source": "a retail German RotWK 2.01 install (tester's copy)",
+      "archives": [
+        { "path": "lang/German.big", "md5": "dc848c78316743147da8c4faefa13813", "size": 4851405 },
+        { "path": "lang/GermanAudio.big", "md5": "0ab4448d26b969aa745858397035827e", "size": 367752862 },
+        { "path": "lang/germanpatch201.big", "md5": "ae6b32eca5888d9069e72df59a714771", "size": 1700686 }
+      ]
+    },
+    {
+      "game": "bfme2",
+      "patch": "1.06",
+      "language": "German",
+      "source": "a retail German BFME2 1.06 install (tester's copy)",
+      "archives": [
+        { "path": "lang/german.big", "md5": "6b095f659c94f545afaa7e51b8c8e92f", "size": 4928921 },
+        { "path": "lang/germanaudio.big", "md5": "5e421dfad95e81a74b090d8a7f3d1f16", "size": 557553322 },
+        { "path": "lang/germanpatch105.big", "md5": "9d952b46a9ea61fd013b95ae1c49923c", "size": 1434693 }
+      ]
+    }
+  ]
+}
