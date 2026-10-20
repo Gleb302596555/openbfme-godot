@@ -568,8 +568,9 @@ TEST_CASE("mapobj creation: horde members stand on the formation slots, rotated 
 	const MapObjectDrawable &parent = s.out.drawables[0];
 	CHECK_FALSE(parent.hordeMember);
 	CHECK(parent.draws[0].model.empty());
-	// members in payload order take the first free slots: rank 1 slots (50,0), (50,20), (50,-20)
-	const float expected[3][2] = { { 200.0f - 0.0f, 300.0f + 50.0f }, { 200.0f - 20.0f, 300.0f + 50.0f }, { 200.0f + 20.0f, 300.0f + 50.0f } };
+	// members in payload order take the first free slots: rank 1 slots (50,0), (50,20), (50,-20) less the table's centre (RW 0x86C4EA: three at X 50 and
+	// three at 30, 40): (10,0), (10,20), (10,-20), turned by the horde's angle
+	const float expected[3][2] = { { 200.0f - 0.0f, 300.0f + 10.0f }, { 200.0f - 20.0f, 300.0f + 10.0f }, { 200.0f + 20.0f, 300.0f + 10.0f } };
 	for (size_t i = 0; i < 3; ++i)
 	{
 		const MapObjectDrawable &m = s.out.drawables[1 + i];

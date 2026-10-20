@@ -17,6 +17,7 @@
 #include "GameLogic/Object/Contain/HordeContainBehaviorData.h"
 #include "GameLogic/Object/Contain/HordeContainCore.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/ObjectTemplateInfo.h"
 
 #include <algorithm>
 #include <list>
@@ -46,6 +47,12 @@ HordeContain::HordeContain(Thing *thing, const HordeContainBehaviorData *data)
 	ThingFactory &things = logic.things();
 	m_core = std::make_unique<HordeContainCore>(data->horde, logic.random(), [&things](const std::string &slotUnitType, const std::string &memberName) {
 		return MapHordeSpawn::unitTypeMatches(things, slotUnitType, memberName);
+	});
+	// RW 0x86C4EA's machine rank: RW 0x6D1305 finds the UnitType's template, ThingTemplate + 0x109 bit 3 is KindOf MACHINE
+	m_core->setMachineTest([&logic, &things](const std::string &unitType) {
+		static const int kMachine = ObjectTemplateInfoBuilder::kindOfIndex("MACHINE");
+		const ThingTemplate *tt = things.findTemplate(unitType);
+		return tt != nullptr && kMachine >= 0 && MaskTest(logic.templateInfo(tt->getFinalOverride()).kindOf, (unsigned)kMachine);
 	});
 	// MOVE-1: a game with an AIWorld runs the contain (member pass, reformation, the TransportContain model condition mirror: RW 0x872EFC); a logic without one
 	// (the LOGIC-1 fixtures) keeps the static horde: the module sleeps and the members stay where creation put them (S-149)
@@ -503,11 +510,6 @@ void HordeContain::reserveMemberGoals()
 		return;
 	}
 	Object *horde = getObject();
-	static const std::string kStopRankBox =
-		"[S-1832] a horde's destination check (RW 0x6F1584: the LARGE_RECTANGLE_PATHFIND box of its geometry, 6 x 10 cells for a 30 x 50 box, centred on the goal) "
-		"meets only the member goals reserved inside it (RW 0x86EF13): hordes whose ranks all stand 30 or more ahead of the horde object (ElvenLorienArcherHorde, "
-		"DwarvenAxeThrowerHorde) can be sent to one point and stand on it together; not verified against a retail run";
-	horde->logic().noteStop(kStopRankBox);
 	AIWorld *world = horde->logic().aiWorld();
 	if (world == nullptr || !world->mapReady())
 	{
