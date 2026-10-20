@@ -114,6 +114,9 @@ public:
 	// a click at a window pixel inside the radar square: the left button moves the view there, the right button orders the selection to that ground point (MSG_DO_MOVETO) when it is
 	// controllable. True when the click was the radar's.
 	bool radarClick(HudInput::Button button, int x, int y, int timeMs);
+	// the ping wheel (not retail): whether window point (x, y) is on the radar, and the map point radarClick's mapping gives it (`hasPoint` false while the
+	// radar shows nothing: radarClick's own gates). No click, no camera move: a read
+	bool radarPoint(int x, int y, bool &hasPoint, float &wx, float &wy);
 
 	WindowManager &windows() { return *m_wm; }
 	Apt &apt() { return m_wm->apt(); }

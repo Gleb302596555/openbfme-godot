@@ -1054,6 +1054,24 @@ bool InGameHud::radarClick(HudInput::Button button, int x, int y, int timeMs)
 	return true;
 }
 
+bool InGameHud::radarPoint(int x, int y, bool &hasPoint, float &wx, float &wy)
+{
+	hasPoint = false;
+	float sq[4];
+	if (!radarSquare(sq) || (float)x < sq[0] || (float)x > sq[2] || (float)y < sq[1] || (float)y > sq[3])
+	{
+		return false;
+	}
+	if (!m_radar->ready() || !m_radar->drawn(false)) // radarClick's gates: a radar that shows nothing maps no point
+	{
+		return true;
+	}
+	const int size = 128;
+	const float kx = (float)size / (sq[2] - sq[0]), ky = (float)size / (sq[3] - sq[1]);
+	hasPoint = m_radar->click(((float)x - sq[0]) * kx, ((float)y - sq[1]) * ky, size, wx, wy);
+	return true;
+}
+
 bool InGameHud::commandContentAt(int x, int y)
 {
 	AptStageMapping m;

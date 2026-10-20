@@ -5,6 +5,7 @@
 ##            the ground (with the faction's beacon model), the minimap has a beacon event there, the HUD never saw the G
 ##   kinds    the other sectors (right, down, left, a tap in the middle): each its own kind; "danger" is the radar's under-attack event; a fourth ping within
 ##            five seconds of three is refused
+##   minimap  Alt+G over the minimap: the ping is at the map point the minimap shows there, not on the terrain behind the HUD
 ##   space    the camera moved away, Space (the CommandMap's VIEW_LAST_RADAR_EVENT) looks at a ping again
 ##   menus    with the quit menu open Alt+G opens nothing; Esc over an open wheel closes it and leaves the quit menu shut
 ##   options  OpenBFMEPingWheel = no (the Options screen's apply): Alt+G opens nothing, G alone was never the wheel's; back on
@@ -182,6 +183,27 @@ func _scenario_kinds() -> String:
 	return ""
 
 
+func _scenario_minimap() -> String:
+	await wait_burst()
+	var sq: Rect2 = hud.get_radar_square()
+	if sq.size.x < 10:
+		return "no minimap: %s" % sq
+	var at := sq.position + sq.size * Vector2(0.62, 0.4)
+	var shown: int = board.shown_total
+	await ping(at, at)
+	if board.shown_total != shown + 1:
+		return "no ping over the minimap"
+	var p := Vector2(board.last.x, board.last.y)
+	var back: Vector2 = hud.world_to_radar_pixel(p)
+	var cell := sq.size.x / 128.0
+	if back.distance_to(at) > 2.5 * cell + 1.0:
+		return "the ping at %s shows at minimap pixel %s, the pointer was at %s" % [p, back, at]
+	var behind: Vector2 = hud.pixel_to_world(at)
+	if behind.x > -1e8 and behind.distance_to(p) < 1.0:
+		return "the ping is the terrain behind the minimap"
+	return ""
+
+
 func _scenario_space() -> String:
 	await wait_burst()
 	var c := centre()
@@ -273,6 +295,10 @@ func _scenario_hash() -> String:
 		await game._step(5)
 	await game._step(5)
 	print("PINGWHEEL hash %s pings %d: %s" % [mode, board.shown_total, JSON.stringify(world.get_frame_hashes())])
+	if mode == "pings" and board.shown_total < 3:
+		return "only %d pings were placed: the comparison would test nothing" % board.shown_total
+	if mode != "pings" and board.shown_total != 0:
+		return "the quiet run placed %d pings" % board.shown_total
 	return ""
 
 

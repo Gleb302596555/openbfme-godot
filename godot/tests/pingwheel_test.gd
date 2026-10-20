@@ -41,7 +41,7 @@ func _run() -> int:
 		_check(false, "the openbfme extension is loaded")
 		return 1
 	var common := ["--auto", "--faction=FactionMen", "--seed=7"]
-	_game_run(common + ["--pingwheel=wheel,kinds,space,menus,options"], 5, "the ping wheel in a skirmish")
+	_game_run(common + ["--pingwheel=wheel,kinds,minimap,space,menus,options"], 6, "the ping wheel in a skirmish")
 	var quiet := _hash_run(common, "quiet")
 	var pinged := _hash_run(common, "pings")
 	var same := 0
@@ -160,8 +160,10 @@ func _unit_checks() -> void:
 	_push(_key(KEY_G, true, true))
 	handled = _push(_key(KEY_ESCAPE, true))
 	_check(handled and not _wheel.is_open(), "Esc closes the wheel and goes no further (no quit menu)")
-	_push(_key(KEY_G, false))
+	_check(_push(_key(KEY_G, true, false, true)), "after Esc the key's repeat is still the wheel's")
 	_push(_key(KEY_ALT, false))
+	_check(_push(_key(KEY_G, false)), "after Esc, G released after Alt is still the wheel's (no Hold Ground hotkey)")
+	_check(not _push(_key(KEY_G, false)), "... and only that release")
 	_push(_key(KEY_ALT, true, true))
 	_push(_key(KEY_G, true, true))
 	_move(c + Vector2(0, R * 0.7))

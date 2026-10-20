@@ -36,7 +36,7 @@ var board: Node              # scripts/ping_board.gd
 var binding := DEFAULT_BINDING
 var enabled := true
 var can_open := Callable()   # () -> bool: a game is on and no menu has the input (game.gd); unset: always
-var pick := Callable()       # (pixel: Vector2) -> Vector2 SAGE x, y; x < -1e8 when the pixel shows no ground (InGameHudNode.pixel_to_world)
+var pick := Callable()       # (pixel: Vector2) -> Vector2 SAGE x, y; x < -1e8 for none (InGameHudNode.ping_point: the minimap's point over the minimap)
 var commandmap: Array = []  # the game's CommandMap records (InGameHudNode.get_command_map): a record on the key keeps it (a mod's)
 var font: Font
 var opened_total := 0
@@ -49,6 +49,8 @@ var _pointer := Vector2.ZERO
 var _pointer_seen := false
 var _age := 0.0
 var _swallow_button := -1    # a mouse button whose release the wheel takes (its press closed the wheel)
+var _key_held := false       # the binding's key or button went down for the wheel: its repeats and its release are the wheel's, even after Esc or a click
+                             # closed the wheel (a G released after Alt would otherwise reach the HUD as a command button's hotkey)
 var _canvas: Control
 
 
@@ -127,7 +129,14 @@ func _input(event: InputEvent) -> void:
 		_swallow_button = -1
 		_handled()
 		return
+	if _key_held and not _open and _is_binding(event):
+		_handled()
+		if not event.is_pressed():
+			_key_held = false
+		return
 	if _open:
+		if _is_binding(event) and not event.is_pressed():
+			_key_held = false
 		if key != null and key.keycode == KEY_ESCAPE and key.pressed:
 			_handled()
 			close(false)
@@ -149,7 +158,8 @@ func _input(event: InputEvent) -> void:
 		return
 	if not _pointer_seen:
 		_pointer = get_viewport().get_mouse_position()
-	_handled() # the key is the wheel's while it is on, even over a pixel with no ground (the wheel then stays shut)
+	_handled() # the key is the wheel's while it is on, even over a pixel with no ground (the wheel then stays shut), until it is released
+	_key_held = true
 	open_at(_pointer)
 
 
@@ -184,6 +194,7 @@ func close(place: bool) -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
 		close(false)
+		_key_held = false # the release goes to the other window
 
 
 func _process(delta: float) -> void:

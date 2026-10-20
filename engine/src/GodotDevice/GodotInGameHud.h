@@ -111,6 +111,7 @@ public:
 	void camera_look_at(const Vector2 &sage_xy);
 	void camera_set_height(float height_above_ground);
 	Vector2 pixel_to_world(const Vector2 &pixel) const;
+	Vector2 ping_point(const Vector2 &pixel) const; ///< the ping wheel (not retail): the map point a ping at this pixel marks (see the .cpp)
 	Vector2 world_to_pixel(const Vector2 &world_xy) const;
 	// lane IDLE-1: { ok, picked (the id the HUD's pick answers at `pixel`, 0 for none), target ("hit" / "miss" / "not_drawn" / "unknown" / "gone": the pick ray
 	// against object `id`'s drawn model alone), target_t, selectable (HudObjects::isSelectable of `id`) } (the QA harness's failed-click verdict)

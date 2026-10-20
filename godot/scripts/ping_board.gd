@@ -135,7 +135,8 @@ func _play(field: String) -> void:
 
 
 func _process(delta: float) -> void:
-	if not _pending.is_empty() and (world == null or world.is_logic_held()):
+	var held: bool = world == null or world.is_logic_held() # the ground height is a live read (move_hints.gd does the same)
+	if held and not _pending.is_empty():
 		for p in _pending:
 			_add_marker(p[0], p[1])
 		_pending.clear()

@@ -2422,7 +2422,7 @@ func _install_pings(hud: Node) -> void:
 		printerr("GAME pings: ", r.errors)
 	_ping_wheel = load("res://scripts/ping_wheel.gd").new()
 	_ping_wheel.board = _pings
-	_ping_wheel.pick = hud.pixel_to_world
+	_ping_wheel.pick = hud.ping_point # the terrain under the pointer, the minimap's point over the minimap, none over the rest of the HUD
 	_ping_wheel.can_open = _ping_wheel_allowed
 	_ping_wheel.commandmap = hud.get_command_map()
 	if _shell != null:
