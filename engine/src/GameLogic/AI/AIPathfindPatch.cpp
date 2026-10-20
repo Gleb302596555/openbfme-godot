@@ -253,7 +253,9 @@ Path *Pathfinder::patchPath(PathfindObject &obj, const PathfindLocomotorInfo &lo
 		startCell->clearParentCell();
 	}
 	startCell->startPathfind(goalCell);
-	startCell->setTotalCost(costToGoal(startCell, goalCell)); // RW 0x6F1F0D (lane WALL-2)
+	// RW 0x6F1F0D (lane WALL-2). The pending hops (pathfinder + 0x1C1CC) are kept: RW 0x6F7938 has no reference to the vector (read in RotWK 2.01: its
+	// estimate calls at 0x6F7ADA / 0x6F7D5B take it as the last search left it), unlike the path patch RW 0x6FC9DA, which empties it (0x6FCA2C)
+	startCell->setTotalCost(costToGoal(startCell, goalCell));
 	m_open.clear();
 	m_closedList = nullptr;
 	m_open.push(startCell);

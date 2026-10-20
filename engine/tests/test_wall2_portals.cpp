@@ -269,6 +269,26 @@ TEST_CASE("wall2 portals: the hierarchical corridor crosses the portal and recor
 	delete p;
 }
 
+TEST_CASE("wall2 portals: a link whose two waypoints share a cell is skipped by the hierarchical search (it would make the cell its own parent)")
+{
+	PortalWorld w(false); // the cliff wall without the postern: the east side is another zone
+	PathfindWaypoint p;
+	p.type = PWAYPOINT_WALK;
+	p.owner = w.wall->id;
+	p.pos = { 175.0f, 105.0f, 0.0f }; // cell (17, 10), the reachable cell nearest the goal
+	const int a = w.pf->createWaypoint(p);
+	p.pos = { 176.0f, 105.0f, 0.0f }; // the same cell
+	const int b = w.pf->createWaypoint(p);
+	REQUIRE(w.pf->addWaypointLink(a, b));
+	w.pf->addPortal(a);
+	w.zones();
+	// the goal beyond the wall: the block search ends at its closest cell; taken, the link made cell (17, 10) its own parent there and the corridor's
+	// parent walk (makeHierarchicalPathPassable) never ended
+	Coord3D from{ 165.0f, 105.0f, 0.0f }, to{ 305.0f, 105.0f, 0.0f }, adjusted{};
+	w.pf->findClosestHierarchicalPath(w.unit, groundLoco(), true, &from, &to, &adjusted);
+	CHECK(w.pf->corridorPortals().empty()); // no hop through a link that moves nobody
+}
+
 TEST_CASE("wall2 portals: Waypoint::isValidUnitType: an enemy of the owner may not pass without AllowEnemies, nor before the activation frame, nor when the filter refuses")
 {
 	{
