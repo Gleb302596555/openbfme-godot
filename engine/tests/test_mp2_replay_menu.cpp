@@ -141,6 +141,8 @@ TEST_CASE("mp2 retail: Load Replay shows SaveLoad.apt's replay page: the files i
 	starttest::wheelAndClickRow(fx, autos, 0);
 	starttest::wheelAndClickRow(fx, games, 1);
 	fx.tick(10);
+	load = starttest::firstButtonIn(fx.at(screen->level(), "MainButtons.Load")); // the movie recreates the button clip after a press: look it up again
+	REQUIRE(load);
 	starttest::clickButton(fx, *load);
 	fx.tick(60);
 	REQUIRE(fx.services.countRequests(ShellAction::LoadReplayFile) == 2);
@@ -159,6 +161,8 @@ TEST_CASE("mp2 retail: Load Replay shows SaveLoad.apt's replay page: the files i
 	CHECK(games->winGetEnabled());
 	starttest::wheelAndClickRow(fx, games, 0);
 	fx.tick(10);
+	load = starttest::firstButtonIn(fx.at(screen->level(), "MainButtons.Load"));
+	REQUIRE(load);
 	starttest::clickButton(fx, *load);
 	fx.tick(60);
 	CHECK(fx.services.countRequests(ShellAction::LoadReplayFile) == 3);

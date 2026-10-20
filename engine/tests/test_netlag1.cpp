@@ -216,6 +216,12 @@ TEST_CASE("netlag1 replay: a recording made by the pre-lane build (q19 tree with
 {
 	OPENBFME_REQUIRE_START(s);
 	(void)s;
+	// the recording's profile names the English archives it was made with (ProfileIdentity: every mounted archive, the language archives
+	// lang/English*.big among them): another language's install is another profile, and the replay is refused as it should be
+	if (retailtest::skipUnlessEnglish("netlag1 replay (a recording made with the English archives)"))
+	{
+		return;
+	}
 	const std::string fixture = std::string(OPENBFME_TEST_DATA_DIR) + "/netlag1/prelane_runahead2.replay";
 	ReplayFile file;
 	std::string error;

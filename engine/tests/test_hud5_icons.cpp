@@ -49,8 +49,7 @@ struct IconRig
 	{
 		std::vector<std::uint8_t> bytes;
 		std::string error;
-		REQUIRE_MESSAGE(s.mount->fs->readFile("data/lotr.str", bytes, &error), error);
-		REQUIRE_MESSAGE(text.table.parse(bytes, &error), error);
+		REQUIRE_MESSAGE(text.table.loadRetail(*s.mount->fs, &error), error); // data/lotr.str, or a non-English install's lotr.csf
 		imageEnv.fileSystem = s.mount->fs.get();
 		images.registerBlocks(imageEnv.blocks);
 		INI ini(imageEnv);
@@ -122,13 +121,23 @@ TEST_CASE("hud5 icons retail: a building under construction shows lotr.str's \"B
 	b->setStatus(OBJECT_STATUS_UNDER_CONSTRUCTION, true);
 	b->setConstructionPercent(37.4f);
 	std::vector<IconUIOp> ops = IconRig::of(r.build({}, 0), b->getID());
+	// the install's CONTROLBAR:UnderConstructionDesc with the percent ("Building: %.0f%%" in English)
+	std::string fmt;
+	REQUIRE(r.text.table.lookup("CONTROLBAR:UnderConstructionDesc", fmt));
+	char want[256];
+	std::snprintf(want, sizeof want, fmt.c_str(), 37.4);
+	const bool english = retailtest::installLanguage() == "English";
 	int texts = 0;
 	for (const IconUIOp &op : ops)
 	{
 		if (op.kind == IconUIOp::TEXT)
 		{
 			++texts;
-			CHECK(op.text == "Building: 37%");
+			CHECK(op.text == want);
+			if (english)
+			{
+				CHECK(op.text == "Building: 37%");
+			}
 			CHECK(op.color == 0xFFFFFFFFu);
 			CHECK(op.dropColor == 0xFF000000u);
 		}
