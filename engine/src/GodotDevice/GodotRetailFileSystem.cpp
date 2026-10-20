@@ -324,6 +324,12 @@ Dictionary RetailFileSystem::mountFrom(const std::string &rotwkRoot, const std::
 		result["md5_cache_hits"] = report.md5CacheHits;
 		result["mounted"] = mounted;
 		result["excluded_found"] = excluded;
+		PackedStringArray languages; // issue #49: "<install>:<language>" (RetailMountReport::languages)
+		for (const std::string &l : report.languages)
+		{
+			languages.push_back(toGodot(l));
+		}
+		result["languages"] = languages;
 		if (report.ok)
 		{
 			m_fs = std::move(fs);
@@ -429,6 +435,12 @@ Dictionary RetailFileSystem::mountBfme2Shell(const std::string &bfme2Root)
 			excluded.push_back(toGodot(e));
 		}
 		result["excluded_found"] = excluded;
+		PackedStringArray languages; // issue #49: "<install>:<language>" (RetailMountReport::languages)
+		for (const std::string &l : report.languages)
+		{
+			languages.push_back(toGodot(l));
+		}
+		result["languages"] = languages;
 		PackedStringArray warnings;
 		for (const std::string &w : report.warnings)
 		{

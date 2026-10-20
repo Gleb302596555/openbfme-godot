@@ -52,7 +52,12 @@ files.
   8.6 GB, with Pause, Resume and Cancel. Every file is checked against
   OpenBFME's list of the 2.01 / 1.06 files, and the game offers the folders on
   its first start. It is on the launcher's **Game files** page; to hide it,
-  turn off *Offer to download the games* in Settings.
+  turn off *Offer to download the games* in Settings. Its **Language** picks
+  the game's text (and speech) language, and **Voices** can pick another
+  language's speech: English, Dutch, French, German, Italian, Norwegian,
+  Polish, Spanish or Swedish (Turkish and Russian are not offered: the
+  service does not list the sizes of some of their files). It starts in the
+  language of the games already found, and remembers the choice.
 - **Windows 10 or 11** (64-bit) with a graphics card that supports Vulkan or
   Direct3D 12, or **64-bit Linux** with Vulkan graphics (Mesa or the
   proprietary drivers). On Linux the game folders can be inside a Wine or
@@ -144,9 +149,14 @@ It then checks every game archive (size and MD5) against the list of the
 same in every language and are checked as always, and the language's own
 archives (`lang/<Language>.big`, `<Language>Audio.big` and the patch's
 `<language>patch201.big` / `<language>patch105.big`) are checked against the
-known MD5s of that language (English and German so far). Another language is
-accepted too, with a warning in the log that its language archives could not
-be verified; set `OPENBFME_STRICT_LANGUAGE=1` to refuse it instead; `Data1.big` (fonts, scripts and the built-in
+known MD5s of that language: English, Dutch, French, German, Italian,
+Norwegian, Polish, Russian, Spanish, Swedish and Turkish, as the All In One
+BFME Launcher service lists them (the German ones were also checked against a
+German retail install). The speech archive can be another language's: a
+folder with `lang/German.big` and `lang/FrenchAudio.big` plays German text
+with French voices. A language OpenBFME does not know is accepted too, with a
+warning that its language archives could not be checked; set
+`OPENBFME_STRICT_LANGUAGE=1` to refuse it instead. `Data1.big` (fonts, scripts and the built-in
 Create-a-Heroes) is checked file by file inside it, because the disc and All
 In One copies of it differ. This takes about a minute the first time and is
 cached afterwards. The folders are remembered in `install-paths.cfg` in the
@@ -643,9 +653,13 @@ recorded stop in [STOPS.md](STOPS.md); the ID is given for reference.
   lobby, but there is no public one yet, and Quick Match, War of the Ring
   online and the stats pages are missing (see
   [Online play](#online-play-test-feature); S-4070 .. S-4076).
-- Game languages other than English and German are accepted, but their
-  language archives are not verified (a warning in the log; S-1561).
+- A language the All In One BFME Launcher service does not list is accepted,
+  but its language archives are not checked (a warning in the log; S-1561).
   OpenBFME's own texts (the online screens, the rules tab) are English only.
+  Players whose games are in different languages cannot join each other's
+  games or play each other's replays: the language archives are part of the
+  game files the lobby and replays compare, although they do not change the
+  game itself.
 
 **Looks or sounds different**
 - Team colours on units and buildings are an educated guess at how the
