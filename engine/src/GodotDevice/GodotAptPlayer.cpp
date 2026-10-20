@@ -6388,25 +6388,13 @@ Dictionary AptMenuPlayer::create_a_hero_save_folder(const String &rotwkInstall) 
 {
 	Dictionary out;
 	out["ok"] = false;
-	std::vector<std::uint8_t> bytes;
-	const std::string path = toNative(rotwkInstall) + "/gi.dat";
-	{
-		std::ifstream in(std::filesystem::u8path(path), std::ios::binary);
-		if (!in)
-		{
-			out["error"] = toGodot("cannot read " + path + " (RW 0xAAA6C0 reads the install's gi.dat for the user data folder's name)");
-			return out;
-		}
-		bytes.assign(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
-	}
-	std::string error;
-	const std::string leaf = UserDataFolder::leafName(bytes, &error);
-	if (leaf.empty())
+	std::string leaf, error;
+	const std::string userData = UserDataFolder::userDataFolderOfInstall(toNative(rotwkInstall), toNative(OS::get_singleton()->get_data_dir()), '/', &leaf, &error);
+	if (userData.empty())
 	{
 		out["error"] = toGodot(error);
 		return out;
 	}
-	const std::string userData = UserDataFolder::userDataFolder(toNative(OS::get_singleton()->get_data_dir()), leaf, '/');
 	out["ok"] = true;
 	out["leaf"] = toGodot(leaf);
 	out["user_data"] = toGodot(userData);
