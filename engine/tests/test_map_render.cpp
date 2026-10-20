@@ -534,3 +534,74 @@ TEST_CASE("TerrainRoads: authored JOIN endpoints receive alpha end caps in eithe
 		CHECK(report.endCaps==0);
 	}
 }
+
+TEST_CASE("TerrainRoads: reversing corners preserve bounded source strips when neither curve nor miter fits")
+{
+	WorldHeightMap map = flatMap(40,40,0,0);
+	RoadTypeIndex types;
+	types.byName["r"] = {"R","R.tga",20,1,false};
+	for (bool reversed : {false,true})
+		for (int flags : {0,int(FLAG_ROAD_CORNER_ANGLED)})
+			for (const Point2F far : std::vector<Point2F>{{0,99},{0,101},{100,105}})
+			{
+				std::vector<MapObject> objects = {
+					roadPoint("R",0,100,FLAG_ROAD_POINT1),roadPoint("R",100,100,FLAG_ROAD_POINT2|flags),
+					roadPoint("R",reversed?far.x:100,reversed?far.y:100,FLAG_ROAD_POINT1|flags),
+					roadPoint("R",reversed?100:far.x,reversed?100:far.y,FLAG_ROAD_POINT2|flags)};
+				std::vector<RoadStrip> strips;
+				RoadBuildReport report;
+				TerrainRoads::buildStrips(objects,types,map,0,strips,report);
+				REQUIRE(strips.size()==2);
+				CHECK(report.miteredJoins==0);
+				CHECK(report.roundedJoins==0);
+				for(size_t segment=0;segment<2;++segment)
+				{
+					std::vector<MapObject> single(objects.begin()+segment*2,objects.begin()+segment*2+2);
+					std::vector<RoadStrip> source;
+					RoadBuildReport singleReport;
+					TerrainRoads::buildStrips(single,types,map,0,source,singleReport);
+					REQUIRE(source.size()==1);
+					CHECK(strips[segment].position==source[0].position);
+					CHECK(strips[segment].uv==source[0].uv);
+				}
+			}
+}
+
+TEST_CASE("TerrainRoads: four branches on the same side preserve authored strips and report an unsupported junction")
+{
+	WorldHeightMap map = flatMap(40,40,0,0);
+	RoadTypeIndex types;
+	types.byName["r"] = {"R","R.tga",20,1,false};
+	const std::vector<std::vector<Point2F>> cases={
+		{{250,150},{50,150},{150,250},{250,250}},
+		{{250,150},{50,150},{130,250},{170,250}},
+		{{250,150},{50,150},{130,50},{170,50}}};
+	for (const auto &points : cases)
+	for (bool reversed : {false,true})
+		for (size_t first=0;first<points.size();++first)
+		{
+			std::vector<MapObject> objects;
+			for(size_t k=0;k<points.size();++k)
+			{
+				const auto p=points[(first+k)%points.size()];
+				objects.push_back(roadPoint("R",reversed?p.x:150,reversed?p.y:150,FLAG_ROAD_POINT1));
+				objects.push_back(roadPoint("R",reversed?150:p.x,reversed?150:p.y,FLAG_ROAD_POINT2));
+			}
+			std::vector<RoadStrip> strips;
+			RoadBuildReport report;
+			TerrainRoads::buildStrips(objects,types,map,0,strips,report);
+			REQUIRE(strips.size()==4);
+			CHECK(report.fourWayJoins==0);
+			CHECK(report.specialJunctionsPending==1);
+			for(size_t segment=0;segment<4;++segment)
+			{
+				std::vector<MapObject> single(objects.begin()+segment*2,objects.begin()+segment*2+2);
+				std::vector<RoadStrip> source;
+				RoadBuildReport singleReport;
+				TerrainRoads::buildStrips(single,types,map,0,source,singleReport);
+				REQUIRE(source.size()==1);
+				CHECK(strips[segment].position==source[0].position);
+				CHECK(strips[segment].uv==source[0].uv);
+			}
+		}
+}

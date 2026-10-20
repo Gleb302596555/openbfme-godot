@@ -341,7 +341,12 @@ void TerrainRoads::buildStrips(const std::vector<MapObject> &objects, const Road
 			if(dot(tee,branches[other[0]].dir)<0) tee=tee*-1.0f;
 			// Y and H-shaped three-way junctions have separate atlas artwork;
 			// retain their source geometry and report the remaining S-036 gap.
-			if(branches.size()==3 && (mostOpposite>=-0.866f || std::fabs(dot(up,branches[other[0]].dir))>0.5f))
+			// A cross needs two transverse arms on opposite sides of the axis.
+			// Validate before setStub mutates any endpoint: a same-side pair
+			// must not acquire a phantom arm across the junction center.
+			const bool crossUnsupported=branches.size()==4 &&
+				(dot(tee,branches[other[1]].dir)>=0.0f || std::fabs(dot(up,branches[other[1]].dir))>0.5f);
+			if(mostOpposite>=-0.866f || std::fabs(dot(up,branches[other[0]].dir))>0.5f || crossUnsupported)
 			{
 				++report.specialJunctionsPending;
 				continue;
@@ -427,13 +432,34 @@ void TerrainRoads::buildStrips(const std::vector<MapObject> &objects, const Road
 			}
 			const float det = a.dir.x * b.dir.y - a.dir.y * b.dir.x;
 			if (det == 0.0f) continue;
+			V2 joined[2];
+			bool fits = true;
 			for (int side = 0; side < 2; ++side)
 			{
-				V2 &p = side ? ends[i].top[ei] : ends[i].bottom[ei];
-				V2 &q = (side == (orientation > 0.0f ? 1 : 0)) ? ends[match].top[ej] : ends[match].bottom[ej];
+				const bool topB = side == (orientation > 0.0f ? 1 : 0);
+				const V2 p = side ? ends[i].top[ei] : ends[i].bottom[ei];
+				const V2 q = topB ? ends[match].top[ej] : ends[match].bottom[ej];
+				const V2 farA = side ? ends[i].top[1-ei] : ends[i].bottom[1-ei];
+				const V2 farB = topB ? ends[match].top[1-ej] : ends[match].bottom[1-ej];
 				const float t = ((q.x - p.x) * b.dir.y - (q.y - p.y) * b.dir.x) / det;
-				p = {p.x + t * a.dir.x, p.y + t * a.dir.y};
-				q = p;
+				const float u = ((q.x - p.x) * a.dir.y - (q.y - p.y) * a.dir.x) / det;
+				// Renderer adaptation: bound both edge intersections by the
+				// remaining legs, including earlier changes at their far ends.
+				// Near-reversals can have nonzero det but unbounded miters.
+				const float availableA = std::fabs((farA.x-p.x)*a.dir.x+(farA.y-p.y)*a.dir.y);
+				const float availableB = std::fabs((farB.x-q.x)*b.dir.x+(farB.y-q.y)*b.dir.y);
+				if (!std::isfinite(t) || !std::isfinite(u) || std::fabs(t)+0.5f>=availableA || std::fabs(u)+0.5f>=availableB)
+				{
+					fits = false;
+					break;
+				}
+				joined[side] = {p.x + t * a.dir.x, p.y + t * a.dir.y};
+			}
+			if (!fits) continue; // retain both source edges; never commit half a join
+			for (int side = 0; side < 2; ++side)
+			{
+				(side ? ends[i].top[ei] : ends[i].bottom[ei]) = joined[side];
+				(side == (orientation > 0.0f ? 1 : 0) ? ends[match].top[ej] : ends[match].bottom[ej]) = joined[side];
 			}
 			++report.miteredJoins;
 		}
