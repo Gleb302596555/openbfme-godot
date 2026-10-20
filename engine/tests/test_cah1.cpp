@@ -1116,7 +1116,7 @@ TEST_CASE("menuwork1 cah retail shell: the hero list's headers sort it (RW 0x9C4
 	CHECK(c.fx->wm->noteCount("command-unhandled") == 0);
 	// the controls with nothing behind them say so
 	REQUIRE(c.fx->wm->invokeCallback("AptCreateAHero::OnTakePicture", ""));
-	CHECK(scr->lastMessage() == "OpenBFME: Taking a hero portrait is not available yet: the hero keeps its class's picture.");
+	CHECK(scr->lastMessage() == "OpenBFME: Taking a hero portrait is not available yet: the hero keeps its model's portrait.");
 	REQUIRE(c.fx->wm->invokeCallback("AptCreateAHero::Manager::OnPlayGame", ""));
 	CHECK(scr->lastMessage() == "OpenBFME: Trying a hero on a test map is not available yet: play a skirmish with the hero instead.");
 	REQUIRE(c.fx->wm->invokeCallback("AptCreateAHero::Manager::OnSelectAward", "1"));
@@ -1135,7 +1135,7 @@ TEST_CASE("cah attributes: duplicate tick initializers position all thirty-two s
 	c.show(scr, "Appearance");
 	REQUIRE(c.fx->wm->invokeASAt(scr->level(), "Main.mcAppearanceScreen.Screen.TypeWindow", "gotoAndPlay", { "_attributes" }));
 	c.fx->tick(60);
-	CHECK(c.fx->wm->apt().noteCount("duplicate-init-object-unverified") == 160);
+	CHECK(c.fx->wm->apt().noteCount("duplicate-init-object-unverified") == 1);
 	for (int attribute = 0; attribute < 5; ++attribute)
 	{
 		const std::string path = "Main.mcAppearanceScreen.Screen.TypeWindow.instance12." + std::to_string(attribute) + ".AttribBar";
