@@ -186,7 +186,7 @@ func _scenario_kinds() -> String:
 func _scenario_minimap() -> String:
 	await wait_burst()
 	var sq: Rect2 = hud.get_radar_square()
-	if sq.size.x < 10:
+	if sq.size.x < 4: # a headless run's window is 64 x 64: its minimap is a few pixels wide, still enough for the mapping
 		return "no minimap: %s" % sq
 	var at := sq.position + sq.size * Vector2(0.62, 0.4)
 	var shown: int = board.shown_total
@@ -196,7 +196,7 @@ func _scenario_minimap() -> String:
 	var p := Vector2(board.last.x, board.last.y)
 	var back: Vector2 = hud.world_to_radar_pixel(p)
 	var cell := sq.size.x / 128.0
-	if back.distance_to(at) > 2.5 * cell + 1.0:
+	if back.distance_to(at) > 2.5 * cell + 1.5: # ping_point takes the whole pixel
 		return "the ping at %s shows at minimap pixel %s, the pointer was at %s" % [p, back, at]
 	var behind: Vector2 = hud.pixel_to_world(at)
 	if behind.x > -1e8 and behind.distance_to(p) < 1.0:
