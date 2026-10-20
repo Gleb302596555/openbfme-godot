@@ -654,3 +654,127 @@ def test_aio_progress_keeps_moving_in_the_window_during_a_large_download(tmp_pat
         assert not list(target(tmp_path).rglob("*.part"))
     finally:
         server.stop()
+
+
+# ---- issue #49: the download's text and voice languages ---------------------------------------------------------------------------------
+
+LANG_NAMES = {"FR": "French", "DE": "German", "IT": "Italian"}
+
+
+def language_packages() -> list[dict]:
+    """the two base packages with an English, a French and a German version (French and German with their own speech archives; the
+    English one is shared like the Dutch version shares it, which the "drop" lists model)"""
+    r = os.urandom
+    pkgs = packages()
+    pkgs[0]["files"] = [
+        _file("_patch201.big", r(150000), pinned=True),
+        _file("lang\\English.big", r(40000), "EN", pinned=True),
+        _file("lang\\EnglishAudio.big", r(30000), "EN NL", pinned=True),
+        _file("lang\\French.big", r(20000), "FR"),
+        _file("lang\\FrenchAudio.big", r(21000), "FR"),
+        _file("lang\\German.big", r(22000), "DE"),
+        _file("lang\\GermanAudio.big", r(23000), "DE"),
+        _file("lang\\Italian.big", r(9000), "IT"),  # pinned, but BFME2 has no Italian version here: never offered
+    ]
+    pkgs[1]["files"] = [
+        _file("INI.big", r(60000), pinned=True),
+        _file("lang\\english.big", r(10000), "EN"),
+        _file("lang\\French.big", r(11000), "FR"),
+        _file("lang\\German.big", r(12000), "DE"),
+    ]
+    return pkgs
+
+
+def language_pins(pkgs: list[dict]) -> list[dict]:
+    """pins() plus each base package's "languages" (aio_pins.gd's form, as tools/release/aio_languages.py captures it)"""
+    out = pins(pkgs)
+    for p, pin in zip(pkgs, out):
+        if p["key"] == "bfme1":
+            continue
+        langs = {}
+        for code in ("FR", "DE", "IT"):
+            add = [[f["name"].replace("\\", "/"), hashlib.md5(f["data"]).hexdigest(), len(f["data"])] for f in p["files"] if f["language"] == code]
+            if not add:
+                continue
+            drop = [f["name"].replace("\\", "/") for f in p["files"]
+                    if f["language"] != "ALL" and "EN" in f["language"].split() and code not in f["language"].split()]
+            langs[code] = {"name": LANG_NAMES[code], "drop": drop, "add": add}
+        pin["languages"] = langs
+    return out
+
+
+@pytest.fixture
+def lang_service(tmp_path):
+    s = ReleaseServer()
+    svc = Service(s, tmp_path, language_packages())
+    svc.pins_file.write_text(json.dumps(language_pins(svc.pkgs)))
+    yield svc
+    s.stop()
+
+
+def _have(tmp: Path, folder: str) -> set[str]:
+    base = target(tmp) / folder
+    return {str(p.relative_to(base)).replace("\\", "/") for p in base.rglob("*") if p.is_file()}
+
+
+@needs_godot
+def test_aio_language_takes_that_versions_files(tmp_path, lang_service):
+    r = install(tmp_path, lang_service, "--aio-language=FR")
+    assert r.code == 0 and r.has("LAUNCHER AIO language French"), r
+    assert r.has("original-RotWK: the download takes 3 of the package's 8 files (French; every one is pinned and matches)"), r
+    assert _have(tmp_path, "RotWK") == {"_patch201.big", "lang/French.big", "lang/FrenchAudio.big"}
+    assert _have(tmp_path, "BFME2") == {"INI.big", "lang/French.big"}
+    assert (target(tmp_path) / "RotWK" / "lang" / "French.big").read_bytes() == lang_service.data("lang\\French.big")
+    # the choice is remembered: the next start (no option) takes the same version and finds it all there
+    r = launch(tmp_path, lang_service, f"--aio-install={target(tmp_path)}", "--aio-consent")
+    assert r.code == 0 and r.has("0 files downloaded, 5 already there"), r
+
+
+@needs_godot
+def test_aio_voice_language_takes_another_versions_speech(tmp_path, lang_service):
+    r = install(tmp_path, lang_service, "--aio-language=FR", "--aio-voice=DE")
+    assert r.code == 0 and r.has("LAUNCHER AIO language French text, German voices"), r
+    assert _have(tmp_path, "RotWK") == {"_patch201.big", "lang/French.big", "lang/GermanAudio.big"}
+    other = tmp_path / "en"
+    r = install(other, lang_service, "--aio-language=DE", "--aio-voice=EN")
+    assert r.code == 0, r
+    assert _have(other, "RotWK") == {"_patch201.big", "lang/German.big", "lang/EnglishAudio.big"}
+
+
+@needs_godot
+def test_aio_language_refuses_what_it_does_not_offer(tmp_path, lang_service):
+    for arg in ("--aio-language=IT", "--aio-language=XX", "--aio-voice=IT"):
+        r = install(tmp_path, lang_service, arg)
+        assert r.code == 1 and r.has("--aio-language / --aio-voice: the download offers no"), (arg, r)
+    assert lang_service.file_requests() == []
+
+
+@needs_godot
+def test_aio_a_language_file_it_has_no_pin_for_is_a_changed_package(tmp_path, lang_service):
+    data = os.urandom(5000)
+    md5 = hashlib.md5(data).hexdigest()
+    lang_service.manifests["original-RotWK"]["Files"].append({"Guid": md5, "Name": "lang\\Klingon.big", "Url": f"{lang_service.server.origin}/{OWNER}/{md5}",
+                                                             "Md5": md5, "Language": "KL", "Size": 5000})
+    lang_service.publish()
+    r = install(tmp_path, lang_service, "--aio-language=FR")
+    assert r.code == 3 and r.has("lists lang/Klingon.big, which OpenBFME's list of"), r
+    assert lang_service.file_requests() == []
+
+
+def test_aio_language_tables_agree_with_the_engine():
+    """issue #49: the launcher's language files (tools/release/aio_language_files.json, rendered into aio_pins.gd) and the engine's
+    language-archives.json are one table; every English file a language drops is an English pin, none it adds is"""
+    import aio_languages
+    files, engine = aio_languages.load()
+    assert aio_languages.check(files, engine) == []
+    english = aio_pins.load_files()
+    for guid, per in files.items():
+        names = {str(f[0]).lower() for f in english[guid]}
+        for code, d in per.items():
+            for n in d["drop"]:
+                assert n.lower() in names, (guid, code, n)
+            assert not any(r[0].lower() in names for r in d["add"]), (guid, code)
+    # the German archives are the ones a retail German install has (sizes and MD5s measured on that install)
+    de = {(l["game"], a["path"].lower()): (a["md5"], a["size"]) for l in engine["languages"] if l["code"] == "DE" for a in l["archives"]}
+    assert de[("rotwk", "lang/german.big")] == ("dc848c78316743147da8c4faefa13813", 4851405)
+    assert de[("bfme2", "lang/germanpatch105.big")] == ("9d952b46a9ea61fd013b95ae1c49923c", 1434693)
