@@ -9,6 +9,7 @@
 #include "GameClient/MapObjectDrawables.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawModules.h"
 #include "GameLogic/Map/TerrainLogic.h"
+#include "GameLogic/ObjectTemplateInfo.h"
 #include "LuaTestUtil.h"
 #include "ObjectTestUtil.h"
 
@@ -594,12 +595,39 @@ TEST_CASE("mapobj creation: horde members stand on the formation slots, rotated 
 		CHECK(m.angle == doctest::Approx((float)(kPi / 2.0)));
 	}
 	// the ram horde's table is centred on its MACHINE rank's first slot (RW 0x86C4EA), not on the mean of its slots (17.5, 1.25): the ram stands on its horde
-	CHECK(MapHordeSpawn::unitTypeIsMachine(w.things, "Ram"));
-	CHECK_FALSE(MapHordeSpawn::unitTypeIsMachine(w.things, "Soldier"));
+	auto infoOf = [](const ThingTemplate &t) -> const ObjectTemplateInfo & {
+		static ObjectTemplateInfo last;
+		last = ObjectTemplateInfoBuilder::build(t);
+		return last;
+	};
+	CHECK(MapHordeSpawn::unitTypeIsMachine(w.things, "Ram", infoOf));
+	CHECK_FALSE(MapHordeSpawn::unitTypeIsMachine(w.things, "Soldier", infoOf));
 	const MapObjectDrawable &ram = s.out.drawables.back();
 	CHECK(ram.hordeMember);
 	CHECK(ram.position.x == 800.0f);
 	CHECK(ram.position.y == 800.0f);
+	// a rank naming a template no member has, whose KindOf names an unknown word: the horde's spawn reports it (the map never builds that template's info)
+	MapWorld w2;
+	REQUIRE(w2.load(
+		"Object Soldier\n  KindOf = INFANTRY\nEnd\n"
+		"Object OddRam\n  KindOf = NOSUCHKIND MACHINE\nEnd\n"
+		"Object OddHorde\n"
+		"  Behavior = HordeContain ModuleTag_Horde\n"
+		"    InitialPayload = Soldier 1\n"
+		"    Slots = 2\n"
+		"    RankInfo = RankNumber:1 UnitType:Soldier Position:X:40 Y:0\n"
+		"    RankInfo = RankNumber:2 UnitType:OddRam Position:X:10 Y:0\n"
+		"  End\n"
+		"  KindOf = HORDE\nEnd\n").empty());
+	Scene s2;
+	s2.map.chunks.objects = { object("OddHorde", 100, 100, 0, 0.0f) };
+	s2.run(w2);
+	bool reported = false;
+	for (const std::string &e : s2.out.report.errors)
+	{
+		reported = reported || e.find("template OddRam: ") != std::string::npos;
+	}
+	CHECK(reported);
 	// the unit-type matcher: the same template, an EquivalentTo entry, a reskin
 	CHECK(MapHordeSpawn::unitTypeMatches(w.things, "Soldier", "Soldier"));
 	CHECK_FALSE(MapHordeSpawn::unitTypeMatches(w.things, "Soldier", "SoldierHorde"));

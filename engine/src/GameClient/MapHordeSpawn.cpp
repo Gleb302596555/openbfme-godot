@@ -9,6 +9,7 @@
 #include "GameLogic/Object/Contain/HordeContainCore.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 
+#include <map>
 #include <variant>
 
 namespace
@@ -44,11 +45,12 @@ void MapHordeSpawn::bindHordeContainData(ModuleFactory &modules)
 	modules.bindTypedData<HordeContainBehaviorData>("HorseHordeContain", MODULETYPE_BEHAVIOR);
 }
 
-bool MapHordeSpawn::unitTypeIsMachine(const ThingFactory &things, const std::string &unitType)
+bool MapHordeSpawn::unitTypeIsMachine(const ThingFactory &things, const std::string &unitType,
+	const std::function<const ObjectTemplateInfo &(const ThingTemplate &)> &infoOf)
 {
 	static const int kMachine = ObjectTemplateInfoBuilder::kindOfIndex("MACHINE");
 	const ThingTemplate *tt = things.findTemplate(unitType);
-	return tt != nullptr && kMachine >= 0 && MaskTest(ObjectTemplateInfoBuilder::build(*tt->getFinalOverride()).kindOf, (unsigned)kMachine);
+	return tt != nullptr && kMachine >= 0 && MaskTest(infoOf(*tt->getFinalOverride()).kindOf, (unsigned)kMachine);
 }
 
 bool MapHordeSpawn::unitTypeMatches(const ThingFactory &things, const std::string &unitType, const std::string &memberName)
@@ -119,7 +121,22 @@ void MapHordeSpawn::spawn(const ThingTemplate &tmpl, const ThingFactory &things,
 	HordeContainCore core(hd, rng, [&things](const std::string &slotUnitType, const std::string &memberName) {
 		return MapHordeSpawn::unitTypeMatches(things, slotUnitType, memberName);
 	});
-	core.setMachineTest([&things](const std::string &unitType) { return MapHordeSpawn::unitTypeIsMachine(things, unitType); });
+	// the rank templates' info, built here (a rank may name a template no payload member has: its KindOf error is reported with this horde)
+	std::map<const ThingTemplate *, ObjectTemplateInfo> infos;
+	core.setMachineTest([&things, &infos, &result](const std::string &unitType) {
+		return MapHordeSpawn::unitTypeIsMachine(things, unitType, [&infos, &result](const ThingTemplate &t) -> const ObjectTemplateInfo & {
+			auto it = infos.find(&t);
+			if (it == infos.end())
+			{
+				it = infos.emplace(&t, ObjectTemplateInfoBuilder::build(t)).first;
+				if (!it->second.kindOfError.empty())
+				{
+					result.errors.push_back("template " + t.getName() + ": " + it->second.kindOfError);
+				}
+			}
+			return it->second;
+		});
+	});
 	core.buildSlots(true);
 	result.slots = core.slots().size();
 	if (hd.m_randomOffset.x > 0.0f || hd.m_randomOffset.y > 0.0f)

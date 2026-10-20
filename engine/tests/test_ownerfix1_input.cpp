@@ -38,6 +38,7 @@
 #include "Libraries/WWVegas/WW3D2/assetmgr.h"
 #include "GameLogic/GameMessage.h"
 #include "GameEngineDevice/W3DDevice/GameClient/WorldHeightMap.h"
+#include "GameLogic/AI/AIGuard.h"
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Object/Object.h"
@@ -961,7 +962,7 @@ struct CampaignHud
 //     needs PLAYER_SKILL_POINTS_DELTA_CAMPAIGN (100, gamedata.ini) * 2 = 200 and grants one more, rank 4 needs 300;
 //   * how far the intro's fights take the player is the simulation's, not a retail fact, so the rank is checked against the points earned: merge queue q18
 //     measured 265.38 (rank 3), the lane's own tree (base b5c2095d) between 100 and 200 (rank 2); with the slot centring (RW 0x86C4EA) 19 (rank 1), the Witch
-//     King's guard holding a victim it does not reach (S-5146);
+//     King's guard holding a victim it does not reach (S-3802, the guard machine);
 //   * the store sells Chill Wind (AngmarSpellStoreCommandSet slot 2) for EVIL_RANK_1_COST 5; a cast of it makes a SpellBookChillWind (OCL_SpellBookChillWind).
 TEST_CASE("ownerfix1 campaign powers played: the first Angmar mission's fights earn their rank, Powers opens by the Palantir's button, Chill Wind is bought by clicks, aimed and cast, and its object stands")
 {
@@ -989,6 +990,12 @@ TEST_CASE("ownerfix1 campaign powers played: the first Angmar mission's fights e
 	c.frames(20);
 	const float earned = sc.getSkillPoints();
 	MESSAGE("the intro earned ", earned, " skill points, rank ", sc.getRankLevel());
+	bool guardNoted = false; // stop S-3802: the Witch King's guard in the intro (its victim on the map's edge)
+	for (const auto &kv : c.game->logic().notedStopHits())
+	{
+		guardNoted = guardNoted || kv.first == guardStopLine();
+	}
+	CHECK(guardNoted);
 	CHECK(earned > 0.0f); // tolerance: the heroes' kills are the player's; how many the intro's fight gives is the simulation's
 	// the campaign's thresholds: rank r + 1 at 100 * r skill points (below rank 5, which the intro does not reach)
 	const int rank = 1 + std::min(SimMath::floorToInt(earned) / 100, 3);

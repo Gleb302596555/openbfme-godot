@@ -47,6 +47,7 @@ struct Chase
 	float outerRange = 0.0f; // the outer state's exit radius (getAdjustedVisionRange, RW 0x6FF412)
 	float speed = 0.0f;      // the horde's locomotor speed per frame (curLocomotorSpeed)
 	bool noted3802 = false;
+	bool noted5145 = false; // stop S-5145: a HoldGround guard entered the FACE_OBJECT emotion
 	unsigned lastState = 0;
 	bool sawOuter = false, sawReturn = false;
 };
@@ -122,6 +123,7 @@ Chase runChase(starttest::Shared *st, int stance)
 	for (const auto &kv : logic.notedStopHits())
 	{
 		out.noted3802 = out.noted3802 || kv.first == guardStopLine();
+		out.noted5145 = out.noted5145 || kv.first.rfind("[S-5145] ", 0) == 0;
 	}
 	return out;
 }
@@ -228,6 +230,8 @@ TEST_CASE("play4 stances retail: a fleeing enemy is chased out of the guarded sp
 	// hold.speed * (innerFrames + brakingFrames), and Battle's outer state pursues farther than it)
 	CHECK_FALSE(hold.sawReturn);
 	CHECK(hold.lastState == (unsigned)AI_ATTACK_OBJECT);
+	CHECK(hold.noted5145);
+	CHECK_FALSE(battle.noted5145);
 	CHECK(battle.maxFromSpot <= battle.outerRange + battle.speed * brakingFrames);  // the outer state's leash: the vision range around the spot
 	CHECK(aggressive.maxFromSpot > battle.outerRange);                             // Aggressive: no guard, the plain attack follows the enemy without a leash
 	// stop S-3802 (only the LOCATION guard of the stances is ported) is reported by every game whose units guard; Aggressive does not guard
