@@ -717,6 +717,7 @@ static InstallCheck checkListed(InstallCheck r, const std::string &game, const s
 {
 	const std::string name = displayName(game) + " " + policy.patch;
 	r.language = language.language;
+	r.voice = language.voice;
 	r.unpinnedLanguageArchives = language.unpinned;
 	std::set<std::string> known;
 	for (const RetailArchiveEntry &a : policy.archives)
@@ -731,7 +732,7 @@ static InstallCheck checkListed(InstallCheck r, const std::string &game, const s
 		auto f = onDisk.find(normalizedKey(a.path));
 		if (f == onDisk.end())
 			r.missing.push_back(a.path);
-		else if (a.pinned && f->second != a.size && policy.entryCheckOf(a.path) == nullptr) // an entry-checked archive (Data1.big): the mount checks its entries
+		else if (a.pinned && a.sizeKnown && f->second != a.size && policy.entryCheckOf(a.path) == nullptr) // an entry-checked archive (Data1.big): the mount checks its entries
 			r.wrongSize.push_back(a.path + " (" + std::to_string(f->second) + " bytes, " + policy.patch + " has " + std::to_string(a.size) + ")");
 		else
 			++r.present;

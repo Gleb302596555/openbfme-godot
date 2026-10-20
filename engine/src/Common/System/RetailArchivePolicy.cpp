@@ -485,12 +485,13 @@ const std::map<std::string, std::vector<RetailArchiveEntry>> &knownLanguageArchi
 				const JsonValue *p = a.get("path");
 				const JsonValue *m = a.get("md5");
 				const JsonValue *s = a.get("size");
-				if (p && p->isString() && m && m->isString() && Md5Cache::isMd5Hex(AsciiStringUtil::lowered(m->string)) && s && s->isNumber() && s->number > 0)
+				if (p && p->isString() && m && m->isString() && Md5Cache::isMd5Hex(AsciiStringUtil::lowered(m->string)) && s && s->isNumber() && s->number >= 0)
 				{
 					RetailArchiveEntry e;
 					e.path = p->string;
 					e.md5 = AsciiStringUtil::lowered(m->string);
 					e.size = (std::uint64_t)s->number;
+					e.sizeKnown = e.size != 0; // the service lists some files with size 0: their md5 is still pinned
 					e.language = language->string;
 					list.push_back(e);
 				}
@@ -503,26 +504,12 @@ const std::map<std::string, std::vector<RetailArchiveEntry>> &knownLanguageArchi
 
 } // namespace
 
-std::string DetectRetailLanguage(const std::map<std::string, std::uint64_t> &onDiskSizes)
+namespace
 {
-	std::vector<std::string> stems;
-	for (const auto &d : onDiskSizes)
-	{
-		const std::string stem = languageStemOf(normalizedKey(d.first));
-		if (isBaseLanguageStem(stem))
-		{
-			stems.push_back(stem);
-		}
-	}
-	std::string stem;
-	if (std::find(stems.begin(), stems.end(), "english") != stems.end())
-	{
-		stem = "english"; // the English archives win: any other language's archive is then an unknown archive of the English policy
-	}
-	else if (stems.size() == 1)
-	{
-		stem = stems.front();
-	}
+
+// "German" from "german": the retail style of a language's name
+std::string languageName(std::string stem)
+{
 	if (!stem.empty())
 	{
 		stem[0] = (char)std::toupper((unsigned char)stem[0]);
@@ -530,7 +517,51 @@ std::string DetectRetailLanguage(const std::map<std::string, std::uint64_t> &onD
 	return stem;
 }
 
-std::string DetectRetailLanguageOfInstall(const std::string &installRoot)
+// the stems of lang/<x>.big (`audio` false) or of lang/<x>audio.big (`audio` true)
+std::vector<std::string> languageStems(const std::map<std::string, std::uint64_t> &onDiskSizes, bool audio)
+{
+	std::vector<std::string> stems;
+	for (const auto &d : onDiskSizes)
+	{
+		const std::string stem = languageStemOf(normalizedKey(d.first));
+		if (!audio && isBaseLanguageStem(stem))
+		{
+			stems.push_back(stem);
+		}
+		else if (audio && stem.size() > 5 && stem.find("patch") == std::string::npos && stem.compare(stem.size() - 5, 5, "audio") == 0)
+		{
+			stems.push_back(stem.substr(0, stem.size() - 5));
+		}
+	}
+	return stems;
+}
+
+// English wins (any other language's archive is then an unknown archive of the English policy), else the single stem, else ""
+std::string chooseStem(const std::vector<std::string> &stems)
+{
+	if (std::find(stems.begin(), stems.end(), "english") != stems.end())
+	{
+		return "english";
+	}
+	return stems.size() == 1 ? stems.front() : std::string();
+}
+
+} // namespace
+
+std::string DetectRetailLanguage(const std::map<std::string, std::uint64_t> &onDiskSizes)
+{
+	return languageName(chooseStem(languageStems(onDiskSizes, false)));
+}
+
+std::string DetectRetailVoiceLanguage(const std::map<std::string, std::uint64_t> &onDiskSizes)
+{
+	return languageName(chooseStem(languageStems(onDiskSizes, true)));
+}
+
+namespace
+{
+
+std::map<std::string, std::uint64_t> languageKeysOfInstall(const std::string &installRoot)
 {
 	std::map<std::string, std::uint64_t> keys;
 	std::error_code ec;
@@ -547,7 +578,19 @@ std::string DetectRetailLanguageOfInstall(const std::string &installRoot)
 			keys[normalizedKey("lang/" + f->path().filename().u8string())] = 0;
 		}
 	}
-	return DetectRetailLanguage(keys);
+	return keys;
+}
+
+} // namespace
+
+std::string DetectRetailLanguageOfInstall(const std::string &installRoot)
+{
+	return DetectRetailLanguage(languageKeysOfInstall(installRoot));
+}
+
+std::string DetectRetailVoiceLanguageOfInstall(const std::string &installRoot)
+{
+	return DetectRetailVoiceLanguage(languageKeysOfInstall(installRoot));
 }
 
 bool RetailStrictLanguage()
@@ -563,20 +606,20 @@ RetailArchivePolicy LocalizeRetailPolicy(const RetailArchivePolicy &policy, cons
 	RetailLanguageChoice &c = choice ? *choice : local;
 	c = RetailLanguageChoice();
 	c.language = DetectRetailLanguage(onDiskSizes);
-	const std::string lower = AsciiStringUtil::lowered(c.language);
-	if (lower.empty() || lower == "english")
+	c.voice = DetectRetailVoiceLanguage(onDiskSizes);
+	const std::string text = AsciiStringUtil::lowered(c.language);
+	const std::string voice = AsciiStringUtil::lowered(c.voice);
+	if ((text.empty() || text == "english") && (voice.empty() || voice == "english"))
 	{
 		return policy; // the English path: the policy as it is
 	}
 	c.english = false;
 	const auto &table = knownLanguageArchives();
-	const auto known = table.find(policy.game + "|" + policy.patch + "|" + lower);
 	// "lang/English.big" -> "lang/German.big", "lang/EnglishAudio.big" -> "lang/GermanAudio.big", "lang/englishpatch201.big" ->
 	// "lang/germanpatch201.big": the English entry's case style, so BFMEArchiveLoadOrder sorts them as it sorts the English ones
-	auto localized = [&c, &lower](const std::string &path) {
+	auto localized = [](const std::string &path, const std::string &stem) {
 		const bool capital = path.size() > 5 && path[5] == 'E';
-		const std::string stem = capital ? c.language : lower;
-		return path.substr(0, 5) + stem + path.substr(5 + 7); // after "lang/english"
+		return path.substr(0, 5) + (capital ? languageName(stem) : stem) + path.substr(5 + 7); // after "lang/english"
 	};
 	RetailArchivePolicy out = policy;
 	for (RetailArchiveEntry &a : out.archives)
@@ -585,14 +628,22 @@ RetailArchivePolicy LocalizeRetailPolicy(const RetailArchivePolicy &policy, cons
 		{
 			continue;
 		}
+		const bool audio = AsciiStringUtil::lowered(a.path).find("audio") != std::string::npos;
+		// the speech archive follows the voice language (its own lang/<x>audio.big; none: the text language's), the others the text language
+		const std::string stem = audio && !voice.empty() ? voice : text;
+		if (stem.empty() || stem == "english")
+		{
+			continue; // English text (or voice) in a non-English folder: the policy's pinned English archive
+		}
 		RetailArchiveEntry l;
-		l.path = localized(a.path);
-		l.language = c.language;
-		if (!onDiskSizes.count(normalizedKey(l.path)) && a.language.find(' ') != std::string::npos && onDiskSizes.count(normalizedKey(a.path)))
+		l.path = localized(a.path, stem);
+		l.language = languageName(stem);
+		if (audio && voice.empty() && a.language.find(' ') != std::string::npos && onDiskSizes.count(normalizedKey(a.path)))
 		{
 			continue; // an archive several languages share (EnglishAudio.big: "EN NL NO PL SV TR"): this language uses the English one, pinned
 		}
 		const RetailArchiveEntry *pin = nullptr;
+		const auto known = table.find(policy.game + "|" + policy.patch + "|" + stem);
 		if (known != table.end())
 		{
 			for (const RetailArchiveEntry &k : known->second)
@@ -607,10 +658,12 @@ RetailArchivePolicy LocalizeRetailPolicy(const RetailArchivePolicy &policy, cons
 		{
 			l.md5 = pin->md5;
 			l.size = pin->size;
+			l.sizeKnown = pin->sizeKnown;
 		}
 		else
 		{
 			l.pinned = false;
+			l.sizeKnown = false;
 			c.unpinned.push_back(l.path);
 		}
 		a = l;
@@ -618,9 +671,9 @@ RetailArchivePolicy LocalizeRetailPolicy(const RetailArchivePolicy &policy, cons
 	const size_t excluded = out.excluded.size();
 	for (size_t i = 0; i < excluded; ++i)
 	{
-		if (normalizedKey(out.excluded[i]).compare(0, 12, "lang/english") == 0)
+		if (!text.empty() && text != "english" && normalizedKey(out.excluded[i]).compare(0, 12, "lang/english") == 0)
 		{
-			out.excluded.push_back(localized(out.excluded[i])); // e.g. 2.02's lang/<language>patch202.big
+			out.excluded.push_back(localized(out.excluded[i], text)); // e.g. 2.02's lang/<language>patch202.big
 		}
 	}
 	return out;
@@ -1009,7 +1062,8 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 		const RetailArchivePolicy &policy = localizedPolicies.emplace_back(LocalizeRetailPolicy(install.policy, onDiskSizes, &language));
 		if (!language.language.empty())
 		{
-			report.languages.push_back(install.label + ":" + language.language);
+			report.languages.push_back(install.label + ":" + language.language +
+				(!language.voice.empty() && language.voice != language.language ? " (voice " + language.voice + ")" : std::string()));
 		}
 		const bool strictLanguage = RetailStrictLanguage();
 
@@ -1065,7 +1119,7 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 			}
 			const RetailEntryCheckedArchive *entryCheck = policy.entryCheckOf(entry.path);
 			std::uint64_t size = (std::uint64_t)fs::file_size(found->second, ec);
-			if (ec || (entryCheck == nullptr && entry.pinned && size != entry.size))
+			if (ec || (entryCheck == nullptr && entry.pinned && entry.sizeKnown && size != entry.size))
 			{
 				stepError(install.label + ": size mismatch for " + entry.path + ": expected " +
 					std::to_string(entry.size) + ", found " + (ec ? ec.message() : std::to_string(size)) + layoutWords +
@@ -1096,7 +1150,7 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 			p.entryCheck = entryCheck;
 			p.layoutName = layoutWords;
 			p.advice = advice;
-			if (!entry.pinned)
+			if (!entry.pinned || !entry.sizeKnown)
 			{
 				p.entry.size = size; // the file's own size (no pin)
 			}

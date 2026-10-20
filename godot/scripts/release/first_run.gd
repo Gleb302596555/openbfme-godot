@@ -229,7 +229,14 @@ func _recheck() -> void:
 	for game in [["rotwk", "The Rise of the Witch-king"], ["bfme2", "The Battle for Middle-earth II"]]:
 		var g: Dictionary = r[game[0]]
 		if g.ok:
-			t += "[color=#8f8]%s: found, %d of %d archives[/color]\n" % [game[1], g.present, g.expected]
+			# issue #49: the language the folder holds (the game plays in it; the launcher's Game files screen downloads another)
+			var lang := String(g.get("language", ""))
+			var voice := String(g.get("voice", ""))
+			if voice != "" and voice != lang:
+				lang = "%s, %s voices" % [lang, voice]
+			t += "[color=#8f8]%s: found, %d of %d archives%s[/color]\n" % [game[1], g.present, g.expected, (", " + lang) if lang != "" else ""]
+			if not g.get("unpinned_language_archives", PackedStringArray()).is_empty():
+				t += "[color=#fd8]%s: OpenBFME does not know this language's files (%s); they are used unchecked[/color]\n" % [game[1], ", ".join(g.unpinned_language_archives)]
 		else:
 			for e in g.errors:
 				t += "[color=#f98]%s: %s[/color]\n" % [game[1], e]

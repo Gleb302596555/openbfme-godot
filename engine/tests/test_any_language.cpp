@@ -116,6 +116,12 @@ TEST_CASE("anylang: the install language is the stem of its single lang/<languag
 	CHECK(DetectRetailLanguage(keys({ "lang/german.big", "lang/french.big" })).empty());       // ambiguous
 	CHECK(DetectRetailLanguage(keys({ "ini.big", "lang/germanaudio.big" })).empty());          // no language's own archive
 	CHECK(DetectRetailLanguage(keys({ "lang/sub/german.big" })).empty());
+	// the voice language: the stem of the single lang/<language>audio.big
+	CHECK(DetectRetailVoiceLanguage(keys({ "lang/german.big", "lang/germanaudio.big", "lang/germanpatch201.big" })) == "German");
+	CHECK(DetectRetailVoiceLanguage(keys({ "lang/dutch.big", "lang/englishaudio.big" })) == "English");
+	CHECK(DetectRetailVoiceLanguage(keys({ "lang/german.big", "lang/frenchaudio.big" })) == "French");
+	CHECK(DetectRetailVoiceLanguage(keys({ "lang/german.big" })).empty());
+	CHECK(DetectRetailVoiceLanguage(keys({ "lang/frenchaudio.big", "lang/germanaudio.big" })).empty());
 }
 
 TEST_CASE("anylang: localizing the built-in policies")
@@ -195,18 +201,72 @@ TEST_CASE("anylang: localizing the built-in policies")
 		CHECK(find(bde, "lang/germanaudio.big")->size == 557553322);
 	}
 
-	SUBCASE("a language with no pins is unpinned; a shared audio archive stays the pinned English one")
+	SUBCASE("Dutch: pinned from the service's manifest; its shared audio archive stays the pinned English one")
 	{
 		auto disk = rotwkDisk;
 		disk["lang/dutch.big"] = disk["lang/dutchpatch201.big"] = disk["lang/englishaudio.big"] = 1;
 		RetailLanguageChoice c;
 		const RetailArchivePolicy nl = LocalizeRetailPolicy(rotwk, disk, &c);
 		CHECK(c.language == "Dutch");
-		CHECK(c.unpinned == std::vector<std::string>{ "lang/Dutch.big", "lang/dutchpatch201.big" });
+		CHECK(c.voice == "English");
+		CHECK(c.unpinned.empty());
 		REQUIRE(find(nl, "lang/EnglishAudio.big"));
-		CHECK(find(nl, "lang/EnglishAudio.big")->pinned);
+		CHECK(find(nl, "lang/EnglishAudio.big")->md5 == "b0b988f245fa7023652d206968132563");
 		REQUIRE(find(nl, "lang/Dutch.big"));
-		CHECK_FALSE(find(nl, "lang/Dutch.big")->pinned);
+		CHECK(find(nl, "lang/Dutch.big")->md5 == "01235aba7f533ed3b7350beed93d0de4");
+		CHECK(find(nl, "lang/Dutch.big")->sizeKnown);
+	}
+
+	SUBCASE("a language with no pins is unpinned")
+	{
+		auto disk = rotwkDisk;
+		disk["lang/czech.big"] = disk["lang/czechpatch201.big"] = disk["lang/englishaudio.big"] = 1;
+		RetailLanguageChoice c;
+		const RetailArchivePolicy cs = LocalizeRetailPolicy(rotwk, disk, &c);
+		CHECK(c.language == "Czech");
+		CHECK(c.unpinned == std::vector<std::string>{ "lang/Czech.big", "lang/czechpatch201.big" });
+		REQUIRE(find(cs, "lang/Czech.big"));
+		CHECK_FALSE(find(cs, "lang/Czech.big")->pinned);
+		CHECK(find(cs, "lang/EnglishAudio.big")->pinned);
+	}
+
+	SUBCASE("a pin the service lists with size 0 checks the md5 only (Turkish)")
+	{
+		auto disk = rotwkDisk;
+		disk["lang/turkish.big"] = disk["lang/turkishpatch201.big"] = disk["lang/englishaudio.big"] = 1;
+		RetailLanguageChoice c;
+		const RetailArchivePolicy tr = LocalizeRetailPolicy(rotwk, disk, &c);
+		CHECK(c.unpinned.empty());
+		REQUIRE(find(tr, "lang/Turkish.big"));
+		CHECK(find(tr, "lang/Turkish.big")->md5 == "393ff5cd0365f288c089790ace39e068");
+		CHECK_FALSE(find(tr, "lang/Turkish.big")->sizeKnown);
+	}
+
+	SUBCASE("issue #49: one language's text with another's voice")
+	{
+		auto disk = rotwkDisk;
+		disk["lang/german.big"] = disk["lang/germanpatch201.big"] = disk["lang/frenchaudio.big"] = 1;
+		RetailLanguageChoice c;
+		const RetailArchivePolicy mix = LocalizeRetailPolicy(rotwk, disk, &c);
+		CHECK(c.language == "German");
+		CHECK(c.voice == "French");
+		CHECK(c.unpinned.empty());
+		REQUIRE(find(mix, "lang/German.big"));
+		REQUIRE(find(mix, "lang/FrenchAudio.big"));
+		CHECK(find(mix, "lang/FrenchAudio.big")->md5 == "d38937c37e726f288e022c5d8064e4e3");
+		CHECK(find(mix, "lang/GermanAudio.big") == nullptr);
+
+		auto en = rotwkDisk; // English text, German voice: only the audio archive is swapped
+		en["lang/english.big"] = en["lang/englishpatch201.big"] = en["lang/germanaudio.big"] = 1;
+		RetailLanguageChoice ec;
+		const RetailArchivePolicy enDe = LocalizeRetailPolicy(rotwk, en, &ec);
+		CHECK_FALSE(ec.english);
+		CHECK(ec.language == "English");
+		CHECK(ec.voice == "German");
+		REQUIRE(find(enDe, "lang/English.big"));
+		CHECK(find(enDe, "lang/English.big")->md5 == "3b49cdaf47b25729ff1e162885772662");
+		REQUIRE(find(enDe, "lang/GermanAudio.big"));
+		CHECK(find(enDe, "lang/GermanAudio.big")->md5 == "0ab4448d26b969aa745858397035827e");
 	}
 }
 
