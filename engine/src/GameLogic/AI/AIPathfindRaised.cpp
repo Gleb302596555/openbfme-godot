@@ -320,6 +320,25 @@ void Pathfinder::crcRaised(StateHasher &h) const
 			h.addU32(c.getType());
 			h.addU32(c.getConnectLayer());
 			h.addU32(c.getZone());
+			// the kept info as the ground cells' (Pathfinder::crc): the walkway's goal and position reservations decide which raised cells a search finds free
+			const bool info = c.hasInfo();
+			h.addBool(info);
+			if (!info)
+			{
+				continue;
+			}
+			h.addU32((std::uint32_t)c.getObstacleID());
+			h.addU32((c.isObstacleFence() ? 1u : 0u) | (c.isObstacleTransparent() ? 2u : 0u) | (c.isBlockedByAlly() ? 4u : 0u));
+			for (int k = 0; k < OCC_KIND_COUNT; ++k)
+			{
+				std::uint32_t n = 0;
+				for (const PathfindOccupant *o = c.occupants((PathfindOccupantKind)k); o; o = o->next)
+				{
+					h.addU32((std::uint32_t)o->owner); // the chain in list order: the order is history
+					++n;
+				}
+				h.addU32(n);
+			}
 		}
 	}
 }

@@ -502,6 +502,13 @@ bool Pathfinder::hierarchicalPortals(PathfindCell *c, PathfindCell *goal, zoneSt
 			{
 				continue;
 			}
+			if (to.x == f.x && to.y == f.y)
+			{
+				// OpenBFME guard, not RotWK: RW tests the link cell's open / closed state (RW 0x6F91FE .. 0x6F9216) before it closes the source cell
+				// (RW 0x6F9235 ..), as the port does, so a link whose two ends share a cell would make that cell its own parent and the corridor's parent
+				// walk (RW 0x6F49BC, makeHierarchicalPathPassable) would never end. Such a link moves nobody: it is skipped before either record changes
+				continue;
+			}
 			PathfindCell *fromCell = getCell(LAYER_GROUND, f.x, f.y);
 			if (!fromCell || m_zoneManager.getEffectiveZone(mv, false, fromCell->getZone()) != cz)
 			{
