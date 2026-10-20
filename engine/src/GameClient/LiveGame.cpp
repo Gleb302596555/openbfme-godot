@@ -555,6 +555,8 @@ bool LiveGame::load(const Options &options, std::string *error)
 	}
 	m_cahHeroID.clear();
 	m_cahResultRecorded = false;
+	m_cahStatisticsDirty = false;
+	m_cahSaveError.clear();
 	m_cahEarned.clear();
 	m_cahMode = m_logic->economy().context().gameMode;
 	if (!options.heroStatsProfile.empty() && options.start && !options.start->observer && m_cahMode != EconomyContext::MODE_REPLAY)

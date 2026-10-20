@@ -1206,6 +1206,8 @@ TEST_CASE("cah statistics retail: local hero kills persist once and client profi
 		auto *victim = game.createObject("GondorFighter", local->getPlayerIndex(), { 1050.0f, 1000.0f, 0.0f }, 0.0f, &error);
 		REQUIRE(killer);
 		REQUIRE(victim);
+		const auto blocked = std::filesystem::u8path(dir.path) / (hero.uniqueID + ".tmp");
+		if (record) std::filesystem::create_directory(blocked); // fail writes even as an administrator
 		// RW 0x69560B records before the relationship gate, even for this allied victim.
 		killer->scoreTheKill(*victim);
 		killer->scoreTheKill(*victim);
@@ -1216,8 +1218,17 @@ TEST_CASE("cah statistics retail: local hero kills persist once and client profi
 		{
 			CreateAHeroStats stats;
 			REQUIRE_MESSAGE(stats.load(dir.path, hero.uniqueID, &error), error);
+			CHECK(stats.get("ENEMIES_KILLED") == 0);
+			CHECK_FALSE(game.report().errors.empty());
+			const auto errorCount = game.report().errors.size();
+			game.advance(0.0);
+			CHECK(game.report().errors.size() == errorCount);
+			std::filesystem::remove(blocked);
+			game.advance(0.0); // no new events: retry the dirty counters
+			REQUIRE_MESSAGE(stats.load(dir.path, hero.uniqueID, &error), error);
 			CHECK(stats.get("ENEMIES_KILLED") == 1);
 			CHECK(stats.get("MEN_OF_THE_WEST_INFANTRY_KILLED") == 1);
+			std::filesystem::create_directory(blocked);
 			game.logic().victory().selfDestruct(local, false);
 			// Wait for the published defeat, with a watchdog rather than assuming
 			// the delayed self-destruct/presentation completes at a guessed frame.
@@ -1225,9 +1236,15 @@ TEST_CASE("cah statistics retail: local hero kills persist once and client profi
 			{
 				game.advance(0.2);
 				REQUIRE_MESSAGE(stats.load(dir.path, hero.uniqueID, &error), error);
-				if (game.logic().victory().localAlliedDefeat() && stats.get(s->world->createAHeroSystem().statNames[4]) == 1) break;
+				if (game.logic().victory().localAlliedDefeat()) break;
 			}
 			CHECK(game.logic().victory().localAlliedDefeat());
+			for (int frame = 0; frame < 5; ++frame) game.advance(0.2);
+			REQUIRE_MESSAGE(stats.load(dir.path, hero.uniqueID, &error), error);
+			CHECK(stats.get(s->world->createAHeroSystem().statNames[4]) == 0);
+			std::filesystem::remove(blocked);
+			game.advance(0.0);
+			REQUIRE_MESSAGE(stats.load(dir.path, hero.uniqueID, &error), error);
 			CHECK(stats.get(s->world->createAHeroSystem().statNames[4]) == 1);
 			for (int frame = 0; frame < 5; ++frame) game.advance(0.2);
 			REQUIRE_MESSAGE(stats.load(dir.path, hero.uniqueID, &error), error);

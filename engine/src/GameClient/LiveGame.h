@@ -382,6 +382,8 @@ private:
 	std::string m_cahHeroID;
 	int m_cahMode = -1;
 	bool m_cahResultRecorded = false;
+	bool m_cahStatisticsDirty = false;
+	std::string m_cahSaveError;
 	std::vector<std::string> m_cahEarned;
 	void consumeHeroStatistics(const std::vector<ClientEvent> &events, const LogicSnapshot *snapshot);
 
