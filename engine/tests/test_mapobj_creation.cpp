@@ -600,8 +600,14 @@ TEST_CASE("mapobj creation: horde members stand on the formation slots, rotated 
 		last = ObjectTemplateInfoBuilder::build(t);
 		return last;
 	};
-	CHECK(MapHordeSpawn::unitTypeIsMachine(w.things, "Ram", infoOf));
-	CHECK_FALSE(MapHordeSpawn::unitTypeIsMachine(w.things, "Soldier", infoOf));
+	std::vector<std::string> reported;
+	auto report = [&reported](const std::string &e) { reported.push_back(e); };
+	CHECK(MapHordeSpawn::unitTypeIsMachine(w.things, "Ram", infoOf, report));
+	CHECK_FALSE(MapHordeSpawn::unitTypeIsMachine(w.things, "Soldier", infoOf, report));
+	CHECK(reported.empty());
+	CHECK_FALSE(MapHordeSpawn::unitTypeIsMachine(w.things, "Ghost", infoOf, report)); // no template: no machine, reported
+	REQUIRE(reported.size() == 1u);
+	CHECK(reported[0] == "horde RankInfo UnitType Ghost names no template (no machine rank: RW 0x6D1305 finds none)");
 	const MapObjectDrawable &ram = s.out.drawables.back();
 	CHECK(ram.hordeMember);
 	CHECK(ram.position.x == 800.0f);
@@ -618,16 +624,26 @@ TEST_CASE("mapobj creation: horde members stand on the formation slots, rotated 
 		"    RankInfo = RankNumber:1 UnitType:Soldier Position:X:40 Y:0\n"
 		"    RankInfo = RankNumber:2 UnitType:OddRam Position:X:10 Y:0\n"
 		"  End\n"
+		"  KindOf = HORDE\nEnd\n"
+		"Object GhostHorde\n"
+		"  Behavior = HordeContain ModuleTag_Horde\n"
+		"    InitialPayload = Soldier 1\n"
+		"    Slots = 2\n"
+		"    RankInfo = RankNumber:1 UnitType:Soldier Position:X:40 Y:0\n"
+		"    RankInfo = RankNumber:2 UnitType:Ghost Position:X:10 Y:0\n"
+		"  End\n"
 		"  KindOf = HORDE\nEnd\n").empty());
 	Scene s2;
-	s2.map.chunks.objects = { object("OddHorde", 100, 100, 0, 0.0f) };
+	s2.map.chunks.objects = { object("OddHorde", 100, 100, 0, 0.0f), object("GhostHorde", 300, 100, 0, 0.0f) };
 	s2.run(w2);
-	bool reported = false;
+	bool kindOfReported = false, ghostReported = false;
 	for (const std::string &e : s2.out.report.errors)
 	{
-		reported = reported || e.find("template OddRam: ") != std::string::npos;
+		kindOfReported = kindOfReported || e.find("template OddRam: ") != std::string::npos;
+		ghostReported = ghostReported || e.find("UnitType Ghost names no template") != std::string::npos;
 	}
-	CHECK(reported);
+	CHECK(kindOfReported);
+	CHECK(ghostReported); // a rank naming no template is reported too
 	// the unit-type matcher: the same template, an EquivalentTo entry, a reskin
 	CHECK(MapHordeSpawn::unitTypeMatches(w.things, "Soldier", "Soldier"));
 	CHECK_FALSE(MapHordeSpawn::unitTypeMatches(w.things, "Soldier", "SoldierHorde"));

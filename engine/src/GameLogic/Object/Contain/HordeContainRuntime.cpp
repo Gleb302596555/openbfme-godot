@@ -47,9 +47,11 @@ HordeContain::HordeContain(Thing *thing, const HordeContainBehaviorData *data)
 	m_core = std::make_unique<HordeContainCore>(data->horde, logic.random(), [&things](const std::string &slotUnitType, const std::string &memberName) {
 		return MapHordeSpawn::unitTypeMatches(things, slotUnitType, memberName);
 	});
-	// RW 0x86C4EA's machine rank; the info is the logic's (GameLogic::templateInfo reports a template's KindOf error)
+	// RW 0x86C4EA's machine rank; the info is the logic's (GameLogic::templateInfo reports a template's KindOf error), a rank naming no template a logic error
 	m_core->setMachineTest([&logic, &things](const std::string &unitType) {
-		return MapHordeSpawn::unitTypeIsMachine(things, unitType, [&logic](const ThingTemplate &t) -> const ObjectTemplateInfo & { return logic.templateInfo(&t); });
+		return MapHordeSpawn::unitTypeIsMachine(
+			things, unitType, [&logic](const ThingTemplate &t) -> const ObjectTemplateInfo & { return logic.templateInfo(&t); },
+			[&logic](const std::string &e) { logic.reportError(e); });
 	});
 	// MOVE-1: a game with an AIWorld runs the contain (member pass, reformation, the TransportContain model condition mirror: RW 0x872EFC); a logic without one
 	// (the LOGIC-1 fixtures) keeps the static horde: the module sleeps and the members stay where creation put them (S-149)

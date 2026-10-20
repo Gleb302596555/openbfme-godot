@@ -9,6 +9,7 @@
 #include "GameLogic/Object/Contain/HordeContainCore.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 
+#include <algorithm>
 #include <map>
 #include <variant>
 
@@ -46,11 +47,16 @@ void MapHordeSpawn::bindHordeContainData(ModuleFactory &modules)
 }
 
 bool MapHordeSpawn::unitTypeIsMachine(const ThingFactory &things, const std::string &unitType,
-	const std::function<const ObjectTemplateInfo &(const ThingTemplate &)> &infoOf)
+	const std::function<const ObjectTemplateInfo &(const ThingTemplate &)> &infoOf, const std::function<void(const std::string &)> &report)
 {
 	static const int kMachine = ObjectTemplateInfoBuilder::kindOfIndex("MACHINE");
 	const ThingTemplate *tt = things.findTemplate(unitType);
-	return tt != nullptr && kMachine >= 0 && MaskTest(infoOf(*tt->getFinalOverride()).kindOf, (unsigned)kMachine);
+	if (!tt)
+	{
+		report("horde RankInfo UnitType " + unitType + " names no template (no machine rank: RW 0x6D1305 finds none)");
+		return false;
+	}
+	return kMachine >= 0 && MaskTest(infoOf(*tt->getFinalOverride()).kindOf, (unsigned)kMachine);
 }
 
 bool MapHordeSpawn::unitTypeMatches(const ThingFactory &things, const std::string &unitType, const std::string &memberName)
@@ -135,6 +141,11 @@ void MapHordeSpawn::spawn(const ThingTemplate &tmpl, const ThingFactory &things,
 				}
 			}
 			return it->second;
+		}, [&result](const std::string &e) {
+			if (std::find(result.errors.begin(), result.errors.end(), e) == result.errors.end())
+			{
+				result.errors.push_back(e);
+			}
 		});
 	});
 	core.buildSlots(true);
