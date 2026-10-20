@@ -675,7 +675,11 @@ TEST_CASE("BACKLOG2 r1 determinism: three units on a build site: the draw assign
 	CHECK(a.drawOrder == std::vector<std::string>{ "GondorBoromir", "GondorFaramir", "GondorAragorn" });
 	CHECK(a.goals == std::vector<std::uint32_t>{ 0x4412CD2Bu, 0x458FD561u, 0x440FE5A5u, 0x458EB2F9u, 0x4408C216u, 0x458E2385u });
 	CHECK(a.positions == std::vector<std::uint32_t>{ 0x4413A000u, 0x458FC400u, 0x441DB5ACu, 0x458ED1F8u, 0x43FDF2A9u, 0x458D2F2Bu });
-	CHECK(a.hashes.back() == 0x0EFDBFD5U);   // q19: BACKLOG-8 hashes the formation and march rows of AIData / GameData in GameLogicSettings::crc (unconditionally) and moves the march;
+	CHECK(a.hashes.back() == 0xFFD9BAD4U);   // PR #48 (4a697862: Construction.cpp / ConstructionModules.cpp / WallSpan.cpp) moved it from 0x0EFDBFD5, which
+	                                         // that merge left unchanged: its tree f9e43bd3 gives 0x0EFDBFD5 and f9e43bd3 + PR #48's GameLogic diff gives
+	                                         // 0xFFD9BAD4, both measured on a German install (the language archives do not reach the state: mounting none
+	                                         // of them gives the same hash); goals and positions unchanged.
+	                                         // q19: BACKLOG-8 hashes the formation and march rows of AIData / GameData in GameLogicSettings::crc (unconditionally) and moves the march;
 	                                         // re-measured on the merged tree (a CI host); was 0x78A9CB12 (q18: DEVPORT-3C castle keep gate / Horde removal record, before 0x2BD4804B); goals and positions unchanged
 	// every unit left the spot it stood on
 	CHECK(a.positions[0] != a.goals[0]);
