@@ -465,7 +465,8 @@ std::string ControlBar::heroRecordImage(const HeroRecord &r, const Player &playe
 		const CreateAHeroHero *hero = m_ctx.logic.createAHeroes().heroOf(player);
 		const CreateAHeroSubClass *sub = hero && TheCreateAHeroSystem
 			? TheCreateAHeroSystem->subClass(hero->classIndex, hero->subClassIndex) : nullptr;
-		if (sub && !sub->buttonImage.empty()) return sub->buttonImage;
+		// RW 0x7810BC -> 0x61B2DF / 0x61B379 -> 0x61AF37.
+		return sub && !sub->buttonImage.empty() ? sub->buttonImage : "BuildingNoArt";
 	}
 	if (tt)
 	{

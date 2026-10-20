@@ -360,6 +360,10 @@ TEST_CASE("hero hud: the fortress's REVIVE buttons show the hero records and a p
 TEST_CASE("hero hud: custom hero recruitment uses the selected Shield Maiden image")
 {
 	if (!haveWorld("custom hero recruitment image")) return;
+	std::string expectedImage;
+	SUBCASE("Shield Maiden") { expectedImage = "HICAHShieldMaiden"; }
+	SUBCASE("Female Elven Archer") { expectedImage = "HICAHFemaleElvenArcher"; }
+	SUBCASE("Missing subclass ButtonImage") { expectedImage = "BuildingNoArt"; }
 	SharedWorld &s = shared();
 	HeroHudRig h(s);
 	const auto context = s.world->enterContext();
@@ -368,13 +372,17 @@ TEST_CASE("hero hud: custom hero recruitment uses the selected Shield Maiden ima
 	bool found = false;
 	for (size_t c = 0; c < TheCreateAHeroSystem->classes().size(); ++c)
 		for (size_t sub = 0; sub < TheCreateAHeroSystem->classes()[c].subClasses.size(); ++sub)
-			if (TheCreateAHeroSystem->classes()[c].subClasses[sub].buttonImage == "HICAHShieldMaiden")
+			if (TheCreateAHeroSystem->classes()[c].subClasses[sub].buttonImage == (expectedImage == "BuildingNoArt" ? "HICAHShieldMaiden" : expectedImage))
 			{
 				hero.classIndex = c;
 				hero.subClassIndex = sub;
 				found = true;
 			}
 	REQUIRE(found);
+	auto *subclass = const_cast<CreateAHeroSubClass *>(TheCreateAHeroSystem->subClass(hero.classIndex, hero.subClassIndex));
+	REQUIRE(subclass);
+	struct RestoreImage { CreateAHeroSubClass &sub; std::string image; ~RestoreImage() { sub.buttonImage = image; } } restoreImage{ *subclass, subclass->buttonImage };
+	if (expectedImage == "BuildingNoArt") subclass->buttonImage.clear();
 	hero.name = u"Haley";
 	hero.uniqueID = "hud-shield-maiden";
 	h.rig.game->logic().createAHeroes().assign(*h.rig.local, hero);
@@ -397,7 +405,7 @@ TEST_CASE("hero hud: custom hero recruitment uses the selected Shield Maiden ima
 		const auto &records = h.rig.local->heroes().records();
 		if (button.reviveIndex >= 0 && records.at(button.reviveIndex).templateName == "CreateAHero")
 		{
-			CHECK(button.image == "HICAHShieldMaiden");
+			CHECK(button.image == expectedImage);
 			sawHero = true;
 		}
 	}
@@ -429,7 +437,7 @@ TEST_CASE("hero hud: custom hero recruitment uses the selected Shield Maiden ima
 	for (const ControlBarButton &button : h.buttons(GUI_COMMAND_REVIVE))
 		if (button.reviveIndex == heroIndex)
 		{
-			CHECK(button.image == "HICAHShieldMaiden");
+			CHECK(button.image == expectedImage);
 			sawModHero = true;
 		}
 	CHECK(sawModHero);
