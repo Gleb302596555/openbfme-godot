@@ -2,13 +2,16 @@
 // Expected values are hand-computed from the cited ZH formulas (W3DRoadBuffer.cpp) and geometry.
 
 #include "doctest.h"
+#include "BigTestUtil.h"
 
+#include "Common/ArchiveFile.h"
 #include "Common/LooseFileScan.h"
 #include "GameClient/MapStops.h"
 #include "GameClient/MapWeather.h"
 #include "GameClient/TerrainRoads.h"
 #include "GameClient/WaterGeometry.h"
 #include "GameClient/MapUtil.h"
+#include "GameEngineDevice/Win32Device/Common/Win32BIGFileSystem.h"
 
 #include <cmath>
 #include <filesystem>
@@ -303,6 +306,26 @@ TEST_CASE("WaterSetScan::applyText: the DiffuseColor of the time of day's WaterS
 	CHECK(diffuse[3] == 1.0f);
 	WaterSetScan::applyText("WaterSet NIGHT\n  DiffuseColor = R:100 G:100 B:100 A:255\nEnd\n", 2, diffuse);
 	CHECK(diffuse[0] == doctest::Approx(10 / 255.0f));   // another time of day changes nothing
+}
+
+TEST_CASE("WaterSetScan::load: water.ini, then the map's maps\\<map>\\map.ini WaterSet overriding it")
+{
+	const std::string waterIni = "WaterSet AFTERNOON\n  DiffuseColor = R:185 G:185 B:185 A:255\nEnd\n";
+	const std::string mapIni = "WaterSet AFTERNOON\n  DiffuseColor = R:51 G:102 B:153 A:255\nEnd\n";
+	Win32BIGFileSystem fsys;
+	std::string error;
+	auto big = fsys.openArchiveFromMemory("w.big", std::make_shared<const std::vector<std::uint8_t>>(bigtest::makeBig("BIGF", {
+		{ "data\\ini\\water.ini", waterIni }, { "maps\\map wor rhun\\map.ini", mapIni } })), &error);
+	REQUIRE(big);
+	fsys.mountArchive(std::move(big), "w.big", false);
+	float diffuse[4];
+	REQUIRE(WaterSetScan::load(fsys, "map wor rhun", 2, diffuse, &error));
+	CHECK(diffuse[0] == 51 / 255.0f);
+	CHECK(diffuse[1] == 102 / 255.0f);
+	CHECK(diffuse[2] == 153 / 255.0f);
+	REQUIRE(WaterSetScan::load(fsys, "map wor other", 2, diffuse, &error));   // no map.ini: water.ini's value
+	CHECK(diffuse[0] == 185 / 255.0f);
+	CHECK(diffuse[3] == 1.0f);
 }
 
 // ------------------------------------------------------------------------------------------------

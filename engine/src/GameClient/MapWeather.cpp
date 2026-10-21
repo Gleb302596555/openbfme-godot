@@ -193,7 +193,7 @@ bool WaterSetScan::load(ArchiveFileSystem &fs, const std::string &mapDir, int ti
 		return false;
 	}
 	applyText(std::string(bytes.begin(), bytes.end()), timeOfDay, diffuse);
-	const std::string mapIni = mapDir + "\\map.ini";
+	const std::string mapIni = "maps\\" + mapDir + "\\map.ini";   // as MapWeatherScan::load
 	if (fs.doesFileExist(mapIni))
 	{
 		if (!fs.readFile(mapIni, bytes, error))
