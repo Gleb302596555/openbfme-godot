@@ -587,6 +587,7 @@ void Pathfinder::xfer(Xfer &x)
 	m_stops = std::move(stops);
 	m_uberBurst = uberBurst;
 	m_uberLimits = uberLimits;
+	m_pool.setGrowthLimit(uberLimits ? (int)kCellInfoPoolMax : 0); // as setUberLimits: only an Uber pool grows
 	applyWalls(walls, version >= 3);
 }
 

@@ -1065,8 +1065,9 @@ public:
 	bool uberLimits() const { return m_uberLimits; }
 	bool uberBurst() const { return m_uberBurst; } // lane PATHPERF-4: the request queue is draining a burst (the snapshot keeps it)
 	const PathfindRequestRing &requestRing() const { return m_queue1; } // lane PATHPERF-4: the path request ring (its length and head)
-	// lane PATHPERF-4: the cell-info pool grows past PathfindConfig::cellInfoPoolSize up to this many records (about 100 MB), as retail's grows; the
-	// pathfinder's searches and reservations then no longer fail on a full pool in a big battle
+	// lane PATHPERF-4 (Uber only, setUberLimits): the cell-info pool grows past PathfindConfig::cellInfoPoolSize up to this many records (about 100 MB), so
+	// the pathfinder's searches and reservations no longer fail on a full pool in a big battle. A rule of the profile, not retail's: RotWK 2.01's pool
+	// limit is not read (review of #62), and the Faithful pool keeps the configured size and fails when full
 	enum { kCellInfoPoolMax = 1000000 };
 	// RW processPathfindQueue 0x6F2364: the counter of allocated cells is reset once; the blocked repaths run while it is below half the
 	// budget, then the path requests while it is below the budget (one counter for both); what is not reached stays queued
