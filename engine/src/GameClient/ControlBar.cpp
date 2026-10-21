@@ -5,6 +5,7 @@
 #include "GameLogic/CreateAHeroSystem.h"
 #include "GameLogic/Economy.h"
 #include "Common/Upgrade.h"
+#include "Common/AsciiString.h"
 
 #include "Common/BuildAssistant.h"
 #include "Common/Player.h"
