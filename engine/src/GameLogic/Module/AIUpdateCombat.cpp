@@ -552,8 +552,9 @@ Object *AIUpdateInterface::nextMoodTarget()
 	// (status 0x17: a special ability sets it while it runs, RW 0x852F3D; a trebuchet's hold-fire toggle, MSG_TOGGLE_NO_AUTO_ACQUIRE),
 	// SPECIAL_ABILITY_PACKING_UNPACKING_OR_USING (0x46) or IGNORE_AI_COMMAND (0x4A), or whose model conditions hold JUST_BUILT (+ 0x124 bit 26, lane SPELL-3: a
 	// castle member fading in, RW 0x7987EE) or COMING_OUT_OF_FACTORY (+ 0x134 bit 13), looks for nothing (HORDE_MEMBER, 0x26, is moodCheckInterval's).
-	// INFERENCE (S-326): the AI + 0x34 test of RW 0x668489 is not identified and not ported. Lane SPELL-3 (review r2): RW 0x668A41 .. 0x668A4A: nor one
-	// Object::isAbleToAttack (RW 0x691269; BFME2 decomp Object_isAbleToAttack.cpp, tier B same-shape) refuses. Ported of it: its status / condition tests
+	// The AI + 0x34 test of RW 0x668489 (nothing found while it is set) reads the machine BeginTemporaryStateMachine keeps (RW 0x6630A9: AI + 0x30 moved
+	// to + 0x34 while a temporary machine runs); nothing fills it in this port (S-1222), so the test is not written (S-326). Lane SPELL-3 (review r2):
+	// RW 0x668A41 .. 0x668A4A: nor one Object::isAbleToAttack (RW 0x691269; BFME2 decomp Object_isAbleToAttack.cpp, tier B same-shape) refuses. Ported of it: its status / condition tests
 	// (NO_ATTACK status 5, the model condition 0x81 (RW 0x46E918 reads Object + 0x10C), UNDER_CONSTRUCTION, SOLD); its contain, turret and CAN_ATTACK branches
 	// are not (S-1301, as AITacticalAI's canAttackAtAll), so they refuse nothing here
 	{

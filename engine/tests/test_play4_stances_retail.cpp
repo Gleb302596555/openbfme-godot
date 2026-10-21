@@ -94,8 +94,9 @@ Chase runChase(starttest::Shared *st, int stance)
 	out.guardRange = AIGuardMachine::getStdGuardRange(*unit);
 	out.outerRange = AIGuardMachine::getAdjustedVisionRange(*unit);
 	out.speed = ai->curLocomotorSpeed();
-	// 150 ahead: inside the guard range (315), the two formations (centred on their hordes, RW 0x86C4EA) a step apart, so the guard finds the enemy before it
-	// strikes (at 120 the formations touch at once: the attacked horde's FACE_OBJECT emotion comes first, stop S-5145)
+	// 150 ahead: inside the guard range (315), the two formations (centred on their hordes, RW 0x86C4EA) a step apart. In Battle the guard's outer state takes the
+	// enemy before it strikes; in HoldGround the guard waits for it, the formations meet at contact and the attacked horde's FACE_OBJECT emotion comes first
+	// (stop S-5145: its mood scan's attack replaces the guard, pinned below; at 120 the formations touch at once in both stances)
 	Object *foe = live.createObject("MordorFighterHorde", enemy->getPlayerIndex(), Coord3D{ c0.x + 150.0f, c0.y, 0.0f }, 0.0f, &error);
 	REQUIRE_MESSAGE(foe, error);
 	for (int i = 0; i < 15; ++i)
