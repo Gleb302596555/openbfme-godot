@@ -216,6 +216,16 @@ func _unit_checks() -> void:
 	_move(c + Vector2(0, -R * 0.7))
 	_check(_push(_key(KEY_G, false)) and not _wheel.is_open() and _pinged.size() == 1 and _pinged[0][0] == PingBoard.kind_index("attack"),
 		"letting go of the held G places the ping (%s)" % [_pinged])
+	_board._recent.clear()
+	_move(c)
+	_pinged.clear()
+	_push(_key(KEY_G, true))
+	_move(c + Vector2(R * 0.7, 0)) # a flick towards "Reinforcements" before the wheel shows
+	await create_timer(0.12).timeout
+	await process_frame
+	_check(_wheel.is_open() and _wheel._centre == c and _wheel.selection() == PingBoard.kind_index("reinforce"), "a flick during the hold time selects that choice")
+	_push(_key(KEY_G, false))
+	_check(_pinged.size() == 1 and _pinged[0][0] == PingBoard.kind_index("reinforce"), "... and letting go places it (%s)" % [_pinged])
 	_move(c)
 	taps = _wheel.taps_passed
 	_push(_key(KEY_G, true))

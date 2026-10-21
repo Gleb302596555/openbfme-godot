@@ -264,10 +264,14 @@ func _process(delta: float) -> void:
 		var at := _pending_at
 		if can_open.is_valid() and not can_open.call():
 			_hand_over() # a menu came up meanwhile: the G is the game's
-		elif open_at(at):
-			_pending = null
-			_key_held = true
 		else:
+			var pointer := _pointer # a quick flick towards a choice during the wait counts: the wheel opens where G went down, the pointer stays where it is
+			if open_at(at):
+				_pointer = pointer
+				_pending = null
+				_key_held = true
+				_canvas.queue_redraw()
+				return
 			_hand_over() # nothing to ping under the pointer (the HUD's buttons): the G is the game's (a button's hotkey)
 	if _open and _age < OPEN_SECONDS:
 		_age += delta
