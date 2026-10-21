@@ -306,3 +306,44 @@ public:
 	StateReturnType update() override { return STATE_CONTINUE; }
 	void xfer(class Xfer &x) override { xferNoFields(x); }
 };
+
+// review of #64: an owner state's sub machine (an attack's, a guard's, a hunt's) that the owner drops while one of the machine's updates runs is kept,
+// halted, until that update returns. The owner's exit can run inside the update: a shot that kills its shooter (SpawnAndFadeNugget, RW 0x698EC3) ends the
+// owner's state, and freeing the machine there freed it and its running state under them. Run marks an update; drop halts the machine and frees it, at
+// once or when the last update running ends
+template <typename M>
+struct KeptSubMachines
+{
+	int running = 0;
+	std::vector<std::unique_ptr<M>> kept;
+	struct Run
+	{
+		KeptSubMachines &k;
+		explicit Run(KeptSubMachines &keeper) : k(keeper) { ++k.running; }
+		~Run()
+		{
+			if (--k.running == 0)
+			{
+				k.kept.clear();
+			}
+		}
+		Run(const Run &) = delete;
+		Run &operator=(const Run &) = delete;
+	};
+	void drop(std::unique_ptr<M> &m)
+	{
+		if (!m)
+		{
+			return;
+		}
+		m->halt();
+		if (running > 0)
+		{
+			kept.push_back(std::move(m));
+		}
+		else
+		{
+			m.reset();
+		}
+	}
+};

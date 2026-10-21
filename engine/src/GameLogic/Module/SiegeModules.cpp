@@ -364,7 +364,8 @@ void SiegeDockingBehavior::refresh()
 			continue;
 		}
 		Object *other = logic.findObjectByID(e.reservedBy);
-		const SiegeDeploySpecialPower *power = other && !other->isDestroyed() ? SiegeDeploySpecialPower::of(*other) : nullptr;
+		// the holder's dead bit (Object + 0x458 bit 0), as update() reads it (review of #64: a ladder playing its death animation frees its point at once)
+		const SiegeDeploySpecialPower *power = other && !other->isEffectivelyDead() ? SiegeDeploySpecialPower::of(*other) : nullptr;
 		if (!power || power->dockId() != getObject()->getID()) // + 0x24 slot 0x50 (RW 0x7B0F25)
 		{
 			e.reservedBy = INVALID_ID;

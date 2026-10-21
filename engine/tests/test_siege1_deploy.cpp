@@ -28,6 +28,9 @@
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/PortalModules.h"
+#include "GameLogic/Module/SpecialAbilityModules.h"
+#include "GameLogic/Weapon.h"
+#include "GameLogic/WeaponState.h"
 #include "GameLogic/Module/SiegeModules.h"
 #include "GameLogic/Object/Contain/SiegeEngineContainRuntime.h"
 #include "GameLogic/Object/Object.h"
@@ -531,6 +534,77 @@ TEST_CASE("siege1 retail: Mordor's siege tower docks only at the wall's SIEGETOW
 	HordeSiegeEngineContain *st = dynamic_cast<HordeSiegeEngineContain *>(sc.ladder->getContain());
 	REQUIRE(st);
 	CHECK(st->crewCount() == 2); // the trolls stay (EvacuateCrewOnDeploy No)
+}
+
+TEST_CASE("siege1 retail review of #64: a ladder killed on its approach frees its dock point at the next refresh, while its death still plays (the dead "
+		  "bit, RW 0x85CBC8)")
+{
+	if (!haveWorld("siege1 deploy dead"))
+	{
+		return;
+	}
+	PortalScope portals;
+	Rig r(shared(), "map wor helms deep", "FactionIsengard");
+	const auto worldContext = shared().world->enterContext(); // this world's stores: a started game run before may have selected its own
+	r.frame(3);
+	r.game->shroud().revealMapForPlayerPermanently(r.index());
+	LadderScene sc(r);
+	orderPowerAt(r, *sc.ladder, "SpecialAbilitySiegeDeploy", sc.wall);
+	r.frame(5);
+	REQUIRE(sc.deploy->phase() == SiegeDeploySpecialPower::PHASE_APPROACH);
+	const ObjectID ladder = sc.ladder->getID();
+	int reserved = 0;
+	for (const SiegeDockingBehavior::Entry &e : SiegeDockingBehavior::of(*sc.wall)->entries())
+	{
+		reserved += e.reservedBy == ladder ? 1 : 0;
+	}
+	REQUIRE(reserved == 1);
+	sc.ladder->kill(DEATH_NORMAL);
+	r.frame(6); // the dock refreshes its reservations every 5 frames (RW 0x85D216 -> RW 0x85CBC8)
+	REQUIRE(r.logic().findObjectByID(ladder) != nullptr); // still there: its death plays
+	for (const SiegeDockingBehavior::Entry &e : SiegeDockingBehavior::of(*sc.wall)->entries())
+	{
+		CHECK(e.reservedBy != ladder);
+	}
+}
+
+TEST_CASE("siege1 retail review of #64: the Necromancers' banner has no WeaponSet, and its Soul Freeze fires its special weapon (the object's own weapon "
+		  "host, the mine carrier's path); it used to fizzle")
+{
+	if (!haveWorld("siege1 soul freeze"))
+	{
+		return;
+	}
+	Rig r(shared(), "map wor helms deep", "FactionAngmar");
+	const auto worldContext = shared().world->enterContext(); // this world's stores: a started game run before may have selected its own
+	r.frame(3);
+	const Coord3D at = r.freeSpot(1640.0f, 3150.0f, 60.0f);
+	Object *banner = r.make("AngmarNecromancerBanner", at.x, at.y);
+	r.frame(2);
+	CHECK(banner->getWeapons() == nullptr); // no WeaponSet (angmarnecromancerbanner.ini)
+	WeaponFireSpecialAbilityUpdate *freeze = nullptr;
+	for (const auto &m : banner->modules())
+	{
+		if (auto *p = dynamic_cast<WeaponFireSpecialAbilityUpdate *>(m.get()))
+		{
+			const Weapon *w = p->ownedWeapon();
+			if (w && w->getTemplate()->getName() == "AngmarNecroSoulFreezeWeapon") // ModuleTag_NecroSoulFreezeBlastWeaponFireUpdate (WhichSpecialWeapon 3)
+			{
+				freeze = p;
+			}
+		}
+	}
+	REQUIRE(freeze);
+	const Coord3D target{ at.x + 80.0f, at.y, 0.0f };
+	const SpecialPowerTemplate *power = TheSpecialPowerStore->findSpecialPowerTemplate("SpecialAbilityNecroSoulFreeze");
+	REQUIRE(power);
+	freeze->initiateIntentToDoSpecialPower(power, nullptr, &target, 0, 0);
+	for (int f = 0; f < 150 && freeze->abilitiesTriggered() == 0; ++f)
+	{
+		r.frame(1);
+	}
+	CHECK(freeze->abilitiesTriggered() == 1);
+	CHECK(freeze->ownedWeapon()->lastFireFrame() != 0); // tolerance: that it fired at all (0: never); its frame is the unpack's
 }
 
 TEST_CASE("siege1 retail: a player's order during the approach ends the deploy (RW 0x8CA3D5); the dock point is freed; a dead wall makes a deployed ladder raise")
