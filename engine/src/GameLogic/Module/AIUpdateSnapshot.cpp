@@ -232,6 +232,10 @@ void AIUpdateInterface::xferAIStateBody(Xfer &x)
 		x.xferReal(&m_teamPathAngle);
 		x.xferInt(&m_currentGoalPathIndex);
 		x.xferInt(&m_formationId);
+		if (loading)
+		{
+			AIXfer::inRange(m_formationId, 0, 0x7FFFFFFE, "ai: the formation id"); // 0 (none) or one the world issued (below its next id: AIWorld::xferBody)
+		}
 		x.xferReal(&m_formationOffset.x);
 		x.xferReal(&m_formationOffset.y);
 	}

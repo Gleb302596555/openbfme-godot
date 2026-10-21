@@ -141,6 +141,18 @@ void AIWorld::xferBody(Xfer &x)
 	if (v.current >= 2)
 	{
 		x.xferInt(&m_nextFormationId);
+		if (loading)
+		{
+			AIXfer::inRange(m_nextFormationId, 1, 0x7FFFFFFF, "ai world: the next formation id");
+			for (auto &kv : m_ais)
+			{
+				if (kv.second->formationId() >= m_nextFormationId)
+				{
+					throw XferException("ai world: the AI of object " + std::to_string(kv.first) + " has formation id " + std::to_string(kv.second->formationId()) +
+										", not one issued below the next formation id " + std::to_string(m_nextFormationId));
+				}
+			}
+		}
 	}
 	AIXfer::blockReadToEnd(x, "ai world"); // inside the transaction: a block with bytes after its state is refused before anything stays changed
 	if (loading)
