@@ -1,5 +1,5 @@
 ## Ping wheel (NOT RETAIL, an OpenBFME addition): hold the ping key over the map and a wheel opens at the pointer. Move the pointer towards a
-## bubble and let go of the key: a ping of that kind is placed where the wheel opened (scripts/ping_board.gd shows it). Letting go in the middle places
+## sector and let go of the key: a ping of that kind is placed where the wheel opened (scripts/ping_board.gd shows it). Letting go in the middle places
 ## "Look here". A left click also places the selected ping; a right click, Esc or the window losing the focus closes the wheel without one.
 ##   up     Attack here        right  Reinforcements
 ##   down   Danger, fall back  left   Need help
@@ -12,10 +12,6 @@
 ##     with Ctrl or Alt, RW 0x75B0E1, GameClient/MessageStream/HotKey.cpp); J: no CommandMap record and no command button hotkey uses it; or one of the
 ##     mouse's two side buttons. tools/opts/test_ping_wheel_keys.py checks these against the retail files. If a mod's CommandMap binds Alt+G or J, the
 ##     wheel steps aside and the mod keeps the key (the Ctrl+Z free camera does the same, GodotInGameHud.cpp).
-## The look is the game's own radial menu (ControlBarRadialMenu, the bubbles around a selected building): each choice is a command button picture in
-## the mapped image RadialBorder, the one under the pointer in RadialOver, drawn as drawRadialOverlay draws them (the ring's size is the picture's
-## times the ring image's size / 48). The pictures and rings are the player's own game files (art_for: InGameHudNode.get_mapped_image); without them
-## (a test, a mod that lacks one) the choice is drawn as a plain vector glyph (scripts/ping_icon.gd) and the missing name is reported.
 ## The node sits after the HUD in the game's tree, so it sees the key before the HUD does, and a key or click it uses goes no further.
 ## Presentation only: it reads the pointer and the picked ground point; nothing it does reaches the simulation.
 extends CanvasLayer
@@ -34,13 +30,11 @@ const BINDINGS := {
 }
 const DEFAULT_BINDING := "g"
 const HOLD_MS := 180      # a held G opens the wheel after this long; a shorter tap is the game's G
-## the bubbles clockwise from the right (screen angle 0, 90, 180, 270 degrees), as ping_board.gd KINDS indexes; the middle is kind 0 ("here")
+## the sectors clockwise from the right (screen angle 0, 90, 180, 270 degrees), as ping_board.gd KINDS indexes; the middle is kind 0 ("here")
 const SECTOR_KINDS := [2, 3, 4, 1]
-const RADIUS := 140.0     # the bubbles' ring at 1080 lines
+const RADIUS := 130.0     # at 1080 lines
 const DEAD_ZONE := 0.34   # of the radius: the middle ("here")
-const OPEN_SECONDS := 0.12
-const RING_IMAGE := "RadialBorder"   # ControlBarRadialMenu's overlays (the engine's names, from RotWK's radial menu draw)
-const OVER_IMAGE := "RadialOver"
+const OPEN_SECONDS := 0.08
 const REPLAY_META := &"ping_wheel_replay"
 
 signal pinged(kind: int, world_xy: Vector2, accepted: bool)
@@ -50,14 +44,12 @@ var binding := DEFAULT_BINDING
 var enabled := true
 var can_open := Callable()   # () -> bool: a game is on and no menu has the input (game.gd); unset: always
 var pick := Callable()       # (pixel: Vector2) -> Vector2 SAGE x, y; x < -1e8 for none (InGameHudNode.ping_point: the minimap's point over the minimap)
-var art_for := Callable()    # (mapped image name) -> {found, texture, region} (InGameHudNode.get_mapped_image); unset: the vector glyphs
 var commandmap: Array = []  # the game's CommandMap records (InGameHudNode.get_command_map): a record on the key keeps it (a mod's)
 var font: Font
 var hold_ms := HOLD_MS
 var opened_total := 0
 var taps_passed := 0         # G taps handed to the game (tests)
 var blocked_by := ""         # the CommandMap record that keeps the key, "" when the key is the wheel's
-var art_missing: Array = []  # mapped image names the game's files do not have
 
 var _open := false
 var _centre := Vector2.ZERO
@@ -72,9 +64,7 @@ var _pending: InputEventKey  # a held binding's press, waiting for HOLD_MS (null
 var _pending_ms := 0
 var _pending_at := Vector2.ZERO
 var _passthrough := false    # the binding's press was handed to the game: its repeats and release are the game's too
-var _art := {}               # name -> {texture, region} or {} (missing)
 var _canvas: Control
-var _backdrop: GradientTexture2D
 
 
 func _ready() -> void:
@@ -86,17 +76,6 @@ func _ready() -> void:
 	_canvas.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_canvas.draw.connect(_draw_wheel)
 	add_child(_canvas)
-	# the wheel's shade: a soft dark disc that fades out at its edge, so the bubbles read over any ground
-	var g := Gradient.new()
-	g.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
-	g.colors = PackedColorArray([Color(0.02, 0.015, 0.01, 0.62), Color(0.02, 0.015, 0.01, 0.5), Color(0.02, 0.015, 0.01, 0.0)])
-	_backdrop = GradientTexture2D.new()
-	_backdrop.gradient = g
-	_backdrop.fill = GradientTexture2D.FILL_RADIAL
-	_backdrop.fill_from = Vector2(0.5, 0.5)
-	_backdrop.fill_to = Vector2(1.0, 0.5)
-	_backdrop.width = 256
-	_backdrop.height = 256
 
 
 ## set the key from the option's value; an unknown value is an error the caller reports (the option stays on its default)
@@ -322,83 +301,57 @@ func _handled() -> void:
 		get_viewport().set_input_as_handled()
 
 
-## the mapped image `name` from the game's files ({texture, region}), {} when missing (reported once)
-func art(image: String) -> Dictionary:
-	if _art.has(image):
-		return _art[image]
-	var found := {}
-	if art_for.is_valid():
-		var r: Dictionary = art_for.call(image)
-		if r.get("found", false):
-			found = {"texture": r.texture, "region": r.region}
-		else:
-			art_missing.append(image)
-			printerr("GAME ping wheel: the game's files have no mapped image %s; that choice is drawn as a plain glyph" % image)
-	_art[image] = found
-	return found
-
-
 # ---- drawing --------------------------------------------------------------------------------------------------------------------------------------------
 
 func _draw_wheel() -> void:
 	if not _open:
 		return
-	var t := clampf(_age / OPEN_SECONDS, 0.0, 1.0)
-	var grow := 1.0 - (1.0 - t) * (1.0 - t) # ease out
-	var R := _radius() * lerpf(0.7, 1.0, grow)
+	var grow := clampf(_age / OPEN_SECONDS, 0.0, 1.0)
+	var R := _radius() * lerpf(0.8, 1.0, grow)
+	var r0 := R * DEAD_ZONE
 	var c := _centre
 	var sel := selection()
-	var alpha := grow
+	var alpha := lerpf(0.4, 1.0, grow)
 	var gold := Color(PingIcon.GOLD, alpha)
-	# the shade, and a thin gold ring through the bubbles (the Palantir's trim)
-	var shade := R * 1.75
-	_canvas.draw_texture_rect(_backdrop, Rect2(c - Vector2(shade, shade), Vector2(shade, shade) * 2.0), false, Color(1, 1, 1, alpha))
-	_canvas.draw_arc(c, R, 0.0, TAU, 96, Color(gold, 0.45 * alpha), maxf(1.5, R * 0.016), true)
-	# the pointer's direction: the ring glows towards the chosen bubble
-	if sel != 0:
-		var a := (SECTOR_KINDS.find(sel)) * PI * 0.5
-		var col: Color = PingBoard.KINDS[sel].color
-		for i in 3:
-			_canvas.draw_arc(c, R, a - 0.55 + i * 0.12, a + 0.55 - i * 0.12, 32, Color(col.lerp(Color.WHITE, 0.2), (0.25 + 0.2 * i) * alpha), maxf(2.0, R * (0.05 - i * 0.012)), true)
-	var bubble := R * 0.6
+	var rim := maxf(2.0, R * 0.022)
+	# the four sectors: a dark ring, the selected one lit in its kind's colour
 	for s in 4:
 		var kind: int = SECTOR_KINDS[s]
-		var at := c + Vector2.from_angle(s * PI * 0.5) * R
-		_bubble(at, bubble * (1.16 if kind == sel else 1.0), kind, kind == sel, alpha)
-	_bubble(c, bubble * (0.92 if sel == 0 else 0.8), 0, sel == 0, alpha)
-	# the chosen ping's name, on a tooltip plate under the wheel
+		var col: Color = PingBoard.KINDS[kind].color
+		var a0 := (s - 0.5) * PI * 0.5
+		var poly := _sector(c, r0 * 1.08, R, a0 + 0.035, a0 + PI * 0.5 - 0.035)
+		var fill := Color(col.darkened(0.45), 0.86 * alpha) if kind == sel else Color(PingIcon.DARK, 0.72 * alpha)
+		_canvas.draw_colored_polygon(poly, fill)
+		var outline := poly.duplicate()
+		outline.append(poly[0])
+		_canvas.draw_polyline(outline, Color(col, alpha) if kind == sel else Color(gold, 0.75 * alpha), rim * (1.5 if kind == sel else 1.0), true)
+		var mid := c + Vector2.from_angle(a0 + PI * 0.25) * (r0 * 1.08 + R) * 0.5
+		var icon_r := R * (0.2 if kind == sel else 0.17)
+		PingIcon.draw_glyph(_canvas, PingBoard.KINDS[kind].id, mid, icon_r, Color(col, alpha) if kind == sel else Color(col.lerp(Color.WHITE, 0.25), 0.8 * alpha))
+	# the middle: "Look here"
+	_canvas.draw_circle(c, r0, Color(PingBoard.KINDS[0].color.darkened(0.5), 0.88 * alpha) if sel == 0 else Color(PingIcon.DARK, 0.8 * alpha))
+	_canvas.draw_arc(c, r0, 0.0, TAU, 40, gold if sel != 0 else Color(PingBoard.KINDS[0].color, alpha), rim * (1.5 if sel == 0 else 1.0), true)
+	PingIcon.draw_glyph(_canvas, "here", c, r0 * 0.55, Color(PingBoard.KINDS[0].color, alpha))
+	# the pointer's direction
+	var v := _pointer - c
+	if v.length() > r0:
+		_canvas.draw_line(c + v.normalized() * r0, c + v.normalized() * minf(v.length(), R), Color(gold, 0.6 * alpha), rim, true)
+	# the selected kind's name under the wheel
 	var f := font if font != null else ThemeDB.fallback_font
-	var fs := maxi(16, roundi(R * 0.2))
+	var fs := maxi(16, roundi(R * 0.19))
 	var text: String = PingBoard.KINDS[sel].label
 	var tw := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-	var plate := Rect2(c + Vector2(-tw * 0.5 - fs * 0.7, R + bubble * 0.8), Vector2(tw + fs * 1.4, fs * 1.55))
-	var box := StyleBoxFlat.new()
-	box.bg_color = Color(0.04, 0.03, 0.02, 0.82 * alpha)
-	box.border_color = Color(gold, 0.85 * alpha)
-	box.set_border_width_all(maxi(1, roundi(R * 0.012)))
-	box.set_corner_radius_all(roundi(fs * 0.3))
-	box.anti_aliasing = true
-	_canvas.draw_style_box(box, plate)
-	var base := plate.position + Vector2(fs * 0.7, plate.size.y * 0.5 + fs * 0.36)
-	_canvas.draw_string_outline(f, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, maxi(2, fs / 6), Color(0, 0, 0, 0.8 * alpha))
-	_canvas.draw_string(f, base, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(1.0, 0.9, 0.62, alpha))
+	var at := c + Vector2(-tw * 0.5, R + fs * 1.3)
+	_canvas.draw_string_outline(f, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, maxi(3, fs / 5), Color(0, 0, 0, alpha))
+	_canvas.draw_string(f, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(PingBoard.KINDS[sel].color.lerp(Color.WHITE, 0.35), alpha))
 
 
-## one choice as the radial menu draws a button: its picture in a circle, the ring image over it (RadialOver when chosen), `size` the picture's side
-func _bubble(at: Vector2, size: float, kind: int, chosen: bool, alpha: float) -> void:
-	var k: Dictionary = PingBoard.KINDS[kind]
-	var pic := art(str(k.image))
-	var ring := art(OVER_IMAGE if chosen else RING_IMAGE)
-	if chosen:
-		_canvas.draw_circle(at, size * 0.62, Color(Color(k.color), 0.22 * alpha)) # a soft glow of the kind's colour behind the chosen bubble
-	if pic.is_empty():
-		_canvas.draw_circle(at, size * 0.5, Color(PingIcon.DARK, 0.9 * alpha))
-		PingIcon.draw_glyph(_canvas, str(k.id), at, size * 0.3, Color(Color(k.color), alpha))
-	else:
-		var tint := Color(1, 1, 1, alpha) if chosen else Color(0.86, 0.84, 0.8, 0.95 * alpha)
-		_canvas.draw_texture_rect_region(pic.texture, Rect2(at - Vector2(size, size) * 0.5, Vector2(size, size)), pic.region, tint)
-	if ring.is_empty():
-		_canvas.draw_arc(at, size * 0.5, 0.0, TAU, 48, Color(Color(k.color) if chosen else PingIcon.GOLD, alpha), maxf(2.0, size * 0.06), true)
-	else:
-		var rs: float = size * (ring.region as Rect2).size.x / 48.0 # drawRadialOverlay: the half extent scaled by the image's size / 48
-		_canvas.draw_texture_rect_region(ring.texture, Rect2(at - Vector2(rs, rs) * 0.5, Vector2(rs, rs)), ring.region, Color(1, 1, 1, alpha))
+## an annulus sector between radii r0 and r1 and angles a0 .. a1 (screen angles, clockwise from the right)
+static func _sector(c: Vector2, r0: float, r1: float, a0: float, a1: float) -> PackedVector2Array:
+	const STEPS := 16
+	var pts := PackedVector2Array()
+	for i in STEPS + 1:
+		pts.append(c + Vector2.from_angle(lerpf(a0, a1, float(i) / STEPS)) * r1)
+	for i in range(STEPS, -1, -1):
+		pts.append(c + Vector2.from_angle(lerpf(a0, a1, float(i) / STEPS)) * r0)
+	return pts

@@ -456,10 +456,9 @@ The ping wheel is an OpenBFME addition, a quick way to mark a spot on the map,
 as in many newer strategy and team games. It works in skirmish games for now.
 
 1. Point at a spot on the map (or on the minimap) and hold **G**.
-2. A wheel opens under the pointer, drawn like the game's own building menu.
-   Move the pointer towards a choice: **Attack here** (up), **Reinforcements**
-   (right), **Danger, fall back** (down) or **Need help** (left). The middle
-   is **Look here**.
+2. A wheel opens under the pointer. Move the pointer towards a sector:
+   **Attack here** (up), **Reinforcements** (right), **Danger, fall back**
+   (down) or **Need help** (left). The middle is **Look here**.
 3. Let go of G. The ping appears on the ground and on the minimap, with a
    sound. Space jumps the camera to the last ping, as it does for the
    game's own radar events.
@@ -470,8 +469,8 @@ action then happens when you let go of G rather than when you press it.
 
 A left click also places the selected ping; a right click or Esc closes the
 wheel without one. You can place three pings every five seconds. The pings
-use the game's own beacon model, button pictures, minimap ping and beacon
-sound, read from your install.
+use the game's own beacon model, minimap ping and beacon sound, read from
+your install.
 
 In Options, on the Interface tab, you can turn the wheel off or move it to
 Alt+G or J (keys the original game never uses) or one of the mouse's side

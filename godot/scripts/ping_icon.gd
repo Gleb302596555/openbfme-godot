@@ -8,20 +8,11 @@ const DARK := Color(0.06, 0.05, 0.04, 0.82)
 var kind := "here"
 var color := Color.WHITE
 var backdrop := false # a dark disc with a gold rim behind the glyph (the floating icon)
-var picture := {}     # the game's picture of the kind ({texture, region}: ping_wheel.gd art()), drawn in `ring` as the wheel's bubble; {}: the glyph
-var ring := {}
 
 
 func _draw() -> void:
 	var c := size * 0.5
 	var r := minf(size.x, size.y) * 0.5
-	if not picture.is_empty():
-		var side := r * 2.0 * 48.0 / 56.0 # the ring (RadialBorder, 55 px for a 48 px button) fills the viewport
-		draw_texture_rect_region(picture.texture, Rect2(c - Vector2(side, side) * 0.5, Vector2(side, side)), picture.region)
-		if not ring.is_empty():
-			var rs: float = side * (ring.region as Rect2).size.x / 48.0
-			draw_texture_rect_region(ring.texture, Rect2(c - Vector2(rs, rs) * 0.5, Vector2(rs, rs)), ring.region)
-		return
 	if backdrop:
 		draw_circle(c, r * 0.92, DARK)
 		draw_arc(c, r * 0.92, 0.0, TAU, 48, GOLD, maxf(2.0, r * 0.07), true)

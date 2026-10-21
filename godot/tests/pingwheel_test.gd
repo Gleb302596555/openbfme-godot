@@ -245,31 +245,6 @@ func _unit_checks() -> void:
 	_check(_wheel.enabled, "the held G shares G with the CommandMap's own G (a tap is the stance)")
 	_wheel.commandmap = []
 
-	# the look: the game's pictures and the radial menu's rings; a missing one is reported and drawn as a glyph
-	var img := Image.create(8, 8, false, Image.FORMAT_RGBA8)
-	img.fill(Color(0.6, 0.5, 0.3))
-	var tex := ImageTexture.create_from_image(img)
-	_wheel.art_for = func(n: String) -> Dictionary: return {"found": n != "UCCommon_Guard", "texture": tex, "region": Rect2(0, 0, 8, 8)}
-	_wheel._art.clear()
-	_check(not _wheel.art("UPBeacon").is_empty() and _wheel.art("UCCommon_Guard").is_empty() and _wheel.art_missing == ["UCCommon_Guard"],
-		"the pictures come from the game's mapped images; a missing one is reported (%s)" % [_wheel.art_missing])
-	_wheel.configure(true, "altg")
-	_push(_key(KEY_ALT, true, true))
-	_push(_key(KEY_G, true, true))
-	_move(c + Vector2(-R * 0.7, 0))
-	await process_frame
-	await process_frame # draws the bubbles: pictures, rings, the missing one's glyph, the plate
-	_check(_wheel.is_open(), "the wheel draws with the game's art")
-	_push(_key(KEY_ESCAPE, true))
-	_push(_key(KEY_G, false))
-	_push(_key(KEY_ALT, false))
-	var board2 := PingBoard.new()
-	root.add_child(board2)
-	board2.setup(null, null, null, null, 1, _wheel)
-	_check(board2._icons.size() == PingBoard.KINDS.size(), "the floating icons are the wheel's bubbles")
-	board2.queue_free()
-	_board._recent.clear()
-
 	# a menu has the input
 	var allowed := [false]
 	_wheel.can_open = func() -> bool: return allowed[0]

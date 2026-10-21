@@ -355,7 +355,7 @@ func _scenario_looks() -> String:
 	await hold_up()
 	await game._step(40)
 	game._save_named("pingwheel-marker")
-	return "" if wheel.art_missing.is_empty() else "missing art: %s" % [wheel.art_missing]
+	return ""
 
 
 func _scenario_optshot() -> String:

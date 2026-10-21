@@ -2414,11 +2414,10 @@ func _install_pings(hud: Node) -> void:
 		print("GAME ping wheel: off (no local player)")
 		return
 	_ping_wheel = load("res://scripts/ping_wheel.gd").new()
-	_ping_wheel.art_for = hud.get_mapped_image # the radial menu's rings and the command button pictures, from the game's own files
 	_pings = load("res://scripts/ping_board.gd").new()
 	add_child(_pings)
 	_game_nodes.append(_pings)
-	var r: Dictionary = _pings.setup(hud, _world, _audio, _fs, _local_index, _ping_wheel)
+	var r: Dictionary = _pings.setup(hud, _world, _audio, _fs, _local_index)
 	print("GAME pings: ", JSON.stringify(r))
 	if not r.ok:
 		printerr("GAME pings: ", r.errors)
