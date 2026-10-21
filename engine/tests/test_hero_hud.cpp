@@ -5,6 +5,7 @@
 #include "HudTestUtil.h"
 
 #include "Common/PlayerHeroList.h"
+#include "GameLogic/CreateAHeroSystem.h"
 #include "Common/SpecialPower.h"
 #include "GameClient/GUI/ShellServices.h"
 #include "GameClient/InGameHud.h"
@@ -12,6 +13,8 @@
 #include "GameLogic/Module/SpecialAbilityModules.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/ExperienceTracker.h"
+#include "GameLogic/Damage.h"
+#include "Common/Upgrade.h"
 
 using namespace hudtest;
 
@@ -354,4 +357,91 @@ TEST_CASE("hero hud: the fortress's REVIVE buttons show the hero records and a p
 	}
 	CHECK(timerShown);
 	MESSAGE("Elendil recharge " << after.timer << ", a Palantir timer shown: " << timerShown);
+}
+
+TEST_CASE("hero hud: a recruited custom hero can be revived at the fortress")
+{
+	if (!haveWorld("custom hero recruitment image")) return;
+	SharedWorld &s = shared();
+	HeroHudRig h(s);
+	const auto context = s.world->enterContext();
+	REQUIRE(TheCreateAHeroSystem);
+	CreateAHeroHero hero;
+	bool found = false;
+	for (size_t c = 0; c < TheCreateAHeroSystem->classes().size(); ++c)
+		for (size_t sub = 0; sub < TheCreateAHeroSystem->classes()[c].subClasses.size(); ++sub)
+			if (TheCreateAHeroSystem->classes()[c].subClasses[sub].buttonImage == "HICAHShieldMaiden")
+			{
+				hero.classIndex = c;
+				hero.subClassIndex = sub;
+				found = true;
+			}
+	REQUIRE(found);
+	hero.name = u"Haley";
+	hero.uniqueID = "hud-shield-maiden";
+	h.rig.game->logic().createAHeroes().assign(*h.rig.local, hero);
+	h.rig.game->logic().createAHeroes().startGame();
+	const Coord3D c = h.rig.freeSpot(2800, 1400, 300.0f);
+	Object *keep = h.rig.make("MenFortressCitadel", c.x, c.y);
+	REQUIRE(keep);
+	h.frames(20);
+	h.hud->setWindowSize(1024, 768);
+	h.rig.view.setScreen(1024, 768);
+	h.select(keep);
+	bool pushed = false;
+	for (const ControlBarButton &button : h.buttons(GUI_COMMAND_PUSH_VISIBLE_COMMAND_RANGE))
+		if (!pushed && button.image == "UCCommon_GoodHeroes") pushed = h.hud->controlBar().pressButton(button.slot, button.inPalantir);
+	REQUIRE(pushed);
+	h.frames(5);
+	bool sawHero = false;
+	for (const ControlBarButton &button : h.buttons(GUI_COMMAND_REVIVE))
+	{
+		const auto &records = h.rig.local->heroes().records();
+		if (button.reviveIndex >= 0 && records.at(button.reviveIndex).templateName == "CreateAHero")
+		{
+			sawHero = true;
+		}
+	}
+	CHECK(sawHero);
+	// Recruit through the actual fortress HUD, then kill and revive the same
+	// custom hero. Creation consumes the purchase upgrade in skirmish/LAN.
+	h.rig.local->getMoney()->deposit(100000);
+	auto customButton = [&]() {
+		for (const auto &button : h.buttons(GUI_COMMAND_REVIVE))
+			if (const auto *record = h.rig.local->heroes().at(button.reviveIndex))
+				if (record->templateName == "CreateAHero") return button;
+		return ControlBarButton{};
+	};
+	auto liveHero = [&]() -> Object * {
+		for (Object *o = h.rig.logic().getFirstObject(); o; o = o->getNextObject())
+			if (o->isKindOfName("CREATE_A_HERO") && !o->isEffectivelyDead() && o->getControllingPlayer() == h.rig.local) return o;
+		return nullptr;
+	};
+	auto button = customButton();
+	REQUIRE(button.button);
+	REQUIRE(h.hud->controlBar().pressButton(button.slot, button.inPalantir));
+	for (int i = 0; i < 4000 && !liveHero(); ++i) h.frames(1);
+	Object *first = liveHero();
+	REQUIRE(first);
+	const ObjectID firstID = first->getID();
+	const auto *purchaseUpgrade = TheUpgradeCenter->findUpgrade(TheCreateAHeroSystem->canBuildUpgradeName);
+	REQUIRE(purchaseUpgrade);
+	CHECK_FALSE(h.rig.local->hasUpgradeComplete(purchaseUpgrade));
+	h.frames(300); // finish the spawn animation before death
+	DamageInfo damage;
+	damage.m_input.m_damageType = DAMAGE_UNRESISTABLE;
+	damage.m_input.m_amount = 100000.0f;
+	damage.m_input.m_kill = true;
+	first->attemptDamage(damage);
+	REQUIRE(first->isEffectivelyDead());
+	h.frames(20);
+	button = customButton();
+	REQUIRE_MESSAGE(button.button, "dead custom hero must remain available at the fortress");
+	CHECK(button.state == ButtonState::Enabled);
+	CHECK(h.rig.local->heroes().at(button.reviveIndex)->dead);
+	REQUIRE(h.hud->controlBar().pressButton(button.slot, button.inPalantir));
+	for (int i = 0; i < 4000 && !liveHero(); ++i) h.frames(1);
+	REQUIRE(liveHero());
+	CHECK(liveHero()->getID() != firstID);
+	CHECK_FALSE(h.rig.local->hasUpgradeComplete(purchaseUpgrade));
 }
