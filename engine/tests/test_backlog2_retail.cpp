@@ -674,8 +674,10 @@ TEST_CASE("BACKLOG2 r1 determinism: three units on a build site: the draw assign
 	// Aragorn the third
 	CHECK(a.drawOrder == std::vector<std::string>{ "GondorBoromir", "GondorFaramir", "GondorAragorn" });
 	CHECK(a.goals == std::vector<std::uint32_t>{ 0x4412CD2Bu, 0x458FD561u, 0x440FE5A5u, 0x458EB2F9u, 0x4408C216u, 0x458E2385u });
-	CHECK(a.positions == std::vector<std::uint32_t>{ 0x4413A000u, 0x458FC400u, 0x441DB5ACu, 0x458ED1F8u, 0x43FDF2A9u, 0x458D2F2Bu });
-	CHECK(a.hashes.back() == 0x0EFDBFD5U);   // q19: BACKLOG-8 hashes the formation and march rows of AIData / GameData in GameLogicSettings::crc (unconditionally) and moves the march;
+	// review of #74: the destination adjustment spiralling around the cell (RW 0x6FA2A4 / 0x6F3C87) moves where the units end; re-measured, the same on
+	// Linux (the maintainers' gate) and Windows (llvm-mingw): positions and the last hash. The hash had moved on main before (0xFFD9BAD4 there)
+	CHECK(a.positions == std::vector<std::uint32_t>{ 0x4413CD74u, 0x458FC036u, 0x4413A944u, 0x458E8400u, 0x43FD2084u, 0x458D2208u });
+	CHECK(a.hashes.back() == 0xEBDE73E1U);   // q19: BACKLOG-8 hashes the formation and march rows of AIData / GameData in GameLogicSettings::crc (unconditionally) and moves the march;
 	                                         // re-measured on the merged tree (a CI host); was 0x78A9CB12 (q18: DEVPORT-3C castle keep gate / Horde removal record, before 0x2BD4804B); goals and positions unchanged
 	// every unit left the spot it stood on
 	CHECK(a.positions[0] != a.goals[0]);

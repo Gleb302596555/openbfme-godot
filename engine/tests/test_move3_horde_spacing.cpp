@@ -380,8 +380,8 @@ TEST_CASE("move3 retail: two allied hordes sent to one point (FB-0006)")
 				// a RandomOffset (MordorArcherHorde, GoblinArcherHorde, IsengardUrukCrossbowHorde) jitters the slots with the logic's random draws: in RotWK the
 				// second horde's cell is on one side of the first or the other from run to run; the two formations do not stand on one another
 				CHECK(d > 50.0f); // tolerance: the side and the distance depend on the drawn slot offsets (RotWK: 60 .. 99 in the lab's runs)
-				// and their members do not stand on one another: two stacked formations overlap 12 .. 16; measured 2.06 .. 8.14 with the formations centred (the
-				// members of the formations' facing edges)
+				// and their members do not stand on one another: two stacked formations overlap 12 .. 16; measured 2.06 .. 8.14 with the formations centred, 7.85 .. 10.63
+				// once the destination search spirals too (the members of the formations' facing edges)
 				CHECK(last.allyOverlap < 12.0f); // tolerance: below the stacked formations' overlap; the edges' depends on the drawn slot offsets
 			}
 		}

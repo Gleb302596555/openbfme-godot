@@ -29,7 +29,7 @@ void AIWorld::xfer(Xfer &x)
 
 void AIWorld::xferBody(Xfer &x)
 {
-	XferVersion v{ 1, 1 };
+	XferVersion v{ 1, 2 }; // 2: the next formation id (below)
 	x.xferVersion(v);
 	const bool loading = x.isLoading();
 	AIXfer::StringTableScope strings; // the units' stop lines once each (AIXfer::reportString)
@@ -136,6 +136,12 @@ void AIWorld::xferBody(Xfer &x)
 	});
 	std::vector<std::string> noted(m_noted.begin(), m_noted.end());
 	AIXfer::reportStrings(x, noted);
+	// the next formation id (lane BACKLOG-8): hashed, and saved since version 2 (review of #74: an 11-minute save loaded with another hash); a version 1
+	// snapshot keeps the loaded game's
+	if (v.current >= 2)
+	{
+		x.xferInt(&m_nextFormationId);
+	}
 	AIXfer::blockReadToEnd(x, "ai world"); // inside the transaction: a block with bytes after its state is refused before anything stays changed
 	if (loading)
 	{
