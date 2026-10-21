@@ -11,6 +11,11 @@
 #include <cstddef>
 #include <stdexcept>
 
+RGBColor defaultHardwareFogColor()
+{
+	return RGBColor{ 0x88 / 255.0f, 0x66 / 255.0f, 0x55 / 255.0f };
+}
+
 const char *const WeatherSettingStore::WeatherTypeNames[WEATHER_TYPE_COUNT] = { "NONE", "CLOUDY", "RAINY", "CLOUDYRAINY", "SUNNY" };
 
 namespace

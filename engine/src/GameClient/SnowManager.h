@@ -65,8 +65,9 @@ public:
 		m_holdrand = m_holdrand * 214013u + 2531011u;
 		return (int)((m_holdrand >> 16) & 0x7FFFu);
 	}
-	// WWMath::Random_Float RW 0xB25D60: (rand() & 0xFFF) * (float)(1.0 / 4095) on the x87, stored as float
-	float randomFloat() { return (float)((double)(rand() & 0xFFF) * (double)(1.0f / 4095.0f)); }
+	// WWMath::Random_Float RW 0xB25D60: (rand() & 0xFFF) * (float)(1.0 / 4095) on the x87, stored as float (SnowManager.cpp: the weather headers reach an
+	// audited simulation-input file, tools/sim/sim_audit.py, so their float maths lives in the .cpp files)
+	float randomFloat();
 	std::uint32_t state() const { return m_holdrand; }
 
 private:
@@ -100,6 +101,9 @@ class SnowManager
 {
 public:
 	enum { kMaxSnowSpacing = 1 << 20 }; ///< drawParams' bound of a map's SnowSpacing (wider than any map: no particle)
+	// review of #59: drawParams' most particles per tile (a client limit, not retail's: S-4890). The stock Weather (SnowSpacing 30, NumberTiles 4) gives
+	// about 2,500 on a 600 x 600 map; NumberTiles = 1 with SnowSpacing = 1 there asked for 33.6 million, which crashed the client
+	enum { kMaxSnowParticles = 1 << 16 };
 	SnowManager() : m_heights(64 * 64, 0.0f) {}
 
 	// SnowManager::init (RW 0x600B.. / W3D 0x494642): time 0, then updateIniSettings

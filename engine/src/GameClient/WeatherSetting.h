@@ -39,6 +39,10 @@
 #include <vector>
 
 // RW 0xB4-byte WeatherSetting (the Overridable header +0x00 .. +0x17 is the store's chain here)
+// the default HardwareFogColor, RGBColor::setFromInt(0x886655): 0x88 / 255.0f, 0x66 / 255.0f, 0x55 / 255.0f (WeatherSetting.cpp: the weather headers reach
+// an audited simulation-input file, tools/sim/sim_audit.py, so their float maths lives in the .cpp files)
+RGBColor defaultHardwareFogColor();
+
 struct WeatherSetting
 {
 	std::string snowTexture = "EXSnowFlake.tga"; ///< +0x18 SnowTexture
@@ -66,7 +70,7 @@ struct WeatherSetting
 	Coord2D rampControl{ 0.3f, 0.7f };           ///< +0x74
 	Coord2D rampSpeed{ 0.0f, 100.0f };           ///< +0x7C
 	Coord2D rampSpacing{ 50.0f, 20.0f };         ///< +0x84
-	RGBColor hardwareFogColor{ 0x88 / 255.0f, 0x66 / 255.0f, 0x55 / 255.0f }; ///< +0x8C RGBColor::setFromInt(0x886655)
+	RGBColor hardwareFogColor = defaultHardwareFogColor(); ///< +0x8C RGBColor::setFromInt(0x886655)
 	bool hardwareFogEnable = false;              ///< +0x98
 	float hardwareFogStart = 300.0f;             ///< +0x9C
 	float hardwareFogEnd = 1500.0f;              ///< +0xA0

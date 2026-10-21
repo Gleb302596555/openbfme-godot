@@ -391,6 +391,35 @@ TEST_CASE("weather1 snow: a map's SnowSpacing of any size draws without an overf
 	}
 }
 
+// review (#59): NumberTiles = 1 and SnowSpacing = 1 on a 600 x 600 map asked for 33.6 million particles, which crashed the client; drawParams keeps a
+// tile at SnowManager::kMaxSnowParticles by widening the spacing to the least one whose grid fits
+TEST_CASE("weather1 snow: a tile's particles stay at kMaxSnowParticles, the spacing widened evenly; the stock field is unchanged")
+{
+	WeatherSettingStore s;
+	std::string error;
+	REQUIRE_MESSAGE(s.loadText(nullptr, "weather.ini", "Weather\n  SnowEnabled = yes\n  IsSnowing = yes\n  SnowSpacing = 1\n  NumberTiles = 1\nEnd\n", 1, &error),
+		error);
+	SnowManager m;
+	m.init(s.finalSetting());
+	W3DClientRandom rnd(RandomAlgorithm::RotWK_GameDat_LCG);
+	// a 600 x 600 height map with a border of 10: one tile of (600 - 20) * 10 = 5800 world units a side, 33,640,000 points at spacing 1
+	const SnowDrawParams p = m.drawParams(s.finalSetting(), 600, 600, 10, rnd);
+	CHECK(p.tiles == 1);
+	CHECK(p.stepX == 5800);
+	CHECK(p.spacing == 23);  // 33,640,000 / 22^2 = 69,504 is above 65,536; / 23^2 = 63,591 is not
+	CHECK(p.count == 63591);
+	CHECK(p.columns == 253); // ceil(5800 / 23)
+	// the stock Weather (SnowSpacing 30, NumberTiles 4) on the same map keeps its spacing: 1450^2 / 30^2 = 2336
+	WeatherSettingStore stock;
+	REQUIRE_MESSAGE(stock.loadText(nullptr, "weather.ini", "Weather\n  SnowEnabled = yes\n  IsSnowing = yes\n  SnowSpacing = 30\n  NumberTiles = 4\nEnd\n", 1, &error),
+		error);
+	SnowManager m2;
+	m2.init(stock.finalSetting());
+	const SnowDrawParams q = m2.drawParams(stock.finalSetting(), 600, 600, 10, rnd);
+	CHECK(q.spacing == 30);
+	CHECK(q.count == 2336);
+}
+
 TEST_CASE("weather1 snow: the quad path's grid (RW 0x4936CB) and one particle's position")
 {
 	WeatherSettingStore s;

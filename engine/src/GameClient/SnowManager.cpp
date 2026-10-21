@@ -234,6 +234,11 @@ void SnowManager::lightning(const WeatherSetting &s)
 	}
 }
 
+float CrtRand::randomFloat()
+{
+	return (float)((double)(rand() & 0xFFF) * (double)(1.0f / 4095.0f));
+}
+
 SnowDrawParams SnowManager::drawParams(const WeatherSetting &s, int mapWidth, int mapHeight, int mapBorder, W3DDrawRandom &clientRandom) const
 {
 	SnowDrawParams p;
@@ -259,7 +264,21 @@ SnowDrawParams SnowManager::drawParams(const WeatherSetting &s, int mapWidth, in
 	else
 	{
 		p.spacing = m_spacing >= 1.0f ? (m_spacing < (float)kMaxSnowSpacing ? (int)m_spacing : kMaxSnowSpacing) : 1;
-		const std::int64_t count = ((std::int64_t)p.stepY * (std::int64_t)p.stepX) / ((std::int64_t)p.spacing * (std::int64_t)p.spacing);
+		// review of #59: at most kMaxSnowParticles per tile. Beyond it the spacing widens to the least one whose grid fits (the count falls as the spacing
+		// grows), so the field thins evenly instead of stopping after the first rows; retail draws any count (S-4890)
+		const std::int64_t area = (std::int64_t)p.stepY * (std::int64_t)p.stepX;
+		auto countAt = [area](std::int64_t sp) { return area / (sp * sp); };
+		if (countAt(p.spacing) > (std::int64_t)kMaxSnowParticles)
+		{
+			std::int64_t lo = p.spacing, hi = kMaxSnowSpacing; // countAt(lo) is above the bound, countAt(hi) within it (no particle)
+			while (hi - lo > 1)
+			{
+				const std::int64_t mid = lo + (hi - lo) / 2;
+				(countAt(mid) > (std::int64_t)kMaxSnowParticles ? lo : hi) = mid;
+			}
+			p.spacing = (int)hi;
+		}
+		const std::int64_t count = countAt(p.spacing);
 		p.count = (int)std::min<std::int64_t>(std::max<std::int64_t>(count, 0), INT_MAX);
 		p.columns = p.stepX > 0 ? (int)(((std::int64_t)p.stepX + p.spacing - 1) / p.spacing) : 0;
 	}
