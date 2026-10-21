@@ -1014,8 +1014,16 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 			Ref<Shader> additive;
 			if (sh.is_valid())
 			{
-				additive.instantiate();
-				additive->set_code(sh->get_code().replace("blend_mix", "blend_add"));
+				const String mixMode = "render_mode unshaded, blend_mix";
+				if (sh->get_code().contains(mixMode))
+				{
+					additive.instantiate();
+					additive->set_code(sh->get_code().replace(mixMode, "render_mode unshaded, blend_add"));
+				}
+				else
+				{
+					errors.push_back("river.gdshader: no \"" + mixMode + "\" render mode to make the additive copy from");
+				}
 			}
 			int64_t additiveRendered = 0;
 			float waterDiffuse[4];
