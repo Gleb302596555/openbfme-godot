@@ -2413,14 +2413,15 @@ func _install_pings(hud: Node) -> void:
 	if _local_index < 0:
 		print("GAME ping wheel: off (no local player)")
 		return
+	_ping_wheel = load("res://scripts/ping_wheel.gd").new()
+	_ping_wheel.art_for = hud.get_mapped_image # the radial menu's rings and the command button pictures, from the game's own files
 	_pings = load("res://scripts/ping_board.gd").new()
 	add_child(_pings)
 	_game_nodes.append(_pings)
-	var r: Dictionary = _pings.setup(hud, _world, _audio, _fs, _local_index)
+	var r: Dictionary = _pings.setup(hud, _world, _audio, _fs, _local_index, _ping_wheel)
 	print("GAME pings: ", JSON.stringify(r))
 	if not r.ok:
 		printerr("GAME pings: ", r.errors)
-	_ping_wheel = load("res://scripts/ping_wheel.gd").new()
 	_ping_wheel.board = _pings
 	_ping_wheel.pick = hud.ping_point # the terrain under the pointer, the minimap's point over the minimap, none over the rest of the HUD
 	_ping_wheel.can_open = _ping_wheel_allowed

@@ -1,7 +1,9 @@
 """The ping wheel (not retail) must not take a key from a retail command. Its key choices are BINDINGS in godot/scripts/ping_wheel.gd; the keyboard
 choices are checked against the RotWK 2.01 / BFME2 1.06 mount (Data\\INI\\CommandMap.ini and the language archive's CommandMap.ini, the two files the
 game reads, as tools/opts/test_opts1_hotkeys.py reads them, and the game's string file):
-  * Alt+G (the default): no CommandMap record uses KEY_G with ALT. A command button's hotkey never fires with Alt held (RotWK's HotKeyTranslator,
+  * G held (the default) shares G with the game by time: a tap is handed to the game (the CommandMap's STANCE_HOLDGROUND and the command buttons
+    whose hotkey is G), only a held G is the wheel's. The test checks that retail does use G alone, the reason the default is a hold and not a press;
+  * Alt+G: no CommandMap record uses KEY_G with ALT. A command button's hotkey never fires with Alt held (RotWK's HotKeyTranslator,
     RW 0x75B0E1), so the buttons that use G are not a clash;
   * J: no CommandMap record uses KEY_J with any modifier, and no command button hotkey is J: a button's hotkey is the letter after '&' in its label's
     string (the CONTROLBAR: labels), so no such string has '&J'.
@@ -35,22 +37,25 @@ def bindings() -> dict[str, dict]:
     block = text[text.index("const BINDINGS := {"):]
     block = block[:block.index("\n}")]
     out = {}
-    pattern = r'"(\w+)": \{"label": "([^"]+)", (?:"key": (KEY_\w+), "alt": (true|false), "commandmap": "(KEY_\w+)"|"button": (MOUSE_BUTTON_\w+))\}'
+    pattern = (r'"(\w+)": \{"label": "([^"]+)", (?:"key": (KEY_\w+), "alt": (true|false), (?:"hold": (true)|"commandmap": "(KEY_\w+)")'
+               r'|"button": (MOUSE_BUTTON_\w+))\}')
     for m in re.finditer(pattern, block):
-        out[m.group(1)] = {"label": m.group(2), "godot_key": m.group(3), "alt": m.group(4) == "true", "commandmap": m.group(5), "button": m.group(6)}
+        out[m.group(1)] = {"label": m.group(2), "godot_key": m.group(3), "alt": m.group(4) == "true", "hold": m.group(5) == "true",
+                           "commandmap": m.group(6), "button": m.group(7)}
     return out
 
 
 def test_bindings_match_the_option():
     b = bindings()
-    assert list(b) == ["altg", "j", "mouse4", "mouse5"]
+    assert list(b) == ["g", "altg", "j", "mouse4", "mouse5"]
+    assert (b["g"]["godot_key"], b["g"]["alt"], b["g"]["hold"], b["g"]["commandmap"]) == ("KEY_G", False, True, None)
     assert (b["altg"]["godot_key"], b["altg"]["alt"], b["altg"]["commandmap"]) == ("KEY_G", True, "KEY_G")
     assert (b["j"]["godot_key"], b["j"]["alt"], b["j"]["commandmap"]) == ("KEY_J", False, "KEY_J")
     assert b["mouse4"]["button"] == "MOUSE_BUTTON_XBUTTON1" and b["mouse5"]["button"] == "MOUSE_BUTTON_XBUTTON2"
     options = OPTIONS.read_text(encoding="utf-8")
     m = re.search(r'"OpenBFMEPingKey": \{"default": "(\w+)", "choices": \[([^\]]*)\]\}', options)
     assert m, "game_options.gd EXTRAS has no OpenBFMEPingKey"
-    assert m.group(1) == "altg"
+    assert m.group(1) == "g"
     assert re.findall(r'"(\w+)"', m.group(2)) == list(b)
     assert re.search(r'"OpenBFMEPingWheel": \{"default": "yes", "choices": \["yes", "no"\]\}', options)
     screen = SCREEN.read_text(encoding="utf-8")
@@ -99,9 +104,12 @@ def test_keys_are_free_in_retail():
     b = bindings()
     clash = [r for r in all_records if r.get("key") == "KEY_G" and "ALT" in r.get("modifiers", "NONE").upper()]
     assert not clash, f"Alt+G is a CommandMap record's: {clash}"
+    held = [r for r in all_records if r.get("key") == "KEY_G" and r.get("modifiers", "NONE").upper() == "NONE"]
+    assert held, "retail binds no G alone: the held G could be a plain press"
     clash = [r for r in all_records if r.get("key") == "KEY_J"]
     assert not clash, f"J is a CommandMap record's: {clash}"
     assert {k for k, v in b.items() if v["commandmap"]} == {"altg", "j"}
+    assert "G" in hotkey_letters(mount.read(sorted(k for k in mount.files if k.replace("/", "\\").lower() == "data\\lotr.str")[0]).decode("latin-1"))
     tables = sorted(k for k in mount.files if k.replace("/", "\\").lower() == "data\\lotr.str")
     assert tables, "the game's string file (data\\lotr.str) is not in the mount"
     letters = hotkey_letters(mount.read(tables[0]).decode("latin-1"))

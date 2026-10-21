@@ -1,8 +1,8 @@
 ## Ping wheel (NOT RETAIL, an OpenBFME addition): the pings a player places with the wheel (scripts/ping_wheel.gd), shown where they point.
 ## A ping is a kind and a point on the map (SAGE x, y). Each one shows, for PING_SECONDS:
 ##   * on the ground: the player's beacon model (the BeaconName of the player's PlayerTemplate, RotWK's MultiplayerBeacon: GameWorld
-##     get_player_beacon_template / get_template_model, read from the player's own game files, so a mod's beacon shows), a ring in the kind's colour that
-##     pulses out from it and the kind's icon floating above it;
+##     get_player_beacon_template / get_template_model, read from the player's own game files, so a mod's beacon shows), a glow and a ring in the kind's
+##     colour that pulses out from it, and the kind's picture floating above it in the radial menu's ring (the wheel's bubble, scripts/ping_wheel.gd);
 ##   * on the minimap: a radar event (InGameHudNode.create_radar_event, the radar's own 4 second event): RADAR_EVENT_BEACON (6, the Palantir's PingBeacon
 ##     ping) for every kind but "danger", which is RADAR_EVENT_UNDER_ATTACK (3, PingAttack, the red one). Like a script's radar event it is also the
 ##     radar's event position (Radar::noteEvaPosition), so Space (the CommandMap's VIEW_LAST_RADAR_EVENT) looks at the last ping;
@@ -19,13 +19,15 @@
 ## them, so nobody sees a ping the other players cannot.
 extends Node3D
 
-## the wheel's kinds, by index (the wheel's sectors name these). "radar": the radar event type; "sound": the MiscAudio field played ("" for none)
+## the wheel's kinds, by index (the wheel's bubbles name these). "radar": the radar event type; "sound": the MiscAudio field played ("" for none);
+## "image": the mapped image of the game's own command button art that pictures it (an OpenBFME choice: the signal fire, the aggressive stance's
+## crossed swords, the rallying call's horn, the back arrow, the guard shield)
 const KINDS := [
-	{"id": "here", "label": "Look here", "color": Color(1.0, 0.85, 0.35), "radar": 6, "sound": "BeaconPlacedSound"},
-	{"id": "attack", "label": "Attack here", "color": Color(1.0, 0.5, 0.18), "radar": 6, "sound": "BeaconPlacedSound"},
-	{"id": "reinforce", "label": "Reinforcements", "color": Color(0.45, 0.85, 0.35), "radar": 6, "sound": "BeaconPlacedSound"},
-	{"id": "danger", "label": "Danger, fall back", "color": Color(1.0, 0.22, 0.2), "radar": 3, "sound": ""},
-	{"id": "assist", "label": "Need help", "color": Color(0.4, 0.7, 1.0), "radar": 6, "sound": "BeaconPlacedSound"},
+	{"id": "here", "label": "Look here", "color": Color(1.0, 0.85, 0.35), "radar": 6, "sound": "BeaconPlacedSound", "image": "BPCSignalFire"},
+	{"id": "attack", "label": "Attack here", "color": Color(1.0, 0.5, 0.18), "radar": 6, "sound": "BeaconPlacedSound", "image": "UCCommon_AggresiveStance"},
+	{"id": "reinforce", "label": "Reinforcements", "color": Color(0.45, 0.85, 0.35), "radar": 6, "sound": "BeaconPlacedSound", "image": "SBGood_RallyingCall"},
+	{"id": "danger", "label": "Danger, fall back", "color": Color(1.0, 0.22, 0.2), "radar": 3, "sound": "", "image": "UCCommon_BackArrow"},
+	{"id": "assist", "label": "Need help", "color": Color(0.4, 0.7, 1.0), "radar": 6, "sound": "BeaconPlacedSound", "image": "UCCommon_Guard"},
 ]
 const PING_SECONDS := 4.0     # the radar event's life (Radar::createEvent's default, what a script's radar event gets)
 const FADE_SECONDS := 0.5     # the radar fades its event the last half second (RW 0x6D93EB); the marker does the same
@@ -51,14 +53,15 @@ var _markers: Array = []      # {node, ring, icon, beacon (instance id or -1), a
 var _pending: Array = []      # [kind, world_xy] waiting for a render frame the logic is held in (the ground height is a live read, as in move_hints.gd)
 
 
-## hud / world / audio / fs may be null (the UI test); `player` is the local player's index (the beacon template's player)
-func setup(p_hud: Node, p_world: Node, p_audio: Node, fs: RefCounted, player: int) -> Dictionary:
+## hud / world / audio / fs may be null (the UI test); `player` is the local player's index (the beacon template's player); `art`: the wheel's
+## (ping_wheel.gd art(): a mapped image by name), or null for the plain glyphs
+func setup(p_hud: Node, p_world: Node, p_audio: Node, fs: RefCounted, player: int, art: Object = null) -> Dictionary:
 	hud = p_hud
 	world = p_world
 	audio = p_audio
 	local_player = player
 	name = "Pings"
-	_make_icons()
+	_make_icons(art)
 	if world != null and fs != null:
 		var template: String = world.get_player_beacon_template(player)
 		beacon_model = world.get_template_model(template) if template != "" else ""
@@ -152,8 +155,10 @@ func _process(delta: float) -> void:
 		# the ring: three pulses out from the beacon, each 0.8 s, then it rests at full size
 		var pulse := fmod(m.age, 0.8) / 0.8 if m.age < 2.4 else 1.0
 		var ring: MeshInstance3D = m.ring
-		ring.scale = Vector3.ONE * lerpf(0.35, 1.0, pulse)
-		(ring.material_override as StandardMaterial3D).albedo_color = Color(color, (1.0 - 0.6 * pulse) * fade)
+		ring.scale = Vector3(1.0, 0.2, 1.0) * lerpf(0.35, 1.0, pulse) # a flat ring on the ground
+		(ring.material_override as StandardMaterial3D).albedo_color = Color(color, (1.0 - 0.55 * pulse) * fade)
+		var glow: MeshInstance3D = m.glow
+		(glow.material_override as StandardMaterial3D).albedo_color = Color(color, (0.75 + 0.2 * sin(m.age * 6.0)) * fade)
 		var icon: Sprite3D = m.icon
 		icon.position.y = 34.0 + 3.0 * sin(m.age * 4.0)
 		icon.modulate = Color(1, 1, 1, fade)
@@ -177,25 +182,42 @@ func _add_marker(kind: int, xy: Vector2) -> void:
 	var mat := StandardMaterial3D.new()
 	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
 	mat.no_depth_test = true
 	mat.render_priority = 1
 	mat.albedo_color = KINDS[kind].color
 	ring.material_override = mat
 	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	node.add_child(ring)
+	# a soft light on the ground under the beacon, in the kind's colour
+	var glow := MeshInstance3D.new()
+	var plane := PlaneMesh.new()
+	plane.size = Vector2(44.0, 44.0)
+	glow.mesh = plane
+	glow.position.y = 0.6
+	var gmat := StandardMaterial3D.new()
+	gmat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	gmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	gmat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+	gmat.no_depth_test = true
+	gmat.albedo_texture = _glow_texture()
+	gmat.albedo_color = KINDS[kind].color
+	glow.material_override = gmat
+	glow.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	node.add_child(glow)
 	var icon := Sprite3D.new()
 	icon.texture = _icons[kind].get_texture()
 	icon.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	icon.no_depth_test = true
 	icon.render_priority = 2
-	icon.pixel_size = 0.2
+	icon.pixel_size = 0.22
 	icon.position.y = 34.0
 	icon.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	node.add_child(icon)
 	var beacon := -1
 	if _model >= 0:
 		beacon = _inst.add_instance(_model, Transform3D(Basis.IDENTITY, node.position))
-	_markers.append({"node": node, "ring": ring, "icon": icon, "beacon": beacon, "age": 0.0, "kind": kind})
+	_markers.append({"node": node, "ring": ring, "glow": glow, "icon": icon, "beacon": beacon, "age": 0.0, "kind": kind})
 
 
 func _remove_marker(m: Dictionary) -> void:
@@ -204,8 +226,22 @@ func _remove_marker(m: Dictionary) -> void:
 	(m.node as Node3D).queue_free()
 
 
-## each kind's icon drawn once into its own small viewport (the floating icon's texture)
-func _make_icons() -> void:
+var _glow: GradientTexture2D
+func _glow_texture() -> GradientTexture2D:
+	if _glow == null:
+		var g := Gradient.new()
+		g.offsets = PackedFloat32Array([0.0, 0.35, 1.0])
+		g.colors = PackedColorArray([Color(1, 1, 1, 0.9), Color(1, 1, 1, 0.35), Color(1, 1, 1, 0.0)])
+		_glow = GradientTexture2D.new()
+		_glow.gradient = g
+		_glow.fill = GradientTexture2D.FILL_RADIAL
+		_glow.fill_from = Vector2(0.5, 0.5)
+		_glow.fill_to = Vector2(1.0, 0.5)
+	return _glow
+
+
+## each kind's icon drawn once into its own small viewport (the floating icon's texture): the wheel's bubble (its picture in RadialBorder)
+func _make_icons(art: Object) -> void:
 	const Icon := preload("res://scripts/ping_icon.gd")
 	for i in KINDS.size():
 		var vp := SubViewport.new()
@@ -216,6 +252,9 @@ func _make_icons() -> void:
 		c.kind = KINDS[i].id
 		c.color = KINDS[i].color
 		c.backdrop = true
+		if art != null:
+			c.picture = art.art(str(KINDS[i].image))
+			c.ring = art.art("RadialBorder")
 		c.size = Vector2(ICON_PIXELS, ICON_PIXELS)
 		vp.add_child(c)
 		add_child(vp)

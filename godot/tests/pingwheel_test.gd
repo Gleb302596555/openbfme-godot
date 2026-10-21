@@ -41,7 +41,7 @@ func _run() -> int:
 		_check(false, "the openbfme extension is loaded")
 		return 1
 	var common := ["--auto", "--faction=FactionMen", "--seed=7"]
-	_game_run(common + ["--pingwheel=wheel,kinds,minimap,space,menus,options"], 6, "the ping wheel in a skirmish")
+	_game_run(common + ["--pingwheel=wheel,tap,kinds,minimap,space,menus,options"], 7, "the ping wheel in a skirmish")
 	var quiet := _hash_run(common, "quiet")
 	var pinged := _hash_run(common, "pings")
 	var same := 0
@@ -190,6 +190,75 @@ func _unit_checks() -> void:
 	_check(handled and not _wheel.is_open(), "over a pixel with no ground the wheel stays shut")
 	_push(_key(KEY_G, false))
 	_push(_key(KEY_ALT, false))
+	_board._recent.clear()
+
+	# the default key: G held. A tap is the game's G (handed back when it is let go), a hold opens the wheel
+	_wheel.configure(true, "g")
+	_check(_wheel.enabled and _wheel.binding == PingWheel.DEFAULT_BINDING, "the default key is the held G")
+	_wheel.hold_ms = 60
+	_move(c)
+	var taps: int = _wheel.taps_passed
+	handled = _push(_key(KEY_G, true))
+	_check(handled and _wheel.is_pending() and not _wheel.is_open(), "G goes down: the wheel waits (the press is held back)")
+	_check(_push(_key(KEY_G, true, false, true)) and _wheel.is_pending(), "... its repeat too")
+	handled = _push(_key(KEY_G, false))
+	_check(handled and not _wheel.is_pending() and not _wheel.is_open() and _wheel.taps_passed == taps + 1, "a quick tap of G is handed to the game (press and release)")
+	var replay := _key(KEY_G, true)
+	replay.set_meta(PingWheel.REPLAY_META, true)
+	_check(not _push(replay) and not _wheel.is_pending(), "the handed-back G passes the wheel")
+	_push(_key(KEY_G, false))
+	await process_frame
+	_pinged.clear()
+	_push(_key(KEY_G, true))
+	await create_timer(0.12).timeout
+	await process_frame
+	_check(_wheel.is_open() and _wheel._centre == c, "G held: the wheel opens where G went down")
+	_move(c + Vector2(0, -R * 0.7))
+	_check(_push(_key(KEY_G, false)) and not _wheel.is_open() and _pinged.size() == 1 and _pinged[0][0] == PingBoard.kind_index("attack"),
+		"letting go of the held G places the ping (%s)" % [_pinged])
+	_move(c)
+	taps = _wheel.taps_passed
+	_push(_key(KEY_G, true))
+	_check(not _push(_key(KEY_S, true)) and not _wheel.is_pending() and _wheel.taps_passed == taps + 1, "another key before the hold time: the G is the game's, and so is that key")
+	_push(_key(KEY_S, false))
+	_check(not _push(_key(KEY_G, false)), "... and so is G's release")
+	_move(Vector2(5, 400))
+	_push(_key(KEY_G, true))
+	await create_timer(0.12).timeout
+	await process_frame
+	_check(not _wheel.is_open() and not _wheel.is_pending() and not _push(_key(KEY_G, false)), "G held over no ground (the HUD's buttons): the G is the game's")
+	_move(c)
+	_check(not _push(_key(KEY_G, true, true)) and not _wheel.is_pending(), "Alt+G with the held G is the game's")
+	_push(_key(KEY_G, false, true))
+	_wheel.commandmap = [{"name": "STANCE_HOLDGROUND", "key": "KEY_G", "alt": false}]
+	_wheel.configure(true, "g")
+	_check(_wheel.enabled, "the held G shares G with the CommandMap's own G (a tap is the stance)")
+	_wheel.commandmap = []
+
+	# the look: the game's pictures and the radial menu's rings; a missing one is reported and drawn as a glyph
+	var img := Image.create(8, 8, false, Image.FORMAT_RGBA8)
+	img.fill(Color(0.6, 0.5, 0.3))
+	var tex := ImageTexture.create_from_image(img)
+	_wheel.art_for = func(n: String) -> Dictionary: return {"found": n != "UCCommon_Guard", "texture": tex, "region": Rect2(0, 0, 8, 8)}
+	_wheel._art.clear()
+	_check(not _wheel.art("UPBeacon").is_empty() and _wheel.art("UCCommon_Guard").is_empty() and _wheel.art_missing == ["UCCommon_Guard"],
+		"the pictures come from the game's mapped images; a missing one is reported (%s)" % [_wheel.art_missing])
+	_wheel.configure(true, "altg")
+	_push(_key(KEY_ALT, true, true))
+	_push(_key(KEY_G, true, true))
+	_move(c + Vector2(-R * 0.7, 0))
+	await process_frame
+	await process_frame # draws the bubbles: pictures, rings, the missing one's glyph, the plate
+	_check(_wheel.is_open(), "the wheel draws with the game's art")
+	_push(_key(KEY_ESCAPE, true))
+	_push(_key(KEY_G, false))
+	_push(_key(KEY_ALT, false))
+	var board2 := PingBoard.new()
+	root.add_child(board2)
+	board2.setup(null, null, null, null, 1, _wheel)
+	_check(board2._icons.size() == PingBoard.KINDS.size(), "the floating icons are the wheel's bubbles")
+	board2.queue_free()
+	_board._recent.clear()
 
 	# a menu has the input
 	var allowed := [false]
@@ -228,6 +297,8 @@ func _unit_checks() -> void:
 	_check(Array(GameOptions.EXTRAS.OpenBFMEPingKey.choices) == PingWheel.BINDINGS.keys(), "the key option's choices are the wheel's bindings")
 
 	# the markers go with the radar event (4 s)
+	for m in _board._markers:
+		m.age = 0.0 # the waits above let them age already
 	var before: int = _board.marker_count()
 	_board._process(PingBoard.PING_SECONDS - 0.1)
 	_check(_board.marker_count() == before and before > 0, "the markers stay for their time (%d)" % before)

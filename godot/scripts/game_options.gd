@@ -49,7 +49,7 @@ const EXTRAS := {
 	"OpenBFMEGameClock": {"default": "no", "choices": ["yes", "no"]},
 	# the ping wheel (not retail: scripts/ping_wheel.gd): on by default, an addition with no retail behaviour to keep; the key it opens on
 	"OpenBFMEPingWheel": {"default": "yes", "choices": ["yes", "no"]},
-	"OpenBFMEPingKey": {"default": "altg", "choices": ["altg", "j", "mouse4", "mouse5"]},
+	"OpenBFMEPingKey": {"default": "g", "choices": ["g", "altg", "j", "mouse4", "mouse5"]},
 	# lane UBER-1: the Uber performance mode (docs/UBER.md): the next lobby and game run the Uber simulation profile; never compatible with the original game
 	"OpenBFMEUberPerformance": {"default": "no", "choices": ["yes", "no"]},
 	"OpenBFMEShareResults": {"default": "yes", "choices": ["yes", "no"]}, # lane ONLINEHUB-1: the platform's game results (docs/PLATFORM_API.md)

@@ -59,7 +59,7 @@ const HELP := {
 	"AlternateMouseSetup": "The original game's option (Options.ini AlternateMouseSetup; its own screen has no box for it): the left button gives orders.",
 	"OpenBFMEGameClock": "The game's own time, in the top right corner.",
 	"OpenBFMEPingWheel": "Hold the ping key over the map, point at a sector and let go: a ping on the ground and the minimap. Skirmish only for now.",
-	"OpenBFMEPingKey": "The key that opens the ping wheel while held.",
+	"OpenBFMEPingKey": "The key that opens the ping wheel while held. G: hold it for the wheel; a quick tap is still the game's G (Hold Ground, a button).",
 	"OpenBFMEMasterVolume": "Scales every sound of the game.",
 	"OpenBFMEMuteUnfocused": "No sound while another window has the focus.",
 	"OpenBFMEAudioDevice": "The speakers or headphones the game plays through.",
@@ -93,7 +93,7 @@ const ZOOM_ITEMS := [["no", "Off"], ["yes", "On: up to the map's size"]]
 const MAX_ZOOM_ITEMS := [["1", "Original (1x)"], ["1.5", "1.5x"], ["2", "2x"], ["2.5", "2.5x"], ["3", "3x"]]
 ## lane UI-6: the Widescreen view (OpenBFMEWidescreen)
 const WIDESCREEN_ITEMS := [["original", "Original"], ["wider", "Wider"]]
-const PING_KEY_ITEMS := [["altg", "Alt+G"], ["j", "J"], ["mouse4", "Mouse back button"], ["mouse5", "Mouse forward button"]]
+const PING_KEY_ITEMS := [["g", "G (hold)"], ["altg", "Alt+G"], ["j", "J"], ["mouse4", "Mouse back button"], ["mouse5", "Mouse forward button"]]
 const BARS_ITEMS := [["retail", "Selected (original)"], ["damaged", "Selected and damaged"], ["always", "Always (all players)"]]
 
 var shell: Node2D                  # the AptMenuPlayer

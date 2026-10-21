@@ -1,17 +1,21 @@
 ## The ping wheel (scripts/ping_wheel.gd, not retail) in a running skirmish, driven by input events as a player gives them (Input.parse_input_event: the
 ## path a real keyboard and mouse take, so the wheel and the HUD see them in their real order). Every scenario prints "PINGWHEEL <name>: ok" or
 ## "PINGWHEEL <name>: FAIL <why>"; "PINGWHEEL RESULT: <n> ok, <m> failed" ends the run. game.gd runs it with --auto --pingwheel=<a,b,...>:
-##   wheel    Alt+G over the map opens the wheel where the pointer is, the pointer moved up selects "Attack here", letting go of G places it: the marker is on
-##            the ground (with the faction's beacon model), the minimap has a beacon event there, the HUD never saw the G
+##   wheel    G held over the map opens the wheel where the pointer is, the pointer moved up selects "Attack here", letting go of G places it: the marker is
+##            on the ground (with the faction's beacon model), the minimap has a beacon event there, the HUD never saw the G
+##   tap      a quick tap of G opens nothing and reaches the game as its own G: the HUD gets the press and the release, the CommandMap's Hold Ground
+##            stance is translated (STANCE_HOLDGROUND)
 ##   kinds    the other sectors (right, down, left, a tap in the middle): each its own kind; "danger" is the radar's under-attack event; a fourth ping within
 ##            five seconds of three is refused
-##   minimap  Alt+G over the minimap: the ping is at the map point the minimap shows there, not on the terrain behind the HUD
+##   minimap  G held over the minimap: the ping is at the map point the minimap shows there, not on the terrain behind the HUD
 ##   space    the camera moved away, Space (the CommandMap's VIEW_LAST_RADAR_EVENT) looks at a ping again
-##   menus    with the quit menu open Alt+G opens nothing; Esc over an open wheel closes it and leaves the quit menu shut
-##   options  OpenBFMEPingWheel = no (the Options screen's apply): Alt+G opens nothing, G alone was never the wheel's; back on
+##   menus    with the quit menu open a held G opens nothing; Esc over an open wheel closes it and leaves the quit menu shut
+##   options  OpenBFMEPingWheel = no (the Options screen's apply): a held G opens nothing and is the game's; OpenBFMEPingKey = altg / j: those keys open
+##            it; back to the held G
 ##   hash     (with --pingwheel-hash=quiet|pings) the logic's frame hashes after 60 logic frames, with or without pings placed meanwhile: the test compares
 ##            two runs (pings never reach the simulation)
 ##   optshot  the OpenBFME options screen's Interface tab with the two ping rows (pingwheel-options.png; for the proof, opened over the quit menu)
+##   looks    the wheel with each choice under the pointer, and a placed ping up close (pingwheel-look-<kind>.png, pingwheel-marker.png; a windowed run)
 ##   video    a scripted demonstration for the proof video: the frames are saved in --screens as pingwheel-video-<n>.jpg (a windowed run)
 extends RefCounted
 
@@ -71,16 +75,24 @@ func _move(p: Vector2, steps: int = 1) -> void:
 		await game._step(1)
 
 
-## hold Alt+G at `at`, move to `to`, let go of G then Alt
+## G held past the wheel's hold time (it opens), and let go
+func hold_down() -> void:
+	await _key(KEY_G, true)
+	await game._step(int(wheel.hold_ms * 60 / 1000) + 6) # at least that long (game._step waits frames / 60 seconds too)
+
+
+func hold_up() -> void:
+	await _key(KEY_G, false)
+
+
+## hold G at `at`, move to `to`, let go
 func ping(at: Vector2, to: Vector2, steps: int = 3, shot_name := "") -> void:
 	await _move(at)
-	await _key(KEY_ALT, true)
-	await _key(KEY_G, true)
+	await hold_down()
 	await _move(to, steps)
 	if shot_name != "":
 		game._save_named(shot_name)
-	await _key(KEY_G, false)
-	await _key(KEY_ALT, false)
+	await hold_up()
 
 
 func centre() -> Vector2:
@@ -117,16 +129,14 @@ func _scenario_wheel() -> String:
 	var keys_before: int = key_events()
 	var shown: int = board.shown_total
 	await _move(c)
-	await _key(KEY_ALT, true)
-	await _key(KEY_G, true)
+	await hold_down()
 	if not wheel.is_open():
-		return "Alt+G did not open the wheel"
+		return "holding G did not open the wheel"
 	await _move(c + Vector2(0, -wheel._radius() * 0.7), 4)
 	if wheel.selection() != board.kind_index("attack"):
 		return "the pointer up selects kind %d, not attack" % wheel.selection()
 	game._save_named("pingwheel-open")
-	await _key(KEY_G, false)
-	await _key(KEY_ALT, false)
+	await hold_up()
 	if wheel.is_open():
 		return "letting go of G left the wheel open"
 	if board.shown_total != shown + 1 or board.last.kind != board.kind_index("attack"):
@@ -139,13 +149,35 @@ func _scenario_wheel() -> String:
 	await game._step(10)
 	if not has_event(6, at):
 		return "the minimap has no beacon event at the ping: %s" % [radar_events()]
-	# the HUD saw Alt down and up (its waypoint mode), never the G: 2 key events
-	if key_events() - keys_before != 2:
-		return "the HUD saw %d key events (Alt down / up only expected)" % (key_events() - keys_before)
+	# the held G was the wheel's: the HUD saw no key
+	if key_events() != keys_before:
+		return "the HUD saw %d key events (none expected)" % (key_events() - keys_before)
 	if board.beacon_model == "":
 		return "no beacon model: %s" % [board.errors]
 	await game._step(20)
 	game._save_named("pingwheel-ground")
+	return ""
+
+
+func _scenario_tap() -> String:
+	await _move(centre())
+	var keys_before: int = key_events()
+	var metas_before: int = int(hud.get_state().get("keys", {}).get("metas", 0))
+	var opened: int = wheel.opened_total
+	for down in [true, false]: # one after the other, well inside the hold time even on a slow frame
+		var e := InputEventKey.new()
+		e.keycode = KEY_G
+		e.physical_keycode = KEY_G
+		e.pressed = down
+		Input.parse_input_event(e)
+	await game._step(6)
+	var keys: Dictionary = hud.get_state().get("keys", {})
+	if wheel.opened_total != opened or wheel.is_open():
+		return "a tap of G opened the wheel"
+	if key_events() - keys_before != 2:
+		return "the HUD saw %d key events of the tap (the press and the release expected)" % (key_events() - keys_before)
+	if int(keys.get("metas", 0)) <= metas_before or not str(keys.get("last_meta", "")).contains("HOLDGROUND"):
+		return "the tap's G made no Hold Ground command (last meta %s)" % keys.get("last_meta", "")
 	return ""
 
 
@@ -231,24 +263,20 @@ func _scenario_menus() -> String:
 	await game._step(30)
 	var opened: int = wheel.opened_total
 	await _move(c)
-	await _key(KEY_ALT, true)
-	await _key(KEY_G, true)
+	await hold_down()
 	var open_under_menu: bool = wheel.is_open() or wheel.opened_total != opened
-	await _key(KEY_G, false)
-	await _key(KEY_ALT, false)
+	await hold_up()
 	game._toggle_quit_menu()
 	await game._step(30)
 	if open_under_menu:
 		return "the wheel opened over the quit menu"
-	await _key(KEY_ALT, true)
-	await _key(KEY_G, true)
+	await hold_down()
 	if not wheel.is_open():
 		return "the wheel does not open after the quit menu closed"
 	var shown: int = board.shown_total
 	await _key(KEY_ESCAPE, true)
 	await _key(KEY_ESCAPE, false)
-	await _key(KEY_G, false)
-	await _key(KEY_ALT, false)
+	await hold_up()
 	await game._step(10)
 	if wheel.is_open() or board.shown_total != shown:
 		return "Esc did not close the wheel without a ping"
@@ -265,21 +293,30 @@ func _scenario_options() -> String:
 	opts.apply_global(values)
 	var c := centre()
 	await _move(c)
+	var keys_before: int = key_events()
+	await hold_down()
+	var opened: bool = wheel.is_open()
+	await hold_up()
+	var off_to_game: int = key_events() - keys_before
+	values.OpenBFMEPingWheel = "yes"
+	values.OpenBFMEPingKey = "altg"
+	opts.apply_global(values)
 	await _key(KEY_ALT, true)
 	await _key(KEY_G, true)
-	var opened: bool = wheel.is_open()
+	var altg_opens: bool = wheel.is_open()
 	await _key(KEY_G, false)
 	await _key(KEY_ALT, false)
-	values.OpenBFMEPingWheel = "yes"
 	values.OpenBFMEPingKey = "j"
 	opts.apply_global(values)
 	await _key(KEY_J, true)
 	var j_opens: bool = wheel.is_open()
 	await _key(KEY_J, false)
-	values.OpenBFMEPingKey = "altg"
+	values.OpenBFMEPingKey = "g"
 	opts.apply_global(values)
-	if opened:
-		return "the wheel opened with OpenBFMEPingWheel = no"
+	if opened or off_to_game != 2:
+		return "OpenBFMEPingWheel = no: the wheel opened (%s), or the G did not reach the game (%d key events)" % [opened, off_to_game]
+	if not altg_opens:
+		return "OpenBFMEPingKey = altg: Alt+G does not open the wheel"
 	if not j_opens:
 		return "OpenBFMEPingKey = j: J does not open the wheel"
 	return ""
@@ -300,6 +337,25 @@ func _scenario_hash() -> String:
 	if mode != "pings" and board.shown_total != 0:
 		return "the quiet run placed %d pings" % board.shown_total
 	return ""
+
+
+func _scenario_looks() -> String:
+	await wait_burst()
+	var c: Vector2 = game.get_viewport().get_visible_rect().size * Vector2(0.27, 0.56) # open ground beside the start fortress
+	var r: float = wheel._radius()
+	await _move(c)
+	await hold_down()
+	if not wheel.is_open():
+		return "the wheel did not open"
+	for d in [["here", Vector2.ZERO], ["attack", Vector2(0, -r)], ["reinforce", Vector2(r, 0)], ["danger", Vector2(0, r)], ["assist", Vector2(-r, 0)]]:
+		await _move(c + d[1], 6)
+		await game._step(12)
+		game._save_named("pingwheel-look-" + d[0])
+	await _move(c + Vector2(r, 0), 4)
+	await hold_up()
+	await game._step(40)
+	game._save_named("pingwheel-marker")
+	return "" if wheel.art_missing.is_empty() else "missing art: %s" % [wheel.art_missing]
 
 
 func _scenario_optshot() -> String:
@@ -350,33 +406,27 @@ func _scenario_video() -> String:
 	await game._step(30)
 	# open the wheel and sweep it: up, right, down, left, back to the middle; let go on "Attack here"
 	await _move(c)
-	await _key(KEY_ALT, true)
-	await _key(KEY_G, true)
+	await hold_down()
 	for d in [Vector2(0, -r), Vector2(r, 0), Vector2(0, r), Vector2(-r, 0), Vector2.ZERO, Vector2(0, -r)]:
 		await _move(c + d, 14)
 		await game._step(20)
-	await _key(KEY_G, false)
-	await _key(KEY_ALT, false)
+	await hold_up()
 	await game._step(70)
 	for p in [[Vector2(-300, 80), Vector2(r, 0)], [Vector2(320, 40), Vector2(0, r)]]:
 		var at: Vector2 = c + p[0]
 		await _move(at, 12)
-		await _key(KEY_ALT, true)
-		await _key(KEY_G, true)
+		await hold_down()
 		await _move(at + p[1], 12)
 		await game._step(18)
-		await _key(KEY_G, false)
-		await _key(KEY_ALT, false)
+		await hold_up()
 		await game._step(50)
 	await wait_burst()
 	var at2 := c + Vector2(-120, 160)
 	await _move(at2, 12)
-	await _key(KEY_ALT, true)
-	await _key(KEY_G, true)
+	await hold_down()
 	await _move(at2 + Vector2(-r, 0), 12)
 	await game._step(18)
-	await _key(KEY_G, false)
-	await _key(KEY_ALT, false)
+	await hold_up()
 	await game._step(150)
 	game.get_tree().process_frame.disconnect(_record)
 	_rec_list.close()
@@ -396,3 +446,4 @@ func _record() -> void:
 	_rec_list.store_line("file '%s'" % file)
 	_rec_last = now
 	_frames += 1
+
