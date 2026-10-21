@@ -575,6 +575,15 @@ void Pathfinder::crc(StateHasher &h) const
 	m_zoneManager.crc(h);
 	crcPortals(h); // lane WALL-2: nothing unless portals exist
 	crcRaised(h);  // lane WALL-2: nothing unless a raised layer is in use
+	if (!m_wallHeights.empty()) // lane WALL-1 (review of #63): the wall tops' heights place the units on them (getLayerHeight); a map without walls hashes as before
+	{
+		h.addU32(0x57414C4Cu); // "WALL"
+		h.addU32((std::uint32_t)m_wallHeights.size());
+		for (float z : m_wallHeights)
+		{
+			h.addFloat(z);
+		}
+	}
 	if (m_uberLimits)
 	{
 		h.addU32(m_uberBurst ? 1u : 0u); // lane PATHPERF-4: Uber only, a Faithful game hashes as before
