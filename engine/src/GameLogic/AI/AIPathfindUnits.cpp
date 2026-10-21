@@ -1409,6 +1409,7 @@ bool Pathfinder::adjustToPossibleDestination(PathfindObject &obj, const Pathfind
 void Pathfinder::setUberLimits(bool on)
 {
 	m_uberLimits = on;
+	m_pool.setGrowthLimit(on ? (int)kCellInfoPoolMax : 0); // review of #62: the Faithful pool keeps its configured size and fails when full, as on main
 	const int len = on ? (int)kUberQueueLength : (int)PATHFIND_QUEUE_LEN;
 	m_queue1.setLength(len);
 	m_queue2.setLength(len);

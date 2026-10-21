@@ -436,6 +436,21 @@ void Pathfinder::xfer(Xfer &x)
 	{
 		return;
 	}
+	// review of #63: the raised layers' cell infos come from the same pool as the ground's (applyWalls allocates them after the ground's); each count was
+	// checked alone, so a snapshot whose two together pass the pool is refused here, before anything changes
+	{
+		std::size_t raisedInfos = 0;
+		for (const WallState::Raised &r : walls.raised)
+		{
+			raisedInfos += r.used ? r.infos.size() : 0;
+		}
+		const std::size_t most = (std::size_t)std::max(m_pool.capacity(), m_pool.growthLimit());
+		if (infos.size() + raisedInfos > most)
+		{
+			throw XferException("pathfinder: the snapshot holds " + std::to_string(infos.size()) + " ground and " + std::to_string(raisedInfos) +
+				" raised cell infos, more than the pool of " + std::to_string(most));
+		}
+	}
 	// the references: the zones name zones of the loaded table; the obstacles, the occupants and the reserving units are objects of the game (the
 	// pathfinder's world); request rings hold any id (a unit that died while queued stays queued; the handler skips it)
 	auto object = [&](PathfindObjectID id, const char *what) {
@@ -587,6 +602,7 @@ void Pathfinder::xfer(Xfer &x)
 	m_stops = std::move(stops);
 	m_uberBurst = uberBurst;
 	m_uberLimits = uberLimits;
+	m_pool.setGrowthLimit(uberLimits ? (int)kCellInfoPoolMax : 0); // as setUberLimits: only an Uber pool grows
 	applyWalls(walls, version >= 3);
 }
 

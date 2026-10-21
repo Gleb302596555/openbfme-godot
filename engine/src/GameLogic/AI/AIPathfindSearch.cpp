@@ -27,6 +27,7 @@
 #include "GameLogic/SimMath.h"
 #include "GameLogic/AI/AIPathfindStops.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <limits>
@@ -208,7 +209,10 @@ bool Pathfinder::clientSafeQuickDoesPathExist(const PathfindLocomotorInfo &loco,
 	const PathfindMovement mv = makeMovement(obj, loco);
 	// review (#63): the ends' layers, as the search takes them: the goal on a raised walkway is the walkway's cell, the start the unit's layer's
 	PathfindCell *goalCell = getClippedCell(searchDestinationLayer(*to), to);
-	PathfindCell *parentCell = getClippedCell(obj ? obj->getLayer() : LAYER_GROUND, from);
+	// review of #63: the unit's layer only where the start is the unit's position; another start (a goal tested onward, an adjusted point) takes the layer
+	// there, as the goal does
+	const bool atUnit = obj && from->x == obj->getPosition().x && from->y == obj->getPosition().y;
+	PathfindCell *parentCell = getClippedCell(atUnit ? obj->getLayer() : searchDestinationLayer(*from), from);
 	if (parentCell == nullptr || goalCell == nullptr)
 	{
 		return false;
@@ -1426,8 +1430,12 @@ void Pathfinder::prependCells(Path *path, const Coord3D *fromPos, PathfindCell *
 					Coord3D p = own->pos;
 					path->prependNode(&p, cell->getLayer());
 				}
-				for (const PathfindWaypoint *n = findWaypoint(wp->next); n; n = findWaypoint(n->next))
+				// review of #63: a Via chain that loops back on itself (DynamicPortalBehaviour's Link data) ends at its first repeat; a chain without one is walked
+				// as before
+				std::vector<int> seen;
+				for (const PathfindWaypoint *n = findWaypoint(wp->next); n && std::find(seen.begin(), seen.end(), n->id) == seen.end(); n = findWaypoint(n->next))
 				{
+					seen.push_back(n->id);
 					mark(n->id);
 					Coord3D p = n->pos;
 					path->prependNode(&p, cell->getLayer());
