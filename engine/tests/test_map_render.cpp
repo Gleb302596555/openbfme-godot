@@ -247,8 +247,8 @@ TEST_CASE("WaterGeometry::buildRiverStrip: drawRiverWater's strip, the second en
 	}
 	// the outline less its closing edge is 500, the first line 100 wide: (250 - 100) / 100 over two quads
 	CHECK(s.uv0[1] == 0.0f);
-	CHECK(s.uv0[5] == doctest::Approx(0.75f));
-	CHECK(s.uv0[9] == doctest::Approx(1.5f));
+	CHECK(s.uv0[5] == 0.75f);
+	CHECK(s.uv0[9] == 1.5f);
 	CHECK(s.uv1[9] == s.uv0[9]);
 	CHECK(s.index == std::vector<std::uint32_t>{ 0, 1, 3, 0, 3, 2, 2, 3, 5, 2, 5, 4 });
 	// one line is not a river
@@ -277,8 +277,8 @@ TEST_CASE("WaterGeometry::riverVertexColour: a white river lit by the terrain li
 	r.r = r.g = r.b = 255;
 	float out[4];
 	WaterGeometry::riverVertexColour(r, &tod, water, out);
-	CHECK(out[0] == doctest::Approx((0.2f + 0.8f) * 185 / 255.0f));
-	CHECK(out[2] == doctest::Approx((0.2f + 0.8f * 0.8f) * 185 / 255.0f));
+	CHECK(out[0] == doctest::Approx((0.2f + 0.8f) * 185 / 255.0f));   // tolerance: lit colour sums float dot products (ambient + N.L diffuse) in another order than the literal
+	CHECK(out[2] == doctest::Approx((0.2f + 0.8f * 0.8f) * 185 / 255.0f));   // tolerance: lit colour sums float dot products (ambient + N.L diffuse) in another order than the literal
 	CHECK(out[3] == 1.0f);
 	r.r = r.g = r.b = 0;
 	WaterGeometry::riverVertexColour(r, &tod, water, out);
@@ -287,8 +287,8 @@ TEST_CASE("WaterGeometry::riverVertexColour: a white river lit by the terrain li
 	r.g = 102;
 	r.b = 255;
 	WaterGeometry::riverVertexColour(r, nullptr, water, out);
-	CHECK(out[0] == doctest::Approx(0.2f));
-	CHECK(out[1] == doctest::Approx(0.4f));
+	CHECK(out[0] == 51 / 255.0f);
+	CHECK(out[1] == 102 / 255.0f);
 	CHECK(out[2] == 1.0f);
 }
 
@@ -297,15 +297,15 @@ TEST_CASE("WaterSetScan::applyText: the DiffuseColor of the time of day's WaterS
 	float diffuse[4] = { 0, 0, 0, 0 };
 	WaterSetScan::applyText("WaterSet MORNING\n  DiffuseColor = R:1 G:2 B:3 A:4\nEnd\n"
 	                        "WaterSet AFTERNOON\n  DiffuseColor   = R:185 G:180 B:175 A:128 ; a comment\nEnd\n", 2, diffuse);
-	CHECK(diffuse[0] == doctest::Approx(185 / 255.0f));
-	CHECK(diffuse[1] == doctest::Approx(180 / 255.0f));
-	CHECK(diffuse[2] == doctest::Approx(175 / 255.0f));
-	CHECK(diffuse[3] == doctest::Approx(128 / 255.0f));
+	CHECK(diffuse[0] == 185 / 255.0f);
+	CHECK(diffuse[1] == 180 / 255.0f);
+	CHECK(diffuse[2] == 175 / 255.0f);
+	CHECK(diffuse[3] == 128 / 255.0f);
 	WaterSetScan::applyText("WaterSet Afternoon\n  DiffuseColor = R:10 G:20 B:30\nEnd\n", 2, diffuse);   // A defaults to 255
-	CHECK(diffuse[0] == doctest::Approx(10 / 255.0f));
+	CHECK(diffuse[0] == 10 / 255.0f);
 	CHECK(diffuse[3] == 1.0f);
 	WaterSetScan::applyText("WaterSet NIGHT\n  DiffuseColor = R:100 G:100 B:100 A:255\nEnd\n", 2, diffuse);
-	CHECK(diffuse[0] == doctest::Approx(10 / 255.0f));   // another time of day changes nothing
+	CHECK(diffuse[0] == 10 / 255.0f);   // another time of day changes nothing
 }
 
 TEST_CASE("WaterSetScan::load: water.ini, then the map's maps\\<map>\\map.ini WaterSet overriding it")
