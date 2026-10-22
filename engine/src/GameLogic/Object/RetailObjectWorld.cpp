@@ -419,12 +419,18 @@ bool RetailObjectWorld::loadState(std::string *error)
 			m_s->m_report.errors.push_back(fe);
 		}
 	}
-	if (m_fs.doesFileExist("data/ini/formationassistant.ini"))
+	// PR #88 review fix 8 (no fallbacks, CLAUDE.md): BFME2 and RotWK ship Data\INI\FormationAssistant.ini; a missing or unreadable file is an
+	// error in the report, never a silent skip. BFME1 has no formation assistant (the two-button gesture is BFME2's): its data is exempt.
+	if (!options.bfme1)
 	{
-		std::string error;
-		if (!m_s->m_formations.load(m_fs, &error))
+		std::string formationError;
+		if (!m_s->m_formations.load(m_fs, &formationError))
 		{
-			SubsystemLoadReport::FileError fe;fe.file="FormationAssistant.ini";fe.code=3;fe.message=error;m_s->m_report.errors.push_back(fe);
+			SubsystemLoadReport::FileError fe;
+			fe.file = "Data\\INI\\FormationAssistant.ini";
+			fe.code = 3;
+			fe.message = formationError;
+			m_s->m_report.errors.push_back(fe);
 		}
 	}
 	// INTEG-1: TheStanceTemplateStore's init (RW 0x83568D) loads Data\INI\Stances.ini itself (INI::load, type 1), not through the legend; an error reaches the report
