@@ -1339,15 +1339,19 @@ void ShroudManager::update()
 			m_prepared.resize(n);
 		}
 		// review of #62: the prepare reads the radii (CombatQueries::boundingCircleRadius, of the object and its horde or container), and a template's
-		// first read makes its movement info (AIWorld::movementInfo inserts into a map); made here, before the jobs, the jobs only find them
-		for (const auto &k : m_preparedOrder)
+		// first read makes its movement info (AIWorld::movementInfo inserts into a map); made here, before the jobs, the jobs only find them. Without an
+		// AIWorld there is no movement info to make (CombatQueries::geometry throws): the jobs read a radius only for a builder or a horde member
+		if (m_logic.aiWorld())
 		{
-			if (const Object *o = m_logic.findObjectByID(m_records[k].id))
+			for (const auto &k : m_preparedOrder)
 			{
-				CombatQueries::boundingCircleRadius(*o);
-				if (const Object *h = o->getContainedBy())
+				if (const Object *o = m_logic.findObjectByID(m_records[k].id))
 				{
-					CombatQueries::boundingCircleRadius(*h);
+					CombatQueries::boundingCircleRadius(*o);
+					if (const Object *h = o->getContainedBy())
+					{
+						CombatQueries::boundingCircleRadius(*h);
+					}
 				}
 			}
 		}
