@@ -460,28 +460,64 @@ void FormationPlacement::replayFirstPress(const ClientMessage &before)
 	m_firstPress.reset();
 }
 
-// Two-button placement takes priority over selection and right-drag scrolling.
-bool FormationPlacement::begin(const ICoord2D &pixel, bool controller) {
- auto &ui=m_ctx.ui;
- if(!ui.getInputEnabled() || ui.isPlacing() || (ui.getGUICommand() && ui.getGUICommand()->m_command != GUI_COMMAND_ATTACK_MOVE) || !m_ctx.localPlayer() || !m_ctx.formations) return false;
- m_rotatingArc=false;
- if(auto *picked=HudObjects::pickForHover(m_ctx,pixel)) {
-  if(const auto *field=picked->getTemplate()->findField("FiringArc")) {
-   if(const auto *arc=std::get_if<float>(field))m_rotatingArc=*arc<360.f;
-  }
- }
- m_selection.clear();
- for(ObjectID id:ui.selected()) {
-  Object *o=m_ctx.logic.findObjectByID(id);
-  if(!o || o->isDestroyed() || o->isEffectivelyDead() || o->getControllingPlayer()!=m_ctx.localPlayer()) continue;
-  auto *ai=o->getAIUpdateInterface();
-  if(ai && (m_rotatingArc || !ai->isImmobile()) && !o->isKindOfName("HORDE_MEMBER") && ObjectFilterMatch::allows(m_ctx.logic,m_ctx.formations->valid,*o,nullptr)) m_selection.push_back(id);
- }
- if(m_selection.empty() || !m_ctx.view.screenToTerrain(pixel,m_ctx.logic,m_anchor)) return false;
- m_controller=controller;
- m_originalSelection=ui.selected();
- ui.formationActive=true; m_consumed=true; aim(pixel); return true;
+// The checks begin() makes before it reads the terrain: the input gates, formation data with templates, the firing-arc pick at the pixel
+// and at least one eligible selected object. PR #88 review fix 2: translate() buffers a first press only when these pass, so a press that
+// cannot start a formation (placing a building, no eligible selection, BFME1 data without FormationAssistant.ini) reaches selection and
+// the LookAt translator in the same frame, as before.
+bool FormationPlacement::eligible(const ICoord2D &pixel, bool &rotatingArc, std::vector<ObjectID> &ids) const
+{
+	const auto &ui = m_ctx.ui;
+	ids.clear();
+	rotatingArc = false;
+	if (!ui.getInputEnabled() || ui.isPlacing() || (ui.getGUICommand() && ui.getGUICommand()->m_command != GUI_COMMAND_ATTACK_MOVE) || !m_ctx.localPlayer() ||
+		!m_ctx.formations || m_ctx.formations->templates.empty())
+		return false;
+	if (const Object *picked = HudObjects::pickForHover(m_ctx, pixel))
+	{
+		if (const auto *field = picked->getTemplate()->findField("FiringArc"))
+		{
+			if (const auto *arc = std::get_if<float>(field))
+				rotatingArc = *arc < 360.f;
+		}
+	}
+	for (ObjectID id : ui.selected())
+	{
+		Object *o = m_ctx.logic.findObjectByID(id);
+		if (!o || o->isDestroyed() || o->isEffectivelyDead() || o->getControllingPlayer() != m_ctx.localPlayer())
+			continue;
+		auto *ai = o->getAIUpdateInterface();
+		if (ai && (rotatingArc || !ai->isImmobile()) && !o->isKindOfName("HORDE_MEMBER") && ObjectFilterMatch::allows(m_ctx.logic, m_ctx.formations->valid, *o, nullptr))
+			ids.push_back(id);
+	}
+	return !ids.empty();
 }
+
+bool FormationPlacement::canStart(const ICoord2D &pixel) const
+{
+	bool rotatingArc = false;
+	std::vector<ObjectID> ids;
+	return eligible(pixel, rotatingArc, ids);
+}
+
+// Two-button placement takes priority over selection and right-drag scrolling.
+bool FormationPlacement::begin(const ICoord2D &pixel, bool controller)
+{
+	bool rotatingArc = false;
+	std::vector<ObjectID> ids;
+	Coord3D anchor;
+	if (!eligible(pixel, rotatingArc, ids) || !m_ctx.view.screenToTerrain(pixel, m_ctx.logic, anchor))
+		return false;
+	m_rotatingArc = rotatingArc;
+	m_selection = std::move(ids);
+	m_anchor = anchor;
+	m_controller = controller;
+	m_originalSelection = m_ctx.ui.selected();
+	m_ctx.ui.formationActive = true;
+	m_consumed = true;
+	aim(pixel);
+	return true;
+}
+
 void FormationPlacement::aim(const ICoord2D &pixel) {
  auto &ui=m_ctx.ui;
  Coord3D end;
@@ -557,7 +593,7 @@ MessageDisposition FormationPlacement::translate(const ClientMessage &msg)
 			}
 			replayFirstPress(msg);
 		}
-		else if (!m_consumed && !m_ctx.ui.formationActive)
+		else if (!m_consumed && !m_ctx.ui.formationActive && canStart(msg.arg(0).pixel))
 		{
 			// BFME2 RVA 0x431AEC: neither selection nor right-drag scrolling sees a
 			// speculative first press. A failed chord replays it with its original modifiers/time.

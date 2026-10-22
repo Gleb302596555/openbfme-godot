@@ -4,6 +4,7 @@
 #include "CombatTestUtil.h"
 #include "MoveTestUtil.h"
 #include "GameLogic/SimMath.h"
+#include "GameClient/ControlBarCommands.h"
 #include "GameClient/FormationAssistant.h"
 #include "GameClient/FormationPlacement.h"
 #include "GameClient/HudInput.h"
@@ -136,14 +137,17 @@ TEST_CASE("formation chord: failed chord replays the original press before the e
 TEST_CASE("formation chord: failed placement replays both buttons; reset discards a pending first press")
 {
 	Rig r;
-	r.ui.deselectAll(false);
+	const ObjectID unit = r.ui.selected()[0];
 	REQUIRE(r.send(button(CMSG_RAW_MOUSE_LEFT_BUTTON_DOWN, 200, 200, 1000)).empty());
+	// the selection empties between the presses: placement cannot start, both presses go on in their order
+	r.ui.deselectAll(false);
 	auto out = r.send(button(CMSG_RAW_MOUSE_RIGHT_BUTTON_DOWN, 200, 200, 1020));
 	REQUIRE(out.size() == 2);
 	CHECK(out[0].type() == CMSG_RAW_MOUSE_LEFT_BUTTON_DOWN);
 	CHECK(out[1].type() == CMSG_RAW_MOUSE_RIGHT_BUTTON_DOWN);
 	CHECK_FALSE(r.ui.formationActive);
 	r.placement.cancel();
+	r.ui.selectObject(unit);
 	REQUIRE(r.send(button(CMSG_RAW_MOUSE_LEFT_BUTTON_DOWN, 200, 200, 2000)).empty());
 	r.placement.cancel();
 	out = r.send(button(CMSG_RAW_MOUSE_LEFT_BUTTON_UP, 200, 200, 2020));
@@ -358,6 +362,41 @@ TEST_CASE("formation assistant: movement targets the occupied rank centre at "
 		// tolerance: 10-unit grid snapping plus 1-unit locomotor stopping distance.
 		CHECK(dx * dx + dy * dy < 225);
 	}
+}
+
+// PR #88 review fix 2: the first press is held back only when a formation could start; otherwise selection and the LookAt translator see it
+// in the same frame (test_camera's right-press arming, test_build5_placement's scroll while placing)
+TEST_CASE("formation chord: a first press that cannot start a formation is not held back")
+{
+	for (int reason : { 0, 1, 2, 3, 4, 5 })
+	{
+		Rig r;
+		CommandButton other;
+		other.m_command = GUI_COMMAND_SPECIAL_POWER;
+		if (reason == 0)
+			r.ui.deselectAll(false); // no eligible selection
+		else if (reason == 1)
+			r.ui.placeBuildAvailable("Slasher", r.ui.selected()[0]); // placing a building
+		else if (reason == 2)
+			r.ui.setGUICommand(&other); // a GUI command other than attack-move waits for its target
+		else if (reason == 3)
+			r.ctx.formations = nullptr; // no formation data
+		else if (reason == 4)
+			r.formations.templates.clear(); // formation data without templates (BFME1-style data)
+		else
+			r.ui.setInputEnabled(false);
+		for (int type : { CMSG_RAW_MOUSE_LEFT_BUTTON_DOWN, CMSG_RAW_MOUSE_RIGHT_BUTTON_DOWN })
+		{
+			auto out = r.send(button(type, 200, 200, 1000));
+			REQUIRE(out.size() == 1);
+			CHECK(out[0].type() == type);
+		}
+		CHECK_FALSE(r.ui.formationActive);
+	}
+	// an eligible selection with formation data: the press waits for the second button
+	Rig r;
+	CHECK(r.placement.canStart({ 200, 200 }));
+	CHECK(r.send(button(CMSG_RAW_MOUSE_RIGHT_BUTTON_DOWN, 200, 200, 1000)).empty());
 }
 
 // PR #88 review fix 1: after the order the gesture is over once both buttons are up; only the trailing release and clicks are swallowed, the
