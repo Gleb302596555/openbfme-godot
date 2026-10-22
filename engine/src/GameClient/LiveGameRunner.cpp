@@ -82,6 +82,13 @@ void LiveGame::resetLogicWaitSites()
 	m_windowStats.maxWindowMs = 0.0; // the longest client window is per measurement window too
 }
 
+std::uint32_t LiveGame::msUntilNextFrame() const
+{
+	// lane NETLAG-2: timing only (the frame driver's early orders, Network::setFrameDue); never part of a frame's computation
+	const double ms = (1.0 - m_clock.getAlpha()) * 1000.0 / LOGICFRAMES_PER_SECOND;
+	return ms > 0.0 ? (std::uint32_t)ms : 0u;
+}
+
 void LiveGame::present(double seconds)
 {
 	// the render side (the caller's thread): take what was published, apply the events of the presented frames in order, pose from one snapshot

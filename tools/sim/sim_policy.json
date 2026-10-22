@@ -51,6 +51,10 @@
    "reason": "lane HUD-6: the radial command bubbles' layout and look in window pixels: user interface, reads the logic and the drawables; its presses go through ControlBar::pressButton"
   },
   {
+   "glob": "src/GameClient/FloatingText.cpp",
+   "reason": "client floating income labels: position, rise and fade on the presentation clock; reads income events and shroud, never changes simulation state"
+  },
+  {
    "glob": "src/GameClient/TerrainResourceFeedback.cpp",
    "reason": "lane OWNERFIX-2: the resource claim feedback (the placement's claimable percentage, its colour and decal mask, the selected resource building's claim decals): user interface, reads the logic's claim grid and shroud, never changes them"
   },
@@ -733,6 +737,14 @@
   {
    "glob": "src/GodotDevice/GodotGameWorldSave.cpp",
    "reason": "lane SAVE-2: GameWorld's saves (writes the running recording's log to a file, lists the Save folder, starts a loaded save's catch-up and hands the game over with a continuing recording; the catch-up's audio is silenced, its queued effects dropped): client side, never part of the logic state"
+  },
+  {
+   "glob": "src/GameNetwork/OrdersIntoFog.cpp",
+   "reason": "ANTICHEAT-1's offline fog check: runs beside replay playback and only READS the simulation's state (object positions, the shroud) to report orders on objects the ordering player could not see; it never writes simulation state, sends no command and feeds nothing back (test_orders_into_fog: the state hash with and without the check is identical). Its findings are server-side reports, not game state, so they need no cross-machine determinism"
+  },
+  {
+   "glob": "src/GameNetwork/CommandStreamChecks.cpp",
+   "reason": "ANTICHEAT-1's D5 input rate and D6 command integrity checks: run beside replay playback (the same driver as OrdersIntoFog) and only READ the replay's commands and the simulation's object ownership to count commands per 5 s window and report malformed or foreign-object commands; they never write simulation state, send no command and feed nothing back (test_orders_into_fog_retail: playback through FogCheckDriver with them reproduces every recorded hash). Their findings are server-side reports, not game state"
   }
  ]
 }
