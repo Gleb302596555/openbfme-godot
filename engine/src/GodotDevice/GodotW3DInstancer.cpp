@@ -40,7 +40,10 @@
 #include <cctype>
 #include <atomic>
 #include <cmath>
+#include <cstdint>
 #include <cstring>
+#include <mutex>
+#include <vector>
 
 namespace godot
 {
@@ -77,6 +80,206 @@ const char *kindName(RenderSubObject::Kind k)
 
 } // namespace
 
+// RenderingDevice texture calls are only valid on the render thread. The node thread copies texel bytes into a
+// PackedByteArray and appends work here; call_on_render_thread runs that work in order. The callable is a static
+// function bound to this queue (not to W3DInstancer), so NOTIFICATION_PREDELETE can drop the node first.
+struct PaletteRdQueue
+{
+	struct Op
+	{
+		enum Kind
+		{
+			Create,
+			Upload,
+			Release
+		} kind = Upload;
+		int height = 0;
+		int row0 = 0;
+		int rows = 0;
+		bool full = false;
+		PackedByteArray bytes;
+		PackedByteArray fallback; // whole palette, used only if a partial copy is rejected
+		Ref<Texture2DRD> sampler;
+	};
+
+	std::mutex mu;
+	std::vector<Op> ops;
+	bool scheduled = false;
+	bool retired = false;
+	RID palette;
+	RID stage;
+	int stage_rows = 0;
+	Ref<Texture2DRD> sampler;
+	std::atomic<bool> force_full{ false };
+	std::atomic<bool> create_failed{ false };
+
+	void enqueue(Op op, bool retire);
+};
+
+static void palette_rd_apply(int64_t raw)
+{
+	auto *queue = reinterpret_cast<PaletteRdQueue *>(static_cast<std::intptr_t>(raw));
+	if (!queue)
+	{
+		return;
+	}
+	std::vector<PaletteRdQueue::Op> batch;
+	bool dropping = false;
+	Ref<Texture2DRD> held;
+	{
+		std::lock_guard<std::mutex> lock(queue->mu);
+		batch.swap(queue->ops);
+		queue->scheduled = false;
+		dropping = queue->retired;
+		held = queue->sampler;
+	}
+	RenderingServer *rs = RenderingServer::get_singleton();
+	RenderingDevice *rd = rs ? rs->get_rendering_device() : nullptr;
+	auto free_rid = [&](RID &rid) {
+		if (rd && rid.is_valid())
+		{
+			rd->free_rid(rid);
+		}
+		rid = RID();
+	};
+	for (PaletteRdQueue::Op &op : batch)
+	{
+		if (op.kind == PaletteRdQueue::Op::Create)
+		{
+			if (!rd || op.height <= 0)
+			{
+				queue->create_failed.store(true, std::memory_order_release);
+				continue;
+			}
+			Ref<RDTextureFormat> fmt;
+			fmt.instantiate();
+			fmt->set_width(W3D_PALETTE_WIDTH);
+			fmt->set_height(op.height);
+			fmt->set_format(RenderingDevice::DATA_FORMAT_R32G32B32A32_SFLOAT);
+			fmt->set_usage_bits(RenderingDevice::TEXTURE_USAGE_SAMPLING_BIT | RenderingDevice::TEXTURE_USAGE_CAN_UPDATE_BIT |
+				RenderingDevice::TEXTURE_USAGE_CAN_COPY_FROM_BIT | RenderingDevice::TEXTURE_USAGE_CAN_COPY_TO_BIT);
+			Ref<RDTextureView> view;
+			view.instantiate();
+			const RID created = rd->texture_create(fmt, view);
+			const RID previous = queue->palette;
+			if (!created.is_valid())
+			{
+				queue->create_failed.store(true, std::memory_order_release);
+				continue;
+			}
+			queue->palette = created;
+			queue->create_failed.store(false, std::memory_order_release);
+			// Skip the sampler when the node is already going away. A later Release in this batch (or the next) frees the RID.
+			if (!dropping && op.sampler.is_valid())
+			{
+				op.sampler->set_texture_rd_rid(created);
+			}
+			if (previous.is_valid())
+			{
+				rd->free_rid(previous);
+			}
+			free_rid(queue->stage);
+			queue->stage_rows = 0;
+		}
+		else if (op.kind == PaletteRdQueue::Op::Upload)
+		{
+			if (!rd || !queue->palette.is_valid() || op.bytes.is_empty())
+			{
+				continue;
+			}
+			if (op.full)
+			{
+				rd->texture_update(queue->palette, 0, op.bytes);
+				continue;
+			}
+			if (queue->stage_rows != op.rows || !queue->stage.is_valid())
+			{
+				free_rid(queue->stage);
+				Ref<RDTextureFormat> fmt;
+				fmt.instantiate();
+				fmt->set_width(W3D_PALETTE_WIDTH);
+				fmt->set_height(op.rows);
+				fmt->set_format(RenderingDevice::DATA_FORMAT_R32G32B32A32_SFLOAT);
+				fmt->set_usage_bits(RenderingDevice::TEXTURE_USAGE_CAN_UPDATE_BIT | RenderingDevice::TEXTURE_USAGE_CAN_COPY_FROM_BIT);
+				Ref<RDTextureView> view;
+				view.instantiate();
+				queue->stage = rd->texture_create(fmt, view);
+				queue->stage_rows = queue->stage.is_valid() ? op.rows : 0;
+			}
+			bool copied = false;
+			if (queue->stage.is_valid())
+			{
+				rd->texture_update(queue->stage, 0, op.bytes);
+				const Error err = rd->texture_copy(queue->stage, queue->palette, Vector3(0, 0, 0), Vector3(0, (real_t)op.row0, 0),
+					Vector3(W3D_PALETTE_WIDTH, (real_t)op.rows, 1), 0, 0, 0, 0);
+				copied = err == OK;
+			}
+			if (!copied)
+			{
+				if (!op.fallback.is_empty())
+				{
+					rd->texture_update(queue->palette, 0, op.fallback);
+				}
+				queue->force_full.store(true, std::memory_order_release);
+			}
+		}
+		else if (op.kind == PaletteRdQueue::Op::Release)
+		{
+			if (held.is_valid())
+			{
+				held->set_texture_rd_rid(RID());
+				held.unref();
+			}
+			free_rid(queue->palette);
+			free_rid(queue->stage);
+			queue->stage_rows = 0;
+			std::lock_guard<std::mutex> lock(queue->mu);
+			queue->sampler.unref();
+		}
+	}
+	bool destroy = false;
+	{
+		std::lock_guard<std::mutex> lock(queue->mu);
+		if (queue->retired && queue->ops.empty() && !queue->scheduled)
+		{
+			destroy = true;
+		}
+	}
+	if (destroy)
+	{
+		delete queue;
+	}
+}
+
+void PaletteRdQueue::enqueue(Op op, bool retire)
+{
+	RenderingServer *rs = RenderingServer::get_singleton();
+	bool schedule = false;
+	{
+		std::lock_guard<std::mutex> lock(mu);
+		if (retire)
+		{
+			retired = true;
+		}
+		if (op.kind == Op::Create && op.sampler.is_valid())
+		{
+			sampler = op.sampler;
+		}
+		ops.push_back(std::move(op));
+		// call_on_render_thread can run the callable before it returns (the render thread is this thread). Do not hold mu across it:
+		// the callable locks mu, and a retired queue deletes itself before the call returns.
+		if (!scheduled && rs)
+		{
+			scheduled = true;
+			schedule = true;
+		}
+	}
+	if (schedule)
+	{
+		rs->call_on_render_thread(callable_mp_static(palette_rd_apply).bind((int64_t)(std::intptr_t)this));
+	}
+}
+
 W3DInstancer::W3DInstancer()
 {
 	Epoch = std::chrono::steady_clock::now();
@@ -84,7 +287,10 @@ W3DInstancer::W3DInstancer()
 	Workers = hw >= 8 ? 4 : (hw >= 4 ? 2 : 1);
 }
 
-W3DInstancer::~W3DInstancer() = default;
+W3DInstancer::~W3DInstancer()
+{
+	release_palette_rd();
+}
 
 void W3DInstancer::_bind_methods()
 {
@@ -889,27 +1095,17 @@ void W3DInstancer::grow_palette(int texels)
 
 void W3DInstancer::release_palette_rd()
 {
-	RenderingServer *rs = RenderingServer::get_singleton();
-	RenderingDevice *rd = rs ? rs->get_rendering_device() : nullptr;
-	if (!rd)
+	// The node may be freed before the render thread runs. RIDs live in PaletteQueue, and the queued callable does not touch this.
+	PaletteOnRd = false;
+	PaletteRdQueue *queue = PaletteQueue;
+	PaletteQueue = nullptr;
+	if (queue)
 	{
-		return;
+		PaletteRdQueue::Op op;
+		op.kind = PaletteRdQueue::Op::Release;
+		queue->enqueue(std::move(op), true);
 	}
-	if (PaletteRD.is_valid())
-	{
-		PaletteRD->set_texture_rd_rid(RID());
-	}
-	if (PaletteRdRid.is_valid())
-	{
-		rd->free_rid(PaletteRdRid);
-		PaletteRdRid = RID();
-	}
-	if (PaletteStageRid.is_valid())
-	{
-		rd->free_rid(PaletteStageRid);
-		PaletteStageRid = RID();
-		PaletteStageRows = 0;
-	}
+	PaletteRD.unref();
 }
 
 Ref<Texture2D> W3DInstancer::palette_sampler() const
@@ -925,42 +1121,27 @@ void W3DInstancer::bind_palette_gpu()
 {
 	RenderingServer *rs = RenderingServer::get_singleton();
 	RenderingDevice *rd = rs ? rs->get_rendering_device() : nullptr;
-	if (rd && PaletteImage.is_valid())
+	if (rd && PaletteImage.is_valid() && PaletteHeight > 0)
 	{
-		Ref<RDTextureFormat> fmt;
-		fmt.instantiate();
-		fmt->set_width(W3D_PALETTE_WIDTH);
-		fmt->set_height(PaletteHeight);
-		fmt->set_format(RenderingDevice::DATA_FORMAT_R32G32B32A32_SFLOAT);
-		fmt->set_usage_bits(RenderingDevice::TEXTURE_USAGE_SAMPLING_BIT | RenderingDevice::TEXTURE_USAGE_CAN_UPDATE_BIT |
-			RenderingDevice::TEXTURE_USAGE_CAN_COPY_FROM_BIT | RenderingDevice::TEXTURE_USAGE_CAN_COPY_TO_BIT);
-		Ref<RDTextureView> view;
-		view.instantiate();
-		const RID created = rd->texture_create(fmt, view);
-		if (created.is_valid())
+		if (PaletteRD.is_null())
 		{
-			if (PaletteRD.is_null())
-			{
-				PaletteRD.instantiate();
-			}
-			const RID previous = PaletteRdRid;
-			PaletteRD->set_texture_rd_rid(created);
-			PaletteRdRid = created;
-			if (previous.is_valid())
-			{
-				rd->free_rid(previous);
-			}
-			if (PaletteStageRid.is_valid())
-			{
-				rd->free_rid(PaletteStageRid);
-				PaletteStageRid = RID();
-				PaletteStageRows = 0;
-			}
-			PaletteTexture.unref();
-			PaletteFullUpload = true;
-			return;
+			PaletteRD.instantiate();
 		}
+		if (!PaletteQueue)
+		{
+			PaletteQueue = new PaletteRdQueue();
+		}
+		PaletteRdQueue::Op op;
+		op.kind = PaletteRdQueue::Op::Create;
+		op.height = PaletteHeight;
+		op.sampler = PaletteRD;
+		PaletteQueue->enqueue(std::move(op), false);
+		PaletteOnRd = true;
+		PaletteTexture.unref();
+		PaletteFullUpload = true;
+		return;
 	}
+	// Compatibility has no RenderingDevice. ImageTexture::update stays on this thread.
 	release_palette_rd();
 	PaletteRD.unref();
 	PaletteTexture = ImageTexture::create_from_image(PaletteImage);
@@ -993,61 +1174,49 @@ void W3DInstancer::upload_palette()
 		clear();
 		return;
 	}
-	if (PaletteRD.is_valid() && PaletteRdRid.is_valid())
+	if (PaletteOnRd && PaletteQueue && PaletteQueue->create_failed.load(std::memory_order_acquire))
 	{
-		RenderingServer *rs = RenderingServer::get_singleton();
-		RenderingDevice *rd = rs ? rs->get_rendering_device() : nullptr;
-		if (rd)
+		// The render thread could not create the palette. Fall back to the compatibility texture on this thread.
+		release_palette_rd();
+		PaletteRD.unref();
+		PaletteTexture = ImageTexture::create_from_image(PaletteImage);
+	}
+	if (PaletteOnRd && PaletteQueue)
+	{
+		const bool rejected = PaletteQueue->force_full.load(std::memory_order_acquire);
+		const bool uploadFull = full || rejected || (row0 == 0 && rows == PaletteHeight);
+		PaletteRdQueue::Op op;
+		op.kind = PaletteRdQueue::Op::Upload;
+		op.full = uploadFull;
+		op.row0 = row0;
+		op.rows = rows;
+		const int64_t nbytes = uploadFull ? (int64_t)PaletteHeight * W3D_PALETTE_WIDTH * 16 : (int64_t)rows * W3D_PALETTE_WIDTH * 16;
+		const std::uint8_t *src = PaletteImage->ptr() + (uploadFull ? 0 : (size_t)row0 * W3D_PALETTE_WIDTH * 16);
+		op.bytes.resize(nbytes);
+		std::memcpy(op.bytes.ptrw(), src, (size_t)nbytes);
+		if (!uploadFull)
 		{
-			const int64_t nbytes = (int64_t)rows * W3D_PALETTE_WIDTH * 16;
-			PackedByteArray bytes;
-			bytes.resize(nbytes);
-			std::memcpy(bytes.ptrw(), PaletteImage->ptr() + (size_t)row0 * W3D_PALETTE_WIDTH * 16, (size_t)nbytes);
-			if (row0 == 0 && rows == PaletteHeight)
-			{
-				rd->texture_update(PaletteRdRid, 0, bytes);
-				clear();
-				return;
-			}
-			if (PaletteStageRows != rows || !PaletteStageRid.is_valid())
-			{
-				if (PaletteStageRid.is_valid())
-				{
-					rd->free_rid(PaletteStageRid);
-				}
-				Ref<RDTextureFormat> fmt;
-				fmt.instantiate();
-				fmt->set_width(W3D_PALETTE_WIDTH);
-				fmt->set_height(rows);
-				fmt->set_format(RenderingDevice::DATA_FORMAT_R32G32B32A32_SFLOAT);
-				fmt->set_usage_bits(RenderingDevice::TEXTURE_USAGE_CAN_UPDATE_BIT | RenderingDevice::TEXTURE_USAGE_CAN_COPY_FROM_BIT);
-				Ref<RDTextureView> view;
-				view.instantiate();
-				PaletteStageRid = rd->texture_create(fmt, view);
-				PaletteStageRows = PaletteStageRid.is_valid() ? rows : 0;
-			}
-			if (PaletteStageRid.is_valid())
-			{
-				rd->texture_update(PaletteStageRid, 0, bytes);
-				const Error err = rd->texture_copy(PaletteStageRid, PaletteRdRid, Vector3(0, 0, 0), Vector3(0, (real_t)row0, 0),
-					Vector3(W3D_PALETTE_WIDTH, (real_t)rows, 1), 0, 0, 0, 0);
-				if (err == OK)
-				{
-					clear();
-					return;
-				}
-			}
-			PackedByteArray all;
-			all.resize((int64_t)PaletteHeight * W3D_PALETTE_WIDTH * 16);
-			std::memcpy(all.ptrw(), PaletteImage->ptr(), (size_t)all.size());
-			rd->texture_update(PaletteRdRid, 0, all);
+			// Copied now so a rejected partial copy can update the whole texture without reading PaletteImage later.
+			op.fallback.resize((int64_t)PaletteHeight * W3D_PALETTE_WIDTH * 16);
+			std::memcpy(op.fallback.ptrw(), PaletteImage->ptr(), (size_t)op.fallback.size());
+		}
+		if (uploadFull)
+		{
+			PaletteQueue->force_full.store(false, std::memory_order_release);
 			PaletteUploadFull = true;
 			PaletteRowsUploaded = PaletteHeight;
-			PaletteFullUpload = true; // the partial copy was rejected; later frames upload the whole texture
-			clear();
-			PaletteFullUpload = true;
-			return;
 		}
+		PaletteQueue->enqueue(std::move(op), false);
+		if (rejected)
+		{
+			PaletteFullUpload = true; // the partial copy was rejected; later frames upload the whole texture
+		}
+		clear();
+		if (rejected)
+		{
+			PaletteFullUpload = true;
+		}
+		return;
 	}
 	if (PaletteTexture.is_valid())
 	{

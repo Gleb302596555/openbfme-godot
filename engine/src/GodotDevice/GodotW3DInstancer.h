@@ -56,6 +56,8 @@ namespace godot
 
 class RetailFileSystem;
 
+struct PaletteRdQueue;
+
 class W3DInstancer : public Node3D
 {
 	GDCLASS(W3DInstancer, Node3D)
@@ -312,9 +314,10 @@ private:
 	int PaletteHeight = 0;
 	Ref<ImageTexture> PaletteTexture;
 	Ref<Texture2DRD> PaletteRD;              // Forward+/Mobile: the sampled texture, so a frame can copy only dirty rows
-	RID PaletteRdRid;
-	RID PaletteStageRid;
-	int PaletteStageRows = 0;
+	// Owns the RenderingDevice palette and staging RIDs. Create, upload, copy, and free run on the render thread, in queue order.
+	// The node does not free those RIDs, and PREDELETE does not queue a method on this (the queue outlives the node).
+	PaletteRdQueue *PaletteQueue = nullptr;
+	bool PaletteOnRd = false;
 	Ref<Image> PaletteImage;
 	bool LayoutDirty = true;
 	bool PoseDirty = true;
