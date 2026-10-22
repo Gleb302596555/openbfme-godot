@@ -17,6 +17,7 @@
 #include "GameLogic/Object/Contain/TunnelContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <set>
@@ -217,6 +218,12 @@ TEST_CASE("tunnel1 flow: a Goblin porter builds two mine shafts; a horde ordered
 	REQUIRE_MESSAGE(horde != nullptr, err);
 	logic.runLogicFrame();
 	const int pi = human->getPlayerIndex();
+	std::vector<ObjectID> memberIds;
+	for (Object *m : *horde->getContain()->getContainedItemsList())
+	{
+		memberIds.push_back(m->getID());
+	}
+	REQUIRE(memberIds.size() == 20u); // GoblinFighterHorde: 20 goblins
 	REQUIRE_MESSAGE(orderEnter(live, pi, *horde, *a), "the horde never got into the first shaft");
 	CHECK(horde->getContainedBy() == a);
 	CHECK(tb->getContainCount() == 1u); // the network: the second shaft holds it too
@@ -267,12 +274,41 @@ TEST_CASE("tunnel1 flow: a Goblin porter builds two mine shafts; a horde ordered
 	CHECK(dist2D(*horde, *a) > 300.0f); // tolerance: not at the first shaft (the shafts stand > 300 apart, checked above)
 	CHECK(horde->isInWorld());
 	CHECK(ta->getContainCount() == 0u);
+	// the same 20 goblins, each back in its horde, in the world, shown, no longer held (DISABLED_HELD off, RW 0x880FC6), at the second shaft
+	std::vector<ObjectID> outIds;
 	for (Object *m : *horde->getContain()->getContainedItemsList())
 	{
+		outIds.push_back(m->getID());
+		CHECK(m->getContainedBy() == horde);
 		CHECK(m->isInWorld());
 		CHECK_FALSE(m->isDrawableHidden());
+		CHECK((m->getDisabledMask() & (1u << 3)) == 0u);
 		CHECK(dist2D(*m, *b) < 300.0f); // tolerance: every member out at the second shaft, in its formation slot around the horde
 	}
+	std::sort(outIds.begin(), outIds.end());
+	std::vector<ObjectID> sortedIds = memberIds;
+	std::sort(sortedIds.begin(), sortedIds.end());
+	CHECK(outIds == sortedIds);
+	CHECK(human->tunnelTracker().containCount() == 0);
+
+	// the entrance dies while the horde is inside: it stays in the network as entered by the second shaft (RW 0x8FA4E8), whose exit button still lets it out
+	REQUIRE_MESSAGE(orderEnter(live, pi, *horde, *a), "the horde never got back into the first shaft");
+	a->kill(0);
+	for (int i = 0; i < 5; ++i)
+	{
+		logic.runLogicFrame();
+	}
+	REQUIRE(horde->getContainedBy() == b);
+	CHECK(human->tunnelTracker().tunnelCount() == tunnels0 + 1u);
+	const int out2 = orderExit(live, pi, *horde, *b);
+	REQUIRE_MESSAGE(out2 >= 0, "the horde never came out of the second shaft after the first died"); // tolerance: -1 is the guard ran out
+	for (int i = 0; i < 30; ++i)
+	{
+		logic.runLogicFrame();
+	}
+	CHECK(dist2D(*horde, *b) < 250.0f); // tolerance: out at the second shaft (its ExitOffset is 80); the horde re-forms after the exit
+	CHECK(horde->getContain()->getContainedItemsList()->size() == memberIds.size());
+	CHECK(human->tunnelTracker().containCount() == 0);
 }
 
 TEST_CASE("tunnel1 flow: the Goblin fortress's Burrows expansion (MSG_FOUNDATION_CONSTRUCT on a pad) joins the mine shafts' network; a horde goes in at a shaft, out at the Burrows")

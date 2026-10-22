@@ -15,6 +15,8 @@
 #include "GameLogic/Object/Contain/GarrisonContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 
+#include <algorithm>
+
 namespace
 {
 const char *const kLane = "GARRISON-1";
@@ -120,10 +122,17 @@ bool exitOne(GameLogic &logic, const GameMessage &m)
 		return true;
 	}
 	// RW 0x77ACF3: the container's contain answers slot 0xE8 for the rider. A tunnel answers for its player's whole network (TunnelContain RW 0x8811DD), so a
-	// horde that entered by one tunnel comes out of the tunnel whose button was pressed (TUNNEL-1). A contain that is not an OpenContain (none shows riders on
-	// the control bar) keeps the rider's own container as the test (INFERENCE)
-	const OpenContain *open = dynamic_cast<const OpenContain *>(contain);
-	const bool here = open ? open->isContainedHere(*rider) : rider->getContainedBy() == container;
+	// horde that entered by one tunnel comes out of the tunnel whose button was pressed (TUNNEL-1). The other contain class, HordeContain, has OpenContain's
+	// RW 0x8662D0 in that slot too (its table RW 0xC5B480 + 0xE8): the rider is in the contain's own list
+	bool here = false;
+	if (const OpenContain *open = dynamic_cast<const OpenContain *>(contain))
+	{
+		here = open->isContainedHere(*rider);
+	}
+	else if (const ContainModuleInterface::ContainedItemsList *items = contain->getContainedItemsList())
+	{
+		here = std::find(items->begin(), items->end(), rider) != items->end();
+	}
 	if (rider->getControllingPlayer() != player || !here)
 	{
 		return true;

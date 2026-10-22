@@ -14,6 +14,7 @@
 ##   --enemy=<Template>:<dx>,<dy>   (repeatable) an object for the opponent (Player_2) near the first free spot (lane COMBAT-1: the combat scenario)
 ##   --alternate-mouse       the right click orders (default: the left click orders)
 ##   --edge-scroll           scroll when the pointer touches the window edge (retail does it in fullscreen only)
+##   --focus=<x>,<y>         (TUNNEL-1) the map point the --spawn / --enemy offsets start from (default: the centre of Player_1's map objects)
 ##   --scenario=<name>       a scripted run (see _run_scenario): horde2 (lane HORDE-2: our horde charges the enemy horde, <prefix>-select / -contact / -melee / -aftermath), camera (lane CAM-1: the retail camera tour), streaks_paused (the arrow ribbons face a camera turned while paused), select_building, select_horde, drag_box, radar, radar1 (lane RADAR-1: radar1-NN.png every 45 frames), rally, combat (box-select our horde, click the enemy horde, follow the fight),
 ##                           combat_building (lane COMBAT-2: the same against the enemy's BUILDING, the first --enemy: it is damaged, collapses into rubble and the victory report follows)
 ##   --no-audio / --build=<Template>   (lane AUDIO-2) run without the audio manager / the unit the audio scenario builds at the second --spawn
@@ -92,6 +93,7 @@ var _calls: Array = []
 var _bench_seconds := 8.0
 var _bench_interp := "on"
 var _caption := ""
+var _focus_arg := Vector2.INF  # TUNNEL-1: --focus=x,y places the --spawn / --enemy offsets around this map point (a map without start objects has no focus)
 var _perf_overlay := false   # lane PERF-1: --perf-overlay
 var _bench_caption := ""     # lane PERF-1: --bench-caption
 var _overlay_label: Label
@@ -187,6 +189,9 @@ func _ready() -> void:
 			_min_air = int(arg.substr(6))
 		elif arg.begins_with("--timescale="):
 			_time_scale = float(arg.substr(12))
+		elif arg.begins_with("--focus="):
+			var fxy: PackedStringArray = arg.substr(8).split(",")
+			_focus_arg = Vector2(float(fxy[0]), float(fxy[1]))
 		elif arg.begins_with("--scenario="):
 			_scenario = arg.substr(11)
 			if _scenario == "audio":
@@ -342,7 +347,7 @@ func _ready() -> void:
 		idx += 1
 	for s in rep.stops:
 		print("  live stop: ", String(s).substr(0, 120))
-	_focus = _find_focus()
+	_focus = _find_focus() if _focus_arg == Vector2.INF else _focus_arg
 	_cam_target = _focus
 	# the HUD
 	_layer = CanvasLayer.new()
@@ -950,6 +955,7 @@ func _run_scenario() -> void:
 			var shaft_a: int = _spawn_ids[0]
 			var shaft_b: int = _spawn_ids[1]
 			var horde: int = _spawn_ids[2]
+			print("TUNNEL focus %s, %d objects" % [_focus, _world.get_object_ids().size()])
 			print("COMPLETE ", _world.debug_build_complete(shaft_a), " ", _world.debug_build_complete(shaft_b))
 			var a: Dictionary = _world.get_object(shaft_a)
 			var b: Dictionary = _world.get_object(shaft_b)
