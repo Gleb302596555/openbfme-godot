@@ -266,7 +266,8 @@ TEST_CASE("commands: a formation move with the attack flag arms an attack-move f
 	}
 }
 
-// PR #88 review fix 5: a peer's malformed formation / firing-arc order (a NaN or infinite angle or location) is rejected, it never reaches the moves
+// PR #88 review fix 5: a peer's malformed formation / firing-arc order (a NaN or infinite angle or location, an angle outside [-2 pi, 2 pi]) is
+// rejected, it never reaches the moves
 TEST_CASE("commands: malformed formation and firing-arc orders with non-finite values are rejected and the simulation keeps running")
 {
 	MoveWorld mw;
@@ -283,6 +284,8 @@ TEST_CASE("commands: malformed formation and firing-arc orders with non-finite v
 	const float nan = std::numeric_limits<float>::quiet_NaN(), inf = std::numeric_limits<float>::infinity();
 	mw.send(formationOrder(alice, Coord3D{ 125.0f, 405.0f, 0.0f }, nan, false));
 	mw.send(formationOrder(alice, Coord3D{ 125.0f, 405.0f, 0.0f }, inf, true));
+	mw.send(formationOrder(alice, Coord3D{ 125.0f, 405.0f, 0.0f }, 1.0e20f, false)); // finite, but the facing wrap loop would never end
+	mw.send(formationOrder(alice, Coord3D{ 125.0f, 405.0f, 0.0f }, -6.3f, false));
 	mw.send(formationOrder(alice, Coord3D{ nan, 405.0f, 0.0f }, 0.0f, false));
 	mw.send(formationOrder(alice, Coord3D{ 125.0f, -inf, 0.0f }, 0.0f, false));
 	mw.send(formationOrder(alice, Coord3D{ 125.0f, 405.0f, nan }, 0.0f, false));
@@ -293,7 +296,7 @@ TEST_CASE("commands: malformed formation and firing-arc orders with non-finite v
 		mw.send(arc);
 	}
 	mw.frames(30);
-	CHECK(mw.aiCommands.stats().rejected == 8);
+	CHECK(mw.aiCommands.stats().rejected == 10);
 	CHECK(mw.aiCommands.stats().formationMoves == 0);
 	for (Object *o : { a, b })
 	{

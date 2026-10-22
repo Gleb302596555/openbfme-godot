@@ -225,8 +225,10 @@ bool AICommands::formationMove(GameLogic &logic, const GameMessage &m)
 	const auto *attack=arg(m,3,ARGUMENTDATATYPE_BOOLEAN);
 	const auto *world=RetailObjectWorld::currentContext();
 	// PR #88 review fix 5: a NaN / infinite angle or location from a malformed peer message is rejected; it reached the per-slot moves and
-	// crashed (or, on the old whole-group path, hung) the simulation
-	if (!type || !attack || (!world && !m_formations) || !finiteLocation(dest->location) || !std::isfinite(angle->real)) { ++m_stats.rejected; return false; }
+	// crashed (or, on the old whole-group path, hung) the simulation. The angle must also lie in [-2 pi, 2 pi] (the client sends an atan2
+	// result): a huge finite facing (1e20) never leaves the final-turn wrap loop (AIMove, RW 0x748E46), whose 2 pi steps vanish at that magnitude
+	const float twoPi = 6.2831855f;
+	if (!type || !attack || (!world && !m_formations) || !finiteLocation(dest->location) || !(angle->real >= -twoPi && angle->real <= twoPi)) { ++m_stats.rejected; return false; }
 	const auto ids=selection(logic,m.getPlayerIndex());
 	const auto &assistant=world?world->formations():*m_formations;
 	const auto slots=assistant.layout(logic,ids,type->integer,dest->location);
