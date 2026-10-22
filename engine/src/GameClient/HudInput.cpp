@@ -20,6 +20,7 @@
 #include "GameLogic/Locomotor.h"
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Combat/CombatQueries.h"
+#include "GameLogic/SimMath.h"
 #include <algorithm>
 #include <cmath>
 
@@ -518,30 +519,44 @@ bool FormationPlacement::begin(const ICoord2D &pixel, bool controller)
 	return true;
 }
 
-void FormationPlacement::aim(const ICoord2D &pixel) {
- auto &ui=m_ctx.ui;
- Coord3D end;
- if(!m_ctx.view.screenToTerrain(pixel,m_ctx.logic,end)) return;
- if(!std::isfinite(end.x)||!std::isfinite(end.y))return;
- float mx=0,my=0;
- if(auto *terrain=m_ctx.logic.terrain();terrain && terrain->getLargestExtent(mx,my)) {
-  if(end.x<0||end.y<0||end.x>mx||end.y>my)return;
- }
- m_end=end;
- const float dx=end.x-m_anchor.x,dy=end.y-m_anchor.y;
- const float length=std::sqrt(dx*dx+dy*dy);
- float angle=length>1 ? std::atan2(dy,dx) : 0;
- ui.formationType=m_ctx.formations->choose(length,m_selection.size());
- ui.formationAnchor=m_anchor;ui.formationAngle=angle;ui.formationDragLength=length;ui.formationData=m_ctx.formations;
- const auto slots=m_ctx.formations->layout(m_ctx.logic,m_selection,ui.formationType,m_anchor);
- const float c=std::cos(angle+1.5707964f),s=std::sin(angle+1.5707964f);
- ui.formationSlots.clear();
- for(const auto &slot:slots) {
-  Coord3D p{m_anchor.x+slot.offset.x*c-slot.offset.y*s,m_anchor.y+slot.offset.x*s+slot.offset.y*c,0};
-  p.z=m_ctx.logic.getGroundHeight(p.x,p.y);
-  ui.formationSlots.push_back({slot.object,p,angle,0,slot.preview});
- }
+// PR #88 review fix 6: the drag angle and the template index go into MSG_DO_MOVETO_FORMATION, so they are computed with SimMath (one SSE
+// rounding per operation, the CRT-identical atan2, the deterministic sin / cos of the sim handler AICommands::formationMove), never libm.
+void FormationPlacement::aim(const ICoord2D &pixel)
+{
+	auto &ui = m_ctx.ui;
+	Coord3D end;
+	if (!m_ctx.view.screenToTerrain(pixel, m_ctx.logic, end))
+		return;
+	if (!std::isfinite(end.x) || !std::isfinite(end.y))
+		return;
+	float mx = 0, my = 0;
+	if (auto *terrain = m_ctx.logic.terrain(); terrain && terrain->getLargestExtent(mx, my))
+	{
+		if (end.x < 0 || end.y < 0 || end.x > mx || end.y > my)
+			return;
+	}
+	m_end = end;
+	const float dx = SimMath::subf32(end.x, m_anchor.x), dy = SimMath::subf32(end.y, m_anchor.y);
+	const float length = SimMath::length2d(dx, dy);
+	const float angle = length > 1 ? SimMath::fstpDword(SimMath::atan2d(dy, dx)) : 0.0f;
+	ui.formationType = m_ctx.formations->choose(length, m_selection.size());
+	ui.formationAnchor = m_anchor;
+	ui.formationAngle = angle;
+	ui.formationDragLength = length;
+	ui.formationData = m_ctx.formations;
+	const auto slots = m_ctx.formations->layout(m_ctx.logic, m_selection, ui.formationType, m_anchor);
+	const float rotated = SimMath::addf32(angle, 1.5707964f);
+	const float c = SimMath::cosDet(rotated), s = SimMath::sinDet(rotated);
+	ui.formationSlots.clear();
+	for (const auto &slot : slots)
+	{
+		Coord3D p{ SimMath::subf32(SimMath::addf32(m_anchor.x, SimMath::mulf32(slot.offset.x, c)), SimMath::mulf32(slot.offset.y, s)),
+				   SimMath::addf32(SimMath::addf32(m_anchor.y, SimMath::mulf32(slot.offset.x, s)), SimMath::mulf32(slot.offset.y, c)), 0 };
+		p.z = m_ctx.logic.getGroundHeight(p.x, p.y);
+		ui.formationSlots.push_back({ slot.object, p, angle, 0, slot.preview });
+	}
 }
+
 void FormationPlacement::commit()
 {
 	auto &ui = m_ctx.ui;
