@@ -216,6 +216,7 @@ static void palette_rd_apply(int64_t raw)
 			}
 			if (!copied)
 			{
+				// fallback is empty unless the caller already copied the whole image. Do not read PaletteImage here.
 				if (!op.fallback.is_empty())
 				{
 					rd->texture_update(queue->palette, 0, op.fallback);
@@ -1152,12 +1153,26 @@ void W3DInstancer::upload_palette()
 {
 	PaletteRowsUploaded = 0;
 	PaletteUploadFull = false;
-	if ((!PaletteChanged && !PaletteFullUpload) || PaletteImage.is_null() || PaletteHeight <= 0)
+	// Check a failed texture create before any no-change return. A static frame has no dirty rows, and
+	// update_now rebuilds materials before this call, so LayoutDirty is what makes them drop PaletteRD.
+	if (PaletteOnRd && PaletteQueue && PaletteQueue->create_failed.load(std::memory_order_acquire))
+	{
+		release_palette_rd();
+		PaletteRD.unref();
+		if (PaletteImage.is_valid())
+		{
+			PaletteTexture = ImageTexture::create_from_image(PaletteImage);
+		}
+		LayoutDirty = true;
+	}
+	// A rejected partial copy is completed here, on the caller thread, even when this frame wrote no new rows.
+	const bool copyRejected = PaletteOnRd && PaletteQueue && PaletteQueue->force_full.load(std::memory_order_acquire);
+	if ((!PaletteChanged && !PaletteFullUpload && !copyRejected) || PaletteImage.is_null() || PaletteHeight <= 0)
 	{
 		PaletteChanged = false;
 		return;
 	}
-	const bool full = PaletteFullUpload || PaletteDirtyRow1 < PaletteDirtyRow0;
+	const bool full = PaletteFullUpload || copyRejected || PaletteDirtyRow1 < PaletteDirtyRow0;
 	const int row0 = full ? 0 : std::max(0, PaletteDirtyRow0);
 	const int row1 = full ? PaletteHeight - 1 : std::min(PaletteHeight - 1, PaletteDirtyRow1);
 	const int rows = row1 >= row0 ? row1 - row0 + 1 : 0;
@@ -1174,17 +1189,9 @@ void W3DInstancer::upload_palette()
 		clear();
 		return;
 	}
-	if (PaletteOnRd && PaletteQueue && PaletteQueue->create_failed.load(std::memory_order_acquire))
-	{
-		// The render thread could not create the palette. Fall back to the compatibility texture on this thread.
-		release_palette_rd();
-		PaletteRD.unref();
-		PaletteTexture = ImageTexture::create_from_image(PaletteImage);
-	}
 	if (PaletteOnRd && PaletteQueue)
 	{
-		const bool rejected = PaletteQueue->force_full.load(std::memory_order_acquire);
-		const bool uploadFull = full || rejected || (row0 == 0 && rows == PaletteHeight);
+		const bool uploadFull = full || (row0 == 0 && rows == PaletteHeight);
 		PaletteRdQueue::Op op;
 		op.kind = PaletteRdQueue::Op::Upload;
 		op.full = uploadFull;
@@ -1194,12 +1201,8 @@ void W3DInstancer::upload_palette()
 		const std::uint8_t *src = PaletteImage->ptr() + (uploadFull ? 0 : (size_t)row0 * W3D_PALETTE_WIDTH * 16);
 		op.bytes.resize(nbytes);
 		std::memcpy(op.bytes.ptrw(), src, (size_t)nbytes);
-		if (!uploadFull)
-		{
-			// Copied now so a rejected partial copy can update the whole texture without reading PaletteImage later.
-			op.fallback.resize((int64_t)PaletteHeight * W3D_PALETTE_WIDTH * 16);
-			std::memcpy(op.fallback.ptrw(), PaletteImage->ptr(), (size_t)op.fallback.size());
-		}
+		// A partial copy that can still succeed copies only the dirty rows. The whole image is copied
+		// above when uploadFull is set (the copy will not be attempted, or an earlier copy failed).
 		if (uploadFull)
 		{
 			PaletteQueue->force_full.store(false, std::memory_order_release);
@@ -1207,15 +1210,23 @@ void W3DInstancer::upload_palette()
 			PaletteRowsUploaded = PaletteHeight;
 		}
 		PaletteQueue->enqueue(std::move(op), false);
-		if (rejected)
+		if (!uploadFull && PaletteQueue->force_full.load(std::memory_order_acquire))
 		{
-			PaletteFullUpload = true; // the partial copy was rejected; later frames upload the whole texture
+			// This thread ran the copy and it failed. Copy the whole palette now, still off the render thread.
+			PaletteRdQueue::Op fullOp;
+			fullOp.kind = PaletteRdQueue::Op::Upload;
+			fullOp.full = true;
+			fullOp.row0 = 0;
+			fullOp.rows = PaletteHeight;
+			const int64_t all = (int64_t)PaletteHeight * W3D_PALETTE_WIDTH * 16;
+			fullOp.bytes.resize(all);
+			std::memcpy(fullOp.bytes.ptrw(), PaletteImage->ptr(), (size_t)all);
+			PaletteQueue->force_full.store(false, std::memory_order_release);
+			PaletteQueue->enqueue(std::move(fullOp), false);
+			PaletteUploadFull = true;
+			PaletteRowsUploaded = PaletteHeight;
 		}
 		clear();
-		if (rejected)
-		{
-			PaletteFullUpload = true;
-		}
 		return;
 	}
 	if (PaletteTexture.is_valid())
