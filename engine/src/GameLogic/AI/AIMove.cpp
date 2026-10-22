@@ -779,6 +779,23 @@ void AIMover::refreshLayer()
 	if (layer != obj.getLayer())
 	{
 		m_host.setLayer(layer);
+		// lane BRIDGE-1 (INFERENCE, S-1750 narrowed): a unit whose wall top or bridge deck went away stands on the ground under it on this frame, as RotWK's
+		// NO_Z_MOTIVE_FORCE height (RW 0x5E76AC case 0, RW 0x5E774A .. 0x5E7816: the height of the object's layer) puts it there, from the movers for a moving
+		// unit and from maintainCurrentPosition's tail (RW 0x5E7CC7, the transform write RW 0x70BA76) for an idle one (RotWK has no fall, no fall damage). The
+		// port runs that height only on this layer change: the whole tail moves every idle unit to its surface each frame and changes the games' hashes (S-1750).
+		// Only for a NO_Z_MOTIVE_FORCE locomotor (case 0: a flyer's height is its own) that is not a HORDE (a horde's position change places its members, and
+		// each member settles on its own layer change)
+		const Locomotor *loco = m_host.locomotor();
+		if (layer == LAYER_GROUND && loco && loco->getTemplate().m_zAxisBehavior == Z_NO_Z_MOTIVE_FORCE && loco->getTemplate().m_appearance != LOCO_HORDE)
+		{
+			Coord3D p = obj.getPosition();
+			const float z = m_host.groundHeightAt(p.x, p.y);
+			if (!(z == p.z))
+			{
+				p.z = z;
+				m_host.setPosition(p);
+			}
+		}
 	}
 	// lane WALL-2: a path goal (type 1) takes RotWK's layer update in doLocomotor itself (RW 0x669D3D .. 0x669D66: the point ahead's layer); a type 4 goal with a
 	// path (the horde member update) keeps lane WALL-1's (INFERENCE, S-4840)

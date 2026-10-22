@@ -676,12 +676,19 @@ bool ObjectPathfindAdapter::isStationary() const
 }
 
 // RW 0x936C57 (the footprint registration RW 0x936B7D, reached through 0x6E85E9): the one status that keeps an object out of the map is 0x58 = PHANTOM_STRUCTURE (the binary's
-// status name table). An ordinary foundation (UNDER_CONSTRUCTION, status 2) is an obstacle from the moment it is placed (lane BUILD-1, review r1). The 0x4D of the earlier note is
-// not read by that function.
+// status name table). An ordinary foundation (UNDER_CONSTRUCTION, status 2) is an obstacle from the moment it is placed (lane BUILD-1, review r1). The 0x4D of the earlier note
+// (CAN_NOT_WALK_ON) is read by that function only for a WALK_ON_TOP_OF_WALL template (RW 0x936C8A: cannotWalkOn below).
 bool ObjectPathfindAdapter::footprintSkippedByStatus() const
 {
 	static const int phantom = statusIndex("PHANTOM_STRUCTURE");
 	return phantom >= 0 && m_object->testStatus((unsigned)phantom);
+}
+
+// RW 0x936C8A .. 0x936C95 (review of #63): RW 0x44DDEC(0x4D) = the object status CAN_NOT_WALK_ON (the binary's status name table)
+bool ObjectPathfindAdapter::cannotWalkOn() const
+{
+	static const int cannot = statusIndex("CAN_NOT_WALK_ON");
+	return cannot >= 0 && m_object->testStatus((unsigned)cannot);
 }
 
 bool ObjectPathfindAdapter::ignoresAsTarget(const PathfindObject &) const

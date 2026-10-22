@@ -121,6 +121,7 @@ public:
 	bool reachInputs(float &x, float &y, float &speed) const override;
 	bool isStationary() const override;
 	bool footprintSkippedByStatus() const override;
+	bool cannotWalkOn() const override;
 	bool ignoresAsTarget(const PathfindObject &other) const override;
 	bool pathsThroughEachOther() const override;
 	int aiBlockedFrames() const override;

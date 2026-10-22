@@ -242,6 +242,9 @@ public:
 	virtual bool isStationary() const { return true; }
 	// object status bits the footprint code reads (RW status index 0x58 and 0x4D; names INFERRED: S-164)
 	virtual bool footprintSkippedByStatus() const { return false; }
+	// the object status CAN_NOT_WALK_ON (RW index 0x4D, the binary's status name table): RW 0x936C8A .. 0x936C95 clears a WALK_ON_TOP_OF_WALL template's
+	// wall flag with it (review of #63)
+	virtual bool cannotWalkOn() const { return false; }
 	// RW checkForMovement (0x6EBAA0), enemy branch: `other` (or its container) is the unit's current attack / approach target, so a
 	// parked enemy of that kind does not block it (the AI state machine's target RW 0x8DBACE and 0x668303; S-164)
 	virtual bool ignoresAsTarget(const PathfindObject &other) const { (void)other; return false; }

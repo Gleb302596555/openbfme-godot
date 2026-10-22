@@ -15,6 +15,8 @@
 #include "GameLogic/AI/AIPathfind.h"
 #include "GameLogic/AI/AIXfer.h"
 
+#include <algorithm>
+#include <iterator>
 #include <memory>
 #include <vector>
 
@@ -273,7 +275,7 @@ TEST_CASE("wall2 raised review of #63: a snapshot whose ground and raised cell i
 	PathfindConfig config = testConfig();
 	config.cellInfoPoolSize = 1000; // the pool both pathfinders are configured with (the snapshot's configuration hash must match)
 	GatehouseWorld saved(true, config), loaded(true, config);
-	saved.pf->setUberLimits(true); // the saving game's pool grows past its 1000 (an Uber game); the loading one keeps 1000 (Faithful)
+	saved.pf->setUberLimits(true); // the saving game's pool grows past its 1000 (an Uber game); the snapshot is made Faithful below
 	PathfindCellInfoPool &pool = saved.pf->pool();
 	int raised = 0, ground = 0;
 	// a cell info on every passable walkway cell (x 18 .. 41, y 7 .. 12: the first test), then on ground cells until the ground holds exactly 1000
@@ -320,6 +322,13 @@ TEST_CASE("wall2 raised review of #63: a snapshot whose ground and raised cell i
 		saved.pf->xfer(save);
 		bytes = save.data();
 	}
+	// the load's limit is the snapshot's profile (review of #62, Greptile P1): an Uber snapshot loads into a pool that grows. Cleared, its Uber flag
+	// (followed by the two ring lengths, 16,384 each) makes it a Faithful snapshot, whose pool of 1000 holds the two counts only apart
+	const std::uint8_t uberTail[] = { 1, 0x00, 0x40, 0, 0, 0x00, 0x40, 0, 0 };
+	auto flag = std::search(bytes.begin(), bytes.end(), std::begin(uberTail), std::end(uberTail));
+	REQUIRE(flag != bytes.end());
+	REQUIRE(std::search(flag + 1, bytes.end(), std::begin(uberTail), std::end(uberTail)) == bytes.end());
+	*flag = 0;
 	StateHasher before;
 	loaded.pf->crc(before);
 	std::string error;

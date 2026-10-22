@@ -311,6 +311,8 @@ public:
 	ObjectPathfindAdapter &adapter() const { return *m_adapter; }
 	// B1 :2513 wakeUpNow
 	void wakeUpNow();
+	// observation only (tests, lane STEALTHFLY1): the frame this AI's update is next due (UpdateModule::getWakeFrame)
+	UnsignedInt nextUpdateFrame() const { return getWakeFrame(); }
 	// B1 :2492 setQueueForPathTime
 	void setQueueForPathTime(unsigned frames);
 	void setDesiredSpeed(float s) { m_mover->setDesiredSpeed(s); }
@@ -463,8 +465,13 @@ protected:
 		int waypointId = -1;
 		float angle = 0.0f;          // lane SIEGE-1: the move with an angle's final angle (DeployStyleAIUpdate gives a kept command again)
 		int maxShots = 0x7FFFFFFF;   // lane SIEGE-1: the attack commands' shot limit (AICommandParms m_intValue)
+		std::vector<Coord3D> path; // lane STEALTHFLY1: a follow path the bird keeps while attacking (GiantBirdAIUpdate::deferWhileAttacking)
 	};
 	virtual bool routeCommand(const RoutedCommand &command) { (void)command; return false; }
+	// lane STEALTHFLY1: the bodies of aiFollowPath / aiFollowPathAppend once aiDoCommand's gate (RW 0x667174) passed: AIUpdateInterface vslots 0x78
+	// (privateFollowPath) and 0x84 (privateFollowPathAppend), which GiantBirdAIUpdate overrides (RW 0x76B491 / 0x76D659: its own follow path state 0x3F6)
+	virtual void privateFollowPath(const std::vector<Coord3D> &path, Object *ignoreObject, CommandSourceType source, bool exitProduction);
+	virtual void privateFollowPathAppend(const Coord3D &pos, CommandSourceType source);
 	void setLastCommandSource(CommandSourceType s) { m_lastCommandSource = s; }
 	// the hook HordeAIUpdate adds its per-frame work to (B1 HordeAIUpdate_update.cpp:261-293, RW 0x89E2D0)
 	virtual void updateBeforeBase() {}

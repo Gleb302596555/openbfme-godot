@@ -1140,7 +1140,7 @@ private:
 	void freeGrid();
 	void classifyMapCell(int i, int j, PathfindCell *cell);
 	void classifyObjectFootprint(PathfindObject &obj, bool insert);
-	void internal_classifyObjectFootprint(PathfindObject &obj, bool insert);
+	void internal_classifyObjectFootprint(PathfindObject &obj, bool insert, bool walkOnWall);
 	void classifyFence(PathfindObject &obj, bool insert);
 	// lane WALL-1: Pathfinder::ClassifyWall (BFME2 0x92F63F, pathfinder_classify.cpp): the wall tops and ramps of a wall piece into / out of the ground grid
 	void classifyWall(PathfindObject &obj, bool insert);
