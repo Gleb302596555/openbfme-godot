@@ -239,7 +239,9 @@ size_t HudInput::flush()
 {
 	const int local = m_ctx.localPlayer() ? m_ctx.localPlayer()->getPlayerIndex() : 0;
 	std::vector<ClientMessage> out = m_stream.propagate();
-	if (m_formation.consumed()) {
+	// PR #88 review fix 1: only while the gesture is live (placement active or a chord button still held). m_consumed outlives the order until
+	// the next press (it swallows the trailing release and clicks); cancelling the LookAt pointer on it left the camera dead after every order.
+	if (m_formation.gestureLive()) {
 		m_selection.setLeftMouseButton(false);
 		m_ui.setSelecting(false);
 		m_ui.endAreaSelectHint();

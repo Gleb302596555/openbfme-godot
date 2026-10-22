@@ -359,3 +359,28 @@ TEST_CASE("formation assistant: movement targets the occupied rank centre at "
 		CHECK(dx * dx + dy * dy < 225);
 	}
 }
+
+// PR #88 review fix 1: after the order the gesture is over once both buttons are up; only the trailing release and clicks are swallowed, the
+// HUD no longer cancels the LookAt pointer (camera scrolling works again)
+TEST_CASE("formation chord: the gesture stays live until both buttons are released, then only the trailing clicks are eaten")
+{
+	Rig r;
+	CHECK_FALSE(r.placement.gestureLive());
+	REQUIRE(r.send(button(CMSG_RAW_MOUSE_LEFT_BUTTON_DOWN, 200, 200, 1000)).empty());
+	REQUIRE(r.send(button(CMSG_RAW_MOUSE_RIGHT_BUTTON_DOWN, 200, 200, 1020)).empty());
+	CHECK(r.placement.gestureLive());
+	auto out = r.send(button(CMSG_RAW_MOUSE_LEFT_BUTTON_UP, 250, 200, 1040));
+	REQUIRE(out.size() == 1);
+	CHECK(out[0].type() == MSG_DO_MOVETO_FORMATION);
+	CHECK_FALSE(r.ui.formationActive);
+	CHECK(r.placement.gestureLive()); // the right button is still down
+	CHECK(r.send(button(CMSG_RAW_MOUSE_RIGHT_BUTTON_UP, 250, 200, 1060)).empty());
+	CHECK_FALSE(r.placement.gestureLive());
+	CHECK(r.placement.consumed());
+	CHECK(r.send(ClientMessage(CMSG_MOUSE_RIGHT_CLICK)).empty());
+	// pointer motion and keys pass (the camera's edge and key scrolling read them)
+	out = r.send(button(CMSG_RAW_MOUSE_POSITION, 900, 600, 1080));
+	REQUIRE(out.size() == 1);
+	CHECK(out[0].type() == CMSG_RAW_MOUSE_POSITION);
+	CHECK_FALSE(r.placement.gestureLive());
+}

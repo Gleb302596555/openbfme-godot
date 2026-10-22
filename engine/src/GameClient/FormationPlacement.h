@@ -26,6 +26,11 @@ class FormationPlacement : public MessageTranslator
 	{
 		return m_consumed;
 	}
+	// The gesture is live: placement is active, or a button of a chord that started placement is still held.
+	bool gestureLive() const
+	{
+		return m_ctx.ui.formationActive || (m_consumed && (m_left || m_right));
+	}
 	static bool withinChordDistance(const ICoord2D &first, const ICoord2D &next);
 	static bool isStartOfDrag(const ClientMessage &first, const ClientMessage &next);
 	static const char *stopLine();
