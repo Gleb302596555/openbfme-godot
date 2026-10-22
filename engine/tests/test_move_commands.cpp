@@ -5,6 +5,8 @@
 #include "GameClient/FormationAssistant.h"
 
 #include <algorithm>
+#include <cmath>
+#include <limits>
 
 using namespace movetest;
 
@@ -262,4 +264,51 @@ TEST_CASE("commands: a formation move with the attack flag arms an attack-move f
 		CHECK_FALSE(a->getAIUpdateInterface()->isIdle());
 		CHECK_FALSE(b->getAIUpdateInterface()->isIdle());
 	}
+}
+
+// PR #88 review fix 5: a peer's malformed formation / firing-arc order (a NaN or infinite angle or location) is rejected, it never reaches the moves
+TEST_CASE("commands: malformed formation and firing-arc orders with non-finite values are rejected and the simulation keeps running")
+{
+	MoveWorld mw;
+	mw.buildMap();
+	const int alice = mw.playerIndex("Alice");
+	Object *a = mw.spawn("Walker", 105.0f, 105.0f);
+	Object *b = mw.spawn("Walker", 145.0f, 105.0f);
+	mw.frames(2);
+	mw.select(alice, { a, b });
+	FormationAssistant formation;
+	std::string formationError;
+	REQUIRE(formation.scan(kOneRowFormation, &formationError));
+	mw.aiCommands.setFormationAssistant(&formation);
+	const float nan = std::numeric_limits<float>::quiet_NaN(), inf = std::numeric_limits<float>::infinity();
+	mw.send(formationOrder(alice, Coord3D{ 125.0f, 405.0f, 0.0f }, nan, false));
+	mw.send(formationOrder(alice, Coord3D{ 125.0f, 405.0f, 0.0f }, inf, true));
+	mw.send(formationOrder(alice, Coord3D{ nan, 405.0f, 0.0f }, 0.0f, false));
+	mw.send(formationOrder(alice, Coord3D{ 125.0f, -inf, 0.0f }, 0.0f, false));
+	mw.send(formationOrder(alice, Coord3D{ 125.0f, 405.0f, nan }, 0.0f, false));
+	for (const Coord3D &target : { Coord3D{ nan, 405.0f, 0.0f }, Coord3D{ 125.0f, inf, 0.0f }, Coord3D{ 125.0f, 405.0f, -inf } })
+	{
+		GameMessage arc(MSG_DO_ROTATE_FIRINGARC, alice);
+		arc.appendLocationArgument(target);
+		mw.send(arc);
+	}
+	mw.frames(30);
+	CHECK(mw.aiCommands.stats().rejected == 8);
+	CHECK(mw.aiCommands.stats().formationMoves == 0);
+	for (Object *o : { a, b })
+	{
+		CHECK(o->getAIUpdateInterface()->isIdle());
+		CHECK_FALSE(o->getAIUpdateInterface()->attackMoveActive());
+		CHECK(std::isfinite(o->getOrientation()));
+	}
+	CHECK(a->getPosition()->x == 105.0f);
+	CHECK(a->getPosition()->y == 105.0f);
+	CHECK(b->getPosition()->x == 145.0f);
+	CHECK(b->getPosition()->y == 105.0f);
+	// the simulation survives: a well-formed order afterwards still moves the units
+	mw.send(formationOrder(alice, Coord3D{ 125.0f, 405.0f, 0.0f }, 0.0f, false));
+	mw.frames(1);
+	CHECK(mw.aiCommands.stats().formationMoves == 1);
+	CHECK_FALSE(a->getAIUpdateInterface()->isIdle());
+	CHECK_FALSE(b->getAIUpdateInterface()->isIdle());
 }

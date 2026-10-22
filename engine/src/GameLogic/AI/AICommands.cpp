@@ -15,6 +15,7 @@
 #include "GameLogic/Object/Object.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace
 {
@@ -24,6 +25,11 @@ const GameMessageArgument *arg(const GameMessage &m, size_t i, GameMessageArgume
 {
 	const GameMessageArgument *a = m.getArgument(i);
 	return a && a->type == type ? a : nullptr;
+}
+
+bool finiteLocation(const Coord3D &p)
+{
+	return std::isfinite(p.x) && std::isfinite(p.y) && std::isfinite(p.z);
 }
 }
 
@@ -41,7 +47,8 @@ void AICommands::registerHandlers(GameLogicDispatch &d)
 	d.registerHandler(MSG_DO_STOP, kLane, [this](GameLogic &l, const GameMessage &m) { return stop(l, m); });
 	d.registerHandler(MSG_DO_ROTATE_FIRINGARC, kLane, [this](GameLogic &logic, const GameMessage &m) {
 		const auto *target=arg(m,0,ARGUMENTDATATYPE_LOCATION);
-		if(!target || !validPlayer(logic,m)) {++m_stats.rejected;return false;}
+		// PR #88 review fix 5: a non-finite target from a malformed peer message is rejected (a NaN facing breaks the locomotor goal)
+		if(!target || !validPlayer(logic,m) || !finiteLocation(target->location)) {++m_stats.rejected;return false;}
 		for(auto id:selection(logic,m.getPlayerIndex()))if(auto *object=logic.findObjectByID(id)) {
 			const float dx=SimMath::subf32(target->location.x,object->getPosition()->x),dy=SimMath::subf32(target->location.y,object->getPosition()->y);
 			if(SimMath::addf32(SimMath::mulf32(dx,dx),SimMath::mulf32(dy,dy))<1)continue;
@@ -217,7 +224,9 @@ bool AICommands::formationMove(GameLogic &logic, const GameMessage &m)
 	const auto *type=arg(m,2,ARGUMENTDATATYPE_INTEGER);
 	const auto *attack=arg(m,3,ARGUMENTDATATYPE_BOOLEAN);
 	const auto *world=RetailObjectWorld::currentContext();
-	if (!type || !attack || (!world && !m_formations)) { ++m_stats.rejected; return false; }
+	// PR #88 review fix 5: a NaN / infinite angle or location from a malformed peer message is rejected; it reached the per-slot moves and
+	// crashed (or, on the old whole-group path, hung) the simulation
+	if (!type || !attack || (!world && !m_formations) || !finiteLocation(dest->location) || !std::isfinite(angle->real)) { ++m_stats.rejected; return false; }
 	const auto ids=selection(logic,m.getPlayerIndex());
 	const auto &assistant=world?world->formations():*m_formations;
 	const auto slots=assistant.layout(logic,ids,type->integer,dest->location);
