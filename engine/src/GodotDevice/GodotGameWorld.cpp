@@ -9,6 +9,7 @@
 #include "GodotDevice/GodotGameWorld.h"
 
 #include "GameClient/FrameCensus.h"
+#include "GameEngineDevice/W3DDevice/GameClient/HouseColor.h"
 #include "GameClient/ReplaySeek.h"
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameClient/GUI/TributeInfo.h"
@@ -498,6 +499,7 @@ GameWorld::~GameWorld()
 	m_liveFX.reset();
 	m_spellStore.reset(); // lane SPELL-2 (review r1): the spell book screens hold the game's player and templates: they go before it
 	m_spellBar.reset();
+	m_cahCameraOffsetValid = false;
 	m_game.reset();
 	m_clientRuntime.reset();
 	m_treeTopple.reset(); // lane SPELL-3
@@ -594,6 +596,7 @@ Dictionary GameWorld::setup(const Ref<RetailFileSystem> &fs)
 		m_audio.reset(); // AUDIO-2: the audio side reads the game
 		m_spellStore.reset(); // lane SPELL-2 (review r1): the spell book screens hold the game's player and templates: they go before it
 		m_spellBar.reset();
+		m_cahCameraOffsetValid = false;
 		m_game.reset();
 		m_clientRuntime.reset();
 	m_treeTopple.reset(); // lane SPELL-3
@@ -680,6 +683,7 @@ void GameWorld::clear_scene()
 	}
 	m_spellStore.reset(); // lane SPELL-2 (review r1): the spell book screens hold the game's player and templates: they go before it
 	m_spellBar.reset();
+	m_cahCameraOffsetValid = false;
 	m_game.reset(); // the objects (and through them the drawables) first
 	m_clientRuntime.reset();
 	m_treeTopple.reset(); // lane SPELL-3
@@ -1065,6 +1069,8 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 	m_textureAnimation = optBool(options, "texture_animation", true);
 
 	LiveGame::Options lo = loIn;
+	lo.heroStatsProfile = m_heroStatsProfile;
+	lo.heroStatsMessage = [](const std::string &message) { UtilityFunctions::print(toGodot(message)); };
 	if (progress.is_valid())
 	{
 		lo.progress = [&progress](int percent) { progress.call(percent); };
@@ -1072,6 +1078,7 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 	m_netSession.reset(); // MP-1: the session points at the game
 	releaseLocalDrivers(); // lane MP-2: the recording / replay driver too
 	m_audio.reset(); // AUDIO-2: the audio side reads the game
+	m_cahCameraOffsetValid = false;
 	m_game.reset(new LiveGame(*m_world, *m_fs->archive_fs(), *m_assets, *m_options));
 	m_game->setRenderInterpolation(m_renderInterpolation);
 	// lane RENDERWAIT-1: a blocking wait on the logic worker names its script caller (the innermost GDScript frame: the C++ site of a bound query is
@@ -1116,6 +1123,7 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 		m_audio.reset(); // AUDIO-2: the audio side reads the game
 		m_spellStore.reset(); // lane SPELL-2 (review r1): the spell book screens hold the game's player and templates: they go before it
 		m_spellBar.reset();
+		m_cahCameraOffsetValid = false;
 		m_game.reset();
 		return fail(error);
 	}
@@ -1640,14 +1648,16 @@ void GameWorld::refresh_views(double deltaMs)
 					ev.rawLowered = AsciiStringUtil::lowered(*f.modelName);
 				}
 				static const std::string kNoModel;
-				// lane CAH-2 (S-1408): a drawable with a colour set shows the model "#<model>#<kind>&<c0>&<c1>&<c2>" (RW 0x54BDE0 / 0x535BCF's name) whose
-				// house colour textures are recoloured per texel (W3DInstancer::add_model_colored)
+				// Donor W3DModelDrawRva000B8FA1.cpp (BFME2 0x4B8FA1): ordinary
+				// owners use kind 1; hero custom palettes keep precedence. Bake before
+				// filtering, using the existing RW 0x531C77 texture recolour routine.
+				const auto palette = Render_House_Color_Params(d->getHouseColor(), d->customColorKind(), d->customColors());
 				ev.colorsRevision = d->customColorRevision();
 				std::string coloredModel;
-				if (shown && m_houseColors && d->customColorKind() > 0)
+				if (shown && m_houseColors && palette.kind > 0)
 				{
 					char opt[96];
-					std::snprintf(opt, sizeof(opt), "#%d&%d&%d&%d", d->customColorKind(), (int)d->customColors()[0], (int)d->customColors()[1], (int)d->customColors()[2]);
+					std::snprintf(opt, sizeof(opt), "#%d&%d&%d&%d", palette.kind, (int)palette.colors[0], (int)palette.colors[1], (int)palette.colors[2]);
 					coloredModel = "#" + ev.rawLowered + opt;
 				}
 				// stop S-5015: the state's `Texture = A B` swaps (a building's SNOW state on a snowy map) make another model variant, "<model>#tex&a=b"
@@ -1690,9 +1700,9 @@ void GameWorld::refresh_views(double deltaMs)
 								PackedInt64Array colors;
 								for (int i = 0; i < 3; ++i)
 								{
-									colors.push_back((int64_t)d->customColors()[i]);
+									colors.push_back((int64_t)palette.colors[i]);
 								}
-								mid = dyn->add_model_colored(toGodot(*f.modelName), d->customColorKind(), colors);
+								mid = dyn->add_model_colored(toGodot(*f.modelName), palette.kind, colors);
 							}
 							else
 							{
@@ -1781,20 +1791,51 @@ void GameWorld::refresh_views(double deltaMs)
 			}
 			else if (!e.staticModel.empty() && !e.moduleHidden)
 			{
+				// lane HCKEY-1: the key and its palette / swaps are made again only when an input changed (not every frame)
+				const std::uint32_t owner = d->getHouseColor();
+				const int customKind = d->customColorKind();
+				const std::uint32_t *custom = d->customColors();
+				if (!ev.staticKeyValid || ev.staticKeySource != e.staticModel || ev.staticKeyData != e.data || ev.staticKeyKind != (int)e.kind ||
+					ev.staticKeyWeather != m_streakWeather || ev.staticKeyHouse != m_houseColors || ev.staticKeyOwner != owner ||
+					ev.staticKeyCustomKind != customKind || std::memcmp(ev.staticKeyCustom, custom, sizeof(ev.staticKeyCustom)) != 0)
+				{
+					ev.staticKeyPalette = Render_House_Color_Params(owner, customKind, custom);
+					ev.staticKeyColored = m_houseColors && ev.staticKeyPalette.kind > 0;
+					ev.staticKeySwaps = e.kind == W3D_DRAWKIND_FLOOR ? floorWeatherSwaps(e.data, m_streakWeather) : std::vector<std::pair<std::string, std::string>>();
+					ev.staticKey = AsciiStringUtil::lowered(e.staticModel) + W3DInstancer::Texture_Swap_Suffix(ev.staticKeySwaps);
+					if (ev.staticKeyColored)
+					{
+						const HouseColorParams &pp = ev.staticKeyPalette;
+						ev.staticKey += "#palette&" + std::to_string(pp.kind) + "&" + std::to_string(pp.colors[0]) + "&" + std::to_string(pp.colors[1]) + "&" + std::to_string(pp.colors[2]);
+					}
+					ev.staticKeySource = e.staticModel;
+					ev.staticKeyData = e.data;
+					ev.staticKeyKind = (int)e.kind;
+					ev.staticKeyWeather = m_streakWeather;
+					ev.staticKeyHouse = m_houseColors;
+					ev.staticKeyOwner = owner;
+					ev.staticKeyCustomKind = customKind;
+					std::memcpy(ev.staticKeyCustom, custom, sizeof(ev.staticKeyCustom));
+					ev.staticKeyValid = true;
+				}
+				const HouseColorParams &palette = ev.staticKeyPalette;
+				const bool colored = ev.staticKeyColored;
+				const std::vector<std::pair<std::string, std::string>> &swaps = ev.staticKeySwaps;
+				const std::string &model = ev.staticKey;
+				if(ev.model!=model && ev.instance>=0) {dyn->remove_instance(ev.instance);ev.instance=-1;ev.posed=false;}
 				if (!ev.posed)
 				{
 					ev.posed = true;
-					// a player's building's floor (bib) takes its WeatherTexture on a snowy map (stop S-5015)
-					const std::vector<std::pair<std::string, std::string>> swaps =
-						e.kind == W3D_DRAWKIND_FLOOR ? floorWeatherSwaps(e.data, m_streakWeather) : std::vector<std::pair<std::string, std::string>>();
-					const std::string model = AsciiStringUtil::lowered(e.staticModel) + W3DInstancer::Texture_Swap_Suffix(swaps);
 					auto it = m_dynamicModels.find(model);
 					int64_t mid;
 					if (it == m_dynamicModels.end())
 					{
 						const double tm = nowMs();
 						dyn->Set_Build_Texture_Swaps(swaps);
-						mid = dyn->add_model(toGodot(e.staticModel));
+						if(colored) {
+						 PackedInt64Array colors;for(auto color:palette.colors) colors.push_back((int64_t)color);
+						 mid=dyn->add_model_colored(toGodot(e.staticModel),palette.kind,colors);
+						} else mid = dyn->add_model(toGodot(e.staticModel));
 						m_dynamicModels[model] = mid;
 						m_lastNewModelMs = timing::sumMs(m_lastNewModelMs, timing::elapsedMs(tm));
 						++m_lastNewModels;
@@ -2151,7 +2192,7 @@ void GameWorld::updateTreeSway(double dt)
 	}
 	m_vegSway->advanceSeconds(presented->breeze, m_clientRuntime->random(), dt);
 	W3DVegetationSway::Vec3 sway[W3DVegetationSway::MAX_SWAY_TYPES + 1];
-	m_vegSway->swayOffsets(sway);
+	m_vegSway->swayOffsets(sway, true);
 	float offsets[10][3];
 	for (int i = 0; i < 10; ++i)
 	{
@@ -3680,7 +3721,7 @@ Dictionary GameWorld::get_tree_sway() const
 	{
 		d["version"] = (int64_t)m_vegSway->version();
 		W3DVegetationSway::Vec3 sway[W3DVegetationSway::MAX_SWAY_TYPES + 1];
-		m_vegSway->swayOffsets(sway);
+		m_vegSway->swayOffsets(sway, true);
 		for (int i = 1; i <= W3DVegetationSway::MAX_SWAY_TYPES; ++i)
 		{
 			offsets.push_back(Vector3(sway[i].x, sway[i].y, sway[i].z));
@@ -4069,6 +4110,7 @@ Dictionary GameWorld::net_begin(const Dictionary &options)
 		so.replayPath = std::string(String(options["record"]).utf8().get_data());
 	}
 	so.census = optBool(options, "census", false); // lane MP-3: the per-frame census (net_write_census)
+	so.earlyOrders = optBool(options, "early_orders", true); // lane NETLAG-2: NetworkConfig::earlyOrders (false: RotWK's frame + 1 for every order)
 	// lane ONLINE-3: a rejoin START (its ticket's generation) rejoins the running game instead of starting it; it records no replay (the game's start
 	// was not this process's: the relay's log is the game's record, /v1/replays/<id>/log)
 	m_netRejoining = m_netStart.online && m_netStart.rejoinGeneration > 0;
