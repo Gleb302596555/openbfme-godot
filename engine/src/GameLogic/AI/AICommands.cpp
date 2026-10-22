@@ -230,7 +230,9 @@ bool AICommands::formationMove(GameLogic &logic, const GameMessage &m)
 	const float twoPi = 6.2831855f;
 	if (!type || !attack || (!world && !m_formations) || !finiteLocation(dest->location) || !(angle->real >= -twoPi && angle->real <= twoPi)) { ++m_stats.rejected; return false; }
 	const auto ids=selection(logic,m.getPlayerIndex());
-	const auto &assistant=world?world->formations():*m_formations;
+	// An assistant set explicitly (setFormationAssistant: the unit tests' synthetic worlds) wins over the registered world's, so a retail
+	// world left registered by another test cannot replace it; the game sets none and uses the world's FormationAssistant.ini
+	const auto &assistant=m_formations?*m_formations:world->formations();
 	const auto slots=assistant.layout(logic,ids,type->integer,dest->location);
 	if(slots.empty()){++m_stats.rejected;return false;}
 	const float c=SimMath::cosDet(SimMath::addf32(angle->real,1.5707964f)),s=SimMath::sinDet(SimMath::addf32(angle->real,1.5707964f));
