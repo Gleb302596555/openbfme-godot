@@ -17,19 +17,17 @@
 ##   optshot  the OpenBFME options screen's Interface tab with the two ping rows (pingwheel-options.png; for the proof, opened over the quit menu)
 ##   looks    the wheel with each choice under the pointer, and a placed ping up close (pingwheel-look-<kind>.png, pingwheel-marker.png; a windowed run)
 ##   video    a scripted demonstration for the proof video: the frames are saved in --screens as pingwheel-video-<n>.jpg (a windowed run)
-extends RefCounted
+extends "res://scripts/scenario_player.gd"
 
 var game: Node
 var hud: Node
 var world: Node
 var wheel: CanvasLayer
 var board: Node3D
-var ok_count := 0
-var fail_count := 0
 var _mods := {"alt": false}
 
 
-func run(p_game: Node, scenarios: PackedStringArray) -> void:
+func _run(p_game: Node, scenarios: PackedStringArray) -> void:
 	game = p_game
 	hud = game._hud
 	world = game._world
@@ -37,18 +35,9 @@ func run(p_game: Node, scenarios: PackedStringArray) -> void:
 	board = game._pings
 	if wheel == null or board == null:
 		print("PINGWHEEL setup: FAIL the game installed no ping wheel")
-		fail_count += 1
-	else:
-		print("PINGWHEEL setup: beacon model '%s', errors %s" % [board.beacon_model, board.errors])
-		for s in scenarios:
-			var r: String = await call("_scenario_" + s)
-			if r == "":
-				ok_count += 1
-				print("PINGWHEEL %s: ok" % s)
-			else:
-				fail_count += 1
-				print("PINGWHEEL %s: FAIL %s" % [s, r])
-	print("PINGWHEEL RESULT: %d ok, %d failed" % [ok_count, fail_count])
+		return # every requested scenario is then reported as failed (scenario_player.gd)
+	print("PINGWHEEL setup: beacon model '%s', errors %s" % [board.beacon_model, board.errors])
+	await _run_scenarios(scenarios)
 
 
 # ---- input -------------------------------------------------------------------------------------------------------------------------------------------
@@ -447,3 +436,8 @@ func _record() -> void:
 	_rec_last = now
 	_frames += 1
 
+
+## the runner's line prefix: PINGWHEEL (pingwheel_test.gd reads these lines), not the file name's PING_WHEEL. Kept below the scenarios: the
+## runner's regression test (tools/qa/test_scenario_players.py) takes the first _scenario_ function as the scenario
+func _scenario_label() -> String:
+	return "PINGWHEEL"
