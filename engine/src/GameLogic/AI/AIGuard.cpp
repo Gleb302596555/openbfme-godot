@@ -53,10 +53,13 @@ float distSqr2D(const Coord3D &a, const Coord3D &b)
 	return SimMath::addf32(SimMath::mulf32(dx, dx), SimMath::mulf32(dy, dy));
 }
 
-// the idle scan's TargetFinder flags (AIUpdateInterface::nextMoodTarget): a horde looks for hordes and lone units, a lone unit for lone units and members
+// the idle scan's TargetFinder flags (AIUpdateInterface::nextMoodTarget): a horde looks for hordes and lone units, a lone unit for lone units and members;
+// measured centre to centre in 3D (review of #73: RW 0x70146A adds the qualifier 0x100 when the point is not the unit's position, Object + 0x38, which skips one of
+// RW 0x7006D7's filters, and calls RW 0x7006D7, as RW 0x701443 does, whose partition
+// queries RW 0xA39090 / 0xA39340 take distance type 1)
 unsigned scanFlags(const Object &obj, const AIUpdateInterface &ai)
 {
-	unsigned flags = 0;
+	unsigned flags = TargetFinder::CENTER_3D;
 	if (ai.autoAcquireFlags() & 16u)
 	{
 		flags |= TargetFinder::ALLOW_STRUCTURES;
@@ -481,8 +484,7 @@ const char *guardStopLine()
 {
 	return "[S-3802] AI guard (RW 0x662A21 -> state 16, the guard machine RW 0x949A10): ported for the LOCATION guard of the stances; not ported: the object, team "
 		   "and area guards, the turret's target in lookForInnerTarget, the AI + 0x3CD layer flag and the outer state's layer test (RW 0x68BBE0 / 0x6FF7FA: "
-		   "every object is on the ground layer), AI crates, the inner state's restart flag; TheAI's closest enemy is the port's TargetFinder (S-326), measured to the target's edge (RW 0x7006D7: the "
-		   "centre distance)";
+		   "every object is on the ground layer), AI crates, the inner state's restart flag; TheAI's closest enemy is the port's TargetFinder (S-326)";
 }
 
 // RW 0x9497F0
