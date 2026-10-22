@@ -221,3 +221,45 @@ TEST_CASE("commands: rotate firing arc turns selected units toward the target wi
  // tolerance: recovered AIRotateFiringarc::update (BFME2 RVA 0x34274A) completes below 0.01 radians.
  CHECK(std::fabs(unit->getOrientation()-1.57079632679f)<0.01f);
 }
+
+namespace
+{
+const char *const kOneRowFormation = "FormationAssistant\n UnitDefinition Unit\n ObjectFilter = ALL\n End\n FormationTemplate Line\n Rows\n Row = Unit Unit\n End\n End\nEnd\n";
+
+GameMessage formationOrder(int player, const Coord3D &where, float angle, bool attack)
+{
+	GameMessage m(MSG_DO_MOVETO_FORMATION, player);
+	m.appendLocationArgument(where);
+	m.appendRealArgument(angle);
+	m.appendIntegerArgument(0);
+	m.appendBooleanArgument(attack);
+	return m;
+}
+}
+
+// PR #88 review fix 4: RW 0x94E72B sends each slot's object an attack-move (RW 0x770CA5) when the order's attack flag is set
+TEST_CASE("commands: a formation move with the attack flag arms an attack-move for every slot's unit; without it none")
+{
+	for (bool attack : { false, true })
+	{
+		MoveWorld mw;
+		mw.buildMap();
+		const int alice = mw.playerIndex("Alice");
+		Object *a = mw.spawn("Walker", 105.0f, 105.0f);
+		Object *b = mw.spawn("Walker", 145.0f, 105.0f);
+		mw.frames(2);
+		mw.select(alice, { a, b });
+		FormationAssistant formation;
+		std::string formationError;
+		REQUIRE(formation.scan(kOneRowFormation, &formationError));
+		mw.aiCommands.setFormationAssistant(&formation);
+		mw.send(formationOrder(alice, Coord3D{ 125.0f, 405.0f, 0.0f }, 0.0f, attack));
+		mw.frames(1);
+		CHECK(mw.aiCommands.stats().formationMoves == 1);
+		CHECK(mw.aiCommands.stats().rejected == 0);
+		CHECK(a->getAIUpdateInterface()->attackMoveActive() == attack);
+		CHECK(b->getAIUpdateInterface()->attackMoveActive() == attack);
+		CHECK_FALSE(a->getAIUpdateInterface()->isIdle());
+		CHECK_FALSE(b->getAIUpdateInterface()->isIdle());
+	}
+}

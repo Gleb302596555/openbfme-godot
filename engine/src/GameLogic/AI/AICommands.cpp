@@ -234,6 +234,18 @@ bool AICommands::formationMove(GameLogic &logic, const GameMessage &m)
 		}
 		position.z=logic.getGroundHeight(position.x,position.y);
 		AIGroup group(logic,{slot.object});group.groupMoveToPosition(position,false,CMD_FROM_PLAYER,true,angle->real,attack->boolean);
+		if (attack->boolean)
+		{
+			// PR #88 review fix 4: RW 0x94E72B's per-object step sends an attack-move (RW 0x770CA5, range 0x7FFFFFFF) when the order's attack flag
+			// is set; groupMoveToPosition's flag only changes the routing, so each unit is armed like AICommands::move's MSG_DO_ATTACKMOVETO
+			for (Object *o : group.members())
+			{
+				if (AIUpdateInterface *ai = o->getAIUpdateInterface())
+				{
+					ai->armAttackMove(ai->stateMachine().goalPosition());
+				}
+			}
+		}
 	}
 	++m_stats.formationMoves;
 	return true;
