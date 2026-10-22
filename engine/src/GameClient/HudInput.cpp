@@ -2,6 +2,11 @@
 // See HudInput.h.
 
 #include "GameClient/HudInput.h"
+#include "GameClient/FormationAssistant.h"
+#include "GameClient/ControlBarCommands.h"
+#include "GameLogic/ObjectFilterMatch.h"
+#include "GameClient/HudObjects.h"
+
 #include "Common/Thing/ThingTemplate.h"
 
 #include <stdexcept>
@@ -11,12 +16,19 @@
 #include "Common/Player.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/System/ShroudManager.h"
+#include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Locomotor.h"
+#include "GameLogic/Map/TerrainLogic.h"
+#include "GameLogic/Combat/CombatQueries.h"
+#include <algorithm>
+#include <cmath>
 
 HudInput::HudInput(GameLogic &logic, AIWorld *ai, TacticalView &view, CommandList &commands, const MouseSettings &mouse, const MetaMap &metaMap)
 	: m_logic(logic)
 	, m_commands(commands)
 	, m_ctx{ logic, ai, view, m_ui, m_stream, nullptr, mouse }
 	, m_meta(m_ctx, metaMap)
+	, m_formation(m_ctx)
 	, m_place(m_ctx)
 	, m_guiCommand(m_ctx)
 	, m_command(m_ctx)
@@ -30,6 +42,7 @@ HudInput::HudInput(GameLogic &logic, AIWorld *ai, TacticalView &view, CommandLis
 	m_stream.attachTranslator(&m_meta, 20);
 	m_stream.attachTranslator(&m_hotKey, 25);
 	m_stream.attachTranslator(&m_place, 30); // BUILD-1 (ZH PlaceEventTranslator)
+	m_stream.attachTranslator(&m_formation, 35);
 	m_stream.attachTranslator(&m_guiCommand, 40);
 	m_stream.attachTranslator(&m_selection, 50);
 	m_stream.attachTranslator(&m_command, 70);
@@ -87,6 +100,7 @@ void HudInput::key(int key, int keyState, char32_t character)
 
 void HudInput::resetKeys()
 {
+	m_formation.cancel();
 	for (bool &k : m_keyDown)
 	{
 		k = false;
@@ -170,6 +184,7 @@ size_t HudInput::update()
 	{
 		m_ui.forgetObject(id);
 	}
+	m_formation.frame();
 	m_place.frame(); // lane QA2-FIX: the placement update's line build step (RW 0x6A2D12) runs in InGameUI::update, before the stream (ZH GameEngine::update)
 	const size_t n = flush();
 	// lane BUILD-5: the placement update's ghost step (RW 0x6A2AE5) runs in the client's draw, after this frame's input (it reads the live pointer); a device
@@ -224,6 +239,12 @@ size_t HudInput::flush()
 {
 	const int local = m_ctx.localPlayer() ? m_ctx.localPlayer()->getPlayerIndex() : 0;
 	std::vector<ClientMessage> out = m_stream.propagate();
+	if (m_formation.consumed()) {
+		m_selection.setLeftMouseButton(false);
+		m_ui.setSelecting(false);
+		m_ui.endAreaSelectHint();
+		if (m_lookAt) m_lookAt->cancelPointer();
+	}
 	size_t n = 0;
 	for (const ClientMessage &m : out)
 	{
@@ -305,7 +326,7 @@ std::vector<std::string> HudInput::acceptanceStops()
 {
 	std::vector<std::string> out = {
 		"[S-280] translator pipeline (narrowed, lane INPUT-1): RotWK's priorities (GameClient::init RW 0x646771): MetaEvent 20, HotKey 25, PlaceEvent 30, GUICommand 40, "
-		"Selection 50, LookAt 60, Command 70; the Window (4 / 10), RW 0x83EE14 (5), War of the Ring (27) and Formation (35) translators are not ported; the HotKey "
+		"Selection 50, LookAt 60, Command 70; the Window (4 / 10), RW 0x83EE14 (5), War of the Ring (27) translators are not ported; the HotKey "
 		"manager registers the command bar only (no message-type actions, spell book, radial menu or garrison hotkeys; its sounds are counted, not played); the "
 		"SelectionTranslator's clicks and drag box were not compared with RW 0x83C29E; a drag selection does not emit MSG_AREA_SELECTION",
 		"[S-281] CommandMap (narrowed, lane INPUT-1): RotWK's field table RW 0xBF0E70 and modifier values are ported; open: the files the subsystem entry "
@@ -357,6 +378,7 @@ std::vector<std::string> HudInput::acceptanceStops()
 				  "(RW 0x49249D extents, TBRedBib / TBBib); W_Arrow while anchored (RW 0x48EAD8); the alpha blend (ZH dx8renderer's translucent pass, W3DShaderKey::AlphaOverride); "
 				  "not ported: the restricted-area code 8 (RW 0x707141), its shadow (SHADOW_VOLUME; no drawable casts one yet, S-3304), RotWK's own "
 				  "tint lighting (the donor is ZH's), the bib quad's own buffer (ZH's W3DBibBuffer)");
+	out.push_back(FormationPlacement::stopLine());
 	return out;
 }
 
@@ -401,4 +423,164 @@ std::vector<std::string> HudInput::stops() const
 		out.push_back("[S-1673] met (no retail handler): " + kv.first + " x" + std::to_string(kv.second));
 	}
 	return out;
+}
+
+bool FormationPlacement::withinChordDistance(const ICoord2D &first, const ICoord2D &next)
+{
+	// BFME2 RVA 0x431978. Widen before subtracting so hostile device coordinates cannot overflow.
+	const auto dx = (std::int64_t)next.x - first.x;
+	const auto dy = (std::int64_t)next.y - first.y;
+	return dx > -5 && dx < 5 && dy > -5 && dy < 5;
+}
+
+bool FormationPlacement::isStartOfDrag(const ClientMessage &first, const ClientMessage &next)
+{
+	// BFME2 RVA 0x431BDD: unsigned subtraction, including timestamp wraparound.
+	const int left = CMSG_RAW_MOUSE_LEFT_BUTTON_DOWN, right = CMSG_RAW_MOUSE_RIGHT_BUTTON_DOWN;
+	if (!((first.type() == left && next.type() == right) || (first.type() == right && next.type() == left)))
+		return false;
+	return withinChordDistance(first.arg(0).pixel, next.arg(0).pixel) && (std::uint32_t(next.arg(2).integer) - std::uint32_t(first.arg(2).integer)) < 500u;
+}
+
+const char *FormationPlacement::stopLine()
+{
+	return "[S-4464] Two-button formation: BFME2 gesture, INI cell filters, repeated rows, selection criteria, preview textures and four-argument formation orders are ported. "
+		"RotWK parity, native formation-group pathing/slot optimization and firing-arc AI state parity remain unverified; current execution uses per-slot movement and locomotor facing.";
+}
+
+void FormationPlacement::replayFirstPress(const ClientMessage &before)
+{
+	if (!m_firstPress)
+		return;
+	// BFME2 RVA 0x431C35: reinsert the stored press before the event that ended the wait.
+	// This translator already handled it; all later translators see the original press first.
+	m_ctx.stream.insertBefore(m_firstPress->type(), before) = *m_firstPress;
+	m_firstPress.reset();
+}
+
+// Two-button placement takes priority over selection and right-drag scrolling.
+bool FormationPlacement::begin(const ICoord2D &pixel, bool controller) {
+ auto &ui=m_ctx.ui;
+ if(!ui.getInputEnabled() || ui.isPlacing() || (ui.getGUICommand() && ui.getGUICommand()->m_command != GUI_COMMAND_ATTACK_MOVE) || !m_ctx.localPlayer() || !m_ctx.formations) return false;
+ m_rotatingArc=false;
+ if(auto *picked=HudObjects::pickForHover(m_ctx,pixel)) {
+  if(const auto *field=picked->getTemplate()->findField("FiringArc")) {
+   if(const auto *arc=std::get_if<float>(field))m_rotatingArc=*arc<360.f;
+  }
+ }
+ m_selection.clear();
+ for(ObjectID id:ui.selected()) {
+  Object *o=m_ctx.logic.findObjectByID(id);
+  if(!o || o->isDestroyed() || o->isEffectivelyDead() || o->getControllingPlayer()!=m_ctx.localPlayer()) continue;
+  auto *ai=o->getAIUpdateInterface();
+  if(ai && (m_rotatingArc || !ai->isImmobile()) && !o->isKindOfName("HORDE_MEMBER") && ObjectFilterMatch::allows(m_ctx.logic,m_ctx.formations->valid,*o,nullptr)) m_selection.push_back(id);
+ }
+ if(m_selection.empty() || !m_ctx.view.screenToTerrain(pixel,m_ctx.logic,m_anchor)) return false;
+ m_controller=controller;
+ m_originalSelection=ui.selected();
+ ui.formationActive=true; m_consumed=true; aim(pixel); return true;
+}
+void FormationPlacement::aim(const ICoord2D &pixel) {
+ auto &ui=m_ctx.ui;
+ Coord3D end;
+ if(!m_ctx.view.screenToTerrain(pixel,m_ctx.logic,end)) return;
+ if(!std::isfinite(end.x)||!std::isfinite(end.y))return;
+ float mx=0,my=0;
+ if(auto *terrain=m_ctx.logic.terrain();terrain && terrain->getLargestExtent(mx,my)) {
+  if(end.x<0||end.y<0||end.x>mx||end.y>my)return;
+ }
+ m_end=end;
+ const float dx=end.x-m_anchor.x,dy=end.y-m_anchor.y;
+ const float length=std::sqrt(dx*dx+dy*dy);
+ float angle=length>1 ? std::atan2(dy,dx) : 0;
+ ui.formationType=m_ctx.formations->choose(length,m_selection.size());
+ ui.formationAnchor=m_anchor;ui.formationAngle=angle;ui.formationDragLength=length;ui.formationData=m_ctx.formations;
+ const auto slots=m_ctx.formations->layout(m_ctx.logic,m_selection,ui.formationType,m_anchor);
+ const float c=std::cos(angle+1.5707964f),s=std::sin(angle+1.5707964f);
+ ui.formationSlots.clear();
+ for(const auto &slot:slots) {
+  Coord3D p{m_anchor.x+slot.offset.x*c-slot.offset.y*s,m_anchor.y+slot.offset.x*s+slot.offset.y*c,0};
+  p.z=m_ctx.logic.getGroundHeight(p.x,p.y);
+  ui.formationSlots.push_back({slot.object,p,angle,0,slot.preview});
+ }
+}
+void FormationPlacement::commit() {
+ if(m_rotatingArc || !m_ctx.ui.formationSlots.empty()) {
+  ClientMessage &order=m_ctx.stream.append(m_rotatingArc?MSG_DO_ROTATE_FIRINGARC:MSG_DO_MOVETO_FORMATION);
+  if(m_rotatingArc)order.appendLocation(m_end);
+  else {
+  order.appendLocation(m_ctx.ui.formationAnchor);order.appendReal(m_ctx.ui.formationAngle);
+  order.appendInteger(m_ctx.ui.formationType);
+  order.appendBoolean((m_ctx.ui.getGUICommand() && m_ctx.ui.getGUICommand()->m_command==GUI_COMMAND_ATTACK_MOVE) || m_ctx.ui.isInAttackMoveToMode());
+  }
+ }
+ m_ctx.ui.formationActive=false;m_ctx.ui.formationExpires=m_ctx.ui.clientFrame()+45;
+ m_ctx.ui.clearAttackMoveToMode();
+}
+
+void FormationPlacement::frame() {
+ if(m_ctx.ui.formationActive && (!m_ctx.ui.getInputEnabled() || m_ctx.ui.isQuitMenuVisible() || m_ctx.ui.selected()!=m_originalSelection)) cancel();
+}
+void FormationPlacement::cancel() {
+ m_ctx.ui.formationActive=false;m_ctx.ui.formationSlots.clear();m_left=m_right=false;m_firstPress.reset();
+}
+MessageDisposition FormationPlacement::translate(const ClientMessage &msg)
+{
+	const int t = msg.type();
+	if (m_ctx.ui.formationActive && (!m_ctx.ui.getInputEnabled() || m_ctx.ui.isPlacing() || (m_ctx.ui.getGUICommand() && m_ctx.ui.getGUICommand()->m_command != GUI_COMMAND_ATTACK_MOVE)))
+		cancel();
+	if (t == CMSG_RAW_KEY_DOWN && msg.arg(0).integer == KEY_ESC && m_ctx.ui.formationActive)
+	{
+		cancel();
+		return MessageDisposition::Destroy;
+	}
+	const bool leftDown = t == CMSG_RAW_MOUSE_LEFT_BUTTON_DOWN, rightDown = t == CMSG_RAW_MOUSE_RIGHT_BUTTON_DOWN;
+	const bool leftUp = t == CMSG_RAW_MOUSE_LEFT_BUTTON_UP, rightUp = t == CMSG_RAW_MOUSE_RIGHT_BUTTON_UP;
+	if (leftDown || rightDown)
+	{
+		const bool idle = !m_left && !m_right && !m_ctx.ui.formationActive;
+		if (idle)
+			m_consumed = false;
+		if (leftDown)
+			m_left = true;
+		else
+			m_right = true;
+		if (m_firstPress)
+		{
+			if (isStartOfDrag(*m_firstPress, msg) && begin(m_firstPress->arg(0).pixel))
+			{
+				m_firstPress.reset();
+				aim(msg.arg(0).pixel);
+				return MessageDisposition::Destroy;
+			}
+			replayFirstPress(msg);
+		}
+		else if (!m_consumed && !m_ctx.ui.formationActive)
+		{
+			// BFME2 RVA 0x431AEC: neither selection nor right-drag scrolling sees a
+			// speculative first press. A failed chord replays it with its original modifiers/time.
+			m_firstPress = std::make_unique<ClientMessage>(msg);
+			return MessageDisposition::Destroy;
+		}
+	}
+	if (m_firstPress &&
+		((t == CMSG_RAW_MOUSE_POSITION && !withinChordDistance(m_firstPress->arg(0).pixel, msg.arg(0).pixel)) ||
+		 (leftUp && m_firstPress->type() == CMSG_RAW_MOUSE_LEFT_BUTTON_DOWN) || (rightUp && m_firstPress->type() == CMSG_RAW_MOUSE_RIGHT_BUTTON_DOWN)))
+		replayFirstPress(msg);
+	if (leftUp || rightUp)
+	{
+		if (leftUp)
+			m_left = false;
+		else
+			m_right = false;
+		// BFME2 RVAs 0x4320B1 / 0x431E95: either release finalizes placement.
+		if (m_ctx.ui.formationActive && !m_controller)
+			commit();
+	}
+	if (t == CMSG_RAW_MOUSE_POSITION && m_ctx.ui.formationActive && !m_controller)
+		aim(msg.arg(0).pixel);
+	const bool click = t == CMSG_MOUSE_LEFT_CLICK || t == CMSG_MOUSE_RIGHT_CLICK || t == CMSG_MOUSE_LEFT_DOUBLE_CLICK || t == CMSG_MOUSE_RIGHT_DOUBLE_CLICK;
+	if (m_consumed && (leftDown || rightDown || leftUp || rightUp || click || (t == CMSG_RAW_MOUSE_POSITION && m_ctx.ui.formationActive)))
+		return MessageDisposition::Destroy;
+	return MessageDisposition::Keep;
 }

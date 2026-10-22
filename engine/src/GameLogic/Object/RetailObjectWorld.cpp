@@ -419,6 +419,14 @@ bool RetailObjectWorld::loadState(std::string *error)
 			m_s->m_report.errors.push_back(fe);
 		}
 	}
+	if (m_fs.doesFileExist("data/ini/formationassistant.ini"))
+	{
+		std::string error;
+		if (!m_s->m_formations.load(m_fs, &error))
+		{
+			SubsystemLoadReport::FileError fe;fe.file="FormationAssistant.ini";fe.code=3;fe.message=error;m_s->m_report.errors.push_back(fe);
+		}
+	}
 	// INTEG-1: TheStanceTemplateStore's init (RW 0x83568D) loads Data\INI\Stances.ini itself (INI::load, type 1), not through the legend; an error reaches the report
 	if (!options.bfme1) try
 	{

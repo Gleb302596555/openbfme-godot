@@ -1289,6 +1289,7 @@ void InGameHudNode::_bind_methods()
 	ClassDB::bind_method(D_METHOD("select_object", "id"), &InGameHudNode::select_object); // lane HUD-5
 	ClassDB::bind_method(D_METHOD("select_object_with_message", "id"), &InGameHudNode::select_object_with_message); // lane BACKLOG2
 	ClassDB::bind_method(D_METHOD("select_objects", "ids"), &InGameHudNode::select_objects); // lane SELPERF-1
+	ClassDB::bind_method(D_METHOD("select_objects_with_message", "ids"), &InGameHudNode::select_objects_with_message);
 	ClassDB::bind_method(D_METHOD("open_spell_store"), &InGameHudNode::open_spell_store);
 	ClassDB::bind_method(D_METHOD("close_spell_store"), &InGameHudNode::close_spell_store);
 	ClassDB::bind_method(D_METHOD("spell_store_click", "index"), &InGameHudNode::spell_store_click);
@@ -2500,6 +2501,17 @@ bool InGameHudNode::select_object_with_message(int64_t id)
 	m.appendBoolean(true);
 	m.appendObjectID((::ObjectID)id);
 	return true;
+}
+
+// Formation integration test hook: keep presentation and authoritative selection together.
+int64_t InGameHudNode::select_objects_with_message(const PackedInt64Array &ids)
+{
+ const auto count=select_objects(ids);
+ if(!d->hud)return count;
+ ClientMessage &message=d->hud->input().stream().append(MSG_CREATE_SELECTED_GROUP_NO_SOUND);
+ message.appendBoolean(true);
+ for(auto id: d->hud->input().ui().selected())message.appendObjectID(id);
+ return count;
 }
 
 // lane SELPERF-1: the selection benchmark (play1_player.gd selperf) selects exactly N objects; how many ended up selected
