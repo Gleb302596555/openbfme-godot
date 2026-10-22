@@ -10,6 +10,7 @@
 #include "Common/NumericState.h"
 #include "Common/Thing/RawModuleData.h"
 #include "Common/Thing/ThingTemplate.h"
+#include "GameLogic/AI/AIGuard.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Combat/CombatQueries.h"
@@ -540,7 +541,7 @@ unsigned AIUpdateInterface::moodAdjustment(int action) const
 	}
 }
 
-// ZH getNextMoodTarget (the vision range scan): the nearest attackable enemy within the template's VisionRange
+// ZH getNextMoodTarget (the vision range scan, RotWK RW 0x66844A): the nearest attackable enemy within the adjusted vision range (RW 0x6FF412)
 Object *AIUpdateInterface::nextMoodTarget()
 {
 	Object &obj = *getObject();
@@ -605,18 +606,19 @@ Object *AIUpdateInterface::nextMoodTarget()
 	{
 		return nullptr;
 	}
-	// the range first (RW 0x668716 .. 0x668726, before the mood branches; review r1)
-	float range = 0.0f;
-	if (const FieldValue *v = obj.getTemplate()->getFinalOverride()->findField("VisionRange"))
-	{
-		if (const float *f = std::get_if<float>(v))
-		{
-			range = *f;
-		}
-	}
-	if (range <= 0.0f)
+	// the range first (RW 0x668711 .. 0x668726, before the mood branches; review r1): RW 0x6FF412(obj, 3), the object's vision range (RW 0x68E43B: Object +
+	// 0x1B0 times 1 + the VISION attribute modifiers, RW 0x804F39(0x10), and the height factor) plus Object + 0xB8 (its bounding circle radius), then a computer
+	// unit's mood factor (flag 2); 0 without an AI. Not above 0 (RW 0x66871E .. 0x668726: FLDZ / FCOMIP): nothing. A contained object adds its container's
+	// + 0xB8 (RW 0x66872C .. 0x668743). Review of #73 (S-5145): the scan read the template's VisionRange, so a HoldGround horde (FighterHordeStanceHoldGround:
+	// VISION -90%) scanned about ten times as far as RotWK's
+	float range = AIGuardMachine::getAdjustedVisionRange(obj);
+	if (!(range > 0.0f))
 	{
 		return nullptr;
+	}
+	if (const Object *container = obj.getContainedBy())
+	{
+		range = SimMath::addf32(CombatQueries::boundingCircleRadius(*container), range); // RW 0x668736 .. 0x66873E: addss
 	}
 	// lane SCRIPT-3 (RW 0x668748 .. 0x668787): a computer player's PASSIVE unit answers only its last attacker (the body's last damage source,
 	// vslot 0x40 + 8, by id); attitude -3 (mood 0x2000) looks for nothing
@@ -630,7 +632,9 @@ Object *AIUpdateInterface::nextMoodTarget()
 	{
 		return nullptr;
 	}
-	unsigned flags = 0;
+	// review of #73 (S-5145): RotWK's search (RW 0x66899B .. 0x6689DA -> AI::findClosestEnemy RW 0x701443 -> RW 0x7006D7) measures from the object's
+	// position (+ 0x38) with the partition's distance type 1, the 3D centre distance (RW 0xA39090 / 0xA39340), not the target's edge
+	unsigned flags = TargetFinder::CENTER_3D;
 	if (m_combat.autoAcquire & 16u)
 	{
 		flags |= TargetFinder::ALLOW_STRUCTURES;
