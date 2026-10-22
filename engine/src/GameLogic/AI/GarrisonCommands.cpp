@@ -119,9 +119,22 @@ bool exitOne(GameLogic &logic, const GameMessage &m)
 		}
 		return true;
 	}
-	if (rider->getControllingPlayer() != player || rider->getContainedBy() != container || !rider->getAIUpdateInterface())
+	// RW 0x77ACF3: the container's contain answers slot 0xE8 for the rider. A tunnel answers for its player's whole network (TunnelContain RW 0x8811DD), so a
+	// horde that entered by one tunnel comes out of the tunnel whose button was pressed (TUNNEL-1). A contain that is not an OpenContain (none shows riders on
+	// the control bar) keeps the rider's own container as the test (INFERENCE)
+	const OpenContain *open = dynamic_cast<const OpenContain *>(contain);
+	const bool here = open ? open->isContainedHere(*rider) : rider->getContainedBy() == container;
+	if (rider->getControllingPlayer() != player || !here)
 	{
 		return true;
+	}
+	if (ObjectWeapons *w = rider->getWeapons())
+	{
+		w->releaseWeaponLock(LOCKED_TEMPORARILY); // RW 0x77AD05: RW 0x68DF11(1) (its AI hook, AI slot 0x16C, is AIGroup's S-line: not ported)
+	}
+	if (!rider->getAIUpdateInterface())
+	{
+		return true; // RW 0x77AD10: rider + 0x260
 	}
 	static const int horde = CombatNames::kindOf("HORDE");
 	if (rider->isKindOf((unsigned)horde))

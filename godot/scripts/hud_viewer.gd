@@ -940,6 +940,58 @@ func _run_scenario() -> void:
 			await _frames(30)
 			print("SPELLBOOK slots ", _hud.get_spellbook_state().slots)
 			_save(shots.path_join(_shot_prefix + "-bar.png"))
+		"tunnel":
+			# TUNNEL-1: the Goblins' tunnel network as a player uses it. --spawn=WildMineShaft:.. twice, then a horde (--spawn=GoblinFighterHorde:..; run with
+			# --faction=FactionWild --alternate-mouse --logic-thread=off): both shafts finished (debug_build_complete: their completion joins the network), the horde
+			# clicked and right-clicked into the first shaft (MSG_ENTER), the camera to the second shaft, a click selects it and its first exit button (the
+			# horde's portrait) is pressed (MSG_EXIT): the horde comes out of the second shaft. Saves <prefix>-entered / -exit-button / -out
+			if _shot_prefix == "proj1":
+				_shot_prefix = "tunnel1"
+			var shaft_a: int = _spawn_ids[0]
+			var shaft_b: int = _spawn_ids[1]
+			var horde: int = _spawn_ids[2]
+			print("COMPLETE ", _world.debug_build_complete(shaft_a), " ", _world.debug_build_complete(shaft_b))
+			var a: Dictionary = _world.get_object(shaft_a)
+			var b: Dictionary = _world.get_object(shaft_b)
+			var h: Dictionary = _world.get_object(horde)
+			_caption = "Goblin tunnels: the horde goes into this mine shaft..."
+			_cam_target = (Vector2(a.x, a.y) + Vector2(h.x, h.y)) * 0.5
+			_cam_height = 380.0
+			_place_camera()
+			await _frames(45)
+			await _click_world(Vector2(h.x, h.y))
+			await _frames(20)
+			await _click_world(Vector2(a.x, a.y), 2)
+			for i in 600:
+				await _frames(1)
+				var g: Dictionary = _world.get_garrison(shaft_a)
+				if int(g.get("count", 0)) > 0 and int(g.get("entering", 0)) == 0 and int(g.get("members_hidden", 0)) == int(g.get("members", -1)):
+					break
+			await _frames(20)
+			print("ENTERED ", JSON.stringify(_world.get_garrison(shaft_a)), " B ", JSON.stringify(_world.get_garrison(shaft_b)))
+			_save(shots.path_join(_shot_prefix + "-entered.png"))
+			_caption = "...and the other shaft of the network holds it too"
+			_cam_target = Vector2(b.x, b.y)
+			_place_camera()
+			await _frames(45)
+			for attempt in 6:
+				await _click_world(Vector2(b.x, b.y) + Vector2(0, attempt * 12))
+				await _frames(20)
+				if _hud.get_selection().has(shaft_b):
+					break
+			await _frames(30)
+			print("SHAFT B BUTTONS ", JSON.stringify(_hud.get_command_buttons()))
+			_save(shots.path_join(_shot_prefix + "-exit-button.png"))
+			_caption = "Its exit button lets the horde out here"
+			print("EXIT PRESS ", _hud.press_command_button("Command_ExitGarrison"))
+			for i in 300:
+				await _frames(1)
+				if int(_world.get_garrison(shaft_b).get("count", 1)) == 0:
+					break
+			await _frames(150)
+			var out: Dictionary = _world.get_object(horde)
+			print("OUT horde at (%.0f, %.0f): %.0f from shaft B, %.0f from shaft A" % [out.x, out.y, Vector2(out.x, out.y).distance_to(Vector2(b.x, b.y)), Vector2(out.x, out.y).distance_to(Vector2(a.x, a.y))])
+			_save(shots.path_join(_shot_prefix + "-out.png"))
 		"garrison_hud":
 			# lane UI-1: the first --spawn is a container (GondorKeep), the second a horde (GondorArcherHorde): the container selected empty (its EXIT_CONTAINER
 			# buttons disabled), the horde ordered in (MSG_ENTER), the container selected again (the rider on the first button), <prefix>-empty / -garrisoned
