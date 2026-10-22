@@ -27,6 +27,7 @@
 #include "GameClient/LiveGame.h"
 #include "GameClient/MessageStream/MetaEvent.h"
 #include "GameClient/TacticalCamera.h"
+#include "GameClient/LiveFX.h"
 #include "GameClient/TacticalView.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/RetailObjectWorld.h"
@@ -2580,6 +2581,7 @@ Dictionary InGameHudNode::get_spellbook_state()
 	AptPalantir *p = d->hud->palantir();
 	r["ok"] = true;
 	r["path"] = String(p->spellBookPath().c_str());
+	r["palantir_level"] = p->level(); // lane HUDREDRAW-1: the Palantir's Apt level (the shell player's get_stats levels)
 	r["shown"] = p->spellBookShown();
 	Array slots;
 	for (int i = 0; i < AptPalantir::kSpellSlots; ++i)
@@ -2938,6 +2940,17 @@ void InGameHudNode::_process(double delta)
 		const DisplayServer::WindowMode wm = ds ? ds->window_get_mode() : DisplayServer::WINDOW_MODE_WINDOWED;
 		const bool retail = d->edgeScroll || wm == DisplayServer::WINDOW_MODE_FULLSCREEN || wm == DisplayServer::WINDOW_MODE_EXCLUSIVE_FULLSCREEN;
 		la->setEdgeScrollEnabled(d->edgeScrollMode == 1 ? true : (d->edgeScrollMode == 2 ? false : retail)); // lane OPTS-2: the option
+	}
+	// lane FX-4: the effects' ViewShake calls shake the camera (W3DView::shake RW 0x486D86); the next client frame's update moves the view (RW 0x48C0E8)
+	if (d->cam && d->world)
+	{
+		if (LiveFX *fx = d->world->live_fx())
+		{
+			for (const LiveFX::ViewShake &v : fx->takeViewShakes())
+			{
+				d->cam->shake(v.epicenter, v.type, v.angle);
+			}
+		}
 	}
 	const double step = 1.0 / 30.0;
 	d->clientClock += delta;
