@@ -609,7 +609,7 @@ Object *AIUpdateInterface::nextMoodTarget()
 	// the range first (RW 0x668711 .. 0x668726, before the mood branches; review r1): RW 0x6FF412(obj, 3), the object's vision range (RW 0x68E43B: Object +
 	// 0x1B0 times 1 + the VISION attribute modifiers, RW 0x804F39(0x10), and the height factor) plus Object + 0xB8 (its bounding circle radius), then a computer
 	// unit's mood factor (flag 2); 0 without an AI. Not above 0 (RW 0x66871E .. 0x668726: FLDZ / FCOMIP): nothing. A contained object adds its container's
-	// + 0xB8 (RW 0x66872C .. 0x668743). Review of #73 (S-5145): the scan read the template's VisionRange, so a HoldGround horde (FighterHordeStanceHoldGround:
+	// + 0xB8 (RW 0x66872C .. 0x668743). Review of #73 (S-5149): the scan read the template's VisionRange, so a HoldGround horde (FighterHordeStanceHoldGround:
 	// VISION -90%) scanned about ten times as far as RotWK's
 	float range = AIGuardMachine::getAdjustedVisionRange(obj);
 	if (!(range > 0.0f))
@@ -632,7 +632,7 @@ Object *AIUpdateInterface::nextMoodTarget()
 	{
 		return nullptr;
 	}
-	// review of #73 (S-5145): RotWK's search (RW 0x66899B .. 0x6689DA -> AI::findClosestEnemy RW 0x701443 -> RW 0x7006D7) measures from the object's
+	// review of #73 (S-5149): RotWK's search (RW 0x66899B .. 0x6689DA -> AI::findClosestEnemy RW 0x701443 -> RW 0x7006D7) measures from the object's
 	// position (+ 0x38) with the partition's distance type 1, the 3D centre distance (RW 0xA39090 / 0xA39340), not the target's edge
 	unsigned flags = TargetFinder::CENTER_3D;
 	if (m_combat.autoAcquire & 16u)

@@ -251,7 +251,7 @@ TEST_CASE("play4 stances retail: a fleeing enemy is chased out of the guarded sp
 	REQUIRE(hold.speed > 0.0f);
 	CHECK(battle.sawOuter);
 	CHECK_FALSE(hold.sawOuter);
-	// HoldGround (S-5145, closed by the review of #73): RotWK's scans reach RW 0x6FF412's range, the vision range with the stance's VISION -90% plus the
+	// HoldGround (S-5149, closed by the review of #73): RotWK's scans reach RW 0x6FF412's range, the vision range with the stance's VISION -90% plus the
 	// bounding circle, measured centre to centre (RW 0x7006D7, distance type 1). At contact the struck horde's FACE_OBJECT state (59) runs the mood scan; the
 	// attacker's centre is within that range, and the target it finds is a plain attack that replaces the guard and follows it (RW 0x66C536 -> 0x66BD33):
 	// RotWK's chase when struck (neither the idle update nor the scan reads the guard mode), not a port bug. The port's chase has no StopChaseDistance
