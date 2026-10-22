@@ -542,18 +542,30 @@ void FormationPlacement::aim(const ICoord2D &pixel) {
   ui.formationSlots.push_back({slot.object,p,angle,0,slot.preview});
  }
 }
-void FormationPlacement::commit() {
- if(m_rotatingArc || !m_ctx.ui.formationSlots.empty()) {
-  ClientMessage &order=m_ctx.stream.append(m_rotatingArc?MSG_DO_ROTATE_FIRINGARC:MSG_DO_MOVETO_FORMATION);
-  if(m_rotatingArc)order.appendLocation(m_end);
-  else {
-  order.appendLocation(m_ctx.ui.formationAnchor);order.appendReal(m_ctx.ui.formationAngle);
-  order.appendInteger(m_ctx.ui.formationType);
-  order.appendBoolean((m_ctx.ui.getGUICommand() && m_ctx.ui.getGUICommand()->m_command==GUI_COMMAND_ATTACK_MOVE) || m_ctx.ui.isInAttackMoveToMode());
-  }
- }
- m_ctx.ui.formationActive=false;m_ctx.ui.formationExpires=m_ctx.ui.clientFrame()+45;
- m_ctx.ui.clearAttackMoveToMode();
+void FormationPlacement::commit()
+{
+	auto &ui = m_ctx.ui;
+	const bool guiAttackMove = ui.getGUICommand() && ui.getGUICommand()->m_command == GUI_COMMAND_ATTACK_MOVE;
+	if (m_rotatingArc || !ui.formationSlots.empty())
+	{
+		ClientMessage &order = m_ctx.stream.append(m_rotatingArc ? MSG_DO_ROTATE_FIRINGARC : MSG_DO_MOVETO_FORMATION);
+		if (m_rotatingArc)
+			order.appendLocation(m_end);
+		else
+		{
+			order.appendLocation(ui.formationAnchor);
+			order.appendReal(ui.formationAngle);
+			order.appendInteger(ui.formationType);
+			order.appendBoolean(guiAttackMove || ui.isInAttackMoveToMode());
+		}
+	}
+	ui.formationActive = false;
+	ui.formationExpires = ui.clientFrame() + 45;
+	ui.clearAttackMoveToMode();
+	// PR #88 review fix 3: the order used the pending attack-move button; leave the GUI command mode too (GUICommandTranslator clears it
+	// after its own attack-move order), or the next left click would send MSG_DO_ATTACKMOVETO
+	if (guiAttackMove)
+		ui.setGUICommand(nullptr);
 }
 
 void FormationPlacement::frame() {

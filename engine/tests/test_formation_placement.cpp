@@ -423,3 +423,22 @@ TEST_CASE("formation chord: the gesture stays live until both buttons are releas
 	CHECK(out[0].type() == CMSG_RAW_MOUSE_POSITION);
 	CHECK_FALSE(r.placement.gestureLive());
 }
+
+// PR #88 review fix 3: an order that took the pending attack-move button leaves the GUI command mode, so the next left click is a plain click
+TEST_CASE("formation chord: a formation order made with the attack-move button clears the GUI command")
+{
+	Rig r;
+	CommandButton attackMove;
+	attackMove.m_command = GUI_COMMAND_ATTACK_MOVE;
+	r.ui.setGUICommand(&attackMove);
+	REQUIRE(r.placement.canStart({ 200, 200 }));
+	REQUIRE(r.send(button(CMSG_RAW_MOUSE_LEFT_BUTTON_DOWN, 200, 200, 1000)).empty());
+	REQUIRE(r.send(button(CMSG_RAW_MOUSE_RIGHT_BUTTON_DOWN, 200, 200, 1020)).empty());
+	REQUIRE(r.ui.formationActive);
+	const auto out = r.send(button(CMSG_RAW_MOUSE_RIGHT_BUTTON_UP, 250, 200, 1040));
+	REQUIRE(out.size() == 1);
+	CHECK(out[0].type() == MSG_DO_MOVETO_FORMATION);
+	CHECK(out[0].arg(3).boolean);
+	CHECK(r.ui.getGUICommand() == nullptr);
+	CHECK_FALSE(r.ui.isInAttackMoveToMode());
+}
