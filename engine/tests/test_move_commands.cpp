@@ -276,6 +276,7 @@ TEST_CASE("commands: malformed formation and firing-arc orders with non-finite v
 	Object *a = mw.spawn("Walker", 105.0f, 105.0f);
 	Object *b = mw.spawn("Walker", 145.0f, 105.0f);
 	mw.frames(2);
+	const Coord3D a0 = *a->getPosition(), b0 = *b->getPosition(); // after the spawn's snap to its cell
 	mw.select(alice, { a, b });
 	FormationAssistant formation;
 	std::string formationError;
@@ -304,10 +305,10 @@ TEST_CASE("commands: malformed formation and firing-arc orders with non-finite v
 		CHECK_FALSE(o->getAIUpdateInterface()->attackMoveActive());
 		CHECK(std::isfinite(o->getOrientation()));
 	}
-	CHECK(a->getPosition()->x == 105.0f);
-	CHECK(a->getPosition()->y == 105.0f);
-	CHECK(b->getPosition()->x == 145.0f);
-	CHECK(b->getPosition()->y == 105.0f);
+	CHECK(a->getPosition()->x == a0.x);
+	CHECK(a->getPosition()->y == a0.y);
+	CHECK(b->getPosition()->x == b0.x);
+	CHECK(b->getPosition()->y == b0.y);
 	// the simulation survives: a well-formed order afterwards still moves the units
 	mw.send(formationOrder(alice, Coord3D{ 125.0f, 405.0f, 0.0f }, 0.0f, false));
 	mw.frames(1);
