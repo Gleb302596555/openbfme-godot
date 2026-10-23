@@ -32,7 +32,7 @@ func cycle(fs: RefCounted, presentation: RefCounted, style: String) -> void:
 	var shell = ClassDB.instantiate("AptMenuPlayer")
 	root.add_child(shell)
 	shell.auto_process = false
-	var config := {"options_file": OS.get_temp_dir().path_join("controller-menu-options-%d.ini" % OS.get_process_id()), "skirmish_ini": OS.get_temp_dir().path_join("controller-menu-skirmish-%d.ini" % OS.get_process_id())}
+	var config := {"options_file": OS.get_temp_dir().path_join("controller-menu-options-%d.ini" % OS.get_process_id()), "skirmish_ini": OS.get_temp_dir().path_join("controller-menu-skirmish-%s-%d-%d.ini" % [style, OS.get_process_id(), Time.get_ticks_usec()])}
 	if presentation != null: config.presentation_fs = presentation
 	check(shell.boot_shell(fs, world, config).ok, style + " boot")
 	check(shell.shell_push("MainMenu.apt"), style + " main menu")
@@ -73,10 +73,36 @@ func cycle(fs: RefCounted, presentation: RefCounted, style: String) -> void:
 	if style != "bfme1":
 		check(shell.shell_push("Skirmish.apt"), style + " skirmish")
 		step(shell, 90)
+		check(shell.lobby_apply({"profile": "ControllerStart"}).ok, style + " create profile")
+		step(shell, 30)
+		check(shell.screen_state().start_available, style + " Start available after profile creation")
 		for command in ["OnNewProfileMenu", "OnChangeProfileMenu", "OnDeleteProfileMenu"]:
 			shell.shell_fscommand("AptSkirmish::" + command, "")
 			check(not shell.screen_state().start_available, style + " Start blocked during " + command)
 			shell.shell_fscommand("AptSkirmish::OnProfilePopupCancel", "")
+			check(shell.screen_state().start_available, style + " Start available after cancelling " + command)
+
+
+		# A refused attempt closes to state 7; correcting the setup must make
+		# another Start possible, while an accepted start (11) stays blocked.
+		var map_key := ""
+		for candidate in shell.lobby_state().map_keys:
+			if "buckland" in str(candidate): map_key = candidate; break
+		check(not map_key.is_empty(), style + " test map available")
+		var crowded: Array = []
+		for slot in range(1, 8): crowded.append({"slot": slot, "state": 2})
+		check(shell.lobby_apply({"map": map_key, "slots": crowded}).ok, style + " overfull setup")
+		shell.shell_fscommand("AptSkirmish::StartGame", "")
+		step(shell, 30)
+		check(shell.screen_state().profile_state == 7, style + " refused start returns to closed-popup state")
+		check(shell.screen_state().start_available, style + " retry available after refusal")
+		var closed: Array = []
+		for slot in range(2, 8): closed.append({"slot": slot, "state": 1})
+		check(shell.lobby_apply({"slots": closed}).ok, style + " corrected setup")
+		shell.shell_fscommand("AptSkirmish::StartGame", "")
+		step(shell, 30)
+		check(shell.screen_state().profile_state == 11, style + " corrected setup starts")
+		check(not shell.screen_state().start_available, style + " duplicate Start blocked")
 
 	shell.free()
 	world.free()
