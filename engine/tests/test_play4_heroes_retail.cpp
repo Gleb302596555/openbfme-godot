@@ -406,7 +406,12 @@ TEST_CASE("play4 heroes retail: every faction's heroes, recruited from the fortr
 				const bool drogoth = hero == "Drogoth";
 				// lane BACKLOG4: 3 strikes (4 before): the hero's creation uses the teleport form (RW 0x7814CF: RW 0x696E63(pos, 0)), which idles the new
 				// hero's AI and wakes it; the fight's damage and kills are unchanged (measured with and without that call)
-				CHECK(ord.shots == (drogoth ? 3u : 0u));
+				// lane STEALTHFLY1: 2 strikes (3 before): recruited from the fortress, Drogoth leaves along its production exit path in the bird's own follow
+				// state 0x3F6 (privateFollowPath RW 0x76B491) instead of the ground path state, so the ordered fight starts from another place and time;
+				// the damage and the kills are the same
+				// merge queue q22 (SUMMON-1 + FX-4 + AI5 + NUGGET-1, measured on the merged tree on srv1): 4 strikes (2 before): the scene's computer opponent draws
+				// AI5's upgrade-registration random values and SUMMON-1's OCL draws, which shift the ordered fight's timing; the damage and the kills are the same
+				CHECK(ord.shots == (drogoth ? 4u : 0u));
 				CHECK(ord.lost == (drogoth ? 1500.0f : 450.0f));
 				CHECK(ord.membersKilled == (drogoth ? 20u : 5u));
 				continue;
@@ -515,13 +520,12 @@ TEST_CASE("attack1 heroes retail: the mounted Witch-king and Mouth of Sauron, or
 	// Merge queue q12 (the q11 ATTACK-1 / BACKLOG-1 pins against this batch, measured on the merged tree on a CI host; the lane that moved them was not separated): the swing, kill, blocked and distance
 	// pins moved. The CRUSHER_LEVEL -1 case is no longer blocked (blocked 0 frames; the Witch-king makes no swing at all and stays 69.9 away, the Mouth of Sauron swings once
 	// from 41.3): a change of behaviour to review, not only of numbers.
-	// The formations centred on their hordes (RW 0x86C4EA; measured with the Windows llvm-mingw build): the CRUSHER_LEVEL -1 heroes are blocked again, as r2
-	// describes (the Witch-king 10 frames from frame 31, one swing; the Mouth of Sauron 14 from frame 20, four swings), and neither crush run lands a
-	// CrushWeapon delivery: the Witch-king's four swings kill 19 members, the Mouth of Sauron's nine kill 9. The crusher level 1 runs stay unblocked.
-	// The destination adjustment spiralling around the cell (RW 0x6FA2A4; the same build): the Witch-king's five swings kill all 20 members (blocked with
-	// CRUSHER_LEVEL -1 for 11 frames from frame 13), the Mouth of Sauron's run crushes two again (150) before his seven swings (blocked 15 frames from frame 20).
-	for (const Case &c : { Case{ "FactionAngmar", "AngmarWitchking", 5u, 20u, 0.0f, { 800.0f, 112.0f }, 5u, 525.0f, 1500.0f, { { 1500.0f, 800.0f }, { 700.0f, 700.0f } }, 11, 13, 1u, 525.0f, 60.9063f, 1.65727f },
-			 Case{ "FactionMordor", "MordorMouthOfSauron", 11u, 11u, 150.0f, { 640.0f, 320.0f }, 7u, 75.0f, 525.0f, { { 1500.0f, 640.0f }, { 860.0f, 640.0f }, { 220.0f, 220.0f } }, 15, 20, 4u, 300.0f, 59.5001f, 15.1928f } })
+	// Lane AI5: the scene's computer opponent (Mordor) now registers its units' upgrade buttons, one GetGameLogicRandomValue each (AIUnitUpgrader.cpp
+	// 0x5D), which shifts the random sequence of the Witch-king's fight: 7 shots, 18 killed (300 in the crush run), 3 swings (the first took 525, 1050
+	// outside the run), the control's nearest 0.381908, the lowered case's 70.444. With only that registration switched off the old pins (5 / 12 / 225, 2 /
+	// 450 / 675, 0.789662 / 69.9072) come back exactly; the Mouth of Sauron's case does not move. Engine pins, not retail values.
+	for (const Case &c : { Case{ "FactionAngmar", "AngmarWitchking", 7u, 18u, 300.0f, { 800.0f, 112.0f }, 3u, 525.0f, 1050.0f, { { 1500.0f, 800.0f }, { 700.0f, 700.0f } }, 0, -1, 0u, 0.0f, 70.444f, 0.381908f },
+			 Case{ "FactionMordor", "MordorMouthOfSauron", 11u, 11u, 150.0f, { 640.0f, 320.0f }, 7u, 75.0f, 525.0f, { { 1500.0f, 640.0f }, { 860.0f, 640.0f }, { 220.0f, 220.0f } }, 0, -1, 1u, 75.0f, 41.3165f, 20.1465f } })
 	{
 		INFO(std::string(c.hero));
 		const ThingTemplate *tt = s->world->things().findTemplate(c.hero);

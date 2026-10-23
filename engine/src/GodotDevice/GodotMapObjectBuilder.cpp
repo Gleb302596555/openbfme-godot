@@ -9,6 +9,7 @@
 #include "GameClient/MapObjectDrawables.h"
 #include "GameClient/MapObjectRuntime.h"
 #include "GameClient/MapUtil.h"
+#include "GameClient/UserDataFolder.h"
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Object/RetailObjectWorld.h"
 #include "GodotDevice/GodotRetailFileSystem.h"
@@ -237,9 +238,19 @@ Node3D *MapObjectBuilder::build_objects(const Ref<RetailFileSystem> &fsRef, cons
 
 	RetailFileSystem &rfs = *fsRef.ptr();
 	std::string lowerName = AsciiStringUtil::lowered(toNative(map_name));
-	const std::string path = MapClassification::mapPath(lowerName);
+	// lane MOD-5: a user map is <user maps folder>\<name>\<name>.map (RW 0x70254F), read from disk; any other map is the archives' maps\<name>
+	const bool userMap = optBool(options, "user_map", false);
+	std::string mapsFolder, error;
+	if (!rfs.mapsFolder(userMap, mapsFolder, &error))
+	{
+		return fail(error);
+	}
+	if (userMap)
+	{
+		stops.push_back(UserDataFolder::kUserMapStop);
+	}
+	const std::string path = MapClassification::mapPath(lowerName, mapsFolder);
 	std::vector<uint8_t> bytes;
-	std::string error;
 	if (!rfs.readBytes(path, bytes, &error))
 	{
 		return fail(error);
@@ -249,7 +260,7 @@ Node3D *MapObjectBuilder::build_objects(const Ref<RetailFileSystem> &fsRef, cons
 	m_drawables.reset(new MapObjectDrawables());
 	TerrainLogic terrain;
 	MapClassification::Result cr;
-	if (!MapClassification::run(bytes, path, lowerName, *m_world, *m_options, *m_map, terrain, *m_drawables, nullptr, cr, &error))
+	if (!MapClassification::run(bytes, path, lowerName, *m_world, *m_options, *m_map, terrain, *m_drawables, nullptr, cr, &error, mapsFolder))
 	{
 		return fail(error);
 	}
@@ -358,12 +369,17 @@ Node3D *MapObjectBuilder::build_objects(const Ref<RetailFileSystem> &fsRef, cons
 			frame = p.draw->frame();
 			modelName = frame.modelName;
 		}
-		const std::string key = AsciiStringUtil::lowered(modelName);
+		const bool playerColored=houseColors && d.sideIndex>=0 && m_drawables->sides[(size_t)d.sideIndex].hasColor;
+		const std::uint32_t playerColor=playerColored ? m_drawables->sides[(size_t)d.sideIndex].colorRGB : 0;
+		const std::string key = AsciiStringUtil::lowered(modelName)+(playerColored ? "#player&"+std::to_string(playerColor) : "");
 		auto it = cache.find(key);
 		int64_t model;
 		if (it == cache.end())
 		{
-			model = target->add_model(toGodot(modelName));
+			if (playerColored) {
+			 PackedInt64Array colors;colors.push_back((int64_t)playerColor);
+			 model=target->add_model_colored(toGodot(modelName),1,colors);
+			} else model = target->add_model(toGodot(modelName));
 			cache[key] = model;
 		}
 		else
@@ -386,12 +402,7 @@ Node3D *MapObjectBuilder::build_objects(const Ref<RetailFileSystem> &fsRef, cons
 		{
 			target->set_instance_infantry_light(instance, true); // RENDER-1: the infantry light set (S-390)
 		}
-		if (houseColors && d.sideIndex >= 0 && m_drawables->sides[(size_t)d.sideIndex].hasColor)
-		{
-			const std::uint32_t c = m_drawables->sides[(size_t)d.sideIndex].colorRGB;
-			target->set_instance_house_color(instance, Color(((c >> 16) & 255) / 255.0f, ((c >> 8) & 255) / 255.0f, (c & 255) / 255.0f, 1.0f));
-			++tinted;
-		}
+		if (playerColored) ++tinted;
 		if (p.draw)
 		{
 			if (!applyFrame(target, instance, frame))
