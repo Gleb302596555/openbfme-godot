@@ -187,6 +187,7 @@ func _run() -> int:
 	_instancer_runtime_stops(fs)
 	instancer.free()
 	_map_terrain(fs)
+	_user_maps(fs)
 	_map_objects(fs)
 	await _menu_player(fs)
 	_game_world(fs)
@@ -583,7 +584,9 @@ func _map_terrain(fs: RefCounted) -> void:
 		for mi in node.find_children("*", "MeshInstance3D", true, false):
 			var m: ShaderMaterial = (mi as MeshInstance3D).mesh.surface_get_material(0)
 			if m != null:
-				_check(m.render_priority > terrain_priority and m.shader.code.contains("blend_mix"), "%s/%s draws after the opaque terrain (priority %d > %d, blended)" % [group, mi.name, m.render_priority, terrain_priority])
+				# RiverArea::additiveBlending rivers get the blend_add copy of river.gdshader (Fords of Isen II has only those)
+				var blend := "blend_add" if m.shader.code.contains("render_mode unshaded, blend_add") else "blend_mix"
+				_check(m.render_priority > terrain_priority and m.shader.code.contains(blend), "%s/%s draws after the opaque terrain (priority %d > %d, %s)" % [group, mi.name, m.render_priority, terrain_priority, blend])
 	var meshes := root.find_children("*", "MeshInstance3D", true, false)
 
 	# present a frame (the dummy renderer in headless mode: the scene is entered and drawn, not rasterised)
@@ -592,6 +595,29 @@ func _map_terrain(fs: RefCounted) -> void:
 	_check(root.get_parent() == _tree.root, "the map scene was added to the scene tree and a frame was drawn")
 	print("  info %s built in %d ms: %d cells, %d vertices, %d triangles, %d mesh instances" % [MAP, ms, mesh.cells, mesh.vertices, mesh.triangles, meshes.size()])
 	root.queue_free()
+
+
+## Lane MOD-5 (stop S-5160): the RotWK mount names the user maps folder (the user data folder + "Maps", RW 0x70254F). A user map the folder does
+## not hold fails in each builder with the folder in its error, and its report lists S-5160 (nothing is written into the player's folder here; the
+## core test test_mod5_user_maps.cpp loads a map from a temporary one).
+func _user_maps(fs: RefCounted) -> void:
+	const NAME := "openbfme smoke test no such user map"
+	var folder: String = fs.get_user_map_folder()
+	_check(folder.ends_with("/Maps") and folder.contains("/My The Lord of the Rings, The Rise of the Witch-king Files/"), "the user maps folder is %s" % folder)
+	var terrain: RefCounted = ClassDB.instantiate("MapTerrainBuilder")
+	var objects: RefCounted = ClassDB.instantiate("MapObjectBuilder")
+	var reports := {
+		"MapTerrainBuilder": [terrain.build_map(fs, NAME, {"user_map": true}), terrain.get_report()],
+		"MapObjectBuilder": [objects.build_objects(fs, NAME, {"user_map": true}), objects.get_report()],
+	}
+	for builder in reports:
+		var built = reports[builder][0]
+		var report: Dictionary = reports[builder][1]
+		_check(built == null and (report.stops as Array).has("S-5160") and str(report.errors).contains(folder),
+			"%s: a missing user map fails with the folder in its error and reports S-5160 (%s)" % [builder, report.errors])
+	var grid: Dictionary = ClassDB.instantiate("PathfindView").build(fs, NAME, {"user_map": true, "objects": false})
+	_check(not grid.ok and (grid.stops as Array).has("S-5160") and str(grid.errors).contains(folder),
+		"PathfindView: a missing user map fails with the folder in its error and reports S-5160 (%s)" % [grid.errors])
 
 
 ## Lane MAPOBJ-1: the objects of one real map (trees, buildings, hordes), built through the object builder and the W3D instancer. The

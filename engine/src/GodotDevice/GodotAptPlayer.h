@@ -42,6 +42,7 @@
 class Apt;
 class AptFileSource;
 class WindowManager;
+class GameWindow;
 class Shell;
 class AptGodotHost;
 class AptTextureStore;
@@ -50,6 +51,8 @@ class FontSubstitution;
 struct AptCanvasList;
 class GadgetDrawList;
 struct AptCanvasOp;
+struct AptCanvasSegment;
+struct AptCanvasRedrawPlan;
 
 namespace godot
 {
@@ -261,6 +264,10 @@ public:
 	void online_deliver(int64_t id, int64_t status, const String &body, const String &error);
 	Dictionary online_status();
 	Dictionary online_apply(const Dictionary &spec);
+	Dictionary online_social_status() const;
+	Array online_social_events();
+	Dictionary online_social_apply(const Dictionary &spec);
+	Dictionary online_messenger_sync(const Dictionary &spec);
 	// Sol r1: the host could not play the START OnlineShell.apt handed on (GameWorld.net_online refused it): the screens show a recoverable lobby error
 	// and go back to the game list (false: no online screens). online_redact: a text with its credentials masked (OnlineLobbyClient::redact: relay,
 	// rejoin and spectator tickets, session tokens), for anything the game prints of the lobby's
@@ -302,6 +309,7 @@ public:
 	Dictionary get_create_a_hero_view() const;
 	Array get_create_a_hero_heroes() const;
 	void set_create_a_hero_portrait(const String &image);
+	void takeCreateAHeroPicture(); // lane CAHPIC-1: Create-a-Hero's TAKE PICTURE (the guard's frames, the armed picture saved), from _process
 	void set_create_a_hero_view_texture(const Ref<Texture2D> &texture);
 	// lane CAH-2: retail's Create-a-Hero save folder (GameClient/UserDataFolder.h): the application data folder (OS::get_data_dir: %APPDATA% on Windows,
 	// CSIDL_APPDATA) + the install's gi.dat UserDataLeafName + "Save" (RW 0x644148 / 0x6DD398). { ok, folder, user_data, leaf, error }
@@ -343,6 +351,17 @@ public:
 	Array openbfme_page_events();
 	Dictionary openbfme_page_state() const;
 	Dictionary openbfme_page_choose(const String &key, int value);
+	// lane ONLINEMENU-1: the online FRIENDS button (label; empty: none) and page (a page spec as openbfme_page_show's, plus list_from_row and
+	// list_activates; events as openbfme_page_events' with "submit" / "list_select" / "list_activate" and a "text"; state: open, button rect, tabs,
+	// rows, list rows and rect, help)
+	void online_friends_button(const String &label);
+	bool online_ask(const String &key, const String &title, const String &text); // lane ONLINEMENU-1: AptOnlineShell::askYesNo
+	PackedStringArray online_answers();
+	bool online_asking(const String &key);
+	Dictionary online_friends_page_show(const Dictionary &spec);
+	void online_friends_page_close();
+	Array online_friends_page_events();
+	Dictionary online_friends_page_state() const;
 	// lane OPTS-5: the one Options menu (AptOptionsScreen::kOpenBFMEMenu). openbfme_page_show's rows take "entry" (a text entry: value_text, max) and
 	// "column" (0 / 1); its events take "release" (a slider let go), and "entry" is the menu's opening (value 1: show the detail settings first).
 	// options_retail_rows: { key: row } of the original game's settings as the page shows them ("Retail.<gadget>": kind, label, help, help_label,
@@ -392,7 +411,7 @@ public:
 	void attach_window_manager(WindowManager *wm);
 	void set_native_hook(AptNativeHook *hook);
 	// lane HUD-6: the font the movie's texts draw with for (name, point size): fontsubstitution.ini, the corpus fonts (C++ only; the HUD's help box)
-	Ref<Font> font_for(const std::string &name, float size, float *drawSize);
+	Ref<Font> font_for(const std::string &name, float size, float *drawSize, bool bold = false);
 	// lane UI-6: `font` (from font_for) at `px` pixels with RotWK's GDI text cell (ascent = the cell's baseline, height = the char height)
 	Ref<Font> font_cell(const Ref<Font> &font, int px);
 	// the shell mode's window manager and shell (null in the other modes) and a switch that hands the mouse and keys to the HUD node instead of this player (C++ only)
@@ -436,12 +455,16 @@ private:
 	RID takeItem(RID parent, int drawIndex); // a pooled (reset) or new canvas item
 	void freeItemPool();
 	void advanceMovies(double deltaMs); // lane CAMP-2: the BinkMovie components' frames
-	// lane PERF-1 r2: whether two canvas lists draw the same (every op field drawCanvas reads); the native components of the drawn list redrawn alone
-	static bool sameCanvas(const AptCanvasList &a, const AptCanvasList &b);
-	void redrawNativePlaceholders();
-	void redrawCallbackPlaceholders();                                  // lane UI-4
+	// lane PERF-1 r2: the native components of one drawn segment (lane HUDREDRAW-1) redrawn alone
+	void redrawNativePlaceholders(size_t segment);
+	void redrawCallbackPlaceholders(size_t segment);                      // lane UI-4
 	void drawRenderCallback(const AptCanvasOp &op, const RID &item);   // lane UI-4
 	void drawCanvas(const AptCanvasList &list);
+	// lane HUDREDRAW-1: the list's segments (AptCanvasSegments) on screen as `plan` says (AptCanvasPlanRedraw: kept, drawn again, drawn anew)
+	void redrawSegments(const std::vector<AptCanvasSegment> &segments, const AptCanvasRedrawPlan &plan);
+	void drawSegment(const AptCanvasList &list, size_t segment, const std::map<std::string, const GameWindow *> &gadgetOfPath);
+	void countLevels(const AptCanvasRedrawPlan &plan); // get_stats "levels"
+	std::map<std::string, const GameWindow *> gadgetPaths() const; // lane MENU-1
 	// lane PERF-1 r2: the gadget layer's commands (false: not in shell mode), whether two lists draw the same, and the drawing
 	bool buildGadgets(GadgetDrawList &commands);
 	static bool sameGadgets(const GadgetDrawList &a, const GadgetDrawList &b);

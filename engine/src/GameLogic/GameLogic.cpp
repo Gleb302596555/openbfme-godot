@@ -585,6 +585,7 @@ void GameLogic::update(int phase)
 	{
 		m_partition->update(); // RW 0x62E93B: ThePartitionManager vslot 0x28 (RW 0xA39020 -> 0xA3B4E0), then the row's collision manager (lane MODULES-2)
 		runRow(ROW_PARTITION_COLLISION);
+		combat().processProjectileContacts(); // lane FLANK-1: the flying projectiles' contacts, the same collision manager row (S-780 inference: after the AI units' pass)
 		// RW 0x62E951 .. 0x62E97E
 		for (Object *o = m_objectHead; o; o = o->getNextObject())
 		{
@@ -956,6 +957,17 @@ void GameLogic::dispatchScriptEvent(int slot, Object &self, const LuaEventArgs &
 	if (m_scriptEventProc)
 	{
 		m_scriptEventProc(slot, self, args);
+		return;
+	}
+	++m_scriptEventsWithoutDispatch;
+}
+
+// lane NUGGET-1: RW 0x735F53 for an event found by name (see GameLogic.h)
+void GameLogic::dispatchNamedScriptEvent(const std::string &name, Object &self, const LuaEventArgs &args)
+{
+	if (m_namedScriptEventProc)
+	{
+		m_namedScriptEventProc(name, self, args);
 		return;
 	}
 	++m_scriptEventsWithoutDispatch;

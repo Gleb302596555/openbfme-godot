@@ -961,8 +961,11 @@ struct CampaignHud
 //   * merge queue q18: the intro's fights earn 265.38 skill points on the merged tree (rank 3, 7 power points), measured; the lane's own tree (base b5c2095d) ended the
 //     intro between 100 and 200 (rank 2, 6 points). The movement is already in the tree before DEVPORT-3C (measured on the OWNERFIX-1 merge alone) and is
 //     not DEVPORT-3C's Horde provider (reverting it left 265.38): a simulation change of merge queues q16 / q17 moved the intro's fight, not attributed further;
+//   * lane SUMMON-1: the intro's GoblinCaveTroll now starts throwing rocks as retail's does (scripts.lua OnTrollCreated grants Upgrade_SwitchToRockThrowing, its
+//     DoCommandUpgrade runs Command_ToggleMountainTrollRockThrow at frame 0: measured by logging DoCommandUpgrade, and the intro reaches rank 3 again with
+//     DoCommandUpgrade switched off), so the intro's fights earn 160 skill points: rank 2, 6 power points;
 //   * the store sells Chill Wind (AngmarSpellStoreCommandSet slot 2) for EVIL_RANK_1_COST 5; a cast of it makes a SpellBookChillWind (OCL_SpellBookChillWind).
-TEST_CASE("ownerfix1 campaign powers played: the first Angmar mission's fights earn rank 3, Powers opens by the Palantir's button, Chill Wind is bought by clicks, aimed and cast, and its object stands")
+TEST_CASE("ownerfix1 campaign powers played: the first Angmar mission's fights earn rank 2, Powers opens by the Palantir's button, Chill Wind is bought by clicks, aimed and cast, and its object stands")
 {
 	if (!haveWorld("ownerfix1 campaign powers played"))
 	{
@@ -986,10 +989,13 @@ TEST_CASE("ownerfix1 campaign powers played: the first Angmar mission's fights e
 	REQUIRE(c.enables == 1);
 	CHECK(c.disables == 1);
 	c.frames(20);
+	// merge queue q23 (TARGET-1's target choice, ATTACKPATH-1's attack paths and FLANK-1's flank / in-flight hits together, measured on the merged tree): the
+	// intro's own fights now earn 214 skill points by here (SUMMON-1: 160), rank 3 (it needs 200); before: rank 2, 6 purchase points, 1 left after Chill Wind
 	CHECK(sc.getRankLevel() == 3);
-	CHECK(SimMath::floorToInt(sc.getSkillPoints()) >= 200); // tolerance: the rank 3 threshold (200) is the property; the intro's kills decide how far past it (q18: 265.38, rank 4 is 300)
+	CHECK(SimMath::floorToInt(sc.getSkillPoints()) >= 200); // tolerance: the rank 3 threshold (200) is the property; the intro's kills decide how far past it
+	CHECK(SimMath::floorToInt(sc.getSkillPoints()) + 3 < sc.getSkillPointsLevelUp()); // tolerance: three more kills below must stay under the next rank
 	const int points0 = sc.getSciencePurchasePoints();
-	CHECK(points0 == 7); // 5 at the start + 1 for each of the two ranks
+	CHECK(points0 == 7); // 5 at the start + 1 for each rank
 	// three more kills by the Witch King: each exactly the data's award
 	Object *wk = c.game->logic().scriptEngine().getUnitNamed("Witch King");
 	REQUIRE(wk);

@@ -295,6 +295,7 @@ void GameWorld::_bind_methods()
 	ClassDB::bind_method(D_METHOD("destroy_object", "id"), &GameWorld::destroy_object);
 	ClassDB::bind_method(D_METHOD("find_object_by_template", "template_name"), &GameWorld::find_object_by_template);
 	ClassDB::bind_method(D_METHOD("get_template_model", "template_name"), &GameWorld::get_template_model);
+	ClassDB::bind_method(D_METHOD("get_player_beacon_template", "player_index"), &GameWorld::get_player_beacon_template); // the ping wheel
 	ClassDB::bind_method(D_METHOD("get_placement_ghost", "template_name"), &GameWorld::get_placement_ghost);
 	ClassDB::bind_method(D_METHOD("create_object", "template_name", "player", "x", "y", "angle"), &GameWorld::create_object, DEFVAL(0.0));
 	ClassDB::bind_method(D_METHOD("get_ground_height", "x", "y"), &GameWorld::get_ground_height);
@@ -1068,6 +1069,8 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 	m_textureAnimation = optBool(options, "texture_animation", true);
 
 	LiveGame::Options lo = loIn;
+	lo.heroStatsProfile = m_heroStatsProfile;
+	lo.heroStatsMessage = [](const std::string &message) { UtilityFunctions::print(toGodot(message)); };
 	if (progress.is_valid())
 	{
 		lo.progress = [&progress](int percent) { progress.call(percent); };
@@ -1788,11 +1791,37 @@ void GameWorld::refresh_views(double deltaMs)
 			}
 			else if (!e.staticModel.empty() && !e.moduleHidden)
 			{
-				const auto palette=Render_House_Color_Params(d->getHouseColor(),d->customColorKind(),d->customColors());
-				const bool colored=m_houseColors && palette.kind>0;
-				const std::vector<std::pair<std::string, std::string>> swaps=e.kind==W3D_DRAWKIND_FLOOR ? floorWeatherSwaps(e.data,m_streakWeather) : std::vector<std::pair<std::string, std::string>>();
-				std::string model=AsciiStringUtil::lowered(e.staticModel)+W3DInstancer::Texture_Swap_Suffix(swaps);
-				if(colored) model+="#palette&"+std::to_string(palette.kind)+"&"+std::to_string(palette.colors[0])+"&"+std::to_string(palette.colors[1])+"&"+std::to_string(palette.colors[2]);
+				// lane HCKEY-1: the key and its palette / swaps are made again only when an input changed (not every frame)
+				const std::uint32_t owner = d->getHouseColor();
+				const int customKind = d->customColorKind();
+				const std::uint32_t *custom = d->customColors();
+				if (!ev.staticKeyValid || ev.staticKeySource != e.staticModel || ev.staticKeyData != e.data || ev.staticKeyKind != (int)e.kind ||
+					ev.staticKeyWeather != m_streakWeather || ev.staticKeyHouse != m_houseColors || ev.staticKeyOwner != owner ||
+					ev.staticKeyCustomKind != customKind || std::memcmp(ev.staticKeyCustom, custom, sizeof(ev.staticKeyCustom)) != 0)
+				{
+					ev.staticKeyPalette = Render_House_Color_Params(owner, customKind, custom);
+					ev.staticKeyColored = m_houseColors && ev.staticKeyPalette.kind > 0;
+					ev.staticKeySwaps = e.kind == W3D_DRAWKIND_FLOOR ? floorWeatherSwaps(e.data, m_streakWeather) : std::vector<std::pair<std::string, std::string>>();
+					ev.staticKey = AsciiStringUtil::lowered(e.staticModel) + W3DInstancer::Texture_Swap_Suffix(ev.staticKeySwaps);
+					if (ev.staticKeyColored)
+					{
+						const HouseColorParams &pp = ev.staticKeyPalette;
+						ev.staticKey += "#palette&" + std::to_string(pp.kind) + "&" + std::to_string(pp.colors[0]) + "&" + std::to_string(pp.colors[1]) + "&" + std::to_string(pp.colors[2]);
+					}
+					ev.staticKeySource = e.staticModel;
+					ev.staticKeyData = e.data;
+					ev.staticKeyKind = (int)e.kind;
+					ev.staticKeyWeather = m_streakWeather;
+					ev.staticKeyHouse = m_houseColors;
+					ev.staticKeyOwner = owner;
+					ev.staticKeyCustomKind = customKind;
+					std::memcpy(ev.staticKeyCustom, custom, sizeof(ev.staticKeyCustom));
+					ev.staticKeyValid = true;
+				}
+				const HouseColorParams &palette = ev.staticKeyPalette;
+				const bool colored = ev.staticKeyColored;
+				const std::vector<std::pair<std::string, std::string>> &swaps = ev.staticKeySwaps;
+				const std::string &model = ev.staticKey;
 				if(ev.model!=model && ev.instance>=0) {dyn->remove_instance(ev.instance);ev.instance=-1;ev.posed=false;}
 				if (!ev.posed)
 				{
@@ -2999,6 +3028,19 @@ String GameWorld::get_template_model(const String &template_name) const
 	return String();
 }
 
+String GameWorld::get_player_beacon_template(int64_t player_index) const
+{
+	// PlayerTemplate BeaconName (PlayerTemplate.cpp's field table; RotWK reads it at RW 0x6D1305 for the beacon it places): the template a player's
+	// beacon is. The ping wheel draws that template's model, so a mod's own beacon shows. The template is fixed once the player is set up
+	if (!m_game || player_index < 0 || player_index >= m_game->players().getPlayerCount())
+	{
+		return String();
+	}
+	const Player *p = m_game->players().getNthPlayer((int)player_index);
+	const PlayerTemplate *pt = p ? p->getPlayerTemplate() : nullptr;
+	return pt ? toGodot(pt->m_beaconName) : String();
+}
+
 int64_t GameWorld::create_object(const String &template_name, int64_t player, double x, double y, double angle)
 {
 	const auto worldContext = m_world ? m_world->enterContext() : nullptr; // this world's stores and audio validator while it runs (several worlds may live)
@@ -4068,6 +4110,7 @@ Dictionary GameWorld::net_begin(const Dictionary &options)
 		so.replayPath = std::string(String(options["record"]).utf8().get_data());
 	}
 	so.census = optBool(options, "census", false); // lane MP-3: the per-frame census (net_write_census)
+	so.earlyOrders = optBool(options, "early_orders", true); // lane NETLAG-2: NetworkConfig::earlyOrders (false: RotWK's frame + 1 for every order)
 	// lane ONLINE-3: a rejoin START (its ticket's generation) rejoins the running game instead of starting it; it records no replay (the game's start
 	// was not this process's: the relay's log is the game's record, /v1/replays/<id>/log)
 	m_netRejoining = m_netStart.online && m_netStart.rejoinGeneration > 0;

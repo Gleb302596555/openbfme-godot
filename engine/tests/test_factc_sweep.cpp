@@ -5,6 +5,7 @@
 
 #include "FactcSweepUtil.h"
 #include "FactbRig.h"
+#include "ProductionRateTestUtil.h"
 
 #include "Common/BuildAssistant.h"
 #include "Common/PlayerHeroList.h"
@@ -231,6 +232,26 @@ AbilityResult runAbility(HudRig &h, const Offer &offer, const Coord3D &spot)
 			destroyAll(logic, made);
 			return r;
 		}
+	}
+	// lane SUMMON-1: a button the unit's current model condition disables (DisableOnModelCondition: the Mountain Giant's Stomp in WEAPONSET_TOGGLE_1; the giant
+	// starts throwing rocks, scripts.lua's OnMountainGiantCreated grants Upgrade_SwitchToRockThrowing and DoCommandUpgrade toggles the set) is used the way a
+	// player does: the unit's TOGGLE_WEAPONSET button first
+	bool disabledNow = false;
+	for (size_t w = 0; w < offer.cb->m_disableOnModelCondition.size(); ++w)
+	{
+		disabledNow = disabledNow || (o->getModelConditionBits()[w] & offer.cb->m_disableOnModelCondition[w]) != 0;
+	}
+	if (disabledNow)
+	{
+		ControlBarButton toggle;
+		if (!h.findButtonIf([](const ControlBarButton &x) { return x.button->m_command == GUI_COMMAND_TOGGLE_WEAPONSET; }, toggle) ||
+		    !h.hud->controlBar().pressButton(toggle.slot, toggle.inPalantir))
+		{
+			r.outcome = "disabled by its model condition: no usable TOGGLE_WEAPONSET button";
+			destroyAll(logic, made);
+			return r;
+		}
+		h.frames(5);
 	}
 	// the level that unlocks it: one level at a time (a hero's later level may swap the button for another, as Hwaldar's summons)
 	ControlBarButton b;
@@ -863,6 +884,8 @@ ProductionResult runProduction(HudRig &h, const Offer &offer)
 		r.outcome = "press refused";
 		return r;
 	}
+	const ObjectID producerId = b->getID();
+	std::vector<float> rates{ prodrate::rateNow(*b) }; // lane PRODUCTION1: the producer's PRODUCTION rate of every frame (RW 0x8A1EBC)
 	h.frames(1);
 	r.cost = h.paidSince(money0);
 	std::ostringstream out;
@@ -873,6 +896,10 @@ ProductionResult runProduction(HudRig &h, const Offer &offer)
 	Object *made = nullptr;
 	for (; r.frames < expectFrames + 60 && !made; ++r.frames)
 	{
+		if (Object *p = logic.findObjectByID(producerId))
+		{
+			rates.push_back(prodrate::rateNow(*p));
+		}
 		h.frames(1);
 		for (Object *o = logic.getFirstObject(); o && !made; o = o->getNextObject())
 		{
@@ -892,9 +919,10 @@ ProductionResult runProduction(HudRig &h, const Offer &offer)
 	}
 	else
 	{
-		if (r.frames < expectFrames - 1)
+		const int rated = prodrate::expectedFrames(rates, expectFrames); // a level 2 / 3 building is faster (its BuildSpeedModLvl<n>)
+		if (r.frames < rated - 1)
 		{
-			out << "came after " << r.frames << " frames, calcTimeToBuild " << expectFrames << "; ";
+			out << "came after " << r.frames << " frames, calcTimeToBuild " << expectFrames << " (" << rated << " at the producer's PRODUCTION rate); ";
 		}
 		const float dx = made->getPosition()->x - b->getPosition()->x, dy = made->getPosition()->y - b->getPosition()->y;
 		if (dx * dx + dy * dy > 600.0f * 600.0f)

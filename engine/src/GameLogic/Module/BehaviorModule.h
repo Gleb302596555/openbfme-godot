@@ -73,6 +73,12 @@ public:
 	virtual bool isIndestructible() const { return false; }
 	// RW vt[0x90]: the body's DodgePercent (a fraction)
 	virtual float getDodgePercent() const { return 0.0f; }
+	// lane FX-4: RW vt[0x40], the last damage record (ActiveBody RW 0x715914: + 0x40); false = null (a body without one). `type` = the record's damage type
+	virtual bool lastDamageRecordType(int &type) const
+	{
+		(void)type;
+		return false;
+	}
 	// lane BACKLOG-1: RW vt[0x74], the body's GrabObject template name (ActiveBody RW 0x8C281E: the data's + 0x2C; InactiveBody RW 0x8C1B14: the empty string
 	// RW 0xBD0C3F). OpenContain's CHUNK_VENDOR / ROCK_VENDOR entry test reads it (RW 0x8660FC)
 	virtual std::string getGrabObjectName() const { return std::string(); }
@@ -89,6 +95,9 @@ public:
 		static unsigned long long n = 0;
 		return n;
 	}
+	// lane SUMMON-1: RW vt[0x58] with its second argument 0 (ActiveBody RW 0x8C47DE; InactiveBody's slot is the empty RW 0x8851E4), the ObjectCreationList's
+	// initial health (RW 0x5F1E98): `percent` of the revive reference, a percent above 100 scaling the max health first
+	virtual void setInitialHealthPercent(float percent) { (void)percent; }
 };
 
 // ZH ContainModuleInterface (the membership part). The members are Objects; the list keeps insertion order.
@@ -213,6 +222,8 @@ public:
 	virtual SpawnUnitBehaviorInterface *getSpawnUnitBehaviorInterface() { return nullptr; }
 	// RW slot 0x50 / 4 = 20 of the +0xC interface: the exit interface of a production exit module (Object::getObjectExitInterface, RW 0x68BB14)
 	virtual ExitInterface *getExitInterface() { return nullptr; }
+	// lane LUMBER1: slot 0x58 of the +0xC interface: the dock interface of a DockUpdate (Object::getDockUpdateInterface, RW 0x68C383)
+	virtual class DockUpdateInterface *getDockUpdateInterface() { return nullptr; }
 	// the production queue of a ProductionUpdate (RW 0x68C327 asks for it)
 	virtual ProductionUpdateInterface *getProductionUpdateInterface() { return nullptr; }
 	// lane BUILD-1: the FoundationAIUpdate interface (RW 0x68C3C3 asks every module through slot 38 of its +0xC interface)

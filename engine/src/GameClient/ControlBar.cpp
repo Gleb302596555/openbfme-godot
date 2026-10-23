@@ -879,6 +879,12 @@ bool ControlBar::reviveButton(ControlBarButton &cb, int n, Player &player, Objec
 			cb.state = ButtonState::CantAfford;
 			return true;
 		case CANMAKE_UNKNOWN_7:
+			// lane HEROBUY-1: RW 0x942F42 .. 0x942F49: canMakeUnit 7 (the command points, RW 0x794035) is availability 7, which updateContextCommand draws as
+			// availability 6 (RW 0x943C51 -> 0x943C46: a disabled window with WIN_STATUS_ALWAYS_COLOR, the "_cantAfford" clip); HIDE_WHILE_DISABLED hides only
+			// availability 0 (RW 0x943B39), so a Goblin over its command point cap still sees Shelob's button. A left press aborts silently (RW 0x940B87)
+			cb.state = ButtonState::CantAfford;
+			cb.commandPointsShort = true;
+			return true;
 		case CANMAKE_MAXED_OUT_FOR_PLAYER:
 		case CANMAKE_PARKING_PLACES_FULL:
 			cb.state = ButtonState::Restricted;
@@ -891,7 +897,10 @@ bool ControlBar::reviveButton(ControlBarButton &cb, int n, Player &player, Objec
 	const float stored = (float)progress;
 	cb.queued = r->startFrame != -1 ? 1 : 0;
 	cb.timer = cb.queued ? stored : -1.0f;
-	cb.state = progress == 0.0 ? ButtonState::Restricted : stored != 1.0f ? ButtonState::NotReady :
+	// Presentation fix: a queued hero has zero progress on its start frame.
+	// Keep that slot cooling down instead of hiding it via HIDE_WHILE_DISABLED;
+	// otherwise the side bar removes/reinserts it and replays its entrance.
+	cb.state = cb.queued ? ButtonState::NotReady : progress == 0.0 ? ButtonState::Restricted : stored != 1.0f ? ButtonState::NotReady :
 		player.getMoney()->countMoney() < cost ? ButtonState::CantAfford : ButtonState::Enabled;
 	return true;
 }
