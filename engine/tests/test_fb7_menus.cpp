@@ -3321,3 +3321,48 @@ TEST_CASE("menusnd1 options retail: a press on the OpenBFME menu's bottom bar pl
 		}
 	}
 }
+
+// lane MENUSND-1 (review): bar clicks wait for the movie's input (see above); several within one movie step (a slow frame delivers them together) keep
+// their order, and a page event made in between (Esc: the page's CANCEL) waits behind the click before it
+TEST_CASE("menusnd1 options retail: clicks within one movie step keep their order; each bar press plays its click")
+{
+	OPENBFME_REQUIRE_RETAIL(mount);
+	ShellFx fx(mount, "");
+	AptOptionsScreen *options = openMenu(fx, false);
+	AptSpriteInst *root = fx.wm->apt().level(options->level());
+	auto centre = [&](const char *name, float &x, float &y) {
+		AptButtonInst *b = firstButtonUnder(findClip(root, name));
+		REQUIRE_MESSAGE(b, name);
+		float x0, y0, x1, y1;
+		REQUIRE(b->contentBounds(x0, y0, x1, y1));
+		b->globalMatrix().apply((x0 + x1) / 2, (y0 + y1) / 2, x, y);
+	};
+	float rx, ry, ax, ay;
+	centre("Default", rx, ry);
+	centre("Accept", ax, ay);
+	fx.wm->postMouseMove(rx, ry);
+	fx.tick(20);
+	options->takeExtensionEvents();
+	fx.services.sounds.clear();
+	// one batch: RESET TO DEFAULTS clicked, Esc, the pointer to ACCEPT, ACCEPT clicked
+	fx.wm->postMouseButton(true);
+	fx.wm->postMouseButton(false);
+	options->extensionCancel();
+	fx.wm->postMouseMove(ax, ay);
+	fx.wm->postMouseButton(true);
+	fx.wm->postMouseButton(false);
+	CHECK(options->takeExtensionEvents().empty()); // nothing before the movie has the presses
+	fx.tick(1);
+	const std::vector<OpenBFMEPageEvent> events = options->takeExtensionEvents();
+	REQUIRE(events.size() == 3);
+	CHECK(events[0].kind == OpenBFMEPageEvent::Kind::Reset);
+	CHECK(events[1].kind == OpenBFMEPageEvent::Kind::Cancel);
+	CHECK(events[2].kind == OpenBFMEPageEvent::Kind::Accept);
+	CHECK(std::count(fx.services.sounds.begin(), fx.services.sounds.end(), std::string("Gui_ShellMapSelect")) == 2);
+	CHECK_FALSE(fx.wm->apt().input().mouseDown());
+	// and a later page event no longer waits
+	options->extensionCancel();
+	const std::vector<OpenBFMEPageEvent> later = options->takeExtensionEvents();
+	REQUIRE(later.size() == 1);
+	CHECK(later[0].kind == OpenBFMEPageEvent::Kind::Cancel);
+}

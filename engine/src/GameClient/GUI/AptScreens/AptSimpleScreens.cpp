@@ -1039,7 +1039,7 @@ AptOptionsScreen::AptOptionsScreen(WindowManager &windows, Shell &shell, ShellEn
 	registerCommand("AptOptions::Cancel", [this](const std::string &) {
 		if (extensionOpen())
 		{
-			m_extensionEvents.push_back({ OpenBFMEPageEvent::Kind::Cancel, std::string(), 0 });
+			addExtensionEvent({ OpenBFMEPageEvent::Kind::Cancel, std::string(), 0 });
 			return;
 		}
 		cancel();
@@ -1047,7 +1047,7 @@ AptOptionsScreen::AptOptionsScreen(WindowManager &windows, Shell &shell, ShellEn
 	registerCommand("AptOptions::Save", [this](const std::string &) {
 		if (extensionOpen())
 		{
-			m_extensionEvents.push_back({ OpenBFMEPageEvent::Kind::Accept, std::string(), 0 });
+			addExtensionEvent({ OpenBFMEPageEvent::Kind::Accept, std::string(), 0 });
 			return;
 		}
 		save();
@@ -1055,7 +1055,7 @@ AptOptionsScreen::AptOptionsScreen(WindowManager &windows, Shell &shell, ShellEn
 	registerCommand("AptOptions::Reset", [this](const std::string &) {
 		if (extensionOpen())
 		{
-			m_extensionEvents.push_back({ OpenBFMEPageEvent::Kind::Reset, std::string(), 0 });
+			addExtensionEvent({ OpenBFMEPageEvent::Kind::Reset, std::string(), 0 });
 			return;
 		}
 		reset();
@@ -2319,7 +2319,7 @@ bool AptOptionsScreen::openExtension(std::string *error)
 				}
 				return;
 			}
-			m_extensionEvents.push_back(e);
+			addExtensionEvent(e);
 		});
 	}
 	layer->setDecorator([this](GadgetDrawList &out) {
@@ -2349,7 +2349,7 @@ bool AptOptionsScreen::openExtension(std::string *error)
 	m_state = kExtensionState;
 	m_entryPressed = false;
 	m_barPressed = -1;
-	m_barClicked = -1;
+	m_deferredEvents.clear();
 	setExtensionHidden(true);
 	return true;
 }
@@ -2399,16 +2399,28 @@ void AptOptionsScreen::closeExtension()
 	m_mirroredAtOpen.clear();
 }
 
+void AptOptionsScreen::addExtensionEvent(const OpenBFMEPageEvent &e, std::uint64_t inputSerial)
+{
+	if (inputSerial == 0 && m_deferredEvents.empty())
+	{
+		m_extensionEvents.push_back(e);
+		return;
+	}
+	m_deferredEvents.emplace_back(e, inputSerial);
+}
+
 std::vector<OpenBFMEPageEvent> AptOptionsScreen::takeExtensionEvents()
 {
 	// one FIFO: the page's changes and the bottom bar's / the button's clicks in the order they happened (Sol review r1). Lane MENUSND-1: a bar click
-	// joins it once the movie's input has processed the press and its cancel (the press's sound is asked for by then)
-	if (m_barClicked >= 0 && windows().apt().input().processed() >= m_barClickSerial)
+	// joins it once the movie's input has processed the press and its cancel (the press's sound is asked for by then), the events behind it after it
+	const std::uint64_t processed = windows().apt().input().processed();
+	std::size_t ready = 0;
+	while (ready < m_deferredEvents.size() && m_deferredEvents[ready].second <= processed)
 	{
-		static const OpenBFMEPageEvent::Kind kinds[3] = { OpenBFMEPageEvent::Kind::Cancel, OpenBFMEPageEvent::Kind::Reset, OpenBFMEPageEvent::Kind::Accept };
-		m_extensionEvents.push_back({ kinds[m_barClicked], std::string(), 0 });
-		m_barClicked = -1;
+		m_extensionEvents.push_back(m_deferredEvents[ready].first);
+		++ready;
 	}
+	m_deferredEvents.erase(m_deferredEvents.begin(), m_deferredEvents.begin() + (std::ptrdiff_t)ready);
 	std::vector<OpenBFMEPageEvent> out;
 	out.swap(m_extensionEvents);
 	return out;
@@ -2542,8 +2554,8 @@ bool AptOptionsScreen::mouseFilter(int kind, float x, float y)
 		const std::uint64_t serial = windows().apt().input().postCancelPress(); // the movie's press ends without its release (and so without its click)
 		if (pressed == hit)
 		{
-			m_barClicked = pressed; // the page's event once the movie has the press (takeExtensionEvents)
-			m_barClickSerial = serial;
+			static const OpenBFMEPageEvent::Kind kinds[3] = { OpenBFMEPageEvent::Kind::Cancel, OpenBFMEPageEvent::Kind::Reset, OpenBFMEPageEvent::Kind::Accept };
+			addExtensionEvent({ kinds[pressed], std::string(), 0 }, serial); // the page's event once the movie has the press (takeExtensionEvents)
 		}
 		return true;
 	}
@@ -2563,7 +2575,7 @@ bool AptOptionsScreen::mouseFilter(int kind, float x, float y)
 		m_entryPressed = false;
 		if (inside)
 		{
-			m_extensionEvents.push_back({ OpenBFMEPageEvent::Kind::Entry, std::string(), 0 });
+			addExtensionEvent({ OpenBFMEPageEvent::Kind::Entry, std::string(), 0 });
 		}
 		return true;
 	}
@@ -2985,7 +2997,7 @@ void AptOptionsScreen::menuUpdate()
 	{
 		windows().note("options-menu", "[S-4670] Options: the movie made no " + missing + ": the menu has no row for it");
 	}
-	m_extensionEvents.push_back({ OpenBFMEPageEvent::Kind::Entry, std::string(), m_openOnDetail ? 1 : 0 });
+	addExtensionEvent({ OpenBFMEPageEvent::Kind::Entry, std::string(), m_openOnDetail ? 1 : 0 });
 }
 
 void AptOptionsScreen::finishMenu(bool accept)
