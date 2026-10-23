@@ -5952,6 +5952,7 @@ bool AptMenuPlayer::menuKey(const InputEventKey *key)
 	{
 		const int level = m->shell->shell->top()->level();
 		AptSpriteInst *root = m->A()->level(level);
+		if (!root) return false; // A newly pushed screen loads its movie on the next update.
 		std::vector<AptSpriteInst *> groups;
 		for (AptCharacterInst *child : root->children())
 		{

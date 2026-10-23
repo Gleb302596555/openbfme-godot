@@ -2412,6 +2412,18 @@ TEST_CASE("skirmish controller: bottom bar reaches Profile and player corners st
 	bool change = false;
 	for (const auto &t : nav.targets()) change |= t.id.find(".ProfileNav.ChangeProfile.") != std::string::npos;
 	CHECK(change);
+	// PROFILE still uses a full-stage click-away button on this non-main screen.
+	REQUIRE_FALSE(nav.catchers().empty());
+	REQUIRE(nav.key(MenuNavKey::Back));
+	fx.tick(90);
+	for (const auto &target : nav.targets())
+		CHECK(target.id.find(".ProfileNav.ChangeProfile.") == std::string::npos);
+	// Reopen through the same authored rollover before checking entry activation.
+	for (const auto &target : all)
+		if (target.id.find(".ProfileNav.bttn") != std::string::npos)
+			fx.wm->postMouseMove(target.cx(), target.cy());
+	fx.tick(60);
+	REQUIRE_FALSE(nav.catchers().empty());
 	REQUIRE(nav.key(MenuNavKey::Activate));
 	fx.tick(10);
 	CHECK(nav.focusId().find(".ProfileNav.") != std::string::npos);

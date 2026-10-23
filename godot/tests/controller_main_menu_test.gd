@@ -36,6 +36,12 @@ func cycle(fs: RefCounted, presentation: RefCounted, style: String) -> void:
 	if presentation != null: config.presentation_fs = presentation
 	check(shell.boot_shell(fs, world, config).ok, style + " boot")
 	check(shell.shell_push("MainMenu.apt"), style + " main menu")
+	var early := InputEventKey.new()
+	early.keycode = KEY_RIGHT
+	early.pressed = true
+	check(not shell.menu_input(early), style + " ignores navigation before movie load")
+	early.pressed = false
+	shell.menu_input(early)
 	step(shell)
 	check(shell.shell_invoke(shell.shell_top_level(), "ShowMainMenu", PackedStringArray()).ok, style + " show")
 	step(shell, 120)

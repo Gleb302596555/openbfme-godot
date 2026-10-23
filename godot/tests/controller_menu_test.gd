@@ -24,10 +24,10 @@ func _run() -> void:
 	var shell := FakeShell.new()
 	game._shell = shell
 	game._state = game.State.MENU
-	game._controller_menu_action("skirmish")
-	assert(shell.calls == [["AptMainMenu::Skirmish", ""]])
+	assert(not game._controller_start_lobby())
+	assert(shell.calls.is_empty())
 	shell.stack = PackedStringArray(["MainMenu.apt", "Skirmish.apt"])
-	game._controller_menu_action("skirmish")
+	assert(game._controller_start_lobby())
 	assert(shell.calls.back() == ["AptSkirmish::StartGame", ""])
 	# The real Start-button routing starts this lobby instead of generating Esc.
 	var pad = load("res://scripts/menu_pad.gd").new(shell)
@@ -47,23 +47,21 @@ func _run() -> void:
 	pad._input(start)
 	start.pressed = false
 	pad._input(start)
-	assert(shell.calls.size() == 3)
+	assert(shell.calls.size() == 2)
 	assert(shell.calls.back() == ["AptSkirmish::StartGame", ""])
 	assert(pad.take_log().is_empty(), "Start must not also generate Escape")
 	# Every profile popup belongs to Skirmish.apt but must block Start.
 	shell.start_available = false
 	assert(not game._controller_start_lobby())
-	game._controller_menu_action("skirmish")
-	assert(shell.calls.size() == 3)
+	assert(shell.calls.size() == 2)
 	shell.start_available = true
 	shell.stack.append("Options.apt")
-	game._controller_menu_action("skirmish")
-	game._controller_menu_action("jumpToSelection")
-	assert(shell.calls.size() == 3)
+	assert(not game._controller_start_lobby())
+	assert(shell.calls.size() == 2)
 	shell.stack = PackedStringArray(["MainMenu.apt"])
 	game._state = game.State.PLAYING
-	game._controller_menu_action("skirmish")
-	assert(shell.calls.size() == 3)
+	assert(not game._controller_start_lobby())
+	assert(shell.calls.size() == 2)
 	var trigger := InputEventJoypadMotion.new()
 	trigger.axis = JOY_AXIS_TRIGGER_LEFT
 	for value in [0.8, 0.9, 0.0, 0.8, 0.0]:

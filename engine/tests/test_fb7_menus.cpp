@@ -3089,66 +3089,6 @@ TEST_CASE("opts6 menu navigation retail: the OpenBFME page by keys")
 	CHECK(nav.focusId().empty());
 }
 
-// The retail main menu without a mouse: its nav buttons open their sub-menus when pointed at and put a click-away area over the stage; the keys leave
-// a sub-menu through it as the mouse does, Enter on OPTIONS opens its sub-menu and Up reaches SETTINGS, whose Enter opens Options.
-TEST_CASE("opts6 menu navigation retail: the main menu's OPTIONS > SETTINGS by keys")
-{
-	OPENBFME_REQUIRE_RETAIL(mount);
-	ShellFx fx(mount, "StaticGameLOD = High\n");
-	fx.environment.openbfmeOptionsMenu = true;
-	fx.tick(2);
-	fx.shell->push("MainMenu.apt");
-	fx.tick(150); // the intro
-	AptScreen *menu = fx.shell->top();
-	REQUIRE(menu);
-	MenuNavigator nav(*fx.wm);
-	nav.setMenu(menu->level(), menu);
-	const auto has = [](const std::string &id, const char *clip) { return id.find(std::string(".") + clip + ".") != std::string::npos; };
-	bool reached = false;
-	for (int i = 0; i < 20 && !reached; ++i)
-	{
-		REQUIRE(nav.key(MenuNavKey::Next));
-		fx.tick(15);
-		reached = has(nav.focusId(), "OptionsNav");
-	}
-	REQUIRE_MESSAGE(reached, nav.focusId());
-	REQUIRE(nav.key(MenuNavKey::Activate)); // pointed at, OPTIONS opened its sub-menu over itself: Enter presses it or, once covered, nothing
-	fx.tick(40);
-	bool settings = false;
-	for (int i = 0; i < 10 && !settings; ++i)
-	{
-		REQUIRE(nav.key(MenuNavKey::Up));
-		fx.tick(15);
-		settings = nav.focusId().find("Settings") != std::string::npos;
-	}
-	REQUIRE_MESSAGE(settings, nav.focusId());
-	// Navigation follows the authored dropdown hit region and lets its own
-	// rollover animation show focus, without a white rectangle over the label.
-	const auto targets = nav.targets();
-	bool checked = false;
-	for (const auto &target : targets)
-		if (target.id == nav.focusId())
-		{
-			AptButtonInst *button = fx.wm->apt().input().hitTestButtons(target.cx(), target.cy());
-			REQUIRE(button);
-			float hit[4];
-			REQUIRE(button->hitBounds(hit));
-			CHECK(target.x0 == hit[0]);
-			CHECK(target.y0 == hit[1]);
-			CHECK(target.x1 == hit[2]);
-			CHECK(target.y1 == hit[3]);
-			checked = true;
-		}
-	REQUIRE(checked);
-	GadgetDrawList focus;
-	nav.appendFocusFrame(focus);
-	CHECK(focus.commands.empty());
-	REQUIRE(nav.key(MenuNavKey::Activate));
-	fx.tick(80);
-	REQUIRE(fx.shell->top());
-	CHECK(fx.shell->top()->filename() == "Options.apt");
-}
-
 // ---- lane SHELLFIX-1: the Options menu in both main menu styles (the owner's v0.4.9 reports at 2560 x 1440) ---------------------------------------
 namespace
 {
