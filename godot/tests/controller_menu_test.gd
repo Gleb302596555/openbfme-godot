@@ -5,6 +5,8 @@ class FakeShell extends Node2D:
 	var calls: Array = []
 	var sections: Array = []
 	var active := true
+	var start_available := true
+	func screen_state() -> Dictionary: return {"start_available": start_available}
 	func menu_controller_section(delta: int) -> bool:
 		sections.append(delta)
 		return true
@@ -32,6 +34,13 @@ func _run() -> void:
 	root.add_child(pad)
 	pad.set_process(false)
 	pad.start_lobby = game._controller_start_lobby
+	var unused := InputEventJoypadMotion.new()
+	unused.device = 12
+	unused.axis = JOY_AXIS_LEFT_X
+	unused.axis_value = 0.2
+	pad._input(unused)
+	assert(pad._device == -1, "Drift cannot claim an unused controller")
+
 	var start := InputEventJoypadButton.new()
 	start.button_index = JOY_BUTTON_START
 	start.pressed = true
@@ -41,6 +50,12 @@ func _run() -> void:
 	assert(shell.calls.size() == 3)
 	assert(shell.calls.back() == ["AptSkirmish::StartGame", ""])
 	assert(pad.take_log().is_empty(), "Start must not also generate Escape")
+	# Every profile popup belongs to Skirmish.apt but must block Start.
+	shell.start_available = false
+	assert(not game._controller_start_lobby())
+	game._controller_menu_action("skirmish")
+	assert(shell.calls.size() == 3)
+	shell.start_available = true
 	shell.stack.append("Options.apt")
 	game._controller_menu_action("skirmish")
 	game._controller_menu_action("jumpToSelection")
@@ -62,6 +77,29 @@ func _run() -> void:
 	assert(shell.sections == [1, 1, -1], "Triggers switch once per pull")
 	assert(pad.take_log().is_empty(), "Section triggers must not also send arrow keys")
 
+	# An unused pad's drift/release cannot claim or steal the menu. A deliberate
+	# button press hands over safely and releases the previous held keys.
+	var drift := InputEventJoypadMotion.new()
+	drift.device = 12
+	drift.axis = JOY_AXIS_LEFT_X
+	drift.axis_value = 0.2
+	pad._input(drift)
+	assert(pad._device == 0)
+	var handoff := InputEventJoypadButton.new()
+	handoff.device = 12
+	handoff.button_index = JOY_BUTTON_DPAD_DOWN
+	handoff.pressed = true
+	pad._input(handoff)
+	assert(pad._device == 12)
+	handoff.pressed = false
+	pad._input(handoff)
+	assert(pad.take_log() == PackedStringArray(["down Down", "up Down"]))
+	handoff.device = 0
+	handoff.pressed = true
+	pad._input(handoff)
+	handoff.pressed = false
+	pad._input(handoff)
+	pad.take_log()
 	var events: Array = []
 	pad.input_generated.connect(func(event: InputEvent) -> void: events.append(event))
 	var stick := InputEventJoypadMotion.new()

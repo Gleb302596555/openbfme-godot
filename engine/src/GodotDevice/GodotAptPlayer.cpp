@@ -738,6 +738,8 @@ struct ShellMode
 struct AptMenuPlayer::Impl
 {
 	int mainMenuGroup = -1, mainMenuItem = -1;
+	PackedStringArray mainMenuGroups, mainMenuEntries;
+	String mainMenuFocus;
 	bool cahGuardShown = false;   ///< lane CAHPIC-1: the last picture showed Create-a-Hero's RenderPictureGuard clip
 	bool cahMapShown = false;     ///< lane CAHPIC-1: ... and its DrawMapComponent clip (the 3D view)
 	bool cahPicturePending = false; ///< lane CAHPIC-1: a picture is taken from the next frame drawn
@@ -5577,6 +5579,7 @@ Dictionary AptMenuPlayer::screen_state() const
 	if (auto *skirmish = dynamic_cast<AptSkirmish *>(top))
 	{
 		out["profile_state"] = skirmish->profileState();
+		out["start_available"] = skirmish->startAvailable(); // Popup states cannot start.
 	}
 	if (auto *cah = dynamic_cast<AptCreateAHero *>(top))
 	{
@@ -5878,6 +5881,9 @@ bool AptMenuPlayer::menu_input(const Ref<InputEvent> &event)
 Dictionary AptMenuPlayer::menu_nav_state()
 {
 	Dictionary r;
+	r["main_groups"] = m->mainMenuGroups;
+	r["main_entries"] = m->mainMenuEntries;
+	r["main_focus"] = m->mainMenuFocus;
 	r["level"] = -1;
 	if (!m_booted || !m->shell || !m->shell->nav)
 	{
@@ -5935,86 +5941,106 @@ Dictionary AptMenuPlayer::menu_nav_state()
 
 bool AptMenuPlayer::menuKey(const InputEventKey *key)
 {
-		// BFME2Lua dev/lib/main_menu.lua: explicit group/item policy and native
-		// timeline highlights. Expanded groups cover other headings in APT hit
-		// testing, so spatial mouse traversal cannot establish this order.
-		const Key menuKey = key->get_keycode();
-		const bool menuArrow = menuKey == Key::KEY_LEFT || menuKey == Key::KEY_RIGHT || menuKey == Key::KEY_UP || menuKey == Key::KEY_DOWN;
-		const bool mainScreen = m->shell && m->shell->shell && m->shell->shell->top() && m->shell->shell->top()->filename() == "MainMenu.apt";
-		AptCharacterInst *mainHeading = mainScreen ? m->A()->resolvePath(m->A()->level(m->shell->shell->top()->level()), "SoloPlayNav") : nullptr;
-		const bool main = mainHeading && mainHeading->globallyVisible() && !m->shell->wm->componentInputBlocked();
-		if (!main || menuKey == Key::KEY_TAB) m->mainMenuGroup = m->mainMenuItem = -1;
-		if (main && (menuArrow || (m->mainMenuGroup >= 0 && (menuKey == Key::KEY_ENTER || menuKey == Key::KEY_KP_ENTER || menuKey == Key::KEY_SPACE))))
+	// The mounted movie supplies the groups, entries and button actions. This
+	// works for each game's menu and for mods without a content-name table.
+	const Key menuKey = key->get_keycode();
+	const bool arrow = menuKey == Key::KEY_LEFT || menuKey == Key::KEY_RIGHT || menuKey == Key::KEY_UP || menuKey == Key::KEY_DOWN;
+	const bool main = m->shell && m->shell->shell && m->shell->shell->top() &&
+		m->shell->shell->top()->filename() == "MainMenu.apt" && !m->shell->wm->componentInputBlocked();
+	if (!main || menuKey == Key::KEY_TAB) m->mainMenuGroup = m->mainMenuItem = -1;
+	if (main && (arrow || (m->mainMenuGroup >= 0 && (menuKey == Key::KEY_ENTER || menuKey == Key::KEY_KP_ENTER || menuKey == Key::KEY_SPACE))))
+	{
+		const int level = m->shell->shell->top()->level();
+		AptSpriteInst *root = m->A()->level(level);
+		std::vector<AptSpriteInst *> groups;
+		for (AptCharacterInst *child : root->children())
 		{
-			struct Menu { const char *clip; std::vector<const char *> items; };
-			const std::vector<Menu> menus = {
-				{ "TutorialsNav", { "BasicTutorial", "AdvancedTutorial", "StrategicTutorial" } },
-				{ "SoloPlayNav", { "Skirmish", "WarOfTheRing", "EvilCampaign", "GoodCampaign", "LoadGame" } },
-				{ "MultiPlayNav", { "Online", "LocalNetwork", "Replay" } },
-				{ "OptionsNav", { "Settings", "AdvancedSettings", "Credits" } },
-				{ "MyHeores", {} }, { "QuitMainMenu", {} }
+			AptSpriteInst *clip = child->asSprite();
+			if (clip && clip->globallyVisible() &&
+				((clip->labelFrame("_show") >= 0 && clip->labelFrame("_hide") >= 0) ||
+				 (clip->labelFrame("_over") >= 0 && firstButton(clip)))) groups.push_back(clip);
+		}
+		// Horizontal group order follows the authored heading positions. Entries
+		// follow their authored vertical positions after the group opens.
+		auto x = [](AptCharacterInst *clip) { float x, y; clip->globalMatrix().apply(0, 0, x, y); return x; };
+		std::stable_sort(groups.begin(), groups.end(), [&](auto *a, auto *b) { return x(a) < x(b); });
+		m->mainMenuGroups.clear();
+		for (auto *group : groups) m->mainMenuGroups.push_back(toGodot(group->pathSegment()));
+		if (!groups.empty())
+		{
+			auto animate = [](AptSpriteInst *clip, const char *label) {
+				const int frame = clip->labelFrame(label);
+				if (frame >= 0) { clip->gotoFrame(frame); clip->playing = true; }
 			};
-			const int level = m->shell->shell->top()->level();
-			auto animate = [&](const std::string &path, const char *label, bool play) {
-				AptCharacterInst *clip = m->A()->resolvePath(m->A()->level(level), path);
-				AptSpriteInst *sprite = clip ? clip->asSprite() : nullptr;
-				const int frame = sprite ? sprite->labelFrame(label) : -1;
-				if (frame >= 0) { sprite->gotoFrame(frame); sprite->playing = play; }
-			};
+			if (m->mainMenuGroup >= (int)groups.size()) m->mainMenuGroup = m->mainMenuItem = -1;
 			if (key->is_pressed())
 			{
-				const int previousGroup = m->mainMenuGroup;
-				const bool horizontal = menuKey == Key::KEY_LEFT || menuKey == Key::KEY_RIGHT;
-				if (menuArrow)
+				const int previous = m->mainMenuGroup;
+				if (menuKey == Key::KEY_LEFT || menuKey == Key::KEY_RIGHT || m->mainMenuGroup < 0)
 				{
-					if (horizontal)
+					const int delta = menuKey == Key::KEY_LEFT ? -1 : 1;
+					if (m->mainMenuGroup < 0) m->mainMenuGroup = delta > 0 ? -1 : 0;
+					m->mainMenuGroup = (m->mainMenuGroup + delta + (int)groups.size()) % (int)groups.size();
+					m->mainMenuItem = -1;
+				}
+				m->mainMenuFocus = toGodot(groups[m->mainMenuGroup]->pathSegment());
+				if (previous != m->mainMenuGroup)
+				{
+					for (int i = 0; i < (int)groups.size(); ++i)
 					{
-						const int delta = menuKey == Key::KEY_RIGHT ? 1 : -1;
-						if (m->mainMenuGroup < 0) m->mainMenuGroup = delta > 0 ? -1 : 0;
-						m->mainMenuGroup = (m->mainMenuGroup + delta + (int)menus.size()) % (int)menus.size();
-						m->mainMenuItem = -1;
-					}
-					else
-					{
-						if (m->mainMenuGroup < 0) m->mainMenuGroup = 0;
-						const int count = (int)menus[m->mainMenuGroup].items.size();
-						if (count) m->mainMenuItem = m->mainMenuItem < 0 ? 0 : (m->mainMenuItem + (menuKey == Key::KEY_UP ? 1 : -1) + count) % count;
+						const bool chosen = i == m->mainMenuGroup;
+						const bool expands = groups[i]->labelFrame("_show") >= 0;
+						animate(groups[i], expands ? (chosen ? "_show" : "_hide") : (chosen ? "_over" : "_up"));
 					}
 				}
-				else if (m->mainMenuItem < 0 && !menus[m->mainMenuGroup].items.empty()) m->mainMenuItem = 0;
 				else
 				{
-					const std::vector<std::vector<const char *>> actions = {
-						{ "OnTutorial", "OnTutorial", "OnTutorial" },
-						{ "Skirmish", "WarOfTheRing", "EvilCampaignButton", "GoodCampaignButton", "LoadGame" },
-						{ "OnlineButtonPressed", "LAN", "LoadReplay" },
-						{ "SettingsButton", "AdvancedSettingsButton", "Credits" }, { "CreateAHero" }, { "ExitGame" }
-					};
-					const int item = std::max(0, m->mainMenuItem);
-					const std::string action = actions[m->mainMenuGroup][item];
-					if (action.find("Button") != std::string::npos && action != "OnlineButtonPressed")
+					AptSpriteInst *group = groups[m->mainMenuGroup];
+					std::vector<AptSpriteInst *> entries;
+					for (AptCharacterInst *child : group->children())
 					{
-						std::string error;
-						if (!m->shell->wm->invokeASAt(level, "", action, {}, nullptr, &error)) m->errors.insert(error);
+						AptSpriteInst *clip = child->asSprite();
+						// OpenButton is the heading, not a selectable submenu item.
+						if (clip && clip->pathSegment() != "OpenButton" && clip->globallyVisible() &&
+							clip->labelFrame("_over") >= 0 && firstButton(clip) && firstButton(clip)->enabled) entries.push_back(clip);
 					}
-					else
+					std::stable_sort(entries.begin(), entries.end(), [](auto *a, auto *b) {
+						float ax, ay, bx, by; a->globalMatrix().apply(0, 0, ax, ay); b->globalMatrix().apply(0, 0, bx, by); return ay > by;
+					});
+					if (m->mainMenuItem >= (int)entries.size()) m->mainMenuItem = -1;
+					if (menuKey == Key::KEY_UP || menuKey == Key::KEY_DOWN)
 					{
-						const char *tutorials[] = { "Basic", "Advanced", "Strategic" };
-						m->shell->wm->invokeCallback("AptMainMenu::" + action, m->mainMenuGroup == 0 ? tutorials[item] : "");
+						if (!entries.empty()) m->mainMenuItem = m->mainMenuItem < 0 ? 0 :
+							(m->mainMenuItem + (menuKey == Key::KEY_UP ? 1 : -1) + (int)entries.size()) % (int)entries.size();
 					}
+					else if (!arrow)
+					{
+						if (m->mainMenuItem < 0 && !entries.empty()) m->mainMenuItem = 0;
+						else
+						{
+							AptSpriteInst *entry = entries.empty() ? group : entries[m->mainMenuItem];
+							const Dictionary hit = find_button(level, toGodot(entry->targetPath()));
+							if ((bool)hit.get("found", false) && (bool)hit.get("enabled", false) && hit.get("hit", String()) == hit.get("path", String()))
+							{
+								m->shell->wm->postMouseMove((double)hit["x"], (double)hit["y"]);
+								m->shell->wm->postMouseButton(true);
+								m->shell->wm->postMouseButton(false);
+							}
+						}
+					}
+					m->mainMenuEntries.clear();
+					for (int i = 0; i < (int)entries.size(); ++i)
+					{
+						m->mainMenuEntries.push_back(toGodot(entries[i]->pathSegment()));
+						animate(entries[i], i == m->mainMenuItem ? "_over" : "_up");
+					}
+					if (m->mainMenuItem >= 0) m->mainMenuFocus = toGodot(entries[m->mainMenuItem]->pathSegment());
 				}
-				for (int g = 0; g < (int)menus.size(); ++g)
-				{
-					const bool chosen = g == m->mainMenuGroup;
-					const bool single = menus[g].items.empty();
-					if (previousGroup != m->mainMenuGroup) animate(menus[g].clip, single ? (chosen ? "_over" : "_up") : (chosen ? "_show" : "_hide"), chosen || single);
-					if (!single && previousGroup != m->mainMenuGroup) animate(std::string(menus[g].clip) + ".OpenButton", chosen ? "_over" : "_up", true);
-					for (int j = 0; j < (int)menus[g].items.size(); ++j)
-						animate(std::string(menus[g].clip) + "." + menus[g].items[j], chosen && j == m->mainMenuItem ? "_over" : "_up", true);
-				}
+				m->dirty = true;
 			}
 			return true;
 		}
+	}
 
 	if (m->shell && m->shell->nav && m->shell->shell)
 	{

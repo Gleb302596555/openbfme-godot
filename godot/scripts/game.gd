@@ -2718,6 +2718,8 @@ func _controller_start_lobby() -> bool:
 	var stack = _shell.shell_stack()
 	if stack.is_empty() or stack[-1] != "Skirmish.apt":
 		return false
+	if not _shell.screen_state().get("start_available", false):
+		return false
 	_controller_menu_action("skirmish")
 	return true
 
@@ -2730,7 +2732,9 @@ func _controller_menu_action(action: String) -> void:
 		return
 	match stack[-1]:
 		"MainMenu.apt": _shell.shell_fscommand("AptMainMenu::Skirmish", "")
-		"Skirmish.apt": _shell.shell_fscommand("AptSkirmish::StartGame", "")
+		"Skirmish.apt":
+			if _shell.screen_state().get("start_available", false):
+				_shell.shell_fscommand("AptSkirmish::StartGame", "")
 
 func _run_auto() -> void:
 	# main menu: wait for ShowMainMenu, open the solo nav and click Skirmish (real mouse events)
