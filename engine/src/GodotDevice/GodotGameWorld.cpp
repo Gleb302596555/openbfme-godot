@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GodotDevice/GodotGameWorld.h.
 
+#include "Common/ModEngineFeatures.h"
 #include "GodotDevice/GodotGammaComposite.h"
 #include <godot_cpp/classes/shader.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
@@ -295,6 +296,7 @@ void GameWorld::_bind_methods()
 	ClassDB::bind_method(D_METHOD("destroy_object", "id"), &GameWorld::destroy_object);
 	ClassDB::bind_method(D_METHOD("find_object_by_template", "template_name"), &GameWorld::find_object_by_template);
 	ClassDB::bind_method(D_METHOD("get_template_model", "template_name"), &GameWorld::get_template_model);
+	ClassDB::bind_method(D_METHOD("get_player_beacon_template", "player_index"), &GameWorld::get_player_beacon_template); // the ping wheel
 	ClassDB::bind_method(D_METHOD("get_placement_ghost", "template_name"), &GameWorld::get_placement_ghost);
 	ClassDB::bind_method(D_METHOD("create_object", "template_name", "player", "x", "y", "angle"), &GameWorld::create_object, DEFVAL(0.0));
 	ClassDB::bind_method(D_METHOD("get_ground_height", "x", "y"), &GameWorld::get_ground_height);
@@ -618,10 +620,25 @@ Dictionary GameWorld::setup(const Ref<RetailFileSystem> &fs)
 		}
 		else
 		{
+			// lane MODS-3 (S-5306): with a mod mounted, a file the mod's data cannot parse is what retail meets too: the rest of that file is skipped
+			// (INI::loadSubsystemFiles) and the game goes on. The errors are reported (mod_data_errors, printed), the game starts. Retail data has none, so
+			// without a mod every error stays fatal (a port bug)
+			const bool modded = !fs->modIdentity().empty();
+			Array modDataErrors;
 			for (const SubsystemLoadReport::FileError &e : m_world->report().errors)
 			{
-				errors.push_back(toGodot(e.file + ": " + e.message));
+				(modded ? modDataErrors : errors).push_back(toGodot(e.file + ": " + e.message));
 			}
+			if (!modDataErrors.is_empty())
+			{
+				UtilityFunctions::print("GameWorld: S-5306: the mod's data has ", modDataErrors.size(),
+					" INI error(s); as retail, the rest of each failing file is skipped and the game goes on:");
+				for (int64_t i = 0; i < modDataErrors.size(); ++i)
+				{
+					UtilityFunctions::print("GameWorld:   ", modDataErrors[i]);
+				}
+			}
+			result["mod_data_errors"] = modDataErrors;
 			result["seconds"] = timing::elapsedSeconds(t0);
 			result["templates"] = (int64_t)m_world->things().templateCount();
 			result["factions"] = (int64_t)m_world->setupPlayerTemplates().playableSideIndices().size();
@@ -636,7 +653,7 @@ Dictionary GameWorld::setup(const Ref<RetailFileSystem> &fs)
 				errors.push_back(toGodot("settings: " + error));
 				m_world.reset();
 			}
-			m_source.reset(new ArchiveW3DFileSource(*fs->archive_fs()));
+			m_source = fs->renderW3DSource(); // lane SDK-0: the drawables' (render) assets, asset packs in front; LiveGame's launch bones read m_fs
 			m_assets.reset(new WW3DAssetManager(*m_source));
 			// lane FX-2: the effect player of the live games (FXParticleSystem.ini / FXList.ini through FX-1's FXPlayer), a child kept across loads
 			m_liveFX.reset();
@@ -2555,6 +2572,7 @@ void GameWorld::refresh_streaks(bool record)
 	if (!m_streakTextures && m_fs.is_valid() && m_fs->archive_fs())
 	{
 		m_streakTextures.reset(new W3DMaterialFactory(*m_fs->archive_fs()));
+		m_streakTextures->Set_Asset_Packs(m_fs->assetPacks().empty() ? nullptr : &m_fs->assetPacks()); // lane SDK-0
 	}
 	// group the strips by material (lane PROJ-2: the texture of the map's weather, RW 0x4CFA9A: WeatherType NORMAL 0 / SNOWY 1)
 	const int weather = m_streakWeather;
@@ -3025,6 +3043,19 @@ String GameWorld::get_template_model(const String &template_name) const
 		}
 	}
 	return String();
+}
+
+String GameWorld::get_player_beacon_template(int64_t player_index) const
+{
+	// PlayerTemplate BeaconName (PlayerTemplate.cpp's field table; RotWK reads it at RW 0x6D1305 for the beacon it places): the template a player's
+	// beacon is. The ping wheel draws that template's model, so a mod's own beacon shows. The template is fixed once the player is set up
+	if (!m_game || player_index < 0 || player_index >= m_game->players().getPlayerCount())
+	{
+		return String();
+	}
+	const Player *p = m_game->players().getNthPlayer((int)player_index);
+	const PlayerTemplate *pt = p ? p->getPlayerTemplate() : nullptr;
+	return pt ? toGodot(pt->m_beaconName) : String();
 }
 
 int64_t GameWorld::create_object(const String &template_name, int64_t player, double x, double y, double angle)
@@ -4398,7 +4429,9 @@ void GameWorld::net_disconnect_quit()
 
 ProfileIdentity GameWorld::profileIdentityFor(SimulationProfile profile) const
 {
-	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain, {}, profile);
+	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain,
+		ModEngineFeatures::identityFeatures(), profile, // lane MODS-3: the mod's engine features
+		m_fs.is_valid() ? m_fs->modIdentity() : std::vector<std::string>()); // lane MODS-1
 }
 
 Dictionary GameWorld::net_observe_next(bool forward)
@@ -4541,8 +4574,8 @@ Dictionary GameWorld::caster_status() const
 ProfileIdentity GameWorld::net_profile() const
 {
 	// the profile identity of this peer: the mounted archives in mount order with their verified md5, the build, the RNG prepare_new_game uses
-	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain, {},
-		m_choice.current); // lane UBER-1: "profile uber" in the Uber performance mode
+	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain,
+		ModEngineFeatures::identityFeatures(), m_choice.current, m_fs.is_valid() ? m_fs->modIdentity() : std::vector<std::string>()); // lane UBER-1: "profile uber" in the Uber mode; MODS-1: the mod
 }
 
 Dictionary GameWorld::set_simulation_profile(const String &name)

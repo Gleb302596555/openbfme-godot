@@ -3,6 +3,8 @@
 
 #include "GameLogic/Economy.h"
 
+#include "GameLogic/SimMath.h"
+#include "Common/ModEngineFeatures.h"
 #include "Common/NumericState.h"
 #include "Common/Audio/AudioRequests.h"
 #include "Common/Player.h"
@@ -549,6 +551,16 @@ float Economy::attributeModifierProduct(const Object &obj, int type) const
 		m_attributeModifiers(obj, type, product);
 	}
 	return product;
+}
+
+float Economy::productionMoneyProduct(const Object &obj) const
+{
+	const float production = attributeModifierProduct(obj, ATTRIBUTE_MODIFIER_PRODUCTION);
+	if (!ModEngineFeatures::has(ModEngineFeature::EdainUnchainedProductionSplit))
+	{
+		return production;
+	}
+	return SimMath::mulf32(production, attributeModifierProduct(obj, 28)); // PRODUCTION_MONEY (AttributeModifiers.h ATTRIBUTE_PRODUCTION_MONEY)
 }
 
 bool Economy::objectHasModelCondition(const Object &obj, const char *modelCondition) const

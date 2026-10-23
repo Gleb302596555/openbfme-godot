@@ -9,7 +9,7 @@
 // local player's units, through the same lockstep command path as the HUD. The AI players are the logic's own skirmish AI.
 //
 // Usage:
-//   openbfme_peer --rotwk DIR --bfme2 DIR (or ROTWK_INSTALL / BFME2_INSTALL)
+//   openbfme_peer --rotwk DIR --bfme2 DIR (or ROTWK_INSTALL / BFME2_INSTALL) [--mod PATH ...] (lane MODS-1: RotWK -mod, Common/ModMount.h)
 //     --host PORT [--bind IP] --map KEY --seed N --slot "human|easy|medium|hard|brutal,FactionName,startPos,team[,handicap]" (repeated, in slot order;
 //       lane OWNERFIX-2: the handicap 0, -5 .. -95, default 0; the report lists each playable player's `player_handicap`)
 //     | --join IP:PORT --name NAME
@@ -98,6 +98,8 @@
 #include "Common/System/SaveGame/SaveGameFile.h"
 #include "GameClient/CommandLogLoad.h"
 #include "Common/Sha256.h"
+#include "Common/ModEngineFeatures.h"
+#include "Common/ModMount.h"
 #include "Common/RetailArchivePolicy.h"
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
@@ -212,6 +214,9 @@ struct Args
 	int lanPortBase = -1;
 	std::string platform; ///< lane PLATFORMICON-1: --platform windows|linux|macos (--lan-join: the PLATFORM_INFO this peer sends; none: it tells nothing, like an older build)
 	bool uber = false;             ///< lane UBER-1: --uber
+	std::vector<std::string> mods; ///< lane MODS-1: --mod PATH (RotWK's -mod; absolute: this tool has no user data folder)
+	std::vector<std::string> modEngines;  ///< lane MODS-3: --mod-engine MD5 (a modified game binary of the mod: Common/ModEngineFeatures.h)
+	std::vector<std::string> installMods; ///< lane MODS-2: --mod-install FOLDER, repeated highest priority first (Common/ModMount.h MountInstallOverlay)
 	int logicThreads = 0;          ///< PERF-2: --logic-threads N, the logic job pool's threads (0: OPENBFME_LOGIC_THREADS or the hardware's)
 	int toggleGates = 0;                ///< lane HUD-5: --toggle-gates N (every N frames the local player toggles each settled gate it controls)
 	long long recruitCreateAHeroAt = -1; ///< lane HERO-2: --recruit-create-a-hero FRAME (the local player recruits its Create-a-Hero from then on until made)
@@ -253,6 +258,9 @@ bool parseArgs(int argc, char **argv, Args &a, std::string &error)
 		};
 		std::string v;
 		if (k == "--rotwk" && next(a.rotwk)) {}
+		else if (k == "--mod" && next(v)) { a.mods.push_back(v); }
+		else if (k == "--mod-install" && next(v)) { a.installMods.push_back(v); }
+		else if (k == "--mod-engine" && next(v)) { a.modEngines.push_back(v); }
 		else if (k == "--bfme2" && next(a.bfme2)) {}
 		else if (k == "--host" && next(v)) a.hostPort = std::atoi(v.c_str());
 		else if (k == "--bind" && next(a.bind)) a.bindGiven = true;
@@ -447,7 +455,62 @@ bool loadWorld(const Args &a, World &w, std::string &error)
 		error = "the retail mount failed (a headless peer needs every archive a rendering peer reads, the W3D archives included):\n" + error;
 		return false;
 	}
-	w.profile = ProfileIdentity::compute(mr.mounted, RandomAlgorithm::ZH_CarryChain, a.features, a.uber ? SimulationProfile::Uber : SimulationProfile::Faithful);
+	std::vector<std::string> modLines;
+	std::vector<MountedArchive> mountedArchives = mr.mounted;
+	if (!ModEngineFeatures::activate(a.modEngines, &error)) // lane MODS-3, before anything is parsed
+	{
+		return false;
+	}
+	std::vector<std::string> features = a.features;
+	for (const std::string &f : ModEngineFeatures::identityFeatures())
+	{
+		features.push_back(f);
+	}
+	if (!a.installMods.empty())
+	{
+		// lane MODS-2: an install-folder mod: the file system of the merged game folder replaces the retail one
+		auto merged = std::make_unique<Win32BIGFileSystem>();
+		const ModMountReport im = MountInstallOverlay(*merged, mr, a.installMods, ModMountOptions());
+		if (!im.ok)
+		{
+			for (const std::string &e : im.errors)
+			{
+				error += e + "\n";
+			}
+			error = "the install-folder mod failed:\n" + error;
+			return false;
+		}
+		w.fs = std::move(merged);
+		modLines = im.identity;
+		mountedArchives = im.merged;
+	}
+	// lane MODS-1: the -mod operands over the verified retail set (RotWK RW 0x7BAA44, Common/ModMount.h)
+	if (!a.mods.empty())
+	{
+		ModOperand operand;
+		for (const std::string &m : a.mods)
+		{
+			if (!ParseModArgument(m, std::string(), operand, &error))
+			{
+				return false;
+			}
+		}
+		ModMountOptions modOptions;
+		modOptions.rotwkInstallRoot = a.rotwk;
+		const ModMountReport modReport = MountRetailMod(*w.fs, operand, modOptions);
+		if (!modReport.ok)
+		{
+			for (const std::string &e : modReport.errors)
+			{
+				error += e + "\n";
+			}
+			error = "the -mod mount failed:\n" + error;
+			return false;
+		}
+		modLines.insert(modLines.end(), modReport.identity.begin(), modReport.identity.end());
+	}
+	w.profile = ProfileIdentity::compute(mountedArchives, RandomAlgorithm::ZH_CarryChain, features, a.uber ? SimulationProfile::Uber : SimulationProfile::Faithful,
+		modLines);
 	w.world = std::make_unique<RetailObjectWorld>(*w.fs);
 	if (!w.world->load(&error) || !MapObjectGameData::load(*w.fs, w.options, &error) || !MapObjectGameData::loadPlayerTemplates(*w.fs, w.options, &error)
 		|| !MapCreationHooks::load(*w.fs, w.options.creationScripts, &error) || !GameLogicSettingsLoader::load(*w.fs, w.settings, &error)
@@ -1819,12 +1882,23 @@ int main(int argc, char **argv)
 	const std::uint64_t runStart = NetMilliseconds();
 	std::uint64_t lastProgress = runStart;
 	int exitCode = 0;
-	session.driver().setStopFrame((UnsignedInt)std::max(0, a.frames)); // SMOOTH-1: no batch beyond --frames (the worker may run ahead of presentation)
-	if (a.vanishAt >= 0 && a.vanishAt < a.frames)
-	{
-		// lane NETLAG-2: the process stops exactly at its frame (a frame that waited and the next can now run in one advance: LiveGame's owed frame)
-		session.driver().setStopFrame((UnsignedInt)a.vanishAt);
-	}
+	// SMOOTH-1: no batch beyond --frames (the worker may run ahead of presentation). lane NETLAG-2: --vanish-at stops the process exactly at its frame
+	// (a frame that waited and the next can now run in one advance: LiveGame's owed frame). KNOWN-3: --quit-at and a pending --blackout-at hold the
+	// driver at their frame alike, so the event happens at exactly that protocol frame on a loaded machine too (a catch-up advance ran over it: the
+	// quit at 251); the hold ends once the event is done (the blackout's is lifted in the same loop pass, before the advance)
+	auto holdFrame = [&]() {
+		long long stop = std::max(0, a.frames);
+		for (long long f : { a.vanishAt, a.quitAt })
+		{
+			stop = f >= 0 ? std::min(stop, f) : stop;
+		}
+		for (const auto &bo : a.blackouts)
+		{
+			stop = bo.first >= 0 ? std::min(stop, bo.first) : stop;
+		}
+		session.driver().setStopFrame((UnsignedInt)stop);
+	};
+	holdFrame();
 	// lane MP-2: a frame may wait for the disconnect path (the screen after NetworkDisconnectTime, the drop after NetworkPlayerTimeoutTime)
 	const std::uint64_t noProgressMs = 30000u + (std::uint64_t)so.network.disconnectTime + (std::uint64_t)so.network.playerTimeoutTime;
 	std::string disconnectQuit;
@@ -1980,6 +2054,7 @@ int main(int argc, char **argv)
 				session.transport().impairment().blackout(NetMilliseconds(), (std::uint64_t)bo.second); // lane MP-3: the cable is pulled
 				blackoutLog.push_back("frame " + std::to_string(pf) + " for " + std::to_string(bo.second) + " ms");
 				bo.first = -1;
+				holdFrame(); // KNOWN-3: the next event's frame (or --frames)
 			}
 		}
 		for (auto &h : a.hitches)
@@ -2353,6 +2428,15 @@ int main(int argc, char **argv)
 		}
 		// every game slot's player: its live objects (a leaver's go to its ally or die) and whether it is defeated
 		const LiveGame::Report lr = game.report();
+		// lane MODS-3: which script lists and libraries every side runs, the library teams added, and the player / team setup notes
+		for (const std::string &l : lr.mapScripts)
+		{
+			r << "map_scripts " << l << "\n";
+		}
+		for (const std::string &l : lr.playerNotes)
+		{
+			r << "player_note " << l << "\n";
+		}
 		for (int sl = 0; sl < MAX_SLOTS && (size_t)sl < lr.startSlotPlayers.size(); ++sl)
 		{
 			const Player *p = game.logic().players().findPlayerWithName(lr.startSlotPlayers[(size_t)sl]);

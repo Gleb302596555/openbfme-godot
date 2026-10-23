@@ -263,6 +263,18 @@
    "reason": "archive file system: file I/O"
   },
   {
+   "glob": "src/GameClient/AssetPacks.cpp",
+   "reason": "lane SDK-0: cosmetic asset packs (which model / texture files the render side draws): file I/O, never read by the simulation"
+  },
+  {
+   "glob": "src/Common/System/ModMount.cpp",
+   "reason": "lane MODS-1: the -mod mount (which mod archives and loose files load, their md5s): file I/O"
+  },
+  {
+   "glob": "src/Common/System/ModEngineFeatures.cpp",
+   "reason": "lane MODS-3: the table of known modified game programs (by md5) and the on / off switches of their features, set before a game starts: no arithmetic; the features themselves live in the audited simulation sources"
+  },
+  {
    "glob": "src/Common/System/LooseFileScan.cpp",
    "reason": "loose file scan: file I/O"
   },
@@ -643,8 +655,20 @@
    "reason": "lane ONLINE-2: the lobby service's START (JSON) read into the LobbyStart a LAN lobby gives: the NewGameMessage every peer starts from (encoded and resolved by audited code); no logic state"
   },
   {
+   "glob": "src/GameNetwork/RelayProbe.cpp",
+   "reason": "lane ONLINEMENU-1: a player's link to the online relay measured before the game (UDP probes answered NOT_BOUND) for the staging room's Connections screen; display data, no logic state"
+  },
+  {
    "glob": "src/GameNetwork/OnlineLobbyClient.cpp",
    "reason": "lane ONLINE-4: the online lobby service's client (HTTP requests queued for the host, JSON answers read into the staging room's game info); what it produces reaches the game only as the lobby's START (OnlineStart.cpp); no logic state"
+  },
+  {
+   "glob": "src/GameNetwork/OnlineSocialClient.cpp",
+   "reason": "SOCIAL-1 (landed by lane ONLINEMENU-1): the lobby client's social calls (friends, presence, invites, friend chat, the inbox poll): HTTP requests queued for the host and JSON answers kept for the menus; nothing reaches the logic"
+  },
+  {
+   "glob": "src/GameClient/GUI/AptScreens/AptMessenger.cpp",
+   "reason": "SOCIAL-1 (landed by lane ONLINEMENU-1): Messenger.apt's engine side (the friends and players lists, chat tabs, buttons); no logic state"
   },
   {
    "glob": "src/GameClient/GUI/AptScreens/AptOnlineShell.cpp",
