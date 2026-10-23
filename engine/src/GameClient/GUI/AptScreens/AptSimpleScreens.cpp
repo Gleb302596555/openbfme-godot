@@ -740,8 +740,8 @@ const char *AptPlayerTribute::stopLine()
 		   "(its Cancel / Escape: <path>_ReturnToGame, RW 0x914C51); the status rows are HUD-5's (S-1953); the tribute rows with their sliders and amounts "
 		   "(RW 0x915F5D .. 0x91578C) and Send (RW 0x914DD6 -> MSG_GIVE_MONEY, RW 0x6264E1) are ported (PLAY-1 r2); not ported: the opening's pause / input calls "
 		   "(RW 0x914FA2 .. 0x914FE2), a skirmish AI ally's extra money term in a tribute row's field 1 (RW 0x6A950B / 0x6A9999), the text entry's limit and filter "
-		   "(RW 0x81606D / 0x721FA9), RW 0x91578C's call points (here after every change), RW 0x6264E1's + 0x754 test taken as Player::isDefeated, and the campaign's "
-		   "objectives screen (RW 0x8E8843, AptObjectivesMenu)";
+		   "(RW 0x81606D / 0x721FA9), RW 0x91578C's call points (here after every change), RW 0x6264E1's + 0x754 test taken as Player::isDefeated (lane CAMPUI-1: the "
+		   "campaign's objectives screen RW 0x8E8843 is AptObjectivesMenu)";
 }
 
 AptLoadScreen::AptLoadScreen(WindowManager &windows, Shell &shell, ShellEnvironment &environment)

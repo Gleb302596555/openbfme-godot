@@ -22,6 +22,7 @@
 
 class CommandButton;
 class GameLogic;
+class FormationAssistant;
 class MessageStream;
 struct HudContext;
 
@@ -53,6 +54,14 @@ inline constexpr const char *Scroll = "Scroll";
 class InGameUI
 {
 public:
+	struct FormationSlot { ObjectID object; Coord3D position; float angle; float radius; std::string preview; };
+	bool formationActive = false;
+	int formationType = -1;
+	unsigned formationExpires = 0;
+	Coord3D formationAnchor{};
+	float formationAngle = 0, formationDragLength = 0;
+	const FormationAssistant *formationData = nullptr;
+	std::vector<FormationSlot> formationSlots;
 	InGameUI() = default;
 	InGameUI(const InGameUI &) = delete;
 	InGameUI &operator=(const InGameUI &) = delete;
@@ -170,7 +179,8 @@ public:
 	unsigned screenshotRequests() const { return m_screenshots; }
 
 	// ---- messages for the player (ZH InGameUI::message(label)): game text labels, drained by the HUD ----
-	void message(const std::string &label) { m_messages.push_back(label); }
+	void message(const std::string &label) { m_messages.push_back(label); if (m_messageHandler) m_messageHandler(label); }
+	void setMessageHandler(std::function<void(const std::string &)> handler) { m_messageHandler = std::move(handler); }
 	std::vector<std::string> takeMessages();
 	const std::vector<std::string> &messages() const { return m_messages; }
 
@@ -314,6 +324,7 @@ private:
 	Coord3D m_mouseoverLocation;
 	bool m_hasMouseoverLocation = false;
 	std::vector<std::string> m_messages;
+	std::function<void(const std::string &)> m_messageHandler;
 	std::string m_placeTemplate;
 	ObjectID m_placeSource = INVALID_ID;
 	const CommandButton *m_placeCommand = nullptr;

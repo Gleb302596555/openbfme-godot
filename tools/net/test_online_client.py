@@ -82,7 +82,16 @@ def test_smoke_against_a_lobby_without_a_relay(tmp_path):
            "PUBLIC_URL": f"http://127.0.0.1:{port}", "LOBBY_DATA": str(tmp_path), "LOBBY_BIND": f"127.0.0.1:{port}"}
     server = subprocess.Popen([node, str(HERE.parents[1] / "services/online/lobby/src/server.mjs")], env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     try:
-        assert "listening" in server.stdout.readline()
+        # Node may print warnings first (e.g. SQLite's ExperimentalWarning): wait for the lobby's own "listening" line
+        seen = []
+        for _ in range(20):
+            line = server.stdout.readline()
+            if not line:
+                break
+            seen.append(line)
+            if "listening" in line:
+                break
+        assert seen and "listening" in seen[-1], "".join(seen)
         smoke = [sys.executable, str(HERE / "online_client.py"), "smoke", "--lobby", f"http://127.0.0.1:{port}", "--profile", "0" * 32, "--map", "maps/x/x.map"]
         r = subprocess.run(smoke + ["--expect-no-relay"], capture_output=True, text=True, timeout=60)
         assert r.returncode == 0, r.stdout + r.stderr

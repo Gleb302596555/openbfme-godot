@@ -53,6 +53,8 @@ struct Shape
 
 // the shapes the template's geometry rows build, in order (an empty list when the template has no geometry row); throws std::logic_error on a row that does not parse
 std::vector<Shape> shapesOf(const ThingTemplate &tt);
+// lane FLANK-1: shapesOf kept with the template (built once, on the logic thread): the per-contact overlap tests (RW 0xAD2CE0) must not re-parse the rows
+const std::vector<Shape> &cachedShapesOf(const ThingTemplate &tt);
 // RW 0xAD1920
 float maxHeightAbovePosition(const std::vector<Shape> &shapes);
 // RW 0xAD2040: the box around the active shapes in the object's own space, from 0 .. 0 (each shape's offset +- its major radius in x, a box's minor and the

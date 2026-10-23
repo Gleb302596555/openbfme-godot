@@ -190,10 +190,12 @@ include(cmake/Garrison3.cmake)  # GARRISON-3: the garrison exit (OPENBFME_GARRIS
 include(cmake/Backlog1.cmake)   # BACKLOG-1: garrison / enter / exit / allied clearing from the BFME2 decomp (OPENBFME_BACKLOG1_TESTS)
 include(cmake/Combat3.cmake)    # COMBAT-3: cavalry charges and siege crews (OPENBFME_COMBAT3_TESTS)
 include(cmake/Combat4.cmake)    # COMBAT-4: shockwaves, siege crews in motion, corpses (OPENBFME_COMBAT4_TESTS)
+include(cmake/Flank1.cmake)     # FLANK-1: flank at fire time, crush contact, projectile contacts, miss scatter (OPENBFME_FLANK1_TESTS)
 include(cmake/Hud4.cmake)       # HUD-4: every command reachable, every hotkey (appends to OPENBFME_SIM_SOURCES; OPENBFME_HUD4_TESTS)
 include(cmake/Qa2fix.cmake)     # QA2-FIX: a player's wall span through the HUD, the lobby after a game (OPENBFME_QA2FIX_TESTS)
 include(cmake/Hud5.cmake)       # HUD-5: the owner's first Windows session (OPENBFME_HUD5_CLIENT_SOURCES / OPENBFME_HUD5_TESTS)
 include(cmake/Autocast1.cmake)  # AUTOCAST-1: the ability autocast toggle and glow (OPENBFME_AUTOCAST1_TESTS)
+include(cmake/CampUi1Stance.cmake) # CAMPUI-1: the stance toggle's radial (OPENBFME_CAMPUI1_STANCE_SOURCES / _TESTS)
 include(cmake/Hud6.cmake)       # HUD-6: radial bubbles, side bar frame, help box (OPENBFME_HUD6_CLIENT_SOURCES / OPENBFME_HUD6_TESTS)
 include(cmake/Hover1.cmake)     # HOVER-1: every on-hover text (OPENBFME_HOVER1_CLIENT_SOURCES / OPENBFME_HOVER1_TESTS)
 include(cmake/Hud7.cmake)       # HUD-7: a tester's HUD items (OPENBFME_HUD7_TESTS)
@@ -203,6 +205,7 @@ include(cmake/Decomp3.cmake)    # DECOMP-3: the skirmish AI's player info record
 include(cmake/Backlog6.cmake)   # BACKLOG6: the AI's fortress rebuild, builder update and AIGroup gate (OPENBFME_BACKLOG6_TESTS)
 include(cmake/Decomp1.cmake)    # DECOMP-1: stops closed with the decompilation's progress (appends to OPENBFME_SIM_SOURCES; OPENBFME_DECOMP1_TESTS)
 include(cmake/Play1.cmake)      # PLAY-1: the tribute, the placement ghost (appends to OPENBFME_SIM_SOURCES; OPENBFME_PLAY1_SOURCES / _TESTS)
+include(cmake/Sdk0.cmake)       # SDK-0: cosmetic asset packs (client only; OPENBFME_SDK0_SOURCES / _TESTS)
 include(cmake/Cah1.cmake)       # CAH-1: the Create-a-Hero screens (client only; OPENBFME_CAH1_SOURCES / _GODOT_SOURCES / _TESTS)
 include(cmake/Uber1.cmake)      # UBER-1: the Uber performance mode (appends to OPENBFME_SIM_SOURCES; OPENBFME_UBER1_TESTS)
 include(cmake/Menuwork1.cmake)  # MENUWORK-1: the menu inventory's fixes (client only; OPENBFME_MENUWORK1_SOURCES / _TESTS)
@@ -237,10 +240,16 @@ include(cmake/Platformicon1.cmake) # PLATFORMICON-1: each player's system beside
 include(cmake/Ownerfix1.cmake)  # OWNERFIX-1: problems the owner hit playing (OPENBFME_OWNERFIX1_TESTS)
 include(cmake/Visual2.cmake)    # VISUAL-2: the owner's fog leak, tree sway and colouring (OPENBFME_VISUAL2_SOURCES / _TESTS)
 include(cmake/Ownerfix2.cmake)  # OWNERFIX-2: the owner's playtest of 2026-10-17 (OPENBFME_OWNERFIX2_CLIENT_SOURCES / _TESTS)
+include(cmake/Lumber1.cmake)    # LUMBER1: the evil lumber mills' harvesting workers (appends to OPENBFME_SIM_SOURCES; OPENBFME_LUMBER1_TESTS)
 include(cmake/Trees1.cmake)     # TREES1: units crush trees, construction clears them (OPENBFME_TREES1_TESTS)
 include(cmake/Backlog8.cmake)   # BACKLOG-8: formations, horde wall scaling, auto ability melee position (appends to OPENBFME_SIM_SOURCES)
 include(cmake/Menufix1.cmake)   # MENUFIX-1: the menus, consistent and retail-looking (OPENBFME_MENUFIX1_TESTS)
 include(cmake/Hudredraw1.cmake) # HUDREDRAW-1: the HUD redraws only the changed Apt levels (OPENBFME_HUDREDRAW1_TESTS)
+include(cmake/Campui1.cmake)    # CAMPUI-1: the campaign presentation, the mission objectives (appends to OPENBFME_SIM_SOURCES; OPENBFME_CAMPUI1_TESTS)
+include(cmake/Offmap1.cmake)    # OFFMAP-1: off-map map objects and horde members (OPENBFME_OFFMAP1_TESTS)
+include(cmake/Wall1.cmake)      # WALL-1: walkable wall tops and ramps (appends to OPENBFME_SIM_SOURCES; OPENBFME_WALL1_TESTS)
+include(cmake/Wall2.cmake)      # WALL-2: portals, portal modules, raised walkways (appends to OPENBFME_SIM_SOURCES; OPENBFME_WALL2_TESTS)
+include(cmake/Bridge1.cmake)    # BRIDGE-1: retail bridges crossed and destroyed (OPENBFME_BRIDGE1_TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
     ${OPENBFME_APT_SOURCES}
@@ -283,9 +292,11 @@ add_library(openbfme_core STATIC
     ${OPENBFME_HUD6_CLIENT_SOURCES}
     ${OPENBFME_HOVER1_CLIENT_SOURCES}
     ${OPENBFME_CAH1_SOURCES}
+    ${OPENBFME_SDK0_SOURCES}
     ${OPENBFME_RULES1_SOURCES}
     ${OPENBFME_MENUWORK1_SOURCES}
     ${OPENBFME_CAMP2_SOURCES}
+    ${OPENBFME_CAMPUI1_STANCE_SOURCES}
     ${OPENBFME_VISUAL2_SOURCES}
     ${OPENBFME_CAMPSAVE1_SOURCES}
     src/Common/AsciiString.cpp
@@ -302,6 +313,8 @@ add_library(openbfme_core STATIC
     src/Libraries/file/Win32Path.cpp
     src/Common/System/ArchiveFile.cpp
     src/Common/System/ArchiveFileSystem.cpp
+    src/Common/System/ModMount.cpp
+    src/Common/System/ModEngineFeatures.cpp
     src/Common/System/RetailArchivePolicy.cpp
     src/GameClient/MapCache.cpp
     src/GameClient/MapWeather.cpp
@@ -691,6 +704,7 @@ add_executable(openbfme_tests
     ${OPENBFME_BACKLOG1_TESTS}
     ${OPENBFME_COMBAT3_TESTS}
     ${OPENBFME_COMBAT4_TESTS}
+    ${OPENBFME_FLANK1_TESTS}
     ${OPENBFME_HUD4_TESTS}
     ${OPENBFME_QA2FIX_TESTS}
     ${OPENBFME_EXIT1_TESTS}
@@ -701,10 +715,12 @@ add_executable(openbfme_tests
     ${OPENBFME_PLAY1_TESTS}
     ${OPENBFME_HUD5_TESTS}
     ${OPENBFME_AUTOCAST1_TESTS}
+    ${OPENBFME_CAMPUI1_STANCE_TESTS}
     ${OPENBFME_HUD6_TESTS}
     ${OPENBFME_HOVER1_TESTS}
     ${OPENBFME_HUD7_TESTS}
     ${OPENBFME_CAH1_TESTS}
+    ${OPENBFME_SDK0_TESTS}
     ${OPENBFME_RULES1_TESTS}
     ${OPENBFME_MENUWORK1_TESTS}
     ${OPENBFME_GAMEMODES1_TESTS}
@@ -716,9 +732,12 @@ add_executable(openbfme_tests
     ${OPENBFME_FACTA_TESTS}
     ${OPENBFME_FACTC_TESTS}
     ${OPENBFME_BUGS1_TESTS}
+    ${OPENBFME_CAMPUI1_TESTS}
+    ${OPENBFME_OFFMAP1_TESTS}
     ${OPENBFME_BACKLOG4_TESTS}
     ${OPENBFME_FLY1_TESTS}
     ${OPENBFME_SUMMON1_TESTS}
+    ${OPENBFME_LUMBER1_TESTS}
     ${OPENBFME_TREES1_TESTS}
     ${OPENBFME_SHIP1_TESTS}
     ${OPENBFME_RENDERWAIT1_TESTS}
@@ -731,9 +750,14 @@ add_executable(openbfme_tests
     ${OPENBFME_OWNERFIX2_TESTS}
     ${OPENBFME_MENUFIX1_TESTS}
     ${OPENBFME_HUDREDRAW1_TESTS}
+    ${OPENBFME_WALL1_TESTS}
+    ${OPENBFME_WALL2_TESTS}
+    ${OPENBFME_BRIDGE1_TESTS}
     tests/test_main.cpp
     tests/test_big_archive.cpp
     tests/test_archive_order.cpp
+    tests/test_mods1_mount.cpp
+    tests/test_mods1_retail.cpp
     tests/test_logic_clock.cpp
     tests/test_chunkio.cpp
     tests/test_w3d_htree.cpp

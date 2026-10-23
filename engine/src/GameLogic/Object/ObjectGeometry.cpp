@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <memory>
 #include <cstdlib>
 #include <stdexcept>
 
@@ -94,6 +95,16 @@ void coordOf(const ThingTemplate &tt, const std::vector<std::string> &tokens, fl
 	}
 }
 } // namespace
+
+const std::vector<ObjectGeometry::Shape> &ObjectGeometry::cachedShapesOf(const ThingTemplate &tt)
+{
+	std::shared_ptr<const void> &cache = tt.friend_geometryCache();
+	if (!cache)
+	{
+		cache = std::make_shared<const std::vector<Shape>>(shapesOf(tt));
+	}
+	return *static_cast<const std::vector<Shape> *>(cache.get());
+}
 
 std::vector<ObjectGeometry::Shape> ObjectGeometry::shapesOf(const ThingTemplate &tt)
 {

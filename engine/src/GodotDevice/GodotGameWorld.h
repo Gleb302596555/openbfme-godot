@@ -193,6 +193,9 @@ public:
 	int64_t find_object_by_template(const String &template_name) const;
 	// lane BUILD-1: the first real model of the template's draw modules (its default model condition state), "" when it has none: what the placement ghost shows
 	String get_template_model(const String &template_name) const;
+	// Ping wheel (not retail, presentation only): the BeaconName of player `player_index`'s PlayerTemplate (RotWK's multiplayer beacon object, e.g. its
+	// MultiplayerBeacon), "" when the player or the name is missing. Reads the start-time player template only, never the simulation's state
+	String get_player_beacon_template(int64_t player_index) const;
 	// lane PLAY-1: what PlayerTribute.apt reads of this game and its Send (GameClient/GUI/TributeInfo.h); valid while the world lives (null-safe without a game)
 	TributeSource *tribute_source();
 
@@ -348,6 +351,15 @@ public:
 	// steps the script camera director by `delta_ms` of render time: { moving, has_target, x, y, z (SAGE), has_angle, angle, reset_view, letterbox,
 	// input_disabled, caption (label), caption_text (the game text), caption_ms, fade }; `camera` gives the current look-at { x, y, z, angle } (the start of a move)
 	Dictionary update_script_view(double delta_ms, const Dictionary &camera);
+	// lane CAMPUI-1: InGameUI.ini's MilitaryCaption* rows with language.ini's caption fonts (MilitaryCaptionSettings): { ok, error, color (Color),
+	// position (Vector2 fractions), centered, font, point_size, bold, title_font, title_point_size, title_bold, delay_ms }
+	Dictionary get_military_caption_settings() const;
+	// lane CAMPUI-1: TheMissionObjectiveTracker (GameLogic::missionObjectives): { has_list, screen_enabled, objectives: [{ label, text (the game text, UTF-8),
+	// bonus, shown, completed }] in list order (main then bonus), held (read now; else the last held frame's copy) }
+	Dictionary get_mission_objectives();
+	// lane CAMPUI-1: { ok, image }: the ThingTemplate's ButtonImage (RW 0x73CFEF: ThingTemplate + 0x78; "" when it has none); ok false: no such template
+	// (DISPLAY_NOTIFICATION_BOX_WITH_OBJECT_TYPE_IMAGE_OVERRIDE then keeps the type's icon, RW 0x6D1305)
+	Dictionary get_template_button_image(const String &name) const;
 	// { loaded, sides: [ { name, scripts, groups } ], scripts, groups, updates, scripts_evaluated, scripts_fired, false_fired, actions_run, conditions_evaluated,
 	// unported_conditions: { name: count }, unported_actions, client_requests, notes, end_requests: [ { frame, player, victory, action } ], setup (the sides' lists) }
 	Dictionary get_script_report() const;
@@ -659,6 +671,11 @@ private:
 	void refresh_shroud(bool force);
 	Ref<godot::ImageTexture> m_shroudTexture;
 	bool m_shroudDrawn = true;
+	// lane BIGBATTLE-1: the shroud parameters the terrain's materials were last given (refresh_shroud visits them only when one changes)
+	bool m_shroudParamsSet = false;
+	bool m_shroudParamEnabled = false;
+	Vector2 m_shroudParamOrigin, m_shroudParamExtent;
+	Color m_shroudParamColor;
 	void refresh_streaks(bool record = true); ///< RENDER-1: W3DStreakDraw trails of the live drawables (S-391)
 	void remove_view(uint32_t drawableId);
 
@@ -670,7 +687,7 @@ private:
 	std::string m_videosError;             // lane CAMP-1H: why the Video INIs did not load
 	std::unique_ptr<GameLogicSettings> m_settings;   ///< GameData / AIData / MultiplayerSettings (and the lobby colours), read once by setup()
 	std::unique_ptr<MapObjectOptions> m_options;
-	std::unique_ptr<ArchiveW3DFileSource> m_source;
+	std::unique_ptr<W3DFileSource> m_source;
 	std::unique_ptr<WW3DAssetManager> m_assets;
 	mutable UnsignedInt m_netHashFrame = 0;   ///< lane RENDERWAIT-1: net_status's last state hash (computed where the logic is held) and its frame
 	mutable std::uint32_t m_netHash = 0;
@@ -732,6 +749,7 @@ private:
 	std::unique_ptr<EndGameController> m_endGame;
 	std::unique_ptr<ScriptCameraDirector> m_scriptView;     // lane SCRIPT-1
 	std::vector<ScriptClientRequest> m_pendingScriptRequests; // lane SCRIPT-1: taken from the game, not applied to the director yet
+	Dictionary m_objectivesView; // lane CAMPUI-1: the tracker as last read in a held frame (get_mission_objectives)
 	std::vector<ScriptClientRequest> m_pendingScriptAudio;    // lane RENDERWAIT-1 r2: taken, their audio not applied yet (waits for a held logic)
 	unsigned long long m_scriptAudioApplied = 0; // RENDERWAIT-1 r3: requests handed to the audio side (test counter)
 	void applyPendingScriptAudio();
