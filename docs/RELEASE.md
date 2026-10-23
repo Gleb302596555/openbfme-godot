@@ -248,7 +248,7 @@ The repository is a build-time setting (`package.sh --repo`, default `Open-BFME/
    stable as *Alpha* (the plain releases, "Alpha 0.4.5"; `--channel=alpha` is stable) and the pre-release channel as *Preview*
    (RELNAME-1 had shown it as *Alpha*). NIGHTLY-1 (owner, 2026-10-21): the two channels are shown as *Stable* and *Nightly*
    (`--channel=nightly` is the pre-release channel), the plain releases keep their "Alpha 0.4.12" name (the game is in alpha), and
-   the nightly builds `v<x>.<y>.<z>-nightly.<YYYYMMDD>` (*Nightly builds* below) are on the pre-release channel. The ids never
+   the nightly builds `v<x>.<y>.<z>-nightly.<n>` (*Nightly builds* below) are on the pre-release channel. The ids never
    changed, so a player's remembered pick and every launcher's default keep working: both channels offer the plain releases. The two newest installed versions are kept, plus the user's pick.
    *Freeze warning:* when the newest manifest the launcher can get is signed with a date more than 60
    days ago, it shows a plain warning (an old list may be being served). It is not a block: a quiet
@@ -915,14 +915,31 @@ Owner, 2026-10-21: "build the pulled in PRs every night with patch notes and wha
 the game is still in alpha". Players pick **Stable** (the numbered releases, "Alpha 0.4.12", made by hand with the owner's OK as before)
 or **Nightly** (everything merged, built every night) in the launcher's Settings.
 
-- **When.** The operator's user timer `openbfme-nightly.timer` on the coordinator's machine, 03:00 US Eastern (`America/New_York`, so
-  daylight saving time is followed), runs the private wrapper, which loads the release environment and runs `tools/release/nightly.sh`.
-  That takes the archive branch's head, makes a clean detached checkout of it and runs ITS `autorelease.sh <head> --nightly`. A night
-  with nothing new under the release paths since the last nightly is skipped (`AUTORELEASE SKIP`, exit 0).
-- **Version.** `v<next plain>-nightly.<UTC YYYYMMDD>` (`autorelease.py nightly-version`): after Alpha 0.4.11 the nightlies are
-  v0.4.12-nightly.20261022, .20261023, ..., all below v0.4.12, which replaces them on both channels. One per date; a nightly is never
-  below an existing release tag. Shown as "Nightly 0.4.12 (2026-10-22)". Launchers from before NIGHTLY-1 do not parse the word
-  `nightly` and skip those releases (they stay on the plain releases until they update themselves).
+- **When.** The operator's user timer `openbfme-nightly.timer` on the coordinator's machine runs the private wrapper, which loads the
+  release environment and runs `tools/release/nightly.sh`. NIGHTLY-1 ran it at 03:00 US Eastern; since NIGHTLY-2 (owner, 2026-10-23: "i
+  would like the nightly to run twice a day on actions") it runs at **07:00 and 19:00 UTC**. That takes the archive branch's head, makes
+  a clean detached checkout of it and runs ITS `autorelease.sh <head> --nightly`. A run with nothing new under the release paths since
+  the last nightly (the morning's or the evening's) is skipped (`AUTORELEASE SKIP`, exit 0).
+- **Builders (NIGHTLY-2).** The wrapper sets `OPENBFME_RELEASE_{MAC,LINUX,WINDOWS}_BUILDER=actions` for the nightly only (switch-over step
+  (a) below; the stable releases stay on the build hosts): macOS is built on `macos-15`, Linux and Windows on GitHub and on the build
+  host, whose libraries must match GitHub's. The signer stays the Deck (`deck`); the nightly gate subset and the package tests stay on
+  the build host (they need the game files).
+- **Version.** `v<next plain>-nightly.<n>` (`autorelease.py nightly-version`). NIGHTLY-1 made one a UTC date, n = `YYYYMMDD`
+  (v0.4.12-nightly.20261022). Since NIGHTLY-2, n = `<YYMMDD><s>00`, 9 digits (the launcher's limit), s = `1` for the **morning** build
+  (a run started 00:00-11:59 UTC) and `2` for the **evening** one (12:00-23:59 UTC); one nightly per half day, and a nightly is never
+  below an existing release tag. Any 9-digit number is above every 8-digit date, so the order is run order:
+
+  | tag | new launcher (and the GitHub title, "OpenBFME ...") | a launcher shipped before NIGHTLY-2 |
+  | --- | --- | --- |
+  | v0.4.12-nightly.20261022 | Nightly 0.4.12 (2026-10-22) | Nightly 0.4.12 (2026-10-22) |
+  | v0.4.12-nightly.261023100 | Nightly 0.4.12 (2026-10-23, morning) | Nightly 0.4.12 build 261023100 |
+  | v0.4.12-nightly.261023200 | Nightly 0.4.12 (2026-10-23, evening) | Nightly 0.4.12 build 261023200 |
+
+  The final `00` is on purpose: NIGHTLY-1's `semver.gd` reads the last two digits of a nightly number as the day, and day 00 is no
+  date, so a launcher already installed shows a build number, never a wrong date (checked for every date to 2099 in
+  `launcher/tests/unit_test.gd` and `test_nightly.py`). All nightlies are below the next plain release, which replaces them on both
+  channels. Launchers from before NIGHTLY-1 do not parse the word `nightly` and skip those releases (they stay on the plain releases until
+  they update themselves).
 - **On GitHub.** Each nightly is its own pre-release; after publishing only the newest 7 nightly releases are kept
   (`nightly_notes.py prune`; the tags all stay, GH013). This is required: every launcher reads one page of 30 releases, so piled-up
   nightlies would push the stable releases off it. A nightly also moves the public main (its candidate commit, as a release does) and
@@ -938,7 +955,8 @@ or **Nightly** (everything merged, built every night) in the launcher's Settings
 - **State.** `$OPENBFME_RELEASE_STATE/nightly/` holds the nightly's intent, `last-released` and `releases.log`, so a stable release's
   version, notes baseline and intent are untouched; the lock and the community pull request lists are shared. The first nightly's notes
   start at the last stable release.
-- **Notes** (`tools/release/nightly_notes.py`): the first-parent changes since the last nightly, and for each the community pull requests
+- **Notes** (`tools/release/nightly_notes.py`): the first-parent changes since the last nightly (`nightly/last-released`: the previous
+  run that published, morning or evening, not the previous day), and for each the community pull requests
   it carries (a `(cherry picked from commit X)` line whose X GitHub links to a pull request of the repository: its number and author).
   A change with `Release-note:` lines is described by exactly those (`none` hides it), and its `Test:` lines are its test steps. For the
   rest, the operator's model command (`OPENBFME_NIGHTLY_LLM`) writes one plain sentence and 1 to 6 concrete test steps per change, and
@@ -948,7 +966,7 @@ or **Nightly** (everything merged, built every night) in the launcher's Settings
   first, credited), **What to test** (numbered, community first), how to report a problem, the known issues. The logins and numbers come
   from GitHub's record; they are the only mentions and references on the page. The whole page passes `audit-text` with the private
   denylist like every published text.
-- **On a failure** the wrapper leaves `logs/nightly-<date>.done` with the exit code and the coordinator's unseen list shows
+- **On a failure** the wrapper leaves `logs/nightly-<date>-<HH>.done` (`HH` the run's UTC hour; `logs/nightly-<date>.done` before NIGHTLY-2) with the exit code and the coordinator's unseen list shows
   `NIGHTLY FAILED`. A dry run (`nightly.sh --dry-run`) builds and checks everything and publishes nothing.
 
 ### The Mac package (MACREL-1)
@@ -1202,7 +1220,7 @@ environment, and the next autorelease run resumes the wait. Then autorelease.sh 
 - Trigger and inputs: only `workflow_dispatch`. Every input reaches the scripts through the environment, never pasted into a script.
   `plan` requires:
   - main of `Open-BFME/openbfme-godot`;
-  - a kind of `nightly` with a `v<x.y.z>-nightly.<YYYYMMDD>` tag, or `stable` with a plain `v<x.y.z>`, so a nightly signing can never
+  - a kind of `nightly` with a `v<x.y.z>-nightly.<YYMMDD><1|2>00` (or earlier `<YYYYMMDD>`) tag, or `stable` with a plain `v<x.y.z>`, so a nightly signing can never
     make a stable-channel manifest without the owner's approval;
   - a tag that names the commit, and a commit on main.
 - Jobs: the build jobs have read-only contents, no AWS access and no caches. Only `sign` gets the OIDC token and write access to

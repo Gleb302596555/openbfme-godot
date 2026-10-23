@@ -199,7 +199,7 @@ The live report's `unported_modules` (objects alive at the end of the run) of ei
 | 99 | CostModifierUpgrade | Behavior | 22 | 19 | ported |
 | 100 | W3DBuffDraw | Draw | 22 | 22 | missing |
 | 101 | AIGateUpdate | Behavior | 21 | 18 | missing |
-| 102 | DoCommandUpgrade | Behavior | 21 | 13 | missing |
+| 102 | DoCommandUpgrade | Behavior | 21 | 13 | ported |
 | 103 | DynamicPortalBehaviour | Behavior | 21 | 17 | missing |
 | 104 | FakePathfindPortalBehaviour | Behavior | 21 | 18 | missing |
 | 105 | GiveUpgradeUpdate | Behavior | 21 | 39 | missing |

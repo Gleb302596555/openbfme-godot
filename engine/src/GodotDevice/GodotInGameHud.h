@@ -110,6 +110,14 @@ public:
 	// scripted camera moves for the viewers (the same View::lookAt / setHeightAboveGround the radar click and the wheel call)
 	void camera_look_at(const Vector2 &sage_xy);
 	void camera_set_height(float height_above_ground);
+	// lane CAMPUI-1: a map script's RESET_CAMERA (view slot 0xC8, the game start's RW 0x63135B) and the letterbox's zoom limit (W3DDisplay::enableLetterBox
+	// RW 0x443C81: TheTacticalView slot 0x1C setZoomLimited(!enable)) on the HUD's own camera, so a cinematic moves the camera the player then keeps
+	void camera_reset(const Vector2 &sage_xy);
+	void camera_set_zoom_limited(bool on);
+	// lane CAMPUI-1: the objectives screen's state for the Palantir's flag and a script's FLASH_*_BUTTON (slot 0 spell store, 1 objectives, 2 planning mode)
+	void set_objectives_screen_open(bool open);
+	void flash_palantir_button(int slot, int seconds);
+	bool is_objectives_flag_flashing() const;
 	Vector2 pixel_to_world(const Vector2 &pixel) const;
 	Vector2 ping_point(const Vector2 &pixel) const; ///< the ping wheel (not retail): the map point a ping at this pixel marks (see the .cpp)
 	Vector2 world_to_pixel(const Vector2 &world_xy) const;
@@ -145,6 +153,7 @@ public:
 	// lane BACKLOG2 (proof captures): select_object, then the selection message a click sends (MSG_CREATE_SELECTED_GROUP_NO_SOUND, SelectionTranslator::
 	// selectSingleWithoutSound), so the logic's selection follows and the object's command buttons act on it
 	bool select_object_with_message(int64_t id);
+	int64_t select_objects_with_message(const PackedInt64Array &ids);
 	int64_t select_objects(const PackedInt64Array &ids); // lane SELPERF-1: the selection benchmark's N objects at once
 	bool open_spell_store();
 	void close_spell_store();

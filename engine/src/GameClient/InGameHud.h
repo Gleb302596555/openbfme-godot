@@ -134,6 +134,10 @@ public:
 
 	// ---- lane OWNERFIX-1: the map scripts' DISABLE_INPUT / ENABLE_INPUT (the in-game cutscenes): InGameUI::applyScriptInput ----
 	void scriptInput(bool enable);
+	// lane CAMPUI-1: the objectives screen is up (the Palantir's flag stops flashing, RW 0x6D7647), and a script's FLASH_*_BUTTON(seconds) (RW 0x6D455F)
+	void setObjectivesScreenOpen(bool open) { m_objectivesScreenOpen = open; }
+	void flashPalantirButton(int slot, int seconds);
+	bool palantirObjectivesFlashing() const;
 	bool scriptMouseHidden() const { return m_input->ui().scriptMouseHidden(); } ///< DISABLE_INPUT's Mouse::setVisibility(false): the device shows no pointer
 
 	// ---- lane SPELL-2: the spell book (the Palantir's InGameSpellBook and the SpellStore.apt screen) ----
@@ -218,6 +222,7 @@ public:
 	unsigned long long attackFlashRequests() const { return m_attackFlashRequests; }
 
 private:
+	bool m_objectivesScreenOpen = false; // lane CAMPUI-1
 	void bootHud6();
 	void updateHud6(ObjectID context, const std::string &faction, double seconds);
 	bool hud6OverGui(int x, int y) const;

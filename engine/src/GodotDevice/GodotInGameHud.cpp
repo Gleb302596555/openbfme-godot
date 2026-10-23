@@ -837,6 +837,18 @@ void HudDevice::drawPlaceholder(const AptCanvasOp &op, RID item)
 			staticImage.image = imageMap;
 			img = &staticImage;
 		}
+		// lane CAMPUI-1: an image record of the window manager (setAptImage: InGameNotificationBox's "_level<n>_Icon", RW 0x8EB81E -> RW 0x92B1F9), as the
+		// player's own RenderImage path reads them outside a game (GodotAptPlayer: the score screen's icons)
+		AptPalantir::NativeImage recordImage;
+		if ((!img || img->image.empty()) && !imageMap.empty() && hud->palantir())
+		{
+			const std::string *record = hud->palantir()->windows().aptImage(imageMap);
+			if (record && !record->empty())
+			{
+				recordImage.image = *record;
+				img = &recordImage;
+			}
+		}
 		// lane SPELL-2: the spell store's buttons ("SpellStore/Buttons/Spell%d", RW 0x822B23); RenderImageDisabled draws the same image grey
 		AptPalantir::NativeImage storeImage;
 		if ((!img || img->image.empty()) && hud->spellStore())
@@ -1290,6 +1302,7 @@ void InGameHudNode::_bind_methods()
 	ClassDB::bind_method(D_METHOD("select_object", "id"), &InGameHudNode::select_object); // lane HUD-5
 	ClassDB::bind_method(D_METHOD("select_object_with_message", "id"), &InGameHudNode::select_object_with_message); // lane BACKLOG2
 	ClassDB::bind_method(D_METHOD("select_objects", "ids"), &InGameHudNode::select_objects); // lane SELPERF-1
+	ClassDB::bind_method(D_METHOD("select_objects_with_message", "ids"), &InGameHudNode::select_objects_with_message);
 	ClassDB::bind_method(D_METHOD("open_spell_store"), &InGameHudNode::open_spell_store);
 	ClassDB::bind_method(D_METHOD("close_spell_store"), &InGameHudNode::close_spell_store);
 	ClassDB::bind_method(D_METHOD("spell_store_click", "index"), &InGameHudNode::spell_store_click);
@@ -1317,6 +1330,11 @@ void InGameHudNode::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_view_options", "options"), &InGameHudNode::set_view_options); // lane OPTS-2
 	ClassDB::bind_method(D_METHOD("camera_look_at", "sage_xy"), &InGameHudNode::camera_look_at);
 	ClassDB::bind_method(D_METHOD("camera_set_height", "height_above_ground"), &InGameHudNode::camera_set_height);
+	ClassDB::bind_method(D_METHOD("camera_reset", "sage_xy"), &InGameHudNode::camera_reset);                 // lane CAMPUI-1
+	ClassDB::bind_method(D_METHOD("camera_set_zoom_limited", "on"), &InGameHudNode::camera_set_zoom_limited); // lane CAMPUI-1
+	ClassDB::bind_method(D_METHOD("set_objectives_screen_open", "open"), &InGameHudNode::set_objectives_screen_open); // lane CAMPUI-1
+	ClassDB::bind_method(D_METHOD("flash_palantir_button", "slot", "seconds"), &InGameHudNode::flash_palantir_button); // lane CAMPUI-1
+	ClassDB::bind_method(D_METHOD("is_objectives_flag_flashing"), &InGameHudNode::is_objectives_flag_flashing); // lane CAMPUI-1
 	ClassDB::bind_method(D_METHOD("pixel_to_world", "pixel"), &InGameHudNode::pixel_to_world);
 	ClassDB::bind_method(D_METHOD("ping_point", "pixel"), &InGameHudNode::ping_point); // the ping wheel
 	ClassDB::bind_method(D_METHOD("world_to_pixel", "world_xy"), &InGameHudNode::world_to_pixel);
@@ -2503,6 +2521,17 @@ bool InGameHudNode::select_object_with_message(int64_t id)
 	return true;
 }
 
+// Formation integration test hook: keep presentation and authoritative selection together.
+int64_t InGameHudNode::select_objects_with_message(const PackedInt64Array &ids)
+{
+ const auto count=select_objects(ids);
+ if(!d->hud)return count;
+ ClientMessage &message=d->hud->input().stream().append(MSG_CREATE_SELECTED_GROUP_NO_SOUND);
+ message.appendBoolean(true);
+ for(auto id: d->hud->input().ui().selected())message.appendObjectID(id);
+ return count;
+}
+
 // lane SELPERF-1: the selection benchmark (play1_player.gd selperf) selects exactly N objects; how many ended up selected
 int64_t InGameHudNode::select_objects(const PackedInt64Array &ids)
 {
@@ -3523,6 +3552,47 @@ void InGameHudNode::camera_set_height(float height_above_ground)
 	{
 		d->cam->setHeightAboveGround(height_above_ground);
 		d->cam->snapInterpolation(); // lane MOVE-2 r2
+	}
+}
+
+void InGameHudNode::camera_reset(const Vector2 &sage_xy)
+{
+	// lane CAMPUI-1: client state, no wait for the logic worker (camera_look_at). RESET_CAMERA's TacticalCamera::resetCamera at the point: the map's
+	// heights and the default zoom / pitch (RW 0x48D26B)
+	if (d->cam)
+	{
+		const Coord3D at{ sage_xy.x, sage_xy.y, 0.0f };
+		d->cam->resetCamera(&at);
+		d->cam->snapInterpolation();
+	}
+}
+
+void InGameHudNode::set_objectives_screen_open(bool open)
+{
+	if (d->ready && d->hud)
+	{
+		d->hud->setObjectivesScreenOpen(open);
+	}
+}
+
+void InGameHudNode::flash_palantir_button(int slot, int seconds)
+{
+	if (d->ready && d->hud)
+	{
+		d->hud->flashPalantirButton(slot, seconds);
+	}
+}
+
+bool InGameHudNode::is_objectives_flag_flashing() const
+{
+	return d->ready && d->hud && d->hud->palantirObjectivesFlashing();
+}
+
+void InGameHudNode::camera_set_zoom_limited(bool on)
+{
+	if (d->cam)
+	{
+		d->cam->setZoomLimited(on); // lane CAMPUI-1: RW 0x443C81 (the letterbox lifts the zoom limit while it is on)
 	}
 }
 

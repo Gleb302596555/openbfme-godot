@@ -103,8 +103,9 @@
 #   a dry run. Every command a real run would add is printed as "WOULD RUN: ...".
 # --plan: step 1, the version and the public tree with its privacy audit (PUBLISH-2); nothing is written to GitHub or the state.
 # --nightly (lane NIGHTLY-1, owner 2026-10-21; docs/RELEASE.md "Nightly builds"): the night's build of the archive head for the Nightly
-#   channel, run by tools/release/nightly.sh from the operator's timer. The same pipeline (candidate first, tag last, the Deck's checks,
-#   the signing, the audits) with: the version v<next plain>-nightly.<UTC YYYYMMDD> (autorelease.py nightly-version), a GitHub
+#   channel, run by tools/release/nightly.sh from the operator's timer (twice a day since NIGHTLY-2). The same pipeline (candidate first,
+#   tag last, the Deck's checks, the signing, the audits) with: the version v<next plain>-nightly.<YYMMDD><1|2>00 (NIGHTLY-2, autorelease.py
+#   nightly-version: the UTC date, 1 for a run started before 12:00 UTC, 2 after; one nightly per half day), a GitHub
 #   pre-release; its own state in $STATE/nightly (intent, last-released, releases.log: a stable release and its notes baseline are
 #   untouched; the lock and the community lists are shared); no gate record: the builder runs the nightly gate subset on the candidate
 #   itself (AR_NIGHTLY=1); the notes from tools/release/nightly_notes.py (what is new since the last nightly, community pull requests
@@ -127,6 +128,7 @@
 #   OPENBFME_RELEASE_LEGACY_LAUNCHERS (1; lane ONEZIP-1: 0 leaves the launcher-only archives out of the release, manifest format 3:
 #   only once the launchers published before ONEZIP-1 are retired, docs/RELEASE.md "One archive": they cannot read such a release).
 #   Tests only: OPENBFME_RELEASE_MIN_COMMIT replaces MIN_CONTROL (stand-in mode only).
+#   Tests only: OPENBFME_RELEASE_NIGHTLY_CLOCK (UTC YYYYMMDDHH) replaces the clock a nightly's number is made from (stand-in mode only).
 #   Tests only: OPENBFME_RELEASE_STANDIN=<dir> replaces step 4 by <dir>/build <checkout> <version> <out dir> and step 5's package checks by
 #   <dir>/verify <trusted checkout> <package dir> <version>; refused unless --repo is not the real repository and the remote is a local
 #   folder. MACREL-1: it also replaces step 4m by <dir>/build-mac <checkout> <version> <out dir> (the Deck's Mac checks still run), and
@@ -334,6 +336,7 @@ if [ -n "$STANDIN" ]; then
   [ "$TARGET" != "$REAL_REPO" ] && [ -d "$url" ] || fail "OPENBFME_RELEASE_STANDIN is for tests: only with a stand-in --repo and a remote that is a local folder"
   echo "AUTORELEASE stand-in mode ($STANDIN): tests only"
 fi
+[ -z "${OPENBFME_RELEASE_NIGHTLY_CLOCK:-}" ] || [ -n "$STANDIN" ] || fail "OPENBFME_RELEASE_NIGHTLY_CLOCK is for tests (stand-in mode) only"
 [ -z "${OPENBFME_RELEASE_MAC_SSH:-}" ] || [ -n "$STANDIN" ] || fail "OPENBFME_RELEASE_MAC_SSH is for tests (stand-in mode) only"
 # ---- an open release intent: reconciled first, by GitHub reads only (fail closed) ----------------------------------------------------------
 # The intent file is untrusted (r4, Sol r3: changing only its sha let older source get the next version): every field is checked against
@@ -589,9 +592,10 @@ if [ -n "$LAST" ] && [ $RESUME = 0 ]; then
   fi
   echo "AUTORELEASE $changed since $LAST"
 fi
-NDATE=$(date -u +%Y%m%d)
-next_version() {  # the version this run releases: the next plain release, or (NIGHTLY-1) the nightly of NDATE
-  if [ "$NIGHTLY" = 1 ]; then python3 "$HERE/autorelease.py" --git-dir "$REPO" nightly-version --remote "$REMOTE" --date "$NDATE"
+# NIGHTLY-2: the run's UTC hour picks the half day (morning before 12:00, evening after), one clock read for date and hour
+NCLOCK=${OPENBFME_RELEASE_NIGHTLY_CLOCK:-$(date -u +%Y%m%d%H)}   # the override: stand-in mode only (checked in step 1)
+next_version() {  # the version this run releases: the next plain release, or (NIGHTLY-2) the nightly of NCLOCK's half day
+  if [ "$NIGHTLY" = 1 ]; then python3 "$HERE/autorelease.py" --git-dir "$REPO" nightly-version --remote "$REMOTE" --clock "$NCLOCK"
   else python3 "$HERE/autorelease.py" --git-dir "$REPO" release-version --remote "$REMOTE" --repo "$TARGET" --sha "$SHA" --gh "$GH" --bump "$BUMP"; fi
 }
 if [ $RESUME = 1 ]; then VERSION=$I_VER

@@ -6,6 +6,7 @@
 #endif
 
 #include "GameLogic/Module/ProductionUpdate.h"
+#include "Common/ModEngineFeatures.h"
 #include "GameLogic/SnapshotXfer.h"
 
 #include "Common/Audio/AudioRequests.h"
@@ -392,7 +393,8 @@ float ProductionUpdate::heroTimeMultiplier(bool revive) const
 }
 
 // RW 0x8A11D2 (lane HERO-1: the build-index branch RW 0x8A123D .. 0x8A1312)
-bool ProductionUpdate::queueCreateUnit(const ThingTemplate *unitType, int buildIndex, ProductionID productionID, int value30, bool batch, const std::string &name, bool flag44)
+bool ProductionUpdate::queueCreateUnit(const ThingTemplate *unitType, int buildIndex, ProductionID productionID, int value30, bool batch, const std::string &name, bool flag44,
+									   bool ignoreCommandPoints)
 {
 	Object *obj = getObject();
 	GameLogic &logic = obj->logic();
@@ -401,7 +403,7 @@ bool ProductionUpdate::queueCreateUnit(const ThingTemplate *unitType, int buildI
 	{
 		unitType = nullptr; // RW 0x8A11EF
 	}
-	if (BuildAssistant::canMakeUnit(*obj, unitType, buildIndex) != CANMAKE_OK)
+	if (BuildAssistant::canMakeUnit(*obj, unitType, buildIndex, ignoreCommandPoints) != CANMAKE_OK)
 	{
 		return false;
 	}
@@ -778,6 +780,15 @@ void ProductionUpdate::cancelAllProduction()
 }
 
 // RW 0x8A072F
+ProductionID ProductionUpdate::requestUniqueUnitID()
+{
+	if (ModEngineFeatures::has(ModEngineFeature::EdainUnchainedUniqueProductionId))
+	{
+		return getObject()->logic().nextSharedProductionID();
+	}
+	return m_uniqueID++;
+}
+
 ProductionEntry *ProductionUpdate::currentEntry()
 {
 	for (auto &e : m_queue)
@@ -808,6 +819,18 @@ ProductionEntry *ProductionUpdate::currentEntry()
 			}
 			const int index = player->heroes().findIndex(*e->objectToProduce, e->productionID, 0);
 			if (player->heroes().progressAt(logic, *player, index, getObject()) >= 1.0)
+			{
+				return e.get();
+			}
+		}
+	}
+	if (ModEngineFeatures::has(ModEngineFeature::EdainUnchainedHeroRecruitParallel))
+	{
+		// lane MODS-3: edain-unchained.hero-recruit-parallel (its hook 0xEE2000 at RW 0x8A07D1): the first entry that is not a hero's (type 3), so a hero
+		// still reviving or recruiting does not hold the units and upgrades behind it; all heroes: the head
+		for (auto &e : m_queue)
+		{
+			if (e->type != PRODUCTION_BUILD_INDEX)
 			{
 				return e.get();
 			}

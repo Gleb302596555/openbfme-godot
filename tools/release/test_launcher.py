@@ -39,7 +39,7 @@ import ed25519  # noqa: E402
 import make_archive  # noqa: E402
 import make_manifest  # noqa: E402
 from launcher_test_server import COMMIT, TEST_REPO, ReleaseServer, tiny_package  # noqa: E402
-from launcher_test_support import (ARCHIVE_SUFFIX, GAME_EXE, LAUNCHER_EXE, PLATFORM, WINDOWS, asset_name,
+from launcher_test_support import (ARCHIVE_SUFFIX, GAME_EXE, LAUNCHER_EXE, MACOS, MACOS_SKIP, PLATFORM, WINDOWS, asset_name,
                                    dismiss_missing_pack_alert, godot_engine, isolated_environment, native_game, normalized_path,
                                    process_running, stop_process)
 
@@ -54,7 +54,7 @@ def _godot_ok() -> bool:
         return False
 
 
-pytestmark = pytest.mark.skipif(not _godot_ok(), reason="SKIP launcher tests: Godot 4.7.2 not found (set GODOT)")
+pytestmark = [pytest.mark.skipif(MACOS, reason=MACOS_SKIP), pytest.mark.skipif(not _godot_ok(), reason="SKIP launcher tests: Godot 4.7.2 not found (set GODOT)")]
 
 
 @pytest.fixture(autouse=True)

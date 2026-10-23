@@ -61,6 +61,9 @@ public:
 	virtual int getSlotCapacity() const = 0;
 	// slot 11 (RW 0x873F30): a member made by a factory joins without being placed on its slot; false when it already is a member
 	virtual bool acceptCreatedMember(Object *member) = 0;
+	// lane MODS-3: edain-unchained.horde-exit-absorption (its 0xEE1000): the slot table is built when it is not yet (H + 0x198 == 0: the slot 0x84 call),
+	// then true when a free slot's rank has a UnitType the template matches (RW 0x873F30's search, nothing taken)
+	virtual bool hasFreeSlotFor(const Object &member) = 0;
 	// slot 7 (RW 0x877D89): the world position of the member's slot for the horde's current transform
 	virtual Coord3D getMemberFormationPosition(const Object *member) const = 0;
 	// slot 0xC8 (RW 0x86EF13, lane MOVE-3): called by the pathfinder's updateGoal (RW 0x8E24D3) once the horde's goal changed: unless the horde melees (+ 0x184),
@@ -324,6 +327,7 @@ public:
 	// production placed it (the factory's exit) and is not moved by containReactToTransformChange; moving it to its formation position is the
 	// member pass of the horde runtime (MOVE-1 / HORDE-2, stop S-149). false when it already is a member.
 	bool acceptCreatedMember(Object *member) override;
+	bool hasFreeSlotFor(const Object &member) override;
 	// the world position of the member's slot for the horde's current transform (RW 0x877D89); the horde's own position when it has no slot
 	Coord3D getMemberFormationPosition(const Object *member) const override;
 	void reserveMemberGoals() override;

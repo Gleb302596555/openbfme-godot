@@ -7,6 +7,7 @@
 #include "Common/StateHash.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/Object/Object.h"
@@ -100,6 +101,14 @@ void AIStateMachine::defineState(unsigned id, std::unique_ptr<AIState> state, un
 		m_defaultStateId = id;
 	}
 	m_states[id] = std::move(state);
+	m_persistentStates.clear(); // lane UBER-2C: in id order, as crc walked m_states
+	for (const auto &e : m_states)
+	{
+		if (e.second->hasPersistentCrc())
+		{
+			m_persistentStates.push_back(e.second.get());
+		}
+	}
 }
 
 AIState *AIStateMachine::findState(unsigned id) const
@@ -533,7 +542,12 @@ StateReturnType AIIdleState::onEnter()
 	return STATE_CONTINUE; // never sleep at the start: the cell check runs the first time through
 }
 
-// ZH AIStates.cpp:1335: only once, in the first update (onEnter of idle runs during object creation)
+// ZH AIStates.cpp:1335: only once, in the first update (onEnter of idle runs during object creation).
+// lane OFFMAP-1: TARGET RW 0x745A64 (BFME2 0x74405D, decomp AIIdleStateUpdate.cpp:279, tier B same-shape; disassembly read): + 0x25 m_inited; a
+// HORDE_MEMBER (status 0x26, RW 0x44DDEC) needs its container's AI idle (vslot 0x1B8); then, idle and doing ground movement (vslots 0x1B8 / 0x224), a
+// non-zero position only updates the pathfinder's goal (RW 0x68B3BD -> 0x8E28DB with the layer of RW 0x68BBE0); vslot 0x220 setLocomotorGoalNone and
+// setCurrentVictim(0) (RW 0x6682B1). RotWK has none of ZH's goalPosition / "frame <= 1: setPosition(goal)" cheat move: a unit stays where the map
+// placed it, so one placed outside the pathfind grid (MAP ANG Angmar's counterattack wolf riders, y < 0) is not pulled onto cell 0 and stays OFF_MAP
 void AIIdleState::doInitIdleState()
 {
 	if (!m_inited)
@@ -542,26 +556,28 @@ void AIIdleState::doInitIdleState()
 	}
 	m_inited = false;
 	AIUpdateInterface &a = ai();
-	if (a.isIdle() && a.isDoingGroundMovement())
+	Object *obj = a.getObject();
+	static const int hordeMember = ObjectTemplateInfoBuilder::objectStatusIndex("HORDE_MEMBER");
+	bool containerIdle = true;
+	if (hordeMember >= 0 && obj->testStatus((unsigned)hordeMember))
 	{
-		// a unit stopped between grids: stake out the cell it is on and snap onto its goal (the pathfinder's goal for an idle unit is its own cell)
-		Pathfinder &pf = a.world().pathfinder();
-		Coord3D goalPos = *a.getObject()->getPosition();
+		containerIdle = false;
+		const Object *container = obj->getContainedBy();
+		if (container && container->getAIUpdateInterface())
+		{
+			containerIdle = container->getAIUpdateInterface()->isIdle();
+		}
+	}
+	if (a.isIdle() && a.isDoingGroundMovement() && containerIdle)
+	{
+		const Coord3D goalPos = *obj->getPosition();
 		if (goalPos.x != 0.0f || goalPos.y != 0.0f || goalPos.z != 0.0f)
 		{
-			pf.updateGoal(a.adapter(), &goalPos, a.adapter().getLayer());
-			if (pf.goalPosition(a.adapter(), &goalPos))
-			{
-				if (a.frame() <= 1)
-				{
-					a.getObject()->setPosition(&goalPos);
-				}
-				pf.updateGoal(a.adapter(), &goalPos, a.adapter().getLayer());
-			}
+			a.world().pathfinder().updateGoal(a.adapter(), &goalPos, a.adapter().getLayer());
 		}
-		pf.updatePos(a.adapter());
 	}
 	a.setLocomotorGoalNone();
+	a.setCurrentVictim(nullptr);
 }
 
 StateReturnType AIIdleState::update()
@@ -809,11 +825,11 @@ void AIStateMachine::crc(StateHasher &h) const
 	{
 		m_temporaryState->crc(h);
 	}
-	for (const auto &e : m_states)
+	for (const AIState *s : m_persistentStates) // lane UBER-2C: the states without kept fields hash nothing and are left out
 	{
-		if (e.second.get() != m_currentState && e.second.get() != m_temporaryState)
+		if (s != m_currentState && s != m_temporaryState)
 		{
-			e.second->crcPersistent(h); // lane MODULES-3 (nothing for the states without kept fields)
+			s->crcPersistent(h); // lane MODULES-3
 		}
 	}
 }

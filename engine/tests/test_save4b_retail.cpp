@@ -323,6 +323,8 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 	// Lane ATTACKPATH-1 (the AIs' fights move with RotWK's attack paths and the towards-goal corridor term): at frame 1,500 the game now has AutoHealBehavior
 	// and CommandButtonHuntUpdate objects and no cavalry horde (HorseHordeContain) or horde crush warning (HordeNotifyTargetsOfImminentProbableCrushingUpdate)
 	// Merge queue q23 (TARGET-1 + ATTACKPATH-1 + FLANK-1 + PRODUCTION1 + LUMBER1 on q22's tree, measured once): the inventory is q22's again (no AutoHealBehavior)
+	// Lane OFFMAP-1 (RotWK's idle state RW 0x745A64 does not snap the start units onto cell centres as ZH's did at frame <= 1): the AIs' play moved
+	// again, and AutoHealBehavior and RepairSpecialPower are back (112 classes, measured)
 	CHECK(classes == std::set<std::string>{
 		"AISpecialPowerUpdate", "ActiveBody", "ArmorUpgrade", "ArrowStormUpdate", "AttributeModifierAuraUpdate", "AttributeModifierPoolUpdate",
 		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoPickUpUpdate", "BannerCarrierUpdate",

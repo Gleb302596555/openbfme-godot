@@ -178,6 +178,7 @@ def repo(tmp_path, monkeypatch):
     (d / "a.txt").write_text("2\n")
     git(d, "commit", "-q", "-am", "two")
     head = git(d, "rev-parse", "HEAD")
+    git(d, "tag", "-a", "-m", "n", "v0.4.14-nightly.261023200", head)   # NIGHTLY-2: the evening nightly of 2026-10-23
     git(d, "checkout", "-q", "-b", "side", c1)
     (d / "b.txt").write_text("x\n")
     git(d, "add", "b.txt")
@@ -204,10 +205,22 @@ def test_plan_accepts_a_tagged_commit_on_main(repo, capsys):
     assert rc == 0 and "PLAN ok: stable v0.4.13" in out
 
 
-def test_plan_accepts_a_nightly(repo, capsys, monkeypatch):
+@pytest.mark.parametrize("tag", ["v0.4.14-nightly.20261023", "v0.4.14-nightly.261023200"])
+def test_plan_accepts_a_nightly(repo, capsys, monkeypatch, tag):
     monkeypatch.setenv("IN_KIND", "nightly")
-    monkeypatch.setenv("IN_TAG", "v0.4.14-nightly.20261023")
-    assert plan(capsys)[0] == 0
+    monkeypatch.setenv("IN_TAG", tag)
+    monkeypatch.setenv("IN_COMMIT", repo["c1"] if tag.endswith(".20261023") else repo["head"])
+    rc, out = plan(capsys)
+    assert rc == 0 and f"PLAN ok: nightly {tag}" in out, out
+
+
+@pytest.mark.parametrize("tag", ["v0.4.14-nightly.261023300", "v0.4.14-nightly.261023210", "v0.4.14-nightly.251023100",
+                                 "v0.4.14-nightly.261323100", "v0.4.14-nightly.202610231", "v0.4.14-nightly.7"])
+def test_plan_refuses_a_nightly_number(repo, capsys, monkeypatch, tag):
+    monkeypatch.setenv("IN_KIND", "nightly")
+    monkeypatch.setenv("IN_TAG", tag)
+    rc, out = plan(capsys)
+    assert rc == 1 and "not a nightly release tag" in out, out
 
 
 @pytest.mark.parametrize("var,value,why", [
@@ -218,6 +231,7 @@ def test_plan_accepts_a_nightly(repo, capsys, monkeypatch):
     ("IN_KIND", "production", "not nightly or stable"),
     ("IN_KIND", "nightly", "not a nightly release tag"),          # a plain tag signed in the nightly environment: refused
     ("IN_TAG", "v0.4.14-nightly.20261023", "not a stable release tag"),   # a nightly tag in the stable environment
+    ("IN_TAG", "v0.4.14-nightly.261023200", "not a stable release tag"),
     ("IN_TAG", "v0.4.13; curl evil", "not a stable release tag"),
     ("IN_TAG", "v0.4.99", "names nothing here"),
     ("IN_COMMIT", "A" * 40, "not 40 lower-case hex"),
@@ -579,7 +593,8 @@ def test_actions_signer_in_phase_kms_needs_no_deck_key(actions_world):
     w.gate(sha)
     env = w.env(**actions_env(w, FAKE_WORKFLOW_PHASE="kms"))
     del env["OPENBFME_RELEASE_KEY"]
-    from test_autorelease import TARGET as T, run as arun
+    from test_autorelease import TARGET as T, run as arun, skip_on_macos
+    skip_on_macos()
     r = arun("bash", w.repo / "tools/release/autorelease.sh", sha, "--repo", T, "--remote", "origin", "--since", w.first, env=env)
     err = w.tmp / "wf" / "hook.err"
     assert r.returncode == 0, r.stdout[-3000:] + r.stderr[-1000:] + (err.read_text() if err.exists() else "")

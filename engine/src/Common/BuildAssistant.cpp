@@ -352,7 +352,8 @@ bool BuildAssistant::isInProducersCommandSet(Object &builder, const ThingTemplat
 		return false;
 	}
 	Player *player = builder.getControllingPlayer();
-	for (int i = 0; i < CommandSet::MAX_BUTTONS; ++i)
+	// lane MODS-3: the bound at RW 0x7950E5 is 64 under edain-unchained.commandset-limit (the revive count above keeps 33, as that game.dat does)
+	for (int i = 0; i < CommandSet::slotCapacity(); ++i)
 	{
 		const CommandButton *button = set->getCommandButton(i);
 		if (!button)
@@ -425,7 +426,7 @@ bool BuildAssistant::isLineBuildTemplate(GameLogic &logic, const ThingTemplate *
 	return MaskTest(logic.templateInfo(what->getFinalOverride()).kindOf, (unsigned)bit) && builder->isKindOf((unsigned)bit);
 }
 
-CanMakeType BuildAssistant::canMakeUnit(Object &builder, const ThingTemplate *what, int buildIndex)
+CanMakeType BuildAssistant::canMakeUnit(Object &builder, const ThingTemplate *what, int buildIndex, bool ignoreCommandPoints)
 {
 	if (!what && buildIndex == -1)
 	{
@@ -501,7 +502,8 @@ CanMakeType BuildAssistant::canMakeUnit(Object &builder, const ThingTemplate *wh
 			return CANMAKE_UNKNOWN_7;
 		}
 	}
-	if (pointsTemplate && !commandPointsAvailable(*player, *pointsTemplate, logic))
+	// RW 0x794026 (the command point check RW 0x6A7F79 through Player + 0x60); lane MODS-3: Edain Unchained's RW 0x79402B hook lets a QueueIgnoreCP button past it
+	if (pointsTemplate && !commandPointsAvailable(*player, *pointsTemplate, logic) && !ignoreCommandPoints)
 	{
 		return CANMAKE_UNKNOWN_7;
 	}

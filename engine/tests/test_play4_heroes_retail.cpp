@@ -413,6 +413,8 @@ TEST_CASE("play4 heroes retail: every faction's heroes, recruited from the fortr
 				// AI5's upgrade-registration random values and SUMMON-1's OCL draws, which shift the ordered fight's timing; the damage and the kills are the same
 				// lane TARGET-1: 4 strikes (3 before): the idle bird wakes at its next mood check (RW 0x7553AB) and the map's creeps' attack-moves push their
 				// mood checks back (RW 0x662DD9), so the scene's world plays differently; the damage and kills are unchanged
+				// lane OFFMAP-1: 3 strikes (2 before): RotWK's idle state (RW 0x745A64) no longer snaps the scene's units onto cell centres at frame <= 1
+				// (ZH's cheat move), so the fight starts from the positions they were made at; the damage and the kills are the same
 				CHECK(ord.shots == (drogoth ? 4u : 0u));
 				CHECK(ord.lost == (drogoth ? 1500.0f : 450.0f));
 				CHECK(ord.membersKilled == (drogoth ? 20u : 5u));
@@ -542,8 +544,17 @@ TEST_CASE("attack1 heroes retail: the mounted Witch-king and Mouth of Sauron, or
 	// the merged tree; each lane alone measured its values above): the Witch-king 5 shots, 14 killed (225 in the crush run), 2 swings (the first took 525, 825
 	// outside the run), nearest 1.26859, with CRUSHER_LEVEL -1 never blocked, one swing taking 450 from 40.8519; the Mouth of Sauron 7 shots, 7 killed (150), 5
 	// swings (75 / 375), nearest 10.1093, with CRUSHER_LEVEL -1 one swing taking 75 from 41.3165. The duels are unchanged. Engine pins, not retail values.
-	for (const Case &c : { Case{ "FactionAngmar", "AngmarWitchking", 5u, 14u, 225.0f, { 800.0f, 112.0f }, 2u, 525.0f, 825.0f, { { 1500.0f, 800.0f }, { 700.0f, 700.0f } }, 0, -1, 1u, 450.0f, 40.8519f, 1.26859f },
-			 Case{ "FactionMordor", "MordorMouthOfSauron", 7u, 7u, 150.0f, { 640.0f, 320.0f }, 5u, 75.0f, 375.0f, { { 1500.0f, 640.0f }, { 860.0f, 640.0f }, { 220.0f, 220.0f } }, 0, -1, 1u, 75.0f, 41.3165f, 10.1093f } })
+	// Lane OFFMAP-1 (RotWK's idle state RW 0x745A64 has no ZH "frame <= 1: snap onto the goal cell centre", so the scene's hero and horde start where they
+	// were made): re-measured. Witch-king: 6 shots, 20 killed, 3 swings (first 525, 1275 outside the run), nearest 4.91667; Mouth of Sauron: 8 shots,
+	// 8 killed, 4 swings (300 outside the run), nearest 6.20071, and the CRUSHER_LEVEL -1 case is blocked again (10 frames, first at 27, nearest 41.8102):
+	// the behaviour the r2 description above names. The crush runs' losses, the hit sizes and the duels are unchanged
+	// Merge queue q24 (OFFMAP-1: RotWK's idle state RW 0x745A64 has no ZH frame <= 1 snap, so the scene's hero and horde start where they were made; measured
+	// once on the merged tree; without OFFMAP-1 the merged tree keeps q23's values): the Witch-king 6 shots, 16 killed (225 in the crush run), 3 swings (the
+	// first took 375, 975 outside the run), nearest 0.565623, with CRUSHER_LEVEL -1 no swing (nearest 70.444, as OFFMAP-1's lane measured 69.9); the Mouth of
+	// Sauron 15 shots, 15 killed (150), 12 swings (75 / 900), nearest 10.3192, with CRUSHER_LEVEL -1 blocked again (10 frames from frame 27, nearest 51.8487,
+	// one swing taking 75). The duels are unchanged. Engine pins, not retail values.
+	for (const Case &c : { Case{ "FactionAngmar", "AngmarWitchking", 6u, 16u, 225.0f, { 800.0f, 112.0f }, 3u, 375.0f, 975.0f, { { 1500.0f, 800.0f }, { 700.0f, 700.0f } }, 0, -1, 0u, 0.0f, 70.444f, 0.565623f },
+			 Case{ "FactionMordor", "MordorMouthOfSauron", 15u, 15u, 150.0f, { 640.0f, 320.0f }, 12u, 75.0f, 900.0f, { { 1500.0f, 640.0f }, { 860.0f, 640.0f }, { 220.0f, 220.0f } }, 10, 27, 1u, 75.0f, 51.8487f, 10.3192f } })
 	{
 		INFO(std::string(c.hero));
 		const ThingTemplate *tt = s->world->things().findTemplate(c.hero);

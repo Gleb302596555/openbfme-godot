@@ -46,6 +46,8 @@
 #include "GameClient/GUI/GameTextSource.h"
 #include "GameClient/GUI/LoadScreenInfo.h"
 #include "GameClient/GUI/PlayerStatusInfo.h"
+#include "GameClient/GUI/AptScreens/AptObjectivesMenu.h"
+#include "GameClient/GUI/AptScreens/InGameNotificationBox.h"
 #include "GameClient/GUI/Shell/Shell.h"
 #include "GameClient/GUI/Shell/ShellLayering.h"
 #include "GameClient/GUI/StillImageLoadScreen.h"
@@ -585,6 +587,7 @@ const char *shellActionName(ShellAction a)
 		case ShellAction::ToggleQuitMenu: return "ToggleQuitMenu";
 		case ShellAction::PalantirObjectives: return "PalantirObjectives"; // lane PLAY-1
 		case ShellAction::TributeReturnToGame: return "TributeReturnToGame";
+		case ShellAction::ObjectivesReturnToGame: return "ObjectivesReturnToGame"; // lane CAMPUI-1
 		case ShellAction::CreateAHeroExit: return "CreateAHeroExit";
 		case ShellAction::OnlineGameStart: return "OnlineGameStart"; // lane ONLINE-4
 		case ShellAction::SaveGameFile: return "SaveGameFile"; // lane SAVE-2
@@ -688,8 +691,12 @@ struct ShellMode
 	QuitMenuContext quitMenuContext;    // lane END-2: the game QuitMenu.apt is opened over
 	CampaignMenuContext campaignMenu;   // lane CAMPSAVE-1: what CampaignMenu.apt shows
 	std::unique_ptr<AptQuitMenu> quitMenu; // lane END-2: QuitMenu.apt, an in-game overlay (RW 0x75E3B7), not on the shell stack
+	std::unique_ptr<InGameNotificationBoxMovieClip> notificationBox; // lane CAMPUI-1: InGameNotificationBox.apt (InGameUI + 0x9CC), a game's level
+	NotificationBoxSettings notificationSettings;                     // lane CAMPUI-1: Data\INI\InGameNotificationBox.ini
+	bool notificationSettingsLoaded = false;
 	ShellEnvironment environment;
 	PlayerStatusInfo playerStatus; // lane HUD-5: the players screen's Status rows
+	ObjectivesScreenInfo objectivesScreen; // lane CAMPUI-1: what Objectives.apt lists
 	OptionPreferences options; // lane UI-2: the user data folder's Options.ini
 	GlobalLanguage language;   // lane UI-4: language.ini's Language block (the credits roll's fonts)
 	GameLODManager gameLOD;    // lane PLAY-2: GameLOD.ini's StaticGameLOD presets (the Options screen's advanced page); lane OPTS-2: the level in effect
@@ -730,6 +737,7 @@ struct ShellMode
 			shell->clearOverlay(); // lane OPTS-6
 		}
 		quitMenu.reset();
+		notificationBox.reset(); // lane CAMPUI-1
 		cursorTooltip.reset();
 		guiFX.reset();
 		shell.reset();
@@ -1279,6 +1287,8 @@ void AptMenuPlayer::_bind_methods()
 	ClassDB::bind_method(D_METHOD("gadget_draw_list"), &AptMenuPlayer::gadget_draw_list); // lane OPTS-4
 	ClassDB::bind_method(D_METHOD("set_tribute_world", "world"), &AptMenuPlayer::set_tribute_world);
 	ClassDB::bind_method(D_METHOD("set_player_status", "state"), &AptMenuPlayer::set_player_status); // lane HUD-5
+	ClassDB::bind_method(D_METHOD("set_objectives_screen", "state"), &AptMenuPlayer::set_objectives_screen); // lane CAMPUI-1
+	ClassDB::bind_method(D_METHOD("notification_box", "request"), &AptMenuPlayer::notification_box); // lane CAMPUI-1
 	ClassDB::bind_method(D_METHOD("shell_top_level"), &AptMenuPlayer::shell_top_level);
 	ClassDB::bind_method(D_METHOD("shell_invoke", "level", "function", "args"), &AptMenuPlayer::shell_invoke, DEFVAL(PackedStringArray()));
 	ClassDB::bind_method(D_METHOD("take_new_game"), &AptMenuPlayer::take_new_game);
@@ -2840,6 +2850,154 @@ Dictionary AptMenuPlayer::font_metrics(const String &name, int point_size, bool 
 	r["glyph_spacing"] = v.is_valid() ? v->get_spacing(TextServer::SPACING_GLYPH) : 0;
 	r["callback_texts_regular"] = (int64_t)impl->callbackTextDraws[0];
 	r["callback_texts_bold"] = (int64_t)impl->callbackTextDraws[1];
+	return r;
+}
+
+// lane CAMPUI-1: the in-game notification box (GUI/AptScreens/InGameNotificationBox.h). Requests (kind): "begin" (the game's box: the movie in a level,
+// the INI read once; RW 0x6A6AAD creates it with InGameUI), "end", "show" { type, label, seconds, override (bool), override_image, location (0 main,
+// 1 spellStore, 2 objectives), opaque } (RW 0x7C5507 -> RW 0x69BFAE -> Open RW 0x8EB66D), "update" { now_ms, letterboxed } (RW 0x8EB9B4: answers the
+// open audio of a notice that opened, "" none), "enable" { on } (RW 0x8EB2BA), "close" (DoClose RW 0x8EB2D8); every answer has ok, error, state,
+// active (the shown notice's title / message, UTF-8), level
+Dictionary AptMenuPlayer::notification_box(const Dictionary &request)
+{
+	Dictionary out;
+	out["ok"] = false;
+	if (!m->shell)
+	{
+		out["error"] = "not in shell mode";
+		return out;
+	}
+	ShellMode &sm = *m->shell;
+	const std::string kind = toNative(String(request.get("kind", "")));
+	auto u8 = [](const std::u16string &t) { return u16ToUtf8(t); };
+	if (kind == "begin")
+	{
+		if (!sm.notificationSettingsLoaded)
+		{
+			std::string error;
+			if (!sm.environment.fileSystem || !NotificationBoxSettings::load(*sm.environment.fileSystem, sm.notificationSettings, &error))
+			{
+				out["error"] = toGodot(sm.environment.fileSystem ? error : std::string("no file system"));
+				return out;
+			}
+			sm.notificationSettingsLoaded = true;
+		}
+		if (!sm.notificationBox)
+		{
+			sm.notificationBox = std::make_unique<InGameNotificationBoxMovieClip>(*sm.wm, *sm.shell, *sm.metrics);
+			if (sm.notificationBox->level() < 0)
+			{
+				sm.notificationBox.reset();
+				out["error"] = "InGameNotificationBox.apt could not be loaded";
+				return out;
+			}
+			for (int i = 0; i < 30 && !sm.wm->isAptWindowLoaded(sm.notificationBox->level()); ++i)
+			{
+				tick(1.0 / 30.0); // the window manager loads a movie over its first updates
+			}
+			sm.notificationBox->setEnabled(true); // the game starts with its control bar shown (ShowControlBar RW 0x8046A1 enables the box)
+		}
+	}
+	else if (kind == "end")
+	{
+		sm.notificationBox.reset();
+		out["ok"] = true;
+		return out;
+	}
+	if (!sm.notificationBox)
+	{
+		out["error"] = "no notification box (begin first)";
+		return out;
+	}
+	InGameNotificationBoxMovieClip &box = *sm.notificationBox;
+	if (kind == "show")
+	{
+		InGameNotificationBoxMovieClip::Notice n;
+		if (!InGameNotificationBoxMovieClip::makeNotice(sm.notificationSettings, sm.environment.gameText, toNative(String(request.get("type", ""))),
+				toNative(String(request.get("label", ""))), (int)(int64_t)request.get("seconds", (int64_t)0), (bool)request.get("override", false),
+				toNative(String(request.get("override_image", ""))), n))
+		{
+			out["error"] = "unknown notification type '" + String(request.get("type", "")) + "' (RW 0x621E3A: nothing is shown)";
+			out["state"] = box.state();
+			return out;
+		}
+		n.location = (int)(int64_t)request.get("location", (int64_t)0);
+		n.opaque = (bool)request.get("opaque", false);
+		box.open(n);
+	}
+	else if (kind == "update")
+	{
+		out["audio"] = toGodot(box.update((unsigned)(int64_t)request.get("now_ms", (int64_t)0), (bool)request.get("letterboxed", false)));
+	}
+	else if (kind == "enable")
+	{
+		box.setEnabled((bool)request.get("on", true));
+	}
+	else if (kind == "close")
+	{
+		box.doClose();
+	}
+	else if (kind != "begin" && kind != "state")
+	{
+		out["error"] = "not a notification box request: " + String(kind.c_str());
+		return out;
+	}
+	out["ok"] = true;
+	out["state"] = box.state();
+	out["level"] = box.level();
+	out["width"] = box.messageWidth();
+	if (box.hasActive())
+	{
+		out["title"] = toGodot(u8(box.active().title));
+		out["message"] = toGodot(u8(box.active().message));
+		out["icon"] = toGodot(box.active().icon);
+	}
+	PackedStringArray errors;
+	for (const std::string &e : box.callErrors())
+	{
+		errors.push_back(toGodot(e));
+	}
+	out["call_errors"] = errors;
+	return out;
+}
+
+Dictionary AptMenuPlayer::set_objectives_screen(const Dictionary &state)
+{
+	Dictionary r;
+	r["ok"] = false;
+	if (!m->shell)
+	{
+		r["error"] = "not in shell mode";
+		return r;
+	}
+	ObjectivesScreenInfo info;
+	info.gameMode = (int)(int64_t)state.get("game_mode", (int64_t)0);
+	info.tutorialInput = (bool)state.get("tutorial_input", false);
+	const Array list = state.get("objectives", Array());
+	for (int64_t i = 0; i < list.size(); ++i)
+	{
+		const Dictionary o = list[i];
+		MissionObjective mo;
+		mo.label = toNative(String(o.get("label", String())));
+		mo.bonus = (bool)o.get("bonus", false);
+		mo.shown = (bool)o.get("shown", true);
+		mo.completed = (bool)o.get("completed", false);
+		info.objectives.push_back(mo);
+	}
+	m->shell->objectivesScreen = info;
+	m->shell->environment.objectivesScreen = &m->shell->objectivesScreen;
+	Array rows;
+	for (int row = 0; row < AptObjectivesMenu::kRows; ++row)
+	{
+		const std::string text = AptObjectivesMenu::objectiveText(info, row);
+		if (text.empty())
+		{
+			break;
+		}
+		rows.push_back(toGodot(text + " " + AptObjectivesMenu::objectiveStatus(info, row)));
+	}
+	r["ok"] = true;
+	r["rows"] = rows; // "$<label> <completed><bonus>" per row, as the providers answer
 	return r;
 }
 

@@ -653,10 +653,11 @@ Object *AIUpdateInterface::getNextMoodTarget(bool calledByAI, bool calledDuringI
 	static const int kHorde = CombatNames::kindOf("HORDE");                                             // + 0x115 bit 5
 	static const int kAttackNeedsLos = CombatNames::kindOf("ATTACK_NEEDS_LINE_OF_SIGHT");               // + 0x10F bit 3
 	const unsigned kCloseRange = 7; // TheWeaponConditionNames (RW 0xDA1328) CLOSE_RANGE
-	// RW 0x66849D .. 0x6684EC: dead (+ 0x458 bit 0; bit 3 is never set in the port), SPECIAL_ABILITY_PACKING_UNPACKING_OR_USING, the AI's temporary state
+	// RW 0x66849D .. 0x6684EC: dead or OFF_MAP (+ 0x458 bits 0 / 3; lane CAMPUI-1: OFF_MAP from the map's extent, RW 0x69355D: MAP ANG Angmar's
+	// counterattack wolf riders wait below the map's edge until the scripts send them in), SPECIAL_ABILITY_PACKING_UNPACKING_OR_USING, the AI's temporary state
 	// machine (+ 0x34: BeginTemporaryStateMachine RW 0x6630A9, which nothing calls in the port, S-1222), NO_AUTO_ACQUIRE, HORDE_MEMBER, IGNORE_AI_COMMAND,
 	// the model conditions JUST_BUILT (lane SPELL-3: a castle member fading in) and COMING_OUT_OF_FACTORY: nothing
-	if (obj.isEffectivelyDead() || obj.testStatus((unsigned)kAbilityBusy) || obj.testStatus((unsigned)kNoAutoAcquire) || obj.testStatus((unsigned)kHordeMember) ||
+	if (obj.isEffectivelyDead() || obj.isOffMap() || obj.testStatus((unsigned)kAbilityBusy) || obj.testStatus((unsigned)kNoAutoAcquire) || obj.testStatus((unsigned)kHordeMember) ||
 		obj.testStatus((unsigned)kIgnoreAi) || obj.testModelCondition(kJustBuilt) || obj.testModelCondition(kComingOut))
 	{
 		return nullptr;

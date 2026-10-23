@@ -67,6 +67,16 @@ def commit(repo: Path, files: dict[str, str | bytes], message: str, force: bool 
     return git(repo, "rev-parse", "HEAD")
 
 
+# lane MACGATE-1: the release pipeline (autorelease.sh, publish_release.sh) runs on the Deck and the Linux release hosts only: its scripts are
+# #!/bin/bash and use bash 4+ (mapfile), and macOS's /bin/bash is 3.2. A run of it on macOS is skipped by name, never passed.
+DECK_HOSTED = "the release pipeline (autorelease.sh / publish_release.sh) runs on the Deck and Linux release hosts: #!/bin/bash needs bash 4+, macOS has 3.2"
+
+
+def skip_on_macos() -> None:
+    if sys.platform == "darwin":
+        pytest.skip(DECK_HOSTED)
+
+
 def run(*cmd, env=None, **kw) -> subprocess.CompletedProcess:
     return subprocess.run([str(c) for c in cmd], capture_output=True, text=True, timeout=600, env={**os.environ, **GIT_ENV, **(env or {})},
                           stdin=subprocess.DEVNULL, **kw)
@@ -332,6 +342,7 @@ else:
                 "PATH": f"{self.gh.parent}:{os.environ['PATH']}", **extra}
 
     def release(self, sha: str, *args: str, **env) -> subprocess.CompletedProcess:
+        skip_on_macos()
         return run("bash", self.repo / "tools/release/autorelease.sh", sha, "--repo", TARGET, "--remote", "origin", *args, env=self.env(**env))
 
     def gh_data(self) -> dict:

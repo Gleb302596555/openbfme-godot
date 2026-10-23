@@ -211,12 +211,14 @@ void Player::crc(StateHasher &h) const
 		h.addI32(r.upgrade ? r.upgrade->getMaskBit() : -1);
 		h.addI32(r.status);
 	}
-	for (std::uint32_t w : m_upgradesInProgress.words)
+	for (unsigned i = 0; i < UpgradeMaskType::activeWords(); ++i) // lane MODS-3: retail's 0x24 words unless the data has more upgrades
 	{
+		const std::uint32_t w = m_upgradesInProgress.words[i];
 		h.addU32(w);
 	}
-	for (std::uint32_t w : m_upgradesCompleted.words)
+	for (unsigned i = 0; i < UpgradeMaskType::activeWords(); ++i) // lane MODS-3: retail's 0x24 words unless the data has more upgrades
 	{
+		const std::uint32_t w = m_upgradesCompleted.words[i];
 		h.addU32(w);
 	}
 	h.addU32((std::uint32_t)m_costModifiers.size());

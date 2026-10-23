@@ -95,7 +95,7 @@ anything: it updates itself and the game.
 Releases have plain numbers: Alpha 0.4.5, then 0.4.6 and so on; the middle
 number goes up (0.5.0) when a big new feature lands. The launcher has two
 channels: **Stable** (the tested releases, shown as Alpha 0.4.5) and
-**Nightly** (a build of everything merged that day, published every night; it
+**Nightly** (a build of everything merged, published twice a day; it
 may break). Nightly also gets every stable release, and you can switch in
 Settings.
 

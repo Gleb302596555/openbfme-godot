@@ -96,6 +96,17 @@ func _check(ok: bool, what: String) -> void:
 		print("UNIT FAIL ", what)
 
 
+## lane NIGHTLY-2: Semver.nightly_text exactly as NIGHTLY-1 shipped it (v0.4.12 and the nightlies before NIGHTLY-2): what an installed launcher shows
+@warning_ignore("integer_division")
+static func _shipped_nightly_text(core: String, n: int) -> String:
+	var y := n / 10000
+	var mo := (n / 100) % 100
+	var d := n % 100
+	if n >= 10000000 and mo >= 1 and mo <= 12 and d >= 1 and d <= 31:
+		return "Nightly %s (%04d-%02d-%02d)" % [core, y, mo, d]
+	return "Nightly %s build %d" % [core, n]
+
+
 func _init() -> void:
 	# versions (SemVer 2.0.0 section 11 precedence)
 	var order := ["v0.1.0-preview.0", "v0.1.0-preview.1", "v0.1.0-preview.2", "v0.1.0-preview.10", "v0.1.0", "v0.1.1-preview.1",
@@ -133,6 +144,36 @@ func _init() -> void:
 			["v0.4.13-nightly.20261000", "Nightly 0.4.13 build 20261000"], ["v0.4.13-nightly.7", "Nightly 0.4.13 build 7"]]:
 		_check(Semver.display(d[0]) == d[1], "display %s: %s, not %s" % [d[0], d[1], Semver.display(d[0])])
 	_check(ReleaseNotes.title_of("v0.4.13-nightly.20261022") == "Nightly 0.4.13 (2026-10-22)", "notes: nightly title")
+	# lane NIGHTLY-2 (owner, 2026-10-23): two nightlies a day, <YYMMDD><1|2>00, above every 8-digit date, in run order
+	var twice := ["v0.4.12-nightly.20261022", "v0.4.13-nightly.20261022", "v0.4.13-nightly.20261023", "v0.4.13-nightly.99999999",
+		"v0.4.13-nightly.261023100", "v0.4.13-nightly.261023200", "v0.4.13-nightly.261024100", "v0.4.13-nightly.261101200",
+		"v0.4.13-nightly.270101100", "v0.4.13", "v0.4.14-nightly.261102100"]
+	for i in twice.size():
+		for j in twice.size():
+			var want := 0 if i == j else (-1 if i < j else 1)
+			_check(Semver.compare(twice[i], twice[j]) == want, "semver %s vs %s" % [twice[i], twice[j]])
+	for d in [["v0.4.13-nightly.261023100", "Nightly 0.4.13 (2026-10-23, morning)"], ["v0.4.13-nightly.261023200", "Nightly 0.4.13 (2026-10-23, evening)"],
+			["v0.4.13-nightly.270101100", "Nightly 0.4.13 (2027-01-01, morning)"], ["v0.4.13-nightly.991231200", "Nightly 0.4.13 (2099-12-31, evening)"],
+			["v0.4.13-nightly.261023300", "Nightly 0.4.13 build 261023300"], ["v0.4.13-nightly.261023000", "Nightly 0.4.13 build 261023000"],
+			["v0.4.13-nightly.261023210", "Nightly 0.4.13 build 261023210"], ["v0.4.13-nightly.261323100", "Nightly 0.4.13 build 261323100"],
+			["v0.4.13-nightly.261032100", "Nightly 0.4.13 build 261032100"], ["v0.4.13-nightly.251023100", "Nightly 0.4.13 build 251023100"],
+			["v0.4.13-nightly.202610231", "Nightly 0.4.13 build 202610231"]]:
+		_check(Semver.display(d[0]) == d[1], "display %s: %s, not %s" % [d[0], d[1], Semver.display(d[0])])
+	_check(ReleaseNotes.title_of("v0.4.13-nightly.261023200") == "Nightly 0.4.13 (2026-10-23, evening)", "notes: twice-a-day nightly title")
+	# the bottom bar's short name: a nightly without its date and half day, anything else as display()
+	for d in [["v0.4.13-nightly.261023200", "Nightly 0.4.13"], ["v0.4.12-nightly.20261022", "Nightly 0.4.12"], ["v0.4.5", "Alpha 0.4.5"],
+			["v0.4.0-alpha.3", "v0.4.0 Alpha 3"], ["v0.3.0-preview.4", "v0.3.0-preview.4"], ["dev-build", "dev-build"]]:
+		_check(Semver.display_short(d[0]) == d[1], "display_short %s: %s, not %s" % [d[0], d[1], Semver.display_short(d[0])])
+	# a launcher already shipped (NIGHTLY-1's nightly_text, below as it shipped) shows every twice-a-day number as a build, never a date
+	var shown_wrong := 0
+	for yy in range(26, 100):
+		for mo in range(1, 13):
+			for dd in range(1, 32):
+				for slot in [1, 2]:
+					var n: int = ((yy * 100 + mo) * 100 + dd) * 1000 + slot * 100
+					if _shipped_nightly_text("0.4.13", n) != "Nightly 0.4.13 build %d" % n:
+						shown_wrong += 1
+	_check(shown_wrong == 0, "a NIGHTLY-1 launcher shows %d twice-a-day numbers as a date" % shown_wrong)
 	var plain := ["v0.4.0-alpha.1", "v0.4.0-alpha.4", "v0.4.0-alpha.10", "v0.4.0", "v0.4.5", "v0.4.6", "v0.4.10", "v0.5.0", "v1.0.0"]
 	for i in plain.size():
 		for j in plain.size():

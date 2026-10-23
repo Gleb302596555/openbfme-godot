@@ -263,6 +263,18 @@
    "reason": "archive file system: file I/O"
   },
   {
+   "glob": "src/GameClient/AssetPacks.cpp",
+   "reason": "lane SDK-0: cosmetic asset packs (which model / texture files the render side draws): file I/O, never read by the simulation"
+  },
+  {
+   "glob": "src/Common/System/ModMount.cpp",
+   "reason": "lane MODS-1: the -mod mount (which mod archives and loose files load, their md5s): file I/O"
+  },
+  {
+   "glob": "src/Common/System/ModEngineFeatures.cpp",
+   "reason": "lane MODS-3: the table of known modified game programs (by md5) and the on / off switches of their features, set before a game starts: no arithmetic; the features themselves live in the audited simulation sources"
+  },
+  {
    "glob": "src/Common/System/LooseFileScan.cpp",
    "reason": "loose file scan: file I/O"
   },

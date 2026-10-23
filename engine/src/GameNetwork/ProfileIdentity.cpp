@@ -46,7 +46,7 @@ const char *ProfileIdentity::gitProvenance()
 }
 
 ProfileIdentity ProfileIdentity::compute(const std::vector<MountedArchive> &archives, RandomAlgorithm rng, const std::vector<std::string> &extraFeatures,
-	SimulationProfile profile)
+	SimulationProfile profile, const std::vector<std::string> &modLines)
 {
 	std::ostringstream o;
 	o << "openbfme-profile 1\n";
@@ -62,7 +62,23 @@ ProfileIdentity ProfileIdentity::compute(const std::vector<MountedArchive> &arch
 	o << "\n";
 	o << "numeric " << kNumeric << "\n";
 	o << "rng " << (rng == RandomAlgorithm::ZH_CarryChain ? "ZH_CarryChain" : "RotWK_GameDat_LCG") << "\n";
-	o << "mods none\n";
+	if (modLines.empty())
+	{
+		o << "mods none\n";
+	}
+	else
+	{
+		size_t sources = 0;
+		for (const std::string &l : modLines)
+		{
+			sources += l.compare(0, 4, "mod ") == 0 ? 1 : 0;
+		}
+		o << "mods " << sources << "\n";
+		for (const std::string &l : modLines)
+		{
+			o << l << "\n";
+		}
+	}
 	for (size_t i = 0; i < archives.size(); ++i)
 	{
 		const MountedArchive &a = archives[i];

@@ -978,6 +978,10 @@ func _ready() -> void:
 			_cli_mission = int(arg.substr(10))
 		elif arg.begins_with("--difficulty="):
 			_cli_difficulty = preload("res://scripts/campaign_flow.gd").difficulty_from_command(arg.substr(13))
+		elif arg.begins_with("--stance-at="):
+			_stance_at = int(arg.substr(12)) # lane CAMPUI-1 (proof captures, test hooks)
+		elif arg.begins_with("--objectives-at="):
+			_objectives_at = int(arg.substr(16)) # lane CAMPUI-1 (proof captures)
 		elif arg == "--campaign-win":
 			_campaign_win = true
 		elif arg.begins_with("--campaign-check="):
@@ -1316,7 +1320,7 @@ func _boot() -> void:
 	_campaign_flow.name = "CampaignFlow"
 	_campaign_flow.game = self
 	_campaign_flow.world = _world
-	_campaign_flow.hooks = _campaign_win or _play_script.ends_with("ownerfix1_player.gd") or _play_script.ends_with("devport7_player.gd") # lane OWNERFIX-1 / DEVPORT-7: their scenarios use the logged test hooks
+	_campaign_flow.hooks = _campaign_win or _stance_at >= 0 or _play_script.ends_with("ownerfix1_player.gd") or _play_script.ends_with("devport7_player.gd") # lane OWNERFIX-1 / DEVPORT-7: their scenarios use the logged test hooks
 	_campaign_flow.auto_win = _campaign_win
 	_campaign_flow.movies = _campaign_movies # lane CAMP-1H
 	add_child(_campaign_flow)
@@ -1391,6 +1395,14 @@ func _process(delta: float) -> void:
 		_capture_tick() # lane ONLINE-4
 	Release.set_in_game(_state == State.PLAYING) # lane RELEASE-1: the version corner in the menus only
 	_campaign_check_tick() # lane CAMP-1
+	if _stance_at >= 0 and _state == State.PLAYING and _world != null and _world.get_presented_frame() >= _stance_at:
+		_stance_at = -1
+		_stance_proof()
+	if _objectives_at >= 0 and _state == State.PLAYING and _world != null and _world.get_presented_frame() >= _objectives_at:
+		_objectives_at = -1
+		print("GAME --objectives-at: the objectives screen at frame %d" % _world.get_presented_frame())
+		_palantir_objectives()
+		get_tree().create_timer(6.0, true).timeout.connect(_close_objectives)
 	if _online_reports != null:
 		if _online_http != null:
 			_online_reports.set_context(_shell.online_status())
@@ -1598,6 +1610,8 @@ func _on_shell_request(action: String, argument: String) -> void:
 		_palantir_objectives()
 	elif action == "TributeReturnToGame":
 		_close_tribute()
+	elif action == "ObjectivesReturnToGame":
+		_close_objectives() # lane CAMPUI-1
 	elif action.begins_with("QuitMenu"):
 		_quit_menu_action(action, argument)
 	elif action.begins_with("CampaignMenu"):
@@ -1969,6 +1983,12 @@ func _click_at_stage(p: Vector2) -> void:
 
 func _on_shell_screen(filename: String) -> void:
 	print("GAME screen: ", filename)
+	# lane CAMPUI-1: a mission's first CAMERA_LETTERBOX_BEGIN (MAP ANG Angmar's intro, frame 1) runs before the HUD movie is on the shell's stack, so
+	# _set_control_bar_hidden could not hide its level then: the movie came up drawn under the whole intro. Retail's HideControlBar (RW 0x804576) is a
+	# state of the control bar, so the movie is hidden as soon as it is shown
+	if filename == "Palantir.apt" and _control_bar_hidden:
+		_shell.set_level_visible(_palantir_level(), false)
+		print("GAME control bar hidden on the HUD movie's arrival")
 	if _state == State.MENU and filename != "MainMenu.apt":
 		_audio.play_submenu_music()
 
@@ -2131,6 +2151,9 @@ func _set_control_bar_hidden(hidden: bool) -> void:
 		_shell.set_level_visible(_palantir_level(), not hidden)
 	if _hud != null:
 		_hud.visible = not hidden
+	# lane CAMPUI-1: HideControlBar disables the notification box (it closes at once), ShowControlBar enables it (RW 0x804576 / 0x8046A1 -> RW 0x8EB2BA)
+	if _campaign_flow != null and _campaign_flow._cine != null:
+		_campaign_flow._cine.set_notification_enabled(not hidden)
 	# the tests read it back from the render list a few frames later
 	for i in 3:
 		await get_tree().process_frame
@@ -2672,6 +2695,8 @@ func _step(frames: int) -> void:
 	var until := Time.get_ticks_msec() + int(frames * 1000.0 / 60.0)
 	for i in frames:
 		await get_tree().process_frame
+	if not Engine.get_write_movie_path().is_empty():
+		return # lane SPELLRC-1: a recording's frames are its clock (see _wait_seconds)
 	while Time.get_ticks_msec() < until:
 		await get_tree().process_frame
 
@@ -3545,12 +3570,16 @@ func _input(event: InputEvent) -> void:
 		if not stack.is_empty() and stack[-1] == "PlayerTribute.apt":
 			_close_tribute()
 			return
+		# lane CAMPUI-1: Escape over the objectives screen closes it (its key handler RW 0x8E8B61 -> ReturnToGame RW 0x8E873E), not the quit menu
+		if not stack.is_empty() and stack[-1] == "Objectives.apt":
+			_close_objectives()
+			return
 		_toggle_quit_menu()
 
 
 ## lane PLAY-1: the Palantir's flag (AptPalantir::OnBttnObjectives RW 0x6D40C9). In a skirmish or a multiplayer game (RW 0x625456: mode 2 or a network game)
 ## RW 0x914EF0 pushes PlayerTribute.apt over the game when none is up and the game is not ending (the end-game timer, RW 0x914F37); otherwise RW 0x8E8843 opens
-## the objectives screen, which is not ported (S-1922)
+## the objectives screen (lane CAMPUI-1: _open_objectives)
 ## lane PLATFORMICON-1: --net-score-shot: the local player forfeits through the quit menu (as --net-end's joiner does); the game leaves to the score screen, which is saved
 func _net_score_flow() -> void:
 	await _press_escape()
@@ -3582,7 +3611,11 @@ func _palantir_objectives() -> void:
 	var ctx: Dictionary = _world.get_quit_menu_context()
 	var mode: int = ctx.get("mode", 2)
 	if mode != 2 and mode != 1 and mode != 5:
-		print("GAME STOP [S-1922] the objectives screen (RW 0x8E8843) is not ported")
+		# lane CAMPUI-1: RW 0x8E8843, the objectives screen (Tab over it closes it: its key handler RW 0x8E8B61)
+		if _shell.shell_stack().has("Objectives.apt"):
+			_close_objectives()
+		else:
+			_open_objectives(mode)
 		return
 	if _shell.shell_stack().has("PlayerTribute.apt") or _quit_open or _state != State.PLAYING:
 		return
@@ -3596,6 +3629,85 @@ func _palantir_objectives() -> void:
 		printerr("GAME PlayerTribute.apt: ", str(_shell.get_shell_report().errors))
 		return
 	print("GAME tribute screen open (PlayerTribute.apt, RW 0x914EF0)")
+
+
+var _objectives_paused := false # lane CAMPUI-1: the objectives screen paused the game (RW 0x8E8843 -> RW 0x625AF1(1, 0, 1))
+var _stance_at := -1 ## --stance-at=F (lane CAMPUI-1, proof captures; the start option test_hooks): at logic frame F the Witch King is selected, the Palantir's stance button clicked and its Battle item hovered
+var _objectives_at := -1 ## --objectives-at=F (lane CAMPUI-1, proof captures): the Palantir flag's objectives screen opens at logic frame F, closes 6 s later
+
+
+## lane CAMPUI-1: AptObjectivesMenu's opening (RW 0x8E8843): not twice, not while the screen is disabled (DISABLE_OBJECTIVES_SCREEN, RW 0x8E89BD), a menu
+## is up or the game is not playing; the game is paused unless it is a network game or the tutorial (RW 0x625AF1(1, 0, 1), as the quit menu); the
+## notification box closes (DoClose RW 0x8EB2D8); then Objectives.apt over the game with the tracker's objectives (GameWorld.get_mission_objectives)
+func _open_objectives(mode: int) -> void:
+	if _quit_open or _state != State.PLAYING or _shell.shell_stack().has("PlayerTribute.apt"):
+		return
+	var obj: Dictionary = _world.get_mission_objectives()
+	if not bool(obj.get("screen_enabled", true)):
+		print("GAME objectives screen: disabled by the map's script (DISABLE_OBJECTIVES_SCREEN)")
+		return
+	var screen: Dictionary = _shell.set_objectives_screen({"game_mode": 0 if mode == 0 else mode, "objectives": obj.get("objectives", [])})
+	if not screen.get("ok", false):
+		printerr("GAME objectives screen: ", screen.get("error", "?"))
+		return
+	if mode != 1 and mode != 5 and mode != 6:
+		_objectives_paused = not _world.is_paused()
+		_world.set_paused(true)
+	if _campaign_flow != null and _campaign_flow._cine != null:
+		_campaign_flow._cine.close_notification() # RW 0x8E8934: DoClose (RW 0x8EB2D8) before the screen opens
+	if not _shell.shell_push("Objectives.apt"):
+		printerr("GAME Objectives.apt: ", str(_shell.get_shell_report().errors))
+		_close_objectives_unpause()
+		return
+	if _hud != null:
+		_hud.set_objectives_screen_open(true)
+	print("GAME objectives screen open (Objectives.apt, RW 0x8E8843): ", JSON.stringify(screen.get("rows", [])))
+
+
+## lane CAMPUI-1: ReturnToGame (RW 0x8E873E -> RW 0x8E86A5), Escape / Tab / Enter (RW 0x8E8B61): the shell pops the screen; the dtor (RW 0x8E8CED) unpauses
+func _close_objectives() -> void:
+	var stack: PackedStringArray = _shell.shell_stack()
+	if stack.is_empty() or stack[-1] != "Objectives.apt":
+		return
+	_shell.shell_pop()
+	_close_objectives_unpause()
+	if _hud != null:
+		_hud.set_objectives_screen_open(false)
+	print("GAME objectives screen closed")
+
+
+## lane CAMPUI-1: --stance-at: the stance radial for the proof captures, through the HUD's own input (a click on the Palantir's stance button, the pointer
+## over its first item); every step is printed
+func _stance_proof() -> void:
+	var wk: Dictionary = _world.debug_script_unit("Witch King")
+	print("GAME --stance-at: Witch King ", wk)
+	if not wk.get("ok", false):
+		return
+	_hud.select_object(int(wk.id))
+	await _step(10)
+	var b: Dictionary = _hud.find_button_window("CommandButtons.0")
+	print("GAME --stance-at: the stance button ", b)
+	if not b.get("found", false):
+		return
+	var at := Vector2(float(b.x), float(b.y))
+	_hud.inject_mouse_move(at)
+	await _step(3)
+	_hud.inject_mouse_button(MOUSE_BUTTON_LEFT, true, at)
+	await _step(2)
+	_hud.inject_mouse_button(MOUSE_BUTTON_LEFT, false, at)
+	await _step(20)
+	for item in ["subMenu0.trays.0.rot.bttnFrame", "subMenu0.trays.1.rot.bttnFrame", "subMenu0.trays.2.rot.bttnFrame"]:
+		var it: Dictionary = _hud.find_button_window(item)
+		print("GAME --stance-at: item ", item, " ", it)
+	var first: Dictionary = _hud.find_button_window("subMenu0.trays.1.rot.bttnFrame")
+	if first.get("found", false):
+		_hud.inject_mouse_move(Vector2(float(first.x), float(first.y)))
+
+
+func _close_objectives_unpause() -> void:
+	if _objectives_paused:
+		_world.set_paused(false)
+		_objectives_paused = false
 
 
 ## PlayerTribute.apt closes (its <path>_ReturnToGame, Escape): RW 0x914C51 marks it closing and the shell pops it (RW 0x62215B)
@@ -4769,6 +4881,14 @@ func _finish_end_flow(faction: String, prefix := "end1") -> void:
 
 
 func _wait_seconds(sec: float) -> void:
+	# lane SPELLRC-1: under the movie writer (--write-movie, a fixed frame rate) a rendered frame is 1 / fps of game time however long it takes to draw:
+	# the wait counts that game time, or a slow recording host ends it before the movies' animations ran (a scripted click then misses)
+	if not Engine.get_write_movie_path().is_empty():
+		var left := sec
+		while left > 0.0:
+			await get_tree().process_frame
+			left -= get_process_delta_time()
+		return
 	var until := Time.get_ticks_msec() + int(sec * 1000.0)
 	while Time.get_ticks_msec() < until:
 		await get_tree().process_frame

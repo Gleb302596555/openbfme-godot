@@ -261,9 +261,12 @@ TEST_CASE("netlag1 replay: a recording made by the pre-lane build (q19 tree with
 		const int rc = runCommand(peerBase() + " --replay \"" + fixture + "\" --report " + rr);
 		const std::string rep = readFile(rr);
 		INFO(rep.substr(0, 1500));
-		CHECK((rc == 0 || rc == 2)); // 1 would be a refusal (another profile) or a load error
-		CHECK(field(rep, "hashes_compared") == "149");
-		MESSAGE("the q19 recording on this simulation: mismatches " << field(rep, "mismatches") << ", final_hash " << field(rep, "final_hash"));
+		// merge queue q24: REFUSED as another profile since MODS-2 (6e5bb64a4, RotWK's real startup archive order): the profile lists the mounted
+		// archives in mount order, and the q19 build mounted lotrsec.big first where 2.01 mounts lang/englishpatch201.big first. The file still reads
+		// and names the verified pre-lane engine (above); playing it again needs a pre-MODS-2 archive-order compatibility or a re-recorded fixture
+		// (open: a coordinator / owner decision, replays and saves made before this merge are refused the same way)
+		CHECK(rc == 1); // 1: refused (another profile) before the game is loaded
+		CHECK(field(rep, "hashes_compared").empty());
 		std::remove(rr.c_str());
 	}
 	SUBCASE("the pre-lane command path and engine id, recorded by this build")

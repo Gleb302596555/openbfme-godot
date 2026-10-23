@@ -190,6 +190,7 @@ void HordeContain::reassignMembersToNearestSlots()
 	HordeContainCore::Placement owner;
 	owner.position = *horde->getPosition();
 	owner.angle = horde->getOrientation();
+	owner.computeTrig(); // lane UBER-2B: once for every member below
 	const int count = (int)m_core->slots().size();
 	std::vector<Coord3D> slotPos((size_t)count);
 	for (int i = 0; i < count; ++i)
@@ -409,6 +410,15 @@ bool HordeContain::acceptCreatedMember(Object *obj)
 	// too. Before, a produced horde whose members all died stayed alive with ImmortalBody's 1 hp, and every enemy kept it as its victim forever (AI vs AI stall)
 	m_payloadCreated = true;
 	return true;
+}
+
+bool HordeContain::hasFreeSlotFor(const Object &member)
+{
+	if (!m_core->built())
+	{
+		m_core->buildSlots(true);
+	}
+	return m_core->hasFreeSlotFor(member.getTemplate()->getName());
 }
 
 std::string HordeContain::getPayloadMemberTemplateName() const

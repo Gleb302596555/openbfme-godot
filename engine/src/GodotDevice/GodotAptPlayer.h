@@ -211,6 +211,11 @@ public:
 	// lane HUD-5: the players screen's Status rows (GUI/PlayerStatusInfo.h) from GameWorld.get_player_status_state(), built with the shell's factions, colours
 	// and game text; PlayerTribute.apt reads them when it loads its Status page. Returns { ok, rows: [[name, army, team, status, colour]], error }
 	Dictionary set_player_status(const Dictionary &state);
+	// lane CAMPUI-1: what Objectives.apt lists (GUI/AptScreens/AptObjectivesMenu.h): { game_mode, tutorial_input, objectives: [{ label, bonus, shown, completed }] }
+	// from GameWorld.get_mission_objectives(); answers { ok, rows } (the rows as the providers answer them)
+	Dictionary set_objectives_screen(const Dictionary &state);
+	// lane CAMPUI-1: the in-game notification box (begin / end / show / update / enable / close; see GodotAptPlayer.cpp)
+	Dictionary notification_box(const Dictionary &request);
 	// lane MP-2: a movie -> engine command as the movie's fscommand runs it (WindowManager::invokeCallback: "AptLanLobby::OnCreateGameBttn",
 	// "MpGameSetup::OnReadyPress" ...): scripted lobbies. false: no screen registered the name
 	bool shell_fscommand(const String &command, const String &argument);

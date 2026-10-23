@@ -212,6 +212,19 @@ int HordeContainCore::addMember(ObjectId id, const std::string &templateName)
 	return -1;
 }
 
+bool HordeContainCore::hasFreeSlotFor(const std::string &templateName) const
+{
+	for (int idx : m_freeList)
+	{
+		const RankInfo *rank = findRank(m_slots[(size_t)idx].rank);
+		if (rank && m_matcher(rank->unitType, templateName))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 // RW 0x87370B
 void HordeContainCore::removeMember(ObjectId id, bool templateIsSpecial)
 {
@@ -366,8 +379,8 @@ Coord3D HordeContainCore::getSlotWorldPos(ObjectId member, const Placement &owne
 			ox = m_slots[(size_t)idx].x;
 			oy = m_slots[(size_t)idx].y;
 		}
-		const float c = SimMath::cosf32(owner.angle);
-		const float s = SimMath::sinf32(owner.angle);
+		const float c = owner.hasTrig ? owner.cosAngle : SimMath::cosf32(owner.angle);
+		const float s = owner.hasTrig ? owner.sinAngle : SimMath::sinf32(owner.angle);
 		const float rx = SimMath::subf32(SimMath::mulf32(ox, c), SimMath::mulf32(oy, s));
 		const float ry = SimMath::addf32(SimMath::mulf32(ox, s), SimMath::mulf32(oy, c));
 		if (outAngle)
@@ -384,8 +397,8 @@ Coord3D HordeContainCore::getSlotWorldPos(ObjectId member, const Placement &owne
 Coord3D HordeContainCore::getSlotWorldPosByIndex(int slot, const Placement &owner) const
 {
 	const Slot &s = m_slots.at((size_t)slot);
-	const float c = SimMath::cosf32(owner.angle);
-	const float sn = SimMath::sinf32(owner.angle);
+	const float c = owner.hasTrig ? owner.cosAngle : SimMath::cosf32(owner.angle);
+	const float sn = owner.hasTrig ? owner.sinAngle : SimMath::sinf32(owner.angle);
 	const float rx = SimMath::subf32(SimMath::mulf32(s.x2, c), SimMath::mulf32(s.y2, sn));
 	const float ry = SimMath::addf32(SimMath::mulf32(s.x2, sn), SimMath::mulf32(s.y2, c));
 	return Coord3D{ SimMath::addf32(owner.position.x, rx), SimMath::addf32(ry, owner.position.y), owner.position.z };

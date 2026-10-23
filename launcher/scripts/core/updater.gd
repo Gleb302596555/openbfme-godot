@@ -31,6 +31,7 @@ const HttpFetch := preload("res://scripts/net/http_fetch.gd")
 const Log := preload("res://scripts/core/launcher_log.gd")
 const GlibcCheck := preload("res://scripts/core/glibc_check.gd")
 const MacOSUpdate := preload("res://scripts/core/macos_update.gd")
+const ModInstall := preload("res://scripts/core/mod_install.gd")  # lane MODS-3: the active mod's game arguments
 
 const API_BASE := "https://api.github.com"
 const KEEP_VERSIONS := 2
@@ -1116,6 +1117,8 @@ func _prune_locked() -> void:
 ## a fresh download ({modified: true}).
 ## lane ONEZIP-1: `before_start` (optional) is asked right before the process is started, after every check: false stops the start
 ## ({ok: false, stopped: true}; the game that asked for this start went on by itself, main.gd --game-start).
+## Lane MODS-3: with RotWK (not BFME1, which mounts no mods), the mod picked in Mods (user://mods/active.cfg) is passed as --mod-install= /
+## --mod= (scripts/core/mod_install.gd active_args); a picked mod that cannot be started is an error, never a start without it.
 func game_arguments(args: PackedStringArray = PackedStringArray()) -> Dictionary:
 	args = args.duplicate()
 	if get_state("launcher", "game", "bfme2") == "bfme1" and not Array(args).any(func(a): return a.begins_with("--online-")):
@@ -1124,6 +1127,14 @@ func game_arguments(args: PackedStringArray = PackedStringArray()) -> Dictionary
 			return {"ok": false, "error": "BFME1 assets were not found. Download the games from Game files, or set BFME1_INSTALL."}
 		if not "--" in args: args.append("--")
 		args.append_array(PackedStringArray(["--game=bfme1", "--bfme1-install=" + folder]))
+	elif get_state("launcher", "game", "bfme2") != "bfme1":
+		var mod := ModInstall.active_args(data_dir.path_join("mods"))
+		if not mod.ok:
+			return {"ok": false, "error": mod.error}
+		if not mod.args.is_empty():
+			if not "--" in args: args.append("--")
+			args.append_array(mod.args)
+			Log.line("LAUNCHER the game starts with the mod %s (%s)" % [mod.name, " ".join(mod.args)])
 	return {"ok": true, "args": args}
 
 
