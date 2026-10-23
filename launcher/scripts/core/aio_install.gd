@@ -368,8 +368,9 @@ func check_manifest(pkg: Dictionary, body: PackedByteArray) -> Dictionary:
 			if not pkg.language in f.Language.split(" ", false):
 				continue
 		elif tagged and (rel == "" or not pinned.has(rel.to_lower())):
-			# issue #49: a file of a language this download does not take; one OpenBFME has no pin for is a changed package
-			if rel != "" and not other.has(rel.to_lower()):
+			# issue #49: a file of a language this download does not take. One OpenBFME has no pin for is a changed package, unless every
+			# language it is tagged with is one the pinned table does not know (a new language on the service): skipped, as before the PR
+			if rel != "" and not other.has(rel.to_lower()) and _knows_a_language(pkg, f.Language):
 				return _broken(REJECTED, "%s lists %s, which OpenBFME's list of %s does not have: the package changed. Nothing was downloaded." % [what, rel, pkg.label])
 			continue
 		if rel == "":
@@ -447,6 +448,14 @@ func _stopped(part: String) -> Dictionary:
 			DirAccess.remove_absolute(part)
 		return _fail(STOPPED, "cancelled; the files already checked are kept, the one in progress was removed")
 	return _fail(STOPPED, "paused; it resumes where it stopped")
+
+
+## true when one of the manifest tag's language codes ("EN NL") is English or a language of the package's pinned table
+static func _knows_a_language(pkg: Dictionary, tag: String) -> bool:
+	for code in tag.split(" ", false):
+		if code == "EN" or pkg.get("languages", {}).has(code):
+			return true
+	return false
 
 
 ## The language archives (lang/*.big, speech included) already in `dir` that this download does not take ("lang/French.big"): another

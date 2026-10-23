@@ -495,7 +495,7 @@ text. In the window that is a dialog after the folder pick; on the command line 
   BFME2's `lang\Turkish.big` has the MD5 of `lang\English.big`.
 - **The download.** The launcher offers a language when both packages know every file it adds with a size (not Turkish, not
   Russian). It takes the `ALL` files, the text language's files without its speech archive, and the voice language's speech
-  archive. A language-tagged file it does not take is skipped; one OpenBFME has no pin for in any language stops the install
-  as a changed package. The command line has `--aio-language=<code>` and `--aio-voice=<code>`.
+  archive. A language-tagged file it does not take is skipped; one OpenBFME has no pin for, tagged with a language the pinned table
+  knows, stops the install as a changed package (one tagged only with a language the table does not know is skipped too). The command line has `--aio-language=<code>` and `--aio-voice=<code>`.
 - **The game** reads the language from the files on disk (`Common/RetailArchivePolicy.h`, "Languages"), the text language from
   `lang/<Language>.big` and the voice language from `lang/<Language>Audio.big`.

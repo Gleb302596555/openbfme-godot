@@ -767,16 +767,32 @@ def test_aio_language_refuses_what_it_does_not_offer(tmp_path, lang_service):
     assert lang_service.file_requests() == []
 
 
-@needs_godot
-def test_aio_a_language_file_it_has_no_pin_for_is_a_changed_package(tmp_path, lang_service):
+def _add_unpinned(svc: Service, name: str, language: str) -> None:
     data = os.urandom(5000)
     md5 = hashlib.md5(data).hexdigest()
-    lang_service.manifests["original-RotWK"]["Files"].append({"Guid": md5, "Name": "lang\\Klingon.big", "Url": f"{lang_service.server.origin}/{OWNER}/{md5}",
-                                                             "Md5": md5, "Language": "KL", "Size": 5000})
-    lang_service.publish()
+    svc.manifests["original-RotWK"]["Files"].append({"Guid": md5, "Name": name, "Url": f"{svc.server.origin}/{OWNER}/{md5}",
+                                                     "Md5": md5, "Language": language, "Size": 5000})
+    svc.publish()
+
+
+@needs_godot
+def test_aio_a_language_file_it_has_no_pin_for_is_a_changed_package(tmp_path, lang_service):
+    """a file tagged with a language the pinned table knows, but not pinned: the package changed"""
+    _add_unpinned(lang_service, "lang\\Frenchextra.big", "FR")
     r = install(tmp_path, lang_service, "--aio-language=FR")
-    assert r.code == 3 and r.has("lists lang/Klingon.big, which OpenBFME's list of"), r
+    assert r.code == 3 and r.has("lists lang/Frenchextra.big, which OpenBFME's list of"), r
     assert lang_service.file_requests() == []
+
+
+@needs_godot
+def test_aio_a_file_of_a_language_the_table_does_not_know_is_skipped(tmp_path, lang_service):
+    """PR #77 review: a new language on the service must not stop every download (English included), as before the PR"""
+    _add_unpinned(lang_service, "lang\\Klingon.big", "KL")
+    for sub, args in (("fr", ("--aio-language=FR",)), ("en", ())):
+        home = tmp_path / sub
+        r = install(home, lang_service, *args)
+        assert r.code == 0, (sub, r)
+        assert not on_disk(home, "RotWK", "lang/Klingon.big").exists()
 
 
 def test_aio_language_tables_agree_with_the_engine():
