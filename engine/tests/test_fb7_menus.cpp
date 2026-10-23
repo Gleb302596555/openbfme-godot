@@ -3174,17 +3174,19 @@ int menuAcceptUpdates(AptRetail &mount, const std::string &buttonName)
 
 // Before: the page took the bottom bar's clicks only from a button named "bttn" (RotWK 2.01's Options.apt). BFME2 1.06's movie leaves it unnamed,
 // so in the BFME2 style the click reached the movie, which played its closing animation before it sent AptOptions::Save: ACCEPT came back 0.55 s late
-// (measured in the game: 33 frames at 60 Hz) where the RotWK style took 2 frames.
-TEST_CASE("shellfix1 options retail: the OpenBFME menu's ACCEPT goes back to the main menu on the next update in both styles' Options.apt")
+// (measured in the game: 33 frames at 60 Hz) where the RotWK style took 2 frames. Lane MENUSND-1: the bar click is the page's only once the movie's
+// input has drained the press (the movie step that plays the button's click, test "menusnd1 options retail" above), so ACCEPT takes that step, then one
+// update: 2 in both styles.
+TEST_CASE("shellfix1 options retail: the OpenBFME menu's ACCEPT goes back to the main menu after the press's movie step in both styles' Options.apt")
 {
 	OPENBFME_REQUIRE_RETAIL(mount);
-	CHECK(menuAcceptUpdates(mount, "bttn") == 1);
+	CHECK(menuAcceptUpdates(mount, "bttn") == 2);
 	retailtest::Mount *bfme2 = retailtest::bfme2Mount();
 	REQUIRE(bfme2);
 	REQUIRE_MESSAGE(bfme2->fs, bfme2->error);
 	AptRetail bfme2Only{ *bfme2->fs };
 	REQUIRE(bfme2Only.fs.getArchiveFilenameForFile("Options.apt").find("options.big") != std::string::npos); // BFME2 1.06's own movie
-	CHECK(menuAcceptUpdates(bfme2Only, "") == 1); // an unnamed button (the player's list_buttons calls it "instance14")
+	CHECK(menuAcceptUpdates(bfme2Only, "") == 2); // an unnamed button (the player's list_buttons calls it "instance14")
 }
 
 // Retail's own ACCEPT (the reference for the menu's): RotWK 2.01's Options.apt plays its closing animation, then sends AptOptions::Save (RW 0x91FC9C),
