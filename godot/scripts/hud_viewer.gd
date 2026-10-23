@@ -947,7 +947,7 @@ func _run_scenario() -> void:
 			_save(shots.path_join(_shot_prefix + "-bar.png"))
 		"tunnel":
 			# TUNNEL-1: the Goblins' tunnel network as a player uses it. --spawn=WildMineShaft:.. twice, then a horde (--spawn=GoblinFighterHorde:..; run with
-			# --faction=FactionWild --alternate-mouse --logic-thread=off): both shafts finished (debug_build_complete: their completion joins the network), the horde
+			# --faction=FactionWild --logic-thread=off; --audio for sound): both shafts finished (debug_build_complete: their completion joins the network), the horde
 			# ordered into the first shaft (MSG_ENTER), the camera to the second shaft, a click selects it and its first exit button (the
 			# horde's portrait) is pressed (MSG_EXIT): the horde comes out of the second shaft. Saves <prefix>-entered / -exit-button / -out
 			if _shot_prefix == "proj1":
@@ -955,7 +955,13 @@ func _run_scenario() -> void:
 			var shaft_a: int = _spawn_ids[0]
 			var shaft_b: int = _spawn_ids[1]
 			var horde: int = _spawn_ids[2]
-			print("COMPLETE ", _world.debug_build_complete(shaft_a), " ", _world.debug_build_complete(shaft_b))
+			# every stage is checked: a stage that did not happen ends the run with HUDVIEW FAIL before the next screenshot (a broken run never looks successful)
+			var done_a: Dictionary = _world.debug_build_complete(shaft_a)
+			var done_b: Dictionary = _world.debug_build_complete(shaft_b)
+			print("COMPLETE ", done_a, " ", done_b)
+			if not done_a.get("ok", false) or not done_b.get("ok", false):
+				_fail("tunnel: the shafts could not be finished: %s %s" % [done_a, done_b])
+				return
 			var a: Dictionary = _world.get_object(shaft_a)
 			var b: Dictionary = _world.get_object(shaft_b)
 			var h: Dictionary = _world.get_object(horde)
@@ -965,12 +971,23 @@ func _run_scenario() -> void:
 			_place_camera()
 			await _frames(45)
 			# the enter order through the lockstep command path (MSG_ENTER, what the right click sends; the click itself is test_hud_tunnel_retail.cpp's)
-			print("ENTER ", _world.order_garrison([horde], shaft_a))
-			for i in 600:
+			var enter: Dictionary = _world.order_garrison([horde], shaft_a)
+			print("ENTER ", enter)
+			if not enter.get("ok", false):
+				_fail("tunnel: the enter order was refused: %s" % [enter])
+				return
+			# the waits run until the stage is done or 120 s of wall time passed (a headless run's frames are much shorter than the movie writer's)
+			var inside := false
+			var t0 := Time.get_ticks_msec()
+			while Time.get_ticks_msec() - t0 < 120000:
 				await _frames(1)
 				var g: Dictionary = _world.get_garrison(shaft_a)
 				if int(g.get("count", 0)) > 0 and int(g.get("entering", 0)) == 0 and int(g.get("members_hidden", 0)) == int(g.get("members", -1)):
+					inside = true
 					break
+			if not inside:
+				_fail("tunnel: the horde never got into the first shaft: %s" % [JSON.stringify(_world.get_garrison(shaft_a))])
+				return
 			await _frames(20)
 			print("ENTERED ", JSON.stringify(_world.get_garrison(shaft_a)), " B ", JSON.stringify(_world.get_garrison(shaft_b)))
 			_save(shots.path_join(_shot_prefix + "-entered.png"))
@@ -983,21 +1000,37 @@ func _run_scenario() -> void:
 				await _frames(20)
 				if _hud.get_selection().has(shaft_b):
 					break
+			if not _hud.get_selection().has(shaft_b):
+				_fail("tunnel: the click did not select the second shaft")
+				return
 			await _frames(30)
 			print("SHAFT B BUTTONS ", JSON.stringify(_hud.get_command_buttons()))
 			_save(shots.path_join(_shot_prefix + "-exit-button.png"))
 			_caption = "Its exit button lets the horde out here"
-			print("EXIT PRESS ", _hud.press_command_button("Command_ExitGarrison"))
-			for i in 300:
+			var pressed: bool = _hud.press_command_button("Command_ExitGarrison")
+			print("EXIT PRESS ", pressed)
+			if not pressed:
+				_fail("tunnel: the second shaft's exit button could not be pressed: %s" % [JSON.stringify(_hud.get_command_buttons())])
+				return
+			var left := false
+			t0 = Time.get_ticks_msec()
+			while Time.get_ticks_msec() - t0 < 120000:
 				await _frames(1)
 				if int(_world.get_garrison(shaft_b).get("count", 1)) == 0:
+					left = true
 					break
+			if not left:
+				_fail("tunnel: the horde never came out of the second shaft")
+				return
 			await _frames(60)
 			# the horde selected (the shaft's radial menu closes) and sent a little way from the shaft
 			_hud.select_objects([horde])
 			print("MOVE ", _world.order_move([horde], b.x - 60.0, b.y - 260.0, {}))
 			await _frames(240)
 			var out: Dictionary = _world.get_object(horde)
+			if not out.get("ok", false) or int(out.get("contained_by", 0)) != 0:
+				_fail("tunnel: the horde is not out in the world: %s" % [out])
+				return
 			print("OUT horde at (%.0f, %.0f): %.0f from shaft B, %.0f from shaft A" % [out.x, out.y, Vector2(out.x, out.y).distance_to(Vector2(b.x, b.y)), Vector2(out.x, out.y).distance_to(Vector2(a.x, a.y))])
 			_save(shots.path_join(_shot_prefix + "-out.png"))
 		"garrison_hud":
