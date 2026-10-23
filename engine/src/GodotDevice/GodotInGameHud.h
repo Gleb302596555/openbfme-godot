@@ -110,7 +110,16 @@ public:
 	// scripted camera moves for the viewers (the same View::lookAt / setHeightAboveGround the radar click and the wheel call)
 	void camera_look_at(const Vector2 &sage_xy);
 	void camera_set_height(float height_above_ground);
+	// lane CAMPUI-1: a map script's RESET_CAMERA (view slot 0xC8, the game start's RW 0x63135B) and the letterbox's zoom limit (W3DDisplay::enableLetterBox
+	// RW 0x443C81: TheTacticalView slot 0x1C setZoomLimited(!enable)) on the HUD's own camera, so a cinematic moves the camera the player then keeps
+	void camera_reset(const Vector2 &sage_xy);
+	void camera_set_zoom_limited(bool on);
+	// lane CAMPUI-1: the objectives screen's state for the Palantir's flag and a script's FLASH_*_BUTTON (slot 0 spell store, 1 objectives, 2 planning mode)
+	void set_objectives_screen_open(bool open);
+	void flash_palantir_button(int slot, int seconds);
+	bool is_objectives_flag_flashing() const;
 	Vector2 pixel_to_world(const Vector2 &pixel) const;
+	Vector2 ping_point(const Vector2 &pixel) const; ///< the ping wheel (not retail): the map point a ping at this pixel marks (see the .cpp)
 	Vector2 world_to_pixel(const Vector2 &world_xy) const;
 	// lane IDLE-1: { ok, picked (the id the HUD's pick answers at `pixel`, 0 for none), target ("hit" / "miss" / "not_drawn" / "unknown" / "gone": the pick ray
 	// against object `id`'s drawn model alone), target_t, selectable (HudObjects::isSelectable of `id`) } (the QA harness's failed-click verdict)
@@ -120,7 +129,7 @@ public:
 	// the radar picture's square in window pixels (Rect2; size 0 before the movie shows it)
 	// lane PLAY-1: the window pixel of the radar that shows the SAGE point (x, y); (-1, -1) without a radar
 	Vector2 world_to_radar_pixel(const Vector2 &world) const;
-	bool create_radar_event(const Vector2 &world_xy, int type); ///< lane RADAR-1 (QA): Radar::createEvent at SAGE (x, y), 4 seconds
+	bool create_radar_event(const Vector2 &world_xy, int type, bool jump_to = false); ///< lane RADAR-1 (QA): Radar::createEvent at SAGE (x, y), 4 seconds
 	Rect2 get_radar_square() const;
 	Dictionary get_radar_state() const;                 ///< lane HUD-7: the drawn picture, clip and view box beside the click rectangle
 	Dictionary radar_probe(const Vector2 &world_xy) const; ///< lane HUD-7: the overlay cell of a world point, its alpha and drawn pixel

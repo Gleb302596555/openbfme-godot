@@ -116,6 +116,9 @@ public:
 	// a click at a window pixel inside the radar square: the left button moves the view there, the right button orders the selection to that ground point (MSG_DO_MOVETO) when it is
 	// controllable. True when the click was the radar's.
 	bool radarClick(HudInput::Button button, int x, int y, int timeMs);
+	// the ping wheel (not retail): whether window point (x, y) is on the radar, and the map point radarClick's mapping gives it (`hasPoint` false while the
+	// radar shows nothing: radarClick's own gates). No click, no camera move: a read
+	bool radarPoint(int x, int y, bool &hasPoint, float &wx, float &wy);
 
 	WindowManager &windows() { return *m_wm; }
 	Apt &apt() { return m_wm->apt(); }
@@ -131,6 +134,10 @@ public:
 
 	// ---- lane OWNERFIX-1: the map scripts' DISABLE_INPUT / ENABLE_INPUT (the in-game cutscenes): InGameUI::applyScriptInput ----
 	void scriptInput(bool enable);
+	// lane CAMPUI-1: the objectives screen is up (the Palantir's flag stops flashing, RW 0x6D7647), and a script's FLASH_*_BUTTON(seconds) (RW 0x6D455F)
+	void setObjectivesScreenOpen(bool open) { m_objectivesScreenOpen = open; }
+	void flashPalantirButton(int slot, int seconds);
+	bool palantirObjectivesFlashing() const;
 	bool scriptMouseHidden() const { return m_input->ui().scriptMouseHidden(); } ///< DISABLE_INPUT's Mouse::setVisibility(false): the device shows no pointer
 
 	// ---- lane SPELL-2: the spell book (the Palantir's InGameSpellBook and the SpellStore.apt screen) ----
@@ -142,6 +149,7 @@ public:
 	bool openSpellStore(std::string *error = nullptr);
 	void closeSpellStore();
 	AptSpellStore *spellStore() { return m_store.get(); }
+	const PlayerMessageLog &playerMessages() const { return m_playerMessages; }
 	// lane SPELL-4: the aiming marker of a spell book or selected-unit ground power waiting for its target (GameClient/RadiusCursor.h), updated each update(); the device draws it
 	const RadiusCursor &radiusCursor() const { return m_radiusCursor; }
 	const RadiusCursorTemplates &radiusCursorTemplates() const { return m_radiusTemplates; }
@@ -214,6 +222,7 @@ public:
 	unsigned long long attackFlashRequests() const { return m_attackFlashRequests; }
 
 private:
+	bool m_objectivesScreenOpen = false; // lane CAMPUI-1
 	void bootHud6();
 	void updateHud6(ObjectID context, const std::string &faction, double seconds);
 	bool hud6OverGui(int x, int y) const;
@@ -302,6 +311,8 @@ private:
 	void updateRadiusCursor();
 	void updateResourceFeedback(); // lane OWNERFIX-2
 	TerrainResourceFeedback m_resourceFeedback;
+	PlayerMessageLog m_playerMessages;
+	unsigned m_messageClientFrame = 0;
 	RadiusCursorTemplates m_radiusTemplates;
 	RadiusCursor m_radiusCursor;
 	int m_pointerX = 0, m_pointerY = 0;
