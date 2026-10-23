@@ -1,6 +1,6 @@
 ## Lane TREES1: the map's trees in the real client. game.gd runs it after the start with --trees1=<scenario>[,...] (with --auto and --faction); screenshots
 ## go to --screens as trees1-<name>.png; every scenario prints "TREES1 <scenario>: ok" or "TREES1 <scenario>: FAIL <why>" and "TREES1 RESULT: <n> ok,
-## <m> failed" ends the run. The scenarios use the logged test hooks (create_object, debug_build_complete, debug_ai_move).
+## <m> failed" ends the run. The scenarios place their objects with the logged test hook create_object and order them like a player (order_move).
 ##   harvest  a built lumber mill of the local faction (IsengardLumberMill / MordorLumberMill) 160 units from the forest nearest the local base: its
 ##            workers fell trees and take their lumber (the logic's trees: toppled, value down) and the player's money rises; the camera on the forest.
 ##            FAIL: no tree felled or no money in 60 s
@@ -64,7 +64,7 @@ func _forest() -> Vector2:
 
 func _create_first(names: Array, at: Vector2) -> Dictionary:
 	for n in names:
-		var id: int = world.create_object(n, game._local_name, at.x, at.y, 0.0)
+		var id: int = world.create_object(n, game._local_index, at.x, at.y, 0.0)
 		if id > 0:
 			return {"id": id, "template": n}
 	return {}
@@ -112,7 +112,6 @@ func _scenario_harvest() -> String:
 	var mill := _create_first(["IsengardLumberMill", "MordorLumberMill"], site)
 	if mill.is_empty():
 		return "no lumber mill could be placed at (%d, %d)" % [site.x, site.y]
-	world.debug_build_complete(mill.id)
 	print("TREES1 harvest: %s #%d at (%d, %d), forest at (%d, %d)" % [mill.template, mill.id, site.x, site.y, forest.x, forest.y])
 	var before := _snapshot(forest, 400.0)
 	var money0 := _money()
@@ -145,7 +144,7 @@ func _scenario_crush() -> String:
 		return "no forest near the local base"
 	var base := _local_base()
 	var dir := (forest - base).normalized()
-	var start := forest - dir * 220.0
+	var start := forest - dir * 130.0
 	var unit := _create_first(["IsengardBatteringRam", "MordorSiegeTower", "MordorCatapult", "MordorMumakil", "MenTrebuchet", "IsengardBallista"], start)
 	if unit.is_empty():
 		return "no crusher could be made"
@@ -154,8 +153,10 @@ func _scenario_crush() -> String:
 	hud.camera_set_height(300.0)
 	hud.camera_look_at(forest)
 	await _seconds(1.0)
-	var target := forest + dir * 260.0
-	world.debug_ai_move(unit.id, target.x, target.y)
+	var target := forest + dir * 200.0
+	var moved: Dictionary = world.order_move([unit.id], target.x, target.y)
+	if not moved.get("ok", false):
+		return "the move order was refused: %s" % moved.get("error", "")
 	print("TREES1 crush: %s #%d from (%d, %d) through the forest at (%d, %d)" % [unit.template, unit.id, start.x, start.y, forest.x, forest.y])
 	var ch := {}
 	var shot := false
