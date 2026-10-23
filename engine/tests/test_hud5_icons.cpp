@@ -124,16 +124,51 @@ TEST_CASE("hud5 icons retail: a building under construction shows lotr.str's \"B
 	// the install's CONTROLBAR:UnderConstructionDesc with the percent ("Building: %.0f%%" in English)
 	std::string fmt;
 	REQUIRE(r.text.table.lookup("CONTROLBAR:UnderConstructionDesc", fmt));
-	char want[256];
-	std::snprintf(want, sizeof want, fmt.c_str(), 37.4);
+	// the expected text without handing the install's string to printf (another language's table is not verified: PR #77): only "%.0f" and "%%"
+	// are expanded; a table whose text holds any other % sequence is only checked for a text
+	std::string want;
+	bool expandable = true;
+	for (size_t i = 0; i < fmt.size(); ++i)
+	{
+		if (fmt[i] != '%')
+		{
+			want += fmt[i];
+		}
+		else if (fmt.compare(i, 2, "%%") == 0)
+		{
+			want += '%';
+			i += 1;
+		}
+		else if (fmt.compare(i, 4, "%.0f") == 0)
+		{
+			want += "37";
+			i += 3;
+		}
+		else
+		{
+			expandable = false;
+			break;
+		}
+	}
 	const bool english = retailtest::installLanguage() == "English";
+	if (english)
+	{
+		REQUIRE(expandable); // "Building: %.0f%%"
+	}
 	int texts = 0;
 	for (const IconUIOp &op : ops)
 	{
 		if (op.kind == IconUIOp::TEXT)
 		{
 			++texts;
-			CHECK(op.text == want);
+			if (expandable)
+			{
+				CHECK(op.text == want);
+			}
+			else
+			{
+				CHECK_FALSE(op.text.empty());
+			}
 			if (english)
 			{
 				CHECK(op.text == "Building: 37%");
