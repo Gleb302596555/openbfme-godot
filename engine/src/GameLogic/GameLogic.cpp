@@ -2,6 +2,7 @@
 // See GameLogic/GameLogic.h for the sources of every rule.
 
 #include "GameLogic/GameLogic.h"
+#include "Common/ModEngineFeatures.h"
 
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
@@ -620,6 +621,7 @@ void GameLogic::update(int phase)
 	{
 		m_partition->update(); // RW 0x62E93B: ThePartitionManager vslot 0x28 (RW 0xA39020 -> 0xA3B4E0), then the row's collision manager (lane MODULES-2)
 		runRow(ROW_PARTITION_COLLISION);
+		combat().processProjectileContacts(); // lane FLANK-1: the flying projectiles' contacts, the same collision manager row (S-780 inference: after the AI units' pass)
 		// RW 0x62E951 .. 0x62E97E
 		for (Object *o = m_objectHead; o; o = o->getNextObject())
 		{
@@ -912,6 +914,7 @@ void GameLogic::noteRadarEvent(int type, const Coord3D &position, RadarEventNoti
 
 void GameLogic::reset()
 {
+	m_missionObjectives.reset(); // lane CAMPUI-1: TheMissionObjectiveTracker's reset (RW 0x835E03): a new game has no list until its map.ini's
 	m_radarEventNotices.clear(); // lane BACKLOG3: a new game's radar starts empty (the sequence goes on: a client's cursor stays behind it)
 	// ZH GameLogic::reset: every object goes; the scheduler vectors are cleared with their modules' indices
 	m_current = nullptr;
@@ -945,6 +948,7 @@ void GameLogic::reset()
 	m_frame = 0;
 	m_gameDifficulty = 1; // lane CAMP-1H: GameLogic::reset RW 0x62D3EB (+ 0xA4 = 1)
 	m_nextObjectID = 1;
+	m_sharedProductionID = 0;
 	m_objectCount = 0;
 	m_lastPhase = 0;
 	m_depth = 0;
@@ -1080,6 +1084,10 @@ std::uint32_t GameLogic::hashState(std::vector<StateHashSection> *sections, std:
 			x.addI32((std::int32_t)m_simulationProfile);
 		}
 		x.addU32(m_nextObjectID);
+		if (ModEngineFeatures::has(ModEngineFeature::EdainUnchainedUniqueProductionId))
+		{
+			x.addU32(m_sharedProductionID); // lane MODS-3 (a retail game hashes nothing more)
+		}
 		x.addU32((std::uint32_t)m_objectCount);
 		for (std::uint32_t w : m_random.seedArray())
 		{

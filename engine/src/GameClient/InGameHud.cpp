@@ -3,6 +3,9 @@
 
 #include "Common/BfmeGame.h"
 #include "GameClient/InGameHud.h"
+#include "GameLogic/Economy.h"
+#include "GameLogic/EconomySettings.h"
+#include "GameLogic/ScriptEngine/MissionObjectiveTracker.h"
 #include "GameClient/GUI/AptScreens/AptImageMode.h"
 #include "GameClient/GUI/GameTextSource.h"
 
@@ -67,6 +70,18 @@ InGameHud::InGameHud(Config config)
 	m_environment.gameText = m_config.gameText;
 	m_input = std::make_unique<HudInput>(m_config.game.logic(), &m_config.game.ai(), m_config.view, m_config.game.commands(), m_config.mouse, m_config.metaMap);
 	m_input->context().commands = &m_config.world.commands();
+	m_input->context().formations = &m_config.world.formations();
+	// lane SPELLRC-1: a right click (not a drag) ends the spell book power waiting for its target, in the GUI command translator as RotWK's does (RW 0x83D7AD);
+	// the right press itself is the world's (the camera's RMB scroll, RW 0x83DB83 is reached only by the click)
+	m_input->guiCommandTranslator().setHudTargetCancel([this]() {
+		// lane OWNERFIX-1: the aim waits while a script has the input off (the right click then cancels nothing; Sol r1 follow-up)
+		if (!m_spellBar.targeting() || !m_input->ui().getInputEnabled())
+		{
+			return false;
+		}
+		m_spellBar.cancel();
+		return true;
+	});
 	// lane OWNERFIX-1 r2: InGameUI's setRadiusCursorNone (the disable edge, RW 0x69B632): the aiming circle goes in that call, the pointer back to the arrow
 	m_input->ui().setRadiusCursorNoneHook([this]() {
 		m_radiusCursor.clear();
@@ -212,6 +227,13 @@ bool InGameHud::boot(std::string *error)
 			m_bar->pressButton(slot, inPalantir);
 		});
 	});
+	// lane CAMPUI-1: a stance item of the stance toggle's radial (RW 0x96F53C: MSG_CHANGE_STANCE with the item's stance)
+	m_palantirRef->setStanceHandler([this](int stance) {
+		whenHeld([this, stance]() {
+			const auto worldContext = enterContext();
+			m_bar->sendChangeStance(stance);
+		});
+	});
 	m_palantirRef->setRightButtonHandler([this](int slot, bool inPalantir) { // lane AUTOCAST-1
 		const bool shift = (m_keyState & KEY_STATE_SHIFT) != 0;
 		whenHeld([this, slot, inPalantir, shift]() {
@@ -290,6 +312,19 @@ bool InGameHud::boot(std::string *error)
 			m_errors.push_back("radius cursors: " + cursorError);
 		}
 	}
+	m_playerMessages.settings = m_radiusTemplates.messageUi();
+	if (const GlobalLanguage *language = m_shellRef->environment().language)
+	{
+		if (!language->messageFont.name.empty())
+		{
+			m_playerMessages.settings.font = language->messageFont.name;
+			m_playerMessages.settings.pointSize = language->messageFont.size;
+			m_playerMessages.settings.bold = language->messageFont.bold;
+		}
+	}
+	m_input->ui().setMessageHandler([this](const std::string &label) {
+		m_playerMessages.add(fetchOrMissing(m_config.gameText, label), m_config.game.logic().getFrame());
+	});
 	bootHud6(); // lane HUD-6: the help box's settings and the Palantir's help box movie (InGameHudHud6.cpp)
 	m_radar->setupFromTerrain();
 	{
@@ -397,6 +432,19 @@ void InGameHud::updateRallyPoint()
 	marker->setHouseColor(m_config.game.logic().settings().night ? local->getPlayerNightColor() : local->getPlayerColor());
 }
 
+void InGameHud::flashPalantirButton(int slot, int seconds)
+{
+	if (m_palantirRef)
+	{
+		m_palantirRef->flashButton(slot, seconds);
+	}
+}
+
+bool InGameHud::palantirObjectivesFlashing() const
+{
+	return m_palantirRef && m_palantirRef->objectivesFlashing();
+}
+
 void InGameHud::update(double seconds)
 {
 	// SMOOTH-1 (S-810): the per-frame update reads the live game (selection, control bar, production, the movie's callbacks); while the logic worker runs
@@ -444,6 +492,9 @@ void InGameHud::update(double seconds)
 		partStart = now;
 	};
 	m_input->update();
+	const unsigned messageTicks = m_clientFrames - m_messageClientFrame;
+	m_playerMessages.advanceClientTicks(m_config.game.logic().getFrame(), messageTicks);
+	m_messageClientFrame = m_clientFrames;
 	if (m_config.game.canObserve())
 	{
 		const auto snapshot = m_config.game.presentedSnapshot();
@@ -543,6 +594,18 @@ void InGameHud::update(double seconds)
 	m_palantirRef->setLocalState(local);
 	updateHud6(local.contextObject, local.faction, seconds); // lane HUD-6: the side bar's gate, the radial bubbles, the help box (InGameHudHud6.cpp)
 	m_palantirRef->sync(*m_bar);
+	{
+		// lane CAMPUI-1: the objectives flag (RW 0x6D7647) and the scripts' button flashes (RW 0x6D72DF)
+		std::vector<bool> shown;
+		for (const MissionObjective &o : m_config.game.logic().missionObjectives().objectives())
+		{
+			shown.push_back(o.shown);
+		}
+		const int mode = m_config.game.logic().economy().context().gameMode;
+		m_palantirRef->syncObjectiveFlash(shown, mode != EconomyContext::MODE_SKIRMISH && mode != EconomyContext::MODE_LAN && mode != EconomyContext::MODE_INTERNET,
+			m_objectivesScreenOpen);
+		m_palantirRef->tickFlashTimers(seconds);
+	}
 	syncSpellBook();
 	updateRadiusCursor();
 	updateResourceFeedback(); // lane OWNERFIX-2
@@ -1167,6 +1230,24 @@ bool InGameHud::radarClick(HudInput::Button button, int x, int y, int timeMs)
 	return true;
 }
 
+bool InGameHud::radarPoint(int x, int y, bool &hasPoint, float &wx, float &wy)
+{
+	hasPoint = false;
+	float sq[4];
+	if (!radarSquare(sq) || (float)x < sq[0] || (float)x > sq[2] || (float)y < sq[1] || (float)y > sq[3])
+	{
+		return false;
+	}
+	if (!m_radar->ready() || !m_radar->drawn(false)) // radarClick's gates: a radar that shows nothing maps no point
+	{
+		return true;
+	}
+	const int size = 128;
+	const float kx = (float)size / (sq[2] - sq[0]), ky = (float)size / (sq[3] - sq[1]);
+	hasPoint = m_radar->click(((float)x - sq[0]) * kx, ((float)y - sq[1]) * ky, size, wx, wy);
+	return true;
+}
+
 bool InGameHud::commandContentAt(int x, int y)
 {
 	AptStageMapping m;
@@ -1266,7 +1347,10 @@ void InGameHud::mouseButton(HudInput::Button button, bool down, int x, int y, in
 		m_input->mouseButton(button, down, x, y, keyState, timeMs, doubleClick, true);
 		return;
 	}
-	// lane SPELL-2: a spell book power waiting for its target takes the next click on the ground (left: cast there, right: cancel)
+	// lane SPELL-2: a spell book power waiting for its target takes the next left click on the ground (cast there). lane SPELLRC-1: the right button is not
+	// taken here: its press goes to the world like any other (a right drag scrolls the camera with the power still waiting, RotWK's LookAt translator), and a
+	// right click (not dragged) cancels the power in the GUI command translator (RW 0x83D7AD, InGameHud's hook) without ordering a move. Before, the right
+	// press cancelled the power and was swallowed: no RMB scroll while a spell book power was aimed (the owner, 2026-10-22)
 	if (m_spellBar.targeting() && down && !over && !m_store && m_input->ui().getInputEnabled()) // lane OWNERFIX-1: the aim waits while a script has the input off
 	{
 		if (button == HudInput::Button::Left)
@@ -1285,11 +1369,6 @@ void InGameHud::mouseButton(HudInput::Button button, bool down, int x, int y, in
 				m_spellBar.clickWorld(world, local->getPlayerIndex(), out);
 				send(out);
 			}
-			return;
-		}
-		if (button == HudInput::Button::Right)
-		{
-			m_spellBar.cancel();
 			return;
 		}
 	}
@@ -1338,6 +1417,7 @@ void InGameHud::key(int keyCode, int keyState, char32_t character)
 std::vector<std::string> InGameHud::stops() const
 {
 	std::vector<std::string> out = m_input->stops();
+	out.push_back("[S-6101] player message log: BFME2 recovered six-entry message, positioning and fade routines ported; independent RotWK display-routine verification remains outstanding");
 	out.push_back(DrawablePick::stopLine()); // lane QA-1: the HUD's pick is the drawn-model ray test, not S-284's geometry volumes
 	out.push_back("[S-1201] context commands (lane QA-1): a click with a builder on our rising structure is MSG_RESUME_CONSTRUCTION, on our damaged finished structure "
 				  "MSG_DO_REPAIR (CommandTranslator::evaluateContextCommand), by ZH ActionManager::canResumeConstructionOf / canRepairObject (a DOZER of the same player); "

@@ -421,6 +421,8 @@ private:
 	std::shared_ptr<const FrameCompletion> captureCompletion(const WorkItem &item, std::int64_t simUs = -1); ///< simulation owner, after the frame
 
 	// lane SCRIPT-1: the sides' lists and libraries into the logic's ScriptEngine (before the map's objects exist)
+	static bool mapScriptsWanted(const Options &options);
+	bool buildMapScriptSetup(const SidesList &sidesUsed, const std::set<std::string> &slotSides, std::string *error);
 	bool setupMapScripts(const Options &options, const SidesList &sidesUsed, const std::set<std::string> &slotSides, std::string *error);
 	// ---- lane SMOOTH-1: the simulation owner, the publication and the presentation ----
 	void runFrameOwned(const WorkItem &item); ///< one logic frame, its hash, its snapshot and events published (on the owner's thread)

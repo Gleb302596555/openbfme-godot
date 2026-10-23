@@ -56,6 +56,7 @@
 #include "GameLogic/AI/AICommandSink.h"
 #include "GameLogic/FXEvents.h"
 #include "GameLogic/LargeGroupAudioLink.h"
+#include "GameLogic/ScriptEngine/MissionObjectiveTracker.h"
 #include "GameLogic/Map/CastleTemplates.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/ProductionSettings.h"
@@ -181,6 +182,25 @@ struct GameLogicSettings
 	// height's floor (RW 0x777ED7). No retail aidata.ini sets it; a map's map.ini AIData block does (map wor dol guldur 76, map evil rivendell 300)
 	float minFlightHeight = FLT_MAX;
 	float groupMoveClickToGatherAreaFactor = 1.0f;
+	// lane TARGET-1: the target search's AIData rows (table RW 0xC1CB20 .., parser RW 0x7017AA; defaults the AIData constructor's, RW 0x6FFBEF):
+	// ForceIdleMSEC + 0x14 (parseDurationUnsignedInt RW 0x73A429: frames), AttackPriorityDistanceModifier + 0x54 (parseReal RW 0x42ED00, ctor 0.0),
+	// AttackUsesLineOfSight + 0x67 (parseBool RW 0x42E558, ctor 1), AttackIgnoreInsignificantBuildings + 0x68 (ctor 0), ArtilleryMaxFriendlyFire + 0xF0
+	// (parsePercentToReal RW 0x42EEFA, ctor 1.0); the AttackPriority blocks (+ 0xFC, RW 0x70153B: see AttackPriorityDef)
+	unsigned forceIdleFrames = 0;
+	float attackPriorityDistanceModifier = 0.0f;
+	bool attackUsesLineOfSight = true;
+	bool attackIgnoreInsignificantBuildings = false;
+	float artilleryMaxFriendlyFire = 1.0f;
+	// RW 0x70153B: an `AttackPriority <name>` block of AIData (def 0x14 bytes, ctor RW 0x701323: Default 1). A repeated name re-parses the same def (its
+	// targets cleared, Default kept unless the block sets it); a new one is pushed at the list head. `Target = <template> <int>` (RW 0x7013C2) lines in
+	// file order (RW inserts each at the front of its list: TARGET 0x7004B4; the store applies them back to front)
+	struct AttackPriorityDef
+	{
+		std::string name;
+		int defaultPriority = 1;
+		std::vector<std::pair<std::string, int>> targets;
+	};
+	std::vector<AttackPriorityDef> attackPriorityDefs; ///< the AIData list (+ 0xFC) head first
 	bool forceModelsToFollowTimeOfDay = false;       ///< GameData ForceModelsToFollowTimeOfDay (a new drawable gets NIGHT)
 	bool forceModelsToFollowWeather = false;         ///< GameData ForceModelsToFollowWeather (SNOW)
 	bool bodyThresholdsLoaded = false;               ///< the two thresholds below were read from GameData (an ActiveBody that needs them throws when not)
@@ -371,6 +391,9 @@ public:
 	ObjectClientHooks *clientHooks() const { return m_clientHooks; }
 	// lane AUDIO-4: TheLargeGroupAudio's face to the logic (the gate the LargeGroupAudioUpdate modules read, their calls forwarded to the client's sink;
 	// GameLogic/LargeGroupAudioLink.h). The gate is set once at the new game (RW 0x62FD90); the events are not hashed
+	// lane CAMPUI-1: TheMissionObjectiveTracker (RW 0xDE8C94; ScriptEngine/MissionObjectiveTracker.h): the map's objectives, reset with the game (RW 0x835E03)
+	MissionObjectiveTracker &missionObjectives() { return m_missionObjectives; }
+	const MissionObjectiveTracker &missionObjectives() const { return m_missionObjectives; }
 	LargeGroupAudioLink &largeGroupAudio() { return m_largeGroupAudio; }
 	const LargeGroupAudioLink &largeGroupAudio() const { return m_largeGroupAudio; }
 
@@ -484,6 +507,8 @@ public:
 	size_t getObjectCount() const { return m_objectCount; }
 	ObjectID getNextObjectID() const { return m_nextObjectID; }
 	ObjectID allocateObjectID() { return m_nextObjectID++; }
+	// lane MODS-3: edain-unchained.unique-production-id's one counter (pre-increment: the first id is 1)
+	unsigned nextSharedProductionID() { return ++m_sharedProductionID; }
 	// an object made with an explicit id keeps later allocations above it
 	void noteExplicitObjectID(ObjectID id)
 	{
@@ -806,6 +831,7 @@ private:
 	std::unique_ptr<CombatState> m_combat;
 	FXEventLog m_fxEvents; // lane FX-2 (not hashed)
 	LargeGroupAudioLink m_largeGroupAudio; // lane AUDIO-4
+	MissionObjectiveTracker m_missionObjectives; // lane CAMPUI-1
 	std::unique_ptr<VictoryConditions> m_victory;
 	std::unique_ptr<BuildAssistantSell> m_sell; // lane FACT-A
 	std::unique_ptr<SkirmishAIManager> m_skirmishAI;
@@ -887,6 +913,7 @@ private:
 	size_t m_objectCount = 0;
 	unsigned m_containWorldTransitions = 0;
 	ObjectID m_nextObjectID = 1;
+	unsigned m_sharedProductionID = 0; ///< lane MODS-3: edain-unchained.unique-production-id (saved and hashed only with the feature)
 	std::vector<Object *> m_objectsById; ///< index = id; null for a free or destroyed id
 
 	std::vector<UpdateModule *> m_updates[PHASE_COUNT];

@@ -16,6 +16,7 @@
 #include "Common/Module.h"
 #include "GameLogic/ObjectTypes.h"
 
+#include <cstdint>
 #include <list>
 #include <string>
 #include <vector>
@@ -138,6 +139,9 @@ public:
 		(void)checkPath;
 		return false;
 	}
+	// lane SCRIPT-4: slot 0x144 getPlayerWhoEntered (RW 0x5F2DC6 `mov eax, [ecx + 0x58]` in the OpenContain, GarrisonContain and HordeGarrisonContain
+	// tables RW 0xC59AF0 / 0xC5C698 / 0xC5C9F0): the mask of the player whose units entered (OpenContain overrides); 0 for a contain without that field
+	virtual std::uint32_t getPlayerWhoEntered() const { return 0; }
 	// slot 0xB0 (RW 0x865C15): the module data's ObjectStatusOfContained mask (OpenContain data + 0x58); null for a contain without one
 	virtual const ObjectStatusMaskType *getObjectStatusOfContained() const { return nullptr; }
 	// lane DECOMP-3 (Object::isAbleToAttack RW 0x691269): slot 0xB0 asked for a rider (OpenContain RW 0x865C15, SiegeEngineContain RW 0x87ED55); null as above
@@ -223,6 +227,8 @@ public:
 	virtual SpawnUnitBehaviorInterface *getSpawnUnitBehaviorInterface() { return nullptr; }
 	// RW slot 0x50 / 4 = 20 of the +0xC interface: the exit interface of a production exit module (Object::getObjectExitInterface, RW 0x68BB14)
 	virtual ExitInterface *getExitInterface() { return nullptr; }
+	// lane LUMBER1: slot 0x58 of the +0xC interface: the dock interface of a DockUpdate (Object::getDockUpdateInterface, RW 0x68C383)
+	virtual class DockUpdateInterface *getDockUpdateInterface() { return nullptr; }
 	// the production queue of a ProductionUpdate (RW 0x68C327 asks for it)
 	virtual ProductionUpdateInterface *getProductionUpdateInterface() { return nullptr; }
 	// lane BUILD-1: the FoundationAIUpdate interface (RW 0x68C3C3 asks every module through slot 38 of its +0xC interface)

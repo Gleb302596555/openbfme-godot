@@ -684,7 +684,10 @@ bool Pathfinder::checkDestination(const PathfindObject *obj, int cellX, int cell
 // ---------------------------------------------------------------------------------------------------------
 ICoord2D Pathfinder::cellOfPosition(const PathfindObject &obj, const Coord3D &pos) const
 {
-	// RW 0x6ECFDE: worldToCell(pos, centre = (footprint size is odd)), clamped
+	// RW 0x6ECFDE: worldToCell(pos, centre = (footprint size is odd)). lane OFFMAP-1: NOT clamped: RW 0x6ECFDE calls RW 0x6E8CE6, which only floors
+	// (disassembly read; BFME2 decomp pathfinder.cpp:2699 Rva002E7875WorldToCell, tier A). A position off the grid (a unit the map places outside it) gets a
+	// cell getCell has none for: the callers' getCell tests then skip it, as retail's do (RW 0x6F0889: the horde's cell missing -> false, dest unchanged). The
+	// port clamped (ZH worldToCell), so an off-map horde's members were adjusted onto row 0 of the grid
 	const int r = footprintSize(&obj);
 	ICoord2D cell;
 	const bool center = (r & 1) != 0;
@@ -698,10 +701,6 @@ ICoord2D Pathfinder::cellOfPosition(const PathfindObject &obj, const Coord3D &po
 		cell.x = realToIntFloor(SimMath::addf32(SimMath::mulf32(pos.x, 0.1f), 0.5f));
 		cell.y = realToIntFloor(SimMath::addf32(SimMath::mulf32(pos.y, 0.1f), 0.5f));
 	}
-	if (cell.x < m_extent.lo.x) cell.x = m_extent.lo.x;
-	if (cell.y < m_extent.lo.y) cell.y = m_extent.lo.y;
-	if (cell.x > m_extent.hi.x) cell.x = m_extent.hi.x;
-	if (cell.y > m_extent.hi.y) cell.y = m_extent.hi.y;
 	return cell;
 }
 
