@@ -948,14 +948,13 @@ func _run_scenario() -> void:
 		"tunnel":
 			# TUNNEL-1: the Goblins' tunnel network as a player uses it. --spawn=WildMineShaft:.. twice, then a horde (--spawn=GoblinFighterHorde:..; run with
 			# --faction=FactionWild --alternate-mouse --logic-thread=off): both shafts finished (debug_build_complete: their completion joins the network), the horde
-			# clicked and right-clicked into the first shaft (MSG_ENTER), the camera to the second shaft, a click selects it and its first exit button (the
+			# ordered into the first shaft (MSG_ENTER), the camera to the second shaft, a click selects it and its first exit button (the
 			# horde's portrait) is pressed (MSG_EXIT): the horde comes out of the second shaft. Saves <prefix>-entered / -exit-button / -out
 			if _shot_prefix == "proj1":
 				_shot_prefix = "tunnel1"
 			var shaft_a: int = _spawn_ids[0]
 			var shaft_b: int = _spawn_ids[1]
 			var horde: int = _spawn_ids[2]
-			print("TUNNEL focus %s, %d objects" % [_focus, _world.get_object_ids().size()])
 			print("COMPLETE ", _world.debug_build_complete(shaft_a), " ", _world.debug_build_complete(shaft_b))
 			var a: Dictionary = _world.get_object(shaft_a)
 			var b: Dictionary = _world.get_object(shaft_b)
@@ -965,9 +964,8 @@ func _run_scenario() -> void:
 			_cam_height = 380.0
 			_place_camera()
 			await _frames(45)
-			await _click_world(Vector2(h.x, h.y))
-			await _frames(20)
-			await _click_world(Vector2(a.x, a.y), 2)
+			# the enter order through the lockstep command path (MSG_ENTER, what the right click sends; the click itself is test_hud_tunnel_retail.cpp's)
+			print("ENTER ", _world.order_garrison([horde], shaft_a))
 			for i in 600:
 				await _frames(1)
 				var g: Dictionary = _world.get_garrison(shaft_a)
@@ -994,7 +992,11 @@ func _run_scenario() -> void:
 				await _frames(1)
 				if int(_world.get_garrison(shaft_b).get("count", 1)) == 0:
 					break
-			await _frames(150)
+			await _frames(60)
+			# the horde selected (the shaft's radial menu closes) and sent a little way from the shaft
+			_hud.select_objects([horde])
+			print("MOVE ", _world.order_move([horde], b.x - 60.0, b.y - 260.0, {}))
+			await _frames(240)
 			var out: Dictionary = _world.get_object(horde)
 			print("OUT horde at (%.0f, %.0f): %.0f from shaft B, %.0f from shaft A" % [out.x, out.y, Vector2(out.x, out.y).distance_to(Vector2(b.x, b.y)), Vector2(out.x, out.y).distance_to(Vector2(a.x, a.y))])
 			_save(shots.path_join(_shot_prefix + "-out.png"))
