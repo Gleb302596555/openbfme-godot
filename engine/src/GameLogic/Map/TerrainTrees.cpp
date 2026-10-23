@@ -12,7 +12,6 @@
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/ObjectTemplateInfo.h"
-#include "GameLogic/Combat/CombatQueries.h"
 #include "GameLogic/Module/NotifyCrushModules.h"
 #include "GameLogic/Module/SquishCollide.h"
 #include "GameLogic/SimMath.h"
@@ -324,8 +323,11 @@ int TerrainTrees::unitMoved(const Object &obj)
 		return 0;
 	}
 	const ThingTemplate &tt = *static_cast<const ThingTemplate *>(obj.getTemplate())->getFinalOverride();
-	// (obj + 0x38, + 0x44, + 0xA8 with its bounding circle + 0xB8, 1, 0)
-	return toppleTreesInGeometry(*obj.getPosition(), obj.getOrientation(), ObjectGeometry::shapesOf(tt), CombatQueries::boundingCircleRadius(obj), obj, true, 0);
+	// (obj + 0x38, + 0x44, + 0xA8 with its bounding circle + 0xB8, 1, 0); the circle (RW 0xAD2860) from the template's shapes, as the pathfinder's geometry
+	// computes it (a game without a pathfinder has crushers too)
+	PathfindGeometry pg;
+	ObjectGeometry::fillPathfindGeometry(tt, pg);
+	return toppleTreesInGeometry(*obj.getPosition(), obj.getOrientation(), ObjectGeometry::shapesOf(tt), pg.boundingCircleRadius(), obj, true, 0);
 }
 
 // RW 0x6854FD (lane TREES1)
