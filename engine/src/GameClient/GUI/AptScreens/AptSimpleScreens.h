@@ -405,6 +405,10 @@ private:
 	bool m_extensionAvailable = false;
 	bool m_entryPressed = false;
 	int m_barPressed = -1; // the bottom bar button a press on the page went to (0 Cancel, 1 Reset, 2 Accept)
+	// lane MENUSND-1: the bar's click (its page event) waits until the movie's input has drained the press (the queue drains once per movie step), so a
+	// click that closes the menu cannot unload the movie before its button played the press's sound: the button (-1 none) and the cancel's input serial
+	int m_barClicked = -1;
+	std::uint64_t m_barClickSerial = 0;
 	std::unique_ptr<OpenBFMEOptionsPage> m_page;
 	std::vector<OpenBFMEPageEvent> m_extensionEvents;
 	struct SavedField

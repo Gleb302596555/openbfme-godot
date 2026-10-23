@@ -65,17 +65,17 @@ func requests(sounds: Array, name: String) -> Array:
 	return sounds.filter(func(s): return s.name == name)
 
 
-## true when the menu asked for `name` exactly once since `sounds` was cleared and the audio manager plays that request: polled for WAIT_PLAYING frames
-## (the request is queued, then started by an audio update); `sounds` is game.shell_sounds_played itself, so a request made while polling counts too
+## true when, over the whole WAIT_PLAYING window, the menu asked for `name` exactly once since `sounds` was cleared and the audio manager played that
+## request (the request is queued, then started by an audio update; a second request later in the window fails it). `sounds` is
+## game.shell_sounds_played itself, so every request made while watching counts
 func played_once(name: String) -> bool:
+	var started := false
 	for i in WAIT_PLAYING:
 		var asked := requests(game.shell_sounds_played, name)
-		if asked.size() > 1:
-			return false
 		if asked.size() == 1 and int(asked[0].handle) >= FIRST_HANDLE and game._audio.is_playing(int(asked[0].handle)):
-			return true
+			started = true
 		await game._step(1)
-	return false
+	return started and requests(game.shell_sounds_played, name).size() == 1
 
 
 func names(sounds: Array) -> String:
@@ -129,8 +129,12 @@ func entry_check(nav: String, entry: String) -> void:
 		check("%s.%s" % [nav, entry], false, "the entry is not on the open navigation")
 		return
 	var p := Vector2(b.x, b.y)
+	game.shell_sounds_played.clear()
 	move(p)
 	await game._step(20)
+	var hover: Array = game.shell_sounds_played.duplicate()
+	check("%s.%s: the pointer on it asks for no sound (as in RotWK)" % [nav, entry], requests(hover, SELECT).is_empty() and requests(hover, OVER).is_empty(),
+		names(hover))
 	game.shell_sounds_played.clear()
 	game._mouse_event(p, true, true)
 	await game._step(WAIT_PLAYING)
@@ -167,13 +171,15 @@ func options_bar_check() -> void:
 		game.shell_sounds_played.clear()
 		move(p)
 		var hovered: bool = await played_once(OVER)
-		check("Options %s: the pointer on it plays %s" % [name, OVER], hovered, names(game.shell_sounds_played))
 		await game._step(10)
+		hovered = hovered and requests(game.shell_sounds_played, OVER).size() == 1 # still one, just before the press
+		check("Options %s: the pointer on it plays %s" % [name, OVER], hovered, names(game.shell_sounds_played))
 		game.shell_sounds_played.clear()
 		game._mouse_event(p, true, true)
 		var pressed: bool = await played_once(SELECT)
-		check("Options %s: the press plays %s" % [name, SELECT], pressed, names(game.shell_sounds_played))
 		await game._step(4)
+		pressed = pressed and requests(game.shell_sounds_played, SELECT).size() == 1 # still one, just before the release
+		check("Options %s: the press plays %s" % [name, SELECT], pressed, names(game.shell_sounds_played))
 		game.shell_sounds_played.clear()
 		game._mouse_event(p, false, true)
 		await game._step(60)

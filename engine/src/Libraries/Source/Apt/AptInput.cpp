@@ -107,6 +107,7 @@ void AptInput::postMouseMove(float x, float y)
 	e.x = x;
 	e.y = y;
 	m_queue.push_back(e);
+	++m_posted;
 }
 
 void AptInput::postMouseButton(bool down)
@@ -115,6 +116,7 @@ void AptInput::postMouseButton(bool down)
 	e.type = EventType::MouseButton;
 	e.down = down;
 	m_queue.push_back(e);
+	++m_posted;
 }
 
 void AptInput::postMouseWheel(int delta)
@@ -123,6 +125,7 @@ void AptInput::postMouseWheel(int delta)
 	e.type = EventType::MouseWheel;
 	e.code = delta;
 	m_queue.push_back(e);
+	++m_posted;
 }
 
 void AptInput::postKey(int keyCode, bool down)
@@ -132,13 +135,16 @@ void AptInput::postKey(int keyCode, bool down)
 	e.down = down;
 	e.code = keyCode;
 	m_queue.push_back(e);
+	++m_posted;
 }
 
-void AptInput::postCancelPress()
+std::uint64_t AptInput::postCancelPress()
 {
 	Event e;
 	e.type = EventType::CancelPress;
 	m_queue.push_back(e);
+	++m_posted;
+	return m_posted;
 }
 
 void AptInput::processQueued()
@@ -149,6 +155,7 @@ void AptInput::processQueued()
 	bool first = true;
 	for (const Event &e : events)
 	{
+		++m_processed;
 		processEvent(e, first);
 		first = first && e.type == EventType::CancelPress; // the port's cancel is not one of the batch's events
 	}

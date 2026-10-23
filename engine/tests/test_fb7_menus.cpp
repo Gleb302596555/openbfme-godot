@@ -3284,7 +3284,15 @@ TEST_CASE("menusnd1 options retail: a press on the OpenBFME menu's bottom bar pl
 			REQUIRE(fx.shell->top() == options);
 		}
 		fx.wm->postMouseButton(false);
+		if (c.fast)
+		{
+			// the movie has not stepped since the press: the click is not the page's yet (the device takes the page's events every frame; a CANCEL or
+			// ACCEPT taken now would close the menu before the movie played the press)
+			CHECK(options->takeExtensionEvents().empty());
+			CHECK(fx.services.sounds.empty());
+		}
 		fx.tick(1);
+		CHECK(fx.services.sounds == std::vector<std::string>{ "Gui_ShellMapSelect" }); // asked for by the time the click is the page's
 		const std::vector<OpenBFMEPageEvent> events = options->takeExtensionEvents();
 		REQUIRE(events.size() == 1);
 		CHECK(events[0].kind == c.kind);
@@ -3300,6 +3308,15 @@ TEST_CASE("menusnd1 options retail: a press on the OpenBFME menu's bottom bar pl
 			fx.tick(20);
 			// (the button left plays its rollOut's Gui_ShellMapMouseOut too, as on any move between two buttons)
 			CHECK(std::count(fx.services.sounds.begin(), fx.services.sounds.end(), std::string("Gui_ShellMapMouseOver")) == 1);
+			CHECK(std::count(fx.services.sounds.begin(), fx.services.sounds.end(), std::string("Gui_ShellMapSelect")) == 0);
+		}
+		if (c.kind != OpenBFMEPageEvent::Kind::Reset)
+		{
+			// the device's answer to the page's CANCEL / ACCEPT (openbfme_options_screen.gd: the shell's Cancel / Save, AptOptionsScreen::finishMenu)
+			fx.services.sounds.clear();
+			options->finishMenu(c.kind == OpenBFMEPageEvent::Kind::Accept);
+			fx.tick(60);
+			CHECK((fx.shell->top() == nullptr || fx.shell->top()->filename() != "Options.apt"));
 			CHECK(std::count(fx.services.sounds.begin(), fx.services.sounds.end(), std::string("Gui_ShellMapSelect")) == 0);
 		}
 	}

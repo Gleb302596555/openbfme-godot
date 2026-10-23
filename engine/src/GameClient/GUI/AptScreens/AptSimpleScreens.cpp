@@ -2349,6 +2349,7 @@ bool AptOptionsScreen::openExtension(std::string *error)
 	m_state = kExtensionState;
 	m_entryPressed = false;
 	m_barPressed = -1;
+	m_barClicked = -1;
 	setExtensionHidden(true);
 	return true;
 }
@@ -2400,7 +2401,14 @@ void AptOptionsScreen::closeExtension()
 
 std::vector<OpenBFMEPageEvent> AptOptionsScreen::takeExtensionEvents()
 {
-	// one FIFO: the page's changes and the bottom bar's / the button's clicks in the order they happened (Sol review r1)
+	// one FIFO: the page's changes and the bottom bar's / the button's clicks in the order they happened (Sol review r1). Lane MENUSND-1: a bar click
+	// joins it once the movie's input has processed the press and its cancel (the press's sound is asked for by then)
+	if (m_barClicked >= 0 && windows().apt().input().processed() >= m_barClickSerial)
+	{
+		static const OpenBFMEPageEvent::Kind kinds[3] = { OpenBFMEPageEvent::Kind::Cancel, OpenBFMEPageEvent::Kind::Reset, OpenBFMEPageEvent::Kind::Accept };
+		m_extensionEvents.push_back({ kinds[m_barClicked], std::string(), 0 });
+		m_barClicked = -1;
+	}
 	std::vector<OpenBFMEPageEvent> out;
 	out.swap(m_extensionEvents);
 	return out;
@@ -2531,11 +2539,11 @@ bool AptOptionsScreen::mouseFilter(int kind, float x, float y)
 		{
 			return false;
 		}
-		windows().apt().input().postCancelPress(); // the movie's press ends without its release (and so without its click)
+		const std::uint64_t serial = windows().apt().input().postCancelPress(); // the movie's press ends without its release (and so without its click)
 		if (pressed == hit)
 		{
-			static const OpenBFMEPageEvent::Kind kinds[3] = { OpenBFMEPageEvent::Kind::Cancel, OpenBFMEPageEvent::Kind::Reset, OpenBFMEPageEvent::Kind::Accept };
-			m_extensionEvents.push_back({ kinds[pressed], std::string(), 0 });
+			m_barClicked = pressed; // the page's event once the movie has the press (takeExtensionEvents)
+			m_barClickSerial = serial;
 		}
 		return true;
 	}
