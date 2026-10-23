@@ -71,6 +71,12 @@ LiveGame::LiveGame(RetailObjectWorld &world, ArchiveFileSystem &fs, WW3DAssetMan
 LiveGame::~LiveGame()
 {
 	stopWorker(); // SMOOTH-1: the worker is joined before anything it uses goes
+	if (m_loaded && m_recorder)
+	{
+		consumeHeroStatistics(m_heldEvents, nullptr);
+		consumeHeroStatistics(m_publishedEvents, nullptr);
+		consumeHeroStatistics(m_recorder->take(false), m_published.get());
+	}
 	if (m_scripting)
 	{
 		m_scripting->detach(); // while the logic is alive
@@ -84,6 +90,7 @@ LiveGame::~LiveGame()
 	if (m_ai)
 	{
 		m_ai->detach(); // the AI world is destroyed after the logic (members are destroyed in reverse order): it must not touch the logic then
+		m_ai->setWallMeshes(nullptr);
 	}
 }
 
@@ -161,6 +168,8 @@ bool LiveGame::load(const Options &options, std::string *error)
 	{
 		return false;
 	}
+	// lane STEALTHFLY1: the map's own AIData (map.ini / solo.ini, RW 0x627224 / 0x627290), e.g. a MinFlightHeight; its errors join the map.ini's
+	GameLogicSettingsLoader::applyMapAIData(m_fs, MapClassification::mapDirectory(lowerName), settings, m_report.mapIniErrors);
 	std::uint32_t defaultCash = options.defaultStartingCash ? options.defaultStartingCash : settings.defaultStartingCash;
 	// lane RULES-1: RW Player::init 0x6B0578: with TheGameInfo (a started game) a player whose template has no money gets the InitialResources rule
 	// (TheGameInfo + 0x70), not GameData's DefaultStartingCash (GlobalData + 0xBB8, the branch without a game). A game with no rule block (-1: tests and
@@ -191,9 +200,6 @@ bool LiveGame::load(const Options &options, std::string *error)
 		}
 		progress(12); // the sides exist (RW 0x62FBC7)
 		m_players->setSpellGameMode(SpellGameMode{ options.start->message.mode == NewGameMode::Skirmish, false }); // SPELL-1 (GameLogic + 0x110 == 2)
-		m_report.playerNotes = m_players->newGame(built.sides, defaultCash);
-		m_report.startSlotPlayers = built.slotPlayerNames;
-		sidesUsed = built.sides;
 		for (const std::string &n : built.slotPlayerNames)
 		{
 			if (!n.empty())
@@ -201,6 +207,23 @@ bool LiveGame::load(const Options &options, std::string *error)
 				slotSides.insert(n);
 			}
 		}
+		// lane MODS-3: the slot sides' script libraries are read before the players exist: their teams become the side's teams (retail's
+		// Player::initFromDict copies them, RW 0x6B07EF; MapScriptSetup.h). Edain's spieler library hands each player its fortress plot
+		// through its team "Base"
+		if (mapScriptsWanted(options))
+		{
+			if (!buildMapScriptSetup(built.sides, slotSides, error))
+			{
+				return false;
+			}
+			for (const Dict &t : m_scriptSetup->libraryTeams())
+			{
+				built.sides.teams.push_back(t);
+			}
+		}
+		m_report.playerNotes = m_players->newGame(built.sides, defaultCash);
+		m_report.startSlotPlayers = built.slotPlayerNames;
+		sidesUsed = built.sides;
 		if (options.start->observer)
 		{
 			// lane ONLINE-3: a spectator (no local slot): retail's replay-mode tail of the new game (RW 0x6282F0; BFME2 decomp
@@ -287,6 +310,13 @@ bool LiveGame::load(const Options &options, std::string *error)
 	if (options.start)
 	{
 		m_logic->economy().context().sandbox = options.start->message.game.isSandbox(options.start->localSlot);
+		// lane SCRIPT-4 r2: more than one human slot is more than one machine (EconomyContext::multiplayerSession)
+		int humanSlots = 0;
+		for (const SkirmishGameSlot &slot : options.start->message.game.slots)
+		{
+			humanSlots += slot.isHuman() ? 1 : 0;
+		}
+		m_logic->economy().context().multiplayerSession = humanSlots > 1;
 	}
 	m_logic->setGameRules(gameRules);
 	m_logic->setLegendaryHeroes(options.start ? options.start->message.game.legendaryHeroes : LegendaryHeroes::kOff);
@@ -406,6 +436,10 @@ bool LiveGame::load(const Options &options, std::string *error)
 	m_launchBones = std::make_unique<DrawableLaunchBones>(*m_launchAssets, m_logic->settings().standardPublicBones);
 	m_launchBones->reset();
 	m_logic->combat().setLaunchOffsets(m_launchBones.get());
+	// WALL-1: a wall piece's footprint routine (RW 0x936B7D -> ClassifyWall) asks its drawable for the WallBoundsMesh / RampMesh surfaces; the same files answer
+	// it from the template data, before the map's objects enter the pathfinder's map
+	m_wallMeshes = std::make_unique<DrawableWallMeshes>(*m_launchAssets);
+	m_ai->setWallMeshes(m_wallMeshes.get());
 	// the script engine and the ONE creation path (LuaScriptEngine::sendObjectCreated through GameLogic::setObjectCreatedProc, world hooks)
 	m_scripting = std::make_unique<LiveScripting>(*m_logic, m_fs, m_world.nameKeys());
 	if (!m_scripting->start(MapClassification::mapDirectory(lowerName), error))
@@ -418,12 +452,18 @@ bool LiveGame::load(const Options &options, std::string *error)
 	{
 		m_logic->economy().context().gameMode = EconomyContext::MODE_SINGLE_PLAYER;
 	}
-	m_mapScripts = options.mapScripts == 1 || (options.mapScripts < 0 && (options.start || options.campaign));
+	m_mapScripts = mapScriptsWanted(options);
 	if (m_mapScripts && !setupMapScripts(options, sidesUsed, slotSides, error))
 	{
 		return false;
 	}
 	progress(14); // the script engine knows the map (RW 0x62FC1A)
+	// lane CAMPUI-1: TheMissionObjectiveTracker takes the map.ini's MissionObjectiveList (RW 0x836497 installs it while the map.ini is read, after the
+	// game's reset RW 0x835E03); a map without one has no list (the objective actions then do nothing)
+	if (m_world.hasMapObjectives())
+	{
+		m_logic->missionObjectives().installList(m_world.mapObjectives());
+	}
 	const auto t0 = std::chrono::steady_clock::now();
 	progress(30); // the map's objects (RW 0x62FE02 ff)
 	m_report.loop = MapObjectLoop::create(*m_logic, m_map, m_classified, [](Object &obj, const MapObjectDrawable &d) { DrawableManager::applyPlacement(obj, d); });
@@ -547,6 +587,30 @@ bool LiveGame::load(const Options &options, std::string *error)
 	{
 		m_frameHashes.emplace_back(m_logic->getFrame(), m_logic->computeStateHash());
 	}
+	m_cahHeroID.clear();
+	m_cahResultRecorded = false;
+	m_cahStatisticsDirty = false;
+	m_cahSaveError.clear();
+	m_cahEarned.clear();
+	m_cahMode = m_logic->economy().context().gameMode;
+	if (!options.heroStatsProfile.empty() && options.start && !options.start->observer && m_cahMode != EconomyContext::MODE_REPLAY)
+	{
+		if (const auto *hero = m_logic->createAHeroes().heroOf(*m_players->getLocalPlayer()))
+		{
+			std::string statsError;
+			if (!m_heroStatistics.load(options.heroStatsProfile, hero->uniqueID, &statsError))
+			{
+				m_report.errors.push_back(statsError);
+				if (options.heroStatsMessage) options.heroStatsMessage(statsError);
+			}
+			else
+			{
+				m_cahHeroID = hero->uniqueID;
+				for (const auto &award : m_world.createAHeroSystem().awardSystem.awards)
+					if (award.earned(m_heroStatistics.counters)) m_cahEarned.push_back(award.name);
+			}
+		}
+	}
 	publish(); // SMOOTH-1: the first snapshot and the load's client events; the drawables exist when load() returns, as before
 	m_dueFrame = m_logic->getFrame();
 	m_presented = m_published;
@@ -610,7 +674,12 @@ private:
 };
 } // namespace
 
-bool LiveGame::setupMapScripts(const Options &options, const SidesList &sidesUsed, const std::set<std::string> &slotSides, std::string *error)
+bool LiveGame::mapScriptsWanted(const Options &options)
+{
+	return options.mapScripts == 1 || (options.mapScripts < 0 && (options.start || options.campaign));
+}
+
+bool LiveGame::buildMapScriptSetup(const SidesList &sidesUsed, const std::set<std::string> &slotSides, std::string *error)
 {
 	// the playerAIType of every side: a slot side of a started game: a human the Multiplayer_Human library, a computer its faction's
 	// DefaultPlayerAIType (RW 0x627C1F; S-1181); a map side its dict's playerAIType
@@ -635,9 +704,15 @@ bool LiveGame::setupMapScripts(const Options &options, const SidesList &sidesUse
 			aiTypes[i] = d.getAsciiString("playerAIType");
 		}
 	}
-	(void)options;
 	m_scriptSetup = std::make_unique<MapScriptSetup>();
-	if (!m_scriptSetup->build(m_fs, m_world.skirmishAI(), sidesUsed, m_map, slotSides, aiTypes, error))
+	return m_scriptSetup->build(m_fs, m_world.skirmishAI(), sidesUsed, m_map, slotSides, aiTypes, error);
+}
+
+bool LiveGame::setupMapScripts(const Options &options, const SidesList &sidesUsed, const std::set<std::string> &slotSides, std::string *error)
+{
+	(void)options;
+	// a started game built it before its players (its libraries' teams); a campaign mission builds it here
+	if (!m_scriptSetup && !buildMapScriptSetup(sidesUsed, slotSides, error))
 	{
 		return false;
 	}
@@ -735,6 +810,8 @@ int LiveGame::advance(double seconds)
 		if (m_frameDriver)
 		{
 			consumeCompletions();
+			// lane NETLAG-2 (Sol): no frame timing in six tick pacing (no early orders there): its alpha stays at the frame start while the lockstep
+			// holds phase 1, so a held FRAMEINFO would be renewed for ever
 			m_frameDriver->pump(m_protocolFrame, m_commands); // the local input, stamped once against the protocol frame
 		}
 		int ticks = m_tickClock.advance(seconds);
@@ -807,6 +884,15 @@ int LiveGame::advance(double seconds)
 	}
 	if (m_frameDriver)
 	{
+		// lane NETLAG-2: a frame that waited for the lockstep is still due (its clock time was kept, at most one frame): it runs as soon as its input
+		// is complete, not at the next 200 ms tick, and the frames after it keep their times (RotWK's frame gate RW 0x65DD0F keeps up to 2 s of lag;
+		// ZH Network::timeForNewFrame two frames). Dropping it made any lateness, even 1 ms, cost a whole frame
+		// (only when time passes: advance(0) is a presentation-only step, SMOOTH-1)
+		m_owedThisCall = seconds > 0.0 ? m_owedFrames : 0;
+		due += m_owedThisCall;
+		m_owedFrames -= m_owedThisCall;
+		// lane NETLAG-2: when the next batch is due (now, if the clock already made it due or a frame that waited is still owed)
+		m_frameDriver->frameDue(m_nextBatchFrame, due > 0 || m_owedFrames > 0 ? 0u : msUntilNextFrame());
 		const int acquired = advanceWithDriver(due);
 		m_dueFrame += (UnsignedInt)acquired;
 		endWindowForPresent(); // RENDERWAIT-1: the batches are queued: the worker may run them while this thread presents
@@ -864,6 +950,7 @@ int LiveGame::advanceWithDriver(int due)
 	if (inputWaits && due > 0)
 	{
 		++m_inputHolds;
+		m_owedFrames = 1; // lane NETLAG-2 (Sol r1): the frame stays due until the input is pumped, as for a lockstep wait
 	}
 	int acquired = 0;
 	for (int i = 0; i < due && !inputWaits; ++i)
@@ -873,13 +960,16 @@ int LiveGame::advanceWithDriver(int due)
 			const std::unique_lock<std::mutex> lock = lockPublication("advanceWithDriver");
 			if (m_work.size() >= kMaxQueuedBatches)
 			{
-				break; // backpressure: the next batch stays with the driver
+				m_owedFrames = 1; // lane NETLAG-2 (Sol r1): the frame stays due, as for a lockstep wait
+				break;            // backpressure: the next batch stays with the driver
 			}
 		}
 		auto batch = std::make_shared<FrameBatch>();
 		if (!m_frameDriver->acquire(m_nextBatchFrame, *batch))
 		{
-			m_stalledFrames += (unsigned long long)(due - i);
+			// lane NETLAG-2: this frame stays due (advance); the rest of the clock's time is dropped; a frame owed from an earlier call counts once
+			m_stalledFrames += (unsigned long long)(due - i - std::max(0, m_owedThisCall - i));
+			m_owedFrames = 1;
 			break;
 		}
 		++m_nextBatchFrame;
@@ -1079,8 +1169,16 @@ std::shared_ptr<const FrameCompletion> LiveGame::captureCompletion(const WorkIte
 	}
 	else if (item.capture.hashEveryFrame || m_options.hashEveryFrame)
 	{
-		c->hash = m_logic->computeStateHash();
-		c->hashed = true;
+		if (!m_options.hashEveryFrame && m_logic->uber() && c->frame % (UnsignedInt)LiveGameFrameDriver::kUberRecordedHashEvery != 0 &&
+			!(item.driver && item.driver->hashWanted(c->frame)))
+		{
+			c->hashSkipped = true; // lane UBER-2C: the Uber recording's cadence
+		}
+		else
+		{
+			c->hash = m_logic->computeStateHash();
+			c->hashed = true;
+		}
 	}
 	std::uint32_t rng = 0x811C9DC5u;
 	for (std::uint32_t w : m_logic->random().seedArray())
@@ -1185,7 +1283,7 @@ LiveGame::Report LiveGame::report() const
 	{
 		r.scripting = m_scripting->stats();
 	}
-	r.errors = r.mapIniErrors;
+	r.errors.insert(r.errors.end(), r.mapIniErrors.begin(), r.mapIniErrors.end());
 	for (const std::string &e : r.classificationErrors)
 	{
 		r.errors.push_back(e);
@@ -1224,6 +1322,19 @@ LiveGame::Report LiveGame::report() const
 			r.stops.push_back(s);
 		}
 		r.launchBoneProblems = m_launchBones->problems();
+	}
+	if (m_wallMeshes)
+	{
+		// a mesh the INI names that the model lacks is retail data (RotWK's HelmsDeepCulvert names RampMesh1 / 2 = P2 / P3, RBHDDWCulv has neither: retail's
+		// getRamp finds no mesh and makes no ramp); a missing model is an error
+		r.wallMeshProblems = m_wallMeshes->problems();
+		for (const std::string &e : r.wallMeshProblems)
+		{
+			if (e.find(" is not a mesh of ") == std::string::npos)
+			{
+				r.errors.push_back("wall meshes: " + e);
+			}
+		}
 	}
 	for (const std::string &s : r.movementStops)
 	{

@@ -27,6 +27,7 @@
 #include "GameClient/LiveGame.h"
 #include "GameClient/MessageStream/MetaEvent.h"
 #include "GameClient/TacticalCamera.h"
+#include "GameClient/LiveFX.h"
 #include "GameClient/TacticalView.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/RetailObjectWorld.h"
@@ -317,8 +318,8 @@ struct HudDevice : public AptNativeHook
 	DecalImage decalImageFor(const std::string &file);
 	void drawSelectionDecals();
 	void freeSelectionDecals();
-	// lane SPELL-4: the radius cursor (InGameHud::radiusCursor, GameClient/RadiusCursor.h) as one Godot Decal beside the selection markers
-	uint64_t radiusDecalId = 0;
+	// SPELL-4: the radius cursor is composited by the terrain alongside selection decals.
+	bool radiusCursorBound = false;
 	bool radiusDecalDrawn = false;
 	std::string radiusDecalError; ///< the texture of the cursor that could not be read (also in the HUD's draw errors)
 	void drawRadiusCursor();
@@ -836,6 +837,18 @@ void HudDevice::drawPlaceholder(const AptCanvasOp &op, RID item)
 			staticImage.image = imageMap;
 			img = &staticImage;
 		}
+		// lane CAMPUI-1: an image record of the window manager (setAptImage: InGameNotificationBox's "_level<n>_Icon", RW 0x8EB81E -> RW 0x92B1F9), as the
+		// player's own RenderImage path reads them outside a game (GodotAptPlayer: the score screen's icons)
+		AptPalantir::NativeImage recordImage;
+		if ((!img || img->image.empty()) && !imageMap.empty() && hud->palantir())
+		{
+			const std::string *record = hud->palantir()->windows().aptImage(imageMap);
+			if (record && !record->empty())
+			{
+				recordImage.image = *record;
+				img = &recordImage;
+			}
+		}
 		// lane SPELL-2: the spell store's buttons ("SpellStore/Buttons/Spell%d", RW 0x822B23); RenderImageDisabled draws the same image grey
 		AptPalantir::NativeImage storeImage;
 		if ((!img || img->image.empty()) && hud->spellStore())
@@ -982,6 +995,10 @@ void HudDevice::drawIconOps(RID parent)
 	{
 		for (const IconUIOp &op : hud->iconOps())
 		{
+			if (op.stageTextSize > 0.0f)
+			{
+				continue; // a money text is anchored to its own building and grows through its size (below), not about a group's centre
+			}
 			const Rect2 r(op.x, op.y, op.w, op.h);
 			auto it = groups.find(op.object);
 			if (it == groups.end())
@@ -1005,7 +1022,7 @@ void HudDevice::drawIconOps(RID parent)
 	for (const IconUIOp &raw : hud->iconOps())
 	{
 		IconUIOp op = raw;
-		if (k != 1.0f)
+		if (k != 1.0f && raw.stageTextSize <= 0.0f)
 		{
 			const Vector2 c = groups[raw.object].get_center();
 			op.x = c.x + (raw.x - c.x) * k;
@@ -1044,10 +1061,14 @@ void HudDevice::drawIconOps(RID parent)
 					continue;
 				}
 				const String text = String::utf8(op.text.c_str());
-				const Vector2 size = font->get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fontSize);
-				const Vector2 at(op.x - std::floor(size.x / 2.0f), op.y + font->get_ascent(fontSize)); // RW 0x677F1B: x - width / 2, the string's top at y
-				font->draw_string(iconItem, at + Vector2(1, 1), text, HORIZONTAL_ALIGNMENT_LEFT, -1, fontSize, col(op.dropColor));
-				font->draw_string(iconItem, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, fontSize, col(op.color));
+				// a stage-sized text (the money texts) grows with the window as the HUD movies do: the window height over the 600 stage rows
+				const float stageScale = op.stageTextSize > 0.0f ? std::max(1.0f, (float)hud->windowHeight() / 600.0f) : 1.0f;
+				const int size_px = op.stageTextSize > 0.0f ? (int)std::lround(op.stageTextSize * stageScale * k) : fontSize;
+				const float drop = op.stageTextSize > 0.0f ? std::max(1.0f, std::round(stageScale)) : 1.0f;
+				const Vector2 size = font->get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px);
+				const Vector2 at(op.x - std::floor(size.x / 2.0f), op.y + font->get_ascent(size_px)); // RW 0x677F1B: x - width / 2, the string's top at y
+				font->draw_string(iconItem, at + Vector2(drop, drop), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, col(op.dropColor));
+				font->draw_string(iconItem, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, col(op.color));
 				break;
 			}
 		}
@@ -1281,6 +1302,7 @@ void InGameHudNode::_bind_methods()
 	ClassDB::bind_method(D_METHOD("select_object", "id"), &InGameHudNode::select_object); // lane HUD-5
 	ClassDB::bind_method(D_METHOD("select_object_with_message", "id"), &InGameHudNode::select_object_with_message); // lane BACKLOG2
 	ClassDB::bind_method(D_METHOD("select_objects", "ids"), &InGameHudNode::select_objects); // lane SELPERF-1
+	ClassDB::bind_method(D_METHOD("select_objects_with_message", "ids"), &InGameHudNode::select_objects_with_message);
 	ClassDB::bind_method(D_METHOD("open_spell_store"), &InGameHudNode::open_spell_store);
 	ClassDB::bind_method(D_METHOD("close_spell_store"), &InGameHudNode::close_spell_store);
 	ClassDB::bind_method(D_METHOD("spell_store_click", "index"), &InGameHudNode::spell_store_click);
@@ -1308,13 +1330,19 @@ void InGameHudNode::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_view_options", "options"), &InGameHudNode::set_view_options); // lane OPTS-2
 	ClassDB::bind_method(D_METHOD("camera_look_at", "sage_xy"), &InGameHudNode::camera_look_at);
 	ClassDB::bind_method(D_METHOD("camera_set_height", "height_above_ground"), &InGameHudNode::camera_set_height);
+	ClassDB::bind_method(D_METHOD("camera_reset", "sage_xy"), &InGameHudNode::camera_reset);                 // lane CAMPUI-1
+	ClassDB::bind_method(D_METHOD("camera_set_zoom_limited", "on"), &InGameHudNode::camera_set_zoom_limited); // lane CAMPUI-1
+	ClassDB::bind_method(D_METHOD("set_objectives_screen_open", "open"), &InGameHudNode::set_objectives_screen_open); // lane CAMPUI-1
+	ClassDB::bind_method(D_METHOD("flash_palantir_button", "slot", "seconds"), &InGameHudNode::flash_palantir_button); // lane CAMPUI-1
+	ClassDB::bind_method(D_METHOD("is_objectives_flag_flashing"), &InGameHudNode::is_objectives_flag_flashing); // lane CAMPUI-1
 	ClassDB::bind_method(D_METHOD("pixel_to_world", "pixel"), &InGameHudNode::pixel_to_world);
+	ClassDB::bind_method(D_METHOD("ping_point", "pixel"), &InGameHudNode::ping_point); // the ping wheel
 	ClassDB::bind_method(D_METHOD("world_to_pixel", "world_xy"), &InGameHudNode::world_to_pixel);
 	ClassDB::bind_method(D_METHOD("pick_probe", "pixel", "id"), &InGameHudNode::pick_probe);
 	ClassDB::bind_method(D_METHOD("find_button_window", "path"), &InGameHudNode::find_button_window);
 	ClassDB::bind_method(D_METHOD("get_radar_square"), &InGameHudNode::get_radar_square);
 	ClassDB::bind_method(D_METHOD("world_to_radar_pixel", "world_xy"), &InGameHudNode::world_to_radar_pixel);
-	ClassDB::bind_method(D_METHOD("create_radar_event", "world_xy", "type"), &InGameHudNode::create_radar_event);
+	ClassDB::bind_method(D_METHOD("create_radar_event", "world_xy", "type", "jump_to"), &InGameHudNode::create_radar_event, DEFVAL(false));
 	ClassDB::bind_method(D_METHOD("get_radar_state"), &InGameHudNode::get_radar_state); // lane HUD-7
 	ClassDB::bind_method(D_METHOD("radar_probe", "world_xy"), &InGameHudNode::radar_probe); // lane HUD-7
 	ClassDB::bind_method(D_METHOD("camera_set_angle_pitch", "angle", "pitch"), &InGameHudNode::camera_set_angle_pitch); // lane HUD-7 (a test hook)
@@ -1324,48 +1352,29 @@ void InGameHudNode::_bind_methods()
 
 void HudDevice::drawRadiusCursor()
 {
-	// lane SPELL-4: drawn as the selection decals are (S-2522, S-4640): the texture times the RGB, the alpha the throb's opacity (the alpha styles, 0x1420),
-	// laid on the terrain layer; an additive style's RGB already carries the opacity (Shadow::setColor RW 0x73232B)
 	const RadiusCursorDecal &rc = hud->radiusCursor().decal();
-	Decal *decal = radiusDecalId ? Object::cast_to<Decal>(ObjectDB::get_instance(godot::ObjectID(radiusDecalId))) : nullptr;
-	Node3D *root = decalRootId ? Object::cast_to<Node3D>(ObjectDB::get_instance(godot::ObjectID(decalRootId))) : nullptr;
+	RenderingServer *rs = RenderingServer::get_singleton();
 	radiusDecalDrawn = false;
-	if (!rc.visible || !root)
-	{
-		if (decal)
-		{
-			decal->set_visible(false);
-		}
-		return;
-	}
+	radiusDecalError.clear();
+	if (!rs) return;
+	// A zero size disables sampling, including cancellation and missing textures.
+	rs->global_shader_parameter_set("radius_cursor_transform", Vector4());
+	if (!rc.visible) return;
 	const bool alphaStyle = (rc.style & 0x1420u) != 0;
 	const DecalTextures *dt = unlitDecalFor(rc.texture, alphaStyle ? rc.rgb : (rc.packed & 0xFFFFFFu));
 	if (!dt)
 	{
 		radiusDecalError = "radius cursor " + rc.type + ": no texture " + rc.texture;
-		if (decal)
-		{
-			decal->set_visible(false);
-		}
-		return; // textureFor reported it in drawErrors
+		return;
 	}
-	if (!decal)
-	{
-		decal = memnew(Decal);
-		root->add_child(decal);
-		radiusDecalId = decal->get_instance_id();
-	}
-	// SAGE (x, y, z up) -> Godot (x, z, -y); projected down over a box 2 * radius wide and 200 units deep around the point
-	decal->set_position(Vector3(rc.position.x, rc.position.z, -rc.position.y));
-	decal->set_rotation(Vector3(0.0f, rc.angle, 0.0f));
-	decal->set_size(Vector3(rc.size, 200.0f, rc.size));
-	decal->set_texture(Decal::TEXTURE_ALBEDO, dt->albedo);
-	decal->set_modulate(Color(1, 1, 1, alphaStyle ? rc.opacity / 255.0f : 1.0f));
-	decal->set_albedo_mix(1.0f);
-	decal->set_cull_mask(1u << 19); // the terrain's layer (GodotMapTerrain)
-	decal->set_upper_fade(0.0f);
-	decal->set_lower_fade(0.0f);
-	decal->set_visible(true);
+	// Composite the texture and opacity with the terrain, as the selection's
+	// merge decals do. This also supports unshaded terrain, where a Godot
+	// albedo-only Decal cannot supply a visible radius preview.
+	// S-4640: this remains the port's terrain projection, not retail's stencil pass.
+	rs->global_shader_parameter_set("radius_cursor_texture", dt->albedo->get_rid());
+	rs->global_shader_parameter_set("radius_cursor_params", Vector4(alphaStyle ? rc.opacity / 255.0f : 1.0f, alphaStyle ? 1.0f : 0.0f, 0.0f, 0.0f));
+	rs->global_shader_parameter_set("radius_cursor_transform", Vector4(rc.position.x, rc.position.y, rc.size, rc.angle));
+	radiusCursorBound = true;
 	radiusDecalDrawn = true;
 }
 
@@ -1818,7 +1827,16 @@ void HudDevice::freeSelectionDecals()
 	}
 	decalRootId = 0;
 	decalIds.clear();
-	radiusDecalId = 0; // lane SPELL-4: the cursor's decal was the root's child
+	if (radiusCursorBound)
+	{
+		if (RenderingServer *rs = RenderingServer::get_singleton())
+		{
+			rs->global_shader_parameter_set("radius_cursor_transform", Vector4());
+			rs->global_shader_parameter_set("radius_cursor_texture", RID());
+		}
+		radiusCursorBound = false;
+	}
+	radiusDecalDrawn = false;
 	mergeKey.clear();
 	// lane SELPERF-1: the terrain shader draws no merge decals once the HUD is gone
 	if (selMode > 0 || selData.is_valid() || selAtlas.is_valid())
@@ -2214,6 +2232,24 @@ Dictionary InGameHudNode::get_state() const
 	{
 		return s;
 	}
+	{
+		// the money texts (GameClient/FloatingText.h)
+		Array texts;
+		for (const FloatingTextList::Record &r : d->hud->floatingText().records())
+		{
+			Dictionary t;
+			t["text"] = String::utf8(r.text.c_str());
+			t["x"] = r.pos.x;
+			t["y"] = r.pos.y;
+			t["z"] = r.pos.z;
+			t["alpha"] = (int64_t)(r.color >> 24);
+			t["color"] = (int64_t)(r.color & 0xFFFFFFu);
+			t["frames"] = (int64_t)r.frameCount;
+			texts.push_back(t);
+		}
+		s["floating_texts"] = texts;
+		s["floating_texts_added"] = (int64_t)d->hud->floatingText().added();
+	}
 	const InGameUI &ui = d->hud->input().ui();
 	s["cursor"] = toGodot(ui.cursor());
 	Dictionary rally;
@@ -2400,6 +2436,15 @@ Dictionary InGameHudNode::get_state() const
 		msgs.push_back(toGodot(m));
 	}
 	s["messages"] = msgs;
+	Array displayedMessages;
+	for (const auto &entry : d->hud->playerMessages().entries())
+	{
+		Dictionary message;
+		message["text"] = String::utf16(reinterpret_cast<const char16_t *>(entry.text.data()), (int64_t)entry.text.size());
+		message["color"] = (int64_t)entry.color;
+		displayedMessages.push_back(message);
+	}
+	s["player_messages"] = displayedMessages;
 	{
 		ControlBar &cb = d->hud->controlBar();
 		Dictionary bar;
@@ -2474,6 +2519,17 @@ bool InGameHudNode::select_object_with_message(int64_t id)
 	m.appendBoolean(true);
 	m.appendObjectID((::ObjectID)id);
 	return true;
+}
+
+// Formation integration test hook: keep presentation and authoritative selection together.
+int64_t InGameHudNode::select_objects_with_message(const PackedInt64Array &ids)
+{
+ const auto count=select_objects(ids);
+ if(!d->hud)return count;
+ ClientMessage &message=d->hud->input().stream().append(MSG_CREATE_SELECTED_GROUP_NO_SOUND);
+ message.appendBoolean(true);
+ for(auto id: d->hud->input().ui().selected())message.appendObjectID(id);
+ return count;
 }
 
 // lane SELPERF-1: the selection benchmark (play1_player.gd selperf) selects exactly N objects; how many ended up selected
@@ -2564,6 +2620,7 @@ Dictionary InGameHudNode::get_spellbook_state()
 	AptPalantir *p = d->hud->palantir();
 	r["ok"] = true;
 	r["path"] = String(p->spellBookPath().c_str());
+	r["palantir_level"] = p->level(); // lane HUDREDRAW-1: the Palantir's Apt level (the shell player's get_stats levels)
 	r["shown"] = p->spellBookShown();
 	Array slots;
 	for (int i = 0; i < AptPalantir::kSpellSlots; ++i)
@@ -2899,6 +2956,7 @@ void InGameHudNode::_process(double delta)
 	if (d->hud6)
 	{
 		d->hud6->drawRadial(get_canvas_item()); // lane HUD-6
+		d->hud6->drawMessages(get_canvas_item());
 		if (d->fs.is_valid() && d->fs->is_bfme1())
 		{
 			const Vector2 size = get_viewport_rect().size;
@@ -2922,6 +2980,17 @@ void InGameHudNode::_process(double delta)
 		const DisplayServer::WindowMode wm = ds ? ds->window_get_mode() : DisplayServer::WINDOW_MODE_WINDOWED;
 		const bool retail = d->edgeScroll || wm == DisplayServer::WINDOW_MODE_FULLSCREEN || wm == DisplayServer::WINDOW_MODE_EXCLUSIVE_FULLSCREEN;
 		la->setEdgeScrollEnabled(d->edgeScrollMode == 1 ? true : (d->edgeScrollMode == 2 ? false : retail)); // lane OPTS-2: the option
+	}
+	// lane FX-4: the effects' ViewShake calls shake the camera (W3DView::shake RW 0x486D86); the next client frame's update moves the view (RW 0x48C0E8)
+	if (d->cam && d->world)
+	{
+		if (LiveFX *fx = d->world->live_fx())
+		{
+			for (const LiveFX::ViewShake &v : fx->takeViewShakes())
+			{
+				d->cam->shake(v.epicenter, v.type, v.angle);
+			}
+		}
 	}
 	const double step = 1.0 / 30.0;
 	d->clientClock += delta;
@@ -3486,6 +3555,47 @@ void InGameHudNode::camera_set_height(float height_above_ground)
 	}
 }
 
+void InGameHudNode::camera_reset(const Vector2 &sage_xy)
+{
+	// lane CAMPUI-1: client state, no wait for the logic worker (camera_look_at). RESET_CAMERA's TacticalCamera::resetCamera at the point: the map's
+	// heights and the default zoom / pitch (RW 0x48D26B)
+	if (d->cam)
+	{
+		const Coord3D at{ sage_xy.x, sage_xy.y, 0.0f };
+		d->cam->resetCamera(&at);
+		d->cam->snapInterpolation();
+	}
+}
+
+void InGameHudNode::set_objectives_screen_open(bool open)
+{
+	if (d->ready && d->hud)
+	{
+		d->hud->setObjectivesScreenOpen(open);
+	}
+}
+
+void InGameHudNode::flash_palantir_button(int slot, int seconds)
+{
+	if (d->ready && d->hud)
+	{
+		d->hud->flashPalantirButton(slot, seconds);
+	}
+}
+
+bool InGameHudNode::is_objectives_flag_flashing() const
+{
+	return d->ready && d->hud && d->hud->palantirObjectivesFlashing();
+}
+
+void InGameHudNode::camera_set_zoom_limited(bool on)
+{
+	if (d->cam)
+	{
+		d->cam->setZoomLimited(on); // lane CAMPUI-1: RW 0x443C81 (the letterbox lifts the zoom limit while it is on)
+	}
+}
+
 void InGameHudNode::set_edge_scroll(bool on)
 {
 	d->edgeScroll = on;
@@ -3633,6 +3743,29 @@ Vector2 InGameHudNode::pixel_to_world(const Vector2 &pixel) const
 	return Vector2(-1e9f, -1e9f);
 }
 
+Vector2 InGameHudNode::ping_point(const Vector2 &pixel) const
+{
+	// the ping wheel (not retail): the map point a ping placed at this window pixel marks. Over the minimap: the point the radar shows there (the mapping of
+	// a radar click, InGameHud::radarClick); over any other part of the HUD (the Palantir, the control bar, the radial bubbles: InGameHud::isOverGui): none,
+	// as the terrain behind the HUD is not what the player points at; elsewhere the terrain under the pixel (pixel_to_world). (-1e9, -1e9) for none
+	waitLogic(d.get());
+	if (!d->hud)
+	{
+		return Vector2(-1e9f, -1e9f);
+	}
+	bool hasPoint = false;
+	float wx = 0.0f, wy = 0.0f;
+	if (d->hud->radarPoint((int)pixel.x, (int)pixel.y, hasPoint, wx, wy))
+	{
+		return hasPoint ? Vector2(wx, wy) : Vector2(-1e9f, -1e9f);
+	}
+	if (d->hud->isOverGui((int)pixel.x, (int)pixel.y))
+	{
+		return Vector2(-1e9f, -1e9f);
+	}
+	return pixel_to_world(pixel);
+}
+
 Vector2 InGameHudNode::world_to_pixel(const Vector2 &w) const
 {
 	waitLogic(d.get());
@@ -3727,14 +3860,21 @@ Vector2 InGameHudNode::world_to_radar_pixel(const Vector2 &world) const
 	return Vector2(sq[0] + rx * (sq[2] - sq[0]) / 128.0f, sq[1] + ry * (sq[3] - sq[1]) / 128.0f);
 }
 
-bool InGameHudNode::create_radar_event(const Vector2 &world_xy, int type)
+bool InGameHudNode::create_radar_event(const Vector2 &world_xy, int type, bool jump_to)
 {
-	// lane RADAR-1 (QA): an event the way a script's radar event action makes one (createEvent, 4 s); false without a radar
+	// lane RADAR-1 (QA): an event the way a script's radar event action makes one (createEvent, 4 s); false without a radar. `jump_to` (the ping wheel):
+	// also TheEva's event position, as the script action adds it after createEvent (RW 0x7BC221 -> RW 0x5DD1F3, Radar::noteEvaPosition), so Space
+	// (VIEW_LAST_RADAR_EVENT) looks at it. Client state only (the radar), as the script's event is
 	if (!d->hud || !d->hud->radar().ready())
 	{
 		return false;
 	}
-	d->hud->radar().createEvent(Coord3D{ (float)world_xy.x, (float)world_xy.y, 0.0f }, type, 4.0f);
+	const Coord3D at{ (float)world_xy.x, (float)world_xy.y, 0.0f };
+	d->hud->radar().createEvent(at, type, 4.0f);
+	if (jump_to)
+	{
+		d->hud->radar().noteEvaPosition(at);
+	}
 	return true;
 }
 

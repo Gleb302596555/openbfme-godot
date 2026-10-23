@@ -22,6 +22,7 @@
 #include "Common/Team.h"
 #include "GameClient/ClientEvents.h"
 #include "GameClient/DrawableLaunchBones.h"
+#include "GameClient/DrawableWallMeshes.h"
 #include "GameClient/LogicSnapshot.h"
 #include "GameClient/DrawableManager.h"
 #include "GameClient/LiveGameFrameDriver.h"
@@ -45,6 +46,8 @@
 #include "GameLogic/MapObjectLoop.h"
 #include "GameLogic/PlayerCommands.h"
 #include "GameLogic/Object/RetailObjectWorld.h"
+
+#include "GameClient/CreateAHeroStats.h"
 
 #include <atomic>
 #include <chrono>
@@ -70,6 +73,8 @@ class LiveGame
 public:
 	struct Options
 	{
+		std::string heroStatsProfile; // client profile only, supplied by the hero manager
+		std::function<void(const std::string &)> heroStatsMessage;
 		std::string mapName;               ///< "map mp evendim": the map's directory / file stem
 		SkirmishSetup slots;               ///< lobby slots taken over by the map's players (empty: the map's own players)
 		std::uint32_t seed = 1;            ///< the logic RNG seed
@@ -198,7 +203,8 @@ public:
 	UnsignedInt protocolFrame() const { return m_protocolFrame; }
 	UnsignedInt nextBatchFrame() const { return m_nextBatchFrame; }
 	// frames that were due but could not run because the driver held them (the lockstep waited); their time is not caught up (ZH Network::timeForNewFrame
-	// resets its frame time when it falls more than two frames behind). Only the clock's time is dropped: an authoritative batch is never skipped
+	// resets its frame time when it falls more than two frames behind), except the frame that waited: lane NETLAG-2 keeps it due, so it runs as soon as
+	// its input is complete. Only the clock's time is dropped: an authoritative batch is never skipped
 	unsigned long long stalledFrames() const { return m_stalledFrames; }
 	// SMOOTH-1: batches the driver handed out, and completions it consumed (each exactly once, in frame order)
 	unsigned long long batchesAcquired() const { return m_batchesAcquired; }
@@ -207,6 +213,8 @@ public:
 	static constexpr size_t kMaxQueuedBatches = 16;
 	// the fraction of the logic frame elapsed, in [0, 1): the 5 Hz clock's, or in six tick pacing the phases done plus the tick's fraction over six
 	double alpha() const;
+	// lane NETLAG-2: whole milliseconds until the 5 Hz clock makes the next logic frame due (presentation timing for the frame driver, LiveGameRunner.cpp)
+	std::uint32_t msUntilNextFrame() const;
 	// lane SMOOTH-1: the drawables are posed between two logic frames by alpha (default), or, off, at the current logic transform: the stepped 5 Hz
 	// look of a client without interpolation (the before / after comparison of the benchmark and the video). Presentation only, never the logic.
 	void setRenderInterpolation(bool enabled) { m_renderInterpolation = enabled; }
@@ -327,6 +335,7 @@ public:
 		std::vector<std::string> movement;     ///< MOVE-1: the AI world's movement-data errors
 		std::vector<std::string> movementStops; ///< MOVE-1: the stops the movers raised
 		std::vector<std::string> launchBoneProblems; ///< RENDER-2: the launch-bone provider's data problems (missing models / bones / pose animations); counted in its S-460 stop
+		std::vector<std::string> wallMeshProblems;   ///< WALL-1: the wall-mesh provider's data problems (a missing wall model, in errors too; a named mesh the model lacks)
 	};
 	// the load-time part is fixed; logic and drawables are read when this is called
 	Report report() const;
@@ -350,6 +359,7 @@ private:
 	std::unique_ptr<PlayerList> m_players;
 	std::unique_ptr<WW3DDrawAssets> m_launchAssets;      // RENDER-2: the launch bone provider's view of the assets
 	std::unique_ptr<DrawableLaunchBones> m_launchBones; // RENDER-2: the drawables' launch bones (RW 0x6756A1) for the logic's projectile launches; before the logic
+	std::unique_ptr<DrawableWallMeshes> m_wallMeshes;   // WALL-1: the wall pieces' walkable surfaces for the pathfinder (RW 0x936B7D); before the AI world
 	std::unique_ptr<DrawableManager> m_drawables; // before the logic: the logic deletes its objects (and calls the manager) in its destructor first
 	std::unique_ptr<LiveScripting> m_scripting;   // likewise: the objects' destructors call the world hooks
 	std::unique_ptr<class MapScriptSetup> m_scriptSetup; // lane SCRIPT-1: the libraries the script engine's lists point into (outlive the logic)
@@ -374,12 +384,23 @@ private:
 	LogicFrameClock m_tickClock{ LOGICFRAMES_PER_SECOND * 6 }; ///< the engine tick clock of six tick pacing
 	int m_nextPhase = 1;                                       ///< six tick pacing: the phase the next tick runs
 	Options m_options;
+	CreateAHeroStats m_heroStatistics;
+	std::string m_cahHeroID;
+	int m_cahMode = -1;
+	bool m_cahResultRecorded = false;
+	bool m_cahStatisticsDirty = false;
+	std::string m_cahSaveError;
+	std::vector<std::string> m_cahEarned;
+	void consumeHeroStatistics(const std::vector<ClientEvent> &events, const LogicSnapshot *snapshot);
+
 	Report m_report;
 	std::vector<std::string> m_economyStops; ///< the terrain source's stop lines of the economy's blocked-cell map (lane ECON-1)
 	bool m_renderInterpolation = true;
 	unsigned long long m_droppedFrames = 0;
 	LiveGameFrameDriver *m_frameDriver = nullptr; ///< lane MP-1 (protocol owner; the worker sees it only through a queued WorkItem)
 	unsigned long long m_stalledFrames = 0;
+	int m_owedFrames = 0;   ///< lane NETLAG-2: a frame the clock made due that waited for the lockstep: due at the next advance
+	int m_owedThisCall = 0; ///< lane NETLAG-2: the owed frames included in this advance's due count
 	bool m_loaded = false;
 	bool m_closed = false; ///< lane SAVE-4e (loadSnapshot)
 	// ---- SMOOTH-1 + MP-1 (review r4): numbered batches and completion records ----
@@ -400,6 +421,8 @@ private:
 	std::shared_ptr<const FrameCompletion> captureCompletion(const WorkItem &item, std::int64_t simUs = -1); ///< simulation owner, after the frame
 
 	// lane SCRIPT-1: the sides' lists and libraries into the logic's ScriptEngine (before the map's objects exist)
+	static bool mapScriptsWanted(const Options &options);
+	bool buildMapScriptSetup(const SidesList &sidesUsed, const std::set<std::string> &slotSides, std::string *error);
 	bool setupMapScripts(const Options &options, const SidesList &sidesUsed, const std::set<std::string> &slotSides, std::string *error);
 	// ---- lane SMOOTH-1: the simulation owner, the publication and the presentation ----
 	void runFrameOwned(const WorkItem &item); ///< one logic frame, its hash, its snapshot and events published (on the owner's thread)

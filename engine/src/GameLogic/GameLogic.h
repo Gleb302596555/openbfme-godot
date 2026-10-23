@@ -56,17 +56,21 @@
 #include "GameLogic/AI/AICommandSink.h"
 #include "GameLogic/FXEvents.h"
 #include "GameLogic/LargeGroupAudioLink.h"
+#include "GameLogic/ScriptEngine/MissionObjectiveTracker.h"
 #include "GameLogic/Map/CastleTemplates.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/ProductionSettings.h"
 #include "GameLogic/ObjectTypes.h"
 
 #include <array>
+#include <cfloat>
 #include <functional>
 #include <map>
+#include <unordered_map>
 #include <memory>
 #include <set>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -132,6 +136,8 @@ public:
 	// `frames` client frames (0: shown at once)
 	virtual void fadeIn(Object &obj, UnsignedInt frames) { (void)obj; (void)frames; }
 	// RW 0x67B78C -> 0x6D4789: a qualifying hit on a local hero, independently of the EVA gate.
+	// RW 0x69560B: profile statistics are recorded before the normal kill-score gates.
+	virtual void createAHeroKill(Object &, Object &) {}
 	virtual void heroAttacked(Object &obj) { (void)obj; }
 	virtual void flashHeroButton(const std::string &templateName, int frames) { (void)templateName; (void)frames; }
 	// lane CAH-2, RW 0x80AF0B (a Create-a-Hero record's flag 8): the drawable's house colour set (RW 0x80959A: kind 3 and the record's three colours,
@@ -172,7 +178,29 @@ struct GameLogicSettings
 	float formationEnemyDistance = 600.0f;
 	float narrowPassageScale = 1.0f;
 	bool waitForOthers = false;
+	// lane STEALTHFLY1: AIData MinFlightHeight (+ 0xB0, row RW 0xC1CE60 parseReal RW 0x42ED00; the constructor's FLT_MAX RW 0xBD1910 = none): the flight ground
+	// height's floor (RW 0x777ED7). No retail aidata.ini sets it; a map's map.ini AIData block does (map wor dol guldur 76, map evil rivendell 300)
+	float minFlightHeight = FLT_MAX;
 	float groupMoveClickToGatherAreaFactor = 1.0f;
+	// lane TARGET-1: the target search's AIData rows (table RW 0xC1CB20 .., parser RW 0x7017AA; defaults the AIData constructor's, RW 0x6FFBEF):
+	// ForceIdleMSEC + 0x14 (parseDurationUnsignedInt RW 0x73A429: frames), AttackPriorityDistanceModifier + 0x54 (parseReal RW 0x42ED00, ctor 0.0),
+	// AttackUsesLineOfSight + 0x67 (parseBool RW 0x42E558, ctor 1), AttackIgnoreInsignificantBuildings + 0x68 (ctor 0), ArtilleryMaxFriendlyFire + 0xF0
+	// (parsePercentToReal RW 0x42EEFA, ctor 1.0); the AttackPriority blocks (+ 0xFC, RW 0x70153B: see AttackPriorityDef)
+	unsigned forceIdleFrames = 0;
+	float attackPriorityDistanceModifier = 0.0f;
+	bool attackUsesLineOfSight = true;
+	bool attackIgnoreInsignificantBuildings = false;
+	float artilleryMaxFriendlyFire = 1.0f;
+	// RW 0x70153B: an `AttackPriority <name>` block of AIData (def 0x14 bytes, ctor RW 0x701323: Default 1). A repeated name re-parses the same def (its
+	// targets cleared, Default kept unless the block sets it); a new one is pushed at the list head. `Target = <template> <int>` (RW 0x7013C2) lines in
+	// file order (RW inserts each at the front of its list: TARGET 0x7004B4; the store applies them back to front)
+	struct AttackPriorityDef
+	{
+		std::string name;
+		int defaultPriority = 1;
+		std::vector<std::pair<std::string, int>> targets;
+	};
+	std::vector<AttackPriorityDef> attackPriorityDefs; ///< the AIData list (+ 0xFC) head first
 	bool forceModelsToFollowTimeOfDay = false;       ///< GameData ForceModelsToFollowTimeOfDay (a new drawable gets NIGHT)
 	bool forceModelsToFollowWeather = false;         ///< GameData ForceModelsToFollowWeather (SNOW)
 	bool bodyThresholdsLoaded = false;               ///< the two thresholds below were read from GameData (an ActiveBody that needs them throws when not)
@@ -241,6 +269,9 @@ struct GameLogicSettings
 	// lane SPELL-2 (GameData SpecialPowerViewObject, row RW 0xC006C0, parseAsciiString, GlobalData + 0xBA4): the object a special power with a ViewObjectDuration /
 	// ViewObjectRange leaves at its target (RW 0x896FD9); empty when gamedata.ini names none
 	std::string specialPowerViewObject;
+	// lane NUGGET-1 (GameData GenericDamageFieldName, row RW 0xBFF5D0, parseAsciiString RW 0x42EE5E, GlobalData + 0x14): the object a DamageFieldNugget makes
+	// (RW 0x90F600); empty when gamedata.ini names none. Not in the settings hash: it holds no state and a mod changing it changes the INI checksum
+	std::string genericDamageFieldName;
 	// lane OWNERFIX-1 (GameData DefaultUnitHealingBuffFxList, row RW 0xBFF8C0, parseAsciiString RW 0x42EE5E, GlobalData + 0x9DC): the FXList every
 	// ActiveBodyModuleData starts with as its HealingBuffFx (constructor RW 0x8C373F: findFXList of this name when it is not empty); RotWK's gamedata.ini
 	// names FX_DefaultUnitHealBuff (the HealingBuff glow). Client effect only: not part of the settings hash
@@ -297,6 +328,9 @@ bool load(ArchiveFileSystem &fs, GameLogicSettings &out, std::string *error);
 bool scanGameData(const std::string &text, GameLogicSettings &out, std::string *error);
 bool scanAIData(const std::string &text, GameLogicSettings &out, std::string *error);
 bool scanMultiplayer(const std::string &text, GameLogicSettings &out, std::string *error);
+// lane STEALTHFLY1: the AIData block of the map directory's map.ini and solo.ini (RW 0x627224 / 0x627290) applied over `out` (retail data: MinFlightHeight,
+// and the client's LowLodTreeName, which stays unapplied). A file that cannot be read or parsed adds its error to `errors` (false); a missing file is none
+bool applyMapAIData(ArchiveFileSystem &fs, const std::string &mapDir, GameLogicSettings &out, std::vector<std::string> &errors);
 } // namespace GameLogicSettingsLoader
 
 class GameLogic
@@ -357,6 +391,9 @@ public:
 	ObjectClientHooks *clientHooks() const { return m_clientHooks; }
 	// lane AUDIO-4: TheLargeGroupAudio's face to the logic (the gate the LargeGroupAudioUpdate modules read, their calls forwarded to the client's sink;
 	// GameLogic/LargeGroupAudioLink.h). The gate is set once at the new game (RW 0x62FD90); the events are not hashed
+	// lane CAMPUI-1: TheMissionObjectiveTracker (RW 0xDE8C94; ScriptEngine/MissionObjectiveTracker.h): the map's objectives, reset with the game (RW 0x835E03)
+	MissionObjectiveTracker &missionObjectives() { return m_missionObjectives; }
+	const MissionObjectiveTracker &missionObjectives() const { return m_missionObjectives; }
 	LargeGroupAudioLink &largeGroupAudio() { return m_largeGroupAudio; }
 	const LargeGroupAudioLink &largeGroupAudio() const { return m_largeGroupAudio; }
 
@@ -383,15 +420,34 @@ public:
 		return id;
 	}
 	float getGroundHeight(float x, float y) const;
+	// lane WALL-1: ZH TerrainLogic::getHighestLayerForDestination + getLayerHeight: the highest walkable surface at (x, y), a wall top or a ramp over the
+	// terrain (the pathfinder's ground-grid layers); the terrain without an AI world
+	// lane WALL-2: the height of the layer a point at (x, y, z) stands on (TheTerrainLogic vslot 0x1C with RW 0x680A75's layer): a wall top's, a ramp's or a
+	// walkway's, the terrain elsewhere
+	float getLayerHeightForDestination(float x, float y, float z) const;
+	float getHighestLayerHeight(float x, float y) const;
 	// problems nothing explains; each distinct text is kept once and reaches report().errors
 	void reportError(const std::string &text);
 	// lane BUILD-1: a rule met at runtime that is registered as a stop but not ported (a castle's PreBuiltList ...): each distinct text reaches report().stops once
-	void noteStop(const std::string &text)
+	// (a view: the hot callers pass literals, and a noted text is found without building a std::string)
+	void noteStop(std::string_view text)
 	{
-		m_notedStops.insert(text);
-		++m_notedStopHits[text]; // lane QA-1: how often a game meets each stop (diagnostics, not simulation state)
+		if (m_notedStops.find(text) == m_notedStops.end())
+		{
+			m_notedStops.emplace(text);
+		}
+		// lane QA-1: how often a game meets each stop (diagnostics, not simulation state)
+		const auto hit = m_notedStopHits.find(text);
+		if (hit != m_notedStopHits.end())
+		{
+			++hit->second;
+		}
+		else
+		{
+			m_notedStopHits.emplace(std::string(text), 1u);
+		}
 	}
-	const std::map<std::string, unsigned> &notedStopHits() const { return m_notedStopHits; }
+	const std::map<std::string, unsigned, std::less<>> &notedStopHits() const { return m_notedStopHits; }
 
 	// lane BACKLOG3 (S-2452): a radar event the logic's code makes for the client's radar. Retail calls TheRadar->createEvent (RW 0x6D98FA) from inside the
 	// logic frame (the scripts' radar actions RW 0x7BC221 / 0x7BC250 / 0x7C0B61, the dozer's finished building RW 0x88E125); here the logic records the event
@@ -451,6 +507,8 @@ public:
 	size_t getObjectCount() const { return m_objectCount; }
 	ObjectID getNextObjectID() const { return m_nextObjectID; }
 	ObjectID allocateObjectID() { return m_nextObjectID++; }
+	// lane MODS-3: edain-unchained.unique-production-id's one counter (pre-increment: the first id is 1)
+	unsigned nextSharedProductionID() { return ++m_sharedProductionID; }
 	// an object made with an explicit id keeps later allocations above it
 	void noteExplicitObjectID(ObjectID id)
 	{
@@ -534,12 +592,32 @@ public:
 	void setScriptEventProc(ScriptEventProc proc) { m_scriptEventProc = std::move(proc); }
 	void dispatchScriptEvent(int slot, Object &self, const LuaEventArgs &args);
 	unsigned long long scriptEventsWithoutDispatch() const { return m_scriptEventsWithoutDispatch; }
+	// lane NUGGET-1: LuaEventNugget's events by name (RW 0x911EDC): TheLuaScriptEvents' FindEvent (RW 0x735388) answers whether the name is an event (internal slot,
+	// scripted event, model condition or object status record); then each receiver gets the dispatch RW 0x735F53. The live game installs both; with none
+	// installed the lookup says "unknown" and the delivery is counted in scriptEventsWithoutDispatch (stop S-1220)
+	typedef std::function<bool(const std::string &name)> NamedScriptEventFindProc;
+	typedef std::function<void(const std::string &name, Object &self, const LuaEventArgs &args)> NamedScriptEventProc;
+	void setNamedScriptEventProcs(NamedScriptEventFindProc find, NamedScriptEventProc dispatch)
+	{
+		m_namedScriptEventFind = std::move(find);
+		m_namedScriptEventProc = std::move(dispatch);
+	}
+	bool hasNamedScriptEvents() const { return (bool)m_namedScriptEventFind && (bool)m_namedScriptEventProc; }
+	bool findNamedScriptEvent(const std::string &name) const { return m_namedScriptEventFind && m_namedScriptEventFind(name); }
+	void dispatchNamedScriptEvent(const std::string &name, Object &self, const LuaEventArgs &args);
+	void countScriptEventWithoutDispatch() { ++m_scriptEventsWithoutDispatch; }
 	// lane HERO-2: RW 0x663E32, the ModelCondition script events, called first in the AI update (RW 0x66964D) with the snapshot the AI keeps (+ 0x290):
 	// before logic frame 2 only the snapshot is taken; afterwards, when the object's flags (+ 0x10C) differ from it, the installed proc dispatches the
 	// ModelConditionEvent records the change entered (RW 0x7378DA) and the snapshot takes the flags. The ObjectStatusEvent half (RW 0x737954 with + 0x2DC)
 	// is not ported (S-129)
 	typedef std::function<void(Object &self, const std::array<std::uint32_t, 19> &before)> ModelConditionEventProc;
 	void setModelConditionEventProc(ModelConditionEventProc proc) { m_modelConditionEventProc = std::move(proc); }
+	// S-090 inference: authored animation-state events run before the client flush.
+	void setAnimationConditionEventProc(ModelConditionEventProc proc) { m_animationConditionEventProc = std::move(proc); }
+	void animationConditionEvents(Object &obj, const std::array<std::uint32_t, 19> &before)
+	{
+		if (m_animationConditionEventProc) m_animationConditionEventProc(obj, before);
+	}
 	void scriptModelConditionEvents(Object &self, std::array<std::uint32_t, 19> &snapshot);
 	typedef std::function<void(Object &)> WorldHook;
 	void setWorldHooks(WorldHook entered, WorldHook left)
@@ -753,6 +831,7 @@ private:
 	std::unique_ptr<CombatState> m_combat;
 	FXEventLog m_fxEvents; // lane FX-2 (not hashed)
 	LargeGroupAudioLink m_largeGroupAudio; // lane AUDIO-4
+	MissionObjectiveTracker m_missionObjectives; // lane CAMPUI-1
 	std::unique_ptr<VictoryConditions> m_victory;
 	std::unique_ptr<BuildAssistantSell> m_sell; // lane FACT-A
 	std::unique_ptr<SkirmishAIManager> m_skirmishAI;
@@ -764,14 +843,17 @@ private:
 	std::unique_ptr<TerrainTrees> m_trees;               // lane SPELL-3
 	std::unique_ptr<ScriptEngine> m_scriptEngine;        // lane SCRIPT-1
 	CastleTemplateStore m_castleTemplates;
-	std::set<std::string> m_notedStops;
-	std::map<std::string, unsigned> m_notedStopHits;
+	std::set<std::string, std::less<>> m_notedStops;
+	std::map<std::string, unsigned, std::less<>> m_notedStopHits;
 	std::vector<RadarEventNotice> m_radarEventNotices; ///< lane BACKLOG3: oldest first, at most kRadarEventNotices
 	std::uint32_t m_radarEventSeq = 0;
 	ObjectClientHooks *m_clientHooks = nullptr;
 	ObjectCreatedProc m_objectCreatedProc;
 	ScriptEventProc m_scriptEventProc;
+	NamedScriptEventFindProc m_namedScriptEventFind;
+	NamedScriptEventProc m_namedScriptEventProc;
 	ModelConditionEventProc m_modelConditionEventProc;
+	ModelConditionEventProc m_animationConditionEventProc;
 	unsigned long long m_scriptEventsWithoutDispatch = 0;
 	WorldHook m_enteredWorld, m_leftWorld;
 	struct ExtraHooks
@@ -831,6 +913,7 @@ private:
 	size_t m_objectCount = 0;
 	unsigned m_containWorldTransitions = 0;
 	ObjectID m_nextObjectID = 1;
+	unsigned m_sharedProductionID = 0; ///< lane MODS-3: edain-unchained.unique-production-id (saved and hashed only with the feature)
 	std::vector<Object *> m_objectsById; ///< index = id; null for a free or destroyed id
 
 	std::vector<UpdateModule *> m_updates[PHASE_COUNT];
@@ -842,7 +925,10 @@ private:
 
 	std::vector<PhaseWork> m_phaseWork;
 	std::map<const ThingTemplate *, ObjectTemplateInfo> m_templateInfo; ///< looked up only, never iterated
-	std::map<const ThingTemplate *, std::unique_ptr<CrushTemplateInfo>> m_crushInfo; ///< looked up only, never iterated
+	std::unordered_map<const ThingTemplate *, std::unique_ptr<CrushTemplateInfo>> m_crushInfo; ///< looked up only, never iterated
+	// lane HDPERF-1 (performance: a lookup per colliding pair): the infos by template id, each slot with the template it holds (an override shares its
+	// base's id: a slot taken by another template sends the lookup to m_crushInfo); filled only where m_crushInfo is (on the logic thread)
+	std::vector<std::pair<const ThingTemplate *, const CrushTemplateInfo *>> m_crushById;
 	std::vector<std::string> m_errors;
 	const TerrainLogic *m_terrain = nullptr;
 	AICommandSink m_aiCommands;

@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GodotDevice/GodotGameWorld.h.
 
+#include "Common/ModEngineFeatures.h"
 #include "GodotDevice/GodotGammaComposite.h"
 #include <godot_cpp/classes/shader.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
@@ -295,6 +296,7 @@ void GameWorld::_bind_methods()
 	ClassDB::bind_method(D_METHOD("destroy_object", "id"), &GameWorld::destroy_object);
 	ClassDB::bind_method(D_METHOD("find_object_by_template", "template_name"), &GameWorld::find_object_by_template);
 	ClassDB::bind_method(D_METHOD("get_template_model", "template_name"), &GameWorld::get_template_model);
+	ClassDB::bind_method(D_METHOD("get_player_beacon_template", "player_index"), &GameWorld::get_player_beacon_template); // the ping wheel
 	ClassDB::bind_method(D_METHOD("get_placement_ghost", "template_name"), &GameWorld::get_placement_ghost);
 	ClassDB::bind_method(D_METHOD("create_object", "template_name", "player", "x", "y", "angle"), &GameWorld::create_object, DEFVAL(0.0));
 	ClassDB::bind_method(D_METHOD("get_ground_height", "x", "y"), &GameWorld::get_ground_height);
@@ -498,6 +500,7 @@ GameWorld::~GameWorld()
 	m_liveFX.reset();
 	m_spellStore.reset(); // lane SPELL-2 (review r1): the spell book screens hold the game's player and templates: they go before it
 	m_spellBar.reset();
+	m_cahCameraOffsetValid = false;
 	m_game.reset();
 	m_clientRuntime.reset();
 	m_treeTopple.reset(); // lane SPELL-3
@@ -594,6 +597,7 @@ Dictionary GameWorld::setup(const Ref<RetailFileSystem> &fs)
 		m_audio.reset(); // AUDIO-2: the audio side reads the game
 		m_spellStore.reset(); // lane SPELL-2 (review r1): the spell book screens hold the game's player and templates: they go before it
 		m_spellBar.reset();
+		m_cahCameraOffsetValid = false;
 		m_game.reset();
 		m_clientRuntime.reset();
 	m_treeTopple.reset(); // lane SPELL-3
@@ -616,10 +620,25 @@ Dictionary GameWorld::setup(const Ref<RetailFileSystem> &fs)
 		}
 		else
 		{
+			// lane MODS-3 (S-5306): with a mod mounted, a file the mod's data cannot parse is what retail meets too: the rest of that file is skipped
+			// (INI::loadSubsystemFiles) and the game goes on. The errors are reported (mod_data_errors, printed), the game starts. Retail data has none, so
+			// without a mod every error stays fatal (a port bug)
+			const bool modded = !fs->modIdentity().empty();
+			Array modDataErrors;
 			for (const SubsystemLoadReport::FileError &e : m_world->report().errors)
 			{
-				errors.push_back(toGodot(e.file + ": " + e.message));
+				(modded ? modDataErrors : errors).push_back(toGodot(e.file + ": " + e.message));
 			}
+			if (!modDataErrors.is_empty())
+			{
+				UtilityFunctions::print("GameWorld: S-5306: the mod's data has ", modDataErrors.size(),
+					" INI error(s); as retail, the rest of each failing file is skipped and the game goes on:");
+				for (int64_t i = 0; i < modDataErrors.size(); ++i)
+				{
+					UtilityFunctions::print("GameWorld:   ", modDataErrors[i]);
+				}
+			}
+			result["mod_data_errors"] = modDataErrors;
 			result["seconds"] = timing::elapsedSeconds(t0);
 			result["templates"] = (int64_t)m_world->things().templateCount();
 			result["factions"] = (int64_t)m_world->setupPlayerTemplates().playableSideIndices().size();
@@ -634,7 +653,7 @@ Dictionary GameWorld::setup(const Ref<RetailFileSystem> &fs)
 				errors.push_back(toGodot("settings: " + error));
 				m_world.reset();
 			}
-			m_source.reset(new ArchiveW3DFileSource(*fs->archive_fs()));
+			m_source = fs->renderW3DSource(); // lane SDK-0: the drawables' (render) assets, asset packs in front; LiveGame's launch bones read m_fs
 			m_assets.reset(new WW3DAssetManager(*m_source));
 			// lane FX-2: the effect player of the live games (FXParticleSystem.ini / FXList.ini through FX-1's FXPlayer), a child kept across loads
 			m_liveFX.reset();
@@ -680,6 +699,7 @@ void GameWorld::clear_scene()
 	}
 	m_spellStore.reset(); // lane SPELL-2 (review r1): the spell book screens hold the game's player and templates: they go before it
 	m_spellBar.reset();
+	m_cahCameraOffsetValid = false;
 	m_game.reset(); // the objects (and through them the drawables) first
 	m_clientRuntime.reset();
 	m_treeTopple.reset(); // lane SPELL-3
@@ -1065,6 +1085,8 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 	m_textureAnimation = optBool(options, "texture_animation", true);
 
 	LiveGame::Options lo = loIn;
+	lo.heroStatsProfile = m_heroStatsProfile;
+	lo.heroStatsMessage = [](const std::string &message) { UtilityFunctions::print(toGodot(message)); };
 	if (progress.is_valid())
 	{
 		lo.progress = [&progress](int percent) { progress.call(percent); };
@@ -1072,6 +1094,7 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 	m_netSession.reset(); // MP-1: the session points at the game
 	releaseLocalDrivers(); // lane MP-2: the recording / replay driver too
 	m_audio.reset(); // AUDIO-2: the audio side reads the game
+	m_cahCameraOffsetValid = false;
 	m_game.reset(new LiveGame(*m_world, *m_fs->archive_fs(), *m_assets, *m_options));
 	m_game->setRenderInterpolation(m_renderInterpolation);
 	// lane RENDERWAIT-1: a blocking wait on the logic worker names its script caller (the innermost GDScript frame: the C++ site of a bound query is
@@ -1116,6 +1139,7 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 		m_audio.reset(); // AUDIO-2: the audio side reads the game
 		m_spellStore.reset(); // lane SPELL-2 (review r1): the spell book screens hold the game's player and templates: they go before it
 		m_spellBar.reset();
+		m_cahCameraOffsetValid = false;
 		m_game.reset();
 		return fail(error);
 	}
@@ -1783,11 +1807,37 @@ void GameWorld::refresh_views(double deltaMs)
 			}
 			else if (!e.staticModel.empty() && !e.moduleHidden)
 			{
-				const auto palette=Render_House_Color_Params(d->getHouseColor(),d->customColorKind(),d->customColors());
-				const bool colored=m_houseColors && palette.kind>0;
-				const std::vector<std::pair<std::string, std::string>> swaps=e.kind==W3D_DRAWKIND_FLOOR ? floorWeatherSwaps(e.data,m_streakWeather) : std::vector<std::pair<std::string, std::string>>();
-				std::string model=AsciiStringUtil::lowered(e.staticModel)+W3DInstancer::Texture_Swap_Suffix(swaps);
-				if(colored) model+="#palette&"+std::to_string(palette.kind)+"&"+std::to_string(palette.colors[0])+"&"+std::to_string(palette.colors[1])+"&"+std::to_string(palette.colors[2]);
+				// lane HCKEY-1: the key and its palette / swaps are made again only when an input changed (not every frame)
+				const std::uint32_t owner = d->getHouseColor();
+				const int customKind = d->customColorKind();
+				const std::uint32_t *custom = d->customColors();
+				if (!ev.staticKeyValid || ev.staticKeySource != e.staticModel || ev.staticKeyData != e.data || ev.staticKeyKind != (int)e.kind ||
+					ev.staticKeyWeather != m_streakWeather || ev.staticKeyHouse != m_houseColors || ev.staticKeyOwner != owner ||
+					ev.staticKeyCustomKind != customKind || std::memcmp(ev.staticKeyCustom, custom, sizeof(ev.staticKeyCustom)) != 0)
+				{
+					ev.staticKeyPalette = Render_House_Color_Params(owner, customKind, custom);
+					ev.staticKeyColored = m_houseColors && ev.staticKeyPalette.kind > 0;
+					ev.staticKeySwaps = e.kind == W3D_DRAWKIND_FLOOR ? floorWeatherSwaps(e.data, m_streakWeather) : std::vector<std::pair<std::string, std::string>>();
+					ev.staticKey = AsciiStringUtil::lowered(e.staticModel) + W3DInstancer::Texture_Swap_Suffix(ev.staticKeySwaps);
+					if (ev.staticKeyColored)
+					{
+						const HouseColorParams &pp = ev.staticKeyPalette;
+						ev.staticKey += "#palette&" + std::to_string(pp.kind) + "&" + std::to_string(pp.colors[0]) + "&" + std::to_string(pp.colors[1]) + "&" + std::to_string(pp.colors[2]);
+					}
+					ev.staticKeySource = e.staticModel;
+					ev.staticKeyData = e.data;
+					ev.staticKeyKind = (int)e.kind;
+					ev.staticKeyWeather = m_streakWeather;
+					ev.staticKeyHouse = m_houseColors;
+					ev.staticKeyOwner = owner;
+					ev.staticKeyCustomKind = customKind;
+					std::memcpy(ev.staticKeyCustom, custom, sizeof(ev.staticKeyCustom));
+					ev.staticKeyValid = true;
+				}
+				const HouseColorParams &palette = ev.staticKeyPalette;
+				const bool colored = ev.staticKeyColored;
+				const std::vector<std::pair<std::string, std::string>> &swaps = ev.staticKeySwaps;
+				const std::string &model = ev.staticKey;
 				if(ev.model!=model && ev.instance>=0) {dyn->remove_instance(ev.instance);ev.instance=-1;ev.posed=false;}
 				if (!ev.posed)
 				{
@@ -2158,7 +2208,7 @@ void GameWorld::updateTreeSway(double dt)
 	}
 	m_vegSway->advanceSeconds(presented->breeze, m_clientRuntime->random(), dt);
 	W3DVegetationSway::Vec3 sway[W3DVegetationSway::MAX_SWAY_TYPES + 1];
-	m_vegSway->swayOffsets(sway);
+	m_vegSway->swayOffsets(sway, true);
 	float offsets[10][3];
 	for (int i = 0; i < 10; ++i)
 	{
@@ -2522,6 +2572,7 @@ void GameWorld::refresh_streaks(bool record)
 	if (!m_streakTextures && m_fs.is_valid() && m_fs->archive_fs())
 	{
 		m_streakTextures.reset(new W3DMaterialFactory(*m_fs->archive_fs()));
+		m_streakTextures->Set_Asset_Packs(m_fs->assetPacks().empty() ? nullptr : &m_fs->assetPacks()); // lane SDK-0
 	}
 	// group the strips by material (lane PROJ-2: the texture of the map's weather, RW 0x4CFA9A: WeatherType NORMAL 0 / SNOWY 1)
 	const int weather = m_streakWeather;
@@ -2992,6 +3043,19 @@ String GameWorld::get_template_model(const String &template_name) const
 		}
 	}
 	return String();
+}
+
+String GameWorld::get_player_beacon_template(int64_t player_index) const
+{
+	// PlayerTemplate BeaconName (PlayerTemplate.cpp's field table; RotWK reads it at RW 0x6D1305 for the beacon it places): the template a player's
+	// beacon is. The ping wheel draws that template's model, so a mod's own beacon shows. The template is fixed once the player is set up
+	if (!m_game || player_index < 0 || player_index >= m_game->players().getPlayerCount())
+	{
+		return String();
+	}
+	const Player *p = m_game->players().getNthPlayer((int)player_index);
+	const PlayerTemplate *pt = p ? p->getPlayerTemplate() : nullptr;
+	return pt ? toGodot(pt->m_beaconName) : String();
 }
 
 int64_t GameWorld::create_object(const String &template_name, int64_t player, double x, double y, double angle)
@@ -3674,7 +3738,7 @@ Dictionary GameWorld::get_tree_sway() const
 	{
 		d["version"] = (int64_t)m_vegSway->version();
 		W3DVegetationSway::Vec3 sway[W3DVegetationSway::MAX_SWAY_TYPES + 1];
-		m_vegSway->swayOffsets(sway);
+		m_vegSway->swayOffsets(sway, true);
 		for (int i = 1; i <= W3DVegetationSway::MAX_SWAY_TYPES; ++i)
 		{
 			offsets.push_back(Vector3(sway[i].x, sway[i].y, sway[i].z));
@@ -4063,6 +4127,7 @@ Dictionary GameWorld::net_begin(const Dictionary &options)
 		so.replayPath = std::string(String(options["record"]).utf8().get_data());
 	}
 	so.census = optBool(options, "census", false); // lane MP-3: the per-frame census (net_write_census)
+	so.earlyOrders = optBool(options, "early_orders", true); // lane NETLAG-2: NetworkConfig::earlyOrders (false: RotWK's frame + 1 for every order)
 	// lane ONLINE-3: a rejoin START (its ticket's generation) rejoins the running game instead of starting it; it records no replay (the game's start
 	// was not this process's: the relay's log is the game's record, /v1/replays/<id>/log)
 	m_netRejoining = m_netStart.online && m_netStart.rejoinGeneration > 0;
@@ -4101,11 +4166,26 @@ Dictionary GameWorld::net_status() const
 	NetGameSession &s = *m_netSession;
 	r["frame"] = (int64_t)m_game->frame();
 	// lane RENDERWAIT-1: game.gd's overlay asks every render frame: the state hash is computed only where the logic is held (the client window, an idle
-	// worker), else the last one is shown again; "hash_frame" is the logic frame it belongs to (never a wait for the worker)
-	if (m_game->logicHeld())
+	// worker), else the last one is shown again; "hash_frame" is the logic frame it belongs to (never a wait for the worker).
+	// lane BIGBATTLE-1: the whole state hash costs tens of ms in a big battle, and every held render frame took it again, also of a
+	// frame already hashed: two or three render frames after each logic frame stalled, and the window they held made the worker's next frame late. The
+	// worker's own hash of the published frame is taken when it made one (a recorded game); else the render thread hashes at most every
+	// kNetHashFrames logic frames (game.gd prints it every 50). Display only: the CRC exchange of the lockstep is the driver's, on the worker
+	constexpr UnsignedInt kNetHashFrames = 50;
+	const std::shared_ptr<const LogicSnapshot> published = m_game->latestSnapshot();
+	if (published && published->hashed)
 	{
-		m_netHashFrame = m_game->logic().getFrame();
-		m_netHash = m_game->logic().computeStateHash();
+		m_netHashFrame = published->frame;
+		m_netHash = published->stateHash;
+	}
+	else if (m_game->logicHeld())
+	{
+		const UnsignedInt frame = m_game->logic().getFrame();
+		if (m_netHashFrame == 0 || frame < m_netHashFrame || frame >= m_netHashFrame + kNetHashFrames)
+		{
+			m_netHashFrame = frame;
+			m_netHash = m_game->logic().computeStateHash();
+		}
 	}
 	r["hash"] = (int64_t)m_netHash;
 	r["hash_frame"] = (int64_t)m_netHashFrame;
@@ -4349,7 +4429,9 @@ void GameWorld::net_disconnect_quit()
 
 ProfileIdentity GameWorld::profileIdentityFor(SimulationProfile profile) const
 {
-	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain, {}, profile);
+	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain,
+		ModEngineFeatures::identityFeatures(), profile, // lane MODS-3: the mod's engine features
+		m_fs.is_valid() ? m_fs->modIdentity() : std::vector<std::string>()); // lane MODS-1
 }
 
 Dictionary GameWorld::net_observe_next(bool forward)
@@ -4492,8 +4574,8 @@ Dictionary GameWorld::caster_status() const
 ProfileIdentity GameWorld::net_profile() const
 {
 	// the profile identity of this peer: the mounted archives in mount order with their verified md5, the build, the RNG prepare_new_game uses
-	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain, {},
-		m_choice.current); // lane UBER-1: "profile uber" in the Uber performance mode
+	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain,
+		ModEngineFeatures::identityFeatures(), m_choice.current, m_fs.is_valid() ? m_fs->modIdentity() : std::vector<std::string>()); // lane UBER-1: "profile uber" in the Uber mode; MODS-1: the mod
 }
 
 Dictionary GameWorld::set_simulation_profile(const String &name)
@@ -5104,6 +5186,12 @@ void GameWorld::refresh_shroud(bool force)
 	{
 		return;
 	}
+	// lane BIGBATTLE-1: not drawn (--no-shroud: the shaders' shroud_enabled is false and never read the texture), nothing to rebuild;
+	// set_shroud_drawn rebuilds it (force) when the shroud is drawn again
+	if (!m_shroudDrawn && !force)
+	{
+		return;
+	}
 	const bool changed = view->version != m_shroudVersionShown || view != m_shroudViewShown;
 	if (!changed && !force)
 	{
@@ -5137,9 +5225,11 @@ void GameWorld::refresh_shroud(bool force)
 		}
 	});
 	Ref<Image> img = Image::create_from_data(tw, th, false, Image::FORMAT_L8, bytes);
+	bool newTexture = false;
 	if (m_shroudTexture.is_null() || m_shroudTexture->get_width() != tw || m_shroudTexture->get_height() != th)
 	{
 		m_shroudTexture = ImageTexture::create_from_image(img);
+		newTexture = true;
 	}
 	else
 	{
@@ -5158,6 +5248,20 @@ void GameWorld::refresh_shroud(bool force)
 	// lane VISUAL-2: the fogged light fraction, RW 0x46DFD0 / 0x46F533: (float) GlobalData + 0xBE9 (FogAlpha) / (float) + 0xBE8 (ClearAlpha); a ClearAlpha of 0
 	// divides by zero as retail's divss does
 	W3D_Set_Fogged_Light_Frac(SimMath::divf32((float)vs.fogAlpha, (float)vs.clearAlpha));
+	// lane BIGBATTLE-1: the materials keep what they were given and the texture above is updated in place, so the terrain's materials are
+	// visited only when a parameter's value changes (a new texture, the grid, the colour, shroud_enabled) or on force (the load, set_shroud_drawn). Walking
+	// the tree and setting five parameters on every material after each change of the shroud cost about 4 ms per logic frame in a big battle. The terrain's
+	// materials are made once, by the load's build_map
+	if (!force && !newTexture && m_shroudParamsSet && origin == m_shroudParamOrigin && extent == m_shroudParamExtent && color == m_shroudParamColor &&
+		m_shroudDrawn == m_shroudParamEnabled)
+	{
+		return;
+	}
+	m_shroudParamsSet = true;
+	m_shroudParamOrigin = origin;
+	m_shroudParamExtent = extent;
+	m_shroudParamColor = color;
+	m_shroudParamEnabled = m_shroudDrawn;
 	std::vector<Node *> stack{ terrain };
 	while (!stack.empty())
 	{

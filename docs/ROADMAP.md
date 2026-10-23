@@ -344,7 +344,8 @@ the Ring and Create-a-Hero work.
 
 ### M10 - Mods (designed in from the start)
 
-State: not started as a lane; every lane follows PLAN rule 6.
+State: lane MODS-1 (2026-10-20) ported MOD-1 (`-mod`, docs/MODS.md, stop S-5300) and the MOD-2 harness (OPENBFME_MOD_CORPUS, no corpus on
+the hosts yet); MOD-5 started (user maps in the map builders); every lane follows PLAN rule 6.
 
 Gate: Edain runs unmodified with its own assets; then further mods.
 
@@ -358,7 +359,9 @@ Gate: Edain runs unmodified with its own assets; then further mods.
   and block retail accepts but retail data never exercises (mods use them).
 - MOD-4: mods that patch `game.dat` (2.02, Age of the Ring): reimplement each
   executable change as a pinned profile feature.
-- MOD-5: WorldBuilder-made user maps and map-folder Lua/XML overlays.
+- MOD-5: WorldBuilder-made user maps and map-folder Lua/XML overlays. Started:
+  a map in the user maps folder opens in the map builders and the map viewer
+  (`--user-map`); the map lists and games on a user map are stop S-5160.
 
 Mod compatibility is not a late add-on: every lane above already follows PLAN
 rule 6 (full registries, retail-exact parse acceptance and rejection, no
