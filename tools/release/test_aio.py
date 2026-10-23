@@ -822,3 +822,43 @@ def test_aio_language_tables_agree_with_the_engine():
     de = {(l["game"], a["path"].lower()): (a["md5"], a["size"]) for l in engine["languages"] if l["code"] == "DE" for a in l["archives"]}
     assert de[("rotwk", "lang/german.big")] == ("dc848c78316743147da8c4faefa13813", 4851405)
     assert de[("bfme2", "lang/germanpatch105.big")] == ("9d952b46a9ea61fd013b95ae1c49923c", 1434693)
+
+
+def test_aio_language_table_check_refuses_empty_duplicate_and_extra_entries(tmp_path):
+    """PR #77 security review: check() must not pass an empty launcher table, an empty engine table, two engine entries of one language (they
+    collapsed into one before), an engine language the launcher table lacks, or a JSON file with a key given twice"""
+    import copy
+    import aio_languages
+    files, engine = aio_languages.load()
+    assert aio_languages.check(files, engine) == []
+    assert aio_languages.check({}, engine) != []
+    assert aio_languages.check(files, {}) != []
+    assert aio_languages.check(files, {"languages": []}) != []
+    one_package = {k: v for k, v in files.items() if k != "original-BFME2"}
+    assert any("original-BFME2" in e for e in aio_languages.check(one_package, engine))
+    # a second entry of a language: the same archives (it collapsed silently) and other archives (it shadowed the first)
+    for archives in ("same", "other"):
+        twice = copy.deepcopy(engine)
+        extra = copy.deepcopy(next(l for l in twice["languages"] if l["game"] == "rotwk" and l["code"] == "DE"))
+        if archives == "other":
+            extra["archives"][0]["md5"] = "0" * 32
+        twice["languages"].append(extra)
+        assert any("listed twice" in e for e in aio_languages.check(files, twice)), archives
+    # the same language name under another code (the engine keys its table by name)
+    renamed = copy.deepcopy(engine)
+    entry = next(l for l in renamed["languages"] if l["game"] == "rotwk" and l["code"] == "FR")
+    entry["language"] = "German"
+    assert aio_languages.check(files, renamed) != []
+    # an engine language the launcher table does not have
+    extra_lang = copy.deepcopy(engine)
+    extra_lang["languages"].append({"game": "rotwk", "patch": "2.01", "code": "XX", "language": "Klingon", "archives": []})
+    assert aio_languages.check(files, extra_lang) != []
+    # a duplicate archive path inside one entry
+    dup_path = copy.deepcopy(engine)
+    de = next(l for l in dup_path["languages"] if l["game"] == "rotwk" and l["code"] == "DE")
+    de["archives"].append(dict(de["archives"][0]))
+    assert any("listed twice" in e for e in aio_languages.check(files, dup_path))
+    # a key given twice in a JSON file is refused when loading (json.loads alone keeps the last one)
+    with pytest.raises(ValueError):
+        import json
+        json.loads('{"a": 1, "a": 2}', object_pairs_hook=aio_languages._no_duplicate_keys)

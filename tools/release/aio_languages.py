@@ -93,21 +93,72 @@ def render_engine(engine: dict) -> str:
     return json.dumps(engine, indent=2) + "\n"
 
 
+def _no_duplicate_keys(pairs: list) -> dict:
+    """json object_pairs_hook: a key given twice is an error (json.loads would keep the last one silently)"""
+    out: dict = {}
+    for k, v in pairs:
+        if k in out:
+            raise ValueError(f"duplicate key {k!r}")
+        out[k] = v
+    return out
+
+
 def load() -> tuple[dict, dict]:
-    return json.loads(FILES.read_text()), json.loads(ENGINE.read_text())
+    return (json.loads(FILES.read_text(), object_pairs_hook=_no_duplicate_keys),
+            json.loads(ENGINE.read_text(), object_pairs_hook=_no_duplicate_keys))
 
 
 def check(files: dict, engine: dict) -> list[str]:
-    """the engine's language archives are exactly the lang/*.big files the launcher's language table adds"""
+    """the engine's language archives are exactly the lang/*.big files the launcher's language table adds: every package has a table, every
+    (game, language code) and every (game, language name) is listed once in the engine's file, and neither file has a language the other lacks
+    (PR #77 security review: an empty table, or two engine entries of one language collapsing into one, passed before)"""
     errors = []
-    by_game = {(l["game"], l["code"]): l for l in engine.get("languages", [])}
+    if not isinstance(files, dict) or not isinstance(engine, dict):
+        return ["the language tables are not JSON objects"]
+    languages = engine.get("languages")
+    if not isinstance(languages, list) or not languages:
+        errors.append(f"{ENGINE.name} lists no languages")
+        languages = []
+    games = {game: patch for _, game, patch in PACKAGES}
+    by_game: dict = {}
+    names: set = set()
+    for i, l in enumerate(languages):
+        if not isinstance(l, dict) or not all(isinstance(l.get(k), str) for k in ("game", "patch", "code", "language")) \
+                or not isinstance(l.get("archives"), list):
+            errors.append(f"{ENGINE.name} languages[{i}] is not a {{game, patch, code, language, archives}} entry")
+            continue
+        key = (l["game"], l["code"])
+        if l["game"] not in games or l["patch"] != games[l["game"]]:
+            errors.append(f"{ENGINE.name} languages[{i}]: {l['game']} {l['patch']} is not one of the base packages")
+        if NAMES.get(l["code"]) != l["language"]:
+            errors.append(f"{ENGINE.name} languages[{i}]: the code {l['code']} is not the language {l['language']}")
+        if key in by_game:
+            errors.append(f"{ENGINE.name}: {l['game']} {l['code']} is listed twice")
+        name = (l["game"], l["patch"], l["language"].lower())  # the engine's own key (RetailArchivePolicy.cpp knownLanguageArchives)
+        if name in names:
+            errors.append(f"{ENGINE.name}: {l['game']} {l['language']} is listed twice")
+        names.add(name)
+        paths = [a.get("path", "").lower() if isinstance(a, dict) else "" for a in l["archives"]]
+        if len(set(paths)) != len(paths) or "" in paths:
+            errors.append(f"{ENGINE.name} languages[{i}]: an archive path is missing or listed twice")
+        by_game.setdefault(key, l)
+    seen = set()
     for guid, game, patch in PACKAGES:
-        for code, d in files.get(guid, {}).items():
+        per = files.get(guid)
+        if not isinstance(per, dict) or not per:
+            errors.append(f"{FILES.name} has no languages for {guid}")
+            continue
+        for code, d in per.items():
+            seen.add((game, code))
             want = sorted(([r[0].lower(), r[1], r[2]] for r in d["add"] if r[0].lower().startswith("lang/") and r[0].lower().endswith(".big")))
             e = by_game.get((game, code))
             got = sorted(([a["path"].lower(), a["md5"], a["size"]] for a in e["archives"])) if e else None
             if got != want:
                 errors.append(f"{guid} {code}: the engine's language-archives.json has {got}, {FILES.name} {want}")
+    for game, code in sorted(set(by_game) - seen):
+        errors.append(f"{ENGINE.name}: {game} {code} is not in {FILES.name}")
+    for guid in sorted(set(files) - {g for g, _, _ in PACKAGES}):
+        errors.append(f"{FILES.name}: {guid} is not a base package")
     return errors
 
 
@@ -119,7 +170,10 @@ def main(argv: list[str]) -> int:
         print(f"wrote {FILES.relative_to(REPO)} and {ENGINE.relative_to(REPO)}")
         return 0
     if argv[:1] == ["--check"]:
-        errors = check(*load())
+        try:
+            errors = check(*load())
+        except ValueError as e:  # a duplicate key, or a file that is not JSON
+            errors = [str(e)]
         if errors:
             print("AIO LANGUAGES DISAGREE:\n" + "\n".join(errors))
             return 1
