@@ -19,6 +19,7 @@
 #include "Libraries/Source/Apt/Apt.h"
 #include "Libraries/Source/Apt/AptButtonInst.h"
 #include "Libraries/Source/Apt/AptCharacterInst.h"
+#include "Libraries/Source/Apt/AptInput.h"
 #include "Libraries/Source/Apt/AptValue.h"
 
 #include <array>
@@ -2514,6 +2515,14 @@ bool AptOptionsScreen::mouseFilter(int kind, float x, float y)
 		if (kind == 1)
 		{
 			m_barPressed = hit;
+			if (hit >= 0)
+			{
+				// lane MENUSND-1: the press still reaches the movie, so the button plays what RotWK plays on it: MenuExport.apt's GenericButton goes to
+				// its `_down` frame (button action 4: gotoAndPlay("_down")), whose action calls _root.PlaySound("Gui_ShellMapSelect") (FSCommand PlaySound,
+				// RW 0x815772) and shows the pressed look. The press does nothing else there: the button's click (OnButtonClick) is its `_release end`
+				// frame, which the release reaches, and the release stays the page's
+				windows().apt().input().postMouseButton(true);
+			}
 			return hit >= 0;
 		}
 		const int pressed = m_barPressed;
@@ -2522,6 +2531,7 @@ bool AptOptionsScreen::mouseFilter(int kind, float x, float y)
 		{
 			return false;
 		}
+		windows().apt().input().postCancelPress(); // the movie's press ends without its release (and so without its click)
 		if (pressed == hit)
 		{
 			static const OpenBFMEPageEvent::Kind kinds[3] = { OpenBFMEPageEvent::Kind::Cancel, OpenBFMEPageEvent::Kind::Reset, OpenBFMEPageEvent::Kind::Accept };

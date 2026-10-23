@@ -3237,3 +3237,70 @@ TEST_CASE("shellfix1 options retail: in the BFME2 style no frame border of the r
 	REQUIRE(version);
 	CHECK(version->globallyVisible());
 }
+
+// lane MENUSND-1: the bottom bar of the OpenBFME menu (the Options screen as the game opens it) is the movie's own CANCEL / RESET TO DEFAULTS / ACCEPT, whose
+// click the page takes (AptOptionsScreen::mouseFilter). RotWK plays the button's click on the press: MenuExport.apt's GenericButton goes to its `_down`
+// frame (button action 4), which calls _root.PlaySound("Gui_ShellMapSelect") (FSCommand PlaySound, RW 0x815772); its own click (OnButtonClick) is the
+// `_release end` frame. Before the fix the press never reached the movie and the bar was silent. Each press here: exactly one Gui_ShellMapSelect, on the
+// press, nothing more on the release (the movie's release and its click do not run), the page's event, and the movie's input free again (a hover after it
+// plays the next button's Gui_ShellMapMouseOver)
+TEST_CASE("menusnd1 options retail: a press on the OpenBFME menu's bottom bar plays the button's click sound once, on the press; the release stays the page's")
+{
+	OPENBFME_REQUIRE_RETAIL(mount);
+	struct Case
+	{
+		const char *button;
+		OpenBFMEPageEvent::Kind kind;
+		bool fast; // press and release posted between two updates
+	};
+	for (const Case &c : { Case{ "Cancel", OpenBFMEPageEvent::Kind::Cancel, false }, Case{ "Default", OpenBFMEPageEvent::Kind::Reset, false },
+			 Case{ "Accept", OpenBFMEPageEvent::Kind::Accept, false }, Case{ "Default", OpenBFMEPageEvent::Kind::Reset, true },
+			 Case{ "Accept", OpenBFMEPageEvent::Kind::Accept, true } })
+	{
+		INFO(c.button << (c.fast ? " (fast click)" : ""));
+		ShellFx fx(mount, "");
+		AptOptionsScreen *options = openMenu(fx, false);
+		AptSpriteInst *root = fx.wm->apt().level(options->level());
+		auto centre = [&](const char *name, float &x, float &y) {
+			AptButtonInst *b = firstButtonUnder(findClip(root, name));
+			REQUIRE_MESSAGE(b, name);
+			float x0, y0, x1, y1;
+			REQUIRE(b->contentBounds(x0, y0, x1, y1));
+			b->globalMatrix().apply((x0 + x1) / 2, (y0 + y1) / 2, x, y);
+		};
+		float x, y;
+		centre(c.button, x, y);
+		fx.wm->postMouseMove(x, y);
+		fx.tick(20);
+		REQUIRE(fx.services.sounds == std::vector<std::string>{ "Gui_ShellMapMouseOver" }); // the hover, as before
+		fx.services.sounds.clear();
+		options->takeExtensionEvents();
+		fx.wm->postMouseButton(true);
+		if (!c.fast)
+		{
+			fx.tick(2);
+			CHECK(fx.services.sounds == std::vector<std::string>{ "Gui_ShellMapSelect" }); // on the press
+			CHECK(options->takeExtensionEvents().empty());                                // the press alone does nothing
+			REQUIRE(fx.shell->top() == options);
+		}
+		fx.wm->postMouseButton(false);
+		fx.tick(1);
+		const std::vector<OpenBFMEPageEvent> events = options->takeExtensionEvents();
+		REQUIRE(events.size() == 1);
+		CHECK(events[0].kind == c.kind);
+		CHECK_FALSE(fx.wm->apt().input().mouseDown());
+		fx.tick(60);
+		CHECK(fx.services.sounds == std::vector<std::string>{ "Gui_ShellMapSelect" }); // once: the movie's release (and its click) did not run
+		REQUIRE(fx.shell->top() == options); // the device acts on the page's events (AptMenuPlayer); none is taken here
+		{
+			// the movie's input is free: the pointer on the next button plays its hover
+			fx.services.sounds.clear();
+			centre(std::string(c.button) == "Cancel" ? "Accept" : "Cancel", x, y);
+			fx.wm->postMouseMove(x, y);
+			fx.tick(20);
+			// (the button left plays its rollOut's Gui_ShellMapMouseOut too, as on any move between two buttons)
+			CHECK(std::count(fx.services.sounds.begin(), fx.services.sounds.end(), std::string("Gui_ShellMapMouseOver")) == 1);
+			CHECK(std::count(fx.services.sounds.begin(), fx.services.sounds.end(), std::string("Gui_ShellMapSelect")) == 0);
+		}
+	}
+}

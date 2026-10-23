@@ -53,7 +53,8 @@ public:
 		MouseMove,
 		MouseButton, // button 0: `down` says pressed or released
 		MouseWheel,
-		Key
+		Key,
+		CancelPress // NOT RETAIL: postCancelPress
 	};
 
 	struct Event
@@ -71,6 +72,10 @@ public:
 	void postMouseButton(bool down);
 	void postMouseWheel(int delta);
 	void postKey(int keyCode, bool down);
+	// NOT RETAIL (OpenBFME's Options page owns the bottom bar's click, AptOptionsScreen::mouseFilter): the press posted before ends without a release. Queued
+	// in order with the other events, so a press and its cancel posted between two updates still drain as press, then cancel: the pressed button goes back
+	// to Over and the pressed clip is dropped, and no Release / ReleaseOutside or button release transition runs
+	void postCancelPress();
 	std::size_t queued() const { return m_queue.size(); }
 
 	// Drain the queue (AptUpdate calls this once per step).
