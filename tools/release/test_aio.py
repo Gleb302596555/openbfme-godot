@@ -742,6 +742,24 @@ def test_aio_voice_language_takes_another_versions_speech(tmp_path, lang_service
 
 
 @needs_godot
+def test_aio_refuses_a_folder_that_holds_another_language(tmp_path, lang_service):
+    """PR #77 review: a second language in one folder would make the game pick English and refuse the other as an unknown archive, so the
+    download stops before it requests anything; the same language again is the normal resume"""
+    r = install(tmp_path, lang_service, "--aio-language=FR")
+    assert r.code == 0, r
+    before = len(lang_service.file_requests())
+    for args in (("--aio-language=DE",), ("--aio-language=FR", "--aio-voice=DE"), ("--aio-language=FR", "--aio-voice=EN")):
+        r = install(tmp_path, lang_service, *args)
+        assert r.code == 1 and r.has("already holds") and r.has("another language"), (args, r)
+    assert r.has("lang/FrenchAudio.big") or r.has("lang/French.big"), r
+    assert len(lang_service.file_requests()) == before
+    assert _have(tmp_path, "RotWK") == {"_patch201.big", "lang/French.big", "lang/FrenchAudio.big"}
+    # (the last refused choice is the saved one, so the voice is named again)
+    r = install(tmp_path, lang_service, "--aio-language=FR", "--aio-voice=FR")
+    assert r.code == 0 and r.has("0 files downloaded, 5 already there"), r
+
+
+@needs_godot
 def test_aio_language_refuses_what_it_does_not_offer(tmp_path, lang_service):
     for arg in ("--aio-language=IT", "--aio-language=XX", "--aio-voice=IT"):
         r = install(tmp_path, lang_service, arg)

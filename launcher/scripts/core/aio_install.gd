@@ -449,6 +449,25 @@ func _stopped(part: String) -> Dictionary:
 	return _fail(STOPPED, "paused; it resumes where it stopped")
 
 
+## The language archives (lang/*.big, speech included) already in `dir` that this download does not take ("lang/French.big"): another
+## language's files. Only the base packages (the ones with "languages") are checked; the folder names are matched without case.
+static func _other_language_files(dir: String, files: Array, pkg: Dictionary) -> PackedStringArray:
+	var out := PackedStringArray()
+	if not pkg.has("languages"):
+		return out
+	var taken := {}
+	for f in files:
+		taken[String(f.rel).to_lower()] = true
+	for sub in DirAccess.get_directories_at(dir):
+		if sub.to_lower() != "lang":
+			continue
+		for name in DirAccess.get_files_at(dir.path_join(sub)):
+			if name.to_lower().ends_with(".big") and not taken.has("lang/" + name.to_lower()):
+				out.append("%s/%s" % [sub, name])
+	out.sort()
+	return out
+
+
 func _install(target: String) -> Dictionary:
 	var plans := []
 	for pkg in chosen():
@@ -468,6 +487,11 @@ func _install(target: String) -> Dictionary:
 		plans.append({"pkg": pkg, "dir": target.path_join(pkg.folder), "files": c.files})
 		# MACFIX-1 (issue #46): what this download takes from the package (the others are other languages), not what is on disk yet
 		Log.line("LAUNCHER AIO %s: the download takes %d of the package's %d files (%s; every one is pinned and matches)" % [pkg.guid, c.files.size(), c.all, language_text() if pkg.has("languages") else pkg.language])
+	# issue #49 (PR #77 review): a folder never holds two languages; the game would pick English and refuse the other as an unknown archive
+	for p in plans:
+		var clash := _other_language_files(p.dir, p.files, p.pkg)
+		if not clash.is_empty():
+			return _fail(REFUSED, "%s already holds %s, files of another language than the one chosen (%s), and the game cannot read two languages from one folder. Pick an empty folder, or move those files away" % [p.dir, ", ".join(clash), language_text()])
 	var total := 0
 	var need := 0
 	var count := 0
