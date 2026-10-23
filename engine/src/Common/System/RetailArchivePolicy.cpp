@@ -1213,8 +1213,9 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 			// a language archive this build has no md5 for: present, opened as a valid BIG below (the transactional open), mounted with its own md5
 			RetailArchiveEntry unpinned = p.entry;
 			unpinned.md5 = md5;
-			report.warnings.push_back(p.install + ": " + p.entry.path + " (" + p.entry.language + ") has no known md5 in this build; it is mounted unverified (md5 " + md5 +
-				", " + std::to_string(p.entry.size) + " bytes). Set OPENBFME_STRICT_LANGUAGE=1 to refuse it.");
+			report.warnings.push_back(p.install + ": " + RetailPrintableText(p.entry.path) + " (" + RetailPrintableText(p.entry.language) +
+				") has no known md5 in this build; it is mounted unverified (md5 " + md5 + ", " + std::to_string(p.entry.size) +
+				" bytes). Set OPENBFME_STRICT_LANGUAGE=1 to refuse it.");
 			if (fromCache)
 			{
 				++report.md5CacheHits;
@@ -1269,6 +1270,10 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 	{
 		fileSystem.mountArchive(std::move(opened[i]), plan[i].diskPath, false);
 		report.mounted.push_back({ plan[i].install, plan[i].entry.path, plan[i].diskPath, plan[i].entry.size, plan[i].entry.md5 });
+		if (!plan[i].entry.pinned)
+		{
+			report.unverifiedLanguage.push_back({ plan[i].install, plan[i].entry.path, plan[i].entry.language, plan[i].entry.md5, plan[i].entry.size });
+		}
 		// lane MODS-2: a base install's (not the first install's) apt\ archive: retail never mounts it (stop S-5302)
 		if (report.stops.empty() && !installs.empty() && plan[i].install != installs.front().label &&
 			AsciiStringUtil::lowered(plan[i].entry.path).compare(0, 4, "apt/") == 0)
@@ -1278,6 +1283,86 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 	}
 	report.ok = true;
 	return report;
+}
+
+std::string RetailPrintableText(const std::string &text)
+{
+	std::string out = text;
+	for (char &c : out)
+	{
+		const unsigned char u = (unsigned char)c;
+		if (u < 0x20 || u == 0x7F)
+		{
+			c = '?';
+		}
+	}
+	return out;
+}
+
+namespace
+{
+
+// "Klingon", "Klingon and Elvish", "Klingon, Elvish and Entish": each language once, in the archives' order
+std::string unverifiedLanguageNames(const std::vector<UnverifiedLanguageArchive> &archives)
+{
+	std::vector<std::string> names;
+	for (const UnverifiedLanguageArchive &a : archives)
+	{
+		const std::string name = RetailPrintableText(a.language);
+		if (std::find(names.begin(), names.end(), name) == names.end())
+		{
+			names.push_back(name);
+		}
+	}
+	std::string out;
+	for (size_t i = 0; i < names.size(); ++i)
+	{
+		out += (i == 0 ? std::string() : (i + 1 == names.size() ? std::string(" and ") : std::string(", "))) + names[i];
+	}
+	return out;
+}
+
+std::string unverifiedArchiveLine(const UnverifiedLanguageArchive &a)
+{
+	return a.install + " " + RetailPrintableText(a.path) + " " + std::to_string(a.size) + " bytes md5 " + a.md5;
+}
+
+} // namespace
+
+std::string RetailLanguageWarningText(const std::vector<UnverifiedLanguageArchive> &archives)
+{
+	// plain concatenation: the language names come from file names on disk
+	return "OpenBFME recognised your copies of The Rise of the Witch-king 2.01 and The Battle for Middle-earth II 1.06, but they are in a "
+		   "language we have not checked yet: " + unverifiedLanguageNames(archives) + ".\n\n"
+		   "The game starts as usual. Because these language files have not been checked:\n"
+		   "  - some text may look wrong or be missing;\n"
+		   "  - in rare cases the game can crash.\n\n"
+		   "Online and LAN games: you can still play with players who have exactly the same language files. Players whose files differ (an "
+		   "English install, for example) cannot join your games and you cannot join theirs; the game tells you so when you try. Replays and "
+		   "saved games work the same way.\n\n"
+		   "You can help us check your language: press \"Copy details\" and post them in the OpenBFME Discord, channel #feedback, or in a new "
+		   "issue at https://github.com/Open-BFME/openbfme-godot/issues. The details hold only the language, the file names, their sizes and "
+		   "checksums.";
+}
+
+std::string RetailLanguageWarningDetails(const std::vector<UnverifiedLanguageArchive> &archives, const std::string &versionLine)
+{
+	std::string out = "OpenBFME language report\n" + RetailPrintableText(versionLine) + "\nlanguage not checked: " + unverifiedLanguageNames(archives) + "\n";
+	for (const UnverifiedLanguageArchive &a : archives)
+	{
+		out += unverifiedArchiveLine(a) + "\n";
+	}
+	return out;
+}
+
+std::string RetailLanguageWarningSignature(const std::vector<UnverifiedLanguageArchive> &archives)
+{
+	std::string lines;
+	for (const UnverifiedLanguageArchive &a : archives)
+	{
+		lines += unverifiedArchiveLine(a) + "\n";
+	}
+	return MD5::ofBytes(lines.data(), lines.size());
 }
 
 bool ResolveInstallPath(const std::string &key, const std::string &configPath, std::string &out, std::string *error)

@@ -156,9 +156,20 @@ Norwegian, Polish, Russian, Spanish, Swedish and Turkish, as the All In One
 BFME Launcher service lists them (the German ones were also checked against a
 German retail install). The speech archive can be another language's: a
 folder with `lang/German.big` and `lang/FrenchAudio.big` plays German text
-with French voices. A language OpenBFME does not know is accepted too, with a
-warning that its language archives could not be checked; set
-`OPENBFME_STRICT_LANGUAGE=1` to refuse it instead. `Data1.big` (fonts, scripts and the built-in
+with French voices. A language OpenBFME has not checked yet is accepted too:
+its language files must be there and be valid game archives (a missing or
+damaged one is still refused), and the game shows a warning when it starts.
+The warning says what that can mean (some text may look wrong, and in rare
+cases the game can crash) and that you can still play online with players
+who have the same language files. Its **Copy details** button copies the
+language, the file names, their sizes and checksums: post them in the OpenBFME
+Discord's `#feedback` channel or in a GitHub issue (see
+[Reporting a bug](#reporting-a-bug)) so we can check that language for
+everyone. Tick *Don't show this again for this install* to hide it for those
+folders (it comes back if the language files change; the choice is kept in
+`language-warning.cfg` in the game's data folder). The same details are in the
+session log. Set `OPENBFME_STRICT_LANGUAGE=1` to refuse such an install
+instead. `Data1.big` (fonts, scripts and the built-in
 Create-a-Heroes) is checked file by file inside it, because the disc and All
 In One copies of it differ. This takes about a minute the first time and is
 cached afterwards. The folders are remembered in `install-paths.cfg` in the
@@ -687,7 +698,8 @@ recorded stop in [STOPS.md](STOPS.md); the ID is given for reference.
   online and the stats pages are missing (see
   [Online play](#online-play-test-feature); S-4070 .. S-4076).
 - A language the All In One BFME Launcher service does not list is accepted,
-  but its language archives are not checked (a warning in the log; S-1561).
+  but its language archives are not checked: the game shows a warning when it
+  starts (once per install, with *Copy details*; S-1561).
   OpenBFME's own texts (the online screens, the rules tab) are English only.
   Players whose games are in different languages cannot join each other's
   games or play each other's replays: the language archives are part of the

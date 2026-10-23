@@ -230,13 +230,15 @@ func _recheck() -> void:
 		var g: Dictionary = r[game[0]]
 		if g.ok:
 			# issue #49: the language the folder holds (the game plays in it; the launcher's Game files screen downloads another)
-			var lang := String(g.get("language", ""))
-			var voice := String(g.get("voice", ""))
+			# PR #77: the language and file names come from the disk: "[" is escaped so a name cannot add BBCode to this RichTextLabel
+			var lang := String(g.get("language", "")).replace("[", "[lb]")
+			var voice := String(g.get("voice", "")).replace("[", "[lb]")
 			if voice != "" and voice != lang:
 				lang = "%s, %s voices" % [lang, voice]
 			t += "[color=#8f8]%s: found, %d of %d archives%s[/color]\n" % [game[1], g.present, g.expected, (", " + lang) if lang != "" else ""]
 			if not g.get("unpinned_language_archives", PackedStringArray()).is_empty():
-				t += "[color=#fd8]%s: OpenBFME does not know this language's files (%s); they are used unchecked[/color]\n" % [game[1], ", ".join(g.unpinned_language_archives)]
+				var files := ", ".join(g.unpinned_language_archives).replace("[", "[lb]")
+				t += "[color=#fd8]%s: OpenBFME has not checked this language yet (%s); it can be played, and the game explains what that means when it starts[/color]\n" % [game[1], files]
 		else:
 			for e in g.errors:
 				t += "[color=#f98]%s: %s[/color]\n" % [game[1], e]

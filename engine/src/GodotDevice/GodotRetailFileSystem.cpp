@@ -5,6 +5,7 @@
 #include "Libraries/WWVegas/WW3D2/assetmgr.h"
 
 #include "Common/RetailArchivePolicy.h"
+#include "Common/BuildVersion.h"
 #include "Common/ArchiveFile.h"
 #include "GameClient/UserDataFolder.h"
 #include "Common/ModEngineFeatures.h"
@@ -542,6 +543,27 @@ Dictionary RetailFileSystem::mountFrom(const std::string &rotwkRoot, const std::
 			{
 				report.ok = false; // the mod the player asked for, or nothing (never retail instead)
 			}
+		}
+		if (report.ok && !report.unverifiedLanguage.empty())
+		{
+			// PR #77: language archives no pin covers were mounted: the texts of the warning the game shows once per install (scripts/release/release.gd)
+			Dictionary warning;
+			Array archives;
+			for (const UnverifiedLanguageArchive &a : report.unverifiedLanguage)
+			{
+				Dictionary d;
+				d["install"] = toGodot(a.install);
+				d["path"] = toGodot(RetailPrintableText(a.path));
+				d["language"] = toGodot(RetailPrintableText(a.language));
+				d["md5"] = toGodot(a.md5);
+				d["size"] = (int64_t)a.size;
+				archives.push_back(d);
+			}
+			warning["archives"] = archives;
+			warning["message"] = toGodot(RetailLanguageWarningText(report.unverifiedLanguage));
+			warning["details"] = toGodot(RetailLanguageWarningDetails(report.unverifiedLanguage, BuildVersion::versionLine()));
+			warning["signature"] = toGodot(RetailLanguageWarningSignature(report.unverifiedLanguage));
+			result["unverified_language"] = warning;
 		}
 		if (report.ok)
 		{

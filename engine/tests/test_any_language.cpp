@@ -400,3 +400,164 @@ TEST_CASE("anylang retail: the installs in ROTWK_INSTALL / BFME2_INSTALL check, 
 	REQUIRE_MESSAGE(text.loadRetail(*mount->fs, &error), error);
 	CHECK(text.size() > 1000); // tolerance: the label count differs per language and patch; a real table has thousands
 }
+
+namespace
+{
+
+// a CSF string table (" FSC" version 3, one " LBL" with one " RTS" each; the text stored complemented as retail does)
+std::string makeCsf(const std::vector<std::pair<std::string, std::u16string>> &labels)
+{
+	std::string out;
+	auto raw = [&](const char *s) { out.append(s, 4); };
+	auto word = [&](std::uint32_t v) {
+		for (int i = 0; i < 4; ++i)
+			out.push_back((char)(std::uint8_t)(v >> (8 * i)));
+	};
+	raw(" FSC");
+	word(3);
+	word((std::uint32_t)labels.size());
+	word((std::uint32_t)labels.size());
+	word(0);
+	word(0);
+	for (const auto &l : labels)
+	{
+		raw(" LBL");
+		word(1);
+		word((std::uint32_t)l.first.size());
+		out += l.first;
+		raw(" RTS");
+		word((std::uint32_t)l.second.size());
+		for (char16_t c : l.second)
+		{
+			const auto v = (std::uint16_t)~c;
+			out.push_back((char)(v & 255));
+			out.push_back((char)(v >> 8));
+		}
+	}
+	return out;
+}
+
+} // namespace
+
+// PR #77, owner decision "load with warning": an install whose language no pin covers mounts, and the warning's texts (the message, the details
+// "Copy details" copies, the log line) carry the language and file names as text. The names come from the disk and the strings from an unverified
+// archive, so a hostile % sequence in them must stay text: none of these paths hands them to a printf-style formatter.
+TEST_CASE("anylang: an unknown language mounts with the warning; a hostile % sequence in its names and strings stays text")
+{
+	const std::string hostile = "%s%s%n%x";
+	LangTempDir tmp;
+	const fs::path root = tmp.path / "rotwk";
+	auto ini = makeBig("BIGF", { { "data\\ini\\weapon.ini", "base" } });
+	auto en = makeBig("BIGF", { { "data\\lotr.str", "english" } });
+	auto enPatch = makeBig("BIGF", { { "data\\lotr.str", "englishpatch201" } });
+	auto text = makeBig("BIGF", { { "lotr.csf", makeCsf({ { "APT:RankLabel", u"%s%s%n%x" }, { "CONTROLBAR:UnderConstructionDesc", u"%n%n%s %p %999999999d" } }) } });
+	auto textPatch = makeBig("BIGF", { { "language.ini", "patch" } });
+	writeBytes(root / "ini.big", ini);
+	writeBytes(root / "lang" / fs::u8path(hostile + ".big"), text);
+	writeBytes(root / "lang" / fs::u8path(hostile + "patch201.big"), textPatch);
+
+	RetailInstall install;
+	install.label = "rotwk";
+	install.root = root.u8string();
+	install.policy.game = "rotwk-test";
+	install.policy.patch = "2.01";
+	install.policy.archives = { pin("INI.big", ini, "ALL"), pin("lang/English.big", en, "EN"), pin("lang/englishpatch201.big", enPatch, "EN") };
+
+	Win32BIGFileSystem fsys;
+	RetailMountReport r = MountRetailArchives(fsys, { install }, RetailMountOptions());
+	REQUIRE_MESSAGE(r.ok, (r.errors.empty() ? std::string() : r.errors[0]));
+	CHECK(r.languages == std::vector<std::string>{ "rotwk:" + hostile });
+
+	// the archives the warning names: the two unpinned language archives, with the md5 and size the mount computed
+	REQUIRE(r.unverifiedLanguage.size() == 2);
+	std::vector<std::string> paths;
+	for (const UnverifiedLanguageArchive &a : r.unverifiedLanguage)
+	{
+		CHECK(a.install == "rotwk");
+		CHECK(a.language == hostile);
+		paths.push_back(a.path);
+		CHECK(a.md5 == MD5::ofBytes(a.path == "lang/" + hostile + ".big" ? text.data() : textPatch.data(), a.path == "lang/" + hostile + ".big" ? text.size() : textPatch.size()));
+		CHECK(a.size == (a.path == "lang/" + hostile + ".big" ? text.size() : textPatch.size()));
+	}
+	std::sort(paths.begin(), paths.end());
+	CHECK(paths == std::vector<std::string>{ "lang/" + hostile + ".big", "lang/" + hostile + "patch201.big" });
+
+	// the message: the language as text, the three facts the owner asked for (crash risk, online play, how to help)
+	const std::string message = RetailLanguageWarningText(r.unverifiedLanguage);
+	CHECK(message.find("a language we have not checked yet: " + hostile + ".\n") != std::string::npos);
+	CHECK(message.find("some text may look wrong") != std::string::npos);
+	CHECK(message.find("in rare cases the game can crash") != std::string::npos);
+	CHECK(message.find("you can still play with players who have exactly the same language files") != std::string::npos);
+	CHECK(message.find("\"Copy details\"") != std::string::npos);
+	CHECK(message.find("https://github.com/Open-BFME/openbfme-godot/issues") != std::string::npos);
+	CHECK(message.find("#feedback") != std::string::npos);
+
+	// the details: the version line, the language, each file's install, name, size and md5, as text; no folder path
+	const std::string details = RetailLanguageWarningDetails(r.unverifiedLanguage, "OpenBFME test %s%n");
+	CHECK(details.find("OpenBFME test %s%n\n") != std::string::npos);
+	CHECK(details.find("language not checked: " + hostile + "\n") != std::string::npos);
+	for (const UnverifiedLanguageArchive &a : r.unverifiedLanguage)
+	{
+		CHECK(details.find("rotwk " + a.path + " " + std::to_string(a.size) + " bytes md5 " + a.md5 + "\n") != std::string::npos);
+	}
+	CHECK(details.find(tmp.path.u8string()) == std::string::npos);
+
+	// the log line (RetailMountReport::warnings, printed by the mount): the names as text
+	REQUIRE(r.warnings.size() == 2);
+	for (const std::string &w : r.warnings)
+	{
+		CHECK(w.find("rotwk: lang/" + hostile) == 0);
+		CHECK(w.find("(" + hostile + ") has no known md5 in this build") != std::string::npos);
+	}
+
+	// "Don't show this again" holds for these files: the signature is stable and moves when a file changes
+	const std::string signature = RetailLanguageWarningSignature(r.unverifiedLanguage);
+	CHECK(signature.size() == 32);
+	CHECK(RetailLanguageWarningSignature(r.unverifiedLanguage) == signature);
+	std::vector<UnverifiedLanguageArchive> changed = r.unverifiedLanguage;
+	changed[0].md5[0] = changed[0].md5[0] == '0' ? '1' : '0';
+	CHECK(RetailLanguageWarningSignature(changed) != signature);
+
+	// the unverified archive's strings: the game text reads them as text (its lotr.csf: the install has no data/lotr.str)
+	GameTextTable table;
+	std::string error;
+	REQUIRE_MESSAGE(table.loadRetail(fsys, &error), error);
+	std::string label;
+	REQUIRE(table.lookup("APT:RankLabel", label));
+	CHECK(label == hostile);
+	REQUIRE(table.lookup("CONTROLBAR:UnderConstructionDesc", label));
+	CHECK(label == "%n%n%s %p %999999999d");
+}
+
+TEST_CASE("anylang: the warning's texts replace control characters in names from the disk; a pinned or English install has no warning")
+{
+	CHECK(RetailPrintableText("Kl\ningon\r\t\x7f") == "Kl?ingon???");
+	CHECK(RetailPrintableText("Fran\xc3\xa7" "ais") == "Fran\xc3\xa7" "ais"); // UTF-8 is kept
+	std::vector<UnverifiedLanguageArchive> archives = { { "rotwk", "lang/Kl\ningon.big", "Kl\ningon", "0123456789abcdef0123456789abcdef", 12 },
+		{ "bfme2", "lang/Elvish.big", "Elvish", "fedcba9876543210fedcba9876543210", 34 } };
+	const std::string message = RetailLanguageWarningText(archives);
+	CHECK(message.find("not checked yet: Kl?ingon and Elvish.\n") != std::string::npos);
+	const std::string details = RetailLanguageWarningDetails(archives, "OpenBFME\nforged line");
+	CHECK(details == "OpenBFME language report\nOpenBFME?forged line\nlanguage not checked: Kl?ingon and Elvish\n"
+					 "rotwk lang/Kl?ingon.big 12 bytes md5 0123456789abcdef0123456789abcdef\n"
+					 "bfme2 lang/Elvish.big 34 bytes md5 fedcba9876543210fedcba9876543210\n");
+
+	// an English folder: the policy as it is, nothing unverified
+	LangTempDir tmp;
+	const fs::path root = tmp.path / "rotwk";
+	auto ini = makeBig("BIGF", { { "data\\ini\\weapon.ini", "base" } });
+	auto en = makeBig("BIGF", { { "data\\lotr.str", "english" } });
+	writeBytes(root / "ini.big", ini);
+	writeBytes(root / "lang" / "English.big", en);
+	RetailInstall install;
+	install.label = "rotwk";
+	install.root = root.u8string();
+	install.policy.game = "rotwk-test";
+	install.policy.patch = "2.01";
+	install.policy.archives = { pin("INI.big", ini, "ALL"), pin("lang/English.big", en, "EN") };
+	Win32BIGFileSystem fsys;
+	RetailMountReport r = MountRetailArchives(fsys, { install }, RetailMountOptions());
+	REQUIRE_MESSAGE(r.ok, (r.errors.empty() ? std::string() : r.errors[0]));
+	CHECK(r.unverifiedLanguage.empty());
+	CHECK(r.warnings.empty());
+}
