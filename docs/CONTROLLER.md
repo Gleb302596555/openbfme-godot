@@ -1,5 +1,16 @@
 # Controller menu controls
 
+The D-pad and right stick navigate; A accepts and B goes back. The left stick
+moves the pointer and makes A click. Using the D-pad or right stick returns to
+navigation. Start opens/closes the Escape menu during gameplay.
+
+On the main menu, Left/Right wraps through Tutorials, Solo Play, Multiplayer,
+Options, My Heroes and Quit. Up/Down chooses items within a group. A opens the
+group or activates the chosen item, using the native menu highlights.
+
+On result screens, A skips the preview, then focuses More or Continue. B returns
+from details through the normal result-screen actions.
+
 ## Skirmish lobby
 
 Start starts the game from the skirmish lobby through its normal start checks.
@@ -19,3 +30,7 @@ fully navigable. LB/RB still changes Maps/Rules, and Start still starts the game
 
 Menu input leaves gameplay events available when no menu is active. Releases
 belonging to an earlier menu press stay consumed across a menu-to-game transition.
+
+Network and online staging lobbies use the same LT/RT section cycle. LB/RB
+cycles Maps, Rules and Chat within the shared panel. Native Escape-menu
+navigation uses the same D-pad/right-stick, A and B mapping.

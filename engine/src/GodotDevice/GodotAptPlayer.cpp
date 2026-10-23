@@ -2,6 +2,7 @@
 // See GodotAptPlayer.h.
 
 #include "GodotDevice/GodotAptPlayer.h"
+#include <godot_cpp/classes/input.hpp>
 #include "GodotDevice/GodotVideoStream.h"
 #include "GameClient/GUI/PlatformIcons.h"
 #include "GameClient/CameraSettings.h"
@@ -5847,7 +5848,6 @@ bool AptMenuPlayer::menu_has_input() const
 
 void AptMenuPlayer::menu_pointer_moved()
 {
-	
 	m->mainMenuGroup = m->mainMenuItem = -1;
 	if (m_booted && m->shell && m->shell->nav)
 	{
@@ -6012,8 +6012,6 @@ bool AptMenuPlayer::menuKey(const InputEventKey *key)
 					for (int j = 0; j < (int)menus[g].items.size(); ++j)
 						animate(std::string(menus[g].clip) + "." + menus[g].items[j], chosen && j == m->mainMenuItem ? "_over" : "_up", true);
 				}
-				
-				
 			}
 			return true;
 		}

@@ -2715,8 +2715,6 @@ func _run_campaign_play1() -> void:
 func _controller_start_lobby() -> bool:
 	if _state != State.MENU or _shell == null or _quit_open:
 		return false
-	if _lua_console != null and _lua_console.is_open():
-		return false
 	var stack = _shell.shell_stack()
 	if stack.is_empty() or stack[-1] != "Skirmish.apt":
 		return false
@@ -2726,8 +2724,6 @@ func _controller_start_lobby() -> bool:
 
 func _controller_menu_action(action: String) -> void:
 	if action != "skirmish" or _state != State.MENU or _shell == null or _quit_open:
-		return
-	if _lua_console != null and _lua_console.is_open():
 		return
 	var stack = _shell.shell_stack()
 	if stack.is_empty():
