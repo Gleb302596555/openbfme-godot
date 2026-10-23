@@ -384,6 +384,7 @@ var _game_frames := 0
 var _auto_task_started := false
 # lane ONLINE-2
 var _online_join := ""
+var _online_invite := ""
 var _online_host := false
 var _online_lobby := ""
 var _online_name := ""
@@ -393,7 +394,9 @@ var _online: Node = null
 # lane ONLINE-4
 var _online_http: Node = null
 var _online_reports: Node = null
+var _online_social: Node = null
 var _online_walk := ""
+var _friends_code := "" # lane ONLINEMENU-1: --friends-code (the friends walk)
 var _online_start_file := "" # lane MP-DROP-1: --online-start-file=FILE
 var _online_shots := ""
 var _online_password := ""
@@ -865,6 +868,8 @@ func _ready() -> void:
 			_advance = float(arg.substr(10))
 		elif arg.begins_with("--screens="):
 			_screens = arg.substr(10)
+		elif arg.begins_with("--online-invite="):
+			_online_invite = arg.substr(16)
 		elif arg.begins_with("--online-join="):
 			_online_join = arg.substr(14).trim_prefix("openbfme://join/").trim_suffix("/")
 		elif arg.begins_with("openbfme://join/"):
@@ -913,6 +918,8 @@ func _ready() -> void:
 			DirAccess.make_dir_recursive_absolute(_capture_dir)
 		elif arg.begins_with("--online-walk="):
 			_online_walk = arg.substr(14)
+		elif arg.begins_with("--friends-code="):
+			_friends_code = arg.substr(15)
 		elif arg.begins_with("--online-shots="):
 			_online_shots = arg.substr(15)
 		elif arg.begins_with("--online-password="):
@@ -1368,7 +1375,7 @@ func _boot() -> void:
 		_on_online_started(FileAccess.get_file_as_string(_online_start_file))
 	elif not _online_walk.is_empty():
 		_online_walk_run() # lane ONLINE-4
-	elif not _online_join.is_empty() or _online_host or _online_rejoin or _online_spectate:
+	elif not _online_join.is_empty() or not _online_invite.is_empty() or _online_host or _online_rejoin or _online_spectate:
 		_online_open() # lane ONLINE-2
 	elif _net_host > 0 or not _net_join.is_empty():
 		_net_open()
@@ -2027,6 +2034,9 @@ func _begin_game(message: Dictionary) -> void:
 	for i in 4:
 		await get_tree().process_frame
 	_shell.auto_process = false
+	# LoadScreen opens by hiding the front-end background. Restore its rotating
+	# ring after the opening frames, before presenting load progress.
+	_shell.shell_fscommand("SetBackground", "fadein")
 	var started := Time.get_ticks_msec()
 	_load_log.clear()
 	var world_was_visible: bool = _world.visible
@@ -2242,6 +2252,7 @@ func _on_load_progress(percent: int) -> void:
 
 
 func _enter_game(rep: Dictionary) -> void:
+	_shell_leave_for_game() # Remove the loading ring before exposing gameplay.
 	_hide_rules_summary() # lane RULES-1
 	_shell.hide_still_load_screen() # lane MENU-1: a campaign mission's picture loading screen
 	# retail: the shell is popped, the HUD movie (Palantir) is the only movie left
@@ -4896,6 +4907,7 @@ func _online_open() -> void:
 	_online.profile = _world.net_profile_digest()
 	_online.mode = "uber" if _world.simulation_profile() == "uber" else "normal" # lane UBERJOIN-1
 	_online.join_id = _online_join
+	_online.invite_id = _online_invite
 	_online.rejoin = _online_rejoin # lane ONLINE-3
 	_online.spectate = _online_spectate
 	if _online_host:
@@ -5116,6 +5128,12 @@ func _open_online_shell() -> void:
 	_online_http.lobby_url = url
 	add_child(_online_http)
 	_online_report_panel(url)
+	if _online_social != null:
+		_online_social.queue_free()
+	_online_social = load("res://scripts/online_social.gd").new()
+	_online_social.shell = _shell
+	_online_social.reports = _online_reports
+	add_child(_online_social)
 	print("GAME ONLINE screens: lobby %s (online play is a test feature)" % url)
 	_online_test_note()
 	if not _shell.shell_push("OnlineShell.apt"):
@@ -5185,6 +5203,22 @@ func _report_menu_text_errors() -> void:
 ## the count is asked for only while one of those is on top, never in a game, and not at all when the player turned it off
 func _online_count_tick() -> void:
 	var stack: PackedStringArray = _shell.shell_stack()
+	if _shell.online_status().get("signed_in", false):
+		if _stats != null:
+			_stats.set_mode("")
+		var social: Dictionary = _shell.online_social_status()
+		var stats: Dictionary = social.get("stats", {})
+		var text := OnlineStats.line(stats, stats.has("games_open")) if not str(social.get("seq", "")).is_empty() and stats.has("players") and stack.has("OnlineShell.apt") and _stats_off.is_empty() else ""
+		var ping := _online_ping_line() if stack.has("OnlineShell.apt") else ""
+		if not ping.is_empty():
+			text = ping if text.is_empty() else text + "\n" + ping
+		# lane ONLINEMENU-1: what waits in the Messenger (friend requests, invites, unread chat) or the last friends result (scripts/online_social.gd)
+		var social_line: String = _online_social.corner_line() if _online_social != null and stack.has("OnlineShell.apt") else ""
+		if not social_line.is_empty():
+			text = social_line if text.is_empty() else text + "\n" + social_line
+		if (_stats_label != null and _stats_label.text != text) or (_stats_label == null and not text.is_empty()):
+			_online_count_show(text)
+		return
 	var mode := ""
 	if _menu_revealed and stack.size() > 0:
 		# the staging room (the player is in a game of the lobby) shows no count and asks nothing: its own polls keep the player counted
@@ -5209,6 +5243,18 @@ func _online_count_tick() -> void:
 	if _stats_label != null:
 		# lane MENUFIX-1: the online pages show it under the test-feature note
 		_stats_label.position = Vector2(_stats_label.position.x, _menu_text_top + (_menu_text_line if mode == "online" else 0.0))
+
+
+## lane ONLINEMENU-1 (owner, 2026-10-20: "the player can just see their ping on the side"): "Ping: 42 ms" under the count while signed in: the
+## round trip to the game server (the relay every game goes through; the room's, else the one the lobby names), measured every minute; Options >
+## Online's "Show my ping" turns it off
+func _online_ping_line() -> String:
+	if str(_shell.get_options().get("OpenBFMEShowPing", "yes")).to_lower() == "no":
+		return ""
+	var ping := str(_shell.online_status().get("relay_ping", ""))
+	if ping.is_empty():
+		return ""
+	return "Ping: no answer from the game server" if ping == "none" else "Ping: %s ms" % ping
 
 
 func _online_count_show(text: String) -> void:
@@ -5316,9 +5362,22 @@ func _online_walk_run() -> void:
 	_shell.shell_fscommand("AptMainMenu::OnlineButtonPressed", "")
 	if not await _online_wait("the sign-in page", func(st): return st.get("page", "") == "OnlineLogin", 30.0):
 		return _online_walk_end(false)
-	await _wait_seconds(2.0)
+	if not await _online_wait("the nickname field", func(_st):
+		for gadget in _shell.list_gadgets():
+			if gadget.get("name", "") == "OnlineLogin::Nickname" and not gadget.get("hidden", true):
+				return true
+		return false, 30.0):
+		return _online_walk_end(false)
 	_online_shot("login")
-	_online_apply({"nickname": _online_name if not _online_name.is_empty() else ("Host" if _online_walk == "host" else "Joiner")})
+	# lane ONLINEMENU-1: the nickname field is made by the page's own InitGadgets some frames after the page shows: retried until it exists (10 s)
+	var nick := _online_name if not _online_name.is_empty() else ("Host" if _online_walk == "host" else "Joiner")
+	var nick_until := Time.get_ticks_msec() + 10000
+	while true:
+		var r: Dictionary = _shell.online_apply({"nickname": nick})
+		if r.ok or Time.get_ticks_msec() > nick_until:
+			print("GAME ONLINE WALK {\"nickname\":\"%s\"} -> %s" % [nick, "ok" if r.ok else str(r.errors)])
+			break
+		await _wait_seconds(0.25)
 	_online_apply({"command": "AptOnline::Login::Login"})
 	if not await _online_wait("the home page", func(st): return st.get("signed_in", false) and st.get("page", "") == "OnlineHome", 30.0):
 		return _online_walk_end(false)
@@ -5326,6 +5385,12 @@ func _online_walk_run() -> void:
 	await _wait_seconds(2.0)
 	_online_shot("home")
 	print("GAME ONLINE WALK motd: ", _shell.online_status().get("motd", []))
+	if _online_walk == "social":
+		var walk: RefCounted = load("res://tests/social_walk.gd").new()
+		return _online_walk_end(await walk.run(self))
+	if _online_walk == "friends": # lane ONLINEMENU-1: the FRIENDS page walk (the owner's video): --friends-code=<a friend's code>
+		var fwalk: RefCounted = load("res://tests/friends_walk.gd").new()
+		return _online_walk_end(await fwalk.run(self, _friends_code))
 	if _online_walk == "rejoin":
 		return _online_walk_rejoin()
 	if _online_walk == "hub":
@@ -5381,6 +5446,18 @@ func _online_walk_run() -> void:
 			await _online_click("*TabButtons.RulesTab")
 			await _wait_seconds(1.5)
 			_online_shot("staging-rules-host")
+			# lane ONLINEMENU-1: the CONNECTIONS screen (each player's link to the relay in RotWK's grid), then its own Done back to the room
+			await _online_click("*LowerButtons_Host.Connections")
+			await _wait_seconds(4.0)
+			_online_shot("connections")
+			await _online_click("*MainButtons.Done")
+			await _wait_seconds(2.0)
+			# SOCIAL-1 (landed by lane ONLINEMENU-1): the frame's MESSENGER button opens RotWK's Messenger over the room
+			_online_apply({"command": "AptMessenger::OnMessengerBttn"})
+			await _wait_seconds(3.0)
+			_online_shot("messenger-friends")
+			_online_apply({"command": "AptMessenger::OnMessengerBttn"})
+			await _wait_seconds(2.0)
 		if not await _online_wait("%d players ready" % players, func(st):
 				var ready: Array = st.get("ready", [])
 				var n := 0
@@ -5404,12 +5481,20 @@ func _online_walk_run() -> void:
 			return _online_walk_end(str(_shell.online_status().get("boxes", [])).contains("no_relay"))
 		print("GAME ONLINE WALK: the START arrived: the game loads")
 		return
-	# join
-	if not await _online_wait("an open game in the list", func(st):
-			for r in st.get("games", []):
-				if not str(r).ends_with("|watch") and not str(r).ends_with("|rejoin"):
-					return true
-			return false, 60.0):
+	# join. Lane ONLINEMENU-1: the list is the lobby's at the page's entry and at each REFRESH (retail's GameSpy list came live): the walk presses
+	# the page's own Refresh every 4 s while the host's room is not listed yet (it may be made after this page opened)
+	var open_game := func(st):
+		for r in st.get("games", []):
+			if not str(r).ends_with("|watch") and not str(r).ends_with("|rejoin"):
+				return true
+		return false
+	var game_listed := false
+	for attempt in 15:
+		if await _online_wait("an open game in the list", open_game, 4.0):
+			game_listed = true
+			break
+		_online_apply({"command": "AptOnline::CustomMatch::Refresh"})
+	if not game_listed:
 		return _online_walk_end(false)
 	_online_apply({"command": "GameSorter::OnSortName"})
 	await _wait_seconds(1.5)

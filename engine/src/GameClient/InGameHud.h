@@ -145,6 +145,7 @@ public:
 	bool openSpellStore(std::string *error = nullptr);
 	void closeSpellStore();
 	AptSpellStore *spellStore() { return m_store.get(); }
+	const PlayerMessageLog &playerMessages() const { return m_playerMessages; }
 	// lane SPELL-4: the aiming marker of a spell book or selected-unit ground power waiting for its target (GameClient/RadiusCursor.h), updated each update(); the device draws it
 	const RadiusCursor &radiusCursor() const { return m_radiusCursor; }
 	const RadiusCursorTemplates &radiusCursorTemplates() const { return m_radiusTemplates; }
@@ -305,6 +306,8 @@ private:
 	void updateRadiusCursor();
 	void updateResourceFeedback(); // lane OWNERFIX-2
 	TerrainResourceFeedback m_resourceFeedback;
+	PlayerMessageLog m_playerMessages;
+	unsigned m_messageClientFrame = 0;
 	RadiusCursorTemplates m_radiusTemplates;
 	RadiusCursor m_radiusCursor;
 	int m_pointerX = 0, m_pointerY = 0;

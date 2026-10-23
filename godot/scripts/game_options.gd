@@ -53,6 +53,7 @@ const EXTRAS := {
 	# lane UBER-1: the Uber performance mode (docs/UBER.md): the next lobby and game run the Uber simulation profile; never compatible with the original game
 	"OpenBFMEUberPerformance": {"default": "no", "choices": ["yes", "no"]},
 	"OpenBFMEShareResults": {"default": "yes", "choices": ["yes", "no"]}, # lane ONLINEHUB-1: the platform's game results (docs/PLATFORM_API.md)
+	"OpenBFMEShowPing": {"default": "yes", "choices": ["yes", "no"]}, # lane ONLINEMENU-1: the online menus' corner shows the player's ping
 	"OpenBFMEMasterVolume": {"default": "100", "range": [0, 100]},
 	"OpenBFMEMuteUnfocused": {"default": "no", "choices": ["yes", "no"]},
 	"OpenBFMEAudioDevice": {"default": "Default", "device": true},

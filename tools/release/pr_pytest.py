@@ -44,6 +44,7 @@ SUBSET = [
     "tools/platformicon/test_make_icons.py",
     "tools/qa/test_qa_matrix.py",
     "tools/qa/test_scenario_players.py",
+    "tools/release/test_actions_build.py",
     "tools/release/test_aio.py",
     "tools/release/test_autorelease.py",
     "tools/release/test_big_entries.py",
