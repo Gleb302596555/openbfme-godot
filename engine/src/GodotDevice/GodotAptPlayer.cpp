@@ -1018,6 +1018,7 @@ struct AptMenuPlayer::Impl
 			bytes.clear();
 			error.clear();
 			// a non-English install has the compiled lotr.csf instead (GameTextTable::loadRetail)
+			// retail's order (RotWK 2.01 RW 0x6E7E3D -> RW 0x6E7D9E): data\lotr.str, else Lotr.csf
 			const bool csf = !originalSource->fileExists("data/lotr.str") && originalSource->fileExists("lotr.csf");
 			if (csf ? (!originalSource->readFile("lotr.csf", bytes, &error) || !strings.parseCSF(bytes.data(), bytes.size(), &error))
 					: (!originalSource->readFile("data/lotr.str", bytes, &error) || !strings.parse(bytes, &error)))
