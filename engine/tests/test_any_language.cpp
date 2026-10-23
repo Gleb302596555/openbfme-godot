@@ -373,12 +373,27 @@ TEST_CASE("anylang retail: the installs in ROTWK_INSTALL / BFME2_INSTALL check, 
 	retailtest::Mount *mount = retailtest::pureMount();
 	REQUIRE(mount);
 	REQUIRE_MESSAGE(mount->error.empty(), mount->error);
-	const std::string lower = AsciiStringUtil::lowered(language);
-	size_t languageArchives = 0;
+	// The text and the voice archives are counted apart: the voice language can differ from the text language (Dutch, Norwegian, Polish and
+	// Swedish share EnglishAudio.big; the launcher can download a text and a voice language that differ), so 4 text + 2 voice archives.
+	const std::string voice = DetectRetailVoiceLanguageOfInstall(rotwkRoot);
+	CHECK_FALSE(voice.empty());
+	CHECK(DetectRetailVoiceLanguageOfInstall(bfme2Root) == voice);
+	MESSAGE("install voice language: " << voice);
+	const std::string textPrefix = ":lang/" + AsciiStringUtil::lowered(language);
+	const std::string voiceName = ":lang/" + AsciiStringUtil::lowered(voice) + "audio.big";
+	size_t textArchives = 0;
+	size_t voiceArchives = 0;
 	for (const std::string &a : mount->archives)
-		if (AsciiStringUtil::lowered(a).find(":lang/" + lower) != std::string::npos)
-			++languageArchives;
-	CHECK(languageArchives == 6);
+	{
+		const std::string low = AsciiStringUtil::lowered(a);
+		const bool isVoice = low.size() >= voiceName.size() && low.compare(low.size() - voiceName.size(), voiceName.size(), voiceName) == 0;
+		if (isVoice)
+			++voiceArchives;
+		else if (low.find(textPrefix) != std::string::npos && low.find("audio.big") == std::string::npos)
+			++textArchives;
+	}
+	CHECK(textArchives == 4);
+	CHECK(voiceArchives == 2);
 
 	GameTextTable text;
 	std::string error;
