@@ -30,6 +30,7 @@
 #include "GameClient/GUI/AptScreens/AptTimeLine.h"
 #include "GameClient/GUI/CursorTooltip.h"
 #include "GameClient/GUI/AptScreens/AptDisconnectScreen.h"
+#include "GameClient/GUI/AptScreens/AptInGameChat.h"
 #include "GameClient/GUI/AptScreens/AptSaveLoad.h"
 #include "GameClient/GUI/SaveLoadInfo.h"
 #include "GameClient/GUI/AptScreens/AptLanLobby.h"
@@ -687,6 +688,9 @@ struct ShellMode
 	std::unique_ptr<ShellCursorTooltip> cursorTooltip; // lane HOVER-1: the menus' tool tips (GuiFX.apt's ToolTip, CursorTooltip.h)
 	std::unique_ptr<AptDisconnectScreen> disconnect; // lane MP-2: DisconnectScreen.apt while the disconnect screen is shown
 	Array disconnectActions;                         // lane MP-2: the buttons pressed, for take_disconnect_actions
+	InGameChat chatModel;                            // lane CHAT-1: the chat window's draft between opens
+	std::unique_ptr<AptInGameChat> chat;             // lane CHAT-1: InGameChat.apt while the chat window is up
+	Array chatSends;                                 // lane CHAT-1: the lines Send took, for ingame_chat_update
 	SaveLoadInfo saveLoad;                           // lane MP-2: what SaveLoad.apt lists
 	QuitMenuContext quitMenuContext;    // lane END-2: the game QuitMenu.apt is opened over
 	CampaignMenuContext campaignMenu;   // lane CAMPSAVE-1: what CampaignMenu.apt shows
@@ -732,6 +736,7 @@ struct ShellMode
 	{
 		nav.reset();
 		disconnect.reset();
+		chat.reset(); // lane CHAT-1
 		if (shell)
 		{
 			shell->clearOverlay(); // lane OPTS-6
@@ -1298,6 +1303,14 @@ void AptMenuPlayer::_bind_methods()
 	ClassDB::bind_method(D_METHOD("end_game_screen", "request"), &AptMenuPlayer::end_game_screen); // lane END-1
 	ClassDB::bind_method(D_METHOD("disconnect_screen", "state"), &AptMenuPlayer::disconnect_screen); // lane MP-2
 	ClassDB::bind_method(D_METHOD("take_disconnect_actions"), &AptMenuPlayer::take_disconnect_actions);
+	ClassDB::bind_method(D_METHOD("ingame_chat_open", "mode", "receivers"), &AptMenuPlayer::ingame_chat_open); // lane CHAT-1
+	ClassDB::bind_method(D_METHOD("ingame_chat_update"), &AptMenuPlayer::ingame_chat_update);
+	ClassDB::bind_method(D_METHOD("ingame_chat_close"), &AptMenuPlayer::ingame_chat_close);
+	ClassDB::bind_method(D_METHOD("ingame_chat_has_keys"), &AptMenuPlayer::ingame_chat_has_keys);
+	ClassDB::bind_method(D_METHOD("ingame_chat_type", "text"), &AptMenuPlayer::ingame_chat_type);
+	ClassDB::bind_method(D_METHOD("ingame_chat_command", "command"), &AptMenuPlayer::ingame_chat_command);
+	ClassDB::bind_method(D_METHOD("disconnect_screen_chat", "line"), &AptMenuPlayer::disconnect_screen_chat);
+	ClassDB::bind_method(D_METHOD("disconnect_screen_type", "text"), &AptMenuPlayer::disconnect_screen_type);
 	ClassDB::bind_method(D_METHOD("set_save_load", "info"), &AptMenuPlayer::set_save_load);
 	ClassDB::bind_method(D_METHOD("set_campaign_menu", "content"), &AptMenuPlayer::set_campaign_menu); // lane CAMPSAVE-1
 	ClassDB::bind_method(D_METHOD("unlock_bonus_campaign"), &AptMenuPlayer::unlock_bonus_campaign);
@@ -3162,8 +3175,14 @@ Dictionary AptMenuPlayer::set_load_screen_from_game(const Dictionary &resolved)
 		return out;
 	}
 	ShellMode *sm = m->shell.get();
-	m->shell->loadScreen = makeLoadScreenInfo(message.game, m->shell->setup, m->shell->text.get(),
+	LoadScreenInfo next = makeLoadScreenInfo(message.game, m->shell->setup, m->shell->text.get(),
 		[sm](const std::string &name) { return sm->skins.images.findImageByName(name) != nullptr; });
+	if (!next.error.empty())
+	{
+		out["error"] = toGodot(next.error);
+		return out;
+	}
+	m->shell->loadScreen = std::move(next);
 	const LoadScreenInfo &info = m->shell->loadScreen;
 	Array cards;
 	for (int i = 0; i < MAX_LOAD_SLOTS; ++i)
@@ -3182,6 +3201,7 @@ Dictionary AptMenuPlayer::set_load_screen_from_game(const Dictionary &resolved)
 	out["cards"] = cards;
 	out["local_card"] = info.localCard;
 	out["loading_type"] = info.gameLoadingType;
+	if (info.mapStartCount > LEGACY_MAX_SLOTS) out["map_start_count"] = info.mapStartCount;
 	out["rules_summary"] = toGodot(loadScreenU16ToUtf8(info.rulesSummary)); // lane RULES-1
 	return out;
 }
@@ -3270,8 +3290,9 @@ Dictionary AptMenuPlayer::lobby_state()
 	}
 	out["rules"] = rules;
 	Array slots;
-	for (const SkirmishGameSlot &s : g.slots)
+	for (int i = 0; i < g.serializedSlotCount(); ++i)
 	{
+		const SkirmishGameSlot &s = g.slots[i];
 		Dictionary d;
 		d["state"] = (int64_t)s.state;
 		d["template"] = (int64_t)s.playerTemplate;
@@ -3568,12 +3589,19 @@ Array AptMenuPlayer::take_load_progress_calls()
 	return out;
 }
 
-void AptMenuPlayer::set_load_screen(const Dictionary &info)
+Dictionary AptMenuPlayer::set_load_screen(const Dictionary &info)
 {
-	if (m->shell)
+	Dictionary out;
+	if (!m->shell)
 	{
-		loadScreenFromDictionary(info, m->shell->loadScreen);
+		out["error"] = "shell is not initialized";
+		return out;
 	}
+	std::string error;
+	const bool ok = loadScreenFromDictionary(info, m->shell->loadScreen, &error);
+	out["ok"] = ok;
+	if (!ok) out["error"] = toGodot(error);
+	return out;
 }
 
 bool AptMenuPlayer::set_load_progress(double percent)
@@ -6130,6 +6158,21 @@ Dictionary AptMenuPlayer::menu_nav_state()
 
 bool AptMenuPlayer::menuKey(const InputEventKey *key)
 {
+	// lane CHAT-1: the chat window's input procedure (RW 0x8ECB8F) sees the key before the entry: Esc, Ctrl+Enter (the rest goes on to the entry below)
+	if (m->shell && m->shell->chat && ingame_chat_has_keys() && !key->is_echo())
+	{
+		const int dik = dikOf(key->get_keycode());
+		int state = key->is_pressed() ? KEY_STATE_DOWN : KEY_STATE_UP;
+		if (key->is_ctrl_pressed())
+		{
+			state |= KEY_STATE_LCONTROL;
+		}
+		if (dik && m->shell->chat->inputKey(dik, state))
+		{
+			m->dirty = true;
+			return true;
+		}
+	}
 	// lane SAVE-UI1: the top screen's own Escape procedure first (its press and its release are its alone)
 	if (key->get_keycode() == Key::KEY_ESCAPE && !key->is_echo() && menu_escape(key->is_pressed()))
 	{
@@ -6580,6 +6623,30 @@ Dictionary AptMenuPlayer::end_game_screen(const Dictionary &request)
 	return out;
 }
 
+namespace
+{
+// lane CHAT-1: UTF-16 to a Godot String: a surrogate pair is one character, a lone surrogate U+FFFD
+String chatU16ToString(const std::u16string &u)
+{
+	String s;
+	for (std::size_t i = 0; i < u.size(); ++i)
+	{
+		char32_t c = u[i];
+		if (c >= 0xD800 && c <= 0xDBFF && i + 1 < u.size() && u[i + 1] >= 0xDC00 && u[i + 1] <= 0xDFFF)
+		{
+			c = 0x10000 + ((c - 0xD800) << 10) + (u[i + 1] - 0xDC00);
+			++i;
+		}
+		else if (c >= 0xD800 && c <= 0xDFFF)
+		{
+			c = 0xFFFD;
+		}
+		s += String::chr(c);
+	}
+	return s;
+}
+} // namespace
+
 Dictionary AptMenuPlayer::disconnect_screen(const Dictionary &state)
 {
 	Dictionary out;
@@ -6599,6 +6666,45 @@ Dictionary AptMenuPlayer::disconnect_screen(const Dictionary &state)
 		out["level"] = -1;
 		return out;
 	}
+	const Variant capacityValue = state.get("map_start_count", LEGACY_MAX_SLOTS);
+	const Variant rowsValue = state.get("rows", Array());
+	if (capacityValue.get_type() != Variant::INT || (int64_t)capacityValue < LEGACY_MAX_SLOTS || (int64_t)capacityValue > MAX_SLOTS ||
+		rowsValue.get_type() != Variant::ARRAY)
+	{
+		out["error"] = "disconnect requires integer map_start_count in 8 .. 16 and an array of rows";
+		return out;
+	}
+	const int capacity = (int)capacityValue;
+	const Array src = rowsValue;
+	if (src.size() > capacity - 1)
+	{
+		out["error"] = "disconnect rows exceed map capacity";
+		return out;
+	}
+	std::vector<AptDisconnectScreen::Row> rows((size_t)src.size());
+	for (int i = 0; i < src.size(); ++i)
+	{
+		if (src[i].get_type() != Variant::DICTIONARY)
+		{
+			out["error"] = "disconnect row must be a dictionary";
+			return out;
+		}
+		const Dictionary d = src[i];
+		const Variant used = d.get("used", false), name = d.get("name", ""), votes = d.get("votes", 0), bar = d.get("bar", 100), kick = d.get("kick", false);
+		if (used.get_type() != Variant::BOOL || name.get_type() != Variant::STRING || votes.get_type() != Variant::INT ||
+			bar.get_type() != Variant::INT || kick.get_type() != Variant::BOOL || (int64_t)votes < 0 || (int64_t)votes > capacity ||
+			(int64_t)bar < 0 || (int64_t)bar > 100)
+		{
+			out["error"] = "invalid disconnect row fields";
+			return out;
+		}
+		auto &r = rows[(size_t)i];
+		r.used = (bool)used;
+		r.nameUtf8 = toNative(String(name));
+		r.votes = (int)votes;
+		r.barPercent = (int)bar;
+		r.kickShown = (bool)kick;
+	}
 	if (!sm.disconnect)
 	{
 		// RW 0x9190F0: the window manager loads DisconnectScreen.apt (the first free level, S-1123)
@@ -6615,24 +6721,30 @@ Dictionary AptMenuPlayer::disconnect_screen(const Dictionary &state)
 			a["kind"] = "quit";
 			smp->disconnectActions.push_back(a);
 		};
+		// lane CHAT-1: the chat line typed into the screen (Chat::OnBttnEnterText, RW 0x9196B9) for the game's network, and the rules (APT:DisconnectRules)
+		sm.disconnect->onChat = [smp](const std::u16string &text) {
+			Dictionary a;
+			a["kind"] = "chat";
+			a["text"] = chatU16ToString(text);
+			smp->disconnectActions.push_back(a);
+		};
+		std::u16string rules;
+		if (sm.environment.gameText && sm.environment.gameText->fetch("APT:DisconnectRules", rules))
+		{
+			sm.disconnect->setRulesText(rules);
+		}
 	}
-	std::array<AptDisconnectScreen::Row, 7> rows{};
-	const Array src = state.get("rows", Array());
-	for (int i = 0; i < 7 && i < src.size(); ++i)
-	{
-		const Dictionary d = src[i];
-		AptDisconnectScreen::Row &r = rows[(size_t)i];
-		r.used = (bool)d.get("used", false);
-		r.nameUtf8 = toNative(String(d.get("name", "")));
-		r.votes = (int)d.get("votes", 0);
-		r.barPercent = (int)d.get("bar", 100);
-		r.kickShown = (bool)d.get("kick", false);
-	}
-	const bool loaded = sm.disconnect->apply(rows);
+	const bool loaded = sm.disconnect->apply(rows, capacity);
 	m->dirty = true;
-	out["ok"] = sm.disconnect->level() >= 0;
+	out["ok"] = sm.disconnect->level() >= 0 && sm.disconnect->error().empty();
 	out["level"] = sm.disconnect->level();
 	out["loaded"] = loaded;
+	if (!sm.disconnect->error().empty()) out["error"] = toGodot(sm.disconnect->error());
+	if (capacity > LEGACY_MAX_SLOTS)
+	{
+		out["first_row"] = sm.disconnect->firstRow();
+		out["row_count"] = capacity - 1;
+	}
 	PackedStringArray calls;
 	for (const std::string &c : sm.disconnect->calls())
 	{
@@ -6764,6 +6876,177 @@ bool AptMenuPlayer::save_load_refused(const String &name, const String &error)
 	}
 	screen->loadRefused(toNative(name), toNative(error));
 	return true;
+}
+
+bool AptMenuPlayer::ingame_chat_open(int64_t mode, const String &receivers)
+{
+	if (!m->shell || !m->shell->shell || !m->shell->wm)
+	{
+		return false;
+	}
+	ShellMode &sm = *m->shell;
+	if (sm.chat || sm.disconnect)
+	{
+		return false; // RW 0x8EC97D: one window at a time; none over the disconnect screen (DAT_DEA328)
+	}
+	if (mode < 0 || mode > 4)
+	{
+		return false;
+	}
+	// RW 0x8EC97D: the window manager loads InGameChat.apt (the first free level, as the disconnect screen)
+	sm.chat = std::make_unique<AptInGameChat>(*sm.wm, *sm.shell, sm.chatModel, (InGameChatMode)mode, toNative(receivers));
+	if (sm.chat->level() < 0)
+	{
+		sm.chat.reset();
+		return false;
+	}
+	ShellMode *smp = &sm;
+	sm.chat->onSend = [smp](const std::u16string &text, InGameChatMode md) {
+		Dictionary d;
+		d["text"] = chatU16ToString(text);
+		d["mode"] = (int64_t)md;
+		smp->chatSends.push_back(d);
+	};
+	m->dirty = true;
+	return true;
+}
+
+Dictionary AptMenuPlayer::ingame_chat_update()
+{
+	Dictionary out;
+	out["open"] = false;
+	if (!m->shell)
+	{
+		return out;
+	}
+	ShellMode &sm = *m->shell;
+	if (sm.chat)
+	{
+		sm.chat->frameUpdate(); // RW 0x8ECD3E
+		if (sm.chat->closed())
+		{
+			sm.chat.reset(); // state 4: the screen goes
+			m->dirty = true;
+		}
+	}
+	out["open"] = sm.chat != nullptr;
+	if (sm.chat)
+	{
+		out["state"] = sm.chat->state();
+		out["mode"] = (int64_t)sm.chat->mode();
+		out["level"] = sm.chat->level();
+		out["entry"] = chatU16ToString(sm.chat->entryText());
+		out["has_entry"] = sm.chat->entry() != nullptr;
+	}
+	out["sends"] = sm.chatSends.duplicate();
+	sm.chatSends.clear();
+	return out;
+}
+
+void AptMenuPlayer::ingame_chat_close()
+{
+	if (m->shell && m->shell->chat)
+	{
+		m->shell->chat->close();
+		m->dirty = true;
+	}
+}
+
+bool AptMenuPlayer::ingame_chat_has_keys() const
+{
+	// the window takes the keyboard from its open until its close animation starts (RW 0x8ECB8F uses every GWM_CHAR); the disconnect screen's chat entry
+	// takes it while the screen is up (lane CHAT-1)
+	if (m->shell && m->shell->disconnect && m->shell->disconnect->chatEntry())
+	{
+		return true;
+	}
+	return m->shell && m->shell->chat && (m->shell->chat->state() == AptInGameChat::STATE_LOADING || m->shell->chat->state() == AptInGameChat::STATE_OPEN);
+}
+
+bool AptMenuPlayer::disconnect_screen_chat(const String &line)
+{
+	if (!m->shell || !m->shell->disconnect)
+	{
+		return false;
+	}
+	std::u16string u;
+	for (int i = 0; i < line.length(); ++i)
+	{
+		const char32_t c = line[i];
+		if (c > 0xFFFF)
+		{
+			u.push_back((char16_t)(0xD800 + ((c - 0x10000) >> 10)));
+			u.push_back((char16_t)(0xDC00 + ((c - 0x10000) & 0x3FF)));
+		}
+		else
+		{
+			u.push_back((char16_t)c);
+		}
+	}
+	m->dirty = true;
+	return m->shell->disconnect->showChat(u);
+}
+
+bool AptMenuPlayer::disconnect_screen_type(const String &text)
+{
+	if (!m->shell || !m->shell->disconnect || !m->shell->disconnect->chatEntry())
+	{
+		return false;
+	}
+	std::u16string u;
+	for (int i = 0; i < text.length(); ++i)
+	{
+		const char32_t c = text[i];
+		if (c > 0xFFFF)
+		{
+			u.push_back((char16_t)(0xD800 + ((c - 0x10000) >> 10)));
+			u.push_back((char16_t)(0xDC00 + ((c - 0x10000) & 0x3FF)));
+		}
+		else
+		{
+			u.push_back((char16_t)c);
+		}
+	}
+	GadgetTextEntrySetText(m->shell->disconnect->chatEntry(), u);
+	m->dirty = true;
+	return m->shell->wm && m->shell->wm->invokeCallback("AptDisconnectScreen::Chat::OnBttnEnterText", std::string());
+}
+
+bool AptMenuPlayer::ingame_chat_type(const String &text)
+{
+	if (!m->shell || !m->shell->chat || !m->shell->chat->entry())
+	{
+		return false;
+	}
+	std::u16string u;
+	for (int i = 0; i < text.length(); ++i)
+	{
+		const char32_t c = text[i];
+		if (c > 0xFFFF)
+		{
+			u.push_back((char16_t)(0xD800 + ((c - 0x10000) >> 10)));
+			u.push_back((char16_t)(0xDC00 + ((c - 0x10000) & 0x3FF)));
+		}
+		else
+		{
+			u.push_back((char16_t)c);
+		}
+	}
+	m->shell->chat->typeText(u);
+	m->dirty = true;
+	return true;
+}
+
+bool AptMenuPlayer::ingame_chat_command(const String &command)
+{
+	if (!m->shell || !m->shell->chat || !m->shell->wm)
+	{
+		return false;
+	}
+	const std::string name = "AptInGameChat::" + toNative(command);
+	const bool ok = m->shell->wm->invokeCallback(name, std::string());
+	m->dirty = true;
+	return ok;
 }
 
 Array AptMenuPlayer::take_disconnect_actions()
@@ -7111,6 +7394,7 @@ Array AptMenuPlayer::online_take_requests()
 		d["token"] = toGodot(q.token);
 		d["held"] = q.held; // lane ONLINE-5: a poll the lobby may keep for hold_seconds: its own connection (online_http.gd)
 		d["hold_seconds"] = (int64_t)q.holdSeconds;
+		d["max_slots"] = (int64_t)q.maxSlots;
 		d["channel"] = q.channel == OnlineLobbyClient::HttpRequest::Social ? "social" :
 			q.channel == OnlineLobbyClient::HttpRequest::Room ? "room" : "ordinary";
 		out.push_back(d);
@@ -7246,9 +7530,9 @@ Dictionary AptMenuPlayer::online_status()
 	r["game_id"] = toGodot(c.gameId());
 	r["busy"] = c.busy();
 	Array ready;
-	for (const auto &v : c.slotViews())
+	for (int i = 0; i < c.gameInfo().serializedSlotCount(); ++i)
 	{
-		ready.push_back(v.ready);
+		ready.push_back(c.slotViews()[(size_t)i].ready);
 	}
 	r["ready"] = ready;
 	Array reportPlayers;
@@ -7265,9 +7549,9 @@ Dictionary AptMenuPlayer::online_status()
 	r["report_players"] = reportPlayers;
 	// lane ONLINE-5: the players' start positions (-1: random) and whether the lobby holds the staging room's polls
 	Array startPos;
-	for (const SkirmishGameSlot &gs : c.gameInfo().slots)
+	for (int i = 0; i < c.gameInfo().serializedSlotCount(); ++i)
 	{
-		startPos.push_back((int64_t)gs.startPos);
+		startPos.push_back((int64_t)c.gameInfo().slots[i].startPos);
 	}
 	r["start_pos"] = startPos;
 	r["hold_seconds"] = (int64_t)c.holdSeconds();
@@ -7286,7 +7570,7 @@ Dictionary AptMenuPlayer::online_status()
 		r["level"] = (int64_t)screen->level();
 		// lane ONLINE-5: what each Ready box was told to show (SetReadyState), the host's refused starts, the start spots the map tab shows
 		Array icons;
-		for (int i = 0; i < MAX_SLOTS; ++i)
+		for (int i = 0; i < c.gameInfo().serializedSlotCount(); ++i)
 		{
 			icons.push_back(toGodot(screen->readyIcon(i)));
 		}

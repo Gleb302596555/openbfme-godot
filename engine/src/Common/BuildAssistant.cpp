@@ -170,11 +170,17 @@ int BuildAssistant::calcTimeToBuild(const ThingTemplate &tt, const Player *playe
 			}
 		}
 		float f = 1.0f;
-		if (n >= 1 && n - 1 < settings.multiPlayEntries)
+		// P16 extension: MP9..MP16 use MP8 explicitly (retail 2.01 ships eight entries, all 1.0).
+		if (n > 8 && settings.multiPlayEntries != 8)
+		{
+			throw std::logic_error("calcTimeToBuild: extended games require the complete MP1..MP8 production table");
+		}
+		const int speedPlayers = std::min(n, 8);
+		if (speedPlayers >= 1 && speedPlayers - 1 < settings.multiPlayEntries)
 		{
 			const int structureBit = ObjectTemplateInfoBuilder::kindOfIndex("STRUCTURE");
 			const bool isStructure = structureBit >= 0 && MaskTest(logic.templateInfo(tt.getFinalOverride()).kindOf, (unsigned)structureBit);
-			f = isStructure ? settings.multiPlayBuildingSpeedMult[n - 1] : settings.multiPlayUnitSpeedMult[n - 1];
+			f = isStructure ? settings.multiPlayBuildingSpeedMult[speedPlayers - 1] : settings.multiPlayUnitSpeedMult[speedPlayers - 1];
 		}
 		sec = truncToInt(NumericState::pc24Mul((float)sec, f));
 	}

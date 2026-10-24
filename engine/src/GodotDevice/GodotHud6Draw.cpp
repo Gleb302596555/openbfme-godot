@@ -424,6 +424,10 @@ void Hud6Draw::drawMessages(RID parent)
 	}
 	rs->canvas_item_clear(m_messageItem);
 	if (m_hud.menuCoversStage()) return;
+	// BATCH-P4: InGameUI's message lines have one drawer. CHAT-1's HudDevice::drawMessageLines (GameClient/InGameUIMessages.h) draws the same GUI
+	// labels as this log plus the chat lines in their players' colours, at the same Message* position: drawing both put every label on screen twice.
+	// PlayerMessageLog stays the HUD state's player_messages record (its tests read it); unifying the two stores is a follow-up.
+	return;
 	const auto &log = m_hud.playerMessages();
 	const auto &settings = log.settings;
 	const int px = GlobalLanguage::adjustFontSize(settings.pointSize, m_hud.windowWidth());

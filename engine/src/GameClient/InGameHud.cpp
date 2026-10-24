@@ -3,6 +3,9 @@
 
 #include "Common/BfmeGame.h"
 #include "GameClient/InGameHud.h"
+#include "GameClient/BeaconClientUpdate.h"
+#include "Common/Audio/AudioEntryPoints.h"
+#include "GameLogic/BeaconCommands.h"
 #include "GameLogic/Economy.h"
 #include "GameLogic/EconomySettings.h"
 #include "GameLogic/ScriptEngine/MissionObjectiveTracker.h"
@@ -192,6 +195,19 @@ bool InGameHud::boot(std::string *error)
 	else
 	{
 		m_errors.push_back("rally marker: " + (settingsError.empty() ? std::string("GameData has no DownwindAngle") : settingsError));
+	}
+	// lane CHAT-1: the message lines' InGameUI rows (data\ini\ingameui.ini + language.ini's MessageFont)
+	{
+		InGameUIMessageSettings ms;
+		std::string msError;
+		if (InGameUIMessageSettings::load(m_config.fs, ms, &msError))
+		{
+			m_messageLines.setSettings(ms);
+		}
+		else
+		{
+			m_errors.push_back("message lines: " + msError);
+		}
 	}
 	if (m_ownedWindows)
 	{
@@ -460,6 +476,7 @@ void InGameHud::update(double seconds)
 		for (unsigned i = 0; i < advanced; ++i)
 		{
 			m_bar->tickAttackFlash();
+			m_messageLines.update(m_messageFrame); // lane CHAT-1: InGameUI::update's message expiry, once per client frame (S-5150: 30 a second)
 		}
 		if (m_heroSelect)
 		{
@@ -492,6 +509,33 @@ void InGameHud::update(double seconds)
 		partStart = now;
 	};
 	m_input->update();
+	// lane CHAT-1: the logic frame the message lines stamp and fade by; the GUI labels the translators and the control bar posted (InGameUI::message:
+	// TheGameText's text of the label, the alternating colours)
+	m_messageFrame = m_config.game.logic().getFrame();
+	if (!m_input->ui().networkGame())
+	{
+		(void)m_input->ui().takeChatRequests(); // RW 0x441B7C: outside a LAN / online game the chat keys open nothing
+	}
+	// the labels are read, not taken: InGameUI::messages() stays the record the input tests and the radar's notices read
+	const std::vector<std::string> &labels = m_input->ui().messages();
+	if (m_messageLabelsSeen > labels.size())
+	{
+		m_messageLabelsSeen = 0; // the queue was taken by someone else (a test): start again at its head
+	}
+	for (; m_messageLabelsSeen < labels.size(); ++m_messageLabelsSeen)
+	{
+		const std::string &label = labels[m_messageLabelsSeen];
+		std::u16string text;
+		if (m_config.gameText && m_config.gameText->fetch(label, text))
+		{
+			m_messageLines.addMessageText(text, nullptr, m_messageFrame);
+			++m_guiMessagesShown;
+		}
+		else
+		{
+			m_missingMessageLabels.push_back(label); // reported (the HUD state), never shown as the raw label
+		}
+	}
 	const unsigned messageTicks = m_clientFrames - m_messageClientFrame;
 	m_playerMessages.advanceClientTicks(m_config.game.logic().getFrame(), messageTicks);
 	m_messageClientFrame = m_clientFrames;
@@ -636,6 +680,7 @@ void InGameHud::update(double seconds)
 	const std::shared_ptr<const LogicSnapshot> iconSnap = m_config.game.presentedSnapshot();
 	m_iconSettings.snapshot = iconSnap.get();
 	m_iconSettings.shroudDrawn = iconSnap && iconSnap->shroud && iconSnap->shroud->displayed;
+	presentBeacons(); // lane CHAT-1
 	m_iconUI.build(m_config.game.logic(), m_config.game.drawables(), m_config.view, m_iconSettings, selectedSet, m_input->ui().mouseoverObject(), m_iconOps);
 	updateFloatingText(m_config.view, m_iconSettings.shroudDrawn);
 	m_iconSettings.snapshot = nullptr; // the frame's snapshot goes with this frame
@@ -1475,3 +1520,154 @@ std::vector<std::string> InGameHud::stops() const
 	hud6Stops(out); // lane HUD-6
 	return out;
 }
+
+// ---- lane CHAT-1: the multiplayer beacon's presentation ----------------------------------------------------------------------------------------------
+
+void InGameHud::showMessageLabel(const std::string &label, const std::u16string *argument)
+{
+	std::u16string text;
+	if (!m_config.gameText || !m_config.gameText->fetch(label, text))
+	{
+		m_missingMessageLabels.push_back(label);
+		return;
+	}
+	m_messageLines.addMessageText(argument ? InGameChat::formatLine(text, *argument) : text, nullptr, m_messageFrame);
+	++m_guiMessagesShown;
+}
+
+void InGameHud::presentBeacons()
+{
+	// RW 0x77C634's client half, per notice, by the local player's relationship to the placer (the object itself is the logic's, the same on every peer):
+	//   * FAILED (no beacon template, or the placer is defeated): "GUI:BeaconPlacementFailed" and MiscAudio BeaconPlacementFailed on every client;
+	//   * TOO_MANY: the same text "GUI:TooManyBeacons" and sound for the placer only;
+	//   * PLACED, the local player allied to the placer (getRelationship of the local player's team, ALLIES) or an observer: InGameUI vslot 0x4C of
+	//     "GUI:BeaconPlaced" formatted with the placer's display name (+ 0x38), MiscAudio BeaconPlacedSound (a "ui player" event: the placer's own client
+	//     plays it, INFERENCE from ZH's shouldPlayLocally), a radar event of type 0 for 4 s at the beacon, the EVA BeaconDetected (RW 0x5DD9EE) when the
+	//     local player is an ally and not the placer; otherwise the beacon is hidden on this screen (BeaconClientUpdate::hideBeacon RW 0x8CDC11).
+	GameLogic &logic = m_config.game.logic();
+	const Player *local = m_config.game.players().getLocalPlayer();
+	for (const GameLogic::BeaconNotice &n : logic.beaconNotices())
+	{
+		if (n.seq <= m_beaconNoticeSeen)
+		{
+			continue;
+		}
+		m_beaconNoticeSeen = n.seq;
+		const Player *placer = m_config.game.players().getNthPlayer(n.playerIndex);
+		if (!placer || !local)
+		{
+			continue;
+		}
+		switch (n.kind)
+		{
+		case GameLogic::BeaconNotice::FAILED:
+			++m_beaconStats.failed;
+			showMessageLabel("GUI:BeaconPlacementFailed", nullptr);
+			m_input->ui().requestMiscSound("BeaconPlacementFailed");
+			break;
+		case GameLogic::BeaconNotice::TOO_MANY:
+			if (placer == local)
+			{
+				++m_beaconStats.tooMany;
+				showMessageLabel("GUI:TooManyBeacons", nullptr);
+				m_input->ui().requestMiscSound("BeaconPlacementFailed");
+			}
+			break;
+		case GameLogic::BeaconNotice::PLACED:
+		{
+			++m_beaconStats.placed;
+			m_beaconObjects.insert(n.object);
+			if (placer->getRelationship(local->getDefaultTeam()) == ALLIES || local->isObserver())
+			{
+				const std::string &utf8 = placer->getPlayerDisplayName();
+				std::u16string name;
+				for (std::size_t i = 0; i < utf8.size();)
+				{
+					unsigned char c = (unsigned char)utf8[i];
+					char32_t cp = c;
+					int extra = c >= 0xF0 ? 3 : c >= 0xE0 ? 2 : c >= 0xC0 ? 1 : 0;
+					cp = extra == 3 ? (c & 0x07) : extra == 2 ? (c & 0x0F) : extra == 1 ? (c & 0x1F) : c;
+					for (int k = 1; k <= extra && i + (size_t)k < utf8.size(); ++k)
+					{
+						cp = (cp << 6) | ((unsigned char)utf8[i + (size_t)k] & 0x3F);
+					}
+					i += (size_t)extra + 1;
+					if (cp > 0xFFFF)
+					{
+						name.push_back((char16_t)(0xD800 + ((cp - 0x10000) >> 10)));
+						name.push_back((char16_t)(0xDC00 + ((cp - 0x10000) & 0x3FF)));
+					}
+					else
+					{
+						name.push_back((char16_t)cp);
+					}
+				}
+				showMessageLabel("GUI:BeaconPlaced", &name);
+				if (placer == local)
+				{
+					m_input->ui().requestMiscSound("BeaconPlacedSound");
+				}
+				if (m_radar)
+				{
+					m_radar->createEvent(n.position, 0, 4.0f); // RW 0x6D98FA: type 0, 4 s
+				}
+				if (placer != local && local->getRelationship(placer->getDefaultTeam()) == ALLIES)
+				{
+					AudioApi::reportEva("BeaconDetected", &n.position); // RW 0x5DD9EE (index 1)
+				}
+			}
+			else
+			{
+				m_input->ui().setClientHidden(n.object, true);
+				++m_beaconStats.hidden;
+			}
+			break;
+		}
+		}
+	}
+	// BeaconClientUpdate (RW 0x8CDCE9) once per logic frame: a shown beacon's minimap pulse, a hidden one stays hidden (the drawable may come later)
+	const std::uint32_t frame = logic.getFrame();
+	if (frame == m_beaconPulseFrame || m_beaconObjects.empty())
+	{
+		return;
+	}
+	m_beaconPulseFrame = frame;
+	for (auto it = m_beaconObjects.begin(); it != m_beaconObjects.end();)
+	{
+		const ObjectID id = *it;
+		if (!logic.findObjectByID(id))
+		{
+			m_input->ui().setClientHidden(id, false);
+			it = m_beaconObjects.erase(it);
+			continue;
+		}
+		++it;
+		Drawable *d = m_config.game.drawables().findByObject(id);
+		if (!d)
+		{
+			continue;
+		}
+		for (const std::unique_ptr<DrawableModule> &m : d->clientModules())
+		{
+			BeaconClientUpdate *b = dynamic_cast<BeaconClientUpdate *>(m.get());
+			if (!b)
+			{
+				continue;
+			}
+			if (m_input->ui().isClientHidden(id))
+			{
+				if (!b->hidden())
+				{
+					b->hideBeacon();
+					d->setClientHidden(true);
+				}
+			}
+			else if (b->pulseDue(frame) && m_radar)
+			{
+				m_radar->createEvent(*d->getPosition(), 6, b->pulseSeconds()); // type 6: PingBeacon
+				++m_beaconStats.pulses;
+			}
+		}
+	}
+}
+

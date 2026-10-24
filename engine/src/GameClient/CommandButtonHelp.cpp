@@ -20,6 +20,7 @@
 #include "GameClient/GUI/GameWindowManager.h"
 #include "GameClient/GUI/LoadScreenInfo.h"
 #include "GameClient/GlobalLanguage.h"
+#include "GameClient/InGameUIMessages.h"
 #include "GameLogic/AttributeModifiers.h"
 #include "GameLogic/CreateAHeroSystem.h"
 #include "GameLogic/GameLogic.h"
@@ -44,6 +45,7 @@ namespace
 struct SettingsState
 {
 	HelpBoxSettings values;
+	InGameUIMessageSettings messages; // lane CHAT-1: the Message* rows (constructor defaults until a row is read)
 	GlobalLanguage language; // INTEG-4: UI-4's GlobalLanguage reads the Language block (its full RW 0xBF4C20 table)
 	unsigned seen = 0;
 	bool inGameUi = false;
@@ -157,6 +159,17 @@ void skipNestedBlock(INI *ini, void *, void *, const void *userData)
 
 #define SEEN(bit) ((const void *)(std::uintptr_t)(bit))
 #define HB_OFF(member) (int)offsetof(SettingsState, values.member)
+#define MSG_OFF(member) (int)offsetof(SettingsState, messages.member)
+
+// lane CHAT-1: InGameUI's Message* rows (table at file offset 0x812420; the parsers RW 0x42F13E colour int, RW 0x42F2FA the coordinate pair, RW 0x42EE5E
+// string, RW 0x42EC5E int, RW 0x42E558 bool); a row parsed into a field of a nested struct: the coordinate pair writes X then Y (ICoord2D)
+void parseMessagePosition(INI *ini, void *, void *store, const void *)
+{
+	ICoord2D c;
+	INI::parseICoord2D(ini, nullptr, &c, nullptr);
+	static_cast<int *>(store)[0] = c.x;
+	static_cast<int *>(store)[1] = c.y;
+}
 #define MC_OFF(member) (int)offsetof(SettingsState, caption.member)
 
 // InGameUI rows RW 0xC126C0 .. 0xC127B0 (parseAsciiString RW 0x42EE5E, parseInt RW 0x42EC5E, parseBool RW 0x42E558, parseColorInt RW 0x42F13E)
@@ -177,6 +190,14 @@ FieldParse kInGameUiFields[] = {
 	{ "HelpBoxDescriptionPointSize", parseNoting<INI::parseInt>, SEEN(SEEN_DESC_SIZE), HB_OFF(description.pointSize) },
 	{ "HelpBoxDescriptionBold", parseNoting<INI::parseBool>, SEEN(SEEN_DESC_BOLD), HB_OFF(description.bold) },
 	{ "HelpBoxDescriptionColor", parseNoting<INI::parseColorInt>, SEEN(SEEN_DESC_COLOR), HB_OFF(description.color) },
+	{ "MessageColor1", INI::parseColorInt, nullptr, MSG_OFF(color1) },
+	{ "MessageColor2", INI::parseColorInt, nullptr, MSG_OFF(color2) },
+	{ "MessagePosition", parseMessagePosition, nullptr, MSG_OFF(positionX) },
+	{ "MessagePositionLW", parseMessagePosition, nullptr, MSG_OFF(positionLWX) },
+	{ "MessageFont", INI::parseAsciiString, nullptr, MSG_OFF(font) },
+	{ "MessagePointSize", INI::parseInt, nullptr, MSG_OFF(pointSize) },
+	{ "MessageBold", INI::parseBool, nullptr, MSG_OFF(bold) },
+	{ "MessageDelayMS", INI::parseInt, nullptr, MSG_OFF(delayMS) },
 	// lane CAMPUI-1: rows RW 0xC124A0 .. 0xC12530 (InGameUI + 0x83C colour, + 0x84C / + 0x850 position, + 0x854 centred, + 0x858 .. fonts, + 0x870 delay)
 	{ "MilitaryCaptionColor", parseCaptionNoting<INI::parseRGBAColorInt>, SEEN(SEEN_MC_COLOR), MC_OFF(color) },
 	{ "MilitaryCaptionPosition", parseCaptionNoting<INI::parseCoord2D>, SEEN(SEEN_MC_POSITION), MC_OFF(position) },
@@ -397,6 +418,63 @@ bool HelpBoxSettings::load(ArchiveFileSystem &fs, HelpBoxSettings &out, std::str
 	}
 	SettingsLoad l(&fs);
 	return l.run("data\\ini\\ingameui.ini", nullptr, error) && l.run("language.ini", nullptr, error) && finish(l, out, error);
+}
+
+namespace
+{
+bool finishMessages(SettingsLoad &l, InGameUIMessageSettings &out, std::string *error)
+{
+	SettingsState &s = l.state();
+	if (!s.inGameUi)
+	{
+		if (error)
+		{
+			*error = "ingameui.ini: no InGameUI block";
+		}
+		return false;
+	}
+	if (!s.language.loaded)
+	{
+		if (error)
+		{
+			*error = "language.ini: no Language block";
+		}
+		return false;
+	}
+	out = s.messages;
+	// RW 0x69EDA7 .. 0x69EDD7: Language's MessageFont (+ 0x38) replaces the name, size and bold when it names a font
+	if (!s.language.messageFont.name.empty())
+	{
+		out.font = s.language.messageFont.name;
+		out.pointSize = s.language.messageFont.size;
+		out.bold = s.language.messageFont.bold;
+	}
+	out.loaded = true;
+	return true;
+}
+} // namespace
+
+bool InGameUIMessageSettings::scan(const std::string &inGameUi, const std::string &language, InGameUIMessageSettings &out, std::string *error)
+{
+	SettingsLoad l(nullptr);
+	return l.run("ingameui.ini", &inGameUi, error) && l.run("language.ini", &language, error) && finishMessages(l, out, error);
+}
+
+bool InGameUIMessageSettings::load(ArchiveFileSystem &fs, InGameUIMessageSettings &out, std::string *error)
+{
+	for (const char *file : { "data\\ini\\ingameui.ini", "language.ini" })
+	{
+		if (!fs.doesFileExist(file))
+		{
+			if (error)
+			{
+				*error = std::string("file not found in any mounted archive: ") + file;
+			}
+			return false;
+		}
+	}
+	SettingsLoad l(&fs);
+	return l.run("data\\ini\\ingameui.ini", nullptr, error) && l.run("language.ini", nullptr, error) && finishMessages(l, out, error);
 }
 
 template <typename T, INIFieldParseProc Parse>

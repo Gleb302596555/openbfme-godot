@@ -60,7 +60,10 @@
 //     recorded hashes, starts from a save or the re-simulation does not reproduce them (crc_parity); without an end record (a relay log's replay) the
 //     orders up to the last recorded hash are judged;
 //     [--input-rate-check OUT2.json] D5 (GameNetwork/CommandStreamChecks.h: more than 100 commands in 5 s of game time, informational),
-//     [--command-check OUT3.json] D6 (commands a clean client never sends), in the same pass and under the same abstain rules;
+//     [--packet-check OUT.json --game-id ID] with --relay-log (lane ANTICHEAT-1) D7: each slot's input as the relay received it (the log's INPUT
+//     records, version 4: verified under AUTH-1 or plain, and what the relay refused for the slot);
+//     [--command-check OUT3.json] D6 (commands a clean client never sends), [--view-check OUT4.json] D2 (GameNetwork/ViewChecks.h: the pointer resting
+//     over a hidden enemy, from the replay's VIEW records), in the same pass and under the same abstain rules;
 //     [--fog-check-dump DIR --fog-check-view PLAYER --fog-check-around F1,F2 [--fog-check-before 50] [--fog-check-after 15]] the evidence view: for every
 //     state from `before` frames ahead of each listed frame to `after` frames past it, DIR/frame_NNNNNN.txt holds PLAYER's shroud cells (c / f / s) and
 //     every player object (own / ally / neutral / enemy, seen or not by PLAYER), DIR/terrain.txt the grid's ground heights (tools/integrity/render_evidence.py)
@@ -180,6 +183,8 @@ struct Args
 	std::string record, hashes, report, replay;
 	std::string fogCheck, gameId; // lane ANTICHEAT-1
 	std::string inputRateCheck, commandCheck; // lane ANTICHEAT-1 (owner 2026-10-21): D5, D6
+	std::string packetCheck; // lane ANTICHEAT-1: D7, with --relay-log
+	std::string viewCheck;   // lane ANTICHEAT-1: D2, with --replay
 	std::string fogDump; int fogView = -1; std::vector<UnsignedInt> fogAt; int fogBefore = 50, fogAfter = 15; // the evidence view's frames
 	std::string loadSave; ///< lane SAVE-2: --load-save FILE (with --replay)
 	bool verifyLog = false; ///< lane SAVE-4e: --verify-log (a snapshot save is caught up from its log and its snapshot compared)
@@ -297,6 +302,8 @@ bool parseArgs(int argc, char **argv, Args &a, std::string &error)
 		else if (k == "--game-id" && next(a.gameId)) {}
 		else if (k == "--input-rate-check" && next(a.inputRateCheck)) {}
 		else if (k == "--command-check" && next(a.commandCheck)) {}
+		else if (k == "--packet-check" && next(a.packetCheck)) {}
+		else if (k == "--view-check" && next(a.viewCheck)) {}
 		else if (k == "--fog-check-dump" && next(a.fogDump)) {}
 		else if (k == "--fog-check-view" && next(v)) a.fogView = std::atoi(v.c_str());
 		else if (k == "--fog-check-around" && next(v))
@@ -836,8 +843,9 @@ int runReplay(const Args &a, World &w)
 	std::unique_ptr<OrdersIntoFog> fogCheck;
 	std::unique_ptr<InputRateCheck> rateCheck;
 	std::unique_ptr<CommandIntegrityCheck> commandCheck;
+	std::unique_ptr<ViewCheck> viewCheck;
 	std::unique_ptr<FogCheckDriver> fogDriver;
-	const bool checks = !a.fogCheck.empty() || !a.inputRateCheck.empty() || !a.commandCheck.empty();
+	const bool checks = !a.fogCheck.empty() || !a.inputRateCheck.empty() || !a.commandCheck.empty() || !a.viewCheck.empty();
 	if (checks)
 	{
 		std::vector<int> humans;
@@ -861,9 +869,12 @@ int runReplay(const Args &a, World &w)
 				commandCheck->setSlot(p, (int)slot);
 			}
 		}
+		viewCheck = std::make_unique<ViewCheck>(game.logic(), replay.views,
+			std::vector<int>(replay.header.network.slotPlayerIndex.begin(), replay.header.network.slotPlayerIndex.end()), *fogCheck);
 		fogDriver = std::make_unique<FogCheckDriver>(playback, replay, *fogCheck);
 		fogDriver->inputRate = rateCheck.get();
 		fogDriver->commands = commandCheck.get();
+		fogDriver->views = viewCheck.get();
 		if (!a.fogDump.empty())
 		{
 			fogDriver->onState = [&a](GameLogic &logic, UnsignedInt next) { dumpFogState(a, logic, next); };
@@ -920,9 +931,11 @@ int runReplay(const Args &a, World &w)
 			fogCheck->abstain(why);
 			rateCheck->abstain(why);
 			commandCheck->abstain(why);
+			viewCheck->abstain(why);
 		}
-		const std::pair<const std::string *, std::string> outputs[3] = { { &a.fogCheck, fogCheck->json(a.gameId, parity, game.frame()) },
-			{ &a.inputRateCheck, rateCheck->json(a.gameId, parity, game.frame()) }, { &a.commandCheck, commandCheck->json(a.gameId, parity, game.frame()) } };
+		const std::pair<const std::string *, std::string> outputs[4] = { { &a.fogCheck, fogCheck->json(a.gameId, parity, game.frame()) },
+			{ &a.inputRateCheck, rateCheck->json(a.gameId, parity, game.frame()) }, { &a.commandCheck, commandCheck->json(a.gameId, parity, game.frame()) },
+			{ &a.viewCheck, viewCheck->json(a.gameId, parity, game.frame()) } };
 		for (const auto &o : outputs)
 		{
 			if (o.first->empty())
@@ -1149,6 +1162,18 @@ int runRelayLog(const Args &a, World &w)
 	for (const std::string &p : assembled.problems)
 	{
 		r << "relay_log_problem " << p << "\n";
+	}
+	if (!a.packetCheck.empty())
+	{
+		// lane ANTICHEAT-1: D7, packet integrity (the same report shape as D1 / D5 / D6: tools/integrity/README.md); online batch r4: in the core
+		const std::string j = RelayLog::packetIntegrityReport(log, config, assembled, a.gameId);
+		std::ofstream fo(a.packetCheck, std::ios::binary | std::ios::trunc);
+		fo << j;
+		if (!fo)
+		{
+			std::fprintf(stderr, "openbfme_peer: cannot write %s\n", a.packetCheck.c_str());
+			return 1;
+		}
 	}
 	r << "replay " << a.record << "\n";
 	for (const std::string &st : RelayLog::stopLines())
@@ -1796,6 +1821,16 @@ int main(int argc, char **argv)
 		const std::uint64_t loadWait = NetMilliseconds();
 		while (!session.pollLoaded())
 		{
+			if (lobby.online && session.transport().relayRefusal() != 0)
+			{
+				// ONLINE16-FIX: a refused binding never loads: say why at once (the transport's error names it, e.g. a relay too old to authenticate)
+				for (const std::string &e : session.transport().errors())
+				{
+					std::fprintf(stderr, "openbfme_peer: %s\n", e.c_str());
+				}
+				std::fprintf(stderr, "openbfme_peer: the relay refused this player: %s\n", RelayProtocol::refuseReasonName(session.transport().relayRefusal()));
+				return 3;
+			}
 			if (NetMilliseconds() - loadWait > 180000)
 			{
 				std::fprintf(stderr, "openbfme_peer: the other peers did not load in 180 s\n");
@@ -1871,6 +1906,7 @@ int main(int argc, char **argv)
 	const int myPlayer = session.config().slotPlayerIndex[(size_t)lobby.localSlot];
 	const int myStart = start.message.game.slots[lobby.localSlot].startPos;
 	unsigned long long scripted = 0;
+	unsigned long long viewsSent = 0; // lane ANTICHEAT-1
 	std::map<std::string, unsigned long long> scriptedTypes; // the scripted commands by type
 	UnsignedInt lastScripted = 0xFFFFFFFFu;
 	UnsignedInt scriptFrame = 0xFFFFFFFFu; // lane NETLAG-2: the frame seen last and when its scripted orders are due (--script-phase)
@@ -2015,6 +2051,21 @@ int main(int argc, char **argv)
 			lastScripted = game.frame();
 			const size_t before = game.commands().messages().size();
 			scripted += ScriptedPlayer::issue(game, myPlayer, myStart, game.commands());
+			// lane ANTICHEAT-1: a scripted player reports its view like the game's HUD (Network::submitView: the relay's log only; LAN keeps none):
+			// camera and pointer on its first unit, every third frame
+			if (game.frame() % 3 == 0)
+			{
+				for (const Object *o = game.logic().getFirstObject(); o; o = o->getNextObject())
+				{
+					const Player *owner = o->getControllingPlayer();
+					if (owner && owner->getPlayerIndex() == myPlayer && !o->isEffectivelyDead() && !o->isKindOfName("STRUCTURE"))
+					{
+						viewsSent += session.network().submitView(game.frame(), o->getPosition()->x, o->getPosition()->y, o->getPosition()->x,
+							o->getPosition()->y, true) ? 1 : 0;
+						break;
+					}
+				}
+			}
 			// lane HERO-2: the Create-a-Hero is recruited at the fortress (every 25 frames from the given one until the hero exists)
 			const CreateAHeroHero *own = a.recruitCreateAHeroAt >= 0 && game.frame() >= (UnsignedInt)a.recruitCreateAHeroAt && game.frame() % 25 == 0
 				? game.logic().createAHeroes().heroOf(*game.logic().players().getNthPlayer(myPlayer))
@@ -2170,6 +2221,7 @@ int main(int argc, char **argv)
 	r << "desyncs " << net.desyncs().size() << "\n";
 	r << "commands_relayed " << net.commandsRelayed() << "\n";
 	r << "scripted_commands " << scripted << "\n";
+	r << "views_sent " << viewsSent << "\n"; // lane ANTICHEAT-1
 	r << "gate_messages " << gateMessages << "\n";
 	{
 		// lane HUD-5: every gate's state at the end (id:state, GateOpenAndCloseBehavior's 0 opening, 1 open, 2 closing, 3 closed)
@@ -2248,6 +2300,9 @@ int main(int argc, char **argv)
 		r << "relay " << lobby.relay.text() << " bound " << (session.transport().relayBound() ? 1 : 0) << " refusal " << session.transport().relayRefusal()
 		  << " hellos " << ts.relayHellos << " welcomes " << ts.relayWelcomes << " not_bound " << ts.relayNotBound << " slot_mismatches "
 		  << ts.relaySlotMismatches << " unknown_senders " << ts.unknownSenders << "\n";
+		// ONLINE16-FIX: AUTH-1 (the START's macKey: every datagram sealed) and the previous release's envelope (a version-3-only relay)
+		r << "relay_auth authenticated " << (lobby.macKey.empty() ? 0 : 1) << " dropped " << ts.relayAuthDropped << " legacy_envelope "
+		  << (session.transport().relayLegacyEnvelope() ? 1 : 0) << "\n";
 	}
 	{
 		// lane MP-3: the harness's faults and what they did; the smoothness (wall clock, protocol owner)

@@ -301,6 +301,8 @@ const FieldParse kMultiplayerFields[] = {
 	{ "InitialCreditsMedium", parseNoting<INI::parseUnsignedInt>, SEEN_DATA(SEEN_CREDITS0 << 2), (int)offsetof(BlockState, values.initialCredits[2]) },
 	{ "InitialCreditsHigh", parseNoting<INI::parseUnsignedInt>, SEEN_DATA(SEEN_CREDITS0 << 3), (int)offsetof(BlockState, values.initialCredits[3]) },
 	{ "InitialCreditsVeryHigh", parseNoting<INI::parseUnsignedInt>, SEEN_DATA(SEEN_CREDITS0 << 4), (int)offsetof(BlockState, values.initialCredits[4]) },
+	// lane CHAT-1: MaxBeaconsPerPlayer (the MultiplayerSettings row of table RW 0xC2F768, parseInt RW 0x42EC5E, + 0x18; read by RW 0x77C6C6 / 0x81F8D8)
+	{ "MaxBeaconsPerPlayer", INI::parseInt, nullptr, (int)offsetof(BlockState, values.maxBeaconsPerPlayer) },
 	{ nullptr, noteUnapplied, nullptr, 0 }
 };
 

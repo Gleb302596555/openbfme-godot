@@ -517,6 +517,9 @@ public:
 	String net_profile_digest() const;
 	Dictionary net_begin(const Dictionary &options);
 	Dictionary net_status() const;
+	// lane ANTICHEAT-1 (C++ only, from the HUD): the local player's view for the relay's log of an online game it plays (not a spectator, not LAN):
+	// Network::submitView with the logic frame shown; ignored otherwise
+	void net_submit_view(float cameraX, float cameraY, float cursorX, float cursorY, bool cursorOverWorld);
 	// the local player leaves the game (PLAYERLEAVE after the frames it announced), the recording is closed; waits up to 2 s for the acks
 	void net_finish();
 	// lane MP-3: the per-frame census of a net_begin({"census": true}) game as CSV (frame, sim_us, battalions, troops, objects); {ok, rows | error}
@@ -530,6 +533,22 @@ public:
 	// catch-up (the relay's log, no rendering of the skipped frames) until net_status().rejoin.state is "live" (or "failed", with the reason)
 	void net_pause();
 	void net_resume();
+	// ---- lane CHAT-1: the in-game chat over the game's network (GameNetwork/Network.h sendChat / takeChat; GameClient/InGameChat.h) ----
+	// net_chat_info: { network (a LAN / online game this client plays in: not single player, a replay, a spectator or a rejoin's catch-up), local_slot,
+	// local_active, slots: [{ player, local, active, allied (both ways with the local player), muted, name, color (0xRRGGBB) }] }.
+	// net_chat_send(line, mask): Network::sendChat of the formatted line ("<Team> hi") to the slots of `mask`: { ok | error }.
+	// net_chat_take: the lines shown since the last call [{ slot, name, text, color }] (the sender's player colour; -1 without a player).
+	// net_chat_set_muted: the players screen's mute of a slot (GameSlot + 0xA); net_chat_stats: the network's chat counters
+	Dictionary net_chat_info() const;
+	Dictionary net_chat_send(const String &line, int64_t mask);
+	int64_t net_chat_mask(int64_t mode) const; ///< InGameChat::recipientMask of the window's mode over net_chat_info's slots (RW 0x8ECF3E)
+	Array net_chat_take();
+	void net_chat_set_muted(int64_t slot, bool muted);
+	Dictionary net_chat_stats() const;
+	// lane CHAT-1: the disconnect screen's chat (Network::sendDisconnectChat; NETCOMMANDTYPE_DISCONNECTCHAT): send a line { ok | error }, take the lines
+	// received [{ slot, name, text }]
+	Dictionary net_disconnect_chat(const String &text);
+	Array net_disconnect_chat_take();
 	// lane ONLINE-3: a spectator START (net_online with the lobby's /v1/games/<id>/spectate START: {ok, spectator, delay}) makes net_begin watch the game:
 	// no slot, the ReplayObserver side is the local player (the map revealed, RW 0x62F91A), _process catches up from the relay's log and then follows
 	// it (NetGameSession::spectateStep; nothing is sent, the local input is ignored); net_status().spectate: state ("binding" / "catching_up" / "live" /

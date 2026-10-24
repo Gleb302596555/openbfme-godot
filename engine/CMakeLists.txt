@@ -14,6 +14,17 @@ endif()
 #   openbfme_tests  - doctest unit tests over openbfme_core
 project(OpenBFME LANGUAGES C CXX)
 
+# lane NETDIAG-1 (from a contributor's change): libFuzzer targets of the network decoders (engine/tests/fuzz_network.cpp; cmake/Online2.cmake and
+# services/online/relay/CMakeLists.txt add them). Off by default; a separate build directory, Clang only (libFuzzer ships with Clang's compiler-rt).
+option(OPENBFME_FUZZ "Build the network parser libFuzzer targets (Clang)" OFF)
+if(OPENBFME_FUZZ)
+    if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        message(FATAL_ERROR "OPENBFME_FUZZ requires Clang with libFuzzer (CMAKE_CXX_COMPILER_ID is ${CMAKE_CXX_COMPILER_ID})")
+    endif()
+    add_compile_options(-fsanitize=fuzzer-no-link,address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address,undefined)
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -244,6 +255,7 @@ include(cmake/Lumber1.cmake)    # LUMBER1: the evil lumber mills' harvesting wor
 include(cmake/Backlog8.cmake)   # BACKLOG-8: formations, horde wall scaling, auto ability melee position (appends to OPENBFME_SIM_SOURCES)
 include(cmake/Menufix1.cmake)   # MENUFIX-1: the menus, consistent and retail-looking (OPENBFME_MENUFIX1_TESTS)
 include(cmake/Hudredraw1.cmake) # HUDREDRAW-1: the HUD redraws only the changed Apt levels (OPENBFME_HUDREDRAW1_TESTS)
+include(cmake/Chat1.cmake)      # CHAT-1: in-game chat and beacons (OPENBFME_CHAT1_CLIENT_SOURCES / _TESTS)
 include(cmake/Campui1.cmake)    # CAMPUI-1: the campaign presentation, the mission objectives (appends to OPENBFME_SIM_SOURCES; OPENBFME_CAMPUI1_TESTS)
 include(cmake/Offmap1.cmake)    # OFFMAP-1: off-map map objects and horde members (OPENBFME_OFFMAP1_TESTS)
 include(cmake/Wall1.cmake)      # WALL-1: walkable wall tops and ramps (appends to OPENBFME_SIM_SOURCES; OPENBFME_WALL1_TESTS)
@@ -282,6 +294,7 @@ add_library(openbfme_core STATIC
     ${OPENBFME_UI2_CLIENT_SOURCES}
     ${OPENBFME_UI4_CLIENT_SOURCES}
     ${OPENBFME_OWNERFIX2_CLIENT_SOURCES}
+    ${OPENBFME_CHAT1_CLIENT_SOURCES}
     ${OPENBFME_UI6_CLIENT_SOURCES}
     ${OPENBFME_OWNERFIX3_CLIENT_SOURCES}
     ${OPENBFME_ANTICHEAT_SOURCES}
@@ -522,7 +535,7 @@ if(OPENBFME_PYTHON)
         COMMENT "Auditing the simulation floating-point contract (tools/sim/sim_audit.py)"
         VERBATIM USES_TERMINAL)
 endif()
-target_include_directories(openbfme_core PUBLIC src)
+target_include_directories(openbfme_core PUBLIC src PRIVATE thirdparty)
 target_link_libraries(openbfme_core PUBLIC openbfme_float_chars)
 target_link_libraries(openbfme_core PUBLIC openbfme_lua)
 if(WIN32)
@@ -748,6 +761,7 @@ add_executable(openbfme_tests
     ${OPENBFME_OWNERFIX2_TESTS}
     ${OPENBFME_MENUFIX1_TESTS}
     ${OPENBFME_HUDREDRAW1_TESTS}
+    ${OPENBFME_CHAT1_TESTS}
     ${OPENBFME_WALL1_TESTS}
     ${OPENBFME_WALL2_TESTS}
     ${OPENBFME_BRIDGE1_TESTS}

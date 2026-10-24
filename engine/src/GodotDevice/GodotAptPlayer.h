@@ -225,8 +225,9 @@ public:
 	// empty Dictionary when there is none.  Taking it clears it.
 	Dictionary take_new_game();
 	// The load screen's data (the Apt text records LoadingScreen::PlayerName%d ... and the providers of LoadScreen.apt read it): { cards: [{ name, army, rank, team,
-	// color, load_music }...], local_card, loading_type: int, map }.  Must be set before the load screen is pushed.
-	void set_load_screen(const Dictionary &info);
+	// color, load_music }...], local_card, loading_type: int, map, map_start_count (extended maps only) }. Must be set before the screen is pushed.
+	// Returns { ok, error }; malformed cards are refused without replacing the previous loading state.
+	Dictionary set_load_screen(const Dictionary &info);
 	// The same from a RESOLVED new-game message (take_new_game's Dictionary after GameWorld.prepare_new_game): the cards are the occupied slots, the faction names
 	// come from the logic's store through the lobby's setup source.  Returns the card data as set_load_screen's Dictionary (for reports).
 	Dictionary set_load_screen_from_game(const Dictionary &resolved_game);
@@ -238,6 +239,22 @@ public:
 	// { ok, level, loaded, error }. take_disconnect_actions: the buttons pressed since the last call, [{ kind: "kick", row } | { kind: "quit" }]
 	Dictionary disconnect_screen(const Dictionary &state);
 	Array take_disconnect_actions();
+	// ---- lane CHAT-1: InGameChat.apt over the game (GameClient/GUI/AptScreens/AptInGameChat.h), in the game's window manager like the disconnect screen ----
+	// ingame_chat_open: the window in `mode` (InGameChatMode: 0 allies, 1 everyone, 4 observers) with the receivers label text; false when one is open
+	// (RW 0x8EC97D) or no shell runs. ingame_chat_update (every frame): the window's update (RW 0x8ECD3E; a closed window goes) and its state
+	// { open, state, mode, entry, sends: [{ text, mode }] } (the lines Send took since the last call). ingame_chat_close: closes it (RW 0x8ECC7A's
+	// other callers). ingame_chat_has_keys: the keyboard is the window's (the HUD sends its keys here; the pointer stays the world's, as in retail).
+	// ingame_chat_type / ingame_chat_command (tests and the scripted runs): the entry's text set, a movie command run ("Send", "Close")
+	bool ingame_chat_open(int64_t mode, const String &receivers);
+	Dictionary ingame_chat_update();
+	void ingame_chat_close();
+	bool ingame_chat_has_keys() const;
+	bool ingame_chat_type(const String &text);
+	bool ingame_chat_command(const String &command);
+	// lane CHAT-1: the disconnect screen's chat: a received line ("[Name] text") into its ChatBox (false while the screen or the box is not there yet), and
+	// (tests / scripted runs) a line typed into its ChatEntry and sent
+	bool disconnect_screen_chat(const String &line);
+	bool disconnect_screen_type(const String &text);
 	// lane MP-2: what SaveLoad.apt's replay page lists, set before it is pushed: { mode: 2 load, flags: 4 replay, last_replay: the GUI:LastReplay name,
 	// replays: [{ path, name, map, date, time, compatible }] }; its Load comes back as the shell request "LoadReplayFile" with the path. Lane SAVE-2, the
 	// saved-game pages: mode 3 save / 2 load, flags 1 Campaign | 2 Skirmish, in_game (opened over a game), saves: [{ path, name, map, date, time, kind (1 / 2),

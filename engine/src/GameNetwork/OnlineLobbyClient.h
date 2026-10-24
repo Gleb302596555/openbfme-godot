@@ -72,6 +72,7 @@ public:
 		std::string token;  ///< the bearer token ("" before the sign-in)
 		bool held = false;  ///< lane ONLINE-5: a poll the lobby may keep for up to holdSeconds: sent on a connection of its own, with a longer timeout
 		int holdSeconds = 0;
+		int maxSlots = MAX_SLOTS; ///< X-OpenBFME-Max-Slots: absent on legacy clients, which support eight slots
 		Channel channel = Ordinary;
 	};
 	struct Player
@@ -199,6 +200,7 @@ public:
 		std::string map;         ///< the map cache key
 		int players = 0;         ///< human players in it
 		int openSlots = 0;
+		int mapStartCount = LEGACY_MAX_SLOTS;
 		bool password = false;
 		SimulationProfile mode = SimulationProfile::Faithful; ///< lane UBERJOIN-1: the game's performance mode ("mode": absent = "normal", a room of an old client)
 		std::string state;       ///< "open", or "started" (refreshList(true): a running game, to watch; mine(): the player's own, to rejoin)

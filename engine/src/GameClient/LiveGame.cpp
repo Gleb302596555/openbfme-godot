@@ -16,6 +16,7 @@
 #include "GameLogic/HeroSystem.h"
 
 #include "GameLogic/UpgradeCommands.h"
+#include "GameLogic/BeaconCommands.h"
 #include "GameLogic/Combat/CombatState.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
@@ -153,6 +154,28 @@ bool LiveGame::load(const Options &options, std::string *error)
 	if (!classified)
 	{
 		return false;
+	}
+	if (options.start)
+	{
+		MapCacheEntry actual;
+		actual.name = options.start->message.game.mapName;
+		actual.numPlayers = options.start->mapPlayerCount;
+		for (const Waypoint &waypoint : m_terrain.waypoints())
+		{
+			const std::string &name = waypoint.name;
+			if (name.rfind("Player_", 0) != 0 || name.size() < 6 || name.compare(name.size() - 6, 6, "_Start") != 0) continue;
+			int number = 0;
+			for (int i = 1; i <= MAX_SLOTS; ++i)
+			{
+				if (name == "Player_" + std::to_string(i) + "_Start") number = i;
+			}
+			if (!number || !actual.startPositions.emplace(number, waypoint.location).second)
+			{
+				if (error) *error = "invalid or duplicate start waypoint '" + name + "'";
+				return false;
+			}
+		}
+		if (!MapCache::validateStartPositions(actual, error)) return false;
 	}
 	m_report.mapIniErrors = cr.mapIni.errors;
 	m_report.mapObjects = m_classified.report.objects;
@@ -411,6 +434,7 @@ bool LiveGame::load(const Options &options, std::string *error)
 		m_shroud->applyNewGameShroud(m_vision.useShroud, revealed, observers);
 	}
 	UpgradeCommands::registerHandlers(*m_dispatch); // UPGRADE-1: MSG_QUEUE_UPGRADE / MSG_CANCEL_UPGRADE
+	BeaconCommands::registerHandlers(*m_dispatch);  // CHAT-1: MSG_PLACE_BEACON (the multiplayer beacon, RW 0x77C634)
 	HordeCommands::registerHandlers(*m_dispatch);   // HORDE-2: the formation swap
 	GarrisonCommands::registerHandlers(*m_dispatch); // GARRISON-1: MSG_ENTER / MSG_EVACUATE / MSG_EXIT
 	CastleCommands::registerHandlers(*m_dispatch);   // BACKLOG2: MSG_CASTLE_UNPACK / MSG_CASTLE_PACK / MSG_CASTLE_UNPACK_EXPLICIT_OBJECT (S-951)
@@ -502,6 +526,11 @@ bool LiveGame::load(const Options &options, std::string *error)
 		for (const std::string &e : placed.errors)
 		{
 			m_report.startErrors.push_back(e);
+		}
+		if (!m_report.startErrors.empty())
+		{
+			if (error) *error = m_report.startErrors.front();
+			return false;
 		}
 	}
 	{

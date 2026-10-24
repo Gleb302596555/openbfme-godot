@@ -2171,6 +2171,7 @@ void AptOnlineShell::update()
 	if (m_messenger && m_messenger->closing()) m_messenger.reset();
 	prune();
 	pumpClient();
+	updateExtendedRows();
 	// lane ONLINEMENU-1: the FRIENDS button and page draw through the shell's decorator, taken back every frame as the TOURNAMENT panel's (a covering
 	// screen hands the layer's decorator to nobody when it closes)
 	if ((!m_friendsLabel.empty() || friendsPageOpen() || networkPageOpen()) && shell().top() == this && !isHidden())
@@ -2325,7 +2326,8 @@ void AptOnlineShell::update()
 		for (int s = 1; s < MAX_SLOTS; ++s)
 		{
 			info.slots[s] = SkirmishGameSlot();
-			info.slots[s].state = !m_challengeTarget.empty() && s > 1 ? SLOT_CLOSED : SLOT_OPEN;
+			// ONLINE16-FIX: the map's start count closes the rest; ONLINEMENU-1: a challenge room is the two players' own
+			info.slots[s].state = s >= info.mapStartCount || (!m_challengeTarget.empty() && s > 1) ? SLOT_CLOSED : SLOT_OPEN;
 		}
 		m_client->createGame(name, password, info, 0);
 		m_state = 5;
@@ -2464,9 +2466,10 @@ void AptOnlineShell::onReadyPress(const std::string &argument)
 	{
 		char *end = nullptr;
 		const long v = std::strtol(argument.c_str(), &end, 10);
-		if (end == argument.c_str() || *end != '\0' || v <= 0 || v >= MAX_SLOTS)
+		const int capacity = m_client->gameInfo().mapStartCount;
+		if (end == argument.c_str() || *end != '\0' || v <= 0 || v >= capacity)
 		{
-			windows().note("online-ready-refused", "MpGameSetup::OnReadyPress(" + argument + "): not a player slot (1 .. 7)");
+			windows().note("online-ready-refused", "MpGameSetup::OnReadyPress(" + argument + "): not a player slot (1 .. " + std::to_string(capacity - 1) + ")");
 			return;
 		}
 		index = (int)v;

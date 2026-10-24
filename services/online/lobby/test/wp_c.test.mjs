@@ -438,6 +438,29 @@ test('enforcement blocks current sessions, expires, mutes chat only, and carries
   assert.equal((await call(lobby, 'POST', `/v1/games/${nextGame}/chat`, { token: first.token, body: { text: 'hello' } })).status, 200);
 });
 
+test('CHAT-1: a player the moderators muted is chat-muted in every START (by slot), and only while the mute lasts', async () => {
+  const env = fakeEnv();
+  const lobby = new Lobby(env, configFromEnv(ENV));
+  const hostInstall = '6'.repeat(32);
+  const mutedInstall = '7'.repeat(32);
+  const host = (await guest(lobby, 'Hal', hostInstall, 'e'.repeat(64))).body;
+  const other = (await guest(lobby, 'Mo', mutedInstall, 'f'.repeat(64))).body;
+  assert.equal((await update(lobby, env, mutedInstall, effective(1, { mute_until: Math.floor(env.now() / 1000) + 600 }))).status, 200);
+  const id = await startedGame(lobby, host, other);
+  const hostView = (await call(lobby, 'GET', `/v1/games/${id}?since=0`, { token: host.token })).body;
+  const otherView = (await call(lobby, 'GET', `/v1/games/${id}?since=0`, { token: other.token })).body;
+  assert.deepEqual(hostView.start.chatMuted.slice(0, 2), [false, true]);
+  assert.deepEqual(otherView.start.chatMuted, hostView.start.chatMuted);
+  assert.equal('chatMuted' in hostView.start.setup, false); // never in the replay's record
+  // after the mute ended, the next game's START mutes nobody
+  env.advance(601);
+  const host2 = (await guest(lobby, 'Hal', hostInstall, 'e'.repeat(64))).body;
+  const other2 = (await guest(lobby, 'Mo', mutedInstall, 'f'.repeat(64))).body;
+  const id2 = await startedGame(lobby, host2, other2);
+  const view2 = (await call(lobby, 'GET', `/v1/games/${id2}?since=0`, { token: host2.token })).body;
+  assert.equal(view2.start.chatMuted.some((m) => m), false);
+});
+
 test('a ban applies to the next request and signed-in failures never become anonymous', async () => {
   const env = fakeEnv();
   const lobby = new Lobby(env, configFromEnv(ENV));

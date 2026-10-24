@@ -324,6 +324,26 @@ TEST_CASE("netlag1 replay: only the engine line of a verified older build is tol
 	CHECK_FALSE(ProfileIdentity::replayCompatible(ours, ProfileIdentity::fromText(a + "extra 1\n"))); // another line count
 }
 
+// BATCH-P4: the online batch moved the features line's `net-wire` 2 -> 3 (the live datagram format); a recording never reads it, so a verified older build's
+// recording whose features differ in that entry alone still plays; any other feature, or an engine nobody verified, is still refused
+TEST_CASE("netlag1 replay: a verified older build's recording may differ in the features line's net-wire entry alone")
+{
+	const std::string a = "openbfme-profile 1\nprofile enhanced\nengine AAAA\nfeatures net-wire 3, game-message 2, replay 2\nnumeric n\n";
+	const ProfileIdentity ours = ProfileIdentity::fromText(a);
+	const std::string verified = ProfileIdentity::verifiedReplayEngines().front().id;
+	auto older = [&](const std::string &features, const std::string &engine) {
+		std::string t = a;
+		t.replace(t.find("engine AAAA"), 11, "engine " + engine);
+		t.replace(t.find("features net-wire 3, game-message 2, replay 2"), 45, features);
+		return ProfileIdentity::fromText(t);
+	};
+	CHECK(ProfileIdentity::replayCompatible(ours, older("features net-wire 2, game-message 2, replay 2", verified)));
+	CHECK_FALSE(ProfileIdentity::replayCompatible(ours, older("features net-wire 2, game-message 3, replay 2", verified))); // another feature moved too
+	CHECK(ProfileIdentity::replayCompatible(ours, older("features game-message 2, replay 2", verified))); // no net-wire entry: the same for a recording
+	CHECK_FALSE(ProfileIdentity::replayCompatible(ours, older("features net-wire 2, game-message 2, replay 2", "BBBB")));   // an engine nobody verified
+	CHECK_FALSE(ours == older("features net-wire 2, game-message 2, replay 2", verified)); // live peers still compare the whole identity
+}
+
 #ifndef _WIN32
 namespace
 {

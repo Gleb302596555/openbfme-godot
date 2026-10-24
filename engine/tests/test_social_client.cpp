@@ -61,7 +61,7 @@ void loadInitialSocialViews(OnlineLobbyClient &client)
 std::string sourceGameView(const std::string &id, const std::string &mode = "normal")
 {
 	std::string slots = "[";
-	for (int slot = 0; slot < MAX_SLOTS; ++slot)
+	for (int slot = 0; slot < LEGACY_MAX_SLOTS; ++slot) // an eight-start room: the lobby sends eight records (ONLINE16-FIX: sixteen only with mapStartCount 9 .. 16)
 	{
 		if (slot) slots += ",";
 		const bool you = slot == 0;

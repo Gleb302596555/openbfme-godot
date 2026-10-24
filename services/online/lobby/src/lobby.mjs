@@ -35,15 +35,55 @@ export const VERSION = 1;
 // UBERJOIN-1: the simulation profile a room runs (docs/ONLINE.md): "normal" (Faithful) or "uber" (the Uber performance mode). A room made by a client that
 // predates the field has none and is "normal"; any other value is refused by name
 export const MODES = ['normal', 'uber'];
+// lane NET-SYNC: the game's network mode, signed into the START ticket (RelayProtocol.h TicketMode): 'classic' is today's
+// client-scheduled path (the default, the fallback); 'canonical' = the relay keeps the beat, late-order policy B; 'canonical-equal'
+// = the relay keeps the beat with policy A (equal delay for everyone, for the comparison runs)
+export const NET_MODES = ['classic', 'canonical', 'canonical-equal'];
+const NET_MODE_TICKET = { 'classic': 0, 'canonical': 1, 'canonical-equal': 3 }; // TICKET_MODE_CANONICAL | TICKET_MODE_EQUAL_DELAY
+const TICKET_MODE_AUTH = 4; // lane AUTH-1 (RelayProtocol.h): the relay refuses this game's plain HELLOs
 function modeOf(value, what) {
   if (value === undefined) return 'normal';
   if (typeof value !== 'string' || !MODES.includes(value)) throw bad('bad_field', `${what} must be one of ${MODES.join(', ')}`);
   return value;
 }
+// ROUTER-1: the canonical game's frame period (ms), signed into the ticket: 50 .. 200 ms (20 .. 5 logic Hz)
+function frameMsOf(value, what) {
+  if (value === undefined) return 200;
+  return intIn(value, 50, 200, what);
+}
+function netModeOf(value, what) {
+  if (value === undefined) return 'classic';
+  if (typeof value !== 'string' || !NET_MODES.includes(value)) throw bad('bad_field', `${what} must be one of ${NET_MODES.join(', ')}`);
+  return value;
+}
 export const MAX_JSON_BYTES = 16384;          // a JSON request body (ONLINE-2 r2: counted as received)
 export const MAX_LOG_BYTES = 64 * 1024 * 1024; // a relay log upload
 const LOG_HEADER_BYTES = 25; // RelayCore.h "Log format": magic 8, version 4, game id 8, slot mask 1, start 4
-const MAX_SLOTS = 8;
+const MAX_SLOTS = 8; // a legacy (eight-start) room's places, the shape every client before P16 reads
+// lane ONLINE16-FIX (P16, docs/ONLINE.md "Extended map capacity"): a map with 9 .. 16 starts makes a sixteen-place room (`setup.mapStartCount`,
+// places beyond it closed). A client tells its width in the X-OpenBFME-Max-Slots header (exactly 8 or 16; absent: an older, eight-slot client);
+// the same header marks a client of the AUTH-1 release line (both shipped together), which is what `setup.requireAuth` needs
+const WIDE_SLOTS = 16;
+const capacityOf = (g) => g.setup.mapStartCount ?? MAX_SLOTS;
+const placesOf = (capacity) => (capacity > MAX_SLOTS ? WIDE_SLOTS : MAX_SLOTS);
+const NEEDS_WIDE = 'this game needs 16-player support';
+const NEEDS_AUTH = 'this game requires authenticated relay traffic: update OpenBFME to join it';
+// the header's value: 8 or 16, anything else is refused by name
+// BATCH-P4 (ONLINE16-FIX x ONLINEMENU-1): the client's width rides with its account for one request. A copy keeps every property, the
+// non-enumerable ones too (the social poll cache's pollSecurity: a plain spread dropped it and a cached poll went back to SQL)
+function withMaxSlots(account, maxSlots) {
+  return Object.defineProperties(Object.create(Object.getPrototypeOf(account)), {
+    ...Object.getOwnPropertyDescriptors(account),
+    maxSlots: { value: maxSlots, enumerable: true, writable: true, configurable: true },
+  });
+}
+export function maxSlotsOf(headers) {
+  const v = headers?.['x-openbfme-max-slots'];
+  if (v === undefined || v === null) return MAX_SLOTS;
+  if (v === '8') return MAX_SLOTS;
+  if (v === '16') return WIDE_SLOTS;
+  throw bad('bad_field', 'X-OpenBFME-Max-Slots must be 8 or 16');
+}
 const MINE_LEFT_MAX = 32; // ONLINEUX-1 r2: the game client's cap of a /v1/mine list (OnlineLobbyClient::kMaxMine)
 // ONLINE-5: long polling. A held poll is one open request and one timer: bounded per game (8 players, each one poll, and a second one while the first
 // is being replaced) and in total; beyond the bounds a poll is answered at once (the client's next poll waits)
@@ -170,35 +210,58 @@ export function parseKeyRing(text) {
 }
 
 // ---- the relay ticket (RelayProtocol.h): u8 1, u8 key id, u64 game id, u8 slot, u8 slot mask, u32 expiry, 16 bytes of HMAC-SHA256 ------------------------
-export async function signTicket(env, keyId, key, gameIdHex, slot, mask, expires) {
-  const b = new Uint8Array(32);
-  b[0] = 1;
+export async function signTicket(env, keyId, key, gameIdHex, slot, mask, expires, mode = 0, frameMs = 0) {
+  // lane NET-SYNC: a mode-flagged START ticket is version 7 (the version-4 layout plus u8 mode + u16 frameMs: 36 bytes)
+  if (mode) {
+    const b = new Uint8Array(36);
+    b[0] = 7;
+    b[1] = keyId;
+    const id7 = hexToBytes(gameIdHex);
+    for (let i = 0; i < 8; i++) b[2 + i] = id7[7 - i];
+    b[10] = slot;
+    b[11] = mask;
+    b[12] = mask >>> 8;
+    b[13] = mode;
+    new DataView(b.buffer).setUint32(14, expires >>> 0, true);
+    new DataView(b.buffer).setUint16(18, frameMs >>> 0, true); // ROUTER-1
+    const mac = await env.hmac(key, b.subarray(0, b.length - 16));
+    b.set(mac.subarray(0, 16), b.length - 16);
+    return base64(b, true);
+  }
+  const wide = mask > 0xff;
+  const b = new Uint8Array(wide ? 33 : 32);
+  b[0] = wide ? 4 : 1;
   b[1] = keyId;
   const id = hexToBytes(gameIdHex); // big-endian text -> little-endian u64
   for (let i = 0; i < 8; i++) b[2 + i] = id[7 - i];
   b[10] = slot;
   b[11] = mask;
-  new DataView(b.buffer).setUint32(12, expires >>> 0, true);
-  const mac = await env.hmac(key, b.subarray(0, 16));
-  b.set(mac.subarray(0, 16), 16);
+  const extra = wide ? 1 : 0;
+  if (wide) b[12] = mask >>> 8;
+  new DataView(b.buffer).setUint32(12 + extra, expires >>> 0, true);
+  const mac = await env.hmac(key, b.subarray(0, b.length - 16));
+  b.set(mac.subarray(0, 16), b.length - 16);
   return base64(b, true);
 }
 
 // lane ONLINE-3: the rejoin ticket (RelayProtocol.h version 2, 34 bytes): u8 2, the same fields, u16 generation (>= 1), then 16 bytes of HMAC-SHA256
 // over the 18 bytes before. A HELLO with a newer generation binds the slot's new incarnation at the relay without the old session token
 export async function signRejoinTicket(env, keyId, key, gameIdHex, slot, mask, expires, generation) {
-  const b = new Uint8Array(34);
-  b[0] = 2;
+  const wide = mask > 0xff;
+  const b = new Uint8Array(wide ? 35 : 34);
+  b[0] = wide ? 5 : 2;
   b[1] = keyId;
   const id = hexToBytes(gameIdHex);
   for (let i = 0; i < 8; i++) b[2 + i] = id[7 - i];
   b[10] = slot;
   b[11] = mask;
+  const extra = wide ? 1 : 0;
+  if (wide) b[12] = mask >>> 8;
   const v = new DataView(b.buffer);
-  v.setUint32(12, expires >>> 0, true);
-  v.setUint16(16, generation, true);
-  const mac = await env.hmac(key, b.subarray(0, 18));
-  b.set(mac.subarray(0, 16), 18);
+  v.setUint32(12 + extra, expires >>> 0, true);
+  v.setUint16(16 + extra, generation, true);
+  const mac = await env.hmac(key, b.subarray(0, b.length - 16));
+  b.set(mac.subarray(0, 16), b.length - 16);
   return base64(b, true);
 }
 
@@ -206,10 +269,22 @@ export async function signRejoinTicket(env, keyId, key, gameIdHex, slot, mask, e
 // spectator delay in seconds, then 16 bytes of HMAC-SHA256 over the 18 bytes before
 export async function signSpectatorTicket(env, keyId, key, gameIdHex, index, mask, expires, delaySeconds) {
   const b = base64UrlDecode(await signRejoinTicket(env, keyId, key, gameIdHex, index, mask, expires, delaySeconds));
-  b[0] = 3;
-  const mac = await env.hmac(key, b.subarray(0, 18));
-  b.set(mac.subarray(0, 16), 18);
+  b[0] = mask > 0xff ? 6 : 3;
+  const mac = await env.hmac(key, b.subarray(0, b.length - 16));
+  b.set(mac.subarray(0, 16), b.length - 16);
   return base64(b, true);
+}
+
+// lane ANTICHEAT-1: the session key of a ticket (RelayProtocol.h "Signed input"): the first 16 bytes of HMAC-SHA256(the ticket's key,
+// "OBFME-SESSION-1" || the ticket's bytes), base64url. ONLINE16-FIX (one packet-authentication scheme): the START's session_key; the client and the
+// relay derive AUTH-1's direction keys from it (RelayAuth::sessionKey); it never crosses UDP. Old clients ignore the field
+export async function sessionKey(env, key, ticketText) {
+  const label = new TextEncoder().encode('OBFME-SESSION-1');
+  const ticket = base64UrlDecode(ticketText);
+  const m = new Uint8Array(label.length + ticket.length);
+  m.set(label, 0);
+  m.set(ticket, label.length);
+  return base64((await env.hmac(key, m)).subarray(0, 16), true);
 }
 
 // ---- errors ----------------------------------------------------------------------------------------------------------------------------------------------
@@ -245,6 +320,10 @@ function checkCah(v) {
 }
 function intIn(v, lo, hi, what) {
   if (!Number.isInteger(v) || v < lo || v > hi) throw bad('bad_field', `${what} must be an integer in ${lo} .. ${hi}`);
+  return v;
+}
+function boolOf(v, what) {
+  if (typeof v !== 'boolean') throw bad('bad_field', `${what} must be true or false`);
   return v;
 }
 export function checkPlatform(v) {
@@ -492,12 +571,13 @@ function compareBlocks(a, b) {
 }
 
 // the game id a relay log names in its header (services/online/relay/RelayCore.h, "Log format": "OBFMERLG", u32 version, u64 game id, ...)
-// DEPLOY-2: versions 1 and 2 (ONLINE-3's relay writes 2: the same header, plus REJOINED records after it, which the lobby does not read)
+// DEPLOY-2: versions 1 and 2 (ONLINE-3's relay writes 2 with REJOINED records); version 4 adds the high slot-mask byte
 function logGameOf(bytes) {
   if (bytes.length < LOG_HEADER_BYTES || dec.decode(bytes.subarray(0, 8)) !== 'OBFMERLG') throw bad('bad_log', 'not a relay log');
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.length);
   const version = view.getUint32(8, true);
-  if (version !== 1 && version !== 2) throw bad('bad_log', `relay log version ${version} (this lobby reads versions 1 and 2)`);
+  if (version !== 1 && version !== 2 && version !== 4) throw bad('bad_log', `relay log version ${version} (this lobby reads versions 1, 2 and 4)`);
+  if (version === 4 && bytes.length < 26) throw bad('bad_log', 'relay log header is truncated');
   return view.getBigUint64(12, true).toString(16).padStart(16, '0');
 }
 
@@ -1097,6 +1177,7 @@ export class Lobby {
       state: g.state,
       password: !!g.password,
       mode: g.mode ?? 'normal',
+      ...(capacityOf(g) > MAX_SLOTS ? { mapStartCount: capacityOf(g) } : {}), // ONLINE16-FIX: absent on a legacy room (its old shape)
     };
   }
   gameView(g, account) {
@@ -1107,7 +1188,7 @@ export class Lobby {
       hostSlot: g.hostSlot,
       profile: g.profile,
       mode: g.mode ?? 'normal',
-      setup: { ...g.setup, slots: undefined },
+      setup: { ...g.setup, slots: undefined, mapStartCount: capacityOf(g) > MAX_SLOTS ? capacityOf(g) : undefined, requireAuth: g.setup.requireAuth || undefined },
       slots: g.slots.map((s, i) => ({
         slot: i,
         state: s.state,
@@ -1237,12 +1318,13 @@ export class Lobby {
   // ONLINE-5: the choices of a slot request, checked whole before anything is changed (a refused request leaves the slot as it was: the old code set
   // the fields one by one, so a good faction before a bad colour stayed). `slots` / `index`: the game's slots and the slot the choices are for; a
   // start position or a colour another occupied slot holds is refused by name (random, -1, is never taken)
-  checkSlotChoice(s, body, slots = null, index = -1) {
+  // ONLINE16-FIX: `capacity`: the map's starts (start positions 0 .. capacity-1; a sixteen-place room has teams 0 .. 15 as OnlineStart reads them)
+  checkSlotChoice(s, body, slots = null, index = -1, capacity = MAX_SLOTS) {
     const out = {};
     if (body.faction !== undefined) out.faction = intIn(body.faction, -1, 63, 'faction');
     if (body.color !== undefined) out.color = intIn(body.color, -1, 63, 'color');
-    if (body.startPos !== undefined) out.startPos = intIn(body.startPos, -1, MAX_SLOTS - 1, 'startPos');
-    if (body.team !== undefined) out.team = intIn(body.team, -1, MAX_SLOTS - 1, 'team');
+    if (body.startPos !== undefined) out.startPos = intIn(body.startPos, -1, capacity - 1, 'startPos');
+    if (body.team !== undefined) out.team = intIn(body.team, -1, placesOf(capacity) - 1, 'team');
     // ONLINEMENU-1: the slot's handicap (RotWK GameSlot + 0x20: 0 or -5 .. -95 in steps of 5, the Handicap combo's item data, RW 0x840B9D)
     if (body.handicap !== undefined) {
       out.handicap = intIn(body.handicap, -95, 0, 'handicap');
@@ -1275,13 +1357,23 @@ export class Lobby {
       // lane ONLINE-3: how far behind the players the spectators watch (seconds of game time; the relay holds the log back that far)
       spectatorDelay: intIn(setup.spectatorDelay ?? 120, 0, 600, 'setup.spectatorDelay'),
       rules: setup.rules ?? null,
+      // lane NET-SYNC: the game's network mode; absent is 'classic' (a version-1 ticket, today's path)
+      netMode: netModeOf(setup.netMode, 'setup.netMode'),
+      // ROUTER-1: the game's frame period in ms (200 today; the parallel lane sets 5/10/15/20 Hz -> 200/100/67/50)
+      frameMs: frameMsOf(setup.frameMs, 'setup.frameMs'),
+      // ONLINE16-FIX: the map's starts; absent or 8 is the legacy room (stored absent: its old shape everywhere)
+      mapStartCount: setup.mapStartCount === undefined || setup.mapStartCount === MAX_SLOTS ? undefined
+        : intIn(setup.mapStartCount, MAX_SLOTS + 1, WIDE_SLOTS, 'setup.mapStartCount (8, or 9 .. 16 for an extended map)'),
+      // ONLINE16-FIX (the AUTH-1 cut-over): the game's tickets carry TICKET_MODE_AUTH, so the relay refuses unauthenticated datagrams; off unless asked
+      requireAuth: setup.requireAuth === undefined || setup.requireAuth === null ? undefined : boolOf(setup.requireAuth, 'setup.requireAuth') || undefined,
     };
     if (out.rules !== null) {
       if (!Array.isArray(out.rules) || out.rules.length !== 10) throw bad('bad_field', 'setup.rules must be null or 10 integers');
       out.rules.forEach((r, i) => intIn(r, -2147483648, 2147483647, `setup.rules[${i}]`));
     }
     if (slotsRequired) {
-      if (!Array.isArray(setup.slots) || setup.slots.length < 2 || setup.slots.length > MAX_SLOTS) throw bad('bad_field', 'setup.slots must be 2 .. 8 slots');
+      const places = placesOf(out.mapStartCount ?? MAX_SLOTS);
+      if (!Array.isArray(setup.slots) || setup.slots.length < 2 || setup.slots.length > places) throw bad('bad_field', `setup.slots must be 2 .. ${places} slots`);
     }
     return out;
   }
@@ -1310,18 +1402,23 @@ export class Lobby {
     }
     const platform = checkPlatform(body.platform);
     const setup = this.checkSetup(body.setup, true);
+    // ONLINE16-FIX: a sixteen-place room needs a client that reads one; so does a game that requires tags (the AUTH-1 release line)
+    const capacity = setup.mapStartCount ?? MAX_SLOTS;
+    if (capacity > MAX_SLOTS && account.maxSlots !== WIDE_SLOTS) throw bad('bad_field', `${NEEDS_WIDE} (X-OpenBFME-Max-Slots: 16)`);
+    if (setup.requireAuth && account.maxSlots === undefined) throw bad('bad_field', NEEDS_AUTH);
     const slots = body.setup.slots.map((s, i) => {
       if (!SLOT_STATES.includes(s?.state)) throw bad('bad_field', `setup.slots[${i}].state must be one of ${SLOT_STATES.join(', ')}`);
+      if (i >= capacity && s.state !== 'closed') throw bad('bad_field', `setup.slots[${i}] is beyond the map's ${capacity} start positions: it must be "closed"`);
       const slot = { state: s.state, faction: -1, color: -1, startPos: -1, team: -1, handicap: 0, cah: null, ready: false };
       if (AI_STATES.has(s.state)) slot.name = str(s.name ?? 'Computer', 24, `setup.slots[${i}].name`);
-      const choices = this.checkSlotChoice(slot, s);
+      const choices = this.checkSlotChoice(slot, s, null, -1, capacity);
       if (s.state === 'player' || AI_STATES.has(s.state)) Object.assign(slot, choices); // Sol r1: an open or closed slot keeps none
       return slot;
     });
     // ONLINE-5: two occupied slots of a new game never share a start position or a colour either
-    for (const [i, sl] of slots.entries()) this.checkSlotChoice(sl, sl.state === 'player' || AI_STATES.has(sl.state) ? { startPos: sl.startPos, color: sl.color } : {}, slots, i);
-    while (slots.length < MAX_SLOTS) slots.push({ state: 'closed', faction: -1, color: -1, startPos: -1, team: -1, handicap: 0, cah: null, ready: false });
-    const hostSlot = intIn(body.hostSlot ?? 0, 0, MAX_SLOTS - 1, 'hostSlot');
+    for (const [i, sl] of slots.entries()) this.checkSlotChoice(sl, sl.state === 'player' || AI_STATES.has(sl.state) ? { startPos: sl.startPos, color: sl.color } : {}, slots, i, capacity);
+    while (slots.length < placesOf(capacity)) slots.push({ state: 'closed', faction: -1, color: -1, startPos: -1, team: -1, handicap: 0, cah: null, ready: false });
+    const hostSlot = intIn(body.hostSlot ?? 0, 0, capacity - 1, 'hostSlot');
     if (slots[hostSlot].state !== 'player') throw bad('bad_field', `the host's slot ${hostSlot} must be "player"`);
     for (const [i, s] of slots.entries()) {
       if (s.state === 'player' && i !== hostSlot) throw bad('bad_field', 'other human slots start "open" (players join them)');
@@ -1331,6 +1428,7 @@ export class Lobby {
     slots[hostSlot].pid = account.pid ?? null;
     slots[hostSlot].name = account.name;
     slots[hostSlot].platform = platform;
+    slots[hostSlot].maxSlots = account.maxSlots; // ONLINE16-FIX: what the member's client reads (never shown in a view)
     const id = bytesToHex(this.env.randomBytes(8));
     const g = {
       id, name, password, profile, mode, setup, slots, hostSlot, state: 'open', routing: account.routing ?? '',
@@ -1348,11 +1446,13 @@ export class Lobby {
   }
 
   // ONLINE-4: `running` also lists the started games (the server browser offers them to watch: POST .../spectate), after the open ones
-  list(running = false, account = null) {
+  // ONLINE16-FIX: `maxSlots`: the asking client's width; an eight-slot client is not shown sixteen-place rooms
+  list(running = false, account = null, maxSlots = MAX_SLOTS) {
     this.sweep();
     const routing = account?.routing ?? '';
     const games = [...this.games.values()].filter((g) => (g.routing ?? '') === routing && !this.deniedFromGame(g, account ?? {})
-      && !g.roomCode && (g.state === 'open' || (running && g.state === 'started')))
+      && !g.roomCode && (g.state === 'open' || (running && g.state === 'started'))
+      && (capacityOf(g) <= MAX_SLOTS || maxSlots === WIDE_SLOTS))
       .sort((a, b) => (b.state === 'open') - (a.state === 'open') || b.created - a.created).slice(0, 200).map((g) => this.publicGame(g));
     return { v: VERSION, games };
   }
@@ -1376,6 +1476,9 @@ export class Lobby {
     }
     if (g.state !== 'open') throw new LobbyError(409, 'started', 'the game has started');
     if (g.password && body?.password !== g.password && !validGrant) throw new LobbyError(403, 'password', 'wrong password');
+    // ONLINE16-FIX: an authorized joiner whose client cannot read the room is told so (never seated in a room its client refuses)
+    if (capacityOf(g) > MAX_SLOTS && account.maxSlots !== WIDE_SLOTS) throw new LobbyError(409, 'capacity', NEEDS_WIDE);
+    if (g.setup.requireAuth && account.maxSlots === undefined) throw new LobbyError(409, 'update', NEEDS_AUTH);
     const platform = checkPlatform(body?.platform);
     if (body?.profile !== g.profile) {
       throw new LobbyError(409, 'profile', `your game files or build differ from the host's (profile ${body?.profile} vs ${g.profile}): both need the same OpenBFME version and RotWK 2.01 files`);
@@ -1389,7 +1492,7 @@ export class Lobby {
     this.addReportParticipant(candidate, account);
     // Sol r1 (ONLINE-5): a joiner takes the slot with no choices of its own: nothing an earlier AI of the slot held (a start position, a colour others
     // may have claimed since) carries over to the player
-    Object.assign(candidate.slots[slot], { state: 'player', account: account.id, install: account.install ?? null, pid: account.pid ?? null, name: account.name, ready: false, platform, ...NO_CHOICES });
+    Object.assign(candidate.slots[slot], { state: 'player', account: account.id, install: account.install ?? null, pid: account.pid ?? null, name: account.name, ready: false, platform, maxSlots: account.maxSlots, ...NO_CHOICES });
     this.unreadyAll(candidate);
     await this.syncReportRoster(candidate);
     this.event(candidate, `${account.name} joined`);
@@ -1439,7 +1542,7 @@ export class Lobby {
     }
     const candidate = structuredClone(g);
     if (g.state === 'open') {
-      Object.assign(candidate.slots[slot], { state: 'open', account: undefined, install: null, pid: null, name: undefined, platform: undefined, ready: false, ...NO_CHOICES });
+      Object.assign(candidate.slots[slot], { state: 'open', account: undefined, install: null, pid: null, name: undefined, platform: undefined, maxSlots: undefined, ready: false, ...NO_CHOICES });
       this.unreadyAll(candidate);
       await this.syncReportRoster(candidate);
     }
@@ -1464,7 +1567,10 @@ export class Lobby {
     if (g.state !== 'open') throw new LobbyError(409, 'started', 'the game has started');
     const own = this.slotOf(g, account);
     if (own < 0) throw new LobbyError(403, 'not_in_game', 'join the game first');
-    const target = body.slot === undefined ? own : intIn(body.slot, 0, MAX_SLOTS - 1, 'slot');
+    const capacity = capacityOf(g);
+    const target = body.slot === undefined ? own : intIn(body.slot, 0, g.slots.length - 1, 'slot');
+    // ONLINE16-FIX: a place beyond the map's starts stays closed (the START's reader refuses anything else there)
+    if (target >= capacity) throw bad('bad_field', `slot ${target} is beyond the map's ${capacity} start positions: it stays closed`);
     const s = g.slots[target];
     // ONLINE-5: everything is checked before anything changes (a refusal leaves the room as it was)
     const change = {};
@@ -1491,9 +1597,9 @@ export class Lobby {
       }
       Object.assign(change, NO_CHOICES);
     } else {
-      Object.assign(change, this.checkSlotChoice(after, body, g.slots, target));
+      Object.assign(change, this.checkSlotChoice(after, body, g.slots, target, capacity));
       // what the slot keeps (an AI level changed, a choice left as it was) is checked against the others as well
-      this.checkSlotChoice(after, { startPos: change.startPos ?? s.startPos, color: change.color ?? s.color }, g.slots, target);
+      this.checkSlotChoice(after, { startPos: change.startPos ?? s.startPos, color: change.color ?? s.color }, g.slots, target, capacity);
     }
     Object.assign(s, change);
     this.unreadyAll(g);
@@ -1506,6 +1612,20 @@ export class Lobby {
     if (g.state !== 'open') throw new LobbyError(409, 'started', 'the game has started');
     if (this.slotOf(g, account) !== g.hostSlot) throw new LobbyError(403, 'not_host', 'only the host changes the game options');
     const setup = this.checkSetup({ ...g.setup, ...body }, false);
+    // ONLINE16-FIX: the capacity follows the map. Growing needs every member to read sixteen places; shrinking needs the places beyond the new
+    // map's starts empty (an open one closes; a player or an AI there is moved or removed by the host first). Requiring tags needs every member
+    // to be of the AUTH-1 release line. Everything is checked before anything changes
+    const capacity = setup.mapStartCount ?? MAX_SLOTS;
+    const members = g.slots.filter((s) => s.state === 'player');
+    if (capacity > MAX_SLOTS && members.some((s) => s.maxSlots !== WIDE_SLOTS)) {
+      throw new LobbyError(409, 'capacity', `${NEEDS_WIDE}: a player in this room lacks it`);
+    }
+    if (setup.requireAuth && members.some((s) => s.maxSlots === undefined)) throw new LobbyError(409, 'update', `${NEEDS_AUTH} (a player in this room)`);
+    const beyond = g.slots.findIndex((s, i) => i >= capacity && (s.state === 'player' || AI_STATES.has(s.state)));
+    if (beyond >= 0) throw new LobbyError(409, 'capacity', `slot ${beyond + 1} is beyond the new map's ${capacity} start positions: free it first`);
+    for (let i = capacity; i < g.slots.length; i++) Object.assign(g.slots[i], { state: 'closed', ready: false, ...NO_CHOICES });
+    g.slots.length = Math.min(g.slots.length, placesOf(capacity));
+    while (g.slots.length < placesOf(capacity)) g.slots.push({ state: 'closed', faction: -1, color: -1, startPos: -1, team: -1, ready: false });
     // ONLINE-5: another map has other start positions: every slot is back to a random one (ZH GameInfo::setMap resets the start spots)
     if (setup.map !== g.setup.map) for (const s of g.slots) s.startPos = -1;
     g.setup = setup;
@@ -1569,12 +1689,12 @@ export class Lobby {
   async kick(account, id, body) {
     const g = this.gameFor(account, id);
     if (this.slotOf(g, account) !== g.hostSlot) throw new LobbyError(403, 'not_host', 'only the host kicks');
-    const slot = intIn(body?.slot, 0, MAX_SLOTS - 1, 'slot');
+    const slot = intIn(body?.slot, 0, g.slots.length - 1, 'slot');
     if (slot === g.hostSlot || g.slots[slot].state !== 'player') throw bad('bad_field', 'kick another player\'s slot');
     if (g.state !== 'open') throw new LobbyError(409, 'started', 'the game has started');
     const name = g.slots[slot].name;
     const kickedPid = g.slots[slot].pid;
-    Object.assign(g.slots[slot], { state: 'open', account: undefined, install: null, pid: null, name: undefined, platform: undefined, ready: false, ...NO_CHOICES });
+    Object.assign(g.slots[slot], { state: 'open', account: undefined, install: null, pid: null, name: undefined, platform: undefined, maxSlots: undefined, ready: false, ...NO_CHOICES });
     (g.kicked ??= []).push(slot);
     this.unreadyAll(g);
     this.event(g, `${name} was kicked`);
@@ -1617,8 +1737,12 @@ export class Lobby {
     const expires = Math.floor(this.env.now() / 1000) + this.config.ticketSeconds;
     let last = candidate.slots.length;
     while (last > 0 && candidate.slots[last - 1].state === 'closed') last -= 1;
+    // ONLINE16-FIX: an extended game's START carries the capacity and all sixteen places (OnlineStart.cpp reads exactly that); a legacy one is unchanged
+    const capacity = capacityOf(candidate);
+    if (capacity > MAX_SLOTS) last = WIDE_SLOTS;
     const setup = Object.freeze({
       map: candidate.setup.map,
+      ...(capacity > MAX_SLOTS ? { mapStartCount: capacity } : {}),
       seed,
       startingCash: candidate.setup.startingCash,
       superweaponRestriction: candidate.setup.superweaponRestriction,
@@ -1631,19 +1755,33 @@ export class Lobby {
     // PLATFORMICON-1: each player's system, by slot (null: not told, an AI, no one): display data for the running game's player list. It rides in each
     // player's own START only, never in `setup` (the replay's record)
     const platforms = candidate.slots.map((s) => (s.state === 'player' ? s.platform ?? null : null));
+    // CHAT-1: the players the moderators muted (enforcement mute_until in the future), by slot: every client drops their in-game chat lines and their own
+    // client refuses to send (GameNetwork/Network.h setChatLobbyMuted). Like `platforms` it rides in each player's own START only, never in `setup`
+    const nowS = Math.floor(this.env.now() / 1000);
+    const chatMuted = candidate.slots.map((s) => {
+      if (s.state !== 'player' || !s.install) return false;
+      const until = this.getEnforcement(s.install)?.mute_until;
+      return until !== null && until !== undefined && until > nowS;
+    });
     const starts = {};
     for (const [, i] of humans) {
+      const ticket = await signTicket(this.env, keyId, key, g.id, i, mask, expires,
+        NET_MODE_TICKET[g.setup.netMode] | (g.setup.requireAuth ? TICKET_MODE_AUTH : 0), g.setup.frameMs);
       starts[i] = {
         v: VERSION,
         kind: 'openbfme-start',
         game: candidate.id,
         slot: i,
         relay: relay.address,
-        ticket: await signTicket(this.env, keyId, key, g.id, i, mask, expires),
+        ticket,
+        session_key: await sessionKey(this.env, key, ticket), // lane AUTH-1
+        netMode: g.setup.netMode, // lane NET-SYNC: display data; the ticket itself carries the binding mode bits
+        frameMs: g.setup.frameMs, // ROUTER-1: the game's frame period; also signed into the ticket
         runAhead: this.config.runAhead,
         crcInterval: this.config.crcInterval,
         profile: candidate.profile,
         platforms,
+        chatMuted,
         setup,
       };
     }
@@ -1752,7 +1890,7 @@ export class Lobby {
     this.event(g, `${g.slots[slot].name} rejoins the game`);
     await this.save(g);
     this.social.rejoinStarted(g, account);
-    return { v: VERSION, game: this.gameView(g, account), start: { ...g.starts[slot], ticket, rejoin: generation } };
+    return { v: VERSION, game: this.gameView(g, account), start: { ...g.starts[slot], ticket, rejoin: generation, session_key: await sessionKey(this.env, key, ticket) } }; // the fresh generation's own key
   }
 
   // lane ONLINE-3: a spectator START for a signed-in account that is not a player of the started game: a spectator ticket (a fresh index each time, so a
@@ -1763,6 +1901,8 @@ export class Lobby {
     await this.social.assertJoinAllowed(account, g);
     if (this.slotOf(g, account) >= 0) throw new LobbyError(409, 'player', 'players of the game play it; spectators are other accounts');
     if (g.roomCode) throw new LobbyError(403, 'private', 'a private room is not open to spectators'); // ONLINEHUB-1 (Sol)
+    if (capacityOf(g) > MAX_SLOTS && account.maxSlots !== WIDE_SLOTS) throw new LobbyError(409, 'capacity', NEEDS_WIDE); // ONLINE16-FIX
+    if (g.setup.requireAuth && account.maxSlots === undefined) throw new LobbyError(409, 'update', NEEDS_AUTH);
     if (g.state !== 'started' || !g.starts) throw new LobbyError(409, 'not_started', 'the game has not started yet: ask again once it has');
     const index = g.spectatorsIssued ?? 0;
     if (index >= 16) throw new LobbyError(409, 'spectators_full', 'the game has had its 16 spectator places');
@@ -1779,7 +1919,7 @@ export class Lobby {
     await this.save(g);
     return {
       v: VERSION,
-      start: { v: VERSION, kind: 'openbfme-spectate', game: g.id, spectator: index, relay: any.relay, ticket, delay, runAhead: any.runAhead, crcInterval: any.crcInterval, profile: g.profile, setup: any.setup },
+      start: { v: VERSION, kind: 'openbfme-spectate', game: g.id, spectator: index, relay: any.relay, ticket, session_key: await sessionKey(this.env, key, ticket), delay, runAhead: any.runAhead, crcInterval: any.crcInterval, profile: g.profile, setup: any.setup }, // lane AUTH-1: relay->spectator only
     };
   }
 
@@ -2658,15 +2798,19 @@ export async function route(lobby, req) {
     }
     if (m === 'GET' && p[1] === 'mine' && p.length === 2) return json(200, lobby.mine(await lobby.account(req.headers.authorization))); // ONLINE-3
     if (m === 'POST' && p[1] === 'rooms' && p.length === 4 && p[3] === 'join') { // ONLINEHUB-1: join a private room by its code
-      const account = await lobby.account(req.headers.authorization);
+      const slotsHeader = req.headers['x-openbfme-max-slots'];
+      const account = withMaxSlots(await lobby.account(req.headers.authorization), slotsHeader === undefined ? undefined : maxSlotsOf(req.headers));
       return json(200, await lobby.joinByCode(account, p[2], await body()));
     }
     if (p[1] !== 'games') return json(404, { v: VERSION, error: 'not_found', message: 'unknown path' });
+    const maxSlots = maxSlotsOf(req.headers); // ONLINE16-FIX
     if (m === 'GET' && p.length === 2) {
       const account = hasAuthorization ? await lobby.account(req.headers.authorization, { pollCache: true }) : null;
-      return json(200, lobby.list(req.query.get('running') === '1', account));
+      return json(200, lobby.list(req.query.get('running') === '1', account, maxSlots));
     }
-    const account = await lobby.account(req.headers.authorization, { leaving: m === 'POST' && p.length === 4 && p[3] === 'leave', pollCache: m === 'GET' });
+    // ONLINE16-FIX: the client's width rides with its account for this request (absent header: undefined, an older client)
+    const account = withMaxSlots(await lobby.account(req.headers.authorization, { leaving: m === 'POST' && p.length === 4 && p[3] === 'leave', pollCache: m === 'GET' }),
+      req.headers['x-openbfme-max-slots'] === undefined ? undefined : maxSlots);
     if (m === 'POST' && p.length === 2) return json(200, await lobby.create(account, await body()));
     const id = p[2];
     if (!/^[0-9a-f]{16}$/.test(id ?? '')) return json(404, { v: VERSION, error: 'no_game', message: 'a game id is 16 hex digits' });

@@ -64,6 +64,21 @@ public:
 	// lane HUD-6: { radial: { object, count, radius, centre, size, hilited, presses, buttons: [{ slot, rect, state, image, name }], errors }, help: { loaded,
 	// render_name, state, shown, width, helps_shown, draws, name, calls } }
 	Dictionary get_hud6_state() const;
+	// ---- lane CHAT-1: the InGameUI message lines and the chat (GameClient/InGameUIMessages.h, GameClient/InGameChat.h) ----
+	// take_chat_requests: CHAT_ALLIES (false) / CHAT_EVERYONE (true) presses since the last call. chat_text(label): the game text of a label ("" when
+	// absent). chat_format(mode, text): the line Send sends ("<Team> hi": the mode's label formatted with the text). add_chat_line(text, rgb): a received
+	// line (messageColor in the sender's colour 0xRRGGBB, or -1: the alternating colours, InGameUI::message) and the scroll-back. set_chat_history_shown:
+	// the scroll-back over the message lines while the chat window is open (OpenBFME addition). message_lines_state: the lines, their colours, the history
+	Array take_chat_requests();
+	String chat_text(const String &label) const;
+	String chat_format(int64_t mode, const String &text) const;
+	void add_chat_line(const String &text, int64_t rgb);
+	void set_chat_history_shown(bool shown);
+	Dictionary message_lines_state() const;
+	// lane CHAT-1: the chat and beacon keys work only in a network game (RW 0x441B7C); beacon_state: the beacons this client presented
+	// { placed, too_many, failed, hidden, pulses, beacons: [ids], client_hidden: [ids], gui_command }
+	void set_network_game(bool on);
+	Dictionary beacon_state() const;
 	// lane SMOOTH-1: the parts of the last _process in ms { hud_update_ms (the HUD: APT movie, control bar, radar, input), hud_camera_ms, hud_cursor_ms }
 	Dictionary get_frame_timings() const;
 	// lane BUILD-1: { placing, template, source, has_ghost, x, y, angle, legal (LegalBuildCode, 0 = may be placed) } of the building waiting for its site

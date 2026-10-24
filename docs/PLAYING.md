@@ -444,6 +444,10 @@ the keys are the original game's. In particular:
 | \` | open the spell book (powers) | same |
 | F12 | screenshot | same |
 | Esc | the game menu (Resume, Options, Restart; LAN: Forfeit, Exit) | same |
+| Enter | LAN / online: chat to everyone (Enter sends, Esc cancels and keeps what you typed) | same |
+| Backspace | LAN / online: chat to your allies | same |
+| Ctrl+B, then click the ground | LAN / online: place a beacon (up to 3) your allies see on the map and minimap | same |
+| Delete | with your beacon selected: remove it | same (Delete is Sell) |
 | Shift+Up / Shift+Down | nothing | same: 2.01 has no action for them |
 | Ctrl+Z | free camera on / off | **OpenBFME only** (no original key uses Ctrl+Z) |
 | F11 | frame rate counter on / off | **OpenBFME only** (no original key uses F11) |
@@ -481,6 +485,18 @@ stays off.
 
 Pings are only shown on your own screen for now. They are not yet sent to the
 other players in a network game, so the wheel is off there.
+
+### Chat and beacons
+
+In a LAN or online game, **Enter** opens the chat to everyone and **Backspace** the chat to your allies, as in the original
+(observers' Enter goes to the other observers). Lines show at the top right as `[Name] <Team> text` in the sender's colour and
+fade after about 20 seconds; while the chat window is open the last lines stay on screen (an OpenBFME addition). Allies-only
+lines are only ever sent to your allies' computers. Type `/mute Name` to hide a player's lines on your screen, `/unmute Name`
+to show them again and `/mute` to list who you muted (OpenBFME: the original has no mute you can reach in a multiplayer
+game). To report a player for what they wrote, use **Report** on the score screen or the online menu.
+
+**Ctrl+B** and a click on the ground place a beacon: your allies and observers get "A Beacon was placed by ..." with a
+minimap ping, your enemies never see it. You can have three; select one and press Delete to remove it.
 
 ### Force-attack
 

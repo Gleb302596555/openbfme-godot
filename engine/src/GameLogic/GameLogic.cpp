@@ -896,6 +896,22 @@ void GameLogic::processDestroyList()
 }
 
 // lane BACKLOG3 (S-2452): see GameLogic.h
+void GameLogic::noteBeacon(BeaconNotice::Kind kind, int playerIndex, ObjectID object, const Coord3D &position)
+{
+	if (m_beaconNotices.size() >= kBeaconNotices)
+	{
+		m_beaconNotices.erase(m_beaconNotices.begin());
+	}
+	BeaconNotice n;
+	n.seq = ++m_beaconSeq;
+	n.frame = m_frame;
+	n.kind = kind;
+	n.playerIndex = playerIndex;
+	n.object = object;
+	n.position = position;
+	m_beaconNotices.push_back(n);
+}
+
 void GameLogic::noteRadarEvent(int type, const Coord3D &position, RadarEventNotice::Source source, int playerIndex)
 {
 	if (m_radarEventNotices.size() >= kRadarEventNotices)

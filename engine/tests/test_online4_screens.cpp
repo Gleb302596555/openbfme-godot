@@ -328,6 +328,103 @@ const OnlineLobbyClient::Event *findEvent(const std::vector<OnlineLobbyClient::E
 	}
 } // namespace
 
+TEST_CASE("p16 net: online staging views use explicit map capacity and preserve legacy eight-slot responses")
+{
+	for (int capacity : { 8, 9, 16 })
+	{
+		CAPTURE(capacity);
+		OnlineLobbyClient c(clientOptions());
+		c.signInGuest(u"Host");
+		auto requests = c.takeRequests();
+		REQUIRE(requests.size() == 1);
+		c.deliver(requests[0].id, 200, "{\"v\":1,\"token\":\"t.t\",\"account\":{\"id\":\"guest:1\",\"name\":\"Host\",\"kind\":\"guest\"}}", "");
+		c.takeEvents();
+		SkirmishGameInfo setup;
+		setup.mapName = "maps/p16_fixture/p16_fixture.map";
+		setup.mapStartCount = capacity;
+		for (int i = 0; i < capacity; ++i) setup.slots[i].state = i == 0 ? SLOT_PLAYER : SLOT_OPEN;
+		c.createGame(u"Game", "", setup, 0);
+		requests = c.takeRequests();
+		REQUIRE(requests.size() == 1);
+		// tolerance: the capacity field is present only for extended maps and absent for legacy eight-slot requests
+		CHECK((requests[0].body.find("\"mapStartCount\"") != std::string::npos) == (capacity > 8));
+		CHECK(requests[0].maxSlots == MAX_SLOTS);
+		const auto view = [](int count, bool explicitCapacity, int seq) {
+			std::string slots;
+			for (int i = 0; i < (count > 8 ? 16 : 8); ++i)
+			{
+				slots += std::string(i ? "," : "") + "{\"state\":\"" + (i < count ? "player" : "closed") + "\",\"name\":\"p\",\"faction\":-1,\"color\":-1,\"startPos\":"
+					+ std::to_string(i < count ? i : -1) + ",\"team\":-1,\"ready\":false,\"you\":" + (i == 0 ? "true" : "false") + "}";
+			}
+			return "{\"id\":\"0123456789abcdef\",\"name\":\"Game\",\"state\":\"open\",\"hostSlot\":0,\"setup\":{\"map\":\"m\",\"startingCash\":1500,\"superweaponRestriction\":0,\"legendaryHeroes\":1,\"rules\":null"
+				+ (explicitCapacity ? ",\"mapStartCount\":" + std::to_string(count) : std::string()) + "},\"slots\":[" + slots + "],\"seq\":" + std::to_string(seq) + "}";
+		};
+		c.deliver(requests[0].id, 200, "{\"v\":1,\"id\":\"0123456789abcdef\",\"game\":" + view(capacity, capacity > 8, 1) + "}", "");
+		REQUIRE(c.inGame());
+		CHECK(c.gameInfo().mapStartCount == capacity);
+		CHECK(c.gameInfo().slots[capacity - 1].isHuman());
+		CHECK(c.gameInfo().slots[capacity - 1].startPos == capacity - 1);
+		for (int i = capacity; i < 16; ++i) CHECK(c.gameInfo().slots[i].state == SLOT_CLOSED);
+		c.takeEvents();
+		if (capacity > 8)
+		{
+			c.update(1000);
+			requests = c.takeRequests();
+			REQUIRE(requests.size() == 1);
+			c.deliver(requests[0].id, 200, "{\"v\":1,\"game\":" + view(capacity, false, 2) + ",\"chat\":[]}", "");
+			const auto events = c.takeEvents();
+			REQUIRE(events.size() == 1);
+			CHECK(events[0].kind == OnlineLobbyClient::Event::Refused);
+			CHECK(c.gameInfo().mapStartCount == capacity);
+			setup.mapStartCount = 8;
+			c.setSetup(setup);
+			requests = c.takeRequests();
+			REQUIRE(requests.size() == 1);
+			CHECK(requests[0].body.find("\"mapStartCount\":8") != std::string::npos);
+			c.deliver(requests[0].id, 200, "{\"v\":1,\"game\":" + view(8, false, 3) + "}", "");
+			CHECK(c.gameInfo().mapStartCount == 8);
+			for (int i = 8; i < 16; ++i) CHECK(c.gameInfo().slots[i].state == SLOT_CLOSED);
+		}
+	}
+}
+
+TEST_CASE("p16 net: online listings accept only explicit wide capacities and reject high counts without one")
+{
+	OnlineLobbyClient c(clientOptions());
+	c.signInGuest(u"List");
+	auto requests = c.takeRequests();
+	REQUIRE(requests.size() == 1);
+	c.deliver(requests[0].id, 200, "{\"v\":1,\"token\":\"t.t\",\"account\":{\"id\":\"guest:1\",\"name\":\"List\",\"kind\":\"guest\"}}", "");
+	c.takeEvents();
+	const auto listing = [](const std::string &extra, int players, int open) {
+		return "{\"id\":\"0123456789abcdef\",\"name\":\"g\",\"host\":\"h\",\"map\":\"m\",\"players\":" + std::to_string(players)
+			+ ",\"openSlots\":" + std::to_string(open) + ",\"password\":false,\"state\":\"open\"" + extra + "}";
+	};
+	c.refreshList();
+	requests = c.takeRequests();
+	c.deliver(requests[0].id, 200, "{\"v\":1,\"games\":[" + listing(",\"mapStartCount\":9", 9, 0) + "]}", "");
+	REQUIRE(c.takeEvents().size() == 1);
+	CHECK(c.games()[0].mapStartCount == 9);
+	c.refreshList();
+	requests = c.takeRequests();
+	c.deliver(requests[0].id, 200, "{\"v\":1,\"games\":[" + listing(",\"mapStartCount\":16", 16, 0) + "]}", "");
+	REQUIRE(c.takeEvents().size() == 1);
+	CHECK(c.games()[0].mapStartCount == 16);
+	for (const std::string &bad : {
+		"{\"v\":1,\"games\":[" + listing("", 9, 0) + "]}",
+		"{\"v\":1,\"games\":[" + listing(",\"mapStartCount\":7", 1, 0) + "]}",
+		"{\"v\":1,\"games\":[" + listing(",\"mapStartCount\":\"16\"", 1, 0) + "]}"})
+	{
+		c.refreshList();
+		requests = c.takeRequests();
+		c.deliver(requests[0].id, 200, bad, "");
+		const auto events = c.takeEvents();
+		REQUIRE(events.size() == 1);
+		CHECK(events[0].kind == OnlineLobbyClient::Event::Refused);
+		CHECK(events[0].code == "protocol");
+	}
+}
+
 TEST_CASE("online4: install identity and pending notices (no lobby needed)")
 {
 	auto options = clientOptions(4, 4);
@@ -3067,7 +3164,7 @@ TEST_CASE("online5 retail e2e rejoin: three players through a local relay; one i
 	OnlinePlayer probe(*s, lobby.port, 81, u"");
 	REQUIRE(probe.sh->setup());
 	info = probe.sh->setup()->info();
-	for (int i = 1; i < MAX_SLOTS; ++i) // as the screen's Create Game: the host in slot 0, every other slot open
+	for (int i = 1; i < info.mapStartCount; ++i) // as the screen's Create Game: the host in slot 0, every other slot open
 	{
 		info.slots[i] = SkirmishGameSlot();
 		info.slots[i].state = SLOT_OPEN;
@@ -3845,8 +3942,9 @@ TEST_CASE("onlineux1 retail: the server browser: the Lobby Room drop-down lists 
 		info.slots[0].state = SLOT_PLAYER;
 		for (int sl = 1; sl < MAX_SLOTS; ++sl)
 		{
+			// the retail maps' eight slots open, the rest closed (P16: an eight-slot game that opens slot 8 .. 15 is a capacity refusal)
 			info.slots[sl] = SkirmishGameSlot();
-			info.slots[sl].state = SLOT_OPEN;
+			info.slots[sl].state = sl < LEGACY_MAX_SLOTS ? SLOT_OPEN : SLOT_CLOSED;
 		}
 		h.client.createGame(i == 0 ? u"Agame" : u"Bgame", "", info, 0);
 		REQUIRE_MESSAGE(runUntil(all, [&] { return h.client.inGame(); }, 300), h.notes());

@@ -124,7 +124,7 @@ OnlineLobbyClient::Options shellSocialOptions(int factions, int colors)
 std::string shellGameView(const std::string &id, const std::string &map, bool privateRoom)
 {
 	std::string slots = "[";
-	for (int slot = 0; slot < MAX_SLOTS; ++slot)
+	for (int slot = 0; slot < LEGACY_MAX_SLOTS; ++slot) // an eight-start room: eight records (ONLINE16-FIX)
 	{
 		if (slot) slots += ",";
 		const std::string state = slot == 0 ? "player" : (privateRoom && slot > 1 ? "closed" : "open");
