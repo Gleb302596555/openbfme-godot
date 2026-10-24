@@ -3,6 +3,7 @@
 
 #include "Common/ModEngineFeatures.h"
 #include "GodotDevice/GodotGammaComposite.h"
+#include "Common/PathIO.h"
 #include <godot_cpp/classes/shader.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
 #include <godot_cpp/classes/file_access.hpp>
@@ -418,7 +419,7 @@ Dictionary GameWorld::attach_audio()
 	{
 		d["error"] = toGodot(error);
 	}
-	else if (const char *logPath = std::getenv("OPENBFME_AUDIO_LOG"); logPath && *logPath)
+	else if (const std::string logPath = PathIO::environment("OPENBFME_AUDIO_LOG"); !logPath.empty())
 	{
 		// AUDIO-3: every sound request and its outcome, appended to the file once per update (a diagnostic)
 		std::string logError;
@@ -4904,7 +4905,7 @@ Dictionary GameWorld::net_write_census(const String &path) const
 		r["error"] = m_netSpectating ? "a spectator keeps no census" : "no network game";
 		return r;
 	}
-	std::ofstream c(std::string(path.utf8().get_data()), std::ios::binary | std::ios::trunc);
+	std::ofstream c(PathIO::native(path.utf8().get_data()), std::ios::binary | std::ios::trunc);
 	if (!c)
 	{
 		r["error"] = "cannot write " + path;
@@ -6707,13 +6708,14 @@ Dictionary GameWorld::prepare_replay(const String &path)
 		return r;
 	}
 	// PLAN: a replay of another profile identity is refused before the game is loaded
-	const std::string mismatch = file->profileMismatch(net_profile());
+	const std::string mismatch = file->loadRefusal(net_profile());
 	if (!mismatch.empty())
 	{
+		// lane DEVPORT-7: a replay of the other simulation profile names both profiles; then the build that made it (save routing)
 		const char *recorded = file->header.profile.simulationProfile() == SimulationProfile::Uber ? "Uber" : "Faithful";
 		const char *current = net_profile().simulationProfile() == SimulationProfile::Uber ? "Uber" : "Faithful";
-		errors.push_back(toGodot(std::string("Replay profile: ") + recorded + ". Current profile: " + current +
-			".\nThe replay was recorded by another profile: " + mismatch));
+		const std::string profiles = std::string(recorded) != current ? std::string("Replay profile: ") + recorded + ". Current profile: " + current + ".\n" : std::string();
+		errors.push_back(toGodot(profiles + mismatch));
 		return r;
 	}
 	auto start = std::make_unique<NewGameStart>(file->header.algorithm);

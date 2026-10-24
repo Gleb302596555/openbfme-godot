@@ -4,6 +4,7 @@
 // Port of ZH GameEngine/Source/Common/System/ArchiveFileSystem.cpp.
 
 #include "Common/ArchiveFileSystem.h"
+#include "Common/PathIO.h"
 #include "Common/ArchiveFile.h"
 #include "Common/AsciiString.h"
 
@@ -269,7 +270,7 @@ std::string ArchiveFileSystem::findLocalFile(const std::string &filename) const
 	{
 		return std::string();
 	}
-	fs::path at = fs::u8path(m_localFolder);
+	fs::path at = PathIO::native(m_localFolder);
 	std::error_code ec;
 	std::string rest = filename.substr(folder.size());
 	std::replace(rest.begin(), rest.end(), '\\', '/');
@@ -365,7 +366,7 @@ bool ArchiveFileSystem::readFile(const std::string &filename, std::vector<std::u
 		const std::string local = findLocalFile(filename);
 		if (!local.empty())
 		{
-			std::ifstream in(std::filesystem::u8path(local), std::ios::binary);
+			std::ifstream in(PathIO::native(local), std::ios::binary);
 			if (!in)
 			{
 				if (error)

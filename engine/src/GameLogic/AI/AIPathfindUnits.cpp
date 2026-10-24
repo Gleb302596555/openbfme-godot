@@ -1196,7 +1196,7 @@ bool Pathfinder::goalPosition(PathfindObject &obj, Coord3D *pos)
 	bool center;
 	getRadiusAndCenter(&obj, iRadius, center);
 	const ICoord2D cell = pathfindGoalCell(obj.getID());
-	*pos = Coord3D();
+	// RW 0x8E1BD4 (tier A, BFME2 ObjectRvaSmallGetters.cpp): failure leaves the caller's output untouched.
 	if (cell.x < 0 || cell.y < 0) return false;
 	adjustCoordToCell(cell.x, cell.y, center, *pos, LAYER_GROUND);
 	return true;

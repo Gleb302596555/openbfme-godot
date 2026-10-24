@@ -31,6 +31,28 @@ const DEVICE_PATTERN := "^[0-9a-f]{64}\\z"
 const CODE_PATTERN := "^[0-9A-HJKMNP-TV-Z]{10}\\z"
 const CODE_DISPLAY_PATTERN := "^[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{4}-[0-9A-HJKMNP-TV-Z]{2}\\z"
 const RECOVERY_PATTERN := "^[0-9A-HJKMNP-TV-Z]{16}\\z"
+const ERROR_MESSAGES := {
+	"signed_out": "Your social session expired. Sign in again.",
+	"session_revoked": "Your social session was revoked. Sign in again.",
+	"bad_recovery": "The recovery code was not accepted.",
+	"install_required": "Start the game once to create your shared identity.",
+	"banned": "This social account is unavailable.",
+	"suspended": "This social account is temporarily unavailable.",
+	"rate_limited": "Too many social requests. Try again later.",
+	"already_friends": "You are already friends.",
+	"already_requested": "That friend request is already pending.",
+	"unavailable": "That social item is no longer available.",
+	"not_found": "That social item was not found.",
+	"chat_muted": "Chat is unavailable for this account.",
+	"social_unavailable": "The social service is unavailable.",
+	"social_store_full": "The social service cannot save more data right now.",
+}
+const HTTP_ERROR_MESSAGES := {
+	429: "Too many social requests. Try again later.",
+	401: "The social session is no longer accepted. Sign in again.",
+	403: "The social session is no longer accepted. Sign in again.",
+	404: "That social item is unavailable.",
+}
 const TOKEN_PATTERN := "^[A-Za-z0-9._~-]{1,4096}\\z"
 
 var me: Dictionary = {}
@@ -820,30 +842,10 @@ func _retry_after(headers: Dictionary, data: Dictionary) -> float:
 
 
 func _safe_error(code: int, error_code: String) -> String:
-	var safe := {
-		"signed_out": "Your social session expired. Sign in again.",
-		"session_revoked": "Your social session was revoked. Sign in again.",
-		"bad_recovery": "The recovery code was not accepted.",
-		"install_required": "Start the game once to create your shared identity.",
-		"banned": "This social account is unavailable.",
-		"suspended": "This social account is temporarily unavailable.",
-		"rate_limited": "Too many social requests. Try again later.",
-		"already_friends": "You are already friends.",
-		"already_requested": "That friend request is already pending.",
-		"unavailable": "That social item is no longer available.",
-		"not_found": "That social item was not found.",
-		"chat_muted": "Chat is unavailable for this account.",
-		"social_unavailable": "The social service is unavailable.",
-		"social_store_full": "The social service cannot save more data right now.",
-	}
-	if safe.has(error_code):
-		return safe[error_code]
-	if code == 429:
-		return "Too many social requests. Try again later."
-	if code == 401 or code == 403:
-		return "The social session is no longer accepted. Sign in again."
-	if code == 404:
-		return "That social item is unavailable."
+	if ERROR_MESSAGES.has(error_code):
+		return ERROR_MESSAGES[error_code]
+	if HTTP_ERROR_MESSAGES.has(code):
+		return HTTP_ERROR_MESSAGES[code]
 	return "The social lobby did not accept the request."
 
 

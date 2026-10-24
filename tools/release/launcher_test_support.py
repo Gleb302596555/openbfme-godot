@@ -91,20 +91,20 @@ def archive_name(version: str) -> str:
 
 def isolated_environment(tmp: Path, **extra: str) -> dict[str, str]:
     env = dict(os.environ)
-    for name in ("ROTWK_INSTALL", "BFME2_INSTALL", "OPENBFME_GAME_USER_DIR"):
+    for name in ("BFME1_INSTALL", "ROTWK_INSTALL", "BFME2_INSTALL", "OPENBFME_GAME_USER_DIR"):
         env.pop(name, None)
+    env.update(
+        HOME=str(tmp / "home"),
+        XDG_DATA_HOME=str(tmp / "data"),
+        XDG_CONFIG_HOME=str(tmp / "config"),
+        XDG_CACHE_HOME=str(tmp / "cache"),
+        APPDATA=str(tmp / "appdata"),
+        LOCALAPPDATA=str(tmp / "localappdata"),
+    )
     if WINDOWS:
         env.update(
-            APPDATA=str(tmp / "appdata"),
-            LOCALAPPDATA=str(tmp / "localappdata"),
             USERPROFILE=str(tmp / "userprofile"),
             HOME=str(tmp / "userprofile"),
-        )
-    else:
-        env.update(
-            XDG_DATA_HOME=str(tmp / "data"),
-            XDG_CONFIG_HOME=str(tmp / "config"),
-            XDG_CACHE_HOME=str(tmp / "cache"),
         )
     env.update(extra)
     return env

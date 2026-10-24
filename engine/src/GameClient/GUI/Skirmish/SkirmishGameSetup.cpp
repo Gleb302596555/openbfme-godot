@@ -3,6 +3,7 @@
 // See GameClient/GUI/Skirmish/SkirmishGameSetup.h.
 
 #include "GameClient/GUI/Skirmish/SkirmishGameSetup.h"
+#include "GameClient/LocalizedText.h"
 #include "Common/ExtendedPlayerColors.h"
 
 #include <algorithm>
@@ -43,21 +44,7 @@ std::string lowerAscii(std::string s)
 // UnicodeString::format with one %d (the only format the lobby texts use: GUI:TooManyPlayers, GUI:StartingMoneyFormat)
 std::u16string formatInt(const std::u16string &format, int value)
 {
-	std::u16string out;
-	for (std::size_t i = 0; i < format.size(); ++i)
-	{
-		if (format[i] == u'%' && i + 1 < format.size() && format[i + 1] == u'd')
-		{
-			const std::string number = std::to_string(value);
-			out.append(number.begin(), number.end());
-			++i;
-		}
-		else
-		{
-			out.push_back(format[i]);
-		}
-	}
-	return out;
+	return LocalizedText::format(format, { value });
 }
 } // namespace
 

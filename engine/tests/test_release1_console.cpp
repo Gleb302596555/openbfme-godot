@@ -60,8 +60,8 @@ TEST_CASE("release1: the console filter redacts stdout and stderr, partial lines
 	::close(out);
 	::close(err);
 	const std::string o = readAll(outPath), e = readAll(errPath);
-	CHECK(o.find("mount ~/Games/RotWK ok\n") != std::string::npos);
-	CHECK(o.find("a raw write of ~ without newline") != std::string::npos);
+	CHECK(o.find("mount <user>/Games/RotWK ok\n") != std::string::npos);
+	CHECK(o.find("a raw write of <user> without newline") != std::string::npos);
 	CHECK(e == "ERROR: user=<user> failed\n");
 	CHECK(o.find("tester") == std::string::npos);
 
@@ -88,13 +88,13 @@ TEST_CASE("release1: the console filter redacts stdout and stderr, partial lines
 		rawWrite(2, "tester failed\n");
 		rawWrite(1, "progress 50% bye /srv/players/test");
 		::usleep(200000);
-		CHECK(readAll(outPath) == "home=~/private\npath ~/x user=<user>;\n");
+		CHECK(readAll(outPath) == "home=<user>/private\npath <user>/x user=<user>;\n");
 		rawWrite(1, "er");
 		ConsoleFilter::uninstall(); // the last partial line at exit, scrubbed as a whole
 		::close(o3);
 		::close(e3);
-		CHECK(readAll(outPath) == "home=~/private\npath ~/x user=<user>;\nprogress 50% bye ~");
-		CHECK(readAll(errPath) == "~ failed\n");
+		CHECK(readAll(outPath) == "home=<user>/private\npath <user>/x user=<user>;\nprogress 50% bye <user>");
+		CHECK(readAll(errPath) == "<user> failed\n");
 	}
 
 	// the crash path: the held partial line (scrubbed), then the crash text; nothing written to the pipe after it
@@ -109,10 +109,10 @@ TEST_CASE("release1: the console filter redacts stdout and stderr, partial lines
 		ConsoleFilter::uninstall();
 		::close(o4);
 		::close(e4);
-		CHECK(readAll(errPath) == "user=<user>\nhandle_crash: Program crashed with signal 11 in ~/OpenBFME.x86_64\n");
+		CHECK(readAll(errPath) == "user=<user>\nhandle_crash: Program crashed with signal 11 in <user>/OpenBFME.x86_64\n");
 	}
 
-	// review r4: a line longer than the cap is written in parts, cut where no name can be split; here the cap is 32 bytes and the line
+	// A line longer than the cap is omitted as a whole; even a credential split across reads must never be flushed in chunks. The line
 	// arrives in 7-byte pieces, so cuts fall everywhere around the home folder and the user name
 	{
 		const int o5 = ::open(outPath.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0600);
@@ -131,7 +131,7 @@ TEST_CASE("release1: the console filter redacts stdout and stderr, partial lines
 		::close(o5);
 		::close(e5);
 		const std::string o = readAll(outPath);
-		CHECK(o == LogPrivacy::redact(line, rules) + "\n");
+		CHECK(o == std::string(LogPrivacy::kOversized) + "\n");
 		CHECK(o.find("/srv/players") == std::string::npos);
 		CHECK(o.find("tester") == std::string::npos);
 	}
@@ -272,6 +272,26 @@ TEST_CASE("onezip1: the console filter ends when its console takes nothing")
 	// tolerance: the shutdown's deadline is 1000 ms; wall time on a loaded machine
 	CHECK_MESSAGE(ms < 1500, "uninstall waited " << ms << " ms for a console that takes nothing");
 	CHECK_FALSE(ConsoleFilter::installed());
+	::close(sink[0]);
+	::close(sink[1]);
+}
+
+TEST_CASE("release1: a blocked console cannot hang the crash writer")
+{
+	int sink[2];
+	REQUIRE(::pipe(sink) == 0);
+	::fcntl(sink[1], F_SETFL, ::fcntl(sink[1], F_GETFL) | O_NONBLOCK);
+	const std::string block(4096, 'x');
+	while (::write(sink[1], block.data(), block.size()) > 0) {}
+	::fcntl(sink[1], F_SETFL, ::fcntl(sink[1], F_GETFL) & ~O_NONBLOCK);
+	std::string error;
+	REQUIRE(ConsoleFilter::install({}, &error, sink[1], sink[1]));
+	const auto start = std::chrono::steady_clock::now();
+	ConsoleFilter::crashWrite("Authorization: Bearer synthetic");
+	const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count();
+	ConsoleFilter::uninstall();
+	// tolerance: a 500 ms crash-write deadline plus scheduler jitter, not an indefinitely blocked write.
+	CHECK(ms < 1500);
 	::close(sink[0]);
 	::close(sink[1]);
 }

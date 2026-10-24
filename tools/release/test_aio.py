@@ -321,7 +321,7 @@ def test_aio_a_pinned_archive_with_another_md5_downloads_nothing(tmp_path, servi
     (lambda m, o: m.update(Owner="someone-else"), "moved its files (owner 'someone-else'"),
     (lambda m, o: m["Files"][4].update(Name="..\\..\\escaped.dat"), "not a plain relative path"),
     (lambda m, o: m["Files"][4].update(Name="C:\\Windows\\x.dat"), "not a plain relative path"),
-    (lambda m, o: m["Files"][4].update(Url="https://example.com/" + m["Files"][4]["Md5"]), "not at the pinned http://127.0.0.1"),
+    (lambda m, o: m["Files"][4].update(Url="https://example.com/" + m["Files"][4]["Md5"]), "not at the pinned http://<address>"),  # the launcher log writes addresses as <address>
     (lambda m, o: m["Files"][1].update(Size=123), "lists lang/English.big with 123 bytes"),
     (lambda m, o: m["Files"][5].update(Md5="0" * 32, Url=f"{o}/{OWNER}/" + "0" * 32), "lists game.dat with MD5 00000000"),
     (lambda m, o: m["Files"].append({**m["Files"][5], "Name": "extra.txt"}), "lists extra.txt, which OpenBFME's list of RotWK test does not have"),

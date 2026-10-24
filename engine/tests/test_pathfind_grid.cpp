@@ -281,6 +281,37 @@ TEST_CASE("pathfind reservation: a goal cell is exclusive for allies, adjustDest
 	cleanup(w.world);
 }
 
+TEST_CASE("skirmish ai base: RW 0x8E1BD4 unset and released goals preserve the caller's position")
+{
+	TestObject unit;
+	World w(12, 12);
+	w.build();
+	unit.id = 1;
+	unit.mobile = true;
+	unit.geometry.type = PATHFIND_GEOMETRY_SPHERE;
+	unit.geometry.majorRadius = 5.0f;
+	w.world.objects[unit.id] = &unit;
+	Coord3D position{ -17.0f, 29.0f, 41.0f };
+	CHECK_FALSE(w.pf->goalPosition(unit, &position));
+	CHECK(position.x == -17.0f);
+	CHECK(position.y == 29.0f);
+	CHECK(position.z == 41.0f);
+	const Coord3D goal{ 55.0f, 55.0f, 0.0f };
+	w.pf->updateGoal(unit, &goal, LAYER_GROUND);
+	REQUIRE(w.pf->goalRegistered(unit.id));
+	REQUIRE(w.pf->goalPosition(unit, &position));
+	CHECK(position.x == 55.0f);
+	CHECK(position.y == 55.0f);
+	CHECK(position.z == 0.0f);
+	w.pf->removeGoal(unit);
+	REQUIRE_FALSE(w.pf->goalRegistered(unit.id));
+	position = Coord3D{ -17.0f, 29.0f, 41.0f };
+	CHECK_FALSE(w.pf->goalPosition(unit, &position));
+	CHECK(position.x == -17.0f);
+	CHECK(position.y == 29.0f);
+	CHECK(position.z == 41.0f);
+}
+
 TEST_CASE("pathfind reservation: position cells follow updatePos and are removed with the unit")
 {
 	World w(10, 10);

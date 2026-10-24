@@ -401,6 +401,9 @@ public:
 	const std::string &gameId() const { return m_gameId; }
 	const std::u16string &gameName() const { return m_gameName; }
 	bool amIHost() const { return inGame() && m_localSlot >= 0 && m_localSlot == m_hostSlot; }
+	// the game view's "private" (lobby.mjs: a room-code room is a Quick Match's or a tournament's, ONLINEHUB-1): SOLO-1's
+	// one-human start is for a custom game only; a private room keeps the two-human minimum
+	bool privateRoom() const { return m_privateRoom; }
 	int localSlot() const { return m_localSlot; }
 	int hostSlot() const { return m_hostSlot; }
 	const SkirmishGameInfo &gameInfo() const { return m_info; }
@@ -487,6 +490,7 @@ private:
 	// the game we are in
 	std::string m_gameId;
 	std::u16string m_gameName;
+	bool m_privateRoom = false;
 	int m_localSlot = -1, m_hostSlot = -1;
 	SkirmishGameInfo m_info;
 	std::vector<std::string> m_platformNotes; // lane PLATFORMICON-1

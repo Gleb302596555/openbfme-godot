@@ -469,12 +469,26 @@ bool AptSkirmish::changeProfileFromList()
 	const std::u16string name = GadgetListBoxGetText(m_profileList, selected, 0);
 	// lane UI-6: RW 0x9293F5 (BFME2 decomp AptSkirmishCallbacks.cpp OnChangeProfile): another profile keeps the current one's game first (RW 0x929440),
 	// and its own game is set up again (state 5: InitTheGame, RW 0x9288D0)
+	// The list may outlive an external profile deletion. A stale row is not a successful profile change:
+	// keep the active lobby and the popup open instead of reinitialising it for the old profile.
+	const std::vector<std::u16string> names = m_profiles->names();
+	if (std::find(names.begin(), names.end(), name) == names.end())
+	{
+		windows().note("profile-rejected", "the selected profile no longer exists: " + u16ToUtf8(name));
+		refreshProfileList();
+		return false;
+	}
 	const bool other = name != m_profiles->current();
 	if (other)
 	{
 		keepGame();
 	}
-	m_profiles->setCurrent(name);
+	if (!m_profiles->setCurrent(name))
+	{
+		windows().note("profile-rejected", "cannot select profile: " + u16ToUtf8(name));
+		refreshProfileList();
+		return false;
+	}
 	if (other)
 	{
 		reloadGameForProfile();
@@ -2162,6 +2176,15 @@ void AptSkirmish::updateCurrentMapWindow(const MapCacheEntry *map)
 	for (std::size_t i = 0; i < m_currentMapChildren.size() && i < MAX_SLOTS; ++i)
 	{
 		buttons[i] = m_currentMapChildren[i];
+	}
+	// In a sparse map cache entry a previously displayed button may no longer have a start
+	// position. Hide every button before showing the positions this map actually provides.
+	for (GameWindow *button : buttons)
+	{
+		if (button)
+		{
+			button->winHide(true);
+		}
 	}
 	if (map)
 	{

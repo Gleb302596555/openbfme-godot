@@ -27,6 +27,10 @@
 #include "GameClient/OptionPreferences.h"
 #include "GameClient/GameLODManager.h"
 #include "GameClient/LiveGame.h"
+#include "GameClient/Drawable.h"
+#include "GameClient/DrawableManager.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.h"
+#include "Libraries/WWVegas/WW3D2/assetmgr.h"
 #include "GameClient/MessageStream/MetaEvent.h"
 #include "GameClient/TacticalCamera.h"
 #include "GameClient/LiveFX.h"
@@ -1119,7 +1123,7 @@ void HudDevice::loadCursorTable(ArchiveFileSystem &fs)
 		{
 			if (line.begins_with("ROTWK_INSTALL="))
 			{
-				dir = line.substr(14).strip_edges().utf8().get_data();
+				dir = line.substr(14).trim_suffix("\r").utf8().get_data();
 			}
 		}
 	}
@@ -1354,6 +1358,7 @@ void InGameHudNode::_bind_methods()
 	ClassDB::bind_method(D_METHOD("ping_point", "pixel"), &InGameHudNode::ping_point); // the ping wheel
 	ClassDB::bind_method(D_METHOD("world_to_pixel", "world_xy"), &InGameHudNode::world_to_pixel);
 	ClassDB::bind_method(D_METHOD("pick_probe", "pixel", "id"), &InGameHudNode::pick_probe);
+	ClassDB::bind_method(D_METHOD("pick_box_pixels", "id"), &InGameHudNode::pick_box_pixels);
 	ClassDB::bind_method(D_METHOD("find_button_window", "path"), &InGameHudNode::find_button_window);
 	ClassDB::bind_method(D_METHOD("get_radar_square"), &InGameHudNode::get_radar_square);
 	ClassDB::bind_method(D_METHOD("world_to_radar_pixel", "world_xy"), &InGameHudNode::world_to_radar_pixel);
@@ -4139,6 +4144,69 @@ Dictionary InGameHudNode::pick_probe(const Vector2 &pixel, int64_t id) const
 	}
 	r["hits"] = hits;
 	return r;
+}
+
+// lane SELECT-1: the scripted player's click targets (scripts/select1_player.gd). Client state only: nothing reaches the simulation.
+PackedVector2Array InGameHudNode::pick_box_pixels(int64_t id) const
+{
+	waitLogic(d.get());
+	PackedVector2Array out;
+	if (!d->hud || !d->world || !d->world->hud_game())
+	{
+		return out;
+	}
+	const HudContext &ctx = d->hud->input().context();
+	const Drawable *drawable = d->world->hud_game()->drawables().findByObject((::ObjectID)id);
+	if (!drawable)
+	{
+		return out;
+	}
+	for (const DrawEntry &e : drawable->entries())
+	{
+		const RenderObjPrototype *proto = e.kind == W3D_DRAWKIND_MODEL && e.draw && !e.moduleHidden && !e.conditionHidden ? e.draw->currentModel() : nullptr;
+		if (!proto)
+		{
+			continue;
+		}
+		for (const RenderSubObject &sub : proto->SubObjects)
+		{
+			if (sub.Type != RenderSubObject::SUB_BOX || !sub.Box || sub.Aggregate || (sub.Box->Attributes & 1u) == 0)
+			{
+				continue;
+			}
+			const HTreeClass *tree = proto->Tree ? proto->Tree : &proto->DefaultTree;
+			HTreePose pose;
+			tree->Base_Pose(Matrix3D(), pose);
+			const Matrix3D pivot = sub.BoneIndex >= 0 && sub.BoneIndex < (int)pose.Transform.size() ? pose.Transform[(size_t)sub.BoneIndex] : Matrix3D();
+			const float c[3] = { sub.Box->Center.X, sub.Box->Center.Y, sub.Box->Center.Z };
+			const float ex[3] = { sub.Box->Extent.X, sub.Box->Extent.Y, sub.Box->Extent.Z };
+			const float *basis = drawable->getBasis();
+			const float scale = drawable->getInstanceScale();
+			const Coord3D at = drawable->entryPosition(e);
+			for (int k = 0; k < 7; ++k)
+			{
+				float p[3] = { c[0], c[1], c[2] };
+				if (k > 0)
+				{
+					p[(k - 1) / 2] += ((k - 1) % 2 == 0 ? -0.8f : 0.8f) * ex[(k - 1) / 2];
+				}
+				float m[3];
+				for (int r = 0; r < 3; ++r)
+				{
+					m[r] = (pivot.Row[r][0] * p[0] + pivot.Row[r][1] * p[1] + pivot.Row[r][2] * p[2] + pivot.Row[r][3]) * scale;
+				}
+				const Coord3D w{ at.x + basis[0] * m[0] + basis[1] * m[1] + basis[2] * m[2], at.y + basis[3] * m[0] + basis[4] * m[1] + basis[5] * m[2],
+					at.z + basis[6] * m[0] + basis[7] * m[1] + basis[8] * m[2] };
+				ICoord2D px;
+				if (ctx.view.worldToScreen(w, px))
+				{
+					out.push_back(Vector2((float)px.x, (float)px.y));
+				}
+			}
+			return out; // RW 0x59C680: the first one answers
+		}
+	}
+	return out;
 }
 
 Dictionary InGameHudNode::invoke_at(const String &path, const String &function, const PackedStringArray &args)

@@ -59,6 +59,8 @@
 ##     --play1=<a,b,...>     (lane PLAY-1, with --auto) the input-driven scenarios of scripts/play1_player.gd (orders, palantir, powers, camera, explore, dragbox, ghosts,
 ##                           skirmish, tour, tribute): every action is an InputEvent pushed into the viewport; prints PLAY1 lines; with --end the end of the game
 ##                           follows, with --quit the quit menu's Exit to the score screen and its Continue back to the menu
+##     --select1=clicks      (lane SELECT-1, with --auto) scripts/select1_player.gd: left clicks on soldiers of four battalions (inside their pick boxes,
+##                           beside the body) and right clicks on enemy soldiers; "SELECT1 clicks: ok / FAIL"
 ##     --input1=<a,b,...>    (lane INPUT-1, with --auto) the keyboard scenarios of scripts/input1_player.gd (groups, ...): every key is an InputEventKey
 ##                           given to Input.parse_input_event; prints INPUT1 lines
 ##     --classic-mouse / --alternate-mouse  (lane PLAY-1) force the left / right click to order (default: Options.ini AlternateMouseSetup, else retail's right click)
@@ -163,7 +165,8 @@
 ##     --net-shot-desync=FILE       save the window 1 s after the desync message box came up (the media)
 ##   lane MP-2, replays: every skirmish and LAN game is recorded to <user data>/Replays/<GUI:LastReplay>.replay (Common/Recorder.h); the main menu's Load Replay
 ##   opens SaveLoad.apt's replay page (AptSaveLoad: the files of that folder) and Load plays the chosen one back (GameWorld.prepare_replay / start_replay)
-##     --replay=FILE         play FILE back at once (no menu); --replay-check: quit when it ends, exit 0 when every frame's hash matched
+##     --replay FILE         play FILE back at once (also --replay=FILE); --replay-check: quit when it ends, exit 0 when every frame's hash matched
+##     --load FILE           mount the game data, then load FILE through the Load screen's save flow (also --load=FILE)
 ##     --replay-speed=N      (lane QA-2) play the replay at N times speed (the QA matrix checks every game's replay this way)
 ##     --replay-watch=<Player>:<Template>   (lane QA-2) while a replay plays, every 50 logic frames print each of the player's objects of that template
 ##                           (position, conditions, production queue) and the player's money / command points: QA-2's reproductions
@@ -566,6 +569,7 @@ var _dc_quit_handled := false
 var _desync_shown := false
 var _net_shot_desync := ""
 var _replay_file := ""          # lane MP-2
+var _load_file := ""
 var _replay_check := false
 var _replay_speed := 1.0
 var _replay_watch := ""
@@ -675,6 +679,10 @@ var _cah_hero_id := ""          # lane CAH-1: the unique id of the hero the --ca
 
 
 func _ready() -> void:
+	var recording_error := _set_recording_args(OS.get_cmdline_args() + OS.get_cmdline_user_args())
+	if not recording_error.is_empty():
+		_fail(recording_error)
+		return
 	if OS.get_cmdline_user_args().has("--smoke-test"):
 		process_mode = Node.PROCESS_MODE_DISABLED
 		if DisplayServer.get_name() != "headless":
@@ -808,6 +816,9 @@ func _ready() -> void:
 			# lane OWNERFIX-1: the owner's problems through the real game (scripts/ownerfix1_player.gd; a skirmish or --campaign)
 			_play1 = arg.substr(12).split(",", false)
 			_play_script = "res://scripts/ownerfix1_player.gd"
+		elif arg.begins_with("--select1="):
+			_play1 = arg.substr(10).split(",", false)
+			_play_script = "res://scripts/select1_player.gd" # lane SELECT-1: clicks on battalions' soldiers (left select, right attack) through the real input
 		elif arg.begins_with("--devport7="):
 			_play1 = arg.substr(11).split(",", false)
 			_play_script = "res://scripts/devport7_player.gd" # lane DEVPORT-7: the owner's reports (veteran, rally, formation), with test hooks
@@ -1001,8 +1012,6 @@ func _ready() -> void:
 			_net_shot_disconnect = arg.substr(22)
 		elif arg.begins_with("--net-shot-desync="):
 			_net_shot_desync = arg.substr(18)
-		elif arg.begins_with("--replay="):
-			_replay_file = arg.substr(9)
 		elif arg == "--replay-check":
 			_replay_check = true
 		elif arg.begins_with("--replay-speed="):
@@ -1274,7 +1283,16 @@ func _boot() -> void:
 		return
 	# lane ONEZIP-1: started directly from the combined package: the launcher beside the game says which installed version plays (a few
 	# seconds at most) and looks for an update in the background
-	if await Release.update_handover(_scripted_run()):
+	if not _replay_file.is_empty():
+		var replay: Dictionary = Release.info.inspect_replay(_replay_file)
+		if not replay.ok:
+			_fail("Replay refused: " + replay.error)
+			return
+		print("GAME replay input validated; mounting retail files before playback")
+	if not _load_file.is_empty():
+		print("GAME save requested; mounting retail files before loading")
+	# A recording must never be redirected to the newest version by the normal update handover.
+	if _replay_file.is_empty() and _load_file.is_empty() and await Release.update_handover(_scripted_run()):
 		get_tree().quit(0)
 		return
 	_fs = ClassDB.instantiate("RetailFileSystem")
@@ -1305,6 +1323,7 @@ func _boot() -> void:
 	_shell.name = "Shell"
 	add_child(_shell)
 	_menu_pad = load("res://scripts/menu_pad.gd").new(_shell) # lane OPTS-6: the game controller in the menus
+	_menu_pad.start_lobby = _controller_start_lobby
 	add_child(_menu_pad)
 	_save_flow = load("res://scripts/save_flow.gd").new(self) # lane SAVE-2
 	# lane FB7-1: the Options screen's inputs the device knows (AptSimpleScreens.h): the AudioSettings default volumes and the display modes (Godot lists
@@ -1433,7 +1452,25 @@ func _boot() -> void:
 		_online_open() # lane ONLINE-2
 	elif _net_host > 0 or not _net_join.is_empty():
 		_net_open()
-	elif not _replay_file.is_empty():
+	elif not _replay_file.is_empty() or not _load_file.is_empty():
+		_open_recording()
+
+
+func _set_recording_args(args: PackedStringArray) -> String:
+	var parsed := preload("res://scripts/replay_args.gd").parse(args)
+	if not parsed.ok:
+		return parsed.error
+	_replay_file = parsed.path
+	_load_file = parsed.load_path
+	return ""
+
+
+func _open_recording() -> void:
+	if not _load_file.is_empty():
+		var error: String = await _save_flow.load_save(_load_file)
+		if not error.is_empty():
+			_fail("Save refused: " + error)
+	else:
 		_begin_replay(_replay_file)
 
 
@@ -2847,6 +2884,19 @@ func _run_campaign_play1() -> void:
 	var player = script.new()
 	await player.run(self, _play1)
 	get_tree().quit(0 if player.fail_count == 0 else 1)
+
+
+
+func _controller_start_lobby() -> bool:
+	if _state != State.MENU or _shell == null or _quit_open:
+		return false
+	var stack = _shell.shell_stack()
+	if stack.is_empty() or stack[-1] != "Skirmish.apt":
+		return false
+	if not _shell.screen_state().get("start_available", false):
+		return false
+	_shell.shell_fscommand("AptSkirmish::StartGame", "")
+	return true
 
 
 func _run_auto() -> void:
@@ -6488,6 +6538,7 @@ func _begin_replay(path: String) -> void:
 	if not prep.ok:
 		var reason := "\n".join(prep.errors)
 		printerr("GAME replay refused: ", reason)
+		# lane DEVPORT-7: a refused replay (also one given on the command line) is named on the replay list and the game stays up
 		var name := path.get_file().get_basename()
 		if not _shell.save_load_refused(name, reason):
 			_open_replay_menu() # a command-line replay or the score screen did not start on the list

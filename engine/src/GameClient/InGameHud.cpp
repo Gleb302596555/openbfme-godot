@@ -1147,10 +1147,18 @@ void InGameHud::scriptInput(bool enable)
 
 bool InGameHud::openSpellStore(std::string *error)
 {
-	Player *local = m_config.game.players().getLocalPlayer();
-	if (m_store || !local || !TheCommandStore)
+	if (m_store)
 	{
-		return m_store != nullptr;
+		return true;
+	}
+	Player *local = m_config.game.players().getLocalPlayer();
+	if (!local || !TheCommandStore)
+	{
+		if (error)
+		{
+			*error = !local ? "the spell store needs a local player" : "the spell store needs a command store";
+		}
+		return false;
 	}
 	auto store = std::make_unique<AptSpellStore>(*m_wm, *m_shellRef);
 	if (store->level() < 0)
@@ -1456,6 +1464,13 @@ void InGameHud::key(int keyCode, int keyState, char32_t character)
 {
 	m_keyState = keyState;
 	const auto worldContext = enterContext(); // this world's stores for the whole call (see InGameHud.h)
+	// A key pressed in a modal menu belongs to that menu, not the game's held-key
+	// state. setModal cancels the keys already down, but without this gate a key
+	// pressed *after* opening the menu remains held when the menu closes.
+	if (m_modal)
+	{
+		return;
+	}
 	m_input->key(keyCode, keyState, character);
 }
 

@@ -919,6 +919,7 @@ void OnlineLobbyClient::leftGame(const std::string &why)
 {
 	m_gameId.clear();
 	m_gameName.clear();
+	m_privateRoom = false;
 	m_localSlot = m_hostSlot = -1;
 	m_info = SkirmishGameInfo();
 	m_slots = {};
@@ -965,6 +966,11 @@ bool OnlineLobbyClient::readGameView(const JsonValue &g, std::string *error, boo
 	if (!intOf(g.get("hostSlot"), 0, MAX_SLOTS - 1, hostSlot) || !intOf(g.get("seq"), 0, 0xFFFFFFFFll, seq))
 	{
 		return fail("\"hostSlot\" / \"seq\" out of range");
+	}
+	const JsonValue *priv = g.get("private");
+	if (!priv || priv->type != JsonValue::BOOL)
+	{
+		return fail("\"private\" must be true or false");
 	}
 	const JsonValue *setup = g.get("setup");
 	const JsonValue *slots = g.get("slots");
@@ -1201,6 +1207,7 @@ bool OnlineLobbyClient::readGameView(const JsonValue &g, std::string *error, boo
 	}
 	m_gameId = id;
 	m_gameName = u16(strOf(g.get("name")));
+	m_privateRoom = priv->boolean;
 	m_hostSlot = (int)hostSlot;
 	m_localSlot = local;
 	m_seq = (std::uint32_t)seq;

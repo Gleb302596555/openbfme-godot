@@ -8,6 +8,7 @@
 
 import { Lobby, LobbyError, route, configFromEnv, MAX_JSON_BYTES, validateEnforcementRecord, validateSighting, withoutGameIp } from './lobby.mjs';
 import { SqliteIdentityStore } from './identity-store.mjs';
+import { repairStoredText } from './stored-text.mjs';
 import { SocialStorageError, socialSqlTransaction, socialStorageError } from './social-store.mjs';
 
 const subtle = crypto.subtle;
@@ -317,8 +318,9 @@ export class LobbyObject {
             throw new Error('stored game key does not match its id');
           }
           lastKey = key;
-          const clean = withoutGameIp(game);
-          if (Object.hasOwn(game, 'ip')) await this.state.storage.put(key, clean);
+          const repaired = repairStoredText(game);
+          const clean = withoutGameIp(repaired);
+          if (repaired !== game || Object.hasOwn(game, 'ip')) await this.state.storage.put(key, clean);
           page.push(clean);
         }
         this.lobby.loadGames(page);

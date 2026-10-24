@@ -3,6 +3,9 @@ extends Control
 signal join_invite(invite: Dictionary)
 
 const W := preload("res://scripts/ui/widgets.gd")
+const PlayerMessages := preload("res://scripts/ui/player_messages.gd")
+
+signal problem_reported(detail: String, operation: int)
 const PROVIDER_NAMES := {"discord": "Discord", "email": "e-mail"}
 const PRIVACY_URL := "https://openbfme.com/privacy"
 const Style := preload("res://scripts/ui/style.gd")
@@ -78,6 +81,8 @@ func build(_repo: String) -> void:
 	_name.text_submitted.connect(func(_text: String) -> void: _sign_in())
 	signin_row.add_child(_connect)
 	signin.box.add_child(signin_row)
+	_name.focus_neighbor_right = _name.get_path_to(_connect)
+	_connect.focus_neighbor_left = _connect.get_path_to(_name)
 	_recover_toggle = CheckBox.new()
 	_recover_toggle.text = "Use a recovery code on this PC"
 	for state in ["normal", "hover", "pressed", "hover_pressed", "disabled"]:
@@ -251,8 +256,10 @@ func bind_client(value: Node, toast_parent: Control, blocked := "") -> void:
 
 
 func show_problem(message: String) -> void:
-	_status.text = message
+	var operation := PlayerMessages.Operation.LOBBY if client != null and client.is_signed_in() else PlayerMessages.Operation.SIGN_IN
+	_status.text = PlayerMessages.social_error(message, operation)
 	_chat_loading = false
+	problem_reported.emit(message, operation)
 
 
 func bind_oauth(value: Node) -> void:

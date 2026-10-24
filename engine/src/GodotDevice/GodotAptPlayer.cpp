@@ -2,6 +2,8 @@
 // See GodotAptPlayer.h.
 
 #include "GodotDevice/GodotAptPlayer.h"
+#include "Common/PathIO.h"
+#include <godot_cpp/classes/input.hpp>
 #include "GodotDevice/GodotVideoStream.h"
 #include "GameClient/GUI/PlatformIcons.h"
 #include "GameClient/CameraSettings.h"
@@ -127,6 +129,7 @@
 #include <functional>
 #include <map>
 #include <tuple>
+#include <type_traits>
 #include <random>
 
 namespace godot
@@ -194,8 +197,8 @@ void addTextureUV(RenderingServer *rs, RID item, const Rect2 &dest, const Ref<Te
 
 // loadPackedTexture (lane UI-2) is in GodotPackedTexture.cpp (lane HUD-4: the HUD's radar loads ScrollShroud through it too)
 
-static_assert(sizeof(Vector2) == 8, "PackedVector2Array is copied as float pairs");
-static_assert(sizeof(Color) == 16, "PackedColorArray is copied as float quads");
+static_assert(sizeof(Vector2) == 8 && std::is_trivially_copyable_v<Vector2>, "PackedVector2Array is copied as float pairs");
+static_assert(sizeof(Color) == 16 && std::is_trivially_copyable_v<Color>, "PackedColorArray is copied as float quads");
 
 // Godot key -> Windows virtual-key code (the codes the player's Key natives report; S-108 leaves the retail ids unverified).
 int virtualKeyOf(Key key)
@@ -461,7 +464,8 @@ public:
 	{
 		if (r.action == ShellAction::OpenProjectWebsite)
 		{
-			const Error error = OS::get_singleton()->shell_open("https://openbfme.com");
+			Ref<Resource> opener = ResourceLoader::get_singleton()->load("res://scripts/external_open.gd");
+			const Error error = opener.is_valid() ? (Error)(int)opener->call("open_url", "https://openbfme.com") : ERR_UNAVAILABLE;
 			events.push_back({ "project_website", "https://openbfme.com", std::to_string((int)error) });
 			if (error != OK) { UtilityFunctions::push_error("Could not open https://openbfme.com: ", (int)error); }
 			return;
@@ -756,6 +760,9 @@ struct ShellMode
 // ---------------------------------------------------------------------------------------------------------------------------------
 struct AptMenuPlayer::Impl
 {
+	int mainMenuGroup = -1, mainMenuItem = -1;
+	PackedStringArray mainMenuGroups, mainMenuEntries;
+	String mainMenuFocus;
 	bool cahGuardShown = false;   ///< lane CAHPIC-1: the last picture showed Create-a-Hero's RenderPictureGuard clip
 	bool cahMapShown = false;     ///< lane CAHPIC-1: ... and its DrawMapComponent clip (the 3D view)
 	bool cahPicturePending = false; ///< lane CAHPIC-1: a picture is taken from the next frame drawn
@@ -1329,14 +1336,10 @@ void AptMenuPlayer::_bind_methods()
 	ClassDB::bind_method(D_METHOD("online_social_events"), &AptMenuPlayer::online_social_events);
 	ClassDB::bind_method(D_METHOD("online_social_apply", "spec"), &AptMenuPlayer::online_social_apply);
 	ClassDB::bind_method(D_METHOD("online_messenger_sync", "spec"), &AptMenuPlayer::online_messenger_sync);
-	ClassDB::bind_method(D_METHOD("online_friends_button", "label"), &AptMenuPlayer::online_friends_button); // lane ONLINEMENU-1
 	ClassDB::bind_method(D_METHOD("online_ask", "key", "title", "text"), &AptMenuPlayer::online_ask);
 	ClassDB::bind_method(D_METHOD("online_answers"), &AptMenuPlayer::online_answers);
 	ClassDB::bind_method(D_METHOD("online_asking", "key"), &AptMenuPlayer::online_asking);
-	ClassDB::bind_method(D_METHOD("online_friends_page_show", "spec"), &AptMenuPlayer::online_friends_page_show);
-	ClassDB::bind_method(D_METHOD("online_friends_page_close"), &AptMenuPlayer::online_friends_page_close);
-	ClassDB::bind_method(D_METHOD("online_friends_page_events"), &AptMenuPlayer::online_friends_page_events);
-	ClassDB::bind_method(D_METHOD("online_friends_page_state"), &AptMenuPlayer::online_friends_page_state);
+	ClassDB::bind_method(D_METHOD("online_cancel_ask", "key"), &AptMenuPlayer::online_cancel_ask);
 	ClassDB::bind_method(D_METHOD("online_start_failed", "error"), &AptMenuPlayer::online_start_failed); // Sol r1
 	ClassDB::bind_method(D_METHOD("online_game_failed", "text"), &AptMenuPlayer::online_game_failed); // lane ONLINEUX-1
 	ClassDB::bind_method(D_METHOD("online_set_counts", "counts"), &AptMenuPlayer::online_set_counts); // lane ONLINEUX-1
@@ -1368,6 +1371,7 @@ void AptMenuPlayer::_bind_methods()
 	ClassDB::bind_method(D_METHOD("quit_menu", "request"), &AptMenuPlayer::quit_menu);
 	ClassDB::bind_method(D_METHOD("get_cursor_tooltip"), &AptMenuPlayer::get_cursor_tooltip); // lane HOVER-1
 	ClassDB::bind_method(D_METHOD("list_buttons", "level"), &AptMenuPlayer::list_buttons);
+	ClassDB::bind_method(D_METHOD("menu_controller_section", "delta"), &AptMenuPlayer::menu_controller_section);
 	ClassDB::bind_method(D_METHOD("menu_input", "event"), &AptMenuPlayer::menu_input); // lane OPTS-6
 	ClassDB::bind_method(D_METHOD("open_options", "network_enabled", "allow_resolution", "allow_advanced", "advanced_only"), &AptMenuPlayer::open_options);
 	ClassDB::bind_method(D_METHOD("menu_has_input"), &AptMenuPlayer::menu_has_input);
@@ -2467,7 +2471,7 @@ OpenBFMEPageRow pageRowOf(const Dictionary &d)
 	return r;
 }
 
-// lane ONLINEMENU-1: a page spec from the device's Dictionary (the Options screen's OpenBFME page and the online FRIENDS page)
+// A page spec from the device's Dictionary for the Options screen's OpenBFME page.
 OpenBFMEPageSpec pageSpecOf(const Dictionary &spec)
 {
 	OpenBFMEPageSpec s;
@@ -4459,15 +4463,15 @@ void AptMenuPlayer::drawSegment(const AptCanvasList &list, size_t segment, const
 				const int64_t n = (int64_t)(op.positions.size() / 2);
 				PackedVector2Array pts;
 				pts.resize(n);
-				memcpy(pts.ptrw(), op.positions.data(), (size_t)n * sizeof(float) * 2);
+				memcpy(static_cast<void *>(pts.ptrw()), op.positions.data(), (size_t)n * sizeof(float) * 2);
 				PackedColorArray cols;
 				cols.resize(n);
-				memcpy(cols.ptrw(), op.colors.data(), (size_t)n * sizeof(float) * 4);
+				memcpy(static_cast<void *>(cols.ptrw()), op.colors.data(), (size_t)n * sizeof(float) * 4);
 				PackedVector2Array uvs;
 				if (!op.uvs.empty())
 				{
 					uvs.resize(n);
-					memcpy(uvs.ptrw(), op.uvs.data(), (size_t)n * sizeof(float) * 2);
+					memcpy(static_cast<void *>(uvs.ptrw()), op.uvs.data(), (size_t)n * sizeof(float) * 2);
 				}
 				PackedInt32Array idx;
 				idx.resize(n);
@@ -5821,6 +5825,7 @@ Dictionary AptMenuPlayer::screen_state() const
 	if (auto *skirmish = dynamic_cast<AptSkirmish *>(top))
 	{
 		out["profile_state"] = skirmish->profileState();
+		out["start_available"] = skirmish->startAvailable(); // Popup states cannot start.
 	}
 	if (auto *cah = dynamic_cast<AptCreateAHero *>(top))
 	{
@@ -6043,7 +6048,11 @@ void AptMenuPlayer::syncNav() const
 		return;
 	}
 	const AptScreen *top = m->shell->shell ? m->shell->shell->inputTop() : nullptr;
-	m->shell->nav->setMenu(top && top->isMenu() && !top->isHidden() && top->level() >= 0 ? top->level() : -1, top);
+	// MainMenu uses the pre-OPTS-6 dropdown group navigation in menuKey.
+	// Keep the spatial navigator off that movie and its animated submenus.
+	m->shell->nav->setMenu(top && top->filename() != "MainMenu.apt" && top->isMenu() && !top->isHidden() && top->level() >= 0 ? top->level() : -1, top);
+	m->shell->nav->setControllerResults(top && top->filename() == "TimeLine.apt" &&
+		!Input::get_singleton()->get_connected_joypads().is_empty());
 }
 
 bool AptMenuPlayer::modal_menu() const
@@ -6082,15 +6091,31 @@ bool AptMenuPlayer::menu_has_input() const
 		return false;
 	}
 	syncNav();
-	return m->shell->nav->level() >= 0;
+	const AptScreen *top = m->shell->shell ? m->shell->shell->inputTop() : nullptr;
+	return top && top->isMenu() && !top->isHidden() && top->level() >= 0;
 }
 
 void AptMenuPlayer::menu_pointer_moved()
 {
+	m->mainMenuGroup = m->mainMenuItem = -1;
 	if (m_booted && m->shell && m->shell->nav)
 	{
+		m->shell->nav->setControllerSections(false);
 		m->shell->nav->pointerMoved();
 	}
+}
+
+bool AptMenuPlayer::menu_controller_section(int delta)
+{
+	if (!m_booted || !m->shell || !m->shell->shell) return false;
+	const auto *top = m->shell->shell->inputTop();
+	if (!top || !dynamic_cast<const AptSkirmish *>(top)) return false;
+	syncNav();
+	if (!m->shell->nav->supportsControllerSections()) return false;
+	m->shell->nav->setControllerSections(true);
+	m->shell->nav->switchControllerSection(delta);
+	m->dirty = true;
+	return true;
 }
 
 bool AptMenuPlayer::menu_input(const Ref<InputEvent> &event)
@@ -6102,6 +6127,9 @@ bool AptMenuPlayer::menu_input(const Ref<InputEvent> &event)
 Dictionary AptMenuPlayer::menu_nav_state()
 {
 	Dictionary r;
+	r["main_groups"] = m->mainMenuGroups;
+	r["main_entries"] = m->mainMenuEntries;
+	r["main_focus"] = m->mainMenuFocus;
 	r["level"] = -1;
 	if (!m_booted || !m->shell || !m->shell->nav)
 	{
@@ -6111,6 +6139,7 @@ Dictionary AptMenuPlayer::menu_nav_state()
 	MenuNavigator &nav = *m->shell->nav;
 	r["level"] = nav.level();
 	r["focus"] = toGodot(nav.focusId());
+	r["controller_section"] = nav.controllerSection();
 	r["frame"] = nav.frameShown();
 	float box[4];
 	if (nav.focusBox(box))
@@ -6172,6 +6201,114 @@ bool AptMenuPlayer::menuKey(const InputEventKey *key)
 			m->dirty = true;
 			return true;
 		}
+	}
+	// The mounted movie supplies the groups, entries and button actions. This
+	// works for each game's menu and for mods without a content-name table.
+	const Key menuKey = key->get_keycode();
+	const bool arrow = menuKey == Key::KEY_LEFT || menuKey == Key::KEY_RIGHT || menuKey == Key::KEY_UP || menuKey == Key::KEY_DOWN;
+	const bool main = m->shell && m->shell->shell && m->shell->shell->top() &&
+		m->shell->shell->top()->filename() == "MainMenu.apt" && !m->shell->wm->componentInputBlocked();
+	if (!main || menuKey == Key::KEY_TAB) m->mainMenuGroup = m->mainMenuItem = -1;
+	if (main && (arrow || (m->mainMenuGroup >= 0 && (menuKey == Key::KEY_ENTER || menuKey == Key::KEY_KP_ENTER || menuKey == Key::KEY_SPACE))))
+	{
+		const int level = m->shell->shell->top()->level();
+		AptSpriteInst *root = m->A()->level(level);
+		if (!root) return false; // A newly pushed screen loads its movie on the next update.
+		std::vector<AptSpriteInst *> groups;
+		for (AptCharacterInst *child : root->children())
+		{
+			AptSpriteInst *clip = child->asSprite();
+			if (clip && clip->globallyVisible() &&
+				((clip->labelFrame("_show") >= 0 && clip->labelFrame("_hide") >= 0) ||
+				 (clip->labelFrame("_over") >= 0 && firstButton(clip)))) groups.push_back(clip);
+		}
+		// Horizontal group order follows the authored heading positions. Entries
+		// follow their authored vertical positions after the group opens.
+		auto x = [](AptCharacterInst *clip) { float x, y; clip->globalMatrix().apply(0, 0, x, y); return x; };
+		std::stable_sort(groups.begin(), groups.end(), [&](auto *a, auto *b) { return x(a) < x(b); });
+		m->mainMenuGroups.clear();
+		for (auto *group : groups) m->mainMenuGroups.push_back(toGodot(group->pathSegment()));
+		if (!groups.empty())
+		{
+			auto animate = [](AptSpriteInst *clip, const char *label) {
+				const int frame = clip->labelFrame(label);
+				if (frame >= 0) { clip->gotoFrame(frame); clip->playing = true; }
+			};
+			if (m->mainMenuGroup >= (int)groups.size()) m->mainMenuGroup = m->mainMenuItem = -1;
+			if (key->is_pressed())
+			{
+				const int previous = m->mainMenuGroup;
+				if (menuKey == Key::KEY_LEFT || menuKey == Key::KEY_RIGHT || m->mainMenuGroup < 0)
+				{
+					const int delta = menuKey == Key::KEY_LEFT ? -1 : 1;
+					if (m->mainMenuGroup < 0) m->mainMenuGroup = delta > 0 ? -1 : 0;
+					m->mainMenuGroup = (m->mainMenuGroup + delta + (int)groups.size()) % (int)groups.size();
+					m->mainMenuItem = -1;
+				}
+				m->mainMenuFocus = toGodot(groups[m->mainMenuGroup]->pathSegment());
+				if (previous != m->mainMenuGroup)
+				{
+					for (int i = 0; i < (int)groups.size(); ++i)
+					{
+						const bool chosen = i == m->mainMenuGroup;
+						const bool expands = groups[i]->labelFrame("_show") >= 0;
+						animate(groups[i], expands ? (chosen ? "_show" : "_hide") : (chosen ? "_over" : "_up"));
+					}
+				}
+				else
+				{
+					AptSpriteInst *group = groups[m->mainMenuGroup];
+					std::vector<AptSpriteInst *> entries;
+					for (AptCharacterInst *child : group->children())
+					{
+						AptSpriteInst *clip = child->asSprite();
+						// OpenButton is the heading, not a selectable submenu item.
+						if (clip && clip->pathSegment() != "OpenButton" && clip->globallyVisible() &&
+							clip->labelFrame("_over") >= 0 && firstButton(clip) && firstButton(clip)->enabled) entries.push_back(clip);
+					}
+					std::stable_sort(entries.begin(), entries.end(), [](auto *a, auto *b) {
+						float ax, ay, bx, by; a->globalMatrix().apply(0, 0, ax, ay); b->globalMatrix().apply(0, 0, bx, by); return ay > by;
+					});
+					if (m->mainMenuItem >= (int)entries.size()) m->mainMenuItem = -1;
+					if (menuKey == Key::KEY_UP || menuKey == Key::KEY_DOWN)
+					{
+						if (!entries.empty()) m->mainMenuItem = m->mainMenuItem < 0 ? 0 :
+							(m->mainMenuItem + (menuKey == Key::KEY_UP ? 1 : -1) + (int)entries.size()) % (int)entries.size();
+					}
+					else if (!arrow)
+					{
+						if (m->mainMenuItem < 0 && !entries.empty()) m->mainMenuItem = 0;
+						else
+						{
+							AptSpriteInst *entry = entries.empty() ? group : entries[m->mainMenuItem];
+							const Dictionary hit = find_button(level, toGodot(entry->targetPath()));
+							if ((bool)hit.get("found", false) && (bool)hit.get("enabled", false) && hit.get("hit", String()) == hit.get("path", String()))
+							{
+								m->shell->wm->postMouseMove((double)hit["x"], (double)hit["y"]);
+								m->shell->wm->postMouseButton(true);
+								m->shell->wm->postMouseButton(false);
+							}
+						}
+					}
+					m->mainMenuEntries.clear();
+					for (int i = 0; i < (int)entries.size(); ++i)
+					{
+						m->mainMenuEntries.push_back(toGodot(entries[i]->pathSegment()));
+						animate(entries[i], i == m->mainMenuItem ? "_over" : "_up");
+					}
+					if (m->mainMenuItem >= 0) m->mainMenuFocus = toGodot(entries[m->mainMenuItem]->pathSegment());
+				}
+				m->dirty = true;
+			}
+			return true;
+		}
+	}
+
+	if (m->shell && m->shell->nav && m->shell->shell)
+	{
+		syncNav();
+		const auto *top = m->shell->shell->inputTop();
+		m->shell->nav->setControllerSections(top && dynamic_cast<const AptSkirmish *>(top) && m->shell->nav->supportsControllerSections() && (bool)key->get_meta("menu_controller", false));
 	}
 	// lane SAVE-UI1: the top screen's own Escape procedure first (its press and its release are its alone)
 	if (key->get_keycode() == Key::KEY_ESCAPE && !key->is_echo() && menu_escape(key->is_pressed()))
@@ -7434,14 +7571,14 @@ Dictionary AptMenuPlayer::read_options_file(const String &path)
 	Dictionary values;
 	const std::string native = toNative(path);
 	std::error_code ec;
-	r["exists"] = std::filesystem::exists(std::filesystem::u8path(native), ec); // anything at the path (a folder there is an unreadable file, not a first run)
+	r["exists"] = std::filesystem::exists(PathIO::native(native), ec); // anything at the path (a folder there is an unreadable file, not a first run)
 	OptionPreferences prefs;
 	std::string error;
 	if (!(bool)r["exists"])
 	{
 		r["ok"] = true; // the first run: no entries (boot_shell reads the same)
 	}
-	else if (std::filesystem::is_directory(std::filesystem::u8path(native), ec))
+	else if (std::filesystem::is_directory(PathIO::native(native), ec))
 	{
 		r["ok"] = false;
 		r["error"] = toGodot("cannot read " + native + ": a folder");
@@ -7876,7 +8013,7 @@ Dictionary AptMenuPlayer::online_social_apply(const Dictionary &spec)
 	return out;
 }
 
-// lane ONLINEMENU-1: the online FRIENDS button and page (AptOnlineShell; NOT RETAIL)
+// Online questions and Messenger synchronization.
 namespace
 {
 AptOnlineShell *onlineShellOf(Shell *shell)
@@ -7884,14 +8021,6 @@ AptOnlineShell *onlineShellOf(Shell *shell)
 	return shell ? dynamic_cast<AptOnlineShell *>(shell->findScreenByFilename("OnlineShell.apt")) : nullptr;
 }
 } // namespace
-
-void AptMenuPlayer::online_friends_button(const String &label)
-{
-	if (AptOnlineShell *s = onlineShellOf(m->shell ? m->shell->shell.get() : nullptr))
-	{
-		s->setFriendsButton(utf8ToU16(toNative(label)).substr(0, 32));
-	}
-}
 
 bool AptMenuPlayer::online_ask(const String &key, const String &title, const String &text)
 {
@@ -7905,6 +8034,14 @@ bool AptMenuPlayer::online_asking(const String &key)
 	return s && s->asking(toNative(key));
 }
 
+void AptMenuPlayer::online_cancel_ask(const String &key)
+{
+	if (AptOnlineShell *s = onlineShellOf(m->shell ? m->shell->shell.get() : nullptr))
+	{
+		s->cancelAsk(toNative(key));
+	}
+}
+
 PackedStringArray AptMenuPlayer::online_answers()
 {
 	PackedStringArray out;
@@ -7916,100 +8053,6 @@ PackedStringArray AptMenuPlayer::online_answers()
 		}
 	}
 	return out;
-}
-
-Dictionary AptMenuPlayer::online_friends_page_show(const Dictionary &spec)
-{
-	Dictionary r;
-	r["ok"] = false;
-	AptOnlineShell *s = onlineShellOf(m->shell ? m->shell->shell.get() : nullptr);
-	if (!s)
-	{
-		r["error"] = "OnlineShell.apt is not up";
-		return r;
-	}
-	std::string error;
-	const bool ok = s->openFriendsPage(pageSpecOf(spec), &error);
-	r["ok"] = ok;
-	r["error"] = toGodot(error);
-	if (!ok)
-	{
-		UtilityFunctions::printerr(toGodot("SHELL friends page: " + error));
-	}
-	return r;
-}
-
-void AptMenuPlayer::online_friends_page_close()
-{
-	if (AptOnlineShell *s = onlineShellOf(m->shell ? m->shell->shell.get() : nullptr))
-	{
-		s->closeFriendsPage();
-	}
-}
-
-Array AptMenuPlayer::online_friends_page_events()
-{
-	AptOnlineShell *s = onlineShellOf(m->shell ? m->shell->shell.get() : nullptr);
-	return s ? pageEventsOf(s->takeFriendsEvents()) : Array();
-}
-
-Dictionary AptMenuPlayer::online_friends_page_state() const
-{
-	Dictionary d;
-	AptOnlineShell *s = onlineShellOf(m->shell ? m->shell->shell.get() : nullptr);
-	d["shell"] = s != nullptr;
-	d["open"] = s && s->friendsPageOpen();
-	if (s)
-	{
-		d["button"] = Rect2(AptOnlineShell::kFriendsButtonLeft, AptOnlineShell::kFriendsButtonTop, AptOnlineShell::kFriendsButtonRight - AptOnlineShell::kFriendsButtonLeft,
-			AptOnlineShell::kFriendsButtonBottom - AptOnlineShell::kFriendsButtonTop);
-	}
-	OpenBFMEOptionsPage *page = s ? s->friendsPage() : nullptr;
-	if (!page || !page->shown())
-	{
-		return d;
-	}
-	d["tab"] = page->spec().tab;
-	Array tabs;
-	for (std::size_t i = 0; i < page->spec().tabs.size(); ++i)
-	{
-		std::array<int, 4> r{};
-		page->rect("tab:" + std::to_string(i), r);
-		tabs.push_back(stageRect(r));
-	}
-	d["tabs"] = tabs;
-	Dictionary rows;
-	for (const OpenBFMEPageRow &row : page->spec().rows)
-	{
-		if (row.key.empty())
-		{
-			continue;
-		}
-		Dictionary rd;
-		std::array<int, 4> r{};
-		if (page->rect(row.key, r))
-		{
-			rd["rect"] = stageRect(r);
-		}
-		rd["value"] = row.value;
-		rd["value_text"] = toGodot(u16ToUtf8(row.valueText));
-		rd["label"] = toGodot(u16ToUtf8(row.label));
-		rows[toGodot(row.key)] = rd;
-	}
-	d["rows"] = rows;
-	Array list;
-	for (const auto &item : page->spec().list)
-	{
-		list.push_back(toGodot(u16ToUtf8(item.first)));
-	}
-	d["list_rows"] = list;
-	std::array<int, 4> lr{};
-	if (page->rect("list", lr))
-	{
-		d["list"] = stageRect(lr);
-	}
-	d["help"] = toGodot(u16ToUtf8(page->helpText()));
-	return d;
 }
 
 Dictionary AptMenuPlayer::online_messenger_sync(const Dictionary &spec)

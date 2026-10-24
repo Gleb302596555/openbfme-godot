@@ -139,6 +139,9 @@ public:
 	// lane IDLE-1: { ok, picked (the id the HUD's pick answers at `pixel`, 0 for none), target ("hit" / "miss" / "not_drawn" / "unknown" / "gone": the pick ray
 	// against object `id`'s drawn model alone), target_t, selectable (HudObjects::isSelectable of `id`) } (the QA harness's failed-click verdict)
 	Dictionary pick_probe(const Vector2 &pixel, int64_t id) const;
+	// lane SELECT-1: the screen pixels of points inside object `id`'s oriented pick box (the first top-LOD W3D_BOX_ATTRIBUTE_ORIENTED box of its drawn model,
+	// the one RotWK's pick tests: RW 0x59C680): the centre, then the centre +- 80 % of each half extent along the box's axes; empty without such a box
+	PackedVector2Array pick_box_pixels(int64_t id) const;
 	// engine -> movie: calls `function` on the clip at `path` below the HUD movie's root ("" = the root) with string arguments; { ok, result, error }
 	Dictionary invoke_at(const String &path, const String &function, const PackedStringArray &args);
 	// the radar picture's square in window pixels (Rect2; size 0 before the movie shows it)

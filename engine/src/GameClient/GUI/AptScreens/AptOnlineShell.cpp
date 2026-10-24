@@ -138,23 +138,18 @@ const std::vector<std::string> &AptOnlineShell::stopLines()
 
 AptOnlineShell::~AptOnlineShell()
 {
-	// lane ONLINEMENU-1: the friends page's gadgets and the shell's decorator / mouse filter go with the shell (the layer outlives every screen)
+	// lane ONLINEMENU-1: the network page's gadgets and the shell's decorator / mouse filter go with the shell (the layer outlives every screen)
 	if (AptGadgetLayer *layer = windows().gadgetLayer())
 	{
 		layer->clearDecorator(this);
 	}
 	else
 	{
-		if (m_friendsPage)
-		{
-			m_friendsPage->abandon();
-		}
 		if (m_networkPage)
 		{
 			m_networkPage->abandon();
 		}
 	}
-	m_friendsPage.reset();
 	m_networkPage.reset();
 	windows().setMouseFilter(nullptr);
 	for (auto &p : m_pages)
@@ -411,7 +406,8 @@ void AptOnlineShell::loadPage(const std::string &name)
 	{
 		// OnlineStrategic: not ported [S-4075]. Lane MENUWORK-1: the box says why in the player's words, and the page the
 		// player came from is loaded again (the movie's LoadScreen) instead of leaving them on an empty page
-		m_pages[name];
+		// An unavailable page has no callbacks to retain. Caching it as loaded would make
+		// the next visit skip this notice and replace the player's current/resume page.
 		notAvailable(name, "[S-4075]", unavailablePageText(name));
 		if (!m_currentName.empty() && m_currentName != name)
 		{
@@ -480,7 +476,7 @@ void AptOnlineShell::runInit()
 		m_barDue = true;
 	}
 	// lane ONLINEMENU-1: the mouse filter is the shell's while it is on top (the Options screen opened over it takes and clears its own)
-	windows().setMouseFilter([this](int kind, float x, float y) { return friendsMouse(kind, x, y); });
+	windows().setMouseFilter([this](int kind, float x, float y) { return networkMouse(kind, x, y); });
 }
 
 void AptOnlineShell::unloadPage(const std::string &name)
@@ -1730,10 +1726,11 @@ bool AptOnlineShell::askYesNo(const std::string &key, const std::u16string &titl
 	m_askTitle = title;
 	m_askText = text;
 	box().show(AptMessageBox::TYPE_YES_NO, title, text, [this, key](int button) {
-		if (m_askKey == key)
+		if (m_askKey != key)
 		{
-			m_askKey.clear();
+			return;
 		}
+		m_askKey.clear();
 		if (m_answers.size() < 64)
 		{
 			m_answers.push_back(key + (button == AptMessageBox::BUTTON_YES ? "|yes" : "|no"));
@@ -1753,6 +1750,15 @@ std::vector<std::string> AptOnlineShell::takeAnswers()
 	std::vector<std::string> out;
 	out.swap(m_answers);
 	return out;
+}
+
+void AptOnlineShell::cancelAsk(const std::string &key)
+{
+	if (asking(key))
+	{
+		m_askKey.clear();
+		box().hide();
+	}
 }
 
 void AptOnlineShell::requestJoin(const std::string &id, const std::string &password)
@@ -1871,7 +1877,11 @@ void AptOnlineShell::startPressed()
 	{
 		// lane ONLINE-5: with the screen's own flags (0x20: a player who is not ready refuses the start with GUI:NotifiedStartIntent, RW 0x8431B8's
 		// last test). The owner's vslot 0x44 (BFME2 0x59F043 MpOwnerPrintMessage): kind 2 is a line every player of the room gets, the others are local
-		const SkirmishGameSetup::StartCheck check = model->checkStart(setupFlags());
+		// RW 0x8431B8: BFME2 AptMpGameSetup::OnHostStartGame, RVA 0x440BDF, tier B (RotWK differences unverified).
+		// SOLO-2 policy, not a retail port: the 0x10 two-human check stays only for the platform's private rooms (a Quick Match
+		// or tournament room, ONLINEHUB-1); a custom game may start with one human, with AI slots or none (lobby.mjs start() the same)
+		const int startFlags = m_client->privateRoom() ? setupFlags() : (setupFlags() & ~0x10);
+		const SkirmishGameSetup::StartCheck check = model->checkStart(startFlags);
 		for (const SkirmishGameSetup::StartCheck::Line &line : check.lines)
 		{
 			if (line.kind == 2)
@@ -2041,7 +2051,6 @@ void AptOnlineShell::pumpClient()
 				environment().services->request(ShellRequest{ ShellAction::OnlineGameStart, m_client->startJson() });
 			}
 			m_box.reset(); // the box goes with the shell (its GuiFX.apt level is the game's, as the LAN lobby's start)
-			closeFriendsPage(); // lane ONLINEMENU-1: the page's gadgets are the shell's window's (never over the loading screen)
 			break;
 		}
 		case OnlineLobbyClient::Event::Refused:
@@ -2172,20 +2181,9 @@ void AptOnlineShell::update()
 	prune();
 	pumpClient();
 	updateExtendedRows();
-	// lane ONLINEMENU-1: the FRIENDS button and page draw through the shell's decorator, taken back every frame as the TOURNAMENT panel's (a covering
-	// screen hands the layer's decorator to nobody when it closes)
-	if ((!m_friendsLabel.empty() || friendsPageOpen() || networkPageOpen()) && shell().top() == this && !isHidden())
+	if (networkPageOpen() && shell().top() == this && !isHidden())
 	{
 		takeDecorator();
-	}
-	else if (friendsPageOpen() && (shell().top() != this || isHidden()))
-	{
-		// a screen over the shell (Options): the page's gadgets would show through it; the page closes and the host is told (a Cancel event)
-		closeFriendsPage();
-		OpenBFMEPageEvent e;
-		e.kind = OpenBFMEPageEvent::Kind::Cancel;
-		e.key = "covered";
-		m_friendsEvents.push_back(e);
 	}
 	retryNav(); // DEVINPR-1
 	if (level() >= 0 && !isHidden())
@@ -2350,10 +2348,6 @@ void AptOnlineShell::update()
 WindowMsgHandledType AptOnlineShell::gadgetMessage(GameWindow *from, std::uint32_t msg, WindowMsgData data1, WindowMsgData data2)
 {
 	prune();
-	if (m_friendsPage && m_friendsPage->message(msg, data1, data2))
-	{
-		return MSG_HANDLED; // lane ONLINEMENU-1: one of the FRIENDS page's gadgets
-	}
 	GameWindow *gadget = reinterpret_cast<GameWindow *>(data1);
 	if (m_hub && m_hub->gadgetMessage(gadget, msg, data1, data2))
 	{
@@ -2502,7 +2496,7 @@ bool AptOnlineShell::applySlotHero(int slot, const CreateAHeroHero *hero)
 	return true;
 }
 
-// ---- lane ONLINEMENU-1: the FRIENDS page (NOT RETAIL; see AptOnlineShell.h) ---------------------------------------------------------------------------
+// ---- the online network page ---------------------------------------------------------------------------
 
 void AptOnlineShell::takeDecorator()
 {
@@ -2526,101 +2520,15 @@ void AptOnlineShell::decorateAll(GadgetDrawList &out)
 	{
 		m_networkPage->decorate(out);
 	}
-	if (friendsPageOpen())
-	{
-		m_friendsPage->decorate(out);
-	}
-	if (!m_friendsLabel.empty())
-	{
-		// a button of the menus' own look (OpenBFME's: the frame and lettering of Options.apt's page, OpenBFMEOptionsPage::frame / text), the pointed
-		// one brighter, beside the frame's MESSENGER
-		GadgetDrawCommand c;
-		c.kind = GadgetDrawCommand::Kind::FillRect;
-		c.window = "OpenBFMEFriends";
-		c.x0 = kFriendsButtonLeft;
-		c.y0 = kFriendsButtonTop;
-		c.x1 = kFriendsButtonRight;
-		c.y1 = kFriendsButtonBottom;
-		c.color = m_friendsPressed ? 0xF0182028u : 0xE0050607u;
-		out.commands.push_back(c);
-		OpenBFMEOptionsPage::frame(out, kFriendsButtonLeft, kFriendsButtonTop, kFriendsButtonRight, kFriendsButtonBottom, UnicodeString());
-		OpenBFMEOptionsPage::text(out, m_friendsLabel, kFriendsButtonLeft, kFriendsButtonTop + 9, 14,
-			m_friendsHot || friendsPageOpen() ? OpenBFMEOptionsPage::kTabHotColor : OpenBFMEOptionsPage::kTabColor, kFriendsButtonRight - kFriendsButtonLeft, true);
-	}
 }
 
-bool AptOnlineShell::openFriendsPage(const OpenBFMEPageSpec &spec, std::string *error)
-{
-	AptGadgetLayer *layer = windows().gadgetLayer();
-	if (!layer || !ownerWindow())
-	{
-		if (error)
-		{
-			*error = "no gadget layer";
-		}
-		return false;
-	}
-	if (!m_friendsPage)
-	{
-		m_friendsPage = std::make_unique<OpenBFMEOptionsPage>(*layer, ownerWindow());
-		m_friendsPage->setSink([this](const OpenBFMEPageEvent &e) {
-			if (m_friendsEvents.size() < 256)
-			{
-				m_friendsEvents.push_back(e);
-			}
-		});
-	}
-	OpenBFMEPageSpec s = spec;
-	s.backdrop = true;
-	if (!m_friendsPage->show(s, error))
-	{
-		return false;
-	}
-	takeDecorator();
-	return true;
-}
-
-void AptOnlineShell::closeFriendsPage()
-{
-	if (m_friendsPage)
-	{
-		m_friendsPage->hide();
-	}
-}
-
-std::vector<OpenBFMEPageEvent> AptOnlineShell::takeFriendsEvents()
-{
-	std::vector<OpenBFMEPageEvent> out;
-	out.swap(m_friendsEvents);
-	return out;
-}
-
-bool AptOnlineShell::friendsMouse(int kind, float x, float y)
+bool AptOnlineShell::networkMouse(int kind, float x, float y)
 {
 	if (isHidden() || shell().top() != this)
 	{
 		return false;
 	}
-	if (friendsPageOpen())
-	{
-		if (m_friendsPage->mouse(kind, x, y))
-		{
-			return true;
-		}
-		// the page's band is the page's: a press there never reaches the online page under it. ONLINEMENU-1 (the friends video, 2026-10-20): its own
-		// gadgets (the friend-code entry, the lists) still take it, from the gadget layer here; returning true kept it from them as well, so a
-		// player could not click into the entry or a list
-		if (kind != 0 && x >= OpenBFMEOptionsPage::kTabsLeft - 8 && x <= OpenBFMEOptionsPage::kPanelRight + 8 && y >= OpenBFMEOptionsPage::kTop - 8 &&
-			y <= OpenBFMEOptionsPage::kBottom + 8)
-		{
-			if (AptGadgetLayer *layer = windows().gadgetLayer())
-			{
-				layer->mouseButton(kind == 1);
-			}
-			return true;
-		}
-	}
-	else if (networkPageOpen())
+	if (networkPageOpen())
 	{
 		if (m_networkPage->mouse(kind, x, y))
 		{
@@ -2633,38 +2541,8 @@ bool AptOnlineShell::friendsMouse(int kind, float x, float y)
 			return true;
 		}
 	}
-	if (m_friendsLabel.empty())
-	{
-		m_friendsHot = m_friendsPressed = false;
-		return false;
-	}
-	const bool inside = x >= kFriendsButtonLeft && x <= kFriendsButtonRight && y >= kFriendsButtonTop && y <= kFriendsButtonBottom;
-	if (kind == 0)
-	{
-		m_friendsHot = inside;
-		return false;
-	}
-	if (kind == 1 && inside)
-	{
-		m_friendsPressed = true;
-		return true;
-	}
-	if (kind == 2 && m_friendsPressed)
-	{
-		m_friendsPressed = false;
-		if (inside)
-		{
-			OpenBFMEPageEvent e;
-			e.kind = OpenBFMEPageEvent::Kind::Entry;
-			e.key = "friends_button";
-			m_friendsEvents.push_back(e);
-		}
-		return true;
-	}
 	return false;
 }
-
-// ---- lane ONLINEMENU-1: the Connections screen on the relay ---------------------------------------------------------------------------------------------
 
 namespace
 {
@@ -2821,7 +2699,7 @@ void AptOnlineShell::updateRelayLink()
 	if (!m_probe->running() && now >= m_probeDueMs)
 	{
 		std::string error;
-		if (!m_probe->start(target, now, &error))
+		if (!m_probe->start(target, &error))
 		{
 			windows().note("online-connections", "the relay could not be probed: " + error);
 			m_probeDueMs = now + 60000;
@@ -2829,7 +2707,7 @@ void AptOnlineShell::updateRelayLink()
 		}
 	}
 	const bool wasRunning = m_probe->running();
-	m_probe->update(now);
+	m_probe->update();
 	if (wasRunning && !m_probe->running() && m_probe->hasResult())
 	{
 		const RelayProbe::Result &r = m_probe->result();

@@ -1081,8 +1081,8 @@ TEST_CASE("net retail r1 (fix 3): peers of different profile identities refuse t
 	const std::string err = readFile("mp1_profile_err.txt");
 	MESSAGE(err);
 	CHECK(other == 1);
-	CHECK(err.find("the replay was recorded by another profile") != std::string::npos);
-	CHECK(err.find("test-feature") != std::string::npos);
+	CHECK(err.find("Open it with") != std::string::npos);
+	CHECK(err.find("from the launcher") != std::string::npos);
 	for (const char *f : { "mp1_profile.replay", "mp1_profile_replay.txt", "mp1_profile_err.txt" })
 	{
 		std::remove(f);

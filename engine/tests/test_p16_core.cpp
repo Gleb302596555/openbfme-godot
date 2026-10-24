@@ -4,6 +4,7 @@
 #include "GameClient/GUI/Skirmish/SkirmishGameRecord.h"
 #include "GameLogic/NewGame/SkirmishRandom.h"
 #include "GameLogic/ProductionSettings.h"
+#include "Common/BuildVersion.h"
 #include "Common/Recorder.h"
 
 #include <limits>
@@ -130,8 +131,11 @@ TEST_CASE("p16 core: replay network indices preserve legacy width and extended h
 		{
 			// Independently spell the pre-P16 replay header, including exactly eight network indices.
 			NetByteWriter expected;
-			expected.u32(8); // lane ANTICHEAT-1's format 8 (the VIEW record; an eight-slot replay without views has none); 7 was OWNERFIX-2's handicaps
+			expected.u32(10); // format 10 (9: the recording build, 10: its date); 8 was ANTICHEAT-1's VIEW record (an eight-slot replay without views has none)
 			expected.str(header.profile.text);
+			expected.str(BuildVersion::kVersion);
+			expected.str(BuildVersion::kCommit);
+			expected.str(BuildVersion::kBuildDate);
 			NetPacket::writeNewGameMessage(expected, header.game);
 			expected.i32(header.recordingSlot);
 			expected.u32((std::uint32_t)header.algorithm);

@@ -61,7 +61,7 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 	// CantAfford state (RW 0x942733 code 6) is the bar's last evaluation, not a refusal of its own
 	if (cb->commandPointsShort)
 	{
-		return false; // lane HEROBUY-1: RW 0x940B84 .. 0x940B8A: canMakeUnit 7 (command points short) leaves processCommandUI with no message
+		return false; // RW 0x940B84 .. 0x940B8A: canMakeUnit 7 (command points short) leaves processCommandUI with no message
 	}
 	if (cb->state == ButtonState::CantAfford && b.m_command != GUI_COMMAND_OBJECT_UPGRADE && b.m_command != GUI_COMMAND_PLAYER_UPGRADE
 		&& b.m_command != GUI_COMMAND_CASTLE_UPGRADE)

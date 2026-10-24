@@ -9,6 +9,7 @@
 #include "GameLogic/Module/AttachUpdate.h"
 #include "GameLogic/SimMath.h"
 
+#include <cstdio>
 #include <cstdlib>
 #include <map>
 
@@ -86,6 +87,8 @@ TEST_CASE("camp1 survey: every Angmar mission's unported script content in its f
 	const char *frames = std::getenv("CAMP1_SURVEY");
 	if (!frames)
 	{
+		std::printf("SKIP: camp1 survey needs CAMP1_SURVEY (opt-in diagnostic); not run\n");
+		std::fflush(stdout);
 		return;
 	}
 	for (const char *map : { "map ang amon sul", "map ang dark eye", "map ang barrow downs", "map ang carn dum", "map ang barrow wights", "map ang fornost",
@@ -200,6 +203,8 @@ TEST_CASE("camp1 probe: CAMP1_PROBE=<map> CAMP1_FRAMES=<n> logs the mission's pr
 	const char *map = std::getenv("CAMP1_PROBE");
 	if (!map)
 	{
+		std::printf("SKIP: camp1 probe needs CAMP1_PROBE (opt-in diagnostic); not run\n");
+		std::fflush(stdout);
 		return;
 	}
 	OPENBFME_REQUIRE_START(s);

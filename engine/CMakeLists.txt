@@ -14,22 +14,25 @@ endif()
 #   openbfme_tests  - doctest unit tests over openbfme_core
 project(OpenBFME LANGUAGES C CXX)
 
-# lane NETDIAG-1 (from a contributor's change): libFuzzer targets of the network decoders (engine/tests/fuzz_network.cpp; cmake/Online2.cmake and
-# services/online/relay/CMakeLists.txt add them). Off by default; a separate build directory, Clang only (libFuzzer ships with Clang's compiler-rt).
-option(OPENBFME_FUZZ "Build the network parser libFuzzer targets (Clang)" OFF)
-if(OPENBFME_FUZZ)
-    if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        message(FATAL_ERROR "OPENBFME_FUZZ requires Clang with libFuzzer (CMAKE_CXX_COMPILER_ID is ${CMAKE_CXX_COMPILER_ID})")
-    endif()
-    add_compile_options(-fsanitize=fuzzer-no-link,address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer)
-    add_link_options(-fsanitize=address,undefined)
-endif()
+include(cmake/Sanitizers.cmake)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 # compile_commands.json for tools/sim/sim_audit.py: set BEFORE any subdirectory, the setting is read when a target is created
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# lane NETDIAG-1 shares this option: the network decoders' libFuzzer targets (engine/tests/fuzz_network.cpp; cmake/Online2.cmake and
+# services/online/relay/CMakeLists.txt add them) build beside the data-file parser targets (cmake/Fuzz.cmake)
+option(OPENBFME_FUZZ "Build Clang/libFuzzer parser targets: data files and network decoders (instrument engine libraries)" OFF)
+if(OPENBFME_FUZZ)
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        message(FATAL_ERROR "OPENBFME_FUZZ requires Clang (configure with CC=clang CXX=clang++)")
+    endif()
+    # Instrument dependencies as well as harnesses: the parsers live in openbfme_core.
+    add_compile_options(-fsanitize=fuzzer-no-link,address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer)
+    add_link_options(-fsanitize=address,undefined)
+endif()
 
 if(APPLE AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     get_filename_component(OPENBFME_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/.." REALPATH)
@@ -91,8 +94,22 @@ set(GODOTCPP_API_VERSION "4.7" CACHE STRING "Godot API version for godot-cpp bin
 # -DOPENBFME_BUILD_GODOT=OFF builds only openbfme_core + openbfme_tests (no godot-cpp), e.g. to run the
 # unit tests on Linux/WSL where the Godot toolchain is not set up.
 option(OPENBFME_BUILD_GODOT "Build the godot-cpp GDExtension" ON)
+if(OPENBFME_FUZZ AND OPENBFME_BUILD_GODOT)
+    message(FATAL_ERROR "OPENBFME_FUZZ requires OPENBFME_BUILD_GODOT=OFF")
+endif()
+option(OPENBFME_BUILD_FUZZERS "Build the asset-free save and replay libFuzzer harness (Clang only)" OFF)
+option(OPENBFME_BUILD_TESTS "Build the C++ unit tests (five MP3 cases require verified fixtures when run)" ON)
 if(OPENBFME_BUILD_GODOT)
 add_subdirectory(thirdparty/godot-cpp EXCLUDE_FROM_ALL)
+endif()
+
+option(OPENBFME_COVERAGE "Instrument engine tests for gcov line and branch coverage (GCC/Clang)" OFF)
+if(OPENBFME_COVERAGE)
+    if(MSVC OR NOT CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        message(FATAL_ERROR "OPENBFME_COVERAGE requires GCC or Clang with gcov support")
+    endif()
+    add_compile_options(--coverage -O0 -g)
+    add_link_options(--coverage)
 endif()
 # godot-cpp sets CMAKE_MSVC_RUNTIME_LIBRARY (static CRT) in the cache; every target below
 # inherits it, so the core library links cleanly into the extension.
@@ -132,7 +149,7 @@ include(cmake/Audio.cmake) # OPENBFME_AUDIO_SOURCES / OPENBFME_AUDIO_TESTS (lane
 include(cmake/Move.cmake) # OPENBFME_MOVE_SOURCES / OPENBFME_MOVE_TESTS (lane MOVE-1)
 include(cmake/Hud.cmake) # OPENBFME_HUD_SOURCES / OPENBFME_HUD_TESTS (lane HUD-1)
 include(cmake/Start.cmake)      # OPENBFME_START_SOURCES / OPENBFME_START_TESTS (lane START-1)
-include(cmake/Build.cmake)      # BUILD-1: construction, castles, dozers (appends to OPENBFME_SIM_SOURCES; OPENBFME_BUILD_TESTS)
+include(cmake/Build.cmake)      # BUILD-1: construction, castles, dozers (appends to OPENBFME_SIM_SOURCES; OPENBFME_BUILD_TEST_SOURCES)
 include(cmake/Combat.cmake)     # OPENBFME_COMBAT_SOURCES / OPENBFME_COMBAT_TESTS (lane COMBAT-1)
 include(cmake/Structure.cmake)  # OPENBFME_STRUCTURE_SOURCES / OPENBFME_STRUCTURE_TESTS (lane COMBAT-2)
 include(cmake/Spell.cmake)      # OPENBFME_SPELL_SOURCES / OPENBFME_SPELL_TESTS (lane SPELL-1)
@@ -635,6 +652,8 @@ endif()
 endif()
 
 # ---- unit tests --------------------------------------------------------------------------
+if(OPENBFME_BUILD_TESTS)
+include(cmake/AudioFixtures.cmake)
 add_executable(openbfme_tests
     ${OPENBFME_WIN1_TESTS}
     ${OPENBFME_DEP2_TESTS}
@@ -687,7 +706,7 @@ add_executable(openbfme_tests
     ${OPENBFME_STEALTH_TESTS}
     ${OPENBFME_GARRISON_TESTS}
     ${OPENBFME_TRANSPORT_TESTS}
-    ${OPENBFME_BUILD_TESTS}
+    ${OPENBFME_BUILD_TEST_SOURCES}
     ${OPENBFME_CASTLE1_TESTS}
     ${OPENBFME_END1_TESTS}
     ${OPENBFME_MP2_TESTS}
@@ -767,6 +786,7 @@ add_executable(openbfme_tests
     ${OPENBFME_BRIDGE1_TESTS}
     tests/test_main.cpp
     tests/test_big_archive.cpp
+    tests/test_parser_fuzz_regressions.cpp
     tests/test_archive_order.cpp
     tests/test_mods1_mount.cpp
     tests/test_mods1_retail.cpp
@@ -866,11 +886,16 @@ add_executable(openbfme_tests
     tests/test_econ_hash.cpp
     tests/test_econ_retail.cpp
     tests/test_falsedef_retail.cpp)
+target_sources(openbfme_tests PRIVATE
+    tests/test_coverage_online_shell.cpp
+    tests/test_coverage_simple_screens.cpp
+    tests/test_coverage_skirmish.cpp
+    tests/test_coverage_create_a_hero.cpp
+    tests/test_coverage_vp6.cpp
+    tests/test_coverage_in_game_hud.cpp
+    tests/test_coverage_mp3.cpp
+    tests/test_coverage_online_hub.cpp)
 target_link_libraries(openbfme_tests PRIVATE openbfme_core)
-openbfme_net_targets() # MP-1: the network host sources, the headless peer
-openbfme_online2_targets() # ONLINE-2: the relay sources and tests, the relay process (Linux)
-openbfme_online4_targets() # ONLINE-4: the online screens, the lobby client and their tests
-openbfme_onlinehub1_targets() # ONLINEHUB-1: the platform API's client, the game records, the pages and their tests
 openbfme_online3_targets() # ONLINE-3: the rejoin, hold and pause tests
 openbfme_mpdrop1_targets() # MP-DROP-1: the disconnect path's drop tests
 # a separate process for the independent-process determinism test of lua_pushusertag userdata (tests/test_lua_runtime.cpp)
@@ -902,13 +927,37 @@ target_compile_definitions(openbfme_tests PRIVATE
     OPENBFME_LUA_PRISTINE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/lua-4.0.1"
     OPENBFME_LUA_PATCH_DIR="${CMAKE_CURRENT_SOURCE_DIR}/src/Libraries/Lua")
 target_compile_definitions(openbfme_tests PRIVATE OPENBFME_AUDIO_FIXTURE_DIR="${OPENBFME_AUDIO_FIXTURE_DIR}")
-if(TARGET audio_mp3_fixtures)
-    add_dependencies(openbfme_tests audio_mp3_fixtures)
-endif()
 target_compile_definitions(openbfme_tests PRIVATE OPENBFME_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
     OPENBFME_DOCS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../docs")
 if(MSVC)
     target_compile_options(openbfme_tests PRIVATE /utf-8)
+endif()
+endif()
+
+openbfme_net_targets() # MP-1: the network host sources, the headless peer
+openbfme_online2_targets() # ONLINE-2: the relay sources and tests, the relay process (Linux)
+openbfme_online4_targets() # ONLINE-4: the online screens, the lobby client and their tests
+openbfme_onlinehub1_targets() # ONLINEHUB-1: the platform API's client, the game records, the pages and their tests
+
+if(OPENBFME_FUZZ)
+    include(cmake/Fuzz.cmake)
+endif()
+
+if(OPENBFME_BUILD_FUZZERS)
+    if(NOT CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        message(FATAL_ERROR "OPENBFME_BUILD_FUZZERS requires Clang's libFuzzer")
+    endif()
+    target_compile_options(openbfme_core PRIVATE -fsanitize=fuzzer-no-link,address,undefined -fno-omit-frame-pointer)
+    target_link_options(openbfme_core INTERFACE -fsanitize=address,undefined)
+    add_executable(openbfme_fuzz_save_replay tests/fuzz_save_replay.cpp)
+    target_link_libraries(openbfme_fuzz_save_replay PRIVATE openbfme_core)
+    target_compile_options(openbfme_fuzz_save_replay PRIVATE -fsanitize=fuzzer,address,undefined)
+    target_link_options(openbfme_fuzz_save_replay PRIVATE -fsanitize=fuzzer,address,undefined)
+
+    add_executable(openbfme_reader_corpus tests/fuzz_save_replay.cpp)
+    target_compile_definitions(openbfme_reader_corpus PRIVATE OPENBFME_READER_CORPUS)
+    target_link_libraries(openbfme_reader_corpus PRIVATE openbfme_core)
+    target_compile_options(openbfme_reader_corpus PRIVATE -fsanitize=address,undefined)
 endif()
 
 # the contract holds for every target that carries simulation code or links it: nothing added to a target after its registration may override it

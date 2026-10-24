@@ -114,6 +114,7 @@ bool GameWorld::buildSave(const Dictionary &options, SaveGameFile &f, UnsignedIn
 	}
 	SaveGameHeader &h = f.header;
 	h.buildVersion = BuildVersion::kVersion;
+	h.buildDate = BuildVersion::kBuildDate;
 	h.engineId = ProfileIdentity::buildId();
 	h.commit = BuildVersion::kCommit;
 	h.profile = check.header.profile; // the identity the recording was made under
@@ -283,6 +284,7 @@ Dictionary GameWorld::save_campaign_menu(const String &path, const Dictionary &o
 	SaveGameFile f;
 	SaveGameHeader &h = f.header;
 	h.buildVersion = BuildVersion::kVersion;
+	h.buildDate = BuildVersion::kBuildDate;
 	h.engineId = ProfileIdentity::buildId();
 	h.commit = BuildVersion::kCommit;
 	h.profile = profileIdentityFor(SimulationProfile::Faithful); // a campaign mission runs Faithful

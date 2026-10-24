@@ -128,6 +128,7 @@ public:
 	// a game); menu_pointer_moved: the real pointer moved (the focus frame goes); menu_nav_state: { level, focus, frame, focus_rect (stage), targets:
 	// [{ id, kind, rect }], log: [String] } (scripted checks)
 	bool menu_input(const Ref<InputEvent> &event);
+	bool menu_controller_section(int delta);
 	bool menu_has_input() const;
 	// lane SAVE-UI1 / OPTS-6: modal_menu: a menu is the input's top (the world's input is cancelled and not served); menu_escape: the top screen's own Escape
 	// procedure took the key (SaveLoad.apt closes on its release)
@@ -373,17 +374,10 @@ public:
 	Array openbfme_page_events();
 	Dictionary openbfme_page_state() const;
 	Dictionary openbfme_page_choose(const String &key, int value);
-	// lane ONLINEMENU-1: the online FRIENDS button (label; empty: none) and page (a page spec as openbfme_page_show's, plus list_from_row and
-	// list_activates; events as openbfme_page_events' with "submit" / "list_select" / "list_activate" and a "text"; state: open, button rect, tabs,
-	// rows, list rows and rect, help)
-	void online_friends_button(const String &label);
 	bool online_ask(const String &key, const String &title, const String &text); // lane ONLINEMENU-1: AptOnlineShell::askYesNo
 	PackedStringArray online_answers();
 	bool online_asking(const String &key);
-	Dictionary online_friends_page_show(const Dictionary &spec);
-	void online_friends_page_close();
-	Array online_friends_page_events();
-	Dictionary online_friends_page_state() const;
+	void online_cancel_ask(const String &key);
 	// lane OPTS-5: the one Options menu (AptOptionsScreen::kOpenBFMEMenu). openbfme_page_show's rows take "entry" (a text entry: value_text, max) and
 	// "column" (0 / 1); its events take "release" (a slider let go), and "entry" is the menu's opening (value 1: show the detail settings first).
 	// options_retail_rows: { key: row } of the original game's settings as the page shows them ("Retail.<gadget>": kind, label, help, help_label,

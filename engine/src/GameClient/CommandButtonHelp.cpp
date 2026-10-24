@@ -2,6 +2,7 @@
 // See CommandButtonHelp.h (lane HUD-6). Client-only: the help reads the logic, it never changes it.
 
 #include "GameClient/CommandButtonHelp.h"
+#include "GameClient/LocalizedText.h"
 
 #include "Common/ArchiveFileSystem.h"
 #include "Common/AsciiString.h"
@@ -326,30 +327,7 @@ bool finishCaption(SettingsLoad &l, MilitaryCaptionSettings &out, std::string *e
 // UnicodeString::format with one %d or %s (the retail labels carry one)
 UnicodeString formatOne(const UnicodeString &fmt, const UnicodeString &value)
 {
-	UnicodeString out;
-	bool done = false;
-	for (size_t i = 0; i < fmt.size(); ++i)
-	{
-		if (fmt[i] == u'%' && i + 1 < fmt.size())
-		{
-			const char16_t c = fmt[i + 1];
-			if (c == u'%')
-			{
-				out += u'%';
-				++i;
-				continue;
-			}
-			if (!done && (c == u'd' || c == u's' || c == u'S' || c == u'u' || c == u'i'))
-			{
-				out += value;
-				done = true;
-				++i;
-				continue;
-			}
-		}
-		out += fmt[i];
-	}
-	return out;
+	return LocalizedText::format(fmt, { value });
 }
 UnicodeString u16(const std::string &ascii)
 {

@@ -6,6 +6,7 @@
 
 #include "doctest.h"
 #include "TestChild.h"
+#include "OnlineTestWait.h"
 
 #include "Common/Crc32.h"
 #include "Common/MiniJson.h"
@@ -19,7 +20,10 @@
 #include "GameNetwork/RelayProtocol.h"
 #include "GameNetwork/Transport.h"
 #include "RelayCore.h"
+#include "RelayLogProbe.h"
 
+#include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
@@ -29,6 +33,9 @@
 #include <sstream>
 #include <string>
 #include <vector>
+
+// relaylogprobe::classicDigest(600) with lane NETDIAG-1's RelayLog::assemble (0d044941d, compiled against these headers)
+constexpr std::uint64_t kNetdiag1ClassicDigest = 0xcd9078d1c4bf1210ull;
 
 #if defined(__linux__) || defined(__APPLE__)
 #include "DatagramBatch.h"
@@ -317,6 +324,78 @@ TEST_CASE("online2: relay log GAP and END reasons outside what the relay writes 
 // lane NETDIAG-1 (found by the relay_log fuzzer, 26 s on one 289-byte log): the assembly walked every frame up to the highest execution frame any
 // command named while a slot was held for a REJOIN, though no slot ran a frame any more; a client chooses that frame number (0xFFFFFFFE here:
 // four billion empty frames; 0xFFFFFFFF never ended). It now ends at the first frame with no member, with the same result.
+// the classic rooms' assembly (2 or more network slots) is lane NETDIAG-1's (0d044941d): the hash of 600 generated logs' assembled results
+// (tests/RelayLogProbe.h), measured with 0d044941d's RelayLog::assemble
+TEST_CASE("online2: a classic room's relay log assembles exactly as lane NETDIAG-1's assembler did (600 generated logs)")
+{
+	const std::uint64_t digest = relaylogprobe::classicDigest(600, [](const RelayLogFile &l, const NetworkConfig &c, RelayLog::Assembled &a, std::string *e) {
+		return RelayLog::assemble(l, c, a, e);
+	});
+	CHECK(digest == kNetdiag1ClassicDigest);
+}
+
+// lane SOLO-1 x NETDIAG-1: a one-human room's walk jumps to its held slot's own REJOINs; a crafted log of tens of thousands of incarnations,
+// each one's REJOIN far ahead, and as many drops, assembles in linear time (each frame, incarnation and drop is looked at a bounded number of times)
+TEST_CASE("online2: a crafted one-human room's relay log of far-ahead REJOINs and many drops assembles in well under a second")
+{
+	RelayLogFile log;
+	log.version = 2;
+	log.slotMask = 0x01;
+	auto add = [&](const NetCommandMsg &m) {
+		RelayLogFile::Command c;
+		c.sender = 0;
+		c.msg = m;
+		log.commands.push_back(c);
+	};
+	for (std::uint32_t f = 0; f < 3; ++f)
+	{
+		add(relaylogprobe::frameInfo(0, f, 0));
+	}
+	const int kIncarnations = 60000;
+	for (int k = 1; k <= kIncarnations; ++k)
+	{
+		RelayLogFile::Rejoined j;
+		j.slot = 0;
+		j.generation = k;
+		j.firstCommand = log.commands.size();
+		log.rejoins.push_back(j);
+		const std::uint32_t at = 10u + (std::uint32_t)k * 1000u; // the slot's own REJOIN, far ahead of the last frame it ran
+		NetCommandMsg r;
+		r.type = NETCOMMANDTYPE_REJOIN;
+		r.executionFrame = at;
+		r.targetSlot = 0;
+		add(r);
+		add(relaylogprobe::frameInfo(0, at, 1));
+		add(relaylogprobe::frameInfo(0, at + 1, 0));
+	}
+	for (int d = 0; d < 20000; ++d)
+	{
+		NetCommandMsg m;
+		m.type = NETCOMMANDTYPE_DISCONNECTPLAYER;
+		m.targetSlot = 0;
+		m.frame = 100000000u + (std::uint32_t)d * 7u; // after every incarnation's frames: each joined incarnation takes the first one
+		add(m);
+	}
+	NetworkConfig config;
+	config.slotPlayerIndex.fill(-1);
+	config.slotPlayerIndex[0] = 0;
+	RelayLog::Assembled a;
+	std::string error;
+	const auto t0 = std::chrono::steady_clock::now();
+	REQUIRE_MESSAGE(RelayLog::assemble(log, config, a, &error), error);
+	const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+	MESSAGE("crafted one-human relay log of ", log.commands.size(), " records assembled in ", ms, " ms");
+	CHECK(ms < 1000.0); // tolerance: a linear walk takes tens of milliseconds; the quadratic one took minutes
+	// every incarnation's own REJOIN ran: it was admitted, ran its two frames and ended where its successor began
+	size_t rejoins = 0;
+	for (const auto &m : a.membership)
+	{
+		rejoins += m.kind == Network::MembershipEvent::REJOIN ? 1 : 0;
+	}
+	CHECK(rejoins == (size_t)kIncarnations);
+	CHECK(a.joinFrame[0] == 10u + (std::uint32_t)kIncarnations * 1000u + 1u);
+}
+
 TEST_CASE("online2: the relay log assembly ends when no slot runs a frame, whatever frame a held slot's command names")
 {
 	auto assembleWith = [](std::uint32_t namedFrame, RelayLog::Assembled &a) {
@@ -1474,17 +1553,10 @@ TEST_CASE("online2 r2: the Transport keeps the WELCOME's session token and prove
 	t.setPeer(1, NetAddress{});
 	auto next = [&](std::vector<std::uint8_t> &d) {
 		NetAddress from;
-		const std::uint64_t start = NetMilliseconds();
-		while (NetMilliseconds() - start < 2000)
-		{
+		return onlinetest::waitUntil([&] {
 			t.service();
-			if (relaySocket.receiveFrom(from, d) && d.size() >= kHeaderBytes && d[3] == HELLO)
-			{
-				return true;
-			}
-			NetSleepMilliseconds(1);
-		}
-		return false;
+			return relaySocket.receiveFrom(from, d) && d.size() >= kHeaderBytes && d[3] == HELLO;
+		});
 	};
 	std::vector<std::uint8_t> d;
 	REQUIRE(next(d));
@@ -1496,11 +1568,10 @@ TEST_CASE("online2 r2: the Transport keeps the WELCOME's session token and prove
 	}
 	const std::vector<std::uint8_t> welcome = encodeWelcome(0x0123456789abcdefull, 0, token), notBound = encodeEmpty(NOT_BOUND);
 	relaySocket.sendTo(client.localAddress(), welcome.data(), welcome.size());
-	for (int i = 0; i < 50 && !t.relayBound(); ++i)
-	{
+	REQUIRE(onlinetest::waitUntil([&] {
 		t.service();
-		NetSleepMilliseconds(1);
-	}
+		return t.relayBound();
+	}));
 	REQUIRE(t.relayBound());
 	{
 		NetAddress from;
@@ -1580,7 +1651,6 @@ TEST_CASE("online2: three real Transports play through the relay with 20 % loss:
 	}
 	std::map<std::pair<int, int>, int> got; // (receiver, sender) -> commands in order
 	bool inOrder = true;
-	const std::uint64_t start = NetMilliseconds();
 	auto done = [&] {
 		for (int i = 0; i < 3; ++i)
 		{
@@ -1594,8 +1664,7 @@ TEST_CASE("online2: three real Transports play through the relay with 20 % loss:
 		}
 		return true;
 	};
-	while (!done() && NetMilliseconds() - start < 20000)
-	{
+	REQUIRE(onlinetest::waitUntil([&] {
 		for (auto &tr : t)
 		{
 			tr->service();
@@ -1615,8 +1684,9 @@ TEST_CASE("online2: three real Transports play through the relay with 20 % loss:
 				++n;
 			}
 		}
-		NetSleepMilliseconds(1);
-	}
+		// Delivery may finish before a keep-alive or resend reaches a seeded loss draw. Observe loss on every endpoint too.
+		return done() && std::all_of(t.begin(), t.end(), [](const auto &tr) { return tr->stats().dropped > 0; });
+	}));
 	CHECK(done());
 	CHECK(inOrder);
 	for (int i = 0; i < 3; ++i)
@@ -1628,23 +1698,29 @@ TEST_CASE("online2: three real Transports play through the relay with 20 % loss:
 	}
 	CHECK(relay.stats().slotMismatches == 0);
 	// let the acks settle, then the transports say BYE as they go
-	const std::uint64_t t2 = NetMilliseconds();
-	while (NetMilliseconds() - t2 < 300)
-	{
+	REQUIRE(onlinetest::waitUntil([&] {
 		for (auto &tr : t)
 		{
 			tr->service();
 		}
 		pumpRelay();
-		NetSleepMilliseconds(1);
-	}
+		for (auto &tr : t)
+		{
+			for (int peer = 0; peer < 3; ++peer)
+			{
+				if (!tr->allAcked(peer))
+				{
+					return false;
+				}
+			}
+		}
+		return true;
+	}));
 	t.clear();
-	const std::uint64_t t3 = NetMilliseconds();
-	while (relay.openGames() > 0 && NetMilliseconds() - t3 < 2000)
-	{
+	REQUIRE(onlinetest::waitUntil([&] {
 		pumpRelay();
-		NetSleepMilliseconds(1);
-	}
+		return relay.openGames() == 0;
+	}));
 	CHECK(relay.openGames() == 0);
 	REQUIRE(relay.closedLogs().size() == 1);
 	RelayLogFile log;
@@ -1912,18 +1988,16 @@ TEST_CASE("online2: the openbfme_relay process welcomes a ticket over UDP, write
 	REQUIRE(relay.started());
 	const std::vector<std::uint8_t> hello = RelayProtocol::encodeHello(ticketBytes(testTicket(0)));
 	bool welcomed = false;
-	const std::uint64_t start = NetMilliseconds();
-	while (!welcomed && NetMilliseconds() - start < 5000)
-	{
+	REQUIRE(onlinetest::waitUntil([&] {
 		probe.sendTo(NetAddress{ 0x7F000001u, port }, hello.data(), hello.size());
-		NetSleepMilliseconds(20);
 		NetAddress from;
 		std::vector<std::uint8_t> d;
 		while (probe.receiveFrom(from, d))
 		{
 			welcomed = welcomed || welcomeToken(d, 0).size() == RelayProtocol::kSessionTokenBytes;
 		}
-	}
+		return welcomed;
+	}));
 	CHECK(welcomed);
 	const int status_ = relay.stop();
 	CHECK(WIFEXITED(status_));

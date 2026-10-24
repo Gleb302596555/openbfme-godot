@@ -14,6 +14,8 @@
 #include "GodotDevice/GodotAptPlayer.h"
 
 #include <godot_cpp/classes/rendering_server.hpp>
+#include <godot_cpp/classes/control.hpp>
+#include <godot_cpp/classes/scene_tree.hpp>
 #include <godot_cpp/classes/theme_db.hpp>
 #include <godot_cpp/variant/packed_color_array.hpp>
 #include <godot_cpp/variant/packed_vector2_array.hpp>
@@ -410,6 +412,7 @@ Dictionary Hud6Draw::state() const
 		side["calls"] = sc;
 	}
 	out["side_bar"] = side;
+	out["message_top"] = m_messageTop;
 	return out;
 }
 
@@ -438,6 +441,18 @@ void Hud6Draw::drawMessages(RID parent)
 	const int size = (int)std::lround(drawSize);
 	const int x = (int)std::floor(m_hud.windowWidth() * settings.position.x / 1024.0f + .5f);
 	float y = std::floor(m_hud.windowHeight() * settings.position.y / 768.0f + .5f);
+	// RW 0x6A0BC0 (tier A, BFME2 InGameUIPostDraw.cpp) uses the configured origin. Reserve our non-retail watermark's measured bounds.
+	const Array obstacles = m_player->get_tree()->get_nodes_in_group("player_message_obstacles");
+	for (int i = 0; i < obstacles.size(); ++i)
+	{
+		const Control *control = Object::cast_to<Control>(obstacles[i]);
+		if (control && control->is_visible_in_tree() && control->get_viewport() == m_player->get_viewport())
+		{
+			const Rect2 rect = control->get_global_transform_with_canvas().xform(Rect2(Vector2(), control->get_size()).grow(2.0f));
+			y = std::max(y, (float)std::ceil(rect.get_end().y));
+		}
+	}
+	m_messageTop = y;
 	for (auto it = log.entries().rbegin(); it != log.entries().rend(); ++it)
 	{
 		const String text = toGodot(u16ToUtf8(it->text));

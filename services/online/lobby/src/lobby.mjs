@@ -26,7 +26,8 @@ import {
   readPlayerReports,
   submitPlayerReport,
 } from './reports.mjs';
-import { SocialError, SocialService } from './social.mjs';
+import { SocialError, SocialService, validPlayerName } from './social.mjs';
+import { repairStoredText } from './stored-text.mjs';
 import { SocialStorageError } from './social-store.mjs';
 import { oauthConfigFromEnv } from './oauth.mjs';
 import { emailErrorPage, emailRequestPage, emailVerifyPage, pageHeaders } from './email-pages.mjs';
@@ -340,13 +341,6 @@ function str(v, maxLen, what, { empty = false } = {}) {
   if (!v.isWellFormed()) throw bad('bad_field', `${what} is not well-formed Unicode`);
   return v;
 }
-// LOBBYSEC-1: every string in a stored record made well-formed (unpaired surrogates -> U+FFFD); ids and hex fields are ASCII and stay as they are
-function wellFormedDeep(value) {
-  if (typeof value === 'string') return value.toWellFormed();
-  if (Array.isArray(value)) return value.map(wellFormedDeep);
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k, v]) => [k.toWellFormed(), wellFormedDeep(v)]));
-  return value;
-}
 function exactFields(value, fields, what) {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) throw bad('bad_field', `${what} must be an object`);
   const unknown = Object.keys(value).filter((key) => !fields.includes(key));
@@ -483,6 +477,7 @@ function validateEffectiveState(value, { stored = false } = {}) {
   };
 }
 export function validateEnforcementRecord(value) {
+  value = repairStoredText(value);
   try {
     allowFields(value, ['install', 'v', 'version', 'block', 'mute_until', 'routing', 'notice', 'devices', 'block_devices'], 'stored enforcement');
     if (!validInstall(value.install)) throw new Error('install must be 32 lowercase hex digits');
@@ -504,6 +499,8 @@ export function withoutGameIp(game) {
 }
 
 export function validateSighting(value) {
+  const original = value;
+  value = repairStoredText(value);
   const fields = ['install', 'nicks', 'first_seen', 'last_seen', 'signins', 'platform', 'version', 'devices'];
   try {
     exactFields(value, fields, 'stored sighting');
@@ -516,19 +513,28 @@ export function validateSighting(value) {
     if (value.platform !== null) boundedText(String(value.platform).toWellFormed(), 32, 'stored sighting platform');
     const version = value.version === null ? null : boundedText(String(value.version).toWellFormed(), 64, 'stored sighting version');
     if (!Array.isArray(value.nicks) || value.nicks.length < 1 || value.nicks.length > 10) throw bad('bad_field', 'stored sighting nicks are invalid');
-    const repaired = new Set();
+    const repaired = new Set(original.nicks.filter((entry) => typeof entry?.nick === 'string' && !entry.nick.isWellFormed())
+      .map((entry) => entry.nick.toWellFormed()));
     const nicks = value.nicks.map((entry) => {
       exactFields(entry, ['nick', 'first_seen', 'last_seen'], 'stored nickname');
-      const nick = str(typeof entry.nick === 'string' ? entry.nick.toWellFormed() : entry.nick, 24, 'stored nickname');
+      const nick = entry.nick;
+      if (!validPlayerName(nick)) throw bad('bad_field', 'stored nickname must be 1 to 24 Unicode characters without controls or surrounding whitespace');
       if (!Number.isSafeInteger(entry.first_seen) || entry.first_seen < value.first_seen ||
           !Number.isSafeInteger(entry.last_seen) || entry.last_seen < entry.first_seen || entry.last_seen > value.last_seen) {
         throw bad('bad_field', 'stored nickname timestamps are invalid');
       }
-      if (nick !== entry.nick) repaired.add(nick);
       return { nick, first_seen: entry.first_seen, last_seen: entry.last_seen };
-    // two stored nicks that differ only in an unpaired surrogate repair to one: the first is kept (as the live lobby line does), never a load failure
-    }).filter((entry, index, all) => !repaired.has(entry.nick) || all.findIndex((other) => other.nick === entry.nick) === index);
-    if (new Set(nicks.map((entry) => entry.nick)).size !== nicks.length) throw bad('bad_field', 'stored sighting nicks must be unique');
+    });
+    const mergedNicks = new Map();
+    for (const entry of nicks) {
+      const previous = mergedNicks.get(entry.nick);
+      if (!previous) mergedNicks.set(entry.nick, entry);
+      else {
+        if (!repaired.has(entry.nick)) throw bad('bad_field', 'stored sighting nicks must be unique');
+        previous.first_seen = Math.min(previous.first_seen, entry.first_seen);
+        previous.last_seen = Math.max(previous.last_seen, entry.last_seen);
+      }
+    }
     if (!Array.isArray(value.devices) || value.devices.length > 5) throw bad('bad_field', 'stored sighting devices are invalid');
     const devices = value.devices.map((entry) => {
       exactFields(entry, ['hash', 'count', 'first_seen', 'last_seen'], 'stored device');
@@ -542,7 +548,7 @@ export function validateSighting(value) {
     if (new Set(devices.map((entry) => entry.hash)).size !== devices.length) throw bad('bad_field', 'stored sighting devices must be unique');
     return {
       install: value.install,
-      nicks,
+      nicks: [...mergedNicks.values()],
       first_seen: value.first_seen,
       last_seen: value.last_seen,
       signins: value.signins,
@@ -775,7 +781,7 @@ export class Lobby {
     }
     this.social.resetCaches();
     this.loadGames(games);
-    for (const r of relayStatus) this.relayStatus.set(r.relay, r);
+    for (const r of relayStatus) this.relayStatus.set(r.relay, repairStoredText(r));
     if (this.identityIndexed()) return;
     for (const raw of enforcementRecords) {
       const record = validateEnforcementRecord(raw);
@@ -804,7 +810,7 @@ export class Lobby {
   loadGames(games) {
     if (!Array.isArray(games)) throw new Error('lobby: persisted games must be an array');
     for (const raw of games) {
-      const g = wellFormedDeep(withoutGameIp(raw)); // LOBBYSEC-1: a game stored before intake refused unpaired surrogates is repaired (U+FFFD)
+      const g = withoutGameIp(repairStoredText(raw));
       if (!g || typeof g.id !== 'string' || !/^[0-9a-f]{16}$/.test(g.id) || !Array.isArray(g.slots) || g.slots.length !== MAX_SLOTS) {
         throw new Error('lobby: stored game is malformed');
       }
@@ -961,8 +967,7 @@ export class Lobby {
     allowFields(body, ['v', 'name', 'install', 'device', 'client', 'recover'], 'guest');
     if (body.v !== undefined && body.v !== VERSION) throw bad('bad_version', `v must be ${VERSION}`);
     const name = body?.name;
-    if (typeof name !== 'string' || !name.length || Array.from(name).length > 24 ||
-        /[\u0000-\u001f\u007f]/u.test(name) || !name.isWellFormed() || name !== name.trim()) {
+    if (!validPlayerName(name)) {
       throw bad('bad_field', 'name must be 1 to 24 Unicode characters without controls or surrounding whitespace');
     }
     if (body.install !== undefined && !validInstall(body.install)) throw bad('bad_field', 'install must be 32 lowercase hex digits');
@@ -1712,7 +1717,9 @@ export class Lobby {
     if (g.state !== 'open') throw new LobbyError(409, 'started', 'the game has started');
     if (!this.config.relays.length) throw new LobbyError(503, 'no_relay', 'no relay configured: online games cannot start yet');
     const humans = g.slots.map((s, i) => [s, i]).filter(([s]) => s.state === 'player');
-    if (humans.length < 2) throw new LobbyError(409, 'players', 'an online game needs at least two players');
+    // SOLO-1: a custom game may start with a single human (alone or against AI); a room-code room is the platform's
+    // (a Quick Match or tournament match, ONLINEHUB-1) and keeps the two-human minimum
+    if (humans.length < (g.roomCode ? 2 : 1)) throw new LobbyError(409, 'players', 'an online game needs at least two players');
     const notReady = humans.filter(([s, i]) => i !== g.hostSlot && !s.ready).map(([s]) => s.name);
     if (notReady.length) throw new LobbyError(409, 'not_ready', `not ready: ${notReady.join(', ')}`);
     // ONLINE-2 r2 (Sol: a player joined while the tickets were being signed, and got no START): from here the game takes no join, slot or setup
@@ -2041,6 +2048,17 @@ export class Lobby {
     const key = which === 'log' ? `logs/${id}.obfmerlog` : `starts/${id}.json`;
     const b = await store.getBlob(key);
     if (!b) throw new LobbyError(404, 'no_replay', `no ${which} for game ${id}`);
+    if (which === 'start') {
+      let start;
+      try {
+        start = JSON.parse(dec.decode(b));
+      } catch {
+        console.warn(`lobby: skipping malformed replay START ${id}`);
+        throw new LobbyError(404, 'no_replay', `no start for game ${id}`);
+      }
+      const clean = repairStoredText(start);
+      return clean === start ? b : enc.encode(JSON.stringify(clean));
+    }
     return b;
   }
 
@@ -2514,7 +2532,7 @@ export async function route(lobby, req) {
       'cache-control': 'no-store',
       ...(status === 429 && Number.isSafeInteger(obj?.retry_after) ? { 'retry-after': String(Math.max(1, obj.retry_after)) } : {}),
     },
-    body: JSON.stringify(obj),
+    body: JSON.stringify(repairStoredText(obj)),
   });
   const failure = (error) => ({ v: VERSION, error: error.code, message: error.message, ...error.details });
   let reportRequest = false;

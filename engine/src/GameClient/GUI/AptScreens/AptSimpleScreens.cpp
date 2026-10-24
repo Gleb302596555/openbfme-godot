@@ -2,6 +2,7 @@
 // See GameClient/GUI/AptScreens/AptSimpleScreens.h.
 
 #include "GameClient/GUI/AptScreens/AptSimpleScreens.h"
+#include "GameClient/LocalizedText.h"
 
 #include "GameClient/GUI/AptGadgetLayer.h"
 #include "GameClient/GUI/Gadgets.h"
@@ -210,6 +211,27 @@ void AptPlayerTribute::pageLoaded(const std::string &params)
 		registerCommand(page + "_OnEnabledContentLoaded", [this](const std::string &arg) { contentLoaded(arg); });
 		// RW 0x91653C -> RW 0x915946: the content and its rows are freed
 		registerCommand(page + "_OnEnabledContentUnloaded", [this](const std::string &) {
+			if (m_content.empty())
+			{
+				return;
+			}
+			// Dynamic row callbacks capture indices into m_rows: retire them with the content,
+			// before clearing its rows, so a reload can register fresh callbacks.
+			for (TRow &row : m_rows)
+			{
+				if (!row.path.empty())
+				{
+					const std::string root = pathPrefix() + "." + row.path;
+					windows().unregisterProvider(root + "_color");
+					windows().closeAptScreen(root + "_InitSlider");
+					windows().closeAptScreen(root + "_InitTextEntry");
+				}
+			}
+			for (const char *suffix : { "_OnRowShown", "_OnRowHidden", "_Reset", "_Send" })
+			{
+				windows().unregisterCommand(m_content + suffix);
+			}
+			windows().unregisterProvider(m_content + "_NumOfPlayers");
 			m_content.clear();
 			m_rows.clear();
 		});
@@ -451,6 +473,14 @@ void AptPlayerTribute::tributeRowHidden(const std::string &argument)
 		return;
 	}
 	TRow &row = m_rows[(size_t)index];
+	// A hidden clip can be replaced by the movie; its providers and _Init refs leave with it.
+	if (!row.path.empty())
+	{
+		const std::string root = pathPrefix() + "." + row.path;
+		windows().unregisterProvider(root + "_color");
+		windows().closeAptScreen(root + "_InitSlider");
+		windows().closeAptScreen(root + "_InitTextEntry");
+	}
 	row.path.clear();
 	row.slider = nullptr;
 	row.entry = nullptr;
@@ -1173,47 +1203,6 @@ bool equalsNoCase(const std::string &a, const char *b)
 	return i == a.size() && b[i] == 0;
 }
 
-// ZH UnicodeString::format (a vswprintf) of a "%d"-style game text: the integer conversions are replaced in order by the integers, with their flags,
-// width and precision (Version:Format2 is "Version %d.%02d": the minor version 1 shows as "01", RotWK's "Version 2.01"; lane MENUFIX-1, before the
-// width was dropped: "Version 2.1")
-std::u16string formatInts(const std::u16string &format, std::initializer_list<int> values)
-{
-	std::u16string out;
-	auto it = values.begin();
-	for (std::size_t i = 0; i < format.size(); ++i)
-	{
-		if (format[i] == u'%' && i + 1 < format.size())
-		{
-			std::size_t j = i + 1;
-			std::string spec = "%";
-			while (j < format.size() && (format[j] == u'-' || format[j] == u'+' || format[j] == u' ' || format[j] == u'#' || format[j] == u'.' ||
-					(format[j] >= u'0' && format[j] <= u'9')))
-			{
-				spec += (char)format[j++];
-			}
-			if (j < format.size() && (format[j] == u'd' || format[j] == u'i' || format[j] == u'u'))
-			{
-				if (it != values.end())
-				{
-					spec += (char)format[j];
-					char buf[64];
-					std::snprintf(buf, sizeof(buf), spec.c_str(), *it++);
-					out += asciiToU16(buf);
-				}
-				i = j;
-				continue;
-			}
-			if (format[i + 1] == u'%')
-			{
-				out += u'%';
-				++i;
-				continue;
-			}
-		}
-		out += format[i];
-	}
-	return out;
-}
 } // namespace
 
 std::u16string AptOptionsScreen::versionText(const GameTextSource *text)
@@ -1224,7 +1213,7 @@ std::u16string AptOptionsScreen::versionText(const GameTextSource *text)
 	{
 		format = u"Version:Format2"; // a missing label shows as the label (the game text's own rule)
 	}
-	return formatInts(format, { kVersionMajor, kVersionMinor });
+	return LocalizedText::format(format, { kVersionMajor, kVersionMinor });
 }
 
 namespace

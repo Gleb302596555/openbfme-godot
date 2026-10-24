@@ -21,13 +21,13 @@ buildings until first seen (RW 0x68EDD0). The 27-frame window covers the lockste
 shows behind. Allied vision and revealer powers need no special case: they look into the player's own cells. Remembered buildings (seen once, drawn as
 a ghost in fog) are never flagged.
 
-Bands, per player: events within 30 s of each other are one encounter. `alert` = at least 3 encounters at confidence >= 0.9, the first and last at
+Bands, per player: events within 30 s of an encounter's first event are one encounter (not a sliding gap between adjacent events). `alert` = at least 3 encounters at confidence >= 0.9, the first and last at
 least 2 minutes apart; `review` = any encounter; `none`; `abstained` = the game cannot be judged. The whole game abstains when the replay lost a
 command, has no recorded hashes, starts from a save, or the re-simulation does not reproduce the players' own recorded hashes (`crc_parity`); a relay
 log whose players' CRCs disagree (a desync) or that is incomplete abstains too (`fog_check.py run`). A replay without an end record (every relay
 log's, S-3710) is judged up to its last recorded hash: every judged order lies before a state the players' own CRCs confirm.
 
-Coverage limits: a map hacker who only looks, and clicks things once they are visible, leaves no D1 trace (the statistical detectors D2-D5 are for that);
+Coverage limits: a map hacker who only looks, and clicks things once they are visible, leaves no D1 trace. D5 below checks input rate, not passive looking;
 position orders (move, attack-move, spells at a location) are not judged.
 
 Selections count too (owner, 2026-10-21): OpenBFME's client sends the selection of enemy objects over the network, and it can only pick what it
@@ -78,8 +78,19 @@ without that route keeps refusing it, the uploader keeps both files and retries,
 
 `integrity_check.py` is the program to run (or `openbfme-integrity.service` / `.timer`, every 5 minutes, on a host with the game files):
 
+Linux command example, from the repository root with Python 3, a built
+`openbfme_peer`, `ROTWK_INSTALL` / `BFME2_INSTALL`, and the named local game
+records; set `GAME_ID` to that game's 16-hex ID. Evidence rendering also needs
+ffmpeg (or pass `--no-render`):
+
+```sh
+python3 tools/integrity/integrity_check.py game --peer engine/build/openbfme_peer --relay-log G.obfmerlog --online-start G.start.json --game-id "$GAME_ID" --out-dir DIR
 ```
-python3 tools/integrity/integrity_check.py game --peer engine/build/openbfme_peer --relay-log G.obfmerlog --online-start G.start.json --game-id ID --out-dir DIR
+
+Watch-mode usage sketch (parentheses/brackets show alternatives, not shell syntax;
+posting additionally needs an operator-provided intake URL and key file):
+
+```text
 python3 tools/integrity/integrity_check.py watch --once (--peer PEER | --peers DIR) --root ROOT (--incoming LOGDIR | --lobby URL --read-key-file K) [--url INTAKE --key-file K]
 ```
 
@@ -96,7 +107,10 @@ release's peer has no D5 / D6: their reports are then absent); D1 is the minimum
 
 ### Running it
 
-```
+Usage sketches for the same Linux build and prerequisites; replace the uppercase
+arguments, and do not type brackets. Posting is an operator action, not a local test:
+
+```text
 openbfme_peer --rotwk DIR --bfme2 DIR --replay GAME.replay --fog-check report.json [--game-id ID]
 python3 tools/integrity/fog_check.py run --peer engine/build/openbfme_peer --relay-log GAME.obfmerlog --online-start START.json --game-id ID --out report.json
 python3 tools/integrity/fog_check.py findings report.json [--post URL --key-file KEY]

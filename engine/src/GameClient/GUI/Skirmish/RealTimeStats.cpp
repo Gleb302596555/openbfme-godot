@@ -2,6 +2,7 @@
 // See RealTimeStats.h (lane OWNERFIX-3).
 
 #include "GameClient/GUI/Skirmish/RealTimeStats.h"
+#include "Common/PathIO.h"
 
 #include "GameClient/MapCache.h"
 
@@ -68,7 +69,7 @@ bool RealTimeStatsPreferences::load(const std::string &folder, const std::u16str
 		// loadStatsFile (RW 0x93E669): the profile name and the leaf appended to the user data folder (UserPreferences::load RW 0x7B2B7F)
 		m_path = folder + utf8(profile) + kLeaf;
 		std::error_code ec;
-		const std::filesystem::path path = std::filesystem::u8path(m_path);
+		const std::filesystem::path path = PathIO::native(m_path);
 		if (std::filesystem::exists(path, ec))
 		{
 			// a folder (or anything not a file) of that name cannot be read: an error, not an empty profile

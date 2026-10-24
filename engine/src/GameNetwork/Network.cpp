@@ -211,6 +211,7 @@ Network::Network(const NetworkConfig &config, NetTransport &transport)
 	for (int s = 0; s < MAX_SLOTS; ++s)
 	{
 		m_slots[(size_t)s].active = config.slotPlayerIndex[(size_t)s] >= 0;
+		m_memberSlots += m_slots[(size_t)s].active ? 1 : 0;
 	}
 	if (config.localSlot < 0 || config.localSlot >= MAX_SLOTS || !m_slots[(size_t)config.localSlot].active)
 	{
@@ -390,6 +391,19 @@ void Network::update(UnsignedInt logicFrame, CommandList &pending)
 			c.slot = (std::uint8_t)m_config.localSlot;
 			c.frame = (std::uint32_t)m_rejoinGeneration;
 			sendDirect(c);
+			// lane SOLO-1: a game born with the local slot as its only network player has nobody left to take it back once it
+			// drops (the packet router was itself): it admits itself, the REJOIN reaching the relay's log like every command
+			// sent with no live peer to get it (relayCommands takes a slot's own REJOIN when no member can route one)
+			if (m_memberSlots == 1 && !m_selfRejoinSent)
+			{
+				m_selfRejoinSent = true;
+				NetCommandMsg r;
+				r.type = NETCOMMANDTYPE_REJOIN;
+				r.slot = (std::uint8_t)m_config.localSlot;
+				r.executionFrame = executionFrame(m_logicFrame);
+				r.targetSlot = (std::uint8_t)m_config.localSlot;
+				send(r);
+			}
 		}
 		return;
 	}
@@ -955,17 +969,20 @@ void Network::relayCommands(UnsignedInt frame, CommandList &out)
 			h.runAheadChange[(size_t)s] = it->second.runAheadChange;
 			for (int t : it->second.rejoins)
 			{
-				// lane ONLINE-3: only the frame's packet router takes a slot back, and only a held one (deterministic: the same membership on every peer)
+				// lane ONLINE-3: only the frame's packet router takes a slot back, and only a held one (deterministic: the same membership on every peer).
+				// lane SOLO-1: when no member can route a REJOIN at all (every slot of the game has departed; a solo game's only
+				// member), a held slot's own REJOIN of itself stands in for the router's
+				const bool selfAdmit = t == s && routerAt(frame) < 0;
 				if (t >= 0 && t < MAX_SLOTS)
 				{
 					h.rejoinMask[(size_t)s] |= (std::uint16_t)(1u << t);
 				}
-				if (s != routerAt(frame))
+				if (s != routerAt(frame) && !selfAdmit)
 				{
 					m_errors.push_back("REJOIN of slot " + std::to_string(t) + " from slot " + std::to_string(s) + " for frame " + std::to_string(frame)
 						+ ", which is not the packet router's: ignored");
 				}
-				else if (t < 0 || t >= MAX_SLOTS || t == s || !m_slots[(size_t)t].active || !m_slots[(size_t)t].held || m_slots[(size_t)t].handedOver)
+				else if (t < 0 || t >= MAX_SLOTS || (t == s && !selfAdmit) || !m_slots[(size_t)t].active || !m_slots[(size_t)t].held || m_slots[(size_t)t].handedOver)
 				{
 					m_errors.push_back("REJOIN of slot " + std::to_string(t) + " for frame " + std::to_string(frame) + ", which is not held for a rejoin: ignored");
 				}

@@ -485,6 +485,18 @@ std::string resultBody(const GameRecord &r, const std::string &install, const st
 		fail(error, "a game with fewer than two players is not reported (the service takes 2 .. 8)");
 		return std::string();
 	}
+	// lane SOLO-1: an online game with a single human is never reported, with AI slots or none (a custom game may start solo; a
+	// LAN game's one human still reports, its "vs_ai" bucket)
+	int humans = 0;
+	for (const GameRecord::Player &p : r.players)
+	{
+		humans += p.human ? 1 : 0;
+	}
+	if (r.kind == "online" && humans < 2)
+	{
+		fail(error, "an online game with a single human is not reported (a custom game may start solo)");
+		return std::string();
+	}
 	if (!PlatformApiClient::validInstall(install))
 	{
 		fail(error, "the install id is not 32 hex digits");

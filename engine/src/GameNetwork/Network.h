@@ -582,5 +582,7 @@ private:
 	bool m_rejoining = false, m_rejoinReady = false;
 	int m_rejoinGeneration = 0;
 	std::uint64_t m_lastRejoinRequest = 0;
+	bool m_selfRejoinSent = false; ///< lane SOLO-1: the local slot is the game's only network player: its own REJOIN went out
+	int m_memberSlots = 0;         ///< the config's network slots (a solo game's is 1)
 	std::vector<std::string> m_rejoinLog;
 };

@@ -3,14 +3,16 @@
 // See Common/Recorder.h.
 
 #include "Common/Recorder.h"
+#include "Common/BuildVersion.h"
+#include "Common/PathIO.h"
 
 #include <cstring>
-#include <iterator>
+#include <filesystem>
 
 namespace
 {
 const char kMagic[8] = { 'O', 'B', 'F', 'M', 'E', 'R', 'E', 'P' };
-constexpr std::uint32_t kVersion = 8; // 8 (lane ANTICHEAT-1): the VIEW record; 7 (lane OWNERFIX-2): the GameInfo slots' handicaps; 6 (lane SAVE-2): the execution profile switch record, duplicate records refused; 2: the profile identity, GameMessage format 2 (u32 argument counts), lost-command records; 3 (lane HERO-2): the GameInfo slots' Create-a-Hero records; 4 (lane RULES-1): the GameInfo's game rules and Legendary Heroes factor; 5 (lane UBER-1): the GameInfo's simulation profile
+constexpr std::uint32_t kVersion = 10; // 10: the build date; 9: the recording build (version, commit); 8 (lane ANTICHEAT-1): the VIEW record; 7 (lane OWNERFIX-2): the GameInfo slots' handicaps; 6 (lane SAVE-2): the execution profile switch record, duplicate records refused; 2: the profile identity, GameMessage format 2 (u32 argument counts), lost-command records; 3 (lane HERO-2): the GameInfo slots' Create-a-Hero records; 4 (lane RULES-1): the GameInfo's game rules and Legendary Heroes factor; 5 (lane UBER-1): the GameInfo's simulation profile
 enum : std::uint8_t
 {
 	RECORD_FRAME = 1,
@@ -42,25 +44,54 @@ unsigned long long ReplayFile::commandCount() const
 
 bool ReplayFile::load(const std::string &path, ReplayFile &out, std::string *error)
 {
-	std::ifstream in(path, std::ios::binary);
-	if (!in)
+	try
 	{
-		return failWith(error, "cannot open the replay " + path);
+		std::error_code ec;
+		const auto file = PathIO::native(path);
+		const std::uintmax_t size = std::filesystem::file_size(file, ec);
+		std::ifstream in(file, std::ios::binary);
+		if (ec || !in)
+		{
+			return failWith(error, "cannot open the replay " + path);
+		}
+		if (size > kMaxBytes)
+		{
+			return failWith(error, "the replay exceeds the size limit of " + std::to_string(kMaxBytes) + " bytes");
+		}
+		std::vector<std::uint8_t> bytes((std::size_t)size);
+		if (!bytes.empty() && !in.read((char *)bytes.data(), (std::streamsize)bytes.size()))
+		{
+			return failWith(error, "the replay could not be read (truncated file)");
+		}
+		ReplayFile parsed;
+		if (!parse(bytes, parsed, error))
+		{
+			return false;
+		}
+		out = std::move(parsed);
+		return true;
 	}
-	std::vector<std::uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-	return parse(bytes, out, error);
+	catch (const std::exception &e)
+	{
+		return failWith(error, std::string("the replay could not be read (") + e.what() + ")");
+	}
 }
 
-bool ReplayFile::parse(const std::vector<std::uint8_t> &bytes, ReplayFile &out, std::string *error)
+namespace
 {
-	out = ReplayFile();
+bool parseReplay(const std::vector<std::uint8_t> &bytes, ReplayFile &out, std::string *error)
+{
+	if (bytes.size() > ReplayFile::kMaxBytes)
+	{
+		return failWith(error, "the replay exceeds the size limit of " + std::to_string(ReplayFile::kMaxBytes) + " bytes");
+	}
 	if (bytes.size() < sizeof(kMagic) || std::memcmp(bytes.data(), kMagic, sizeof(kMagic)) != 0)
 	{
 		return failWith(error, "not an OpenBFME replay (magic)");
 	}
 	NetByteReader r(bytes.data() + sizeof(kMagic), bytes.size() - sizeof(kMagic));
 	const std::uint32_t version = r.u32();
-	if (version != kVersion && version != 5 && version != 6 && version != 7)
+	if (version != kVersion && version != 5 && version != 6 && version != 7 && version != 8 && version != 9)
 	{
 		// lane SAVE-2: format 6 only adds the profile switch record, so a format 5 replay (UBER-1) still reads (without that record); lane OWNERFIX-2:
 		// format 7 only adds the slots' handicaps, so a format 5 / 6 replay or save still reads (every handicap 0)
@@ -68,6 +99,22 @@ bool ReplayFile::parse(const std::vector<std::uint8_t> &bytes, ReplayFile &out, 
 	}
 	ReplayHeader &h = out.header;
 	h.profile = ProfileIdentity::fromText(r.str());
+	if (version >= 9)
+	{
+		h.buildVersion = r.str();
+		h.buildCommit = r.str();
+		if (version >= 10)
+		{
+			h.buildDate = r.str();
+		}
+		if (r.failed() || h.buildVersion.empty() || h.buildVersion.size() > 128 || h.buildCommit.size() > 40 ||
+			!RecordingBuild::validDate(h.buildDate) ||
+			h.buildVersion.find_first_of("\r\n\t") != std::string::npos ||
+			(h.buildCommit != "none" && (h.buildCommit.size() != 40 || h.buildCommit.find_first_not_of("0123456789abcdef") != std::string::npos)))
+		{
+			return failWith(error, "invalid replay recording build");
+		}
+	}
 	if (!NetPacket::readNewGameMessage(r, h.game, error, version >= 7))
 	{
 		return false;
@@ -199,6 +246,25 @@ bool ReplayFile::parse(const std::vector<std::uint8_t> &bytes, ReplayFile &out, 
 	}
 	return true;
 }
+} // namespace
+
+bool ReplayFile::parse(const std::vector<std::uint8_t> &bytes, ReplayFile &out, std::string *error)
+{
+	try
+	{
+		ReplayFile parsed;
+		if (!parseReplay(bytes, parsed, error))
+		{
+			return false;
+		}
+		out = std::move(parsed);
+		return true;
+	}
+	catch (const std::exception &e)
+	{
+		return failWith(error, std::string("the replay could not be parsed (") + e.what() + ")");
+	}
+}
 
 bool ReplayWriter::openTarget(const std::string &path, std::string *error)
 {
@@ -213,7 +279,7 @@ bool ReplayWriter::openTarget(const std::string &path, std::string *error)
 		m_open = true;
 		return true;
 	}
-	m_out.open(path, std::ios::binary | std::ios::trunc);
+	m_out.open(PathIO::native(path), std::ios::binary | std::ios::trunc);
 	if (!m_out)
 	{
 		return failWith(error, "cannot write the replay " + path);
@@ -237,6 +303,9 @@ bool ReplayWriter::open(const std::string &path, const ReplayHeader &h, std::str
 	NetByteWriter w;
 	w.u32(kVersion);
 	w.str(h.profile.text);
+	w.str(h.buildVersion.empty() ? BuildVersion::kVersion : h.buildVersion);
+	w.str(h.buildCommit.empty() ? BuildVersion::kCommit : h.buildCommit);
+	w.str(h.buildVersion.empty() ? BuildVersion::kBuildDate : h.buildDate);
 	NetPacket::writeNewGameMessage(w, h.game);
 	w.i32(h.recordingSlot);
 	w.u32((std::uint32_t)h.algorithm);

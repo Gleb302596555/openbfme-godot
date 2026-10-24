@@ -427,7 +427,7 @@ TEST_CASE("play4 heroes retail: every faction's heroes, recruited from the fortr
 			// MordorGoblinSwordsman_Slaved of the Moria goblin lair about 550 to the south-west, then the lair itself, so his strikes in the window never
 			// reach the horde (measured on a CI host); every other hero fights the horde
 			const bool creepFirst = hero == "ElvenHaldir";
-			CHECK(creepFirst ? own.lost == 0.0f : own.lost > 0.0f); // tolerance: the pre-existing "the guard attacks the horde" bound, Haldir's 0 exact
+			CHECK((creepFirst ? own.lost == 0.0f : own.lost > 0.0f)); // tolerance: the pre-existing "the guard attacks the horde" bound, Haldir's 0 exact
 			CHECK_FALSE(own.noted3804);
 			// on an order (auto-acquire off): the order alone strikes and kills. Lane ATTACK-1 closed S-3807 (its two named exceptions, the mounted Witch-king and
 			// Mouth of Sauron, were the port's static crush test in blockedBy: the next test); its runtime note is gone

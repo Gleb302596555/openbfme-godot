@@ -95,6 +95,7 @@
 // timeout, refused by the lobby: another profile), 4 network or recording errors (a command that could not be sent or recorded).
 
 #include "Common/JobSystem.h"
+#include "Common/PathIO.h"
 #include "Common/PlayerTemplate.h"
 #include "Common/BuildVersion.h"
 #include "Common/Recorder.h"
@@ -241,8 +242,7 @@ struct Args
 
 std::string envOr(const char *name)
 {
-	const char *v = std::getenv(name);
-	return v ? v : "";
+	return PathIO::environment(name);
 }
 
 bool parseArgs(int argc, char **argv, Args &a, std::string &error)
@@ -543,7 +543,7 @@ int templateIndex(const PlayerTemplateStore &store, const std::string &name)
 // lane HERO-2: a .cah file into a slot at the setup (the only place a peer reads one; the game takes the record from the setup)
 bool readCreateAHero(const std::string &path, const World &w, SkirmishGameSlot &slot, std::string &error)
 {
-	std::ifstream f(path, std::ios::binary);
+	std::ifstream f(PathIO::native(path), std::ios::binary);
 	if (!f)
 	{
 		error = "cannot read the Create-a-Hero file " + path;
@@ -671,7 +671,7 @@ void writeReport(const std::string &path, const std::string &text)
 		std::fputs(text.c_str(), stdout);
 		return;
 	}
-	std::ofstream o(path, std::ios::binary | std::ios::trunc); // LF lines on every OS: reports and hash files compare byte for byte (lane WIN-1)
+	std::ofstream o(PathIO::native(path), std::ios::binary | std::ios::trunc); // LF lines on every OS: reports and hash files compare byte for byte (lane WIN-1)
 	o << text;
 }
 
@@ -686,9 +686,9 @@ void dumpFogState(const Args &a, GameLogic &logic, UnsignedInt next)
 	}
 	const int W = shroud->cellCountX(), H = shroud->cellCountY();
 	const std::string terrain = a.fogDump + "/terrain.txt";
-	if (!std::ifstream(terrain))
+	if (!std::ifstream(PathIO::native(terrain)))
 	{
-		std::ofstream t(terrain, std::ios::binary | std::ios::trunc);
+		std::ofstream t(PathIO::native(terrain), std::ios::binary | std::ios::trunc);
 		t << "grid " << W << " " << H << " cell " << shroud->cellSize() << " origin " << shroud->originX() << " " << shroud->originY() << "\n";
 		for (int y = 0; y < H; ++y)
 		{
@@ -712,7 +712,7 @@ void dumpFogState(const Args &a, GameLogic &logic, UnsignedInt next)
 	}
 	char name[64];
 	std::snprintf(name, sizeof(name), "/frame_%06u.txt", next);
-	std::ofstream o(a.fogDump + name, std::ios::binary | std::ios::trunc);
+	std::ofstream o(PathIO::native(a.fogDump + name), std::ios::binary | std::ios::trunc);
 	o << "frame " << next << " view " << a.fogView << "\n";
 	for (int y = 0; y < H; ++y)
 	{
@@ -751,10 +751,10 @@ int runReplay(const Args &a, World &w)
 		return 1;
 	}
 	// PLAN: a replay of another profile identity is refused before the game is loaded
-	const std::string mismatch = replay.profileMismatch(w.profile);
+	const std::string mismatch = replay.loadRefusal(w.profile);
 	if (!mismatch.empty())
 	{
-		std::fprintf(stderr, "openbfme_peer: the replay was recorded by another profile: %s\n", mismatch.c_str());
+		std::fprintf(stderr, "openbfme_peer: %s\n", mismatch.c_str());
 		return 1;
 	}
 	// lane SAVE-2: a campaign mission's save names its campaign start (the mission's map directory, the difficulty): the mission is started from that,
@@ -942,7 +942,7 @@ int runReplay(const Args &a, World &w)
 			{
 				continue;
 			}
-			std::ofstream fo(*o.first, std::ios::binary | std::ios::trunc);
+			std::ofstream fo(PathIO::native(*o.first), std::ios::binary | std::ios::trunc);
 			fo << o.second << "\n";
 			if (!fo)
 			{
@@ -989,7 +989,7 @@ int runReplay(const Args &a, World &w)
 			writeReport(a.report, r.str());
 			return 2;
 		}
-		std::ofstream so(a.snapshotOut, std::ios::binary | std::ios::trunc);
+		std::ofstream so(PathIO::native(a.snapshotOut), std::ios::binary | std::ios::trunc);
 		so.write(reinterpret_cast<const char *>(snap.data()), (std::streamsize)snap.size());
 		if (!so)
 		{
@@ -1013,7 +1013,7 @@ int runReplay(const Args &a, World &w)
 // lane ONLINE-2: the START file the lobby service built, as the LobbyStart a LAN lobby would give
 bool readOnlineStart(const Args &a, const World &w, LobbyStart &out, std::string &error, OnlineStart::Kind kind = OnlineStart::Kind::Start)
 {
-	std::ifstream f(a.onlineStart, std::ios::binary);
+	std::ifstream f(PathIO::native(a.onlineStart), std::ios::binary);
 	if (!f)
 	{
 		error = "cannot read the online START " + a.onlineStart;
@@ -1300,7 +1300,14 @@ int runSpectator(const Args &a, World &w, UDP &socket, const LobbyStart &lobby)
 }
 } // namespace
 
+static int peerMain(int argc, char **argv);
+
 int main(int argc, char **argv)
+{
+	return PathIO::runMain(argc, argv, peerMain);
+}
+
+static int peerMain(int argc, char **argv)
 {
 	Args a;
 	std::string error;
@@ -1961,7 +1968,7 @@ int main(int argc, char **argv)
 			game.drainFrames(); // the frames already handed to the worker: their hashes are this peer's last ones
 			if (!a.hashes.empty())
 			{
-				std::ofstream h(a.hashes, std::ios::binary | std::ios::trunc);
+				std::ofstream h(PathIO::native(a.hashes), std::ios::binary | std::ios::trunc);
 				char hb[96];
 				for (const FrameHash &fh : hashes)
 				{
@@ -2196,7 +2203,7 @@ int main(int argc, char **argv)
 	if (!a.census.empty())
 	{
 		// lane MP-3: the census CSV (frame = the logic frame after the batch ran)
-		std::ofstream c(a.census, std::ios::binary | std::ios::trunc);
+		std::ofstream c(PathIO::native(a.census), std::ios::binary | std::ios::trunc);
 		c << "frame,sim_us,battalions,troops,objects\n";
 		for (const LockstepDriver::CensusRow &row : session.driver().censusLog())
 		{
@@ -2548,7 +2555,7 @@ int main(int argc, char **argv)
 	writeReport(a.report, r.str());
 	if (!a.hashes.empty())
 	{
-		std::ofstream h(a.hashes, std::ios::binary | std::ios::trunc);
+		std::ofstream h(PathIO::native(a.hashes), std::ios::binary | std::ios::trunc);
 		for (size_t i = 0; i < hashes.size(); ++i)
 		{
 			std::snprintf(b, sizeof(b), "%u 0x%08X 0x%08X\n", hashes[i].frame, hashes[i].hash, hashes[i].rng);

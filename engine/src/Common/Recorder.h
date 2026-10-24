@@ -28,6 +28,7 @@
 #pragma once
 
 #include "Common/RandomValue.h"
+#include "Common/RecordingBuild.h"
 #include "Common/SimulationProfile.h"
 #include "GameClient/LiveGameFrameDriver.h"
 #include "GameNetwork/ProfileIdentity.h"
@@ -44,6 +45,9 @@
 
 struct ReplayHeader
 {
+	std::string buildVersion; ///< format 9: provenance for choosing an installation, never simulation identity
+	std::string buildCommit;
+	std::string buildDate; ///< format 10: UTC build day; empty in earlier recordings
 	ProfileIdentity profile; ///< the recording build's (GameNetwork/ProfileIdentity.h)
 	NewGameMessage game;
 	int recordingSlot = 0;
@@ -64,6 +68,7 @@ struct ReplayHeader
 
 struct ReplayFile
 {
+	static constexpr std::size_t kMaxBytes = 256u << 20;
 	ReplayHeader header;
 	std::map<UnsignedInt, std::vector<GameMessage>> frames; ///< frame -> its command list
 	std::map<UnsignedInt, std::uint32_t> hashes;            ///< logic frame after the frame ran -> state hash
@@ -101,7 +106,12 @@ struct ReplayFile
 		return why;
 	}
 	unsigned long long commandCount() const;
-	// false + *error on a bad magic, version, record or truncation (a missing end record is not an error: `complete` says it)
+	std::string loadRefusal(const ProfileIdentity &running) const
+	{
+		return profileMismatch(running).empty() ? "" : RecordingBuild::openWith(header.buildVersion, header.buildDate);
+	}
+	// Relay replays and interrupted recordings may end on a record boundary without an end record (`complete` says it).
+	// Failed reads leave out unchanged and return false + *error.
 	static bool load(const std::string &path, ReplayFile &out, std::string *error);
 	static bool parse(const std::vector<std::uint8_t> &bytes, ReplayFile &out, std::string *error);
 };

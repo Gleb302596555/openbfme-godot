@@ -771,6 +771,10 @@
    "reason": "lane SPELL-3: the client animation of a toppling map tree (ZH W3DTreeBuffer's fall, bounce and sink) driven by the logic's tree events; never simulation state"
   },
   {
+   "glob": "src/Common/System/PathIO.cpp",
+   "reason": "UTF-8 disk paths and host environment access at client I/O boundaries; never simulation state"
+  },
+  {
    "glob": "src/Common/System/InstallLocator.cpp",
    "reason": "lane RELEASE-1: finding and checking the player's game folders before anything is mounted (registry, Wine prefixes, the archive list); launcher code, never simulation state"
   },
