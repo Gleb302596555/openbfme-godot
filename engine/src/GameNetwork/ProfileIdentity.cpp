@@ -46,7 +46,7 @@ const char *ProfileIdentity::gitProvenance()
 }
 
 ProfileIdentity ProfileIdentity::compute(const std::vector<MountedArchive> &archives, RandomAlgorithm rng, const std::vector<std::string> &extraFeatures,
-	SimulationProfile profile)
+	SimulationProfile profile, const std::vector<std::string> &modLines)
 {
 	std::ostringstream o;
 	o << "openbfme-profile 1\n";
@@ -62,7 +62,23 @@ ProfileIdentity ProfileIdentity::compute(const std::vector<MountedArchive> &arch
 	o << "\n";
 	o << "numeric " << kNumeric << "\n";
 	o << "rng " << (rng == RandomAlgorithm::ZH_CarryChain ? "ZH_CarryChain" : "RotWK_GameDat_LCG") << "\n";
-	o << "mods none\n";
+	if (modLines.empty())
+	{
+		o << "mods none\n";
+	}
+	else
+	{
+		size_t sources = 0;
+		for (const std::string &l : modLines)
+		{
+			sources += l.compare(0, 4, "mod ") == 0 ? 1 : 0;
+		}
+		o << "mods " << sources << "\n";
+		for (const std::string &l : modLines)
+		{
+			o << l << "\n";
+		}
+	}
 	for (size_t i = 0; i < archives.size(); ++i)
 	{
 		const MountedArchive &a = archives[i];
@@ -124,10 +140,10 @@ std::string ProfileIdentity::difference(const ProfileIdentity &ours, const Profi
 	return out;
 }
 
-// lane NETLAG-1: the recordings of builds before the one-frame command delay play back here. The delay only decides WHICH batch a live command lands in;
-// a recording holds every batch's commands as they ran, so playback never reads the run-ahead. VERIFIED, not assumed: each id below has a fixture
-// recording in engine/tests/data/netlag1 that the test "netlag1 replay: ..." plays with every hash equal (a build whose recordings stop matching is
-// removed from this list). Ids come from cmake -DOPENBFME_ID_ROOT=<engine dir> -P cmake/EngineId.cmake at the commit.
+// lane NETLAG-1: historical engine identities whose recordings are accepted when only the engine line differs. The fixture test reads the old
+// recording, checks its identity and plays every frame; historical hash mismatches are reported, not required to be zero. Hash equality is checked
+// separately with a recording made by the current simulation using the old command path and engine id; this list does not guarantee it for old builds.
+// Ids come from cmake -DOPENBFME_ID_ROOT=<engine dir> -P cmake/EngineId.cmake at the commit.
 const std::vector<ProfileIdentity::VerifiedEngine> &ProfileIdentity::verifiedReplayEngines()
 {
 	static const std::vector<VerifiedEngine> v = {
