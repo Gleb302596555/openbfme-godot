@@ -48,6 +48,35 @@ The port stores both in one vector and previously deleted empty pending
 teams. This prevented squads created before troops were available from
 ever recruiting them.
 
+This also affects offensive tactics. Starting an attack reserves one slot
+on its target. If its empty pending team is deleted before recruitment,
+the tactic stays unstarted and never ready, while retaining that slot.
+A full target cannot accept another attack; allied AIs share the group's
+target chooser, so the occupied slot can affect allies too. Idle-unit
+dispatch does not guarantee recovery: it only sends troops to existing
+attacked-at records, and does nothing when there are none.
+
+This is not necessarily a permanent deadlock. Target expiry (or loss of
+the target object) can mark the target dropped. An unstarted tactic then
+ends and releases its slot. The default expiry interval is 90 seconds,
+with a random expiry decision; ArmyDefinition data can override these
+values. A replacement attack can encounter the same pending-team bug.
+Targetless squads have no target-expiry recovery through this path.
+Base construction runs separately; this bug alone does not explain
+missing farms or a fixed production-building count.
+
+An asset-free regression uses the real chooser and generator to create
+a SimpleAttack and reserve its target slot. It preserves the empty team
+across a brain update, creates five units, advances the real 50-frame
+recruitment age, then uses the team builder to recruit, hand over and
+launch the attack. All five units receive active attack-move orders.
+It fails with the pre-PR tactical source and passes with the published
+PR's tactical source, including its handover guard. A second regression
+seeds the old stranded state and verifies that target expiry ends it and
+frees the target slot. These
+checks establish the lifecycle failure, not the cause of every idle
+unit observed in a match.
+
 Unit tests cover registration, ownership changes, destroyed IDs, snapshot
 round trips and malformed registry data. Match scenarios are outside the
 requested validation scope.
