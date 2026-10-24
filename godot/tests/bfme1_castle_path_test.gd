@@ -21,13 +21,16 @@ func _run() -> void:
 	print("BFME1 SETUP ", setup.get("templates"), " templates, ", setup.get("factions"), " factions")
 	for error in setup.errors: print("BFME1 ERROR ", error)
 	if not setup.ok: quit(1); return
+	# the retry runs only under the Uber simulation profile (Faithful keeps RotWK's single corridor search, RW 0x6FE7CB)
+	var profile: Dictionary = world.set_simulation_profile("uber")
+	if not profile.ok: _fail("set_simulation_profile: " + str(profile)); return
 	for case in [{"faction":4,"map":"maps/map mp fords of isen/map mp fords of isen.map","distance":400.0}, {"faction":3,"map":"maps/map mp anorien/map mp anorien.map","distance":550.0}]:
 		var slots: Array = []
 		for i in 8:
 			slots.append({"state":1,"name":"Closed","accepted":true,"color":-1,"start_pos":-1,"player_template":-1,"team":-1})
 		slots[0] = {"state":6,"name":"PathTest","accepted":true,"color":0,"start_pos":0,"player_template":case.faction,"team":0}
 		slots[1] = {"state":6,"name":"Opponent","accepted":true,"color":1,"start_pos":1,"player_template":5,"team":1}
-		if not world.prepare_new_game({"mode":"skirmish","difficulty":1,"rank_points":0,"map_crc":0,"map_size":0,"map_mask":0,"map":case.map,"seed":9001,"starting_cash":2000,"slots":slots}).ok: _fail("prepare_new_game"); return
+		if not world.prepare_new_game({"mode":"skirmish","difficulty":1,"rank_points":0,"map_crc":0,"map_size":0,"map_mask":0,"map":case.map,"seed":9001,"starting_cash":2000,"simulation_profile":1,"slots":slots}).ok: _fail("prepare_new_game"); return
 		if not world.start_new_game({"logic_thread":false}).ok: _fail("start_new_game"); return
 		for i in 30: world.advance(0.2)
 		var horde := {}
