@@ -1124,7 +1124,7 @@ std::vector<std::string> ProjectileModules::stops()
 		"estimateTerrainExtremesAlongLine; RW's own routine, slot 0x40 of the terrain object RW 0xDE4690, was not read); only the ground layer exists (no bridges)",
 		"[S-363] projectile behaviour: the victim proximity test of RW 0x85F737 is ported as the binary has it (the length of the victim's WORLD position against radius + speed: it only fires near the map "
 		"origin); lane FLANK-1: a flying projectile without KindOf NO_COLLIDE meets the objects its shapes overlap (CombatState::processProjectileContacts, the collision manager row; INFERENCE S-780: "
-		"the candidates are ThePartitionManager's within its bounding sphere, tested with RW 0xAD2CE0, in id order, the projectile's side only) through canCollideWith RW 0x85EF6A with the warhead's "
+		"the candidates are ThePartitionManager's within its bounding sphere, tested with RW 0xAD2CE0 from the pair's lower ObjectID's side with each object's own shapes (lane SIEGE-1: RW 0xB6D730 / 0xB6D060), in id order, the projectile's collide interface only) through canCollideWith RW 0x85EF6A with the warhead's "
 		"ProjectileCollidesWith RW 0x6CC79C (no sneaky targeting offset, the ground layer only, a BURNED object's nugget walk of RW 0x6CB6EA not ported), the back-off RW 0x85EA5F and the CrushStyle hit "
 		"RW 0x85F85B with the projectile as the source; PreLandingEmotion runs (RW 0x85F31A -> RW 0x68F383); GarrisonHitKill (no 2.01 data), the PostLanding emotion (no 2.01 data) and TumbleRandomly "
 		"(the physics orientation) are parsed and counted, not executed (InvisibleFrames / FadeInTime and the drawable look-ahead point: lane PROJ-2, S-1001); "

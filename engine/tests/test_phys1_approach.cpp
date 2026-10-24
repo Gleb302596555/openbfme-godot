@@ -109,7 +109,12 @@ TEST_CASE("phys1 retail: a refused contact adjustment keeps the horde's existing
 	run(false, false, h3, b3, a3);
 	CHECK(b3.hasPath);
 	CHECK(a3.hasPath);
-	CHECK((a3.last.x != b3.last.x || a3.last.y != b3.last.y));
+	// merge queue q24: the request is the property: its goal cell is the unadjusted point toward the moved enemy (the computer player's run keeps its goal).
+	// Since OFFMAP-1 (RotWK's idle state RW 0x745A64: no ZH frame <= 1 snap, no pathfinder position update at the first idle frame) the requested path has not
+	// replaced the old one within these 15 frames, so the last node is not the measure any more
+	CHECK((a3.goalCell.x != b3.goalCell.x || a3.goalCell.y != b3.goalCell.y));
+	CHECK(a1.goalCell.x == b1.goalCell.x);
+	CHECK(a1.goalCell.y == b1.goalCell.y);
 	// 3. a computer player refused from the first computePath: computePath requests nothing, onEnter still makes the internal move to the goal point
 	std::vector<std::uint32_t> h4;
 	Snapshot b4, a4;

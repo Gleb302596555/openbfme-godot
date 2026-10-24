@@ -42,7 +42,7 @@ var _server := TCPServer.new()
 ## past that); the first that is the real callback wins. One listener socket was replaced by each new connection, so a local process could keep
 ## knocking the browser's callback out. Each entry: {"socket": StreamPeerTCP, "buffer": PackedByteArray, "deadline": msec}
 const MAX_CALLBACK_CLIENTS := 8
-var _clients: Array = []
+var _clients: Array[Dictionary] = []
 var _deadline := 0
 var _provider := ""
 var _mode := ""
@@ -335,7 +335,7 @@ func _on_request(result: int, code: int, _headers: PackedStringArray, body: Pack
 		if not _allowed_authorization(value.authorization_url):
 			_finish_error("The lobby returned an unsafe sign-in URL.")
 			return
-		var open_result: int = _browser_override.call(value.authorization_url) if _browser_override.is_valid() else OS.shell_open(value.authorization_url)
+		var open_result: int = _browser_override.call(value.authorization_url) if _browser_override.is_valid() else preload("res://scripts/core/external_open.gd").open_url(value.authorization_url)
 		if open_result != OK:
 			_finish_error("The system browser could not be opened.")
 			return
@@ -347,7 +347,7 @@ func _on_request(result: int, code: int, _headers: PackedStringArray, body: Pack
 			_finish_error("The lobby returned an invalid e-mail sign-in page.")
 			return
 		_email_ticket = ticket
-		var open_result: int = _browser_override.call(value.url) if _browser_override.is_valid() else OS.shell_open(value.url)
+		var open_result: int = _browser_override.call(value.url) if _browser_override.is_valid() else preload("res://scripts/core/external_open.gd").open_url(value.url)
 		if open_result != OK:
 			_finish_error("The system browser could not be opened.")
 			return
@@ -492,10 +492,10 @@ func _read_callback(client: Dictionary) -> void:
 		_ignore_probe(client)
 		return
 	var available := socket.get_available_bytes()
-	if available > 8192 or (client.buffer as PackedByteArray).size() + available > 8192:
+	var buffer: PackedByteArray = client.buffer
+	if available > 8192 or buffer.size() + available > 8192:
 		_ignore_probe(client)
 		return
-	var buffer: PackedByteArray = client.buffer
 	if available > 0:
 		buffer.append_array(socket.get_data(available)[1])
 		client.buffer = buffer  # a packed array in a Dictionary is a copy: stored back
@@ -603,7 +603,8 @@ func _ignore_probe(client: Dictionary) -> void:
 
 func _drop_clients() -> void:
 	for client in _clients:
-		(client.socket as StreamPeerTCP).disconnect_from_host()
+		var socket: StreamPeerTCP = client.socket
+		socket.disconnect_from_host()
 	_clients.clear()
 
 

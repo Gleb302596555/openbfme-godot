@@ -53,7 +53,7 @@ on:
         required: true
         type: string
       version:
-        description: the release version (v1.2.3 or v1.2.3-nightly.20261022)
+        description: the release version (v1.2.3 or v1.2.3-nightly.261023200)
         required: true
         type: string
       request:
@@ -144,7 +144,7 @@ jobs:
           grep -E '^(MACOS|PACKAGE|AUDIT)' "$RUNNER_TEMP/package.log" || true
           ls -l "$RUNNER_TEMP/out"
           stem="openbfme-$IN_VERSION-macos-arm64"
-          got=$(cd "$RUNNER_TEMP/out" && ls -A | sort | tr '\n' ' ')
+          got=$(find "$RUNNER_TEMP/out" -mindepth 1 -maxdepth 1 -exec basename {} \; | sort | tr '\n' ' ')
           want=$(printf '%s\n' "$stem.zip" "$stem.zip.sha256" "$stem.inventory.txt" README-MAC.txt | sort | tr '\n' ' ')
           [ "$got" = "$want" ] || { echo "the package folder is '$got', not '$want'"; exit 1; }
           shasum -a 256 "$RUNNER_TEMP/out/"*

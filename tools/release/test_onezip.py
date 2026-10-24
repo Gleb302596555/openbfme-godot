@@ -36,10 +36,10 @@ import seal_package
 from launcher_test_server import COMMIT, TEST_REPO, tiny_package
 import test_launcher
 from test_launcher import GODOT, LAUNCHER, _godot_ok, _remove_tmp_path, data, imported, installed, keys, played, server  # noqa: F401
-from launcher_test_support import (ARCHIVE_SUFFIX, GAME_EXE, LAUNCHER_EXE, PLATFORM, WINDOWS,
+from launcher_test_support import (ARCHIVE_SUFFIX, GAME_EXE, LAUNCHER_EXE, MACOS, MACOS_SKIP, PLATFORM, WINDOWS,
                                    asset_name, deny_write, isolated_environment, native_game, normalized_path)
 
-pytestmark = pytest.mark.skipif(not _godot_ok(), reason="SKIP the one-download launcher tests: Godot 4.7.2 not found (set GODOT)")
+pytestmark = [pytest.mark.skipif(MACOS, reason=MACOS_SKIP), pytest.mark.skipif(not _godot_ok(), reason="SKIP the one-download launcher tests: Godot 4.7.2 not found (set GODOT)")]
 
 LEXE = LAUNCHER_EXE
 VERSION_OPT = "--launcher-version=v0.4.0"   # a development run has no release version, and only a release version updates itself

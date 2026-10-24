@@ -2,6 +2,7 @@
 // See GodotAptPlayer.h.
 
 #include "GodotDevice/GodotAptPlayer.h"
+#include "Common/PathIO.h"
 #include <godot_cpp/classes/input.hpp>
 #include "GodotDevice/GodotVideoStream.h"
 #include "GameClient/GUI/PlatformIcons.h"
@@ -31,6 +32,7 @@
 #include "GameClient/GUI/AptScreens/AptTimeLine.h"
 #include "GameClient/GUI/CursorTooltip.h"
 #include "GameClient/GUI/AptScreens/AptDisconnectScreen.h"
+#include "GameClient/GUI/AptScreens/AptInGameChat.h"
 #include "GameClient/GUI/AptScreens/AptSaveLoad.h"
 #include "GameClient/GUI/SaveLoadInfo.h"
 #include "GameClient/GUI/AptScreens/AptLanLobby.h"
@@ -47,6 +49,8 @@
 #include "GameClient/GUI/GameTextSource.h"
 #include "GameClient/GUI/LoadScreenInfo.h"
 #include "GameClient/GUI/PlayerStatusInfo.h"
+#include "GameClient/GUI/AptScreens/AptObjectivesMenu.h"
+#include "GameClient/GUI/AptScreens/InGameNotificationBox.h"
 #include "GameClient/GUI/Shell/Shell.h"
 #include "GameClient/GUI/Shell/ShellLayering.h"
 #include "GameClient/GUI/StillImageLoadScreen.h"
@@ -125,6 +129,7 @@
 #include <functional>
 #include <map>
 #include <tuple>
+#include <type_traits>
 #include <random>
 
 namespace godot
@@ -192,8 +197,8 @@ void addTextureUV(RenderingServer *rs, RID item, const Rect2 &dest, const Ref<Te
 
 // loadPackedTexture (lane UI-2) is in GodotPackedTexture.cpp (lane HUD-4: the HUD's radar loads ScrollShroud through it too)
 
-static_assert(sizeof(Vector2) == 8, "PackedVector2Array is copied as float pairs");
-static_assert(sizeof(Color) == 16, "PackedColorArray is copied as float quads");
+static_assert(sizeof(Vector2) == 8 && std::is_trivially_copyable_v<Vector2>, "PackedVector2Array is copied as float pairs");
+static_assert(sizeof(Color) == 16 && std::is_trivially_copyable_v<Color>, "PackedColorArray is copied as float quads");
 
 // Godot key -> Windows virtual-key code (the codes the player's Key natives report; S-108 leaves the retail ids unverified).
 int virtualKeyOf(Key key)
@@ -459,7 +464,8 @@ public:
 	{
 		if (r.action == ShellAction::OpenProjectWebsite)
 		{
-			const Error error = OS::get_singleton()->shell_open("https://openbfme.com");
+			Ref<Resource> opener = ResourceLoader::get_singleton()->load("res://scripts/external_open.gd");
+			const Error error = opener.is_valid() ? (Error)(int)opener->call("open_url", "https://openbfme.com") : ERR_UNAVAILABLE;
 			events.push_back({ "project_website", "https://openbfme.com", std::to_string((int)error) });
 			if (error != OK) { UtilityFunctions::push_error("Could not open https://openbfme.com: ", (int)error); }
 			return;
@@ -586,6 +592,7 @@ const char *shellActionName(ShellAction a)
 		case ShellAction::ToggleQuitMenu: return "ToggleQuitMenu";
 		case ShellAction::PalantirObjectives: return "PalantirObjectives"; // lane PLAY-1
 		case ShellAction::TributeReturnToGame: return "TributeReturnToGame";
+		case ShellAction::ObjectivesReturnToGame: return "ObjectivesReturnToGame"; // lane CAMPUI-1
 		case ShellAction::CreateAHeroExit: return "CreateAHeroExit";
 		case ShellAction::OnlineGameStart: return "OnlineGameStart"; // lane ONLINE-4
 		case ShellAction::SaveGameFile: return "SaveGameFile"; // lane SAVE-2
@@ -685,12 +692,19 @@ struct ShellMode
 	std::unique_ptr<ShellCursorTooltip> cursorTooltip; // lane HOVER-1: the menus' tool tips (GuiFX.apt's ToolTip, CursorTooltip.h)
 	std::unique_ptr<AptDisconnectScreen> disconnect; // lane MP-2: DisconnectScreen.apt while the disconnect screen is shown
 	Array disconnectActions;                         // lane MP-2: the buttons pressed, for take_disconnect_actions
+	InGameChat chatModel;                            // lane CHAT-1: the chat window's draft between opens
+	std::unique_ptr<AptInGameChat> chat;             // lane CHAT-1: InGameChat.apt while the chat window is up
+	Array chatSends;                                 // lane CHAT-1: the lines Send took, for ingame_chat_update
 	SaveLoadInfo saveLoad;                           // lane MP-2: what SaveLoad.apt lists
 	QuitMenuContext quitMenuContext;    // lane END-2: the game QuitMenu.apt is opened over
 	CampaignMenuContext campaignMenu;   // lane CAMPSAVE-1: what CampaignMenu.apt shows
 	std::unique_ptr<AptQuitMenu> quitMenu; // lane END-2: QuitMenu.apt, an in-game overlay (RW 0x75E3B7), not on the shell stack
+	std::unique_ptr<InGameNotificationBoxMovieClip> notificationBox; // lane CAMPUI-1: InGameNotificationBox.apt (InGameUI + 0x9CC), a game's level
+	NotificationBoxSettings notificationSettings;                     // lane CAMPUI-1: Data\INI\InGameNotificationBox.ini
+	bool notificationSettingsLoaded = false;
 	ShellEnvironment environment;
 	PlayerStatusInfo playerStatus; // lane HUD-5: the players screen's Status rows
+	ObjectivesScreenInfo objectivesScreen; // lane CAMPUI-1: what Objectives.apt lists
 	OptionPreferences options; // lane UI-2: the user data folder's Options.ini
 	GlobalLanguage language;   // lane UI-4: language.ini's Language block (the credits roll's fonts)
 	GameLODManager gameLOD;    // lane PLAY-2: GameLOD.ini's StaticGameLOD presets (the Options screen's advanced page); lane OPTS-2: the level in effect
@@ -726,11 +740,13 @@ struct ShellMode
 	{
 		nav.reset();
 		disconnect.reset();
+		chat.reset(); // lane CHAT-1
 		if (shell)
 		{
 			shell->clearOverlay(); // lane OPTS-6
 		}
 		quitMenu.reset();
+		notificationBox.reset(); // lane CAMPUI-1
 		cursorTooltip.reset();
 		guiFX.reset();
 		shell.reset();
@@ -1283,6 +1299,8 @@ void AptMenuPlayer::_bind_methods()
 	ClassDB::bind_method(D_METHOD("gadget_draw_list"), &AptMenuPlayer::gadget_draw_list); // lane OPTS-4
 	ClassDB::bind_method(D_METHOD("set_tribute_world", "world"), &AptMenuPlayer::set_tribute_world);
 	ClassDB::bind_method(D_METHOD("set_player_status", "state"), &AptMenuPlayer::set_player_status); // lane HUD-5
+	ClassDB::bind_method(D_METHOD("set_objectives_screen", "state"), &AptMenuPlayer::set_objectives_screen); // lane CAMPUI-1
+	ClassDB::bind_method(D_METHOD("notification_box", "request"), &AptMenuPlayer::notification_box); // lane CAMPUI-1
 	ClassDB::bind_method(D_METHOD("shell_top_level"), &AptMenuPlayer::shell_top_level);
 	ClassDB::bind_method(D_METHOD("shell_invoke", "level", "function", "args"), &AptMenuPlayer::shell_invoke, DEFVAL(PackedStringArray()));
 	ClassDB::bind_method(D_METHOD("take_new_game"), &AptMenuPlayer::take_new_game);
@@ -1292,6 +1310,14 @@ void AptMenuPlayer::_bind_methods()
 	ClassDB::bind_method(D_METHOD("end_game_screen", "request"), &AptMenuPlayer::end_game_screen); // lane END-1
 	ClassDB::bind_method(D_METHOD("disconnect_screen", "state"), &AptMenuPlayer::disconnect_screen); // lane MP-2
 	ClassDB::bind_method(D_METHOD("take_disconnect_actions"), &AptMenuPlayer::take_disconnect_actions);
+	ClassDB::bind_method(D_METHOD("ingame_chat_open", "mode", "receivers"), &AptMenuPlayer::ingame_chat_open); // lane CHAT-1
+	ClassDB::bind_method(D_METHOD("ingame_chat_update"), &AptMenuPlayer::ingame_chat_update);
+	ClassDB::bind_method(D_METHOD("ingame_chat_close"), &AptMenuPlayer::ingame_chat_close);
+	ClassDB::bind_method(D_METHOD("ingame_chat_has_keys"), &AptMenuPlayer::ingame_chat_has_keys);
+	ClassDB::bind_method(D_METHOD("ingame_chat_type", "text"), &AptMenuPlayer::ingame_chat_type);
+	ClassDB::bind_method(D_METHOD("ingame_chat_command", "command"), &AptMenuPlayer::ingame_chat_command);
+	ClassDB::bind_method(D_METHOD("disconnect_screen_chat", "line"), &AptMenuPlayer::disconnect_screen_chat);
+	ClassDB::bind_method(D_METHOD("disconnect_screen_type", "text"), &AptMenuPlayer::disconnect_screen_type);
 	ClassDB::bind_method(D_METHOD("set_save_load", "info"), &AptMenuPlayer::set_save_load);
 	ClassDB::bind_method(D_METHOD("set_campaign_menu", "content"), &AptMenuPlayer::set_campaign_menu); // lane CAMPSAVE-1
 	ClassDB::bind_method(D_METHOD("unlock_bonus_campaign"), &AptMenuPlayer::unlock_bonus_campaign);
@@ -1310,14 +1336,10 @@ void AptMenuPlayer::_bind_methods()
 	ClassDB::bind_method(D_METHOD("online_social_events"), &AptMenuPlayer::online_social_events);
 	ClassDB::bind_method(D_METHOD("online_social_apply", "spec"), &AptMenuPlayer::online_social_apply);
 	ClassDB::bind_method(D_METHOD("online_messenger_sync", "spec"), &AptMenuPlayer::online_messenger_sync);
-	ClassDB::bind_method(D_METHOD("online_friends_button", "label"), &AptMenuPlayer::online_friends_button); // lane ONLINEMENU-1
 	ClassDB::bind_method(D_METHOD("online_ask", "key", "title", "text"), &AptMenuPlayer::online_ask);
 	ClassDB::bind_method(D_METHOD("online_answers"), &AptMenuPlayer::online_answers);
 	ClassDB::bind_method(D_METHOD("online_asking", "key"), &AptMenuPlayer::online_asking);
-	ClassDB::bind_method(D_METHOD("online_friends_page_show", "spec"), &AptMenuPlayer::online_friends_page_show);
-	ClassDB::bind_method(D_METHOD("online_friends_page_close"), &AptMenuPlayer::online_friends_page_close);
-	ClassDB::bind_method(D_METHOD("online_friends_page_events"), &AptMenuPlayer::online_friends_page_events);
-	ClassDB::bind_method(D_METHOD("online_friends_page_state"), &AptMenuPlayer::online_friends_page_state);
+	ClassDB::bind_method(D_METHOD("online_cancel_ask", "key"), &AptMenuPlayer::online_cancel_ask);
 	ClassDB::bind_method(D_METHOD("online_start_failed", "error"), &AptMenuPlayer::online_start_failed); // Sol r1
 	ClassDB::bind_method(D_METHOD("online_game_failed", "text"), &AptMenuPlayer::online_game_failed); // lane ONLINEUX-1
 	ClassDB::bind_method(D_METHOD("online_set_counts", "counts"), &AptMenuPlayer::online_set_counts); // lane ONLINEUX-1
@@ -2449,7 +2471,7 @@ OpenBFMEPageRow pageRowOf(const Dictionary &d)
 	return r;
 }
 
-// lane ONLINEMENU-1: a page spec from the device's Dictionary (the Options screen's OpenBFME page and the online FRIENDS page)
+// A page spec from the device's Dictionary for the Options screen's OpenBFME page.
 OpenBFMEPageSpec pageSpecOf(const Dictionary &spec)
 {
 	OpenBFMEPageSpec s;
@@ -2848,6 +2870,154 @@ Dictionary AptMenuPlayer::font_metrics(const String &name, int point_size, bool 
 	return r;
 }
 
+// lane CAMPUI-1: the in-game notification box (GUI/AptScreens/InGameNotificationBox.h). Requests (kind): "begin" (the game's box: the movie in a level,
+// the INI read once; RW 0x6A6AAD creates it with InGameUI), "end", "show" { type, label, seconds, override (bool), override_image, location (0 main,
+// 1 spellStore, 2 objectives), opaque } (RW 0x7C5507 -> RW 0x69BFAE -> Open RW 0x8EB66D), "update" { now_ms, letterboxed } (RW 0x8EB9B4: answers the
+// open audio of a notice that opened, "" none), "enable" { on } (RW 0x8EB2BA), "close" (DoClose RW 0x8EB2D8); every answer has ok, error, state,
+// active (the shown notice's title / message, UTF-8), level
+Dictionary AptMenuPlayer::notification_box(const Dictionary &request)
+{
+	Dictionary out;
+	out["ok"] = false;
+	if (!m->shell)
+	{
+		out["error"] = "not in shell mode";
+		return out;
+	}
+	ShellMode &sm = *m->shell;
+	const std::string kind = toNative(String(request.get("kind", "")));
+	auto u8 = [](const std::u16string &t) { return u16ToUtf8(t); };
+	if (kind == "begin")
+	{
+		if (!sm.notificationSettingsLoaded)
+		{
+			std::string error;
+			if (!sm.environment.fileSystem || !NotificationBoxSettings::load(*sm.environment.fileSystem, sm.notificationSettings, &error))
+			{
+				out["error"] = toGodot(sm.environment.fileSystem ? error : std::string("no file system"));
+				return out;
+			}
+			sm.notificationSettingsLoaded = true;
+		}
+		if (!sm.notificationBox)
+		{
+			sm.notificationBox = std::make_unique<InGameNotificationBoxMovieClip>(*sm.wm, *sm.shell, *sm.metrics);
+			if (sm.notificationBox->level() < 0)
+			{
+				sm.notificationBox.reset();
+				out["error"] = "InGameNotificationBox.apt could not be loaded";
+				return out;
+			}
+			for (int i = 0; i < 30 && !sm.wm->isAptWindowLoaded(sm.notificationBox->level()); ++i)
+			{
+				tick(1.0 / 30.0); // the window manager loads a movie over its first updates
+			}
+			sm.notificationBox->setEnabled(true); // the game starts with its control bar shown (ShowControlBar RW 0x8046A1 enables the box)
+		}
+	}
+	else if (kind == "end")
+	{
+		sm.notificationBox.reset();
+		out["ok"] = true;
+		return out;
+	}
+	if (!sm.notificationBox)
+	{
+		out["error"] = "no notification box (begin first)";
+		return out;
+	}
+	InGameNotificationBoxMovieClip &box = *sm.notificationBox;
+	if (kind == "show")
+	{
+		InGameNotificationBoxMovieClip::Notice n;
+		if (!InGameNotificationBoxMovieClip::makeNotice(sm.notificationSettings, sm.environment.gameText, toNative(String(request.get("type", ""))),
+				toNative(String(request.get("label", ""))), (int)(int64_t)request.get("seconds", (int64_t)0), (bool)request.get("override", false),
+				toNative(String(request.get("override_image", ""))), n))
+		{
+			out["error"] = "unknown notification type '" + String(request.get("type", "")) + "' (RW 0x621E3A: nothing is shown)";
+			out["state"] = box.state();
+			return out;
+		}
+		n.location = (int)(int64_t)request.get("location", (int64_t)0);
+		n.opaque = (bool)request.get("opaque", false);
+		box.open(n);
+	}
+	else if (kind == "update")
+	{
+		out["audio"] = toGodot(box.update((unsigned)(int64_t)request.get("now_ms", (int64_t)0), (bool)request.get("letterboxed", false)));
+	}
+	else if (kind == "enable")
+	{
+		box.setEnabled((bool)request.get("on", true));
+	}
+	else if (kind == "close")
+	{
+		box.doClose();
+	}
+	else if (kind != "begin" && kind != "state")
+	{
+		out["error"] = "not a notification box request: " + String(kind.c_str());
+		return out;
+	}
+	out["ok"] = true;
+	out["state"] = box.state();
+	out["level"] = box.level();
+	out["width"] = box.messageWidth();
+	if (box.hasActive())
+	{
+		out["title"] = toGodot(u8(box.active().title));
+		out["message"] = toGodot(u8(box.active().message));
+		out["icon"] = toGodot(box.active().icon);
+	}
+	PackedStringArray errors;
+	for (const std::string &e : box.callErrors())
+	{
+		errors.push_back(toGodot(e));
+	}
+	out["call_errors"] = errors;
+	return out;
+}
+
+Dictionary AptMenuPlayer::set_objectives_screen(const Dictionary &state)
+{
+	Dictionary r;
+	r["ok"] = false;
+	if (!m->shell)
+	{
+		r["error"] = "not in shell mode";
+		return r;
+	}
+	ObjectivesScreenInfo info;
+	info.gameMode = (int)(int64_t)state.get("game_mode", (int64_t)0);
+	info.tutorialInput = (bool)state.get("tutorial_input", false);
+	const Array list = state.get("objectives", Array());
+	for (int64_t i = 0; i < list.size(); ++i)
+	{
+		const Dictionary o = list[i];
+		MissionObjective mo;
+		mo.label = toNative(String(o.get("label", String())));
+		mo.bonus = (bool)o.get("bonus", false);
+		mo.shown = (bool)o.get("shown", true);
+		mo.completed = (bool)o.get("completed", false);
+		info.objectives.push_back(mo);
+	}
+	m->shell->objectivesScreen = info;
+	m->shell->environment.objectivesScreen = &m->shell->objectivesScreen;
+	Array rows;
+	for (int row = 0; row < AptObjectivesMenu::kRows; ++row)
+	{
+		const std::string text = AptObjectivesMenu::objectiveText(info, row);
+		if (text.empty())
+		{
+			break;
+		}
+		rows.push_back(toGodot(text + " " + AptObjectivesMenu::objectiveStatus(info, row)));
+	}
+	r["ok"] = true;
+	r["rows"] = rows; // "$<label> <completed><bonus>" per row, as the providers answer
+	return r;
+}
+
 Dictionary AptMenuPlayer::set_player_status(const Dictionary &state)
 {
 	Dictionary r;
@@ -3009,8 +3179,14 @@ Dictionary AptMenuPlayer::set_load_screen_from_game(const Dictionary &resolved)
 		return out;
 	}
 	ShellMode *sm = m->shell.get();
-	m->shell->loadScreen = makeLoadScreenInfo(message.game, m->shell->setup, m->shell->text.get(),
+	LoadScreenInfo next = makeLoadScreenInfo(message.game, m->shell->setup, m->shell->text.get(),
 		[sm](const std::string &name) { return sm->skins.images.findImageByName(name) != nullptr; });
+	if (!next.error.empty())
+	{
+		out["error"] = toGodot(next.error);
+		return out;
+	}
+	m->shell->loadScreen = std::move(next);
 	const LoadScreenInfo &info = m->shell->loadScreen;
 	Array cards;
 	for (int i = 0; i < MAX_LOAD_SLOTS; ++i)
@@ -3029,6 +3205,7 @@ Dictionary AptMenuPlayer::set_load_screen_from_game(const Dictionary &resolved)
 	out["cards"] = cards;
 	out["local_card"] = info.localCard;
 	out["loading_type"] = info.gameLoadingType;
+	if (info.mapStartCount > LEGACY_MAX_SLOTS) out["map_start_count"] = info.mapStartCount;
 	out["rules_summary"] = toGodot(loadScreenU16ToUtf8(info.rulesSummary)); // lane RULES-1
 	return out;
 }
@@ -3117,8 +3294,9 @@ Dictionary AptMenuPlayer::lobby_state()
 	}
 	out["rules"] = rules;
 	Array slots;
-	for (const SkirmishGameSlot &s : g.slots)
+	for (int i = 0; i < g.serializedSlotCount(); ++i)
 	{
+		const SkirmishGameSlot &s = g.slots[i];
 		Dictionary d;
 		d["state"] = (int64_t)s.state;
 		d["template"] = (int64_t)s.playerTemplate;
@@ -3415,12 +3593,19 @@ Array AptMenuPlayer::take_load_progress_calls()
 	return out;
 }
 
-void AptMenuPlayer::set_load_screen(const Dictionary &info)
+Dictionary AptMenuPlayer::set_load_screen(const Dictionary &info)
 {
-	if (m->shell)
+	Dictionary out;
+	if (!m->shell)
 	{
-		loadScreenFromDictionary(info, m->shell->loadScreen);
+		out["error"] = "shell is not initialized";
+		return out;
 	}
+	std::string error;
+	const bool ok = loadScreenFromDictionary(info, m->shell->loadScreen, &error);
+	out["ok"] = ok;
+	if (!ok) out["error"] = toGodot(error);
+	return out;
 }
 
 bool AptMenuPlayer::set_load_progress(double percent)
@@ -4278,15 +4463,15 @@ void AptMenuPlayer::drawSegment(const AptCanvasList &list, size_t segment, const
 				const int64_t n = (int64_t)(op.positions.size() / 2);
 				PackedVector2Array pts;
 				pts.resize(n);
-				memcpy(pts.ptrw(), op.positions.data(), (size_t)n * sizeof(float) * 2);
+				memcpy(static_cast<void *>(pts.ptrw()), op.positions.data(), (size_t)n * sizeof(float) * 2);
 				PackedColorArray cols;
 				cols.resize(n);
-				memcpy(cols.ptrw(), op.colors.data(), (size_t)n * sizeof(float) * 4);
+				memcpy(static_cast<void *>(cols.ptrw()), op.colors.data(), (size_t)n * sizeof(float) * 4);
 				PackedVector2Array uvs;
 				if (!op.uvs.empty())
 				{
 					uvs.resize(n);
-					memcpy(uvs.ptrw(), op.uvs.data(), (size_t)n * sizeof(float) * 2);
+					memcpy(static_cast<void *>(uvs.ptrw()), op.uvs.data(), (size_t)n * sizeof(float) * 2);
 				}
 				PackedInt32Array idx;
 				idx.resize(n);
@@ -6002,6 +6187,21 @@ Dictionary AptMenuPlayer::menu_nav_state()
 
 bool AptMenuPlayer::menuKey(const InputEventKey *key)
 {
+	// lane CHAT-1: the chat window's input procedure (RW 0x8ECB8F) sees the key before the entry: Esc, Ctrl+Enter (the rest goes on to the entry below)
+	if (m->shell && m->shell->chat && ingame_chat_has_keys() && !key->is_echo())
+	{
+		const int dik = dikOf(key->get_keycode());
+		int state = key->is_pressed() ? KEY_STATE_DOWN : KEY_STATE_UP;
+		if (key->is_ctrl_pressed())
+		{
+			state |= KEY_STATE_LCONTROL;
+		}
+		if (dik && m->shell->chat->inputKey(dik, state))
+		{
+			m->dirty = true;
+			return true;
+		}
+	}
 	// The mounted movie supplies the groups, entries and button actions. This
 	// works for each game's menu and for mods without a content-name table.
 	const Key menuKey = key->get_keycode();
@@ -6560,6 +6760,30 @@ Dictionary AptMenuPlayer::end_game_screen(const Dictionary &request)
 	return out;
 }
 
+namespace
+{
+// lane CHAT-1: UTF-16 to a Godot String: a surrogate pair is one character, a lone surrogate U+FFFD
+String chatU16ToString(const std::u16string &u)
+{
+	String s;
+	for (std::size_t i = 0; i < u.size(); ++i)
+	{
+		char32_t c = u[i];
+		if (c >= 0xD800 && c <= 0xDBFF && i + 1 < u.size() && u[i + 1] >= 0xDC00 && u[i + 1] <= 0xDFFF)
+		{
+			c = 0x10000 + ((c - 0xD800) << 10) + (u[i + 1] - 0xDC00);
+			++i;
+		}
+		else if (c >= 0xD800 && c <= 0xDFFF)
+		{
+			c = 0xFFFD;
+		}
+		s += String::chr(c);
+	}
+	return s;
+}
+} // namespace
+
 Dictionary AptMenuPlayer::disconnect_screen(const Dictionary &state)
 {
 	Dictionary out;
@@ -6579,6 +6803,45 @@ Dictionary AptMenuPlayer::disconnect_screen(const Dictionary &state)
 		out["level"] = -1;
 		return out;
 	}
+	const Variant capacityValue = state.get("map_start_count", LEGACY_MAX_SLOTS);
+	const Variant rowsValue = state.get("rows", Array());
+	if (capacityValue.get_type() != Variant::INT || (int64_t)capacityValue < LEGACY_MAX_SLOTS || (int64_t)capacityValue > MAX_SLOTS ||
+		rowsValue.get_type() != Variant::ARRAY)
+	{
+		out["error"] = "disconnect requires integer map_start_count in 8 .. 16 and an array of rows";
+		return out;
+	}
+	const int capacity = (int)capacityValue;
+	const Array src = rowsValue;
+	if (src.size() > capacity - 1)
+	{
+		out["error"] = "disconnect rows exceed map capacity";
+		return out;
+	}
+	std::vector<AptDisconnectScreen::Row> rows((size_t)src.size());
+	for (int i = 0; i < src.size(); ++i)
+	{
+		if (src[i].get_type() != Variant::DICTIONARY)
+		{
+			out["error"] = "disconnect row must be a dictionary";
+			return out;
+		}
+		const Dictionary d = src[i];
+		const Variant used = d.get("used", false), name = d.get("name", ""), votes = d.get("votes", 0), bar = d.get("bar", 100), kick = d.get("kick", false);
+		if (used.get_type() != Variant::BOOL || name.get_type() != Variant::STRING || votes.get_type() != Variant::INT ||
+			bar.get_type() != Variant::INT || kick.get_type() != Variant::BOOL || (int64_t)votes < 0 || (int64_t)votes > capacity ||
+			(int64_t)bar < 0 || (int64_t)bar > 100)
+		{
+			out["error"] = "invalid disconnect row fields";
+			return out;
+		}
+		auto &r = rows[(size_t)i];
+		r.used = (bool)used;
+		r.nameUtf8 = toNative(String(name));
+		r.votes = (int)votes;
+		r.barPercent = (int)bar;
+		r.kickShown = (bool)kick;
+	}
 	if (!sm.disconnect)
 	{
 		// RW 0x9190F0: the window manager loads DisconnectScreen.apt (the first free level, S-1123)
@@ -6595,24 +6858,30 @@ Dictionary AptMenuPlayer::disconnect_screen(const Dictionary &state)
 			a["kind"] = "quit";
 			smp->disconnectActions.push_back(a);
 		};
+		// lane CHAT-1: the chat line typed into the screen (Chat::OnBttnEnterText, RW 0x9196B9) for the game's network, and the rules (APT:DisconnectRules)
+		sm.disconnect->onChat = [smp](const std::u16string &text) {
+			Dictionary a;
+			a["kind"] = "chat";
+			a["text"] = chatU16ToString(text);
+			smp->disconnectActions.push_back(a);
+		};
+		std::u16string rules;
+		if (sm.environment.gameText && sm.environment.gameText->fetch("APT:DisconnectRules", rules))
+		{
+			sm.disconnect->setRulesText(rules);
+		}
 	}
-	std::array<AptDisconnectScreen::Row, 7> rows{};
-	const Array src = state.get("rows", Array());
-	for (int i = 0; i < 7 && i < src.size(); ++i)
-	{
-		const Dictionary d = src[i];
-		AptDisconnectScreen::Row &r = rows[(size_t)i];
-		r.used = (bool)d.get("used", false);
-		r.nameUtf8 = toNative(String(d.get("name", "")));
-		r.votes = (int)d.get("votes", 0);
-		r.barPercent = (int)d.get("bar", 100);
-		r.kickShown = (bool)d.get("kick", false);
-	}
-	const bool loaded = sm.disconnect->apply(rows);
+	const bool loaded = sm.disconnect->apply(rows, capacity);
 	m->dirty = true;
-	out["ok"] = sm.disconnect->level() >= 0;
+	out["ok"] = sm.disconnect->level() >= 0 && sm.disconnect->error().empty();
 	out["level"] = sm.disconnect->level();
 	out["loaded"] = loaded;
+	if (!sm.disconnect->error().empty()) out["error"] = toGodot(sm.disconnect->error());
+	if (capacity > LEGACY_MAX_SLOTS)
+	{
+		out["first_row"] = sm.disconnect->firstRow();
+		out["row_count"] = capacity - 1;
+	}
 	PackedStringArray calls;
 	for (const std::string &c : sm.disconnect->calls())
 	{
@@ -6744,6 +7013,177 @@ bool AptMenuPlayer::save_load_refused(const String &name, const String &error)
 	}
 	screen->loadRefused(toNative(name), toNative(error));
 	return true;
+}
+
+bool AptMenuPlayer::ingame_chat_open(int64_t mode, const String &receivers)
+{
+	if (!m->shell || !m->shell->shell || !m->shell->wm)
+	{
+		return false;
+	}
+	ShellMode &sm = *m->shell;
+	if (sm.chat || sm.disconnect)
+	{
+		return false; // RW 0x8EC97D: one window at a time; none over the disconnect screen (DAT_DEA328)
+	}
+	if (mode < 0 || mode > 4)
+	{
+		return false;
+	}
+	// RW 0x8EC97D: the window manager loads InGameChat.apt (the first free level, as the disconnect screen)
+	sm.chat = std::make_unique<AptInGameChat>(*sm.wm, *sm.shell, sm.chatModel, (InGameChatMode)mode, toNative(receivers));
+	if (sm.chat->level() < 0)
+	{
+		sm.chat.reset();
+		return false;
+	}
+	ShellMode *smp = &sm;
+	sm.chat->onSend = [smp](const std::u16string &text, InGameChatMode md) {
+		Dictionary d;
+		d["text"] = chatU16ToString(text);
+		d["mode"] = (int64_t)md;
+		smp->chatSends.push_back(d);
+	};
+	m->dirty = true;
+	return true;
+}
+
+Dictionary AptMenuPlayer::ingame_chat_update()
+{
+	Dictionary out;
+	out["open"] = false;
+	if (!m->shell)
+	{
+		return out;
+	}
+	ShellMode &sm = *m->shell;
+	if (sm.chat)
+	{
+		sm.chat->frameUpdate(); // RW 0x8ECD3E
+		if (sm.chat->closed())
+		{
+			sm.chat.reset(); // state 4: the screen goes
+			m->dirty = true;
+		}
+	}
+	out["open"] = sm.chat != nullptr;
+	if (sm.chat)
+	{
+		out["state"] = sm.chat->state();
+		out["mode"] = (int64_t)sm.chat->mode();
+		out["level"] = sm.chat->level();
+		out["entry"] = chatU16ToString(sm.chat->entryText());
+		out["has_entry"] = sm.chat->entry() != nullptr;
+	}
+	out["sends"] = sm.chatSends.duplicate();
+	sm.chatSends.clear();
+	return out;
+}
+
+void AptMenuPlayer::ingame_chat_close()
+{
+	if (m->shell && m->shell->chat)
+	{
+		m->shell->chat->close();
+		m->dirty = true;
+	}
+}
+
+bool AptMenuPlayer::ingame_chat_has_keys() const
+{
+	// the window takes the keyboard from its open until its close animation starts (RW 0x8ECB8F uses every GWM_CHAR); the disconnect screen's chat entry
+	// takes it while the screen is up (lane CHAT-1)
+	if (m->shell && m->shell->disconnect && m->shell->disconnect->chatEntry())
+	{
+		return true;
+	}
+	return m->shell && m->shell->chat && (m->shell->chat->state() == AptInGameChat::STATE_LOADING || m->shell->chat->state() == AptInGameChat::STATE_OPEN);
+}
+
+bool AptMenuPlayer::disconnect_screen_chat(const String &line)
+{
+	if (!m->shell || !m->shell->disconnect)
+	{
+		return false;
+	}
+	std::u16string u;
+	for (int i = 0; i < line.length(); ++i)
+	{
+		const char32_t c = line[i];
+		if (c > 0xFFFF)
+		{
+			u.push_back((char16_t)(0xD800 + ((c - 0x10000) >> 10)));
+			u.push_back((char16_t)(0xDC00 + ((c - 0x10000) & 0x3FF)));
+		}
+		else
+		{
+			u.push_back((char16_t)c);
+		}
+	}
+	m->dirty = true;
+	return m->shell->disconnect->showChat(u);
+}
+
+bool AptMenuPlayer::disconnect_screen_type(const String &text)
+{
+	if (!m->shell || !m->shell->disconnect || !m->shell->disconnect->chatEntry())
+	{
+		return false;
+	}
+	std::u16string u;
+	for (int i = 0; i < text.length(); ++i)
+	{
+		const char32_t c = text[i];
+		if (c > 0xFFFF)
+		{
+			u.push_back((char16_t)(0xD800 + ((c - 0x10000) >> 10)));
+			u.push_back((char16_t)(0xDC00 + ((c - 0x10000) & 0x3FF)));
+		}
+		else
+		{
+			u.push_back((char16_t)c);
+		}
+	}
+	GadgetTextEntrySetText(m->shell->disconnect->chatEntry(), u);
+	m->dirty = true;
+	return m->shell->wm && m->shell->wm->invokeCallback("AptDisconnectScreen::Chat::OnBttnEnterText", std::string());
+}
+
+bool AptMenuPlayer::ingame_chat_type(const String &text)
+{
+	if (!m->shell || !m->shell->chat || !m->shell->chat->entry())
+	{
+		return false;
+	}
+	std::u16string u;
+	for (int i = 0; i < text.length(); ++i)
+	{
+		const char32_t c = text[i];
+		if (c > 0xFFFF)
+		{
+			u.push_back((char16_t)(0xD800 + ((c - 0x10000) >> 10)));
+			u.push_back((char16_t)(0xDC00 + ((c - 0x10000) & 0x3FF)));
+		}
+		else
+		{
+			u.push_back((char16_t)c);
+		}
+	}
+	m->shell->chat->typeText(u);
+	m->dirty = true;
+	return true;
+}
+
+bool AptMenuPlayer::ingame_chat_command(const String &command)
+{
+	if (!m->shell || !m->shell->chat || !m->shell->wm)
+	{
+		return false;
+	}
+	const std::string name = "AptInGameChat::" + toNative(command);
+	const bool ok = m->shell->wm->invokeCallback(name, std::string());
+	m->dirty = true;
+	return ok;
 }
 
 Array AptMenuPlayer::take_disconnect_actions()
@@ -7091,6 +7531,7 @@ Array AptMenuPlayer::online_take_requests()
 		d["token"] = toGodot(q.token);
 		d["held"] = q.held; // lane ONLINE-5: a poll the lobby may keep for hold_seconds: its own connection (online_http.gd)
 		d["hold_seconds"] = (int64_t)q.holdSeconds;
+		d["max_slots"] = (int64_t)q.maxSlots;
 		d["channel"] = q.channel == OnlineLobbyClient::HttpRequest::Social ? "social" :
 			q.channel == OnlineLobbyClient::HttpRequest::Room ? "room" : "ordinary";
 		out.push_back(d);
@@ -7130,14 +7571,14 @@ Dictionary AptMenuPlayer::read_options_file(const String &path)
 	Dictionary values;
 	const std::string native = toNative(path);
 	std::error_code ec;
-	r["exists"] = std::filesystem::exists(std::filesystem::u8path(native), ec); // anything at the path (a folder there is an unreadable file, not a first run)
+	r["exists"] = std::filesystem::exists(PathIO::native(native), ec); // anything at the path (a folder there is an unreadable file, not a first run)
 	OptionPreferences prefs;
 	std::string error;
 	if (!(bool)r["exists"])
 	{
 		r["ok"] = true; // the first run: no entries (boot_shell reads the same)
 	}
-	else if (std::filesystem::is_directory(std::filesystem::u8path(native), ec))
+	else if (std::filesystem::is_directory(PathIO::native(native), ec))
 	{
 		r["ok"] = false;
 		r["error"] = toGodot("cannot read " + native + ": a folder");
@@ -7226,9 +7667,9 @@ Dictionary AptMenuPlayer::online_status()
 	r["game_id"] = toGodot(c.gameId());
 	r["busy"] = c.busy();
 	Array ready;
-	for (const auto &v : c.slotViews())
+	for (int i = 0; i < c.gameInfo().serializedSlotCount(); ++i)
 	{
-		ready.push_back(v.ready);
+		ready.push_back(c.slotViews()[(size_t)i].ready);
 	}
 	r["ready"] = ready;
 	Array reportPlayers;
@@ -7245,9 +7686,9 @@ Dictionary AptMenuPlayer::online_status()
 	r["report_players"] = reportPlayers;
 	// lane ONLINE-5: the players' start positions (-1: random) and whether the lobby holds the staging room's polls
 	Array startPos;
-	for (const SkirmishGameSlot &gs : c.gameInfo().slots)
+	for (int i = 0; i < c.gameInfo().serializedSlotCount(); ++i)
 	{
-		startPos.push_back((int64_t)gs.startPos);
+		startPos.push_back((int64_t)c.gameInfo().slots[i].startPos);
 	}
 	r["start_pos"] = startPos;
 	r["hold_seconds"] = (int64_t)c.holdSeconds();
@@ -7266,7 +7707,7 @@ Dictionary AptMenuPlayer::online_status()
 		r["level"] = (int64_t)screen->level();
 		// lane ONLINE-5: what each Ready box was told to show (SetReadyState), the host's refused starts, the start spots the map tab shows
 		Array icons;
-		for (int i = 0; i < MAX_SLOTS; ++i)
+		for (int i = 0; i < c.gameInfo().serializedSlotCount(); ++i)
 		{
 			icons.push_back(toGodot(screen->readyIcon(i)));
 		}
@@ -7572,7 +8013,7 @@ Dictionary AptMenuPlayer::online_social_apply(const Dictionary &spec)
 	return out;
 }
 
-// lane ONLINEMENU-1: the online FRIENDS button and page (AptOnlineShell; NOT RETAIL)
+// Online questions and Messenger synchronization.
 namespace
 {
 AptOnlineShell *onlineShellOf(Shell *shell)
@@ -7580,14 +8021,6 @@ AptOnlineShell *onlineShellOf(Shell *shell)
 	return shell ? dynamic_cast<AptOnlineShell *>(shell->findScreenByFilename("OnlineShell.apt")) : nullptr;
 }
 } // namespace
-
-void AptMenuPlayer::online_friends_button(const String &label)
-{
-	if (AptOnlineShell *s = onlineShellOf(m->shell ? m->shell->shell.get() : nullptr))
-	{
-		s->setFriendsButton(utf8ToU16(toNative(label)).substr(0, 32));
-	}
-}
 
 bool AptMenuPlayer::online_ask(const String &key, const String &title, const String &text)
 {
@@ -7601,6 +8034,14 @@ bool AptMenuPlayer::online_asking(const String &key)
 	return s && s->asking(toNative(key));
 }
 
+void AptMenuPlayer::online_cancel_ask(const String &key)
+{
+	if (AptOnlineShell *s = onlineShellOf(m->shell ? m->shell->shell.get() : nullptr))
+	{
+		s->cancelAsk(toNative(key));
+	}
+}
+
 PackedStringArray AptMenuPlayer::online_answers()
 {
 	PackedStringArray out;
@@ -7612,100 +8053,6 @@ PackedStringArray AptMenuPlayer::online_answers()
 		}
 	}
 	return out;
-}
-
-Dictionary AptMenuPlayer::online_friends_page_show(const Dictionary &spec)
-{
-	Dictionary r;
-	r["ok"] = false;
-	AptOnlineShell *s = onlineShellOf(m->shell ? m->shell->shell.get() : nullptr);
-	if (!s)
-	{
-		r["error"] = "OnlineShell.apt is not up";
-		return r;
-	}
-	std::string error;
-	const bool ok = s->openFriendsPage(pageSpecOf(spec), &error);
-	r["ok"] = ok;
-	r["error"] = toGodot(error);
-	if (!ok)
-	{
-		UtilityFunctions::printerr(toGodot("SHELL friends page: " + error));
-	}
-	return r;
-}
-
-void AptMenuPlayer::online_friends_page_close()
-{
-	if (AptOnlineShell *s = onlineShellOf(m->shell ? m->shell->shell.get() : nullptr))
-	{
-		s->closeFriendsPage();
-	}
-}
-
-Array AptMenuPlayer::online_friends_page_events()
-{
-	AptOnlineShell *s = onlineShellOf(m->shell ? m->shell->shell.get() : nullptr);
-	return s ? pageEventsOf(s->takeFriendsEvents()) : Array();
-}
-
-Dictionary AptMenuPlayer::online_friends_page_state() const
-{
-	Dictionary d;
-	AptOnlineShell *s = onlineShellOf(m->shell ? m->shell->shell.get() : nullptr);
-	d["shell"] = s != nullptr;
-	d["open"] = s && s->friendsPageOpen();
-	if (s)
-	{
-		d["button"] = Rect2(AptOnlineShell::kFriendsButtonLeft, AptOnlineShell::kFriendsButtonTop, AptOnlineShell::kFriendsButtonRight - AptOnlineShell::kFriendsButtonLeft,
-			AptOnlineShell::kFriendsButtonBottom - AptOnlineShell::kFriendsButtonTop);
-	}
-	OpenBFMEOptionsPage *page = s ? s->friendsPage() : nullptr;
-	if (!page || !page->shown())
-	{
-		return d;
-	}
-	d["tab"] = page->spec().tab;
-	Array tabs;
-	for (std::size_t i = 0; i < page->spec().tabs.size(); ++i)
-	{
-		std::array<int, 4> r{};
-		page->rect("tab:" + std::to_string(i), r);
-		tabs.push_back(stageRect(r));
-	}
-	d["tabs"] = tabs;
-	Dictionary rows;
-	for (const OpenBFMEPageRow &row : page->spec().rows)
-	{
-		if (row.key.empty())
-		{
-			continue;
-		}
-		Dictionary rd;
-		std::array<int, 4> r{};
-		if (page->rect(row.key, r))
-		{
-			rd["rect"] = stageRect(r);
-		}
-		rd["value"] = row.value;
-		rd["value_text"] = toGodot(u16ToUtf8(row.valueText));
-		rd["label"] = toGodot(u16ToUtf8(row.label));
-		rows[toGodot(row.key)] = rd;
-	}
-	d["rows"] = rows;
-	Array list;
-	for (const auto &item : page->spec().list)
-	{
-		list.push_back(toGodot(u16ToUtf8(item.first)));
-	}
-	d["list_rows"] = list;
-	std::array<int, 4> lr{};
-	if (page->rect("list", lr))
-	{
-		d["list"] = stageRect(lr);
-	}
-	d["help"] = toGodot(u16ToUtf8(page->helpText()));
-	return d;
 }
 
 Dictionary AptMenuPlayer::online_messenger_sync(const Dictionary &spec)

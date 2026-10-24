@@ -56,6 +56,7 @@
 #include "GameLogic/AI/AICommandSink.h"
 #include "GameLogic/FXEvents.h"
 #include "GameLogic/LargeGroupAudioLink.h"
+#include "GameLogic/ScriptEngine/MissionObjectiveTracker.h"
 #include "GameLogic/Map/CastleTemplates.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/ProductionSettings.h"
@@ -65,9 +66,11 @@
 #include <cfloat>
 #include <functional>
 #include <map>
+#include <unordered_map>
 #include <memory>
 #include <set>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -293,6 +296,9 @@ struct GameLogicSettings
 	// player's tunnel network holds (TunnelTracker RW 0x8FA152)
 	int maxTunnelCapacity = 0;
 	unsigned initialCredits[5] = { 0, 0, 0, 0, 0 };  ///< MultiplayerSettings InitialCreditsVeryLow .. VeryHigh: the lobby's money choices
+	// lane CHAT-1: MultiplayerSettings MaxBeaconsPerPlayer (+ 0x18): a player's beacons at most (retail multiplayer.ini: 3). INFERENCE: the default is ZH's
+	// MultiplayerSettings constructor value (RotWK's constructor was not read). Not hashed (crc below): data every peer of a game reads alike (the profile)
+	int maxBeaconsPerPlayer = 3;
 	// MultiplayerSettings colours (`MultiplayerColor <Name>` blocks of data\\ini\\multiplayer.ini, lane START-1): the lobby's colour list, in file order; the index is the
 	// slot's colour. ZH MultiplayerColorDefinition: RGBColor and RGBNightColor are the day and night player colours (0xRRGGBB here; Player::setPlayerColor
 	// takes 0xFF000000 | rgb), TooltipName a game text label, AvailableInWotR whether the strategic (War of the Ring) lobby offers it.
@@ -388,6 +394,9 @@ public:
 	ObjectClientHooks *clientHooks() const { return m_clientHooks; }
 	// lane AUDIO-4: TheLargeGroupAudio's face to the logic (the gate the LargeGroupAudioUpdate modules read, their calls forwarded to the client's sink;
 	// GameLogic/LargeGroupAudioLink.h). The gate is set once at the new game (RW 0x62FD90); the events are not hashed
+	// lane CAMPUI-1: TheMissionObjectiveTracker (RW 0xDE8C94; ScriptEngine/MissionObjectiveTracker.h): the map's objectives, reset with the game (RW 0x835E03)
+	MissionObjectiveTracker &missionObjectives() { return m_missionObjectives; }
+	const MissionObjectiveTracker &missionObjectives() const { return m_missionObjectives; }
 	LargeGroupAudioLink &largeGroupAudio() { return m_largeGroupAudio; }
 	const LargeGroupAudioLink &largeGroupAudio() const { return m_largeGroupAudio; }
 
@@ -414,15 +423,34 @@ public:
 		return id;
 	}
 	float getGroundHeight(float x, float y) const;
+	// lane WALL-1: ZH TerrainLogic::getHighestLayerForDestination + getLayerHeight: the highest walkable surface at (x, y), a wall top or a ramp over the
+	// terrain (the pathfinder's ground-grid layers); the terrain without an AI world
+	// lane WALL-2: the height of the layer a point at (x, y, z) stands on (TheTerrainLogic vslot 0x1C with RW 0x680A75's layer): a wall top's, a ramp's or a
+	// walkway's, the terrain elsewhere
+	float getLayerHeightForDestination(float x, float y, float z) const;
+	float getHighestLayerHeight(float x, float y) const;
 	// problems nothing explains; each distinct text is kept once and reaches report().errors
 	void reportError(const std::string &text);
 	// lane BUILD-1: a rule met at runtime that is registered as a stop but not ported (a castle's PreBuiltList ...): each distinct text reaches report().stops once
-	void noteStop(const std::string &text)
+	// (a view: the hot callers pass literals, and a noted text is found without building a std::string)
+	void noteStop(std::string_view text)
 	{
-		m_notedStops.insert(text);
-		++m_notedStopHits[text]; // lane QA-1: how often a game meets each stop (diagnostics, not simulation state)
+		if (m_notedStops.find(text) == m_notedStops.end())
+		{
+			m_notedStops.emplace(text);
+		}
+		// lane QA-1: how often a game meets each stop (diagnostics, not simulation state)
+		const auto hit = m_notedStopHits.find(text);
+		if (hit != m_notedStopHits.end())
+		{
+			++hit->second;
+		}
+		else
+		{
+			m_notedStopHits.emplace(std::string(text), 1u);
+		}
 	}
-	const std::map<std::string, unsigned> &notedStopHits() const { return m_notedStopHits; }
+	const std::map<std::string, unsigned, std::less<>> &notedStopHits() const { return m_notedStopHits; }
 
 	// lane BACKLOG3 (S-2452): a radar event the logic's code makes for the client's radar. Retail calls TheRadar->createEvent (RW 0x6D98FA) from inside the
 	// logic frame (the scripts' radar actions RW 0x7BC221 / 0x7BC250 / 0x7C0B61, the dozer's finished building RW 0x88E125); here the logic records the event
@@ -443,6 +471,26 @@ public:
 		int playerIndex = -1;  ///< CONSTRUCTION: the dozer's controlling player
 	};
 	static constexpr size_t kRadarEventNotices = 64;
+	// lane CHAT-1: what MSG_PLACE_BEACON did (RW 0x77C634), for the clients' presentation of it (the message lines, the sounds, the radar event, the EVA,
+	// an enemy's hidden beacon): the logic decides the object, each client what its local player sees. Never hashed, never saved (presentation only)
+	struct BeaconNotice
+	{
+		enum Kind : std::uint8_t
+		{
+			PLACED = 0,   ///< the beacon object was made
+			TOO_MANY = 1, ///< the player already has MaxBeaconsPerPlayer beacons (the placer's client says so)
+			FAILED = 2    ///< no beacon template, or the player is defeated (every client says so)
+		};
+		std::uint32_t seq = 0;
+		UnsignedInt frame = 0;
+		Kind kind = PLACED;
+		int playerIndex = -1;
+		ObjectID object = INVALID_ID;
+		Coord3D position{ 0.0f, 0.0f, 0.0f };
+	};
+	static constexpr size_t kBeaconNotices = 64;
+	void noteBeacon(BeaconNotice::Kind kind, int playerIndex, ObjectID object, const Coord3D &position);
+	const std::vector<BeaconNotice> &beaconNotices() const { return m_beaconNotices; }
 	void noteRadarEvent(int type, const Coord3D &position, RadarEventNotice::Source source, int playerIndex);
 	const std::vector<RadarEventNotice> &radarEventNotices() const { return m_radarEventNotices; }
 
@@ -482,6 +530,8 @@ public:
 	size_t getObjectCount() const { return m_objectCount; }
 	ObjectID getNextObjectID() const { return m_nextObjectID; }
 	ObjectID allocateObjectID() { return m_nextObjectID++; }
+	// lane MODS-3: edain-unchained.unique-production-id's one counter (pre-increment: the first id is 1)
+	unsigned nextSharedProductionID() { return ++m_sharedProductionID; }
 	// an object made with an explicit id keeps later allocations above it
 	void noteExplicitObjectID(ObjectID id)
 	{
@@ -804,6 +854,7 @@ private:
 	std::unique_ptr<CombatState> m_combat;
 	FXEventLog m_fxEvents; // lane FX-2 (not hashed)
 	LargeGroupAudioLink m_largeGroupAudio; // lane AUDIO-4
+	MissionObjectiveTracker m_missionObjectives; // lane CAMPUI-1
 	std::unique_ptr<VictoryConditions> m_victory;
 	std::unique_ptr<BuildAssistantSell> m_sell; // lane FACT-A
 	std::unique_ptr<SkirmishAIManager> m_skirmishAI;
@@ -815,9 +866,11 @@ private:
 	std::unique_ptr<TerrainTrees> m_trees;               // lane SPELL-3
 	std::unique_ptr<ScriptEngine> m_scriptEngine;        // lane SCRIPT-1
 	CastleTemplateStore m_castleTemplates;
-	std::set<std::string> m_notedStops;
-	std::map<std::string, unsigned> m_notedStopHits;
+	std::set<std::string, std::less<>> m_notedStops;
+	std::map<std::string, unsigned, std::less<>> m_notedStopHits;
 	std::vector<RadarEventNotice> m_radarEventNotices; ///< lane BACKLOG3: oldest first, at most kRadarEventNotices
+	std::vector<BeaconNotice> m_beaconNotices; ///< lane CHAT-1: oldest first, at most kBeaconNotices
+	std::uint32_t m_beaconSeq = 0;
 	std::uint32_t m_radarEventSeq = 0;
 	ObjectClientHooks *m_clientHooks = nullptr;
 	ObjectCreatedProc m_objectCreatedProc;
@@ -885,6 +938,7 @@ private:
 	size_t m_objectCount = 0;
 	unsigned m_containWorldTransitions = 0;
 	ObjectID m_nextObjectID = 1;
+	unsigned m_sharedProductionID = 0; ///< lane MODS-3: edain-unchained.unique-production-id (saved and hashed only with the feature)
 	std::vector<Object *> m_objectsById; ///< index = id; null for a free or destroyed id
 
 	std::vector<UpdateModule *> m_updates[PHASE_COUNT];
@@ -896,7 +950,10 @@ private:
 
 	std::vector<PhaseWork> m_phaseWork;
 	std::map<const ThingTemplate *, ObjectTemplateInfo> m_templateInfo; ///< looked up only, never iterated
-	std::map<const ThingTemplate *, std::unique_ptr<CrushTemplateInfo>> m_crushInfo; ///< looked up only, never iterated
+	std::unordered_map<const ThingTemplate *, std::unique_ptr<CrushTemplateInfo>> m_crushInfo; ///< looked up only, never iterated
+	// lane HDPERF-1 (performance: a lookup per colliding pair): the infos by template id, each slot with the template it holds (an override shares its
+	// base's id: a slot taken by another template sends the lookup to m_crushInfo); filled only where m_crushInfo is (on the logic thread)
+	std::vector<std::pair<const ThingTemplate *, const CrushTemplateInfo *>> m_crushById;
 	std::vector<std::string> m_errors;
 	const TerrainLogic *m_terrain = nullptr;
 	AICommandSink m_aiCommands;

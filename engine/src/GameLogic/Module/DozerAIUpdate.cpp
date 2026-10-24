@@ -3,6 +3,8 @@
 
 #include "GameLogic/Module/DozerAIUpdate.h"
 #include "GameLogic/Module/WorkerAIUpdate.h"
+#include "Common/ModEngineFeatures.h"
+#include "GameLogic/Economy.h"
 #include "GameLogic/SkirmishAI/SkirmishAIManager.h"
 
 #include "Common/Audio/AudioRequests.h"
@@ -1033,7 +1035,17 @@ int DozerAIUpdate::workOnBuild(int t, Object &structure)
 		showFromStructure(&structure); // RW 0x88DE56 -> 0x88E156: already complete
 		return taskSucceeded(t);
 	}
-	const int frames = BuildAssistant::calcTimeToBuild(*structure.getTemplate(), self->getControllingPlayer(), self, -1, logic.productionSettings(), logic);
+	int frames = BuildAssistant::calcTimeToBuild(*structure.getTemplate(), self->getControllingPlayer(), self, -1, logic.productionSettings(), logic);
+	if (ModEngineFeatures::has(ModEngineFeature::EdainUnchainedProductionSplit))
+	{
+		// lane MODS-3: edain-unchained.production-split (its 0xED91A3 at RW 0x88DE6E): the STRUCTURE's PRODUCTION_CONSTRUCTION product f; f > 0 gives
+		// max(1, cvttss2si((float)t / f)) (cvtsi2ss, divss)
+		const float f = logic.economy().attributeModifierProduct(structure, 31); // ATTRIBUTE_PRODUCTION_CONSTRUCTION
+		if (f > 0.0f)
+		{
+			frames = std::max(1, SimMath::truncToInt32(SimMath::divf32(SimMath::sseFromInt32(frames), f)));
+		}
+	}
 	const float framesF = SimMath::sseFromInt32(frames);
 	structure.setConstructionPercent(SimMath::addf32(structure.getConstructionPercent(), SimMath::divf32(100.0f, framesF)));
 	if (ActiveBody *body = dynamic_cast<ActiveBody *>(structure.getBodyModule()))

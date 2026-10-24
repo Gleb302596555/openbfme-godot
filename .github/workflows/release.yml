@@ -37,7 +37,7 @@ on:
           - nightly
           - stable
       tag:
-        description: the release tag the Deck pushed (v1.2.3 or v1.2.3-nightly.20261022)
+        description: the release tag the Deck pushed (v1.2.3 or v1.2.3-nightly.261023200)
         required: true
         type: string
       commit:

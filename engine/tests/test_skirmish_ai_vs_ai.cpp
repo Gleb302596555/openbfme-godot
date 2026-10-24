@@ -827,7 +827,15 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// mood scan, ATTACKPATH-1's attack paths and horde approach, FLANK-1's in-flight hits / fire-time flank / crush contact / scatter, PRODUCTION1's levelled
 	// build speed, LUMBER1's evil lumber mills, on q22's tree; each lane alone measured the results above), measured once on the merged tree (the test file
 	// alone, the Mac and the laptop): all three games are open at 9000 with both armies still fighting; seed 2's table below. Engine pins, not retail values.
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, -1, -1 }, Game{ "FactionMordor", "FactionMen", 1234u, -1, -1 } })
+	// Lane CAMPUI-1 (OFF_MAP, Object + 0x458 bit 3 from the map's extent, RW 0x69355D: the mood scan RW 0x66845E and the closest-enemy filter RW 0x6FF7A4
+	// skip an object outside the active boundary; the lane's only change a skirmish runs), measured once on the lane (a Linux CI host): seed 2's table is
+	// unchanged up to the 7000 window and changes from the 8000 window on (an object first stands outside the boundary after frame 7000; which one is not
+	// named here). Seeds 7 and 1234 are unchanged (4103 / 5701). Engine pins, not retail values.
+	// Merge queue q24 (CAMPUI-1's OFF_MAP gates, OFFMAP-1's retail idle-state start RW 0x745A64 (no ZH frame <= 1 snap: every start unit stays where it was
+	// made), SCRIPT-4, MODS-3's DoCommandUpgrade / PLAYER_UPGRADE buttons and library teams, and the amoeba reach that skips an enclosed occupant, on q23's
+	// tree; measured once on the merged tree, a CI host, the test file alone, twice): seed 2 stays open at 9000 with a new table (changed from the first window),
+	// seed 7 ends with the Men's defeat (start position 0) at 6368, seed 1234 stays open at 9000. Engine pins, not retail values.
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 0, 6368 }, Game{ "FactionMordor", "FactionMen", 1234u, -1, -1 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;
@@ -850,15 +858,15 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 		{
 			// merge queue q23: seed 2's table (every side keeps attacking, building and destroying through the windows; a sample every 1000 frames, cumulative)
 			CHECK(run.progress ==
-		"frame 1000: [0 attacks 0 built 90u/8s destroyed 17u/1s] [1 attacks 1 built 92u/8s destroyed 44u/2s]\n"
-		"frame 2000: [0 attacks 3 built 298u/10s destroyed 194u/1s] [1 attacks 3 built 251u/10s destroyed 247u/4s]\n"
-		"frame 3000: [0 attacks 6 built 488u/11s destroyed 355u/2s] [1 attacks 4 built 420u/11s destroyed 456u/4s]\n"
-		"frame 4000: [0 attacks 8 built 745u/14s destroyed 493u/2s] [1 attacks 7 built 540u/13s destroyed 649u/4s]\n"
-		"frame 5000: [0 attacks 11 built 941u/15s destroyed 648u/2s] [1 attacks 8 built 686u/15s destroyed 824u/4s]\n"
-		"frame 6000: [0 attacks 12 built 1124u/16s destroyed 780u/3s] [1 attacks 9 built 846u/16s destroyed 1069u/4s]\n"
-		"frame 7000: [0 attacks 16 built 1352u/16s destroyed 929u/3s] [1 attacks 13 built 987u/16s destroyed 1282u/4s]\n"
-		"frame 8000: [0 attacks 17 built 1538u/17s destroyed 1075u/4s] [1 attacks 15 built 1164u/16s destroyed 1471u/4s]\n"
-		"frame 9000: [0 attacks 21 built 1733u/19s destroyed 1180u/4s] [1 attacks 16 built 1239u/19s destroyed 1651u/4s]\n");
+		"frame 1000: [0 attacks 2 built 90u/8s destroyed 8u/1s] [1 attacks 1 built 85u/7s destroyed 37u/2s]\n"
+		"frame 2000: [0 attacks 5 built 319u/11s destroyed 156u/3s] [1 attacks 4 built 231u/10s destroyed 216u/2s]\n"
+		"frame 3000: [0 attacks 8 built 504u/12s destroyed 354u/3s] [1 attacks 8 built 415u/11s destroyed 394u/3s]\n"
+		"frame 4000: [0 attacks 10 built 701u/15s destroyed 520u/4s] [1 attacks 9 built 616u/13s destroyed 647u/3s]\n"
+		"frame 5000: [0 attacks 13 built 985u/15s destroyed 667u/4s] [1 attacks 12 built 733u/15s destroyed 871u/4s]\n"
+		"frame 6000: [0 attacks 17 built 1238u/15s destroyed 769u/4s] [1 attacks 13 built 835u/17s destroyed 1191u/4s]\n"
+		"frame 7000: [0 attacks 21 built 1520u/16s destroyed 922u/4s] [1 attacks 16 built 973u/18s destroyed 1426u/4s]\n"
+		"frame 8000: [0 attacks 23 built 1684u/18s destroyed 1044u/5s] [1 attacks 17 built 1092u/19s destroyed 1565u/4s]\n"
+		"frame 9000: [0 attacks 25 built 1904u/18s destroyed 1150u/7s] [1 attacks 19 built 1228u/19s destroyed 1828u/4s]\n");
 		}
 	}
 }

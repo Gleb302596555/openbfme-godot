@@ -15,7 +15,7 @@ What a tester gets, and how to make it. Lane RELEASE-1.
   then checks every md5. The choice is kept in `install-paths.cfg` in the user data
   folder; delete it to choose again. The environment variables still win (developers,
   tests).
-- **Version.** `git describe --tags --match "v[0-9]*"` (the legacy `v0.2.0-playtest.*`
+- **Version.** `git describe --tags --match "v[0-9]*" --exclude "*-playtest.*" --always --dirty --abbrev=10` (the legacy `v0.2.0-playtest.*`
   tags are ignored) plus the build day, regenerated on every build
   (`engine/cmake/BuildVersion.cmake`). It is the first line of every log and stands in
   the top right corner of the menus.
@@ -40,9 +40,10 @@ What a tester gets, and how to make it. Lane RELEASE-1.
   and Program Files is not writable.
 - **Crashes and fatal errors.** Packages use Godot's debug export template: the release
   template writes no native backtrace on a crash, the debug one does, into the session
-  log. Godot's Windows handler symbolizes its own executable only (an extension frame is
-  "openbfme.windows.template_debug.x86_64.dll+<offset>") and covers the main thread only (a
-  crash on another thread writes no dump): stop S-1923, named in every Windows log. The debug
+  log. Windows additionally installs OpenBFME's local minidump handler, including worker-thread
+  faults and termination (`Common/System/WindowsCrashDump.cpp`): dumps go under
+  `user://logs/minidumps`. Extension frames still need the build's private symbols for mapping
+  (stop S-1923, named in every Windows log). Dumps stay local, not uploaded automatically. The debug
   template titles the window "OpenBFME (DEBUG)"; the `Release` autoload sets it back to the
   project's name, "OpenBFME", once the engine has started (lane UI-4). Every
   Windows build writes the DLL's PDB (CodeView line tables, build paths remapped, the home
@@ -60,12 +61,14 @@ What a tester gets, and how to make it. Lane RELEASE-1.
   than none. A run that ends without quitting leaves a marker; the next start names
   that run's log in a message box with "Open log folder" and OK. An error the game cannot
   continue from shows a message box with the error, the version and the log file (and
-  "Open log folder"), then quits when it is closed. `--crash-test` (debug builds) crashes
-  on purpose two seconds after the start, in native code, for the release checks.
-- **Network.** Only the LAN transport (`GameNetwork/Transport.cpp`, UDP) opens sockets;
+  "Open log folder"), then quits when it is closed. `--crash-test` and `--crash-test-worker`
+  (debug builds) deliberately crash native code on the main or a worker thread after the menus start, for the release checks.
+- **Network.** The native transport (`GameNetwork/Transport.cpp`, UDP) carries LAN and online relay traffic.
+  The game's online lobby transport and online-count script also make HTTP requests to the configured lobby;
+  `online_http.gd` additionally transports platform-service requests. Direct game starts can launch the verified adjacent updater.
   `tools/release/net_guard.py` (run by `tools/release/test_release_tools.py`) lexes every
-  engine source and shipped script, comments and strings aware, and fails on any other
-  reference to a socket / resolver / HTTP API, string naming one, or network header.
+  engine source and shipped script, comments and strings aware, and checks network APIs against
+  its per-file allowlists and request rules. It is not a claim that the game makes LAN-only connections.
 
 ## Threat model
 
@@ -127,6 +130,13 @@ Not reproduced by `package.sh`, recorded instead:
   differently, so a verification runs with the same tools.
 
 ## Making a package
+
+Run these commands from the repository root on Linux, with Bash, Python 3.11 or newer, CMake/Ninja, Git,
+Godot 4.7.2 and its matching export templates; first build the native library for the tagged commit.
+Windows exports here use the same-commit cross-built DLL, not a native Windows shell. Export tests
+also need `ROTWK_INSTALL` and `BFME2_INSTALL` pointing at validated installations and the Godot editor
+on PATH (or `GODOT`). Release signing/publishing prerequisites are described below; those steps are operator-only.
+The release privacy scanner imports Python's possessive-repeat regex constants; Python 3.10 cannot run it.
 
 1. Tag the commit (owner): `git tag v0.3.0-preview.1` (any `v<digits>...` tag).
 2. Build at that commit with a clean tree (`cmake --build <dir>`). The library carries one
@@ -248,7 +258,7 @@ The repository is a build-time setting (`package.sh --repo`, default `Open-BFME/
    stable as *Alpha* (the plain releases, "Alpha 0.4.5"; `--channel=alpha` is stable) and the pre-release channel as *Preview*
    (RELNAME-1 had shown it as *Alpha*). NIGHTLY-1 (owner, 2026-10-21): the two channels are shown as *Stable* and *Nightly*
    (`--channel=nightly` is the pre-release channel), the plain releases keep their "Alpha 0.4.12" name (the game is in alpha), and
-   the nightly builds `v<x>.<y>.<z>-nightly.<YYYYMMDD>` (*Nightly builds* below) are on the pre-release channel. The ids never
+   the nightly builds `v<x>.<y>.<z>-nightly.<n>` (*Nightly builds* below) are on the pre-release channel. The ids never
    changed, so a player's remembered pick and every launcher's default keep working: both channels offer the plain releases. The two newest installed versions are kept, plus the user's pick.
    *Freeze warning:* when the newest manifest the launcher can get is signed with a date more than 60
    days ago, it shows a plain warning (an old list may be being served). It is not a block: a quiet
@@ -303,20 +313,22 @@ The repository is a build-time setting (`package.sh --repo`, default `Open-BFME/
    Limit: a helper killed while it waits for a new launcher that crashes at every start leaves that
    launcher in place. Restore `<exe>.old` by hand (the README says so).
 7. **Network and privacy** (`launcher/scripts/net/`).
-   - Only HTTPS to `api.github.com`, `github.com` and `<label>.githubusercontent.com`, with Godot's CA
+   - Release downloads use HTTPS to `api.github.com`, `github.com` and `<label>.githubusercontent.com`, with Godot's CA
      list and host name check (`TLSOptions.client()`).
    - Every redirect is checked again (at most 5). These are refused: user info, explicit ports, IP
      literals and fragments.
-   - The only header about the client is the User-Agent `OpenBFME-Launcher/<version>`. There is no
-     telemetry, no account and no cookie.
-   - `tools/release/net_guard.py` allows `HTTPClient` only in `http_fetch.gd`, and `OS.create_process`
-     only for the game and the self-update. `test_launcher_tools.py` checks that the policy runs before
-     every connection.
+   - Release downloads use User-Agent `OpenBFME-Launcher/<version>` and no account or cookie. Optional Multiplayer sign-in is separate:
+     the social client sends install/device/client metadata and an in-memory bearer token to the configured lobby;
+     Discord and e-mail linking/restoration use the account flows in `LAUNCHER-SOCIAL.md` and `IDENTITY.md`.
+   - `tools/release/net_guard.py` has per-file allowances for release downloads, social/account requests,
+     the loopback instance lock and OAuth callback, game/self-update processes and macOS update helpers.
+     `test_launcher_tools.py` checks the release-download policy; social/account tests check their separate origin and redirect rules.
    - Lane ONLINECOUNT-1: with "Show how many players are online" on (the default), the lobby's host (`https://play.openbfme.com`,
      or the one `--lobby=` remembered) is allowed for ONE path, `GET /v1/stats` (`NetPolicy.set_lobby`). It answers three counts
      (players online, open games, running games) and nothing else: no sign-in, no token, no cookie, no name. The launcher asks when it opens
-     and every 5 minutes while the Play screen is in view, on a thread of its own. Off (`state.cfg`: `[launcher] show_online_count=false`,
-     or `--online-count=off`) it never contacts the lobby. The game's menus read the same file (`godot/scripts/online_stats.gd`).
+     and every 5 minutes while the Play screen is in view, on a thread of its own. While socially signed in, the launcher uses inbox stats instead.
+     Off (`state.cfg`: `[launcher] show_online_count=false`, or `--online-count=off`) disables anonymous count requests, not explicit social sign-in
+     or play. The game's menus read the same file (`godot/scripts/online_stats.gd`).
    - Lane AIO-1 (`docs/AIO.md`): only while the player's opt-in download of
      the game files runs, `bfmeladder.com` and `workshop-files.bfmeladder.com` (HTTPS, no port) are
      allowed as well (`NetPolicy.extra_hosts`). The requests to them are the file lists of the two
@@ -915,14 +927,31 @@ Owner, 2026-10-21: "build the pulled in PRs every night with patch notes and wha
 the game is still in alpha". Players pick **Stable** (the numbered releases, "Alpha 0.4.12", made by hand with the owner's OK as before)
 or **Nightly** (everything merged, built every night) in the launcher's Settings.
 
-- **When.** The operator's user timer `openbfme-nightly.timer` on the coordinator's machine, 03:00 US Eastern (`America/New_York`, so
-  daylight saving time is followed), runs the private wrapper, which loads the release environment and runs `tools/release/nightly.sh`.
-  That takes the archive branch's head, makes a clean detached checkout of it and runs ITS `autorelease.sh <head> --nightly`. A night
-  with nothing new under the release paths since the last nightly is skipped (`AUTORELEASE SKIP`, exit 0).
-- **Version.** `v<next plain>-nightly.<UTC YYYYMMDD>` (`autorelease.py nightly-version`): after Alpha 0.4.11 the nightlies are
-  v0.4.12-nightly.20261022, .20261023, ..., all below v0.4.12, which replaces them on both channels. One per date; a nightly is never
-  below an existing release tag. Shown as "Nightly 0.4.12 (2026-10-22)". Launchers from before NIGHTLY-1 do not parse the word
-  `nightly` and skip those releases (they stay on the plain releases until they update themselves).
+- **When.** The operator's user timer `openbfme-nightly.timer` on the coordinator's machine runs the private wrapper, which loads the
+  release environment and runs `tools/release/nightly.sh`. NIGHTLY-1 ran it at 03:00 US Eastern; since NIGHTLY-2 (owner, 2026-10-23: "i
+  would like the nightly to run twice a day on actions") it runs at **07:00 and 19:00 UTC**. That takes the archive branch's head, makes
+  a clean detached checkout of it and runs ITS `autorelease.sh <head> --nightly`. A run with nothing new under the release paths since
+  the last nightly (the morning's or the evening's) is skipped (`AUTORELEASE SKIP`, exit 0).
+- **Builders (NIGHTLY-2).** The wrapper sets `OPENBFME_RELEASE_{MAC,LINUX,WINDOWS}_BUILDER=actions` for the nightly only (switch-over step
+  (a) below; the stable releases stay on the build hosts): macOS is built on `macos-15`, Linux and Windows on GitHub and on the build
+  host, whose libraries must match GitHub's. The signer stays the Deck (`deck`); the nightly gate subset and the package tests stay on
+  the build host (they need the game files).
+- **Version.** `v<next plain>-nightly.<n>` (`autorelease.py nightly-version`). NIGHTLY-1 made one a UTC date, n = `YYYYMMDD`
+  (v0.4.12-nightly.20261022). Since NIGHTLY-2, n = `<YYMMDD><s>00`, 9 digits (the launcher's limit), s = `1` for the **morning** build
+  (a run started 00:00-11:59 UTC) and `2` for the **evening** one (12:00-23:59 UTC); one nightly per half day, and a nightly is never
+  below an existing release tag. Any 9-digit number is above every 8-digit date, so the order is run order:
+
+  | tag | new launcher (and the GitHub title, "OpenBFME ...") | a launcher shipped before NIGHTLY-2 |
+  | --- | --- | --- |
+  | v0.4.12-nightly.20261022 | Nightly 0.4.12 (2026-10-22) | Nightly 0.4.12 (2026-10-22) |
+  | v0.4.12-nightly.261023100 | Nightly 0.4.12 (2026-10-23, morning) | Nightly 0.4.12 build 261023100 |
+  | v0.4.12-nightly.261023200 | Nightly 0.4.12 (2026-10-23, evening) | Nightly 0.4.12 build 261023200 |
+
+  The final `00` is on purpose: NIGHTLY-1's `semver.gd` reads the last two digits of a nightly number as the day, and day 00 is no
+  date, so a launcher already installed shows a build number, never a wrong date (checked for every date to 2099 in
+  `launcher/tests/unit_test.gd` and `test_nightly.py`). All nightlies are below the next plain release, which replaces them on both
+  channels. Launchers from before NIGHTLY-1 do not parse the word `nightly` and skip those releases (they stay on the plain releases until
+  they update themselves).
 - **On GitHub.** Each nightly is its own pre-release; after publishing only the newest 7 nightly releases are kept
   (`nightly_notes.py prune`; the tags all stay, GH013). This is required: every launcher reads one page of 30 releases, so piled-up
   nightlies would push the stable releases off it. A nightly also moves the public main (its candidate commit, as a release does) and
@@ -938,7 +967,8 @@ or **Nightly** (everything merged, built every night) in the launcher's Settings
 - **State.** `$OPENBFME_RELEASE_STATE/nightly/` holds the nightly's intent, `last-released` and `releases.log`, so a stable release's
   version, notes baseline and intent are untouched; the lock and the community pull request lists are shared. The first nightly's notes
   start at the last stable release.
-- **Notes** (`tools/release/nightly_notes.py`): the first-parent changes since the last nightly, and for each the community pull requests
+- **Notes** (`tools/release/nightly_notes.py`): the first-parent changes since the last nightly (`nightly/last-released`: the previous
+  run that published, morning or evening, not the previous day), and for each the community pull requests
   it carries (a `(cherry picked from commit X)` line whose X GitHub links to a pull request of the repository: its number and author).
   A change with `Release-note:` lines is described by exactly those (`none` hides it), and its `Test:` lines are its test steps. For the
   rest, the operator's model command (`OPENBFME_NIGHTLY_LLM`) writes one plain sentence and 1 to 6 concrete test steps per change, and
@@ -948,7 +978,7 @@ or **Nightly** (everything merged, built every night) in the launcher's Settings
   first, credited), **What to test** (numbered, community first), how to report a problem, the known issues. The logins and numbers come
   from GitHub's record; they are the only mentions and references on the page. The whole page passes `audit-text` with the private
   denylist like every published text.
-- **On a failure** the wrapper leaves `logs/nightly-<date>.done` with the exit code and the coordinator's unseen list shows
+- **On a failure** the wrapper leaves `logs/nightly-<date>-<HH>.done` (`HH` the run's UTC hour; `logs/nightly-<date>.done` before NIGHTLY-2) with the exit code and the coordinator's unseen list shows
   `NIGHTLY FAILED`. A dry run (`nightly.sh --dry-run`) builds and checks everything and publishes nothing.
 
 ### The Mac package (MACREL-1)
@@ -958,8 +988,8 @@ launcher as two ad-hoc signed apps, macOS 13 or later, an unstable preview (owne
 themselves from it: the launcher's macOS mode (mac-release-1, `launcher/scripts/core/macos_update.gd`) reads `manifest-macos.json`, never
 `manifest.json`. The other launchers never read the sidecar.
 
-- **Before anything is pushed** (step 1), `tools/release/build_macos_release.sh --check` asks the Mac build host (`mac`, the owner's M5;
-  `OPENBFME_RELEASE_MAC_HOST`) over ssh whether it has its CI environment, the build tools, Python 3.10+, Godot 4.7.2 and the pinned
+- **Before anything is pushed** (step 1), `tools/release/build_macos_release.sh --check` asks the configured Mac build host
+  (`OPENBFME_RELEASE_MAC_HOST`) over ssh whether it has its CI environment, the build tools, Python 3.10+, Godot 4.7.2 and the pinned
   export templates. If it does not answer (asleep, lid closed, off the network) or lacks something, the run stops at `mac-check`. That
   is a named failure, and nothing has been pushed or published yet.
   `OPENBFME_RELEASE_SKIP_MAC=1`, set explicitly, releases without the Mac package. The log and the summary say so, and the release
@@ -1202,7 +1232,7 @@ environment, and the next autorelease run resumes the wait. Then autorelease.sh 
 - Trigger and inputs: only `workflow_dispatch`. Every input reaches the scripts through the environment, never pasted into a script.
   `plan` requires:
   - main of `Open-BFME/openbfme-godot`;
-  - a kind of `nightly` with a `v<x.y.z>-nightly.<YYYYMMDD>` tag, or `stable` with a plain `v<x.y.z>`, so a nightly signing can never
+  - a kind of `nightly` with a `v<x.y.z>-nightly.<YYMMDD><1|2>00` (or earlier `<YYYYMMDD>`) tag, or `stable` with a plain `v<x.y.z>`, so a nightly signing can never
     make a stable-channel manifest without the owner's approval;
   - a tag that names the commit, and a commit on main.
 - Jobs: the build jobs have read-only contents, no AWS access and no caches. Only `sign` gets the OIDC token and write access to
@@ -1486,8 +1516,12 @@ annotated tag's text; more than 10 new commits (a branch of the private history)
 private dev repository, the backup) pass untouched. Install it once in the operator's checkout, after the archive branch holds the file
 (a checkout without it refuses every public push, which is the safe failure):
 
-    printf '#!/bin/sh\n# public push guard (docs/RELEASE.md): never bypass\nexec python3 "$(git rev-parse --show-toplevel)/tools/release/public_push_guard.py" "$@"\n' > .git/hooks/pre-push
-    chmod +x .git/hooks/pre-push
+From the repository root in a POSIX shell (Linux/macOS), with Git and Python 3.11+ available as `python3` and the existing hook preserved if it has other duties:
+
+```sh
+printf '#!/bin/sh\n# public push guard (docs/RELEASE.md): never bypass\nexec python3 "$(git rev-parse --show-toplevel)/tools/release/public_push_guard.py" "$@"\n' > .git/hooks/pre-push
+chmod +x .git/hooks/pre-push
+```
 
 Never push with `--no-verify`. The tests (`tools/release/test_public_push_guard.py`) push through the real hook into local bare
 repositories: a push elsewhere, no / a broken denylist, a clean commit, a deletion, each privacy hit (file, path, message, author,
@@ -1509,7 +1543,7 @@ package goes to testers, check on a real Windows 10 / 11 machine (and note the r
 1. **Registry, WOW64 view.** With RotWK and BFME2 installed by the EA installers or the
    All-in-One launcher, the first-run screen offers both folders, sourced from
    `HKLM\SOFTWARE\WOW6432Node\Electronic Arts\Electronic Arts\...\InstallPath` and
-   `...\App Paths\lotrbfme2.exe` `Path` (`RegGetValueW` with `RRF_SUBKEY_WOW6432KEY` from
+   `...\App Paths\lotrbfme2.exe` `Path` (`RegOpenKeyExW` with `KEY_WOW64_32KEY`, then `RegQueryValueExW`, from
    the 64-bit game). Also an install recorded only under HKCU.
 2. **Unicode paths.** Install folders, the user profile and the user name with non-ASCII
    characters (e.g. `C:\Spiele\Mittelerde`, a user `Zoë`): discovery, Browse, the check,

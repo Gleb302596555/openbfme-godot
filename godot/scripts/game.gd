@@ -59,6 +59,8 @@
 ##     --play1=<a,b,...>     (lane PLAY-1, with --auto) the input-driven scenarios of scripts/play1_player.gd (orders, palantir, powers, camera, explore, dragbox, ghosts,
 ##                           skirmish, tour, tribute): every action is an InputEvent pushed into the viewport; prints PLAY1 lines; with --end the end of the game
 ##                           follows, with --quit the quit menu's Exit to the score screen and its Continue back to the menu
+##     --select1=clicks      (lane SELECT-1, with --auto) scripts/select1_player.gd: left clicks on soldiers of four battalions (inside their pick boxes,
+##                           beside the body) and right clicks on enemy soldiers; "SELECT1 clicks: ok / FAIL"
 ##     --input1=<a,b,...>    (lane INPUT-1, with --auto) the keyboard scenarios of scripts/input1_player.gd (groups, ...): every key is an InputEventKey
 ##                           given to Input.parse_input_event; prints INPUT1 lines
 ##     --classic-mouse / --alternate-mouse  (lane PLAY-1) force the left / right click to order (default: Options.ini AlternateMouseSetup, else retail's right click)
@@ -118,6 +120,8 @@
 ##     --opts2-size=WxH      (with --opts2-check / --opts2-game) the window's size for the screenshots (1280x720, 2560x1440)
 ##     --opts4-check         the scripted check of tests/opts4_test.gd (scripts/opts4_check.gd): an open drop-down on top, the sliders' tick rows inside
 ##                           their windows, the volume sliders live with their samples; --opts4-size=WxH the window, --opts4-shots=DIR the screenshots
+##     --menusnd-check       lane MENUSND-1 (scripts/menusnd_check.gd): the main menu's entries and the Options bar play RotWK's hover and press sounds
+##                           (the movies' PlaySound, taken by the audio manager), with real mouse events; exit 0 when all held
 ##     --opts5-check         the scripted check of tests/opts5_test.gd (scripts/opts5_check.gd): Options is the one OpenBFME menu, the original game's settings
 ##                           among its rows (their effects, Options.ini, CANCEL / RESET), the layout rules; --opts5-size=WxH, --opts5-shots=DIR
 ##     --shellfix1-check     lane SHELLFIX-1 (scripts/shellfix1_check.gd): Options from the main menu (and, with OPENBFME_LOBBY, the online home) in the style
@@ -161,7 +165,8 @@
 ##     --net-shot-desync=FILE       save the window 1 s after the desync message box came up (the media)
 ##   lane MP-2, replays: every skirmish and LAN game is recorded to <user data>/Replays/<GUI:LastReplay>.replay (Common/Recorder.h); the main menu's Load Replay
 ##   opens SaveLoad.apt's replay page (AptSaveLoad: the files of that folder) and Load plays the chosen one back (GameWorld.prepare_replay / start_replay)
-##     --replay=FILE         play FILE back at once (no menu); --replay-check: quit when it ends, exit 0 when every frame's hash matched
+##     --replay FILE         play FILE back at once (also --replay=FILE); --replay-check: quit when it ends, exit 0 when every frame's hash matched
+##     --load FILE           mount the game data, then load FILE through the Load screen's save flow (also --load=FILE)
 ##     --replay-speed=N      (lane QA-2) play the replay at N times speed (the QA matrix checks every game's replay this way)
 ##     --replay-watch=<Player>:<Template>   (lane QA-2) while a replay plays, every 50 logic frames print each of the player's objects of that template
 ##                           (position, conditions, production queue) and the player's money / command points: QA-2's reproductions
@@ -190,6 +195,11 @@
 ##     --online-rejoin[=ID]  the game restarted: rejoin the player's running game (the saved lobby session; the lobby's rejoin START), re-simulate it from
 ##                           the relay's log ("Rejoining" on screen), then play on
 ##     Pause key             pauses a network game for every player (OpenBFME addition, S-3901); Pause again (any player) resumes
+##   lane CHAT-1 (in-game chat, a LAN / online game only, as retail): Enter chats to everyone, Backspace to the allies (InGameChat.apt; Enter sends, Esc
+##     closes); the lines show at the top right in the sender's colour. Test options: --chat-at=FRAME:everyone|allies:TEXT (repeatable) types and sends
+##     TEXT through the chat window at FRAME; --chat-mute=SLOT mutes a slot; --chat-shot=FILE saves the window 1.5 s after the last --chat-at line went
+##     Ctrl+B then a left click on the ground places a beacon (allies and observers see it, a minimap ping every 1.2 s; Delete removes your own);
+##     --beacon-at=FRAME (repeatable) presses Ctrl+B and clicks the middle of the screen at FRAME; --beacon-shot=FILE saves the window 3 s after the last
 ##     --net-pause-at=FRAME / --net-resume-after-ms=MS   the same from the command line (tests); --net-shot-pause=FILE / --net-shot-rejoin=FILE save the
 ##                           window once the game has been paused / rejoining for 2 s / 0.5 s (the proof pictures)
 ##     --online-spectate=ID  watch the game ID as a spectator (the lobby's spectator START; waits for the host to start it; also mid-game): the whole map
@@ -335,6 +345,8 @@ var _state := State.BOOT
 var _frames := 0
 var _menu_revealed := false
 var _misc_sounds_played: Array = [] # lane DEVPORT-8: the last MiscAudio plays of _update_listener
+var shell_sounds_played: Array = [] # lane MENUSND-1: the last FSCommand PlaySound requests of the menus (_on_shell_service)
+var _menusnd_check := false # lane MENUSND-1: --menusnd-check (scripts/menusnd_check.gd)
 var _menu_style := "rotwk"
 var _pending_menu_style := "rotwk"
 var _switching_menu_style := false
@@ -519,6 +531,17 @@ var _lan_shots := "" ## lane UBERJOIN-1: --lan-shots=DIR (join): the game list (
 var _lan_shot_start := "" # lane UI-1: (host) the window 8 s after Play Game: the countdown's QM:STARTINGGAME box (the media)
 var _net_shot := ""
 var _net_shot_frame := -1
+# lane CHAT-1: the chat window's scripted lines (--chat-at), mutes, the proof shot, the scroll-back shown while the window is open
+var _chat_script: Array = [] # [{frame, everyone, text, stage, at}]
+var _chat_mutes: Array = []
+var _chat_shot := ""
+var _chat_open_shot := "" # --chat-open-shot=FILE: the window with the typed line, just before the first scripted Send
+var _chat_shot_at := -1
+var _chat_history_shown := false
+var _chat_lines_seen := 0
+var _beacon_script: Array = [] # [{frame, stage, at}] (lane CHAT-1)
+var _beacon_shot := ""
+var _beacon_shot_at := -1
 # lane NETLAG-1: --net-press=TEMPLATE: the command delay through the HUD (a build button pressed, the frame and the time its unit reaches the queue)
 var _net_press := ""
 var _net_press_state := 0 # 0 not yet, 1 pressed (waiting for the queue), 2 done, 3 an object selected (the control bar shows its buttons next frames)
@@ -546,6 +569,7 @@ var _dc_quit_handled := false
 var _desync_shown := false
 var _net_shot_desync := ""
 var _replay_file := ""          # lane MP-2
+var _load_file := ""
 var _replay_check := false
 var _replay_speed := 1.0
 var _replay_watch := ""
@@ -655,6 +679,10 @@ var _cah_hero_id := ""          # lane CAH-1: the unique id of the hero the --ca
 
 
 func _ready() -> void:
+	var recording_error := _set_recording_args(OS.get_cmdline_args() + OS.get_cmdline_user_args())
+	if not recording_error.is_empty():
+		_fail(recording_error)
+		return
 	if OS.get_cmdline_user_args().has("--smoke-test"):
 		process_mode = Node.PROCESS_MODE_DISABLED
 		if DisplayServer.get_name() != "headless":
@@ -717,6 +745,8 @@ func _ready() -> void:
 			_opts2_shots = arg.substr(14)
 		elif arg == "--opts4-check":
 			_opts4_check = true
+		elif arg == "--menusnd-check":
+			_menusnd_check = true
 		elif arg.begins_with("--opts4-shots="):
 			_opts4_shots = arg.substr(14)
 		elif arg.begins_with("--opts4-size="):
@@ -786,6 +816,9 @@ func _ready() -> void:
 			# lane OWNERFIX-1: the owner's problems through the real game (scripts/ownerfix1_player.gd; a skirmish or --campaign)
 			_play1 = arg.substr(12).split(",", false)
 			_play_script = "res://scripts/ownerfix1_player.gd"
+		elif arg.begins_with("--select1="):
+			_play1 = arg.substr(10).split(",", false)
+			_play_script = "res://scripts/select1_player.gd" # lane SELECT-1: clicks on battalions' soldiers (left select, right attack) through the real input
 		elif arg.begins_with("--devport7="):
 			_play1 = arg.substr(11).split(",", false)
 			_play_script = "res://scripts/devport7_player.gd" # lane DEVPORT-7: the owner's reports (veteran, rally, formation), with test hooks
@@ -857,7 +890,12 @@ func _ready() -> void:
 		elif arg.begins_with("--ai="):
 			_ai = int(arg.substr(5))
 		elif arg.begins_with("--opponents="):
-			_opponents = clampi(int(arg.substr(12)), 1, 7)
+			var count := arg.substr(12)
+			if not count.is_valid_int() or int(count) < 1 or int(count) > 15:
+				printerr("GAME FAIL: --opponents must be an integer from 1 to 15")
+				get_tree().quit(2)
+				return
+			_opponents = int(count)
 		elif arg.begins_with("--warp="):
 			_warp = float(arg.substr(7))
 		elif arg.begins_with("--warp-scale="):
@@ -891,6 +929,20 @@ func _ready() -> void:
 			_net_shot_spectate = arg.substr(20)
 		elif arg.begins_with("--net-shot-observe="):
 			_net_shot_observe = arg.substr(19)
+		elif arg.begins_with("--chat-at="): # lane CHAT-1
+			var parts := arg.substr(10).split(":", true, 2)
+			if parts.size() == 3:
+				_chat_script.append({"frame": int(parts[0]), "everyone": parts[1] == "everyone", "text": parts[2], "stage": 0, "at": 0})
+		elif arg.begins_with("--chat-mute="):
+			_chat_mutes.append(int(arg.substr(12)))
+		elif arg.begins_with("--chat-shot="):
+			_chat_shot = arg.substr(12)
+		elif arg.begins_with("--chat-open-shot="):
+			_chat_open_shot = arg.substr(17)
+		elif arg.begins_with("--beacon-at="):
+			_beacon_script.append({"frame": int(arg.substr(12)), "stage": 0, "at": 0})
+		elif arg.begins_with("--beacon-shot="):
+			_beacon_shot = arg.substr(14)
 		elif arg.begins_with("--net-pause-at="):
 			_net_pause_at = int(arg.substr(15))
 		elif arg.begins_with("--net-resume-after-ms="):
@@ -960,8 +1012,6 @@ func _ready() -> void:
 			_net_shot_disconnect = arg.substr(22)
 		elif arg.begins_with("--net-shot-desync="):
 			_net_shot_desync = arg.substr(18)
-		elif arg.begins_with("--replay="):
-			_replay_file = arg.substr(9)
 		elif arg == "--replay-check":
 			_replay_check = true
 		elif arg.begins_with("--replay-speed="):
@@ -978,6 +1028,10 @@ func _ready() -> void:
 			_cli_mission = int(arg.substr(10))
 		elif arg.begins_with("--difficulty="):
 			_cli_difficulty = preload("res://scripts/campaign_flow.gd").difficulty_from_command(arg.substr(13))
+		elif arg.begins_with("--stance-at="):
+			_stance_at = int(arg.substr(12)) # lane CAMPUI-1 (proof captures, test hooks)
+		elif arg.begins_with("--objectives-at="):
+			_objectives_at = int(arg.substr(16)) # lane CAMPUI-1 (proof captures)
 		elif arg == "--campaign-win":
 			_campaign_win = true
 		elif arg.begins_with("--campaign-check="):
@@ -1153,6 +1207,13 @@ func _run_opts4_check() -> void:
 	get_tree().quit(0 if failed == 0 else 1)
 
 
+## lane MENUSND-1: --menusnd-check (scripts/menusnd_check.gd)
+func _run_menusnd_check() -> void:
+	var check: Object = load("res://scripts/menusnd_check.gd").new()
+	var failed: int = await check.run(self)
+	get_tree().quit(0 if failed == 0 else 1)
+
+
 ## lane OPTS-6: --opts6-check (scripts/opts6_check.gd)
 func _run_opts6_check() -> void:
 	var check: Object = load("res://scripts/opts6_check.gd").new()
@@ -1222,7 +1283,16 @@ func _boot() -> void:
 		return
 	# lane ONEZIP-1: started directly from the combined package: the launcher beside the game says which installed version plays (a few
 	# seconds at most) and looks for an update in the background
-	if await Release.update_handover(_scripted_run()):
+	if not _replay_file.is_empty():
+		var replay: Dictionary = Release.info.inspect_replay(_replay_file)
+		if not replay.ok:
+			_fail("Replay refused: " + replay.error)
+			return
+		print("GAME replay input validated; mounting retail files before playback")
+	if not _load_file.is_empty():
+		print("GAME save requested; mounting retail files before loading")
+	# A recording must never be redirected to the newest version by the normal update handover.
+	if _replay_file.is_empty() and _load_file.is_empty() and await Release.update_handover(_scripted_run()):
 		get_tree().quit(0)
 		return
 	_fs = ClassDB.instantiate("RetailFileSystem")
@@ -1317,7 +1387,7 @@ func _boot() -> void:
 	_campaign_flow.name = "CampaignFlow"
 	_campaign_flow.game = self
 	_campaign_flow.world = _world
-	_campaign_flow.hooks = _campaign_win or _play_script.ends_with("ownerfix1_player.gd") or _play_script.ends_with("devport7_player.gd") # lane OWNERFIX-1 / DEVPORT-7: their scenarios use the logged test hooks
+	_campaign_flow.hooks = _campaign_win or _stance_at >= 0 or _play_script.ends_with("ownerfix1_player.gd") or _play_script.ends_with("devport7_player.gd") # lane OWNERFIX-1 / DEVPORT-7: their scenarios use the logged test hooks
 	_campaign_flow.auto_win = _campaign_win
 	_campaign_flow.movies = _campaign_movies # lane CAMP-1H
 	add_child(_campaign_flow)
@@ -1341,6 +1411,8 @@ func _boot() -> void:
 		_run_opts2_check() # lane OPTS-2
 	elif _opts4_check:
 		_run_opts4_check() # lane OPTS-4
+	elif _menusnd_check:
+		_run_menusnd_check() # lane MENUSND-1
 	elif _opts5_check:
 		_run_opts5_check() # lane OPTS-5
 	elif _opts6_check:
@@ -1380,7 +1452,25 @@ func _boot() -> void:
 		_online_open() # lane ONLINE-2
 	elif _net_host > 0 or not _net_join.is_empty():
 		_net_open()
-	elif not _replay_file.is_empty():
+	elif not _replay_file.is_empty() or not _load_file.is_empty():
+		_open_recording()
+
+
+func _set_recording_args(args: PackedStringArray) -> String:
+	var parsed := preload("res://scripts/replay_args.gd").parse(args)
+	if not parsed.ok:
+		return parsed.error
+	_replay_file = parsed.path
+	_load_file = parsed.load_path
+	return ""
+
+
+func _open_recording() -> void:
+	if not _load_file.is_empty():
+		var error: String = await _save_flow.load_save(_load_file)
+		if not error.is_empty():
+			_fail("Save refused: " + error)
+	else:
 		_begin_replay(_replay_file)
 
 
@@ -1392,6 +1482,14 @@ func _process(delta: float) -> void:
 		_capture_tick() # lane ONLINE-4
 	Release.set_in_game(_state == State.PLAYING) # lane RELEASE-1: the version corner in the menus only
 	_campaign_check_tick() # lane CAMP-1
+	if _stance_at >= 0 and _state == State.PLAYING and _world != null and _world.get_presented_frame() >= _stance_at:
+		_stance_at = -1
+		_stance_proof()
+	if _objectives_at >= 0 and _state == State.PLAYING and _world != null and _world.get_presented_frame() >= _objectives_at:
+		_objectives_at = -1
+		print("GAME --objectives-at: the objectives screen at frame %d" % _world.get_presented_frame())
+		_palantir_objectives()
+		get_tree().create_timer(6.0, true).timeout.connect(_close_objectives)
 	if _online_reports != null:
 		if _online_http != null:
 			_online_reports.set_context(_shell.online_status())
@@ -1504,7 +1602,11 @@ func _update_listener() -> void:
 func _on_shell_service(kind: String, a: String, b: String) -> void:
 	# AUDIO-1: kind "sound" is a UI sound or music cue name (a); "load_music" is the faction's LoadScreenMusic when a load starts
 	if kind == "sound":
-		_audio.play_shell_sound(a)
+		var handle: int = _audio.play_shell_sound(a)
+		# lane MENUSND-1: the last UI sounds the menus asked for (name, the audio manager's handle, frame), for scripts/menusnd_check.gd
+		shell_sounds_played.append({"name": a, "handle": handle, "frame": _frames})
+		if shell_sounds_played.size() > 256:
+			shell_sounds_played.pop_front()
 	elif kind == "load_music":
 		_audio.play_music(a)
 	elif kind == "option":
@@ -1599,6 +1701,8 @@ func _on_shell_request(action: String, argument: String) -> void:
 		_palantir_objectives()
 	elif action == "TributeReturnToGame":
 		_close_tribute()
+	elif action == "ObjectivesReturnToGame":
+		_close_objectives() # lane CAMPUI-1
 	elif action.begins_with("QuitMenu"):
 		_quit_menu_action(action, argument)
 	elif action.begins_with("CampaignMenu"):
@@ -1970,6 +2074,12 @@ func _click_at_stage(p: Vector2) -> void:
 
 func _on_shell_screen(filename: String) -> void:
 	print("GAME screen: ", filename)
+	# lane CAMPUI-1: a mission's first CAMERA_LETTERBOX_BEGIN (MAP ANG Angmar's intro, frame 1) runs before the HUD movie is on the shell's stack, so
+	# _set_control_bar_hidden could not hide its level then: the movie came up drawn under the whole intro. Retail's HideControlBar (RW 0x804576) is a
+	# state of the control bar, so the movie is hidden as soon as it is shown
+	if filename == "Palantir.apt" and _control_bar_hidden:
+		_shell.set_level_visible(_palantir_level(), false)
+		print("GAME control bar hidden on the HUD movie's arrival")
 	if _state == State.MENU and filename != "MainMenu.apt":
 		_audio.play_submenu_music()
 
@@ -2132,6 +2242,9 @@ func _set_control_bar_hidden(hidden: bool) -> void:
 		_shell.set_level_visible(_palantir_level(), not hidden)
 	if _hud != null:
 		_hud.visible = not hidden
+	# lane CAMPUI-1: HideControlBar disables the notification box (it closes at once), ShowControlBar enables it (RW 0x804576 / 0x8046A1 -> RW 0x8EB2BA)
+	if _campaign_flow != null and _campaign_flow._cine != null:
+		_campaign_flow._cine.set_notification_enabled(not hidden)
 	# the tests read it back from the render list a few frames later
 	for i in 3:
 		await get_tree().process_frame
@@ -2673,6 +2786,8 @@ func _step(frames: int) -> void:
 	var until := Time.get_ticks_msec() + int(frames * 1000.0 / 60.0)
 	for i in frames:
 		await get_tree().process_frame
+	if not Engine.get_write_movie_path().is_empty():
+		return # lane SPELLRC-1: a recording's frames are its clock (see _wait_seconds)
 	while Time.get_ticks_msec() < until:
 		await get_tree().process_frame
 
@@ -3532,6 +3647,9 @@ func _end_game_tick() -> void:
 func _input(event: InputEvent) -> void:
 	# lane END-2: Esc toggles the quit menu (the options meta command, RW 0x9DB877 -> ToggleQuitMenu RW 0x921C9D), as the Palantir's options button does
 	if _state == State.PLAYING and event is InputEventKey and event.pressed and not event.echo and event.keycode == KEY_ESCAPE:
+		# lane CHAT-1: Esc closes the chat window (its input procedure, RW 0x8ECB8F, through the HUD's key path), never the quit menu behind it
+		if _shell != null and _shell.has_method("ingame_chat_has_keys") and _shell.ingame_chat_has_keys():
+			return
 		get_viewport().set_input_as_handled()
 		# review r1: Esc in the Options screen opened from the quit menu closes Options only (the quit menu and the pause stay)
 		var stack: PackedStringArray = _shell.shell_stack()
@@ -3559,12 +3677,16 @@ func _input(event: InputEvent) -> void:
 		if not stack.is_empty() and stack[-1] == "PlayerTribute.apt":
 			_close_tribute()
 			return
+		# lane CAMPUI-1: Escape over the objectives screen closes it (its key handler RW 0x8E8B61 -> ReturnToGame RW 0x8E873E), not the quit menu
+		if not stack.is_empty() and stack[-1] == "Objectives.apt":
+			_close_objectives()
+			return
 		_toggle_quit_menu()
 
 
 ## lane PLAY-1: the Palantir's flag (AptPalantir::OnBttnObjectives RW 0x6D40C9). In a skirmish or a multiplayer game (RW 0x625456: mode 2 or a network game)
 ## RW 0x914EF0 pushes PlayerTribute.apt over the game when none is up and the game is not ending (the end-game timer, RW 0x914F37); otherwise RW 0x8E8843 opens
-## the objectives screen, which is not ported (S-1922)
+## the objectives screen (lane CAMPUI-1: _open_objectives)
 ## lane PLATFORMICON-1: --net-score-shot: the local player forfeits through the quit menu (as --net-end's joiner does); the game leaves to the score screen, which is saved
 func _net_score_flow() -> void:
 	await _press_escape()
@@ -3596,7 +3718,11 @@ func _palantir_objectives() -> void:
 	var ctx: Dictionary = _world.get_quit_menu_context()
 	var mode: int = ctx.get("mode", 2)
 	if mode != 2 and mode != 1 and mode != 5:
-		print("GAME STOP [S-1922] the objectives screen (RW 0x8E8843) is not ported")
+		# lane CAMPUI-1: RW 0x8E8843, the objectives screen (Tab over it closes it: its key handler RW 0x8E8B61)
+		if _shell.shell_stack().has("Objectives.apt"):
+			_close_objectives()
+		else:
+			_open_objectives(mode)
 		return
 	if _shell.shell_stack().has("PlayerTribute.apt") or _quit_open or _state != State.PLAYING:
 		return
@@ -3610,6 +3736,85 @@ func _palantir_objectives() -> void:
 		printerr("GAME PlayerTribute.apt: ", str(_shell.get_shell_report().errors))
 		return
 	print("GAME tribute screen open (PlayerTribute.apt, RW 0x914EF0)")
+
+
+var _objectives_paused := false # lane CAMPUI-1: the objectives screen paused the game (RW 0x8E8843 -> RW 0x625AF1(1, 0, 1))
+var _stance_at := -1 ## --stance-at=F (lane CAMPUI-1, proof captures; the start option test_hooks): at logic frame F the Witch King is selected, the Palantir's stance button clicked and its Battle item hovered
+var _objectives_at := -1 ## --objectives-at=F (lane CAMPUI-1, proof captures): the Palantir flag's objectives screen opens at logic frame F, closes 6 s later
+
+
+## lane CAMPUI-1: AptObjectivesMenu's opening (RW 0x8E8843): not twice, not while the screen is disabled (DISABLE_OBJECTIVES_SCREEN, RW 0x8E89BD), a menu
+## is up or the game is not playing; the game is paused unless it is a network game or the tutorial (RW 0x625AF1(1, 0, 1), as the quit menu); the
+## notification box closes (DoClose RW 0x8EB2D8); then Objectives.apt over the game with the tracker's objectives (GameWorld.get_mission_objectives)
+func _open_objectives(mode: int) -> void:
+	if _quit_open or _state != State.PLAYING or _shell.shell_stack().has("PlayerTribute.apt"):
+		return
+	var obj: Dictionary = _world.get_mission_objectives()
+	if not bool(obj.get("screen_enabled", true)):
+		print("GAME objectives screen: disabled by the map's script (DISABLE_OBJECTIVES_SCREEN)")
+		return
+	var screen: Dictionary = _shell.set_objectives_screen({"game_mode": 0 if mode == 0 else mode, "objectives": obj.get("objectives", [])})
+	if not screen.get("ok", false):
+		printerr("GAME objectives screen: ", screen.get("error", "?"))
+		return
+	if mode != 1 and mode != 5 and mode != 6:
+		_objectives_paused = not _world.is_paused()
+		_world.set_paused(true)
+	if _campaign_flow != null and _campaign_flow._cine != null:
+		_campaign_flow._cine.close_notification() # RW 0x8E8934: DoClose (RW 0x8EB2D8) before the screen opens
+	if not _shell.shell_push("Objectives.apt"):
+		printerr("GAME Objectives.apt: ", str(_shell.get_shell_report().errors))
+		_close_objectives_unpause()
+		return
+	if _hud != null:
+		_hud.set_objectives_screen_open(true)
+	print("GAME objectives screen open (Objectives.apt, RW 0x8E8843): ", JSON.stringify(screen.get("rows", [])))
+
+
+## lane CAMPUI-1: ReturnToGame (RW 0x8E873E -> RW 0x8E86A5), Escape / Tab / Enter (RW 0x8E8B61): the shell pops the screen; the dtor (RW 0x8E8CED) unpauses
+func _close_objectives() -> void:
+	var stack: PackedStringArray = _shell.shell_stack()
+	if stack.is_empty() or stack[-1] != "Objectives.apt":
+		return
+	_shell.shell_pop()
+	_close_objectives_unpause()
+	if _hud != null:
+		_hud.set_objectives_screen_open(false)
+	print("GAME objectives screen closed")
+
+
+## lane CAMPUI-1: --stance-at: the stance radial for the proof captures, through the HUD's own input (a click on the Palantir's stance button, the pointer
+## over its first item); every step is printed
+func _stance_proof() -> void:
+	var wk: Dictionary = _world.debug_script_unit("Witch King")
+	print("GAME --stance-at: Witch King ", wk)
+	if not wk.get("ok", false):
+		return
+	_hud.select_object(int(wk.id))
+	await _step(10)
+	var b: Dictionary = _hud.find_button_window("CommandButtons.0")
+	print("GAME --stance-at: the stance button ", b)
+	if not b.get("found", false):
+		return
+	var at := Vector2(float(b.x), float(b.y))
+	_hud.inject_mouse_move(at)
+	await _step(3)
+	_hud.inject_mouse_button(MOUSE_BUTTON_LEFT, true, at)
+	await _step(2)
+	_hud.inject_mouse_button(MOUSE_BUTTON_LEFT, false, at)
+	await _step(20)
+	for item in ["subMenu0.trays.0.rot.bttnFrame", "subMenu0.trays.1.rot.bttnFrame", "subMenu0.trays.2.rot.bttnFrame"]:
+		var it: Dictionary = _hud.find_button_window(item)
+		print("GAME --stance-at: item ", item, " ", it)
+	var first: Dictionary = _hud.find_button_window("subMenu0.trays.1.rot.bttnFrame")
+	if first.get("found", false):
+		_hud.inject_mouse_move(Vector2(float(first.x), float(first.y)))
+
+
+func _close_objectives_unpause() -> void:
+	if _objectives_paused:
+		_world.set_paused(false)
+		_objectives_paused = false
 
 
 ## PlayerTribute.apt closes (its <path>_ReturnToGame, Escape): RW 0x914C51 marks it closing and the shell pops it (RW 0x62215B)
@@ -4783,6 +4988,14 @@ func _finish_end_flow(faction: String, prefix := "end1") -> void:
 
 
 func _wait_seconds(sec: float) -> void:
+	# lane SPELLRC-1: under the movie writer (--write-movie, a fixed frame rate) a rendered frame is 1 / fps of game time however long it takes to draw:
+	# the wait counts that game time, or a slow recording host ends it before the movies' animations ran (a scripted click then misses)
+	if not Engine.get_write_movie_path().is_empty():
+		var left := sec
+		while left > 0.0:
+			await get_tree().process_frame
+			left -= get_process_delta_time()
+		return
 	var until := Time.get_ticks_msec() + int(sec * 1000.0)
 	while Time.get_ticks_msec() < until:
 		await get_tree().process_frame
@@ -5897,10 +6110,14 @@ func _net_tick() -> void:
 	_online_relay_tick(st) # lane ONLINEUX-1
 	_net_pause_tick(st) # lane ONLINE-3
 	_net_press_tick(st) # lane NETLAG-1
+	_chat_tick(st) # lane CHAT-1
 	if _state != State.PLAYING:
 		return
 	if _net_frames > 0 and st.frame >= _net_frames:
 		print("GAME NET status: ", JSON.stringify(st))
+		if _hud != null and _hud.has_method("beacon_state"): # lane CHAT-1: what this client saw of the chat and the beacons
+			print("GAME BEACON state: ", JSON.stringify(_hud.beacon_state()))
+			print("GAME CHAT stats: ", JSON.stringify(_world.net_chat_stats()), " lines ", JSON.stringify(_hud.message_lines_state().get("history", [])))
 		_write_measurements()
 		if _net_end:
 			if not _net_end_started and _games_started == 1:
@@ -6059,6 +6276,160 @@ func _net_pause_tick(st: Dictionary) -> void:
 	_pause_key_down = down
 
 
+## lane CHAT-1: the in-game chat (GameClient/InGameChat.h, InGameChat.apt over the game): CHAT_ALLIES / CHAT_EVERYONE open the window (RW 0x81FEE0 /
+## 0x81FF34: only in a network game, never over the quit menu or another menu), Send formats the line with the mode's label (APT:TeamChat "<Team> %s" ...)
+## and sends it to the mode's recipients (RW 0x8ECF3E); received lines show as "[Name] line" in the sender's colour with IncomingChatNotification (RW
+## 0x8D54D1). The scroll-back replaces the message lines while the window is open (OpenBFME addition)
+func _chat_open(everyone: bool) -> bool:
+	var info: Dictionary = _world.net_chat_info()
+	if not info.get("network", false) or _quit_open or _shell.modal_menu():
+		return false
+	var active: bool = info.get("local_active", false)
+	var mode := 0 if not everyone else (1 if active else 4)
+	var label := "Chat:Allies" if mode == 0 else ("Chat:Everyone" if mode == 1 else "Chat:Observers")
+	var receivers: String = _hud.chat_text(label)
+	if receivers.is_empty():
+		printerr("GAME chat: the game text has no ", label)
+	var ok: bool = _shell.ingame_chat_open(mode, receivers)
+	if ok:
+		print("GAME CHAT window open (mode %d, %s)" % [mode, receivers])
+	return ok
+
+
+## lane CHAT-1 (OpenBFME addition, S-5150): the mute. RotWK's only mute is GameSlot + 0xA from PlayerStatus.apt's checkboxes, which a multiplayer game never
+## opens (its Tab opens PlayerTribute.apt, RW 0x81FFD8 -> 0x914EF0), so the chat window takes "/mute NAME", "/unmute NAME" and "/mute" (the list) instead;
+## like retail's mute it hides that player's lines on this machine only and leaves them out of this player's Everyone lines. True when the line was one
+func _chat_slash(text: String) -> bool:
+	var t := text.strip_edges()
+	var lower := t.to_lower()
+	if not (lower == "/mute" or lower.begins_with("/mute ") or lower.begins_with("/unmute ")):
+		return false
+	var info: Dictionary = _world.net_chat_info()
+	var slots: Array = info.get("slots", [])
+	if lower == "/mute":
+		var names: Array = []
+		for sl in slots:
+			if sl.get("muted", false):
+				names.append(String(sl.name))
+		_hud.add_chat_line("Muted: %s" % (", ".join(PackedStringArray(names)) if not names.is_empty() else "nobody"), -1)
+		return true
+	var mute := lower.begins_with("/mute ")
+	var who := t.substr(6 if mute else 8).strip_edges()
+	var found := -1
+	for i in slots.size():
+		var sl: Dictionary = slots[i]
+		if sl.get("player", false) and not sl.get("local", false) and String(sl.name).to_lower() == who.to_lower():
+			found = i
+	if found < 0:
+		_hud.add_chat_line("No other player is called %s" % who, -1)
+		return true
+	_world.net_chat_set_muted(found, mute)
+	_hud.add_chat_line(("%s is muted" if mute else "%s is no longer muted") % String(slots[found].name), -1)
+	print("GAME CHAT %s slot %d" % ["muted" if mute else "unmuted", found])
+	return true
+
+
+func _chat_tick(st: Dictionary) -> void:
+	if _hud == null or _shell == null or not _hud.has_method("take_chat_requests"):
+		return
+	if not _world.is_logic_held(): # RENDERWAIT-1: the chat reads the live players (net_chat_info / mask / take); the next held frame does it
+		return
+	_hud.set_network_game(true) # the chat and beacon keys work in a network game only (RW 0x441B7C)
+	_beacon_tick(st)
+	if _chat_lines_seen == 0 and not _chat_mutes.is_empty():
+		for m in _chat_mutes:
+			_world.net_chat_set_muted(int(m), true)
+			print("GAME CHAT muted slot %d" % int(m))
+		_chat_mutes.clear()
+		_chat_lines_seen = -1 # (done once)
+	for everyone in _hud.take_chat_requests():
+		_chat_open(bool(everyone))
+	# the scripted lines: the window opened, the text typed into its entry, Send pressed a few frames later
+	for c in _chat_script:
+		if int(c.stage) == 3:
+			continue
+		if c.stage == 0 and int(st.get("frame", 0)) >= int(c.frame):
+			if _chat_open(bool(c.everyone)):
+				c.stage = 1
+				c.at = _frames
+		elif c.stage == 1 and _frames - int(c.at) >= 10 and _shell.ingame_chat_update().get("has_entry", false):
+			_shell.ingame_chat_type(String(c.text))
+			c.stage = 2
+			c.at = _frames
+		elif c.stage == 2 and _frames - int(c.at) >= 20:
+			if not _chat_open_shot.is_empty():
+				print("GAME CHAT open shot %s: %s" % [_chat_open_shot, error_string(get_viewport().get_texture().get_image().save_png(_chat_open_shot))])
+				_chat_open_shot = ""
+			print("GAME CHAT send pressed: ", _shell.ingame_chat_command("Send"))
+			c.stage = 3
+			c.at = _frames
+			_chat_shot_at = _frames
+		break
+	var cs: Dictionary = _shell.ingame_chat_update()
+	var open: bool = cs.get("open", false)
+	if open != _chat_history_shown:
+		_chat_history_shown = open
+		_hud.set_chat_history_shown(open)
+	for snd in cs.get("sends", []):
+		if _chat_slash(String(snd.text)):
+			continue
+		var mode := int(snd.mode)
+		var line: String = _hud.chat_format(mode, String(snd.text))
+		var mask: int = _world.net_chat_mask(mode)
+		var r: Dictionary = _world.net_chat_send(line, mask)
+		print("GAME CHAT sent mode %d mask %d: %s -> %s" % [mode, mask, line, JSON.stringify(r)])
+		if not r.get("ok", false):
+			_hud.add_chat_line("Your message was not sent: %s" % String(r.get("error", "")), -1)
+	for l in _world.net_chat_take():
+		var shown := "[%s] %s" % [String(l.name), String(l.text)] # RW 0x8D54D1: L"[%ls] %ls"
+		_hud.add_chat_line(shown, int(l.color))
+		print("GAME CHAT line slot %d: %s" % [int(l.slot), shown])
+		if _audio != null:
+			_audio.play_misc("IncomingChatNotification") # RW 0x8D354A
+	if not _chat_shot.is_empty() and _chat_shot_at >= 0 and _frames - _chat_shot_at >= 45:
+		var all_sent := true
+		for c in _chat_script:
+			all_sent = all_sent and int(c.stage) == 3
+		if all_sent:
+			print("GAME CHAT shot %s: %s" % [_chat_shot, error_string(get_viewport().get_texture().get_image().save_png(_chat_shot))])
+			print("GAME CHAT lines state: ", JSON.stringify(_hud.message_lines_state()))
+			_chat_shot = ""
+
+
+## lane CHAT-1: the scripted beacons (--beacon-at): Ctrl+B through the HUD's key path (PLACE_BEACON, RW 0x81F8D8 case 0x90), then a left click on the middle
+## of the screen (the GUI command's click, RW 0x83D7AD -> MSG_PLACE_BEACON), as a player does it
+func _beacon_tick(st: Dictionary) -> void:
+	for b in _beacon_script:
+		if int(b.stage) == 2:
+			continue
+		if int(b.stage) == 0 and int(st.get("frame", 0)) >= int(b.frame):
+			_hud.inject_key(0x1D, true)  # DIK_LCONTROL
+			_hud.inject_key(0x30, true)  # DIK_B
+			_hud.inject_key(0x30, false)
+			_hud.inject_key(0x1D, false)
+			b.stage = 1
+			b.at = _frames
+			print("GAME BEACON Ctrl+B: ", JSON.stringify(_hud.beacon_state()))
+		elif int(b.stage) == 1 and _frames - int(b.at) >= 5:
+			var c := get_viewport().get_visible_rect().size * Vector2(0.7, 0.62) # open ground right of the start's fortress (the middle is the fortress)
+			_hud.inject_mouse_move(c)
+			_hud.inject_mouse_button(1, true, c)
+			_hud.inject_mouse_button(1, false, c)
+			b.stage = 2
+			b.at = _frames
+			_beacon_shot_at = _frames
+			print("GAME BEACON click at %s" % str(c))
+		break
+	if not _beacon_shot.is_empty() and _beacon_shot_at >= 0 and _frames - _beacon_shot_at >= 90:
+		var done := true
+		for b in _beacon_script:
+			done = done and int(b.stage) == 2
+		if done:
+			print("GAME BEACON shot %s: %s" % [_beacon_shot, error_string(get_viewport().get_texture().get_image().save_png(_beacon_shot))])
+			print("GAME BEACON state: ", JSON.stringify(_hud.beacon_state()), " lines ", JSON.stringify(_hud.message_lines_state().get("lines", [])))
+			_beacon_shot = ""
+
+
 ## lane MP-2: the disconnect screen (DisconnectScreen.apt through the shell's window manager), its buttons, the left-game notices and the local player's quit
 func _net_disconnect_tick(dc: Dictionary) -> void:
 	if dc.is_empty():
@@ -6094,7 +6465,24 @@ func _net_disconnect_tick(dc: Dictionary) -> void:
 		if a.kind == "kick":
 			_world.net_disconnect_kick(a.row)
 		elif a.kind == "quit":
+			# RW 0x9195E1: the chat line Network:PlayerLeftGame with the local player's name first, then the votes and the quit
+			var me := ""
+			if _world.is_logic_held(): # RENDERWAIT-1: net_chat_info reads the live players
+				for sl in _world.net_chat_info().get("slots", []):
+					if sl.get("local", false):
+						me = String(sl.name)
+			var left: String = _hud.chat_text("Network:PlayerLeftGame") if _hud != null else ""
+			if not left.is_empty():
+				_world.net_disconnect_chat(left.replace("%ls", me).replace("%s", me))
 			_world.net_disconnect_quit()
+		elif a.kind == "chat": # lane CHAT-1: the disconnect screen's chat (RW 0x9196B9 -> sendDisconnectChat)
+			print("GAME NET disconnect chat sent: ", JSON.stringify(_world.net_disconnect_chat(String(a.text))))
+	# lane CHAT-1: the disconnect chat's lines go into the screen's ChatBox while it is up (RW 0x8D5403 shows them only then)
+	for l in (_world.net_disconnect_chat_take() if _world.is_logic_held() else []):
+		var line := "[%s] %s" % [String(l.name), String(l.text)]
+		if _dc_shown:
+			_shell.disconnect_screen_chat(line)
+		print("GAME NET disconnect chat line slot %d: %s (%s)" % [int(l.slot), line, "shown" if _dc_shown else "no screen"])
 	var left: Array = dc.get("left", [])
 	while _dc_left_seen < left.size():
 		_show_end_message({"text": "Network:PlayerLeftGame", "name": left[_dc_left_seen]}) # RW 0x8D57D8
@@ -6150,6 +6538,7 @@ func _begin_replay(path: String) -> void:
 	if not prep.ok:
 		var reason := "\n".join(prep.errors)
 		printerr("GAME replay refused: ", reason)
+		# lane DEVPORT-7: a refused replay (also one given on the command line) is named on the replay list and the game stays up
 		var name := path.get_file().get_basename()
 		if not _shell.save_load_refused(name, reason):
 			_open_replay_menu() # a command-line replay or the score screen did not start on the list

@@ -5,7 +5,7 @@
 On GitHub's runners (the inputs come from the environment the workflow sets, IN_KIND / IN_TAG / IN_COMMIT / IN_REQUEST, never from the
 command line, so no input is ever pasted into a script):
     actions_release.py plan                      the request: workflow_dispatch on refs/heads/main of the policy's repository; kind nightly
-                                                 with a v<x.y.z>-nightly.<YYYYMMDD> tag, kind stable with a plain v<x.y.z> tag; the tag
+                                                 with a v<x.y.z>-nightly.<YYMMDD><1|2>00 (or <YYYYMMDD>) tag, kind stable with a plain v<x.y.z> tag; the tag
                                                  names the commit; the commit is on main (an ancestor of the run's main head)
     actions_release.py checkout-is-tag           the checkout is the commit and `git describe` is the tag (the builds embed it)
     actions_release.py sign --in DIR --pkg DIR   the build jobs' artifacts into one release folder (exactly the files a release has), the
@@ -52,7 +52,9 @@ sys.path.insert(0, str(HERE))
 
 TARGET = "Open-BFME/openbfme-godot"
 WORKFLOW = "release.yml"
-KINDS = {"nightly": re.compile(r"^v(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})-nightly\.20[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])$"),
+# a nightly's number: NIGHTLY-2's <YYMMDD><1 morning | 2 evening>00 (two a day), or NIGHTLY-1's <YYYYMMDD> (autorelease.py nightly_parts)
+KINDS = {"nightly": re.compile(r"^v(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})-nightly\."
+                               r"(?:(?:2[6-9]|[3-9][0-9])(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])[12]00|20[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01]))$"),
          "stable": re.compile(r"^v(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})$")}
 HEX40 = re.compile(r"^[0-9a-f]{40}$")
 HEX32 = re.compile(r"^[0-9a-f]{32}$")
@@ -85,7 +87,7 @@ def request_env() -> dict:
         raise Fail(f"kind {e['kind']!r} is not nightly or stable")
     if not KINDS[e["kind"]].match(e["tag"]):
         raise Fail(f"the tag {e['tag']!r} is not a {e['kind']} release tag ("
-                   + ("v<x.y.z>-nightly.<YYYYMMDD>" if e["kind"] == "nightly" else "a plain v<x.y.z>") + ")")
+                   + ("v<x.y.z>-nightly.<YYMMDD><1|2>00 or -nightly.<YYYYMMDD>" if e["kind"] == "nightly" else "a plain v<x.y.z>") + ")")
     if not HEX40.match(e["commit"]):
         raise Fail("the commit is not 40 lower-case hex digits")
     if not HEX32.match(e["request"]):

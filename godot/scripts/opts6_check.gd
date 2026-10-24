@@ -17,6 +17,8 @@
 ## (windowed) saves pictures.
 extends RefCounted
 
+const Wait := preload("res://scripts/opts6_wait.gd")
+
 ## The REQUIRED inventories: what each screen must offer, written here by name and NOT read from the live page (a list built from what the page shows can
 ## never miss a control: Sol's review removed Retail.Brightness from the checker's inventory and the checker still passed with 8 controls). A control
 ## the page lacks, or one it has that these lists do not name, fails by name. The Options rows are the keys of OpenBFMEOptionsPage (retail rows
@@ -996,11 +998,8 @@ func keyboard_walk() -> void:
 	await game._step(60)
 	if not await focus_and_press("Settings", KEY_UP):
 		return
-	for i in 30:
-		if top() == "Options.apt" and screen.is_open():
-			break
-		await game._step(15)
-	check("keyboard: the main menu's OPTIONS > SETTINGS opened the settings", top() == "Options.apt" and screen.is_open(), str(shell.shell_stack()))
+	var opened := await Wait.until(func(): return top() == "Options.apt" and screen.is_open() and not _navigation().get("targets", []).is_empty(), game._step.bind(1))
+	check("keyboard: the main menu's OPTIONS > SETTINGS opened the settings", opened, str(shell.shell_stack()))
 	if not screen.is_open():
 		return
 	await game._step(30)
@@ -1009,8 +1008,7 @@ func keyboard_walk() -> void:
 	# PageDown x2: Audio
 	await key(KEY_PAGEDOWN)
 	await key(KEY_PAGEDOWN)
-	await game._step(10)
-	check("keyboard: PageDown twice shows the Audio tab", screen.current_tab() == "Audio", screen.current_tab())
+	check("keyboard: PageDown twice shows the Audio tab", await Wait.until(func(): return screen.current_tab() == "Audio", game._step.bind(1)), screen.current_tab())
 	await shot("opts6-keyboard-audio-tab")
 	# walk to the Music slider with Tab / Down and raise it with Right
 	if await focus_target("row:Retail.MusicVolume"):
@@ -1037,6 +1035,7 @@ func keyboard_walk() -> void:
 		await key(KEY_LEFT)
 		check("keyboard: Left lowers Brightness", int(page().rows["Retail.Brightness"].value) < 50, str(page().rows["Retail.Brightness"].value))
 	await key(KEY_PAGEDOWN)
+	check("keyboard: Graphics navigation is ready", await Wait.until(func(): return screen.current_tab() == "Graphics" and not Wait.target(_navigation(), "row:Retail.Detail").is_empty(), game._step.bind(1)), str(_navigation()))
 	if await focus_target("row:Retail.Detail"):
 		var before := int(page().rows["Retail.Detail"].value)
 		await key(KEY_ENTER)
@@ -1056,8 +1055,7 @@ func keyboard_walk() -> void:
 			await key(KEY_ESCAPE)
 	# Esc: CANCEL (the brightness, the volume back)
 	await key(KEY_ESCAPE)
-	await game._step(90)
-	check("keyboard: Esc is CANCEL (the settings close)", not screen.is_open(), str(shell.shell_stack()))
+	check("keyboard: Esc is CANCEL (the settings close)", await Wait.until(func(): return not screen.is_open() and top() == "MainMenu.apt", game._step.bind(1)), str(shell.shell_stack()))
 
 
 func controller_walk() -> void:
@@ -1287,26 +1285,18 @@ func skirmish_profile_box() -> void:
 ## (no remembered name) offers it to no key until a name is typed: by keys only, the name entry is focused and a name typed; then LOG IN is a target
 ## (and the screen's inventory below has it)
 func online_login_nickname() -> void:
-	var entry := ""
-	var login := false
-	# the name entry is a target once the login page has played in: a cold first run (the first size on a loaded host) needs more than the
-	# 120 steps the caller gave every screen's intro
-	for attempt in 40:
-		for t in shell.menu_nav_state().get("targets", []):
-			var id := String(t.id)
-			if id.ends_with("OnlineLogin.Login.componentGroup.OnlineLogin::Nickname"):
-				entry = id
-			login = login or id.ends_with("OnlineLogin.Login.LogIn.bttn")
-		if not entry.is_empty():
-			break
-		await game._step(15)
+	var nickname := "OnlineLogin.Login.componentGroup.OnlineLogin::Nickname"
+	var ready := await Wait.until(func(): return top() == "OnlineShell.apt" and not Wait.target(_navigation(), nickname).is_empty(), game._step.bind(1))
+	var entry := Wait.target(_navigation(), nickname) if ready else ""
+	var login := not Wait.target(_navigation(), "OnlineLogin.Login.LogIn.bttn").is_empty()
 	check("the online login offers its name entry to the keys, and no LOG IN while the name is empty (RW 0x97A668)", not entry.is_empty() and not login,
 		"entry '%s', LOG IN a target: %s" % [entry, str(login)])
 	if entry.is_empty() or not await focus_target(entry):
 		return
 	for ch in "navtester":
 		await type_char(ch)
-	await game._step(30)
+	check("the typed nickname enables LOG IN for the keys", await Wait.until(func():
+		return not Wait.target(_navigation(), "OnlineLogin.Login.LogIn.bttn").is_empty(), game._step.bind(1)), str(_navigation()))
 
 
 func type_char(ch: String) -> void:
@@ -1379,25 +1369,27 @@ func focus_and_press(name: String, walk: int) -> bool:
 	return false
 
 # lane MENUFIX-3: the list opens / closes on the shell's next ticks; on a loaded host (the UI-2 gate at 2560x1440) a fixed few frames were not enough,
-# so wait for the state (at most ~6 s) instead of judging after key()'s frames
+# so wait for the state instead of judging after key()'s frames
 func until_list(open: bool) -> bool:
-	for i in 75:
-		if bool(shell.menu_nav_state().get("open_list", not open)) == open:
-			return true
-		await game._step(5)
-	return false
+	return await Wait.until(func(): return bool(_navigation().get("open_list", not open)) == open, game._step.bind(1))
+
+
+func _navigation() -> Dictionary:
+	var nav: Dictionary = shell.menu_nav_state()
+	return nav if int(nav.get("level", -1)) == shell.shell_top_level() else {}
 
 
 ## Tab, or D-pad right into the rows then vertically toward the requested row.
 func focus_target(id: String, pad := false) -> bool:
+	if not await Wait.until(func(): return not Wait.target(_navigation(), id).is_empty(), game._step.bind(1)):
+		check("reach %s without the mouse" % id, false, "target not visible before the deadline")
+		return false
+	var send := key.bind(KEY_TAB)
 	if pad:
 		await joy_button(JOY_BUTTON_DPAD_RIGHT) # the first press shows the focus (on the tab)
 		if str(shell.menu_nav_state().focus).begins_with("tab:"):
 			await joy_button(JOY_BUTTON_DPAD_RIGHT)
-	for i in 60:
-		if str(shell.menu_nav_state().focus) == id and shell.menu_nav_state().frame:
-			return true
-		if pad:
+		send = func():
 			var state: Dictionary = shell.menu_nav_state()
 			var current_y := 0.0
 			var target_y := 0.0
@@ -1405,8 +1397,8 @@ func focus_target(id: String, pad := false) -> bool:
 				if String(target.id) == String(state.focus): current_y = (target.rect as Rect2).get_center().y
 				if String(target.id) == id: target_y = (target.rect as Rect2).get_center().y
 			await joy_button(JOY_BUTTON_DPAD_UP if target_y < current_y else JOY_BUTTON_DPAD_DOWN)
-		else:
-			await key(KEY_TAB)
+	if await Wait.focus(id, _navigation, send, game._step.bind(1)):
+		return true
 	check("reach %s without the mouse" % id, false, str(shell.menu_nav_state().focus))
 	return false
 

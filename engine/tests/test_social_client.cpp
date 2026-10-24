@@ -61,7 +61,7 @@ void loadInitialSocialViews(OnlineLobbyClient &client)
 std::string sourceGameView(const std::string &id, const std::string &mode = "normal")
 {
 	std::string slots = "[";
-	for (int slot = 0; slot < MAX_SLOTS; ++slot)
+	for (int slot = 0; slot < LEGACY_MAX_SLOTS; ++slot) // an eight-start room: the lobby sends eight records (ONLINE16-FIX: sixteen only with mapStartCount 9 .. 16)
 	{
 		if (slot) slots += ",";
 		const bool you = slot == 0;
@@ -73,7 +73,7 @@ std::string sourceGameView(const std::string &id, const std::string &mode = "nor
 	slots += "]";
 	return "{\"id\":" + OnlineLobbyClient::jsonQuote(id) +
 		",\"mode\":" + OnlineLobbyClient::jsonQuote(mode) +
-		",\"name\":\"Source room\",\"state\":\"open\",\"hostSlot\":0,\"seq\":1,"
+		",\"name\":\"Source room\",\"state\":\"open\",\"private\":false,\"hostSlot\":0,\"seq\":1,"
 		"\"setup\":{\"map\":\"map\",\"startingCash\":1000,\"superweaponRestriction\":0,\"legendaryHeroes\":1,\"rules\":null},"
 		"\"slots\":" + slots + "}";
 }

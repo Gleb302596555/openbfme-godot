@@ -12,6 +12,7 @@ var _failures := 0
 
 
 func _initialize() -> void:
+	OS.set_environment("OPENBFME_TEST", "1")
 	var code: int = await _run()
 	print("OPTS6 %s" % ["PASS" if code == 0 else "FAIL"])
 	quit(code)

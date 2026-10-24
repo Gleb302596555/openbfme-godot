@@ -37,6 +37,7 @@ public:
 	String display_line() const; // lane VERSION-1: "OpenBFME Alpha 0.4.5 (<date>)" (BuildVersion::displayLine)
 	String engine_id() const;    // GameNetwork/ProfileIdentity::buildId
 	String build_record() const; // BuildVersion::kBuildRecord (the provenance package.sh checks)
+	Dictionary inspect_replay(const String &path) const;
 	String redact(const String &text) const;
 	// Is a process with this id running (any process, not only a child: OS.is_process_running only knows children)? The crash marker of
 	// scripts/release/release.gd tells a live second instance (two windows of a LAN test) from a crashed run with it.
@@ -85,6 +86,7 @@ private:
 	String m_path;
 	String m_error;
 	LogPrivacy::Rules m_rules;
+	LogPrivacy::Budget m_budget;
 	bool m_crashed = false;
 };
 

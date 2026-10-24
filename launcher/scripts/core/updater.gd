@@ -31,6 +31,7 @@ const HttpFetch := preload("res://scripts/net/http_fetch.gd")
 const Log := preload("res://scripts/core/launcher_log.gd")
 const GlibcCheck := preload("res://scripts/core/glibc_check.gd")
 const MacOSUpdate := preload("res://scripts/core/macos_update.gd")
+const ModInstall := preload("res://scripts/core/mod_install.gd")  # lane MODS-3: the active mod's game arguments
 
 const API_BASE := "https://api.github.com"
 const KEEP_VERSIONS := 2
@@ -67,11 +68,10 @@ var translocated := ""  # lane MACPLAY-1: the read-only copy macOS started this 
 ## (App Translocation: <the system's temporary folder>/AppTranslocation/<UUID>/d/OpenBFME Launcher.app). OpenBFME.app is not beside that copy, so
 ## the launcher there finds no game (the v0.4.6 Mac preview showed a dimmed Play with no word why) and cannot update the package. The
 ## launcher says so and tells the player what to do (README-MAC.txt "FIRST OPEN"); it never downloads a second game for a translocated copy.
-const TRANSLOCATED_TEXT := ("macOS started the launcher from a temporary read-only copy (App Translocation), because the apps still " +
-	"carry the download quarantine; that copy cannot see OpenBFME.app. Quit the launcher, move the folder that holds BOTH apps " +
-	"(OpenBFME Launcher.app and OpenBFME.app, the unpacked openbfme-...-macos-arm64 folder) out of Downloads, for example into your " +
-	"home folder, and open the launcher in it again. If it still happens, remove the quarantine as README-MAC.txt describes (Terminal: " +
-	"xattr -dr com.apple.quarantine <that folder>).")
+const TRANSLOCATED_TEXT := ("macOS opened a temporary copy of the launcher, so it cannot find the game. " +
+	"Quit, then use Finder to move the folder containing both apps out of Downloads and reopen the launcher. " +
+	"If macOS blocks it, verify the download, then use System Settings > Privacy & Security > Open Anyway. " +
+	"Do not override malware or damaged-app warnings.")
 
 
 static func is_translocated(path: String) -> bool:
@@ -563,11 +563,14 @@ func installed() -> Array:
 
 ## `full`: every file's size and SHA-256 against the signed manifest, and no other file (before Play); else that every file is there
 func verify_installed(name: String, full := false) -> Dictionary:
+	return _verify_install_at(data_dir.path_join("versions").path_join(name), name, full)
+
+
+func _verify_install_at(dir: String, name: String, full: bool) -> Dictionary:
 	if macos_preview():
 		return {"ok": false, "error": "Mac preview starts only its bundled game; updates are manual"}
 	if not Semver.is_valid(name):
 		return {"ok": false, "error": "not a version folder"}
-	var dir := data_dir.path_join("versions").path_join(name)
 	# MACPLAY-1: a Mac version folder holds the signed manifest-macos.json it was installed from (stored as manifest.json), "macos" schema
 	var v := Manifest.verify(Manifest.read_limited(dir.path_join("manifest.json"), Manifest.MAX_BYTES),
 		Manifest.read_limited(dir.path_join("manifest.json.sig"), 64), info.release_keys, {"repo": info.repo},
@@ -655,6 +658,36 @@ func playable() -> Array:
 		out.append({"version": b.version, "path": b.path, "bundled": true})
 		out.sort_custom(func(x, y): return Semver.compare(x.version, y.version) > 0)
 	return out
+
+
+func replay_builds() -> Array:
+	var out := []
+	for build in playable():
+		var commit := str(build.get("manifest", {}).get("commit", ""))
+		var version: String = build.version
+		var record := Manifest.read_limited(build.path.path_join("VERSION"), 4096).get_string_from_utf8()
+		for line in record.split("\n"):
+			if line.begins_with("commit "):
+				if build.get("bundled", false):
+					commit = line.substr(7).strip_edges()
+			elif line.begins_with("OpenBFME "):
+				version = line.substr(9)
+		out.append({"version": version, "commit": commit, "installed_version": build.version})
+	return out
+
+
+func open_replay(path: String) -> Dictionary:
+	return open_recording(path)
+
+
+func open_recording(path: String) -> Dictionary:
+	var absolute := path if path.is_absolute_path() else DirAccess.open(".").get_current_dir().path_join(path).simplify_path()
+	var replay := preload("res://scripts/core/replay_open.gd")
+	var builds := replay_builds()
+	var pick: Dictionary = replay.select_build(replay.read_header(absolute), builds)
+	if not pick.ok:
+		return pick
+	return play(pick.version, PackedStringArray(["--", pick.argument, absolute]))
 
 
 # ---- the game beside the launcher (lane ONEZIP-1) ----------------------------------------------------------------------------------------
@@ -913,9 +946,11 @@ func install(release: Dictionary, user_pick: bool) -> Dictionary:
 	var newest := newest_installed()
 	if not user_pick and newest != "" and Semver.compare(release.tag, newest) <= 0:
 		return {"ok": false, "error": "%s is not newer than the installed %s: an automatic update never installs an older or the same version (pick it yourself to roll back)" % [release.tag, newest], "version": ""}
+	test_point("install-checked")
 	var mm := release_manifest(release)
 	if not mm.ok:
 		return {"ok": false, "error": mm.error, "version": ""}
+	test_point("manifest-verified")
 	var m: Dictionary = mm.manifest
 	if mm.get("no_entry", false) or not m.assets.game.has(info.platform()):
 		return {"ok": false, "error": "the release %s has no signed %s package (download a complete package from %s)" % [release.tag, info.platform(), releases_url()], "version": ""}
@@ -927,6 +962,7 @@ func install(release: Dictionary, user_pick: bool) -> Dictionary:
 	var partial := root.path_join(m.version + ".partial")
 	remove_tree(partial)
 	_report("Unpacking %s" % asset.name)
+	test_point("install-unpacking")
 	var x := Archive.extract(got.path, "zip" if asset.name.ends_with(".zip") else "tar.gz", Manifest.top_folder(asset.name), partial.path_join("game"))
 	if not x.ok:
 		remove_tree(partial)
@@ -937,6 +973,7 @@ func install(release: Dictionary, user_pick: bool) -> Dictionary:
 	if differ != "":
 		remove_tree(partial)
 		return {"ok": false, "error": "%s was not installed: %s" % [m.version, differ], "version": ""}
+	test_point("install-extracted")
 	for item in [["manifest.json", mm.bytes], ["manifest.json.sig", mm.sig]]:
 		if not _write(partial.path_join(item[0]), item[1]):
 			remove_tree(partial)
@@ -964,21 +1001,26 @@ func install(release: Dictionary, user_pick: bool) -> Dictionary:
 			return {"ok": false, "error": "%s is installed and could not be replaced (is the game running?)" % m.version, "version": ""}
 		test_point("install-aside")
 	if DirAccess.rename_absolute(partial, final) != OK:
+		var why := "%s could not be moved into place (is the folder writable, is the disk full?)" % m.version
 		if had:
-			DirAccess.rename_absolute(aside, final)
+			if DirAccess.rename_absolute(aside, final) != OK:
+				why += "; the previous copy is kept in %s.old and recovery will retry on the next start" % m.version
 		unlock_versions()
 		remove_tree(partial)
-		return {"ok": false, "error": "%s could not be moved into place" % m.version, "version": ""}
+		return {"ok": false, "error": why, "version": ""}
 	test_point("install-placed")
 	if had:
 		remove_tree(aside)
 	DirAccess.remove_absolute(got.path)
+	test_point("install-committed")
 	Log.line("LAUNCHER installed %s (%s, %d files)" % [m.version, asset.name, x.files.size()])
 	if user_pick:
 		set_selected(m.version)
 	else:
 		set_selected("")  # a new build replaces an earlier rollback pick
+	test_point("install-selected")
 	_prune_locked()
+	test_point("install-pruned")
 	unlock_versions()
 	return {"ok": true, "error": "", "version": m.version}
 
@@ -1013,12 +1055,14 @@ func fetch_asset(release: Dictionary, asset: Dictionary) -> Dictionary:
 	var r := http.download(release.assets[asset.name].url, part, asset.size, func(done: int, total: int) -> void:
 		var secs := maxf(0.001, (Time.get_ticks_msec() - started) / 1000.0)
 		_report("Downloading %s" % asset.name, done, total)
+		test_point("asset-downloading")
 		if done == total:
 			Log.line("LAUNCHER downloaded %s: %d bytes in %.1f s" % [asset.name, total, secs]))
 	if r.resumed > 0:
 		Log.line("LAUNCHER resumed %s at %d bytes" % [asset.name, r.resumed])
 	if not r.ok:
 		return {"ok": false, "error": "%s: %s" % [asset.name, r.error]}
+	test_point("asset-downloaded")
 	_report("Checking %s" % asset.name)
 	var f := FileAccess.open(part, FileAccess.READ)
 	if f == null or f.get_length() != asset.size:
@@ -1036,6 +1080,7 @@ func fetch_asset(release: Dictionary, asset: Dictionary) -> Dictionary:
 		DirAccess.remove_absolute(part)
 		DirAccess.remove_absolute(meta)
 		return {"ok": false, "error": "%s does not match the signed manifest (SHA-256 %s, expected %s): deleted, nothing was installed" % [asset.name, digest, asset.sha256]}
+	test_point("asset-verified")
 	DirAccess.remove_absolute(meta)
 	return {"ok": true, "error": "", "path": part}
 
@@ -1063,19 +1108,37 @@ func _recover_locked(root: String) -> void:
 			remove_tree(root.path_join(name))
 		elif name.ends_with(".old"):
 			var v := name.trim_suffix(".old")
-			if DirAccess.dir_exists_absolute(root.path_join(v)) and verify_installed(v).ok:
+			var final := root.path_join(v)
+			var aside := root.path_join(name)
+			if DirAccess.dir_exists_absolute(final) and verify_installed(v, true).ok:
 				Log.line("LAUNCHER finished replacing %s (removed the previous copy)" % v)
-				remove_tree(root.path_join(name))
-			elif not DirAccess.dir_exists_absolute(root.path_join(v)):
-				DirAccess.rename_absolute(root.path_join(name), root.path_join(v))
-				Log.line("LAUNCHER restored %s: replacing it was interrupted" % v)
+				remove_tree(aside)
+			elif _verify_install_at(aside, v, true).ok:
+				var partial := root.path_join(v + ".partial")
+				remove_tree(partial)
+				var had := DirAccess.dir_exists_absolute(final) or FileAccess.file_exists(final)
+				if had and DirAccess.rename_absolute(final, partial) != OK:
+					Log.line("LAUNCHER could not restore %s: the replacement could not be set aside (is the folder writable?); the previous copy is kept" % v)
+					continue
+				if DirAccess.rename_absolute(aside, final) == OK:
+					remove_tree(partial)
+					Log.line("LAUNCHER restored %s: replacing it was interrupted" % v)
+				else:
+					if had:
+						DirAccess.rename_absolute(partial, final)
+					Log.line("LAUNCHER could not restore %s (is the folder writable?); the previous copy is kept for the next start" % v)
+			else:
+				Log.line("LAUNCHER cannot recover %s: neither copy verifies against its signed manifest; both are kept" % v)
 
 
 ## Test builds only (BuildInfo.tests_allowed): --test-kill-at=<point> kills this process abruptly at that point, for the crash tests.
 static var kill_at := ""
+static var test_hook := Callable()
 
 
 static func test_point(name: String) -> void:
+	if test_hook.is_valid():
+		test_hook.call(name)
 	if kill_at == name:
 		Log.line("LAUNCHER test kill at " + name)
 		if OS.get_name() == "macOS":
@@ -1116,14 +1179,24 @@ func _prune_locked() -> void:
 ## a fresh download ({modified: true}).
 ## lane ONEZIP-1: `before_start` (optional) is asked right before the process is started, after every check: false stops the start
 ## ({ok: false, stopped: true}; the game that asked for this start went on by itself, main.gd --game-start).
+## Lane MODS-3: with RotWK (not BFME1, which mounts no mods), the mod picked in Mods (user://mods/active.cfg) is passed as --mod-install= /
+## --mod= (scripts/core/mod_install.gd active_args); a picked mod that cannot be started is an error, never a start without it.
 func game_arguments(args: PackedStringArray = PackedStringArray()) -> Dictionary:
 	args = args.duplicate()
-	if get_state("launcher", "game", "bfme2") == "bfme1" and not Array(args).any(func(a): return a.begins_with("--online-")):
+	if get_state("launcher", "game", "bfme2") == "bfme1" and not Array(args).any(func(a): return a.begins_with("--online-") or a == "--replay" or a.begins_with("--replay=")):
 		var folder := Paths.bfme1_folder()
 		if folder.is_empty():
 			return {"ok": false, "error": "BFME1 assets were not found. Download the games from Game files, or set BFME1_INSTALL."}
 		if not "--" in args: args.append("--")
 		args.append_array(PackedStringArray(["--game=bfme1", "--bfme1-install=" + folder]))
+	elif get_state("launcher", "game", "bfme2") != "bfme1":
+		var mod := ModInstall.active_args(data_dir.path_join("mods"))
+		if not mod.ok:
+			return {"ok": false, "error": mod.error}
+		if not mod.args.is_empty():
+			if not "--" in args: args.append("--")
+			args.append_array(mod.args)
+			Log.line("LAUNCHER the game starts with the mod %s (%s)" % [mod.name, " ".join(mod.args)])
 	return {"ok": true, "args": args}
 
 
@@ -1343,11 +1416,13 @@ func stage_self_update(release: Dictionary) -> Dictionary:
 	if differ != "":
 		remove_tree(partial)
 		return {"ok": false, "error": "the launcher %s was not staged: %s" % [release.tag, differ], "staged": ""}
+	test_point("self-unpacked")
 	if not _write(partial.path_join("VERSION.launcher"), (release.tag + "\n").to_utf8_buffer()) \
 			or DirAccess.rename_absolute(partial, staged) != OK:
 		remove_tree(partial)
 		return {"ok": false, "error": "the launcher %s could not be staged in %s (is the folder writable?)" % [release.tag, launcher_dir], "staged": ""}
 	DirAccess.remove_absolute(got.path)
+	test_point("self-staged")
 	Log.line("LAUNCHER staged the launcher %s; it replaces this one on the next start" % release.tag)
 	return {"ok": true, "error": "", "staged": release.tag}
 
@@ -1389,6 +1464,8 @@ func _stage_from_package(release: Dictionary, src: Dictionary) -> Dictionary:
 		remove_tree(unpacked)
 	if why == "" and OS.get_name() != "Windows":
 		FileAccess.set_unix_permissions(partial.path_join(exe), 493)  # rwxr-xr-x
+	if why == "":
+		test_point("self-unpacked")
 	if why == "" and (not _write(partial.path_join("VERSION.launcher"), (release.tag + "\n").to_utf8_buffer()) \
 			or DirAccess.rename_absolute(partial, staged) != OK):
 		why = "it could not be staged in %s (is the folder writable?)" % launcher_dir
@@ -1397,6 +1474,7 @@ func _stage_from_package(release: Dictionary, src: Dictionary) -> Dictionary:
 		return {"ok": false, "error": "the launcher %s was not staged: %s" % [release.tag, why], "staged": ""}
 	if downloaded != "":
 		DirAccess.remove_absolute(downloaded)
+	test_point("self-staged")
 	Log.line("LAUNCHER staged the launcher %s (from the package %s); it replaces this one on the next start" % [release.tag, asset.name])
 	return {"ok": true, "error": "", "staged": release.tag}
 
@@ -1462,7 +1540,7 @@ static func _write(path: String, bytes: PackedByteArray) -> bool:
 		return false
 	var ok := f.store_buffer(bytes)
 	f.flush()
-	ok = ok and f.get_error() == OK
+	ok = ok and f.get_error() == OK and f.get_length() == bytes.size()
 	f.close()
 	return ok
 

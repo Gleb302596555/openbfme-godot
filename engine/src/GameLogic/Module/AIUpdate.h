@@ -186,6 +186,9 @@ public:
 	// lane PLAY-4: RW 0x662A21 (AIGuard.cpp): guard this spot in `mode` (GuardMode: the stances' 0 battle / 1 hold ground): the guard mode (+ 0x4C), the target
 	// type LOCATION unless AREA (+ 0x54), the location and angle (+ 0x58 / + 0x1A0), the machine to AI_GUARD (16)
 	void guardHere(int mode);
+	// lane SCRIPT-4: AI command 0x1E (RW 0x771790 aiGuardPosition, BFME2 decomp AICommandInterfaceAttackCommands.cpp tier A) -> aiDoCommand's gate, then
+	// privateGuardPosition (RW 0x6649C6, tier A; AI/AIGuardCommands.cpp): guard `pos` in `mode`; false when nothing changed
+	bool aiGuardPosition(const Coord3D &pos, int mode, CommandSourceType source);
 	int guardMode() const { return m_guardMode; }                      // AI vslot 125
 	int guardTargetType() const { return m_guardTargetType; }          // AI vslot 123
 	const Coord3D &guardLocation() const { return m_guardLocation; }   // AI vslot 118
@@ -376,6 +379,11 @@ public:
 	float orientation() const override;
 	void setOrientation(float angle) override;
 	float groundHeightAt(float x, float y) const override;
+	// lane WALL-1: TheTerrainLogic->getLayerHeight(x, y, the object's layer): the terrain on the ground, a wall top's or a ramp's height on theirs
+	float layerHeightAt(float x, float y) const;
+	// lane WALL-1: after the object was put somewhere directly (a horde member snapped onto its slot, a member put on its goal): its layer settles to the cell
+	// under it (Pathfinder::settleLayer) and, off the ground, it stands on that layer's surface. Nothing for a ground unit that stays on the ground
+	void settleOnLayer();
 	void setLayer(PathfindLayerEnum layer) override;
 	bool isImmobile() const override;
 	bool isStatusImmobile() const override;
@@ -393,6 +401,8 @@ public:
 	float locomotorSpeed() const override;
 	bool movingBackwards() const override;
 	bool setModelCondition(const char *name, bool on) override;
+	void revealDisguiseOnClimb() override; // lane WALL-2: RW 0x66A143 (a Climb portal)
+	void idleFromAI() override;            // lane WALL-2: RW 0x662A0E's vslot 0x60(2) (a type 7 portal)
 	void startMoveSound() override; // lane AUDIO-3: RW 0x748C0B
 	void stopMoveSound() override;
 	float relativeAngleTo(const Coord3D &p) const override;
@@ -539,6 +549,10 @@ private:
 	bool m_canPathThroughUnits = false;
 	ObjectID m_moveAwayRequesters[2] = { INVALID_ID, INVALID_ID }; // lane PHYS-1: RW AI +0x198 / +0x19C (RW 0x66DA5F)
 	bool m_isInUpdate = false;
+	bool m_movingAwaySearch = false; // lane WALL-2: RW AI + 0x3CF (set around the move-away searches, RW 0x66DBFB / 0x66DC4B)
+public:
+	bool movingAwaySearch() const { return m_movingAwaySearch; }
+private:
 	unsigned long long m_memberUpdates = 0; // lane EXIT-1 (a counter, not hashed)
 	std::array<std::uint32_t, 19> m_luaConditionSnapshot{}; ///< lane HERO-2: + 0x290, the ModelCondition script events' snapshot (RW 0x663E32)
 	bool m_moveLoopPosted = false; // lane AUDIO-3: a move loop is kept for this object on the audio side (audio bookkeeping only: no logic reads it, not hashed)

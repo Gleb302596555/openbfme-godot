@@ -77,6 +77,24 @@ BezierProjectileBehavior *flyingBezier(Object &o)
 	}
 	return nullptr;
 }
+
+// lane SIEGE-1: the shapes of the object's own GeometryInfo (Object + 0xA8): its template's, with the active flags it keeps (GeometryInfo::setActive RW 0xAD3520,
+// the gates' open and closed shapes); the template's list itself while the object never changed a flag
+const std::vector<ObjectGeometry::Shape> &activeShapes(const Object &o, std::vector<ObjectGeometry::Shape> &scratch)
+{
+	const std::vector<ObjectGeometry::Shape> &shapes = ObjectGeometry::cachedShapesOf(*o.getTemplate());
+	const std::vector<std::uint8_t> &active = o.geometryActive();
+	if (active.size() != shapes.size())
+	{
+		return shapes;
+	}
+	scratch.assign(shapes.begin(), shapes.end());
+	for (size_t i = 0; i < scratch.size(); ++i)
+	{
+		scratch[i].active = active[i] != 0;
+	}
+	return scratch;
+}
 } // namespace
 
 void CombatState::noteFlyingProjectile(std::uint32_t objectId)
@@ -93,8 +111,9 @@ void CombatState::noteFlyingProjectile(std::uint32_t objectId)
 // both ways (RW 0xB6D060). A BezierProjectileBehavior's collide interface (RW vtable 0xC585C8, slot 0 RW 0x85E52B) asks canCollideWith (RW 0x85EF6A) and hands an
 // accepted contact to handleCollision (RW 0x85FDB7; BFME2 decomp BezierProjectileBehaviorSlots.cpp rva0045B4C0 / rva0045BF06, Collide.cpp rva0045CD6E).
 // INFERENCE (stop S-780): the pairs of a flying projectile are the objects ThePartitionManager returns within its bounding sphere (distance type 3) whose shapes
-// overlap its own (RW 0xAD2CE0, NotifyCrushModules::geometriesOverlap), met in id order; retail's broad phase, its contact test (vslot 0x20) and its pair order were
-// not read. Only the projectile's side of a contact is dispatched here: a flying unit (a thrown or leaping infantry template) already meets the AI units through
+// overlap (RW 0xAD2CE0, NotifyCrushModules::geometriesOverlap), met in id order; retail's broad phase and its contact table order were not ported. Lane SIEGE-1 read
+// the contact test (vslot 0x20 = RW 0x68C7B2): it runs from the pair's lower ObjectID's side with each object's own GeometryInfo (see the test below). Only the
+// projectile's side of a contact is dispatched here: a flying unit (a thrown or leaping infantry template) already meets the AI units through
 // AIWorld's pass, and the other object's collide modules are not called for a projectile (a ported module reacting to one: none that changes a 2.01 fight is known).
 // HORDE objects (KindOf 109) are not candidates: retail's manager leaves them out and canCollideWith refuses them. The geometry is the pathfinder's (an AIWorld).
 void CombatState::processProjectileContacts()
@@ -164,8 +183,17 @@ void CombatState::processProjectileContacts()
 			{
 				continue;
 			}
-			if (!NotifyCrushModules::geometriesOverlap(own, *p->getPosition(), p->getOrientation(), ObjectGeometry::cachedShapesOf(*o->getTemplate()), *o->getPosition(),
-				    o->getOrientation()))
+			// lane SIEGE-1: the pair's narrow test runs from its lower ObjectID's side, each object with its own GeometryInfo (RW 0xB6D060: first->test(second's
+			// object), the test RW 0x68C7B2 -> 0x68BA2A = RW 0xAD2CE0(first's geometry Object + 0xA8, position, orientation, second's ...); RW 0xB6D730 orders a
+			// pair by the id window slot 4 returns, RW 0x670216 = Object + 0x74). RW 0xAD2CE0's height rules are not symmetric (the own shape's centre against
+			// the other's top, the own top against the other's base z): a structure made before the stone tests its own shapes against the stone, so the
+			// lintel of Helm's Deep's gate arch (offset z 110) does not reach down onto a stone falling on the gate
+			const std::vector<ObjectGeometry::Shape> &projShapes = activeShapes(*p, m_projShapesScratch);
+			const std::vector<ObjectGeometry::Shape> &otherShapes = activeShapes(*o, m_otherShapesScratch);
+			const bool overlap = p->getID() < o->getID()
+				? NotifyCrushModules::geometriesOverlap(projShapes, *p->getPosition(), p->getOrientation(), otherShapes, *o->getPosition(), o->getOrientation())
+				: NotifyCrushModules::geometriesOverlap(otherShapes, *o->getPosition(), o->getOrientation(), projShapes, *p->getPosition(), p->getOrientation());
+			if (!overlap)
 			{
 				continue;
 			}

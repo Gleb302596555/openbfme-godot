@@ -9,6 +9,7 @@
 
 #include "Common/BuildAssistant.h"
 #include "Common/PlayerHeroList.h"
+#include "GameLogic/ActionManager.h"
 #include "GameLogic/Damage.h"
 #include "GameClient/GUI/Skirmish/IniSkirmishSetupSource.h"
 #include "GameClient/MapCache.h"
@@ -142,6 +143,15 @@ const std::map<std::string, std::string> &knownUpgradeGaps()
 		{ "WildGiantSentryExpansion Command_GoblinPurchaseNewWallGiantSentry", "S-1995 (SlaveWatcherBehavior: the free giant is made, its death does not show the buy button)|button not shown" },
 	};
 	return gaps;
+}
+
+// buttons retail buys by itself before the player can: the Hall of Twilight's DoCommandUpgrade modules press its technologies as it levels
+// (retail angmarhalloftwilight.ini, RW 0x8B8E2E -> RW 0x696FD2's upgrade case): the bar shows them purchased (lane MODS-3)
+const std::set<std::string> &retailAutoPurchased()
+{
+	static const std::set<std::string> s = { "AngmarHallofTwilight Command_PurchaseTechnologyAngmarSoulFreeze",
+		"AngmarHallofTwilight Command_PurchaseTechnologyAngmarWellOfSouls", "AngmarHallofTwilight Command_PurchaseTechnologyAngmarCorpseRain" };
+	return s;
 }
 
 bool isStructure(const ThingTemplate &tt)
@@ -337,6 +347,24 @@ AbilityResult runAbility(HudRig &h, const Offer &offer, const Coord3D &spot)
 		else if ((opt & COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT) && ally)
 		{
 			at = *withMembers(ally).back()->getPosition();
+		}
+		else if ((opt & COMMAND_OPTION_NEED_TARGET_POS) && TheSpecialPowerStore)
+		{
+			// lane SUMMONLOC-1: the hero power click issues nothing where the location test refuses (RW 0x81E9C5 -> RW 0x6A4260 -> RW 0x82DFB7), as
+			// retail's red cursor: a player clicks where it is valid. The spot 108 from the caster serves a LIMIT_DISTANCE 150 power (Hwaldar's
+			// Hillmen); a NEEDS_OBJECT_FILTER power (Azog's Crack the Whip: allied infantry within its radius) gets a soldier of the caster's there
+			const SpecialPowerTemplate *pw = TheSpecialPowerStore->findSpecialPowerTemplate(mode->m_specialPowerName);
+			const Coord3D near{ spot.x + 60.0f, spot.y - 90.0f, logic.getGroundHeight(spot.x + 60.0f, spot.y - 90.0f) };
+			if (pw && !ActionManager::canDoSpecialPowerAtLocation(*o, at, pw, opt))
+			{
+				if ((pw->getFinalOverride()->getFlags() & SPF_NEEDS_OBJECT_FILTER) && !ActionManager::canDoSpecialPowerAtLocation(*o, near, pw, opt))
+				{
+					Object *soldier = h.rig.make("GondorFighter", near.x, near.y);
+					made.push_back(soldier->getID());
+					h.frames(2);
+				}
+				at = near;
+			}
 		}
 		at.z += 8.0f;
 		h.rig.lookAt(*o->getPosition());
@@ -795,6 +823,11 @@ TEST_CASE("factc upgrades: every OBJECT / PLAYER upgrade button of the Goblins' 
 		MESSAGE(faction << ": " << ok << " of " << results.size() << " upgrade buttons work");
 		for (const UpgradeResult &r : results)
 		{
+			if (retailAutoPurchased().count(r.object + " " + r.button))
+			{
+				CHECK_MESSAGE(r.outcome == "button purchased", r.object << " " << r.button << ": DoCommandUpgrade should have bought it: " << r.outcome);
+				continue;
+			}
 			const auto known = knownUpgradeGaps().find(r.object + " " + r.button);
 			if (known != knownUpgradeGaps().end())
 			{

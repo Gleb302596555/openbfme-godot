@@ -478,7 +478,7 @@ std::string slotChoices(int faction, int color, int startPos, int team, int hand
 	return out;
 }
 
-std::string setupFields(const SkirmishGameInfo &s)
+std::string setupFields(const SkirmishGameInfo &s, bool includeCapacity = false)
 {
 	std::string out = "\"map\":" + OnlineLobbyClient::jsonQuote(s.mapName) + ",\"startingCash\":" + std::to_string(s.startingCash) +
 		",\"superweaponRestriction\":" + std::to_string(s.superweaponRestriction) + ",\"legendaryHeroes\":" + std::to_string(s.legendaryHeroes) + ",\"rules\":";
@@ -495,19 +495,36 @@ std::string setupFields(const SkirmishGameInfo &s)
 		}
 		out += "]";
 	}
+	if (includeCapacity || s.mapStartCount > LEGACY_MAX_SLOTS)
+	{
+		out += ",\"mapStartCount\":" + std::to_string(s.mapStartCount);
+	}
 	return out;
 }
 } // namespace
 
 void OnlineLobbyClient::createGame(const std::u16string &name, const std::string &password, const SkirmishGameInfo &setup, int hostSlot, const std::string &roomCode)
 {
+	if (setup.mapStartCount < LEGACY_MAX_SLOTS || setup.mapStartCount > MAX_SLOTS || hostSlot < 0 || hostSlot >= setup.mapStartCount)
+	{
+		refuse("create", "bad_field", "invalid map capacity or host slot");
+		return;
+	}
+	for (int i = setup.mapStartCount; i < MAX_SLOTS; ++i)
+	{
+		if (setup.slots[i].state != SLOT_CLOSED)
+		{
+			refuse("create", "bad_field", "a slot beyond the map's capacity must be closed");
+			return;
+		}
+	}
 	if (!roomCode.empty() && (!validRoomCode(roomCode) || !password.empty()))
 	{
 		refuse("create", "bad_field", "a room code is 6 .. 32 characters of A-Z a-z 0-9 _ - and has no password beside it");
 		return;
 	}
 	// lobby.mjs create: the slots up to the last one that is not closed; the host's "player", the other human places "open"
-	int last = MAX_SLOTS;
+	int last = setup.serializedSlotCount();
 	while (last > 2 && setup.slots[last - 1].state == SLOT_CLOSED)
 	{
 		--last;
@@ -695,7 +712,12 @@ void OnlineLobbyClient::setSetup(const SkirmishGameInfo &setup)
 	{
 		return;
 	}
-	queue("setup", "POST", "/v1/games/" + m_gameId + "/setup", "{" + setupFields(setup) + "}");
+	if (setup.mapStartCount < LEGACY_MAX_SLOTS || setup.mapStartCount > MAX_SLOTS)
+	{
+		refuse("setup", "bad_field", "invalid map capacity");
+		return;
+	}
+	queue("setup", "POST", "/v1/games/" + m_gameId + "/setup", "{" + setupFields(setup, m_info.mapStartCount > LEGACY_MAX_SLOTS) + "}");
 }
 
 void OnlineLobbyClient::setReady(bool ready)
@@ -897,6 +919,7 @@ void OnlineLobbyClient::leftGame(const std::string &why)
 {
 	m_gameId.clear();
 	m_gameName.clear();
+	m_privateRoom = false;
 	m_localSlot = m_hostSlot = -1;
 	m_info = SkirmishGameInfo();
 	m_slots = {};
@@ -944,17 +967,37 @@ bool OnlineLobbyClient::readGameView(const JsonValue &g, std::string *error, boo
 	{
 		return fail("\"hostSlot\" / \"seq\" out of range");
 	}
+	const JsonValue *priv = g.get("private");
+	if (!priv || priv->type != JsonValue::BOOL)
+	{
+		return fail("\"private\" must be true or false");
+	}
 	const JsonValue *setup = g.get("setup");
 	const JsonValue *slots = g.get("slots");
-	if (!setup || !setup->isObject() || !slots || !slots->isArray() || slots->array.size() != (size_t)MAX_SLOTS)
+	if (!setup || !setup->isObject() || !slots || !slots->isArray())
 	{
-		return fail("\"setup\" must be an object and \"slots\" 8 slots");
+		return fail("\"setup\" must be an object and \"slots\" an array");
+	}
+	long long capacity = LEGACY_MAX_SLOTS;
+	if (setup->get("mapStartCount") && !intOf(setup->get("mapStartCount"), LEGACY_MAX_SLOTS, MAX_SLOTS, capacity))
+	{
+		return fail("\"mapStartCount\" must be 8, or 9 .. 16 for an extended map");
+	}
+	const int count = capacity > LEGACY_MAX_SLOTS ? MAX_SLOTS : LEGACY_MAX_SLOTS;
+	if (slots->array.size() != (size_t)count || hostSlot >= capacity)
+	{
+		return fail("\"slots\" must match the map's 8 or 16 record layout, with the host inside its capacity");
 	}
 	if (!fits(g.get("name"), kMaxGameNameBytes) || !fits(setup->get("map"), kMaxMapBytes))
 	{
 		return fail("the game's name or map is beyond the lobby's limits");
 	}
 	SkirmishGameInfo info = m_info;
+	info.mapStartCount = (int)capacity;
+	for (int i = count; i < MAX_SLOTS; ++i)
+	{
+		info.slots[i] = SkirmishGameSlot();
+	}
 	info.mapName = strOf(setup->get("map"));
 	long long cash = 0, sw = 0, lh = 0;
 	if (info.mapName.empty() || !intOf(setup->get("startingCash"), -1, 1000000000, cash) || !intOf(setup->get("superweaponRestriction"), 0, 1, sw) ||
@@ -994,7 +1037,7 @@ bool OnlineLobbyClient::readGameView(const JsonValue &g, std::string *error, boo
 	}
 	std::array<SlotView, MAX_SLOTS> views{};
 	int local = -1;
-	for (int i = 0; i < MAX_SLOTS; ++i)
+	for (int i = 0; i < count; ++i)
 	{
 		const JsonValue &js = slots->array[(size_t)i];
 		const std::string at = "slot " + std::to_string(i) + ": ";
@@ -1017,9 +1060,13 @@ bool OnlineLobbyClient::readGameView(const JsonValue &g, std::string *error, boo
 		{
 			return fail(at + "unknown state \"" + state + "\"");
 		}
+		if (i >= capacity && gs.state != SLOT_CLOSED)
+		{
+			return fail(at + "a slot beyond the map's capacity must be closed");
+		}
 		long long faction = 0, color = 0, startPos = 0, team = 0;
 		if (!intOf(js.get("faction"), -1, m_options.playerTemplateCount - 1, faction) || !intOf(js.get("color"), -1, m_options.colorCount - 1, color) ||
-			!intOf(js.get("startPos"), -1, MAX_SLOTS - 1, startPos) || !intOf(js.get("team"), -1, MAX_SLOTS - 1, team))
+			!intOf(js.get("startPos"), -1, capacity - 1, startPos) || !intOf(js.get("team"), -1, count - 1, team))
 		{
 			return fail(at + "faction / color / startPos / team out of range (" + std::to_string(m_options.playerTemplateCount) + " factions, " +
 				std::to_string(m_options.colorCount) + " colours)");
@@ -1160,6 +1207,7 @@ bool OnlineLobbyClient::readGameView(const JsonValue &g, std::string *error, boo
 	}
 	m_gameId = id;
 	m_gameName = u16(strOf(g.get("name")));
+	m_privateRoom = priv->boolean;
 	m_hostSlot = (int)hostSlot;
 	m_localSlot = local;
 	m_seq = (std::uint32_t)seq;
@@ -1496,12 +1544,15 @@ void OnlineLobbyClient::handle(const Pending &p, int, const JsonValue &root)
 		for (const JsonValue &g : games->array)
 		{
 			Listing l;
-			long long players = 0, open = 0, slot = -1;
+			long long players = 0, open = 0, slot = -1, capacity = LEGACY_MAX_SLOTS;
 			l.id = strOf(g.get("id"));
 			const JsonValue *pw = g.get("password");
-			if (!g.isObject() || !isHexId(l.id) || !intOf(g.get("players"), 0, MAX_SLOTS, players) || !intOf(g.get("openSlots"), 0, MAX_SLOTS, open) || !pw ||
+			if (!g.isObject() || !isHexId(l.id)
+				|| (g.get("mapStartCount") && !intOf(g.get("mapStartCount"), LEGACY_MAX_SLOTS, MAX_SLOTS, capacity))
+				|| !intOf(g.get("players"), 0, capacity, players) || !intOf(g.get("openSlots"), 0, capacity, open) || !pw ||
 				pw->type != JsonValue::BOOL || (kind != "list" && !intOf(g.get("slot"), 0, MAX_SLOTS - 1, slot)) || !fits(g.get("name"), kMaxGameNameBytes) ||
-				!fits(g.get("host"), kMaxPlayerNameBytes) || !fits(g.get("map"), kMaxMapBytes) || !fits(g.get("state"), 16))
+				!fits(g.get("host"), kMaxPlayerNameBytes) || !fits(g.get("map"), kMaxMapBytes) || !fits(g.get("state"), 16) || slot >= capacity
+				|| (capacity > LEGACY_MAX_SLOTS && players + open > capacity))
 			{
 				if (kind == "session")
 				{
@@ -1520,6 +1571,7 @@ void OnlineLobbyClient::handle(const Pending &p, int, const JsonValue &root)
 			l.map = strOf(g.get("map"));
 			l.players = (int)players;
 			l.openSlots = (int)open;
+			l.mapStartCount = (int)capacity;
 			l.password = pw->boolean;
 			// lane UBERJOIN-1: the game's "mode" is optional (absent: "normal", a room of an old client); a value outside the two names is a protocol refusal
 			if (const JsonValue *mode = g.get("mode"))

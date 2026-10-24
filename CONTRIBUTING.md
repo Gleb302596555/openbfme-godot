@@ -24,6 +24,13 @@ ln -s ../../tools/precommit.py .git/hooks/pre-commit      # Windows: copy it the
 
 Please also keep personal data out: no paths of your own machine, no e-mail addresses in files, no logs of your install.
 
+The gate also refuses conflict-marker lines in the **staged blob**, not the working tree, reporting the file and 1-based line number.
+It checks every changed text file (including pure renames): lines starting with seven `<` or seven `>`, and lines consisting of exactly
+seven `=` (LF or CRLF). NUL-containing binary blobs are skipped by this check only; the byte-format checks still apply. Markdown and
+AsciiDoc underlines of other lengths, such as `=====`, are allowed. The current tree has no matching documentation underlines or
+literal test fixtures, so there is **no allowlist and no path exemption**; tests should generate marker lines at runtime. Reads use one
+`git cat-file --batch` process, one blob at a time, to keep large commits fast without buffering all their contents.
+
 ## Opening a pull request
 
 1. Fork the repository and branch from `main`.

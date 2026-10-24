@@ -1,4 +1,5 @@
 import { SocialStorageError } from './social-store.mjs';
+import { repairStoredText } from './stored-text.mjs';
 import {
   authorizationUrl,
   exchangeProvider,
@@ -208,7 +209,7 @@ function oauthVerifier(value) {
   return value;
 }
 
-function validOAuthName(value) {
+export function validPlayerName(value) {
   return typeof value === 'string' && Array.from(value).length >= 1 && Array.from(value).length <= 24 &&
     !/[\u0000-\u001f\u007f]/u.test(value) && value === value.trim() && value.isWellFormed();
 }
@@ -228,7 +229,7 @@ function oauthClient(value) {
 }
 
 function oauthName(value) {
-  if (!validOAuthName(value)) invalid('name must be 1 to 24 Unicode characters without controls or surrounding whitespace');
+  if (!validPlayerName(value)) invalid('name must be 1 to 24 Unicode characters without controls or surrounding whitespace');
   return value;
 }
 
@@ -326,7 +327,7 @@ function oauthPending(value, clock) {
     const expectedWithClient = 'challenge,client,device,expires,install,mode,name,pid,provider,state,transaction,v,watermark';
     if ((keys !== expected && keys !== expectedWithClient) || value.pid !== null ||
         !Number.isSafeInteger(value.watermark) || value.watermark < 0 || value.watermark > clock ||
-        !validOAuthName(value.name) || (Object.hasOwn(value, 'client') && !validOAuthClient(value.client))) {
+        !validPlayerName(value.name) || (Object.hasOwn(value, 'client') && !validOAuthClient(value.client))) {
       throw new SocialStorageError('unavailable');
     }
   }
@@ -643,8 +644,8 @@ export class SocialService {
     try {
       const result = await this.lobby.env.store.socialTransaction((tx) => {
         const observed = {
-          get: (key) => tx.get(key),
-          list: (prefix, options) => tx.list(prefix, options),
+          get: (key) => repairStoredText(tx.get(key)),
+          list: (prefix, options) => new Map([...tx.list(prefix, options)].map(([key, value]) => [key, repairStoredText(value)])),
           put: (key, value) => {
             const previous = needsPrevious(key) ? tx.get(key) : null;
             observe(key, previous, value);

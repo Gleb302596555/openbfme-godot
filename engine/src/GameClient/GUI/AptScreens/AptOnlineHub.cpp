@@ -938,6 +938,23 @@ void AptOnlineHub::fillTournaments()
 		GadgetListBoxAddEntryText(m_list, u"Asking the online services ...", 0xFFFFFFFFu, 0, 0);
 		return;
 	}
+	// A committed refresh may have removed the selected tournament. Do not leave
+	// its old row index and bracket displayed beside a different tournament.
+	if (!m_selectedId.empty())
+	{
+		const auto &listed = p->tournaments();
+		auto it = std::find_if(listed.begin(), listed.end(), [this](const PlatformApiClient::Tournament &t) { return t.id == m_selectedId; });
+		if (it == listed.end())
+		{
+			m_selected = -1;
+			m_selectedId.clear();
+			m_detailRows.clear();
+			if (m_details)
+			{
+				GadgetListBoxReset(m_details);
+			}
+		}
+	}
 	if (p->tournaments().empty())
 	{
 		GadgetListBoxAddEntryText(m_list, u"No tournaments are planned.", 0xFFFFFFFFu, 0, 0);

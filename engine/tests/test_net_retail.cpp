@@ -322,8 +322,11 @@ PeerRun runPeers(const std::string &tag, int frames, const std::string &common, 
 	{
 		r.reports.push_back(readFile(reportFiles[i]));
 		r.hashes.push_back(readFile(hashFiles[i]));
-		std::remove(reportFiles[i].c_str());
-		std::remove(hashFiles[i].c_str());
+		if (!std::getenv("OPENBFME_KEEP_PEER_FILES")) // set: the reports and per-frame hash files stay for a diff
+		{
+			std::remove(reportFiles[i].c_str());
+			std::remove(hashFiles[i].c_str());
+		}
 	}
 	r.hostRc = r.rcs[0];
 	r.hostReport = r.reports[0];
@@ -889,7 +892,10 @@ TEST_CASE("net retail (HERO-2): a LAN game with a Create-a-Hero on the joiner's 
 	const std::string common = "--map \"maps/map mp fall back 4p/map mp fall back 4p.map\" --seed 21 --script --crc-interval 100 --run-ahead 2 --cash 10000";
 	const std::string slots = "--slot human,FactionMordor,0,0 --slot human,FactionMen,1,1 --slot medium,FactionElves,2,0";
 	PeerRun r = runPair("hero2cah", kFrames, common, slots + " --create-a-hero 1:" + cah, "--recruit-create-a-hero 100");
-	std::remove(cah.c_str());
+	if (!std::getenv("OPENBFME_KEEP_PEER_FILES"))
+	{
+		std::remove(cah.c_str());
+	}
 	MESSAGE("host:\n" << r.hostReport);
 	MESSAGE("joiner:\n" << r.joinReport);
 	CHECK(r.hostRc == 0);
@@ -1075,8 +1081,8 @@ TEST_CASE("net retail r1 (fix 3): peers of different profile identities refuse t
 	const std::string err = readFile("mp1_profile_err.txt");
 	MESSAGE(err);
 	CHECK(other == 1);
-	CHECK(err.find("the replay was recorded by another profile") != std::string::npos);
-	CHECK(err.find("test-feature") != std::string::npos);
+	CHECK(err.find("Open it with") != std::string::npos);
+	CHECK(err.find("from the launcher") != std::string::npos);
 	for (const char *f : { "mp1_profile.replay", "mp1_profile_replay.txt", "mp1_profile_err.txt" })
 	{
 		std::remove(f);

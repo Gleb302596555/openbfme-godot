@@ -53,6 +53,7 @@
 #include "Common/RandomValue.h"
 #include "Common/StateHash.h"
 #include "GameLogic/Module/HordeContain.h"
+#include "GameLogic/SimMath.h"
 
 #include <functional>
 #include <list>
@@ -89,6 +90,15 @@ public:
 	{
 		Coord3D position{ 0.0f, 0.0f, 0.0f };
 		float angle = 0.0f;
+		// lane UBER-2B: cos / sin of `angle` (SimMath::cosf32 / sinf32) computed once for a whole member pass instead of per member; the same values
+		bool hasTrig = false;
+		float cosAngle = 0.0f, sinAngle = 0.0f;
+		void computeTrig()
+		{
+			cosAngle = SimMath::cosf32(angle);
+			sinAngle = SimMath::sinf32(angle);
+			hasTrig = true;
+		}
 	};
 
 	// RW 0x73D5C2: does a member of this template belong in a slot of this UnitType?
@@ -110,6 +120,9 @@ public:
 	// RW 0x873F30: returns the slot index taken, or -1 when no free slot of a matching rank exists (the member
 	// is then in the contain list without a slot).
 	int addMember(ObjectId id, const std::string &templateName);
+	// lane MODS-3: addMember's search without taking the slot (edain-unchained.horde-exit-absorption)
+	bool hasFreeSlotFor(const std::string &templateName) const;
+	bool built() const { return m_built; }
 	// RW 0x87370B / 0x87393E. `templateIsSpecial` is ThingTemplate+0x109 bit 3.
 	void removeMember(ObjectId id, bool templateIsSpecial);
 	// lane GARRISON-3: a member released through HordeContainInterface slot 0xA8 (RW 0x86EBF4 -> OpenContain's removal RW 0x8665BE / 0x865EB6 ->

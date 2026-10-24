@@ -50,7 +50,7 @@ TEST_CASE("uber1: the simulation profile travels in the game setup (LAN options,
 	CHECK_FALSE(faithful.game == m.game);
 	// the profile is the GameInfo's i32 before the eight slots' handicaps (lane OWNERFIX-2): 2 is no profile this build knows
 	std::vector<std::uint8_t> bad = w.data();
-	bad[bad.size() - 4 - 4 * MAX_SLOTS] = 2;
+	bad[bad.size() - 4 - 4 * LEGACY_MAX_SLOTS] = 2;
 	NetByteReader r2(bad);
 	CHECK_FALSE(NetPacket::readNewGameMessage(r2, back, &error));
 	CHECK(error.find("simulation profile 2") != std::string::npos);
@@ -389,7 +389,7 @@ std::vector<std::uint8_t> forgedReplay(const ProfileIdentity &identity, const Ne
 	NetPacket::writeNewGameMessage(w, game);
 	w.i32(0);
 	w.u32((std::uint32_t)RandomAlgorithm::ZH_CarryChain);
-	for (int i = 0; i < MAX_SLOTS; ++i)
+	for (int i = 0; i < game.game.serializedSlotCount(); ++i)
 	{
 		w.i32(-1);
 	}

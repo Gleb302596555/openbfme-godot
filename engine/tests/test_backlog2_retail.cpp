@@ -685,7 +685,9 @@ TEST_CASE("BACKLOG2 r1 determinism: three units on a build site: the draw assign
 	// merge queue q23 (TARGET-1's mood-scan draws with ATTACKPATH-1's attack path and corridor term, measured once on the merged tree, the Mac and the laptop
 	// agreeing): the goals are TARGET-1's, Aragorn ends elsewhere (was 0x4425E21A 0x458D2BBD) and the last hash is 0x165E2BAF (TARGET-1: 0xA0300E3C)
 	CHECK(a.positions == std::vector<std::uint32_t>{ 0x442A2000u, 0x458ED400u, 0x4422A000u, 0x458CA400u, 0x44224BB5u, 0x458CE977u });
-	CHECK(a.hashes.back() == 0x165E2BAFU);   // q19: BACKLOG-8 hashes the formation and march rows of AIData / GameData in GameLogicSettings::crc (unconditionally) and moves the march;
+	// merge queue q24: the last hash 0x165E2BAF -> 0x0E2AE1AF, goals and positions unchanged: OFFMAP-1 (RotWK's idle state RW 0x745A64: no ZH frame <= 1 snap, no
+	// pathfinder position update) moves it (bisected: the q24 tree with CAMPUI-1 alone keeps q23's hash); measured once on the merged tree
+	CHECK(a.hashes.back() == 0x0E2AE1AFU);   // q19: BACKLOG-8 hashes the formation and march rows of AIData / GameData in GameLogicSettings::crc (unconditionally) and moves the march;
 	                                         // re-measured on the merged tree (a CI host); was 0x78A9CB12 (q18: DEVPORT-3C castle keep gate / Horde removal record, before 0x2BD4804B); goals and positions unchanged
 	// every unit left the spot it stood on
 	CHECK(a.positions[0] != a.goals[0]);

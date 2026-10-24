@@ -5,6 +5,7 @@
 // openbfme_relay and two openbfme_peer processes). The tests SKIP LOUDLY where Node.js, the retail installs or POSIX processes are missing.
 
 #include "doctest.h"
+#include "OnlineTestWait.h"
 #include "TestChild.h"
 #include "ProcessTestUtil.h"
 
@@ -52,6 +53,7 @@
 #include <csignal>
 #include <netinet/in.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/wait.h>
 #include <unistd.h>
 #define ONLINE4_POSIX 1
@@ -98,6 +100,9 @@ HttpAnswer httpRequest(int port, const OnlineLobbyClient::HttpRequest &r)
 		a.error = "connection refused";
 		return a;
 	}
+	const timeval timeout{ 60, 0 };
+	setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+	setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 	std::string req = r.method + " " + r.path + " HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\nContent-Type: application/json\r\n";
 	if (!r.token.empty())
 	{
@@ -225,7 +230,7 @@ struct NodeLobby
 	pid_t pid = -1;
 	int port = 0;
 	std::filesystem::path dir;
-	NodeLobby(const std::string &relays, const std::string &motd)
+	NodeLobby(const std::string &relays, const std::string &motd, int startupDelayMs = 0)
 	{
 		dir = std::filesystem::temp_directory_path() / ("openbfme-online4-" + std::to_string(getpid()) + "-" + std::to_string(NetMilliseconds()));
 		std::filesystem::create_directories(dir / "data");
@@ -248,32 +253,48 @@ struct NodeLobby
 				setenv("MOTD", motd.c_str(), 1);
 			}
 			const std::string log = (dir / "lobby.log").string();
-			freopen(log.c_str(), "w", stdout);
-			freopen(log.c_str(), "a", stderr);
+			if (!freopen(log.c_str(), "w", stdout) || !freopen(log.c_str(), "a", stderr))
+			{
+				_exit(126);
+			}
+			if (startupDelayMs != 0)
+			{
+				const char *delayed = "import { pathToFileURL } from 'node:url';"
+					"await new Promise(resolve => setTimeout(resolve, Number(process.argv[2])));"
+					"const url = pathToFileURL(process.argv[1]); process.argv[1] = '';"
+					"const { startServer } = await import(url.href); await startServer();";
+				const std::string delay = std::to_string(startupDelayMs);
+				execlp("node", "node", "--input-type=module", "--eval", delayed, server.c_str(), delay.c_str(), (char *)nullptr);
+				_exit(127);
+			}
 			execlp("node", "node", server.c_str(), (char *)nullptr);
 			_exit(127);
 		}
-		// up when /v1/health answers
-		for (int i = 0; i < 100; ++i)
-		{
+		const bool ready = onlinetest::waitUntil([&] {
 			OnlineLobbyClient::HttpRequest h;
 			h.method = "GET";
 			h.path = "/v1/health";
-			if (httpRequest(port, h).status == 200)
-			{
-				return;
-			}
-			NetSleepMilliseconds(50);
+			return httpRequest(port, h).status == 200;
+		});
+		if (!ready)
+		{
+			stop();
 		}
+		REQUIRE_MESSAGE(ready, "lobby did not become healthy: ", log());
 	}
-	~NodeLobby()
+	void stop()
 	{
 		if (pid > 0)
 		{
 			kill(pid, SIGTERM);
 			int st = 0;
 			waitpid(pid, &st, 0);
+			pid = -1;
 		}
+	}
+	~NodeLobby()
+	{
+		stop();
 		std::error_code ec;
 		std::filesystem::remove_all(dir, ec);
 	}
@@ -286,18 +307,21 @@ struct NodeLobby
 	}
 };
 
-std::vector<OnlineLobbyClient::Event> drive(OnlineLobbyClient &c, int port, int rounds = 3)
+std::vector<OnlineLobbyClient::Event> drive(OnlineLobbyClient &c, int port, OnlineLobbyClient::Event::Kind until)
 {
 	std::vector<OnlineLobbyClient::Event> all;
-	for (int i = 0; i < rounds; ++i)
-	{
+	const bool answered = onlinetest::waitUntil([&] {
 		c.update(NetMilliseconds());
 		pumpHttp(c, port);
 		for (const auto &e : c.takeEvents())
 		{
 			all.push_back(e);
 		}
-	}
+		return !c.busy() && std::any_of(all.begin(), all.end(), [&](const OnlineLobbyClient::Event &e) {
+			return e.kind == until || e.kind == OnlineLobbyClient::Event::Refused;
+		});
+	});
+	REQUIRE_MESSAGE(answered, "timed out waiting for lobby event ", (int)until);
 	return all;
 }
 
@@ -327,6 +351,125 @@ const OnlineLobbyClient::Event *findEvent(const std::vector<OnlineLobbyClient::E
 		return;                                                                                                                                     \
 	}
 } // namespace
+
+TEST_CASE("online4: sign-in stays pending until its response is delivered (no lobby needed)")
+{
+	OnlineLobbyClient client(clientOptions());
+	client.signInGuest(u"Guest");
+	const auto requests = client.takeRequests();
+	REQUIRE(requests.size() == 1);
+	for (std::uint64_t now : { 100u, 1000u, 10000u, 60000u })
+	{
+		client.update(now);
+		CHECK_FALSE(client.signedIn());
+		CHECK(client.busy());
+		CHECK(client.takeRequests().empty());
+		CHECK(client.takeEvents().empty());
+	}
+	client.deliver(requests[0].id, 200, R"({"v":1,"token":"test-session-token","account":{"name":"Guest"}})", "");
+	REQUIRE(client.signedIn());
+	CHECK(client.accountName() == u"Guest");
+	const auto events = client.takeEvents();
+	REQUIRE(events.size() == 1);
+	CHECK(events[0].kind == OnlineLobbyClient::Event::SignedIn);
+}
+
+TEST_CASE("p16 net: online staging views use explicit map capacity and preserve legacy eight-slot responses")
+{
+	for (int capacity : { 8, 9, 16 })
+	{
+		CAPTURE(capacity);
+		OnlineLobbyClient c(clientOptions());
+		c.signInGuest(u"Host");
+		auto requests = c.takeRequests();
+		REQUIRE(requests.size() == 1);
+		c.deliver(requests[0].id, 200, "{\"v\":1,\"token\":\"t.t\",\"account\":{\"id\":\"guest:1\",\"name\":\"Host\",\"kind\":\"guest\"}}", "");
+		c.takeEvents();
+		SkirmishGameInfo setup;
+		setup.mapName = "maps/p16_fixture/p16_fixture.map";
+		setup.mapStartCount = capacity;
+		for (int i = 0; i < capacity; ++i) setup.slots[i].state = i == 0 ? SLOT_PLAYER : SLOT_OPEN;
+		c.createGame(u"Game", "", setup, 0);
+		requests = c.takeRequests();
+		REQUIRE(requests.size() == 1);
+		// tolerance: the capacity field is present only for extended maps and absent for legacy eight-slot requests
+		CHECK((requests[0].body.find("\"mapStartCount\"") != std::string::npos) == (capacity > 8));
+		CHECK(requests[0].maxSlots == MAX_SLOTS);
+		const auto view = [](int count, bool explicitCapacity, int seq) {
+			std::string slots;
+			for (int i = 0; i < (count > 8 ? 16 : 8); ++i)
+			{
+				slots += std::string(i ? "," : "") + "{\"state\":\"" + (i < count ? "player" : "closed") + "\",\"name\":\"p\",\"faction\":-1,\"color\":-1,\"startPos\":"
+					+ std::to_string(i < count ? i : -1) + ",\"team\":-1,\"ready\":false,\"you\":" + (i == 0 ? "true" : "false") + "}";
+			}
+			return "{\"id\":\"0123456789abcdef\",\"name\":\"Game\",\"state\":\"open\",\"private\":false,\"hostSlot\":0,\"setup\":{\"map\":\"m\",\"startingCash\":1500,\"superweaponRestriction\":0,\"legendaryHeroes\":1,\"rules\":null"
+				+ (explicitCapacity ? ",\"mapStartCount\":" + std::to_string(count) : std::string()) + "},\"slots\":[" + slots + "],\"seq\":" + std::to_string(seq) + "}";
+		};
+		c.deliver(requests[0].id, 200, "{\"v\":1,\"id\":\"0123456789abcdef\",\"game\":" + view(capacity, capacity > 8, 1) + "}", "");
+		REQUIRE(c.inGame());
+		CHECK(c.gameInfo().mapStartCount == capacity);
+		CHECK(c.gameInfo().slots[capacity - 1].isHuman());
+		CHECK(c.gameInfo().slots[capacity - 1].startPos == capacity - 1);
+		for (int i = capacity; i < 16; ++i) CHECK(c.gameInfo().slots[i].state == SLOT_CLOSED);
+		c.takeEvents();
+		if (capacity > 8)
+		{
+			c.update(1000);
+			requests = c.takeRequests();
+			REQUIRE(requests.size() == 1);
+			c.deliver(requests[0].id, 200, "{\"v\":1,\"game\":" + view(capacity, false, 2) + ",\"chat\":[]}", "");
+			const auto events = c.takeEvents();
+			REQUIRE(events.size() == 1);
+			CHECK(events[0].kind == OnlineLobbyClient::Event::Refused);
+			CHECK(c.gameInfo().mapStartCount == capacity);
+			setup.mapStartCount = 8;
+			c.setSetup(setup);
+			requests = c.takeRequests();
+			REQUIRE(requests.size() == 1);
+			CHECK(requests[0].body.find("\"mapStartCount\":8") != std::string::npos);
+			c.deliver(requests[0].id, 200, "{\"v\":1,\"game\":" + view(8, false, 3) + "}", "");
+			CHECK(c.gameInfo().mapStartCount == 8);
+			for (int i = 8; i < 16; ++i) CHECK(c.gameInfo().slots[i].state == SLOT_CLOSED);
+		}
+	}
+}
+
+TEST_CASE("p16 net: online listings accept only explicit wide capacities and reject high counts without one")
+{
+	OnlineLobbyClient c(clientOptions());
+	c.signInGuest(u"List");
+	auto requests = c.takeRequests();
+	REQUIRE(requests.size() == 1);
+	c.deliver(requests[0].id, 200, "{\"v\":1,\"token\":\"t.t\",\"account\":{\"id\":\"guest:1\",\"name\":\"List\",\"kind\":\"guest\"}}", "");
+	c.takeEvents();
+	const auto listing = [](const std::string &extra, int players, int open) {
+		return "{\"id\":\"0123456789abcdef\",\"name\":\"g\",\"host\":\"h\",\"map\":\"m\",\"players\":" + std::to_string(players)
+			+ ",\"openSlots\":" + std::to_string(open) + ",\"password\":false,\"state\":\"open\"" + extra + "}";
+	};
+	c.refreshList();
+	requests = c.takeRequests();
+	c.deliver(requests[0].id, 200, "{\"v\":1,\"games\":[" + listing(",\"mapStartCount\":9", 9, 0) + "]}", "");
+	REQUIRE(c.takeEvents().size() == 1);
+	CHECK(c.games()[0].mapStartCount == 9);
+	c.refreshList();
+	requests = c.takeRequests();
+	c.deliver(requests[0].id, 200, "{\"v\":1,\"games\":[" + listing(",\"mapStartCount\":16", 16, 0) + "]}", "");
+	REQUIRE(c.takeEvents().size() == 1);
+	CHECK(c.games()[0].mapStartCount == 16);
+	for (const std::string &bad : {
+		"{\"v\":1,\"games\":[" + listing("", 9, 0) + "]}",
+		"{\"v\":1,\"games\":[" + listing(",\"mapStartCount\":7", 1, 0) + "]}",
+		"{\"v\":1,\"games\":[" + listing(",\"mapStartCount\":\"16\"", 1, 0) + "]}"})
+	{
+		c.refreshList();
+		requests = c.takeRequests();
+		c.deliver(requests[0].id, 200, bad, "");
+		const auto events = c.takeEvents();
+		REQUIRE(events.size() == 1);
+		CHECK(events[0].kind == OnlineLobbyClient::Event::Refused);
+		CHECK(events[0].code == "protocol");
+	}
+}
 
 TEST_CASE("online4: install identity and pending notices (no lobby needed)")
 {
@@ -471,7 +614,7 @@ TEST_CASE("online4: the lobby client's requests and its checks of the answers (n
 			"\",\"name\":\"p\",\"faction\":" + (i == 1 ? "9" : "-1") + ",\"color\":-1,\"startPos\":-1,\"team\":-1,\"ready\":false,\"you\":" +
 			(i == 1 ? "true" : "false") + "}";
 	}
-	const std::string view = "{\"id\":\"0123456789abcdef\",\"name\":\"g\",\"state\":\"open\",\"hostSlot\":0,\"profile\":\"x\",\"setup\":{\"map\":\"m\","
+	const std::string view = "{\"id\":\"0123456789abcdef\",\"name\":\"g\",\"state\":\"open\",\"hostSlot\":0,\"private\":false,\"profile\":\"x\",\"setup\":{\"map\":\"m\","
 							 "\"startingCash\":1500,\"superweaponRestriction\":0,\"legendaryHeroes\":1,\"rules\":null},\"slots\":[" +
 		slots + "],\"seq\":3}";
 	c.deliver(rs[0].id, 200, "{\"v\":1,\"slot\":1,\"game\":" + view + "}", "");
@@ -485,6 +628,22 @@ TEST_CASE("online4: the lobby client's requests and its checks of the answers (n
 	const std::string badFaction = "\"faction\":9";
 	reportView.replace(reportView.find(badFaction), badFaction.size(), "\"faction\":-1");
 	reportView.insert(reportView.find("\"you\":"), "\"player_id\":\"guest:2222222222222222\",");
+	for (const char *bad : { "", "\"private\":null,", "\"private\":0,", "\"private\":\"false\",", "\"private\":[]," })
+	{
+		std::string badView = reportView;
+		const std::string field = "\"private\":false,";
+		badView.replace(badView.find(field), field.size(), bad);
+		c.joinGame("0123456789abcdef", "");
+		rs = c.takeRequests();
+		REQUIRE(rs.size() == 1);
+		c.deliver(rs[0].id, 200, "{\"v\":1,\"slot\":1,\"game\":" + badView + "}", "");
+		es = c.takeEvents();
+		REQUIRE(es.size() == 1);
+		CHECK(es[0].kind == OnlineLobbyClient::Event::Refused);
+		CHECK(es[0].code == "protocol");
+		CHECK(OnlineLobbyClient::utf16ToUtf8(es[0].text).find("\"private\" must be true or false") != std::string::npos);
+		CHECK_FALSE(c.inGame());
+	}
 	c.joinGame("0123456789abcdef", "");
 	rs = c.takeRequests();
 	REQUIRE(rs.size() == 1);
@@ -560,7 +719,7 @@ TEST_CASE("uberjoin1: the lobby client reads and sends a room's performance mode
 			"\",\"name\":\"p\",\"faction\":-1,\"color\":-1,\"startPos\":-1,\"team\":-1,\"ready\":false,\"you\":" + (i == 1 ? "true" : "false") + "}";
 	}
 	auto view = [&](const std::string &modeField) {
-		return "{\"id\":\"0123456789abcdef\",\"name\":\"g\",\"state\":\"open\",\"hostSlot\":0,\"profile\":\"x\"" + modeField +
+		return "{\"id\":\"0123456789abcdef\",\"name\":\"g\",\"state\":\"open\",\"hostSlot\":0,\"private\":false,\"profile\":\"x\"" + modeField +
 			   ",\"setup\":{\"map\":\"m\",\"startingCash\":1500,\"superweaponRestriction\":0,\"legendaryHeroes\":1,\"rules\":null},\"slots\":[" + slots +
 			   "],\"seq\":3}";
 	};
@@ -639,7 +798,7 @@ TEST_CASE("onlinemenu1: the lobby client sends and reads a slot's handicap and C
 				(i == 1 ? "Rohan" : "Host") + "\",\"faction\":-1,\"color\":-1,\"startPos\":-1,\"team\":-1,\"ready\":false,\"you\":" + (i == 1 ? "true" : "false") +
 				(i == 1 ? slot1Extra : i == 2 ? slot2Extra : std::string()) + "}";
 		}
-		return "{\"v\":1,\"slot\":1,\"game\":{\"id\":\"0123456789abcdef\",\"name\":\"g\",\"state\":\"open\",\"hostSlot\":0,\"profile\":\"x\",\"setup\":{\"map\":\"m\","
+		return "{\"v\":1,\"slot\":1,\"game\":{\"id\":\"0123456789abcdef\",\"name\":\"g\",\"state\":\"open\",\"hostSlot\":0,\"private\":false,\"profile\":\"x\",\"setup\":{\"map\":\"m\","
 			   "\"startingCash\":1500,\"superweaponRestriction\":0,\"legendaryHeroes\":1,\"rules\":null},\"slots\":[" + slots + "],\"seq\":3}}";
 	};
 	// not in a game: nothing is sent
@@ -728,7 +887,7 @@ TEST_CASE("onlinemenu1: the lobby client reads the room's relay and each player'
 				"\",\"name\":\"" + (i == 1 ? "Rohan" : "Host") + "\",\"faction\":-1,\"color\":-1,\"startPos\":-1,\"team\":-1,\"ready\":false,\"you\":" +
 				(i == 1 ? "true" : "false") + (i == 0 ? link0 : i == 2 ? link2 : std::string()) + "}";
 		}
-		return "{\"v\":1,\"slot\":1,\"game\":{\"id\":\"0123456789abcdef\",\"name\":\"g\",\"state\":\"open\",\"hostSlot\":0,\"profile\":\"x\"" + relay +
+		return "{\"v\":1,\"slot\":1,\"game\":{\"id\":\"0123456789abcdef\",\"name\":\"g\",\"state\":\"open\",\"hostSlot\":0,\"private\":false,\"profile\":\"x\"" + relay +
 			",\"setup\":{\"map\":\"m\",\"startingCash\":1500,\"superweaponRestriction\":0,\"legendaryHeroes\":1,\"rules\":null},\"slots\":[" + slots + "],\"seq\":3}}";
 	};
 	// not in a game: nothing is sent
@@ -912,7 +1071,7 @@ TEST_CASE("online4: hostile lobby answers are bounded and refused, and credentia
 				(i == 1 ? slotName : std::string("Host")) + "\",\"faction\":-1,\"color\":-1,\"startPos\":-1,\"team\":-1,\"ready\":false,\"you\":" +
 				(i == 1 ? "true" : "false") + "}";
 		}
-		return "{\"id\":\"0123456789abcdef\",\"name\":\"" + name + "\",\"state\":\"open\",\"hostSlot\":0,\"profile\":\"x\",\"setup\":{\"map\":\"m\","
+		return "{\"id\":\"0123456789abcdef\",\"name\":\"" + name + "\",\"state\":\"open\",\"hostSlot\":0,\"private\":false,\"profile\":\"x\",\"setup\":{\"map\":\"m\","
 			   "\"startingCash\":1500,\"superweaponRestriction\":0,\"legendaryHeroes\":1,\"rules\":null},\"slots\":[" + slots + "],\"seq\":3}";
 	};
 	c.joinGame("0123456789abcdef", "");
@@ -975,7 +1134,7 @@ TEST_CASE("online5: the lobby client's held polls (long polling) and the sender'
 				(i == 0 ? "\"Host\"" : i == 1 ? "\"Me\"" : "null") + ",\"faction\":-1,\"color\":-1,\"startPos\":-1,\"team\":-1,\"ready\":" +
 				(i == 1 && ready ? "true" : "false") + ",\"you\":" + (i == 1 ? "true" : "false") + "}";
 		}
-		return "{\"id\":\"0123456789abcdef\",\"name\":\"g\",\"state\":\"open\",\"hostSlot\":0,\"profile\":\"x\",\"setup\":{\"map\":\"m\",\"startingCash\":1500,"
+		return "{\"id\":\"0123456789abcdef\",\"name\":\"g\",\"state\":\"open\",\"hostSlot\":0,\"private\":false,\"profile\":\"x\",\"setup\":{\"map\":\"m\",\"startingCash\":1500,"
 			   "\"superweaponRestriction\":0,\"legendaryHeroes\":1,\"rules\":null},\"slots\":[" + slots + "],\"seq\":" + std::to_string(seq) + "}";
 	};
 	auto pollBody = [&](int seq, const std::string &chat, const std::string &wait, bool ready = false) {
@@ -1247,6 +1406,18 @@ TEST_CASE("online5: the lobby client's held polls (long polling) and the sender'
 }
 
 #ifdef ONLINE4_POSIX
+TEST_CASE("online4: sign-in waits for a slow local lobby to become healthy")
+{
+	ONLINE4_REQUIRE_NODE();
+	NodeLobby lobby("", "", 6500);
+	OnlineLobbyClient client(clientOptions());
+	client.signInGuest(u"Guest");
+	const auto events = drive(client, lobby.port, OnlineLobbyClient::Event::SignedIn);
+	REQUIRE_MESSAGE(client.signedIn(), lobby.log());
+	CHECK(hasEvent(events, OnlineLobbyClient::Event::SignedIn));
+	CHECK(client.accountName() == u"Guest");
+}
+
 TEST_CASE("online4: the lobby client against a local lobby (server.mjs): guest sign-in, the list with a locked game, a wrong and a right password, a "
 		  "slot change, chat, ready, START refused without a relay (no_relay), a kick, the host leaving")
 {
@@ -1255,13 +1426,16 @@ TEST_CASE("online4: the lobby client against a local lobby (server.mjs): guest s
 	OnlineLobbyClient host(clientOptions()), join(clientOptions());
 	host.signInGuest(u"Hostname");
 	join.signInGuest(u"Joiner");
-	std::vector<OnlineLobbyClient::Event> he = drive(host, lobby.port), je = drive(join, lobby.port);
+	std::vector<OnlineLobbyClient::Event> he = drive(host, lobby.port, OnlineLobbyClient::Event::SignedIn),
+		je = drive(join, lobby.port, OnlineLobbyClient::Event::SignedIn);
 	REQUIRE_MESSAGE(host.signedIn(), lobby.log());
 	REQUIRE(join.signedIn());
+	CHECK(hasEvent(he, OnlineLobbyClient::Event::SignedIn));
+	CHECK(hasEvent(je, OnlineLobbyClient::Event::SignedIn));
 	CHECK(host.accountName() == u"Hostname");
 	// the message of the day: this lobby has none (null), said so
 	host.fetchMotd();
-	he = drive(host, lobby.port);
+	he = drive(host, lobby.port, OnlineLobbyClient::Event::Motd);
 	CHECK(hasEvent(he, OnlineLobbyClient::Event::Motd));
 	CHECK(host.motdKnown());
 	CHECK_FALSE(host.hasMotd());
@@ -1274,14 +1448,14 @@ TEST_CASE("online4: the lobby client against a local lobby (server.mjs): guest s
 	setup.slots[2].state = SLOT_HARD_AI;
 	setup.slots[2].playerTemplate = 5;
 	host.createGame(u"Host's game", "pw", setup, 0);
-	he = drive(host, lobby.port);
+	he = drive(host, lobby.port, OnlineLobbyClient::Event::GameCreated);
 	REQUIRE(hasEvent(he, OnlineLobbyClient::Event::GameCreated));
 	CHECK(host.amIHost());
 	CHECK(host.gameInfo().slots[2].state == SLOT_HARD_AI);
 	CHECK(host.gameInfo().slots[2].playerTemplate == 5);
 	CHECK(host.gameInfo().startingCash == 2000);
 	join.refreshList();
-	je = drive(join, lobby.port);
+	je = drive(join, lobby.port, OnlineLobbyClient::Event::GameList);
 	REQUIRE(join.games().size() == 1);
 	CHECK(join.games()[0].name == u"Host's game");
 	CHECK(join.games()[0].host == u"Hostname");
@@ -1290,13 +1464,13 @@ TEST_CASE("online4: the lobby client against a local lobby (server.mjs): guest s
 	CHECK(join.games()[0].openSlots == 1);
 	const std::string id = join.games()[0].id;
 	join.joinGame(id, "wrong");
-	je = drive(join, lobby.port);
+	je = drive(join, lobby.port, OnlineLobbyClient::Event::Refused);
 	const OnlineLobbyClient::Event *refused = findEvent(je, OnlineLobbyClient::Event::Refused, "join");
 	REQUIRE(refused);
 	CHECK(refused->code == "password");
 	CHECK_FALSE(join.inGame());
 	join.joinGame(id, "pw");
-	je = drive(join, lobby.port);
+	je = drive(join, lobby.port, OnlineLobbyClient::Event::GameJoined);
 	REQUIRE(hasEvent(je, OnlineLobbyClient::Event::GameJoined));
 	CHECK(join.localSlot() == 1);
 	CHECK_FALSE(join.amIHost());
@@ -1304,16 +1478,8 @@ TEST_CASE("online4: the lobby client against a local lobby (server.mjs): guest s
 	join.setOwnSlot(7, 2, OnlineLobbyClient::kKeep, 1);
 	join.chat(u"hello host");
 	join.setReady(true);
-	je = drive(join, lobby.port);
-	for (int i = 0; i < 5; ++i)
-	{
-		NetSleepMilliseconds(120);
-		he = drive(host, lobby.port);
-		if (host.slotViews()[1].ready)
-		{
-			break;
-		}
-	}
+	je = drive(join, lobby.port, OnlineLobbyClient::Event::GameUpdated);
+	he = drive(host, lobby.port, OnlineLobbyClient::Event::GameUpdated);
 	CHECK(host.gameInfo().slots[1].state == SLOT_PLAYER);
 	CHECK(host.gameInfo().slots[1].name == u"Joiner");
 	CHECK(host.gameInfo().slots[1].playerTemplate == 7);
@@ -1333,32 +1499,100 @@ TEST_CASE("online4: the lobby client against a local lobby (server.mjs): guest s
 	CHECK(std::find(chat.begin(), chat.end(), u"*Joiner joined") != chat.end());
 	// START without a relay: the lobby's no_relay
 	host.start();
-	he = drive(host, lobby.port);
+	he = drive(host, lobby.port, OnlineLobbyClient::Event::Refused);
 	const OnlineLobbyClient::Event *noRelay = findEvent(he, OnlineLobbyClient::Event::Refused, "start");
 	REQUIRE(noRelay);
 	CHECK(noRelay->code == "no_relay");
 	CHECK(host.startJson().empty());
 	// the kick: the joiner's next poll says it is out
 	host.kick(1);
-	he = drive(host, lobby.port);
+	he = drive(host, lobby.port, OnlineLobbyClient::Event::GameUpdated);
 	CHECK(host.gameInfo().slots[1].state == SLOT_OPEN);
-	NetSleepMilliseconds(120);
-	je = drive(join, lobby.port);
+	je = drive(join, lobby.port, OnlineLobbyClient::Event::Removed);
 	CHECK(hasEvent(je, OnlineLobbyClient::Event::Removed, "kicked"));
 	CHECK_FALSE(join.inGame());
 	// it joins again; the host leaves: the joiner's poll says the game closed
 	join.joinGame(id, "pw");
-	je = drive(join, lobby.port);
+	je = drive(join, lobby.port, OnlineLobbyClient::Event::GameJoined);
 	REQUIRE(join.inGame());
 	host.leaveGame();
-	he = drive(host, lobby.port);
+	he = drive(host, lobby.port, OnlineLobbyClient::Event::Removed);
 	CHECK(hasEvent(he, OnlineLobbyClient::Event::Removed, "left"));
-	NetSleepMilliseconds(120);
-	je = drive(join, lobby.port);
+	je = drive(join, lobby.port, OnlineLobbyClient::Event::Removed);
 	CHECK(hasEvent(je, OnlineLobbyClient::Event::Removed, "closed"));
 	join.refreshList();
-	je = drive(join, lobby.port);
+	je = drive(join, lobby.port, OnlineLobbyClient::Event::GameList);
 	CHECK(join.games().empty());
+}
+
+TEST_CASE("solo1: a custom game's host starts alone, with an AI or not; a private room still needs two humans (local lobby, server.mjs)")
+{
+	ONLINE4_REQUIRE_NODE();
+	NodeLobby lobby("local=127.0.0.1:29300", ""); // a relay address so the lobby signs: the signed STARTs are not played here
+	OnlineLobbyClient host(clientOptions()), join(clientOptions());
+	host.signInGuest(u"Hostname");
+	auto he = drive(host, lobby.port, OnlineLobbyClient::Event::SignedIn);
+	REQUIRE_MESSAGE(host.signedIn(), lobby.log());
+	SkirmishGameInfo setup;
+	setup.mapName = "maps/map mp fords of isen ii/map mp fords of isen ii.map";
+	setup.slots[0].state = SLOT_PLAYER;
+	setup.slots[1].state = SLOT_OPEN;
+	setup.slots[2].state = SLOT_HARD_AI;
+	host.createGame(u"solo vs AI", "", setup, 0);
+	he = drive(host, lobby.port, OnlineLobbyClient::Event::GameCreated);
+	REQUIRE(host.inGame());
+	CHECK_FALSE(host.privateRoom()); // a custom game: the view's "private" is false
+	// the lobby signs a START for the one human slot (an AI on slot 2)
+	host.start();
+	he = drive(host, lobby.port, OnlineLobbyClient::Event::GameStart);
+	REQUIRE_MESSAGE(!host.startJson().empty(), lobby.log());
+	CHECK(host.startJson().find("\"kind\":\"openbfme-start\"") != std::string::npos);
+	CHECK(host.startJson().find("\"slot\":0") != std::string::npos);
+	// and a second client can spectate the running solo game (a custom game is open to spectators)
+	join.signInGuest(u"Watcher");
+	auto je = drive(join, lobby.port, OnlineLobbyClient::Event::SignedIn);
+	REQUIRE(join.signedIn());
+	join.spectateGame(host.gameId());
+	je = drive(join, lobby.port, OnlineLobbyClient::Event::GameStart);
+	REQUIRE(!join.startJson().empty());
+	CHECK(join.startJson().find("\"kind\":\"openbfme-spectate\"") != std::string::npos);
+	// the same solo start with no AI at all
+	OnlineLobbyClient alone(clientOptions());
+	alone.signInGuest(u"Alone");
+	auto ae = drive(alone, lobby.port, OnlineLobbyClient::Event::SignedIn);
+	SkirmishGameInfo noAI = setup;
+	noAI.slots[2].state = SLOT_OPEN;
+	alone.createGame(u"solo", "", noAI, 0);
+	ae = drive(alone, lobby.port, OnlineLobbyClient::Event::GameCreated);
+	REQUIRE(alone.inGame());
+	alone.start();
+	ae = drive(alone, lobby.port, OnlineLobbyClient::Event::GameStart);
+	REQUIRE(!alone.startJson().empty());
+	// a private room (a Quick Match / tournament room, ONLINEHUB-1) keeps the two-human minimum: refused alone, fine with two
+	OnlineLobbyClient host2(clientOptions()), join2(clientOptions());
+	host2.signInGuest(u"QHost");
+	join2.signInGuest(u"QJoin");
+	auto qe = drive(host2, lobby.port, OnlineLobbyClient::Event::SignedIn);
+	drive(join2, lobby.port, OnlineLobbyClient::Event::SignedIn);
+	host2.createGame(u"Quick Match", "", setup, 0, "QM-solo-123");
+	qe = drive(host2, lobby.port, OnlineLobbyClient::Event::GameCreated);
+	REQUIRE(host2.inGame());
+	CHECK(host2.privateRoom()); // the view's "private"
+	host2.start();
+	qe = drive(host2, lobby.port, OnlineLobbyClient::Event::Refused);
+	const OnlineLobbyClient::Event *refused = findEvent(qe, OnlineLobbyClient::Event::Refused, "start");
+	REQUIRE(refused);
+	CHECK(refused->code == "players");
+	CHECK(host2.startJson().empty());
+	join2.joinByCode("QM-solo-123");
+	auto j2e = drive(join2, lobby.port, OnlineLobbyClient::Event::GameJoined);
+	REQUIRE(join2.inGame());
+	join2.setReady(true);
+	drive(join2, lobby.port, OnlineLobbyClient::Event::GameUpdated);
+	NetSleepMilliseconds(120);
+	host2.start();
+	qe = drive(host2, lobby.port, OnlineLobbyClient::Event::GameStart);
+	REQUIRE_MESSAGE(!host2.startJson().empty(), lobby.log());
 }
 #endif
 
@@ -1569,21 +1803,15 @@ struct OnlinePlayer
 };
 
 // both shells tick until `done` (each tick pumps its lobby client)
-bool runUntil(std::vector<OnlinePlayer *> ps, const std::function<bool()> &done, int limit = 600)
+bool runUntil(std::vector<OnlinePlayer *> ps, const std::function<bool()> &done)
 {
-	for (int i = 0; i < limit; ++i)
-	{
+	return onlinetest::waitUntil([&] {
 		for (OnlinePlayer *p : ps)
 		{
 			p->tick(1);
 		}
-		if (done())
-		{
-			return true;
-		}
-		NetSleepMilliseconds(2);
-	}
-	return false;
+		return done();
+	}, std::chrono::milliseconds(2));
 }
 
 std::string listText(GameWindow *list, int row, int col)
@@ -1605,7 +1833,7 @@ void signIn(OnlinePlayer &p, const std::u16string &name, bool motdExpected = tru
 			}
 		}
 		return false;
-	}, 300), p.notes());
+	}), p.notes());
 	// the name in the Nickname combo the page shows (its edit text; typing into the gadget is the gadget layer's, tested there)
 	// lane ONLINEUX-1: typed as a player types it: the page's Login button follows the nickname (RW 0x97A668: enabled only with a printable
 	// character, told by the combo's text change), so a name put in without typing leaves Login as the empty field left it
@@ -1613,10 +1841,10 @@ void signIn(OnlinePlayer &p, const std::u16string &name, bool motdExpected = tru
 	starttest::typeText(p.fx, GadgetComboBoxGetEditBox(p.sh->nicknameWindow()), name);
 	REQUIRE(!p.sh->nicknameWindow()->winIsHidden());
 	REQUIRE(p.clickWhenShown("Login.LogIn")); // the page's Log In (AptOnline::Login::Login)
-	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return p.client.signedIn() && p.sh->currentPage() == "OnlineHome"; }, 300), p.notes());
+	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return p.client.signedIn() && p.sh->currentPage() == "OnlineHome"; }), p.notes());
 	if (motdExpected)
 	{
-		REQUIRE(runUntil({ &p }, [&] { return p.client.motdKnown(); }, 300));
+		REQUIRE(runUntil({ &p }, [&] { return p.client.motdKnown(); }));
 	}
 }
 
@@ -1627,7 +1855,7 @@ void openPlay(OnlinePlayer &p)
 	AptButtonInst *openPlay = starttest::firstButtonIn(p.at("Toggles.ButtonNav.OpenPlay"));
 	REQUIRE(openPlay);
 	starttest::clickButton(p.fx, *openPlay);
-	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return p.sh->currentPage() == "OnlineOpenPlay" && p.sh->openPlayState() == 2 && p.sh->gameList(); }, 600),
+	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return p.sh->currentPage() == "OnlineOpenPlay" && p.sh->openPlayState() == 2 && p.sh->gameList(); }),
 		p.notes() << "\n" << p.fx.wm->apt().dumpTree(p.fx.wm->apt().level(p.sh->level()), 3));
 }
 
@@ -1654,7 +1882,7 @@ TEST_CASE("online4 retail: OnlineShell.apt on a local lobby: guest sign-in, the 
 	}
 	CHECK(AptOnlineShell::stopLines().size() == 23); // lane ONLINE-5: S-4550 .. S-4554 added; lane ONLINEHUB-1: S-4870, 4871, 4873 .. 4875, 4877; ONLINEUX-1: S-5140 .. S-5143; ONLINEMENU-1: S-4076 resolved
 	// ---- OnlineLogin: the guest name of the last sign-in is offered; the account features are disabled ----
-	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.sh->nicknameWindow() != nullptr; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.sh->nicknameWindow() != nullptr; }), host.notes());
 	CHECK(host.sh->currentPage() == "OnlineLogin");
 	CHECK(GadgetComboBoxGetText(host.sh->nicknameWindow()) == u"LastTime");
 	CHECK_FALSE(host.hasNote("movie-function-missing"));
@@ -1692,7 +1920,7 @@ TEST_CASE("online4 retail: OnlineShell.apt on a local lobby: guest sign-in, the 
 	};
 	for (const char *clip : { "OnlineLogin.Login.Register", "OnlineLogin.Login.DeleteNickname", "OnlineLogin.Login.ServiceTerms" })
 	{
-		CHECK_MESSAGE(runUntil({ &host }, [&] { return disabledShown(clip); }, 120), clip);
+		CHECK_MESSAGE(runUntil({ &host }, [&] { return disabledShown(clip); }), clip);
 	}
 	CHECK_FALSE(disabledShown("OnlineLogin.Login.OfficialSite"));
 	REQUIRE(host.clickWhenShown("OnlineLogin.GameSpy.bttn"));
@@ -1764,7 +1992,7 @@ TEST_CASE("online4 retail: OnlineShell.apt on a local lobby: guest sign-in, the 
 	// ---- Open Play: an empty list; Create Game (name, password) ----
 	CHECK(host.sh->gameRows().empty());
 	REQUIRE(host.clickWhenShown("Controls.CreateGame"));
-	const bool popupGadgets = runUntil({ &host }, [&] { return host.sh->openPlayState() == 3 && host.sh->gameNameWindow() && host.sh->gamePasswordWindow(); }, 300);
+	const bool popupGadgets = runUntil({ &host }, [&] { return host.sh->openPlayState() == 3 && host.sh->gameNameWindow() && host.sh->gamePasswordWindow(); });
 	REQUIRE_MESSAGE(popupGadgets, host.notes());
 	CHECK(host.sh->openPlayState() == 3);
 
@@ -1772,7 +2000,7 @@ TEST_CASE("online4 retail: OnlineShell.apt on a local lobby: guest sign-in, the 
 	GadgetTextEntrySetText(host.sh->gameNameWindow(), u"Test game");
 	GadgetTextEntrySetText(host.sh->gamePasswordWindow(), u"pw");
 	REQUIRE(host.clickWhenShown("CreateGamePopup.Accept")); // the pop-up's Accept (AptOnline::CustomMatch::CreateGame)
-	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }), host.notes());
 	CHECK(host.client.amIHost());
 	host.tick(60);
 	MenuNavigator controller(*host.fx.wm);
@@ -1847,7 +2075,7 @@ TEST_CASE("online4 retail: OnlineShell.apt on a local lobby: guest sign-in, the 
 	}
 	const std::string otherTitle = "Another map title";
 	signInAndOpenPlay(join, u"Joiner");
-	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.sh->gameRows().size() == 1; }, 300), join.notes());
+	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.sh->gameRows().size() == 1; }), join.notes());
 	{
 		int open = 0;
 		for (const SkirmishGameSlot &sl : host.client.gameInfo().slots)
@@ -1873,7 +2101,7 @@ TEST_CASE("online4 retail: OnlineShell.apt on a local lobby: guest sign-in, the 
 	join.tick(30);
 	CHECK(join.sh->gameRows().size() == 1); // the list is the one the page asked for
 	REQUIRE(join.click("Main.Refresh.buttonRefresh"));
-	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.sh->gameRows().size() == 2; }, 300), join.notes());
+	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.sh->gameRows().size() == 2; }), join.notes());
 	auto names = [&] {
 		std::string out;
 		for (const std::string &r : join.sh->gameRows())
@@ -1891,17 +2119,17 @@ TEST_CASE("online4 retail: OnlineShell.apt on a local lobby: guest sign-in, the 
 		};
 		const auto before = pressed();
 		REQUIRE(join.clickWhenShown("Main.instance13.instance8." + column + "."));
-		REQUIRE_MESSAGE(runUntil({ &join }, [&] { return pressed() == before + 1; }, 120), join.notes());
+		REQUIRE_MESSAGE(runUntil({ &join }, [&] { return pressed() == before + 1; }), join.notes());
 	};
 	sortPress("OnSortName");
-	REQUIRE_MESSAGE(runUntil({ &join }, [&] { return names() == "Another game;Test game;"; }, 60), names());
+	REQUIRE_MESSAGE(runUntil({ &join }, [&] { return names() == "Another game;Test game;"; }), names());
 	CHECK(listText(join.sh->gameList(), 0, 3) == "Another game");
 	sortPress("OnSortName");
-	REQUIRE_MESSAGE(runUntil({ &join }, [&] { return names() == "Test game;Another game;"; }, 60), names());
+	REQUIRE_MESSAGE(runUntil({ &join }, [&] { return names() == "Test game;Another game;"; }), names());
 	CHECK(listText(join.sh->gameList(), 0, 3) == "Test game");
 	sortPress("OnSortMap");
 	const std::string byMap = otherTitle < testTitle ? "Another game;Test game;" : "Test game;Another game;";
-	REQUIRE_MESSAGE(runUntil({ &join }, [&] { return names() == byMap; }, 60), names() << " " << otherTitle << " / " << testTitle);
+	REQUIRE_MESSAGE(runUntil({ &join }, [&] { return names() == byMap; }), names() << " " << otherTitle << " / " << testTitle);
 	auto testRow = [&] {
 		const auto &ids = join.sh->gameIds();
 		return (int)(std::find(ids.begin(), ids.end(), host.client.gameId()) - ids.begin());
@@ -1909,43 +2137,43 @@ TEST_CASE("online4 retail: OnlineShell.apt on a local lobby: guest sign-in, the 
 	// nothing selected: Join Game says GUI:Error / GUI:NoGameSelected
 	GadgetListBoxSetSelected(join.sh->gameList(), -1);
 	REQUIRE(join.clickWhenShown("Main.Controls.JoinGame"));
-	REQUIRE(runUntil({ &join }, [&] { return !join.sh->boxesShown().empty(); }, 60));
+	REQUIRE(runUntil({ &join }, [&] { return !join.sh->boxesShown().empty(); }));
 	CHECK(join.sh->boxesShown().back() == "GUI:Error|GUI:NoGameSelected");
 	CHECK(join.client.sentCount("join") == 0);
 	join.dismissBox();
-	REQUIRE(runUntil({ &join }, [&] { return join.sh->openPlayState() == 2; }, 60));
+	REQUIRE(runUntil({ &join }, [&] { return join.sh->openPlayState() == 2; }));
 	// the locked game: Join Game opens the password prompt; a wrong password is the lobby's refusal in the box, back to the list
 	GadgetListBoxSetSelected(join.sh->gameList(), testRow());
 	REQUIRE(join.clickWhenShown("Main.Controls.JoinGame"));
-	REQUIRE_MESSAGE(runUntil({ &join }, [&] { return join.sh->openPlayState() == 10; }, 60), join.notes());
+	REQUIRE_MESSAGE(runUntil({ &join }, [&] { return join.sh->openPlayState() == 10; }), join.notes());
 	REQUIRE(join.waitShown("AcceptJoin")); // the pop-up places its own password entry as it opens
 	GadgetTextEntrySetText(join.sh->gamePasswordWindow(), u"nope");
 	REQUIRE(join.clickWhenShown("AcceptJoin"));
-	REQUIRE(runUntil({ &join }, [&] { return join.sh->openPlayState() == 2; }, 300));
+	REQUIRE(runUntil({ &join }, [&] { return join.sh->openPlayState() == 2; }));
 	CHECK(join.sh->boxesShown().back() == "GUI:JoinFailedDefault|wrong password");
 	CHECK_FALSE(join.client.inGame());
 	join.dismissBox();
 	GadgetListBoxSetSelected(join.sh->gameList(), testRow());
 	REQUIRE(join.clickWhenShown("Main.Controls.JoinGame"));
-	REQUIRE(runUntil({ &join }, [&] { return join.sh->openPlayState() == 10; }, 60));
+	REQUIRE(runUntil({ &join }, [&] { return join.sh->openPlayState() == 10; }));
 	REQUIRE(join.waitShown("AcceptJoin"));
 	GadgetTextEntrySetText(join.sh->gamePasswordWindow(), u"pw");
 	REQUIRE(join.clickWhenShown("AcceptJoin"));
-	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.client.inGame() && join.sh->openPlayState() == 12; }, 300), join.notes());
+	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.client.inGame() && join.sh->openPlayState() == 12; }), join.notes());
 	CHECK(join.client.localSlot() == 1);
 	// the host's staging room shows the joiner in slot 1
-	REQUIRE(runUntil({ &host, &join }, [&] { return host.sh->setup()->info().slots[1].state == SLOT_PLAYER; }, 300));
+	REQUIRE(runUntil({ &host, &join }, [&] { return host.sh->setup()->info().slots[1].state == SLOT_PLAYER; }));
 	CHECK(host.sh->setup()->info().slots[1].name == u"Joiner");
 	// ---- the joiner's faction through its own combo reaches the host through the lobby (as the LAN lobby's test) ----
 	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] {
 		GameWindow *f = join.sh->slotGadget(1, "PlayerTemplate");
 		return f && GadgetComboBoxGetLength(f) > 2 && host.sh->slotGadget(1, "PlayerTemplate");
-	}, 300), join.notes());
+	}), join.notes());
 	GadgetComboBoxSetSelectedPos(join.sh->slotGadget(1, "PlayerTemplate"), 2, false);
 	const int faction = join.sh->setup()->info().slots[1].playerTemplate;
 	REQUIRE(faction >= 0); // tolerance: a valid player template index (-1 = random is not what was selected)
-	REQUIRE(runUntil({ &host, &join }, [&] { return host.client.gameInfo().slots[1].playerTemplate == faction; }, 300));
-	REQUIRE(runUntil({ &host, &join }, [&] { return host.sh->setup()->info().slots[1].playerTemplate == faction; }, 300));
+	REQUIRE(runUntil({ &host, &join }, [&] { return host.client.gameInfo().slots[1].playerTemplate == faction; }));
+	REQUIRE(runUntil({ &host, &join }, [&] { return host.sh->setup()->info().slots[1].playerTemplate == faction; }));
 	CHECK(join.client.sentCount("slot") == 1); // one change of the combo, one request to the lobby
 	// the host's slot is not the joiner's to change; the joiner's is not the host's
 	auto enabled = [](GameWindow *w) { return w && (w->winGetStatus() & WIN_STATUS_ENABLED) != 0; };
@@ -1955,23 +2183,23 @@ TEST_CASE("online4 retail: OnlineShell.apt on a local lobby: guest sign-in, the 
 	// ---- chat through the chat tab's entry (AptMpChat::Send): the line reaches the host's chat list through the lobby ----
 	// the joiner's setup page shows its chat at once (Join.instance1.TabChat); the host's has a CHAT tab
 	REQUIRE(host.clickWhenShown("TabButtons.ChatTab"));
-	REQUIRE(runUntil({ &host, &join }, [&] { return join.sh->chatEntryWindow() != nullptr && host.sh->chatListWindow() != nullptr; }, 300));
+	REQUIRE(runUntil({ &host, &join }, [&] { return join.sh->chatEntryWindow() != nullptr && host.sh->chatListWindow() != nullptr; }));
 	GadgetTextEntrySetText(join.sh->chatEntryWindow(), u"  hello host ");
 	CHECK(join.fx.wm->invokeCallback("AptMpChat::Send", ""));
 	CHECK(GadgetTextEntryGetText(join.sh->chatEntryWindow()).empty());
 	REQUIRE(runUntil({ &host, &join }, [&] {
 		return std::find(host.sh->chatLines().begin(), host.sh->chatLines().end(), "[Joiner] hello host") != host.sh->chatLines().end();
-	}, 300));
+	}));
 	REQUIRE(host.sh->chatListWindow());
 	CHECK(GadgetListBoxGetText(host.sh->chatListWindow(), GadgetListBoxGetNumEntries(host.sh->chatListWindow()) - 1, 0) == u"[Joiner] hello host");
 	// ---- ready: the joiner's press of its own box in the Ready column (lane ONLINE-5: RW 0x84211D gives the boxes their states), seen by the host ----
-	REQUIRE(runUntil({ &host, &join }, [&] { return join.sh->readyIcon(1) == "_enabledUnchecked"; }, 300));
+	REQUIRE(runUntil({ &host, &join }, [&] { return join.sh->readyIcon(1) == "_enabledUnchecked"; }));
 	REQUIRE(join.click("~1.Ready"));
-	REQUIRE(runUntil({ &host, &join }, [&] { return host.client.slotViews()[1].ready && host.sh->setup()->info().slots[1].accepted; }, 300));
+	REQUIRE(runUntil({ &host, &join }, [&] { return host.client.slotViews()[1].ready && host.sh->setup()->info().slots[1].accepted; }));
 	// ---- Play Game without a relay: the lobby refuses (no_relay) and the player is told plainly ----
 	const size_t hostBoxes = host.sh->boxesShown().size();
 	REQUIRE(host.clickWhenShown("LowerButtons_Host.PlayGame"));
-	REQUIRE(runUntil({ &host, &join }, [&] { return host.sh->boxesShown().size() > hostBoxes; }, 300)); // tolerance: waits for the one refusal box; the next CHECK asserts its exact text
+	REQUIRE(runUntil({ &host, &join }, [&] { return host.sh->boxesShown().size() > hostBoxes; })); // tolerance: waits for the one refusal box; the next CHECK asserts its exact text
 	CHECK(host.sh->boxesShown().back() == "no_relay|Online games can't start yet: no relay server is available.");
 	CHECK(host.hasNote("online-refused", "start: no_relay:"));
 	CHECK_FALSE(host.sh->connectingShown());
@@ -1980,8 +2208,8 @@ TEST_CASE("online4 retail: OnlineShell.apt on a local lobby: guest sign-in, the 
 	CHECK(host.client.inGame()); // still in the staging room
 	// ---- the joiner's Cancel: out of the game, back to the list; the host's room shows the slot open again ----
 	REQUIRE(join.clickWhenShown("LowerButtons_Join.CancelJoin"));
-	REQUIRE(runUntil({ &host, &join }, [&] { return !join.client.inGame() && join.sh->openPlayState() == 2; }, 300));
-	REQUIRE(runUntil({ &host, &join }, [&] { return host.sh->setup()->info().slots[1].state == SLOT_OPEN; }, 300));
+	REQUIRE(runUntil({ &host, &join }, [&] { return !join.client.inGame() && join.sh->openPlayState() == 2; }));
+	REQUIRE(runUntil({ &host, &join }, [&] { return host.sh->setup()->info().slots[1].state == SLOT_OPEN; }));
 	// lane MENUWORK-1: an online page OpenBFME does not have (War of the Ring): a box in the player's words, then the page
 	// the player came from again
 	CHECK(join.sh->currentPage() == "OnlineOpenPlay");
@@ -1991,7 +2219,7 @@ TEST_CASE("online4 retail: OnlineShell.apt on a local lobby: guest sign-in, the 
 		REQUIRE(join.sh->messageBox());
 		CHECK(join.sh->messageBox()->text() == AptOnlineShell::unavailablePageText(page));
 		CHECK(join.sh->boxesShown().back() == std::string("GUI:GSErrorTitle|not available: ") + page);
-		REQUIRE(runUntil({ &host, &join }, [&] { return join.sh->currentPage() == "OnlineOpenPlay"; }, 120));
+		REQUIRE(runUntil({ &host, &join }, [&] { return join.sh->currentPage() == "OnlineOpenPlay"; }));
 		join.dismissBox();
 	}
 	CHECK_FALSE(host.hasNote("movie-function-missing"));
@@ -2034,16 +2262,16 @@ TEST_CASE("online4 retail hostile: the online screens on bounded, recoverable lo
 	};
 	signIn(host, u"Hostname", false);
 	// ---- the home page: the message of the day was refused for its size, and the player is told (the client kept none of it) ----
-	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return !host.sh->motdLines().empty() && host.sh->motdLines()[0] != "..."; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return !host.sh->motdLines().empty() && host.sh->motdLines()[0] != "..."; }), host.notes());
 	CHECK(host.sh->motdLines()[0] == "The lobby's message of the day could not be read: the lobby's answer is larger than 262144 bytes");
 	CHECK_FALSE(host.client.motdKnown());
 	CHECK(host.client.motd().empty());
 	openPlay(host);
 	REQUIRE(host.clickWhenShown("Controls.CreateGame"));
-	REQUIRE(runUntil({ &host }, [&] { return host.sh->openPlayState() == 3 && host.sh->gameNameWindow(); }, 300));
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->openPlayState() == 3 && host.sh->gameNameWindow(); }));
 	GadgetTextEntrySetText(host.sh->gameNameWindow(), u"Hostile");
 	REQUIRE(host.clickWhenShown("CreateGamePopup.Accept"));
-	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }), host.notes());
 	// ---- lost polls: said once in the room's chat (it keeps asking), and again when the lobby answers ----
 	auto chatCount = [&](const std::string &line) {
 		// lane ONLINEUX-1: the lost-lobby line is in the player's words (it was "The lobby does not answer: connection reset by peer (still trying)"):
@@ -2052,25 +2280,25 @@ TEST_CASE("online4 retail hostile: the online screens on bounded, recoverable lo
 	};
 	const std::string lost = "The online lobby does not answer (still trying): Can't reach the OpenBFME online lobby";
 	pollsLost = true;
-	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return chatCount(lost) == 1; }, 600), host.notes());
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return chatCount(lost) == 1; }), host.notes());
 	const int pollsBefore = host.client.sentCount("poll");
-	REQUIRE(runUntil({ &host }, [&] { return host.client.sentCount("poll") == pollsBefore + 2; }, 600)); // two more lost polls
+	REQUIRE(runUntil({ &host }, [&] { return host.client.sentCount("poll") == pollsBefore + 2; })); // two more lost polls
 	CHECK(chatCount(lost) == 1);
 	CHECK(host.client.inGame());
 	pollsLost = false;
-	REQUIRE(runUntil({ &host }, [&] { return chatCount("The lobby answers again.") == 1; }, 600));
+	REQUIRE(runUntil({ &host }, [&] { return chatCount("The lobby answers again.") == 1; }));
 	// ---- a malformed START (another profile; it carries a ticket): a lobby error in the box, back to the list; nothing reaches the game ----
 	startToSend = "{\"v\":1,\"kind\":\"openbfme-start\",\"game\":\"" + host.client.gameId() + "\",\"slot\":0,\"relay\":\"127.0.0.1:1\",\"ticket\":\"" + ticket +
 		"\",\"runAhead\":3,\"crcInterval\":10,\"profile\":\"ffffffffffffffffffffffffffffffff\",\"setup\":{}}";
 	const size_t boxes = host.sh->boxesShown().size();
-	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.sh->boxesShown().size() == boxes + 1; }, 600), host.notes());
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.sh->boxesShown().size() == boxes + 1; }), host.notes());
 	CHECK(host.sh->boxesShown().back().rfind("GUI:GSErrorTitle|The online game could not start: online START: the game's profile identity ffff", 0) == 0);
 	CHECK(host.fx.services.countRequests(ShellAction::OnlineGameStart) == 0);
 	CHECK(host.hasNote("online-start-failed", "profile identity"));
 	CHECK_FALSE(host.client.inGame());
 	CHECK(host.client.startJson().empty());
 	CHECK(host.client.sentCount("leave") == 0); // the slot stays the player's (a running game would be offered for a rejoin)
-	REQUIRE(runUntil({ &host }, [&] { return host.sh->openPlayState() == 2; }, 300));
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->openPlayState() == 2; }));
 	host.dismissBox();
 	// the host program's own refusal (GameWorld.net_online, through AptMenuPlayer.online_start_failed) takes the same way, its text redacted
 	host.sh->startFailed("the relay socket would not open: ticket " + ticket);
@@ -2080,9 +2308,9 @@ TEST_CASE("online4 retail hostile: the online screens on bounded, recoverable lo
 	const std::string token = host.client.sessionToken();
 	REQUIRE(OnlineLobbyClient::redact(token) == "<redacted>"); // the lobby's session token has a credential's shape
 	refusalToSend = "{\"v\":1,\"error\":\"bad_field\",\"message\":\"token " + token + " ticket " + ticket + "\"}";
-	REQUIRE(runUntil({ &host }, [&] { return host.sh->openPlayState() == 2; }, 300));
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->openPlayState() == 2; }));
 	REQUIRE(host.click("Main.Refresh.buttonRefresh"));
-	REQUIRE(runUntil({ &host }, [&] { return host.sh->boxesShown().back().rfind("GUI:GSErrorTitle|token ", 0) == 0; }, 300));
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->boxesShown().back().rfind("GUI:GSErrorTitle|token ", 0) == 0; }));
 	CHECK(host.sh->boxesShown().back() == "GUI:GSErrorTitle|token <redacted> ticket <redacted>");
 	// no note, box or chat line carries a credential
 	for (const WindowManagerNote &n : host.fx.wm->notes())
@@ -2188,20 +2416,20 @@ TEST_CASE("online4 retail e2e: the START from the online screens' staging room t
 	join.client = OnlineLobbyClient(o);
 	signInAndOpenPlay(host, u"Host");
 	REQUIRE(host.clickWhenShown("Controls.CreateGame"));
-	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }, 300));
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }));
 	REQUIRE(host.clickWhenShown("CreateGamePopup.Accept"));
-	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }), host.notes());
 	signInAndOpenPlay(join, u"Joiner");
-	REQUIRE(runUntil({ &host, &join }, [&] { return join.sh->gameRows().size() == 1; }, 300));
+	REQUIRE(runUntil({ &host, &join }, [&] { return join.sh->gameRows().size() == 1; }));
 	GadgetListBoxSetSelected(join.sh->gameList(), 0);
 	REQUIRE(join.fx.wm->invokeCallback("AptOnline::CustomMatch::JoinGame", ""));
-	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.client.inGame() && join.sh->openPlayState() == 12; }, 300), join.notes());
+	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.client.inGame() && join.sh->openPlayState() == 12; }), join.notes());
 	REQUIRE(join.fx.wm->invokeCallback("MpGameSetup::OnReadyPress", "1"));
-	REQUIRE(runUntil({ &host, &join }, [&] { return host.client.slotViews()[1].ready; }, 300));
+	REQUIRE(runUntil({ &host, &join }, [&] { return host.client.slotViews()[1].ready; }));
 	REQUIRE(host.fx.wm->invokeCallback("AptOnline::CustomMatch::PlayGame", ""));
 	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] {
 		return host.fx.services.countRequests(ShellAction::OnlineGameStart) == 1 && join.fx.services.countRequests(ShellAction::OnlineGameStart) == 1;
-	}, 600), host.notes() << "\n" << join.notes());
+	}), host.notes() << "\n" << join.notes());
 	CHECK(host.sh->connectingShown()); // the connecting pop-up is up while the game loads
 	std::vector<std::string> starts;
 	for (OnlinePlayer *p : { &host, &join })
@@ -2370,20 +2598,20 @@ TEST_CASE("online4 retail rejoin: a player that crashes mid-game restarts, signs
 		join.client = OnlineLobbyClient(joinerOptions);
 		signInAndOpenPlay(host, u"Host");
 		REQUIRE(host.clickWhenShown("Controls.CreateGame"));
-		REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }, 300));
+		REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }));
 		REQUIRE(host.clickWhenShown("CreateGamePopup.Accept"));
-		REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }, 300), host.notes());
+		REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }), host.notes());
 		signInAndOpenPlay(join, u"Joiner");
 		CHECK(join.ctx.sessionToken == join.client.sessionToken()); // the session the host program keeps for a restart
 		joinerSession = join.ctx.sessionToken;
-		REQUIRE(runUntil({ &host, &join }, [&] { return join.sh->gameRows().size() == 1; }, 300));
+		REQUIRE(runUntil({ &host, &join }, [&] { return join.sh->gameRows().size() == 1; }));
 		GadgetListBoxSetSelected(join.sh->gameList(), 0);
 		REQUIRE(join.fx.wm->invokeCallback("AptOnline::CustomMatch::JoinGame", ""));
-		REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.client.inGame() && join.sh->openPlayState() == 12; }, 300), join.notes());
+		REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.client.inGame() && join.sh->openPlayState() == 12; }), join.notes());
 		REQUIRE(join.fx.wm->invokeCallback("MpGameSetup::OnReadyPress", "1"));
-		REQUIRE(runUntil({ &host, &join }, [&] { return host.client.slotViews()[1].ready; }, 300));
+		REQUIRE(runUntil({ &host, &join }, [&] { return host.client.slotViews()[1].ready; }));
 		REQUIRE(host.fx.wm->invokeCallback("AptOnline::CustomMatch::PlayGame", ""));
-		REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return !startOf(host.fx.services).empty() && !startOf(join.fx.services).empty(); }, 600),
+		REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return !startOf(host.fx.services).empty() && !startOf(join.fx.services).empty(); }),
 			host.notes() << "\n" << join.notes());
 		starts[0] = startOf(host.fx.services);
 		starts[1] = startOf(join.fx.services);
@@ -2417,7 +2645,7 @@ TEST_CASE("online4 retail rejoin: a player that crashes mid-game restarts, signs
 	CHECK(again.client.sessionToken() == joinerSession); // the same player, no new guest
 	CHECK(again.client.sentCount("signin") == 0);
 	// the running game is offered at once (GuiFX's Yes / No box)
-	REQUIRE_MESSAGE(runUntil({ &again }, [&] { return !again.sh->boxesShown().empty(); }, 300), again.notes());
+	REQUIRE_MESSAGE(runUntil({ &again }, [&] { return !again.sh->boxesShown().empty(); }), again.notes());
 	CHECK(again.sh->boxesShown().back() == "rejoin-offer|Your game \"Host\" is still running. Rejoin it now?");
 	again.dismissBox("No"); // the player looks at the server browser first
 	CHECK(startOf(again.fx.services).empty());
@@ -2425,13 +2653,13 @@ TEST_CASE("online4 retail rejoin: a player that crashes mid-game restarts, signs
 	REQUIRE_MESSAGE(runUntil({ &again }, [&] {
 		const auto &rows = again.sh->gameRows();
 		return std::any_of(rows.begin(), rows.end(), [](const std::string &r) { return r.size() > 7 && r.compare(r.size() - 7, 7, "|rejoin") == 0; });
-	}, 300), again.notes());
+	}), again.notes());
 	const auto &rows = again.sh->gameRows();
 	const int row = (int)(std::find_if(rows.begin(), rows.end(), [](const std::string &r) { return r.size() > 7 && r.compare(r.size() - 7, 7, "|rejoin") == 0; }) - rows.begin());
 	CHECK(listText(again.sh->gameList(), row, 3) == "Host  - REJOIN");
 	GadgetListBoxSetSelected(again.sh->gameList(), row);
 	REQUIRE(again.clickWhenShown("Controls.JoinGame")); // the page's own Join Game
-	REQUIRE_MESSAGE(runUntil({ &again }, [&] { return !startOf(again.fx.services).empty(); }, 300), again.notes());
+	REQUIRE_MESSAGE(runUntil({ &again }, [&] { return !startOf(again.fx.services).empty(); }), again.notes());
 	CHECK(again.hasNote("online-rejoin", "rejoin game"));
 	const std::string rejoinStart = startOf(again.fx.services);
 	CHECK(rejoinStart.find("\"rejoin\":1") != std::string::npos);
@@ -2519,10 +2747,10 @@ bool gadgetEnabled(GameWindow *w)
 void joinListed(OnlinePlayer &p, std::vector<OnlinePlayer *> all, const std::u16string &name)
 {
 	signInAndOpenPlay(p, name);
-	REQUIRE_MESSAGE(runUntil(all, [&] { return p.sh->gameRows().size() == 1; }, 300), p.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return p.sh->gameRows().size() == 1; }), p.notes());
 	GadgetListBoxSetSelected(p.sh->gameList(), 0);
 	REQUIRE(p.clickWhenShown("Main.Controls.JoinGame"));
-	REQUIRE_MESSAGE(runUntil(all, [&] { return p.client.inGame() && p.sh->openPlayState() == 12; }, 300), p.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return p.client.inGame() && p.sh->openPlayState() == 12; }), p.notes());
 }
 } // namespace
 
@@ -2582,14 +2810,14 @@ TEST_CASE("online5 retail e2e: three players in the staging room: the Ready colu
 	host.fx.text.set("GUI:NotifiedStartIntent", "The host wants to start the game.");
 	signInAndOpenPlay(host, u"Host");
 	REQUIRE(host.clickWhenShown("Controls.CreateGame"));
-	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }, 300));
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }));
 	REQUIRE(host.clickWhenShown("CreateGamePopup.Accept"));
-	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }), host.notes());
 	joinListed(a, all, u"JoinerA");
 	joinListed(b, all, u"JoinerB");
 	REQUIRE(a.client.localSlot() == 1);
 	REQUIRE(b.client.localSlot() == 2);
-	REQUIRE(runUntil(all, [&] { return host.sh->setup()->info().slots[2].state == SLOT_PLAYER && a.sh->setup()->info().slots[2].state == SLOT_PLAYER; }, 300));
+	REQUIRE(runUntil(all, [&] { return host.sh->setup()->info().slots[2].state == SLOT_PLAYER && a.sh->setup()->info().slots[2].state == SLOT_PLAYER; }));
 	// ---- the Ready column: what the engine told the movie (RW 0x84211D) and what each player's movie shows ----
 	auto icons = [](OnlinePlayer &p) {
 		std::string out;
@@ -2599,7 +2827,7 @@ TEST_CASE("online5 retail e2e: three players in the staging room: the Ready colu
 		}
 		return out;
 	};
-	REQUIRE_MESSAGE(runUntil(all, [&] { return readyBoxShown(a, 1) == "_enabledUnchecked" && readyBoxShown(b, 2) == "_enabledUnchecked" && readyBoxShown(host, 2) == "_disabledUnchecked"; }, 300),
+	REQUIRE_MESSAGE(runUntil(all, [&] { return readyBoxShown(a, 1) == "_enabledUnchecked" && readyBoxShown(b, 2) == "_enabledUnchecked" && readyBoxShown(host, 2) == "_disabledUnchecked"; }),
 		icons(host) << " | " << icons(a) << " | " << icons(b) << "\n" << a.notes() << "\n" << a.fx.wm->apt().dumpTree(a.fx.wm->apt().level(a.sh->level()), 9));
 	CHECK(icons(host) == "_disabledChecked _disabledUnchecked _disabledUnchecked _none");
 	CHECK(icons(a) == "_disabledChecked _enabledUnchecked _disabledUnchecked _none");
@@ -2611,18 +2839,18 @@ TEST_CASE("online5 retail e2e: three players in the staging room: the Ready colu
 	CHECK_FALSE(host.hasNote("movie-function-missing"));
 	// ---- the host's Play Game while nobody is ready: refused by name (RW 0x8431B8: GUI:NotifiedStartIntent), every player reads why, no START asked ----
 	REQUIRE(host.clickWhenShown("LowerButtons_Host.PlayGame"));
-	REQUIRE(runUntil(all, [&] { return !host.sh->startRefusals().empty(); }, 300));
+	REQUIRE(runUntil(all, [&] { return !host.sh->startRefusals().empty(); }));
 	CHECK(host.sh->startRefusals().back() == "GUI:NotifiedStartIntent");
 	const std::string notice = "[Host] The host wants to start the game.";
 	REQUIRE(runUntil(all, [&] {
 		return std::count(a.sh->chatLines().begin(), a.sh->chatLines().end(), notice) == 1 && std::count(b.sh->chatLines().begin(), b.sh->chatLines().end(), notice) == 1;
-	}, 300));
+	}));
 	CHECK(host.client.sentCount("start") == 0);
 	CHECK(host.fx.services.countRequests(ShellAction::OnlineGameStart) == 0);
 	// ---- joiner A readies through its own box (the movie's button in the Ready column) ----
 	REQUIRE_MESSAGE(a.click("~1.Ready"), a.fx.wm->apt().dumpTree(a.fx.wm->apt().level(a.sh->level()), 9));
 	REQUIRE_MESSAGE(runUntil(all, [&] { return host.client.slotViews()[1].ready && readyBoxShown(host, 1) == "_disabledChecked" && readyBoxShown(a, 1) == "_enabledChecked" &&
-											 readyBoxShown(b, 1) == "_disabledChecked"; }, 300), icons(host) << " | " << icons(a) << " | " << icons(b) << "\n" << a.notes());
+											 readyBoxShown(b, 1) == "_disabledChecked"; }), icons(host) << " | " << icons(a) << " | " << icons(b) << "\n" << a.notes());
 	CHECK(a.client.sentCount("ready") == 1);
 	CHECK_FALSE(b.client.slotViews()[2].ready);
 	// a player who is ready cannot change its row until it unreadies (RW 0x843F6E: every gadget off)
@@ -2632,13 +2860,13 @@ TEST_CASE("online5 retail e2e: three players in the staging room: the Ready colu
 	CHECK(gadgetEnabled(b.sh->slotGadget(2, "PlayerTemplate")));
 	// ---- one of two ready: Play Game is still refused by name ----
 	REQUIRE(host.clickWhenShown("LowerButtons_Host.PlayGame"));
-	REQUIRE(runUntil(all, [&] { return host.sh->startRefusals().size() == 2; }, 300));
+	REQUIRE(runUntil(all, [&] { return host.sh->startRefusals().size() == 2; }));
 	CHECK(host.sh->startRefusals().back() == "GUI:NotifiedStartIntent");
 	CHECK(host.client.sentCount("start") == 0);
 	// ---- a press that names another player's slot is refused by name and nothing is sent: the room is unchanged ----
 	// (the second notice has reached everyone first: it moves the room's seq)
 	REQUIRE(runUntil(all, [&] { return std::count(a.sh->chatLines().begin(), a.sh->chatLines().end(), notice) == 2 && std::count(b.sh->chatLines().begin(), b.sh->chatLines().end(), notice) == 2 &&
-								   std::count(host.sh->chatLines().begin(), host.sh->chatLines().end(), notice) == 2; }, 300));
+								   std::count(host.sh->chatLines().begin(), host.sh->chatLines().end(), notice) == 2; }));
 	const std::uint32_t seqBefore = host.client.viewSeq();
 	REQUIRE(a.fx.wm->invokeCallback("MpGameSetup::OnReadyPress", "2"));
 	REQUIRE(b.fx.wm->invokeCallback("MpGameSetup::OnReadyPress", "1"));
@@ -2661,19 +2889,19 @@ TEST_CASE("online5 retail e2e: three players in the staging room: the Ready colu
 	// ---- the host changes the game (its own army): everyone is unready again, and A's row is A's to change again ----
 	REQUIRE(host.sh->slotGadget(0, "PlayerTemplate"));
 	GadgetComboBoxSetSelectedPos(host.sh->slotGadget(0, "PlayerTemplate"), 2, false);
-	REQUIRE_MESSAGE(runUntil(all, [&] { return !a.client.slotViews()[1].ready && readyBoxShown(a, 1) == "_enabledUnchecked" && readyBoxShown(host, 1) == "_disabledUnchecked"; }, 300),
+	REQUIRE_MESSAGE(runUntil(all, [&] { return !a.client.slotViews()[1].ready && readyBoxShown(a, 1) == "_enabledUnchecked" && readyBoxShown(host, 1) == "_disabledUnchecked"; }),
 		icons(host) << " | " << icons(a));
 	CHECK(gadgetEnabled(a.sh->slotGadget(1, "PlayerTemplate")));
 	// ---- both joiners ready through their boxes; the host starts ----
 	REQUIRE(a.click("~1.Ready"));
 	REQUIRE(b.click("~2.Ready"));
 	REQUIRE_MESSAGE(runUntil(all, [&] { return host.client.slotViews()[1].ready && host.client.slotViews()[2].ready && readyBoxShown(host, 1) == "_disabledChecked" &&
-											 readyBoxShown(host, 2) == "_disabledChecked"; }, 300), icons(host) << "\n" << b.notes());
+											 readyBoxShown(host, 2) == "_disabledChecked"; }), icons(host) << "\n" << b.notes());
 	REQUIRE(host.clickWhenShown("LowerButtons_Host.PlayGame"));
 	REQUIRE_MESSAGE(runUntil(all, [&] {
 		return host.fx.services.countRequests(ShellAction::OnlineGameStart) == 1 && a.fx.services.countRequests(ShellAction::OnlineGameStart) == 1 &&
 			b.fx.services.countRequests(ShellAction::OnlineGameStart) == 1;
-	}, 900), host.notes() << "\n" << a.notes());
+	}), host.notes() << "\n" << a.notes());
 	CHECK(host.sh->startRefusals().size() == 2);
 	// ---- the three STARTs play in lockstep through the relay ----
 	const int kFrames = 300;
@@ -2722,9 +2950,9 @@ TEST_CASE("online5 retail: start positions in the online staging room (RW 0x976F
 	const std::vector<OnlinePlayer *> all{ &host, &a, &b };
 	signInAndOpenPlay(host, u"Host");
 	REQUIRE(host.clickWhenShown("Controls.CreateGame"));
-	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }, 300));
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }));
 	REQUIRE(host.clickWhenShown("CreateGamePopup.Accept"));
-	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }), host.notes());
 	joinListed(a, all, u"JoinerA");
 	joinListed(b, all, u"JoinerB");
 	const MapCacheEntry *map = host.sh->setup()->findMap(host.client.gameInfo().mapName);
@@ -2739,7 +2967,7 @@ TEST_CASE("online5 retail: start positions in the online staging room (RW 0x976F
 		{
 			REQUIRE_MESSAGE(p.click("TabButtons.MapTab"), p.notes());
 		}
-		REQUIRE_MESSAGE(runUntil(all, [&] { return p.sh->currentMapWindow() && p.sh->currentMapSpots().size() == 8 && !p.sh->currentMapSpots()[0]->winIsHidden(); }, 300),
+		REQUIRE_MESSAGE(runUntil(all, [&] { return p.sh->currentMapWindow() && p.sh->currentMapSpots().size() == 8 && !p.sh->currentMapSpots()[0]->winIsHidden(); }),
 			p.notes());
 	};
 	for (OnlinePlayer *p : all)
@@ -2776,12 +3004,12 @@ TEST_CASE("online5 retail: start positions in the online staging room (RW 0x976F
 	}
 	// ---- joiner A (slot 1) clicks spot 2: it is A's in the lobby and on every player's map ----
 	clickSpot(a, 1);
-	REQUIRE_MESSAGE(runUntil(all, [&] { return positions(host) == "-1 1 -1" && positions(b) == "-1 1 -1" && positions(a) == "-1 1 -1"; }, 300),
+	REQUIRE_MESSAGE(runUntil(all, [&] { return positions(host) == "-1 1 -1" && positions(b) == "-1 1 -1" && positions(a) == "-1 1 -1"; }),
 		positions(host) << " | " << positions(a) << " | " << positions(b) << "\n" << a.notes());
 	CHECK(a.client.sentCount("slot") == 1);
 	for (OnlinePlayer *p : all)
 	{
-		REQUIRE(runUntil(all, [&] { return spotText(*p, 1) == n2; }, 300));
+		REQUIRE(runUntil(all, [&] { return spotText(*p, 1) == n2; }));
 		CHECK(spotText(*p, 0).empty());
 		CHECK(spotText(*p, 2).empty());
 	}
@@ -2795,7 +3023,7 @@ TEST_CASE("online5 retail: start positions in the online staging room (RW 0x976F
 	// a raw claim of A's spot by B (a client that skips the screen's own rule): the lobby refuses it by name, B reads why, the room is unchanged
 	const std::uint32_t seqBefore = host.client.viewSeq();
 	b.client.setOwnSlot(OnlineLobbyClient::kKeep, OnlineLobbyClient::kKeep, 1, OnlineLobbyClient::kKeep);
-	REQUIRE(runUntil(all, [&] { return b.hasNote("online-refused", "slot: spot_taken: start position 2 is JoinerA's"); }, 300));
+	REQUIRE(runUntil(all, [&] { return b.hasNote("online-refused", "slot: spot_taken: start position 2 is JoinerA's"); }));
 	CHECK(std::count(b.sh->chatLines().begin(), b.sh->chatLines().end(), "start position 2 is JoinerA's") == 1);
 	for (OnlinePlayer *p : all)
 	{
@@ -2806,30 +3034,30 @@ TEST_CASE("online5 retail: start positions in the online staging room (RW 0x976F
 	// ---- B takes spot 3, the host spot 1; each map shows the three numbers ----
 	clickSpot(b, 2);
 	clickSpot(host, 0);
-	REQUIRE_MESSAGE(runUntil(all, [&] { return positions(host) == "0 1 2" && positions(a) == "0 1 2" && positions(b) == "0 1 2"; }, 300),
+	REQUIRE_MESSAGE(runUntil(all, [&] { return positions(host) == "0 1 2" && positions(a) == "0 1 2" && positions(b) == "0 1 2"; }),
 		positions(host) << " | " << positions(a) << " | " << positions(b));
 	for (OnlinePlayer *p : all)
 	{
-		REQUIRE(runUntil(all, [&] { return spotText(*p, 0) == n1 && spotText(*p, 1) == n2 && spotText(*p, 2) == n3; }, 300));
+		REQUIRE(runUntil(all, [&] { return spotText(*p, 0) == n1 && spotText(*p, 1) == n2 && spotText(*p, 2) == n3; }));
 	}
 	// ---- A's own spot again: a joiner has no other slot to pass it to (RW 0x975C3A), so it is free again: back to a random start ----
 	clickSpot(a, 1);
-	REQUIRE_MESSAGE(runUntil(all, [&] { return positions(host) == "0 -1 2"; }, 300), positions(host) << "\n" << a.notes());
-	REQUIRE(runUntil(all, [&] { return spotText(host, 1).empty(); }, 300));
+	REQUIRE_MESSAGE(runUntil(all, [&] { return positions(host) == "0 -1 2"; }), positions(host) << "\n" << a.notes());
+	REQUIRE(runUntil(all, [&] { return spotText(host, 1).empty(); }));
 	clickSpot(a, 1);
-	REQUIRE(runUntil(all, [&] { return positions(host) == "0 1 2"; }, 300));
+	REQUIRE(runUntil(all, [&] { return positions(host) == "0 1 2"; }));
 	// ---- both ready, the host starts: every START carries the three positions as OnlineStart reads them ----
 	REQUIRE(a.clickWhenShown("TabButtons.ChatTab"));
 	REQUIRE(b.clickWhenShown("TabButtons.ChatTab"));
-	REQUIRE(runUntil(all, [&] { return a.sh->readyIcon(1) == "_enabledUnchecked" && b.sh->readyIcon(2) == "_enabledUnchecked"; }, 300));
+	REQUIRE(runUntil(all, [&] { return a.sh->readyIcon(1) == "_enabledUnchecked" && b.sh->readyIcon(2) == "_enabledUnchecked"; }));
 	REQUIRE(a.click("~1.Ready"));
 	REQUIRE(b.click("~2.Ready"));
-	REQUIRE(runUntil(all, [&] { return host.client.slotViews()[1].ready && host.client.slotViews()[2].ready; }, 300));
+	REQUIRE(runUntil(all, [&] { return host.client.slotViews()[1].ready && host.client.slotViews()[2].ready; }));
 	REQUIRE(host.clickWhenShown("LowerButtons_Host.PlayGame"));
 	REQUIRE_MESSAGE(runUntil(all, [&] {
 		return host.fx.services.countRequests(ShellAction::OnlineGameStart) == 1 && a.fx.services.countRequests(ShellAction::OnlineGameStart) == 1 &&
 			b.fx.services.countRequests(ShellAction::OnlineGameStart) == 1;
-	}, 900), host.notes());
+	}), host.notes());
 	for (OnlinePlayer *p : all)
 	{
 		const std::string start = startOf(p->fx.services);
@@ -2863,9 +3091,9 @@ TEST_CASE("online5 retail: the staging room's rows and buttons: the chat's Playe
 	}
 	signInAndOpenPlay(host, u"Host");
 	REQUIRE(host.clickWhenShown("Controls.CreateGame"));
-	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }, 300));
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }));
 	REQUIRE(host.clickWhenShown("CreateGamePopup.Accept"));
-	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }), host.notes());
 	joinListed(a, all, u"JoinerA");
 	// ---- the chat tab's Players list: the room's players, on both screens; it follows a leave ----
 	REQUIRE(host.clickWhenShown("TabButtons.ChatTab"));
@@ -2878,15 +3106,15 @@ TEST_CASE("online5 retail: the staging room's rows and buttons: the chat's Playe
 		}
 		return list ? out : std::string("(no list)");
 	};
-	REQUIRE_MESSAGE(runUntil(all, [&] { return players(host) == "Host;JoinerA;" && players(a) == "Host;JoinerA;"; }, 300), players(host) << " | " << players(a));
+	REQUIRE_MESSAGE(runUntil(all, [&] { return players(host) == "Host;JoinerA;" && players(a) == "Host;JoinerA;"; }), players(host) << " | " << players(a));
 	// ---- the joiner goes to the MAP tab and back to CHAT: the lists are made again while the tab plays in, and show from their first row (the
 	// whole chat history and both players), not scrolled to the last one ----
-	REQUIRE(runUntil(all, [&] { return a.sh->chatLines().size() >= 2; }, 300)); // tolerance: the lobby's own lines so far ("created", "joined")
+	REQUIRE(runUntil(all, [&] { return a.sh->chatLines().size() >= 2; })); // tolerance: the lobby's own lines so far ("created", "joined")
 	REQUIRE(a.clickWhenShown("TabButtons.MapTab"));
 	a.tick(30);
 	REQUIRE(a.clickWhenShown("TabButtons.ChatTab"));
 	REQUIRE_MESSAGE(runUntil(all, [&] { return players(a) == "Host;JoinerA;" && a.sh->chatListWindow() &&
-		GadgetListBoxGetNumEntries(a.sh->chatListWindow()) == (int)a.sh->chatLines().size(); }, 300), players(a));
+		GadgetListBoxGetNumEntries(a.sh->chatListWindow()) == (int)a.sh->chatLines().size(); }), players(a));
 	a.tick(60); // the tab's clip has played in
 	REQUIRE(a.sh->chatPlayersWindow());
 	CHECK(GadgetListBoxGetTopVisibleEntry(a.sh->chatPlayersWindow()) == 0);
@@ -2894,7 +3122,7 @@ TEST_CASE("online5 retail: the staging room's rows and buttons: the chat's Playe
 	CHECK(GadgetListBoxGetText(a.sh->chatListWindow(), 0, 0) == u"Host created the game");
 	// ---- the rows: the owner's drop-downs are enabled, everyone else's are locked (lane ONLINEMENU-1: Hero and Handicap too, now that the lobby carries
 	// them: the handicap test below drives them) ----
-	REQUIRE(runUntil(all, [&] { return host.sh->slotGadget(1, "Team") && a.sh->slotGadget(1, "Team") && a.sh->slotGadget(0, "Handicap"); }, 300));
+	REQUIRE(runUntil(all, [&] { return host.sh->slotGadget(1, "Team") && a.sh->slotGadget(1, "Team") && a.sh->slotGadget(0, "Handicap"); }));
 	for (const char *leaf : { "PlayerTemplate", "Team", "Color" })
 	{
 		CHECK_MESSAGE(gadgetEnabled(host.sh->slotGadget(0, leaf)), leaf);  // the host's own row
@@ -2919,10 +3147,10 @@ TEST_CASE("online5 retail: the staging room's rows and buttons: the chat's Playe
 	GadgetComboBoxSetSelectedPos(a.sh->slotGadget(1, "Team"), 2, false);
 	const int team = a.sh->setup()->info().slots[1].teamNumber;
 	REQUIRE(team == 1); // the combo's rows: "-" (no team), then the teams from 1: row 2 is team index 1
-	REQUIRE(runUntil(all, [&] { return host.sh->setup()->info().slots[1].teamNumber == team; }, 300));
+	REQUIRE(runUntil(all, [&] { return host.sh->setup()->info().slots[1].teamNumber == team; }));
 	// ---- the RULES tab: the online panel's flag 0x40 shows the Clan Game rule (RW 0x441ECE's twin: hidden only without it, as in LAN and skirmish) ----
 	REQUIRE(host.clickWhenShown("TabButtons.RulesTab"));
-	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->rulesPopulated() && host.sh->ruleWindow(RULE_CLAN_GAME) != nullptr; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->rulesPopulated() && host.sh->ruleWindow(RULE_CLAN_GAME) != nullptr; }), host.notes());
 	CHECK_FALSE(host.sh->ruleWindow(RULE_CLAN_GAME)->winIsHidden());
 	CHECK(gadgetEnabled(host.sh->ruleWindow(RULE_CLAN_GAME)));
 	REQUIRE(host.clickWhenShown("TabButtons.ChatTab"));
@@ -2930,16 +3158,16 @@ TEST_CASE("online5 retail: the staging room's rows and buttons: the chat's Playe
 	// a second press closes it ----
 	const size_t boxes = host.sh->boxesShown().size();
 	std::string why;
-	REQUIRE_MESSAGE(runUntil(all, [&] { return host.pressReachable("MessengerButton", &why); }, 300), why);
-	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->messenger() != nullptr; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return host.pressReachable("MessengerButton", &why); }), why);
+	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->messenger() != nullptr; }), host.notes());
 	CHECK(host.sh->boxesShown().size() == boxes);
 	CHECK_FALSE(host.hasNote("unported", "the Messenger is not available"));
-	REQUIRE_MESSAGE(runUntil(all, [&] { return host.pressReachable("MessengerButton", &why); }, 300), why);
-	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->messenger() == nullptr; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return host.pressReachable("MessengerButton", &why); }), why);
+	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->messenger() == nullptr; }), host.notes());
 	// ---- the Connections button (the movie's own button): lane ONLINEMENU-1: the screen opens (no box); this lobby has no relay, so every cell
 	// between the two players is failed; the screen's Done brings the staging room back whole ----
 	REQUIRE(host.clickWhenShown("LowerButtons_Host.Connections"));
-	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->connectionsOpen() && host.sh->connectionCell(0, 1) == "_failed"; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->connectionsOpen() && host.sh->connectionCell(0, 1) == "_failed"; }), host.notes());
 	CHECK(host.sh->boxesShown().size() == boxes); // no box
 	REQUIRE(host.sh->networkPageOpen()); // lane ONLINEMENU-1: the page in words over the grid
 	{
@@ -2953,20 +3181,20 @@ TEST_CASE("online5 retail: the staging room's rows and buttons: the chat's Playe
 	CHECK_FALSE(host.hasNote("command-unhandled", "Connection::RedrawGrid"));
 	CHECK_FALSE(host.fx.wm->registerCommand("Connection::RedrawGrid", [](const std::string &) {})); // already registered: a second registration is refused
 	REQUIRE(host.clickWhenShown("Done"));
-	REQUIRE_MESSAGE(runUntil(all, [&] { return !host.sh->connectionsOpen(); }, 600), host.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return !host.sh->connectionsOpen(); }), host.notes());
 	CHECK_FALSE(host.sh->networkPageOpen()); // the screen's DONE closes the page with it
 	REQUIRE_MESSAGE(host.waitShown("LowerButtons_Host.PlayGame", 600), host.notes());
 	REQUIRE(host.waitShown("LowerButtons_Host.Connections", 600));
 	CHECK(host.client.inGame());
 	CHECK(host.sh->openPlayState() == 6);
 	CHECK_FALSE(host.hasNote("movie-function-missing"));
-	REQUIRE(runUntil(all, [&] { return host.sh->slotGadget(1, "Team") != nullptr; }, 300));
+	REQUIRE(runUntil(all, [&] { return host.sh->slotGadget(1, "Team") != nullptr; }));
 	CHECK(host.sh->setup()->info().slots[1].teamNumber == team);
 	// ---- the joiner leaves through its Cancel: the host's Players list is the host alone ----
 	REQUIRE(a.clickWhenShown("LowerButtons_Join.CancelJoin"));
-	REQUIRE(runUntil(all, [&] { return !a.client.inGame(); }, 300));
+	REQUIRE(runUntil(all, [&] { return !a.client.inGame(); }));
 	REQUIRE(host.clickWhenShown("TabButtons.ChatTab"));
-	REQUIRE_MESSAGE(runUntil(all, [&] { return players(host) == "Host;"; }, 300), players(host));
+	REQUIRE_MESSAGE(runUntil(all, [&] { return players(host) == "Host;"; }), players(host));
 }
 #endif
 
@@ -2981,16 +3209,16 @@ TEST_CASE("platformicon1 retail: the online staging room shows each human's syst
 	const std::vector<OnlinePlayer *> all{ &host, &a, &b };
 	signInAndOpenPlay(host, u"Host");
 	REQUIRE(host.clickWhenShown("Controls.CreateGame"));
-	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }, 300));
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }));
 	REQUIRE(host.clickWhenShown("CreateGamePopup.Accept"));
-	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }), host.notes());
 	// the server browser: the host's system is an icon before the game's name (the list a player sees before it joins)
 	signInAndOpenPlay(a, u"JoinerA");
-	REQUIRE_MESSAGE(runUntil(all, [&] { return a.sh->gameRows().size() == 1; }, 300), a.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return a.sh->gameRows().size() == 1; }), a.notes());
 	CHECK(GadgetListBoxGetCellBadge(a.sh->gameList(), 0, 3) == "OpenBFMEPlatformLinux");
 	GadgetListBoxSetSelected(a.sh->gameList(), 0);
 	REQUIRE(a.clickWhenShown("Main.Controls.JoinGame"));
-	REQUIRE_MESSAGE(runUntil(all, [&] { return a.client.inGame() && a.sh->openPlayState() == 12; }, 300), a.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return a.client.inGame() && a.sh->openPlayState() == 12; }), a.notes());
 	joinListed(b, all, u"OldB"); // a client of an older build: it told nothing
 	auto badge = [](OnlinePlayer &p, int slot) -> std::string {
 		GameWindow *w = p.sh->slotGadget(slot, "Player");
@@ -3005,7 +3233,7 @@ TEST_CASE("platformicon1 retail: the online staging room shows each human's syst
 			}
 		}
 		return true;
-	}, 600), badge(host, 0) << " " << badge(host, 1) << " " << badge(a, 0) << " " << badge(b, 1));
+	}), badge(host, 0) << " " << badge(host, 1) << " " << badge(a, 0) << " " << badge(b, 1));
 	for (OnlinePlayer *p : all)
 	{
 		REQUIRE(p->client.inGame());
@@ -3021,7 +3249,7 @@ TEST_CASE("platformicon1 retail: the online staging room shows each human's syst
 	}
 	// the chat tab's Players list: each human's system before its name (the old client's row has none)
 	REQUIRE(host.clickWhenShown("TabButtons.ChatTab"));
-	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->chatPlayersWindow() && GadgetListBoxGetNumEntries(host.sh->chatPlayersWindow()) == 3; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->chatPlayersWindow() && GadgetListBoxGetNumEntries(host.sh->chatPlayersWindow()) == 3; }), host.notes());
 	host.tick(60); // the lists are made again once the tab's clip has played in
 	GameWindow *chatPlayers = host.sh->chatPlayersWindow();
 	REQUIRE(chatPlayers);
@@ -3037,7 +3265,7 @@ TEST_CASE("platformicon1 retail: the online staging room shows each human's syst
 	CHECK(b.client.gameInfo().slots[2].platform == PlatformKind::None);
 	// the joiner leaves: its slot shows nothing on the others' screens
 	REQUIRE(a.clickWhenShown("LowerButtons_Join.CancelJoin"));
-	REQUIRE_MESSAGE(runUntil(all, [&] { return !a.client.inGame() && badge(host, 1).empty() && badge(b, 1).empty(); }, 600), badge(host, 1));
+	REQUIRE_MESSAGE(runUntil(all, [&] { return !a.client.inGame() && badge(host, 1).empty() && badge(b, 1).empty(); }), badge(host, 1));
 	CHECK(badge(host, 0) == "OpenBFMEPlatformLinux");
 }
 
@@ -3090,11 +3318,11 @@ TEST_CASE("online5 retail e2e rejoin: three players through a local relay; one i
 	o.profileDigest = profile;
 	OnlineLobbyClient host(o), a(o), b(o);
 	auto pump = [&](OnlineLobbyClient &c) {
-		for (int i = 0; i < 4; ++i)
-		{
+		REQUIRE(onlinetest::waitUntil([&] {
 			c.update(NetMilliseconds());
 			pumpHttp(c, lobby.port);
-		}
+			return !c.busy();
+		}));
 		c.takeEvents();
 	};
 	host.signInGuest(u"Host");
@@ -3103,13 +3331,14 @@ TEST_CASE("online5 retail e2e rejoin: three players through a local relay; one i
 	for (OnlineLobbyClient *c : { &host, &a, &b })
 	{
 		pump(*c);
+		REQUIRE(c->signedIn());
 	}
 	SkirmishGameInfo info;
 	// the game: the setup of a three-player staging room (the first multiplayer map with three spots)
 	OnlinePlayer probe(*s, lobby.port, 81, u"");
 	REQUIRE(probe.sh->setup());
 	info = probe.sh->setup()->info();
-	for (int i = 1; i < MAX_SLOTS; ++i) // as the screen's Create Game: the host in slot 0, every other slot open
+	for (int i = 1; i < info.mapStartCount; ++i) // as the screen's Create Game: the host in slot 0, every other slot open
 	{
 		info.slots[i] = SkirmishGameSlot();
 		info.slots[i].state = SLOT_OPEN;
@@ -3127,12 +3356,17 @@ TEST_CASE("online5 retail e2e rejoin: three players through a local relay; one i
 	b.setReady(true);
 	pump(a);
 	pump(b);
-	pump(host);
+	REQUIRE(onlinetest::waitUntil([&] {
+		pump(host);
+		return host.slotViews()[1].ready && host.slotViews()[2].ready;
+	}));
 	host.start();
-	pump(host);
-	NetSleepMilliseconds(150);
-	pump(a);
-	pump(b);
+	REQUIRE(onlinetest::waitUntil([&] {
+		pump(host);
+		pump(a);
+		pump(b);
+		return !host.startJson().empty() && !a.startJson().empty() && !b.startJson().empty();
+	}));
 	REQUIRE(!host.startJson().empty());
 	REQUIRE(!a.startJson().empty());
 	REQUIRE(!b.startJson().empty());
@@ -3202,6 +3436,147 @@ TEST_CASE("online5 retail e2e rejoin: three players through a local relay; one i
 	CHECK(!reportField(r[0], "final_hash").empty());
 	CHECK(reportField(r[0], "final_hash") == reportField(r[1], "final_hash"));
 	CHECK(reportField(r[0], "final_hash") == reportField(r[3], "final_hash"));
+	std::error_code ec;
+	std::filesystem::remove_all(dir, ec);
+}
+
+TEST_CASE("solo1 retail e2e: a single human's custom game through the real screens, lobby and relay: the host and an AI play five "
+		  "game-minutes; the peer drops and rejoins; a spectator watches; the relay log's replay matches its CRCs")
+{
+	ONLINE4_REQUIRE_NODE();
+	OPENBFME_REQUIRE_START(s);
+	const std::string peer = envOr("OPENBFME_PEER", kPeerExe), relayExe = envOr("OPENBFME_RELAY", kRelayExe);
+	if (peer.empty() || relayExe.empty() || !std::filesystem::exists(peer) || !std::filesystem::exists(relayExe))
+	{
+		MESSAGE("SKIP LOUDLY: no openbfme_peer / openbfme_relay here (OPENBFME_PEER / OPENBFME_RELAY), so the solo online game was not played");
+		return;
+	}
+	const std::string base = "\"" + peer + "\" --rotwk \"" + std::getenv("ROTWK_INSTALL") + "\" --bfme2 \"" + std::getenv("BFME2_INSTALL") + "\"";
+	const std::filesystem::path dir = std::filesystem::temp_directory_path() / ("openbfme-solo1-" + std::to_string(getpid()));
+	std::filesystem::create_directories(dir / "relaylog");
+	REQUIRE(processtest::runCommand(base + " --print-profile > \"" + (dir / "profile.txt").string() + "\"") == 0);
+	std::string profile = readText((dir / "profile.txt").string());
+	profile = profile.substr(0, profile.find('\n'));
+	{
+		std::ofstream k(dir / "keys.txt");
+		k << "1:" << kTicketKeyHex << "\n";
+	}
+	int relayPort = 0;
+	{
+		UDP tmp;
+		std::string error;
+		REQUIRE(tmp.bind(0x7F000001u, 0, &error));
+		relayPort = tmp.localAddress().port;
+	}
+	const std::string relayBind = "127.0.0.1:" + std::to_string(relayPort);
+	const pid_t relay = spawn("\"" + relayExe + "\" --bind " + relayBind + " --keys \"" + (dir / "keys.txt").string() + "\" --log-dir \"" + (dir / "relaylog").string() +
+							  "\" --status \"" + (dir / "relay-status.json").string() + "\" --stats-s 0 --idle-s 120 > \"" + (dir / "relay.log").string() + "\" 2>&1");
+	struct Stop
+	{
+		pid_t pid;
+		~Stop()
+		{
+			kill(pid, SIGTERM);
+			int st = 0;
+			waitpid(pid, &st, 0);
+		}
+	} stopRelay{ relay };
+	NodeLobby lobby("local=" + relayBind, "");
+	OnlinePlayer host(*s, lobby.port, 21, u"");
+	OnlineLobbyClient::Options o = clientOptions(s->world->playerTemplates().getPlayerTemplateCount(), (int)s->settings.multiplayerColors.size());
+	o.profileDigest = profile;
+	host.client = OnlineLobbyClient(o);
+	signInAndOpenPlay(host, u"Host");
+	REQUIRE(host.clickWhenShown("Controls.CreateGame"));
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }));
+	REQUIRE(host.clickWhenShown("CreateGamePopup.Accept"));
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }), host.notes());
+	CHECK_FALSE(host.client.privateRoom()); // a custom game: SOLO-1's one-human start is allowed
+	// the host arranges a hard AI on slot 2, the call the screen's slot drop-down makes
+	host.client.setOtherSlot(2, SLOT_HARD_AI, 5, 2, 2, 1);
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.gameInfo().slots[2].state == SLOT_HARD_AI; }), host.notes());
+	// the one-human start through the screen's PlayGame (checkStart without retail's two-human flag, and the lobby signs it)
+	const std::string session = host.client.sessionToken();
+	const std::string gameId = host.client.gameId();
+	REQUIRE(host.fx.wm->invokeCallback("AptOnline::CustomMatch::PlayGame", ""));
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.fx.services.countRequests(ShellAction::OnlineGameStart) == 1; }), host.notes());
+	const std::string start = startOf(host.fx.services);
+	REQUIRE(start.find("\"kind\":\"openbfme-start\"") != std::string::npos);
+	REQUIRE(start.find("\"slot\":0") != std::string::npos);
+	const int kFrames = 1500; // five game-minutes paced
+	std::string files[3], reports[3];
+	for (int i = 0; i < 3; ++i)
+	{
+		files[i] = (dir / ("start-" + std::to_string(i) + ".json")).string();
+		reports[i] = (dir / ("report-" + std::to_string(i) + ".txt")).string();
+	}
+	std::ofstream(files[0]) << start;
+	auto runPeer = [&](int i, const std::string &extra = std::string()) {
+		return spawn(base + " --online-start \"" + files[i] + "\" --script --paced --frames " + std::to_string(kFrames) + " --logic-threads 2 --report \"" + reports[i] +
+			"\" " + extra + " > \"" + (dir / ("peer-" + std::to_string(i) + ".log")).string() + "\" 2>&1");
+	};
+	const pid_t p0 = runPeer(0);
+	NetSleepMilliseconds(45000); // the solo peer loads, then plays: the kill comes mid-game
+	// a spectator joins the running solo game (a custom game is open to them)
+	OnlineLobbyClient watcher(o);
+	watcher.signInGuest(u"Watcher");
+	auto pump = [&](OnlineLobbyClient &c) {
+		for (int i = 0; i < 4; ++i)
+		{
+			c.update(NetMilliseconds());
+			pumpHttp(c, lobby.port);
+		}
+		c.takeEvents();
+	};
+	pump(watcher);
+	REQUIRE(watcher.signedIn());
+	watcher.spectateGame(gameId);
+	pump(watcher);
+	REQUIRE(!watcher.startJson().empty());
+	CHECK(watcher.startJson().find("\"kind\":\"openbfme-spectate\"") != std::string::npos);
+	std::ofstream(files[1]) << watcher.startJson();
+	const pid_t p1 = runPeer(1);
+	// the solo player drops and rejoins through its kept session: a rejoin START (a version 2 ticket)
+	kill(p0, SIGKILL);
+	waitExit(p0);
+	OnlineLobbyClient again(o);
+	again.useSession(session);
+	pump(again);
+	REQUIRE(again.signedIn());
+	REQUIRE(again.mine().size() == 1);
+	again.rejoinGame(again.mine()[0].id);
+	pump(again);
+	REQUIRE(!again.startJson().empty());
+	std::ofstream(files[2]) << again.startJson();
+	const pid_t p2 = runPeer(2);
+	const int rc1 = waitExit(p1), rc2 = waitExit(p2);
+	std::string r1 = readText(reports[1]), r2 = readText(reports[2]);
+	MESSAGE("spectator peer:\n" << r1 << "\nrejoined peer:\n" << r2 << "\nrejoin log tail:\n" << readText((dir / "peer-2.log").string()).substr(0, 4000));
+	CHECK(rc1 == 0);
+	CHECK(rc2 == 0);
+	CHECK(reportField(r2, "rejoin").rfind("generation 1 live_frame ", 0) == 0);
+	CHECK(reportField(r2, "frames") == std::to_string(kFrames));
+	CHECK(reportField(r2, "desyncs") == "0");
+	CHECK(!reportField(r2, "final_hash").empty());
+	// the relay's log becomes a replay and plays back the same CRCs (online3_e2e's parity)
+	std::string log;
+	for (const auto &e : std::filesystem::directory_iterator(dir / "relaylog"))
+	{
+		if (e.path().extension() == ".obfmerlog")
+		{
+			log = e.path().string();
+		}
+	}
+	REQUIRE(!log.empty());
+	const std::string convReport = (dir / "convert.txt").string(), replay = (dir / "server.replay").string(), playReport = (dir / "replay.txt").string();
+	const int conv = processtest::runCommand(base + " --relay-log \"" + log + "\" --online-start \"" + files[0] + "\" --record \"" + replay +
+		"\" --report \"" + convReport + "\" > \"" + (dir / "convert.log").string() + "\" 2>&1");
+	const int play = processtest::runCommand(base + " --replay \"" + replay + "\" --report \"" + playReport + "\" > \"" + (dir / "replay.log").string() + "\" 2>&1");
+	const std::string rt = readText(playReport);
+	MESSAGE("convert report:\n" << readText(convReport) << "\nreplay report:\n" << rt);
+	CHECK(conv == 0);
+	CHECK(play == 0);
+	CHECK(reportField(rt, "mismatches") == "0");
 	std::error_code ec;
 	std::filesystem::remove_all(dir, ec);
 }
@@ -3318,13 +3693,13 @@ TEST_CASE("uberjoin1 retail: the server browser tags an Uber game; Join from Nor
 	REQUIRE(host.client.setProfile(SimulationProfile::Uber, FakeModeWorld::digest(SimulationProfile::Uber), &why));
 	signInAndOpenPlay(host, u"Host");
 	REQUIRE(host.clickWhenShown("Controls.CreateGame"));
-	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }, 300));
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }));
 	REQUIRE(host.clickWhenShown("CreateGamePopup.Accept"));
-	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }), host.notes());
 	CHECK(host.client.gameMode() == SimulationProfile::Uber);
 	CHECK(std::find(host.sh->chatLines().begin(), host.sh->chatLines().end(), "This room uses Uber performance mode.") != host.sh->chatLines().end());
 	signInAndOpenPlay(join, u"Joiner");
-	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.sh->gameRows().size() == 1; }, 300), join.notes());
+	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.sh->gameRows().size() == 1; }), join.notes());
 	const std::string uberRow = join.sh->gameRows()[0];
 	CHECK(uberRow.rfind("|uber") == uberRow.size() - 5);
 	CHECK(listText(join.sh->gameList(), 0, 3).find("  - UBER") != std::string::npos);
@@ -3354,7 +3729,7 @@ TEST_CASE("uberjoin1 retail: the server browser tags an Uber game; Join from Nor
 	REQUIRE(join.sh->boxesShown().size() == 2);
 	CHECK(join.sh->boxesShown()[1] == prompt);
 	join.dismissBox("Yes");
-	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.client.inGame() && join.sh->openPlayState() == 12; }, 300), join.notes());
+	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.client.inGame() && join.sh->openPlayState() == 12; }), join.notes());
 	CHECK(joinWorld.requests == 1);
 	CHECK(joinWorld.current == SimulationProfile::Uber);
 	CHECK(joinWorld.own == SimulationProfile::Faithful); // the player's own setting is never written
@@ -3372,7 +3747,7 @@ TEST_CASE("uberjoin1 retail: the server browser tags an Uber game; Join from Nor
 	CHECK(join.client.options().profileDigest == FakeModeWorld::digest(SimulationProfile::Faithful));
 	// a world that refuses the switch: a named box, still in the list, never a silent refusal
 	joinWorld.refuse = "the simulation profile cannot change inside a LAN game (leave it first)";
-	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.sh->gameRows().size() == 1 && join.sh->openPlayState() == 2; }, 300), join.notes());
+	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.sh->gameRows().size() == 1 && join.sh->openPlayState() == 2; }), join.notes());
 	GadgetListBoxSetSelected(join.sh->gameList(), 0);
 	REQUIRE(join.clickWhenShown("Main.Controls.JoinGame"));
 	join.tick(10);
@@ -3391,7 +3766,7 @@ TEST_CASE("uberjoin1 retail: the server browser tags an Uber game; Join from Nor
 	REQUIRE(join.sh->boxesShown().size() == 5);
 	CHECK(join.sh->boxesShown()[4] == prompt);
 	join.dismissBox("Yes");
-	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.sh->boxesShown().size() == 6; }, 300), join.notes());
+	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.sh->boxesShown().size() == 6; }), join.notes());
 	CHECK(join.sh->boxesShown()[5].rfind("rejoin-refused|", 0) == 0);
 	CHECK(joinWorld.requests == 3); // the first Yes, the refused switch, this one
 	CHECK(joinWorld.restores == restoresBeforeSpectate + 1);
@@ -3465,7 +3840,7 @@ void waitNickname(OnlinePlayer &p)
 			}
 		}
 		return false;
-	}, 300), p.notes());
+	}), p.notes());
 }
 
 // every line of a box's text fits the box (OnlineShell's wrap: a long line was squeezed into an unreadable one)
@@ -3506,16 +3881,16 @@ TEST_CASE("onlineux1 retail: the login page's Login button follows the nickname 
 	waitNickname(p);
 	// the page's fill: no name, Login disabled (the movie's own look); before ONLINEUX-1 it was enabled, a press with no name disabled it (the movie
 	// does on its press) and nothing enabled it again: the audit's dead end
-	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return movieDisabled(p, "OnlineLogin.Login.LogIn"); }, 300), p.notes());
+	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return movieDisabled(p, "OnlineLogin.Login.LogIn"); }), p.notes());
 	CHECK(p.sh->loginButtonState() == 0);
 	// a typed name enables it, and the press signs in
 	starttest::typeText(p.fx, GadgetComboBoxGetEditBox(p.sh->nicknameWindow()), u"Ann");
-	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return !movieDisabled(p, "OnlineLogin.Login.LogIn"); }, 120), p.notes());
+	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return !movieDisabled(p, "OnlineLogin.Login.LogIn"); }), p.notes());
 	CHECK(p.sh->loginButtonState() == 1);
 	// a press with a blank name (the movie disables its button on the press): the retail box, and Login follows the name again
 	GadgetComboBoxSetText(p.sh->nicknameWindow(), u"  ");
 	p.sh->nicknameEdited();
-	REQUIRE(runUntil({ &p }, [&] { return movieDisabled(p, "OnlineLogin.Login.LogIn"); }, 120));
+	REQUIRE(runUntil({ &p }, [&] { return movieDisabled(p, "OnlineLogin.Login.LogIn"); }));
 	p.fx.wm->invokeCallback("AptOnline::Login::Login", "");
 	p.tick(5);
 	REQUIRE(p.sh->boxesShown().size() == 1);
@@ -3524,9 +3899,9 @@ TEST_CASE("onlineux1 retail: the login page's Login button follows the nickname 
 	p.dismissBox();
 	GadgetComboBoxSetText(p.sh->nicknameWindow(), u"");
 	starttest::typeText(p.fx, GadgetComboBoxGetEditBox(p.sh->nicknameWindow()), u"Bo");
-	REQUIRE(runUntil({ &p }, [&] { return !movieDisabled(p, "OnlineLogin.Login.LogIn"); }, 120));
+	REQUIRE(runUntil({ &p }, [&] { return !movieDisabled(p, "OnlineLogin.Login.LogIn"); }));
 	REQUIRE(p.clickWhenShown("Login.LogIn"));
-	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return p.client.signedIn() && p.sh->currentPage() == "OnlineHome"; }, 300), p.notes());
+	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return p.client.signedIn() && p.sh->currentPage() == "OnlineHome"; }), p.notes());
 	CHECK(p.client.accountName() == u"Bo");
 
 	// a lobby that does not answer (nothing listens on the port): the player reads what happened and what to do, not "did not answer (2)"
@@ -3534,9 +3909,9 @@ TEST_CASE("onlineux1 retail: the login page's Login button follows the nickname 
 	q.ctx.lobbyUrl = "https://play.example.test";
 	waitNickname(q);
 	starttest::typeText(q.fx, GadgetComboBoxGetEditBox(q.sh->nicknameWindow()), u"Cy");
-	REQUIRE(runUntil({ &q }, [&] { return !movieDisabled(q, "OnlineLogin.Login.LogIn"); }, 120));
+	REQUIRE(runUntil({ &q }, [&] { return !movieDisabled(q, "OnlineLogin.Login.LogIn"); }));
 	REQUIRE(q.clickWhenShown("Login.LogIn"));
-	REQUIRE_MESSAGE(runUntil({ &q }, [&] { return q.sh->messageBox() && q.sh->messageBox()->type() != AptMessageBox::TYPE_NONE; }, 300), q.notes());
+	REQUIRE_MESSAGE(runUntil({ &q }, [&] { return q.sh->messageBox() && q.sh->messageBox()->type() != AptMessageBox::TYPE_NONE; }), q.notes());
 	const std::u16string said = q.sh->messageBox()->text();
 	CHECK_MESSAGE(said.find(u"Can't reach the OpenBFME online lobby (play.example.test)") != std::u16string::npos, OnlineLobbyClient::utf16ToUtf8(said));
 	CHECK(said.find(u"internet connection") != std::u16string::npos);
@@ -3545,7 +3920,7 @@ TEST_CASE("onlineux1 retail: the login page's Login button follows the nickname 
 	CHECK(q.sh->messageBox()->title() == u"Online");
 	q.dismissBox();
 	// Login is usable again (the sign-in can be tried once the lobby is back)
-	REQUIRE(runUntil({ &q }, [&] { return !movieDisabled(q, "OnlineLogin.Login.LogIn"); }, 120));
+	REQUIRE(runUntil({ &q }, [&] { return !movieDisabled(q, "OnlineLogin.Login.LogIn"); }));
 	CHECK(q.sh->loginButtonState() == 1);
 	CHECK_FALSE(q.client.signedIn());
 }
@@ -3558,7 +3933,7 @@ TEST_CASE("onlineux1 r2 retail: without a mouse, Tab to the login's nickname tak
 	NodeLobby lobby("", "");
 	OnlinePlayer p(*s, lobby.port, 83, u"");
 	waitNickname(p);
-	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return movieDisabled(p, "OnlineLogin.Login.LogIn"); }, 300), p.notes());
+	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return movieDisabled(p, "OnlineLogin.Login.LogIn"); }), p.notes());
 	MenuNavigator nav(*p.fx.wm);
 	nav.setMenu(p.sh->level(), p.sh);
 	for (int i = 0; i < 12 && nav.focusId().find("OnlineLogin::Nickname") == std::string::npos; ++i)
@@ -3572,7 +3947,7 @@ TEST_CASE("onlineux1 r2 retail: without a mouse, Tab to the login's nickname tak
 		p.fx.wm->postTextInput(c); // to the window with the keyboard focus (no click)
 		p.tick(1);
 	}
-	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return !movieDisabled(p, "OnlineLogin.Login.LogIn"); }, 120), p.notes());
+	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return !movieDisabled(p, "OnlineLogin.Login.LogIn"); }), p.notes());
 	CHECK(GadgetComboBoxGetText(p.sh->nicknameWindow()) == u"Kim");
 }
 
@@ -3588,7 +3963,7 @@ TEST_CASE("onlineux1 retail: Options over the online screens gives the button ba
 	REQUIRE(p.waitShown("Exit.Button_Shell"));
 	// OPTIONS: the movie hides its button bar (HideButtonBar("Options")) and asks for the Options screen
 	REQUIRE(p.clickWhenShown("Options.Button_Shell"));
-	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return p.fx.shell->top() && p.fx.shell->top()->filename() == "Options.apt"; }, 300), p.notes());
+	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return p.fx.shell->top() && p.fx.shell->top()->filename() == "Options.apt"; }), p.notes());
 	p.tick(30);
 	// the Options screen's own Cancel, as the player's click
 	AptScreen *options = p.fx.shell->top();
@@ -3601,7 +3976,7 @@ TEST_CASE("onlineux1 retail: Options over the online screens gives the button ba
 	}
 	REQUIRE_MESSAGE(cancel, "no Cancel button on the Options screen");
 	starttest::clickButton(p.fx, *cancel);
-	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return p.fx.shell->top() == p.sh; }, 300), p.notes());
+	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return p.fx.shell->top() == p.sh; }), p.notes());
 	// the bar is back: the nav, Log Out and Options take clicks again (before ONLINEUX-1 they stayed hidden: no way out but quitting the game)
 	CHECK_MESSAGE(p.waitShown("ButtonNav.OpenPlay", 300), p.notes());
 	CHECK(p.waitShown("Exit.Button_Shell", 60));
@@ -3613,9 +3988,9 @@ TEST_CASE("onlineux1 retail: Options over the online screens gives the button ba
 	AptButtonInst *wotr = starttest::firstButtonIn(p.at("Toggles.ButtonNav.Strategic"));
 	REQUIRE(wotr);
 	starttest::clickButton(p.fx, *wotr);
-	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return p.hasNote("unported", "OnlineStrategic"); }, 300), p.notes());
+	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return p.hasNote("unported", "OnlineStrategic"); }), p.notes());
 	p.dismissBox();
-	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return p.sh->currentPage() == "OnlineOpenPlay" && navLabel(p) == "_OpenPlay"; }, 300),
+	REQUIRE_MESSAGE(runUntil({ &p }, [&] { return p.sh->currentPage() == "OnlineOpenPlay" && navLabel(p) == "_OpenPlay"; }),
 		navLabel(p) << " / " << p.sh->currentPage() << "\n" << p.notes());
 }
 
@@ -3633,14 +4008,14 @@ TEST_CASE("onlineux1 retail: a refused join is said in the player's words, on li
 	{
 		signInAndOpenPlay(*h, h == &other ? u"Other" : u"Locked");
 		REQUIRE(h->clickWhenShown("Controls.CreateGame"));
-		REQUIRE(runUntil({ h }, [&] { return h->sh->gameNameWindow() && h->sh->gamePasswordWindow() && h->sh->openPlayState() == 3; }, 300));
+		REQUIRE(runUntil({ h }, [&] { return h->sh->gameNameWindow() && h->sh->gamePasswordWindow() && h->sh->openPlayState() == 3; }));
 		GadgetTextEntrySetText(h->sh->gamePasswordWindow(), h == &locked ? u"secret" : u"");
 		REQUIRE(h->clickWhenShown("CreateGamePopup.Accept"));
-		REQUIRE_MESSAGE(runUntil({ h }, [&] { return h->client.inGame() && h->sh->openPlayState() == 6; }, 300), h->notes());
+		REQUIRE_MESSAGE(runUntil({ h }, [&] { return h->client.inGame() && h->sh->openPlayState() == 6; }), h->notes());
 	}
 	join.fx.text.set("GUI:JoinFailedBadPassword", "Incorrect password: the game could not be joined. Check the password with the game's host.");
 	signInAndOpenPlay(join, u"Joiner");
-	REQUIRE(runUntil(all, [&] { return join.sh->gameRows().size() == 2; }, 300));
+	REQUIRE(runUntil(all, [&] { return join.sh->gameRows().size() == 2; }));
 	auto rowOf = [&](const std::string &host) {
 		for (size_t i = 0; i < join.sh->gameRows().size(); ++i)
 		{
@@ -3654,7 +4029,7 @@ TEST_CASE("onlineux1 retail: a refused join is said in the player's words, on li
 	// another version's game: why, and what to do; no raw profile digest
 	GadgetListBoxSetSelected(join.sh->gameList(), rowOf("Other"));
 	REQUIRE(join.clickWhenShown("Main.Controls.JoinGame"));
-	REQUIRE_MESSAGE(runUntil(all, [&] { return join.sh->messageBox() && join.sh->messageBox()->type() != AptMessageBox::TYPE_NONE; }, 300), join.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return join.sh->messageBox() && join.sh->messageBox()->type() != AptMessageBox::TYPE_NONE; }), join.notes());
 	std::u16string said = join.sh->messageBox()->text();
 	std::u16string flat = said;
 	std::replace(flat.begin(), flat.end(), u'\n', u' ');
@@ -3666,10 +4041,10 @@ TEST_CASE("onlineux1 retail: a refused join is said in the player's words, on li
 	// a wrong password: RotWK's own text (GUI:JoinFailedBadPassword, the player's game text)
 	GadgetListBoxSetSelected(join.sh->gameList(), rowOf("Locked"));
 	REQUIRE(join.clickWhenShown("Main.Controls.JoinGame"));
-	REQUIRE(runUntil(all, [&] { return join.sh->openPlayState() == 10 && join.sh->gamePasswordWindow(); }, 300));
+	REQUIRE(runUntil(all, [&] { return join.sh->openPlayState() == 10 && join.sh->gamePasswordWindow(); }));
 	GadgetTextEntrySetText(join.sh->gamePasswordWindow(), u"wrong");
 	join.fx.wm->invokeCallback("AptOnline::CustomMatch::AcceptJoinGame", "");
-	REQUIRE_MESSAGE(runUntil(all, [&] { return join.sh->messageBox() && join.sh->messageBox()->type() != AptMessageBox::TYPE_NONE; }, 300), join.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return join.sh->messageBox() && join.sh->messageBox()->type() != AptMessageBox::TYPE_NONE; }), join.notes());
 	std::u16string retailText; // the label's text (the test's game text: the real one is in the player's language archive)
 	REQUIRE(join.fx.text.fetch("GUI:JoinFailedBadPassword", retailText));
 	CHECK(join.sh->messageBox()->text() == AptOnlineShell::wrapLines(retailText, 58));
@@ -3688,22 +4063,22 @@ TEST_CASE("onlineux1 retail: back in the online screens after an online game (th
 	const std::vector<OnlinePlayer *> all{ &host, &join };
 	signInAndOpenPlay(host, u"Host");
 	REQUIRE(host.clickWhenShown("Controls.CreateGame"));
-	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }, 300));
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }));
 	REQUIRE(host.clickWhenShown("CreateGamePopup.Accept"));
-	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }), host.notes());
 	joinListed(join, all, u"Joiner");
 	const std::string game = host.client.gameId();
-	REQUIRE(runUntil(all, [&] { return join.sh->readyIcon(1) == "_enabledUnchecked"; }, 300)); // the joiner's room opens on its CHAT tab
+	REQUIRE(runUntil(all, [&] { return join.sh->readyIcon(1) == "_enabledUnchecked"; })); // the joiner's room opens on its CHAT tab
 	REQUIRE(join.click("~1.Ready"));
-	REQUIRE(runUntil(all, [&] { return host.client.slotViews()[1].ready; }, 300));
+	REQUIRE(runUntil(all, [&] { return host.client.slotViews()[1].ready; }));
 	REQUIRE(host.clickWhenShown("LowerButtons_Host.PlayGame"));
 	REQUIRE_MESSAGE(runUntil(all, [&] {
 		return host.fx.services.countRequests(ShellAction::OnlineGameStart) == 1 && join.fx.services.countRequests(ShellAction::OnlineGameStart) == 1;
-	}, 900), host.notes());
+	}), host.notes());
 	CHECK(join.client.playedGame() == game);
 	// the lobby lists the started game as the player's (a crash would come back to it): the answer an older lobby keeps giving after a leave
 	join.client.fetchMine();
-	REQUIRE(runUntil(all, [&] { return join.client.mine().size() == 1; }, 300));
+	REQUIRE(runUntil(all, [&] { return join.client.mine().size() == 1; }));
 	std::string mineBefore;
 	Tamper keep = [&](const OnlineLobbyClient::HttpRequest &r, HttpAnswer &a) {
 		if (r.path == "/v1/mine" && mineBefore.empty())
@@ -3713,7 +4088,7 @@ TEST_CASE("onlineux1 retail: back in the online screens after an online game (th
 	};
 	join.tamper = keep;
 	join.client.fetchMine();
-	REQUIRE(runUntil(all, [&] { return !mineBefore.empty(); }, 300));
+	REQUIRE(runUntil(all, [&] { return !mineBefore.empty(); }));
 	join.tamper = nullptr;
 	// the game is played and over: the screens come back
 	for (OnlinePlayer *p : all)
@@ -3723,7 +4098,7 @@ TEST_CASE("onlineux1 retail: back in the online screens after an online game (th
 	// they resume where the player was, signed in: no login page, Open Play's list
 	for (OnlinePlayer *p : all)
 	{
-		REQUIRE_MESSAGE(runUntil(all, [&] { return p->sh->currentPage() == "OnlineOpenPlay" && p->sh->openPlayState() == 2 && p->sh->gameList(); }, 600), p->notes());
+		REQUIRE_MESSAGE(runUntil(all, [&] { return p->sh->currentPage() == "OnlineOpenPlay" && p->sh->openPlayState() == 2 && p->sh->gameList(); }), p->notes());
 		const std::vector<std::string> pages = p->sh->loadedPages();
 		CHECK(std::find(pages.begin(), pages.end(), "OnlineLogin") == pages.end());
 		CHECK(p->client.signedIn());
@@ -3746,21 +4121,21 @@ TEST_CASE("onlineux1 retail: back in the online screens after an online game (th
 		}
 	};
 	join.fx.wm->invokeCallback("AptOnline::CustomMatch::Refresh", "");
-	REQUIRE(runUntil(all, [&] { return join.client.mine().size() == 1; }, 300));
+	REQUIRE(runUntil(all, [&] { return join.client.mine().size() == 1; }));
 	join.tick(30);
 	CHECK(std::find(join.sh->gameIds().begin(), join.sh->gameIds().end(), game) == join.sh->gameIds().end());
 	CHECK(std::count_if(join.sh->boxesShown().begin(), join.sh->boxesShown().end(), [](const std::string &b) { return b.rfind("rejoin-offer", 0) == 0; }) == 0);
 	// the lobby refuses a rejoin of a game left (an old client's or a crafted request)
 	join.tamper = nullptr;
 	join.client.rejoinGame(game);
-	REQUIRE(runUntil(all, [&] { return join.hasNote("online-refused", "rejoin: left"); }, 300));
+	REQUIRE(runUntil(all, [&] { return join.hasNote("online-refused", "rejoin: left"); }));
 	// r2 (Sol 4): a new run of the program (its own set of left games is empty) with the same session: the lobby's /v1/mine names the game it left, so
 	// the running list's game is no WATCH row either (the lobby refuses a player of the game as its spectator: 409 player)
 	join.ctx.leftGames->clear();
 	join.fx.wm->invokeCallback("AptOnline::CustomMatch::Refresh", "");
 	REQUIRE(runUntil(all, [&] {
 		return std::any_of(join.client.games().begin(), join.client.games().end(), [&](const OnlineLobbyClient::Listing &l) { return l.id == game && l.state == "started"; });
-	}, 300));
+	}));
 	join.tick(30);
 	CHECK(join.client.mine().empty());
 	CHECK(std::find(join.sh->gameIds().begin(), join.sh->gameIds().end(), game) == join.sh->gameIds().end());
@@ -3786,7 +4161,7 @@ TEST_CASE("onlineux1 retail: back in the online screens after an online game (th
 			}
 		};
 		join.client.fetchMine();
-		CHECK_MESSAGE(runUntil(all, [&] { return refusedMine() == refusedBefore + 1; }, 300), bad.substr(0, 40));
+		CHECK_MESSAGE(runUntil(all, [&] { return refusedMine() == refusedBefore + 1; }), bad.substr(0, 40));
 	}
 	join.tamper = nullptr;
 }
@@ -3801,26 +4176,26 @@ TEST_CASE("onlineux1 r2 (Claude F1, Sol) retail: a rejoin or watch that could no
 	const std::vector<OnlinePlayer *> all{ &host, &join };
 	signInAndOpenPlay(host, u"Host");
 	REQUIRE(host.clickWhenShown("Controls.CreateGame"));
-	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }, 300));
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }));
 	REQUIRE(host.clickWhenShown("CreateGamePopup.Accept"));
-	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }), host.notes());
 	joinListed(join, all, u"Joiner");
 	const std::string game = host.client.gameId();
-	REQUIRE(runUntil(all, [&] { return join.sh->readyIcon(1) == "_enabledUnchecked"; }, 300));
+	REQUIRE(runUntil(all, [&] { return join.sh->readyIcon(1) == "_enabledUnchecked"; }));
 	REQUIRE(join.click("~1.Ready"));
-	REQUIRE(runUntil(all, [&] { return host.client.slotViews()[1].ready; }, 300));
+	REQUIRE(runUntil(all, [&] { return host.client.slotViews()[1].ready; }));
 	REQUIRE(host.clickWhenShown("LowerButtons_Host.PlayGame"));
 	REQUIRE_MESSAGE(runUntil(all, [&] {
 		return host.fx.services.countRequests(ShellAction::OnlineGameStart) == 1 && join.fx.services.countRequests(ShellAction::OnlineGameStart) == 1;
-	}, 900), host.notes());
+	}), host.notes());
 	REQUIRE(join.client.playedGame() == game);
 	// the joiner's game could not go on on its side (what game.gd does: AptMenuPlayer.online_game_failed, then the score screen's Continue)
 	join.ctx.gameFailed(u"The game could not be rejoined: the relay keeps no log of this game: it cannot be rejoined");
 	backAfterGame(join);
-	REQUIRE_MESSAGE(runUntil(all, [&] { return join.sh->currentPage() == "OnlineOpenPlay" && join.sh->openPlayState() == 2 && join.sh->gameList(); }, 600), join.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return join.sh->currentPage() == "OnlineOpenPlay" && join.sh->openPlayState() == 2 && join.sh->gameList(); }), join.notes());
 	REQUIRE(runUntil(all, [&] {
 		return std::any_of(join.sh->boxesShown().begin(), join.sh->boxesShown().end(), [](const std::string &b) { return b.rfind("online-notice|The game could not be rejoined", 0) == 0; });
-	}, 300));
+	}));
 	CHECK(join.client.sentCount("leave") == 0); // before r2: the shell's remaking sent POST /leave for it
 	CHECK(join.client.playedGame().empty());
 	CHECK(join.ctx.leftGames->count(game) == 0);
@@ -3828,7 +4203,7 @@ TEST_CASE("onlineux1 r2 (Claude F1, Sol) retail: a rejoin or watch that could no
 	// the lobby still has it as the joiner's running game: listed for a rejoin
 	join.dismissBox();
 	join.client.fetchMine();
-	REQUIRE(runUntil(all, [&] { return join.client.mine().size() == 1 && join.client.mine()[0].id == game; }, 300));
+	REQUIRE(runUntil(all, [&] { return join.client.mine().size() == 1 && join.client.mine()[0].id == game; }));
 	join.fx.wm->invokeCallback("AptOnline::CustomMatch::Refresh", "");
 	join.tick(30);
 	const auto at = std::find(join.sh->gameIds().begin(), join.sh->gameIds().end(), game);
@@ -3836,7 +4211,7 @@ TEST_CASE("onlineux1 r2 (Claude F1, Sol) retail: a rejoin or watch that could no
 	CHECK(join.sh->gameRows()[(size_t)(at - join.sh->gameIds().begin())].find("|rejoin") != std::string::npos);
 	// and grants a rejoin START (no "409 left")
 	join.client.rejoinGame(game);
-	REQUIRE_MESSAGE(runUntil(all, [&] { return join.fx.services.countRequests(ShellAction::OnlineGameStart) == 2 || join.hasNote("online-refused", "rejoin"); }, 300), join.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return join.fx.services.countRequests(ShellAction::OnlineGameStart) == 2 || join.hasNote("online-refused", "rejoin"); }), join.notes());
 	CHECK_FALSE(join.hasNote("online-refused", "rejoin"));
 	CHECK(join.fx.services.countRequests(ShellAction::OnlineGameStart) == 2);
 }
@@ -3887,14 +4262,15 @@ TEST_CASE("onlineux1 retail: the server browser: the Lobby Room drop-down lists 
 		info.slots[0].state = SLOT_PLAYER;
 		for (int sl = 1; sl < MAX_SLOTS; ++sl)
 		{
+			// the retail maps' eight slots open, the rest closed (P16: an eight-slot game that opens slot 8 .. 15 is a capacity refusal)
 			info.slots[sl] = SkirmishGameSlot();
-			info.slots[sl].state = SLOT_OPEN;
+			info.slots[sl].state = sl < LEGACY_MAX_SLOTS ? SLOT_OPEN : SLOT_CLOSED;
 		}
 		h.client.createGame(i == 0 ? u"Agame" : u"Bgame", "", info, 0);
-		REQUIRE_MESSAGE(runUntil(all, [&] { return h.client.inGame(); }, 300), h.notes());
+		REQUIRE_MESSAGE(runUntil(all, [&] { return h.client.inGame(); }), h.notes());
 	}
 	viewer.fx.wm->invokeCallback("AptOnline::CustomMatch::Refresh", "");
-	REQUIRE(runUntil(all, [&] { return viewer.sh->gameRows().size() == 2; }, 300));
+	REQUIRE(runUntil(all, [&] { return viewer.sh->gameRows().size() == 2; }));
 	for (size_t i = 0; i < 2; ++i)
 	{
 		const std::string name = i == 0 ? "Agame" : "Bgame";
@@ -3905,13 +4281,13 @@ TEST_CASE("onlineux1 retail: the server browser: the Lobby Room drop-down lists 
 		}
 		REQUIRE_FALSE(row == -1); // the game is listed
 		starttest::wheelAndClickRow(viewer.fx, viewer.sh->gameList(), row); // the player's click on the row
-		REQUIRE_MESSAGE(runUntil(all, [&] { return viewer.sh->setup()->info().mapName == maps[i]; }, 120), viewer.sh->setup()->info().mapName);
+		REQUIRE_MESSAGE(runUntil(all, [&] { return viewer.sh->setup()->info().mapName == maps[i]; }), viewer.sh->setup()->info().mapName);
 	}
 	// the player's own game is on the player's own map
 	REQUIRE(viewer.clickWhenShown("Controls.CreateGame"));
-	REQUIRE(runUntil(all, [&] { return viewer.sh->gameNameWindow() && viewer.sh->openPlayState() == 3; }, 300));
+	REQUIRE(runUntil(all, [&] { return viewer.sh->gameNameWindow() && viewer.sh->openPlayState() == 3; }));
 	REQUIRE(viewer.clickWhenShown("CreateGamePopup.Accept"));
-	REQUIRE_MESSAGE(runUntil(all, [&] { return viewer.client.inGame() && viewer.sh->openPlayState() == 6; }, 300), viewer.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return viewer.client.inGame() && viewer.sh->openPlayState() == 6; }), viewer.notes());
 	CHECK(viewer.client.gameInfo().mapName == own);
 }
 
@@ -3929,7 +4305,7 @@ TEST_CASE("onlineux1 retail: the home page's ticker shows retail's Date / Time /
 		p.fx.text.set(labels[i], texts[i]);
 	}
 	signIn(p, u"Tic");
-	REQUIRE(runUntil({ &p }, [&] { return p.sh->tickerRows().size() == 4; }, 120));
+	REQUIRE(runUntil({ &p }, [&] { return p.sh->tickerRows().size() == 4; }));
 	std::u16string label;
 	for (int i = 0; i < 4; ++i)
 	{
@@ -4038,11 +4414,11 @@ TEST_CASE("onlinemenu1 retail: the online staging room's Handicap and Hero work 
 	CHECK_FALSE(host.hasNote("online-stops", "[S-4076]"));
 	signInAndOpenPlay(host, u"Host");
 	REQUIRE(host.clickWhenShown("Controls.CreateGame"));
-	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }, 300));
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }));
 	REQUIRE(host.clickWhenShown("CreateGamePopup.Accept"));
-	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }), host.notes());
 	joinListed(a, all, u"JoinerA");
-	REQUIRE(runUntil(all, [&] { return a.sh->slotGadget(1, "Handicap") && a.sh->slotGadget(1, "Hero") && host.sh->slotGadget(1, "Handicap"); }, 300));
+	REQUIRE(runUntil(all, [&] { return a.sh->slotGadget(1, "Handicap") && a.sh->slotGadget(1, "Hero") && host.sh->slotGadget(1, "Handicap"); }));
 	// ---- Handicap: RotWK's combo (RW 0x840B9D): 0, -5 .. -95, the item data the value; the joiner picks -15 (row 3) in its own row ----
 	GameWindow *handicap = a.sh->slotGadget(1, "Handicap");
 	REQUIRE(GadgetComboBoxGetLength(handicap) == 20);
@@ -4052,15 +4428,15 @@ TEST_CASE("onlinemenu1 retail: the online staging room's Handicap and Hero work 
 	}
 	// the host sees the joiner's row locked once its room view has the joiner (before, slot 1 was an open slot: the host's to fill)
 	REQUIRE_MESSAGE(runUntil(all, [&] { return host.client.slotViews()[1].state == "player" && host.sh->slotGadget(1, "Handicap") &&
-		!gadgetEnabled(host.sh->slotGadget(1, "Handicap")); }, 300), host.notes());
+		!gadgetEnabled(host.sh->slotGadget(1, "Handicap")); }), host.notes());
 	GadgetComboBoxSetSelectedPos(handicap, 3, false);
-	REQUIRE_MESSAGE(runUntil(all, [&] { return host.client.gameInfo().slots[1].handicap == -15 && host.sh->setup()->info().slots[1].handicap == -15; }, 300),
+	REQUIRE_MESSAGE(runUntil(all, [&] { return host.client.gameInfo().slots[1].handicap == -15 && host.sh->setup()->info().slots[1].handicap == -15; }),
 		a.notes());
 	CHECK(a.client.gameInfo().slots[1].handicap == -15);
 	CHECK(host.client.gameInfo().slots[0].handicap == 0);
 	// a raw out-of-set handicap (a client that skips the combo): the lobby refuses it by name and the room keeps -15
 	a.client.setOwnSlot(OnlineLobbyClient::kKeep, OnlineLobbyClient::kKeep, OnlineLobbyClient::kKeep, OnlineLobbyClient::kKeep, -7);
-	REQUIRE(runUntil(all, [&] { return a.hasNote("online-refused", "slot: bad_field"); }, 300));
+	REQUIRE(runUntil(all, [&] { return a.hasNote("online-refused", "slot: bad_field"); }));
 	for (OnlinePlayer *p : all)
 	{
 		p->tick(30);
@@ -4081,7 +4457,7 @@ TEST_CASE("onlinemenu1 retail: the online staging room's Handicap and Hero work 
 			GadgetComboBoxSetSelectedPos(faction, r, false);
 		}
 	}
-	REQUIRE(runUntil(all, [&] { return host.client.gameInfo().slots[1].playerTemplate == men; }, 300));
+	REQUIRE(runUntil(all, [&] { return host.client.gameInfo().slots[1].playerTemplate == men; }));
 	const CreateAHeroSystem &sys = s->world->createAHeroSystem();
 	int chosen = -1;
 	for (int i = 0; i < (int)heroes.size() && chosen < 0; ++i)
@@ -4093,7 +4469,7 @@ TEST_CASE("onlinemenu1 retail: the online staging room's Handicap and Hero work 
 		}
 	}
 	REQUIRE(chosen >= 0); // tolerance: a lookup that found a system hero the Men can use (its index in the list)
-	REQUIRE(runUntil(all, [&] { return a.sh->slotGadget(1, "Hero") && GadgetComboBoxGetLength(a.sh->slotGadget(1, "Hero")) == 10; }, 300));
+	REQUIRE(runUntil(all, [&] { return a.sh->slotGadget(1, "Hero") && GadgetComboBoxGetLength(a.sh->slotGadget(1, "Hero")) == 10; }));
 	GameWindow *heroCombo = a.sh->slotGadget(1, "Hero");
 	CHECK(gadgetEnabled(heroCombo));
 	int row = -1;
@@ -4107,27 +4483,27 @@ TEST_CASE("onlinemenu1 retail: the online staging room's Handicap and Hero work 
 	REQUIRE_MESSAGE(runUntil(all, [&] {
 		const SkirmishGameSlot &h = host.client.gameInfo().slots[1];
 		return h.hasCreateAHero && h.createAHero.save() == wire && host.sh->setup()->info().slots[1].hasCreateAHero;
-	}, 300), a.notes());
+	}), a.notes());
 	CHECK(host.client.slotViews()[1].heroProblem.empty());
 	// the host's room shows the joiner's choice as text (RW 0x841A9E): a system hero's name and VALUE:Default
-	REQUIRE(runUntil(all, [&] { return host.sh->slotGadget(1, "Hero") && GadgetComboBoxGetLength(host.sh->slotGadget(1, "Hero")) == 1; }, 300));
+	REQUIRE(runUntil(all, [&] { return host.sh->slotGadget(1, "Hero") && GadgetComboBoxGetLength(host.sh->slotGadget(1, "Hero")) == 1; }));
 	CHECK(GadgetComboBoxGetText(host.sh->slotGadget(1, "Hero")) == heroes.at(chosen)->hero.name + u" (Default)");
 	CHECK_FALSE(gadgetEnabled(host.sh->slotGadget(1, "Hero")));
 	// ---- ready, start: both STARTs carry the handicap and the record as OnlineStart reads them (the joiner is on the CHAT tab, the Ready column's) ----
-	REQUIRE_MESSAGE(runUntil(all, [&] { return a.sh->readyIcon(1) == "_enabledUnchecked"; }, 300), a.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return a.sh->readyIcon(1) == "_enabledUnchecked"; }), a.notes());
 	// ---- a hero record the HOST's client cannot read (the host's room views rewritten: the lobby and the joiner keep the good one): the slot shows no
 	// hero there and the host's Play Game is refused by name (the joiner's name in the room's chat), no START asked for ----
 	host.tamper = [](const OnlineLobbyClient::HttpRequest &, HttpAnswer &ans) {
 		ans.body = std::regex_replace(ans.body, std::regex("\"cah\":\"[^\"]+\""), "\"cah\":\"AAAA\"");
 	};
 	a.client.chat(u"a new room view for the host");
-	REQUIRE_MESSAGE(runUntil(all, [&] { return !host.client.slotViews()[1].heroProblem.empty(); }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return !host.client.slotViews()[1].heroProblem.empty(); }), host.notes());
 	CHECK_FALSE(host.client.gameInfo().slots[1].hasCreateAHero);
 	REQUIRE(a.click("~1.Ready"));
-	REQUIRE(runUntil(all, [&] { return host.client.slotViews()[1].ready; }, 300));
+	REQUIRE(runUntil(all, [&] { return host.client.slotViews()[1].ready; }));
 	const size_t refusals = host.sh->startRefusals().size();
 	REQUIRE(host.clickWhenShown("LowerButtons_Host.PlayGame"));
-	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->startRefusals().size() == refusals + 1; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->startRefusals().size() == refusals + 1; }), host.notes());
 	CHECK(host.sh->startRefusals().back() == "create-a-hero");
 	CHECK(host.client.sentCount("start") == 0);
 	CHECK(std::count(host.sh->chatLines().begin(), host.sh->chatLines().end(),
@@ -4135,13 +4511,13 @@ TEST_CASE("onlinemenu1 retail: the online staging room's Handicap and Hero work 
 	// ---- the host's views read again (nothing rewritten): the record is the joiner's again and Play Game starts ----
 	host.tamper = nullptr;
 	a.client.chat(u"and another");
-	REQUIRE_MESSAGE(runUntil(all, [&] { return host.client.slotViews()[1].heroProblem.empty() && host.client.gameInfo().slots[1].hasCreateAHero; }, 300),
+	REQUIRE_MESSAGE(runUntil(all, [&] { return host.client.slotViews()[1].heroProblem.empty() && host.client.gameInfo().slots[1].hasCreateAHero; }),
 		host.notes());
-	REQUIRE(runUntil(all, [&] { return host.client.slotViews()[1].ready; }, 300));
+	REQUIRE(runUntil(all, [&] { return host.client.slotViews()[1].ready; }));
 	REQUIRE(host.clickWhenShown("LowerButtons_Host.PlayGame"));
 	REQUIRE_MESSAGE(runUntil(all, [&] {
 		return host.fx.services.countRequests(ShellAction::OnlineGameStart) == 1 && a.fx.services.countRequests(ShellAction::OnlineGameStart) == 1;
-	}, 900), host.notes());
+	}), host.notes());
 	for (OnlinePlayer *p : all)
 	{
 		OnlineStart::Limits limits;
@@ -4216,20 +4592,20 @@ TEST_CASE("onlinemenu1 retail: the staging room's CONNECTIONS button opens RotWK
 	signInAndOpenPlay(host, u"Host");
 	// the owner (2026-10-20: "ping to server"): outside a room the player's ping is measured against the relay the lobby names (GET /v1/health), for
 	// the corner only: nothing is reported to the lobby
-	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.lobbyRelay() == relay.address.text() && host.client.ownRelayKnown(); }, 1500),
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.lobbyRelay() == relay.address.text() && host.client.ownRelayKnown(); }),
 		host.notes() << host.client.relayLookupError());
 	CHECK(host.client.ownRelayRttMs() >= 1); // tolerance: a loopback round trip, at least the 1 ms the probe reports
 	CHECK(host.client.sentCount("health") == 1);
 	CHECK(host.client.sentCount("link") == 0);
 	REQUIRE(host.clickWhenShown("Controls.CreateGame"));
-	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }, 300));
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() != nullptr && host.sh->openPlayState() == 3; }));
 	REQUIRE(host.clickWhenShown("CreateGamePopup.Accept"));
-	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }), host.notes());
 	joinListed(a, all, u"JoinerA");
 	// the room names the lobby's relay; both clients probe it on entering and report their links (no request of the screen's own)
 	CHECK(host.client.roomRelay() == relay.address.text());
 	auto linked = [&](OnlinePlayer &p, int slot) { return p.client.slotViews()[(size_t)slot].linkKnown; };
-	REQUIRE_MESSAGE(runUntil(all, [&] { return linked(host, 0) && linked(host, 1) && linked(a, 0) && linked(a, 1); }, 1500), host.notes() << a.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return linked(host, 0) && linked(host, 1) && linked(a, 0) && linked(a, 1); }), host.notes() << a.notes());
 	for (int slot = 0; slot < 2; ++slot)
 	{
 		CHECK(host.client.slotViews()[(size_t)slot].rttMs >= 1); // tolerance: a loopback round trip, at least the 1 ms the probe reports
@@ -4242,13 +4618,21 @@ TEST_CASE("onlinemenu1 retail: the staging room's CONNECTIONS button opens RotWK
 	host.fx.shell->push("Options.apt");
 	host.tick(10);
 	host.fx.shell->pop();
-	runUntil(all, [&] { return false; }, 120); // two seconds of updates: a new measurement would have been reported by then (a loopback answers at once)
+	// Observe two seconds of simulation ticks: no new measurement should be reported.
+	for (int i = 0; i < 120; ++i)
+	{
+		for (OnlinePlayer *p : all)
+		{
+			p->tick(1);
+		}
+		NetSleepMilliseconds(2);
+	}
 	CHECK(host.client.sentCount("link") == 1);
 	auto isMs = [](const UnicodeString &t) { return t.size() > 3 && t.compare(t.size() - 3, 3, u" ms") == 0 && t[0] >= u'0' && t[0] <= u'9'; };
 	// ---- the owner (2026-10-20: "the player can just see their ping on the side"): the chat tab's Players list has each player's ping beside the name
 	// (the host's own: its ping to the relay; the joiner's: both pings added) ----
 	REQUIRE(host.clickWhenShown("TabButtons.ChatTab"));
-	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->chatPlayersWindow() && GadgetListBoxGetNumEntries(host.sh->chatPlayersWindow()) == 2; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->chatPlayersWindow() && GadgetListBoxGetNumEntries(host.sh->chatPlayersWindow()) == 2; }), host.notes());
 	host.tick(60); // the lists are made again once the tab's clip has played in
 	{
 		GameWindow *players = host.sh->chatPlayersWindow();
@@ -4265,7 +4649,7 @@ TEST_CASE("onlinemenu1 retail: the staging room's CONNECTIONS button opens RotWK
 	// ---- the movie's own CONNECTIONS button: the grid shows good cells between the two players, nothing for the empty slots or a player's own ----
 	const size_t boxes = host.sh->boxesShown().size();
 	REQUIRE(host.clickWhenShown("LowerButtons_Host.Connections"));
-	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->connectionCell(0, 1) == "_good"; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->connectionCell(0, 1) == "_good"; }), host.notes());
 	CHECK(host.sh->boxesShown().size() == boxes); // no "not available" box any more
 	CHECK(host.sh->connectionsOpen());
 	// the owner (2026-10-20: the grid "makes like no sense"): an OpenBFME page covers it and says it in words: the lobby server's response time, the
@@ -4291,7 +4675,7 @@ TEST_CASE("onlinemenu1 retail: the staging room's CONNECTIONS button opens RotWK
 		}
 		return UnicodeString(u"(no row)");
 	};
-	REQUIRE_MESSAGE(runUntil(all, [&] { return isMs(pageValue("relay")); }, 300), OnlineLobbyClient::utf16ToUtf8(pageValue("relay")));
+	REQUIRE_MESSAGE(runUntil(all, [&] { return isMs(pageValue("relay")); }), OnlineLobbyClient::utf16ToUtf8(pageValue("relay")));
 	CHECK(isMs(pageValue("lobby")));
 	CHECK(pageValue("loss") == u"0%");
 	CHECK(pageLabel("p1") == u"JoinerA");
@@ -4349,9 +4733,9 @@ TEST_CASE("onlinemenu1 retail: the staging room's CONNECTIONS button opens RotWK
 		starttest::clickAt(host.fx, (tr[0] + tr[2]) / 2.0f, (tr[1] + tr[3]) / 2.0f);
 	}
 	REQUIRE_MESSAGE(runUntil(all, [&] { return host.client.slotViews()[0].linkKnown && host.client.slotViews()[0].rttMs == -1 &&
-		a.client.slotViews()[0].rttMs == -1; }, 1500), host.notes());
+		a.client.slotViews()[0].rttMs == -1; }), host.notes());
 	CHECK(host.client.slotViews()[0].lossPct == 100);
-	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->connectionCell(0, 1) == "_failed"; }, 300), host.notes());
+	REQUIRE_MESSAGE(runUntil(all, [&] { return host.sh->connectionCell(0, 1) == "_failed"; }), host.notes());
 	CHECK(host.sh->connectionCell(1, 0) == "_failed");
 	host.tick(5);
 	CHECK(cellShows(0, 1, "_failed"));
@@ -4376,160 +4760,5 @@ TEST_CASE("onlinemenu1 retail: the staging room's CONNECTIONS button opens RotWK
 			CHECK_MESSAGE(host.fx.wm->apt().input().hitTestButtons(x, y) == nullptr, b->targetPath());
 		}
 	}
-}
-#endif
-
-#ifdef ONLINE4_POSIX // OnlinePlayer (the online players above) is POSIX-only
-TEST_CASE("onlinemenu1 retail: the FRIENDS page over the online screens (OpenBFME's, in the game's style): the button drawn beside MESSENGER and "
-		  "pressed for real, the page's tabs, rows and activating list, Enter in its entry, closed when another screen covers the shell, and nothing "
-		  "of the shell's left on the layer once it is gone")
-{
-	OPENBFME_REQUIRE_START(s);
-	OnlinePlayer p(*s, 1, 95, u""); // no lobby needed: the page is the shell's own
-	p.tick(30);
-	AptGadgetLayer *layer = p.fx.wm->gadgetLayer();
-	REQUIRE(layer);
-	auto drawn = [&](const std::u16string &text) {
-		GadgetDrawList out;
-		layer->buildDrawList(out);
-		return std::any_of(out.commands.begin(), out.commands.end(), [&](const GadgetDrawCommand &c) { return c.kind == GadgetDrawCommand::Kind::Text && c.text == text; });
-	};
-	CHECK_FALSE(drawn(u"FRIENDS (2)"));
-	// ---- the button: drawn once the host names it, pressed with the pointer (the window manager's mouse filter is the shell's) ----
-	p.sh->setFriendsButton(u"FRIENDS (2)");
-	p.tick(2);
-	REQUIRE(drawn(u"FRIENDS (2)"));
-	const float bx = (AptOnlineShell::kFriendsButtonLeft + AptOnlineShell::kFriendsButtonRight) / 2.0f;
-	const float by = (AptOnlineShell::kFriendsButtonTop + AptOnlineShell::kFriendsButtonBottom) / 2.0f;
-	starttest::clickAt(p.fx, bx, by);
-	std::vector<OpenBFMEPageEvent> ev = p.sh->takeFriendsEvents();
-	REQUIRE(ev.size() == 1);
-	CHECK(ev[0].kind == OpenBFMEPageEvent::Kind::Entry);
-	CHECK(ev[0].key == "friends_button");
-	starttest::clickAt(p.fx, AptOnlineShell::kFriendsButtonLeft - 40.0f, by); // beside it: nothing
-	CHECK(p.sh->takeFriendsEvents().empty());
-	// ---- the page: tabs, a text row, an entry, a choice, and a list below the rows whose lines can be double-clicked ----
-	OpenBFMEPageSpec spec;
-	spec.tabsHeader = u"FRIENDS";
-	spec.tabs = { u"REQUESTS", u"ADD FRIEND", u"BACK" };
-	spec.tab = 1;
-	spec.panelHeader = u"ADD A FRIEND";
-	OpenBFMEPageRow code;
-	code.kind = OpenBFMEPageRow::Kind::Text;
-	code.key = "code";
-	code.label = u"Your friend code";
-	code.valueText = u"0123-4567-89";
-	OpenBFMEPageRow add;
-	add.kind = OpenBFMEPageRow::Kind::Entry;
-	add.key = "add_code";
-	add.label = u"Friend's code (Enter)";
-	add.maxValue = 12;
-	OpenBFMEPageRow status;
-	status.kind = OpenBFMEPageRow::Kind::Choice;
-	status.key = "status";
-	status.label = u"Show me as";
-	status.items = { { u"Online", true }, { u"Away", true } };
-	spec.rows = { code, add, status };
-	spec.hasList = true;
-	spec.list = { { u"Create a recovery code", u"" }, { u"Second line", u"" } };
-	spec.listFromRow = 4;
-	spec.listActivates = true;
-	std::string err;
-	REQUIRE_MESSAGE(p.sh->openFriendsPage(spec, &err), err);
-	p.tick(2);
-	OpenBFMEOptionsPage *page = p.sh->friendsPage();
-	REQUIRE(page);
-	CHECK(p.sh->friendsPageOpen());
-	CHECK(drawn(u"ADD A FRIEND"));
-	CHECK(drawn(u"Your friend code"));
-	CHECK(drawn(u"FRIENDS (2)")); // the button stays
-	std::array<int, 4> lr{}, er{};
-	REQUIRE(page->rect("list", lr));
-	REQUIRE(page->rect("add_code", er));
-	CHECK(lr[1] == OpenBFMEOptionsPage::kRowTop + 4 * OpenBFMEOptionsPage::kRowPitch); // the list from row 4 (listFromRow), below the three rows
-	CHECK(lr[3] < OpenBFMEOptionsPage::kHelpTop - 10); // tolerance: the font's line height sets the exact bottom; two lines: the list is as tall as its lines and one more, not the rest of the panel
-	CHECK(er[2] - er[0] == OpenBFMEOptionsPage::kEntryWidth); // a code's entry keeps its width (a longer entry runs to the gadgets' right edge)
-	// a click on a tab (the page takes it; the online page under it never sees it)
-	std::array<int, 4> tr{};
-	REQUIRE(page->rect("tab:2", tr));
-	starttest::clickAt(p.fx, (tr[0] + tr[2]) / 2.0f, (tr[1] + tr[3]) / 2.0f);
-	ev = p.sh->takeFriendsEvents();
-	REQUIRE(ev.size() == 1);
-	CHECK(ev[0].kind == OpenBFMEPageEvent::Kind::Tab);
-	CHECK(ev[0].value == 2);
-	// Enter in the entry (the gadget's own GEM_EDIT_DONE to its owner): the text comes with the Submit
-	GameWindow *entry = page->gadget("add_code");
-	REQUIRE(entry);
-	GadgetTextEntrySetText(entry, u"ABCD-EFGH-JK");
-	entry->manager().winSendSystemMsg(entry->winGetOwner(), GEM_EDIT_DONE, (WindowMsgData)entry, 0);
-	ev = p.sh->takeFriendsEvents();
-	REQUIRE_FALSE(ev.empty());
-	CHECK(ev.back().kind == OpenBFMEPageEvent::Kind::Submit);
-	CHECK(ev.back().key == "add_code");
-	CHECK(ev.back().text == u"ABCD-EFGH-JK");
-	// ONLINEMENU-1 (the friends video, 2026-10-20): a real click into the entry and typed characters reach it: the page's band kept every press
-	// from the gadget layer, so a player could not type a friend code (the steps above send the gadget's messages directly)
-	GadgetTextEntrySetText(entry, u"");
-	starttest::clickAt(p.fx, (er[0] + er[2]) / 2.0f, (er[1] + er[3]) / 2.0f);
-	CHECK(p.sh->takeFriendsEvents().empty()); // a click in the page is not the online page's under it, nor a tab
-	for (char16_t c : std::u16string(u"WXYZ-1234"))
-	{
-		p.fx.wm->postTextInput(c);
-	}
-	p.tick(2);
-	const auto typed = GadgetTextEntryGetText(entry);
-	CHECK(std::u16string(typed.begin(), typed.end()) == u"WXYZ-1234");
-	p.fx.wm->postTextInput(u'\r');
-	p.tick(2);
-	ev = p.sh->takeFriendsEvents();
-	REQUIRE_FALSE(ev.empty());
-	CHECK(ev.back().kind == OpenBFMEPageEvent::Kind::Submit);
-	CHECK(ev.back().text == u"WXYZ-1234");
-	// a list line double-clicked (ZH GadgetListBox's GLM_DOUBLE_CLICKED with the row) is the page's ListActivate with that row
-	GameWindow *list = page->gadget("list");
-	REQUIRE(list);
-	list->manager().winSendSystemMsg(list->winGetOwner(), GLM_DOUBLE_CLICKED, (WindowMsgData)list, 1);
-	ev = p.sh->takeFriendsEvents();
-	REQUIRE(ev.size() == 1);
-	CHECK(ev[0].kind == OpenBFMEPageEvent::Kind::ListActivate);
-	CHECK(ev[0].value == 1);
-	// the choice through its gadget
-	REQUIRE_MESSAGE(page->choose("status", 1, &err), err);
-	ev = p.sh->takeFriendsEvents();
-	REQUIRE_FALSE(ev.empty());
-	CHECK(ev.back().kind == OpenBFMEPageEvent::Kind::Value);
-	CHECK(ev.back().value == 1);
-	// ---- a screen over the shell (Options): the page closes (its gadgets would show through) and the host is told; back on top, the button works ----
-	p.fx.shell->push("Options.apt");
-	p.tick(10);
-	CHECK_FALSE(p.sh->friendsPageOpen());
-	ev = p.sh->takeFriendsEvents();
-	REQUIRE_FALSE(ev.empty());
-	CHECK(ev.back().kind == OpenBFMEPageEvent::Kind::Cancel);
-	CHECK(ev.back().key == "covered");
-	CHECK_FALSE(drawn(u"FRIENDS (2)")); // nothing of the shell's over the Options screen
-	p.fx.shell->pop();
-	p.tick(10);
-	REQUIRE(drawn(u"FRIENDS (2)"));
-	starttest::clickAt(p.fx, bx, by);
-	ev = p.sh->takeFriendsEvents();
-	REQUIRE(ev.size() == 1);
-	CHECK(ev[0].key == "friends_button");
-	// ---- lane ONLINEMENU-1 (friends in the Messenger): the host's Yes / No question in GuiFX's own box, one at a time, its answer handed back once ----
-	REQUIRE(p.sh->askYesNo("social1", u"Friend Game Invite", u"Ann has invited you to play a Open Play game. Do you want to jump to their game?"));
-	CHECK_FALSE(p.sh->askYesNo("social2", u"Ignore", u"Ignore Bea?")); // the box is up
-	CHECK_FALSE(p.sh->askYesNo("bad|key", u"T", u"t"));
-	p.tick(10);
-	p.dismissBox("Yes");
-	CHECK(p.sh->takeAnswers() == std::vector<std::string>{ "social1|yes" });
-	CHECK(p.sh->takeAnswers().empty());
-	REQUIRE(p.sh->askYesNo("social2", u"Ignore", u"Ignore Bea?"));
-	p.tick(10);
-	p.dismissBox("No");
-	CHECK(p.sh->takeAnswers() == std::vector<std::string>{ "social2|no" });
-	// ---- the shell gone: its decorator is not left on the layer (it captured the shell) ----
-	p.fx.shell->pop();
-	p.tick(5);
-	CHECK(layer->decoratorOwner() != static_cast<const void *>(p.sh));
 }
 #endif
