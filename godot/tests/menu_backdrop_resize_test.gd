@@ -95,6 +95,16 @@ func _run() -> void:
 	if not logo.ok:
 		quit(1)
 		return
+	var logo_clip: Dictionary = shell.instance_info(shell.shell_top_level(), "Image")
+	var has_logo_geometry: bool = logo_clip.get("found", false) and logo_clip.has("local_bounds") and logo_clip.has("stage_transform")
+	_check(has_logo_geometry, "authored logo clip bounds and transform are available")
+	if not has_logo_geometry:
+		quit(1)
+		return
+	var logo_bounds: Rect2 = logo_clip.local_bounds
+	var logo_transform: Transform2D = logo_clip.stage_transform
+	var logo_corners := PackedVector2Array([logo_bounds.position, Vector2(logo_bounds.end.x, logo_bounds.position.y),
+		logo_bounds.end, Vector2(logo_bounds.position.x, logo_bounds.end.y)])
 	var reference := SubViewport.new()
 	reference.size = viewport.size
 	reference.render_target_update_mode = SubViewport.UPDATE_ALWAYS
@@ -125,6 +135,11 @@ func _run() -> void:
 		var corners := PackedVector2Array([drawing_start, Vector2(drawing_end.x, drawing_start.y), drawing_end, Vector2(drawing_start.x, drawing_end.y)])
 		RenderingServer.canvas_item_clear(reference_item)
 		RenderingServer.canvas_item_add_polygon(reference_item, corners, PackedColorArray([Color.WHITE]), uvs, mapped.texture.get_rid())
+		var logo_start := drawing_start + (logo_transform * logo_corners[0]) * uniform_scale
+		var logo_rect := Rect2(logo_start, Vector2.ZERO)
+		for corner in logo_corners:
+			logo_rect = logo_rect.expand(drawing_start + (logo_transform * corner) * uniform_scale)
+		RenderingServer.canvas_item_add_texture_rect_region(reference_item, logo_rect, logo.texture.get_rid(), logo.region, Color.WHITE)
 		shell.render(false)
 		await process_frame
 		await process_frame
@@ -137,17 +152,9 @@ func _run() -> void:
 		var background_region := Rect2i(0, 0, size.x / 2, size.y / 2)
 		_check(actual.get_region(background_region).get_data() == expected.get_region(background_region).get_data(), stem + " background pixels match independent aspect-fit reference")
 		_check(_menu_state(shell) == initial_menu, stem + " menu stack and button hittability unchanged")
-		shell.fit = true
-		shell.render(false)
-		await process_frame
-		await process_frame
-		await RenderingServer.frame_post_draw
-		var fitted: Image = viewport.get_texture().get_image()
-		_check(fitted.save_png(folder.path_join("fitted-" + stem + ".png")) == OK, stem + " fitted-stage reference saved")
 		var artwork_region := Rect2i(0, 0, size.x, size.y / 2)
-		_check(actual.get_region(artwork_region).get_data() == fitted.get_region(artwork_region).get_data(), stem + " background and logo match the uniformly fitted stage")
-		shell.fit = false
-		shell.render(false)
+		_check(Rect2(artwork_region).encloses(logo_rect.intersection(Rect2(Vector2.ZERO, Vector2(size)))), stem + " comparison region includes the complete visible logo")
+		_check(actual.get_region(artwork_region).get_data() == expected.get_region(artwork_region).get_data(), stem + " background and independently placed logo pixels match reference")
 	shell.free()
 	viewport.free()
 	RenderingServer.free_rid(reference_item)

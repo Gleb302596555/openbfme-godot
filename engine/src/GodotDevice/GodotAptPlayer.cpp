@@ -5896,8 +5896,10 @@ Dictionary AptMenuPlayer::instance_info(int level, const String &path)
 	r["found"] = true;
 	r["type"] = (int)inst->type();
 	r["depth"] = inst->depth();
+	const AptMatrix stageTransform = inst->globalMatrix();
+	r["stage_transform"] = Transform2D(Vector2(stageTransform.a, stageTransform.b), Vector2(stageTransform.c, stageTransform.d), Vector2(stageTransform.tx, stageTransform.ty));
 	float x, y;
-	inst->globalMatrix().apply(0, 0, x, y);
+	stageTransform.apply(0, 0, x, y);
 	r["x"] = x;
 	r["y"] = y;
 	r["visible"] = inst->visible;
@@ -5905,6 +5907,7 @@ Dictionary AptMenuPlayer::instance_info(int level, const String &path)
 	float bx0, by0, bx1, by1;
 	if (inst->contentBounds(bx0, by0, bx1, by1))
 	{
+		r["local_bounds"] = Rect2(bx0, by0, bx1 - bx0, by1 - by0);
 		float ax, ay, cx, cy;
 		if (inst->parent())
 		{
