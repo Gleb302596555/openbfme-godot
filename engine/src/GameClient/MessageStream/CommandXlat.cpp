@@ -6,6 +6,8 @@
 #include "Common/Team.h"
 #include "GameClient/Radar.h"
 #include "GameLogic/AI/AIGarrisonStates.h"
+#include "GameLogic/Combat/CombatNames.h"
+#include "GameLogic/Object/Contain/GarrisonContainRuntime.h"
 
 #include "Common/BuildAssistant.h"
 #include "Common/SpecialPower.h"
@@ -370,7 +372,10 @@ int CommandTranslator::evaluateContextCommand(Object *obj, const Coord3D *pos, E
 			}
 			else if (type == EvaluateType::DoHint)
 			{
-				hint(MouseCursorName::EnterFriendly);
+				// Retail Mouse.ini supplies the animated OneRing asset for this action.
+				hint(dynamic_cast<CitadelSlaughterHordeContain *>(obj->getContain()) &&
+					enterer->testStatus((unsigned)CombatNames::status("HOLDING_THE_RING"))
+					? MouseCursorName::DeliverRing : MouseCursorName::EnterFriendly);
 			}
 			return msgType;
 		}

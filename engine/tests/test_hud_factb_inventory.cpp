@@ -63,10 +63,10 @@ TEST_CASE("factb inventory: Isengard and Mordor reach every structure, unit, her
 			classes.insert(kv.first);
 		}
 		const std::set<std::string> isengard = { "AnnounceBirthAndDeathBehavior", "AudioLoopUpgrade", "BaseUpgrade",
-			"CitadelSlaughterHordeContain", "EvacuateDamage", "FlingPassengerSpecialAbilityUpdate", "GeometryUpgrade",
+			"EvacuateDamage", "FlingPassengerSpecialAbilityUpdate", "GeometryUpgrade",
 			"PickupStuffUpdate", "SiegeDeployHordeSpecialPower", "SlaveWatcherBehavior" }; // lane FX-4 ported TransitionDamageFX; lane LUMBER1: SupplyCenterCreate / SupplyCenterDockUpdate ported (S-1993)
 		const std::set<std::string> mordor = { "AimWeaponBehavior", "AnnounceBirthAndDeathBehavior", "AudioLoopUpgrade", "AutoPickUpUpdate", "BaseUpgrade",
-			"BoredUpdate", "CitadelSlaughterHordeContain", "ClickReactionBehavior", "EvacuateDamage", // lane SUMMON-1 ported DoCommandUpgrade
+			"BoredUpdate", "ClickReactionBehavior", "EvacuateDamage", // lane SUMMON-1 ported DoCommandUpgrade
 			"FlingPassengerSpecialAbilityUpdate", "GeometryUpgrade", "GrabPassengerSpecialPower", "HordeTransportContainDamage",
 			"PickupStuffUpdate", "RunOffMapBehavior", "SiegeDeployHordeSpecialPower", "SlaughterHordeContain", "SlaveWatcherBehavior" }; // lane FX-4 ported TransitionDamageFX; lane LUMBER1: SupplyCenterCreate / SupplyCenterDockUpdate ported (S-1993)
 		CHECK(classes == (std::string(f) == "FactionIsengard" ? isengard : mordor));
