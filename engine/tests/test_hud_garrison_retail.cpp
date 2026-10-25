@@ -760,3 +760,45 @@ TEST_CASE("ring delivery retail: fortress refuses ordinary troops and another pl
 	CHECK_FALSE(a.player(0)->hasUpgradeComplete("Upgrade_RingHero"));
 	CHECK_FALSE(fortress->hasUpgrade("Upgrade_FortressRingHero"));
 }
+
+TEST_CASE("ring delivery retail: a battalion delivers when its last approaching member dies")
+{
+	if (!haveWorld()) return;
+	Arena a(shared());
+	a.logic.partition().setRegion(0.0f, 0.0f, 1200.0f, 1200.0f);
+	Object *fortress = a.place("MenFortressCitadel", 0, 600.0f, 600.0f);
+	Object *carrier = a.place("GondorArcherHorde", 0, 350.0f, 600.0f);
+	Object *ring = a.place("TheDroppedRing", 0, 350.0f, 600.0f);
+	const ObjectID ringID = ring->getID();
+	a.run(3);
+	REQUIRE(carrier->testStatus((unsigned)CombatNames::status("HOLDING_THE_RING")));
+	auto *horde = dynamic_cast<HordeContain *>(carrier->getContain());
+	auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(fortress->getContain());
+	REQUIRE(horde != nullptr);
+	REQUIRE(contain != nullptr);
+	const auto members = membersOf(*carrier);
+	REQUIRE(members.size() == 15);
+	// Stage fourteen arrivals while the final member is still on its way.
+	// No further member-entry callback can complete delivery after it dies.
+	horde->enterContainer(fortress, CMD_FROM_PLAYER);
+	REQUIRE(carrier->getContainedBy() == fortress);
+	for (size_t i = 0; i + 1 < members.size(); ++i)
+		REQUIRE(contain->addToContain(members[i]));
+	REQUIRE_FALSE(horde->allMembersEntered());
+	REQUIRE_FALSE(fortress->hasUpgrade("Upgrade_FortressRingHero"));
+	members.back()->kill(0);
+	a.run(100);
+	CHECK(horde->allMembersEntered());
+	CHECK(a.player(0)->hasUpgradeComplete("Upgrade_RingHero"));
+	CHECK(fortress->hasUpgrade("Upgrade_FortressRingHero"));
+	CHECK_FALSE(carrier->testStatus((unsigned)CombatNames::status("HOLDING_THE_RING")));
+	CHECK(a.logic.findObjectByID(ringID) == nullptr);
+	CHECK(carrier->getContainedBy() == nullptr);
+	CHECK(carrier->isInWorld());
+	CHECK_FALSE(carrier->isEffectivelyDead());
+	CHECK_FALSE(carrier->testStatus((unsigned)CombatNames::status("UNSELECTABLE")));
+	CHECK(horde->getContainedItemsList()->size() == 14);
+	CHECK(a.logic.fxEvents().perSite().count("CitadelSlaughterHordeContain") == 1);
+	if (a.logic.fxEvents().perSite().count("CitadelSlaughterHordeContain"))
+		CHECK(a.logic.fxEvents().perSite().at("CitadelSlaughterHordeContain") == 1);
+}

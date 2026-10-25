@@ -1488,6 +1488,16 @@ UpdateSleepTime CitadelSlaughterHordeContain::update()
 				ai->aiExit(getObject(), ai->lastCommandSource());
 		}
 	m_ringExit = INVALID_ID;
+	// INFERENCE (S-6010): the last approaching member can die, so the
+	// horde's entry set can become empty without an addToContain callback.
+	// Complete one waiting delivery here; its exit runs on the next update.
+	for (Object *obj : *getContainedItemsList())
+		if (!obj->isEffectivelyDead() && hasRingStatus(*obj))
+			if (const auto *horde = hordeOf(*obj); horde && horde->allMembersEntered())
+			{
+				deliverRing(*obj);
+				break;
+			}
 	return GarrisonContain::update();
 }
 
