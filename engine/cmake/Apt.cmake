@@ -31,7 +31,8 @@ set(OPENBFME_APT_TESTS
     tests/test_apt_input.cpp
     tests/test_apt_menu.cpp
     tests/test_fb7_menus.cpp # lane FB7-1 round 2
-    tests/test_apt_canvas.cpp)
+    tests/test_apt_canvas.cpp
+    tests/test_apt_backdrop.cpp)
 
 # Shell, WindowManager, native gadgets, skirmish setup (lane APT-4)
 include(${CMAKE_CURRENT_LIST_DIR}/AptShell.cmake)
