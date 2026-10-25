@@ -332,6 +332,37 @@ export function checkPlatform(v) {
   if (typeof v !== 'string' || !PLATFORMS.includes(v)) throw bad('bad_field', `platform must be one of ${PLATFORMS.join(', ')} or absent`);
   return v;
 }
+// lane JOINVER-1 (the owner, 2026-10-23): the build a client tells at create / join: its release tag, build day, whether it is an official release
+// (a packaged build with the release key: the client's claim, shown to people, never trusted for anything) and its system. A game keeps its host's;
+// the list shows it and a join refused for a different build (409 profile) names both sides in plain words. Older clients tell none: the sign-in's
+// client (version, platform) stands in.
+export function checkBuild(v) {
+  if (v === undefined || v === null) return null;
+  if (typeof v !== 'object' || Array.isArray(v)) throw bad('bad_field', 'build must be an object');
+  allowFields(v, ['version', 'date', 'official', 'platform'], 'build');
+  const version = str(v.version, 64, 'build.version');
+  if (!/^[0-9A-Za-z._+-]+$/.test(version)) throw bad('bad_field', 'build.version must be a version tag');
+  const date = v.date === undefined || v.date === '' ? '' : str(v.date, 10, 'build.date');
+  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw bad('bad_field', 'build.date must be YYYY-MM-DD');
+  if (v.official !== undefined && typeof v.official !== 'boolean') throw bad('bad_field', 'build.official must be true or false');
+  return { version, date, official: v.official ?? null, platform: checkPlatform(v.platform) ?? null };
+}
+function accountBuild(account) {
+  const c = account?.client;
+  return c && typeof c.version === 'string' ? { version: c.version, date: '', official: null, platform: knownPlatform(c.platform) } : null;
+}
+// "Nightly 0.4.12 (2026-10-22)", "Alpha 0.4.11": the names players read (engine BuildVersion::displayVersion, launcher semver.gd display())
+export function buildName(b) {
+  if (!b) return 'an unknown version';
+  let m = /^v(\d+\.\d+\.\d+)-nightly\.(\d{4})(\d{2})(\d{2})$/.exec(b.version);
+  let name = b.version;
+  if (m) name = `Nightly ${m[1]} (${m[2]}-${m[3]}-${m[4]})`;
+  else if ((m = /^v(\d+\.\d+\.\d+)$/.exec(b.version))) name = `Alpha ${m[1]}`;
+  else if ((m = /^v(\d+\.\d+\.\d+)-alpha\.(\d+)$/.exec(b.version))) name = `v${m[1]} Alpha ${m[2]}`;
+  else name = `a development build (${b.version})`;
+  const system = { windows: 'Windows', linux: 'Linux', macos: 'macOS' }[b.platform] ?? '';
+  return name + (b.official === true ? ', official' : b.official === false ? ', unofficial' : '') + (system ? `, ${system}` : '');
+}
 function str(v, maxLen, what, { empty = false } = {}) {
   if (typeof v !== 'string' || (!empty && !v.length) || enc.encode(v).length > maxLen) throw bad('bad_field', `${what} must be a string of ${empty ? 0 : 1} .. ${maxLen} bytes`);
   // no control characters (names and chat are shown in the game's UI)
@@ -1170,6 +1201,15 @@ export class Lobby {
   }
 
   // ---- games ----
+  // lane JOINVER-1: a join refused for a different build, said in plain words (an older client shows this message as it is); both builds and profile
+  // ids travel as fields for the client's own text and its DETAILS. The join and an invite's accept (social.mjs) refuse with it
+  profileRefusal(g, account, body) {
+    const yours = checkBuild(body?.build) ?? accountBuild(account);
+    const host = g.hostBuild ?? null;
+    return new LobbyError(409, 'profile', `You can't join this game: it runs a different OpenBFME version (host: ${buildName(host)}; you: ${buildName(yours)}). Both players need the same version: update through the launcher.`, {
+      host_build: host, your_build: yours, host_profile: g.profile, your_profile: typeof body?.profile === 'string' ? body.profile.slice(0, 32) : null,
+    });
+  }
   publicGame(g) {
     return {
       id: g.id,
@@ -1182,6 +1222,9 @@ export class Lobby {
       state: g.state,
       password: !!g.password,
       mode: g.mode ?? 'normal',
+      // lane JOINVER-1: the host's build and the game's profile id, so a client greys out a game it cannot join before the player clicks it
+      profile: g.profile,
+      build: g.hostBuild ?? null,
       ...(capacityOf(g) > MAX_SLOTS ? { mapStartCount: capacityOf(g) } : {}), // ONLINE16-FIX: absent on a legacy room (its old shape)
     };
   }
@@ -1433,10 +1476,11 @@ export class Lobby {
     slots[hostSlot].pid = account.pid ?? null;
     slots[hostSlot].name = account.name;
     slots[hostSlot].platform = platform;
+    const hostBuild = checkBuild(body.build) ?? accountBuild(account); // lane JOINVER-1
     slots[hostSlot].maxSlots = account.maxSlots; // ONLINE16-FIX: what the member's client reads (never shown in a view)
     const id = bytesToHex(this.env.randomBytes(8));
     const g = {
-      id, name, password, profile, mode, setup, slots, hostSlot, state: 'open', routing: account.routing ?? '',
+      id, name, password, profile, hostBuild, mode, setup, slots, hostSlot, state: 'open', routing: account.routing ?? '',
       chat: [], seq: 0, created: this.env.now(), touched: this.env.now(),
       reportParticipants: [{ account: account.id, install: account.install ?? null, nick: account.name }],
     };
@@ -1485,9 +1529,8 @@ export class Lobby {
     if (capacityOf(g) > MAX_SLOTS && account.maxSlots !== WIDE_SLOTS) throw new LobbyError(409, 'capacity', NEEDS_WIDE);
     if (g.setup.requireAuth && account.maxSlots === undefined) throw new LobbyError(409, 'update', NEEDS_AUTH);
     const platform = checkPlatform(body?.platform);
-    if (body?.profile !== g.profile) {
-      throw new LobbyError(409, 'profile', `your game files or build differ from the host's (profile ${body?.profile} vs ${g.profile}): both need the same OpenBFME version and RotWK 2.01 files`);
-    }
+    checkBuild(body?.build); // lane JOINVER-1: a malformed build is refused whatever the profile
+    if (body?.profile !== g.profile) throw this.profileRefusal(g, account, body);
     for (const other of this.games.values()) {
       if (other !== g && other.state === 'open' && this.slotOf(other, account) >= 0) throw bad('in_game', `you are in game ${other.id} already: leave it first`);
     }
@@ -2514,6 +2557,7 @@ export class Lobby {
       // lists nothing: the game's Messenger and the launcher's sign-in then say "not available on this server yet")
       features: [
         'social',
+        'build', // lane JOINVER-1: list rows carry the host's build and profile; a 409 profile names both builds
         ...(this.config.oauth?.discord ? ['oauth'] : []),
         ...(this.config.email && !this.config.email.error ? ['email'] : []),
       ],

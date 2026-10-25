@@ -165,8 +165,9 @@ bool parse(const std::string &json, const ProfileIdentity &ownProfile, const Lim
 	}
 	if (profile != ownProfile.digest)
 	{
-		return fail(error, "the game's profile identity " + profile + " is not this client's (" + ownProfile.digest
-			+ "): the players' game files or builds differ");
+		// lane JOINVER-1: said on screen (a watch or a rejoin, AptOnlineShell startFailed): in plain words, without the profile ids
+		return fail(error, "this game runs a different OpenBFME version or different game files than yours: both need the same version "
+			"(update through the launcher)");
 	}
 	s.profile = ownProfile;
 	RelayProtocol::Ticket fields;

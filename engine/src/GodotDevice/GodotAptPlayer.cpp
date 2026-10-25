@@ -1450,6 +1450,18 @@ void AptMenuPlayer::_process(double delta)
 		m->shell->environment.openbfmeOptionsMenu = m->openbfmeAvailable; // lane OPTS-5: the next Options screen opens as the OpenBFME menu
 	}
 	tick(delta);
+	// lane JOINVER-1: a build refusal's DETAILS copied its text: onto the system clipboard (the engine has none of its own)
+	if (m->shell && m->shell->shell)
+	{
+		if (AptOnlineShell *os = dynamic_cast<AptOnlineShell *>(m->shell->shell->findScreenByFilename("OnlineShell.apt")))
+		{
+			const std::string copied = os->takeClipboard();
+			if (!copied.empty() && DisplayServer::get_singleton())
+			{
+				DisplayServer::get_singleton()->clipboard_set(String::utf8(copied.c_str()));
+			}
+		}
+	}
 	render(false);
 	m->view3d.advance(); // lane UI-2
 	advanceMovies(delta * 1000.0); // lane CAMP-2
@@ -7484,6 +7496,10 @@ Dictionary AptMenuPlayer::set_online(Object *worldObject, const Dictionary &opti
 	const Dictionary client = options.get("client", Dictionary());
 	o.clientPlatform = toNative(String(client.get("platform", String())));
 	o.clientVersion = toNative(String(client.get("version", String())));
+	// lane JOINVER-1: the build day and whether this is an official release (online_identity.gd build_info: kept out of the sign-in's client)
+	const Dictionary build = options.get("build", Dictionary());
+	o.buildDate = toNative(String(build.get("date", String())));
+	o.buildOfficial = build.has("official") ? (bool(build.get("official", false)) ? 1 : 0) : -1;
 	o.profileDigest = toNative(world->net_profile_digest());
 	o.platform = localPlatform(); // lane PLATFORMICON-1: the one value told about this machine
 	o.playerTemplateCount = factions;
@@ -8263,6 +8279,11 @@ Dictionary AptMenuPlayer::online_apply(const Dictionary &spec)
 			spots[(size_t)n]->winGetSize(&w, &h);
 			sm.wm->postMouseMove((float)x + (float)w / 2.0f, (float)y + (float)h / 2.0f);
 		}
+	}
+	if (spec.has("join_details"))
+	{
+		// lane JOINVER-1: the pointer to the build refusal's DETAILS button (the gadget layer's, beside the GuiFX box); the click is "mouse"
+		sm.wm->postMouseMove((AptOnlineShell::kDetailsLeft + AptOnlineShell::kDetailsRight) / 2.0f, (AptOnlineShell::kDetailsTop + AptOnlineShell::kDetailsBottom) / 2.0f);
 	}
 	if (spec.has("box"))
 	{

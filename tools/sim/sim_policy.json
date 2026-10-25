@@ -659,6 +659,10 @@
    "reason": "lane ONLINE-2: the lobby service's START (JSON) read into the LobbyStart a LAN lobby gives: the NewGameMessage every peer starts from (encoded and resolved by audited code); no logic state"
   },
   {
+   "glob": "src/GameNetwork/JoinBuild.cpp",
+   "reason": "lane JOINVER-1: an online player's build as players read it (version, official or not, system) and the join refusal of a game of another build, in plain words; display text only, no logic state"
+  },
+  {
    "glob": "src/GameNetwork/RelayProbe.cpp",
    "reason": "lane ONLINEMENU-1: a player's link to the online relay measured before the game (UDP probes answered NOT_BOUND) for the staging room's Connections screen; display data, no logic state"
   },

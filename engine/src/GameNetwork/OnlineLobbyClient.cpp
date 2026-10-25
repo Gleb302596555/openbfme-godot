@@ -404,6 +404,14 @@ bool OnlineLobbyClient::sessionMatchesInstall(const std::string &token, const st
 		reinterpret_cast<const std::uint8_t *>(installId.data()), installId.size());
 	const std::string want = HexBytes(mac.data(), 16);
 	const std::string have = strOf(payload.get("ih"));
+	if (have.empty())
+	{
+		// lane JOINVER-1 (the live-lobby e2e rerun): the deployed lobby before sealed installs signs the install itself into the token, no `ih`: the
+		// same rule (a session issued to this install), checked on that field
+		const std::string plain = strOf(payload.get("install"));
+		return plain.size() == installId.size() && ConstantTimeEqual(reinterpret_cast<const std::uint8_t *>(plain.data()),
+			reinterpret_cast<const std::uint8_t *>(installId.data()), installId.size());
+	}
 	return have.size() == want.size() && ConstantTimeEqual(reinterpret_cast<const std::uint8_t *>(have.data()),
 		reinterpret_cast<const std::uint8_t *>(want.data()), want.size());
 }
@@ -461,6 +469,29 @@ void OnlineLobbyClient::fetchRelays()
 
 namespace
 {
+// lane JOINVER-1: a build the lobby relays (lobby.mjs checkBuild: list rows' `build`, the 409's host_build / your_build); display data, anything
+// malformed is left out
+JoinBuild::Build joinBuildOf(const JsonValue *v)
+{
+	JoinBuild::Build b;
+	if (!v || !v->isObject())
+	{
+		return b;
+	}
+	auto text = [&](const char *key, std::size_t max) {
+		const JsonValue *x = v->get(key);
+		return x && x->isString() && x->string.size() <= max ? x->string : std::string();
+	};
+	b.version = text("version", 64);
+	b.date = text("date", 10);
+	b.platform = text("platform", 16);
+	if (const JsonValue *o = v->get("official"); o && o->type == JsonValue::BOOL)
+	{
+		b.official = o->boolean ? 1 : 0;
+	}
+	return b;
+}
+
 std::string slotChoices(int faction, int color, int startPos, int team, int handicap = OnlineLobbyClient::kKeep)
 {
 	std::string out;
@@ -546,7 +577,7 @@ void OnlineLobbyClient::createGame(const std::u16string &name, const std::string
 		slots += "}";
 	}
 	std::string body = "{\"name\":" + jsonQuote(utf16ToUtf8(name)) + ",\"profile\":" + jsonQuote(m_options.profileDigest) + ",\"mode\":\"" +
-		modeName(m_options.profile) + "\"" + platformField() + ",\"hostSlot\":" +
+		modeName(m_options.profile) + "\"" + platformField() + buildField() + ",\"hostSlot\":" +
 		std::to_string(hostSlot) + ",\"setup\":{" + setupFields(setup) + ",\"slots\":[" + slots + "]}";
 	if (!password.empty())
 	{
@@ -568,7 +599,7 @@ void OnlineLobbyClient::joinByCode(const std::string &roomCode)
 		refuse("join", "bad_field", "a room code is 6 .. 32 characters of A-Z a-z 0-9 _ -");
 		return;
 	}
-	queue("join:code", "POST", "/v1/rooms/" + roomCode + "/join", "{\"profile\":" + jsonQuote(m_options.profileDigest) + ",\"mode\":\"" + modeName(m_options.profile) + "\"" + platformField() + "}");
+	queue("join:code", "POST", "/v1/rooms/" + roomCode + "/join", "{\"profile\":" + jsonQuote(m_options.profileDigest) + ",\"mode\":\"" + modeName(m_options.profile) + "\"" + platformField() + buildField() + "}");
 }
 
 bool OnlineLobbyClient::parseMode(const std::string &name, SimulationProfile *out)
@@ -609,10 +640,48 @@ std::string OnlineLobbyClient::platformField() const
 	return m_options.platform == PlatformKind::None ? std::string() : std::string(",\"platform\":\"") + platformName(m_options.platform) + "\"";
 }
 
+JoinBuild::Build OnlineLobbyClient::ownBuild() const
+{
+	JoinBuild::Build b;
+	b.version = m_options.clientVersion;
+	b.date = m_options.buildDate;
+	b.official = m_options.buildOfficial;
+	b.platform = m_options.platform == PlatformKind::None ? std::string() : std::string(platformName(m_options.platform));
+	return b;
+}
+
+std::string OnlineLobbyClient::buildField() const
+{
+	// lane JOINVER-1: lobby.mjs checkBuild, told only in the shape it accepts (a version of other characters is left out: the join never fails on it)
+	const std::string &v = m_options.clientVersion;
+	if (v.empty() || v.size() > 64 ||
+		v.find_first_not_of("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz._+-") != std::string::npos)
+	{
+		return std::string();
+	}
+	std::string f = ",\"build\":{\"version\":" + jsonQuote(v);
+	const std::string &d = m_options.buildDate;
+	if (d.size() == 10 && d[4] == '-' && d[7] == '-' && d.find_first_not_of("0123456789-") == std::string::npos)
+	{
+		f += ",\"date\":" + jsonQuote(d);
+	}
+	if (m_options.buildOfficial >= 0)
+	{
+		f += std::string(",\"official\":") + (m_options.buildOfficial ? "true" : "false");
+	}
+	if (m_options.platform != PlatformKind::None)
+	{
+		f += std::string(",\"platform\":\"") + platformName(m_options.platform) + "\"";
+	}
+	return f + "}";
+}
+
 // SOCIAL-1: the identity fields of a join body (an invite's accept joins with them too): the same as createGame / joinGame send
 std::string OnlineLobbyClient::joinIdentityFields() const
 {
-	return "\"profile\":" + jsonQuote(m_options.profileDigest) + ",\"mode\":\"" + modeName(m_options.profile) + "\"" + platformField();
+	// lane JOINVER-1 (Sol): the invite's accept is checked field by field (social.mjs exact): `build` only where the lobby names the feature
+	return "\"profile\":" + jsonQuote(m_options.profileDigest) + ",\"mode\":\"" + modeName(m_options.profile) + "\"" + platformField() +
+		(lobbyHasFeature("build") ? buildField() : std::string());
 }
 
 void OnlineLobbyClient::joinGame(const std::string &id, const std::string &password)
@@ -622,7 +691,7 @@ void OnlineLobbyClient::joinGame(const std::string &id, const std::string &passw
 		refuse("join", "bad_field", "a game id is 16 hex digits");
 		return;
 	}
-	std::string body = "{\"profile\":" + jsonQuote(m_options.profileDigest) + ",\"mode\":\"" + modeName(m_options.profile) + "\"" + platformField();
+	std::string body = "{\"profile\":" + jsonQuote(m_options.profileDigest) + ",\"mode\":\"" + modeName(m_options.profile) + "\"" + platformField() + buildField();
 	if (!password.empty())
 	{
 		body += ",\"password\":" + jsonQuote(password);
@@ -1215,6 +1284,7 @@ bool OnlineLobbyClient::readGameView(const JsonValue &g, std::string *error, boo
 	m_slots = views;
 	// lane ONLINEMENU-1: the room's relay (lobby.mjs gameView `relay`: "a.b.c.d:port" or null; absent from an older lobby); a malformed one is none
 	m_roomRelay.clear();
+	m_roomRelayTold = g.get("relay") != nullptr; // lane JOINVER-1: an older lobby's game view has no "relay" at all (null: none)
 	if (const JsonValue *relay = g.get("relay"); relay && relay->isString() && relay->string.size() <= 32)
 	{
 		NetAddress address;
@@ -1391,6 +1461,16 @@ void OnlineLobbyClient::deliver(int id, int status, const std::string &body, con
 			return;
 		}
 		stopSocial(code, kind);
+		if (code == "profile")
+		{
+			// lane JOINVER-1: both builds and profile ids, for the screens' plain words and DETAILS (an older lobby sends only its message)
+			m_profileRefusal = ProfileRefusal{};
+			m_profileRefusal.host = joinBuildOf(root.get("host_build"));
+			m_profileRefusal.yours = joinBuildOf(root.get("your_build"));
+			m_profileRefusal.hostProfile = fits(root.get("host_profile"), 32) ? strOf(root.get("host_profile")) : std::string();
+			m_profileRefusal.yourProfile = fits(root.get("your_profile"), 32) ? strOf(root.get("your_profile")) : std::string();
+			m_profileRefusal.valid = m_profileRefusal.host.known() || !m_profileRefusal.hostProfile.empty();
+		}
 		const std::size_t limit = code == "banned" || code == "suspended" || code == "muted" ? kMaxStatusBytes : kMaxRefusalBytes;
 		const std::string message = fits(root.get("message"), limit) ? strOf(root.get("message"))
 			: "the lobby's refusal is longer than " + std::to_string(limit) + " bytes";
@@ -1568,6 +1648,12 @@ void OnlineLobbyClient::handle(const Pending &p, int, const JsonValue &root)
 			{
 				platformFromName(hp->string, l.hostPlatform); // display data: another value is no icon
 			}
+			// lane JOINVER-1: display data (an older lobby sends neither; a malformed one is none)
+			if (const JsonValue *pr = g.get("profile"); pr && pr->isString() && pr->string.size() == 32)
+			{
+				l.profile = pr->string;
+			}
+			l.build = joinBuildOf(g.get("build"));
 			l.map = strOf(g.get("map"));
 			l.players = (int)players;
 			l.openSlots = (int)open;

@@ -70,6 +70,8 @@ class AptMessageBox;
 class AptOnlineHub;
 class AptMessenger;
 class RelayProbe;
+#include "GameNetwork/JoinBuild.h"
+
 class OnlineLobbyClient;
 
 // What the online screens need from the host program (ShellEnvironment::online)
@@ -165,7 +167,16 @@ public:
 	// a room player's ping as the room shows it (the Players list's second column, the page): the player's own ping to the relay, another player's
 	// ping to the local player (their two pings to the relay: what a message between them crosses); "" when the room has no relay or `slot` no player
 	UnicodeString pingText(int slot, Color *color) const;
-	bool networkMouse(int kind, float x, float y);
+	bool networkMouse(int kind, float x, float y); ///< the window manager's mouse filter while the shell is on top
+	// lane JOINVER-1: the DETAILS button of a build refusal (virtual 1024 x 768, under the GuiFX box's OK)
+	static constexpr int kDetailsLeft = 452, kDetailsTop = 548, kDetailsRight = 572, kDetailsBottom = 576;
+	/// lane JOINVER-1: the text DETAILS copied (once; "" when nothing waits): the host puts it on the system clipboard
+	std::string takeClipboard() { std::string out; out.swap(m_clipboard); return out; }
+	const std::string &joinDetails() const { return m_joinDetails; } ///< lane JOINVER-1: the DETAILS text while the build refusal is up, else ""
+	bool buildDetailsUp() const;
+	/// lane JOINVER-1: whether a listed game runs another build than this client's (same performance mode, a profile other than ours)
+	bool otherBuild(const std::string &state, const std::string &profile, SimulationProfile mode) const;
+	void showBuildRefusal(const JoinBuild::Build &host, const std::string &hostProfile);
 	void takeDecorator();
 	void nicknameEdited() { applyLoginButton(false); } ///< the nickname set by the host program (a script): as a typed change
 	// the home page's ticker rows the screens filled ("label|value"), in the movie's order
@@ -288,6 +299,12 @@ private:
 	std::string m_gridDrawn;                ///< what the grid shows now (redrawn when it changes)
 	std::string m_gridPath = "?";           ///< where the movie's grid functions were found
 	std::string m_gridCaller;               ///< the clip that called Connection::RedrawGrid (its target path)
+	// lane JOINVER-1: a join refused for a different build: the box says both builds in plain words; the profile ids are behind its DETAILS
+	// button (drawn on the gadget layer while that box is up), which shows them and copies them for a bug report (takeClipboard)
+	std::string m_joinDetails;
+	bool m_detailsShown = false, m_detailsHot = false, m_detailsPressed = false;
+	std::string m_clipboard;
+	std::vector<bool> m_rowOtherBuild; ///< lane JOINVER-1: a row of a game of another build (greyed: it cannot be joined)
 	void decorateAll(GadgetDrawList &out);
 	std::array<std::string, MAX_SLOTS * MAX_SLOTS> m_gridFrames; ///< each cell's frame as last drawn (tests)
 	std::unique_ptr<RelayProbe> m_probe;

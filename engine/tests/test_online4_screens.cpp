@@ -536,7 +536,7 @@ TEST_CASE("online4: install identity and pending notices (no lobby needed)")
 // DEVINPR-1 (review of WP-C): AptOnlineShell keeps a session only when it was issued to this install; a session from before the client sent an
 // install, or another install's, signs in again so the lobby's enforcement and reports see the install. ONLINEMENU-1 (PR #8 review finding 2): the
 // token carries the install sealed ("ix") and a public tag of it ("ih", lobby.mjs installTag), never the install itself; a token that shows its
-// install is an older lobby's (refused there) and is not kept
+// install is the deployed older lobby's: kept when it is this install's (JOINVER-1), refused by a lobby with the seal
 TEST_CASE("devinpr1: a session token names the install it was issued to (no lobby needed)")
 {
 	const std::string install(32, 'a');
@@ -553,7 +553,10 @@ TEST_CASE("devinpr1: a session token names the install it was issued to (no lobb
 	CHECK_FALSE(OnlineLobbyClient::sessionMatchesInstall(tagged, std::string(32, 'b')));
 	CHECK_FALSE(OnlineLobbyClient::sessionMatchesInstall(tagged, ""));
 	CHECK_FALSE(OnlineLobbyClient::sessionMatchesInstall(otherTag, install));
-	CHECK_FALSE(OnlineLobbyClient::sessionMatchesInstall(clear, install));
+	// lane JOINVER-1 (the live-lobby e2e rerun): the deployed lobby before the seal signs the install itself, and accepts its own tokens: a kept one
+	// of this install is used there (a lobby with the seal refuses it, and the shell signs in as a new guest: "the kept lobby session was refused")
+	CHECK(OnlineLobbyClient::sessionMatchesInstall(clear, install));
+	CHECK_FALSE(OnlineLobbyClient::sessionMatchesInstall("eyJpZCI6Imd1ZXN0OjAxMjM0NTY3ODlhYmNkZWYiLCJuYW1lIjoiR3Vlc3QiLCJraW5kIjoiZ3Vlc3QiLCJpbnN0YWxsIjoiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmIiLCJleHAiOjF9.c2ln", install)); // another install's clear token
 	CHECK(OnlineLobbyClient::sessionName(without) == u"Guest");
 	CHECK_FALSE(OnlineLobbyClient::sessionMatchesInstall(without, install));
 	CHECK_FALSE(OnlineLobbyClient::sessionMatchesInstall("not a token", install));
@@ -2292,9 +2295,11 @@ TEST_CASE("online4 retail hostile: the online screens on bounded, recoverable lo
 		"\",\"runAhead\":3,\"crcInterval\":10,\"profile\":\"ffffffffffffffffffffffffffffffff\",\"setup\":{}}";
 	const size_t boxes = host.sh->boxesShown().size();
 	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.sh->boxesShown().size() == boxes + 1; }), host.notes());
-	CHECK(host.sh->boxesShown().back().rfind("GUI:GSErrorTitle|The online game could not start: online START: the game's profile identity ffff", 0) == 0);
+	// lane JOINVER-1: said in plain words, without the profile ids
+	CHECK(host.sh->boxesShown().back().rfind("GUI:GSErrorTitle|The online game could not start: online START: this game runs a different OpenBFME version", 0) == 0);
+	CHECK(host.sh->boxesShown().back().find("ffffffff") == std::string::npos);
 	CHECK(host.fx.services.countRequests(ShellAction::OnlineGameStart) == 0);
-	CHECK(host.hasNote("online-start-failed", "profile identity"));
+	CHECK(host.hasNote("online-start-failed", "different OpenBFME version"));
 	CHECK_FALSE(host.client.inGame());
 	CHECK(host.client.startJson().empty());
 	CHECK(host.client.sentCount("leave") == 0); // the slot stays the player's (a running game would be offered for a rejoin)
@@ -4026,18 +4031,34 @@ TEST_CASE("onlineux1 retail: a refused join is said in the player's words, on li
 		}
 		return -1;
 	};
-	// another version's game: why, and what to do; no raw profile digest
+	// another version's game: why, and what to do; no raw profile digest. Lane JOINVER-1: the row is greyed and tagged before the click (the lobby
+	// lists the game's profile), the box names both builds, the profile ids are behind DETAILS, which shows them and copies them
+	REQUIRE(rowOf("Other") >= 0); // tolerance: the rows are sorted by the lobby (either order); only that the row is listed matters
+	CHECK(join.sh->gameRows()[(size_t)rowOf("Other")].find("|other-version") != std::string::npos);
+	CHECK(join.sh->gameRows()[(size_t)rowOf("Locked")].find("|other-version") == std::string::npos);
 	GadgetListBoxSetSelected(join.sh->gameList(), rowOf("Other"));
 	REQUIRE(join.clickWhenShown("Main.Controls.JoinGame"));
 	REQUIRE_MESSAGE(runUntil(all, [&] { return join.sh->messageBox() && join.sh->messageBox()->type() != AptMessageBox::TYPE_NONE; }), join.notes());
 	std::u16string said = join.sh->messageBox()->text();
 	std::u16string flat = said;
 	std::replace(flat.begin(), flat.end(), u'\n', u' ');
-	CHECK_MESSAGE(flat.find(u"different OpenBFME version or different game files") != std::u16string::npos, OnlineLobbyClient::utf16ToUtf8(said));
+	CHECK_MESSAGE(flat.find(u"You can't join this game: it runs a different OpenBFME version.") != std::u16string::npos, OnlineLobbyClient::utf16ToUtf8(said));
+	CHECK_MESSAGE(flat.find(u"Host: ") != std::u16string::npos, OnlineLobbyClient::utf16ToUtf8(said));
+	CHECK_MESSAGE(flat.find(u"You: ") != std::u16string::npos, OnlineLobbyClient::utf16ToUtf8(said));
 	CHECK(said.find(u"fedcba98") == std::u16string::npos);
 	CHECK(said.find(u"0123456789abcdef") == std::u16string::npos);
 	CHECK(linesFit(said, 58));
+	REQUIRE_FALSE(join.sh->joinDetails().empty());
+	CHECK(join.sh->takeClipboard().empty());
+	starttest::clickAt(join.fx, (AptOnlineShell::kDetailsLeft + AptOnlineShell::kDetailsRight) / 2.0f, (AptOnlineShell::kDetailsTop + AptOnlineShell::kDetailsBottom) / 2.0f);
+	join.tick(3);
+	const std::string copied = join.sh->takeClipboard();
+	CHECK_MESSAGE(copied.find("profile fedcba9876543210fedcba9876543210") != std::string::npos, copied);
+	CHECK(copied.find("Host: ") == 0);
+	CHECK(OnlineLobbyClient::utf16ToUtf8(join.sh->messageBox()->text()).find("fedcba98") != std::string::npos); // the details in the box now
 	join.dismissBox();
+	join.tick(3);
+	CHECK(join.sh->joinDetails().empty()); // the box went: DETAILS with it
 	// a wrong password: RotWK's own text (GUI:JoinFailedBadPassword, the player's game text)
 	GadgetListBoxSetSelected(join.sh->gameList(), rowOf("Locked"));
 	REQUIRE(join.clickWhenShown("Main.Controls.JoinGame"));

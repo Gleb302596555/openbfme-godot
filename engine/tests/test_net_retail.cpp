@@ -889,9 +889,11 @@ TEST_CASE("net retail (HERO-2): a LAN game with a Create-a-Hero on the joiner's 
 		f.write((const char *)bytes.data(), (std::streamsize)bytes.size());
 	}
 	const int kFrames = 1200;
-	const std::string common = "--map \"maps/map mp fall back 4p/map mp fall back 4p.map\" --seed 21 --script --crc-interval 100 --run-ahead 2 --cash 10000";
+	// only the host plays the scripted player (lane HERO2FLAKE-1): on the joiner its timing-dependent orders (which frames a catch-up skips) share the
+	// fortress queue and the cash with the recruit, and in about one game in fifteen the hero came out late and died, or not at all, before the last frame
+	const std::string common = "--map \"maps/map mp fall back 4p/map mp fall back 4p.map\" --seed 21 --crc-interval 100 --run-ahead 2 --cash 10000";
 	const std::string slots = "--slot human,FactionMordor,0,0 --slot human,FactionMen,1,1 --slot medium,FactionElves,2,0";
-	PeerRun r = runPair("hero2cah", kFrames, common, slots + " --create-a-hero 1:" + cah, "--recruit-create-a-hero 100");
+	PeerRun r = runPair("hero2cah", kFrames, common, "--script " + slots + " --create-a-hero 1:" + cah, "--recruit-create-a-hero 100");
 	if (!std::getenv("OPENBFME_KEEP_PEER_FILES"))
 	{
 		std::remove(cah.c_str());

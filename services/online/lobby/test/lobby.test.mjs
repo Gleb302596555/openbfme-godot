@@ -2028,6 +2028,44 @@ test('ONLINEMENU-1: a player reports their own link to the relay for the Connect
   assert.equal(late.body.error, 'started');
 });
 
+test('JOINVER-1: a join refused for a different build names both builds in plain words, the list carries the host build and profile', async () => {
+  const env = fakeEnv();
+  const lobby = new Lobby(env, configFromEnv(ENV));
+  const a = (await call(lobby, 'POST', '/v1/auth/guest', { body: { name: 'Ann' } })).body;
+  const b = (await call(lobby, 'POST', '/v1/auth/guest', { body: { name: 'Bea' } })).body;
+  const hostBuild = { version: 'v0.4.12-nightly.20261022', date: '2026-10-22', official: true, platform: 'windows' };
+  const created = await call(lobby, 'POST', '/v1/games', { token: a.token, body: { name: 'Ann\'s game', profile: PROFILE, setup, build: hostBuild } });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const id = created.body.id;
+  const row = (await call(lobby, 'GET', '/v1/games')).body.games[0];
+  assert.equal(row.profile, PROFILE);
+  assert.deepEqual(row.build, hostBuild);
+  const yours = { version: 'v0.4.11', date: '2026-10-18', official: false, platform: 'linux' };
+  const other = 'f'.repeat(32);
+  const wrong = await call(lobby, 'POST', `/v1/games/${id}/join`, { token: b.token, body: { profile: other, build: yours } });
+  assert.equal(wrong.status, 409);
+  assert.equal(wrong.body.error, 'profile');
+  assert.equal(wrong.body.message, 'You can\'t join this game: it runs a different OpenBFME version (host: Nightly 0.4.12 (2026-10-22), official, Windows; '
+    + 'you: Alpha 0.4.11, unofficial, Linux). Both players need the same version: update through the launcher.');
+  assert.ok(!wrong.body.message.includes(PROFILE) && !wrong.body.message.includes(other), 'no profile id in the words');
+  assert.deepEqual(wrong.body.host_build, hostBuild);
+  assert.deepEqual(wrong.body.your_build, yours);
+  assert.equal(wrong.body.host_profile, PROFILE);
+  assert.equal(wrong.body.your_profile, other);
+  // an older client tells no build: the sign-in's client stands in, else "an unknown version"
+  const old = await call(lobby, 'POST', `/v1/games/${id}/join`, { token: b.token, body: { profile: other } });
+  assert.equal(old.body.your_build, null);
+  assert.match(old.body.message, /you: an unknown version\)/);
+  // a malformed build is refused by name
+  for (const build of [{ version: 'v1 2' }, { version: 'v0.4.11', official: 'yes' }, { version: 'v0.4.11', date: '20261022' }, { version: 'v0.4.11', extra: 1 }, 'v0.4.11']) {
+    const r = await call(lobby, 'POST', `/v1/games/${id}/join`, { token: b.token, body: { profile: PROFILE, build } });
+    assert.equal(r.status, 400, JSON.stringify(build));
+    assert.equal(r.body.error, build.extra ? 'unknown_field' : 'bad_field');
+  }
+  assert.equal((await call(lobby, 'POST', `/v1/games/${id}/join`, { token: b.token, body: { profile: PROFILE, build: yours } })).body.slot, 1);
+  assert.ok(lobby.health().features.includes('build'));
+});
+
 // LOBBYSEC-1 (PR #93's review, 2026-10-22): a lone UTF-16 surrogate is legal in a JSON escape but is not text. /v1/games echoed it, and the
 // client's JSON parser refuses the whole answer, so one guest could blank everyone's game list. Every text a player sends is refused (400).
 test('LOBBYSEC-1: names, maps, passwords, chat and AI names that are not well-formed Unicode are refused, so the game list stays parseable', async () => {

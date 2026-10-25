@@ -420,6 +420,37 @@ func _headless() -> bool:
 	return DisplayServer.get_name() == "headless"
 
 
+## lane JOINVER-1: a join refused for a different build: the plain words, OK (the game closes, as after any failed online start) and "Copy details",
+## which puts both builds' tags and profile ids on the clipboard for a bug report (the box stays)
+func join_refused(message: String, details: String) -> void:
+	printerr("GAME JOIN refused: ", details.replace("\n", "; "))
+	if _headless():
+		get_tree().quit(1)
+		return
+	get_tree().paused = true
+	var box := AcceptDialog.new()
+	box.name = "JoinRefused"
+	box.title = "Can't join this game"
+	box.dialog_text = message
+	box.dialog_autowrap = true
+	box.min_size = Vector2i(720, 0)
+	box.exclusive = true
+	box.process_mode = Node.PROCESS_MODE_ALWAYS
+	box.ok_button_text = "OK"
+	box.add_button("Copy details", false, &"copy_details")
+	box.custom_action.connect(func(action: StringName) -> void:
+		if action == &"copy_details":
+			DisplayServer.clipboard_set(details)
+			box.dialog_text = message + "\n\nCopied to the clipboard:\n" + details)
+	var done := func() -> void:
+		box.queue_free()
+		get_tree().quit(1)
+	box.confirmed.connect(done)
+	box.canceled.connect(done)
+	add_child(box)
+	box.popup_centered()
+
+
 ## A message box with "Open log folder" (opens the folder with `log_file` selected, the box stays) and OK. `quit_after`: OK / closing quits with
 ## exit code 1 (fatal). It works while the tree is paused.
 func _message(text: String, title: String, log_file: String, quit_after: bool) -> void:

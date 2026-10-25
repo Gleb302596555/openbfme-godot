@@ -152,6 +152,7 @@ AptOnlineShell::~AptOnlineShell()
 	}
 	m_networkPage.reset();
 	windows().setMouseFilter(nullptr);
+	windows().setMouseFilterOverBox(false); // lane JOINVER-1
 	for (auto &p : m_pages)
 	{
 		for (const std::string &n : p.second.commands)
@@ -293,6 +294,27 @@ void AptOnlineShell::showBox(const std::u16string &title, const std::u16string &
 	m_boxes.push_back(record);
 	windows().note("online-box", record);
 	box().show(AptMessageBox::TYPE_OK, title, body);
+}
+
+bool AptOnlineShell::buildDetailsUp() const
+{
+	return m_box && m_box->type() != AptMessageBox::TYPE_NONE;
+}
+
+bool AptOnlineShell::otherBuild(const std::string &state, const std::string &profile, SimulationProfile mode) const
+{
+	// a game of the other performance mode is the mode question's (UBERJOIN-1): its profile differs by the mode's own line, whatever the build
+	return m_client && state != "rejoin" && !profile.empty() && mode == m_client->profile() && profile != m_client->profileDigest();
+}
+
+void AptOnlineShell::showBuildRefusal(const JoinBuild::Build &host, const std::string &hostProfile)
+{
+	const JoinBuild::Build mine = m_client ? m_client->ownBuild() : JoinBuild::Build{};
+	const std::string mineProfile = m_client ? m_client->profileDigest() : std::string();
+	const std::string words = JoinBuild::refusalText(mine, host);
+	showBox(text("GUI:JoinFailedDefault"), wrapLines(wide(words), kWrap), "profile|" + words);
+	m_joinDetails = JoinBuild::detailsText(mine, mineProfile, host, hostProfile);
+	m_detailsShown = m_detailsHot = m_detailsPressed = false;
 }
 
 void AptOnlineShell::showError(const std::string &titleLabel, const std::string &textLabel)
@@ -1431,13 +1453,21 @@ void AptOnlineShell::fillGamesList()
 	m_rowIds.clear();
 	m_rowKinds.clear();
 	m_rowModes.clear();
+	m_rowOtherBuild.clear();
 	for (const OnlineLobbyClient::Listing &g : games)
 	{
-		const Color c = g.state == "join" ? 0xFFFFFFFFu : 0xFFFFD27Fu; // a running game's row in the gold of the movie's highlighted text
+		const bool other = otherBuild(g.state, g.profile, g.mode);
+		// a running game's row in the gold of the movie's highlighted text; lane JOINVER-1: a game of another build grey (the save list's
+		// kIncompatible), tagged in the style of the REJOIN / WATCH tags
+		const Color c = other ? 0xFF808080u : g.state == "join" ? 0xFFFFFFFFu : 0xFFFFD27Fu;
 		std::u16string label = g.state == "rejoin" ? g.name + u"  - REJOIN" : g.state == "watch" ? g.name + u"  - WATCH" : g.name;
 		if (g.mode == SimulationProfile::Uber)
 		{
 			label += u"  - UBER"; // lane UBERJOIN-1: the game's performance mode, in the style of the REJOIN / WATCH tags (a Normal game has no tag)
+		}
+		if (other)
+		{
+			label += u"  - OTHER VERSION";
 		}
 		const int row = GadgetListBoxAddEntryText(m_gameList, label, c, -1, 3);
 		if (g.hostPlatform != PlatformKind::None) // lane PLATFORMICON-1: the host's system before the game's name
@@ -1458,7 +1488,8 @@ void AptOnlineShell::fillGamesList()
 		GadgetListBoxAddEntryText(m_gameList, wide(players), c, row, 5);
 		GadgetListBoxAddEntryText(m_gameList, UnicodeString(), c, row, 6);
 		m_gameRows.push_back(narrow(g.name) + "|" + narrow(map) + "|" + players + "|" + (g.password ? "lock" : "") + (g.state == "join" ? "" : "|" + g.state) +
-			(g.mode == SimulationProfile::Uber ? "|uber" : ""));
+			(g.mode == SimulationProfile::Uber ? "|uber" : "") + (other ? "|other-version" : ""));
+		m_rowOtherBuild.push_back(other);
 		m_rowIds.push_back(g.id);
 		m_rowKinds.push_back(g.state);
 		m_rowModes.push_back(g.mode);
@@ -1545,6 +1576,17 @@ void AptOnlineShell::joinSelected()
 	if (selected < (int)m_rowModes.size() && !modeAllows(m_rowModes[(size_t)selected], [this]() { joinSelected(); }))
 	{
 		return;
+	}
+	// lane JOINVER-1: a game of another build (greyed in the list) is refused here, in the words the lobby's refusal gets, with nothing sent
+	if (selected < (int)m_rowOtherBuild.size() && m_rowOtherBuild[(size_t)selected])
+	{
+		const auto &listed = m_client->games();
+		const auto other = std::find_if(listed.begin(), listed.end(), [&](const OnlineLobbyClient::Listing &g) { return g.id == id; });
+		if (other != listed.end())
+		{
+			showBuildRefusal(other->build, other->profile);
+			return;
+		}
 	}
 	if (kind == "rejoin" || kind == "watch")
 	{
@@ -2128,7 +2170,26 @@ void AptOnlineShell::pumpClient()
 				m_state = 1;
 				m_popUp = false;
 				restoreMode(); // lane UBERJOIN-1
-				showBox(text("GUI:JoinFailedDefault"), wrapLines(playerMessage(e.request, e.code, e.text), kWrap), "GUI:JoinFailedDefault|" + narrow(e.text));
+				if (e.code == "profile")
+				{
+					// lane JOINVER-1: both builds in plain words (the lobby's fields; an older lobby names none: the listed game's, else unknown)
+					const OnlineLobbyClient::ProfileRefusal &r = m_client->profileRefusal();
+					JoinBuild::Build host = r.valid ? r.host : JoinBuild::Build{};
+					std::string hostProfile = r.valid ? r.hostProfile : std::string();
+					for (const OnlineLobbyClient::Listing &g : m_client->games())
+					{
+						if (g.id == m_joinId && !r.valid)
+						{
+							host = g.build;
+							hostProfile = g.profile;
+						}
+					}
+					showBuildRefusal(host, hostProfile);
+				}
+				else
+				{
+					showBox(text("GUI:JoinFailedDefault"), wrapLines(playerMessage(e.request, e.code, e.text), kWrap), "GUI:JoinFailedDefault|" + narrow(e.text));
+				}
 			}
 			else if (e.request == "start")
 			{
@@ -2181,7 +2242,20 @@ void AptOnlineShell::update()
 	prune();
 	pumpClient();
 	updateExtendedRows();
-	if (networkPageOpen() && shell().top() == this && !isHidden())
+	if (!m_joinDetails.empty() && !buildDetailsUp())
+	{
+		m_joinDetails.clear(); // the build refusal's box went: its DETAILS button with it
+		m_detailsShown = m_detailsHot = m_detailsPressed = false;
+	}
+	if (!m_joinDetails.empty() && shell().top() == this && !isHidden())
+	{
+		windows().setMouseFilterOverBox(true); // DETAILS is pressed while its box holds the input (only while the shell is on top: Sol)
+	}
+	else if (shell().top() == this)
+	{
+		windows().setMouseFilterOverBox(false);
+	}
+	if ((networkPageOpen() || !m_joinDetails.empty()) && shell().top() == this && !isHidden())
 	{
 		takeDecorator();
 	}
@@ -2520,6 +2594,22 @@ void AptOnlineShell::decorateAll(GadgetDrawList &out)
 	{
 		m_networkPage->decorate(out);
 	}
+	if (!m_joinDetails.empty())
+	{
+		// lane JOINVER-1: the build refusal's DETAILS, of the menus' own look (the FRIENDS button's), under the box's OK
+		GadgetDrawCommand c;
+		c.kind = GadgetDrawCommand::Kind::FillRect;
+		c.window = "OpenBFMEJoinDetails";
+		c.x0 = kDetailsLeft;
+		c.y0 = kDetailsTop;
+		c.x1 = kDetailsRight;
+		c.y1 = kDetailsBottom;
+		c.color = m_detailsPressed ? 0xF0182028u : 0xE0050607u;
+		out.commands.push_back(c);
+		OpenBFMEOptionsPage::frame(out, kDetailsLeft, kDetailsTop, kDetailsRight, kDetailsBottom, UnicodeString());
+		OpenBFMEOptionsPage::text(out, m_detailsShown ? UnicodeString(u"COPIED") : UnicodeString(u"DETAILS"), kDetailsLeft, kDetailsTop + 7, 14,
+			m_detailsHot ? OpenBFMEOptionsPage::kTabHotColor : OpenBFMEOptionsPage::kTabColor, kDetailsRight - kDetailsLeft, true);
+	}
 }
 
 bool AptOnlineShell::networkMouse(int kind, float x, float y)
@@ -2527,6 +2617,38 @@ bool AptOnlineShell::networkMouse(int kind, float x, float y)
 	if (isHidden() || shell().top() != this)
 	{
 		return false;
+	}
+	if (!m_joinDetails.empty())
+	{
+		// lane JOINVER-1: the build refusal's DETAILS: shows the builds' tags and profile ids in the box and copies them (once pressed: COPIED)
+		const bool inside = x >= kDetailsLeft && x <= kDetailsRight && y >= kDetailsTop && y <= kDetailsBottom;
+		if (kind == 0)
+		{
+			m_detailsHot = inside;
+		}
+		else if (kind == 1 && inside)
+		{
+			m_detailsPressed = true;
+			return true;
+		}
+		else if (kind == 2 && m_detailsPressed)
+		{
+			m_detailsPressed = false;
+			if (inside)
+			{
+				const std::string details = m_joinDetails;
+				m_clipboard = details;
+				showBox(text("GUI:JoinFailedDefault"), wrapLines(wide(details) + u"\n\nCopied to the clipboard.", kWrap), "profile-details|" + details);
+				m_joinDetails = details; // the box's new text is still the refusal's
+				m_detailsShown = true;
+				windows().note("online-join-details", details);
+			}
+			return true;
+		}
+	}
+	if (windows().componentInputBlocked())
+	{
+		return false; // under a box only DETAILS is the shell's (WindowManager::setMouseFilterOverBox)
 	}
 	if (networkPageOpen())
 	{
@@ -2573,6 +2695,10 @@ std::string AptOnlineShell::connectionFrame(int row, int column) const
 	if (a.state != "player" || b.state != "player")
 	{
 		return "_empty";
+	}
+	if (!m_client->roomRelayTold())
+	{
+		return "_empty"; // lane JOINVER-1: an older lobby tells no relay and no links: nothing to show (the line under the grid says so)
 	}
 	if (m_client->roomRelay().empty())
 	{
@@ -2835,7 +2961,11 @@ OpenBFMEPageSpec AptOnlineShell::networkSpec() const
 		u"part of a game.");
 	UnicodeString relay, loss = u"-", when = u"-";
 	const bool measured = m_hasLastLink && m_probeDoneMs != 0;
-	if (!m_client || m_client->roomRelay().empty())
+	if (m_client && !m_client->roomRelayTold())
+	{
+		relay = u"not available on this server yet"; // lane JOINVER-1: an older lobby (its rooms name no relay and keep no links)
+	}
+	else if (!m_client || m_client->roomRelay().empty())
 	{
 		relay = u"none: this lobby cannot start games";
 	}

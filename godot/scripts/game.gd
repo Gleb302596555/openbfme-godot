@@ -1261,6 +1261,18 @@ func _build_stage() -> void:
 	add_child(_camera)
 
 
+## lane JOINVER-1: a join refused for a different build (the openbfme:// link, --online-join): the plain words in a box with "Copy details"
+## (both builds' tags and profile ids), then the game closes as after any failed online start
+func _on_online_build_refused(message: String, details: String) -> void:
+	_failed = message
+	_state = State.FAILED
+	printerr("GAME FAIL: online: ", message.replace("\n", " "))
+	if _check or _auto or DisplayServer.get_name() == "headless":
+		get_tree().quit(1)
+	else:
+		Release.join_refused(message, details)
+
+
 func _fail(message: String) -> void:
 	_cah_cleanup() # lane CAH-2 r2: a failed --cah run leaves no hero behind either
 	_failed = message
@@ -5149,6 +5161,7 @@ func _online_open() -> void:
 			"setup": {"map": _map_key, "startingCash": 1500, "slots": slots}}
 	_online.started.connect(_on_online_started)
 	_online.failed.connect(func(m: String): _fail("online: " + m))
+	_online.build_refused.connect(_on_online_build_refused) # lane JOINVER-1
 	_online.notice.connect(func(m: String): Release._message(m, "Online notice", "", false))
 	_online_report_panel(_online.lobby_url)
 	_online.report_context.connect(func(context: Dictionary): _online_reports.set_context(context))
@@ -5342,7 +5355,7 @@ func _open_online_shell() -> void:
 	if options.has("error"):
 		_fail("online screens: " + str(options.error))
 		return
-	options.merge({"lobby_url": url, "remembered_name": name, "session_token": session})
+	options.merge({"lobby_url": url, "remembered_name": name, "session_token": session, "build": load("res://scripts/online_identity.gd").build_info()})
 	var r: Dictionary = _shell.set_online(_world, options)
 	if not r.ok:
 		_fail("online screens: " + str(r.get("error", "")))
@@ -5751,6 +5764,22 @@ func _online_walk_run() -> void:
 		_online_apply({"game_password": _online_password})
 		_online_shot("password")
 		_online_apply({"command": "AptOnline::CustomMatch::AcceptJoinGame"})
+	# lane JOINVER-1: a game of another build: the refusal box (both builds in plain words), then its DETAILS (the profile ids, copied)
+	await _online_wait("the staging room or a build refusal", func(st): return st.get("in_game", false) or str(st.get("boxes", [])).contains("profile|"), 15.0)
+	if str(_shell.online_status().get("boxes", [])).contains("profile|"):
+		await _wait_seconds(1.5)
+		_online_shot("join-refused")
+		_online_apply({"join_details": true})
+		await get_tree().process_frame
+		await get_tree().process_frame
+		_online_apply({"mouse": true})
+		await get_tree().process_frame
+		await get_tree().process_frame
+		_online_apply({"mouse": false})
+		await _wait_seconds(1.5)
+		_online_shot("join-details")
+		print("GAME ONLINE WALK join refused for another build: ", _shell.online_status().get("boxes", []))
+		return _online_walk_end(false)
 	if not await _online_wait("the staging room", func(st): return st.get("in_game", false) and int(st.get("state", -1)) == 12, 30.0):
 		return _online_walk_end(false)
 	await _wait_seconds(2.0)

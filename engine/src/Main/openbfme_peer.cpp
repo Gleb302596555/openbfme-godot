@@ -45,7 +45,7 @@
 //     the run-ahead's frame (NetworkConfig::earlyOrders off); the report's early_orders line counts the orders that ran a frame sooner
 //     lane HERO-2: [--create-a-hero SLOT:FILE.cah] (host, repeated) the slot's Create-a-Hero, read at the setup and carried by the START to every peer;
 //     with --lan-join [--create-a-hero FILE.cah] the own slot's, sent to the lobby's host (LANAPI::requestSlotCreateAHero); [--recruit-create-a-hero FRAME]
-//     with --script: from that frame the local player recruits its Create-a-Hero at its fortress until it exists
+//     from that frame the local player recruits its Create-a-Hero at its fortress until it exists (with or without --script)
 //     lane ONLINE-2 (online play through the relay, docs/ONLINE.md phase O1): --online-start FILE.json instead of --host / --join / --lan-join: plays the
 //     game of the START the lobby service built (GameNetwork/OnlineStart.h), every peer behind the relay (Transport relay mode; the socket binds --bind,
 //     0.0.0.0 by default here, any port); the report gets a relay line
@@ -1916,6 +1916,7 @@ static int peerMain(int argc, char **argv)
 	unsigned long long viewsSent = 0; // lane ANTICHEAT-1
 	std::map<std::string, unsigned long long> scriptedTypes; // the scripted commands by type
 	UnsignedInt lastScripted = 0xFFFFFFFFu;
+	UnsignedInt lastRecruitFrame = 0xFFFFFFFFu; // lane HERO-2: the last frame the Create-a-Hero was recruited on (--recruit-create-a-hero)
 	UnsignedInt scriptFrame = 0xFFFFFFFFu; // lane NETLAG-2: the frame seen last and when its scripted orders are due (--script-phase)
 	std::uint64_t scriptDueMs = 0;
 	std::uint32_t phaseRng = 0x9E3779B9u ^ (std::uint32_t)(lobby.localSlot * 7919 + 1); // presentation-side only: never the simulation's random
@@ -2073,18 +2074,28 @@ static int peerMain(int argc, char **argv)
 					}
 				}
 			}
-			// lane HERO-2: the Create-a-Hero is recruited at the fortress (every 25 frames from the given one until the hero exists)
-			const CreateAHeroHero *own = a.recruitCreateAHeroAt >= 0 && game.frame() >= (UnsignedInt)a.recruitCreateAHeroAt && game.frame() % 25 == 0
-				? game.logic().createAHeroes().heroOf(*game.logic().players().getNthPlayer(myPlayer))
-				: nullptr;
-			const Object *made = own && own->objectID ? game.logic().findObjectByID(own->objectID) : nullptr; // a file's ID names no object of this game
-			if (own && !(made && made->getTemplate() && made->getTemplate()->getName() == "CreateAHero"))
-			{
-				scripted += ScriptedPlayer::recruitCreateAHero(game, myPlayer, game.commands());
-			}
 			for (size_t i = before; i < game.commands().messages().size(); ++i)
 			{
 				++scriptedTypes[GameMessageTypeName(game.commands().messages()[i].getType())];
+			}
+		}
+		// lane HERO-2: the Create-a-Hero is recruited at the fortress from the given frame until the hero exists, again 25 frames after each try (a frame
+		// count, not a frame number: a catch-up runs several frames in one loop and would skip a multiple of 25); apart from --script (lane HERO2FLAKE-1:
+		// the scripted player's own queue and spending decide when a recruit there comes out, run to run)
+		if (a.recruitCreateAHeroAt >= 0 && game.frame() >= (UnsignedInt)a.recruitCreateAHeroAt &&
+			(lastRecruitFrame == 0xFFFFFFFFu || game.frame() >= lastRecruitFrame + 25))
+		{
+			const CreateAHeroHero *own = game.logic().createAHeroes().heroOf(*game.logic().players().getNthPlayer(myPlayer));
+			const Object *made = own && own->objectID ? game.logic().findObjectByID(own->objectID) : nullptr; // a file's ID names no object of this game
+			if (own && !(made && made->getTemplate() && made->getTemplate()->getName() == "CreateAHero"))
+			{
+				lastRecruitFrame = game.frame();
+				const size_t before = game.commands().messages().size();
+				scripted += ScriptedPlayer::recruitCreateAHero(game, myPlayer, game.commands());
+				for (size_t i = before; i < game.commands().messages().size(); ++i)
+				{
+					++scriptedTypes[GameMessageTypeName(game.commands().messages()[i].getType())];
+				}
 			}
 		}
 		if (a.toggleGates > 0 && game.frame() != lastGateFrame && game.frame() % (UnsignedInt)a.toggleGates == 0)

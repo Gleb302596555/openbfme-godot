@@ -1115,7 +1115,8 @@ TEST_CASE("online2: the online START becomes a LobbyStart; another profile, a mi
 	CHECK(s.profile == own);
 	// the other profile, the slot the ticket is not for, a mask that differs from the human slots, bad fields
 	CHECK_FALSE(OnlineStart::parse(start("00000000000000000000000000000000", 1, slots3), own, limits, s, &error));
-	CHECK(error.find("profile identity") != std::string::npos);
+	CHECK(error.find("different OpenBFME version or different game files") != std::string::npos); // lane JOINVER-1: plain words, no ids
+	CHECK(error.find("00000000000000000000000000000000") == std::string::npos);
 	CHECK_FALSE(OnlineStart::parse(start(own.digest, 0, slots3), own, limits, s, &error));
 	CHECK(error.find("ticket is for slot 1") != std::string::npos);
 	const std::string slots2 = "[{\"state\":\"player\",\"name\":\"Ann\",\"faction\":0,\"color\":0,\"startPos\":0,\"team\":0},"

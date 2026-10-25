@@ -24,6 +24,7 @@
 
 #include "Common/SimulationProfile.h"
 #include "GameNetwork/GameInfo.h"
+#include "GameNetwork/JoinBuild.h"
 #include "GameNetwork/PlatformKind.h"
 
 #include <array>
@@ -45,6 +46,10 @@ public:
 	{
 		std::string installId, deviceHash; ///< supplied by the host; never part of simulation state
 		std::string clientPlatform, clientVersion;
+		// lane JOINVER-1: the rest of the build a create / join tells (lobby.mjs checkBuild; the version is clientVersion): the build day and whether
+		// this is an official release (1), not (0), not told (-1)
+		std::string buildDate;
+		int buildOfficial = -1;
 		std::string profileDigest;   ///< the profile identity's MD5 (ProfileIdentity::digest): the lobby compares it at the join
 		// lane UBERJOIN-1: the simulation profile that digest is of (the player's performance mode): the room made and the room joined carry it as their
 		// "mode" ("normal" / "uber"); a join of a room in the other mode is the lobby's "mode" refusal. setProfile changes both together
@@ -205,6 +210,16 @@ public:
 		SimulationProfile mode = SimulationProfile::Faithful; ///< lane UBERJOIN-1: the game's performance mode ("mode": absent = "normal", a room of an old client)
 		std::string state;       ///< "open", or "started" (refreshList(true): a running game, to watch; mine(): the player's own, to rejoin)
 		int slot = -1;           ///< mine(): the player's slot in the running game
+		// lane JOINVER-1: the game's profile id and its host's build (an older lobby: both empty); a profile other than this client's cannot be joined
+		std::string profile;
+		JoinBuild::Build build;
+	};
+	// lane JOINVER-1: the lobby's 409 "profile" (a join refused for a different build): both sides' builds and profile ids (an older lobby: none)
+	struct ProfileRefusal
+	{
+		bool valid = false;
+		JoinBuild::Build host, yours;
+		std::string hostProfile, yourProfile;
 	};
 	struct ChatLine
 	{
@@ -276,7 +291,8 @@ public:
 	// a rejoin or spectator ticket, a session token's HMAC; with its dot-joined parts: the whole token) becomes "<redacted>". The lobby's ids (16 hex
 	// digits) and the profile digest (32) stay
 	static std::string redact(const std::string &text);
-	std::string platformField() const; // lane PLATFORMICON-1: ,"platform":"<name>" or nothing
+	std::string platformField() const;
+	std::string buildField() const; ///< lane JOINVER-1: ",\"build\":{...}" for create / join bodies, or "" (an odd version is not told) // lane PLATFORMICON-1: ,"platform":"<name>" or nothing
 
 	explicit OnlineLobbyClient(const Options &options);
 
@@ -324,6 +340,8 @@ public:
 	// screen, it unreadies nobody. Out of range values are refused here (nothing sent)
 	void reportLink(int rttMs, int lossPct);
 	const std::string &roomRelay() const { return m_roomRelay; } ///< lane ONLINEMENU-1: the relay the room's START will name ("" none)
+	/// lane JOINVER-1: whether the lobby's game view names its relay at all (false: an older lobby, without the Connections screen's data)
+	bool roomRelayTold() const { return m_roomRelayTold; }
 	// lane ONLINEMENU-1 (owner, 2026-10-20: "ping to server"): the lobby's response time, the fastest of the last kLobbyRttSamples answers to ordinary
 	// requests (held polls excluded: the lobby keeps them on purpose), in ms from the request handed to the host to its answer; -1 before the first
 	int lobbyRttMs() const;
@@ -348,6 +366,11 @@ public:
 	// to the game server is known outside a room too. Display data: a failure is kept in relayLookupError() (the screens note it), never a box
 	void fetchRelays();
 	bool relaysAsked() const { return m_relaysAsked; }
+	/// lane JOINVER-1: the last join refused for a different build (valid only when the lobby named the builds)
+	const ProfileRefusal &profileRefusal() const { return m_profileRefusal; }
+	/// lane JOINVER-1: this client's build as the lobby is told it
+	JoinBuild::Build ownBuild() const;
+	const std::string &profileDigest() const { return m_options.profileDigest; }
 	/// ONLINEMENU-1: a feature the lobby's /v1/health `features` names ("social", "oauth", "email"), asked before each guest sign-in
 	bool lobbyHasFeature(const std::string &name) const { return m_lobbyFeatures.count(name) != 0; }
 	const std::string &lobbyRelay() const { return m_lobbyRelay; }
@@ -534,6 +557,8 @@ private:
 	int m_ownRelayRtt = -1, m_ownRelayLoss = 100; ///< noteOwnLink
 	bool m_ownRelayKnown = false;
 	bool m_relaysAsked = false;
+	bool m_roomRelayTold = false; ///< lane JOINVER-1
+	ProfileRefusal m_profileRefusal; ///< lane JOINVER-1
 	std::set<std::string> m_lobbyFeatures; ///< ONLINEMENU-1: /v1/health `features` (empty: an older lobby, or the answer was unreadable)
 	std::string m_lobbyRelay, m_relayLookupError; ///< fetchRelays
 };
