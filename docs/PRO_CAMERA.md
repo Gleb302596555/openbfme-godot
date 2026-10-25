@@ -320,7 +320,9 @@ It prints `LENS <check>: ok` or `FAIL` and `LENS RESULT`, and exits 0 when every
 
 `godot --path godot --script res://tests/pro_camera_bokeh_test.gd` generates a fine checkerboard, isolated lights and a
 focused foreground from code. It checks the default 128-tap result against a dense 2,048-tap reference, focused detail
-and silhouette against stopped-down output at matching exposure, and viewport resizing. It exits 77 without a GPU.
+and silhouette against stopped-down output at matching exposure, and that blur actually changes the defocused
+background. After viewport resizing it compares the reused effect with a fresh effect and verifies that blur remains
+visible. It exits 77 without a GPU.
 The reference uses the same resolve, so this measures sampling stability rather than optical ground truth.
 
 Optional user arguments after `--`: `--out=<directory>` saves PNGs; `--before=<previous pro_lens_effect.gd>` also renders

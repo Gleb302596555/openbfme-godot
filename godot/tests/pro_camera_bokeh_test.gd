@@ -120,6 +120,10 @@ func _run() -> void:
 	after_effect.ev = 0.01
 	var exposed := await _capture(camera, after_effect)
 	var sharp_frame := await _capture(camera, stopped_down)
+	var background_change := _error(exposed, sharp_frame, Rect2i(50, 250, 280, 100))
+	print("BOKEH background RMS versus stopped down: ", background_change)
+	# tolerance: generated 2-pixel checkerboard must lose contrast, not pass with the effect disabled.
+	_check(background_change > 0.01, "defocused detail actually blurs")
 	var focused_error := _error(exposed, sharp_frame, Rect2i(400, 180, 160, 180))
 	print("BOKEH focused RMS versus stopped down: ", focused_error)
 	# tolerance: one 8-bit level for half-float intermediate rounding; focused stripes must retain their contrast.
@@ -130,7 +134,17 @@ func _run() -> void:
 	_check(edge_error < 1.0 / 255.0, "focused silhouette stays sharp")
 	root.size = Vector2i(800, 450)
 	var resized := await _capture(camera, after_effect)
-	_check(resized.get_size() == Vector2i(800, 450), "intermediate images follow viewport resizing")
+	_check(resized.get_size() == Vector2i(800, 450), "viewport reaches the requested size")
+	var fresh_effect = _lens(Effect, 128)
+	fresh_effect.ev = after_effect.ev
+	var fresh := await _capture(camera, fresh_effect)
+	var resize_error := _error(resized, fresh, Rect2i(8, 60, 784, 380))
+	print("BOKEH resized RMS versus fresh effect: ", resize_error)
+	# tolerance: one 8-bit level for GPU rounding; resized intermediates must render like a fresh effect.
+	_check(resize_error < 1.0 / 255.0, "resized effect matches a fresh effect")
+	var resized_sharp := await _capture(camera, stopped_down)
+	# tolerance: the defocused checkerboard must still lose contrast after resizing, not silently stop rendering.
+	_check(_error(resized, resized_sharp, Rect2i(40, 210, 230, 80)) > 0.01, "blur remains visible after resizing")
 	_check(after_effect.problem == "" and reference_effect.problem == "", "shader and colour-buffer format accepted")
 	camera.compositor = null
 	print("BOKEH RESULT: %s (%d failed)" % ["PASS" if failed == 0 else "FAIL", failed])
