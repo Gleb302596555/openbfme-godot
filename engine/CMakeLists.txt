@@ -238,6 +238,7 @@ include(cmake/Cah1.cmake)       # CAH-1: the Create-a-Hero screens (client only;
 include(cmake/Uber1.cmake)      # UBER-1: the Uber performance mode (appends to OPENBFME_SIM_SOURCES; OPENBFME_UBER1_TESTS)
 include(cmake/Menuwork1.cmake)  # MENUWORK-1: the menu inventory's fixes (client only; OPENBFME_MENUWORK1_SOURCES / _TESTS)
 include(cmake/Rules1.cmake)     # RULES-1: the Rules tab, the game rules, Legendary Heroes (appends to OPENBFME_SIM_SOURCES; OPENBFME_RULES1_SOURCES / _TESTS)
+include(cmake/Cheat1.cmake)        # CHEAT-1: the open Cheat Mode of custom games (appends to OPENBFME_SIM_SOURCES; OPENBFME_CHEAT1_TESTS)
 include(cmake/Gamemodes1.cmake) # GAMEMODES-1: the game modes' tests (OPENBFME_GAMEMODES1_TESTS)
 include(cmake/Move3.cmake)      # MOVE-3: horde spacing, the blocked path patch (appends to OPENBFME_SIM_SOURCES; OPENBFME_MOVE3_TESTS)
 include(cmake/Input1.cmake)     # INPUT-1: RotWK's input layer (OPENBFME_INPUT1_TESTS)
@@ -278,6 +279,7 @@ include(cmake/Offmap1.cmake)    # OFFMAP-1: off-map map objects and horde member
 include(cmake/Wall1.cmake)      # WALL-1: walkable wall tops and ramps (appends to OPENBFME_SIM_SOURCES; OPENBFME_WALL1_TESTS)
 include(cmake/Wall2.cmake)      # WALL-2: portals, portal modules, raised walkways (appends to OPENBFME_SIM_SOURCES; OPENBFME_WALL2_TESTS)
 include(cmake/Bridge1.cmake)    # BRIDGE-1: retail bridges crossed and destroyed (OPENBFME_BRIDGE1_TESTS)
+include(cmake/Siege1.cmake)     # SIEGE-1: the siege units (appends to OPENBFME_SIM_SOURCES; OPENBFME_SIEGE1_TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
     ${OPENBFME_APT_SOURCES}
@@ -597,6 +599,7 @@ add_library(openbfme SHARED
     ${OPENBFME_RENDER4_GODOT_SOURCES}
     ${OPENBFME_AUDIO_GODOT_SOURCES}
     ${OPENBFME_SCRIPT1_GODOT_SOURCES}
+    ${OPENBFME_CHEAT1_GODOT_SOURCES}
     ${OPENBFME_CAMP1_GODOT_SOURCES}
     ${OPENBFME_SAVE2_GODOT_SOURCES}
     ${OPENBFME_CAMP2_GODOT_SOURCES}
@@ -753,6 +756,7 @@ add_executable(openbfme_tests
     ${OPENBFME_CAH1_TESTS}
     ${OPENBFME_SDK0_TESTS}
     ${OPENBFME_RULES1_TESTS}
+    ${OPENBFME_CHEAT1_TESTS}
     ${OPENBFME_MENUWORK1_TESTS}
     ${OPENBFME_GAMEMODES1_TESTS}
     ${OPENBFME_UBER1_TESTS}
@@ -784,6 +788,7 @@ add_executable(openbfme_tests
     ${OPENBFME_WALL1_TESTS}
     ${OPENBFME_WALL2_TESTS}
     ${OPENBFME_BRIDGE1_TESTS}
+    ${OPENBFME_SIEGE1_TESTS}
     tests/test_main.cpp
     tests/test_big_archive.cpp
     tests/test_parser_fuzz_regressions.cpp

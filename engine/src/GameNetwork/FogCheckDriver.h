@@ -28,6 +28,7 @@ public:
 	{
 	}
 	Capture capture() const override { return m_inner.capture(); }
+	bool hashWanted(UnsignedInt frame) const override { return m_inner.hashWanted(frame); }
 	void pump(UnsignedInt protocolFrame, CommandList &pending) override { m_inner.pump(protocolFrame, pending); }
 	bool acquire(UnsignedInt frame, FrameBatch &out) override { return m_inner.acquire(frame, out); }
 	void completed(const FrameCompletion &c) override { m_inner.completed(c); }

@@ -118,6 +118,11 @@ LoadScreenInfo makeLoadScreenInfo(const SkirmishGameInfo &game, const SkirmishSe
 	{
 		info.rulesSummary += (info.rulesSummary.empty() ? u"" : u"; ") + std::u16string(u"Uber performance mode");
 	}
+	// lane CHEAT-1: a Cheat Mode game says so before it starts (and the in-game marker keeps saying it)
+	if (game.cheatModeOn())
+	{
+		info.rulesSummary += (info.rulesSummary.empty() ? u"" : u"; ") + CheatModeRule::label() + u": on";
+	}
 	return info;
 }
 

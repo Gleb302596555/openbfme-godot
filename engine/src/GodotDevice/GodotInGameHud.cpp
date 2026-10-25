@@ -1348,6 +1348,8 @@ void InGameHudNode::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_free_camera", "on"), &InGameHudNode::set_free_camera);
 	ClassDB::bind_method(D_METHOD("set_view_options", "options"), &InGameHudNode::set_view_options); // lane OPTS-2
 	ClassDB::bind_method(D_METHOD("camera_look_at", "sage_xy"), &InGameHudNode::camera_look_at);
+	ClassDB::bind_method(D_METHOD("add_player_message", "text"), &InGameHudNode::add_player_message); // lane CHEAT-1
+	ClassDB::bind_method(D_METHOD("get_player_message_layout"), &InGameHudNode::get_player_message_layout);
 	ClassDB::bind_method(D_METHOD("camera_set_height", "height_above_ground"), &InGameHudNode::camera_set_height);
 	ClassDB::bind_method(D_METHOD("camera_reset", "sage_xy"), &InGameHudNode::camera_reset);                 // lane CAMPUI-1
 	ClassDB::bind_method(D_METHOD("camera_set_zoom_limited", "on"), &InGameHudNode::camera_set_zoom_limited); // lane CAMPUI-1
@@ -4394,6 +4396,30 @@ Dictionary InGameHudNode::find_button_window(const String &path) const
 	r["x"] = (double)w.x;
 	r["y"] = (double)w.y;
 	return r;
+}
+
+// lane CHEAT-1 ------------------------------------------------------------------------------------------------------------------------------------------
+
+void InGameHudNode::add_player_message(const String &text)
+{
+	if (d->hud)
+	{
+		const Char16String u = text.utf16();
+		d->hud->addPlayerMessageText(std::u16string(reinterpret_cast<const char16_t *>(u.get_data()), (std::size_t)u.length()));
+	}
+}
+
+Dictionary InGameHudNode::get_player_message_layout() const
+{
+	Dictionary out;
+	if (d->hud)
+	{
+		const PlayerMessageSettings &s = d->hud->playerMessages().settings;
+		out["x"] = s.position.x;
+		out["y"] = s.position.y;
+		out["point_size"] = s.pointSize;
+	}
+	return out;
 }
 
 } // namespace godot

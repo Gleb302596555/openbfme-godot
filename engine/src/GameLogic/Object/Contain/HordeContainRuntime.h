@@ -401,13 +401,15 @@ public:
 	void bannerCheck(bool force);
 	ObjectID bannerCarrier() const { return m_bannerCarrier; }
 	unsigned bannerCountdown() const { return m_bannerCountdown; }
+	// RW 0x871915 (lane BANNER-1): the removed member was the banner carrier: the id goes and the countdown becomes its BannerCarrierUpdate's DiedRespawnTime. Only the
+	// removals RW 0x87370B / 0x87393E call it; a member released toward a garrison (RW 0x86EBF4, keepSlot) stays the carrier
+	void bannerCarrierRemoved(const Object &member);
 	void expediteBannerRespawn() { if (m_bannerCountdown > 1) { m_bannerCountdown = 1; } } // RW 0x89ACC1
 	unsigned payloadCount() const; ///< RW interface slot 0x188: members, including those entering a garrison, without the banner.
 	unsigned lastMemberDamageFrame() const; ///< RW 0x86EB60, interface slot 0x26C.
-	// RW HordeContainInterface slot 0x18C (RW 0x873AE3): a new member of the payload template joins at `pos` (null when the horde is full or has no single payload template)
-	Object *spawnReplacementMember(const Coord3D &pos);
-	// RW slot 0x90 (RW 0x86EE52, inference S-587): a member was damaged or is attacking within the last `frames` frames
-	bool wasInCombatWithin(unsigned frames) const;
+	// RW HordeContainInterface slot 0x18C (RW 0x873AE3): a new member of the payload template joins at `pos` facing `orientation` (the matrix), with the horde's
+	// weapon set flags, experience pool, attribute modifiers and lifetime (null when the horde is full or has no single payload template)
+	Object *spawnReplacementMember(const Coord3D &pos, float orientation);
 	const std::vector<float> &flankHistory() const { return m_flankAngles; }
 
 	friend struct Horde2HashAccess; // the HORDE-2 hash mutation tests (test_horde2_hash.cpp)

@@ -325,9 +325,10 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 	// Merge queue q23 (TARGET-1 + ATTACKPATH-1 + FLANK-1 + PRODUCTION1 + LUMBER1 on q22's tree, measured once): the inventory is q22's again (no AutoHealBehavior)
 	// Lane OFFMAP-1 (RotWK's idle state RW 0x745A64 does not snap the start units onto cell centres as ZH's did at frame <= 1): the AIs' play moved
 	// again, and AutoHealBehavior and RepairSpecialPower are back (112 classes, measured)
+	// Merge queue q26 (community #73 / #74, BANNER-1, SIEGE-1 and the rest, measured once on the merged tree): a CommandButtonHuntUpdate object again (113)
 	CHECK(classes == std::set<std::string>{
 		"AISpecialPowerUpdate", "ActiveBody", "ArmorUpgrade", "ArrowStormUpdate", "AttributeModifierAuraUpdate", "AttributeModifierPoolUpdate",
-		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoPickUpUpdate", "BannerCarrierUpdate",
+		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoHealBehavior", "AutoPickUpUpdate", "BannerCarrierUpdate",
 		"BezierProjectileBehavior", "BloodthirstyUpdate", "BoredUpdate", "BuildableHeroListUpgrade", "BuildingBehavior", "CastleBehavior",
 		"CastleMemberBehavior", "CastleUpgrade", "CitadelSlaughterHordeContain", "ClickReactionBehavior", "CloudBreakSpecialPower",
 		"CommandButtonHuntUpdate", "CommandPointsUpgrade", "CommandSetUpgrade", "CostModifierUpgrade", "CreateObjectDie", "CritterEmitterUpdate",

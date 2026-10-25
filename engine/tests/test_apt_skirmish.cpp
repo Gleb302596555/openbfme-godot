@@ -1145,10 +1145,11 @@ TEST_CASE("stops S-178 / S-179: the lobby reports its inferences, the profile ga
 	CHECK(fx.screen->setup()->info().slots[0].handicap == -25);
 	GadgetComboBoxSetSelectedPos(handicap, 0, false);
 	CHECK(fx.screen->setup()->info().slots[0].handicap == 0);
-	// lane RULES-1: the rule rows of mode 0 (RW 0x960A46 / 0x960A5D: 2 combos + OpenBFME's Legendary Heroes row, 3 check boxes); the clan tab answers 0
+	// lane RULES-1: the rule rows of mode 0 (RW 0x960A46 / 0x960A5D: 2 combos + OpenBFME's Legendary Heroes row, 3 check boxes + lane CHEAT-1's Cheat
+	// Mode row); the clan tab answers 0
 	std::string value;
 	REQUIRE(fx.wm->getExtern("MpGameRules::NumCheckBoxes", value) == AptExternResult::Value);
-	CHECK(value == "3");
+	CHECK(value == "4");
 	REQUIRE(fx.wm->getExtern("MpGameRules::NumComboBoxes", value) == AptExternResult::Value);
 	CHECK(value == "3");
 	REQUIRE(fx.wm->getExtern("AptMpGameRules::ShowClans", value) == AptExternResult::Value);
@@ -1807,7 +1808,10 @@ TEST_CASE("rules1 retail lobby: the Rules tab shows RotWK's rows (Initial Resour
 	CHECK(fx.screen->ruleWindow(RULE_CLAN_GAME) == nullptr);
 	CHECK(GadgetCheckBoxIsChecked(fx.screen->ruleCheckWindow(0)));
 	CHECK(GadgetCheckBoxIsChecked(fx.screen->ruleCheckWindow(1)));
-	CHECK(fx.screen->ruleCheckWindow(2)->winIsHidden());
+	// lane CHEAT-1: OpenBFME's Cheat Mode row follows RotWK's rows (off), the clan row's place stays hidden after it
+	CHECK(fx.screen->cheatModeWindow() == fx.screen->ruleCheckWindow(2));
+	CHECK_FALSE(fx.screen->ruleCheckWindow(2)->winIsHidden());
+	CHECK_FALSE(GadgetCheckBoxIsChecked(fx.screen->ruleCheckWindow(2)));
 	CHECK(fx.screen->ruleCheckWindow(3)->winIsHidden());
 	// the row texts (RW 0x986B1C / 0x986810)
 	const std::string *t0 = fx.wm->aptText("APT:RuleComboBox_0");
@@ -1834,11 +1838,16 @@ TEST_CASE("rules1 retail lobby: the Rules tab shows RotWK's rows (Initial Resour
 	CHECK_FALSE(fx.screen->slotGadget(0, "Hero")->winGetEnabled()); // RW 0x842A85
 	GadgetComboBoxSetSelectedPos(legendary, 3, false);
 	CHECK(fx.screen->setup()->info().legendaryHeroes == 4);
+	// lane CHEAT-1: the host's Cheat Mode box puts the cheat seat on the host's slot
+	GadgetCheckBoxToggle(fx.screen->cheatModeWindow());
+	CHECK(fx.screen->setup()->info().cheatMode == 0);
 
 	// Reset (RW 0x98674C): the defaults, the widgets follow
 	fx.wm->invokeCallback("AptMpGameRules::Reset", "");
 	CHECK(fx.screen->setup()->info().rules == MpGameRules::defaults(RULES_MODE_SKIRMISH));
 	CHECK(fx.screen->setup()->info().legendaryHeroes == LegendaryHeroes::kOff);
+	CHECK(fx.screen->setup()->info().cheatMode == -1); // lane CHEAT-1
+	CHECK_FALSE(GadgetCheckBoxIsChecked(fx.screen->cheatModeWindow()));
 	CHECK(selectedValue(cash) == 1000);
 	CHECK(selectedValue(legendary) == 1);
 	CHECK(GadgetCheckBoxIsChecked(fx.screen->ruleCheckWindow(0)));
@@ -1847,6 +1856,7 @@ TEST_CASE("rules1 retail lobby: the Rules tab shows RotWK's rows (Initial Resour
 	// the game starts with the rules of the tab
 	GadgetComboBoxSetSelectedPos(cash, 4, false);
 	GadgetComboBoxSetSelectedPos(legendary, 3, false);
+	GadgetCheckBoxToggle(fx.screen->cheatModeWindow()); // lane CHEAT-1
 	fx.wm->invokeCallback("AptSkirmish::StartGame", "");
 	fx.tick(2);
 	REQUIRE(fx.sink.messages.size() == 1);
@@ -1854,6 +1864,7 @@ TEST_CASE("rules1 retail lobby: the Rules tab shows RotWK's rows (Initial Resour
 	CHECK(msg.game.rules[RULE_INITIAL_RESOURCES] == 1400);
 	CHECK(msg.game.rules[RULE_COMMAND_POINT_FACTOR] == 100);
 	CHECK(msg.game.legendaryHeroes == 4);
+	CHECK(msg.game.cheatMode == 0); // lane CHEAT-1
 	CHECK(msg.game.startingCash == -1);
 }
 

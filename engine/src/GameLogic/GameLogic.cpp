@@ -1094,6 +1094,7 @@ std::uint32_t GameLogic::hashState(std::vector<StateHashSection> *sections, std:
 		{
 			x.addI32(m_legendaryHeroes);
 		}
+		m_cheatMode.crc(x); // lane CHEAT-1: only a Cheat Mode game hashes it (every other game keeps its hash)
 		// lane UBER-1: an Uber game hashes its profile (a Faithful game hashes nothing more: its hashes stay the ones before UBER-1)
 		if (m_simulationProfile != SimulationProfile::Faithful)
 		{

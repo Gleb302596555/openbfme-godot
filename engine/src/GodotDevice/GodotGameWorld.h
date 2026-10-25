@@ -375,6 +375,20 @@ public:
 	Dictionary debug_script_place_at(const String &name, double x, double y);
 	Dictionary debug_script_kill_team(const String &name);
 	static void bindScriptMethods();
+	// ---- lane CHEAT-1 (GodotDevice/GodotGameWorldCheats.cpp): the open Cheat Mode (GameLogic/CheatMode.h; the API: docs/CHEAT_MODE.md) ----
+	// { enabled, seat_slot, seat_player, seat_name, local_is_seat, voided, executed, refused, label }
+	Dictionary cheat_info() const;
+	// the game's players: [ { index, name, side, defeated } ]
+	Array cheat_players() const;
+	// the units and heroes of a player's side: [ { template, id, hero, label (the DisplayName label) } ], heroes first
+	Array cheat_units(int64_t player) const;
+	// a player's living heroes that can gain levels: [ { id, template, label, level } ]
+	Array cheat_heroes(int64_t player) const;
+	// queues MSG_OPENBFME_CHEAT for the local player (only the cheat seat): { command, target, value, template, object, x, y } -> { ok, error }
+	Dictionary cheat_command(const Dictionary &command);
+	// the announced lines since the last call: [ { frame, text, executed, command, template, label (a spawn's / level up's unit and its DisplayName) } ]
+	Array take_cheat_lines();
+	static void bindCheatMethods();
 	// ---- lane CAMP-1 (GodotDevice/GodotGameWorldCampaign.cpp): the linear campaigns ----
 	// TheLinearCampaignManager's campaigns: [ { name, display_label, intro_movie, carryover: [..], missions: [ { name, map, intro_movie, load_screen_image,
 	// load_screen_music, fade_up_frames, delay_carryover: [..] } ] } ] (the world must be set up)

@@ -243,6 +243,7 @@ void GameWorld::_bind_methods()
 	bindStealthMethods(); // lane STEALTH-1 (GodotGameWorldStealth.cpp)
 	bindCreateAHeroMethods(); // lane CAH-1 (GodotGameWorldCah.cpp)
 	bindScriptMethods();  // lane SCRIPT-1 (GodotGameWorldScripts.cpp)
+	bindCheatMethods();   // lane CHEAT-1 (GodotGameWorldCheats.cpp)
 	bindCampaignMethods(); // lane CAMP-1 (GodotGameWorldCampaign.cpp)
 	bindSaveMethods();     // lane SAVE-2 (GodotGameWorldSave.cpp)
 	bindGarrisonMethods(); // lane GARRISON-1 (GodotGameWorldGarrison.cpp)
@@ -6222,6 +6223,10 @@ Dictionary GameWorld::gameRecordBase(GameLogic &logic, const std::vector<int> &s
 	r["players"] = list;
 	r["me"] = m_recordLocalSlot;
 	r["winner_team"] = split ? -1 : winner;
+	if (g.cheatModeOn())
+	{
+		r["cheat_mode"] = true; // lane CHEAT-1: kept, never counted nor reported (GameClient/GameRecords.h)
+	}
 	return r;
 }
 

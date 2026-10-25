@@ -423,9 +423,11 @@ TEST_CASE("play4 heroes retail: every faction's heroes, recruited from the fortr
 			CHECK(own.walked > 600.0f);
 			// on its own: the Battle stance's guard attacks the horde (with the reach of RW 0x6ED843 every walking hero kills several members)
 			CHECK(own.shots > 0u);
-			// lane TARGET-1: Haldir's guard (RotWK's search, RW 0x949CA7 -> 0x70146A) takes a creep first: from the spot, before the horde is made, a
+			// lane TARGET-1: Haldir's guard (RotWK's search, RW 0x949CA7 -> 0x70146A) took a creep first: from the spot, before the horde is made, a
 			// MordorGoblinSwordsman_Slaved of the Moria goblin lair about 550 to the south-west, then the lair itself, so his strikes in the window never
-			// reach the horde (measured on a CI host); every other hero fights the horde
+			// reached the horde (measured on a CI host). Community #74 (the destination adjustment spiralling around the cell, RW 0x6FA2A4, with #73's centred
+			// formations) on q23's tree: he fought the horde (14 of 20 killed). Merge queue q26 (with OFFMAP-1's start positions and the rest, measured once on
+			// the merged tree): he takes the creep first again; every other hero fights the horde
 			const bool creepFirst = hero == "ElvenHaldir";
 			CHECK((creepFirst ? own.lost == 0.0f : own.lost > 0.0f)); // tolerance: the pre-existing "the guard attacks the horde" bound, Haldir's 0 exact
 			CHECK_FALSE(own.noted3804);
@@ -553,8 +555,13 @@ TEST_CASE("attack1 heroes retail: the mounted Witch-king and Mouth of Sauron, or
 	// first took 375, 975 outside the run), nearest 0.565623, with CRUSHER_LEVEL -1 no swing (nearest 70.444, as OFFMAP-1's lane measured 69.9); the Mouth of
 	// Sauron 15 shots, 15 killed (150), 12 swings (75 / 900), nearest 10.3192, with CRUSHER_LEVEL -1 blocked again (10 frames from frame 27, nearest 51.8487,
 	// one swing taking 75). The duels are unchanged. Engine pins, not retail values.
-	for (const Case &c : { Case{ "FactionAngmar", "AngmarWitchking", 6u, 16u, 225.0f, { 800.0f, 112.0f }, 3u, 375.0f, 975.0f, { { 1500.0f, 800.0f }, { 700.0f, 700.0f } }, 0, -1, 0u, 0.0f, 70.444f, 0.565623f },
-			 Case{ "FactionMordor", "MordorMouthOfSauron", 15u, 15u, 150.0f, { 640.0f, 320.0f }, 12u, 75.0f, 900.0f, { { 1500.0f, 640.0f }, { 860.0f, 640.0f }, { 220.0f, 220.0f } }, 10, 27, 1u, 75.0f, 51.8487f, 10.3192f } })
+	// Merge queue q26 (community #73's slot tables centred on their hordes and #74's spiral on the archive's OFFMAP-1 start positions, with BANNER-1, SIEGE-1 and
+	// the rest; measured once on the merged tree): no CrushWeapon delivery lands in either run and the CRUSHER_LEVEL -1 heroes are blocked again, as #73 /
+	// #74's own port measured: the Witch-king 4 swings (the first took 525, 1125 outside the run), 15 killed, nearest 35.1055, with CRUSHER_LEVEL -1 blocked
+	// 10 frames from frame 30, one swing taking 525 from 50.9059; the Mouth of Sauron 8 swings (75 / 600), 8 killed, nearest 24.9008, with CRUSHER_LEVEL -1
+	// blocked 18 frames from frame 21, 5 swings taking 375 from 60.1409. The duels are unchanged. Engine pins, not retail values.
+	for (const Case &c : { Case{ "FactionAngmar", "AngmarWitchking", 4u, 15u, 0.0f, { 800.0f, 112.0f }, 4u, 525.0f, 1125.0f, { { 1500.0f, 800.0f }, { 700.0f, 700.0f } }, 10, 30, 1u, 525.0f, 50.9059f, 35.1055f },
+			 Case{ "FactionMordor", "MordorMouthOfSauron", 8u, 8u, 0.0f, { 640.0f, 320.0f }, 8u, 75.0f, 600.0f, { { 1500.0f, 640.0f }, { 860.0f, 640.0f }, { 220.0f, 220.0f } }, 18, 21, 5u, 375.0f, 60.1409f, 24.9008f } })
 	{
 		INFO(std::string(c.hero));
 		const ThingTemplate *tt = s->world->things().findTemplate(c.hero);

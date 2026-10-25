@@ -388,6 +388,14 @@ their health, take less damage and hit harder. The loading screen names the
 rule when it is on. A game with it on plays differently from the original;
 with it off nothing changes.
 
+**Cheat Mode** is another OpenBFME addition on the same tab, off by default and
+offered in skirmish, LAN and Open Play games (never in Quick Match). When the
+host ticks it, the host can give resources, spawn units and heroes, level
+heroes, reveal the map or end the game from the in-game menu (Esc, then CHEAT
+MODE). Everyone sees it: the game list tags the game before you join, and every
+action shows up as a message line for every player. A Cheat Mode game never
+counts in statistics. Details and the command list: [CHEAT_MODE.md](CHEAT_MODE.md).
+
 ## Skirmish games
 
 - **Your profile.** The first time you open Skirmish, the game asks for a

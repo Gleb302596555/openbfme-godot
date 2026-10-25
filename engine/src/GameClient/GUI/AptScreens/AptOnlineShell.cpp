@@ -1465,6 +1465,10 @@ void AptOnlineShell::fillGamesList()
 		{
 			label += u"  - UBER"; // lane UBERJOIN-1: the game's performance mode, in the style of the REJOIN / WATCH tags (a Normal game has no tag)
 		}
+		if (g.cheatMode)
+		{
+			label += u"  - CHEAT MODE"; // lane CHEAT-1: every player sees it before joining
+		}
 		if (other)
 		{
 			label += u"  - OTHER VERSION";
@@ -1488,7 +1492,7 @@ void AptOnlineShell::fillGamesList()
 		GadgetListBoxAddEntryText(m_gameList, wide(players), c, row, 5);
 		GadgetListBoxAddEntryText(m_gameList, UnicodeString(), c, row, 6);
 		m_gameRows.push_back(narrow(g.name) + "|" + narrow(map) + "|" + players + "|" + (g.password ? "lock" : "") + (g.state == "join" ? "" : "|" + g.state) +
-			(g.mode == SimulationProfile::Uber ? "|uber" : "") + (other ? "|other-version" : ""));
+			(g.mode == SimulationProfile::Uber ? "|uber" : "") + (g.cheatMode ? "|cheat" : "") + (other ? "|other-version" : ""));
 		m_rowOtherBuild.push_back(other);
 		m_rowIds.push_back(g.id);
 		m_rowKinds.push_back(g.state);
@@ -2455,6 +2459,11 @@ WindowMsgHandledType AptOnlineShell::gadgetMessage(GameWindow *from, std::uint32
 	return AptSkirmish::gadgetMessage(from, msg, data1, data2);
 }
 
+bool AptOnlineShell::cheatModeOffered() const
+{
+	return !m_client || !m_client->privateRoom();
+}
+
 void AptOnlineShell::lobbyChanged()
 {
 	// the gadgets changed the model: the differences go to the lobby (the host's setup and the slots that are not players', a player's own slot)
@@ -2466,7 +2475,7 @@ void AptOnlineShell::lobbyChanged()
 	const SkirmishGameInfo &now = model->info();
 	const SkirmishGameInfo &was = m_client->gameInfo();
 	if (m_client->amIHost() && (now.mapName != was.mapName || now.startingCash != was.startingCash || now.superweaponRestriction != was.superweaponRestriction ||
-								   now.legendaryHeroes != was.legendaryHeroes || now.rules != was.rules))
+								   now.legendaryHeroes != was.legendaryHeroes || now.rules != was.rules || now.cheatModeOn() != was.cheatModeOn()))
 	{
 		m_client->setSetup(now);
 	}

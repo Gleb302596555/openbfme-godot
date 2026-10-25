@@ -718,6 +718,17 @@ void Network::file(const NetCommandMsg &c, int fromSlot)
 					+ std::to_string(owner) + "'s frame " + std::to_string(c.frame) + ", which is not the packet router's: refused");
 				return;
 			}
+			// lane CHEAT-1 (Sol review r1 / r2): a resend's owner is the sender's claim, not an authenticated origin, and MSG_OPENBFME_CHEAT's only
+			// authority is the player stamped from the frame's slot: in ordinary play a relayed Cheat Mode command could name the host's seat for a peer that
+			// misses the host's frame. It is refused with the whole resend while the owner is heard (DisconnectManager::heard, RW 0x8D335D: in the game,
+			// whether or not another player's silence put the disconnect screen up); the frame then waits for the owner's own packet. Once the owner is
+			// silent the survivors' resends are the only way to reach the same frame before its drop (allOnSameFrame), so they are taken as before
+			if (copy->getType() == MSG_OPENBFME_CHEAT && m_disconnect.slotHeard(*this, owner, now(), m_logicFrame))
+			{
+				m_errors.push_back("slot " + std::to_string(fromSlot) + " resent a Cheat Mode command in slot " + std::to_string(owner) + "'s frame " +
+					std::to_string(c.frame) + ": refused (a Cheat Mode command is never relayed)");
+				return;
+			}
 			if (copy->getType() != MSG_SELF_DESTRUCT)
 			{
 				copy->friend_setPlayerIndex(ownerPlayer);

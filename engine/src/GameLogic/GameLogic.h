@@ -54,6 +54,7 @@
 #include "Common/SimulationProfile.h"
 #include "Common/Team.h"
 #include "GameLogic/AI/AICommandSink.h"
+#include "GameLogic/CheatMode.h"
 #include "GameLogic/FXEvents.h"
 #include "GameLogic/LargeGroupAudioLink.h"
 #include "GameLogic/ScriptEngine/MissionObjectiveTracker.h"
@@ -505,6 +506,9 @@ public:
 	const GameRules &gameRules() const { return m_gameRules; }
 	void setLegendaryHeroes(int factor) { m_legendaryHeroes = factor; }
 	int legendaryHeroes() const { return m_legendaryHeroes; }
+	// lane CHEAT-1, OpenBFME: the game's Cheat Mode (GameLogic/CheatMode.h): off unless LiveGame::load configures the cheat seat from the game setup
+	CheatMode::State &cheatMode() { return m_cheatMode; }
+	const CheatMode::State &cheatMode() const { return m_cheatMode; }
 	// lane UBER-1: the simulation profile (Common/SimulationProfile.h; set before the first frame). Hashed only when Uber, so a Faithful game keeps its hash
 	void setSimulationProfile(SimulationProfile p) { m_simulationProfile = p; }
 	SimulationProfile simulationProfile() const { return m_simulationProfile; }
@@ -928,6 +932,7 @@ private:
 	int m_gameDifficulty = 1;     ///< lane CAMP-1H: RW GameLogic + 0xA4
 	GameRules m_gameRules = MpGameRules::none(); ///< lane RULES-1
 	int m_legendaryHeroes = LegendaryHeroes::kOff; ///< lane RULES-1 (OpenBFME)
+	CheatMode::State m_cheatMode;                  ///< lane CHEAT-1 (OpenBFME)
 	SimulationProfile m_simulationProfile = SimulationProfile::Faithful; ///< lane UBER-1 (OpenBFME)
 	bool m_frameAdvance = true;   ///< RW GameLogic + 0x44
 	bool m_inUpdate = false;      ///< RW + 0x70

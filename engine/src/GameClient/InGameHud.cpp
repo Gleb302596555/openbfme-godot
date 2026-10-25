@@ -1536,6 +1536,10 @@ std::vector<std::string> InGameHud::stops() const
 	return out;
 }
 
+void InGameHud::addPlayerMessageText(const std::u16string &text)
+{
+	m_playerMessages.add(text, m_config.game.logic().getFrame()); // lane CHEAT-1: the label handler's own call, with the text itself
+}
 // ---- lane CHAT-1: the multiplayer beacon's presentation ----------------------------------------------------------------------------------------------
 
 void InGameHud::showMessageLabel(const std::string &label, const std::u16string *argument)

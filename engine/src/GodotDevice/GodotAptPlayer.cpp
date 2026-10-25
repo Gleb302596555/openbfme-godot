@@ -1339,6 +1339,11 @@ void AptMenuPlayer::_bind_methods()
 	ClassDB::bind_method(D_METHOD("online_ask", "key", "title", "text"), &AptMenuPlayer::online_ask);
 	ClassDB::bind_method(D_METHOD("online_answers"), &AptMenuPlayer::online_answers);
 	ClassDB::bind_method(D_METHOD("online_asking", "key"), &AptMenuPlayer::online_asking);
+	ClassDB::bind_method(D_METHOD("quit_menu_cheat_button", "label"), &AptMenuPlayer::quit_menu_cheat_button); // lane CHEAT-1
+	ClassDB::bind_method(D_METHOD("quit_menu_cheat_page_show", "spec"), &AptMenuPlayer::quit_menu_cheat_page_show);
+	ClassDB::bind_method(D_METHOD("quit_menu_cheat_page_close"), &AptMenuPlayer::quit_menu_cheat_page_close);
+	ClassDB::bind_method(D_METHOD("quit_menu_cheat_events"), &AptMenuPlayer::quit_menu_cheat_events);
+	ClassDB::bind_method(D_METHOD("quit_menu_cheat_state"), &AptMenuPlayer::quit_menu_cheat_state);
 	ClassDB::bind_method(D_METHOD("online_cancel_ask", "key"), &AptMenuPlayer::online_cancel_ask);
 	ClassDB::bind_method(D_METHOD("online_start_failed", "error"), &AptMenuPlayer::online_start_failed); // Sol r1
 	ClassDB::bind_method(D_METHOD("online_game_failed", "text"), &AptMenuPlayer::online_game_failed); // lane ONLINEUX-1
@@ -2456,6 +2461,7 @@ OpenBFMEPageRow pageRowOf(const Dictionary &d)
 		: kind == "check"      ? OpenBFMEPageRow::Kind::Check
 		: kind == "slider"     ? OpenBFMEPageRow::Kind::Slider
 		: kind == "entry"      ? OpenBFMEPageRow::Kind::Entry
+		: kind == "button"     ? OpenBFMEPageRow::Kind::Button // lane CHEAT-1
 							   : OpenBFMEPageRow::Kind::Text;
 	r.key = toNative(String(d.get("key", "")));
 	r.label = u16Of(d.get("label", ""));
@@ -2520,7 +2526,7 @@ OpenBFMEPageSpec pageSpecOf(const Dictionary &spec)
 Array pageEventsOf(const std::vector<OpenBFMEPageEvent> &events)
 {
 	Array out;
-	static const char *kinds[] = { "value", "tab", "cancel", "reset", "accept", "entry", "release", "submit", "list_select", "list_activate" };
+	static const char *kinds[] = { "value", "tab", "cancel", "reset", "accept", "entry", "release", "submit", "list_select", "list_activate", "press" };
 	for (const OpenBFMEPageEvent &e : events)
 	{
 		Dictionary d;
@@ -2536,7 +2542,7 @@ Array pageEventsOf(const std::vector<OpenBFMEPageEvent> &events)
 // lane OPTS-5: a row as GDScript describes them (pageRowOf's input)
 Dictionary pageRowDict(const OpenBFMEPageRow &r)
 {
-	static const char *const kinds[] = { "section", "choice", "check", "slider", "text", "entry" };
+	static const char *const kinds[] = { "section", "choice", "check", "slider", "text", "entry", "button" };
 	Dictionary d;
 	d["kind"] = kinds[(int)r.kind];
 	d["key"] = toGodot(r.key);
@@ -3245,6 +3251,10 @@ Dictionary AptMenuPlayer::lobby_gadget_rect(const String &name)
 	{
 		w = screen->profileEntryWindow(); // lane MENU-1: the add-profile box's name entry (Skirmish::CreatePersonaEntry)
 	}
+	else if (n == "cheat-mode")
+	{
+		w = screen->cheatModeWindow(); // lane CHEAT-1: the Rules tab's Cheat Mode check box (placed once the tab is shown)
+	}
 	else if (n.rfind("spot/", 0) == 0)
 	{
 		const int i = std::atoi(n.c_str() + 5);
@@ -3305,6 +3315,7 @@ Dictionary AptMenuPlayer::lobby_state()
 		rules.push_back((int64_t)r);
 	}
 	out["rules"] = rules;
+	out["cheat_mode"] = (int64_t)g.cheatMode; // lane CHEAT-1: -1 off, else the cheat seat's slot
 	Array slots;
 	for (int i = 0; i < g.serializedSlotCount(); ++i)
 	{
@@ -8069,6 +8080,108 @@ PackedStringArray AptMenuPlayer::online_answers()
 		}
 	}
 	return out;
+}
+
+// ---- lane CHEAT-1: the in-game menu's Cheat Mode panel (GUI/AptScreens/AptQuitMenu.h) ---------------------------------------------------------------------
+
+namespace
+{
+// the in-game menu the device opened (AptMenuPlayer::quit_menu: the shell's overlay, not a screen of its stack)
+AptQuitMenu *quitMenuOf(ShellMode *sm)
+{
+	return sm ? sm->quitMenu.get() : nullptr;
+}
+} // namespace
+
+bool AptMenuPlayer::quit_menu_cheat_button(const String &label)
+{
+	AptQuitMenu *q = quitMenuOf(m->shell.get());
+	if (q)
+	{
+		q->setCheatButton(utf8ToU16(toNative(label)).substr(0, 32));
+	}
+	return q != nullptr;
+}
+
+Dictionary AptMenuPlayer::quit_menu_cheat_page_show(const Dictionary &spec)
+{
+	Dictionary r;
+	r["ok"] = false;
+	AptQuitMenu *q = quitMenuOf(m->shell.get());
+	if (!q)
+	{
+		r["error"] = "QuitMenu.apt is not up";
+		return r;
+	}
+	std::string error;
+	const bool ok = q->openCheatPage(pageSpecOf(spec), &error);
+	r["ok"] = ok;
+	r["error"] = toGodot(error);
+	if (!ok)
+	{
+		UtilityFunctions::printerr(toGodot("SHELL cheat mode page: " + error));
+	}
+	return r;
+}
+
+void AptMenuPlayer::quit_menu_cheat_page_close()
+{
+	if (AptQuitMenu *q = quitMenuOf(m->shell.get()))
+	{
+		q->closeCheatPage();
+	}
+}
+
+Array AptMenuPlayer::quit_menu_cheat_events()
+{
+	AptQuitMenu *q = quitMenuOf(m->shell.get());
+	return q ? pageEventsOf(q->takeCheatEvents()) : Array();
+}
+
+Dictionary AptMenuPlayer::quit_menu_cheat_state() const
+{
+	Dictionary d;
+	AptQuitMenu *q = quitMenuOf(m->shell.get());
+	d["menu"] = q != nullptr;
+	d["open"] = q && q->cheatPageOpen();
+	d["button"] = Rect2(AptQuitMenu::kCheatButtonLeft, AptQuitMenu::kCheatButtonTop, AptQuitMenu::kCheatButtonRight - AptQuitMenu::kCheatButtonLeft,
+		AptQuitMenu::kCheatButtonBottom - AptQuitMenu::kCheatButtonTop);
+	d["has_button"] = q && !q->cheatButton().empty();
+	OpenBFMEOptionsPage *page = q ? q->cheatPage() : nullptr;
+	if (!page || !page->shown())
+	{
+		return d;
+	}
+	d["tab"] = page->spec().tab;
+	Array tabs;
+	for (std::size_t i = 0; i < page->spec().tabs.size(); ++i)
+	{
+		std::array<int, 4> r{};
+		page->rect("tab:" + std::to_string(i), r);
+		tabs.push_back(stageRect(r));
+	}
+	d["tabs"] = tabs;
+	Dictionary rows;
+	for (const OpenBFMEPageRow &row : page->spec().rows)
+	{
+		if (row.key.empty())
+		{
+			continue;
+		}
+		Dictionary rd;
+		std::array<int, 4> r{};
+		if (page->rect(row.key, r))
+		{
+			rd["rect"] = stageRect(r);
+		}
+		rd["value"] = row.value;
+		rd["value_text"] = toGodot(u16ToUtf8(row.valueText));
+		rd["label"] = toGodot(u16ToUtf8(row.label));
+		rows[toGodot(row.key)] = rd;
+	}
+	d["rows"] = rows;
+	d["help"] = toGodot(u16ToUtf8(page->helpText()));
+	return d;
 }
 
 Dictionary AptMenuPlayer::online_messenger_sync(const Dictionary &spec)

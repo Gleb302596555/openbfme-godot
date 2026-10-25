@@ -379,6 +379,18 @@ bool parse(const std::string &json, const ProfileIdentity &ownProfile, const Lim
 		}
 	}
 	g.clearCreateAHeroesIfNotAllowed();
+	// lane CHEAT-1: the optional "cheatMode" (lobby.mjs signAndStart: the host's slot when the host turned Cheat Mode on; absent: off). The seat must be a human
+	// slot of the game: anything else is a refused START, never a game without the seat (the replay's record reads it again: NetPacket::readGameInfo)
+	g.cheatMode = -1;
+	if (const JsonValue *cheat = setup->get("cheatMode"); cheat && cheat->type != JsonValue::NUL)
+	{
+		long long seat = -1;
+		if (!intField(*setup, "cheatMode", 0, MAX_SLOTS - 1, seat, &sub) || !g.slots[seat].isHuman())
+		{
+			return fail(error, "\"cheatMode\" must name a human player's slot");
+		}
+		g.cheatMode = (int)seat;
+	}
 	// lane PLATFORMICON-1: the optional top-level "platforms" (lobby.mjs signAndStart: one entry per slot, null or windows / linux / macos). Display data for
 	// the running game's player list: only a human slot's entry counts, and anything unusable (not an array, a wrong length, another value) is no icon,
 	// never a refusal of the START

@@ -163,6 +163,10 @@
    "reason": "lane CAH-2: the ColorPicker render component of the menus (externs, texel pick): user interface, never simulation state"
   },
   {
+   "glob": "src/GodotDevice/GodotGameWorldCheats.cpp",
+   "reason": "lane CHEAT-1: the panel's view of Cheat Mode: queues MSG_OPENBFME_CHEAT with the values the player chose (no arithmetic) and lists display data; the command's execution is GameLogic/CheatMode.cpp (simulation)"
+  },
+  {
    "glob": "src/GodotDevice/GodotGameWorldScripts.cpp",
    "reason": "lane SCRIPT-1: GameWorld's view of the map script engine (the client requests handed to the script camera director, the engine's report, a waypoint lookup): reads the logic, never writes simulation state"
   },

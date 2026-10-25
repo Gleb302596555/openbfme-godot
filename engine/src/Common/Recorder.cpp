@@ -12,7 +12,7 @@
 namespace
 {
 const char kMagic[8] = { 'O', 'B', 'F', 'M', 'E', 'R', 'E', 'P' };
-constexpr std::uint32_t kVersion = 10; // 10: the build date; 9: the recording build (version, commit); 8 (lane ANTICHEAT-1): the VIEW record; 7 (lane OWNERFIX-2): the GameInfo slots' handicaps; 6 (lane SAVE-2): the execution profile switch record, duplicate records refused; 2: the profile identity, GameMessage format 2 (u32 argument counts), lost-command records; 3 (lane HERO-2): the GameInfo slots' Create-a-Hero records; 4 (lane RULES-1): the GameInfo's game rules and Legendary Heroes factor; 5 (lane UBER-1): the GameInfo's simulation profile
+constexpr std::uint32_t kVersion = 11; // 11 (lane CHEAT-1): the GameInfo's Cheat Mode; 10: the build date; 9: the recording build (version, commit); 8 (lane ANTICHEAT-1): the VIEW record; 7 (lane OWNERFIX-2): the GameInfo slots' handicaps; 6 (lane SAVE-2): the execution profile switch record, duplicate records refused; 2: the profile identity, GameMessage format 2 (u32 argument counts), lost-command records; 3 (lane HERO-2): the GameInfo slots' Create-a-Hero records; 4 (lane RULES-1): the GameInfo's game rules and Legendary Heroes factor; 5 (lane UBER-1): the GameInfo's simulation profile
 enum : std::uint8_t
 {
 	RECORD_FRAME = 1,
@@ -91,7 +91,7 @@ bool parseReplay(const std::vector<std::uint8_t> &bytes, ReplayFile &out, std::s
 	}
 	NetByteReader r(bytes.data() + sizeof(kMagic), bytes.size() - sizeof(kMagic));
 	const std::uint32_t version = r.u32();
-	if (version != kVersion && version != 5 && version != 6 && version != 7 && version != 8 && version != 9)
+	if (version != kVersion && version != 5 && version != 6 && version != 7 && version != 8 && version != 9 && version != 10)
 	{
 		// lane SAVE-2: format 6 only adds the profile switch record, so a format 5 replay (UBER-1) still reads (without that record); lane OWNERFIX-2:
 		// format 7 only adds the slots' handicaps, so a format 5 / 6 replay or save still reads (every handicap 0)
@@ -115,7 +115,7 @@ bool parseReplay(const std::vector<std::uint8_t> &bytes, ReplayFile &out, std::s
 			return failWith(error, "invalid replay recording build");
 		}
 	}
-	if (!NetPacket::readNewGameMessage(r, h.game, error, version >= 7))
+	if (!NetPacket::readNewGameMessage(r, h.game, error, version >= 7, version >= 11)) // lane CHEAT-1: the Cheat Mode i32 from format 11
 	{
 		return false;
 	}

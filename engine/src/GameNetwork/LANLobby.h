@@ -9,7 +9,7 @@
 //   JOIN       u8 lobby version 3, wstr name, str profile identity   (player -> host, repeated until ACCEPT / REFUSE)
 //   ACCEPT     i32 slot                                     (host -> player)
 //   REFUSE     str reason                                   (host -> player: the game is full or already started, another lobby version, another profile)
-//   START      u8 version (kVersion: legacy, 5: extended), str profile identity, NewGameMessage, i32 run-ahead, i32 CRC interval,
+//   START      u8 version (kVersion: legacy, 7: extended), str profile identity, NewGameMessage, i32 run-ahead, i32 CRC interval,
 //              8 or 16 x (u8 used, u32 ip, u16 port), selected by the map's capacity
 //                                                           (host -> every player, repeated until START_ACK)
 //   START_ACK  i32 slot
@@ -58,8 +58,9 @@ struct LobbyStart
 namespace LANLobby
 {
 // the JOIN / START version: 2: JOIN / START carry the lobby version and the profile identity; 3 (lane HERO-2): the slots' Create-a-Hero records;
-// 4 (lane OWNERFIX-2): the GameInfo slots' handicaps
-constexpr std::uint8_t kVersion = 4;
+// 4 (lane OWNERFIX-2): the GameInfo slots' handicaps (lane P16: 5 is the same START on an extended, 16-slot record); 6 (lane CHEAT-1): the GameInfo's
+// Cheat Mode (7: on an extended record)
+constexpr std::uint8_t kVersion = 6;
 // the encoded datagrams (exposed for the tests)
 std::vector<std::uint8_t> encodeStart(const LobbyStart &s);
 bool decodeStart(const std::vector<std::uint8_t> &d, LobbyStart &out, std::string *error);

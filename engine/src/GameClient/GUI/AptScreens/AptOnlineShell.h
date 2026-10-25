@@ -199,6 +199,7 @@ protected:
 	void onChatSend(const std::u16string &text) override;
 	UnicodeString chatPlayerNote(int slot, Color *color) const override { return pingText(slot, color); } // lane ONLINEMENU-1
 	bool showChat() const override;
+	bool cheatModeOffered() const override; // lane CHEAT-1: never in a Quick Match / tournament room
 	void ruleNotice(const std::u16string &line) override;
 	void showRuleWarning(const std::u16string &title, const std::u16string &text) override;
 

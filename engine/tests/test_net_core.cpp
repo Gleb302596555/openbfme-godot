@@ -40,15 +40,15 @@ TEST_CASE("p16 net: LAN START preserves the legacy address table and versions ex
 		const auto bytes = LANLobby::encodeStart(start);
 		// tolerance: the version byte at index 3 requires at least four START header bytes
 		REQUIRE(bytes.size() > 3);
-		// lane P16: 4 is the lobby version every legacy-capacity START already spoke (the GameInfo's handicap layout);
-		// 5 is the same START on an extended record
-		CHECK(bytes[3] == (capacity == 8 ? 4 : 5));
+		// lane P16: the legacy-capacity START keeps the lobby version (4 for the handicap layout, 6 since CHEAT-1's Cheat Mode field);
+		// the same START on an extended record is the next number (5, now 7)
+		CHECK(bytes[3] == (capacity == 8 ? 6 : 7));
 		if (capacity == 8)
 		{
 			NetByteWriter legacy;
 			legacy.u16(0x4C42);
-			legacy.u8(4);
-			legacy.u8(4);
+			legacy.u8(4); // LOBBY_START
+			legacy.u8(6); // the legacy START version (lane CHEAT-1)
 			legacy.str(start.profile.text);
 			NetPacket::writeNewGameMessage(legacy, start.game);
 			legacy.i32(start.runAhead);
@@ -74,7 +74,7 @@ TEST_CASE("p16 net: LAN START preserves the legacy address table and versions ex
 			CHECK_FALSE(LANLobby::decodeStart(std::vector<std::uint8_t>(bytes.begin(), bytes.begin() + n), back, &error));
 		}
 		auto malformed = bytes;
-		malformed[3] = capacity == 8 ? 5 : 4; // the other START layout's version byte
+		malformed[3] = capacity == 8 ? 7 : 6; // the other START layout's version byte (lane CHEAT-1: 6 legacy, 7 extended)
 		CHECK_FALSE(LANLobby::decodeStart(malformed, back, &error));
 		CHECK(error.find("slot capacity") != std::string::npos);
 		malformed = bytes;
@@ -166,7 +166,7 @@ TEST_CASE("p16 net: unassigned network slots remain inactive at every capacity")
 
 TEST_CASE("p16 net: GameInfo legacy bytes remain eight slots without a prefix")
 {
-	// The pre-P16 default record layout: eight 39-byte slots, the 77-byte game fields and the eight handicap entries (lane OWNERFIX-2).
+	// The pre-P16 default record layout: eight 39-byte slots, the 77-byte game fields and the eight handicap entries (lane OWNERFIX-2), then CHEAT-1's Cheat Mode.
 	NetByteWriter legacy;
 	for (int i = 0; i < 8; ++i)
 	{
@@ -183,7 +183,8 @@ TEST_CASE("p16 net: GameInfo legacy bytes remain eight slots without a prefix")
 	legacy.i32(1);
 	legacy.i32(0);
 	for (int i = 0; i < 8; ++i) legacy.i32(0);
-	REQUIRE(legacy.data().size() == 421);
+	legacy.i32(-1); // lane CHEAT-1: the Cheat Mode (-1: off) ends the GameInfo
+	REQUIRE(legacy.data().size() == 425);
 	SkirmishGameInfo game;
 	NetByteWriter encoded;
 	NetPacket::writeGameInfo(encoded, game);
