@@ -144,6 +144,7 @@ runner is claimed. All paths below are relative to the repository root.
 | `godot/tests/hud_image_mode_pixel_test.gd` | Manual only; no generic pytest runner | Denied here: GPU/window/render readback required (some also need retail assets). |
 | `godot/tests/hudredraw_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/install_paths_test.gd` | `tools/release/test_install_paths.py` | Existing argument-aware fixture runner; its prerequisites still apply. |
+| `godot/tests/menu_backdrop_resize_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and GPU/window/render readback; run both `BACKDROP_TEST_STYLE=rotwk` and `BACKDROP_TEST_STYLE=bfme2` explicitly. |
 | `godot/tests/menufix2_test.gd` | Existing CI Godot gate | Denied here: already scheduled by CI; use its existing asset/window setup. |
 | `godot/tests/menustyle_native_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/menustyle_settings_test.gd` | `tools/test_gdscript.py::test_game_script` | Allowlisted: temporary Options.ini and shell/game spies; headless, 20 s timeout. |
