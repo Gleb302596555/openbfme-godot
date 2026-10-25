@@ -604,8 +604,12 @@ void SkirmishAIManager::crc(StateHasher &h) const
 	{
 		kv.second->crc(h);
 	}
-	h.addU32((std::uint32_t)m_captureFlags.size());
-	for (ObjectID id : m_captureFlags) { h.addU32(id); }
+	// Only AI groups can use the capture registry; keep no-AI and empty-registry hashes unchanged.
+	if (!m_groups.empty() && !m_captureFlags.empty())
+	{
+		h.addU32((std::uint32_t)m_captureFlags.size());
+		for (ObjectID id : m_captureFlags) { h.addU32(id); }
+	}
 	h.addU32((std::uint32_t)m_farmSites.size());
 	for (const auto &f : m_farmSites)
 	{
