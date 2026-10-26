@@ -4,7 +4,7 @@
 // (IsengardExplosiveMineDroppingWeapon's SpawnAndFadeNugget, RW 0x911C46: an IsengardDeployedExplosiveMine where it stands, the carrier fades), the
 // berserker lights his torch (SpecialAbilityBerserkerLightTorch: WEAPONSET_TOGGLE_1) and the charge's own Detonate button goes off (a script cannot order the
 // torch onto its own side's charge: no forced script attack), whose BURNED death fires IsengardExplosiveMineExplosionWeapon (50000% against HelmsDeepCulvert):
-// the culvert falls. The buttons go through the ported command button script actions (S-4841). SKIPs loudly without the installs.
+// the culvert falls. The buttons go through the ported command button script actions (SCRIPT-4's, S-1190). SKIPs loudly without the installs.
 
 #include "Siege1TestUtil.h"
 
@@ -34,7 +34,7 @@ Object *firstOf(FortressGame &g, const char *templ)
 }
 } // namespace
 
-TEST_CASE("wall1 battle retail: the mine carrier drops its charge at Helm's Deep's culvert, the berserker lights his torch, the charge goes off and the culvert falls (S-4841)")
+TEST_CASE("wall1 battle retail: the mine carrier drops its charge at Helm's Deep's culvert, the berserker lights his torch, the charge goes off and the culvert falls (S-1190)")
 {
 	OPENBFME_REQUIRE_START(s);
 	FortressGame g(*s, kHelmsDeep);
@@ -118,12 +118,12 @@ TEST_CASE("wall1 battle retail: the mine carrier drops its charge at Helm's Deep
 	std::printf("  info: the culvert fell %d frames after the Detonate\n", fell);
 	CHECK(shots == 1);
 	CHECK(fell == 103);
-	// S-4841: a button of a command type the runner does not have (Command_AttackMove, ATTACK_MOVE) does nothing and says so
-	const std::string kStop = "[S-4841] command button script actions";
+	// SCRIPT-4's command button actions (WALL-1's S-4841 closed into S-1190 on merge queue q26): RW 0x696FD2 has no case for ATTACK_MOVE (10) without a
+	// position, so Command_AttackMove does nothing, as retail, and notes no unported case
 	auto noted = [&]() {
 		for (const auto &n : e.stats().notes)
 		{
-			if (n.first.rfind(kStop, 0) == 0)
+			if (n.first.rfind("[S-1190]", 0) == 0)
 			{
 				return true;
 			}
@@ -132,5 +132,5 @@ TEST_CASE("wall1 battle retail: the mine carrier drops its charge at Helm's Deep
 	};
 	CHECK_FALSE(noted());
 	use("HD_Berserker", "Command_AttackMove");
-	CHECK(noted());
+	CHECK_FALSE(noted());
 }

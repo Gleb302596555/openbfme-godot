@@ -7,22 +7,25 @@ waits on a logic step. Reference machine: the owner's PC (RTX 4090, 24 CPU
 threads, Windows). The Steam Deck's numbers are reported next to it.
 
 This file is the design for getting there, the budget per system, the phases,
-and the honest numbers today. Lane UBER-1 delivered phase U1.
+and the recorded measurements from UBER-1 / RENDERWAIT-1. The dated numbers below
+are historical measurements, not a fresh benchmark of this checkout. Lane UBER-1 delivered phase U1;
+U2-U5 remain planned work.
 
 ## What the mode is
 
 Retail RotWK runs its logic frame on one thread. OpenBFME's default
-(**Faithful**) simulation ports retail's, and is meant to replay retail games.
-It keeps lockstep with the same seed on every machine and uses about one core
-of 24.
+(**Faithful**) simulation ports retail's. Retail replay compatibility is a goal,
+not a supported input format here: the recorder reads OpenBFME replay versions
+5, 6 and 7. The measurements below used about one core, not a fixed core limit.
 
 **Uber** is a second simulation profile (`Common/SimulationProfile.h`), off by
 default:
 
-- **The switch:** Options → OpenBFME → Graphics+ → "Uber performance mode"
+- **The switch:** Options → OpenBFME → Performance → "Uber performance mode"
   (`Options.ini OpenBFMEUberPerformance = yes`). Its help line warns that it
   isn't compatible with the original game, and it takes effect from the next
-  game or LAN lobby.
+  game. The setting is locked while inside an online or LAN room; leave the
+  room to change it.
 - **Same rules, different computation.** Uber plays the same game: same INI
   data, modules and rules. But it may compute things differently from retail:
   a different order of independent work, snapshot semantics for queries, and
@@ -35,13 +38,14 @@ default:
 - **Never mixed.** The profile is in:
   - the game setup (`SkirmishGameInfo::simulationProfile`);
   - the LAN options and start;
-  - the replay (format 5);
+  - the replay (current writer: format 7; readers accept 5, 6 and 7);
   - the profile identity (`profile uber`, compared at every lobby join and
     start and by replay playback);
   - the state hash.
 
-  A Faithful peer, a Faithful replay or a retail client meets a refusal, never
-  a desync.
+  A mismatched running peer or replay is refused, never mixed into the game.
+  Joining a room can first adopt that room's profile; the locked setting then
+  reflects the room, rather than the previous preference.
 - **Faithful's results don't move for Uber; some of its code paths did.**
   What is unchanged:
   - a Faithful game's state hash values (the PERF-1 per-frame vectors,
@@ -52,8 +56,8 @@ default:
   What did change:
   - the hash now goes through UBER-1's staging code: the sections are listed
     first, then fed in the same order into the same chain;
-  - recordings are replay format 5 (the setup's profile field), so format 4
-    files from older builds are refused;
+  - UBER-1 introduced replay format 5 (the setup's profile field); the writer
+    now uses 7 (slot handicaps), and reads 5 / 6 / 7, not 4;
   - the LAN wire's GameInfo carries one more field.
 
   Uber has its own pin set (`test_uber1.cpp`, `tests/data/uber1/`).
@@ -65,7 +69,16 @@ pins prove its results unchanged.
 
 ## The benchmark (the Uber gate)
 
-`openbfme_tests -tc="uber bench*" --no-skip` (`test_uber1_bench.cpp`):
+Linux / POSIX shell, from the project root, after building the C++ test target
+into `engine/build` and setting `ROTWK_INSTALL` and `BFME2_INSTALL` to the game
+folders (without both, this benchmark skips):
+
+```sh
+./engine/build/openbfme_tests -tc="uber bench*" --no-skip
+```
+
+Windows: use `engine\build\openbfme_tests.exe` from a command prompt with the
+same environment and arguments. The implementation is `engine/tests/test_uber1_bench.cpp`:
 
 - the setup: 8 players on map mp fall back 8p, players 1-4 Men against 5-8
   Mordor, as human slots, so no computer player acts;
@@ -80,7 +93,8 @@ pins prove its results unchanged.
 
 Environment variables: `OPENBFME_UBER_UNITS`, `OPENBFME_BENCH_FRAMES`,
 `OPENBFME_UBER_WARMUP`, `OPENBFME_UBER_PROFILE` (faithful / uber / both) and
-`OPENBFME_LOGIC_THREADS`.
+`OPENBFME_LOGIC_THREADS`. Defaults: unit counts `10000,20000,40000`, 50 measured
+frames, 50 warm-up frames, both profiles; the thread override sizes the logic pool.
 
 Reported per battle:
 
@@ -92,14 +106,21 @@ Reported per battle:
 - the logic frame's wall time and each of its six phases;
 - the state hash's time and its own job-pool dispatches, counted apart from
   the frame's (PERF-2's collision jobs);
-- the cores used (process CPU / wall) and the hash chain.
+- the cores used (process CPU / wall, unavailable in this benchmark on Windows)
+  and the hash chain.
 
 **The game gate** is the same battle in the real client: the logic on its
 worker, replay recording with its per-frame hash, drawables, terrain, HUD:
 
-    game.gd --auto --map="maps/map mp fall back 8p/map mp fall back 8p.map" --ai=2
-            --uber1=<troops> [--uber1-seconds=20] [--vsync=off] [--perf]
-            [--options-file=F with OpenBFMEUberPerformance = yes / no]
+Linux / POSIX shell, from the project root, with Godot 4.7.2, the matching built
+GDExtension, a working graphical session, and both game-folder environment
+variables above. Set `OpenBFMEUberPerformance = yes` (or `no`) in the options
+file; `--options-file=F` can select a separate file.
+
+```sh
+godot --path godot -- --auto --map="maps/map mp fall back 8p/map mp fall back 8p.map" --ai=2 \
+  --uber1=10000 --uber1-seconds=20 --vsync=off --perf
+```
 
 `scripts/uber1_player.gd` makes the armies through `GameWorld.create_object`
 until `GameWorld.get_census()` counts the troops, then orders every horde to
@@ -114,9 +135,12 @@ prints:
 
 One count per run.
 
-The instancer's own bench (`res://scenes/w3d_viewer.tscn -- --bench=N`: N
-animated soldiers through the GPU-skinned W3DInstancer, nothing else) isolates
-the render.
+The instancer's own bench isolates N animated soldiers through the GPU-skinned
+W3DInstancer. With the same Linux graphical prerequisites, from the project root:
+
+```sh
+godot --path godot res://scenes/w3d_viewer.tscn -- --bench=10000
+```
 
 ## Where a frame goes today
 
@@ -171,7 +195,7 @@ main thread's CPU is 166 ms and the frame 642 ms.
 log (below) named the one site: the spell ring's per-frame HUD query
 (`spell_target_ring.gd` -> `get_spellbook_state` -> `InGameHud::enterContext`
 -> `LiveGame::waitIdle`), 12.8 s of waits in the 20 s window. Since
-RENDERWAIT-1 the render thread no longer waits for a logic frame; see "The
+RENDERWAIT-1 the per-frame render reads use the client window; see "The
 render and the logic".
 
 Where the logic frame goes (perf on the lane machine, one thread, Faithful, 20k
@@ -212,7 +236,11 @@ and the presentation interpolates behind a presentation delay. When a logic
 frame is late, the presented time stops at the end of the last completed frame
 (S-1140).
 
-**RENDERWAIT-1: the render never waits on a logic frame.**
+**RENDERWAIT-1: per-frame live reads use the client window.**
+
+Accessors outside the window can still wait; one-off teardown and mission
+starts deliberately drain the worker. The static per-frame test excludes these
+one-off operations, not normal HUD reads.
 
 - **The wait log.** Every wait of a non-worker thread on the logic worker is
   logged by site: each `LiveGame` accessor passes its caller's file and line,
@@ -379,7 +407,7 @@ That's a research item, not a plan.
   - setup and wire: `SkirmishGameSetup`, `GameInfo`, `NetPacket`;
   - LAN: `LANAPI` (the host's game runs its identity's profile; options or a
     start of another profile are refused) and `LANLobby`;
-  - replay format 5 and `ProfileIdentity` (`profile uber`); a replay header
+  - replay format 5 at U1 (now writer 7, readers 5 / 6 / 7) and `ProfileIdentity` (`profile uber`); a replay header
     whose identity and setup name different profiles is never written, never
     read, never played (UBER-1 review);
   - `GameLogic` (hashed only when Uber);

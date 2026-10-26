@@ -10,6 +10,7 @@
 #include "GameLogic/GameLogic.h"
 #include "GameNetwork/CommandStreamChecks.h"
 #include "GameNetwork/OrdersIntoFog.h"
+#include "GameNetwork/ViewChecks.h"
 
 #include <functional>
 #include <vector>
@@ -59,6 +60,10 @@ public:
 		{
 			commands->beforeFrame(next, batch);
 		}
+		if (views)
+		{
+			views->beforeFrame(next); // after D1: its samples of this state are taken
+		}
 	}
 
 	// called with every state a batch is offered on, before the check sees it (openbfme_peer --fog-check-dump: the evidence view's frames)
@@ -66,6 +71,7 @@ public:
 	// lane ANTICHEAT-1 (owner 2026-10-21): D5 and D6 see the same batches on the same states (optional)
 	InputRateCheck *inputRate = nullptr;
 	CommandIntegrityCheck *commands = nullptr;
+	ViewCheck *views = nullptr; ///< lane ANTICHEAT-1: D2 (the replay's VIEW records)
 
 private:
 	ReplayPlayback &m_inner;

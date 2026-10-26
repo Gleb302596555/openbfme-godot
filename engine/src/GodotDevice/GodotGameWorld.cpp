@@ -1,12 +1,15 @@
 // OpenBFME. GPL-3.0.
 // See GodotDevice/GodotGameWorld.h.
 
+#include "Common/ModEngineFeatures.h"
 #include "GodotDevice/GodotGammaComposite.h"
+#include "Common/PathIO.h"
 #include <godot_cpp/classes/shader.hpp>
 #include <godot_cpp/classes/dir_access.hpp>
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
 #include "GodotDevice/GodotGameWorld.h"
+#include "GameClient/InGameChat.h"
 
 #include "GameClient/FrameCensus.h"
 #include "GameEngineDevice/W3DDevice/GameClient/HouseColor.h"
@@ -60,6 +63,7 @@
 #include "GameClient/MapObjectRuntime.h"
 #include "GameClient/TreeTopple.h"
 #include "GameLogic/Map/TerrainTrees.h"
+#include "GameLogic/Module/NotifyCrushModules.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
 #include "GameLogic/AI/AICommandSink.h"
 #include "GameLogic/GameMessage.h"
@@ -240,6 +244,7 @@ void GameWorld::_bind_methods()
 	bindStealthMethods(); // lane STEALTH-1 (GodotGameWorldStealth.cpp)
 	bindCreateAHeroMethods(); // lane CAH-1 (GodotGameWorldCah.cpp)
 	bindScriptMethods();  // lane SCRIPT-1 (GodotGameWorldScripts.cpp)
+	bindCheatMethods();   // lane CHEAT-1 (GodotGameWorldCheats.cpp)
 	bindCampaignMethods(); // lane CAMP-1 (GodotGameWorldCampaign.cpp)
 	bindSaveMethods();     // lane SAVE-2 (GodotGameWorldSave.cpp)
 	bindGarrisonMethods(); // lane GARRISON-1 (GodotGameWorldGarrison.cpp)
@@ -295,6 +300,7 @@ void GameWorld::_bind_methods()
 	ClassDB::bind_method(D_METHOD("destroy_object", "id"), &GameWorld::destroy_object);
 	ClassDB::bind_method(D_METHOD("find_object_by_template", "template_name"), &GameWorld::find_object_by_template);
 	ClassDB::bind_method(D_METHOD("get_template_model", "template_name"), &GameWorld::get_template_model);
+	ClassDB::bind_method(D_METHOD("get_player_beacon_template", "player_index"), &GameWorld::get_player_beacon_template); // the ping wheel
 	ClassDB::bind_method(D_METHOD("get_placement_ghost", "template_name"), &GameWorld::get_placement_ghost);
 	ClassDB::bind_method(D_METHOD("create_object", "template_name", "player", "x", "y", "angle"), &GameWorld::create_object, DEFVAL(0.0));
 	ClassDB::bind_method(D_METHOD("get_ground_height", "x", "y"), &GameWorld::get_ground_height);
@@ -359,6 +365,14 @@ void GameWorld::_bind_methods()
 	ClassDB::bind_method(D_METHOD("net_disconnect_kick", "row"), &GameWorld::net_disconnect_kick); // lane MP-2
 	ClassDB::bind_method(D_METHOD("net_disconnect_quit"), &GameWorld::net_disconnect_quit);
 	ClassDB::bind_method(D_METHOD("net_pause"), &GameWorld::net_pause); // lane ONLINE-3
+	ClassDB::bind_method(D_METHOD("net_chat_info"), &GameWorld::net_chat_info); // lane CHAT-1
+	ClassDB::bind_method(D_METHOD("net_chat_send", "line", "mask"), &GameWorld::net_chat_send);
+	ClassDB::bind_method(D_METHOD("net_chat_take"), &GameWorld::net_chat_take);
+	ClassDB::bind_method(D_METHOD("net_chat_mask", "mode"), &GameWorld::net_chat_mask);
+	ClassDB::bind_method(D_METHOD("net_chat_set_muted", "slot", "muted"), &GameWorld::net_chat_set_muted);
+	ClassDB::bind_method(D_METHOD("net_chat_stats"), &GameWorld::net_chat_stats);
+	ClassDB::bind_method(D_METHOD("net_disconnect_chat", "text"), &GameWorld::net_disconnect_chat);
+	ClassDB::bind_method(D_METHOD("net_disconnect_chat_take"), &GameWorld::net_disconnect_chat_take);
 	ClassDB::bind_method(D_METHOD("net_resume"), &GameWorld::net_resume);
 	ClassDB::bind_method(D_METHOD("net_observe_next", "forward"), &GameWorld::net_observe_next, DEFVAL(true));
 	ClassDB::bind_method(D_METHOD("net_observed"), &GameWorld::net_observed);
@@ -407,7 +421,7 @@ Dictionary GameWorld::attach_audio()
 	{
 		d["error"] = toGodot(error);
 	}
-	else if (const char *logPath = std::getenv("OPENBFME_AUDIO_LOG"); logPath && *logPath)
+	else if (const std::string logPath = PathIO::environment("OPENBFME_AUDIO_LOG"); !logPath.empty())
 	{
 		// AUDIO-3: every sound request and its outcome, appended to the file once per update (a diagnostic)
 		std::string logError;
@@ -618,10 +632,25 @@ Dictionary GameWorld::setup(const Ref<RetailFileSystem> &fs)
 		}
 		else
 		{
+			// lane MODS-3 (S-5306): with a mod mounted, a file the mod's data cannot parse is what retail meets too: the rest of that file is skipped
+			// (INI::loadSubsystemFiles) and the game goes on. The errors are reported (mod_data_errors, printed), the game starts. Retail data has none, so
+			// without a mod every error stays fatal (a port bug)
+			const bool modded = !fs->modIdentity().empty();
+			Array modDataErrors;
 			for (const SubsystemLoadReport::FileError &e : m_world->report().errors)
 			{
-				errors.push_back(toGodot(e.file + ": " + e.message));
+				(modded ? modDataErrors : errors).push_back(toGodot(e.file + ": " + e.message));
 			}
+			if (!modDataErrors.is_empty())
+			{
+				UtilityFunctions::print("GameWorld: S-5306: the mod's data has ", modDataErrors.size(),
+					" INI error(s); as retail, the rest of each failing file is skipped and the game goes on:");
+				for (int64_t i = 0; i < modDataErrors.size(); ++i)
+				{
+					UtilityFunctions::print("GameWorld:   ", modDataErrors[i]);
+				}
+			}
+			result["mod_data_errors"] = modDataErrors;
 			result["seconds"] = timing::elapsedSeconds(t0);
 			result["templates"] = (int64_t)m_world->things().templateCount();
 			result["factions"] = (int64_t)m_world->setupPlayerTemplates().playableSideIndices().size();
@@ -636,7 +665,7 @@ Dictionary GameWorld::setup(const Ref<RetailFileSystem> &fs)
 				errors.push_back(toGodot("settings: " + error));
 				m_world.reset();
 			}
-			m_source.reset(new ArchiveW3DFileSource(*fs->archive_fs()));
+			m_source = fs->renderW3DSource(); // lane SDK-0: the drawables' (render) assets, asset packs in front; LiveGame's launch bones read m_fs
 			m_assets.reset(new WW3DAssetManager(*m_source));
 			// lane FX-2: the effect player of the live games (FXParticleSystem.ini / FXList.ini through FX-1's FXPlayer), a child kept across loads
 			m_liveFX.reset();
@@ -750,6 +779,7 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 	m_clientRuntime->build(m_game->clientOnly(), false);
 	m_treeTopple.reset(new TreeTopple()); // lane SPELL-3
 	m_treeViews.clear();
+	m_footprintViews.clear(); // lane TREES1
 	m_vegSway.reset(); // lane VISUAL-2
 	m_swayTypeCounts.fill(0);
 	m_treeEventsSeen = 0;
@@ -795,6 +825,16 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 			continue;
 		}
 		++instances;
+		// lane TREES1: a shrub or prop a construction or a felled tree may remove
+		if (d.fate == MAPOBJ_CLIENT_SHRUB || d.fate == MAPOBJ_CLIENT_PROP)
+		{
+			FootprintView f;
+			f.instance = instance;
+			f.position = d.position;
+			f.scale = d.scale;
+			f.prop = d.fate == MAPOBJ_CLIENT_PROP;
+			m_footprintViews.push_back(f);
+		}
 		// lane SPELL-3: a tree the logic may topple (its TerrainTrees client id is the map object index + 1, S-930)
 		if (p.kind == W3D_DRAWKIND_TREE && p.module < d.draws.size())
 		{
@@ -2162,13 +2202,21 @@ void GameWorld::heldClientWork()
 		for (; m_treeEventsSeen < events.size(); ++m_treeEventsSeen)
 		{
 			const TerrainTrees::Event &e = events[m_treeEventsSeen];
-			if (e.kind == TerrainTrees::Event::TOPPLE)
+			switch (e.kind)
 			{
+			case TerrainTrees::Event::TOPPLE:
 				m_treeTopple->topple(e.clientId, e.direction, e.speed);
-			}
-			else
-			{
+				clearFootprint(e.position, 0.0f, e.shapes, true); // lane TREES1: slot 0x4C, the props at the felled tree
+				break;
+			case TerrainTrees::Event::REMOVE:
 				m_treeTopple->remove(e.clientId);
+				break;
+			case TerrainTrees::Event::REMOVE_NOW:
+				m_treeTopple->removeNow(e.clientId); // lane TREES1: slot 0x58
+				break;
+			case TerrainTrees::Event::CLEAR_FOOTPRINT:
+				clearFootprint(e.position, e.angle, e.shapes, false); // lane TREES1: slot 0x48
+				break;
 			}
 		}
 	}
@@ -2200,6 +2248,42 @@ void GameWorld::updateTreeSway(double dt)
 		offsets[i][2] = sway[i + 1].z;
 	}
 	W3D_Set_Sway_Offsets(offsets);
+}
+
+// lane TREES1: TheTerrainVisual slot 0x48 (the shrub buffer's RW 0x4E96D9: a cylinder of height 35, radius 14 at the shrub; the prop buffer's RW 0x4EEB15: a
+// cylinder of height 5 * scale, radius 2 * scale at the prop) and slot 0x4C (the props only): every one the geometry at `pos` / `angle` overlaps (RW 0xAD2CE0)
+// goes, drawn at scale 0 from then on
+void GameWorld::clearFootprint(const Coord3D &pos, float angle, const std::vector<ObjectGeometry::Shape> &shapes, bool propsOnly)
+{
+	W3DInstancer *st = instancerOf(m_staticId);
+	if (!st || shapes.empty())
+	{
+		return;
+	}
+	bool any = false;
+	std::vector<ObjectGeometry::Shape> c(1);
+	c[0].type = ObjectGeometry::SHAPE_CYLINDER;
+	for (FootprintView &f : m_footprintViews)
+	{
+		if (f.removed || (propsOnly && !f.prop))
+		{
+			continue;
+		}
+		c[0].height = f.prop ? SimMath::mulf32(f.scale, 5.0f) : 35.0f;                        // RW 0xBDAE58 * scale / RW 0xBE4CB8
+		c[0].majorRadius = c[0].minorRadius = f.prop ? SimMath::mulf32(f.scale, 2.0f) : 14.0f; // RW 0xBD889C * scale / RW 0xBDD368
+		if (!NotifyCrushModules::geometriesOverlap(shapes, pos, angle, c, f.position, 0.0f))
+		{
+			continue;
+		}
+		f.removed = true;
+		static const float identity[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
+		st->set_instance_transform(f.instance, toTransform(identity, f.position, 0.0f));
+		any = true;
+	}
+	if (any)
+	{
+		st->update_now();
+	}
 }
 
 void GameWorld::updateTreeTopple(double dt)
@@ -2555,6 +2639,7 @@ void GameWorld::refresh_streaks(bool record)
 	if (!m_streakTextures && m_fs.is_valid() && m_fs->archive_fs())
 	{
 		m_streakTextures.reset(new W3DMaterialFactory(*m_fs->archive_fs()));
+		m_streakTextures->Set_Asset_Packs(m_fs->assetPacks().empty() ? nullptr : &m_fs->assetPacks()); // lane SDK-0
 	}
 	// group the strips by material (lane PROJ-2: the texture of the map's weather, RW 0x4CFA9A: WeatherType NORMAL 0 / SNOWY 1)
 	const int weather = m_streakWeather;
@@ -3025,6 +3110,19 @@ String GameWorld::get_template_model(const String &template_name) const
 		}
 	}
 	return String();
+}
+
+String GameWorld::get_player_beacon_template(int64_t player_index) const
+{
+	// PlayerTemplate BeaconName (PlayerTemplate.cpp's field table; RotWK reads it at RW 0x6D1305 for the beacon it places): the template a player's
+	// beacon is. The ping wheel draws that template's model, so a mod's own beacon shows. The template is fixed once the player is set up
+	if (!m_game || player_index < 0 || player_index >= m_game->players().getPlayerCount())
+	{
+		return String();
+	}
+	const Player *p = m_game->players().getNthPlayer((int)player_index);
+	const PlayerTemplate *pt = p ? p->getPlayerTemplate() : nullptr;
+	return pt ? toGodot(pt->m_beaconName) : String();
 }
 
 int64_t GameWorld::create_object(const String &template_name, int64_t player, double x, double y, double angle)
@@ -4321,9 +4419,12 @@ Dictionary GameWorld::net_status() const
 		const DisconnectManager &dm = s.network().disconnectManager();
 		Dictionary d;
 		d["visible"] = dm.screen().visible;
+		const int capacity = m_netStart.game.game.mapStartCount;
+		if (capacity > LEGACY_MAX_SLOTS) d["map_start_count"] = capacity;
 		Array rows;
-		for (const DisconnectManager::Screen::Row &row : dm.screen().rows)
+		for (int i = 0; i < capacity - 1; ++i)
 		{
+			const DisconnectManager::Screen::Row &row = dm.screen().rows[(size_t)i];
 			Dictionary x;
 			x["used"] = row.used && !row.removed;
 			x["slot"] = row.slot;
@@ -4380,6 +4481,223 @@ void GameWorld::net_pause()
 	}
 }
 
+namespace
+{
+// UTF-16 to a Godot String: a surrogate pair is one character (an emoji), a lone surrogate U+FFFD
+String chatString(const std::u16string &u)
+{
+	String s;
+	for (std::size_t i = 0; i < u.size(); ++i)
+	{
+		char32_t c = u[i];
+		if (c >= 0xD800 && c <= 0xDBFF && i + 1 < u.size() && u[i + 1] >= 0xDC00 && u[i + 1] <= 0xDFFF)
+		{
+			c = 0x10000 + ((c - 0xD800) << 10) + (u[i + 1] - 0xDC00);
+			++i;
+		}
+		else if (c >= 0xD800 && c <= 0xDFFF)
+		{
+			c = 0xFFFD;
+		}
+		s += String::chr(c);
+	}
+	return s;
+}
+} // namespace
+
+Dictionary GameWorld::net_chat_info() const
+{
+	Dictionary d;
+	const bool network = m_netSession && m_game && !m_netSpectating && !m_netRejoining;
+	d["network"] = network;
+	d["local_slot"] = (int64_t)m_netStart.localSlot;
+	Array slots;
+	bool localActive = false;
+	if (network)
+	{
+		GameLogic &logic = m_game->logic();
+		const std::vector<std::string> &names = m_game->startSlotPlayers();
+		const ::Player *local = logic.players().getLocalPlayer();
+		localActive = local && !local->isObserver() && !local->isDefeated(); // Player::isPlayerActive RW 0x6AAC52
+		for (int i = 0; i < MAX_SLOTS; ++i)
+		{
+			Dictionary sl;
+			const ::Player *p = (size_t)i < names.size() && !names[(size_t)i].empty() ? logic.players().findPlayerWithName(names[(size_t)i]) : nullptr;
+			const bool isLocal = p && p == local;
+			sl["player"] = p != nullptr;
+			sl["local"] = isLocal;
+			sl["active"] = p && !p->isObserver() && !p->isDefeated();
+			// RW 0x8ECF3E: the player's relationship to the local player's team and the local player's to the player's, both ALLIES
+			sl["allied"] = p && local && p->getRelationship(local->getDefaultTeam()) == ALLIES && local->getRelationship(p->getDefaultTeam()) == ALLIES;
+			sl["muted"] = m_netSession->network().chatMuted(i);
+			sl["name"] = chatString(m_netSession->network().playerName(i));
+			sl["color"] = p ? (int64_t)(p->getPlayerColor() & 0xFFFFFFu) : (int64_t)-1;
+			slots.push_back(sl);
+		}
+	}
+	d["local_active"] = localActive;
+	d["slots"] = slots;
+	return d;
+}
+
+Dictionary GameWorld::net_chat_send(const String &line, int64_t mask)
+{
+	Dictionary r;
+	r["ok"] = false;
+	if (!m_netSession || m_netSpectating || m_netRejoining)
+	{
+		r["error"] = "not in a network game";
+		return r;
+	}
+	std::u16string u;
+	for (int i = 0; i < line.length(); ++i)
+	{
+		const char32_t c = line[i];
+		if (c > 0xFFFF)
+		{
+			u.push_back((char16_t)(0xD800 + ((c - 0x10000) >> 10)));
+			u.push_back((char16_t)(0xDC00 + ((c - 0x10000) & 0x3FF)));
+		}
+		else
+		{
+			u.push_back((char16_t)c);
+		}
+	}
+	std::string error;
+	if (!m_netSession->network().sendChat(u, (std::uint32_t)mask, &error))
+	{
+		r["error"] = toGodot(error);
+		return r;
+	}
+	r["ok"] = true;
+	return r;
+}
+
+int64_t GameWorld::net_chat_mask(int64_t mode) const
+{
+	const Dictionary info = net_chat_info();
+	if (!(bool)info.get("network", false) || mode < 0 || mode > 4)
+	{
+		return 0;
+	}
+	std::vector<InGameChat::Slot> slots;
+	const Array a = info.get("slots", Array());
+	for (int i = 0; i < a.size(); ++i)
+	{
+		const Dictionary d = a[i];
+		InGameChat::Slot sl;
+		sl.player = (bool)d.get("player", false);
+		sl.local = (bool)d.get("local", false);
+		sl.active = (bool)d.get("active", false);
+		sl.alliedBothWays = (bool)d.get("allied", false);
+		sl.muted = (bool)d.get("muted", false);
+		slots.push_back(sl);
+	}
+	return (int64_t)InGameChat::recipientMask((InGameChatMode)mode, slots);
+}
+
+Array GameWorld::net_chat_take()
+{
+	Array out;
+	if (!m_netSession || m_netSpectating)
+	{
+		return out;
+	}
+	const std::vector<Network::ChatLine> lines = m_netSession->network().takeChat();
+	if (lines.empty())
+	{
+		return out;
+	}
+	const std::vector<std::string> &names = m_game ? m_game->startSlotPlayers() : std::vector<std::string>();
+	for (const Network::ChatLine &l : lines)
+	{
+		Dictionary d;
+		d["slot"] = (int64_t)l.slot;
+		d["name"] = chatString(m_netSession->network().playerName(l.slot));
+		d["text"] = chatString(l.text);
+		// RW 0x8D54D1: the sender's Player (by the slot's name); its colour (Player + 0x2A0); none: the plain message line
+		const ::Player *p = m_game && (size_t)l.slot < names.size() && !names[(size_t)l.slot].empty()
+			? m_game->logic().players().findPlayerWithName(names[(size_t)l.slot]) : nullptr;
+		d["color"] = p ? (int64_t)(p->getPlayerColor() & 0xFFFFFFu) : (int64_t)-1;
+		out.push_back(d);
+	}
+	return out;
+}
+
+void GameWorld::net_chat_set_muted(int64_t slot, bool muted)
+{
+	if (m_netSession)
+	{
+		m_netSession->network().setChatMuted((int)slot, muted);
+	}
+}
+
+Dictionary GameWorld::net_disconnect_chat(const String &text)
+{
+	Dictionary r;
+	r["ok"] = false;
+	if (!m_netSession || m_netSpectating || m_netRejoining)
+	{
+		r["error"] = "not in a network game";
+		return r;
+	}
+	std::u16string u;
+	for (int i = 0; i < text.length(); ++i)
+	{
+		const char32_t c = text[i];
+		if (c > 0xFFFF)
+		{
+			u.push_back((char16_t)(0xD800 + ((c - 0x10000) >> 10)));
+			u.push_back((char16_t)(0xDC00 + ((c - 0x10000) & 0x3FF)));
+		}
+		else
+		{
+			u.push_back((char16_t)c);
+		}
+	}
+	std::string error;
+	r["ok"] = m_netSession->network().sendDisconnectChat(u, &error);
+	if (!error.empty())
+	{
+		r["error"] = toGodot(error);
+	}
+	return r;
+}
+
+Array GameWorld::net_disconnect_chat_take()
+{
+	Array out;
+	if (!m_netSession || m_netSpectating)
+	{
+		return out;
+	}
+	for (const Network::ChatLine &l : m_netSession->network().takeDisconnectChat())
+	{
+		Dictionary d;
+		d["slot"] = (int64_t)l.slot;
+		d["name"] = chatString(m_netSession->network().playerName(l.slot));
+		d["text"] = chatString(l.text);
+		out.push_back(d);
+	}
+	return out;
+}
+
+Dictionary GameWorld::net_chat_stats() const
+{
+	Dictionary d;
+	if (!m_netSession)
+	{
+		return d;
+	}
+	const Network &n = m_netSession->network();
+	d["received"] = (int64_t)n.chatReceived();
+	d["dropped_flood"] = (int64_t)n.chatDroppedFlood();
+	d["dropped_muted"] = (int64_t)n.chatDroppedMuted();
+	d["not_addressed"] = (int64_t)n.chatNotAddressed();
+	d["muted_mask"] = (int64_t)n.chatMutedMask();
+	return d;
+}
+
 void GameWorld::net_resume()
 {
 	if (m_netSession && !m_netRejoining && !m_netSpectating)
@@ -4398,7 +4716,9 @@ void GameWorld::net_disconnect_quit()
 
 ProfileIdentity GameWorld::profileIdentityFor(SimulationProfile profile) const
 {
-	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain, {}, profile);
+	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain,
+		ModEngineFeatures::identityFeatures(), profile, // lane MODS-3: the mod's engine features
+		m_fs.is_valid() ? m_fs->modIdentity() : std::vector<std::string>()); // lane MODS-1
 }
 
 Dictionary GameWorld::net_observe_next(bool forward)
@@ -4541,8 +4861,8 @@ Dictionary GameWorld::caster_status() const
 ProfileIdentity GameWorld::net_profile() const
 {
 	// the profile identity of this peer: the mounted archives in mount order with their verified md5, the build, the RNG prepare_new_game uses
-	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain, {},
-		m_choice.current); // lane UBER-1: "profile uber" in the Uber performance mode
+	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain,
+		ModEngineFeatures::identityFeatures(), m_choice.current, m_fs.is_valid() ? m_fs->modIdentity() : std::vector<std::string>()); // lane UBER-1: "profile uber" in the Uber mode; MODS-1: the mod
 }
 
 Dictionary GameWorld::set_simulation_profile(const String &name)
@@ -4642,7 +4962,7 @@ Dictionary GameWorld::net_write_census(const String &path) const
 		r["error"] = m_netSpectating ? "a spectator keeps no census" : "no network game";
 		return r;
 	}
-	std::ofstream c(std::string(path.utf8().get_data()), std::ios::binary | std::ios::trunc);
+	std::ofstream c(PathIO::native(path.utf8().get_data()), std::ios::binary | std::ios::trunc);
 	if (!c)
 	{
 		r["error"] = "cannot write " + path;
@@ -5584,6 +5904,11 @@ class GameWorldTribute : public TributeSource
 {
 public:
 	explicit GameWorldTribute(GameWorld &w) : m_w(w) {}
+	int rowLimit() const override
+	{
+		const int capacity = m_w.m_start ? m_w.m_start->message.game.mapStartCount : LEGACY_MAX_SLOTS;
+		return capacity > LEGACY_MAX_SLOTS ? capacity : TributeSource::rowLimit();
+	}
 	bool localActive() const override
 	{
 		if (!m_w.m_game)
@@ -5628,7 +5953,7 @@ public:
 			return r;
 		};
 		out.push_back(row(*local, true));
-		for (int i = 0; i < logic.players().getPlayerCount() && out.size() < 7; ++i)
+		for (int i = 0; i < logic.players().getPlayerCount() && out.size() < (size_t)rowLimit(); ++i)
 		{
 			const ::Player *p = logic.players().getNthPlayer(i);
 			if (!p || p == local || p->isObserver() || p->isDefeated() || local->getRelationship(p) != ALLIES)
@@ -5954,6 +6279,10 @@ Dictionary GameWorld::gameRecordBase(GameLogic &logic, const std::vector<int> &s
 	r["players"] = list;
 	r["me"] = m_recordLocalSlot;
 	r["winner_team"] = split ? -1 : winner;
+	if (g.cheatModeOn())
+	{
+		r["cheat_mode"] = true; // lane CHEAT-1: kept, never counted nor reported (GameClient/GameRecords.h)
+	}
 	return r;
 }
 
@@ -6440,13 +6769,14 @@ Dictionary GameWorld::prepare_replay(const String &path)
 		return r;
 	}
 	// PLAN: a replay of another profile identity is refused before the game is loaded
-	const std::string mismatch = file->profileMismatch(net_profile());
+	const std::string mismatch = file->loadRefusal(net_profile());
 	if (!mismatch.empty())
 	{
+		// lane DEVPORT-7: a replay of the other simulation profile names both profiles; then the build that made it (save routing)
 		const char *recorded = file->header.profile.simulationProfile() == SimulationProfile::Uber ? "Uber" : "Faithful";
 		const char *current = net_profile().simulationProfile() == SimulationProfile::Uber ? "Uber" : "Faithful";
-		errors.push_back(toGodot(std::string("Replay profile: ") + recorded + ". Current profile: " + current +
-			".\nThe replay was recorded by another profile: " + mismatch));
+		const std::string profiles = std::string(recorded) != current ? std::string("Replay profile: ") + recorded + ". Current profile: " + current + ".\n" : std::string();
+		errors.push_back(toGodot(profiles + mismatch));
 		return r;
 	}
 	auto start = std::make_unique<NewGameStart>(file->header.algorithm);
@@ -6965,6 +7295,17 @@ Array GameWorld::list_replays(const String &directory) const
 		out.push_back(d);
 	}
 	return out;
+}
+
+
+void GameWorld::net_submit_view(float cameraX, float cameraY, float cursorX, float cursorY, bool cursorOverWorld)
+{
+	// lane ANTICHEAT-1: see GodotGameWorld.h
+	if (!m_netSession || !m_game || m_netSpectating || !m_netLoaded || !m_netStart.online)
+	{
+		return;
+	}
+	m_netSession->network().submitView(m_game->frame(), cameraX, cameraY, cursorX, cursorY, cursorOverWorld);
 }
 
 } // namespace godot

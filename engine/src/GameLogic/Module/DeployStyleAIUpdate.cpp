@@ -457,7 +457,7 @@ UpdateSleepTime DeployStyleAIUpdate::update()
 			}
 			if (victim && victim->isEffectivelyDead())
 			{
-				victim = nextMoodTarget(); // RW 0x66844A(1, 0)
+				victim = getNextMoodTarget(true, false); // RW 0x66844A(1, 0)
 				retargeted = true;
 			}
 			if (!victim)
@@ -465,7 +465,7 @@ UpdateSleepTime DeployStyleAIUpdate::update()
 				if (m_attackMoveCommand)
 				{
 					// RW 0x892631 .. 0x89268E: the guard position's mood target, attacked once it is in range
-					victim = nextMoodTarget(); // RW 0x66844A(0, 0)
+					victim = getNextMoodTarget(false, false); // RW 0x66844A(0, 0)
 					if (victim)
 					{
 						inRange = weapons->isWithinAttackRange(*victim, 0.0f, true);

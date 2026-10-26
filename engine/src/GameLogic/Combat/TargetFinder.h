@@ -5,6 +5,8 @@
 // the objects of a cell in list order, and breaks ties by object id, so the answer never depends on pointer values or hash order.
 //
 // WHAT IS INFERENCE (stop S-326): the retail partition manager's filters and cell order are not read; the grid answers "the nearest enemy within the vision range".
+// Lane TARGET-1: the mood scan, attack-move, guard and hunt ask RotWK's search (GameLogic/AI/AIClosestEnemy.h); only the melee re-acquire (AIAttackMelee 0xE5,
+// RW 0x74D46D, S-787) still asks this grid.
 
 #pragma once
 
@@ -29,9 +31,11 @@ public:
 	{
 		ALLOW_STRUCTURES = 1,       ///< AutoAcquireEnemiesWhenIdle ATTACK_BUILDINGS
 		HORDES_ONLY = 2,            ///< the seeker is a horde: targets are horde objects and lone units, never members
-		MEMBERS_ONLY = 4            ///< the seeker is a lone unit: targets are lone units and horde MEMBERS, never the horde object
+		MEMBERS_ONLY = 4,           ///< the seeker is a lone unit: targets are lone units and horde MEMBERS, never the horde object
+		CENTER_3D = 8               ///< review of #73: the range and the order by the 3D centre distance (RW 0x7006D7's partition queries, distance type 1)
 	};
-	// the nearest enemy of `seeker` within `range` (edge to the seeker's centre) that one of its weapons can attack, or null. Ties: the lower object id.
+	// the nearest enemy of `seeker` within `range` (edge to the seeker's centre; CENTER_3D: centre to centre) that one of its weapons can attack, or null.
+	// Ties: the lower object id.
 	Object *findClosestEnemy(const Object &seeker, float range, unsigned flags, CommandSourceType source);
 	// lane PLAY-4: the same scan measured from `center` instead of the seeker (the guard machine's scan around the guarded spot, RW 0x70146A)
 	Object *findClosestEnemyNear(const Object &seeker, const Coord3D &center, float range, unsigned flags, CommandSourceType source);

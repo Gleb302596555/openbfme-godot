@@ -173,6 +173,12 @@ Object *TargetFinder::findClosestEnemyNear(const Object &seeker, const Coord3D &
 		{
 			continue;
 		}
+		// lane CAMPUI-1: the closest-enemy search's first filter (vtable RW 0xC1D688, allow RW 0x6FF7A4; built by RW 0x7006D7 / 0x700509 / 0x700F52) refuses
+		// an OFF_MAP candidate (+ 0x458 bit 3), whatever the seeker's own status (not ZH's same-map test)
+		if (o->isOffMap())
+		{
+			continue;
+		}
 		const bool isMember = o->testStatus((unsigned)st.hordeMember);
 		const bool isHorde = o->isKindOf((unsigned)k.horde);
 		if ((flags & HORDES_ONLY) && isMember)
@@ -191,8 +197,11 @@ Object *TargetFinder::findClosestEnemyNear(const Object &seeker, const Coord3D &
 		{
 			continue;
 		}
-		const float edge = SimMath::subf32(SimMath::length2d(SimMath::subf32(o->getPosition()->x, center.x), SimMath::subf32(o->getPosition()->y, center.y)),
-			CombatQueries::boundingCircleRadius(*o));
+		const float dx = SimMath::subf32(o->getPosition()->x, center.x), dy = SimMath::subf32(o->getPosition()->y, center.y);
+		// CENTER_3D (the idle mood scan, RW 0x66844A -> 0x701443 -> 0x7006D7: RW 0xA39090 / 0xA39340 with distance type 1): the centre distance; else the
+		// edge of the target's bounding circle (the COMBAT-1 rule of the other scans)
+		const float edge = (flags & CENTER_3D) ? (float)SimMath::length3d(dx, dy, SimMath::subf32(o->getPosition()->z, center.z))
+		                                       : SimMath::subf32(SimMath::length2d(dx, dy), CombatQueries::boundingCircleRadius(*o));
 		if (edge > range)
 		{
 			continue;

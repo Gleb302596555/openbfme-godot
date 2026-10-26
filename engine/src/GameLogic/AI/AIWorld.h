@@ -128,9 +128,13 @@ public:
 	void onHordeGoalChanged() override;    // lane MOVE-3: RW 0x86EF13 through the horde contain
 	bool isEffectivelyDead() const override; // lane MOVE-3: Object + 0x458 bit 0
 	bool hordeFill(int &count, int &slots) const override; // lane MOVE-3: RW 0x6F1584's contain slots 0x7C / 0x70 / 0x114
+	PathfindObjectID getSlaverID() const override;       // lane ATTACKPATH-1: RW 0x6E82C8
+	bool isSignificantlyAboveTerrain() const override;  // lane ATTACKPATH-1: RW 0x70C55D
 	const PathfindWallGeometry *getWallGeometry() const override; // lane WALL-1: from the world's PathfindWallMeshSource, kept while the transform holds
 	bool isSkirmishAIControlled() const override; // lane WALL-2: Waypoint::isValidUnitType's AllowNonSkirmishAI test
 	bool inMoveAwaySearch() const override;       // lane WALL-2: RW AI + 0x3CF (Waypoint::isValidUnitType's type 7 test)
+	bool hasCurrentWeapon() const override;             // lane LOS-1: RW 0x68B58C(0)
+	bool isClearGoalFiringLineOfSightTerrain(const Coord3D &goalPos, const PathfindObject &victim) const override; // lane LOS-1: RW 0x6CC6DD
 
 private:
 	// AIWorld::movementInfo of the object's template, remembered with the template it was looked up for (lane PERF-1: the pathfinder and the
