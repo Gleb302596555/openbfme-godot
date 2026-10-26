@@ -26,6 +26,8 @@
 #include "Libraries/Source/Apt/AptInput.h"
 #include "Libraries/Source/Apt/AptRenderList.h"
 
+#include <cmath>
+#include <limits>
 #include <string>
 
 using namespace hudtest;
@@ -355,6 +357,76 @@ void clickAt(BookRig &b, int x, int y)
 	b.hud->mouseButton(HudInput::Button::Left, false, x, y, 0, 3040);
 	b.frames(4);
 }
+
+// The reported side boundaries belong to Title.instance1's banner/shade, not
+// the View3D power globe. Check the actual rendered geometry against the
+// authored transforms, including while the movie animates closed.
+void checkStoreBackdrop(InGameHud &hud, bool fullWidth = true)
+{
+	REQUIRE(hud.spellStore() != nullptr);
+	AptSpriteInst *root = hud.apt().level(hud.spellStore()->level());
+	REQUIRE(root != nullptr);
+	AptCharacterInst *backdrop = hud.apt().resolvePath(root, "Title.instance1");
+	REQUIRE(backdrop != nullptr);
+	const std::string prefix = backdrop->targetPath() + ".";
+	AptRenderList list;
+	hud.apt().buildRenderList(list);
+	AptStageMapping mapping;
+	mapping.windowW = (float)hud.windowWidth();
+	mapping.windowH = (float)hud.windowHeight();
+	float left = std::numeric_limits<float>::max();
+	float right = std::numeric_limits<float>::lowest();
+	bool checked = false;
+	for (const AptRenderCommand &command : list.commands)
+	{
+		if (!command.geometry || command.path.compare(0, prefix.size(), prefix) != 0)
+		{
+			continue;
+		}
+		AptCharacterInst *shape = hud.apt().resolvePath(root, command.path);
+		REQUIRE(shape != nullptr);
+		std::vector<AptCharacterInst *> chain;
+		for (AptCharacterInst *inst = shape; inst; inst = inst->parent())
+		{
+			chain.push_back(inst);
+		}
+		AptMatrix authored;
+		for (auto it = chain.rbegin(); it != chain.rend(); ++it)
+		{
+			authored = authored.concat((*it)->matrix);
+		}
+		const AptColorTransform color = shape->globalColor();
+		for (int channel = 0; channel < 4; ++channel)
+		{
+			CHECK(command.color.mul[channel] == color.mul[channel]);
+			CHECK(command.color.add[channel] == color.add[channel]);
+		}
+		for (const AptGeometryStyle &style : command.geometry->styles)
+		{
+			for (std::size_t i = 0; i + 1 < style.triangles.size(); i += 2)
+			{
+				float sx, sy, x, y, expectedX, expectedY;
+				command.matrix.apply(style.triangles[i], style.triangles[i + 1], sx, sy);
+				mapping.stageToWindow(sx, sy, x, y);
+				authored.apply(style.triangles[i], style.triangles[i + 1], sx, sy);
+				mapping.stageToWindow(sx, sy, expectedX, expectedY);
+				CHECK(std::lround(x) == std::lround(expectedX));
+				CHECK(std::lround(y) == std::lround(expectedY));
+				left = std::min(left, x);
+				right = std::max(right, x);
+				checked = true;
+			}
+		}
+	}
+	CHECK(checked);
+	if (fullWidth)
+	{
+		// tolerance: the authored banner overscans the stage edges by a few pixels.
+		CHECK(left <= 0.0f);
+		// tolerance: the authored banner overscans the stage edges by a few pixels.
+		CHECK(right >= (float)hud.windowWidth());
+	}
+}
 } // namespace
 
 TEST_CASE("spell store widescreen: the Powers movie preserves proportions and its centre through resizing and reopening")
@@ -378,7 +450,8 @@ TEST_CASE("spell store widescreen: the Powers movie preserves proportions and it
 		float correction;
 	};
 	for (const Viewport &viewport : { Viewport{ 1024, 768, 1.0f }, Viewport{ 1280, 720, 0.75f }, Viewport{ 2560, 1080, 0.5625f },
-		Viewport{ 7680, 4320, 0.75f }, Viewport{ 1280, 960, 1.0f }, Viewport{ 1024, 1024, 1.0f }, Viewport{ 1280, 720, 0.75f } })
+		Viewport{ 7680, 4320, 0.75f }, Viewport{ 3440, 1440, 24.0f / 43.0f }, Viewport{ 1280, 960, 1.0f },
+		Viewport{ 1024, 1024, 1.0f }, Viewport{ 1280, 720, 0.75f } })
 	{
 		INFO(viewport.width, "x", viewport.height);
 		book.hud->setWindowSize(viewport.width, viewport.height);
@@ -389,12 +462,13 @@ TEST_CASE("spell store widescreen: the Powers movie preserves proportions and it
 		CHECK(root->matrix.ty == authored.ty);
 		CHECK(root->viewportTransform.a == viewport.correction);
 		CHECK(root->viewportTransform.tx == 512.0f * (1.0f - viewport.correction));
+		checkStoreBackdrop(*book.hud);
 		AptStageMapping mapping;
 		mapping.windowW = (float)viewport.width;
 		mapping.windowH = (float)viewport.height;
 		if (viewport.width * 3 >= viewport.height * 4)
 		{
-			CHECK(root->viewportTransform.a * mapping.scaleX() == mapping.scaleY());
+			CHECK(root->viewportTransform.a == mapping.scaleY() / mapping.scaleX());
 		}
 		float stageX, stageY, windowX, windowY;
 		root->viewportTransform.apply(512, 384, stageX, stageY);
@@ -429,6 +503,14 @@ TEST_CASE("spell store widescreen: the Powers movie preserves proportions and it
 	REQUIRE(root != nullptr);
 	CHECK(root->viewportTransform.a == 0.75f);
 	CHECK(root->viewportTransform.tx == 128.0f);
+	checkStoreBackdrop(*book.hud);
+	REQUIRE_MESSAGE(book.hud->windows().invokeASAt(book.hud->spellStore()->level(), "", "Close", {}, nullptr, &error), error);
+	for (int frame = 0; frame < 40 && book.hud->spellStore(); ++frame)
+	{
+		checkStoreBackdrop(*book.hud, false);
+		book.frames(1);
+	}
+	CHECK(book.hud->spellStore() == nullptr);
 }
 
 TEST_CASE("hud6 recovered spell and builder help retail")
@@ -534,6 +616,7 @@ void checkStoreMouse(SharedWorld &sharedWorld, const char *faction, const char *
 	b.frames(40);
 	AptSpellStore *st = b.hud->spellStore();
 	REQUIRE_MESSAGE(st, b.hud->spellStoreError());
+	checkStoreBackdrop(*b.hud);
 	CHECK(b.hud->spellStoreRequests() == 1);
 	const int lvl = st->level();
 	// the locked powers are drawn grey: the movie's _disabled frame shows the RenderImageDisabled component (RW 0x8229B5 sets the states)
@@ -687,6 +770,7 @@ TEST_CASE("SPELL-3 store at an uneven render rate: every _active power shows its
 		jitter(120);
 		AptSpellStore *st = b.hud->spellStore();
 		REQUIRE_MESSAGE(st, b.hud->spellStoreError());
+		checkStoreBackdrop(*b.hud);
 		const int lvl = st->level();
 		for (int i = 0; i < 12; ++i)
 		{
