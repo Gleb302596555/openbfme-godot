@@ -291,7 +291,8 @@ TEST_CASE("move3 retail: crossing sweep of hostile infantry hordes with move ord
 	// and 27 (9 + 9 + 9); the horde objects now stand in the middle of their formations, not behind them, so two that meet head-on are about a formation's
 	// depth nearer each other for the same members. Engine measurements, not retail values
 	CHECK(deep < 4000);       // tolerance: an engine measurement of this scenario (3931), not a retail value
-	CHECK(headOnClose <= 27); // tolerance: an engine measurement of this scenario (27), not a retail value
+	// merge queue q26 (#73 / #74 on the archive's OFFMAP-1 start positions, measured once on the merged tree): 35 head-on runs closer than 60
+	CHECK(headOnClose <= 35); // tolerance: an engine measurement of this scenario (35), not a retail value
 }
 
 TEST_CASE("move3 retail: two allied hordes sent to one point (FB-0006)")
@@ -351,7 +352,6 @@ TEST_CASE("move3 retail: two allied hordes sent to one point (FB-0006)")
 			print(what, st);
 			std::printf("  info:   at the end: allied overlap %.2f (%s)\n", last.allyOverlap, last.worstAllyPair.c_str());
 			const std::string name(t);
-			CHECK(raised(ar.ai->pathfinder().stops(), "S-5147 ")); // the second horde's destination search ran (stop S-5147)
 			// measured in RotWK 2.01 (stop S-1832, closed): the first horde takes the point's cell, the second the cell one formation length on (its
 			// destination search, RW 0x6FE456 / 0x6FA2A4, rejects every cell around the point whose box, RW 0x6F1584, meets the first's member goals at its
 			// centred slots, RW 0x86C4EA); the goal cells, not the members, which settle about them
@@ -361,9 +361,7 @@ TEST_CASE("move3 retail: two allied hordes sent to one point (FB-0006)")
 				float dx;
 			};
 			static const Measured kRotWK[] = { { "GondorArcherHorde", 60.0f }, { "GondorFighterHorde", 60.0f }, { "ElvenLorienArcherHorde", 50.0f },
-				{ "DwarvenAxeThrowerHorde", 50.0f }, { "ElvenMirkwoodArcherHorde", 40.0f },
-				// stop S-5147: RotWK's second Angmar horde takes the cell 40 west; the destination search here reaches one cell toward -x, so it goes 50 east
-				{ "AngmarDarkRangerHorde", 50.0f } };
+				{ "DwarvenAxeThrowerHorde", 50.0f }, { "ElvenMirkwoodArcherHorde", 40.0f }, { "AngmarDarkRangerHorde", -40.0f } };
 			const Measured *m = nullptr;
 			for (const Measured &k : kRotWK)
 			{
@@ -383,8 +381,8 @@ TEST_CASE("move3 retail: two allied hordes sent to one point (FB-0006)")
 				// a RandomOffset (MordorArcherHorde, GoblinArcherHorde, IsengardUrukCrossbowHorde) jitters the slots with the logic's random draws: in RotWK the
 				// second horde's cell is on one side of the first or the other from run to run; the two formations do not stand on one another
 				CHECK(d > 50.0f); // tolerance: the side and the distance depend on the drawn slot offsets (RotWK: 60 .. 99 in the lab's runs)
-				// and their members do not stand on one another: two stacked formations overlap 12 .. 16; measured 2.06 .. 8.14 with the formations centred (the
-				// members of the formations' facing edges)
+				// and their members do not stand on one another: two stacked formations overlap 12 .. 16; measured 2.06 .. 8.14 with the formations centred, 7.85 .. 10.63
+				// once the destination search spirals too (the members of the formations' facing edges)
 				CHECK(last.allyOverlap < 12.0f); // tolerance: below the stacked formations' overlap; the edges' depends on the drawn slot offsets
 			}
 		}

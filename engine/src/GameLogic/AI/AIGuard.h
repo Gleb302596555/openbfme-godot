@@ -33,11 +33,10 @@
 //     (+ 0x3C), GuardEnemyScanRate (+ 0x40), GuardEnemyReturnScanRate (+ 0x44) (table RW 0xC1CC00 .., parseDurationUnsignedInt RW 0x73A429).
 //
 // INFERENCE / NOT PORTED (stop S-3802, guardStopLine()): only the LOCATION target type (object, team and area guards are the script commands' and are
-// reported where met); TheAI's closest enemy is the port's TargetFinder (S-326) with the idle scan's flags, not RW's qualifier word (the distance is RW's: RW 0x70146A
-// -> 0x7006D7, the 3D centre distance, distance type 1, as the idle scan's since the review of #73); the turret target, the
+// reported where met); (lane TARGET-1: TheAI's closest enemy is RotWK's search AI::findClosestEnemy with RW's qualifier word); the turret target, the
 // AI + 0x3CD layer flag, the crate state (the port has no AI crates: it succeeds at once), the inner state's +0x40 restart flag (no writer known), the
-// outer state's layer test (RW 0x68BBE0 / 0x6FF7FA: every port object is on the ground layer, so it passes); the vision range is RW 0x68E43B's
-// (Object + 0x1B0 = the template's VisionRange, S-1027, with the VISION attribute modifiers), as the idle scan's.
+// outer state's layer test (RW 0x68BBE0 / 0x6FF7FA: every port object is on the ground layer, so it passes); the vision range is RW 0x6FF412's (lane
+// TARGET-1: the vision range plus the bounding circle, AI::adjustedVisionRange).
 
 #pragma once
 
@@ -141,6 +140,7 @@ public:
 
 private:
 	std::unique_ptr<AIGuardMachine> m_guardMachine; // + 0x20
+	KeptSubMachines<AIGuardMachine> m_keptMachines;  // review of #64: the guard machine dropped during its own update (see KeptSubMachines)
 };
 
 // RW vtable 0xC27DF8: onEnter RW 0x743864: the owner's StancesBehavior hears that the move ended (RW 0x86228E), then failure (-> idle)

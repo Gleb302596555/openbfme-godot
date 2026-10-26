@@ -196,6 +196,7 @@ void HordeContain::reassignMembersToNearestSlots()
 	HordeContainCore::Placement owner;
 	owner.position = *horde->getPosition();
 	owner.angle = horde->getOrientation();
+	owner.computeTrig(); // lane UBER-2B: once for every member below
 	const int count = (int)m_core->slots().size();
 	std::vector<Coord3D> slotPos((size_t)count);
 	for (int i = 0; i < count; ++i)
@@ -417,6 +418,15 @@ bool HordeContain::acceptCreatedMember(Object *obj)
 	return true;
 }
 
+bool HordeContain::hasFreeSlotFor(const Object &member)
+{
+	if (!m_core->built())
+	{
+		m_core->buildSlots(true);
+	}
+	return m_core->hasFreeSlotFor(member.getTemplate()->getName());
+}
+
 std::string HordeContain::getPayloadMemberTemplateName() const
 {
 	const std::vector<InitialPayloadEntry> &payload = m_data->horde.m_transport.m_initialPayload;
@@ -558,10 +568,6 @@ void HordeContain::removeMember(Object *obj, bool keepSlot)
 	}
 	m_members.erase(it);
 	m_producedMembers.erase(std::remove(m_producedMembers.begin(), m_producedMembers.end(), obj->getID()), m_producedMembers.end());
-	if (obj->getID() == m_bannerCarrier)
-	{
-		m_bannerCarrier = 0; // HORDE-2 (inference: the RW writer of H+0x26C on removal is not read)
-	}
 	obj->friend_setContainedBy(nullptr);
 	if (keepSlot)
 	{
@@ -576,6 +582,7 @@ void HordeContain::removeMember(Object *obj, bool keepSlot)
 			m_removedMemberAttacker = body->lastDamager();
 		}
 		m_lastMemberRemovedFrame = getObject()->logic().getFrame();
+		bannerCarrierRemoved(*obj); // RW 0x871915, called by the removals RW 0x87370B / 0x87393E (lane BANNER-1)
 		m_dirty = true; // the ranks behind a dead man close up (the member pass refills the slot)
 	}
 	if (m_data->horde.m_forcedLocomotorSet != -1 && m_movementEnabled)

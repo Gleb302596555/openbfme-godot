@@ -57,7 +57,7 @@ struct Chase
 	bool sawOuter = false, sawReturn = false;
 	bool sawFaceObject = false; // the temporary FACE_OBJECT state (59, RW 0x75638B) of the TAUNT / POINT emotion
 	bool attackedAfterFaceObject = false; // the parent machine left the guard for a plain attack (RW 0x66BD33) after it
-	float foeDistAtAttack = -1.0f;  // the 3D centre distance to the enemy horde at that attack (RW 0x7006D7, distance type 1)
+	float foeDistAtAttack = -1.0f;  // the 3D centre distance to the nearest of the enemy horde and its members at that attack (RW 0x7006D7, distance type 1)
 	float rangeAtAttack = -1.0f;    // the mood scan's range then (RW 0x6FF412(obj, 3))
 };
 
@@ -117,8 +117,21 @@ Chase runChase(starttest::Shared *st, int stance)
 		if (!out.attackedAfterFaceObject && out.sawFaceObject && m->currentStateId() == (unsigned)AI_ATTACK_OBJECT)
 		{
 			out.attackedAfterFaceObject = true;
-			const Coord3D &a = *unit->getPosition(), &b = *foe->getPosition();
-			out.foeDistAtAttack = std::sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z));
+			// lane TARGET-1's search (AI::findClosestEnemy, RW 0x7006D7) takes the partition's objects, the enemy horde's members among them, and a HORDE
+			// seeker's find held by a HORDE container becomes that container (RW 0x668ABC): the find is the nearest of the enemy horde and its members
+			const Coord3D &a = *unit->getPosition();
+			auto dist3d = [&a](const Coord3D &b) { return std::sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z)); };
+			out.foeDistAtAttack = dist3d(*foe->getPosition());
+			if (const ContainModuleInterface *c = foe->getContain())
+			{
+				if (const auto *members = c->getContainedItemsList())
+				{
+					for (const Object *m : *members)
+					{
+						out.foeDistAtAttack = std::min(out.foeDistAtAttack, dist3d(*m->getPosition()));
+					}
+				}
+			}
 			out.rangeAtAttack = AIGuardMachine::getAdjustedVisionRange(*unit);
 		}
 	};
@@ -199,7 +212,7 @@ TEST_CASE("play4 stances retail: an idle unit guards its spot in Battle and Hold
 	CHECK(sb->getStance() == STANCE_HOLD_GROUND);
 	CHECK(ai->currentStateId() == (unsigned)AI_GUARD);
 	CHECK(ai->guardMode() == GUARDMODE_GUARD_WITHOUT_PURSUIT);
-	// the control bar: the toggle shows the current stance's image and a press sends the next of its Stances (HoldGround -> Battle)
+	// the control bar: the toggle shows the current stance's image, follows the stance sent (HoldGround -> Battle) and its own press sends nothing (RW 0x96FAC6)
 	RecordingShellServices services;
 	InGameHud::Config cfg{ *r.game, *s.world, *s.mount->fs, services, r.view, s.mouse, s.meta, nullptr };
 	InGameHud hud(cfg);
@@ -223,7 +236,11 @@ TEST_CASE("play4 stances retail: an idle unit guards its spot in Battle and Hold
 	REQUIRE(toggle);
 	CHECK(toggle->state == ButtonState::Enabled);
 	CHECK(toggle->image == "UCCommon_HoldGroundStance");
-	REQUIRE(bar.pressButton(toggle->slot, true));
+	// lane CAMPUI-1: the toggle's press reaching the command processor sends nothing (retail's press opens the Palantir's radial, RW 0x96FAC6; only an
+	// item sends, RW 0x96F53C: test_campui1_stance.cpp); it is counted. The stance is sent as the radial's Battle item sends it
+	CHECK_FALSE(bar.pressButton(toggle->slot, true));
+	CHECK(bar.unportedPresses().at("TOGGLE_STANCE (no sub-menu)") == 1u);
+	REQUIRE(bar.sendChangeStance(STANCE_BATTLE));
 	hud.update(0.2);
 	r.game->advance(0.2);
 	r.frame(1);
