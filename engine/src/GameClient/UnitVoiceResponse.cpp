@@ -18,6 +18,7 @@
 #include <cctype>
 #include <cstdlib>
 #include <sstream>
+#include <utility>
 
 // Common/ModelState.h cannot be included next to Object.h (two ModelConditionFlags typedefs); the one function used is declared here.
 namespace ModelCondition
@@ -799,8 +800,8 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 	best.level = (int)0x80000000;
 	best.ordinal = 0x7fffffff;
 	best.priority = (int)0x80000000;
-	// key: the event names, compared without case (RW 0x8DDD00 builds it from both slots' names)
-	std::map<std::string, Collected> sounds;
+	// key: the primary sound and BFME1's secondary initiation sound, compared without case; other choices leave the second sound empty
+	std::map<std::pair<std::string, std::string>, Collected> sounds;
 	std::vector<std::string> keyOrder;
 	for (const auto &cand : candidates)
 	{
@@ -965,9 +966,9 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 		}
 		if (!rankLess(best, rank) && !rankLess(rank, best))
 		{
-			// RW 0x8DFF02 .. 0x8DFF2D / 0x8DE522: the bucket key is the PRIMARY audio event alone (retail: its info pointer); the same sound with different
-			// Eva ids, and every choice without a primary sound (Eva only), share one bucket each (review r1 fix 4). The first choice of a bucket keeps its slots.
-			const std::string key = lower(c.voice.sound);
+			// RW 0x8DFF02 .. 0x8DFF2D / 0x8DE522: RotWK buckets use the PRIMARY audio event alone (retail: its info pointer); BFME1 bloodthirsty also
+			// distinguishes the second initiation sound. Eva ids still do not split buckets. The first choice of a bucket keeps its slots.
+			const auto key = std::make_pair(lower(c.voice.sound), lower(c.secondary.sound));
 			auto ins = sounds.emplace(key, Collected());
 			if (ins.second)
 			{
@@ -997,7 +998,7 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 		}
 	}
 	const Collected &pick = chosen->second;
-	const std::string key = chosen->first;
+	const std::string key = chosen->first.first;
 	m_last.object = pick.object->getID();
 	m_last.voice = pick.voice;
 	m_last.count = pick.count;

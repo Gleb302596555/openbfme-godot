@@ -129,7 +129,8 @@ These are the places where BFME1's data or menus differ from RotWK's. Each one i
   `MOUNTED` model condition, even without the cavalry kind. This does not establish full BFME1 waypoint parity.
   `BloodthirstyUpdate` also reads BFME1's `NumToSacrifice` (default 1) and `InitiateVoice2` without widening
   BFME2/RotWK's field tables. The second initiation voice plays alongside the first, independently of crowd responses
-  (`MessageStream/CommandXlatVoice.cpp`, case `0x7E9` and its two-slot playback tail).
+  (`MessageStream/CommandXlatVoice.cpp`, case `0x7E9` and its two-slot playback tail). Voice voting groups the ordered
+  pair of initiation sounds case-insensitively, including choices with only a second sound.
   The recovered BFME1 `Update/Rva00287290Update.cpp` awards experience on every accepted sacrifice, as the shared
   runtime does; it does not gate experience on `NumToSacrifice`. That field is retained, but any further purpose is
   unverified, so no quota-based veterancy rule is invented.
