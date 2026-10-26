@@ -121,6 +121,9 @@ These are the places where BFME1's data or menus differ from RotWK's. Each one i
 - **Pause menu:** BFME1 uses type-8 `PushData` constants to reference the active constant pool. Resolving these initializes each button's own text and callback, including the Restart/Exit confirmations.
 - **Keys and voices:** only `Data\INI\CommandMap.ini` exists (there's no root `CommandMap.ini`), and there's no
   `CrowdResponse.ini`, because BFME1 has no crowd responses.
+- **Siege initiation sounds:** the update-based siege deploy powers retain BFME1's `InitiateSound2` alongside
+  `InitiateSound` in their own base parser. BFME2/RotWK still reject the extra row. This fixes siege-ladder object
+  loading; initiation-sound playback remains unimplemented under S-4942.
 - **Legacy behavior fields:** `DynamicPortalBehaviour` reads `AllowKindOf` and `RejectKindOf` only for BFME1 data.
   A unit must match any allowed kind and no rejected kind; an explicitly empty allow mask admits nothing.
   These become the shared waypoint filter with an ANY rule, not ordinary Object fields. Sources: Open-BFME-1
