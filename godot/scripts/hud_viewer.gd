@@ -61,6 +61,9 @@
 ##   --army=<slot>:<Template>:<dx>,<dy>   (lane PERF-3, repeatable) an object for player slot 1..4 at exactly focus + (dx, dy) (no free-spot search: the
 ##                           benchmark's grid is laid out by its caller); slots 3 / 4 add Player_3 (--army3-faction, default FactionElves, our team) and
 ##                           Player_4 (--army4-faction, default FactionIsengard, the opponent's team)
+##   --scenario=los1         (lane LOS-1) on Tournament Rhudaur (--map="map mp tournament rhudaur"): Haldir west of a hill at (3950, 1900), three orcs right behind
+##                           it at x 4110 .. 4130 (the hill of test_los1_terrain.cpp; a horde's flank members would show beside this narrow hill); 8 s
+##                           of idle auto-acquire, then Haldir is ordered to attack the first orc; saves los1-idle.png and los1-attack.png in --shots, prints LOS1 lines
 ##   --scenario=perf3_battle (lane PERF-3) the 4-player mass battle: every army attack-moves into the middle of all armies; per segment (approach, melee, pan:
 ##                           the camera sweeps over the fight) SMOOTH PERF / TIMER / LOW as smooth_bench prints them; --bench-seconds=<s> per segment
 ##   --perf-stat=<prefix>    (lane PERF-3, Linux with perf) every benchmark segment counts the main thread's and the whole process's user instructions and
@@ -832,6 +835,34 @@ func _run_scenario() -> void:
 		return
 	var shots := _shots_dir if not _shots_dir.is_empty() else "user://screens"
 	match _scenario:
+		"los1":
+			# lane LOS-1: the terrain line of sight. Before the lane both sides engaged through the hill at once; with it nobody acquires across it, and the
+			# ordered Haldir climbs until his bow sees the orcs
+			var hx := Vector2(3950.0, 1900.0)
+			var ex := Vector2(4120.0, 1900.0)
+			var mine: int = _world.create_object("ElvenHaldir", _local_index, hx.x, hx.y, 0.0)
+			var theirs: int = _world.create_object("MordorFighter", _enemy_index, 4110.0, 1900.0, PI)
+			var more1: int = _world.create_object("MordorFighter", _enemy_index, 4122.0, 1894.0, PI)
+			var more2: int = _world.create_object("MordorFighter", _enemy_index, 4130.0, 1905.0, PI)
+			if mine < 0 or theirs < 0 or more1 < 0 or more2 < 0:
+				_fail("los1: objects not created (%d, %d, %d, %d)" % [mine, theirs, more1, more2])
+				return
+			_cam_target = (hx + ex) * 0.5
+			_cam_height = 300.0
+			_place_camera()
+			await _frames(240)
+			print("LOS1 idle: ", _world.get_combat_report())
+			_save(shots.path_join("los1-idle.png"))
+			_world.order_attack([mine], theirs)
+			for i in 450:
+				await get_tree().process_frame
+				var mo: Dictionary = _world.get_object(mine)
+				if mo.get("ok", false):
+					_cam_target = _cam_target.lerp((Vector2(mo.x, mo.y) + ex) * 0.5, 0.02)
+					_place_camera()
+				if i == 300:
+					_save(shots.path_join("los1-attack.png"))
+			print("LOS1 attack: ", _world.get_combat_report())
 		"spell":
 			# lane SPELL-1: the player's spell book (its state in the label: the InGameSpellBook APT is not ported, S-529), buy --science through
 			# MSG_PURCHASE_SCIENCE, cast --power from the spell book at a point next to the focus through MSG_DO_SPECIAL_POWER_AT_LOCATION, follow

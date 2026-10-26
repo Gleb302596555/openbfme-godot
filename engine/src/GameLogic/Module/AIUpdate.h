@@ -312,6 +312,7 @@ public:
 	bool canPathThroughUnits() const { return m_canPathThroughUnits; }
 	void setCanPathThroughUnits(bool v) { m_canPathThroughUnits = v; }
 	CommandSourceType lastCommandSource() const { return m_lastCommandSource; }
+	void setLastCommandSource(CommandSourceType s) { m_lastCommandSource = s; } // AI + 0x48 (lane HEROCAST-1: public, AIGroup's groupDoSpecialPower* write it)
 	unsigned currentStateId() const { return m_machine ? m_machine->currentStateId() : (unsigned)AI_NO_STATE; }
 
 	// ---- locomotors ----
@@ -516,7 +517,6 @@ protected:
 	// (privateFollowPath) and 0x84 (privateFollowPathAppend), which GiantBirdAIUpdate overrides (RW 0x76B491 / 0x76D659: its own follow path state 0x3F6)
 	virtual void privateFollowPath(const std::vector<Coord3D> &path, Object *ignoreObject, CommandSourceType source, bool exitProduction);
 	virtual void privateFollowPathAppend(const Coord3D &pos, CommandSourceType source);
-	void setLastCommandSource(CommandSourceType s) { m_lastCommandSource = s; }
 	// the hook HordeAIUpdate adds its per-frame work to (B1 HordeAIUpdate_update.cpp:261-293, RW 0x89E2D0)
 	virtual void updateBeforeBase() {}
 	virtual const char *machineName() const { return "AIUpdateInterfaceMachine"; }

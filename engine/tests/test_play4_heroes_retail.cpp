@@ -427,9 +427,10 @@ TEST_CASE("play4 heroes retail: every faction's heroes, recruited from the fortr
 			// MordorGoblinSwordsman_Slaved of the Moria goblin lair about 550 to the south-west, then the lair itself, so his strikes in the window never
 			// reached the horde (measured on a CI host). Community #74 (the destination adjustment spiralling around the cell, RW 0x6FA2A4, with #73's centred
 			// formations) on q23's tree: he fought the horde (14 of 20 killed). Merge queue q26 (with OFFMAP-1's start positions and the rest, measured once on
-			// the merged tree): he takes the creep first again; every other hero fights the horde
-			const bool creepFirst = hero == "ElvenHaldir";
-			CHECK((creepFirst ? own.lost == 0.0f : own.lost > 0.0f)); // tolerance: the pre-existing "the guard attacks the horde" bound, Haldir's 0 exact
+			// the merged tree): he takes the creep first again; every other hero fights the horde. Merge queue q27 (LOS-1's terrain line of sight in the
+			// target search, measured at each merge point): the creep behind the hill is out of his sight, and he fights the horde (8 of 20 killed) like
+			// every other hero
+			CHECK(own.lost > 0.0f); // tolerance: the pre-existing "the guard attacks the horde" bound
 			CHECK_FALSE(own.noted3804);
 			// on an order (auto-acquire off): the order alone strikes and kills. Lane ATTACK-1 closed S-3807 (its two named exceptions, the mounted Witch-king and
 			// Mouth of Sauron, were the port's static crush test in blockedBy: the next test); its runtime note is gone

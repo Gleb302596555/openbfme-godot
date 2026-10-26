@@ -287,6 +287,9 @@ struct GameLogicSettings
 	float invisibilityOpacityMin = 0.0f;
 	float invisibilityOpacityMax = 0.0f;
 	unsigned invisibilityOpacityCycleFrames = 0;
+	// lane LOS-1: ClampedLOSHeightForCastleStructures (GameData row RW 0xC01060, parseReal RW 0x42ED00, + 0x11C4; the GlobalData constructor's 40.0f, RW 0x64395E):
+	// the aim height of an INSIDE_CASTLE structure in the weapon's terrain line (RW 0x6CB944). Retail 2.01 gamedata.ini does not set it
+	float clampedLOSHeightForCastleStructures = 40.0f;
 	// lane GARRISON-1 (GameData rows RW 0xC011D0 GarrisonedRangeMultiplier + 0x1224 parseReal RW 0x42ED00, RW 0xC011F0 MaxNumMembersToForceToImmediatelyEnter
 	// + 0x1230 and RW 0xC01200 WaitToForceMemberToEnterDelay + 0x1234, parseUnsignedInt RW 0x42ECB2): optional rows; the defaults are the GlobalData constructor's
 	// (RW 0x6439DE / 0x643A48: -1.0 = no range change; RW 0x643A5D: 1; RW 0x6439B7 / 0x643A67: 5 frames). Retail 2.01 gamedata.ini sets only the multiplier (1.25)

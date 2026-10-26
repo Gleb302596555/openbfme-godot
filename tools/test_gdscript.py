@@ -25,6 +25,7 @@ GAME_OWNERS = {
     "crash_log_test.gd": "tools/release/test_launcher.py",
     "external_open_test.gd": "tools/release/test_external_open.py",
     "install_paths_test.gd": "tools/release/test_install_paths.py",
+    "language_warning_test.gd": "tools/release/test_language_warning.py",
     "opts6_wait_test.gd": "tools/release/test_external_open.py",
     "release_message_test.gd": "tools/release/test_release_tools.py",
     "replay_args_test.gd": "tools/release/test_replay_open.py",
@@ -109,7 +110,7 @@ CI_GATES = scripts("""
 # Denylist part 2: manual dedicated invocations only, not pytest skips. Having
 # retail paths, a GPU or an opt-in environment variable must not schedule these.
 DENYLIST = {
-    **dict.fromkeys(scripts("bfme1_hud bfme1_map_memory bfme1_plot bfme1_quit bfme1"),
+    **dict.fromkeys(scripts("bfme1_hud bfme1_map_memory bfme1_plot bfme1_quit bfme1_castle_path bfme1"),
                     "manual: needs a private BFME1 installation"),
     **dict.fromkeys(scripts("""
         audio_stress backlog3_focus cah_awards_display camp2 campsave1 floating_money_text
