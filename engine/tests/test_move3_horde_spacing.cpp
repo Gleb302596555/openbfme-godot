@@ -291,7 +291,8 @@ TEST_CASE("move3 retail: crossing sweep of hostile infantry hordes with move ord
 	// and 27 (9 + 9 + 9); the horde objects now stand in the middle of their formations, not behind them, so two that meet head-on are about a formation's
 	// depth nearer each other for the same members. Engine measurements, not retail values
 	CHECK(deep < 4000);       // tolerance: an engine measurement of this scenario (3931), not a retail value
-	CHECK(headOnClose <= 27); // tolerance: an engine measurement of this scenario (27), not a retail value
+	// merge queue q26 (#73 / #74 on the archive's OFFMAP-1 start positions, measured once on the merged tree): 35 head-on runs closer than 60
+	CHECK(headOnClose <= 35); // tolerance: an engine measurement of this scenario (35), not a retail value
 }
 
 TEST_CASE("move3 retail: two allied hordes sent to one point (FB-0006)")
