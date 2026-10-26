@@ -33,11 +33,14 @@ run never finishes), actions-wrong-sha (the run built another commit), actions-w
 actions-two-artifacts, actions-wrong-artifact-name, actions-digest-mismatch (the downloaded bytes are not the recorded digest's),
 actions-partial (a file is missing), actions-extra-file (one more file), actions-folder-entry (a sub-folder entry), actions-job-extra (another
 job ran too). The runs are in $FAKE_GH_STATE's "runs", the artifacts in "artifacts" (bytes beside it in <state>.d/artifact-<id>.zip).
-SIGNKMS-1 (tools/release/cosign_release.py): releases carry "author" ({"login": $FAKE_GH_AUTHOR, default tester}) and "created_at"
+SIGNKMS-1 (tools/release/check_draft.py): releases carry "author" ({"login": $FAKE_GH_AUTHOR, default tester}) and "created_at"
 (a counter-based time stamp); `api repos/R/compare/<base>...<head>` answers GitHub's status / merge_base_commit / base_commit from the
 remote's history; `api --method POST https://uploads.github.com/repos/R/releases/<id>/assets?name=N --input FILE` uploads one asset to
 exactly that release (an existing name is refused like GitHub's 422; the upload-* faults apply). Fault cosign-upload-lost: the asset is
 stored but the call fails.
+RELGH-2: a release that is published (created or patched non-draft) gets "published_at" (now, or $FAKE_GH_PUBLISHED_AT).
+RELGH-2: `api repos/R/actions/workflows/release.yml` answers {path, state: active}; faults release-workflow-missing (404) and
+release-workflow-disabled (state disabled_manually).
 SIGNKMS-1 (tools/release/actions_release.py dispatch / wait): `workflow run <file> --repo R --ref <ref> -f k=v ...` records the dispatch
 and, with $FAKE_GH_WORKFLOW set, runs that program as the workflow (synchronously; IN_KIND / IN_TAG / IN_COMMIT / IN_REQUEST, GH_REF and
 FAKE_GH_STATE in its environment: it adds its run to the state's "release_runs" and may create a draft); `api repos/R/actions/workflows/release.yml/runs`
@@ -69,6 +72,12 @@ def load() -> dict:
 
 def save(s: dict) -> None:
     STATE.write_text(json.dumps(s, indent=1))
+
+
+def stamp() -> str:
+    """RELGH-2: a release's published_at (GitHub's UTC form); $FAKE_GH_PUBLISHED_AT fixes it (tests of the transition rule's age window)"""
+    import time
+    return os.environ.get("FAKE_GH_PUBLISHED_AT") or time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
 
 
 def remote_git(*args: str) -> str:
@@ -144,6 +153,12 @@ def api(args: list[str]) -> int:
         out(jq({"status": status, "base_commit": {"sha": base}, "merge_base_commit": {"sha": mb}}, expr)); return 0
     if re.fullmatch(r"repos/[^/]+/[^/]+/actions/workflows/release\.yml/runs", path):
         out(jq({"workflow_runs": s.get("release_runs", [])[::-1]}, expr)); return 0
+    if re.fullmatch(r"repos/[^/]+/[^/]+/actions/workflows/release\.yml", path) and method == "GET":
+        # RELGH-2: autorelease.sh (signer actions) asks that GitHub knows the release workflow and that it is active
+        if "release-workflow-missing" in FAULTS:
+            print("gh: Not Found (HTTP 404)", file=sys.stderr); return 1
+        state = "disabled_manually" if "release-workflow-disabled" in FAULTS else "active"
+        out(jq({"path": ".github/workflows/release.yml", "state": state}, expr)); return 0
     if path == "user":
         out(jq({"login": "tester", "id": 42}, expr)); return 0
     if "/actions/" in path:
@@ -178,6 +193,8 @@ def api(args: list[str]) -> int:
                "prerelease": bool(fields.get("prerelease")), "body": fields.get("body", ""), "assets": [],
                "author": {"login": os.environ.get("FAKE_GH_AUTHOR", "tester")}, "created_at": f"2026-10-22T00:00:{s['next'] % 60:02d}Z"}
         s["next"] += 1
+        if not rel["draft"]:
+            rel["published_at"] = stamp()
         s["releases"].append(rel); save(s)
         if "create-lost" in FAULTS:
             print("gh: connection reset", file=sys.stderr); return 1
@@ -205,11 +222,14 @@ def api(args: list[str]) -> int:
             s["releases"].remove(rel); save(s); return 0
         if method == "GET" and rel["draft"] and "publish-after-read" in FAULTS:
             out(jq(rel, expr))
-            rel["draft"] = False; save(s); return 0
+            rel["draft"] = False; rel.setdefault("published_at", stamp()); save(s); return 0
         if method == "PATCH":
             if "publish-fail" in FAULTS:
                 print("gh: HTTP 502", file=sys.stderr); return 1
-            rel.update({k: v for k, v in fields.items()}); save(s)
+            rel.update({k: v for k, v in fields.items()})
+            if not rel["draft"]:
+                rel.setdefault("published_at", stamp())
+            save(s)
             if "publish-lost" in FAULTS:
                 print("gh: connection reset", file=sys.stderr); return 1
         out(jq(rel, expr)); return 0

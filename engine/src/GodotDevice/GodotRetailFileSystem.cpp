@@ -610,6 +610,28 @@ Dictionary RetailFileSystem::mountFrom(const std::string &rotwkRoot, const std::
 		{
 			mountMods(rotwkRoot, errors);
 		}
+		// lane SDK-1: the asset packs' models against the files they replace in the mounted set (game and mods): a model that does not keep
+		// the original's skeleton is left out with a note; a pack model that is not a W3D file stops the start (AssetPacks::checkModels)
+		if (m_mounted && !m_packs.empty())
+		{
+			ArchiveW3DFileSource mounted(*m_fs);
+			std::vector<std::string> packErrors;
+			if (!m_packs.checkModels(mounted, packErrors))
+			{
+				for (const std::string &e : packErrors)
+				{
+					errors.push_back(toGodot(e));
+				}
+				m_fs.reset();
+				m_mounted = false;
+			}
+			PackedStringArray notes;
+			for (const std::string &n : m_packs.notes())
+			{
+				notes.push_back(toGodot(n));
+			}
+			result["asset_pack_notes"] = notes;
+		}
 	}
 
 	result["mod"] = get_mod_report();

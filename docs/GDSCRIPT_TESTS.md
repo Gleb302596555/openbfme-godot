@@ -68,6 +68,7 @@ scheduling/ownership decision; it is never automatically promoted to execution.
 | `launcher/tests/instance_lock_parser_test.gd` | `tools/release/test_instance_lock.py` | Existing launcher fixture/arguments and platform prerequisites retained. |
 | `launcher/tests/instance_lock_test.gd` | `tools/release/test_instance_lock.py` | Existing launcher fixture/arguments and platform prerequisites retained. |
 | `launcher/tests/layout_test.gd` | `tools/release/test_launcher.py` | Existing launcher fixture/arguments and platform prerequisites retained. |
+| `launcher/tests/l10n_test.gd` | `tools/l10n/test_l10n.py` | The text catalog's runtime on the generated catalog and synthetic patterns; no game files. |
 | `launcher/tests/lobby_list_test.gd` | `tools/release/test_launcher.py` | Existing launcher fixture/arguments and platform prerequisites retained. |
 | `launcher/tests/log_privacy_test.gd` | `tools/release/test_launcher.py` | Existing launcher fixture/arguments and platform prerequisites retained. |
 | `launcher/tests/macos_cache_test.gd` | `tools/release/test_macplay.py` | Existing launcher fixture/arguments and platform prerequisites retained. |
@@ -117,6 +118,7 @@ runner is claimed. All paths below are relative to the repository root.
 | `godot/tests/bfme1_quit_test.gd` | Manual only; no generic pytest runner | Denied here: needs a private BFME1 installation. |
 | `godot/tests/bfme1_test.gd` | Manual only; no generic pytest runner | Denied here: needs a private BFME1 installation. |
 | `godot/tests/building_render_test.gd` | Manual only; no generic pytest runner | Denied here: GPU/window/render readback required (some also need retail assets). |
+| `godot/tests/buildperf_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/cah_awards_display_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/cah_camera_test.gd` | `tools/test_gdscript.py::test_game_script` | Allowlisted: camera geometry against synthetic bounds; headless, 20 s timeout. |
 | `godot/tests/camp2_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
@@ -179,8 +181,12 @@ runner is claimed. All paths below are relative to the repository root.
 | `godot/tests/opts6_wait_test.gd` | `tools/release/test_external_open.py` | Existing argument-aware fixture runner; its prerequisites still apply. |
 | `godot/tests/p16_ui_dictionary_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/p16_ui_legacy_shape_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
+| `godot/tests/packed_model_texture_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/pathperf1_render_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/perf3_cull_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
+| `godot/tests/pose_buffer_cull_query_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and an extension build; run by `godot/tests/pose_buffer_regression.py`. |
+| `godot/tests/pose_buffer_query_trigger_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and an extension build; run by `godot/tests/pose_buffer_regression.py`. |
+| `godot/tests/pose_buffer_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and an extension build; run by `godot/tests/pose_buffer_regression.py`. |
 | `godot/tests/pingwheel_test.gd` | Manual only; no generic pytest runner | Denied here: mixed UI/timer checks and retail skirmish/hash runs; not wholly asset-free. |
 | `godot/tests/platformicon1_test.gd` | `tools/platformicon/test_make_icons.py` | Existing argument-aware fixture runner; its prerequisites still apply. |
 | `godot/tests/play3_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |

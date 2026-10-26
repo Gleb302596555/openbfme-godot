@@ -18,10 +18,13 @@ set(OPENBFME_APT_SOURCES
     # APT-3: the Godot-independent half of the renderer (render list -> canvas operations), string table, font substitution
     src/GameClient/AptCanvas.cpp
     src/GameClient/FontSubstitution.cpp
-    src/GameClient/GameText.cpp)
+    src/GameClient/GameText.cpp
+    # L10N-1: OpenBFME's own text catalog (tools/l10n/catalog/, docs/L10N.md)
+    src/GameClient/OpenBFMEText.cpp)
 
 set(OPENBFME_APT_TESTS
     tests/test_localized_text.cpp
+    tests/test_openbfme_text.cpp
     tests/test_apt_file.cpp
     tests/test_apt_corpus.cpp
     tests/test_apt_value.cpp

@@ -23,6 +23,7 @@
 
 #include "GameClient/VideoPlayer.h" // lane CAMP-1H: m_videos (complete for the unique_ptr)
 #include "GameClient/EndGame.h"
+#include "GameClient/ShroudFade.h" // lane FOGFX-1: m_shroudFade
 #include "GameClient/CommandLogLoad.h" // lane SAVE-2: m_saveLoad (complete for the unique_ptr)
 #include "Common/System/SaveGame/SaveGameFile.h"
 #include "GameClient/ScriptCameraDirector.h"
@@ -153,6 +154,7 @@ public:
 	int64_t get_shroud_status_at(double x, double y) const;
 	int64_t get_object_shroud_status(int64_t objectId) const;
 	void set_shroud_drawn(bool on);
+	void set_shroud_fade(bool on); // lane FOGFX-1: the shroud texture's fade (RW 0x472CF2); off: the texels land at once (a before / after proof)
 	PackedByteArray get_shroud_cells() const;
 	// lane PROJ-1: the projectile objects in flight (KindOf PROJECTILE with a BezierProjectileBehavior): id, template, position, the position of the previous logic frame, the unit
 	// X axis of the basis, the flight step / segment count and whether it has landed. The client draws them (the streak draw module is not ported: stop S-365).
@@ -701,8 +703,10 @@ private:
 	void build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &report, Array &errors, Array &stops);
 	void refresh_views(double deltaMs);
 	// VIS-1: the local player's shroud as a cell texture on the terrain materials (S-567)
-	void refresh_shroud(bool force);
+	void refresh_shroud(bool force, double dtMs = 0.0);
 	Ref<godot::ImageTexture> m_shroudTexture;
+	ShroudFade m_shroudFade; ///< lane FOGFX-1: the texels' fade toward their cell's level (RW 0x472CF2), client only
+	bool m_shroudFadeOn = true;
 	bool m_shroudDrawn = true;
 	// lane BIGBATTLE-1: the shroud parameters the terrain's materials were last given (refresh_shroud visits them only when one changes)
 	bool m_shroudParamsSet = false;

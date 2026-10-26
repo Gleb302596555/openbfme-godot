@@ -20,14 +20,14 @@ a secret, write to the repository or run on a private machine must never get the
     would also name private machines).
 The checks read the YAML as text, line by line, and are deliberately stricter than YAML: a construct they cannot read (a flow-style
 `on: [..]` with a refused trigger, a `uses:` in a form they do not know) fails.
-Lane SIGNKMS-1: ONE exception, the release workflow (.github/workflows/release.yml, RELEASE_WORKFLOW): the job that signs through AWS KMS
-needs GitHub's OIDC token (`id-token: write`) and creates the draft release (`contents: write`). Those two lines are accepted in that file
-alone and only when the parsed YAML has exactly this shape (release_workflow_problems): the one trigger workflow_dispatch; the top-level
-permissions `contents: read`; exactly one job with a `permissions:` block, which is exactly {contents: write, id-token: write}, whose
-`environment:` is nightly or stable, or `${{ inputs.kind }}` where the input kind is a choice of nightly / stable only (the environments'
-protection rules and the AWS role's trust policy do the rest: docs/RELEASE.md, "Release signing"). The same job may name ONE secret, by
-the exact line RELEASE_SECRET_LINE (the signing role's ARN: it names the AWS account, and GitHub masks a secret in the logs while a variable
-is printed with the job's environment); no other secrets reference anywhere. Every other rule still applies to the file.
+Lane SIGNKMS-1, RELGH-2: ONE exception, the release workflow (.github/workflows/release.yml, RELEASE_WORKFLOW): the job that signs a
+nightly with the nightly key creates the draft release (`contents: write`) and reads the key, the environment secret
+OPENBFME_NIGHTLY_SIGNING_KEY. Those two lines are accepted in that file alone and only when the parsed YAML has exactly this shape
+(release_workflow_problems): the one trigger workflow_dispatch; the top-level permissions `contents: read`; exactly one job with a
+`permissions:` block, which is exactly {contents: write}, whose `environment:` is exactly nightly-signing (deployment branches main only:
+docs/RELEASE.md, "Nightly signing on GitHub Actions"); no job-level `env:` naming a secret; exactly ONE step of that job whose `env:` maps
+NIGHTLY_SIGNING_KEY to the secret, by the exact line RELEASE_SECRET_LINE; no other secrets reference, and no `id-token` anywhere (the
+SIGNKMS-1 OIDC permission is gone with KMS). Every other rule still applies to the file.
 Lane RELSIGN-1: the release workflow builds with MACACT-1's jobs by CALLING .github/workflows/release-package.yml (REUSABLE_WORKFLOW), so
 the build jobs have one definition. That file alone may add the trigger `workflow_call` (beside workflow_dispatch, nothing else), and it
 declares no `secrets`; a job that calls a workflow (`jobs.<id>.uses`) is allowed in release.yml alone, must call exactly
@@ -53,11 +53,12 @@ PINNED = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+@[0-9a-f]{40}")
 RUNS_ON = re.compile(r"^\s*runs-on:\s*(.*?)\s*(?:#.*)?$")
 HOSTED = re.compile(r"(?:ubuntu|windows|macos)-[a-z0-9.-]+")
 RELEASE_WORKFLOW = ".github/workflows/release.yml"
-SIGN_ENVIRONMENTS = {"nightly", "stable"}
-SIGN_PERMISSIONS = {"contents": "write", "id-token": "write"}
+SIGN_ENVIRONMENTS = {"nightly-signing"}
+SIGN_PERMISSIONS = {"contents": "write"}
 REUSABLE_WORKFLOW = ".github/workflows/release-package.yml"
 SECRETS_KEY = re.compile(r"^\s*(?:-\s+)?[\"']?secrets[\"']?\s*:")
-RELEASE_SECRET_LINE = "      SIGNING_ROLE_ARN: ${{ secrets.OPENBFME_SIGNING_ROLE_ARN }}"
+RELEASE_SECRET = "${{ secrets.OPENBFME_NIGHTLY_SIGNING_KEY }}"
+RELEASE_SECRET_LINE = "          NIGHTLY_SIGNING_KEY: " + RELEASE_SECRET
 
 
 def yaml_problems(path: str, text: str) -> list[str]:
@@ -79,7 +80,7 @@ def yaml_problems(path: str, text: str) -> list[str]:
 
 
 def release_workflow_problems(path: str, text: str) -> tuple[list[str], set[int]]:
-    """SIGNKMS-1: the release workflow's shape (see the module's doc); the line numbers of its two allowed permission lines"""
+    """SIGNKMS-1, RELGH-2: the release workflow's shape (see the module's doc); the line numbers of its allowed permission and secret lines"""
     try:
         import yaml
         doc = yaml.safe_load(text)
@@ -94,10 +95,6 @@ def release_workflow_problems(path: str, text: str) -> tuple[list[str], set[int]
         on = {}
     if doc.get("permissions") != {"contents": "read"}:
         probs.append(f"{path}: the release workflow's top-level permissions are not exactly contents: read")
-    inputs = ((on.get("workflow_dispatch") or {}).get("inputs") or {}) if isinstance(on.get("workflow_dispatch"), dict) else {}
-    kind = inputs.get("kind") if isinstance(inputs, dict) else None
-    kind_ok = isinstance(kind, dict) and kind.get("type") == "choice" and isinstance(kind.get("options"), list) \
-        and kind["options"] and set(kind["options"]) <= SIGN_ENVIRONMENTS
     jobs = doc.get("jobs") if isinstance(doc.get("jobs"), dict) else {}
     signing = [name for name, job in jobs.items() if isinstance(job, dict) and "permissions" in job]
     if len(signing) != 1:
@@ -105,19 +102,23 @@ def release_workflow_problems(path: str, text: str) -> tuple[list[str], set[int]
     for name in signing:
         job = jobs[name]
         if job.get("permissions") != SIGN_PERMISSIONS:
-            probs.append(f"{path}: job {name}'s permissions are not exactly contents: write and id-token: write")
+            probs.append(f"{path}: job {name}'s permissions are not exactly contents: write")
         env = job.get("environment")
         if isinstance(env, dict):
             env = env.get("name")
-        if not (env in SIGN_ENVIRONMENTS or (env == "${{ inputs.kind }}" and kind_ok)):
-            probs.append(f"{path}: job {name} signs outside the nightly / stable environments (environment: {env!r})")
-    allowed: set[int] = set()   # line numbers: +n a permission line, -n the secret line, all inside the signing job's block
+        if env not in SIGN_ENVIRONMENTS:
+            probs.append(f"{path}: job {name} signs outside the nightly-signing environment (environment: {env!r})")
+        if "secrets" in str(job.get("env") or "").lower():
+            probs.append(f"{path}: job {name} hands a secret to every step (job-level env); one step's env only")
+        steps = job.get("steps") if isinstance(job.get("steps"), list) else []
+        keyed = [st for st in steps if isinstance(st, dict) and "secrets" in str(st.get("env") or "").lower()]
+        if len(keyed) != 1 or keyed[0].get("env") != {"NIGHTLY_SIGNING_KEY": RELEASE_SECRET}:
+            probs.append(f"{path}: job {name} must hand the nightly key to exactly one step, as env NIGHTLY_SIGNING_KEY alone")
+    allowed: set[int] = set()   # line numbers: +n a permission line, -n the secret line, -(10**6 + n) the environment line, all inside the
+    #                             signing job's block
     if not probs:
         lines = text.splitlines()
         for name in signing:
-            env = jobs[name].get("env")
-            if isinstance(env, dict) and "SIGNING_ROLE_ARN" in env and env["SIGNING_ROLE_ARN"] != "${{ secrets.OPENBFME_SIGNING_ROLE_ARN }}":
-                probs.append(f"{path}: SIGNING_ROLE_ARN is not the secret OPENBFME_SIGNING_ROLE_ARN")
             start = next((i for i, line in enumerate(lines) if line == f"  {name}:"), None)
             if start is None:
                 probs.append(f"{path}: job {name} is not written as a block at two spaces")
@@ -126,12 +127,15 @@ def release_workflow_problems(path: str, text: str) -> tuple[list[str], set[int]
                 if lines[i].strip() and not lines[i].startswith("    "):
                     break
                 code = lines[i].split("#", 1)[0].rstrip()
-                if code in ("      contents: write", "      id-token: write"):
+                if code == "      contents: write":
                     allowed.add(i + 1)
+                elif code.strip() == "environment: nightly-signing" and code.startswith("    environment:"):
+                    allowed.add(-(10**6 + i + 1))
                 elif code == RELEASE_SECRET_LINE:
                     allowed.add(-(i + 1))
-        if len([n for n in allowed if n > 0]) != 2:
-            probs.append(f"{path}: the signing job's two permission lines are not where they are expected")
+        if len([n for n in allowed if n > 0]) != 1 or len([n for n in allowed if -(10**6) < n < 0]) != 1 \
+                or len([n for n in allowed if n <= -(10**6)]) != 1:
+            probs.append(f"{path}: the signing job's permission line and secret line are not where they are expected")
             allowed = set()
     return probs, allowed
 
@@ -182,8 +186,13 @@ def workflow_problems(path: str, text: str) -> list[str]:
         for t in REFUSED_TRIGGERS:
             if re.search(rf"(?<![a-z_]){t}(?![a-z_])", low):
                 probs.append(f"{path}:{n}: the trigger {t} (it runs with the base repository's token and secrets)")
-        if ("secrets." in low or "secrets[" in low) and -n not in allowed:
+        # RELGH-2 (Sol r1): any use of the secrets context (secrets.X, secrets[...], toJSON(secrets), ...), comments included
+        exprs = " ".join(re.findall(r"\$\{\{(.*?)\}\}", low)) + (" " + low if re.match(r"^\s*(?:-\s+)?if\s*:", low) else "")
+        if ("secrets." in low or "secrets[" in low or re.search(r"(?<![a-z0-9_-])secrets(?![a-z0-9_-])", exprs)) and -n not in allowed:
             probs.append(f"{path}:{n}: a secrets reference")
+        # RELGH-2 (Sol r1): a job may enter a deployment environment only as the release workflow's signing job
+        if re.match(r"^\s*(?:-\s+)?[\"']?environment[\"']?\s*:", code) and -(10**6 + n) not in allowed:
+            probs.append(f"{path}:{n}: a deployment environment outside the release workflow's signing job")
         if SECRETS_KEY.match(code):
             probs.append(f"{path}:{n}: a secrets key (secrets: inherit or a declared secret)")
         if "id-token" in low and n not in allowed:

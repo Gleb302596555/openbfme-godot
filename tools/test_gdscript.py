@@ -58,6 +58,7 @@ LAUNCHER_OWNERS = {
     "external_open_test.gd": "tools/release/test_external_open.py",
     "first_run_test.gd": "launcher/tests/test_first_run.py",
     "install_paths_test.gd": "tools/release/test_install_paths.py",
+    "l10n_test.gd": "tools/l10n/test_l10n.py",
     "lobby_list_test.gd": "tools/release/test_launcher.py",
     "log_privacy_test.gd": "tools/release/test_launcher.py",
     "mod_catalog_test.gd": "tools/release/test_mods.py",
@@ -113,9 +114,10 @@ DENYLIST = {
     **dict.fromkeys(scripts("bfme1_hud bfme1_map_memory bfme1_plot bfme1_quit bfme1_castle_path bfme1"),
                     "manual: needs a private BFME1 installation"),
     **dict.fromkeys(scripts("""
-        audio_stress backlog3_focus cah_awards_display camp2 campsave1 floating_money_text
+        audio_stress backlog3_focus buildperf cah_awards_display camp2 campsave1 floating_money_text
         hero_radius_cursor hudredraw menustyle_native menustyle net_uber netlag1 opts4 opts5
-        pathperf1_render perf3_cull play3 player_house_color player_message_log
+        packed_model_texture pathperf1_render perf3_cull play3 player_house_color player_message_log
+        pose_buffer pose_buffer_cull_query pose_buffer_query_trigger
         renderwait1_teardown selperf shellfix1 spellbook_reload terrain_lighting uberjoin1 ui4_resize
         controller_main_menu formation_placement mixed_formation_placement online16_fix_bridge p16_ui_dictionary
         p16_ui_legacy_shape spellbook_rightclick

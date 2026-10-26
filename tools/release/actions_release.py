@@ -1,28 +1,37 @@
 #!/usr/bin/env python3
-"""Lane SIGNKMS-1: the release workflow's steps (.github/workflows/release.yml) and the Deck's side of a release signed on GitHub Actions
-(docs/RELEASE.md, "Release signing").
+"""Lane SIGNKMS-1, RELGH-2: the release workflow's steps (.github/workflows/release.yml) and the Deck's side of a NIGHTLY signed on
+GitHub Actions with the nightly key (docs/RELEASE.md, "Nightly signing on GitHub Actions"). Stable releases are never signed here: the
+stable key never enters CI or GitHub.
 
-On GitHub's runners (the inputs come from the environment the workflow sets, IN_KIND / IN_TAG / IN_COMMIT / IN_REQUEST, never from the
+On GitHub's runners (the inputs come from the environment the workflow sets, IN_TAG / IN_COMMIT / IN_REQUEST, never from the
 command line, so no input is ever pasted into a script):
-    actions_release.py plan                      the request: workflow_dispatch on refs/heads/main of the policy's repository; kind nightly
-                                                 with a v<x.y.z>-nightly.<YYMMDD><1|2>00 (or <YYYYMMDD>) tag, kind stable with a plain v<x.y.z> tag; the tag
-                                                 names the commit; the commit is on main (an ancestor of the run's main head)
+    actions_release.py plan                      the request: workflow_dispatch on refs/heads/main of this repository; a
+                                                 v<x.y.z>-nightly.<YYMMDD><1|2>00 (or <YYYYMMDD>) tag (a stable tag is refused); the tag
+                                                 names the commit; the commit is on main (an ancestor of the run's main head); the newest
+                                                 published stable release (stable-key signed, 14+ days old) trusts the commit's nightly keys (trusted_by_stable)
     actions_release.py checkout-is-tag           the checkout is the commit and `git describe` is the tag (the builds embed it)
     actions_release.py sign --in DIR --pkg DIR   the build jobs' artifacts into one release folder (exactly the files a release has), the
-                                                 strict package checks, then sealing and signing through AWS KMS (kms_sign.py; GitHub's
-                                                 OIDC token traded for a 15-minute session of $SIGNING_ROLE_ARN), every signature verified
-                                                 under the committed launcher/release_keys.pub
+                                                 strict package checks, then sealing and signing with the nightly key: the environment's
+                                                 secret NIGHTLY_SIGNING_KEY (removed from this process's environment at once, so no child
+                                                 sees it) written to a mode 0600 file on tmpfs (/dev/shm) and shredded when the step ends,
+                                                 whatever happened; its public half must be in the commit's launcher/nightly_keys.pub AND
+                                                 in the newest stable release's (the transition rule); every signature verified under the
+                                                 committed lists by the nightly scope rule (release_keys.verify_scoped)
     actions_release.py draft --pkg DIR           the DRAFT release of the tag with every file of the folder, read back (names, sizes and
                                                  GitHub's SHA-256 of each upload); it never publishes
-On the Deck (autorelease.sh with OPENBFME_RELEASE_SIGNER=actions):
-    actions_release.py dispatch --tag T --commit C --kind K [--repo R] --out FILE
+On the Deck (autorelease.sh --nightly with OPENBFME_RELEASE_SIGNER=actions):
+    actions_release.py trust-check --commit C [--git-dir D] [--remote R]
+                                                 before anything is pushed: C's launcher/nightly_keys.pub lists a key and every key of it is
+                                                 trusted by the newest PUBLISHED stable release, authenticated by the stable key and
+                                                 published TRUST_DAYS (14) days ago or more (trusted_by_stable) (else the launchers players have would
+                                                 refuse the nightly: ship the transition launcher first)
+    actions_release.py dispatch --tag T --commit C [--repo R] --out FILE
                                                  starts the workflow on main with a fresh request id; FILE records {request, run_id}
     actions_release.py wait --request-file FILE [--timeout S] [--repo R]
-                                                 waits for that run (a stable run waits for the owner's approval of the `stable`
-                                                 environment), requires success, prints the draft release's id (the draft whose body names
-                                                 the request)
+                                                 waits for that run, requires success, prints the draft release's id (the draft whose body
+                                                 names the request)
     actions_release.py compare --candidate DIR --actions DIR --version V
-                                                 the draft's packages (downloaded by cosign_release.py) against the candidate this Deck
+                                                 the draft's packages (downloaded by check_draft.py) against the candidate this Deck
                                                  built and tested: each archive without its seal (seal_package.py unseal) byte for byte
                                                  (RELSIGN-1: the game's Windows ZIP may differ only in its DLL's CodeView GUID,
                                                  member by member: same_build_archive);
@@ -81,13 +90,12 @@ def git(*args: str, cwd: Path | None = None) -> str:
 
 
 def request_env() -> dict:
-    """the dispatched inputs, from the environment, each checked before anything uses it"""
-    e = {k: os.environ.get(f"IN_{k.upper()}", "") for k in ("kind", "tag", "commit", "request")}
-    if e["kind"] not in KINDS:
-        raise Fail(f"kind {e['kind']!r} is not nightly or stable")
-    if not KINDS[e["kind"]].match(e["tag"]):
-        raise Fail(f"the tag {e['tag']!r} is not a {e['kind']} release tag ("
-                   + ("v<x.y.z>-nightly.<YYMMDD><1|2>00 or -nightly.<YYYYMMDD>" if e["kind"] == "nightly" else "a plain v<x.y.z>") + ")")
+    """the dispatched inputs, from the environment, each checked before anything uses it. RELGH-2: nightlies only"""
+    e = {k: os.environ.get(f"IN_{k.upper()}", "") for k in ("tag", "commit", "request")}
+    e["kind"] = "nightly"
+    if not KINDS["nightly"].match(e["tag"]):
+        raise Fail(f"the tag {e['tag']!r} is not a nightly release tag (v<x.y.z>-nightly.<YYMMDD><1|2>00 or -nightly.<YYYYMMDD>): "
+                   "only nightlies are signed on GitHub Actions, a stable release is signed with the release key off GitHub")
     if not HEX40.match(e["commit"]):
         raise Fail("the commit is not 40 lower-case hex digits")
     if not HEX32.match(e["request"]):
@@ -111,7 +119,120 @@ def cmd_plan(_a) -> None:
         raise Fail(f"the tag {e['tag']} names {tagged or 'nothing here'}, not {e['commit']}")
     if subprocess.run(["git", "merge-base", "--is-ancestor", e["commit"], head]).returncode:
         raise Fail(f"{e['commit']} is not on main (not an ancestor of the run's main head {head})")
-    print(f"PLAN ok: {e['kind']} {e['tag']} at {e['commit']} (request {e['request']}, main {head})")
+    stable = trusted_by_stable(e["commit"])
+    print(f"PLAN ok: {e['tag']} at {e['commit']} (request {e['request']}, main {head}; the nightly keys are trusted since {stable})")
+
+
+def _version(tag: str) -> tuple[int, int, int]:
+    return tuple(int(x) for x in tag[1:].split("."))
+
+
+def _nightly_hexes(text: str, where: str) -> list[str]:
+    import release_keys
+    try:
+        return [k.hex() for _, k in release_keys.parse(text, where, allow_empty=True, max_keys=release_keys.MAX_NIGHTLY_KEYS)]
+    except release_keys.KeyListError as ex:
+        raise Fail(str(ex))
+
+
+# RELGH-2 (Sol r1): how long the transition release must have been published before a nightly may be signed on Actions: a launcher that
+# updates itself at a start in this window follows the switch; one not started in it stays behind (docs/RELEASE.md, the transition)
+TRUST_DAYS = 14
+
+
+def _trust_days() -> int:
+    test = os.environ.get("OPENBFME_TEST_TRUST_DAYS")   # tests only (stand-in mode)
+    if test is not None and os.environ.get("OPENBFME_RELEASE_STANDIN"):
+        return int(test)
+    return TRUST_DAYS
+
+
+def trusted_by_stable(commit: str, keys_hex: list[str] | None = None, cwd: Path | None = None, remote: str | None = None,
+                      repo: str = TARGET) -> str:
+    """RELGH-2, the transition rule (Sol r1: a tag alone is no evidence): the newest PUBLISHED stable release of `repo` on GitHub (not a
+    draft, not a pre-release, a plain v<x.y.z>) must
+      * carry manifest.json and its .sig, the signature valid under the STABLE list (the commit's launcher/release_keys.pub: every
+        launcher already installed can authenticate that release), the manifest naming the release's tag, the stable channel, `repo`
+        and its commit;
+      * list, in that commit's launcher/nightly_keys.pub, every nightly key of `commit`'s list (keys_hex: these keys instead, e.g. the one
+        the sign job holds): its launchers and games trust them;
+      * have been published TRUST_DAYS days ago or more.
+    The release's commit is read from this repository (fetched by its id from `remote` first, when given: the Deck's archive commit is
+    not on the public history). Returns the release's tag; Fail on anything else."""
+    import release_keys
+    want = keys_hex
+    if want is None:
+        try:
+            text = git("show", f"{commit}:launcher/nightly_keys.pub", cwd=cwd)
+        except Fail:
+            raise Fail(f"{commit[:12]} has no launcher/nightly_keys.pub") from None
+        want = _nightly_hexes(text, f"nightly_keys.pub of {commit[:12]}")
+    if not want:
+        raise Fail(f"{commit[:12]}'s launcher/nightly_keys.pub lists no key: nothing can sign a nightly on GitHub Actions")
+    try:
+        stable_keys = release_keys.parse(git("show", f"{commit}:launcher/release_keys.pub", cwd=cwd), "release_keys.pub")
+    except (Fail, release_keys.KeyListError) as ex:
+        raise Fail(f"{commit[:12]} has no valid launcher/release_keys.pub ({ex})") from None
+    releases = gh_json(f"repos/{repo}/releases?per_page=100") or []
+    published = [r for r in releases if isinstance(r, dict) and r.get("draft") is False and r.get("prerelease") is False
+                 and isinstance(r.get("tag_name"), str) and KINDS["stable"].match(r["tag_name"])]
+    if not published:
+        raise Fail(f"{repo} has no published stable release")
+    rel = max(published, key=lambda r: _version(r["tag_name"]))
+    tag = rel["tag_name"]
+    assets = {x.get("name"): x for x in rel.get("assets") or [] if isinstance(x, dict)}
+    if "manifest.json" not in assets or "manifest.json.sig" not in assets:
+        raise Fail(f"the newest published stable release {tag} has no manifest.json / manifest.json.sig")
+    data, sig = (_download(repo, assets[n]) for n in ("manifest.json", "manifest.json.sig"))
+    if release_keys.verify_detail(stable_keys, "manifest.json", data, sig) is None:
+        raise Fail(f"the manifest of the newest published stable release {tag} is not signed by a stable key")
+    try:
+        m = json.loads(data)
+    except ValueError:
+        raise Fail(f"the manifest of {tag} is not JSON") from None
+    if not isinstance(m, dict) or (m.get("version"), m.get("channel"), m.get("repo")) != (tag, "stable", repo) \
+            or not isinstance(m.get("commit"), str) or not HEX40.match(m["commit"]):
+        raise Fail(f"the manifest of {tag} does not name {tag}, the stable channel, {repo} and a commit")
+    rev = m["commit"]
+    if remote is not None:
+        git("fetch", "-q", "--no-tags", remote, rev, cwd=cwd)
+    try:
+        have = set(_nightly_hexes(git("show", f"{rev}:launcher/nightly_keys.pub", cwd=cwd), f"nightly_keys.pub of {tag}"))
+    except Fail:
+        have = set()
+    missing = [k[:16] for k in want if k not in have]
+    if missing:
+        raise Fail(f"the newest published stable release {tag} does not trust the nightly key(s) {', '.join(missing)}...: its launchers "
+                   "would refuse the nightly. Ship a stable release (signed with the release key) whose launcher/nightly_keys.pub lists "
+                   "them first, then sign nightlies here (docs/RELEASE.md, the transition)")
+    when = str(rel.get("published_at") or "")
+    try:
+        import calendar
+        age = time.time() - calendar.timegm(time.strptime(when, "%Y-%m-%dT%H:%M:%SZ"))
+    except ValueError:
+        raise Fail(f"the release {tag} has no publication time ({when!r})") from None
+    days = _trust_days()
+    if age < days * 86400:
+        raise Fail(f"the transition release {tag} was published {age / 86400:.1f} days ago, under {days}: launchers that have not "
+                   "started since would refuse the nightly. Sign on the Deck until then")
+    return tag
+
+
+def _download(repo: str, asset: dict) -> bytes:
+    aid = asset.get("id")
+    if not isinstance(aid, int) or not isinstance(asset.get("size"), int) or asset["size"] > (1 << 20):
+        raise Fail(f"{asset.get('name')}: not a small uploaded asset")
+    r = subprocess.run([gh(), "api", "-H", "Accept: application/octet-stream", f"repos/{repo}/releases/assets/{aid}"], capture_output=True)
+    if r.returncode or len(r.stdout) != asset["size"]:
+        raise Fail(f"{asset.get('name')}: the download failed or has another size")
+    return r.stdout
+
+
+def cmd_trust_check(a) -> None:
+    if not HEX40.match(a.commit):
+        raise Fail("the commit is not 40 hex")
+    got = trusted_by_stable(a.commit, cwd=Path(a.git_dir), remote=a.remote, repo=a.repo)
+    print(f"TRUST ok: the nightly keys of {a.commit[:12]} are trusted by {got}")
 
 
 def _has_ref(ref: str) -> bool:
@@ -153,12 +274,65 @@ def _exactly(d: Path, want: list[str]) -> None:
 
 
 def cmd_sign(a) -> None:
+    # the secret leaves the environment first, so that no child process (the build tools below) ever inherits it
+    pem = os.environ.pop("NIGHTLY_SIGNING_KEY", "")
     e = request_env()
+    import ed25519
     import release_keys
-    policy = release_keys.load_policy()
-    keys = release_keys.load(REPO / "launcher" / "release_keys.pub")
-    if not any(label == policy["kms_label"] for label, _ in keys):
-        raise Fail(f"launcher/release_keys.pub has no {policy['kms_label']} key: commit the KMS public key first (docs/RELEASE.md)")
+    keys_file, nightly_file = REPO / "launcher" / "release_keys.pub", REPO / "launcher" / "nightly_keys.pub"
+    nightly = release_keys.load_nightly(nightly_file, keys_file)
+    if not pem.strip():
+        raise Fail("NIGHTLY_SIGNING_KEY (the environment nightly-signing's secret OPENBFME_NIGHTLY_SIGNING_KEY) is empty")
+    try:
+        public = ed25519.public_key(ed25519.secret_from_pem(pem)).hex()
+    except Exception:  # noqa: BLE001 (never echo anything of the secret)
+        raise Fail("NIGHTLY_SIGNING_KEY is not an Ed25519 private key (PKCS#8 PEM, sign_manifest.py --generate-key)") from None
+    label = next((lb for lb, k in nightly if k.hex() == public), None)
+    if label is None:
+        raise Fail(f"the environment's nightly key ({public[:16]}...) is not in launcher/nightly_keys.pub of {e['commit'][:12]}")
+    trusted_by_stable(e["commit"], [public])
+    keyfile = write_secret(pem)
+    del pem
+    try:
+        sign_folder(a, e, keyfile, label, keys_file, nightly_file)
+    finally:
+        shred(keyfile)
+
+
+SHM = Path(os.environ.get("OPENBFME_TEST_SHM", "/dev/shm"))
+
+
+def write_secret(pem: str) -> Path:
+    """the key into a new mode 0700 folder on tmpfs (memory only, never the runner's disk), file mode 0600"""
+    mounts = Path("/proc/mounts").read_text(encoding="utf-8", errors="replace").split("\n") if Path("/proc/mounts").is_file() else []
+    if not any(len(f) > 2 and f[1] == str(SHM) and f[2] == "tmpfs" for f in (m.split() for m in mounts)) \
+            and not (os.environ.get("OPENBFME_RELEASE_STANDIN") and "OPENBFME_TEST_SHM" in os.environ):
+        raise Fail(f"{SHM} is not a tmpfs: the nightly key is never written to a disk")
+    d = SHM / f"openbfme-nightly-key-{os.environ.get('GITHUB_RUN_ID', '0')}-{os.getpid()}"
+    os.mkdir(d, 0o700)
+    f = d / "nightly.pem"
+    fd = os.open(f, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="ascii") as out:
+        out.write(pem)
+    return f
+
+
+def shred(f: Path) -> None:
+    """overwrite, unlink, remove the folder (the workflow's last step removes any leftover too)"""
+    try:
+        if f.exists():
+            n = f.stat().st_size
+            with open(f, "r+b") as out:
+                out.write(os.urandom(n))
+                out.flush()
+                os.fsync(out.fileno())
+            f.unlink()
+        f.parent.rmdir()
+    except OSError as ex:
+        print(f"RELEASE ACTIONS WARNING: could not remove the key folder ({ex.__class__.__name__})", file=sys.stderr)
+
+
+def sign_folder(a, e: dict, keyfile: Path, label: str, keys_file: Path, nightly_file: Path) -> None:
     version = e["tag"]
     legacy = os.environ.get("OPENBFME_RELEASE_LEGACY_LAUNCHERS", "1") != "0"
     lin, mac = expected_build_files(version, legacy)
@@ -180,13 +354,13 @@ def cmd_sign(a) -> None:
         run([sys.executable, f"{T}/audit_package.py", "--release", ap, f], cwd=pkg)
     maczip = mac[0]
     run([sys.executable, f"{T}/make_macos_manifest.py", "--verify-package", str(src_mac / maczip), "--checksum", str(src_mac / mac[1]),
-         "--version", version, "--commit", e["commit"], "--repo", TARGET, "--release-key-file", str(REPO / "launcher" / "release_key.pub")])
+         "--version", version, "--commit", e["commit"], "--repo", TARGET, "--release-key-file", str(REPO / "launcher" / "release_key.pub"),
+         "--nightly-key-file", str(nightly_file)])
     # the Mac package joins the folder before the sealing (autorelease.sh step 6, MACPLAY-1)
     shutil.copyfile(src_mac / maczip, pkg / maczip)
     with open(pkg / f"SHA256SUMS-{version}.txt", "a", encoding="ascii") as sums:
         sums.write((src_mac / mac[1]).read_text(encoding="ascii"))
-    env = aws_session_env()
-    run([sys.executable, f"{T}/seal_package.py", "seal", str(pkg), "--kms", "--repo", TARGET], env=env)
+    run([sys.executable, f"{T}/seal_package.py", "seal", str(pkg), "--key", str(keyfile), "--repo", TARGET])
     fmt = "2" if legacy else "3"
     run([sys.executable, f"{T}/make_manifest.py", str(pkg), "--repo", TARGET, "--format", fmt])
     mdate = json.loads((pkg / "manifest.json").read_text(encoding="utf-8"))["date"]
@@ -197,61 +371,23 @@ def cmd_sign(a) -> None:
     sealed.write_text(sealed_sum[0] + "\n", encoding="ascii")
     run([sys.executable, f"{T}/make_macos_manifest.py", "--version", version, "--repo", TARGET, "--commit", e["commit"], "--date", mdate,
          "--archive", str(pkg / maczip), "--checksum", str(sealed), "--out", str(pkg / "manifest-macos.json")])
-    slot = "both" if policy["phase"] == "kms" else "sig2"
     for m in ("manifest.json", "manifest-macos.json"):
-        run([sys.executable, f"{T}/kms_sign.py", "--slot", slot, str(pkg / m)], env=env)
-    # everything once more, from the files alone, under the committed list
-    keys_file = str(REPO / "launcher" / "release_keys.pub")
-    run([sys.executable, f"{T}/seal_package.py", "check", str(pkg), "--public", keys_file, "--repo", TARGET])
+        run([sys.executable, f"{T}/sign_manifest.py", "--key", str(keyfile), str(pkg / m)])
+    # everything once more, from the files alone, under the committed lists (the nightly scope rule: a nightly's files only)
+    kf, nf = str(keys_file), str(nightly_file)
+    run([sys.executable, f"{T}/seal_package.py", "check", str(pkg), "--public", kf, "--nightly", nf, "--repo", TARGET])
     run([sys.executable, f"{T}/make_manifest.py", "--check", str(pkg), "--version", version])
     run([sys.executable, f"{T}/make_macos_manifest.py", "--check", str(pkg), "--release-key-file", str(REPO / "launcher" / "release_key.pub"),
-         "--seal-key-file", keys_file])
+         "--seal-key-file", kf, "--nightly-key-file", nf])
     for m in ("manifest.json", "manifest-macos.json"):
-        for s in (("sig", "sig2") if slot == "both" else ("sig2",)):
-            run([sys.executable, f"{T}/sign_manifest.py", "--verify", keys_file, str(pkg / m), "--sig", str(pkg / f"{m}.{s}")])
-        if slot == "sig2" and (pkg / f"{m}.sig").exists():
-            raise Fail(f"{m}.sig exists in the transition phase (the Deck co-signs it)")
+        out = run([sys.executable, f"{T}/sign_manifest.py", "--verify", kf, "--nightly", nf, str(pkg / m)])
+        if f"({label}, raw)" not in out:
+            raise Fail(f"{m}.sig does not verify as the {label} key's signature")
     if any(b"PRIVATE KEY" in p.read_bytes() for p in pkg.iterdir()):
         raise Fail("a private key is among the release's files")
-    summary(f"Signed {version} ({e['kind']}, phase {policy['phase']}): " + ", ".join(
+    summary(f"Signed {version} with the nightly key {label}: " + ", ".join(
         f"{p.name} {hashlib.sha256(p.read_bytes()).hexdigest()}" for p in sorted(pkg.iterdir())))
     print(f"SIGN ok: {version}")
-
-
-def aws_session_env() -> dict:
-    """GitHub's OIDC token (audience sts.amazonaws.com) traded for a 15-minute session of the signing role; the credentials live in the
-    environment of the aws processes this run starts, never in a file, an output or the log"""
-    role, region = os.environ.get("SIGNING_ROLE_ARN", ""), os.environ.get("SIGNING_REGION", "")
-    if not re.fullmatch(r"arn:(aws):iam::[0-9]{12}:role/openbfme-release-signer", role):
-        raise Fail("SIGNING_ROLE_ARN (the environment's secret OPENBFME_SIGNING_ROLE_ARN) is not the signing role's ARN")
-    if not re.fullmatch(r"[a-z]{2}-[a-z]+-[0-9]", region):
-        raise Fail("SIGNING_REGION (the environment's variable OPENBFME_SIGNING_REGION) is not an AWS region")
-    url, bearer = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_URL", ""), os.environ.get("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "")
-    if not url or not bearer:
-        raise Fail("no OIDC token request in this job (it needs the id-token permission)")
-    import urllib.request
-    req = urllib.request.Request(url + ("&" if "?" in url else "?") + "audience=sts.amazonaws.com",
-                                 headers={"Authorization": f"bearer {bearer}"})
-    opener = os.environ.get("OPENBFME_TEST_OIDC_FILE")   # tests: the token from a file (stand-in mode only)
-    if opener and os.environ.get("OPENBFME_RELEASE_STANDIN"):
-        token = Path(opener).read_text().strip()
-    else:
-        with urllib.request.urlopen(req, timeout=30) as r:  # noqa: S310 (GitHub's own token endpoint, from its environment)
-            token = json.loads(r.read())["value"]
-    session = f"openbfme-{os.environ.get('GITHUB_RUN_ID', '0')}-{os.environ.get('GITHUB_RUN_ATTEMPT', '0')}"
-    env = {k: v for k, v in os.environ.items() if not k.startswith("AWS_") and not k.startswith("ACTIONS_ID_TOKEN")}
-    env["AWS_REGION"] = env["AWS_DEFAULT_REGION"] = region
-    env["AWS_EC2_METADATA_DISABLED"] = "true"
-    r = subprocess.run([os.environ.get("AWS", "aws"), "sts", "assume-role-with-web-identity", "--role-arn", role, "--role-session-name",
-                        session, "--web-identity-token", token, "--duration-seconds", "900", "--output", "json"],
-                       capture_output=True, text=True, env=env)
-    if r.returncode:
-        raise Fail(f"AssumeRoleWithWebIdentity failed: {r.stderr.strip()[-300:]}")
-    c = json.loads(r.stdout)["Credentials"]
-    # the variable names are assembled: the public tree's privacy audit refuses the credential names' literal shape
-    for name, field in (("ACCESS_KEY_ID", "AccessKeyId"), ("SECRET_ACCESS_KEY", "SecretAccessKey"), ("SESSION_TOKEN", "SessionToken")):
-        env["AWS_" + name] = c[field]
-    return env
 
 
 def summary(text: str) -> None:
@@ -308,16 +444,16 @@ def cmd_draft(a) -> None:
 # ---- the Deck's side ---------------------------------------------------------------------------------------------------------------------
 
 def cmd_dispatch(a) -> None:
-    if a.kind not in KINDS or not KINDS[a.kind].match(a.tag):
-        raise Fail(f"{a.tag} is not a {a.kind} tag")
+    if not KINDS["nightly"].match(a.tag):
+        raise Fail(f"{a.tag} is not a nightly tag: only nightlies are signed on GitHub Actions")
     if not HEX40.match(a.commit):
         raise Fail("the commit is not 40 hex")
     request = secrets.token_hex(16)
     out = Path(a.out)
-    out.write_text(json.dumps({"request": request, "tag": a.tag, "kind": a.kind, "commit": a.commit, "run_id": None}) + "\n")
-    run([gh(), "workflow", "run", WORKFLOW, "--repo", a.repo, "--ref", "main", "-f", f"kind={a.kind}", "-f", f"tag={a.tag}",
+    out.write_text(json.dumps({"request": request, "tag": a.tag, "kind": "nightly", "commit": a.commit, "run_id": None}) + "\n")
+    run([gh(), "workflow", "run", WORKFLOW, "--repo", a.repo, "--ref", "main", "-f", f"tag={a.tag}",
          "-f", f"commit={a.commit}", "-f", f"request={request}"])
-    print(f"DISPATCHED {a.tag} ({a.kind}), request {request}")
+    print(f"DISPATCHED {a.tag}, request {request}")
 
 
 def _find_run(repo: str, request: str):
@@ -339,7 +475,7 @@ def cmd_wait(a) -> None:
             break
         if time.monotonic() > deadline:
             state = run_.get("status") if run_ else "not started"
-            raise Fail(f"the release run of {req['tag']} is still {state} after {a.timeout} s (a stable run waits for the owner's approval)")
+            raise Fail(f"the release run of {req['tag']} is still {state} after {a.timeout} s")
         time.sleep(a.poll)
     if run_.get("head_branch") != "main" or run_.get("event") != "workflow_dispatch" or run_.get("path", f".github/workflows/{WORKFLOW}") \
             != f".github/workflows/{WORKFLOW}":
@@ -438,7 +574,6 @@ def main(argv: list[str]) -> int:
     p = sub.add_parser("dispatch")
     p.add_argument("--tag", required=True)
     p.add_argument("--commit", required=True)
-    p.add_argument("--kind", required=True, choices=sorted(KINDS))
     p.add_argument("--repo", default=TARGET)
     p.add_argument("--out", required=True)
     w = sub.add_parser("wait")
@@ -446,6 +581,11 @@ def main(argv: list[str]) -> int:
     w.add_argument("--repo", default=TARGET)
     w.add_argument("--timeout", type=int, default=4 * 3600)
     w.add_argument("--poll", type=int, default=60)
+    t = sub.add_parser("trust-check")
+    t.add_argument("--commit", required=True)
+    t.add_argument("--git-dir", default=str(REPO))
+    t.add_argument("--remote", default=None, help="fetch the stable release's commit from this remote first (the Deck)")
+    t.add_argument("--repo", default=TARGET)
     c = sub.add_parser("compare")
     c.add_argument("--candidate", required=True)
     c.add_argument("--actions", required=True)
@@ -453,7 +593,7 @@ def main(argv: list[str]) -> int:
     a = ap.parse_args(argv)
     try:
         {"plan": cmd_plan, "checkout-is-tag": cmd_checkout_is_tag, "sign": cmd_sign, "draft": cmd_draft, "dispatch": cmd_dispatch,
-         "wait": cmd_wait, "compare": cmd_compare}[a.cmd](a)
+         "wait": cmd_wait, "compare": cmd_compare, "trust-check": cmd_trust_check}[a.cmd](a)
     except Fail as e:
         print(f"RELEASE ACTIONS FAIL ({a.cmd}): {e}", file=sys.stderr)
         return 1

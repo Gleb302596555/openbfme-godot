@@ -23,6 +23,8 @@
 ##   --prefix=<name> / --timescale=<f>   (scenario projectiles) the screenshot name prefix (default proj1) and the logic speed (default 0.25); --air=<n> projectiles in the air for the volley shot (default 6)
 ##   --bow-shot              (scenario projectiles, lane RENDER-2) first a close view of our shooters, saved as <prefix>-bow.png when arrows have just left their launch bones
 ##   --report                print the HUD's report (stops, errors, notes) before quitting
+##   --asset-pack=<folder>   (lane SDK-1, repeatable) draw with that asset pack; --scenario=asset_pack circles the first --spawn object at
+##                           --s2-height for --bench-seconds and selects it halfway (the before / after clip of a pack)
 ##   --logic-thread=on|off   (lane SMOOTH-1, S-810) the logic on its worker thread (default) or on the main thread
 ##   --scenario=smooth_bench (lane SMOOTH-1) the frame-time benchmark and motion probe: every --spawn object marches, turns (a second move order at 90 degrees) and then
 ##                           attack-moves into every --enemy object (which attack-moves back); per segment it prints SMOOTH PERF (render frame times, the C++ timers of the
@@ -285,10 +287,23 @@ func _ready() -> void:
 		elif arg.begins_with("--fx-speed="):
 			_fx_speed = float(arg.substr(11))
 	_fs = ClassDB.instantiate("RetailFileSystem")
+	# lane SDK-1: --asset-pack=FOLDER (repeatable) draws with those asset packs (only these: the viewer never reads user://asset-packs)
+	var packs := PackedStringArray()
+	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--asset-pack="):
+			packs.push_back(arg.substr(13))
+	if not packs.is_empty():
+		var pr: Dictionary = _fs.set_asset_packs(packs)
+		if not pr.ok:
+			_fail("asset packs: %s" % [pr.errors])
+			return
+		print("HUD asset packs: ", ", ".join(pr.packs), " (", pr.textures, " textures, ", pr.models, " models)")
 	var mount: Dictionary = _fs.mount_retail()
 	if not mount.ok:
 		_fail("mount failed: %s" % [mount.errors])
 		return
+	for note in mount.get("asset_pack_notes", PackedStringArray()):
+		print("HUD asset packs: ", note)
 	var env := Environment.new()
 	env.background_mode = Environment.BG_COLOR
 	env.background_color = Color(0, 0, 0) # the base game shows black outside the map (owner, 2026-10-06)
@@ -1160,6 +1175,29 @@ func _run_scenario() -> void:
 			await _frames(60)
 			print("HUD4 hero ", _hud.get_selection())
 			_save(shots.path_join("hud4-select-hero.png"))
+		"asset_pack":
+			# lane SDK-1 (the before / after clip of an asset pack): the camera circles the first --spawn object at --s2-height for
+			# --bench-seconds, selecting it halfway (its voice / selection sound), then quits
+			var name: String = _spawned.keys()[0]
+			var o: Dictionary = _world.get_object(_spawned[name])
+			if not o.get("ok", false):
+				_fail("the spawned object %s does not exist (%s)" % [name, o])
+				return
+			_cam_target = Vector2(o.x, o.y)
+			_hud.camera_look_at(_cam_target)
+			_hud.camera_set_height(_s2_height)
+			var frames := int(_bench_seconds * 30.0)
+			for i in frames:
+				_hud.camera_set_angle_pitch(0.6 + TAU * 0.35 * float(i) / float(frames), 0.0)
+				_hud.camera_look_at(_cam_target) # the angle turns the camera about itself: aim at the object again
+				if i == frames / 2:
+					await _click_world(_cam_target)
+				await _frames(1)
+			# the proof that a pack changes nothing the game logic sees: the same run with and without the pack prints the same lines
+			print("ASSET PACK state hash: ", _world.get_state_hash(), "; mod identity: ", _fs.get_mod_report().get("identity", PackedStringArray()))
+			print("ASSET PACK clip done: ", name)
+			_finish()
+			return
 		"select_building":
 			# the first spawned object: select it by a click, wait for the bar to fill, save the picture
 			var name: String = _spawned.keys()[0]
