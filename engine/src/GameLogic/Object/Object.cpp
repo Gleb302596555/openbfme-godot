@@ -5,6 +5,7 @@
 #include "Common/ModEngineFeatures.h"
 #include "GameClient/ControlBarCommands.h"
 #include "GameLogic/Object/Object.h"
+
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Map/TerrainTrees.h"
 #include "GameLogic/LegendaryHeroesGame.h"

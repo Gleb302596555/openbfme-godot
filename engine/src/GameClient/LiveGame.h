@@ -311,6 +311,8 @@ public:
 	// lane SCRIPT-1: the script engine's client requests (camera, UI, audio ...) published with the frames, in execution order (render side; taken once)
 	std::vector<ScriptClientRequest> takeScriptRequests();
 	bool mapScriptsRunning() const { return m_mapScripts; }
+	// lane CHEAT-1: the Cheat Mode lines (GameLogic/CheatMode.h) published with the frames, in execution order (render side; taken once)
+	std::vector<CheatMode::LogEntry> takeCheatAnnouncements();
 
 	struct Report
 	{
@@ -447,6 +449,7 @@ private:
 	mutable std::condition_variable m_pubCv;
 	std::shared_ptr<const LogicSnapshot> m_published, m_publishedPrev; ///< guarded by m_pubMutex
 	std::vector<ClientEvent> m_publishedEvents;                         ///< guarded: published, not yet taken by the render side
+	std::vector<CheatMode::LogEntry> m_publishedCheatLines;               ///< guarded: lane CHEAT-1, published, not yet taken
 	std::vector<ScriptClientRequest> m_publishedScriptRequests;         ///< guarded: lane SCRIPT-1, published, not yet taken
 	std::vector<std::pair<UnsignedInt, std::uint32_t>> m_frameHashes;   ///< guarded
 	std::deque<WorkItem> m_work;          ///< guarded: frames requested from the worker (numbered batches with a driver), not started

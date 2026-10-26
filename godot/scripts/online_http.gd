@@ -101,6 +101,7 @@ func _send(q: Dictionary) -> void:
 	if kind == "lobby" and q.method == "GET" and (path in ["/v1/games", "/v1/mine"] or SocialList.handles(q.path)):
 		_list_requests[q.id] = q.path
 	var headers := PackedStringArray(["content-type: application/json", "accept: application/json"])
+	headers.append("x-openbfme-max-slots: " + str(q.get("max_slots", 8)))
 	if not String(q.token).is_empty():
 		headers.append("authorization: Bearer " + q.token)
 	var method: int

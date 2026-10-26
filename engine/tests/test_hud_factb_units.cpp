@@ -15,6 +15,7 @@
 #include "GameLogic/ActionManager.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/ExperienceTracker.h"
+#include "GameClient/Drawable.h"
 #include "GameClient/HudObjects.h"
 #include "GameClient/GUI/AptScreens/AptSpellStore.h"
 #include "GameClient/SpellBookUI.h"
@@ -2213,7 +2214,11 @@ void fightsOf(const std::string &faction, Results &res)
 					{
 						Object *at = ats[k];
 						const size_t logged = g.hud->input().messageLog().size();
-						g.clickAt({ at->getPosition()->x, at->getPosition()->y, at->getPosition()->z + 10.0f });
+						// community #74: the click goes where the member is drawn (the last completed frame's pose): a member still walking to its slot
+						// stands a step ahead of its drawing
+						const Drawable *drawn = g.rig.game->drawables().findByObject(at->getID());
+						const Coord3D seen = drawn ? *drawn->getPosition() : *at->getPosition();
+						g.clickAt({ seen.x, seen.y, seen.z + 10.0f });
 						++clicks;
 						g.step(1);
 						const std::vector<std::string> &log = g.hud->input().messageLog();
@@ -2956,8 +2961,10 @@ TEST_CASE("factb spell book: every Isengard spell book power cast through the HU
 	// (RotWK's idle state RW 0x745A64 has no ZH frame <= 1 snap)
 	// merge queue q24 (CAMPUI-1, OFFMAP-1, SCRIPT-4, MODS-3 and the amoeba reach fix on q23's tree, measured once): the scene meets the 500 heuristic again,
 	// so the Taint line passes; it still asserts no effect of TaintSpecialPower of its own (S-1997 keeps the explanation)
+	// merge queue q26 (community #73's slot table centred on the horde, as #73's own run found): the scene misses the 500 heuristic again (1536 with the cast,
+	// 1732 without), so Taint is a KNOWN line once more
 	r.check({ { "spell SpellBookDevastation", "S-921 (SPELL-3)" }, { "spell SpellBookIndustry", "S-1997" },
-		{ "spell SpellBookFueltheFires", "S-1997" }, { "spell SpellBookDragonStrike", "S-1997" } });
+		{ "spell SpellBookFueltheFires", "S-1997" }, { "spell SpellBookDragonStrike", "S-1997" }, { "spell SpellBookIsengardTaint", "S-1997" } });
 }
 
 TEST_CASE("factb spell book: every Mordor spell book power cast through the HUD's spell bar shows its effect")
@@ -3803,7 +3810,6 @@ TEST_CASE("factc units: every Goblin and Angmar unit, horde and hero ability and
 			  { { "* Command_ToggleStance", "S-289" },
 				{ "GoblinArcherHorde Command_GoblinArcherPoisonArrows", "S-1997|HordeAttackNugget" },
 				{ "MordorWorker Command_Harvest", "S-1993 closed: the sweep asserts no SPECIAL_HARVEST effect; test_lumber1.cpp does|no effect of it is asserted" },
-				{ "WildBabyDrakeHorde Command_FireDrakeBroodInferno", "S-2006|BabyDrakeInferno: no result" },
 				{ "WildMountainGiant Command_SpecialAbilityWildMountainGiantStomp", "S-2006|WildMountainGiantStomp: no result" },
 				{ "WildPorter Command_PorterExtinguishFire", "S-1997|PorterFireExtinguisher: no result" } });
 	factcCase("units", "FactionAngmar", unitsOf,
@@ -3845,10 +3851,11 @@ TEST_CASE("factc damage: the first hit of every Goblin and Angmar unit, horde an
 	{
 		return;
 	}
-	// merge q8 (PATHPERF-1's placement on FLY-1's tree): the Goblin archers' first frame of damage on the hero is two different hits of their weapon
-	// summed (4.35 = 3.75 + 0.6), which the window's "k copies of one hit" does not accept (S-4104)
+	// merge q8 (PATHPERF-1's placement on FLY-1's tree): the Goblin archers' first frame of damage on the hero was two different hits of their weapon
+	// summed (4.35 = 3.75 + 0.6), which the window's "k copies of one hit" does not accept (S-4104, closed: since the formations are centred on their
+	// hordes, RW 0x86C4EA, the first frame holds one hit)
 	// Lane TARGET-1: the archers' first frame of damage on the hero is one hit again (3.75): RotWK's target search and the horde member pick (RW 0x68D30E ->
-	// 0x86FA87) moved the volley's timing; S-4104's window limit stays registered
+	// 0x86FA87) moved the volley's timing
 	factcCase("damage", "FactionWild", heroDamageOf, {});
 	// lane PLAY-4 r3: RotWK's melee reach (RW 0x6ED843's footprint boxes) brings the Goblin King, the Marauder swords and the Dark Dunedain onto Boromir (S-2005
 	// keeps the Necromancers); on the site kept on the map the Thrall Master's target is in sight (S-565 no longer applies)

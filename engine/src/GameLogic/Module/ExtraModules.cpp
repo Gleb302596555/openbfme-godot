@@ -35,6 +35,7 @@ void bind(ModuleFactory &modules, const char *name)
 void ExtraModules::registerAll(ModuleFactory &modules)
 {
 	bind<AttributeModifierUpgrade, AttributeModifierUpgradeModuleData>(modules, "AttributeModifierUpgrade");
+	bind<AllowBannerSpawnUpgrade, UpgradeModuleData>(modules, "AllowBannerSpawnUpgrade"); // lane BANNER-1
 	bind<CreateObjectDie, CreateObjectDieModuleData>(modules, "CreateObjectDie");
 	bind<FireWeaponWhenDeadBehavior, FireWeaponWhenDeadBehaviorModuleData>(modules, "FireWeaponWhenDeadBehavior");
 	FireWeaponWhenDamagedBehavior::registerModule(modules); // lane MODS-3

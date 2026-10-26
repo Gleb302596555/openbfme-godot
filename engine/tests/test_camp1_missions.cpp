@@ -9,6 +9,7 @@
 #include "GameLogic/Module/AttachUpdate.h"
 #include "GameLogic/SimMath.h"
 
+#include <cstdio>
 #include <cstdlib>
 #include <map>
 
@@ -86,6 +87,8 @@ TEST_CASE("camp1 survey: every Angmar mission's unported script content in its f
 	const char *frames = std::getenv("CAMP1_SURVEY");
 	if (!frames)
 	{
+		std::printf("SKIP: camp1 survey needs CAMP1_SURVEY (opt-in diagnostic); not run\n");
+		std::fflush(stdout);
 		return;
 	}
 	for (const char *map : { "map ang amon sul", "map ang dark eye", "map ang barrow downs", "map ang carn dum", "map ang barrow wights", "map ang fornost",
@@ -200,6 +203,8 @@ TEST_CASE("camp1 probe: CAMP1_PROBE=<map> CAMP1_FRAMES=<n> logs the mission's pr
 	const char *map = std::getenv("CAMP1_PROBE");
 	if (!map)
 	{
+		std::printf("SKIP: camp1 probe needs CAMP1_PROBE (opt-in diagnostic); not run\n");
+		std::fflush(stdout);
 		return;
 	}
 	OPENBFME_REQUIRE_START(s);
@@ -362,7 +367,9 @@ TEST_CASE("camp1 dark eye: MAP ANG Dark Eye plays from its intro to the victory 
 	// merge queue q24: 0 again on the merged tree. Measured on the archive 92fefaadf (MERGEQ-23's TARGET-1 / ATTACKPATH-1 / FLANK-1 / PRODUCTION1 / LUMBER1) with
 	// MODS-3 alone (no CAMPUI-1, OFFMAP-1 or SCRIPT-4): 0 as well, so MERGEQ-23's fights move the playthrough off the shard hooks' conditions; MODS-3's lane
 	// tree (on q22) measured 28. An engine pin of the playthrough, not a retail value
-	expectTeamScripts(m, 11, 0, 0);
+	// merge queue q26: the formations centred on their hordes (community #73, RW 0x86C4EA) move the team otherwise and it fires once again (as #73's own port
+	// measured)
+	expectTeamScripts(m, 11, 0, 1);
 }
 
 namespace

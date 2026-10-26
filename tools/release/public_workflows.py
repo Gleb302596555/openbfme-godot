@@ -4,7 +4,8 @@ before anything is pushed; --plan too) and on every pull request (.github/workfl
 
 A community pull request can change .github/ like any other file, and a sync carries what the archive holds, so a workflow that could reach
 a secret, write to the repository or run on a private machine must never get there. The rules (a hit is a failure; nothing is skipped):
-  * .github/ holds only APPROVED files: the pull request template and workflows (.github/workflows/<name>.yml); anything else there
+  * .github/ holds only APPROVED files: the pull request template, workflows (.github/workflows/<name>.yml) and the workflow linter's
+    zizmor.yml; anything else there
     (other templates, dependabot, funding, CODEOWNERS ...) is refused until it is reviewed and added to APPROVED;
   * a workflow parses as YAML (PyYAML's safe loader) into a mapping: GitHub refuses a file it cannot parse and runs none of its jobs
     (lane PUBLICCI-1: a plain `run:` value holding ": " made every run of pr.yml fail as a "workflow file issue" while the text rules
@@ -42,7 +43,9 @@ import re
 import subprocess
 import sys
 
-APPROVED = (re.compile(r"\.github/pull_request_template\.md"), re.compile(r"\.github/workflows/[a-z0-9][a-z0-9_-]*\.yml"))
+# .github/zizmor.yml: the workflow linter's configuration (pr.yml runs zizmor on .github/workflows), reviewed 2026-10-24: lint rules only
+APPROVED = (re.compile(r"\.github/pull_request_template\.md"), re.compile(r"\.github/workflows/[a-z0-9][a-z0-9_-]*\.yml"),
+            re.compile(r"\.github/zizmor\.yml"))
 REFUSED_TRIGGERS = ("pull_request_target", "workflow_run", "issue_comment")
 ALLOWED_TRIGGERS = ("pull_request", "merge_group", "push", "workflow_dispatch")
 USES = re.compile(r"^\s*(?:-\s+)?uses:\s*(\S+)\s*(?:#.*)?$")

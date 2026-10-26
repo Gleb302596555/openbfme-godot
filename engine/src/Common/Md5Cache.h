@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include "Common/PathIO.h"
+
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
@@ -52,7 +54,7 @@ struct Md5Cache
 		{
 			return;
 		}
-		std::ifstream in(std::filesystem::u8path(path));
+		std::ifstream in(PathIO::native(path));
 		std::string line;
 		while (std::getline(in, line))
 		{
@@ -78,7 +80,7 @@ struct Md5Cache
 			return std::string();
 		}
 		std::error_code ec;
-		std::filesystem::path target = std::filesystem::u8path(path);
+		std::filesystem::path target = PathIO::native(path);
 		std::filesystem::create_directories(target.parent_path(), ec);
 		std::filesystem::path temp = target;
 		temp += ".tmp";

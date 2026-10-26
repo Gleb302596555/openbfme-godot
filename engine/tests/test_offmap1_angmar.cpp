@@ -127,11 +127,13 @@ TEST_CASE("offmap1 retail: MAP ANG Angmar's counterattack placed below the map s
 		CHECK_FALSE(o->isEffectivelyDead());
 		CHECK(o->isOffMap());
 		// a horde member turns to its slot's facing and takes its slot, nothing more: no one walks toward the map. The wolf riders' banner carrier
-		// (AngmarThrallMasterWolfBanner, created at the horde's position) walks 35 to its banner slot beside the horde, still below the edge
+		// (AngmarThrallMasterWolfBanner, created at the horde's position) walks to its banner slot beside the horde, still below the edge: 35 before merge
+		// queue q26, 55 since the slot table (banner slot included) is centred on the horde (community #73, RW 0x877751 -> RW 0x86C4EA) and BANNER-1's
+		// carrier takes that centred slot (measured: 54.2 .. 55.1)
 		CHECK(o->getPosition()->y < 0.0f); // tolerance: below the map edge is the claim (OFF_MAP), not a position
 		const float dx = o->getPosition()->x - p.pos.x, dy = o->getPosition()->y - p.pos.y;
-		const float limit = o->getTemplate()->getName() == "AngmarThrallMasterWolfBanner" ? 36.0f : 10.0f;
-		CHECK_MESSAGE(dx * dx + dy * dy < limit * limit, o->getTemplate()->getName() << " " << o->getID() << " moved (" << dx << ", " << dy << ")"); // tolerance: a member takes its formation slot (turn + step; the banner its slot 35 away), no walk
+		const float limit = o->getTemplate()->getName() == "AngmarThrallMasterWolfBanner" ? 56.0f : 10.0f;
+		CHECK_MESSAGE(dx * dx + dy * dy < limit * limit, o->getTemplate()->getName() << " " << o->getID() << " moved (" << dx << ", " << dy << ")"); // tolerance: a member takes its formation slot (turn + step; the banner its slot 55 away), no walk
 		CHECK(o->getBodyModule()->getHealth() == o->getBodyModule()->getMaxHealth());
 	}
 	CHECK(wk->getExperienceTracker()->getExperience() == wkXp);

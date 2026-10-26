@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -46,6 +47,13 @@ def file_bytes(guid: str, f: dict, unknown: int) -> bytes:
     n = f["Size"] or unknown
     return (unit * (n // len(unit) + 1))[:n]
 
+
+
+def logged(path) -> str:
+    """the path as the launcher log writes it: its privacy filter replaces the account name (e.g. in /tmp/pytest-of-<name>) with <user>"""
+    user = os.environ.get("USER") or os.environ.get("USERNAME") or os.environ.get("LOGNAME") or ""
+    text = str(path)
+    return re.sub(r"(?i)(?<![a-z0-9_])" + re.escape(user) + r"(?![a-z0-9_])", "<user>", text) if user else text
 
 class Service:
     """the fixture served the way bfmeladder.com serves it"""
@@ -231,7 +239,7 @@ def test_mod_install_lays_out_writes_only_its_folder_and_starts(tmp_path, servic
     r = launch(tmp_path, service, "--mod-args")
     assert r.code == 0 and r.has("LAUNCHER game arguments: ") and not r.has("--mod"), r
     r = launch(tmp_path, service, "--mod-use=test-realms", "--mod-args")
-    assert r.code == 0 and r.has(f"LAUNCHER game arguments: -- --mod-install={base / 'install'}"), r
+    assert r.code == 0 and r.has(f"LAUNCHER game arguments: -- --mod-install={logged(base / 'install')}"), r
     cfg = (mods_dir(tmp_path) / "active.cfg").read_text()
     assert 'active="test-realms"' in cfg and '"test-realms-nointro", "test-realms-font"' in cfg, cfg
     # again without the enhancements: their files go, the package's own come back; the pick follows only with --mod-use
@@ -242,7 +250,7 @@ def test_mod_install_lays_out_writes_only_its_folder_and_starts(tmp_path, servic
     assert (base / "install" / "__realms_ini.big").read_bytes() == service.data[("test-realms", "__realms_ini.big")]
     assert not (base / "install" / "_____short_intro.big").exists()
     r = launch(tmp_path, service, "--mod-use=test-realms", "--mod-args")
-    assert r.code == 0 and r.has(f"--mod-install={base / 'install'}"), r
+    assert r.code == 0 and r.has(f"--mod-install={logged(base / 'install')}"), r
     # uninstall: its folder only; the original game is picked again
     r = launch(tmp_path, service, "--mod-remove=test-realms", "--mod-args")
     assert r.code == 0 and r.has("LAUNCHER MODS removed Example Realms") and not r.has("--mod-install"), r
@@ -256,7 +264,7 @@ def test_mod_with_its_own_folder_gets_the_mod_argument(tmp_path, service):
     r = launch(tmp_path, service, "--mod-get=test-tales", "--mod-consent", "--mod-use=test-tales", "--mod-args")
     base = mods_dir(tmp_path) / "test-tales"
     assert r.code == 0 and r.has("2 files downloaded"), r
-    assert r.has(f"LAUNCHER game arguments: -- --mod={base / 'mod'}") and not r.has("--mod-install"), r
+    assert r.has(f"LAUNCHER game arguments: -- --mod={logged(base / 'mod')}") and not r.has("--mod-install"), r
     assert sorted(str(p.relative_to(base)) for p in base.rglob("*") if p.is_file()) == ["mod/!!tales.big", "mod/data/ini/object/tale.ini", "openbfme-aio.json"]
     record = json.loads((base / "openbfme-aio.json").read_text())
     assert record["left_out"] == ["Tale Maps: tale\\tale.ini (a map: maps from the service are not supported yet)"], record

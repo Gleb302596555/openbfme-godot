@@ -2,6 +2,7 @@
 // See AptPalantir.h.
 
 #include "GameClient/GUI/AptScreens/AptPalantir.h"
+#include "GameClient/LocalizedText.h"
 
 #include <cstdio>
 #include "GameClient/GUI/AptScreens/AptSimpleScreens.h"
@@ -684,6 +685,11 @@ void AptPalantir::hideRank()
 // the rank text (type 0, when it changed: APT:HeroRank = APT:RankLabel formatted with the rank, RW 0x92FB90 -> 0x92FACB) or the time text (type 1, when just shown:
 // APT:PalantirTimeRemaining, RW 0x930729 .. 0x9307C1), then the bar when its value changed (RW 0x9304DB: ShowRankProgress / SetRankProgressBar(clamp(1 +
 // trunc(100 v), 1, 100)) for v >= 0, HideRankProgress for v < 0)
+std::string AptPalantir::rankText(const LocalState &state)
+{
+	return LocalizedText::format(state.rankLabelFormat, { state.rank });
+}
+
 void AptPalantir::syncRank()
 {
 	if (m_local.rankType != m_rankType)
@@ -708,9 +714,7 @@ void AptPalantir::syncRank()
 	{
 		if (!m_rankSet || m_local.rank != m_rankValue)
 		{
-			char buf[256];
-			std::snprintf(buf, sizeof(buf), m_local.rankLabelFormat.c_str(), m_local.rank);
-			windows().setAptText("APT:HeroRank", buf);
+			windows().setAptText("APT:HeroRank", rankText(m_local));
 			m_rankValue = m_local.rank;
 			m_rankSet = true;
 		}

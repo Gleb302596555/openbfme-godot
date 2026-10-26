@@ -319,7 +319,7 @@ The live report's `unported_modules` (objects alive at the end of the run) of ei
 | 219 | ToggleDeploySpecialAbilityUpdate | Behavior | 2 | 1 | missing |
 | 220 | AttributeModifierPoolUpdate | Behavior | 1 | 1 | ported |
 | 221 | BaseUpgrade | Behavior | 1 | 2 | missing |
-| 222 | BeaconClientUpdate | ClientUpdate | 1 | 1 | missing |
+| 222 | BeaconClientUpdate | ClientUpdate | 1 | 1 | ported |
 | 223 | BridgeBehavior | Behavior | 1 | 1 | missing |
 | 224 | CivilianSpawnUpdate | Behavior | 1 | 1 | missing |
 | 225 | CritterEmitterUpdate | Behavior | 1 | 1 | missing |

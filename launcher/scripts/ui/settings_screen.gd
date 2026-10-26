@@ -13,6 +13,7 @@ signal aio_toggled(on: bool)
 signal use_version(version: String)
 signal install_release(tag: String)
 signal open_logs
+signal replay_association_toggled(on: bool)
 
 const W := preload("res://scripts/ui/widgets.gd")
 const Style := preload("res://scripts/ui/style.gd")
@@ -29,6 +30,7 @@ var _free_camera: CheckButton
 var _auto: CheckButton
 var _aio: CheckButton
 var _count: CheckButton
+var _replay_association: CheckButton
 var _launcher: Label
 var _game: Label
 var _versions: ItemList
@@ -70,18 +72,25 @@ func _init(macos_preview := false) -> void:
 	_free_camera.toggled.connect(func(on: bool) -> void: free_camera_toggled.emit(on))
 	g.add_child(W.row(_with_note("Free camera", "Zoom out to the whole map (not retail)."), _free_camera))
 	_auto = CheckButton.new()
+	_auto.tooltip_text = "Check for updates on startup" if macos_preview else "Update automatically in the background"
 	_auto.toggled.connect(func(on: bool) -> void: auto_update_toggled.emit(on))
 	g.add_child(W.row(_with_note("Check for updates on startup" if macos_preview else "Update automatically in the background",
 		"Checks the official release version only. Mac preview updates are manual; nothing is installed." if macos_preview else
 		"New versions download while the launcher is open or you play, and start with your next Play."), _auto))
 	_count = CheckButton.new()
+	_count.tooltip_text = "Show how many players are online"
 	_count.toggled.connect(func(on: bool) -> void: show_online_count_toggled.emit(on))
 	g.add_child(W.row(_with_note("Show how many players are online",
 		"Asks the online lobby for one total (a number, no personal data) when the launcher opens and every few minutes while you look at it. " +
 		"The game's menus follow this. Off: nothing is asked."), _count))
 	_aio = CheckButton.new()
+	_aio.tooltip_text = "Offer to download the games"
 	_aio.toggled.connect(func(on: bool) -> void: aio_toggled.emit(on))
 	g.add_child(W.row(_with_note("Offer to download the games", "Game files: the All In One download."), _aio, true))
+
+	_replay_association = CheckButton.new()
+	_replay_association.toggled.connect(func(on: bool): replay_association_toggled.emit(on))
+	g.add_child(W.row(_with_note("Open .replay and .obfmesave files with OpenBFME", "Per-user file associations, no administrator rights. On macOS, change the default app in Finder's Get Info; off refuses Finder file opens."), _replay_association))
 
 	# Display
 	var d := _page(s.box, "display")
@@ -117,6 +126,7 @@ func _init(macos_preview := false) -> void:
 	right.add_child(W.label("Older versions"))
 	right.add_child(W.wrap("Install another release of the channel, also an older one.", "Muted"))
 	_releases = OptionButton.new()
+	_releases.tooltip_text = "Choose an older release to install"
 	right.add_child(_releases)
 	var fill := Control.new()
 	fill.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -172,7 +182,8 @@ func set_channel(ch: String) -> void:
 
 func set_busy(busy: bool) -> void:
 	_channel.disabled = busy
-	_use.disabled = busy or _versions.item_count == 0
+	_use.disabled = busy or _versions.item_count == 0 or _versions.get_item_metadata(0) == ""
+	_releases.disabled = busy or _releases.item_count == 0
 	_install.disabled = busy or _releases.item_count == 0
 	_aio.disabled = busy
 
@@ -186,6 +197,10 @@ func set_options(free_camera: bool, auto_update: bool, aio_on: bool, launcher: S
 
 func set_online_count(on: bool) -> void:
 	_count.set_pressed_no_signal(on)
+
+
+func set_replay_association(on: bool) -> void:
+	_replay_association.set_pressed_no_signal(on)
 
 
 ## installed: [{version}], play: the version Play starts, releases: the channel's tags (newest first)

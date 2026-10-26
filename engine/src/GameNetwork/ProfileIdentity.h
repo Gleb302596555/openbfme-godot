@@ -50,7 +50,8 @@ struct ProfileIdentity
 	static std::string difference(const ProfileIdentity &ours, const ProfileIdentity &theirs);
 	// lane NETLAG-1: REPLAY playback only (a live peer, a lobby JOIN / START and a save still compare the whole identity): true when `theirs` is `ours` in
 	// every line but its `engine` line and that engine id is one a recording was verified to play back under (verifiedReplayEngines): older builds' recordings
-	// keep playing after the engine id moved with the sources. `engine` receives theirs' id
+	// keep playing after the engine id moved with the sources; the features line may also differ in its `net-wire` entry alone (the live datagram format,
+	// which a recording never reads: BATCH-P4). `engine` receives theirs' id
 	static bool replayCompatible(const ProfileIdentity &ours, const ProfileIdentity &theirs, std::string *engine = nullptr);
 	// the engine ids of older builds whose recordings are known to play back on this one, each with the evidence (the fixture test that plays one)
 	struct VerifiedEngine

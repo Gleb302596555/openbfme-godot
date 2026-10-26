@@ -209,7 +209,9 @@ bool GameLogic::loadSnapshot(const std::vector<std::uint8_t> &bytes, std::string
 // between frames, where a snapshot is taken.
 void GameLogic::xferCore(Xfer &x)
 {
-	XferVersion v{ 1, 1 };
+	// lane CHEAT-1: version 2 adds the Cheat Mode block at the end; it is written only for a Cheat Mode game, so every other game's snapshot is byte-identical
+	// to version 1's (and a version 1 snapshot loads as a game without Cheat Mode)
+	XferVersion v{ 1, (std::uint8_t)(x.isLoading() || m_cheatMode.enabled() ? 2 : 1) };
 	x.xferVersion(v);
 	x.xferUnsignedInt(&m_frame);
 	x.xferBool(&m_frameAdvance);
@@ -232,5 +234,13 @@ void GameLogic::xferCore(Xfer &x)
 	if (ModEngineFeatures::has(ModEngineFeature::EdainUnchainedUniqueProductionId))
 	{
 		x.xferUnsignedInt(&m_sharedProductionID); // lane MODS-3: a game with the feature (its identity names it; a retail save has no such field)
+	}
+	if (v.current >= 2)
+	{
+		m_cheatMode.xfer(x);
+	}
+	else if (x.isLoading())
+	{
+		m_cheatMode = CheatMode::State();
 	}
 }

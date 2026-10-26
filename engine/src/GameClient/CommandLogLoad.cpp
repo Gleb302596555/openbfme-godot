@@ -318,11 +318,16 @@ void CommandLogLoad::checkCoverage(UnsignedInt target)
 	{
 		return; // no frame ran (checked against the loaded game's frame in begin)
 	}
-	for (UnsignedInt f = m_log.hashes.begin()->first; f <= target; ++f)
+	// the walk ends at F itself (never ++ past it: F may be the largest frame number), at the first required frame without its hash
+	for (UnsignedInt f = m_log.hashes.begin()->first;; ++f)
 	{
 		if (!m_log.hashes.count(f) && hashRequired(f, target))
 		{
 			fail(nullptr, "the save's command log has no state hash of frame " + std::to_string(f));
+			return;
+		}
+		if (f == target)
+		{
 			return;
 		}
 	}

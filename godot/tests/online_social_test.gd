@@ -42,6 +42,7 @@ class ShellStub extends Node2D:
 	# GuiFX's Yes / No box (AptOnlineShell::askYesNo): one at a time; `answers` are handed out once
 	var box_busy := false
 	var asked: Array = []
+	var cancelled: Array = []
 	var answers: Array = []
 	func online_ask(key: String, title: String, text: String) -> bool:
 		if box_busy: return false
@@ -54,6 +55,9 @@ class ShellStub extends Node2D:
 		return out
 	var displaced := false # another box took the question's place (the room closed under the player)
 	func online_asking(key: String) -> bool: return box_busy and not displaced and not asked.is_empty() and asked.back().key == key
+	func online_cancel_ask(key: String) -> void:
+		cancelled.append(key)
+		if online_asking(key): box_busy = false
 	func answer(yes: bool) -> void:
 		answers.append("%s|%s" % [asked.back().key, "yes" if yes else "no"])
 		box_busy = false
@@ -83,8 +87,9 @@ func _run() -> void:
 		"requests": [{"id": "5555555555555555", "from": peer, "to": me, "at": 1}, {"id": "6666666666666666", "from": me, "to": friend, "at": 1}],
 		"room_players": [{"pid": PEER, "nick": "Peer", "blocked": false, "target": "roster-peer"}],
 		"recent": [{"game": "4444444444444444", "at": 1, "players": [peer]}], "conversations": {}, "chat": [], "seq": "aaaaaaaaaaaaaaaa:1",
-		"invites": [{"id": "7777777777777777", "from": friend, "to": me, "game": "4444444444444444", "kind": "challenge", "mode": "normal", "note": "", "expires": 200}],
+		"invites": [{"id": "7777777777777777", "from": friend, "to": me, "game": "4444444444444444", "kind": "challenge", "mode": "normal", "note": "", "expires": int(Time.get_unix_time_from_system()) + 200}],
 	}
+	_stale_invite_tests(data)
 	var rows: Dictionary = Social.messenger_rows(data)
 	assert(rows.friends.size() == 2 and rows.friends[0].status == "away")
 	assert(rows.friends[1].id == PEER and rows.friends[1].request)
@@ -216,7 +221,7 @@ func _run() -> void:
 	assert(shell.calls[-1] == {"action": "send_invite", "pid": FRIEND, "kind": "invite"})
 	# ---- a new invite: RotWK's "Friend Game Invite" box; in a room, Yes asks to leave first, then leaves and accepts; No declines ----
 	shell.online.in_game = true
-	shell.social.invites.append({"id": "9999999999999999", "from": friend, "to": me, "game": "4444444444444444", "kind": "invite", "note": "", "expires": 200})
+	shell.social.invites.append({"id": "9999999999999999", "from": friend, "to": me, "game": "4444444444444444", "kind": "invite", "note": "", "expires": int(Time.get_unix_time_from_system()) + 200})
 	panel._process(0.0)
 	assert(shell.asked.size() == 3 and shell.asked[2].title == "Friend Game Invite" and shell.asked[2].text.begins_with("Friend has invited you"), str(shell.asked[-1]))
 	shell.answer(true)
@@ -226,7 +231,7 @@ func _run() -> void:
 	panel._process(0.0)
 	assert(shell.calls[-1] == {"action": "leave_accept_invite", "id": "9999999999999999"})
 	# an invite withdrawn while "Leave room?" is up: YES keeps the player in the room (Sol delta2 follow-up)
-	shell.social.invites.append({"id": "eeeeeeeeeeeeeeef", "from": friend, "to": me, "game": "4444444444444444", "kind": "invite", "note": "", "expires": 200})
+	shell.social.invites.append({"id": "eeeeeeeeeeeeeeef", "from": friend, "to": me, "game": "4444444444444444", "kind": "invite", "note": "", "expires": int(Time.get_unix_time_from_system()) + 200})
 	panel._process(0.0)
 	shell.answer(true)
 	panel._process(0.0)
@@ -237,15 +242,15 @@ func _run() -> void:
 	panel._process(0.0)
 	assert(shell.calls.size() == before, "a withdrawn invite is never accepted: %s" % str(shell.calls.slice(before)))
 	shell.online.in_game = false
-	shell.social.invites.append({"id": "aaaaaaaaaaaaaaab", "from": friend, "to": me, "game": "4444444444444444", "kind": "challenge", "mode": "uber", "note": "", "expires": 200})
+	shell.social.invites.append({"id": "aaaaaaaaaaaaaaab", "from": friend, "to": me, "game": "4444444444444444", "kind": "challenge", "mode": "uber", "note": "", "expires": int(Time.get_unix_time_from_system()) + 200})
 	panel._process(0.0)
 	assert(shell.asked[-1].title == "Challenge" and shell.asked[-1].text.contains("(Uber)"))
 	shell.answer(false)
 	panel._process(0.0)
 	assert(shell.calls[-1] == {"action": "decline_invite", "id": "aaaaaaaaaaaaaaab"})
 	# one box at a time: two new invites, the second waits for the first's answer
-	shell.social.invites.append({"id": "bbbbbbbbbbbbbbbc", "from": friend, "to": me, "game": "4444444444444444", "kind": "invite", "note": "", "expires": 200})
-	shell.social.invites.append({"id": "cccccccccccccccd", "from": peer, "to": me, "game": "4444444444444444", "kind": "invite", "note": "", "expires": 200})
+	shell.social.invites.append({"id": "bbbbbbbbbbbbbbbc", "from": friend, "to": me, "game": "4444444444444444", "kind": "invite", "note": "", "expires": int(Time.get_unix_time_from_system()) + 200})
+	shell.social.invites.append({"id": "cccccccccccccccd", "from": peer, "to": me, "game": "4444444444444444", "kind": "invite", "note": "", "expires": int(Time.get_unix_time_from_system()) + 200})
 	var asked_before := shell.asked.size()
 	panel._process(0.0)
 	panel._process(0.0)
@@ -306,3 +311,58 @@ func _run() -> void:
 	await process_frame
 	print("SOCIAL UI PASS: Messenger rows (requests, ignored players, ADD FRIEND greyed), accept / decline, friend code in the entry, remove and ignore asked in GuiFX's box, invites and challenges in RotWK's invite box one at a time, corner line, retry IDs, privacy staging")
 	quit(0)
+
+
+func _stale_invite_tests(data: Dictionary) -> void:
+	var cases := ["withdrawn", "room closed", "expired", "yes race", "no race", "leave room", "unrelated box", "queued", "sign out"]
+	for reason in cases:
+		var shell := ShellStub.new()
+		shell.social = data.duplicate(true)
+		shell.social.available = true
+		shell.social.requests = []
+		root.add_child(shell)
+		var panel := Social.new()
+		panel.shell = shell
+		root.add_child(panel)
+		panel.set_process(false)
+		panel._process(0.0)
+		assert(shell.box_busy and shell.asked.size() == 1, reason)
+		var key: String = shell.asked.back().key
+		var id: String = shell.social.invites[0].id
+		if reason == "leave room":
+			shell.online.in_game = true
+			shell.answer(true)
+			panel._process(0.0)
+			assert(shell.asked.back().title == "Leave room?")
+			key = shell.asked.back().key
+		if reason == "queued":
+			var queued: Dictionary = shell.social.invites[0].duplicate(true)
+			queued.id = "aaaaaaaaaaaaaaa1"
+			shell.social.invites.append(queued)
+			panel._process(0.0)
+			assert(panel._asks.size() == 1)
+		if reason == "yes race" or reason == "no race": shell.answer(reason == "yes race")
+		if reason == "unrelated box": shell.displaced = true
+		if reason == "expired":
+			shell.social.invites[0].expires = int(Time.get_unix_time_from_system()) - 1
+		elif reason == "sign out":
+			shell.online.signed_in = false
+		else:
+			shell.social.invites = []
+		var before := shell.calls.size()
+		panel._process(0.0)
+		assert(shell.calls.size() == before, reason + ": no accept, decline or leave request")
+		assert(shell.cancelled == [key] and panel._asking.is_empty(), reason)
+		assert(shell.box_busy == (reason == "unrelated box"), reason + ": only the invite box closes")
+		assert(panel._asks.is_empty(), reason + ": no obsolete queued question")
+		# A late button event cannot act on the retired key.
+		shell.answers.append(key + "|yes")
+		panel._service_asks()
+		assert(shell.calls.size() == before, reason + ": late Yes ignored")
+		if reason != "sign out":
+			panel._accept_invite(id, "Friend")
+			panel._leave_accept_invite(id, "Friend")
+			assert(shell.calls.size() == before, reason + ": both stale acceptance guards")
+		panel.free()
+		shell.free()
+	print("STALE INVITE PASS: %d cases" % cases.size())

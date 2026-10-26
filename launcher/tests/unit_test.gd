@@ -21,6 +21,9 @@ const Paths := preload("res://scripts/ui/paths.gd")
 const ProgressMeter := preload("res://scripts/ui/progress_meter.gd")
 const SettingsScreen := preload("res://scripts/ui/settings_screen.gd")
 const MessagePanel := preload("res://scripts/ui/message_panel.gd")
+const PlayerMessages := preload("res://scripts/ui/player_messages.gd")
+const MultiplayerScreen := preload("res://scripts/ui/multiplayer_screen.gd")
+const SocialClient := preload("res://scripts/net/social_client.gd")
 const ReleaseNotes := preload("res://scripts/core/release_notes.gd")
 const InstanceLock := preload("res://scripts/core/instance_lock.gd")
 const Updater := preload("res://scripts/core/updater.gd")
@@ -30,6 +33,7 @@ const OnlineCount := preload("res://scripts/core/online_count.gd")
 const DesktopEntry := preload("res://scripts/core/desktop_entry.gd")
 const AppIcon := preload("res://scripts/ui/app_icon.gd")
 const ReleaseSignature := preload("res://scripts/crypto/release_signature.gd")
+const GlibcCheck := preload("res://scripts/core/glibc_check.gd")
 const NetPolicy2 := preload("res://scripts/net/net_policy.gd")
 
 
@@ -52,6 +56,31 @@ class FakeHttp extends "res://scripts/net/http_fetch.gd":
 
 var _checks := 0
 var _failed := 0
+
+class TestErrors extends Logger:
+	var _mutex := Mutex.new()
+	var _failed := false
+
+	func _log_error(_function: String, _file: String, _line: int, _code: String, _rationale: String,
+			_editor_notify: bool, error_type: int, _backtraces: Array[ScriptBacktrace]) -> void:
+		if error_type == Logger.ERROR_TYPE_SCRIPT:
+			_mutex.lock()
+			_failed = true
+			_mutex.unlock()
+
+	func _log_message(message: String, _error: bool) -> void:
+		if message.contains("SCRIPT ERROR") or message.contains("Parse Error"):
+			_mutex.lock()
+			_failed = true
+			_mutex.unlock()
+
+	func failed() -> bool:
+		_mutex.lock()
+		var result := _failed
+		_mutex.unlock()
+		return result
+
+var _errors := TestErrors.new()
 
 
 ## lane ONLINE-2: openbfme:// links join a game and nothing else; the registration entries
@@ -108,6 +137,16 @@ static func _shipped_nightly_text(core: String, n: int) -> String:
 
 
 func _init() -> void:
+	OS.add_logger(_errors)
+	_run.call_deferred()
+
+
+func _run() -> void:
+	for need in ["2.28", "2.35", "2.38"]:
+		_check(GlibcCheck.too_old(need, "2.27") == ("this Linux system is too old for this build. " +
+			"Update to a Linux distribution with GLIBC %s or newer (this system has 2.27). " +
+			"If you need help, use the OpenBFME Discord #bug-reports forum or GitHub issues.") % need,
+			"Linux advice follows the package's actual requirement: " + need)
 	# versions (SemVer 2.0.0 section 11 precedence)
 	var order := ["v0.1.0-preview.0", "v0.1.0-preview.1", "v0.1.0-preview.2", "v0.1.0-preview.10", "v0.1.0", "v0.1.1-preview.1",
 		"v0.1.1", "v0.2.0-preview.9", "v0.2.0", "v0.10.0", "v1.0.0-preview.1", "v1.0.0", "v1.0.10", "v10.0.0"]
@@ -357,8 +396,12 @@ func _init() -> void:
 	_aio()
 	_ui()
 	_ui_dialogs()
+	_player_messages()
+	_social_error_codes()
 	_url_handler()
 	_app_icon()
+	if _errors.failed():
+		_failed += 1
 	if _failed == 0:
 		print("UNIT OK %d checks" % _checks)
 		quit(0)
@@ -760,6 +803,87 @@ func _ui() -> void:
 	_check(is_equal_approx(m.rate, 10 * 1048576.0) and m._b == 5, "UI: a new file restarts the sample")
 	_check(ProgressMeter.time_left(59) == "59 s" and ProgressMeter.time_left(90) == "1 min 30 s" and ProgressMeter.time_left(1200) == "20 min" and ProgressMeter.time_left(3725) == "1 h 2 min", "UI: time left")
 	_check(ProgressMeter.mb(3 * 1073741824) == "3.00 GB", "UI: GB above 1 GB")
+
+
+func _player_messages() -> void:
+	var operations := [PlayerMessages.Operation.UPDATE_CHECK, PlayerMessages.Operation.DOWNLOAD,
+		PlayerMessages.Operation.SIGN_IN, PlayerMessages.Operation.LOBBY, PlayerMessages.Operation.GENERAL]
+	var guidance := ["Could not check for updates", "retry the download", "try Sign in again", "try the lobby action again", "action could not be completed"]
+	var secrets := ["private-host.example", "/opt/private-install/version", "C:\\private-install\\version", "private-server.internal"]
+	var diagnostic := "HTTP 503 https://private-host.example:8443/file /opt/private-install/version C:\\private-install\\version private-server.internal"
+	var panel := MessagePanel.new()
+	for index in operations.size():
+		var operation: int = operations[index]
+		var visible := PlayerMessages.error_text(diagnostic, operation)
+		_check(visible.contains(guidance[index]), "messages: operation-specific HTTP recovery %d" % operation)
+		if operation != PlayerMessages.Operation.UPDATE_CHECK:
+			_check(not visible.contains("Could not check for updates"), "messages: HTTP is not always an update check")
+		panel.show_error("Action failed", diagnostic, "about", operation)
+		_check(panel._text.text == visible, "messages: dialog uses operation-specific text")
+		_check(panel._details.contains(diagnostic), "messages: Copy details retains diagnostics")
+		for detail in [diagnostic, "Unknown failure " + diagnostic, "writing " + diagnostic + " failed", "SHA-256 " + diagnostic, "rejected: " + diagnostic]:
+			for shown in [PlayerMessages.error_text(detail, operation), PlayerMessages.status_text(detail, operation), panel._text.text]:
+				for secret in secrets:
+					_check(not shown.contains(secret), "messages: visible text excludes paths and hosts")
+	panel.free()
+	for operation in [PlayerMessages.Operation.SIGN_IN, PlayerMessages.Operation.LOBBY]:
+		var text := PlayerMessages.social_error(diagnostic, operation)
+		_check(text == PlayerMessages.error_text(diagnostic, operation), "messages: social failures use the same safe mapping")
+		for secret in secrets:
+			_check(not text.contains(secret), "messages: social text excludes paths and hosts")
+	var screen := MultiplayerScreen.new()
+	screen.build("")
+	var social := SocialClient.new()
+	screen.client = social
+	var reports := []
+	screen.problem_reported.connect(func(detail: String, operation: int) -> void: reports.append([detail, operation]))
+	screen.show_problem(diagnostic)
+	_check(screen._status.text == PlayerMessages.error_text(diagnostic, PlayerMessages.Operation.SIGN_IN), "messages: signed-out errors use sign-in guidance")
+	social.token = "test-token"
+	social.me = {"pid": "0123456789abcdef"}
+	screen.show_problem(diagnostic)
+	_check(screen._status.text == PlayerMessages.error_text(diagnostic, PlayerMessages.Operation.LOBBY), "messages: signed-in errors use lobby guidance")
+	_check(reports == [[diagnostic, PlayerMessages.Operation.SIGN_IN], [diagnostic, PlayerMessages.Operation.LOBBY]], "messages: social diagnostics go to Copy details separately")
+	screen.free()
+	social.free()
+
+
+func _social_error_codes() -> void:
+	var cases := {
+		"signed_out": "Your social session expired. Sign in again.",
+		"session_revoked": "Your social session was revoked. Sign in again.",
+		"bad_recovery": "The recovery code was not accepted.",
+		"install_required": "Start the game once to create your shared identity.",
+		"banned": "This social account is unavailable.",
+		"suspended": "This social account is temporarily unavailable.",
+		"rate_limited": "Too many social requests. Try again later.",
+		"already_friends": "You are already friends.",
+		"already_requested": "That friend request is already pending.",
+		"unavailable": "That social item is no longer available.",
+		"not_found": "That social item was not found.",
+		"chat_muted": "Chat is unavailable for this account.",
+		"social_unavailable": "The social service is unavailable.",
+		"social_store_full": "The social service cannot save more data right now.",
+	}
+	var http_cases := {429: "Too many social requests. Try again later.",
+		401: "The social session is no longer accepted. Sign in again.",
+		403: "The social session is no longer accepted. Sign in again.",
+		404: "That social item is unavailable."}
+	_check(cases.keys() == SocialClient.ERROR_MESSAGES.keys(), "messages: every known social error code is tested")
+	_check(http_cases.keys() == SocialClient.HTTP_ERROR_MESSAGES.keys(), "messages: every known HTTP error code is tested")
+	var social := SocialClient.new()
+	for operation in [PlayerMessages.Operation.SIGN_IN, PlayerMessages.Operation.LOBBY]:
+		for code in cases:
+			var detail := social._safe_error(400, code)
+			_check(PlayerMessages.error_text(detail, operation) == cases[code], "messages: recovery for %s (%d)" % [code, operation])
+			_check(PlayerMessages.status_text(detail, operation) == cases[code], "messages: status recovery for %s (%d)" % [code, operation])
+			_check(not PlayerMessages.error_text(detail + " https://private-host.example /opt/private-install", operation).contains("private"),
+				"messages: known code guidance does not pass through appended diagnostics")
+		for code in http_cases:
+			var detail := social._safe_error(code, "unknown_server_code")
+			_check(PlayerMessages.error_text(detail, operation) == http_cases[code], "messages: HTTP recovery for %d (%d)" % [code, operation])
+			_check(PlayerMessages.status_text(detail, operation) == http_cases[code], "messages: HTTP status recovery for %d (%d)" % [code, operation])
+	social.free()
 
 
 ## lane UI-5: the Settings tabs show one page at a time; the message dialog closed with its X (Close) opens again (lane UI-3 round 2,
