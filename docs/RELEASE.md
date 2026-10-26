@@ -26,12 +26,17 @@ What a tester gets, and how to make it. Lane RELEASE-1.
   at any character that cannot continue a name, so `home=<home>;` is caught; the user
   name goes wherever it is a whole token, whatever its length: conservative, a one-letter
   name also replaces that word). The console (stdout / stderr, where the crash handler
-  also dumps) goes through the same filter on Linux (`Common/ConsoleFilter.h`), strictly
+  also dumps) goes through the same filter on Linux and macOS (`Common/ConsoleFilter.h`), strictly
   line-buffered: nothing reaches the console before its line is complete and scrubbed;
   a partial line is written, scrubbed, only at exit or on a crash (a name that never
   completed becomes `…`), and a line over 8 MiB is written in parts cut where no name can
   be split (`LogPrivacy::safeCut`). Godot's own file log is
-  off. Windows has no console filter: the testers' README asks for the log file, not a
+  off. macOS can report `POLLNVAL` for a valid `/dev/null` console sink, as used by the
+  launcher. The filter writes directly to a verified null-device or regular-file sink
+  in that case; an invalid or unsupported sink is not retried indefinitely. This avoids
+  filling the filter's input pipe and freezing gameplay while printing diagnostics.
+  Redaction still precedes every write, and pipe/socket shutdown deadlines are unchanged.
+  Windows has no console filter: the testers' README asks for the log file, not a
   copy of the console. The log folder is one click away (lane WINCRASH-1): a "Logs" link
   under the version in the menus, an "Open log folder" button in the crash and error
   messages (the file manager opens with that log selected), and `--open-logs` on the
@@ -1469,7 +1474,7 @@ runners only, with `permissions: contents: read`, pinned action shas, no secrets
 | `gate` | ubuntu-24.04 | the commit gate on the pull request's changes, `pr_audit.py` (built-in privacy rules + the `.github` policy; no private denylist), `pr_pytest.py` |
 | `linux` | ubuntu-24.04 | engine core + `openbfme_tests` build (ccache), the unit tests that need no game files |
 | `windows` | ubuntu-24.04 | `tools/release/build_windows.sh --no-export`: the release's llvm-mingw cross build (tests, peer, GDExtension, PDB scrub, DLL audit), compile only |
-| `macos` | macos-15 | the GDExtension with the Mac package's configuration (arm64, macOS 13), compile only |
+| `macos` | macos-15 | the GDExtension and unit test executable (arm64, macOS 13), then the console filter tests including the real `/dev/null` regression |
 | `CI` | ubuntu-24.04 | needs all of the above, runs even when one failed, and passes only when every one succeeded |
 
 Measured on `ci/publicci1` (2026-10-19, the tree of the next sync): with warm compiler caches the whole check took 7.5 minutes
