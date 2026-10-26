@@ -2,6 +2,8 @@
 // See GameClient/WaterGeometry.h.
 
 #include "GameClient/WaterGeometry.h"
+#include "Common/AsciiString.h"
+#include "Libraries/WWVegas/WW3D2/meshmdl.h"
 
 #include <algorithm>
 #include <cmath>
@@ -199,4 +201,32 @@ void WaterGeometry::riverVertexColour(const RiverArea &river, const TimeOfDayLig
 		out[c] = std::min(std::max(out[c], 0.0f), 1.0f);
 	}
 	out[3] = waterDiffuse[3];
+}
+
+// Target data: watershader.fxo parameters and ps blob 8 / vs blob 9, decoded
+// with tools/render/{fx_params,d3d9_disasm}. No executable provenance claim.
+bool WaterGeometry::readStandingMaterial(const MeshShaderMaterialDef &source, StandingMaterial &out)
+{
+	if (AsciiStringUtil::compareNoCase(source.TypeName, "WaterShader.FX") != 0) return false;
+	out = StandingMaterial{};
+	for (const auto &p : source.Properties)
+	{
+		const std::string n = AsciiStringUtil::lowered(p.Name);
+		if (n == "materialcolordiffuse") std::copy(p.Float, p.Float + 4, out.diffuse);
+		else if (n == "dimmingfactor") out.dimming = p.Float[0];
+		else if (n == "bumpscale") out.bumpScale = p.Float[0];
+		else if (n == "specularexponent") out.specularExponent = p.Float[0];
+		else if (n == "windangle") out.windAngle = p.Float[0];
+		else if (n == "windspeed") out.windSpeed = p.Float[0];
+		else if (n == "waveangle") out.waveAngle = p.Float[0];
+		else if (n == "wavespeed") out.waveSpeed = p.Float[0];
+		else if (n == "bumpuvscale") std::copy(p.Float, p.Float + 2, out.bumpUV);
+		else if (n == "envuvscale") std::copy(p.Float, p.Float + 2, out.envUV);
+		else if (n == "waveuvscale") std::copy(p.Float, p.Float + 2, out.waveUV);
+		else if (n == "blendusingterrainalpha") out.blendTerrainAlpha = p.Bool;
+		else if (n == "waterbumptexture") out.bumpTexture = p.StringValue;
+		else if (n == "waterenvtexture") out.envTexture = p.StringValue;
+		else if (n == "wavetexture") out.waveTexture = p.StringValue;
+	}
+	return true;
 }
