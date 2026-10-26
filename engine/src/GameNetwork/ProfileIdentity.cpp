@@ -19,7 +19,7 @@
 namespace
 {
 // the owned formats and rules a peer must share: bump the number of the one that changes
-const char *const kFeatures = "net-wire 2, game-message 2, replay 2, lobby 2, state-hash-sections 1, lockstep-frame-model 1";
+const char *const kFeatures = "net-wire 3, game-message 2, replay 2, lobby 2, state-hash-sections 1, lockstep-frame-model 1";
 const char *const kNumeric = "IEEE binary32/binary64 through the numeric facade, canonical MXCSR 0x1F80 (round to nearest), no FMA contraction";
 
 std::vector<std::string> lines(const std::string &t)
@@ -152,6 +152,27 @@ const std::vector<ProfileIdentity::VerifiedEngine> &ProfileIdentity::verifiedRep
 	return v;
 }
 
+// BATCH-P4 (the online batch's `net-wire 3`): the features line's `net-wire N` names the live datagram format only (peers, relay, lobby); a recording
+// never reads it, so for REPLAY playback two features lines that differ in that entry alone are the same. Every other feature still has to match
+static bool sameFeaturesButNetWire(const std::string &a, const std::string &b)
+{
+	if (a.rfind("features ", 0) != 0 || b.rfind("features ", 0) != 0)
+	{
+		return false;
+	}
+	auto strip = [](std::string line) {
+		const size_t at = line.find("net-wire ");
+		if (at == std::string::npos)
+		{
+			return line;
+		}
+		size_t end = line.find(", ", at);
+		end = end == std::string::npos ? line.size() : end + 2;
+		return line.erase(at, end - at);
+	};
+	return strip(a) == strip(b);
+}
+
 bool ProfileIdentity::replayCompatible(const ProfileIdentity &ours, const ProfileIdentity &theirs, std::string *engine)
 {
 	const std::vector<std::string> a = lines(ours.text), b = lines(theirs.text);
@@ -162,7 +183,7 @@ bool ProfileIdentity::replayCompatible(const ProfileIdentity &ours, const Profil
 	std::string theirEngine;
 	for (size_t i = 0; i < a.size(); ++i)
 	{
-		if (a[i] == b[i])
+		if (a[i] == b[i] || sameFeaturesButNetWire(a[i], b[i]))
 		{
 			continue;
 		}

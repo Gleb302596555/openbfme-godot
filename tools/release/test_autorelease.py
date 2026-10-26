@@ -16,6 +16,7 @@ import json
 import re
 import os
 import shutil
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -3184,16 +3185,29 @@ def paused_remote(world, tmp: Path) -> dict:
     refuses it (<rc>): a server still applying a push whose client is gone"""
     f = {k: tmp / k for k in ("pause", "received", "go", "rc", "done")}
     hook = world.remote / "hooks/pre-receive"
-    hook.write_text(f"""#!/bin/bash
-cat > /dev/null
-[ -f {f['pause']} ] || exit 0
-touch {f['received']}
-while [ ! -f {f['go']} ]; do sleep 0.1; done
-rc=$(cat {f['rc']} 2>/dev/null || echo 0)
-touch {f['done']}
-exit $rc
+    hook.write_text(f"""#!{sys.executable}
+import pathlib, sys, time
+sys.stdin.read()
+if not pathlib.Path({str(f['pause'])!r}).exists():
+    sys.exit(0)
+pathlib.Path({str(f['received'])!r}).touch()
+deadline = time.monotonic() + 60
+while not pathlib.Path({str(f['go'])!r}).exists():
+    if time.monotonic() >= deadline:
+        sys.exit("test server timed out waiting for go")
+    time.sleep(0.01)
+sys.exit(int(pathlib.Path({str(f['rc'])!r}).read_text()))
 """)
     hook.chmod(0o755)
+    receiver = tmp / "receive-pack"
+    receiver.write_text(f"""#!{sys.executable}
+import pathlib, subprocess, sys
+result = subprocess.run([{shutil.which('git')!r}, "receive-pack", *sys.argv[1:]])
+pathlib.Path({str(f['done'])!r}).touch()
+sys.exit(result.returncode)
+""")
+    receiver.chmod(0o755)
+    git(world.repo, "config", "remote.origin.receivepack", shlex.quote(str(receiver)))
     f["pause"].touch()
     return f
 
@@ -3208,8 +3222,8 @@ import os, subprocess, sys, time
 if "push" in sys.argv and "--atomic" in sys.argv:
     # the local "server" (receive-pack, a child of this push) must not hold the run's output pipes, as a remote one would not
     p = subprocess.Popen([{real!r}] + sys.argv[1:], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    end = time.time() + 60
-    while not os.path.exists({str(received)!r}) and time.time() < end:
+    end = time.monotonic() + 60
+    while not os.path.exists({str(received)!r}) and time.monotonic() < end:
         time.sleep(0.05)
     p.kill(); p.wait()
     print("fatal: the remote end hung up unexpectedly", file=sys.stderr)
@@ -3222,8 +3236,8 @@ os.execv({real!r}, [{real!r}] + sys.argv[1:])
 
 def wait_for(path: Path, what: str) -> None:
     import time  # noqa: PLC0415
-    end = time.time() + 60
-    while not path.exists() and time.time() < end:
+    end = time.monotonic() + 60
+    while not path.exists() and time.monotonic() < end:
         time.sleep(0.05)
     assert path.exists(), what
 
@@ -3248,8 +3262,6 @@ def test_a_push_whose_client_dies_while_the_server_applies_it_is_never_discarded
     f["go"].touch()
     wait_for(f["done"], "the server's hook finished")
     f["pause"].unlink()
-    import time  # noqa: PLC0415
-    time.sleep(0.5)
     landed = world.remote_refs("refs/tags/v0.4.5")
     assert bool(landed) == (server == "lands"), landed
     r = world.release(sha)

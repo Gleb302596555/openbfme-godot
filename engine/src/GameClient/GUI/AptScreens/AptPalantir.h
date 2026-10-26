@@ -111,6 +111,7 @@ public:
 		std::string rankLabelFormat, timeRemainingText;
 	};
 	void setLocalState(const LocalState &s) { m_local = s; }
+	static std::string rankText(const LocalState &state);
 	// lane HUD-5: the movie calls UpdatePlayerStats made ("SetPlayerMagicProgress(37)", ...), the last 64, for tests and reports
 	const std::vector<std::string> &playerStatsCalls() const { return m_statsCalls; }
 	bool commandInterfaceShown() const { return m_commandShown; }

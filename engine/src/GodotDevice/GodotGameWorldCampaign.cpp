@@ -4,6 +4,7 @@
 // campaign progress sidecar. Nothing here writes logic state beyond the load options.
 
 #include "GodotDevice/GodotGameWorld.h"
+#include "Common/PathIO.h"
 #include "GodotDevice/GodotRetailFileSystem.h"
 
 #include "Common/Player.h"

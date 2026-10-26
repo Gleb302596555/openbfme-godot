@@ -207,6 +207,9 @@ func download(url: String, dest: String, size: int, progress: Callable, max_unkn
 			break
 		done += chunk.size()
 		progress.call(done, size)
+	f.flush()
+	if error == "" and (f.get_error() != OK or f.get_length() != done):
+		error = "writing %s failed: is the disk full?" % dest
 	f.close()
 	client.close()
 	if error == "" and done != size:

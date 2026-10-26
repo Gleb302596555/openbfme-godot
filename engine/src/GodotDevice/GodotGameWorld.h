@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "GameLogic/Object/ObjectGeometry.h"
+
 #include <array>
 
 #include "GameClient/VideoPlayer.h" // lane CAMP-1H: m_videos (complete for the unique_ptr)
@@ -375,6 +377,20 @@ public:
 	Dictionary debug_script_place_at(const String &name, double x, double y);
 	Dictionary debug_script_kill_team(const String &name);
 	static void bindScriptMethods();
+	// ---- lane CHEAT-1 (GodotDevice/GodotGameWorldCheats.cpp): the open Cheat Mode (GameLogic/CheatMode.h; the API: docs/CHEAT_MODE.md) ----
+	// { enabled, seat_slot, seat_player, seat_name, local_is_seat, voided, executed, refused, label }
+	Dictionary cheat_info() const;
+	// the game's players: [ { index, name, side, defeated } ]
+	Array cheat_players() const;
+	// the units and heroes of a player's side: [ { template, id, hero, label (the DisplayName label) } ], heroes first
+	Array cheat_units(int64_t player) const;
+	// a player's living heroes that can gain levels: [ { id, template, label, level } ]
+	Array cheat_heroes(int64_t player) const;
+	// queues MSG_OPENBFME_CHEAT for the local player (only the cheat seat): { command, target, value, template, object, x, y } -> { ok, error }
+	Dictionary cheat_command(const Dictionary &command);
+	// the announced lines since the last call: [ { frame, text, executed, command, template, label (a spawn's / level up's unit and its DisplayName) } ]
+	Array take_cheat_lines();
+	static void bindCheatMethods();
 	// ---- lane CAMP-1 (GodotDevice/GodotGameWorldCampaign.cpp): the linear campaigns ----
 	// TheLinearCampaignManager's campaigns: [ { name, display_label, intro_movie, carryover: [..], missions: [ { name, map, intro_movie, load_screen_image,
 	// load_screen_music, fade_up_frames, delay_carryover: [..] } ] } ] (the world must be set up)
@@ -517,6 +533,9 @@ public:
 	String net_profile_digest() const;
 	Dictionary net_begin(const Dictionary &options);
 	Dictionary net_status() const;
+	// lane ANTICHEAT-1 (C++ only, from the HUD): the local player's view for the relay's log of an online game it plays (not a spectator, not LAN):
+	// Network::submitView with the logic frame shown; ignored otherwise
+	void net_submit_view(float cameraX, float cameraY, float cursorX, float cursorY, bool cursorOverWorld);
 	// the local player leaves the game (PLAYERLEAVE after the frames it announced), the recording is closed; waits up to 2 s for the acks
 	void net_finish();
 	// lane MP-3: the per-frame census of a net_begin({"census": true}) game as CSV (frame, sim_us, battalions, troops, objects); {ok, rows | error}
@@ -530,6 +549,22 @@ public:
 	// catch-up (the relay's log, no rendering of the skipped frames) until net_status().rejoin.state is "live" (or "failed", with the reason)
 	void net_pause();
 	void net_resume();
+	// ---- lane CHAT-1: the in-game chat over the game's network (GameNetwork/Network.h sendChat / takeChat; GameClient/InGameChat.h) ----
+	// net_chat_info: { network (a LAN / online game this client plays in: not single player, a replay, a spectator or a rejoin's catch-up), local_slot,
+	// local_active, slots: [{ player, local, active, allied (both ways with the local player), muted, name, color (0xRRGGBB) }] }.
+	// net_chat_send(line, mask): Network::sendChat of the formatted line ("<Team> hi") to the slots of `mask`: { ok | error }.
+	// net_chat_take: the lines shown since the last call [{ slot, name, text, color }] (the sender's player colour; -1 without a player).
+	// net_chat_set_muted: the players screen's mute of a slot (GameSlot + 0xA); net_chat_stats: the network's chat counters
+	Dictionary net_chat_info() const;
+	Dictionary net_chat_send(const String &line, int64_t mask);
+	int64_t net_chat_mask(int64_t mode) const; ///< InGameChat::recipientMask of the window's mode over net_chat_info's slots (RW 0x8ECF3E)
+	Array net_chat_take();
+	void net_chat_set_muted(int64_t slot, bool muted);
+	Dictionary net_chat_stats() const;
+	// lane CHAT-1: the disconnect screen's chat (Network::sendDisconnectChat; NETCOMMANDTYPE_DISCONNECTCHAT): send a line { ok | error }, take the lines
+	// received [{ slot, name, text }]
+	Dictionary net_disconnect_chat(const String &text);
+	Array net_disconnect_chat_take();
 	// lane ONLINE-3: a spectator START (net_online with the lobby's /v1/games/<id>/spectate START: {ok, spectator, delay}) makes net_begin watch the game:
 	// no slot, the ReplayObserver side is the local player (the map revealed, RW 0x62F91A), _process catches up from the relay's log and then follows
 	// it (NetGameSession::spectateStep; nothing is sent, the local input is ignored); net_status().spectate: state ("binding" / "catching_up" / "live" /
@@ -775,6 +810,17 @@ private:
 	};
 	std::unique_ptr<TreeTopple> m_treeTopple;
 	std::vector<ToppleTreeView> m_treeViews; ///< index = the animator's tree index
+	// lane TREES1: the client-only shrubs and props a construction (TheTerrainVisual slot 0x48) or a felled tree (slot 0x4C, props only) removes
+	struct FootprintView
+	{
+		int64_t instance = -1;
+		Coord3D position{};
+		float scale = 1.0f;
+		bool prop = false; ///< MAPOBJ_CLIENT_PROP (the prop buffer), else a shrub (the shrub buffer)
+		bool removed = false;
+	};
+	std::vector<FootprintView> m_footprintViews;
+	void clearFootprint(const Coord3D &pos, float angle, const std::vector<ObjectGeometry::Shape> &shapes, bool propsOnly);
 	size_t m_treeEventsSeen = 0;
 	void heldClientWork(); // lane RENDERWAIT-1: the render side's reads of the live logic, where it is held
 	void updateTreeTopple(double dt);

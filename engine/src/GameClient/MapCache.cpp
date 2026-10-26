@@ -3,9 +3,11 @@
 // See GameClient/MapCache.h.
 
 #include "GameClient/MapCache.h"
+#include "GameNetwork/GameInfo.h"
 #include "Common/AsciiString.h"
 
 #include <cctype>
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <sstream>
@@ -218,12 +220,12 @@ bool parse(const std::string &text, std::vector<MapCacheEntry> &out, std::string
 		else if (key.size() > 13 && eqNoCase(key.substr(0, 7), "Player_") && eqNoCase(key.substr(key.size() - 6), "_Start"))
 		{
 			long long idx = 0;
-			ok = parseInt(key.substr(7, key.size() - 13), idx) && idx >= 1;
+			ok = parseInt(key.substr(7, key.size() - 13), idx) && idx >= 1 && idx <= MAX_SLOTS && key == "Player_" + std::to_string(idx) + "_Start";
 			Coord3D c;
 			ok = ok && parseCoord(val, c);
 			if (ok)
 			{
-				cur->startPositions[(int)idx] = c;
+				ok = cur->startPositions.emplace((int)idx, c).second;
 			}
 		}
 		else
@@ -238,6 +240,28 @@ bool parse(const std::string &text, std::vector<MapCacheEntry> &out, std::string
 	if (cur)
 	{
 		return fail("missing END for block '" + cur->rawName + "'");
+	}
+	return true;
+}
+
+bool validateStartPositions(const MapCacheEntry &map, std::string *error)
+{
+	auto fail = [&](const std::string &why) {
+		if (error) *error = "map '" + map.name + "': " + why;
+		return false;
+	};
+	if (map.numPlayers < 1 || map.numPlayers > MAX_SLOTS)
+	{
+		return fail("start count must be in 1..16");
+	}
+	for (const auto &[number, pos] : map.startPositions)
+	{
+		if (number < 1 || number > map.numPlayers) return fail("unknown start Player_" + std::to_string(number) + "_Start");
+		if (!std::isfinite(pos.x) || !std::isfinite(pos.y) || !std::isfinite(pos.z)) return fail("non-finite start " + std::to_string(number));
+	}
+	for (int i = 1; i <= map.numPlayers; ++i)
+	{
+		if (!map.startPositions.count(i)) return fail("missing Player_" + std::to_string(i) + "_Start");
 	}
 	return true;
 }

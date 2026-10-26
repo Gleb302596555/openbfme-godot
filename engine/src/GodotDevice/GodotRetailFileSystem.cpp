@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 
 #include "GodotDevice/GodotRetailFileSystem.h"
+#include "Common/PathIO.h"
 #include "Common/BfmeGame.h"
 #include "Libraries/WWVegas/WW3D2/assetmgr.h"
 
@@ -261,8 +262,17 @@ Dictionary RetailFileSystem::mount_bfme1_path(const String &root)
 	m_userMapFolder.clear();
 	m_userMapError.clear();
 	PackedStringArray errors;
+	std::string pathError;
+	if (!PathIO::checkInstallPath(toNative(root), pathError))
+	{
+		errors.push_back(toGodot(pathError));
+		Dictionary r;
+		r["ok"] = false;
+		r["errors"] = errors;
+		return r;
+	}
 	auto fs = std::make_unique<Win32BIGFileSystem>();
-	const auto directory = std::filesystem::u8path(toNative(root));
+	const auto directory = PathIO::native(toNative(root));
 	std::error_code ec;
 	std::vector<std::string> names;
 	PackedStringArray excluded; // community PR #36 review: reported, never silently skipped (PLAN rule 7)
@@ -283,8 +293,8 @@ Dictionary RetailFileSystem::mount_bfme1_path(const String &root)
 		std::replace(relative.begin(), relative.end(), '/', '\\');
 		names.push_back(relative);
 	}
-	if (ec) errors.push_back(toGodot("Cannot read BFME1 folder: " + ec.message()));
-	if (names.empty()) errors.push_back("Choose a BFME1 installation containing BIG archives");
+	if (ec) errors.push_back(toGodot("Cannot read BFME1 folder '" + toNative(root) + "': " + ec.message()));
+	if (names.empty()) errors.push_back("Choose a BFME1 installation containing BIG archives: " + root);
 	// BFME1 Win32BIGFileSystem_loadBigFiles.cpp (0x009CDB90): descending
 	// strcmp order, first mounted wins. Do not mix in BFME2/RotWK archives.
 	std::vector<MountedArchive> mounted;
@@ -305,8 +315,8 @@ Dictionary RetailFileSystem::mount_bfme1_path(const String &root)
 		entry.install = "bfme1";
 		entry.canonicalPath = relative;
 		entry.diskPath = path;
-		entry.size = std::filesystem::file_size(std::filesystem::u8path(path), ec);
-		const auto stamp = std::filesystem::last_write_time(std::filesystem::u8path(path), ec).time_since_epoch().count();
+		entry.size = std::filesystem::file_size(PathIO::native(path), ec);
+		const auto stamp = std::filesystem::last_write_time(PathIO::native(path), ec).time_since_epoch().count();
 		const String key = toGodot(MD5::ofBytes(path.data(), path.size()));
 		if (!ec && (int64_t)cache->get_value(key, "size", (int64_t)-1) == (int64_t)entry.size &&
 			(int64_t)cache->get_value(key, "mtime", (int64_t)0) == stamp)

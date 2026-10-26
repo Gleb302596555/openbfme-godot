@@ -30,7 +30,7 @@ LockstepDriver::LockstepDriver(Network *network, ReplayWriter *writer)
 LiveGameFrameDriver::Capture LockstepDriver::capture() const
 {
 	Capture c;
-	c.hashEveryFrame = m_writer != nullptr; // the replay's hash record of every frame
+	c.hashEveryFrame = m_writer != nullptr || m_hashEveryFrame; // the replay's hash record of every frame (or a test's)
 	c.breakdownInterval = m_network ? m_network->config().crcInterval : 0;
 	c.census = m_census;
 	return c;

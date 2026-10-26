@@ -130,7 +130,7 @@ def ensure_empty_output(path: Path) -> None:
 def cmake_configure_args(build: Path, extension_dir: Path, version: str) -> list[str]:
     return [
         "cmake", "-S", str(REPO / "engine"), "-B", str(build), "-G", "Ninja",
-        "-DCMAKE_BUILD_TYPE=Release", "-DOPENBFME_LAME=OFF", "-DOPENBFME_BUILD_GODOT=ON",
+        "-DCMAKE_BUILD_TYPE=Release", "-DOPENBFME_BUILD_TESTS=OFF", "-DOPENBFME_BUILD_GODOT=ON",
         "-DCMAKE_OSX_ARCHITECTURES=arm64", "-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0",
         f"-DOPENBFME_VERSION_OVERRIDE={version}", f"-DOPENBFME_GODOT_BIN={extension_dir}",
     ]
@@ -181,7 +181,7 @@ def make_plan(
     extension = "<fresh temporary build directory>/godot-bin"
     configure = [
         "cmake", "-S", str(REPO / "engine"), "-B", build, "-G", "Ninja",
-        "-DCMAKE_BUILD_TYPE=Release", "-DOPENBFME_LAME=OFF", "-DOPENBFME_BUILD_GODOT=ON",
+        "-DCMAKE_BUILD_TYPE=Release", "-DOPENBFME_BUILD_TESTS=OFF", "-DOPENBFME_BUILD_GODOT=ON",
         "-DCMAKE_OSX_ARCHITECTURES=arm64", "-DCMAKE_OSX_DEPLOYMENT_TARGET=13.0",
         f"-DOPENBFME_VERSION_OVERRIDE={display_version}", f"-DOPENBFME_GODOT_BIN={extension}",
     ]

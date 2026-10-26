@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0. See LiveGameAudio.h.
 
 #include "GameClient/LiveGameAudio.h"
+#include "Common/PathIO.h"
 #include "GameLogic/ScriptEngine/ScriptEngine.h"
 
 #include "Common/AsciiString.h"
@@ -937,7 +938,7 @@ bool LiveGameAudio::openEventLogFile(const std::string &path, std::string *error
 	// lane OPTS-4: the shell's host may write the same file already (the menus' requests): the game's lines go after them, and this attachment drains
 	// the log while it lives
 	const bool shared = audioAlive() && m_audio.eventLogFile() == path;
-	m_logFile = std::fopen(path.c_str(), shared ? "a" : "w");
+	m_logFile = PathIO::open(path, shared ? "a" : "w");
 	if (!m_logFile)
 	{
 		if (error)

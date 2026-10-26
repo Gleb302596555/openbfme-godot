@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 
 #include "Common/RetailArchivePolicy.h"
+#include "Common/PathIO.h"
 #include "Common/ArchiveFile.h"
 #include "Common/AsciiString.h"
 #include "Common/JobSystem.h"
@@ -474,7 +475,7 @@ std::map<std::string, std::uint64_t> languageKeysOfInstall(const std::string &in
 {
 	std::map<std::string, std::uint64_t> keys;
 	std::error_code ec;
-	for (fs::directory_iterator it(fs::u8path(installRoot), ec), end; !ec && it != end; it.increment(ec))
+	for (fs::directory_iterator it(PathIO::native(installRoot), ec), end; !ec && it != end; it.increment(ec)) // native wide paths, as the mount
 	{
 		std::error_code dirError;
 		if (!it->is_directory(dirError) || AsciiStringUtil::lowered(it->path().filename().u8string()) != "lang")
@@ -981,8 +982,14 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 
 	for (const RetailInstall &install : installs)
 	{
+		std::string pathError;
+		if (!PathIO::checkInstallPath(install.root, pathError))
+		{
+			stepError(install.label + ": " + pathError);
+			continue;
+		}
 		std::error_code ec;
-		fs::path root = fs::u8path(install.root);
+		fs::path root = PathIO::native(install.root);
 		if (install.root.empty() || !fs::is_directory(root, ec))
 		{
 			stepError(install.label + ": install directory does not exist: '" + install.root + "'");
@@ -1166,7 +1173,7 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 				continue;
 			}
 			std::vector<std::uint8_t> bytes((size_t)p.entry.size);
-			std::ifstream in(fs::u8path(p.diskPath), std::ios::binary);
+			std::ifstream in(PathIO::native(p.diskPath), std::ios::binary);
 			if (!in || !in.read(reinterpret_cast<char *>(bytes.data()), (std::streamsize)bytes.size()) || in.peek() != std::char_traits<char>::eof())
 			{
 				report.errors.push_back(p.install + ": could not read " + p.entry.path + " (" + p.diskPath + ")");
@@ -1367,15 +1374,15 @@ std::string RetailLanguageWarningSignature(const std::vector<UnverifiedLanguageA
 
 bool ResolveInstallPath(const std::string &key, const std::string &configPath, std::string &out, std::string *error)
 {
-	const char *env = std::getenv(key.c_str());
-	if (env != nullptr && env[0] != 0)
+	const std::string env = PathIO::environment(key.c_str());
+	if (!env.empty())
 	{
 		out = env;
 		return true;
 	}
 	if (!configPath.empty())
 	{
-		std::ifstream in(fs::u8path(configPath));
+		std::ifstream in(PathIO::native(configPath));
 		std::string line;
 		while (std::getline(in, line))
 		{
@@ -1390,13 +1397,11 @@ bool ResolveInstallPath(const std::string &key, const std::string &configPath, s
 			}
 			std::string k = line.substr(0, eq);
 			std::string v = line.substr(eq + 1);
+			const auto first = v.find_first_not_of(" \t");
+			v = first == std::string::npos ? std::string() : v.substr(first);
 			while (!k.empty() && (k.back() == ' ' || k.back() == '\t'))
 			{
 				k.pop_back();
-			}
-			while (!v.empty() && (v.front() == ' ' || v.front() == '\t'))
-			{
-				v.erase(v.begin());
 			}
 			if (k == key && !v.empty())
 			{

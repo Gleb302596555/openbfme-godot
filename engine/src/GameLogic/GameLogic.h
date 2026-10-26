@@ -54,6 +54,7 @@
 #include "Common/SimulationProfile.h"
 #include "Common/Team.h"
 #include "GameLogic/AI/AICommandSink.h"
+#include "GameLogic/CheatMode.h"
 #include "GameLogic/FXEvents.h"
 #include "GameLogic/LargeGroupAudioLink.h"
 #include "GameLogic/ScriptEngine/MissionObjectiveTracker.h"
@@ -286,6 +287,9 @@ struct GameLogicSettings
 	float invisibilityOpacityMin = 0.0f;
 	float invisibilityOpacityMax = 0.0f;
 	unsigned invisibilityOpacityCycleFrames = 0;
+	// lane LOS-1: ClampedLOSHeightForCastleStructures (GameData row RW 0xC01060, parseReal RW 0x42ED00, + 0x11C4; the GlobalData constructor's 40.0f, RW 0x64395E):
+	// the aim height of an INSIDE_CASTLE structure in the weapon's terrain line (RW 0x6CB944). Retail 2.01 gamedata.ini does not set it
+	float clampedLOSHeightForCastleStructures = 40.0f;
 	// lane GARRISON-1 (GameData rows RW 0xC011D0 GarrisonedRangeMultiplier + 0x1224 parseReal RW 0x42ED00, RW 0xC011F0 MaxNumMembersToForceToImmediatelyEnter
 	// + 0x1230 and RW 0xC01200 WaitToForceMemberToEnterDelay + 0x1234, parseUnsignedInt RW 0x42ECB2): optional rows; the defaults are the GlobalData constructor's
 	// (RW 0x6439DE / 0x643A48: -1.0 = no range change; RW 0x643A5D: 1; RW 0x6439B7 / 0x643A67: 5 frames). Retail 2.01 gamedata.ini sets only the multiplier (1.25)
@@ -296,6 +300,9 @@ struct GameLogicSettings
 	// player's tunnel network holds (TunnelTracker RW 0x8FA152)
 	int maxTunnelCapacity = 0;
 	unsigned initialCredits[5] = { 0, 0, 0, 0, 0 };  ///< MultiplayerSettings InitialCreditsVeryLow .. VeryHigh: the lobby's money choices
+	// lane CHAT-1: MultiplayerSettings MaxBeaconsPerPlayer (+ 0x18): a player's beacons at most (retail multiplayer.ini: 3). INFERENCE: the default is ZH's
+	// MultiplayerSettings constructor value (RotWK's constructor was not read). Not hashed (crc below): data every peer of a game reads alike (the profile)
+	int maxBeaconsPerPlayer = 3;
 	// MultiplayerSettings colours (`MultiplayerColor <Name>` blocks of data\\ini\\multiplayer.ini, lane START-1): the lobby's colour list, in file order; the index is the
 	// slot's colour. ZH MultiplayerColorDefinition: RGBColor and RGBNightColor are the day and night player colours (0xRRGGBB here; Player::setPlayerColor
 	// takes 0xFF000000 | rgb), TooltipName a game text label, AvailableInWotR whether the strategic (War of the Ring) lobby offers it.
@@ -468,6 +475,26 @@ public:
 		int playerIndex = -1;  ///< CONSTRUCTION: the dozer's controlling player
 	};
 	static constexpr size_t kRadarEventNotices = 64;
+	// lane CHAT-1: what MSG_PLACE_BEACON did (RW 0x77C634), for the clients' presentation of it (the message lines, the sounds, the radar event, the EVA,
+	// an enemy's hidden beacon): the logic decides the object, each client what its local player sees. Never hashed, never saved (presentation only)
+	struct BeaconNotice
+	{
+		enum Kind : std::uint8_t
+		{
+			PLACED = 0,   ///< the beacon object was made
+			TOO_MANY = 1, ///< the player already has MaxBeaconsPerPlayer beacons (the placer's client says so)
+			FAILED = 2    ///< no beacon template, or the player is defeated (every client says so)
+		};
+		std::uint32_t seq = 0;
+		UnsignedInt frame = 0;
+		Kind kind = PLACED;
+		int playerIndex = -1;
+		ObjectID object = INVALID_ID;
+		Coord3D position{ 0.0f, 0.0f, 0.0f };
+	};
+	static constexpr size_t kBeaconNotices = 64;
+	void noteBeacon(BeaconNotice::Kind kind, int playerIndex, ObjectID object, const Coord3D &position);
+	const std::vector<BeaconNotice> &beaconNotices() const { return m_beaconNotices; }
 	void noteRadarEvent(int type, const Coord3D &position, RadarEventNotice::Source source, int playerIndex);
 	const std::vector<RadarEventNotice> &radarEventNotices() const { return m_radarEventNotices; }
 
@@ -482,6 +509,9 @@ public:
 	const GameRules &gameRules() const { return m_gameRules; }
 	void setLegendaryHeroes(int factor) { m_legendaryHeroes = factor; }
 	int legendaryHeroes() const { return m_legendaryHeroes; }
+	// lane CHEAT-1, OpenBFME: the game's Cheat Mode (GameLogic/CheatMode.h): off unless LiveGame::load configures the cheat seat from the game setup
+	CheatMode::State &cheatMode() { return m_cheatMode; }
+	const CheatMode::State &cheatMode() const { return m_cheatMode; }
 	// lane UBER-1: the simulation profile (Common/SimulationProfile.h; set before the first frame). Hashed only when Uber, so a Faithful game keeps its hash
 	void setSimulationProfile(SimulationProfile p) { m_simulationProfile = p; }
 	SimulationProfile simulationProfile() const { return m_simulationProfile; }
@@ -846,6 +876,8 @@ private:
 	std::set<std::string, std::less<>> m_notedStops;
 	std::map<std::string, unsigned, std::less<>> m_notedStopHits;
 	std::vector<RadarEventNotice> m_radarEventNotices; ///< lane BACKLOG3: oldest first, at most kRadarEventNotices
+	std::vector<BeaconNotice> m_beaconNotices; ///< lane CHAT-1: oldest first, at most kBeaconNotices
+	std::uint32_t m_beaconSeq = 0;
 	std::uint32_t m_radarEventSeq = 0;
 	ObjectClientHooks *m_clientHooks = nullptr;
 	ObjectCreatedProc m_objectCreatedProc;
@@ -903,6 +935,7 @@ private:
 	int m_gameDifficulty = 1;     ///< lane CAMP-1H: RW GameLogic + 0xA4
 	GameRules m_gameRules = MpGameRules::none(); ///< lane RULES-1
 	int m_legendaryHeroes = LegendaryHeroes::kOff; ///< lane RULES-1 (OpenBFME)
+	CheatMode::State m_cheatMode;                  ///< lane CHEAT-1 (OpenBFME)
 	SimulationProfile m_simulationProfile = SimulationProfile::Faithful; ///< lane UBER-1 (OpenBFME)
 	bool m_frameAdvance = true;   ///< RW GameLogic + 0x44
 	bool m_inUpdate = false;      ///< RW + 0x70

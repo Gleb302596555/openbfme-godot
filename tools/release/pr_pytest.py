@@ -19,6 +19,9 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 SUBSET = [
+    "tools/test_gdscript.py",
+    "tools/audio/test_mp3_configure.py",
+    "tools/audio/test_mp3_fixtures.py",
     "tools/audio/test_miles_model.py",
     "tools/audio/test_playback_bus_guard.py",
     "tools/fx/test_fx_ini_scan.py",
@@ -69,7 +72,11 @@ SUBSET = [
     "tools/sim/test_float_chars.py",
     "tools/sim/test_sim_audit.py",
     "tools/skirmish_ai/test_tactic_draws.py",
+    "tools/test_coverage_report.py",
+    "tools/test_doctest_counts.py",
     "tools/test_precommit_containers.py",
+    "tools/test_precommit_audio.py",
+    "tools/release/test_external_open.py",
     "tools/test_precommit_tolerance.py",
     "tools/test_stops_count.py",
     "tools/weapon/test_weapon_binary_facts.py",

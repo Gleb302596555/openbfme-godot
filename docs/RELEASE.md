@@ -15,7 +15,7 @@ What a tester gets, and how to make it. Lane RELEASE-1.
   then checks every md5. The choice is kept in `install-paths.cfg` in the user data
   folder; delete it to choose again. The environment variables still win (developers,
   tests).
-- **Version.** `git describe --tags --match "v[0-9]*"` (the legacy `v0.2.0-playtest.*`
+- **Version.** `git describe --tags --match "v[0-9]*" --exclude "*-playtest.*" --always --dirty --abbrev=10` (the legacy `v0.2.0-playtest.*`
   tags are ignored) plus the build day, regenerated on every build
   (`engine/cmake/BuildVersion.cmake`). It is the first line of every log and stands in
   the top right corner of the menus.
@@ -26,12 +26,17 @@ What a tester gets, and how to make it. Lane RELEASE-1.
   at any character that cannot continue a name, so `home=<home>;` is caught; the user
   name goes wherever it is a whole token, whatever its length: conservative, a one-letter
   name also replaces that word). The console (stdout / stderr, where the crash handler
-  also dumps) goes through the same filter on Linux (`Common/ConsoleFilter.h`), strictly
+  also dumps) goes through the same filter on Linux and macOS (`Common/ConsoleFilter.h`), strictly
   line-buffered: nothing reaches the console before its line is complete and scrubbed;
   a partial line is written, scrubbed, only at exit or on a crash (a name that never
   completed becomes `…`), and a line over 8 MiB is written in parts cut where no name can
   be split (`LogPrivacy::safeCut`). Godot's own file log is
-  off. Windows has no console filter: the testers' README asks for the log file, not a
+  off. macOS can report `POLLNVAL` for a valid `/dev/null` console sink, as used by the
+  launcher. The filter writes directly to a verified null-device or regular-file sink
+  in that case; an invalid or unsupported sink is not retried indefinitely. This avoids
+  filling the filter's input pipe and freezing gameplay while printing diagnostics.
+  Redaction still precedes every write, and pipe/socket shutdown deadlines are unchanged.
+  Windows has no console filter: the testers' README asks for the log file, not a
   copy of the console. The log folder is one click away (lane WINCRASH-1): a "Logs" link
   under the version in the menus, an "Open log folder" button in the crash and error
   messages (the file manager opens with that log selected), and `--open-logs` on the
@@ -40,9 +45,10 @@ What a tester gets, and how to make it. Lane RELEASE-1.
   and Program Files is not writable.
 - **Crashes and fatal errors.** Packages use Godot's debug export template: the release
   template writes no native backtrace on a crash, the debug one does, into the session
-  log. Godot's Windows handler symbolizes its own executable only (an extension frame is
-  "openbfme.windows.template_debug.x86_64.dll+<offset>") and covers the main thread only (a
-  crash on another thread writes no dump): stop S-1923, named in every Windows log. The debug
+  log. Windows additionally installs OpenBFME's local minidump handler, including worker-thread
+  faults and termination (`Common/System/WindowsCrashDump.cpp`): dumps go under
+  `user://logs/minidumps`. Extension frames still need the build's private symbols for mapping
+  (stop S-1923, named in every Windows log). Dumps stay local, not uploaded automatically. The debug
   template titles the window "OpenBFME (DEBUG)"; the `Release` autoload sets it back to the
   project's name, "OpenBFME", once the engine has started (lane UI-4). Every
   Windows build writes the DLL's PDB (CodeView line tables, build paths remapped, the home
@@ -60,12 +66,14 @@ What a tester gets, and how to make it. Lane RELEASE-1.
   than none. A run that ends without quitting leaves a marker; the next start names
   that run's log in a message box with "Open log folder" and OK. An error the game cannot
   continue from shows a message box with the error, the version and the log file (and
-  "Open log folder"), then quits when it is closed. `--crash-test` (debug builds) crashes
-  on purpose two seconds after the start, in native code, for the release checks.
-- **Network.** Only the LAN transport (`GameNetwork/Transport.cpp`, UDP) opens sockets;
+  "Open log folder"), then quits when it is closed. `--crash-test` and `--crash-test-worker`
+  (debug builds) deliberately crash native code on the main or a worker thread after the menus start, for the release checks.
+- **Network.** The native transport (`GameNetwork/Transport.cpp`, UDP) carries LAN and online relay traffic.
+  The game's online lobby transport and online-count script also make HTTP requests to the configured lobby;
+  `online_http.gd` additionally transports platform-service requests. Direct game starts can launch the verified adjacent updater.
   `tools/release/net_guard.py` (run by `tools/release/test_release_tools.py`) lexes every
-  engine source and shipped script, comments and strings aware, and fails on any other
-  reference to a socket / resolver / HTTP API, string naming one, or network header.
+  engine source and shipped script, comments and strings aware, and checks network APIs against
+  its per-file allowlists and request rules. It is not a claim that the game makes LAN-only connections.
 
 ## Threat model
 
@@ -127,6 +135,13 @@ Not reproduced by `package.sh`, recorded instead:
   differently, so a verification runs with the same tools.
 
 ## Making a package
+
+Run these commands from the repository root on Linux, with Bash, Python 3.11 or newer, CMake/Ninja, Git,
+Godot 4.7.2 and its matching export templates; first build the native library for the tagged commit.
+Windows exports here use the same-commit cross-built DLL, not a native Windows shell. Export tests
+also need `ROTWK_INSTALL` and `BFME2_INSTALL` pointing at validated installations and the Godot editor
+on PATH (or `GODOT`). Release signing/publishing prerequisites are described below; those steps are operator-only.
+The release privacy scanner imports Python's possessive-repeat regex constants; Python 3.10 cannot run it.
 
 1. Tag the commit (owner): `git tag v0.3.0-preview.1` (any `v<digits>...` tag).
 2. Build at that commit with a clean tree (`cmake --build <dir>`). The library carries one
@@ -303,20 +318,22 @@ The repository is a build-time setting (`package.sh --repo`, default `Open-BFME/
    Limit: a helper killed while it waits for a new launcher that crashes at every start leaves that
    launcher in place. Restore `<exe>.old` by hand (the README says so).
 7. **Network and privacy** (`launcher/scripts/net/`).
-   - Only HTTPS to `api.github.com`, `github.com` and `<label>.githubusercontent.com`, with Godot's CA
+   - Release downloads use HTTPS to `api.github.com`, `github.com` and `<label>.githubusercontent.com`, with Godot's CA
      list and host name check (`TLSOptions.client()`).
    - Every redirect is checked again (at most 5). These are refused: user info, explicit ports, IP
      literals and fragments.
-   - The only header about the client is the User-Agent `OpenBFME-Launcher/<version>`. There is no
-     telemetry, no account and no cookie.
-   - `tools/release/net_guard.py` allows `HTTPClient` only in `http_fetch.gd`, and `OS.create_process`
-     only for the game and the self-update. `test_launcher_tools.py` checks that the policy runs before
-     every connection.
+   - Release downloads use User-Agent `OpenBFME-Launcher/<version>` and no account or cookie. Optional Multiplayer sign-in is separate:
+     the social client sends install/device/client metadata and an in-memory bearer token to the configured lobby;
+     Discord and e-mail linking/restoration use the account flows in `LAUNCHER-SOCIAL.md` and `IDENTITY.md`.
+   - `tools/release/net_guard.py` has per-file allowances for release downloads, social/account requests,
+     the loopback instance lock and OAuth callback, game/self-update processes and macOS update helpers.
+     `test_launcher_tools.py` checks the release-download policy; social/account tests check their separate origin and redirect rules.
    - Lane ONLINECOUNT-1: with "Show how many players are online" on (the default), the lobby's host (`https://play.openbfme.com`,
      or the one `--lobby=` remembered) is allowed for ONE path, `GET /v1/stats` (`NetPolicy.set_lobby`). It answers three counts
      (players online, open games, running games) and nothing else: no sign-in, no token, no cookie, no name. The launcher asks when it opens
-     and every 5 minutes while the Play screen is in view, on a thread of its own. Off (`state.cfg`: `[launcher] show_online_count=false`,
-     or `--online-count=off`) it never contacts the lobby. The game's menus read the same file (`godot/scripts/online_stats.gd`).
+     and every 5 minutes while the Play screen is in view, on a thread of its own. While socially signed in, the launcher uses inbox stats instead.
+     Off (`state.cfg`: `[launcher] show_online_count=false`, or `--online-count=off`) disables anonymous count requests, not explicit social sign-in
+     or play. The game's menus read the same file (`godot/scripts/online_stats.gd`).
    - Lane AIO-1 (`docs/AIO.md`): only while the player's opt-in download of
      the game files runs, `bfmeladder.com` and `workshop-files.bfmeladder.com` (HTTPS, no port) are
      allowed as well (`NetPolicy.extra_hosts`). The requests to them are the file lists of the two
@@ -976,8 +993,8 @@ launcher as two ad-hoc signed apps, macOS 13 or later, an unstable preview (owne
 themselves from it: the launcher's macOS mode (mac-release-1, `launcher/scripts/core/macos_update.gd`) reads `manifest-macos.json`, never
 `manifest.json`. The other launchers never read the sidecar.
 
-- **Before anything is pushed** (step 1), `tools/release/build_macos_release.sh --check` asks the Mac build host (`mac`, the owner's M5;
-  `OPENBFME_RELEASE_MAC_HOST`) over ssh whether it has its CI environment, the build tools, Python 3.10+, Godot 4.7.2 and the pinned
+- **Before anything is pushed** (step 1), `tools/release/build_macos_release.sh --check` asks the configured Mac build host
+  (`OPENBFME_RELEASE_MAC_HOST`) over ssh whether it has its CI environment, the build tools, Python 3.10+, Godot 4.7.2 and the pinned
   export templates. If it does not answer (asleep, lid closed, off the network) or lacks something, the run stops at `mac-check`. That
   is a named failure, and nothing has been pushed or published yet.
   `OPENBFME_RELEASE_SKIP_MAC=1`, set explicitly, releases without the Mac package. The log and the summary say so, and the release
@@ -1457,7 +1474,7 @@ runners only, with `permissions: contents: read`, pinned action shas, no secrets
 | `gate` | ubuntu-24.04 | the commit gate on the pull request's changes, `pr_audit.py` (built-in privacy rules + the `.github` policy; no private denylist), `pr_pytest.py` |
 | `linux` | ubuntu-24.04 | engine core + `openbfme_tests` build (ccache), the unit tests that need no game files |
 | `windows` | ubuntu-24.04 | `tools/release/build_windows.sh --no-export`: the release's llvm-mingw cross build (tests, peer, GDExtension, PDB scrub, DLL audit), compile only |
-| `macos` | macos-15 | the GDExtension with the Mac package's configuration (arm64, macOS 13), compile only |
+| `macos` | macos-15 | the GDExtension and unit test executable (arm64, macOS 13), then the console filter tests including the real `/dev/null` regression |
 | `CI` | ubuntu-24.04 | needs all of the above, runs even when one failed, and passes only when every one succeeded |
 
 Measured on `ci/publicci1` (2026-10-19, the tree of the next sync): with warm compiler caches the whole check took 7.5 minutes
@@ -1504,8 +1521,12 @@ annotated tag's text; more than 10 new commits (a branch of the private history)
 private dev repository, the backup) pass untouched. Install it once in the operator's checkout, after the archive branch holds the file
 (a checkout without it refuses every public push, which is the safe failure):
 
-    printf '#!/bin/sh\n# public push guard (docs/RELEASE.md): never bypass\nexec python3 "$(git rev-parse --show-toplevel)/tools/release/public_push_guard.py" "$@"\n' > .git/hooks/pre-push
-    chmod +x .git/hooks/pre-push
+From the repository root in a POSIX shell (Linux/macOS), with Git and Python 3.11+ available as `python3` and the existing hook preserved if it has other duties:
+
+```sh
+printf '#!/bin/sh\n# public push guard (docs/RELEASE.md): never bypass\nexec python3 "$(git rev-parse --show-toplevel)/tools/release/public_push_guard.py" "$@"\n' > .git/hooks/pre-push
+chmod +x .git/hooks/pre-push
+```
 
 Never push with `--no-verify`. The tests (`tools/release/test_public_push_guard.py`) push through the real hook into local bare
 repositories: a push elsewhere, no / a broken denylist, a clean commit, a deletion, each privacy hit (file, path, message, author,
@@ -1527,7 +1548,7 @@ package goes to testers, check on a real Windows 10 / 11 machine (and note the r
 1. **Registry, WOW64 view.** With RotWK and BFME2 installed by the EA installers or the
    All-in-One launcher, the first-run screen offers both folders, sourced from
    `HKLM\SOFTWARE\WOW6432Node\Electronic Arts\Electronic Arts\...\InstallPath` and
-   `...\App Paths\lotrbfme2.exe` `Path` (`RegGetValueW` with `RRF_SUBKEY_WOW6432KEY` from
+   `...\App Paths\lotrbfme2.exe` `Path` (`RegOpenKeyExW` with `KEY_WOW64_32KEY`, then `RegQueryValueExW`, from
    the 64-bit game). Also an install recorded only under HKCU.
 2. **Unicode paths.** Install folders, the user profile and the user name with non-ASCII
    characters (e.g. `C:\Spiele\Mittelerde`, a user `Zoë`): discovery, Browse, the check,
