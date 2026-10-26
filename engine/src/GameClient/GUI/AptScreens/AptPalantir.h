@@ -34,6 +34,7 @@ class AptPalantir : public AptScreen
 public:
 	bool isMenu() const override { return false; } // lane OPTS-6: the HUD, its keys are the game's
 	AptPalantir(WindowManager &windows, Shell &shell);
+	void setViewportSize(int width, int height);
 
 	// the commands the Palantir registers, in the binary's order (without the screen prefix of the command UI names)
 	static const std::vector<std::string> &retailCommandNames();

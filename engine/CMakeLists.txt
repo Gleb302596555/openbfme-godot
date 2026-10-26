@@ -170,6 +170,7 @@ include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TEST
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
 include(cmake/Fx3.cmake)        # FX-3: particle and draw gaps (OPENBFME_FX3_SOURCES / OPENBFME_FX3_TESTS)
+include(cmake/Fogfx1.cmake)     # FOGFX-1: the shroud's fade (OPENBFME_FOGFX1_SOURCES / OPENBFME_FOGFX1_TESTS)
 include(cmake/Fx4.cmake)        # FX-4: TransitionDamageFX, the camera shake (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX4_TESTS)
 include(cmake/Hero.cmake)       # HERO-1: heroes (appends to OPENBFME_SIM_SOURCES; OPENBFME_HERO_TESTS)
 include(cmake/Proj2.cmake)      # PROJ-2: siege projectiles (appends to OPENBFME_SIM_SOURCES; OPENBFME_PROJ2_TESTS)
@@ -302,6 +303,7 @@ add_library(openbfme_core STATIC
     ${OPENBFME_RENDER2_SOURCES}
     ${OPENBFME_FX2_SOURCES}
     ${OPENBFME_FX3_SOURCES}
+    ${OPENBFME_FOGFX1_SOURCES}
     ${OPENBFME_SMOOTH_SOURCES}
     ${OPENBFME_PROJ2_SOURCES}
     ${OPENBFME_STEALTH_SOURCES}
@@ -696,6 +698,7 @@ add_executable(openbfme_tests
     ${OPENBFME_FX2_TESTS}
     ${OPENBFME_FX3_TESTS}
     ${OPENBFME_FX4_TESTS}
+    ${OPENBFME_FOGFX1_TESTS}
     ${OPENBFME_HERO_TESTS}
     ${OPENBFME_MOD1_TESTS}
     ${OPENBFME_MOD2_TESTS}

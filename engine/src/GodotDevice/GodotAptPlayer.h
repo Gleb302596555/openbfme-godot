@@ -111,7 +111,7 @@ public:
 	String dump_tree(int level, int max_depth);
 	// { found, x, y, path } stage centre of the first button at or under `path` ("SoloPlayNav" resolves under the level root).
 	Dictionary find_button(int level, const String &path);
-	// { found, type, depth, x, y (stage, of the instance origin), visible, frame, total_frames }
+	// { found, type, depth, x, y (stage, of the instance origin), stage_transform, local_bounds, visible, frame, total_frames }
 	Dictionary instance_info(int level, const String &path);
 	Rect2 component_rect(const String &instance_path) const; // lane PLAY-1: a gadget's window in stage space (empty: none)
 

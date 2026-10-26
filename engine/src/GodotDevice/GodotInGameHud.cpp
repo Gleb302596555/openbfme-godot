@@ -184,6 +184,7 @@ struct HudDevice : public AptNativeHook
 	double updateMs = 0.0, cameraMs = 0.0, cursorMs = 0.0; ///< SMOOTH-1: the parts of the last _process
 	double viewClock = 0.0; ///< lane ANTICHEAT-1: seconds since the last view sample (GameWorld::net_submit_view, 2 a second)
 	double hudMs = 0.0, iconsMs = 0.0, decalsMs = 0.0, radialMs = 0.0; ///< SELPERF-1: updateMs's parts (InGameHud::update, the icon ops, the selection decals, HUD-6)
+	double placeMs = 0.0, ghostMs = 0.0; ///< lane FOGFX-1: the placement update and the ghost sync of the last frame
 	bool edgeScroll = false;
 	int edgeScrollMode = 0;   // lane OPTS-2: 0 retail (full screen only, or edge_scroll), 1 always, 2 never
 	float uiScale = 1.0f;     // lane OPTS-2: the decorations' scale (health bars, veterancy marks, texts) about each object's ops
@@ -1514,7 +1515,17 @@ void HudDevice::drawResourceFeedback()
 				out[o + 3] = (uint8_t)std::lround(img.rgba[o + 3] * m / 255.0f);
 			}
 		}
-		placeDecalTexture = ImageTexture::create_from_image(Image::create_from_data(w, h, false, Image::FORMAT_RGBA8, px));
+		// lane FOGFX-1 (FB-0055): the decal's texture is updated in place (a new ImageTexture as the pointer crossed each claim cell made Godot pack its
+		// decal atlas again)
+		const Ref<Image> image = Image::create_from_data(w, h, false, Image::FORMAT_RGBA8, px);
+		if (placeDecalTexture.is_valid() && placeDecalTexture->get_width() == w && placeDecalTexture->get_height() == h)
+		{
+			placeDecalTexture->update(image);
+		}
+		else
+		{
+			placeDecalTexture = ImageTexture::create_from_image(image);
+		}
 		placeDecalVersion = rp.version;
 	}
 	if (!pd)
@@ -3322,8 +3333,12 @@ void InGameHudNode::_process(double delta)
 		{
 			d->hud->input().placeTranslator().setLivePointer({ (int)d->livePointer.x, (int)d->livePointer.y });
 		}
+		const uint64_t tp = Time::get_singleton()->get_ticks_usec();
 		d->hud->input().placementUpdate(idle);
+		const uint64_t tg = Time::get_singleton()->get_ticks_usec();
 		d->ghost->sync(*d->world->hud_game(), d->hud->input().ui(), delta, PlaceEventTranslator::ghostOptions(), idle);
+		d->placeMs = (double)(tg - tp) / 1000.0; // lane FOGFX-1 (FB-0055): the placement's legality and the ghost, apart
+		d->ghostMs = (double)(Time::get_singleton()->get_ticks_usec() - tg) / 1000.0;
 	}
 	const uint64_t t2 = Time::get_singleton()->get_ticks_usec();
 	{
@@ -3365,6 +3380,18 @@ Dictionary InGameHudNode::get_frame_timings() const
 	t["hud_icons_ms"] = d->iconsMs;
 	t["hud_decals_ms"] = d->decalsMs;
 	t["hud_radial_ms"] = d->radialMs;
+	t["hud_place_ms"] = d->placeMs; // lane FOGFX-1: hud_camera_ms's parts: the placement update and the ghost's sync
+	t["hud_ghost_ms"] = d->ghostMs;
+	t["hud_ghost_icons_ms"] = d->ghost ? d->ghost->lastIconsMs() : 0.0;
+	t["hud_ghost_draw_ms"] = d->ghost ? d->ghost->lastDrawMs() : 0.0;
+	if (d->ghost)
+	{
+		const char *names[5] = { "hud_ghost_inst_ms", "hud_ghost_update_ms", "hud_ghost_tint_ms", "hud_ghost_bib_ms", "hud_ghost_shadow_ms" };
+		for (int k = 0; k < 5; ++k)
+		{
+			t[names[k]] = d->ghost->lastDrawParts()[k];
+		}
+	}
 	if (d->hud)
 	{
 		// lane SELPERF-1: InGameHud::update's parts

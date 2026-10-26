@@ -1,43 +1,35 @@
-# Lane SIGNKMS-1: a release's packages built and SIGNED on GitHub's own runners (docs/RELEASE.md, "Release signing").
+# Lane SIGNKMS-1, RELGH-2: a NIGHTLY's packages built and SIGNED on GitHub's own runners (docs/RELEASE.md, "Nightly signing on GitHub
+# Actions"). Stable releases are never signed here: the stable release key never enters CI or GitHub.
 #
-# The release's Deck (tools/release/autorelease.sh with OPENBFME_RELEASE_SIGNER=actions) has synced, audited, built and tested the release
-# candidate with the retail files GitHub never sees, and pushed the public commit and its tag. It then dispatches this workflow ON MAIN with
-# the tag, the commit, the kind and a one-time request id. This workflow:
+# The release's Deck (tools/release/autorelease.sh --nightly with OPENBFME_RELEASE_SIGNER=actions) has synced, audited, built and tested the
+# nightly candidate with the retail files GitHub never sees, and pushed the public commit and its tag. It then dispatches this workflow ON
+# MAIN with the tag, the commit and a one-time request id. This workflow:
 #   plan     checks the inputs (through the environment only, never pasted into a script), that it runs on main of this repository, that
-#            the tag names the commit and that the commit is on main;
+#            the tag is a nightly's and names the commit, that the commit is on main, and that the newest PUBLISHED stable release
+#            (its manifest signed by the stable key, published 14 days ago or more) trusts the commit's nightly keys (the transition rule);
 #   macos / linux-lib / windows-lib / package
 #            builds the packages from a checkout of the tag: the Mac package (package_macos.py, ad-hoc codesign), the Linux and Windows
-#            GDExtensions (build_linux.sh: the GLIBC 2.28 floor; build_windows.sh --no-export: the pinned llvm-mingw), then package.sh
-#            (Godot 4.7.2 with the templates godot_templates.txt pins) for the Linux and Windows packages; these jobs have no write access,
-#            no AWS access and no secret; RELSIGN-1: macos / linux-lib / windows-lib CALL release-package.yml (MACACT-1's jobs, which
-#            the Deck also dispatches on its own for the host-vs-Actions comparisons), so both paths build with one definition;
-#   sign     in the protected environment named by the kind (`nightly`: main only; `stable`: main only AND the owner's approval), the only
-#            job allowed to request GitHub's OIDC token: it trades GitHub's OIDC token for a 15-minute AWS session of the signing role (the role's trust
-#            policy accepts only this repository, this workflow file on refs/heads/main and these two environments), seals the packages and
-#            signs the manifests with the KMS key (tools/release/actions_release.py sign: the signature envelope, docs/RELEASE.md), verifies
-#            every signature against the committed launcher/release_keys.pub, and creates the release as a DRAFT with GitHub's token
-#            (write access to the contents, this job only). It never publishes: the Deck reads the draft back, checks it against the candidate it tested,
-#            runs the private privacy gate, adds the transition's co-signature (tools/release/cosign_release.py) and publishes.
-# The private key never exists outside AWS KMS; nothing here holds a long-lived credential (the one secret, the signing role's ARN, is
-# masked, not a credential); every action is pinned by its full commit sha;
-# every download is checked against a pinned hash. tools/release/public_workflows.py allows those two permissions in this
-# file alone, in a job with `environment:` nightly or stable.
+#            GDExtensions, then package.sh for the Linux and Windows packages; these jobs have no write access and no secret; they CALL
+#            release-package.yml (MACACT-1's jobs, which the Deck also dispatches on its own), so both paths build with one definition;
+#   sign     in the protected environment `nightly-signing` (deployment branches: main only), the only job that can read the nightly
+#            key (environment secret OPENBFME_NIGHTLY_SIGNING_KEY, handed to ONE step's environment): actions_release.py sign removes it
+#            from its environment, writes it to a mode 0600 file on tmpfs, seals the packages and signs the manifests with it, verifies
+#            every signature against the committed launcher/release_keys.pub + launcher/nightly_keys.pub (the nightly scope rule), and
+#            shreds the file; the last step removes any leftover whatever happened. The job creates the release as a DRAFT with GitHub's
+#            token (write access to the contents, this job only). It never publishes: the Deck reads the draft back, checks it against
+#            the candidate it tested, runs the private privacy gate and publishes.
+# No OIDC token, no cloud credential; every action is pinned by its full commit sha; every download is checked against a pinned hash.
+# tools/release/public_workflows.py allows the write permission on contents and the one secret in this file alone, in a job with `environment:
+# nightly-signing`.
 name: Release
 
-run-name: Release ${{ inputs.tag }} (${{ inputs.kind }}, request ${{ inputs.request }})
+run-name: Release ${{ inputs.tag }} (nightly, request ${{ inputs.request }})
 
 on:
   workflow_dispatch:
     inputs:
-      kind:
-        description: nightly or stable (the environment the signing job runs in)
-        required: true
-        type: choice
-        options:
-          - nightly
-          - stable
       tag:
-        description: the release tag the Deck pushed (v1.2.3 or v1.2.3-nightly.261023200)
+        description: the nightly tag the Deck pushed (v1.2.3-nightly.261023200)
         required: true
         type: string
       commit:
@@ -57,7 +49,6 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IN_KIND: ${{ inputs.kind }}
   IN_TAG: ${{ inputs.tag }}
   IN_COMMIT: ${{ inputs.commit }}
   IN_REQUEST: ${{ inputs.request }}
@@ -67,6 +58,9 @@ jobs:
     name: Check the request
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    env:
+      # read-only (the top-level contents: read): the transition rule reads the published stable release (trusted_by_stable)
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -164,20 +158,15 @@ jobs:
           compression-level: 0
 
   sign:
-    name: Seal, sign (AWS KMS) and draft the release
+    name: Seal, sign (the nightly key) and draft the release
     needs: [plan, macos, package]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    # nightly: deployment branches main only; stable: main only and the owner as the required reviewer (docs/RELEASE.md, "Release signing")
-    environment: ${{ inputs.kind }}
+    # deployment branches: main only, no reviewers (the schedule runs unattended); the environment's one secret is the nightly key
+    environment: nightly-signing
     permissions:
       contents: write
-      id-token: write
     env:
-      # the role's ARN names the AWS account: an environment SECRET (GitHub masks it in every log line; a variable would be printed
-      # with the job's environment), not a credential; the region is public
-      SIGNING_ROLE_ARN: ${{ secrets.OPENBFME_SIGNING_ROLE_ARN }}
-      SIGNING_REGION: ${{ vars.OPENBFME_SIGNING_REGION }}
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -197,7 +186,18 @@ jobs:
         with:
           name: openbfme-${{ inputs.tag }}-macos-arm64-${{ inputs.request }}
           path: ${{ runner.temp }}/in/macos
-      - name: Seal and sign through AWS KMS, verify under launcher/release_keys.pub
+      - name: Seal and sign with the nightly key, verify under launcher/release_keys.pub + launcher/nightly_keys.pub
+        env:
+          NIGHTLY_SIGNING_KEY: ${{ secrets.OPENBFME_NIGHTLY_SIGNING_KEY }}
         run: python3 tools/release/actions_release.py sign --in "$RUNNER_TEMP/in" --pkg "$RUNNER_TEMP/pkg"
+      - name: Remove any leftover of the key (tmpfs)
+        if: always()
+        run: |
+          for d in /dev/shm/openbfme-nightly-key-*; do
+            [ -e "$d" ] || continue
+            if [ -f "$d/nightly.pem" ]; then shred -u -z "$d/nightly.pem"; fi
+            rm -rf "$d"
+          done
+          if compgen -G '/dev/shm/openbfme-nightly-key-*' >/dev/null; then echo "a key folder is left on /dev/shm"; exit 1; fi
       - name: Create the draft release (never published here)
         run: python3 tools/release/actions_release.py draft --pkg "$RUNNER_TEMP/pkg"

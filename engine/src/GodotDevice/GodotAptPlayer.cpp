@@ -3944,6 +3944,7 @@ void AptMenuPlayer::render(bool force)
 	if (window != m->lastWindow || m_fit != m->lastFit)
 	{
 		m->dirty = true;
+		m->drawnValid = false;
 		m->lastWindow = window;
 		m->lastFit = m_fit;
 	}
@@ -4317,8 +4318,7 @@ void AptMenuPlayer::drawCanvas(const AptCanvasList &list)
 		return r;
 	};
 	// lane FB7-1: the display's backdrop behind every Apt level (Shell::update RW 0x75E1D3 -> RW 0x65C42C slot 0): the mapped image ShellMapLowLOD
-	// (HandCreatedMappedImages.ini: InstallLoad.tga, 1024 x 768 of a 1024 x 1024 texture). INFERENCE (S-1912): it covers the stage as the movies do
-	// (the display's draw of the slot was not read)
+	// (HandCreatedMappedImages.ini: InstallLoad.tga, 1024 x 768 of a 1024 x 1024 texture).
 	m->drawnBackdrop.clear(); // lane CAMP-2
 	if (m->shell && m->shell->shell && !m->shell->shell->backdropImage().empty())
 	{
@@ -4368,9 +4368,10 @@ void AptMenuPlayer::drawCanvas(const AptCanvasList &list)
 			}
 			if (it != m->godotTextures.end())
 			{
+				const AptStageMapping backdrop = m->mapping.fitImage((float)img->imageSize.x, (float)img->imageSize.y);
 				float x0, y0, x1, y1;
-				m->mapping.stageToWindow(0.0f, 0.0f, x0, y0);
-				m->mapping.stageToWindow((float)img->imageSize.x, (float)img->imageSize.y, x1, y1);
+				backdrop.stageToWindow(0.0f, 0.0f, x0, y0);
+				backdrop.stageToWindow(backdrop.stageW, backdrop.stageH, x1, y1);
 				addTextureUV(rs, newItem(root), Rect2(Vector2(x0, y0), Vector2(x1 - x0, y1 - y0)), it->second, img->uvLo, img->uvHi, Color(1, 1, 1, 1));
 				m->drawnBackdrop = name; // lane CAMP-2
 			}
@@ -4861,13 +4862,27 @@ void AptMenuPlayer::drawSegment(const AptCanvasList &list, size_t segment, const
 					}
 					if (tex.is_valid())
 					{
+						float imageScaleX = op.scaleX, imageScaleY = op.scaleY;
+						float imageOffsetX = op.offsetX, imageOffsetY = op.offsetY;
+						if (record && *record == "LogoWithShadow" && m->shell->shell)
+						{
+							const ::Image *backdropImage = m->shell->skins.images.findImageByName(m->shell->shell->backdropImage());
+							if (backdropImage)
+							{
+								const AptStageMapping artwork = m->mapping.fitImage((float)backdropImage->imageSize.x, (float)backdropImage->imageSize.y);
+								imageScaleX = artwork.scaleX();
+								imageScaleY = artwork.scaleY();
+								imageOffsetX = artwork.offsetX();
+								imageOffsetY = artwork.offsetY();
+							}
+						}
 						float minx = 1e9f, miny = 1e9f, maxx = -1e9f, maxy = -1e9f;
 						const float xs[4] = { op.bounds[0], op.bounds[2], op.bounds[2], op.bounds[0] };
 						const float ys[4] = { op.bounds[1], op.bounds[1], op.bounds[3], op.bounds[3] };
 						for (int i = 0; i < 4; ++i)
 						{
-							const float sx = (op.matrix.a * xs[i] + op.matrix.c * ys[i] + op.matrix.tx) * op.scaleX + op.offsetX;
-							const float sy = (op.matrix.b * xs[i] + op.matrix.d * ys[i] + op.matrix.ty) * op.scaleY + op.offsetY;
+							const float sx = (op.matrix.a * xs[i] + op.matrix.c * ys[i] + op.matrix.tx) * imageScaleX + imageOffsetX;
+							const float sy = (op.matrix.b * xs[i] + op.matrix.d * ys[i] + op.matrix.ty) * imageScaleY + imageOffsetY;
 							minx = std::min(minx, sx);
 							maxx = std::max(maxx, sx);
 							miny = std::min(miny, sy);
@@ -5887,8 +5902,10 @@ Dictionary AptMenuPlayer::instance_info(int level, const String &path)
 	r["found"] = true;
 	r["type"] = (int)inst->type();
 	r["depth"] = inst->depth();
+	const AptMatrix stageTransform = inst->globalMatrix();
+	r["stage_transform"] = Transform2D(Vector2(stageTransform.a, stageTransform.b), Vector2(stageTransform.c, stageTransform.d), Vector2(stageTransform.tx, stageTransform.ty));
 	float x, y;
-	inst->globalMatrix().apply(0, 0, x, y);
+	stageTransform.apply(0, 0, x, y);
 	r["x"] = x;
 	r["y"] = y;
 	r["visible"] = inst->visible;
@@ -5896,6 +5913,7 @@ Dictionary AptMenuPlayer::instance_info(int level, const String &path)
 	float bx0, by0, bx1, by1;
 	if (inst->contentBounds(bx0, by0, bx1, by1))
 	{
+		r["local_bounds"] = Rect2(bx0, by0, bx1 - bx0, by1 - by0);
 		float ax, ay, cx, cy;
 		if (inst->parent())
 		{

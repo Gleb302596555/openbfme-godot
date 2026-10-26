@@ -73,9 +73,9 @@ def server():
 
 @pytest.fixture(scope="session")
 def keys(tmp_path_factory):
-    """the secrets of the throwaway release key (the old, Deck-style key), a second trusted key (SIGNKMS-1: the KMS key's stand-in,
+    """(RELGH-2: and a nightly-only key) the secrets of the throwaway release key (the old, Deck-style key), a second trusted key (SIGNKMS-1: the KMS key's stand-in,
     which signs the envelope) and another key"""
-    return {"release": os.urandom(32), "kms": os.urandom(32), "other": os.urandom(32)}
+    return {"release": os.urandom(32), "kms": os.urandom(32), "other": os.urandom(32), "nightly": os.urandom(32)}
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -400,7 +400,7 @@ def test_rfc8032_vectors_in_python():
     assert not ed25519.verify(ed25519.public_key(sk), b"\x72", s_plus_l), "S >= L is rejected"
 
 
-def signkms_fixtures(manifest: bytes, deck: bytes, kms: bytes, other: bytes) -> dict[str, str]:
+def signkms_fixtures(manifest: bytes, deck: bytes, kms: bytes, other: bytes, nightly: bytes, nightly_manifest: bytes, stable_manifest: bytes) -> dict[str, str]:
     """SIGNKMS-1: launcher/tests/unit_test.gd --signkms: signatures of a manifest.json, a manifest-macos.json and a payload.json under
     the old (Deck: raw) and the new (KMS: envelope, release_keys.py) throwaway keys, of the wrong kinds, and of an unknown key"""
     import release_keys
@@ -423,6 +423,40 @@ def signkms_fixtures(manifest: bytes, deck: bytes, kms: bytes, other: bytes) -> 
         "payload": pay, "payload_raw": sign(deck, pay), "payload_env": sign(kms, env("payload.json", pay)),
         "payload_env_wrong_kind": sign(kms, env("manifest.json", pay)),
     }
+    # lane RELGH-2: documents signed by the nightly-only key: a nightly release's manifest (a real, schema-valid one), a stable release's,
+    # a manifest with a nightly version but channel stable (and one with a preview channel but a non-nightly version), a nightly and a
+    # stable payload.json, a nightly macOS sidecar
+    nm = json.loads(nightly_manifest)
+    nm_stable_channel = json.dumps(dict(nm, channel="stable"), indent=2).encode() + b"\n"
+    nm_other_version = json.dumps(dict(nm, version="v1.2.3-preview.4"), indent=2).encode() + b"\n"
+    nm_trailing_newline = json.dumps(dict(nm, version=nm["version"] + "\n"), indent=2).encode() + b"\n"
+    nm_int_version = json.dumps(dict(nm, version=123), indent=2).encode() + b"\n"
+    pay_n = json.dumps(dict(json.loads(pay), version="v1.2.3-nightly.261024100"), indent=2).encode() + b"\n"
+    mac_n = json.dumps(dict(json.loads(mac), version="v1.2.3-nightly.20261024"), indent=2).encode() + b"\n"
+    fx.update({
+        "nightly": ed25519.public_key(nightly),
+        "n_manifest": nightly_manifest, "n_manifest_raw": sign(nightly, nightly_manifest),
+        "n_manifest_env": sign(nightly, env("manifest.json", nightly_manifest)),
+        "n_manifest_env_wrong_kind": sign(nightly, env("payload.json", nightly_manifest)),
+        "s_manifest": stable_manifest, "s_manifest_raw": sign(nightly, stable_manifest),
+        "s_manifest_env": sign(nightly, env("manifest.json", stable_manifest)),
+        "n_chan": nm_stable_channel, "n_chan_raw": sign(nightly, nm_stable_channel),
+        "n_otherver": nm_other_version, "n_otherver_raw": sign(nightly, nm_other_version),
+        "n_newline": nm_trailing_newline, "n_newline_raw": sign(nightly, nm_trailing_newline),
+        "n_intver": nm_int_version, "n_intver_raw": sign(nightly, nm_int_version),
+        "n_payload": pay_n, "n_payload_raw": sign(nightly, pay_n), "n_payload_env": sign(nightly, env("payload.json", pay_n)),
+        "s_payload_raw": sign(nightly, pay), "s_payload_env": sign(nightly, env("payload.json", pay)),
+        "n_macos": mac_n, "n_macos_env": sign(nightly, env("manifest-macos.json", mac_n)),
+        "s_macos_env": sign(nightly, env("manifest-macos.json", mac)),
+        "n_manifest_other": sign(other, nightly_manifest), "n_manifest_deck": sign(deck, nightly_manifest),
+    })
+    # the Python twin agrees: a nightly key is valid for the nightly documents only
+    nl = [("nightly", fx["nightly"])]
+    assert release_keys.verify_scoped(lst0 := [("deck", fx["deck"]), ("kms", fx["kms"])], nl, "manifest.json", nightly_manifest, fx["n_manifest_raw"])
+    assert release_keys.verify_scoped(lst0, nl, "manifest.json", stable_manifest, fx["s_manifest_raw"]) is None
+    assert release_keys.verify_scoped(lst0, nl, "manifest.json", nm_stable_channel, fx["n_chan_raw"]) is None
+    assert release_keys.verify_scoped(lst0, nl, "payload.json", pay, fx["s_payload_raw"]) is None
+    assert release_keys.verify_scoped(lst0, nl, "payload.json", pay_n, fx["n_payload_raw"])
     # the envelope signature is what release_keys.verify accepts, and the raw one too (the Python twin of the rule)
     lst = [("deck", fx["deck"]), ("kms", fx["kms"])]
     assert release_keys.verify(lst, "manifest.json", manifest, fx["manifest_env"]) == "kms"
@@ -444,9 +478,12 @@ def test_local_diagnostic_privacy(tmp_path, project, script, summary):
 
 def _unit_run(project, tmp_path, keys):
     files = release_files(tmp_path, "v1.2.3-preview.4", keys["release"])
+    nightly_files = release_files(tmp_path, "v1.2.3-nightly.20261024", keys["release"])   # lane RELGH-2
+    stable_files = release_files(tmp_path, "v1.2.3", keys["release"])
     (tmp_path / "m.json").write_bytes(files["manifest.json"])
     (tmp_path / "m.sig").write_bytes(files["manifest.json.sig"])
-    (tmp_path / "signkms.json").write_text(json.dumps(signkms_fixtures(files["manifest.json"], keys["release"], keys["kms"], keys["other"])))
+    (tmp_path / "signkms.json").write_text(json.dumps(signkms_fixtures(files["manifest.json"], keys["release"], keys["kms"], keys["other"], keys["nightly"],
+                                                                       nightly_files["manifest.json"], stable_files["manifest.json"])))
     return subprocess.run([GODOT, "--headless", "--path", str(project), "--script", "res://tests/unit_test.gd", "--",
                         f"--key={ed25519.public_key(keys['release']).hex()}", f"--manifest={tmp_path / 'm.json'}",
                         f"--sig={tmp_path / 'm.sig'}", f"--signkms={tmp_path / 'signkms.json'}"], env=isolated_environment(tmp_path),
@@ -794,6 +831,23 @@ def test_nightly_channel_name(tmp_path, server, keys):
     assert r.code == 0 and r.has("update installed v0.4.12"), r
     r = launch(other, server, keys["release"], "--channel=bogus", "--list")
     assert r.code == 1 and r.has("unknown channel 'bogus' (stable, nightly)"), r
+
+
+def test_the_nightly_key_signs_nightly_releases_only(tmp_path, server, keys):
+    """RELGH-2: a key trusted for nightly releases only (--trust-nightly-key, a test build's twin of build_info.json nightly_keys): a
+    nightly release it signed is installed on the nightly channel; the same key on a stable release is refused by name; and without the
+    option (a launcher that does not list the key) the nightly release is refused too"""
+    nk = f"--trust-nightly-key={ed25519.public_key(keys['nightly']).hex()}"
+    server.publish("v0.4.13-nightly.20261022", release_files(tmp_path, "v0.4.13-nightly.20261022", keys["nightly"]))
+    r = launch(tmp_path, server, keys["release"], "--channel=nightly", "--update")
+    assert r.code == 3 and r.has("signature is not valid") and installed(tmp_path) == [], r
+    r = launch(tmp_path, server, keys["release"], "--channel=nightly", "--update", nk)
+    assert r.code == 0 and r.has("update installed v0.4.13-nightly.20261022"), r
+    other = tmp_path / "stable"
+    other.mkdir()
+    server.publish("v0.4.14", release_files(tmp_path, "v0.4.14", keys["nightly"]))
+    r = launch(other, server, keys["release"], "--channel=stable", "--update", nk)
+    assert r.code == 3 and r.has("signature is not valid") and installed(other) == [], r
 
 
 def test_offline_launch(tmp_path, server, keys):

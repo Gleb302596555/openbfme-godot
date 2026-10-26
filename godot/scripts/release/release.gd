@@ -306,6 +306,9 @@ func set_in_game(in_game: bool) -> void:
 ## the details are logged and the language warning (scripts/release/language_warning.gd) is shown before the game goes on.
 func mount_retail(fs: RefCounted) -> Dictionary:
 	var mount: Dictionary = await _mount_retail_folders(fs)
+	# lane SDK-1: the asset pack models that replace nothing or do not fit the model they replace (left out; the game's model is drawn)
+	for note in mount.get("asset_pack_notes", PackedStringArray()):
+		print("RELEASE asset packs: ", note)
 	if mount.get("ok", false) and await language_warning(mount):
 		mount["quit"] = true # --language-warning-shot: the capture is saved, the game quits (game.gd)
 	return mount
@@ -444,18 +447,36 @@ static func install_mod_args(args: PackedStringArray, env: String) -> PackedStri
 	return out
 
 
-# lane SDK-0: the asset pack folders: user://asset-packs/<pack>/ in name order (drag and drop), then --asset-pack=FOLDER in command-line order
+# lane SDK-0: the asset pack folders: user://asset-packs/<pack>/ in name order (drag and drop), then --asset-pack=FOLDER in command-line order.
+# Lane SDK-1: a pack named in user://asset-packs/disabled.txt (one folder name per line; the launcher's Mods page writes it) is left out.
 static func asset_pack_folders(args: PackedStringArray) -> PackedStringArray:
 	var out := PackedStringArray()
 	var root := ProjectSettings.globalize_path("user://asset-packs")
 	var names := DirAccess.get_directories_at(root) if DirAccess.dir_exists_absolute(root) else PackedStringArray()
 	names.sort()
+	var off := disabled_asset_packs(root)
 	for n in names:
+		if off.has(n.to_lower()):
+			print("RELEASE asset packs: ", n, " is turned off (asset-packs/disabled.txt)")
+			continue
 		out.push_back(root.path_join(n))
 	for a in args:
 		if a.begins_with("--asset-pack="):
 			out.push_back(a.trim_prefix("--asset-pack="))
 	return out
+
+
+# lane SDK-1: the pack folder names (lower case) listed in <root>/disabled.txt; blank lines and lines starting with # are skipped
+static func disabled_asset_packs(root: String) -> Dictionary:
+	var off := {}
+	var path := root.path_join("disabled.txt")
+	if not FileAccess.file_exists(path):
+		return off
+	for line in FileAccess.get_file_as_string(path).split("\n"):
+		var n := line.strip_edges()
+		if not n.is_empty() and not n.begins_with("#"):
+			off[n.to_lower()] = true
+	return off
 
 
 # --first-run=accept                 take the first discovered folders that pass the check (the "found" case of the fresh-user test)
