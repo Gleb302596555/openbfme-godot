@@ -205,10 +205,11 @@ MessageDisposition GUICommandTranslator::translate(const ClientMessage &msg)
 				{
 					// lane HERO-1 (S-850): a hero ability's target. An object of the relationship the options name: MSG_DO_SPECIAL_POWER_AT_OBJECT { int id, objectID
 					// target, int options, objectID source }; else with NEED_TARGET_POS the ground: MSG_DO_SPECIAL_POWER_AT_LOCATION { int id, location, objectID target,
-					// int options, objectID source }. The radius cursor and the target validity rules of the binary's translator are S-290's
+					// int options, objectID source }. The radius cursor and the target validity rules of the binary's translator are S-290's.
+					// lane HEROCAST-1: the options and the source are issueSpecialPowerCommand's (RW 0x81E147, which RW 0x83D7AD leaves the click to): the
+					// button's options and source NONE, so the logic casts with the selection (AIGroup's senior-hero rule, GameLogic/SpellCommands.h)
 					const SpecialPowerTemplate *t = TheSpecialPowerStore && !command->m_specialPowerName.empty() ? TheSpecialPowerStore->findSpecialPowerTemplate(command->m_specialPowerName) : nullptr;
-					const ObjectID source = m_ctx.ui.firstSelected();
-					if (!t || source == INVALID_ID)
+					if (!t || m_ctx.ui.firstSelected() == INVALID_ID)
 					{
 						break;
 					}
@@ -233,8 +234,8 @@ MessageDisposition GUICommandTranslator::translate(const ClientMessage &msg)
 						ClientMessage &m = m_ctx.stream.append(MSG_DO_SPECIAL_POWER_AT_OBJECT);
 						m.appendInteger((int)t->getID());
 						m.appendObjectID(target->getID());
-						m.appendInteger(0);
-						m.appendObjectID(source);
+						m.appendInteger((int)command->m_options);
+						m.appendObjectID(INVALID_ID);
 					}
 					else
 					{
@@ -266,8 +267,8 @@ MessageDisposition GUICommandTranslator::translate(const ClientMessage &msg)
 							m.appendInteger((int)t->getID());
 							m.appendLocation(world);
 							m.appendObjectID(INVALID_ID);
-							m.appendInteger(0);
-							m.appendObjectID(source);
+							m.appendInteger((int)command->m_options);
+							m.appendObjectID(INVALID_ID);
 						}
 					}
 					break;
