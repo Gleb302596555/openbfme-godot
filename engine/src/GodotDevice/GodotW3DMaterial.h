@@ -69,6 +69,11 @@ struct W3DMaterialResult
 	std::vector<std::string> Errors;  // textures that did not load, etc.
 };
 
+// lane SDK-1 (GameClient/AssetPacks.h): the asset pack replacement of the texture `name` decoded by its own bytes (DDS, PNG, JPEG, else TGA),
+// or a null image when no pack replaces it. A pack file that cannot be read or decoded is a null image with `error` set ("asset pack P: F ...").
+// Shared by every texture loader of the render side (model surfaces, particles, decals, roads / rivers / water / sky): one precedence.
+Ref<Image> Load_Asset_Pack_Image(const AssetPacks *packs, const std::string &name, std::string &error);
+
 // Builds materials and caches shaders and textures. Textures are read through the mounted archives.
 class W3DMaterialFactory
 {

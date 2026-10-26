@@ -177,8 +177,10 @@ TEST_CASE("siege1 gate: the stone and bolt throwers in front of Helm's Deep's ga
 	CHECK(dc.contactsWhileStanding == 4);
 	CHECK(dc.deathFrame == 401);
 	const GateRun b = pinnedRun(*s, kHelmsDeep, "Main Gate", "IsengardBallista", 400.0f, 600);
-	CHECK(b.contactsWhileStanding == 0);
-	CHECK(b.deathFrame == 311);
+	// merge queue q27: one contact while the gate stands (was 0) and death 311 -> 389, LOS-1 (the terrain line of sight with the wall layers' heights;
+	// measured at each merge point)
+	CHECK(b.contactsWhileStanding == 1);
+	CHECK(b.deathFrame == 389);
 }
 
 TEST_CASE("siege1 gate: Mordor's catapult and Gondor's trebuchet in front of Minas Tirith's gate break it")
@@ -201,7 +203,7 @@ TEST_CASE("siege1 gate: the rams, Grond and the mumak in front of the gates (no 
 	CHECK(pinnedRun(*s, kHelmsDeep, "Main Gate", "IsengardBatteringRam", 250.0f, 600).deathFrame == 99);
 	CHECK(pinnedRun(*s, kHelmsDeep, "Main Gate", "DwarvenDemolisher", 250.0f, 600).deathFrame == 101);
 	CHECK(pinnedRun(*s, kHelmsDeep, "Main Gate", "MordorGrond", 250.0f, 600).deathFrame == 128);
-	CHECK(pinnedRun(*s, kHelmsDeep, "Main Gate", "MordorMumakil", 250.0f, 600).deathFrame == 246);
+	CHECK(pinnedRun(*s, kHelmsDeep, "Main Gate", "MordorMumakil", 250.0f, 600).deathFrame == 247); // merge queue q27: 246 -> 247, LOS-1
 	CHECK(pinnedRun(*s, kMinasTirith, "Gate", "IsengardBatteringRam", 250.0f, 600).deathFrame == 57);
 	CHECK(pinnedRun(*s, kMinasTirith, "Gate", "MordorGrond", 250.0f, 600).deathFrame == 83);
 }

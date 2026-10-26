@@ -836,6 +836,45 @@ void AptPalantir::syncPlayerStats()
 	}
 }
 
+void AptPalantir::setViewportSize(int width, int height)
+{
+	if (m_bfme1)
+	{
+		return;
+	}
+	AptSpriteInst *root = windows().apt().level(level());
+	if (!root || !root->timelineFile || width < 1 || height < 1)
+	{
+		return;
+	}
+	const float stageWidth = (float)root->timelineFile->width;
+	const float stageHeight = (float)root->timelineFile->height;
+	if (stageWidth <= 0.0f || stageHeight <= 0.0f)
+	{
+		return;
+	}
+	const float scale = std::min(1.0f, ((float)height / stageHeight) / ((float)width / stageWidth));
+	for (AptCharacterInst *child : root->children())
+	{
+		const std::string &name = child->instName();
+		if (name == "helpBox" || name == "ButtonFlashStage")
+		{
+			continue;
+		}
+		float anchor = 0.0f;
+		if (name == "SideCommandBar")
+		{
+			anchor = stageWidth;
+		}
+		else if (name == "planningModeUI")
+		{
+			anchor = stageWidth * 0.5f;
+		}
+		child->viewportTransform.a = scale;
+		child->viewportTransform.tx = anchor * (1.0f - scale);
+	}
+}
+
 void AptPalantir::sync(const ControlBar &bar)
 {
 	if (!m_initialized)
@@ -1325,6 +1364,13 @@ bool AptPalantir::createRadarPing(int id, const std::string &name)
 bool AptPalantir::moveRadarPing(int id, float stageX, float stageY)
 {
 	++m_radarPingCalls;
+	if (AptSpriteInst *root = windows().apt().level(level()))
+	{
+		if (AptCharacterInst *pings = root->childByName("RadarPings"))
+		{
+			stageX = (stageX - pings->viewportTransform.tx) / pings->viewportTransform.a;
+		}
+	}
 	char x[64], y[64];
 	std::snprintf(x, sizeof(x), "%f", (double)stageX);
 	std::snprintf(y, sizeof(y), "%f", (double)stageY);

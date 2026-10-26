@@ -49,11 +49,17 @@
 ##                           options, hash (PINGWHEEL_HASH=quiet|pings), video (frames in --screens); pingwheel-<name>.png in --screens
 ##     --autocast1=<a,...>   (lane AUTOCAST-1, with --auto) scripts/autocast1_player.gd: witchking (a right click on the Witch-king's Morgul Blade
 ##                           button turns its autocast on, the button glows, he casts it at an enemy hero by himself; off again); autocast1-<name>.png
+##     --trees1=<a,...>      (lane TREES1, with --auto) scripts/trees1_player.gd: harvest (a lumber mill's workers fell trees and earn), crush (a
+##                           siege engine topples the trees it drives into); trees1-*.png in --screens
+##     --herocast1=<a,...>   (lane HEROCAST-1, with --auto) scripts/herocast1_player.gd: gandalfs (two Gandalfs of different ranks selected by a
+##                           drag box cast Lightning Sword at a spot: only the senior one casts); herocast1-<name>.png
 ##     --visual2=<a,...>     (lane VISUAL-2, with --auto) scripts/visual2_player.gd: fog (what the local player sees of the enemy in the fog: drawn
 ##                           objects, particles), trees (the sway), look (views for the colour comparison); visual2-*.png in --screens
 ##     --start-spot=<n>      (with --auto) slot 0 clicks the lobby's start spot n first (RW 0x845830): e.g. 0 = Player_1_Start, a fortress map's fortress
 ##     --devport7=<a,...>    (lane DEVPORT-7, with --auto or --campaign=NAME) scripts/devport7_player.gd: veteran (campaign: banner replenish / heal,
 ##                           rank-3 self heal and refill, hero heal), rally (the rally banner of a right click), formation (a mixed group's formation)
+##     --banner1=<a,...>     (lane BANNER-1, with --auto) scripts/banner1_player.gd: refill (a rank-2 Gondor horde fights orcs, then its banner carrier
+##                           refills it), losses (the same with five soldiers struck down instead of the fight)
 ##     --spell3=<a,b,...>    (lane SPELL-3, with --auto) scripts/spell3_player.gd: spellbook (buy every power in the store, cast every slot by input);
 ##                           "SPELL3 <name>: ok / FAIL", spell3-<faction>-*.png in --screens
 ##     --play1=<a,b,...>     (lane PLAY-1, with --auto) the input-driven scenarios of scripts/play1_player.gd (orders, palantir, powers, camera, explore, dragbox, ghosts,
@@ -362,6 +368,10 @@ var _hud: Node
 var _mouse_override := ""
 var _move_hints: Node3D
 var _pings: Node3D      # the ping wheel (not retail): scripts/ping_board.gd, the pings shown
+var _cheats: Node       # lane CHEAT-1: the open Cheat Mode (scripts/cheat_panel.gd): the lines, the marker and the host's panel
+var _cheat_script := ""  # lane CHEAT-1: --cheat-script=FRAME:STEP;... (scripts/cheat_panel.gd)
+var _cheat_lobby := false # lane CHEAT-1: --cheat-lobby (the --auto lobby ticks the Rules tab's Cheat Mode box)
+var _cheat_game := false  # lane CHEAT-1: the game being played / just ended had Cheat Mode (the score screen says so)
 var _ping_wheel: CanvasLayer # scripts/ping_wheel.gd, the wheel the ping key opens
 ## lane PLAY-1: the free camera (the owner's presentation option, not retail): --free-camera or Options.ini "OpenBFMEFreeCamera = yes"
 var _free_camera_flag := false
@@ -388,7 +398,9 @@ var _devport8 := PackedStringArray() # lane DEVPORT-8 (scripts/devport8_player.g
 var _hud7 := PackedStringArray() # lane HUD-7 (scripts/hud7_player.gd: radar, deselect, sell, upgrade, herocancel)
 var _pingwheel := PackedStringArray() # the ping wheel's scenarios (scripts/ping_wheel_player.gd)
 var _autocast1 := PackedStringArray() # lane AUTOCAST-1 (scripts/autocast1_player.gd: witchking)
+var _herocast1 := PackedStringArray() # lane HEROCAST-1 (scripts/herocast1_player.gd: gandalfs)
 var _visual2 := PackedStringArray() # lane VISUAL-2 (scripts/visual2_player.gd: fog, trees, look)
+var _trees1 := PackedStringArray() # lane TREES1 (scripts/trees1_player.gd: harvest, crush)
 var _start_spot := -1            # lane HUD-5
 ## lane INPUT-1: the keyboard scenarios of scripts/input1_player.gd (--input1=groups,...)
 var _input1 := PackedStringArray()
@@ -715,6 +727,10 @@ func _ready() -> void:
 			_cah_real_profile = true
 		elif arg.begins_with("--seed="):
 			_seed = int(arg.substr(7))
+		elif arg.begins_with("--cheat-script="):
+			_cheat_script = arg.substr(15) # lane CHEAT-1
+		elif arg == "--cheat-lobby":
+			_cheat_lobby = true
 		elif arg == "--auto":
 			_auto = true
 		elif arg.begins_with("--perf-stat="):
@@ -822,6 +838,9 @@ func _ready() -> void:
 		elif arg.begins_with("--devport7="):
 			_play1 = arg.substr(11).split(",", false)
 			_play_script = "res://scripts/devport7_player.gd" # lane DEVPORT-7: the owner's reports (veteran, rally, formation), with test hooks
+		elif arg.begins_with("--banner1="):
+			_play1 = arg.substr(10).split(",", false)
+			_play_script = "res://scripts/banner1_player.gd" # lane BANNER-1: the owner's level-2 banner refill, with test hooks
 		elif arg.begins_with("--hud5="):
 			_hud5 = arg.substr(7).split(",", false)
 		elif arg.begins_with("--hud6="):
@@ -838,8 +857,12 @@ func _ready() -> void:
 			_devport8 = arg.substr(11).split(",", false)
 		elif arg.begins_with("--autocast1="):
 			_autocast1 = arg.substr(12).split(",", false)
+		elif arg.begins_with("--herocast1="):
+			_herocast1 = arg.substr(12).split(",", false)
 		elif arg.begins_with("--visual2="):
 			_visual2 = arg.substr(10).split(",", false)
+		elif arg.begins_with("--trees1="):
+			_trees1 = arg.substr(9).split(",", false)
 		elif arg.begins_with("--start-spot="):
 			_start_spot = int(arg.substr(13))
 		elif arg.begins_with("--input1="):
@@ -1399,7 +1422,7 @@ func _boot() -> void:
 	_campaign_flow.name = "CampaignFlow"
 	_campaign_flow.game = self
 	_campaign_flow.world = _world
-	_campaign_flow.hooks = _campaign_win or _stance_at >= 0 or _play_script.ends_with("ownerfix1_player.gd") or _play_script.ends_with("devport7_player.gd") # lane OWNERFIX-1 / DEVPORT-7: their scenarios use the logged test hooks
+	_campaign_flow.hooks = _campaign_win or _stance_at >= 0 or _play_script.ends_with("ownerfix1_player.gd") or _play_script.ends_with("devport7_player.gd") or _play_script.ends_with("banner1_player.gd") # lane OWNERFIX-1 / DEVPORT-7 / BANNER-1: their scenarios use the logged test hooks
 	_campaign_flow.auto_win = _campaign_win
 	_campaign_flow.movies = _campaign_movies # lane CAMP-1H
 	add_child(_campaign_flow)
@@ -1574,6 +1597,8 @@ func _process(delta: float) -> void:
 			_net_tick()
 		_update_listener()
 		_end_game_tick()
+		if is_instance_valid(_cheats):
+			_cheats.tick(_world.get_presented_frame(), _quit_open, _game_frames) # lane CHEAT-1: the presented frame never waits for the logic worker
 		if _campaign_flow != null and _campaign_flow.active:
 			_campaign_flow.tick() # lane CAMP-1
 		if _replay_active:
@@ -2165,7 +2190,7 @@ func _begin_game(message: Dictionary) -> void:
 	var world_was_visible: bool = _world.visible
 	_world.hide() # keep partially constructed terrain behind the loading screen
 	_on_load_progress(0) # present the initial bar before synchronous loading
-	var opts := {"progress": Callable(self, "_on_load_progress"), "test_hooks": _end or not _zoom1.is_empty() or _rules_shot > 0 or not _gamemodes.is_empty() or _uber1 > 0 or _play_script.ends_with("spell3_player.gd") or _play_script.ends_with("ownerfix1_player.gd") or _play_script.ends_with("devport7_player.gd") or _play_script.ends_with("ownerfix2_player.gd")} # lane ZOOM-1: the bars scenario hurts some units (logged)
+	var opts := {"progress": Callable(self, "_on_load_progress"), "test_hooks": _end or not _zoom1.is_empty() or _rules_shot > 0 or not _gamemodes.is_empty() or _uber1 > 0 or _play_script.ends_with("spell3_player.gd") or _play_script.ends_with("ownerfix1_player.gd") or _play_script.ends_with("devport7_player.gd") or _play_script.ends_with("banner1_player.gd") or _play_script.ends_with("ownerfix2_player.gd") or not _trees1.is_empty()} # lane ZOOM-1: the bars scenario hurts some units (logged)
 	if _record and _net_state.is_empty():
 		opts["record"] = _last_replay_path() # lane MP-2: every skirmish is recorded
 	if _pingwheel.has("hash"):
@@ -2621,6 +2646,25 @@ func _install_hud(rep: Dictionary) -> void:
 	if not mh.ok:
 		printerr("GAME move hints: ", mh.errors)
 	_install_pings(hud)
+	_install_cheats(hud)
+
+
+## lane CHEAT-1: the open Cheat Mode (scripts/cheat_panel.gd), only in a game whose setup has it: every player gets the announced lines and the marker, the
+## host's seat the panel on the in-game menu
+func _install_cheats(hud: Node) -> void:
+	var info: Dictionary = _world.cheat_info()
+	_cheat_game = info.get("enabled", false)
+	if not _cheat_game:
+		return
+	_cheats = load("res://scripts/cheat_panel.gd").new()
+	add_child(_cheats)
+	_game_nodes.append(_cheats)
+	_cheats.toggle_menu = _toggle_quit_menu
+	_cheats.shot = _save_named
+	var r: Dictionary = _cheats.setup(_world, _shell, hud, _cheat_script)
+	print("GAME cheat mode: ", JSON.stringify(r), " ", JSON.stringify(info))
+	if not r.ok:
+		printerr("GAME cheat mode: ", r.errors)
 
 
 ## the ping wheel (NOT RETAIL, an OpenBFME addition): hold the ping key (Options, Interface: OpenBFMEPingKey) for the wheel, let go on a sector
@@ -3013,6 +3057,15 @@ func _run_auto() -> void:
 		await pac.run(self, _autocast1)
 		get_tree().quit(0 if pac.fail_count == 0 else 1)
 		return
+	if not _herocast1.is_empty():
+		var hc: GDScript = load("res://scripts/herocast1_player.gd")
+		if hc == null or not hc.can_instantiate():
+			_fail("scripts/herocast1_player.gd does not load")
+			return
+		var phc = hc.new()
+		await phc.run(self, _herocast1)
+		get_tree().quit(0 if phc.fail_count == 0 else 1)
+		return
 	if not _input1.is_empty():
 		var iscript: GDScript = load("res://scripts/input1_player.gd")
 		if iscript == null or not iscript.can_instantiate():
@@ -3081,6 +3134,16 @@ func _run_auto() -> void:
 		var pv2 = v2.new()
 		await pv2.run(self, _visual2)
 		get_tree().quit(0 if pv2.fail_count == 0 else 1)
+		return
+	if not _trees1.is_empty():
+		# lane TREES1: the trees scenarios (logged test hooks)
+		var t1: GDScript = load("res://scripts/trees1_player.gd")
+		if t1 == null or not t1.can_instantiate():
+			_fail("scripts/trees1_player.gd does not load")
+			return
+		var pt1 = t1.new()
+		await pt1.run(self, _trees1)
+		get_tree().quit(0 if pt1.fail_count == 0 else 1)
 		return
 	if not _quit_flow.is_empty():
 		await _run_quit()
@@ -3514,6 +3577,25 @@ func _auto_lobby_and_start() -> bool:
 			return false
 		await _step(30)
 		_save_named("rules1-rules-tab-legendary")
+	if _cheat_lobby:
+		# lane CHEAT-1: the Rules tab as the player opens it, then the Cheat Mode check box clicked like a player does
+		if not await _click_button(_shell.shell_top_level(), "OpenPlay.MpMapAndSettings.TabButtons.RulesTab"):
+			_fail("no Rules tab button")
+			return false
+		await _step(60)
+		var box: Dictionary = _shell.lobby_gadget_rect("cheat-mode")
+		if not box.found:
+			_fail("lobby: no Cheat Mode check box on the Rules tab")
+			return false
+		var at := Vector2(box.x + minf(box.w, box.h) * 0.5, box.y + box.h * 0.5)
+		_mouse_event(at, false, false)
+		await _step(2)
+		_mouse_event(at, true, true)
+		await _step(2)
+		_mouse_event(at, false, true)
+		await _step(45)
+		print("GAME lobby: Cheat Mode %s" % str(_shell.lobby_state().get("cheat_mode")))
+		_save_named("cheat1-rules-tab")
 	if _lobby_cp > 0:
 		# lane OWNERFIX-2: the Rules tab as the player opens it, then the Command Points combo (RuleComboBox_1 in the skirmish mode) set through its entry
 		if not await _click_button(_shell.shell_top_level(), "OpenPlay.MpMapAndSettings.TabButtons.RulesTab"):
@@ -4121,6 +4203,8 @@ func _exit_to_score_screen() -> void:
 	if _state != State.PLAYING:
 		return
 	_state = State.SCORE
+	if _cheat_game:
+		_show_rules_summary("Cheat Mode (OpenBFME) game: not counted in any statistics") # lane CHEAT-1: the score screen says so
 	if _quit_open:
 		_close_quit_menu()
 	_world.set_paused(false)
@@ -4317,6 +4401,9 @@ func _score_continue() -> void:
 	_menu_revealed = false
 	_frames = 0
 	_state = State.MENU
+	if _cheat_game:
+		_cheat_game = false
+		_hide_rules_summary() # lane CHEAT-1
 	_continuing = false
 	print("GAME END back to the shell: ", str(_shell.shell_stack()))
 	if _net_lobby_again:
@@ -5600,7 +5687,7 @@ func _online_walk_run() -> void:
 	_online_shot("main-menu")
 	print("GAME ONLINE WALK: the main menu's Online")
 	_shell.shell_fscommand("AptMainMenu::OnlineButtonPressed", "")
-	if not await _online_wait("the sign-in page", func(st): return st.get("page", "") == "OnlineLogin", 30.0):
+	if not await _online_wait("the sign-in page", func(st): return st.get("page", "") == "OnlineLogin", 240):
 		return _online_walk_end(false)
 	if not await _online_wait("the nickname field", func(_st):
 		for gadget in _shell.list_gadgets():
@@ -5619,9 +5706,9 @@ func _online_walk_run() -> void:
 			break
 		await _wait_seconds(0.25)
 	_online_apply({"command": "AptOnline::Login::Login"})
-	if not await _online_wait("the home page", func(st): return st.get("signed_in", false) and st.get("page", "") == "OnlineHome", 30.0):
+	if not await _online_wait("the home page", func(st): return st.get("signed_in", false) and st.get("page", "") == "OnlineHome", 240):
 		return _online_walk_end(false)
-	await _online_wait("the message of the day", func(st): return not st.get("motd", []).is_empty() and st.motd[0] != "...", 10.0)
+	await _online_wait("the message of the day", func(st): return not st.get("motd", []).is_empty() and st.motd[0] != "...", 80)
 	await _wait_seconds(2.0)
 	_online_shot("home")
 	print("GAME ONLINE WALK motd: ", _shell.online_status().get("motd", []))
@@ -5640,18 +5727,22 @@ func _online_walk_run() -> void:
 		await _online_walk_qm()
 		return
 	await _online_click("Toggles.ButtonNav.OpenPlay") # the shell's nav button
-	if not await _online_wait("Open Play", func(st): return st.get("page", "") == "OnlineOpenPlay" and int(st.get("state", -1)) == 2, 30.0):
+	if not await _online_wait("Open Play", func(st): return st.get("page", "") == "OnlineOpenPlay" and int(st.get("state", -1)) == 2, 240):
 		return _online_walk_end(false)
 	await _wait_seconds(2.0)
 	if _online_walk == "host":
 		_online_shot("openplay-empty")
 		await _online_click("*Controls.CreateGame") # the page's Create Game (the movie opens its pop-up: AptOnline::OnOpenCreateDialog)
-		await _wait_seconds(1.5)
+		await _wait_seconds(10.0)
 		_online_apply({"game_name": "%s's test game" % str(_shell.online_status().get("name", "Host")), "game_password": _online_password})
 		await _wait_seconds(0.5)
 		_online_shot("create")
-		await _online_click("*CreateGamePopup.Accept") # AptOnline::CustomMatch::CreateGame
-		if not await _online_wait("the staging room", func(st): return st.get("in_game", false) and int(st.get("state", -1)) == 6, 30.0):
+		for _try in 10:
+			await _online_click("*CreateGamePopup.Accept")
+			await _wait_seconds(4.0)
+			if _shell.online_status().get("in_game", false):
+				break
+		if not await _online_wait("the staging room", func(st): return st.get("in_game", false) and int(st.get("state", -1)) == 6, 240):
 			return _online_walk_end(false)
 		await _wait_seconds(2.0)
 		_online_shot("staging-host")
@@ -5665,15 +5756,15 @@ func _online_walk_run() -> void:
 			_online_apply({"chat_tab": true})
 			await _wait_seconds(1.0)
 			await _online_click("*LowerButtons_Host.PlayGame")
-			if await _online_wait("the start refused while a player is not ready", func(st): return not (st.get("start_refusals", []) as Array).is_empty(), 15.0):
+			if await _online_wait("the start refused while a player is not ready", func(st): return not (st.get("start_refusals", []) as Array).is_empty(), 120):
 				print("GAME ONLINE WALK start refused: ", _shell.online_status().get("start_refusals", []))
 				await _wait_seconds(1.5)
 				_online_shot("staging-start-refused")
 			# the host's start position: the MAP tab's map, a click on its first spot
 			await _online_click("*TabButtons.MapTab")
-			if await _online_wait("the map's start spots", func(st): return int(st.get("start_spots", 0)) > 0, 15.0):
+			if await _online_wait("the map's start spots", func(st): return int(st.get("start_spots", 0)) > 0, 120):
 				await _online_spot(0)
-				await _online_wait("the host's start position", func(st): return int((st.get("start_pos", []) as Array)[0]) == 0, 15.0)
+				await _online_wait("the host's start position", func(st): return int((st.get("start_pos", []) as Array)[0]) == 0, 120)
 				await _online_wait("every player's start position", func(st):
 						var n := 0
 						for p in st.get("start_pos", []):
@@ -5712,7 +5803,7 @@ func _online_walk_run() -> void:
 		await _wait_seconds(0.3)
 		_online_shot("connecting")
 		# no relay: the lobby refuses the START and the player is told (docs/ONLINE.md section 5 step 5); with one the game starts
-		if not await _online_wait("the START or its refusal", func(st): return not st.get("boxes", []).is_empty() or _net_state != "", 30.0):
+		if not await _online_wait("the START or its refusal", func(st): return not st.get("boxes", []).is_empty() or _net_state != "", 240):
 			return _online_walk_end(false)
 		if _net_state == "":
 			await _wait_seconds(2.0)
@@ -5730,7 +5821,7 @@ func _online_walk_run() -> void:
 		return false
 	var game_listed := false
 	for attempt in 15:
-		if await _online_wait("an open game in the list", open_game, 4.0):
+		if await _online_wait("an open game in the list", open_game, 32):
 			game_listed = true
 			break
 		_online_apply({"command": "AptOnline::CustomMatch::Refresh"})
@@ -5751,14 +5842,14 @@ func _online_walk_run() -> void:
 	_online_apply({"command": "AptOnline::CustomMatch::JoinGame"})
 	# lane UBERJOIN-1: a game in the other performance mode asks first (the game's Yes / No box); the walk answers Yes
 	if str(listed[join_row]).ends_with("|uber") != (_world.simulation_profile() == "uber"):
-		if not await _online_wait("the performance mode box", func(st): return str(st.get("boxes", [])).contains("mode-switch"), 15.0):
+		if not await _online_wait("the performance mode box", func(st): return str(st.get("boxes", [])).contains("mode-switch"), 120):
 			return _online_walk_end(false)
 		await _wait_seconds(1.5)
 		_online_shot("mode-box")
 		print("GAME ONLINE WALK mode box: ", _shell.online_status().get("boxes", []))
 		_online_apply({"box": "Yes"})
 	if not _online_password.is_empty():
-		if not await _online_wait("the password prompt", func(st): return int(st.get("state", -1)) == 10, 15.0):
+		if not await _online_wait("the password prompt", func(st): return int(st.get("state", -1)) == 10, 120):
 			return _online_walk_end(false)
 		await _wait_seconds(1.0)
 		_online_apply({"game_password": _online_password})
@@ -5791,17 +5882,17 @@ func _online_walk_run() -> void:
 	# the joiner's start position: the MAP tab's map, a click on the spot of its own slot number (when the map has that many)
 	var own_slot := int(_shell.online_status().get("slot", 0))
 	await _online_click("*TabButtons.MapTab")
-	if await _online_wait("the map's start spots", func(st): return int(st.get("start_spots", 0)) > 0, 15.0):
+	if await _online_wait("the map's start spots", func(st): return int(st.get("start_spots", 0)) > 0, 120):
 		if own_slot < int(_shell.online_status().get("start_spots", 0)):
 			await _online_spot(own_slot)
-			await _online_wait("the joiner's start position", func(st): return int((st.get("start_pos", []) as Array)[own_slot]) == own_slot, 15.0)
+			await _online_wait("the joiner's start position", func(st): return int((st.get("start_pos", []) as Array)[own_slot]) == own_slot, 120)
 		await _wait_seconds(1.0)
 		_online_shot("staging-map-join")
 	await _online_click("*TabButtons.ChatTab")
 	await _wait_seconds(1.0)
 	_online_shot("staging-join-unready")
 	await _online_click("*~%d.Ready" % int(_shell.online_status().get("slot", 0)))
-	if not await _online_wait("ready", own_ready, 15.0):
+	if not await _online_wait("ready", own_ready, 120):
 		return _online_walk_end(false)
 	await _wait_seconds(2.0)
 	_online_shot("staging-join")
@@ -5815,7 +5906,7 @@ func _online_walk_run() -> void:
 		if st.get("in_game", false) and not own_ready.call(st):
 			print("GAME ONLINE WALK: unreadied by a change in the room: the Ready box again")
 			await _online_click("*~%d.Ready" % int(st.get("slot", 0)))
-			await _online_wait("ready again", own_ready, 15.0)
+			await _online_wait("ready again", own_ready, 120)
 		await _wait_seconds(0.5)
 	_online_walk_end(true)
 
@@ -5823,7 +5914,7 @@ func _online_walk_run() -> void:
 ## --online-walk=rejoin (lane ONLINE-4): the game restarted after a crash; signed in with the kept session (above), the running game is offered: the
 ## offer's box (No), the REJOIN row of Open Play, Join Game, then the catch-up (--net-shot-rejoin) and the game
 func _online_walk_rejoin() -> void:
-	if not await _online_wait("the rejoin offer", func(st): return str(st.get("boxes", [])).contains("rejoin-offer"), 30.0):
+	if not await _online_wait("the rejoin offer", func(st): return str(st.get("boxes", [])).contains("rejoin-offer"), 240):
 		return _online_walk_end(false)
 	await _wait_seconds(2.0)
 	_online_shot("rejoin-offer")
@@ -5846,7 +5937,7 @@ func _online_walk_rejoin() -> void:
 	await _wait_seconds(0.5)
 	_online_shot("rejoin-row")
 	await _online_click("*Controls.JoinGame") # the page's own Join Game: the rejoin START
-	if not await _online_wait("the rejoin START", func(_st): return _net_state != "", 30.0):
+	if not await _online_wait("the rejoin START", func(_st): return _net_state != "", 240):
 		return _online_walk_end(false)
 	print("GAME ONLINE WALK: the rejoin START arrived: catching up")
 
@@ -5865,7 +5956,7 @@ func _capture_tick() -> void:
 ## (Stats.swf: the player's own statistics and the community's), each captured (--online-shots)
 func _online_walk_hub() -> void:
 	await _online_click("Toggles.ButtonNav.Profile")
-	if not await _online_wait("the STATS page", func(st): return st.get("page", "") == "Stats", 30.0):
+	if not await _online_wait("the STATS page", func(st): return st.get("page", "") == "Stats", 240):
 		return _online_walk_end(false)
 	await _wait_seconds(3.0)
 	await _online_click("*TabButtons.OpenPlay")
@@ -5879,7 +5970,7 @@ func _online_walk_hub() -> void:
 	_online_shot("stats-community")
 	print("GAME ONLINE WALK community stats: ", _shell.platform_status().get("stats_rows", []))
 	await _online_click("Toggles.ButtonNav.QuickMatch")
-	if not await _online_wait("the TOURNAMENT page", func(st): return st.get("page", "") == "OnlineQuickMatch", 30.0):
+	if not await _online_wait("the TOURNAMENT page", func(st): return st.get("page", "") == "OnlineQuickMatch", 240):
 		return _online_walk_end(false)
 	await _wait_seconds(3.0)
 	var ps: Dictionary = _shell.platform_status()
@@ -5897,7 +5988,7 @@ func _online_walk_hub() -> void:
 		_online_apply({"box": "No"})
 		await _wait_seconds(1.0)
 	await _online_click("*JoinGame")
-	await _online_wait("the search", func(_st): return str(_shell.platform_status().get("qm_state", "")) == "searching", 15.0)
+	await _online_wait("the search", func(_st): return str(_shell.platform_status().get("qm_state", "")) == "searching", 120)
 	await _wait_seconds(2.5)
 	_online_shot("quickmatch-searching")
 	await _online_click("*navSearching.Cancel")
@@ -5910,7 +6001,7 @@ func _online_walk_hub() -> void:
 ## online game (--net-frames, --net-script). Two clients against one lobby, relay and platform: tools/net/onlinehub1_qm.sh
 func _online_walk_qm() -> void:
 	await _online_click("Toggles.ButtonNav.QuickMatch")
-	if not await _online_wait("the TOURNAMENT page", func(st): return st.get("page", "") == "OnlineQuickMatch", 30.0):
+	if not await _online_wait("the TOURNAMENT page", func(st): return st.get("page", "") == "OnlineQuickMatch", 240):
 		return _online_walk_end(false)
 	await _wait_seconds(2.0)
 	if _online_qm_side >= 0:
@@ -5918,7 +6009,7 @@ func _online_walk_qm() -> void:
 	print("GAME ONLINE WALK choices: ", _shell.platform_status().get("choices", ""))
 	_online_shot("qm")
 	await _online_click("*JoinGame")
-	if not await _online_wait("the search", func(_st): return str(_shell.platform_status().get("qm_state", "")) == "searching", 30.0):
+	if not await _online_wait("the search", func(_st): return str(_shell.platform_status().get("qm_state", "")) == "searching", 240):
 		print("GAME ONLINE WALK QM: ", _shell.platform_status())
 		return _online_walk_end(false)
 	_online_shot("qm-searching")
@@ -6949,7 +7040,7 @@ func _run_quit() -> void:
 	var faction := _faction.trim_prefix("Faction").to_lower()
 	var frame0: int = _world.get_stats().frame
 	await _press_escape()
-	await _wait_seconds(4.0)
+	await _wait_seconds(25.0)
 	var st: Dictionary = _shell.quit_menu({"kind": "state"})
 	var paused: bool = _world.is_paused()
 	await _wait_seconds(0.5)

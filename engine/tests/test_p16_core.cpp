@@ -131,7 +131,7 @@ TEST_CASE("p16 core: replay network indices preserve legacy width and extended h
 		{
 			// Independently spell the pre-P16 replay header, including exactly eight network indices.
 			NetByteWriter expected;
-			expected.u32(10); // format 10 (9: the recording build, 10: its date); 8 was ANTICHEAT-1's VIEW record (an eight-slot replay without views has none)
+			expected.u32(11); // format 11 (9: the recording build, 10: its date, 11: CHEAT-1's Cheat Mode i32 in the GameInfo); 8 was ANTICHEAT-1's VIEW record (an eight-slot replay without views has none)
 			expected.str(header.profile.text);
 			expected.str(BuildVersion::kVersion);
 			expected.str(BuildVersion::kCommit);

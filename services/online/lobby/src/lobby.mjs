@@ -1222,6 +1222,7 @@ export class Lobby {
       state: g.state,
       password: !!g.password,
       mode: g.mode ?? 'normal',
+      cheatMode: !!g.setup.cheatMode, // CHEAT-1: tagged in the server browser before anyone joins
       // lane JOINVER-1: the host's build and the game's profile id, so a client greys out a game it cannot join before the player clicks it
       profile: g.profile,
       build: g.hostBuild ?? null,
@@ -1402,6 +1403,8 @@ export class Lobby {
       startingCash: intIn(setup.startingCash ?? 1500, -1, 1000000000, 'setup.startingCash'),
       superweaponRestriction: intIn(setup.superweaponRestriction ?? 0, 0, 1, 'setup.superweaponRestriction'),
       legendaryHeroes: intIn(setup.legendaryHeroes ?? 1, 1, 4, 'setup.legendaryHeroes'),
+      // CHEAT-1: the host's open Cheat Mode (every player sees it in the list before joining; the START names the host's slot as the cheat seat)
+      cheatMode: setup.cheatMode ?? false,
       // lane ONLINE-3: how far behind the players the spectators watch (seconds of game time; the relay holds the log back that far)
       spectatorDelay: intIn(setup.spectatorDelay ?? 120, 0, 600, 'setup.spectatorDelay'),
       rules: setup.rules ?? null,
@@ -1415,6 +1418,7 @@ export class Lobby {
       // ONLINE16-FIX (the AUTH-1 cut-over): the game's tickets carry TICKET_MODE_AUTH, so the relay refuses unauthenticated datagrams; off unless asked
       requireAuth: setup.requireAuth === undefined || setup.requireAuth === null ? undefined : boolOf(setup.requireAuth, 'setup.requireAuth') || undefined,
     };
+    if (typeof out.cheatMode !== 'boolean') throw bad('bad_field', 'setup.cheatMode must be true or false');
     if (out.rules !== null) {
       if (!Array.isArray(out.rules) || out.rules.length !== 10) throw bad('bad_field', 'setup.rules must be null or 10 integers');
       out.rules.forEach((r, i) => intIn(r, -2147483648, 2147483647, `setup.rules[${i}]`));
@@ -1450,6 +1454,8 @@ export class Lobby {
     }
     const platform = checkPlatform(body.platform);
     const setup = this.checkSetup(body.setup, true);
+    // CHEAT-1: a Quick Match / tournament room is never a Cheat Mode game
+    if (roomCode !== null && setup.cheatMode) throw bad('bad_field', 'a room with a room_code has no Cheat Mode');
     // ONLINE16-FIX: a sixteen-place room needs a client that reads one; so does a game that requires tags (the AUTH-1 release line)
     const capacity = setup.mapStartCount ?? MAX_SLOTS;
     if (capacity > MAX_SLOTS && account.maxSlots !== WIDE_SLOTS) throw bad('bad_field', `${NEEDS_WIDE} (X-OpenBFME-Max-Slots: 16)`);
@@ -1660,6 +1666,7 @@ export class Lobby {
     if (g.state !== 'open') throw new LobbyError(409, 'started', 'the game has started');
     if (this.slotOf(g, account) !== g.hostSlot) throw new LobbyError(403, 'not_host', 'only the host changes the game options');
     const setup = this.checkSetup({ ...g.setup, ...body }, false);
+    if (g.roomCode && setup.cheatMode) throw bad('bad_field', 'a room with a room_code has no Cheat Mode'); // CHEAT-1
     // ONLINE16-FIX: the capacity follows the map. Growing needs every member to read sixteen places; shrinking needs the places beyond the new
     // map's starts empty (an open one closes; a player or an AI there is moved or removed by the host first). Requiring tags needs every member
     // to be of the AUTH-1 release line. Everything is checked before anything changes
@@ -1798,6 +1805,9 @@ export class Lobby {
       superweaponRestriction: candidate.setup.superweaponRestriction,
       rules: candidate.setup.rules,
       legendaryHeroes: candidate.setup.legendaryHeroes,
+      // CHEAT-1: the cheat seat is the host's slot (only when the host turned Cheat Mode on: a game without it has no field, as before CHEAT-1). The START is
+      // the lobby's game record (starts/<id>.json): stats and any ranking read the field and leave the game out
+      ...(candidate.setup.cheatMode ? { cheatMode: candidate.hostSlot } : {}),
       slots: candidate.slots.slice(0, last).map((s) => (s.state === 'player' || AI_STATES.has(s.state)
         ? { state: s.state, name: s.name, faction: s.faction, color: s.color, startPos: s.startPos, team: s.team, handicap: s.handicap ?? 0, ...(s.state === 'player' && s.cah ? { cah: s.cah } : {}) }
         : { state: s.state })),

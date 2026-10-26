@@ -558,11 +558,12 @@ void AptLanLobby::fillGamesList()
 		// the columns as the movie's headers stand on screen: Status, Game Name, Map, Players, Ping (UBERJOIN-1 r2: the name and the count were one column
 		// off, under Status and Game Name; the first column the list takes is the Status one)
 		const int row = GadgetListBoxAddEntryText(m_gamesList, wide(status), c, -1, 0);
-		GadgetListBoxAddEntryText(m_gamesList, uber ? g.name + u"  - UBER" : g.name, c, row, 1);
+		// lane CHEAT-1: a Cheat Mode game is tagged the same way, before anyone joins
+		GadgetListBoxAddEntryText(m_gamesList, (uber ? g.name + u"  - UBER" : g.name) + (g.info.cheatModeOn() ? u"  - CHEAT MODE" : u""), c, row, 1);
 		GadgetListBoxAddEntryText(m_gamesList, wide(map), c, row, 2);
 		GadgetListBoxAddEntryText(m_gamesList, wide(players), c, row, 3);
 		GadgetListBoxAddEntryText(m_gamesList, UnicodeString(), c, row, 4);
-		m_gameRows.push_back(narrow(g.name) + "|" + players + "|" + map + "|" + status + (uber ? "|uber" : ""));
+		m_gameRows.push_back(narrow(g.name) + "|" + players + "|" + map + "|" + status + (uber ? "|uber" : "") + (g.info.cheatModeOn() ? "|cheat" : ""));
 		m_listedHosts.push_back(g.host);
 		m_listedGames.push_back(i);
 		if (keep && g.host == selectedHost)

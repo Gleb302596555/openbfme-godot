@@ -23,7 +23,7 @@
 //     (RW 0x691269) and getAbleToAttackSpecificObject(new target, it, CMD_FROM_AI) possible or possible after moving (RW 0x68D6A6).
 //   * lookForInnerTarget RW 0x949CA7: the AI's turret target when an enemy; a team that attacks a common target and has one; then around the guarded spot
 //     (RW 0x949BD3: the guarded object's position, else the team's, else the guard position; the owner's when that is 0, 0) within getStdGuardRange
-//     (RW 0x949567 -> RW 0x6FF412: the vision range plus Object + 0xB8, times AIData AlertRangeModifier / AggressiveRangeModifier for an alert / aggressive
+//     (RW 0x949567 -> RW 0x6FF412: the vision range plus Object + 0xB8 (the bounding circle radius), times AIData AlertRangeModifier / AggressiveRangeModifier for an alert / aggressive
 //     computer unit, 0 asleep): an INVISIBLE_STEALTH object (model condition 0x222) finds nothing, an INVISIBLE_CAMOUFLAGE one (0x223) nothing in a stance of
 //     class 3; TheAI's closest enemy around the spot (RW 0x70146A) and, when none and the owner is more than half the range from the spot, around the owner
 //     within half the range (RW 0x701443); a HORDE victim is adjusted (RW 0x68D30E).
@@ -140,6 +140,7 @@ public:
 
 private:
 	std::unique_ptr<AIGuardMachine> m_guardMachine; // + 0x20
+	KeptSubMachines<AIGuardMachine> m_keptMachines;  // review of #64: the guard machine dropped during its own update (see KeptSubMachines)
 };
 
 // RW vtable 0xC27DF8: onEnter RW 0x743864: the owner's StancesBehavior hears that the move ended (RW 0x86228E), then failure (-> idle)

@@ -2028,6 +2028,50 @@ test('ONLINEMENU-1: a player reports their own link to the relay for the Connect
   assert.equal(late.body.error, 'started');
 });
 
+test('CHEAT-1: Cheat Mode is the host\'s open rule: listed before joining, the host\'s slot in the START and its record, never in a room with a code', async () => {
+  const env = fakeEnv();
+  const lobby = new Lobby(env, configFromEnv(ENV));
+  const a = (await call(lobby, 'POST', '/v1/auth/guest', { body: { name: 'Ann' } })).body;
+  const b = (await call(lobby, 'POST', '/v1/auth/guest', { body: { name: 'Bea' } })).body;
+  // a value other than true / false is refused; a room code with Cheat Mode is refused, nothing is made
+  for (const cheatMode of [1, 'yes', null]) {
+    const r = await call(lobby, 'POST', '/v1/games', { token: a.token, body: { name: 'x', profile: PROFILE, setup: { ...setup, cheatMode } } });
+    if (cheatMode === null) { assert.equal(r.status, 200); await call(lobby, 'POST', `/v1/games/${r.body.id}/leave`, { token: a.token }); continue; } // null: the default (off)
+    assert.equal(r.status, 400, String(cheatMode));
+    assert.equal(r.body.message, 'setup.cheatMode must be true or false');
+  }
+  const qm = await call(lobby, 'POST', '/v1/games', { token: a.token, body: { name: 'Quick Match', profile: PROFILE, setup: { ...setup, cheatMode: true }, room_code: 'QM-cheat-123' } });
+  assert.equal(qm.status, 400);
+  assert.equal(qm.body.message, 'a room with a room_code has no Cheat Mode');
+  // an ordinary game: off in the list, the host turns it on, the list and the view say so
+  const created = await call(lobby, 'POST', '/v1/games', { token: a.token, body: { name: 'Twitch night', profile: PROFILE, setup } });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const id = created.body.id;
+  assert.equal((await call(lobby, 'GET', '/v1/games')).body.games.find((g) => g.id === id).cheatMode, false);
+  const joined = await call(lobby, 'POST', `/v1/games/${id}/join`, { token: b.token, body: { profile: PROFILE } });
+  assert.equal(joined.body.slot, 1);
+  assert.equal((await call(lobby, 'POST', `/v1/games/${id}/setup`, { token: b.token, body: { cheatMode: true } })).status, 403); // the host's rule only
+  const on = await call(lobby, 'POST', `/v1/games/${id}/setup`, { token: a.token, body: { cheatMode: true } });
+  assert.equal(on.status, 200, JSON.stringify(on.body));
+  assert.equal(on.body.game.setup.cheatMode, true);
+  assert.equal((await call(lobby, 'GET', '/v1/games')).body.games.find((g) => g.id === id).cheatMode, true);
+  // the START names the host's slot; the kept record (starts/<id>.json, what stats read) carries it too
+  assert.equal((await call(lobby, 'POST', `/v1/games/${id}/ready`, { token: b.token, body: { ready: true } })).status, 200);
+  const started = await call(lobby, 'POST', `/v1/games/${id}/start`, { token: a.token });
+  assert.equal(started.status, 200, JSON.stringify(started.body));
+  assert.equal(started.body.start.setup.cheatMode, 0);
+  const record = JSON.parse(new TextDecoder().decode(env.blobs.get(`starts/${id}.json`)));
+  assert.equal(record.setup.cheatMode, 0);
+  // a game without it keeps the START of before (no field)
+  const plain = await call(lobby, 'POST', '/v1/games', { token: b.token, body: { name: 'Plain', profile: PROFILE, setup } });
+  const c = (await call(lobby, 'POST', '/v1/auth/guest', { body: { name: 'Cid' } })).body;
+  await call(lobby, 'POST', `/v1/games/${plain.body.id}/join`, { token: c.token, body: { profile: PROFILE } });
+  await call(lobby, 'POST', `/v1/games/${plain.body.id}/ready`, { token: c.token, body: { ready: true } });
+  const plainStart = await call(lobby, 'POST', `/v1/games/${plain.body.id}/start`, { token: b.token });
+  assert.equal(plainStart.status, 200, JSON.stringify(plainStart.body));
+  assert.equal('cheatMode' in plainStart.body.start.setup, false);
+});
+
 test('JOINVER-1: a join refused for a different build names both builds in plain words, the list carries the host build and profile', async () => {
   const env = fakeEnv();
   const lobby = new Lobby(env, configFromEnv(ENV));

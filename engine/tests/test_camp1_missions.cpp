@@ -367,7 +367,9 @@ TEST_CASE("camp1 dark eye: MAP ANG Dark Eye plays from its intro to the victory 
 	// merge queue q24: 0 again on the merged tree. Measured on the archive 92fefaadf (MERGEQ-23's TARGET-1 / ATTACKPATH-1 / FLANK-1 / PRODUCTION1 / LUMBER1) with
 	// MODS-3 alone (no CAMPUI-1, OFFMAP-1 or SCRIPT-4): 0 as well, so MERGEQ-23's fights move the playthrough off the shard hooks' conditions; MODS-3's lane
 	// tree (on q22) measured 28. An engine pin of the playthrough, not a retail value
-	expectTeamScripts(m, 11, 0, 0);
+	// merge queue q26: the formations centred on their hordes (community #73, RW 0x86C4EA) move the team otherwise and it fires once again (as #73's own port
+	// measured)
+	expectTeamScripts(m, 11, 0, 1);
 }
 
 namespace

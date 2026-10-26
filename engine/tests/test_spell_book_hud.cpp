@@ -15,6 +15,7 @@
 #include "GameClient/GUI/LoadScreenInfo.h"
 #include "GameClient/GameTextTableSource.h"
 #include "GameClient/ControlBarCommands.h"
+#include "GameClient/AptCanvas.h"
 #include "GameClient/InGameHud.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/System/ShroudManager.h"
@@ -45,8 +46,7 @@ struct BookRig
 	{
 		std::vector<std::uint8_t> bytes;
 		std::string textError;
-		REQUIRE_MESSAGE(s.mount->fs->readFile("data/lotr.str", bytes, &textError), textError);
-		REQUIRE_MESSAGE(text.table.parse(bytes, &textError), textError);
+		REQUIRE_MESSAGE(text.table.loadRetail(*s.mount->fs, &textError), textError); // data/lotr.str, or a non-English install's lotr.csf
 		InGameHud::Config cfg{ *rig.game, *s.world, *s.mount->fs, services, rig.view, s.mouse, s.meta, &text };
 		hud = std::make_unique<InGameHud>(cfg);
 		std::string error;
@@ -113,7 +113,7 @@ TEST_CASE("SPELL-2 retail: the retail InGameSpellBook and SpellStore.apt movies 
 		MESSAGE(std::string(kFactions[f]) << ": store " << st->model().commandSetName() << ", " << active << " _active, " << disabled << " _disabled");
 		CHECK(active >= 3);   // the tier-1 sciences with the rank-1 points
 		CHECK(disabled >= 7); // the dearer ones are locked
-		REQUIRE(first >= 0);
+		REQUIRE(first != -1);
 		const std::string *points = b.hud->windows().aptText("APT:SpellStoreSpellPoints");
 		REQUIRE(points);
 		CHECK(*points == "5");
@@ -330,8 +330,13 @@ bool hitPoint(InGameHud &hud, int level, const std::string &path, int &x, int &y
 			const float d = (px - cx) * (px - cx) + (py - cy) * (py - cy);
 			if ((!found || d < best) && b->hitTest((float)(int)px, (float)(int)py) && hud.apt().input().hitTestButtons((float)(int)px, (float)(int)py) == b)
 			{
-				x = (int)px;
-				y = (int)py;
+				AptStageMapping mapping;
+				mapping.windowW = (float)hud.windowWidth();
+				mapping.windowH = (float)hud.windowHeight();
+				float windowX, windowY;
+				mapping.stageToWindow(px, py, windowX, windowY);
+				x = (int)windowX;
+				y = (int)windowY;
 				best = d;
 				found = true;
 			}
@@ -350,6 +355,80 @@ void clickAt(BookRig &b, int x, int y)
 	b.frames(4);
 }
 } // namespace
+
+TEST_CASE("spell store widescreen: the Powers movie preserves proportions and its centre through resizing and reopening")
+{
+	if (!haveWorld("spell store widescreen"))
+	{
+		return;
+	}
+	BookRig book(shared(), "FactionDwarves");
+	book.hud->setWindowSize(1024, 768);
+	book.frames(40);
+	std::string error;
+	REQUIRE_MESSAGE(book.hud->openSpellStore(&error), error);
+	book.frames(40);
+	AptSpriteInst *root = book.hud->apt().level(book.hud->spellStore()->level());
+	REQUIRE(root != nullptr);
+	const AptMatrix authored = root->matrix;
+	struct Viewport
+	{
+		int width, height;
+		float correction;
+	};
+	for (const Viewport &viewport : { Viewport{ 1024, 768, 1.0f }, Viewport{ 1280, 720, 0.75f }, Viewport{ 2560, 1080, 0.5625f },
+		Viewport{ 7680, 4320, 0.75f }, Viewport{ 1280, 960, 1.0f }, Viewport{ 1024, 1024, 1.0f }, Viewport{ 1280, 720, 0.75f } })
+	{
+		INFO(viewport.width, "x", viewport.height);
+		book.hud->setWindowSize(viewport.width, viewport.height);
+		book.frames(2);
+		CHECK(root->matrix.a == authored.a);
+		CHECK(root->matrix.d == authored.d);
+		CHECK(root->matrix.tx == authored.tx);
+		CHECK(root->matrix.ty == authored.ty);
+		CHECK(root->viewportTransform.a == viewport.correction);
+		CHECK(root->viewportTransform.tx == 512.0f * (1.0f - viewport.correction));
+		AptStageMapping mapping;
+		mapping.windowW = (float)viewport.width;
+		mapping.windowH = (float)viewport.height;
+		if (viewport.width * 3 >= viewport.height * 4)
+		{
+			CHECK(root->viewportTransform.a * mapping.scaleX() == mapping.scaleY());
+		}
+		float stageX, stageY, windowX, windowY;
+		root->viewportTransform.apply(512, 384, stageX, stageY);
+		mapping.stageToWindow(stageX, stageY, windowX, windowY);
+		CHECK(windowX == (float)viewport.width * 0.5f);
+		CHECK(windowY == (float)viewport.height * 0.5f);
+		AptRenderList list;
+		book.hud->apt().buildRenderList(list);
+		bool imageChecked = false;
+		for (const AptRenderCommand &command : list.commands)
+		{
+			if (command.kind != AptRenderCommand::Kind::Placeholder || command.level != book.hud->spellStore()->level() ||
+				command.path.find(".SpellStore.Buttons.Spell") == std::string::npos)
+			{
+				continue;
+			}
+			AptCharacterInst *image = book.hud->apt().resolvePath(root, command.path);
+			REQUIRE(image != nullptr);
+			const AptMatrix global = image->globalMatrix();
+			CHECK(command.matrix.a == global.a);
+			CHECK(command.matrix.d == global.d);
+			CHECK(command.matrix.tx == global.tx);
+			CHECK(command.matrix.ty == global.ty);
+			imageChecked = true;
+		}
+		CHECK(imageChecked);
+	}
+	book.hud->closeSpellStore();
+	REQUIRE_MESSAGE(book.hud->openSpellStore(&error), error);
+	book.frames(40);
+	root = book.hud->apt().level(book.hud->spellStore()->level());
+	REQUIRE(root != nullptr);
+	CHECK(root->viewportTransform.a == 0.75f);
+	CHECK(root->viewportTransform.tx == 128.0f);
+}
 
 TEST_CASE("hud6 recovered spell and builder help retail")
 {
@@ -429,35 +508,16 @@ TEST_CASE("hud6 recovered spell and builder help retail")
 	CHECK_FALSE(b.hud->helpBox().help()->name().empty());
 }
 
-TEST_CASE("play1 spell store by the mouse: the Palantir's button opens it, a power is bought, RESET undoes it, ACCEPT buys and closes, the locked powers are drawn grey")
+namespace
 {
-	if (!haveWorld("play1 spell store mouse"))
-	{
-		return;
-	}
-	SharedWorld &s = shared();
-	// lane SPELL-3: every faction (the owner's Angmar store took no click)
-	const char *faction = "FactionMen";
-	const char *factions[7] = { "FactionMen", "FactionElves", "FactionDwarves", "FactionIsengard", "FactionMordor", "FactionWild", "FactionAngmar" };
-	const char *citadels[7] = { "MenFortressCitadel", "ElvenCitadel", "DwarvenFortressCitadel", "IsengardFortressCitadel", "MordorFortressCitadel", "WildFortressCitadel", "AngmarFortressCitadel" };
-	const char *citadel = citadels[0];
-	int fi = 0;
-	SUBCASE("FactionMen") { fi = 0; }
-	SUBCASE("FactionElves") { fi = 1; }
-	SUBCASE("FactionDwarves") { fi = 2; }
-	SUBCASE("FactionIsengard") { fi = 3; }
-	SUBCASE("FactionMordor") { fi = 4; }
-	SUBCASE("FactionWild") { fi = 5; }
-	SUBCASE("FactionAngmar") { fi = 6; }
-	faction = factions[fi];
-	citadel = citadels[fi];
-	INFO(faction);
-	BookRig b(s, faction);
-	b.hud->setWindowSize(1024, 768);
-	b.rig.view.setScreen(1024, 768);
+void checkStoreMouse(SharedWorld &sharedWorld, const char *faction, const char *citadel, int width, int height)
+{
+	BookRig b(sharedWorld, faction);
+	b.hud->setWindowSize(width, height);
+	b.rig.view.setScreen(width, height);
 	{
 		auto ctx = b.hud->enterContext();
-		const ThingTemplate *cit = s.world->things().findTemplate(citadel);
+		const ThingTemplate *cit = sharedWorld.world->things().findTemplate(citadel);
 		REQUIRE(cit);
 		Object *c = b.rig.logic().newObject(cit, b.rig.local->getDefaultTeam(), ObjectStatusMaskType{});
 		REQUIRE(c);
@@ -512,7 +572,7 @@ TEST_CASE("play1 spell store by the mouse: the Palantir's button opens it, a pow
 	{
 		first = b.storeState(i) == "_active" ? i : -1;
 	}
-	REQUIRE(first >= 0);
+	REQUIRE(first != -1);
 	const std::string spellPath = "SpellStore.Buttons.Spell" + std::to_string(first + 1);
 	REQUIRE(hitPoint(*b.hud, lvl, spellPath, x, y));
 	const size_t errsClick = b.hud->apt().vm().errors().size();
@@ -546,6 +606,38 @@ TEST_CASE("play1 spell store by the mouse: the Palantir's button opens it, a pow
 	b.frames(40);
 	CHECK(b.hud->spellStore() == nullptr);
 	CHECK(b.rig.local->science().hasScience(sci));
+}
+} // namespace
+
+TEST_CASE("play1 spell store by the mouse: the Palantir's button opens it, a power is bought, RESET undoes it, ACCEPT buys and closes, the locked powers are drawn grey")
+{
+	if (!haveWorld("play1 spell store mouse"))
+	{
+		return;
+	}
+	SharedWorld &s = shared();
+	// lane SPELL-3: every faction (the owner's Angmar store took no click)
+	const char *faction = "FactionMen";
+	const char *factions[7] = { "FactionMen", "FactionElves", "FactionDwarves", "FactionIsengard", "FactionMordor", "FactionWild", "FactionAngmar" };
+	const char *citadels[7] = { "MenFortressCitadel", "ElvenCitadel", "DwarvenFortressCitadel", "IsengardFortressCitadel", "MordorFortressCitadel", "WildFortressCitadel", "AngmarFortressCitadel" };
+	const char *citadel = citadels[0];
+	int fi = 0;
+	SUBCASE("FactionMen") { fi = 0; }
+	SUBCASE("FactionElves") { fi = 1; }
+	SUBCASE("FactionDwarves") { fi = 2; }
+	SUBCASE("FactionIsengard") { fi = 3; }
+	SUBCASE("FactionMordor") { fi = 4; }
+	SUBCASE("FactionWild") { fi = 5; }
+	SUBCASE("FactionAngmar") { fi = 6; }
+	faction = factions[fi];
+	citadel = citadels[fi];
+	INFO(faction);
+	for (int width : { 1024, 1280, 2560 })
+	{
+		const int height = width == 1024 ? 768 : (width == 1280 ? 720 : 1080);
+		INFO(width, "x", height);
+		checkStoreMouse(s, faction, citadel, width, height);
+	}
 }
 
 TEST_CASE("SPELL-3 store at an uneven render rate: every _active power shows its _active frame after the fade-in (the store opened 20 times)")

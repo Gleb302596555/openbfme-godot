@@ -169,11 +169,12 @@ AptSpriteInst *AptCharacterInst::movieRoot()
 
 AptMatrix AptCharacterInst::globalMatrix() const
 {
+	const AptMatrix local = viewportTransform.concat(matrix);
 	if (!m_parent)
 	{
-		return matrix;
+		return local;
 	}
-	return m_parent->globalMatrix().concat(matrix);
+	return m_parent->globalMatrix().concat(local);
 }
 
 AptColorTransform AptCharacterInst::globalColor() const

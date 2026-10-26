@@ -85,6 +85,35 @@ W3DSamplerPolicy samplerPolicy()
 
 } // namespace
 
+Ref<Image> Load_Asset_Pack_Image(const AssetPacks *packs, const std::string &name, std::string &error)
+{
+	const AssetPackFile *pf = packs ? packs->texture(name) : nullptr;
+	if (!pf)
+	{
+		return Ref<Image>();
+	}
+	std::vector<std::uint8_t> bytes;
+	if (!AssetPacks::read(*pf, bytes, &error))
+	{
+		return Ref<Image>();
+	}
+	PackedByteArray buffer;
+	buffer.resize((int64_t)bytes.size());
+	if (!bytes.empty())
+	{
+		std::memcpy(buffer.ptrw(), bytes.data(), bytes.size());
+	}
+	Ref<Image> image;
+	image.instantiate();
+	if (decodePackTexture(image, buffer) != OK || image->is_empty())
+	{
+		error = "asset pack " + pf->pack + ": could not decode " + pf->relative + " (the replacement of texture " + name + ")";
+		return Ref<Image>();
+	}
+	image->set_meta("retail_path", toGodot("asset pack " + pf->pack + ": " + pf->relative));
+	return image;
+}
+
 namespace
 {
 
@@ -334,22 +363,11 @@ Ref<Texture2D> W3DMaterialFactory::Load_Texture(const std::string &name, std::ve
 				found = true;
 				return cached->second;
 			}
-			std::vector<std::uint8_t> bytes;
 			std::string error;
-			if (!AssetPacks::read(*pf, bytes, &error))
+			Ref<Image> image = Load_Asset_Pack_Image(Packs, name, error);
+			if (image.is_null())
 			{
 				errors.push_back("texture " + name + ": " + error);
-				TextureErrors.push_back(errors.back());
-				return Ref<Texture2D>();
-			}
-			PackedByteArray buffer;
-			buffer.resize((int64_t)bytes.size());
-			if (!bytes.empty()) std::memcpy(buffer.ptrw(), bytes.data(), bytes.size());
-			Ref<Image> image;
-			image.instantiate();
-			if (decodePackTexture(image, buffer) != OK || image->is_empty())
-			{
-				errors.push_back("asset pack " + pf->pack + ": could not decode " + pf->relative + " (the replacement of texture " + name + ")");
 				TextureErrors.push_back(errors.back());
 				return Ref<Texture2D>();
 			}

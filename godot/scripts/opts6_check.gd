@@ -283,16 +283,21 @@ func run_game(p_game: Node, p_shots: String) -> int:
 	check("with no menu up nothing has the menus' input (the Palantir is the HUD)", not shell.menu_has_input(), str(shell.menu_nav_state().get("level")))
 	var cam_before: Vector2 = game._hud.get_camera().position
 	var menu_keys := int(game._hud.get_state().get("keys", {}).get("menu_key_events", 0))
-	var down := InputEventKey.new()
-	down.keycode = KEY_LEFT
-	down.physical_keycode = KEY_LEFT
-	down.pressed = true
-	Input.parse_input_event(down)
-	await game._wait_seconds(1.0)
-	var up := down.duplicate()
-	up.pressed = false
-	Input.parse_input_event(up)
-	await game._step(10)
+	# the start spot is the lobby's random one: on Evendim's west spot the camera starts at the map's left clamp (x about 146), where LEFT has nowhere to
+	# go, so RIGHT is pressed when LEFT left the camera where it was
+	for arrow in [KEY_LEFT, KEY_RIGHT]:
+		var down := InputEventKey.new()
+		down.keycode = arrow
+		down.physical_keycode = arrow
+		down.pressed = true
+		Input.parse_input_event(down)
+		await game._wait_seconds(1.0)
+		var up := down.duplicate()
+		up.pressed = false
+		Input.parse_input_event(up)
+		await game._step(10)
+		if game._hud.get_camera().position != cam_before:
+			break
 	check("with no menu up the arrow scrolls the camera (%s -> %s)" % [cam_before, game._hud.get_camera().position], game._hud.get_camera().position != cam_before
 		and int(game._hud.get_state().get("keys", {}).get("menu_key_events", 0)) == menu_keys, "keys " + str(game._hud.get_state().get("keys", {})) + ", paused " + str(game.get_tree().paused))
 	return finish()

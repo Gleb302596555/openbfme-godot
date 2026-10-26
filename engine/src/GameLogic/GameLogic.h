@@ -54,6 +54,7 @@
 #include "Common/SimulationProfile.h"
 #include "Common/Team.h"
 #include "GameLogic/AI/AICommandSink.h"
+#include "GameLogic/CheatMode.h"
 #include "GameLogic/FXEvents.h"
 #include "GameLogic/LargeGroupAudioLink.h"
 #include "GameLogic/ScriptEngine/MissionObjectiveTracker.h"
@@ -286,6 +287,9 @@ struct GameLogicSettings
 	float invisibilityOpacityMin = 0.0f;
 	float invisibilityOpacityMax = 0.0f;
 	unsigned invisibilityOpacityCycleFrames = 0;
+	// lane LOS-1: ClampedLOSHeightForCastleStructures (GameData row RW 0xC01060, parseReal RW 0x42ED00, + 0x11C4; the GlobalData constructor's 40.0f, RW 0x64395E):
+	// the aim height of an INSIDE_CASTLE structure in the weapon's terrain line (RW 0x6CB944). Retail 2.01 gamedata.ini does not set it
+	float clampedLOSHeightForCastleStructures = 40.0f;
 	// lane GARRISON-1 (GameData rows RW 0xC011D0 GarrisonedRangeMultiplier + 0x1224 parseReal RW 0x42ED00, RW 0xC011F0 MaxNumMembersToForceToImmediatelyEnter
 	// + 0x1230 and RW 0xC01200 WaitToForceMemberToEnterDelay + 0x1234, parseUnsignedInt RW 0x42ECB2): optional rows; the defaults are the GlobalData constructor's
 	// (RW 0x6439DE / 0x643A48: -1.0 = no range change; RW 0x643A5D: 1; RW 0x6439B7 / 0x643A67: 5 frames). Retail 2.01 gamedata.ini sets only the multiplier (1.25)
@@ -505,6 +509,9 @@ public:
 	const GameRules &gameRules() const { return m_gameRules; }
 	void setLegendaryHeroes(int factor) { m_legendaryHeroes = factor; }
 	int legendaryHeroes() const { return m_legendaryHeroes; }
+	// lane CHEAT-1, OpenBFME: the game's Cheat Mode (GameLogic/CheatMode.h): off unless LiveGame::load configures the cheat seat from the game setup
+	CheatMode::State &cheatMode() { return m_cheatMode; }
+	const CheatMode::State &cheatMode() const { return m_cheatMode; }
 	// lane UBER-1: the simulation profile (Common/SimulationProfile.h; set before the first frame). Hashed only when Uber, so a Faithful game keeps its hash
 	void setSimulationProfile(SimulationProfile p) { m_simulationProfile = p; }
 	SimulationProfile simulationProfile() const { return m_simulationProfile; }
@@ -928,6 +935,7 @@ private:
 	int m_gameDifficulty = 1;     ///< lane CAMP-1H: RW GameLogic + 0xA4
 	GameRules m_gameRules = MpGameRules::none(); ///< lane RULES-1
 	int m_legendaryHeroes = LegendaryHeroes::kOff; ///< lane RULES-1 (OpenBFME)
+	CheatMode::State m_cheatMode;                  ///< lane CHEAT-1 (OpenBFME)
 	SimulationProfile m_simulationProfile = SimulationProfile::Faithful; ///< lane UBER-1 (OpenBFME)
 	bool m_frameAdvance = true;   ///< RW GameLogic + 0x44
 	bool m_inUpdate = false;      ///< RW + 0x70

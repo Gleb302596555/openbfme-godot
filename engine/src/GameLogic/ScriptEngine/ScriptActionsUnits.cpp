@@ -45,6 +45,8 @@
 //     canAffordUnpack(the controller) (RW 0x79969F): initiateUnpack(free, no template) (RW 0x79C17D: a free unpack is the instant one, nothing paid); then a
 //     non-empty reference (RW 0x401E64) names the castle in the script engine's object references (RW 0x608397, ScriptEngine::setReference). Any failed
 //     step does nothing.
+//   * NAMED_ / TEAM_USE_COMMANDBUTTON_ABILITY[_ON_NAMED / _AT_WAYPOINT]: SCRIPT-4's port in ScriptActionsOrders.cpp (merge queue q26 kept it over lane
+//     WALL-1's copy of three of them: the same RW 0x7C6243 / 0x7C62BF / 0x7C11EE, with more command types; S-4841 closed into S-1190).
 //
 // INFERENCE / NOT PORTED (stops): the AI states without a port (hunt, attitude, attack-team, the waypoint path states with their per-waypoint link
 // choice, face-object) -> S-1186 (docs/STOPS.md); the noted stand-ins below each report themselves.
@@ -71,6 +73,10 @@
 #include "GameLogic/AI/AIGarrisonStates.h"
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/Module/HeroAbilityModules.h"
+#include "GameLogic/Module/SpecialPowerModules.h"
+#include "GameLogic/Module/StancesBehavior.h"
+#include "GameLogic/WeaponSetToggle.h"
+#include "Common/SpecialPower.h"
 #include "GameClient/ControlBarCommands.h"
 #include "Common/CommandPoints.h"
 #include "GameLogic/Object/PartitionManager.h"

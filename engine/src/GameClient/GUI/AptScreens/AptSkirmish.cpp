@@ -1030,7 +1030,7 @@ void AptSkirmish::registerLobby()
 	registerProvider("MpGameRules::NumCheckBoxes", [this](const std::string &, std::string &value, bool setting) {
 		if (!setting)
 		{
-			value = std::to_string(m_setup ? MpGameRules::numCheckBoxes(m_setup->rulesMode()) : 0);
+			value = std::to_string(ruleCheckCount()); // lane CHEAT-1: + 1 for OpenBFME's Cheat Mode row in mode 0
 		}
 		return true;
 	});
@@ -2810,7 +2810,7 @@ bool AptSkirmish::startGame()
 	{
 		SkirmishHonorsGame &h = *m_env.skirmishHonors;
 		h = SkirmishHonorsGame();
-		if (setupFlags() & 1)
+		if ((setupFlags() & 1) && !message.game.cheatModeOn()) // lane CHEAT-1: a Cheat Mode game earns no battle honors
 		{
 			h.valid = true;
 			for (int i = 0; i < MAX_SLOTS; ++i)

@@ -12,6 +12,9 @@
 #include "GameClient/PalantirCommandUI.h"
 #include "Libraries/Source/Apt/AptCharacterInst.h"
 #include "Libraries/Source/Apt/AptRenderList.h"
+#include "Libraries/Source/Apt/AptButtonInst.h"
+#include "Libraries/Source/Apt/AptInput.h"
+#include "GameClient/AptCanvas.h"
 
 #include <variant>
 
@@ -19,6 +22,29 @@ using namespace hudtest;
 
 namespace
 {
+AptButtonInst *firstButton(AptCharacterInst *instance)
+{
+	if (!instance)
+	{
+		return nullptr;
+	}
+	if (AptButtonInst *button = instance->asButton())
+	{
+		return button;
+	}
+	if (AptSpriteInst *sprite = instance->asSprite())
+	{
+		for (AptCharacterInst *child : sprite->children())
+		{
+			if (AptButtonInst *button = firstButton(child))
+			{
+				return button;
+			}
+		}
+	}
+	return nullptr;
+}
+
 struct PalantirRig
 {
 	Rig rig;
@@ -178,6 +204,110 @@ TEST_CASE("hud2 palantir: nothing selected; the good side's PlayerMagic button s
 	// the double frame's GlobeSwirlRender reaches frame 25 (its frame 10 stops only when _global.MinLOD is true; the movie writes extern.MinLOD)
 	CHECK(globeClip);
 	CHECK(p->callErrors().empty());
+}
+
+TEST_CASE("hud2 palantir: widescreen panels preserve proportions and edge anchors through resizing")
+{
+	if (!haveWorld("hud2 widescreen"))
+	{
+		return;
+	}
+	PalantirRig hud(shared());
+	hud.frames(30);
+	Object *builder = hud.rig.make("MenPorter", 2800, 1400);
+	REQUIRE(builder != nullptr);
+	hud.hud->input().ui().selectObject(builder->getID());
+	hud.frames(40);
+	REQUIRE(hud.hud->palantir()->sideBarShown());
+	AptSpriteInst *frame = hud.clip("PalantirFrame");
+	AptSpriteInst *side = hud.clip("SideCommandBar");
+	REQUIRE(frame != nullptr);
+	REQUIRE(side != nullptr);
+	const AptMatrix originalFrame = frame->matrix;
+	const AptMatrix originalSide = side->matrix;
+	struct Viewport
+	{
+		int width, height;
+		float correction;
+	};
+	for (const Viewport &viewport : { Viewport{ 1024, 768, 1.0f }, Viewport{ 1280, 720, 0.75f }, Viewport{ 2560, 1080, 0.5625f },
+		Viewport{ 1280, 960, 1.0f }, Viewport{ 1280, 720, 0.75f } })
+	{
+		INFO(viewport.width, "x", viewport.height);
+		hud.hud->setWindowSize(viewport.width, viewport.height);
+		CHECK(frame->matrix.a == originalFrame.a);
+		CHECK(frame->matrix.tx == originalFrame.tx);
+		CHECK(side->matrix.a == originalSide.a);
+		CHECK(side->matrix.tx == originalSide.tx);
+		CHECK(frame->viewportTransform.a == viewport.correction);
+		CHECK(frame->viewportTransform.tx == 0.0f);
+		CHECK(side->viewportTransform.a == viewport.correction);
+		CHECK(side->viewportTransform.tx == 1024.0f * (1.0f - viewport.correction));
+		AptStageMapping mapping;
+		mapping.windowW = (float)viewport.width;
+		mapping.windowH = (float)viewport.height;
+		CHECK(frame->viewportTransform.a * mapping.scaleX() == mapping.scaleY());
+		float stageX, stageY, windowX, windowY;
+		frame->viewportTransform.apply(0, 768, stageX, stageY);
+		mapping.stageToWindow(stageX, stageY, windowX, windowY);
+		CHECK(windowX == 0.0f);
+		CHECK(windowY == (float)viewport.height);
+		side->viewportTransform.apply(1024, 384, stageX, stageY);
+		mapping.stageToWindow(stageX, stageY, windowX, windowY);
+		CHECK(windowX == (float)viewport.width);
+		CHECK(windowY == (float)viewport.height * 0.5f);
+		for (const char *path : { "PalantirButtons.Buttons.Options", "SideCommandBar" })
+		{
+			INFO(path);
+			AptButtonInst *button = firstButton(hud.hud->apt().resolvePath(hud.hud->apt().level(hud.hud->palantir()->level()), path));
+			REQUIRE(button != nullptr);
+			float left, top, right, bottom;
+			REQUIRE(button->contentBounds(left, top, right, bottom));
+			bool hit = false;
+			for (int row = 1; row < 16 && !hit; ++row)
+			{
+				for (int column = 1; column < 16 && !hit; ++column)
+				{
+					button->globalMatrix().apply(left + (right - left) * (float)column / 16.0f, top + (bottom - top) * (float)row / 16.0f, stageX, stageY);
+					if (hud.hud->apt().input().hitTestButtons(stageX, stageY) == button)
+					{
+						mapping.stageToWindow(stageX, stageY, windowX, windowY);
+						hit = hud.hud->isOverGui((int)windowX, (int)windowY);
+					}
+				}
+			}
+			CHECK(hit);
+		}
+	}
+}
+
+TEST_CASE("hud2 palantir: widescreen radar pings retain their supplied stage position")
+{
+	if (!haveWorld("hud2 widescreen radar pings"))
+	{
+		return;
+	}
+	PalantirRig hud(shared());
+	hud.frames(30);
+	AptSpriteInst *radarPings = hud.clip("RadarPings");
+	AptSpriteInst *pings = hud.clip("RadarPings.PingStage");
+	REQUIRE(radarPings != nullptr);
+	REQUIRE(pings != nullptr);
+	const size_t before = pings->children().size();
+	REQUIRE(hud.hud->palantir()->createRadarPing(123, "PingAttack"));
+	hud.frames(1);
+	REQUIRE(pings->children().size() == before + 1);
+	AptCharacterInst *ping = pings->children().back();
+	for (int width : { 1024, 2048, 4096, 1024 })
+	{
+		hud.hud->setWindowSize(width, 768);
+		const float stageX = 128.0f * radarPings->viewportTransform.a;
+		REQUIRE(hud.hud->palantir()->moveRadarPing(123, stageX, 640));
+		float actualX, actualY;
+		ping->globalMatrix().apply(0, 0, actualX, actualY);
+		CHECK(actualX == stageX);
+		CHECK(actualY == 640.0f);
+	}
 }
 
 TEST_CASE("hud2 palantir: an evil side's PlayerMagic button shows the Ring (the power cap state is Living World only and not sent)")

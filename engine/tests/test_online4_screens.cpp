@@ -3192,7 +3192,7 @@ TEST_CASE("online5 retail: the staging room's rows and buttons: the chat's Playe
 	REQUIRE(host.waitShown("LowerButtons_Host.Connections", 600));
 	CHECK(host.client.inGame());
 	CHECK(host.sh->openPlayState() == 6);
-	CHECK_FALSE(host.hasNote("movie-function-missing"));
+	CHECK_FALSE_MESSAGE(host.hasNote("movie-function-missing"), host.notes());
 	REQUIRE(runUntil(all, [&] { return host.sh->slotGadget(1, "Team") != nullptr; }));
 	CHECK(host.sh->setup()->info().slots[1].teamNumber == team);
 	// ---- the joiner leaves through its Cancel: the host's Players list is the host alone ----
@@ -4730,7 +4730,10 @@ TEST_CASE("onlinemenu1 retail: the staging room's CONNECTIONS button opens RotWK
 	CHECK(cellShows(0, 0, "_empty"));
 	CHECK(cellShows(2, 3, "_empty"));
 	CHECK(host.sh->connectionCell(1, 1) == "_empty");
-	for (int i = 2; i < MAX_SLOTS; ++i)
+	// BFME2 0x005DB647 RedrawGrid: the grid is retail's eight by eight, also in OpenBFME's 16-slot build (MAX_SLOTS 16): every cell is drawn, and no
+	// cell the movie lacks is asked for (before: the draw ran to MAX_SLOTS, stopped at the missing cell (0, 8) and left the rows after the first)
+	CHECK_FALSE_MESSAGE(host.hasNote("movie-function-missing"), host.notes());
+	for (int i = 2; i < AptOnlineShell::kConnectionGrid; ++i)
 	{
 		CHECK_MESSAGE(host.sh->connectionCell(0, i) == "_empty", i);
 		CHECK_MESSAGE(host.sh->connectionCell(i, 1) == "_empty", i);

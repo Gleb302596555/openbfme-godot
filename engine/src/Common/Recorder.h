@@ -23,6 +23,7 @@
 //   u8 5  profile: u32 frame, u32 SimulationProfile   (version 6, lane SAVE-2: the batch of `frame` and the later ones ran under that execution profile: a
 //                 save of the other profile loaded, UBER-1; playback switches there too)
 // Version 6 (lane SAVE-2) also refuses a second command or hash record of one frame; a version 5 replay still reads (it has no profile record).
+// Version 8 (lane CHEAT-1): the GameInfo ends with its Cheat Mode (i32); a version 5 .. 7 replay reads as a game without it.
 // Version 1 (u8 argument counts, a free profile string) is refused.
 
 #pragma once

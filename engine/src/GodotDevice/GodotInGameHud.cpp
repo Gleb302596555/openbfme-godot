@@ -9,6 +9,7 @@
 #include "Common/SpecialPower.h"
 #include "GameClient/GameText.h"
 #include "GameClient/GUI/GameTextSource.h"
+#include "GameClient/GUI/PlacementTextStyle.h"
 #include "GameClient/GlobalLanguage.h"
 #include "GameLogic/BeaconCommands.h"
 #include "GameClient/GameTextTableSource.h"
@@ -183,6 +184,7 @@ struct HudDevice : public AptNativeHook
 	double updateMs = 0.0, cameraMs = 0.0, cursorMs = 0.0; ///< SMOOTH-1: the parts of the last _process
 	double viewClock = 0.0; ///< lane ANTICHEAT-1: seconds since the last view sample (GameWorld::net_submit_view, 2 a second)
 	double hudMs = 0.0, iconsMs = 0.0, decalsMs = 0.0, radialMs = 0.0; ///< SELPERF-1: updateMs's parts (InGameHud::update, the icon ops, the selection decals, HUD-6)
+	double placeMs = 0.0, ghostMs = 0.0; ///< lane FOGFX-1: the placement update and the ghost sync of the last frame
 	bool edgeScroll = false;
 	int edgeScrollMode = 0;   // lane OPTS-2: 0 retail (full screen only, or edge_scroll), 1 always, 2 never
 	float uiScale = 1.0f;     // lane OPTS-2: the decorations' scale (health bars, veterancy marks, texts) about each object's ops
@@ -1348,6 +1350,8 @@ void InGameHudNode::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_free_camera", "on"), &InGameHudNode::set_free_camera);
 	ClassDB::bind_method(D_METHOD("set_view_options", "options"), &InGameHudNode::set_view_options); // lane OPTS-2
 	ClassDB::bind_method(D_METHOD("camera_look_at", "sage_xy"), &InGameHudNode::camera_look_at);
+	ClassDB::bind_method(D_METHOD("add_player_message", "text"), &InGameHudNode::add_player_message); // lane CHEAT-1
+	ClassDB::bind_method(D_METHOD("get_player_message_layout"), &InGameHudNode::get_player_message_layout);
 	ClassDB::bind_method(D_METHOD("camera_set_height", "height_above_ground"), &InGameHudNode::camera_set_height);
 	ClassDB::bind_method(D_METHOD("camera_reset", "sage_xy"), &InGameHudNode::camera_reset);                 // lane CAMPUI-1
 	ClassDB::bind_method(D_METHOD("camera_set_zoom_limited", "on"), &InGameHudNode::camera_set_zoom_limited); // lane CAMPUI-1
@@ -1511,7 +1515,17 @@ void HudDevice::drawResourceFeedback()
 				out[o + 3] = (uint8_t)std::lround(img.rgba[o + 3] * m / 255.0f);
 			}
 		}
-		placeDecalTexture = ImageTexture::create_from_image(Image::create_from_data(w, h, false, Image::FORMAT_RGBA8, px));
+		// lane FOGFX-1 (FB-0055): the decal's texture is updated in place (a new ImageTexture as the pointer crossed each claim cell made Godot pack its
+		// decal atlas again)
+		const Ref<Image> image = Image::create_from_data(w, h, false, Image::FORMAT_RGBA8, px);
+		if (placeDecalTexture.is_valid() && placeDecalTexture->get_width() == w && placeDecalTexture->get_height() == h)
+		{
+			placeDecalTexture->update(image);
+		}
+		else
+		{
+			placeDecalTexture = ImageTexture::create_from_image(image);
+		}
 		placeDecalVersion = rp.version;
 	}
 	if (!pd)
@@ -1664,7 +1678,8 @@ void HudDevice::drawPlacementText(const Ref<Font> &font, float k)
 		return;
 	}
 	const TerrainResourceUiSettings &ui = hud->radiusCursorTemplates().resourceUi();
-	const int size = std::max(1, (int)std::lround((float)(ui.fontSize > 0 ? ui.fontSize : 14) * k));
+	const PlacementTextStyle style = PlacementTextStyle::forViewport(ui.fontSize, hud->windowHeight(), k);
+	const int size = style.fontSize;
 	String text;
 	for (char16_t c : rp.text)
 	{
@@ -1673,12 +1688,12 @@ void HudDevice::drawPlacementText(const Ref<Font> &font, float k)
 	const Vector2 sz = font->get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size);
 	const int w = (int)sz.x, h = (int)std::ceil(sz.y);
 	int x = rp.pointerX + w / -2;
-	int y = rp.pointerY - 20 - h;
+	int y = rp.pointerY - style.pointerGap - h;
 	x = std::max(0, std::min(x, hud->windowWidth() - w));
 	y = std::max(0, std::min(y, hud->windowHeight() - h));
 	auto col = [](std::uint32_t argb) { return Color(((argb >> 16) & 0xFF) / 255.0f, ((argb >> 8) & 0xFF) / 255.0f, (argb & 0xFF) / 255.0f, ((argb >> 24) & 0xFF) / 255.0f); };
 	const Vector2 at((float)x, (float)y + font->get_ascent(size));
-	font->draw_string(iconItem, at + Vector2(1, 1), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(0, 0, 0, 1));
+	font->draw_string(iconItem, at + Vector2(style.shadowOffset, style.shadowOffset), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, Color(0, 0, 0, 1));
 	font->draw_string(iconItem, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size, col(rp.color));
 	placeTextRect = Rect2((float)x, (float)y, (float)w, (float)h);
 	placeTextDrawn = true;
@@ -3318,8 +3333,12 @@ void InGameHudNode::_process(double delta)
 		{
 			d->hud->input().placeTranslator().setLivePointer({ (int)d->livePointer.x, (int)d->livePointer.y });
 		}
+		const uint64_t tp = Time::get_singleton()->get_ticks_usec();
 		d->hud->input().placementUpdate(idle);
+		const uint64_t tg = Time::get_singleton()->get_ticks_usec();
 		d->ghost->sync(*d->world->hud_game(), d->hud->input().ui(), delta, PlaceEventTranslator::ghostOptions(), idle);
+		d->placeMs = (double)(tg - tp) / 1000.0; // lane FOGFX-1 (FB-0055): the placement's legality and the ghost, apart
+		d->ghostMs = (double)(Time::get_singleton()->get_ticks_usec() - tg) / 1000.0;
 	}
 	const uint64_t t2 = Time::get_singleton()->get_ticks_usec();
 	{
@@ -3361,6 +3380,18 @@ Dictionary InGameHudNode::get_frame_timings() const
 	t["hud_icons_ms"] = d->iconsMs;
 	t["hud_decals_ms"] = d->decalsMs;
 	t["hud_radial_ms"] = d->radialMs;
+	t["hud_place_ms"] = d->placeMs; // lane FOGFX-1: hud_camera_ms's parts: the placement update and the ghost's sync
+	t["hud_ghost_ms"] = d->ghostMs;
+	t["hud_ghost_icons_ms"] = d->ghost ? d->ghost->lastIconsMs() : 0.0;
+	t["hud_ghost_draw_ms"] = d->ghost ? d->ghost->lastDrawMs() : 0.0;
+	if (d->ghost)
+	{
+		const char *names[5] = { "hud_ghost_inst_ms", "hud_ghost_update_ms", "hud_ghost_tint_ms", "hud_ghost_bib_ms", "hud_ghost_shadow_ms" };
+		for (int k = 0; k < 5; ++k)
+		{
+			t[names[k]] = d->ghost->lastDrawParts()[k];
+		}
+	}
 	if (d->hud)
 	{
 		// lane SELPERF-1: InGameHud::update's parts
@@ -4394,6 +4425,30 @@ Dictionary InGameHudNode::find_button_window(const String &path) const
 	r["x"] = (double)w.x;
 	r["y"] = (double)w.y;
 	return r;
+}
+
+// lane CHEAT-1 ------------------------------------------------------------------------------------------------------------------------------------------
+
+void InGameHudNode::add_player_message(const String &text)
+{
+	if (d->hud)
+	{
+		const Char16String u = text.utf16();
+		d->hud->addPlayerMessageText(std::u16string(reinterpret_cast<const char16_t *>(u.get_data()), (std::size_t)u.length()));
+	}
+}
+
+Dictionary InGameHudNode::get_player_message_layout() const
+{
+	Dictionary out;
+	if (d->hud)
+	{
+		const PlayerMessageSettings &s = d->hud->playerMessages().settings;
+		out["x"] = s.position.x;
+		out["y"] = s.position.y;
+		out["point_size"] = s.pointSize;
+	}
+	return out;
 }
 
 } // namespace godot

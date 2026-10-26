@@ -7,7 +7,9 @@
 #include "GameClient/ControlBarCommands.h"
 #include "GameClient/FormationAssistant.h"
 #include "GameClient/FormationPlacement.h"
+#include "GameLogic/Object/Contain/HordeContainCore.h"
 #include "GameClient/HudInput.h"
+#include <cmath>
 #include <limits>
 
 namespace
@@ -274,16 +276,17 @@ TEST_CASE("formation assistant: execution excludes the same dead and filtered se
  CHECK(mixed[0].offset.y==eligible[0].offset.y);
 }
 
-TEST_CASE("formation assistant: occupied rank centre differs from the horde "
-		  "object origin")
+TEST_CASE("formation assistant: the occupied rank centre is the horde object's "
+		  "origin until a casualty moves it")
 {
 	movetest::MoveWorld world;
 	auto *horde = world.spawn("Horde", 305, 305);
 	auto *walker = world.spawn("Walker", 505, 305);
 	const auto offsets = FormationAssistant::rankOffsets(*horde);
 	REQUIRE(offsets.size() == 15);
+	// community #73: RotWK centres the slot table on the horde (RW 0x86C4EA), so the full ranks' centroid is the object's origin
 	const auto center = FormationAssistant::rankCenter(*horde);
-	CHECK(center.x == 30);
+	CHECK(std::fabs(center.x) < 1e-4f); // tolerance: the float residue of the centring's sum, not a retail value
 	CHECK(center.y == 0);
 	CHECK(FormationAssistant::rankOffsets(*walker).empty());
 	CHECK(FormationAssistant::rankCenter(*walker).x == 0);
@@ -293,10 +296,14 @@ TEST_CASE("formation assistant: occupied rank centre differs from the horde "
 	auto *contain = world.hordeOf(horde);
 	const auto *members = contain->getContainedItemsList();
 	REQUIRE_FALSE(members->empty());
+	const int deadSlot = contain->getMemberSlot(members->front());
+	REQUIRE(deadSlot >= 0); // tolerance: any slot of the table (-1 = no slot)
+	const float deadX = contain->core().slots()[deadSlot].x;
+	CHECK(deadX != 0); // tolerance: the claim is only that the casualty stood off the centre line, its slot is the table's
 	members->front()->friend_setEffectivelyDead(true);
 	const auto reduced = FormationAssistant::rankOffsets(*horde);
 	CHECK(reduced.size() == 14);
-	CHECK(FormationAssistant::rankCenter(*horde).x == SimMath::divf32(400, 14));
+	CHECK(FormationAssistant::rankCenter(*horde).x == doctest::Approx((15.0f * center.x - deadX) / 14.0f)); // tolerance: the float sums run in member order
 }
 
 TEST_CASE("formation assistant: hero sprite footprint and unequal row depths "

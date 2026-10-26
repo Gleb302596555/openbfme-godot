@@ -512,7 +512,8 @@ std::string slotChoices(int faction, int color, int startPos, int team, int hand
 std::string setupFields(const SkirmishGameInfo &s, bool includeCapacity = false)
 {
 	std::string out = "\"map\":" + OnlineLobbyClient::jsonQuote(s.mapName) + ",\"startingCash\":" + std::to_string(s.startingCash) +
-		",\"superweaponRestriction\":" + std::to_string(s.superweaponRestriction) + ",\"legendaryHeroes\":" + std::to_string(s.legendaryHeroes) + ",\"rules\":";
+		",\"superweaponRestriction\":" + std::to_string(s.superweaponRestriction) + ",\"legendaryHeroes\":" + std::to_string(s.legendaryHeroes) +
+		",\"cheatMode\":" + (s.cheatModeOn() ? "true" : "false") + ",\"rules\":"; // lane CHEAT-1: the lobby puts the host's slot in the START
 	if (MpGameRules::isNone(s.rules))
 	{
 		out += "null";
@@ -1086,6 +1087,16 @@ bool OnlineLobbyClient::readGameView(const JsonValue &g, std::string *error, boo
 	}
 	info.superweaponRestriction = (int)sw;
 	info.legendaryHeroes = (int)lh;
+	// lane CHEAT-1: "cheatMode" (absent: a lobby before CHEAT-1, off); the cheat seat is the host's slot
+	info.cheatMode = -1;
+	if (const JsonValue *cheat = setup->get("cheatMode"); cheat && cheat->type != JsonValue::NUL)
+	{
+		if (cheat->type != JsonValue::BOOL)
+		{
+			return fail("\"cheatMode\" is not true or false");
+		}
+		info.cheatMode = cheat->boolean ? (int)hostSlot : -1;
+	}
 	const JsonValue *rules = setup->get("rules");
 	info.rules = MpGameRules::none();
 	if (rules && rules->type != JsonValue::NUL)
@@ -1672,6 +1683,8 @@ void OnlineLobbyClient::handle(const Pending &p, int, const JsonValue &root)
 					return;
 				}
 			}
+			const JsonValue *cheat = g.get("cheatMode"); // lane CHEAT-1: display data (absent: off)
+			l.cheatMode = cheat && cheat->type == JsonValue::BOOL && cheat->boolean;
 			l.state = strOf(g.get("state"));
 			l.slot = (int)slot;
 			list.push_back(l);

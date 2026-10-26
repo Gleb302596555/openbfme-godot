@@ -143,9 +143,9 @@ void writeGameInfo(NetByteWriter &w, const SkirmishGameInfo &g);
 // lane OWNERFIX-2: the eight slots' handicaps (GameSlot + 0x20) follow the profile; `slotHandicaps` false reads a GameInfo written before they existed (a
 // format 5 / 6 replay or save: every handicap 0). An announcement without the profile has none either (every handicap 0); one with the profile must carry
 // them (the LAN protocol version that carries them refuses older peers first). A handicap outside 0, -5 .. -95 (SkirmishGameSlot::handicapValid) is refused
-bool readGameInfo(NetByteReader &r, SkirmishGameInfo &g, std::string *error, bool profileOptionalAtEnd = false, bool slotHandicaps = true);
+bool readGameInfo(NetByteReader &r, SkirmishGameInfo &g, std::string *error, bool profileOptionalAtEnd = false, bool slotHandicaps = true, bool cheatField = true);
 void writeNewGameMessage(NetByteWriter &w, const NewGameMessage &m);
-bool readNewGameMessage(NetByteReader &r, NewGameMessage &m, std::string *error, bool slotHandicaps = true);
+bool readNewGameMessage(NetByteReader &r, NewGameMessage &m, std::string *error, bool slotHandicaps = true, bool cheatField = true);
 } // namespace NetPacket
 
 // One network command (ZH NetCommandMsg and its subclasses, reduced to the commands this lane exchanges)

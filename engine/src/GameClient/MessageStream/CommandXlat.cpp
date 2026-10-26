@@ -15,10 +15,15 @@
 #include "GameClient/HudObjects.h"
 #include "GameLogic/GameMessage.h"
 #include "GameLogic/BeaconCommands.h"
+#include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/BloodthirstyUpdate.h"
+#include "GameLogic/Module/SiegeModules.h"
+#include "GameLogic/AI/AIPathfind.h"
+#include "GameLogic/AI/AIWorld.h"
+#include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SimMath.h"
 
@@ -89,6 +94,14 @@ bool isSystemMessage(const ClientMessage &m)
 const char *metaNameOf(int type)
 {
 	return ClientMessageMetaName(type);
+}
+
+// TARGET FACTS: every attacker path of Object::getAbleToAttackSpecificObject (RW 0x68D6A6, the object itself or a rider) ends in
+// WeaponSet::getAbleToAttackSpecificObject (RW 0x6C9147), which answers ATTACKRESULT_NOT_POSSIBLE (RW 0x6C9496) for a victim with KindOf UNATTACKABLE
+// (template + 0x10E & 0x40, KindOf 54, RW 0x6C91FA) or the status UNATTACKABLE (0x3C, RW 0x6C9207), whoever attacks
+bool isUnattackableTarget(const Object &obj)
+{
+	return obj.isKindOf((unsigned)CombatNames::kinds().unattackable) || obj.testStatus((unsigned)CombatNames::statuses().unattackable);
 }
 } // namespace
 
@@ -343,6 +356,14 @@ int CommandTranslator::evaluateContextCommand(Object *obj, const Coord3D *pos, E
 			return evaluateGUISpecialPower(*command, obj, pos, type);
 		}
 	}
+	// lane SIEGE-1: RotWK's siege branch comes before the enter, attack and capture tests (RW 0x81E7A5 after the GUI command and the force-move tests)
+	if (obj)
+	{
+		if (const int siegeType = evaluateSiegeDeploy(obj, type))
+		{
+			return siegeType;
+		}
+	}
 	// lane GARRISON-1 (ZH evaluateContextCommand's ACTIONTYPE_ENTER_OBJECT): a click on a container some selected object may enter (ActionManager::canEnterObject,
 	// RW 0x82CBD5, mode 0) is MSG_ENTER (argument 0 the first selected object, argument 1 the container: the logic case RW 0x77AC26 reads argument 1); the cursor
 	// is EnterFriendly. INFERENCE (S-286): RotWK's order of the context checks is not read; the enter check comes before the attack check here (an enemy
@@ -375,7 +396,8 @@ int CommandTranslator::evaluateContextCommand(Object *obj, const Coord3D *pos, E
 			return msgType;
 		}
 	}
-	if (obj && !m_ctx.ui.isInForceAttackMode() && HudObjects::relationshipToLocal(m_ctx, *obj) == ENEMIES && selectionCanAttack())
+	// an UNATTACKABLE enemy fails the attack test and reaches the capture test below: a capture flag an enemy took is recaptured, not attacked
+	if (obj && !m_ctx.ui.isInForceAttackMode() && HudObjects::relationshipToLocal(m_ctx, *obj) == ENEMIES && !isUnattackableTarget(*obj) && selectionCanAttack())
 	{
 		msgType = MSG_DO_ATTACK_OBJECT;
 		if (type == EvaluateType::DoCommand)
@@ -1158,4 +1180,108 @@ int CommandTranslator::evaluateCapture(Object *obj, const Coord3D *pos, Evaluate
 		}
 	}
 	return 0;
+}
+
+// Lane SIEGE-1. TARGET FACTS (RotWK game.dat, caveat S-001): InGameUI's siege test RW 0x69D674 (BFME2 0x69CC19, decomp InGameUISiegeDeployTarget.cpp): a target
+// that is WALK_ON_TOP_OF_WALL (template + 0x10F bit 4, KindOf 60) with a selection; for every selected drawable's object that is not contained (+ 0x27C): the
+// button Command_SpecialAbilitySiegeLadderDeploy for a SIEGE_LADDER (+ 0x119 bit 3), else Command_SpecialAbilitySiegeDeploy (RW 0x71D6EA); the object must be
+// a SIEGE_TOWER (+ 0x113 bit 5) without status DEPLOYED (0x3B, RW 0x44DDEC), able to use the button (RW 0x692A75: its power's module, the button in its
+// command set) and the button ready for it (RW 0x75CC3E: the power's module fully ready); then an object without an AI answers yes, and so does one whose
+// target has a SiegeDockingBehavior that gives it no approach point (dock interface slot 1, RW 0x85CA8A) or an approach point its AI reaches by a quick path
+// (RW 0x66403D -> RW 0x6F5BB0 clientSafeQuickDoesPathExist from the object's position with its locomotor set). evaluateContextCommand (RW 0x81E60B, after the
+// GUI command and the force-move tests, before the enter and attack tests): a hint is the attack hint (0xB1, the AttackObj cursor); a command is
+// MSG_DO_SPECIAL_POWER_AT_OBJECT (0x412) with Command_SpecialAbilitySiegeDeploy's power { the template id, the target, the button's options, no source, the
+// target's position } (the unit voice of the button, RW 0x8DD5FF, is the client's audio: not played).
+// INFERENCE (S-4944): the TheInGameUI byte + 0x8B0 the branch requires clear is not identified (taken as clear); the selection is the port's selected object ids.
+bool CommandTranslator::canSiegeDeploy(const Object &target)
+{
+	if (!target.isKindOfName("WALK_ON_TOP_OF_WALL") || m_ctx.ui.selected().empty())
+	{
+		return false;
+	}
+	static const int kDeployed = ObjectTemplateInfoBuilder::objectStatusIndex("DEPLOYED");
+	for (ObjectID id : m_ctx.ui.selected())
+	{
+		Object *o = m_ctx.logic.findObjectByID(id);
+		if (!o || o->getContainedBy())
+		{
+			continue;
+		}
+		const CommandButton *button = TheCommandStore ? TheCommandStore->findCommandButton(o->isKindOfName("SIEGE_LADDER") ? "Command_SpecialAbilitySiegeLadderDeploy"
+		                                                                                                                  : "Command_SpecialAbilitySiegeDeploy")
+		                                              : nullptr;
+		if (!button || !o->isKindOfName("SIEGE_TOWER") || (kDeployed >= 0 && o->testStatus((unsigned)kDeployed)))
+		{
+			continue;
+		}
+		const SpecialPowerTemplate *t = TheSpecialPowerStore && !button->m_specialPowerName.empty() ? TheSpecialPowerStore->findSpecialPowerTemplate(button->m_specialPowerName) : nullptr;
+		SpecialPowerModuleInterface *sp = t ? SpecialPowerModules::findModule(*o, t) : nullptr;
+		const CommandSet *set = TheCommandStore->findCommandSet(o->getCommandSetName());
+		bool inSet = false;
+		for (int i = 0; set && i < CommandSet::MAX_BUTTONS; ++i)
+		{
+			inSet = inSet || set->getCommandButton(i) == button;
+		}
+		if ((t && !sp) || !inSet) // RW 0x692A75
+		{
+			continue;
+		}
+		if (!sp || sp->getPercentReadyForDisplay() != 1.0f) // RW 0x75CC3E
+		{
+			continue;
+		}
+		AIUpdateInterface *ai = o->getAIUpdateInterface();
+		if (!ai)
+		{
+			return true;
+		}
+		SiegeDockingBehavior *dock = SiegeDockingBehavior::of(target);
+		if (dock)
+		{
+			Coord3D approach{};
+			if (!dock->approachPointFor(o->getID(), approach))
+			{
+				return true;
+			}
+			AIWorld *world = m_ctx.logic.aiWorld();
+			if (world && world->mapReady())
+			{
+				const PathfindLocomotorInfo loco = ai->locomotorInfo();
+				if (world->pathfinder().clientSafeQuickDoesPathExist(loco, o->getPosition(), &approach)) // RW 0x66403D -> RW 0x6F5BB0
+				{
+					return true;
+				}
+			}
+		}
+	}
+	return false;
+}
+
+int CommandTranslator::evaluateSiegeDeploy(Object *obj, EvaluateType type)
+{
+	if (!canSiegeDeploy(*obj))
+	{
+		return 0;
+	}
+	if (type == EvaluateType::DoHint)
+	{
+		hint(MouseCursorName::AttackObj); // hint 0xB1
+		return MSG_DO_SPECIAL_POWER_AT_OBJECT;
+	}
+	const CommandButton *button = TheCommandStore ? TheCommandStore->findCommandButton("Command_SpecialAbilitySiegeDeploy") : nullptr;
+	if (!button)
+	{
+		return MSG_DO_SPECIAL_POWER_AT_OBJECT; // RW 0x81E80A: no button, the type alone
+	}
+	const SpecialPowerTemplate *t = TheSpecialPowerStore && !button->m_specialPowerName.empty() ? TheSpecialPowerStore->findSpecialPowerTemplate(button->m_specialPowerName) : nullptr;
+	if (type == EvaluateType::DoCommand && t)
+	{
+		ClientMessage &m = m_ctx.stream.append(MSG_DO_SPECIAL_POWER_AT_OBJECT);
+		m.appendInteger((int)t->getID());
+		m.appendObjectID(obj->getID());
+		m.appendInteger((int)button->m_options);
+		m.appendObjectID(INVALID_ID);
+		m.appendLocation(*obj->getPosition());
+	}
+	return MSG_DO_SPECIAL_POWER_AT_OBJECT;
 }

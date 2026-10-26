@@ -11,6 +11,7 @@
 #include "GameClient/GUI/GameTextSource.h"
 #include "GameClient/GUI/LoadScreenInfo.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 
@@ -78,6 +79,24 @@ AptSpellStore::AptSpellStore(WindowManager &windows, Shell &shell) : AptScreen(w
 }
 
 AptSpellStore::~AptSpellStore() = default;
+
+void AptSpellStore::setViewportSize(int width, int height)
+{
+	AptSpriteInst *root = windows().apt().level(level());
+	if (!root || !root->timelineFile || width < 1 || height < 1)
+	{
+		return;
+	}
+	const float stageWidth = (float)root->timelineFile->width;
+	const float stageHeight = (float)root->timelineFile->height;
+	if (stageWidth <= 0.0f || stageHeight <= 0.0f)
+	{
+		return;
+	}
+	const float scale = std::min(1.0f, ((float)height / stageHeight) / ((float)width / stageWidth));
+	root->viewportTransform.a = scale;
+	root->viewportTransform.tx = stageWidth * 0.5f * (1.0f - scale);
+}
 
 bool AptSpellStore::bind(const CommandStore &commands, GameLogic &logic, Player &player, const GameTextSource *gameText, std::string *error)
 {
