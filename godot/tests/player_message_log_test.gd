@@ -70,8 +70,43 @@ func _run() -> void:
 				break
 		if rejected: break
 	assert(rejected, "fixture needs an invalid site which emits placement feedback")
+	await _check_message_layout(hud)
 	if DisplayServer.get_name() != "headless" and not OS.get_environment("MESSAGE_LOG_SHOT").is_empty():
 		await RenderingServer.frame_post_draw
 		assert(root.get_texture().get_image().save_png(OS.get_environment("MESSAGE_LOG_SHOT")) == OK)
 	print("PLAYER MESSAGE LOG PASS")
 	quit()
+
+func _check_message_layout(hud) -> void:
+	var release := root.get_node("Release")
+	var watermark: CanvasLayer = release.get_node("ReleaseWatermark")
+	var original_scale := watermark.scale
+	var original_size := root.size
+	var update_note: Label = watermark.get_node("UpdateNote")
+	var original_note := update_note.text
+	var original_note_visible := update_note.visible
+	update_note.text = "Layout test\nSecond line\nThird line"
+	update_note.show()
+	var obstacles := get_nodes_in_group("player_message_obstacles")
+	assert(obstacles.size() == 3)
+	for resolution in [Vector2i(800, 600), Vector2i(1024, 768), Vector2i(1280, 720), Vector2i(1920, 1080), Vector2i(3840, 2160)]:
+		root.size = resolution
+		for ui_scale in [0.75, 1.0, 1.5, 2.0]:
+			watermark.scale = Vector2(ui_scale, ui_scale)
+			watermark.show()
+			for i in 3: await process_frame
+			var top: float = hud.get_hud6_state().message_top
+			for control: Control in obstacles:
+				if control.is_visible_in_tree():
+					var rect: Rect2 = control.get_global_transform_with_canvas() * Rect2(Vector2.ZERO, control.size)
+					assert(top >= ceilf(rect.end.y + 2.0 * ui_scale), "message log overlaps release corner") # tolerance: disjoint vertical extents, including scaled shadow padding.
+	watermark.scale = original_scale
+	root.size = original_size
+	watermark.hide()
+	for i in 3: await process_frame
+	var hidden_top: float = hud.get_hud6_state().message_top
+	watermark.show()
+	for i in 3: await process_frame
+	assert(hud.get_hud6_state().message_top > hidden_top) # tolerance: hiding the corner must release its reserved vertical space.
+	update_note.text = original_note
+	update_note.visible = original_note_visible

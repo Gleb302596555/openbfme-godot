@@ -79,6 +79,9 @@ public:
 	// The retail flag at +0x6C2: the popup's accept button is disabled (an empty raw text).
 	bool profileAcceptDisabled() const { return m_acceptDisabled; }
 	GameWindow *slotGadget(int slot, const std::string &leaf) const;
+	GameWindow *slotScrollWindow() const { return m_slotScroll; }
+	GameWindow *slotRangeWindow() const { return m_slotRange; }
+	int firstVisibleSlot() const { return m_firstVisibleSlot; }
 	// lane ONLINE-5: the state the slot's Ready box was last given (SetReadyState: "_none", "_enabledChecked" ...; "" before the first)
 	const std::string &readyIcon(int slot) const
 	{
@@ -86,6 +89,7 @@ public:
 		return slot >= 0 && slot < MAX_SLOTS ? m_readyIcon[(size_t)slot] : none;
 	}
 	GameWindow *mapListWindow() const { return m_mapList; }
+	GameWindow *mapCapacityFilterWindow() const { return m_mapCapacityFilter; }
 	const std::vector<GameWindow *> &mapStartSpotWindows() const { return m_currentMapChildren; } // lane FB7-1 (tests)
 	// lane UI-2: the map preview window (MpGameSetup's CurrentMap, MpMapWindow.wnd) and its start-spot buttons
 	GameWindow *currentMapWindow() const { return m_currentMap; }
@@ -127,13 +131,17 @@ public:
 	// the gadget that shows a rule (AptMpGameRules + 0x7C), and OpenBFME's Legendary Heroes combo
 	GameWindow *ruleWindow(int rule) const { return (unsigned)rule < (unsigned)NUM_GAME_RULES ? m_ruleWindows[(size_t)rule] : nullptr; }
 	GameWindow *legendaryHeroesWindow() const { return m_legendaryCombo; }
+	// lane CHEAT-1: OpenBFME's Cheat Mode check row (null while the screen does not offer it)
+	GameWindow *cheatModeWindow() const { return m_cheatCheck; }
 	AptMessageBox *ruleBox() const { return m_ruleBox.get(); } // lane OWNERFIX-2: the Rules tab's warning box (APT:CommandPointsTooHigh), for the harness
 	bool rulesPopulated() const { return m_rulesPopulated; }
 	// the rule warning boxes shown (title, text), for tests
 	const std::vector<std::pair<std::u16string, std::u16string>> &ruleWarnings() const { return m_ruleWarnings; }
+	bool startAvailable() const { return m_profileState == kStateMain || m_profileState == kStateClosed; }
 	int profileState() const { return m_profileState; } // lane MENUWORK-1: the menu inventory's evidence
 
 protected:
+	void updateExtendedRows();
 	WindowMsgHandledType gadgetMessage(GameWindow *from, std::uint32_t msg, WindowMsgData data1, WindowMsgData data2) override;
 
 	// ---- lane MP-2: the LAN lobby (AptLanLobby, LanLobby.apt) hosts the same MpGameSetup movie with a network model ----
@@ -183,6 +191,8 @@ protected:
 	// lane OWNERFIX-2: whether the lobby can carry a slot's handicap to the game (false: its combo stays empty and locked; the skirmish and LAN lobbies through
 	// NetPacket's GameInfo, the online one through the lobby's START since lane ONLINEMENU-1)
 	virtual bool handicapChoiceAvailable() const { return true; }
+	// lane CHEAT-1: whether the Rules tab offers OpenBFME's Cheat Mode row (every custom game; the online room of a Quick Match or a tournament does not)
+	virtual bool cheatModeOffered() const { return true; }
 	// lane ONLINE-5: the chat panel's Players list (AptMpChat's "ChatPlayers", RW 0x9BEA20): the human players of the network game, in slot order.
 	// INFERENCE [S-4551]: retail's chat helper fills it with the chat's recipients (the room's players; its fill, RW 0x9BECCB's source, was not read)
 	// and sends a line only to the ones selected; here it lists who is in the room and every line goes to everyone
@@ -235,6 +245,8 @@ private:
 	};
 
 	void registerAll();
+	void setFirstVisibleSlot(int first);
+	void destroySlotScroll();
 	void registerLobby();
 	void registerProfileCommands();
 	// ---- gadget initialisation (the `_Init` screen references) ----
@@ -250,6 +262,7 @@ private:
 	int heroSide(int slot) const;                    ///< the slot's faction side as a Create-a-Hero faction index (-1: any)
 	bool heroUsable(int slot, const CreateAHeroHero &hero) const;
 	void populateMapList();
+	void createMapCapacityFilter();
 	void setMapSort(int mode);
 	void refreshAll();
 	void refreshSlot(int slot);
@@ -269,11 +282,13 @@ private:
 	void enableRuleGadgets();                                         ///< RW 0x57E97A's RotWK twin: enabled = host and shown
 	void updateRuleGadget(int rule);                                  ///< RW 0x986624
 	void updateLegendaryGadget();
+	void updateCheatGadget(); // lane CHEAT-1
 	bool onRuleGadget(GameWindow *gadget);                            ///< RW 0x986776: true when `gadget` is a rule gadget
 	void ruleChanged(int kind, bool reset);                           ///< RW 0x8421E0
 	void resetRules();                                                ///< AptMpGameRules::Reset RW 0x98674C
 	void pruneRuleGadgets(const std::set<const GameWindow *> &alive);
 	int ruleComboCount() const;                                       ///< MpGameRules::NumComboBoxes: the mode's rows, + 1 for Legendary Heroes in mode 0
+	int ruleCheckCount() const;                                       ///< MpGameRules::NumCheckBoxes: the mode's rows, + 1 for Cheat Mode (lane CHEAT-1) in mode 0
 	bool amIHost() const { return m_hostMode; }
 	// lane FB7-1: a click on a start spot of the map window (RW 0x845830, messages 0x4008 / 0x4009 = GBM_SELECTED / GBM_SELECTED_RIGHT); true when
 	// `button` is one of the spots
@@ -318,7 +333,15 @@ private:
 	// MpGameSetup state
 	std::map<const GameWindow *, SlotGadget> m_slotGadgets;
 	GameWindow *m_slots[MAX_SLOTS][6] = {};
+	const AptCharacterInst *m_extendedRowsParent = nullptr;
+	std::array<float, LEGACY_MAX_SLOTS> m_retailRowY{};
+	GameWindow *m_slotScroll = nullptr;
+	GameWindow *m_slotRange = nullptr;
+	int m_firstVisibleSlot = 0;
+	int m_layoutCapacity = LEGACY_MAX_SLOTS;
 	GameWindow *m_mapList = nullptr;
+	GameWindow *m_mapCapacityFilter = nullptr;
+	bool m_largeMapsOnly = false;
 	std::vector<std::string> m_mapKeys;     // the map key of each MapList row (MpGameSetup +0x398)
 	std::vector<int> m_mapStates;           // lane OWNERFIX-3: each row's conquest state
 	std::vector<std::string> m_mapImages;   // lane OWNERFIX-3: each row's column 0 image
@@ -377,6 +400,7 @@ private:
 	std::array<GameWindow *, NUM_GAME_RULES> m_ruleWindows{};
 	std::array<int, NUM_GAME_RULES> m_ruleStates{};
 	GameWindow *m_legendaryCombo = nullptr;
+	GameWindow *m_cheatCheck = nullptr; // lane CHEAT-1
 	bool m_ruleInput = true;
 	bool m_rulesPopulated = false;
 	std::unique_ptr<AptMessageBox> m_ruleBox;

@@ -15,6 +15,7 @@ import { pathToFileURL } from 'node:url';
 import { Lobby, route, configFromEnv, parseBlobKey, MAX_JSON_BYTES, MAX_LOG_BYTES, validateSighting, withoutGameIp } from './lobby.mjs';
 import { createNodeReportStore } from './report-store-node.mjs';
 import { createNodeSocialStore } from './social-store-node.mjs';
+import { repairStoredText } from './stored-text.mjs';
 
 export function readEnv(env = process.env) {
   const out = { ...env };
@@ -112,7 +113,7 @@ export function fileStore(dir) {
     if (record?.install !== f.slice(0, -5)) throw new Error(`lobby: stored ${label} ${f} has a mismatched install key`);
     if (label === 'sighting') {
       const clean = validateSighting(record);
-      if (clean.platform !== record.platform) write(join(dir, sub, f), JSON.stringify(clean));
+      if (repairStoredText(record) !== record || clean.platform !== record.platform) write(join(dir, sub, f), JSON.stringify(clean));
       record = clean;
     }
     return record;
@@ -146,8 +147,9 @@ export function fileStore(dir) {
       const path = join(dir, 'games', f);
       const game = JSON.parse(readFileSync(path, 'utf8'));
       if (!game || game.id !== f.slice(0, -5)) throw new Error(`lobby: stored game ${f} has a mismatched key`);
-      const clean = withoutGameIp(game);
-      if (Object.hasOwn(game, 'ip')) write(path, JSON.stringify(clean));
+      const repaired = repairStoredText(game);
+      const clean = withoutGameIp(repaired);
+      if (repaired !== game || Object.hasOwn(game, 'ip')) write(path, JSON.stringify(clean));
       return clean;
     }),
     putBlob: (key, bytes) => write(join(dir, key), bytes),

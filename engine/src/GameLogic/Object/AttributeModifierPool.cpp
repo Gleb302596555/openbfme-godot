@@ -167,6 +167,22 @@ void emitModifierFX(Object &obj, const std::string &fx)
 }
 } // namespace
 
+void AttributeModifierPool::handDownTo(Object &obj) const
+{
+	const unsigned frame = getObject()->logic().getFrame();
+	const std::vector<Entry> entries = m_entries; // the member's own pool is another module: the copy only guards against a hand-down to this object
+	for (const Entry &e : entries)
+	{
+		// INFERENCE (S-633, lane BANNER-1 review r1): the port keeps an expired entry (the pool's expiry removal is not ported) where retail's would be gone; it is
+		// not handed down (a non-positive remaining duration would give the list its own default duration again)
+		if (e.expire <= frame)
+		{
+			continue;
+		}
+		obj.addAttributeModifier(e.name, (int)(e.expire - frame)); // RW 0x804F18 .. 0x804F27
+	}
+}
+
 bool AttributeModifierPool::add(const std::string &listName, int duration)
 {
 	if (!store())

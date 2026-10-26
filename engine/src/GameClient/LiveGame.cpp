@@ -16,6 +16,7 @@
 #include "GameLogic/HeroSystem.h"
 
 #include "GameLogic/UpgradeCommands.h"
+#include "GameLogic/BeaconCommands.h"
 #include "GameLogic/Combat/CombatState.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
@@ -153,6 +154,28 @@ bool LiveGame::load(const Options &options, std::string *error)
 	if (!classified)
 	{
 		return false;
+	}
+	if (options.start)
+	{
+		MapCacheEntry actual;
+		actual.name = options.start->message.game.mapName;
+		actual.numPlayers = options.start->mapPlayerCount;
+		for (const Waypoint &waypoint : m_terrain.waypoints())
+		{
+			const std::string &name = waypoint.name;
+			if (name.rfind("Player_", 0) != 0 || name.size() < 6 || name.compare(name.size() - 6, 6, "_Start") != 0) continue;
+			int number = 0;
+			for (int i = 1; i <= MAX_SLOTS; ++i)
+			{
+				if (name == "Player_" + std::to_string(i) + "_Start") number = i;
+			}
+			if (!number || !actual.startPositions.emplace(number, waypoint.location).second)
+			{
+				if (error) *error = "invalid or duplicate start waypoint '" + name + "'";
+				return false;
+			}
+		}
+		if (!MapCache::validateStartPositions(actual, error)) return false;
 	}
 	m_report.mapIniErrors = cr.mapIni.errors;
 	m_report.mapObjects = m_classified.report.objects;
@@ -320,6 +343,22 @@ bool LiveGame::load(const Options &options, std::string *error)
 	}
 	m_logic->setGameRules(gameRules);
 	m_logic->setLegendaryHeroes(options.start ? options.start->message.game.legendaryHeroes : LegendaryHeroes::kOff);
+	// lane CHEAT-1: the cheat seat (the setup's slot) as the logic player of that slot; a seat without a player is an error, never a game without the seat
+	if (options.start && options.start->message.game.cheatModeOn())
+	{
+		const int slot = options.start->message.game.cheatMode;
+		const std::string side = slot < (int)m_report.startSlotPlayers.size() ? m_report.startSlotPlayers[(size_t)slot] : std::string();
+		const Player *seat = side.empty() ? nullptr : m_players->findPlayerWithName(side);
+		if (!seat)
+		{
+			if (error)
+			{
+				*error = "Cheat Mode: the cheat seat's slot " + std::to_string(slot) + " has no player";
+			}
+			return false;
+		}
+		m_logic->cheatMode().configure(slot, seat->getPlayerIndex());
+	}
 	// lane UBER-1: the game setup's simulation profile (a game without a start message, a map viewer or a tool, is Faithful unless its options say Uber)
 	m_logic->setSimulationProfile(options.start ? options.start->message.game.simulationProfile : options.simulationProfile);
 	m_logic->economy().initAllCommandPoints();
@@ -411,6 +450,7 @@ bool LiveGame::load(const Options &options, std::string *error)
 		m_shroud->applyNewGameShroud(m_vision.useShroud, revealed, observers);
 	}
 	UpgradeCommands::registerHandlers(*m_dispatch); // UPGRADE-1: MSG_QUEUE_UPGRADE / MSG_CANCEL_UPGRADE
+	BeaconCommands::registerHandlers(*m_dispatch);  // CHAT-1: MSG_PLACE_BEACON (the multiplayer beacon, RW 0x77C634)
 	HordeCommands::registerHandlers(*m_dispatch);   // HORDE-2: the formation swap
 	GarrisonCommands::registerHandlers(*m_dispatch); // GARRISON-1: MSG_ENTER / MSG_EVACUATE / MSG_EXIT
 	CastleCommands::registerHandlers(*m_dispatch);   // BACKLOG2: MSG_CASTLE_UNPACK / MSG_CASTLE_PACK / MSG_CASTLE_UNPACK_EXPLICIT_OBJECT (S-951)
@@ -422,6 +462,7 @@ bool LiveGame::load(const Options &options, std::string *error)
 	HeroAbilityModules::registerHandlers(*m_dispatch); // HERO-2: MSG_DO_AUTO_ABILITY (RW 0x77B9BA)
 	m_spellCommands.registerHandlers(*m_dispatch); // SPELL-1: the spell book messages
 	TributeCommands::registerHandlers(*m_dispatch); // PLAY-1: MSG_GIVE_MONEY, the tribute (RW 0x6264E1)
+	CheatMode::registerHandlers(*m_dispatch);       // CHEAT-1: MSG_OPENBFME_CHEAT (refused unless the game setup has Cheat Mode)
 	SpecialPowerModules::installScienceHooks(*m_logic);
 	m_drawables = std::make_unique<DrawableManager>(m_assets, *m_logic);
 	// SMOOTH-1: the logic talks to its client through ordered events (ClientEvents.h); the render side applies them (DrawableManager::applyEvents)
@@ -502,6 +543,11 @@ bool LiveGame::load(const Options &options, std::string *error)
 		for (const std::string &e : placed.errors)
 		{
 			m_report.startErrors.push_back(e);
+		}
+		if (!m_report.startErrors.empty())
+		{
+			if (error) *error = m_report.startErrors.front();
+			return false;
 		}
 	}
 	{
@@ -735,6 +781,14 @@ bool LiveGame::setupMapScripts(const Options &options, const SidesList &sidesUse
 		m_report.mapScripts.push_back(n);
 	}
 	return true;
+}
+
+std::vector<CheatMode::LogEntry> LiveGame::takeCheatAnnouncements()
+{
+	std::vector<CheatMode::LogEntry> out;
+	const std::unique_lock<std::mutex> lock = lockPublication("takeCheatAnnouncements");
+	out.swap(m_publishedCheatLines);
+	return out;
 }
 
 std::vector<ScriptClientRequest> LiveGame::takeScriptRequests()
@@ -1250,7 +1304,15 @@ void LiveGame::publish(std::shared_ptr<const FrameCompletion> completion)
 	m_recorder->captureObserverFrame();
 	std::vector<ClientEvent> events = m_recorder->take();
 	std::vector<ScriptClientRequest> scriptRequests = m_logic->scriptEngine().takeClientRequests(); // lane SCRIPT-1
+	std::vector<CheatMode::LogEntry> cheatLines = m_logic->cheatMode().takeAnnouncements();        // lane CHEAT-1
 	std::lock_guard<std::mutex> lock(m_pubMutex);
+	for (CheatMode::LogEntry &e : cheatLines)
+	{
+		if (m_publishedCheatLines.size() < CheatMode::kLogCap) // a render side that never takes them keeps a bounded queue
+		{
+			m_publishedCheatLines.push_back(std::move(e));
+		}
+	}
 	m_publishedPrev = m_published;
 	m_published = snap;
 	for (ScriptClientRequest &r : scriptRequests)

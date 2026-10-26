@@ -49,7 +49,9 @@ struct OpenBFMEPageRow
 		Check,   // checkbox.wnd: `value` 0 / 1
 		Slider,  // horzslider.wnd: `minValue` .. `maxValue`, `value` = the position; `valueText` is drawn right of it
 		Text,    // a read-only value: `valueText`
-		Entry    // lane OPTS-5: textentry.wnd: `valueText` the text, at most `maxValue` characters; `value` = the text's number (0 when empty)
+		Entry,   // lane OPTS-5: textentry.wnd: `valueText` the text, at most `maxValue` characters; `value` = the text's number (0 when empty)
+		Button   // lane CHEAT-1: a button of the menus' own look (the FRIENDS button's frame and lettering; no retail skin is a push button): `valueText` its
+		         // text; a click is a Press event with the row's key
 	};
 	Kind kind = Kind::Text;
 	std::string key;
@@ -96,7 +98,8 @@ struct OpenBFMEPageEvent
 		Release, // lane OPTS-5: a slider row's thumb let go or its track click done (RotWK's 0x4010, GSM_SLIDER_CLICKED): `key`
 		Submit,  // lane ONLINEMENU-1: Enter in an Entry row (GEM_EDIT_DONE): `key`, `text`
 		ListSelect,  // lane ONLINEMENU-1: a list row chosen (GLM_SELECTED): `value` the row
-		ListActivate // lane ONLINEMENU-1: a list row double-clicked (GLM_DOUBLE_CLICKED): `value` the row
+		ListActivate, // lane ONLINEMENU-1: a list row double-clicked (GLM_DOUBLE_CLICKED): `value` the row
+		Press         // lane CHEAT-1: a Button row clicked (press and release on it): `key`
 	};
 	Kind kind = Kind::Value;
 	std::string key;
@@ -130,6 +133,7 @@ public:
 	static constexpr int kColumnGadgetInset = 160;
 	static constexpr int kColumnRightInset = 12;
 	static constexpr int kEntryWidth = 110;
+	static constexpr int kButtonWidth = 170; // lane CHEAT-1: a Button row's box
 	static constexpr int kShortEntryLength = 20; // lane ONLINEMENU-1: an entry for more characters is as wide as the panel's gadgets
 	static constexpr int kCheckSize = 30; // checkbox.wnd draws its box (height - 6) square: 24, the size of Options.apt's Show All Health Bars box
 	static constexpr int kCheckBoxMargin = 3; // lane OPTS-6: the stated hit margin above and below a check box's drawn box (its window's inset)
@@ -231,4 +235,7 @@ private:
 	int m_hoverRow = -1;
 	int m_hoverTab = -1;
 	int m_pressTab = -1;
+	int m_hoverButton = -1; // lane CHEAT-1: the Button row under the pointer / pressed
+	int m_pressButton = -1;
+	int buttonAt(float x, float y) const;
 };

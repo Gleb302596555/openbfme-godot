@@ -722,8 +722,8 @@ def test_onlinemenu1_the_launcher_account_page_talks_only_to_the_named_lobby():
     assert "_policy.set_lobby(url) != \"\"" in oauth and 'func _url(path: String) -> String:\n\treturn lobby_url.trim_suffix("/") + path' in oauth
     assert re.findall(r"(?<!func )(?<![\w.])_request\((.*?),", oauth) == ['_url("/v1/auth/oauth/accounts")', '_url("/v1/auth/email/poll")', "_url(path)"]
     assert oauth.count(".listen(") == 1 and '_server.listen(CALLBACK_PORT, "127.0.0.1")' in oauth
-    assert oauth.count("OS.shell_open(") == 2
-    first, second = oauth.index("OS.shell_open(value.authorization_url)"), oauth.index("OS.shell_open(value.url)")
+    assert "OS.shell_open(" not in oauth and oauth.count('.open_url(') == 2
+    first, second = oauth.index('.open_url(value.authorization_url)'), oauth.index('.open_url(value.url)')
     # each open follows its URL check in the same response branch
     start, email = oauth.rindex('elif _request_kind == "start":', 0, first), oauth.rindex('elif _request_kind == "email_start":', 0, second)
     assert "if not _allowed_authorization(value.authorization_url):" in oauth[start:first]

@@ -12,6 +12,21 @@ import pytest
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from test_autorelease import World, git, run, TARGET  # noqa: E402,F401
+from test_autorelease import autorelease, zip_of  # noqa: E402
+
+
+@pytest.mark.parametrize("packed", [False, True])
+def test_signature_sync_word_is_not_audio_but_tagged_audio_is_refused(packed):
+    # A fixed reproduction of the random-signature collision, not a filename exemption.
+    for header, expected in ((bytes([255, 251, 144, 0]), False), (b"ID3\x00", True)):
+        signature = header + bytes(60)
+        audit = autorelease.SyncAudit(top=True)
+        name = "manifest.json.sig"
+        if packed:
+            signature = zip_of({"openbfme-v0.4.5-windows-x64/payload.json.sig": signature})
+            name = "package.zip"
+        audit.blob(name, signature)
+        assert any("audio" in problem for problem in audit.problems) == expected, audit.problems
 
 LLM = r'''#!/usr/bin/env python3
 import json, sys
