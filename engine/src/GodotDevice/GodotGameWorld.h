@@ -681,6 +681,9 @@ private:
 		int64_t tireInstance = -1;          ///< the instance they were handed to
 		bool fogLook = false;               ///< lane VISUAL-2: the instance is drawn with the fogged light (a last-seen object in the fog)
 		int64_t fogLookInstance = -1;       ///< the instance it was handed to
+		const void *shadowState = nullptr;  ///< S-3304: the model condition state and module data the shadow eligibility was made from
+		const void *shadowData = nullptr;
+		int64_t shadowInstance = -1;        ///< the instance it was handed to
 		std::uint32_t colorsRevision = 0;   ///< lane CAH-2: Drawable::customColorRevision the model choice saw
 		// lane HCKEY-1: a static entry's model key (lowered name + floor swap suffix + palette) and the inputs it was made from, rebuilt only
 		// when one of them changes (community PR #60 made it every frame for every coloured static drawable)
