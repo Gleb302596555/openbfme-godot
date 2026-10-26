@@ -166,14 +166,14 @@ func _run() -> void:
 	_check(Array(_draws()[0].order) == [0, 2], "hidden subobject filters draw")
 	_check(_inst.set_instance_hidden_subobjects(1, []), "show subobject")
 	_step("shown_subobject", 2)
-	# Public main keeps a stable per-instance palette allocation when a bind pose starts animating.
+	# The merged palette allocator moves a static block into the animated pool (three pivots, nine texels).
 	var late: int = _inst.add_instance(opaque, Transform3D.IDENTITY, "", 0.0, 1.0)
 	_check(late == 7, "late bind instance")
 	_step("add_bind", 2)
 	var old_base: float = _draws()[0].buffer[3 * 16 + 12]
 	_pose(late, "PB_MOVE", 0.0)
-	_step("bind_to_animation", 0)
-	_check(_draws()[0].buffer[3 * 16 + 12] == old_base, "animation preserves public palette base")
+	_step("bind_to_animation", 2)
+	_check(_draws()[0].buffer[3 * 16 + 12] == old_base + 9.0, "animation relocates palette and rewrites its draw records")
 	# Growth must rewrite capacity; removals retain the same untouched tail bytes as the baseline.
 	_check(_inst.add_instance(opaque, Transform3D.IDENTITY, "PB_MOVE", 0.0, 1.0) == 8, "growth instance")
 	_step("capacity_growth", 2)

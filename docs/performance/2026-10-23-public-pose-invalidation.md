@@ -2,8 +2,16 @@
 
 Public base: `b12bb2c85e488051e4fd7a84a24fce1e62493c75`
 ([upstream main](https://github.com/Open-BFME/openbfme-godot/commit/b12bb2c85e488051e4fd7a84a24fce1e62493c75)).
-This patch changes only the instancer's buffer invalidation. Public main's palette
-allocator and whole-image palette upload remain in use.
+The original standalone patch changed only the instancer's buffer invalidation.
+This branch now also merges the accepted palette-upload work from
+[#92](https://github.com/Open-BFME/openbfme-godot/pull/92) at
+`56db945054c72f6a3258ae5d747c2952d7af4214`.
+
+The combined pose loop records changed palette rows before checking per-draw
+visibility/fade; pose evaluation does not unconditionally dirty the model's draw
+buffers. Instance creation initializes both the animated-palette flag and the
+per-draw consumed-state cache. Starting animation on a static instance retains
+#92's palette relocation and its required model-wide buffer rewrite.
 
 Bone matrices are read through the palette. A stationary unsorted draw can retain
 its instance buffer when its consumed pivot visibility/fade are unchanged. Sorted
@@ -25,7 +33,7 @@ claim of zero overhead or universal FPS improvement.
 
 ## Reproduce the CPU/API regression
 
-Use a verified public checkout plus this patch, its pinned godot-cpp submodule,
+Use this combined public checkout, its pinned godot-cpp submodule,
 the Godot Linux SDK `godot-2023.08.x-4` (GCC 13.2.0), and official Godot 4.7.2.
 `SDK`, `GODOT`, `ROTWK_INSTALL` and `BFME2_INSTALL` below are builder-supplied paths.
 The retail mounts must pass the repository's normal archive policy. Even the
@@ -48,7 +56,7 @@ unset DISPLAY WAYLAND_DISPLAY
   -DCMAKE_C_COMPILER_LAUNCHER= -DCMAKE_CXX_COMPILER_LAUNCHER=
 "$SDK/bin/cmake" --build "$B/build" -j2 --target openbfme
 python3 -B godot/tests/pose_buffer_regression.py --build-dir "$B/build" \
-  --baseline-ref b12bb2c85e488051e4fd7a84a24fce1e62493c75 \
+  --baseline-ref 56db945054c72f6a3258ae5d747c2952d7af4214 \
   --scratch "$B/regression" --godot "$GODOT" --negative-controls
 ```
 
@@ -78,7 +86,7 @@ variant too. Two fault-injected adaptations independently disable consumed-cache
 synchronization and queried-pose consumption; these must fail the corresponding
 regressions. They are negative controls, not historical private binaries.
 
-## Recorded validation
+## Original standalone recorded validation
 
 2026-10-23, Linux x86-64, official Godot `4.7.2.stable.official.ed1daf0bf`,
 godot-cpp `507ed9d840c01a3c5b2a39af8bb4000bfac30bf5`, Godot API 4.7.
@@ -114,9 +122,9 @@ Actual production source engine ID:
 This was built **before the source commit**: its honest build record names public
 base `b12bb2c85e488051e4fd7a84a24fce1e62493c75`, version
 `v0.4.12-nightly.20261022-10-gb12bb2c85e-dirty`, `dirty=1`, x86-32 OFF and empty
-ID options. Its engine ID matches these production sources. It is validation
-evidence, not a clean stamped release artifact or proof of the eventual commit
-hash. Diagnostic relinks inherit that record; their baseline identity comes from
+ID options. Its engine ID matches the original standalone production sources.
+It is validation evidence, not a clean stamped release artifact or proof of the
+eventual commit hash. Diagnostic relinks inherit that record; their baseline identity comes from
 the recorded public source blobs and compile commands, not the embedded stamp.
 
 Local evidence uses a newly created temporary root; `summary.json`, build logs,
@@ -129,3 +137,28 @@ Production sources did not change during validation.
 Headless dummy rendering provides CPU/API evidence only. It does not establish
 GPU image equivalence, driver behavior, frame timing, PCIe bandwidth, Windows or
 other-platform correctness. Submitted buffer byte counts describe API volume.
+
+## Combined validation against #92
+
+The combined production extension passed a fresh 1,728-step SDK build with
+`-j1`. All 1,725 object/archive/library hashes stayed unchanged through the
+diagnostic checks. The three committed suites matched #92 exactly across all
+117 snapshots; another 701 adversarial query/lifecycle snapshots and ten
+dirty-row/growth snapshots also matched. The merged variant passed 11,750
+synthetic checks, with 17 retail-culling checks on each diagnostic variant and
+on the uninstrumented production extension. Both fault controls still fail in
+the intended cases (four consumed-cache and 20 query-consumption assertions).
+
+The original static-to-animation assertion failed on both variants before it
+was updated: #92 relocates this three-pivot block by nine texels, requiring both
+draw records to be rewritten. All 53 original main-suite snapshots already
+matched. Dirty-span observers additionally verified bone-only updates, the
+already-dirty-model path, separated rows, relocation and atlas growth. A separate
+22-check ASan/UBSan harness exercised the unchanged queue source with a delayed
+render-thread API fake; this does not validate the real RenderingDevice.
+
+These are headless CPU/API checks. The original standalone artifact hashes above
+identify the earlier build, not this combined build. The combined build's source
+engine ID is `4ece456b3b42283835026b7375fef40f0d749067e1462516a9446679c5f93db3`;
+its pre-commit stamp honestly reports `bbaa8a438a`, `dirty=1`. Existing numeric,
+provenance and pose-culling stops remain; no GPU or timing acceptance is claimed.
