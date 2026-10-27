@@ -18,7 +18,7 @@ func _run() -> void:
 	assert(world.prepare_new_game({"mode": "skirmish", "difficulty": 1,
 		"map": "maps/map mp harlindon/map mp harlindon.map", "map_crc": 0,
 		"map_size": 0, "map_mask": 0, "seed": 2723,
-		"starting_cash": 4000, "slots": slots}).ok)
+		"starting_cash": 4000, "simulation_profile": 1, "slots": slots}).ok)
 	var started: Dictionary = world.start_new_game({"logic_thread": false})
 	assert(started.ok)
 	for i in 10:

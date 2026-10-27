@@ -1,27 +1,22 @@
-# Production exit routing
+# Uber production doorway routing
 
-Queue exits use the building's authored create point and natural rally point.
-On Harlindon's west Men start, a hero leaving MenFortressCitadel was routed
-through a side wall, roughly 75 units away from the door centreline, before
-walking around to the correct front rally point. Builders share this path.
+Standalone recruits in the Uber profile ignore their producer for the first
+exit segment and use a continuous quick path when that doorway line passes
+terrain/enemy checks. Allied recruits and their goal reservations do not bend
+this first leg into the nearest wall. The exemption ends at the next segment
+or on interruption. Ordinary docking/harvesting line tests keep their existing
+rules, even when they combine an ignored object with path-through-units.
+Faithful retains the upstream path, ignored-source and cleanup behavior.
 
-The unit begins inside the producer's obstacle. Without an obstacle exemption,
-the grid search tunnels toward the nearest clear cell before pursuing its goal.
+This is an Uber routing improvement, not a retail parity claim. The RotWK 2.01
+review identified a different mechanism: exit-state entry sets a one-shot flag
+at RW 0x74BB56; computePath consumes it in state 7 at RW 0x666036, calling
+computeQuickPath at RW 0x665A83 without ignoring the producer or testing the
+line. The flag is cleared afterward. The port's S-166 records earlier exit and
+guard-goal regressions from enabling that branch, including the machine goal
+update. Resolving that parity gap remains separate from this Uber option.
 
-The OpenBFME doorway-routing fix identifies the producer in the exit command
-and ignores that obstacle only for the first authored exit segment. That segment
-uses the two-node continuous exit path (RW 0x666036), already used for battalion
-members, rather than a grid-snapped route that can kink into the gate wall. Other
-buildings and terrain remain obstacles. The exemption is cleared before later
-segments (including the player's rally route), and when the exit state ends or
-is interrupted. No new simulation state or save fields are introduced.
-
-This is an explicit OpenBFME correction: RotWK's queue exit passes a null source
-to the follow-exit-path command. It is not a claim of retail path parity.
-
-Regression coverage constrains the first segment to its continuous centreline
-within binary32 integration error, rather than allowing a 12-unit grid deviation.
-
-A preceding allied recruit may still occupy or reserve the doorway. The scoped
-exit-through-units check permits that ally without accepting a detour into a gate
-wall; terrain, enemy occupants and other buildings still undergo passability checks.
+Tests cover rotated factories with a rally behind the building, allied door
+reservations, cancellation and neighboring obstacles in Uber. Original
+Faithful production-exit clearing assertions remain unchanged. The manual
+`fortress_exit_test.gd` explicitly selects Uber and checks hero/builder exits.

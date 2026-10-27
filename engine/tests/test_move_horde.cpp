@@ -547,6 +547,7 @@ Object DoorFactory
 	End
 End
 )");
+		mw.logic->setSimulationProfile(SimulationProfile::Uber);
 		Object *factory = mw.spawn("DoorFactory", 605, 605, angle);
 		mw.buildMap();
 		Object *unit = mw.spawn("Walker", 605, 605, angle);
@@ -590,6 +591,7 @@ End
 TEST_CASE("production exit: cancelling the doorway walk restores factory collision")
 {
 	MoveWorld mw;
+	mw.logic->setSimulationProfile(SimulationProfile::Uber);
 	Object *factory = mw.spawn("Block", 405, 505);
 	mw.buildMap();
 	Object *unit = mw.spawn("Walker", 405, 505);
@@ -602,6 +604,7 @@ TEST_CASE("production exit: cancelling the doorway walk restores factory collisi
 TEST_CASE("production exit: the straight doorway leg still collides with other buildings")
 {
 	MoveWorld mw;
+	mw.logic->setSimulationProfile(SimulationProfile::Uber);
 	Object *factory = mw.spawn("Block", 405, 505);
 	Object *neighbor = mw.spawn("Block", 515, 505);
 	mw.buildMap();
@@ -613,5 +616,29 @@ TEST_CASE("production exit: the straight doorway leg still collides with other b
 		const auto *cell = mw.ai->pathfinder().getCell(LAYER_GROUND, unit->getPosition());
 		REQUIRE(cell);
 		CHECK_FALSE(cell->isObstaclePresent(neighbor->getID()));
+	}
+}
+
+TEST_CASE("production exit: allied goal exemption requires an explicit Uber production line test")
+{
+	for (auto profile : {SimulationProfile::Faithful, SimulationProfile::Uber})
+	{
+		MoveWorld mw;
+		mw.logic->setSimulationProfile(profile);
+		Object *factory = mw.spawn("Block", 405, 505);
+		mw.buildMap();
+		Object *unit = mw.spawn("Walker", 465, 505);
+		Object *preceding = mw.spawn("Walker", 485, 505);
+		mw.frames(2);
+		auto &pf = mw.ai->pathfinder();
+		pf.setUberLimits(profile == SimulationProfile::Uber);
+		pf.updateGoal(mw.aiOf(preceding)->adapter(), preceding->getPosition(), LAYER_GROUND);
+		auto *ai = mw.aiOf(unit);
+		ai->mover().ignoreObstacle(factory->getID());
+		ai->setCanPathThroughUnits(true);
+		const Coord3D goal{505, 505, 0};
+		// Docking/harvesting keep the ordinary call, even with both flags set.
+		CHECK_FALSE(pf.isLinePassable(&ai->adapter(), LOCOMOTORSURFACE_GROUND, LAYER_GROUND, *unit->getPosition(), goal, false, true));
+		CHECK(pf.isLinePassable(&ai->adapter(), LOCOMOTORSURFACE_GROUND, LAYER_GROUND, *unit->getPosition(), goal, false, true, true) == (profile == SimulationProfile::Uber));
 	}
 }

@@ -995,6 +995,9 @@ public:
 	// RW 0x6F2FC3: the straight line is passable for the unit (the optimiser's test)
 	bool isLinePassable(const PathfindObject *obj, unsigned acceptableSurfaces, PathfindLayerEnum layer, const Coord3D &startWorld,
 		const Coord3D &endWorld, bool blocked, bool allowPinched = false);
+	// Uber production exits alone may ignore allied goal reservations on their first leg.
+	bool isLinePassable(const PathfindObject *obj, unsigned acceptableSurfaces, PathfindLayerEnum layer, const Coord3D &startWorld,
+		const Coord3D &endWorld, bool blocked, bool allowPinched, bool uberProductionExit);
 	// RW 0x6EE5E3: the cell line between two positions meets no non-ground-layer cell (Bresenham, layer 1)
 	bool isGroundLineClear(const Coord3D &a, const Coord3D &b);
 	void clip(Coord3D *from, Coord3D *to);
