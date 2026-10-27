@@ -31,7 +31,7 @@ HudInput::HudInput(GameLogic &logic, AIWorld *ai, TacticalView &view, CommandLis
 	, m_meta(m_ctx, metaMap)
 	, m_formation(m_ctx)
 	, m_place(m_ctx)
-	, m_guiCommand(m_ctx)
+	, m_guiCommand(m_ctx, m_command)
 	, m_command(m_ctx)
 	, m_selection(m_ctx, m_command)
 	, m_hotKey(m_ctx)

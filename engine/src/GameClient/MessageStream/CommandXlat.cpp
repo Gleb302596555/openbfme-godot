@@ -194,6 +194,23 @@ void CommandTranslator::hint(const char *cursor)
 		}
 		return;
 	}
+	// BFME2 InGameUI::createCommandHint (0x002A3273, InGameUICreateCommandHint.cpp, matched), the GUI command mode (case 2): a waiting command that is no
+	// context command, SPECIAL_POWER (0x18), SPELL_BOOK (0x26), SPECIAL_POWER_FROM_COMMAND_CENTER (0x20) or PLACE_BEACON (0x1F) and has no RadiusCursorType
+	// shows its CursorName whatever the hint (Mouse::getCursorIndex; an empty name has no index: cursor 4, Target), e.g. ATTACK_MOVE's AttackMove. The context
+	// branch keeps the cursor its evaluation chose (the port names it at the hint). Not ported here (S-283): a non-context command's radius cursor
+	// (BFME2: cursor None plus the radius decal)
+	if (m_ctx.ui.mouseMode() == 2)
+	{
+		const CommandButton *pending = m_ctx.ui.getGUICommand();
+		const int type = pending->m_command;
+		const bool contextBranch = pending->hasOption(COMMAND_OPTION_CONTEXTMODE_COMMAND) || type == GUI_COMMAND_SPECIAL_POWER || type == GUI_COMMAND_SPELL_BOOK
+			|| type == GUI_COMMAND_SPECIAL_POWER_FROM_COMMAND_CENTER || type == GUI_COMMAND_PLACE_BEACON;
+		if (!contextBranch && pending->m_radiusCursor.empty())
+		{
+			m_ctx.ui.hintCursor(pending->m_cursorName.empty() ? std::string(MouseCursorName::Target) : pending->m_cursorName);
+			return;
+		}
+	}
 	m_ctx.ui.hintCursor(c);
 }
 
