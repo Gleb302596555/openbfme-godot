@@ -422,13 +422,15 @@ bool Pathfinder::isLinePassable(const PathfindObject *obj, unsigned acceptableSu
 				return known;
 			}
 		}
+		const bool exitLane = obj && obj->canPathThroughUnits() && obj->getIgnoredObstacleID() != PATHFIND_INVALID_ID;
+		if (exitLane) li.move.flags &= ~2u; // Allow allied recruits in the door, retaining terrain/enemy checks.
 		const bool cellBlocks = [&]() -> bool {
 			// lane WALL-1 (INFERENCE, S-4840): a line does not step between cells the search could not step between (a wall top and the ground beside it)
 			if (from && !PathfindCell::layersCompatible(*from, *to))
 			{
 				return true;
 			}
-			for (const PathfindOccupant *n = to->occupants(OCC_GROUND_GOAL); n; n = n->next)
+			for (const PathfindOccupant *n = exitLane ? nullptr : to->occupants(OCC_GROUND_GOAL); n; n = n->next)
 			{
 				const PathfindObject *o = m_world ? m_world->findObjectByID(n->owner) : nullptr;
 				if (!o)

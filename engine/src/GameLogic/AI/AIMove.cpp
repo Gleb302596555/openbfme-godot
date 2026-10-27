@@ -627,9 +627,17 @@ bool AIMover::computePath(const Coord3D &destIn)
 		}
 	}
 	// lane BACKLOG5 (BFME2 decomp AIUpdateInterface_computePath.cpp as donor, tier B same-shape: the RotWK offsets are read from the RotWK disassembly).
-	// RW 0x666036 .. 0x66607C, the straight path of a unit following its exit-production path (state 7 with AI + 0x3BA), is read but not applied: S-166
+	// RW 0x666036 .. 0x66607C: straight exit path (state 7 with AI + 0x3BA).
+	// The unscoped standalone-unit / guard goal-overwrite behavior remains S-166.
 	if (m_host.stateId() == 7 && obj.canPathThroughUnits())
 	{
+		// BFME2 AIUpdateInterface_computePath.cpp / RW 0x666036: leave the
+		// building on a two-node continuous path, without grid-centre kinks.
+		// The OpenBFME producer exemption scopes standalone units to their first
+		// doorway segment; later rally routing and unscoped guard semantics stay unchanged.
+		if (m_ignoreObstacleId != PATHFIND_INVALID_ID &&
+			m_pf.isLinePassable(&obj, info.validSurfaces, obj.getLayer(), obj.getPosition(), dest, false, true))
+			return computeQuickPath(dest);
 		note(kStopExitQuickPath);
 	}
 	const Coord3D orig = dest;
