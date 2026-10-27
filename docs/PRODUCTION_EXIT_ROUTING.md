@@ -4,8 +4,18 @@ Production exits use the RotWK quick-path branch in both Faithful and Uber.
 There is no producer-footprint exemption or special line-passability rule.
 Docking, harvesting and ordinary movement retain their normal path checks.
 
-Verified directly in the user's RotWK 2.01 game.dat with LLVM objdump
+Observed directly in the inspected community-modified game.dat with LLVM objdump
 (SHA-256 `5481de75b63e22483660ea8097478faef594f90b9ade7de893e092256ba68a26`):
+
+Source caveat (PLAN.md rule 9 / S-001): the originally inspected image is
+community-modified, with added `stxt*`, `.mackt` and `.danetta` sections and
+active calls from 0x5D8A64 and 0x5D8AF1 into `.danetta`. The fingerprint
+identifies the inspected image; it does not establish a clean RotWK 2.01
+oracle or an independently verified inventory of patches and every function
+that reaches added code. All address findings below carry this caveat until
+one of those requirements is met. Work touching patched areas must stop.
+BFME2 donor agreement and the passing OpenBFME tests do not remove this
+source qualification or independently establish retail parity.
 
 - RW 0x666036..0x66605C tests state 7 and AI byte +0x3BA.
 - RW 0x666065 calls computeQuickPath (0x665A83) without a line test.
