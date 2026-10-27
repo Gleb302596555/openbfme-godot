@@ -6,8 +6,11 @@
 #include "Common/SpecialPower.h"
 #include "Common/GameState.h"
 #include "GameLogic/Damage.h"
+#include "GameLogic/ExperienceLevels.h"
+#include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/AI/AIEmotionStates.h"
 #include "GameLogic/Module/SpecialAbilityModules.h"
+#include "GameLogic/Module/SiegeModules.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/SpellCommands.h"
 #include "GameLogic/SimMath.h"
@@ -22,16 +25,27 @@ struct FacingWorld : combattest::CombatWorld
 {
 	SpecialPowerStore powers;
 	SpecialPowerStore *savedPowers = TheSpecialPowerStore;
+	ExperienceLevelSystem levels;
+	ExperienceLevelSystem *savedLevels = TheExperienceLevelSystem;
 	SpellCommands spells;
 	explicit FacingWorld(bool mustFinish = true)
 	{
 		TheSpecialPowerStore = &powers;
+		// merge queue q28: the hero has a level (rank 1, set before its first cast). HEROCAST-1's group cast leaves a HERO without a valid level out of an
+		// _AT_OBJECT cast (RW 0x770A0D) and tries only the senior hero; every retail hero has ExperienceLevels
+		TheExperienceLevelSystem = &levels;
+		levels.registerBlocks(w.fx.env.blocks);
 		w.fx.env.blocks.registerBlock("SpecialPower", [](INI *ini) { SpecialPowerStore::parseSpecialPowerDefinitionGlobal(ini); });
 		SpecialAbilityModules::registerAll(w.modules);
 		SpecialPowerModules::registerAll(w.modules);
 		spells.registerHandlers(dispatcher);
 		combat().setAutoAcquireEnabled(false);
 		const char *ini = R"ini(
+ExperienceLevel DirectionalHeroLevel1
+ TargetNames = DirectionalHero
+ RequiredExperience = 1
+ Rank = 1
+End
 SpecialPower DirectionalPower
  Enum = SPECIAL_GENERAL_TARGETLESS
  ReloadTime = 10000
@@ -102,9 +116,18 @@ End
 		const std::string error = w.load(data);
 		REQUIRE_MESSAGE(error.empty(), error);
 	}
-	~FacingWorld() { TheSpecialPowerStore = savedPowers; }
+	~FacingWorld()
+	{
+		TheSpecialPowerStore = savedPowers;
+		TheExperienceLevelSystem = savedLevels;
+	}
 	void cast(Object &hero, Object &victim, bool atPosition)
 	{
+		int rank = 0;
+		if (!hero.getExperienceTracker()->currentLevelRank(rank))
+		{
+			hero.getExperienceTracker()->setExperienceAndLevel(1.0f, false); // RW 0x79D8EF: the level check reaches DirectionalHeroLevel1 (the next level needs more than 0)
+		}
 		GameMessage message(atPosition ? MSG_DO_SPECIAL_POWER_AT_LOCATION : MSG_DO_SPECIAL_POWER_AT_OBJECT,
 			hero.getControllingPlayer()->getPlayerIndex());
 		message.appendIntegerArgument((int)powers.findSpecialPowerTemplate("DirectionalPower")->getID());

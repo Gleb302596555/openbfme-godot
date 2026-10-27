@@ -51,8 +51,7 @@ enum AIEmotionStateType
 {
 	AI_PANIC = 20,
 	AI_PANIC_COWER = 21,
-	AI_FACE_OBJECT = 36,
-	AI_FACE_POSITION = 37,
+	AI_FACE_OBJECT = 36, // its position mode 37 is SiegeModules.h AI_FACE_POSITION (lane SIEGE-1)
 	AI_BACK_AWAY = 48,
 	AI_QUARREL = 58,
 	AI_FACE_OBJECT_IDLE = 59
@@ -89,6 +88,7 @@ public:
 	void crc(class StateHasher &hasher) const override;
 	void crcPersistent(class StateHasher &hasher) const override;
 	void xfer(class Xfer &x) override; // lane SAVE-4c (AIEmotionStates.cpp)
+	bool hasPersistentCrc() const override { return true; } // lane UBER-2C
 	void onTemporaryStateEnded() override; // RW 0x740C97 (vtables 0xC28BE0 / 0xC28C28 slot 0x1C)
 
 private:
