@@ -5,15 +5,57 @@
 
 #include "GameClient/ControlBarCommands.h"
 #include "GameClient/HudObjects.h"
+#include "GameClient/MessageStream/CommandXlat.h"
+#include "GameLogic/ActionManager.h"
 #include "GameLogic/Object/Object.h"
 
 MessageDisposition GUICommandTranslator::translate(const ClientMessage &msg)
 {
 	MessageDisposition disp = MessageDisposition::Keep;
+	// lane SPELLRC-1: RotWK's GUI command translator (RW 0x83D7AD) follows the right button before it reads the GUI command: the press keeps its pixel and
+	// clears the dragged flag (case 0xE: + 0x20, + 0x30), a pointer move beyond the drag tolerance from it sets the flag (case 3: RW 0x5ED4B9 -> + 0x30)
+	// BFME2 0x004314B1 follows the left button the same way (case 4: + 0x04, + 0x14 cleared; case 3: + 0x14 set beyond the drag tolerance)
+	switch (msg.type())
+	{
+		case CMSG_RAW_MOUSE_LEFT_BUTTON_DOWN:
+			m_leftAnchor = msg.arg(0).pixel;
+			m_leftDragged = false;
+			break;
+		case CMSG_RAW_MOUSE_RIGHT_BUTTON_DOWN:
+			m_rightAnchor = msg.arg(0).pixel;
+			m_rightDragged = false;
+			break;
+		case CMSG_RAW_MOUSE_POSITION:
+			if (m_ctx.mouse.isDragging(m_leftAnchor, msg.arg(0).pixel))
+			{
+				m_leftDragged = true;
+			}
+			if (m_ctx.mouse.isDragging(m_rightAnchor, msg.arg(0).pixel))
+			{
+				m_rightDragged = true;
+			}
+			break;
+		case CMSG_MOUSE_RIGHT_CLICK:
+		case CMSG_MOUSE_RIGHT_DOUBLE_CLICK:
+			// RW 0x83D8C2 .. 0x83DB8D: a right click that was not dragged ends the waiting command (setGUICommand(0)) and is destroyed: no order, no
+			// deselection follows from it. The port's spell book power waits outside InGameUI (the hook); InGameUI's own GUI command keeps the port's
+			// SelectionTranslator cancel (ZH SelectionXlat.cpp:930)
+			if (!m_rightDragged && m_hudTargetCancel && m_hudTargetCancel())
+			{
+				return MessageDisposition::Destroy;
+			}
+			break;
+		default:
+			break;
+	}
 	const CommandButton *command = m_ctx.ui.getGUICommand();
 	if (!command)
 	{
 		return disp;
+	}
+	if (command->m_command == GUI_COMMAND_ATTACK_MOVE)
+	{
+		return translateAttackMove(msg);
 	}
 	switch (msg.type())
 	{
@@ -87,15 +129,6 @@ MessageDisposition GUICommandTranslator::translate(const ClientMessage &msg)
 							m.appendLocation(world);
 							m.appendInteger(mode);
 						}
-					}
-					break;
-				}
-				case GUI_COMMAND_ATTACK_MOVE:
-				{
-					Coord3D world;
-					if (m_ctx.ui.firstSelected() != INVALID_ID && m_ctx.view.screenToTerrain(mouse, m_ctx.logic, world))
-					{
-						m_ctx.stream.append(MSG_DO_ATTACKMOVETO).appendLocation(world);
 					}
 					break;
 				}
@@ -179,6 +212,48 @@ MessageDisposition GUICommandTranslator::translate(const ClientMessage &msg)
 		}
 		default:
 			break;
+	}
+	if (disp == MessageDisposition::Destroy)
+	{
+		m_ctx.ui.clearAttackMoveToMode();
+	}
+	return disp;
+}
+
+MessageDisposition GUICommandTranslator::translateAttackMove(const ClientMessage &msg)
+{
+	// BFME2 0x004314B1 (GUICommandTranslatorTranslateGameMessage.cpp, matched) for a waiting ATTACK_MOVE (type 0xA): a click that was not dragged is one
+	// of two roles. With GlobalData m_useAlternateMouse (+ 0x5C; RotWK's default, RW 0x642A4B) the right click carries the command out and the left click
+	// ends it; without it the left click carries it out and the right click ends it. The left press is destroyed; every other message is kept
+	const int t = msg.type();
+	const bool leftClick = (t == CMSG_MOUSE_LEFT_CLICK || t == CMSG_MOUSE_LEFT_DOUBLE_CLICK) && !m_leftDragged;
+	const bool rightClick = (t == CMSG_MOUSE_RIGHT_CLICK || t == CMSG_MOUSE_RIGHT_DOUBLE_CLICK) && !m_rightDragged;
+	const bool alternate = m_commands.useAlternateMouse();
+	const bool cancels = alternate ? leftClick : rightClick;
+	const bool carriesOut = alternate ? rightClick : leftClick;
+	MessageDisposition disp = MessageDisposition::Keep;
+	if (t == CMSG_RAW_MOUSE_LEFT_BUTTON_DOWN)
+	{
+		disp = MessageDisposition::Destroy;
+	}
+	else if (cancels)
+	{
+		disp = MessageDisposition::Destroy;
+		m_ctx.ui.setGUICommand(nullptr);
+	}
+	else if (carriesOut)
+	{
+		// doAttackMoveCommand (0x004311A7, Rva004311A7.cpp, matched): nothing without a first selected drawable with an object, else MSG_DO_ATTACKMOVETO
+		// (0x430) { location: the terrain point under the click's region corner (hi) } and the unit voice (pickAndPlayUnitVoiceResponse 0x004DAAFD: the
+		// port plays it from the logic message, HudInput's observer). It returns 1: the command ends either way
+		const ICoord2D mouse = msg.arg(0).region.hi;
+		Coord3D world;
+		if (m_ctx.ui.firstSelected() != INVALID_ID && m_ctx.view.screenToTerrain(mouse, m_ctx.logic, world))
+		{
+			m_ctx.stream.append(MSG_DO_ATTACKMOVETO).appendLocation(world);
+		}
+		disp = MessageDisposition::Destroy;
+		m_ctx.ui.setGUICommand(nullptr);
 	}
 	if (disp == MessageDisposition::Destroy)
 	{

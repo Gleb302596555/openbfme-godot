@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include "GameClient/AssetPacks.h"
 #include "GameEngineDevice/W3DDevice/GameClient/HouseColor.h"
 #include "Libraries/WWVegas/WW3D2/mapper.h"
 #include "Libraries/WWVegas/WW3D2/meshrender.h"
@@ -68,6 +69,11 @@ struct W3DMaterialResult
 	std::vector<std::string> Errors;  // textures that did not load, etc.
 };
 
+// lane SDK-1 (GameClient/AssetPacks.h): the asset pack replacement of the texture `name` decoded by its own bytes (DDS, PNG, JPEG, else TGA),
+// or a null image when no pack replaces it. A pack file that cannot be read or decoded is a null image with `error` set ("asset pack P: F ...").
+// Shared by every texture loader of the render side (model surfaces, particles, decals, roads / rivers / water / sky): one precedence.
+Ref<Image> Load_Asset_Pack_Image(const AssetPacks *packs, const std::string &name, std::string &error);
+
 // Builds materials and caches shaders and textures. Textures are read through the mounted archives.
 class W3DMaterialFactory
 {
@@ -83,6 +89,9 @@ public:
 	// stop S-5015: the texture swaps of the model being built (W3DInstancer::Set_Build_Texture_Swaps, a ModelConditionState's `Texture = A B` pairs):
 	// a surface texture named A (any case; A = "*": every texture) is loaded as B. Empty by default.
 	void Set_Texture_Swaps(const std::vector<std::pair<std::string, std::string>> &swaps) { TextureSwaps = swaps; }
+	// lane SDK-0 (GameClient/AssetPacks.h): cosmetic asset packs in front of the texture lookup; their files decode by their own bytes (DDS, PNG,
+	// JPEG, else TGA). nullptr (the default) = retail textures only. The packs must outlive the factory.
+	void Set_Asset_Packs(const AssetPacks *packs) { Packs = packs; }
 	// lane BUILD-5 r3: the surfaces this factory builds belong to a translucent drawable (W3DShaderKey::AlphaOverride); off by default
 	void Set_Alpha_Override(bool on) { AlphaOverride = on; }
 	// RW 0x531C77 applied to the texture `name` (its A8R8G8B8 texels; another format stays as it is, as retail's switch leaves it), then mipmaps; cached
@@ -112,17 +121,19 @@ public:
 	static bool Reduce_Image(Ref<Image> &image, int reduction);
 
 private:
-	Ref<Texture2D> Load_Texture(const std::string &name, std::vector<std::string> &errors, bool &found, bool quietWhenMissing = false);
+	Ref<Texture2D> Load_Texture(const std::string &name, std::vector<std::string> &errors, bool &found, bool quietWhenMissing = false, std::vector<std::string> *notes = nullptr);
 	static Ref<Texture2D> Placeholder_Texture(bool flatNormal);
 
 	ArchiveFileSystem &Fs;
 	const HouseColorTable *HouseColors = nullptr;
+	const AssetPacks *Packs = nullptr; // lane SDK-0
 	HouseColorParams HouseParams;
 	std::vector<std::pair<std::string, std::string>> TextureSwaps; // stop S-5015
 	bool AlphaOverride = false;
 	std::map<std::string, Ref<Shader>> Shaders;
 	std::map<std::string, Ref<Texture2D>> Textures; // by virtual path
 	std::map<std::string, std::string> PackedHouseTextureNotes; // retain S-1482 on cache hits
+	std::map<std::string, std::string> PackedTextureNotes; // retain S-1482 on cache hits
 	std::vector<std::string> TextureErrors;
 };
 
