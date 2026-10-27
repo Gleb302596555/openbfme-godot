@@ -106,6 +106,8 @@ public:
 	// RW 0x662A0E (a type 7 portal, after destroyPath RW 0x66276B): the AI's vslot 0x60 with CMD_FROM_AI (RW 0x66D8F5, the AI's private idle: INFERENCE S-4857,
 	// the port's aiIdle(CMD_FROM_AI)); default nothing
 	virtual void idleFromAI() {}
+	// RW 0x666074..0x66607C: consume AI+0x3BA and set the AI-source machine goal.
+	virtual void finishExitQuickPath(const Coord3D &destination) { (void)destination; }
 };
 
 enum AIGoalType

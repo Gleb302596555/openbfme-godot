@@ -344,12 +344,6 @@ bool Pathfinder::canApproachToTarget(const PathfindObject &obj, const PathfindLo
 bool Pathfinder::isLinePassable(const PathfindObject *obj, unsigned acceptableSurfaces, PathfindLayerEnum layer, const Coord3D &startWorld, const Coord3D &endWorld,
 	bool blocked, bool allowPinched)
 {
-	return isLinePassable(obj, acceptableSurfaces, layer, startWorld, endWorld, blocked, allowPinched, false);
-}
-
-bool Pathfinder::isLinePassable(const PathfindObject *obj, unsigned acceptableSurfaces, PathfindLayerEnum layer, const Coord3D &startWorld, const Coord3D &endWorld,
-	bool blocked, bool allowPinched, bool uberProductionExit)
-{
 	LineInfo li;
 	li.obj = obj;
 	li.allowPinched = allowPinched;
@@ -381,7 +375,7 @@ bool Pathfinder::isLinePassable(const PathfindObject *obj, unsigned acceptableSu
 	}
 	// lane PATHPERF-2: the line memo (LineMemoScope) binds to the scope's first parameters; a call with others walks without it
 	bool memo = false;
-	if (m_lineMemoActive && m_searchShortcuts && !uberProductionExit)
+	if (m_lineMemoActive && m_searchShortcuts)
 	{
 		if (!m_lineMemoBound)
 		{
@@ -428,15 +422,13 @@ bool Pathfinder::isLinePassable(const PathfindObject *obj, unsigned acceptableSu
 				return known;
 			}
 		}
-		const bool exitLane = uberProductionExit && uberLimits() && obj && obj->canPathThroughUnits() && obj->getIgnoredObstacleID() != PATHFIND_INVALID_ID;
-		if (exitLane) li.move.flags &= ~2u; // Allow allied recruits in the door, retaining terrain/enemy checks.
 		const bool cellBlocks = [&]() -> bool {
 			// lane WALL-1 (INFERENCE, S-4840): a line does not step between cells the search could not step between (a wall top and the ground beside it)
 			if (from && !PathfindCell::layersCompatible(*from, *to))
 			{
 				return true;
 			}
-			for (const PathfindOccupant *n = exitLane ? nullptr : to->occupants(OCC_GROUND_GOAL); n; n = n->next)
+			for (const PathfindOccupant *n = to->occupants(OCC_GROUND_GOAL); n; n = n->next)
 			{
 				const PathfindObject *o = m_world ? m_world->findObjectByID(n->owner) : nullptr;
 				if (!o)

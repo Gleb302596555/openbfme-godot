@@ -733,11 +733,8 @@ StateReturnType AIFollowPathState::enterSegment()
 	bool adjusts = true;
 	if (m_exitProduction)
 	{
-		a.setCanPathThroughUnits(true);
 		adjusts = false;
 		m_adjustFinal = true;
-		// The factory exemption belongs to the doorway segment, never the player's rally route.
-		if (a.getObject()->logic().uber() && m_index != 0) a.mover().ignoreObstacle(PATHFIND_INVALID_ID);
 	}
 	if (next)
 	{
@@ -769,6 +766,7 @@ StateReturnType AIFollowPathState::enterSegment()
 StateReturnType AIFollowPathState::onEnter()
 {
 	m_index = 0;
+	if (m_exitProduction) ai().setCanPathThroughUnits(true); // RW 0x74F8EE: exit entry, first path only
 	return enterSegment();
 }
 
@@ -783,7 +781,6 @@ void AIFollowPathState::onExit(StateExitType status)
 	if (m_exitProduction)
 	{
 		ai().setCanPathThroughUnits(false);
-		if (ai().getObject()->logic().uber()) ai().mover().ignoreObstacle(PATHFIND_INVALID_ID);
 	}
 }
 
@@ -793,6 +790,9 @@ StateReturnType AIFollowPathState::update()
 	{
 		return STATE_FAILURE;
 	}
+	// RW 0x74FA28 / BFME2 AIFollowPathState::update publishes the current segment goal each tick.
+	// Keep the exit machine goal current after computePath consumes the first leg.
+	if (m_exitProduction && !machine().isLocked()) machine().setGoalPosition(m_goalPosition);
 	const StateReturnType ret = m_move->update();
 	if (ret == STATE_SUCCESS)
 	{

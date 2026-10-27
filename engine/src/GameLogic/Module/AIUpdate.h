@@ -395,6 +395,7 @@ public:
 	bool isImmobile() const override;
 	bool isStatusImmobile() const override;
 	bool isContained() const override;
+	void finishExitQuickPath(const Coord3D &destination) override;
 	int stateId() const override { return (int)currentStateId(); }
 	AIMover *moverOf(PathfindObjectID id) override;
 	AIMover *containerMover() override;

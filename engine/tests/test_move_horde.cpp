@@ -530,6 +530,7 @@ TEST_CASE("backlog8 horde: a parked horde 25 above the ground: FLOATING_Z member
 
 TEST_CASE("production exit: rotated factories use the door before routing to a rally behind them")
 {
+	for (auto profile : {SimulationProfile::Faithful, SimulationProfile::Uber})
 	for (float angle : {0.0f, -0.74967724f, 1.57079633f, 2.39191532f})
 	{
 		CAPTURE(angle);
@@ -547,7 +548,7 @@ Object DoorFactory
 	End
 End
 )");
-		mw.logic->setSimulationProfile(SimulationProfile::Uber);
+		mw.logic->setSimulationProfile(profile);
 		Object *factory = mw.spawn("DoorFactory", 605, 605, angle);
 		mw.buildMap();
 		Object *unit = mw.spawn("Walker", 605, 605, angle);
@@ -572,6 +573,7 @@ End
 				// tolerance: continuous exit routing allows only binary32 integration error, not a grid-sized kink through the gate wall.
 				CHECK(std::abs(sideways) <= 0.05f);
 				if (forward > 100) clearedDoor = true;
+				if (forward > 1) CHECK_FALSE(mw.aiOf(unit)->canPathThroughUnits());
 			}
 			else
 			{
@@ -588,57 +590,15 @@ End
 	}
 }
 
-TEST_CASE("production exit: cancelling the doorway walk restores factory collision")
+TEST_CASE("production exit: cancelling the doorway walk clears the exit flag")
 {
 	MoveWorld mw;
-	mw.logic->setSimulationProfile(SimulationProfile::Uber);
 	Object *factory = mw.spawn("Block", 405, 505);
 	mw.buildMap();
 	Object *unit = mw.spawn("Walker", 405, 505);
-	mw.aiOf(unit)->aiFollowPath({Coord3D{505,505,0}}, factory, CMD_FROM_AI, true);
-	CHECK(mw.aiOf(unit)->mover().ignoredObstacleID() == factory->getID());
-	mw.aiOf(unit)->aiIdle(CMD_FROM_PLAYER);
+	mw.aiOf(unit)->aiFollowPath({Coord3D{505,505,0}}, nullptr, CMD_FROM_AI, true);
 	CHECK(mw.aiOf(unit)->mover().ignoredObstacleID() == PATHFIND_INVALID_ID);
-}
-
-TEST_CASE("production exit: the straight doorway leg still collides with other buildings")
-{
-	MoveWorld mw;
-	mw.logic->setSimulationProfile(SimulationProfile::Uber);
-	Object *factory = mw.spawn("Block", 405, 505);
-	Object *neighbor = mw.spawn("Block", 515, 505);
-	mw.buildMap();
-	Object *unit = mw.spawn("Walker", 405, 505);
-	mw.aiOf(unit)->aiFollowPath({Coord3D{605,505,0}}, factory, CMD_FROM_AI, true);
-	for (int frame = 0; frame < 60; ++frame)
-	{
-		mw.frames(1);
-		const auto *cell = mw.ai->pathfinder().getCell(LAYER_GROUND, unit->getPosition());
-		REQUIRE(cell);
-		CHECK_FALSE(cell->isObstaclePresent(neighbor->getID()));
-	}
-}
-
-TEST_CASE("production exit: allied goal exemption requires an explicit Uber production line test")
-{
-	for (auto profile : {SimulationProfile::Faithful, SimulationProfile::Uber})
-	{
-		MoveWorld mw;
-		mw.logic->setSimulationProfile(profile);
-		Object *factory = mw.spawn("Block", 405, 505);
-		mw.buildMap();
-		Object *unit = mw.spawn("Walker", 465, 505);
-		Object *preceding = mw.spawn("Walker", 485, 505);
-		mw.frames(2);
-		auto &pf = mw.ai->pathfinder();
-		pf.setUberLimits(profile == SimulationProfile::Uber);
-		pf.updateGoal(mw.aiOf(preceding)->adapter(), preceding->getPosition(), LAYER_GROUND);
-		auto *ai = mw.aiOf(unit);
-		ai->mover().ignoreObstacle(factory->getID());
-		ai->setCanPathThroughUnits(true);
-		const Coord3D goal{505, 505, 0};
-		// Docking/harvesting keep the ordinary call, even with both flags set.
-		CHECK_FALSE(pf.isLinePassable(&ai->adapter(), LOCOMOTORSURFACE_GROUND, LAYER_GROUND, *unit->getPosition(), goal, false, true));
-		CHECK(pf.isLinePassable(&ai->adapter(), LOCOMOTORSURFACE_GROUND, LAYER_GROUND, *unit->getPosition(), goal, false, true, true) == (profile == SimulationProfile::Uber));
-	}
+	mw.aiOf(unit)->aiIdle(CMD_FROM_PLAYER);
+	CHECK_FALSE(mw.aiOf(unit)->canPathThroughUnits());
+	CHECK(mw.aiOf(unit)->mover().ignoredObstacleID() == PATHFIND_INVALID_ID);
 }

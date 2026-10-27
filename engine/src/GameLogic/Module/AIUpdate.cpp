@@ -1862,3 +1862,15 @@ void AIUpdateInterface::registerClasses(ModuleFactory &modules)
 		});
 	}
 }
+
+void AIUpdateInterface::finishExitQuickPath(const Coord3D &destination)
+{
+	// RW 0x666079 clears +0x3BA; 0x6654AD -> 0x6636D9 -> 0x8DB810 sets
+	// the machine goal with CMD_FROM_AI (no player clipping).
+	m_canPathThroughUnits = false;
+	if (!m_machine->isLocked()) // RW 0x8DB810
+	{
+		m_machine->setGoalPosition(destination);
+		m_machine->clearGoalAngle();
+	}
+}
