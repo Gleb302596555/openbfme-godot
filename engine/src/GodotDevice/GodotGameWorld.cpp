@@ -9,6 +9,7 @@
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
 #include "GodotDevice/GodotGameWorld.h"
+#include "Common/MD5.h"
 #include "GameClient/InGameChat.h"
 
 #include "GameClient/FrameCensus.h"
@@ -33,6 +34,7 @@
 #include "GameNetwork/RelayLog.h"
 #include "GameClient/GUI/LoadScreenInfo.h"
 #include "GameClient/StealthLook.h"
+#include "GameClient/EvaDamage.h"
 #include "GameClient/MusicScripts.h"
 #include "GameClient/LiveFX.h"
 #include "GameClient/Visual2Stops.h"
@@ -288,6 +290,7 @@ void GameWorld::_bind_methods()
 	ClassDB::bind_method(D_METHOD("get_end_game_state"), &GameWorld::get_end_game_state); // lane END-1
 	ClassDB::bind_method(D_METHOD("take_end_game_requests"), &GameWorld::take_end_game_requests);
 	ClassDB::bind_method(D_METHOD("set_asset_packs_used", "used"), &GameWorld::set_asset_packs_used); // lane SDK-1b
+	ClassDB::bind_method(D_METHOD("set_asset_packs_online", "online"), &GameWorld::set_asset_packs_online); // lane SDK-1b (b)
 	ClassDB::bind_method(D_METHOD("take_sdk_banners"), &GameWorld::take_sdk_banners); // lane SDK-2
 	ClassDB::bind_method(D_METHOD("take_sdk_reports"), &GameWorld::take_sdk_reports); // lane SDK-2
 	ClassDB::bind_method(D_METHOD("clear_game_data", "show_score_screen"), &GameWorld::clear_game_data);
@@ -494,6 +497,10 @@ Dictionary GameWorld::get_audio_report() const
 		stops.push_back(toGodot(l));
 	}
 	for (const std::string &l : MusicScripts::acceptanceStops())
+	{
+		stops.push_back(toGodot(l));
+	}
+	for (const std::string &l : EvaDamage::acceptanceStops()) // lane EVADAMAGE-1
 	{
 		stops.push_back(toGodot(l));
 	}
@@ -4724,7 +4731,35 @@ ProfileIdentity GameWorld::profileIdentityFor(SimulationProfile profile) const
 {
 	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain,
 		ModEngineFeatures::identityFeatures(), profile, // lane MODS-3: the mod's engine features
-		m_fs.is_valid() ? m_fs->modIdentity() : std::vector<std::string>()); // lane MODS-1
+		m_fs.is_valid() ? m_fs->modIdentity() : std::vector<std::string>(), // lane MODS-1
+		profileSimulationData());
+}
+
+std::string GameWorld::profileSimulationData() const
+{
+	// lane PROFILE-2: the simdata line of this peer's identity. A mount whose game data cannot be read writes "error:<MD5 of its archive and mod
+	// lines>" (Sol review P2: a bare "error" made two failing installs with different archives equal): such a peer matches only one with the very
+	// same archives and mods that failed the same way; a working peer never (the refusal names the line). The reason goes to the log
+	std::string why;
+	const std::string d = m_fs.is_valid() ? m_fs->simulationData(&why) : std::string();
+	if (d.empty())
+	{
+		UtilityFunctions::push_error(String("profile identity: ") + (m_fs.is_valid() ? why.c_str() : "no file system"));
+		std::string lines;
+		if (m_fs.is_valid())
+		{
+			for (const MountedArchive &a : m_fs->mountedArchives())
+			{
+				lines += a.install + ":" + a.canonicalPath + " " + a.md5 + " " + std::to_string(a.size) + "\n";
+			}
+			for (const std::string &l : m_fs->modIdentity())
+			{
+				lines += l + "\n";
+			}
+		}
+		return "error:" + MD5::ofBytes(lines.data(), lines.size());
+	}
+	return d;
 }
 
 Dictionary GameWorld::net_observe_next(bool forward)
@@ -4868,7 +4903,8 @@ ProfileIdentity GameWorld::net_profile() const
 {
 	// the profile identity of this peer: the mounted archives in mount order with their verified md5, the build, the RNG prepare_new_game uses
 	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain,
-		ModEngineFeatures::identityFeatures(), m_choice.current, m_fs.is_valid() ? m_fs->modIdentity() : std::vector<std::string>()); // lane UBER-1: "profile uber" in the Uber mode; MODS-1: the mod
+		ModEngineFeatures::identityFeatures(), m_choice.current, m_fs.is_valid() ? m_fs->modIdentity() : std::vector<std::string>(), // lane UBER-1: "profile uber" in the Uber mode; MODS-1: the mod
+		profileSimulationData()); // lane PROFILE-2
 }
 
 Dictionary GameWorld::set_simulation_profile(const String &name)
@@ -6462,7 +6498,7 @@ Dictionary GameWorld::debug_kill_player_objects(const String &player, const Stri
 	}
 	for (::Object *o : victims)
 	{
-		o->kill(DEATH_NORMAL);
+		o->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL);
 	}
 	out["ok"] = true;
 	out["killed"] = (int64_t)victims.size();
@@ -7366,18 +7402,46 @@ Dictionary GameWorld::set_asset_packs_used(bool used)
 	const bool suspend = !used;
 	if (packs.loaded() && packs.suspended() != suspend)
 	{
-		clear_scene(); // the last game's drawables and runtime hold the asset manager that goes
 		packs.setSuspended(suspend);
-		m_assets.reset();
-		m_source = m_fs->renderW3DSource();
-		m_assets.reset(new WW3DAssetManager(*m_source));
-		if (m_fxPlayer)
-		{
-			m_fxPlayer->clearTextureCache();
-		}
+		rebuildPackAssets();
 		out["changed"] = true;
 	}
 	out["used"] = packs.loaded() && !packs.suspended();
+	return out;
+}
+
+void GameWorld::rebuildPackAssets()
+{
+	clear_scene(); // the last game's drawables and runtime hold the asset manager that goes
+	m_assets.reset();
+	m_source = m_fs->renderW3DSource();
+	m_assets.reset(new WW3DAssetManager(*m_source));
+	if (m_fxPlayer)
+	{
+		m_fxPlayer->clearTextureCache();
+	}
+}
+
+Dictionary GameWorld::set_asset_packs_online(bool online)
+{
+	Dictionary out;
+	out["loaded"] = false;
+	out["changed"] = false;
+	out["offline_only"] = (int64_t)0;
+	if (m_fs.is_null())
+	{
+		return out;
+	}
+	AssetPacks &packs = m_fs->assetPacksMutable();
+	out["loaded"] = packs.loaded();
+	out["offline_only"] = (int64_t)packs.onlineRefusals().size();
+	if (packs.loaded() && (packs.online() != online || packs.suspended()))
+	{
+		packs.setSuspended(false);
+		packs.setOnline(online);
+		rebuildPackAssets();
+		out["changed"] = true;
+	}
 	return out;
 }
 

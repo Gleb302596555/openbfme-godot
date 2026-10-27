@@ -120,6 +120,14 @@ void ClientEventRecorder::heroAttacked(Object &obj)
 	push(ClientEvent::HERO_ATTACKED, obj);
 }
 
+// lane EVADAMAGE-1: RW 0x67B4B7's Eva half, the logic's part (EvaDamageNotice.h); the report goes to TheEva at the object's position (+ 0x38)
+void ClientEventRecorder::evaDamaged(Object &obj, const EvaDamageNotice &notice)
+{
+	ClientEvent &e = push(ClientEvent::EVA_DAMAGED, obj);
+	e.position = *obj.getPosition();
+	e.eva = notice;
+}
+
 void ClientEventRecorder::flashHeroButton(const std::string &templateName, int frames)
 {
 	m_events.emplace_back();

@@ -531,7 +531,7 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 		{
 			if (!o->isEffectivelyDead())
 			{
-				o->kill(DEATH_NORMAL);
+				o->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL); // RW 0x7BBF6C: kill(8, 0)
 			}
 		}
 		return;
@@ -548,7 +548,7 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 				}
 				else if (!o->isEffectivelyDead())
 				{
-					o->kill(DEATH_NORMAL);
+					o->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL); // RW 0x7BCEDA (the TEAM_KILL member callback): kill(8, 0)
 				}
 			}
 		}

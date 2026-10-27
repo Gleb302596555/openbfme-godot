@@ -696,6 +696,8 @@ bool HordeContain::runMemberPass()
 	owner.computeTrig(); // lane UBER-2B: once for every member below
 	m_workDone = false;
 	++m_stats.passes;
+	m_leashedInLastPass.clear();
+	m_lastPassFrame = horde->logic().getFrame();
 	// lane HORDE-2: the RotWK member pass (RW 0x873FE8, read with Ghidra) calls the member order (vslot 0x90 = RW 0x877A7A) with force = 1 - isMoving(horde)
 	// (`'\x01' - (cVar1 != '\0')` at RW 0x8744D0): a PARKED horde never lets a member wait ahead of its slot, so the survivors of a melee re-form; the wait of
 	// UseSlowHordeMovement only applies while the horde moves
@@ -784,6 +786,7 @@ void HordeContain::memberOrder(Object &member, const Coord3D &slotPos, float ori
 			// 0x89E169 -> slot 0x14 RW 0x87594C: a horde order first makes the members busy, so they leave their attacks), and the active-member rule below
 			a->aiBusy(CMD_FROM_AI);
 			++m_stats.leashCommands;
+			m_leashedInLastPass.push_back(member.getID());
 		}
 	}
 	// lane MOVE-2 r2, RW 0x877B69 .. 0x877C32 (read with Ghidra): a member whose AI state is active (AI vslot 0x1BC: attacking, hunting, or no state) is not driven to

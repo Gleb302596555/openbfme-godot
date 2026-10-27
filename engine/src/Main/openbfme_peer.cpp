@@ -75,6 +75,8 @@
 //     snapshot, snapshot_bytes, load_ms), [--verify-log] catches it up from its log instead and compares the snapshot; --profile-text FILE
 //     writes this build's profile identity text to FILE (what a test records
 //     the game under, so the save is this build's) and exits
+//   lane PROFILE-2: openbfme_peer --rotwk DIR --bfme2 DIR --print-profile-text   prints this build's whole profile identity text (its simdata and
+//     archive lines: an integrity checker names the archives a game's players had that it lacks) and exits
 //   lane ONLINE-2: openbfme_peer --rotwk DIR --bfme2 DIR --print-profile   prints this build's profile identity MD5 (what the lobby compares),
 //     then "faction INDEX NAME" lines (the START's faction numbers); lane STATS-1: [--print-ids] also "thing ID NAME", "upgrade BIT NAME",
 //     "science KEY NAME" and "power ID NAME" lines: the names behind the ids a GameMessage carries (they follow this build's INI load order), for
@@ -239,6 +241,7 @@ struct Args
 	bool bindGiven = false;
 	bool printProfile = false;              ///< lane ONLINE-2: --print-profile (the lobby compares the profile identity's MD5)
 	bool printIds = false;                  ///< lane STATS-1: --print-ids (with --print-profile: the id -> name tables)
+	bool printProfileText = false;          ///< lane PROFILE-2: --print-profile-text (the whole identity text: what a checker compares a game's archives with)
 	long long netPauseAt = -1;              ///< lane ONLINE-3: --net-pause-at FRAME
 	long long netResumeMs = -1;             ///< lane ONLINE-3: --net-resume-ms MS
 	long long rejoinWindowMs = -1;          ///< lane ONLINE-3: --rejoin-window-ms N
@@ -281,6 +284,7 @@ bool parseArgs(int argc, char **argv, Args &a, std::string &error)
 		else if (k == "--relay-log" && next(a.relayLog)) {}
 		else if (k == "--print-profile") a.printProfile = true;
 		else if (k == "--print-ids") a.printProfile = a.printIds = true;
+		else if (k == "--print-profile-text") a.printProfileText = true;
 		else if (k == "--net-pause-at" && next(v)) a.netPauseAt = std::atoll(v.c_str());
 		else if (k == "--net-resume-ms" && next(v)) a.netResumeMs = std::atoll(v.c_str());
 		else if (k == "--rejoin-window-ms" && next(v)) a.rejoinWindowMs = std::atoll(v.c_str());
@@ -527,8 +531,25 @@ bool loadWorld(const Args &a, World &w, std::string &error)
 		}
 		modLines.insert(modLines.end(), modReport.identity.begin(), modReport.identity.end());
 	}
+	std::string simData, cacheKey, warning; // lane PROFILE-2: the identity's simdata line, through the cache (SimulationData::defaultCachePath)
+	for (const MountedArchive &m : mountedArchives)
+	{
+		cacheKey += m.install + ":" + m.canonicalPath + " " + m.md5 + " " + std::to_string(m.size) + "\n";
+	}
+	for (const std::string &l : modLines)
+	{
+		cacheKey += l + "\n";
+	}
+	if (!SimulationData::cachedDigest(*w.fs, cacheKey, SimulationData::defaultCachePath(), simData, &error, &warning))
+	{
+		return false;
+	}
+	if (!warning.empty())
+	{
+		std::fprintf(stderr, "openbfme_peer: %s\n", warning.c_str());
+	}
 	w.profile = ProfileIdentity::compute(mountedArchives, RandomAlgorithm::ZH_CarryChain, features, a.uber ? SimulationProfile::Uber : SimulationProfile::Faithful,
-		modLines);
+		modLines, simData);
 	w.world = std::make_unique<RetailObjectWorld>(*w.fs);
 	if (!w.world->load(&error) || !MapObjectGameData::load(*w.fs, w.options, &error) || !MapObjectGameData::loadPlayerTemplates(*w.fs, w.options, &error)
 		|| !MapCreationHooks::load(*w.fs, w.options.creationScripts, &error) || !GameLogicSettingsLoader::load(*w.fs, w.settings, &error)
@@ -1350,6 +1371,11 @@ static int peerMain(int argc, char **argv)
 		std::fprintf(stderr, "openbfme_peer: %s\n", error.c_str());
 		return 1;
 	}
+	if (a.printProfileText)
+	{
+		std::fwrite(w.profile.text.data(), 1, w.profile.text.size(), stdout); // lane PROFILE-2
+		return 0;
+	}
 	if (a.printProfile)
 	{
 		std::printf("%s\n", w.profile.digest.c_str()); // lane ONLINE-2: what a lobby client sends as its profile
@@ -1715,7 +1741,10 @@ static int peerMain(int argc, char **argv)
 		{
 			if (!client.error().empty() || NetMilliseconds() - lobbyStart > (std::uint64_t)a.lobbyTimeoutSeconds * 1000u)
 			{
-				std::fprintf(stderr, "openbfme_peer: %s\n", client.error().empty() ? "no START in 120 s" : client.error().c_str());
+				if (client.error().empty())
+					std::fprintf(stderr, "openbfme_peer: no START in %d s (--lobby-timeout)\n", a.lobbyTimeoutSeconds);
+				else
+					std::fprintf(stderr, "openbfme_peer: %s\n", client.error().c_str());
 				return 3;
 			}
 			NetSleepMilliseconds(2);

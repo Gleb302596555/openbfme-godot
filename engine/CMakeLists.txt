@@ -192,6 +192,7 @@ include(cmake/Perf2.cmake)      # PERF-2: the job system, parallel phases (appen
 include(cmake/Perf3.cmake)      # PERF-3: client frame-time work (OPENBFME_PERF3_TESTS)
 include(cmake/Audio3.cmake)     # AUDIO-3: the sound request log, building sounds (appends to OPENBFME_SIM_SOURCES; OPENBFME_AUDIO3_TESTS)
 include(cmake/Audio4.cmake)     # AUDIO-4: QA-1's sound follow-ups (OPENBFME_AUDIO4_TESTS)
+include(cmake/EvaDamage1.cmake) # EVADAMAGE-1: the Eva half of the drawable damage notice (appends to OPENBFME_SIM_SOURCES; OPENBFME_EVADAMAGE1_CLIENT_SOURCES / _TESTS)
 include(cmake/End1.cmake)       # END-1: the score keeper, the end sequence and the score screen (appends to OPENBFME_SIM_SOURCES; OPENBFME_END1_SOURCES / _TESTS)
 include(cmake/Qa1.cmake)       # OPENBFME_QA1_SOURCES / OPENBFME_QA1_TESTS (lane QA-1: the drawn-model pick)
 include(cmake/Mp2.cmake)        # MP-2: the disconnect path, a dropped player's assets (appends to OPENBFME_SIM_SOURCES; OPENBFME_MP2_TESTS)
@@ -289,6 +290,7 @@ add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
     ${OPENBFME_APT_SOURCES}
     ${OPENBFME_AUDIO4_CLIENT_SOURCES}
+    ${OPENBFME_EVADAMAGE1_CLIENT_SOURCES}
     ${OPENBFME_DECOMP2_CLIENT_SOURCES}
     ${OPENBFME_FX_SOURCES}
     ${OPENBFME_PROD_SOURCES}
@@ -715,6 +717,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PERF3_TESTS}
     ${OPENBFME_AUDIO3_TESTS}
     ${OPENBFME_AUDIO4_TESTS}
+    ${OPENBFME_EVADAMAGE1_TESTS}
     ${OPENBFME_PROJ2_TESTS}
     ${OPENBFME_STEALTH_TESTS}
     ${OPENBFME_GARRISON_TESTS}

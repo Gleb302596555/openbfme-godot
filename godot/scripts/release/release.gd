@@ -309,6 +309,8 @@ func mount_retail(fs: RefCounted) -> Dictionary:
 	# lane SDK-1: the asset pack models that replace nothing or do not fit the model they replace (left out; the game's model is drawn)
 	for note in mount.get("asset_pack_notes", PackedStringArray()):
 		print("RELEASE asset packs: ", note)
+	if mount.get("ok", false) and mount.has("asset_pack_notes"):
+		_write_asset_pack_report(fs) # lane SDK-1b (b)
 	if mount.get("ok", false) and await language_warning(mount):
 		mount["quit"] = true # --language-warning-shot: the capture is saved, the game quits (game.gd)
 	return mount
@@ -464,6 +466,24 @@ static func asset_pack_folders(args: PackedStringArray) -> PackedStringArray:
 		if a.begins_with("--asset-pack="):
 			out.push_back(a.trim_prefix("--asset-pack="))
 	return out
+
+
+# lane SDK-1b (b): user://asset-packs/report.json, what the launcher's Asset packs card shows: per pack, the models left out (they do not fit
+# the game's) and the files used offline only (the online rules), each with its reason; written at every start that mounted packs
+static func _write_asset_pack_report(fs: RefCounted) -> void:
+	var report: Dictionary = fs.get_asset_pack_report()
+	report["format"] = "openbfme.asset-pack-report 1"
+	report["checked"] = Time.get_datetime_string_from_system(true)
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path("user://asset-packs"))
+	var f := FileAccess.open("user://asset-packs/report.json", FileAccess.WRITE)
+	if f == null:
+		printerr("RELEASE asset packs: cannot write user://asset-packs/report.json: ", error_string(FileAccess.get_open_error()))
+		return
+	f.store_string(JSON.stringify(report, "\t"))
+	var counts := PackedStringArray()
+	for p in report.packs:
+		counts.push_back("%s: %d models not used, %d files would be refused online" % [p.name, p.misfits.size(), p.offline_only.size()])
+	print("RELEASE asset packs: report written (", "; ".join(counts), ")")
 
 
 # lane SDK-1: the pack folder names (lower case) listed in <root>/disabled.txt; blank lines and lines starting with # are skipped

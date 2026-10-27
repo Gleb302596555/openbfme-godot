@@ -224,6 +224,10 @@ public:
 	}
 	// lane VISUAL-2: the shroud look of the last sync: fullyObscured is RW Drawable +0x440 (attached particle systems do not emit), hidden: not drawn
 	const DrawableShroudLook &shroudLook() const { return m_shroudLook; }
+	// lane EVADAMAGE-1: RW Drawable +0x388 (0 at creation), the logic frame until which a damage Eva event here is "near the first" (EvaDamage.h); RW 0x671DFD
+	// raises it, never lowers it
+	UnsignedInt evaDamageFarFrame() const { return m_evaDamageFarFrame; }
+	void raiseEvaDamageFarFrame(UnsignedInt frame) { m_evaDamageFarFrame = frame > m_evaDamageFarFrame ? frame : m_evaDamageFarFrame; }
 	// lane VISUAL-2 r2: whether the device layer draws this drawable for the presented snapshot `presented` (null: none yet), in one place for the models,
 	// the attached particle systems (RW 0x5FA2CE reads the drawable's visible byte +0x441), the buffs (TBuff's visible = +0x441, RW 0x4D12FA) and the
 	// streaks. `hidden`: not drawn (the grace-adjusted SHROUDED status while `shroudDrawn`, an enemy's invisible object, a drawable a container hid);
@@ -278,6 +282,8 @@ public:
 	float drawOpacity() const { return m_fade.hidden ? 0.0f : m_fade.opacity; }
 	// lane BUILD-5: ZH Drawable::setDrawableOpacity, the opacity at Drawable + 0xB0 (the field the fade steps): the placement ghost's 0.45 (RW 0x69C714)
 	void setDrawableOpacity(float opacity) { m_fade.opacity = opacity; }
+	// lane FBSIM-1: the phantom structure's opacity (ObjectSnapshot::phantomStructure)
+	void updatePhantomLook(const ObjectSnapshot &rec);
 
 private:
 	void addEntry(DrawServices &services, const ThingTemplate::Nugget &nugget, std::vector<std::string> &problems);
@@ -299,6 +305,7 @@ private:
 	std::vector<DrawEntry> m_entries;
 	std::vector<std::unique_ptr<DrawableModule>> m_clientModules;
 	bool m_clientHidden = false; ///< lane CHAT-1
+	bool m_phantomLook = false;  ///< lane FBSIM-1: drawn as a dozer's phantom structure (0.4 opacity)
 	Fade m_fade; ///< lane PROJ-2
 	bool m_buildingEntries = false;                                     ///< lane BUILD-4: the constructor is making the draw modules
 	std::vector<std::pair<std::string, bool>> m_pendingModuleRequests; ///< lane BUILD-4: script module requests made meanwhile
@@ -310,6 +317,7 @@ private:
 	UnsignedInt m_syncFrame = 0;
 	const ObjectSnapshot *m_syncRec = nullptr;
 	DrawableShroudLook m_shroudLook; ///< lane VISUAL-2
+	UnsignedInt m_evaDamageFarFrame = 0; ///< lane EVADAMAGE-1: RW + 0x388
 	bool m_zBasisCached = false;
 	float m_zCachedAngle = 0.0f;
 	float m_zCachedBasis[9] = {};

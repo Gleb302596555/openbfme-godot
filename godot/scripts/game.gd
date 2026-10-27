@@ -22,6 +22,8 @@
 ##                           frame rate at 1x and 2.5x; bars: both armies with every health bar on); prints ZOOM1 lines; --screens writes zoom1-*.png
 ##     --ownerfix2=<a,b,...> (lane OWNERFIX-2, with --auto) scripts/ownerfix2_player.gd: the owner's 2026-10-17 playtest items in the real game (auras, cp,
 ##                           handicap, farms); "OWNERFIX2 RESULT" ends the run
+##     --aidata1=<a,b,...>   (lane AIDATA-1, with --auto) scripts/aidata1_player.gd: the AIData fixes in the real game (rundown: Knights of Dol Amroth run down a
+##                           fleeing Mountain Troll); "AIDATA1 RESULT" ends the run
 ##     --lobby-cp=<percent>  (lane OWNERFIX-2, with --auto) the lobby's Rules tab is opened and its Command Points combo set to the factor (33 .. 400) through
 ##                           the combo (the panel's own handler); lobby-cp-rules-tab.png with --screens
 ##     --lobby-handicap=<slot>:<h>[,...] (lane OWNERFIX-2, with --auto) the slots' Handicap combos set to h (0, -5 .. -95) through the combos
@@ -62,7 +64,7 @@
 ##                           refills it), losses (the same with five soldiers struck down instead of the fight)
 ##     --spell3=<a,b,...>    (lane SPELL-3, with --auto) scripts/spell3_player.gd: spellbook (buy every power in the store, cast every slot by input);
 ##                           "SPELL3 <name>: ok / FAIL", spell3-<faction>-*.png in --screens
-##     --play1=<a,b,...>     (lane PLAY-1, with --auto) the input-driven scenarios of scripts/play1_player.gd (orders, palantir, powers, camera, explore, dragbox, ghosts,
+##     --play1=<a,b,...>     (lane PLAY-1, with --auto) the input-driven scenarios of scripts/play1_player.gd (orders, palantir, powers, camera, explore, dragbox, ghosts, phantom,
 ##                           skirmish, tour, tribute): every action is an InputEvent pushed into the viewport; prints PLAY1 lines; with --end the end of the game
 ##                           follows, with --quit the quit menu's Exit to the score screen and its Continue back to the menu
 ##     --select1=clicks      (lane SELECT-1, with --auto) scripts/select1_player.gd: left clicks on soldiers of four battalions (inside their pick boxes,
@@ -823,6 +825,10 @@ func _ready() -> void:
 			# lane OWNERFIX-2: the owner's 2026-10-17 items through the real game (scripts/ownerfix2_player.gd)
 			_play1 = arg.substr(12).split(",", false)
 			_play_script = "res://scripts/ownerfix2_player.gd"
+		elif arg.begins_with("--aidata1="):
+			# lane AIDATA-1: the AIData fixes through the real game (scripts/aidata1_player.gd)
+			_play1 = arg.substr(10).split(",", false)
+			_play_script = "res://scripts/aidata1_player.gd"
 		elif arg.begins_with("--gamemodes="):
 			_gamemodes = arg.substr(12)
 		elif arg.begins_with("--spell3="):
@@ -2190,6 +2196,7 @@ func _begin_game(message: Dictionary) -> void:
 	_rejoin_watch.reset() # lane ONLINEUX-1 r2: every game's rejoin is watched afresh (the watch also starts afresh on a new net_status attempt)
 	_game_kind = "lan" if _net_state == "loading" else ("network" if not _net_state.is_empty() else ("restart" if not _restart_stack.is_empty() else "skirmish"))
 	# lane SDK-1b (a): asset packs are offline only until their online checks exist: a LAN or online game draws the game's own assets on every peer
+	# (b): the online rules' findings are only reported (the launcher's card); packs reach LAN / online games later through an allowlist of checked packs
 	var multiplayer_game := _game_kind == "lan" or _game_kind == "network"
 	var packs: Dictionary = _world.set_asset_packs_used(not multiplayer_game)
 	if packs.get("loaded", false):
@@ -2244,7 +2251,7 @@ func _begin_game(message: Dictionary) -> void:
 	var world_was_visible: bool = _world.visible
 	_world.hide() # keep partially constructed terrain behind the loading screen
 	_on_load_progress(0) # present the initial bar before synchronous loading
-	var opts := {"progress": Callable(self, "_on_load_progress"), "test_hooks": _end or not _zoom1.is_empty() or _rules_shot > 0 or not _gamemodes.is_empty() or _uber1 > 0 or _play_script.ends_with("spell3_player.gd") or _play_script.ends_with("ownerfix1_player.gd") or _play_script.ends_with("devport7_player.gd") or _play_script.ends_with("banner1_player.gd") or _play_script.ends_with("ownerfix2_player.gd") or not _trees1.is_empty()} # lane ZOOM-1: the bars scenario hurts some units (logged)
+	var opts := {"progress": Callable(self, "_on_load_progress"), "test_hooks": _end or not _zoom1.is_empty() or _rules_shot > 0 or not _gamemodes.is_empty() or _uber1 > 0 or _play_script.ends_with("spell3_player.gd") or _play_script.ends_with("ownerfix1_player.gd") or _play_script.ends_with("devport7_player.gd") or _play_script.ends_with("banner1_player.gd") or _play_script.ends_with("ownerfix2_player.gd") or not _trees1.is_empty() or _play_script.ends_with("aidata1_player.gd")} # lane ZOOM-1: the bars scenario hurts some units (logged)
 	if _record and _net_state.is_empty():
 		opts["record"] = _last_replay_path() # lane MP-2: every skirmish is recorded
 	if _pingwheel.has("hash"):

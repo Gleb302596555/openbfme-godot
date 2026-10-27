@@ -170,6 +170,9 @@ public:
 	// changes, the scene is cleared and the drawables' asset manager and the effects' textures are rebuilt, so nothing drawn with the packs
 	// before stays. {loaded: any packs, used: they are applied, changed}
 	Dictionary set_asset_packs_used(bool used);
+	// lane SDK-1b (b): the online rules instead (AssetPacks::setOnline): a LAN / online game draws every pack file except the ones refused online
+	// (AssetPacks::onlineRefusals); rebuilt as above when it changes. {loaded, changed, offline_only: how many files a LAN / online game leaves out}
+	Dictionary set_asset_packs_online(bool online);
 	PackedStringArray take_sdk_banners(); // lane SDK-2: the mod scripts' ui.banner texts since the last call
 	PackedStringArray take_sdk_reports(); // lane SDK-2: their report lines ("SDK <mod>: ...")
 	// GameLogic::clearGameData (RW 0x7792BC): keeps the score screen's data (when `show_score_screen`) and tears the game down (the worker stopped, the
@@ -731,6 +734,7 @@ private:
 	std::string m_videosError;             // lane CAMP-1H: why the Video INIs did not load
 	std::unique_ptr<GameLogicSettings> m_settings;   ///< GameData / AIData / MultiplayerSettings (and the lobby colours), read once by setup()
 	std::unique_ptr<MapObjectOptions> m_options;
+	void rebuildPackAssets(); // lane SDK-1b: the scene cleared, the drawables' asset manager and the effects' textures rebuilt
 	std::unique_ptr<W3DFileSource> m_source;
 	std::unique_ptr<WW3DAssetManager> m_assets;
 	mutable UnsignedInt m_netHashFrame = 0;   ///< lane RENDERWAIT-1: net_status's last state hash (computed where the logic is held) and its frame
@@ -781,6 +785,7 @@ private:
 	CampaignStart m_campaignStart, m_pendingCampaign;
 	// the identity a game of `profile` runs under (net_profile is the player's option's; a campaign mission always runs Faithful)
 	ProfileIdentity profileIdentityFor(SimulationProfile profile) const;
+	std::string profileSimulationData() const; // lane PROFILE-2: the identity's simdata line ("error" when the mount's game data cannot be read)
 	void releaseLocalDrivers();
 	bool m_netLoaded = false, m_netScript = false;
 	bool m_netRejoining = false; ///< lane ONLINE-3: the rejoin's catch-up runs (NetGameSession::rejoinStep)

@@ -504,6 +504,10 @@
    "reason": "AUDIO-4, the footsteps (AnimationSoundClientBehavior and TheAnimationSoundModuleManager): a ClientBehavior module of the drawables; reads the drawables' animation frames and the listener, plays on the audio manager; never read by the logic"
   },
   {
+   "glob": "src/GameClient/EvaDamage.cpp",
+   "reason": "EVADAMAGE-1, the client half of the drawable damage notice's Eva part (RW 0x67B4B7): picks the Eva event from the drawable's template and the attacker drawable's shroud look, keeps the drawable's far frame and reports to the Eva; applies recorded client events, never read by the logic"
+  },
+  {
    "glob": "src/GameClient/SoundSelectorClientBehavior.cpp",
    "reason": "DECOMP-2, the sound selector ClientBehavior modules (S-701): their module data and the voice picker's lookups; client presentation, reads the logic objects' model conditions and upgrades, writes no logic state, rolls only the voice picker's client random"
   },

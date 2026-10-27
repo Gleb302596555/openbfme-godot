@@ -1310,6 +1310,13 @@ func _asset_packs_offline(fs: RefCounted) -> void:
 	var on: Dictionary = world.set_asset_packs_used(true)
 	_check(on.loaded and on.used and on.changed, "an offline game switches them back on: %s" % str(on))
 	_check(world.load_map("map good celduin", {"seed": 5}).ok, "a map loads with the packs on")
+	# (b): the online rules instead of switching them off; the report the launcher reads lists the pack
+	var online: Dictionary = world.set_asset_packs_online(true)
+	_check(online.loaded and online.changed, "a LAN / online game applies the online rules: %s" % str(online))
+	_check(world.load_map("map good celduin", {"seed": 5}).ok, "a map loads under the online rules")
+	_check(not world.set_asset_packs_online(true).changed, "applying them again changes nothing")
+	var rep: Dictionary = fs.get_asset_pack_report()
+	_check(rep.packs.size() == 1 and rep.packs[0].name == "SmokePack" and rep.packs[0].misfits.is_empty(), "the pack report: %s" % str(rep))
 	world.free()
 	fs.set_asset_packs(PackedStringArray()) # the rest of the smoke run draws without packs
 	DirAccess.remove_absolute(dir.path_join("gumaarms.png"))

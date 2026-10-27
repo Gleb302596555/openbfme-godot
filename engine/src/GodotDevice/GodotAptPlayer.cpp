@@ -7573,6 +7573,7 @@ Dictionary AptMenuPlayer::set_online(Object *worldObject, const Dictionary &opti
 	o.buildDate = toNative(String(build.get("date", String())));
 	o.buildOfficial = build.has("official") ? (bool(build.get("official", false)) ? 1 : 0) : -1;
 	o.profileDigest = toNative(world->net_profile_digest());
+	o.profileArchives = world->net_profile().archiveLines(); // lane PROFILE-2: told to a lobby with the "archives" feature
 	o.platform = localPlatform(); // lane PLATFORMICON-1: the one value told about this machine
 	o.playerTemplateCount = factions;
 	o.colorCount = colors;

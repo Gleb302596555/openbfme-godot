@@ -21,9 +21,10 @@ std::vector<std::string> BuildStops::lines()
 		"RW 0x859198's own construct for a member (slot 7, RW 0x858701 with the castle as the plot: the port places the member itself), FactionDecal, the damage "
 		"evacuation of a member, WallUpgradeUpdate",
 		"[S-304] dozer (lane BUILD-3): RotWK's dozer machines are ported (DozerAIUpdate.h: the tasks and dock points, newTask RW 0x88CCFC with the dock position "
-		"RW 0x88C2FE, the primary machine RW 0x88C06B, PickActionPos / MoveToActionPos / DoAction RW 0x88D7D2 / 0x88C5C7 / 0x88D993); INFERENCE: the structure is "
-		"made at the order with every BUILD-1 effect (RW makes it PHANTOM and places it on arrival, RW 0x88D44F: the port keeps the placement's health of 1 and "
-		"removes the unplaced structure with a refund when the task is cancelled before arrival, but does not repeat its legality test, flags 0x15)",
+		"RW 0x88C2FE, the primary machine RW 0x88C06B, PickActionPos / MoveToActionPos / DoAction RW 0x88D7D2 / 0x88C5C7 / 0x88D993); lane FBSIM-1: the structure "
+		"is made as RotWK's inert phantom (RW 0x88D272 / 0x88D0D8) and placed on arrival (RW 0x88D44F with its legality test, flags 0x15); not ported: the "
+		"placement's TerrainLogic calls RW 0x684BCA / 0x684CBA and the dozer interface's + 0x28 byte; INFERENCE: a site no longer legal on arrival fails the "
+		"task and shows the porter again (RotWK's path after RW 0x88CFFE is not read)",
 		"[S-306] placement mode (lane BUILD-5: RotWK's PlaceEventTranslator RW 0x83E486 and placement update RW 0x6A2AE5 are ported: the right button is tracked "
 		"and passed on (right-drag scrolls), a right click cancels unless it was a drag held DragToleranceMS, the left press anchors, a 5 pixel drag turns the ghost, "
 		"the left click places with the options 0x49F or shows the code's label and BadBuildingPlacementSound, no shift to keep placing, the ghost's legality "
