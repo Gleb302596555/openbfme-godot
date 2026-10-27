@@ -53,6 +53,25 @@ Error decodeTexture(const Ref<Image> &image, const PackedByteArray &buffer, bool
 	return dds ? image->load_dds_from_buffer(buffer) : image->load_tga_from_buffer(buffer);
 }
 
+// lane SDK-0: an asset pack's texture is decoded by its bytes (a modder may save a PNG for a retail .tga name)
+Error decodePackTexture(const Ref<Image> &image, const PackedByteArray &buffer)
+{
+	static const unsigned char png[] = { 137, 80, 78, 71, 13, 10, 26, 10 };
+	if (buffer.size() >= 4 && std::memcmp(buffer.ptr(), "DDS ", 4) == 0)
+	{
+		return image->load_dds_from_buffer(buffer);
+	}
+	if (buffer.size() >= 8 && std::memcmp(buffer.ptr(), png, sizeof(png)) == 0)
+	{
+		return image->load_png_from_buffer(buffer);
+	}
+	if (buffer.size() >= 3 && buffer[0] == 0xff && buffer[1] == 0xd8 && buffer[2] == 0xff)
+	{
+		return image->load_jpg_from_buffer(buffer);
+	}
+	return image->load_tga_from_buffer(buffer);
+}
+
 String toGodot(const std::string &s)
 {
 	return String::utf8(s.c_str(), (int64_t)s.size());
@@ -65,6 +84,35 @@ W3DSamplerPolicy samplerPolicy()
 }
 
 } // namespace
+
+Ref<Image> Load_Asset_Pack_Image(const AssetPacks *packs, const std::string &name, std::string &error)
+{
+	const AssetPackFile *pf = packs ? packs->texture(name) : nullptr;
+	if (!pf)
+	{
+		return Ref<Image>();
+	}
+	std::vector<std::uint8_t> bytes;
+	if (!AssetPacks::read(*pf, bytes, &error))
+	{
+		return Ref<Image>();
+	}
+	PackedByteArray buffer;
+	buffer.resize((int64_t)bytes.size());
+	if (!bytes.empty())
+	{
+		std::memcpy(buffer.ptrw(), bytes.data(), bytes.size());
+	}
+	Ref<Image> image;
+	image.instantiate();
+	if (decodePackTexture(image, buffer) != OK || image->is_empty())
+	{
+		error = "asset pack " + pf->pack + ": could not decode " + pf->relative + " (the replacement of texture " + name + ")";
+		return Ref<Image>();
+	}
+	image->set_meta("retail_path", toGodot("asset pack " + pf->pack + ": " + pf->relative));
+	return image;
+}
 
 namespace
 {
@@ -300,10 +348,41 @@ bool W3DMaterialFactory::Reduce_Image(Ref<Image> &image, int reduction)
 	return true;
 }
 
-Ref<Texture2D> W3DMaterialFactory::Load_Texture(const std::string &name, std::vector<std::string> &errors, bool &found, bool quietWhenMissing)
+Ref<Texture2D> W3DMaterialFactory::Load_Texture(const std::string &name, std::vector<std::string> &errors, bool &found, bool quietWhenMissing, std::vector<std::string> *notes)
 {
 	found = false;
-	TextureResolution res = Resolve_W3D_Texture(name, [&](const std::string &p) { return Fs.doesFileExist(p); }, isBfme1Data(Fs)); // community PR #36: the archives' layout
+	if (Packs)
+	{
+		if (const AssetPackFile *pf = Packs->texture(name))
+		{
+			const int reduction = g_textureReduction;
+			const std::string cacheKey = "pack:" + pf->diskPath + (reduction > 0 ? "#reduction" + std::to_string(reduction) : std::string());
+			auto cached = Textures.find(cacheKey);
+			if (cached != Textures.end())
+			{
+				found = true;
+				return cached->second;
+			}
+			std::string error;
+			Ref<Image> image = Load_Asset_Pack_Image(Packs, name, error);
+			if (image.is_null())
+			{
+				errors.push_back("texture " + name + ": " + error);
+				TextureErrors.push_back(errors.back());
+				return Ref<Texture2D>();
+			}
+			if (!image->has_mipmaps() && !image->is_compressed())
+			{
+				image->generate_mipmaps();
+			}
+			Reduce_Image(image, reduction);
+			Ref<ImageTexture> tex = ImageTexture::create_from_image(image);
+			Textures[cacheKey] = tex;
+			found = true;
+			return tex;
+		}
+	}
+	TextureResolution res = Resolve_Packed_W3D_Texture(name, [&](const std::string &p) { return Fs.doesFileExist(p); }, isBfme1Data(Fs)); // community PR #36: the archives' layout
 	if (!res.Found)
 	{
 		if (!quietWhenMissing)
@@ -320,6 +399,8 @@ Ref<Texture2D> W3DMaterialFactory::Load_Texture(const std::string &name, std::ve
 	if (it != Textures.end())
 	{
 		found = true;
+		const auto note = PackedTextureNotes.find(cacheKey);
+		if (notes && note != PackedTextureNotes.end()) notes->push_back(note->second);
 		return it->second;
 	}
 	std::vector<std::uint8_t> bytes;
@@ -335,16 +416,23 @@ Ref<Texture2D> W3DMaterialFactory::Load_Texture(const std::string &name, std::ve
 	if (!bytes.empty()) std::memcpy(buffer.ptrw(), bytes.data(), bytes.size());
 	Ref<Image> image;
 	image.instantiate();
-	Error err = decodeTexture(image, buffer, res.IsDDS);
-	if (err == OK && bfme1Mounted() && res.Path.size() >= 4 && res.Path.substr(res.Path.size() - 4) == ".jpg")
+	Error err;
+	if (res.Path.size() >= 4 && res.Path.substr(res.Path.size() - 4) == ".jpg")
 	{
-		// community PR #36, BFME1 only: BFME1's floor textures keep their alpha in a PNG beside the JPEG colour (loadPackedTexture pairs them)
 		AptArchiveFileSource source(Fs);
 		bool paired = false;
-		Ref<Image> merged = loadPackedTexture(source, res.Path.substr(0, res.Path.size() - 4), &paired);
-		if (merged.is_valid()) image = merged;
+		image = loadPackedTexture(source, res.Path.substr(0, res.Path.size() - 4), &paired);
+		err = image.is_valid() ? OK : ERR_FILE_CORRUPT;
+		if (paired)
+		{
+			const std::string note = "[S-1482] model texture " + res.Path + ": packed PNG colour multiplication and alpha replacement are inferred; the loader merge was not read";
+			PackedTextureNotes[cacheKey] = note;
+			if (notes) notes->push_back(note);
+		}
 	}
-	if (err != OK || image->is_empty())
+	else
+		err = decodeTexture(image, buffer, res.IsDDS);
+	if (err != OK || image.is_null() || image->is_empty())
 	{
 		errors.push_back("could not decode texture " + res.Path);
 		TextureErrors.push_back(errors.back());
@@ -609,7 +697,7 @@ W3DMaterialResult W3DMaterialFactory::Create(const MeshRenderData &mesh, const M
 	{
 		if (tex[s].empty()) continue;
 		key.Tex[s] = true;
-		textures[s] = loadTextures ? Load_Texture(tex[s], out.Errors, found[s]) : Placeholder_Texture(false);
+		textures[s] = loadTextures ? Load_Texture(tex[s], out.Errors, found[s], false, &out.Notes) : Placeholder_Texture(false);
 		if (hasInfo[s])
 		{
 			key.ClampU[s] = (info[s].Attributes & 0x08) != 0; // W3DTEXTURE_CLAMP_U
@@ -620,7 +708,7 @@ W3DMaterialResult W3DMaterialFactory::Create(const MeshRenderData &mesh, const M
 	if (!normalMapName.empty())
 	{
 		bool f;
-		normalTex = loadTextures ? Load_Texture(normalMapName, out.Errors, f) : Placeholder_Texture(true);
+		normalTex = loadTextures ? Load_Texture(normalMapName, out.Errors, f, false, &out.Notes) : Placeholder_Texture(true);
 		key.NormalMap = normalTex.is_valid() && key.Tangents;
 		if (normalTex.is_valid() && !key.Tangents) out.Notes.push_back("normal map without tangents is not applied");
 	}

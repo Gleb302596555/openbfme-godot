@@ -12,6 +12,7 @@
 #include "Common/Upgrade.h"
 
 #include "Common/BuildAssistant.h"
+#include "Common/ModEngineFeatures.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/MessageStream/MessageStream.h"
 #include "GameLogic/GameMessage.h"
@@ -19,6 +20,15 @@
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 
 #include <map>
+
+// lane CAMPUI-1: RW 0x96F53C (InGameToggleStanceCommandButton::SetStance): TheMessageStream's new message 0x468 (MSG_CHANGE_STANCE, vslot 0x48) with the stance as its
+// integer (RW 0x7111E5); the logic applies it to the sender's selection (RW 0x77BC59)
+bool ControlBar::sendChangeStance(int stance)
+{
+	ClientMessage &m = m_ctx.stream.append(MSG_CHANGE_STANCE);
+	m.appendInteger(stance);
+	return true;
+}
 
 bool ControlBar::pressButton(int slot, bool inPalantir)
 {
@@ -29,6 +39,21 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 		return false;
 	}
 	const CommandButton &b = *cb->button;
+	// lane MODS-3: RW 0x941BD3 (processContextSensitiveButtonClick): an inactive local player (an observer, a defeated player: RW 0x6A87F5) presses
+	// nothing; edain-unchained.observer-command-range (its 0xEDF000) lets one page the command ranges. Retail's refusal is ported for that feature only
+	// (the port's retail bar has none yet, S-290)
+	if (ModEngineFeatures::has(ModEngineFeature::EdainUnchainedObserverCommandRange) && !localPlayerActive(m_ctx.localPlayer()) &&
+		b.m_command != GUI_COMMAND_PUSH_VISIBLE_COMMAND_RANGE && b.m_command != GUI_COMMAND_POP_VISIBLE_COMMAND_RANGE)
+	{
+		return false;
+	}
+	// RW 0x940435: IsClickable (+0x105) gates processCommandUI. INFERENCE: the NONPRESSABLE refusal: RotWK's processCommandUI never tests
+	// that option bit (its option tests are 0x227, bits 5, 17 and 31); retail draws such a button with its _static clip (RW 0x9D2BFA), which
+	// takes no click, so a direct / shortcut press is refused here instead of casting its placeholder power.
+	if (!b.m_isClickable || b.hasOption(COMMAND_OPTION_NONPRESSABLE))
+	{
+		return false;
+	}
 	// ZH processCommandUI: only the owner's objects take commands (a foreign selection has no set here)
 	if (cb->state == ButtonState::Restricted || cb->state == ButtonState::NotReady)
 	{
@@ -41,6 +66,10 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 	}
 	// an upgrade button's affordability is asked live by its own case (canAffordUpgrade, RW 0x940E45: "GUI:NotEnoughMoneyToUpgrade"); lane FACT-A: its
 	// CantAfford state (RW 0x942733 code 6) is the bar's last evaluation, not a refusal of its own
+	if (cb->commandPointsShort)
+	{
+		return false; // RW 0x940B84 .. 0x940B8A: canMakeUnit 7 (command points short) leaves processCommandUI with no message
+	}
 	if (cb->state == ButtonState::CantAfford && b.m_command != GUI_COMMAND_OBJECT_UPGRADE && b.m_command != GUI_COMMAND_PLAYER_UPGRADE
 		&& b.m_command != GUI_COMMAND_CASTLE_UPGRADE)
 	{
@@ -104,30 +133,23 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 			return true;
 		}
 		case GUI_COMMAND_SET_STANCE:
-		case GUI_COMMAND_TOGGLE_STANCE:
 		{
-			// lane PLAY-4: a stance button sends MSG_CHANGE_STANCE (0x468) with the stance (RW 0x96F53C, InGameToggleStanceCommandButton's SetStance; the logic case
-			// RW 0x77BC59). SET_STANCE: its stance. TOGGLE_STANCE: INFERENCE (S-3803): retail opens the radial sub menu of the button's Stances (PalantirCommandUI::
-			// OnSubMenuLoaded RW 0x97004A, not ported) and the picked one is sent; here a press picks the stance after the current one in the button's list
-			int stance = -1;
-			if (b.m_command == GUI_COMMAND_SET_STANCE)
-			{
-				stance = b.m_stances.empty() ? -1 : b.m_stances.front();
-			}
-			else if (!b.m_stances.empty())
-			{
-				const int slot = stanceSlotOf(b, *obj);
-				stance = b.m_stances[(size_t)((slot + 1) % (int)b.m_stances.size())];
-			}
+			// lane PLAY-4: a stance button sends MSG_CHANGE_STANCE (0x468) with its stance (as InGameToggleStanceCommandButton's SetStance RW 0x96F53C does; the
+			// logic case RW 0x77BC59)
+			const int stance = b.m_stances.empty() ? -1 : b.m_stances.front();
 			if (stance < 0)
 			{
 				++m_unported["STANCE (no stance)"];
 				return false;
 			}
-			ClientMessage &m = m_ctx.stream.append(MSG_CHANGE_STANCE);
-			m.appendInteger(stance);
-			return true;
+			return sendChangeStance(stance);
 		}
+		case GUI_COMMAND_TOGGLE_STANCE:
+			// lane CAMPUI-1: retail never sends a stance for the toggle's own press: on the Palantir its content is an InGameToggleStanceCommandButton (RW 0x92FF5C)
+			// whose press opens / closes the radial of its Stances (RW 0x96FAC6, AptPalantir::pressToggleStance), and only an item's press sends (RW 0x96F53C ->
+			// sendChangeStance). A press that reaches the command processor (no sub-menu: BFME1 data, a hotkey, another bar) is counted, never turned into a stance
+			++m_unported["TOGGLE_STANCE (no sub-menu)"];
+			return false;
 		case GUI_COMMAND_FOUNDATION_CONSTRUCT_CANCEL:
 			// lane PLAY-4: processCommandUI's case for command 2 (RW 0x9409A1, jump table RW 0x941AC3 / 0x941B63): the object's controlling player is the local
 			// one: MSG_DOZER_CANCEL_CONSTRUCT (0x41B; the logic case RW 0x77B1A0, BuildCommands)
@@ -348,7 +370,8 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 			if (b.hasOption(COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT | COMMAND_OPTION_NEED_TARGET_NEUTRAL_OBJECT | COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT | COMMAND_OPTION_NEED_TARGET_POS
 					| COMMAND_OPTION_CONTEXTMODE_COMMAND))
 			{
-				m_ctx.ui.setGUICommand(&b);
+				// RW 0x940877..0x94089C: pressing the current target command cancels it.
+				m_ctx.ui.setGUICommand(m_ctx.ui.getGUICommand() == &b ? nullptr : &b);
 				return true;
 			}
 			ClientMessage &m = m_ctx.stream.append(MSG_DO_WEAPON);
@@ -369,14 +392,17 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 				++m_unported["SPECIAL_POWER (no template)"];
 				return false;
 			}
-			if (b.hasOption(COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT | COMMAND_OPTION_NEED_TARGET_NEUTRAL_OBJECT | COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT | COMMAND_OPTION_NEED_TARGET_POS))
+			// RW 0x940877: the same Options & 0x227 gate as FIRE_WEAPON, including
+			// context-only buttons handled by the special-power dispatcher.
+			if (b.hasOption(COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT | COMMAND_OPTION_NEED_TARGET_NEUTRAL_OBJECT | COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT | COMMAND_OPTION_NEED_TARGET_POS
+					| COMMAND_OPTION_CONTEXTMODE_COMMAND))
 			{
-				m_ctx.ui.setGUICommand(&b);
+				m_ctx.ui.setGUICommand(m_ctx.ui.getGUICommand() == &b ? nullptr : &b);
 				return true;
 			}
 			ClientMessage &m = m_ctx.stream.append(MSG_DO_SPECIAL_POWER);
 			m.appendInteger((int)t->getID());
-			m.appendInteger(0);
+			m.appendInteger((int)b.m_options);
 			m.appendObjectID(obj->getID());
 			return true;
 		}
@@ -473,7 +499,8 @@ bool ControlBar::rightPressButton(int slot, bool inPalantir, bool shift)
 	// processCommandUI (RW 0x940435), the right press: nothing for a button that is not clickable (+ 0x105); "autoable" (the byte at ebp + 0xB) is
 	// AutoAbility (+ 0x10C) or CANCELABLE. A FIRE_WEAPON / SPECIAL_POWER button whose command is not available (RW 0x75CC3E) stops there unless autoable;
 	// the other commands' availability (RW 0x942733) is asked only when not autoable, and a right press stops after it either way
-	if (!b.m_isClickable)
+	// INFERENCE: the NONPRESSABLE refusal (RW 0x940435 does not test the bit; retail shows such a button _static, RW 0x9D2BFA), as pressButton
+	if (!b.m_isClickable || b.hasOption(COMMAND_OPTION_NONPRESSABLE))
 	{
 		return false;
 	}
