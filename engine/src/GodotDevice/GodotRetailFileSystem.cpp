@@ -261,6 +261,8 @@ Dictionary RetailFileSystem::mount_bfme1_path(const String &root)
 	m_loose.clear();
 	m_userMapFolder.clear();
 	m_userMapError.clear();
+	m_shellSource = false;
+	m_installRoot.clear();
 	PackedStringArray errors;
 	std::string pathError;
 	if (!PathIO::checkInstallPath(toNative(root), pathError))
@@ -827,7 +829,7 @@ Dictionary RetailFileSystem::mountBfme2Shell(const std::string &bfme2Root)
 
 String RetailFileSystem::install_root() const
 {
-	return toGodot(m_installRoot);
+	return toGodot(m_bfme1 ? m_bfme1Root : m_installRoot);
 }
 
 ArchiveFileSystem *RetailFileSystem::archive_fs() const
