@@ -11,10 +11,16 @@ func _texture(color: Color) -> ImageTexture:
 	return ImageTexture.create_from_image(image)
 
 func _run() -> void:
-	assert(RenderingServer.get_current_rendering_method() == "gl_compatibility", "Run with --rendering-method gl_compatibility for raw normal readback")
+	if not (RenderingServer.get_current_rendering_method() == "gl_compatibility"):
+		push_error("Run with --rendering-method gl_compatibility for raw normal readback")
+		quit(1)
+		return
 	var shader := Shader.new()
 	var code := FileAccess.get_file_as_string("res://shaders/water_standing.gdshader")
-	assert(code.contains("ALBEDO = retail_output(col);"))
+	if not (code.contains("ALBEDO = retail_output(col);")):
+		push_error('code.contains("ALBEDO = retail_output(col);")')
+		quit(1)
+		return
 	# Probe the actual production normal, preserving its complete reconstruction.
 	shader.code = code.replace("ALBEDO = retail_output(col);", "ALBEDO = n * 0.5 + 0.5;").replace("ALPHA = clamp(alpha, 0.0, 1.0);", "ALPHA = 1.0;")
 	var material := ShaderMaterial.new()

@@ -960,6 +960,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 	{
 		Dictionary w;
 		int64_t areas = 0, tris = 0, failed = 0;
+		std::vector<bool> renderedWaves(map.chunks.standingWaveAreas.size(), false);
 		Array waterMaterials, materialStops;
 		if (wantWater && !map.chunks.standingWaterAreas.empty())
 		{
@@ -1192,6 +1193,10 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 				}
 				mi->set_cast_shadows_setting(GeometryInstance3D::SHADOW_CASTING_SETTING_OFF);
 				waterRoot->add_child(mi);
+				if (geometry) for (const auto &v : grid.vertices)
+					if (v.waveArea >= 0 && float(a.waterHeight)-v.ground < 100 &&
+						std::hypot(v.point.x-v.nearest.x,v.point.y-v.nearest.y) < v.halfLength)
+						renderedWaves[size_t(v.waveArea)] = true;
 				++areas;
 				tris += (int64_t)tri.size() / 3;
 			}
@@ -1205,7 +1210,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 		w["triangulation_failed"] = failed;
 		w["areas_in_map"] = (int64_t)map.chunks.standingWaterAreas.size();
 		w["pca_wave_areas"] = (int64_t)std::count_if(map.chunks.standingWaveAreas.begin(), map.chunks.standingWaveAreas.end(), [](const StandingWaveArea &a) { return a.enablePcaWave != 0; });
-		w["wave_areas_not_rendered"] = (int64_t)std::count_if(map.chunks.standingWaveAreas.begin(), map.chunks.standingWaveAreas.end(), [](const StandingWaveArea &a) { return a.enablePcaWave == 0; });
+		w["wave_areas_not_rendered"] = (int64_t)std::count(renderedWaves.begin(), renderedWaves.end(), false);
 		m_report["water"] = w;
 	}
 

@@ -225,7 +225,9 @@ bool WaterGeometry::readStandingMaterial(const MeshShaderMaterialDef &source, St
 		else if (n == "blendusingterrainalpha") expected = W3DSHADERMATERIAL_PROPERTY_BOOL;
 		else if (n == "dimmingfactor" || n == "bumpscale" || n == "specularexponent" || n == "windangle" || n == "windspeed" || n == "waveangle" || n == "wavespeed" || n == "reflectionperturbation") expected = W3DSHADERMATERIAL_PROPERTY_FLOAT;
 		else if (n == "waterpcatexture1" || n == "waterpcatexture2" || n == "waterpcatexture3" || n == "pcanoisetexture" || n == "pcafrothtexture" || n == "waterbumptexture" || n == "waterenvtexture" || n == "wavetexture") expected = W3DSHADERMATERIAL_PROPERTY_TEXTURE;
-		if (expected && p.Type != expected)
+		const bool wider = expected >= W3DSHADERMATERIAL_PROPERTY_VECTOR2 && expected <= W3DSHADERMATERIAL_PROPERTY_VECTOR4
+			&& p.Type > expected && p.Type <= W3DSHADERMATERIAL_PROPERTY_VECTOR4;
+		if (expected && p.Type != expected && !wider)
 		{
 			if (error) *error = "WaterShader.FX property " + p.Name + ": expected type " + std::to_string(expected) + ", got " + std::to_string(p.Type);
 			out = StandingMaterial{};
@@ -286,6 +288,11 @@ bool WaterGeometry::readPcaBasis(const std::string &text, PcaBasis &out, std::st
 	speed.imbue(std::locale::classic());
 	PcaBasis parsed;
 	if (!(speed >> label >> parsed.speed) || !std::isfinite(parsed.speed) || parsed.speed < 0.0f) return fail("PCA basis: invalid speed");
+	// 13 rows * 3 axes per frame, each requiring at least a digit and a delimiter.
+	// Bound from the remaining payload before allocating any frame storage.
+	const auto payload = input.tellg();
+	if (payload < 0 || count > (text.size() - static_cast<size_t>(payload)) / (13u * 3u * 2u))
+		return fail("PCA basis: frame count exceeds coefficient payload");
 	parsed.frames.resize(count);
 	for (unsigned row = 0; row < 13; ++row)
 	{
@@ -406,7 +413,7 @@ bool WaterGeometry::buildStandingGrid(const StandingWaterArea &area, const std::
 				Point2F mid={(a.x+b.x)*.5f,(a.y+b.y)*.5f};
 				float qx=v.point.x-mid.x,qy=v.point.y-mid.y,dist=std::sqrt(qx*qx+qy*qy);
 				if(dist<len*.5f+50 && dist<nearestDistance) {
-					nearestDistance=dist; v.nearest=mid; v.direction={dy/len,-dx/len}; v.halfLength=len*.5f;
+					nearestDistance=dist; v.waveArea=int(&w-waves.data()); v.nearest=mid; v.direction={dy/len,-dx/len}; v.halfLength=len*.5f;
 				}
 			}
 		}

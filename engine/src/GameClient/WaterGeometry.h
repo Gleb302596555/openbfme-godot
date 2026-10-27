@@ -63,6 +63,7 @@ struct StandingVertex
 {
 	Point2F point, nearest = {100000,100000}, direction = {1,0};
 	float ground = 0, halfLength = 0;
+	int waveArea = -1; // diagnostic provenance; -1 means no selected authored wave
 };
 struct StandingGrid
 {

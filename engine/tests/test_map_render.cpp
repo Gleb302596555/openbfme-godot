@@ -782,7 +782,7 @@ TEST_CASE("water acceptance: remaining shader and geometry approximations stay e
 {
 	const auto *stop = MapStops::find("S-035");
 	REQUIRE(stop != nullptr);
-	CHECK(std::string(stop->gap) == "Standing water preserves authored FX techniques, PCA/PCA_U normals and shoreline Gerstner displacement on a donor high-detail grid alongside the bump/specular path; TIME, LOD selection, scene-light binding and terrain depth are inferred; reflections, shadow filtering, other PCA LODs, depth-colour LUT and legacy shoreline texture tracks remain unported");
+	CHECK(std::string(stop->gap) == "Standing water preserves authored FX techniques, PCA/PCA_U normals and shoreline Gerstner displacement on a donor high-detail grid alongside the bump/specular path; TIME, LOD selection, scene-light binding and terrain depth are inferred; reflections, shadow filtering, other PCA LODs, river outline cross-section start and minimum water LOD, depth-colour LUT and legacy shoreline texture tracks remain unported");
 }
 
 namespace
@@ -826,7 +826,7 @@ TEST_CASE("water PCA basis: malformed data fails without retaining a prior track
 	std::string error;
 	REQUIRE(WaterGeometry::readPcaBasis(syntheticPcaBasis(), basis, &error));
 	CHECK_FALSE(WaterGeometry::readPcaBasis("NumFrames: 2\nSpeed: 1\n", basis, &error));
-	CHECK(error == "PCA basis: missing coefficient row");
+	CHECK(error == "PCA basis: frame count exceeds coefficient payload");
 	CHECK(basis.frames.empty());
 	CHECK_FALSE(WaterGeometry::readPcaBasis("NumFrames: 0\n", basis, &error));
 	CHECK(error == "PCA basis: invalid frame count");
@@ -863,13 +863,13 @@ TEST_CASE("WaterGeometry::standing grid shares vertices and queries active shore
 	CHECK(grid.vertices.size()==9);
 	CHECK(grid.indices==std::vector<uint32_t>{0,3,2,0,1,3,1,5,3,1,4,5,2,7,6,2,3,7,3,8,7,3,5,8});
 	for(const auto &v:grid.vertices) {
-		CHECK(v.nearest.x==20); CHECK(v.nearest.y==20);
+		CHECK(v.nearest.x==20); CHECK(v.nearest.y==20); CHECK(v.waveArea==0);
 		CHECK(v.direction.x==0); CHECK(v.direction.y==-1); CHECK(v.halfLength==20);
 	}
 	wave.enablePcaWave=0;
 	REQUIRE(WaterGeometry::buildStandingGrid(area,{wave},[](float,float){return 0.0f;},grid));
 	CHECK(grid.vertices[0].halfLength==0);
-	CHECK(grid.vertices[0].nearest.x==100000);
+	CHECK(grid.vertices[0].nearest.x==100000); CHECK(grid.vertices[0].waveArea==-1);
 	wave.enablePcaWave=1;
 	REQUIRE(WaterGeometry::buildStandingGrid(area,{wave},[](float,float){return -80.0f;},grid));
 	CHECK(grid.vertices[0].halfLength==0); // source strict depth < 100
@@ -963,8 +963,9 @@ TEST_CASE("water material: every recognized property rejects wrong W3D value typ
 			source.Properties.push_back(property);
 			WaterGeometry::StandingMaterial material;
 			std::string error;
-			CHECK(WaterGeometry::readStandingMaterial(source, material, &error) == (type == field.second));
-			if (type != field.second)
+			const bool compatible = type == field.second || (field.second >= 3 && field.second <= 5 && type > field.second && type <= 5);
+			CHECK(WaterGeometry::readStandingMaterial(source, material, &error) == compatible);
+			if (!compatible)
 			{
 				CHECK(error.find(field.first) != std::string::npos);
 				CHECK(error.find("expected type " + std::to_string(field.second)) != std::string::npos);
@@ -972,4 +973,30 @@ TEST_CASE("water material: every recognized property rejects wrong W3D value typ
 			}
 			else CHECK(error.empty());
 		}
+}
+
+TEST_CASE("water material: retail Vector4 specular and UV properties retain their leading components")
+{
+	MeshShaderMaterialDef source; source.TypeName = "WaterShader.FX";
+	for (const char *name : {"SpecularColor", "BumpUVScale", "EnvUVScale", "WaveUVScale", "PCABumpUVScale", "PCAWaveUVScale"})
+	{
+		MeshShaderMaterialProperty p; p.Name = name; p.Type = W3DSHADERMATERIAL_PROPERTY_VECTOR4;
+		p.Float[0] = 2; p.Float[1] = 3; p.Float[2] = 4; p.Float[3] = 5;
+		source.Properties.push_back(p);
+	}
+	WaterGeometry::StandingMaterial material; std::string error;
+	REQUIRE(WaterGeometry::readStandingMaterial(source, material, &error));
+	CHECK(error.empty());
+	CHECK(material.specular[0] == 2); CHECK(material.specular[1] == 3); CHECK(material.specular[2] == 4);
+	for (const float *uv : {material.bumpUV, material.envUV, material.waveUV, material.pcaUV, material.pcaWaveUV})
+	{ CHECK(uv[0] == 2); CHECK(uv[1] == 3); }
+}
+
+TEST_CASE("water PCA basis: oversized declared tracks fail before allocation")
+{
+	WaterGeometry::PcaBasis basis; std::string error;
+	const std::string text = "NumFrames: 1000000\nSpeed: 1\n" + std::string(1000000, ' ');
+	CHECK_FALSE(WaterGeometry::readPcaBasis(text, basis, &error));
+	CHECK(error == "PCA basis: frame count exceeds coefficient payload");
+	CHECK(basis.frames.empty());
 }
