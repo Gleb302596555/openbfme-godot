@@ -67,6 +67,8 @@ LAUNCHER_OWNERS = {
     "replay_open_test.gd": "tools/release/test_replay_open.py",
     "update_fault_test.gd": "tools/release/test_launcher_updates.py",
     "update_status_test.gd": "tools/release/test_launcher.py",
+    "verifyfiles_test.gd": "tools/test_verifyfiles.py",
+    "verifyfiles_window_test.gd": "tools/test_verifyfiles_window.py",
 }
 # Fixtures, opt-in rendered walks, and the LAN child launched by start_test.gd.
 SUPPORT = {
@@ -120,7 +122,7 @@ DENYLIST = {
         pose_buffer pose_buffer_cull_query pose_buffer_query_trigger
         renderwait1_teardown selperf shellfix1 spellbook_reload terrain_lighting uberjoin1 ui4_resize
         controller_main_menu formation_placement mixed_formation_placement online16_fix_bridge p16_ui_dictionary
-        p16_ui_legacy_shape spellbook_rightclick
+        p16_ui_legacy_shape spellbook_rightclick cah_camera_retail shellfb1_cursor shellfb1_spell_store_escape
     """) | {"object_corpus_sweep.gd"}, "manual: needs private RotWK/BFME2 assets and game/frame setup"),
     **dict.fromkeys(scripts("""
         apt_canvas_pixel building_render fx_render gamma_composite hud_image_mode_pixel

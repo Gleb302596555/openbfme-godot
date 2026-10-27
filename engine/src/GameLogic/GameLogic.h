@@ -709,6 +709,27 @@ public:
 	// objects created without the OnCreated dispatch (no ObjectCreatedProc installed): counted and reported (S-147)
 	unsigned long long creationsWithoutDispatch() const { return m_creationsWithoutDispatch; }
 
+	// lane SDK-2: listeners run at the very end of each logic frame (the end of phase 6, after the players' per-frame work), in the order added;
+	// an OpenBFME seam (no retail counterpart: the mod scripts' frame events, GameLogic/Sdk/SdkScriptHost.h). None by default.
+	typedef std::function<void(UnsignedInt frame)> EndOfFrameHook;
+	int addEndOfFrameHook(EndOfFrameHook hook)
+	{
+		const int token = ++m_nextListenerToken;
+		m_endOfFrameHooks.push_back(EndOfFrameEntry{ token, std::move(hook) });
+		return token;
+	}
+	void removeEndOfFrameHook(int token)
+	{
+		for (size_t i = 0; i < m_endOfFrameHooks.size(); ++i)
+		{
+			if (m_endOfFrameHooks[i].token == token)
+			{
+				m_endOfFrameHooks.erase(m_endOfFrameHooks.begin() + (long)i);
+				return;
+			}
+		}
+	}
+
 	// ---- state hash and reports -------------------------------------------------------------------------------------------
 	// MOVE-1: logic state that lives outside the objects (the pathfinder's queues) joins the hash through a contributor; they run after the players, in the order added
 	typedef std::function<void(StateHasher &)> StateHashContributor;
@@ -908,6 +929,12 @@ private:
 	};
 	std::vector<ExtraHooks> m_extraWorldHooks;
 	std::vector<HashContributor> m_hashContributors;
+	struct EndOfFrameEntry
+	{
+		int token;
+		EndOfFrameHook hook;
+	};
+	std::vector<EndOfFrameEntry> m_endOfFrameHooks; // lane SDK-2
 	std::unique_ptr<GameState> m_gameState; // lane SAVE-4a (it owns the core blocks' adapters)
 	void registerSnapshotBlocks();
 	void registerObjectSnapshotBlocks(); // lane SAVE-4b

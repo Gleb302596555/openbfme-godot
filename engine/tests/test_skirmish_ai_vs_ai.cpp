@@ -841,7 +841,10 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// Merge queue q27 (LOS-1's terrain line of sight with #105's trees, RADIUSHEIGHT-1, GATEPUSH-1, HEROCAST-1 and #111 on the archive's tree; measured once
 	// on the merged tree and at each merge point, a CI host): seed 2 stays open at 9000 with a new table (changed from the first window), seed 7 ends with
 	// the Men's defeat (start position 0) at 6354 (was 4890), seed 1234 stays open at 9000; LOS-1 alone gives these three. Engine pins, not retail values.
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 0, 6354 }, Game{ "FactionMordor", "FactionMen", 1234u, -1, -1 } })
+	// Merge queue q28 (#96 / #97 / #98, #117's fortress module in the update schedule, #124 and the archive's plain batch; measured once on the merged tree
+	// and at each merge point, a CI host): seed 2 stays open at 9000 with a new table (changed from the first window), seed 7 ends with the Men's defeat
+	// (start position 0) at 4533 (was 6354), seed 1234 stays open at 9000. Engine pins, not retail values.
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 0, 4533 }, Game{ "FactionMordor", "FactionMen", 1234u, -1, -1 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;
@@ -864,17 +867,17 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 		{
 			// lane BANNER-1 (the banner carrier's refill as RotWK: replacements at the horde's experience and not counted as built, RW 0x89A40E; refills after
 			// RW 0x86EE52's windows): seed 2's table moves (fewer units built, other fights); the three games stay open at 9000
-			// merge queue q27: seed 2's table (both sides keep attacking, building and destroying through the windows; a sample every 1000 frames, cumulative)
+			// merge queue q28: seed 2's table (both sides keep attacking, building and destroying through the windows; a sample every 1000 frames, cumulative)
 			CHECK(run.progress ==
-		"frame 1000: [0 attacks 1 built 90u/8s destroyed 11u/1s] [1 attacks 1 built 90u/8s destroyed 14u/1s]\n"
-		"frame 2000: [0 attacks 3 built 299u/9s destroyed 124u/1s] [1 attacks 2 built 157u/11s destroyed 236u/4s]\n"
-		"frame 3000: [0 attacks 5 built 451u/11s destroyed 236u/1s] [1 attacks 7 built 295u/12s destroyed 405u/4s]\n"
-		"frame 4000: [0 attacks 7 built 603u/14s destroyed 326u/1s] [1 attacks 9 built 417u/14s destroyed 565u/4s]\n"
-		"frame 5000: [0 attacks 9 built 801u/15s destroyed 465u/1s] [1 attacks 12 built 587u/16s destroyed 754u/4s]\n"
-		"frame 6000: [0 attacks 11 built 905u/17s destroyed 663u/3s] [1 attacks 13 built 726u/19s destroyed 828u/4s]\n"
-		"frame 7000: [0 attacks 13 built 1116u/19s destroyed 813u/4s] [1 attacks 17 built 907u/20s destroyed 1033u/4s]\n"
-		"frame 8000: [0 attacks 15 built 1210u/21s destroyed 914u/5s] [1 attacks 18 built 1016u/22s destroyed 1186u/4s]\n"
-		"frame 9000: [0 attacks 19 built 1419u/22s destroyed 1024u/5s] [1 attacks 20 built 1142u/25s destroyed 1364u/4s]\n");
+		"frame 1000: [0 attacks 1 built 70u/8s destroyed 13u/1s] [1 attacks 2 built 90u/8s destroyed 29u/1s]\n"
+		"frame 2000: [0 attacks 2 built 253u/10s destroyed 179u/2s] [1 attacks 5 built 244u/11s destroyed 162u/3s]\n"
+		"frame 3000: [0 attacks 4 built 374u/12s destroyed 384u/2s] [1 attacks 7 built 472u/11s destroyed 315u/3s]\n"
+		"frame 4000: [0 attacks 6 built 575u/16s destroyed 546u/2s] [1 attacks 9 built 602u/14s destroyed 487u/3s]\n"
+		"frame 5000: [0 attacks 9 built 734u/17s destroyed 664u/3s] [1 attacks 12 built 712u/15s destroyed 644u/4s]\n"
+		"frame 6000: [0 attacks 11 built 897u/18s destroyed 745u/4s] [1 attacks 14 built 830u/16s destroyed 857u/4s]\n"
+		"frame 7000: [0 attacks 15 built 998u/20s destroyed 843u/6s] [1 attacks 18 built 898u/21s destroyed 949u/4s]\n"
+		"frame 8000: [0 attacks 16 built 1148u/22s destroyed 960u/6s] [1 attacks 20 built 996u/22s destroyed 1041u/4s]\n"
+		"frame 9000: [0 attacks 19 built 1271u/24s destroyed 1048u/6s] [1 attacks 22 built 1125u/23s destroyed 1191u/4s]\n");
 		}
 	}
 }

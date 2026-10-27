@@ -45,7 +45,7 @@ public:
 	// RW 0x822E43, once per HUD update
 	void update();
 	void setViewportSize(int width, int height);
-	// the close (OnBttnClose and Escape): the pending purchases (RW 0x8232ED) to send, and the store wants to go
+	// OnBttnClose accepts pending purchases (RW 0x8232ED); Escape resets before closing (RW 0x8234C8).
 	bool closing() const { return m_closing; }
 	std::vector<GameMessage> takePurchases();
 	// RW 0x823484

@@ -196,6 +196,7 @@ func _run() -> int:
 	_map_objects(fs)
 	await _menu_player(fs)
 	_game_world(fs)
+	_asset_packs_offline(fs) # lane SDK-1b (a)
 	await _fx_player(fs)
 	_game_world_orders(fs)
 
@@ -1287,3 +1288,28 @@ func _game_world_orders(fs: RefCounted) -> void:
 			break
 	a.queue_free()
 	b.queue_free()
+
+
+## lane SDK-1b (a): asset packs are offline only for now: GameWorld.set_asset_packs_used(false) (game.gd: a LAN / online game) switches a loaded
+## pack off and rebuilds what drew with it; switching back on uses it again; a world loads a map either way
+func _asset_packs_offline(fs: RefCounted) -> void:
+	var dir := ProjectSettings.globalize_path("user://smoke-asset-pack/SmokePack")
+	DirAccess.make_dir_recursive_absolute(dir)
+	var f := FileAccess.open(dir.path_join("gumaarms.png"), FileAccess.WRITE)
+	f.store_buffer(PackedByteArray([137, 80, 78, 71, 13, 10, 26, 10])) # never decoded here: only its name matters
+	f.close()
+	var packs: Dictionary = fs.set_asset_packs(PackedStringArray([dir]))
+	_check(packs.ok and packs.textures == 1, "a synthetic asset pack loads (%s)" % str(packs.errors))
+	var world: Node3D = ClassDB.instantiate("GameWorld")
+	world.setup(fs)
+	var off: Dictionary = world.set_asset_packs_used(false)
+	_check(off.loaded and not off.used and off.changed, "a LAN / online game switches the packs off: %s" % str(off))
+	var again: Dictionary = world.set_asset_packs_used(false)
+	_check(again.loaded and not again.used and not again.changed, "switching them off again changes nothing: %s" % str(again))
+	_check(world.load_map("map good celduin", {"seed": 5}).ok, "a map loads with the packs off")
+	var on: Dictionary = world.set_asset_packs_used(true)
+	_check(on.loaded and on.used and on.changed, "an offline game switches them back on: %s" % str(on))
+	_check(world.load_map("map good celduin", {"seed": 5}).ok, "a map loads with the packs on")
+	world.free()
+	fs.set_asset_packs(PackedStringArray()) # the rest of the smoke run draws without packs
+	DirAccess.remove_absolute(dir.path_join("gumaarms.png"))

@@ -26,7 +26,8 @@ import seal_package  # noqa: E402
 DECK_SECRET = bytes(range(1, 33))
 NIGHTLY_SECRET = bytes(range(33, 65))
 OTHER_SECRET = bytes(range(65, 97))
-DECK, NIGHTLY, OTHER = (ed25519.public_key(s) for s in (DECK_SECRET, NIGHTLY_SECRET, OTHER_SECRET))
+STABLE_SECRET = bytes(range(97, 129))     # RELGH-3: the stable Actions key (stable-2026) of the tests
+DECK, NIGHTLY, OTHER, STABLE = (ed25519.public_key(s) for s in (DECK_SECRET, NIGHTLY_SECRET, OTHER_SECRET, STABLE_SECRET))
 TARGET = "Test/repo"
 GIT_ENV = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@example.invalid", "GIT_COMMITTER_NAME": "t",
            "GIT_COMMITTER_EMAIL": "t@example.invalid", "GIT_CONFIG_GLOBAL": os.devnull, "GIT_CONFIG_NOSYSTEM": "1"}
@@ -574,7 +575,8 @@ def git(repo: Path, *args: str) -> str:
 def built(tmp_path_factory):
     """one release folder per tag, made like the release workflow makes it (actions_release.py sign): the packages and the Mac package sealed
     with the NIGHTLY key, the manifests and their raw X.sig by it; a public remote with main and the tags. v0.4.13 is a STABLE version signed
-    the same way (what a stolen nightly key would make)"""
+    the same way (what a stolen nightly key would make). RELGH-3: the stable list holds the stable Actions key stable-2026 after the Deck
+    key; v0.4.16 is a stable release made by the workflow with it, v0.4.17 one signed by the Deck key (which never signs on GitHub)"""
     import make_macos_manifest
     from test_autorelease import mac_package_dir
     base = tmp_path_factory.mktemp("draft")
@@ -599,18 +601,20 @@ def built(tmp_path_factory):
     checkout = base / "checkout"
     (checkout / "launcher").mkdir(parents=True)
     (checkout / "launcher/release_key.pub").write_text(DECK.hex() + "\n")
-    key_list(checkout / "launcher/release_keys.pub", (DECK, "deck-2026"))
+    key_list(checkout / "launcher/release_keys.pub", (DECK, "deck-2026"), (STABLE, "stable-2026"))
     key_list(checkout / "launcher/nightly_keys.pub", (NIGHTLY, "nightly-2026"))
     folders = {}
+    signer = {"v0.4.16": STABLE_SECRET, "v0.4.17": DECK_SECRET}
     for version, commit in (("v0.4.13-nightly.20261022", c1), ("v0.4.13", c1), ("v0.4.14-nightly.20261023", side),
-                            ("v0.4.15-nightly.20261024", c1)):
+                            ("v0.4.15-nightly.20261024", c1), ("v0.4.16", c1), ("v0.4.17", c1)):
+        secret = signer.get(version, NIGHTLY_SECRET)
         git(seed, "tag", version, c2 if version.startswith("v0.4.15") else commit)   # v0.4.15: the tag is not the manifest's commit
         d = package_dir(base / f"pkg-{version}", version)
         mac = mac_package_dir(checkout, version, base / f"mac-{version}", commit=commit)
         shutil.copy2(mac, d / mac.name)
         with open(d / f"SHA256SUMS-{version}.txt", "a") as f:
             f.write(f"{hashlib.sha256(mac.read_bytes()).hexdigest()}  {mac.name}\n")
-        seal_package.seal(d, NIGHTLY_SECRET, TARGET)
+        seal_package.seal(d, secret, TARGET)
         assert run(sys.executable, HERE / "make_manifest.py", d, "--repo", TARGET, "--commit", commit, "--date", "2026-10-22",
                    "--allow-untagged").returncode == 0
         sealed = base / f"{mac.name}.sealed.sha256"
@@ -618,7 +622,7 @@ def built(tmp_path_factory):
         (d / "manifest-macos.json").write_bytes(make_macos_manifest.dumps(make_macos_manifest.build(
             version, TARGET, commit, "2026-10-22", archive=d / mac.name, checksum=sealed)))
         for m in ("manifest.json", "manifest-macos.json"):
-            (d / f"{m}.sig").write_bytes(ed25519.sign(NIGHTLY_SECRET, (d / m).read_bytes()))
+            (d / f"{m}.sig").write_bytes(ed25519.sign(secret, (d / m).read_bytes()))
         (d / f"BUILDINFO-{version}.txt").unlink()
         folders[version] = d
     git(seed, "push", "-q", str(remote), "--tags")
@@ -752,12 +756,24 @@ def changed_mac(files: dict) -> None:
     (NIGHTLY_TAG, {"prerelease": False}, "pre-release flag"),
     ("v0.4.14-nightly.20261023", {}, "is not on the public main"),
     ("v0.4.15-nightly.20261024", {}, "not the manifest's commit"),
-    # a STABLE version signed by the nightly key (a stolen key): refused before it is even downloaded
-    ("v0.4.13", {}, "is not a nightly: only nightlies are signed on GitHub Actions"),
-    ("v0.4.13", {"prerelease": True}, "is not a nightly"),
+    # a STABLE version signed by the nightly key (a stolen key): the scope rule refuses its signatures
+    ("v0.4.13", {}, "manifest.json.sig is not the stable Actions key stable-2026's signature"),
+    ("v0.4.13", {"prerelease": True}, "pre-release flag"),
+    # RELGH-3: a stable draft signed by the Deck key (it never signs on GitHub) or by an unknown key; flagged as a pre-release
+    ("v0.4.17", {}, "manifest.json.sig is not the stable Actions key stable-2026's signature"),
+    ("v0.4.16", {"change": unknown_sig}, "manifest.json.sig is not the stable Actions key stable-2026's signature"),
+    ("v0.4.16", {"change": envelope_sig}, "manifest.json.sig is not the stable Actions key stable-2026's signature"),
+    ("v0.4.16", {"prerelease": True}, "pre-release flag"),
+    ("v0.4.16", {"author": "someone"}, "not created by the release workflow"),
+    ("v0.4.16", {"change": tamper_archive}, "make_manifest.py --check"),
+    ("v0.4.16-alpha.1", {}, "neither a nightly nor a stable release"),
 ])
 def test_check_draft_refuses(drafts, version, kw, why):
-    rid = drafts.draft(version, **kw)
+    rid = drafts.draft(version if version in drafts.built["folders"] else "v0.4.16", **kw)
+    if version not in drafts.built["folders"]:
+        s = json.loads(drafts.state.read_text())
+        s["releases"][-1]["tag_name"] = version
+        drafts.state.write_text(json.dumps(s))
     before = drafts.release(rid)
     r, _ = drafts.run(version, rid)
     assert r.returncode == 1 and why in r.stdout and "DRAFT CHECK FAIL" in r.stdout, r.stdout + r.stderr
@@ -773,12 +789,33 @@ def test_check_draft_refuses_a_stable_manifest_under_the_nightly_key_whatever_th
         assert release_keys.verify_scoped(keys, nightly, m, (folder / m).read_bytes(), (folder / f"{m}.sig").read_bytes()) is None
     # and its sealed payloads
     assert seal_package.check(folder, keys, TARGET, nightly) != []
-    # the checker's own tag test is the first line of defence; DraftChecker.check_release is not reachable for a stable tag
+    # RELGH-3: a stable tag needs the stable Actions key's label among the stable keys after the Deck key
     import check_draft
-    c = check_draft.DraftChecker(TARGET, keys, nightly, "main", say=lambda *_: None)
-    rel = {"tag_name": "v0.4.13", "draft": True}
-    with pytest.raises(check_draft.Refused, match="not a nightly"):
-        c.check_release(rel, "v0.4.13", REQUEST, drafts.tmp / "x", drafts.keys, drafts.nightly)
+    for label in (None, "deck-2026", "nightly-2026"):
+        c = check_draft.DraftChecker(TARGET, keys, nightly, "main", say=lambda *_: None, stable_label=label)
+        rel = {"tag_name": "v0.4.13", "draft": True}
+        with pytest.raises(check_draft.Refused, match="is not a key of launcher/release_keys.pub after its first entry"):
+            c.check_release(rel, "v0.4.13", REQUEST, drafts.tmp / "x", drafts.keys, drafts.nightly)
+
+
+def test_check_draft_passes_a_stable_draft_signed_by_the_stable_actions_key(drafts):
+    """RELGH-3: the workflow's stable draft (the owner approved the run): signed by stable-2026, a full release, nothing added"""
+    rid = drafts.draft("v0.4.16")
+    before = drafts.release(rid)
+    r, out = drafts.run("v0.4.16", rid)
+    assert r.returncode == 0 and "DRAFT CHECK v0.4.16: checks passed (signed by the stable Actions key stable-2026; nothing added)" in r.stdout, \
+        r.stdout + r.stderr
+    assert drafts.release(rid) == before and before["prerelease"] is False
+    for m in ("manifest.json", "manifest-macos.json"):
+        assert release_keys.verify_detail(release_keys.load(drafts.keys), m, (out / m).read_bytes(), (out / f"{m}.sig").read_bytes()) \
+            == ("stable-2026", "raw")
+    # another configuration's key label (the label check follows stable_environment.json)
+    cfg = json.loads((HERE / "stable_environment.json").read_text())
+    cfg["key_label"] = "stable-2027"
+    other = drafts.tmp / "env.json"
+    other.write_text(json.dumps(cfg))
+    r, _ = drafts.run("v0.4.16", rid, "--environment-config", other)
+    assert r.returncode == 1 and "'stable-2027' is not a key of launcher/release_keys.pub" in r.stdout, r.stdout + r.stderr
 
 
 def test_check_draft_refuses_a_stale_draft_another_tag_or_a_published_release(drafts):

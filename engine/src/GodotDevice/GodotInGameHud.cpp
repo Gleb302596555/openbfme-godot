@@ -2,6 +2,8 @@
 // See GodotInGameHud.h.
 
 #include "Common/BfmeGame.h"
+#include "Common/Audio/AudioEntryPoints.h"
+#include "Common/Audio/AudioLog.h"
 #include "GodotDevice/GodotInGameHud.h"
 #include "GameClient/GUI/AptScreens/AptImageMode.h"
 #include "GodotDevice/GodotPackedTexture.h"
@@ -44,6 +46,7 @@
 #include "GodotDevice/GodotRetailFileSystem.h"
 #include "GodotDevice/GodotW3DInstancer.h"
 #include "GodotDevice/GodotW3DMaterial.h"
+#include "GodotDevice/GodotMouse.h"
 
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/shader.hpp>
@@ -176,6 +179,7 @@ struct HudDevice : public AptNativeHook
 	std::unique_ptr<INIEnvironment> metaEnv;
 	MetaMap meta;
 	MouseSettings mouse;
+	std::shared_ptr<GodotMouse> godotMouse;
 	RecordingShellServices services;
 	// lane CAM-1: the retail tactical camera; the Godot camera is set from it every frame (applyCamera)
 	std::unique_ptr<TacticalCamera> cam;
@@ -259,27 +263,7 @@ struct HudDevice : public AptNativeHook
 	bool ensureGlobe();
 	bool makeGlobeLayer(GlobeLayer &layer, const char *name, const Color &clear, const char *hidden);
 	void globeProbe();
-	// the mouse cursors (Mouse.ini names, the install's loose Data\Cursors files)
-	std::map<std::string, MouseCursorEntry> cursorTable;
-	struct CursorSet
-	{
-		bool loaded = false;
-		CursorImage image;
-		// Native cursors need CPU pixels. A Texture2D forces GPU readback and is retained past renderer teardown by macOS's cursor cache.
-		std::vector<Ref<Image>> frames;
-	};
-	std::map<std::string, CursorSet> cursors; ///< by "<name>#<direction>"
-	std::string cursorDir, cursorName;
-	int cursorStep = 0, cursorDirection = 0;
-	double cursorClock = 0.0;
-	bool cursorHidden = false;
-	Ref<Image> blankCursor; ///< lane BUILD-5: the pointer of a cursor without a Mouse.ini block (retail SetCursor(null): none)
-	Ref<Image> cursorShown; ///< lane BUILD-5: the image the pointer shows now (null: none), for proof screenshots (a capture omits the OS pointer)
-	Vector2 cursorHot;
-	std::vector<std::string> cursorErrors;
 	std::unique_ptr<PlacementGhostRenderer> ghost; ///< lane BUILD-5 r2: the placement ghost, drawn after the displayed camera (GodotPlacementGhost.h)
-	void updateCursor(double delta, const std::string &wanted, float scrollX = 0.0f, float scrollY = 0.0f, bool scrolling = false);
-	void loadCursorTable(ArchiveFileSystem &fs);
 
 	void drawPlaceholder(const AptCanvasOp &op, RID item) override;
 	Ref<Image> imageFor(const std::string &file);
@@ -1107,149 +1091,6 @@ void HudDevice::drawIconOps(RID parent)
 	drawPlacementText(font, k); // lane OWNERFIX-2
 }
 
-void HudDevice::loadCursorTable(ArchiveFileSystem &fs)
-{
-	std::string dir;
-	if (OS *os = OS::get_singleton())
-	{
-		const String env = os->get_environment("ROTWK_INSTALL");
-		if (!env.is_empty())
-		{
-			dir = env.utf8().get_data();
-		}
-	}
-	if (dir.empty() && FileAccess::file_exists("user://install-paths.cfg"))
-	{
-		const String cfg = FileAccess::get_file_as_string("user://install-paths.cfg");
-		for (const String &line : cfg.split("\n"))
-		{
-			if (line.begins_with("ROTWK_INSTALL="))
-			{
-				dir = line.substr(14).trim_suffix("\r").utf8().get_data();
-			}
-		}
-	}
-	cursorDir = dir.empty() ? std::string() : dir + "/data/cursors";
-	std::vector<std::uint8_t> ini;
-	std::string error;
-	if (!fs.readFile("data/ini/mouse.ini", ini, &error) || !ParseMouseCursors(std::string(ini.begin(), ini.end()), cursorTable, &error))
-	{
-		cursorErrors.push_back("mouse.ini: " + error);
-	}
-}
-
-void HudDevice::updateCursor(double delta, const std::string &wanted, float scrollX, float scrollY, bool scrolling)
-{
-	if (cursorDir.empty())
-	{
-		return;
-	}
-	auto it = cursorTable.find(wanted);
-	if (it == cursorTable.end() || it->second.image.empty())
-	{
-		// lane BUILD-5: a cursor without a Mouse.ini block (retail: Build / InvalidBuild while placing) has no resource; Win32Mouse::setCursor (BFME2 decomp
-		// Win32Mouse.cpp:352, RW 0x441A83 row) then calls SetCursor(null): no pointer at all
-		if (!cursorHidden)
-		{
-			if (blankCursor.is_null())
-			{
-				blankCursor = Image::create_empty(1, 1, false, Image::FORMAT_RGBA8);
-				blankCursor->fill(Color(0, 0, 0, 0));
-			}
-			Input::get_singleton()->set_custom_mouse_cursor(blankCursor, Input::CURSOR_ARROW, Vector2());
-			cursorHidden = true;
-			cursorShown.unref();
-		}
-		cursorName = wanted;
-		return;
-	}
-	// lane BUILD-5: the frame of a directional cursor (W3DMouse::setCursorDirection RW 0x498B1A, refreshed every drawn frame)
-	const int dirs = it->second.directions > 1 ? it->second.directions : 1;
-	const int direction = ScrollCursorDirection(scrollX, scrollY, dirs, scrolling);
-	CursorSet &set = cursors[wanted + "#" + std::to_string(direction)];
-	if (!set.loaded)
-	{
-		set.loaded = true;
-		// Win32Mouse::initCursorResources (RW 0x441506): "<stem>.cur" for an image ending in .cur, else "<image>.ani"; "<stem><direction>.<ext>" per direction
-		const std::string file = CursorFileName(it->second.image, dirs, direction);
-		const std::string path = FindFileNoCase(cursorDir, file);
-		std::string error;
-		std::vector<std::uint8_t> bytes;
-		if (path.empty())
-		{
-			cursorErrors.push_back("cursor " + wanted + ": no file " + file);
-			UtilityFunctions::push_error(toGodot(cursorErrors.back()));
-		}
-		else
-		{
-			Ref<FileAccess> f = FileAccess::open(String::utf8(path.c_str()), FileAccess::READ);
-			if (f.is_null())
-			{
-				cursorErrors.push_back("cursor " + wanted + ": cannot read " + path);
-			UtilityFunctions::push_error(toGodot(cursorErrors.back()));
-			}
-			else
-			{
-				const PackedByteArray all = f->get_buffer((int64_t)f->get_length());
-				bytes.assign(all.ptr(), all.ptr() + all.size());
-				if (!DecodeCursorFile(bytes, set.image, &error))
-				{
-					cursorErrors.push_back("cursor " + wanted + ": " + error);
-			UtilityFunctions::push_error(toGodot(cursorErrors.back()));
-				}
-				else
-				{
-					for (const std::vector<std::uint8_t> &frame : set.image.frames)
-					{
-						PackedByteArray px;
-						px.resize((int64_t)frame.size());
-						memcpy(px.ptrw(), frame.data(), frame.size());
-						set.frames.push_back(Image::create_from_data(set.image.width, set.image.height, false, Image::FORMAT_RGBA8, px));
-					}
-				}
-			}
-		}
-	}
-	if (set.frames.empty())
-	{
-		// lane BUILD-5 r2 (S-295): a cursor whose file is missing or does not decode shows the engine's own pointer (reported once in cursorErrors and
-		// push_error), never the previous cursor
-		if (wanted != cursorName || direction != cursorDirection || cursorHidden || cursorShown.is_valid())
-		{
-			Input::get_singleton()->set_custom_mouse_cursor(Ref<Resource>(), Input::CURSOR_ARROW, Vector2());
-			cursorName = wanted;
-			cursorDirection = direction;
-			cursorHidden = false;
-			cursorShown.unref();
-		}
-		return;
-	}
-	if (wanted != cursorName || direction != cursorDirection || cursorHidden)
-	{
-		cursorName = wanted;
-		cursorDirection = direction;
-		cursorHidden = false;
-		cursorStep = 0;
-		cursorClock = 0.0;
-	}
-	else
-	{
-		cursorClock += delta;
-		const double step = (double)set.image.jiffies[(size_t)cursorStep % set.image.jiffies.size()] / 60.0;
-		if (set.image.sequence.size() <= 1 || cursorClock < step)
-		{
-			return;
-		}
-		cursorClock = 0.0;
-		cursorStep = (cursorStep + 1) % (int)set.image.sequence.size();
-	}
-	const int frame = set.image.sequence[(size_t)cursorStep % set.image.sequence.size()];
-	const int hx = it->second.hotX >= 0 ? it->second.hotX : set.image.hotX, hy = it->second.hotY >= 0 ? it->second.hotY : set.image.hotY;
-	Input::get_singleton()->set_custom_mouse_cursor(set.frames[(size_t)frame], Input::CURSOR_ARROW, Vector2((float)hx, (float)hy));
-	cursorShown = set.frames[(size_t)frame];
-	cursorHot = Vector2((float)hx, (float)hy);
-}
-
 // SAGE (x east, y north, z up) -> Godot (x, z, -y)
 static Vector3 toGodotAxes(const Coord3D &c)
 {
@@ -1326,6 +1167,7 @@ void InGameHudNode::_bind_methods()
 	ClassDB::bind_method(D_METHOD("select_objects_with_message", "ids"), &InGameHudNode::select_objects_with_message);
 	ClassDB::bind_method(D_METHOD("open_spell_store"), &InGameHudNode::open_spell_store);
 	ClassDB::bind_method(D_METHOD("close_spell_store"), &InGameHudNode::close_spell_store);
+	ClassDB::bind_method(D_METHOD("cancel_spell_store"), &InGameHudNode::cancel_spell_store);
 	ClassDB::bind_method(D_METHOD("spell_store_click", "index"), &InGameHudNode::spell_store_click);
 	ClassDB::bind_method(D_METHOD("press_spell_slot", "slot"), &InGameHudNode::press_spell_slot);
 	ClassDB::bind_method(D_METHOD("get_frame_timings"), &InGameHudNode::get_frame_timings);
@@ -2194,6 +2036,11 @@ Dictionary InGameHudNode::attach(const Ref<RetailFileSystem> &fs, GameWorld *wor
 		}
 	}
 	d->applyCamera(window, 1.0);
+	// RW 0x48CEA3 updates the view immediately, even when an Apt command runs after this node's camera frame.
+	d->cam->setJumpHandler([this]() {
+		const Vector2 size = get_viewport()->get_visible_rect().get_size();
+		d->applyCamera(size, 1.0);
+	});
 	// lane SPELL-2 (review r2): the game text the HUD's screens read (the spell store's help): the shell's when attached, else data/lotr.str
 	GameTextSource *gameText = nullptr;
 	if (shellPlayer && shellPlayer->shell_object())
@@ -2250,7 +2097,19 @@ Dictionary InGameHudNode::attach(const Ref<RetailFileSystem> &fs, GameWorld *wor
 	// the mapped images (button images, portraits) and the textures they name
 	d->source = std::make_unique<AptArchiveFileSource>(afs);
 	d->textures = std::make_unique<AptTextureStore>(*d->source);
-	d->loadCursorTable(afs);
+	if (shellPlayer)
+	{
+		d->godotMouse = shellPlayer->godot_mouse();
+		if (!d->godotMouse)
+		{
+			errors.push_back("shell player has no native cursor adapter");
+		}
+	}
+	else
+	{
+		d->godotMouse = std::make_shared<GodotMouse>();
+		d->godotMouse->loadCursorTable(afs, fs->install_root());
+	}
 	d->imageEnv = std::make_unique<INIEnvironment>();
 	d->imageEnv->fileSystem = &afs;
 	d->images.registerBlocks(d->imageEnv->blocks);
@@ -2923,6 +2782,15 @@ void InGameHudNode::close_spell_store()
 	}
 }
 
+void InGameHudNode::cancel_spell_store()
+{
+	if (d->hud)
+	{
+		const auto worldContext = d->hud->enterContext();
+		d->hud->cancelSpellStore();
+	}
+}
+
 bool InGameHudNode::spell_store_click(int64_t index)
 {
 	if (!d->hud || !d->hud->spellStore())
@@ -3173,14 +3041,18 @@ Dictionary InGameHudNode::get_report() const
 	}
 	{
 		Array ce;
-		for (const std::string &e : d->cursorErrors)
+		if (d->godotMouse)
 		{
-			ce.push_back(toGodot(e));
+			for (const std::string &e : d->godotMouse->cursorErrors())
+			{
+				ce.push_back(toGodot(e));
+			}
 		}
 		r["cursor_errors"] = ce;
-		r["cursor"] = toGodot(d->cursorName);
-		r["cursor_direction"] = d->cursorDirection; // lane BUILD-5
-		r["cursor_hidden"] = d->cursorHidden;
+		const Dictionary cursor = d->godotMouse ? d->godotMouse->getCursorImage(false) : Dictionary();
+		r["cursor"] = cursor.get("name", String());
+		r["cursor_direction"] = cursor.get("direction", 0);
+		r["cursor_hidden"] = cursor.get("hidden", false);
 	}
 	r["draw_counts"] = toGodot("images " + std::to_string(d->drawnImages) + " skipped " + std::to_string(d->skippedImages));
 	if (d->hud)
@@ -3261,6 +3133,14 @@ void InGameHudNode::_process(double delta)
 	}
 	const uint64_t t0 = Time::get_singleton()->get_ticks_usec();
 	d->hud->update(delta);
+	// A HUD without the shell owns this service queue; a shared shell drains its own. RW 0x815772: PlaySound queues a 2D UI event.
+	std::vector<std::string> sounds;
+	sounds.swap(d->services.sounds);
+	for (const std::string &name : sounds)
+	{
+		AudioLog::Scope sound("HUD movie");
+		AudioApi::playUiSound(name);
+	}
 	const uint64_t ta = Time::get_singleton()->get_ticks_usec();
 	d->drawIconOps(get_canvas_item()); // lane HUD-5
 	const uint64_t tb = Time::get_singleton()->get_ticks_usec();
@@ -3341,6 +3221,10 @@ void InGameHudNode::_process(double delta)
 		d->ghostMs = (double)(Time::get_singleton()->get_ticks_usec() - tg) / 1000.0;
 	}
 	const uint64_t t2 = Time::get_singleton()->get_ticks_usec();
+	if (d->player && !d->ownsPlayer)
+	{
+		d->godotMouse = d->player->godot_mouse();
+	}
 	{
 		// lane BUILD-5: while scrolling the cursor is InGameUI's Scroll whatever is under the pointer (createMouseoverHint's window test RW 0x69F637 is skipped
 		// while scrolling); its direction follows the scroll amount
@@ -3349,7 +3233,10 @@ void InGameHudNode::_process(double delta)
 		// lane OWNERFIX-1: DISABLE_INPUT's Mouse::setVisibility(false) (RW 0x5EDD0F): no pointer over the world; a menu over the game (Esc's quit menu, which
 		// still opens: CMSG_META_OPTIONS) shows the arrow. INFERENCE (S-4964): retail's pointer over a menu opened during a cutscene was not read
 		const bool hidden = d->hud->scriptMouseHidden() && !overGui;
-		d->updateCursor(delta, hidden ? std::string() : (overGui ? std::string(MouseCursorName::Arrow) : ui.cursor()), ui.scrollAmountX(), ui.scrollAmountY(), ui.isScrolling());
+		if (d->godotMouse)
+		{
+			d->godotMouse->updateCursor(delta, hidden ? std::string() : (overGui ? std::string(MouseCursorName::Arrow) : ui.cursor()), ui.scrollAmountX(), ui.scrollAmountY(), ui.isScrolling());
+		}
 	}
 	// lane ANTICHEAT-1 (owner 2026-10-21): twice a second, the player's view (the camera's look-at point, the ground under the pointer) for the relay's
 	// log of an online game (never sent to another player, never simulation input; GameWorld::net_submit_view decides whether a game takes it). The
@@ -3487,14 +3374,7 @@ Dictionary InGameHudNode::get_placement_ghost_state() const
 
 Dictionary InGameHudNode::get_cursor_image() const
 {
-	Dictionary c;
-	c["name"] = toGodot(d->cursorName);
-	c["direction"] = d->cursorDirection;
-	c["hidden"] = d->cursorHidden;
-	// Only the diagnostic overlay needs a GPU texture; the native cursor keeps the CPU image.
-	c["texture"] = d->cursorShown.is_valid() ? ImageTexture::create_from_image(d->cursorShown) : Ref<ImageTexture>();
-	c["hot"] = d->cursorHot;
-	return c;
+	return d->godotMouse ? d->godotMouse->getCursorImage() : Dictionary();
 }
 
 PackedStringArray InGameHudNode::take_misc_sounds()
@@ -4064,6 +3944,8 @@ Dictionary InGameHudNode::get_camera() const
 	out["far"] = c.farPlane();
 	out["eye"] = toGodotAxes(c.eye());
 	out["target"] = toGodotAxes(c.target());
+	out["displayed_target"] = toGodotAxes(d->shown.PinholeView::position());
+	out["displayed_eye"] = toGodotAxes(d->shown.eye());
 	out["offset"] = Vector3(c.cameraOffset().x, c.cameraOffset().y, c.cameraOffset().z);
 	out["constraint_valid"] = c.constraintValid();
 	float lim[4];

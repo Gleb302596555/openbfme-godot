@@ -56,7 +56,12 @@ public:
 	// cannot be read or holds a name twice.
 	bool addPack(const std::string &folder, std::vector<std::string> &errors);
 
-	bool empty() const { return m_textures.empty() && m_models.empty(); }
+	bool empty() const { return m_suspended || (m_textures.empty() && m_models.empty()); }
+	// lane SDK-1b (a): packs are offline only for now: a LAN or online game suspends them (every lookup answers nothing, so every peer draws the
+	// game's own assets) until the online checks exist. The packs stay loaded; loaded() says whether there are any.
+	void setSuspended(bool on) { m_suspended = on; }
+	bool suspended() const { return m_suspended; }
+	bool loaded() const { return !m_textures.empty() || !m_models.empty(); }
 	// the replacement of a W3D texture name ("GUMaArms.tga", "gumaarms": the extension and the case do not matter), or nullptr
 	const AssetPackFile *texture(const std::string &textureName) const;
 	// the replacement of a W3D file, by any virtual path ending in its file name ("art\w3d\gu\gumaarms_skn.w3d"), or nullptr
@@ -85,6 +90,7 @@ private:
 	std::map<std::string, AssetPackFile> m_textures; // texture stem, lower case
 	std::map<std::string, AssetPackFile> m_models;   // file name, lower case ("gumaarms_skn.w3d")
 	std::vector<std::string> m_notes;
+	bool m_suspended = false;
 };
 
 // The render side's W3D source with the packs in front (models only; textures go through W3DMaterialFactory::Set_Asset_Packs). Never give it

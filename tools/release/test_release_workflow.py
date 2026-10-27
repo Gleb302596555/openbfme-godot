@@ -41,12 +41,18 @@ KEY_STEP = "      - name: Seal and sign with the nightly key, verify under launc
 @pytest.mark.parametrize("old,new,why", [
     ("  workflow_dispatch:\n", "  push:\n  workflow_dispatch:\n", "workflow_dispatch alone"),
     ("  workflow_dispatch:\n", "  pull_request:\n  workflow_dispatch:\n", "workflow_dispatch alone"),
-    # the environment: nightly-signing alone
-    ("    environment: nightly-signing\n", "", "outside the nightly-signing environment"),
-    ("    environment: nightly-signing\n", "    environment: production\n", "outside the nightly-signing environment"),
-    ("    environment: nightly-signing\n", "    environment: stable\n", "outside the nightly-signing environment"),
-    ("    environment: nightly-signing\n", "    environment: ${{ inputs.kind }}\n", "outside the nightly-signing environment"),
-    ("  plan:\n", "  plan:\n    permissions:\n      contents: write\n", "jobs with their own permissions"),
+    # the environments: nightly-signing and (RELGH-3) stable-signing, one signing job each
+    ("    environment: nightly-signing\n", "", "not exactly one per environment"),
+    ("    environment: nightly-signing\n", "    environment: production\n", "outside the signing environments"),
+    ("    environment: nightly-signing\n", "    environment: stable\n", "outside the signing environments"),
+    ("    environment: nightly-signing\n", "    environment: ${{ inputs.kind }}\n", "outside the signing environments"),
+    ("    environment: nightly-signing\n", "    environment: stable-signing\n", "named by two jobs"),
+    ("    environment: stable-signing\n", "", "not exactly one per environment"),
+    ("    environment: stable-signing\n", "    environment: nightly-signing\n", "named by two jobs"),
+    ("    environment: stable-signing\n", "    environment: stable\n", "outside the signing environments"),
+    ("  plan:\n", "  plan:\n    permissions:\n      contents: write\n", "a write permission"),
+    ("      contents: read\n      actions: read\n    env:", "      contents: read\n      actions: write\n    env:", "only a signing job writes"),
+    ("      contents: read\n      actions: read\n    env:", "      contents: read\n      deployments: read\n    env:", "only a signing job writes"),
     # id-token anywhere: refused (no OIDC, no cloud credential)
     ("    permissions:\n      contents: write\n", "    permissions:\n      contents: write\n      id-token: write\n", "an id-token permission"),
     ("    permissions:\n      contents: write\n", "    permissions:\n      contents: write\n      id-token: write\n", "permissions are not exactly"),
@@ -75,6 +81,61 @@ def test_the_policy_refuses_a_changed_shape(old, new, why):
     assert old in TEXT
     probs = public_workflows.workflow_problems(PATH, TEXT.replace(old, new, 1))
     assert any(why in p for p in probs), probs
+
+
+STABLE_SECRET = "${{ secrets.OPENBFME_STABLE_SIGNING_KEY }}"
+STABLE_LINE = "          STABLE_SIGNING_KEY: " + STABLE_SECRET + "\n"
+STABLE_PERMS = "    environment: stable-signing\n    permissions:\n      contents: write\n      actions: read\n"
+
+
+@pytest.mark.parametrize("old,new,why", [
+    # Sol r1: the guard, the keyed command and the approval step are fixed
+    ("    if: needs.plan.outputs.kind == 'stable'\n", "    if: always()\n", "exactly when the plan's kind is stable"),
+    ("    if: needs.plan.outputs.kind == 'stable'\n", "", "exactly when the plan's kind is stable"),
+    ("    if: needs.plan.outputs.kind == 'nightly'\n", "    if: needs.plan.outputs.kind != ''\n", "exactly when the plan's kind is nightly"),
+    ("      - name: The owner approved this run (and not the account that started it)\n        run: python3 tools/release/stable_environment.py approval\n",
+     "", "no `python3 tools/release/stable_environment.py approval` step before"),
+    ("STABLE_SIGNING_KEY: " + STABLE_SECRET + "\n        run: python3 tools/release/actions_release.py sign",
+     "STABLE_SIGNING_KEY: " + STABLE_SECRET + "\n        run: env | sort; python3 tools/release/actions_release.py sign", "keyed step does not run exactly"),
+    ("    needs: [plan, macos, package]\n    if: needs.plan.outputs.kind == 'stable'\n", "    needs: [plan]\n    if: needs.plan.outputs.kind == 'stable'\n",
+     "does not wait for the plan and the builds"),
+    # RELGH-3: the stable job's own secret, in one step, by the exact line; never the nightly key there, nor the stable key elsewhere
+    (STABLE_LINE, "          NIGHTLY_SIGNING_KEY: " + SECRET + "\n", "exactly one step"),
+    (STABLE_LINE, "          STABLE_SIGNING_KEY: ${{ secrets.OPENBFME_NIGHTLY_SIGNING_KEY }}\n", "exactly one step"),
+    (STABLE_LINE, "          STABLE_SIGNING_KEY: ${{ secrets.OTHER }}\n", "a secrets reference"),
+    (STABLE_LINE, STABLE_LINE + "          NIGHTLY_SIGNING_KEY: " + SECRET + "\n", "a secrets reference"),
+    ("          NIGHTLY_SIGNING_KEY: " + SECRET + "\n", "          STABLE_SIGNING_KEY: " + STABLE_SECRET + "\n", "exactly one step"),
+    ("          NIGHTLY_SIGNING_KEY: " + SECRET + "\n", "          STABLE_SIGNING_KEY: " + STABLE_SECRET + "\n", "a secrets reference"),
+    ("        run: python3 tools/release/stable_environment.py approval\n",
+     "        env:\n" + STABLE_LINE + "        run: python3 tools/release/stable_environment.py approval\n", "exactly one step"),
+    # its permissions: exactly contents write + actions read
+    (STABLE_PERMS, "    environment: stable-signing\n    permissions:\n      contents: write\n", "permissions are not exactly"),
+    (STABLE_PERMS, "    environment: stable-signing\n    permissions:\n      contents: write\n      actions: write\n", "a write permission"),
+    (STABLE_PERMS, STABLE_PERMS + "      id-token: write\n", "an id-token permission"),
+    (STABLE_PERMS, STABLE_PERMS + "      deployments: write\n", "permissions are not exactly"),
+    # the stable key at job level, or in the plan job
+    ("    permissions:\n      contents: write\n      actions: read\n    env:\n      GH_TOKEN: ${{ github.token }}\n",
+     "    permissions:\n      contents: write\n      actions: read\n    env:\n      GH_TOKEN: ${{ github.token }}\n      STABLE_SIGNING_KEY: "
+     + STABLE_SECRET + "\n", "hands a secret to every step"),
+    ("      - name: Check the inputs, the ref, the tag and the commit\n",
+     "      - name: Check the inputs, the ref, the tag and the commit\n        env:\n" + STABLE_LINE, "a secrets reference"),
+])
+def test_the_policy_refuses_a_changed_stable_job(old, new, why):
+    assert old in TEXT
+    probs = public_workflows.workflow_problems(PATH, TEXT.replace(old, new, 1))
+    assert any(why in p for p in probs), probs
+
+
+def test_the_stable_environment_of_the_workflow_is_the_configuration():
+    """RELGH-3: the literal environment and secret of the stable job are stable_environment.json's"""
+    import yaml
+    import stable_environment
+    cfg = stable_environment.load_config()
+    job = yaml.safe_load(TEXT)["jobs"]["sign-stable"]
+    assert job["environment"] == cfg["environment"] == "stable-signing"
+    assert public_workflows.STABLE_SECRET == "${{ secrets.%s }}" % cfg["secret"]
+    assert job["if"] == "needs.plan.outputs.kind == 'stable'" and yaml.safe_load(TEXT)["jobs"]["sign"]["if"] == "needs.plan.outputs.kind == 'nightly'"
+    assert public_workflows.SIGN_JOBS["stable-signing"][0] == "STABLE_SIGNING_KEY"
 
 
 @pytest.mark.parametrize("old,new", [
@@ -131,20 +192,35 @@ def test_the_workflow_has_no_kind_and_no_cloud_credential():
     on = doc.get("on", doc.get(True))
     assert set(on) == {"workflow_dispatch"} and set(on["workflow_dispatch"]["inputs"]) == {"tag", "commit", "request"}
     low = json.dumps(doc, default=str).lower()    # the parsed workflow (comments are not code)
-    for word in ("id-token", "kms", "aws", "oidc", "inputs.kind", "cosign", "role"):
+    for word in ("id-token", "kms", "aws", "oidc", "inputs.kind", "cosign", "role", "deck-2026", "release-ed25519"):
         assert word not in low, word
     assert doc["env"] == {"IN_TAG": "${{ inputs.tag }}", "IN_COMMIT": "${{ inputs.commit }}", "IN_REQUEST": "${{ inputs.request }}"}
 
 
-def test_the_key_is_shredded_by_an_always_step_after_the_signing_step():
+@pytest.mark.parametrize("job,var,secret,kind", [("sign", "NIGHTLY_SIGNING_KEY", SECRET, "nightly"),
+                                                  ("sign-stable", "STABLE_SIGNING_KEY", "${{ secrets.OPENBFME_STABLE_SIGNING_KEY }}", "stable")])
+def test_the_key_is_shredded_by_an_always_step_after_the_signing_step(job, var, secret, kind):
     import yaml
-    steps = yaml.safe_load(TEXT)["jobs"]["sign"]["steps"]
+    steps = yaml.safe_load(TEXT)["jobs"][job]["steps"]
     names = [s.get("name", "") for s in steps]
-    i = next(n for n, s in enumerate(steps) if s.get("env", {}).get("NIGHTLY_SIGNING_KEY") == SECRET)
+    i = next(n for n, s in enumerate(steps) if s.get("env", {}).get(var) == secret)
     assert steps[i]["run"].startswith("python3 tools/release/actions_release.py sign ")
     after = steps[i + 1]
-    assert after.get("if") == "always()" and "/dev/shm/openbfme-nightly-key-" in after["run"] and "shred" in after["run"], names
-    assert [s for s in steps if "NIGHTLY_SIGNING_KEY" in json.dumps(s)] == [steps[i]]
+    assert after.get("if") == "always()" and f"/dev/shm/openbfme-{kind}-key-" in after["run"] and f"{kind}.pem" in after["run"] \
+        and "shred" in after["run"], names
+    assert [s for s in steps if var in json.dumps(s)] == [steps[i]]
+
+
+def test_the_stable_job_checks_the_environment_and_the_approval_before_the_key_step():
+    """RELGH-3: before the one step that holds the key, the job runs the plan again (the environment, its reviewers, the dispatcher) and
+    the approval check (the owner approved this run, not the account that started it)"""
+    import yaml
+    steps = yaml.safe_load(TEXT)["jobs"]["sign-stable"]["steps"]
+    runs = [s.get("run", "") for s in steps]
+    key = next(n for n, s in enumerate(steps) if "STABLE_SIGNING_KEY" in json.dumps(s.get("env", {})))
+    plan = next(n for n, r in enumerate(runs) if "actions_release.py plan" in r)
+    appr = next(n for n, r in enumerate(runs) if r == "python3 tools/release/stable_environment.py approval")
+    assert plan < appr < key and runs.index("python3 tools/release/actions_release.py draft --pkg \"$RUNNER_TEMP/pkg\"") > key
 
 
 def test_no_input_is_expanded_into_a_script():
@@ -156,7 +232,7 @@ def test_no_input_is_expanded_into_a_script():
             assert "${{" not in step.get("run", ""), (name, step.get("name"))
 
 
-def test_only_the_sign_job_can_write_or_read_the_key():
+def test_only_the_sign_jobs_can_write_or_read_the_key():
     import yaml
     doc = yaml.safe_load(TEXT)
     for name, job in doc["jobs"].items():
@@ -164,15 +240,24 @@ def test_only_the_sign_job_can_write_or_read_the_key():
             assert job["permissions"] == {"contents": "write"}
             assert job["environment"] == "nightly-signing"
             assert set(job["needs"]) == {"plan", "macos", "package"}
+            assert "STABLE_SIGNING_KEY" not in json.dumps(job)
+        elif name == "sign-stable":
+            assert job["permissions"] == {"contents": "write", "actions": "read"}
+            assert job["environment"] == "stable-signing"
+            assert set(job["needs"]) == {"plan", "macos", "package"}
+            assert "NIGHTLY_SIGNING_KEY" not in json.dumps(job)
         else:
-            assert "permissions" not in job and "environment" not in job
+            assert "environment" not in job
             assert "vars." not in json.dumps(job) and "secrets." not in json.dumps(job)
-            # the plan job reads the published stable release (the transition rule): a read-only token, nothing else
+            # the plan job reads the published stable release (the transition rule) and (RELGH-3) the environment stable-signing: a
+            # read-only token, nothing else
             assert ("github.token" in json.dumps(job)) == (name == "plan")
-    assert doc["jobs"]["sign"]["env"] == {"GH_TOKEN": "${{ github.token }}"}
-    assert doc["jobs"]["plan"]["env"] == {"GH_TOKEN": "${{ github.token }}"} and "permissions" not in doc["jobs"]["plan"]
+            assert job.get("permissions") == ({"contents": "read", "actions": "read"} if name == "plan" else None)
+    assert doc["jobs"]["sign"]["env"] == doc["jobs"]["sign-stable"]["env"] == {"GH_TOKEN": "${{ github.token }}"}
+    assert doc["jobs"]["plan"]["env"] == {"GH_TOKEN": "${{ github.token }}"}
+    assert doc["jobs"]["plan"]["outputs"] == {"kind": "${{ steps.plan.outputs.kind }}"}
     assert doc["permissions"] == {"contents": "read"}
-    assert TEXT.count("secrets.") == 1
+    assert TEXT.count("secrets.") == 2 and TEXT.count(SECRET) == 1 and TEXT.count("${{ secrets.OPENBFME_STABLE_SIGNING_KEY }}") == 1
     assert "cache" not in TEXT.lower().replace("ccache", "")   # no cache another workflow could have written
 
 
@@ -236,7 +321,7 @@ def test_the_package_workflow_passes_the_policy():
      "    uses: Open-BFME/openbfme-godot/.github/workflows/release-package.yml@" + "0" * 40 + "\n    with:\n      platform: linux\n",
      "not ./.github/workflows/release-package.yml"),
     ("release", "release", "  windows-lib:\n    name: Windows\n", "  windows-lib:\n    name: Windows\n    permissions:\n      contents: read\n",
-     "jobs with their own permissions"),
+     "calls a workflow with its own permissions"),
     ("other", "release", "", "", "calls a workflow (only the release workflow may)"),
 ])
 def test_the_policy_refuses_other_calls(path, text, old, new, why):
@@ -250,7 +335,7 @@ def test_the_policy_refuses_other_calls(path, text, old, new, why):
 # ---- actions_release.py plan / checkout-is-tag / trust-check -----------------------------------------------------------------------------
 
 import ed25519  # noqa: E402
-from test_signing import DECK, DECK_SECRET, NIGHTLY, NIGHTLY_SECRET, OTHER, OTHER_SECRET, key_list  # noqa: E402
+from test_signing import DECK, DECK_SECRET, NIGHTLY, NIGHTLY_SECRET, OTHER, OTHER_SECRET, STABLE, STABLE_SECRET, key_list  # noqa: E402
 
 
 def git(d: Path, *args: str) -> str:
@@ -261,11 +346,15 @@ def nlist(*keys: bytes) -> str:
     return "# the nightly-only keys\n" + "".join(f"{k.hex()}  nightly-{n}\n" for n, k in enumerate(keys, 1))
 
 
-def commit_lists(d: Path, message: str, nightly: str, tag: str | None = None) -> str:
-    """a commit of launcher/nightly_keys.pub (with the stable lists beside it); an annotated `tag` on it"""
+def commit_lists(d: Path, message: str, nightly: str, tag: str | None = None, stable: tuple = ()) -> str:
+    """a commit of launcher/nightly_keys.pub (with the stable lists beside it: the Deck key, then `stable`'s (key, label) entries, RELGH-3;
+    with entries also tools/release/stable_environment.json); an annotated `tag` on it"""
     (d / "launcher").mkdir(exist_ok=True)
     (d / "launcher/release_key.pub").write_text(DECK.hex() + "\n")
-    key_list(d / "launcher/release_keys.pub", (DECK, "deck-2026"))
+    key_list(d / "launcher/release_keys.pub", (DECK, "deck-2026"), *stable)
+    if stable:
+        (d / "tools/release").mkdir(parents=True, exist_ok=True)
+        (d / "tools/release/stable_environment.json").write_text((HERE / "stable_environment.json").read_text())
     (d / "launcher/nightly_keys.pub").write_text(nightly)
     (d / "a.txt").write_text(message + "\n")
     git(d, "add", "-A")
@@ -349,6 +438,7 @@ def repo(tmp_path, monkeypatch, pub):
     monkeypatch.chdir(d)
     pub.release("v0.4.13", c1)
     env = {"GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REF": "refs/heads/main", "GITHUB_REPOSITORY": actions_release.TARGET,
+           "GITHUB_WORKFLOW_REF": f"{actions_release.TARGET}/.github/workflows/release.yml@refs/heads/main",
            "GITHUB_SHA": head, "IN_TAG": "v0.4.14-nightly.20261023", "IN_COMMIT": c1, "IN_REQUEST": "ab" * 16}
     for k, v in env.items():
         monkeypatch.setenv(k, v)
@@ -379,12 +469,170 @@ def test_plan_refuses_a_nightly_number(repo, capsys, monkeypatch, tag):
     assert rc == 1 and "not a nightly release tag" in out, out
 
 
-@pytest.mark.parametrize("tag", ["v0.4.13", "v0.4.15", "v1.0.0", "v0.4.13-alpha.1"])
-def test_plan_refuses_a_stable_tag(repo, capsys, monkeypatch, tag):
-    """a stable release is signed with the release key off GitHub: the workflow never takes its tag, even a real one on main"""
+@pytest.mark.parametrize("tag", ["v0.4.13-alpha.1", "v0.4.13-preview.2", "v0.4.13-playtest.1", "v0.4.13.1", "0.4.13"])
+def test_plan_refuses_a_tag_that_is_neither_a_nightly_nor_stable(repo, capsys, monkeypatch, tag):
     monkeypatch.setenv("IN_TAG", tag)
     rc, out = plan(capsys)
-    assert rc == 1 and "not a nightly release tag" in out and "only nightlies are signed on GitHub Actions" in out, out
+    assert rc == 1 and "not a nightly release tag" in out and "not a stable one" in out, out
+
+
+def test_plan_of_a_stable_tag_needs_the_stable_configuration(repo, capsys, monkeypatch):
+    """RELGH-3: the stable v0.4.13 at c1 was made before the stable Actions key: the workflow cannot sign it"""
+    monkeypatch.setenv("IN_TAG", "v0.4.13")
+    rc, out = plan(capsys)
+    assert rc == 1 and "has no tools/release/stable_environment.json" in out, out
+
+
+# ---- RELGH-3: a stable release (the stable Actions key, the environment stable-signing) -----------------------------------------------------
+
+STAG = "v0.4.18"
+SLIST = ((STABLE, "stable-2026"),)
+
+
+def env_record(reviewers=("Ancalgonn",), prevent=True, bypass=False, branches=(("main", "branch"),), rules=(), dbp=None) -> dict:
+    """the stand-in GitHub's record of the environment stable-signing (stable_environment.py check reads it)"""
+    return {"record": {"name": "stable-signing", "can_admins_bypass": bypass,
+                       "deployment_branch_policy": dbp or {"protected_branches": False, "custom_branch_policies": True},
+                       "protection_rules": [{"type": "required_reviewers", "prevent_self_review": prevent,
+                                             "reviewers": [{"type": "User", "reviewer": {"login": r}} for r in reviewers]},
+                                            {"type": "branch_policy"}, *rules]},
+            "branch_policies": [{"id": 1 + i, "name": n, "type": ty} for i, (n, ty) in enumerate(branches)]}
+
+
+def set_gh(pub, **items) -> None:
+    s = json.loads(pub.state.read_text())
+    s.update(items)
+    pub.state.write_text(json.dumps(s))
+
+
+@pytest.fixture()
+def srepo(repo, monkeypatch):
+    """the repo world, then on main: t (the lists with the stable Actions key, PUBLISHED as the stable v0.4.14 long ago) and h (the stable
+    v0.4.18 to sign: GITHUB_SHA and the request's commit); the environment stable-signing as configured; the release account dispatched"""
+    d, pub = repo["dir"], repo["pub"]
+    t1 = commit_lists(d, "stable key", nlist(NIGHTLY), "v0.4.14", stable=SLIST)
+    pub.release("v0.4.14", t1)
+    h = commit_lists(d, "stable head", nlist(NIGHTLY), STAG, stable=SLIST)
+    set_gh(pub, environments={"stable-signing": env_record()}, approvals={"4242": [
+        {"state": "approved", "comment": "ok", "environments": [{"name": "stable-signing"}], "user": {"login": "Ancalgonn"}}]})
+    for k, v in {"GITHUB_SHA": h, "IN_TAG": STAG, "IN_COMMIT": h, "GITHUB_TRIGGERING_ACTOR": "release-bot", "GITHUB_RUN_ID": "4242"}.items():
+        monkeypatch.setenv(k, v)
+    return {**repo, "t": t1, "h": h}
+
+
+def test_plan_accepts_a_stable_release_and_names_its_kind(srepo, capsys, monkeypatch, tmp_path):
+    out_file = tmp_path / "out.txt"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(out_file))
+    rc, out = plan(capsys)
+    assert rc == 0 and f"PLAN ok: {STAG}" in out and "(stable," in out and "the stable Actions key stable-2026 is trusted since v0.4.14" in out, out
+    assert out_file.read_text() == "kind=stable\n"
+    # and a nightly's kind
+    monkeypatch.setenv("IN_TAG", "v0.4.14-nightly.20261023")
+    monkeypatch.setenv("IN_COMMIT", srepo["c1"])
+    assert plan(capsys)[0] == 0 and out_file.read_text() == "kind=stable\nkind=nightly\n"
+
+
+@pytest.mark.parametrize("change,why", [
+    ({"bypass": True}, "administrators can bypass"),
+    ({"prevent": False}, "'Prevent self-review' is off"),
+    ({"reviewers": ("someone",)}, "the required reviewers are ['someone'], not ['Ancalgonn']"),
+    ({"reviewers": ("Ancalgonn", "release-bot")}, "the required reviewers are"),
+    ({"reviewers": ()}, "the required reviewers are [], not"),
+    ({"branches": (("main", "branch"), ("dev", "branch"))}, "not exactly the branch main"),
+    ({"branches": (("main", "tag"),)}, "not exactly the branch main"),
+    ({"branches": ()}, "not exactly the branch main"),
+    ({"dbp": {"protected_branches": True, "custom_branch_policies": False}}, "are not 'Selected branches and tags'"),
+    ({"rules": ({"type": "custom_rule_x"},)}, "a protection rule this check does not know"),
+    (None, "GitHub has no environment stable-signing"),
+])
+def test_plan_refuses_a_stable_release_when_the_environment_is_not_the_configuration(srepo, capsys, change, why):
+    set_gh(srepo["pub"], environments={} if change is None else {"stable-signing": env_record(**change)})
+    rc, out = plan(capsys)
+    assert rc == 1 and why in out, out
+
+
+def test_plan_refuses_a_team_reviewer_and_a_read_failure(srepo, capsys, monkeypatch):
+    rec = env_record()
+    rec["record"]["protection_rules"][0]["reviewers"] = [{"type": "Team", "reviewer": {"slug": "owners"}}]
+    set_gh(srepo["pub"], environments={"stable-signing": rec})
+    rc, out = plan(capsys)
+    assert rc == 1 and "a reviewer that is not a user ('Team')" in out, out
+    set_gh(srepo["pub"], environments={"stable-signing": env_record()})
+    monkeypatch.setenv("FAKE_GH_FAULT", "env-read-fail")
+    rc, out = plan(capsys)
+    assert rc == 1 and "environments/stable-signing failed" in out, out
+
+
+@pytest.mark.parametrize("actor,why", [("Ancalgonn", "is a required reviewer of stable-signing"),
+                                       ("ancalgonn", "is a required reviewer of stable-signing"),
+                                       ("", "is not a GitHub login")])
+def test_plan_refuses_a_stable_release_the_dispatcher_could_approve(srepo, capsys, monkeypatch, actor, why):
+    """the self-approval loophole: the account that started the run must not be a reviewer (its token could approve the run)"""
+    monkeypatch.setenv("GITHUB_TRIGGERING_ACTOR", actor)
+    rc, out = plan(capsys)
+    assert rc == 1 and why in out, out
+
+
+def test_plan_refuses_a_stable_release_whose_key_the_launchers_do_not_trust_yet(srepo, capsys, monkeypatch):
+    pub = srepo["pub"]
+    s = json.loads(pub.state.read_text())
+    s["releases"] = [r for r in s["releases"] if r["tag_name"] != "v0.4.14"]   # only v0.4.13 (no stable Actions key) is published
+    pub.state.write_text(json.dumps(s))
+    rc, out = plan(capsys)
+    assert rc == 1 and "v0.4.13 does not trust the stable key(s)" in out and "launcher/release_keys.pub lists" in out, out
+    # published, but under the 14 days
+    pub.release("v0.4.14", srepo["t"], published_at=old_days(5))
+    rc, out = plan(capsys)
+    assert rc == 1 and "v0.4.14 was published 5.0 days ago, under 14" in out and "refuse the stable release" in out, out
+
+
+@pytest.mark.parametrize("entries,why", [
+    (((STABLE, "deck-2026x"),), "has no key stable-2026"),
+    (((OTHER, "other-2026"),), "has no key stable-2026"),
+])
+def test_plan_refuses_a_commit_without_the_stable_actions_key(srepo, capsys, monkeypatch, entries, why):
+    h = commit_lists(srepo["dir"], "no stable key", nlist(NIGHTLY), "v0.4.19", stable=entries)
+    for k, v in {"GITHUB_SHA": h, "IN_TAG": "v0.4.19", "IN_COMMIT": h}.items():
+        monkeypatch.setenv(k, v)
+    rc, out = plan(capsys)
+    assert rc == 1 and why in out, out
+
+
+def test_the_deck_key_can_never_be_the_stable_actions_key(srepo, capsys, monkeypatch):
+    """a configuration naming the list's first entry (the offline Deck key) is refused: deck-2026 never enters GitHub"""
+    d = srepo["dir"]
+    cfg = json.loads((HERE / "stable_environment.json").read_text())
+    cfg["key_label"] = "deck-2026"
+    h = commit_lists(d, "deck as the stable key", nlist(NIGHTLY), None, stable=SLIST)
+    (d / "tools/release/stable_environment.json").write_text(json.dumps(cfg))
+    git(d, "commit", "-q", "-am", "deck label")
+    h = git(d, "rev-parse", "HEAD")
+    git(d, "tag", "-a", "-m", "v0.4.19", "v0.4.19", h)
+    for k, v in {"GITHUB_SHA": h, "IN_TAG": "v0.4.19", "IN_COMMIT": h}.items():
+        monkeypatch.setenv(k, v)
+    rc, out = plan(capsys)
+    assert rc == 1 and "is the first entry of launcher/release_keys.pub, the Deck key" in out, out
+
+
+@pytest.mark.parametrize("field,value,why", [
+    ("prevent_self_review", False, "prevent_self_review must be true"),
+    ("can_admins_bypass", True, "can_admins_bypass must be false"),
+    ("deployment_branches", ["main", "dev"], "deployment_branches must be exactly"),
+    ("reviewers", [], "reviewers is not a list"),
+    ("environment", "nightly-signing", "is not the nightly one"),
+])
+def test_plan_refuses_a_configuration_that_weakens_a_rule(srepo, capsys, monkeypatch, field, value, why):
+    d = srepo["dir"]
+    cfg = json.loads((HERE / "stable_environment.json").read_text())
+    cfg[field] = value
+    (d / "tools/release/stable_environment.json").write_text(json.dumps(cfg))
+    git(d, "commit", "-q", "-am", "weaker")
+    h = git(d, "rev-parse", "HEAD")
+    git(d, "tag", "-a", "-m", "v0.4.19", "v0.4.19", h)
+    for k, v in {"GITHUB_SHA": h, "IN_TAG": "v0.4.19", "IN_COMMIT": h}.items():
+        monkeypatch.setenv(k, v)
+    rc, out = plan(capsys)
+    assert rc == 1 and why in out, out
 
 
 @pytest.mark.parametrize("var,value,why", [
@@ -392,6 +640,9 @@ def test_plan_refuses_a_stable_tag(repo, capsys, monkeypatch, tag):
     ("GITHUB_REF", "refs/tags/v0.4.13", "not refs/heads/main"),
     ("GITHUB_EVENT_NAME", "push", "not workflow_dispatch"),
     ("GITHUB_REPOSITORY", "someone/fork", "not Open-BFME/openbfme-godot"),
+    ("GITHUB_WORKFLOW_REF", "Open-BFME/openbfme-godot/.github/workflows/other.yml@refs/heads/main", "not Open-BFME/openbfme-godot/.github"),
+    ("GITHUB_WORKFLOW_REF", "Open-BFME/openbfme-godot/.github/workflows/release.yml@refs/heads/side", "not Open-BFME/openbfme-godot/.github"),
+    ("GITHUB_WORKFLOW_REF", "", "not Open-BFME/openbfme-godot/.github"),
     ("IN_TAG", "v0.4.14-nightly.20261023; curl evil", "not a nightly release tag"),
     ("IN_TAG", "v0.4.14-nightly.20261024", "names nothing here"),
     ("IN_COMMIT", "A" * 40, "not 40 lower-case hex"),
@@ -659,12 +910,15 @@ def test_dispatch_passes_the_inputs_as_fields(tmp_path, monkeypatch, capsys):
     assert call[:3] == ["workflow", "run", "release.yml"] and "--ref" in call and call[call.index("--ref") + 1] == "main"
     assert f"request={req['request']}" in call and f"tag={tag}" in call and f"commit={'c' * 40}" in call
     assert not any(c.startswith("kind=") for c in call), "the workflow has no kind input any more"
-    # a stable tag is never dispatched; there is no --kind
-    assert actions_release.main(["dispatch", "--tag", "v0.4.13", "--commit", "c" * 40, "--out", str(out)]) == 1
-    assert "not a nightly tag" in capsys.readouterr().err
+    assert req["kind"] == "nightly"
+    # RELGH-3: a stable tag is dispatched the same way (the workflow takes its kind from the tag); an alpha build never; there is no --kind
+    assert actions_release.main(["dispatch", "--tag", "v0.4.13", "--commit", "c" * 40, "--out", str(out)]) == 0
+    assert json.loads(out.read_text())["kind"] == "stable"
+    assert actions_release.main(["dispatch", "--tag", "v0.4.13-alpha.1", "--commit", "c" * 40, "--out", str(out)]) == 1
+    assert "is not a nightly or a stable tag" in capsys.readouterr().err
     with pytest.raises(SystemExit):
         actions_release.main(["dispatch", "--tag", tag, "--commit", "c" * 40, "--kind", "nightly", "--out", str(out)])
-    assert len(json.loads(sf.read_text())["calls"]) == 1
+    assert len(json.loads(sf.read_text())["calls"]) == 2
 
 
 def run_record(req: str, **kw) -> dict:
@@ -717,26 +971,26 @@ class Signing:
     """actions_release.py sign on stand-in inputs: the repository (launcher lists committed, a stable tag listing the key), the build jobs'
     artifacts (package_dir / mac_package_dir) and a fake tmpfs"""
 
-    def __init__(self, tmp: Path, d: Path, mp):
+    def __init__(self, tmp: Path, d: Path, mp, tag: str = NTAG):
         from test_autorelease import package_dir, mac_package_dir
-        self.tmp, self.repo, self.mp = tmp, d, mp
+        self.tmp, self.repo, self.mp, self.tag = tmp, d, mp, tag
         self.shm = tmp / "shm"
         self.shm.mkdir()
         self.commit = git(d, "rev-parse", "HEAD")
         # the tools run from the stand-in repository (make_manifest.py asks ITS git for the tag on HEAD)
         import shutil
-        shutil.copytree(HERE, d / "tools/release", ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache"))
+        shutil.copytree(HERE, d / "tools/release", ignore=shutil.ignore_patterns("__pycache__", ".pytest_cache"), dirs_exist_ok=True)
         shutil.copy2(REPO / "tools/precommit.py", d / "tools/precommit.py")
         mp.setattr(actions_release, "HERE", d / "tools/release")
         self.inp = tmp / "in"
-        package_dir(self.inp / "packages", NTAG)
-        mac_package_dir(d, NTAG, self.inp / "macos", commit=self.commit)
+        package_dir(self.inp / "packages", tag)
+        mac_package_dir(d, tag, self.inp / "macos", commit=self.commit)
         self.pkg = tmp / "pkg"
         mp.setattr(actions_release, "SHM", self.shm)
         mp.setattr(actions_release, "TARGET", "Test/repo")
         mp.setenv("OPENBFME_RELEASE_STANDIN", "1")
         mp.setenv("OPENBFME_TEST_SHM", str(self.shm))
-        mp.setenv("IN_TAG", NTAG)
+        mp.setenv("IN_TAG", tag)
         mp.setenv("IN_COMMIT", self.commit)
         mp.setenv("IN_REQUEST", "cd" * 16)
         self.seen: list[dict] = []
@@ -745,7 +999,7 @@ class Signing:
         def spy(cmd, **kw):
             if any("audit_package.py" in str(c) for c in cmd):
                 return ""   # the stand-in archives are no real packages (the audit has its own tests); everything else runs for real
-            env = {k: v for k, v in os.environ.items() if k == "NIGHTLY_SIGNING_KEY"}
+            env = {k: v for k, v in os.environ.items() if k in ("NIGHTLY_SIGNING_KEY", "STABLE_SIGNING_KEY") or "PRIVATE KEY" in v}
             item = {"cmd": [str(c) for c in cmd], "env_has_key": bool(env), "cwd": kw.get("cwd")}
             if "--key" in item["cmd"]:
                 kf = Path(item["cmd"][item["cmd"].index("--key") + 1])
@@ -757,12 +1011,14 @@ class Signing:
             return real(cmd, **kw)
         mp.setattr(actions_release, "run", spy)
 
-    def sign(self, secret: bytes = NIGHTLY_SECRET, pem: str | None = None) -> int:
-        os.environ["NIGHTLY_SIGNING_KEY"] = ed25519.private_key_pem(secret) if pem is None else pem
+    def sign(self, secret: bytes = NIGHTLY_SECRET, pem: str | None = None, var: str = "NIGHTLY_SIGNING_KEY", also: dict | None = None) -> int:
+        os.environ[var] = ed25519.private_key_pem(secret) if pem is None else pem
+        os.environ.update(also or {})
         try:
             return actions_release.main(["sign", "--in", str(self.inp), "--pkg", str(self.pkg)])
         finally:
-            os.environ.pop("NIGHTLY_SIGNING_KEY", None)
+            for v in ("NIGHTLY_SIGNING_KEY", "STABLE_SIGNING_KEY"):
+                os.environ.pop(v, None)
 
     def tools(self) -> list[dict]:
         """the child processes that are not git or gh reads"""
@@ -783,6 +1039,98 @@ def signing(repo, tmp_path, monkeypatch):
 @pytest.fixture(autouse=True)
 def _no_key_in_the_environment(monkeypatch):
     monkeypatch.delenv("NIGHTLY_SIGNING_KEY", raising=False)
+    monkeypatch.delenv("STABLE_SIGNING_KEY", raising=False)
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+
+
+@pytest.fixture()
+def ssigning(srepo, tmp_path, monkeypatch):
+    """RELGH-3: sign a stable release (STAG at main's head, the stable Actions key trusted by the published v0.4.14, the environment as
+    configured, run 4242 approved by the owner and started by the release account)"""
+    s = Signing(tmp_path, srepo["dir"], monkeypatch, tag=STAG)
+    s.pub = srepo["pub"]
+    return s
+
+
+def ssign(s: Signing, secret: bytes = STABLE_SECRET, **kw) -> int:
+    return s.sign(secret, var="STABLE_SIGNING_KEY", **kw)
+
+
+def test_sign_writes_stable_signatures_with_the_stable_actions_key(ssigning, capsys):
+    assert ssign(ssigning) == 0, capsys.readouterr().err
+    assert f"SIGN ok: {STAG}" in capsys.readouterr().out
+    keys = release_keys.load(ssigning.repo / "launcher/release_keys.pub")
+    nightly = release_keys.load_nightly(ssigning.repo / "launcher/nightly_keys.pub", None)
+    for m in ("manifest.json", "manifest-macos.json"):
+        data, sig = (ssigning.pkg / m).read_bytes(), (ssigning.pkg / f"{m}.sig").read_bytes()
+        assert release_keys.verify_detail(keys, m, data, sig) == ("stable-2026", "raw")
+        assert release_keys.verify_detail([keys[0]], m, data, sig) is None, "not the Deck key's"
+        assert json.loads(data)["channel"] == "stable" and json.loads(data)["version"] == STAG
+    assert seal_package_check(ssigning.pkg, keys, nightly) == []
+    keyed = [s for s in ssigning.seen if "keyfile" in s]
+    assert keyed and all(s["mode"] == "0o600" and s["in_shm"] and s["keyfile"].name == "stable.pem" for s in keyed)
+    assert all(s["keyfile"].parent.name.startswith("openbfme-stable-key-") for s in keyed)
+    assert ssigning.leftovers() == [] and not any(s["env_has_key"] for s in ssigning.seen)
+    assert "STABLE_SIGNING_KEY" not in os.environ and not any("PRIVATE KEY" in " ".join(s["cmd"]) for s in ssigning.seen)
+
+
+def seal_package_check(pkg: Path, keys, nightly) -> list:
+    import seal_package
+    return seal_package.check(pkg, keys, actions_release.TARGET, nightly)
+
+
+@pytest.mark.parametrize("secret,why", [
+    (DECK_SECRET, "is the Deck key (the offline recovery key: it never enters GitHub)"),
+    (NIGHTLY_SECRET, "not the stable Actions key stable-2026"),
+    (OTHER_SECRET, "not the stable Actions key stable-2026"),
+])
+def test_sign_refuses_any_stable_key_but_the_stable_actions_key(ssigning, capsys, secret, why):
+    assert ssign(ssigning, secret) == 1
+    err = capsys.readouterr().err
+    assert why in err and ed25519.private_key_pem(secret)[:40] not in err, err
+    assert ssigning.leftovers() == [] and not ssigning.pkg.exists() and not ssigning.tools()
+
+
+@pytest.mark.parametrize("approvals,why", [
+    ([], "no configured reviewer approved stable-signing"),
+    ([{"state": "approved", "environments": [{"name": "stable-signing"}], "user": {"login": "someone"}}], "no configured reviewer approved"),
+    ([{"state": "approved", "environments": [{"name": "nightly-signing"}], "user": {"login": "Ancalgonn"}}], "no configured reviewer approved"),
+    ([{"state": "approved", "environments": [{"name": "stable-signing"}], "user": {"login": "Ancalgonn"}},
+      {"state": "rejected", "environments": [{"name": "stable-signing"}], "user": {"login": "Ancalgonn"}}], "is not an approval"),
+])
+def test_sign_refuses_a_stable_release_the_owner_did_not_approve(ssigning, capsys, approvals, why):
+    set_gh(ssigning.pub, approvals={"4242": approvals})
+    assert ssign(ssigning) == 1
+    assert why in capsys.readouterr().err
+    assert ssigning.leftovers() == [] and not ssigning.pkg.exists() and not ssigning.tools()
+
+
+def test_sign_refuses_a_self_approved_or_reviewer_started_stable_run(ssigning, capsys, monkeypatch):
+    monkeypatch.setenv("GITHUB_TRIGGERING_ACTOR", "Ancalgonn")     # the owner's own token started the run, and approved it
+    assert ssign(ssigning) == 1
+    assert "is a required reviewer of stable-signing" in capsys.readouterr().err
+    assert not ssigning.tools()
+
+
+def test_sign_refuses_a_stable_run_when_the_environment_was_weakened_after_the_plan(ssigning, capsys):
+    set_gh(ssigning.pub, environments={"stable-signing": env_record(prevent=False, bypass=True)})
+    assert ssign(ssigning) == 1
+    err = capsys.readouterr().err
+    assert "'Prevent self-review' is off" in err and "administrators can bypass" in err
+    assert not ssigning.tools() and ssigning.leftovers() == []
+
+
+def test_sign_refuses_the_key_of_the_other_kind_beside_it(ssigning, capsys):
+    """one step, one key: a stable run that also holds the nightly key (or the reverse) signs nothing"""
+    assert ssign(ssigning, also={"NIGHTLY_SIGNING_KEY": ed25519.private_key_pem(NIGHTLY_SECRET)}) == 1
+    assert "holds the key of another kind (NIGHTLY_SIGNING_KEY)" in capsys.readouterr().err
+    assert "NIGHTLY_SIGNING_KEY" not in os.environ and "STABLE_SIGNING_KEY" not in os.environ
+
+
+def test_sign_refuses_a_stable_key_in_the_nightly_variable(ssigning, capsys):
+    assert ssigning.sign(STABLE_SECRET) == 1      # NIGHTLY_SIGNING_KEY on a stable run: STABLE_SIGNING_KEY is empty
+    err = capsys.readouterr().err
+    assert "holds the key of another kind" in err or "STABLE_SIGNING_KEY (the environment stable-signing's secret) is empty" in err, err
 
 
 def test_sign_writes_nightly_signatures_and_shreds_the_key(signing, capsys):
@@ -887,11 +1235,14 @@ def test_sign_refuses_an_empty_or_malformed_key(signing, capsys, pem, why):
     assert signing.leftovers() == [] and not signing.tools()
 
 
-def test_sign_refuses_a_stable_tag(signing, monkeypatch, capsys):
+def test_sign_refuses_a_nightly_key_on_a_stable_tag(signing, monkeypatch, capsys):
+    """RELGH-3: a stable tag needs the stable Actions key in STABLE_SIGNING_KEY; the nightly key in its own variable signs nothing"""
     monkeypatch.setenv("IN_TAG", "v0.4.13")
     assert signing.sign() == 1
-    assert "not a nightly release tag" in capsys.readouterr().err
+    assert "holds the key of another kind (NIGHTLY_SIGNING_KEY)" in capsys.readouterr().err
     assert signing.leftovers() == [] and not signing.tools()
+    monkeypatch.setenv("IN_TAG", "v0.4.13-alpha.1")
+    assert signing.sign() == 1 and "not a nightly release tag" in capsys.readouterr().err
 
 
 def test_sign_does_not_use_the_environment_of_the_key_after_popping_it(signing):
@@ -992,17 +1343,20 @@ def test_draft_refuses_a_corrupted_upload_and_a_stray_file(built, tmp_path, monk
 # ---- autorelease.sh --nightly with OPENBFME_RELEASE_SIGNER=actions, end to end (stand-in gh runs a stand-in release workflow) ----------------
 
 WORKFLOW_HOOK = '''#!{python}
-"""the release workflow's stand-in: what release.yml leaves behind (a run record and a draft signed with the NIGHTLY key), from the same stand-in packages"""
+"""the release workflow's stand-in: what release.yml leaves behind (a run record and a draft signed with the NIGHTLY key, or for a stable tag
+with the stable Actions key, RELGH-3), from the same stand-in packages"""
 import hashlib, json, os, subprocess, sys
 from pathlib import Path
 Path(os.environ["FAKE_WORKFLOW_WORK"]).mkdir(parents=True, exist_ok=True)
 sys.stderr = open(Path(os.environ["FAKE_WORKFLOW_WORK"]) / "hook.err", "a")
 sys.path.insert(0, {here!r})
 from test_autorelease import package_dir, mac_package_dir
-from test_signing import NIGHTLY_SECRET
+from test_signing import NIGHTLY_SECRET, STABLE_SECRET
 import ed25519, make_macos_manifest, seal_package
 tag, commit, req = (os.environ[k] for k in ("IN_TAG", "IN_COMMIT", "IN_REQUEST"))
 assert "IN_KIND" not in os.environ, "the workflow has no kind input"
+NIGHTLY = "-nightly." in tag
+SECRET = NIGHTLY_SECRET if NIGHTLY else STABLE_SECRET
 fault = os.environ.get("FAKE_WORKFLOW_FAULT", "")
 state = Path(os.environ["FAKE_GH_STATE"])
 remote = os.environ["FAKE_GH_REMOTE"]
@@ -1010,7 +1364,7 @@ work = Path(os.environ["FAKE_WORKFLOW_WORK"]) / req
 s = json.loads(state.read_text()) if state.exists() else {{"prs": {{}}, "releases": [], "next": 100}}
 run = {{"id": 900 + len(s.get("release_runs", [])), "status": "completed", "conclusion": "failure" if fault == "fail" else "success",
        "head_branch": os.environ["GH_REF"], "event": "workflow_dispatch", "path": ".github/workflows/release.yml",
-       "display_title": f"Release {{tag}} (nightly, request {{req}})", "html_url": "https://example.invalid/run"}}
+       "display_title": f"Release {{tag}} (request {{req}})", "html_url": "https://example.invalid/run"}}
 s.setdefault("release_runs", []).append(run)
 state.write_text(json.dumps(s))
 if fault == "fail":
@@ -1030,7 +1384,7 @@ mac = mac_package_dir(work / "checkout", tag, work / "mac", commit=commit)
 with open(d / f"SHA256SUMS-{{tag}}.txt", "a") as f:
     f.write(f"{{hashlib.sha256(mac.read_bytes()).hexdigest()}}  {{mac.name}}\\n")
 (d / f"BUILDINFO-{{tag}}.txt").unlink()
-seal_package.seal(d, NIGHTLY_SECRET, os.environ["FAKE_TARGET"])
+seal_package.seal(d, SECRET, os.environ["FAKE_TARGET"])
 subprocess.run([sys.executable, {here!r} + "/make_manifest.py", str(d), "--repo", os.environ["FAKE_TARGET"], "--commit", commit,
                 "--date", __import__("datetime").datetime.now(__import__("datetime").timezone.utc).strftime("%Y-%m-%d"), "--allow-untagged"],
                check=True, capture_output=True)
@@ -1040,11 +1394,11 @@ sealed.write_text(f"{{hashlib.sha256((d / mac.name).read_bytes()).hexdigest()}} 
 (d / "manifest-macos.json").write_bytes(make_macos_manifest.dumps(make_macos_manifest.build(
     tag, os.environ["FAKE_TARGET"], commit, date, archive=d / mac.name, checksum=sealed)))
 for m in ("manifest.json", "manifest-macos.json"):
-    (d / f"{{m}}.sig").write_bytes(ed25519.sign(NIGHTLY_SECRET, (d / m).read_bytes()))
+    (d / f"{{m}}.sig").write_bytes(ed25519.sign(SECRET, (d / m).read_bytes()))
 s = json.loads(state.read_text())
 store = Path(str(state) + ".d")
 store.mkdir(exist_ok=True)
-rel = {{"id": s["next"], "tag_name": tag, "name": f"OpenBFME {{tag}}", "draft": True, "prerelease": True,
+rel = {{"id": s["next"], "tag_name": tag, "name": f"OpenBFME {{tag}}", "draft": True, "prerelease": NIGHTLY,
        "body": f"signed on GitHub Actions\\n\\nopenbfme-release-request: {{req}}\\n", "assets": [],
        "author": {{"login": "github-actions[bot]"}}, "created_at": "2026-10-22T05:00:00Z"}}
 s["next"] += 1
@@ -1152,20 +1506,99 @@ def test_actions_signer_dry_run_prints_the_steps(actions_world):
     assert "dispatches" not in w.gh_data(), "a dry run dispatches nothing"
 
 
-def test_actions_signer_is_for_nightlies_only(actions_world):
+def stable_actions_world(w):
+    """RELGH-3: the world's lists gain the stable Actions key, and a Deck-signed stable release (v0.4.6) ships it (the transition release);
+    the environment stable-signing is as configured; this machine's gh is the release account (no reviewer)"""
+    from test_autorelease import TARGET as T
+    pub = w.repo.joinpath("launcher/release_key.pub").read_text().strip()
+    sha = w.change({"launcher/release_keys.pub": f"{pub}  deck-2026\n{STABLE.hex()}  stable-2026\n", "engine/a.cpp": "4\n"},
+                   "Merge lane/relgh3 (RELGH-3: the stable Actions key)")
+    w.gate(sha)
+    r = w.release(sha)
+    assert r.returncode == 0 and "AUTORELEASE OK v0.4.6" in r.stdout, r.stdout[-3000:] + r.stderr[-1000:]
+    s = w.gh_data()
+    s["environments"] = {"stable-signing": env_record()}
+    w.gh_state.write_text(json.dumps(s))
+    return T
+
+
+def stable_keyless(w, sha: str, *args: str, **env):
+    from test_autorelease import TARGET as T, run as arun
+    full = w.env(**actions_env(w, **{"FAKE_GH_USER": "release-bot", **env}))
+    del full["OPENBFME_RELEASE_KEY"]
+    w.key.unlink(missing_ok=True)
+    return arun("bash", w.repo / "tools/release/autorelease.sh", sha, "--repo", T, "--remote", "origin", *args, env=full)
+
+
+def test_actions_signer_end_to_end_for_a_stable_release(actions_world):
+    """RELGH-3: a stable release signed on GitHub Actions: the trust check of the stable Actions key, the environment and the dispatcher
+    before anything is pushed; the workflow's draft (the stable Actions key's signatures) checked, compared and published as a full release"""
+    w = actions_world
+    stable_actions_world(w)
+    sha = w.change({"engine/a.cpp": "5\n"}, "Merge lane/z (Z-1: a change)")
+    w.gate(sha)
+    r = stable_keyless(w, sha)
+    assert r.returncode == 0, r.stdout[-4000:] + r.stderr[-1000:] + hook_err(w)
+    assert "AUTORELEASE OK v0.4.7" in r.stdout and "TRUST ok: the stable Actions key stable-2026" in r.stdout, r.stdout[-3000:]
+    assert "the dispatcher" not in r.stdout or True
+    assert "no Deck key on this machine" in r.stdout and "after the owner approves the run" in r.stdout
+    assert "waits for the owner's review of the environment stable-signing" in r.stdout
+    assert "checks passed (signed by the stable Actions key stable-2026; nothing added)" in r.stdout and "COMPARE identical" in r.stdout
+    gh = w.gh_data()
+    (d,) = gh["dispatches"]
+    assert d["workflow"] == "release.yml" and d["ref"] == "main" and d["inputs"]["tag"] == "v0.4.7"
+    rel = next(x for x in gh["releases"] if x["tag_name"] == "v0.4.7")
+    assert rel["draft"] is False and rel["prerelease"] is False and rel["author"]["login"] == "github-actions[bot]"
+    store = Path(str(w.gh_state) + ".d")
+    blob = {a["name"]: (store / str(a["id"])).read_bytes() for a in rel["assets"]}
+    keys = release_keys.load(w.repo / "launcher/release_keys.pub")
+    for m in ("manifest.json", "manifest-macos.json"):
+        assert release_keys.verify_detail(keys, m, blob[m], blob[m + ".sig"]) == ("stable-2026", "raw")
+    assert (w.state / "last-released").read_text().split()[:2] == [sha, "v0.4.7"] and not (w.state / "intent").exists()
+
+
+@pytest.mark.parametrize("setup,why", [
+    ("dispatcher-is-reviewer", "is a required reviewer of stable-signing"),
+    ("no-environment", "GitHub has no environment stable-signing"),
+    ("admins-bypass", "administrators can bypass"),
+    ("not-transitioned", "does not trust the stable key(s)"),
+    ("too-young", "under 14"),
+])
+def test_a_stable_release_on_actions_stops_before_any_push(actions_world, setup, why):
+    w = actions_world
+    stable_actions_world(w)
+    env = {}
+    s = w.gh_data()
+    if setup == "dispatcher-is-reviewer":
+        env["FAKE_GH_USER"] = "Ancalgonn"
+    elif setup == "no-environment":
+        s["environments"] = {}
+    elif setup == "admins-bypass":
+        s["environments"] = {"stable-signing": env_record(bypass=True)}
+    elif setup == "not-transitioned":
+        s["releases"] = [r for r in s["releases"] if r["tag_name"] != "v0.4.6"]
+    w.gh_state.write_text(json.dumps(s))
+    if setup == "too-young":
+        env["OPENBFME_TEST_TRUST_DAYS"] = "14"
+    sha = w.change({"engine/a.cpp": "5\n"}, "Merge lane/z (Z-1: a change)")
+    w.gate(sha)
+    before = w.remote_refs("refs/*")
+    r = stable_keyless(w, sha, **env)
+    assert r.returncode != 0 and why in r.stdout + r.stderr, r.stdout[-3000:] + r.stderr[-2000:]
+    assert "trust-check" in r.stdout + r.stderr and "nothing was pushed or published" in r.stdout + r.stderr
+    assert w.remote_refs("refs/*") == before and not w.gh_data().get("dispatches")
+
+
+def test_the_deck_path_still_needs_the_release_key(actions_world):
     from test_autorelease import TARGET as T, run as arun
     w = actions_world
     sha = w.change({"engine/a.cpp": "5\n"}, "Merge lane/z (Z-1: a change)")
     w.gate(sha)
-    r = arun("bash", w.repo / "tools/release/autorelease.sh", sha, "--repo", T, "--remote", "origin", "--plan",
-             env=w.env(**actions_env(w)))
-    assert r.returncode == 2 and "is for --nightly only" in r.stdout + r.stderr, r.stdout + r.stderr
-    assert not w.gh_data().get("dispatches")
-    # the Deck path of a nightly still needs the release key
-    full = w.env(**nightly_env(w))
-    del full["OPENBFME_RELEASE_KEY"]
-    r = arun("bash", w.repo / "tools/release/autorelease.sh", sha, "--repo", T, "--remote", "origin", "--nightly", "--plan", env=full)
-    assert r.returncode == 2 and "OPENBFME_RELEASE_KEY is not set" in r.stdout + r.stderr
+    for flags in (["--nightly"], []):
+        full = w.env(**nightly_env(w))
+        del full["OPENBFME_RELEASE_KEY"]
+        r = arun("bash", w.repo / "tools/release/autorelease.sh", sha, "--repo", T, "--remote", "origin", *flags, "--plan", env=full)
+        assert r.returncode == 2 and "OPENBFME_RELEASE_KEY is not set" in r.stdout + r.stderr
 
 
 @pytest.mark.parametrize("nightly_flag", [True, False])
@@ -1278,3 +1711,36 @@ def test_compare_accepts_a_windows_zip_whose_dll_differs_only_in_its_codeview_gu
     # only the game's Windows ZIP: the launcher's, the Linux and the Mac archives must be the same bytes
     for other in ("openbfme-launcher-v0.4.13-windows-x64.zip", "openbfme-v0.4.13-linux-x64.tar.gz", "openbfme-v0.4.13-macos-arm64.zip"):
         assert actions_release.same_build_archive(other, z(host), z(gh_)) == "not the same bytes"
+
+
+def test_the_package_and_signing_jobs_install_only_hash_pinned_packages():
+    """RELGH-3 dry run: the package job's launcher icon check and the signing jobs' audit need pefile, which the runner lacks; it comes from
+    tools/release/actions_requirements.txt, every line pinned by its hash, installed before any key step"""
+    import re
+    import yaml
+    doc = yaml.safe_load(TEXT)
+    req = (REPO / "tools/release/actions_requirements.txt").read_text().splitlines()
+    pins = [ln for ln in req if ln.strip() and not ln.startswith("#")]
+    assert pins and all(re.fullmatch(r"[a-z0-9-]+==[0-9.]+ --hash=sha256:[0-9a-f]{64}", ln) for ln in pins), pins
+    for name in ("package", "sign", "sign-stable"):
+        runs = [s.get("run", "") for s in doc["jobs"][name]["steps"]]
+        i = next(n for n, r in enumerate(runs) if "actions_requirements.txt" in r)
+        assert "--require-hashes" in runs[i] and "--no-deps" in runs[i] and "--only-binary=':all:'" in runs[i]
+        keyed = [n for n, s in enumerate(doc["jobs"][name]["steps"]) if "SIGNING_KEY" in json.dumps(s.get("env", {}))]
+        assert all(i < k for k in keyed)
+
+
+def test_checkout_is_tag_turns_the_lfs_filter_off_on_a_runner(repo, capsys, monkeypatch):
+    """RELGH-3 dry run: on GitHub's runner the git-lfs clean filter made the plain PNGs of the public tree look changed"""
+    d = repo["dir"]
+    git(d, "checkout", "-q", "--detach", repo["head"])
+    monkeypatch.setenv("IN_TAG", "v0.4.14-nightly.261023200")
+    monkeypatch.setenv("IN_COMMIT", repo["head"])
+    git(d, "config", "--local", "filter.lfs.clean", "false")   # a filter that would fail if it ran
+    monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
+    actions_release.main(["checkout-is-tag"])
+    assert git(d, "config", "--local", "filter.lfs.clean") == "false", "never changed outside a runner"
+    capsys.readouterr()
+    monkeypatch.setenv("GITHUB_ACTIONS", "true")
+    assert actions_release.main(["checkout-is-tag"]) == 0, capsys.readouterr().err
+    assert git(d, "config", "--local", "filter.lfs.clean") == "" and git(d, "config", "--local", "filter.lfs.required") == "false"

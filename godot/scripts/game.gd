@@ -1509,6 +1509,50 @@ func _open_recording() -> void:
 		_begin_replay(_replay_file)
 
 
+# lane SDK-2: the mod scripts' banners (ui.banner: centred near the top of the screen, a few seconds each, the newest replacing the last) and
+# report lines (the log)
+var _sdk_banner_layer: CanvasLayer
+var _sdk_banner: Label
+var _sdk_banner_tween: Tween
+
+
+func _sdk_tick() -> void:
+	for line in _world.take_sdk_reports():
+		print("GAME ", line)
+	for text in _world.take_sdk_banners():
+		print("GAME SDK banner: ", text)
+		_sdk_show_banner(text)
+
+
+func _sdk_show_banner(text: String) -> void:
+	if _sdk_banner == null:
+		_sdk_banner_layer = CanvasLayer.new()
+		_sdk_banner_layer.layer = 90
+		add_child(_sdk_banner_layer)
+		_sdk_banner = Label.new()
+		_sdk_banner.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		_sdk_banner.set_anchors_preset(Control.PRESET_CENTER_TOP)
+		_sdk_banner.anchor_left = 0.1
+		_sdk_banner.anchor_right = 0.9
+		_sdk_banner.offset_left = 0
+		_sdk_banner.offset_right = 0
+		_sdk_banner.offset_top = 90
+		_sdk_banner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_sdk_banner.add_theme_font_size_override("font_size", 26)
+		_sdk_banner.add_theme_color_override("font_color", Color(1.0, 0.86, 0.45))
+		_sdk_banner.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.9))
+		_sdk_banner.add_theme_constant_override("outline_size", 6)
+		_sdk_banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		_sdk_banner_layer.add_child(_sdk_banner)
+	_sdk_banner.text = text
+	_sdk_banner.modulate.a = 1.0
+	if _sdk_banner_tween != null:
+		_sdk_banner_tween.kill()
+	_sdk_banner_tween = create_tween()
+	_sdk_banner_tween.tween_interval(3.5)
+	_sdk_banner_tween.tween_property(_sdk_banner, "modulate:a", 0.0, 0.8)
+
+
 func _process(delta: float) -> void:
 	_frames += 1
 	if _platform_ready:
@@ -1517,6 +1561,8 @@ func _process(delta: float) -> void:
 		_capture_tick() # lane ONLINE-4
 	Release.set_in_game(_state == State.PLAYING) # lane RELEASE-1: the version corner in the menus only
 	_campaign_check_tick() # lane CAMP-1
+	if _state == State.PLAYING and _world != null:
+		_sdk_tick() # lane SDK-2
 	if _stance_at >= 0 and _state == State.PLAYING and _world != null and _world.get_presented_frame() >= _stance_at:
 		_stance_at = -1
 		_stance_proof()
@@ -2143,6 +2189,14 @@ func _begin_game(message: Dictionary) -> void:
 	print("GAME new game: map %s seed %d cash %d" % [message.map, message.seed, message.starting_cash])
 	_rejoin_watch.reset() # lane ONLINEUX-1 r2: every game's rejoin is watched afresh (the watch also starts afresh on a new net_status attempt)
 	_game_kind = "lan" if _net_state == "loading" else ("network" if not _net_state.is_empty() else ("restart" if not _restart_stack.is_empty() else "skirmish"))
+	# lane SDK-1b (a): asset packs are offline only until their online checks exist: a LAN or online game draws the game's own assets on every peer
+	var multiplayer_game := _game_kind == "lan" or _game_kind == "network"
+	var packs: Dictionary = _world.set_asset_packs_used(not multiplayer_game)
+	if packs.get("loaded", false):
+		if multiplayer_game:
+			print("GAME asset packs: not used in this LAN / online game: HD packs are offline only for now (every player sees the game's own models and textures)")
+		else:
+			print("GAME asset packs: used (an offline game)")
 	_hub_begin(message) # lane ONLINEHUB-1: what the score screen records
 	_last_new_game = message.duplicate(true) # lane END-2: the quit menu's Restart starts it again (RW 0x9220DE)
 	if _restart_stack.is_empty():
@@ -3762,9 +3816,9 @@ func _input(event: InputEvent) -> void:
 		# screen its Escape first (AptMenuPlayer::menu_escape) and marks the event used, so this is only reached with no such screen; the quit menu under it stays
 		if not stack.is_empty() and stack[-1] == "SaveLoad.apt":
 			return
-		# lane PLAY-1: Escape over the powers screen closes it with its purchases (AptSpellStore: OnBttnClose and Escape, RW 0x8232ED), not the quit menu
+		# RW 0x8234C8: Escape resets pending SpellStore purchases before closing; ordinary close still accepts them.
 		if _hud != null and _hud.get_spellbook_state().get("store", {}).get("open", false):
-			_hud.close_spell_store()
+			_hud.cancel_spell_store()
 			print("GAME powers screen closed by Escape")
 			return
 		# lane PLAY-1: Escape over the tribute screen closes it (its key handler RW 0x914E91 -> RW 0x914C51), not the quit menu

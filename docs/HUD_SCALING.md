@@ -19,7 +19,11 @@ The separately loaded Powers purchase screen (`SpellStore.apt`) uses the
 same correction on its movie root, anchored at the stage's horizontal
 centre. Its tree, icons, text, help and purchase controls retain their
 proportions together, including when opened on an already-wide viewport
-or resized while open. BFME1 keeps its existing mapping.
+or resized while open. The banner and translucent shade in `Title.instance1`
+cancel that correction in their parent's coordinate space, retaining the
+full-width stage mapping and authored animation/colour. The title plate,
+text and `SpellStoreBackground` View3D globe stay proportional. BFME1 keeps
+its existing mapping.
 
 This is a widescreen presentation correction, not a newly verified retail
 transform rule. S-130's target-code uncertainty remains open.
@@ -37,6 +41,8 @@ Regression coverage:
 - `hud2 palantir: widescreen*`: installed RotWK panels at 4:3, 16:9 and 21:9,
   edge anchoring, resizing and both panels' input hit regions.
 - `spell store widescreen:*`: Powers movie proportions, centring, rendered
-  native-image transforms, resizing and reopening, including 7680x4320.
+  native-image transforms, resizing and reopening, including 7680x4320 and
+  3440x1440; rendered banner/shade geometry at both edges and authored closing fades.
 - `play1 spell store by the mouse:*`: all seven factions at 4:3, 16:9 and
-  21:9; opening, buying, Reset and Accept through actual mouse input.
+  21:9; full-width backdrop coverage, opening, buying, Reset and Accept
+  through actual mouse input.

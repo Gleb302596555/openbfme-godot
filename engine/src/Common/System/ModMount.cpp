@@ -2,6 +2,7 @@
 // See Common/ModMount.h (lane MODS-1): RotWK's -mod switch.
 
 #include "Common/ModMount.h"
+#include "GameLogic/Sdk/SdkManifest.h"
 
 #include "Common/ArchiveFile.h"
 #include "Common/AsciiString.h"
@@ -600,6 +601,26 @@ ModMountReport MountRetailMod(Win32BIGFileSystem &fileSystem, const ModOperand &
 		report.archives.push_back({ "mod", archives[i].name, archives[i].disk.u8string(), archives[i].hash.size, archives[i].hash.md5 });
 	}
 
+	// lane SDK-2: the mod's Luau scripts (GameLogic/Sdk/SdkManifest.h): a broken manifest stops the mount; the sim scripts' fingerprint is an
+	// identity line of its own, and the presentation scripts are left out of the content digest (cosmetic, like asset packs)
+	if (!mod.dir.empty())
+	{
+		SdkModFiles sdk(index);
+		if (sdk.has(SdkManifest::path()))
+		{
+			std::string json, error, fingerprint;
+			SdkManifest manifest;
+			if (!sdk.read(SdkManifest::path(), json, error) || !SdkManifest::parse(json, manifest, error) ||
+				!SdkSimFingerprint(manifest, sdk.reader(), sdk.lister(), fingerprint, error))
+			{
+				report.errors.push_back("mod: " + error);
+				return report;
+			}
+			report.sdkName = manifest.name;
+			report.sdkSimFingerprint = fingerprint;
+		}
+	}
+
 	// identity lines (ProfileIdentity): the mount order and every byte the mod contributes; no absolute path (privacy: only names below the mod)
 	if (!mod.archive.empty())
 	{
@@ -616,18 +637,27 @@ ModMountReport MountRetailMod(Win32BIGFileSystem &fileSystem, const ModOperand &
 		const MountedArchive &a = report.archives[i];
 		report.manifest.push_back("modarchive " + std::to_string(i) + " " + a.canonicalPath + " " + a.md5 + " " + std::to_string(a.size));
 	}
+	size_t contentFiles = 0;
 	for (size_t i = 0; i < index.files.size(); ++i)
 	{
 		const ModLooseFile &f = index.files[i];
-		report.manifest.push_back("modfile " + std::to_string(i) + " " + f.virtualPath + " " + f.md5 + " " + std::to_string(f.size));
+		if (SdkModFiles::isPresentationFile(f.virtualPath) || SdkModFiles::key(f.virtualPath) == SdkModFiles::key(SdkManifest::path()))
+		{
+			continue; // lane SDK-2: presentation scripts never change a game result; the manifest's sim part is in the "sdk sim" line (Sol r1)
+		}
+		report.manifest.push_back("modfile " + std::to_string(contentFiles++) + " " + f.virtualPath + " " + f.md5 + " " + std::to_string(f.size));
 	}
 	std::string manifestText;
 	for (const std::string &l : report.manifest)
 	{
 		manifestText += l + "\n";
 	}
-	report.identity.push_back("modcontent " + std::to_string(report.archives.size()) + " archives " + std::to_string(index.files.size()) + " files " +
+	report.identity.push_back("modcontent " + std::to_string(report.archives.size()) + " archives " + std::to_string(contentFiles) + " files " +
 		MD5::ofBytes(manifestText.data(), manifestText.size()));
+	if (!report.sdkSimFingerprint.empty())
+	{
+		report.identity.push_back("sdk sim " + report.sdkSimFingerprint); // lane SDK-2 (format agreed with PROFILE-2): the sim scripts peers must share
+	}
 
 	if (!mod.dir.empty())
 	{

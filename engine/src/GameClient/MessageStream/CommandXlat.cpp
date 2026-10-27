@@ -6,6 +6,9 @@
 #include "Common/Team.h"
 #include "GameClient/Radar.h"
 #include "GameLogic/AI/AIGarrisonStates.h"
+#include "GameLogic/ActionManager.h"
+#include "GameLogic/Combat/CombatNames.h"
+#include "GameLogic/Object/Contain/GarrisonContainRuntime.h"
 
 #include "Common/BuildAssistant.h"
 #include "Common/SpecialPower.h"
@@ -408,7 +411,10 @@ int CommandTranslator::evaluateContextCommand(Object *obj, const Coord3D *pos, E
 			}
 			else if (type == EvaluateType::DoHint)
 			{
-				hint(MouseCursorName::EnterFriendly);
+				// Retail Mouse.ini supplies the animated OneRing asset for this action.
+				hint(dynamic_cast<CitadelSlaughterHordeContain *>(obj->getContain()) &&
+					enterer->testStatus((unsigned)CombatNames::status("HOLDING_THE_RING"))
+					? MouseCursorName::DeliverRing : MouseCursorName::EnterFriendly);
 			}
 			return msgType;
 		}
@@ -921,13 +927,17 @@ MessageDisposition CommandTranslator::translate(const ClientMessage &msg)
 			m_rightUp = msg.arg(2).integer;
 			break;
 		case CMSG_MOUSE_LEFT_DOUBLE_CLICK:
-			doubleClick(msg); // RW 0x81FBE4: independent of the order-click / alternate-mouse path
-			break;
+			if (!m_ctx.ui.getGUICommand() || m_ctx.ui.getGUICommand()->m_command != GUI_COMMAND_SPECIAL_POWER)
+			{
+				doubleClick(msg); // RW 0x81FBE4: selection expansion outside special-power targeting
+				break;
+			}
+			[[fallthrough]]; // the pending power owns the target, including a double click
 		case CMSG_MOUSE_RIGHT_DOUBLE_CLICK:
 		case CMSG_MOUSE_RIGHT_CLICK:
 		case CMSG_MOUSE_LEFT_CLICK:
 		{
-			const bool left = t == CMSG_MOUSE_LEFT_CLICK;
+			const bool left = t == CMSG_MOUSE_LEFT_CLICK || t == CMSG_MOUSE_LEFT_DOUBLE_CLICK;
 			// the standard setup orders with the left click, the alternate setup with the right one (CommandXlat.cpp:3678, 3741). lane FACT-C: RotWK's two
 			// cases read TheInGameUI's GUI command first (RW 0x81FAE2 / 0x81FC57): while one other than ATTACK_MOVE (0xA) waits for its target, the right click
 			// orders nothing (RW 0x81FAFE) and the left click carries it out in either setup (RW 0x81FC73 skips the alternate-mouse test); a special power's target
@@ -963,7 +973,8 @@ MessageDisposition CommandTranslator::translate(const ClientMessage &msg)
 			}
 			if (isPoint && areSelectedObjectsControllable())
 			{
-				Object *draw = HudObjects::pickObject(m_ctx, region.lo);
+				Object *draw = pending && pending->m_command == GUI_COMMAND_SPECIAL_POWER
+					? HudObjects::pickForGuiCommand(m_ctx, region.lo, *pending) : HudObjects::pickObject(m_ctx, region.lo);
 				int issued = 0;
 				if (m_ctx.ui.isInForceAttackMode())
 				{
@@ -994,9 +1005,9 @@ MessageDisposition CommandTranslator::translate(const ClientMessage &msg)
 // MSG_DO_SPECIAL_POWER_AT_LOCATION (0x411) { id, location, target or NONE, options, source NONE } and one more 0x411 for every button the command's chained
 // list names (CommandTrigger, +0x188) that is a SPECIAL_POWER with a template; else MSG_DO_SPECIAL_POWER (0x410) { id, options, NONE, NONE }. Source NONE: the
 // logic casts with the issuer's selection.
-// NOT PORTED (stop S-2000): the action check RW 0x6A4260 (ActionManager's special power target rules: range, KindOf, the module's own target filter) and the
-// kind-of / option 0x10 / 0x200000 target drops before it; here a click is valid when the option's target kind is there (an object of an allowed
-// relationship, or a ground point for NEED_TARGET_POS). The radius cursor, the unit voice and the selection flash are client presentation, not ported.
+// Location action checks use ActionManager's ported rules, matching the radius cursor; explicitly unported type tests retain its reported pass.
+// NOT PORTED (stop S-2000): object action checks (KindOf / module target filters) and the kind-of / option 0x10 / 0x200000 target drops before them.
+// An object of an allowed relationship passes those unported checks. The unit voice and selection flash are not ported here.
 int CommandTranslator::issueSpecialPower(const CommandButton &command, Object *target, const Coord3D *pos, EvaluateType type)
 {
 	const SpecialPowerTemplate *t = TheSpecialPowerStore && !command.m_specialPowerName.empty() ? TheSpecialPowerStore->findSpecialPowerTemplate(command.m_specialPowerName) : nullptr;
@@ -1071,7 +1082,32 @@ int CommandTranslator::evaluateGUISpecialPower(const CommandButton &command, Obj
 			obj = nullptr;
 		}
 	}
-	const bool valid = ((command.m_options & 7) && obj) || ((command.m_options & COMMAND_OPTION_NEED_TARGET_POS) && pos);
+	bool valid = (command.m_options & 7) && obj;
+	const bool locationTarget = command.hasOption(COMMAND_OPTION_NEED_TARGET_POS);
+	const bool contextOnly = command.hasOption(COMMAND_OPTION_CONTEXTMODE_COMMAND) && !(command.m_options & (7u | COMMAND_OPTION_NEED_TARGET_POS));
+	// RW 0x81E147's final branch issues a targetless power for context-only
+	// commands. Context mode chooses when to issue, not a missing target kind.
+	if (!valid && (locationTarget || contextOnly) && pos)
+	{
+		// RW 0x81E60B's action check precedes the issue and mode clear. Use the
+		// same ported location rules as the radius cursor: red means no cast,
+		// while an explicitly unported per-type test retains its existing pass.
+		// In particular, do not impose the weapon's firing range here: Leap's
+		// PATHABLE_ONLY allows its update module to approach a distant target.
+		const SpecialPowerTemplate *power = TheSpecialPowerStore ? TheSpecialPowerStore->findSpecialPowerTemplate(command.m_specialPowerName) : nullptr;
+		for (ObjectID id : m_ctx.ui.selected())
+		{
+			Object *source = m_ctx.logic.findObjectByID(id);
+			bool unported = false;
+			const bool allowed = source && (contextOnly ? ActionManager::canDoSpecialPower(*source, power)
+				: ActionManager::canDoSpecialPowerAtLocation(*source, *pos, power, command.m_options, &unported));
+			if (allowed || unported)
+			{
+				valid = true;
+				break;
+			}
+		}
+	}
 	if (!valid)
 	{
 		if (type == EvaluateType::DoHint)
@@ -1085,7 +1121,7 @@ int CommandTranslator::evaluateGUISpecialPower(const CommandButton &command, Obj
 	{
 		hint(command.m_cursorName.c_str());
 	}
-	if (type == EvaluateType::DoCommand)
+	if (msgType && type == EvaluateType::DoCommand)
 	{
 		m_ctx.ui.setGUICommand(nullptr);
 	}

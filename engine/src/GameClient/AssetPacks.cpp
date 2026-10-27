@@ -271,7 +271,7 @@ bool AssetPacks::addPack(const std::string &folder, std::vector<std::string> &er
 
 const AssetPackFile *AssetPacks::texture(const std::string &textureName) const
 {
-	if (m_textures.empty())
+	if (m_suspended || m_textures.empty())
 	{
 		return nullptr;
 	}
@@ -281,7 +281,7 @@ const AssetPackFile *AssetPacks::texture(const std::string &textureName) const
 
 const AssetPackFile *AssetPacks::model(const std::string &w3dPath) const
 {
-	if (m_models.empty())
+	if (m_suspended || m_models.empty())
 	{
 		return nullptr;
 	}

@@ -8,6 +8,7 @@ extends Control
 
 signal forget_folders
 signal show_folder(path: String)
+signal verify_files(key: String, path: String)
 signal download(folder: String)
 signal pause_pressed
 signal cancel_pressed
@@ -47,6 +48,8 @@ var _languages: HBoxContainer
 var _text_lang: OptionButton
 var _voice_lang: OptionButton
 var _codes: Array = []
+var _verify_buttons: Array[Button] = []
+var _busy := false
 
 
 func _init() -> void:
@@ -154,11 +157,12 @@ func open_picker(demo := false) -> void:
 ## folders: Paths.game_folders(); demo: the screenshots' made-up folders (Show folder stays enabled)
 func set_folders(f: Dictionary, demo := false) -> void:
 	_found_title.text = L10n.t("launcher.games_screen.found_caps") if f.found else L10n.t("launcher.games_screen.not_found_caps")
+	_verify_buttons.clear()
 	for c in _games.get_children() + _folders.get_children():
 		c.queue_free()
-	var games := [[L10n.t("launcher.games_screen.game_rotwk"), f.rotwk], [L10n.t("launcher.games_screen.game_bfme2"), f.bfme2]]
+	var games := [[L10n.t("launcher.games_screen.game_rotwk"), f.rotwk, "rotwk"], [L10n.t("launcher.games_screen.game_bfme2"), f.bfme2, "bfme2"]]
 	if String(f.get("bfme1", "")) != "":
-		games.push_front([L10n.t("launcher.games_screen.game_bfme1"), f.bfme1]) # community PR #36: the optional BFME1 folder, listed when one was found
+		games.push_front([L10n.t("launcher.games_screen.game_bfme1"), f.bfme1, "bfme1"]) # community PR #36: the optional BFME1 folder, listed when one was found
 	for i in games.size():
 		var ok := String(games[i][1]) != "" and (demo or DirAccess.dir_exists_absolute(games[i][1]))
 		var mark := W.label("✓" if ok else "—")
@@ -180,6 +184,14 @@ func set_folders(f: Dictionary, demo := false) -> void:
 			show.pressed.connect(func() -> void: show_folder.emit(full))
 			row.add_child(show)
 			_folders.add_child(row)
+			if g[2] != "bfme1" and DirAccess.dir_exists_absolute(full):
+				var verify := W.button(L10n.t("launcher.games_screen.verify_files"), "refresh", "", 14)
+				verify.size_flags_horizontal = Control.SIZE_SHRINK_END
+				verify.disabled = _busy
+				var key: String = g[2]
+				verify.pressed.connect(func() -> void: verify_files.emit(key, full))
+				_verify_buttons.append(verify)
+				row.add_child(verify)
 	_forget.visible = f.source == "config"
 
 
@@ -230,6 +242,10 @@ func set_folder(dir: String) -> void:
 
 ## running: the download runs; paused: it is paused (Resume continues it); busy: another job runs; aio: the setting is on
 func set_download_state(running: bool, paused: bool, busy: bool, aio: bool) -> void:
+	_busy = running or paused or busy
+	_forget.disabled = _busy
+	for verify in _verify_buttons:
+		verify.disabled = _busy
 	_go.visible = not running and not paused
 	_go.disabled = busy or not aio
 	_text_lang.disabled = running or paused or busy  # a download keeps the languages it started with

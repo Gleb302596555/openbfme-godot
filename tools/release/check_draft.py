@@ -1,22 +1,26 @@
 #!/usr/bin/env python3
-"""Lane RELGH-2 (was SIGNKMS-1's cosign_release.py): the Deck's check of a nightly's draft release the release workflow signed.
+"""Lane RELGH-2 (was SIGNKMS-1's cosign_release.py), RELGH-3: the Deck's check of a draft release the release workflow signed (a nightly, or
+a stable release after the owner's approval).
 
     python3 tools/release/check_draft.py --repo OWNER/NAME --tag TAG --release-id ID --request HEX [--out DIR]
         [--keys LIST] [--nightly-keys NLIST] [--main REF]
 
 The release workflow (.github/workflows/release.yml on main, tools/release/actions_release.py) builds a NIGHTLY, seals and signs it with
-the nightly key of its protected environment `nightly-signing` and always leaves a DRAFT, whose body carries the line
+the nightly key of its protected environment `nightly-signing` (RELGH-3: or a STABLE release, with the stable Actions key of the
+environment `stable-signing`, tools/release/stable_environment.json) and always leaves a DRAFT, whose body carries the line
 `openbfme-release-request: <32 hex>` of the request that started it. Publishing is the caller's job (autorelease.sh / publish_release.sh
 after their own checks); this tool never publishes, never signs and never changes the release (the Deck adds no signature: owner,
 2026-10-24, the Deck stops being the nightly signer).
 
 It downloads every asset of the draft into DIR (--out, created here, kept for the caller; default a new temporary folder, printed) and
 checks:
-  * the release is a draft of TAG (a nightly tag) with id ID, created by the workflow (author github-actions[bot]), the newest draft of
-    its tag, its body names the request HEX, it is a pre-release; it lists only the release's assets (release_assets.py), each one
-    downloaded with its listed size and digest;
+  * the release is a draft of TAG (a nightly tag or a stable v<x.y.z>) with id ID, created by the workflow (author github-actions[bot]),
+    the newest draft of its tag, its body names the request HEX, it is a pre-release exactly when it is a nightly; it lists only the
+    release's assets (release_assets.py), each one downloaded with its listed size and digest;
   * the signatures: X.sig is a raw signature of X under a key of NLIST (launcher/nightly_keys.pub), valid by the nightly scope rule
-    (release_keys.verify_scoped: X is a nightly's), for manifest.json and manifest-macos.json; there is no X.sig2;
+    (release_keys.verify_scoped: X is a nightly's), for manifest.json and manifest-macos.json; RELGH-3, a stable TAG: under the key of
+    LIST labelled by stable_environment.json's key_label (the stable Actions key; never LIST's first entry, the Deck key, which never
+    signs on GitHub); there is no X.sig2;
   * make_manifest.py --check of the folder; make_macos_manifest.py --check (the Mac sidecar; the Mac launcher's build_info.json carrying
     both lists); seal_package.py check (every package's payload.json under the lists, scoped);
   * the manifest names this repository, TAG as its version and the preview channel, and its commit is the tag's commit on GitHub and an
@@ -89,10 +93,9 @@ def created_key(rel: dict):
 
 
 class DraftChecker:
-    def __init__(self, repo: str, keys, nightly, main_ref: str, say=print):
+    def __init__(self, repo: str, keys, nightly, main_ref: str, say=print, stable_label: str | None = None):
         self.repo, self.keys, self.nightly, self.main_ref, self.say = repo, keys, nightly, main_ref, say
-        if not nightly:
-            raise SystemExit("check_draft: launcher/nightly_keys.pub lists no key: no draft can be a signed nightly")
+        self.stable_label = stable_label   # RELGH-3: the label of the stable Actions key (stable_environment.json key_label)
 
     def read(self, rid: int) -> dict:
         rel = gh_json(f"repos/{self.repo}/releases/{rid}")
@@ -134,8 +137,13 @@ class DraftChecker:
             channel = make_manifest.channel_of(tag)
         except SystemExit:
             raise Refused(f"{tag!r} is not a release tag")
-        if not release_keys.NIGHTLY_VERSION.fullmatch(tag):
-            raise Refused(f"{tag} is not a nightly: only nightlies are signed on GitHub Actions")
+        nightly = bool(release_keys.NIGHTLY_VERSION.fullmatch(tag))
+        if not nightly and not re.fullmatch(r"v(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})\.(0|[1-9][0-9]{0,8})", tag):
+            raise Refused(f"{tag} is neither a nightly nor a stable release: nothing else is signed on GitHub Actions")
+        if nightly and not self.nightly:
+            raise Refused("launcher/nightly_keys.pub lists no key: no draft can be a signed nightly")
+        if not nightly and (self.stable_label is None or self.stable_label not in {lb for lb, _ in self.keys[1:]}):
+            raise Refused(f"the stable Actions key {self.stable_label!r} is not a key of launcher/release_keys.pub after its first entry")
         if (rel.get("author") or {}).get("login") != WORKFLOW_AUTHOR:
             raise Refused(f"the release was not created by the release workflow ({WORKFLOW_AUTHOR})")
         if f"{REQUEST_LINE}{request}" not in str(rel.get("body") or "").replace("\r\n", "\n").split("\n"):
@@ -151,10 +159,11 @@ class DraftChecker:
         if any(r.get("tag_name") == tag and not r.get("draft") for r in releases):
             raise Refused(f"{tag} has a published release already")
         names = self.download(rel, d)
-        nightly_labels = {lb for lb, _ in self.nightly}
+        signers = {lb for lb, _ in self.nightly} if nightly else {self.stable_label}
+        who = "a nightly key's signature of a nightly's" if nightly else f"the stable Actions key {self.stable_label}'s signature of"
         for m in MANIFESTS:
             if (d / f"{m}.sig2").exists():
-                raise Refused(f"{m}.sig2 exists: the nightly key signs {m}.sig only")
+                raise Refused(f"{m}.sig2 exists: the workflow signs {m}.sig only")
             if not (d / m).exists():
                 if (d / f"{m}.sig").exists():
                     raise Refused(f"a signature of {m} without {m}")
@@ -164,8 +173,8 @@ class DraftChecker:
             if not (d / f"{m}.sig").exists():
                 raise Refused(f"{m} has no {m}.sig")
             got = release_keys.verify_scoped(self.keys, self.nightly, m, (d / m).read_bytes(), (d / f"{m}.sig").read_bytes())
-            if got is None or got[0] not in nightly_labels or got[1] != "raw":
-                raise Refused(f"{m}.sig is not a nightly key's signature of a nightly's {m}")
+            if got is None or got[0] not in signers or got[1] != "raw":
+                raise Refused(f"{m}.sig is not {who} {m}")
         try:
             manifest = json.loads((d / "manifest.json").read_bytes())
         except ValueError:
@@ -222,7 +231,9 @@ class DraftChecker:
             list_file.write_text("".join(f"{k.hex()}  {lb}\n" for lb, k in self.keys), encoding="ascii")
             nightly_file.write_text("".join(f"{k.hex()}  {lb}\n" for lb, k in self.nightly), encoding="ascii")
             self.check_release(rel, tag, request, d, list_file, nightly_file)
-        return "checks passed (signed by the nightly key; nothing added)"
+        if release_keys.NIGHTLY_VERSION.fullmatch(tag):
+            return "checks passed (signed by the nightly key; nothing added)"
+        return f"checks passed (signed by the stable Actions key {self.stable_label}; nothing added)"
 
 
 def main(argv: list[str]) -> int:
@@ -236,6 +247,8 @@ def main(argv: list[str]) -> int:
     ap.add_argument("--nightly-keys", type=Path, default=release_keys.NIGHTLY_LIST,
                     help="the nightly-only list (default launcher/nightly_keys.pub)")
     ap.add_argument("--main", default="main", help="the public main branch the commit must be on")
+    ap.add_argument("--environment-config", type=Path, default=HERE / "stable_environment.json",
+                    help="RELGH-3: the stable environment's configuration (its key_label names the stable Actions key)")
     a = ap.parse_args(argv)
     if not REPO_NAME.fullmatch(a.repo):
         raise SystemExit(f"check_draft: '{a.repo}' is not <owner>/<name>")
@@ -250,7 +263,12 @@ def main(argv: list[str]) -> int:
         nightly = release_keys.load_nightly(a.nightly_keys, a.keys)
     except release_keys.KeyListError as e:
         raise SystemExit(f"check_draft: {e}")
-    c = DraftChecker(a.repo, keys, nightly, a.main)
+    import stable_environment
+    try:
+        label = stable_environment.load_config(path=a.environment_config)["key_label"]
+    except stable_environment.Fail as e:
+        raise SystemExit(f"check_draft: {e}")
+    c = DraftChecker(a.repo, keys, nightly, a.main, stable_label=label)
     if a.out:
         if a.out.exists():
             raise SystemExit(f"check_draft: {a.out} exists (the download folder is made here, never reused)")

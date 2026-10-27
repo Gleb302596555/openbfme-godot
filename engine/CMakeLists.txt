@@ -144,6 +144,7 @@ openbfme_sim_register_target(openbfme_float_chars)
 include(cmake/Apt.cmake) # OPENBFME_APT_SOURCES / OPENBFME_APT_TESTS (EA Apt player lane)
 include(cmake/Dep2.cmake) # openbfme_detlibm: the deterministic libm of the simulation (lane DEP-2; the Lua math library uses it)
 include(cmake/Lua.cmake) # openbfme_lua: Lua 4.0.1 + EA's fork (lane LUA-1)
+include(cmake/Luau.cmake) # openbfme_luau: Luau 0.744, the modding SDK's scripting (lane SDK-2)
 include(cmake/Fx.cmake)  # OPENBFME_FX_SOURCES / OPENBFME_FX_TESTS (FX-1: FXList, particles, emitters)
 include(cmake/Production.cmake) # OPENBFME_PROD_SOURCES / OPENBFME_PROD_TESTS (lane PROD-1)
 include(cmake/Audio.cmake) # OPENBFME_AUDIO_SOURCES / OPENBFME_AUDIO_TESTS (lane AUDIO-1)
@@ -236,6 +237,7 @@ include(cmake/Backlog6.cmake)   # BACKLOG6: the AI's fortress rebuild, builder u
 include(cmake/Decomp1.cmake)    # DECOMP-1: stops closed with the decompilation's progress (appends to OPENBFME_SIM_SOURCES; OPENBFME_DECOMP1_TESTS)
 include(cmake/Play1.cmake)      # PLAY-1: the tribute, the placement ghost (appends to OPENBFME_SIM_SOURCES; OPENBFME_PLAY1_SOURCES / _TESTS)
 include(cmake/Sdk0.cmake)       # SDK-0: cosmetic asset packs (client only; OPENBFME_SDK0_SOURCES / _TESTS)
+include(cmake/Sdk2.cmake)       # SDK-2: Luau mod scripts (OPENBFME_SDK2_SOURCES / _TESTS)
 include(cmake/Cah1.cmake)       # CAH-1: the Create-a-Hero screens (client only; OPENBFME_CAH1_SOURCES / _GODOT_SOURCES / _TESTS)
 include(cmake/Uber1.cmake)      # UBER-1: the Uber performance mode (appends to OPENBFME_SIM_SOURCES; OPENBFME_UBER1_TESTS)
 include(cmake/Menuwork1.cmake)  # MENUWORK-1: the menu inventory's fixes (client only; OPENBFME_MENUWORK1_SOURCES / _TESTS)
@@ -328,6 +330,7 @@ add_library(openbfme_core STATIC
     ${OPENBFME_HOVER1_CLIENT_SOURCES}
     ${OPENBFME_CAH1_SOURCES}
     ${OPENBFME_SDK0_SOURCES}
+    ${OPENBFME_SDK2_SOURCES}
     ${OPENBFME_RULES1_SOURCES}
     ${OPENBFME_MENUWORK1_SOURCES}
     ${OPENBFME_CAMP2_SOURCES}
@@ -561,6 +564,7 @@ endif()
 target_include_directories(openbfme_core PUBLIC src PRIVATE thirdparty)
 target_link_libraries(openbfme_core PUBLIC openbfme_float_chars)
 target_link_libraries(openbfme_core PUBLIC openbfme_lua)
+target_link_libraries(openbfme_core PUBLIC openbfme_luau) # lane SDK-2
 if(WIN32)
     target_link_libraries(openbfme_core PRIVATE dbghelp)
 endif()
@@ -592,6 +596,7 @@ add_library(openbfme SHARED
     src/GodotDevice/GodotMapObjectBuilder.cpp
     # APT-3: the retail menus on screen
     src/GodotDevice/GodotAptPlayer.cpp
+    src/GodotDevice/GodotMouse.cpp
     src/GodotDevice/GodotInGameHud.cpp
     src/GodotDevice/GodotPlacementGhost.cpp # BUILD-5
     src/GodotDevice/GodotPathfindView.cpp
@@ -760,6 +765,7 @@ add_executable(openbfme_tests
     ${OPENBFME_HUD7_TESTS}
     ${OPENBFME_CAH1_TESTS}
     ${OPENBFME_SDK0_TESTS}
+    ${OPENBFME_SDK2_TESTS}
     ${OPENBFME_RULES1_TESTS}
     ${OPENBFME_CHEAT1_TESTS}
     ${OPENBFME_MENUWORK1_TESTS}

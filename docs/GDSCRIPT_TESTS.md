@@ -88,6 +88,8 @@ scheduling/ownership decision; it is never automatically promoted to execution.
 | `launcher/tests/unit_test.gd` | `tools/release/test_launcher.py` | Existing launcher fixture/arguments and platform prerequisites retained. |
 | `launcher/tests/update_fault_test.gd` | `tools/release/test_launcher_updates.py` | Existing launcher fixture/arguments and platform prerequisites retained. |
 | `launcher/tests/update_status_test.gd` | `tools/release/test_launcher.py` | Existing launcher fixture/arguments and platform prerequisites retained. |
+| `launcher/tests/verifyfiles_test.gd` | `tools/test_verifyfiles.py` | Existing launcher fixture/arguments and platform prerequisites retained. |
+| `launcher/tests/verifyfiles_window_test.gd` | `tools/test_verifyfiles_window.py` | Existing launcher fixture/arguments and platform prerequisites retained. |
 | `launcher/tests/write_failure_test.gd` | `tools/release/test_launcher.py` | Linux RLIMIT_FSIZE=4096 subprocess, ignored SIGXFSZ, --write-limited; both assertions must pass. |
 
 The OAuth integration's missing-Node reason starts with **SKIP LOUDLY: launcher
@@ -120,6 +122,7 @@ runner is claimed. All paths below are relative to the repository root.
 | `godot/tests/building_render_test.gd` | Manual only; no generic pytest runner | Denied here: GPU/window/render readback required (some also need retail assets). |
 | `godot/tests/buildperf_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/cah_awards_display_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
+| `godot/tests/cah_camera_retail_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/cah_camera_test.gd` | `tools/test_gdscript.py::test_game_script` | Allowlisted: camera geometry against synthetic bounds; headless, 20 s timeout. |
 | `godot/tests/camp2_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/campsave1_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
@@ -207,6 +210,8 @@ runner is claimed. All paths below are relative to the repository root.
 | `godot/tests/saveui1_test.gd` | Existing CI Godot gate | Denied here: already scheduled by CI; use its existing asset/window setup. |
 | `godot/tests/selperf_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/shader_test.gd` | Manual only; no generic pytest runner | Denied here: GPU/window/render readback required (some also need retail assets). |
+| `godot/tests/shellfb1_cursor_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
+| `godot/tests/shellfb1_spell_store_escape_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/shellfix1_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/smoke_checks.gd` | `godot/tests/smoke_test.gd` | CI gate's helper/child; not scheduled separately by pytest. |
 | `godot/tests/smoke_test.gd` | Existing CI Godot gate | Denied here: already scheduled by CI; use its existing asset/window setup. |

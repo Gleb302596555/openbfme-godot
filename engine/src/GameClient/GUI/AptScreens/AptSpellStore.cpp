@@ -96,6 +96,17 @@ void AptSpellStore::setViewportSize(int width, int height)
 	const float scale = std::min(1.0f, ((float)height / stageHeight) / ((float)width / stageWidth));
 	root->viewportTransform.a = scale;
 	root->viewportTransform.tx = stageWidth * 0.5f * (1.0f - scale);
+	// Presentation correction: SpellStore.apt's Title.instance1 contains the stage-wide
+	// banner and translucent shade. Keep that backdrop at its authored stage width;
+	// the title plate, text and the View3D power globe keep the proportional mapping.
+	AptCharacterInst *title = root->childByName("Title");
+	AptSpriteInst *titleSprite = title ? title->asSprite() : nullptr;
+	AptCharacterInst *backdrop = titleSprite ? titleSprite->childByName("instance1") : nullptr;
+	if (backdrop)
+	{
+		const AptMatrix parent = root->matrix.concat(title->matrix);
+		backdrop->viewportTransform = parent.inverse(nullptr).concat(root->viewportTransform.inverse(nullptr)).concat(parent);
+	}
 }
 
 bool AptSpellStore::bind(const CommandStore &commands, GameLogic &logic, Player &player, const GameTextSource *gameText, std::string *error)

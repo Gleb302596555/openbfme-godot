@@ -450,6 +450,15 @@ def signkms_fixtures(manifest: bytes, deck: bytes, kms: bytes, other: bytes, nig
         "s_macos_env": sign(nightly, env("manifest-macos.json", mac)),
         "n_manifest_other": sign(other, nightly_manifest), "n_manifest_deck": sign(deck, nightly_manifest),
     })
+    # lane RELGH-3: the stable Actions key is the list's SECOND stable key and signs RAW (like the Deck key): here "kms" plays it. A stable
+    # release's manifest, macOS sidecar and payload, a nightly's manifest (a stable key is valid for every document)
+    fx.update({
+        "a_manifest_raw": sign(kms, stable_manifest), "a_macos_raw": sign(kms, mac), "a_payload_raw": sign(kms, pay),
+        "a_n_manifest_raw": sign(kms, nightly_manifest),
+    })
+    assert release_keys.verify_detail([("deck", fx["deck"]), ("stable", fx["kms"])], "manifest.json", stable_manifest, fx["a_manifest_raw"]) \
+        == ("stable", "raw")
+    assert release_keys.verify_detail([("deck", fx["deck"])], "manifest.json", stable_manifest, fx["a_manifest_raw"]) is None
     # the Python twin agrees: a nightly key is valid for the nightly documents only
     nl = [("nightly", fx["nightly"])]
     assert release_keys.verify_scoped(lst0 := [("deck", fx["deck"]), ("kms", fx["kms"])], nl, "manifest.json", nightly_manifest, fx["n_manifest_raw"])
@@ -501,6 +510,7 @@ def test_launcher_unit_rules(tmp_path, keys):
     r = _unit_run(LAUNCHER, tmp_path, keys)
     _check_unit_run(r)
     assert "UNIT signkms: the key-list checks run" in r.stdout, r.stdout[-3000:]
+    assert "UNIT stable actions: the stable Actions key checks run" in r.stdout, r.stdout[-3000:]
 
 
 @pytest.mark.parametrize("error", ["SCRIPT ERROR", "Parse Error"])
@@ -688,6 +698,9 @@ def _sabotaged(tmp_path: Path, name: str, edits: list[tuple[str, str, str]]) -> 
     ("bar-20", [("scripts/main.gd", 'bm.add_theme_constant_override("margin_right", SCREEN_MARGIN)', 'bm.add_theme_constant_override("margin_right", SCREEN_MARGIN + 20)')],
      ["margins are not the window's", "PLAY is off the right margin"]),
     ("rail", [("scripts/main.gd", "const RAIL_INK := Style.NAV_PAD", "const RAIL_INK := 9")], ["the rail does not start on one x"]),
+    ("sidebar-pitch", [("scripts/ui/style.gd", "const NAV_GAP := 2", "const NAV_GAP := 10")], ["sidebar vertical pitch is not 38"]),
+    ("sidebar-width", [("scripts/main.gd", 'var foot := W.trim_label(L10n.t("launcher.main.footer_version"', 'var foot := W.label(L10n.t("launcher.main.footer_version"')],
+     ["sidebar button exceeds rail", "sidebar insets are not 13"]),
     # a screen's column with a gap of its own
     ("gap", [("scripts/ui/settings_screen.gd", "var v := W.vbox(Style.SCREEN_GAP)", "var v := W.vbox(20)")], ["gap is not the theme's SCREEN_GAP"]),
     # the demo states that must apply: the offline state never applies; the folder picker never opens

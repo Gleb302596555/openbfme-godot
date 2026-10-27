@@ -28,6 +28,13 @@ OPENBFME_NIGHTLY_SIGNING_KEY. Those two lines are accepted in that file alone an
 docs/RELEASE.md, "Nightly signing on GitHub Actions"); no job-level `env:` naming a secret; exactly ONE step of that job whose `env:` maps
 NIGHTLY_SIGNING_KEY to the secret, by the exact line RELEASE_SECRET_LINE; no other secrets reference, and no `id-token` anywhere (the
 SIGNKMS-1 OIDC permission is gone with KMS). Every other rule still applies to the file.
+Lane RELGH-3: a SECOND signing job in the same file, the one that signs a stable release with the stable Actions key: its `environment:` is
+exactly stable-signing (the owner's review required: tools/release/stable_environment.json), its permissions exactly {contents: write,
+actions: read} (actions read: it reads the environment's rules and the run's approval), and exactly one step's `env:` maps
+STABLE_SIGNING_KEY to the environment secret OPENBFME_STABLE_SIGNING_KEY by the exact line STABLE_SECRET_LINE. So the file has exactly two
+signing jobs, one per environment, each environment named once, each secret once and in its own job (the nightly key is never in the
+stable job, nor the stable key in the nightly one). Any other job may have its own permissions only when they are read-only and at most
+{contents: read, actions: read} (the plan job reads the environment), and enters no environment.
 Lane RELSIGN-1: the release workflow builds with MACACT-1's jobs by CALLING .github/workflows/release-package.yml (REUSABLE_WORKFLOW), so
 the build jobs have one definition. That file alone may add the trigger `workflow_call` (beside workflow_dispatch, nothing else), and it
 declares no `secrets`; a job that calls a workflow (`jobs.<id>.uses`) is allowed in release.yml alone, must call exactly
@@ -53,12 +60,19 @@ PINNED = re.compile(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_./-]+@[0-9a-f]{40}")
 RUNS_ON = re.compile(r"^\s*runs-on:\s*(.*?)\s*(?:#.*)?$")
 HOSTED = re.compile(r"(?:ubuntu|windows|macos)-[a-z0-9.-]+")
 RELEASE_WORKFLOW = ".github/workflows/release.yml"
-SIGN_ENVIRONMENTS = {"nightly-signing"}
-SIGN_PERMISSIONS = {"contents": "write"}
 REUSABLE_WORKFLOW = ".github/workflows/release-package.yml"
 SECRETS_KEY = re.compile(r"^\s*(?:-\s+)?[\"']?secrets[\"']?\s*:")
 RELEASE_SECRET = "${{ secrets.OPENBFME_NIGHTLY_SIGNING_KEY }}"
 RELEASE_SECRET_LINE = "          NIGHTLY_SIGNING_KEY: " + RELEASE_SECRET
+STABLE_SECRET = "${{ secrets.OPENBFME_STABLE_SIGNING_KEY }}"   # RELGH-3 (tools/release/stable_environment.json "secret")
+STABLE_SECRET_LINE = "          STABLE_SIGNING_KEY: " + STABLE_SECRET
+# the signing jobs, by environment: (the step's variable, the secret expression, the job's exact permissions)
+SIGN_JOBS = {"nightly-signing": ("NIGHTLY_SIGNING_KEY", RELEASE_SECRET, {"contents": "write"}),
+             "stable-signing": ("STABLE_SIGNING_KEY", STABLE_SECRET, {"contents": "write", "actions": "read"})}
+SIGN_ENVIRONMENTS = set(SIGN_JOBS)
+SIGN_RUN = 'python3 tools/release/actions_release.py sign --in "$RUNNER_TEMP/in" --pkg "$RUNNER_TEMP/pkg"'
+APPROVAL_RUN = "python3 tools/release/stable_environment.py approval"
+READ_PERMISSIONS = {"contents": "read", "actions": "read"}   # the most any other job of the release workflow may ask for
 
 
 def yaml_problems(path: str, text: str) -> list[str]:
@@ -80,7 +94,8 @@ def yaml_problems(path: str, text: str) -> list[str]:
 
 
 def release_workflow_problems(path: str, text: str) -> tuple[list[str], set[int]]:
-    """SIGNKMS-1, RELGH-2: the release workflow's shape (see the module's doc); the line numbers of its allowed permission and secret lines"""
+    """SIGNKMS-1, RELGH-2, RELGH-3: the release workflow's shape (see the module's doc); the line numbers of its allowed permission, secret
+    and environment lines"""
     try:
         import yaml
         doc = yaml.safe_load(text)
@@ -96,46 +111,81 @@ def release_workflow_problems(path: str, text: str) -> tuple[list[str], set[int]
     if doc.get("permissions") != {"contents": "read"}:
         probs.append(f"{path}: the release workflow's top-level permissions are not exactly contents: read")
     jobs = doc.get("jobs") if isinstance(doc.get("jobs"), dict) else {}
-    signing = [name for name, job in jobs.items() if isinstance(job, dict) and "permissions" in job]
-    if len(signing) != 1:
-        probs.append(f"{path}: the release workflow has {len(signing)} jobs with their own permissions (exactly one: the signing job)")
-    for name in signing:
-        job = jobs[name]
-        if job.get("permissions") != SIGN_PERMISSIONS:
-            probs.append(f"{path}: job {name}'s permissions are not exactly contents: write")
+    signing: dict[str, str] = {}   # job -> environment
+    for name, job in jobs.items():
+        if not isinstance(job, dict):
+            continue
         env = job.get("environment")
         if isinstance(env, dict):
             env = env.get("name")
-        if env not in SIGN_ENVIRONMENTS:
-            probs.append(f"{path}: job {name} signs outside the nightly-signing environment (environment: {env!r})")
+        if env is None:
+            perms = job.get("permissions")
+            if perms is not None and (not isinstance(perms, dict) or any(READ_PERMISSIONS.get(k) != v for k, v in perms.items())):
+                probs.append(f"{path}: job {name} asks for {perms!r}: only a signing job writes (others read contents / actions at most)")
+            if "secrets" in str(job.get("env") or "").lower() or any(
+                    isinstance(st, dict) and "secrets" in str(st.get("env") or "").lower() for st in job.get("steps") or []):
+                probs.append(f"{path}: job {name} reads a secret outside a signing job")
+            continue
+        if env not in SIGN_JOBS:
+            probs.append(f"{path}: job {name} signs outside the signing environments (environment: {env!r})")
+            continue
+        if env in signing.values():
+            probs.append(f"{path}: the environment {env} is named by two jobs")
+        signing[name] = env
+    if sorted(signing.values()) != sorted(SIGN_JOBS):
+        probs.append(f"{path}: the release workflow has the signing jobs {sorted(signing.values())}, not exactly one per "
+                     f"environment {sorted(SIGN_JOBS)}")
+    for name, env in signing.items():
+        job = jobs[name]
+        var, secret, perms = SIGN_JOBS[env]
+        if job.get("permissions") != perms:
+            probs.append(f"{path}: job {name}'s permissions are not exactly {perms}")
         if "secrets" in str(job.get("env") or "").lower():
             probs.append(f"{path}: job {name} hands a secret to every step (job-level env); one step's env only")
         steps = job.get("steps") if isinstance(job.get("steps"), list) else []
         keyed = [st for st in steps if isinstance(st, dict) and "secrets" in str(st.get("env") or "").lower()]
-        if len(keyed) != 1 or keyed[0].get("env") != {"NIGHTLY_SIGNING_KEY": RELEASE_SECRET}:
-            probs.append(f"{path}: job {name} must hand the nightly key to exactly one step, as env NIGHTLY_SIGNING_KEY alone")
-    allowed: set[int] = set()   # line numbers: +n a permission line, -n the secret line, -(10**6 + n) the environment line, all inside the
+        if len(keyed) != 1 or keyed[0].get("env") != {var: secret}:
+            probs.append(f"{path}: job {name} must hand its key to exactly one step, as env {var} alone ({env}'s own secret)")
+        # Sol r1 (RELGH-3): the job's guard, its keyed command and (stable) the approval check before the key are fixed too
+        kind = "nightly" if env == "nightly-signing" else "stable"
+        if job.get("if") != f"needs.plan.outputs.kind == '{kind}'":
+            probs.append(f"{path}: job {name} does not run exactly when the plan's kind is {kind}")
+        if not isinstance(job.get("needs"), list) or not {"plan", "macos", "package"} <= set(job["needs"]):
+            probs.append(f"{path}: job {name} does not wait for the plan and the builds")
+        if len(keyed) == 1 and keyed[0].get("run") != SIGN_RUN:
+            probs.append(f"{path}: job {name}'s keyed step does not run exactly `{SIGN_RUN}`")
+        if kind == "stable":
+            runs = [st.get("run") if isinstance(st, dict) else None for st in steps]
+            k = steps.index(keyed[0]) if len(keyed) == 1 else -1
+            if APPROVAL_RUN not in runs[:max(k, 0)]:
+                probs.append(f"{path}: job {name} has no `{APPROVAL_RUN}` step before its keyed step")
+    allowed: set[int] = set()   # line numbers: +n a permission line, -n a secret line, -(10**6 + n) an environment line, all inside a
     #                             signing job's block
     if not probs:
         lines = text.splitlines()
-        for name in signing:
+        for name, env in signing.items():
+            var, secret, _ = SIGN_JOBS[env]
             start = next((i for i, line in enumerate(lines) if line == f"  {name}:"), None)
             if start is None:
                 probs.append(f"{path}: job {name} is not written as a block at two spaces")
                 continue
+            got = {"perm": 0, "secret": 0, "env": 0}
             for i in range(start + 1, len(lines)):
                 if lines[i].strip() and not lines[i].startswith("    "):
                     break
                 code = lines[i].split("#", 1)[0].rstrip()
                 if code == "      contents: write":
                     allowed.add(i + 1)
-                elif code.strip() == "environment: nightly-signing" and code.startswith("    environment:"):
+                    got["perm"] += 1
+                elif code.strip() == f"environment: {env}" and code.startswith("    environment:"):
                     allowed.add(-(10**6 + i + 1))
-                elif code == RELEASE_SECRET_LINE:
+                    got["env"] += 1
+                elif code == f"          {var}: {secret}":
                     allowed.add(-(i + 1))
-        if len([n for n in allowed if n > 0]) != 1 or len([n for n in allowed if -(10**6) < n < 0]) != 1 \
-                or len([n for n in allowed if n <= -(10**6)]) != 1:
-            probs.append(f"{path}: the signing job's permission line and secret line are not where they are expected")
+                    got["secret"] += 1
+            if got != {"perm": 1, "secret": 1, "env": 1}:
+                probs.append(f"{path}: job {name}'s permission line, secret line and environment line are not where they are expected")
+        if probs:
             allowed = set()
     return probs, allowed
 

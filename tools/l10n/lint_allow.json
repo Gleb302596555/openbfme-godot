@@ -41,6 +41,9 @@
   "launcher/scripts/core/manifest.gd": {
     "openbfme-%s-macos-arm64.zip": "a release asset file name"
   },
+  "launcher/scripts/core/game_files.gd": {
+    "AuthAccountUuid: unauthenticated": "an HTTP header sent to the service"
+  },
   "launcher/scripts/core/mod_catalog.gd": {
     "needs engine features": "a status value compared by the Mods screen and the tests; the screen shows its own catalog text",
     "openbfme.aio-package 1": "the record file's schema key"

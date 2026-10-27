@@ -327,3 +327,27 @@ TEST_CASE("SDK-1 retail: the asset pack in OPENBFME_ASSET_PACK loads over 2.01; 
 	MESSAGE(joined(packs.notes()));
 	CHECK(fits);
 }
+
+TEST_CASE("SDK-1b (a): suspended packs answer nothing: a LAN / online game draws the game's own files; the packs stay loaded")
+{
+	TempDir tmp;
+	writeFile(tmp.path / "HD" / "gumaarms.dds", "DDS ");
+	writeFile(tmp.path / "HD" / "gumaarms.w3d", str(model()));
+	AssetPacks packs;
+	std::vector<std::string> errors;
+	REQUIRE(packs.addPack((tmp.path / "HD").u8string(), errors));
+	Win32BIGFileSystem fsys;
+	mount(fsys, "W3D.big", { { "art\\w3d\\gu\\gumaarms.w3d", "retail" } }, false);
+	AssetPackW3DFileSource render(std::unique_ptr<W3DFileSource>(new ArchiveW3DFileSource(fsys)), packs);
+	REQUIRE(packs.texture("GUMaArms.tga") != nullptr);
+	REQUIRE(readSource(render, "art\\w3d\\gu\\gumaarms.w3d") == str(model()));
+	packs.setSuspended(true);
+	CHECK(packs.suspended());
+	CHECK(packs.loaded());
+	CHECK(packs.empty()); // RetailFileSystem::renderW3DSource then hands out the archives alone
+	CHECK(packs.texture("GUMaArms.tga") == nullptr);
+	CHECK(packs.model("art\\w3d\\gu\\gumaarms.w3d") == nullptr);
+	CHECK(readSource(render, "art\\w3d\\gu\\gumaarms.w3d") == "retail"); // a source made before also stops answering with the pack
+	packs.setSuspended(false);
+	CHECK(packs.texture("GUMaArms.tga") != nullptr);
+}

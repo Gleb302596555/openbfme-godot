@@ -335,7 +335,8 @@ static func _whole(v) -> bool:
 ## Checks one package's manifest (the service's JSON) against its pinned table: every file the install takes must be pinned (name, MD5,
 ## size; Sol r1: the files outside the archive tables trusted the manifest) and every pinned file must be listed. {ok, kind, error, files:
 ## [{rel, md5, size, url}] sorted by path, all: the manifest's file count}. Nothing here touches the network or the disk.
-func check_manifest(pkg: Dictionary, body: PackedByteArray) -> Dictionary:
+## pins: the files to take (default: package_files, the chosen languages'); Verify game files passes the English pins it checked against
+func check_manifest(pkg: Dictionary, body: PackedByteArray, pins: Array = []) -> Dictionary:
 	var m = JSON.parse_string(body.get_string_from_utf8())
 	if typeof(m) != TYPE_DICTIONARY:
 		return _broken(REJECTED, L10n.t("launcher.aio_install.manifest_not_object", {"guid": pkg.guid}))
@@ -350,7 +351,7 @@ func check_manifest(pkg: Dictionary, body: PackedByteArray) -> Dictionary:
 		return _broken(REJECTED, L10n.t("launcher.aio_install.manifest_no_files", {"guid": pkg.guid}))
 	var hex := RegEx.create_from_string("^[0-9a-f]{32}$")
 	var pinned := {}
-	for a in package_files(pkg):
+	for a in (pins if not pins.is_empty() else package_files(pkg)):
 		pinned[str(a[0]).to_lower().replace("\\", "/")] = a
 	# issue #49: every other language's own files are pinned too (a file of the package's other languages is skipped, not refused)
 	var other := {}

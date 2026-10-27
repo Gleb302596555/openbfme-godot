@@ -393,7 +393,7 @@ func _mount_retail_folders(fs: RefCounted) -> Dictionary:
 	if not packs.ok:
 		return {"ok": false, "errors": packs.errors}
 	if not packs.packs.is_empty():
-		print("RELEASE asset packs: ", ", ".join(packs.packs), " (", packs.textures, " textures, ", packs.models, " models)")
+		print("RELEASE asset packs: ", ", ".join(packs.packs), " (", packs.textures, " textures, ", packs.models, " models; offline games only for now, lane SDK-1b)")
 		for note in packs.notes:
 			print("RELEASE asset packs: ", note)
 	var test_pick := _first_run_test_args(args)

@@ -115,6 +115,9 @@ public:
 	// lane SIEGE-1: AI command 0x27 (RW 0x7C821E -> AI vslot 0x118 RW 0x667290): the unit turns to face `pos` (state 0x25, GameLogic/Module/SiegeModules.cpp)
 	void aiFacePosition(const Coord3D &pos, CommandSourceType source);
 	void aiIdle(CommandSourceType source);
+	// TARGET RW 0x6643B6 / 0x667290: face commands 0x26 / 0x27 enter
+	// states 36 / 37 and turn through the locomotor before returning to idle.
+	void aiFaceObject(Object *target, CommandSourceType source);
 	void aiFollowPath(const std::vector<Coord3D> &path, Object *ignoreObject, CommandSourceType source, bool exitProduction);
 	void aiFollowPathAppend(const Coord3D &pos, CommandSourceType source);
 	void aiBusy(CommandSourceType source);
@@ -527,6 +530,10 @@ protected:
 	// lane LUMBER1: the command bodies WorkerAIUpdate extends (RW 0x8ACE75 / 0x8ACE4A)
 	virtual void privateHarvest(const Coord3D &pos, CommandSourceType source);
 	virtual void privateDock(Object *dock, CommandSourceType source);
+	// the bodies of aiFaceObject / aiFacePosition once the gate (RW 0x667174) passed: AI vslots 0x114 (privateFaceObject, base RW 0x6643B6) and 0x118
+	// (privateFacePosition, base RW 0x667290); GiantBirdAIUpdate overrides both (RW 0x76B543 / 0x76B559 -> RW 0x76AB4E: its turn states 0x3FF / 0x3FC)
+	virtual void privateFaceObject(Object *target, CommandSourceType source);
+	virtual void privateFacePosition(const Coord3D &pos, CommandSourceType source);
 
 private:
 	class ObjectLocomotorHost;

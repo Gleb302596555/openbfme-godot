@@ -1425,4 +1425,13 @@ Array FXPlayer::get_events() const
 	return out;
 }
 
+void FXPlayer::clearTextureCache()
+{
+	m_textures.clear();
+	m_preloaded.clear();
+	m_preloadQueue.clear();
+	m_preloadNext = 0;
+	m_preloadQueued = false;
+}
+
 } // namespace godot

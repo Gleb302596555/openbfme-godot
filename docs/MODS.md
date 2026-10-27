@@ -155,17 +155,56 @@ button. `--asset-packs`, `--asset-pack-on=<name>` and `--asset-pack-off=<name>` 
 - **Which file wins.** The base game, then `--mod-install`, then `-mod`, then the asset packs. A pack draws over a mod's file of the same
   name too, and is checked against the mod's model. Packs load in folder-name order, then the `--asset-pack` ones, and the later pack
   wins. One pack holding two files for the same asset is an error that names both.
-- **Packs are cosmetic and allowed online.** A pack may hold only models, textures and its own text (`.txt`, `.md`, `README`,
-  `LICENSE`). Any other file (INI, scripts, maps, archives, sounds, programs) refuses the whole pack with a message, because game data
-  belongs in a mod. Only drawing reads the packs. The game logic, which uses model bones for where arrows and projectiles start, keeps
-  reading the original files, and packs never enter the mod fingerprint the lobby and the replays compare. So a pack never changes a game
-  result and never stops you joining a game.
+- **Offline only for now (lane SDK-1b).** Skirmish and campaign games use the packs. LAN and online games don't: every player sees the
+  game's own models and textures, and the start log says so ("GAME asset packs: not used in this LAN / online game"). The checks that
+  will let packs into online games, so that a pack cannot change what one player sees and another does not, come next. A pack may hold
+  only models, textures and its own text (`.txt`, `.md`, `README`, `LICENSE`); any other file (INI, scripts, maps, archives, sounds,
+  programs) refuses the whole pack with a message, because game data belongs in a mod. Only drawing reads the packs: the game logic
+  keeps reading the original files, and packs never enter the mod fingerprint the lobby and the replays compare.
 - **From a mod's HD archive.** `python3 tools/mod/asset_pack_from_big.py <archive.big> <new folder>` copies the models and textures of
   an archive into a pack and lists what it leaves out. For example, the All In One launcher's *RotWK 2.02 HD Edition* gives 503 models
   and 466 textures. Over the original 2.01 game, 477 of its models fit. The other 26 are its redesigned citadel, statues and barracks
   damage states, which need 2.02's own data, so they are left out.
 - Not replaced yet: terrain tile textures (they are cut into the map's texture atlas at the original size), UI (Apt) textures, and model
   formats other than W3D (glTF is planned, with automatic skeleton mapping and LODs).
+
+## Mod scripts in Luau (lane SDK-2, in progress)
+
+A `-mod` folder can carry Luau scripts in files retail never reads. Retail's own Lua scripting (`Scripts.lua`, `ScriptEvents.xml`) works
+as before. The scripts are loose files of the folder, never inside its archives:
+
+```
+<mod>/openbfme/sdk/mod.json                   {"sdk": 1, "name": "Income", "sim": ["income"], "presentation": ["banner"]}
+<mod>/openbfme/sdk/sim/income.luau            sim scripts and the modules they require
+<mod>/openbfme/sdk/presentation/banner.luau   presentation scripts and the modules they require
+```
+
+- **Roles.**
+  - **Sim** scripts change game results, so they run in lockstep. Their maths uses the deterministic libm, `math.random` is the game's
+    shared generator, and there is no clock. Tables can't be keyed by tables or functions (the order would differ between machines),
+    there are no weak tables, and no address is ever shown.
+  - **Presentation** scripts only draw, play sounds and show UI, so they may differ between players.
+  - A script can only `require` modules of its own role.
+- **Events of a sim script:** each runs at the end of a logic frame, in this order:
+  - `onGameStart()` once;
+  - `onObjectCreated(id, template, player)` and `onObjectDestroyed(id, template, player)` for the objects of that frame;
+  - `onFrame(frame)` every frame.
+
+  The `game` table offers `frame()`, `playerCount()`, `playerName(i)`, `playerSide(i)`, `money(i)` and `addMoney(i, amount)`. The
+  logic runs 5 frames a second.
+- **Presentation scripts** get the same events after the sim scripts, a read-only `game` (no `addMoney`; plus `game.localPlayer()`, the
+  player this machine plays) and `ui.banner(text)`, a message centred near the top of the screen for a few seconds. They use their own `math.random`, never
+  change the game, and an error stops only them.
+- **Sample:** `tools/sdk/samples/income-banner` is a complete mod folder: every player gets 250 resources every 10 seconds, and a
+  banner announces each payday (`openbfme -- -mod "<path>/tools/sdk/samples/income-banner"`).
+- **Sandbox.** There is no `os`, `io`, `debug`, `getfenv` / `setfenv`, `loadstring` or `collectgarbage`, and the globals are
+  read-only. `sdk.read('path')` reads a file of the mod folder and nothing outside it. There is no network.
+- **Limits.** A call into a script runs at most a fixed number of VM steps (counted by the VM, so the same on every machine), and a
+  script's memory is capped. A script that goes over a limit or raises an error stops that mod's scripts with a message naming the
+  mod, at the same frame for every player. A broken manifest, or a script that does not load, stops the game from starting.
+- **Online, replays and saves.** The sim scripts are one line of the mod's identity, `sdk sim <sha256>`: every file below
+  `openbfme/sdk/sim/` with its own SHA-256, then the manifest's sim entries and the SDK version. Players whose sim scripts differ do not start a game together, and a replay or a save made with
+  other sim scripts is refused; both messages quote that line. Presentation scripts are not part of the identity at all.
 
 ## The modding SDK (planned)
 

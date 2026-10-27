@@ -186,6 +186,36 @@ TEST_CASE("hud5 icons retail: a building under construction shows lotr.str's \"B
 	}
 }
 
+TEST_CASE("hud5 icons retail: a newly produced unit's construction sentinel has no caption (RW 0x677CF9 / 0x679AE8)")
+{
+	if (!haveWorld("hud5 icons construction sentinel"))
+	{
+		return;
+	}
+	IconRig r(shared());
+	Object *unit = r.place("GondorFighter", r.rig.local, 600.0f, 600.0f);
+	r.rig.game->advance(0.2);
+	r.look(*unit);
+	// QueueProductionExitUpdate temporarily sets this flag while a new unit exits; its percent remains CONSTRUCTION_COMPLETE.
+	REQUIRE(unit->getConstructionPercent() == -1.0f);
+	unit->setStatus(OBJECT_STATUS_UNDER_CONSTRUCTION, true);
+	for (const IconUIOp &op : IconRig::of(r.build({}, 0), unit->getID()))
+	{
+		CHECK(op.kind != IconUIOp::TEXT);
+	}
+	unit->setConstructionPercent(0.0f);
+	int texts = 0;
+	for (const IconUIOp &op : IconRig::of(r.build({}, 0), unit->getID()))
+	{
+		if (op.kind == IconUIOp::TEXT)
+		{
+			++texts;
+			CHECK(op.text == "Building: 0%");
+		}
+	}
+	CHECK(texts == 1);
+}
+
 TEST_CASE("hud5 icons retail: a structure's health bar when selected or under the mouse only: frames, the full green rows, a damaged one's bands")
 {
 	if (!haveWorld("hud5 icons health"))

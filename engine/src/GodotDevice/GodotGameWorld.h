@@ -166,6 +166,12 @@ public:
 	Dictionary get_end_game_state() const;
 	int hud_end_game_timer() const;
 	Array take_end_game_requests();
+	// lane SDK-1b (a): asset packs are offline only for now: game.gd calls this before every game (false for a LAN / online game). When the answer
+	// changes, the scene is cleared and the drawables' asset manager and the effects' textures are rebuilt, so nothing drawn with the packs
+	// before stays. {loaded: any packs, used: they are applied, changed}
+	Dictionary set_asset_packs_used(bool used);
+	PackedStringArray take_sdk_banners(); // lane SDK-2: the mod scripts' ui.banner texts since the last call
+	PackedStringArray take_sdk_reports(); // lane SDK-2: their report lines ("SDK <mod>: ...")
 	// GameLogic::clearGameData (RW 0x7792BC): keeps the score screen's data (when `show_score_screen`) and tears the game down (the worker stopped, the
 	// network session, audio, effects and objects released); a new game may start afterwards. { ok, score_screen: { type, frames, entries: [...] } }
 	Dictionary clear_game_data(bool show_score_screen);
@@ -337,6 +343,7 @@ public:
 	// the builder's hero (a .cah record) on the loaded map's preview object (RW 0x9C0E03 then RW 0x80ACE3 through CreateAHeroGame::applyBuilder): { ok, error };
 	// refused in a started skirmish, a network game or under the logic worker, and while cah_builder is off
 	Dictionary cah_preview_apply(int64_t object_id, const PackedByteArray &record);
+	Dictionary cah_preview_set_orientation(int64_t object_id, double angle);
 	// the builder's map locations (AptMyHero + 0x164, RW 0x9C09FC: an object whose map name holds '_' is the location atoi(after the '_')), indexed by
 	// MapLocation: [{ id (0: none), name, template, x, y, z, angle }]
 	Array cah_preview_locations() const;

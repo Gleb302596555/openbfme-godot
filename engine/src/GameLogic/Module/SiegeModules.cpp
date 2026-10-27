@@ -1458,6 +1458,11 @@ void AIUpdateInterface::aiFacePosition(const Coord3D &pos, CommandSourceType sou
 	{
 		return;
 	}
+	privateFacePosition(pos, source);
+}
+
+void AIUpdateInterface::privateFacePosition(const Coord3D &pos, CommandSourceType source)
+{
 	if (!GarrisonRules::isMobile(*getObject())) // RW 0x690E97
 	{
 		return;

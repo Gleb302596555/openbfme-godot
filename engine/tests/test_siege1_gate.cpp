@@ -188,13 +188,15 @@ TEST_CASE("siege1 gate: Mordor's catapult and Gondor's trebuchet in front of Min
 	OPENBFME_REQUIRE_START(s);
 	const GateRun c = pinnedRun(*s, kMinasTirith, "Gate", "MordorCatapult", 400.0f, 600);
 	CHECK(c.ordered);
-	CHECK(c.contactsWhileStanding == 1); // MinisGate1, the gatehouse piece beside the gate
-	CHECK(c.firstHit == 21);
+	// merge queue q28 (measured once on the merged tree and at each merge point): the catapult's stones no longer meet MinisGate1 while the gate stands
+	// (1 -> 0) and the first hit is at 20 (21); the trebuchet breaks the gate at 158 (203)
+	CHECK(c.contactsWhileStanding == 0);
+	CHECK(c.firstHit == 20);
 	CHECK(c.deathFrame == 123);
 	const GateRun t = pinnedRun(*s, kMinasTirith, "Gate", "GondorTrebuchet", 400.0f, 600);
 	CHECK(t.contactsWhileStanding == 0);
 	CHECK(t.firstHit == 19);
-	CHECK(t.deathFrame == 203);
+	CHECK(t.deathFrame == 158);
 }
 
 TEST_CASE("siege1 gate: the rams, Grond and the mumak in front of the gates (no projectile: unchanged by the pair rule)")

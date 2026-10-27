@@ -1881,6 +1881,7 @@ void AptOnlineShell::backToList()
 		m_client->leaveGame();
 	}
 	restoreMode(); // lane UBERJOIN-1
+	setHostModeText("0");
 	callPage("ClosePassword");
 	callPage("GotoAndPlay", { "_lobby" });
 	callPage("EnableButtonCreateGame");
@@ -1894,7 +1895,6 @@ void AptOnlineShell::backToList()
 		callPage("PopUpConnectingClose");
 		m_connecting = false;
 	}
-	setHostModeText("1");
 	m_listDirty = true;
 	if (m_client)
 	{
@@ -2260,6 +2260,18 @@ void AptOnlineShell::update()
 	{
 		windows().setMouseFilterOverBox(false);
 	}
+	// OpenBFME-only controls: OnlineOpenPlay's Ready column ends at x=943; the free strip beside its tabs is x=520..944, y=168..192.
+	// Do not reuse the offline screen's scrollbar/selector positions over the online Ready boxes, Chat tab and footer ornament.
+	auto place = [](GameWindow *window, int x, int y, int width, int height) {
+		if (!window) return;
+		window->winSetPosition(x, y);
+		int w, h;
+		window->winGetSize(&w, &h);
+		if (w != width || h != height) window->winSetSize(width, height);
+	};
+	place(slotScrollWindow(), 948, 422, 18, 216);
+	place(mapCapacityFilterWindow(), 520, 168, 220, 24);
+	place(slotRangeWindow(), 746, 168, 198, 24);
 	if ((networkPageOpen() || !m_joinDetails.empty()) && shell().top() == this && !isHidden())
 	{
 		takeDecorator();

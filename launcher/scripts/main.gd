@@ -87,6 +87,8 @@ const Log := preload("res://scripts/core/launcher_log.gd")
 const GlibcCheck := preload("res://scripts/core/glibc_check.gd")
 const GameOptions := preload("res://scripts/core/game_options.gd")
 const AioInstall := preload("res://scripts/core/aio_install.gd")
+const GameFiles := preload("res://scripts/core/game_files.gd")
+const VerifyFilesPanel := preload("res://scripts/ui/verify_files_panel.gd")
 const ModInstall := preload("res://scripts/core/mod_install.gd")  # lane MODS-3
 const ModCatalog := preload("res://scripts/core/mod_catalog.gd")
 const ReleaseNotes := preload("res://scripts/core/release_notes.gd")
@@ -131,6 +133,9 @@ var info: RefCounted
 var updater: Updater
 var _instance: InstanceLock  # lane UI-5 (Sol r2): one launcher at a time
 var aio: AioInstall
+var game_files: GameFiles
+var _verify_panel: VerifyFilesPanel
+var _verify_report: Dictionary = {}
 var mods: ModInstall  # lane MODS-3
 var _thread: Thread
 var _count_thread: Thread     # lane ONLINECOUNT-1
@@ -211,6 +216,7 @@ func _ready() -> void:
 	updater = Updater.new(info)
 	aio = AioInstall.new(updater)
 	aio.default_languages(String(Paths.game_folders().rotwk))  # issue #49: no saved choice: the found games' language
+	game_files = GameFiles.new(aio)
 	mods = ModInstall.new(updater, aio)
 	var args := OS.get_cmdline_user_args()
 	var raw_replay := args.is_empty() and OS.get_cmdline_args().size() == 1 and preload("res://scripts/core/replay_open.gd").is_recording(OS.get_cmdline_args()[0])
@@ -1056,7 +1062,7 @@ func _build_ui() -> void:
 	rm.add_theme_constant_override("margin_top", 22)
 	rm.add_theme_constant_override("margin_bottom", 16)
 	rail.add_child(rm)
-	var rv := W.vbox(6)
+	var rv := W.vbox(Style.NAV_GAP)
 	rm.add_child(rv)
 	var logo := W.label("OPENBFME")
 	Style.text(logo, "Cinzel", 700, 25, Style.ACCENT, 2)
@@ -1068,6 +1074,10 @@ func _build_ui() -> void:
 	var group := ButtonGroup.new()
 	for s in SCREENS:
 		var b := W.button(L10n.t(s[2]), s[1], "NavButton", 18)
+		b.clip_text = true
+		b.tooltip_text = b.text
+		b.custom_minimum_size.y = Style.NAV_HEIGHT
+		b.size_flags_vertical = Control.SIZE_FILL
 		b.toggle_mode = true
 		b.button_group = group
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
@@ -1076,7 +1086,7 @@ func _build_ui() -> void:
 		_nav[s[0]] = b
 	rv.add_child(W.spacer())
 	rv.get_child(rv.get_child_count() - 1).size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var foot := W.label(L10n.t("launcher.main.footer_version", {"version": Semver.display(info.version)}), "Muted")
+	var foot := W.trim_label(L10n.t("launcher.main.footer_version", {"version": Semver.display(info.version)}), "Muted")
 	if info.local_trial:
 		foot.text += "\n" + L10n.t("launcher.main.footer_local_trial")
 	foot.add_theme_font_size_override("font_size", 12)
@@ -1172,6 +1182,7 @@ func _build_ui() -> void:
 	_games_screen.download.connect(_start_aio)
 	_games_screen.forget_folders.connect(_on_forget_folders)
 	_games_screen.show_folder.connect(_show_folder)
+	_games_screen.verify_files.connect(_start_verify_files)
 	_games_screen.pause_pressed.connect(_on_pause)
 	_games_screen.cancel_pressed.connect(_on_cancel)
 	_games_screen.languages_changed.connect(_on_languages)
@@ -1278,6 +1289,10 @@ func _build_ui() -> void:
 	_play.pressed.connect(_on_play)
 	bar.add_child(_play)
 
+	_verify_panel = VerifyFilesPanel.new()
+	_verify_panel.repair_confirmed.connect(_start_repair_files)
+	_verify_panel.cancel_requested.connect(_on_cancel)
+	add_child(_verify_panel)
 	_message = MessagePanel.new()
 	_message.open_logs.connect(_open_logs)
 	_message.closed.connect(func() -> void: updater.set_state("launcher", "unseen_error", ""))
@@ -1552,6 +1567,45 @@ func _start_aio(dir: String, resume := false) -> void:
 	_start_job(_job_aio.bind(dir), "aio")
 
 
+func _start_verify_files(key: String, dir: String) -> void:
+	if _busy():
+		return
+	_verify_report = {}
+	_verify_panel.begin()
+	_start_job(_job_verify_files.bind(key, dir), "verify-files")
+
+
+func _start_repair_files() -> void:
+	if _busy() or _verify_report.is_empty():
+		return
+	if not updater.running().is_empty():
+		_show_error(L10n.t("launcher.main.close_game_first"), L10n.t("launcher.main.close_game_repair"))
+		return
+	_verify_panel.begin(true)
+	_start_job(_job_repair_files, "repair-files")
+
+
+func _job_verify_files(key: String, dir: String) -> void:
+	_after_verify_files.call_deferred(game_files.verify(key, dir))
+
+
+func _job_repair_files() -> void:
+	_after_verify_files.call_deferred(game_files.repair(_verify_report, true))
+
+
+func _after_verify_files(result: Dictionary) -> void:
+	if not result.ok:
+		var repairing := _job_kind == "repair-files"
+		_verify_report = {}
+		_verify_panel.visible = false
+		_finish(L10n.t("launcher.main.verify_stopped"), result.error)
+		_show_error(L10n.t("launcher.main.repair_failed") if repairing else L10n.t("launcher.main.verify_failed"), result.error)
+		return
+	_verify_report = result
+	_finish(VerifyFilesPanel.summary(result))
+	_verify_panel.show_report(result)
+
+
 ## Pause stops the transfer and keeps the partial file (Resume continues it with a Range request); while paused it reads "Resume".
 func _on_pause() -> void:
 	if _busy():
@@ -1690,7 +1744,7 @@ func _busy() -> bool:
 func _play_blocked() -> bool:
 	# MACFIX-1 (issue #46): the running job first; the update lock's state is a process start (the bundle swap helper)
 	# lane MODS-3: also while a mod downloads (its folder is half old, half new until the download is checked)
-	if _busy() and (_job_kind in ["aio", "mod"] or (_job_target != "" and _job_target == _pv)):
+	if _busy() and (_job_kind in ["aio", "mod", "verify-files", "repair-files"] or (_job_target != "" and _job_target == _pv)):
 		return true
 	return updater.macos_updates_enabled() and (updater.macos_transaction or MacOSUpdate.transaction_locked(updater))
 
@@ -1703,6 +1757,8 @@ func _set_buttons() -> void:
 	_check.visible = not downloading
 	_check.disabled = busy
 	_pause.visible = downloading
+	if _job_kind in ["verify-files", "repair-files"]:
+		_pause.visible = false
 	_cancel.visible = downloading
 	_update.visible = _update_state == "update" and not downloading  # LAUNCHERUI-1: no room beside Pause and Cancel, and it is disabled meanwhile
 	_update.disabled = busy or _latest.is_empty()
@@ -1831,6 +1887,9 @@ func _process(_delta: float) -> void:
 
 func _on_progress(text: String, done: int, total: int) -> void:
 	if _job_kind == "":
+		return
+	if _job_kind in ["verify-files", "repair-files"]:
+		_verify_panel.set_progress(text, done, total)
 		return
 	if _ui_stop != "" and total > 0 and done < total and _busy() and text.contains(_ui_stop.get_slice("@", 1)):
 		var how := _ui_stop.get_slice("@", 0)
