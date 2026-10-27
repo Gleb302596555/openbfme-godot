@@ -736,6 +736,8 @@ StateReturnType AIFollowPathState::enterSegment()
 		a.setCanPathThroughUnits(true);
 		adjusts = false;
 		m_adjustFinal = true;
+		// The factory exemption belongs to the doorway segment, never the player's rally route.
+		if (m_index != 0) a.mover().ignoreObstacle(PATHFIND_INVALID_ID);
 	}
 	if (next)
 	{
@@ -781,6 +783,7 @@ void AIFollowPathState::onExit(StateExitType status)
 	if (m_exitProduction)
 	{
 		ai().setCanPathThroughUnits(false);
+		ai().mover().ignoreObstacle(PATHFIND_INVALID_ID);
 	}
 }
 
