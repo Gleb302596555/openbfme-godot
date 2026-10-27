@@ -88,6 +88,10 @@ PlayerStatusInfo makePlayerStatusInfo(const PlayerStatusInput &in, const Skirmis
 		row.slot = i;
 		row.platform = slot.isHuman() ? in.platforms[i] : PlatformKind::None; // lane PLATFORMICON-1
 		row.fields[0] = loadScreenU16ToUtf8(slot.name); // RW 0x915C51: GameSlot + 0x30
+		if (game.cheatMode == row.slot)
+		{
+			row.fields[0] += " (Cheat Mode host)"; // lane CHEAT-1, OpenBFME: every player's Status page names the open Cheat Mode's seat
+		}
 		// RW 0x80147D getApparentPlayerTemplateDisplayName
 		const bool ally = isSlotLocalAlly(game, i, in.localSlot);
 		if (in.showRandomPlayerTemplate && slot.origPlayerTemplate == PLAYERTEMPLATE_RANDOM && !ally)

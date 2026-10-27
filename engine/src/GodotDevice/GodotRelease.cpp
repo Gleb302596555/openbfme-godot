@@ -9,6 +9,7 @@
 #include "Common/ConsoleFilter.h"
 #include "Common/InstallLocator.h"
 #include "Common/WindowsCrashDump.h"
+#include "GameNetwork/JoinBuild.h"
 #include "GameNetwork/ProfileIdentity.h"
 
 #include <godot_cpp/classes/project_settings.hpp>
@@ -76,6 +77,9 @@ Dictionary checkToDict(const InstallLocator::InstallCheck &c)
 	d["missing"] = toArray(c.missing);
 	d["present"] = c.present;
 	d["expected"] = c.expected;
+	d["language"] = toGodot(c.language); // issue #49: the folder's text and voice languages (RetailArchivePolicy.h "Languages")
+	d["voice"] = toGodot(c.voice);
+	d["unpinned_language_archives"] = toArray(c.unpinnedLanguageArchives);
 	return d;
 }
 } // namespace
@@ -93,10 +97,39 @@ void ReleaseInfo::_bind_methods()
 	ClassDB::bind_method(D_METHOD("build_record"), &ReleaseInfo::build_record);
 	ClassDB::bind_method(D_METHOD("inspect_replay", "path"), &ReleaseInfo::inspect_replay);
 	ClassDB::bind_method(D_METHOD("redact", "text"), &ReleaseInfo::redact);
+	ClassDB::bind_method(D_METHOD("join_refusal_text", "mine", "host"), &ReleaseInfo::join_refusal_text);
+	ClassDB::bind_method(D_METHOD("join_details_text", "mine", "mine_profile", "host", "host_profile"), &ReleaseInfo::join_details_text);
 	ClassDB::bind_method(D_METHOD("process_alive", "pid"), &ReleaseInfo::process_alive);
 	ClassDB::bind_method(D_METHOD("crash_test"), &ReleaseInfo::crash_test);
 	ClassDB::bind_method(D_METHOD("crash_test_worker"), &ReleaseInfo::crash_test_worker);
 	ClassDB::bind_method(D_METHOD("install_crash_handler"), &ReleaseInfo::install_crash_handler);
+}
+
+namespace
+{
+JoinBuild::Build joinBuildOf(const Dictionary &d)
+{
+	JoinBuild::Build b;
+	b.version = String(d.get("version", String())).utf8().get_data();
+	b.date = String(d.get("date", String())).utf8().get_data();
+	b.platform = String(d.get("platform", String())).utf8().get_data();
+	const Variant official = d.get("official", Variant());
+	if (official.get_type() == Variant::BOOL)
+	{
+		b.official = bool(official) ? 1 : 0;
+	}
+	return b;
+}
+} // namespace
+
+String ReleaseInfo::join_refusal_text(const Dictionary &mine, const Dictionary &host) const
+{
+	return String::utf8(JoinBuild::refusalText(joinBuildOf(mine), joinBuildOf(host)).c_str());
+}
+
+String ReleaseInfo::join_details_text(const Dictionary &mine, const String &mine_profile, const Dictionary &host, const String &host_profile) const
+{
+	return String::utf8(JoinBuild::detailsText(joinBuildOf(mine), mine_profile.utf8().get_data(), joinBuildOf(host), host_profile.utf8().get_data()).c_str());
 }
 
 String ReleaseInfo::version() const

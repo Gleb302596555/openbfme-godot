@@ -96,13 +96,15 @@ const StructRow kRows[] = {
 	// Merge queue q24 (OFFMAP-1: RotWK's idle state RW 0x745A64 has no ZH frame <= 1 snap, so the Gondor horde and the barracks' fight start where the scene
 	// made them; measured once on the merged tree; without OFFMAP-1 the merged tree keeps q23's values): 390 -> 388, 324 -> 330, 584 -> 604, 380 -> 426,
 	// 60 -> 58, 96 -> 110, 390 -> 388. Engine pins
-	{ "FactionMen", "GondorBarracks", "ActiveBody", 3000.0f, 20.0f, 75, 155.0f, true, 388 },
-	{ "FactionElves", "ElvenBarracks", "StructureBody", 3000.0f, 20.0f, 0, 100.0f, true, 330 }, // no BountyValue line
-	{ "FactionDwarves", "DwarfBarracks", "ActiveBody", 5000.0f, 20.0f, 125, 155.0f, true, 604 },
-	{ "FactionIsengard", "IsengardUrukPit", "StructureBody", 3000.0f, 20.0f, 88, 89.0f, true, 426 },
-	{ "FactionMordor", "MordorBarracks", "StructureBody", 1500.0f, 100.0f, 0, 0.0f, false, 58 },
-	{ "FactionWild", "GoblinCave", "ActiveBody", 1500.0f, 50.0f, 100, 25.0f, true, 110 },
-	{ "FactionAngmar", "AngmarBarracks", "ActiveBody", 3000.0f, 20.0f, 75, 155.0f, true, 388 },
+	// Merge queue q26 (community #73's slot tables centred on their hordes and #74's spiral with BANNER-1 and the rest, measured once on the merged tree):
+	// 388 -> 406, 330 -> 422, 604 -> 660, 426 -> 404, 58 -> 72, 110 -> 122, 388 -> 406. Engine pins
+	{ "FactionMen", "GondorBarracks", "ActiveBody", 3000.0f, 20.0f, 75, 155.0f, true, 406 },
+	{ "FactionElves", "ElvenBarracks", "StructureBody", 3000.0f, 20.0f, 0, 100.0f, true, 422 }, // no BountyValue line
+	{ "FactionDwarves", "DwarfBarracks", "ActiveBody", 5000.0f, 20.0f, 125, 155.0f, true, 660 },
+	{ "FactionIsengard", "IsengardUrukPit", "StructureBody", 3000.0f, 20.0f, 88, 89.0f, true, 404 },
+	{ "FactionMordor", "MordorBarracks", "StructureBody", 1500.0f, 100.0f, 0, 0.0f, false, 72 },
+	{ "FactionWild", "GoblinCave", "ActiveBody", 1500.0f, 50.0f, 100, 25.0f, true, 122 },
+	{ "FactionAngmar", "AngmarBarracks", "ActiveBody", 3000.0f, 20.0f, 75, 155.0f, true, 406 },
 };
 
 // n * (n - 1) / 2 * 1.28 >= H, the first n
@@ -369,7 +371,7 @@ Victory playVictory(const char *attackerFaction, const char *attackerHorde, cons
 		{
 			if (Object *victim = a.logic.findObjectByID(wId))
 			{
-				victim->kill(DEATH_NORMAL);
+				victim->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL);
 				attackedWorker = true;
 			}
 		}

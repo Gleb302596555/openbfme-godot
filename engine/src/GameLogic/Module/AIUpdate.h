@@ -109,9 +109,15 @@ public:
 	unsigned evenIfSleepingOrders() const { return m_evenIfSleepingOrders; }
 	const Coord3D &lastEvenIfSleepingGoal() const { return m_lastEvenIfSleepingGoal; }
 	void aiMoveToObject(Object *obj, CommandSourceType source);
-	// RW 0x770C2C (MSG_DO_MOVE_AND_ORIENTATE_OBJECTTO): a move that ends facing `angle`
-	void aiMoveToPositionAndOrientate(const Coord3D &pos, float angle, CommandSourceType source);
+	// RW 0x770C2C (MSG_DO_MOVE_AND_ORIENTATE_OBJECTTO): a move that ends facing `angle`. False when the gate or the mobility test refuses it (nothing
+	// changed); true when the base installed the move (`takenGoal`: its clipped goal) or a subclass took it (`takenGoal`: `pos`)
+	bool aiMoveToPositionAndOrientate(const Coord3D &pos, float angle, CommandSourceType source, Coord3D *takenGoal = nullptr);
+	// lane SIEGE-1: AI command 0x27 (RW 0x7C821E -> AI vslot 0x118 RW 0x667290): the unit turns to face `pos` (state 0x25, GameLogic/Module/SiegeModules.cpp)
+	void aiFacePosition(const Coord3D &pos, CommandSourceType source);
 	void aiIdle(CommandSourceType source);
+	// TARGET RW 0x6643B6 / 0x667290: face commands 0x26 / 0x27 enter
+	// states 36 / 37 and turn through the locomotor before returning to idle.
+	void aiFaceObject(Object *target, CommandSourceType source);
 	void aiFollowPath(const std::vector<Coord3D> &path, Object *ignoreObject, CommandSourceType source, bool exitProduction);
 	void aiFollowPathAppend(const Coord3D &pos, CommandSourceType source);
 	void aiBusy(CommandSourceType source);
@@ -307,9 +313,10 @@ public:
 	static std::string hordeMemberUpdateStop();
 	bool isDoingGroundMovement() const;       // B1 AIUpdate.cpp:3978
 	bool isAircraftThatAdjustsDestination() const; // B1 AIUpdate.cpp:4010
-	bool canPathThroughUnits() const { return m_canPathThroughUnits; }
+	bool canPathThroughUnits() const override { return m_canPathThroughUnits; } // AI + 0x3BA
 	void setCanPathThroughUnits(bool v) { m_canPathThroughUnits = v; }
 	CommandSourceType lastCommandSource() const { return m_lastCommandSource; }
+	void setLastCommandSource(CommandSourceType s) { m_lastCommandSource = s; } // AI + 0x48 (lane HEROCAST-1: public, AIGroup's groupDoSpecialPower* write it)
 	unsigned currentStateId() const { return m_machine ? m_machine->currentStateId() : (unsigned)AI_NO_STATE; }
 
 	// ---- locomotors ----
@@ -388,6 +395,7 @@ public:
 	bool isImmobile() const override;
 	bool isStatusImmobile() const override;
 	bool isContained() const override;
+	bool isDeployedSiegeTower() const override; // RW 0x66E2A4
 	int stateId() const override { return (int)currentStateId(); }
 	AIMover *moverOf(PathfindObjectID id) override;
 	AIMover *containerMover() override;
@@ -395,6 +403,7 @@ public:
 	Coord2D unitDirectionOf(const PathfindObject &o) const override;
 	int pathPriority() const override;
 	PathfindObjectID attackTargetOf(const PathfindObject &o) const override;
+	PathfindObjectID enterTargetOf(const PathfindObject &o) const override; // AI vslot 0x1FC, RW 0x664D12
 	bool crushOrSquishPolicy(const PathfindObject &other) const override; // lane ATTACK-1: RW 0x69519A(other, 2)
 	float wanderFactor() const override;
 	float closeEnoughDist() const override;
@@ -439,7 +448,8 @@ public:
 	// RW 0x667174 (aiDoCommand's gate): `command` is the AICommandType number (0 move to position, 1 move to object, ...; -1 unknown); false when the object is dead,
 	// a PLAYER order meets PreventPlayerCommands (+ 0x3C5) or the model condition 206, a SCRIPT order meets + 0x3C6, the temporary state is locked, or a PLAYER
 	// move order meets a locomotor set speed of 0. Every ai* command of this class asks it first
-	bool allowedToRespondToCommand(CommandSourceType source, int command) const;
+	// (virtual: AI vtable slot 148, isAllowedToRespondToAiCommands; lane SIEGE-1: SiegeAIUpdate overrides it, RW 0x893C80)
+	virtual bool allowedToRespondToCommand(CommandSourceType source, int command) const;
 	// lane AUDIO-3 r2: aiDoCommand's entry: the gate, then (passed) the module's own reaction before the command runs (commandAccepted). Every ai* command calls this
 	bool acceptCommand(CommandSourceType source, int command, Object *target = nullptr)
 	{
@@ -504,6 +514,8 @@ protected:
 		Object *target = nullptr;
 		CommandSourceType source = CMD_FROM_AI;
 		int waypointId = -1;
+		float angle = 0.0f;          // lane SIEGE-1: the move with an angle's final angle (DeployStyleAIUpdate gives a kept command again)
+		int maxShots = 0x7FFFFFFF;   // lane SIEGE-1: the attack commands' shot limit (AICommandParms m_intValue)
 		std::vector<Coord3D> path; // lane STEALTHFLY1: a follow path the bird keeps while attacking (GiantBirdAIUpdate::deferWhileAttacking)
 	};
 	virtual bool routeCommand(const RoutedCommand &command) { (void)command; return false; }
@@ -511,7 +523,6 @@ protected:
 	// (privateFollowPath) and 0x84 (privateFollowPathAppend), which GiantBirdAIUpdate overrides (RW 0x76B491 / 0x76D659: its own follow path state 0x3F6)
 	virtual void privateFollowPath(const std::vector<Coord3D> &path, Object *ignoreObject, CommandSourceType source, bool exitProduction);
 	virtual void privateFollowPathAppend(const Coord3D &pos, CommandSourceType source);
-	void setLastCommandSource(CommandSourceType s) { m_lastCommandSource = s; }
 	// the hook HordeAIUpdate adds its per-frame work to (B1 HordeAIUpdate_update.cpp:261-293, RW 0x89E2D0)
 	virtual void updateBeforeBase() {}
 	virtual const char *machineName() const { return "AIUpdateInterfaceMachine"; }
@@ -521,6 +532,10 @@ protected:
 	// lane LUMBER1: the command bodies WorkerAIUpdate extends (RW 0x8ACE75 / 0x8ACE4A)
 	virtual void privateHarvest(const Coord3D &pos, CommandSourceType source);
 	virtual void privateDock(Object *dock, CommandSourceType source);
+	// the bodies of aiFaceObject / aiFacePosition once the gate (RW 0x667174) passed: AI vslots 0x114 (privateFaceObject, base RW 0x6643B6) and 0x118
+	// (privateFacePosition, base RW 0x667290); GiantBirdAIUpdate overrides both (RW 0x76B543 / 0x76B559 -> RW 0x76AB4E: its turn states 0x3FF / 0x3FC)
+	virtual void privateFaceObject(Object *target, CommandSourceType source);
+	virtual void privateFacePosition(const Coord3D &pos, CommandSourceType source);
 
 private:
 	class ObjectLocomotorHost;

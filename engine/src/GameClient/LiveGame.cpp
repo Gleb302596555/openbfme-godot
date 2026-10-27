@@ -2,6 +2,7 @@
 // See GameClient/LiveGame.h.
 
 #include "GameClient/LiveGame.h"
+#include "GameLogic/Sdk/SdkScriptHost.h"
 
 #include "GameClient/FrameCensus.h"
 #include "Common/GameState.h"
@@ -38,6 +39,8 @@
 #include "GameLogic/VictoryConditions.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/System/PathfinderResourceTerrain.h"
+#include "GameLogic/AI/AIPathfindConfig.h"
+#include "Common/BfmeGame.h"
 #include "Libraries/WWVegas/WW3D2/assetmgr.h"
 
 #include <chrono>
@@ -82,6 +85,7 @@ LiveGame::~LiveGame()
 	{
 		m_scripting->detach(); // while the logic is alive
 	}
+	m_sdkScripts.reset(); // lane SDK-2: its listeners leave the logic first
 	if (m_logic)
 	{
 		m_logic->reset(); // the objects go first (their drawables are dropped through the hooks), then the manager
@@ -343,6 +347,22 @@ bool LiveGame::load(const Options &options, std::string *error)
 	}
 	m_logic->setGameRules(gameRules);
 	m_logic->setLegendaryHeroes(options.start ? options.start->message.game.legendaryHeroes : LegendaryHeroes::kOff);
+	// lane CHEAT-1: the cheat seat (the setup's slot) as the logic player of that slot; a seat without a player is an error, never a game without the seat
+	if (options.start && options.start->message.game.cheatModeOn())
+	{
+		const int slot = options.start->message.game.cheatMode;
+		const std::string side = slot < (int)m_report.startSlotPlayers.size() ? m_report.startSlotPlayers[(size_t)slot] : std::string();
+		const Player *seat = side.empty() ? nullptr : m_players->findPlayerWithName(side);
+		if (!seat)
+		{
+			if (error)
+			{
+				*error = "Cheat Mode: the cheat seat's slot " + std::to_string(slot) + " has no player";
+			}
+			return false;
+		}
+		m_logic->cheatMode().configure(slot, seat->getPlayerIndex());
+	}
 	// lane UBER-1: the game setup's simulation profile (a game without a start message, a map viewer or a tool, is Faithful unless its options say Uber)
 	m_logic->setSimulationProfile(options.start ? options.start->message.game.simulationProfile : options.simulationProfile);
 	m_logic->economy().initAllCommandPoints();
@@ -363,6 +383,8 @@ bool LiveGame::load(const Options &options, std::string *error)
 	{
 		return false;
 	}
+	// lane AIDATA-1: the pathfinder reads TheAI's AIData (RW [0xDE4B40] + 0x18) like every other consumer: the map's AIData block (applied above) reaches it too
+	PathfindConfigLoader::applyAIData(m_logic->settings(), aiConfig.pathfind, isBfme1Data(m_fs));
 	m_pathTerrain = std::make_unique<TerrainPathfindSource>(m_terrain, m_map.heightMap, m_map.chunks);
 	m_ai = std::make_unique<AIWorld>(*m_logic, aiConfig, m_world.iniMacros());
 	m_ai->attach();
@@ -446,6 +468,7 @@ bool LiveGame::load(const Options &options, std::string *error)
 	HeroAbilityModules::registerHandlers(*m_dispatch); // HERO-2: MSG_DO_AUTO_ABILITY (RW 0x77B9BA)
 	m_spellCommands.registerHandlers(*m_dispatch); // SPELL-1: the spell book messages
 	TributeCommands::registerHandlers(*m_dispatch); // PLAY-1: MSG_GIVE_MONEY, the tribute (RW 0x6264E1)
+	CheatMode::registerHandlers(*m_dispatch);       // CHEAT-1: MSG_OPENBFME_CHEAT (refused unless the game setup has Cheat Mode)
 	SpecialPowerModules::installScienceHooks(*m_logic);
 	m_drawables = std::make_unique<DrawableManager>(m_assets, *m_logic);
 	// SMOOTH-1: the logic talks to its client through ordered events (ClientEvents.h); the render side applies them (DrawableManager::applyEvents)
@@ -468,6 +491,17 @@ bool LiveGame::load(const Options &options, std::string *error)
 	m_scripting = std::make_unique<LiveScripting>(*m_logic, m_fs, m_world.nameKeys());
 	if (!m_scripting->start(MapClassification::mapDirectory(lowerName), error))
 	{
+		return false;
+	}
+	// lane SDK-2: the -mod folder's sim Luau scripts (GameLogic/Sdk/SdkScriptHost.h); a broken manifest or script stops the start
+	m_sdkScripts = std::make_unique<SdkScriptHost>(*m_logic);
+	std::string sdkError;
+	if (!m_sdkScripts->start(m_fs.modLooseLayer(), sdkError))
+	{
+		if (error)
+		{
+			*error = sdkError;
+		}
 		return false;
 	}
 
@@ -764,6 +798,14 @@ bool LiveGame::setupMapScripts(const Options &options, const SidesList &sidesUse
 		m_report.mapScripts.push_back(n);
 	}
 	return true;
+}
+
+std::vector<CheatMode::LogEntry> LiveGame::takeCheatAnnouncements()
+{
+	std::vector<CheatMode::LogEntry> out;
+	const std::unique_lock<std::mutex> lock = lockPublication("takeCheatAnnouncements");
+	out.swap(m_publishedCheatLines);
+	return out;
 }
 
 std::vector<ScriptClientRequest> LiveGame::takeScriptRequests()
@@ -1279,7 +1321,15 @@ void LiveGame::publish(std::shared_ptr<const FrameCompletion> completion)
 	m_recorder->captureObserverFrame();
 	std::vector<ClientEvent> events = m_recorder->take();
 	std::vector<ScriptClientRequest> scriptRequests = m_logic->scriptEngine().takeClientRequests(); // lane SCRIPT-1
+	std::vector<CheatMode::LogEntry> cheatLines = m_logic->cheatMode().takeAnnouncements();        // lane CHEAT-1
 	std::lock_guard<std::mutex> lock(m_pubMutex);
+	for (CheatMode::LogEntry &e : cheatLines)
+	{
+		if (m_publishedCheatLines.size() < CheatMode::kLogCap) // a render side that never takes them keeps a bounded queue
+		{
+			m_publishedCheatLines.push_back(std::move(e));
+		}
+	}
 	m_publishedPrev = m_published;
 	m_published = snap;
 	for (ScriptClientRequest &r : scriptRequests)
@@ -1495,4 +1545,14 @@ bool LiveGame::observeNextPlayer(bool forward)
 	m_shroud->refreshLocalPlayer();
 	m_shroudChanged = true;
 	return true;
+}
+
+std::vector<std::string> LiveGame::takeSdkBanners()
+{
+	return m_sdkScripts ? m_sdkScripts->takeBanners() : std::vector<std::string>();
+}
+
+std::vector<std::string> LiveGame::takeSdkReports()
+{
+	return m_sdkScripts ? m_sdkScripts->takeNewReports() : std::vector<std::string>();
 }

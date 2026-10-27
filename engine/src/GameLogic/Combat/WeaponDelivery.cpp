@@ -2,10 +2,12 @@
 // See GameLogic/Combat/WeaponDelivery.h for the target facts.
 
 #include "GameLogic/Combat/WeaponDelivery.h"
+#include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Module/GiantBirdAIUpdate.h"
 #include "GameLogic/LegendaryHeroesGame.h"
 
 #include "Common/Player.h"
+#include "Common/Thing/ThingFactory.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Combat/CombatQueries.h"
@@ -372,6 +374,24 @@ void radiusDamage(GameLogic &logic, ObjectID sourceId, const DamageNugget &nugge
 		{
 			continue;
 		}
+		// lane RADIUSHEIGHT-1: RW 0x90E1AC .. 0x90E20C (BFME2 decomp Made002CC5E1Ctor.cpp DamageNugget::doEffectPosition, the m_140 / m_144 blocks; tier B same-shape,
+		// the fields at +0x160 / +0x164 in RotWK), after slot 1 and before MinRadius. A cap of -1 (ucomiss against RW 0xBD19DC) skips its test.
+		// DamageMaxHeight: SSE subss of the source object's position z (+0x40) from the victim's, comiss > cap skips the victim (not the passed position's z).
+		// Retail reads the source with no null test (RW 0x90E1C8); here slot 1 (damageApplicable) already refused a victim when the owner is gone.
+		if (nugget.m_damageMaxHeight != -1.0f && source && SimMath::subf32(o->getPosition()->z, source->getPosition()->z) > nugget.m_damageMaxHeight)
+		{
+			continue;
+		}
+		// DamageMaxHeightAboveTerrain: Object::getHeightAboveTerrain (RW 0x70B8AE, cached as a float; BFME2 decomp ObjectCalculateHeightAboveTerrain.cpp: the z less
+		// the object's layer height, the port's layer of the position as SlowDeathBehavior::heightAboveTerrain, lane WALL-2) fcomip > cap skips the victim
+		if (nugget.m_damageMaxHeightAboveTerrain != -1.0f)
+		{
+			const Coord3D &p = *o->getPosition();
+			if (SimMath::subf32(p.z, logic.getLayerHeightForDestination(p.x, p.y, p.z)) > nugget.m_damageMaxHeightAboveTerrain)
+			{
+				continue;
+			}
+		}
 		if (nugget.m_minRadius > 0.0f && d2 < SimMath::mulf32(nugget.m_minRadius, nugget.m_minRadius))
 		{
 			continue;
@@ -527,7 +547,7 @@ void apply(GameLogic &logic, const MetaImpactNugget &n, ObjectID sourceId, Objec
 	if (source && ObjectFilterMatch::isValid(&n.m_killObjectFilter) &&
 		ObjectFilterMatch::allows(logic, n.m_killObjectFilter, victim, source->getControllingPlayer()))
 	{
-		victim.kill(DEATH_NORMAL);
+		victim.kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL); // RW 0x910695: kill(8, 0)
 		++counters.metaImpactKills;
 		return;
 	}
@@ -962,6 +982,8 @@ void deliver(GameLogic &logic, const ParalyzeNugget &n, const WeaponTemplate &w,
 }
 } // namespace Paralyze
 
+} // namespace
+
 // RW 0x6CB81A (the first step of the aim query RW 0x6CB85A): the weapon's PreferredTargetBone (+ 0x90) when it is not empty and the victim's drawable has it exactly
 // once among its pristine bones (RW 0x68C5AF -> 0x672A73), in the world (RW 0x70BCE7: the victim's transform on the bone's translation, retail's SSE order)
 bool preferredBoneAim(GameLogic &logic, const WeaponTemplate &w, const Object &victim, Coord3D &out)
@@ -981,6 +1003,8 @@ bool preferredBoneAim(GameLogic &logic, const WeaponTemplate &w, const Object &v
 	return true;
 }
 
+namespace
+{
 // ---- lane NUGGET-1: the nuggets whose effect had no port (S-321). Every slot's first argument in RW is the firing Weapon; its + 8 (the owner's id) is all a slot
 // reads of it: `sourceId` below. The dispatch is fireWeaponTemplate's (RW 0x6CCECC .. 0x6CCF17, slot 12 false for all of these): a victim takes slot 1 then slot 5,
 // no victim slot 2 then slot 6. SlaveAttackNugget (SlaveWatcherBehavior, S-1995) and FireLogicNugget (TheFireLogicSystem, S-191) stay counted ----
@@ -1186,9 +1210,9 @@ void luaEventAt(GameLogic &logic, const LuaEventNugget &n, ObjectID sourceId, co
 // ---- SpawnAndFadeNugget (vtable RW 0xC7BD60: slot 1 RW 0x911BCF, slot 2 RW 0x911BFD, slot 5 RW 0x911C32 = slot 6 at the victim's position, slot 6 RW 0x911C46) ----
 // RW 0x911C46: the source object (retail reads it without a null test); SpawnedObjectName's template (RW 0x6D1305; none: nothing); a new object on the source's team
 // (RW 0x6D165E, status 0) at the SOURCE's position plus SpawnOffset turned by the source's angle: s / c the MSVCR71 sin / cos of the angle stored as floats, SSE
-// x + (c ox - s oy), y + (ox s + c oy); z the terrain height there on the source's layer (TheTerrainLogic slot 0x1C: the ground, S-161); its orientation the
-// source's (RW 0x70C31E); the source dies (RW 0x698EC3: UNRESISTABLE, FADED); a DEPLOYED_MINE (template + 0x11D bit 4) enters the pathfinder's map (RW 0x6E85E9).
-// The target position itself is not read
+// x + (c ox - s oy), y + (ox s + c oy); z the terrain height there on the source's layer (TheTerrainLogic slot 0x1C, RW 0x68BBE0; lane WALL-1: a wall top's or a
+// ramp's height for a source on a walkway, the ground otherwise); its orientation the source's (RW 0x70C31E); the source dies (RW 0x698EC3: UNRESISTABLE, FADED:
+// the mine carrier's DeployedDeath fades it); a DEPLOYED_MINE (template + 0x11D bit 4) enters the pathfinder's map (RW 0x6E85E9). The target position itself is not read
 void spawnAndFade(GameLogic &logic, const SpawnAndFadeNugget &n, ObjectID sourceId)
 {
 	static const int kDeployedMine = MetaImpact::kindIndex("DEPLOYED_MINE");
@@ -1216,10 +1240,11 @@ void spawnAndFade(GameLogic &logic, const SpawnAndFadeNugget &n, ObjectID source
 	Coord3D p;
 	p.x = SimMath::addf32(sp.x, SimMath::subf32(SimMath::mulf32(c, ox), SimMath::mulf32(s, oy)));
 	p.y = SimMath::addf32(sp.y, SimMath::addf32(SimMath::mulf32(ox, s), SimMath::mulf32(c, oy)));
-	p.z = logic.getGroundHeight(p.x, p.y);
+	const AIUpdateInterface *sai = source->getAIUpdateInterface();
+	p.z = sai ? sai->layerHeightAt(p.x, p.y) : logic.getGroundHeight(p.x, p.y);
 	o->setPosition(&p);
 	o->setOrientation(angle);
-	source->kill(DEATH_FADED);
+	source->kill(DAMAGE_UNRESISTABLE, DEATH_FADED); // RW 0x911D9F: kill(8, FADED)
 	if (o->isKindOf((unsigned)kDeployedMine))
 	{
 		if (AIWorld *ai = logic.aiWorld())
@@ -1388,7 +1413,7 @@ void damageContained(GameLogic &logic, const DamageContainedNugget &n, ObjectID 
 	int killed = 0;
 	auto killOne = [&](Object &o) {
 		source->scoreTheKill(o, 1);
-		o.kill(n.m_deathType);
+		o.kill(DAMAGE_UNRESISTABLE, n.m_deathType); // RW 0x91133E / 0x91136E: kill(8, DeathType)
 		++killed;
 	};
 	for (ObjectID id : idsOf(*c))

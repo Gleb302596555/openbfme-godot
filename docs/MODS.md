@@ -140,24 +140,116 @@ names them.
 ## Asset packs: drag-and-drop HD models and textures
 
 An asset pack is a folder of replacement art. Drop it into the `asset-packs` folder of OpenBFME's user data folder (one subfolder per pack),
-or start OpenBFME with `--asset-pack=<folder>`.
+or start OpenBFME with `--asset-pack=<folder>`. The launcher's **Mods** screen lists the packs there under *Asset packs*. Each pack has an
+**On** box (a pack turned off is named in `asset-packs/disabled.txt`, which the game reads too) and the screen has an *Open the folder*
+button. `--asset-packs`, `--asset-pack-on=<name>` and `--asset-pack-off=<name>` do the same from the command line.
 
-- A file named after a retail texture replaces it: `gumaarms.dds`, `gumaarms.tga`, `gumaarms.png` or `gumaarms.jpg` all replace the texture
-  `GUMaArms`, wherever the file sits in the pack and whatever its case. Higher resolutions are fine.
-- A file named after a retail model file replaces it: `gumaarms_skn.w3d`. A replacement model has to keep the original's skeleton (the
-  same hierarchy and bone names), or its animations will not fit.
-- Several packs: they load in name order, then the `--asset-pack` ones, and the later pack wins. One pack with two files for the same
-  asset is an error that names both.
-- **Packs are cosmetic and allowed online.** Only drawing reads them. The game logic, which uses model bones for where arrows and
-  projectiles start, keeps reading the original files, so a pack never changes a game result and never stops you joining a game.
-- Not replaced yet: particle, terrain, menu (Apt) and decal textures, and model formats other than W3D (glTF is planned, with automatic
-  skeleton mapping and LODs).
+- A file named after a game texture replaces it: `gumaarms.dds`, `gumaarms.tga`, `gumaarms.png` or `gumaarms.jpg` all replace the texture
+  `GUMaArms`, wherever the file sits in the pack and whatever its case. Higher resolutions are fine. Packs replace the textures of models,
+  particles, building bibs and shadow decals, roads, rivers, water and the sky.
+- A file named after a game model file replaces it: `gumaarms_skn.w3d`. A replacement model has to keep the original's skeleton: the same
+  bones in the same order with the same parents, the same models (HLODs) on the same skeleton, and the same animations. When the game
+  starts it checks each pack model against the file it replaces. A model that does not fit is left out, and the start log names it and
+  says why ("RELEASE asset packs: ... does not fit ..."), so the game's own model is drawn and the rest of the pack still loads. A pack
+  file that is not a W3D file at all stops the start.
+- **Which file wins.** The base game, then `--mod-install`, then `-mod`, then the asset packs. A pack draws over a mod's file of the same
+  name too, and is checked against the mod's model. Packs load in folder-name order, then the `--asset-pack` ones, and the later pack
+  wins. One pack holding two files for the same asset is an error that names both.
+- **Online checks (lane SDK-1b).** Packs are invisible to the lobby and replay checksums, so a pack could change what one player sees
+  and another does not. HD packs are therefore offline only for now: skirmish and campaign games use every pack file, and LAN and online
+  games draw the game's own models and textures on every peer. Each pack is still checked against the online rules below, and the
+  launcher lists the files that would be refused online. The rules alone cannot prove a pack harmless (a mesh can map its texture onto
+  see-through pixels, for example), so packs will reach online games later only through an allowlist of exact pack files, checked by
+  these rules and by a person, the HD Edition first. These checks keep honest packs safe by default; they are not anti-cheat, since a
+  modified client can skip them. Anti-cheat is the replay checker's job, and it sees what a client plays (the game state), not what
+  it draws. The rules refuse:
+  - **Visibility-relevant assets**, named from the retail data: `EXFireScroll2` (the burning effects play even inside the shroud),
+    `EXHeal` (the stealth on / off effect), the cloud and macro shadows `TSCloudMed` / `TSNoiseUrb`, and the models `MPBeacon`,
+    `TheRing` and `EXPalantirShard`. The shroud, health bars, radar and selection markers use no pack-replaceable files.
+  - **A model that does not draw like the game's.** The checks follow what the renderer draws (each model's top LOD and its extra
+    parts). A model is refused when its drawn box in the rest pose is more than 3 times or less than a third of the game's
+    along any axis, or its centre moves more than half the game's size, or it draws nothing. The same applies when it draws another
+    file's model or an effect the game's does not, or hides a part the game's shows. See-through parts (alpha test or blending) may
+    be at most 25 points more see-through than the game's most see-through part, by their textures' see-through pixels and their
+    opacity.
+  - **A skeleton or animation that moves the bones.** In the rest pose a bone may move at most a tenth of the skeleton's size and turn
+    at most 10 degrees. In every frame of an animation a bone may move at most a tenth of the animation's reach and turn at most 30
+    degrees, and it must show, hide and fade as in the game's.
+  - **A texture the game draws see-through** (alpha test or blending) whose see-through share differs from the game's by more than 25
+    points. Other textures use their alpha for house colours or shine, so the rule does not apply to them.
+
+  The thresholds come from the real RotWK 2.02 HD Edition. 95% of its models stay within 1.71 times the originals' size, their
+  centres within 0.38 of the size, its skeletons match exactly, its animations stay within 11 degrees and its see-through textures
+  within 11 points. Under these rules 21 of its files would be refused online: three siege ball LODs (5.2 times the size), one model (0.12
+  times), a fur mesh and three banner LODs that draw more see-through, and 13 dwarf ram animations made for its own skeleton (which is
+  left out). The game writes what it left out to
+  `asset-packs/report.json` at every start, and the launcher's Asset packs card shows it per pack ("26 models not used ...", "21 files would
+  be refused online ...") with the reasons behind Details. A pack may hold only models, textures and its own text (`.txt`, `.md`,
+  `README`, `LICENSE`); any other file refuses the whole pack. Only drawing reads the packs, and the game logic keeps reading the
+  original files.
+- **From a mod's HD archive.** `python3 tools/mod/asset_pack_from_big.py <archive.big> <new folder>` copies the models and textures of
+  an archive into a pack and lists what it leaves out. For example, the All In One launcher's *RotWK 2.02 HD Edition* gives 503 models
+  and 466 textures. Over the original 2.01 game, 477 of its models fit. The other 26 are its redesigned citadel, statues and barracks
+  damage states, which need 2.02's own data, so they are left out.
+- Not replaced yet: terrain tile textures (they are cut into the map's texture atlas at the original size), UI (Apt) textures, and model
+  formats other than W3D (glTF is planned, with automatic skeleton mapping and LODs).
+
+## Mod scripts in Luau (lanes SDK-2, SDK-2b)
+
+A `-mod` folder can carry Luau scripts in files retail never reads. Retail's own Lua scripting (`Scripts.lua`, `ScriptEvents.xml`) works
+as before. The scripts are loose files of the folder, never inside its archives:
+
+```
+<mod>/openbfme/sdk/mod.json                   {"sdk": 1, "name": "Income", "sim": ["income"], "presentation": ["banner"]}
+<mod>/openbfme/sdk/sim/income.luau            sim scripts and the modules they require
+<mod>/openbfme/sdk/presentation/banner.luau   presentation scripts and the modules they require
+```
+
+- **Roles.**
+  - **Sim** scripts change game results, so they run in lockstep. Their maths uses the deterministic libm, `math.random` is the game's
+    shared generator, and there is no clock. Tables can't be keyed by tables or functions (the order would differ between machines),
+    there are no weak tables, and no address is ever shown.
+  - **Presentation** scripts only draw, play sounds and show UI, so they may differ between players.
+  - A script can only `require` modules of its own role.
+- **Events of a sim script:** each runs at the end of a logic frame, in this order:
+  - `onGameLoaded()` once in a game loaded from a save (see below);
+  - `onGameStart()` once;
+  - `onObjectCreated(id, template, player)` and `onObjectDestroyed(id, template, player)` for the objects of that frame;
+  - `onFrame(frame)` every frame.
+
+  The `game` table offers `frame()`, `playerCount()`, `playerName(i)`, `playerSide(i)`, `money(i)` and `addMoney(i, amount)`. The
+  logic runs 5 frames a second.
+- **Presentation scripts** get the same events after the sim scripts, a read-only `game` (no `addMoney`; plus `game.localPlayer()`, the
+  player this machine plays) and `ui.banner(text)`, a message centred near the top of the screen for a few seconds. They use their own `math.random`, never
+  change the game, and an error stops only them.
+- **Sample:** `tools/sdk/samples/income-banner` is a complete mod folder: every player gets 250 resources every 10 seconds, a
+  banner announces each payday, and the count of paydays is kept in `sdk.state` across saves (`openbfme -- -mod "<path>/tools/sdk/samples/income-banner"`).
+- **Sandbox.** There is no `os`, `io`, `debug`, `getfenv` / `setfenv`, `loadstring` or `collectgarbage`, and the globals are
+  read-only. `sdk.read('path')` reads a file of the mod folder and nothing outside it. There is no network.
+- **Limits.** A call into a script runs at most a fixed number of VM steps (counted by the VM, so the same on every machine), and a
+  script's memory is capped. A script that goes over a limit or raises an error stops that mod's scripts with a message naming the
+  mod, at the same frame for every player. A broken manifest, or a script that does not load, stops the game from starting.
+- **Saves (lane SDK-2b).** A game with sim scripts saves. **`sdk.state` is the only thing of a script that survives a save.** It is a
+  table the sim scripts fill in place (the table itself can't be replaced). It holds booleans, numbers (not NaN), strings, and tables of
+  them keyed by strings or whole numbers. Each table appears once, with no metatable, at most 16 tables deep and 64 KB in all. A loaded
+  game starts the scripts afresh: their top level runs again, `sdk.state` comes back as it was saved, and `onGameLoaded()` runs before
+  anything else, so a script can rebuild its other variables from `sdk.state` there. Its local and global variables start as their
+  top level sets them.
+  - Because a top level runs again on every load, it may not change the game. `game.addMoney`, `math.random` and a write to
+    `sdk.state` there are an error that stops the game from starting, the same on every machine. Change the game from an event,
+    including `onGameLoaded`; a module required from an event keeps the same rule for its own top level.
+  - `sdk.state` joins the game's state hash at the end of every frame, so players whose scripts kept different state desync. A value it
+    can't hold (a function, a table twice ...) stops the mod's scripts at that frame with the path named, for every player.
+  - A save made with other sim scripts is refused on load, quoting both `sdk sim` lines.
+- **Online, replays and saves.** The sim scripts are one line of the mod's identity, `sdk sim <sha256>`: every file below
+  `openbfme/sdk/sim/` with its own SHA-256, then the manifest's sim entries and the SDK version. Players whose sim scripts differ do not start a game together, and a replay or a save made with
+  other sim scripts is refused; both messages quote that line. Presentation scripts are not part of the identity at all.
 
 ## The modding SDK (planned)
 
 The SDK only ever adds files that retail never reads, so it cannot change what a retail mod means (docs/ARCHITECTURE-MODS-UBER.md on the
 arch1 branch, section 3). Planned in this order:
 
-- the rest of the asset packs: the other texture kinds, glTF models with skeleton mapping and automatic LODs;
+- the rest of the asset packs: terrain tile and UI textures, glTF models with skeleton mapping and automatic LODs;
 - editable menus, images and settings;
 - scripting (Luau proposed) with namespaced INI extensions, hot reload and an inspector.

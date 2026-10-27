@@ -93,6 +93,9 @@ struct ObjectSnapshot
 	int stealthLook = 0;
 	// lane GARRISON-1: Object::isDrawableHidden (RW 0x6718FB, set by the contains): the device layer draws nothing for it
 	bool drawableHidden = false;
+	// lane FBSIM-1: a dozer's phantom structure (status PHANTOM_STRUCTURE, DozerAIUpdate slot 0x64 RW 0x88D272): its drawable is drawn at 0.4 opacity (RW 0xBE0DE4) when
+	// its owner is the local player (RW 0x6AA7B2) and hidden for everyone else (drawableHidden set; RW 0x6718FB(1))
+	bool phantomStructure = false;
 	// lane COMBAT-4: the object this one is contained in (Object + 0x27C; INVALID_ID when none): the drawable of a rider / crew member takes its container's
 	// DependencySharedModelFlags (RW 0x4BF2D8, DrawableManager::syncTransforms)
 	ObjectID containedBy = INVALID_ID;

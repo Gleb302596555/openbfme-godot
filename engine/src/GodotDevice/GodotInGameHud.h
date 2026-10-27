@@ -109,6 +109,10 @@ public:
 	// world position (SAGE x, y) under a window pixel; (-1e9, -1e9) when the ray misses the ground
 	// lane CAM-1: the retail tactical camera's state (position, angle, zoom, heights, pose, limits) for the viewers and the tests; empty before attach()
 	Dictionary get_camera() const;
+	// lane CHEAT-1: a line in the in-game message log (InGameHud::addPlayerMessageText) and the log's place ({ x, y, point_size }: InGameUI's
+	// MessagePosition in 1024 x 768 units and its point size)
+	void add_player_message(const String &text);
+	Dictionary get_player_message_layout() const;
 	// edge scrolling is on in fullscreen (retail: GlobalData Windowed = No); a test or a windowed run can force it
 	void set_edge_scroll(bool on);
 	// lane PLAY-1: the free camera (the owner's presentation option, not retail: TacticalCamera::setFreeCamera); also the attach option free_camera
@@ -175,6 +179,7 @@ public:
 	int64_t select_objects(const PackedInt64Array &ids); // lane SELPERF-1: the selection benchmark's N objects at once
 	bool open_spell_store();
 	void close_spell_store();
+	void cancel_spell_store();
 	bool spell_store_click(int64_t index);
 	bool press_spell_slot(int64_t slot);
 

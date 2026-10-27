@@ -1220,14 +1220,14 @@ TEST_CASE("uberjoin1 lan: an announcement without the simulation profile lists a
 	// lane OWNERFIX-2: the slots' handicaps (8 i32) follow the profile; LANAPI protocol 3 always writes them, so an announcement with the profile and without
 	// them is truncated (a peer that predates OWNERFIX-2 speaks protocol 2 and is refused by its header); a peer that predates UBER-1 has neither
 	{
-		std::vector<std::uint8_t> noHandicaps(full.begin(), full.end() - 4 * LEGACY_MAX_SLOTS);
+		std::vector<std::uint8_t> noHandicaps(full.begin(), full.end() - 4 - 4 * LEGACY_MAX_SLOTS); // lane CHEAT-1: the Cheat Mode i32 ends the GameInfo
 		NetByteReader r(noHandicaps);
 		SkirmishGameInfo back;
 		std::string e;
 		CHECK_FALSE(NetPacket::readGameInfo(r, back, &e, true));
 		CHECK(e == "truncated GameInfo");
 	}
-	std::vector<std::uint8_t> absent(full.begin(), full.end() - 4 - 4 * LEGACY_MAX_SLOTS);
+	std::vector<std::uint8_t> absent(full.begin(), full.end() - 4 - 4 - 4 * LEGACY_MAX_SLOTS); // lane CHEAT-1: the profile, the handicaps and the Cheat Mode
 	{
 		NetByteReader r(absent);
 		SkirmishGameInfo back;
@@ -1259,6 +1259,7 @@ TEST_CASE("uberjoin1 lan: an announcement without the simulation profile lists a
 		{
 			tail.i32(0); // lane OWNERFIX-2: the handicaps follow a present profile
 		}
+		tail.i32(-1); // lane CHEAT-1: then the Cheat Mode (off)
 		b.insert(b.end(), tail.data().begin(), tail.data().end());
 		NetByteReader r(b);
 		SkirmishGameInfo back;
@@ -1552,8 +1553,8 @@ TEST_CASE("ownerfix2 lan: a joiner's handicap reaches the host and every player 
 
 TEST_CASE("ownerfix2 lan: the protocol versions moved with the handicap layouts (LANAPI 3, LANLobby 4); the previous versions and the four-field slot request are refused by name")
 {
-	CHECK(LANAPI::kProtocolVersion == 3);
-	CHECK(LANLobby::kVersion == 4);
+	CHECK(LANAPI::kProtocolVersion == 4); // lane CHEAT-1: 4 / 5 add the GameInfo's Cheat Mode (the handicap layouts' 3 / 4 are refused as before)
+	CHECK(LANLobby::kVersion == 6); // lane CHEAT-1 (5 is P16's former extended START)
 	// a START of the previous lobby version (3: the GameInfo without the handicaps) is refused by its version byte, before any GameInfo is read
 	LobbyStart start;
 	start.game.game = hostedGame();
@@ -1569,7 +1570,7 @@ TEST_CASE("ownerfix2 lan: the protocol versions moved with the handicap layouts 
 	CHECK(out.game.game.slots[0].handicap == -30);
 	bytes[3] = 3;
 	CHECK_FALSE(LANLobby::decodeStart(bytes, out, &error));
-	CHECK(error == "lobby START version 3 (this build speaks 4)");
+	CHECK(error == "lobby START version 3 (this build speaks 6)");
 	// a lobby message of protocol 2 and a protocol 3 slot request in the four-field layout of protocol 2: refused, the host's setup unchanged
 	LANAPI::Options o;
 	o.playerTemplateCount = 16;
@@ -1609,7 +1610,7 @@ TEST_CASE("ownerfix2 lan: the protocol versions moved with the handicap layouts 
 	size_t errors = host.errors().size();
 	deliver(oldJoin);
 	REQUIRE(host.errors().size() == errors + 1);
-	CHECK(host.errors().back().rfind("a LAN lobby message of version 2 (this build speaks 3) from ", 0) == 0);
+	CHECK(host.errors().back().rfind("a LAN lobby message of version 2 (this build speaks 4) from ", 0) == 0);
 	CHECK_FALSE(host.currentGame()->info.slots[1].isHuman());
 	NetByteWriter join = header(LANAPI::kProtocolVersion, LANMessageType::REQUEST_JOIN);
 	join.str(profile.digest);

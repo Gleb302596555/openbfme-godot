@@ -25,6 +25,7 @@
 // BFME1's: turn first, snap only while the horde stands, no walk to a free cell (that walk is the BFME1 hub's block 22).
 
 #include "Common/Thing/ThingTemplate.h"
+#include "GameLogic/Combat/CombatLineOfSight.h"
 #include "GameLogic/Combat/CombatQueries.h"
 #include "GameLogic/AI/AIStateMachine.h"
 #include "GameLogic/AI/AIWorld.h"
@@ -200,10 +201,9 @@ static bool meleeHordeRefusesRelease(Object &horde)
 
 // RW 0x744AAA(attacker, candidate, weapon) (tier A: the BFME2 decomp's rva003430A3): a ranged weapon (not a MeleeWeapon RW 0x441B59, not a contact weapon: RotWK's
 // RW 0x9188EB answers false) of an ATTACK_NEEDS_LINE_OF_SIGHT (template + 0x10F bit 3) or CAN_SHOOT_OVER_WALLS (+ 0x122 bit 6) attacker needs the line of sight
-// filter RW 0x6616AC (the terrain line and the pathfinder's view block). INFERENCE (S-859, as ApproachRequiresLOS): the line of sight is taken as clear
-static bool weaponFilterAllows(Object &attacker, Object &candidate, Weapon *weapon, unsigned long long &losAssumedClear)
+// filter RW 0x6616AC (vtable 0xC1D620 on the stack, + 8 the attacker; lane LOS-1: CombatLineOfSight::filterAllows, the terrain line and the pathfinder's view block)
+static bool weaponFilterAllows(Object &attacker, Object &candidate, Weapon *weapon, HordeContain::AttackStats &stats)
 {
-	(void)candidate;
 	static const int kNeedsLos = ObjectTemplateInfoBuilder::kindOfIndex("ATTACK_NEEDS_LINE_OF_SIGHT");
 	static const int kOverWalls = ObjectTemplateInfoBuilder::kindOfIndex("CAN_SHOOT_OVER_WALLS");
 	if (!weapon || !weapon->getTemplate() || weapon->getTemplate()->m_meleeWeapon)
@@ -212,7 +212,12 @@ static bool weaponFilterAllows(Object &attacker, Object &candidate, Weapon *weap
 	}
 	if (hasKind(attacker, kNeedsLos) || hasKind(attacker, kOverWalls))
 	{
-		++losAssumedClear; // RW 0x6616AC (S-859)
+		++stats.losTests;
+		if (!CombatLineOfSight::filterAllows(attacker, candidate))
+		{
+			++stats.losRefused;
+			return false;
+		}
 	}
 	return true;
 }
@@ -360,7 +365,7 @@ Object *HordeContain::pickMemberNear(bool skipTagged, const Coord3D &pos, float 
 			{
 				continue;
 			}
-			if (d < bestD && (!attacker || !weapon || weaponFilterAllows(*attacker, *m, weapon, m_attackStats.losAssumedClear)))
+			if (d < bestD && (!attacker || !weapon || weaponFilterAllows(*attacker, *m, weapon, m_attackStats)))
 			{
 				best = m;
 				bestD = d;
@@ -546,7 +551,7 @@ const char *HordeContain::attackStopLine()
 {
 	return "[S-2610] HordeAttackNugget fire (lane ARCHER-1): HordeContain::attackTargetNow is RotWK's RW 0x875221 and the member pick RW 0x86FA87 (a randomised nearest: "
 	       "every enemy member in reach has its distance times GameLogicRandomValueReal(0.66, 1.33), the smallest product wins), read in full; INFERENCE / not ported: the "
-	       "line of sight filter RW 0x6616AC of ATTACK_NEEDS_LINE_OF_SIGHT / CAN_SHOOT_OVER_WALLS attackers is taken as clear (as S-859), RW 0x6FF7FA's AI byte + 0x3CC is "
+	       "line of sight filter RW 0x6616AC of ATTACK_NEEDS_LINE_OF_SIGHT / CAN_SHOOT_OVER_WALLS attackers is ported (lane LOS-1), RW 0x6FF7FA's AI byte + 0x3CC is "
 	       "taken as unset and its layers as equal, the melee member's touch attack RW 0x69675C uses the Amoeba reach rule (S-588), a victim held by a container that is "
 	       "not a HordeContain stays the pick (that contain's slot 0x48 is not read), and the position fire RW 0x875550 orders nothing (aiAttackPosition, S-325)";
 }
@@ -691,6 +696,8 @@ bool HordeContain::runMemberPass()
 	owner.computeTrig(); // lane UBER-2B: once for every member below
 	m_workDone = false;
 	++m_stats.passes;
+	m_leashedInLastPass.clear();
+	m_lastPassFrame = horde->logic().getFrame();
 	// lane HORDE-2: the RotWK member pass (RW 0x873FE8, read with Ghidra) calls the member order (vslot 0x90 = RW 0x877A7A) with force = 1 - isMoving(horde)
 	// (`'\x01' - (cVar1 != '\0')` at RW 0x8744D0): a PARKED horde never lets a member wait ahead of its slot, so the survivors of a melee re-form; the wait of
 	// UseSlowHordeMovement only applies while the horde moves
@@ -779,6 +786,7 @@ void HordeContain::memberOrder(Object &member, const Coord3D &slotPos, float ori
 			// 0x89E169 -> slot 0x14 RW 0x87594C: a horde order first makes the members busy, so they leave their attacks), and the active-member rule below
 			a->aiBusy(CMD_FROM_AI);
 			++m_stats.leashCommands;
+			m_leashedInLastPass.push_back(member.getID());
 		}
 	}
 	// lane MOVE-2 r2, RW 0x877B69 .. 0x877C32 (read with Ghidra): a member whose AI state is active (AI vslot 0x1BC: attacking, hunting, or no state) is not driven to

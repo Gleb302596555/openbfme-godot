@@ -33,6 +33,7 @@ bool SkirmishAIManager::countsAsAI(const Player &p) const
 
 int SkirmishAIManager::newGame(bool skirmishOrMultiplayer, bool loadingSave, const std::string &mapFileName)
 {
+	m_mapFileName = mapFileName;
 	// RW 0x6AA03F .. 0x6AA076
 	if (!skirmishOrMultiplayer || loadingSave)
 	{
@@ -548,6 +549,7 @@ void SkirmishAIManager::reset()
 	m_errors.clear();
 	m_counters = Counters();
 	m_attackedAtIds = 0; // RW 0x6A922D
+	m_expansionHeuristicFrames = 0;
 	m_assistTimers.clear();
 }
 
@@ -582,6 +584,7 @@ void SkirmishAIManager::crc(StateHasher &h) const
 	h.addU32(0x534B4149u); // "SKAI"
 	h.addBool(m_started);
 	h.addU32(m_attackedAtIds);
+	h.addU32(m_expansionHeuristicFrames);
 	h.addU32((std::uint32_t)m_assistTimers.size());
 	for (const std::pair<int, unsigned> &t : m_assistTimers)
 	{
@@ -665,8 +668,11 @@ std::vector<std::string> SkirmishAIManager::stopLines()
 		"FlankAttack, PincerAttack, FeintAttack and AIBasePenetrationTroopsTactic with their draws (FlankAttack RW 0x9B4642 / 0x9B4720, PincerAttack RW 0x9B4067, "
 		"FeintAttack RW 0x9B398D / 0x9B3A5A / 0x9B3AE4) are ported; lane BACKLOG6: AIGroup's stealth delay draw RW 0x774CEB is ported for the groups the formation "
 		"manager does not take (S-895); not ported: the siege bodies, the end's merge into a nearby AI team with its draw RW 0x8F1F08 (the units are released), "
-		"the DEFENSIVE / EXPANSION heuristics and tactics (only the One Ring OPPORTUNITY heuristic is "
+		"the DEFENSIVE heuristic and tactics (RW 0x90C436) (only the One Ring OPPORTUNITY heuristic is "
 		"ported; the tech-building OPPORTUNITY heuristic remains unported), the targetless tactics other than FarmKillSquad and FlagCaptureSquad, RW 0x90CCCB, the AI team objects; "
+		"lane AIEXPAND-1 ported the EXPANSION heuristic (RW 0x97D035 / 0x97D191: the nearest free Player_N_Start as a position target; its frame "
+		"counter is per game, retail's runs on across a process's games) and the EXPANSION tactic (RW 0x90C50C, SimpleExpansion RW 0x9B5190 / 0x9B52BD: "
+		"a MenFortress request at the target, then a second base, RW 0x9B5020); "
 		"lane AI-3 ported the threat finder (S-1300), the targets' threat, the retreat (RW 0x8F2784 / 0x8F243A), the failed end's threat move (RW 0x6C644C), "
 		"each team's AIGroup step (RW 0x8F144C -> 0x774F2B, S-1301), a defeated AI's brain (RW 0x6C79A1), the end's merge (RW 0x8F1D88), RW 0x6C7344 and the "
 		"best target's threat gate (RW 0x90B2A0, S-1302)",

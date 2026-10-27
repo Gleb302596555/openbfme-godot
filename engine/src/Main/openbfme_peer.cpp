@@ -45,7 +45,7 @@
 //     the run-ahead's frame (NetworkConfig::earlyOrders off); the report's early_orders line counts the orders that ran a frame sooner
 //     lane HERO-2: [--create-a-hero SLOT:FILE.cah] (host, repeated) the slot's Create-a-Hero, read at the setup and carried by the START to every peer;
 //     with --lan-join [--create-a-hero FILE.cah] the own slot's, sent to the lobby's host (LANAPI::requestSlotCreateAHero); [--recruit-create-a-hero FRAME]
-//     with --script: from that frame the local player recruits its Create-a-Hero at its fortress until it exists
+//     from that frame the local player recruits its Create-a-Hero at its fortress until it exists (with or without --script)
 //     lane ONLINE-2 (online play through the relay, docs/ONLINE.md phase O1): --online-start FILE.json instead of --host / --join / --lan-join: plays the
 //     game of the START the lobby service built (GameNetwork/OnlineStart.h), every peer behind the relay (Transport relay mode; the socket binds --bind,
 //     0.0.0.0 by default here, any port); the report gets a relay line
@@ -75,6 +75,8 @@
 //     snapshot, snapshot_bytes, load_ms), [--verify-log] catches it up from its log instead and compares the snapshot; --profile-text FILE
 //     writes this build's profile identity text to FILE (what a test records
 //     the game under, so the save is this build's) and exits
+//   lane PROFILE-2: openbfme_peer --rotwk DIR --bfme2 DIR --print-profile-text   prints this build's whole profile identity text (its simdata and
+//     archive lines: an integrity checker names the archives a game's players had that it lacks) and exits
 //   lane ONLINE-2: openbfme_peer --rotwk DIR --bfme2 DIR --print-profile   prints this build's profile identity MD5 (what the lobby compares),
 //     then "faction INDEX NAME" lines (the START's faction numbers); lane STATS-1: [--print-ids] also "thing ID NAME", "upgrade BIT NAME",
 //     "science KEY NAME" and "power ID NAME" lines: the names behind the ids a GameMessage carries (they follow this build's INI load order), for
@@ -91,6 +93,10 @@
 //     replay START, /v1/replays/<id>/start, or a player's START)
 //     the relay's command log of that game (services/online/relay) assembled into a replay (GameNetwork/RelayLog.h); exit 0, or 2 when the players' CRCs
 //     disagree in the log, 4 when the log is incomplete or the replay differs from the game (S-3710). `--replay OUT` then checks CRC parity
+//   lane CHEAT-1: --cheat-mode (host: the game setup's Cheat Mode, the host's slot is the cheat seat); --cheat-at FRAME (the local player sends the Cheat Mode
+//     commands of the two-peer test once: resources, command points, power points, the map revealed, two of its first unit spawned, that unit levelled);
+//     --cheat-forge-at FRAME (the same resources command from a player that is not the seat: every peer refuses it). Report: cheat_executed N, cheat_refused N
+//     and one cheat_line per announced line
 // Exit code: 0 ok, 1 usage / load error / another profile's replay, 2 desync (or replay mismatch / an incomplete replay), 3 network failure (stall /
 // timeout, refused by the lobby: another profile), 4 network or recording errors (a command that could not be sent or recorded).
 
@@ -133,6 +139,8 @@
 #include "GameNetwork/RelayProtocol.h"
 #include "Common/Crc32.h"
 #include "GameLogic/SelfDestruct.h"
+#include "GameLogic/CheatMode.h"
+#include "GameLogic/SimMath.h"
 #include "GameNetwork/ScriptedPlayer.h"
 #include "GameLogic/System/InvisibilityManager.h"
 #include "GameLogic/System/ShroudManager.h"
@@ -225,12 +233,15 @@ struct Args
 	std::vector<std::string> installMods; ///< lane MODS-2: --mod-install FOLDER, repeated highest priority first (Common/ModMount.h MountInstallOverlay)
 	int logicThreads = 0;          ///< PERF-2: --logic-threads N, the logic job pool's threads (0: OPENBFME_LOGIC_THREADS or the hardware's)
 	int toggleGates = 0;                ///< lane HUD-5: --toggle-gates N (every N frames the local player toggles each settled gate it controls)
+	bool cheatMode = false;             ///< lane CHEAT-1: --cheat-mode
+	long long cheatAt = -1, cheatForgeAt = -1; ///< lane CHEAT-1: --cheat-at FRAME, --cheat-forge-at FRAME
 	long long recruitCreateAHeroAt = -1; ///< lane HERO-2: --recruit-create-a-hero FRAME (the local player recruits its Create-a-Hero from then on until made)
 	std::vector<std::string> createAHeroes; ///< lane HERO-2: --create-a-hero SLOT:FILE.cah (host) / --create-a-hero FILE.cah (--lan-join: the own slot)
 	std::string onlineStart, relayLog;      ///< lane ONLINE-2: --online-start FILE.json, --relay-log LOG
 	bool bindGiven = false;
 	bool printProfile = false;              ///< lane ONLINE-2: --print-profile (the lobby compares the profile identity's MD5)
 	bool printIds = false;                  ///< lane STATS-1: --print-ids (with --print-profile: the id -> name tables)
+	bool printProfileText = false;          ///< lane PROFILE-2: --print-profile-text (the whole identity text: what a checker compares a game's archives with)
 	long long netPauseAt = -1;              ///< lane ONLINE-3: --net-pause-at FRAME
 	long long netResumeMs = -1;             ///< lane ONLINE-3: --net-resume-ms MS
 	long long rejoinWindowMs = -1;          ///< lane ONLINE-3: --rejoin-window-ms N
@@ -273,6 +284,7 @@ bool parseArgs(int argc, char **argv, Args &a, std::string &error)
 		else if (k == "--relay-log" && next(a.relayLog)) {}
 		else if (k == "--print-profile") a.printProfile = true;
 		else if (k == "--print-ids") a.printProfile = a.printIds = true;
+		else if (k == "--print-profile-text") a.printProfileText = true;
 		else if (k == "--net-pause-at" && next(v)) a.netPauseAt = std::atoll(v.c_str());
 		else if (k == "--net-resume-ms" && next(v)) a.netResumeMs = std::atoll(v.c_str());
 		else if (k == "--rejoin-window-ms" && next(v)) a.rejoinWindowMs = std::atoll(v.c_str());
@@ -380,6 +392,9 @@ bool parseArgs(int argc, char **argv, Args &a, std::string &error)
 		else if (k == "--create-a-hero" && next(v)) a.createAHeroes.push_back(v);
 		else if (k == "--recruit-create-a-hero" && next(v)) a.recruitCreateAHeroAt = std::atoll(v.c_str());
 		else if (k == "--toggle-gates" && next(v)) a.toggleGates = std::max(1, std::atoi(v.c_str()));
+		else if (k == "--cheat-mode") a.cheatMode = true; // lane CHEAT-1
+		else if (k == "--cheat-at" && next(v)) a.cheatAt = std::atoll(v.c_str());
+		else if (k == "--cheat-forge-at" && next(v)) a.cheatForgeAt = std::atoll(v.c_str());
 		else if (k == "--lan-faction" && next(a.lanFaction)) {}
 		else if (k == "--lan-targets" && next(a.lanTargets)) {}
 		else if (k == "--lan-port-base" && next(v)) a.lanPortBase = std::atoi(v.c_str());
@@ -516,8 +531,25 @@ bool loadWorld(const Args &a, World &w, std::string &error)
 		}
 		modLines.insert(modLines.end(), modReport.identity.begin(), modReport.identity.end());
 	}
+	std::string simData, cacheKey, warning; // lane PROFILE-2: the identity's simdata line, through the cache (SimulationData::defaultCachePath)
+	for (const MountedArchive &m : mountedArchives)
+	{
+		cacheKey += m.install + ":" + m.canonicalPath + " " + m.md5 + " " + std::to_string(m.size) + "\n";
+	}
+	for (const std::string &l : modLines)
+	{
+		cacheKey += l + "\n";
+	}
+	if (!SimulationData::cachedDigest(*w.fs, cacheKey, SimulationData::defaultCachePath(), simData, &error, &warning))
+	{
+		return false;
+	}
+	if (!warning.empty())
+	{
+		std::fprintf(stderr, "openbfme_peer: %s\n", warning.c_str());
+	}
 	w.profile = ProfileIdentity::compute(mountedArchives, RandomAlgorithm::ZH_CarryChain, features, a.uber ? SimulationProfile::Uber : SimulationProfile::Faithful,
-		modLines);
+		modLines, simData);
 	w.world = std::make_unique<RetailObjectWorld>(*w.fs);
 	if (!w.world->load(&error) || !MapObjectGameData::load(*w.fs, w.options, &error) || !MapObjectGameData::loadPlayerTemplates(*w.fs, w.options, &error)
 		|| !MapCreationHooks::load(*w.fs, w.options.creationScripts, &error) || !GameLogicSettingsLoader::load(*w.fs, w.settings, &error)
@@ -607,6 +639,19 @@ bool buildGame(const Args &a, const World &w, NewGameMessage &m, std::string &er
 		if (!SkirmishGameSlot::handicapValid(s.handicap) || (f.size() == 5 && std::to_string(s.handicap) != f[4]))
 		{
 			error = "--slot handicap " + (f.size() == 5 ? f[4] : std::string("0")) + " (0, -5 .. -95)";
+			return false;
+		}
+	}
+	if (a.cheatMode)
+	{
+		// lane CHEAT-1: the host's slot (the first human one, as the LAN host below takes it) is the cheat seat
+		for (int i = 0; i < MAX_SLOTS && m.game.cheatMode < 0; ++i)
+		{
+			m.game.cheatMode = m.game.slots[i].isHuman() ? i : -1;
+		}
+		if (m.game.cheatMode < 0)
+		{
+			error = "--cheat-mode needs a human slot";
 			return false;
 		}
 	}
@@ -1326,6 +1371,11 @@ static int peerMain(int argc, char **argv)
 		std::fprintf(stderr, "openbfme_peer: %s\n", error.c_str());
 		return 1;
 	}
+	if (a.printProfileText)
+	{
+		std::fwrite(w.profile.text.data(), 1, w.profile.text.size(), stdout); // lane PROFILE-2
+		return 0;
+	}
 	if (a.printProfile)
 	{
 		std::printf("%s\n", w.profile.digest.c_str()); // lane ONLINE-2: what a lobby client sends as its profile
@@ -1691,7 +1741,10 @@ static int peerMain(int argc, char **argv)
 		{
 			if (!client.error().empty() || NetMilliseconds() - lobbyStart > (std::uint64_t)a.lobbyTimeoutSeconds * 1000u)
 			{
-				std::fprintf(stderr, "openbfme_peer: %s\n", client.error().empty() ? "no START in 120 s" : client.error().c_str());
+				if (client.error().empty())
+					std::fprintf(stderr, "openbfme_peer: no START in %d s (--lobby-timeout)\n", a.lobbyTimeoutSeconds);
+				else
+					std::fprintf(stderr, "openbfme_peer: %s\n", client.error().c_str());
 				return 3;
 			}
 			NetSleepMilliseconds(2);
@@ -1916,11 +1969,14 @@ static int peerMain(int argc, char **argv)
 	unsigned long long viewsSent = 0; // lane ANTICHEAT-1
 	std::map<std::string, unsigned long long> scriptedTypes; // the scripted commands by type
 	UnsignedInt lastScripted = 0xFFFFFFFFu;
+	UnsignedInt lastRecruitFrame = 0xFFFFFFFFu; // lane HERO-2: the last frame the Create-a-Hero was recruited on (--recruit-create-a-hero)
 	UnsignedInt scriptFrame = 0xFFFFFFFFu; // lane NETLAG-2: the frame seen last and when its scripted orders are due (--script-phase)
 	std::uint64_t scriptDueMs = 0;
 	std::uint32_t phaseRng = 0x9E3779B9u ^ (std::uint32_t)(lobby.localSlot * 7919 + 1); // presentation-side only: never the simulation's random
 	std::map<int, unsigned long long> runAheadFrames; // lane NETLAG-2: the run-ahead in effect at each frame this peer ran
 	UnsignedInt lastGateFrame = 0xFFFFFFFFu; // lane HUD-5: --toggle-gates
+	bool cheatSent = false, cheatForged = false; // lane CHEAT-1
+	std::vector<std::string> cheatLines;
 	unsigned long long gateMessages = 0;
 	const std::uint64_t runStart = NetMilliseconds();
 	std::uint64_t lastProgress = runStart;
@@ -2073,18 +2129,28 @@ static int peerMain(int argc, char **argv)
 					}
 				}
 			}
-			// lane HERO-2: the Create-a-Hero is recruited at the fortress (every 25 frames from the given one until the hero exists)
-			const CreateAHeroHero *own = a.recruitCreateAHeroAt >= 0 && game.frame() >= (UnsignedInt)a.recruitCreateAHeroAt && game.frame() % 25 == 0
-				? game.logic().createAHeroes().heroOf(*game.logic().players().getNthPlayer(myPlayer))
-				: nullptr;
-			const Object *made = own && own->objectID ? game.logic().findObjectByID(own->objectID) : nullptr; // a file's ID names no object of this game
-			if (own && !(made && made->getTemplate() && made->getTemplate()->getName() == "CreateAHero"))
-			{
-				scripted += ScriptedPlayer::recruitCreateAHero(game, myPlayer, game.commands());
-			}
 			for (size_t i = before; i < game.commands().messages().size(); ++i)
 			{
 				++scriptedTypes[GameMessageTypeName(game.commands().messages()[i].getType())];
+			}
+		}
+		// lane HERO-2: the Create-a-Hero is recruited at the fortress from the given frame until the hero exists, again 25 frames after each try (a frame
+		// count, not a frame number: a catch-up runs several frames in one loop and would skip a multiple of 25); apart from --script (lane HERO2FLAKE-1:
+		// the scripted player's own queue and spending decide when a recruit there comes out, run to run)
+		if (a.recruitCreateAHeroAt >= 0 && game.frame() >= (UnsignedInt)a.recruitCreateAHeroAt &&
+			(lastRecruitFrame == 0xFFFFFFFFu || game.frame() >= lastRecruitFrame + 25))
+		{
+			const CreateAHeroHero *own = game.logic().createAHeroes().heroOf(*game.logic().players().getNthPlayer(myPlayer));
+			const Object *made = own && own->objectID ? game.logic().findObjectByID(own->objectID) : nullptr; // a file's ID names no object of this game
+			if (own && !(made && made->getTemplate() && made->getTemplate()->getName() == "CreateAHero"))
+			{
+				lastRecruitFrame = game.frame();
+				const size_t before = game.commands().messages().size();
+				scripted += ScriptedPlayer::recruitCreateAHero(game, myPlayer, game.commands());
+				for (size_t i = before; i < game.commands().messages().size(); ++i)
+				{
+					++scriptedTypes[GameMessageTypeName(game.commands().messages()[i].getType())];
+				}
 			}
 		}
 		if (a.toggleGates > 0 && game.frame() != lastGateFrame && game.frame() % (UnsignedInt)a.toggleGates == 0)
@@ -2103,6 +2169,38 @@ static int peerMain(int argc, char **argv)
 					++gateMessages;
 				}
 			}
+		}
+		// lane CHEAT-1: the Cheat Mode commands through the lockstep command list (once each)
+		if (a.cheatAt >= 0 && !cheatSent && game.frame() >= (UnsignedInt)a.cheatAt)
+		{
+			cheatSent = true;
+			using CheatMode::Command;
+			auto &cmds = game.commands();
+			cmds.append(CheatMode::makeMessage(myPlayer, Command::AddResources, myPlayer, 2000));
+			cmds.append(CheatMode::makeMessage(myPlayer, Command::AddCommandPoints, myPlayer, 100));
+			cmds.append(CheatMode::makeMessage(myPlayer, Command::AddPowerPoints, myPlayer, 5));
+			cmds.append(CheatMode::makeMessage(myPlayer, Command::RevealMap, myPlayer, 1));
+			Player *me = game.logic().players().getNthPlayer(myPlayer);
+			for (Object *o = game.logic().getFirstObject(); o && me; o = o->getNextObject())
+			{
+				if (o->getControllingPlayer() == me && !o->isKindOfName("STRUCTURE") && !o->isEffectivelyDead())
+				{
+					Coord3D at = *o->getPosition();
+					at.x = SimMath::addf32(at.x, 40.0f);
+					cmds.append(CheatMode::makeMessage(myPlayer, Command::Spawn, myPlayer, 2, (int)game.logic().things().findTemplate(o->getTemplate()->getName())->getTemplateID(), &at));
+					cmds.append(CheatMode::makeMessage(myPlayer, Command::LevelUp, myPlayer, 1, (int)o->getID()));
+					break;
+				}
+			}
+		}
+		if (a.cheatForgeAt >= 0 && !cheatForged && game.frame() >= (UnsignedInt)a.cheatForgeAt)
+		{
+			cheatForged = true;
+			game.commands().append(CheatMode::makeMessage(myPlayer, CheatMode::Command::AddResources, myPlayer, 50000));
+		}
+		for (const CheatMode::LogEntry &e : game.takeCheatAnnouncements())
+		{
+			cheatLines.push_back(std::to_string(e.frame) + " " + e.text);
 		}
 		const UnsignedInt pf = game.protocolFrame();
 		for (auto &bo : a.blackouts)
@@ -2230,6 +2328,16 @@ static int peerMain(int argc, char **argv)
 	r << "scripted_commands " << scripted << "\n";
 	r << "views_sent " << viewsSent << "\n"; // lane ANTICHEAT-1
 	r << "gate_messages " << gateMessages << "\n";
+	r << "cheat_executed " << game.logic().cheatMode().executedCount() << "\n"; // lane CHEAT-1
+	r << "cheat_refused " << game.logic().cheatMode().refusedCount() << "\n";
+	for (const CheatMode::LogEntry &e : game.takeCheatAnnouncements())
+	{
+		cheatLines.push_back(std::to_string(e.frame) + " " + e.text);
+	}
+	for (const std::string &line : cheatLines)
+	{
+		r << "cheat_line " << line << "\n";
+	}
 	{
 		// lane HUD-5: every gate's state at the end (id:state, GateOpenAndCloseBehavior's 0 opening, 1 open, 2 closing, 3 closed)
 		r << "gates";

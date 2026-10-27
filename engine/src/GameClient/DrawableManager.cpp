@@ -297,6 +297,9 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 				m_heroFlashHandler(ev.name, ev.flashFrames);
 			}
 			break;
+		case ClientEvent::EVA_DAMAGED: // lane EVADAMAGE-1 (RW 0x67B4B7's Eva half)
+			EvaDamage::apply(ev, *this, m_evaDamage);
+			break;
 		}
 	}
 }

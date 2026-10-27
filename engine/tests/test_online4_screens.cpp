@@ -9,6 +9,7 @@
 #include "TestChild.h"
 #include "ProcessTestUtil.h"
 
+#include "GameClient/AptCanvas.h"
 #include "GameClient/AptView3D.h"
 #include "GameClient/GUI/AptGadgetLayer.h"
 #include "GameClient/GUI/AptMessageBox.h"
@@ -104,6 +105,7 @@ HttpAnswer httpRequest(int port, const OnlineLobbyClient::HttpRequest &r)
 	setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
 	setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
 	std::string req = r.method + " " + r.path + " HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\nContent-Type: application/json\r\n";
+	req += "X-OpenBFME-Max-Slots: " + std::to_string(r.maxSlots) + "\r\n";
 	if (!r.token.empty())
 	{
 		req += "Authorization: Bearer " + r.token + "\r\n";
@@ -536,7 +538,7 @@ TEST_CASE("online4: install identity and pending notices (no lobby needed)")
 // DEVINPR-1 (review of WP-C): AptOnlineShell keeps a session only when it was issued to this install; a session from before the client sent an
 // install, or another install's, signs in again so the lobby's enforcement and reports see the install. ONLINEMENU-1 (PR #8 review finding 2): the
 // token carries the install sealed ("ix") and a public tag of it ("ih", lobby.mjs installTag), never the install itself; a token that shows its
-// install is an older lobby's (refused there) and is not kept
+// install is the deployed older lobby's: kept when it is this install's (JOINVER-1), refused by a lobby with the seal
 TEST_CASE("devinpr1: a session token names the install it was issued to (no lobby needed)")
 {
 	const std::string install(32, 'a');
@@ -553,7 +555,10 @@ TEST_CASE("devinpr1: a session token names the install it was issued to (no lobb
 	CHECK_FALSE(OnlineLobbyClient::sessionMatchesInstall(tagged, std::string(32, 'b')));
 	CHECK_FALSE(OnlineLobbyClient::sessionMatchesInstall(tagged, ""));
 	CHECK_FALSE(OnlineLobbyClient::sessionMatchesInstall(otherTag, install));
-	CHECK_FALSE(OnlineLobbyClient::sessionMatchesInstall(clear, install));
+	// lane JOINVER-1 (the live-lobby e2e rerun): the deployed lobby before the seal signs the install itself, and accepts its own tokens: a kept one
+	// of this install is used there (a lobby with the seal refuses it, and the shell signs in as a new guest: "the kept lobby session was refused")
+	CHECK(OnlineLobbyClient::sessionMatchesInstall(clear, install));
+	CHECK_FALSE(OnlineLobbyClient::sessionMatchesInstall("eyJpZCI6Imd1ZXN0OjAxMjM0NTY3ODlhYmNkZWYiLCJuYW1lIjoiR3Vlc3QiLCJraW5kIjoiZ3Vlc3QiLCJpbnN0YWxsIjoiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmJiYmIiLCJleHAiOjF9.c2ln", install)); // another install's clear token
 	CHECK(OnlineLobbyClient::sessionName(without) == u"Guest");
 	CHECK_FALSE(OnlineLobbyClient::sessionMatchesInstall(without, install));
 	CHECK_FALSE(OnlineLobbyClient::sessionMatchesInstall("not a token", install));
@@ -1622,7 +1627,8 @@ struct OnlinePlayer
 	int port = 0;
 	std::vector<std::u16string> remembered;
 	Tamper tamper; ///< Sol r1: rewrites the lobby's answers (the hostile-reply test)
-	OnlinePlayer(starttest::Shared &s, int lobbyPort, std::uint32_t seed, const std::u16string &lastName, PlatformKind platform = PlatformKind::None)
+	OnlinePlayer(starttest::Shared &s, int lobbyPort, std::uint32_t seed, const std::u16string &lastName, PlatformKind platform = PlatformKind::None,
+		SkirmishSetupSource *maps = nullptr)
 		: client(clientOptions(s.world->playerTemplates().getPlayerTemplateCount(), (int)s.settings.multiplayerColors.size(), platform)), fx(s, seed), port(lobbyPort)
 	{
 		ctx.client = &client;
@@ -1630,6 +1636,7 @@ struct OnlinePlayer
 		ctx.rememberName = [this](const std::u16string &n) { remembered.push_back(n); };
 		fx.environment.online = &ctx;
 		fx.environment.services = &fx.services;
+		if (maps) fx.environment.skirmish = maps;
 		fx.shell->push("OnlineShell.apt");
 		REQUIRE(fx.shell->errors().empty());
 		sh = dynamic_cast<AptOnlineShell *>(fx.shell->top());
@@ -1866,6 +1873,134 @@ void signInAndOpenPlay(OnlinePlayer &p, const std::u16string &name)
 }
 } // namespace
 
+TEST_CASE("onlinemenufix3 retail: an online sixteen-slot room scrolls to the last player and returns to eight retail rows")
+{
+	ONLINE4_REQUIRE_NODE();
+	OPENBFME_REQUIRE_START(s);
+	class Maps : public WorldSkirmishSetupSource
+	{
+	public:
+		std::vector<MapCacheEntry> fixtures;
+		const std::vector<MapCacheEntry> &maps() const override { return fixtures; }
+		int mapContentsMask(const MapCacheEntry &) const override { return 1; }
+	} maps;
+	std::string error;
+	REQUIRE_MESSAGE(maps.load(*s->world, s->settings, *s->mount->fs, &error), error);
+	maps.fixtures = maps.WorldSkirmishSetupSource::maps();
+	// Keep this a two-map staging fixture, independent of the retail catalog's list scrolling.
+	maps.fixtures.erase(std::remove_if(maps.fixtures.begin(), maps.fixtures.end(), [](const MapCacheEntry &map) {
+		return map.name != "maps/map mp evendim/map mp evendim.map";
+	}), maps.fixtures.end());
+	REQUIRE(maps.fixtures.size() == 1);
+	REQUIRE(maps.fixtures.front().numPlayers == LEGACY_MAX_SLOTS);
+	MapCacheEntry wide;
+	wide.name = "maps/onlinemenufix3/onlinemenufix3.map";
+	wide.displayName = u"Sixteen-slot online fixture";
+	wide.isMultiplayer = true;
+	wide.numPlayers = 16;
+	wide.extentMax = { 1024, 1024, 0 };
+	for (int i = 0; i < 16; ++i)
+		wide.startPositions[i + 1] = { 128.0f + (i % 4) * 256.0f, 128.0f + (i / 4) * 256.0f, 0 };
+	maps.fixtures.push_back(wide); // source-authored metadata; this test does not start a simulation or read map bytes
+	NodeLobby lobby("", "");
+	OnlinePlayer host(*s, lobby.port, 101, u"", PlatformKind::None, &maps);
+	signInAndOpenPlay(host, u"ScrollHost");
+	REQUIRE(host.clickWhenShown("Controls.CreateGame"));
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->gameNameWindow() && host.sh->openPlayState() == 3; }));
+	REQUIRE(host.clickWhenShown("CreateGamePopup.Accept"));
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }), host.notes());
+	host.tick(90); // finish the host page's entrance before measuring its rows
+	const std::string legacy = host.client.gameInfo().mapName;
+	REQUIRE(host.client.gameInfo().mapStartCount == LEGACY_MAX_SLOTS);
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->slotGadget(7, "Player") != nullptr; }));
+	CHECK(host.sh->slotScrollWindow() == nullptr);
+	std::array<std::array<int, 4>, LEGACY_MAX_SLOTS> original{};
+	for (int i = 0; i < LEGACY_MAX_SLOTS; ++i)
+	{
+		GameWindow *row = host.sh->slotGadget(i, "Player");
+		REQUIRE(row);
+		row->winGetScreenPosition(&original[i][0], &original[i][1]);
+		row->winGetSize(&original[i][2], &original[i][3]);
+	}
+	auto chooseMap = [&](const std::string &key) {
+		const auto keys = host.sh->mapListKeys();
+		const auto found = std::find(keys.begin(), keys.end(), key);
+		REQUIRE(found != keys.end());
+		// Exercise the map gadget's notification; pointer scrolling below is the slot viewport under test.
+		GadgetListBoxSetSelected(host.sh->mapListWindow(), (int)(found - keys.begin()));
+		REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.gameInfo().mapName == key; }), host.notes());
+	};
+	chooseMap(wide.name);
+	REQUIRE(host.client.gameInfo().mapStartCount == 16);
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.sh->slotGadget(15, "Player") && host.sh->slotScrollWindow(); }), host.notes());
+	// The online movie's free areas, independent of the extension's coordinates: outside Ready, and beside (not over) the Chat tab.
+	auto inside = [](GameWindow *window, const std::array<int, 4> &area) {
+		REQUIRE(window);
+		int x, y, w, h;
+		window->winGetScreenPosition(&x, &y);
+		window->winGetSize(&w, &h);
+		for (const auto &size : { std::pair<int, int>{ 1024, 768 }, { 1920, 1080 }, { 1920, 1200 }, { 2520, 1080 } })
+		{
+			AptStageMapping mapping;
+			mapping.windowW = size.first;
+			mapping.windowH = size.second;
+			float left, top, right, bottom, ax, ay, bx, by;
+			mapping.stageToWindow((float)x, (float)y, left, top);
+			mapping.stageToWindow((float)(x + w), (float)(y + h), right, bottom);
+			mapping.stageToWindow((float)area[0], (float)area[1], ax, ay);
+			mapping.stageToWindow((float)area[2], (float)area[3], bx, by);
+			// tolerance: a control may occupy any part of its free region but must not cross the surrounding retail artwork/controls.
+			CHECK(left >= ax);
+			CHECK(top >= ay); // tolerance: the control may occupy any part of the free region.
+			CHECK(right <= bx); // tolerance: the control may occupy any part of the free region.
+			CHECK(bottom <= by); // tolerance: the control may occupy any part of the free region.
+		}
+	};
+	inside(host.sh->slotScrollWindow(), { 944, 420, 974, 640 });
+	inside(host.sh->mapCapacityFilterWindow(), { 520, 168, 740, 192 });
+	inside(host.sh->slotRangeWindow(), { 746, 168, 944, 192 });
+	GameWindow *scroll = host.sh->slotScrollWindow();
+	int x, y, w, h;
+	scroll->winGetScreenPosition(&x, &y);
+	scroll->winGetSize(&w, &h);
+	for (int click = 0; click < 20 && host.sh->firstVisibleSlot() != 8; ++click)
+	{
+		host.fx.wm->postMouseMove(x + w / 2.0f, y + h - 1.0f);
+		host.tick();
+		host.fx.wm->postMouseButton(true);
+		host.tick();
+		host.fx.wm->postMouseButton(false);
+		host.tick();
+	}
+	REQUIRE(host.sh->firstVisibleSlot() == 8);
+	for (int i = 0; i < 16; ++i)
+	{
+		CAPTURE(i);
+		REQUIRE(host.sh->slotGadget(i, "Player"));
+		CHECK(host.sh->slotGadget(i, "Player")->winIsHidden() == (i < 8)); // tolerance: i < 8 is the exact restored-map capacity boundary.
+	}
+	GadgetComboBoxSetSelectedPos(host.sh->slotGadget(15, "Player"), 4, false);
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.gameInfo().slots[15].state == SLOT_HARD_AI; }), host.notes());
+	CHECK(host.client.gameInfo().slots[7].state == SLOT_OPEN);
+	GadgetComboBoxSetSelectedPos(host.sh->slotGadget(15, "Player"), 0, false);
+	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.gameInfo().slots[15].state == SLOT_OPEN; }), host.notes());
+	chooseMap(legacy);
+	REQUIRE(runUntil({ &host }, [&] { return host.sh->slotScrollWindow() == nullptr; }));
+	CHECK(host.sh->slotRangeWindow() == nullptr);
+	for (int i = 0; i < LEGACY_MAX_SLOTS; ++i)
+	{
+		GameWindow *row = host.sh->slotGadget(i, "Player");
+		REQUIRE(row);
+		CHECK_FALSE(row->winIsHidden());
+		row->winGetScreenPosition(&x, &y);
+		row->winGetSize(&w, &h);
+		const std::array<int, 4> restored{ x, y, w, h };
+		CHECK(restored == original[i]);
+	}
+	CHECK_FALSE(host.hasNote("extended-layout-error"));
+	CHECK(host.fx.layer->errors().empty());
+}
+
 TEST_CASE("online4 retail: OnlineShell.apt on a local lobby: guest sign-in, the home page's message of the day, the server browser (list, sort, password), "
 		  "Create Game, a second player joins from the list, its faction reaches the host, chat, ready, Play Game refused without a relay (no_relay "
 		  "shown plainly), Cancel back to the list")
@@ -1981,6 +2116,14 @@ TEST_CASE("online4 retail: OnlineShell.apt on a local lobby: guest sign-in, the 
 	CHECK(host.hasNote("unported", "Register is not available in OpenBFME's online play [S-4071]"));
 	host.dismissBox();
 	signInAndOpenPlay(host, u"Hostname");
+	auto hostMode = [&] {
+		std::string value;
+		CHECK(host.fx.wm->getExtern("MpGameSetup::HostMode", value) == AptExternResult::Value);
+		return value;
+	};
+	CHECK(hostMode() == "0");
+	CHECK(host.fx.wm->setExtern("MpGameSetup::HostMode", "1"));
+	CHECK(hostMode() == "0");
 	CHECK(host.client.accountName() == u"Hostname");
 	REQUIRE(host.remembered.size() == 1);
 	CHECK(host.remembered[0] == u"Hostname");
@@ -2002,6 +2145,9 @@ TEST_CASE("online4 retail: OnlineShell.apt on a local lobby: guest sign-in, the 
 	REQUIRE(host.clickWhenShown("CreateGamePopup.Accept")); // the pop-up's Accept (AptOnline::CustomMatch::CreateGame)
 	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.client.inGame() && host.sh->openPlayState() == 6; }), host.notes());
 	CHECK(host.client.amIHost());
+	CHECK(hostMode() == "1");
+	CHECK(host.fx.wm->setExtern("MpGameSetup::HostMode", "false"));
+	CHECK(hostMode() == "1");
 	host.tick(60);
 	MenuNavigator controller(*host.fx.wm);
 	controller.setMenu(host.sh->level(), host.sh);
@@ -2209,6 +2355,9 @@ TEST_CASE("online4 retail: OnlineShell.apt on a local lobby: guest sign-in, the 
 	// ---- the joiner's Cancel: out of the game, back to the list; the host's room shows the slot open again ----
 	REQUIRE(join.clickWhenShown("LowerButtons_Join.CancelJoin"));
 	REQUIRE(runUntil({ &host, &join }, [&] { return !join.client.inGame() && join.sh->openPlayState() == 2; }));
+	std::string browserHostMode;
+	REQUIRE(join.fx.wm->getExtern("MpGameSetup::HostMode", browserHostMode) == AptExternResult::Value);
+	CHECK(browserHostMode == "0");
 	REQUIRE(runUntil({ &host, &join }, [&] { return host.sh->setup()->info().slots[1].state == SLOT_OPEN; }));
 	// lane MENUWORK-1: an online page OpenBFME does not have (War of the Ring): a box in the player's words, then the page
 	// the player came from again
@@ -2292,9 +2441,11 @@ TEST_CASE("online4 retail hostile: the online screens on bounded, recoverable lo
 		"\",\"runAhead\":3,\"crcInterval\":10,\"profile\":\"ffffffffffffffffffffffffffffffff\",\"setup\":{}}";
 	const size_t boxes = host.sh->boxesShown().size();
 	REQUIRE_MESSAGE(runUntil({ &host }, [&] { return host.sh->boxesShown().size() == boxes + 1; }), host.notes());
-	CHECK(host.sh->boxesShown().back().rfind("GUI:GSErrorTitle|The online game could not start: online START: the game's profile identity ffff", 0) == 0);
+	// lane JOINVER-1: said in plain words, without the profile ids
+	CHECK(host.sh->boxesShown().back().rfind("GUI:GSErrorTitle|The online game could not start: online START: this game runs a different OpenBFME version", 0) == 0);
+	CHECK(host.sh->boxesShown().back().find("ffffffff") == std::string::npos);
 	CHECK(host.fx.services.countRequests(ShellAction::OnlineGameStart) == 0);
-	CHECK(host.hasNote("online-start-failed", "profile identity"));
+	CHECK(host.hasNote("online-start-failed", "different OpenBFME version"));
 	CHECK_FALSE(host.client.inGame());
 	CHECK(host.client.startJson().empty());
 	CHECK(host.client.sentCount("leave") == 0); // the slot stays the player's (a running game would be offered for a rejoin)
@@ -3187,7 +3338,7 @@ TEST_CASE("online5 retail: the staging room's rows and buttons: the chat's Playe
 	REQUIRE(host.waitShown("LowerButtons_Host.Connections", 600));
 	CHECK(host.client.inGame());
 	CHECK(host.sh->openPlayState() == 6);
-	CHECK_FALSE(host.hasNote("movie-function-missing"));
+	CHECK_FALSE_MESSAGE(host.hasNote("movie-function-missing"), host.notes());
 	REQUIRE(runUntil(all, [&] { return host.sh->slotGadget(1, "Team") != nullptr; }));
 	CHECK(host.sh->setup()->info().slots[1].teamNumber == team);
 	// ---- the joiner leaves through its Cancel: the host's Players list is the host alone ----
@@ -4026,18 +4177,34 @@ TEST_CASE("onlineux1 retail: a refused join is said in the player's words, on li
 		}
 		return -1;
 	};
-	// another version's game: why, and what to do; no raw profile digest
+	// another version's game: why, and what to do; no raw profile digest. Lane JOINVER-1: the row is greyed and tagged before the click (the lobby
+	// lists the game's profile), the box names both builds, the profile ids are behind DETAILS, which shows them and copies them
+	REQUIRE(rowOf("Other") >= 0); // tolerance: the rows are sorted by the lobby (either order); only that the row is listed matters
+	CHECK(join.sh->gameRows()[(size_t)rowOf("Other")].find("|other-version") != std::string::npos);
+	CHECK(join.sh->gameRows()[(size_t)rowOf("Locked")].find("|other-version") == std::string::npos);
 	GadgetListBoxSetSelected(join.sh->gameList(), rowOf("Other"));
 	REQUIRE(join.clickWhenShown("Main.Controls.JoinGame"));
 	REQUIRE_MESSAGE(runUntil(all, [&] { return join.sh->messageBox() && join.sh->messageBox()->type() != AptMessageBox::TYPE_NONE; }), join.notes());
 	std::u16string said = join.sh->messageBox()->text();
 	std::u16string flat = said;
 	std::replace(flat.begin(), flat.end(), u'\n', u' ');
-	CHECK_MESSAGE(flat.find(u"different OpenBFME version or different game files") != std::u16string::npos, OnlineLobbyClient::utf16ToUtf8(said));
+	CHECK_MESSAGE(flat.find(u"You can't join this game: it runs a different OpenBFME version.") != std::u16string::npos, OnlineLobbyClient::utf16ToUtf8(said));
+	CHECK_MESSAGE(flat.find(u"Host: ") != std::u16string::npos, OnlineLobbyClient::utf16ToUtf8(said));
+	CHECK_MESSAGE(flat.find(u"You: ") != std::u16string::npos, OnlineLobbyClient::utf16ToUtf8(said));
 	CHECK(said.find(u"fedcba98") == std::u16string::npos);
 	CHECK(said.find(u"0123456789abcdef") == std::u16string::npos);
 	CHECK(linesFit(said, 58));
+	REQUIRE_FALSE(join.sh->joinDetails().empty());
+	CHECK(join.sh->takeClipboard().empty());
+	starttest::clickAt(join.fx, (AptOnlineShell::kDetailsLeft + AptOnlineShell::kDetailsRight) / 2.0f, (AptOnlineShell::kDetailsTop + AptOnlineShell::kDetailsBottom) / 2.0f);
+	join.tick(3);
+	const std::string copied = join.sh->takeClipboard();
+	CHECK_MESSAGE(copied.find("profile fedcba9876543210fedcba9876543210") != std::string::npos, copied);
+	CHECK(copied.find("Host: ") == 0);
+	CHECK(OnlineLobbyClient::utf16ToUtf8(join.sh->messageBox()->text()).find("fedcba98") != std::string::npos); // the details in the box now
 	join.dismissBox();
+	join.tick(3);
+	CHECK(join.sh->joinDetails().empty()); // the box went: DETAILS with it
 	// a wrong password: RotWK's own text (GUI:JoinFailedBadPassword, the player's game text)
 	GadgetListBoxSetSelected(join.sh->gameList(), rowOf("Locked"));
 	REQUIRE(join.clickWhenShown("Main.Controls.JoinGame"));
@@ -4709,7 +4876,10 @@ TEST_CASE("onlinemenu1 retail: the staging room's CONNECTIONS button opens RotWK
 	CHECK(cellShows(0, 0, "_empty"));
 	CHECK(cellShows(2, 3, "_empty"));
 	CHECK(host.sh->connectionCell(1, 1) == "_empty");
-	for (int i = 2; i < MAX_SLOTS; ++i)
+	// BFME2 0x005DB647 RedrawGrid: the grid is retail's eight by eight, also in OpenBFME's 16-slot build (MAX_SLOTS 16): every cell is drawn, and no
+	// cell the movie lacks is asked for (before: the draw ran to MAX_SLOTS, stopped at the missing cell (0, 8) and left the rows after the first)
+	CHECK_FALSE_MESSAGE(host.hasNote("movie-function-missing"), host.notes());
+	for (int i = 2; i < AptOnlineShell::kConnectionGrid; ++i)
 	{
 		CHECK_MESSAGE(host.sh->connectionCell(0, i) == "_empty", i);
 		CHECK_MESSAGE(host.sh->connectionCell(i, 1) == "_empty", i);

@@ -19,6 +19,8 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/SkirmishAI/SkirmishAIManager.h"
 #include "GameLogic/AI/AIGroup.h"
+#include "GameLogic/Combat/CombatLineOfSight.h"
+#include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/SlavedUpdate.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
@@ -38,8 +40,7 @@ namespace
 const char *const kStopAI =
 	"S-220 AIWorld reads the movement data of a template (Geometry*, FenceWidth, PathfindDiameter, SlopeLimitIndex, CanPathThroughGates, CrusherLevel, CrushableLevel) from the "
 	"raw field slots and LocomotorSet through the real RW parser over the raw blocks; canCrushOrSquish is crusher level above crushable level (RW 0x68D524 not read); the "
-	"collision pass is a circle overlap over a 10-unit grid of the AI units (the partition and collision managers of RW 0x62E93B are not ported, S-142); the unit's "
-	"veterancy level is 0 (no experience tracker)";
+	"collision pass is a circle overlap over a 10-unit grid of the AI units (the partition and collision managers of RW 0x62E93B are not ported, S-142)";
 // lane PHYS-1: what the overlap pass is not (RW's collision manager), noted when the pass meets its first pair
 const char *const kStopCollisionManager =
 	"[S-780] collision: the contact pairs are a circle overlap of the AI units' bounding circles (RotWK: the collision manager RW 0xDE4360, vtable 0xD0BF08, update "
@@ -473,6 +474,26 @@ bool ObjectPathfindAdapter::isSignificantlyAboveTerrain() const
 	const Coord3D &p = *m_object->getPosition();
 	const float above = SimMath::pc24Add(SimMath::pc24Sub(p.z, m_object->logic().getGroundHeight(p.x, p.y)), 0.0f);
 	return above > SimMath::pc24Mul(m_object->logic().settings().gravity, -9.0f);
+}
+
+// lane LOS-1: RW 0x68B58C(0), the attacker's current weapon (the IMMOBILE test of RW 0x6F4557 is the pathfinder's)
+bool ObjectPathfindAdapter::hasCurrentWeapon() const
+{
+	const ObjectWeapons *w = m_object->getWeapons();
+	return w && w->currentWeapon() != nullptr;
+}
+
+// lane LOS-1: RW 0x6CC6DD with the current weapon (CombatLineOfSight.h)
+bool ObjectPathfindAdapter::isClearGoalFiringLineOfSightTerrain(const Coord3D &goalPos, const PathfindObject &victim) const
+{
+	const ObjectPathfindAdapter *v = dynamic_cast<const ObjectPathfindAdapter *>(&victim);
+	const ObjectWeapons *w = m_object->getWeapons();
+	const Weapon *weapon = w ? w->currentWeapon() : nullptr;
+	if (!v || !weapon)
+	{
+		throw std::logic_error("LOS-1: the weapon terrain line (RW 0x6CC6DD) needs an object victim and the current weapon");
+	}
+	return CombatLineOfSight::isClearGoalFiringLineOfSightTerrain(*weapon, *m_object, goalPos, &v->object());
 }
 
 bool ObjectPathfindAdapter::isMobile() const
@@ -1053,7 +1074,7 @@ static void notifyPathHasInvalidPortals(AIWorld &world, AIUpdateInterface &ai)
 	{
 		if (!obj.isKindOfName("HORDE"))
 		{
-			obj.kill(0); // RW 0x668D6A: kill(8, 0)
+			obj.kill(DAMAGE_UNRESISTABLE, 0); // RW 0x668D6E: kill(8, 0)
 			return;
 		}
 		world.pathfinder().noteStop(pathstops::kPortalLostHorde);

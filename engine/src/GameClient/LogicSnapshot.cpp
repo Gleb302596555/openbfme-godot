@@ -302,6 +302,12 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 			s.shroudRecord = sm->hasRecord(*o); // lane VISUAL-2 r2
 		}
 		s.drawableHidden = o->isDrawableHidden(); // lane GARRISON-1
+		static const int kPhantom = ObjectTemplateInfoBuilder::objectStatusIndex("PHANTOM_STRUCTURE");
+		s.phantomStructure = kPhantom >= 0 && o->testStatus((unsigned)kPhantom); // lane FBSIM-1
+		if (s.phantomStructure && o->getControllingPlayer() != logic.players().getLocalPlayer())
+		{
+			s.drawableHidden = true; // RW 0x88D3B2 .. 0x88D3DB: not the local player's phantom (RW 0x6AA7B2; the owner's + 0x35A byte, RW 0x6AAC44, is not ported)
+		}
 		s.effectivelyDead = o->isEffectivelyDead(); // lane VISUAL-2
 		s.containedBy = o->getContainedBy() ? o->getContainedBy()->getID() : (ObjectID)INVALID_ID; // lane COMBAT-4
 		s.stealthLook = InvisibilityManager::clientLook(*o, local); // lane STEALTH-1

@@ -2335,7 +2335,7 @@ export class SocialService {
   async acceptInvite(account, id, body) {
     const self = await this.current(account);
     if (!INVITE_ID.test(id)) invalid('invite id must be 16 lowercase hexadecimal characters');
-    exact(body, ['v', 'profile'], ['mode', 'platform']);
+    exact(body, ['v', 'profile'], ['mode', 'platform', 'build']); // lane JOINVER-1: the joiner's build (lobby.mjs checkBuild)
     if (typeof body.profile !== 'string' || !PROFILE.test(body.profile)) invalid('profile must be 32 lowercase hexadecimal characters');
     const mode = body.mode === undefined ? 'normal' : body.mode;
     const invite = this.pendingInvites.get(id);
@@ -2357,12 +2357,12 @@ export class SocialService {
     if (invite.kind === 'challenge' && (game.slots[game.hostSlot]?.pid !== invite.from || (!game.password && !game.roomCode))) {
       fail(404, 'unavailable', 'the invite is unavailable');
     }
-    if (game.profile !== body.profile) fail(409, 'profile', 'the game profile is incompatible');
+    if (game.profile !== body.profile) throw this.lobby.profileRefusal(game, account, body); // lane JOINVER-1: both builds in plain words
     if ([...this.lobby.games.values()].some((other) => other.id !== game.id && other.state === 'open' && this.lobby.slotOf(other, account) >= 0)) {
       fail(409, 'in_game', 'leave the other open room before accepting an invite');
     }
     const grant = { [JOIN_GRANT]: true, pid: self.pid, game: game.id, expires: invite.expires, used: false };
-    const joined = await this.lobby.join(account, game.id, { profile: body.profile, mode, platform: body.platform }, false, grant);
+    const joined = await this.lobby.join(account, game.id, { profile: body.profile, mode, platform: body.platform, build: body.build }, false, grant);
     this.pendingInvites.delete(id);
     this.wakeInbox(invite.from);
     return { v: VERSION, id: game.id, slot: joined.slot, game: joined.game };

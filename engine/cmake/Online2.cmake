@@ -15,6 +15,7 @@ set(OPENBFME_ONLINE2_HOST_SOURCES
     src/GameNetwork/RelayFrameBundle.cpp
     src/GameNetwork/RelayFrameScheduler.cpp
     src/GameNetwork/OnlineStart.cpp
+    src/GameNetwork/JoinBuild.cpp
     src/GameNetwork/RelayLog.cpp)
 set(OPENBFME_ONLINE2_TESTS
     tests/test_online_relay.cpp
@@ -31,7 +32,8 @@ set(OPENBFME_ONLINE2_TESTS
     tests/test_relay_frame_bundle.cpp
     tests/test_relay_frame_scheduler.cpp
     tests/test_network_canonical.cpp
-    tests/test_relay_membership.cpp)
+    tests/test_relay_membership.cpp
+    tests/test_joinver1.cpp)
 get_filename_component(OPENBFME_RELAY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../services/online/relay" ABSOLUTE)
 # vendored Monocypher (the packet authentication's keyed BLAKE2b); part of core
 set(OPENBFME_ONLINE2_HOST_SOURCES ${OPENBFME_ONLINE2_HOST_SOURCES}

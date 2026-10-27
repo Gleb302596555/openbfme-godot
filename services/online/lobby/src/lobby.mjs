@@ -59,6 +59,28 @@ function netModeOf(value, what) {
 }
 export const MAX_JSON_BYTES = 16384;          // a JSON request body (ONLINE-2 r2: counted as received)
 export const MAX_LOG_BYTES = 64 * 1024 * 1024; // a relay log upload
+// lane PROFILE-2 (owner decision 10-26 "A"): a player's archive list (POST /v1/profile-archives): its profile identity's archive lines, named by their
+// SHA-256 in a create / join ("archives") and in the replay START a checker reads. A pure 2.01 install is 213 lines, 15.4 KB as JSON; a mod adds its own
+export const MAX_ARCHIVES_BYTES = 65536;
+export const MAX_ARCHIVE_LINES = 1024;
+// Sol review P2 (storage): an uploaded list waits in memory, the oldest dropped past this many bytes; it is stored only when a game naming it starts,
+// so the store grows with started games (bounded like their logs), never with sign-ins
+export const MAX_PENDING_ARCHIVE_BYTES = 16 * 1024 * 1024;
+const ARCHIVE_LINE = /^[a-z0-9_]{1,16}:[^\u0000-\u001f]{1,200} [0-9a-f]{32} [0-9]{1,12}$/;
+const ARCHIVES_ID = /^[0-9a-f]{64}$/;
+// the request body bound of a path (the platforms read the body before the route runs)
+export function bodyLimitFor(path) {
+  if (path.startsWith('/v1/relay/logs/') || path.startsWith('/v1/admin/blobs/')) return MAX_LOG_BYTES;
+  if (path === '/v1/profile-archives') return MAX_ARCHIVES_BYTES;
+  return MAX_JSON_BYTES;
+}
+// lane PROFILE-2: a create / join body's optional "archives" (the id of a list the client uploaded); absent or null: none told (an older client)
+function archivesOf(body) {
+  const v = body?.archives;
+  if (v === undefined || v === null) return null;
+  if (typeof v !== 'string' || !ARCHIVES_ID.test(v)) throw bad('bad_field', 'archives must be the SHA-256 of the uploaded archive list (64 hex digits)');
+  return v;
+}
 const LOG_HEADER_BYTES = 25; // RelayCore.h "Log format": magic 8, version 4, game id 8, slot mask 1, start 4
 const MAX_SLOTS = 8; // a legacy (eight-start) room's places, the shape every client before P16 reads
 // lane ONLINE16-FIX (P16, docs/ONLINE.md "Extended map capacity"): a map with 9 .. 16 starts makes a sixteen-place room (`setup.mapStartCount`,
@@ -143,9 +165,9 @@ const MAX_CAH_BYTES = 4096;
 // INFRA-2: the admin backup's signature window, page size and the blob keys it moves (the three kinds the lobby stores per started game)
 export const ADMIN_WINDOW_S = 300;
 export const ADMIN_PAGE = 1000;
-const BLOB_KEY = /^(?:logs\/[0-9a-f]{16}\.obfmerlog|(?:starts|players)\/[0-9a-f]{16}\.json)$/;
+const BLOB_KEY = /^(?:logs\/[0-9a-f]{16}\.obfmerlog|(?:starts|players)\/[0-9a-f]{16}\.json|archives\/[0-9a-f]{64}\.json)$/; // lane PROFILE-2: archives
 export function parseBlobKey(key) {
-  return BLOB_KEY.test(key) ? { kind: key.split('/')[0], id: key.slice(key.indexOf('/') + 1, key.indexOf('/') + 17) } : null;
+  return BLOB_KEY.test(key) ? { kind: key.split('/')[0], id: key.slice(key.indexOf('/') + 1, key.lastIndexOf('.')) } : null; // a game id, or (archives) a SHA-256
 }
 
 // ---- bytes and encodings ---------------------------------------------------------------------------------------------------------------------------------
@@ -331,6 +353,37 @@ export function checkPlatform(v) {
   if (v === undefined || v === null) return undefined;
   if (typeof v !== 'string' || !PLATFORMS.includes(v)) throw bad('bad_field', `platform must be one of ${PLATFORMS.join(', ')} or absent`);
   return v;
+}
+// lane JOINVER-1 (the owner, 2026-10-23): the build a client tells at create / join: its release tag, build day, whether it is an official release
+// (a packaged build with the release key: the client's claim, shown to people, never trusted for anything) and its system. A game keeps its host's;
+// the list shows it and a join refused for a different build (409 profile) names both sides in plain words. Older clients tell none: the sign-in's
+// client (version, platform) stands in.
+export function checkBuild(v) {
+  if (v === undefined || v === null) return null;
+  if (typeof v !== 'object' || Array.isArray(v)) throw bad('bad_field', 'build must be an object');
+  allowFields(v, ['version', 'date', 'official', 'platform'], 'build');
+  const version = str(v.version, 64, 'build.version');
+  if (!/^[0-9A-Za-z._+-]+$/.test(version)) throw bad('bad_field', 'build.version must be a version tag');
+  const date = v.date === undefined || v.date === '' ? '' : str(v.date, 10, 'build.date');
+  if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) throw bad('bad_field', 'build.date must be YYYY-MM-DD');
+  if (v.official !== undefined && typeof v.official !== 'boolean') throw bad('bad_field', 'build.official must be true or false');
+  return { version, date, official: v.official ?? null, platform: checkPlatform(v.platform) ?? null };
+}
+function accountBuild(account) {
+  const c = account?.client;
+  return c && typeof c.version === 'string' ? { version: c.version, date: '', official: null, platform: knownPlatform(c.platform) } : null;
+}
+// "Nightly 0.4.12 (2026-10-22)", "Alpha 0.4.11": the names players read (engine BuildVersion::displayVersion, launcher semver.gd display())
+export function buildName(b) {
+  if (!b) return 'an unknown version';
+  let m = /^v(\d+\.\d+\.\d+)-nightly\.(\d{4})(\d{2})(\d{2})$/.exec(b.version);
+  let name = b.version;
+  if (m) name = `Nightly ${m[1]} (${m[2]}-${m[3]}-${m[4]})`;
+  else if ((m = /^v(\d+\.\d+\.\d+)$/.exec(b.version))) name = `Alpha ${m[1]}`;
+  else if ((m = /^v(\d+\.\d+\.\d+)-alpha\.(\d+)$/.exec(b.version))) name = `v${m[1]} Alpha ${m[2]}`;
+  else name = `a development build (${b.version})`;
+  const system = { windows: 'Windows', linux: 'Linux', macos: 'macOS' }[b.platform] ?? '';
+  return name + (b.official === true ? ', official' : b.official === false ? ', unofficial' : '') + (system ? `, ${system}` : '');
 }
 function str(v, maxLen, what, { empty = false } = {}) {
   if (typeof v !== 'string' || (!empty && !v.length) || enc.encode(v).length > maxLen) throw bad('bad_field', `${what} must be a string of ${empty ? 0 : 1} .. ${maxLen} bytes`);
@@ -1170,6 +1223,15 @@ export class Lobby {
   }
 
   // ---- games ----
+  // lane JOINVER-1: a join refused for a different build, said in plain words (an older client shows this message as it is); both builds and profile
+  // ids travel as fields for the client's own text and its DETAILS. The join and an invite's accept (social.mjs) refuse with it
+  profileRefusal(g, account, body) {
+    const yours = checkBuild(body?.build) ?? accountBuild(account);
+    const host = g.hostBuild ?? null;
+    return new LobbyError(409, 'profile', `You can't join this game: it runs a different OpenBFME version (host: ${buildName(host)}; you: ${buildName(yours)}). Both players need the same version: update through the launcher.`, {
+      host_build: host, your_build: yours, host_profile: g.profile, your_profile: typeof body?.profile === 'string' ? body.profile.slice(0, 32) : null,
+    });
+  }
   publicGame(g) {
     return {
       id: g.id,
@@ -1182,6 +1244,10 @@ export class Lobby {
       state: g.state,
       password: !!g.password,
       mode: g.mode ?? 'normal',
+      cheatMode: !!g.setup.cheatMode, // CHEAT-1: tagged in the server browser before anyone joins
+      // lane JOINVER-1: the host's build and the game's profile id, so a client greys out a game it cannot join before the player clicks it
+      profile: g.profile,
+      build: g.hostBuild ?? null,
       ...(capacityOf(g) > MAX_SLOTS ? { mapStartCount: capacityOf(g) } : {}), // ONLINE16-FIX: absent on a legacy room (its old shape)
     };
   }
@@ -1359,6 +1425,8 @@ export class Lobby {
       startingCash: intIn(setup.startingCash ?? 1500, -1, 1000000000, 'setup.startingCash'),
       superweaponRestriction: intIn(setup.superweaponRestriction ?? 0, 0, 1, 'setup.superweaponRestriction'),
       legendaryHeroes: intIn(setup.legendaryHeroes ?? 1, 1, 4, 'setup.legendaryHeroes'),
+      // CHEAT-1: the host's open Cheat Mode (every player sees it in the list before joining; the START names the host's slot as the cheat seat)
+      cheatMode: setup.cheatMode ?? false,
       // lane ONLINE-3: how far behind the players the spectators watch (seconds of game time; the relay holds the log back that far)
       spectatorDelay: intIn(setup.spectatorDelay ?? 120, 0, 600, 'setup.spectatorDelay'),
       rules: setup.rules ?? null,
@@ -1372,6 +1440,7 @@ export class Lobby {
       // ONLINE16-FIX (the AUTH-1 cut-over): the game's tickets carry TICKET_MODE_AUTH, so the relay refuses unauthenticated datagrams; off unless asked
       requireAuth: setup.requireAuth === undefined || setup.requireAuth === null ? undefined : boolOf(setup.requireAuth, 'setup.requireAuth') || undefined,
     };
+    if (typeof out.cheatMode !== 'boolean') throw bad('bad_field', 'setup.cheatMode must be true or false');
     if (out.rules !== null) {
       if (!Array.isArray(out.rules) || out.rules.length !== 10) throw bad('bad_field', 'setup.rules must be null or 10 integers');
       out.rules.forEach((r, i) => intIn(r, -2147483648, 2147483647, `setup.rules[${i}]`));
@@ -1381,6 +1450,48 @@ export class Lobby {
       if (!Array.isArray(setup.slots) || setup.slots.length < 2 || setup.slots.length > places) throw bad('bad_field', `setup.slots must be 2 .. ${places} slots`);
     }
     return out;
+  }
+
+  // lane PROFILE-2: stores a client's archive list under its SHA-256 (content-addressed: the same install uploads the same blob; never overwritten)
+  async putArchives(account, body, ip) {
+    this.limit(`archives:${account.id}`, 10, 10);
+    this.limit(`archives-ip:${ip}`, 6, 12); // Sol review P2: guest accounts are free; the address is not
+    if (!this.env.store.putBlob || typeof this.env.sha256 !== 'function') throw new LobbyError(501, 'no_log_store', 'no blob store is configured (LOG_STORE)');
+    allowFields(body, ['id', 'lines'], 'body');
+    const id = body?.id;
+    if (typeof id !== 'string' || !ARCHIVES_ID.test(id)) throw bad('bad_field', 'id must be the SHA-256 of the lines (64 hex digits)');
+    const lines = body?.lines;
+    if (!Array.isArray(lines) || lines.length < 1 || lines.length > MAX_ARCHIVE_LINES) throw bad('bad_field', `lines must hold 1 .. ${MAX_ARCHIVE_LINES} archive lines`);
+    for (const [i, l] of lines.entries()) {
+      if (typeof l !== 'string' || !ARCHIVE_LINE.test(l)) throw bad('bad_field', `lines[${i}] must be "<install>:<path> <md5> <size>"`);
+    }
+    const bytes = enc.encode(lines.map((l) => `${l}\n`).join(''));
+    if (bytesToHex(await this.env.sha256(bytes)) !== id) throw bad('bad_field', 'id is not the SHA-256 of the lines (each followed by a newline)');
+    const pending = (this.pendingArchives ??= new Map());
+    const blob = enc.encode(JSON.stringify({ v: VERSION, lines }));
+    if (pending.has(id)) {
+      this.pendingArchiveBytes -= pending.get(id).length;
+      pending.delete(id); // re-added below: the newest
+    }
+    if (!(await this.env.store.getBlob?.(`archives/${id}.json`))) {
+      pending.set(id, blob);
+      this.pendingArchiveBytes = (this.pendingArchiveBytes ?? 0) + blob.length;
+      for (const [old, b] of pending) {
+        if (this.pendingArchiveBytes <= MAX_PENDING_ARCHIVE_BYTES) break;
+        pending.delete(old);
+        this.pendingArchiveBytes -= b.length;
+      }
+    }
+    return { v: VERSION, id };
+  }
+
+  // lane PROFILE-2: stores the lists a starting game names (each once: content-addressed); a list no longer held (dropped, or the lobby restarted
+  // since the upload) stays a name the checker reports as missing
+  async storeGameArchives(ids) {
+    for (const id of new Set(ids.filter(Boolean))) {
+      const blob = this.pendingArchives?.get(id);
+      if (blob && !(await this.env.store.getBlob?.(`archives/${id}.json`))) await this.env.store.putBlob(`archives/${id}.json`, blob);
+    }
   }
 
   async create(account, body) {
@@ -1407,6 +1518,8 @@ export class Lobby {
     }
     const platform = checkPlatform(body.platform);
     const setup = this.checkSetup(body.setup, true);
+    // CHEAT-1: a Quick Match / tournament room is never a Cheat Mode game
+    if (roomCode !== null && setup.cheatMode) throw bad('bad_field', 'a room with a room_code has no Cheat Mode');
     // ONLINE16-FIX: a sixteen-place room needs a client that reads one; so does a game that requires tags (the AUTH-1 release line)
     const capacity = setup.mapStartCount ?? MAX_SLOTS;
     if (capacity > MAX_SLOTS && account.maxSlots !== WIDE_SLOTS) throw bad('bad_field', `${NEEDS_WIDE} (X-OpenBFME-Max-Slots: 16)`);
@@ -1433,14 +1546,17 @@ export class Lobby {
     slots[hostSlot].pid = account.pid ?? null;
     slots[hostSlot].name = account.name;
     slots[hostSlot].platform = platform;
+    const hostBuild = checkBuild(body.build) ?? accountBuild(account); // lane JOINVER-1
+    const hostArchives = archivesOf(body); // lane PROFILE-2
     slots[hostSlot].maxSlots = account.maxSlots; // ONLINE16-FIX: what the member's client reads (never shown in a view)
     const id = bytesToHex(this.env.randomBytes(8));
     const g = {
-      id, name, password, profile, mode, setup, slots, hostSlot, state: 'open', routing: account.routing ?? '',
+      id, name, password, profile, hostBuild, mode, setup, slots, hostSlot, state: 'open', routing: account.routing ?? '',
       chat: [], seq: 0, created: this.env.now(), touched: this.env.now(),
       reportParticipants: [{ account: account.id, install: account.install ?? null, nick: account.name }],
     };
     if (roomCode !== null) g.roomCode = roomCode;
+    if (hostArchives !== null) g.archives = { [account.id]: hostArchives }; // lane PROFILE-2: per account (a slot can change hands)
     this.event(g, `${account.name} created the game`);
     await this.syncReportRoster(g);
     await this.save(g);
@@ -1485,9 +1601,9 @@ export class Lobby {
     if (capacityOf(g) > MAX_SLOTS && account.maxSlots !== WIDE_SLOTS) throw new LobbyError(409, 'capacity', NEEDS_WIDE);
     if (g.setup.requireAuth && account.maxSlots === undefined) throw new LobbyError(409, 'update', NEEDS_AUTH);
     const platform = checkPlatform(body?.platform);
-    if (body?.profile !== g.profile) {
-      throw new LobbyError(409, 'profile', `your game files or build differ from the host's (profile ${body?.profile} vs ${g.profile}): both need the same OpenBFME version and RotWK 2.01 files`);
-    }
+    checkBuild(body?.build); // lane JOINVER-1: a malformed build is refused whatever the profile
+    const archives = archivesOf(body); // lane PROFILE-2
+    if (body?.profile !== g.profile) throw this.profileRefusal(g, account, body);
     for (const other of this.games.values()) {
       if (other !== g && other.state === 'open' && this.slotOf(other, account) >= 0) throw bad('in_game', `you are in game ${other.id} already: leave it first`);
     }
@@ -1498,6 +1614,8 @@ export class Lobby {
     // Sol r1 (ONLINE-5): a joiner takes the slot with no choices of its own: nothing an earlier AI of the slot held (a start position, a colour others
     // may have claimed since) carries over to the player
     Object.assign(candidate.slots[slot], { state: 'player', account: account.id, install: account.install ?? null, pid: account.pid ?? null, name: account.name, ready: false, platform, maxSlots: account.maxSlots, ...NO_CHOICES });
+    if (archives !== null) (candidate.archives ??= {})[account.id] = archives; // lane PROFILE-2
+    else if (candidate.archives) delete candidate.archives[account.id];
     this.unreadyAll(candidate);
     await this.syncReportRoster(candidate);
     this.event(candidate, `${account.name} joined`);
@@ -1514,7 +1632,7 @@ export class Lobby {
     if (!ROOM_CODE.test(code ?? '')) throw bad('bad_field', 'a room code is 6 .. 32 characters of A-Z a-z 0-9 _ -');
     this.sweep();
     for (const g of this.games.values()) {
-      if (g.roomCode === code && g.state === 'open') return this.join(account, g.id, { profile: body?.profile, mode: body?.mode, platform: body?.platform }, true);
+      if (g.roomCode === code && g.state === 'open') return this.join(account, g.id, { profile: body?.profile, mode: body?.mode, platform: body?.platform, archives: body?.archives }, true);
     }
     throw new LobbyError(404, 'no_room', 'no open room has this code (the host has not made it yet, or it has started)');
   }
@@ -1617,6 +1735,7 @@ export class Lobby {
     if (g.state !== 'open') throw new LobbyError(409, 'started', 'the game has started');
     if (this.slotOf(g, account) !== g.hostSlot) throw new LobbyError(403, 'not_host', 'only the host changes the game options');
     const setup = this.checkSetup({ ...g.setup, ...body }, false);
+    if (g.roomCode && setup.cheatMode) throw bad('bad_field', 'a room with a room_code has no Cheat Mode'); // CHEAT-1
     // ONLINE16-FIX: the capacity follows the map. Growing needs every member to read sixteen places; shrinking needs the places beyond the new
     // map's starts empty (an open one closes; a player or an AI there is moved or removed by the host first). Requiring tags needs every member
     // to be of the AUTH-1 release line. Everything is checked before anything changes
@@ -1755,6 +1874,9 @@ export class Lobby {
       superweaponRestriction: candidate.setup.superweaponRestriction,
       rules: candidate.setup.rules,
       legendaryHeroes: candidate.setup.legendaryHeroes,
+      // CHEAT-1: the cheat seat is the host's slot (only when the host turned Cheat Mode on: a game without it has no field, as before CHEAT-1). The START is
+      // the lobby's game record (starts/<id>.json): stats and any ranking read the field and leave the game out
+      ...(candidate.setup.cheatMode ? { cheatMode: candidate.hostSlot } : {}),
       slots: candidate.slots.slice(0, last).map((s) => (s.state === 'player' || AI_STATES.has(s.state)
         ? { state: s.state, name: s.name, faction: s.faction, color: s.color, startPos: s.startPos, team: s.team, handicap: s.handicap ?? 0, ...(s.state === 'player' && s.cah ? { cah: s.cah } : {}) }
         : { state: s.state })),
@@ -1798,11 +1920,15 @@ export class Lobby {
     candidate.startedAt = this.env.now();
     // Replay-start is a credential-free snapshot; live per-slot tickets never enter replay metadata.
     const replayStart = { v: VERSION, kind: 'openbfme-replay-start', game: g.id, runAhead: this.config.runAhead, crcInterval: this.config.crcInterval, profile: g.profile, setup };
+    // lane PROFILE-2: each human slot's archive list id (null: its client told none). An added field, not a new START version: every checker
+    // release reads version 1 and ignores fields it does not know (OnlineStart.cpp), so the checkers of older releases keep reading new games
+    replayStart.archives = Object.fromEntries(humans.map(([s, i]) => [String(i), candidate.archives?.[s.account] ?? null]));
     this.event(candidate, 'the game started');
     const socialUndo = await this.social.recordGameStart(candidate);
     try {
       await this.syncReportRoster(candidate);
       // (no log store: no replay record either; /v1/replays then answers 'no_log_store')
+      if (this.env.store.putBlob) await this.storeGameArchives(Object.values(replayStart.archives)); // lane PROFILE-2
       await this.env.store.putBlob?.(`starts/${g.id}.json`, enc.encode(JSON.stringify(replayStart)));
       // CFDEPLOY-1 r2 (Sol r1: replay downloads were open to anyone): the accounts that played; only they read the game's replay files. docs/ONLINE.md
       // promises no public replays ("view online" is the player's own link), so a public listing would be a new decision
@@ -2136,7 +2262,7 @@ export class Lobby {
     return { v: VERSION, blobs, next: blobs.length === n ? blobs[n - 1].key : null };
   }
   async adminGet(key) {
-    if (!parseBlobKey(key)) throw bad('bad_field', 'not a blob key (logs/<id>.obfmerlog, starts/<id>.json, players/<id>.json)');
+    if (!parseBlobKey(key)) throw bad('bad_field', 'not a blob key (logs/<id>.obfmerlog, starts/<id>.json, players/<id>.json, archives/<sha256>.json)');
     const b = await this.logStore().getBlob(key);
     if (!b) throw new LobbyError(404, 'no_blob', `no blob ${key}`);
     return b;
@@ -2145,7 +2271,7 @@ export class Lobby {
   async adminPut(key, bytes) {
     const store = this.logStore();
     const k = parseBlobKey(key);
-    if (!k) throw bad('bad_field', 'not a blob key (logs/<id>.obfmerlog, starts/<id>.json, players/<id>.json)');
+    if (!k) throw bad('bad_field', 'not a blob key (logs/<id>.obfmerlog, starts/<id>.json, players/<id>.json, archives/<sha256>.json)');
     if (k.kind === 'logs') {
       if (bytes.length > this.maxLogBytes()) throw new LobbyError(413, 'too_big', `a relay log of more than ${this.maxLogBytes()} bytes (the log store's limit)`);
       const logGame = logGameOf(bytes);
@@ -2159,6 +2285,13 @@ export class Lobby {
       }
       if (k.kind === 'starts' && (doc?.kind !== 'openbfme-replay-start' || doc.game !== k.id)) throw bad('bad_blob', `${key} is not game ${k.id}'s replay START record`);
       if (k.kind === 'players' && !(Array.isArray(doc) && doc.every((a) => typeof a === 'string'))) throw bad('bad_blob', `${key} is not a list of account ids`);
+      if (k.kind === 'archives') { // lane PROFILE-2: a restore brings back exactly the list its key names
+        const lines = doc?.lines;
+        if (doc?.v !== VERSION || !Array.isArray(lines) || lines.length < 1 || lines.length > MAX_ARCHIVE_LINES || !lines.every((l) => typeof l === 'string' && ARCHIVE_LINE.test(l))
+          || typeof this.env.sha256 !== 'function' || bytesToHex(await this.env.sha256(enc.encode(lines.map((l) => `${l}\n`).join('')))) !== k.id) {
+          throw bad('bad_blob', `${key} is not the archive list its SHA-256 names`);
+        }
+      }
     }
     const old = await store.getBlob(key);
     if (old) {
@@ -2514,6 +2647,8 @@ export class Lobby {
       // lists nothing: the game's Messenger and the launcher's sign-in then say "not available on this server yet")
       features: [
         'social',
+        'build', // lane JOINVER-1: list rows carry the host's build and profile; a 409 profile names both builds
+        ...(this.env.store.putBlob && typeof this.env.sha256 === 'function' ? ['archives'] : []), // lane PROFILE-2: POST /v1/profile-archives
         ...(this.config.oauth?.discord ? ['oauth'] : []),
         ...(this.config.email && !this.config.email.error ? ['email'] : []),
       ],
@@ -2548,9 +2683,10 @@ export async function route(lobby, req) {
         throw new LobbyError(req.bodyRejection.status, req.bodyRejection.code, req.bodyRejection.message);
       }
       // ONLINE-2 r2 (Sol: a chunked 20 KB body passed the Content-Length check): the bytes actually received count, whatever the headers say
-      if (Number(req.headers['content-length'] ?? 0) > MAX_JSON_BYTES) throw new LobbyError(413, 'too_big', `request body over ${MAX_JSON_BYTES} bytes`);
+      const limit = req.path === '/v1/profile-archives' ? MAX_ARCHIVES_BYTES : MAX_JSON_BYTES; // lane PROFILE-2: a JSON body's bound (bodyLimitFor)
+      if (Number(req.headers['content-length'] ?? 0) > limit) throw new LobbyError(413, 'too_big', `request body over ${limit} bytes`);
       const raw = await req.bytes();
-      if (raw.length > MAX_JSON_BYTES) throw new LobbyError(413, 'too_big', `request body over ${MAX_JSON_BYTES} bytes`);
+      if (raw.length > limit) throw new LobbyError(413, 'too_big', `request body over ${limit} bytes`);
       return raw;
     };
     const parseBody = (raw) => {
@@ -2815,6 +2951,9 @@ export async function route(lobby, req) {
       return { status: 200, headers: { 'content-type': p[3] === 'log' ? 'application/octet-stream' : 'application/json' }, body: b };
     }
     if (m === 'GET' && p[1] === 'mine' && p.length === 2) return json(200, lobby.mine(await lobby.account(req.headers.authorization))); // ONLINE-3
+    if (m === 'POST' && p[1] === 'profile-archives' && p.length === 2) { // lane PROFILE-2
+      return json(200, await lobby.putArchives(await lobby.account(req.headers.authorization), await body(), req.ip));
+    }
     if (m === 'POST' && p[1] === 'rooms' && p.length === 4 && p[3] === 'join') { // ONLINEHUB-1: join a private room by its code
       const slotsHeader = req.headers['x-openbfme-max-slots'];
       const account = withMaxSlots(await lobby.account(req.headers.authorization), slotsHeader === undefined ? undefined : maxSlotsOf(req.headers));

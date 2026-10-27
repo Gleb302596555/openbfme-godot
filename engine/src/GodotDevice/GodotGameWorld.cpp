@@ -9,6 +9,7 @@
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
 #include "GodotDevice/GodotGameWorld.h"
+#include "Common/MD5.h"
 #include "GameClient/InGameChat.h"
 
 #include "GameClient/FrameCensus.h"
@@ -33,6 +34,7 @@
 #include "GameNetwork/RelayLog.h"
 #include "GameClient/GUI/LoadScreenInfo.h"
 #include "GameClient/StealthLook.h"
+#include "GameClient/EvaDamage.h"
 #include "GameClient/MusicScripts.h"
 #include "GameClient/LiveFX.h"
 #include "GameClient/Visual2Stops.h"
@@ -63,6 +65,7 @@
 #include "GameClient/MapObjectRuntime.h"
 #include "GameClient/TreeTopple.h"
 #include "GameLogic/Map/TerrainTrees.h"
+#include "GameLogic/Module/NotifyCrushModules.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
 #include "GameLogic/AI/AICommandSink.h"
 #include "GameLogic/GameMessage.h"
@@ -243,6 +246,7 @@ void GameWorld::_bind_methods()
 	bindStealthMethods(); // lane STEALTH-1 (GodotGameWorldStealth.cpp)
 	bindCreateAHeroMethods(); // lane CAH-1 (GodotGameWorldCah.cpp)
 	bindScriptMethods();  // lane SCRIPT-1 (GodotGameWorldScripts.cpp)
+	bindCheatMethods();   // lane CHEAT-1 (GodotGameWorldCheats.cpp)
 	bindCampaignMethods(); // lane CAMP-1 (GodotGameWorldCampaign.cpp)
 	bindSaveMethods();     // lane SAVE-2 (GodotGameWorldSave.cpp)
 	bindGarrisonMethods(); // lane GARRISON-1 (GodotGameWorldGarrison.cpp)
@@ -278,12 +282,17 @@ void GameWorld::_bind_methods()
 	ClassDB::bind_method(D_METHOD("get_shroud_status_at", "x", "y"), &GameWorld::get_shroud_status_at);
 	ClassDB::bind_method(D_METHOD("get_object_shroud_status", "object_id"), &GameWorld::get_object_shroud_status);
 	ClassDB::bind_method(D_METHOD("set_shroud_drawn", "on"), &GameWorld::set_shroud_drawn);
+	ClassDB::bind_method(D_METHOD("set_shroud_fade", "on"), &GameWorld::set_shroud_fade); // lane FOGFX-1: off = the texels snap (the proof's "before")
 	ClassDB::bind_method(D_METHOD("get_shroud_cells"), &GameWorld::get_shroud_cells);
 	ClassDB::bind_method(D_METHOD("get_projectiles"), &GameWorld::get_projectiles);
 	ClassDB::bind_method(D_METHOD("get_victory_report"), &GameWorld::get_victory_report);
 	ClassDB::bind_method(D_METHOD("start_victory_rules", "players"), &GameWorld::start_victory_rules, DEFVAL(PackedStringArray()));
 	ClassDB::bind_method(D_METHOD("get_end_game_state"), &GameWorld::get_end_game_state); // lane END-1
 	ClassDB::bind_method(D_METHOD("take_end_game_requests"), &GameWorld::take_end_game_requests);
+	ClassDB::bind_method(D_METHOD("set_asset_packs_used", "used"), &GameWorld::set_asset_packs_used); // lane SDK-1b
+	ClassDB::bind_method(D_METHOD("set_asset_packs_online", "online"), &GameWorld::set_asset_packs_online); // lane SDK-1b (b)
+	ClassDB::bind_method(D_METHOD("take_sdk_banners"), &GameWorld::take_sdk_banners); // lane SDK-2
+	ClassDB::bind_method(D_METHOD("take_sdk_reports"), &GameWorld::take_sdk_reports); // lane SDK-2
 	ClassDB::bind_method(D_METHOD("clear_game_data", "show_score_screen"), &GameWorld::clear_game_data);
 	ClassDB::bind_method(D_METHOD("get_quit_menu_context"), &GameWorld::get_quit_menu_context); // lane END-2
 	ClassDB::bind_method(D_METHOD("get_player_status_state"), &GameWorld::get_player_status_state); // lane HUD-5
@@ -488,6 +497,10 @@ Dictionary GameWorld::get_audio_report() const
 		stops.push_back(toGodot(l));
 	}
 	for (const std::string &l : MusicScripts::acceptanceStops())
+	{
+		stops.push_back(toGodot(l));
+	}
+	for (const std::string &l : EvaDamage::acceptanceStops()) // lane EVADAMAGE-1
 	{
 		stops.push_back(toGodot(l));
 	}
@@ -777,6 +790,7 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 	m_clientRuntime->build(m_game->clientOnly(), false);
 	m_treeTopple.reset(new TreeTopple()); // lane SPELL-3
 	m_treeViews.clear();
+	m_footprintViews.clear(); // lane TREES1
 	m_vegSway.reset(); // lane VISUAL-2
 	m_swayTypeCounts.fill(0);
 	m_treeEventsSeen = 0;
@@ -822,6 +836,16 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 			continue;
 		}
 		++instances;
+		// lane TREES1: a shrub or prop a construction or a felled tree may remove
+		if (d.fate == MAPOBJ_CLIENT_SHRUB || d.fate == MAPOBJ_CLIENT_PROP)
+		{
+			FootprintView f;
+			f.instance = instance;
+			f.position = d.position;
+			f.scale = d.scale;
+			f.prop = d.fate == MAPOBJ_CLIENT_PROP;
+			m_footprintViews.push_back(f);
+		}
 		// lane SPELL-3: a tree the logic may topple (its TerrainTrees client id is the map object index + 1, S-930)
 		if (p.kind == W3D_DRAWKIND_TREE && p.module < d.draws.size())
 		{
@@ -1946,6 +1970,7 @@ void GameWorld::advance(double delta)
 			}
 		}
 		refresh_streaks(false);
+		refresh_shroud(false, timing::secondsToMs(delta)); // lane FOGFX-1: a pending fade goes on while paused (retail's is wall clock)
 		m_game->endClientWindow(); // RENDERWAIT-1: no frames are queued while paused
 		return;
 	}
@@ -2023,7 +2048,8 @@ void GameWorld::advance(double delta)
 	const double t1 = nowMs();
 	m_lastNewModels = m_lastNewStreakMaterials = 0;
 	m_lastNewModelMs = 0.0;
-	refresh_shroud(false);
+	// lane FOGFX-1: the shroud fades on the wall clock (RW 0x472CF2 reads timeGetTime), the render frame's unscaled delta (fixed under Movie Maker)
+	refresh_shroud(false, timing::secondsToMs(delta));
 	const double tv = nowMs();
 	m_lastShroudMs = timing::spanMs(tv, t1);
 	refresh_views(dt * 1000.0);
@@ -2189,13 +2215,21 @@ void GameWorld::heldClientWork()
 		for (; m_treeEventsSeen < events.size(); ++m_treeEventsSeen)
 		{
 			const TerrainTrees::Event &e = events[m_treeEventsSeen];
-			if (e.kind == TerrainTrees::Event::TOPPLE)
+			switch (e.kind)
 			{
+			case TerrainTrees::Event::TOPPLE:
 				m_treeTopple->topple(e.clientId, e.direction, e.speed);
-			}
-			else
-			{
+				clearFootprint(e.position, 0.0f, e.shapes, true); // lane TREES1: slot 0x4C, the props at the felled tree
+				break;
+			case TerrainTrees::Event::REMOVE:
 				m_treeTopple->remove(e.clientId);
+				break;
+			case TerrainTrees::Event::REMOVE_NOW:
+				m_treeTopple->removeNow(e.clientId); // lane TREES1: slot 0x58
+				break;
+			case TerrainTrees::Event::CLEAR_FOOTPRINT:
+				clearFootprint(e.position, e.angle, e.shapes, false); // lane TREES1: slot 0x48
+				break;
 			}
 		}
 	}
@@ -2227,6 +2261,42 @@ void GameWorld::updateTreeSway(double dt)
 		offsets[i][2] = sway[i + 1].z;
 	}
 	W3D_Set_Sway_Offsets(offsets);
+}
+
+// lane TREES1: TheTerrainVisual slot 0x48 (the shrub buffer's RW 0x4E96D9: a cylinder of height 35, radius 14 at the shrub; the prop buffer's RW 0x4EEB15: a
+// cylinder of height 5 * scale, radius 2 * scale at the prop) and slot 0x4C (the props only): every one the geometry at `pos` / `angle` overlaps (RW 0xAD2CE0)
+// goes, drawn at scale 0 from then on
+void GameWorld::clearFootprint(const Coord3D &pos, float angle, const std::vector<ObjectGeometry::Shape> &shapes, bool propsOnly)
+{
+	W3DInstancer *st = instancerOf(m_staticId);
+	if (!st || shapes.empty())
+	{
+		return;
+	}
+	bool any = false;
+	std::vector<ObjectGeometry::Shape> c(1);
+	c[0].type = ObjectGeometry::SHAPE_CYLINDER;
+	for (FootprintView &f : m_footprintViews)
+	{
+		if (f.removed || (propsOnly && !f.prop))
+		{
+			continue;
+		}
+		c[0].height = f.prop ? SimMath::mulf32(f.scale, 5.0f) : 35.0f;                        // RW 0xBDAE58 * scale / RW 0xBE4CB8
+		c[0].majorRadius = c[0].minorRadius = f.prop ? SimMath::mulf32(f.scale, 2.0f) : 14.0f; // RW 0xBD889C * scale / RW 0xBDD368
+		if (!NotifyCrushModules::geometriesOverlap(shapes, pos, angle, c, f.position, 0.0f))
+		{
+			continue;
+		}
+		f.removed = true;
+		static const float identity[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
+		st->set_instance_transform(f.instance, toTransform(identity, f.position, 0.0f));
+		any = true;
+	}
+	if (any)
+	{
+		st->update_now();
+	}
 }
 
 void GameWorld::updateTreeTopple(double dt)
@@ -4661,7 +4731,35 @@ ProfileIdentity GameWorld::profileIdentityFor(SimulationProfile profile) const
 {
 	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain,
 		ModEngineFeatures::identityFeatures(), profile, // lane MODS-3: the mod's engine features
-		m_fs.is_valid() ? m_fs->modIdentity() : std::vector<std::string>()); // lane MODS-1
+		m_fs.is_valid() ? m_fs->modIdentity() : std::vector<std::string>(), // lane MODS-1
+		profileSimulationData());
+}
+
+std::string GameWorld::profileSimulationData() const
+{
+	// lane PROFILE-2: the simdata line of this peer's identity. A mount whose game data cannot be read writes "error:<MD5 of its archive and mod
+	// lines>" (Sol review P2: a bare "error" made two failing installs with different archives equal): such a peer matches only one with the very
+	// same archives and mods that failed the same way; a working peer never (the refusal names the line). The reason goes to the log
+	std::string why;
+	const std::string d = m_fs.is_valid() ? m_fs->simulationData(&why) : std::string();
+	if (d.empty())
+	{
+		UtilityFunctions::push_error(String("profile identity: ") + (m_fs.is_valid() ? why.c_str() : "no file system"));
+		std::string lines;
+		if (m_fs.is_valid())
+		{
+			for (const MountedArchive &a : m_fs->mountedArchives())
+			{
+				lines += a.install + ":" + a.canonicalPath + " " + a.md5 + " " + std::to_string(a.size) + "\n";
+			}
+			for (const std::string &l : m_fs->modIdentity())
+			{
+				lines += l + "\n";
+			}
+		}
+		return "error:" + MD5::ofBytes(lines.data(), lines.size());
+	}
+	return d;
 }
 
 Dictionary GameWorld::net_observe_next(bool forward)
@@ -4805,7 +4903,8 @@ ProfileIdentity GameWorld::net_profile() const
 {
 	// the profile identity of this peer: the mounted archives in mount order with their verified md5, the build, the RNG prepare_new_game uses
 	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain,
-		ModEngineFeatures::identityFeatures(), m_choice.current, m_fs.is_valid() ? m_fs->modIdentity() : std::vector<std::string>()); // lane UBER-1: "profile uber" in the Uber mode; MODS-1: the mod
+		ModEngineFeatures::identityFeatures(), m_choice.current, m_fs.is_valid() ? m_fs->modIdentity() : std::vector<std::string>(), // lane UBER-1: "profile uber" in the Uber mode; MODS-1: the mod
+		profileSimulationData()); // lane PROFILE-2
 }
 
 Dictionary GameWorld::set_simulation_profile(const String &name)
@@ -5402,7 +5501,12 @@ Dictionary GameWorld::get_spellbook(int64_t player) const
 // texture clamps. So everything outside the playable area fades to the border level (ShroudAlpha 0: black) over one cell and stays there: the map's border
 // region and the ground beyond it are dark, as the far camera (the Max zoom-out) shows them. The texture's power-of-two padding (Validate_Texture_Size)
 // holds the same border level, which the clamp already gives.
-void GameWorld::refresh_shroud(bool force)
+void GameWorld::set_shroud_fade(bool on)
+{
+	m_shroudFadeOn = on;
+}
+
+void GameWorld::refresh_shroud(bool force, double dtMs)
 {
 	if (!m_game)
 	{
@@ -5423,12 +5527,10 @@ void GameWorld::refresh_shroud(bool force)
 		return;
 	}
 	const bool changed = view->version != m_shroudVersionShown || view != m_shroudViewShown;
-	if (!changed && !force)
+	if (!changed && !force && !m_shroudFade.fading())
 	{
 		return;
 	}
-	m_shroudVersionShown = view->version;
-	m_shroudViewShown = view;
 	const ShroudView &sm = *view;
 	const int nx = sm.countX, ny = sm.countY;
 	if (nx <= 0 || ny <= 0)
@@ -5436,24 +5538,58 @@ void GameWorld::refresh_shroud(bool force)
 		return;
 	}
 	const VisionSettings &vs = m_game->visionSettings();
+	const uint8_t border = (uint8_t)sm.displayLevel(CELLSHROUD_SHROUDED); // GlobalData ShroudAlpha
+	// lane FOGFX-1 (FB-0061), CLIENT ONLY: the texels fade toward their cell's level as W3DShroud's interpolateFogLevels does (RW 0x472CF2, 0.255
+	// levels per ms: GameClient/ShroudFade.h). A new view version sets the final levels (RW 0x472A96 from the display callback RW 0x444913); every
+	// render frame steps the current ones and uploads them while any moves. INFERENCE: a forced rebuild (the load, a loaded game, the shroud drawn
+	// again, a viewer change) lands on the final levels at once (retail's current levels start at 0 at W3DShroud::init: a fade in from black).
+	if (changed || force)
+	{
+		m_shroudVersionShown = view->version;
+		m_shroudViewShown = view;
+		if (m_shroudFade.width() != nx || m_shroudFade.height() != ny)
+		{
+			m_shroudFade.reset(nx, ny, border);
+		}
+		for (int y = 0; y < ny; ++y)
+		{
+			for (int x = 0; x < nx; ++x)
+			{
+				const CellShroudStatus s = sm.localPlayer >= 0 ? sm.cellStatus(x, y) : CELLSHROUD_CLEAR;
+				const uint8_t level = (uint8_t)sm.displayLevel(s);
+				if (level != m_shroudFade.finalLevel(x, y))
+				{
+					m_shroudFade.setFinal(x, y, level, border);
+				}
+			}
+		}
+		if (force)
+		{
+			m_shroudFade.snap();
+		}
+	}
+	bool moved = false;
+	if (!m_shroudFadeOn)
+	{
+		moved = m_shroudFade.fading(); // a fade pending when it was turned off lands now, and is uploaded
+		m_shroudFade.snap();
+	}
+	moved = (!force && m_shroudFade.step(dtMs)) || moved;
+	if (!changed && !force && !moved)
+	{
+		return;
+	}
 	// lane ZOOM-1: the texture is the cells plus a one-texel border at the border level (see above)
 	const int tw = nx + 2, th = ny + 2;
-	const uint8_t border = (uint8_t)sm.displayLevel(CELLSHROUD_SHROUDED); // GlobalData ShroudAlpha
 	PackedByteArray bytes;
 	bytes.resize((int64_t)tw * th);
 	uint8_t *w = bytes.ptrw();
 	std::memset(w, border, (size_t)tw * (size_t)th);
-	// lane PERF-2: rows of 16 on the client job pool (each job writes only its rows of the texture; the view is the snapshot's, read only)
-	JobSystem::client().parallelFor((size_t)ny, 16, [&sm, w, nx, tw](size_t, size_t y0, size_t y1) {
-		for (size_t y = y0; y < y1; ++y)
-		{
-			for (int x = 0; x < nx; ++x)
-			{
-				const CellShroudStatus s = sm.localPlayer >= 0 ? sm.cellStatus(x, (int)y) : CELLSHROUD_CLEAR;
-				w[(y + 1) * (size_t)tw + (size_t)x + 1] = (uint8_t)sm.displayLevel(s);
-			}
-		}
-	});
+	const uint8_t *cur = m_shroudFade.currentLevels().data();
+	for (int y = 0; y < ny; ++y)
+	{
+		std::memcpy(w + (size_t)(y + 1) * (size_t)tw + 1, cur + (size_t)y * (size_t)nx, (size_t)nx);
+	}
 	Ref<Image> img = Image::create_from_data(tw, th, false, Image::FORMAT_L8, bytes);
 	bool newTexture = false;
 	if (m_shroudTexture.is_null() || m_shroudTexture->get_width() != tw || m_shroudTexture->get_height() != th)
@@ -6222,6 +6358,10 @@ Dictionary GameWorld::gameRecordBase(GameLogic &logic, const std::vector<int> &s
 	r["players"] = list;
 	r["me"] = m_recordLocalSlot;
 	r["winner_team"] = split ? -1 : winner;
+	if (g.cheatModeOn())
+	{
+		r["cheat_mode"] = true; // lane CHEAT-1: kept, never counted nor reported (GameClient/GameRecords.h)
+	}
 	return r;
 }
 
@@ -6358,7 +6498,7 @@ Dictionary GameWorld::debug_kill_player_objects(const String &player, const Stri
 	}
 	for (::Object *o : victims)
 	{
-		o->kill(DEATH_NORMAL);
+		o->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL);
 	}
 	out["ok"] = true;
 	out["killed"] = (int64_t)victims.size();
@@ -7245,6 +7385,90 @@ void GameWorld::net_submit_view(float cameraX, float cameraY, float cursorX, flo
 		return;
 	}
 	m_netSession->network().submitView(m_game->frame(), cameraX, cameraY, cursorX, cursorY, cursorOverWorld);
+}
+
+Dictionary GameWorld::set_asset_packs_used(bool used)
+{
+	Dictionary out;
+	out["loaded"] = false;
+	out["used"] = false;
+	out["changed"] = false;
+	if (m_fs.is_null())
+	{
+		return out;
+	}
+	AssetPacks &packs = m_fs->assetPacksMutable();
+	out["loaded"] = packs.loaded();
+	const bool suspend = !used;
+	if (packs.loaded() && packs.suspended() != suspend)
+	{
+		packs.setSuspended(suspend);
+		rebuildPackAssets();
+		out["changed"] = true;
+	}
+	out["used"] = packs.loaded() && !packs.suspended();
+	return out;
+}
+
+void GameWorld::rebuildPackAssets()
+{
+	clear_scene(); // the last game's drawables and runtime hold the asset manager that goes
+	m_assets.reset();
+	m_source = m_fs->renderW3DSource();
+	m_assets.reset(new WW3DAssetManager(*m_source));
+	if (m_fxPlayer)
+	{
+		m_fxPlayer->clearTextureCache();
+	}
+}
+
+Dictionary GameWorld::set_asset_packs_online(bool online)
+{
+	Dictionary out;
+	out["loaded"] = false;
+	out["changed"] = false;
+	out["offline_only"] = (int64_t)0;
+	if (m_fs.is_null())
+	{
+		return out;
+	}
+	AssetPacks &packs = m_fs->assetPacksMutable();
+	out["loaded"] = packs.loaded();
+	out["offline_only"] = (int64_t)packs.onlineRefusals().size();
+	if (packs.loaded() && (packs.online() != online || packs.suspended()))
+	{
+		packs.setSuspended(false);
+		packs.setOnline(online);
+		rebuildPackAssets();
+		out["changed"] = true;
+	}
+	return out;
+}
+
+PackedStringArray GameWorld::take_sdk_banners()
+{
+	PackedStringArray out;
+	if (m_game)
+	{
+		for (const std::string &b : m_game->takeSdkBanners())
+		{
+			out.push_back(String::utf8(b.c_str()));
+		}
+	}
+	return out;
+}
+
+PackedStringArray GameWorld::take_sdk_reports()
+{
+	PackedStringArray out;
+	if (m_game)
+	{
+		for (const std::string &r : m_game->takeSdkReports())
+		{
+			out.push_back(String::utf8(r.c_str()));
+		}
+	}
+	return out;
 }
 
 } // namespace godot

@@ -522,6 +522,7 @@ void AptOnlineHub::startRoom(const std::string &code, const std::string &matchId
 		info.slots[0].playerTemplate = m_room.faction;
 		info.slots[0].color = m_room.color;
 		info.slots[0].teamNumber = team;
+		info.cheatMode = -1; // lane CHEAT-1: a Quick Match / tournament room never has Cheat Mode (the lobby refuses it with a room code)
 		m_room.phase = Room::Phase::Creating;
 		m_status = "Opponent found: opening the game ...";
 		client->createGame(tournamentId.empty() ? u"Quick Match" : u"Tournament match", "", info, 0, code);

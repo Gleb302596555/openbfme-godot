@@ -337,6 +337,9 @@ TEST_CASE("hero hud: the fortress's REVIVE buttons show the hero records and a p
 	{
 		h.frames(1); // out of the fortress
 	}
+	// RotWK's default right-click orders: with the standard setup and the fortress selected, a left click on Aragorn is a location order, not a
+	// selection (RW 0x83C4F6 -> 0x71047C evaluates it; the final branch RW 0x81F757 -> 0x81DB0C issues the move with the hero picked)
+	h.hud->input().commandTranslator().setUseAlternateMouse(true);
 	h.select(aragorn);
 	REQUIRE(h.hud->input().ui().selected() == std::vector<ObjectID>{ aragorn->getID() });
 	auto powerButton = [&](const char *power) -> ControlBarButton {

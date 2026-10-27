@@ -236,7 +236,7 @@ TEST_CASE("archer1: when a member's target dies the member is free and the next 
 	Object *dead = goalOf(archer);
 	REQUIRE(dead != nullptr);
 	const ObjectID deadId = dead->getID();
-	dead->kill(DEATH_NORMAL);
+	dead->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL);
 	CHECK(w.hordeOf(w.targets)->getContainCount() == 5); // it left the horde
 	const int n = w.runUntil([&] {
 		Object *v = goalOf(archer);

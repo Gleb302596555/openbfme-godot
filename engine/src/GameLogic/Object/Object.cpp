@@ -5,11 +5,14 @@
 #include "Common/ModEngineFeatures.h"
 #include "GameClient/ControlBarCommands.h"
 #include "GameLogic/Object/Object.h"
+
 #include "GameLogic/Map/TerrainLogic.h"
+#include "GameLogic/Map/TerrainTrees.h"
 #include "GameLogic/LegendaryHeroesGame.h"
 #include "GameLogic/Module/CastleModules.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Module/SpecialAbilityModules.h"
+#include "GameLogic/Object/EvaDamageNotice.h"
 #include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/Module/CollideModule.h"
 #include "GameLogic/Module/PhysicsBehavior.h"
@@ -394,7 +397,8 @@ void Object::updateOffMapStatus()
 // lane SCRIPT-2: RW 0x69264D. The exit test uses the PREVIOUS integer position (+ 0x418 is written after the exit loop): an object that leaves a
 // trigger is reported exited at its next integer-cell move outside, as retail does. Not ported here: the Lua OnUnitEntered / OnUnitExited events
 // (RW 0x7379CB, LUA-1's stop) (lane HUD-5: the trigger's callback, RW 0x6E4B21 / 0x6E4B3E, runs), the team's entered flag (RW 0x79FE5A: team + 0x5C and the
-// script engine's + 0x1A260 frame) and the terrain decal call for IMMOBILE-less infantry / cavalry / monsters / machines (RW 0x6858BE)
+// script engine's + 0x1A260 frame). Lane TREES1: the call for IMMOBILE-less infantry / cavalry / monsters / machines is TerrainLogic's unit-moved hook (RW
+// 0x6858BE: a crusher topples the trees under it, TerrainTrees::unitMoved), not a terrain decal call
 void Object::updateTriggerAreaFlags()
 {
 	static const int projectile = ObjectTemplateInfoBuilder::kindOfIndex("PROJECTILE");
@@ -408,6 +412,22 @@ void Object::updateTriggerAreaFlags()
 	if (x == m_triggerCellX && y == m_triggerCellY)
 	{
 		return;
+	}
+	// lane TREES1: RW 0x6926A0 .. 0x6926C9: not IMMOBILE (template + 0x108 bit 2) and INFANTRY, CAVALRY, MONSTER or MACHINE (+ 0x109 bits 0 .. 3)
+	static const int immobile = ObjectTemplateInfoBuilder::kindOfIndex("IMMOBILE");
+	static const int movers[4] = { ObjectTemplateInfoBuilder::kindOfIndex("INFANTRY"), ObjectTemplateInfoBuilder::kindOfIndex("CAVALRY"),
+		ObjectTemplateInfoBuilder::kindOfIndex("MONSTER"), ObjectTemplateInfoBuilder::kindOfIndex("MACHINE") };
+	if (immobile >= 0 && !isKindOf((unsigned)immobile))
+	{
+		bool mover = false;
+		for (int k : movers)
+		{
+			mover = mover || (k >= 0 && isKindOf((unsigned)k));
+		}
+		if (mover)
+		{
+			m_logic.trees().unitMoved(*this); // RW 0x6858BE
+		}
 	}
 	const UnsignedInt frame = m_logic.getFrame();
 	if (m_enteredOrExitedFrame != 0 && m_enteredOrExitedFrame != frame)
@@ -600,6 +620,19 @@ void Object::setTeam(Team *team)
 				m_client->observerEvent(*this, ObserverEvent::Capture);
 			}
 		}
+	}
+	// lane BFME2CAMP1: RW 0x69962F .. 0x699650, for a non-null team: a horde's members join the team too (contain slot 0x7C, then HordeContain interface slot
+	// 0x170, RW 0x870667: its contained members and those on the way into a garrison). Without it a horde a script gives a player (UNIT_SET_TEAM: MAP GOOD
+	// Rivendell's 'First recruit') kept members of its old owner, which stood still while the horde had the new owner's orders
+	if (team && m_contain)
+	{
+		if (HordeContainInterface *horde = m_contain->getHordeContainInterface())
+		{
+			horde->setMembersTeam(team);
+		}
+	}
+	if (m_constructed)
+	{
 		// lane FACT-B (FACT-C's bdf99d54 finding): RW 0x69954A Object::setTeam (tier B, BFME2 decomp ObjectSetTeam.cpp) ends, for a non-null team,
 		// with updateUpgradeModules (RW 0x699658 -> RW 0x6936FE): the upgrade modules run against the new owner's upgrades, so a captured building takes
 		// its new owner's faction command set (CommandSetUpgrade TriggeredBy Upgrade_<Side>Faction). INFERENCE: RW makes the call for any object; an
@@ -698,7 +731,7 @@ void Object::restoreOriginalTeam()
 	const Player *owner = getControllingPlayer();
 	if (owner && owner->isDefeated())
 	{
-		kill(0);
+		kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL); // RW 0x69AB83
 	}
 }
 
@@ -1796,6 +1829,12 @@ void Object::doAttemptDamage(DamageInfo &info)
 			if (info.m_input.m_shouldPlayUnderAttackEva)
 			{
 				m_radarAttackFrame = m_logic.getFrame();
+				// lane EVADAMAGE-1: RW 0x67B580 .. 0x67B776, the Eva half for the local player's object (RW 0x6AA7B2): the logic's part of the choice and
+				// the scan (EvaDamageNotice.h; reads only), the rest is the client's (ClientEvent::EVA_DAMAGED)
+				if (notifyDrawable && m_client && owner == m_logic.players().getLocalPlayer())
+				{
+					m_client->evaDamaged(*this, EvaDamage::makeNotice(m_logic, *this, info, *owner));
+				}
 			}
 			// RW 0x67B78C: the HERO effect is outside ShouldPlayUnderAttackEva and the radar-list gate.
 			if (notifyDrawable && m_client && owner == m_logic.players().getLocalPlayer() && isKindOfName("HERO"))
@@ -1901,20 +1940,18 @@ size_t Object::pendingDamageCount() const
 	return m_pendingDamage.size();
 }
 
-// ZH Object::kill: UNRESISTABLE damage with kill set
-void Object::kill(int deathType)
+// RW 0x698EC3: DamageInfo ctor (RW 0x66365E), source (+ 0x08) cleared, + 0x10 the damage type, + 0x1C the death type, + 0x20 the body's getMaxHealth (vslot 0x1C),
+// + 0x24 kill = 1, then attemptDamage (RW 0x698E7D: a kill made while this object runs its AI waits a frame like any hit). With no source the body credits no
+// killer (no scoreTheKill, no attacked-by entry) and the die modules see source 0
+void Object::kill(DamageType damageType, int deathType)
 {
 	DamageInfo info;
-	info.m_input.m_damageType = DAMAGE_UNRESISTABLE;
+	info.m_input.m_sourceID = INVALID_ID;
+	info.m_input.m_damageType = damageType;
 	info.m_input.m_deathType = deathType;
-	info.m_input.m_sourceID = getID();
-	info.m_input.m_amount = 0.0f;
+	info.m_input.m_amount = m_body ? m_body->getMaxHealth() : 0.0f;
 	info.m_input.m_kill = true;
-	info.m_input.m_delay = 0.0f;
-	if (!m_effectivelyDead && m_body)
-	{
-		m_body->attemptDamage(info);
-	}
+	attemptDamage(info);
 }
 
 // RW 0x6955BC scoreTheKill (lane XP-1 extends the COMBAT-1 port):

@@ -31,14 +31,10 @@ namespace
 {
 const char *const kGuardFile = "AIGuard.cpp";
 
+// lane AIDATA-1: the guard rows keep the AIData constructor's values when no aidata.ini names them (RW 0x6FFBEF), as retail's guard machine reads them
 const GameLogicSettings &settingsOf(const Object &obj)
 {
-	const GameLogicSettings &s = obj.logic().settings();
-	if (!s.guardRulesLoaded)
-	{
-		obj.logic().reportError("AIGuard: AIData GuardChaseUnitsDuration / GuardEnemyScanRate / GuardEnemyReturnScanRate were not read [S-3802]");
-	}
-	return s;
+	return obj.logic().settings();
 }
 
 bool attackCommonTarget(const Team *t)
@@ -709,7 +705,11 @@ StateReturnType AIGuardState::update()
 		return STATE_FAILURE;
 	}
 	machine().lock();
-	const StateReturnType r = m_guardMachine->updateStateMachine();
+	StateReturnType r;
+	{
+		KeptSubMachines<AIGuardMachine>::Run run(m_keptMachines); // an attack inside can end this state (onExit below)
+		r = m_guardMachine->updateStateMachine();
+	}
 	machine().unlock();
 	return r;
 }
@@ -717,11 +717,7 @@ StateReturnType AIGuardState::update()
 // RW 0x752DC7
 void AIGuardState::onExit(StateExitType)
 {
-	if (m_guardMachine)
-	{
-		m_guardMachine->halt();
-		m_guardMachine.reset();
-	}
+	m_keptMachines.drop(m_guardMachine); // halted, and kept while its update runs (review of #64)
 }
 
 bool AIGuardState::isIdle() const
@@ -805,6 +801,6 @@ void AIUpdateInterface::stancesOnCommand(CommandSourceType source)
 	}
 	if (StancesBehavior *sb = StancesBehavior::of(*getObject()))
 	{
-		sb->onMoveStart();
+		sb->onMoveStart(source == CMD_FROM_PLAYER ? "player-command:onMoveStart" : "script-command:onMoveStart");
 	}
 }

@@ -6,10 +6,21 @@
 #include "Libraries/WWVegas/WW3D2/assetmgr.h"
 
 #include "Common/RetailArchivePolicy.h"
+#include "Common/BuildVersion.h"
 #include "Common/ArchiveFile.h"
 #include "GameClient/UserDataFolder.h"
 #include "Common/ModEngineFeatures.h"
 #include "Common/MD5.h"
+#include "Libraries/WWVegas/WW3D2/textureloader.h"
+#include <cmath>
+#include <cstdio>
+#include <cstring>
+#include <map>
+#include <memory>
+#include <set>
+#include <utility>
+#include <godot_cpp/classes/image.hpp>
+#include "GameNetwork/ProfileIdentity.h"
 #include "GameClient/UserDataFolder.h"
 #include <algorithm>
 #include <filesystem>
@@ -33,6 +44,37 @@ namespace godot
 
 namespace
 {
+
+// lane SDK-1b (b): the see-through share of an image file (DDS, PNG, JPEG, else TGA, as the packs' textures decode); false when it does not decode
+bool imageAlphaCoverage(const std::vector<std::uint8_t> &bytes, double &out)
+{
+	PackedByteArray buffer;
+	buffer.resize((int64_t)bytes.size());
+	if (!bytes.empty())
+	{
+		std::memcpy(buffer.ptrw(), bytes.data(), bytes.size());
+	}
+	Ref<Image> image;
+	image.instantiate();
+	static const unsigned char png[] = { 137, 80, 78, 71, 13, 10, 26, 10 };
+	Error err;
+	if (bytes.size() >= 4 && std::memcmp(bytes.data(), "DDS ", 4) == 0)
+		err = image->load_dds_from_buffer(buffer);
+	else if (bytes.size() >= 8 && std::memcmp(bytes.data(), png, sizeof png) == 0)
+		err = image->load_png_from_buffer(buffer);
+	else if (bytes.size() >= 3 && bytes[0] == 0xff && bytes[1] == 0xd8 && bytes[2] == 0xff)
+		err = image->load_jpg_from_buffer(buffer);
+	else
+		err = image->load_tga_from_buffer(buffer);
+	if (err != OK || image->is_empty())
+		return false;
+	if (image->is_compressed())
+		image->decompress();
+	image->convert(Image::FORMAT_RGBA8);
+	const PackedByteArray data = image->get_data();
+	out = AssetPacks::alphaCoverage(data.ptr(), (std::size_t)image->get_width() * (std::size_t)image->get_height());
+	return true;
+}
 String toGodot(const std::string &s)
 {
 	return String::utf8(s.c_str(), (int64_t)s.size());
@@ -77,6 +119,7 @@ void RetailFileSystem::_bind_methods()
 	ClassDB::bind_method(D_METHOD("get_mod_report"), &RetailFileSystem::get_mod_report);
 	ClassDB::bind_method(D_METHOD("get_file_sources", "path"), &RetailFileSystem::get_file_sources);
 	ClassDB::bind_method(D_METHOD("set_asset_packs", "folders"), &RetailFileSystem::set_asset_packs); // SDK-0
+	ClassDB::bind_method(D_METHOD("get_asset_pack_report"), &RetailFileSystem::get_asset_pack_report); // SDK-1b
 	ClassDB::bind_method(D_METHOD("set_install_mod", "folder"), &RetailFileSystem::set_install_mod); // MODS-2
 	ClassDB::bind_method(D_METHOD("set_install_mods", "folders"), &RetailFileSystem::set_install_mods);
 	ClassDB::bind_method(D_METHOD("set_mod_engines", "md5s"), &RetailFileSystem::set_mod_engines); // MODS-3
@@ -158,6 +201,45 @@ std::vector<std::string> RetailFileSystem::modIdentity() const
 	std::vector<std::string> lines = m_installModReport.identity; // the install-folder mod first: it is mounted first
 	lines.insert(lines.end(), m_modReport.identity.begin(), m_modReport.identity.end());
 	return lines;
+}
+
+std::string RetailFileSystem::simulationData(std::string *error) const
+{
+	if (!m_mounted || !m_fs)
+	{
+		if (error)
+		{
+			*error = "simulation data: no retail mount";
+		}
+		return "";
+	}
+	std::string key;
+	for (const MountedArchive &a : m_mountedArchives)
+	{
+		key += a.install + ":" + a.canonicalPath + " " + a.md5 + " " + std::to_string(a.size) + "\n";
+	}
+	for (const std::string &l : modIdentity())
+	{
+		key += l + "\n";
+	}
+	if (!m_simData.empty() && key == m_simDataKey)
+	{
+		return m_simData;
+	}
+	// a disk cache, as the archive md5s have (user://retail-md5-cache.tsv): the digest reads every INI, script, map and model, once per install
+	std::string digest, warning;
+	if (!SimulationData::cachedDigest(*m_fs, key, toNative(ProjectSettings::get_singleton()->globalize_path("user://simdata-cache.tsv")), digest, error,
+			&warning))
+	{
+		return "";
+	}
+	if (!warning.empty())
+	{
+		UtilityFunctions::push_warning(warning.c_str());
+	}
+	m_simData = digest;
+	m_simDataKey = key;
+	return m_simData;
 }
 
 Dictionary RetailFileSystem::get_mod_report() const
@@ -514,6 +596,12 @@ Dictionary RetailFileSystem::mountFrom(const std::string &rotwkRoot, const std::
 		result["md5_cache_hits"] = report.md5CacheHits;
 		result["mounted"] = mounted;
 		result["excluded_found"] = excluded;
+		PackedStringArray languages; // issue #49: "<install>:<language>" (RetailMountReport::languages)
+		for (const std::string &l : report.languages)
+		{
+			languages.push_back(toGodot(l));
+		}
+		result["languages"] = languages;
 		if (report.ok && !m_installModArgs.is_empty())
 		{
 			// lane MODS-2: an install-folder mod: the file system the merged game folder would give (Common/ModMount.h MountInstallOverlay)
@@ -546,6 +634,27 @@ Dictionary RetailFileSystem::mountFrom(const std::string &rotwkRoot, const std::
 			{
 				report.ok = false; // the mod the player asked for, or nothing (never retail instead)
 			}
+		}
+		if (report.ok && !report.unverifiedLanguage.empty())
+		{
+			// PR #77: language archives no pin covers were mounted: the texts of the warning the game shows once per install (scripts/release/release.gd)
+			Dictionary warning;
+			Array archives;
+			for (const UnverifiedLanguageArchive &a : report.unverifiedLanguage)
+			{
+				Dictionary d;
+				d["install"] = toGodot(a.install);
+				d["path"] = toGodot(RetailPrintableText(a.path));
+				d["language"] = toGodot(RetailPrintableText(a.language));
+				d["md5"] = toGodot(a.md5);
+				d["size"] = (int64_t)a.size;
+				archives.push_back(d);
+			}
+			warning["archives"] = archives;
+			warning["message"] = toGodot(RetailLanguageWarningText(report.unverifiedLanguage));
+			warning["details"] = toGodot(RetailLanguageWarningDetails(report.unverifiedLanguage, BuildVersion::versionLine()));
+			warning["signature"] = toGodot(RetailLanguageWarningSignature(report.unverifiedLanguage));
+			result["unverified_language"] = warning;
 		}
 		if (report.ok)
 		{
@@ -581,6 +690,71 @@ Dictionary RetailFileSystem::mountFrom(const std::string &rotwkRoot, const std::
 		if (m_mounted && !m_modArgs.is_empty())
 		{
 			mountMods(rotwkRoot, errors);
+		}
+		// lane SDK-1: the asset packs' models against the files they replace in the mounted set (game and mods): a model that does not keep
+		// the original's skeleton is left out with a note; a pack model that is not a W3D file stops the start (AssetPacks::checkModels)
+		if (m_mounted && !m_packs.empty())
+		{
+			ArchiveW3DFileSource mounted(*m_fs);
+			std::vector<std::string> packErrors;
+			// lane SDK-1b (b, Sol r1): the online model rules weigh a see-through surface's textures by their see-through pixels (decoded here)
+			auto shares = std::make_shared<std::map<std::pair<std::string, bool>, double>>();
+			m_packs.setTextureCoverage([this, shares](const std::string &stem, bool original, double &share, std::string &error) {
+				const auto key = std::make_pair(stem, original);
+				auto it = shares->find(key);
+				if (it != shares->end())
+				{
+					share = it->second;
+					return true;
+				}
+				std::vector<std::uint8_t> bytes;
+				const auto pack = m_packs.textures().find(stem);
+				std::string where;
+				if (!original && pack != m_packs.textures().end() && !m_packs.refusedOnline(false, stem))
+				{
+					where = pack->second.pack + ": " + pack->second.relative;
+					if (!AssetPacks::read(pack->second, bytes, &error))
+						return false;
+				}
+				else
+				{
+					const TextureResolution res =
+						Resolve_Packed_W3D_Texture(stem + ".tga", [this](const std::string &p) { return m_fs->doesFileExist(p); }, isBfme1Data(*m_fs));
+					if (!res.Found)
+					{
+						error = "the game has no texture " + stem;
+						return false;
+					}
+					where = res.Path;
+					if (!m_fs->readFile(res.Path, bytes, &error))
+						return false;
+				}
+				if (!imageAlphaCoverage(bytes, share))
+				{
+					error = where + " does not decode as an image";
+					return false;
+				}
+				(*shares)[key] = share;
+				return true;
+			});
+			checkPackTexturesOnline(); // lane SDK-1b (b): the texture alpha rule first, so the model rules see the textures drawn online (review r1)
+			const bool modelsOk = m_packs.checkModels(mounted, packErrors);
+			m_packs.setTextureCoverage(nullptr);
+			if (!modelsOk)
+			{
+				for (const std::string &e : packErrors)
+				{
+					errors.push_back(toGodot(e));
+				}
+				m_fs.reset();
+				m_mounted = false;
+			}
+			PackedStringArray notes;
+			for (const std::string &n : m_packs.notes())
+			{
+				notes.push_back(toGodot(n));
+			}
+			result["asset_pack_notes"] = notes;
 		}
 	}
 
@@ -734,6 +908,12 @@ Dictionary RetailFileSystem::mountBfme2Shell(const std::string &bfme2Root)
 			excluded.push_back(toGodot(e));
 		}
 		result["excluded_found"] = excluded;
+		PackedStringArray languages; // issue #49: "<install>:<language>" (RetailMountReport::languages)
+		for (const std::string &l : report.languages)
+		{
+			languages.push_back(toGodot(l));
+		}
+		result["languages"] = languages;
 		PackedStringArray warnings;
 		for (const std::string &w : report.warnings)
 		{
@@ -868,6 +1048,90 @@ PackedByteArray RetailFileSystem::read_file(const String &path)
 		memcpy(bytes.ptrw(), data.data(), data.size());
 	}
 	return bytes;
+}
+
+void RetailFileSystem::checkPackTexturesOnline()
+{
+	bool anyTexture = false;
+	for (const auto &kv : m_packs.textures())
+	{
+		anyTexture = anyTexture || !kv.first.empty();
+	}
+	if (!anyTexture || !m_fs)
+	{
+		return;
+	}
+	const std::set<std::string> alphaDrawn = AssetPacks::alphaTextureIndex(*m_fs);
+	for (const auto &kv : m_packs.textures())
+	{
+		if (!alphaDrawn.count(kv.first))
+		{
+			continue; // its alpha is no transparency in the game (a house colour or specular mask): no rule
+		}
+		// the renderer's own lookup (GodotW3DMaterial: Resolve_Packed_W3D_Texture, the compiled JPGs included); an original that cannot be read
+		// is no pass (Sol r1: 13 alpha-drawn retail textures were skipped by a TGA / DDS-only lookup)
+		const TextureResolution res = Resolve_Packed_W3D_Texture(kv.first + ".tga", [this](const std::string &p) { return m_fs->doesFileExist(p); }, isBfme1Data(*m_fs));
+		std::vector<std::uint8_t> retail, pack;
+		std::string error;
+		if (!AssetPacks::read(kv.second, pack, &error))
+		{
+			m_packs.refuseOnline(false, kv.first, "it cannot be read: " + error);
+			continue;
+		}
+		double a = 0.0, b = 0.0;
+		if (!res.Found || !m_fs->readFile(res.Path, retail, &error) || !imageAlphaCoverage(retail, a))
+		{
+			m_packs.refuseOnline(false, kv.first, "the game's own texture to compare it with " + std::string(res.Found ? "(" + res.Path + ") does not decode" : "is not found"));
+			continue;
+		}
+		if (!imageAlphaCoverage(pack, b))
+		{
+			m_packs.refuseOnline(false, kv.first, "it does not decode as an image");
+			continue;
+		}
+		if (std::fabs(b - a) > AssetPacks::kOnlineMaxAlphaDelta)
+		{
+			char why[200];
+			std::snprintf(why, sizeof why, "%.0f%% of it is see-through, the original's %.0f%% (online: at most %.0f points apart)", b * 100.0, a * 100.0,
+				AssetPacks::kOnlineMaxAlphaDelta * 100.0);
+			m_packs.refuseOnline(false, kv.first, why);
+		}
+	}
+}
+
+Dictionary RetailFileSystem::get_asset_pack_report() const
+{
+	Dictionary out;
+	Array packs;
+	for (const std::string &name : m_packs.packs())
+	{
+		Dictionary p;
+		Array misfits, offline;
+		for (const AssetPacks::Refusal &r : m_packs.misfits())
+		{
+			if (r.pack != name)
+				continue;
+			Dictionary d;
+			d["file"] = toGodot(r.relative);
+			d["why"] = toGodot(r.why);
+			misfits.push_back(d);
+		}
+		for (const AssetPacks::Refusal &r : m_packs.onlineRefusals())
+		{
+			if (r.pack != name)
+				continue;
+			Dictionary d;
+			d["file"] = toGodot(r.relative);
+			d["why"] = toGodot(r.why);
+			offline.push_back(d);
+		}
+		p["name"] = toGodot(name);
+		p["misfits"] = misfits;
+		p["offline_only"] = offline;
+		packs.push_back(p);
+	}
+	out["packs"] = packs;
+	return out;
 }
 
 } // namespace godot
