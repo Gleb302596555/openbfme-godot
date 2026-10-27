@@ -401,11 +401,12 @@ TEST_CASE("play4 heroes retail: every faction's heroes, recruited from the fortr
 				CHECK_FALSE(own.noted3804);
 				CHECK_FALSE(ord.noted3804);
 				const bool drogoth = hero == "Drogoth";
-				// merge queue q28 (measured once on the merged tree and at each merge point): on his own Drogoth now strikes the horde once (975 health, 13 of 20
-				// killed); the fell beasts still strike nothing
-				CHECK(own.shots == (drogoth ? 1u : 0u));
-				CHECK(own.lost == (drogoth ? 975.0f : 0.0f));
-				CHECK(own.membersKilled == (drogoth ? 13u : 0u));
+				// Engine-scene pin, not a retail oracle: enabling the retail exit quick path
+				// changes creep placement/timing. Drogoth's incidental q28 breath (one
+				// shot / 975 health / 13 kills) no longer occurs; all birds stay passive here.
+				CHECK(own.shots == 0u);
+				CHECK(own.lost == 0.0f);
+				CHECK(own.membersKilled == 0u);
 				// lane BACKLOG4: 3 strikes (4 before): the hero's creation uses the teleport form (RW 0x7814CF: RW 0x696E63(pos, 0)), which idles the new
 				// hero's AI and wakes it; the fight's damage and kills are unchanged (measured with and without that call)
 				// lane STEALTHFLY1: 2 strikes (3 before): recruited from the fortress, Drogoth leaves along its production exit path in the bird's own follow

@@ -4,7 +4,8 @@ Production exits use the RotWK quick-path branch in both Faithful and Uber.
 There is no producer-footprint exemption or special line-passability rule.
 Docking, harvesting and ordinary movement retain their normal path checks.
 
-Verified directly in the user's RotWK 2.01 game.dat with LLVM objdump:
+Verified directly in the user's RotWK 2.01 game.dat with LLVM objdump
+(SHA-256 `5481de75b63e22483660ea8097478faef594f90b9ade7de893e092256ba68a26`):
 
 - RW 0x666036..0x66605C tests state 7 and AI byte +0x3BA.
 - RW 0x666065 calls computeQuickPath (0x665A83) without a line test.
@@ -35,3 +36,16 @@ Tests cover unconditional first paths through a blocked line, one-shot
 consumption, rotated factories and rallies in both profiles, cancellation,
 and the original production-clearing behavior. S-166 retains its unrelated
 movement gaps; it no longer reports the quick-path branch as unported.
+
+## Regression-scene changes
+
+The older S-166 withdrawal notes mixed retail code evidence with measurements
+of OpenBFME scenes. Those measurements are not retail capture oracles.
+With the quick path enabled, the map's slaved goblins leave their lair earlier,
+so the flying hunt scene can select one before its previously assumed lair.
+The hunt fixture now supplies two controlled enemy structures and stops the
+lair spawning; it still requires the nearer lair and exactly 837.5 damage.
+Drogoth's incidental q28 auto-attack in the hero scene changes from one shot,
+975 health and 13 kills to zero; this engine-scene expectation is updated
+explicitly. Ordered hero combat, stance guard bounds and the AI-power timing
+checks retain their existing expectations.
