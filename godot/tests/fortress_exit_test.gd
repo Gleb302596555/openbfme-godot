@@ -28,7 +28,7 @@ func _run() -> void:
 	for id in world.get_object_ids():
 		before[int(id)] = true
 		var object: Dictionary = world.get_object(id)
-		if object.get("template", "") == "MenFortressCitadel" and object.get("player_id", -1) == 3:
+		if object.get("template", "") == "MenFortressCitadel" and object.get("owner", -1) == 3:
 			fortress = object
 	assert(not fortress.is_empty())
 	var hero_index := -1
