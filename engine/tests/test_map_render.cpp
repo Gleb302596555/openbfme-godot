@@ -762,10 +762,12 @@ TEST_CASE("water material: retail effect defaults and authored scales replace th
 	// WaterPlaneFX's authored scale and texture, read from the mounted W3D.
 	MeshShaderMaterialProperty scale;
 	scale.Name = "BumpUVScale";
+	scale.Type = W3DSHADERMATERIAL_PROPERTY_VECTOR2;
 	scale.Float[0] = scale.Float[1] = 60.0f;
 	source.Properties.push_back(scale);
 	MeshShaderMaterialProperty texture;
 	texture.Name = "WaterBumpTexture";
+	texture.Type = W3DSHADERMATERIAL_PROPERTY_TEXTURE;
 	texture.StringValue = "WtrBump_01.tga";
 	source.Properties.push_back(texture);
 	REQUIRE(WaterGeometry::readStandingMaterial(source, material));
@@ -888,7 +890,7 @@ TEST_CASE("water material: authored Gerstner vectors remain distinct")
 {
 	MeshShaderMaterialDef source; source.TypeName="WaterShader.FX";
 	for(int i=0;i<3;++i) {
-		MeshShaderMaterialProperty prop; prop.Name="GWAmpFreqPhaseSteepness"+std::to_string(i+1);
+		MeshShaderMaterialProperty prop; prop.Type=W3DSHADERMATERIAL_PROPERTY_VECTOR4; prop.Name="GWAmpFreqPhaseSteepness"+std::to_string(i+1);
 		for(int j=0;j<4;++j) prop.Float[j]=float(i*4+j+1);
 		source.Properties.push_back(prop);
 	}
@@ -918,4 +920,56 @@ TEST_CASE("WaterGeometry::standing grid rejects non-finite and overflowing coord
 			CHECK(grid.indices.empty());
 		}
 	}
+}
+
+TEST_CASE("water material: every recognized property rejects wrong W3D value types")
+{
+	const std::pair<const char *, unsigned> fields[] = {
+		{"MaterialColorDiffuse", 5},
+		{"GWAmpFreqPhaseSteepness1", 5},
+		{"GWAmpFreqPhaseSteepness2", 5},
+		{"GWAmpFreqPhaseSteepness3", 5},
+		{"SpecularColor", 4},
+		{"BumpUVScale", 3},
+		{"EnvUVScale", 3},
+		{"WaveUVScale", 3},
+		{"PCABumpUVScale", 3},
+		{"PCAWaveUVScale", 3},
+		{"BlendUsingTerrainAlpha", 7},
+		{"DimmingFactor", 2},
+		{"BumpScale", 2},
+		{"SpecularExponent", 2},
+		{"WindAngle", 2},
+		{"WindSpeed", 2},
+		{"WaveAngle", 2},
+		{"WaveSpeed", 2},
+		{"ReflectionPerturbation", 2},
+		{"WaterPCATexture1", 1},
+		{"WaterPCATexture2", 1},
+		{"WaterPCATexture3", 1},
+		{"PCANoiseTexture", 1},
+		{"PCAFrothTexture", 1},
+		{"WaterBumpTexture", 1},
+		{"WaterEnvTexture", 1},
+		{"WaveTexture", 1},
+	};
+	for (const auto &field : fields)
+		for (unsigned type = 1; type <= 7; ++type)
+		{
+			CAPTURE(field.first);
+			CAPTURE(type);
+			MeshShaderMaterialDef source; source.TypeName = "WaterShader.FX";
+			MeshShaderMaterialProperty property; property.Name = field.first; property.Type = type;
+			source.Properties.push_back(property);
+			WaterGeometry::StandingMaterial material;
+			std::string error;
+			CHECK(WaterGeometry::readStandingMaterial(source, material, &error) == (type == field.second));
+			if (type != field.second)
+			{
+				CHECK(error.find(field.first) != std::string::npos);
+				CHECK(error.find("expected type " + std::to_string(field.second)) != std::string::npos);
+				CHECK(material.diffuse[3] == 0.5f);
+			}
+			else CHECK(error.empty());
+		}
 }

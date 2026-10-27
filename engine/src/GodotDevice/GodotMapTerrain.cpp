@@ -1004,7 +1004,12 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 					if (!fx) errors.push_back(toGodot("water material " + a.fxShader + ": " + error));
 					else for (const auto &mesh : fx->Meshes)
 						for (const auto &material : mesh.ShaderMaterials)
-							if (!authored) authored = WaterGeometry::readStandingMaterial(material, params);
+							if (!authored)
+							{
+								std::string materialError;
+								authored = WaterGeometry::readStandingMaterial(material, params, &materialError);
+								if (!materialError.empty()) errors.push_back(toGodot("water material " + a.fxShader + ": " + materialError));
+							}
 				}
 				if (!authored) materialStops.push_back(toGodot("[S-035] " + a.name + ": no WaterShader.FX material; effect defaults with map textures are an inferred legacy-water approximation"));
 				std::string technique;

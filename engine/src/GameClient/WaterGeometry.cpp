@@ -209,14 +209,29 @@ void WaterGeometry::riverVertexColour(const RiverArea &river, const TimeOfDayLig
 
 // Target data: watershader.fxo parameters and ps blob 8 / vs blob 9, decoded
 // with tools/render/{fx_params,d3d9_disasm}. No executable provenance claim.
-bool WaterGeometry::readStandingMaterial(const MeshShaderMaterialDef &source, StandingMaterial &out)
+bool WaterGeometry::readStandingMaterial(const MeshShaderMaterialDef &source, StandingMaterial &out, std::string *error)
 {
+	if (error) error->clear();
 	if (AsciiStringUtil::compareNoCase(source.TypeName, "WaterShader.FX") != 0) return false;
 	out = StandingMaterial{};
 	out.technique = source.Technique;
 	for (const auto &p : source.Properties)
 	{
 		const std::string n = AsciiStringUtil::lowered(p.Name);
+		unsigned expected = 0;
+		if (n == "materialcolordiffuse" || n == "gwampfreqphasesteepness1" || n == "gwampfreqphasesteepness2" || n == "gwampfreqphasesteepness3") expected = W3DSHADERMATERIAL_PROPERTY_VECTOR4;
+		else if (n == "specularcolor") expected = W3DSHADERMATERIAL_PROPERTY_VECTOR3;
+		else if (n == "bumpuvscale" || n == "envuvscale" || n == "waveuvscale" || n == "pcabumpuvscale" || n == "pcawaveuvscale") expected = W3DSHADERMATERIAL_PROPERTY_VECTOR2;
+		else if (n == "blendusingterrainalpha") expected = W3DSHADERMATERIAL_PROPERTY_BOOL;
+		else if (n == "dimmingfactor" || n == "bumpscale" || n == "specularexponent" || n == "windangle" || n == "windspeed" || n == "waveangle" || n == "wavespeed" || n == "reflectionperturbation") expected = W3DSHADERMATERIAL_PROPERTY_FLOAT;
+		else if (n == "waterpcatexture1" || n == "waterpcatexture2" || n == "waterpcatexture3" || n == "pcanoisetexture" || n == "pcafrothtexture" || n == "waterbumptexture" || n == "waterenvtexture" || n == "wavetexture") expected = W3DSHADERMATERIAL_PROPERTY_TEXTURE;
+		if (expected && p.Type != expected)
+		{
+			if (error) *error = "WaterShader.FX property " + p.Name + ": expected type " + std::to_string(expected) + ", got " + std::to_string(p.Type);
+			out = StandingMaterial{};
+			return false;
+		}
+
 		if (n == "materialcolordiffuse") std::copy(p.Float, p.Float + 4, out.diffuse);
 		else if (n == "gwampfreqphasesteepness1") std::copy(p.Float, p.Float + 4, out.gerstner[0]);
 		else if (n == "gwampfreqphasesteepness2") std::copy(p.Float, p.Float + 4, out.gerstner[1]);

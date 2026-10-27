@@ -37,7 +37,7 @@ struct StandingMaterial
 	bool blendTerrainAlpha = true;
 	std::string bumpTexture, envTexture, waveTexture;
 };
-bool readStandingMaterial(const MeshShaderMaterialDef &source, StandingMaterial &out);
+bool readStandingMaterial(const MeshShaderMaterialDef &source, StandingMaterial &out, std::string *error = nullptr);
 
 // BFME2 donor StandingWaterAreaLoadPCA.cpp (0x3093F6) and
 // Rva003093F6BasesSamplers.cpp (0x30822F..0x308509). Presentation only.
