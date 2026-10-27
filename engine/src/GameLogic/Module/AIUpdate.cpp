@@ -825,11 +825,11 @@ void AIUpdateInterface::privateMoveToPosition(const Coord3D &pos, CommandSourceT
 	}
 }
 
-void AIUpdateInterface::aiMoveToPositionAndOrientate(const Coord3D &pos, float angle, CommandSourceType source)
+bool AIUpdateInterface::aiMoveToPositionAndOrientate(const Coord3D &pos, float angle, CommandSourceType source, Coord3D *takenGoal)
 {
 	if (!acceptCommand(source, kCommandUnidentifiedMove))
 	{
-		return; // lane MODULES-3: RW 0x667174
+		return false; // lane MODULES-3: RW 0x667174
 	}
 	{
 		RoutedCommand c; // lane FLY-1
@@ -839,17 +839,31 @@ void AIUpdateInterface::aiMoveToPositionAndOrientate(const Coord3D &pos, float a
 		c.source = source;
 		if (routeCommand(c))
 		{
-			return;
+			if (takenGoal)
+			{
+				*takenGoal = pos; // the subclass owns the command; the base goal and attack-move stay untouched, as in aiMoveToPosition
+			}
+			return true;
 		}
 	}
 	m_world->noteStop(kStopCommands);
 	Object *obj = getObject();
-	if (hasKind(*obj, kindBits().immobile))
+	// Object::isMobile (RW 0x690E97), as privateMoveToPosition (RW 0x66B3FD) and BFME2's privateAttackMoveToPositionAndOrientation (BFME2 RVA 0x26C04E, the
+	// attack formation's command) refuse an immobile, disabled (but type 8 alone) or stoned unit or a deployed siege tower: nothing of it changes
+	if (!GarrisonRules::isMobile(*obj))
 	{
-		return;
+		return false;
+	}
+	if (source != CMD_FROM_AI)
+	{
+		m_attackMoveActive = false; // an accepted player / script move order ends an attack-move, as aiMoveToPosition (COMBAT-1)
 	}
 	Coord3D goal;
 	goalPositionClipped(pos, source, goal);
+	if (takenGoal)
+	{
+		*takenGoal = goal;
+	}
 	m_machine->clear();
 	m_machine->setGoalPosition(goal);
 	m_machine->setGoalObject(INVALID_ID);
@@ -857,6 +871,7 @@ void AIUpdateInterface::aiMoveToPositionAndOrientate(const Coord3D &pos, float a
 	setLastCommandSource(source);
 	m_machine->setState(AI_MOVE_TO);
 	wakeUpNow();
+	return true;
 }
 
 void AIUpdateInterface::aiMoveToObject(Object *target, CommandSourceType source)

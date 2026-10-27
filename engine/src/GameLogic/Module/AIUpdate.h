@@ -109,8 +109,9 @@ public:
 	unsigned evenIfSleepingOrders() const { return m_evenIfSleepingOrders; }
 	const Coord3D &lastEvenIfSleepingGoal() const { return m_lastEvenIfSleepingGoal; }
 	void aiMoveToObject(Object *obj, CommandSourceType source);
-	// RW 0x770C2C (MSG_DO_MOVE_AND_ORIENTATE_OBJECTTO): a move that ends facing `angle`
-	void aiMoveToPositionAndOrientate(const Coord3D &pos, float angle, CommandSourceType source);
+	// RW 0x770C2C (MSG_DO_MOVE_AND_ORIENTATE_OBJECTTO): a move that ends facing `angle`. False when the gate or the mobility test refuses it (nothing
+	// changed); true when the base installed the move (`takenGoal`: its clipped goal) or a subclass took it (`takenGoal`: `pos`)
+	bool aiMoveToPositionAndOrientate(const Coord3D &pos, float angle, CommandSourceType source, Coord3D *takenGoal = nullptr);
 	// lane SIEGE-1: AI command 0x27 (RW 0x7C821E -> AI vslot 0x118 RW 0x667290): the unit turns to face `pos` (state 0x25, GameLogic/Module/SiegeModules.cpp)
 	void aiFacePosition(const Coord3D &pos, CommandSourceType source);
 	void aiIdle(CommandSourceType source);
