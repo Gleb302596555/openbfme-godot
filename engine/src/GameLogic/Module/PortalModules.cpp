@@ -530,7 +530,9 @@ std::function<bool(const PathfindObject &)> DynamicPortalBehaviour::waypointFilt
 	const ObjectFilter *filter = m_data->m_objectFilter.get();
 	GameLogic *logic = &getObject()->logic();
 	const bool bfme1 = getObject()->getTemplate()->bfme1Data();
-	return [logic, filter, bfme1](const PathfindObject &o) {
+	const int cavalry = ObjectTemplateInfoBuilder::kindOfIndex("CAVALRY");
+	const int mounted = ModelCondition::indexOf("MOUNTED");
+	return [logic, filter, bfme1, cavalry, mounted](const PathfindObject &o) {
 		static const ObjectFilter kDefault; // RW 0x76406F, the data constructor's filter
 		static const ObjectFilter kLegacyDefault = legacyPortalDefaultFilter();
 		const ObjectFilter &effective = filter ? *filter : (bfme1 ? kLegacyDefault : kDefault);
@@ -539,9 +541,8 @@ std::function<bool(const PathfindObject &)> DynamicPortalBehaviour::waypointFilt
 		{
 			return false;
 		}
-		const int cavalry = ObjectTemplateInfoBuilder::kindOfIndex("CAVALRY");
 		return !bfme1 || cavalry < 0 || !MaskTest(effective.excludeKindOf, cavalry)
-			|| !a->object().testModelCondition(ModelCondition::indexOf("MOUNTED"));
+			|| !a->object().testModelCondition(mounted);
 	};
 }
 

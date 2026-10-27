@@ -256,15 +256,19 @@ TEST_CASE("bfme1 isolation: legacy portal masks preserve ANY inclusion, rejectio
 	auto *defaultPortal = DynamicPortalBehaviour::of(*fixture.make("DefaultPortal"));
 	REQUIRE(rejectPortal);
 	REQUIRE(defaultPortal);
-	CHECK(rejectPortal->waypointFilter()(footAdapter));
-	CHECK_FALSE(rejectPortal->waypointFilter()(riderAdapter));
-	CHECK(defaultPortal->waypointFilter()(footAdapter));
-	CHECK_FALSE(defaultPortal->waypointFilter()(noKindAdapter));
+	const auto rejectFilter = rejectPortal->waypointFilter();
+	const auto defaultFilter = defaultPortal->waypointFilter();
+	CHECK(rejectFilter(footAdapter));
+	CHECK_FALSE(rejectFilter(riderAdapter));
+	CHECK(defaultFilter(footAdapter));
+	CHECK_FALSE(defaultFilter(noKindAdapter));
 	const int mounted = ModelCondition::indexOf("MOUNTED");
 	REQUIRE(mounted != -1);
 	foot->setModelConditionState(mounted, true);
-	CHECK_FALSE(rejectPortal->waypointFilter()(footAdapter));
-	CHECK(defaultPortal->waypointFilter()(footAdapter));
+	CHECK_FALSE(rejectFilter(footAdapter));
+	CHECK(defaultFilter(footAdapter));
+	foot->setModelConditionState(mounted, false);
+	CHECK(rejectFilter(footAdapter));
 }
 
 TEST_CASE("bfme1 isolation: bloodthirsty retains the legacy count and plays both initiation voices")
@@ -296,6 +300,71 @@ TEST_CASE("bfme1 isolation: bloodthirsty retains the legacy count and plays both
 	sink.sounds.clear();
 	CHECK(voices.pickAndPlay({ fixture.make("SecondOnly")->getID() }, UnitVoiceResponse::VOICE_EVENT_BLOODTHIRSTY));
 	CHECK(sink.sounds == std::vector<std::string>{ "TestChatter" });
+}
+
+TEST_CASE("bfme1 isolation: bloodthirsty voice buckets count ordered initiation sound pairs without case")
+{
+	Bfme1ModuleWorld fixture;
+	REQUIRE(fixture.world.load(
+		"Object Singer\n KindOf = INFANTRY\n Behavior = BloodthirstyUpdate ModuleTag_Blood\n"
+		" InitiateVoice = TestJoin\n InitiateVoice2 = TestChatter\n End\nEnd\n"
+		"Object OtherSecond\n KindOf = INFANTRY\n Behavior = BloodthirstyUpdate ModuleTag_Blood\n"
+		" InitiateVoice = TestJoin\n InitiateVoice2 = OtherChatter\n End\nEnd\n"
+		"Object CasePair\n KindOf = INFANTRY\n Behavior = BloodthirstyUpdate ModuleTag_Blood\n"
+		" InitiateVoice = testjoin\n InitiateVoice2 = testchatter\n End\nEnd\n"
+		"Object OtherFirst\n KindOf = INFANTRY\n Behavior = BloodthirstyUpdate ModuleTag_Blood\n"
+		" InitiateVoice = OtherJoin\n InitiateVoice2 = TestChatter\n End\nEnd\n"
+		"Object Reversed\n KindOf = INFANTRY\n Behavior = BloodthirstyUpdate ModuleTag_Blood\n"
+		" InitiateVoice = TestChatter\n InitiateVoice2 = TestJoin\n End\nEnd\n"
+		"Object FirstOnly\n KindOf = INFANTRY\n Behavior = BloodthirstyUpdate ModuleTag_Blood\n"
+		" InitiateVoice = TestJoin\n End\nEnd\n"
+		"Object SecondOnly\n KindOf = INFANTRY\n Behavior = BloodthirstyUpdate ModuleTag_Blood\n"
+		" InitiateVoice2 = TestChatter\n End\nEnd\n"
+		"Object OtherSecondOnly\n KindOf = INFANTRY\n Behavior = BloodthirstyUpdate ModuleTag_Blood\n"
+		" InitiateVoice2 = OtherChatter\n End\nEnd\n"
+		"Object CaseSecondOnly\n KindOf = INFANTRY\n Behavior = BloodthirstyUpdate ModuleTag_Blood\n"
+		" InitiateVoice2 = testchatter\n End\nEnd\n").empty());
+	struct Sink : UnitVoiceResponse::Sink
+	{
+		std::vector<std::string> sounds;
+		bool soundExists(const std::string &) override { return true; }
+		void playSound(const std::string &name, ObjectID, int) override { sounds.push_back(name); }
+		void reportEva(const std::string &, const Coord3D *) override {}
+	} sink;
+	UnitVoiceResponse voices(*fixture.logic, sink);
+	Object *speaker = fixture.make("Singer");
+	std::vector<ObjectID> selected;
+	std::vector<std::string> expected = { "TestJoin", "TestChatter" };
+	SUBCASE("same first voice, different second voices")
+	{
+		selected = { fixture.make("OtherSecond")->getID(), speaker->getID(), fixture.make("Singer")->getID() };
+	}
+	SUBCASE("both sound names compare without case")
+	{
+		selected = { fixture.make("OtherSecond")->getID(), speaker->getID(), fixture.make("CasePair")->getID() };
+	}
+	SUBCASE("same second voice, different first voices")
+	{
+		selected = { fixture.make("OtherFirst")->getID(), speaker->getID(), fixture.make("Singer")->getID() };
+	}
+	SUBCASE("slot order matters")
+	{
+		selected = { fixture.make("Reversed")->getID(), speaker->getID(), fixture.make("Singer")->getID() };
+	}
+	SUBCASE("a missing second voice stays separate")
+	{
+		selected = { fixture.make("FirstOnly")->getID(), speaker->getID(), fixture.make("Singer")->getID() };
+	}
+	SUBCASE("second-only voices stay separate and compare without case")
+	{
+		speaker = fixture.make("SecondOnly");
+		selected = { fixture.make("OtherSecondOnly")->getID(), speaker->getID(), fixture.make("CaseSecondOnly")->getID() };
+		expected = { "TestChatter" };
+	}
+	REQUIRE(voices.pickAndPlay(selected, UnitVoiceResponse::VOICE_EVENT_BLOODTHIRSTY));
+	CHECK(voices.last().count == 2);
+	CHECK(voices.last().object == speaker->getID());
+	CHECK(sink.sounds == expected);
 }
 
 TEST_CASE("bfme1 isolation: bloodthirsty awards experience on each sacrifice, not at the legacy count")
