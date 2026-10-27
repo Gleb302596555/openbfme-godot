@@ -565,11 +565,14 @@ bool exitAsksAlly(bool rallyOnCliff, bool staleIgnore, bool &rallyAppended)
 	AIUpdateInterface *ua = unit->getAIUpdateInterface();
 	const std::vector<Coord3D> &path = ua->stateMachine().goalPath();
 	rallyAppended = !path.empty() && std::hypot(path.back().x - rally.x, path.back().y - rally.y) < 30.0f;
-	// the exit command's ignored obstacle (the queue exit passes no source object) is what stays: RW 0x8A424F restores it after the clearing
-	CHECK(ua->mover().ignoredObstacleID() == PATHFIND_INVALID_ID);
+	// OpenBFME doorway routing retains only this producer after allied clearing, replacing any stale ignore.
+	CHECK(ua->mover().ignoredObstacleID() == b->getID());
 	// asked: aiMoveAwayFromUnit recorded the new unit as its requester (RW 0x66DA5F's requester slots; with the rally point among the cliffs the ally may find
 	// no way out and stay idle)
-	return ally->getAIUpdateInterface()->lastMoveAwayRequester() == unit->getID();
+	const bool asked = ally->getAIUpdateInterface()->lastMoveAwayRequester() == unit->getID();
+	ua->aiIdle(CMD_FROM_PLAYER);
+	CHECK(ua->mover().ignoredObstacleID() == PATHFIND_INVALID_ID);
+	return asked;
 }
 } // namespace
 
