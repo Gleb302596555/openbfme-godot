@@ -22,6 +22,8 @@ static func configure(sun: DirectionalLight3D, lighting: Dictionary, lod: int = 
 		float((packed >> 16) & 255) / 255.0,
 		float((packed >> 8) & 255) / 255.0,
 		float(packed & 255) / 255.0, 1.0 if enabled else 0.0))
+	ClassDB.class_call_static("W3DInstancer", "set_shadow_maps_enabled", enabled)
 
 static func disable() -> void:
 	RenderingServer.global_shader_parameter_set("w3d_shadow", Vector4(1.0, 1.0, 1.0, 0.0))
+	ClassDB.class_call_static("W3DInstancer", "set_shadow_maps_enabled", false)

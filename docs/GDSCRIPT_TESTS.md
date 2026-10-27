@@ -164,6 +164,9 @@ runner is claimed. All paths below are relative to the repository root.
 | `godot/tests/new_game_loading_art_host.gd` | `godot/tests/new_game_loading_art_test.gd` | CI gate's helper/child; not scheduled separately by pytest. |
 | `godot/tests/new_game_loading_art_test.gd` | Existing CI Godot gate | Denied here: already scheduled by CI; use its existing asset/window setup. |
 | `godot/tests/object_corpus_sweep.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
+| `godot/tests/object_shadow_building_test.gd` | Manual only; no generic pytest runner | Denied here: GPU/window/render readback required (some also need retail assets). |
+| `godot/tests/object_shadow_instances_test.gd` | Manual only; no generic pytest runner | Denied here: GPU/window/render readback required (some also need retail assets). |
+| `godot/tests/object_shadow_render_test.gd` | Manual only; no generic pytest runner | Denied here: GPU/window/render readback required (some also need retail assets). |
 | `godot/tests/online16_fix_bridge_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/online_branding_test.gd` | Manual only; no generic pytest runner | Denied here: GPU/window/render readback required (some also need retail assets). |
 | `godot/tests/online_hostile_test.gd` | `tools/net/test_online_hostile.py` | Existing argument-aware fixture runner; its prerequisites still apply. |
