@@ -1157,6 +1157,9 @@ func _ready() -> void:
 		return
 	if _res != Vector2i(0, 0):
 		get_window().size = _res
+		if _display.window_mode != "windowed":
+			get_window().content_scale_size = _res
+			get_window().content_scale_mode = Window.CONTENT_SCALE_MODE_VIEWPORT
 	RenderingServer.set_default_clear_color(Color(0, 0, 0))
 	_build_stage()
 	await get_tree().process_frame

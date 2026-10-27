@@ -91,6 +91,7 @@ scheduling/ownership decision; it is never automatically promoted to execution.
 | `launcher/tests/verifyfiles_test.gd` | `tools/test_verifyfiles.py` | Existing launcher fixture/arguments and platform prerequisites retained. |
 | `launcher/tests/verifyfiles_window_test.gd` | `tools/test_verifyfiles_window.py` | Existing launcher fixture/arguments and platform prerequisites retained. |
 | `launcher/tests/write_failure_test.gd` | `tools/release/test_launcher.py` | Linux RLIMIT_FSIZE=4096 subprocess, ignored SIGXFSZ, --write-limited; both assertions must pass. |
+| `launcher/tests/display_test.gd` | `tools/release/test_launcher_display.py` | Isolated launcher UI signals, shared game display reader, safe edits, refresh, fullscreen viewport sizing and Cancel. No retail assets. |
 
 The OAuth integration's missing-Node reason starts with **SKIP LOUDLY: launcher
 OAuth integration needs Node.js with node:sqlite support**, and explains how to
@@ -176,7 +177,7 @@ runner is claimed. All paths below are relative to the repository root.
 | `godot/tests/online_social_node.gd` | `godot/tests/online_social_node.tscn` | Scene helper; tools/net/test_online_social_node.py drives this scene. |
 | `godot/tests/online_social_test.gd` | `tools/net/test_online_social_ui.py` | Existing argument-aware fixture runner; its prerequisites still apply. |
 | `godot/tests/online_stats_test.gd` | `tools/net/test_online_stats.py` | Existing argument-aware fixture runner; its prerequisites still apply. |
-| `godot/tests/opts1_test.gd` | Existing CI Godot gate | Denied here: already scheduled by CI; use its existing asset/window setup. |
+| `godot/tests/opts1_test.gd` | Existing CI Godot gate | Denied here: already scheduled by CI; use its existing asset/window setup. Checks both RotWK and BFME2 presentation sources in menus and a live game. |
 | `godot/tests/opts2_test.gd` | Existing CI Godot gate | Denied here: already scheduled by CI; use its existing asset/window setup. |
 | `godot/tests/opts4_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/opts5_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |

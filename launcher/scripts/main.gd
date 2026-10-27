@@ -86,6 +86,7 @@ const Semver := preload("res://scripts/core/semver.gd")
 const Log := preload("res://scripts/core/launcher_log.gd")
 const GlibcCheck := preload("res://scripts/core/glibc_check.gd")
 const GameOptions := preload("res://scripts/core/game_options.gd")
+const GameDisplay := preload("res://scripts/core/game_display.gd")
 const AioInstall := preload("res://scripts/core/aio_install.gd")
 const GameFiles := preload("res://scripts/core/game_files.gd")
 const VerifyFilesPanel := preload("res://scripts/ui/verify_files_panel.gd")
@@ -1190,6 +1191,9 @@ func _build_ui() -> void:
 	_settings = SettingsScreen.new(updater.macos_preview())
 	_settings.channel_picked.connect(_on_channel)
 	_settings.free_camera_toggled.connect(_on_free_camera)
+	_settings.display_changed.connect(_on_display_changed)
+	_settings.display_refresh_requested.connect(_refresh_display)
+	get_window().focus_entered.connect(_refresh_display)
 	_settings.auto_update_toggled.connect(_on_auto_update)
 	_settings.aio_toggled.connect(_on_aio_toggled)
 	_settings.show_online_count_toggled.connect(_on_online_count_toggled)
@@ -1347,6 +1351,7 @@ func _show_screen(key: String) -> void:
 		if OnlineCount.stale(_count_text, float(Time.get_ticks_msec() - _count_got_ms) / 1000.0):
 			_refresh_count()
 	if key == "settings":
+		_refresh_display()
 		_settings.set_options(GameOptions.free_camera(), updater.auto_update(), aio.enabled(), _about())
 		_settings.set_online_count(updater.show_online_count())
 		_settings.set_replay_association(bool(updater.get_state("launcher", "replay_association", true)))
@@ -1417,6 +1422,19 @@ func _update_label(version: String) -> String:
 	if _launcher_only:
 		return L10n.t("launcher.main.update_launcher_to", {"version": version})
 	return L10n.t("launcher.main.update_to" if _pv != "" else "launcher.main.install_version", {"version": version})
+
+
+func _refresh_display() -> void:
+	if _settings != null:
+		var screen_size := DisplayServer.screen_get_size(get_window().current_screen)
+		_settings.set_display(GameDisplay.read(screen_size))
+
+
+func _on_display_changed(key: String, value: String) -> void:
+	var why := GameDisplay.save(key, value)
+	_refresh_display()
+	if why != "":
+		_show_error(L10n.t("launcher.main.setting_not_saved"), why)
 
 
 func _on_free_camera(on: bool) -> void:

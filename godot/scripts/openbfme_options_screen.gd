@@ -45,7 +45,7 @@ const UNSUPPORTED_HELP := "Online privacy is not available on this server yet."
 const HELP := {
 	"window_mode": "Windowed, a borderless window over the whole screen, or exclusive full screen (Alt+Enter).",
 	"resolution_windowed": "The window's size (in a window). The menus and the game scale with it.",
-	"resolution_screen": "The window's size. Full screen and the borderless window use the monitor's own resolution; lower the render scale for fewer pixels.",
+	"resolution_screen": "The game's rendering resolution, scaled to fit the screen. Different aspect ratios have black bars. Render scale further adjusts 3D quality.",
 	"vsync": "Waits for the monitor's refresh: no tearing, a little more input delay.",
 	"max_fps": "The most frames drawn a second. The game itself always runs at its own pace.",
 	"show_fps": "The frame counter in the top left corner.",
@@ -502,7 +502,7 @@ func _display_rows() -> Array:
 	var res := _resolution_choices()
 	var current: Vector2i = p.resolution if p.resolution != Vector2i.ZERO else get_tree().root.size
 	rows.append(_choice("resolution", "Resolution", res.map(func(r): return "%d x %d" % [r.x, r.y]), res.find(current),
-		HELP.resolution_screen if p.window_mode != "windowed" else HELP.resolution_windowed, p.window_mode == "windowed"))
+		HELP.resolution_screen if p.window_mode != "windowed" else HELP.resolution_windowed))
 	var vsync := VSYNC_ITEMS.map(func(v): return v[1])
 	if p.vsync == "mailbox":
 		vsync.append("Mailbox")

@@ -42,6 +42,7 @@ GAME_OWNERS = {
     "save4e_flow_test.gd": "tools/save/test_save_flow.py",
 }
 LAUNCHER_OWNERS = {
+    "display_test.gd": "tools/release/test_launcher_display.py",
     **dict.fromkeys(("background_play_test.gd", "crypto_test.gd", "layout_test.gd", "macos_preview_test.gd", "oauth_test.gd",
                     "social_launch_test.gd", "social_ui_test.gd", "unit_test.gd", "write_failure_test.gd",
                     "oauth_integration_test.gd", "social_client_test.gd"), "tools/release/test_launcher.py"),

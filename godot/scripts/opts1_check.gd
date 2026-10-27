@@ -31,6 +31,7 @@ func run(p_game: Node, p_shots: String) -> int:
 	await game._step(10)
 	await game._wait_main_ready()
 	await game._step(60)
+	check_presentation()
 	var main_level: int = shell.shell_top_level()
 	var main0 := widget_state(main_level)
 	check("main menu has buttons", main0.size() >= 5, "only %d buttons" % main0.size())
@@ -98,6 +99,22 @@ func run(p_game: Node, p_shots: String) -> int:
 		check("window mode %s applied" % modes[i], game._display_screen._pending.window_mode == modes[i] and (DisplayServer.get_name() == "headless" or root.mode == DisplaySettings.window_mode_of(modes[i])),
 			"mode %d" % root.mode)
 		compare("Options.apt after window mode %s" % modes[i], page0, widget_state(options_level))
+		if modes[i] != "windowed":
+			var resolution_row: Dictionary = screen.row("resolution")
+			check("%s resolution is enabled" % modes[i], resolution_row.enabled, str(resolution_row))
+			for size in ["1024x768", "1280x720"]:
+				var index := -1
+				for n in resolution_row.items.size():
+					if String(resolution_row.items[n]).replace(" ", "") == size:
+						index = n
+				check("%s offers %s" % [modes[i], size], index != -1, str(resolution_row.items))
+				if index == -1:
+					continue
+				await select("resolution", index)
+				await game._step(10)
+				check("%s renders at %s" % [modes[i], size], Vector2i(game.get_viewport().get_visible_rect().size) == DisplaySettings.parse_resolution(size),
+					str(game.get_viewport().get_visible_rect().size))
+				compare("Options.apt at %s %s" % [modes[i], size], page0, widget_state(options_level))
 	await select("window_mode", 0)
 	await game._step(20)
 	var res: Dictionary = screen.row("resolution")
@@ -208,6 +225,7 @@ func run_game(p_game: Node, p_shots: String) -> int:
 	screen = game._display_screen
 	overlay = game._display_overlay
 	shots = p_shots
+	check_presentation()
 	var root: Window = game.get_tree().root
 	if DisplayServer.get_name() == "headless" and root.size.x < 640:
 		root.size = Vector2i(1280, 800)
@@ -281,6 +299,12 @@ func open_options() -> bool:
 		await game._step(15)
 	await game._step(30)
 	return screen.is_open()
+
+
+func check_presentation() -> void:
+	var expected := "bfme2-106" if game._menu_style == "bfme2" else "rotwk-201"
+	var actual: String = shell.get_shell_report().get("presentation_style", "")
+	check("presentation source " + expected, actual == expected, "got " + actual)
 
 
 func finish() -> int:
