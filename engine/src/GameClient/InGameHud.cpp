@@ -464,6 +464,7 @@ void InGameHud::flashPalantirButton(int slot, int seconds)
 	}
 }
 
+
 bool InGameHud::palantirObjectivesFlashing() const
 {
 	return m_palantirRef && m_palantirRef->objectivesFlashing();
@@ -790,6 +791,8 @@ void InGameHud::updateRadarEvents()
 		}
 	}
 }
+
+
 
 // ---- lane SPELL-2 ------------------------------------------------------------------------------------------------------------------------------
 void InGameHud::send(const std::vector<GameMessage> &msgs)
@@ -1192,6 +1195,16 @@ bool InGameHud::openSpellStore(std::string *error)
 	}
 	m_store = std::move(store);
 	return true;
+}
+
+void InGameHud::cancelSpellStore()
+{
+	if (m_store)
+	{
+		// RW 0x8234C8: Escape resets (0x823484) before closing (0x82289A); Enter and grave only close.
+		m_store->reset();
+		closeSpellStore();
+	}
 }
 
 void InGameHud::closeSpellStore()

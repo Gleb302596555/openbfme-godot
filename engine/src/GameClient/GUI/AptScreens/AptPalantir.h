@@ -282,6 +282,7 @@ private:
 	bool call(const std::string &path, const std::string &fn, const std::vector<std::string> &args);
 	unsigned m_radarPingCalls = 0; ///< lane RADAR-1
 	void syncFrames(const std::vector<ControlBarButton> &buttons, bool arc);
+	void clearFrame(int position, bool arc);
 	// lane HUD-6 (AptPalantirSideBar.cpp): the side command bar's update (AptInGameSideCommandBar::Impl, RW 0x92F27D / 0x92F082 / 0x92F015)
 	void syncSideBar(const ControlBar &bar);
 	void sideBarLoaded(const std::string &arg);

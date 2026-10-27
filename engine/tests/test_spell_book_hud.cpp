@@ -6,6 +6,7 @@
 // cast the slot is _notReady with its recharge timer. SKIPs without ROTWK_INSTALL / BFME2_INSTALL.
 
 #include "HudTestUtil.h"
+#include "HudAudioTestUtil.h"
 
 #include "Common/Player.h"
 #include "Common/PlayerScience.h"
@@ -41,15 +42,14 @@ const char *const kCitadels[7] = { "MenFortressCitadel", "ElvenCitadel", "Dwarve
 struct BookRig
 {
 	Rig rig;
-	RecordingShellServices services;
+	hudaudio::RecordingShellServices services;
 	GameTextTableSource text; // review r2: the help records need the game text (data/lotr.str)
 	std::unique_ptr<InGameHud> hud;
 	BookRig(SharedWorld &s, const char *faction) : rig(s, "map mp fall back 4p", faction)
 	{
 		std::vector<std::uint8_t> bytes;
 		std::string textError;
-		REQUIRE_MESSAGE(s.mount->fs->readFile("data/lotr.str", bytes, &textError), textError);
-		REQUIRE_MESSAGE(text.table.parse(bytes, &textError), textError);
+		REQUIRE_MESSAGE(text.table.loadRetail(*s.mount->fs, &textError), textError); // data/lotr.str, or a non-English install's lotr.csf
 		InGameHud::Config cfg{ *rig.game, *s.world, *s.mount->fs, services, rig.view, s.mouse, s.meta, &text };
 		hud = std::make_unique<InGameHud>(cfg);
 		std::string error;
@@ -66,7 +66,140 @@ struct BookRig
 	}
 	std::string storeState(int i) { return AptSpellStore::stateName(hud->spellStore()->buttonState(i)); }
 };
+
+bool hitPoint(InGameHud &hud, int level, const std::string &path, int &x, int &y);
 } // namespace
+
+TEST_CASE("hud click audio: spell book active and not-ready movie requests")
+{
+	if (!haveWorld("hud click audio spell book"))
+	{
+		return;
+	}
+	SharedWorld &s = shared();
+	hudaudio::RetailAudio audio(*s.mount->fs);
+	BookRig b(s, "FactionMen");
+	auto context = b.hud->enterContext();
+	const ThingTemplate *cit = s.world->things().findTemplate("MenFortressCitadel");
+	REQUIRE(cit);
+	Object *fort = b.rig.logic().newObject(cit, b.rig.local->getDefaultTeam(), ObjectStatusMaskType{});
+	REQUIRE(fort);
+	Coord3D at{ 600.0f, 600.0f, 0.0f };
+	fort->setPosition(&at);
+	fort->friend_onBuildComplete();
+	b.frames(40);
+	std::string error;
+	REQUIRE_MESSAGE(b.hud->openSpellStore(&error), error);
+	b.frames(40);
+	AptSpellStore *store = b.hud->spellStore();
+	REQUIRE(store);
+	int available = -1;
+	for (const SpellStoreModel::Button &button : store->model().buttons())
+	{
+		if (button.state == SpellStoreModel::STATE_AVAILABLE)
+		{
+			available = button.index;
+			break;
+		}
+	}
+	// tolerance: any available spell is valid; a missing candidate must fail.
+	REQUIRE(available >= 0);
+	REQUIRE(store->click(available));
+	b.hud->closeSpellStore();
+	b.frames(40);
+	AptPalantir *pal = b.hud->palantir();
+	REQUIRE(pal);
+	// tolerance: slot zero must resolve to a valid spell-store button index.
+	REQUIRE(pal->spellSlotButton(0) >= 0);
+	int x = 0, y = 0;
+	REQUIRE(hitPoint(*b.hud, pal->level(), pal->spellBookPath() + ".Spell1", x, y));
+	audio.manager->takeEventLog();
+	b.hud->mouseMove(x, y);
+	b.frames(2);
+	b.hud->mouseButton(HudInput::Button::Left, true, x, y, 0, 3000);
+	b.frames(2);
+	const std::vector<std::string> activeDown = hudaudio::takeRequests(*audio.manager, "HUD movie");
+	b.hud->mouseButton(HudInput::Button::Left, false, x, y, 0, 3040);
+	b.frames(8);
+	const std::vector<std::string> activeUp = hudaudio::takeRequests(*audio.manager, "HUD movie");
+	hudaudio::printSequence("spell book active", activeDown, activeUp);
+	CHECK(activeDown == std::vector<std::string>{ "Gui_PalantirSpellButtonClick" });
+	CHECK(activeUp.empty());
+	if (b.hud->spellBar().targeting())
+	{
+		b.rig.game->shroud().revealMapForPlayerPermanently(b.rig.local->getPlayerIndex());
+		b.rig.lookAt(at);
+		const ICoord2D target = b.rig.screenOf(at);
+		b.hud->mouseButton(HudInput::Button::Left, true, target.x, target.y, 0, 3080);
+		b.hud->mouseButton(HudInput::Button::Left, false, target.x, target.y, 0, 3120);
+		b.frames(20);
+	}
+	b.frames(8);
+	REQUIRE(pal->spellSlotState(0) == AptPalantir::SPELL_NOT_READY);
+	REQUIRE(hitPoint(*b.hud, pal->level(), pal->spellBookPath() + ".Spell1", x, y));
+	audio.manager->takeEventLog();
+	b.hud->mouseMove(x, y);
+	b.frames(2);
+	b.hud->mouseButton(HudInput::Button::Left, true, x, y, 0, 3200);
+	b.frames(2);
+	const std::vector<std::string> disabledDown = hudaudio::takeRequests(*audio.manager, "HUD movie");
+	b.hud->mouseButton(HudInput::Button::Left, false, x, y, 0, 3240);
+	b.frames(8);
+	const std::vector<std::string> disabledUp = hudaudio::takeRequests(*audio.manager, "HUD movie");
+	hudaudio::printSequence("spell book not-ready", disabledDown, disabledUp);
+	CHECK(disabledDown == std::vector<std::string>{ "Gui_PalantirSpellButtonDisabledClick" });
+	CHECK(disabledUp.empty());
+}
+
+TEST_CASE("shellfb1: SpellStore Escape cancellation discards a pending purchase while ordinary close accepts it")
+{
+	if (!haveWorld("shellfb1 spell store Escape"))
+	{
+		return;
+	}
+	BookRig b(shared(), "FactionMen");
+	std::string error;
+	REQUIRE_MESSAGE(b.hud->openSpellStore(&error), error);
+	b.frames(40);
+	AptSpellStore *st = b.hud->spellStore();
+	REQUIRE(st);
+	int first = -1;
+	for (int i = 0; i < SpellStoreModel::MAX_BUTTONS; ++i)
+	{
+		if (b.storeState(i) == "_active")
+		{
+			first = i;
+			break;
+		}
+	}
+	REQUIRE(first != -1);
+	const ScienceType science = st->model().buttons()[(size_t)first].science;
+	const int cost = st->model().buttons()[(size_t)first].cost;
+	const int points = b.rig.local->science().getSciencePurchasePoints();
+	REQUIRE_FALSE(b.rig.local->science().hasScience(science));
+	REQUIRE(st->click(first));
+	CHECK(st->model().points() == points - cost);
+	const auto messages = b.hud->input().messageLog();
+	b.hud->cancelSpellStore();
+	CHECK(b.hud->spellStore() == nullptr);
+	CHECK(b.hud->input().messageLog() == messages);
+	b.hud->cancelSpellStore();
+	CHECK(b.hud->input().messageLog() == messages);
+	b.frames(20);
+	CHECK_FALSE(b.rig.local->science().hasScience(science));
+	CHECK(b.rig.local->science().getSciencePurchasePoints() == points);
+	REQUIRE_MESSAGE(b.hud->openSpellStore(&error), error);
+	b.frames(40);
+	REQUIRE(b.hud->spellStore());
+	CHECK(b.storeState(first) == "_active");
+	REQUIRE(b.hud->spellStore()->click(first));
+	b.hud->closeSpellStore();
+	CHECK(b.hud->spellStore() == nullptr);
+	CHECK(b.hud->input().messageLog().size() == messages.size() + 1);
+	b.frames(20);
+	CHECK(b.rig.local->science().hasScience(science));
+	CHECK(b.rig.local->science().getSciencePurchasePoints() == points - cost);
+}
 
 TEST_CASE("SPELL-2 retail: the retail InGameSpellBook and SpellStore.apt movies of every faction: purchased, available, locked, recharging, close and reopen")
 {
@@ -511,6 +644,122 @@ TEST_CASE("spell store widescreen: the Powers movie preserves proportions and it
 		book.frames(1);
 	}
 	CHECK(book.hud->spellStore() == nullptr);
+}
+
+TEST_CASE("hud click audio: Men spell store purchase requests")
+{
+	if (!haveWorld("hud click audio Men spell store"))
+	{
+		return;
+	}
+	SharedWorld &s = shared();
+	hudaudio::RetailAudio audio(*s.mount->fs);
+	BookRig b(s, "FactionMen");
+	b.hud->setWindowSize(1024, 768);
+	b.rig.view.setScreen(1024, 768);
+	auto context = b.hud->enterContext();
+	const ThingTemplate *cit = s.world->things().findTemplate("MenFortressCitadel");
+	REQUIRE(cit);
+	Object *fort = b.rig.logic().newObject(cit, b.rig.local->getDefaultTeam(), ObjectStatusMaskType{});
+	REQUIRE(fort);
+	Coord3D at{ 600.0f, 600.0f, 0.0f };
+	fort->setPosition(&at);
+	fort->friend_onBuildComplete();
+	b.frames(40);
+	AptPalantir *pal = b.hud->palantir();
+	REQUIRE(pal);
+	int x = 0, y = 0;
+	REQUIRE(hitPoint(*b.hud, pal->level(), "PalantirButtons.Buttons.PlayerMagic", x, y));
+	audio.manager->takeEventLog();
+	b.hud->mouseMove(x, y);
+	b.frames(2);
+	b.hud->mouseButton(HudInput::Button::Left, true, x, y, 0, 3000);
+	b.frames(2);
+	hudaudio::takeRequests(*audio.manager, "HUD movie");
+	b.hud->mouseButton(HudInput::Button::Left, false, x, y, 0, 3040);
+	b.frames(40);
+	hudaudio::takeRequests(*audio.manager, "HUD movie");
+	AptSpellStore *store = b.hud->spellStore();
+	REQUIRE_MESSAGE(store, b.hud->spellStoreError());
+	const std::string *points = b.hud->windows().aptText("APT:SpellStoreSpellPoints");
+	REQUIRE(points);
+	CHECK(*points == "5");
+	int first = -1, second = -1;
+	for (const SpellStoreModel::Button &button : store->model().buttons())
+	{
+		if (button.state != SpellStoreModel::STATE_AVAILABLE)
+		{
+			continue;
+		}
+		if (first < 0)
+		{
+			first = button.index;
+		}
+		else
+		{
+			second = button.index;
+			break;
+		}
+	}
+	// tolerance: both candidates must exist; their store indices are not fixed by this test.
+	REQUIRE(first >= 0);
+	// tolerance: the second available candidate must exist before testing zero-funds refusal.
+	REQUIRE(second >= 0);
+	CHECK(b.storeState(first) == "_active");
+	CHECK(b.storeState(second) == "_active");
+	int firstX = 0, firstY = 0, secondX = 0, secondY = 0;
+	REQUIRE(hitPoint(*b.hud, store->level(), "SpellStore.Buttons.Spell" + std::to_string(first + 1), firstX, firstY));
+	REQUIRE(hitPoint(*b.hud, store->level(), "SpellStore.Buttons.Spell" + std::to_string(second + 1), secondX, secondY));
+
+	audio.manager->takeEventLog();
+	b.hud->mouseMove(firstX, firstY);
+	b.frames(2);
+	b.hud->mouseButton(HudInput::Button::Left, true, firstX, firstY, 0, 4000);
+	for (int frame = 0; frame < 4 && b.storeState(first) != "_purchased"; ++frame)
+	{
+		b.frames(1);
+	}
+	const std::vector<std::string> purchaseDown = hudaudio::takeRequests(*audio.manager, "HUD movie");
+	points = b.hud->windows().aptText("APT:SpellStoreSpellPoints");
+	REQUIRE(points);
+	CHECK(b.storeState(first) == "_purchased");
+	CHECK(*points == "0");
+	b.hud->mouseButton(HudInput::Button::Left, false, firstX, firstY, 0, 4040);
+	b.frames(4);
+	const std::vector<std::string> purchaseUp = hudaudio::takeRequests(*audio.manager, "HUD movie");
+	hudaudio::printSequence("Men store available purchase", purchaseDown, purchaseUp);
+	CHECK(purchaseDown == std::vector<std::string>{ "Gui_PurchaseSpellClick" });
+	CHECK(purchaseUp.empty());
+	REQUIRE(b.storeState(first) == "_already_purchased");
+	REQUIRE(b.storeState(second) == "_disabled");
+
+	auto clickAndRead = [&](int clickX, int clickY, int time, std::vector<std::string> &down, std::vector<std::string> &up) {
+		audio.manager->takeEventLog();
+		b.hud->mouseMove(clickX, clickY);
+		b.frames(2);
+		b.hud->mouseButton(HudInput::Button::Left, true, clickX, clickY, 0, time);
+		b.frames(2);
+		down = hudaudio::takeRequests(*audio.manager, "HUD movie");
+		b.hud->mouseButton(HudInput::Button::Left, false, clickX, clickY, 0, time + 40);
+		b.frames(4);
+		up = hudaudio::takeRequests(*audio.manager, "HUD movie");
+	};
+	std::vector<std::string> purchasedDown, purchasedUp;
+	clickAndRead(firstX, firstY, 5000, purchasedDown, purchasedUp);
+	hudaudio::printSequence("Men store already-purchased click", purchasedDown, purchasedUp);
+	CHECK(purchasedDown.empty());
+	CHECK(purchasedUp.empty());
+	CHECK(b.storeState(first) == "_already_purchased");
+
+	std::vector<std::string> unaffordableDown, unaffordableUp;
+	clickAndRead(secondX, secondY, 6000, unaffordableDown, unaffordableUp);
+	hudaudio::printSequence("Men store unaffordable click", unaffordableDown, unaffordableUp);
+	CHECK(unaffordableDown.empty());
+	CHECK(unaffordableUp.empty());
+	CHECK(b.storeState(second) == "_disabled");
+	points = b.hud->windows().aptText("APT:SpellStoreSpellPoints");
+	REQUIRE(points);
+	CHECK(*points == "0");
 }
 
 TEST_CASE("hud6 recovered spell and builder help retail")

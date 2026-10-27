@@ -10,12 +10,16 @@
 #include "GameClient/InGameHud.h"
 #include "GameClient/InGameHeroSelect.h"
 #include "GameClient/PalantirCommandUI.h"
+#include "GameLogic/Object/ExperienceTracker.h"
 #include "Libraries/Source/Apt/AptCharacterInst.h"
 #include "Libraries/Source/Apt/AptRenderList.h"
 #include "Libraries/Source/Apt/AptButtonInst.h"
 #include "Libraries/Source/Apt/AptInput.h"
 #include "GameClient/AptCanvas.h"
 
+#include <algorithm>
+#include <map>
+#include <set>
 #include <variant>
 
 using namespace hudtest;
@@ -136,8 +140,7 @@ struct PalantirRig
 		return s ? *s : std::string();
 	}
 };
-// The panel and all six disabled empty contents must remain visible both at
-// startup and after a selection transition.
+// The six outer frames stay visible while empty; their contents are removed.
 void checkEmptyPanel(PalantirRig &h)
 {
 	AptPalantir *p = h.hud->palantir();
@@ -146,21 +149,81 @@ void checkEmptyPanel(PalantirRig &h)
 	CHECK(h.clip("CommandButtons")->visible);
 	CHECK(h.label("CommandButtons") == "_show");
 	CHECK(h.hud->controlBar().palantirButtons().empty());
-	int emptyFrames = 0;
-	for (const auto &frame : p->buttonFrames()) {
-	 std::string path=frame.path;
-	 if (path.rfind("_level",0)==0) path=path.substr(path.find('.')+1);
-	 if (path.rfind("CommandButtons.",0)!=0) continue;
-	 auto *content=h.clip(path+".content");
-	 REQUIRE_MESSAGE(content,path);
-	 const int disabled=content->labelFrame("_disabled");
-	 int next=content->labelFrame("_cantAfford");
-	 CHECK(content->frame>=disabled); // tolerance: any frame in the disabled timeline animation is valid.
-	 CHECK(content->frame<next); // tolerance: the disabled animation must not enter the next state.
-	 CHECK(content->visible);
-	 ++emptyFrames;
+	std::map<std::string, std::string> framesByIndex;
+	for (const AptPalantir::ButtonFrame &reported : p->buttonFrames())
+	{
+		std::string path = reported.path;
+		if (path.rfind("_level", 0) == 0)
+		{
+			path = path.substr(path.find('.') + 1);
+		}
+		if (path.rfind("CommandButtons.", 0) == 0 && reported.index.size() == 1 && reported.index >= "0" && reported.index <= "5")
+		{
+			framesByIndex[reported.index] = path;
+		}
 	}
-	CHECK(emptyFrames==6);
+	REQUIRE(framesByIndex.size() == AptPalantir::kArcPositions);
+	std::set<std::string> uniqueFrames;
+	for (const auto &entry : framesByIndex)
+	{
+		uniqueFrames.insert(entry.second);
+	}
+	REQUIRE(uniqueFrames.size() == AptPalantir::kArcPositions);
+	AptRenderList render;
+	h.hud->apt().buildRenderList(render);
+	for (int i = 0; i < AptPalantir::kArcPositions; ++i)
+	{
+		const std::string frame = framesByIndex.at(std::to_string(i));
+		AptSpriteInst *outer = h.clip(frame);
+		REQUIRE_MESSAGE(outer != nullptr, frame);
+		CHECK(outer->visible);
+		CHECK(h.clip(frame + ".content") == nullptr);
+		const std::string content = "_level" + std::to_string(p->level()) + "." + frame + ".content";
+		CHECK(p->imageFor(content + "_Image") == nullptr);
+		CHECK(p->timerFor(content + "_Timer") == -1.0f);
+		const std::string *count = h.hud->windows().aptText("APT:" + content + "_ProductionCount");
+		CHECK((count == nullptr || *count == " "));
+		for (const AptRenderCommand &command : render.commands)
+		{
+			CHECK(command.path.find(frame + ".content") == std::string::npos);
+		}
+	}
+}
+
+// the arc position's clip as the movie reported it (AptPalantir::buttonFrames: index "0" .. "5", the path without its _level prefix)
+std::string arcFrame(PalantirRig &h, int position)
+{
+	for (const AptPalantir::ButtonFrame &reported : h.hud->palantir()->buttonFrames())
+	{
+		std::string path = reported.path;
+		if (path.rfind("_level", 0) == 0)
+		{
+			path = path.substr(path.find('.') + 1);
+		}
+		if (path.rfind("CommandButtons.", 0) == 0 && reported.index == std::to_string(position))
+		{
+			return path;
+		}
+	}
+	FAIL("no reported arc frame for position " << position);
+	return std::string();
+}
+
+void checkPassiveContent(PalantirRig &h, const std::string &frame)
+{
+	AptSpriteInst *content = h.clip(frame + ".content");
+	REQUIRE(content);
+	const int passive = content->labelFrame("_static");
+	const int next = content->labelFrame("_notReady");
+	// tolerance: missing labels return -1; a valid timeline frame is nonnegative.
+	REQUIRE(passive >= 0);
+	// tolerance: the next named label bounds the passive state's timeline.
+	REQUIRE(next > passive);
+	// tolerance: allow animation within the passive state's timeline, not another state's frames.
+	CHECK(content->frame >= passive);
+	// tolerance: the next named label begins the following state.
+	CHECK(content->frame < next);
+	CHECK(content->visible);
 }
 } // namespace
 
@@ -389,6 +452,148 @@ TEST_CASE("hud2 palantir: a selected unit and a selected building show their Sel
 	{
 		CHECK_MESSAGE((e.find("CommandInterface") == std::string::npos && e.find("SetPlayer") == std::string::npos), e);
 	}
+}
+
+TEST_CASE("hud2 palantir: passive contents are removed on context changes, deselection and selected-unit destruction")
+{
+	if (!haveWorld("hud2 palantir passive context"))
+	{
+		return;
+	}
+	PalantirRig h(shared());
+	h.frames(30);
+	AptPalantir *p = h.hud->palantir();
+	REQUIRE(p);
+	checkEmptyPanel(h);
+	CHECK_FALSE(p->rankInterfaceShown());
+
+	const Coord3D c = h.rig.freeSpot(2800, 1400, 250.0f);
+	Object *boromir = h.rig.make("GondorBoromir", c.x, c.y);
+	REQUIRE(boromir);
+	ExperienceTracker *xp = boromir->getExperienceTracker();
+	REQUIRE(xp);
+	REQUIRE(xp->isTrainable());
+	xp->gainLevels(20, false);
+	h.hud->input().ui().selectObject(boromir->getID());
+	h.frames(10);
+	REQUIRE(p->rankInterfaceShown());
+
+	std::vector<int> passiveSlots;
+	for (const ControlBarButton &button : h.hud->controlBar().palantirButtons())
+	{
+		if (button.button && button.button->hasOption(COMMAND_OPTION_NONPRESSABLE))
+		{
+			passiveSlots.push_back(button.position);
+		}
+	}
+	REQUIRE_FALSE(passiveSlots.empty());
+	for (int slot : passiveSlots)
+	{
+		// tolerance: the passive button's position must fit the six-frame arc table before deriving its clip path.
+		REQUIRE((slot >= 0 && slot < AptPalantir::kArcPositions));
+		const std::string frame = arcFrame(h, slot);
+		checkPassiveContent(h, frame);
+		const std::string content = "_level" + std::to_string(p->movieLevel()) + "." + frame + ".content";
+		REQUIRE(p->imageFor(content + "_Image") != nullptr);
+	}
+
+	auto checkOldPassiveSlotsAreEmpty = [&] {
+		AptRenderList render;
+		h.hud->apt().buildRenderList(render);
+		for (int slot : passiveSlots)
+		{
+			const bool occupied = std::any_of(h.hud->controlBar().palantirButtons().begin(), h.hud->controlBar().palantirButtons().end(),
+				[slot](const ControlBarButton &button) { return button.position == slot; });
+			if (occupied)
+			{
+				continue;
+			}
+			const std::string frame = arcFrame(h, slot);
+			const std::string content = "_level" + std::to_string(p->movieLevel()) + "." + frame + ".content";
+			CHECK(h.clip(frame + ".content") == nullptr);
+			CHECK(p->imageFor(content + "_Image") == nullptr);
+			CHECK(p->timerFor(content + "_Timer") == -1.0f);
+			for (const AptRenderCommand &command : render.commands)
+			{
+				CHECK(command.path.find(frame + ".content") == std::string::npos);
+			}
+		}
+	};
+
+	Object *secondHero = h.rig.make("GondorAragornMP", c.x + 250.0f, c.y);
+	REQUIRE(secondHero);
+	ExperienceTracker *secondXp = secondHero->getExperienceTracker();
+	REQUIRE(secondXp);
+	REQUIRE(secondXp->isTrainable());
+	secondXp->gainLevels(20, false);
+	h.hud->input().ui().deselectAll(false);
+	h.hud->input().ui().selectObject(secondHero->getID());
+	h.frames(10);
+	const PalantirCommandUI::RankInfo expectedRank = PalantirCommandUI::rankInfo(h.hud->input().context(), *secondHero);
+	REQUIRE(expectedRank.type == 0);
+	CHECK(expectedRank.rank == secondXp->getRank());
+	CHECK(p->rankInterfaceShown());
+	CHECK(p->rankProgressShown() == expectedRank.progress);
+	checkOldPassiveSlotsAreEmpty();
+
+	h.hud->input().ui().deselectAll(false);
+	h.hud->input().ui().selectObject(boromir->getID());
+	h.frames(10);
+	REQUIRE(p->rankInterfaceShown());
+	for (int slot : passiveSlots)
+	{
+		const auto button = std::find_if(h.hud->controlBar().palantirButtons().begin(), h.hud->controlBar().palantirButtons().end(),
+			[slot](const ControlBarButton &candidate) { return candidate.position == slot; });
+		REQUIRE(button != h.hud->controlBar().palantirButtons().end());
+		REQUIRE(button->button);
+		CHECK(button->button->hasOption(COMMAND_OPTION_NONPRESSABLE));
+		const std::string frame = arcFrame(h, slot);
+		checkPassiveContent(h, frame);
+	}
+	h.hud->input().ui().deselectAll(false);
+	h.frames(10);
+	checkEmptyPanel(h);
+	CHECK_FALSE(p->rankInterfaceShown());
+
+	Object *fighter = h.rig.make("GondorFighter", c.x + 250.0f, c.y);
+	REQUIRE(fighter);
+	h.hud->input().ui().deselectAll(false);
+	h.hud->input().ui().selectObject(fighter->getID());
+	h.frames(10);
+	// (the rank interface's own rules are test_hud2_palantir's rank cases; this case checks only that no passive content is left)
+	for (const ControlBarButton &button : h.hud->controlBar().palantirButtons())
+	{
+		CHECK_FALSE((button.button && button.button->hasOption(COMMAND_OPTION_NONPRESSABLE)));
+	}
+	checkOldPassiveSlotsAreEmpty();
+
+	h.hud->input().ui().deselectAll(false);
+	h.frames(10);
+	checkEmptyPanel(h);
+	CHECK_FALSE(p->rankInterfaceShown());
+
+	h.hud->input().ui().selectObject(boromir->getID());
+	h.frames(5);
+	REQUIRE(boromir->getID() == h.hud->controlBar().sourceObject());
+	REQUIRE(p->rankInterfaceShown());
+	for (int slot : passiveSlots)
+	{
+		const auto button = std::find_if(h.hud->controlBar().palantirButtons().begin(), h.hud->controlBar().palantirButtons().end(),
+			[slot](const ControlBarButton &candidate) { return candidate.position == slot; });
+		REQUIRE(button != h.hud->controlBar().palantirButtons().end());
+		REQUIRE(button->button);
+		CHECK(button->button->hasOption(COMMAND_OPTION_NONPRESSABLE));
+		const std::string frame = arcFrame(h, slot);
+		checkPassiveContent(h, frame);
+		const std::string content = "_level" + std::to_string(p->movieLevel()) + "." + frame + ".content";
+		CHECK(p->imageFor(content + "_Image") != nullptr);
+	}
+	const ObjectID boromirId = boromir->getID();
+	h.rig.logic().destroyObject(boromir);
+	h.frames(5);
+	CHECK(h.rig.logic().findObjectByID(boromirId) == nullptr);
+	CHECK_FALSE(p->rankInterfaceShown());
+	checkEmptyPanel(h);
 }
 
 TEST_CASE("stop S-760: the Palantir portrait reports the branches it does not port")
