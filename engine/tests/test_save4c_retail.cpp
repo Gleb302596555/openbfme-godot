@@ -929,7 +929,13 @@ TEST_CASE("save4c coverage (review r2): units attacking, moving, guarding, hunti
 		  "saved ones, and both games go on equal")
 {
 	OPENBFME_REQUIRE_START(s);
-	const NewGameMessage m = fourPlayerMessage(*s, 4127);
+	// lane BANNER-1 (the banner carriers refill the AIs' hordes as RotWK does): in seed 4127's game FactionMen (the attacker's and the garrison's player) has
+	// no armed unit left from frame 1500 on (scanned 600 .. 4500), so the scene moves to seed 4132, whose frame 1500 holds the actors (seeds 4128 .. 4132
+	// scanned: 4128 at 1200 only, 4129 .. 4131 none)
+	// merge queue q28 (#117's fortress module in the update schedule moves the AIs' game): seed 4132 has no frame of 1500 .. 3000 holding the actors (the
+	// #96 merge point alone still had them at 1500), so the scene moves to seed 4133 (scene at 1500); seeds 4133 .. 4138 measured on the merged tree: 4133 ..
+	// 4137 hold the actors (1500 / 2100 / 1800 / 2700 / 2700), 4138's rider is no longer in its garrison order at the stepped frame
+	const NewGameMessage m = fourPlayerMessage(*s, 4133);
 	// lane DEVPORT-7: the scene frame is found, not assumed. The test pinned 2700 / 3000, but which units of this 4-AI game live then is the AI's play,
 	// not a retail fact: with BloodthirstyUpdate ported (an update module on every Mordor / Isengard horde, woken at creation and every 2 s + 1 frame as
 	// retail's, RW 0x85123F / BFME2 0x44E0AA; it changes nothing in this game, but its update slots reorder the others', RW 0x62B921) the same seed has
@@ -1035,6 +1041,29 @@ TEST_CASE("save4c coverage (review r2): units attacking, moving, guarding, hunti
 	// structure of the mover's player
 	const std::vector<int> playerIds = la.skirmishAI().infoPlayers(); // the four skirmish players (the map's neutral critters are not actors)
 	REQUIRE(playerIds.size() == 4u);
+	// the hunter is preferably no member of its AI's tactic teams: a member takes that AI's team orders (AITacticalAI's team move: RW 0x8F18AA passes
+	// the player's source), which may replace the hunt in the frame the test steps (measured: with the formations centred on their hordes, RW 0x86C4EA,
+	// and the destination adjustment spiralling around its cell, RW 0x6FA2A4, the fourth player's first crossbow horde was a member and walked on in
+	// AI_MOVE_TO). Only a preference: a player may have every armed unit in a team (the first player has, at the scene's frame), and the other roles
+	// keep the first fit
+	auto inAITeam = [&](const Object *o) {
+		const AISkirmishPlayer *p = la.skirmishAI().findAI(o->getControllingPlayer()->getPlayerIndex());
+		if (!p)
+		{
+			return false;
+		}
+		for (const AITactic &tac : p->brain.tactics)
+		{
+			for (const AITacticTeam &team : tac.teams)
+			{
+				if (std::find(team.members.begin(), team.members.end(), o->getID()) != team.members.end())
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	};
 	auto firstOf = [&](int player, const std::function<bool(Object *)> &ok) -> Object * {
 		for (Object *o : byPlayer[player])
 		{
@@ -1064,7 +1093,9 @@ TEST_CASE("save4c coverage (review r2): units attacking, moving, guarding, hunti
 	};
 	Object *mover = firstOf(playerIds[1], [&](Object *o) { return takes(o, 0) && reachableMover(o); });
 	Object *guard = firstOf(playerIds[2], [&](Object *o) { return takes(o, 0); });
-	Object *hunter = firstOf(playerIds[3], [&](Object *o) { return armed(o) && takes(o, 0x12) && GarrisonRules::isMobile(*o); }); // RW 0x66450F's test
+	auto canHunt = [&](Object *o) { return armed(o) && takes(o, 0x12) && GarrisonRules::isMobile(*o); }; // RW 0x66450F's test
+	Object *hunter = firstOf(playerIds[3], [&](Object *o) { return canHunt(o) && !inAITeam(o); });
+	hunter = hunter ? hunter : firstOf(playerIds[3], canHunt);
 	if (!mover)
 	{
 		// merge queue q16: the second player has only horde members and new units at frame 2700 (nothing older to snapshot): its role goes to the first

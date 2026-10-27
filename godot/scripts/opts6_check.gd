@@ -283,16 +283,21 @@ func run_game(p_game: Node, p_shots: String) -> int:
 	check("with no menu up nothing has the menus' input (the Palantir is the HUD)", not shell.menu_has_input(), str(shell.menu_nav_state().get("level")))
 	var cam_before: Vector2 = game._hud.get_camera().position
 	var menu_keys := int(game._hud.get_state().get("keys", {}).get("menu_key_events", 0))
-	var down := InputEventKey.new()
-	down.keycode = KEY_LEFT
-	down.physical_keycode = KEY_LEFT
-	down.pressed = true
-	Input.parse_input_event(down)
-	await game._wait_seconds(1.0)
-	var up := down.duplicate()
-	up.pressed = false
-	Input.parse_input_event(up)
-	await game._step(10)
+	# the start spot is the lobby's random one: on Evendim's west spot the camera starts at the map's left clamp (x about 146), where LEFT has nowhere to
+	# go, so RIGHT is pressed when LEFT left the camera where it was
+	for arrow in [KEY_LEFT, KEY_RIGHT]:
+		var down := InputEventKey.new()
+		down.keycode = arrow
+		down.physical_keycode = arrow
+		down.pressed = true
+		Input.parse_input_event(down)
+		await game._wait_seconds(1.0)
+		var up := down.duplicate()
+		up.pressed = false
+		Input.parse_input_event(up)
+		await game._step(10)
+		if game._hud.get_camera().position != cam_before:
+			break
 	check("with no menu up the arrow scrolls the camera (%s -> %s)" % [cam_before, game._hud.get_camera().position], game._hud.get_camera().position != cam_before
 		and int(game._hud.get_state().get("keys", {}).get("menu_key_events", 0)) == menu_keys, "keys " + str(game._hud.get_state().get("keys", {})) + ", paused " + str(game.get_tree().paused))
 	return finish()
@@ -1233,9 +1238,9 @@ func screen_inventory(name: String) -> Array:
 				"LanOpenPlay.LobbyMain.instance224.OnSortName.OnSortName", "LanOpenPlay.LobbyMain.instance224.OnSortMap.OnSortHeroMap",
 				"LanOpenPlay.LobbyMain.instance224.OnSortPlayers.OnSortPlayers", "LanOpenPlay.LobbyMain.TopRightFrame.LanLobby::NameEntry",
 				"LanOpenPlay.LobbyMain.instance224.LanLobby::CustomGamesList", "LanOpenPlay.LobbyMain.TopRightFrame.CreateGame.instance11",
+				# the game browser is no host (MpGameSetup::HostMode is the owner's host flag, RW 0x845AE2 = BFME2 AptMpGameSetup::ExternFunc query 0):
+				# the map list and its sort tabs belong to Create Game's setup; the selected game's map info stays
 				"LanOpenPlay.LobbyMain.instance1.TabMap.instance7", "LanOpenPlay.LobbyMain.instance1.TabButtons.RulesTab.bttn",
-				"LanOpenPlay.LobbyMain.instance1.MapsTabSelected.MapsTab_Assorted.ArrowTab.OnSortIcon", "LanOpenPlay.LobbyMain.instance1.MapsTabSelected.MapsTab_Assorted.NameTab.OnSortName",
-				"LanOpenPlay.LobbyMain.instance1.MapsTabSelected.MapsTab_Assorted.PlayersTab.OnSortPlayers", "LanOpenPlay.LobbyMain.instance1.MapsTabSelected.MapsTab_Assorted.instance22.MapList",
 				"LanOpenPlay.LobbyMain.instance1.MapsTabSelected.instance1.MapInfo.MapInfo", "MainButtons.MainMenu.bttn", "MainButtons.Options.bttn", "instance82.MessengerButton.bttn"]
 	return []
 

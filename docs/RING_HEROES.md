@@ -5,8 +5,10 @@ delivery cursor uses retail Mouse.ini `DeliverRing` and its animated `OneRing`
 asset. The fortress consumes the dropped-ring object, clears the carrier's ring status,
 grants the configured player and fortress upgrades, emits the configured FX,
 and sends the carrier back outside. A battalion delivers once, after its members
-have reached the entrance. If the final approaching member dies, the fortress
-update completes delivery once the surviving members are inside. Existing hero recruitment uses these upgrades to
+have reached the entrance. As in RotWK, the delivery is checked only when an
+object enters (RW 0x883FC3..0x88403F): if the final approaching member dies
+after the others entered, the battalion stays inside with the ring until it is
+evacuated and enters again. Existing hero recruitment uses these upgrades to
 unlock the faction's ring hero.
 
 The missing runtime was `CitadelSlaughterHordeContain`: it previously registered
@@ -30,8 +32,8 @@ Behavior donor: Open-BFME-2's `CitadelSlaughterHordeContainIsValidContainerFor`
 `SlaughterHordeContainAddHordeMember` waits for all members before delivering
 through the parent battalion. Our adaptation uses existing containment and
 AI orders rather than reproducing the donor's internal container layout.
-The update-time completion check after an approaching member dies is an
-inference that bridges the existing horde death bookkeeping to delivery.
+RotWK's update (RW 0x884244 -> 0x8840D4) only sends the carrier out; it never
+checks for a delivery.
 This is a donor port, not a verified RotWK binary-equivalent implementation.
 
 S-6010 tracks the remaining ordinary troop slaughter / cashback /
@@ -48,5 +50,5 @@ case refuses ordinary troops and an enemy ring carrier. FACT-B inventory pins
 reflect that citadel containment now has its own runtime.
 
 A regression kills the final approaching battalion member after fourteen have
-entered, and checks one delivery FX, both upgrades, ring destruction, and the
-surviving fourteen members returning outside with their carrier.
+entered, and checks that, as in RotWK, nothing is delivered: no FX, no
+upgrades, the ring stays, and the carrier stays inside holding it.

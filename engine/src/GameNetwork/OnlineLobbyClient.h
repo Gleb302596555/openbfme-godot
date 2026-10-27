@@ -208,6 +208,7 @@ public:
 		int mapStartCount = LEGACY_MAX_SLOTS;
 		bool password = false;
 		SimulationProfile mode = SimulationProfile::Faithful; ///< lane UBERJOIN-1: the game's performance mode ("mode": absent = "normal", a room of an old client)
+		bool cheatMode = false;  ///< lane CHEAT-1: the host turned Cheat Mode on ("cheatMode": absent = off, a lobby before CHEAT-1)
 		std::string state;       ///< "open", or "started" (refreshList(true): a running game, to watch; mine(): the player's own, to rejoin)
 		int slot = -1;           ///< mine(): the player's slot in the running game
 		// lane JOINVER-1: the game's profile id and its host's build (an older lobby: both empty); a profile other than this client's cannot be joined
@@ -425,7 +426,7 @@ public:
 	const std::u16string &gameName() const { return m_gameName; }
 	bool amIHost() const { return inGame() && m_localSlot >= 0 && m_localSlot == m_hostSlot; }
 	// the game view's "private" (lobby.mjs: a room-code room is a Quick Match's or a tournament's, ONLINEHUB-1): SOLO-1's
-	// one-human start is for a custom game only; a private room keeps the two-human minimum
+	// one-human start is for a custom game only; a private room keeps the two-human minimum; lane CHEAT-1: and has no Cheat Mode
 	bool privateRoom() const { return m_privateRoom; }
 	int localSlot() const { return m_localSlot; }
 	int hostSlot() const { return m_hostSlot; }

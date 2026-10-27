@@ -372,13 +372,13 @@ void AptLanLobby::backToLobby()
 	// RW 0x847AB2: state 0 and the movie's CancelGame (its "_lobby" frame); retail's state 0 then waits for the movie (RW 0x847ED0) before StartLobby,
 	// which plays the same frame: here the list state follows at once, so "_lobby" is not started twice (a second start rebuilds the list's gadgets)
 	restoreMode(); // lane UBERJOIN-1
+	setHostModeText("0");
 	invokeRoot("CancelGame");
 	m_state = 1;
 	m_ready = false;
 	m_listDirty = true;
 	m_gameRows.clear(); // until the lobby's list is filled again
 	m_listedHosts.clear();
-	setHostModeText("1");
 }
 
 void AptLanLobby::enterSetup(bool host)
@@ -558,11 +558,12 @@ void AptLanLobby::fillGamesList()
 		// the columns as the movie's headers stand on screen: Status, Game Name, Map, Players, Ping (UBERJOIN-1 r2: the name and the count were one column
 		// off, under Status and Game Name; the first column the list takes is the Status one)
 		const int row = GadgetListBoxAddEntryText(m_gamesList, wide(status), c, -1, 0);
-		GadgetListBoxAddEntryText(m_gamesList, uber ? g.name + u"  - UBER" : g.name, c, row, 1);
+		// lane CHEAT-1: a Cheat Mode game is tagged the same way, before anyone joins
+		GadgetListBoxAddEntryText(m_gamesList, (uber ? g.name + u"  - UBER" : g.name) + (g.info.cheatModeOn() ? u"  - CHEAT MODE" : u""), c, row, 1);
 		GadgetListBoxAddEntryText(m_gamesList, wide(map), c, row, 2);
 		GadgetListBoxAddEntryText(m_gamesList, wide(players), c, row, 3);
 		GadgetListBoxAddEntryText(m_gamesList, UnicodeString(), c, row, 4);
-		m_gameRows.push_back(narrow(g.name) + "|" + players + "|" + map + "|" + status + (uber ? "|uber" : ""));
+		m_gameRows.push_back(narrow(g.name) + "|" + players + "|" + map + "|" + status + (uber ? "|uber" : "") + (g.info.cheatModeOn() ? "|cheat" : ""));
 		m_listedHosts.push_back(g.host);
 		m_listedGames.push_back(i);
 		if (keep && g.host == selectedHost)

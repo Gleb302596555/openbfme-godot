@@ -91,6 +91,10 @@
 //     replay START, /v1/replays/<id>/start, or a player's START)
 //     the relay's command log of that game (services/online/relay) assembled into a replay (GameNetwork/RelayLog.h); exit 0, or 2 when the players' CRCs
 //     disagree in the log, 4 when the log is incomplete or the replay differs from the game (S-3710). `--replay OUT` then checks CRC parity
+//   lane CHEAT-1: --cheat-mode (host: the game setup's Cheat Mode, the host's slot is the cheat seat); --cheat-at FRAME (the local player sends the Cheat Mode
+//     commands of the two-peer test once: resources, command points, power points, the map revealed, two of its first unit spawned, that unit levelled);
+//     --cheat-forge-at FRAME (the same resources command from a player that is not the seat: every peer refuses it). Report: cheat_executed N, cheat_refused N
+//     and one cheat_line per announced line
 // Exit code: 0 ok, 1 usage / load error / another profile's replay, 2 desync (or replay mismatch / an incomplete replay), 3 network failure (stall /
 // timeout, refused by the lobby: another profile), 4 network or recording errors (a command that could not be sent or recorded).
 
@@ -133,6 +137,8 @@
 #include "GameNetwork/RelayProtocol.h"
 #include "Common/Crc32.h"
 #include "GameLogic/SelfDestruct.h"
+#include "GameLogic/CheatMode.h"
+#include "GameLogic/SimMath.h"
 #include "GameNetwork/ScriptedPlayer.h"
 #include "GameLogic/System/InvisibilityManager.h"
 #include "GameLogic/System/ShroudManager.h"
@@ -225,6 +231,8 @@ struct Args
 	std::vector<std::string> installMods; ///< lane MODS-2: --mod-install FOLDER, repeated highest priority first (Common/ModMount.h MountInstallOverlay)
 	int logicThreads = 0;          ///< PERF-2: --logic-threads N, the logic job pool's threads (0: OPENBFME_LOGIC_THREADS or the hardware's)
 	int toggleGates = 0;                ///< lane HUD-5: --toggle-gates N (every N frames the local player toggles each settled gate it controls)
+	bool cheatMode = false;             ///< lane CHEAT-1: --cheat-mode
+	long long cheatAt = -1, cheatForgeAt = -1; ///< lane CHEAT-1: --cheat-at FRAME, --cheat-forge-at FRAME
 	long long recruitCreateAHeroAt = -1; ///< lane HERO-2: --recruit-create-a-hero FRAME (the local player recruits its Create-a-Hero from then on until made)
 	std::vector<std::string> createAHeroes; ///< lane HERO-2: --create-a-hero SLOT:FILE.cah (host) / --create-a-hero FILE.cah (--lan-join: the own slot)
 	std::string onlineStart, relayLog;      ///< lane ONLINE-2: --online-start FILE.json, --relay-log LOG
@@ -380,6 +388,9 @@ bool parseArgs(int argc, char **argv, Args &a, std::string &error)
 		else if (k == "--create-a-hero" && next(v)) a.createAHeroes.push_back(v);
 		else if (k == "--recruit-create-a-hero" && next(v)) a.recruitCreateAHeroAt = std::atoll(v.c_str());
 		else if (k == "--toggle-gates" && next(v)) a.toggleGates = std::max(1, std::atoi(v.c_str()));
+		else if (k == "--cheat-mode") a.cheatMode = true; // lane CHEAT-1
+		else if (k == "--cheat-at" && next(v)) a.cheatAt = std::atoll(v.c_str());
+		else if (k == "--cheat-forge-at" && next(v)) a.cheatForgeAt = std::atoll(v.c_str());
 		else if (k == "--lan-faction" && next(a.lanFaction)) {}
 		else if (k == "--lan-targets" && next(a.lanTargets)) {}
 		else if (k == "--lan-port-base" && next(v)) a.lanPortBase = std::atoi(v.c_str());
@@ -607,6 +618,19 @@ bool buildGame(const Args &a, const World &w, NewGameMessage &m, std::string &er
 		if (!SkirmishGameSlot::handicapValid(s.handicap) || (f.size() == 5 && std::to_string(s.handicap) != f[4]))
 		{
 			error = "--slot handicap " + (f.size() == 5 ? f[4] : std::string("0")) + " (0, -5 .. -95)";
+			return false;
+		}
+	}
+	if (a.cheatMode)
+	{
+		// lane CHEAT-1: the host's slot (the first human one, as the LAN host below takes it) is the cheat seat
+		for (int i = 0; i < MAX_SLOTS && m.game.cheatMode < 0; ++i)
+		{
+			m.game.cheatMode = m.game.slots[i].isHuman() ? i : -1;
+		}
+		if (m.game.cheatMode < 0)
+		{
+			error = "--cheat-mode needs a human slot";
 			return false;
 		}
 	}
@@ -1922,6 +1946,8 @@ static int peerMain(int argc, char **argv)
 	std::uint32_t phaseRng = 0x9E3779B9u ^ (std::uint32_t)(lobby.localSlot * 7919 + 1); // presentation-side only: never the simulation's random
 	std::map<int, unsigned long long> runAheadFrames; // lane NETLAG-2: the run-ahead in effect at each frame this peer ran
 	UnsignedInt lastGateFrame = 0xFFFFFFFFu; // lane HUD-5: --toggle-gates
+	bool cheatSent = false, cheatForged = false; // lane CHEAT-1
+	std::vector<std::string> cheatLines;
 	unsigned long long gateMessages = 0;
 	const std::uint64_t runStart = NetMilliseconds();
 	std::uint64_t lastProgress = runStart;
@@ -2115,6 +2141,38 @@ static int peerMain(int argc, char **argv)
 				}
 			}
 		}
+		// lane CHEAT-1: the Cheat Mode commands through the lockstep command list (once each)
+		if (a.cheatAt >= 0 && !cheatSent && game.frame() >= (UnsignedInt)a.cheatAt)
+		{
+			cheatSent = true;
+			using CheatMode::Command;
+			auto &cmds = game.commands();
+			cmds.append(CheatMode::makeMessage(myPlayer, Command::AddResources, myPlayer, 2000));
+			cmds.append(CheatMode::makeMessage(myPlayer, Command::AddCommandPoints, myPlayer, 100));
+			cmds.append(CheatMode::makeMessage(myPlayer, Command::AddPowerPoints, myPlayer, 5));
+			cmds.append(CheatMode::makeMessage(myPlayer, Command::RevealMap, myPlayer, 1));
+			Player *me = game.logic().players().getNthPlayer(myPlayer);
+			for (Object *o = game.logic().getFirstObject(); o && me; o = o->getNextObject())
+			{
+				if (o->getControllingPlayer() == me && !o->isKindOfName("STRUCTURE") && !o->isEffectivelyDead())
+				{
+					Coord3D at = *o->getPosition();
+					at.x = SimMath::addf32(at.x, 40.0f);
+					cmds.append(CheatMode::makeMessage(myPlayer, Command::Spawn, myPlayer, 2, (int)game.logic().things().findTemplate(o->getTemplate()->getName())->getTemplateID(), &at));
+					cmds.append(CheatMode::makeMessage(myPlayer, Command::LevelUp, myPlayer, 1, (int)o->getID()));
+					break;
+				}
+			}
+		}
+		if (a.cheatForgeAt >= 0 && !cheatForged && game.frame() >= (UnsignedInt)a.cheatForgeAt)
+		{
+			cheatForged = true;
+			game.commands().append(CheatMode::makeMessage(myPlayer, CheatMode::Command::AddResources, myPlayer, 50000));
+		}
+		for (const CheatMode::LogEntry &e : game.takeCheatAnnouncements())
+		{
+			cheatLines.push_back(std::to_string(e.frame) + " " + e.text);
+		}
 		const UnsignedInt pf = game.protocolFrame();
 		for (auto &bo : a.blackouts)
 		{
@@ -2241,6 +2299,16 @@ static int peerMain(int argc, char **argv)
 	r << "scripted_commands " << scripted << "\n";
 	r << "views_sent " << viewsSent << "\n"; // lane ANTICHEAT-1
 	r << "gate_messages " << gateMessages << "\n";
+	r << "cheat_executed " << game.logic().cheatMode().executedCount() << "\n"; // lane CHEAT-1
+	r << "cheat_refused " << game.logic().cheatMode().refusedCount() << "\n";
+	for (const CheatMode::LogEntry &e : game.takeCheatAnnouncements())
+	{
+		cheatLines.push_back(std::to_string(e.frame) + " " + e.text);
+	}
+	for (const std::string &line : cheatLines)
+	{
+		r << "cheat_line " << line << "\n";
+	}
 	{
 		// lane HUD-5: every gate's state at the end (id:state, GateOpenAndCloseBehavior's 0 opening, 1 open, 2 closing, 3 closed)
 		r << "gates";

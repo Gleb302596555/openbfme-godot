@@ -94,8 +94,8 @@ class LANAPI
 {
 public:
 	// the lobby messages' version (a message of another version is refused by name): 2 (lane HERO-2): the GameInfo slots' Create-a-Hero records,
-	// OPT_SLOT_CREATE_A_HERO; 3 (lane OWNERFIX-2): the GameInfo slots' handicaps and the slot request's handicap
-	static constexpr std::uint8_t kProtocolVersion = 3;
+	// OPT_SLOT_CREATE_A_HERO; 3 (lane OWNERFIX-2): the GameInfo slots' handicaps and the slot request's handicap; 4 (lane CHEAT-1): the GameInfo's Cheat Mode
+	static constexpr std::uint8_t kProtocolVersion = 4;
 	enum ReturnType // ZH LANAPIInterface::ReturnType
 	{
 		RET_OK,

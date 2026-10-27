@@ -169,8 +169,11 @@ public:
 	// the store (AptPalantir::OnBttnSpellStore): SpellStore.apt in a window slot over the Palantir, bound to the local player; closing sends the purchases
 	bool openSpellStore(std::string *error = nullptr);
 	void closeSpellStore();
+	void cancelSpellStore();
 	AptSpellStore *spellStore() { return m_store.get(); }
 	const PlayerMessageLog &playerMessages() const { return m_playerMessages; }
+	// lane CHEAT-1: a line of text (not a game text label) in the message log, as InGameUI::message's handler adds one: the Cheat Mode announcements
+	void addPlayerMessageText(const std::u16string &text);
 	// lane SPELL-4: the aiming marker of a spell book or selected-unit ground power waiting for its target (GameClient/RadiusCursor.h), updated each update(); the device draws it
 	const RadiusCursor &radiusCursor() const { return m_radiusCursor; }
 	const RadiusCursorTemplates &radiusCursorTemplates() const { return m_radiusTemplates; }

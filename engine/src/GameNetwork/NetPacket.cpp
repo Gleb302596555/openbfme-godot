@@ -198,9 +198,9 @@ std::vector<std::uint8_t> NetByteReader::bytes()
 
 bool NetPacket::writeGameMessage(NetByteWriter &w, const GameMessage &m, std::string *error)
 {
-	if (m.getType() <= MSG_BEGIN_NETWORK_MESSAGES || m.getType() >= MSG_END_NETWORK_MESSAGES)
+	if (!IsNetworkLogicMessageType(m.getType())) // lane CHEAT-1: + MSG_OPENBFME_CHEAT
 	{
-		return failWith(error, "GameMessage type " + std::to_string(m.getType()) + " is not a logic message (1001 .. 1147)");
+		return failWith(error, "GameMessage type " + std::to_string(m.getType()) + " is not a logic message (1001 .. 1147, or 32001 lane CHEAT-1)");
 	}
 	if (m.getPlayerIndex() < -1 || m.getPlayerIndex() > 254)
 	{
@@ -261,9 +261,9 @@ std::unique_ptr<GameMessage> NetPacket::readGameMessage(NetByteReader &r, std::s
 			", and the bytes left hold " + std::to_string(r.remaining() / 2) + ")");
 		return nullptr;
 	}
-	if (type <= MSG_BEGIN_NETWORK_MESSAGES || type >= MSG_END_NETWORK_MESSAGES)
+	if (!IsNetworkLogicMessageType(type)) // lane CHEAT-1: + MSG_OPENBFME_CHEAT
 	{
-		failWith(error, "GameMessage type " + std::to_string(type) + " is not a logic message (1001 .. 1147)");
+		failWith(error, "GameMessage type " + std::to_string(type) + " is not a logic message (1001 .. 1147, or 32001 lane CHEAT-1)");
 		return nullptr;
 	}
 	std::unique_ptr<GameMessage> m = std::make_unique<GameMessage>(type, player == 0xFF ? -1 : (int)player);
@@ -369,9 +369,10 @@ void NetPacket::writeGameInfo(NetByteWriter &w, const SkirmishGameInfo &g)
 	{
 		w.i32(g.slots[i].handicap); // lane OWNERFIX-2: GameSlot + 0x20 (RotWK's LAN option string carries it as "Handicap=%d", RW 0x8476E6 = BFME2 decomp BfmeAptScreenLanLobby.cpp AptLanLobby::MpOwnerSelectHandicap, tier A)
 	}
+	w.i32(g.cheatMode); // lane CHEAT-1: Cheat Mode (-1 off, else the cheat seat's slot)
 }
 
-bool NetPacket::readGameInfo(NetByteReader &r, SkirmishGameInfo &g, std::string *error, bool profileOptionalAtEnd, bool slotHandicaps)
+bool NetPacket::readGameInfo(NetByteReader &r, SkirmishGameInfo &g, std::string *error, bool profileOptionalAtEnd, bool slotHandicaps, bool cheatField)
 {
 	g = SkirmishGameInfo();
 	const std::int32_t firstState = r.i32();
@@ -452,6 +453,8 @@ bool NetPacket::readGameInfo(NetByteReader &r, SkirmishGameInfo &g, std::string 
 	{
 		g.slots[i].handicap = handicapsAbsent ? 0 : r.i32();
 	}
+	// lane CHEAT-1: Cheat Mode (absent: an older replay / save format or an announcement without the profile: off)
+	g.cheatMode = (!cheatField || handicapsAbsent) ? -1 : r.i32();
 	if (r.failed())
 	{
 		return failWith(error, r.badFlag() ? "GameInfo with a flag that is not 0 / 1" : "truncated GameInfo");
@@ -490,6 +493,11 @@ bool NetPacket::readGameInfo(NetByteReader &r, SkirmishGameInfo &g, std::string 
 	{
 		return failWith(error, "GameInfo Legendary Heroes factor " + std::to_string(g.legendaryHeroes));
 	}
+	// lane CHEAT-1: the cheat seat is a human slot (the host's); anything else is a setup no host makes: refused, never a guess
+	if (g.cheatMode < -1 || g.cheatMode >= MAX_SLOTS || (g.cheatMode >= 0 && g.slots[g.cheatMode].state != SLOT_PLAYER))
+	{
+		return failWith(error, "GameInfo Cheat Mode seat " + std::to_string(g.cheatMode) + " is not a human slot");
+	}
 	// lane UBER-1: a simulation profile this build does not know is a refused setup (never a guess)
 	if (!simulationProfileValid(profile))
 	{
@@ -518,7 +526,7 @@ void NetPacket::writeNewGameMessage(NetByteWriter &w, const NewGameMessage &m)
 	writeGameInfo(w, m.game);
 }
 
-bool NetPacket::readNewGameMessage(NetByteReader &r, NewGameMessage &m, std::string *error, bool slotHandicaps)
+bool NetPacket::readNewGameMessage(NetByteReader &r, NewGameMessage &m, std::string *error, bool slotHandicaps, bool cheatField)
 {
 	const std::uint8_t mode = r.u8();
 	if (mode > 1)
@@ -528,7 +536,7 @@ bool NetPacket::readNewGameMessage(NetByteReader &r, NewGameMessage &m, std::str
 	m.mode = mode ? NewGameMode::Skirmish : NewGameMode::SinglePlayer;
 	m.difficulty = r.i32();
 	m.rankPoints = r.i32();
-	return readGameInfo(r, m.game, error, false, slotHandicaps);
+	return readGameInfo(r, m.game, error, false, slotHandicaps, cheatField);
 }
 
 std::vector<std::uint8_t> NetPacket::encodeCommand(const NetCommandMsg &c, std::string *error)

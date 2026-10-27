@@ -131,6 +131,8 @@ public:
 	// the gadget that shows a rule (AptMpGameRules + 0x7C), and OpenBFME's Legendary Heroes combo
 	GameWindow *ruleWindow(int rule) const { return (unsigned)rule < (unsigned)NUM_GAME_RULES ? m_ruleWindows[(size_t)rule] : nullptr; }
 	GameWindow *legendaryHeroesWindow() const { return m_legendaryCombo; }
+	// lane CHEAT-1: OpenBFME's Cheat Mode check row (null while the screen does not offer it)
+	GameWindow *cheatModeWindow() const { return m_cheatCheck; }
 	AptMessageBox *ruleBox() const { return m_ruleBox.get(); } // lane OWNERFIX-2: the Rules tab's warning box (APT:CommandPointsTooHigh), for the harness
 	bool rulesPopulated() const { return m_rulesPopulated; }
 	// the rule warning boxes shown (title, text), for tests
@@ -189,6 +191,8 @@ protected:
 	// lane OWNERFIX-2: whether the lobby can carry a slot's handicap to the game (false: its combo stays empty and locked; the skirmish and LAN lobbies through
 	// NetPacket's GameInfo, the online one through the lobby's START since lane ONLINEMENU-1)
 	virtual bool handicapChoiceAvailable() const { return true; }
+	// lane CHEAT-1: whether the Rules tab offers OpenBFME's Cheat Mode row (every custom game; the online room of a Quick Match or a tournament does not)
+	virtual bool cheatModeOffered() const { return true; }
 	// lane ONLINE-5: the chat panel's Players list (AptMpChat's "ChatPlayers", RW 0x9BEA20): the human players of the network game, in slot order.
 	// INFERENCE [S-4551]: retail's chat helper fills it with the chat's recipients (the room's players; its fill, RW 0x9BECCB's source, was not read)
 	// and sends a line only to the ones selected; here it lists who is in the room and every line goes to everyone
@@ -278,11 +282,13 @@ private:
 	void enableRuleGadgets();                                         ///< RW 0x57E97A's RotWK twin: enabled = host and shown
 	void updateRuleGadget(int rule);                                  ///< RW 0x986624
 	void updateLegendaryGadget();
+	void updateCheatGadget(); // lane CHEAT-1
 	bool onRuleGadget(GameWindow *gadget);                            ///< RW 0x986776: true when `gadget` is a rule gadget
 	void ruleChanged(int kind, bool reset);                           ///< RW 0x8421E0
 	void resetRules();                                                ///< AptMpGameRules::Reset RW 0x98674C
 	void pruneRuleGadgets(const std::set<const GameWindow *> &alive);
 	int ruleComboCount() const;                                       ///< MpGameRules::NumComboBoxes: the mode's rows, + 1 for Legendary Heroes in mode 0
+	int ruleCheckCount() const;                                       ///< MpGameRules::NumCheckBoxes: the mode's rows, + 1 for Cheat Mode (lane CHEAT-1) in mode 0
 	bool amIHost() const { return m_hostMode; }
 	// lane FB7-1: a click on a start spot of the map window (RW 0x845830, messages 0x4008 / 0x4009 = GBM_SELECTED / GBM_SELECTED_RIGHT); true when
 	// `button` is one of the spots
@@ -394,6 +400,7 @@ private:
 	std::array<GameWindow *, NUM_GAME_RULES> m_ruleWindows{};
 	std::array<int, NUM_GAME_RULES> m_ruleStates{};
 	GameWindow *m_legendaryCombo = nullptr;
+	GameWindow *m_cheatCheck = nullptr; // lane CHEAT-1
 	bool m_ruleInput = true;
 	bool m_rulesPopulated = false;
 	std::unique_ptr<AptMessageBox> m_ruleBox;

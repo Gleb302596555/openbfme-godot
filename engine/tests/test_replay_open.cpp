@@ -130,6 +130,7 @@ TEST_CASE("replay open: formats 5 through 9 remain readable without invented bui
 		NetByteWriter game;
 		NetPacket::writeNewGameMessage(game, h.game);
 		auto message = game.data();
+		message.resize(message.size() - 4); // lane CHEAT-1: the Cheat Mode i32 that ends the GameInfo came with format 11
 		if (version < 7)
 		{
 			message.resize(message.size() - LEGACY_MAX_SLOTS * 4); // handicaps were appended in format 7 (an eight-slot game keeps the legacy list)
@@ -238,7 +239,7 @@ TEST_CASE("replay open: foreign profiles, unsupported formats and invalid build 
 	auto future = recording(h);
 	future[8] = 99;
 	CHECK_FALSE(ReplayFile::parse(future, file, &error));
-	CHECK(error == "replay version 99 (this build reads 5 .. 10)");
+	CHECK(error == "replay version 99 (this build reads 5 .. 11)");
 	auto bad = h;
 	bad.buildVersion = "bad\nversion";
 	CHECK_FALSE(ReplayFile::parse(recording(bad), file, &error));

@@ -42,6 +42,8 @@ public:
 	static void registerClass(ModuleFactory &modules);
 
 	bool add(const std::string &listName, int duration); ///< RW 0x805A8E
+	// RW 0x804F02 (lane BANNER-1; BFME2 0x40334B): every entry, in order, goes to `obj` through Object::addAttributeModifier(name, expiry - frame) (RW 0x68F1A8)
+	void handDownTo(Object &obj) const;
 	bool sum(int type, const char *name, float &out) const; ///< RW 0x804F39
 	bool product(int type, const char *name, bool innate, float &out) const; ///< RW 0x804FFF
 	bool hasList(const std::string &listName) const;

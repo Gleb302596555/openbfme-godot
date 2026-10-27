@@ -72,6 +72,7 @@ Dictionary newGameToDictionary(const NewGameMessage &m)
 	}
 	d["rules"] = rules;
 	d["legendary_heroes"] = m.game.legendaryHeroes;
+	d["cheat_mode"] = m.game.cheatMode; // lane CHEAT-1: -1 off, else the cheat seat's slot
 	d["simulation_profile"] = (int)m.game.simulationProfile; // lane UBER-1: 0 Faithful, 1 Uber (Common/SimulationProfile.h)
 	// lane P16: the wire's extended GameInfo tag (NetPacket kExtendedGameInfoTag): a legacy game's dictionary stays exactly as it was
 	// (eight slots, no capacity key); an extended map's carries map_start_count (9..16) and all 16 slot entries
@@ -169,6 +170,8 @@ bool newGameFromDictionary(const Dictionary &d, NewGameMessage &out, std::string
 	{
 		return fail("legendary_heroes " + std::to_string(m.game.legendaryHeroes) + " (1 .. 4)");
 	}
+	// lane CHEAT-1: "cheat_mode" (absent: -1, off); the seat must be a human slot (checked once the slots are read, below)
+	m.game.cheatMode = (int)(int64_t)d.get("cheat_mode", (int64_t)-1);
 	// lane UBER-1: the simulation profile (absent: Faithful, the setups before UBER-1); a value this build does not know is refused
 	const int64_t profile = (int64_t)d.get("simulation_profile", (int64_t)SimulationProfile::Faithful);
 	if (!simulationProfileValid((std::int32_t)profile))
@@ -251,6 +254,11 @@ bool newGameFromDictionary(const Dictionary &d, NewGameMessage &out, std::string
 				return fail("slot " + std::to_string(i) + " has a Create-a-Hero but no human player");
 			}
 		}
+	}
+	// lane CHEAT-1: the cheat seat is a human slot (the host's), as NetPacket::readGameInfo holds a received setup to it
+	if (m.game.cheatMode < -1 || m.game.cheatMode >= MAX_SLOTS || (m.game.cheatMode >= 0 && !m.game.slots[m.game.cheatMode].isHuman()))
+	{
+		return fail("cheat_mode " + std::to_string(m.game.cheatMode) + " is not a human slot");
 	}
 	out = m;
 	return true;

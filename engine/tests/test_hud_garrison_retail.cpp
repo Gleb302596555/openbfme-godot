@@ -7,8 +7,6 @@
 #include "HudTestUtil.h"
 
 #include "Common/PlayerList.h"
-#include "Common/XferLoad.h"
-#include "Common/XferSave.h"
 #include "Common/Team.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/AI/AIGarrisonStates.h"
@@ -719,17 +717,6 @@ TEST_CASE("ring delivery retail: own fortress accepts a ring carrier, consumes t
 		for (int i = 0; i < 600 && !a.player(0)->hasUpgradeComplete("Upgrade_RingHero"); ++i) a.run(1);
 		REQUIRE(a.player(0)->hasUpgradeComplete("Upgrade_RingHero"));
 		CHECK(fortress->hasUpgrade("Upgrade_FortressRingHero"));
-		// Delivery has scheduled the carrier's exit. Its module snapshot must
-		// preserve that pending order, including a battalion still inside.
-		auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(fortress->getContain());
-		REQUIRE(contain != nullptr);
-		XferSave saved;
-		contain->xfer(saved);
-		XferLoad restored(saved.data());
-		contain->xfer(restored);
-		XferSave roundtrip;
-		contain->xfer(roundtrip);
-		CHECK(roundtrip.data() == saved.data());
 		a.run(100);
 		CHECK_FALSE(carrier->testStatus((unsigned)CombatNames::status("HOLDING_THE_RING")));
 		CHECK(a.logic.findObjectByID(ringID) == nullptr);
@@ -739,6 +726,68 @@ TEST_CASE("ring delivery retail: own fortress accepts a ring carrier, consumes t
 		CHECK_FALSE(carrier->testStatus((unsigned)CombatNames::status("UNSELECTABLE")));
 		CHECK(a.player(0)->heroes().records().back().templateName == "ElvenGaladriel_RingHero");
 		CHECK(a.logic.fxEvents().perSite().at("CitadelSlaughterHordeContain") == 1);
+	}
+}
+
+// The carrier the fortress sends out on its next update (RW 0x884244) is saved with the module (RotWK's xfer RW 0x88356A keeps it too). A walking
+// carrier can enter and be sent out within one frame (a GondorFighter does), so each carrier is put inside directly: a battalion's members one by one,
+// the last entry delivering. The whole game is saved with the exit pending and loaded into a fresh game, whose fortress sends the carrier out
+// (review of #117: a round trip through the same module instance could not catch a missing field)
+TEST_CASE("ring delivery retail: a pending carrier exit survives a whole-game save loaded into a fresh game")
+{
+	if (!haveWorld()) return;
+	for (const char *carrierName : { "GondorFighter", "GondorArcherHorde", "GondorKnightHorde", "GondorGandalf" })
+	{
+		CAPTURE(std::string(carrierName));
+		std::vector<std::uint8_t> snapshot;
+		ObjectID fortressID = INVALID_ID;
+		ObjectID carrierID = INVALID_ID;
+		std::string error;
+		{
+			Arena a(shared());
+			a.logic.partition().setRegion(0.0f, 0.0f, 1200.0f, 1200.0f);
+			Object *fortress = a.place("MenFortressCitadel", 0, 600.0f, 600.0f);
+			Object *carrier = a.place(carrierName, 0, 350.0f, 600.0f);
+			a.place("TheDroppedRing", 0, 350.0f, 600.0f);
+			a.run(3);
+			REQUIRE(carrier->testStatus((unsigned)CombatNames::status("HOLDING_THE_RING")));
+			auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(fortress->getContain());
+			REQUIRE(contain != nullptr);
+			if (auto *horde = dynamic_cast<HordeContain *>(carrier->getContain()))
+			{
+				const auto members = membersOf(*carrier); // before the enter order moves them to the horde's entering set
+				REQUIRE_FALSE(members.empty());
+				horde->enterContainer(fortress, CMD_FROM_PLAYER);
+				REQUIRE(carrier->getContainedBy() == fortress);
+				for (Object *member : members)
+					REQUIRE(contain->addToContain(member));
+			}
+			else
+				REQUIRE(contain->addToContain(carrier));
+			REQUIRE(a.player(0)->hasUpgradeComplete("Upgrade_RingHero"));
+			REQUIRE(contain->pendingRingExit() == carrier->getID());
+			REQUIRE(carrier->getContainedBy() == fortress);
+			fortressID = fortress->getID();
+			carrierID = carrier->getID();
+			REQUIRE_MESSAGE(a.logic.saveSnapshot(snapshot, &error), error);
+		}
+		Arena b(shared());
+		b.logic.partition().setRegion(0.0f, 0.0f, 1200.0f, 1200.0f);
+		REQUIRE_MESSAGE(b.logic.loadSnapshot(snapshot, &error), error);
+		Object *fortress = b.logic.findObjectByID(fortressID);
+		Object *carrier = b.logic.findObjectByID(carrierID);
+		REQUIRE(fortress != nullptr);
+		REQUIRE(carrier != nullptr);
+		auto *contain = dynamic_cast<CitadelSlaughterHordeContain *>(fortress->getContain());
+		REQUIRE(contain != nullptr);
+		CHECK(contain->pendingRingExit() == carrierID);
+		CHECK(carrier->getContainedBy() == fortress);
+		b.run(100);
+		CHECK(contain->pendingRingExit() == INVALID_ID);
+		CHECK(carrier->getContainedBy() == nullptr);
+		CHECK(carrier->isInWorld());
+		CHECK_FALSE(carrier->isEffectivelyDead());
+		CHECK_FALSE(carrier->testStatus((unsigned)CombatNames::status("HOLDING_THE_RING")));
 	}
 }
 
@@ -761,7 +810,10 @@ TEST_CASE("ring delivery retail: fortress refuses ordinary troops and another pl
 	CHECK_FALSE(fortress->hasUpgrade("Upgrade_FortressRingHero"));
 }
 
-TEST_CASE("ring delivery retail: a battalion delivers when its last approaching member dies")
+// RotWK checks the delivery only when an object enters (RW 0x883FC3..0x88403F in RW 0x883B4A); its update (RW 0x884244 -> 0x8840D4) never does. A
+// battalion whose last approaching member dies after the others entered delivers nothing and stays inside holding the ring (community #117's
+// update-time delivery was dropped in its port for this reason)
+TEST_CASE("ring delivery retail: a battalion whose last approaching member dies delivers nothing, as in RotWK")
 {
 	if (!haveWorld()) return;
 	Arena a(shared());
@@ -778,27 +830,20 @@ TEST_CASE("ring delivery retail: a battalion delivers when its last approaching 
 	REQUIRE(contain != nullptr);
 	const auto members = membersOf(*carrier);
 	REQUIRE(members.size() == 15);
-	// Stage fourteen arrivals while the final member is still on its way.
-	// No further member-entry callback can complete delivery after it dies.
+	// fourteen arrive while the last member is still on its way; it dies, so no further entry runs the delivery check
 	horde->enterContainer(fortress, CMD_FROM_PLAYER);
 	REQUIRE(carrier->getContainedBy() == fortress);
 	for (size_t i = 0; i + 1 < members.size(); ++i)
 		REQUIRE(contain->addToContain(members[i]));
 	REQUIRE_FALSE(horde->allMembersEntered());
-	REQUIRE_FALSE(fortress->hasUpgrade("Upgrade_FortressRingHero"));
 	members.back()->kill(0);
 	a.run(100);
 	CHECK(horde->allMembersEntered());
-	CHECK(a.player(0)->hasUpgradeComplete("Upgrade_RingHero"));
-	CHECK(fortress->hasUpgrade("Upgrade_FortressRingHero"));
-	CHECK_FALSE(carrier->testStatus((unsigned)CombatNames::status("HOLDING_THE_RING")));
-	CHECK(a.logic.findObjectByID(ringID) == nullptr);
-	CHECK(carrier->getContainedBy() == nullptr);
-	CHECK(carrier->isInWorld());
-	CHECK_FALSE(carrier->isEffectivelyDead());
-	CHECK_FALSE(carrier->testStatus((unsigned)CombatNames::status("UNSELECTABLE")));
-	CHECK(horde->getContainedItemsList()->size() == 14);
-	CHECK(a.logic.fxEvents().perSite().count("CitadelSlaughterHordeContain") == 1);
-	if (a.logic.fxEvents().perSite().count("CitadelSlaughterHordeContain"))
-		CHECK(a.logic.fxEvents().perSite().at("CitadelSlaughterHordeContain") == 1);
+	CHECK_FALSE(a.player(0)->hasUpgradeComplete("Upgrade_RingHero"));
+	CHECK_FALSE(fortress->hasUpgrade("Upgrade_FortressRingHero"));
+	CHECK(carrier->testStatus((unsigned)CombatNames::status("HOLDING_THE_RING")));
+	CHECK(a.logic.findObjectByID(ringID) != nullptr);
+	CHECK(carrier->getContainedBy() == fortress);
+	CHECK(contain->pendingRingExit() == INVALID_ID);
+	CHECK(a.logic.fxEvents().perSite().count("CitadelSlaughterHordeContain") == 0);
 }
