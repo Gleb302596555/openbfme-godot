@@ -196,7 +196,7 @@ func _run() -> int:
 	_map_objects(fs)
 	await _menu_player(fs)
 	_game_world(fs)
-	_asset_packs_offline(fs) # lane SDK-1b (a)
+	_asset_packs_switch(fs) # lane SDK-1b (a), SDK-1c
 	await _fx_player(fs)
 	_game_world_orders(fs)
 
@@ -1290,9 +1290,9 @@ func _game_world_orders(fs: RefCounted) -> void:
 	b.queue_free()
 
 
-## lane SDK-1b (a): asset packs are offline only for now: GameWorld.set_asset_packs_used(false) (game.gd: a LAN / online game) switches a loaded
-## pack off and rebuilds what drew with it; switching back on uses it again; a world loads a map either way
-func _asset_packs_offline(fs: RefCounted) -> void:
+## lane SDK-1b (a): GameWorld.set_asset_packs_used switches a loaded pack off and rebuilds what drew with it; switching back on (game.gd does
+## before every game, lane SDK-1c: LAN and online too) uses it again; a world loads a map either way
+func _asset_packs_switch(fs: RefCounted) -> void:
 	var dir := ProjectSettings.globalize_path("user://smoke-asset-pack/SmokePack")
 	DirAccess.make_dir_recursive_absolute(dir)
 	var f := FileAccess.open(dir.path_join("gumaarms.png"), FileAccess.WRITE)
@@ -1303,18 +1303,13 @@ func _asset_packs_offline(fs: RefCounted) -> void:
 	var world: Node3D = ClassDB.instantiate("GameWorld")
 	world.setup(fs)
 	var off: Dictionary = world.set_asset_packs_used(false)
-	_check(off.loaded and not off.used and off.changed, "a LAN / online game switches the packs off: %s" % str(off))
+	_check(off.loaded and not off.used and off.changed, "the packs switch off: %s" % str(off))
 	var again: Dictionary = world.set_asset_packs_used(false)
 	_check(again.loaded and not again.used and not again.changed, "switching them off again changes nothing: %s" % str(again))
 	_check(world.load_map("map good celduin", {"seed": 5}).ok, "a map loads with the packs off")
 	var on: Dictionary = world.set_asset_packs_used(true)
-	_check(on.loaded and on.used and on.changed, "an offline game switches them back on: %s" % str(on))
+	_check(on.loaded and on.used and on.changed, "and back on (every game, LAN and online too, lane SDK-1c): %s" % str(on))
 	_check(world.load_map("map good celduin", {"seed": 5}).ok, "a map loads with the packs on")
-	# (b): the online rules instead of switching them off; the report the launcher reads lists the pack
-	var online: Dictionary = world.set_asset_packs_online(true)
-	_check(online.loaded and online.changed, "a LAN / online game applies the online rules: %s" % str(online))
-	_check(world.load_map("map good celduin", {"seed": 5}).ok, "a map loads under the online rules")
-	_check(not world.set_asset_packs_online(true).changed, "applying them again changes nothing")
 	var rep: Dictionary = fs.get_asset_pack_report()
 	_check(rep.packs.size() == 1 and rep.packs[0].name == "SmokePack" and rep.packs[0].misfits.is_empty(), "the pack report: %s" % str(rep))
 	world.free()

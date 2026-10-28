@@ -57,7 +57,9 @@ enum Seen : unsigned
 	SEEN_GUARD_CHASE = 1u << 26,  // lane PLAY-4: the guard machine's AIData durations
 	SEEN_GUARD_SCAN = 1u << 27,
 	SEEN_GUARD_RETURN = 1u << 28,
-	SEEN_REPAIR_DELAY = 1u << 29
+	SEEN_REPAIR_DELAY = 1u << 29,
+	SEEN_BUILDERFADE_OUT = 1u << 30, // lane PORTERFOG-1: GameData BuilderFadeOutTime / BuilderFadeInTime
+	SEEN_BUILDERFADE_IN = 1u << 31
 };
 
 struct BlockState
@@ -204,6 +206,10 @@ const FieldParse kGameDataFields[] = {
 	{ "MaxLineBuildObjects", parseNoting<INI::parseInt>, SEEN_DATA(SEEN_LINEBUILD), (int)offsetof(BlockState, values.maxLineBuildObjects) },
 	// lane BUILD-3: BuilderMoveFromNewStructureDistance (row RW 0xC010D0, parseReal, GlobalData + 0x11E4): the walk of a porter out of the structure it built (RW 0x88D6AE)
 	{ "BuilderMoveFromNewStructureDistance", parseNoting<INI::parseReal>, SEEN_DATA(SEEN_BUILDERMOVE), (int)offsetof(BlockState, values.builderMoveFromNewStructureDistance) },
+	// lane PORTERFOG-1: BuilderFadeOutTime / BuilderFadeInTime (BFME2 decomp GlobalData.cpp:1199-1200: parseDurationUnsignedInt, GlobalData + 0x11DC / + 0x11E0): the porter's
+	// drawable fades out when its work starts (RW 0x88DDC1) and in when it comes out (RW 0x88D6CE); client values, not hashed
+	{ "BuilderFadeOutTime", parseNoting<INI::parseDurationUnsignedInt>, SEEN_DATA(SEEN_BUILDERFADE_OUT), (int)offsetof(BlockState, values.builderFadeOutFrames) },
+	{ "BuilderFadeInTime", parseNoting<INI::parseDurationUnsignedInt>, SEEN_DATA(SEEN_BUILDERFADE_IN), (int)offsetof(BlockState, values.builderFadeInFrames) },
 	// lane FACT-A: SellPercentage (row RW 0xC00690, parsePercentToReal RW 0x42EEFA, GlobalData + 0xB94): the share of the price a sold structure pays back (RW 0x794729)
 	{ "SellPercentage", parseNoting<INI::parsePercentToReal>, SEEN_DATA(SEEN_SELL), (int)offsetof(BlockState, values.sellPercentage) },
 	// lane COMBAT-2: Gravity (RW GlobalData + 0xC4, row RW 0xBFF9C0, parseAccelerationReal RW 0x73A4DC: value * k * k per frame^2) and DefaultStructureRubbleHeight (RW + 0xAE4,
@@ -261,6 +267,10 @@ const FieldParse kGameDataFields[] = {
 	{ "MaxTunnelCapacity", parseNoting<INI::parseInt>, 0, (int)offsetof(BlockState, values.maxTunnelCapacity) },
 	// lane BACKLOG-8 r2: GroupMoveClickToGatherAreaFactor (row RW 0xC00600, parseReal RW 0x42ED00, GameData + 0xB60)
 	{ "GroupMoveClickToGatherAreaFactor", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.groupMoveClickToGatherAreaFactor) },
+	// lane OCCLUDE-1: the behind-building marker (rows RW 0xBFF830 / 0xBFF9E0 / 0xBFFFE0; optional, the GlobalData constructor's defaults stand otherwise)
+	{ "UseBehindBuildingMarker", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.useBehindBuildingMarker) },
+	{ "DefaultOcclusionDelay", parseNoting<INI::parseDurationUnsignedInt>, 0, (int)offsetof(BlockState, values.defaultOcclusionDelay) },
+	{ "OccludedColorLuminanceScale", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.occludedColorLuminanceScale) },
 	{ nullptr, noteUnapplied, nullptr, 0 }
 };
 const FieldParse kAIDataFields[] = {
@@ -484,6 +494,7 @@ bool finish(Load &l, unsigned blockBit, const char *blockName, const std::vector
 		out.buildRulesLoaded = true;
 	}
 	out.builderMoveLoaded = (l.state().seen & SEEN_BUILDERMOVE) != 0; // lane BUILD-3
+	out.builderFadeLoaded = (l.state().seen & (SEEN_BUILDERFADE_OUT | SEEN_BUILDERFADE_IN)) == (SEEN_BUILDERFADE_OUT | SEEN_BUILDERFADE_IN); // lane PORTERFOG-1
 	out.repairDamageDelayLoaded = (l.state().seen & SEEN_REPAIR_DELAY) != 0;
 	out.guardRulesLoaded = (l.state().seen & (SEEN_GUARD_CHASE | SEEN_GUARD_SCAN | SEEN_GUARD_RETURN)) == (SEEN_GUARD_CHASE | SEEN_GUARD_SCAN | SEEN_GUARD_RETURN); // lane PLAY-4
 	out.sellPercentageLoaded = (l.state().seen & SEEN_SELL) != 0; // lane FACT-A

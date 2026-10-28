@@ -11,15 +11,7 @@
 #include "GameClient/UserDataFolder.h"
 #include "Common/ModEngineFeatures.h"
 #include "Common/MD5.h"
-#include "Libraries/WWVegas/WW3D2/textureloader.h"
-#include <cmath>
-#include <cstdio>
-#include <cstring>
-#include <map>
 #include <memory>
-#include <set>
-#include <utility>
-#include <godot_cpp/classes/image.hpp>
 #include "GameNetwork/ProfileIdentity.h"
 #include "GameClient/UserDataFolder.h"
 #include <algorithm>
@@ -45,36 +37,6 @@ namespace godot
 namespace
 {
 
-// lane SDK-1b (b): the see-through share of an image file (DDS, PNG, JPEG, else TGA, as the packs' textures decode); false when it does not decode
-bool imageAlphaCoverage(const std::vector<std::uint8_t> &bytes, double &out)
-{
-	PackedByteArray buffer;
-	buffer.resize((int64_t)bytes.size());
-	if (!bytes.empty())
-	{
-		std::memcpy(buffer.ptrw(), bytes.data(), bytes.size());
-	}
-	Ref<Image> image;
-	image.instantiate();
-	static const unsigned char png[] = { 137, 80, 78, 71, 13, 10, 26, 10 };
-	Error err;
-	if (bytes.size() >= 4 && std::memcmp(bytes.data(), "DDS ", 4) == 0)
-		err = image->load_dds_from_buffer(buffer);
-	else if (bytes.size() >= 8 && std::memcmp(bytes.data(), png, sizeof png) == 0)
-		err = image->load_png_from_buffer(buffer);
-	else if (bytes.size() >= 3 && bytes[0] == 0xff && bytes[1] == 0xd8 && bytes[2] == 0xff)
-		err = image->load_jpg_from_buffer(buffer);
-	else
-		err = image->load_tga_from_buffer(buffer);
-	if (err != OK || image->is_empty())
-		return false;
-	if (image->is_compressed())
-		image->decompress();
-	image->convert(Image::FORMAT_RGBA8);
-	const PackedByteArray data = image->get_data();
-	out = AssetPacks::alphaCoverage(data.ptr(), (std::size_t)image->get_width() * (std::size_t)image->get_height());
-	return true;
-}
 String toGodot(const std::string &s)
 {
 	return String::utf8(s.c_str(), (int64_t)s.size());
@@ -699,49 +661,7 @@ Dictionary RetailFileSystem::mountFrom(const std::string &rotwkRoot, const std::
 		{
 			ArchiveW3DFileSource mounted(*m_fs);
 			std::vector<std::string> packErrors;
-			// lane SDK-1b (b, Sol r1): the online model rules weigh a see-through surface's textures by their see-through pixels (decoded here)
-			auto shares = std::make_shared<std::map<std::pair<std::string, bool>, double>>();
-			m_packs.setTextureCoverage([this, shares](const std::string &stem, bool original, double &share, std::string &error) {
-				const auto key = std::make_pair(stem, original);
-				auto it = shares->find(key);
-				if (it != shares->end())
-				{
-					share = it->second;
-					return true;
-				}
-				std::vector<std::uint8_t> bytes;
-				const auto pack = m_packs.textures().find(stem);
-				std::string where;
-				if (!original && pack != m_packs.textures().end() && !m_packs.refusedOnline(false, stem))
-				{
-					where = pack->second.pack + ": " + pack->second.relative;
-					if (!AssetPacks::read(pack->second, bytes, &error))
-						return false;
-				}
-				else
-				{
-					const TextureResolution res =
-						Resolve_Packed_W3D_Texture(stem + ".tga", [this](const std::string &p) { return m_fs->doesFileExist(p); }, isBfme1Data(*m_fs));
-					if (!res.Found)
-					{
-						error = "the game has no texture " + stem;
-						return false;
-					}
-					where = res.Path;
-					if (!m_fs->readFile(res.Path, bytes, &error))
-						return false;
-				}
-				if (!imageAlphaCoverage(bytes, share))
-				{
-					error = where + " does not decode as an image";
-					return false;
-				}
-				(*shares)[key] = share;
-				return true;
-			});
-			checkPackTexturesOnline(); // lane SDK-1b (b): the texture alpha rule first, so the model rules see the textures drawn online (review r1)
 			const bool modelsOk = m_packs.checkModels(mounted, packErrors);
-			m_packs.setTextureCoverage(nullptr);
 			if (!modelsOk)
 			{
 				for (const std::string &e : packErrors)
@@ -1052,55 +972,6 @@ PackedByteArray RetailFileSystem::read_file(const String &path)
 	return bytes;
 }
 
-void RetailFileSystem::checkPackTexturesOnline()
-{
-	bool anyTexture = false;
-	for (const auto &kv : m_packs.textures())
-	{
-		anyTexture = anyTexture || !kv.first.empty();
-	}
-	if (!anyTexture || !m_fs)
-	{
-		return;
-	}
-	const std::set<std::string> alphaDrawn = AssetPacks::alphaTextureIndex(*m_fs);
-	for (const auto &kv : m_packs.textures())
-	{
-		if (!alphaDrawn.count(kv.first))
-		{
-			continue; // its alpha is no transparency in the game (a house colour or specular mask): no rule
-		}
-		// the renderer's own lookup (GodotW3DMaterial: Resolve_Packed_W3D_Texture, the compiled JPGs included); an original that cannot be read
-		// is no pass (Sol r1: 13 alpha-drawn retail textures were skipped by a TGA / DDS-only lookup)
-		const TextureResolution res = Resolve_Packed_W3D_Texture(kv.first + ".tga", [this](const std::string &p) { return m_fs->doesFileExist(p); }, isBfme1Data(*m_fs));
-		std::vector<std::uint8_t> retail, pack;
-		std::string error;
-		if (!AssetPacks::read(kv.second, pack, &error))
-		{
-			m_packs.refuseOnline(false, kv.first, "it cannot be read: " + error);
-			continue;
-		}
-		double a = 0.0, b = 0.0;
-		if (!res.Found || !m_fs->readFile(res.Path, retail, &error) || !imageAlphaCoverage(retail, a))
-		{
-			m_packs.refuseOnline(false, kv.first, "the game's own texture to compare it with " + std::string(res.Found ? "(" + res.Path + ") does not decode" : "is not found"));
-			continue;
-		}
-		if (!imageAlphaCoverage(pack, b))
-		{
-			m_packs.refuseOnline(false, kv.first, "it does not decode as an image");
-			continue;
-		}
-		if (std::fabs(b - a) > AssetPacks::kOnlineMaxAlphaDelta)
-		{
-			char why[200];
-			std::snprintf(why, sizeof why, "%.0f%% of it is see-through, the original's %.0f%% (online: at most %.0f points apart)", b * 100.0, a * 100.0,
-				AssetPacks::kOnlineMaxAlphaDelta * 100.0);
-			m_packs.refuseOnline(false, kv.first, why);
-		}
-	}
-}
-
 Dictionary RetailFileSystem::get_asset_pack_report() const
 {
 	Dictionary out;
@@ -1108,7 +979,7 @@ Dictionary RetailFileSystem::get_asset_pack_report() const
 	for (const std::string &name : m_packs.packs())
 	{
 		Dictionary p;
-		Array misfits, offline;
+		Array misfits;
 		for (const AssetPacks::Refusal &r : m_packs.misfits())
 		{
 			if (r.pack != name)
@@ -1118,18 +989,8 @@ Dictionary RetailFileSystem::get_asset_pack_report() const
 			d["why"] = toGodot(r.why);
 			misfits.push_back(d);
 		}
-		for (const AssetPacks::Refusal &r : m_packs.onlineRefusals())
-		{
-			if (r.pack != name)
-				continue;
-			Dictionary d;
-			d["file"] = toGodot(r.relative);
-			d["why"] = toGodot(r.why);
-			offline.push_back(d);
-		}
 		p["name"] = toGodot(name);
 		p["misfits"] = misfits;
-		p["offline_only"] = offline;
 		packs.push_back(p);
 	}
 	out["packs"] = packs;

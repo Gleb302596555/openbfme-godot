@@ -91,6 +91,7 @@ std::string W3DShaderKey::Id() const
 	if (SimpleFx) id += "_sfx1";
 	if (Fog) id += "_fog" + std::to_string(Fog); // lane RENDER-4
 	if (AlphaOverride) id += "_ao"; // lane BUILD-5 r3
+	if (OcclusionPass) id += "_occl" + std::to_string(OcclusionPass); // lane OCCLUDE-1
 	return id;
 }
 
@@ -137,7 +138,25 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 	// the gamma space D3D9 works in, and converted to linear once at the end (Godot sRGB-encodes the output again).
 	mode("unshaded");
 	mode("shadows_disabled");
+	if (k.OcclusionPass)
+	{
+		// lane OCCLUDE-1: drawn in the transparent pass after the opaque scene; writes no depth
+		modes = k.OcclusionPass == W3D_OCCLUSION_PASS_COLOR ? "blend_mix, depth_draw_never, depth_test_inverted" : "blend_mix, depth_draw_never";
+		mode(k.CullDisabled ? "cull_disabled" : "cull_back");
+		mode("unshaded");
+		mode("shadows_disabled");
+	}
 	line("render_mode " + modes + ";");
+	if (k.OcclusionPass == W3D_OCCLUSION_PASS_MARK)
+	{
+		// retail: the occluders write bit 0x80 where they pass the depth test (RW 0x47061D .. 0x4706F0)
+		line("stencil_mode write, compare_always, " + std::to_string(W3D_OCCLUSION_STENCIL_MARK) + ";");
+	}
+	else if (k.OcclusionPass == W3D_OCCLUSION_PASS_COLOR)
+	{
+		// passes where DONE < stencil (the mark) and replaces it with DONE: one colour per pixel, as retail's one quad per colour (RW 0x46E411: stencil EQUAL)
+		line("stencil_mode read, write, compare_less, " + std::to_string(W3D_OCCLUSION_STENCIL_DONE) + ";");
+	}
 
 	// ---- uniforms ----
 	line("uniform sampler2D w3d_palette : filter_nearest, repeat_disable;");
@@ -162,6 +181,13 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 	line("global uniform mat3 w3d_lcol_inf;");
 	line("global uniform mat3 w3d_ldir_inf;");
 	line("global uniform float w3d_fogged_frac;"); // lane VISUAL-2: RW 0x46DFD0 FogAlpha / ClearAlpha
+	if (k.OcclusionPass == W3D_OCCLUSION_PASS_COLOR)
+	{
+		// lane OCCLUDE-1: the players' occluded colours by slot (0xAARRGGBB as RGBA8 texels, RTS3DSceneOcclusion::occludedColor) and the switch
+		// (GameData UseBehindBuildingMarker and TheGameLogic + 0x99)
+		line("global uniform sampler2D w3d_occl_colors;");
+		line("global uniform float w3d_occl_on;");
+	}
 	if (!k.Skin && k.Camera == 0)
 	{
 		// lane VISUAL-2: the vegetation SwayOffsets (RW 0x4E61EE; W3DVegetationSway.h), entries 1 .. 10 (0 is no sway)
@@ -402,6 +428,21 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 		line("\t\tv_lit1 = clamp(ssum * w3d_spec_color * 0.5, 0.0, 1.0);");
 		line("\t}");
 	}
+	if (k.OcclusionPass)
+	{
+		// lane OCCLUDE-1: an instance that does not take part collapses to a point (no fragments); the colour pass carries the slot in v_instance.z
+		line("\tint occl = wi >> " + std::to_string(W3D_OCCLUSION_SLOT_SHIFT) + ";");
+		if (k.OcclusionPass == W3D_OCCLUSION_PASS_MARK)
+		{
+			line("\tif ((occl & " + std::to_string(W3D_OCCLUSION_OCCLUDER_BIT >> W3D_OCCLUSION_SLOT_SHIFT) + ") == 0) { VERTEX = vec3(0.0); }");
+		}
+		else
+		{
+			line("\tint slot = occl & " + std::to_string(W3D_OCCLUSION_SLOTS - 1) + ";");
+			line("\tif (slot == 0 || w3d_occl_on < 0.5) { VERTEX = vec3(0.0); }");
+			line("\tv_instance.z = float(slot);");
+		}
+	}
 	line("}");
 
 	// ---- fragment ----
@@ -540,6 +581,23 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 		line("\t\tfloat ign = fract(52.9829189 * fract(dot(FRAGCOORD.xy, vec2(0.06711056, 0.00583715))));");
 		line("\t\tif (v_fade <= ign) { discard; }");
 		line("\t}");
+	}
+	if (k.OcclusionPass)
+	{
+		// lane OCCLUDE-1: after the surface's own alpha test and dither, the pass's output
+		if (k.OcclusionPass == W3D_OCCLUSION_PASS_MARK)
+		{
+			line("\tALBEDO = vec3(0.0);");
+			line("\tALPHA = 0.0;");
+		}
+		else
+		{
+			line("\tvec4 oc = texelFetch(w3d_occl_colors, ivec2(int(v_instance.z + 0.5), 0), 0);");
+			line("\tALBEDO = oc.rgb;"); // gamma space, as the other blended surfaces (RENDER-3, S-831)
+			line("\tALPHA = oc.a;");
+		}
+		line("}");
+		return c;
 	}
 	if (k.Fog != W3DHardwareFog::FOG_DISABLE)
 	{

@@ -185,6 +185,7 @@ include(cmake/Transport.cmake)  # GARRISON-2: transports, siege carriers, turret
 include(cmake/Hud2.cmake)       # OPENBFME_HUD2_SOURCES / OPENBFME_HUD2_TESTS (lane HUD-2: radar terrain picture, Palantir globe and power cap)
 include(cmake/Radar1.cmake)     # OPENBFME_RADAR1_TESTS (lane RADAR-1: the radar's objects and view box as RotWK draws them)
 include(cmake/Smooth.cmake)     # OPENBFME_SMOOTH_SOURCES / OPENBFME_SMOOTH_TESTS (lane SMOOTH-1, client only)
+include(cmake/Occlude1.cmake)   # OPENBFME_OCCLUDE1_SOURCES / OPENBFME_OCCLUDE1_TESTS (lane OCCLUDE-1: behind-building markers, client only)
 include(cmake/Phys1.cmake)      # PHYS-1: collision and separation, PhysicsBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_PHYS1_TESTS)
 include(cmake/Perf1.cmake)      # OPENBFME_PERF1_TESTS (lane PERF-1: benchmarks, optimisation determinism)
 include(cmake/PathPerf1.cmake)  # PATHPERF-1: findPath's hierarchical corridor (appends to OPENBFME_SIM_SOURCES; OPENBFME_PATHPERF1_TESTS)
@@ -309,6 +310,7 @@ add_library(openbfme_core STATIC
     ${OPENBFME_FX3_SOURCES}
     ${OPENBFME_FOGFX1_SOURCES}
     ${OPENBFME_SMOOTH_SOURCES}
+    ${OPENBFME_OCCLUDE1_SOURCES}
     ${OPENBFME_PROJ2_SOURCES}
     ${OPENBFME_STEALTH_SOURCES}
     ${OPENBFME_END1_SOURCES}
@@ -720,6 +722,7 @@ add_executable(openbfme_tests
     ${OPENBFME_EVADAMAGE1_TESTS}
     ${OPENBFME_PROJ2_TESTS}
     ${OPENBFME_STEALTH_TESTS}
+    ${OPENBFME_OCCLUDE1_TESTS}
     ${OPENBFME_GARRISON_TESTS}
     ${OPENBFME_TRANSPORT_TESTS}
     ${OPENBFME_BUILD_TEST_SOURCES}

@@ -2195,15 +2195,11 @@ func _begin_game(message: Dictionary) -> void:
 	print("GAME new game: map %s seed %d cash %d" % [message.map, message.seed, message.starting_cash])
 	_rejoin_watch.reset() # lane ONLINEUX-1 r2: every game's rejoin is watched afresh (the watch also starts afresh on a new net_status attempt)
 	_game_kind = "lan" if _net_state == "loading" else ("network" if not _net_state.is_empty() else ("restart" if not _restart_stack.is_empty() else "skirmish"))
-	# lane SDK-1b (a): asset packs are offline only until their online checks exist: a LAN or online game draws the game's own assets on every peer
-	# (b): the online rules' findings are only reported (the launcher's card); packs reach LAN / online games later through an allowlist of checked packs
-	var multiplayer_game := _game_kind == "lan" or _game_kind == "network"
-	var packs: Dictionary = _world.set_asset_packs_used(not multiplayer_game)
+	# lane SDK-1c (owner, 10-27: online is permissive): asset packs draw in every game, LAN and online too; each player uses the packs they have
+	# (render only: different packs in one game cannot desync)
+	var packs: Dictionary = _world.set_asset_packs_used(true)
 	if packs.get("loaded", false):
-		if multiplayer_game:
-			print("GAME asset packs: not used in this LAN / online game: HD packs are offline only for now (every player sees the game's own models and textures)")
-		else:
-			print("GAME asset packs: used (an offline game)")
+		print("GAME asset packs: used (%s game)" % _game_kind)
 	_hub_begin(message) # lane ONLINEHUB-1: what the score screen records
 	_last_new_game = message.duplicate(true) # lane END-2: the quit menu's Restart starts it again (RW 0x9220DE)
 	if _restart_stack.is_empty():

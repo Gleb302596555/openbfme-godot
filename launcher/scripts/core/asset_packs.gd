@@ -29,10 +29,9 @@ static func list(dir := "") -> Array:
 	var checked := report(r)
 	for n in names:
 		var p := {"name": n, "enabled": not off.has(n.to_lower()), "models": 0, "textures": 0, "bytes": 0, "problems": PackedStringArray(),
-			"checked": checked.has(n), "misfits": [], "offline_only": []}
+			"checked": checked.has(n), "misfits": []}
 		if checked.has(n):
 			p.misfits = checked[n].get("misfits", [])
-			p.offline_only = checked[n].get("offline_only", [])
 		var seen := {}
 		_scan(r.path_join(n), "", p, seen)
 		out.append(p)
@@ -40,7 +39,7 @@ static func list(dir := "") -> Array:
 
 
 ## lane SDK-1b (b): the game's check of the packs at its last start (<dir>/report.json, scripts/release/release.gd): pack name -> {misfits: [{file,
-## why}], offline_only: [{file, why}]}; empty when the game has not checked them yet (or the file is not the game's report)
+## why}]}; empty when the game has not checked them yet (or the file is not the game's report)
 static func report(dir := "") -> Dictionary:
 	var path := (dir if dir != "" else root()).path_join("report.json")
 	var out := {}

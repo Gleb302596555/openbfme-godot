@@ -778,9 +778,9 @@ void dumpFogState(const Args &a, GameLogic &logic, UnsignedInt next)
 		const Relationship r = viewer->getRelationship(owner);
 		const char *rel = owner == viewer ? "own" : r == ENEMIES ? "enemy" : r == ALLIES ? "ally" : "neutral";
 		const ObjectShroudStatus st = shroud->clientObjectStatus(*obj, a.fogView);
-		// what the client draws (Sol r2): not hidden by the shroud, not stealthed and undetected for the viewer; a contained object (no record) is
-		// drawn by its container, not here
-		const bool seen = shroud->hasRecord(*obj) && st != OBJECTSHROUD_SHROUDED && !InvisibilityManager::isStealthedAndUndetected(*obj, viewer);
+		// what the client draws (Sol r2): not hidden by the shroud, not stealthed and undetected for the viewer; an object out of the world (contained, or a
+		// porter in its site) is drawn by its container or not at all, not here
+		const bool seen = obj->isInWorld() && st != OBJECTSHROUD_SHROUDED && !InvisibilityManager::isStealthedAndUndetected(*obj, viewer);
 		o << "o " << obj->getID() << " " << rel << " " << obj->getPosition()->x << " " << obj->getPosition()->y << " " << (seen ? 1 : 0) << " "
 		  << (obj->isKindOfName("STRUCTURE") ? "s" : "u") << "\n";
 	}

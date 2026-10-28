@@ -618,7 +618,8 @@ def test_launcher_social_integrations(tmp_path, runner):
             node_command()
         except RuntimeError as error:
             pytest.skip(f"SKIP LOUDLY: launcher OAuth integration needs Node.js with node:sqlite support; {error}")
-    result = subprocess.run([sys.executable, str(HERE / runner), "--godot", GODOT],
+    # the runners check --godot as a file (test_launcher_oauth.py: is_file): a PATH name like the CI's "godot" is resolved first, as above
+    result = subprocess.run([sys.executable, str(HERE / runner), "--godot", shutil.which(GODOT) or GODOT],
                             env=isolated_environment(tmp_path), capture_output=True, text=True, timeout=240, check=False)
     output = result.stdout + result.stderr
     if runner == "test_launcher_oauth.py":

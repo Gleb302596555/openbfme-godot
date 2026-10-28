@@ -106,6 +106,12 @@ void ClientEventRecorder::fadeIn(Object &obj, UnsignedInt frames)
 	e.fadeFrames = frames;
 }
 
+void ClientEventRecorder::fadeOut(Object &obj, UnsignedInt frames)
+{
+	ClientEvent &e = push(ClientEvent::FADE_OUT, obj);
+	e.fadeFrames = frames;
+}
+
 void ClientEventRecorder::setCustomColors(Object &obj, int kind, std::uint32_t c0, std::uint32_t c1, std::uint32_t c2)
 {
 	ClientEvent &e = push(ClientEvent::CUSTOM_COLORS, obj);

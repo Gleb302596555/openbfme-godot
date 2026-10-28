@@ -15,6 +15,7 @@
 #include "GameLogic/GameLogic.h"
 #include "GameClient/HudObjects.h"
 #include "GameClient/Radar.h"
+#include "GameClient/RTS3DSceneOcclusion.h"
 #include "GameLogic/Locomotor.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/ObjectTemplateInfo.h"
@@ -112,6 +113,10 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 	static const int kActivelyBeingConstructed = ModelCondition::indexOf("ACTIVELY_BEING_CONSTRUCTED");
 	auto snap = std::make_shared<LogicSnapshot>();
 	snap->frame = logic.getFrame();
+	snap->showBehindBuildingMarkers = logic.getShowBehindBuildingMarkers(); // lane OCCLUDE-1
+	snap->useBehindBuildingMarker = logic.settings().useBehindBuildingMarker;
+	snap->occludedColorLuminanceScale = logic.settings().occludedColorLuminanceScale;
+	const UnsignedInt occlusionFrame = RTS3DSceneOcclusion::occlusionFrame(snap->frame, logic.settings().defaultOcclusionDelay); // RW 0x470C15 .. 0x470C38
 	snap->nextObjectId = logic.getNextObjectID();
 	snap->hashed = hashed;
 	snap->stateHash = stateHash;
@@ -309,6 +314,7 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 			s.drawableHidden = true; // RW 0x88D3B2 .. 0x88D3DB: not the local player's phantom (RW 0x6AA7B2; the owner's + 0x35A byte, RW 0x6AAC44, is not ported)
 		}
 		s.effectivelyDead = o->isEffectivelyDead(); // lane VISUAL-2
+		s.occlusion = RTS3DSceneOcclusion::eligibility(RTS3DSceneOcclusion::factsOf(*o), occlusionFrame); // lane OCCLUDE-1 (RW 0x470DD2 .. 0x470EC5)
 		s.containedBy = o->getContainedBy() ? o->getContainedBy()->getID() : (ObjectID)INVALID_ID; // lane COMBAT-4
 		s.stealthLook = InvisibilityManager::clientLook(*o, local); // lane STEALTH-1
 		if (teamVision && s.stealthLook == 5)

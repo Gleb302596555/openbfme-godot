@@ -127,6 +127,15 @@ public:
 	void set_instance_sway(int64_t instance, int type);
 	// lane VISUAL-2: the instance is lit by the fogged light (a last-seen object in the fog: lights and ambient times w3d_fogged_frac), INSTANCE_CUSTOM.w += 16384
 	void set_instance_fogged(int64_t instance, bool fogged);
+	// lane OCCLUDE-1: the instance's behind-building role (GameClient/RTS3DSceneOcclusion.h): an occluder marks the stencil where it is in front, an
+	// occludee (colour slot 1 .. 31 of the global w3d_occl_colors) is drawn in its colour where a mark covers it. The model's opaque surfaces get the
+	// occlusion passes (W3DShaderKey::OcclusionPass) chained the first time one of its instances asks for them. INSTANCE_CUSTOM.w carries the bits
+	void set_instance_occlusion(int64_t instance, bool occluder, int slot);
+	// lane OCCLUDE-1: the instance's bounding sphere (the pose culling's, S-1730) lies outside one of `frustum`'s planes (outward normals, Camera3D::get_frustum);
+	// false for an empty frustum or an unknown instance
+	bool instance_outside(int64_t instance, const std::vector<Plane> &frustum);
+	// the occlusion pass materials made so far (for tests): { marks, colours }
+	Dictionary get_occlusion_pass_counts() const;
 	// lane PROJ-2: the drawable's opacity (RW Drawable +0xB0, the fade of DrawableFade): multiplies every pivot's fade of the instance; 0 draws nothing
 	void set_instance_opacity(int64_t instance, double opacity);
 	// A scene that needs no per-frame work (every instance static) turns the automatic update off and calls update_now() itself after
@@ -210,6 +219,9 @@ private:
 		std::set<int> SortPriorities;    // render priorities of the sorted blended surfaces
 		bool HasSorted = false;          // a surface with MeshDrawSurface::Sorted that blends: instances need back to front order
 		bool HasOpaque = false;          // an opaque surface: the pivot fade is drawn with a dither (S-029)
+		std::vector<W3DShaderKey> Keys;  // lane OCCLUDE-1: the surfaces' keys, in Materials' order
+		std::vector<Ref<ShaderMaterial>> MarkPasses, ColorPasses; // lane OCCLUDE-1: by surface; null where none (yet, or a blended surface)
+		bool HasMark = false, HasColor = false;
 	};
 	struct DrawItem
 	{
@@ -264,6 +276,8 @@ private:
 		bool InfantryLight = false;           // set_instance_infantry_light (INSTANCE_CUSTOM.x < 0)
 		int Sway = 0;                         // lane VISUAL-2: set_instance_sway (INSTANCE_CUSTOM.w += 1024 * Sway)
 		bool Fogged = false;                  // lane VISUAL-2: set_instance_fogged (INSTANCE_CUSTOM.w += 16384)
+		bool Occluder = false;                // lane OCCLUDE-1: set_instance_occlusion (INSTANCE_CUSTOM.w += W3D_OCCLUSION_OCCLUDER_BIT)
+		int OcclusionSlot = 0;                // lane OCCLUDE-1: (INSTANCE_CUSTOM.w += slot << W3D_OCCLUSION_SLOT_SHIFT)
 		std::vector<std::uint8_t> HiddenSubs; // by sub object index; empty = none hidden (set_instance_hidden_subobjects)
 		bool Removed = false;                 // remove_instance: skipped by the pose and buffer passes
 		float Opacity = 1.0f;                 // set_instance_opacity (lane PROJ-2)
@@ -283,6 +297,7 @@ private:
 	void ensure_pose(int64_t instance) const; // the bone queries: a pose that culling left pending is evaluated now
 
 	void warn(const std::string &message);
+	void ensure_occlusion_passes(MeshGpu &gpu, bool mark, bool color); // lane OCCLUDE-1
 	const HAnimClass *resolve_clip(const Model &m, const std::string &name); // nullptr (and an error recorded) when the clip is not registered
 	std::shared_ptr<MeshGpu> build_mesh(const MeshModelClass &mesh, std::vector<std::string> &errors);
 	int64_t build_model(const String &model_name); // add_model without the pending texture swaps' set-up

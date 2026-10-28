@@ -35,6 +35,7 @@
 #include "GameClient/GUI/LoadScreenInfo.h"
 #include "GameClient/StealthLook.h"
 #include "GameClient/EvaDamage.h"
+#include "GameClient/RTS3DSceneOcclusion.h"
 #include "GameClient/MusicScripts.h"
 #include "GameClient/LiveFX.h"
 #include "GameClient/Visual2Stops.h"
@@ -290,7 +291,6 @@ void GameWorld::_bind_methods()
 	ClassDB::bind_method(D_METHOD("get_end_game_state"), &GameWorld::get_end_game_state); // lane END-1
 	ClassDB::bind_method(D_METHOD("take_end_game_requests"), &GameWorld::take_end_game_requests);
 	ClassDB::bind_method(D_METHOD("set_asset_packs_used", "used"), &GameWorld::set_asset_packs_used); // lane SDK-1b
-	ClassDB::bind_method(D_METHOD("set_asset_packs_online", "online"), &GameWorld::set_asset_packs_online); // lane SDK-1b (b)
 	ClassDB::bind_method(D_METHOD("take_sdk_banners"), &GameWorld::take_sdk_banners); // lane SDK-2
 	ClassDB::bind_method(D_METHOD("take_sdk_reports"), &GameWorld::take_sdk_reports); // lane SDK-2
 	ClassDB::bind_method(D_METHOD("clear_game_data", "show_score_screen"), &GameWorld::clear_game_data);
@@ -1546,6 +1546,25 @@ void GameWorld::refresh_views(double deltaMs)
 	}
 	size_t animated = 0;
 	const std::shared_ptr<const LogicSnapshot> presented = m_game->presentedSnapshot(); // SMOOTH-1: the frame the drawables show
+	// lane OCCLUDE-1: RTS3DScene::Visibility_Check's lists (RW 0x470B83) in drawable order, the colours of the players with occludees and the switch. The
+	// GameData values come with the snapshot (reading the logic here would wait for its worker). Retail lists only what passed the camera's sphere test
+	// (RW 0x470CC5, the camera's Cull_Sphere): an instance outside the camera's frustum takes no place in the lists
+	const float occludedLuminanceScale = presented ? presented->occludedColorLuminanceScale : 0.5f;
+	RTS3DSceneOcclusion::Budget occlusionBudget;
+	std::uint32_t occlusionTable[W3D_OCCLUSION_SLOTS] = {};
+	std::vector<Plane> occlusionFrustum;
+	{
+		Viewport *vp = get_viewport();
+		Camera3D *cam = vp ? vp->get_camera_3d() : nullptr;
+		if (cam)
+		{
+			const TypedArray<Plane> planes = cam->get_frustum();
+			for (int64_t k = 0; k < planes.size(); ++k)
+			{
+				occlusionFrustum.push_back(planes[k]);
+			}
+		}
+	}
 	const size_t viewSlots = std::min(dm.slotCount(), m_views.size());
 	for (size_t id = 1; id < viewSlots; ++id)
 	{
@@ -1615,6 +1634,7 @@ void GameWorld::refresh_views(double deltaMs)
 				stealthRec = presented->find(d->getObjectID());
 			}
 		}
+		const std::uint8_t occlusionEligible = stealthRec && !fogHidden ? stealthRec->occlusion : 0; // lane OCCLUDE-1
 		const bool fogChanged = fogHidden != v.fogHidden;
 		v.fogHidden = fogHidden;
 		const bool flagsChanged = d->getChangeCount() != v.seenChange || fogChanged;
@@ -1666,6 +1686,36 @@ void GameWorld::refresh_views(double deltaMs)
 					ev.fogLook = fogLook;
 					ev.fogLookInstance = ev.instance;
 				};
+				// lane OCCLUDE-1: the entry's render object in RTS3DScene::Visibility_Check's lists (RW 0x470D75 .. 0x470EC5): translucent (the drawable's opacity
+				// below 1), an occluder, an occludee drawn in its controlling player's colour (slot = player index + 1) or plain
+				auto applyOcclusion = [&]() {
+					if (ev.instance < 0)
+					{
+						return;
+					}
+					const RTS3DSceneOcclusion::Role role = dyn->instance_outside(ev.instance, occlusionFrustum) ? RTS3DSceneOcclusion::ROLE_NONE
+						: occlusionBudget.admit(occlusionEligible, ev.opacity < 1.0f);
+					int code = 0;
+					if (role == RTS3DSceneOcclusion::ROLE_OCCLUDER)
+					{
+						code = 0x100;
+					}
+					else if (role == RTS3DSceneOcclusion::ROLE_OCCLUDEE && stealthRec->ownerIndex >= 0 && stealthRec->ownerIndex + 1 < W3D_OCCLUSION_SLOTS)
+					{
+						code = stealthRec->ownerIndex + 1;
+						if (occlusionTable[code] == 0)
+						{
+							occlusionTable[code] = RTS3DSceneOcclusion::occludedColor(stealthRec->ownerColor, occludedLuminanceScale);
+						}
+					}
+					if (code == ev.occlusion && ev.occlusionInstance == ev.instance)
+					{
+						return;
+					}
+					dyn->set_instance_occlusion(ev.instance, (code & 0x100) != 0, code & 0xFF);
+					ev.occlusion = code;
+					ev.occlusionInstance = ev.instance;
+				};
 				const bool animatedNow = e.animated && m_animations;
 				animated += animatedNow ? 1 : 0;
 				// lane CAH-2: a new colour set (Drawable::setCustomColors, RW 0x6727B0) chooses another model below
@@ -1687,6 +1737,7 @@ void GameWorld::refresh_views(double deltaMs)
 					}
 					applyTires();
 					applyFogLook();
+					applyOcclusion();
 					continue;
 				}
 				W3DDrawPoseView &f = m_viewPose; // lane PERF-3: the frame's pose request and model by reference (frame() copied every name of the module)
@@ -1820,6 +1871,7 @@ void GameWorld::refresh_views(double deltaMs)
 						dyn->set_instance_opacity(ev.instance, opacity);
 						ev.opacity = opacity;
 					}
+					applyOcclusion();
 				}
 				else
 				{
@@ -1927,6 +1979,37 @@ void GameWorld::refresh_views(double deltaMs)
 		v.seenChange = d->getChangeCount();
 	}
 	m_animatedDrawables = animated;
+	// lane OCCLUDE-1: the colours are drawn while GameData UseBehindBuildingMarker (+ 0x68) and TheGameLogic + 0x99 are set (RW 0x470744 / 0x4707B6; the
+	// shadow map test does not arise: the passes cast no shadows). A colour or switch change reaches the shaders once
+	const bool occlusionOn = presented && presented->useBehindBuildingMarker && presented->showBehindBuildingMarkers;
+	const bool colorsChanged = m_occlusionColors.is_null() || std::memcmp(occlusionTable, m_occlusionTable, sizeof(occlusionTable)) != 0;
+	if (colorsChanged)
+	{
+		std::memcpy(m_occlusionTable, occlusionTable, sizeof(occlusionTable));
+		PackedByteArray bytes;
+		bytes.resize(W3D_OCCLUSION_SLOTS * 4);
+		for (int i = 0; i < W3D_OCCLUSION_SLOTS; ++i)
+		{
+			bytes.set(i * 4 + 0, (uint8_t)((occlusionTable[i] >> 16) & 0xFF));
+			bytes.set(i * 4 + 1, (uint8_t)((occlusionTable[i] >> 8) & 0xFF));
+			bytes.set(i * 4 + 2, (uint8_t)(occlusionTable[i] & 0xFF));
+			bytes.set(i * 4 + 3, (uint8_t)((occlusionTable[i] >> 24) & 0xFF));
+		}
+		const Ref<Image> img = Image::create_from_data(W3D_OCCLUSION_SLOTS, 1, false, Image::FORMAT_RGBA8, bytes);
+		if (m_occlusionColors.is_null())
+		{
+			m_occlusionColors = ImageTexture::create_from_image(img);
+		}
+		else
+		{
+			m_occlusionColors->update(img);
+		}
+	}
+	if (colorsChanged || m_occlusionOn != (occlusionOn ? 1 : 0))
+	{
+		m_occlusionOn = occlusionOn ? 1 : 0;
+		W3D_Set_Occlusion(occlusionOn, m_occlusionColors);
+	}
 	const double ts = nowMs();
 	refresh_streaks(true);
 	m_lastStreakMs = timing::elapsedMs(ts);
@@ -7420,29 +7503,6 @@ void GameWorld::rebuildPackAssets()
 	{
 		m_fxPlayer->clearTextureCache();
 	}
-}
-
-Dictionary GameWorld::set_asset_packs_online(bool online)
-{
-	Dictionary out;
-	out["loaded"] = false;
-	out["changed"] = false;
-	out["offline_only"] = (int64_t)0;
-	if (m_fs.is_null())
-	{
-		return out;
-	}
-	AssetPacks &packs = m_fs->assetPacksMutable();
-	out["loaded"] = packs.loaded();
-	out["offline_only"] = (int64_t)packs.onlineRefusals().size();
-	if (packs.loaded() && (packs.online() != online || packs.suspended()))
-	{
-		packs.setSuspended(false);
-		packs.setOnline(online);
-		rebuildPackAssets();
-		out["changed"] = true;
-	}
-	return out;
 }
 
 PackedStringArray GameWorld::take_sdk_banners()

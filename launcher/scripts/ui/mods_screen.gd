@@ -200,8 +200,6 @@ func set_asset_packs(packs: Array) -> void:
 			var findings := []
 			if not p.get("misfits", []).is_empty():
 				findings.append([L10n.t("launcher.mods_screen.packs_misfits", {"count": p.misfits.size()}), p.misfits])
-			if not p.get("offline_only", []).is_empty():
-				findings.append([L10n.t("launcher.mods_screen.packs_offline_only", {"count": p.offline_only.size()}), p.offline_only])
 			if not findings.is_empty():
 				details = W.vbox(1)
 				details.visible = false
@@ -412,10 +410,9 @@ func demo() -> void:
 	var tales := {"guid": "demo-tales", "name": "Tiny Tales", "version": "2.0.1", "author": "A. Storyteller", "type": 1, "size": 650000000,
 		"status": ModCatalog.READY, "engine_edits": PackedStringArray(), "error": "", "enhancements": []}
 	set_asset_packs([{"name": "HD Gondor", "enabled": true, "models": 12, "textures": 40, "bytes": 182000000, "problems": PackedStringArray(), "checked": true,
-			"misfits": [{"file": "art/w3d/gb/gbcitadel.w3d", "why": "different bones or models than the game's"}],
-			"offline_only": [{"file": "art/w3d/cu/mpbeacon.w3d", "why": "a visibility-relevant asset"}]},
+			"misfits": [{"file": "art/w3d/gb/gbcitadel.w3d", "why": "different bones or models than the game's"}]},
 		{"name": "Sharper Trees", "enabled": false, "models": 0, "textures": 9, "bytes": 21000000, "problems": PackedStringArray(), "checked": false,
-			"misfits": [], "offline_only": []}])
+			"misfits": []}])
 	_records = {}
 	_chosen = {"demo-realms": {"demo-nointro": true}}
 	set_installed([{"guid": "demo-realms", "name": "Example Realms", "version": "1.2.0", "enhancements": ["demo-nointro"], "engine_edits": []}],

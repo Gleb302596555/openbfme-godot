@@ -166,13 +166,10 @@ public:
 	Dictionary get_end_game_state() const;
 	int hud_end_game_timer() const;
 	Array take_end_game_requests();
-	// lane SDK-1b (a): asset packs are offline only for now: game.gd calls this before every game (false for a LAN / online game). When the answer
-	// changes, the scene is cleared and the drawables' asset manager and the effects' textures are rebuilt, so nothing drawn with the packs
-	// before stays. {loaded: any packs, used: they are applied, changed}
+	// lane SDK-1b (a): switches the asset packs on or off; game.gd switches them on before every game (lane SDK-1c: online too). When the
+	// answer changes, the scene is cleared and the drawables' asset manager and the effects' textures are rebuilt, so nothing drawn before
+	// stays. {loaded: any packs, used: they are applied, changed}
 	Dictionary set_asset_packs_used(bool used);
-	// lane SDK-1b (b): the online rules instead (AssetPacks::setOnline): a LAN / online game draws every pack file except the ones refused online
-	// (AssetPacks::onlineRefusals); rebuilt as above when it changes. {loaded, changed, offline_only: how many files a LAN / online game leaves out}
-	Dictionary set_asset_packs_online(bool online);
 	PackedStringArray take_sdk_banners(); // lane SDK-2: the mod scripts' ui.banner texts since the last call
 	PackedStringArray take_sdk_reports(); // lane SDK-2: their report lines ("SDK <mod>: ...")
 	// GameLogic::clearGameData (RW 0x7792BC): keeps the score screen's data (when `show_score_screen`) and tears the game down (the worker stopped, the
@@ -684,6 +681,8 @@ private:
 		int64_t tireInstance = -1;          ///< the instance they were handed to
 		bool fogLook = false;               ///< lane VISUAL-2: the instance is drawn with the fogged light (a last-seen object in the fog)
 		int64_t fogLookInstance = -1;       ///< the instance it was handed to
+		int occlusion = 0;                  ///< lane OCCLUDE-1: the behind-building code the instance shows (occluder bit 0x100 | colour slot)
+		int64_t occlusionInstance = -1;     ///< the instance it was handed to
 		std::uint32_t colorsRevision = 0;   ///< lane CAH-2: Drawable::customColorRevision the model choice saw
 		// lane HCKEY-1: a static entry's model key (lowered name + floor swap suffix + palette) and the inputs it was made from, rebuilt only
 		// when one of them changes (community PR #60 made it every frame for every coloured static drawable)
@@ -879,6 +878,11 @@ private:
 		bool hidden = false;  ///< lane VISUAL-2 r2: the drawable is not drawn (Drawable::presentedLook): no point recorded, no ribbon
 	};
 	W3DDrawPoseView m_viewPose;               ///< lane PERF-3: refresh_views reads the pose request by reference (W3DScriptedModelDraw::poseView)
+	// lane OCCLUDE-1: the behind-building colours by slot (controlling player index + 1; RTS3DSceneOcclusion::occludedColor) and the switch they were
+	// last handed to the shaders with (W3D_Set_Occlusion); the texture is rewritten only when a colour changed
+	Ref<ImageTexture> m_occlusionColors;
+	std::uint32_t m_occlusionTable[W3D_OCCLUSION_SLOTS] = {};
+	int m_occlusionOn = -1;
 	int m_streakWeather = 0;                  ///< lane PERF-1: the map's WeatherType for the streak textures (0 NORMAL, 1 SNOWY), set by load_map
 	std::map<uint64_t, StreakView> m_streaks;  ///< key = drawable id << 8 | entry index
 	std::unique_ptr<W3DMaterialFactory> m_streakTextures;

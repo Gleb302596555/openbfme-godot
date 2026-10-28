@@ -181,16 +181,14 @@ def test_asset_packs_listed_and_turned_off(tmp_path, service):
 
 @needs_godot
 def test_asset_packs_card_shows_the_games_findings(tmp_path, service):
-    """lane SDK-1b (b): the game's report.json (scripts/release/release.gd) per pack: the models left out and the files used offline only,
-    with their reasons; a pack the game has not checked says so"""
+    """lane SDK-1b (b): the game's report.json (scripts/release/release.gd) per pack: the models left out, with their reasons; a pack the
+    game has not checked says so (lane SDK-1c: no online findings, online is permissive)"""
     root = tmp_path / "game-user" / "asset-packs"
     make_asset_packs(root)
     (root / "Unchecked").mkdir()
     (root / "Unchecked" / "tree.dds").write_bytes(b"DDS ")
     report = {"format": "openbfme.asset-pack-report 1", "checked": "2026-10-27T00:00:00", "packs": [
-        {"name": "HD Units", "misfits": [{"file": "art/w3d/db/dbcitadel.w3d", "why": "different bones or models than the game's (x)"}],
-         "offline_only": [{"file": "art/w3d/mp/mpbeacon.w3d", "why": "a visibility-relevant asset: the multiplayer beacon"},
-                          {"file": "exfirescroll2.dds", "why": "a visibility-relevant asset: the burning effects"}]}]}
+        {"name": "HD Units", "misfits": [{"file": "art/w3d/db/dbcitadel.w3d", "why": "different bones or models than the game's (x)"}]}]}
     (root / "report.json").write_text(json.dumps(report))
     script = tmp_path / "card.gd"
     script.write_text("""extends SceneTree
@@ -223,8 +221,8 @@ func _initialize() -> void:
                        stdin=subprocess.DEVNULL)
     out = r.stdout + r.stderr
     assert "CARD 1 models not used: they don't fit the game's (different bones or models), so the game's own are drawn | true" in out, out
-    assert "CARD 2 files would be refused online: they fail the online checks (HD packs are offline only for now) | true" in out, out
-    assert "CARD art/w3d/mp/mpbeacon.w3d: a visibility-relevant asset: the multiplayer beacon | false" in out, out  # behind the toggle
+    assert "CARD art/w3d/db/dbcitadel.w3d: different bones or models than the game's (x) | false" in out, out  # behind the toggle
+    assert "online" not in out.lower(), out  # lane SDK-1c: online is permissive, the card names no online finding
     assert "SHOWN true" in out, out  # the toggle shows the reasons
     assert "CARD Not checked against your game files yet: start the game once. | true" in out, out  # the pack the game has not checked
     assert "SCRIPT ERROR" not in out, out

@@ -155,38 +155,15 @@ button. `--asset-packs`, `--asset-pack-on=<name>` and `--asset-pack-off=<name>` 
 - **Which file wins.** The base game, then `--mod-install`, then `-mod`, then the asset packs. A pack draws over a mod's file of the same
   name too, and is checked against the mod's model. Packs load in folder-name order, then the `--asset-pack` ones, and the later pack
   wins. One pack holding two files for the same asset is an error that names both.
-- **Online checks (lane SDK-1b).** Packs are invisible to the lobby and replay checksums, so a pack could change what one player sees
-  and another does not. HD packs are therefore offline only for now: skirmish and campaign games use every pack file, and LAN and online
-  games draw the game's own models and textures on every peer. Each pack is still checked against the online rules below, and the
-  launcher lists the files that would be refused online. The rules alone cannot prove a pack harmless (a mesh can map its texture onto
-  see-through pixels, for example), so packs will reach online games later only through an allowlist of exact pack files, checked by
-  these rules and by a person, the HD Edition first. These checks keep honest packs safe by default; they are not anti-cheat, since a
-  modified client can skip them. Anti-cheat is the replay checker's job, and it sees what a client plays (the game state), not what
-  it draws. The rules refuse:
-  - **Visibility-relevant assets**, named from the retail data: `EXFireScroll2` (the burning effects play even inside the shroud),
-    `EXHeal` (the stealth on / off effect), the cloud and macro shadows `TSCloudMed` / `TSNoiseUrb`, and the models `MPBeacon`,
-    `TheRing` and `EXPalantirShard`. The shroud, health bars, radar and selection markers use no pack-replaceable files.
-  - **A model that does not draw like the game's.** The checks follow what the renderer draws (each model's top LOD and its extra
-    parts). A model is refused when its drawn box in the rest pose is more than 3 times or less than a third of the game's
-    along any axis, or its centre moves more than half the game's size, or it draws nothing. The same applies when it draws another
-    file's model or an effect the game's does not, or hides a part the game's shows. See-through parts (alpha test or blending) may
-    be at most 25 points more see-through than the game's most see-through part, by their textures' see-through pixels and their
-    opacity.
-  - **A skeleton or animation that moves the bones.** In the rest pose a bone may move at most a tenth of the skeleton's size and turn
-    at most 10 degrees. In every frame of an animation a bone may move at most a tenth of the animation's reach and turn at most 30
-    degrees, and it must show, hide and fade as in the game's.
-  - **A texture the game draws see-through** (alpha test or blending) whose see-through share differs from the game's by more than 25
-    points. Other textures use their alpha for house colours or shine, so the rule does not apply to them.
-
-  The thresholds come from the real RotWK 2.02 HD Edition. 95% of its models stay within 1.71 times the originals' size, their
-  centres within 0.38 of the size, its skeletons match exactly, its animations stay within 11 degrees and its see-through textures
-  within 11 points. Under these rules 21 of its files would be refused online: three siege ball LODs (5.2 times the size), one model (0.12
-  times), a fur mesh and three banner LODs that draw more see-through, and 13 dwarf ram animations made for its own skeleton (which is
-  left out). The game writes what it left out to
-  `asset-packs/report.json` at every start, and the launcher's Asset packs card shows it per pack ("26 models not used ...", "21 files would
-  be refused online ...") with the reasons behind Details. A pack may hold only models, textures and its own text (`.txt`, `.md`,
-  `README`, `LICENSE`); any other file refuses the whole pack. Only drawing reads the packs, and the game logic keeps reading the
-  original files.
+- **Online is permissive (lane SDK-1c, the owner's choice, 2026-10-27).** Every game uses your packs, LAN and online too, and other
+  players may use different packs or none. Packs only change what is drawn: the simulation never reads them, so players with different
+  packs stay in lockstep. There is no allowlist and no review: the only files left out are the ones that would break the game itself, a
+  model that does not fit the skeleton (above) and a file that cannot be read, and the start log and the launcher's card name them
+  ("26 models not used ...", with the reasons behind Details; written to `asset-packs/report.json` at every start). The honest limit:
+  a pack can change what one player sees and another does not. The pack lines the game's record will carry (SDK-1c's next step: the
+  START, the replay, a tag in the room) keep honest players honest; they don't catch a renderer cheat. A modified client can draw whatever it likes, and the replay checker sees what a client plays (the game
+  state), not what it draws. A pack may hold only models, textures and its own text (`.txt`, `.md`, `README`, `LICENSE`); any other file
+  refuses the whole pack. Only drawing reads the packs, and the game logic keeps reading the original files.
 - **From a mod's HD archive.** `python3 tools/mod/asset_pack_from_big.py <archive.big> <new folder>` copies the models and textures of
   an archive into a pack and lists what it leaves out. For example, the All In One launcher's *RotWK 2.02 HD Edition* gives 503 models
   and 466 textures. Over the original 2.01 game, 477 of its models fit. The other 26 are its redesigned citadel, statues and barracks

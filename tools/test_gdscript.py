@@ -100,6 +100,7 @@ ALLOWLIST = {
     "controller_routing_test.gd": "controller input routing rules only",
     "online_list_test.gd": "online list parsing and paging against synthetic responses",
     "online_list_client_test.gd": "the native list client against synthetic responses",
+    "timeline_markers_test.gd": "score timeline markers against a stub shell",
 }
 SCRIPT_TIMEOUT = 20
 
@@ -119,7 +120,7 @@ DENYLIST = {
                     "manual: needs a private BFME1 installation"),
     **dict.fromkeys(scripts("""
         audio_stress backlog3_focus buildperf cah_awards_display camp2 campsave1 floating_money_text
-        hero_radius_cursor hudredraw menustyle_native menustyle net_uber netlag1 opts4 opts5
+        hero_radius_cursor hudredraw menustyle_native menustyle net_uber netlag1 occlude1 opts4 opts5
         packed_model_texture pathperf1_render perf3_cull play3 player_house_color player_message_log
         pose_buffer pose_buffer_cull_query pose_buffer_query_trigger
         renderwait1_teardown selperf shellfix1 spellbook_reload terrain_lighting uberjoin1 ui4_resize

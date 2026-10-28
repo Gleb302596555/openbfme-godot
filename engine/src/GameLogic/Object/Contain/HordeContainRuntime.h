@@ -278,7 +278,7 @@ public:
 		unsigned long long losTests = 0;         // RW 0x744AAA's line-of-sight filter (RW 0x6616AC) asked (lane LOS-1)
 		unsigned long long losRefused = 0;       // ... and refused the member
 		unsigned long long otherContainer = 0;   // victims held by a container that is not a HordeContain (its slot 0x48 is not ported: the victim stays)
-		unsigned long long positionOrders = 0;   // members a position fire would order (RW 0x6961F1 aiAttackPosition is not executed, S-325)
+		unsigned long long positionOrders = 0;   // members a position fire ordered (RW 0x875550 -> aiAttackPosition RW 0x6961F1)
 	};
 	const AttackStats &attackStats() const { return m_attackStats; }
 	static const char *attackStopLine(); // S-2610

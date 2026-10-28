@@ -110,8 +110,7 @@
     "Tiny Tales": "made-up --ui-demo mod data",
     "HD Gondor": "made-up --ui-demo asset pack name",
     "Sharper Trees": "made-up --ui-demo asset pack name",
-    "different bones or models than the game's": "made-up --ui-demo asset pack finding (the real reasons come from the game's report.json)",
-    "a visibility-relevant asset": "made-up --ui-demo asset pack finding (the real reasons come from the game's report.json)"
+    "different bones or models than the game's": "made-up --ui-demo asset pack finding (the real reasons come from the game's report.json)"
   },
   "launcher/scripts/ui/multiplayer_screen.gd": {
     "Discord": "a product name"

@@ -137,6 +137,9 @@ public:
 	// lane BUILD-4, RW 0x670AA2 Drawable::fadeIn(frames) called by the simulation (a wall span's tiles, RW 0x7954A8): the object's drawable fades in over
 	// `frames` client frames (0: shown at once)
 	virtual void fadeIn(Object &obj, UnsignedInt frames) { (void)obj; (void)frames; }
+	// lane PORTERFOG-1, RW 0x670A50 Drawable::fadeOut(frames) called by the simulation (a porter starting its work, RW 0x88DDC1): the drawable fades out over
+	// `frames` client frames (0: at once) and is hidden once its opacity * 255 is below 1 (RW 0x675B7E)
+	virtual void fadeOut(Object &obj, UnsignedInt frames) { (void)obj; (void)frames; }
 	// RW 0x67B78C -> 0x6D4789: a qualifying hit on a local hero, independently of the EVA gate.
 	// RW 0x69560B: profile statistics are recorded before the normal kill-score gates.
 	virtual void createAHeroKill(Object &, Object &) {}
@@ -243,6 +246,11 @@ struct GameLogicSettings
 	// lane BUILD-3 (GameData, RW GlobalData + 0x11E4): BuilderMoveFromNewStructureDistance, the walk of a porter out of the structure it built (RW 0x88D6AE); loaded when a block read it
 	bool builderMoveLoaded = false;
 	float builderMoveFromNewStructureDistance = 0.0f;
+	// lane PORTERFOG-1 (GameData BuilderFadeOutTime / BuilderFadeInTime, RW GlobalData + 0x11DC / + 0x11E0, parseDurationUnsignedInt): the frames of the porter's drawable
+	// fades (RW 0x88DDC1 -> 0x670A50, RW 0x88D6CE -> 0x670AA2); client values (the drawable's fade), not part of the settings hash
+	bool builderFadeLoaded = false;
+	unsigned builderFadeOutFrames = 0;
+	unsigned builderFadeInFrames = 0;
 	// RW GlobalData +0xA88, parseUnsignedInt (seconds).
 	bool repairDamageDelayLoaded = false;
 	unsigned timeAfterDamageUntilRepairAllowed = 0;
@@ -324,6 +332,14 @@ struct GameLogicSettings
 	// lane GARRISON-2: MaxTunnelCapacity (GameData row RW 0xC00360, parseInt RW 0x42EC5E, + 0xA98; the GlobalData constructor's 0, RW 0x642FB5): the riders a
 	// player's tunnel network holds (TunnelTracker RW 0x8FA152)
 	int maxTunnelCapacity = 0;
+	// lane OCCLUDE-1: the behind-building marker's GameData rows: UseBehindBuildingMarker (row RW 0xBFF830, parseBool RW 0x42E558, + 0x68),
+	// DefaultOcclusionDelay (row RW 0xBFF9E0, parseDurationUnsignedInt RW 0x73A429, + 0xCC), OccludedColorLuminanceScale (row RW 0xBFFFE0, parseReal RW 0x42ED00,
+	// + 0x984). Defaults: the GlobalData constructor's (RW 0x642A63: 1; RW 0x642B5F: LOGICFRAMES_PER_SECOND (RW 0xD9F608 = 5) * 3 = 15 frames; RW 0x642D18:
+	// 0.5f, RW 0xBD869C). Retail 2.01 gamedata.ini sets Yes / 3000 ms / 0.5. Read by the renderer's occluded-object pass (GameClient/RTS3DSceneOcclusion.h) and
+	// the objects' safe occlusion frame (Object + 0x444); presentation only: not in the settings hash
+	bool useBehindBuildingMarker = true;
+	unsigned defaultOcclusionDelay = 15;
+	float occludedColorLuminanceScale = 0.5f;
 	unsigned initialCredits[5] = { 0, 0, 0, 0, 0 };  ///< MultiplayerSettings InitialCreditsVeryLow .. VeryHigh: the lobby's money choices
 	// lane CHAT-1: MultiplayerSettings MaxBeaconsPerPlayer (+ 0x18): a player's beacons at most (retail multiplayer.ini: 3). INFERENCE: the default is ZH's
 	// MultiplayerSettings constructor value (RotWK's constructor was not read). Not hashed (crc below): data every peer of a game reads alike (the profile)
@@ -531,6 +547,11 @@ public:
 	// player's objects outside a multiplayer game (Player::applyDifficultyBonusesForObject RW 0x6AC3E3) and the mission restart (RW 0x9221B6). Hashed.
 	void setGameDifficulty(int d) { m_gameDifficulty = d; }
 	int getGameDifficulty() const { return m_gameDifficulty; }
+	// lane OCCLUDE-1: TheGameLogic + 0x99, the behind-building markers' switch: script action 298 OPTIONS_SET_OCCLUSION_MODE writes it (RW 0x7CE207 ->
+	// RW 0x7BD549), GameLogic::init / reset / startNewGame set it (RW 0x62D1D2 / 0x62D3D6 / 0x62A22F); the renderer draws the occluded colours only while it
+	// and GameData UseBehindBuildingMarker are set (RW 0x47074D). Not hashed and not saved (no GameLogic xfer reads it): presentation only
+	void setShowBehindBuildingMarkers(bool on) { m_showBehindBuildingMarkers = on; }
+	bool getShowBehindBuildingMarkers() const { return m_showBehindBuildingMarkers; }
 	// lane RULES-1: the game setup's rules (RotWK TheGameInfo RW 0xDE892C + 0x60; all -1 when the game has no rule block, Common/MpGameRules.h) and
 	// OpenBFME's Legendary Heroes factor (1 = off). Both are part of the state hash only when set, so a game without them keeps its hashes
 	void setGameRules(const GameRules &rules) { m_gameRules = rules; }
@@ -988,6 +1009,7 @@ private:
 
 	UnsignedInt m_frame = 0;
 	int m_gameDifficulty = 1;     ///< lane CAMP-1H: RW GameLogic + 0xA4
+	bool m_showBehindBuildingMarkers = true; ///< lane OCCLUDE-1: RW GameLogic + 0x99
 	GameRules m_gameRules = MpGameRules::none(); ///< lane RULES-1
 	int m_legendaryHeroes = LegendaryHeroes::kOff; ///< lane RULES-1 (OpenBFME)
 	CheatMode::State m_cheatMode;                  ///< lane CHEAT-1 (OpenBFME)
