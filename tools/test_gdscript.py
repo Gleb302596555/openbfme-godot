@@ -129,7 +129,7 @@ DENYLIST = {
     """) | {"object_corpus_sweep.gd"}, "manual: needs private RotWK/BFME2 assets and game/frame setup"),
     **dict.fromkeys(scripts("""
         apt_canvas_pixel building_render fx_render gamma_composite hud_image_mode_pixel
-        menu_backdrop_resize online_branding pro_camera pro_camera_bokeh radial_background render4 shader
+        menu_backdrop_resize online_branding pro_camera pro_camera_bokeh radial_background render4 shader tangent_convention
     """), "manual: GPU/window/render readback required (some also need retail assets)"),
     "pingwheel_test.gd": "manual: mixed UI/timer checks and retail skirmish/hash runs; not wholly asset-free",
     "replay_refusal_test.gd": "manual: mixed stub checks and retail replay subprocess; not wholly asset-free",
