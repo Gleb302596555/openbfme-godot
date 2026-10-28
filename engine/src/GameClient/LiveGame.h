@@ -68,6 +68,7 @@ class ArchiveFileSystem;
 class SdkScriptHost;
 class ArchiveW3DFileSource;
 class WW3DAssetManager;
+struct LinearCampaign; // lane BFME2CAMP1: campaignCarryoverOptions
 
 
 class LiveGame
@@ -82,6 +83,14 @@ public:
 		publishScriptLocalView();
 	}
 	const ScriptLocalView *scriptLocalView() const { return m_scriptLocalView; }
+	struct Options;
+	// lane BFME2CAMP1: a campaign mission start's carry-over options, the one rule GameWorld::start_campaign_mission and openbfme_peer's campaign save check
+	// share. `carryText` is the campaign's carry-over state text (a save header's campaignCarryover, campaign_progress_step's "carryover"): parsed;
+	// without one the first mission begins the campaign (beginCampaign RW 0x5EC4EC); a later mission without one gets no carry-over step and `stop` its
+	// [S-4904] line. The mission's DelayCarryoverSpawningOf list is always set. false (with `error`) for a text that does not parse or a mission the
+	// campaign does not have
+	static bool campaignCarryoverOptions(const LinearCampaign &campaign, int mission, const std::string &carryText, Options &lo, std::string &stop,
+										 std::string &error);
 	void publishScriptLocalView()
 	{
 		const ScriptLocalView *v = m_scriptLocalView;

@@ -179,27 +179,12 @@ Dictionary GameWorld::start_campaign_mission(const Dictionary &options)
 	std::string carryStop;
 	if (const LinearCampaign *campaign = m_world->linearCampaigns().find(progress.campaign))
 	{
-		if (!carryText.empty())
+		std::string why;
+		if (!LiveGame::campaignCarryoverOptions(*campaign, progress.mission, carryText, lo, carryStop, why)) // the rule openbfme_peer shares
 		{
-			std::string why;
-			if (!CampaignCarryover::State::parse(carryText, lo.carryover, &why))
-			{
-				errors.push_back(g(why));
-				return report;
-			}
-			lo.campaignCarryover = true;
+			errors.push_back(g(why));
+			return report;
 		}
-		else if (progress.mission == 0)
-		{
-			lo.carryover = CampaignCarryover::beginCampaign(campaign->carryoverUnits);
-			lo.campaignCarryover = true;
-		}
-		else
-		{
-			carryStop = "[S-4904] mission " + std::to_string(progress.mission) + " of " + campaign->name +
-						" started on its own: no campaign carry-over (the previous missions' units and the player's carried sciences are not there)";
-		}
-		lo.carryoverDelayed = mission->delayCarryover;
 	}
 	lo.maxFramesPerAdvance = (int)intOpt(options, "max_frames_per_advance", 10);
 	lo.logicThread = boolOpt(options, "logic_thread", m_logicThreadDefault);

@@ -2,6 +2,7 @@
 // See GameClient/LiveGame.h.
 
 #include "GameClient/LiveGame.h"
+#include "GameClient/LinearCampaign.h"
 #include "GameLogic/Sdk/SdkScriptHost.h"
 
 #include "GameClient/FrameCensus.h"
@@ -887,6 +888,36 @@ double LiveGame::alpha() const
 		return ((double)(m_nextPhase - 1) + m_tickClock.getAlpha()) / 6.0;
 	}
 	return m_clock.getAlpha();
+}
+
+bool LiveGame::campaignCarryoverOptions(const LinearCampaign &campaign, int mission, const std::string &carryText, Options &lo, std::string &stop,
+										std::string &error)
+{
+	if (mission < 0 || mission >= (int)campaign.missions.size())
+	{
+		error = "no mission " + std::to_string(mission) + " in the campaign '" + campaign.name + "'";
+		return false;
+	}
+	if (!carryText.empty())
+	{
+		if (!CampaignCarryover::State::parse(carryText, lo.carryover, &error))
+		{
+			return false;
+		}
+		lo.campaignCarryover = true;
+	}
+	else if (mission == 0)
+	{
+		lo.carryover = CampaignCarryover::beginCampaign(campaign.carryoverUnits);
+		lo.campaignCarryover = true;
+	}
+	else
+	{
+		stop = "[S-4904] mission " + std::to_string(mission) + " of " + campaign.name +
+			   " started on its own: no campaign carry-over (the previous missions' units and the player's carried sciences are not there)";
+	}
+	lo.carryoverDelayed = campaign.missions[(size_t)mission].delayCarryover;
+	return true;
 }
 
 int LiveGame::advance(double seconds)

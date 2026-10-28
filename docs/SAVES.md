@@ -1024,6 +1024,26 @@ and T3 (Linux and Windows bytes equal) cover it.
 - **War of the Ring battles:** not supported by this build (no War of the Ring battle start), so not in T1.
 - **Stops:** S-5010 .. S-5014.
 
+### BFME2CAMP1: the campaign, tutorial and rebuild-hole state (lane BFME2CAMP1, PR #137)
+
+Every new field is versioned, and a block writes its new version only when the state it adds exists: games without that state keep their old bytes and hashes. Every older version loads, with the new field at its default.
+
+| Where | Block / class | Version | Field (type) | An older save loads with |
+|---|---|---|---|---|
+| Save header (`SaveGameFile`) | header | 4 | `campaignCarryover` (string: `CampaignCarryover::State::serialize`, "" for none); refused in a skirmish save or when it does not parse | versions 1 to 3: "" (no carry-over step at the mission's start) |
+| `GameLogicSnapshot.cpp` | obfme:GameLogic | 3 (written with a buildability override or a carry-over state) | the script buildability overrides (count; each: template name string, status int 0..3); the campaign carry-over state (bool present; the serialized state string) | versions 1 and 2: no overrides, no carry-over state |
+| `Object.cpp` | Object | 2 | the campaign carry-over bit (bool, Object + 0x458 bit 4) | version 1: false |
+| `Team.cpp` | the team prototypes | 2 (written when a prototype names an attack priority set) | each prototype's attack priority set name (string) | version 1: no name |
+| `ScriptEngineXfer.cpp` | the script engine | 4 (written once a script edited the attack priorities) | the attack priority sets (bool; count; each: name string, default int, the template priorities as name / int pairs) | versions 2 and 3: the table as the map's INI made it |
+| `AIUpdateSnapshot.cpp` | AIUpdateInterface | 3 (an area guard or an attack info override), 4 (a team guard) | v3: the area to guard (int, checked against the map's areas), the attack info override (bool + name string); v4: the team to guard (team id) | versions 1 and 2: no area, no override; version 3: no team |
+| `AIUpdateSnapshot.cpp` | DozerAIUpdate | 3 | the rebuild flag (bool, + 0x4D0) | versions 1 and 2: false |
+| `AIStateMachineSnapshot.cpp` | the AI state machine | 2 (written with a goal squad) | the goal squad (bool; the member ids) | version 1: no squad |
+| `AIGuard.cpp` | the guard machine | 2 (an area guard), 3 (a team guard) | v2: the area (int, checked), its centre (coord) and centre flag (bool), the last area scan frame (uint); v3: the guarded team (team id) | version 1: no area; version 2: no team |
+| `RebuildHoleModules.cpp` | RebuildHoleExposeDie | 1 | the die module's part only | new class: an older save has none |
+| `RebuildHoleModules.cpp` | RebuildHoleBehavior | 1 (retail version 3's field order, RW 0x886669) | the update module's part; the worker, rebuilt structure and spawner ids (object ids); the frames to wait (uint); the worker and rebuild templates (name strings, a missing one refuses the load); the spawner's active flag (bool); its paid cost (real) | new class: an older save has none |
+
+The headless check (`openbfme_peer --load-save`) starts a campaign mission's save the way a real load does: the header's carry-over (or, for a first mission without one, the campaign's fresh records) and the mission's delayed list.
+
 ### Developer commands (current implementation)
 
 Linux / POSIX shell, from the repository root: the screen test needs a built

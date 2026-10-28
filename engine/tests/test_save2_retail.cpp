@@ -1460,9 +1460,27 @@ TEST_CASE("save2 retail T1 (SAVES.md), a script waiting on a timer: a campaign m
 	const std::string map = "map ang angmar";
 	UnsignedInt startFrame = 0, savedFrame = 0, lastFrame = 0;
 	std::uint32_t finalHash = 0;
+	// lane BFME2CAMP1 (review): the mission is started as GameWorld::start_campaign_mission starts it, the campaign's carry-over step included
+	// (LiveGame::campaignCarryoverOptions: mission 0 begins the campaign), and the save's header carries that start's carry-over text, as a real save
+	// does; openbfme_peer restores it from the header
+	LiveGame::Options o;
+	std::string carryText;
+	{
+		const LinearCampaign *campaign = s->world->linearCampaigns().find("ANGMAR_CAMPAIGN");
+		REQUIRE(campaign != nullptr);
+		std::string stop;
+		REQUIRE_MESSAGE(LiveGame::campaignCarryoverOptions(*campaign, 0, std::string(), o, stop, error), error);
+		carryText = o.campaignCarryover ? o.carryover.serialize() : std::string();
+	}
+	o.mapName = map;
+	o.campaign = true;
+	o.difficulty = 2;
 	{
 		Loaded g;
-		loadMission(*s, map, 2, g);
+		g.source = std::make_unique<ArchiveW3DFileSource>(*s->mount->fs);
+		g.assets = std::make_unique<WW3DAssetManager>(*g.source);
+		g.game = std::make_unique<LiveGame>(*s->world, *s->mount->fs, *g.assets, s->options);
+		REQUIRE_MESSAGE(g.game->load(o, &error), error);
 		ReplayWriter writer;
 		writer.setKeepCopy(true);
 		ReplayHeader h;
@@ -1500,6 +1518,7 @@ TEST_CASE("save2 retail T1 (SAVES.md), a script waiting on a timer: a campaign m
 		sh.campaign = "ANGMAR_CAMPAIGN";
 		sh.campaignMission = 0;
 		sh.campaignDifficulty = 2;
+		sh.campaignCarryover = carryText; // header version 4 (lane BFME2CAMP1)
 		sh.frame = savedFrame;
 		sh.stateHash = hash;
 		sh.mapPath = "maps/" + map + "/" + map + ".map";
@@ -1527,6 +1546,120 @@ TEST_CASE("save2 retail T1 (SAVES.md), a script waiting on a timer: a campaign m
 		CHECK(reportField(report, "load_mode") == (snapshot ? "snapshot" : "catch_up"));
 		CHECK(reportField(report, "catch_up_hashes") == (snapshot ? std::string("0") : std::to_string(savedFrame - startFrame)));
 		CHECK(reportField(report, "hashes_compared") == "3000");
+		CHECK(reportField(report, "mismatches") == "0");
+		CHECK(reportField(report, "final_hash") == want);
+	}
+	for (const std::string &p : { savePath, fullPath, reportPath })
+	{
+		std::remove(p.c_str());
+	}
+	(void)lastFrame;
+#endif
+}
+
+// lane BFME2CAMP1 (review): a campaign mission whose start spawns its carry-over (GOOD_CAMPAIGN's Rivendell: ElvenGlorfindel), saved and checked in a
+// fresh process. openbfme_peer must start the mission with the carry-over a real load restores (the header's campaignCarryover through
+// LiveGame::campaignCarryoverOptions, as GameWorld::start_campaign_mission does); without it the caught-up game has no Glorfindel and its hashes differ
+TEST_CASE("save2 retail T1, a campaign mission with its carry-over (BFME2CAMP1): GOOD_CAMPAIGN's Rivendell saved at frame F, checked in a fresh process "
+		  "from its snapshot and caught up from its log: the peer restores the header's carry-over, every later hash equal")
+{
+	OPENBFME_REQUIRE_START(s);
+#ifndef OPENBFME_PEER_EXE
+	MESSAGE("SKIP save2 retail T1 (a carry-over mission, fresh process): the openbfme_peer executable is not built");
+#else
+	std::string error;
+	const std::string profilePath = "save2_t1c_profile.txt", fullPath = "save2_t1c_full.replay", savePath = "save2_t1c.obfmesave",
+					  reportPath = "save2_t1c.report";
+	REQUIRE(runPeer("--profile-text " + profilePath) == 0);
+	const ProfileIdentity profile = ProfileIdentity::fromText(readText(profilePath));
+	std::remove(profilePath.c_str());
+	std::string map, campaignName, carryText;
+	LiveGame::Options o;
+	{
+		const LinearCampaign *campaign = s->world->linearCampaigns().find("GOOD_CAMPAIGN");
+		REQUIRE(campaign != nullptr);
+		REQUIRE(!campaign->missions.empty());
+		map = campaign->missions[0].map;
+		campaignName = campaign->name;
+		std::string stop;
+		REQUIRE_MESSAGE(LiveGame::campaignCarryoverOptions(*campaign, 0, std::string(), o, stop, error), error);
+		REQUIRE(o.campaignCarryover); // the first mission begins the campaign (beginCampaign RW 0x5EC4EC)
+		carryText = o.carryover.serialize(); // what GameWorld::start_campaign_mission keeps for a save (m_campaignStart.carryover)
+	}
+	o.mapName = map;
+	o.campaign = true;
+	o.difficulty = 1;
+	UnsignedInt startFrame = 0, savedFrame = 0, lastFrame = 0;
+	std::uint32_t finalHash = 0;
+	{
+		Loaded g;
+		g.source = std::make_unique<ArchiveW3DFileSource>(*s->mount->fs);
+		g.assets = std::make_unique<WW3DAssetManager>(*g.source);
+		g.game = std::make_unique<LiveGame>(*s->world, *s->mount->fs, *g.assets, s->options);
+		REQUIRE_MESSAGE(g.game->load(o, &error), error);
+		int carried = 0;
+		for (Object *obj = g.game->logic().getFirstObject(); obj; obj = obj->getNextObject())
+		{
+			carried += obj->isCampaignCarryover() ? 1 : 0;
+		}
+		REQUIRE(carried > 0); // tolerance: a precondition (the carry-over made its objects; Rivendell makes ElvenGlorfindel), not the value under test
+		ReplayWriter writer;
+		writer.setKeepCopy(true);
+		ReplayHeader h;
+		h.game.game.mapName = map; // as GameWorld::start_campaign_mission records a mission (its map directory)
+		h.profile = profile;
+		REQUIRE_MESSAGE(writer.open(fullPath, h, &error), error);
+		LockstepDriver driver(nullptr, &writer);
+		RegisterLogicCRCHandler(g.game->dispatch());
+		startFrame = g.game->frame();
+		g.game->setFrameDriver(&driver);
+		for (int i = 0; i < 60; ++i)
+		{
+			humanCommands(*g.game, g.game->commands(), false);
+			REQUIRE(g.game->advance(0.2) == 1);
+		}
+		g.game->drainFrames();
+		savedFrame = g.game->logic().getFrame();
+		const std::uint32_t hash = g.game->logic().computeStateHash();
+		SaveGameFile save;
+		REQUIRE_MESSAGE(writer.logUpTo(savedFrame, hash, save.log, &error), error);
+		REQUIRE_MESSAGE(g.game->logic().saveSnapshot(save.snapshot, &error), error);
+		SaveGameHeader &sh = save.header;
+		sh.buildVersion = BuildVersion::kVersion;
+		sh.engineId = ProfileIdentity::buildId();
+		sh.profile = profile;
+		sh.executionProfile = "enhanced";
+		sh.gameKind = 1;
+		sh.campaign = campaignName;
+		sh.campaignMission = 0;
+		sh.campaignDifficulty = 1;
+		sh.campaignCarryover = carryText; // header version 4
+		sh.frame = savedFrame;
+		sh.stateHash = hash;
+		sh.mapPath = "maps/" + map + "/" + map + ".map";
+		REQUIRE_MESSAGE(save.write(savePath, &error), error);
+		for (int i = 0; i < 300; ++i)
+		{
+			humanCommands(*g.game, g.game->commands(), false);
+			REQUIRE(g.game->advance(0.2) == 1);
+		}
+		g.game->drainFrames();
+		lastFrame = g.game->logic().getFrame();
+		finalHash = g.game->logic().computeStateHash();
+		writer.close(lastFrame, finalHash);
+		g.game->setFrameDriver(nullptr);
+	}
+	char want[64];
+	std::snprintf(want, sizeof(want), "0x%08X recorded 0x%08X", finalHash, finalHash);
+	for (bool snapshot : { true, false })
+	{
+		const int rc = runPeer("--load-save \"" + savePath + "\" --replay \"" + fullPath + "\" --report \"" + reportPath + "\"" + (snapshot ? "" : " --verify-log"));
+		const std::string report = readText(reportPath);
+		MESSAGE("fresh process report (" << (snapshot ? "from the snapshot" : "caught up from the log: the carry-over start") << "):\n" << report);
+		CHECK(rc == 0);
+		CHECK(reportField(report, "load_mode") == (snapshot ? "snapshot" : "catch_up"));
+		CHECK(reportField(report, "catch_up_hashes") == (snapshot ? std::string("0") : std::to_string(savedFrame - startFrame)));
+		CHECK(reportField(report, "hashes_compared") == "300");
 		CHECK(reportField(report, "mismatches") == "0");
 		CHECK(reportField(report, "final_hash") == want);
 	}
