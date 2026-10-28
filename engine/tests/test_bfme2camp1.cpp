@@ -36,6 +36,7 @@
 #include "GameLogic/ScriptEngine/ScriptEngine.h"
 #include "GameLogic/Economy.h"
 #include "GameLogic/ObjectTemplateInfo.h"
+#include "GameLogic/VictoryConditions.h"
 #include "GameLogic/WallSpan.h"
 #include "Common/Upgrade.h"
 #include "GameLogic/Object/RetailObjectWorld.h"
@@ -1982,6 +1983,50 @@ TEST_CASE("bfme2camp1 retail: a destroyed creep lair leaves its hole and is rebu
 	CHECK(m.unit("Spider Pit 01") == lair);
 	CHECK(lair->getName() == "Spider Pit 01");
 	CHECK(!lair->isUnderConstruction());
+}
+
+TEST_CASE("bfme2camp1 retail: a defeated player's structures leave no holes (Player + 0x754 is set before killPlayer's kill pass, RW 0x6ABE7C; "
+		  "RebuildHoleExposeDie's live-player test RW 0x889AF6): the creeps' GoblinCave and Spider Pits die without a hole, and nothing is rebuilt")
+{
+	OPENBFME_REQUIRE_START(s);
+	campaigntest::Mission m;
+	m.loadTutorial(*s, "map beginner tutorial");
+	m.step(2);
+	Object *pit = m.unit("Spider Pit 01");
+	REQUIRE(pit != nullptr);
+	Player *creeps = pit->getControllingPlayer();
+	REQUIRE(creeps != nullptr);
+	const ThingTemplate *caveTmpl = m.logic().things().findTemplate("GoblinCave");
+	REQUIRE(caveTmpl != nullptr);
+	Object *cave = m.logic().newObject(caveTmpl, pit->getTeam(), ObjectStatusMaskType{});
+	REQUIRE(cave != nullptr);
+	Coord3D at = *pit->getPosition();
+	at.x += 250.0f;
+	at.z = m.logic().getGroundHeight(at.x, at.y);
+	cave->setPosition(&at);
+	m.step(1);
+	auto holes = [&] {
+		int n = 0;
+		for (Object *o = m.logic().getFirstObject(); o; o = o->getNextObject())
+		{
+			n += (!o->isEffectivelyDead() && RebuildHoleBehavior::of(*o)) ? 1 : 0;
+		}
+		return n;
+	};
+	REQUIRE(holes() == 0); // precondition: no hole before
+	m.logic().victory().killPlayer(creeps);
+	CHECK(creeps->isDefeated());
+	m.step(1);
+	CHECK(holes() == 0); // the player was defeated before its objects died: no RebuildHoleExposeDie fired
+	m.step(800);         // past WorkerRespawnDelay (600 frames)
+	int rebuilt = 0;
+	for (Object *o = m.logic().getFirstObject(); o; o = o->getNextObject())
+	{
+		const std::string n = static_cast<const ThingTemplate *>(o->getTemplate())->getName();
+		rebuilt += (o->getControllingPlayer() == creeps && !o->isEffectivelyDead() && (n == "GoblinCave" || n == "SpiderLair")) ? 1 : 0;
+	}
+	CHECK(holes() == 0);
+	CHECK(rebuilt == 0);
 }
 
 TEST_CASE("bfme2camp1 retail: a hole with a WorkerObjectName rebuilds through its worker (RebuildHoleBehavior RW 0x8868C2 -> the worker's AI slot 0x1F8, "
