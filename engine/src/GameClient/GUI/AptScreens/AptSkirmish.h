@@ -100,7 +100,7 @@ public:
 	GameWindow *profileComboWindow() const { return m_bfme1ProfileCombo; }
 	GameWindow *mapTypeWindow() const { return m_bfme1MapType; }
 	bool bfme1OfficialMaps() const { return m_bfme1OfficialMaps; }
-	void recordsChanged() { refreshBfme1ProfileDisplay(); }
+	void recordsChanged();
 	// lane END-1: dead gadgets are dropped first (a window the movie's popup already destroyed must not be handed out: the lobby hook wrote into one)
 	GameWindow *profileEntryWindow()
 	{

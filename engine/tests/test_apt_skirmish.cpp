@@ -2766,6 +2766,10 @@ TEST_CASE("bfme1 skirmish profile: BFME2 data does not receive BFME1 profile rec
 	CHECK(fixture.screen->profileComboWindow() == nullptr);
 	CHECK(fixture.screen->mapTypeWindow() == nullptr);
 	CHECK(fixture.windows.aptImage("CreateComponents/ImageLevelIconMain") == nullptr);
+	const auto images = fixture.screen->mapListImages();
+	fixture.screen->recordsChanged();
+	CHECK(fixture.screen->mapListImages() == images);
+	CHECK(fixture.value("APT:PlayerNameNum") == "<unset>");
 	REQUIRE(fixture.screen->profileEntryWindow());
 	GadgetTextEntrySetText(fixture.screen->profileEntryWindow(), u"BFME2New");
 	REQUIRE(fixture.windows.invokeCallback("AptSkirmish::OnAddProfileAccept", ""));
@@ -2800,6 +2804,82 @@ TEST_CASE("bfme1 skirmish profile: new personas persist their real creation date
 	fixture.choose(fixture.screen->profileComboWindow(), 1);
 	CHECK(fixture.value("APT:SkirmishProfileCreatedNum") == "--");
 	CHECK_FALSE(std::filesystem::exists(fixture.folder / "BobSkirmishStats.ini"));
+}
+
+TEST_CASE("bfme1 skirmish profile: recreating a deleted persona does not inherit its statistics")
+{
+	Bfme1ProfileFixture fixture;
+	fixture.choose(fixture.screen->slotGadget(0, "PlayerTemplate"), 1);
+	CHECK(fixture.value("APT:TotalCareerWinsNum") == "7");
+	std::ofstream(fixture.folder / "AliceSkirmishStats.ini", std::ios::app) << "OpenBFMERecordedGame:deleted-game = 1\n";
+	fixture.choose(fixture.screen->profileComboWindow(), 3);
+	REQUIRE(fixture.windows.invokeCallback("AptSkirmish::Skirmish::PersonaRemove", ""));
+	REQUIRE(fixture.profiles->current() == u"Bob");
+	fixture.choose(fixture.screen->profileComboWindow(), 1);
+	REQUIRE(fixture.screen->profileEntryWindow());
+	GadgetTextEntrySetText(fixture.screen->profileEntryWindow(), u"Alice");
+	REQUIRE(fixture.windows.invokeCallback("AptSkirmish::OnAddProfileAccept", ""));
+	REQUIRE(fixture.profiles->current() == u"Alice");
+	fixture.choose(fixture.screen->slotGadget(0, "PlayerTemplate"), 1);
+	for (const char *label : { "APT:TotalCareerWinsNum", "APT:TotalCareerLossesNum", "APT:TotalCareerGamesNum", "APT:CurrentWinStreakNumA", "APT:BestWinStreakNumA" })
+		CHECK(fixture.value(label) == "0");
+	CHECK(fixture.value("APT:CurrentLevelFormat") == "Level 1");
+	CHECK(fixture.value("APT:TotalTimePlayedNum") == "0 days 0 hours");
+	CHECK(fixture.movieValue("profileProgress") == "0");
+	CHECK(fixture.screen->mapListImages() == std::vector<std::string>(4, "AptDifficultyNotConquered"));
+	fixture.choose(fixture.screen->slotGadget(0, "PlayerTemplate"), 2);
+	CHECK(fixture.value("APT:TotalCareerWinsNum") == "0");
+	CHECK(fixture.value("APT:CurrentLevelFormat") == "Level 1");
+	OptionPreferences saved;
+	std::string error;
+	REQUIRE_MESSAGE(saved.load((fixture.folder / "AliceSkirmishStats.ini").string(), &error), error);
+	CHECK(saved.values().size() == 1);
+	CHECK(saved.get("ProfileCreatedDate") == fixture.value("APT:SkirmishProfileCreatedNum"));
+	CHECK(saved.get("ProfileCreatedDate") != "2025-04-17");
+	CHECK_FALSE(saved.has("OpenBFMERecordedGame:deleted-game"));
+	SkirmishPreferences reopened((fixture.folder / "Skirmish.ini").string());
+	CHECK(reopened.current() == u"Alice");
+	CHECK(reopened.profileValue(0, "OpenBFMEProfileCreatedDate") == saved.get("ProfileCreatedDate"));
+}
+
+TEST_CASE("bfme1 skirmish profile: switching personas refreshes map badges and preserves map selection and filter")
+{
+	Bfme1ProfileFixture fixture;
+	const auto keys = fixture.screen->mapListKeys();
+	const auto images = fixture.screen->mapListImages();
+	REQUIRE(keys.size() == 4);
+	auto selectMap = [&](int row) {
+		fixture.layer.gadgets().winSendSystemMsg(fixture.screen->ownerWindow(), GLM_SELECTED, msgData(fixture.screen->mapListWindow()), (WindowMsgData)row);
+	};
+	selectMap(0);
+	fixture.choose(fixture.screen->profileComboWindow(), 1);
+	selectMap(1);
+	fixture.choose(fixture.screen->profileComboWindow(), 0);
+	auto checkSelection = [&](const std::string &map) {
+		CHECK(fixture.screen->setup()->info().mapName == map);
+		const auto &currentKeys = fixture.screen->mapListKeys();
+		const auto selected = std::find(currentKeys.begin(), currentKeys.end(), map);
+		REQUIRE(selected != currentKeys.end());
+		int row = -1;
+		GadgetListBoxGetSelected(fixture.screen->mapListWindow(), &row);
+		CHECK(row == (int)std::distance(currentKeys.begin(), selected));
+	};
+	checkSelection(keys[0]);
+	fixture.choose(fixture.screen->profileComboWindow(), 1);
+	CHECK(fixture.screen->mapListKeys() == keys);
+	CHECK(fixture.screen->mapListImages() == std::vector<std::string>(4, "AptDifficultyNotConquered"));
+	checkSelection(keys[1]);
+	fixture.choose(fixture.screen->profileComboWindow(), 0);
+	CHECK(fixture.screen->mapListKeys() == keys);
+	CHECK(fixture.screen->mapListImages() == images);
+	checkSelection(keys[0]);
+	fixture.choose(fixture.screen->mapTypeWindow(), 1);
+	fixture.choose(fixture.screen->profileComboWindow(), 1);
+	CHECK_FALSE(fixture.screen->bfme1OfficialMaps());
+	CHECK(fixture.screen->mapListKeys() == std::vector<std::string>{ "maps/custom/custom.map" });
+	CHECK(fixture.screen->mapListImages() == std::vector<std::string>{ "AptDifficultyNotConquered" });
+	fixture.choose(fixture.screen->mapTypeWindow(), 0);
+	CHECK(fixture.screen->mapListImages() == std::vector<std::string>(4, "AptDifficultyNotConquered"));
 }
 
 TEST_CASE("bfme1 skirmish profile: recorded matches persist per-profile faction statistics once and refresh the display")
@@ -2881,8 +2961,16 @@ TEST_CASE("bfme1 skirmish profile: rank points and hard-glow honors require a ma
 	REQUIRE(saved.load(path, &error));
 	saved.erase("maps\\fords\\fords.map_5");
 	REQUIRE(saved.save(path, &error));
+	const auto keys = fixture.screen->mapListKeys();
+	const auto found = std::find(keys.begin(), keys.end(), record.map);
+	REQUIRE(found != keys.end());
+	const std::size_t row = (std::size_t)std::distance(keys.begin(), found);
+	fixture.screen->recordsChanged();
+	CHECK(fixture.screen->mapListImages()[row] == "AptDifficultyNotConquered");
 	REQUIRE_MESSAGE(Bfme1SkirmishProfiles::recordGame(*fixture.profiles, fixture.setup, record, &error, &game), error);
 	fixture.screen->recordsChanged();
+	CHECK(fixture.screen->mapListKeys() == keys);
+	CHECK(fixture.screen->mapListImages()[row] == "AptDifficultyHardGlowConquered");
 	CHECK(fixture.value("APT:CurrentLevelFormat") == "Level 3");
 	CHECK(fixture.value("APT:NextWinsNumber") == "17 wins");
 	CHECK(fixture.movieValue("profileProgress") == "15");

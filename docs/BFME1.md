@@ -118,6 +118,7 @@ These are the places where BFME1's data or menus differ from RotWK's. Each one i
 - **Skirmish presentation:** gadget atlases use BFME1's flat `art/textures` packed textures, including TGA data stored under `.dds` names. The map list uses the retail two-column
   badge/count-bearing-name layout and BFME1 difficulty badges; the profile and map-type dropdowns bind their actual choices. Profile text,
   faction presentation and rank read the selected profile's `SkirmishStats.ini`; unavailable historical values are not invented.
+  New personas start with fresh statistics even when reusing a deleted name; map badges refresh with profile changes and recorded results.
 - **Texture replacements:** PNG/JPEG files are accepted by BFME1 texture lookup (including `GBCampFloor`), and image signatures are recognized even when replacements retain `.dds` filenames.
 - **Palantir commands:** BFME1 uses six fixed `CommandButtons.Command1` … `Command6` slots and `SetCommandButtonState`, rather than BFME2's dynamic content frames. Slot state updates only run when content changes, so show animations can finish.
 - **Command tooltips:** BFME1's legacy cursor blocks are skipped to their `End` when loading help fonts. A native help panel displays the existing command-help text because BFME1 has no BFME2 `OnHelpBoxLoaded` content-frame callback.

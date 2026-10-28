@@ -403,7 +403,6 @@ bool Bfme1SkirmishProfiles::create(SkirmishProfileStore &profiles, std::time_t c
 	if (profiles.folder().empty()) return true;
 	const std::string path = profiles.folder() + OnlineLobbyClient::utf16ToUtf8(profiles.current()) + "SkirmishStats.ini";
 	OptionPreferences stats;
-	if (!loadBfme1Stats(path, stats, error)) return false;
 	stats.set("ProfileCreatedDate", date);
 	return stats.save(path, error);
 }

@@ -3073,6 +3073,16 @@ void AptSkirmish::applyProfileName()
 	refreshSlot(0);
 }
 
+void AptSkirmish::recordsChanged()
+{
+	if (isHidden() || m_lan || !m_env.fileSystem || !isBfme1Data(*m_env.fileSystem)) return;
+	pruneDeadGadgets();
+	if (m_mapList && m_setup)
+		populateMapList();
+	else
+		refreshBfme1ProfileDisplay();
+}
+
 void AptSkirmish::refreshProfileList()
 {
 	// lane END-1: a covered or closing screen (runShutdown: the load screen pushed over it, the shell popping it) leaves its gadgets alone; its movie still runs
@@ -3083,7 +3093,7 @@ void AptSkirmish::refreshProfileList()
 	}
 	pruneDeadGadgets();
 	refreshBfme1ProfileCombo();
-	refreshBfme1ProfileDisplay();
+	recordsChanged();
 	// BFME1 SkirmishScreenRefreshProfile.cpp: reset, one row per profile, the current one selected
 	if (!m_profileList)
 	{
