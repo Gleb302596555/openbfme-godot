@@ -215,7 +215,7 @@ def test_a_house_colour_texture_carries_the_team_region_in_its_alpha():
     # texels 0 or 255) whose red channel is the shading to tint inside it (about 0 outside)
     import bigfs
 
-    width, height, bgra = _tga32(bigfs.Mount().read("art\compiledtextures\hc\hc_acolyte.tga"))
+    width, height, bgra = _tga32(bigfs.Mount().read("art/compiledtextures/hc/hc_acolyte.tga"))
     alpha = bgra[3::4]
     red = bgra[2::4]
     assert (width, height) == (64, 64)
