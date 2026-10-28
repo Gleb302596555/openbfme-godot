@@ -753,6 +753,13 @@ void GameWorld::clear_scene()
 	}
 }
 
+// lane GLOW-1 (S-5231): a model draw module's GlowEnabled / GlowEmissive (module data + 0x128 / + 0x129, RW 0x4C518B): 0 none, 1 glows, 2 glows emissive only
+static int staticGlowOf(const ModuleData *data)
+{
+	const W3DModelDrawModuleData *md = dynamic_cast<const W3DModelDrawModuleData *>(data);
+	return md && md->m_glowEnabled ? (md->m_glowEmissive ? 2 : 1) : 0;
+}
+
 // stops S-115 / S-5015: a W3DFloorDraw's WeatherTexture of the map's weather (the first entry, as RW 0x4CFA9A picks a streak's) replaces the floor model's
 // texture: every texture of the model ("*"; 92 of the 96 retail floor models that set one have a single texture, the other four none or one name the
 // extractor split). INFERENCE: the floor draw's own routine was not read. Empty for any other draw module or when no entry has the weather.
@@ -1941,6 +1948,11 @@ void GameWorld::refresh_views(double deltaMs)
 					ev.staticKeyColored = m_houseColors && ev.staticKeyPalette.kind > 0;
 					ev.staticKeySwaps = e.kind == W3D_DRAWKIND_FLOOR ? floorWeatherSwaps(e.data, m_streakWeather) : std::vector<std::pair<std::string, std::string>>();
 					ev.staticKey = AsciiStringUtil::lowered(e.staticModel) + W3DInstancer::Texture_Swap_Suffix(ev.staticKeySwaps);
+					ev.staticGlow = staticGlowOf(e.data); // lane GLOW-1 (S-5231): a glowing module's model is a copy of its own, as on the animated path
+					if (ev.staticGlow != 0)
+					{
+						ev.staticKey += ev.staticGlow == 2 ? "|glow-emissive" : "|glow";
+					}
 					if (ev.staticKeyColored)
 					{
 						const HouseColorParams &pp = ev.staticKeyPalette;
@@ -1974,6 +1986,10 @@ void GameWorld::refresh_views(double deltaMs)
 						 PackedInt64Array colors;for(auto color:palette.colors) colors.push_back((int64_t)color);
 						 mid=dyn->add_model_colored(toGodot(e.staticModel),palette.kind,colors);
 						} else mid = dyn->add_model(toGodot(e.staticModel));
+						if (mid >= 0 && ev.staticGlow != 0)
+						{
+							dyn->set_model_glow(mid, ev.staticGlow == 2);
+						}
 						m_dynamicModels[model] = mid;
 						m_lastNewModelMs = timing::sumMs(m_lastNewModelMs, timing::elapsedMs(tm));
 						++m_lastNewModels;

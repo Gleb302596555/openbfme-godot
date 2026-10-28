@@ -698,6 +698,7 @@ private:
 		bool staticKeyHouse = false;        ///< m_houseColors when it was made
 		std::uint32_t staticKeyOwner = 0, staticKeyCustom[3] = { 0u, 0u, 0u };
 		std::string staticKey;             ///< the key
+		int staticGlow = 0;                ///< lane GLOW-1: the static model's glow flags (0 none, 1 glow, 2 emissive only), part of staticKey
 		HouseColorParams staticKeyPalette; ///< and what it was made from (used when a new model is built)
 		bool staticKeyColored = false;
 		std::vector<std::pair<std::string, std::string>> staticKeySwaps;

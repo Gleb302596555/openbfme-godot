@@ -277,6 +277,8 @@ func _run() -> int:
 	var code := await _grade_part(vp, cam)
 	if code == EXIT_PASS:
 		code = await _whip_part()
+	if code == EXIT_PASS:
+		code = await _world_part()
 	vp.queue_free()
 	await _frames(2)
 	if code != EXIT_PASS:
@@ -406,5 +408,66 @@ func _whip_part() -> int:
 	var after := _frame_light(lit)
 	_check(after > before + 5.0, "whip: the glow-flagged model lights the frame (%.1f vs %.1f)" % [after, before])
 	vp.queue_free()
+	await _frames(2)
+	return EXIT_PASS
+
+
+## the game world end to end: environment.ini's block is the world's active GlowEffect, the map's glow host is configured from it, a MordorRingWraith
+## (obsolete/ringwraith.ini: GlowEnabled = Yes) is drawn from a model of its own on the glow layer, and GameWorld.set_effects_lod reaches the host
+func _world_part() -> int:
+	if OS.get_environment("ROTWK_INSTALL").is_empty() or OS.get_environment("BFME2_INSTALL").is_empty():
+		print("  SKIP the game world part: ROTWK_INSTALL / BFME2_INSTALL not set")
+		return EXIT_PASS
+	var fs: RefCounted = ClassDB.instantiate("RetailFileSystem")
+	if not fs.mount_retail().ok:
+		_check(false, "mount_retail")
+		return EXIT_FAIL
+	var world: Node3D = ClassDB.instantiate("GameWorld")
+	root.add_child(world)
+	var setup: Dictionary = world.setup(fs)
+	var loaded: Dictionary = world.load_map("map good celduin", {"seed": 5}) if setup.ok else {"ok": false}
+	_check(setup.ok and loaded.ok, "world: setup and load_map %s" % [setup.get("errors", [])])
+	if not (setup.ok and loaded.ok):
+		world.queue_free()
+		return EXIT_FAIL
+	var cam := Camera3D.new()
+	cam.far = 60000.0
+	cam.position = Vector3(800.0, 400.0, 900.0)
+	world.add_child(cam)
+	cam.current = true
+	var host: Node3D = world.get_glow_host()
+	_check(host != null, "world: the loaded game has a glow host")
+	if host == null:
+		world.queue_free()
+		return EXIT_FAIL
+	var terrain: Node = world.get_node_or_null("Terrain") # load_map builds no terrain: no grade host either
+	var graded: bool = terrain != null and terrain.get_node_or_null("PostEffects") != null
+	var st: Dictionary = host.get_glow_stats()
+	_check(st.glow_enabled and int(st.kernel_samples) == 16 and int(st.texture_width) == 256 and str(st.problem).is_empty(), "world: environment.ini's block is configured (%s)" % [st])
+	_check(PackedStringArray(loaded.get("stops", [])).has("S-5231"), "world: the load report names the stop S-5231")
+	var id: int = world.create_object("MordorRingWraith", 0, 800.0, 800.0, 0.0)
+	world.advance(0.2) # publish the creation event and resolve its draw model
+	_check(id >= 0, "world: a MordorRingWraith is created")
+	await _frames(6) # the render side draws the new drawable
+	var live := world.get_node_or_null("LiveObjects")
+	var glowing := 0
+	var plain := 0
+	for c in live.get_children():
+		if c is MultiMeshInstance3D and (c as MultiMeshInstance3D).multimesh.visible_instance_count > 0:
+			if ((c as MultiMeshInstance3D).layers & GLOW_LAYER) != 0:
+				glowing += 1
+			else:
+				plain += 1
+	_check(glowing > 0, "world: the ring wraith's draws are on the glow layer (%d glowing, %d plain draws with instances)" % [glowing, plain])
+	await _frames(6)
+	var expected := "color_grade" if graded else "glow"
+	_check(host.get_choice() == expected, "world: UltraHigh, %s (%s)" % [expected, host.get_choice()])
+	world.set_effects_lod(1)
+	await _frames(4)
+	_check(host.get_choice() == "none" and host.get_effects_lod() == 1, "world: GameWorld.set_effects_lod(Low) reaches the host (%s)" % host.get_choice())
+	world.set_effects_lod(3)
+	await _frames(4)
+	_check(host.get_choice() == expected, "world: High: %s again" % expected)
+	world.queue_free()
 	await _frames(2)
 	return EXIT_PASS
