@@ -77,6 +77,7 @@
 #include "GameLogic/Module/DozerAIUpdate.h"
 #include "GameLogic/Economy.h"
 #include "GameLogic/Construction.h"
+#include "GameClient/ShroudTexel.h"
 #include "GameLogic/SimMath.h"
 #include "GameLogic/Damage.h"
 #include "GameClient/LogicSnapshot.h"
@@ -5575,8 +5576,10 @@ Dictionary GameWorld::get_spellbook(int64_t player) const
 // ---- VIS-1: the shroud on the client ----------------------------------------------------------------------------------------------
 // TARGET FACTS: the local player's cell edges reach the display and the radar through the shroud manager's callback (RW + 0x6C, RW 0xB52E10); GameData ClearAlpha
 // (255, the constructor), FogAlpha 127 and ShroudAlpha 0 are the cell's level ("0 is opaque, 255 is clear", gamedata.ini) and ShroudColor 255 255 255.
-// INFERENCE (stop S-567): one texel per cell, bilinear filtering, the terrain colour multiplied by level / 255 (maps-and-terrain spec 3.9: `out.rgb = col * shroud.r`);
-// retail's W3DShroud filtering was not read; a fogged object that is drawn is lit by the fogged light (lane VISUAL-2, S-4970).
+// lane TERRAIN-SAMPLING (stop S-567), TARGET FACTS: one texel per cell, bilinear (terrain.fxo ShroudSampler: Min/Mag/Mip LINEAR, clamp); the texel is W3DShroud's A4R4G4B4
+// pixel (RW 0x47266B, GameClient/ShroudTexel.h) and the effect multiplies the colour by its red channel only (`mul r0.xyz, r0.x, r1`): a 4-bit value, so the fog level 127
+// reads 7/15 = 0.467, not 127 / 255. The texture holds that nibble times 17 (the byte Direct3D expands a nibble to) and the shaders' multiplier stays white, ShroudColor being
+// inside the nibble. INFERENCE: the water, river and road shaders read the same red byte; a fogged object that is drawn is lit by the fogged light (lane VISUAL-2, S-4970).
 // lane ZOOM-1, the border. TARGET FACTS (tier A, identical to BFME2 1.06 per tools/re/rw2decomp.py): the shroud's render body RW 0x472EF4 (BFME2 0x473628)
 // fills the whole texture once with the border level (W3DShroud + 0x36, the constructor's GlobalData ShroudAlpha) through RW 0x472792 (BFME2 0x472E84, ZH
 // fillBorderShroudData: the level raised to at least ShroudAlpha, the texel of RW 0x47266B / BFME2 0x472D5D) and copies the cells at texel (1, 1); W3DShroud::init
@@ -5664,14 +5667,21 @@ void GameWorld::refresh_shroud(bool force, double dtMs)
 	}
 	// lane ZOOM-1: the texture is the cells plus a one-texel border at the border level (see above)
 	const int tw = nx + 2, th = ny + 2;
+	// RW 0x47266B: the texel is the level packed into an A4R4G4B4 pixel (ShroudTexel.h), so the byte is the red nibble times 17 (the border and every cell)
+	const ShroudTexel::Colour texelColour{ vs.shroudRed, vs.shroudGreen, vs.shroudBlue };
+	const auto texelOf = [&texelColour](uint8_t level) { return ShroudTexel::redByte(level, texelColour); };
 	PackedByteArray bytes;
 	bytes.resize((int64_t)tw * th);
 	uint8_t *w = bytes.ptrw();
-	std::memset(w, border, (size_t)tw * (size_t)th);
+	std::memset(w, texelOf(border), (size_t)tw * (size_t)th);
 	const uint8_t *cur = m_shroudFade.currentLevels().data();
 	for (int y = 0; y < ny; ++y)
 	{
-		std::memcpy(w + (size_t)(y + 1) * (size_t)tw + 1, cur + (size_t)y * (size_t)nx, (size_t)nx);
+		uint8_t *row = w + (size_t)(y + 1) * (size_t)tw + 1;
+		for (int x = 0; x < nx; ++x)
+		{
+			row[x] = texelOf(cur[(size_t)y * (size_t)nx + (size_t)x]);
+		}
 	}
 	Ref<Image> img = Image::create_from_data(tw, th, false, Image::FORMAT_L8, bytes);
 	bool newTexture = false;
@@ -5693,7 +5703,8 @@ void GameWorld::refresh_shroud(bool force, double dtMs)
 	// lane ZOOM-1: texel 0 is the border, one cell before the grid's origin
 	const Vector2 origin(SimMath::subf32(sm.originX, sm.cellSize), SimMath::subf32(sm.originY, sm.cellSize));
 	const Vector2 extent(SimMath::mulf32(sm.cellSize, (float)tw), SimMath::mulf32(sm.cellSize, (float)th)); // the audited file's float rule (client values)
-	const Color color(vs.shroudRed, vs.shroudGreen, vs.shroudBlue);
+	// the colour is inside the texel's red channel (RW 0x47266B; the terrain effect reads only .r), so the shaders' multiplier stays white
+	const Color color(1.0f, 1.0f, 1.0f);
 	// lane VISUAL-2: the fogged light fraction, RW 0x46DFD0 / 0x46F533: (float) GlobalData + 0xBE9 (FogAlpha) / (float) + 0xBE8 (ClearAlpha); a ClearAlpha of 0
 	// divides by zero as retail's divss does
 	W3D_Set_Fogged_Light_Frac(SimMath::divf32((float)vs.fogAlpha, (float)vs.clearAlpha));
