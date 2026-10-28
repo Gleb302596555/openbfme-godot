@@ -848,6 +848,11 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// window), seed 7 is now open at 9000 (the Men's defeat at 4533 before), seed 1234 stays open at 9000. At the merge points seed 7's defeat moved to 8399
 	// (DEVPORT-SIM), the game stayed open from PATHPRIO-1 on (as that lane measured), community #113 ended seed 1234 at 7647, IDLEMOTION-1 seed 7 at 7924
 	// (1234 open again); with FBSIM-1 all three are open. Engine pins, not retail values.
+	// Lane BFME2CAMP1 on main's tree (the rebuild holes, RebuildHoleExposeDie RW 0x889AAF / RebuildHoleBehavior RW 0x8868C2: a destroyed creep lair leaves its
+	// hole, an attackable structure, and is rebuilt with its creeps after 120 s; measured on a CI host, the test alone): all three games stay open at 9000,
+	// seed 2 with a new table. KNOWN ISSUE in seed 2 (under investigation, not a retail value): from frame 6602 the Men's FormationAttack squad holds at
+	// (1205, 2405) on a BarrowWightLair it never damages (fighting 0) and the Mordor side runs out of money, so the table is flat from 7000. A horde ordered
+	// onto a creep lair in a retail test does not damage it either, before any hole exists. Engine pins, not retail values.
 	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, -1, -1 }, Game{ "FactionMordor", "FactionMen", 1234u, -1, -1 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
@@ -873,15 +878,15 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 			// RW 0x86EE52's windows): seed 2's table moves (fewer units built, other fights); the three games stay open at 9000
 			// merge queue q29: seed 2's table (both sides keep attacking, building and destroying through the windows; a sample every 1000 frames, cumulative)
 			CHECK(run.progress ==
-		"frame 1000: [0 attacks 0 built 72u/8s destroyed 25u/2s] [1 attacks 0 built 75u/8s destroyed 35u/1s]\n"
-		"frame 2000: [0 attacks 1 built 260u/11s destroyed 116u/3s] [1 attacks 1 built 169u/10s destroyed 138u/4s]\n"
-		"frame 3000: [0 attacks 1 built 408u/12s destroyed 208u/4s] [1 attacks 2 built 306u/11s destroyed 337u/4s]\n"
-		"frame 4000: [0 attacks 4 built 595u/14s destroyed 301u/5s] [1 attacks 2 built 365u/14s destroyed 501u/4s]\n"
-		"frame 5000: [0 attacks 5 built 788u/16s destroyed 457u/5s] [1 attacks 3 built 512u/15s destroyed 673u/5s]\n"
-		"frame 6000: [0 attacks 7 built 986u/16s destroyed 573u/5s] [1 attacks 3 built 653u/15s destroyed 919u/6s]\n"
-		"frame 7000: [0 attacks 10 built 1186u/16s destroyed 630u/5s] [1 attacks 5 built 723u/18s destroyed 1175u/6s]\n"
-		"frame 8000: [0 attacks 11 built 1317u/17s destroyed 771u/6s] [1 attacks 5 built 833u/19s destroyed 1258u/6s]\n"
-		"frame 9000: [0 attacks 12 built 1418u/18s destroyed 849u/10s] [1 attacks 5 built 947u/22s destroyed 1385u/6s]\n");
+		"frame 1000: [0 attacks 0 built 72u/8s destroyed 24u/3s] [1 attacks 0 built 76u/8s destroyed 22u/1s]\n"
+		"frame 2000: [0 attacks 1 built 274u/10s destroyed 154u/3s] [1 attacks 1 built 212u/10s destroyed 190u/2s]\n"
+		"frame 3000: [0 attacks 3 built 441u/12s destroyed 253u/3s] [1 attacks 2 built 309u/12s destroyed 340u/4s]\n"
+		"frame 4000: [0 attacks 4 built 611u/16s destroyed 348u/4s] [1 attacks 4 built 398u/14s destroyed 497u/6s]\n"
+		"frame 5000: [0 attacks 4 built 726u/17s destroyed 418u/5s] [1 attacks 5 built 506u/16s destroyed 617u/8s]\n"
+		"frame 6000: [0 attacks 5 built 837u/18s destroyed 488u/5s] [1 attacks 7 built 588u/17s destroyed 810u/9s]\n"
+		"frame 7000: [0 attacks 6 built 901u/18s destroyed 527u/7s] [1 attacks 7 built 604u/20s destroyed 878u/12s]\n"
+		"frame 8000: [0 attacks 6 built 901u/18s destroyed 533u/7s] [1 attacks 7 built 650u/23s destroyed 878u/12s]\n"
+		"frame 9000: [0 attacks 6 built 901u/19s destroyed 533u/7s] [1 attacks 7 built 650u/27s destroyed 878u/12s]\n");
 		}
 	}
 }

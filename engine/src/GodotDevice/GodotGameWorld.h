@@ -388,6 +388,11 @@ public:
 	Dictionary debug_script_team(const String &name);
 	Dictionary debug_script_place_at(const String &name, double x, double y);
 	Dictionary debug_script_kill_team(const String &name);
+	// lane BFME2CAMP1 (test_hooks only, never in a network game): a named unit (`team` false) or every live member of a script team (`team` true) ordered
+	// to a point as a player's move (aiMoveToPosition, CMD_FROM_PLAYER), or teleported there (Object::teleportTo without keeping the AI: it idles and
+	// drops its path, RW 0x696E63); { ok, count }
+	Dictionary debug_script_move_to(const String &name, bool team, double x, double y);
+	Dictionary debug_script_teleport(const String &name, bool team, double x, double y);
 	static void bindScriptMethods();
 	// ---- lane CHEAT-1 (GodotDevice/GodotGameWorldCheats.cpp): the open Cheat Mode (GameLogic/CheatMode.h; the API: docs/CHEAT_MODE.md) ----
 	// { enabled, seat_slot, seat_player, seat_name, local_is_seat, voided, executed, refused, label }
@@ -411,6 +416,7 @@ public:
 	// logic_thread, progress, test_hooks, record_memory (lane SAVE-2: the mission is recorded in memory so it can be saved) }; the report of start_new_game plus "start" { local_player, local_player_index, camera_start (the map's
 	// InitialCameraPosition waypoint, else Player_1_Start), slot_players [], starting_objects [] } and "mission" (the mission's record)
 	Dictionary start_campaign_mission(const Dictionary &options);
+	Dictionary start_tutorial(const Dictionary &options); // lane BFME2CAMP1: AptMainMenu::OnTutorial's Basic / Advanced (GodotGameWorldCampaign.cpp)
 	// the running mission's end: { ended, victory, action, frame } (the script engine's VICTORY / QUICKVICTORY / DEFEAT, ScriptEngine::endRequests)
 	Dictionary campaign_status() const;
 	// the campaign progress sidecar of lanes CAMP-1 .. SAVE-4 (CampaignProgress's text): load -> { ok, campaign, mission, difficulty, victorious, error }.
@@ -662,6 +668,7 @@ protected:
 private:
 	mutable Dictionary m_observedRead; ///< net_observed_unwaiting(): the last net_observed() read where the logic was held
 	Dictionary load_internal(const LiveGame::Options &lo, const String &map_name, const Dictionary &options, const Callable &progress, bool withTerrain);
+	Dictionary campaignHudStart() const; ///< lane BFME2CAMP1: the HUD's start of a campaign mission or tutorial (the local player, the first camera)
 	std::unique_ptr<NewGameStart> m_start;           ///< the prepared new game (LiveGame::Options::start points into it)
 	std::vector<MapCacheEntry> m_mapCache;           ///< maps\\mapcache.ini, read by setup()
 	struct EntryView
@@ -781,6 +788,7 @@ private:
 	{
 		std::string campaign, map;
 		int mission = 0, difficulty = 1;
+		std::string carryover; ///< lane BFME2CAMP1: the campaign's carry-over at the mission's start (CampaignCarryover::State text; "" none)
 	};
 	CampaignStart m_campaignStart, m_pendingCampaign;
 	// the identity a game of `profile` runs under (net_profile is the player's option's; a campaign mission always runs Faithful)

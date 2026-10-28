@@ -20,19 +20,19 @@ A row's class is the provenance of what exists. A ported feature with a player-v
 
 | Class | Features | Share |
 |---|---:|---:|
-| RotWK 1:1 | 180 | 52% |
+| RotWK 1:1 | 182 | 52% |
 | BFME2 1:1 | 1 | 0% |
 | Generals/ZH | 16 | 5% |
 | best guess | 31 | 9% |
-| missing | 121 | 35% |
+| missing | 119 | 34% |
 
-Completeness: full 58, partial 171, stub 15, none 105. Confidence: high 192, medium 146, low 11.
+Completeness: full 58, partial 173, stub 15, none 103. Confidence: high 192, medium 146, low 11.
 
 What the numbers say:
 
-- **Where we have code, it is almost all RotWK 1:1.** 180 of the 228 implemented features port the RotWK binary. Only 1 feature is a straight BFME2 decomp port; the decomp is used as a cross-check next to RW addresses, not as the source. The 16 Zero Hour features are where BFME kept ZH's design and nobody has yet checked the RotWK binary: terrain height and rendering, the audio engine core and music, the cinematic camera, text and fonts, the lockstep frame model, the LAN lobby, the logic CRC exchange and archive mounting. Most RotWK rows are `partial`: the core is ported, details are open stops.
+- **Where we have code, it is almost all RotWK 1:1.** 182 of the 230 implemented features port the RotWK binary. Only 1 feature is a straight BFME2 decomp port; the decomp is used as a cross-check next to RW addresses, not as the source. The 16 Zero Hour features are where BFME kept ZH's design and nobody has yet checked the RotWK binary: terrain height and rendering, the audio engine core and music, the cinematic camera, text and fonts, the lockstep frame model, the LAN lobby, the logic CRC exchange and archive mounting. Most RotWK rows are `partial`: the core is ported, details are open stops.
 - **31 best-guess features.** More than half are OpenBFME-original by design (our online service, relay, rejoin, UDP transport, own save and replay formats, install verification, presentation options); retail had nothing to port there. The ones that matter for faithfulness: unit target choice (S-326), unit collision (S-780), the announcer's timing and selection (S-247), water rendering, group casting of powers, script AI orders without an AI state (S-1186), military captions and the under-attack notifications.
-- **122 missing features.** The biggest blocks are castle sieges (path layers + wall docking), War of the Ring (not on main), the computer player's higher-level decisions, and a long tail of effects and sounds.
+- **120 missing features.** The biggest blocks are castle sieges (path layers + wall docking), War of the Ring (not on main), the computer player's higher-level decisions, and a long tail of effects and sounds.
 - **Module classes** (the INI building blocks retail data uses; current registry, regenerated for this lane): 153 of 245 ported, 4 run as the plain base AI, 2 parsed only, 86 missing. The 86 missing classes are used by 1,280 object templates (5% of module uses); every one appears in a row below.
 
 ### Features per area
@@ -47,7 +47,7 @@ What the numbers say:
 | Powers/spellbook | 12 |  |  | 1 | 8 | 21 |
 | Structures/garrison/walls/siege | 10 |  |  | 1 | 7 | 18 |
 | Hordes | 17 |  |  |  | 9 | 26 |
-| Campaign | 9 |  | 1 | 3 | 5 | 18 |
+| Campaign | 11 |  | 1 | 3 | 3 | 18 |
 | WotR | 1 |  |  |  | 15 | 16 |
 | Create-a-Hero | 7 |  |  | 1 | 3 | 11 |
 | UI | 22 | 1 | 4 | 3 | 7 | 37 |
@@ -403,10 +403,10 @@ Columns: **Class**, **Done** (full / partial / stub / none), **Conf** (confidenc
 | Script AI orders without an AI state (attack-follow waypoints, face, attack team, recruitable) | best guess | partial | high | 3 | engine/src/GameLogic/ScriptEngine/ScriptActionsUnits.cpp | attack-follow states RW 0x754A3C/0x754AAA | S-1186, S-1188, S-1189 | size: ~4 AI states ~600 LOC | S-1186 stand-ins: attack-move along first links; face turns at once (marked INFERENCE in code); depends: AI states |
 | Military captions (campaign on-screen dialogue text) | best guess | partial | high | 2 | godot/scripts/campaign_cine.gd | RW 0x69CE5F (InGameUI typing), InGameUI.ini MilitaryCaption* fields table RW 0xC12410 | S-1711 | size: ~3 fns + InGameUI block | S-1711: drawn whole; retail types per character with click sound; depends: InGameUI.ini parse |
 | Mission objectives screen (AptObjectivesMenu) and objective list (TheMissionObjectiveTracker) | RotWK 1:1 | full | medium | 4 | engine/src/GameLogic/ScriptEngine/MissionObjectiveTracker.cpp; engine/src/GameClient/GUI/AptScreens/AptObjectivesMenu.cpp; engine/src/GameClient/GUI/AptScreens/InGameNotificationBox.cpp; godot/scripts/game.gd _open_objectives | tracker RW 0xDE8C94 (MissionObjectiveList RW 0x836497, setShown RW 0x835FAE, setCompleted RW 0x836097), AptObjectivesMenu RW 0x8E8843 / 0x8E90DD, notification box RW 0x8EB371 / 0x8EB75B | S-1922, S-1182 | | lane CAMPUI-1: map.ini's list in the logic (saved: CHUNK_MissionObjectives / CHUNK_ObjectivesMenu), Objectives.apt from the flag / Tab (paused), the New Objective box InGameNotificationBox.apt, the score's objectives term; not ported: OBJECTIVES_SCREEN_IS_OPEN (false), the victory rating RW 0x79E175 |
-| Campaign carry-over units between missions | missing | none | high | 3 | engine/src/GameClient/LinearCampaign.h (CarryoverUnit parsed) | RW 0x5EBAEE (record, 172-byte records at +0xA4), RW 0x5EC5D1 (restore/drop), HAS_DELAYED_CARRYOVER_UNIT_OF_TYPE | S-4903, S-852 | size: ~6 fns / ~500 LOC | LinearCampaign parses CarryoverUnit/DelayCarryoverSpawningOf; S-4903 says not ported; condition answers false; Heroes/units do not carry into the next mission; depends: hero records (S-852), saves |
+| Campaign carry-over units between missions | RotWK 1:1 | partial | high | 3 | engine/src/GameLogic/CampaignCarryover.cpp/.h; engine/src/GameClient/LinearCampaign.h (CarryoverUnit parsed) | RW 0x5EC4EC beginCampaign, RW 0x5EBD76 addCarryoverStuffToMap, RW 0x780172 createSingleObject, RW 0x781FAF PlaceObjects; RW 0x5EBAEE (record, 0xBC-byte records at +0xB4), RW 0x5EC5D1 (restore/drop), HAS_DELAYED_CARRYOVER_UNIT_OF_TYPE | S-4903, S-4904, S-852 | size: the won mission's record ~3 fns, the delayed spawn RW 0x5EBF92, the WalkOnTemplate formation | lane BFME2CAMP1: the FIRST mission of a campaign spawns its fresh records (MAP GOOD Rivendell's Glorfindel); a won mission's record and the later missions' spawn are not ported; depends: hero records (S-852), saves |
 | Scripts.lua / ScriptEvents.xml event sources (OnDamaged, OnDestroyed, OnArrived, ...) and DelayedLuaEventUpdate (DelayedLuaEventUpdate) | missing | partial | high | 3 | engine/src/GameLogic/ScriptEngine/LuaScriptEngine.cpp; engine/src/GameLogic/ScriptEngine/LuaScriptEvents.cpp; engine/src/GameClient/LiveScripting.cpp | dispatch RW 0x7379CB; DelayedLuaEventUpdate RW 0x8AC628; sources OnDamaged 0x8C3FA3, OnDestroyed 0x698F06 ... | S-129, S-1220, S-128 | size: ~12 call sites + 1 module ~150 LOC | Ghidra 0x8AC628: partition scan of radius +0x60, dispatch 0x7379CB to each other object, then destroy self (small); only OnCreated, BeScary and ModelCondition events are fired in our engine; GenericDamageWarning uses DelayedLuaEventUpdate; depends: owning lanes' sites |
-| Tutorial (RotWK tutorial maps from the main menu) | missing | none | high | 2 | engine/src/GameClient/GUI/AptScreens/AptMainMenu.cpp | AptMainMenu::OnTutorial (RotWK); 2 tutorial maps in census | S-175 | size: menu handler + tutorial map scripts (rely on script coverage) | AptMainMenu.cpp maps Tutorial to 'OpenBFME does not have it yet'; depends: script coverage |
-| BFME2 Good/Evil campaigns under RotWK | missing | none | high | 1 | engine/src/GameClient/LinearCampaign.h (documents absence) | handlers RW 0x91AF46/0x91AF69 never registered by RotWK's menu |  | size: menu + BFME2 map scripts | LinearCampaign.h: RotWK menu exposes only Angmar + bonus; no code path loads GOOD_/EVIL_CAMPAIGN; Not reachable in retail RotWK either: absent by design (port rule); depends: script coverage |
+| Tutorial (the Basic / Advanced / Strategic tutorials from the main menu) | missing | none | high | 2 | engine/src/GameClient/GUI/AptScreens/AptMainMenu.cpp | AptMainMenu::OnTutorial RW 0x91B825 (registered by RotWK at RW 0x91D151): "Strategic" the WotR tutorial, "Basic" / "Advanced" GameData + 0x1114 / + 0x1138 -> MSG_NEW_GAME(6, 0, 0); 2 tutorial maps in census | S-175, S-4904 | size: menu handler + mode-6 game + ~15 lesson-gate conditions (CAMERA_SCROLL_DISTANCE, NAMED_SELECTED, OBJECTIVES_SCREEN_IS_OPEN, ...) | lane BFME2CAMP1: only BFME2's MainMenu.apt has the TutorialsNav buttons (RotWK's MainMenu.const has none); AptMainMenu.cpp maps OnTutorial to 'OpenBFME does not have it yet'; depends: script coverage |
+| BFME2 Good/Evil campaigns under RotWK | RotWK 1:1 | partial | high | 3 | engine/src/Common/System/SubsystemInitOrder.cpp (LoadBfme2CampaignsFromLegend); godot/scripts/game.gd (start_bfme2_campaign); engine/tests/test_bfme2camp1.cpp | RotWK's unregistered starters RW 0x91AF46 / 0x91AF69 -> RW 0x91BE05 / 0x91BDA6 (the same start RW 0x91B1D2 as Angmar) | S-4904, S-4903 | size: the later missions' script coverage, carry-over | lane BFME2CAMP1: BFME2 MainMenu.apt's Good / Evil buttons start the campaigns (BFME2 menu style); LinearCampaign.ini from BFME2's legend is an OpenBFME addition (RotWK's legend loads LinearCampaignExpansion1.ini only); MAP GOOD Rivendell plays to its first objective (test); Gloin's delayed carry-over spawn and the later missions open; depends: script coverage, carry-over |
 
 ### WotR
 

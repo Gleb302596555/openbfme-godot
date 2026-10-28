@@ -3,6 +3,7 @@
 // See GameLogic/ScriptEngine/ScriptActions.h.
 
 #include "GameLogic/ScriptEngine/ScriptActions.h"
+#include "GameLogic/SelfDestruct.h"
 
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
@@ -63,6 +64,7 @@ const std::set<int> &clientActions()
 			"SHOW_MISSION_OBJECTIVE", "HIDE_MISSION_OBJECTIVE", "MARK_MISSION_OBJECTIVE_COMPLETED", "MARK_MISSION_OBJECTIVE_NOT_COMPLETED",
 			"PLAY_SOUND_EFFECT", "PLAY_SOUND_EFFECT_AT", "PLAY_SOUND_EFFECT_AT_TEAM", "SOUND_PLAY_NAMED", "SPEECH_PLAY", "MUSIC_SET_TRACK",
 			"MUSIC_SET_VOLUME", "SOUND_SET_VOLUME", "SPEECH_SET_VOLUME", // lane SCRIPT-3: RW 0x7BCAAE (TheAudio's script volume, client)
+			"REFRESH_RADAR", // lane BFME2CAMP1: RW 0x7BCC53: TheRadar (RW 0xDE4AB8) vslot 0x10(TheTerrainLogic), the client's radar redraw
 			"MUSIC_PLAY_TRACK_FINITE_TIMES", "MOVIE_PLAY_FULLSCREEN", "MOVIE_PLAY_RADAR", "PLAY_MOVIE_IN_GAME", "DISABLE_INPUT", "ENABLE_INPUT",
 			"HIDE_UI", "SHOW_UI", "DESELECT", "SELECT_OBJECT", "EVA_SET_ENABLED_DISABLED", "AUDIO_MAKE_SOUND_IMMUNE_TO_FADE", "AUDIO_FADE_VOLUME",
 			"AUDIO_RESTORE_VOLUME_ALL_TYPE", "AUDIO_OVERRIDE_VOLUME_TYPE", "AUDIO_RESTORE_VOLUME_TYPE", "AUDIO_SET_VOLUME_TYPE", "CAMEO_FLASH",
@@ -70,6 +72,7 @@ const std::set<int> &clientActions()
 			"RESUME_BACKGROUND_SOUNDS", "SET_VISUAL_SPEED_MULTIPLIER", "SHOW_WEATHER", "SCREEN_SHAKE", "SELECT_BUILDER_BUTTON_FLASH", "HERO_SELECT_BUTTON_FLASH",
 			"CLOSE_OBJECTIVES_SCREEN", "PLAYER_SELECT_SKILLSET", "MAP_REVEAL_AT_WAYPOINT", "MAP_SHROUD_AT_WAYPOINT", "MAP_REVEAL_PERMANENTLY_AT_WAYPOINT",
 			"MAP_UNDO_REVEAL_PERMANENTLY_AT_WAYPOINT", "MAP_REVEAL_PERMANENTLY_IN_TRIGGER", "MAP_UNDO_REVEAL_PERMANENTLY_IN_TRIGGER",
+			"MAP_REVEAL_IN_TRIGGER", // lane BFME2CAMP1: RW 0x7C0BCF (the trigger, the players: a one-off reveal, RW 0xB4DCA0 / 0xB4DE50), as the reveals above
 			// lane SCRIPT-2: the victory screen (RW 0x7BF05C: TheShell's victory window, no logic), the objectives button flash (RW 0x7BDF4E), the command
 			// bar edits (RW 0x7C6793 ...: TheControlBar). Lane BACKLOG3: the radar event actions are ported below (radarEventAction)
 			"VICTORY_SCREEN", "FLASH_OBJECTIVES_BUTTON", "FLASH_SPELL_STORE_BUTTON", "FLASH_PLANNING_MODE_BUTTON", // lane CAMPUI-1: RW 0x6D455F's other two slots "COMMANDBAR_REMOVE_BUTTON_OBJECTTYPE", "COMMANDBAR_ADD_BUTTON_OBJECTTYPE_SLOT",
@@ -387,6 +390,12 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 	if (name == "VICTORY" || name == "QUICKVICTORY")
 	{
 		engine.addEndRequest(true, name); // RW 0x7C45E0 / 0x7BE0A2 (the client's end screen)
+		// lane BFME2CAMP1: RW 0x7C45F8 / 0x7BE0C6: TheLinearCampaignManager RW 0x5EC0BA -> a current campaign's onCurrentMissionWon RW 0x5EBAEE (every
+		// call: a second VICTORY records the survivors again)
+		if (CampaignCarryover::State *carry = logic.campaignCarryover())
+		{
+			CampaignCarryover::onCurrentMissionWon(logic, logic.players(), *carry);
+		}
 		return;
 	}
 	if (name == "DEFEAT")
@@ -492,6 +501,18 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 		if (o && tm)
 		{
 			o->setTeam(tm);
+		}
+		return;
+	}
+	if (name == "PLAYER_TRANSFER_OWNERSHIP_PLAYER")
+	{
+		// lane BFME2CAMP1: RW 0x7BC0C3 (from, to): each parameter's player by its exact mask (RW 0x758F7C -> RW 0x6A85B6); both: the second takes the
+		// first's assets, transferAssetsFromThat(this = to, that = from, inherited 0) (RW 0x6AF598, GameLogic/SelfDestruct.h)
+		Player *to = ScriptConditions::playerOfMask(engine, param(a, 1).stringValue);
+		Player *from = ScriptConditions::playerOfMask(engine, param(a, 0).stringValue);
+		if (to && from)
+		{
+			SelfDestruct::transferAssetsFromThat(logic, *to, *from, false);
 		}
 		return;
 	}

@@ -5,7 +5,7 @@
 
 const std::vector<std::string> &Mod4Stops::classes()
 {
-	static const std::vector<std::string> names = { "PickupStuffUpdate", "GeometryUpgrade", "ThreatFinderUpdate", "RebuildHoleExposeDie", "RebuildHoleBehavior" };
+	static const std::vector<std::string> names = { "PickupStuffUpdate", "GeometryUpgrade", "ThreatFinderUpdate" };
 	return names;
 }
 
@@ -29,13 +29,9 @@ std::vector<std::string> Mod4Stops::lines()
 		"0x7EDDFB) named by the object's name, the radius the property's real or DefaultRadius, registered by name in TheThreatFinderManager (RW 0xDE8888, RW "
 		"0x7EE33A); the update (RW 0x7EDDB6) copies the object's position into it every frame. Its readers are the script action RW 0x7C68AA and condition "
 		"RW 0x608BCA (lookup RW 0x7EE260), not ported (the script lanes): the finder would have no reader",
-		"[S-1427] RebuildHoleExposeDie / RebuildHoleBehavior (lane MOD-4, not ported; the creep lairs' and some structures' rebuild; die RW 0x889AAF, table RW "
-		"0xC616B8: HoleName + 0x38, HoleMaxHealth + 0x3C, FadeInTimeSeconds + 0x40, TransferAttackers + 0x44; RebuildHoleBehavior constructor RW 0x8864EE, table "
-		"RW 0xC60230: WorkerRespawnDelay + 0x08, HoleHealthRegen%PerSecond + 0x0C, WorkerObjectName + 0x10): a dead object of a live player that is not the "
-		"neutral player (and Object + 0x94 bit 2 clear) leaves a HoleName object (position, angle, geometry, name, max health HoleMaxHealth) whose rebuild "
-		"interface gets the template, the id and the spawner's active flag (RW 0x886831); after WorkerRespawnDelay the hole rebuilds the structure through the "
-		"BuildAssistant's slot 0x38 (no WorkerObjectName) or a worker's dozer slot 0x1F8 (RW 0x8868C2 .. 0x886B72), passes it its attackers and its cost, and "
-		"regenerates. Blocked: the rebuild runs through the construction lanes' build-now and reconstruction paths (RECONSTRUCTING, status 21), not ported "
-		"here; a hole without its rebuild would stay for ever, so neither class is bound",
+		"[S-1427] RebuildHoleExposeDie / RebuildHoleBehavior (lane BFME2CAMP1 ported both, GameLogic/Module/RebuildHoleModules.h: the hole, its rebuild "
+		"after WorkerRespawnDelay, its healing, the attackers and the name passed on); not ported: the dying structure's geometry copied to the hole (RW "
+		"0x699349; the port's geometry is the template's, S-1423) and the mask bit Object + 0x459 bit 1 (RW 0x68BEB1) with its readers (RW 0x6C7F11, "
+		"0x6C9147, 0x81E60B, 0x83BCB1)",
 	};
 }

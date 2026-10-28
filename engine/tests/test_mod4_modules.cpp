@@ -363,14 +363,14 @@ TEST_CASE("MOD-4: a Rohan peasant's RepairSpecialPower sends it to repair a dama
 
 // ---- the registered stops ------------------------------------------------------------------------------------------------------------------------------------
 
-TEST_CASE("MOD-4: PickupStuffUpdate, GeometryUpgrade, ThreatFinderUpdate and the rebuild holes stay UnportedModules, each reported as its stop [S-1422] .. [S-1424], [S-1427]")
+TEST_CASE("MOD-4: PickupStuffUpdate, GeometryUpgrade and ThreatFinderUpdate stay UnportedModules, each reported as its stop [S-1422] .. [S-1424]; the rebuild holes are bound, [S-1427] reports what is left")
 {
 	OPENBFME_REQUIRE_START(s);
 	const std::vector<std::string> unported = s->world->modules().unportedModuleClassNames();
 	const std::vector<std::string> stops = s->world->acceptanceStops();
-	const char *const ids[] = { "[S-1422] PickupStuffUpdate", "[S-1423] GeometryUpgrade", "[S-1424] ThreatFinderUpdate", "[S-1427] RebuildHoleExposeDie",
-		"[S-1427] RebuildHoleExposeDie" };
-	REQUIRE(Mod4Stops::classes().size() == 5);
+	// lane BFME2CAMP1 ported the rebuild holes (RebuildHoleModules.h): S-1427 stays for their remaining pieces, its classes are bound
+	const char *const ids[] = { "[S-1422] PickupStuffUpdate", "[S-1423] GeometryUpgrade", "[S-1424] ThreatFinderUpdate" };
+	REQUIRE(Mod4Stops::classes().size() == 3);
 	for (size_t i = 0; i < Mod4Stops::classes().size(); ++i)
 	{
 		const std::string &name = Mod4Stops::classes()[i];
@@ -380,7 +380,7 @@ TEST_CASE("MOD-4: PickupStuffUpdate, GeometryUpgrade, ThreatFinderUpdate and the
 		{
 			found += l.rfind(ids[i], 0) == 0 ? 1 : 0;
 		}
-		CHECK_MESSAGE(found == 1, ids[i]); // the two rebuild classes share S-1427
+		CHECK_MESSAGE(found == 1, ids[i]);
 		// the retail data uses each class
 		int uses = 0;
 		for (const ThingTemplate *tt : s->world->things().templates())
@@ -395,6 +395,9 @@ TEST_CASE("MOD-4: PickupStuffUpdate, GeometryUpgrade, ThreatFinderUpdate and the
 	// the lane's ported classes are bound
 	CHECK(std::find(unported.begin(), unported.end(), "AISpecialPowerUpdate") == unported.end());
 	CHECK(std::find(unported.begin(), unported.end(), "RepairSpecialPower") == unported.end());
+	CHECK(std::find(unported.begin(), unported.end(), "RebuildHoleExposeDie") == unported.end()); // lane BFME2CAMP1
+	CHECK(std::find(unported.begin(), unported.end(), "RebuildHoleBehavior") == unported.end());
+	CHECK(std::count_if(stops.begin(), stops.end(), [](const std::string &l) { return l.rfind("[S-1427] ", 0) == 0; }) == 1);
 	int s1421 = 0;
 	for (const std::string &l : stops)
 	{

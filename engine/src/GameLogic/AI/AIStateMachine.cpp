@@ -145,6 +145,12 @@ void AIStateMachine::clear()
 {
 	if (m_locked)
 	{
+		// lane BFME2CAMP1, RW 0x75464E: past the locked temporary state's refusal, the goal squad (+ 0x4C) is deleted after StateMachine::clear (RW
+		// 0x8DB679) whether or not its lock let the state go
+		if (!temporaryStateLocked())
+		{
+			m_goalSquad.reset();
+		}
 		return;
 	}
 	if (m_temporaryState)
@@ -163,6 +169,17 @@ void AIStateMachine::clear()
 		s->onExit(EXIT_RESET);
 	}
 	internalClear();
+	m_goalSquad.reset(); // lane BFME2CAMP1: RW 0x754680 .. 0x75468F
+}
+
+void AIStateMachine::setGoalSquadFromTeam(const Team &team)
+{
+	// RW 0x751E97: a squad made (RW 0x66823E) when the machine has none, then RW 0x8DB149(team, true)
+	if (!m_goalSquad)
+	{
+		m_goalSquad = std::make_unique<AISquad>();
+	}
+	m_goalSquad->squadFromTeam(team, true);
 }
 
 StateReturnType AIStateMachine::resetToDefaultState()
@@ -839,6 +856,14 @@ void AIStateMachine::crc(StateHasher &h) const
 		h.addFloat(p.x);
 		h.addFloat(p.y);
 		h.addFloat(p.z);
+	}
+	if (m_goalSquad) // lane BFME2CAMP1: hashed once a squad exists (other machines keep their hashes)
+	{
+		h.addU32((std::uint32_t)m_goalSquad->objectIDs.size());
+		for (ObjectID id : m_goalSquad->objectIDs)
+		{
+			h.addU32(id);
+		}
 	}
 	if (m_currentState)
 	{

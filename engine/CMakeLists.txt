@@ -206,6 +206,7 @@ include(cmake/Script1.cmake)    # SCRIPT-1: the map script engine (appends to OP
 include(cmake/Camp1.cmake)      # CAMP-1: the campaigns (OPENBFME_CAMP1_SOURCES / OPENBFME_CAMP1_TESTS)
 include(cmake/Camp2.cmake)      # CAMP-2: the movies' VP6 picture (OPENBFME_CAMP2_SOURCES / _GODOT_SOURCES / _TESTS)
 include(cmake/CampSave1.cmake)  # CAMPSAVE-1: CampaignMenu.apt and the campaign's saves between missions (OPENBFME_CAMPSAVE1_SOURCES / _TESTS)
+include(cmake/Bfme2Camp1.cmake) # BFME2CAMP1: the BFME2 campaigns and tutorials (OPENBFME_BFME2CAMP1_TESTS)
 include(cmake/Ui1.cmake)        # UI-1: interface gaps (client only; OPENBFME_UI1_CLIENT_SOURCES / OPENBFME_UI1_TESTS)
 include(cmake/Release1.cmake)   # RELEASE-1: install discovery, version, session log (client only; OPENBFME_RELEASE1_SOURCES / _GODOT_SOURCES / _TESTS)
 include(cmake/Mod4.cmake)       # MOD-4: AISpecialPowerUpdate, RepairSpecialPower, ... (appends to OPENBFME_SIM_SOURCES; OPENBFME_MOD4_TESTS)
@@ -737,6 +738,7 @@ add_executable(openbfme_tests
     ${OPENBFME_CAMP1_TESTS}
     ${OPENBFME_CAMP2_TESTS}
     ${OPENBFME_CAMPSAVE1_TESTS}
+    ${OPENBFME_BFME2CAMP1_TESTS}
     ${OPENBFME_UI1_TESTS}
     ${OPENBFME_RELEASE1_TESTS}
     ${OPENBFME_MOD4_TESTS}

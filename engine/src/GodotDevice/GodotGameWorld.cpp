@@ -61,6 +61,7 @@
 #include "GameClient/DrawableManager.h"
 #include "GameClient/GameRecords.h"
 #include "GameClient/LiveGame.h"
+#include "GameClient/LinearCampaign.h"
 #include "GameNetwork/OnlineLobbyClient.h"
 #include "GameClient/MapObjectRuntime.h"
 #include "GameClient/TreeTopple.h"
@@ -902,6 +903,20 @@ Dictionary GameWorld::load_map(const String &map_name, const Dictionary &options
 	lo.presentationDelaySeconds = options.has("presentation_delay") ? (double)options["presentation_delay"] : (lo.logicThread ? 0.03 : 0.0);
 	lo.hashEveryFrame = optBool(options, "hash_every_frame", false);
 	lo.campaign = optBool(options, "campaign", false);         // lane SCRIPT-1: a campaign mission (single player game, the map's sides and scripts)
+	// lane BFME2CAMP1: "carryover_campaign": the named campaign's first-mission carry-over (its fresh records and its first mission's
+	// DelayCarryoverSpawningOf), as GameWorld.start_campaign_mission gives mission 0 (viewers' captures of a campaign's first mission)
+	if (options.has("carryover_campaign") && m_world)
+	{
+		if (const LinearCampaign *c = m_world->linearCampaigns().find(toNative(String(options["carryover_campaign"]))))
+		{
+			if (!c->missions.empty())
+			{
+				lo.campaignCarryover = true;
+				lo.carryover = CampaignCarryover::beginCampaign(c->carryoverUnits);
+				lo.carryoverDelayed = c->missions[0].delayCarryover;
+			}
+		}
+	}
 	m_testHooks = optBool(options, "test_hooks", false);       // lane SCRIPT-2: the viewer's scripted captures (map_viewer --cine-drive)
 	lo.mapScripts = (int)optInt(options, "map_scripts", -1);  // lane SCRIPT-1: -1 auto, 0 off, 1 on
 	if (options.has("starting_money"))

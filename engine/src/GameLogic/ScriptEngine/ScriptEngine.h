@@ -95,6 +95,25 @@ public:
 		picked = false;
 		return false;
 	}
+	// lane BFME2CAMP1 (the tutorials, stop S-1182): the local client's view, read by the logic the way retail does: CAMERA_SCROLL_DISTANCE reads the
+	// distance the player scrolled the camera since its last reset (TheTacticalView vslot 0x23C = RW 0x48731A: W3DView + 0x24F4) and
+	// OBJECTIVES_SCREEN_IS_OPEN whether the objectives screen exists (RW 0xDE9EA8). Client state: a replay does not reproduce what they answered (nor
+	// does retail's); the port answers false in a multiplayer game. False here: no local client (a headless game)
+	virtual bool cameraScrollDistance(float &distance)
+	{
+		distance = 0.0f;
+		return false;
+	}
+	virtual bool objectivesScreenOpen() { return false; }
+};
+
+// lane BFME2CAMP1: what the local client's HUD tells the script host (GameClient/InGameHud registers itself with LiveGame)
+class ScriptLocalView
+{
+public:
+	virtual ~ScriptLocalView() = default;
+	virtual float cameraScrollDistance() const = 0; ///< the camera's scroll total since its last reset (W3DView + 0x24F4)
+	virtual bool objectivesScreenOpen() const = 0; ///< the objectives screen is up (RW 0xDE9EA8 not null)
 };
 
 // One client-facing script action (camera, UI, audio, input ...): executed in the logic frame, applied by the client (stop S-1182). Never read
@@ -163,6 +182,10 @@ public:
 	// RW 0x60A1D5: a named cache entry for `name` (a new name appended, a known one re-pointed) without renaming the object; SET_REF_TO_...
 	// writes it after the reference (RW 0x7C3FBB)
 	void nameInCache(const std::string &name, const Object &obj);
+	// lane BFME2CAMP1: RW 0x759467 (ZH ScriptEngine::transferObjectName): an empty name does nothing; a named `obj` first leaves the cache (its entries
+	// point at no object, RW 0x603912); `obj` takes the name and the cache entry of that name points at it (no entry is added: an unnamed map's name
+	// stays out of the cache). The former holder's colour reset (RW 0x68B6ED / 0x68B6CB) is the client's
+	void transferObjectName(const std::string &name, Object &obj);
 	const std::map<std::pair<std::string, std::string>, ObjectID> &references() const { return m_references; }
 	// lane CAMP-1: RW 0x759601: the object has a name (+ 0x88 is not ""), or an object reference names it
 	bool isInNamedCache(const Object &obj) const;

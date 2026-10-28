@@ -53,6 +53,7 @@
 #include "Common/RandomValue.h"
 #include "Common/SimulationProfile.h"
 #include "Common/Team.h"
+#include "GameLogic/CampaignCarryover.h"
 #include "GameLogic/AI/AICommandSink.h"
 #include "GameLogic/CheatMode.h"
 #include "GameLogic/FXEvents.h"
@@ -69,6 +70,7 @@
 #include <map>
 #include <unordered_map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <string_view>
@@ -537,6 +539,22 @@ public:
 	const GameRules &gameRules() const { return m_gameRules; }
 	void setLegendaryHeroes(int factor) { m_legendaryHeroes = factor; }
 	int legendaryHeroes() const { return m_legendaryHeroes; }
+	// lane BFME2CAMP1: the script's buildability overrides (TECHTREE_MODIFY_BUILDABILITY_OBJECT, RW 0x7BCF6C). TARGET FACTS: GameLogic + 0x10 is a hash map
+	// keyed by the template's name (template + 0x64) to a Buildable value (0 Yes, 1 Ignore_Prerequisites, 2 No, 3 Only_By_AI); RW 0x62FEE6 sets the
+	// entry (made when absent: RW 0x62F051), RW 0x62EE6D finds it, and ThingTemplate::getBuildable (RW 0x73BFE8) answers the entry when there is one,
+	// else the template's own byte + 0x602. A null template sets / finds nothing. Nothing removes an entry within a game. The map is only looked up,
+	// so its order is no state (kept sorted here for the save and the hash)
+	void setBuildableStatusOverride(const ThingTemplate *tt, std::int32_t status);
+	bool findBuildableStatusOverride(const ThingTemplate *tt, std::int32_t &status) const;
+	const std::map<std::string, std::int32_t> &buildableStatusOverrides() const { return m_buildableOverrides; }
+	// lane BFME2CAMP1: the current campaign's carry-over (TheLinearCampaignManager + 0x10's LinearCampaign, GameLogic/CampaignCarryover.h) while this game
+	// is a mission of one: set by the mission's start (before addCarryoverStuffToMap), read and changed by the VICTORY / QUICKVICTORY actions
+	// (onCurrentMissionWon RW 0x5EBAEE) and the delayed carry-over script action / condition; the campaign's progress takes it after the game. Retail keeps
+	// it outside the logic (the campaign manager); here it lives with the game so its save and hash hold it. None: not a campaign game (or a campaign
+	// without the carry-over)
+	void setCampaignCarryover(std::optional<CampaignCarryover::State> s) { m_campaignCarryover = std::move(s); }
+	CampaignCarryover::State *campaignCarryover() { return m_campaignCarryover ? &*m_campaignCarryover : nullptr; }
+	const CampaignCarryover::State *campaignCarryover() const { return m_campaignCarryover ? &*m_campaignCarryover : nullptr; }
 	// lane CHEAT-1, OpenBFME: the game's Cheat Mode (GameLogic/CheatMode.h): off unless LiveGame::load configures the cheat seat from the game setup
 	CheatMode::State &cheatMode() { return m_cheatMode; }
 	const CheatMode::State &cheatMode() const { return m_cheatMode; }
@@ -990,6 +1008,8 @@ private:
 	int m_gameDifficulty = 1;     ///< lane CAMP-1H: RW GameLogic + 0xA4
 	GameRules m_gameRules = MpGameRules::none(); ///< lane RULES-1
 	int m_legendaryHeroes = LegendaryHeroes::kOff; ///< lane RULES-1 (OpenBFME)
+	std::map<std::string, std::int32_t> m_buildableOverrides; ///< lane BFME2CAMP1: RW GameLogic + 0x10 (template name -> Buildable)
+	std::optional<CampaignCarryover::State> m_campaignCarryover; ///< lane BFME2CAMP1 (OpenBFME: retail's campaign manager)
 	CheatMode::State m_cheatMode;                  ///< lane CHEAT-1 (OpenBFME)
 	SimulationProfile m_simulationProfile = SimulationProfile::Faithful; ///< lane UBER-1 (OpenBFME)
 	bool m_frameAdvance = true;   ///< RW GameLogic + 0x44

@@ -1184,6 +1184,7 @@ void InGameHudNode::_bind_methods()
 	ClassDB::bind_method(D_METHOD("inject_key", "dik_code", "down"), &InGameHudNode::inject_key);
 	ClassDB::bind_method(D_METHOD("hold_input", "on"), &InGameHudNode::hold_input);                 // lane BACKLOG3 (QA)
 	ClassDB::bind_method(D_METHOD("set_input_enabled", "on"), &InGameHudNode::set_input_enabled); // lane BACKLOG3 (QA)
+	ClassDB::bind_method(D_METHOD("input_enabled"), &InGameHudNode::input_enabled); // lane BFME2CAMP1
 	ClassDB::bind_method(D_METHOD("script_input", "enable"), &InGameHudNode::script_input); // lane OWNERFIX-1
 	ClassDB::bind_method(D_METHOD("set_broadcast_clean", "on"), &InGameHudNode::set_broadcast_clean);
 	ClassDB::bind_method(D_METHOD("inject_mouse_wheel", "notches", "position"), &InGameHudNode::inject_mouse_wheel);
@@ -3629,6 +3630,11 @@ void InGameHudNode::set_broadcast_clean(bool on)
 	{
 		d->hud->setBroadcastClean(on);
 	}
+}
+
+bool InGameHudNode::input_enabled() const
+{
+	return d->ready && d->hud && d->hud->input().ui().getInputEnabled();
 }
 
 void InGameHudNode::set_input_enabled(bool on)

@@ -472,6 +472,8 @@ std::unique_ptr<AIStateMachine> AIUpdateInterface::makeStateMachine()
 	m->defineState(AI_FACE_POSITION, std::make_unique<AIFacePositionState>(*m), AI_IDLE, AI_IDLE); // lane SIEGE-1: RW 0x753755 state 0x25 (RW 0x7449D4 mode 0)
 	m->defineState(AI_FACE_OBJECT, std::make_unique<AIFaceState>(*m, true), AI_IDLE, AI_IDLE);
 	m->defineState(AI_HUNT, std::make_unique<AIHuntState>(*m), AI_IDLE, AI_IDLE); // lane SCRIPT-3: RW 0x741133 (AIHunt.cpp)
+	m->defineState(AI_ATTACK_AREA, std::make_unique<AIAttackAreaState>(*m), AI_IDLE, AI_IDLE); // lane BFME2CAMP1: RW 0x74115E (AIHunt.h)
+	m->defineState(AI_ATTACK_SQUAD, std::make_unique<AIAttackSquadState>(*m), AI_IDLE, AI_IDLE); // lane BFME2CAMP1: RW 0x740E95 (AIHunt.h)
 	// lane PLAY-4 (RW 0x753755): AIGuardState 16 (RW 0x74109B) and AIGoingIdleState 0x4E (RW 0x7410C2), both ending in idle (AIGuard.cpp)
 	m->defineState(AI_GUARD, std::make_unique<AIGuardState>(*m), AI_IDLE, AI_IDLE);
 	m->defineState(AI_GOING_IDLE, std::make_unique<AIGoingIdleState>(*m), AI_IDLE, AI_IDLE);
@@ -1815,6 +1817,20 @@ void AIUpdateInterface::crc(StateHasher &h) const
 		h.addFloat(m_guardLocation.y);
 		h.addFloat(m_guardLocation.z);
 		h.addFloat(m_guardAngle);
+	}
+	if (m_areaToGuard != -1) // lane BFME2CAMP1: hashed once an area was set (AI + 0x6C)
+	{
+		h.addI32(m_areaToGuard);
+	}
+	if (m_guardTeam != 0) // lane BFME2CAMP1: hashed once a team guard set it (AI + 0x68)
+	{
+		h.addU32(0x68u);
+		h.addU32(m_guardTeam);
+	}
+	if (m_attackInfoOverride) // lane BFME2CAMP1: hashed once a script or the team set AI + 0x70
+	{
+		h.addU32(0x70u);
+		h.addString(m_attackInfoName);
 	}
 	h.addU32(m_targetHorde);
 	h.addU32(m_moveAwayRequesters[0]); // lane PHYS-1

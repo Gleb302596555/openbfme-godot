@@ -508,7 +508,8 @@ bool LiveGame::load(const Options &options, std::string *error)
 	// lane SCRIPT-1: a campaign mission is a single player game (GameLogic + 0x110); the map script engine gets every side's lists (MapScriptSetup)
 	if (options.campaign)
 	{
-		m_logic->economy().context().gameMode = EconomyContext::MODE_SINGLE_PLAYER;
+		// lane BFME2CAMP1: a tutorial is mode 6 (RW 0x91B825 -> RW 0x7111E5(6))
+		m_logic->economy().context().gameMode = options.tutorial ? EconomyContext::MODE_TUTORIAL : EconomyContext::MODE_SINGLE_PLAYER;
 	}
 	m_mapScripts = mapScriptsWanted(options);
 	if (m_mapScripts && !setupMapScripts(options, sidesUsed, slotSides, error))
@@ -566,6 +567,15 @@ bool LiveGame::load(const Options &options, std::string *error)
 			if (error) *error = m_report.startErrors.front();
 			return false;
 		}
+	}
+	// lane BFME2CAMP1: RW 0x6315E8 -> RW 0x626423 (a campaign game, not a save's load) -> RW 0x5EC0C7 -> addCarryoverStuffToMap RW 0x5EBD76: after the
+	// computer players' AI (RW 0x6313A6), before the Create-a-Hero install (RW 0x6315F5)
+	if (options.campaign && options.campaignCarryover)
+	{
+		m_logic->setCampaignCarryover(options.carryover);
+		const CampaignCarryover::SpawnResult carried =
+			CampaignCarryover::addCarryoverStuffToMap(*m_logic, *m_players, *m_logic->campaignCarryover(), options.carryoverDelayed);
+		m_report.carryoverObjects = (int)carried.objects.size();
 	}
 	{
 		// lane HERO-2: RW 0x6315F5 -> 0x61B103 (after the computer players' AI, RW 0x6313A6): the Create-a-Hero of every slot that has one comes from the
@@ -700,8 +710,9 @@ namespace
 class LiveGameScriptHost : public ScriptEngineHost
 {
 public:
-	LiveGameScriptHost(GameLogic &logic, AIWorld *ai, const AudioIniState &audio, ArchiveFileSystem &fs)
-		: m_logic(logic)
+	LiveGameScriptHost(const LiveGame &game, GameLogic &logic, AIWorld *ai, const AudioIniState &audio, ArchiveFileSystem &fs)
+		: m_game(game)
+		, m_logic(logic)
 		, m_ai(ai)
 		, m_audio(audio)
 		, m_files(ScriptAudioLength::makeProbeCache(fs))
@@ -711,6 +722,18 @@ public:
 	bool audioLengthMs(const std::string &name, std::int32_t &ms, bool &picked) override
 	{
 		return ScriptAudioLength::lengthMs(m_audio, *m_files, name, ms, picked);
+	}
+	// lane BFME2CAMP1: the HUD's view (LiveGame::setScriptLocalView), none in a headless game
+	bool cameraScrollDistance(float &distance) override
+	{
+		const ScriptLocalView *v = m_game.scriptLocalView();
+		distance = v ? v->cameraScrollDistance() : 0.0f;
+		return v != nullptr;
+	}
+	bool objectivesScreenOpen() override
+	{
+		const ScriptLocalView *v = m_game.scriptLocalView();
+		return v && v->objectivesScreenOpen();
 	}
 	Object *createObject(const ThingTemplate &tt, Team &team, const Coord3D &pos, float angle) override
 	{
@@ -730,6 +753,7 @@ public:
 	}
 
 private:
+	const LiveGame &m_game;
 	GameLogic &m_logic;
 	AIWorld *m_ai;
 	const AudioIniState &m_audio;
@@ -779,7 +803,7 @@ bool LiveGame::setupMapScripts(const Options &options, const SidesList &sidesUse
 	{
 		return false;
 	}
-	m_scriptHost = std::make_unique<LiveGameScriptHost>(*m_logic, m_ai.get(), m_world.audio(), m_fs);
+	m_scriptHost = std::make_unique<LiveGameScriptHost>(*this, *m_logic, m_ai.get(), m_world.audio(), m_fs);
 	ScriptEngine &engine = m_logic->scriptEngine();
 	engine.setHost(m_scriptHost.get());
 	engine.newGame(m_scriptSetup->sides(), m_map.chunks.hasTriggerAreas ? &m_map.chunks.triggerAreas : nullptr,

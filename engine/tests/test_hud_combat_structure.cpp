@@ -260,9 +260,10 @@ TEST_CASE("structure retail: a Gondor horde destroys the barracks of every facti
 		// no member swings faster than every 5 frames: the soonest the structure can die
 		CHECK(o.deathFrame >= (int)std::ceil(need / 15.0) * 5 - 5);
 		CHECK_MESSAGE(o.deathFrame == row.armorFrames, row.templ << " died at frame " << o.deathFrame); // the approach and the swing phases are the attack machine's (S-325 / S-327)
-		// the structure stood as an obstacle, and left the pathfinder in the frame it died
+		// the structure stood as an obstacle, and left the pathfinder in the frame it died; the Wild barracks (GoblinCave, cave.ini: RebuildHoleExposeDie
+		// HoleName WildCaveHole) leaves its hole there in that frame, and the hole enters the pathfinder (RW 0x889AAF -> RW 0x6E85E9, lane BFME2CAMP1)
 		CHECK(o.obstacleBefore);
-		CHECK_FALSE(o.obstacleAfterDeath);
+		CHECK(o.obstacleAfterDeath == (std::string(row.templ) == "GoblinCave"));
 		CHECK(o.rubbleState);
 		CHECK(o.rubbleCondition);
 		// the ground the structure claimed (TerrainResourceBehavior, every one but MordorBarracks) is released: it is no claimant after its death

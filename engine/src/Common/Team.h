@@ -201,6 +201,10 @@ public:
 	bool getIsSingleton() const { return m_singleton; }
 	int getID() const { return m_id; }
 	const Dict &getDict() const { return m_dict; }
+	// lane BFME2CAMP1: + 0x318, the attack priority set TEAM_APPLY_ATTACK_PRIORITY_SET gave the team (RW 0x7A1BCF; RW 0x691F0C reads it): an object that
+	// joins one of the prototype's teams takes it (Object::applyTeamAttackPriority); "" none
+	void setAttackPriorityName(const std::string &n) { m_attackPriorityName = n; }
+	const std::string &attackPriorityName() const { return m_attackPriorityName; }
 	const std::vector<Team *> &teams() const { return m_teams; }
 	Team *getFirstTeam() const { return m_teams.empty() ? nullptr : m_teams.front(); }
 	// lane CAMP-1: the head of retail's instance list (prototype + 0x334): a new team is PREPENDED (RW 0x79FA5C -> RW 0x79F9D0), so the head is the newest
@@ -215,6 +219,7 @@ private:
 	bool m_singleton;
 	int m_id;
 	Dict m_dict;
+	std::string m_attackPriorityName; ///< lane BFME2CAMP1: + 0x318
 	std::vector<Team *> m_teams;
 	mutable std::unique_ptr<TeamTemplateScripts> m_scripts; ///< lane CAMP-1H: templateScripts()
 };
@@ -253,6 +258,8 @@ public:
 	// lane SAVE-4b: the member ids each team's load read, in team order (GameLogic::xferObjects loads the teams a second time after making the objects; the
 	// post-process must link the snapshot's members, not the ones that second load reads from the live lists)
 	std::vector<std::vector<ObjectID>> friend_loadedMembers() const;
+	// lane BFME2CAMP1: the id the next team gets (every id below it was issued; a load checks a saved team id against it)
+	TeamID nextTeamID() const { return m_nextTeamID; }
 	void friend_setLoadedMembers(const std::vector<std::vector<ObjectID>> &members);
 
 private:

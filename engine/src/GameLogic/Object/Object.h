@@ -100,6 +100,7 @@ public:
 	void setTeam(Team *team);
 	// lane SCRIPT-3: RW 0x69A550 / 0x697D1A: the AI's attitude from the team prototype's teamAggressiveness
 	void applyTeamAttitude();
+	void applyTeamAttackPriority(); // lane BFME2CAMP1: the team prototype's attack priority set (RW 0x697D32 / 0x69A575)
 	Player *getControllingPlayer() const;
 	// ---- lane HERO-2: defection (Wormtongue / Saruman / Sharku / Rogash's Dominate, a TemporarilyDefectUpdate) ----------------------------------------
 	// RW 0x699368 Object::defect(newOwner, permanent): see Object.cpp
@@ -234,6 +235,10 @@ public:
 	bool hasBeenScored() const { return m_scored; }
 	// the death has begun (the die modules ran): the object is no longer a target, its AI is dead and it left the pathfinder (RW 0x698F06)
 	bool isEffectivelyDead() const { return m_effectivelyDead; }
+	// lane BFME2CAMP1: Object + 0x458 bit 4 (0x10), a campaign carry-over object (set by addCarryoverStuffToMap RW 0x5EBD76 / the delayed spawn RW
+	// 0x5EBF92, setter RW 0x5EA625; read by onCurrentMissionWon RW 0x5EBAEE, not ported: S-4903)
+	bool isCampaignCarryover() const { return m_campaignCarryover; }
+	void setCampaignCarryover(bool on) { m_campaignCarryover = on; }
 	// lane CAMPUI-1: RW 0x660AA3 (inlined in retail; ZH Object::isOffMap): the object stands outside the map's active boundary (set by the position change,
 	// RW 0x69355D). Not hashed and not saved: it follows from the position and the boundary
 	bool isOffMap() const { return m_offMap; }
@@ -419,6 +424,8 @@ public:
 
 	// ---- the map's name for the object (the dict key objectName) -----------------------------------------------------------
 	const std::string &getName() const { return m_name; }
+	// lane BFME2CAMP1: the name without the script engine's cache (ScriptEngine::transferObjectName keeps the cache itself, RW 0x759467)
+	void friend_setNameUncached(const std::string &name) { m_name = name; }
 	// lane SCRIPT-1: the script engine's named object cache learns every name (ZH ScriptEngine::addObjectToCache; RotWK names objects through it, RW 0x759467)
 	void setName(const std::string &name);
 
@@ -566,6 +573,7 @@ private:
 	struct PendingDamage;
 	std::vector<PendingDamage> m_pendingDamage;             ///< RW + 0x460
 	bool m_effectivelyDead = false;                         ///< RW + 0x458 bit 0
+	bool m_campaignCarryover = false;                       ///< RW + 0x458 bit 4 (lane BFME2CAMP1)
 	bool m_offMap = false; ///< lane CAMPUI-1: RW + 0x458 bit 3 (OFF_MAP; in the padding before m_armorSetFlags: sizeof(Object) unchanged)
 	ArmorSetFlags m_armorSetFlags = 0;
 	std::uint32_t m_weaponBonusMask = 0;

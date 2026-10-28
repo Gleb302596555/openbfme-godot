@@ -125,6 +125,7 @@ runner is claimed. All paths below are relative to the repository root.
 | `godot/tests/cah_camera_retail_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/cah_camera_test.gd` | `tools/test_gdscript.py::test_game_script` | Allowlisted: camera geometry against synthetic bounds; headless, 20 s timeout. |
 | `godot/tests/camp2_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
+| `godot/tests/bfme2camp1_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/campsave1_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/caster_director_test.gd` | `tools/caster/test_caster_godot.py` | Existing argument-aware fixture runner; its prerequisites still apply. |
 | `godot/tests/caster_director_walk.gd` | `godot/scripts/game.gd` | Support/opt-in walk, not an independently scheduled test. |

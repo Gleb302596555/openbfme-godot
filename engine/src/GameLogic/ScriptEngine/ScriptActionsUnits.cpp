@@ -52,6 +52,7 @@
 // choice, face-object) -> S-1186 (docs/STOPS.md); the noted stand-ins below each report themselves.
 
 #include "GameLogic/ScriptEngine/ScriptActions.h"
+#include "GameLogic/ScriptEngine/AttackPriority.h"
 
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
@@ -63,6 +64,7 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/AI/AICommandSink.h"
 #include "GameLogic/AI/AIGroupFormations.h"
+#include "GameLogic/AI/AIGuard.h"
 #include "GameLogic/Damage.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Map/TerrainLogic.h"
@@ -1190,6 +1192,118 @@ bool ScriptActions::executeUnitAction(ScriptEngine &engine, const ScriptActionRe
 		}
 		return true;
 	}
+	if (name == "NAMED_APPLY_ATTACK_PRIORITY_SET")
+	{
+		// lane BFME2CAMP1: RW 0x7BBC5B: the unit (RW 0x75A3D8) with an AI: AI + 0x70 = the set of that name (RW 0x605938: the table's, else made from AIData,
+		// else the default info)
+		Object *o = engine.getUnitNamed(param(a, 0).stringValue);
+		if (AIUpdateInterface *ai = o ? o->getAIUpdateInterface() : nullptr)
+		{
+			ai->setAttackInfo(engine.attackPriorities().getAttackInfo(param(a, 1).stringValue));
+		}
+		return true;
+	}
+	if (name == "TEAM_APPLY_ATTACK_PRIORITY_SET")
+	{
+		// lane BFME2CAMP1: RW 0x7BF864: the team (RW 0x759FDA); the set (RW 0x605938); a set with a name (not the default info) becomes the team prototype's
+		// (RW 0x7A1BCF: + 0x30 -> + 0x318), which a later member takes; then every member with an AI (RW 0x66362D's walk): AI + 0x70 = the set
+		if (Team *t = ScriptConditions::team(engine, param(a, 0).stringValue))
+		{
+			const AttackPriorityInfo *info = engine.attackPriorities().getAttackInfo(param(a, 1).stringValue);
+			if (info && !info->getName().empty() && t->getPrototype())
+			{
+				t->getPrototype()->setAttackPriorityName(info->getName());
+			}
+			for (Object *o : ScriptConditions::members(*t))
+			{
+				if (AIUpdateInterface *ai = o->getAIUpdateInterface())
+				{
+					ai->setAttackInfo(info);
+				}
+			}
+		}
+		return true;
+	}
+	if (name == "TEAM_ATTACK_AREA")
+	{
+		// lane BFME2CAMP1: RW 0x7BF9B3 (BFME2 decomp ScriptActions_doTeamAttackArea.cpp, tier A): the team (RW 0x759FDA), its AI group (RW 0x70042A /
+		// 0x7A3D3D), the area by name (RW 0x759194; none: nothing), then RW 0x77283D: every member with an AI (+ 0x260) -> aiAttackArea(area, CMD_FROM_SCRIPT)
+		// (RW 0x77145C: AI command 0x23, AIHunt.cpp)
+		Team *t = ScriptConditions::team(engine, param(a, 0).stringValue);
+		const TriggerArea *area = t ? engine.findTrigger(param(a, 1).stringValue) : nullptr;
+		if (t && area)
+		{
+			for (Object *o : aiGroupOf(*t))
+			{
+				if (AIUpdateInterface *ai = o->getAIUpdateInterface())
+				{
+					ai->aiAttackArea(*area, CMD_FROM_SCRIPT);
+				}
+			}
+		}
+		return true;
+	}
+	if (name == "NAMED_ATTACK_AREA")
+	{
+		// lane BFME2CAMP1: RW 0x7C8DED: the unit (RW 0x75A3D8), the area by name (RW 0x759194), the unit's AI: it leaves its AI group (RW 0x68C6EE: the port keeps
+		// no group) and gets aiAttackArea(area, CMD_FROM_SCRIPT) (RW 0x77145C)
+		Object *o = engine.getUnitNamed(param(a, 0).stringValue);
+		const TriggerArea *area = o ? engine.findTrigger(param(a, 1).stringValue) : nullptr;
+		if (area && o->getAIUpdateInterface())
+		{
+			o->getAIUpdateInterface()->aiAttackArea(*area, CMD_FROM_SCRIPT);
+		}
+		return true;
+	}
+	if (name == "TEAM_ATTACK_TEAM")
+	{
+		// lane BFME2CAMP1: RW 0x7BF7EC (BFME2 decomp ScriptActions_doTeamAttackTeam.cpp, tier A): both teams (RW 0x759FDA; either missing: nothing), the first
+		// team's AI group (RW 0x70042A / 0x7A3D3D), then RW 0x772259: every member with an AI (+ 0x260) -> aiAttackTeam(the second team, 0x7FFFFFFF shots,
+		// CMD_FROM_SCRIPT) (RW 0x7713EE: AI command 0xD, AIHunt.cpp)
+		Team *t = ScriptConditions::team(engine, param(a, 0).stringValue);
+		Team *victims = ScriptConditions::team(engine, param(a, 1).stringValue);
+		if (t && victims)
+		{
+			for (Object *o : aiGroupOf(*t))
+			{
+				if (AIUpdateInterface *ai = o->getAIUpdateInterface())
+				{
+					ai->aiAttackTeam(*victims, 0x7FFFFFFF, CMD_FROM_SCRIPT);
+				}
+			}
+		}
+		return true;
+	}
+	if (name == "TEAM_GUARD_TEAM")
+	{
+		// lane BFME2CAMP1: RW 0x7C34BE: both teams (RW 0x759FDA; either missing: nothing), the first team's AI group (RW 0x70042A / 0x7A3D3D), then RW
+		// 0x772777: every member with an AI (+ 0x260) -> aiGuardTeam(the second team, mode 0, CMD_FROM_SCRIPT) (RW 0x771873: AI command 0x20, AIGuardCommands.cpp)
+		Team *t = ScriptConditions::team(engine, param(a, 0).stringValue);
+		Team *guarded = ScriptConditions::team(engine, param(a, 1).stringValue);
+		if (t && guarded)
+		{
+			for (Object *o : aiGroupOf(*t))
+			{
+				if (AIUpdateInterface *ai = o->getAIUpdateInterface())
+				{
+					ai->aiGuardTeam(*guarded, GUARDMODE_NORMAL, CMD_FROM_SCRIPT);
+				}
+			}
+		}
+		return true;
+	}
+	if (name == "NAMED_ATTACK_TEAM")
+	{
+		// lane BFME2CAMP1: RW 0x7C8EBB: the unit (RW 0x75A3D8), the team (RW 0x759FDA), the unit's AI: it leaves its AI group (RW 0x68C6EE: the port keeps no
+		// group) and gets aiAttackTeam(team, 0x7FFFFFFF shots, CMD_FROM_SCRIPT) (RW 0x7713EE)
+		Object *o = engine.getUnitNamed(param(a, 0).stringValue);
+		Team *victims = o ? ScriptConditions::team(engine, param(a, 1).stringValue) : nullptr;
+		if (victims && o->getAIUpdateInterface())
+		{
+			o->getAIUpdateInterface()->aiAttackTeam(*victims, 0x7FFFFFFF, CMD_FROM_SCRIPT);
+		}
+		return true;
+	}
 	if (name == "PLAYER_HUNT")
 	{
 		// RW 0x7BBCF9 (lane DECOMP-2, BFME2 decomp ScriptActionsRva003BB31D.cpp tier A): every player of the mask (RW 0x758F7C) -> Player::setUnitsShouldHunt(true,
@@ -1265,6 +1379,57 @@ bool ScriptActions::executeUnitAction(ScriptEngine &engine, const ScriptActionRe
 		for (Player *p : ScriptConditions::players(engine, param(a, 0).stringValue))
 		{
 			p->setTemplateBuildable(tt->getTemplateID(), param(a, 2).intValue != 0);
+		}
+		return true;
+	}
+	if (name == "NAMED_SET_STEALTH_ENABLED")
+	{
+		// lane BFME2CAMP1, RW 0x7CC85B -> RW 0x7BC7EC (unit, enabled): the unit by name (RW 0x75A3D8; none: nothing), then Object::setScriptStatus (RW
+		// 0x69317D) of bit 8 (SCRIPT_UNSTEALTHED) to !enabled; StealthUpdate (RW 0x7764C7) and the InvisibilityManager (RW 0x81BAC3) read it
+		if (Object *o = engine.getUnitNamed(param(a, 0).stringValue))
+		{
+			o->setScriptStatus(8, param(a, 1).intValue == 0);
+		}
+		return true;
+	}
+	if (name == "CREATE_DELAYED_CARRYOVER_UNIT_AT_WAYPOINT")
+	{
+		// lane BFME2CAMP1: RW 0x7CF6CB -> RW 0x7CAA30(param 0 .. 3: types, player, waypoint, name): the object type list of param 0 (RW 0x759158; none or
+		// empty: the one name, RW 0x778F6C); the waypoint (TheTerrainLogic vslot 0x88; none: nothing, no record moves); the player (RW 0x758F7C ->
+		// RW 0x6A85EE; none: nothing); a current campaign: the delayed spawn RW 0x5EC0D4 -> RW 0x5EBF92 (CampaignCarryover::spawnDelayed); the object
+		// made is put at the waypoint (setPosition RW 0x70C201: no terrain snap, no pathfinder move) and, with a name, named (+ 0x88, then the script
+		// engine's cache: RW 0x759467 replaces an entry of that name, RW 0x60A1D5 adds one). Without a campaign the War of the Ring branch (RW 0x7CAAFA,
+		// [0xDE4950]) does not apply here (no Living World game)
+		CampaignCarryover::State *carry = logic.campaignCarryover();
+		const Waypoint *wp = logic.terrain() ? logic.terrain()->findWaypointByName(param(a, 2).stringValue) : nullptr;
+		if (!carry || !wp)
+		{
+			return true;
+		}
+		Player *p = ScriptConditions::firstPlayer(engine, param(a, 1).stringValue);
+		if (!p)
+		{
+			return true;
+		}
+		Object *obj = CampaignCarryover::spawnDelayed(logic, *carry, ScriptConditions::typeNames(engine, param(a, 0).stringValue), *p);
+		if (obj)
+		{
+			Coord3D pos = wp->location;
+			obj->setPosition(&pos);
+			if (!param(a, 3).stringValue.empty())
+			{
+				obj->setName(param(a, 3).stringValue);
+			}
+		}
+		return true;
+	}
+	if (name == "TECHTREE_MODIFY_BUILDABILITY_OBJECT")
+	{
+		// lane BFME2CAMP1, RW 0x7CDC0F -> RW 0x7BCF6C (type, buildability): the template by name (TheThingFactory RW 0x6D1305; none: nothing), then
+		// TheGameLogic RW 0x62FEE6 (GameLogic::setBuildableStatusOverride) with the parameter's int as is (0 Yes, 1 Ignore_Prerequisites, 2 No, 3 Only_By_AI)
+		if (const ThingTemplate *tt = logic.things().findTemplate(param(a, 0).stringValue))
+		{
+			logic.setBuildableStatusOverride(tt, param(a, 1).intValue);
 		}
 		return true;
 	}

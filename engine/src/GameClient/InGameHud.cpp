@@ -58,6 +58,7 @@ InGameHud::InGameHud(Config config)
 	: m_config(config)
 	, m_source(config.fs)
 {
+	m_config.game.setScriptLocalView(this); // lane BFME2CAMP1
 	if (m_config.windows && m_config.shell)
 	{
 		m_wm = m_config.windows;
@@ -159,8 +160,18 @@ InGameHud::InGameHud(Config config)
 	}, this);
 }
 
+float InGameHud::cameraScrollDistance() const
+{
+	const TacticalCamera *cam = m_input ? m_input->camera() : nullptr;
+	return cam ? cam->scrollDistance() : 0.0f;
+}
+
 InGameHud::~InGameHud()
 {
+	if (m_config.game.scriptLocalView() == this)
+	{
+		m_config.game.setScriptLocalView(nullptr); // lane BFME2CAMP1
+	}
 	m_config.game.drawables().destroyClientDrawable(m_rallyPointDrawable);
 	// lane SPELL-2 (review r2): an open spell store is a screen of the window manager below: it goes first, without sending its pending purchases
 	m_store.reset();

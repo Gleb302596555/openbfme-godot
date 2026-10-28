@@ -123,6 +123,9 @@ public:
 	int scrollBy(float dx, float dy);
 	float lastScrollX() const { return m_scrollX; }
 	float lastScrollY() const { return m_scrollY; }
+	// lane BFME2CAMP1: TheTacticalView vslot 0x23C (RW 0x48731A: W3DView + 0x24F4), the length of every scroll move added up (RW 0x48C9B9 .. 0x48C9D4:
+	// Coord3D::length of the ground move, x87, stored as a float) since the last resetCamera (RW 0x48D286: RW 0x485126 clears it); CAMERA_SCROLL_DISTANCE
+	float scrollDistance() const { return m_scrollDistance; }
 
 	// ---- the follow lock (RW update, the lock branch) ----
 	enum LockType
@@ -258,6 +261,7 @@ private:
 	float m_constraintLo[2] = { 0, 0 }, m_constraintHi[2] = { 0, 0 };
 	bool m_constraintValid = false;
 	float m_scrollX = 0.0f, m_scrollY = 0.0f;
+	float m_scrollDistance = 0.0f; ///< lane BFME2CAMP1: W3DView + 0x24F4
 	// the lock
 	ObjectID m_lockObject = 0;
 	std::function<int(ObjectID, Coord3D &)> m_objectSource;

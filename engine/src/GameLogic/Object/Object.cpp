@@ -5,7 +5,8 @@
 #include "Common/ModEngineFeatures.h"
 #include "GameClient/ControlBarCommands.h"
 #include "GameLogic/Object/Object.h"
-
+#include "GameLogic/ScriptEngine/AttackPriority.h"
+#include "GameLogic/ScriptEngine/ScriptEngine.h"
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Map/TerrainTrees.h"
 #include "GameLogic/LegendaryHeroesGame.h"
@@ -129,6 +130,7 @@ Object::Object(GameLogic &logic, const ThingTemplate *tt, const ObjectStatusMask
 	{
 		buildModules();
 		applyTeamAttitude(); // RW 0x69A550
+		applyTeamAttackPriority(); // lane BFME2CAMP1: RW 0x69A575 ..
 		m_experienceTracker = std::make_unique<ExperienceTracker>(this); // RW 0x69A606 (lane XP-1)
 		// RW 0x69A637: onObjectCreated of every module, in array order
 		for (std::unique_ptr<BehaviorModule> &m : m_modules)
@@ -547,6 +549,7 @@ void Object::joinTeam(Team *team)
 	{
 		m_team->friend_addMember(this);
 		applyTeamAttitude(); // RW 0x697D1A
+		applyTeamAttackPriority(); // lane BFME2CAMP1: RW 0x697D32 .. 0x697D8B
 	}
 }
 
@@ -560,6 +563,24 @@ void Object::applyTeamAttitude()
 		return;
 	}
 	ai->setAttitude(m_team->getPrototype()->getDict().getInt("teamAggressiveness"));
+}
+
+// lane BFME2CAMP1: RW 0x697D32 .. 0x697D8B (the team join) and RW 0x69A575 .. (the constructor, after the modules): with an AI, a team and its prototype, a
+// prototype attack priority set name (+ 0x318, RW 0x691F0C) that is not empty is looked up (RW 0x605938); a set with a name (not the default info) becomes
+// AI + 0x70
+void Object::applyTeamAttackPriority()
+{
+	AIUpdateInterface *ai = getAIUpdateInterface();
+	const TeamPrototype *proto = m_team ? m_team->getPrototype() : nullptr;
+	if (!ai || !proto || proto->attackPriorityName().empty())
+	{
+		return;
+	}
+	const AttackPriorityInfo *info = m_logic.scriptEngine().attackPriorities().getAttackInfo(proto->attackPriorityName());
+	if (info && !info->getName().empty())
+	{
+		ai->setAttackInfo(info);
+	}
 }
 
 // lane BACKLOG4: RW 0x69957E .. 0x6995D2: + 0x320 = the team's prototype's owner name (+ 0x10), '/', the prototype's name (+ 0x14); cleared with no team
@@ -2296,6 +2317,10 @@ void Object::crcOmittingModules(StateHasher &h, const std::function<bool(const B
 	{
 		h.addU32(0x5C000000u | m_scriptStatus); // lane SCRIPT-2: hashed only when set (a game without scripts keeps its hash)
 	}
+	if (m_campaignCarryover)
+	{
+		h.addU32(0x5C100000u); // lane BFME2CAMP1: only when set (a game without a campaign's carry-over keeps its hash)
+	}
 	if (m_scriptSelectable != isKindOfName("SELECTABLE"))
 	{
 		h.addU32(m_scriptSelectable ? 0x5E1Fu : 0x5E1Eu); // hash a change from the template-derived default, as for the other script fields
@@ -2510,7 +2535,8 @@ void Object::setScriptStatus(std::uint8_t bits, bool set)
 // (the Objects block's order) and the team links (the TeamFactory's post-process).
 void Object::xfer(Xfer &x)
 {
-	SnapshotXfer::version(x, 1, 1);
+	XferVersion version{ 1, 2 }; // lane BFME2CAMP1: version 2 adds the campaign carry-over bit (Object + 0x458 bit 4)
+	x.xferVersion(version);
 	// a load never reads its destination: the save-side values are built from the members only when saving (SAVES.md, rules for xfer authors)
 	const bool saving = !x.isLoading();
 	ObjectID id = saving ? m_id : (ObjectID)INVALID_ID;
@@ -2601,6 +2627,14 @@ void Object::xfer(Xfer &x)
 	x.xferUnsignedByte(&scriptStatus);
 	SnapshotXfer::checkMask(scriptStatus, 0x1F, "an object's script status", "the five script status bits"); // ZH ObjectScriptStatusBit 1 .. 0x10
 	m_scriptStatus = scriptStatus;
+	if (version.current >= 2)
+	{
+		x.xferBool(&m_campaignCarryover);
+	}
+	else if (x.isLoading())
+	{
+		m_campaignCarryover = false;
+	}
 	x.xferBool(&m_scriptSelectable);
 	x.xferInt(&m_triggerCount);
 	if (m_triggerCount < 0 || m_triggerCount > MAX_TRIGGERS_IN)

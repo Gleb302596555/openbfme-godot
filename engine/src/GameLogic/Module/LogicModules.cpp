@@ -19,6 +19,7 @@
 #include "GameLogic/Module/SquishCollide.h"
 #include "GameLogic/Module/BannerCarrierUpdate.h"
 #include "GameLogic/Module/ExtraModules.h"
+#include "GameLogic/Module/RebuildHoleModules.h"
 #include "GameLogic/Module/TransitionDamageFX.h"
 #include "GameLogic/Module/GateModules.h"
 #include "GameLogic/Module/AreaScanModules.h"
@@ -105,6 +106,7 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	HeroModules::registerAll(modules); // lane HERO-1: RespawnUpdate, BuildableHeroListUpgrade
 	SpecialAbilityModules::registerAll(modules); // lane HERO-1: the SpecialAbilityUpdate family
 	ExtraModules::registerAll(modules); // lane MODULES-1: the remaining behaviour modules the base game uses
+	RebuildHoleModules::registerAll(modules); // lane BFME2CAMP1: RebuildHoleExposeDie / RebuildHoleBehavior (S-1427)
 	GateModules::registerAll(modules); // lane HUD-5: GateOpenAndCloseBehavior, AIGateUpdate
 	PortalModules::registerAll(modules); // lane WALL-2: DynamicPortalBehaviour, FakePathfindPortalBehaviour
 	EmotionModules::registerAll(modules); // lane MODULES-2: EmotionTrackerUpdate, RadiateFearUpdate

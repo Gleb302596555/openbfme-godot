@@ -376,14 +376,24 @@ movie's difficulty choice, and its Easy / Medium / Hard button sends
 0x91AFAF) to `campaign_flow.gd`. RotWK has no Continue Campaign button;
 you continue a campaign from Load Game (its auto-saves).
 
-BFME2's 1.06 `MainMenu.apt` (the BFME2 style) has no Angmar buttons, so
-in that style you can't start the Angmar campaigns from the menu; switch
-to the RotWK style to play them. BFME2's own Good / Evil campaign buttons
-stay hidden while `game.gd`'s `BFME2_CAMPAIGNS` is off (until B2CAMP-1).
-Load Game moves up into their place. A request that still names them,
-`game.gd.start_bfme2_campaign(alignment: String)` with `good` / `evil`
-(B2CAMP-1's entry point), gets the main menu's "not available" box
-("The BFME2 Good campaign is not available yet: ...").
+BFME2's 1.06 `MainMenu.apt` (the BFME2 style) has no Angmar buttons; OpenBFME
+adds them (lane BFME2CAMP1, an OpenBFME addition): while the Solo Play list is
+open, copies of its Good Campaign row named `Expansion1Campaign` ("ANGMAR
+CAMPAIGN") and `BonusCampaign` ("EPILOGUE", disabled until the bonus unlock as
+in RotWK) sit between Good Campaign and Load Game, the list's frame stretched to
+hold them; they open the movie's own difficulty choice, which sends RotWK's
+`AptMainMenu::Expansion1Campaign` / `BonusCampaign` (`AptMainMenu.h`
+`ExtraRows`). BFME2's own Good / Evil campaign buttons
+show in the BFME2 style (lane BFME2CAMP1 turned `game.gd`'s
+`BFME2_CAMPAIGNS` on) and start `GOOD_CAMPAIGN` / `EVIL_CAMPAIGN` with the
+chosen difficulty, as RotWK's own unregistered starters do (RW 0x91AF46 /
+0x91AF69 -> RW 0x91BE05 / 0x91BDA6). Those campaigns come from BFME2's
+legend's `LinearCampaign.ini`, which OpenBFME loads after RotWK's campaigns
+(an OpenBFME addition: RotWK's legend names only
+`LinearCampaignExpansion1.ini`). They play with RotWK 2.01's rules and data.
+With the switch off, or with data that has no such campaign,
+`game.gd.start_bfme2_campaign(alignment, difficulty)` shows the main menu's
+"not available" box instead.
 
 ### Checks
 

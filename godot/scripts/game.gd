@@ -1569,6 +1569,12 @@ func _process(delta: float) -> void:
 	_campaign_check_tick() # lane CAMP-1
 	if _state == State.PLAYING and _world != null:
 		_sdk_tick() # lane SDK-2
+	if _objectives_tutorial_input >= 0 and _hud != null:
+		# lane BFME2CAMP1: the scripts may disable / enable input while the screen is open (the Palantir lesson); Return reads the flag when pressed
+		var on: int = 1 if _hud.input_enabled() else 0
+		if on != _objectives_tutorial_input:
+			_objectives_tutorial_input = on
+			_shell.set_objectives_tutorial_input(on == 1)
 	if _stance_at >= 0 and _state == State.PLAYING and _world != null and _world.get_presented_frame() >= _stance_at:
 		_stance_at = -1
 		_stance_proof()
@@ -1583,7 +1589,7 @@ func _process(delta: float) -> void:
 		_online_reports.set_available((_state == State.SCORE and _last_game_online) or (_state == State.MENU and _shell.shell_stack().has("OnlineShell.apt")))
 	if _state == State.MENU:
 		if _menu_style == "bfme2" and _frames % 5 == 0 and _shell.shell_stack().size() > 0 and _shell.shell_stack()[-1] == "MainMenu.apt":
-			_hide_bfme2_campaign_buttons() # lane DEVPORT-8: the BFME2 campaigns are not in this tree (BFME2_CAMPAIGNS)
+			_hide_bfme2_campaign_buttons() # lane DEVPORT-8: only while BFME2_CAMPAIGNS is off (lane BFME2CAMP1 turned it on)
 		if _pending_menu_style != _menu_style and not _switching_menu_style and _clean_main_menu():
 			_switching_menu_style = true
 			call_deferred("_apply_pending_menu_style")
@@ -1765,10 +1771,12 @@ func _on_shell_request(action: String, argument: String) -> void:
 		_campaign_flow.start("ANGMAR_CAMPAIGN", _campaign_flow.difficulty_from_command(argument))
 	elif action == "BonusCampaign": # RW 0x91BEFA
 		_campaign_flow.start("ANGMAR_BONUS_CAMPAIGN", _campaign_flow.difficulty_from_command(argument))
-	elif action == "LoadCampaign" and argument.begins_with("bfme2:good:"):
-		start_bfme2_campaign("good")
-	elif action == "LoadCampaign" and argument.begins_with("bfme2:evil:"):
-		start_bfme2_campaign("evil")
+	elif action == "LoadCampaign" and argument.begins_with("bfme2:good:"): # lane BFME2CAMP1: RW 0x91AF46 -> RW 0x91BE05 (GOOD_CAMPAIGN)
+		start_bfme2_campaign("good", argument.trim_prefix("bfme2:good:"))
+	elif action == "LoadCampaign" and argument.begins_with("bfme2:evil:"): # RW 0x91AF69 -> RW 0x91BDA6 (EVIL_CAMPAIGN)
+		start_bfme2_campaign("evil", argument.trim_prefix("bfme2:evil:"))
+	elif action == "Tutorial" and argument in ["Basic", "Advanced"]: # lane BFME2CAMP1: AptMainMenu::OnTutorial RW 0x91B825 (mode 6)
+		_campaign_flow.start_tutorial(argument)
 	elif action == "ContinueCampaign":
 		_campaign_flow.continue_saved() # lane CAMPSAVE-1: RW 0x91B50D, nothing without 00000000.sav (RotWK's MainMenu.apt has no button for it)
 
@@ -1950,10 +1958,12 @@ func _apply_pending_menu_style() -> void:
 	print("GAME main menu style: ", _menu_style)
 
 
-## lane DEVPORT-8: THE switch of the BFME2 Good / Evil campaigns (lane B2CAMP-1 turns it on with its campaign entry point). Off, BFME2's own MainMenu.apt
-## GoodCampaign / EvilCampaign buttons are hidden (below) and a request that still names them is refused by name (start_bfme2_campaign). Lane CAMPMENU-1
-## moved it here from the OpenBFME campaign panel (scripts/menu_campaigns.gd, removed: the campaigns start from retail's own Solo Play buttons)
-const BFME2_CAMPAIGNS := false
+## lane DEVPORT-8: THE switch of the BFME2 Good / Evil campaigns. Lane BFME2CAMP1 turned it on with their entry point (start_bfme2_campaign): BFME2's own
+## MainMenu.apt GoodCampaign / EvilCampaign buttons show in the BFME2 menu style and start GOOD_CAMPAIGN / EVIL_CAMPAIGN (BFME2's legend's
+## LinearCampaign.ini, loaded after RotWK's campaigns: Common/SubsystemLegend.h LoadBfme2CampaignsFromLegend, an OpenBFME addition). Off, the buttons
+## are hidden (below) and a request is refused by name. Lane CAMPMENU-1 moved it here from the OpenBFME campaign panel (scripts/menu_campaigns.gd,
+## removed: the campaigns start from retail's own Solo Play buttons)
+const BFME2_CAMPAIGNS := true
 
 ## lane DEVPORT-8: BFME2's own MainMenu.apt has GoodCampaign / EvilCampaign buttons (its Solo Play list: Skirmish, WarOfTheRing, EvilCampaign,
 ## GoodCampaign, LoadGame). While BFME2_CAMPAIGNS is off they are hidden (their clip's _visible); { found: [clip paths], visible: [the
@@ -2004,12 +2014,23 @@ func _hide_bfme2_campaign_buttons() -> void:
 			_shell.set_clip_property(top, "SoloPlayNav.LoadGame", "_y", float(evil_y.value))
 
 
-## lane DEVPORT-8: the BFME2 campaigns are behind BFME2_CAMPAIGNS (off until B2CAMP-1): their buttons are hidden, so a request is a bug somewhere; it is
-## refused by name with the main menu's "not available" box (AptMainMenu::screenUnavailable, lane CAMPMENU-1: retail's GuiFX.apt message box, whose Ok
-## gives the menu back) and the stop line, which is returned. B2CAMP-1 replaces the body with its campaign entry point.
-func start_bfme2_campaign(alignment: String) -> String:
+## lane BFME2CAMP1: BFME2 MainMenu.apt's GoodCampaign / EvilCampaign (AptMainMenu.cpp: the request "bfme2:good:<difficulty>"). TARGET FACTS (RotWK
+## game.dat, which keeps BFME2's starters without registering their handlers): AptMainMenu::GoodCampaign RW 0x91AF46 / EvilCampaign RW 0x91AF69 store the
+## command's first character (+ 0x2A8) and the menu states 9 -> 0xB / 0xC; the menu update (RW 0x91C349, table RW 0x91C70B: 0xB -> RW 0x91C3A3, 0xC
+## -> RW 0x91C3B4) calls RW 0x91C1C8 / 0x91C215, which run RW 0x91C108 (the difficulty 'E' / 'H' / else normal, the transition) with the starter
+## RW 0x91BE05 ("GOOD_CAMPAIGN", RW 0xC7CEB4) / RW 0x91BDA6 ("EVIL_CAMPAIGN", RW 0xC7CEA4) -> RW 0x91B1D2, the campaign start ANGMAR_CAMPAIGN's starter
+## RW 0x91BE64 uses too. The menu skips its music stop for 0xB / 0xC as for 0xD / 0xE (RW 0x91B432 .. 0x91B444). So the start is the Angmar
+## campaign's (campaign_flow.start) with the other name. Donor: BFME2 1.06 registers the two buttons (decomp AptMainMenuCallbacks.cpp 0x00514AE0 /
+## 0x00514B03, Rva00515921Permuted.cpp). Off (BFME2_CAMPAIGNS), or without the campaign in TheLinearCampaignManager (a mod's legend), the request is
+## refused by name with the main menu's "not available" box (AptMainMenu::screenUnavailable: GuiFX.apt's message box) and that line is returned;
+## else "" once the campaign has started
+func start_bfme2_campaign(alignment: String, argument: String = "") -> String:
 	if alignment not in ["good", "evil"]:
 		_fail("unknown BFME2 campaign alignment: " + alignment)
+		return ""
+	var campaign_name := "%s_CAMPAIGN" % alignment.to_upper()
+	if BFME2_CAMPAIGNS and not _campaign_flow.missions_of(campaign_name).is_empty():
+		_campaign_flow.start(campaign_name, _campaign_flow.difficulty_from_command(argument))
 		return ""
 	var line: String = _shell.shell_screen_unavailable("BFME2%sCampaign" % alignment.capitalize())
 	print("GAME stop: ", line)
@@ -3894,6 +3915,7 @@ func _palantir_objectives() -> void:
 
 
 var _objectives_paused := false # lane CAMPUI-1: the objectives screen paused the game (RW 0x8E8843 -> RW 0x625AF1(1, 0, 1))
+var _objectives_tutorial_input := -1 # lane BFME2CAMP1: the tutorial input flag the open objectives screen was given (-1: not open)
 var _stance_at := -1 ## --stance-at=F (lane CAMPUI-1, proof captures; the start option test_hooks): at logic frame F the Witch King is selected, the Palantir's stance button clicked and its Battle item hovered
 var _objectives_at := -1 ## --objectives-at=F (lane CAMPUI-1, proof captures): the Palantir flag's objectives screen opens at logic frame F, closes 6 s later
 
@@ -3908,7 +3930,10 @@ func _open_objectives(mode: int) -> void:
 	if not bool(obj.get("screen_enabled", true)):
 		print("GAME objectives screen: disabled by the map's script (DISABLE_OBJECTIVES_SCREEN)")
 		return
-	var screen: Dictionary = _shell.set_objectives_screen({"game_mode": 0 if mode == 0 else mode, "objectives": obj.get("objectives", [])})
+	# lane BFME2CAMP1: in the tutorial (mode 6) the Return button needs InGameUI + 0x16, the input flag the scripts' DISABLE_INPUT / ENABLE_INPUT set
+	# (RW 0x8E873E; AptObjectivesMenu::InputEnabled)
+	var tutorial_input: bool = _hud != null and _hud.input_enabled()
+	var screen: Dictionary = _shell.set_objectives_screen({"game_mode": 0 if mode == 0 else mode, "tutorial_input": tutorial_input, "objectives": obj.get("objectives", [])})
 	if not screen.get("ok", false):
 		printerr("GAME objectives screen: ", screen.get("error", "?"))
 		return
@@ -3923,6 +3948,7 @@ func _open_objectives(mode: int) -> void:
 		return
 	if _hud != null:
 		_hud.set_objectives_screen_open(true)
+	_objectives_tutorial_input = 1 if tutorial_input else 0
 	print("GAME objectives screen open (Objectives.apt, RW 0x8E8843): ", JSON.stringify(screen.get("rows", [])))
 
 
@@ -3933,6 +3959,7 @@ func _close_objectives() -> void:
 		return
 	_shell.shell_pop()
 	_close_objectives_unpause()
+	_objectives_tutorial_input = -1
 	if _hud != null:
 		_hud.set_objectives_screen_open(false)
 	print("GAME objectives screen closed")

@@ -428,6 +428,9 @@ func _drive() -> void:
 	if drive == "rhudaur":
 		_drive_rhudaur()
 		return
+	if drive == "rivendell":
+		_drive_rivendell()
+		return
 	if drive != "angmar":
 		return
 	var f: int = world.get_frame()
@@ -511,6 +514,46 @@ func _drive_rhudaur() -> void:
 			if f >= _drive_frame + 25:
 				_follow("Witch King")
 				_drive_step = 11
+
+
+## lane BFME2CAMP1: the player's part of MAP GOOD Rivendell's first objective ("Bring Glorfindel and his elves to Rivendell": Glorfindel and the team
+## PlyrElves/Starting Units inside "Gate of riv AREA"), as test_bfme2camp1.cpp drives it: their walk to the river bridge RivBridge (player moves), the
+## carry over it (the bridge's path layer is not ported: S-161), the walk on to the gate; the map's own scripts mark the objective. The camera follows
+## Glorfindel (needs --campaign-carryover=GOOD_CAMPAIGN: the campaign spawns him)
+const RIVENDELL_NEAR := Vector2(3040.0, 1520.0) # the bridge's near end (where the units stop)
+const RIVENDELL_FAR := Vector2(2760.0, 1810.0)  # its far end
+const RIVENDELL_GATE := Vector2(2664.0, 2015.0) # the centre of "Gate of riv AREA"
+func _drive_rivendell() -> void:
+	var f: int = world.get_frame()
+	match _drive_step:
+		0:
+			if f >= 60:
+				_follow("Glorfindel")
+				for t in [["Glorfindel", false], ["PlyrElves/Starting Units", true]]:
+					print("DRIVE %s to the bridge: %s" % [t[0], world.debug_script_move_to(t[0], t[1], RIVENDELL_NEAR.x, RIVENDELL_NEAR.y)])
+				_drive_step = 1
+				_drive_frame = f
+		1:
+			var g: Dictionary = world.debug_script_unit("Glorfindel")
+			var near: bool = g.get("ok", false) and Vector2(float(g.x), float(g.y)).distance_to(RIVENDELL_NEAR) < 150.0
+			if near or f >= _drive_frame + 900:
+				print("DRIVE carry over RivBridge (S-161): %s %s" % [world.debug_script_teleport("Glorfindel", false, RIVENDELL_FAR.x, RIVENDELL_FAR.y),
+					world.debug_script_teleport("PlyrElves/Starting Units", true, RIVENDELL_FAR.x, RIVENDELL_FAR.y)])
+				_drive_step = 2
+				_drive_frame = f
+		2, 3:
+			# to the gate, the move given again every 25 frames as the test does to idle units (a fight on the way stops a move); a unit still on the
+			# near side (the team's first member) is carried again
+			if f >= _drive_frame + (2 if _drive_step == 2 else 25):
+				var lead: Dictionary = world.debug_script_team("PlyrElves/Starting Units")
+				if _drive_step == 3 and lead.get("ok", false) and float(lead.y) < 1700.0:
+					print("DRIVE carry again: %s" % world.debug_script_teleport("PlyrElves/Starting Units", true, RIVENDELL_FAR.x, RIVENDELL_FAR.y))
+				for t in [["Glorfindel", false], ["PlyrElves/Starting Units", true]]:
+					var r: Dictionary = world.debug_script_move_to(t[0], t[1], RIVENDELL_GATE.x, RIVENDELL_GATE.y)
+					if _drive_step == 2:
+						print("DRIVE %s to the gate: %s" % [t[0], r])
+				_drive_step = 3
+				_drive_frame = f
 
 
 ## lane CAMP-1: --cine-drive=kill:<name>@<frame> (the montage of scripts/campaign_flow.gd's missions): the camera follows the named unit from 150 frames

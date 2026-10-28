@@ -333,6 +333,10 @@ void TeamFactory::crc(StateHasher &h) const
 		h.addString(p->getName());
 		h.addI32(p->getControllingPlayer() ? p->getControllingPlayer()->getPlayerIndex() : -1);
 		h.addBool(p->getIsSingleton());
+		if (!p->attackPriorityName().empty()) // lane BFME2CAMP1: hashed once set
+		{
+			h.addString(p->attackPriorityName());
+		}
 		h.addU32((std::uint32_t)p->teams().size()); // the prototype's teams, in creation order
 		for (const Team *t : p->teams())
 		{
@@ -414,7 +418,10 @@ void Team::xfer(Xfer &x)
 
 void TeamFactory::xfer(Xfer &x)
 {
-	XferVersion v{ 1, 1 };
+	// version 2 (lane BFME2CAMP1): each prototype's attack priority set name (+ 0x318), written only when a prototype has one (every other snapshot is
+	// version 1's)
+	const bool names = std::any_of(m_prototypes.begin(), m_prototypes.end(), [](const std::unique_ptr<TeamPrototype> &p) { return !p->attackPriorityName().empty(); });
+	XferVersion v{ 1, (std::uint8_t)(x.isLoading() || names ? 2 : 1) };
 	x.xferVersion(v);
 	x.xferUnsignedInt(&m_nextTeamID);
 	x.xferInt(&m_nextPrototypeID);
@@ -440,6 +447,15 @@ void TeamFactory::xfer(Xfer &x)
 		{
 			throw XferException("the snapshot's team prototype " + std::to_string(id) + " '" + owner + "/" + name + "' is not this game's "
 				+ std::to_string(tp->getID()) + " '" + ownNow + "/" + tp->getName() + "'");
+		}
+		std::string priorityName = tp->attackPriorityName();
+		if (v.current >= 2)
+		{
+			x.xferAsciiString(&priorityName);
+		}
+		if (x.isLoading())
+		{
+			tp->setAttackPriorityName(v.current >= 2 ? priorityName : std::string());
 		}
 	}
 	// every team in creation order: (id, prototype id); a team past the game's own is created with its saved id (ZH TeamPrototype::xfer creates a team

@@ -42,6 +42,8 @@ class AIWorld;
 class AttackPriorityInfo;
 class ModuleFactory;
 class TurretAI;
+class Team;
+struct TriggerArea;
 class Object;
 bool cancelBloodthirstyCommand(Object &object, int command, Object *target);
 struct TurretAIData;
@@ -138,6 +140,9 @@ public:
 	Object *currentVictim() const;
 	ObjectID currentVictimId() const { return m_currentVictim; }
 	void setCurrentVictim(Object *victim);
+	// lane BFME2CAMP1: RW 0x66826E (ZH AIUpdateInterface::transferAttack): the current victim (AI + 0x40) and the machine's goal object, when they are
+	// `from`, become `to` (the goal by object, null when `to` is gone): a rebuild hole and its structure pass their attackers on (RebuildHoleModules)
+	void transferAttack(ObjectID from, ObjectID to);
 	void notifyVictimIsDead() { m_currentVictim = INVALID_ID; }
 	// the machine is in an attack state (AI_ATTACK_OBJECT / AI_FORCE_ATTACK_OBJECT / AI_ATTACK_POSITION)
 	// the module is being destroyed: the machine's exits run on an object whose drawable the world hooks already removed (they must not touch its model condition)
@@ -179,6 +184,11 @@ public:
 	Object *getNextMoodTarget(bool calledByAI, bool calledDuringIdle);
 	// AI + 0x70: the attack priority info (AttackPriority.h); null for an empty AttackPriority name
 	const AttackPriorityInfo *attackInfo();
+	// lane BFME2CAMP1: AI + 0x70 set to a set of the script engine's table (NAMED_ / TEAM_APPLY_ATTACK_PRIORITY_SET RW 0x7BBC5B / 0x7BF864, a team prototype's
+	// name when the object joins its team RW 0x697D8B / is built RW 0x69A5xx): kept by the set's name (the save's, RW 0x667BEF) and looked up again after a
+	// table reset or a load
+	void setAttackInfo(const AttackPriorityInfo *info);
+	bool hasAttackInfoOverride() const { return m_attackInfoOverride; }
 	// RW 0x662DD9 / 0x662DB3 (see AIUpdateCombat.cpp)
 	void resetNextMoodCheckTime();
 	void wakeUpAndAttemptToTarget();
@@ -189,6 +199,23 @@ public:
 	void setAttitude(int attitude);
 	// lane SCRIPT-3: AI command 0x12 (RW 0x6AF150): aiDoCommand's gate, then privateHunt RW 0x6644E6 (AIHunt.cpp); false when nothing changed
 	bool aiHunt(CommandSourceType source);
+	// lane BFME2CAMP1: AI command 0x23 (RW 0x77145C aiAttackArea) -> aiDoCommand's gate, then privateAttackArea RW 0x66C24E (AIHunt.cpp): attack the enemies inside
+	// `area` (the state 0x1F, AIAttackAreaState); false when nothing changed
+	bool aiAttackArea(const TriggerArea &area, CommandSourceType source);
+	// lane BFME2CAMP1: AI command 0xD (RW 0x7713EE aiAttackTeam) -> aiDoCommand's gate, then privateAttackTeam RW 0x66C03D (AIHunt.cpp): attack the members of
+	// `team` (the machine's goal squad, AIAttackSquadState)
+	bool aiAttackTeam(const Team &team, int maxShotsToFire, CommandSourceType source);
+	// RW AI + 0x6C (AI vslot 0x1E4): the area the AI attacks or guards, null for none; set by privateAttackArea, kept until another area replaces it
+	const TriggerArea *areaToGuard() const;
+	std::int32_t areaToGuardIndex() const { return m_areaToGuard; }
+	// lane BFME2CAMP1: AI command 0x20 (RW 0x771873 aiGuardTeam; AIGroup RW 0x772777) -> aiDoCommand's gate, then privateGuardTeam RW 0x664B93 (AI vslot
+	// 0x104, AIGuardCommands.cpp): guard the team's members' mean position
+	bool aiGuardTeam(const Team &team, int mode, CommandSourceType source);
+	// RW AI + 0x68 (BFME2 getGuardTeam, AI vslot 120): the team privateGuardTeam set (its id, 0 none)
+	std::uint32_t guardTeam() const { return m_guardTeam; }
+	// lane BFME2CAMP1: AI commands 0x21 / 0x44 (RW 0x7718E1 aiGuardArea / RW 0x77194F aiGuardAreaFromPosition) -> aiDoCommand's gate, then vslot 0x10C,
+	// privateGuardAreaFromPosition RW 0x664C11 (AI/AIGuardCommands.cpp): guard `area` in `mode` around `pos` (null: the area's centre); false when nothing changed
+	bool aiGuardArea(const TriggerArea &area, int mode, CommandSourceType source, const Coord3D *pos);
 	// lane PLAY-4: RW 0x662A21 (AIGuard.cpp): guard this spot in `mode` (GuardMode: the stances' 0 battle / 1 hold ground): the guard mode (+ 0x4C), the target
 	// type LOCATION unless AREA (+ 0x54), the location and angle (+ 0x58 / + 0x1A0), the machine to AI_GUARD (16)
 	void guardHere(int mode);
@@ -584,11 +611,15 @@ private:
 	int m_guardTargetType = 0;                        ///< RW AI + 0x54
 	Coord3D m_guardLocation{ 0.0f, 0.0f, 0.0f };      ///< RW AI + 0x58
 	float m_guardAngle = 0.0f;                        ///< RW AI + 0x1A0
+	std::uint32_t m_guardTeam = 0;                    ///< lane BFME2CAMP1: RW AI + 0x68, a TeamID (0 none)
+	std::int32_t m_areaToGuard = -1;                  ///< lane BFME2CAMP1: RW AI + 0x6C, as the area's index in the script engine's trigger list (-1 none)
 	unsigned m_nextMoodCheck = 0;                     ///< RW AI + 0x21C
 	bool m_randomlyOffsetMoodCheck = false;           ///< lane TARGET-1: RW AI + 0x3BC (0 from the constructor RW 0x66ECFE)
 	ObjectID m_orderedMeleeTarget = INVALID_ID;       ///< lane TARGET-1: RW AI + 0x1A4 (RW 0x66BD33 sets it, the mood scan reads and clears it)
 	const AttackPriorityInfo *m_attackInfo = nullptr; ///< lane TARGET-1: RW AI + 0x70 (derived: the module data's name through the script engine's table)
 	unsigned m_attackInfoGeneration = 0xFFFFFFFFu;    ///< the table generation m_attackInfo was looked up in (a cache key, not state)
+	bool m_attackInfoOverride = false;                ///< lane BFME2CAMP1: + 0x70 set by a script or the team (state: saved and hashed when set)
+	std::string m_attackInfoName;                     ///< the set's name (the default info's is "")
 	int m_attitude = 0; ///< lane SCRIPT-3: RW + 0x218
 	std::map<std::string, unsigned> m_unportedCommands;
 	// RW obj+0x198 / +0x1A6: the movers' "pending position"

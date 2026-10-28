@@ -69,11 +69,16 @@
 //
 // INFERENCE / NOT PORTED: the AI recruitable flag (AI + 0x3BE) is read as true (ZH's default; its only writer, the panel flag AI_Recruitable, is not
 // ported, S-1186); SET_UNIT_REFERENCE writes the named cache only (the side's reference map RW + 0x191B4 and SET_UNIT_REFERENCE_TO_REFERENCE are S-1180:
-// the cache answers the same unless two sides give one reference name to different objects); the area guards (UNIT_ / TEAM_GUARD_AREA[_FROM_POSITION]
-// need the guard machine's area form) and TEAM_ATTACK_TEAM (AIAttackSquadState, state 0x17) stay unported (S-1186); the command-button types without a
+// the cache answers the same unless two sides give one reference name to different objects); (lane BFME2CAMP1 ported the area guards UNIT_ /
+// TEAM_GUARD_AREA[_FROM_POSITION] and the squad attacks TEAM_ / NAMED_ATTACK_TEAM, AIHunt.cpp); the command-button types without a
 // port in ObjectCommandButton (upgrades, castle unpack, fire weapon, dozer construct, the message-stream commands ...) are noted by name (S-1190).
 
 #include "GameLogic/ScriptEngine/ScriptActions.h"
+#include "Common/PlayerHeroList.h"
+#include "GameLogic/AI/AIWorld.h"
+#include "GameLogic/AI/AIPathfind.h"
+#include "GameLogic/ExperienceLevels.h"
+#include "GameLogic/Economy.h"
 
 #include "Common/GameCommon.h"
 #include "Common/SpecialPower.h"
@@ -97,6 +102,7 @@
 #include "GameLogic/Object/ObjectCommandButton.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/ObjectTemplateInfo.h"
+#include "GameLogic/Object/Contain/OpenContainRuntime.h"
 #include "GameLogic/ScriptEngine/ScriptConditions.h"
 #include "GameLogic/ScriptEngine/ScriptEngine.h"
 #include "GameLogic/SimMath.h"
@@ -202,28 +208,6 @@ std::vector<ObjectID> idsOf(const std::vector<Object *> &objects)
 		ids.push_back(o->getID());
 	}
 	return ids;
-}
-
-// RW 0x7A0ECD: the mean position of EVERY member (dead ones too), each axis summed in member order (pos + sum), times 1 / n; false for an empty team
-// (retail divides by zero there; its AI group is empty as well, so nothing moves)
-bool teamCentreAllMembers(const Team &t, Coord3D &out)
-{
-	float x = 0.0f, y = 0.0f, z = 0.0f;
-	int n = 0;
-	for (const Object *o = t.getFirstMember(); o; o = o->friend_teamNext())
-	{
-		x = SimMath::sseAdd(o->getPosition()->x, x);
-		y = SimMath::sseAdd(o->getPosition()->y, y);
-		z = SimMath::sseAdd(o->getPosition()->z, z);
-		++n;
-	}
-	if (n == 0)
-	{
-		return false;
-	}
-	const float inv = SimMath::sseDiv(1.0f, SimMath::sseFromInt32(n));
-	out = Coord3D{ SimMath::sseMul(inv, x), SimMath::sseMul(inv, y), SimMath::sseMul(inv, z) };
-	return true;
 }
 
 // RW 0x7A02E1: the mean position of the live members (not dead, not destroyed); (0, 0, 0) without one
@@ -464,6 +448,46 @@ bool ScriptActions::executeOrderAction(ScriptEngine &engine, const ScriptActionR
 		}
 		return true;
 	}
+	if (name == "UNIT_GUARD_AREA" || name == "UNIT_GUARD_AREA_FROM_POSITION" || name == "TEAM_GUARD_AREA" || name == "TEAM_GUARD_AREA_FROM_POSITION")
+	{
+		// lane BFME2CAMP1: executeAction cases 0x1C6 / 0x1E6 -> RW 0x7C94B1(unit, area, position) and 0xD0 / 0x1E7 -> RW 0x7C02A6(team, area, position); the
+		// plain forms pass "" as the position. The area by name first (RW 0x759194), then the unit (RW 0x75A3D8, with an AI) or the team (RW 0x759FDA); both
+		// needed. The position is TheTerrainLogic's waypoint of that name (vslot 0x88): none -> aiGuardArea(area, 0, CMD_FROM_SCRIPT) (RW 0x7718E1), else
+		// aiGuardAreaFromPosition(area, 0, CMD_FROM_SCRIPT, the waypoint's location) (RW 0x77194F); a team: its AI group's members with an AI (RW 0x7727B8 /
+		// 0x7727F9)
+		const bool team = name[0] == 'T';
+		const bool fromPosition = name.size() > 14 && name.compare(name.size() - 14, 14, "_FROM_POSITION") == 0;
+		const TriggerArea *area = engine.findTrigger(param(a, 1).stringValue);
+		std::vector<Object *> who;
+		if (team)
+		{
+			Team *t = ScriptConditions::team(engine, param(a, 0).stringValue);
+			if (t && area)
+			{
+				who = teamAIGroup(*t);
+			}
+		}
+		else if (Object *o = engine.getUnitNamed(param(a, 0).stringValue))
+		{
+			if (o->getAIUpdateInterface() && area)
+			{
+				who.push_back(o);
+			}
+		}
+		if (who.empty())
+		{
+			return true;
+		}
+		const Waypoint *w = fromPosition && terrain ? terrain->findWaypointByName(param(a, 2).stringValue) : nullptr;
+		for (Object *o : who)
+		{
+			if (AIUpdateInterface *ai = o->getAIUpdateInterface())
+			{
+				ai->aiGuardArea(*area, 0, CMD_FROM_SCRIPT, w ? &w->location : nullptr);
+			}
+		}
+		return true;
+	}
 	if (name == "UNIT_STAND_GROUND" || name == "TEAM_STAND_GROUND")
 	{
 		const bool on = param(a, 1).intValue != 0;
@@ -488,7 +512,7 @@ bool ScriptActions::executeOrderAction(ScriptEngine &engine, const ScriptActionR
 		const bool byPlayer = name == "TEAM_MOVE_TO_NEAREST_OBJECT_OF_TYPE_OWNED_BY_PLAYER"; // RW 0x7C31FF; else RW 0x7C30F7
 		Team *t = ScriptConditions::team(engine, param(a, 0).stringValue);
 		Coord3D c;
-		if (!t || !teamCentreAllMembers(*t, c))
+		if (!t || !ScriptConditions::teamCentreAllMembers(*t, c))
 		{
 			return true;
 		}
@@ -590,6 +614,37 @@ bool ScriptActions::executeOrderAction(ScriptEngine &engine, const ScriptActionR
 		if (Object *o = engine.getUnitNamed(param(a, 1).stringValue)) // RW 0x7C2AAC(ref, unit, 0)
 		{
 			engine.nameInCache(param(a, 0).stringValue, *o); // RW 0x60A1D5 (the side's map RW 0x608397: see the header)
+		}
+		return true;
+	}
+	if (name == "EXIT_SPECIFIC_BUILDING")
+	{
+		// lane BFME2CAMP1: RW 0x7C970A: the named object (RW 0x75A243) that is a STRUCTURE (template + 0x108 bit 7); with an AI it gets AI command 0x1B
+		// (RW 0x6AF1AC(0, CMD_FROM_SCRIPT) -> RW 0x66E0DC: with a contain, its first argument 0 skips the contain's slot 0x90, the AI goes idle (RW 0x5E821A)
+		// and the contain's slot 0x80 orders every rider out); without one the contain's slot 0xA8 (OpenContain::removeAllContained RW 0x866675) lets them
+		// all out at once
+		static const int structure = ObjectTemplateInfoBuilder::kindOfIndex("STRUCTURE");
+		Object *b = engine.getUnitNamed(param(a, 0).stringValue);
+		if (!b || structure < 0 || !b->isKindOf((unsigned)structure))
+		{
+			return true;
+		}
+		if (AIUpdateInterface *ai = b->getAIUpdateInterface())
+		{
+			ContainModuleInterface *c = b->getContain();
+			if (ai->acceptCommand(CMD_FROM_SCRIPT, 0x1B) && c) // RW 0x667174, then RW 0x66E0E5
+			{
+				ai->aiIdle(CMD_FROM_SCRIPT);
+				c->orderAllPassengersToExit((int)CMD_FROM_SCRIPT);
+			}
+		}
+		else if (OpenContain *open = dynamic_cast<OpenContain *>(b->getContain()))
+		{
+			open->removeAllContained();
+		}
+		else if (b->getContain())
+		{
+			engine.note("[S-1180] EXIT_SPECIFIC_BUILDING: a contain without OpenContain's removeAllContained (contain slot 0xA8) lets nobody out");
 		}
 		return true;
 	}
@@ -733,7 +788,121 @@ bool ScriptActions::executeOrderAction(ScriptEngine &engine, const ScriptActionR
 		});
 		return true;
 	}
-	if (name == "NAMED_USE_COMMANDBUTTON_ABILITY" || name == "NAMED_USE_COMMANDBUTTON_ABILITY_ON_NAMED" || name == "NAMED_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT")
+	if (name == "HUMAN_IMPASSABLE_AREA")
+	{
+		// lane BFME2CAMP1: RW 0x7C4040 (area, on): the area by name (RW 0x759194; none: nothing); TheAI's pathfinder (+ 0x10) RW 0x934D51(area, on): the
+		// area's integer bounds (RW 0x6E4D2C: floor of the low corner, ceil of the high) divided by 10 (C division) give the cell range; every ground cell
+		// (RW 0x5E2E9C(1, x, y)) whose centre (x * 10 + 5, y * 10 + 5) is in the area (RW 0x6E4DC7: the integers as floats) whose bit 18 (impassable to
+		// human players, cell + 0xC) changes (RW 0x9349C8) marks its zone block dirty (RW 0x937D96). Then (not a reload: the third argument 0) the
+		// engine records (name, on) at + 0x191D0 (RW 0x6093D8), the list a retail load applies again; the port's snapshot keeps the cells' bit 18 itself
+		// (AIPathfindSnapshot.cpp), so the list is not kept
+		const TriggerArea *area = engine.findTrigger(param(a, 0).stringValue);
+		AIWorld *ai = logic.aiWorld();
+		if (!area || area->points.empty() || !ai || !ai->mapReady())
+		{
+			return true;
+		}
+		const bool on = param(a, 1).intValue != 0;
+		float loX = area->points[0].x, loY = area->points[0].y, hiX = loX, hiY = loY;
+		for (const Point2F &q : area->points)
+		{
+			loX = q.x < loX ? q.x : loX;
+			loY = q.y < loY ? q.y : loY;
+			hiX = q.x > hiX ? q.x : hiX;
+			hiY = q.y > hiY ? q.y : hiY;
+		}
+		const int x0 = SimMath::floorToInt(loX) / 10, y0 = SimMath::floorToInt(loY) / 10;
+		const int x1 = SimMath::ceilToInt(hiX) / 10, y1 = SimMath::ceilToInt(hiY) / 10;
+		Pathfinder &pf = ai->pathfinder();
+		for (int cx = x0; cx <= x1; ++cx)
+		{
+			for (int cy = y0; cy <= y1; ++cy)
+			{
+				if (!ScriptConditions::pointInTrigger(*area, SimMath::sseFromInt32(cx * 10 + 5), SimMath::sseFromInt32(cy * 10 + 5)))
+				{
+					continue;
+				}
+				PathfindCell *cell = pf.getCell(LAYER_GROUND, cx, cy);
+				if (cell && cell->getImpassableToPlayers() != on)
+				{
+					cell->setImpassableToPlayers(on);
+					pf.zoneManager().markCellDirty(cx, cy);
+				}
+			}
+		}
+		return true;
+	}
+	if (name == "CREATE_UNIT_REVIVAL_ENTRY_AT_LEVEL")
+	{
+		// lane BFME2CAMP1: RW 0x7C6D8E (template, player, level): the template (RW 0x6D1305; none: nothing), the first player of the mask (RW 0x758F7C ->
+		// RW 0x6A85EE; none: nothing); a record of the template for the player's hero list (Player + 0x758, RW 0x780713); a level other than -1 that the
+		// experience levels have for the template (RW 0x689509: the first level of the template's list whose final override is valid for the game type,
+		// RW 0x688DB0, and has that rank, + 0xFC) gives the record its RequiredExperience (+ 0x18, cvtsi2ss) and rank and base rank (+ 0xFC, RW 0x688EEC);
+		// otherwise the rank is RW 0x73CE2A's; the record is appended (RW 0x781861 -> RW 0x6E40A6)
+		const ThingTemplate *tt = logic.things().findTemplate(param(a, 0).stringValue);
+		const std::vector<Player *> ps = tt ? ScriptConditions::players(engine, param(a, 1).stringValue) : std::vector<Player *>{};
+		if (ps.empty())
+		{
+			return true;
+		}
+		HeroRecord r = PlayerHeroList::recordFromTemplate(*tt);
+		const int level = param(a, 2).intValue;
+		const ExperienceLevelTemplate *found = nullptr;
+		if (level != -1 && TheExperienceLevelSystem)
+		{
+			const bool multiplayer = logic.economy().isMultiplayerGame(); // RW 0x625456
+			if (const std::vector<const ExperienceLevelTemplate *> *levels = TheExperienceLevelSystem->levelsFor(tt->getName()))
+			{
+				for (const ExperienceLevelTemplate *l : *levels)
+				{
+					const ExperienceLevelTemplate *f = l ? l->getFinal() : nullptr;
+					if (f && !(multiplayer ? f->m_singlePlayerOnly : f->m_multiPlayerOnly) && f->m_rank == level)
+					{
+						found = f;
+						break;
+					}
+				}
+			}
+		}
+		if (found)
+		{
+			r.experience = SimMath::sseFromInt32(found->m_requiredExperience); // cvtsi2ss
+			r.rank = found->m_rank;
+			r.baseRank = found->m_rank;
+		}
+		ps.front()->heroes().addRecord(r);
+		return true;
+	}
+	if (name == "TEAM_SET_MODELCONDITION_FOR_DURATION")
+	{
+		// lane BFME2CAMP1: RW 0x7C649A (4 arguments, ret 0x10): the team (RW 0x759FDA); the model condition whose name equals the parameter (case kept, RW
+		// 0x4065AA over the 591 names RW 0xD9FAD8; none: nothing); frames = _ftol2(5 * seconds) (RW 0x7C6502, x87); every member in the team's order (RW
+		// 0x66362D) gets RW 0x68B581(bit, frames) -> the SMCHelper's timed bit (RW 0x8E2C0F) whatever the frames; the fraction (the 4th) is not read
+		Team *t = ScriptConditions::team(engine, param(a, 0).stringValue);
+		if (!t)
+		{
+			return true;
+		}
+		int bit = -1;
+		for (int i = 0; i < 591 && TheModelConditionNames[i] && bit < 0; ++i)
+		{
+			if (param(a, 1).stringValue == TheModelConditionNames[i])
+			{
+				bit = i;
+			}
+		}
+		if (bit < 0)
+		{
+			return true;
+		}
+		const int frames = (int)SimMath::ftol2(SimMath::pc24MulW(5.0, (double)param(a, 2).realValue));
+		for (Object *o : ScriptConditions::members(*t))
+		{
+			o->setSpecialModelConditionState(bit, (UnsignedInt)frames);
+		}
+		return true;
+	}
+	if (name == "NAMED_USE_COMMANDBUTTON_ABILITY" ||name == "NAMED_USE_COMMANDBUTTON_ABILITY_ON_NAMED" || name == "NAMED_USE_COMMANDBUTTON_ABILITY_AT_WAYPOINT")
 	{
 		Object *o = engine.getUnitNamed(param(a, 0).stringValue); // RW 0x7C6243 / 0x7C62BF / 0x7C6363
 		if (!o)

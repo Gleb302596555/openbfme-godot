@@ -15,6 +15,7 @@
 
 #pragma once
 
+#include "GameLogic/CampaignCarryover.h"
 #include "Common/GameCommon.h"
 #include "Common/LogicFrameClock.h"
 #include "Common/PlayerList.h"
@@ -72,6 +73,9 @@ class WW3DAssetManager;
 class LiveGame
 {
 public:
+	// lane BFME2CAMP1: the HUD that answers the script engine's client-view conditions (CAMERA_SCROLL_DISTANCE, OBJECTIVES_SCREEN_IS_OPEN); null: none
+	void setScriptLocalView(const ScriptLocalView *view) { m_scriptLocalView = view; }
+	const ScriptLocalView *scriptLocalView() const { return m_scriptLocalView; }
 	struct Options
 	{
 		std::string heroStatsProfile; // client profile only, supplied by the hero manager
@@ -109,9 +113,17 @@ public:
 		// map load (viewers, object tests); 0 never; 1 always. A campaign mission is a single player game (GameLogic + 0x110 = 0) with the map's own sides.
 		int mapScripts = -1;
 		bool campaign = false;
+		// lane BFME2CAMP1: a tutorial map (AptMainMenu::OnTutorial Basic / Advanced, RW 0x91B825): a campaign-style single player game of mode 6 (GameLogic + 0x110)
+		bool tutorial = false;
 		// lane CAMP-1: the campaign's difficulty (0 easy, 1 normal, 2 hard: the main menu command's first character, RW 0x91C108): lane CAMP-1H: the
 		// new game message's difficulty, TheGameLogic + 0xA4 (prepareNewGame RW 0x77948E; the script engine's stays 1); -1 leaves GameLogic's reset value (1)
 		int difficulty = -1;
+		// lane BFME2CAMP1: the campaign's carry-over at this mission's start (GameLogic/CampaignCarryover.h, addCarryoverStuffToMap RW 0x5EBD76 from
+		// startNewGame RW 0x6315E8): the campaign's state (beginCampaign RW 0x5EC4EC for its first mission, the previous mission's won state after) and the
+		// mission's DelayCarryoverSpawningOf. The game keeps the state (GameLogic::campaignCarryover) and changes it; off: no carry-over step
+		bool campaignCarryover = false;
+		CampaignCarryover::State carryover;
+		std::vector<std::string> carryoverDelayed;
 		// lane UBER-1: the simulation profile of a game without a start message (a started game takes its setup's, SkirmishGameInfo::simulationProfile)
 		SimulationProfile simulationProfile = SimulationProfile::Faithful;
 	};
@@ -330,6 +342,7 @@ public:
 		std::vector<std::string> startSlotPlayers;           ///< per slot: the player name ("" for an unoccupied slot)
 		std::vector<StartingBase::Placed> startingObjects;   ///< the starting structures and units, in placement order
 		int createAHeroes = 0;                               ///< lane HERO-2: the slots whose Create-a-Hero the game start installed
+		int carryoverObjects = 0;                            ///< lane BFME2CAMP1: the campaign's carry-over objects the mission start made
 		size_t spellBooks = 0;                               ///< SPELL-1: the players' spell book objects made at the game start (RW 0x6B183D)
 		std::vector<std::string> startErrors;                ///< problems of the start (a slot without waypoint, a template that does not exist ...)
 		std::vector<int> progressCalls;                      ///< the percentages reported
@@ -371,6 +384,7 @@ private:
 	std::unique_ptr<SdkScriptHost> m_sdkScripts; // lane SDK-2: the mod's sim Luau scripts (before the logic: they listen to it)
 	std::unique_ptr<class MapScriptSetup> m_scriptSetup; // lane SCRIPT-1: the libraries the script engine's lists point into (outlive the logic)
 	std::unique_ptr<ScriptEngineHost> m_scriptHost;      // lane SCRIPT-1
+	const ScriptLocalView *m_scriptLocalView = nullptr; // lane BFME2CAMP1 (the HUD's; it unregisters itself)
 	bool m_mapScripts = false;
 	BuildCommands m_buildCommands;                // BUILD-1: the construction messages
 	AICommands m_aiCommands;                      // MOVE-1: before the logic; its handlers are registered on m_dispatch

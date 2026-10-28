@@ -200,6 +200,21 @@ bool AIUpdateInterface::findNearestLabeledContactPointOnTarget(const Object &tar
 	return false;
 }
 
+void AIUpdateInterface::transferAttack(ObjectID from, ObjectID to)
+{
+	// RW 0x66826E
+	if (m_currentVictim == from)
+	{
+		m_currentVictim = to; // AI + 0x40
+	}
+	const Object *goal = m_machine->goalObject(); // RW 0x8DBACE
+	if (goal && goal->getID() == from)
+	{
+		const Object *now = getObject()->logic().findObjectByID(to); // RW 0x449681
+		m_machine->setGoalObject(now ? now->getID() : (ObjectID)INVALID_ID); // machine vslot 0x38
+	}
+}
+
 void AIUpdateInterface::setCurrentVictim(Object *victim)
 {
 	m_currentVictim = victim ? victim->getID() : (ObjectID)INVALID_ID;
@@ -558,9 +573,26 @@ const AttackPriorityInfo *AIUpdateInterface::attackInfo()
 	if (m_attackInfoGeneration != se.attackPriorities().generation())
 	{
 		m_attackInfoGeneration = se.attackPriorities().generation();
-		m_attackInfo = m_combat.attackPriority.empty() ? nullptr : se.attackPriorities().getAttackInfo(m_combat.attackPriority);
+		if (m_attackInfoOverride)
+		{
+			// lane BFME2CAMP1: the set a script or the team gave, by its name (the default info's name is empty: entry 0)
+			m_attackInfo = m_attackInfoName.empty() ? se.attackPriorities().getDefaultAttackInfo() : se.attackPriorities().getAttackInfo(m_attackInfoName);
+		}
+		else
+		{
+			m_attackInfo = m_combat.attackPriority.empty() ? nullptr : se.attackPriorities().getAttackInfo(m_combat.attackPriority);
+		}
 	}
 	return m_attackInfo;
+}
+
+void AIUpdateInterface::setAttackInfo(const AttackPriorityInfo *info)
+{
+	ScriptEngine &se = getObject()->logic().scriptEngine();
+	m_attackInfoOverride = true;
+	m_attackInfoName = info ? info->getName() : std::string();
+	m_attackInfo = info;
+	m_attackInfoGeneration = se.attackPriorities().generation();
 }
 
 // RW 0x662DD9 (ZH resetNextMoodCheckTime, RotWK's: never earlier): AIData ForceIdleMSEC frames from now unless the check is later already, and the next check

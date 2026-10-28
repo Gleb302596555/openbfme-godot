@@ -396,6 +396,8 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // Merge queue q29 re-measured both once on the merged tree (OPENBFME_PERF1_REGEN=1, a CI host): AIEXPAND-1's frame counter in the skirmish AI's hash moves
 // both from frame 0; before it, compared at merge points, the big battle reached its value at AIDATA-1's merge point (DEVPORT-SIM / KILLSRC-1's points differ
 // from frame 23) and the skirmish still moved after it.
+// Lane BFME2CAMP1 re-measured the skirmish on main's tree (OPENBFME_PERF1_REGEN=1, a CI host): a destroyed creep lair leaves its hole and is rebuilt
+// (RebuildHoleExposeDie RW 0x889AAF, RebuildHoleBehavior RW 0x8868C2); the skirmish differs from frame 1566, the big battle is unchanged.
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	const std::vector<std::uint32_t> battleRef = perf1::readHashes("big_battle_400.hashes");

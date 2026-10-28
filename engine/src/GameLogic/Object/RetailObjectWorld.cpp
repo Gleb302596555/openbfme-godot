@@ -398,6 +398,11 @@ bool RetailObjectWorld::loadState(std::string *error)
 	try
 	{
 		RunSubsystemIniLoad(m_s->m_legend, ini, options, m_s->m_report);
+		// lane BFME2CAMP1 (OpenBFME addition, SubsystemLegend.h): BFME2's GOOD / EVIL_CAMPAIGN from BFME2's own legend, after RotWK's campaigns
+		if (!options.bfme1)
+		{
+			LoadBfme2CampaignsFromLegend(m_s->m_legend, ini, options, m_s->m_report);
+		}
 	}
 	catch (const std::exception &e)
 	{
