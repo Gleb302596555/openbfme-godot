@@ -89,6 +89,7 @@ std::string W3DShaderKey::Id() const
 	if (HouseColor) id += "_hc1"; // appended only when set: every existing id stays what it was
 	if (HouseColorBaked) id += "_hcb"; // lane CAH-2
 	if (SimpleFx) id += "_sfx1";
+	if (ConvertedFx) id += "_cfx1"; // retail's DefaultW3D.fx replacement of a classic material (w3dfxconvert.h)
 	if (Fog) id += "_fog" + std::to_string(Fog); // lane RENDER-4
 	if (AlphaOverride) id += "_ao"; // lane BUILD-5 r3
 	if (OcclusionPass) id += "_occl" + std::to_string(OcclusionPass); // lane OCCLUDE-1

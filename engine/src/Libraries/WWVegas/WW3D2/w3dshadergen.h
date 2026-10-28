@@ -40,6 +40,10 @@ struct W3DShaderKey
 	// alpha = Texture_0.a; the UV transform is the stage 0 matrix (W3D_SimpleFx_Uv_Matrix). Fx stays false (no normalmapped.fxo lighting).
 	bool SimpleFx = false;
 	bool NormalMap = false;
+	// A classic surface that retail converts to DefaultW3D.fx (w3dfxconvert.h: W3D_Fx_Conversion_Refusal empty, and the static level's ShaderMaterialReplacement
+	// on): lit by defaultw3d.fxo's pixel shaders, whose secondary texture and house colour combines differ from the fixed-function stage ops the other
+	// classic surfaces keep (ShaderClassApply.cpp). Set by the material factory only for MATERIAL_CLASSIC surfaces.
+	bool ConvertedFx = false;
 	bool Tex[2] = { false, false };
 	bool Uv2 = false; // stage 1 reads its own coordinates
 	int TexGen[2] = { 0, 0 };           // W3DTexGen
