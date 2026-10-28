@@ -501,6 +501,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 {
 	m_report = Dictionary();
 	Array errors, assumptions, stops;
+	Ref<ShaderMaterial> terrainMaterial; // the terrain's lit material: the roads are drawn with the same effect inputs (lane ROADS-1)
 	Dictionary timings;
 	m_report["errors"] = errors;
 	m_report["assumptions"] = assumptions;
@@ -897,6 +898,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 		};
 		Ref<ShaderMaterial> terrainMat = makeMat(terrainShader, TERRAIN_RENDER_PRIORITY);
 		terrainMat->set_shader_parameter("records", recordsTex);
+		terrainMaterial = terrainMat;
 
 		Node3D *terrainRoot = memnew(Node3D);
 		terrainRoot->set_name("Terrain");
@@ -1334,6 +1336,8 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 		std::vector<RoadStrip> strips;
 		RoadTypeIndex roadTypes;
 		const float lift = 0.15f; // presentation-only: ZH raises roads by MAP_HEIGHT_SCALE/8, which z-fights here
+		int64_t withNormalMap = 0, withFallbackNormal = 0; // road types with their _nrm texture / with the 1x1 fallback (RoadShading)
+		Array normalMapNames;
 		if (wantRoads)
 		{
 			if (!TerrainRoads::load(*arch, roadTypes, &error))
@@ -1348,6 +1352,15 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 		if (!strips.empty())
 		{
 			Ref<Shader> sh = loadShader("res://shaders/road.gdshader", errors);
+			// Lane ROADS-1: retail draws a road with terrain.fxo "Default", RenderingMode 2 (RoadShading), so it takes the terrain material's effect inputs.
+			// A road type without a _nrm texture binds a 1x1 (127, 127, 255, 0) texel, W3DRoadBuffer + 0x18 (RoadShading::FALLBACK_NORMAL_*).
+			Ref<Texture2D> fallbackNormal;
+			{
+				PackedByteArray texel;
+				texel.resize(4);
+				memcpy(texel.ptrw(), RoadShading::FALLBACK_NORMAL_RGBA, 4);
+				fallbackNormal = ImageTexture::create_from_image(Image::create_from_data(1, 1, false, Image::FORMAT_RGBA8, texel));
+			}
 			Node3D *roadRoot = memnew(Node3D);
 			roadRoot->set_name("Roads");
 			root->add_child(roadRoot);
@@ -1362,6 +1375,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 				PackedVector3Array vtx;
 				PackedVector2Array uv;
 				PackedColorArray col;
+				PackedVector3Array nrm;
 				PackedInt32Array idx;
 				for (const RoadStrip *s : g.second)
 				{
@@ -1371,6 +1385,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 					{
 						const float x = s->position[(size_t)i * 3], y = s->position[(size_t)i * 3 + 1], z = s->position[(size_t)i * 3 + 2];
 						vtx.push_back(toG(x, y, z));
+						nrm.push_back(toG(RoadShading::VERTEX_NORMAL[0], RoadShading::VERTEX_NORMAL[1], RoadShading::VERTEX_NORMAL[2]));
 						uv.push_back(Vector2(s->uv[(size_t)i * 2], s->uv[(size_t)i * 2 + 1]));
 						std::uint8_t rgb[3];
 						HeightMapMesh::staticDiffuseAt(hm, lighting, vcm, (int)std::lround(x / MAP_XY_FACTOR) + hm.m_borderSize,
@@ -1385,6 +1400,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 				Array arrays;
 				arrays.resize(Mesh::ARRAY_MAX);
 				arrays[Mesh::ARRAY_VERTEX] = vtx;
+				arrays[Mesh::ARRAY_NORMAL] = nrm;
 				arrays[Mesh::ARRAY_COLOR] = col;
 				arrays[Mesh::ARRAY_TEX_UV] = uv;
 				arrays[Mesh::ARRAY_INDEX] = idx;
@@ -1403,7 +1419,43 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 					Array texErrors;
 					Ref<Texture2D> t = loadTexture(rfs, g.second.front()->texture, texErrors);
 					if (t.is_valid()) m->set_shader_parameter("road_tex", t);
-					m->set_shader_parameter("overbright", overbright ? 2.0f : 1.0f);
+					// RoadType::loadTexture: the _nrm companion when it exists (Render_Obj_Exists), else the fallback texel. Only "not found" is the
+					// optional case; a companion that exists but cannot be decoded is an error.
+					const std::string nrmName = RoadShading::normalTextureName(g.second.front()->texture);
+					Array nrmErrors;
+					Ref<Texture2D> nrmTex = loadTexture(rfs, nrmName, nrmErrors);
+					if (nrmTex.is_valid())
+					{
+						++withNormalMap;
+						normalMapNames.push_back(toGodot(nrmName));
+					}
+					else
+					{
+						++withFallbackNormal;
+						nrmTex = fallbackNormal;
+						for (int64_t i = 0; i < nrmErrors.size(); ++i)
+						{
+							if (nrmErrors[i] != Variant(toGodot("texture not found: " + nrmName)))
+							{
+								errors.push_back(nrmErrors[i]);
+							}
+						}
+					}
+					m->set_shader_parameter("road_normal_tex", nrmTex);
+					if (terrainMaterial.is_valid())
+					{
+						// the same light environment, cloud, macro and fog inputs as the terrain's pixel shader (set once, in makeMat)
+						for (const char *param : { "sun_dir_sage", "sun_color", "overbright", "lightning_color", "cloud_tex", "macro_tex", "cloud_scale",
+							"cloud_offset_per_second", "macro_stretched", "map_size", "map_border_width", "map_cell_size", "fog_enabled", "fog_color",
+							"fog_range_start", "fog_range_end" })
+						{
+							const Variant value = terrainMaterial->get_shader_parameter(param);
+							if (value.get_type() != Variant::NIL)
+							{
+								m->set_shader_parameter(param, value);
+							}
+						}
+					}
 					for (int64_t i = 0; i < texErrors.size(); ++i)
 					{
 						errors.push_back(texErrors[i]);
@@ -1417,6 +1469,10 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 				roadRoot->add_child(mi);
 			}
 		}
+		rd["shading"] = "terrain.fxo Default, RenderingMode 2: PSDefault_Array element " + String::num_int64(RoadShading::pixelShaderElement(RoadShading::RENDERING_MODE, 0, false));
+		rd["normal_maps"] = withNormalMap;
+		rd["fallback_normals"] = withFallbackNormal;
+		rd["normal_map_names"] = normalMapNames;
 		if (!strips.empty())
 		{
 			rd["sample_strip"] = toG(strips[0].position[0], strips[0].position[1], strips[0].position[2]);
