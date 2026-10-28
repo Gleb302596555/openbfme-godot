@@ -98,7 +98,7 @@ ALLOWLIST = {
     "menustyle_settings_test.gd": "temporary Options.ini and shell/game spies",
     "net_score_continue_test.gd": "score transitions against shell/audio stubs",
     "controller_menu_test.gd": "controller menu mapping against a stub shell",
-    "controller_routing_test.gd": "controller input routing rules only",
+    "controller_routing_test.gd": "controller input routing and scaled, letterboxed pointer motion/clicks",
     "online_list_test.gd": "online list parsing and paging against synthetic responses",
     "online_list_client_test.gd": "the native list client against synthetic responses",
 }

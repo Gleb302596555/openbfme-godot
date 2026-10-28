@@ -48,7 +48,7 @@ func _run() -> int:
 		file.store_string("OpenBFMEMainMenuStyle = %s\n" % style)
 		file.close()
 		var options := "--options-file=" + path
-		_game_run(["--display-check", "--max-fps=77", options], 50, "%s menu check (a command-line cap the file does not hold)" % style)
+		_game_run(["--display-check", "--max-fps=77", "--res=1100x700", options], 50, "%s menu check (a command-line cap the file does not hold)" % style)
 		_game_run(["--auto", "--advance=2", "--display-game", options], 8, "%s in-game check" % style)
 		DirAccess.remove_absolute(path)
 	return 0 if _failures == 0 else 1
@@ -99,6 +99,9 @@ func _settings_checks() -> void:
 
 func _apply_checks() -> void:
 	var window: Window = root
+	window.size = Vector2i(1280, 720)
+	DisplaySettings.new().apply(window)
+	_check(window.size == Vector2i(1280, 720), "Automatic windowed startup keeps the project window size")
 	var a = DisplaySettings.new()
 	a.max_fps = 120
 	a.render_scale = 0.5

@@ -55,7 +55,7 @@ Explicit Open replay / command-line / window drop still work when disabled; the 
 
 Display settings
 ----------------
-Settings > Display chooses one window mode and resolution for both games. Automatic uses the current desktop resolution.
+Settings > Display chooses one window mode and resolution for both games. Automatic preserves the window size in windowed mode and uses the desktop resolution in fullscreen modes.
 Borderless and fullscreen render at the selected resolution and scale to fit, preserving aspect ratio.
 Launcher edits apply on the next launch. Accepted in-game changes appear when you return to the launcher or reopen Display.
 

@@ -35,6 +35,17 @@ func run(p_game: Node, p_shots: String) -> int:
 	var main_level: int = shell.shell_top_level()
 	var main0 := widget_state(main_level)
 	check("main menu has buttons", main0.size() >= 5, "only %d buttons" % main0.size())
+	if game._res != Vector2i.ZERO:
+		check("command-line resolution is retained in memory", game._display.resolution == game._res, str(game._display.resolution))
+		for cycle in 2:
+			await key(KEY_ENTER, true)
+			check("command-line resolution survives fullscreen cycle %d" % cycle,
+				Vector2i(root.get_visible_rect().size) == game._res, str(root.get_visible_rect().size))
+			await key(KEY_ENTER, true)
+		var command_line_file := ConfigFile.new()
+		command_line_file.load(game._display_path)
+		check("mode hotkeys do not persist the command-line resolution", not command_line_file.has_section_key("display", "resolution"), str(command_line_file.get_sections()))
+		DirAccess.remove_absolute(game._display_path)
 
 	# 1. the window changed directly (the system's maximise / restore / resize buttons), with the main menu up
 	var sizes := [Vector2i(1600, 900), Vector2i(1024, 768), Vector2i(1280, 800)]
@@ -46,6 +57,8 @@ func run(p_game: Node, p_shots: String) -> int:
 		root.size = size
 		await game._step(30)
 		compare("main menu after a resize to %dx%d" % [size.x, size.y], main0, widget_state(main_level))
+
+	await shared_accept_checks()
 
 	# 2. Options.apt from the main menu (its OptionsNav -> Settings): the OpenBFME menu at once
 	if not await open_options():
@@ -215,6 +228,41 @@ func run(p_game: Node, p_shots: String) -> int:
 	compare("main menu after Options and every window change", main0, widget_state(shell.shell_top_level()))
 	await shot("opts1-fps")
 	return finish()
+
+
+## ACCEPT owns only edits made since entry, even when the launcher writes while the page is open.
+func shared_accept_checks() -> void:
+	var root: Window = game.get_tree().root
+	var runtime := DisplaySettings.snapshot(root)
+	var settings: Dictionary = game._display.to_dict()
+	await open_options()
+	await click_bar("accept")
+	check("unchanged ACCEPT creates no display file or command-line preferences", not FileAccess.file_exists(game._display_path), game._display_path.get_file())
+	await game._step(90)
+	await open_options()
+	var launcher_file := ConfigFile.new()
+	launcher_file.set_value("display", "resolution", "1536x864")
+	launcher_file.set_value("other", "keep", 42)
+	check("launcher writes while Options is open", launcher_file.save(game._display_path) == OK, "save failed")
+	var before := FileAccess.get_file_as_string(game._display_path)
+	await click_bar("accept")
+	check("unchanged ACCEPT leaves the latest file byte-for-byte intact", FileAccess.get_file_as_string(game._display_path) == before, "file changed")
+	await game._step(90)
+	await open_options()
+	await select("max_fps", DisplaySettings.FRAME_LIMITS.find(120))
+	launcher_file.set_value("display", "resolution", "1600x900")
+	check("launcher changes resolution during a game edit", launcher_file.save(game._display_path) == OK, "save failed")
+	await click_bar("accept")
+	var saved := ConfigFile.new()
+	saved.load(game._display_path)
+	check("ACCEPT merges only the edited cap and keeps launcher resolution and unrelated keys",
+		saved.get_value("display", "max_fps") == 120 and saved.get_value("display", "resolution") == "1600x900"
+		and saved.get_value("other", "keep") == 42 and not saved.has_section_key("display", "window_mode"), "unexpected saved values")
+	check("ACCEPT keeps the command-line resolution in effect", game._display.resolution == game._res, str(game._display.resolution))
+	game._display.from_dict(settings)
+	DisplaySettings.restore(root, runtime)
+	DirAccess.remove_absolute(game._display_path)
+	await game._step(90)
 
 
 ## --display-game: the screen over a live game. Esc and the quit menu's Options (RW 0x921783 opens Options.apt over the game), the OPENBFME button, a

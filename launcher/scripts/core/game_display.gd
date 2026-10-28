@@ -32,7 +32,7 @@ static func read(screen_size: Vector2i, file: String = "") -> Dictionary:
 	var valid: bool = mode is String and MODES.has(mode) and raw is String and (raw == "" or size != Vector2i.ZERO)
 	var error := ""
 	if err != OK or not valid:
-		error = L10n.t("launcher.settings.display_read_error", {"path": p, "reason": error_string(err) if err != OK else L10n.t("launcher.settings.display_invalid")})
+		error = L10n.t("launcher.settings.display_read_error", {"path": p.get_file(), "reason": error_string(err) if err != OK else L10n.t("launcher.settings.display_invalid")})
 	return {"window_mode": mode if mode is String and MODES.has(mode) else "windowed", "resolution": size,
 		"screen_size": screen_size, "error": error}
 
@@ -103,4 +103,4 @@ static func save(key: String, value: String, file: String = "") -> String:
 			err = DirAccess.rename_absolute(temporary, p)
 		if FileAccess.file_exists(temporary):
 			DirAccess.remove_absolute(temporary)
-	return "" if err == OK else L10n.t("launcher.settings.display_write_error", {"path": p, "reason": error_string(err)})
+	return "" if err == OK else L10n.t("launcher.settings.display_write_error", {"path": p.get_file(), "reason": error_string(err)})

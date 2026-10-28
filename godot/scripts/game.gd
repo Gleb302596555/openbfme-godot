@@ -1156,10 +1156,9 @@ func _ready() -> void:
 		get_tree().quit(2)
 		return
 	if _res != Vector2i(0, 0):
-		get_window().size = _res
-		if _display.window_mode != "windowed":
-			get_window().content_scale_size = _res
-			get_window().content_scale_mode = Window.CONTENT_SCALE_MODE_VIEWPORT
+		var previous = _display.copy()
+		_display.resolution = _res
+		_display.apply(get_window(), previous)
 	RenderingServer.set_default_clear_color(Color(0, 0, 0))
 	_build_stage()
 	await get_tree().process_frame
@@ -2886,12 +2885,12 @@ func _mouse_event(stage_position: Vector2, pressed: bool, with_button: bool) -> 
 		button.pressed = pressed
 		button.position = window_position
 		button.global_position = window_position
-		get_viewport().push_input(button)
+		get_viewport().push_input(button, true)
 	else:
 		var motion := InputEventMouseMotion.new()
 		motion.position = window_position
 		motion.global_position = window_position
-		get_viewport().push_input(motion)
+		get_viewport().push_input(motion, true)
 
 
 func _step(frames: int) -> void:

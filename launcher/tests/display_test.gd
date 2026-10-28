@@ -88,6 +88,7 @@ func _run() -> void:
 	broken.close()
 	root.focus_entered.emit()
 	check(ui._resolution.disabled and ui._window_mode.disabled and ui._display_error.visible, "malformed settings show an error and disable editing")
+	check(ui._display_error.text.contains(file.get_file()) and not ui._display_error.text.contains(file.get_base_dir()), "read error shows only the settings filename")
 	check(GameDisplay.save("resolution", "1280x720") != "" and FileAccess.get_file_as_string(file) == "[display\nresolution=oops", "malformed file is not overwritten")
 	game.save_file(file)
 	ui.show_tab("display")
@@ -95,11 +96,14 @@ func _run() -> void:
 	var blocked := FileAccess.open(file + ".blocked", FileAccess.WRITE)
 	blocked.store_string("block directory creation")
 	blocked.close()
-	check(GameDisplay.save("window_mode", "borderless", file + ".blocked/settings.cfg") != "", "save failure is reported")
+	var write_error := GameDisplay.save("window_mode", "borderless", file + ".blocked/settings.cfg")
+	check(write_error.contains("settings.cfg") and not write_error.contains(file.get_base_dir()), "write error shows only the settings filename")
 	main.queue_free()
 	await process_frame
 	# The real viewport size changes independently of the OS window in fullscreen.
 	root.size = Vector2i(1600, 900)
+	DisplaySettings.new().apply(root)
+	check(root.size == Vector2i(1600, 900), "Automatic windowed startup preserves the existing window size")
 	for mode in ["borderless", "fullscreen"]:
 		var display = DisplaySettings.new()
 		display.from_dict({"window_mode": mode, "resolution": "1024x768"})

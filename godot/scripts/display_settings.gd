@@ -7,7 +7,7 @@
 ##                                                       fullscreen = WINDOW_MODE_EXCLUSIVE_FULLSCREEN (exclusive on Windows; the same as borderless on
 ##                                                       Linux and macOS, Godot's own rule)
 ##   resolution     "WxH" the window's size in windowed mode, or the viewport's render size in either fullscreen mode (scaled to fit, preserving
-##                  aspect ratio). "" uses the current screen's size. The monitor's display mode is unchanged.
+##                  aspect ratio). "" keeps the window's size in windowed mode and uses the desktop in fullscreen. The monitor's display mode is unchanged.
 ##   vsync          on | off | adaptive | mailbox             (DisplayServer vsync modes; the screen offers the first three, mailbox stays a file / --vsync value)
 ##   max_fps        0 (no limit) or a frame cap in frames per second (Engine.max_fps)
 ##   show_fps       the frame-rate counter (scripts/fps_overlay.gd; F11 toggles it)
@@ -326,20 +326,15 @@ func apply(window: Window, previous = null) -> Dictionary:
 		window.content_scale_size = resolution if window_mode != "windowed" else Vector2i.ZERO
 		window.content_scale_mode = Window.CONTENT_SCALE_MODE_VIEWPORT if window_mode != "windowed" and resolution != Vector2i.ZERO else Window.CONTENT_SCALE_MODE_DISABLED
 		window.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_KEEP
-	var window_resolution := resolution
-	if window_resolution == Vector2i.ZERO:
-		window_resolution = DisplayServer.screen_get_size(window.current_screen)
-		if previous == null and "--resolution" in OS.get_cmdline_args():
-			window_resolution = window.size # an explicit engine command-line size wins for this run
-	if window_mode == "windowed" and window_resolution.x >= 320 and window_resolution.y >= 240 and (mode_changed or res_changed):
+	if window_mode == "windowed" and resolution.x >= 320 and resolution.y >= 240 and (mode_changed or res_changed):
 		if window.mode == Window.MODE_MAXIMIZED or window.mode == Window.MODE_MINIMIZED:
 			window.mode = Window.MODE_WINDOWED
-		if window.size != window_resolution:
-			window.size = window_resolution
+		if window.size != resolution:
+			window.size = resolution
 			var screen := DisplayServer.window_get_current_screen()
 			var area := DisplayServer.screen_get_usable_rect(screen)
 			if area.size.x > 0 and area.size.y > 0:
-				window.position = area.position + (area.size - window_resolution) / 2
+				window.position = area.position + (area.size - resolution) / 2
 	if mode_changed or res_changed:
 		applied.append("window %s %s" % [window_mode, resolution_text(window.size if window_mode == "windowed" else DisplayServer.screen_get_size(window.current_screen))])
 		if window_mode != "windowed" and resolution != Vector2i.ZERO:

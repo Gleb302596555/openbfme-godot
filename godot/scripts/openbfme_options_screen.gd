@@ -123,6 +123,7 @@ var _original: RefCounted          # the settings when the page opened (CANCEL)
 var _runtime := {}                 # what the game ran with when the page opened (DisplaySettings.snapshot: CLI caps, the window's mode and place)
 var _pending: RefCounted           # what the page shows and has applied
 var _applied: RefCounted
+var _opening_values := {}          # the effective values on entry; only subsequent edits belong to ACCEPT
 var _tab := "Display"
 var _extras_original := {}         # lane OPTS-2: Options.ini's values when the page opened (CANCEL)
 var _extras := {}                  # what the extra tabs show and have applied
@@ -212,6 +213,7 @@ func open(first_tab := 0) -> void:
 	# the page shows what is in effect (a --max-fps cap, a window the player maximised or Alt+Enter made full screen), not only the file
 	_pending = DisplaySettings.effective(settings, root, overlay.shown() if overlay != null else settings.show_fps)
 	_applied = _pending.copy()
+	_opening_values = _pending.to_dict()
 	if game_options != null:
 		_extras_original = game_options.current()
 		_extras = _extras_original.duplicate()
@@ -222,7 +224,7 @@ func open(first_tab := 0) -> void:
 	print("GAME DISPLAY options screen open%s: %s" % [" (the Options menu)" if _menu else "", JSON.stringify(_pending.to_dict())])
 
 
-## ACCEPT (keep = true): the settings shown become the ones in effect and are written; otherwise the ones of the opening are applied again.
+## ACCEPT (keep = true): keep the settings shown and merge only the edited keys into the latest file; otherwise restore the opening state.
 func close(keep: bool) -> void:
 	if not _open:
 		return
@@ -234,8 +236,13 @@ func close(keep: bool) -> void:
 				if not _save_social({"action": "set_privacy", "privacy": _social_pending.privacy}): return
 			if _social_pending.get("hidden") != _social_original.get("hidden"):
 				if not _save_social({"action": "set_presence", "state": "online", "hidden": _social_pending.hidden}): return
-		settings.from_dict(_pending.to_dict())
-		if not settings_path.is_empty() and not settings.save_file(settings_path):
+		var values: Dictionary = _pending.to_dict()
+		var changed: Array = []
+		for key in values:
+			if values[key] != _opening_values[key]:
+				changed.append(key)
+		settings.from_dict(values)
+		if not changed.is_empty() and not settings_path.is_empty() and not settings.save_keys(settings_path, changed):
 			printerr("GAME DISPLAY ", settings.errors[-1])
 		print("GAME DISPLAY accepted and saved: ", JSON.stringify(settings.to_dict()))
 		if game_options != null:
