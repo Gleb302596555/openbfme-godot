@@ -850,9 +850,11 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// (1234 open again); with FBSIM-1 all three are open. Engine pins, not retail values.
 	// Lane BFME2CAMP1 on main's tree (the rebuild holes, RebuildHoleExposeDie RW 0x889AAF / RebuildHoleBehavior RW 0x8868C2: a destroyed creep lair leaves its
 	// hole, an attackable structure, and is rebuilt with its creeps after 120 s; measured on a CI host, the test alone): all three games stay open at 9000,
-	// seed 2 with a new table. KNOWN ISSUE in seed 2 (under investigation, not a retail value): from frame 6602 the Men's FormationAttack squad holds at
-	// (1205, 2405) on a BarrowWightLair it never damages (fighting 0) and the Mordor side runs out of money, so the table is flat from 7000. A horde ordered
-	// onto a creep lair in a retail test does not damage it either, before any hole exists. Engine pins, not retail values.
+	// seed 2 with a new table. KNOWN ISSUE in seed 2 (not a retail value): from frame 6602 the Men's FormationAttack squad holds at (1205, 2405) on a
+	// BarrowWightLair it never damages (fighting 0) and the Mordor side runs out of money, so the table is flat from 7000. The stall is pre-existing (PR
+	// triage's review of #137: six more Evendim seeds stall in 2 of 6 on main, 1 of 6 with the holes; hordes in sight of a creep lair do destroy it); the
+	// leads are the horde melee wait refreshing its deadline while the target is ready (HordeAIUpdateCombat.cpp) and a tactic counting a current victim
+	// as engagement (AITacticalAI.cpp). Engine pins, not retail values.
 	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, -1, -1 }, Game{ "FactionMordor", "FactionMen", 1234u, -1, -1 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
