@@ -9,7 +9,10 @@ static func configure(sun: DirectionalLight3D, lighting: Dictionary, lod: int = 
 		enabled = enabled and direction.is_finite() and direction.length_squared() > 0.00000001
 	sun.shadow_enabled = enabled
 	if enabled:
-		RenderingServer.directional_shadow_atlas_set_size(8192 if lod >= 4 else (4096 if lod == 3 else 2048), false)
+		# RotWK's shadow map is MapSize² (ShadowMap INI block, retail 1024, RW 0x47B69E), at least 2048² at ShadowLOD
+		# UltraHigh (RW 0x47B2B5). PARALLEL_4_SPLITS gives each split a quarter of the atlas, so the edge is twice that.
+		# Medium keeps High's size: retail draws no shadow map there.
+		RenderingServer.directional_shadow_atlas_set_size(4096 if lod >= 4 else 2048, false)
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
 	sun.directional_shadow_blend_splits = true
 	# SAGE world units: the tactical camera is hundreds of units above the ground.
@@ -25,5 +28,6 @@ static func configure(sun: DirectionalLight3D, lighting: Dictionary, lod: int = 
 	ClassDB.class_call_static("W3DInstancer", "set_shadow_maps_enabled", enabled)
 
 static func disable() -> void:
+	RenderingServer.directional_shadow_atlas_set_size(4096, false) # Godot's default, so a later scene does not inherit ours
 	RenderingServer.global_shader_parameter_set("w3d_shadow", Vector4(1.0, 1.0, 1.0, 0.0))
 	ClassDB.class_call_static("W3DInstancer", "set_shadow_maps_enabled", false)

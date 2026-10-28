@@ -60,7 +60,7 @@ read only there), so it has no effect in 2.01.
 | 0 | `ModelLOD` | Low .. UltraHigh | manager + 0x1774; GlobalData + 0x24 = ModelLOD <= 0 | stop S-3402 |
 | 1 | `AnimationLOD` | VeryLow .. UltraHigh | + 0x1788 | stop S-3402 |
 | 2 | `EffectsLOD` | VeryLow .. UltraHigh | + 0x1778; MaxParticleCount (+ 0xAC8) and the two particle priorities (+ 0x17A0 / + 0x17A4) of that preset; UseHeatEffects = >= 2 (+ 0x25) | particle cap and priorities applied (FX player); heat effects stop S-3402 (no smudge pass, S-194) |
-| 3 | `ShadowLOD` | Off .. UltraHigh | decals = 1..2, volumes = 2, shadow mapping = >= 3 (+ 0x60 / 61 / 62) | directional volume shadow maps: Medium 2048, High 4096, UltraHigh 8192; Off/Low disable maps; retail decals/stencil parity remains S-3402 |
+| 3 | `ShadowLOD` | Off .. UltraHigh | decals = 1..2, volumes = 2, shadow mapping = >= 3 (+ 0x60 / 61 / 62) | directional volume shadow maps: Medium and High a 2048 atlas, UltraHigh 4096 (each of the four cascades gets RotWK's MapSize, at least 2048 at UltraHigh); Off/Low disable maps; retail decals/stencil parity remains S-3402 |
 | 4 | `TerrainLOD` | Low .. High | normal map >= 2, distance textures and ShowProps >= 1 (+ 0x49 / 4A / 1C), tank tracks of preset Low / Medium / High | stop S-3402 |
 | 5 | `WaterLOD` | Low .. UltraHigh | + 0x1784; + 0x5E = >= 2; soft water edge >= 1 (+ 0x84) | stop S-3402 |
 | 6 | `TextureQualityLOD` | Low .. High | TextureReductionFactor 2 / 1 / 0 (RW 0x517540) | applied: W3D textures lose mip levels (models loaded afterwards; retail reloads at once: S-3402) |
