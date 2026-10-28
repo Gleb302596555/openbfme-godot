@@ -3035,12 +3035,8 @@ void AptSkirmish::refreshBfme1ProfileDisplay()
 			const double seconds = std::strtod(m_bfme1Honors.get(side + "TimePlayed").c_str(), nullptr);
 			const long long hours = std::isfinite(seconds) && seconds > 0 ? (long long)(std::min(seconds, 2147483647.0) / 3600) : 0;
 			set("APT:TotalTimePlayedNum", format("Apt:TimePlayed", { number(hours / 24), number(hours % 24) }));
-			std::string label = entry.displayLabel;
-			if (side == "Rohan") { label = "APT:RohanCaps"; movie = 3; }
-			else if (side == "Gondor") { label = "APT:GondorCaps"; movie = 4; }
-			else if (side == "Isengard") { label = "APT:IsengardCaps"; movie = 5; }
-			else if (side == "Mordor") { label = "APT:MordorCaps"; movie = 6; }
-			set("APT:CurFactionNameStr", fetchOrMissing(m_env.gameText, label));
+			set("APT:CurFactionNameStr", fetchOrMissing(m_env.gameText, "APT:" + side + "Caps"));
+			movie = faction;
 			static const int thresholds[] = { 0, 5, 10, 30, 50, 150, 300, 500, 800, 1500 };
 			const int points = count("Points");
 			int rank = 1;
@@ -3050,6 +3046,8 @@ void AptSkirmish::refreshBfme1ProfileDisplay()
 			set("APT:NextWinsNumber", format(remaining == 1 ? "APT:WinsNumFormatForOnePoint" : "APT:WinsNumFormat", { number(remaining) }));
 			progress = rank == 10 ? 100 : (int)(100LL * (points - thresholds[rank - 1]) / (thresholds[rank] - thresholds[rank - 1]));
 			icon = "AptRankIcon" + side + std::to_string(rank);
+			const MappedImageCollection *images = windows().gadgetLayer() ? windows().gadgetLayer()->gadgets().images() : nullptr;
+			if (!images || !images->findImageByName(icon)) icon = "AptRankIcon" + std::to_string(rank);
 		}
 	}
 	windows().setAptImage("CreateComponents/ImageLevelIconMain", icon);

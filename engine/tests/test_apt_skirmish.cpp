@@ -2557,7 +2557,7 @@ struct Bfme1ProfileFixture
 	Shell shell;
 	AptSkirmish *screen = nullptr;
 
-	explicit Bfme1ProfileFixture(bool bfme1 = true, bool existing = true)
+	explicit Bfme1ProfileFixture(bool bfme1 = true, bool existing = true, const std::string &templates = {})
 		: windows(source, services), layer(windows, source, skins), shell(windows, factories, services, environment)
 	{
 		std::filesystem::create_directories(folder);
@@ -2573,6 +2573,18 @@ struct Bfme1ProfileFixture
 		fs.setDerivedFile("Data/INI/Default/SubsystemLegend.ini", {}, "test", {});
 		if (!bfme1) fs.setDerivedFile("Data/INI/AwardSystem.ini", {}, "test", {});
 		setup.fac = { FakeSetup::faction("FactionGondor", "Gondor", true, "Castle"), FakeSetup::faction("FactionRohan", "Rohan", true, "Castle") };
+		if (!templates.empty())
+		{
+			std::string error;
+			REQUIRE_MESSAGE(IniSkirmishSetupSource::scanPlayerTemplates(templates, setup.fac, &error), error);
+		}
+		for (const char *name : { "AptRankIcon0", "AptRankIcon1", "AptRankIcon2", "AptRankIcon10", "AptRankIconGondor2", "AptRankIconRohan10" })
+		{
+			Image image;
+			image.name = name;
+			image.imageSize = { 8, 8 };
+			skins.images.addImage(image);
+		}
 		setup.map = { FakeSetup::mapEntry("maps/fords/fords.map", "Fords of Isen", 2, true, 1),
 			FakeSetup::mapEntry("maps/hard/hard.map", "Hard map", 2, true, 2),
 			FakeSetup::mapEntry("maps/medium/medium.map", "Medium map", 2, true, 3),
@@ -2708,7 +2720,7 @@ TEST_CASE("bfme1 skirmish profile: real honors, faction artwork and rank follow 
 	CHECK(fixture.value("APT:CurFactionNameStr") == "GONDOR");
 	CHECK(fixture.value("APT:CurrentLevelFormat") == "Level 2");
 	CHECK(fixture.value("APT:NextWinsNumber") == "1 win");
-	CHECK(fixture.movieValue("profileMovie") == "4");
+	CHECK(fixture.movieValue("profileMovie") == "0");
 	CHECK(fixture.movieValue("profileProgress") == "80");
 	REQUIRE(fixture.windows.aptImage("CreateComponents/ImageLevelIconMain"));
 	CHECK(*fixture.windows.aptImage("CreateComponents/ImageLevelIconMain") == "AptRankIconGondor2");
@@ -2717,13 +2729,62 @@ TEST_CASE("bfme1 skirmish profile: real honors, faction artwork and rank follow 
 	CHECK(fixture.value("APT:TotalCareerWinsNum") == "2");
 	CHECK(fixture.value("APT:CurrentLevelFormat") == "Level 10");
 	CHECK(fixture.value("APT:NextWinsNumber") == "0 wins");
-	CHECK(fixture.movieValue("profileMovie") == "3");
+	CHECK(fixture.movieValue("profileMovie") == "1");
 	CHECK(fixture.movieValue("profileProgress") == "100");
 	fixture.choose(fixture.screen->slotGadget(0, "PlayerTemplate"), 0);
 	CHECK(fixture.value("APT:CurFactionNameStr") == "--");
 	CHECK(fixture.movieValue("profileMovie") == "0");
 	CHECK(fixture.movieValue("profileProgress") == "0");
 	CHECK(*fixture.windows.aptImage("CreateComponents/ImageLevelIconMain") == "AptRankIcon0");
+}
+
+TEST_CASE("bfme1 skirmish profile: loaded faction indices, renamed sides and mounted rank images drive presentation")
+{
+	const std::string templates =
+		"PlayerTemplate FactionHidden\nSide = Hidden\nPlayableSide = No\nEnd\n"
+		"PlayerTemplate FactionObserver\nSide = Observer\nPlayableSide = Yes\nIsObserver = Yes\nEnd\n"
+		"PlayerTemplate FactionRohan\nSide = Rohan\nPlayableSide = Yes\nDisplayName = INI:FactionRohan\nStartingBuilding = Castle\nEnd\n"
+		"PlayerTemplate FactionNorthRealm\nSide = Haven\nPlayableSide = Yes\nDisplayName = INI:FactionNorthRealm\nStartingBuilding = Castle\nEnd\n"
+		"PlayerTemplate FactionGondor\nSide = Gondor\nPlayableSide = Yes\nDisplayName = INI:FactionGondor\nStartingBuilding = Castle\nEnd\n";
+	Bfme1ProfileFixture fixture(true, true, templates);
+	fixture.text.set("INI:FactionNorthRealm", "Northern Haven");
+	fixture.text.set("APT:HavenCaps", "NORTHERN HAVEN");
+	std::ofstream(fixture.folder / "AliceSkirmishStats.ini", std::ios::app) << "HavenWins = 3\nHavenLosses = 1\nHavenPoints = 7\n";
+	std::string expectedIcon = "AptRankIcon2";
+	SUBCASE("a faction-specific mapped rank image takes precedence")
+	{
+		Image image;
+		image.name = "AptRankIconHaven2";
+		image.imageSize = { 8, 8 };
+		fixture.skins.images.addImage(image);
+		expectedIcon = image.name;
+	}
+	SUBCASE("the native generic rank image is used when faction artwork is absent") {}
+	GameWindow *combo = fixture.screen->slotGadget(0, "PlayerTemplate");
+	REQUIRE(combo);
+	CHECK(GadgetComboBoxGetLength(combo) == 4);
+	fixture.choose(combo, 1);
+	CHECK(fixture.screen->setup()->info().slots[0].playerTemplate == 2);
+	CHECK(fixture.value("APT:CurFactionNameStr") == "ROHAN");
+	CHECK(fixture.movieValue("profileMovie") == "2");
+	fixture.choose(combo, 2);
+	CHECK(fixture.screen->setup()->info().slots[0].playerTemplate == 3);
+	CHECK(fixture.value("APT:CurFactionNameStr") == "NORTHERN HAVEN");
+	CHECK(fixture.value("APT:TotalCareerWinsNum") == "3");
+	CHECK(fixture.value("APT:TotalCareerGamesNum") == "4");
+	CHECK(fixture.value("APT:CurrentLevelFormat") == "Level 2");
+	CHECK(fixture.value("APT:NextWinsNumber") == "3 wins");
+	CHECK(fixture.movieValue("profileMovie") == "3");
+	CHECK(fixture.movieValue("profileProgress") == "40");
+	REQUIRE(fixture.windows.aptImage("CreateComponents/ImageLevelIconMain"));
+	CHECK(*fixture.windows.aptImage("CreateComponents/ImageLevelIconMain") == expectedIcon);
+	fixture.choose(combo, 3);
+	CHECK(fixture.screen->setup()->info().slots[0].playerTemplate == 4);
+	CHECK(fixture.value("APT:CurFactionNameStr") == "GONDOR");
+	CHECK(fixture.movieValue("profileMovie") == "4");
+	fixture.choose(combo, 0);
+	CHECK(fixture.value("APT:CurFactionNameStr") == "--");
+	CHECK(fixture.movieValue("profileMovie") == "0");
 }
 
 TEST_CASE("bfme1 skirmish profile: profile and map type combos replace retail placeholder entries")

@@ -119,6 +119,8 @@ These are the places where BFME1's data or menus differ from RotWK's. Each one i
   badge/count-bearing-name layout and BFME1 difficulty badges; the profile and map-type dropdowns bind their actual choices. Profile text,
   faction presentation and rank read the selected profile's `SkirmishStats.ini`; unavailable historical values are not invented.
   New personas start with fresh statistics even when reusing a deleted name; map badges refresh with profile changes and recorded results.
+  Faction presentation uses the loaded `PlayerTemplate` index and `Side` (`APT:<Side>Caps`), not a retail-faction table. Rank artwork follows
+  BFME1 `Rva0046F910RankDisplay.cpp`: use the mounted `AptRankIcon<Side><Rank>` image when present, otherwise the native generic `AptRankIcon<Rank>`.
 - **Texture replacements:** PNG/JPEG files are accepted by BFME1 texture lookup (including `GBCampFloor`), and image signatures are recognized even when replacements retain `.dds` filenames.
 - **Palantir commands:** BFME1 uses six fixed `CommandButtons.Command1` … `Command6` slots and `SetCommandButtonState`, rather than BFME2's dynamic content frames. Slot state updates only run when content changes, so show animations can finish.
 - **Command tooltips:** BFME1's legacy cursor blocks are skipped to their `End` when loading help fonts. A native help panel displays the existing command-help text because BFME1 has no BFME2 `OnHelpBoxLoaded` content-frame callback.
