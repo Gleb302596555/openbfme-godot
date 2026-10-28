@@ -920,7 +920,10 @@ struct AptMenuPlayer::Impl
 					ch = (char)std::tolower((unsigned char)ch);
 				}
 				bool paired = false;
-				Ref<godot::Image> packed = stem.size() > 2 ? loadPackedTexture(*textureSource, "art/compiledtextures/" + stem.substr(0, 2) + "/" + stem, &paired) : Ref<godot::Image>();
+				const Ref<RetailFileSystem> textureFs = !originalImage && presentationFs.is_valid() && presentationFs->is_shell_source() ? presentationFs : fs;
+				const std::string packedStem = textureFs.is_valid() && textureFs->is_bfme1() ? "art/textures/" + stem :
+					(stem.size() > 2 ? "art/compiledtextures/" + stem.substr(0, 2) + "/" + stem : std::string());
+				Ref<godot::Image> packed = !packedStem.empty() ? loadPackedTexture(*textureSource, packedStem, &paired) : Ref<godot::Image>();
 				if (paired)
 				{
 					sm.deviceUnverified.insert("[S-1482] texture " + img->filename + ": the packed .jpg's colour with its .png as the alpha (the loader's merge of the two streams was not read)");
@@ -4348,49 +4351,60 @@ void AptMenuPlayer::drawCanvas(const AptCanvasList &list)
 		}
 		else
 		{
-			auto it = m->godotTextures.find(img->filename);
-			if (it == m->godotTextures.end())
-			{
-				const AptTextureStore::Entry &entry = m->textures->get(img->filename);
-				if (entry.ok && !entry.rgba.empty())
-				{
-					PackedByteArray px;
-					px.resize((int64_t)entry.rgba.size());
-					memcpy(px.ptrw(), entry.rgba.data(), entry.rgba.size());
-					Ref<godot::Image> image = godot::Image::create_from_data(entry.width, entry.height, false, godot::Image::FORMAT_RGBA8, px);
-					it = m->godotTextures.emplace(img->filename, ImageTexture::create_from_image(image)).first;
-					m->textures->releasePixels(img->filename);
-					m->textureLoads += 1;
-				}
-				else
-				{
-					// the W3D loader's packed file for the requested name (as the gadget images, drawGadgets)
-					std::string stem = img->filename.substr(0, img->filename.find_last_of('.'));
-					for (char &ch : stem)
-					{
-						ch = (char)std::tolower((unsigned char)ch);
-					}
-					bool paired = false;
-					Ref<godot::Image> packed = stem.size() > 2 ? loadPackedTexture(*m->source, "art/compiledtextures/" + stem.substr(0, 2) + "/" + stem, &paired) : Ref<godot::Image>();
-					if (packed.is_valid())
-					{
-						it = m->godotTextures.emplace(img->filename, ImageTexture::create_from_image(packed)).first;
-						m->textureLoads += 1;
-					}
-					else
-					{
-						sm.gadgetErrors.insert("backdrop texture '" + img->filename + "': " + entry.error);
-					}
-				}
-			}
-			if (it != m->godotTextures.end())
+			const Ref<ImageTexture> texture = m->imageTexture(sm, img, name);
+			if (texture.is_valid())
 			{
 				const AptStageMapping backdrop = m->mapping.fitImage((float)img->imageSize.x, (float)img->imageSize.y);
 				float x0, y0, x1, y1;
 				backdrop.stageToWindow(0.0f, 0.0f, x0, y0);
 				backdrop.stageToWindow(backdrop.stageW, backdrop.stageH, x1, y1);
-				addTextureUV(rs, newItem(root), Rect2(Vector2(x0, y0), Vector2(x1 - x0, y1 - y0)), it->second, img->uvLo, img->uvHi, Color(1, 1, 1, 1));
+				const RID backdropItem = newItem(root);
+				addTextureUV(rs, backdropItem, Rect2(Vector2(x0, y0), Vector2(x1 - x0, y1 - y0)), texture, img->uvLo, img->uvHi, Color(1, 1, 1, 1));
 				m->drawnBackdrop = name; // lane CAMP-2
+				if (m->fs.is_valid() && m->fs->is_bfme1())
+				{
+					Impl::MovieSlot &movie = m->movies["backdrop:FrontEnd"];
+					movie.drawn = true;
+					if (movie.stream.is_null() && movie.error.empty())
+					{
+						movie.title = "FrontEnd";
+						movie.loop = true;
+						GameWorld *world = Object::cast_to<GameWorld>(ObjectDB::get_instance(m->worldId));
+						const Dictionary info = world ? world->get_movie("FrontEnd") : Dictionary();
+						if (!(bool)info.get("ok", false))
+						{
+							movie.error = toNative(String(info.get("error", "no GameWorld")));
+						}
+						else
+						{
+							movie.stream.instantiate();
+							const Dictionary opened = movie.stream->open(String(info.get("full_path", "")));
+							if (!(bool)opened.get("ok", false))
+							{
+								movie.error = toNative(String(opened.get("error", "?")));
+								movie.stream.unref();
+							}
+							else
+							{
+								movie.durationMs = (double)opened.get("duration_ms", 0.0);
+								movie.fps = (double)opened.get("fps", 30.0);
+								if (!movie.stream->advance_to(0))
+								{
+									movie.error = toNative(movie.stream->get_error());
+								}
+							}
+						}
+						if (!movie.error.empty())
+						{
+							m->movieErrors.insert("FrontEnd: " + movie.error);
+							UtilityFunctions::printerr(toGodot("MOVIE ERROR FrontEnd: " + movie.error));
+						}
+					}
+					if (movie.stream.is_valid() && movie.error.empty())
+					{
+						rs->canvas_item_add_texture_rect(backdropItem, Rect2(Vector2(x0, y0), Vector2(x1 - x0, y1 - y0)), movie.stream->get_texture()->get_rid());
+					}
+				}
 			}
 		}
 	}
@@ -4817,65 +4831,9 @@ void AptMenuPlayer::drawSegment(const AptCanvasList &list, size_t segment, const
 						m->shell->gadgetErrors.insert("image record '" + *record + "' names no mapped image");
 					}
 					Ref<ImageTexture> tex;
-					if (img && m->presentationFs.is_valid() && m->presentationFs->is_shell_source())
+					if (img)
 					{
 						tex = m->imageTexture(*m->shell, img, *record);
-					}
-					else if (img)
-					{
-						auto it = m->godotTextures.find(img->filename);
-						if (it == m->godotTextures.end())
-						{
-							const AptTextureStore::Entry &entry = m->textures->get(img->filename);
-							if (entry.ok && !entry.rgba.empty())
-							{
-								PackedByteArray px;
-								px.resize((int64_t)entry.rgba.size());
-								memcpy(px.ptrw(), entry.rgba.data(), entry.rgba.size());
-								Ref<godot::Image> image = godot::Image::create_from_data(entry.width, entry.height, false, godot::Image::FORMAT_RGBA8, px);
-								it = m->godotTextures.emplace(img->filename, ImageTexture::create_from_image(image)).first;
-								m->textures->releasePixels(img->filename);
-								m->textureLoads += 1;
-							}
-							else
-							{
-								// lane CAH-1: the packed DDS of the mapped image's texture (art\compiledtextures\<first two letters>\<stem>.dds, as the HUD's
-								// button images: the Create-a-Hero class / type / power icons)
-								std::string stem = img->filename.substr(0, img->filename.find_last_of('.'));
-								for (char &ch : stem)
-								{
-									ch = (char)std::tolower((unsigned char)ch);
-								}
-								std::vector<std::uint8_t> dds;
-								std::string ddsError;
-								Ref<godot::Image> image;
-								if (stem.size() > 2 && m->fs.is_valid() && m->fs->archive_fs() &&
-									m->fs->archive_fs()->readFile("art/compiledtextures/" + stem.substr(0, 2) + "/" + stem + ".dds", dds, &ddsError))
-								{
-									PackedByteArray data;
-									data.resize((int64_t)dds.size());
-									memcpy(data.ptrw(), dds.data(), dds.size());
-									image.instantiate();
-									if (image->load_dds_from_buffer(data) != OK)
-									{
-										image.unref();
-									}
-								}
-								if (image.is_valid())
-								{
-									it = m->godotTextures.emplace(img->filename, ImageTexture::create_from_image(image)).first;
-									m->textureLoads += 1;
-								}
-								else
-								{
-									m->shell->gadgetErrors.insert("texture '" + img->filename + "' of image '" + *record + "': " + entry.error);
-								}
-							}
-						}
-						if (it != m->godotTextures.end())
-						{
-							tex = it->second;
-						}
 					}
 					if (tex.is_valid())
 					{
@@ -6702,6 +6660,7 @@ Array AptMenuPlayer::get_movies() const
 		d["title"] = toGodot(kv.second.title);
 		d["frame"] = kv.second.stream.is_valid() ? kv.second.stream->get_frame() : (int64_t)-1;
 		d["frames"] = kv.second.stream.is_valid() ? kv.second.stream->get_frame_count() : (int64_t)0;
+		d["frames_decoded"] = kv.second.stream.is_valid() ? kv.second.stream->get_stats().get("frames_decoded", (int64_t)0) : Variant((int64_t)0);
 		d["loop"] = kv.second.loop;
 		d["error"] = toGodot(kv.second.error);
 		out.push_back(d);

@@ -119,6 +119,7 @@ runner is claimed. All paths below are relative to the repository root.
 | `godot/tests/bfme1_plot_test.gd` | Manual only; no generic pytest runner | Denied here: needs a private BFME1 installation. |
 | `godot/tests/bfme1_quit_test.gd` | Manual only; no generic pytest runner | Denied here: needs a private BFME1 installation. |
 | `godot/tests/bfme1_test.gd` | Manual only; no generic pytest runner | Denied here: needs a private BFME1 installation. |
+| `godot/tests/bfme1_menu_backdrop_test.gd` | Manual only; no generic pytest runner | Denied here: needs `BFME1_INSTALL` and GPU rendering; checks JPEG/PNG textures, the looping alpha movie, logo composition at four resolutions, repeated Skirmish/Options returns, and gameplay/menu transitions. |
 | `godot/tests/building_render_test.gd` | Manual only; no generic pytest runner | Denied here: GPU/window/render readback required (some also need retail assets). |
 | `godot/tests/buildperf_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |
 | `godot/tests/cah_awards_display_test.gd` | Manual only; no generic pytest runner | Denied here: needs private RotWK/BFME2 assets and game/frame setup. |

@@ -3,6 +3,28 @@
 BFME1 is an experimental, separate game mode. It uses a BFME1 installation for
 both menus and gameplay, without mixing in BFME2 or RotWK data.
 
+The main menu loads BFME1's mapped textures from `art/textures`, including
+JPEG colour with a companion PNG alpha mask. The backdrop and native
+`RenderImage` logo use the same texture loader as the menu gadgets.
+`Video FrontEnd` in BFME1's `Video.ini` identifies `big_movie_with_alpha.vp6`
+as the movie for front-end menus. It loops over `ShellMapLowLOD`, preserves
+its alpha, and stops when the shell backdrop is hidden for gameplay.
+The movie fills the aspect-fitted backdrop beneath the APT menu and logo;
+this placement and immediate start/stop are presentation inferences, not a
+verified port of retail's display transitions.
+
+Submenus retain their authored 3D front-end background. When the BFME1 main
+menu becomes active again, it hides that background through its existing
+APT instant-hide function so it no longer covers the continuing movie. This
+main-menu activation rule is also a presentation inference; BFME2 and RotWK
+keep their existing background behaviour.
+
+`godot/tests/bfme1_menu_backdrop_test.gd` requires `BFME1_INSTALL` and a GPU.
+It compares independently decoded JPEG/PNG and VP6 assets against the menu
+at four resolutions, checks repeated Skirmish/Options returns, looping and
+gameplay/menu transitions, and writes screenshots under `BFME1_MENU_TEST_DIR`
+when that variable is set.
+
 From the checkout root on **Linux or macOS (POSIX shell)**, with a matching
 Godot 4.7 editor binary on `PATH`, the GDExtension already built into
 `godot/bin/`, and BFME1 data in `games/BFME1`, launch:
