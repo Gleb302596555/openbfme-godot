@@ -945,10 +945,10 @@ TEST_CASE("GlobalLighting: light order within a time of day, shadow colour after
 		CHECK(g.flagDBD == 1);
 		CHECK(g.vecC[2] == 0.5f);
 		CHECK(g.shadowColor == 0x7FA0A0A0u);
-		CHECK(g.hasV8Extra == (version == 8));
+		CHECK(g.hasTerrainLightScale == (version == 8));
 		if (version == 8)
 		{
-			CHECK(g.v8Extra[1] == 0.75f);
+			CHECK(g.terrainLightScale[1] == 0.75f);
 		}
 	}
 	// an unlisted version is refused rather than guessed

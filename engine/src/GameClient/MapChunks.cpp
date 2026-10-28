@@ -358,8 +358,8 @@ bool parseGlobalLighting(DataChunkInput &file, DataChunkInfo *info, void *ud)
 	g.shadowColor = file.readUnsignedInt();
 	if (info->version >= 8)
 	{
-		g.hasV8Extra = true;
-		for (float &f : g.v8Extra) f = file.readReal();
+		g.hasTerrainLightScale = true;
+		for (float &f : g.terrainLightScale) f = file.readReal();
 	}
 	return true;
 }

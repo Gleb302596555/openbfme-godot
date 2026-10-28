@@ -18,6 +18,7 @@
 #include "GameClient/WaterGeometry.h"
 #include "GameEngineDevice/W3DDevice/GameClient/HeightMapMesh.h"
 #include "GameEngineDevice/W3DDevice/GameClient/W3DObjectLighting.h"
+#include "GameEngineDevice/W3DDevice/GameClient/TerrainLightScale.h"
 #include "GameEngineDevice/W3DDevice/GameClient/TerrainComposite.h"
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Object/ObjectNameIndex.h"
@@ -171,6 +172,11 @@ double nowMs()
 bool optBool(const Dictionary &o, const char *key, bool def)
 {
 	return o.has(key) ? (bool)o[key] : def;
+}
+
+int optInt(const Dictionary &o, const char *key, int def)
+{
+	return o.has(key) ? (int)o[key] : def;
 }
 
 String optStr(const Dictionary &o, const char *key, const char *def)
@@ -680,6 +686,27 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 	const float effectColorScale = lighting ? W3DObjectLightingUtil::effectColorScale(*lighting) : 1.0f;
 	const bool overbright = effectColorScale > 1.0f;
 
+	// stop S-033: the map's terrain light scale (GlobalLighting v8) applies at the low terrain tiers only (TerrainLightScale.h). The viewer / tests
+	// may name the tier ("use_terrain_normal_map", "terrain_lod", "shader_lod"); the default is the High tier this renderer draws (scale 1).
+	TerrainLightScale::Lod lod;
+	lod.useTerrainNormalMap = optBool(options, "use_terrain_normal_map", lod.useTerrainNormalMap);
+	lod.terrainLOD = optInt(options, "terrain_lod", lod.terrainLOD);
+	lod.shaderLOD = optInt(options, "shader_lod", lod.shaderLOD);
+	TerrainLightScale::Scales lightScales;
+	if (lighting)
+	{
+		std::string scaleError;
+		if (!TerrainLightScale::resolve(*lighting, lod, lightScales, &scaleError))
+		{
+			memdelete(root);
+			return fail(scaleError);
+		}
+		for (const std::string &line : TerrainLightScale::stopLines())
+		{
+			stops.push_back(toGodot(line));
+		}
+	}
+
 	if (lighting)
 	{
 		Dictionary lit;
@@ -699,6 +726,10 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 			terrainLights.push_back(l);
 		}
 		lit["terrain_lights"] = terrainLights;
+		lit["terrain_light_scale"] = Vector3(lightScales.raw[0], lightScales.raw[1], lightScales.raw[2]);
+		lit["terrain_rendering_mode"] = lightScales.terrainMode;
+		lit["terrain_light_scale_applied"] = Vector3(lightScales.terrain[0], lightScales.terrain[1], lightScales.terrain[2]);
+		lit["object_light_scale_applied"] = Vector3(lightScales.objects[0], lightScales.objects[1], lightScales.objects[2]);
 		m_report["lighting"] = lit;
 	}
 
@@ -793,6 +824,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 		HeightMapMeshOptions mo;
 		mo.uv.cliffUnit = cliffAtlas ? CLIFF_UV_ATLAS_2048 : CLIFF_UV_BFME2_HYPOTHESIS_256PX_WRAP;
 		mo.colorMode = vertexAll ? VERTEX_COLOR_ALL_GLOBAL_LIGHTS : VERTEX_COLOR_AMBIENT_PLUS_ACCENT_LIGHTS;
+		std::copy(lightScales.terrain, lightScales.terrain + 3, mo.lightScale); // RW 0x4690C1
 		std::vector<TerrainChunk> chunks;
 		TerrainMeshStats mstats;
 		if (!HeightMapMesh::build(hm, lighting, mo, chunks, mstats, &error))
@@ -877,7 +909,9 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 				m->set_shader_parameter("sun_dir_sage", Vector3(-sun.lightPos[0], -sun.lightPos[1], -sun.lightPos[2]));
 				// terrain.fxo MainDirectionalLight binds Sas.DirectionalLight[0]. The
 				// SAS callback RW 0x54CFD0 doubles its colour before the shader's overbright half-scale.
-				m->set_shader_parameter("sun_color", Vector3(sun.diffuse[0], sun.diffuse[1], sun.diffuse[2]) * effectColorScale);
+				// RW 0x4E2B3A: the sun's diffuse is scaled by GlobalData + 0x944 .. when the terrain rendering mode is below 1, before the SAS doubling
+				m->set_shader_parameter("sun_color", Vector3(lightScales.terrain[0] * sun.diffuse[0], lightScales.terrain[1] * sun.diffuse[1],
+					lightScales.terrain[2] * sun.diffuse[2]) * effectColorScale);
 			}
 			m->set_shader_parameter("overbright", overbright);
 			m->set_shader_parameter("debug_mode", (int)(options.has("debug_mode") ? (int)options["debug_mode"] : 0));
@@ -1374,7 +1408,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 						uv.push_back(Vector2(s->uv[(size_t)i * 2], s->uv[(size_t)i * 2 + 1]));
 						std::uint8_t rgb[3];
 						HeightMapMesh::staticDiffuseAt(hm, lighting, vcm, (int)std::lround(x / MAP_XY_FACTOR) + hm.m_borderSize,
-							(int)std::lround(y / MAP_XY_FACTOR) + hm.m_borderSize, rgb);
+							(int)std::lround(y / MAP_XY_FACTOR) + hm.m_borderSize, rgb, lightScales.terrain);
 						col.push_back(Color(rgb[0] / 255.0f, rgb[1] / 255.0f, rgb[2] / 255.0f, 1.0f));
 					}
 					for (std::uint32_t ix : s->index)

@@ -161,8 +161,12 @@ struct GlobalLightingData
 	std::int32_t flagDBD = 0;         // corpus 0; drives the BFME "highlight" screen filter (meaning not fully known)
 	float vecA[3] = {}, vecB[3] = {}, vecC[3] = {}; // corpus 0.5 each; meaning UNKNOWN
 	std::uint32_t shadowColor = 0;    // ARGB
-	float v8Extra[3] = { 1, 1, 1 };   // v8 only; OpenSAGE calls it NoCloudFactor (UNKNOWN)
-	bool hasV8Extra = false;
+	// The "low LOD light scale" (BFME2 decomp name m_lowLODLightScale, GlobalData + 0x944 / 0x948 / 0x94C): version >= 8 reads three floats
+	// after the shadow colour (RW 0x4ACA92 .. 0x4ACACF), older chunks store 1.0f (RW 0x4ACAD1 .. 0x4ACAF8). A colour scale that retail
+	// applies to the terrain / object / scorch lights only at the low detail tiers; see TerrainLightScale.h (S-033). OpenSAGE's name for it,
+	// NoCloudFactor, is wrong: nothing in RotWK reads it as a cloud factor.
+	float terrainLightScale[3] = { 1, 1, 1 };
+	bool hasTerrainLightScale = false; // version >= 8 stored it
 };
 
 struct EnvironmentData

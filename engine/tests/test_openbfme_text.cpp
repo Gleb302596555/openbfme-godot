@@ -4,6 +4,8 @@
 
 #include "GameClient/OpenBFMEText.h"
 
+#include <ostream>
+
 namespace
 {
 std::u16string fmt(std::u16string_view pattern, std::vector<OpenBFMEText::Argument> args, std::string_view language = "en",
