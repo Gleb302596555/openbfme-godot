@@ -115,6 +115,9 @@ These are the places where BFME1's data or menus differ from RotWK's. Each one i
   as well as scripted model draws. Hidden floors remain unpickable.
 - **Skirmish maps:** the lobby lists the mapcache's multiplayer maps, as for RotWK (Sol review r1: no file-name filter; in BFME1 1.03 every
   multiplayer entry is a `map mp` map with two or more players).
+- **Skirmish presentation:** gadget atlases use BFME1's flat `art/textures` packed textures, including TGA data stored under `.dds` names. The map list uses the retail two-column
+  badge/count-bearing-name layout and BFME1 difficulty badges; the profile and map-type dropdowns bind their actual choices. Profile text,
+  faction presentation and rank read the selected profile's `SkirmishStats.ini`; unavailable historical values are not invented.
 - **Texture replacements:** PNG/JPEG files are accepted by BFME1 texture lookup (including `GBCampFloor`), and image signatures are recognized even when replacements retain `.dds` filenames.
 - **Palantir commands:** BFME1 uses six fixed `CommandButtons.Command1` … `Command6` slots and `SetCommandButtonState`, rather than BFME2's dynamic content frames. Slot state updates only run when content changes, so show animations can finish.
 - **Command tooltips:** BFME1's legacy cursor blocks are skipped to their `End` when loading help fonts. A native help panel displays the existing command-help text because BFME1 has no BFME2 `OnHelpBoxLoaded` content-frame callback.

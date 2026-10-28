@@ -914,13 +914,8 @@ struct AptMenuPlayer::Impl
 			{
 				// lane UI-2: a mapped image naming a .tga that the install packs as DDS (ScrollShroud.tga -> art\compiledtextures\sc\scrollshroud.dds),
 				// as the HUD device loads it (GodotInGameHud.cpp textureFor): the W3D loader takes the packed file for the requested name
-				std::string stem = img->filename.substr(0, img->filename.find_last_of('.'));
-				for (char &ch : stem)
-				{
-					ch = (char)std::tolower((unsigned char)ch);
-				}
 				bool paired = false;
-				Ref<godot::Image> packed = stem.size() > 2 ? loadPackedTexture(*textureSource, "art/compiledtextures/" + stem.substr(0, 2) + "/" + stem, &paired) : Ref<godot::Image>();
+				Ref<godot::Image> packed = loadPackedTexture(*textureSource, store->packedTextureStem(img->filename), &paired);
 				if (paired)
 				{
 					sm.deviceUnverified.insert("[S-1482] texture " + img->filename + ": the packed .jpg's colour with its .png as the alpha (the loader's merge of the two streams was not read)");
@@ -4365,13 +4360,8 @@ void AptMenuPlayer::drawCanvas(const AptCanvasList &list)
 				else
 				{
 					// the W3D loader's packed file for the requested name (as the gadget images, drawGadgets)
-					std::string stem = img->filename.substr(0, img->filename.find_last_of('.'));
-					for (char &ch : stem)
-					{
-						ch = (char)std::tolower((unsigned char)ch);
-					}
 					bool paired = false;
-					Ref<godot::Image> packed = stem.size() > 2 ? loadPackedTexture(*m->source, "art/compiledtextures/" + stem.substr(0, 2) + "/" + stem, &paired) : Ref<godot::Image>();
+					Ref<godot::Image> packed = loadPackedTexture(*m->source, m->textures->packedTextureStem(img->filename), &paired);
 					if (packed.is_valid())
 					{
 						it = m->godotTextures.emplace(img->filename, ImageTexture::create_from_image(packed)).first;
@@ -9120,6 +9110,12 @@ Dictionary AptMenuPlayer::record_game(const String &json)
 		}
 	}
 	sm.records.push_back(rec);
+	if (sm.environment.fileSystem && isBfme1Data(*sm.environment.fileSystem) && sm.environment.profiles && sm.environment.skirmish)
+	{
+		std::string error;
+		if (!Bfme1SkirmishProfiles::recordGame(*sm.environment.profiles, *sm.environment.skirmish, rec, &error, sm.environment.skirmishHonors))
+			sm.wm->note("skirmish-profile-stats", error);
+	}
 	if (sm.records.size() > GameRecords::kMaxRecords)
 	{
 		sm.records.erase(sm.records.begin());
@@ -9151,6 +9147,8 @@ Dictionary AptMenuPlayer::record_game(const String &json)
 	r["not_reported"] = String::utf8(why.c_str());
 	if (sm.shell)
 	{
+		if (AptSkirmish *screen = dynamic_cast<AptSkirmish *>(sm.shell->findScreenByFilename("Skirmish.apt")))
+			screen->recordsChanged();
 		if (AptOnlineShell *screen = dynamic_cast<AptOnlineShell *>(sm.shell->findScreenByFilename("OnlineShell.apt")))
 		{
 			if (screen->hub())
