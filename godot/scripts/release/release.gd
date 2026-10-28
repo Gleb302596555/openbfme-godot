@@ -395,7 +395,7 @@ func _mount_retail_folders(fs: RefCounted) -> Dictionary:
 	if not packs.ok:
 		return {"ok": false, "errors": packs.errors}
 	if not packs.packs.is_empty():
-		print("RELEASE asset packs: ", ", ".join(packs.packs), " (", packs.textures, " textures, ", packs.models, " models; offline games only for now, lane SDK-1b)")
+		print("RELEASE asset packs: ", ", ".join(packs.packs), " (", packs.textures, " textures, ", packs.models, " models)")
 		for note in packs.notes:
 			print("RELEASE asset packs: ", note)
 	var test_pick := _first_run_test_args(args)
@@ -469,7 +469,7 @@ static func asset_pack_folders(args: PackedStringArray) -> PackedStringArray:
 
 
 # lane SDK-1b (b): user://asset-packs/report.json, what the launcher's Asset packs card shows: per pack, the models left out (they do not fit
-# the game's) and the files used offline only (the online rules), each with its reason; written at every start that mounted packs
+# the game's), each with its reason; written at every start that mounted packs
 static func _write_asset_pack_report(fs: RefCounted) -> void:
 	var report: Dictionary = fs.get_asset_pack_report()
 	report["format"] = "openbfme.asset-pack-report 1"
@@ -482,7 +482,7 @@ static func _write_asset_pack_report(fs: RefCounted) -> void:
 	f.store_string(JSON.stringify(report, "\t"))
 	var counts := PackedStringArray()
 	for p in report.packs:
-		counts.push_back("%s: %d models not used, %d files would be refused online" % [p.name, p.misfits.size(), p.offline_only.size()])
+		counts.push_back("%s: %d models not used" % [p.name, p.misfits.size()])
 	print("RELEASE asset packs: report written (", "; ".join(counts), ")")
 
 

@@ -499,11 +499,12 @@ TEST_CASE("SDK-2b: a game with sim scripts saves; loaded, the scripts restart wi
 {
 	MountedMod mod(savedMod(kSaved));
 	REQUIRE_MESSAGE(mod.report.ok, joined(mod.report.errors));
-	World a, b;
-	SdkScriptHost ha(*a.logic), hb(*b.logic);
+	World a, b, d;
+	SdkScriptHost ha(*a.logic), hb(*b.logic), hd(*d.logic);
 	std::string error;
 	REQUIRE_MESSAGE(ha.start(mod.fsys.modLooseLayer(), error), error);
 	REQUIRE_MESSAGE(hb.start(mod.fsys.modLooseLayer(), error), error);
+	REQUIRE_MESSAGE(hd.start(mod.fsys.modLooseLayer(), error), error);
 	a.make("Fighter", a.teamOf("Alice"));
 	for (int frame = 1; frame <= 45; ++frame)
 		a.logic->runLogicFrame();
@@ -516,17 +517,24 @@ TEST_CASE("SDK-2b: a game with sim scripts saves; loaded, the scripts restart wi
 		a.logic->runLogicFrame();
 		hashes.push_back(a.logic->computeStateHash());
 	}
-	// another game (the same mod) loads the save: the same hash, then every frame as the uninterrupted game's
+	// two other games (the same mod; two peers of a loaded multiplayer game) load the save: the same hash, then frame by frame in lockstep with
+	// each other and with the uninterrupted game
 	REQUIRE_MESSAGE(b.logic->loadSnapshot(saved, &error), error);
+	REQUIRE_MESSAGE(d.logic->loadSnapshot(saved, &error), error);
 	CHECK(b.logic->computeStateHash() == savedHash);
+	CHECK(d.logic->computeStateHash() == savedHash);
 	std::vector<std::uint8_t> again;
 	REQUIRE_MESSAGE(b.logic->saveSnapshot(again, &error), error);
 	CHECK(again == saved);
 	for (size_t i = 0; i < hashes.size(); ++i)
 	{
 		b.logic->runLogicFrame();
+		d.logic->runLogicFrame();
 		REQUIRE(b.logic->computeStateHash() == hashes[i]);
+		REQUIRE(d.logic->computeStateHash() == hashes[i]);
 	}
+	CHECK(hd.reports() == hb.reports());
+	CHECK(hd.stateBytes() == hb.stateBytes());
 	CHECK(ha.reports() == std::vector<std::string>{ "SDK Saved: fresh: paid 3 on 30,60,90" });
 	CHECK(hb.reports() == std::vector<std::string>{ "SDK Saved: loaded at frame 46, 1 paydays", "SDK Saved: loaded: paid 3 on 30,60,90" });
 	CHECK(ha.calls() == hb.calls()); // onGameLoaded is the load's: not counted

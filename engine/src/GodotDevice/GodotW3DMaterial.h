@@ -150,6 +150,9 @@ void W3D_Apply_Fog(bool enabled, const float color[3], float start, float end);
 void W3D_Set_Sway_Offsets(const float offsets[10][3]);
 // lane VISUAL-2: the fogged light fraction (RW 0x46DFD0: FogAlpha / ClearAlpha) a fogged instance's lights and ambient are scaled by
 void W3D_Set_Fogged_Light_Frac(float frac);
+// lane OCCLUDE-1: the behind-building colours (global w3d_occl_colors: a W3D_OCCLUSION_SLOTS x 1 RGBA8 texture, slot -> the colour, slot 0 unused) and
+// their switch (w3d_occl_on: GameData UseBehindBuildingMarker and TheGameLogic + 0x99); the caller owns the texture (GameWorld)
+void W3D_Set_Occlusion(bool on, const Ref<Texture2D> &colors);
 void W3D_Set_Fog_Shift(float shift);
 // The light of the model viewers that show no map (not retail data): ambient 0.3 (defaultw3d.fxo's own AmbientLightColor default),
 // one white light toward (-0.5, -0.5, 0.7) SAGE, for both sets.

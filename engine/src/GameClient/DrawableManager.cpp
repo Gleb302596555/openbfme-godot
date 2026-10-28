@@ -257,6 +257,12 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 				d->fadeIn((double)ev.fadeFrames);
 			}
 			break;
+		case ClientEvent::FADE_OUT: // lane PORTERFOG-1 (RW 0x670A50)
+			if (Drawable *d = findByObject(ev.object))
+			{
+				d->fadeOut((double)ev.fadeFrames);
+			}
+			break;
 		case ClientEvent::SHOW_MODULE:
 			if (Drawable *d = findByObject(ev.object))
 			{

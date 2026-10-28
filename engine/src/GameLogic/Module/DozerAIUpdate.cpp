@@ -471,6 +471,28 @@ void DozerAIUpdate::hideInStructure()
 	}
 }
 
+// lane PORTERFOG-1: the porter's drawable fade (GlobalData + 0x11E0 BuilderFadeInTime / + 0x11DC BuilderFadeOutTime), client only
+void DozerAIUpdate::builderFade(Object &self, bool in)
+{
+	GameLogic &logic = self.logic();
+	if (!logic.settings().builderFadeLoaded)
+	{
+		logic.noteStop("[S-1282] dozer: GameData BuilderFadeOutTime / BuilderFadeInTime were not loaded (RW GlobalData + 0x11DC / + 0x11E0): the porter's drawable does not fade");
+		return;
+	}
+	if (ObjectClientHooks *client = logic.clientHooks())
+	{
+		if (in)
+		{
+			client->fadeIn(self, logic.settings().builderFadeInFrames);
+		}
+		else
+		{
+			client->fadeOut(self, logic.settings().builderFadeOutFrames);
+		}
+	}
+}
+
 void DozerAIUpdate::showFromStructure(const Object *built)
 {
 	// RW 0x88D6AE
@@ -511,7 +533,7 @@ void DozerAIUpdate::showFromStructure(const Object *built)
 	{
 		logic.friend_containEnterWorld(*self); // RW 0x68E31F
 	}
-	// (the drawable fades in over BuilderFadeInTime: the client's)
+	builderFade(*self, true); // RW 0x88D6C8 .. 0x88D6CE: Drawable::fadeIn(BuilderFadeInTime) (RW 0x670AA2), which shows the hidden drawable (lane PORTERFOG-1)
 	for (const char *name : kHiddenStatuses)
 	{
 		self->setStatus((unsigned)ObjectTemplateInfoBuilder::objectStatusIndex(name), false); // RW 0x68D440(mask, 0)
@@ -996,6 +1018,12 @@ int DozerAIUpdate::updateDoAction(int t)
 		if (task == DOZER_TASK_BUILD)
 		{
 			startBuildingSound(*goal, "UnderConstruction"); // RW 0x88DD74 (lane AUDIO-3)
+			// RW 0x88DDC1 .. 0x88DDE3: unless the dozer is a worker (RW 0x88B897, the gate of RW 0x88C51B), its drawable fades out over BuilderFadeOutTime
+			// (RW 0x670A50; Drawable::update hides it once the opacity * 255 is below 1, RW 0x675B7E): how a porter in its site disappears (lane PORTERFOG-1)
+			if (!m_isWorker)
+			{
+				builderFade(*self, false);
+			}
 		}
 		else
 		{

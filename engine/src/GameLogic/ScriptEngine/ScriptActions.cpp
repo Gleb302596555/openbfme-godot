@@ -403,6 +403,13 @@ void ScriptActions::execute(ScriptEngine &engine, const ScriptActionRec &a)
 		engine.addEndRequest(false, name); // RW 0x7BF15E
 		return;
 	}
+	if (name == "OPTIONS_SET_OCCLUSION_MODE")
+	{
+		// lane OCCLUDE-1: case 298 (RW 0x7CE207): TheGameLogic + 0x99 = (param 0's int (+ 8) != 0) through RW 0x7BD549; the renderer's occluded-object
+		// colours read it (GameLogic::getShowBehindBuildingMarkers)
+		logic.setShowBehindBuildingMarkers(param(a, 0).intValue != 0);
+		return;
+	}
 	if (name == "RADAR_CREATE_EVENT" || name == "OBJECT_CREATE_RADAR_EVENT" || name == "TEAM_CREATE_RADAR_EVENT")
 	{
 		radarEventAction(engine, a, name);

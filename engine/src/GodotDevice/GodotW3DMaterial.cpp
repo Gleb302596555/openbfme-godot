@@ -192,6 +192,9 @@ void W3D_Ensure_Light_Globals()
 	rs->global_shader_parameter_add(StringName("w3d_fog_shift"), RenderingServer::GLOBAL_VAR_TYPE_FLOAT, 0.0f);
 	// lane VISUAL-2: the fogged light fraction (RW 0x46DFD0: GameData FogAlpha / ClearAlpha), set by the map's game
 	rs->global_shader_parameter_add(StringName("w3d_fogged_frac"), RenderingServer::GLOBAL_VAR_TYPE_FLOAT, 1.0f);
+	// lane OCCLUDE-1: the behind-building colours and their switch (W3D_Set_Occlusion), off until a game sets them
+	rs->global_shader_parameter_add(StringName("w3d_occl_on"), RenderingServer::GLOBAL_VAR_TYPE_FLOAT, 0.0f);
+	rs->global_shader_parameter_add(StringName("w3d_occl_colors"), RenderingServer::GLOBAL_VAR_TYPE_SAMPLER2D, Variant());
 	// lane VISUAL-2: the vegetation SwayOffsets 1 .. 10 (W3DVegetationSway, RW 0x4E61EE; W3D axes), zero until a map's trees sway
 	for (int i = 1; i <= 10; ++i)
 	{
@@ -224,6 +227,16 @@ void W3D_Set_Fogged_Light_Frac(float frac)
 	if (RenderingServer *rs = RenderingServer::get_singleton())
 	{
 		rs->global_shader_parameter_set(StringName("w3d_fogged_frac"), frac);
+	}
+}
+
+void W3D_Set_Occlusion(bool on, const Ref<Texture2D> &colors)
+{
+	W3D_Ensure_Light_Globals();
+	if (RenderingServer *rs = RenderingServer::get_singleton())
+	{
+		rs->global_shader_parameter_set(StringName("w3d_occl_on"), on ? 1.0f : 0.0f);
+		rs->global_shader_parameter_set(StringName("w3d_occl_colors"), colors);
 	}
 }
 

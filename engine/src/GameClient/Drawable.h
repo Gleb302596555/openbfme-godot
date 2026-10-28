@@ -278,6 +278,7 @@ public:
 	// RW 0x670AA2 Drawable::fadeIn(frames): 0 shows at once; else the opacity rises from 0 over `frames` client frames (lane BUILD-4: public, the
 	// simulation's FADE_IN request for a wall span's tile)
 	void fadeIn(double frames);
+	void fadeOut(double frames); ///< RW 0x670A50 (lane PORTERFOG-1: public, the simulation's FADE_OUT request for a porter at work)
 	// what the device layer draws: 0 while hidden, else the fade's opacity (1 without a fade)
 	float drawOpacity() const { return m_fade.hidden ? 0.0f : m_fade.opacity; }
 	// lane BUILD-5: ZH Drawable::setDrawableOpacity, the opacity at Drawable + 0xB0 (the field the fade steps): the placement ghost's 0.45 (RW 0x69C714)
@@ -324,6 +325,5 @@ private:
 	bool m_flagsDirty = false;           ///< lane ANIM-1: RW Drawable + 0x443
 	bool m_hasWeaponTiming = false;      ///< lane ANIM-1: the last flush's weapon cycle (RW 0x4BEE31 reads the object's when the draw applies the flags)
 	int m_weaponTimingFrames = 0;
-	void fadeOut(double frames); ///< RW 0x670A50
 	void setFadeHidden(bool hidden); ///< RW 0x6718FB (bumps the change count when it changes)
 };

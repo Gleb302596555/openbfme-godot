@@ -20,6 +20,7 @@
 #include "GameLogic/Module/DozerAIUpdate.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/ObjectGeometry.h"
+#include "GameLogic/System/ShroudManager.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 
 #include <algorithm>
@@ -560,4 +561,76 @@ TEST_CASE("fbsim1: a dozer's site is an inert phantom until the Porter arrives, 
 		logic.runLogicFrame();
 	}
 	CHECK_FALSE(structure->testStatus(OBJECT_STATUS_UNDER_CONSTRUCTION)); // and the Porter finishes it
+}
+
+TEST_CASE("PORTERFOG-1: an Isengard porter at work keeps its shroud record but stops looking (RW 0x68C18F -> 0xB4E2A0, RW 0x694A45), presents SHROUDED to the "
+		  "enemy in its fog, and comes out with the same record (RW 0x68E31F)")
+{
+	OPENBFME_REQUIRE_START(s);
+	std::string error;
+	buildtest::Game g;
+	REQUIRE_MESSAGE(buildtest::startGame(*s, "FactionIsengard", "FactionMen", 5150, g, &error), error);
+	LiveGame &live = *g.live;
+	GameLogic &logic = live.logic();
+	ShroudManager *sm = logic.shroud();
+	REQUIRE(sm);
+	Player *player = humanOf(live);
+	Player *enemy = live.players().findPlayerWithName(live.report().startSlotPlayers[1]);
+	REQUIRE(player);
+	REQUIRE(enemy);
+	Object *fortress = fortressOf(live, player);
+	Object *porterObj = dozerOf(live, player);
+	REQUIRE(fortress);
+	REQUIRE(porterObj);
+	REQUIRE(porterObj->isKindOfName("PORTER"));
+	DozerAIUpdate *porter = dynamic_cast<DozerAIUpdate *>(porterObj->getAIUpdateInterface());
+	const ThingTemplate *furnace = logic.things().findTemplate("IsengardFurnace")->getFinalOverride();
+	Coord3D site;
+	bool found = false;
+	for (float r = 200.0f; r <= 500.0f && !found; r += 40.0f)
+	{
+		for (int k = 0; k < 24 && !found; ++k)
+		{
+			Coord3D c = *fortress->getPosition();
+			c.x += (float)(r * std::cos(k * 0.2617993877991494));
+			c.y += (float)(r * std::sin(k * 0.2617993877991494));
+			c.z = logic.getGroundHeight(c.x, c.y);
+			if (porter->siteIsLegal(*furnace, c, 0.0f, *player))
+			{
+				site = c;
+				found = true;
+			}
+		}
+	}
+	REQUIRE(found);
+	logic.runLogicFrame();
+	REQUIRE(sm->hasRecord(*porterObj));
+	const int radius = sm->lookRadius(*porterObj);
+	CHECK(radius == 3); // in the world it looks for its owner (IsengardPorter's clearing range: ceil(range / 40) cells)
+	const int pi = player->getPlayerIndex(), ei = enemy->getPlayerIndex();
+	live.commands().append(selectMsg(pi, porterObj->getID()));
+	live.commands().append(dozerMsg(pi, *furnace, site, 0.0f));
+	bool worked = false;
+	for (int guard = 0; guard < 600 && !worked; ++guard)
+	{
+		logic.runLogicFrame();
+		worked = porter->working() && !porterObj->isInWorld();
+	}
+	REQUIRE_MESSAGE(worked, "the porter never went into its site");
+	logic.runLogicFrame(); // the shroud update after the world exit
+	CHECK(sm->hasRecord(*porterObj)); // not freed by the world exit
+	CHECK(sm->lookRadius(*porterObj) == -1);
+	// the enemy starts across the map: the porter's cells are fogged (Evendim starts explored) for it, and a mobile enemy in fog is hidden (RW 0x68EDD0)
+	CHECK(sm->clientObjectStatus(*porterObj, ei) == OBJECTSHROUD_SHROUDED);
+	CHECK(sm->clientObjectStatus(*porterObj, pi) == OBJECTSHROUD_CLEAR); // its owner's fortress sees its cells
+	bool out = false;
+	for (int guard = 0; guard < 3000 && !out; ++guard)
+	{
+		logic.runLogicFrame();
+		out = porterObj->isInWorld();
+	}
+	REQUIRE_MESSAGE(out, "the porter did not come out of its site");
+	logic.runLogicFrame();
+	CHECK(sm->hasRecord(*porterObj));
+	CHECK(sm->lookRadius(*porterObj) == radius);
 }

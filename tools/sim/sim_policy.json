@@ -205,6 +205,10 @@
    "reason": "lane END-1: the client half of the end of a game (the local player's end screen, messages and Eva, the human player's win / loss script library run over the logic snapshot, the score screen data copied when the game is left): reads the logic, never writes simulation state"
   },
   {
+   "glob": "src/GameClient/RTS3DSceneOcclusion.cpp",
+   "reason": "lane OCCLUDE-1: the behind-building markers' choice of drawables and their colours (RW 0x470B83 / 0x470176): reads objects while the logic snapshot is built and the snapshot in the renderer, writes only the snapshot and draw state, never simulation state"
+  },
+  {
    "glob": "src/GameClient/StealthLook.cpp",
    "reason": "lane STEALTH-1: the stealth look of a drawable for the local player (hidden for an enemy, the friend's opacity pulse in client time, RW 0x6760F9): reads the logic snapshot, writes only draw opacity, never simulation state"
   },

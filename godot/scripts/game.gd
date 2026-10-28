@@ -2216,15 +2216,11 @@ func _begin_game(message: Dictionary) -> void:
 	print("GAME new game: map %s seed %d cash %d" % [message.map, message.seed, message.starting_cash])
 	_rejoin_watch.reset() # lane ONLINEUX-1 r2: every game's rejoin is watched afresh (the watch also starts afresh on a new net_status attempt)
 	_game_kind = "lan" if _net_state == "loading" else ("network" if not _net_state.is_empty() else ("restart" if not _restart_stack.is_empty() else "skirmish"))
-	# lane SDK-1b (a): asset packs are offline only until their online checks exist: a LAN or online game draws the game's own assets on every peer
-	# (b): the online rules' findings are only reported (the launcher's card); packs reach LAN / online games later through an allowlist of checked packs
-	var multiplayer_game := _game_kind == "lan" or _game_kind == "network"
-	var packs: Dictionary = _world.set_asset_packs_used(not multiplayer_game)
+	# lane SDK-1c (owner, 10-27: online is permissive): asset packs draw in every game, LAN and online too; each player uses the packs they have
+	# (render only: different packs in one game cannot desync)
+	var packs: Dictionary = _world.set_asset_packs_used(true)
 	if packs.get("loaded", false):
-		if multiplayer_game:
-			print("GAME asset packs: not used in this LAN / online game: HD packs are offline only for now (every player sees the game's own models and textures)")
-		else:
-			print("GAME asset packs: used (an offline game)")
+		print("GAME asset packs: used (%s game)" % _game_kind)
 	_hub_begin(message) # lane ONLINEHUB-1: what the score screen records
 	_last_new_game = message.duplicate(true) # lane END-2: the quit menu's Restart starts it again (RW 0x9220DE)
 	if _restart_stack.is_empty():
@@ -4358,37 +4354,8 @@ func _exit_to_score_screen() -> void:
 
 
 ## AptTimeLine::RenderGraph is a device-drawn component (S-1063): the lines of the graph the movie's _graphMode picks, drawn over the movie's graph area.
-class GraphOverlay extends Control:
-	var shell: Node2D
-	var graph := {}
-	var rect := Rect2()
-	func _draw() -> void:
-		if graph.is_empty() or rect.size.x <= 0.0:
-			return
-		var lines: Array = graph.get("lines", [])
-		for pass_i in 2:
-			for l in lines:
-				var c := Color.hex(0xFF000000 | int(l.color))
-				var pts: PackedVector2Array = l.points
-				if pts.size() < 2:
-					continue
-				var out := PackedVector2Array()
-				var stride := maxi(1, pts.size() / 600)
-				for i in range(0, pts.size(), stride):
-					var p: Vector2 = pts[i]
-					out.append(rect.position + Vector2(p.x * rect.size.x, (1.0 - clampf(p.y, 0.0, 1.0)) * rect.size.y))
-				var last: Vector2 = pts[pts.size() - 1]
-				out.append(rect.position + Vector2(last.x * rect.size.x, (1.0 - clampf(last.y, 0.0, 1.0)) * rect.size.y))
-				# RW 0x924DD1 twice: width 3 with alpha, then width 1 opaque
-				if pass_i == 0:
-					draw_polyline(out, Color(c, 0.35), 3.0, true)
-				else:
-					draw_polyline(out, c, 1.0, true)
-				if pass_i == 1:
-					var marks: PackedVector2Array = l.get("marks", PackedVector2Array())
-					for m in marks:
-						draw_rect(Rect2(rect.position + Vector2(m.x * rect.size.x, (1.0 - clampf(m.y, 0.0, 1.0)) * rect.size.y) - Vector2(4, 4), Vector2(8, 8)), c, false, 2.0)
-
+class GraphOverlay extends "res://scripts/timeline_graph.gd":
+	pass
 
 func _install_graph_overlay() -> void:
 	if _graph_layer == null:

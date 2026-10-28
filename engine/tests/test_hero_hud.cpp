@@ -79,17 +79,19 @@ TEST_CASE("rotwk-c availability: common gates preserve hidden results and model 
 		return;
 	}
 	SharedWorld &s = shared();
-	struct ButtonFixture
-	{
-		CommandSet *set;
-		CommandButton button;
-		~ButtonFixture() { set->setDynamicButton(0, nullptr); }
-	} fixture{ s.world->commands().newDynamicCommandSet("RotwkC_Availability") };
-	CommandButton &b = fixture.button;
+	// lane HEROHUDCRASH-1: the button outlives the HUD that shows it; the set is made after the rig, so the guard clears its slot while the set is
+	// alive. The rig's end reloads the world (LiveGame::WorldClaim, MAPRESET-1 S-3808: the old CommandStore is freed); a guard outliving the rig
+	// wrote through a dangling set into the reloaded state's heap (ASan: heap-buffer-overflow; a SIGSEGV in ~AudioIniState at exit in some runs).
+	CommandButton b;
 	b.m_command = GUI_COMMAND_STOP;
 	b.m_inPalantir = true;
-	fixture.set->setDynamicButton(0, &b);
 	HeroHudRig h(s);
+	struct SlotGuard
+	{
+		CommandSet *set;
+		~SlotGuard() { set->setDynamicButton(0, nullptr); }
+	} guard{ s.world->commands().newDynamicCommandSet("RotwkC_Availability") };
+	guard.set->setDynamicButton(0, &b);
 	auto ctx = h.hud->enterContext(); // lane DEVPORT-3C: the stores (TheSpecialPowerStore below) are this world's, not a world an earlier test left
 	const Coord3D c = h.rig.freeSpot(2800, 1400, 300.0f);
 	Object *hero = h.rig.make("GondorAragornMP", c.x, c.y);

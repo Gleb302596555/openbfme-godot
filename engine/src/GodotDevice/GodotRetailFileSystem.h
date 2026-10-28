@@ -139,7 +139,6 @@ private:
 	PackedStringArray m_installModArgs; // lane MODS-2: highest priority first
 	PackedStringArray m_modEngines;     // lane MODS-3
 	ModMountReport m_installModReport;
-	void checkPackTexturesOnline(); // lane SDK-1b (b): the alpha-coverage rule, after the mount
 	AssetPacks m_packs;             // lane SDK-0
 	mutable std::string m_simDataKey, m_simData; // lane PROFILE-2: simulationData's cache (the archive lines and mod lines it was computed for)
 };

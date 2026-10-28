@@ -60,6 +60,7 @@ struct ClientEvent
 		REPLACED,        ///< lane STEALTH-2 (RW 0x776F03): the drawable made again as CREATED's fields say (tmpl: the look, flags: the object's conditions)
 		MODEL_FLUSH,     ///< lane ANIM-1 (RW 0x67449C / 0x6759C4): the drawable's changed flags reach its draw modules; scriptTarget, weapon timing
 		FADE_IN,         ///< lane BUILD-4 (RW 0x670AA2): fadeFrames client frames
+		FADE_OUT,        ///< lane PORTERFOG-1 (RW 0x670A50): fadeFrames client frames
 		CUSTOM_COLORS,   ///< lane CAH-2 (RW 0x80AF0B -> 0x6727B0): customKind and customColors, the drawable's house colour set
 		HERO_ATTACKED,   ///< RW 0x67B78C: the local hero-select bar's attacked effect
 		HERO_FLASH,      ///< RW 0x7BDD7A: name = exact template name, flashFrames = signed client-frame duration
@@ -122,6 +123,7 @@ public:
 	void showSubObject(Object &obj, const std::string &name, bool visible, bool permanent) override;
 	void replaceDrawable(Object &obj, const ThingTemplate *tmpl, bool hasColor, std::uint32_t color) override;
 	void fadeIn(Object &obj, UnsignedInt frames) override;
+	void fadeOut(Object &obj, UnsignedInt frames) override;
 	void setCustomColors(Object &obj, int kind, std::uint32_t c0, std::uint32_t c1, std::uint32_t c2) override; // lane CAH-2
 	void createAHeroKill(Object &killer, Object &victim) override;
 	void heroAttacked(Object &obj) override;

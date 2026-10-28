@@ -149,8 +149,21 @@ Object::Object(GameLogic &logic, const ThingTemplate *tt, const ObjectStatusMask
 		logic.friend_removeObjectFromLookup(this);
 		throw;
 	}
-	// RW 0x69A684: the construction-time stamp of RW + 0x444 (frame + tt + 0x564) is not ported (S-142)
+	// RW 0x69A67F .. 0x69A690: + 0x444 = the frame + the template's OcclusionDelay (lane OCCLUDE-1: the renderer's occluded-object pass reads it)
+	m_safeOcclusionFrame = logic.getFrame() + occlusionDelayOf(*m_template, logic);
 	m_constructed = true;
+}
+
+UnsignedInt Object::occlusionDelayOf(const ThingTemplate &tt, const GameLogic &logic)
+{
+	if (const FieldValue *v = tt.findField("OcclusionDelay"))
+	{
+		if (const long long *n = std::get_if<long long>(v))
+		{
+			return (UnsignedInt)*n;
+		}
+	}
+	return logic.settings().defaultOcclusionDelay; // RW 0x740178: the constructor's copy of GameData + 0xCC
 }
 
 Object::~Object()
