@@ -2,6 +2,7 @@
 // See GameLogic/Combat/TargetFinder.h.
 
 #include "GameLogic/Combat/TargetFinder.h"
+#include "GameLogic/AI/AIClosestEnemy.h"
 
 #include "Common/Player.h"
 #include "Common/Team.h"
@@ -189,7 +190,11 @@ Object *TargetFinder::findClosestEnemyNear(const Object &seeker, const Coord3D &
 		{
 			continue;
 		}
-		if (o->isKindOf((unsigned)k.structure) && !(flags & ALLOW_STRUCTURES))
+		if (!(flags & ALLOW_STRUCTURES) && !AI::allowsBuildingTarget(seeker, *o))
+		{
+			continue;
+		}
+		if ((flags & IGNORE_INSIGNIFICANT_BUILDINGS) && !AI::isSignificantBuildingTarget(*o))
 		{
 			continue;
 		}

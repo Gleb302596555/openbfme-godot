@@ -172,7 +172,7 @@ public:
 class RejectBuildingsFilter : public PartitionFilter
 {
 public:
-	explicit RejectBuildingsFilter(Object &me)
+	explicit RejectBuildingsFilter(const Object &me)
 		: m_me(me)
 	{
 		const Player *p = me.getControllingPlayer();
@@ -205,7 +205,7 @@ public:
 	}
 
 private:
-	Object &m_me;
+	const Object &m_me;
 	bool m_meComputer = false;
 };
 
@@ -575,6 +575,18 @@ Object *adjustVictim(Object &victim, Object *attacker, bool attackRange, int arg
 		member = horde->pickMemberNoPosition(false); // slot 0x48(0, 0, 0, 0, arg)
 	}
 	return member;
+}
+
+bool allowsBuildingTarget(const Object &seeker, Object &target)
+{
+	RejectBuildingsFilter filter(seeker);
+	return filter.allow(target);
+}
+
+bool isSignificantBuildingTarget(Object &target)
+{
+	InsignificantBuildingsFilter filter;
+	return filter.allow(target);
 }
 
 Object *findClosestEnemy(Object &me, float range, unsigned qualifiers, const AttackPriorityInfo *info, PartitionFilter *optionalFilter, int arg)
