@@ -48,6 +48,8 @@ Object *createSingleObject(GameLogic &logic, const Record &r, Player &player, st
 	const ThingTemplate *tt = logic.things().findTemplate(r.templateName); // RW 0x7800DC
 	if (!tt)
 	{
+		// retail makes nothing and keeps the record; the port also reports it (lane BFME2CAMP1 review: missing data reaches the report)
+		logic.reportError("campaign carry-over: no template '" + r.templateName + "' for a carried unit (kept, not created)");
 		return nullptr;
 	}
 	Object *obj = logic.newObject(tt, player.getDefaultTeam(), ObjectStatusMaskType{}); // RW 0x6D165E (Player + 0x30C)

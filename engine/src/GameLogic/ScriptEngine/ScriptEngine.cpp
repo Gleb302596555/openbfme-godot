@@ -1266,12 +1266,16 @@ bool ScriptEngine::executeEngineAction(const ScriptActionRec &a)
 			const ThingTemplate *t = m_logic.things().findTemplate(n);
 			if (!t)
 			{
-				break; // "*** Attempting to set attack priority on an unknown thing"
+				// "*** Attempting to set attack priority on an unknown thing": retail stops here; the port also reports it (lane BFME2CAMP1 review)
+				m_logic.reportError("SET_ATTACK_PRIORITY_THING: unknown thing '" + n + "' for the attack priority set '" + setName + "'");
+				break;
 			}
 			AttackPriorityInfo *info = m_attackPriorities.findOrCreate(setName);
 			if (!info)
 			{
-				break; // "*** Error allocating attack priority set"
+				// "*** Error allocating attack priority set": the table is full; reported (lane BFME2CAMP1 review)
+				m_logic.reportError("SET_ATTACK_PRIORITY_THING: no room for the attack priority set '" + setName + "'");
+				break;
 			}
 			info->setPriority(t, priority);
 		}
@@ -1284,6 +1288,10 @@ bool ScriptEngine::executeEngineAction(const ScriptActionRec &a)
 		// order decides nothing)
 		AttackPriorityInfo *info = m_attackPriorities.findOrCreate(param(a.params, 0).stringValue);
 		const std::int32_t kindOf = param(a.params, 1).intValue, priority = param(a.params, 2).intValue;
+		if (!info)
+		{
+			m_logic.reportError("SET_ATTACK_PRIORITY_KIND_OF: no room for the attack priority set '" + param(a.params, 0).stringValue + "'"); // lane BFME2CAMP1 review
+		}
 		if (info && kindOf >= 0)
 		{
 			for (const ThingTemplate *t : m_logic.things().templates()) // the master list in creation order (RW + 0xC)
@@ -1302,6 +1310,10 @@ bool ScriptEngine::executeEngineAction(const ScriptActionRec &a)
 		if (AttackPriorityInfo *info = m_attackPriorities.findOrCreate(param(a.params, 0).stringValue))
 		{
 			info->setDefaultPriority(param(a.params, 1).intValue);
+		}
+		else
+		{
+			m_logic.reportError("SET_DEFAULT_ATTACK_PRIORITY: no room for the attack priority set '" + param(a.params, 0).stringValue + "'"); // lane BFME2CAMP1 review
 		}
 		return true;
 	}

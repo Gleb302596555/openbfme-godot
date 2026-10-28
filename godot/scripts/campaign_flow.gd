@@ -84,6 +84,7 @@ func missions_of(name: String) -> Array:
 
 ## a main menu command: start a campaign at its first mission
 func start(name: String, diff: int) -> void:
+	tutorial = "" # lane BFME2CAMP1 (review): entering a campaign leaves any tutorial
 	campaign = name
 	mission = 0
 	difficulty = diff
@@ -194,6 +195,7 @@ func step(what: String) -> Dictionary:
 
 ## a mission started (RW 0x5EAB8F); `intro`: its IntroMovie plays (the start's second argument: a mission begun or the next one, not a replay after a defeat)
 func begin_mission(intro := true) -> void:
+	tutorial = "" # lane BFME2CAMP1 (review): a campaign mission is never the tutorial (start_tutorial does not come through here)
 	var missions := missions_of(campaign)
 	if mission >= missions.size():
 		game._fail("CAMPAIGN no mission %d in %s" % [mission, campaign])
@@ -435,6 +437,7 @@ func open_menu() -> void:
 
 ## a campaign menu save loaded (scripts/save_flow.gd: check_save's save_point 1): the menu with its state
 func open_from_save(check: Dictionary) -> void:
+	tutorial = "" # lane BFME2CAMP1 (review): a campaign-menu save loaded from a tutorial's quit menu is a campaign, not the tutorial
 	campaign = String(check.campaign)
 	mission = int(check.mission)
 	difficulty = int(check.difficulty)

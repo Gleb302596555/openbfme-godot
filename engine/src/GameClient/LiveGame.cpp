@@ -724,16 +724,14 @@ public:
 		return ScriptAudioLength::lengthMs(m_audio, *m_files, name, ms, picked);
 	}
 	// lane BFME2CAMP1: the HUD's view (LiveGame::setScriptLocalView), none in a headless game
+	// (review: the values the main thread published for this frame, LiveGame::publishScriptLocalView; the logic may run on the worker)
 	bool cameraScrollDistance(float &distance) override
 	{
-		const ScriptLocalView *v = m_game.scriptLocalView();
-		distance = v ? v->cameraScrollDistance() : 0.0f;
-		return v != nullptr;
+		return m_game.publishedCameraScroll(distance);
 	}
 	bool objectivesScreenOpen() override
 	{
-		const ScriptLocalView *v = m_game.scriptLocalView();
-		return v && v->objectivesScreenOpen();
+		return m_game.publishedObjectivesOpen();
 	}
 	Object *createObject(const ThingTemplate &tt, Team &team, const Coord3D &pos, float angle) override
 	{
@@ -893,6 +891,7 @@ double LiveGame::alpha() const
 
 int LiveGame::advance(double seconds)
 {
+	publishScriptLocalView(); // lane BFME2CAMP1 (review): the HUD's view for the frames this call requests (main thread)
 	const auto worldContext = m_world.enterContext(); // this world's stores and hooks are the live ones for the whole call (this thread's context)
 	NumericState::normalizeFloatingPointEnvironment(); // simulation thread entry (the host may have changed the environment since the last call)
 	if (!m_loaded)
@@ -1028,6 +1027,7 @@ int LiveGame::advance(double seconds)
 
 int LiveGame::advanceWithDriver(int due)
 {
+	publishScriptLocalView(); // lane BFME2CAMP1 (review)
 	// SMOOTH-1 + MP-1 (review r4), on the protocol owner. (1) the completions the simulation published, in frame order (the replay's hash records, the
 	// CRC steps); (2) the local input and the transport: the HUD appends to the command list only at worker-idle points, and the worker installs batches
 	// into the same list, so the input is taken while no batch is queued or running (it then waits in the list for the next idle advance, as it would
@@ -1129,6 +1129,7 @@ void LiveGame::drainFrames()
 
 int LiveGame::stepFrame()
 {
+	publishScriptLocalView(); // lane BFME2CAMP1 (review)
 	drainFrames();
 	const bool threaded = logicThread();
 	if (threaded)

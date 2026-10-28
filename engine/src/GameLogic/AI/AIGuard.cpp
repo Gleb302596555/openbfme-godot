@@ -330,7 +330,9 @@ public:
 		{
 			return STATE_SUCCESS;
 		}
-		m_exit.center = g.positionToGuard();
+		// RW 0x94A05E .. 0x94A09E: the guarded object's position (S-3802: not ported), else the guarded team's centre (RW 0x7A1EEE -> RW 0x7A0ECD), else
+		// the position to guard (+ 0x48); lane BFME2CAMP1 (review): guardedSpot
+		m_exit.center = g.guardedSpot();
 		const float range = AIGuardMachine::getStdGuardRange(obj);
 		m_exit.radiusSqr = SimMath::mulf32(range, range);
 		if (const TriggerArea *area = g.areaToGuard())
@@ -428,7 +430,7 @@ public:
 		}
 		// RW 0x68BBE0 / 0x6FF7FA: the owner's layer (Object + 0x428) is the ground or the nemesis can be reached across layers: S-3802, always the ground here
 		const float range = AIGuardMachine::getAdjustedVisionRange(obj); // OWNERTYPE | MOOD
-		m_exit.center = g.positionToGuard();
+		m_exit.center = g.guardedSpot(); // RW 0x94A2B5 ..: the guarded object, else the team's centre, else + 0x48 (as the inner state; lane BFME2CAMP1 review)
 		if (const TriggerArea *area = g.areaToGuard())
 		{
 			m_exit.center = g.areaGuardCenter(*area); // lane BFME2CAMP1, RW 0x94A35A: + 0x60 ? + 0x54 : the polygon's centre (the range stays the vision range)

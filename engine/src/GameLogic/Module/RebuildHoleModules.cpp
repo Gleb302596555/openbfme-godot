@@ -283,6 +283,11 @@ UpdateSleepTime RebuildHoleBehavior::update()
 			if (!m_workerTemplate)
 			{
 				m_workerTemplate = logic.things().findTemplate(m_data->m_workerObjectName); // RW 0x6D1305
+				if (!m_workerTemplate)
+				{
+					// retail makes no worker and the hole waits for ever; the port reports the missing data (lane BFME2CAMP1 review: no silent defaults)
+					logic.reportError("RebuildHoleBehavior of " + hole->getTemplate()->getName() + ": no WorkerObjectName template '" + m_data->m_workerObjectName + "'");
+				}
 			}
 			worker = m_workerTemplate ? logic.newObject(m_workerTemplate, hole->getTeam(), ObjectStatusMaskType{}) : nullptr; // RW 0x6D165E
 			if (worker)

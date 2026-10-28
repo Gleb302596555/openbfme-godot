@@ -74,8 +74,29 @@ class LiveGame
 {
 public:
 	// lane BFME2CAMP1: the HUD that answers the script engine's client-view conditions (CAMERA_SCROLL_DISTANCE, OBJECTIVES_SCREEN_IS_OPEN); null: none
-	void setScriptLocalView(const ScriptLocalView *view) { m_scriptLocalView = view; }
+	// (main thread). The logic, which may run on the worker, never reads the view itself: publishScriptLocalView copies its answers into atomics at
+	// every frame request (advance / advanceWithDriver / stepFrame, the main thread), and the script host reads only those (lane BFME2CAMP1 review)
+	void setScriptLocalView(const ScriptLocalView *view)
+	{
+		m_scriptLocalView = view;
+		publishScriptLocalView();
+	}
 	const ScriptLocalView *scriptLocalView() const { return m_scriptLocalView; }
+	void publishScriptLocalView()
+	{
+		const ScriptLocalView *v = m_scriptLocalView;
+		m_viewScroll.store(v ? v->cameraScrollDistance() : 0.0f, std::memory_order_relaxed);
+		m_viewObjectivesOpen.store(v && v->objectivesScreenOpen(), std::memory_order_relaxed);
+		m_viewPresent.store(v != nullptr, std::memory_order_release);
+	}
+	// the published answers (any thread)
+	bool publishedCameraScroll(float &distance) const
+	{
+		const bool present = m_viewPresent.load(std::memory_order_acquire);
+		distance = present ? m_viewScroll.load(std::memory_order_relaxed) : 0.0f;
+		return present;
+	}
+	bool publishedObjectivesOpen() const { return m_viewPresent.load(std::memory_order_acquire) && m_viewObjectivesOpen.load(std::memory_order_relaxed); }
 	struct Options
 	{
 		std::string heroStatsProfile; // client profile only, supplied by the hero manager
@@ -384,7 +405,10 @@ private:
 	std::unique_ptr<SdkScriptHost> m_sdkScripts; // lane SDK-2: the mod's sim Luau scripts (before the logic: they listen to it)
 	std::unique_ptr<class MapScriptSetup> m_scriptSetup; // lane SCRIPT-1: the libraries the script engine's lists point into (outlive the logic)
 	std::unique_ptr<ScriptEngineHost> m_scriptHost;      // lane SCRIPT-1
-	const ScriptLocalView *m_scriptLocalView = nullptr; // lane BFME2CAMP1 (the HUD's; it unregisters itself)
+	const ScriptLocalView *m_scriptLocalView = nullptr; // lane BFME2CAMP1 (the HUD's; it unregisters itself; main thread only)
+	std::atomic<bool> m_viewPresent{ false };            // lane BFME2CAMP1 (review): the view's answers as published for the logic
+	std::atomic<bool> m_viewObjectivesOpen{ false };
+	std::atomic<float> m_viewScroll{ 0.0f };
 	bool m_mapScripts = false;
 	BuildCommands m_buildCommands;                // BUILD-1: the construction messages
 	AICommands m_aiCommands;                      // MOVE-1: before the logic; its handlers are registered on m_dispatch

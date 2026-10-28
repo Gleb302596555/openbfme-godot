@@ -184,6 +184,10 @@ TEST_CASE("bfme2camp1 CampaignCarryover: the spawn (RW 0x5EBD76) goes to the fir
 	REQUIRE(st.records.size() == 2);
 	CHECK(st.records[0].templateName == "Wall");
 	CHECK(st.records[1].templateName == "NoSuchThing");
+	{
+		const std::vector<std::string> errors = logic.report().errors; // the missing template is reported, not dropped silently (lane BFME2CAMP1 review)
+		CHECK(std::find(errors.begin(), errors.end(), "campaign carry-over: no template 'NoSuchThing' for a carried unit (kept, not created)") != errors.end());
+	}
 	CHECK(r.player->getBountyPercent() == 0.25f); // RW 0x6AA847(+ 0xB0)
 	// the placer without a start: the object at (0, 0, 0), facing atan2(0, 1) = 0
 	CHECK(r.objects[0]->getPosition()->x == 0.0f);

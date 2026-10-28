@@ -187,6 +187,15 @@ DozerAIUpdate::~DozerAIUpdate()
 	finishBuildingSound(); // RW 0x88D1F6
 }
 
+void DozerAIUpdate::onDelete()
+{
+	AIUpdateInterface::onDelete();
+	if (m_unplacedStructure != INVALID_ID)
+	{
+		removeUnplacedStructure(); // RW 0x88D1AC: + 0x568 (the interface's + 0xC0) != 0 -> RW 0x88CFFE
+	}
+}
+
 // ---- the dozer interface ------------------------------------------------------------------------------------------------------
 
 bool DozerAIUpdate::isAnyTaskPending() const
