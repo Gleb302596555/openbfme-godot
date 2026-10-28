@@ -4,6 +4,8 @@
 
 #include "GameClient/OpenBFMEText.h"
 
+#include <ostream> // doctest prints a std::string_view through it; MSVC 14.44 does not pull it in
+
 namespace
 {
 std::u16string fmt(std::u16string_view pattern, std::vector<OpenBFMEText::Argument> args, std::string_view language = "en",
