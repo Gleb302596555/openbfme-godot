@@ -275,6 +275,8 @@ func _run() -> int:
 	host.free()
 
 	var code := await _grade_part(vp, cam)
+	if code == EXIT_PASS:
+		code = await _whip_part()
 	vp.queue_free()
 	await _frames(2)
 	if code != EXIT_PASS:
@@ -336,4 +338,73 @@ func _grade_part(vp: SubViewport, cam: Camera3D) -> int:
 	host.free()
 	vp.remove_child(map)
 	map.free()
+	return EXIT_PASS
+
+
+func _frame_light(img: Image) -> float:
+	var sum := 0.0
+	for y in range(0, img.get_height(), 2):
+		for x in range(0, img.get_width(), 2):
+			sum += _luma(img.get_pixel(x, y))
+	return sum
+
+
+## the Balrog's whip (neutralunits.ini ModuleTag_WhipDraw: GlowEnabled = Yes, GlowEmissive = Yes), a real W3D model through the instancer: set_model_glow puts its
+## draws on the glow layer, so the pass lights the pixels around it; at EffectsLOD Low the same frame has no glow
+func _whip_part() -> int:
+	if OS.get_environment("ROTWK_INSTALL").is_empty() or OS.get_environment("BFME2_INSTALL").is_empty():
+		return EXIT_PASS
+	var fs: RefCounted = ClassDB.instantiate("RetailFileSystem")
+	var mount: Dictionary = fs.mount_retail()
+	if not mount.ok:
+		_check(false, "mount_retail %s" % [mount.get("errors", [])])
+		return EXIT_FAIL
+	var vp := SubViewport.new()
+	vp.size = Vector2i(640, 360)
+	vp.own_world_3d = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	root.add_child(vp)
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.05, 0.05, 0.08)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color.WHITE
+	env.tonemap_mode = Environment.TONE_MAPPER_LINEAR
+	var cam := Camera3D.new()
+	cam.environment = env
+	cam.far = 5000.0
+	cam.position = Vector3(0, 40, 140)
+	vp.add_child(cam)
+	cam.current = true
+	var inst: Node3D = ClassDB.instantiate("W3DInstancer")
+	vp.add_child(inst)
+	var setup: Dictionary = inst.setup(fs)
+	_check(setup.ok, "whip: the instancer is set up %s" % [setup.get("errors", [])])
+	var mid: int = inst.add_model("MUBalsWhip_SKN")
+	_check(mid >= 0, "whip: MUBalsWhip_SKN builds")
+	if mid < 0:
+		vp.queue_free()
+		return EXIT_FAIL
+	var clip := "MUBalsWhip_SKL.MUBalsWhip_WIPA"
+	var id: int = inst.add_instance(mid, Transform3D.IDENTITY, clip, 0.0, 1.0)
+	inst.set_instance_pose(id, clip, 6.0, "", 0.0, 0.0)
+	inst.update_now()
+	var host: Node3D = ClassDB.instantiate("GlowPostEffectHost")
+	host.configure_dictionary(RETAIL, null)
+	host.set_effects_lod(1)
+	vp.add_child(host)
+	await _frames(10)
+	var plain: Image = vp.get_texture().get_image()
+	# GlowEmissive = Yes: the whip's mesh has an emissive material, so it keeps its place on the glow layer
+	inst.set_model_glow(mid, true)
+	host.set_effects_lod(4)
+	await _frames(10)
+	var st: Dictionary = host.get_glow_stats()
+	_check(st.choice == "glow" and int(st.passes) > 0 and str(st.problem).is_empty(), "whip: the glow runs (%s)" % [st.choice])
+	var lit: Image = vp.get_texture().get_image()
+	var before := _frame_light(plain)
+	var after := _frame_light(lit)
+	_check(after > before + 5.0, "whip: the glow-flagged model lights the frame (%.1f vs %.1f)" % [after, before])
+	vp.queue_free()
+	await _frames(2)
 	return EXIT_PASS
