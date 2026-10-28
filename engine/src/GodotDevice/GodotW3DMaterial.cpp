@@ -793,7 +793,7 @@ W3DMaterialResult W3DMaterialFactory::Create(const MeshRenderData &mesh, const M
 				const std::string houseStop = W3D_House_Color_Stop(conv, key.ConvertedFx); // S-6022
 				if (!houseStop.empty()) out.Notes.push_back(houseStop);
 				key.HouseColor = true;
-				out.Notes.push_back("house colour texture " + *hc + " masks the team colour (hypothesis S-119)");
+				out.Notes.push_back("house colour texture " + *hc + ": the recoloured texel is combined with the lit base by its alpha (" + std::string(key.ConvertedFx ? "DefaultW3D.fx HouseColorEnable" : "fixed-function BLENDTEXTUREALPHA") + ", S-022)");
 			}
 			else
 			{

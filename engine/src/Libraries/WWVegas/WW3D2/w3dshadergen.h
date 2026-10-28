@@ -53,12 +53,13 @@ struct W3DShaderKey
 	bool ClampV[2] = { false, false };
 	bool NoLod[2] = { false, false };
 	bool Tangents = false;
-	// Stop S-119 (lane MAPOBJ-1): the stage 0 texture has a housecolor.ini texture (a mask) and the instance carries a team colour in
-	// INSTANCE_CUSTOM.z (W3D_HOUSE_COLOR_PACK). The combine is a HYPOTHESIS: base.rgb = mix(base.rgb, base.rgb * team, mask.a); the
-	// defaultw3d.fxo permutations have no sampler for HouseColorTexture, so the real combine is not recoverable from the effect (S-022).
+	// Stops S-022 / S-119: the stage 0 texture of a classic surface has a housecolor.ini texture (w3d_hc_tex; its alpha is the team region) and the instance
+	// carries a team colour in INSTANCE_CUSTOM.z (W3D_Pack_House_Color). The texture is recoloured with that colour as RotWK's kind 1 (RW 0x531C77) and
+	// combined AFTER the light, as retail does (defaultw3d.fxo HouseColorEnable permutation, or the fixed-function BLENDTEXTUREALPHA: ConvertedFx picks
+	// the rule); the surface's own second texture is dropped for such an instance. Classic surfaces only (not Fx / SimpleFx).
 	bool HouseColor = false;
-	// lane CAH-2 (S-1408): w3d_hc_tex is a house colour texture already recoloured texel by texel (RotWK RW 0x531C77, a colour set such as a
-	// Create-a-Hero's kind 3: W3DInstancer::add_model_colored): it replaces the base where its alpha is set (INFERENCE: the combine is unrecovered, S-022)
+	// lane CAH-2 (S-1408): w3d_hc_tex is a house colour texture already recoloured texel by texel (RotWK RW 0x531C77, a colour set such as a Create-a-Hero's
+	// kind 3 or a player's kind 1: W3DInstancer::add_model_colored), combined as above for every instance (no team colour in INSTANCE_CUSTOM.z is read)
 	bool HouseColorBaked = false;
 	// lane RENDER-4 (S-1651): the map's hardware fog, W3DHardwareFog::FogMode (0 = none): ShaderClass::Enable_Fog's choice for the surface's blend
 	int Fog = 0;

@@ -493,22 +493,27 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 	line("\tvec4 t0 = vec4(1.0);");
 	line("\tvec4 t1 = vec4(1.0);");
 	if (k.Tex[0]) line("\tt0 = texture(w3d_tex0, uvs0);");
-	if (k.HouseColor && k.HouseColorBaked && k.Tex[0])
+	// House colour (stops S-022 / S-119): `hc` is the recoloured house colour texel of the stage 0 texture (housecolor.ini), its alpha the team region. Retail
+	// combines it AFTER the diffuse light, not into the base texel (the override below the secondary texture code), so only its value is derived here.
+	// Classic surfaces only: normalmapped.fxo and simple.fxo have no house colour parameter.
+	const bool houseColor = k.HouseColor && k.Tex[0] && k.Texturing && !k.Fx && !k.SimpleFx;
+	if (houseColor && k.HouseColorBaked)
 	{
-		// lane CAH-2 (S-1408): the texture was recoloured per texel before filtering (RW 0x531C77 on the CPU, mipmaps made from the recoloured level);
-		// INFERENCE: it replaces the base where its alpha is set (the combine is unrecovered, S-022 / S-119); the instance's team colour is not used
-		line("\t{");
-		line("\t\tvec4 hcb = texture(w3d_hc_tex, uvs0);");
-		line("\t\tt0.rgb = mix(t0.rgb, hcb.rgb, hcb.a);");
-		line("\t}");
+		// lane CAH-2 (S-1408): the texture was recoloured per texel before filtering (RW 0x531C77 on the CPU, mipmaps made from the recoloured level)
+		line("\tvec4 hc = texture(w3d_hc_tex, uvs0);");
 	}
-	else if (k.HouseColor && k.Tex[0])
+	else if (houseColor)
 	{
-		// S-119 hypothesis: team colour (8 bit sRGB packed by W3D_Pack_House_Color) tints the base where the housecolor mask is set
-		line("\tif (v_instance.z > 0.5) {");
+		// the map builder's per-instance colour (INFERENCE: retail has no per-instance colour, it recolours a texture per palette): the recolour of kind 1
+		// (RW 0x531C77: out = (R * colour) >> 8 per channel of the 8 bit colour, alpha kept) applied to the filtered texel; the team colour is 8 bit
+		// sRGB packed by W3D_Pack_House_Color, none (<= 0.5) leaves the surface as it is
+		line("\tvec4 hc = vec4(0.0);");
+		line("\tbool hc_on = v_instance.z > 0.5;");
+		line("\tif (hc_on) {");
 		line("\t\tfloat hv = v_instance.z - 1.0;");
-		line("\t\tvec3 team = vec3(floor(hv / 65536.0), floor(mod(hv, 65536.0) / 256.0), mod(hv, 256.0)) / 255.0;");
-		line("\t\tt0.rgb = mix(t0.rgb, t0.rgb * team, texture(w3d_hc_tex, uvs0).a);");
+		line("\t\tvec3 team = vec3(floor(hv / 65536.0), floor(mod(hv, 65536.0) / 256.0), mod(hv, 256.0));");
+		line("\t\tvec4 hr = texture(w3d_hc_tex, uvs0);");
+		line("\t\thc = vec4(floor(hr.r * 255.0 * team / 256.0) / 255.0, hr.a);");
 		line("\t}");
 	}
 	if (k.Tex[1]) line("\tt1 = texture(w3d_tex1, uvs1);");
@@ -569,6 +574,36 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 	{
 		line("\t{ vec4 l = cur; vec4 o = t1;");
 		line("\t\tcur = vec4(" + detailColorExpr(k.DetailColor) + ", " + detailAlphaExpr(k.DetailAlpha) + "); }");
+	}
+	if (houseColor)
+	{
+		// The house colour combine; the mesh's own second texture is dropped (retail replaces it: MeshClass::RecolorHouseColor, RW 0x54BDE0).
+		line(k.HouseColorBaked ? "\t{" : "\tif (hc_on) {");
+		if (k.PriGradient == W3D_GRADIENT_DISABLE)
+		{
+			// unlit: FX: v0 = ColorEmissive 1 * 0.5 so lerp(t0 * 0.5, hc * 0.5, hc.a) * 2; fixed function: BLENDTEXTUREALPHA over the texel: the same
+			line("\t\tcur = vec4(mix(t0.rgb, hc.rgb, hc.a), t0.a);");
+		}
+		else if (k.ConvertedFx)
+		{
+			// defaultw3d.fxo ps_2_0 with HouseColorEnable (PS_Array[144 + ...]; blob 342 of tools/render/d3d9_disasm.py): NumTextures 2 and SecondaryTextureBlendMode 3,
+			//   r0 = Texture_0 * oD0; r2.rgb = hc * 0.5 - r0.rgb; r0.rgb += hc.a * r2.rgb; r0.rgb += oD1 * r0.a; * cloud; * 2
+			// = 2 * (lerp(t0 * diffuse light, hc * 0.5, hc.a) + specular * alpha): the house colour region is not lit (hc * 0.5 * 2), the specular is added after
+			// the lerp and scaled by the alpha. The cloud factor is not applied (S-390)
+			line("\t\tfloat al = t0.a * v_lit0.a;");
+			line("\t\tcur = vec4(2.0 * (mix(t0.rgb * v_lit0.rgb, hc.rgb * 0.5, hc.a) + v_lit1 * al), al);");
+		}
+		else
+		{
+			// fixed function (ShaderClassApply.cpp:1425-1436): stage 0 modulates the diffuse (x2), stage 1 BLENDTEXTUREALPHA(TEXTURE, CURRENT) with the
+			// recoloured texture, the alpha stays the current one
+			line("\t\tcur = vec4(mix(t0.rgb * (v_lit0.rgb + v_lit1) * 2.0, hc.rgb, hc.a), t0.a * v_lit0.a);");
+		}
+		if (!k.ConvertedFx && k.DetailAlpha != W3D_DETAILALPHA_DISABLE)
+		{
+			line("\t\t{ vec4 l = cur; vec4 o = hc; cur.a = " + detailAlphaExpr(k.DetailAlpha) + "; }");
+		}
+		line("\t}");
 	}
 	line("\tfloat a = cur.a;");
 	if (k.AlphaTest)
