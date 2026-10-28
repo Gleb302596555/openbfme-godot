@@ -235,7 +235,7 @@ void GameLODManager::applyStaticLODLevel(int level, const OptionPreferences &pre
 
 std::string GameLODManager::unappliedEffects()
 {
-	return "[S-3402] the detail level drives the particle cap and priorities, the colour grade and glow gate (S-5231), the texture reduction (models loaded afterwards) and the health bars; not "
+	return "[S-3402] the detail level drives the particle cap and priorities, the texture reduction (models loaded afterwards) and the health bars; not "
 		   "drawn: shadows (volumes, decals, mapping), heat effects, model / animation / terrain / water / shader detail, props, tank tracks, the decal style";
 }
 
