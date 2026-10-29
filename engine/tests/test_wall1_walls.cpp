@@ -19,6 +19,7 @@
 #include "GameClient/LiveGame.h"
 #include "GameEngineDevice/Win32Device/Common/Win32BIGFileSystem.h"
 #include "GameLogic/AI/AIPathfind.h"
+#include "GameLogic/AI/AIPathfindStops.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Module/AIUpdate.h"
@@ -397,6 +398,54 @@ TEST_CASE("wall1 walls: a flat RampMesh is no ramp: a piece whose ramp is flat c
 	for (int x = 0; x < 10; ++x) // the ramp mesh's cells and around them
 	{
 		for (int y = 0; y < 10; ++y)
+		{
+			INFO(x << ", " << y);
+			const PathfindCell *c = pf.cellAt(x, y);
+			CHECK(c->getLayer() == LAYER_GROUND);
+			CHECK(c->getConnectLayer() == LAYER_INVALID);
+			CHECK_FALSE(c->getBit17());
+			CHECK(c->getType() == PathfindCell::CELL_CLEAR);
+		}
+	}
+	pf.removeObjectFromPathfindMap(*piece);
+	delete piece;
+}
+
+// review (Greptile, #159): a ramp whose Bridge plane is vertical (a RampMesh of no width: its two bands are single points) has no height (RW 0x68044E's
+// ray meets no plane): the ramp is left out of the map and S-4840 says so, no height is made up
+TEST_CASE("wall1 walls: a RampMesh of no width is left out and reported (S-4840): its Bridge's plane is vertical, so it has no height")
+{
+	SyntheticTerrain terrain(30, 20);
+	TestWorld world;
+	Pathfinder pf(testConfig(), &world);
+	pf.newMap(terrain);
+	WallPieceObject *piece = new WallPieceObject();
+	piece->id = 9;
+	piece->pos = { 250.0f, 150.0f, 0.0f }; // its footprint away from the ramp's cells
+	piece->structure = true;
+	piece->kinds.insert(PK_WALK_ON_TOP_OF_WALL);
+	piece->geometry.type = PATHFIND_GEOMETRY_BOX;
+	piece->geometry.majorRadius = 5.0f;
+	piece->geometry.minorRadius = 5.0f;
+	PathfindWallSurface ramp;
+	PathfindWallTriangle a;
+	a.v[0] = { 100.0f, 100.0f, 0.0f };
+	a.v[1] = { 200.0f, 100.0f, 60.0f };
+	a.v[2] = { 200.0f, 100.0f, 60.0f };
+	ramp.triangles = { a, a };
+	ramp.loX = 100.0f;
+	ramp.loY = 100.0f;
+	ramp.hiX = 200.0f;
+	ramp.hiY = 100.0f;
+	ramp.height = 60.0f;
+	piece->walls.ramps.push_back(ramp);
+	world.objects[piece->id] = piece;
+	pf.addObjectToPathfindMap(*piece);
+	CHECK(pf.wallPieceCount() == 1);
+	CHECK(std::find(pf.stops().begin(), pf.stops().end(), std::string(pathstops::kRampNoHeight)) != pf.stops().end());
+	for (int x = 5; x < 25; ++x) // the ramp mesh's cells and around them
+	{
+		for (int y = 5; y < 15; ++y)
 		{
 			INFO(x << ", " << y);
 			const PathfindCell *c = pf.cellAt(x, y);
