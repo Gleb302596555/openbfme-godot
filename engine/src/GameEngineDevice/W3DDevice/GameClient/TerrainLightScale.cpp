@@ -69,7 +69,9 @@ std::vector<std::string> stopLines()
 		"lights and the roads (rendering mode 0 only), and to the object light sets (shader LOD below 2). Not applied because not drawn: the "
 		"scorch marks (always scaled in retail), the tank tracks, the per-instance prop / tree vertex light (RW 0x4E44FB, its role is inferred), "
 		"the per-object light of renderOneObject and the tree light environment of Flush (RW 0x46F89E, 0x46FB58, 0x471429). The map renderers draw "
-		"the High tier (normal-mapped terrain, shader LOD 2 or above), where the scale is 1: no user-selected detail level reaches them",
+		"the High tier (normal-mapped terrain, shader LOD 2 or above), where the scale is 1: only the viewer options use_terrain_normal_map / "
+		"terrain_lod / shader_lod of MapTerrainBuilder (terrain, roads) and MapObjectBuilder (object lights) select a lower tier, GameWorld lights "
+		"its objects at the High tier, and MapTerrainBuilder reports the object factor as object_light_scale_retail without applying it",
 	};
 }
 

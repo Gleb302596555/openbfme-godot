@@ -215,9 +215,14 @@ TEST_CASE("terrain light scale: the stop is reported and registered")
 	CHECK(lines[0].find("[S-033]") == 0);
 	CHECK(lines[0].find("scorch marks") != std::string::npos);
 	CHECK(lines[0].find("RW 0x4E44FB") != std::string::npos);
+	// the consumers of the object factor: MapObjectBuilder applies it, MapTerrainBuilder only reports it, GameWorld stays at the High tier (review of PR #147)
+	CHECK(lines[0].find("MapObjectBuilder (object lights)") != std::string::npos);
+	CHECK(lines[0].find("GameWorld lights its objects at the High tier") != std::string::npos);
+	CHECK(lines[0].find("object_light_scale_retail without applying it") != std::string::npos);
 	const MapStop *s033 = MapStops::find("S-033");
 	REQUIRE(s033 != nullptr);
 	CHECK(std::string(s033->gap).find("terrain light scale") != std::string::npos);
+	CHECK(std::string(s033->gap).find("GameWorld lights its objects at the High tier (scale 1)") != std::string::npos);
 }
 
 TEST_CASE("terrain light scale: retail maps store the scale (GlobalLighting v8) and the guards pick the tier")

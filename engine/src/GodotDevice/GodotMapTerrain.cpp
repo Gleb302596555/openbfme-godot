@@ -729,7 +729,9 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 		lit["terrain_light_scale"] = Vector3(lightScales.raw[0], lightScales.raw[1], lightScales.raw[2]);
 		lit["terrain_rendering_mode"] = lightScales.terrainMode;
 		lit["terrain_light_scale_applied"] = Vector3(lightScales.terrain[0], lightScales.terrain[1], lightScales.terrain[2]);
-		lit["object_light_scale_applied"] = Vector3(lightScales.objects[0], lightScales.objects[1], lightScales.objects[2]);
+		// the factor retail's object lights get at this tier (RW 0x46E009). This builder draws no objects and lights no model: MapObjectBuilder
+		// applies it (its report's lighting.object_light_scale_applied); the water here is not a reader of the scale (stop S-033)
+		lit["object_light_scale_retail"] = Vector3(lightScales.objects[0], lightScales.objects[1], lightScales.objects[2]);
 		m_report["lighting"] = lit;
 	}
 

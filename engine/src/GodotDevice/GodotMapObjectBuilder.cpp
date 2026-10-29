@@ -16,6 +16,7 @@
 #include "GodotDevice/GodotW3DInstancer.h"
 #include "GodotDevice/GodotW3DMaterial.h"
 #include "GameEngineDevice/W3DDevice/GameClient/W3DObjectLighting.h"
+#include "GameEngineDevice/W3DDevice/GameClient/TerrainLightScale.h"
 
 #include <godot_cpp/classes/engine.hpp>
 #include <godot_cpp/core/class_db.hpp>
@@ -504,12 +505,37 @@ Node3D *MapObjectBuilder::build_objects(const Ref<RetailFileSystem> &fsRef, cons
 		}
 		lit["accent_lights"] = accents;
 		// RENDER-1: the W3D shaders light every model from the light environment of the retail effects (W3DObjectLighting)
-		W3DObjectLighting env;
+		// stop S-033: the map's light scale reaches the object light sets below shader LOD 2 (RTS3DScene::updateFixedLightEnvironments, RW 0x46DFC0 /
+		// 0x46E007 / 0x46E009). The viewer names the tier ("use_terrain_normal_map", "terrain_lod", "shader_lod"); the default is the High tier (factor 1).
+		TerrainLightScale::Lod lod;
+		lod.useTerrainNormalMap = optBool(options, "use_terrain_normal_map", lod.useTerrainNormalMap);
+		lod.terrainLOD = (int)optInt(options, "terrain_lod", lod.terrainLOD);
+		lod.shaderLOD = (int)optInt(options, "shader_lod", lod.shaderLOD);
+		TerrainLightScale::Scales lightScales;
 		std::string lightError;
-		if (W3DObjectLightingUtil::fromMap(gl, env, &lightError))
+		W3DObjectLighting env;
+		if (!TerrainLightScale::resolve(gl, lod, lightScales, &lightError))
+		{
+			// the scale of an out-of-range tier is an error, not a guess: no lighting is applied
+			errors.push_back(toGodot(lightError));
+			lit["error"] = toGodot(lightError);
+		}
+		else if (W3DObjectLightingUtil::fromMap(gl, env, &lightError, lightScales.objects))
 		{
 			W3D_Apply_Object_Lighting(env);
 			lit["effect_color_scale"] = env.colorScale;
+			lit["shader_lod"] = lod.shaderLOD;
+			lit["terrain_light_scale"] = Vector3(lightScales.raw[0], lightScales.raw[1], lightScales.raw[2]);
+			// the factor W3D_Apply_Object_Lighting received: the same one that scaled the directional colours of `env`
+			lit["object_light_scale_applied"] = Vector3(lightScales.objects[0], lightScales.objects[1], lightScales.objects[2]);
+			// the directional colours of the set W3D_Apply_Object_Lighting just received (they become w3d_lcol_obj, which Godot cannot read back
+			// outside the editor): the consumer's input, so a test can hold the factor above against the light it scaled
+			Array appliedColors;
+			for (int i = 0; i < env.objects.count; ++i)
+			{
+				appliedColors.push_back(Vector3(env.objects.color[i][0], env.objects.color[i][1], env.objects.color[i][2]));
+			}
+			lit["effect_object_light_colors"] = appliedColors;
 		}
 		else
 		{
