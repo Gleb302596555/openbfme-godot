@@ -161,6 +161,7 @@ float visionRangeOf(Object &obj)
 // facing), then the firing arc cone when the template's FiringArc (+ 0x54C, default 360) is below 360 (reported, not ported)
 // lane PERF-HD: canSee's values that depend on the seer only, kept for the next call (a scan asks it for every candidate): the cos / sin of its angle
 // (each an emulated sinCosDet) for the same angle bits, and whether its template has a FiringArc. The same values, computed once per seer and angle.
+// The template part lives for one scan only (resetSeerTemplate at each scan's start): a template of an earlier game may share a later one's address.
 struct SeerMemo
 {
 	std::uint32_t angleBits = 0;
@@ -170,6 +171,11 @@ struct SeerMemo
 	bool hasArc = false;
 };
 thread_local SeerMemo t_seer;
+
+void resetSeerTemplate()
+{
+	t_seer.arcTemplate = nullptr;
+}
 
 bool canSee(Object &self, Object &other, float range)
 {
@@ -488,6 +494,7 @@ bool onWallLayer(GameLogic &logic, const Coord3D &pos)
 
 void EmotionTrackerUpdate::tauntScan(Object *&taunt, float &closest)
 {
+	resetSeerTemplate(); // lane PERF-HD: canSee's template memo is this scan's
 	// RW 0x8B58B1 .. 0x8B59D1
 	Object *obj = getObject();
 	GameLogic &logic = obj->logic();
@@ -604,6 +611,7 @@ void EmotionTrackerUpdate::tauntScan(Object *&taunt, float &closest)
 
 UpdateSleepTime EmotionTrackerUpdate::update()
 {
+	resetSeerTemplate(); // lane PERF-HD: canSee's template memo is this update's scans'
 	// RW 0x8B5738
 	Object *obj = getObject();
 	GameLogic &logic = obj->logic();
@@ -1008,6 +1016,7 @@ bool EmotionModules::visibleToScans(const Object &o)
 
 bool EmotionModules::canSeeObject(Object &self, Object &other, float range)
 {
+	resetSeerTemplate();
 	return canSee(self, other, range);
 }
 

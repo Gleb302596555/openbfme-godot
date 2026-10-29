@@ -703,8 +703,9 @@ bool Pathfinder::checkForMovementCached(const PathfindObject *obj, PathfindCheck
 				return false; // off the map
 			}
 			const CellMoveFacts *f;
-			const size_t k = (size_t)(c - base);
-			if (c >= base && k < cells)
+			// the ground grid's slot of (i, j), as getCell computes it; a raised layer's own cell lives in another array (compared, never subtracted)
+			const size_t k = (size_t)i * (size_t)m_stride + (size_t)j;
+			if (k < cells && c == base + k)
 			{
 				if (s.stamp[k] != s.gen)
 				{
@@ -843,8 +844,8 @@ int Pathfinder::occupantCostCached(const PathfindObject *obj, const PathfindCell
 			std::uint16_t fixed8 = 0;
 			const float *reach = nullptr;
 			size_t count = 0;
-			const size_t k = (size_t)(c - base);
-			if (c >= base && k < cells)
+			const size_t k = (size_t)i * (size_t)m_stride + (size_t)j; // the ground slot of (i, j), as in checkForMovementCached
+			if (k < cells && c == base + k)
 			{
 				CellCostRecord &rec = m_cellCost[k];
 				if (rec.stamp != m_cellCostGen)
