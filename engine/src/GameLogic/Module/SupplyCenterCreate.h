@@ -16,7 +16,7 @@
 #include "GameLogic/Module/BehaviorModule.h"
 
 class ModuleFactory;
-struct MultiIniFieldParse;
+class MultiIniFieldParse; // class, as INI.h defines it (MSVC C4099: the two keys mangle differently)
 
 class SupplyCenterCreateModuleData : public ModuleData
 {

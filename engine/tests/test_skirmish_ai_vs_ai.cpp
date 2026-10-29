@@ -1307,6 +1307,43 @@ TEST_CASE("skirmish ai vs ai (S-420): a structure's spawned NoSelect worker fade
 	CHECK((worker == nullptr || worker->isEffectivelyDead()));
 }
 
+TEST_CASE("skirmish ai vs ai (S-420): a structure's spawned worker fades away when the structure is killed, not only when it is deleted")
+{
+	OPENBFME_REQUIRE_START(s);
+	HandGame g;
+	loadHandGame(*s, g);
+	GameLogic &logic = g.game->logic();
+	Object *structure = nullptr;
+	GettingBuiltBehavior *gb = nullptr;
+	for (const char *name : { "GondorFarm", "GondorBarracks", "GondorArcherRange", "GondorStable", "GondorForge", "GondorWorkshop", "GondorMarketPlace" })
+	{
+		Object *o = placeAt(logic, name, g.men, 1600.0f, 600.0f);
+		GettingBuiltBehavior *m = dynamic_cast<GettingBuiltBehavior *>(o->findModule("GettingBuiltBehavior"));
+		if (m && !m->data()->m_workerName.empty())
+		{
+			structure = o;
+			gb = m;
+			break;
+		}
+		logic.destroyObject(o);
+	}
+	REQUIRE_MESSAGE(gb != nullptr, "no Men structure with a GettingBuiltBehavior WorkerName");
+	g.game->advance(0.2);
+	gb->spawnWorkerOrStart(true); // RW 0x857A19: the auto repair's worker
+	REQUIRE(gb->workerSpawned());
+	const ObjectID structureId = structure->getID();
+	const ObjectID workerId = structure->getBuilderID();
+	REQUIRE(logic.findObjectByID(workerId) != nullptr);
+	structure->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL); // destroyed in battle: dead, its slow death still running
+	g.game->advance(1.4); // the module's dead update runs once a second
+	Object *worker = logic.findObjectByID(workerId);
+	CHECK((worker == nullptr || worker->isEffectivelyDead()));
+	if (logic.findObjectByID(structureId))
+	{
+		CHECK_FALSE(gb->workerSpawned());
+	}
+}
+
 TEST_CASE("skirmish ai vs ai (S-420): an unfinished structure whose builder is gone is a target for an attack-move scan (ZH AI::findClosestEnemy has no construction filter)")
 {
 	OPENBFME_REQUIRE_START(s);
