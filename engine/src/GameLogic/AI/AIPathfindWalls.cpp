@@ -555,21 +555,18 @@ void Pathfinder::stampRampSurface(const PathfindWallSurface &s)
 		return; // getRamp answers false (a flat RampMesh): RW records no ramp, so RW 0x9356DF never runs for it
 	}
 	const PathfindRegion r = surfaceCells(s);
-	if (b.valid)
+	// RW 0x9356DF (the add branch) before its cells: an end of the ramp on a raised layer (RW 0x6EE600 at the Bridge's from, then its to; RW 0x5E2F24)
+	// makes the end's cell (RW 0x6E8CE6, centred) a wall connect cell of that layer (AddWallConnectCell RW 0x76879E): the hierarchical search's raised
+	// branch walks between a layer's two connect cells
+	for (const Coord3D &end : { b.from, b.to })
 	{
-		// RW 0x9356DF (the add branch) before its cells: an end of the ramp on a raised layer (RW 0x6EE600 at the Bridge's from, then its to; RW 0x5E2F24)
-		// makes the end's cell (RW 0x6E8CE6, centred) a wall connect cell of that layer (AddWallConnectCell RW 0x76879E): the hierarchical search's raised
-		// branch walks between a layer's two connect cells
-		for (const Coord3D &end : { b.from, b.to })
+		const PathfindLayerEnum l = raisedLayerAtPoint(end.x, end.y, end.z);
+		if (l != LAYER_INVALID)
 		{
-			const PathfindLayerEnum l = raisedLayerAtPoint(end.x, end.y, end.z);
-			if (l != LAYER_INVALID)
-			{
-				Coord3D p = end;
-				ICoord2D cell;
-				worldToCell(&p, true, &cell);
-				m_raised[(size_t)l].addWallConnectCell(cell);
-			}
+			Coord3D p = end;
+			ICoord2D cell;
+			worldToCell(&p, true, &cell);
+			m_raised[(size_t)l].addWallConnectCell(cell);
 		}
 	}
 	for (int i = r.lo.x; i <= r.hi.x; ++i)
