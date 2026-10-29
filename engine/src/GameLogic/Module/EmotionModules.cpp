@@ -589,7 +589,9 @@ UpdateSleepTime EmotionTrackerUpdate::update()
 			m_current->stop();
 			m_current = nullptr;
 		}
-		return UPDATE_SLEEP_NONE;
+		// lane PERF-HD (Uber only): nothing to do while contained; Object::friend_setContainedBy wakes the module when the object leaves. Faithful keeps
+		// retail's call every frame (the wake frames are in the state hash)
+		return logic.uber() ? UPDATE_SLEEP_FOREVER : UPDATE_SLEEP_NONE;
 	}
 	if (m_forcedFrames > 0)
 	{

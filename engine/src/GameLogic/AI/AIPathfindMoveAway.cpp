@@ -196,6 +196,10 @@ Path *Pathfinder::getMoveAwayFromPath(const PathfindObject *obj, const PathfindL
 	{
 		PathfindCell *c = m_open.pop();
 		markClosed(c); // at once (review r3): a successful search gives its records back too
+		if (m_uberLimits && m_uberSearchAllocs > m_uberSearchCap)
+		{
+			break; // lane PERF-HD: the Uber queue's cap
+		}
 		Coord3D cc;
 		adjustCoordToCell(c->getXIndex(), c->getYIndex(), center, cc, c->getLayer());
 		const Box b{ SimMath::subf32(cc.x, half), SimMath::subf32(cc.y, half), SimMath::addf32(cc.x, half), SimMath::addf32(cc.y, half) };

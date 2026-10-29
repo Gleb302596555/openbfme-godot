@@ -15,6 +15,7 @@
 #include "GameLogic/Object/EvaDamageNotice.h"
 #include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/Module/CollideModule.h"
+#include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/Module/PhysicsBehavior.h"
 #include "GameLogic/ScriptEngine/ScriptEngine.h"
 #include "GameLogic/ScriptEngine/ScriptConditions.h"
@@ -281,6 +282,25 @@ std::unique_ptr<BehaviorModule> Object::friend_replaceModule(BehaviorModule *old
 		}
 	}
 	throw std::logic_error("Object::friend_replaceModule: the module is not this object's");
+}
+
+void Object::friend_setContainedBy(Object *container)
+{
+	const bool left = m_containedBy != nullptr && container == nullptr;
+	m_containedBy = container;
+	// lane PERF-HD (Uber only): the emotion tracker of a contained object sleeps for ever (EmotionTrackerUpdate::update); it is woken when the object
+	// leaves its container, for the next frame (friend_awakenUpdateModule ignores a wake of the running module and one for the frame it already has)
+	if (left && m_logic.uber())
+	{
+		for (const std::unique_ptr<BehaviorModule> &m : m_modules)
+		{
+			if (EmotionTrackerUpdate *emotion = dynamic_cast<EmotionTrackerUpdate *>(m.get()))
+			{
+				m_logic.friend_awakenUpdateModule(this, emotion, m_logic.getFrame() + 1);
+				break;
+			}
+		}
+	}
 }
 
 void Object::rebuildCollideModules()

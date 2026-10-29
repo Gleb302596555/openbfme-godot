@@ -223,6 +223,11 @@ Path *Pathfinder::findAttackPath(const PathfindObject *obj, const PathfindLocomo
 		PathfindCell *c = m_open.pop();
 		if (m_uberLimits)
 		{
+			if (m_uberSearchAllocs > m_uberSearchCap)
+			{
+				markClosed(c); // lane PERF-HD: the Uber queue's cap; the result below is the exhausted search's (the acceptable or closest cell)
+				break;
+			}
 			const int sx = (int)goalCell->getXIndex() - (int)c->getXIndex(), sy = (int)goalCell->getYIndex() - (int)c->getYIndex();
 			const int d2 = sx * sx + sy * sy;
 			if (d2 < stallD2)

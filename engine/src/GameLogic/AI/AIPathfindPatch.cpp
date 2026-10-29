@@ -273,6 +273,11 @@ Path *Pathfinder::patchPath(PathfindObject &obj, const PathfindLocomotorInfo &lo
 	while (!m_open.empty())
 	{
 		PathfindCell *c = m_open.pop();
+		if (m_uberLimits && m_uberSearchAllocs > m_uberSearchCap)
+		{
+			markClosed(c); // lane PERF-HD: the Uber queue's cap (the search's exhausted answer follows)
+			break;
+		}
 		bool isTarget = false;
 		for (int t = 0; t < targetCount; t++)
 		{
@@ -498,6 +503,11 @@ Path *Pathfinder::patchPath(PathfindObject *obj, const PathfindLocomotorInfo &lo
 	while (!m_open.empty())
 	{
 		parentCell = m_open.pop();
+		if (m_uberLimits && m_uberSearchAllocs > m_uberSearchCap)
+		{
+			markClosed(parentCell); // lane PERF-HD: the Uber queue's cap (the search's exhausted answer follows)
+			break;
+		}
 		Coord3D cellCenter;
 		adjustCoordToCell(parentCell->getXIndex(), parentCell->getYIndex(), centerInCell, cellCenter, parentCell->getLayer());
 		const PathNode *matchNode;

@@ -396,7 +396,7 @@ public:
 
 	// ---- container (HordeContain members, passengers) ---------------------------------------------------------------------
 	Object *getContainedBy() const { return m_containedBy; }
-	void friend_setContainedBy(Object *container) { m_containedBy = container; }
+	void friend_setContainedBy(Object *container); // lane PERF-HD (Uber): leaving a container wakes the emotion tracker (EmotionTrackerUpdate::update)
 	// lane GARRISON-1: RW + 0x474, the object is in the world (RW 0x68E31F sets it, RW 0x68C18F clears it; a contain takes a rider out of the world and puts it back)
 	bool isInWorld() const { return m_inWorld; }
 	void friend_setInWorld(bool on) { m_inWorld = on; }

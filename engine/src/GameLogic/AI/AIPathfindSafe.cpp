@@ -55,6 +55,11 @@ Path *Pathfinder::findSafePath(const PathfindObject *obj, const PathfindLocomoto
 	while (!m_open.empty())
 	{
 		PathfindCell *c = m_open.pop();
+		if (m_uberLimits && m_uberSearchAllocs > m_uberSearchCap)
+		{
+			markClosed(c); // lane PERF-HD: the Uber queue's cap (the search's exhausted answer follows)
+			break;
+		}
 		Coord3D cc;
 		adjustCoordToCell(c->getXIndex(), c->getYIndex(), center, cc, c->getLayer());
 		// RW 0x6FCF31 .. 0x6FCF83 (SSE): (y - r1.y)^2 + (x - r1.x)^2 and the same to r2, the smaller

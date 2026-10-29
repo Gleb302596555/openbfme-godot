@@ -512,6 +512,35 @@ found no closest cell at all and gave no path, after 72% of all their cells.
   threads (clash frames 182 -> 154), 254 -> 237 ms one thread; the 10k battle
   within the noise. The Uber pin vector was regenerated again.
 
+### PERF-HD: the queue's searches capped at the call's budget (done)
+
+On Helm's Deep (11,700 objects) the profile ran 1.9x slower than Faithful with
+logic frames of up to 1.4 s: PATHPERF-4's burst budget never ended in the
+sustained melee (the queue sits at 300-450 requests), and retail's cell limit
+counts only cells that passed the movement checks, so a search in a press
+(nearly every neighbour occupied: a record already there, closed uncounted)
+closed 200,000+ cells, plus up to 25,000 of the shortcut walk.
+
+- **Uber rule change:** a request the queue serves is capped at the cells the
+  call has left of its budget (at least 2,000), counted in every cell the
+  search closes or walks, in every search kind (the main loop, the attack path,
+  the hierarchical block search, the patch, the safe and the move-away
+  searches); the capped search gives the exhausted search's answer. The burst
+  scale is 2. What a player can notice: a unit in a press gets a partial path
+  sooner. The Uber pin vector was regenerated.
+- **Uber rule change:** a contained object's EmotionTrackerUpdate sleeps until
+  it leaves its container (Faithful calls it every frame for every horde
+  member; the wake frames are in the state hash).
+- Result (Helm's Deep, seed 7, 400 frames, headless): logic 180 -> 88 ms a
+  frame (Faithful 95), the worst frame 1,417 -> 384 ms, the melee's
+  pathfinding over 100 -> 24-28 ms a frame. In the client the profile's mean
+  frame is 4 % under Faithful's and its tail still worse: it plays the heavier
+  battle (every path request served; Faithful's 511-slot ring refuses many).
+- Result (the uber bench, map mp fall back 8p, 8 players, 16 threads, 50
+  frames, mean tick of two runs; measured with and without this rule on top of
+  the exact logic speed-ups): 10k troops 93 -> 64 ms, 20k 171 -> 119 ms, 40k
+  279 -> 167 ms; ticks over the 200 ms clock at 40k: 47 -> 3-8 of 50.
+
 ### U2: parallel queries and paths, GPU animation (next)
 
 - **Snapshot queries.** Before each module phase, the queries a module will

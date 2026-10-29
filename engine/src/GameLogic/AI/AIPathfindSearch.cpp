@@ -151,6 +151,7 @@ bool clipLine2D(const ICoord2D *p1, const ICoord2D *p2, ICoord2D *c1, ICoord2D *
 // ---------------------------------------------------------------------------------------------------------
 void Pathfinder::markClosed(PathfindCell *cell)
 {
+	++m_uberSearchAllocs; // lane PERF-HD: every cell a search closes counts against the Uber queue's cap (cleanOpenAndClosedLists counts the same cells)
 	m_closedList = cell->putOnClosedList(m_closedList);
 }
 
@@ -617,7 +618,7 @@ struct ShortcutState
 bool Pathfinder::examineShortcutCell(PathfindCell *from, PathfindCell *to, int x, int y, ShortcutState &d)
 {
 	// RW 0x6F6D57: returns true to abort the walk
-	if (*d.counter > m_config.examineTowardsGoalLimit)
+	if (*d.counter > m_config.examineTowardsGoalLimit || m_uberSearchAllocs > m_uberSearchCap) // lane PERF-HD: the Uber queue's cap ends the walk too
 	{
 		return true;
 	}
@@ -696,7 +697,7 @@ bool Pathfinder::examineShortcutCell(PathfindCell *from, PathfindCell *to, int x
 		pos.y = y;
 		unsigned c = (unsigned)SimMath::truncToInt32(SimMath::addf32((float)from->getCostSoFar(), (to->getExtraPass() ? 2.5f : 5.0f)));
 		c += (unsigned)occupantCost(d.obj, from, x, y, d.radius, d.radius + (d.center ? 1 : 0), true);
-		if (!to->allocateInfo(m_pool, pos))
+		if (++m_uberSearchAllocs, !to->allocateInfo(m_pool, pos))
 		{
 			return true;
 		}
@@ -1291,7 +1292,9 @@ Path *Pathfinder::internalFindPath(PathfindObject *obj, const PathfindLocomotorI
 			return path;
 		}
 		markClosed(c);
-		if (cellCount > m_config.findPathLimit)
+		// lane PERF-HD (Uber only): the queue's cap counts every cell the search allocated; retail's limit counts only the cells that passed the
+		// movement checks, so a search in a press (most neighbours occupied, closed at once) allocated 200,000 cells against a limit of 15,000
+		if (cellCount > m_config.findPathLimit || m_uberSearchAllocs > m_uberSearchCap)
 		{
 			break;
 		}
