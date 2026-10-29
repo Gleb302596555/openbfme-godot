@@ -501,7 +501,6 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 {
 	m_report = Dictionary();
 	Array errors, assumptions, stops;
-	Ref<ShaderMaterial> terrainMaterial; // the terrain's lit material: the roads are drawn with the same effect inputs (lane ROADS-1)
 	Dictionary timings;
 	m_report["errors"] = errors;
 	m_report["assumptions"] = assumptions;
@@ -717,6 +716,59 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 		m_report["camera"] = cam;
 	}
 
+	// The map's lighting inputs of the terrain effect (terrain.fxo): the sun, the overbright switch, the cloud and macro textures, the map size and the fog.
+	// Retail builds one light environment for the terrain and hands it to the roads too (FlatHeightMap.cpp:768-791, :816), so the terrain mesh and the roads
+	// take them from here, whether or not the terrain mesh itself is built (lane ROADS-1).
+	MapWeather weather;
+	{
+		std::string werr;
+		if (!MapWeatherScan::load(*arch, mapDir, weather, &werr))
+		{
+			errors.push_back(toGodot("weather: " + werr));
+		}
+		if (!optBool(options, "fog", true))
+		{
+			weather.fogEnabled = false; // viewer option: the retail camera never sees the far map, an overview does
+		}
+	}
+	Ref<Texture2D> cloudTex, macroTex;
+	if ((wantTerrain || wantRoads) && map.chunks.hasEnvironmentData)
+	{
+		Array texErrors;
+		cloudTex = loadTexture(rfs, map.chunks.environment.cloudTexture, texErrors);
+		macroTex = loadTexture(rfs, map.chunks.environment.macroTexture, texErrors);
+		for (int64_t i = 0; i < texErrors.size(); ++i)
+		{
+			errors.push_back(texErrors[i]);
+		}
+	}
+	auto applyMapLighting = [&](const Ref<ShaderMaterial> &m) {
+		if (cloudTex.is_valid()) m->set_shader_parameter("cloud_tex", cloudTex);
+		if (macroTex.is_valid()) m->set_shader_parameter("macro_tex", macroTex);
+		if (tod)
+		{
+			const GlobalLight &sun = tod->terrain[0];
+			// stop S-033: the shader wants the direction TOWARD the light = -lightPos (ZH lightRay)
+			m->set_shader_parameter("sun_dir_sage", Vector3(-sun.lightPos[0], -sun.lightPos[1], -sun.lightPos[2]));
+			// terrain.fxo MainDirectionalLight binds Sas.DirectionalLight[0]. The
+			// SAS callback RW 0x54CFD0 doubles its colour before the shader's overbright half-scale.
+			m->set_shader_parameter("sun_color", Vector3(sun.diffuse[0], sun.diffuse[1], sun.diffuse[2]) * effectColorScale);
+		}
+		m->set_shader_parameter("overbright", overbright);
+		m->set_shader_parameter("cloud_scale", Vector2(1.0f / weather.cloudSize[0], 1.0f / weather.cloudSize[1]));
+		m->set_shader_parameter("cloud_offset_per_second", Vector2(weather.cloudOffsetPerSecond[0], weather.cloudOffsetPerSecond[1]));
+		if (map.chunks.hasEnvironmentData)
+		{
+			m->set_shader_parameter("macro_stretched", map.chunks.environment.isMacroTextureStretched);
+		}
+		m->set_shader_parameter("map_size", Vector2((float)hm.m_width * MAP_XY_FACTOR, (float)hm.m_height * MAP_XY_FACTOR));
+		m->set_shader_parameter("map_border_width", (float)hm.m_borderSize * MAP_XY_FACTOR);
+		m->set_shader_parameter("fog_enabled", weather.fogEnabled ? 1.0f : 0.0f);
+		m->set_shader_parameter("fog_color", Vector3(weather.fogColor[0], weather.fogColor[1], weather.fogColor[2]));
+		m->set_shader_parameter("fog_range_start", weather.fogStart);
+		m->set_shader_parameter("fog_range_end", weather.fogEnd);
+	};
+
 	// ---- 2. the terrain: atlas, mesh, materials ----------------------------------------------------
 	if (wantTerrain)
 	{
@@ -836,30 +888,9 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 			return fail("terrain shader is missing (res://shaders/terrain.gdshader)");
 		}
 
-		MapWeather weather;
-		std::string werr;
-		if (!MapWeatherScan::load(*arch, mapDir, weather, &werr))
-		{
-			errors.push_back(toGodot("weather: " + werr));
-		}
-		if (!optBool(options, "fog", true))
-		{
-			weather.fogEnabled = false; // viewer option: the retail camera never sees the far map, an overview does
-		}
 		// lane RENDER-4 (S-1651): the same hardware fog on the W3D models and the CPU particles (W3DHardwareFog.h)
 		W3D_Apply_Fog(weather.fogEnabled, weather.fogColor, weather.fogStart, weather.fogEnd);
 		m_report["object_fog"] = toGodot(W3DHardwareFog::StopText());
-		Ref<Texture2D> cloudTex, macroTex;
-		if (map.chunks.hasEnvironmentData)
-		{
-			Array texErrors;
-			cloudTex = loadTexture(rfs, map.chunks.environment.cloudTexture, texErrors);
-			macroTex = loadTexture(rfs, map.chunks.environment.macroTexture, texErrors);
-			for (int64_t i = 0; i < texErrors.size(); ++i)
-			{
-				errors.push_back(texErrors[i]);
-			}
-		}
 
 		auto makeMat = [&](const Ref<Shader> &shader, int priority) {
 			Ref<ShaderMaterial> m;
@@ -868,37 +899,13 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 			m->set_render_priority(priority);
 			m->set_shader_parameter("base_atlas", baseTex);
 			m->set_shader_parameter("normal_atlas", normalTex);
-			if (cloudTex.is_valid()) m->set_shader_parameter("cloud_tex", cloudTex);
-			if (macroTex.is_valid()) m->set_shader_parameter("macro_tex", macroTex);
 			m->set_shader_parameter("atlas_size", Vector2((float)images.width, (float)images.height));
-			if (tod)
-			{
-				const GlobalLight &sun = tod->terrain[0];
-				// stop S-033: the shader wants the direction TOWARD the light = -lightPos (ZH lightRay)
-				m->set_shader_parameter("sun_dir_sage", Vector3(-sun.lightPos[0], -sun.lightPos[1], -sun.lightPos[2]));
-				// terrain.fxo MainDirectionalLight binds Sas.DirectionalLight[0]. The
-				// SAS callback RW 0x54CFD0 doubles its colour before the shader's overbright half-scale.
-				m->set_shader_parameter("sun_color", Vector3(sun.diffuse[0], sun.diffuse[1], sun.diffuse[2]) * effectColorScale);
-			}
-			m->set_shader_parameter("overbright", overbright);
+			applyMapLighting(m);
 			m->set_shader_parameter("debug_mode", (int)(options.has("debug_mode") ? (int)options["debug_mode"] : 0));
-			m->set_shader_parameter("cloud_scale", Vector2(1.0f / weather.cloudSize[0], 1.0f / weather.cloudSize[1]));
-			m->set_shader_parameter("cloud_offset_per_second", Vector2(weather.cloudOffsetPerSecond[0], weather.cloudOffsetPerSecond[1]));
-			if (map.chunks.hasEnvironmentData)
-			{
-				m->set_shader_parameter("macro_stretched", map.chunks.environment.isMacroTextureStretched);
-			}
-			m->set_shader_parameter("map_size", Vector2((float)hm.m_width * MAP_XY_FACTOR, (float)hm.m_height * MAP_XY_FACTOR));
-			m->set_shader_parameter("map_border_width", (float)hm.m_borderSize * MAP_XY_FACTOR);
-			m->set_shader_parameter("fog_enabled", weather.fogEnabled ? 1.0f : 0.0f);
-			m->set_shader_parameter("fog_color", Vector3(weather.fogColor[0], weather.fogColor[1], weather.fogColor[2]));
-			m->set_shader_parameter("fog_range_start", weather.fogStart);
-			m->set_shader_parameter("fog_range_end", weather.fogEnd);
 			return m;
 		};
 		Ref<ShaderMaterial> terrainMat = makeMat(terrainShader, TERRAIN_RENDER_PRIORITY);
 		terrainMat->set_shader_parameter("records", recordsTex);
-		terrainMaterial = terrainMat;
 
 		Node3D *terrainRoot = memnew(Node3D);
 		terrainRoot->set_name("Terrain");
@@ -1442,20 +1449,8 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 						}
 					}
 					m->set_shader_parameter("road_normal_tex", nrmTex);
-					if (terrainMaterial.is_valid())
-					{
-						// the same light environment, cloud, macro and fog inputs as the terrain's pixel shader (set once, in makeMat)
-						for (const char *param : { "sun_dir_sage", "sun_color", "overbright", "lightning_color", "cloud_tex", "macro_tex", "cloud_scale",
-							"cloud_offset_per_second", "macro_stretched", "map_size", "map_border_width", "map_cell_size", "fog_enabled", "fog_color",
-							"fog_range_start", "fog_range_end" })
-						{
-							const Variant value = terrainMaterial->get_shader_parameter(param);
-							if (value.get_type() != Variant::NIL)
-							{
-								m->set_shader_parameter(param, value);
-							}
-						}
-					}
+					// the terrain's light environment (applyMapLighting), also with the terrain mesh disabled
+					applyMapLighting(m);
 					for (int64_t i = 0; i < texErrors.size(); ++i)
 					{
 						errors.push_back(texErrors[i]);

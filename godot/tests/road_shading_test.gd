@@ -102,6 +102,26 @@ func _run() -> void:
 	_check(normal_maps == WANT_NORMAL_MAPS, "%d road textures of %s have a _nrm companion" % [WANT_NORMAL_MAPS, MAP])
 	_check(fallbacks == WANT_FALLBACKS, "%d road textures of %s draw with the 1x1 fallback" % [WANT_FALLBACKS, MAP])
 	_check(normal_maps + fallbacks == materials, "every road material has exactly one of the two")
+
+	# The same map with the terrain mesh disabled: retail's light environment is the map's, not the terrain mesh's (FlatHeightMap.cpp:768-791, :816), so the
+	# roads still take the map's sun, cloud, macro and fog inputs instead of the shader defaults (a white sun, overbright on, no fog)
+	var no_terrain = builder.build_map(fs, MAP, {"markers": false, "water": false, "terrain": false})
+	_check(no_terrain != null, "%s builds with the terrain disabled" % MAP)
+	if no_terrain != null:
+		_check(no_terrain.get_node_or_null("Terrain") == null, "the terrain-disabled build has no Terrain node")
+		var road_meshes: Array = no_terrain.get_node("Roads").find_children("*", "MeshInstance3D", true, false)
+		_check(road_meshes.size() == materials, "the terrain-disabled build has the same road materials (%d)" % road_meshes.size())
+		_check(terrain_mat.get_shader_parameter("sun_color") != Vector3.ONE, "the map's sun colour is not the shader default (%s)" % [terrain_mat.get_shader_parameter("sun_color")])
+		for mi in road_meshes:
+			var nmat: ShaderMaterial = (mi as MeshInstance3D).mesh.surface_get_material(0)
+			for p in ["sun_dir_sage", "sun_color", "overbright", "cloud_scale", "cloud_offset_per_second", "macro_stretched", "map_size", "map_border_width",
+					"fog_enabled", "fog_color", "fog_range_start", "fog_range_end"]:
+				_check(nmat.get_shader_parameter(p) == terrain_mat.get_shader_parameter(p), "%s without terrain: %s = %s (the terrain build's %s)" % [mi.name, p, nmat.get_shader_parameter(p), terrain_mat.get_shader_parameter(p)])
+			for p in ["cloud_tex", "macro_tex"]:
+				var tex: Texture2D = nmat.get_shader_parameter(p)
+				var want: Texture2D = terrain_mat.get_shader_parameter(p)
+				_check(tex != null and want != null and tex.get_meta("retail_path", "") == want.get_meta("retail_path", ""), "%s without terrain: %s is %s" % [mi.name, p, tex.get_meta("retail_path", "") if tex else "missing"])
+		no_terrain.free()
 	map.free()
 	print("ROAD SHADING %s" % ["PASS" if _failures == 0 else "FAIL"])
 	quit(0 if _failures == 0 else 1)
