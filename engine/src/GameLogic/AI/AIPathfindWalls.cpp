@@ -270,20 +270,26 @@ int bridgeCorners(const RampBridge &b, int i, int j)
 	return (bridgeContains(b, x0, y0) ? 1 : 0) + (bridgeContains(b, x0, y1) ? 1 : 0) + (bridgeContains(b, x1, y1) ? 1 : 0) + (bridgeContains(b, x1, y0) ? 1 : 0);
 }
 
-float bridgeHeight(const RampBridge &b, float x, float y)
+// the normal of the Bridge's plane through fromLeft, fromRight and toLeft (RW 0x68044E's plane)
+Coord3D bridgeNormal(const RampBridge &b)
 {
-	using SimMath::addf32;
 	using SimMath::mulf32;
 	using SimMath::subf32;
 	const Coord3D &p = b.fromLeft, &q = b.fromRight, &r = b.toLeft;
 	const float ux = subf32(q.x, p.x), uy = subf32(q.y, p.y), uz = subf32(q.z, p.z);
 	const float vx = subf32(r.x, p.x), vy = subf32(r.y, p.y), vz = subf32(r.z, p.z);
-	const float nx = subf32(mulf32(uy, vz), mulf32(uz, vy)), ny = subf32(mulf32(uz, vx), mulf32(ux, vz)), nz = subf32(mulf32(ux, vy), mulf32(uy, vx));
-	if (nz == 0.0f)
-	{
-		return p.z; // a vertical plane has no height (not met in RotWK's data)
-	}
-	return subf32(p.z, SimMath::divf32(addf32(mulf32(nx, subf32(x, p.x)), mulf32(ny, subf32(y, p.y))), nz));
+	return Coord3D{ subf32(mulf32(uy, vz), mulf32(uz, vy)), subf32(mulf32(uz, vx), mulf32(ux, vz)), subf32(mulf32(ux, vy), mulf32(uy, vx)) };
+}
+
+// RW 0x68044E: the plane's height at (x, y). Only for a Bridge whose plane is not vertical (stampRampSurface leaves the others out, reported)
+float bridgeHeight(const RampBridge &b, float x, float y)
+{
+	using SimMath::addf32;
+	using SimMath::mulf32;
+	using SimMath::subf32;
+	const Coord3D &p = b.fromLeft;
+	const Coord3D n = bridgeNormal(b);
+	return subf32(p.z, SimMath::divf32(addf32(mulf32(n.x, subf32(x, p.x)), mulf32(n.y, subf32(y, p.y))), n.z));
 }
 
 // RW 0x67C81E: the segment (a, b) meets the rectangle [x0, x1] x [y0, y1] (edges included; Cohen-Sutherland)
@@ -551,6 +557,11 @@ void Pathfinder::stampRampSurface(const PathfindWallSurface &s)
 	{
 		return; // getRamp answers false (a flat RampMesh): RW records no ramp, so RW 0x9356DF never runs for it
 	}
+	if (bridgeNormal(b).z == 0.0f)
+	{
+		note(pathstops::kRampNoHeight); // a vertical plane (a RampMesh of no width): RW 0x68044E has no height for it, the ramp is left out
+		return;
+	}
 	const PathfindRegion r = surfaceCells(s);
 	for (int i = r.lo.x; i <= r.hi.x; ++i)
 	{
@@ -736,7 +747,7 @@ void Pathfinder::classifyWall(PathfindObject &obj, bool insert)
 		for (const PathfindWallSurface &s : piece.ramps)
 		{
 			const RampBridge b = makeRampBridge(s);
-			if (b.valid)
+			if (b.valid && bridgeNormal(b).z != 0.0f) // the ramps stampRampSurface stamped
 			{
 				unstamp(s, &b, [](const PathfindCell &c) { return c.getLayer() == LAYER_RAMP; });
 			}
