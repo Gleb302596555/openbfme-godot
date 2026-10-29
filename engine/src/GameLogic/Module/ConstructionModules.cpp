@@ -826,6 +826,22 @@ UpdateSleepTime GettingBuiltBehavior::update()
 			m_releaseBuilder = true;
 		}
 	}
+	// S-420, INFERENCE (not read in RW 0x857E77): a structure that dies with a worker it spawned (an auto repair, a build) lets that worker fade away now, as
+	// its destructor does (RW 0x85730B). Without it the repair is cancelled (the dozer's canRepair) and the idle NoSelect worker stood by the ruin until the
+	// structure was deleted; with RebuildWhenDead it waited to go idle for the release above. A rebuild spawns a new worker (checkRestart)
+	if (dead && m_workerSpawned)
+	{
+		Object *builder = logic.findObjectByID(obj->getBuilderID());
+		if (builder != obj)
+		{
+			if (builder && !builder->isEffectivelyDead())
+			{
+				killBuilder(*builder);
+			}
+			obj->setBuilder(nullptr);
+			m_workerSpawned = false;
+		}
+	}
 	const bool recently = !m_rebuilding && recentlyDamaged();
 	const bool builderBusy = checkBuilder();
 	const bool constructing = m_constructing;
