@@ -169,26 +169,23 @@ TEST_CASE("wall1 walls: a wall piece's wall top takes layer 0x11 at its height, 
 	CHECK(w.cell(20, 7).getType() == PathfindCell::CELL_OBSTACLE);
 	CHECK(w.cell(20, 7).getLayer() == LAYER_GROUND);
 	CHECK(w.cell(20, 12).getType() == PathfindCell::CELL_OBSTACLE);
-	// the joints: cells 14 and 15 have a corner on the top (x 150) and the ramp's height there is within 15 of the wall's (54 at cell 14's centre, 60 at
-	// x 150): the wall's layer, connecting to the ramp
-	for (int x = 14; x <= 15; ++x)
-	{
-		INFO("cell " << x);
-		CHECK(w.cell(x, 10).getLayer() == LAYER_WALL_FIRST);
-		CHECK(w.cell(x, 10).getConnectLayer() == LAYER_RAMP);
-	}
-	// the ramp: cells 9 .. 13 (cell 9's corners at x 100 are on the ramp's foot edge)
-	for (int x = 9; x <= 13; ++x)
+	// RotWK's ramp cell RW 0x93527F on the Bridge getRamp builds from the quad: from (150, 100, 60), to (100, 100, 0), width 20, so its start edge is x 150
+	// and its end edge x 100, y 90 .. 110. The edge test RW 0x67CAC6 shortens each edge by 10 at both ends: for a ramp 20 wide each is the point at y 100.
+	// The joint: cell 15 (x 150 .. 160) has its corners at x 150 on the ramp and the start edge's point (150, 100) on its square: it keeps the wall's
+	// layer (60, the ramp's 60 there) and connects to the ramp
+	CHECK(w.cell(15, 10).getLayer() == LAYER_WALL_FIRST);
+	CHECK(w.cell(15, 10).getConnectLayer() == LAYER_RAMP);
+	// the ramp: cells 10 .. 14 have all four corners on it: layer 0x10, no connect layer
+	for (int x = 10; x <= 14; ++x)
 	{
 		INFO("cell " << x);
 		CHECK(w.cell(x, 10).getLayer() == LAYER_RAMP);
+		CHECK(w.cell(x, 10).getConnectLayer() == LAYER_INVALID);
 	}
-	// its foot: cell 9 (corners at x 100: height 0) and cell 10 (centre x 105: 6) are within 15 of the terrain: they connect to the ground; cell 11 (18) does not
-	CHECK(w.cell(9, 10).getConnectLayer() == LAYER_GROUND);
-	CHECK(w.cell(10, 10).getConnectLayer() == LAYER_GROUND);
-	CHECK(w.cell(11, 10).getConnectLayer() == LAYER_INVALID);
-	// cell 13 (centre x 135: 42) is 18 below the joint beside it: no connection of its own (the joint connects to the ramp)
-	CHECK(w.cell(13, 10).getConnectLayer() == LAYER_INVALID);
+	// its foot: cell 9 (x 90 .. 100) has its corners at x 100 on the ramp and the end edge's point (100, 100): the ground (0) is within 15 of the ramp's
+	// plane at the cell's corner (90, 100): -12. It stays the ground and connects to the ramp
+	CHECK(w.cell(9, 10).getLayer() == LAYER_GROUND);
+	CHECK(w.cell(9, 10).getConnectLayer() == LAYER_RAMP);
 	// the ground beside the ramp and the wall stays ground
 	CHECK(w.cell(5, 10).getLayer() == LAYER_GROUND);
 	CHECK(w.cell(12, 5).getLayer() == LAYER_GROUND);
@@ -676,21 +673,24 @@ TEST_CASE("wall1 walls retail: Helm's Deep's wall sections are walkable: their W
 	{
 		MESSAGE("layer " << kv.first << ": " << kv.second << " cells");
 	}
-	// the cells of each layer on Helm's Deep (the counts of this port's classification, S-4840: not a retail dump)
-	CHECK(cellsByLayer[(int)LAYER_RAMP] == 1908);
-	CHECK(cellsByLayer[0x11] == 2042);
-	CHECK(cellsByLayer[0x12] == 870);
-	CHECK(cellsByLayer[0x13] == 58);
-	CHECK(cellsByLayer[0x14] == 1547);
-	CHECK(cellsByLayer[0x15] == 129);
-	CHECK(cellsByLayer[0x16] == 440);
+	// the cells of each layer on Helm's Deep (the counts of this port's classification, S-4840: not a retail dump). fix/ramp-bridge-cells (RotWK's ramp
+	// cell RW 0x93527F on getRamp's Bridge): ramp 1908 -> 1756, walls 2042 / 870 / 58 / 1547 / 129 / 440 -> 2019 / 702 / 28 / 1545 / 106 / 431. A cell all
+	// of whose corners are on a ramp is the ramp's even over a wall top, a ramp's foot cell stays the ground (connecting to the ramp), and the joints are
+	// only at the ramp's two end edges
+	CHECK(cellsByLayer[(int)LAYER_RAMP] == 1756);
+	CHECK(cellsByLayer[0x11] == 2019);
+	CHECK(cellsByLayer[0x12] == 702);
+	CHECK(cellsByLayer[0x13] == 28);
+	CHECK(cellsByLayer[0x14] == 1545);
+	CHECK(cellsByLayer[0x15] == 106);
+	CHECK(cellsByLayer[0x16] == 431);
 	CHECK(pf.wallHeights().size() == 6);
 	int wallCells = 0;
 	for (const auto &kv : cellsByLayer)
 	{
 		wallCells += isWallLayer((PathfindLayerEnum)kv.first) ? kv.second : 0;
 	}
-	CHECK(wallCells == 2042 + 870 + 58 + 1547 + 129 + 440);
+	CHECK(wallCells == 2019 + 702 + 28 + 1545 + 106 + 431);
 	// every wall height lies above the terrain under the fortress (the meshes are at the sections' world z)
 	for (float h : pf.wallHeights())
 	{

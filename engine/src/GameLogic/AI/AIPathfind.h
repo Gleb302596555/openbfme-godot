@@ -1199,7 +1199,7 @@ private:
 	PathfindLayerEnum raisedLayerFor(const PathfindWallSurface &s, PathfindObjectID owner);
 	void rebuildRaisedLayer(PathfindLayerEnum layer); // the cells (rebuildRaisedCells), then the units' slots on the layer registered again
 	void rebuildRaisedCells(PathfindLayerEnum layer);
-	void connectRampToRaised(int i, int j, PathfindCell *c, float rampHeight, int corners);
+	bool connectRampToRaised(int i, int j, PathfindCell *c, float rampHeight, int corners); // true when the cell joined a raised layer
 	void crcRaised(StateHasher &h) const;
 	PathfindLayerEnum wallLayerFor(float height);
 	void stampWallSurface(const PathfindWallSurface &s, PathfindLayerEnum layer);

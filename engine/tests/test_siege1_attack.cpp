@@ -40,7 +40,8 @@ TEST_CASE("siege1 attack retail: Isengard's battering ram breaks Helm's Deep's m
 	CHECK(r.healthAfterFirst == 3000.0f); // ISENGARD_BATTERINGRAM_DAMAGE 1000, the gate's armour full
 	// merge queue q27: death 335 -> 366, GATEPUSH-1 (the gate repels the units colliding with it when it opens or closes, RepelCollidingUnits; measured
 	// at each merge point)
-	CHECK(r.deathFrame == 366);
+	// fix/ramp-bridge-cells: death 366 -> 360, the ramp cells follow RotWK's ramp cell RW 0x93527F (Helm's Deep's ramps meet the ground and the wall tops only at their two ends): the AI defender's moves and the shared random stream; measured with the AI defender
+	CHECK(r.deathFrame == 360);
 	CHECK(r.dead);
 }
 
@@ -69,7 +70,8 @@ TEST_CASE("siege1 attack retail: Gondor's trebuchet hits a Helm's Deep wall from
 	CHECK(r.firstHit == 16); // in range at once: no drive, the PreAttackDelay and the stone's flight
 	// lane FBSIM-1 (the scene's computer players build through their dozers, whose sites are now RotWK's phantoms until placed, RW 0x88D272 / 0x88D44F: the shared random stream and the AIs' play move), measured on the lane's tree (a CI host) with the AI defender: 5929.4707 / 5506.29492 -> 5974.28516 / 5597.16553
 	CHECK(r.healthAfterFirst == 5974.28516f); // the stone's damage (its scatter and splash: PROJ-2)
-	CHECK(r.healthAfter == 5597.16553f);
+	// fix/ramp-bridge-cells: 5597.16553 -> 5708.04785, the ramp cells follow RotWK's ramp cell RW 0x93527F (Helm's Deep's ramps meet the ground and the wall tops only at their two ends): the AI defender's moves and the shared random stream; measured with the AI defender
+	CHECK(r.healthAfter == 5708.04785f);
 }
 
 TEST_CASE("siege1 attack retail: Grond breaks Minas Tirith's gate with its ram (PRIMARY MordorGrondRam, OnlyAgainst BLOCKING_GATE): one blow")
@@ -92,12 +94,15 @@ TEST_CASE("siege1 attack retail: Mordor's catapult made inside its MinimumAttack
 	print("MordorCatapult", r);
 	CHECK(r.ordered);
 	CHECK(r.slotAtHit == 0);
-	CHECK(r.firstHit == 63); // merge queue q26: 47 -> 63
+	// merge queue q26: 47 -> 63; fix/ramp-bridge-cells: 63 -> 47, the ramp cells follow RotWK's ramp cell RW 0x93527F (Helm's Deep's ramps meet the ground and the wall tops only at their two ends): the AI defender's moves and the shared random stream; measured with the AI defender
+	CHECK(r.firstHit == 47);
 	CHECK(r.distAtHit > 150.0f); // tolerance: it fired from outside its minimum range (the drive ends where the attack state's approach puts it: 243.2)
 	// merge queue q26 (the archive's pair rule, SIEGE-1 / test_siege1_gate.cpp): from its backed-off spot most stones are caught before the gate; at frame 600
 	// the gate still stands at 2935.86 (a follow-up: test_siege1_gate.cpp's back-off case)
 	CHECK(r.deathFrame == -1);
-	CHECK(r.healthAfter == 2935.87988f); // lane FBSIM-1 (the AI defender's phantom sites move the random stream): 2935.85986 -> 2935.87988
+	// lane FBSIM-1 (the AI defender's phantom sites move the random stream): 2935.85986 -> 2935.87988; fix/ramp-bridge-cells: 2935.87988 -> 2869.34985,
+	// the ramp cells follow RotWK's ramp cell RW 0x93527F (Helm's Deep's ramps meet the ground and the wall tops only at their two ends): the AI defender's moves and the shared random stream; measured with the AI defender
+	CHECK(r.healthAfter == 2869.34985f);
 }
 
 TEST_CASE("siege1 attack retail: a mumak and the Dwarven demolisher break Helm's Deep's main gate; Mordor's catapult from 500 toward Player_2_Start hits the flanking tower")
@@ -110,16 +115,18 @@ TEST_CASE("siege1 attack retail: a mumak and the Dwarven demolisher break Helm's
 	// merge queue q27: first damage 18 -> 184, death 424 -> 415, LOS-1 (the terrain line of sight in the target search and the attack view; measured at
 	// each merge point)
 	CHECK(m.firstHit == 184);
-	CHECK(m.healthAfterFirst == 3997.75f);
+	// fix/ramp-bridge-cells: the first graze 3997.75 -> 3999.25, the ramp cells follow RotWK's ramp cell RW 0x93527F (Helm's Deep's ramps meet the ground and the wall tops only at their two ends): the AI defender's moves and the shared random stream; measured with the AI defender
+	CHECK(m.healthAfterFirst == 3999.25f);
 	CHECK(m.deathFrame == 415);
 	const AttackResult d = siegeAttack(*s, kHelmsDeep, "Main Gate", "DwarvenDemolisher", false, 250.0f, 600, true);
 	print("DwarvenDemolisher", d);
 	CHECK(d.slotAtHit == 1); // DwarvenBatteringRamGate
 	// merge queue q27: first damage 254 -> 316, death 320 -> 382, GATEPUSH-1 (the gate's RepelCollidingUnits; measured at each merge point)
 	// merge queue q29: first damage 316 -> 315, death 382 -> 381, FBSIM-1 (the scene's computer defender builds phantom sites; measured at each merge point)
-	CHECK(d.firstHit == 315);
+	// fix/ramp-bridge-cells: first damage 315 -> 311, death 381 -> 377, the ramp cells follow RotWK's ramp cell RW 0x93527F (Helm's Deep's ramps meet the ground and the wall tops only at their two ends): the AI defender's moves and the shared random stream; measured with the AI defender
+	CHECK(d.firstHit == 311);
 	CHECK(d.healthAfterFirst == 3000.0f);
-	CHECK(d.deathFrame == 381);
+	CHECK(d.deathFrame == 377);
 	const AttackResult c = siegeAttack(*s, kHelmsDeep, "Main Gate", "MordorCatapult", false, 500.0f, 600, true);
 	print("MordorCatapult", c);
 	// on the archive (SIEGE-1, test_siege1_gate.cpp): from 500 toward Player_2_Start the catapult's stones meet HelmsDeepGatehouseRight in their line of fire,
