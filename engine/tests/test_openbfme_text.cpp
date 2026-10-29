@@ -4,7 +4,7 @@
 
 #include "GameClient/OpenBFMEText.h"
 
-#include <ostream>
+#include <ostream> // doctest stringifies the std::string_view operands of CHECK(a == b) through std::ostream
 
 namespace
 {
