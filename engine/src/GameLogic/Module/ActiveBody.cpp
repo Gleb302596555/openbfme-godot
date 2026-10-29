@@ -199,6 +199,25 @@ void ActiveBody::crc(StateHasher &h) const
 	}
 }
 
+// the model conditions of the applied damage state (+0x30): its flag of DAMAGED / REALLYDAMAGED / RUBBLE, the other two cleared (INFERENCE: ZH
+// Drawable::reactToBodyDamageStateChange, what vslot 0x94 sets)
+void ActiveBody::applyDamageStateModelConditions()
+{
+	Object::ModelConditionBits clear{}, set{};
+	const int damaged = CombatNames::modelCondition("DAMAGED"), really = CombatNames::modelCondition("REALLYDAMAGED"), rubble = CombatNames::modelCondition("RUBBLE");
+	for (int bit : { damaged, really, rubble })
+	{
+		clear[(size_t)bit >> 5] |= 1u << (bit & 31);
+	}
+	const BodyDamageType now = m_curDamageState;
+	const int on = now == BODY_DAMAGED ? damaged : now == BODY_REALLYDAMAGED ? really : now == BODY_RUBBLE ? rubble : -1;
+	if (on >= 0)
+	{
+		set[(size_t)on >> 5] |= 1u << (on & 31);
+	}
+	getObject()->clearAndSetModelConditionFlags(clear, set);
+}
+
 // RW 0x8C2A5D (setCorrectDamageState). TARGET FACTS read from the binary: the damage state field (+0x30) is rewritten from calcDamageState (RW 0x8C1B79); when it changed vslot 0x34 runs
 // (RW 0x8C283C: the Damaged / ReallyDamaged attribute modifiers, UPGRADE-1's). For a template that is KindOf STRUCTURE (tt KindOf mask byte 0x108 bit 0x80 = bit 7) the state RUBBLE does:
 //   entering (new > old, new == 3): the structure's footprint leaves the pathfinder and is entered again (RW 0x6E85FB remove, 0x6E85E9 add: the add sees the RUBBLE state), the object
@@ -221,23 +240,12 @@ void ActiveBody::updateDamageState(bool initial)
 		return;
 	}
 	Object &obj = *getObject();
-	Object::ModelConditionBits clear{}, set{};
-	const int damaged = CombatNames::modelCondition("DAMAGED"), really = CombatNames::modelCondition("REALLYDAMAGED"), rubble = CombatNames::modelCondition("RUBBLE");
-	for (int bit : { damaged, really, rubble })
-	{
-		clear[(size_t)bit >> 5] |= 1u << (bit & 31);
-	}
-	const int on = now == BODY_DAMAGED ? damaged : now == BODY_REALLYDAMAGED ? really : now == BODY_RUBBLE ? rubble : -1;
-	if (on >= 0)
-	{
-		set[(size_t)on >> 5] |= 1u << (on & 31);
-	}
 	// lane PLAY-4, RW 0x8C3290 .. 0x8C32A8 (internalChangeHealth after vslot 0x54; BFME2 decomp ActiveBody.cpp, ZH "we just don't have all the art states for
 	// that during buildup animation"): the visual change (vslot 0x94) is skipped while the object is UNDER_CONSTRUCTION, unless the health reached 0. A rising
 	// structure (1 hit point at the start, RW 0x85895D) keeps its construction states instead of REALLYDAMAGED / DAMAGED.
 	if (m_currentHealth <= 0.0f || !obj.testStatus((unsigned)CombatNames::statuses().underConstruction))
 	{
-		obj.clearAndSetModelConditionFlags(clear, set);
+		applyDamageStateModelConditions();
 	}
 	// lane FX-4: RotWK's setCorrectDamageState does not tell the damage modules (ZH's does); attemptDamage / attemptHealing do (notifyDamageStateChange)
 	if (!obj.isKindOf((unsigned)CombatNames::kinds().structure))

@@ -15,6 +15,7 @@
 #include "GameLogic/BuildPlacement.h"
 #include "GameLogic/Construction.h"
 #include "GameLogic/GameLogicDispatch.h"
+#include "GameLogic/Module/ActiveBody.h"
 #include "GameLogic/Module/CastleModules.h"
 #include "GameLogic/Module/ConstructionModules.h"
 #include "GameLogic/ObjectTemplateInfo.h"
@@ -819,4 +820,35 @@ TEST_CASE("build audio (AUDIO-2 review r2): GettingBuiltBehavior's first complet
 	Construction::completeConstruction(*building, nullptr);
 	CHECK(seen.size() == 1);
 	AudioApi::uninstallUnitVoiceHandler(&owner);
+}
+
+TEST_CASE("construction: a dozer-completed structure takes its body's damage state model conditions (no REALLYDAMAGED smoke left from the 1 hit point site)")
+{
+	BuildFx f;
+	f.select(f.plot);
+	f.dispatch.dispatch(f.construct("Hall", *f.plot->getPosition()));
+	Object *building = f.find("Hall");
+	REQUIRE(building != nullptr);
+	const GettingBuiltBehavior *gb = dynamic_cast<const GettingBuiltBehavior *>(building->findModule("GettingBuiltBehavior"));
+	REQUIRE(gb);
+	for (int i = 0; i < 120 && !gb->completedOnce(); ++i)
+	{
+		f.logic->runLogicFrame();
+	}
+	REQUIRE_FALSE(building->isUnderConstruction());
+	ActiveBody *body = dynamic_cast<ActiveBody *>(building->getBodyModule());
+	REQUIRE(body);
+	const int really = Construction::modelConditionIndex("REALLYDAMAGED"), damaged = Construction::modelConditionIndex("DAMAGED");
+	// the dozer's placement order (RW 0x88D53A then 0x88D61B): the 1 hit point before UNDER_CONSTRUCTION shows REALLYDAMAGED
+	body->internalChangeHealth(1.0f - body->getHealth());
+	REQUIRE(building->testModelCondition(really));
+	building->setStatus(OBJECT_STATUS_UNDER_CONSTRUCTION, true);
+	// the rise's heals reach full health while UNDER_CONSTRUCTION: the damage state is PRISTINE, the visual change skipped
+	body->internalChangeHealth(body->getMaxHealth() - body->getHealth());
+	CHECK(body->appliedDamageState() == BODY_PRISTINE);
+	CHECK(building->testModelCondition(really));
+	Construction::completeConstruction(*building, nullptr);
+	CHECK_FALSE(building->isUnderConstruction());
+	CHECK_FALSE(building->testModelCondition(really));
+	CHECK_FALSE(building->testModelCondition(damaged));
 }
