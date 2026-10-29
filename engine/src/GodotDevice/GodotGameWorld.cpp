@@ -1860,6 +1860,7 @@ void GameWorld::refresh_views(double deltaMs)
 					{
 						// SMOOTH-1: the native call (no Godot String round trip per animated drawable per frame; the instancer caches the clip lookups)
 						dyn->set_instance_pose_keyed(ev.instance, *f.clip0, f.clipKey0, f.frame0, *f.clip1, f.clipKey1, f.frame1, f.blendPercentage); // lane PERF-3: keyed
+						dyn->set_instance_pose_share(ev.instance, e.draw->poseShareDelta()); // lane PERF-HD: retail's horde pose sharing (the draw's frame delta)
 						ev.posed = true;
 					}
 					// the names frame() gives (the model's sub objects at the hidden indices, in index order), made when the draw's hidden set or the model changed

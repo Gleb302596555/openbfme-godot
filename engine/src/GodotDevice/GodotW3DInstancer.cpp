@@ -1593,6 +1593,15 @@ bool W3DInstancer::set_instance_bone_spins_native(int64_t instance, const std::v
 	return true;
 }
 
+void W3DInstancer::set_instance_pose_share(int64_t instance, float maxFrameDelta)
+{
+	if (instance < 0 || instance >= (int64_t)Instances.size())
+	{
+		return;
+	}
+	Instances[(size_t)instance].ShareDelta = maxFrameDelta;
+}
+
 namespace
 {
 // lane COMBAT-4: the pivot `p` of the evaluated pose turned by Rotate_Y(angle) in its own frame (Control_Bone after the animation): its world becomes W * R and
@@ -1886,12 +1895,13 @@ void W3DInstancer::write_buffers()
 			{
 				const Instance &inst = Instances[(size_t)id];
 				if (inst.Removed) continue;
+				const HTreePose &pose = pose_source(inst).Pose; // lane PERF-HD
 				for (size_t k = 0; k < m.Draws.size(); ++k)
 				{
 					DrawItem &d = m.Draws[k];
 					if (d.PoseDirty || d.Mesh->HasSorted) continue;
 					const size_t bone = (size_t)d.Sub->BoneIndex;
-					if (inst.DrawPoseState[k] != std::make_pair(inst.Pose.IsVisible[bone], inst.Pose.PivotFade[bone]))
+					if (inst.DrawPoseState[k] != std::make_pair(pose.IsVisible[bone], pose.PivotFade[bone]))
 					{
 						d.PoseDirty = true;
 					}
@@ -1922,14 +1932,16 @@ void W3DInstancer::write_buffers()
 			{
 				Instance &inst = Instances[(size_t)id];
 				if (inst.Removed) continue;
+				const HTreePose &pose = pose_source(inst).Pose; // lane PERF-HD: a shared member is drawn with its group's pose
+				inst.DrawnOffset = pose_source(inst).PaletteOffset;
 				// Cache every consumed pose before membership filters, including queried culled/hidden/zero-fade instances.
 				if (!d.Mesh->HasSorted)
 				{
-					inst.DrawPoseState[drawIndex] = std::make_pair(inst.Pose.IsVisible[(size_t)bone], inst.Pose.PivotFade[(size_t)bone]);
+					inst.DrawPoseState[drawIndex] = std::make_pair(pose.IsVisible[(size_t)bone], pose.PivotFade[(size_t)bone]);
 				}
 				if (!inst.HiddenSubs.empty() && inst.HiddenSubs[(size_t)d.SubIndex]) continue;
-				if (!inst.Pose.IsVisible[(size_t)bone]) continue;
-				if (inst.Pose.PivotFade[(size_t)bone] * inst.Opacity <= 0.0f) continue;
+				if (!pose.IsVisible[(size_t)bone]) continue;
+				if (pose.PivotFade[(size_t)bone] * inst.Opacity <= 0.0f) continue;
 				ids.push_back(id);
 			}
 			// a batch that existed and is now gone (its last sorted instance removed or hidden) changes the S-029 count too (review r1)
@@ -1945,7 +1957,7 @@ void W3DInstancer::write_buffers()
 					for (size_t k = 0; k < ids.size(); ++k)
 					{
 						const Instance &inst = Instances[(size_t)ids[k]];
-						const ::Vector3 t = inst.Pose.Transform[(size_t)bone].Get_Translation();
+						const ::Vector3 t = pose_source(inst).Pose.Transform[(size_t)bone].Get_Translation();
 						const Vector3 world = nodeXf.xform(inst.Xf.xform(Vector3(t.X, t.Z, -t.Y))); // W3D (x, y, z) -> Godot (x, z, -y)
 						depth[k] = (world.x - camPos.X) * camForward.X + (world.y - camPos.Y) * camForward.Y + (world.z - camPos.Z) * camForward.Z;
 					}
@@ -1969,14 +1981,15 @@ void W3DInstancer::write_buffers()
 			for (int id : ids)
 			{
 				const Instance &inst = Instances[(size_t)id];
-				const float fade = inst.Pose.PivotFade[(size_t)bone] * inst.Opacity; // PROJ-2: the drawable's opacity
+				const Instance &src = pose_source(inst); // lane PERF-HD
+				const float fade = src.Pose.PivotFade[(size_t)bone] * inst.Opacity; // PROJ-2: the drawable's opacity
 				if (d.Mesh->HasOpaque && fade < 0.999f) ++d.Dithered;
 				float *o = buf + (size_t)count * 16;
 				const Basis &b = inst.Xf.basis;
 				o[0] = b.rows[0][0]; o[1] = b.rows[0][1]; o[2] = b.rows[0][2]; o[3] = inst.Xf.origin.x;
 				o[4] = b.rows[1][0]; o[5] = b.rows[1][1]; o[6] = b.rows[1][2]; o[7] = inst.Xf.origin.y;
 				o[8] = b.rows[2][0]; o[9] = b.rows[2][1]; o[10] = b.rows[2][2]; o[11] = inst.Xf.origin.z;
-				o[12] = inst.InfantryLight ? -(float)(inst.PaletteOffset + 1) : (float)inst.PaletteOffset;
+				o[12] = inst.InfantryLight ? -(float)(src.PaletteOffset + 1) : (float)src.PaletteOffset;
 				o[13] = fade;
 				o[14] = inst.HcPacked;
 				o[15] = (float)((rigid ? (int)bone : 0) + 1024 * inst.Sway + (inst.Fogged ? 16384 : 0) // lane VISUAL-2: the sway type, the fogged light
@@ -2014,8 +2027,8 @@ void W3DInstancer::write_buffers()
 				if (d.HasBatch) SortBatchScratch.push_back(d.Batch);
 		InterleavedBatchPairs = (int)W3D_Count_Interleaved_Batches(SortBatchScratch);
 	}
-	if (InterleavedBatchPairs > 0) warn(W3D_Batch_Order_Stop((size_t)InterleavedBatchPairs).Message);
-	if (dithered > 0) warn(W3D_Fade_Dither_Stop((size_t)dithered).Message);
+	if (InterleavedBatchPairs > 0) warn_stop(W3D_Batch_Order_Stop((size_t)InterleavedBatchPairs));
+	if (dithered > 0) warn_stop(W3D_Fade_Dither_Stop((size_t)dithered));
 	if (missedCamera)
 	{
 		warn("blended draw items are drawn in insertion order: no sort camera (set_sort_camera) and no current Camera3D");
@@ -2117,7 +2130,7 @@ void W3DInstancer::update_now()
 	for (size_t i = 0; i < Instances.size(); ++i)
 	{
 		Instance &inst = Instances[i];
-		if (!inst.Removed && (inst.PoseStale || (timeMoved && inst.Anim != nullptr && !inst.Explicit)))
+		if (!inst.Removed && (inst.PoseStale || (timeMoved && inst.Anim != nullptr && !inst.Explicit) || inst.ShareLeader >= 0))
 		{
 			if (cull)
 			{
@@ -2151,11 +2164,84 @@ void W3DInstancer::update_now()
 				{
 					inst.PoseStale = true; // pending: posed by the first update that sees it (with the inputs of that frame)
 					++PoseCulled;
+					if (inst.ShareLeader >= 0)
+					{
+						inst.ShareLeader = -1; // lane PERF-HD: off screen it is drawn with its own (pending) block again
+						Models[(size_t)inst.Model]->BuffersDirty = true;
+					}
 					continue;
 				}
 			}
 			StaleScratch.push_back(i);
 		}
+	}
+	// lane PERF-HD: retail's horde pose sharing (W3DHordeModelDrawManager::ProcessGroup, PartOfSameGroup: the same model, clip and mode, frames within the
+	// draw's MaxAnimFrameDelta of the group's first). The candidates are sorted by (model, clip, frame), so a group is a run whose frames stay within the delta
+	// of its first; its first is posed and written, the others are drawn with that block and keep their own pose pending (the bone queries evaluate it).
+	// INFERENCE: retail groups the handles in its own list order; sorting by frame makes the groups as large as the delta allows
+	PoseShared = 0;
+	ShareScratch.clear();
+	const bool share = PoseSharing && PoseCulling;
+	for (size_t k = 0; k < StaleScratch.size(); ++k)
+	{
+		Instance &inst = Instances[StaleScratch[k]];
+		const int before = inst.ShareLeader;
+		inst.ShareLeader = -1;
+		if (share && inst.ShareDelta >= 0.0f && inst.Explicit && inst.Anim != nullptr && inst.Anim1 == nullptr && inst.BoneSpins.empty() && inst.PaletteSize > 0)
+		{
+			ShareScratch.push_back(StaleScratch[k]);
+		}
+		if (before >= 0)
+		{
+			inst.PoseStale = true; // it was drawn with another's pose: its own is still pending
+		}
+	}
+	if (ShareScratch.size() > 1)
+	{
+		std::sort(ShareScratch.begin(), ShareScratch.end(), [&](size_t a, size_t b) {
+			const Instance &x = Instances[a], &y = Instances[b];
+			if (x.Model != y.Model) return x.Model < y.Model;
+			if (x.Anim != y.Anim) return std::less<const HAnimClass *>()(x.Anim, y.Anim);
+			if (x.Frame0 != y.Frame0) return x.Frame0 < y.Frame0;
+			return a < b;
+		});
+		for (size_t g = 0; g < ShareScratch.size();)
+		{
+			const Instance &first = Instances[ShareScratch[g]];
+			size_t e = g + 1;
+			while (e < ShareScratch.size())
+			{
+				Instance &x = Instances[ShareScratch[e]];
+				if (x.Model != first.Model || x.Anim != first.Anim || x.Frame0 - first.Frame0 > std::min(first.ShareDelta, x.ShareDelta))
+				{
+					break;
+				}
+				x.ShareLeader = (int)ShareScratch[g];
+				++e;
+			}
+			g = e;
+		}
+	}
+	// the members leave the evaluation list; an instance whose records point at another block than they were written with rewrites its model's records
+	MemberScratch.clear();
+	{
+		size_t kept = 0;
+		for (size_t k = 0; k < StaleScratch.size(); ++k)
+		{
+			Instance &inst = Instances[StaleScratch[k]];
+			if (pose_source(inst).PaletteOffset != inst.DrawnOffset)
+			{
+				Models[(size_t)inst.Model]->BuffersDirty = true;
+			}
+			if (inst.ShareLeader >= 0)
+			{
+				MemberScratch.push_back(StaleScratch[k]);
+				++PoseShared;
+				continue;
+			}
+			StaleScratch[kept++] = StaleScratch[k];
+		}
+		StaleScratch.resize(kept);
 	}
 	PaletteWrite = StaleScratch.empty() || PaletteImage.is_null() ? nullptr : reinterpret_cast<float *>(PaletteImage->ptrw()); // the image's buffer (not shared: no copy)
 	run_parallel(StaleScratch.size(), [&](size_t begin, size_t end) {
@@ -2178,10 +2264,18 @@ void W3DInstancer::update_now()
 			inst.PoseStale = false;
 		}
 	});
+	for (size_t i : MemberScratch)
+	{
+		StaleScratch.push_back(i); // lane PERF-HD: the members' visibility and fades (their group's) are checked below too; their rows are not written
+	}
 	for (size_t i : StaleScratch)
 	{
 		const Instance &inst = Instances[i];
-		note_palette_rows(inst.PaletteOffset, inst.PaletteSize);
+		const Instance &src = pose_source(inst);
+		if (inst.ShareLeader < 0)
+		{
+			note_palette_rows(inst.PaletteOffset, inst.PaletteSize);
+		}
 		Model &m = *Models[(size_t)inst.Model];
 		m.PoseEvaluated = true;
 		if (m.BuffersDirty) continue; // the full rewrite will consume and cache all poses, including queried culled ones
@@ -2195,14 +2289,14 @@ void W3DInstancer::update_now()
 				continue;
 			}
 			const size_t bone = (size_t)d.Sub->BoneIndex;
-			const auto state = std::make_pair(inst.Pose.IsVisible[bone], inst.Pose.PivotFade[bone]);
+			const auto state = std::make_pair(src.Pose.IsVisible[bone], src.Pose.PivotFade[bone]);
 			if (inst.DrawPoseState[k] != state)
 			{
 				d.PoseDirty = true;
 			}
 		}
 	}
-	PoseEvaluations = (int)StaleScratch.size();
+	PoseEvaluations = (int)(StaleScratch.size() - MemberScratch.size());
 	if (PoseCulled > 0)
 	{
 		warn(W3D_Pose_Cull_Stop().Message); // S-1730 (once: warn keeps each message once)
@@ -2222,7 +2316,7 @@ void W3DInstancer::update_now()
 	if (inexact > 0)
 	{
 		InexactPoseTotal = inexact;
-		warn(W3D_Pose_Order_Stop((size_t)inexact).Message);
+		warn_stop(W3D_Pose_Order_Stop((size_t)inexact));
 	}
 	else
 	{
@@ -2324,6 +2418,7 @@ Dictionary W3DInstancer::get_stats() const
 	s["pose_ms"] = PoseMs;
 	s["upload_ms"] = UploadMs;
 	s["pose_evaluations"] = PoseEvaluations; // SMOOTH-1: instances posed in the last update (only the changed ones)
+	s["pose_shared"] = PoseShared;           // lane PERF-HD: instances drawn with their horde group's pose in the last update
 	s["pose_culled"] = PoseCulled;           // lane PERF-3: instances whose pose the last update left pending (outside the frustum, set_pose_culling)
 	s["buffer_writes"] = BufferWrites;       // SMOOTH-1: models whose MultiMesh buffers were rewritten in the last update
 	s["mapper_ms"] = MapperMs;
@@ -2512,6 +2607,16 @@ PackedStringArray W3DInstancer::get_warnings() const
 	PackedStringArray out;
 	for (const std::string &w : Warnings) out.push_back(toGodot(w));
 	return out;
+}
+
+// lane PERF-HD: a stop whose message carries this frame's count is reported once per instancer (its first count); the counts stay in get_stats. Keyed by
+// the message, every new count printed a line and was kept: about 13 lines a second in a big battle (S-028), each a print on the main thread
+void W3DInstancer::warn_stop(const W3DStopHit &hit)
+{
+	if (WarnedMessages.insert("#stop " + hit.Id).second)
+	{
+		warn(hit.Message);
+	}
 }
 
 void W3DInstancer::warn(const std::string &message)

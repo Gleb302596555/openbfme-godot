@@ -95,6 +95,11 @@ public:
 	// lane COMBAT-4 (C++ only): bones turned about their own Y axis after the pose (W3D Control_Bone with Rotate_Y, what W3DTruckDraw does to its tires, RW 0x4CBFFB);
 	// a bone the hierarchy lacks is skipped. An unchanged list is not evaluated again
 	bool set_instance_bone_spins_native(int64_t instance, const std::vector<std::string> &bones, const std::vector<float> &angles);
+	// lane PERF-HD (C++ only): retail's horde pose sharing (W3DHordeModelDrawManager::ProcessGroup / PartOfSameGroup, openbfme2): instances of one model playing
+	// one clip whose frames lie within `maxFrameDelta` of the group's first (the draw's LodOptions MaxAnimFrameDelta) are posed once, with the group's first
+	// instance's pose. A negative delta never shares. Only with pose culling (set_pose_culling): the bone queries still answer the instance's own pose
+	void set_instance_pose_share(int64_t instance, float maxFrameDelta);
+	void set_pose_sharing(bool enabled) { PoseSharing = enabled; }
 	// Hides sub objects of ONE instance by name (case-insensitive; the names the draw module runtime reports in W3DDrawFrame::hiddenSubObjects,
 	// i.e. what the retail BeginScript bodies hide): a hidden sub object is not written to its MultiMesh for that instance. An empty list shows
 	// everything again. Unknown names are an error (returns false, recorded). (Added by lane MAPOBJ-1.)
@@ -283,6 +288,9 @@ private:
 		float Opacity = 1.0f;                 // set_instance_opacity (lane PROJ-2)
 		bool PoseStale = true;                // SMOOTH-1: the pose inputs changed since the last evaluation (clip-driven instances follow GlobalTime)
 		bool QueryPosePending = false;        // deduplicates bone-query evaluations until a baseline model consumption trigger
+		float ShareDelta = -1.0f;             // lane PERF-HD: set_instance_pose_share (< 0: never shares)
+		int ShareLeader = -1;                 // lane PERF-HD: the instance whose pose and palette block this one is drawn with this frame (-1: its own)
+		int DrawnOffset = -1;                 // lane PERF-HD: the palette offset its records were last written with (write_buffers)
 		bool Inexact = false;                 // SMOOTH-1: the last evaluation used an arm whose summation order is not retail's (S-028)
 		int PaletteSize = 0;                  // SMOOTH-1: texels of the palette block (pivots * W3D_PALETTE_TEXELS_PER_PIVOT); 0 = none yet
 		bool PaletteAnimated = false;         // the block lives in the animated pool (moved there when a clip, pose, or bone spin starts)
@@ -296,6 +304,7 @@ private:
 	float cull_radius(Model &m) const;
 	void ensure_pose(int64_t instance) const; // the bone queries: a pose that culling left pending is evaluated now
 
+	void warn_stop(const W3DStopHit &hit); // lane PERF-HD: once per stop id
 	void warn(const std::string &message);
 	void ensure_occlusion_passes(MeshGpu &gpu, bool mark, bool color); // lane OCCLUDE-1
 	const HAnimClass *resolve_clip(const Model &m, const std::string &name); // nullptr (and an error recorded) when the clip is not registered
@@ -397,6 +406,12 @@ private:
 	bool PoseCulling = false;                    // lane PERF-3: set_pose_culling
 	std::vector<Plane> ExtraPoseFrustum;
 	int PoseCulled = 0;                          // instances whose pose the last update left pending (outside the frustum)
+	bool PoseSharing = true;                     // lane PERF-HD: set_pose_sharing
+	int PoseShared = 0;                          // lane PERF-HD: instances drawn with another's pose in the last update
+	std::vector<size_t> ShareScratch;            // lane PERF-HD: per-frame scratch of the sharing candidates
+	std::vector<size_t> MemberScratch;           // lane PERF-HD: the instances drawn with another's pose this frame
+	// lane PERF-HD: the instance whose pose (and palette block) `inst` is drawn with
+	const Instance &pose_source(const Instance &inst) const { return inst.ShareLeader >= 0 ? Instances[(size_t)inst.ShareLeader] : inst; }
 };
 
 } // namespace godot

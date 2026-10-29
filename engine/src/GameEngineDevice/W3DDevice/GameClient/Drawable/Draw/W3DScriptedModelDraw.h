@@ -172,6 +172,9 @@ public:
 	void advance(double elapsedMs);
 	// lane PERF-HD: advance() will only step this draw's own tracks, fade and speed (no state selection, no script): a looping track 0 alone, nothing
 	// pending. Such a draw may advance on the client job pool
+	// lane PERF-HD: how far (in frames) this draw's pose may stray from its horde group's to be drawn with it (W3DHordeModelDraw: its LodOptions
+	// MaxAnimFrameDelta, RW W3DHordeModelDrawHandle::PartOfSameGroup); negative: never drawn with another's pose
+	virtual float poseShareDelta() const { return -1.0f; }
 	// lane PERF-HD: one track as frame() copies it (and the count frame() reports: the tracks up to the last with an animation), without the copy
 	const W3DDrawTrack &track(int i) const { return m_tracks[i]; }
 	int trackCount() const { return m_tracks[2].anim ? 3 : m_tracks[1].anim ? 2 : m_tracks[0].anim ? 1 : 0; }
@@ -362,6 +365,7 @@ public:
 	W3DHordeModelDraw(const W3DHordeModelDrawModuleData &data, int lodLevel, W3DDrawAssets &assets, W3DDrawRandom &random,
 		W3DDrawScriptHost *scripts = nullptr, const Options &options = Options());
 	int lodLevel() const { return m_lodLevel; }
+	float poseShareDelta() const override { return m_lod.maxAnimFrameDelta; } // lane PERF-HD
 
 protected:
 	int maxRandomAnimations() const override { return m_lod.maxRandomAnimations; }
