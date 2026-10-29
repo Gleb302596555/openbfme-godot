@@ -124,7 +124,7 @@ void SlavedUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
 
 SlavedUpdateInterface *SlavedUpdateInterface::of(Object &obj)
 {
-	if (obj.moduleCachesBuilt())
+	if (obj.moduleLookupsCached())
 	{
 		return obj.slavedModule(); // lane PERF-HD: kept by Object::rebuildCollideModules (the same first module)
 	}

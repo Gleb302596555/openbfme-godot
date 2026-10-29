@@ -182,6 +182,7 @@ Object::~Object()
 		m_team->friend_removeMember(this);
 		m_team = nullptr;
 	}
+	m_moduleLookupsCached = false; // a lookup while the modules go scans what is left, as before the caches
 	for (std::unique_ptr<BehaviorModule> &m : m_modules)
 	{
 		m.reset();
@@ -310,6 +311,7 @@ void Object::rebuildCollideModules()
 		}
 	}
 	m_moduleCachesBuilt = true;
+	m_moduleLookupsCached = true;
 }
 
 void Object::buildModules()

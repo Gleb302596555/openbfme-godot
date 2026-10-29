@@ -142,7 +142,7 @@ const char *PhysicsBehavior::stopLine()
 
 PhysicsBehavior *PhysicsBehavior::find(Object &obj)
 {
-	if (obj.moduleCachesBuilt())
+	if (obj.moduleLookupsCached())
 	{
 		return obj.physicsModule(); // lane PERF-HD: kept by Object::rebuildCollideModules (the same first module)
 	}
