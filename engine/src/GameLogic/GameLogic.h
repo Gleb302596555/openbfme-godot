@@ -970,6 +970,11 @@ private:
 	void hashObjectsUber(StateHasher &x) const;
 	mutable std::vector<const Object *> m_uberHashObjects;  ///< scratch of hashObjectsUber (the logic owner thread only)
 	mutable std::vector<std::uint32_t> m_uberHashValues;
+	// lane PERF-HD: the Faithful hash's tapes (StateHasher recording): one per section, one per object (kept between frames for their capacity)
+	void hashObjectsTaped(StateHasher &x) const;
+	void gatherObjectTapes() const;
+	mutable std::vector<std::vector<std::uint32_t>> m_hashSectionTapes;
+	mutable std::vector<std::vector<std::uint32_t>> m_hashObjectTapes;
 	struct HashContributor
 	{
 		int token;

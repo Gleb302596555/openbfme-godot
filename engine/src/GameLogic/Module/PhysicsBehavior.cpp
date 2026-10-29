@@ -142,6 +142,10 @@ const char *PhysicsBehavior::stopLine()
 
 PhysicsBehavior *PhysicsBehavior::find(Object &obj)
 {
+	if (obj.moduleCachesBuilt())
+	{
+		return obj.physicsModule(); // lane PERF-HD: kept by Object::rebuildCollideModules (the same first module)
+	}
 	for (const std::unique_ptr<BehaviorModule> &m : obj.modules())
 	{
 		if (PhysicsBehavior *p = dynamic_cast<PhysicsBehavior *>(m.get()))

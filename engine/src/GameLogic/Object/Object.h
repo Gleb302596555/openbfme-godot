@@ -383,6 +383,12 @@ public:
 	// lane UBER-3W: findModule("AttributeModifierPoolUpdate") (RW 0x68C4A6), kept with the collide list once the modules are built (the attribute queries of
 	// crush levels, vision and armour searched the module list by name on every call: 2.6% of a 30,000-troop clash frame); the same module either way
 	BehaviorModule *attributeModifierPoolModule() const { return m_moduleCachesBuilt ? m_attributePool : findModule("AttributeModifierPoolUpdate"); }
+	// lane PERF-HD: PhysicsBehavior::find and SlavedUpdateInterface::of (a dynamic_cast of every module per call) kept with the collide list too: the
+	// contact pairs ask both of both objects (the Helm's Deep battle: 14% and 4% of the logic frame); the same module either way. Valid once
+	// moduleCachesBuilt().
+	bool moduleCachesBuilt() const { return m_moduleCachesBuilt; }
+	class PhysicsBehavior *physicsModule() const { return m_physics; }
+	class SlavedUpdateInterface *slavedModule() const { return m_slaved; }
 	// RW 0x68BB14: the first module with an exit interface (array order); lane PROD-1
 	ExitInterface *getObjectExitInterface() const;
 	// lane LUMBER1: RW 0x68C383, the first behavior module's dock interface (null for none)
@@ -561,6 +567,8 @@ private:
 	std::vector<CollideModuleInterface *> m_collideModules; ///< lane UBER-2B: m_modules' collide interfaces, in order (rebuilt by buildModules / friend_replaceModule)
 	bool m_collideModulesKnown = true;
 	BehaviorModule *m_attributePool = nullptr; ///< lane UBER-3W: findModule("AttributeModifierPoolUpdate"), valid once m_moduleCachesBuilt
+	class PhysicsBehavior *m_physics = nullptr;      ///< lane PERF-HD: the first PhysicsBehavior module, valid once m_moduleCachesBuilt
+	class SlavedUpdateInterface *m_slaved = nullptr; ///< lane PERF-HD: the first SlavedUpdateInterface module, valid once m_moduleCachesBuilt
 	bool m_moduleCachesBuilt = false;
 	void rebuildCollideModules();
 	size_t m_helperCount = 0;

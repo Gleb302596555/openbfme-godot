@@ -409,6 +409,12 @@ bool Pathfinder::checkForMovement(const PathfindObject *obj, PathfindCheckMoveme
 			// the units standing on the cell (the position list, RW info+0x20)
 			for (const PathfindOccupant *node = c->occupants(OCC_POSITION); node; node = node->next)
 			{
+				// lane PERF-HD: the id tests below first (the facts are looked up by this id, so o->getID() == node->owner): the unit just seen in the
+				// neighbouring cell of the footprint skips the memo lookup
+				if (node->owner == info.ignoreId || node->owner == lastId)
+				{
+					continue;
+				}
 				const OccupantFacts *f = occupantFacts(obj, node->owner);
 				if (!f)
 				{

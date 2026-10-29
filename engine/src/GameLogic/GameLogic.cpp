@@ -1150,10 +1150,7 @@ std::uint32_t GameLogic::hashState(std::vector<StateHashSection> *sections, std:
 			hashObjectsUber(x); // lane UBER-1
 			return;
 		}
-		for (const Object *o = m_objectHead; o; o = o->getNextObject())
-		{
-			o->crc(x);
-		}
+		hashObjectsTaped(x); // lane PERF-HD: every object's crc in list order, its words found on the job pool
 	});
 	if (objects)
 	{
@@ -1218,19 +1215,62 @@ std::uint32_t GameLogic::hashState(std::vector<StateHashSection> *sections, std:
 	if (m_simulationProfile != SimulationProfile::Uber)
 	{
 		// Faithful: one walk feeds the total and, when asked, the per-section hashes (lane MP-1): a section is hashed into the total and into its own
-		// hasher, so the breakdown can never drift from the hash it explains
-		for (const PendingSection &p : pending)
+		// hasher, so the breakdown can never drift from the hash it explains.
+		// lane PERF-HD: every section's words are recorded on a tape first (the objects section on this thread, which spreads its objects over the
+		// logic job pool itself; the others one job each, as the Uber profile hashes them: each reads only its own subsystem, nothing changes the state
+		// while the hash runs), then the tapes are chained in the list order: the same words in the same order as the one serial walk, so the same
+		// values whatever the thread count (the Faithful pins and every recorded game's hashes are unchanged).
+		std::vector<std::vector<std::uint32_t>> &tapes = m_hashSectionTapes;
+		if (tapes.size() < pending.size())
+		{
+			tapes.resize(pending.size());
+		}
+		// the objects section's words stay on the objects' own tapes (gatherObjectTapes, the job pool), chained straight from there below
+		size_t objectsTape = pending.size();
+		for (size_t i = 0; i < pending.size(); ++i)
+		{
+			if (pending[i].name == "objects")
+			{
+				objectsTape = i;
+				gatherObjectTapes();
+			}
+		}
+		JobSystem::logic().parallelFor(pending.size(), 1, [&pending, &tapes, objectsTape](size_t, size_t begin, size_t end) {
+			for (size_t i = begin; i < end; ++i)
+			{
+				if (i != objectsTape)
+				{
+					tapes[i].clear();
+					StateHasher rec(&tapes[i]);
+					pending[i].feed(rec);
+				}
+			}
+		});
+		const size_t objectCount = m_uberHashObjects.size();
+		for (size_t i = 0; i < pending.size(); ++i)
 		{
 			const std::uint32_t before = h.value();
-			p.feed(h);
-			std::uint32_t own = 0;
-			if (sections)
+			StateHasher x;
+			if (i == objectsTape)
 			{
-				StateHasher x;
-				p.feed(x);
-				own = x.value();
+				for (size_t o = 0; o < objectCount; ++o)
+				{
+					h.replay(m_hashObjectTapes[o]);
+					if (sections)
+					{
+						x.replay(m_hashObjectTapes[o]);
+					}
+				}
 			}
-			record(p, own, before);
+			else
+			{
+				h.replay(tapes[i]);
+				if (sections)
+				{
+					x.replay(tapes[i]);
+				}
+			}
+			record(pending[i], sections ? x.value() : 0u, before);
 		}
 		return h.value();
 	}
@@ -1268,6 +1308,46 @@ std::uint32_t GameLogic::hashState(std::vector<StateHashSection> *sections, std:
 		record(pending[i], values[i], before);
 	}
 	return h.value();
+}
+
+// lane PERF-HD: the Faithful profile's objects section, every object's crc in object list order as the serial walk feeds it: each object's words are
+// recorded on its own tape on the logic job pool (Object::crc is const: it reads the object and its modules only; the Uber hash runs it there too), then
+// appended in list order. The words and their order are the walk's, so the value is the walk's with any thread count.
+void GameLogic::hashObjectsTaped(StateHasher &x) const
+{
+	gatherObjectTapes();
+	for (size_t i = 0; i < m_uberHashObjects.size(); ++i)
+	{
+		for (std::uint32_t w : m_hashObjectTapes[i])
+		{
+			x.addU32(w);
+		}
+	}
+}
+
+// lane PERF-HD: every object's crc words on its own tape (m_hashObjectTapes, object list order in m_uberHashObjects), on the logic job pool
+void GameLogic::gatherObjectTapes() const
+{
+	constexpr size_t kObjectsPerJob = 64;
+	m_uberHashObjects.clear();
+	for (const Object *o = m_objectHead; o; o = o->getNextObject())
+	{
+		m_uberHashObjects.push_back(o);
+	}
+	const std::vector<const Object *> &objects = m_uberHashObjects;
+	std::vector<std::vector<std::uint32_t>> &tapes = m_hashObjectTapes;
+	if (tapes.size() < objects.size())
+	{
+		tapes.resize(objects.size());
+	}
+	JobSystem::logic().parallelFor(objects.size(), kObjectsPerJob, [&objects, &tapes](size_t, size_t begin, size_t end) {
+		for (size_t i = begin; i < end; ++i)
+		{
+			tapes[i].clear();
+			StateHasher rec(&tapes[i]);
+			objects[i]->crc(rec);
+		}
+	});
 }
 
 // lane UBER-1 (docs/UBER.md), NOT A PORT: the Uber profile's objects section. Retail's CRC step (rotate-add, Common/StateHash.h) chains every word into

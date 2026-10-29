@@ -159,13 +159,35 @@ float visionRangeOf(Object &obj)
 
 // RW 0x68FA3D Object::canSee(other, range): RW 0x8E3C6E's ellipse with both factors 1 (a circle of range + both bounding circles about the object along its
 // facing), then the firing arc cone when the template's FiringArc (+ 0x54C, default 360) is below 360 (reported, not ported)
+// lane PERF-HD: canSee's values that depend on the seer only, kept for the next call (a scan asks it for every candidate): the cos / sin of its angle
+// (each an emulated sinCosDet) for the same angle bits, and whether its template has a FiringArc. The same values, computed once per seer and angle.
+struct SeerMemo
+{
+	std::uint32_t angleBits = 0;
+	bool angleKnown = false;
+	float c = 0.0f, s = 0.0f;
+	const ThingTemplate *arcTemplate = nullptr;
+	bool hasArc = false;
+};
+thread_local SeerMemo t_seer;
+
 bool canSee(Object &self, Object &other, float range)
 {
 	PartitionManager &pm = self.logic().partition();
 	const float sumR = SimMath::sseAdd(pm.geometryOf(other).circle, pm.geometryOf(self).circle); // RW 0x68FA77 addss
 	// RW 0x70B9E0: the cached (cos, sin) of the object's angle (RW 0x42F4E0 / 0x42F4D0 x87: stop S-167, as the pathfinder)
-	const float c = SimMath::cosDet(self.getOrientation());
-	const float s = SimMath::sinDet(self.getOrientation());
+	const float angle = self.getOrientation();
+	std::uint32_t bits;
+	std::memcpy(&bits, &angle, sizeof(bits));
+	if (!t_seer.angleKnown || t_seer.angleBits != bits)
+	{
+		t_seer.c = SimMath::cosDet(angle);
+		t_seer.s = SimMath::sinDet(angle);
+		t_seer.angleBits = bits;
+		t_seer.angleKnown = true;
+	}
+	const float c = t_seer.c;
+	const float s = t_seer.s;
 	const Coord3D *o = other.getPosition();
 	const Coord3D *p = self.getPosition();
 	const float dx = SimMath::pc24Sub(o->x, p->x);
@@ -184,9 +206,13 @@ bool canSee(Object &self, Object &other, float range)
 		return false;
 	}
 	const ThingTemplate *tt = static_cast<const ThingTemplate *>(self.getTemplate())->getFinalOverride();
-	if (const FieldValue *v = tt->findField("FiringArc"))
+	if (t_seer.arcTemplate != tt)
 	{
-		(void)v;
+		t_seer.hasArc = tt->findField("FiringArc") != nullptr; // lane PERF-HD: a string lookup per candidate before
+		t_seer.arcTemplate = tt;
+	}
+	if (t_seer.hasArc)
+	{
 		self.logic().noteStop("[S-1022] EmotionTrackerUpdate: a template with FiringArc: canSee's firing arc cone (RW 0x68FAC9) is not ported");
 	}
 	return true;

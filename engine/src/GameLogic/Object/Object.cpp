@@ -296,6 +296,19 @@ void Object::rebuildCollideModules()
 		}
 	}
 	m_attributePool = findModule("AttributeModifierPoolUpdate"); // lane UBER-3W: attributeModifierPoolModule's answer from here on
+	m_physics = nullptr; // lane PERF-HD: PhysicsBehavior::find's and SlavedUpdateInterface::of's answers from here on (the first module of each)
+	m_slaved = nullptr;
+	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
+	{
+		if (!m_physics)
+		{
+			m_physics = dynamic_cast<PhysicsBehavior *>(m.get());
+		}
+		if (!m_slaved)
+		{
+			m_slaved = dynamic_cast<SlavedUpdateInterface *>(m.get());
+		}
+	}
 	m_moduleCachesBuilt = true;
 }
 
@@ -2309,7 +2322,9 @@ void Object::crcOmittingModules(StateHasher &h, const std::function<bool(const B
 	{
 		h.addU32(0x5C000000u | m_scriptStatus); // lane SCRIPT-2: hashed only when set (a game without scripts keeps its hash)
 	}
-	if (m_scriptSelectable != isKindOfName("SELECTABLE"))
+	// lane PERF-HD: the bit's index once (isKindOfName searched the KindOf names for every object in every frame's hash)
+	static const int kSelectable = ObjectTemplateInfoBuilder::kindOfIndex("SELECTABLE");
+	if (m_scriptSelectable != (kSelectable >= 0 && isKindOf((unsigned)kSelectable)))
 	{
 		h.addU32(m_scriptSelectable ? 0x5E1Fu : 0x5E1Eu); // hash a change from the template-derived default, as for the other script fields
 	}

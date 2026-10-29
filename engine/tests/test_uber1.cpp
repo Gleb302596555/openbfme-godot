@@ -173,7 +173,9 @@ TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1
 	uberbench::runBattle(*s->mount->fs, *s->world, s->options, s->settings, units, 1, SimulationProfile::Faithful, true, faithful);
 	REQUIRE(faithful.hashes.size() == 1u);
 	CHECK(faithful.hashes[0] != reference[0]);
-	CHECK(faithful.hashDispatches == 0u); // the Faithful hash is the one serial walk
+	// lane PERF-HD: the Faithful hash records its sections' words on the logic pool (the objects, then the other sections: two dispatches) and chains
+	// them in the list order on the calling thread: the one serial walk's value (the Faithful pins and the PERF-1 vectors prove it), found faster
+	CHECK(faithful.hashDispatches == 2u);
 }
 
 namespace
