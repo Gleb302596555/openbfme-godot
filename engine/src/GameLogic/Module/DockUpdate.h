@@ -43,7 +43,7 @@
 
 class ModuleFactory;
 class Object;
-struct MultiIniFieldParse;
+class MultiIniFieldParse; // class, as INI.h defines it (MSVC C4099: the two keys mangle differently)
 
 class DockUpdateInterface
 {
