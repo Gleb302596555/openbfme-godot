@@ -16,6 +16,7 @@
 #include "GameLogic/GlobalWeatherSystem.h"
 #include "GameClient/HudObjects.h"
 #include "GameClient/Radar.h"
+#include "GameClient/RTS3DSceneOcclusion.h"
 #include "GameLogic/Locomotor.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/ObjectTemplateInfo.h"
@@ -50,6 +51,19 @@ CellShroudStatus ShroudView::statusAt(float x, float y) const
 
 const ObjectSnapshot *LogicSnapshot::find(ObjectID id) const
 {
+	if (!idToIndex.empty())
+	{
+		if (id >= idToIndex.size())
+		{
+			return nullptr;
+		}
+		const int ix = idToIndex[id];
+		if (ix < 0 || (size_t)ix >= objects.size() || objects[(size_t)ix].id != id)
+		{
+			return nullptr;
+		}
+		return &objects[(size_t)ix];
+	}
 	auto it = std::lower_bound(objects.begin(), objects.end(), id, [](const ObjectSnapshot &o, ObjectID v) { return o.id < v; });
 	return (it != objects.end() && it->id == id) ? &*it : nullptr;
 }
@@ -100,6 +114,10 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 	static const int kActivelyBeingConstructed = ModelCondition::indexOf("ACTIVELY_BEING_CONSTRUCTED");
 	auto snap = std::make_shared<LogicSnapshot>();
 	snap->frame = logic.getFrame();
+	snap->showBehindBuildingMarkers = logic.getShowBehindBuildingMarkers(); // lane OCCLUDE-1
+	snap->useBehindBuildingMarker = logic.settings().useBehindBuildingMarker;
+	snap->occludedColorLuminanceScale = logic.settings().occludedColorLuminanceScale;
+	const UnsignedInt occlusionFrame = RTS3DSceneOcclusion::occlusionFrame(snap->frame, logic.settings().defaultOcclusionDelay); // RW 0x470C15 .. 0x470C38
 	snap->nextObjectId = logic.getNextObjectID();
 	snap->globalWeather = logic.weather().weather(); // lane WEATHER-1: TheGlobalWeatherSystem + 0x10, what the client weather reads (WeatherClient)
 	snap->hashed = hashed;
@@ -291,7 +309,14 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 			s.shroudRecord = sm->hasRecord(*o); // lane VISUAL-2 r2
 		}
 		s.drawableHidden = o->isDrawableHidden(); // lane GARRISON-1
+		static const int kPhantom = ObjectTemplateInfoBuilder::objectStatusIndex("PHANTOM_STRUCTURE");
+		s.phantomStructure = kPhantom >= 0 && o->testStatus((unsigned)kPhantom); // lane FBSIM-1
+		if (s.phantomStructure && o->getControllingPlayer() != logic.players().getLocalPlayer())
+		{
+			s.drawableHidden = true; // RW 0x88D3B2 .. 0x88D3DB: not the local player's phantom (RW 0x6AA7B2; the owner's + 0x35A byte, RW 0x6AAC44, is not ported)
+		}
 		s.effectivelyDead = o->isEffectivelyDead(); // lane VISUAL-2
+		s.occlusion = RTS3DSceneOcclusion::eligibility(RTS3DSceneOcclusion::factsOf(*o), occlusionFrame); // lane OCCLUDE-1 (RW 0x470DD2 .. 0x470EC5)
 		s.containedBy = o->getContainedBy() ? o->getContainedBy()->getID() : (ObjectID)INVALID_ID; // lane COMBAT-4
 		s.stealthLook = InvisibilityManager::clientLook(*o, local); // lane STEALTH-1
 		if (teamVision && s.stealthLook == 5)
@@ -321,6 +346,26 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 		}
 	}
 	std::stable_sort(snap->objects.begin(), snap->objects.end(), [](const ObjectSnapshot &a, const ObjectSnapshot &b) { return a.id < b.id; });
+	// Direct id lookup for the render frame (syncTransforms calls find twice per drawable). The index dies with this snapshot.
+	{
+		ObjectID hi = snap->nextObjectId;
+		for (const ObjectSnapshot &o : snap->objects)
+		{
+			if (o.id >= hi)
+			{
+				hi = o.id + 1;
+			}
+		}
+		// A runaway id would make the table enormous; those snapshots keep the binary search.
+		if (hi > 0 && hi <= 4000000u)
+		{
+			snap->idToIndex.assign((size_t)hi, -1);
+			for (size_t i = 0; i < snap->objects.size(); ++i)
+			{
+				snap->idToIndex[snap->objects[i].id] = (int)i;
+			}
+		}
+	}
 	// RW 0x69355D: the frame of the last transform change (a new object counts as changed now)
 	for (ObjectSnapshot &s : snap->objects)
 	{

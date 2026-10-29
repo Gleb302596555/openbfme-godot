@@ -179,6 +179,7 @@ bool GodotWeather::load(Node3D *parent, ArchiveFileSystem &fs, const std::string
 	shutdown();
 	m_errors.clear();
 	m_fx = fx;
+	m_heightMap = &hm;
 	m_random = std::make_unique<W3DClientRandom>(randomAlgorithm);
 	// TerrainLogic slot 0x20 (TerrainLogic::getExtent): lo (0, 0), hi = the active boundary 0 of the height map times MAP_XY_FACTOR (the client's copy)
 	if (hm.m_boundaries.empty())
@@ -431,8 +432,13 @@ void GodotWeather::advance(double seconds, int globalWeather)
 	const WeatherClientFrame f = m_client.advance(seconds, globalWeather, *m_random);
 	applySnow(f.snow);
 	applyLight(f);
+	m_lastWeather = globalWeather; // lane WEATHERFX-1
+	m_lastSnowDraw = f.snow.draw;
+	m_lastCloudFrame = f.cloud;
 	for (const CloudEffectFrame &e : f.fx)
 	{
+		++m_flashes;
+		m_lastFlashPos = e.fxPosition;
 		if (m_fx && m_fx->playback() && m_fx->playback()->playFXList(e.fxName, e.fxPosition, false)) // RW 0x494615: FXList::doFXPos
 		{
 			++m_fxPlayed;
@@ -518,6 +524,52 @@ Dictionary GodotWeather::report() const
 		stops.push_back(toGodotW(l));
 	}
 	d["stops"] = stops;
+	return d;
+}
+
+double GodotWeather::groundHeight(double x, double y) const
+{
+	if (!m_heightMap || m_heightMap->getXExtent() < 2 || m_heightMap->getYExtent() < 2)
+	{
+		return 0.0;
+	}
+	const WorldHeightMap &hm = *m_heightMap;
+	// sample (i, j) is at ((i - border) * MAP_XY_FACTOR, (j - border) * MAP_XY_FACTOR), its height h * MAP_HEIGHT_SCALE (WorldHeightMap.h)
+	const double gx = std::clamp(x / MAP_XY_FACTOR + hm.getBorderSize(), 0.0, (double)(hm.getXExtent() - 1));
+	const double gy = std::clamp(y / MAP_XY_FACTOR + hm.getBorderSize(), 0.0, (double)(hm.getYExtent() - 1));
+	const int i = std::min((int)gx, hm.getXExtent() - 2);
+	const int j = std::min((int)gy, hm.getYExtent() - 2);
+	const double fx = gx - i, fy = gy - j;
+	const double h0 = hm.getHeight(i, j) * (1.0 - fx) + hm.getHeight(i + 1, j) * fx;
+	const double h1 = hm.getHeight(i, j + 1) * (1.0 - fx) + hm.getHeight(i + 1, j + 1) * fx;
+	return (h0 * (1.0 - fy) + h1 * fy) * MAP_HEIGHT_SCALE;
+}
+
+// lane WEATHERFX-1: presentation inputs of the Enhanced weather (see the header); positions in Godot's frame (x, z, -y)
+Dictionary GodotWeather::fxState() const
+{
+	Dictionary d;
+	d["loaded"] = m_client.loaded();
+	if (!m_client.loaded())
+	{
+		return d;
+	}
+	d["weather"] = m_lastWeather;
+	const bool haveSetting = m_client.store().hasWeatherSetting();
+	d["map_snowing"] = haveSetting && m_client.store().finalSetting().isSnowing;
+	d["snow_draw"] = m_lastSnowDraw;
+	d["snow_particles"] = (int64_t)m_lastCount;
+	d["snow_spacing"] = m_client.snow().spacing();
+	d["snow_speed"] = m_client.snow().velocity();
+	d["snow_phase"] = m_client.snow().phase();
+	d["wind"] = haveSetting ? Vector2(m_client.store().finalSetting().snowXYSpeed.x, m_client.store().finalSetting().snowXYSpeed.y) : Vector2();
+	d["cloud_active"] = m_lastCloudFrame.active;
+	d["darkening"] = Color(m_lastCloudFrame.darkening[0], m_lastCloudFrame.darkening[1], m_lastCloudFrame.darkening[2]);
+	d["lightning"] = m_lastCloudFrame.lightningIntensity;
+	d["lightning_on"] = m_client.cloud().lightningOn();
+	d["has_lightning"] = m_client.store().weatherData(m_lastWeather).hasLightning; // WeatherData HasLightning (RAINY / CLOUDYRAINY in Weather.ini)
+	d["flashes"] = (int64_t)m_flashes;
+	d["flash_position"] = Vector3(m_lastFlashPos.x, m_lastFlashPos.z, -m_lastFlashPos.y);
 	return d;
 }
 

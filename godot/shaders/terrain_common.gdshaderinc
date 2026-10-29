@@ -106,6 +106,12 @@ varying vec2 v_macro;
 varying vec2 v_local;        // cell-local coordinates (0..1) of the pixel
 varying flat vec4 v_wrap;    // base layer class wrap rect (x0, y0, w, h); w == 0: none
 varying flat float v_rec;    // record index of the cell's blend layers, or -1
+// lane WEATHERFX-1: the SAGE world point, vertex normal and camera of the Enhanced look's weather (weather_fx.gdshaderinc)
+varying vec3 v_wfx_pos;
+varying vec3 v_wfx_nrm;
+varying vec3 v_wfx_eye;
+
+#include "res://shaders/weather_fx.gdshaderinc"
 
 // Varyings may only be assigned in vertex() itself, so the maths returns its results through out parameters.
 void terrain_vertex(vec3 vtx, vec3 nrm, vec3 cam_world, float time, out vec3 lts, out vec3 hts, out float fog, out vec2 cloud, out vec2 macro_uv) {
@@ -246,6 +252,11 @@ vec3 terrain_output(vec2 uv0, vec4 vcol) {
 	if (debug_mode == 7) { return retail_output(clamp(comp, 0.0, 1.0)); }
 	if (debug_mode == 1 || debug_mode == 2 || debug_mode == 3) { return retail_output(clamp(comp, 0.0, 1.0)); }
 	if (debug_mode == 5) { return retail_output(clamp(comp, 0.0, 1.0)); }
+	if (wfx_enabled > 0.5) {
+		// lane WEATHERFX-1: the Enhanced look's weather on the ground (the Original look never runs this: wfx_enabled stays 0)
+		comp = wfx_terrain(comp, v_wfx_pos, normalize(v_wfx_nrm), normalize(v_wfx_eye - v_wfx_pos), normalize(sun_dir_sage),
+			weather_relit ? weather_terrain_dark : vec3(0.0));
+	}
 	vec3 cloud = texture(cloud_tex, v_cloud).rgb;
 	vec3 macro = texture(macro_tex, v_macro).rgb;
 	if (debug_mode == 6) { return retail_output(cloud * macro); }

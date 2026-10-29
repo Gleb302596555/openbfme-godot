@@ -8,6 +8,7 @@
 #include "doctest.h"
 #include "AptPlayerTestUtil.h"
 #include "AptRetail.h"
+#include "IniTestUtil.h"
 
 #include "GameClient/GUI/AptScreen.h"
 #include "GameClient/GUI/AptScreens/AptMainMenu.h"
@@ -533,7 +534,9 @@ TEST_CASE("Shell: the A4 factory table holds MainMenu, Skirmish, LoadScreen, Opt
 		"PlayerTribute.apt", // lane PLAY-1: the Palantir flag's screen
 		"CreateAHero.apt", // lane CAH-1: the Create-a-Hero builder
 		"OnlineShell.apt", // lane ONLINE-4: the online screens
-		"CampaignMenu.apt" }); // lane CAMPSAVE-1: the campaign between missions
+		"CampaignMenu.apt", // lane CAMPSAVE-1: the campaign between missions
+		"Messenger.apt", // SOCIAL-1 (landed by lane ONLINEMENU-1): RotWK's Messenger
+		"Objectives.apt" }); // lane CAMPUI-1: the objectives screen (RW 0x8E8843)
 	CHECK(fx.factories.has("mainmenu.APT"));
 	fx.wm->init();
 	fx.shell->push("AptLevel0.apt");
@@ -917,6 +920,48 @@ TEST_CASE("menustyle: BFME2 campaign commands preserve alignment and difficulty 
 		REQUIRE_FALSE(fx.services.requests.empty());
 		CHECK(fx.services.requests.back().action == ShellAction::LoadCampaign);
 		CHECK(fx.services.requests.back().argument == std::string("bfme2:") + entry.second + ":2");
+	}
+}
+
+TEST_CASE("bfme1 main menu: returning hides the submenu background without changing BFME2 or RotWK")
+{
+	for (const std::string style : { "bfme1", "bfme2", "rotwk", "no-filesystem" })
+	{
+		CAPTURE(style);
+		initest::FileList files = { { "Data\\INI\\Default\\SubsystemLegend.ini", "; legend" } };
+		if (style == "bfme2")
+		{
+			files.emplace_back("Data\\INI\\AwardSystem.ini", "; awards");
+		}
+		if (style == "rotwk")
+		{
+			files.emplace_back("Data\\INI\\Default\\SubsystemLegendExpansion1.ini", "; expansion");
+		}
+		initest::Fixture data(files);
+		std::vector<std::string> log;
+		ShellFx fx;
+		fx.environment.fileSystem = style == "no-filesystem" ? nullptr : &data.fsys;
+		fx.addMovie("MainMenu", {});
+		fx.addMovie("Background", {});
+		fx.addMovie("Covered", {});
+		registerAptScreenFactories(fx.factories);
+		registerTestScreen(fx.factories, "Covered.apt", &log);
+		fx.wm->init();
+		REQUIRE(fx.wm->loadBackground());
+		fx.shell->push("MainMenu.apt");
+		fx.tick();
+		for (int visit = 0; visit < 2; ++visit)
+		{
+			fx.shell->push("Covered.apt");
+			fx.tick();
+			fx.wm->setBackground(1);
+			CHECK(fx.wm->backgroundMode() == 1);
+			fx.shell->pop();
+			fx.tick();
+			REQUIRE(fx.shell->top() != nullptr);
+			CHECK(fx.shell->top()->filename() == "MainMenu.apt");
+			CHECK(fx.wm->backgroundMode() == (style == "bfme1" ? 0 : 1));
+		}
 	}
 }
 

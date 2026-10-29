@@ -61,6 +61,13 @@ public:
 	const WeatherClient &client() const { return m_client; }
 	// { loaded, map_weather (the store's files), snow {...}, cloud {...}, sound {...}, terrain_materials, stops }
 	Dictionary report() const;
+	// lane WEATHERFX-1: the little the Enhanced look's weather (godot/scripts/weather_fx.gd) reads every render frame, all from the last advance (no
+	// simulation state): { loaded, weather, map_snowing, snow_draw, snow_particles, snow_spacing, snow_speed, snow_phase, wind, cloud_active,
+	// darkening, lightning, lightning_on, has_lightning, flashes, flash_position }
+	Dictionary fxState() const;
+	// lane WEATHERFX-1: the height map's ground at SAGE (x, y), bilinear between the samples (the map as loaded: no craters; the Enhanced weather only
+	// places its effects with it). 0 before load
+	double groundHeight(double x, double y) const;
 
 private:
 	void buildSnowMesh(const SnowDrawParams &p);
@@ -96,6 +103,13 @@ private:
 	float m_lastLight[7] = { -1, -1, -1, -1, -1, -1, -1 };
 	unsigned long long m_snowFrames = 0, m_fxPlayed = 0, m_relights = 0;
 	int m_lastCount = 0;
+	// lane WEATHERFX-1: the last advance, for fxState
+	int m_lastWeather = 0;
+	const WorldHeightMap *m_heightMap = nullptr; ///< the game's LoadedMap height map (the weather is destroyed before the game)
+	bool m_lastSnowDraw = false;
+	CloudEffectFrame m_lastCloudFrame;
+	unsigned long long m_flashes = 0; ///< the client frames that started LightningFX (played or not)
+	Coord3D m_lastFlashPos;
 	std::vector<std::string> m_errors;
 };
 

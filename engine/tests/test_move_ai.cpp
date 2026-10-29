@@ -75,9 +75,17 @@ TEST_CASE("move: a walker follows a straight path with the locomotor's own kinem
 	REQUIRE(ai->curLocomotor() != nullptr);
 	CHECK(ai->locomotorSetSpeed() == 55.0f);                 // LocomotorSet Speed is a raw distance per second (RW ai+0x1F8)
 	CHECK(ai->curLocomotor()->getMaxSpeedForCondition(ai->locomotorHost()) == doctest::Approx(11.0f)); // x0.2: 11 a frame
-	mw.frames(2);                                            // the idle state's first update snaps a fresh unit onto its cell (ZH AIIdleState, frame <= 1)
+	// lane OFFMAP-1: RotWK's idle state (RW 0x745A64) does not snap a fresh unit onto its cell as ZH's did (frame <= 1), so the test puts the walker on
+	// its cell position itself (the pathfinder's snap, the position its path nodes use): the run below is the locomotor's straight-line kinematics
+	Coord3D onCell{ 105.0f, 105.0f, 0.0f };
+	ai->world().pathfinder().snapPosition(ai->adapter(), &onCell);
+	onCell.z = u->getPosition()->z;
+	u->setPosition(&onCell);
+	mw.frames(2);
 	CHECK(ai->isIdle());
 	const Coord3D start = *u->getPosition();
+	CHECK(start.x == onCell.x);
+	CHECK(start.y == onCell.y);
 	const Coord3D dest{ 505.0f, start.y, 0.0f };
 	ai->aiMoveToPosition(dest, CMD_FROM_PLAYER);
 	CHECK(ai->currentStateId() == (unsigned)AI_MOVE_TO);
@@ -343,4 +351,35 @@ TEST_CASE("move: the collision pass finds overlapping units whatever their size 
 	mw.spawn("Walker", 255.0f, 505.0f); // 50 from the giant at 205 (radii 60 + 8): overlaps it
 	mw.ai->processCollisions();
 	CHECK(mw.ai->collisionPairsLastFrame() == 2);
+}
+
+TEST_CASE("move: allied clearing animates the displaced unit and clears the animation on arrival or interruption")
+{
+	for (bool interrupt : {false, true})
+	{
+		CAPTURE(interrupt);
+		MoveWorld mw;
+		mw.buildMap();
+		Object *requester = mw.spawn("Walker", 405, 505);
+		Object *unit = mw.spawn("Walker", 425, 505);
+		mw.frames(2);
+		auto *ai = mw.aiOf(unit);
+		const int moving = AIUpdateInterface::modelConditionBit("MOVING");
+		CHECK_FALSE(unit->testModelCondition(moving));
+		const Coord3D start = *unit->getPosition();
+		ai->aiMoveAwayFromUnit(requester, *requester->getPosition(), CMD_FROM_AI);
+		bool animatedDisplacement = false;
+		for (int frame = 0; frame < 60; ++frame)
+		{
+			mw.frames(1);
+			if (unit->testModelCondition(moving) && dist2d(start, *unit->getPosition()) > 0)
+			{
+				animatedDisplacement = true;
+				if (interrupt) ai->aiIdle(CMD_FROM_PLAYER);
+			}
+		}
+		CHECK(animatedDisplacement);
+		CHECK(ai->isIdle());
+		CHECK_FALSE(unit->testModelCondition(moving));
+	}
 }

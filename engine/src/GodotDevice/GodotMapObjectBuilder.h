@@ -25,6 +25,7 @@
 #include <vector>
 
 class ArchiveW3DFileSource;
+class W3DFileSource;
 class WW3DAssetManager;
 class RetailObjectWorld;
 struct LoadedMap;
@@ -56,6 +57,7 @@ public:
 	//   texture_animation: bool (default true) the material clocks (UV scroll ...) run in advance(); independent of `animations`
 	//   horde_members: bool (default true) hordes show their members
 	//   max_objects: int (default 0 = all) stop after this many drawables (debugging)
+	//   user_map: bool (default false; lane MOD-5) the map is in the user maps folder (RetailFileSystem::get_user_map_folder), not the archives
 	Node3D *build_objects(const Ref<RetailFileSystem> &fs, const String &map_name, const Dictionary &options);
 
 	// Steps the animations of the dynamic drawables and the material clocks of both instancers by `delta` seconds of render time (call once
@@ -82,7 +84,7 @@ private:
 	Ref<RetailFileSystem> m_fs;
 	std::unique_ptr<RetailObjectWorld> m_world;
 	std::unique_ptr<MapObjectOptions> m_options;
-	std::unique_ptr<ArchiveW3DFileSource> m_source;
+	std::unique_ptr<W3DFileSource> m_source;
 	std::unique_ptr<WW3DAssetManager> m_assets;
 	std::unique_ptr<LoadedMap> m_map;
 	std::unique_ptr<MapObjectDrawables> m_drawables;
