@@ -1238,8 +1238,8 @@ private:
 	void rebuildRaisedCells(PathfindLayerEnum layer);
 	// RW 0x9356DF's ends: the cell of a ramp end (getRamp's from, then its to) on a raised layer becomes a wall connect cell of that layer
 	void addRampConnectCells(const Coord3D &from, const Coord3D &to);
-	// every raised layer's connect cells from the wall pieces' ramps, in insertion order: after a load (RW's layer xfer RW 0x7683B8 saves + 0x18 / + 0x20;
-	// the port's snapshot keeps the layers' cells only, and the connect cells follow from the ramps it restores)
+	// every raised layer's connect cells from the wall pieces' ramps, in insertion order: after the load of a version 1 walls snapshot, which has none (RW's
+	// layer xfer RW 0x7683B8 saves + 0x18 / + 0x20, as version 2 does)
 	void rebuildWallConnectCells();
 	// RW 0x6EE600 without an object: the first raised layer in use whose passable cell holds (x, y) and whose height is less than 25 above `z`, else
 	// LAYER_INVALID (RW answers the ground cell's layer then)
@@ -1414,6 +1414,7 @@ public:
 			std::vector<std::pair<PathfindObjectID, PathfindWallSurface>> areas;
 			int height = 0, width = 0, depth = 0;
 			ICoord2D origin{ 0, 0 };
+			ICoord2D connect[2] = { { -1, -1 }, { -1, -1 } }; // version 2
 			std::vector<std::uint32_t> words;
 			std::vector<std::uint16_t> zones, portals;
 			std::vector<Info> infos;
@@ -1424,6 +1425,7 @@ public:
 			PathfindWaypoint w;
 		};
 		bool loaded = false;
+		bool connectsSaved = false; // a version 2 snapshot: the raised layers' wall connect cells are in it
 		std::vector<float> wallHeights;
 		std::vector<WallPiece> wallPieces;
 		bool anyRaised = false;

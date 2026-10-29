@@ -401,6 +401,9 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // state's update and exit, RW 0x749497 -> 0x748E46 / 0x74949C -> 0x748D8A: MOVING while clearing) moves the battle from frame 103 and the skirmish again from frame 2506.
 // The horde contain fix re-measured both (OPENBFME_PERF1_REGEN=1, Windows llvm-mingw): a horde makes its members where it stands at build complete
 // (RW 0x8718ED) and a move no longer puts them on their slots (RW 0x871536); it moves the battle from frame 0 and the skirmish from frame 2510.
+// The hierarchical block zones re-measured both (OPENBFME_PERF1_REGEN=1, Windows llvm-mingw): the block search compares block zones (RW 0x9389A6) and
+// walks the walkways' connect cells (RW 0x9389CE), so its corridors and the cell searches held to them change; it moves the battle from frame 11 and the
+// skirmish from frame 13.
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	const std::vector<std::uint32_t> battleRef = perf1::readHashes("big_battle_400.hashes");

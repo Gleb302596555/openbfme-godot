@@ -358,8 +358,7 @@ TEST_CASE("wall2 raised review of #63: a snapshot whose ground and raised cell i
 }
 
 // review of #161 (Greptile P1): the walkway's wall connect cells (PathfindLayer + 0x18 / + 0x20) come back with a load: RW's layer xfer (RW 0x7683B8)
-// saves them; the port's snapshot makes them again from the restored ramps (Pathfinder::rebuildWallConnectCells). Without them the block search's raised
-// branch (RW 0x9389CE) skips the walkway
+// saves them, as the walls snapshot does from version 2. Without them the block search's raised branch (RW 0x9389CE) skips the walkway
 TEST_CASE("wall2 raised: a snapshot's load brings the walkway's wall connect cells back, and the walk over the walkway is the same")
 {
 	GatehouseWorld saved, loaded;
@@ -615,6 +614,89 @@ TEST_CASE("wall2 raised: a piece added at the walkway's left end (its layer rebu
 	CHECK_FALSE(sawGround);
 	CHECK(p->getLastNode()->getLayer() == LAYER_WALL_FIRST);
 	delete p;
+}
+
+// review of #161: a walkway piece removed where no other raised piece is near rebuilds its layer, which resets the wall connect cells, and re-stamps
+// only the ramps it meets (none): the live layer has no connect cells left, though the ramps on the map would make them. The snapshot (walls version 2)
+// saves them as they are, as RW's layer xfer (RW 0x7683B8) does, so the loaded game searches as the saved one
+TEST_CASE("wall2 raised: a walkway's connect cells lost to destroyed pieces stay lost through a save and load; the next search is the same")
+{
+	GatehouseWorld saved, loaded;
+	// two pieces on the walkway's layer (60, each within 10 of the last), going off its side: 53 at y 115 .. 155, 54 at y 160 .. 195, whose cells (y 14 ..
+	// 22, grown by 2) meet no other raised piece's (the centre's y 7 .. 13)
+	auto side = [&](PathfindObjectID id, float y0, float y1) {
+		WallPieceObject *p = new WallPieceObject();
+		p->id = id;
+		p->pos = { 550.0f, y0, 0.0f };
+		p->structure = true;
+		p->kinds.insert(PK_WALK_ON_TOP_OF_WALL);
+		p->geometry.type = PATHFIND_GEOMETRY_BOX;
+		p->geometry.majorRadius = 1.0f;
+		p->geometry.minorRadius = 1.0f;
+		p->walls.raised.push_back(quad(280.0f, y0, 320.0f, y1, 60.0f, 60.0f));
+		saved.world.objects[id] = p;
+		saved.pf->addObjectToPathfindMap(*p);
+		saved.zones();
+		return p;
+	};
+	WallPieceObject *a = side(53, 115.0f, 155.0f);
+	WallPieceObject *b = side(54, 160.0f, 195.0f);
+	REQUIRE(saved.pf->raisedLayerCount() == 1);
+	for (WallPieceObject *p : { a, b }) // 53 first: its region meets the centre and 54 (every ramp re-stamped); then 54 alone
+	{
+		saved.pf->removeObjectFromPathfindMap(*p);
+		saved.zones();
+	}
+	REQUIRE(saved.pf->raisedLayerInUse(LAYER_TOP));
+	for (int k = 0; k < 2; ++k)
+	{
+		REQUIRE(saved.pf->raisedConnectCell(LAYER_TOP, k).x == -1); // the case
+	}
+	std::vector<std::uint8_t> bytes;
+	{
+		AIXfer::StringTableScope strings;
+		XferSave save;
+		saved.pf->xfer(save);
+		bytes = save.data();
+	}
+	{
+		AIXfer::StringTableScope strings;
+		XferLoad load(bytes);
+		loaded.pf->xfer(load);
+	}
+	for (int k = 0; k < 2; ++k)
+	{
+		INFO("connect cell " << k);
+		CHECK(loaded.pf->raisedConnectCell(LAYER_TOP, k).x == -1); // made again from the ramps (version 1), they were the joints' cells
+		CHECK(loaded.pf->raisedConnectCell(LAYER_TOP, k).y == -1);
+	}
+	// the next search, from the left wall top to the right one, node for node
+	std::vector<std::pair<Coord3D, PathfindLayerEnum>> nodes[2];
+	bool partial[2] = { true, true };
+	int i = 0;
+	for (GatehouseWorld *w : { &saved, &loaded })
+	{
+		LayeredUnit *u = w->unit(1, 150.0f, 100.0f, 60.0f, LAYER_WALL_FIRST);
+		Coord3D from = u->pos, to{ 455.0f, 105.0f, 60.0f };
+		Path *p = w->pf->findPath(u, groundLoco(), &from, &to, &partial[i]);
+		REQUIRE(p != nullptr);
+		for (const PathNode *n = p->getFirstNode(); n; n = n->getNext())
+		{
+			nodes[i].emplace_back(*n->getPosition(), n->getLayer());
+		}
+		delete p;
+		++i;
+	}
+	CHECK(partial[0] == partial[1]);
+	REQUIRE(nodes[0].size() == nodes[1].size());
+	for (size_t k = 0; k < nodes[0].size(); ++k)
+	{
+		INFO("node " << k);
+		CHECK(nodes[0][k].first.x == nodes[1][k].first.x);
+		CHECK(nodes[0][k].first.y == nodes[1][k].first.y);
+		CHECK(nodes[0][k].first.z == nodes[1][k].first.z);
+		CHECK(nodes[0][k].second == nodes[1][k].second);
+	}
 }
 
 // review (#63): the highest layer for a click is the highest surface, not the first raised layer in index order
