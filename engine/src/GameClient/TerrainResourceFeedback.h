@@ -29,8 +29,9 @@
 //     local player or an ally (getPlayersWithRelationship(local, ALLOW_SAME_PLAYER | ALLOW_ALLIES = 3)) and is Visible (the claim's flag, RW twin of 0x4E81DE)
 //     keeps one decal (TerrainResourceClaimFeedback::Impl::updateClaimedDecalForClaimant, BFME2 0x4E7FCA): TerrainResourceClaimDecal, type 0x20, 2 * radius,
 //     colour 0xFF6464C8, opacity 0x80, at the claimant's position; a claimant FOGGED / SHROUDED for the local player has none; a claimant gone loses it.
-// INFERENCE (stop S-5030): the user count follows the local selection (one user while a selected object's template lists a TerrainResourceClientBehavior;
-//   retail's Drawable select path into slot 17 was not read); the collector's outline arcs of the own / allied claim circles (RW twin of BFME2 0x4E5372,
+// INFERENCE (stop S-5030): the user count follows the local selection and the placement (one user per selected object of the local player whose template
+//   lists a TerrainResourceClientBehavior, one more while such a template waits for its site: retail shows the other farms' circles while a farm is placed;
+//   retail's Drawable select path into slot 17 and the ghost drawable's were not read); the collector's outline arcs of the own / allied claim circles (RW twin of BFME2 0x4E5372,
 //   W3D "cloud arcs") are not drawn; the device interpolates the vertex alphas bilinearly across a terrain quad (retail splits it into two triangles); the
 //   client form never erases a dead owner from a cell (retail's draw-path cell write of RW 0x75C02D): such a cell reads as claimable, the value retail returns.
 
@@ -44,6 +45,7 @@
 #include <vector>
 
 class GameLogic;
+class Player;
 class ThingTemplate;
 class TerrainResourceBehaviorModuleData;
 struct TerrainResourceUiSettings;
@@ -93,7 +95,7 @@ struct ResourcePlacementFeedback
 class TerrainResourceFeedback
 {
 public:
-	// `selectionUsers`: the selected objects of the local player whose template lists a TerrainResourceClientBehavior (S-5030)
+	// `selectionUsers`: claimDecalUsers (S-5030)
 	void updateSelection(const GameLogic &logic, int localPlayer, int selectionUsers);
 	// `pending` the template waiting for its site (null: none), `ghost` its drawable's position, `format` the GUI:TerrainResourcePercentageClaimable text
 	void updatePlacement(const GameLogic &logic, int localPlayer, const ThingTemplate *pending, const Coord3D &ghost, const std::u16string &format,
@@ -101,6 +103,9 @@ public:
 	const std::vector<ResourceClaimDecal> &claimedDecals() const { return m_claimed; }
 	const ResourcePlacementFeedback &placement() const { return m_placement; }
 	static bool hasClientBehavior(const ThingTemplate &tt);
+	// the users of the claim decals (S-5030): the selected objects of `local` whose template lists a TerrainResourceClientBehavior, plus one while `pending`
+	// (the template waiting for its site, null: none) lists one
+	static int claimDecalUsers(const GameLogic &logic, const Player *local, const std::vector<ObjectID> &selected, const ThingTemplate *pending);
 	static std::string stopLine(); ///< "[S-5030] ..." (the HUD's stops)
 	static constexpr float kVertexSpacing = 10.0f; ///< MAP_XY_FACTOR (RW 0xBD83D4 = 0.1 the inverse)
 

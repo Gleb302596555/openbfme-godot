@@ -494,6 +494,20 @@ TEST_CASE("ownerfix2 retail: a farm's placement shows its claimable share (RW 0x
 		enemyFarm->friend_onBuildComplete();
 		logic.runLogicFrame();
 	}
+	// the decals' users (S-5030): the local player's selected farm, or a farm waiting for its site; not the enemy's farm, a barracks or nothing
+	{
+		const ThingTemplate *barracksT = logic.things().findTemplate("GondorBarracks");
+		REQUIRE(barracksT);
+		CHECK(TerrainResourceFeedback::claimDecalUsers(logic, human, { farm->getID() }, nullptr) == 1);
+		CHECK(TerrainResourceFeedback::claimDecalUsers(logic, human, { enemyFarm->getID() }, nullptr) == 0);
+		CHECK(TerrainResourceFeedback::claimDecalUsers(logic, human, {}, farmT) == 1);
+		CHECK(TerrainResourceFeedback::claimDecalUsers(logic, human, { farm->getID() }, farmT) == 2);
+		CHECK(TerrainResourceFeedback::claimDecalUsers(logic, human, {}, barracksT) == 0);
+		CHECK(TerrainResourceFeedback::claimDecalUsers(logic, human, {}, nullptr) == 0);
+	}
+	// placing a farm with nothing selected shows the other farms' circles
+	fb.updateSelection(logic, me, TerrainResourceFeedback::claimDecalUsers(logic, human, {}, farmT));
+	CHECK_FALSE(fb.claimedDecals().empty());
 	fb.updateSelection(logic, me, 1);
 	REQUIRE(fb.claimedDecals().size() >= 1); // tolerance: the castle pieces of a Men start may hold Visible claims too; every decal is checked below
 	bool sawFarm = false;

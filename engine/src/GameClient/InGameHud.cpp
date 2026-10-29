@@ -907,19 +907,14 @@ void InGameHud::updateFloatingText(const TacticalView &view, bool shroudDrawn)
 void InGameHud::updateResourceFeedback()
 {
 	// lane OWNERFIX-2 (GameClient/TerrainResourceFeedback.h): the placement feedback while a building waits for its site (InGameUI::handleBuildPlacements),
-	// the claim decals while a selected object of the local player lists a TerrainResourceClientBehavior (INFERENCE S-5030: the users follow the selection)
+	// the claim decals while a selected object of the local player, or the template being placed, lists a TerrainResourceClientBehavior (INFERENCE S-5030:
+	// the users follow the selection and the placement)
 	GameLogic &logic = m_config.game.logic();
 	const Player *local = m_config.game.players().getLocalPlayer();
 	const int me = local ? local->getPlayerIndex() : -1;
 	const InGameUI &ui = m_input->ui();
-	int users = 0;
-	for (ObjectID id : ui.selected())
-	{
-		const Object *o = logic.findObjectByID(id);
-		users += o && local && o->getControllingPlayer() == local && TerrainResourceFeedback::hasClientBehavior(*o->getTemplate()) ? 1 : 0;
-	}
-	m_resourceFeedback.updateSelection(logic, me, users);
 	const ThingTemplate *pending = ui.isPlacing() && ui.placeHasGhost() ? logic.things().findTemplate(ui.placeBuildTemplate()) : nullptr;
+	m_resourceFeedback.updateSelection(logic, me, TerrainResourceFeedback::claimDecalUsers(logic, local, ui.selected(), pending));
 	const std::u16string format = pending ? fetchOrMissing(m_config.gameText, "GUI:TerrainResourcePercentageClaimable") : std::u16string();
 	m_resourceFeedback.updatePlacement(logic, me, pending, ui.placeLocation(), format, m_pointerX, m_pointerY);
 }

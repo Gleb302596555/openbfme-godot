@@ -254,7 +254,7 @@ std::string TerrainResourceFeedback::stopLine()
 {
 	return "[S-5030] resource claim feedback (lane OWNERFIX-2): the placement's claimable percentage, colour and masked decal (RW 0x75B561 / 0x75C02D / 0x75C1A9) and "
 		   "the selected resource building's claim decals (TerrainResourceClaimFeedback) are ported; INFERENCE: the claim decals show while a selected object of the "
-		   "local player lists a TerrainResourceClientBehavior (retail's select path into slot 17 not read), the collector's outline arcs (RW twin of BFME2 "
+		   "local player, or the template being placed, lists a TerrainResourceClientBehavior (retail's select path into slot 17 and the ghost's not read), the collector's outline arcs (RW twin of BFME2 "
 		   "0x4E5372) are not drawn, the vertex alphas are bilinear across a terrain quad, the text uses the fallback font at the INI's size";
 }
 
@@ -268,6 +268,19 @@ bool TerrainResourceFeedback::hasClientBehavior(const ThingTemplate &tt)
 		}
 	}
 	return false;
+}
+
+int TerrainResourceFeedback::claimDecalUsers(const GameLogic &logic, const Player *local, const std::vector<ObjectID> &selected, const ThingTemplate *pending)
+{
+	int users = 0;
+	for (ObjectID id : selected)
+	{
+		const Object *o = logic.findObjectByID(id);
+		users += o && local && o->getControllingPlayer() == local && hasClientBehavior(*o->getTemplate()) ? 1 : 0;
+	}
+	// INFERENCE S-5030: a farm being placed shows the other farms' circles as a selected one does
+	users += pending && hasClientBehavior(*pending) ? 1 : 0;
+	return users;
 }
 
 void TerrainResourceFeedback::updateSelection(const GameLogic &logic, int localPlayer, int selectionUsers)
