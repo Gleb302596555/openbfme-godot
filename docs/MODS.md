@@ -131,8 +131,6 @@ Work in progress (2026-10-29, nothing committed):
 - `ResourceGatheringManager::canTransferSuppliesAt` takes a warehouse dock when it holds boxes (+ 0x88) and is not ENEMIES with the worker
   (RW 0x82C66C, RW 0x68D7AB), so the harvesters' own search finds the rocks; the cursor still offers no order on them (the dock context
   command is not ported, stop S-286);
-- `test_sdk1_packs.cpp:194` fails since the truncated-W3D change: an asset pack's damaged model now loads. A pack model whose
-  `W3DFileContents::Truncated` is set should stay an error (only the retail / mod mount reads truncated files as ZH does);
 - `test_hud6.cpp:787` (the Mordor fortress's lava moat upgrade does not queue) fails in the combined run of the upgrade / colour / texture
   tests and passes when its file runs alone: an order dependence, cause not found, not known to be from these changes.
 
