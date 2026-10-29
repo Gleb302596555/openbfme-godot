@@ -145,7 +145,8 @@ Known problems, not fixed (the owner's playtest of 2026-10-29):
 - the twinkle over the supply rocks still animates too fast (its brightness is fixed); the GPU particles step at 30 Hz with retail's frame
   time, the cause was not found;
 - a farm's claim circle: the selected farm's circle is tinted retail's 0xFF6464C8; while placing a new farm the other farms' circles are
-  not shown (stop S-5030: the outline arcs are not drawn) and the placement circle takes the claim band colour;
+  shown as filled claim decals, as for a selected farm (stop S-5030: the outline arcs are not drawn) and the placement circle takes the
+  claim band colour;
 - the worker figure that marks a building's repair stays after the building is destroyed;
 - a locked ability's button is drawn in greyscale (the luminance weights of the radial bubbles, S-5040) and reads as merely lighter, not locked;
 - the Harad cavalry's horses stop moving their legs after a trample (not looked at).
