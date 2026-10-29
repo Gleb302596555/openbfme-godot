@@ -318,7 +318,7 @@ void AnimationSoundClientBehavior::frameWindows(const W3DDrawTrack &t, int numFr
 	}
 }
 
-void AnimationSoundClientBehavior::update(AnimationSoundModuleManager &manager)
+void AnimationSoundClientBehavior::update(AnimationSoundModuleManager &manager, AudioManager *audio, const Coord3D &mic)
 {
 	Drawable *d = getDrawable();
 	if (!d)
@@ -326,7 +326,6 @@ void AnimationSoundClientBehavior::update(AnimationSoundModuleManager &manager)
 		return;
 	}
 	// the drawable's audible flag (+ 0x44A) is cleared only by INAUDIBLE objects (RW 0x674727), never in the port (S-1463)
-	AudioManager *audio = manager.audio ? manager.audio() : nullptr;
 	if (!audio)
 	{
 		return;
@@ -335,7 +334,7 @@ void AnimationSoundClientBehavior::update(AnimationSoundModuleManager &manager)
 	{
 		computeRange(audio); // before the range test (review r1: a drawable made before the audio attached kept range 0 and was culled)
 	}
-	const Coord3D mic = audio->getListenerPosition(); // TheAudio vslot 0x120
+	// mic: TheAudio vslot 0x120, asked by the manager's update
 	const Coord3D &p = *d->getPosition();
 	const float dx = mic.x - p.x, dy = mic.y - p.y, dz = mic.z - p.z;
 	const float d2 = dz * dz + dy * dy + dx * dx;
@@ -617,7 +616,7 @@ void AnimationSoundModuleManager::update()
 	{
 		AnimationSoundClientBehavior *next = m->m_next; // RW 0x83F3D8: read before the update
 		++m_stats.moduleUpdates;
-		m->update(*this);
+		m->update(*this, a, mic);
 		m = next;
 	}
 }

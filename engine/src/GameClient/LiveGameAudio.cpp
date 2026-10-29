@@ -125,35 +125,59 @@ struct LiveGameAudio::LgaRuntime : public LargeGroupAudioSink
 		}
 		return false;
 	}
-	void add(const LargeGroupAudioMap &map, const LargeGroupAudioEvent &e)
+	// lane PERF-CLIENT: per map and Sound block of the store, its member map (found by the names once: each event looked them up by a pair of new strings)
+	std::vector<std::vector<std::map<ObjectID, Member> *>> groupsOf;
+	const LargeGroupAudioStore *groupsStore = nullptr;
+	void bindGroups(const LargeGroupAudioStore &store)
 	{
-		for (const LargeGroupAudioSound &snd : map.sounds)
+		bool same = groupsStore == &store && groupsOf.size() == store.maps().size();
+		for (size_t m = 0; same && m < groupsOf.size(); ++m)
 		{
-			if (keyed(snd, e.keys))
+			same = groupsOf[m].size() == store.maps()[m].sounds.size();
+		}
+		if (same)
+		{
+			return;
+		}
+		groupsStore = &store;
+		groupsOf.assign(store.maps().size(), {});
+		for (size_t m = 0; m < store.maps().size(); ++m)
+		{
+			const LargeGroupAudioMap &map = store.maps()[m];
+			for (const LargeGroupAudioSound &snd : map.sounds)
 			{
-				members[{ map.name, snd.name }][e.object] = Member{ e.x, e.y, e.weight };
+				groupsOf[m].push_back(&members[{ map.name, snd.name }]); // std::map nodes stay put
+			}
+		}
+	}
+	void add(const LargeGroupAudioMap &map, const std::vector<std::map<ObjectID, Member> *> &groups, const LargeGroupAudioEvent &e)
+	{
+		for (size_t s = 0; s < map.sounds.size(); ++s)
+		{
+			if (keyed(map.sounds[s], e.keys))
+			{
+				(*groups[s])[e.object] = Member{ e.x, e.y, e.weight };
 				++adds;
 			}
 		}
 	}
-	void move(const LargeGroupAudioMap &map, const LargeGroupAudioEvent &e)
+	void move(const LargeGroupAudioMap &map, const std::vector<std::map<ObjectID, Member> *> &groups, const LargeGroupAudioEvent &e)
 	{
-		for (const LargeGroupAudioSound &snd : map.sounds)
+		for (size_t s = 0; s < map.sounds.size(); ++s)
 		{
-			auto it = members.find({ map.name, snd.name });
-			if (it != members.end() && it->second.count(e.object))
+			auto it = groups[s]->find(e.object);
+			if (it != groups[s]->end())
 			{
-				it->second[e.object] = Member{ e.x, e.y, e.weight };
+				it->second = Member{ e.x, e.y, e.weight };
 				++moves;
 			}
 		}
 	}
-	void remove(const LargeGroupAudioMap &map, const LargeGroupAudioEvent &e)
+	void remove(const LargeGroupAudioMap &map, const std::vector<std::map<ObjectID, Member> *> &groups, const LargeGroupAudioEvent &e)
 	{
-		for (const LargeGroupAudioSound &snd : map.sounds)
+		for (size_t s = 0; s < map.sounds.size(); ++s)
 		{
-			auto it = members.find({ map.name, snd.name });
-			if (it != members.end() && it->second.erase(e.object))
+			if (groups[s]->erase(e.object))
 			{
 				++removes;
 			}
@@ -161,13 +185,16 @@ struct LiveGameAudio::LgaRuntime : public LargeGroupAudioSink
 	}
 	void apply(const LargeGroupAudioStore &store)
 	{
+		bindGroups(store);
 		for (size_t i = 0; i < pending.size(); ++i)
 		{
 			const LargeGroupAudioEvent &e = pending[i];
 			const std::int32_t gate = pendingGate[i];
 			++events;
-			for (const LargeGroupAudioMap &map : store.maps())
+			for (size_t mi = 0; mi < store.maps().size(); ++mi)
 			{
+				const LargeGroupAudioMap &map = store.maps()[mi];
+				const std::vector<std::map<ObjectID, Member> *> &groups = groupsOf[mi];
 				const bool nowQ = masks(map, e.conditions, e.status) && !(map.ignoreStealthedUnits && e.stealthed);
 				const bool oldQ = masks(map, e.storedConditions, e.storedStatus) && !(map.ignoreStealthedUnits && e.storedStealthed) && (std::int32_t)e.storedFrame > gate;
 				switch (e.kind)
@@ -175,7 +202,7 @@ struct LiveGameAudio::LgaRuntime : public LargeGroupAudioSink
 					case LargeGroupAudioEvent::ADD:
 						if (nowQ)
 						{
-							add(map, e);
+							add(map, groups, e);
 						}
 						break;
 					case LargeGroupAudioEvent::UPDATE:
@@ -183,22 +210,22 @@ struct LiveGameAudio::LgaRuntime : public LargeGroupAudioSink
 						{
 							if (!(e.x == e.storedX && e.y == e.storedY))
 							{
-								move(map, e);
+								move(map, groups, e);
 							}
 						}
 						else if (nowQ)
 						{
-							add(map, e);
+							add(map, groups, e);
 						}
 						else if (oldQ)
 						{
-							remove(map, e);
+							remove(map, groups, e);
 						}
 						break;
 					case LargeGroupAudioEvent::REMOVE:
 						if (oldQ)
 						{
-							remove(map, e);
+							remove(map, groups, e);
 						}
 						break;
 				}

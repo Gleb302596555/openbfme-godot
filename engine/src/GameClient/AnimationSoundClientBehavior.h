@@ -102,7 +102,8 @@ public:
 
 private:
 	friend class AnimationSoundModuleManager;
-	void update(AnimationSoundModuleManager &manager); // RW 0x8CE75B
+	// RW 0x8CE75B; lane PERF-CLIENT: the manager's audio and microphone are asked once per manager update (the same for every module of it)
+	void update(AnimationSoundModuleManager &manager, AudioManager *audio, const Coord3D &mic);
 	void computeRange(AudioManager *audio);     // RW 0x8CE4CC .. 0x8CE531
 
 	const AnimationSoundClientBehaviorModuleData *m_data;
