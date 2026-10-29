@@ -116,6 +116,7 @@ CI_GATES = scripts("""
 DENYLIST = {
     "water_normal_test.gd": "manual: requires GPU rendering for fixed-input water normals",
     "standing_water_test.gd": "manual: requires private retail assets and GPU water rendering",
+    "map_water_ini_error_test.gd": "manual: requires private retail assets (a synthetic mod water.ini over a retail map)",
     "ini_error_in_extension_test.gd": "manual: requires private retail assets (a synthetic mod INI over a retail map)",
     **dict.fromkeys(scripts("bfme1_hud bfme1_map_memory bfme1_plot bfme1_quit bfme1_castle_path bfme1"),
                     "manual: needs a private BFME1 installation"),
@@ -129,7 +130,7 @@ DENYLIST = {
         p16_ui_legacy_shape spellbook_rightclick cah_camera_retail shellfb1_cursor shellfb1_spell_store_escape
     """) | {"object_corpus_sweep.gd"}, "manual: needs private RotWK/BFME2 assets and game/frame setup"),
     **dict.fromkeys(scripts("""
-        apt_canvas_pixel building_render fx_render gamma_composite hud_image_mode_pixel
+        apt_canvas_pixel building_render fx_render gamma_composite glow hud_image_mode_pixel
         menu_backdrop_resize online_branding pro_camera pro_camera_bokeh radial_background render4 road_shader shader
     """), "manual: GPU/window/render readback required (some also need retail assets)"),
     "pingwheel_test.gd": "manual: mixed UI/timer checks and retail skirmish/hash runs; not wholly asset-free",
