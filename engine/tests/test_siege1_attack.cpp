@@ -110,7 +110,9 @@ TEST_CASE("siege1 attack retail: a mumak and the Dwarven demolisher break Helm's
 	// merge queue q27: first damage 18 -> 184, death 424 -> 415, LOS-1 (the terrain line of sight in the target search and the attack view; measured at
 	// each merge point)
 	CHECK(m.firstHit == 184);
-	CHECK(m.healthAfterFirst == 3997.75f);
+	// fix/horde-contain-no-follow: the first graze 3997.75 -> 3996.25 (the AI defender's hordes: a move or turn no longer carries their members, RW 0x871536;
+	// the shared random stream; measured with the AI defender)
+	CHECK(m.healthAfterFirst == 3996.25f);
 	CHECK(m.deathFrame == 415);
 	const AttackResult d = siegeAttack(*s, kHelmsDeep, "Main Gate", "DwarvenDemolisher", false, 250.0f, 600, true);
 	print("DwarvenDemolisher", d);

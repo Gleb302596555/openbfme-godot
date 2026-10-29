@@ -2,6 +2,7 @@
 // Race or Hero vs Hero mode; what a skirmish / LAN game can be is the battle judged by VictoryConditions rule 3 (base or army: TheGameLogic + 0x114 == 3),
 // the SANDBOX game (one team, GameInfo::isSandbox RW 0x800C8F) and the War of the Ring (lane WOTR-1). The binary facts are read from RW_GAME_DAT (skipped
 // without it); the games run on retail data (skipped without the installs).
+#include "HordeCompleteTestUtil.h"
 #include "doctest.h"
 
 #include "PeImage.h"
@@ -394,6 +395,7 @@ Object *makeArmy(GameLogic &logic, Player &p)
 	Coord3D at = *base->getPosition();
 	at.x = SimMath::addf32(at.x, 300.0f);
 	o->setPosition(&at);
+	testutil::completeHorde(o); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 	return o;
 }
 

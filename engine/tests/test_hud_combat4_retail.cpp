@@ -2,6 +2,7 @@
 // shockwave handler (RW 0x6968BC), a troll's club swing throws the soldiers in its arc, and the measurements of a cavalry charge. They share the HUD tests' retail
 // world (the file name sorts with the test_hud_* files, see test_hud_combat_retail.cpp) and SKIP when ROTWK_INSTALL / BFME2_INSTALL are unset.
 
+#include "HordeCompleteTestUtil.h"
 #include "doctest.h"
 #include "HudTestUtil.h"
 
@@ -100,7 +101,7 @@ struct Arena
 		Coord3D p{ x, y, 0.0f };
 		o->setPosition(&p);
 		o->setOrientation(angle);
-		return o;
+		return testutil::completeHorde(o);
 	}
 	std::vector<ObjectID> memberIds(Object *horde)
 	{
@@ -714,7 +715,8 @@ TEST_CASE("aidata1 retail: knights running down a fleeing troll hit within Chase
 	CHECK(retail.frame == 40);
 	CHECK(retail.runningDown);
 	const Hit none = firstHit(true, 0.0f);
-	CHECK(none.frame == 60);
+	// fix/horde-contain-no-follow: a horde's move or turn no longer carries its members, they walk to their slots (RW 0x871536): the first hit 60 -> 74
+	CHECK(none.frame == 74);
 	CHECK_FALSE(none.runningDown);
 	const Hit standRetail = firstHit(false, 50.0f);
 	const Hit standNone = firstHit(false, 0.0f);

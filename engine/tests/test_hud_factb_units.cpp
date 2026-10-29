@@ -3881,8 +3881,9 @@ TEST_CASE("factc upgrade effects: every Goblin and Angmar weapon and armour upgr
 	// armour still does not change Boromir's HERO hit (S-2008 keeps the explanation)
 	// merge queue q24 (OFFMAP-1's exact start positions: without OFFMAP-1 the merged tree passes it): no two-hit frame without the armour again, the line fails
 	// as ATTACKPATH-1 found
-	factcCase("upgrade effects", "FactionAngmar", upgradeEffectsOf,
-			  { { "upgrade effect AngmarSnowTrollHorde Upgrade_AngmarDarkIronArmor", "S-2008|did not shrink" } });
+	// fix/horde-contain-no-follow (members walk to their slots, RW 0x871536): a two-hit frame without the armour again (600 -> 300), so the line passes and
+	// its pin goes; the armour still does not change Boromir's HERO hit (S-2008 keeps the explanation)
+	factcCase("upgrade effects", "FactionAngmar", upgradeEffectsOf, {});
 }
 
 TEST_CASE("factc spell book: every Goblin and Angmar spell bought in the store and cast through the spell bar shows its effect")

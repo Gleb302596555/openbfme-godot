@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0. Lane BANNER-1: a rank-two horde's banner carrier refills the horde after a real fight (owner, nightly 2026-10-22: "banner
 // carriers don't auto replace units if they are lvl 2"). Retail: BannerCarrierUpdate::update RW 0x89ACE4, the horde's combat test RW 0x86EE52,
 // the member spawn RW 0x89A392 / 0x873AE3.
+#include "HordeCompleteTestUtil.h"
 #include "doctest.h"
 #include "CampaignTestUtil.h"
 #include "GameClient/GUI/Skirmish/IniSkirmishSetupSource.h"
@@ -81,7 +82,7 @@ struct BannerGame : campaigntest::Mission
 		Object *o = logic().newObject(tt, player->getDefaultTeam(), ObjectStatusMaskType{});
 		REQUIRE(o);
 		place(*o, at);
-		return o;
+		return testutil::completeHorde(o);
 	}
 
 	static HordeContain &contain(Object &horde)

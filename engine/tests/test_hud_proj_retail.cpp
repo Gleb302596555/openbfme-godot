@@ -3,6 +3,7 @@
 // BFME2 1.06. An archer horde of each faction fires real projectile objects at an enemy horde on a flat arena; the projectiles are counted, their flight is followed object by
 // object (the path point of every frame, the impact frame against the arc speed) and the damage of every impact is compared with what the victim's armour leaves of the warhead.
 
+#include "HordeCompleteTestUtil.h"
 #include "doctest.h"
 #include "HudTestUtil.h"
 
@@ -94,6 +95,7 @@ struct Arena
 		Coord3D p{ x, y, 0.0f };
 		o->setPosition(&p);
 		o->setOrientation(side == 0 ? 0.0f : 3.14159265f);
+		testutil::completeHorde(o); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 		return o;
 	}
 };
@@ -176,12 +178,8 @@ ArcherRun runArchers(const char *factionA, const char *archers, const char *fact
 		members.push_back(m->getID());
 	}
 	// lane HERO-2: archers with DualWeaponBehavior (RW 0x85DF88) draw their close range weapon once the victims are within SwitchWeaponOnCloseRangeDistance:
-	// their melee hits land on the same members as the arrows, so a member loses at least (not exactly) the volley's share
-	bool closeRangeSwitch = false;
-	for (const Object *m : *h[0]->getContain()->getContainedItemsList())
-	{
-		closeRangeSwitch = closeRangeSwitch || m->findModule("DualWeaponBehavior") != nullptr;
-	}
+	// their melee hits land on the same members as the arrows, so a member loses at least (not exactly) the volley's share (the check below, for every
+	// archer horde since fix/horde-contain-no-follow)
 	REQUIRE(h[0]->getAIUpdateInterface()->aiAttackObject(h[1], CMD_FROM_PLAYER));
 	std::map<ObjectID, size_t> index;
 	std::map<ObjectID, float> healthBefore;
@@ -298,8 +296,9 @@ ArcherRun runArchers(const char *factionA, const char *archers, const char *fact
 			{
 				++out.impactsDamaging;
 			}
-			// other sources can hit the same member in the same frame only through the pending list of this volley: the member lost at least this volley's share
-			const bool off = closeRangeSwitch ? lost + 0.01f + 0.001f * want < want : std::fabs(lost - want) > 0.01f + 0.001f * want;
+			// the member loses at least this volley's share (tolerance: a member walks to its slot during the volley, RW 0x871536, so another projectile's
+			// impact can land on it in the same frame; a close-range weapon switch adds melee hits)
+			const bool off = lost + 0.01f + 0.001f * want < want;
 			if (off)
 			{
 				out.damageMatches = false;
