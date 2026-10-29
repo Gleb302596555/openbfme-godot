@@ -425,6 +425,29 @@ bool LiveGameAudio::drawablePosition(std::uint32_t drawableId, Coord3D *pos) con
 	return true;
 }
 
+std::uint8_t LiveGameAudio::templateAudio(const ThingTemplate &tt)
+{
+	auto it = m_templateAudio.find(&tt);
+	if (it != m_templateAudio.end())
+	{
+		return it->second;
+	}
+	std::uint8_t kinds = 0;
+	for (const char *f : { "SoundAmbient", "SoundAmbientDamaged", "SoundAmbientReallyDamaged", "SoundAmbientRubble" })
+	{
+		kinds |= soundField(tt, f).empty() ? 0 : 1;
+	}
+	for (const char *f : { "EvaEventDieOwner", "EvaEventDieAlly", "EvaEventDieEnemy", "EvaEventDamagedOwner" })
+	{
+		const FieldValue *v = tt.findField(f);
+		const RawTokens *raw = v ? std::get_if<RawTokens>(v) : nullptr;
+		const std::string *str = v ? std::get_if<std::string>(v) : nullptr;
+		kinds |= ((raw && !raw->tokens.empty() && !raw->tokens.front().empty()) || (str && !str->empty())) ? 2 : 0;
+	}
+	m_templateAudio.emplace(&tt, kinds);
+	return kinds;
+}
+
 const std::string &LiveGameAudio::cachedAmbientSoundFor(const Object &obj)
 {
 	// lane PERF-1 r2: ambientSoundFor reads the template's sound rows (field lookups by name); its result depends on the template and the damage state
@@ -772,50 +795,14 @@ void LiveGameAudio::update()
 		AudioLog::Scope logScope("music scripts");
 		m_music->update(m_musicFrame);
 	}
-	std::map<ObjectID, bool> seen;
-	for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
-	{
-		const ThingTemplate *tt = o->getTemplate();
-		if (!tt)
-		{
-			continue;
-		}
-		if (!m_battleCounted.count(o->getID()))
-		{
-			m_battleCounted[o->getID()] = true;
-			m_stats.battleAmbientTemplates += soundField(*tt, "SoundAmbientBattle").empty() ? 0 : 1;
-		}
-		{
-			AudioLog::Scope logScope("eva body watch");
-			evaWatch(*o);
-		}
-		// ZH: a drawable's ambient sound is enabled once the object is complete (construction keeps it off) and stops when the object dies
-		std::string want;
-		if (!o->isDestroyed() && !o->isUnderConstruction() && !o->isEffectivelyDead())
-		{
-			want = cachedAmbientSoundFor(*o);
-		}
-		if (want.empty() && !m_ambients.count(o->getID()))
-		{
-			continue;
-		}
-		seen[o->getID()] = true;
-		Ambient &a = m_ambients[o->getID()];
-		if (a.event != want)
-		{
-			stopAmbient(o->getID(), a);
-			a.event = want;
-		}
-		if (a.event.empty() || a.tried)
-		{
-			continue;
-		}
+	// the start of an object's ambient that is not playing yet (ZH Drawable.cpp:4518 and the range retry below)
+	auto tryStart = [&](Object *o, Ambient &a) {
 		const auto info = m_audio.ini().infos.find(a.event);
 		if (!info)
 		{
 			++m_stats.ambientUnknownEvent;
 			a.tried = true;
-			continue;
+			return;
 		}
 		// ZH Drawable.cpp:4518: global or critical sounds always start; others only inside MaxRange of the listener (retried here every frame until they
 		// start: INFERENCE, ZH only tries when the drawable starts or changes damage state)
@@ -827,7 +814,7 @@ void LiveGameAudio::update()
 			if (dx * dx + dy * dy + dz * dz >= info->maxRange * info->maxRange)
 			{
 				++m_stats.ambientOutOfRange;
-				continue;
+				return;
 			}
 		}
 		const Player *owner = o->getControllingPlayer();
@@ -837,10 +824,83 @@ void LiveGameAudio::update()
 					 : m_audio.playSoundForObject(a.event, (std::uint32_t)o->getID(), owner ? owner->getPlayerIndex() : -1);
 		a.tried = true;
 		++m_stats.ambientStarted;
+	};
+	// lane PERF-HD: what the scan reads (the objects, their death, construction, damage state and health) changes only with a logic frame; the held
+	// client window runs about twice per logic frame. Between frames only the ambients not started yet are tried again (the listener moves), as the
+	// scan tried them on every call
+	if (logic.getFrame() == m_ambientFrame)
+	{
+		for (auto &kv : m_ambients)
+		{
+			Ambient &a = kv.second;
+			if (a.event.empty() || a.tried)
+			{
+				continue;
+			}
+			if (Object *o = logic.findObjectByID(kv.first))
+			{
+				tryStart(o, a);
+			}
+		}
+		m_stats.ambientPlaying = 0;
+		for (const auto &kv : m_ambients)
+		{
+			m_stats.ambientPlaying += kv.second.handle >= AHSV_FirstHandle ? 1 : 0;
+		}
+		return;
+	}
+	m_ambientFrame = logic.getFrame();
+	const unsigned pass = ++m_ambientPass; // lane PERF-HD: the objects seen in this pass are stamped on their Ambient (was a std::map per pass)
+	for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
+	{
+		const ThingTemplate *tt = o->getTemplate();
+		if (!tt)
+		{
+			continue;
+		}
+		if (m_battleCounted.insert(o->getID()).second)
+		{
+			m_stats.battleAmbientTemplates += soundField(*tt, "SoundAmbientBattle").empty() ? 0 : 1;
+		}
+		// lane PERF-HD: most objects (a battle's soldiers) have neither an Eva event nor an ambient sound in their template: the watch could report nothing
+		// for them and their wanted ambient is always none, so only a playing ambient of theirs (none in practice) is looked at
+		const std::uint8_t kinds = templateAudio(*tt);
+		if (kinds & 2)
+		{
+			AudioLog::Scope logScope("eva body watch");
+			evaWatch(*o);
+		}
+		// ZH: a drawable's ambient sound is enabled once the object is complete (construction keeps it off) and stops when the object dies
+		std::string want;
+		if ((kinds & 1) && !o->isDestroyed() && !o->isUnderConstruction() && !o->isEffectivelyDead())
+		{
+			want = cachedAmbientSoundFor(*o);
+		}
+		if (want.empty() && m_ambients.empty())
+		{
+			continue;
+		}
+		auto found = m_ambients.find(o->getID());
+		if (want.empty() && found == m_ambients.end())
+		{
+			continue;
+		}
+		Ambient &a = found != m_ambients.end() ? found->second : m_ambients[o->getID()];
+		a.seenPass = pass;
+		if (a.event != want)
+		{
+			stopAmbient(o->getID(), a);
+			a.event = want;
+		}
+		if (a.event.empty() || a.tried)
+		{
+			continue;
+		}
+		tryStart(o, a);
 	}
 	for (auto it = m_ambients.begin(); it != m_ambients.end();)
 	{
-		if (!seen.count(it->first))
+		if (it->second.seenPass != pass)
 		{
 			stopAmbient(it->first, it->second);
 			it = m_ambients.erase(it);
