@@ -124,13 +124,13 @@ DENYLIST = {
         hero_radius_cursor hudredraw menustyle_native menustyle net_uber netlag1 occlude1 opts4 opts5
         packed_model_texture pathperf1_render perf3_cull play3 player_house_color player_message_log
         pose_buffer pose_buffer_cull_query pose_buffer_query_trigger
-        renderwait1_teardown selperf shellfix1 spellbook_reload terrain_lighting uberjoin1 ui4_resize
+        renderwait1_teardown road_shading selperf shellfix1 spellbook_reload terrain_lighting uberjoin1 ui4_resize
         controller_main_menu formation_placement mixed_formation_placement online16_fix_bridge p16_ui_dictionary
         p16_ui_legacy_shape spellbook_rightclick cah_camera_retail shellfb1_cursor shellfb1_spell_store_escape
     """) | {"object_corpus_sweep.gd"}, "manual: needs private RotWK/BFME2 assets and game/frame setup"),
     **dict.fromkeys(scripts("""
         apt_canvas_pixel building_render fx_render gamma_composite hud_image_mode_pixel
-        menu_backdrop_resize online_branding pro_camera pro_camera_bokeh radial_background render4 shader
+        menu_backdrop_resize online_branding pro_camera pro_camera_bokeh radial_background render4 road_shader shader
     """), "manual: GPU/window/render readback required (some also need retail assets)"),
     "pingwheel_test.gd": "manual: mixed UI/timer checks and retail skirmish/hash runs; not wholly asset-free",
     "replay_refusal_test.gd": "manual: mixed stub checks and retail replay subprocess; not wholly asset-free",
