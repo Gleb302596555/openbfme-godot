@@ -1240,7 +1240,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 			int64_t additiveRendered = 0;
 			float waterDiffuse[4];
 			std::string waterError;
-			if (!WaterSetScan::load(*arch, name, lighting ? lighting->timeOfDay : 2, waterDiffuse, &waterError))
+			if (!WaterSetScan::load(*arch, mapDir, lighting ? lighting->timeOfDay : 2, waterDiffuse, &waterError))
 			{
 				errors.push_back(toGodot("water.ini: " + waterError));
 			}
