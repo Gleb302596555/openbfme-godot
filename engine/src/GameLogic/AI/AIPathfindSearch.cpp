@@ -1070,6 +1070,13 @@ Path *Pathfinder::findPath(PathfindObject *obj, const PathfindLocomotorInfo &loc
 	{
 		*p = true;
 	}
+	if (hierarchical)
+	{
+		// lane PERF-HD (Uber only): the cell search gets the queue's cap of its own; the block search may have spent it (an unreachable goal zone scans
+		// the whole block map), and a spent cap ends the cell search at its first cell, before it chose a closest cell: no path instead of the partial
+		// path to the closest block. The horde retry below keeps what is left after the cell search
+		m_uberSearchAllocs = 0;
+	}
 	Path *result = internalFindPath(obj, loco, from, &adjustedTo, hierarchical, p);
 	// OpenBFME pathfinding correction (inference, Uber profile only: RW 0x6FE7CB returns internalFindPath's result with no second search, so a Faithful
 	// game keeps it): a castle's coarse corridor can exhaust the cell search at the rear wall even though its gate connects the destination. Retry an

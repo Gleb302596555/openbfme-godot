@@ -537,9 +537,9 @@ closed 200,000+ cells, plus up to 25,000 of the shortcut walk.
   frame is 4 % under Faithful's and its tail still worse: it plays the heavier
   battle (every path request served; Faithful's 511-slot ring refuses many).
 - Result (the uber bench, map mp fall back 8p, 8 players, 16 threads, 50
-  frames, mean tick of two runs; measured with and without this rule on top of
-  the exact logic speed-ups): 10k troops 93 -> 64 ms, 20k 171 -> 119 ms, 40k
-  279 -> 167 ms; ticks over the 200 ms clock at 40k: 47 -> 3-8 of 50.
+  frames, mean tick of two runs, without and with this rule): 10k troops
+  132 -> 92 ms, 20k 204 -> 133 ms, 40k 345 -> 217 ms; ticks over the 200 ms
+  clock at 20k: 23-30 -> 0-1 of 50, at 40k: 49-50 -> 25-29.
 
 ### U2: parallel queries and paths, GPU animation (next)
 
