@@ -405,9 +405,11 @@ TEST_CASE("play4 heroes retail: every faction's heroes, recruited from the fortr
 				// killed); the fell beasts still strike nothing
 				// merge queue q29 (measured once on the merged tree and at each merge point): on his own Drogoth strikes nothing again, like the fell beasts
 				// (DEVPORT-SIM: one strike, 825 health, 11 killed; none from community #113 on, whose capture squads move the scene's computer opponent)
-				CHECK(own.shots == 0u);
-				CHECK(own.lost == 0.0f);
-				CHECK(own.membersKilled == 0u);
+				// the block search's block zones and raised branch (RW 0x9389A6 / 0x9389CE): one strike again, 825 health, 11 killed (DEVPORT-SIM's values above):
+				// the scene's computer opponent takes other routes; the fell beasts still strike nothing
+				CHECK(own.shots == (drogoth ? 1u : 0u));
+				CHECK(own.lost == (drogoth ? 825.0f : 0.0f));
+				CHECK(own.membersKilled == (drogoth ? 11u : 0u));
 				// lane BACKLOG4: 3 strikes (4 before): the hero's creation uses the teleport form (RW 0x7814CF: RW 0x696E63(pos, 0)), which idles the new
 				// hero's AI and wakes it; the fight's damage and kills are unchanged (measured with and without that call)
 				// lane STEALTHFLY1: 2 strikes (3 before): recruited from the fortress, Drogoth leaves along its production exit path in the bird's own follow
@@ -421,7 +423,8 @@ TEST_CASE("play4 heroes retail: every faction's heroes, recruited from the fortr
 				// (ZH's cheat move), so the fight starts from the positions they were made at; the damage and the kills are the same
 				// horde contain (RW 0x871536 / 0x8718ED): 3 strikes (4 before): the scene's horde makes its members where it stands and a move no longer
 				// puts them on their slots, so they stand elsewhere when the bird arrives; the damage and the kills are the same
-				CHECK(ord.shots == (drogoth ? 3u : 0u));
+				// the block search's block zones and raised branch: 4 strikes again (3 before), the damage and the kills the same
+				CHECK(ord.shots == (drogoth ? 4u : 0u));
 				CHECK(ord.lost == (drogoth ? 1500.0f : 450.0f));
 				CHECK(ord.membersKilled == (drogoth ? 20u : 5u));
 				continue;
@@ -587,8 +590,12 @@ TEST_CASE("attack1 heroes retail: the mounted Witch-king and Mouth of Sauron, or
 	// computer opponent builds phantom sites): the Witch-king 4 shots, all swings of his mace (the first took 450, 1200 outside the run, nothing in a crush run),
 	// 16 killed, nearest 29.9244, with CRUSHER_LEVEL -1 4 swings taking 1200 from 29.5534; the Mouth of Sauron 6 shots, 6 killed (300 in the crush run), 2
 	// swings (75 / 150), nearest 1.00478, with CRUSHER_LEVEL -1 5 swings taking 375 from 59.6801. The duels are unchanged. Engine pins, not retail values.
-	for (const Case &c : { Case{ "FactionAngmar", "AngmarWitchking", 4u, 16u, 0.0f, { 800.0f, 112.0f }, 4u, 450.0f, 1200.0f, { { 1500.0f, 800.0f }, { 700.0f, 700.0f } }, 0, -1, 4u, 1200.0f, 29.5534f, 29.9244f },
-			 Case{ "FactionMordor", "MordorMouthOfSauron", 6u, 6u, 300.0f, { 640.0f, 320.0f }, 2u, 75.0f, 150.0f, { { 1500.0f, 640.0f }, { 860.0f, 640.0f }, { 220.0f, 220.0f } }, 0, -1, 5u, 375.0f, 59.6801f, 1.00478f } })
+	// The block search's block zones and raised branch (RW 0x9389A6 / 0x9389CE): the scene's computer opponent takes other routes and the fights move: the
+	// Witch-king 4 swings (the first took 450, 1350 outside the run), 18 killed, nearest 3.14234, with CRUSHER_LEVEL -1 4 swings taking 1350 from 7.80395; the
+	// Mouth of Sauron 7 shots, 7 killed (150 in the crush run), 5 swings (75 / 375), nearest 4.7494, with CRUSHER_LEVEL -1 4 swings taking 300 from 42.8067.
+	// The hit sizes, the whole-member losses and the duels are unchanged. Engine pins, not retail values.
+	for (const Case &c : { Case{ "FactionAngmar", "AngmarWitchking", 4u, 18u, 0.0f, { 800.0f, 112.0f }, 4u, 450.0f, 1350.0f, { { 1500.0f, 800.0f }, { 700.0f, 700.0f } }, 0, -1, 4u, 1350.0f, 7.80395f, 3.14234f },
+			 Case{ "FactionMordor", "MordorMouthOfSauron", 7u, 7u, 150.0f, { 640.0f, 320.0f }, 5u, 75.0f, 375.0f, { { 1500.0f, 640.0f }, { 860.0f, 640.0f }, { 220.0f, 220.0f } }, 0, -1, 4u, 300.0f, 42.8067f, 4.7494f } })
 	{
 		INFO(std::string(c.hero));
 		const ThingTemplate *tt = s->world->things().findTemplate(c.hero);

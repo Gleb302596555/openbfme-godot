@@ -334,9 +334,11 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 	// Merge queue q29 (measured once on the merged tree and at each merge point; the frame-3000 census follows the AIs' play, which every simulation item of the
 	// batch moves: DEVPORT-SIM 111, PATHPRIO-1 110, community #113 113, IDLEMOTION-1 113, FBSIM-1 112): a HordeDispatchSpecialPower and a PillageModule
 	// object; no AutoHealBehavior or RepairSpecialPower object (112)
+	// The block search's block zones and raised branch (RW 0x9389A6 / 0x9389CE; the AIs' routes move): an AutoHealBehavior object; no SiegeDeployHordeSpecialPower
+	// object (112)
 	CHECK(classes == std::set<std::string>{
 		"AISpecialPowerUpdate", "ActiveBody", "ArmorUpgrade", "ArrowStormUpdate", "AttributeModifierAuraUpdate", "AttributeModifierPoolUpdate",
-		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoPickUpUpdate", "BannerCarrierUpdate",
+		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoHealBehavior", "AutoPickUpUpdate", "BannerCarrierUpdate",
 		"BezierProjectileBehavior", "BloodthirstyUpdate", "BoredUpdate", "BuildableHeroListUpgrade", "BuildingBehavior", "CastleBehavior", "CastleMemberBehavior",
 		"CastleUpgrade", "CitadelSlaughterHordeContain", "ClickReactionBehavior", "CloudBreakSpecialPower", "CommandButtonHuntUpdate", "CommandPointsUpgrade",
 		"CommandSetUpgrade", "CostModifierUpgrade", "CreateObjectDie", "CritterEmitterUpdate", "DamageFilteredCreateObjectDie", "DarknessSpecialPower",
@@ -347,7 +349,7 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 		"KeepObjectDie", "LargeGroupAudioUpdate", "LargeGroupBonusUpdate", "LevelUpUpgrade", "LifetimeUpdate", "ModelConditionUpgrade", "MonitorConditionUpdate",
 		"OCLSpecialPower", "ObjectCreationUpgrade", "PassiveAreaEffectBehavior", "PhysicsBehavior", "PickupStuffUpdate", "PillageModule", "PlayerHealSpecialPower",
 		"PlayerUpgradeSpecialPower", "PorcupineFormationBodyModule", "ProductionSpeedBonus", "ProductionUpdate", "QueueProductionExitUpdate", "RebuildHoleExposeDie",
-		"RecoveryHelper", "RefundDie", "SMCHelper", "ScavengerSpecialPower", "ShareExperienceBehavior", "SiegeDeployHordeSpecialPower",
+		"RecoveryHelper", "RefundDie", "SMCHelper", "ScavengerSpecialPower", "ShareExperienceBehavior",
 		"SlaughterHordeContain", "SlaveWatcherBehavior", "SlavedUpdate", "SlowDeathBehavior", "SpawnBehavior", "SpawnPointProductionExitUpdate", "SpawnUnitBehavior",
 		"SpecialAbilityUpdate", "SpecialPowerModule", "SpellRechargeModifierUpgrade", "SquishCollide", "StancesBehavior", "StatusBitsUpgrade",
 		"StealthDetectorUpdate", "StructureBody", "StructureCollapseUpdate", "SubObjectsUpgrade", "TaintSpecialPower", "TemporarilyDefectUpdate",

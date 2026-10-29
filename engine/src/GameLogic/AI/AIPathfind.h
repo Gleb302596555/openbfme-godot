@@ -534,6 +534,18 @@ public:
 	// adjacent cell of zone `b`: an AIR mask always, a kind-less mask (-1) always, -666 never; else the two zones join directly for the unit (the pair test the
 	// effective-zone tables are built from, the non-terrain variant)
 	bool zonesJoin(const PathfindMovement &mv, zoneStorageType a, zoneStorageType b) const;
+	// The zone the hierarchical search compares (RW 0x9389A6; BFME2 0x00532041 -> 0x00531FE6(force = false)): retail reads its even union tables, which
+	// the region labeller links only inside the zone's own 16 x 16 block (BFME2 0x005329C8 -> 0x005324D8(0, ..)); the odd tables take every adjacency,
+	// across block borders too (0x00533BEC -> 0x005324D8(1, ..)). Two pieces of one block that meet only outside it (the two sides of a cliff that crosses
+	// the block) are two block zones, so the block search does not route through the cliff. The join rule is zonesJoin's. AIR and kind-less masks as
+	// getEffectiveZone. A raised-layer zone is its own block zone (the block search runs on the ground grid).
+	zoneStorageType getBlockZone(const PathfindMovement &mv, zoneStorageType zone) const;
+	// the block of every ground zone (derived, not saved): set by calculateZones, rebuilt from the cells after a load (Pathfinder::ensureZoneBlocks)
+	bool hasZoneBlocks() const { return !m_zones.empty() && m_zoneBlock.size() == m_zones.size(); }
+	void rebuildZoneBlocks(const PathfindGridView &map, const PathfindRegion &globalBounds);
+	// RW 0x9389CE: the block of cell (x, y) holds a CLEAR cell whose connect layer is a raised layer 2 .. 15 (RW block + 0x38 / + 0x3C, the pairs of that
+	// cell's zone and the layer's the zone update RW 0x93A530 -> 0x939FA8 records). Derived from the cells with the zone blocks
+	bool interactsWithRaisedLayer(int cellX, int cellY) const;
 
 	// the hierarchical block flags (RW block +0x34)
 	void clearPassableFlags();
@@ -565,6 +577,7 @@ private:
 		bool passable = true;
 		bool dirty = false;
 		std::vector<std::uint16_t> portals; // lane WALL-2: RW block + 0 (count) / + 4 (12 waypoint pointers)
+		bool raisedLink = false;            // RW block + 0x38 != + 0x3C (interactsWithRaisedLayer)
 	};
 	bool m_anyPortal = false; // lane WALL-2: a block ever listed a portal (the state hash folds the lists only then: maps without portals hash as before)
 public:
@@ -600,6 +613,9 @@ private:
 	std::vector<ZoneInfo> m_zones; // index = zone id; entry 0 is unused
 	std::vector<std::pair<zoneStorageType, zoneStorageType>> m_adjacent; // sorted, unique, a < b
 	mutable std::map<int, std::vector<zoneStorageType>> m_tables;        // key: (profile * 8 + kind) * 2 + flag -> root of every zone
+	std::vector<std::int32_t> m_zoneBlock;                               // zone -> its block (x block * y blocks + y block); -1: zone 0, raised layers
+	mutable std::map<int, std::vector<zoneStorageType>> m_blockTables;   // key: profile * 8 + kind -> the block-local root of every zone
+	const std::vector<zoneStorageType> &blockTable(int profile, int kind) const;
 };
 
 // ---------------------------------------------------------------------------------------------------------
@@ -981,6 +997,8 @@ public:
 	// lane PATHPERF-1 (AIPathfindHierarchical.cpp): RW FindClosestHierarchicalPath 0x6F9829 -> 0x6F8601, the A* over the 16 x 16 zone blocks. True when a
 	// corridor was built: its blocks are marked passable (RW 0x6F49BC) and `adjustedTo` is the goal, or the centre of the closest block cell reached when the
 	// goal's block cannot be. False: no corridor (the caller marks every block passable)
+	// the zone blocks the hierarchical search's block zones need (PathfindZoneManager::getBlockZone): rebuilt from the cells when a load left them unset
+	void ensureZoneBlocks();
 	bool findClosestHierarchicalPath(PathfindObject *obj, const PathfindLocomotorInfo &loco, bool isHuman, const Coord3D *from, const Coord3D *to,
 		Coord3D *adjustedTo);
 	// RW 0x6F937E .. 0x6F93B9: the block search's closest-cell key of a cell (dx, dy) from the goal, binary32 as RW computes it (lane PATHPERF-1)
@@ -1183,7 +1201,24 @@ private:
 		ICoord2D origin{ 0, 0 };        // + 0x10 / + 0x14
 		int width = 0, depth = 0;       // + 8 / + 0xC (cells)
 		std::vector<PathfindCell> cells; // + 0 / + 4, column-major: cells[x * depth + y]
-		bool used() const { return !areas.empty(); }
+		ICoord2D connect[2] = { { -1, -1 }, { -1, -1 } }; // + 0x18 / + 0x20: the wall connect cells (reset by ClassifyWallCells RW 0x768832)
+		bool used() const { return !areas.empty(); }      // RW 0x768326 (+ 0x34 the bridge, none of the wall kind, or + 0x38 the areas)
+		// AddWallConnectCell (RW 0x76879E): a cell that is neither connect cell yet takes the first free one; a third is dropped
+		void addWallConnectCell(const ICoord2D &c)
+		{
+			if ((c.x == connect[0].x && c.y == connect[0].y) || (c.x == connect[1].x && c.y == connect[1].y))
+			{
+				return;
+			}
+			if (connect[0].x == -1)
+			{
+				connect[0] = c;
+			}
+			else if (connect[1].x == -1)
+			{
+				connect[1] = c;
+			}
+		}
 	};
 	PathfindCell *raisedCell(PathfindLayerEnum layer, int x, int y)
 	{
@@ -1199,6 +1234,11 @@ private:
 	PathfindLayerEnum raisedLayerFor(const PathfindWallSurface &s, PathfindObjectID owner);
 	void rebuildRaisedLayer(PathfindLayerEnum layer); // the cells (rebuildRaisedCells), then the units' slots on the layer registered again
 	void rebuildRaisedCells(PathfindLayerEnum layer);
+	// RW 0x6EE600 without an object: the first raised layer in use whose passable cell holds (x, y) and whose height is less than 25 above `z`, else
+	// LAYER_INVALID (RW answers the ground cell's layer then)
+	PathfindLayerEnum raisedLayerAtPoint(float x, float y, float z) const;
+	// PathfindLayer + 0x2C: the raised layer's zone (its cells' zone, setZone RW 0x768336); 0 for a layer without cells
+	zoneStorageType raisedLayerZone(PathfindLayerEnum layer) const;
 	bool connectRampToRaised(int i, int j, PathfindCell *c, float rampHeight, int corners); // true when the cell joined a raised layer
 	void crcRaised(StateHasher &h) const;
 	PathfindLayerEnum wallLayerFor(float height);
@@ -1221,6 +1261,9 @@ private:
 	void examineHierarchicalEdgeCell(const ICoord2D &cell, const ICoord2D &delta, PathfindCell *parent, PathfindCell *goal, zoneStorageType parentZone,
 		zoneStorageType *zones, int &zoneCount, const PathfindMovement &mv);
 	void makeHierarchicalPathPassable(PathfindCell *last, bool expand);
+	// the hierarchical search's raised branch (RW 0x6F8CC7 .. 0x6F8F7B): the raised layers whose connect cell lies in the popped cell's block; true: the goal
+	// was found (a layer whose zone is the goal's)
+	bool hierarchicalRaisedLinks(PathfindCell *c, PathfindCell *goal, zoneStorageType cz, zoneStorageType goalZone, const PathfindMovement &mv, int &cellCount);
 	bool examineShortcutCell(PathfindCell *from, PathfindCell *to, int x, int y, struct ShortcutState &state);
 	// RW 0x6EB151: true means the cell blocks the footprint
 	bool blockerCallback(const PathfindObject *obj, const PathfindCell *cell, int *count, bool countAllies, PathfindObjectID ignoreId, bool ignoreUnits,

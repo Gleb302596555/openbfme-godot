@@ -704,11 +704,10 @@ TEST_CASE("wall2 raised: a group's formation search to a walkway point does not 
 
 TEST_CASE("wall2 raised: S-4858, the attack search's closest-cell fallback for a unit off the ground layer without a corridor, is in Pathfinder::allStops()")
 {
-	// lane WALL-2 with ATTACKPATH-1 (AIPathfindAttack.cpp): RotWK ranks the fallback cell only through its corridor, which the port builds on the ground grid
-	// only; the distance-ranked fallback off the ground is OpenBFME's own (Grond put on a Minas Tirith wall top reaches the gate through it)
+	// lane WALL-2 with ATTACKPATH-1 (AIPathfindAttack.cpp): RotWK ranks the fallback cell only through its corridor; the distance-ranked fallback off the ground
+	// is OpenBFME's own (Grond put on a Minas Tirith wall top reaches the gate through it)
 	const std::vector<std::string> all = Pathfinder::allStops();
 	CHECK(std::find(all.begin(), all.end(), std::string("S-4858 findAttackPath (RW 0x6FC18E) keeps its closest-cell fallback only with the corridor of RW 0x6F9829 (its RW 0x93AD93 ranking runs only"
-			  " when the corridor was found); the port's corridor runs on the ground grid only (S-162, S-4856), so a unit on a wall top, a raised walkway o"
-			  "r a ramp often has none and would get no path at all: such a search keeps the cell closest to the goal cell by its squared cell distance ins"
-			  "tead (OpenBFME's own, pending the corridor's raised branch)")) != all.end());
+			  " when the corridor was found); a unit off the ground layer whose start the block search cannot leave (Grond on a Minas Tirith wall top, whose wall cells it may n"
+			  "ot use) would get no path at all: such a search keeps the cell closest to the goal cell by its squared cell distance instead (OpenBFME's own)")) != all.end());
 }

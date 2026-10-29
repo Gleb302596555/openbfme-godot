@@ -872,17 +872,17 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 		{
 			// lane BANNER-1 (the banner carrier's refill as RotWK: replacements at the horde's experience and not counted as built, RW 0x89A40E; refills after
 			// RW 0x86EE52's windows): seed 2's table moves (fewer units built, other fights); the three games stay open at 9000
-			// merge queue q29: seed 2's table (both sides keep attacking, building and destroying through the windows; a sample every 1000 frames, cumulative)
+			// the block search's block zones and raised branch (RW 0x9389A6 / 0x9389CE; the three games still open at 9000): seed 2's table changes from the first window. Merge queue q29: seed 2's table (both sides keep attacking, building and destroying through the windows; a sample every 1000 frames, cumulative)
 			CHECK(run.progress ==
-		"frame 1000: [0 attacks 0 built 72u/8s destroyed 25u/2s] [1 attacks 0 built 75u/8s destroyed 35u/1s]\n"
-		"frame 2000: [0 attacks 1 built 260u/11s destroyed 116u/3s] [1 attacks 1 built 169u/10s destroyed 138u/4s]\n"
-		"frame 3000: [0 attacks 1 built 408u/12s destroyed 208u/4s] [1 attacks 2 built 306u/11s destroyed 337u/4s]\n"
-		"frame 4000: [0 attacks 4 built 595u/14s destroyed 301u/5s] [1 attacks 2 built 365u/14s destroyed 501u/4s]\n"
-		"frame 5000: [0 attacks 5 built 788u/16s destroyed 457u/5s] [1 attacks 3 built 512u/15s destroyed 673u/5s]\n"
-		"frame 6000: [0 attacks 7 built 986u/16s destroyed 573u/5s] [1 attacks 3 built 653u/15s destroyed 919u/6s]\n"
-		"frame 7000: [0 attacks 10 built 1186u/16s destroyed 630u/5s] [1 attacks 5 built 723u/18s destroyed 1175u/6s]\n"
-		"frame 8000: [0 attacks 11 built 1317u/17s destroyed 771u/6s] [1 attacks 5 built 833u/19s destroyed 1258u/6s]\n"
-		"frame 9000: [0 attacks 12 built 1418u/18s destroyed 849u/10s] [1 attacks 5 built 947u/22s destroyed 1385u/6s]\n");
+		"frame 1000: [0 attacks 1 built 71u/8s destroyed 14u/2s] [1 attacks 0 built 85u/8s destroyed 28u/2s]\n"
+		"frame 2000: [0 attacks 2 built 277u/10s destroyed 197u/3s] [1 attacks 3 built 244u/10s destroyed 183u/3s]\n"
+		"frame 3000: [0 attacks 4 built 483u/11s destroyed 310u/3s] [1 attacks 5 built 397u/12s destroyed 395u/3s]\n"
+		"frame 4000: [0 attacks 6 built 720u/14s destroyed 520u/3s] [1 attacks 6 built 565u/13s destroyed 619u/3s]\n"
+		"frame 5000: [0 attacks 8 built 986u/15s destroyed 639u/3s] [1 attacks 7 built 705u/15s destroyed 862u/3s]\n"
+		"frame 6000: [0 attacks 8 built 1137u/16s destroyed 809u/3s] [1 attacks 7 built 910u/16s destroyed 1090u/3s]\n"
+		"frame 7000: [0 attacks 9 built 1367u/18s destroyed 947u/3s] [1 attacks 7 built 1037u/17s destroyed 1246u/4s]\n"
+		"frame 8000: [0 attacks 14 built 1500u/19s destroyed 1064u/3s] [1 attacks 7 built 1154u/19s destroyed 1414u/4s]\n"
+		"frame 9000: [0 attacks 14 built 1675u/21s destroyed 1302u/3s] [1 attacks 7 built 1353u/19s destroyed 1606u/4s]\n");
 		}
 	}
 }
@@ -1073,7 +1073,9 @@ TEST_CASE("skirmish ai tactics: the offensive bodies make retail's draws in orde
 	// 15 seeds on the merged tree found seeds 37 and 41
 	// Lane SUMMON-1 (the OCLs' retail random draws, DoCommandUpgrade's rock-throw toggles): none of these twelve hands a Pincer team its waypoints within 2600
 	// frames; a probe of 16 seeds on the lane's tree (Deck) found 53 (two distances), 71, 101 and 113 (one each)
-	for (std::uint32_t seed : { 1234u, 2u, 7u, 11u, 13u, 17u, 19u, 31u, 29u, 67u, 37u, 41u, 53u, 71u })
+	// The block search's block zones and raised branch (RW 0x9389A6 / 0x9389CE: other routes, another random stream): none of these fourteen hands a Pincer
+	// team its waypoints within 2600 frames; a probe of 16 more seeds (73 .. 151) found 103, 107, 109 and 139 (one each)
+	for (std::uint32_t seed : { 1234u, 2u, 7u, 11u, 13u, 17u, 19u, 31u, 29u, 67u, 37u, 41u, 53u, 71u, 103u, 107u })
 	{
 		NewGameStart start(RandomAlgorithm::ZH_CarryChain);
 		REQUIRE_MESSAGE(NewGame::prepareNewGame(versusMessage(*s, "FactionMen", -1, "FactionMordor", 2, seed), s->world->playerTemplates(), s->settings, cache,
