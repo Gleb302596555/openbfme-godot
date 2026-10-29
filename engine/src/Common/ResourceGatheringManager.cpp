@@ -58,9 +58,8 @@ void eraseFirst(std::list<ObjectID> &l, std::list<ObjectID>::iterator it)
 
 std::string ResourceGatheringManager::stopLine()
 {
-	return "[S-5202] ResourceGatheringManager (lane LUMBER1, Player + 0x304): SupplyWarehouseDockUpdate / SupplyWarehouseCreate are not ported (no RotWK retail "
-		   "object uses them): a warehouse dock is refused by canTransferSuppliesAt (RW 0x82C5A6 reads its boxes); findBestSupplyCenter's erase of a missing "
-		   "center through the warehouse list (RW 0x8FACB1, ZH's bug) removes the node, the warehouse list's size counter it decrements is not modelled";
+	return "[S-5202] ResourceGatheringManager (lane LUMBER1, Player + 0x304): findBestSupplyCenter's erase of a missing center through the warehouse list "
+		   "(RW 0x8FACB1, ZH's bug) removes the node, the warehouse list's size counter it decrements is not modelled";
 }
 
 void ResourceGatheringManager::reset()
@@ -105,12 +104,14 @@ bool ResourceGatheringManager::canTransferSuppliesAt(Object *worker, Object *doc
 	{
 		return false;
 	}
-	const bool warehouse = hasModule(*dock, "SupplyWarehouseDockUpdate");
+	const SupplyWarehouseDockUpdate *warehouse = dynamic_cast<const SupplyWarehouseDockUpdate *>(dock->findModule("SupplyWarehouseDockUpdate"));
 	if (warehouse)
 	{
-		// RW 0x82C66C: the warehouse's boxes (+ 0x88) and the relationship (RW 0x68D7AB): SupplyWarehouseDockUpdate is not ported (S-5202)
-		dock->logic().noteStop(stopLine());
-		return false;
+		// RW 0x82C66C: a warehouse with no boxes left (+ 0x88) or one that is ENEMIES with the worker (RW 0x68D7AB, the dock toward the worker) refuses
+		if (warehouse->boxesStored() == 0 || dock->getRelationship(*worker) == ENEMIES)
+		{
+			return false;
+		}
 	}
 	const bool center = hasModule(*dock, "SupplyCenterDockUpdate");
 	if (center)
@@ -120,7 +121,7 @@ bool ResourceGatheringManager::canTransferSuppliesAt(Object *worker, Object *doc
 			return false; // RW 0x82C6CC .. 0x82C6EE
 		}
 	}
-	if (!center)
+	if (!warehouse && !center)
 	{
 		return false; // RW 0x82C6F3
 	}

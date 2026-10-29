@@ -13,4 +13,5 @@ list(APPEND OPENBFME_SIM_SOURCES
 )
 set(OPENBFME_LUMBER1_TESTS
     tests/test_lumber1.cpp
+    tests/test_supply_warehouse.cpp
 )
