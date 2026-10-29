@@ -142,7 +142,8 @@ void DrawableManager::bindObject(ObjectID object, DrawableID id)
 		{
 			return;
 		}
-		m_byObject.resize(std::max<size_t>((size_t)object + 1, m_byObject.size() + m_byObject.size() / 2), 0);
+		// never past kDenseObjectIds: findByObject trusts the vector for every id it covers, and the ids from there on live in m_byObjectFar
+		m_byObject.resize(std::min<size_t>(kDenseObjectIds, std::max<size_t>((size_t)object + 1, m_byObject.size() + m_byObject.size() / 2)), 0);
 	}
 	m_byObject[object] = id;
 }
