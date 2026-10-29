@@ -4,7 +4,7 @@
 
 #include "GameClient/OpenBFMEText.h"
 
-#include <ostream> // doctest prints a std::string_view through it; MSVC 14.44 does not pull it in
+#include <ostream> // doctest stringifies the std::string_view operands of CHECK(a == b) through std::ostream
 
 namespace
 {
