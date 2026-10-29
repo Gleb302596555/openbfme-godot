@@ -693,6 +693,14 @@ private:
 		bool staticKeyHouse = false;        ///< m_houseColors when it was made
 		std::uint32_t staticKeyOwner = 0, staticKeyCustom[3] = { 0u, 0u, 0u };
 		std::string staticKey;             ///< the key
+		// lane PERF-HD: a posed entry's model key inputs (refresh_views made the house-coloured key string, compared it and looked the shadow
+		// flag up by dynamic_cast for every animated drawable every frame): while these hold, `model` is still the key they make
+		bool animKeyValid = false;
+		bool animKeyShown = false, animKeyHouse = false;
+		const std::string *animKeyName = nullptr; ///< the poseView's modelName (a model condition state's string, stable while the state holds)
+		const void *animKeySwaps = nullptr;       ///< the poseView's textureSwaps
+		int animKeyKind = -1;
+		std::uint32_t animKeyColors[3] = { 0u, 0u, 0u };
 		HouseColorParams staticKeyPalette; ///< and what it was made from (used when a new model is built)
 		bool staticKeyColored = false;
 		std::vector<std::pair<std::string, std::string>> staticKeySwaps;

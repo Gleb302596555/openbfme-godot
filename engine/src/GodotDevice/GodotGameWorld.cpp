@@ -1743,17 +1743,25 @@ void GameWorld::refresh_views(double deltaMs)
 				W3DDrawPoseView &f = m_viewPose; // lane PERF-3: the frame's pose request and model by reference (frame() copied every name of the module)
 				e.draw->poseView(f);
 				const bool shown = f.model && !e.moduleHidden && !fogHidden;
+				// Donor W3DModelDrawRva000B8FA1.cpp (BFME2 0x4B8FA1): ordinary
+				// owners use kind 1; hero custom palettes keep precedence. Bake before
+				// filtering, using the existing RW 0x531C77 texture recolour routine.
+				const auto palette = Render_House_Color_Params(d->getHouseColor(), d->customColorKind(), d->customColors());
+				ev.colorsRevision = d->customColorRevision();
+				// lane PERF-HD: the model key below (the lowered name, the house colour's "#..." suffix, the swap suffix) depends only on these inputs;
+				// while they hold the key is `ev.model` already, so the strings are not made and compared again (every animated troop, every frame)
+				const bool keySame = ev.animKeyValid && ev.animKeyShown == shown && ev.animKeyHouse == m_houseColors && ev.animKeyName == f.modelName
+					&& ev.animKeySwaps == (const void *)f.textureSwaps && ev.animKeyKind == palette.kind
+					&& ev.animKeyColors[0] == (std::uint32_t)palette.colors[0] && ev.animKeyColors[1] == (std::uint32_t)palette.colors[1]
+					&& ev.animKeyColors[2] == (std::uint32_t)palette.colors[2];
+				if (!keySame)
+				{
 				if (shown && *f.modelName != ev.rawModel)
 				{
 					ev.rawModel = *f.modelName;
 					ev.rawLowered = AsciiStringUtil::lowered(*f.modelName);
 				}
 				static const std::string kNoModel;
-				// Donor W3DModelDrawRva000B8FA1.cpp (BFME2 0x4B8FA1): ordinary
-				// owners use kind 1; hero custom palettes keep precedence. Bake before
-				// filtering, using the existing RW 0x531C77 texture recolour routine.
-				const auto palette = Render_House_Color_Params(d->getHouseColor(), d->customColorKind(), d->customColors());
-				ev.colorsRevision = d->customColorRevision();
 				std::string coloredModel;
 				if (shown && m_houseColors && palette.kind > 0)
 				{
@@ -1831,6 +1839,17 @@ void GameWorld::refresh_views(double deltaMs)
 						}
 					}
 				}
+				ev.animKeyValid = true;
+				ev.animKeyShown = shown;
+				ev.animKeyHouse = m_houseColors;
+				ev.animKeyName = f.modelName;
+				ev.animKeySwaps = f.textureSwaps;
+				ev.animKeyKind = palette.kind;
+				for (int i = 0; i < 3; ++i)
+				{
+					ev.animKeyColors[i] = (std::uint32_t)palette.colors[i];
+				}
+				}
 				if (ev.instance >= 0)
 				{
 					if (entryXfChanged && ev.posed)
@@ -1890,9 +1909,11 @@ void GameWorld::refresh_views(double deltaMs)
 				}
 				ev.posed = false;
 				ev.model.clear();
+				ev.animKeyValid = false; // lane PERF-HD: the posed branch's key no longer describes `model`
 			}
 			else if (!e.staticModel.empty() && !e.moduleHidden)
 			{
+				ev.animKeyValid = false; // lane PERF-HD: this branch sets `model` itself
 				// lane HCKEY-1: the key and its palette / swaps are made again only when an input changed (not every frame)
 				const std::uint32_t owner = d->getHouseColor();
 				const int customKind = d->customColorKind();

@@ -51,6 +51,11 @@ namespace godot
 namespace
 {
 
+// lane PERF-HD: every MultiMesh's custom AABB, a box beyond any map. Without one Godot recomputes the AABB over every instance at each set_buffer,
+// and an animated model's buffers are rewritten every frame; one MultiMesh holds a model's instances across the whole battlefield, so its own
+// box culled nothing anyway
+const AABB kMultiMeshBounds(Vector3(-200000.0f, -50000.0f, -200000.0f), Vector3(400000.0f, 100000.0f, 400000.0f));
+
 String toGodot(const std::string &s)
 {
 	return String::utf8(s.c_str(), (int64_t)s.size());
@@ -901,6 +906,7 @@ int64_t W3DInstancer::build_model(const String &model_name)
 			item.Mesh = gpu;
 			item.MM.instantiate();
 			item.MM->set_transform_format(MultiMesh::TRANSFORM_3D);
+			item.MM->set_custom_aabb(kMultiMeshBounds); // lane PERF-HD: see kMultiMeshBounds
 			item.MM->set_use_custom_data(true);
 			item.MM->set_mesh(gpu->Mesh);
 			item.MM->set_instance_count(0);
