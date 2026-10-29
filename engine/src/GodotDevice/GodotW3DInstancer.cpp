@@ -643,15 +643,12 @@ std::shared_ptr<W3DInstancer::MeshGpu> W3DInstancer::build_mesh(const MeshModelC
 		tangents.resize(nv * 4);
 		for (int64_t v = 0; v < nv; ++v)
 		{
-			Vector3 n(d.Normal[v * 3], d.Normal[v * 3 + 1], d.Normal[v * 3 + 2]);
-			Vector3 t(d.Tangent[v * 3], d.Tangent[v * 3 + 1], d.Tangent[v * 3 + 2]);
-			Vector3 b(d.Bitangent[v * 3], d.Bitangent[v * 3 + 1], d.Bitangent[v * 3 + 2]);
-			// V is flipped on load (u, 1 - v), so +v' runs along -bitangent; Godot's binormal = cross(normal, tangent) * w
-			float w = n.cross(t).dot(-b) < 0.0f ? -1.0f : 1.0f;
-			tangents.set(v * 4 + 0, t.x);
-			tangents.set(v * 4 + 1, t.y);
-			tangents.set(v * 4 + 2, t.z);
-			tangents.set(v * 4 + 3, w);
+			// Godot's BINORMAL = cross(NORMAL, TANGENT.xyz) * w is made the file's bitangent: retail's vertex buffer holds it raw and
+			// normalmapped.fxo blob 22 negates it (the generated shader's fx = -BINORMAL); S-023
+			tangents.set(v * 4 + 0, d.Tangent[v * 3]);
+			tangents.set(v * 4 + 1, d.Tangent[v * 3 + 1]);
+			tangents.set(v * 4 + 2, d.Tangent[v * 3 + 2]);
+			tangents.set(v * 4 + 3, Godot_Tangent_Sign(&d.Normal[v * 3], &d.Tangent[v * 3], &d.Bitangent[v * 3]));
 		}
 	}
 	PackedFloat32Array custom0, custom1, custom2;

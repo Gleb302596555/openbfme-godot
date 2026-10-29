@@ -72,9 +72,19 @@ rem The road shader (terrain.fxo PSDefault_Array element 2) rendered and read ba
 echo == Godot road shader test (windowed, GPU)
 "%GODOT%" --path "%ROOT%godot" --script res://tests/road_shader_test.gd
 set "ROADSHADER=%ERRORLEVEL%"
-if "%ROADSHADER%"=="0" goto all_passed
+if "%ROADSHADER%"=="0" goto tangent_test
 if "%ROADSHADER%"=="77" goto shader_skipped
 echo ROAD SHADER TEST FAILED (exit %ROADSHADER%)
+exit /b 1
+
+:tangent_test
+rem Godot's BINORMAL = cross(NORMAL, TANGENT.xyz) * TANGENT.w, measured on the GPU: the FX shaders' normal-map frame rests on it (S-023)
+echo == Godot tangent convention test (windowed, GPU)
+"%GODOT%" --path "%ROOT%godot" --script res://tests/tangent_convention_test.gd
+set "TANGENT=%ERRORLEVEL%"
+if "%TANGENT%"=="0" goto all_passed
+if "%TANGENT%"=="77" goto shader_skipped
+echo TANGENT CONVENTION TEST FAILED (exit %TANGENT%)
 exit /b 1
 
 :shader_skipped
