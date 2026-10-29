@@ -99,8 +99,8 @@ const StructRow kRows[] = {
 	// Merge queue q26 (community #73's slot tables centred on their hordes and #74's spiral with BANNER-1 and the rest, measured once on the merged tree):
 	// 388 -> 406, 330 -> 422, 604 -> 660, 426 -> 404, 58 -> 72, 110 -> 122, 388 -> 406. Engine pins
 	{ "FactionMen", "GondorBarracks", "ActiveBody", 3000.0f, 20.0f, 75, 155.0f, true, 406 },
-	{ "FactionElves", "ElvenBarracks", "StructureBody", 3000.0f, 20.0f, 0, 100.0f, true, 422 }, // no BountyValue line
-	{ "FactionDwarves", "DwarfBarracks", "ActiveBody", 5000.0f, 20.0f, 125, 155.0f, true, 660 },
+	{ "FactionElves", "ElvenBarracks", "StructureBody", 3000.0f, 20.0f, 0, 100.0f, true, 432 }, // no BountyValue line; 422 -> 432 (see below)
+	{ "FactionDwarves", "DwarfBarracks", "ActiveBody", 5000.0f, 20.0f, 125, 155.0f, true, 612 }, // 660 -> 612: fix/horde-contain-no-follow: a horde's move or turn no longer carries its members, they walk to their slots (RW 0x871536)
 	{ "FactionIsengard", "IsengardUrukPit", "StructureBody", 3000.0f, 20.0f, 88, 89.0f, true, 404 },
 	{ "FactionMordor", "MordorBarracks", "StructureBody", 1500.0f, 100.0f, 0, 0.0f, false, 72 },
 	{ "FactionWild", "GoblinCave", "ActiveBody", 1500.0f, 50.0f, 100, 25.0f, true, 122 },

@@ -116,7 +116,9 @@ TEST_CASE("siege1 attack retail: a mumak and the Dwarven demolisher break Helm's
 	// each merge point)
 	CHECK(m.firstHit == 184);
 	// fix/ramp-bridge-cells: the first graze 3997.75 -> 3999.25, the ramp cells follow RotWK's ramp cell RW 0x93527F (Helm's Deep's ramps meet the ground and the wall tops only at their two ends): the AI defender's moves and the shared random stream; measured with the AI defender
-	CHECK(m.healthAfterFirst == 3999.25f);
+	// fix/horde-contain-no-follow: the first graze 3997.75 -> 3996.25 (the AI defender's hordes: a move or turn no longer carries their members, RW 0x871536;
+	// the shared random stream; measured with the AI defender); the two together: 3997 (measured with the AI defender)
+	CHECK(m.healthAfterFirst == 3997.0f);
 	CHECK(m.deathFrame == 415);
 	const AttackResult d = siegeAttack(*s, kHelmsDeep, "Main Gate", "DwarvenDemolisher", false, 250.0f, 600, true);
 	print("DwarvenDemolisher", d);

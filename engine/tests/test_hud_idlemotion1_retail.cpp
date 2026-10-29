@@ -11,6 +11,7 @@
 // member test (the port asked "not in an attack state") and the crush state's request (the port adjusted the point and reserved it as a final goal; RW clears
 // the adjust byte + 0x48 at RW 0x74F28D and requests the point as not final, RW 0x742425). SKIP when ROTWK_INSTALL / BFME2_INSTALL are unset.
 
+#include "HordeCompleteTestUtil.h"
 #include "doctest.h"
 #include "HudTestUtil.h"
 #include "Idle1TurnProbe.h"
@@ -96,6 +97,7 @@ struct Arena
 		Coord3D p{ x, y, 0.0f };
 		o->setPosition(&p);
 		o->setOrientation(angle);
+		testutil::completeHorde(o); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 		return o;
 	}
 };

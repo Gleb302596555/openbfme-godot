@@ -847,6 +847,12 @@ Object *LiveGame::createObject(const std::string &templateName, int playerIndex,
 		p.z = m_logic->getGroundHeight(p.x, p.y);
 		obj->setPosition(&p);
 		obj->setOrientation(angle);
+		// a horde makes its members where it stands: HordeContain's onBuildComplete (RW 0x8718ED), which RotWK's creators run once they have placed the object
+		// (RW 0x68D252). Only a horde is completed here: the other objects stay as this facade has always made them (the callers complete them when needed)
+		if (obj->getContain() && obj->getContain()->getHordeContainInterface())
+		{
+			obj->friend_onBuildComplete();
+		}
 		// lane PATH-2 (item 2, S-272 follow-up): a placed object registers its own footprint, as every retail creation site does (RW 0x62C93F .. 0x62C98D:
 		// newObject, setOrientation, setPosition, then addObjectToPathfindMap 0x6E85E9 unconditionally; DONOR ZH ScriptActions::doCreateObject). The pathfinder
 		// itself keeps only structures and fences (RW 0x936B7D)

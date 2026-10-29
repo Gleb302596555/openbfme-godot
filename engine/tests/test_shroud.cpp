@@ -3,6 +3,7 @@
 // 0xB50100 (hand-traced below), the looker counts of RW 0xB52E10 / 0xB52EC0, the unlook queue of RW 0xB526A0 / 0xB51690 and the retail data (PartitionCellSize
 // 40, UnlookPersistDuration 1 frame, UseShroud No), never this engine's own output.
 
+#include "HordeCompleteTestUtil.h"
 #include "CreepTestUtil.h"
 #include "doctest.h"
 
@@ -580,10 +581,12 @@ void runRetail(starttest::Shared &s, RetailRun &out, bool checks)
 	REQUIRE(et != nullptr);
 	Object *fighter = logic.newObject(ft, human->getDefaultTeam(), ObjectStatusMaskType{});
 	fighter->setPosition(walker->getPosition());
+	testutil::completeHorde(fighter); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 	target = logic.newObject(et, enemy->getDefaultTeam(), ObjectStatusMaskType{});
 	Coord3D fog{ walker->getPosition()->x, walker->getPosition()->y, 0.0f };
 	fog.y = fog.y > maxY * 0.5f ? fog.y - 900.0f : fog.y + 900.0f;
 	target->setPosition(&fog);
+	testutil::completeHorde(target); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 	game.advance(0.2);
 	walker = fighter;
 	if (target)

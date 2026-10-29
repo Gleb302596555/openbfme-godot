@@ -1,6 +1,7 @@
 // OpenBFME unit tests (lane BACKLOG2) on a retail skirmish (Evendim, Men against Mordor): what retail does to the ground before a structure appears there
 // (GameLogic/ConstructionSite.h). SKIP loudly when ROTWK_INSTALL / BFME2_INSTALL are unset.
 
+#include "HordeCompleteTestUtil.h"
 #include "doctest.h"
 
 #include "BuildTestUtil.h"
@@ -46,6 +47,7 @@ Object *spawn(GameLogic &logic, const char *name, Player &owner, const Coord3D &
 	REQUIRE_MESSAGE(o != nullptr, name);
 	Coord3D p = at;
 	o->setPosition(&p);
+	testutil::completeHorde(o); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 	return o;
 }
 

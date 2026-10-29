@@ -2,6 +2,7 @@
 // Lane AI-2: whole skirmish games between computer players on Evendim (GameLogic/SkirmishAI). The games run the retail data through LiveGame; the
 // expectations are outcomes retail's AI reaches (a victory within 30 game-minutes), never this engine's own frame-exact output.
 
+#include "HordeCompleteTestUtil.h"
 #include "doctest.h"
 
 #include "GameLogic/Module/AISpecialPowerUpdate.h"
@@ -1266,6 +1267,7 @@ Object *placeAt(GameLogic &logic, const char *name, Player *p, float x, float y)
 	REQUIRE_MESSAGE(o != nullptr, name);
 	Coord3D pos{ x, y, logic.getGroundHeight(x, y) };
 	o->setPosition(&pos);
+	testutil::completeHorde(o); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 	return o;
 }
 } // namespace

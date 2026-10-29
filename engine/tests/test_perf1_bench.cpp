@@ -399,6 +399,8 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // Merge queue q30 re-measured both once on the merged tree (OPENBFME_PERF1_REGEN=1, a CI host), compared at each merge point: PORTERFOG-1 (an object out of
 // the world keeps its shroud record, RW 0x68C18F / 0x68E31F) moves the skirmish from frame 8 and leaves the battle; #130 (allied clearing runs the move
 // state's update and exit, RW 0x749497 -> 0x748E46 / 0x74949C -> 0x748D8A: MOVING while clearing) moves the battle from frame 103 and the skirmish again from frame 2506.
+// The horde contain fix re-measured both (OPENBFME_PERF1_REGEN=1, Windows llvm-mingw): a horde makes its members where it stands at build complete
+// (RW 0x8718ED) and a move no longer puts them on their slots (RW 0x871536); it moves the battle from frame 0 and the skirmish from frame 2510.
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	const std::vector<std::uint32_t> battleRef = perf1::readHashes("big_battle_400.hashes");

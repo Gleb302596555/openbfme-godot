@@ -6,6 +6,7 @@
 // The objects themselves are obfme:Objects' (SAVE-4b, not merged): both games keep their own, identical objects. SKIP loudly without ROTWK_INSTALL /
 // BFME2_INSTALL.
 
+#include "HordeCompleteTestUtil.h"
 #include "doctest.h"
 
 #include "StartTestUtil.h"
@@ -1247,6 +1248,7 @@ TEST_CASE("save4c coverage (review r2): units attacking, moving, guarding, hunti
 		REQUIRE(k != nullptr);
 		Coord3D p = keepSpot;
 		k->setPosition(&p);
+		testutil::completeHorde(k); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 		REQUIRE((keepId == INVALID_ID || keepId == k->getID()));
 		keepId = k->getID();
 	}
@@ -1628,6 +1630,7 @@ TEST_CASE("save4c review r3: a live factory of another player in an AI's unit bu
 		REQUIRE(f != nullptr);
 		Coord3D pos{ x, 800.0f, l.getGroundHeight(x, 800.0f) };
 		f->setPosition(&pos);
+		testutil::completeHorde(f); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 		return f;
 	};
 	SUBCASE("a rival's factory in the snapshot")
@@ -1704,6 +1707,7 @@ TEST_CASE("save4c review r3: a giant bird saved mid-flight: its module (the flig
 		REQUIRE(o != nullptr);
 		Coord3D pos{ 1500.0f, 800.0f, l.getGroundHeight(1500.0f, 800.0f) };
 		o->setPosition(&pos);
+		testutil::completeHorde(o); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 		REQUIRE((id == INVALID_ID || id == o->getID()));
 		id = o->getID();
 	}
@@ -1792,6 +1796,7 @@ TEST_CASE("stealthfly1: a giant bird saved on its queued waypoints (follow path 
 		REQUIRE(o != nullptr);
 		Coord3D pos{ 1500.0f, 800.0f, l.getGroundHeight(1500.0f, 800.0f) };
 		o->setPosition(&pos);
+		testutil::completeHorde(o); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 		REQUIRE((id == INVALID_ID || id == o->getID()));
 		id = o->getID();
 	}
@@ -1925,6 +1930,7 @@ TEST_CASE("save4c review r4: a capture's snapshot loads and the game goes on as 
 		REQUIRE(f != nullptr);
 		Coord3D pos{ 1500.0f, 800.0f, l.getGroundHeight(1500.0f, 800.0f) };
 		f->setPosition(&pos);
+		testutil::completeHorde(f); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 		return f;
 	};
 	auto listed = [](const AISkirmishPlayer &ai, ObjectID id) {
@@ -1995,6 +2001,7 @@ TEST_CASE("save4c review r4: a capture's snapshot loads and the game goes on as 
 			REQUIRE(u != nullptr);
 			Coord3D pos{ 1500.0f, 800.0f, l.getGroundHeight(1500.0f, 800.0f) };
 			u->setPosition(&pos);
+			testutil::completeHorde(u); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 			// lane TARGET-1: held by NO_AUTO_ACQUIRE: a computer player's idle unit takes what it sees (RotWK's mood scan, RW 0x66844A), and from this spot the
 			// horde charged what it saw 460 to the east and died there before frame 351; the dispatch (RW 0x9A3040) does not read the status
 			u->setStatusAcrossHorde((unsigned)ObjectTemplateInfoBuilder::objectStatusIndex("NO_AUTO_ACQUIRE"), true);
@@ -2113,6 +2120,7 @@ TEST_CASE("save4c reviewer round5: round4 factory cleanup and legal dispatched c
 		REQUIRE(o);
 		Coord3D pos{1500.0f, 800.0f, l.getGroundHeight(1500.0f, 800.0f)};
 		o->setPosition(&pos);
+		testutil::completeHorde(o); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 		return o;
 	};
 	SUBCASE("captured factory recomputes and cannot spend the rival's money")
@@ -2183,6 +2191,7 @@ TEST_CASE("save4c reviewer round5: recapture registration is synchronous as RW 0
 	REQUIRE(f);
 	Coord3D pos{1500.0f, 800.0f, l.getGroundHeight(1500.0f, 800.0f)};
 	f->setPosition(&pos);
+	testutil::completeHorde(f); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 	AIBaseBuilder::update(l, *men);
 	f->getProductionUpdate()->cancelAllProduction();
 	men->build.pending.clear();
@@ -2269,6 +2278,7 @@ TEST_CASE("save4c reviewer round5: audit live dozer factories and owned tactic m
 		REQUIRE(u);
 		Coord3D pos{1500.0f, 800.0f, l.getGroundHeight(1500.0f, 800.0f)};
 		u->setPosition(&pos);
+		testutil::completeHorde(u); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 		// lane TARGET-1: held by NO_AUTO_ACQUIRE: a computer player's idle unit takes what it sees (RotWK's mood scan, RW 0x66844A), and from this spot the
 		// horde charged what it saw 460 to the east and died there before frame 351; the dispatch (RW 0x9A3040) does not read the status
 		u->setStatusAcrossHorde((unsigned)ObjectTemplateInfoBuilder::objectStatusIndex("NO_AUTO_ACQUIRE"), true);
@@ -2295,6 +2305,7 @@ TEST_CASE("save4c reviewer round5: audit live dozer factories and owned tactic m
 		REQUIRE(hero);
 		pos.x = 1540.0f;
 		hero->setPosition(&pos);
+		testutil::completeHorde(hero); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 		auto *power = dynamic_cast<DominateEnemySpecialPower *>(hero->findModule("DominateEnemySpecialPower"));
 		REQUIRE(power);
 		power->initiateIntentToDoSpecialPower(power->abilityData()->m_specialPowerTemplate, u, nullptr, 0, 0);
@@ -2337,6 +2348,7 @@ TEST_CASE("save4c review r7 (archive 593e83cd): the state machine kept across a 
 			REQUIRE(o != nullptr);
 			Coord3D pos{ 1500.0f, 800.0f, l.getGroundHeight(1500.0f, 800.0f) };
 			o->setPosition(&pos);
+			testutil::completeHorde(o); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 			REQUIRE((id == INVALID_ID || id == o->getID()));
 			id = o->getID();
 			// the order the AI keeps while the object defects, then a new machine's order

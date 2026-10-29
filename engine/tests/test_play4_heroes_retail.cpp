@@ -419,7 +419,9 @@ TEST_CASE("play4 heroes retail: every faction's heroes, recruited from the fortr
 				// mood checks back (RW 0x662DD9), so the scene's world plays differently; the damage and kills are unchanged
 				// lane OFFMAP-1: 3 strikes (2 before): RotWK's idle state (RW 0x745A64) no longer snaps the scene's units onto cell centres at frame <= 1
 				// (ZH's cheat move), so the fight starts from the positions they were made at; the damage and the kills are the same
-				CHECK(ord.shots == (drogoth ? 4u : 0u));
+				// horde contain (RW 0x871536 / 0x8718ED): 3 strikes (4 before): the scene's horde makes its members where it stands and a move no longer
+				// puts them on their slots, so they stand elsewhere when the bird arrives; the damage and the kills are the same
+				CHECK(ord.shots == (drogoth ? 3u : 0u));
 				CHECK(ord.lost == (drogoth ? 1500.0f : 450.0f));
 				CHECK(ord.membersKilled == (drogoth ? 20u : 5u));
 				continue;
