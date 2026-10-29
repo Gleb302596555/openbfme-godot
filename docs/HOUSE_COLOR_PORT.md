@@ -53,7 +53,13 @@ shade). Which formula runs depends on how retail draws the surface:
   computes `2 * (lerp(t0 * diffuse light, hc * 0.5, hc.a) + specular * alpha) * cloud`.
 - **Fixed function** (every other single-texture mesh): the recoloured texture
   replaces stage 1 and DetailColor becomes 13: BLENDTEXTUREALPHA of it over the
-  lit base, `lerp(lit base, hc, hc.a)`.
+  diffuse-lit base, `lerp(2 * t0 * diffuse, hc, hc.a)`, alpha unchanged. The
+  specular is not part of the term the region replaces: with the shader's secondary
+  gradient set (`D3DRS_SPECULARENABLE`, RW 0x537AE5) it is added after the blend
+  twice, `cur.a * spec` by stage 2 (`MODULATEALPHA_ADDCOLOR(CURRENT, SPECULAR)`,
+  RW 0x53764F-0x5376A4, applied when the device has more than 2 stages, RW
+  0x537973) and `spec` by the specular add; without the secondary gradient there is
+  none (S-6023).
 
 The two agree where the surface has no specular: the converted shader's
 `hc * 0.5 * 2` is `hc`. Ordinary player colours (kind 1) and heroes' colour sets

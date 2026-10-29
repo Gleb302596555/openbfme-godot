@@ -66,6 +66,38 @@ float W3D_NormalMapped_Specular(const float nt[3], const float lt[3], const floa
 	return (ndh > 0.0f && ndl > 0.0f) ? std::pow(ndh, exponent) : 0.0f;
 }
 
+void W3D_FixedFunction_House_Color(const float t0[4], const float diffuse[3], float diffuseAlpha, const float specular[3], bool secondaryGradient,
+	const float hc[4], float rgb[3], float *alpha)
+{
+	float a = t0[3] * diffuseAlpha;
+	for (int i = 0; i < 3; ++i)
+	{
+		const float lit = t0[i] * diffuse[i] * 2.0f;
+		rgb[i] = lit + (hc[i] - lit) * hc[3];
+	}
+	if (secondaryGradient)
+	{
+		for (int i = 0; i < 3; ++i)
+		{
+			const float spec = std::min(specular[i] * 2.0f, 1.0f);
+			rgb[i] += a * spec; // stage 2: MODULATEALPHA_ADDCOLOR(CURRENT, SPECULAR)
+			rgb[i] += spec;     // D3DRS_SPECULARENABLE
+		}
+	}
+	*alpha = a;
+}
+
+std::string W3D_FixedFunction_House_Color_Stop(bool converted, bool lit, int secGradient)
+{
+	if (converted || !lit || secGradient == 0)
+	{
+		return std::string();
+	}
+	return "[S-6023] fixed-function house colour with the secondary gradient set: the specular is added after the BLENDTEXTUREALPHA blend twice (stage 2 "
+		"MODULATEALPHA_ADDCOLOR(CURRENT, SPECULAR) scaled by the current alpha, then D3DRS_SPECULARENABLE), as RW 0x53764F-0x5376A4 / 0x537AE5 set up; the caps "
+		"(Max_Textures_Per_Pass > 2, ModAlphaAddClr) are assumed set and D3D9's fixed-function specular rules are taken from the runtime's documentation";
+}
+
 void W3D_SimpleFx_Uv_Matrix(const float transform[4], float timeSeconds, float row0[4], float row1[4])
 {
 	row0[0] = transform[0];
@@ -90,6 +122,7 @@ std::string W3DShaderKey::Id() const
 	if (HouseColorBaked) id += "_hcb"; // lane CAH-2
 	if (SimpleFx) id += "_sfx1";
 	if (ConvertedFx) id += "_cfx1"; // retail's DefaultW3D.fx replacement of a classic material (w3dfxconvert.h)
+	if (SecGradient && HouseColor) id += "_sg" + std::to_string(SecGradient); // D3DRS_SPECULARENABLE: only the house colour combine reads it
 	if (Fog) id += "_fog" + std::to_string(Fog); // lane RENDER-4
 	if (AlphaOverride) id += "_ao"; // lane BUILD-5 r3
 	if (OcclusionPass) id += "_occl" + std::to_string(OcclusionPass); // lane OCCLUDE-1
@@ -595,13 +628,26 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 		}
 		else
 		{
-			// fixed function (ShaderClassApply.cpp:1425-1436): stage 0 modulates the diffuse (x2), stage 1 BLENDTEXTUREALPHA(TEXTURE, CURRENT) with the
-			// recoloured texture, the alpha stays the current one
-			line("\t\tcur = vec4(mix(t0.rgb * (v_lit0.rgb + v_lit1) * 2.0, hc.rgb, hc.a), t0.a * v_lit0.a);");
+			// fixed function (ShaderClassApply.cpp:1425-1436, RotWK RW 0x53764F-0x5376A4): stage 0 modulates the diffuse (x2), stage 1
+			// BLENDTEXTUREALPHA(TEXTURE, CURRENT) with the recoloured texture, the alpha stays the current one. The specular is NOT part of the lit term here
+			// (it was blended away under an opaque house region): it is added after the blend (below)
+			line("\t\tcur = vec4(mix(t0.rgb * v_lit0.rgb * 2.0, hc.rgb, hc.a), t0.a * v_lit0.a);");
 		}
 		if (!k.ConvertedFx && k.DetailAlpha != W3D_DETAILALPHA_DISABLE)
 		{
 			line("\t\t{ vec4 l = cur; vec4 o = hc; cur.a = " + detailAlphaExpr(k.DetailAlpha) + "; }");
+		}
+		if (!k.ConvertedFx && k.PriGradient != W3D_GRADIENT_DISABLE && k.SecGradient != 0)
+		{
+			// The vertex specular exists only with D3DRS_SPECULARENABLE = the shader's secondary gradient bit (RW 0x537AE5: (word >> 13) & 1). With the
+			// stage 2 setup of DETAILCOLOR_MAX (stage 2 applied when Max_Textures_Per_Pass > 2, RW 0x537973; MODULATEALPHA_ADDCOLOR(CURRENT, SPECULAR) when
+			// the caps allow it, RW 0x537688) the specular is added TWICE: cur.rgb + cur.a * spec (stage 2, the alpha after the blend and any DetailAlpha), then
+			// + spec (the pipeline's specular add after the last stage). INFERENCE (stop S-6023): the caps are taken as set; the D3D9 fixed-function rules
+			// (vertex specular zero without SPECULARENABLE, added after the cascade with it) are the runtime's, not game.dat's. The lit specular is the vertex
+			// shader's v_lit1 (x2: the 0.5 of the effect convention), saturated like a vertex colour
+			line("\t\tvec3 spec = min(v_lit1 * 2.0, vec3(1.0));");
+			line("\t\tcur.rgb += cur.a * spec;");
+			line("\t\tcur.rgb += spec;");
 		}
 		line("\t}");
 	}

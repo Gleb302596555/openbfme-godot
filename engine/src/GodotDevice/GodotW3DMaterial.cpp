@@ -617,6 +617,7 @@ W3DMaterialResult W3DMaterialFactory::Create(const MeshRenderData &mesh, const M
 		key.DetailColor = st.DetailColorFunc;
 		key.DetailAlpha = st.DetailAlphaFunc;
 		key.Unshaded = st.PriGradient == W3D_GRADIENT_DISABLE;
+		key.SecGradient = st.SecGradient;
 		// the mesh's pass-0 surface as retail's conversion and its house colour recolour judge it (w3dfxconvert.h)
 		conv.Shader = &surf.Shader;
 		conv.HasVertexMaterial = surf.HasVertexMaterial;
@@ -792,6 +793,8 @@ W3DMaterialResult W3DMaterialFactory::Create(const MeshRenderData &mesh, const M
 			{
 				const std::string houseStop = W3D_House_Color_Stop(conv, key.ConvertedFx); // S-6022
 				if (!houseStop.empty()) out.Notes.push_back(houseStop);
+				const std::string specStop = W3D_FixedFunction_House_Color_Stop(key.ConvertedFx, key.PriGradient != W3D_GRADIENT_DISABLE, key.SecGradient); // S-6023
+				if (!specStop.empty()) out.Notes.push_back(specStop);
 				key.HouseColor = true;
 				out.Notes.push_back("house colour texture " + *hc + ": the recoloured texel is combined with the lit base by its alpha (" + std::string(key.ConvertedFx ? "DefaultW3D.fx HouseColorEnable" : "fixed-function BLENDTEXTUREALPHA") + ", S-022)");
 			}

@@ -248,3 +248,33 @@ def test_house_colour_blob_executes_as_the_generated_formula(effect):
     # hc.a = 1 with no specular: 2 * cloud * hc * 0.5 = cloud * hc, whatever the light and the base are
     out = run_pixel_shader(ps[155], (0.1, 0.1, 0.1, 1.0), (0, 0, 0), (0.9, 0.9, 0.9, 1.0), (0.5, 0.25, 0.75, 1.0), (1.0, 1.0, 1.0, 1.0))
     assert out[:3] == pytest.approx([0.5, 0.25, 0.75], abs=1e-6)  # tolerance: float arithmetic
+
+
+@needs_binary
+def test_fixed_function_house_colour_stage_setup_and_specular_enable(img):
+    # ShaderClass::Apply (RW 0x537xxx; BFME2 ShaderClassApply.cpp:1425-1436, 1605): the post-detail colour function minus 1 indexes the jump table at 0x537BB0 (shr 0x15,
+    # and 0xF, add -1, cmp 0xC, ja default); function 13 (DETAILCOLOR_MAX) is entry 12 -> 0x53764F, ModAlphaAddColor (12) entry 11 -> 0x537620
+    lines = body(img, 0x537488, 0x1A)
+    assert lines[0] == "537488 shr ebx, 0x15" and "53748b and ebx, 0xf" in lines and "53749a jmp dword ptr [ebx*4 + 0x537bb0]" in lines
+    table = struct.unpack_from("<13I", img.data, img.off(0x537BB0))
+    assert table[12] == 0x53764F and table[11] == 0x537620
+    # case 13: stage 1 colour BLENDTEXTUREALPHA (D3DTOP 13) of TEXTURE (eax = 2) over CURRENT (1), alpha SELECTARG2 (3) CURRENT (1) ...
+    lines = body(img, 0x53764F, 0x2F)
+    assert "537660 mov ecx, 0xd" in lines
+    assert "537665 mov dword ptr [esp + 0x18], ecx" in lines and "53766d mov dword ptr [esp + 0x14], ebx" in lines   # SeccOp, SeccArg2 = CURRENT (ebx = 1)
+    assert "537671 mov dword ptr [esp + 0x38], 3" in lines and "537679 mov dword ptr [esp + 0x3c], ebx" in lines     # SecaOp = SELECTARG2, SecaArg2 = CURRENT
+    # ... and stage 2 only when the device has more than 2 stages (cmp [caps + 0x2B0], eax with eax = 2; jle) and the caps byte +0x2A7 is set:
+    # TercOp = 0x12 (MODULATEALPHA_ADDCOLOR), TercArg1 = CURRENT (1), TercArg2 = SPECULAR (4), TeraOp = SELECTARG2 (3)
+    assert "53764f mov edx, dword ptr [0xdd34bc]" in lines and "537655 cmp dword ptr [edx + 0x2b0], eax" in lines
+    assert body(img, 0x53767D, 2) == ["53767d jle 0x5376ab"]
+    lines = body(img, 0x53767F, 0x25)
+    assert lines[0] == "53767f cmp byte ptr [edx + 0x2a7], 0" and "537686 je 0x5376ab" in lines
+    assert "537688 mov dword ptr [esp + 0x48], 0x12" in lines and "537690 mov dword ptr [esp + 0x4c], ebx" in lines
+    assert "537694 mov dword ptr [esp + 0x50], 4" in lines and "53769c mov dword ptr [esp + 0x54], 3" in lines
+    # the stage 2 states are written when Max_Textures_Per_Pass > 2: COLOROP / COLORARG1 / COLORARG2 / ALPHAOP ... on stage 2
+    lines = body(img, 0x537973, 0x14)
+    assert lines[0] == "537973 cmp dword ptr [edx + 0x2b0], 2" and "53797a jle 0x5379cd" in lines
+    # D3DRS_SPECULARENABLE (state 0x1D) = bit 13 of the shader word (the secondary gradient, MASK_SECGRADIENT)
+    lines = body(img, 0x537ADC, 0x10)
+    assert lines[0] == "537adc mov eax, dword ptr [esi]" and "537ade shr eax, 0xd" in lines and "537ae1 and eax, 1" in lines
+    assert "537ae5 push 0x1d" in lines

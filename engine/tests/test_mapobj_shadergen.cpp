@@ -99,12 +99,75 @@ TEST_CASE("shadergen: house colour combine of a surface retail converts to Defau
 	CHECK(houseKey(true, true).Id() == houseKey(false, true).Id() + "_cfx1");
 }
 
-TEST_CASE("shadergen: house colour combine of a surface left on the fixed-function pipeline (BLENDTEXTUREALPHA over the lit base)")
+TEST_CASE("shadergen: house colour combine of a surface left on the fixed-function pipeline (BLENDTEXTUREALPHA over the diffuse lit base, no specular without the secondary gradient)")
 {
-	// ShaderClassApply.cpp:1425-1436: stage 1 = BLENDTEXTUREALPHA(TEXTURE = the recoloured texture, CURRENT = the doubled lit texel); the alpha stays the current one
+	// ShaderClassApply.cpp:1425-1436 / RW 0x53764F: stage 1 = BLENDTEXTUREALPHA(TEXTURE = the recoloured texture, CURRENT = the doubled diffuse texel); the alpha stays the
+	// current one. The vertex specular exists only with D3DRS_SPECULARENABLE = the secondary gradient (RW 0x537AE5), so a surface without it has none
 	const std::string code = Generate_W3D_Shader_Code(houseKey(false, true));
-	at(code, "\t{\n\t\tcur = vec4(mix(t0.rgb * (v_lit0.rgb + v_lit1) * 2.0, hc.rgb, hc.a), t0.a * v_lit0.a);\n\t}\n\tfloat a = cur.a;");
+	at(code, "\t{\n\t\tcur = vec4(mix(t0.rgb * v_lit0.rgb * 2.0, hc.rgb, hc.a), t0.a * v_lit0.a);\n\t}\n\tfloat a = cur.a;");
 	CHECK(code.find("float al = ") == std::string::npos);
+	CHECK(code.find("vec3 spec") == std::string::npos);
+	// and the specular is no longer inside the term the opaque house region replaces
+	CHECK(code.find("mix(t0.rgb * (v_lit0.rgb + v_lit1)") == std::string::npos);
+}
+
+TEST_CASE("shadergen: the fixed-function house colour adds the specular twice after the blend when the secondary gradient is set (RW 0x53764F, 0x537973, 0x537AE5)")
+{
+	W3DShaderKey k = houseKey(false, true);
+	k.SecGradient = 1;
+	CHECK(k.Id() == houseKey(false, true).Id() + "_sg1");
+	const std::string code = Generate_W3D_Shader_Code(k);
+	// stage 1 blend, then stage 2 MODULATEALPHA_ADDCOLOR(CURRENT, SPECULAR) scaled by the current alpha, then the SPECULARENABLE add
+	at(code, "\t{\n\t\tcur = vec4(mix(t0.rgb * v_lit0.rgb * 2.0, hc.rgb, hc.a), t0.a * v_lit0.a);\n\t\tvec3 spec = min(v_lit1 * 2.0, vec3(1.0));\n\t\tcur.rgb += cur.a * spec;\n\t\tcur.rgb += spec;\n\t}\n\tfloat a = cur.a;");
+	// the stage 2 alpha is the one after a DetailAlpha function
+	k.DetailAlpha = W3D_DETAILALPHA_SCALE;
+	const std::string withAlpha = Generate_W3D_Shader_Code(k);
+	CHECK(at(withAlpha, "cur.a = l.a * o.a; }") < at(withAlpha, "cur.rgb += cur.a * spec;")); // tolerance: ordering of two positions in the generated text
+	// a converted surface (the conversion needs the secondary gradient Disable) and an unlit one have no such specular
+	W3DShaderKey converted = houseKey(true, true);
+	converted.SecGradient = 1;
+	CHECK(Generate_W3D_Shader_Code(converted).find("vec3 spec") == std::string::npos);
+	W3DShaderKey unlit = houseKey(false, true);
+	unlit.SecGradient = 1;
+	unlit.PriGradient = W3D_GRADIENT_DISABLE;
+	CHECK(Generate_W3D_Shader_Code(unlit).find("vec3 spec") == std::string::npos);
+	// the stop line is reported for exactly the first case
+	CHECK(W3D_FixedFunction_House_Color_Stop(false, true, 1).rfind("[S-6023] ", 0) == 0);
+	CHECK(W3D_FixedFunction_House_Color_Stop(true, true, 1).empty());
+	CHECK(W3D_FixedFunction_House_Color_Stop(false, false, 1).empty());
+	CHECK(W3D_FixedFunction_House_Color_Stop(false, true, 0).empty());
+}
+
+TEST_CASE("fixed-function house colour arithmetic: an opaque house region keeps the specular, added after the blend")
+{
+	const float t0[4] = { 0.8f, 0.6f, 0.4f, 1.0f };
+	const float diffuse[3] = { 0.3f, 0.3f, 0.3f };
+	const float hc[4] = { 0.5f, 0.25f, 0.75f, 1.0f }; // house alpha 1: the whole texel is the house region
+	const float specular[3] = { 0.1f, 0.05f, 0.2f };  // v_lit1 carries the effect's 0.5: the vertex specular is 0.2, 0.1, 0.4
+	float rgb[3], alpha;
+	// with the secondary gradient: hc + a * spec (stage 2) + spec (SPECULARENABLE), a = 1 * 1
+	W3D_FixedFunction_House_Color(t0, diffuse, 1.0f, specular, true, hc, rgb, &alpha);
+	CHECK(rgb[0] == doctest::Approx(0.5f + 0.2f + 0.2f)); // tolerance: float arithmetic
+	CHECK(rgb[1] == doctest::Approx(0.25f + 0.1f + 0.1f)); // tolerance: float arithmetic
+	CHECK(rgb[2] == doctest::Approx(0.75f + 0.4f + 0.4f)); // tolerance: float arithmetic
+	CHECK(alpha == 1.0f);
+	// stage 2 scales by the current alpha (0.5 here); the SPECULARENABLE add does not
+	const float half[4] = { 0.8f, 0.6f, 0.4f, 0.5f };
+	W3D_FixedFunction_House_Color(half, diffuse, 1.0f, specular, true, hc, rgb, &alpha);
+	CHECK(rgb[0] == doctest::Approx(0.5f + 0.5f * 0.2f + 0.2f)); // tolerance: float arithmetic
+	CHECK(rgb[2] == doctest::Approx(0.75f + 0.5f * 0.4f + 0.4f)); // tolerance: float arithmetic
+	CHECK(alpha == 0.5f);
+	// without the secondary gradient there is no vertex specular at all
+	W3D_FixedFunction_House_Color(t0, diffuse, 1.0f, specular, false, hc, rgb, &alpha);
+	CHECK(rgb[0] == doctest::Approx(0.5f)); // tolerance: float arithmetic
+	CHECK(rgb[1] == doctest::Approx(0.25f)); // tolerance: float arithmetic
+	CHECK(rgb[2] == doctest::Approx(0.75f)); // tolerance: float arithmetic
+	// the vertex specular saturates at 1 like a vertex colour; house alpha 0 leaves the doubled diffuse texel
+	const float bright[3] = { 0.7f, 0.0f, 0.0f };
+	const float clear[4] = { 0.5f, 0.25f, 0.75f, 0.0f };
+	W3D_FixedFunction_House_Color(t0, diffuse, 1.0f, bright, true, clear, rgb, &alpha);
+	CHECK(rgb[0] == doctest::Approx(0.8f * 0.3f * 2.0f + 1.0f + 1.0f)); // tolerance: float arithmetic
+	CHECK(rgb[1] == doctest::Approx(0.6f * 0.3f * 2.0f)); // tolerance: float arithmetic
 }
 
 TEST_CASE("shadergen: house colour on an unlit surface lerps the texel itself, converted or not")

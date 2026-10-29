@@ -44,6 +44,9 @@ struct W3DShaderKey
 	// on): lit by defaultw3d.fxo's pixel shaders, whose secondary texture and house colour combines differ from the fixed-function stage ops the other
 	// classic surfaces keep (ShaderClassApply.cpp). Set by the material factory only for MATERIAL_CLASSIC surfaces.
 	bool ConvertedFx = false;
+	// The shader's secondary gradient (ShaderClass::Get_Secondary_Gradient, the W3dShaderStruct field): D3DRS_SPECULARENABLE (RW 0x537AE5). A fixed-function
+	// surface (not ConvertedFx; the conversion needs 0) has a vertex specular only with it; see the house colour combine (stop S-6023)
+	int SecGradient = 0;
 	bool Tex[2] = { false, false };
 	bool Uv2 = false; // stage 1 reads its own coordinates
 	int TexGen[2] = { 0, 0 };           // W3DTexGen
@@ -119,3 +122,12 @@ float W3D_Lit_Specular(float ndl, float ndh, float power);
 //  * normalmapped.fxo pixel specular of one light: the INTERPOLATED tangent-space vectors lt / ht (not renormalized, as the
 //    pixel shader reads its texture coordinates) against the texel normal nt: [nt.ht > 0][nt.lt > 0] pow(nt.ht, exponent).
 float W3D_NormalMapped_Specular(const float nt[3], const float lt[3], const float ht[3], float exponent);
+//  * the fixed-function house colour of one lit pixel (the GLSL of Generate_W3D_Shader_Code for a non-converted HouseColor key; docs/HOUSE_COLOR_PORT.md):
+//    stage 0 MODULATE2X(texel, diffuse), stage 1 BLENDTEXTUREALPHA(house texel, current), then with the secondary gradient set the specular is added twice,
+//    cur.a * spec (stage 2, MODULATEALPHA_ADDCOLOR) and spec (D3DRS_SPECULARENABLE). `diffuse` is v_lit0.rgb, `specular` v_lit1 (both carry the effect's 0.5).
+//    out = rgb (saturation is the frame buffer's, not applied here); *alpha = t0.a * v_lit0.a
+void W3D_FixedFunction_House_Color(const float t0[4], const float diffuse[3], float diffuseAlpha, const float specular[3], bool secondaryGradient,
+	const float hc[4], float rgb[3], float *alpha);
+// The stop line ("[S-6023] ...") of a fixed-function surface whose house colour specular rests on assumptions about the D3D runtime and the caps. Empty
+// when the surface is not fixed-function lit with the secondary gradient set.
+std::string W3D_FixedFunction_House_Color_Stop(bool converted, bool lit, int secGradient);
