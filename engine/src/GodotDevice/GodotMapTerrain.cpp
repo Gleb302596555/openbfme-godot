@@ -839,7 +839,10 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 		std::string werr;
 		if (!MapWeatherScan::load(*arch, mapDir, weather, &werr))
 		{
-			errors.push_back(toGodot("weather: " + werr));
+			// retail: an INIException from weather.ini / map.ini (RW 0x62710d, no try block) unwinds out of the map start to GameEngine::update's
+			// catch (RW 0x639f4c); the map is not built, so there is no fog or cloud setting to invent
+			memdelete(root);
+			return fail("weather: " + werr);
 		}
 		if (!optBool(options, "fog", true))
 		{

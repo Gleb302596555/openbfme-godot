@@ -117,6 +117,7 @@ DENYLIST = {
     "water_normal_test.gd": "manual: requires GPU rendering for fixed-input water normals",
     "standing_water_test.gd": "manual: requires private retail assets and GPU water rendering",
     "map_water_ini_error_test.gd": "manual: requires private retail assets (a synthetic mod water.ini over a retail map)",
+    "map_weather_ini_error_test.gd": "manual: requires private retail assets (a synthetic mod weather.ini over a retail map)",
     **dict.fromkeys(scripts("bfme1_hud bfme1_map_memory bfme1_plot bfme1_quit bfme1_castle_path bfme1"),
                     "manual: needs a private BFME1 installation"),
     **dict.fromkeys(scripts("""

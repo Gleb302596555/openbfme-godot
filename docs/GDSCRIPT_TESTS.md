@@ -232,6 +232,7 @@ runner is claimed. All paths below are relative to the repository root.
 | `godot/tests/water_normal_test.gd` | Manual only; no generic pytest runner | GPU rendering; synthetic textures, no retail assets. |
 | `godot/tests/standing_water_test.gd` | Manual only; no generic pytest runner | Private retail assets and GPU water rendering. |
 | `godot/tests/map_water_ini_error_test.gd` | Manual only; no generic pytest runner | Private retail assets; a synthetic mod `water.ini` over a retail map. |
+| `godot/tests/map_weather_ini_error_test.gd` | Manual only; no generic pytest runner | Private retail assets; a synthetic mod `weather.ini` over a retail map. |
 
 ## OAuth readiness regression
 
