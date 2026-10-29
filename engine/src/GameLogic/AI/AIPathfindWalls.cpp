@@ -566,20 +566,7 @@ void Pathfinder::stampRampSurface(const PathfindWallSurface &s)
 		return;
 	}
 	const PathfindRegion r = surfaceCells(s);
-	// RW 0x9356DF (the add branch) before its cells: an end of the ramp on a raised layer (RW 0x6EE600 at the Bridge's from, then its to; RW 0x5E2F24)
-	// makes the end's cell (RW 0x6E8CE6, centred) a wall connect cell of that layer (AddWallConnectCell RW 0x76879E): the hierarchical search's raised
-	// branch walks between a layer's two connect cells
-	for (const Coord3D &end : { b.from, b.to })
-	{
-		const PathfindLayerEnum l = raisedLayerAtPoint(end.x, end.y, end.z);
-		if (l != LAYER_INVALID)
-		{
-			Coord3D p = end;
-			ICoord2D cell;
-			worldToCell(&p, true, &cell);
-			m_raised[(size_t)l].addWallConnectCell(cell);
-		}
-	}
+	addRampConnectCells(b.from, b.to);
 	for (int i = r.lo.x; i <= r.hi.x; ++i)
 	{
 		for (int j = r.lo.y; j <= r.hi.y; ++j)
@@ -652,6 +639,43 @@ void Pathfinder::stampRampSurface(const PathfindWallSurface &s)
 			}
 			c->setZone(PathfindZoneManager::UNINITIALIZED_ZONE);
 			if (!m_buildingMap) m_zoneManager.markCellDirty(i, j);
+		}
+	}
+}
+
+void Pathfinder::addRampConnectCells(const Coord3D &from, const Coord3D &to)
+{
+	// RW 0x9356DF (the add branch) before its cells: an end of the ramp on a raised layer (RW 0x6EE600 at the Bridge's from, then its to; RW 0x5E2F24)
+	// makes the end's cell (RW 0x6E8CE6, centred) a wall connect cell of that layer (AddWallConnectCell RW 0x76879E): the hierarchical search's raised
+	// branch walks between a layer's two connect cells
+	for (const Coord3D &end : { from, to })
+	{
+		const PathfindLayerEnum l = raisedLayerAtPoint(end.x, end.y, end.z);
+		if (l != LAYER_INVALID)
+		{
+			Coord3D p = end;
+			ICoord2D cell;
+			worldToCell(&p, true, &cell);
+			m_raised[(size_t)l].addWallConnectCell(cell);
+		}
+	}
+}
+
+void Pathfinder::rebuildWallConnectCells()
+{
+	for (RaisedLayer &r : m_raised)
+	{
+		r.connect[0] = r.connect[1] = ICoord2D{ -1, -1 };
+	}
+	for (const WallPiece &p : m_wallPieces)
+	{
+		for (const PathfindWallSurface &s : p.ramps)
+		{
+			const RampBridge b = makeRampBridge(s);
+			if (b.valid && bridgeNormal(b).z != 0.0f) // the ramps stampRampSurface stamps
+			{
+				addRampConnectCells(b.from, b.to);
+			}
 		}
 	}
 }

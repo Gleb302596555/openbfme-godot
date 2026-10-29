@@ -1056,6 +1056,8 @@ public:
 	// PathfindLayer + 0x3C (Pathfinder::GetWallLayerHeight BFME2 WB 0xd3ec10: the int height as a float); 0 for a layer not in use
 	float raisedLayerHeight(PathfindLayerEnum layer) const;
 	size_t raisedLayerCount() const;
+	// PathfindLayer + 0x18 (k = 0) / + 0x20 (k = 1): the layer's wall connect cells, (-1, -1) when unset (see AIPathfindRaised.cpp)
+	ICoord2D raisedConnectCell(PathfindLayerEnum layer, int k) const;
 
 	// ---- lane WALL-2: portal waypoints (AIPathfindPortals.cpp) ----
 	// THE PORTAL API (for DynamicPortalBehaviour, FakePathfindPortalBehaviour and the siege lane's ladders and towers, which plug in through the first of them):
@@ -1234,6 +1236,11 @@ private:
 	PathfindLayerEnum raisedLayerFor(const PathfindWallSurface &s, PathfindObjectID owner);
 	void rebuildRaisedLayer(PathfindLayerEnum layer); // the cells (rebuildRaisedCells), then the units' slots on the layer registered again
 	void rebuildRaisedCells(PathfindLayerEnum layer);
+	// RW 0x9356DF's ends: the cell of a ramp end (getRamp's from, then its to) on a raised layer becomes a wall connect cell of that layer
+	void addRampConnectCells(const Coord3D &from, const Coord3D &to);
+	// every raised layer's connect cells from the wall pieces' ramps, in insertion order: after a load (RW's layer xfer RW 0x7683B8 saves + 0x18 / + 0x20;
+	// the port's snapshot keeps the layers' cells only, and the connect cells follow from the ramps it restores)
+	void rebuildWallConnectCells();
 	// RW 0x6EE600 without an object: the first raised layer in use whose passable cell holds (x, y) and whose height is less than 25 above `z`, else
 	// LAYER_INVALID (RW answers the ground cell's layer then)
 	PathfindLayerEnum raisedLayerAtPoint(float x, float y, float z) const;

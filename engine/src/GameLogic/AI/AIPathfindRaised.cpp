@@ -135,6 +135,11 @@ PathfindLayerEnum Pathfinder::raisedLayerAtPoint(float x, float y, float z) cons
 	return LAYER_INVALID;
 }
 
+ICoord2D Pathfinder::raisedConnectCell(PathfindLayerEnum layer, int k) const
+{
+	return isRaisedLayer(layer) && (k == 0 || k == 1) ? m_raised[(size_t)layer].connect[k] : ICoord2D{ -1, -1 };
+}
+
 zoneStorageType Pathfinder::raisedLayerZone(PathfindLayerEnum layer) const
 {
 	if (!isRaisedLayer(layer) || m_raised[(size_t)layer].cells.empty())

@@ -35,6 +35,7 @@
 #include "GameLogic/AI/AIHunt.h"
 #include "GameLogic/Module/GiantBirdAIUpdate.h"
 #include "GameLogic/AI/AIStateMachine.h"
+#include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/Module/ProductionUpdate.h"
 #include "GameLogic/Module/HeroAbilityModules.h"
 #include "GameLogic/VictoryConditions.h"
@@ -1177,13 +1178,14 @@ TEST_CASE("save4c coverage (review r2): units attacking, moving, guarding, hunti
 	REQUIRE(mover != nullptr);
 	REQUIRE(guard != nullptr);
 	REQUIRE(hunter != nullptr);
+	// the victim: the second player's first living structure the attacker's weapons may attack (aiAttackObject's own test, ObjectWeapons::canAttackObject;
+	// review of #161: the AIs' game at frame 3,000 moves with every simulation change, and its first structure was one the attacker could not attack)
 	Object *victim = nullptr;
 	for (Object *o = la.getFirstObject(); o && !victim; o = o->getNextObject())
 	{
-		victim = o->getControllingPlayer() && o->getControllingPlayer()->getPlayerIndex() == playerIds[1] && o->isKindOf((unsigned)structureKind) &&
-		                 !o->isEffectivelyDead()
-		             ? o
-		             : nullptr;
+		const bool candidate = o->getControllingPlayer() && o->getControllingPlayer()->getPlayerIndex() == playerIds[1] && o->isKindOf((unsigned)structureKind) &&
+			!o->isEffectivelyDead();
+		victim = candidate && attacker->getWeapons() && attacker->getWeapons()->canAttackObject(*o, CMD_FROM_SCRIPT, false) ? o : nullptr;
 	}
 	REQUIRE(victim != nullptr);
 	// a garrison: Fall Back's skirmish has no garrisonable building, so both games get the same GondorKeep (the garrison tests' keep) for the Men player,

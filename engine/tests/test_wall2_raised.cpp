@@ -357,6 +357,51 @@ TEST_CASE("wall2 raised review of #63: a snapshot whose ground and raised cell i
 	CHECK(after.value() == before.value());
 }
 
+// review of #161 (Greptile P1): the walkway's wall connect cells (PathfindLayer + 0x18 / + 0x20) come back with a load: RW's layer xfer (RW 0x7683B8)
+// saves them; the port's snapshot makes them again from the restored ramps (Pathfinder::rebuildWallConnectCells). Without them the block search's raised
+// branch (RW 0x9389CE) skips the walkway
+TEST_CASE("wall2 raised: a snapshot's load brings the walkway's wall connect cells back, and the walk over the walkway is the same")
+{
+	GatehouseWorld saved, loaded;
+	const ICoord2D c0 = saved.pf->raisedConnectCell(LAYER_TOP, 0), c1 = saved.pf->raisedConnectCell(LAYER_TOP, 1);
+	REQUIRE(c0.x >= 0); // tolerance: a precondition, both ramps' top ends on the walkway (any cell)
+	REQUIRE(c1.x >= 0); // tolerance: as above
+	std::vector<std::uint8_t> bytes;
+	{
+		AIXfer::StringTableScope strings;
+		XferSave save;
+		saved.pf->xfer(save);
+		bytes = save.data();
+	}
+	{
+		AIXfer::StringTableScope strings;
+		XferLoad load(bytes);
+		loaded.pf->xfer(load);
+	}
+	CHECK(loaded.pf->raisedConnectCell(LAYER_TOP, 0).x == c0.x);
+	CHECK(loaded.pf->raisedConnectCell(LAYER_TOP, 0).y == c0.y);
+	CHECK(loaded.pf->raisedConnectCell(LAYER_TOP, 1).x == c1.x);
+	CHECK(loaded.pf->raisedConnectCell(LAYER_TOP, 1).y == c1.y);
+	// the first test's walk from the left wall top to the right one, on both
+	for (GatehouseWorld *w : { &saved, &loaded })
+	{
+		LayeredUnit *u = w->unit(1, 150.0f, 100.0f, 60.0f, LAYER_WALL_FIRST);
+		Coord3D from = u->pos, to{ 455.0f, 105.0f, 60.0f };
+		bool partial = true;
+		Path *p = w->pf->findPath(u, groundLoco(), &from, &to, &partial);
+		REQUIRE(p != nullptr);
+		CHECK_FALSE(partial);
+		bool sawRaised = false;
+		for (const PathNode *n = p->getFirstNode(); n; n = n->getNext())
+		{
+			sawRaised = sawRaised || n->getLayer() == LAYER_TOP;
+		}
+		CHECK(sawRaised);
+		CHECK(p->getLastNode()->getLayer() == LAYER_WALL_FIRST);
+		delete p;
+	}
+}
+
 TEST_CASE("wall2 raised: wall tops and ramps carry bit 17 (RW 0x935051 / 0x93527F): a unit with CanPathThroughGates = No cannot path up the ramp onto the wall")
 {
 	GatehouseWorld w;

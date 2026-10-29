@@ -544,6 +544,9 @@ void Pathfinder::applyWalls(WallState &w, bool loaded)
 			}
 		}
 	}
+	// the raised layers' wall connect cells: RW's layer xfer (RW 0x7683B8) saves them (+ 0x18 / + 0x20); the port's snapshot does not, and makes them
+	// again from the restored ramps, whose cells they follow (review of #161, Greptile P1)
+	rebuildWallConnectCells();
 	for (PathfindCell &c : m_blockOfMapCells)
 	{
 		c.setPortal(0);
