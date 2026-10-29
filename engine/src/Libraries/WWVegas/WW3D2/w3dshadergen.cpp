@@ -603,8 +603,33 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 		line("\tvec4 diff = vec4(v_lit0.rgb + v_lit1, v_lit0.a);");
 		line(k.Texturing ? "\tcur = vec4(t0.rgb * diff.rgb * 2.0, t0.a * diff.a);" : "\tcur = vec4(diff.rgb * 2.0, diff.a);");
 	}
-	if (k.Tex[1] && k.Texturing && (k.DetailColor != W3D_DETAILCOLOR_DISABLE || k.DetailAlpha != W3D_DETAILALPHA_DISABLE))
+	if (k.Tex[1] && k.Texturing && k.ConvertedFx && (k.DetailColor == W3D_DETAILCOLOR_DETAILBLEND || k.DetailColor == W3D_DETAILCOLOR_MODALPHAADDCOLOR))
 	{
+		// defaultw3d.fxo ps_2_0, NumTextures 2 (PS_Array[8] and [11] of tools/render/d3d9_disasm.py: blobs 195 and 198, MeshMatDescFXShaderConversion.cpp:416-433). The
+		// modes combine the texels with the LIGHT terms, before the final x2, not with the already doubled colour:
+		//   DetailBlend (mode 2):       r3 = t1 - t0 * (v0 + v1); r0 = t0 * v0, alpha t0.a * v0.a; r0.rgb = r0.rgb' + alpha * r3; * cloud; * 2
+		//                               = 2 * lerp(t0 * (diffuse + specular), t1, alpha)   (t1 is doubled with the rest)
+		//   ModAlphaAddColor (mode 3):  r0 = t0 * v0; r0.rgb += v1 * r0.a; * cloud; * 2, Texture_1 is not sampled
+		//                               = 2 * (t0 * diffuse + specular * alpha)
+		// The cloud factor is not applied (S-390). An unlit surface (primary gradient Disable) takes the same expressions: its v0 / v1 are the vertex stage's, and
+		// the material factory gives such a converted surface the conversion's parameters (ColorDiffuse / ColorAmbient / ColorSpecular 0, ColorEmissive 1,
+		// Opacity 1: MeshMatDescFXShaderConversion.cpp:286-327, RW 0x599865-0x599a62), which the vertex shaders (VS_Array, every permutation: oD0.rgb =
+		// (lights * ColorDiffuse + ambient * ColorAmbient + ColorEmissive) * vertex colour * 0.5, oD0.a = vertex alpha * Opacity * OpacityOverride,
+		// oD1 = specular * ColorSpecular * 0.5; tools/render/test_secondary_texture_binary_facts.py) turn into v0 = 0.5 * vertex colour, v1 = 0
+		line("\t{ float al = t0.a * v_lit0.a;");
+		if (k.DetailColor == W3D_DETAILCOLOR_DETAILBLEND)
+		{
+			line("\t\tcur = vec4(2.0 * mix(t0.rgb * (v_lit0.rgb + v_lit1), t1.rgb, al), al); }");
+		}
+		else
+		{
+			line("\t\tcur = vec4(2.0 * (t0.rgb * v_lit0.rgb + v_lit1 * al), al); }");
+		}
+	}
+	else if (k.Tex[1] && k.Texturing && (k.DetailColor != W3D_DETAILCOLOR_DISABLE || k.DetailAlpha != W3D_DETAILALPHA_DISABLE))
+	{
+		// fixed function (ShaderClassApply.cpp:1325-1445) and the converted Scale / Scale2X (the same product: blobs 189, 192): stage 1 combines with the stage 0 result
+		// (the doubled lit texel); DetailBlend is D3DTOP_BLENDCURRENTALPHA(TEXTURE, CURRENT) = lerp(CURRENT, TEXTURE, CURRENT.a), the texture NOT doubled
 		line("\t{ vec4 l = cur; vec4 o = t1;");
 		line("\t\tcur = vec4(" + detailColorExpr(k.DetailColor) + ", " + detailAlphaExpr(k.DetailAlpha) + "); }");
 	}
