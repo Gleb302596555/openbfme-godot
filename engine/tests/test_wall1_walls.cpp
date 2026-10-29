@@ -374,6 +374,97 @@ TEST_CASE("wall1 walls: a destroyed wall piece's cells go back to the ground; th
 	CHECK(w.cell(22, 10).getLayer() == LAYER_WALL_FIRST);
 }
 
+// review (Greptile, #159): getRamp answers false for a flat RampMesh, so RotWK records no ramp and its ramp cell rule never runs for it; the port's
+// Bridge of such a mesh is all zeros, which must not touch the cell at the map's origin
+TEST_CASE("wall1 walls: a flat RampMesh is no ramp: a piece whose ramp is flat changes no cell, the one at the map's origin included")
+{
+	SyntheticTerrain terrain(20, 20);
+	TestWorld world;
+	Pathfinder pf(testConfig(), &world);
+	pf.newMap(terrain);
+	WallPieceObject *piece = new WallPieceObject();
+	piece->id = 9;
+	piece->pos = { 150.0f, 150.0f, 0.0f }; // its footprint far from the ramp's cells
+	piece->structure = true;
+	piece->kinds.insert(PK_WALK_ON_TOP_OF_WALL);
+	piece->geometry.type = PATHFIND_GEOMETRY_BOX;
+	piece->geometry.majorRadius = 5.0f;
+	piece->geometry.minorRadius = 5.0f;
+	piece->walls.ramps.push_back(quad(0.0f, 0.0f, 30.0f, 20.0f, 0.0f, 0.0f));
+	world.objects[piece->id] = piece;
+	pf.addObjectToPathfindMap(*piece);
+	CHECK(pf.wallPieceCount() == 1);
+	for (int x = 0; x < 10; ++x) // the ramp mesh's cells and around them
+	{
+		for (int y = 0; y < 10; ++y)
+		{
+			INFO(x << ", " << y);
+			const PathfindCell *c = pf.cellAt(x, y);
+			CHECK(c->getLayer() == LAYER_GROUND);
+			CHECK(c->getConnectLayer() == LAYER_INVALID);
+			CHECK_FALSE(c->getBit17());
+			CHECK(c->getType() == PathfindCell::CELL_CLEAR);
+		}
+	}
+	pf.removeObjectFromPathfindMap(*piece);
+	delete piece;
+}
+
+// review (Greptile, #159): a ramp's cells are the ones its Bridge covers (RW 0x9356DF adds and removes through the same cell rule); a two-triangle ramp
+// whose ends differ in width has a Bridge of the two ends' mean width, wider than its triangles near the narrow end. Removing the piece takes back every
+// cell the Bridge gave the ramp
+TEST_CASE("wall1 walls: a removed ramp gives back every cell its Bridge took, where the Bridge is wider than the mesh's triangles too")
+{
+	SyntheticTerrain terrain(30, 20);
+	TestWorld world;
+	Pathfinder pf(testConfig(), &world);
+	pf.newMap(terrain);
+	WallPieceObject *piece = new WallPieceObject();
+	piece->id = 9;
+	piece->pos = { 150.0f, 100.0f, 0.0f };
+	piece->structure = true;
+	piece->kinds.insert(PK_WALK_ON_TOP_OF_WALL);
+	piece->geometry.type = PATHFIND_GEOMETRY_BOX;
+	piece->geometry.majorRadius = 50.0f;
+	piece->geometry.minorRadius = 45.0f;
+	// the narrow end at x = 100 (y 95 .. 105, z 0), the wide end at x = 200 (y 55 .. 145, z 60): the Bridge spans y 75 .. 125 along its length
+	PathfindWallSurface ramp;
+	PathfindWallTriangle a, b;
+	a.v[0] = { 100.0f, 95.0f, 0.0f };
+	a.v[1] = { 200.0f, 55.0f, 60.0f };
+	a.v[2] = { 200.0f, 145.0f, 60.0f };
+	b.v[0] = { 100.0f, 95.0f, 0.0f };
+	b.v[1] = { 200.0f, 145.0f, 60.0f };
+	b.v[2] = { 100.0f, 105.0f, 0.0f };
+	ramp.triangles = { a, b };
+	ramp.loX = 100.0f;
+	ramp.loY = 55.0f;
+	ramp.hiX = 200.0f;
+	ramp.hiY = 145.0f;
+	ramp.height = 60.0f;
+	piece->walls.ramps.push_back(ramp);
+	world.objects[piece->id] = piece;
+	pf.addObjectToPathfindMap(*piece);
+	CHECK(pf.wallPieceCount() == 1);
+	// cell (10, 7) (x 100 .. 110, y 70 .. 80) lies in the Bridge, outside both triangles: the ramp's side, type 5
+	CHECK(pf.cellAt(10, 7)->getLayer() == LAYER_RAMP);
+	CHECK(pf.cellAt(10, 7)->getType() == PathfindCell::CELL_BRIDGE_IMPASSABLE);
+	pf.removeObjectFromPathfindMap(*piece);
+	for (int x = 0; x < 30; ++x)
+	{
+		for (int y = 0; y < 20; ++y)
+		{
+			INFO(x << ", " << y);
+			const PathfindCell *c = pf.cellAt(x, y);
+			CHECK(c->getLayer() == LAYER_GROUND);
+			CHECK(c->getConnectLayer() == LAYER_INVALID);
+			CHECK_FALSE(c->getBit17());
+			CHECK(c->getType() == PathfindCell::CELL_CLEAR);
+		}
+	}
+	delete piece;
+}
+
 TEST_CASE("wall1 walls: without a wall piece every cell stays on the ground and the layer queries answer the terrain (a map without walls is unchanged)")
 {
 	SyntheticTerrain terrain(20, 20);
