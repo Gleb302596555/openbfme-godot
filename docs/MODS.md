@@ -126,7 +126,8 @@ Not changed, as retail: model materials that name the texture `None`, and textur
 textures where the base game lists 511.
 
 Work in progress (2026-10-29, nothing committed):
-- the last build has everything above but the two supply warehouse modules; those are written and not compiled;
+- the last Windows build has everything above but the two supply warehouse modules; those compile with GCC on Linux and pass a synthetic
+  test (`test_supply_warehouse.cpp`), not yet built with MSVC;
 - `ResourceGatheringManager::canTransferSuppliesAt` takes a warehouse dock when it holds boxes (+ 0x88) and is not ENEMIES with the worker
   (RW 0x82C66C, RW 0x68D7AB), so the harvesters' own search finds the rocks; the cursor still offers no order on them (the dock context
   command is not ported, stop S-286);

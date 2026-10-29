@@ -4,7 +4,7 @@
 // 0x8FAA51). Synthetic templates; the rules are the binary's (Common/ResourceGatheringManager.h) and ZH's ActionManager::canTransferSuppliesAt.
 
 #include "doctest.h"
-#include "EconTestUtil.h"
+#include "MoveTestUtil.h"
 
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
@@ -31,7 +31,7 @@ const char *kWarehouseObjects =
 	"  KindOf = STRUCTURE\n"
 	"  Body = ActiveBody B\n    MaxHealth = 10\n  End\n"
 	"  Behavior = SupplyWarehouseCreate C\n  End\n"
-	"  Behavior = SupplyWarehouseDockUpdate D\n    StartingBoxes = 2\n  End\n"
+	"  Behavior = SupplyWarehouseDockUpdate D\n    NumberApproachPositions = -1\n    StartingBoxes = 2\n  End\n"
 	"End\n"
 	"Object EmptyRocks\n"
 	"  KindOf = STRUCTURE\n"
@@ -46,16 +46,15 @@ const char *kWarehouseObjects =
 
 TEST_CASE("LUMBER1 warehouse: a worker may take boxes at a warehouse with boxes left that is not its enemy (RW 0x82C66C), and its search finds one")
 {
-	econtest::Fx f(kWarehouseObjects);
-	Object *worker = f.makeAt("Quarryman", "Alice", 100.0f, 100.0f);
+	movetest::MoveWorld f(100, 100, kWarehouseObjects); // the AI world: WorkerAIUpdate needs one
+	f.buildMap();
+	Object *worker = f.spawn("Quarryman", 100.0f, 100.0f, 0.0f, f.teamOf("Alice"));
 	REQUIRE(worker->getAIUpdateInterface());
 	REQUIRE(worker->getAIUpdateInterface()->getSupplyTruckAIInterface());
 	REQUIRE(worker->getAIUpdateInterface()->getSupplyTruckAIInterface()->getNumberBoxes() == 0);
 
 	// a neutral warehouse (the map's supply rocks)
-	Object *rocks = f.make("SupplyRocks", f.players.getNeutralPlayer()->getDefaultTeam());
-	Coord3D near{ 200.0f, 100.0f, 0.0f };
-	rocks->setPosition(&near);
+	Object *rocks = f.spawn("SupplyRocks", 200.0f, 100.0f, 0.0f, f.players.getNeutralPlayer()->getDefaultTeam());
 	const auto *dock = dynamic_cast<const SupplyWarehouseDockUpdate *>(rocks->findModule("SupplyWarehouseDockUpdate"));
 	REQUIRE(dock);
 	CHECK(dock->boxesStored() == 2);
@@ -63,22 +62,22 @@ TEST_CASE("LUMBER1 warehouse: a worker may take boxes at a warehouse with boxes 
 	CHECK(ResourceGatheringManager::canTransferSuppliesAt(worker, rocks));
 
 	// no boxes left: refused
-	Object *empty = f.makeAt("EmptyRocks", "Alice", 120.0f, 100.0f);
+	Object *empty = f.spawn("EmptyRocks", 120.0f, 100.0f, 0.0f, f.teamOf("Alice"));
 	CHECK_FALSE(ResourceGatheringManager::canTransferSuppliesAt(worker, empty));
 
 	// the worker's own and an enemy's warehouse
-	Object *own = f.makeAt("SupplyRocks", "Alice", 300.0f, 300.0f);
+	Object *own = f.spawn("SupplyRocks", 300.0f, 300.0f, 0.0f, f.teamOf("Alice"));
 	CHECK(ResourceGatheringManager::canTransferSuppliesAt(worker, own));
-	Object *enemy = f.makeAt("SupplyRocks", "Bob", 300.0f, 100.0f);
+	Object *enemy = f.spawn("SupplyRocks", 300.0f, 100.0f, 0.0f, f.teamOf("Bob"));
 	REQUIRE(enemy->getRelationship(*worker) == ENEMIES);
 	CHECK_FALSE(ResourceGatheringManager::canTransferSuppliesAt(worker, enemy));
 
 	// neither a warehouse nor a center: refused, as before
-	Object *boulder = f.makeAt("Boulder", "Alice", 150.0f, 100.0f);
+	Object *boulder = f.spawn("Boulder", 150.0f, 100.0f, 0.0f, f.teamOf("Alice"));
 	CHECK_FALSE(ResourceGatheringManager::canTransferSuppliesAt(worker, boulder));
 
 	// SupplyWarehouseCreate listed the rocks with Alice's manager: the search now answers the closest usable warehouse within the scan distance
-	Player *alice = f.player("Alice");
+	Player *alice = f.players.findPlayerWithName("Alice");
 	REQUIRE(alice);
 	Object *best = alice->resourceGatheringManager().findBestSupplyWarehouse(worker);
 	REQUIRE(best);
