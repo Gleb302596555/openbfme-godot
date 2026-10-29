@@ -549,7 +549,7 @@ func _map_terrain(fs: RefCounted) -> void:
 	# water, rivers, post effects: survey counts
 	var water: Dictionary = report.water
 	_check(water.areas_in_map == (want.standingWater as Array).size(), "%d standing water areas (survey %d)" % [water.areas_in_map, (want.standingWater as Array).size()])
-	_check(water.areas + water.triangulation_failed == water.areas_in_map and water.areas > 0, "every water area is rendered or counted as failed (%d + %d)" % [water.areas, water.triangulation_failed])
+	_check(water.areas + water.grid_failed == water.areas_in_map and water.areas > 0, "every water area is rendered or counted as failed (%d + %d)" % [water.areas, water.grid_failed])
 	var rivers: Dictionary = report.rivers
 	_check(rivers.areas_in_map == (want.rivers as Array).size(), "%d river areas (survey %d)" % [rivers.areas_in_map, (want.rivers as Array).size()])
 	_check(rivers.rendered > 0 and rivers.rendered <= rivers.areas_in_map, "%d rivers rendered" % rivers.rendered)

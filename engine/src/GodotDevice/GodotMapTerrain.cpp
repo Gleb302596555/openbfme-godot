@@ -988,12 +988,15 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 				errors.push_back(toGodot(lightError));
 			for (const StandingWaterArea &a : map.chunks.standingWaterAreas)
 			{
-				std::vector<std::uint32_t> tri;
-				if (a.points.size() < 3 || !WaterGeometry::triangulate(a.points, tri))
-				{
-					++failed;
-					continue;
+				// RotWK draws every standing water area as the grid that AllocateAndFillBuffers (RW 0x482A16)
+				// fills from its polygon, whatever the shader technique; there is no polygon triangulation.
+				// An area the grid cannot fill is reported, never drawn some other way.
+				WaterGeometry::StandingGrid grid;
+				if (!WaterGeometry::buildStandingGrid(a, map.chunks.standingWaveAreas,
+					[&](float x,float y) { return terrain.getGroundHeight(x,y); }, grid)) {
+					errors.push_back(toGodot("water grid has no cells: " + a.name)); ++failed; continue;
 				}
+				const std::vector<std::uint32_t> &tri = grid.indices;
 				WaterGeometry::StandingMaterial params;
 				bool authored = false;
 				if (!a.fxShader.empty())
@@ -1129,22 +1132,20 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 				PackedVector2Array uv;
 				PackedInt32Array idx;
 
-				WaterGeometry::StandingGrid grid;
 				bool geometry = pcaMode && !pcaBasis.frames.empty();
 				PackedFloat32Array shore, direction;
+				vtx.resize(grid.vertices.size()); uv.resize(grid.vertices.size());
+				for (size_t i=0;i<grid.vertices.size();++i) {
+					const auto &v=grid.vertices[i];
+					vtx.set(i,toG(v.point.x,v.point.y,float(a.waterHeight)));
+					uv.set(i,Vector2(v.point.x/100,v.point.y/100));
+				}
+				materialInfo["grid_spacing"] = grid.spacing;
 				if (geometry) {
-					if (!WaterGeometry::buildStandingGrid(a, map.chunks.standingWaveAreas,
-						[&](float x,float y) { return terrain.getGroundHeight(x,y); }, grid)) {
-						errors.push_back(toGodot("water grid has no cells: " + a.name)); ++failed; continue;
-					}
-					tri = grid.indices;
-					vtx.resize(grid.vertices.size()); uv.resize(grid.vertices.size());
 					shore.resize(grid.vertices.size()*4); direction.resize(grid.vertices.size()*4);
 					int64_t active = 0;
 					for (size_t i=0;i<grid.vertices.size();++i) {
 						const auto &v=grid.vertices[i];
-						vtx.set(i,toG(v.point.x,v.point.y,float(a.waterHeight)));
-						uv.set(i,Vector2(v.point.x/100,v.point.y/100));
 						shore.set(i*4,v.nearest.x); shore.set(i*4+1,v.nearest.y);
 						shore.set(i*4+2,v.ground); shore.set(i*4+3,v.halfLength);
 						direction.set(i*4,v.direction.x); direction.set(i*4+1,v.direction.y);
@@ -1153,13 +1154,6 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 							std::hypot(v.point.x-v.nearest.x,v.point.y-v.nearest.y)<v.halfLength) ++active;
 					}
 					materialInfo["wave_vertices"] = active;
-					materialInfo["grid_spacing"] = grid.spacing;
-				} else {
-					vtx.resize(a.points.size()); uv.resize(a.points.size());
-					for (size_t i=0;i<a.points.size();++i) {
-						vtx.set(i,toG(a.points[i].x,a.points[i].y,float(a.waterHeight)));
-						uv.set(i,Vector2(a.points[i].x/100,a.points[i].y/100));
-					}
 				}
 				materialInfo["vertices"] = vtx.size();
 				waterMaterials[waterMaterials.size()-1] = materialInfo;
@@ -1207,7 +1201,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 		w["material_stops"] = materialStops;
 		w["areas"] = areas;
 		w["triangles"] = tris;
-		w["triangulation_failed"] = failed;
+		w["grid_failed"] = failed;
 		w["areas_in_map"] = (int64_t)map.chunks.standingWaterAreas.size();
 		w["pca_wave_areas"] = (int64_t)std::count_if(map.chunks.standingWaveAreas.begin(), map.chunks.standingWaveAreas.end(), [](const StandingWaveArea &a) { return a.enablePcaWave != 0; });
 		w["wave_areas_not_rendered"] = (int64_t)std::count(renderedWaves.begin(), renderedWaves.end(), false);
