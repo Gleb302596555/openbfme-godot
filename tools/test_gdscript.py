@@ -23,6 +23,7 @@ GAME_OWNERS = {
                     "tools/caster/test_caster_godot.py"),
     "online_hostile_test.gd": "tools/net/test_online_hostile.py",
     "crash_log_test.gd": "tools/release/test_launcher.py",
+    "crash_upload_test.gd": "tools/release/test_crash_upload.py",
     "external_open_test.gd": "tools/release/test_external_open.py",
     "install_paths_test.gd": "tools/release/test_install_paths.py",
     "language_warning_test.gd": "tools/release/test_language_warning.py",
@@ -36,15 +37,18 @@ GAME_OWNERS = {
     "online_reports_test.gd": "tools/net/test_online_reports.py",
     "online_social_test.gd": "tools/net/test_online_social_ui.py",
     "online_stats_test.gd": "tools/net/test_online_stats.py",
+    "http_timed_test.gd": "tools/net/test_http_timed.py",
     "rejoin_watch_test.gd": "tools/net/test_rejoin_watchdog.py",
     "platformicon1_test.gd": "tools/platformicon/test_make_icons.py",
     "update_handover_test.gd": "tools/release/test_onezip.py",
     "save4e_flow_test.gd": "tools/save/test_save_flow.py",
 }
 LAUNCHER_OWNERS = {
+    "display_test.gd": "tools/release/test_launcher_display.py",
     **dict.fromkeys(("background_play_test.gd", "crypto_test.gd", "layout_test.gd", "macos_preview_test.gd", "oauth_test.gd",
                     "social_launch_test.gd", "social_ui_test.gd", "unit_test.gd", "write_failure_test.gd",
                     "oauth_integration_test.gd", "social_client_test.gd"), "tools/release/test_launcher.py"),
+    "crash_upload_test.gd": "tools/release/test_crash_upload.py",
     "aio_progress_test.gd": "tools/release/test_aio.py",
     "bfme1_assets_test.gd": "tools/release/test_aio.py",
     "bfme1_offer_test.gd": "tools/release/test_aio.py",
@@ -97,10 +101,11 @@ ALLOWLIST = {
     "menustyle_settings_test.gd": "temporary Options.ini and shell/game spies",
     "net_score_continue_test.gd": "score transitions against shell/audio stubs",
     "controller_menu_test.gd": "controller menu mapping against a stub shell",
-    "controller_routing_test.gd": "controller input routing rules only",
+    "controller_routing_test.gd": "controller input routing and scaled, letterboxed pointer motion/clicks",
     "online_list_test.gd": "online list parsing and paging against synthetic responses",
     "online_list_client_test.gd": "the native list client against synthetic responses",
     "timeline_markers_test.gd": "score timeline markers against a stub shell",
+    "weatherfx_test.gd": "the Enhanced weather's effects against a stub GameWorld and synthetic images",
 }
 SCRIPT_TIMEOUT = 20
 
@@ -116,9 +121,7 @@ CI_GATES = scripts("""
 DENYLIST = {
     "water_normal_test.gd": "manual: requires GPU rendering for fixed-input water normals",
     "standing_water_test.gd": "manual: requires private retail assets and GPU water rendering",
-    "map_water_ini_error_test.gd": "manual: requires private retail assets (a synthetic mod water.ini over a retail map)",
-    "ini_error_in_extension_test.gd": "manual: requires private retail assets (a synthetic mod INI over a retail map)",
-    **dict.fromkeys(scripts("bfme1_hud bfme1_map_memory bfme1_plot bfme1_quit bfme1_castle_path bfme1"),
+    **dict.fromkeys(scripts("bfme1_hud bfme1_map_memory bfme1_plot bfme1_quit bfme1_castle_path bfme1_skirmish_ui bfme1_menu_backdrop bfme1"),
                     "manual: needs a private BFME1 installation"),
     **dict.fromkeys(scripts("""
         audio_stress backlog3_focus buildperf cah_awards_display camp2 campsave1 floating_money_text
@@ -130,8 +133,9 @@ DENYLIST = {
         p16_ui_legacy_shape spellbook_rightclick cah_camera_retail shellfb1_cursor shellfb1_spell_store_escape
     """) | {"object_corpus_sweep.gd"}, "manual: needs private RotWK/BFME2 assets and game/frame setup"),
     **dict.fromkeys(scripts("""
-        apt_canvas_pixel building_render fx_render gamma_composite glow hud_image_mode_pixel
-        menu_backdrop_resize online_branding pro_camera pro_camera_bokeh radial_background render4 road_shader shader
+        apt_canvas_pixel building_render fx_render gamma_composite hud_image_mode_pixel
+        menu_backdrop_resize object_shadow_building object_shadow_instances object_shadow_render online_branding
+        pro_camera pro_camera_bokeh radial_background render4 road_shader shader tangent_convention
     """), "manual: GPU/window/render readback required (some also need retail assets)"),
     "pingwheel_test.gd": "manual: mixed UI/timer checks and retail skirmish/hash runs; not wholly asset-free",
     "replay_refusal_test.gd": "manual: mixed stub checks and retail replay subprocess; not wholly asset-free",

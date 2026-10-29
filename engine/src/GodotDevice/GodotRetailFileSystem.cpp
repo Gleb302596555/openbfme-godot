@@ -105,6 +105,7 @@ Dictionary RetailFileSystem::set_asset_packs(const PackedStringArray &folders)
 	if (errors.empty())
 	{
 		m_packs = std::move(packs); // all or nothing: a pack with an error changes nothing
+		m_packLinesRead = false; // lane PROFILE-3
 	}
 	for (const std::string &s : m_packs.packs())
 	{
@@ -163,6 +164,25 @@ std::vector<std::string> RetailFileSystem::modIdentity() const
 	std::vector<std::string> lines = m_installModReport.identity; // the install-folder mod first: it is mounted first
 	lines.insert(lines.end(), m_modReport.identity.begin(), m_modReport.identity.end());
 	return lines;
+}
+
+std::vector<std::string> RetailFileSystem::packIdentity() const
+{
+	if (m_packs.empty())
+	{
+		return {}; // none loaded, or suspended for this game (GameWorld::set_asset_packs_used)
+	}
+	if (!m_packLinesRead)
+	{
+		std::string why;
+		if (!m_packs.identityLines(m_packLines, why))
+		{
+			UtilityFunctions::push_error(String("profile identity: the asset packs' lines: ") + why.c_str());
+			m_packLines = { "pack-error" };
+		}
+		m_packLinesRead = true;
+	}
+	return m_packLines;
 }
 
 std::string RetailFileSystem::simulationData(std::string *error) const
@@ -662,6 +682,7 @@ Dictionary RetailFileSystem::mountFrom(const std::string &rotwkRoot, const std::
 			ArchiveW3DFileSource mounted(*m_fs);
 			std::vector<std::string> packErrors;
 			const bool modelsOk = m_packs.checkModels(mounted, packErrors);
+			m_packLinesRead = false; // lane PROFILE-3: the misfits are left out now
 			if (!modelsOk)
 			{
 				for (const std::string &e : packErrors)
@@ -994,6 +1015,15 @@ Dictionary RetailFileSystem::get_asset_pack_report() const
 		packs.push_back(p);
 	}
 	out["packs"] = packs;
+	return out;
+}
+
+std::vector<std::string> RetailFileSystem::installOverlayFolders() const
+{
+	std::vector<std::string> out;
+	if (m_mounted)
+		for (int64_t i = 0; i < m_installModArgs.size(); ++i)
+			out.push_back(toNative(m_installModArgs[i]));
 	return out;
 }
 

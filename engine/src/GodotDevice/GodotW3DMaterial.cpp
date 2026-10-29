@@ -175,6 +175,7 @@ void W3D_Ensure_Light_Globals()
 		return;
 	}
 	registered = true;
+	rs->global_shader_parameter_add(StringName("w3d_shadow"), RenderingServer::GLOBAL_VAR_TYPE_VEC4, Vector4(1.0f, 1.0f, 1.0f, 0.0f));
 	if (samplerPolicy() == W3DSamplerPolicy::Metal16)
 	{
 		UtilityFunctions::print("W3D [MAC-10 Metal16 limitation]: repeating mipmapped textures use linear-mipmap filtering instead of anisotropy (Godot 4.7.2 binds anisotropic-repeat at Metal slot 17; limit 15). Clamped textures retain anisotropy; simulation unchanged.");
@@ -241,14 +242,26 @@ void W3D_Set_Occlusion(bool on, const Ref<Texture2D> &colors)
 	}
 }
 
+namespace
+{
+float s_swayScale = 1.0f; // lane WEATHERFX-1: W3D_Set_Sway_Scale
+}
+
+void W3D_Set_Sway_Scale(double scale)
+{
+	s_swayScale = (float)scale;
+}
+
 void W3D_Set_Sway_Offsets(const float offsets[10][3])
 {
 	W3D_Ensure_Light_Globals();
 	if (RenderingServer *rs = RenderingServer::get_singleton())
 	{
+		const float k = s_swayScale;
 		for (int i = 0; i < 10; ++i)
 		{
-			rs->global_shader_parameter_set(StringName(String("w3d_sway") + String::num_int64(i + 1)), Vector4(offsets[i][0], offsets[i][1], offsets[i][2], 0.0f));
+			rs->global_shader_parameter_set(StringName(String("w3d_sway") + String::num_int64(i + 1)),
+				k == 1.0f ? Vector4(offsets[i][0], offsets[i][1], offsets[i][2], 0.0f) : Vector4(offsets[i][0] * k, offsets[i][1] * k, offsets[i][2] * k, 0.0f));
 		}
 	}
 }

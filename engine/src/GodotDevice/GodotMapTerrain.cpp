@@ -785,8 +785,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 			m->set_shader_parameter("sun_dir_sage", Vector3(-sun.lightPos[0], -sun.lightPos[1], -sun.lightPos[2]));
 			// terrain.fxo MainDirectionalLight binds Sas.DirectionalLight[0]. The
 			// SAS callback RW 0x54CFD0 doubles its colour before the shader's overbright half-scale.
-			// RW 0x4E2B3A: the sun's diffuse is scaled by GlobalData + 0x944 .. when the terrain rendering mode is below 1, before the SAS doubling.
-			// The roads take the same light: FlatHeightMap draws them in that terrain render (FlatHeightMap.cpp:811; inference, S-036).
+			// RW 0x4E2B3A: the sun's diffuse is scaled by GlobalData + 0x944 .. when the terrain rendering mode is below 1, before the SAS doubling
 			m->set_shader_parameter("sun_color", Vector3(lightScales.terrain[0] * sun.diffuse[0], lightScales.terrain[1] * sun.diffuse[1],
 				lightScales.terrain[2] * sun.diffuse[2]) * effectColorScale);
 		}
@@ -1284,12 +1283,9 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 				}
 			}
 			int64_t additiveRendered = 0;
-			// the rivers are lit with the time of day's WaterSet DiffuseColor: a water.ini / map.ini the INI parse rejects is reported and no river is built
-			// from a colour that was never read (no fallback colour)
-			float waterDiffuse[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+			float waterDiffuse[4];
 			std::string waterError;
-			const bool waterSetRead = WaterSetScan::load(*arch, mapDir, lighting ? lighting->timeOfDay : 2, waterDiffuse, &waterError);
-			if (!waterSetRead)
+			if (!WaterSetScan::load(*arch, name, lighting ? lighting->timeOfDay : 2, waterDiffuse, &waterError))
 			{
 				errors.push_back(toGodot("water.ini: " + waterError));
 			}
@@ -1300,7 +1296,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 			for (const RiverArea &r : map.chunks.riverAreas)
 			{
 				WaterGeometry::RiverStrip strip;
-				if (!waterSetRead || !WaterGeometry::buildRiverStrip(r, strip) || sh.is_null())
+				if (!WaterGeometry::buildRiverStrip(r, strip) || sh.is_null())
 				{
 					continue;
 				}
