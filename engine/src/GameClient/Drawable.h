@@ -113,8 +113,9 @@ public:
 	// SMOOTH-1: the drawable knows its object by id only (it lives on the render side; the object belongs to the simulation's thread)
 	// `clientModules`: the template's ClientUpdate / ClientBehavior modules as the logic owner resolved them (ClientEvent::clientModules; review r2:
 	// the drawable never interns into the logic's name keys)
+	// `variation`: the model variation (drawable + 0x364, RW 0x679FEA): an object's creation draw, -1 for the others
 	Drawable(DrawServices &services, const ThingTemplate *tt, DrawableID id, ObjectID objectId, const std::vector<ClientEvent::ClientModule> &clientModules,
-		std::vector<std::string> &problems);
+		std::vector<std::string> &problems, int variation = -1);
 
 	Drawable *asDrawable() override { return this; }
 	DrawableID getID() const { return m_id; }
@@ -193,6 +194,8 @@ public:
 	// request waits until all exist
 	void scriptModuleVisible(const std::string &name, bool visible);
 	void showSubObject(const std::string &name, bool visible, bool permanent);
+	// RW 0x8B911E: every model draw module takes `swaps` as its upgrade textures (draw module vslot 0x84)
+	void setUpgradeTextures(const std::vector<std::pair<std::string, std::string>> &swaps);
 
 	// The render transform from the object's record in a completed logic frame's snapshot (SMOOTH-1: RenderInterpolation::retailPose, RW 0x6765B9;
 	// `interpolate` false: the record's current transform, the stepped look). Then the construction look (updateConstruction).
@@ -295,6 +298,7 @@ private:
 	KindOfMaskType m_kindOf{};
 	ModelConditionFlags m_flags;
 	float m_scale = 1.0f;
+	int m_variation = -1; ///< + 0x364
 	std::uint32_t m_houseColor = 0;
 	int m_customKind = 0;                              // lane CAH-2
 	std::uint32_t m_customColors[3] = { 0u, 0u, 0u };

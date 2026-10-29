@@ -55,6 +55,14 @@ const FieldParse kDockUpdateFieldParse[] = {
 	{ nullptr, nullptr, nullptr, 0 }
 };
 #undef DU_OFF
+#define SW_OFF(member) (int)offsetof(SupplyWarehouseDockUpdateModuleData, member)
+// RW 0xC6A15C
+const FieldParse kSupplyWarehouseDockUpdateFieldParse[] = {
+	{ "StartingBoxes", INI::parseInt, nullptr, SW_OFF(m_startingBoxes) },
+	{ "DeleteWhenEmpty", INI::parseBool, nullptr, SW_OFF(m_deleteWhenEmpty) },
+	{ nullptr, nullptr, nullptr, 0 }
+};
+#undef SW_OFF
 #define SC_OFF(member) (int)offsetof(SupplyCenterDockUpdateModuleData, member)
 // RW 0xC68478
 const FieldParse kSupplyCenterDockUpdateFieldParse[] = {
@@ -657,6 +665,84 @@ bool SupplyCenterDockUpdate::action(Object &docker, Object *)
 	logic.economy().grantBuildingExperience(*dock, d.value);
 	logic.economy().noteIncome(docker, *owner, d.amount); // the "GUI:AddCash" text at the docker (RW 0x8A470A .. 0x8A477D, client)
 	return false;
+}
+
+void SupplyWarehouseDockUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
+{
+	DockUpdateModuleData::buildFieldParse(p); // the base table first, as SupplyCenterDockUpdate's
+	p.add(kSupplyWarehouseDockUpdateFieldParse);
+}
+
+SupplyWarehouseDockUpdate::SupplyWarehouseDockUpdate(Thing *thing, const SupplyWarehouseDockUpdateModuleData *data)
+	: DockUpdate(thing, data), m_data(data), m_boxesStored(data->m_startingBoxes)
+{
+}
+
+void SupplyWarehouseDockUpdate::registerClass(ModuleFactory &modules)
+{
+	modules.bindTypedData<SupplyWarehouseDockUpdateModuleData>("SupplyWarehouseDockUpdate", MODULETYPE_BEHAVIOR);
+	modules.bindModuleProc("SupplyWarehouseDockUpdate", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
+		const SupplyWarehouseDockUpdateModuleData *typed = dynamic_cast<const SupplyWarehouseDockUpdateModuleData *>(data);
+		if (!typed)
+		{
+			throw std::logic_error("SupplyWarehouseDockUpdate: the module data is not typed");
+		}
+		return std::make_unique<SupplyWarehouseDockUpdate>(thing, typed);
+	});
+}
+
+// RW 0x8AB53D
+bool SupplyWarehouseDockUpdate::action(Object &docker, Object *)
+{
+	if (m_boxesStored == 0) // RW 0x8AB546
+	{
+		return false;
+	}
+	Object *dock = getObject();
+	// RW 0x8AB557 .. 0x8AB578: the docker's bounding circle radius doubled (stored as a float), squared on the x87 stack; the edge distance squared of
+	// RW 0x66352C above it: the docker is nudged by GameLogicRandomValue(-4, 4) in x then y (lines 0x57 / 0x58) and nothing is taken this time
+	const float twoRadius = SimMath::addf32(CombatQueries::boundingCircleRadius(docker), CombatQueries::boundingCircleRadius(docker));
+	const float distSq = CombatQueries::edgeDistanceSquared2D(*docker.getPosition(), CombatQueries::boundingCircleRadius(docker), *dock->getPosition(),
+		CombatQueries::boundingCircleRadius(*dock));
+	if ((double)distSq > (double)twoRadius * (double)twoRadius)
+	{
+		Coord3D p = *docker.getPosition();
+		GameLogic &logic = dock->logic();
+		const int dx = logic.random().getValue(-4, 4, "SupplyWarehouseDockUpdate.cpp", 0x57);
+		const int dy = logic.random().getValue(-4, 4, "SupplyWarehouseDockUpdate.cpp", 0x58);
+		p.x = SimMath::addf32(p.x, (float)dx);
+		p.y = SimMath::addf32(p.y, (float)dy);
+		docker.setPosition(&p); // RW 0x70C201
+		return false;
+	}
+	--m_boxesStored; // RW 0x8AB5E1
+	AIUpdateInterface *ai = docker.getAIUpdateInterface();
+	SupplyTruckAIInterface *sup = ai ? ai->getSupplyTruckAIInterface() : nullptr; // AI vslot 0x17C
+	if (!sup || !sup->gainOneBox(m_boxesStored)) // slot 0x0C
+	{
+		++m_boxesStored; // RW 0x8AB643
+		return false;
+	}
+	if (m_boxesStored == 0 && m_data->m_deleteWhenEmpty) // RW 0x8AB604 .. 0x8AB61C
+	{
+		dock->logic().destroyObject(dock);
+		return false;
+	}
+	// RW 0x8AB623 .. 0x8AB63A: the drawable's supply status (StartingBoxes, boxes left: the pile's look) is the client's; not drawn here
+	return true;
+}
+
+void SupplyWarehouseDockUpdate::crc(StateHasher &h) const
+{
+	DockUpdate::crc(h);
+	h.addU32((std::uint32_t)m_boxesStored);
+}
+
+void SupplyWarehouseDockUpdate::xfer(Xfer &x)
+{
+	SnapshotXfer::version(x, 1, 1); // INFERENCE: ZH's version 1 (the dock base, then the boxes); RotWK's xfer was not read
+	xferDockUpdate(x);
+	x.xferInt(&m_boxesStored);
 }
 
 void SupplyCenterDockUpdate::xfer(Xfer &x)

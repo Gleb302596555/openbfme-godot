@@ -58,6 +58,46 @@ void SupplyCenterCreate::onBuildComplete()
 	}
 }
 
+void SupplyWarehouseCreate::registerClass(ModuleFactory &modules)
+{
+	modules.bindTypedData<SupplyCenterCreateModuleData>("SupplyWarehouseCreate", MODULETYPE_BEHAVIOR); // no fields, as SupplyCenterCreate
+	modules.bindModuleProc("SupplyWarehouseCreate", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
+		const SupplyCenterCreateModuleData *typed = dynamic_cast<const SupplyCenterCreateModuleData *>(data);
+		if (!typed)
+		{
+			throw std::logic_error("SupplyWarehouseCreate: the module data is not typed");
+		}
+		return std::make_unique<SupplyWarehouseCreate>(thing, typed);
+	});
+}
+
+// RW 0x8BD063
+void SupplyWarehouseCreate::onCreate()
+{
+	Object *obj = getObject();
+	PlayerList &players = obj->logic().players();
+	for (int i = players.getPlayerCount() - 1; i >= 0; --i)
+	{
+		Player *p = players.getNthPlayer(i); // RW 0x6A844E
+		if (p)
+		{
+			p->resourceGatheringManager().addSupplyWarehouse(obj); // Player + 0x304, RW 0x8FAA31
+		}
+	}
+}
+
+void SupplyWarehouseCreate::crc(StateHasher &h) const
+{
+	h.addBool(m_needToRunOnBuildComplete);
+}
+
+void SupplyWarehouseCreate::xfer(Xfer &x)
+{
+	SnapshotXfer::version(x, 1, 1);
+	xferBehaviorModule(x);
+	x.xferBool(&m_needToRunOnBuildComplete);
+}
+
 void SupplyCenterCreate::crc(StateHasher &h) const
 {
 	h.addBool(m_needToRunOnBuildComplete);

@@ -1387,6 +1387,10 @@ void Object::friend_runCreateModules()
 void Object::friend_initObject()
 {
 	m_creationSeed = m_logic.sendObjectCreated(*this);
+	if (m_client)
+	{
+		m_client->objectVariation(*this, m_creationSeed); // the drawable's model variation (RW 0x6288D3)
+	}
 	updateUpgradeModules(); // RW 0x693D38: the player's upgrades are applied to the new object
 	// then, when it has an owner, its command points join the pool (RW 0x693D51)
 	if (getControllingPlayer())

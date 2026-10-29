@@ -566,6 +566,7 @@ TEST_CASE("module fields: scalars, lists, RandomTexture, AttachModel")
 		"RandomTexture = A.tga 0 B.tga\n"
 		"RandomTexture = a.tga 5 C.tga\n"
 		"RandomTexture = Z.tga 1\n"
+		"RandomTexture = D.tga 2 b.tga\n"
 		"AttachModel\n"
 		"  Bone = BONE01\n"
 		"  Offset = X:1 Y:2 Z:3\n"
@@ -591,13 +592,16 @@ TEST_CASE("module fields: scalars, lists, RandomTexture, AttachModel")
 	CHECK(d->m_birthFadeTime == 5u); // 1000 ms = 5 logic frames
 	CHECK(d->m_projectileBoneFeedbackEnabledSlots == 5); // PRIMARY bit 0 + TERTIARY bit 2
 	CHECK(d->m_dependencySharedModelFlags == flagsOf({ "MOVING", "ATTACKING" }));
-	REQUIRE(d->m_randomTextures.size() == 2); // A.tga and a.tga share one record
-	CHECK(d->m_randomTextures[0].name == "A.tga");
-	REQUIRE(d->m_randomTextures[0].entries.size() == 2);
-	CHECK(d->m_randomTextures[0].entries[0].replacement == "B.tga");
-	CHECK(d->m_randomTextures[0].entries[1].weight == 5);
-	CHECK(d->m_randomTextures[1].name == "Z.tga");
-	CHECK(d->m_randomTextures[1].entries[0].replacement.empty());
+	// RW 0x4C7C56: one record per ORIGINAL (the third token, _stricmp): B.tga and b.tga share one, the line without an original makes the "" record
+	REQUIRE(d->m_randomTextures.size() == 3);
+	CHECK(d->m_randomTextures[0].name == "B.tga");
+	CHECK(d->m_randomTextures[0].textures == std::vector<std::string>{ "A.tga", "D.tga" });
+	CHECK(d->m_randomTextures[0].weight == 2); // the last line's
+	CHECK(d->m_randomTextures[1].name == "C.tga");
+	CHECK(d->m_randomTextures[1].textures == std::vector<std::string>{ "a.tga" });
+	CHECK(d->m_randomTextures[1].weight == 5);
+	CHECK(d->m_randomTextures[2].name.empty());
+	CHECK(d->m_randomTextures[2].textures == std::vector<std::string>{ "Z.tga" });
 	REQUIRE(d->m_attachModels.size() == 1);
 	CHECK(d->m_attachModels[0].bone == "BONE01");
 	CHECK(d->m_attachModels[0].offset.z == doctest::Approx(3.0f));
@@ -613,6 +617,42 @@ TEST_CASE("module fields: scalars, lists, RandomTexture, AttachModel")
 	CHECK(h.error.find("combined probability may not be higher than 100") != std::string::npos);
 	h.parse(std::string(kBasicDefault) + "AttachModel\n  Model = A\nEnd\nEnd\n");
 	CHECK(h.error.find("you must specify then bone name") != std::string::npos);
+}
+
+TEST_CASE("RandomTexture pick (RW 0x4C238A): the variation picks one texture per original; a fixed index, the limit and the original itself")
+{
+	using Swaps = std::vector<std::pair<std::string, std::string>>;
+	Harness h;
+	W3DModelDrawModuleData *d = h.parse(std::string(kBasicDefault) +
+		"RandomTexture = X1.tga 0 Body.tga\n"
+		"RandomTexture = X2.tga 0 Body.tga\n"
+		"RandomTexture = Body.tga 0 Body.tga\n"
+		"RandomTexture = Y1.tga 0 Head.tga\n"
+		"RandomTexture = Y2.tga 0 Head.tga\n"
+		"End\n");
+	REQUIRE_MESSAGE(d, h.error);
+	// variation 100: Body (i 0, 3 textures): 33 + 20 + 0 + 4 * 1 + 100 = 157, mod 3 = 1; Head (i 1, 2 textures): 33 + 20 + 1 + 4 * 2 + 100 = 162, mod 2 = 0
+	CHECK(d->pickRandomTextures(100, 0xFF) == Swaps{ { "Body.tga", "X2.tga" }, { "Head.tga", "Y1.tga" } });
+	// -1 (a drawable without a creation draw): Body 0 + 0 + 0 + 15 - 1 = 14, mod 3 = 2 = Body.tga itself, no swap; Head 0 + 0 + 1 + 30 - 1 = 30, mod 2 = 0
+	CHECK(d->pickRandomTextures(-1, 0xFF) == Swaps{ { "Head.tga", "Y1.tga" } });
+	// the limit is maxTextures - 1: 1 always takes the first texture, 0 too (the limit is at least 0)
+	CHECK(d->pickRandomTextures(100, 1) == Swaps{ { "Body.tga", "X1.tga" }, { "Head.tga", "Y1.tga" } });
+	CHECK(d->pickRandomTextures(100, 0) == Swaps{ { "Body.tga", "X1.tga" }, { "Head.tga", "Y1.tga" } });
+
+	// Ennorath's Harad porter: GUPorter_SKN drawn with haporter_res.tga whatever the variation
+	W3DModelDrawModuleData *porter = h.parse(std::string(kBasicDefault) + "RandomTexture = haporter_res.tga 0 GUPorter.tga\nEnd\n");
+	REQUIRE_MESSAGE(porter, h.error);
+	for (int v : { -1, 1, 517, 999 })
+	{
+		CHECK(porter->pickRandomTextures(v, 0xFF) == Swaps{ { "GUPorter.tga", "haporter_res.tga" } });
+	}
+
+	// RandomTextureFixedRandomIndex: every record takes the first one's index when the counts agree
+	W3DModelDrawModuleData *fixed = h.parse(std::string(kBasicDefault) + "RandomTextureFixedRandomIndex = Yes\n"
+		"RandomTexture = A1.tga 0 A.tga\nRandomTexture = A2.tga 0 A.tga\nRandomTexture = B1.tga 0 B.tga\nRandomTexture = B2.tga 0 B.tga\nEnd\n");
+	REQUIRE_MESSAGE(fixed, h.error);
+	// variation 4: A (i 0): 1 + 0 + 0 + 4 + 4 = 9, mod 2 = 1; B's own pick would be 1 + 0 + 1 + 8 + 4 = 14, mod 2 = 0: the fixed index keeps 1
+	CHECK(fixed->pickRandomTextures(4, 0xFF) == Swaps{ { "A.tga", "A2.tga" }, { "B.tga", "B2.tga" } });
 }
 
 TEST_CASE("W3DHordeModelDraw LodOptions")

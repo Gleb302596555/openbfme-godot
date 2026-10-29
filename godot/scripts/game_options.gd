@@ -284,6 +284,10 @@ func apply_global(values: Dictionary) -> PackedStringArray:
 ## "original": the renderer's look as it was (linear tone mapping, no glow); "enhanced": AgX tone mapping and glow on what is brighter than white (the
 ## additive effects' overbright)
 func apply_look(look: String) -> void:
+	# the original look saturates the transparent pass at white as D3D9's frame buffer does (GammaComposite); the enhanced look keeps the overbright
+	# for its glow
+	if ClassDB.class_exists("GammaCompositeHost"):
+		ClassDB.class_call_static("GammaCompositeHost", "set_saturate", look != "enhanced")
 	var env: Environment = _environment()
 	if env == null:
 		return

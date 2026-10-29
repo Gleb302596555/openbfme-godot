@@ -35,8 +35,11 @@ namespace godot
 
 namespace
 {
-// The sRGB curve both ways, the one Godot's output encoding applies (so encode -> output shows the gamma value itself). Values above 1 (additive
-// overbright before the decode) follow the same power segment; negatives are clamped.
+// The sRGB curve both ways, the one Godot's output encoding applies (so encode -> output shows the gamma value itself). Negatives are clamped. The
+// decode saturates at 1 first: D3D9's 8-bit frame buffer never holds more, and an additive pile kept overbright in the 16-bit buffer (Ennorath's
+// SupplySmallTwinkle: some 35 ONE / ONE sparkles in a 12 ft ring reach 10 and more) decoded to linear (10^2.4, about 250) was smeared over its
+// neighbours by the resolve and the 3D scaling into a white glare retail does not have. Per-draw saturation is still not reproduced (S-831). The
+// enhanced look (AgX and glow on what is brighter than white, not retail) turns the saturation off: GammaCompositeHost.set_saturate(false).
 const char *kCompute = R"GLSL(
 #version 450
 layout(local_size_x = 8, local_size_y = 8, local_size_z = 1) in;
@@ -44,14 +47,14 @@ layout(rgba16f, set = 0, binding = 0) uniform restrict image2D color_image;
 layout(push_constant, std430) uniform Params {
 	vec2 size;
 	float decode;
-	float pad;
+	float saturate;
 } params;
 vec3 to_gamma(vec3 c) {
 	c = max(c, vec3(0.0));
 	return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - 0.055, step(vec3(0.0031308), c));
 }
 vec3 to_linear(vec3 c) {
-	c = max(c, vec3(0.0));
+	c = params.saturate > 0.5 ? clamp(c, vec3(0.0), vec3(1.0)) : max(c, vec3(0.0));
 	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
 }
 void main() {
@@ -119,6 +122,7 @@ std::atomic<int64_t> g_framebuffersCreated{ 0 };
 std::atomic<int64_t> g_pipelinesCreated{ 0 };
 std::atomic<int64_t> g_copiesCreated{ 0 };
 std::atomic<int64_t> g_encodes{ 0 };
+std::atomic<bool> g_saturateDecode{ true }; // GammaCompositeHost::set_saturate
 std::atomic<int64_t> g_copiesLive{ 0 }; // review r4: sample copies currently held (created minus released)
 Ref<GammaCompositeEffect> g_encode;
 Ref<GammaCompositeEffect> g_decode;
@@ -297,7 +301,7 @@ void GammaCompositeEffect::_render_callback(int32_t p_effect_callback_type, Rend
 		push.push_back((float)size.x);
 		push.push_back((float)size.y);
 		push.push_back(m_decode ? 1.0f : 0.0f);
-		push.push_back(0.0f);
+		push.push_back(g_saturateDecode ? 1.0f : 0.0f);
 		const PackedByteArray bytes = push.to_byte_array();
 		const int64_t list = rd->compute_list_begin();
 		rd->compute_list_bind_compute_pipeline(list, m_pipeline);
@@ -533,6 +537,12 @@ void GammaCompositeEffect::encodeSamples(RenderingDevice *rd, RenderSceneBuffers
 void GammaCompositeHost::_bind_methods()
 {
 	ClassDB::bind_method(D_METHOD("get_gamma_stats"), &GammaCompositeHost::get_gamma_stats);
+	ClassDB::bind_static_method("GammaCompositeHost", D_METHOD("set_saturate", "on"), &GammaCompositeHost::set_saturate);
+}
+
+void GammaCompositeHost::set_saturate(bool on)
+{
+	g_saturateDecode = on;
 }
 
 Dictionary GammaCompositeHost::get_gamma_stats() const

@@ -173,3 +173,29 @@ public:
 private:
 	const SupplyCenterDockUpdateModuleData *m_data;
 };
+
+// SupplyWarehouseDockUpdate (ZH GameLogic/Object/Update/DockUpdate/SupplyWarehouseDockUpdate.cpp; RotWK's own source path at RW 0xC6A218): a source of
+// boxes the supply trucks / workers take one at a time. Table RW 0xC6A15C: StartingBoxes (+ 0x10, parseInt RW 0x42EC5E), DeleteWhenEmpty (+ 0x14, parseBool).
+// The dock interface's slot 12 is action RW 0x8AB53D. No RotWK retail object has one; Ennorath's supply rocks do.
+class SupplyWarehouseDockUpdateModuleData : public DockUpdateModuleData
+{
+public:
+	int m_startingBoxes = 1;       ///< + 0x10 (ZH's default)
+	bool m_deleteWhenEmpty = false; ///< + 0x14
+	static void buildFieldParse(MultiIniFieldParse &p);
+};
+
+class SupplyWarehouseDockUpdate : public DockUpdate
+{
+public:
+	OBFME_MODULE_XFER(SupplyWarehouseDockUpdate)
+	SupplyWarehouseDockUpdate(Thing *thing, const SupplyWarehouseDockUpdateModuleData *data);
+	static void registerClass(ModuleFactory &modules);
+	bool action(Object &docker, Object *drone) override; // RW 0x8AB53D
+	int boxesStored() const { return m_boxesStored; }
+	void crc(StateHasher &hasher) const override;
+
+private:
+	const SupplyWarehouseDockUpdateModuleData *m_data;
+	int m_boxesStored = 0; ///< the interface's + 0x68 (ZH m_boxesStored, StartingBoxes at construction)
+};

@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 
 #include "GodotDevice/GodotW3DMaterial.h"
+#include "GodotDevice/GodotDds.h"
 #include "Common/BfmeGame.h"
 #include "GodotDevice/GodotPackedTexture.h"
 #include "Libraries/Source/Apt/AptLoad.h"
@@ -50,7 +51,7 @@ Error decodeTexture(const Ref<Image> &image, const PackedByteArray &buffer, bool
 			return image->load_jpg_from_buffer(buffer);
 		}
 	}
-	return dds ? image->load_dds_from_buffer(buffer) : image->load_tga_from_buffer(buffer);
+	return dds ? loadDdsFromBuffer(image, buffer) : image->load_tga_from_buffer(buffer);
 }
 
 // lane SDK-0: an asset pack's texture is decoded by its bytes (a modder may save a PNG for a retail .tga name)
@@ -59,7 +60,7 @@ Error decodePackTexture(const Ref<Image> &image, const PackedByteArray &buffer)
 	static const unsigned char png[] = { 137, 80, 78, 71, 13, 10, 26, 10 };
 	if (buffer.size() >= 4 && std::memcmp(buffer.ptr(), "DDS ", 4) == 0)
 	{
-		return image->load_dds_from_buffer(buffer);
+		return loadDdsFromBuffer(image, buffer);
 	}
 	if (buffer.size() >= 8 && std::memcmp(buffer.ptr(), png, sizeof(png)) == 0)
 	{
@@ -601,6 +602,12 @@ W3DMaterialResult W3DMaterialFactory::Create(const MeshRenderData &mesh, const M
 		key.DetailAlpha = st.DetailAlphaFunc;
 		key.Unshaded = st.PriGradient == W3D_GRADIENT_DISABLE;
 		alphaRef = st.AlphaRef / 255.0f - 0.5f / 255.0f; // GREATEREQUAL on an 8 bit value
+		if (FloorBlend && key.Blend == W3D_GODOT_BLEND_OPAQUE && !key.AlphaTest)
+		{
+			key.Blend = W3D_GODOT_BLEND_MIX;
+			key.DepthWrite = false;
+			out.Notes.push_back("floor surface blended by its texel alpha (W3DFloorDraw, S-4974)");
+		}
 		if (st.PriGradient == W3D_GRADIENT_ADD) out.Notes.push_back("primary gradient ADD drawn as a modulated colour");
 		if (st.NeverDraws) out.Notes.push_back("depth function NEVER: nothing passes the depth test");
 		if (surf.HasVertexMaterial)

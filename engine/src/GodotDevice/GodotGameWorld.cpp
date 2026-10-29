@@ -239,6 +239,19 @@ Color houseColorOf(std::uint32_t argb)
 {
 	return Color(((argb >> 16) & 255) / 255.0f, ((argb >> 8) & 255) / 255.0f, (argb & 255) / 255.0f, 1.0f);
 }
+
+// RW 0x4B4A30 W3DModelDraw::replaceIndicatorColor returns at once when the module data's OkToChangeModelColor (+ 0x68) is unset: such a model draw
+// keeps its own colours. A Create-a-Hero's colour set (RW 0x80AF0B -> 0x6727B0) is not the indicator colour and stays; the other draw kinds (floors,
+// props) are left as they were (their colour path was not read).
+bool drawTakesHouseColor(const DrawEntry &e, const Drawable &d)
+{
+	if (d.customColorKind() != 0)
+	{
+		return true;
+	}
+	const W3DModelDrawModuleData *data = dynamic_cast<const W3DModelDrawModuleData *>(e.data);
+	return !data || data->m_okToChangeModelColor;
+}
 } // namespace
 
 void GameWorld::_bind_methods()
@@ -826,12 +839,13 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 		{
 			swaps = floorWeatherSwaps(d.draws[p.module].data, m_streakWeather); // a map-placed building's floor (bib) on a snowy map
 		}
-		const std::string key = AsciiStringUtil::lowered(p.modelName) + W3DInstancer::Texture_Swap_Suffix(swaps);
+		const std::string key = AsciiStringUtil::lowered(p.modelName) + W3DInstancer::Texture_Swap_Suffix(swaps) + (p.kind == W3D_DRAWKIND_FLOOR ? "#floor" : "");
 		auto it = m_staticModels.find(key);
 		int64_t model;
 		if (it == m_staticModels.end())
 		{
 			staticInst->Set_Build_Texture_Swaps(swaps);
+			staticInst->Set_Build_Floor(p.kind == W3D_DRAWKIND_FLOOR); // stop S-4974: a floor blends by its texel alpha
 			model = staticInst->add_model(toGodot(p.modelName));
 			m_staticModels[key] = model;
 		}
@@ -1762,7 +1776,9 @@ void GameWorld::refresh_views(double deltaMs)
 				// Donor W3DModelDrawRva000B8FA1.cpp (BFME2 0x4B8FA1): ordinary
 				// owners use kind 1; hero custom palettes keep precedence. Bake before
 				// filtering, using the existing RW 0x531C77 texture recolour routine.
-				const auto palette = Render_House_Color_Params(d->getHouseColor(), d->customColorKind(), d->customColors());
+				// RW 0x4B4A30 (W3DModelDraw::replaceIndicatorColor): a module whose data has OkToChangeModelColor (+ 0x68) unset takes no house colour
+				// (Ennorath sets it on a third of its draw modules); a Create-a-Hero's own colours are another path (RW 0x6727B0) and stay
+				const auto palette = drawTakesHouseColor(e, *d) ? Render_House_Color_Params(d->getHouseColor(), d->customColorKind(), d->customColors()) : HouseColorParams();
 				ev.colorsRevision = d->customColorRevision();
 				std::string coloredModel;
 				if (shown && m_houseColors && palette.kind > 0)
@@ -1775,9 +1791,10 @@ void GameWorld::refresh_views(double deltaMs)
 				std::string swappedModel;
 				if (shown && !f.textureSwaps->empty())
 				{
-					if (ev.swapSource != f.textureSwaps)
+					if (ev.swapSource != f.textureSwaps || ev.swapGeneration != f.textureSwapsGeneration)
 					{
 						ev.swapSource = f.textureSwaps;
+						ev.swapGeneration = f.textureSwapsGeneration;
 						ev.swapSuffix = W3DInstancer::Texture_Swap_Suffix(*f.textureSwaps); // once per state change (Sol review r1: not every frame)
 					}
 					swappedModel = (!coloredModel.empty() ? coloredModel : ev.rawLowered) + ev.swapSuffix;
@@ -1830,7 +1847,7 @@ void GameWorld::refresh_views(double deltaMs)
 						if (mid >= 0)
 						{
 							ev.instance = dyn->add_instance(mid, entryXf, String(), 0.0, 1.0);
-							if (ev.instance >= 0 && m_houseColors && d->getHouseColor() != 0 && coloredModel.empty())
+							if (ev.instance >= 0 && m_houseColors && d->getHouseColor() != 0 && coloredModel.empty() && drawTakesHouseColor(e, *d)) // RW 0x4B4A30
 							{
 								dyn->set_instance_house_color(ev.instance, houseColorOf(d->getHouseColor()));
 							}
@@ -1911,10 +1928,10 @@ void GameWorld::refresh_views(double deltaMs)
 					ev.staticKeyWeather != m_streakWeather || ev.staticKeyHouse != m_houseColors || ev.staticKeyOwner != owner ||
 					ev.staticKeyCustomKind != customKind || std::memcmp(ev.staticKeyCustom, custom, sizeof(ev.staticKeyCustom)) != 0)
 				{
-					ev.staticKeyPalette = Render_House_Color_Params(owner, customKind, custom);
+					ev.staticKeyPalette = drawTakesHouseColor(e, *d) ? Render_House_Color_Params(owner, customKind, custom) : HouseColorParams(); // RW 0x4B4A30
 					ev.staticKeyColored = m_houseColors && ev.staticKeyPalette.kind > 0;
 					ev.staticKeySwaps = e.kind == W3D_DRAWKIND_FLOOR ? floorWeatherSwaps(e.data, m_streakWeather) : std::vector<std::pair<std::string, std::string>>();
-					ev.staticKey = AsciiStringUtil::lowered(e.staticModel) + W3DInstancer::Texture_Swap_Suffix(ev.staticKeySwaps);
+					ev.staticKey = AsciiStringUtil::lowered(e.staticModel) + W3DInstancer::Texture_Swap_Suffix(ev.staticKeySwaps) + (e.kind == W3D_DRAWKIND_FLOOR ? "#floor" : "");
 					if (ev.staticKeyColored)
 					{
 						const HouseColorParams &pp = ev.staticKeyPalette;
@@ -1944,6 +1961,7 @@ void GameWorld::refresh_views(double deltaMs)
 					{
 						const double tm = nowMs();
 						dyn->Set_Build_Texture_Swaps(swaps);
+						dyn->Set_Build_Floor(e.kind == W3D_DRAWKIND_FLOOR);
 						if(colored) {
 						 PackedInt64Array colors;for(auto color:palette.colors) colors.push_back((int64_t)color);
 						 mid=dyn->add_model_colored(toGodot(e.staticModel),palette.kind,colors);

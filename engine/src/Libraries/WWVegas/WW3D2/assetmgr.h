@@ -42,6 +42,7 @@ struct W3DFileContents
 	std::vector<ParticleEmitterDefClass> Emitters;
 	std::vector<ShdMeshDefClass> ShdMeshes; // structure only (see shdmesh.h)
 	std::vector<std::uint32_t> OtherChunks; // top-level chunks with no loader (none in the retail corpus); listed, not hidden
+	bool Truncated = false; // a chunk ran past the end of the file (ChunkLoadClass::Was_Truncated): loaded from what is there, as ZH does
 
 	const MeshModelClass *Find_Mesh(const std::string &name) const; // case-insensitive
 	const HLodDefClass *Find_HLod(const std::string &name) const;

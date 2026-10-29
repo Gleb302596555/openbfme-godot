@@ -21,11 +21,12 @@
 #include <variant>
 
 Drawable::Drawable(DrawServices &services, const ThingTemplate *tt, DrawableID id, ObjectID objectId, const std::vector<ClientEvent::ClientModule> &clientModules,
-	std::vector<std::string> &problems)
+	std::vector<std::string> &problems, int variation)
 	: Thing(tt)
 	, m_services(services)
 	, m_id(id)
 	, m_objectId(objectId)
+	, m_variation(variation)
 {
 	m_services.host.setChunkName(tt->getName()); // the Lua chunk name of the BeginScript runs: the object template's name
 	if (const FieldValue *v = tt->findField("Scale"))
@@ -116,6 +117,7 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 			{
 				W3DScriptedModelDraw::Options o;
 				o.scale = m_scale;
+				o.variation = m_variation; // RandomTexture (RW 0x4C238A)
 				o.buildBones = false; // turrets, barrels and particle bones are not drawn (S-095 / S-097)
 				// AUDIO-2: Lua CurDrawablePlaySound (RW 0x73529F) plays for this drawable through the installed audio manager
 				const DrawableID drawableId = m_id;
@@ -278,6 +280,17 @@ bool Drawable::showModule(const std::string &name, bool visible, bool permanent)
 		}
 	}
 	return false;
+}
+
+void Drawable::setUpgradeTextures(const std::vector<std::pair<std::string, std::string>> &swaps)
+{
+	for (DrawEntry &e : m_entries)
+	{
+		if (e.draw)
+		{
+			e.draw->setUpgradeTextureSwaps(swaps);
+		}
+	}
 }
 
 void Drawable::showSubObject(const std::string &name, bool visible, bool permanent)

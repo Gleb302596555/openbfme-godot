@@ -9,6 +9,7 @@
 #include "GameClient/CameraSettings.h"
 #include "GameNetwork/Transport.h"
 #include "GodotDevice/GodotPackedTexture.h"
+#include "GodotDevice/GodotDds.h"
 #include "GodotDevice/GodotAptView3D.h"
 #include "Common/INI.h"
 #include "Common/INI/INIBlockStubs.h"
@@ -4856,7 +4857,7 @@ void AptMenuPlayer::drawSegment(const AptCanvasList &list, size_t segment, const
 									data.resize((int64_t)dds.size());
 									memcpy(data.ptrw(), dds.data(), dds.size());
 									image.instantiate();
-									if (image->load_dds_from_buffer(data) != OK)
+									if (loadDdsFromBuffer(image, data) != OK)
 									{
 										image.unref();
 									}

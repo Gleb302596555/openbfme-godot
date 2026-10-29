@@ -126,6 +126,21 @@ TEST_CASE("TGA: RLE, colour-mapped, other depths, oversize and truncated files a
 	CHECK(err.find("18-byte header") != std::string::npos);
 }
 
+TEST_CASE("TGA: RLE (type 10) is read only when the caller allows it (radar art), packets repeat or copy pixels")
+{
+	TGAImage img;
+	std::string err;
+	// 2x2, 24-bit: a repeat packet (2 x red) then a raw packet of two pixels (green, blue)
+	Bytes px = { 0x81, 0x00, 0x00, 0xFF,  0x01, 0x00, 0xFF, 0x00,  0xFF, 0x00, 0x00 };
+	Bytes rle = makeTga(10, 24, 2, 2, 0, px);
+	CHECK_FALSE(TGAFile::decode(rle.data(), rle.size(), img, &err));
+	REQUIRE_MESSAGE(TGAFile::decode(rle.data(), rle.size(), img, &err, 1024, true), err);
+	CHECK(img.rgba == (Bytes{ 255, 0, 0, 255,  255, 0, 0, 255,  0, 255, 0, 255,  0, 0, 255, 255 }));
+	Bytes cut = makeTga(10, 24, 2, 2, 0, Bytes{ 0x81, 0x00, 0x00, 0xFF });
+	CHECK_FALSE(TGAFile::decode(cut.data(), cut.size(), img, &err, 1024, true));
+	CHECK(err.find("RLE pixel data truncated") != std::string::npos);
+}
+
 TEST_CASE("TerrainTypes: Terrain blocks give name -> texture, case-insensitive; _nrm and archive path names")
 {
 	const char *ini =

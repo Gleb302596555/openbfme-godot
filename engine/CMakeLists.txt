@@ -361,6 +361,7 @@ add_library(openbfme_core STATIC
     src/GameClient/MapCache.cpp
     src/GameClient/MapWeather.cpp
     src/GameClient/TGAFile.cpp
+    src/GameClient/DdsDecode.cpp
     src/GameClient/TerrainAtlas.cpp
     src/GameClient/TerrainRoads.cpp
     src/GameClient/WaterGeometry.cpp
@@ -594,6 +595,7 @@ add_library(openbfme SHARED
     src/GodotDevice/GodotRetailFileSystem.cpp
     src/GodotDevice/GodotW3DModelBuilder.cpp
     src/GodotDevice/GodotW3DMaterial.cpp
+    src/GodotDevice/GodotDds.cpp
     src/GodotDevice/GodotW3DInstancer.cpp
     src/GodotDevice/GodotLogicClock.cpp
     src/GodotDevice/GodotMapTerrain.cpp
@@ -837,6 +839,7 @@ add_executable(openbfme_tests
     tests/test_map_corpus.cpp
     tests/test_map_cache.cpp
     tests/test_map_terrain.cpp
+    tests/test_dds_decode.cpp
     tests/test_map_render.cpp
     tests/test_mod5_user_maps.cpp
     tests/RetailTestMount.cpp

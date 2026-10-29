@@ -2,6 +2,7 @@
 
 #include "GodotDevice/GodotGammaComposite.h"
 #include "GodotDevice/GodotFXPlayer.h"
+#include "GodotDevice/GodotDds.h"
 
 #include "GodotDevice/GodotRetailFileSystem.h"
 #include "GodotDevice/GodotW3DMaterial.h"
@@ -852,7 +853,7 @@ Ref<Texture2D> FXPlayer::decodeTexture(const std::string &name, std::string &mis
 			Error err = FAILED;
 			switch (res.Kind)
 			{
-			case ParticleTextureResolution::DDS: err = image->load_dds_from_buffer(buffer); break;
+			case ParticleTextureResolution::DDS: err = loadDdsFromBuffer(image, buffer); break;
 			case ParticleTextureResolution::TGA: err = image->load_tga_from_buffer(buffer); break;
 			case ParticleTextureResolution::JPG: err = image->load_jpg_from_buffer(buffer); break;
 			default: break;

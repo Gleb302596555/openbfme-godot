@@ -85,8 +85,71 @@ an English BFME2 folder under a Russian RotWK contributes no language archive; t
 used to hide the game's `lotr.csf`, and Ennorath's new names read `MISSING: 'INI:FactionArnor'`). The BFME2 voices of such an install
 are then missing, as in retail.
 
-Open: some of Ennorath's art: DDS files whose mip chain is shorter than their header says (`buwheat1.dds`) and model materials that name
-the texture `None`.
+Ennorath's art has DDS files that Godot's loader refuses but retail's D3D takes: a mip chain shorter than the header says (`buwheat1.dds`,
+`hablsmt.dds`) and sizes that are not a multiple of 4 (`mbfarm_bib.dds` is 690 x 690). They are read from their top level and get a generated mip
+chain (`DdsDecode`, GodotDevice/GodotDds.h), which is what turned Harad's buildings pink. A radar picture saved as RLE TGA (Amon Hen II) is read too.
+
+Other fixes of the Ennorath pass:
+- a structure's floor (its bib) blends by its texture's alpha, so the bib's feathered edge fades into the terrain instead of showing as a
+  hard square of other ground under every farm and mill (stop S-4974 in docs/STOPS.md);
+- a ModifierList whose `Upgrade` runs a module that adds the same list again (Mordor's barricade: `Upgrade_StructureLevel1` adds
+  `MordorGrondArchersDelay`) grants once and keeps one entry; it used to recurse until the game crashed (AttributeModifierPool::add);
+- the Palantir screen outlives the HUD that gave it its button handlers, so the HUD drops them all when it goes (a failed start used to
+  leave a handler pointing at the freed HUD);
+- `RandomTexture = NEW weight ORIGINAL` is drawn (RW 0x4C7C56 / 0x4C238A): Ennorath reuses retail models with its own textures this way in
+  210 files (its Harad porter is Gondor's `GUPorter_SKN` drawn with `haporter_res.tga`), which the port parsed backwards and never applied,
+  so those units looked like the base game's;
+- only a draw module with `OkToChangeModelColor = Yes` takes the team colour (RW 0x4B4A30); Ennorath sets it on a third of its modules;
+- a ground click with a unit that recruits but is not KindOf `AUTO_RALLYPOINT` (RW 0x69D53F; Ennorath's HaradSpy) moves it instead of
+  setting a rally point;
+- a W3D file whose last chunk is shorter than its header says loads from what it has, as ZH's file reads do (Ennorath's `muoliphnt_skn.w3d`,
+  the wild mumak, was refused and never drawn; one of retail's own corrupt files loads the same way);
+- the transparent pass saturates at white before it is decoded, as D3D9's frame buffer does (stop S-831): the twinkle of the supply rocks
+  (`SupplySmallTwinkle`, some 35 additive sparkles in a 12 ft ring) was decoded to values in the hundreds and smeared into a white glare;
+- GameData `EnableHouseColor = No` (Ennorath's) is read: only an object of KindOf `BASE_SITE` or `ALWAYS_SHOW_HOUSE_COLOR` shows its owner's
+  colour then (Drawable::setIndicatorColor, RW 0x674516); placement ghosts show none;
+- SubObjectsUpgrade's `UpgradeTexture` list reaches every draw module (RW 0x8B911E, the last applied upgrade wins): Aranarth wears
+  `araranarthtwo.tga` from level 1 and his own texture again after Malbeth's prophecy, instead of the prophecy look from the start;
+- `SupplyWarehouseCreate` registers a warehouse with every player (RW 0x8BD063) and `SupplyWarehouseDockUpdate` gives a docked worker one
+  box at a time (RW 0x8AB53D: StartingBoxes, DeleteWhenEmpty, a docker too far is nudged by +-4): Ennorath's supply rocks were never found by
+  the stoneworkers' harvesters. NOT BUILT YET (written after the last build, see the work in progress below);
+- not retail: a command button's hotkey answers its key in the US, Russian and Ukrainian layouts when the active layout's letter finds none.
+
+To look at a mod's art in a game, `--visual2=structures` builds every template named in `VISUAL2_STRUCTURES` (a comma list) for the local
+player and saves a shot of each (`visual2-struct-<template>.png`); `--visual2=units` builds each template of `VISUAL2_UNITS` for the local
+player and an enemy side by side, to compare their team colours (`visual2-units-<template>.png`). `VISUAL2_HEIGHT` sets the camera height.
+`--visual2=produce` with `VISUAL2_PRODUCE=<producer>:<unit>` builds the producer, queues the unit and waits up to 90 s for it to come out
+(`visual2-produce-<unit>.png`).
+
+Not changed, as retail: model materials that name the texture `None`, and textures the mod's models name but no archive has
+(`muminasmorgulea.tga`, `GBFS02.tga`, `haradfarm_bib2.tga`), draw retail's missing-texture magenta. Ennorath's own `housecolor.ini` lists 174
+textures where the base game lists 511.
+
+Work in progress (2026-10-29, nothing committed):
+- the last build has everything above but the two supply warehouse modules; those are written and not compiled;
+- `ResourceGatheringManager::canTransferSuppliesAt` still refuses a warehouse dock (stop S-5202). Retail RW 0x82C66C lets a worker dock when
+  the warehouse holds boxes (+ 0x88) and its relationship to the worker (RW 0x68D7AB) is not ENEMIES, then goes on as for a supply center;
+  until that is ported the harvesters do not go to the rocks and the cursor offers no order on them;
+- `test_sdk1_packs.cpp:194` fails since the truncated-W3D change: an asset pack's damaged model now loads. A pack model whose
+  `W3DFileContents::Truncated` is set should stay an error (only the retail / mod mount reads truncated files as ZH does);
+- `test_hud6.cpp:787` (the Mordor fortress's lava moat upgrade does not queue) fails in the combined run of the upgrade / colour / texture
+  tests and passes when its file runs alone: an order dependence, cause not found, not known to be from these changes.
+
+Known problems, not fixed (the owner's playtest of 2026-10-29):
+- no grass fire: TheFireLogicSystem is not ported (stop S-191), so a FireLogicNugget does nothing. The Carthaen scout's torch
+  (`CardolanRangerFireKiller` -> `CarthaenTorchWeapon`) summons its archers and the scout leaves, but nothing burns; fire arrows the same;
+- a hero does not use an ability while it fights (Aranarth cannot dismount while attacking, he can while walking). The dismount refusal is
+  retail's (RW 0x8B1FDA: a current locomotor of max speed 0); where the order stops was not found;
+- the Arnor fortress's Eye of the Palantir (`SpecialAbilityArnorFortressIvoryTowerVision` -> `OCL_SpawnEyeOfPalantir` -> `EyeOfPalantir`,
+  model `ARPalaEye`) looks broken: blue streaks across the sky;
+- the end of every construction shows a black smoke; the construction dust is `BuildingContructDust`, the black part was not identified;
+- the twinkle over the supply rocks still animates too fast (its brightness is fixed); the GPU particles step at 30 Hz with retail's frame
+  time, the cause was not found;
+- a farm's claim circle: the selected farm's circle is tinted retail's 0xFF6464C8; while placing a new farm the other farms' circles are
+  not shown (stop S-5030: the outline arcs are not drawn) and the placement circle takes the claim band colour;
+- the worker figure that marks a building's repair stays after the building is destroyed;
+- a locked ability's button is drawn in greyscale (the luminance weights of the radial bubbles, S-5040) and reads as merely lighter, not locked;
+- the Harad cavalry's horses stop moving their legs after a trample (not looked at).
 
 ## Which file wins
 

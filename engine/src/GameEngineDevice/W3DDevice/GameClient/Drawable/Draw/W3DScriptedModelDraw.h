@@ -117,6 +117,7 @@ struct W3DDrawPoseView
 	const std::set<int> *hiddenSubObjects = nullptr; ///< indices into model->SubObjects (frame() names them; empty without a model)
 	std::uint32_t hiddenGeneration = 0;             ///< changes whenever the module's hidden set may have changed (with the same model: the same set)
 	const std::vector<std::pair<std::string, std::string>> *textureSwaps = nullptr; ///< the state's `Texture = A B` pairs (stop S-5015); never null after poseView
+	std::uint32_t textureSwapsGeneration = 0; ///< changes whenever *textureSwaps may have changed (a new state, an upgrade texture list)
 };
 
 struct W3DScriptedModelDrawOptions
@@ -148,6 +149,9 @@ struct W3DScriptedModelDrawOptions
 	// the tag, setModuleVisible changes that module's visibility. Unset: the requests are only recorded here (isModuleHidden)
 	std::function<bool(const std::string &)> hasModule;
 	std::function<void(const std::string &, bool)> setModuleVisible;
+	// The drawable's model variation (drawable + 0x364, RW 0x679FEA): an object's drawable gets its creation draw GetGameLogicRandomValue(1, 999)
+	// (RW 0x6288A5 -> 0x6288D3), the other drawables -1 (placement ghosts RW 0x69C6A6). It picks the RandomTexture swaps (RW 0x4C238A).
+	int variation = -1;
 };
 
 class W3DScriptedModelDraw : public W3DDrawScriptApi
@@ -164,6 +168,8 @@ public:
 	// Drawable::setModelConditionState: the object's current model condition flags (RW 0x4BF2D8). Both lists are re-matched; see the
 	// header comment for the pending state rule.
 	void setModelConditionFlags(const ModelConditionFlags &flags);
+	// RW 0x8B911E -> draw module vslot 0x84: SubObjectsUpgrade's UpgradeTexture list replaces the module's upgrade textures (empty: none)
+	void setUpgradeTextureSwaps(const std::vector<std::pair<std::string, std::string>> &swaps);
 	// lane COMBAT-4: the module data's DependencySharedModelFlags (+ 0xBC, RW table row 0xBE1420): the flags the module's dependents share (RW 0x4BF2D8)
 	const ModelConditionFlags &dependencySharedModelFlags() const { return m_data.m_dependencySharedModelFlags; }
 
@@ -248,6 +254,9 @@ protected:
 
 	// vtable slot 0x108 (RW 0x4C0917 returns 100000; the horde draw returns its LOD row's MaxRandomAnimations, RW 0x478A6C)
 	virtual int maxRandomAnimations() const { return 100000; }
+	// RW 0x4C48A1 passes 0xFF as the RandomTexture limit; the horde draw passes its LOD row's MaxRandomTextures and picks none when it is not
+	// positive (RW 0x47A356 .. 0x47A38B)
+	virtual int maxRandomTextures() const { return 0xFF; }
 	// vtable slot 0x10C (RW 0x4B3766: GameClientRandomValue(0, frames - 1); the horde draw scales it, RW 0x478A74)
 	virtual int randomStartFrame(int frames);
 
@@ -301,6 +310,11 @@ private:
 
 	ModelConditionFlags m_pendingFlags;     // RW +0x17C
 	const ModelConditionInfo *m_curModelInfo = nullptr; // RW +0x14
+	std::vector<std::pair<std::string, std::string>> m_randomTextureSwaps; // RW 0x4C238A's pairs, picked once (initializeState)
+	std::vector<std::pair<std::string, std::string>> m_upgradeTextureSwaps; // RW 0x8B911E's list (setUpgradeTextureSwaps)
+	std::vector<std::pair<std::string, std::string>> m_textureSwaps;       // the upgrade list, m_randomTextureSwaps, then the current state's Texture pairs
+	std::uint32_t m_textureSwapsGeneration = 0;
+	void rebuildTextureSwaps();
 	const AnimationStateInfo *m_curAnimState = nullptr; // RW +0x18
 	int m_whichAnim = -1;                   // RW +0x44
 	int m_lastAnim = 0;                     // RW +0x88
@@ -351,6 +365,7 @@ public:
 
 protected:
 	int maxRandomAnimations() const override { return m_lod.maxRandomAnimations; }
+	int maxRandomTextures() const override { return m_lod.maxRandomTextures; }
 	int randomStartFrame(int frames) override;
 
 private:

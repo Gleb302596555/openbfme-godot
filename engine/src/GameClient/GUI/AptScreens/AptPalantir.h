@@ -56,6 +56,17 @@ public:
 	// ---- the engine's side of the movie (lane HUD-1) ----
 	// What a press of a command button does: ControlBar::pressButton / cancelQueued (set by the HUD)
 	void setButtonHandler(std::function<void(int slot, bool inPalantir)> press) { m_press = std::move(press); }
+	// The shell-hosted screen outlives the HUD that set the handlers (they capture the HUD): the HUD's destructor drops them all
+	void releaseHandlers()
+	{
+		m_press = nullptr;
+		m_rightPress = nullptr;
+		m_spellPress = nullptr;
+		m_spellStoreOpen = nullptr;
+		m_stancePress = nullptr;
+		m_helpBoxHandler = nullptr;
+		setHeroSelectHandler(nullptr);
+	}
 	// lane AUTOCAST-1: what a right press of a command button does (ControlBar::rightPressButton): the content's _OnPress (RW 0x9D6E54) with
 	// TheAptWindowManager + 0x318 == 2
 	void setRightButtonHandler(std::function<void(int slot, bool inPalantir)> press) { m_rightPress = std::move(press); }

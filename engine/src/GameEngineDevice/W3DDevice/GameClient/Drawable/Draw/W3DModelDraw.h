@@ -157,15 +157,14 @@ struct ModelTurretInfo
 	float artPitch = 0.0f;
 };
 
-struct W3DRandomTextureInfo // RandomTexture = SRC N DST ... (RW 0x4C7C56, element 0x14 bytes)
+// RandomTexture = NEW WEIGHT ORIGINAL (RW 0x4C7C56): one record per ORIGINAL texture (RW 0x4C7B8C finds it by _stricmp in the module data's vector
+// at + 0x7C, element 0x14 bytes, or appends one), each line appending its NEW texture (+ 0x4); the weight (+ 0x10) is the last line's (it is not read
+// by the pick, RW 0x4C238A). "Dwarf_A.tga 0 Dwarf_A.tga" makes the original one of the choices.
+struct W3DRandomTextureInfo
 {
-	std::string name;
-	struct Entry
-	{
-		std::string replacement;
-		int weight = 0;
-	};
-	std::vector<Entry> entries;
+	std::string name;                  ///< + 0x0: the original texture the model names
+	std::vector<std::string> textures; ///< + 0x4: the textures one of which is drawn instead
+	int weight = 0;                    ///< + 0x10
 };
 
 struct W3DAttachModelInfo // AttachModel block (RW 0x4C7E42; donor Rva0077C390Parse.cpp)
@@ -316,6 +315,12 @@ public:
 	// conditions. Non-empty query: the first state (in order) with conditions that are all in the query; else the default state;
 	// else the last state with no conditions seen; else nullptr.
 	const ModelConditionInfo *findBestInfo(const ModelConditionFlags &c) const;
+	// RW 0x4C238A: the RandomTexture swaps (original, drawn instead) of a drawable whose model variation (drawable + 0x364) is `variation`.
+	// `maxTextures` is the caller's limit on the pick (RW 0x4C48A1 passes 0xFF; the horde draw its LOD row's MaxRandomTextures, RW 0x47A38B).
+	// For record i of n textures: index = (v / 3 + v / 5 + i + (v & 0xF) * (i + 1) + v) mod n (unsigned), at most maxTextures - 1;
+	// RandomTextureFixedRandomIndex takes the first record's index for all of them when every record has as many textures. A pick equal to the
+	// original makes no swap.
+	std::vector<std::pair<std::string, std::string>> pickRandomTextures(int variation, int maxTextures) const;
 	// findBestAnimationState (BFME1 name findByCondition): RW 0x4B4443. Pass 1: the first state with a non-empty condition set that
 	// is a subset of the query. Pass 2: the first state with no conditions (the IdleAnimationState, which parse put first; a
 	// TransitionState also has none, so a module without an idle state can fall back to one). nullptr when neither exists.

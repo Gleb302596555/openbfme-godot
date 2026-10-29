@@ -102,7 +102,7 @@ const HAnimClass *W3DFileContents::Find_Animation(const std::string &fullName) c
 bool Load_W3D_File(const std::uint8_t *data, size_t size, W3DFileContents &out, std::string *error)
 {
 	out = W3DFileContents();
-	ChunkLoadClass cload(data, size);
+	ChunkLoadClass cload(data, size, true); // a file shorter than its last chunk loads from what it has, as ZH's (W3DFileContents::Truncated)
 	while (cload.Open_Chunk())
 	{
 		switch (cload.Cur_Chunk_ID())
@@ -205,6 +205,7 @@ bool Load_W3D_File(const std::uint8_t *data, size_t size, W3DFileContents &out, 
 		}
 		return false;
 	}
+	out.Truncated = cload.Was_Truncated();
 	return true;
 }
 

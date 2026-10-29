@@ -310,6 +310,147 @@ func _reveal(fade: bool) -> String:
 	return ""
 
 
+## every structure template named in VISUAL2_STRUCTURES (comma list), made finished for the local player on one free spot toward the map's middle, shot
+## and removed one by one (visual2-struct-<template>.png); camera height from VISUAL2_HEIGHT (default: the game's). FAIL: nothing named
+func _scenario_structures() -> String:
+	var names := OS.get_environment("VISUAL2_STRUCTURES").split(",", false)
+	if names.is_empty():
+		return "VISUAL2_STRUCTURES names no template"
+	var me := -1
+	var i := 0
+	for p in world.get_report().get("players", []):
+		if me < 0 and str(p).contains(game._local_name):
+			me = i
+		i += 1
+	var height := OS.get_environment("VISUAL2_HEIGHT").to_float() if not OS.get_environment("VISUAL2_HEIGHT").is_empty() else 0.0
+	var base := _local_base()
+	var shroud: Dictionary = world.get_shroud_report()
+	var mid := Vector2(float(shroud.get("cells_x", 0)), float(shroud.get("cells_y", 0))) * float(shroud.get("cell_size", 0.0)) * 0.5
+	var dir := (mid - base).normalized() if mid != base else Vector2.RIGHT
+	var refused := []
+	var n := 0
+	for t in names:
+		var at := base + dir * 700.0
+		var id: int = world.create_object(t, me, at.x, at.y, 0.0)
+		if id < 0:
+			refused.append(t)
+			continue
+		n += 1
+		hud.camera_look_at(at)
+		if height > 0.0:
+			hud.camera_set_height(height)
+		await _frames(90)
+		game._save_named("visual2-struct-" + t)
+		world.destroy_object(id)
+		await _frames(5)
+	print("VISUAL2 structures: %d shot, %d refused %s" % [n, refused.size(), str(refused)])
+	return ""
+
+
+## VISUAL2_UNITS (comma list of templates): each made for the local player and for the first other player, side by side, one shot per template
+## (visual2-units-<template>.png); camera height from VISUAL2_HEIGHT. The team colours of the two owners must differ on the drawn units
+func _scenario_units() -> String:
+	var names := OS.get_environment("VISUAL2_UNITS").split(",", false)
+	if names.is_empty():
+		return "VISUAL2_UNITS names no template"
+	var players: Array = world.get_report().get("players", [])
+	var me := -1
+	var other := -1
+	var enemies := _enemy_names()
+	for i in players.size():
+		if me < 0 and str(players[i]).contains(game._local_name):
+			me = i
+		elif other < 0 and not enemies.is_empty() and str(players[i]).contains(str(enemies[0])):
+			other = i
+	print("VISUAL2 units: players %s, local index %d, other index %d" % [str(players), me, other])
+	var height := OS.get_environment("VISUAL2_HEIGHT").to_float() if not OS.get_environment("VISUAL2_HEIGHT").is_empty() else 0.0
+	var base := _local_base()
+	var shroud: Dictionary = world.get_shroud_report()
+	var mid := Vector2(float(shroud.get("cells_x", 0)), float(shroud.get("cells_y", 0))) * float(shroud.get("cell_size", 0.0)) * 0.5
+	var dir := (mid - base).normalized() if mid != base else Vector2.RIGHT
+	var side := Vector2(-dir.y, dir.x)
+	var at := base + dir * 700.0
+	var refused := []
+	for t in names:
+		var a: int = world.create_object(t, me, at.x - side.x * 60.0, at.y - side.y * 60.0, 0.0)
+		var b: int = world.create_object(t, other, at.x + side.x * 60.0, at.y + side.y * 60.0, 0.0)
+		if a < 0 or b < 0:
+			refused.append(t)
+		hud.camera_look_at(at)
+		if height > 0.0:
+			hud.camera_set_height(height)
+		await _frames(25)
+		game._save_named("visual2-units-" + t)
+		var defects := []
+		var dd: Dictionary = world.get_report().get("drawables", {}).get("data_defects", {})
+		for k in dd.keys():
+			if str(k).to_lower().contains(t.to_lower()) or str(k).to_lower().contains("oliph") or str(k).to_lower().contains("mumak"):
+				defects.append(str(k) + " x" + str(dd[k]))
+		print("VISUAL2 units %s: pose %s, draw defects %s" % [t, str(world.get_render_pose(a)), str(defects).left(1500)])
+		for id in [a, b]:
+			if id >= 0:
+				world.destroy_object(id)
+		await _frames(5)
+		var hits := []
+		var text := JSON.stringify(world.get_report())
+		var hit_at := text.to_lower().find(t.to_lower())
+		while hit_at >= 0 and hits.size() < 12:
+			hits.append(text.substr(maxi(0, hit_at - 200), 500))
+			hit_at = text.to_lower().find(t.to_lower(), hit_at + 1)
+		print("VISUAL2 units %s: report mentions %s" % [t, str(hits)])
+	print("VISUAL2 units: %d shot, %d refused %s (local %s, other player index %d)" % [names.size() - refused.size(), refused.size(), str(refused), game._local_name, other])
+	return ""
+
+
+## VISUAL2_PRODUCE=<producer>:<unit>[,...]: the producer made for the local player toward the map's middle, money given, the unit queued; every logic
+## object of the unit's template (and the queue) printed each 2 s for 90 s, a shot when it is out (visual2-produce-<unit>.png). FAIL: it never appears
+func _scenario_produce() -> String:
+	var pairs := OS.get_environment("VISUAL2_PRODUCE").split(",", false)
+	if pairs.is_empty():
+		return "VISUAL2_PRODUCE names no producer:unit"
+	var me := -1
+	var i := 0
+	for p in world.get_report().get("players", []):
+		if me < 0 and str(p).contains(game._local_name):
+			me = i
+		i += 1
+	var base := _local_base()
+	var shroud: Dictionary = world.get_shroud_report()
+	var mid := Vector2(float(shroud.get("cells_x", 0)), float(shroud.get("cells_y", 0))) * float(shroud.get("cell_size", 0.0)) * 0.5
+	var dir := (mid - base).normalized() if mid != base else Vector2.RIGHT
+	var missing := []
+	for pair in pairs:
+		var parts := pair.split(":")
+		var at := base + dir * 700.0
+		var producer: int = world.create_object(parts[0], me, at.x, at.y, 0.0)
+		if producer < 0:
+			return "could not make " + parts[0] + ": " + str(world.get_report().get("errors", []))
+		world.debug_build_complete(producer)
+		world.give_money(me, 100000)
+		hud.camera_look_at(at)
+		await _frames(10)
+		world.queue_unit(me, producer, parts[1], false)
+		var seen := false
+		for t in 45:
+			await _seconds(2.0)
+			var found := []
+			for o in world.get_player_objects(game._local_name):
+				if str(o.get("template", "")).to_lower() == parts[1].to_lower():
+					found.append(world.get_object(o.id))
+			print("VISUAL2 produce %s t=%ds: %d out %s queue %s" % [parts[1], (t + 1) * 2, found.size(), str(found).left(600), str(world.get_production(me, producer)).left(400)])
+			if not found.is_empty():
+				if not seen:
+					hud.camera_look_at(Vector2(float(found[0].get("x", at.x)), float(found[0].get("y", at.y))))
+					await _frames(20)
+					game._save_named("visual2-produce-" + parts[1])
+				seen = true
+				break
+		if not seen:
+			missing.append(parts[1])
+		world.destroy_object(producer)
+	return "" if missing.is_empty() else "never appeared: " + str(missing)
+
+
 func _scenario_dust() -> String:
 	var enemy := ""
 	for n in _enemy_names():

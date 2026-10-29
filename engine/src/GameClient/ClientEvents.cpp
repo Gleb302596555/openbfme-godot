@@ -63,7 +63,7 @@ void ClientEventRecorder::objectCreated(Object &obj)
 	}
 	if (const Player *p = obj.getControllingPlayer())
 	{
-		if (p->hasTeamColor())
+		if (p->hasTeamColor() && settings.showsHouseColor(obj)) // RW 0x674516: GameData EnableHouseColor, else BASE_SITE / ALWAYS_SHOW_HOUSE_COLOR
 		{
 			e.hasHouseColor = true;
 			e.houseColor = p->getPlayerColor();
@@ -86,6 +86,19 @@ void ClientEventRecorder::objectCreated(Object &obj)
 	e.kindOf = obj.getKindOf();
 	e.angle = obj.getOrientation();
 	obj.friend_bindToClient(this);
+}
+
+// the CREATED event of the object, the last one it has (objectVariation follows objectCreated in Object::friend_initObject)
+void ClientEventRecorder::objectVariation(Object &obj, int variation)
+{
+	for (auto it = m_events.rbegin(); it != m_events.rend(); ++it)
+	{
+		if (it->object == obj.getID() && it->kind == ClientEvent::CREATED)
+		{
+			it->variation = variation;
+			return;
+		}
+	}
 }
 
 void ClientEventRecorder::objectDestroyed(Object &obj)
@@ -160,7 +173,7 @@ void ClientEventRecorder::replaceDrawable(Object &obj, const ThingTemplate *tmpl
 			e.flags.set(bit);
 		}
 	}
-	e.hasHouseColor = hasColor;
+	e.hasHouseColor = hasColor && m_logic.settings().showsHouseColor(obj); // RW 0x674516
 	e.houseColor = color;
 	for (ModuleType type : { MODULETYPE_CLIENT_UPDATE, MODULETYPE_CLIENT_BEHAVIOR })
 	{
@@ -247,7 +260,7 @@ void ClientEventRecorder::pushFlush(Object &obj)
 		const Object *capturer = m_logic.findObjectByID(obj.getCapturerID());
 		const Player *player = capturer ? capturer->getControllingPlayer() : obj.getControllingPlayer();
 		e.hasHouseColor = true;
-		e.houseColor = player ? player->getPlayerColor() : 0;
+		e.houseColor = player && m_logic.settings().showsHouseColor(obj) ? player->getPlayerColor() : 0; // RW 0x674516
 	}
 	e.scriptTarget = DrawableScriptTarget::capture(m_logic, obj); // lane FX-3: what the state scripts this flush starts ask about (RW 0x73667D / 0x734A75)
 	if (const ObjectWeapons *w = obj.getWeapons())
@@ -287,6 +300,12 @@ void ClientEventRecorder::showSubObject(Object &obj, const std::string &name, bo
 	e.name = name;
 	e.visible = visible;
 	e.permanent = permanent;
+}
+
+void ClientEventRecorder::upgradeTextures(Object &obj, const std::vector<std::pair<std::string, std::string>> &swaps)
+{
+	ClientEvent &e = push(ClientEvent::UPGRADE_TEXTURES, obj);
+	e.textureSwaps = swaps;
 }
 
 void ClientEventRecorder::placement(Object &obj, const MapObjectDrawable &placement)

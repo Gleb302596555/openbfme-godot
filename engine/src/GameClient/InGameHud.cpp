@@ -166,7 +166,7 @@ InGameHud::~InGameHud()
 	m_store.reset();
 	if (m_palantirRef)
 	{
-		m_palantirRef->setHeroSelectHandler(nullptr); // lane UI-4
+		m_palantirRef->releaseHandlers(); // the shell-hosted screen outlives this HUD (a failed install left a handler on a freed HUD)
 	}
 	m_config.game.drawables().setHeroAttackedHandler(nullptr);
 	m_config.game.drawables().setHeroFlashHandler(nullptr);

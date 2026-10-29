@@ -59,12 +59,38 @@ W3DScriptedModelDraw::W3DScriptedModelDraw(const W3DModelDrawModuleData &data, W
 	}
 }
 
+// INFERENCE: the upgrade textures first (the drawable's own choice), then the RandomTexture pairs, then the state's Texture pairs (the material takes
+// the first pair naming a texture); how retail's vslot 0x84 combines them with the state's textures was not read
+void W3DScriptedModelDraw::rebuildTextureSwaps()
+{
+	m_textureSwaps = m_upgradeTextureSwaps;
+	m_textureSwaps.insert(m_textureSwaps.end(), m_randomTextureSwaps.begin(), m_randomTextureSwaps.end());
+	if (m_curModelInfo)
+	{
+		m_textureSwaps.insert(m_textureSwaps.end(), m_curModelInfo->textures.begin(), m_curModelInfo->textures.end());
+	}
+	++m_textureSwapsGeneration;
+}
+
+void W3DScriptedModelDraw::setUpgradeTextureSwaps(const std::vector<std::pair<std::string, std::string>> &swaps)
+{
+	m_upgradeTextureSwaps = swaps;
+	rebuildTextureSwaps();
+}
+
 void W3DScriptedModelDraw::initializeState()
 {
 	if (!m_data.findBestInfo(ModelConditionFlags()))
 	{
 		// W3DModelDraw::W3DModelDraw (ZH W3DModelDraw.cpp:1741-1746): "all draw modules must have an IDLE state"
 		throw std::runtime_error("*** ASSET ERROR: all draw modules must have an IDLE state");
+	}
+	// RW 0x4C238A: the RandomTexture pick of this drawable (Ennorath recolours retail models this way: its Harad porter is GUPorter_SKN drawn
+	// with haporter_res.tga). INFERENCE: picked once here; retail picks again for every new render object (RW 0x4C48AC), from the same variation, so
+	// the pairs are the same. UseProducerTexture (RW 0x4C23B1) takes the variation of drawable + 0xFC's + 0x78 instead, not read: the drawable's own (S-5015).
+	if (maxRandomTextures() > 0)
+	{
+		m_randomTextureSwaps = m_data.pickRandomTextures(m_options.variation, maxRandomTextures());
 	}
 	if (m_data.m_alphaCameraFadeOuterRadius > 0.0f || m_data.m_birthFadeTime != 0 || m_data.m_staticSortLevelWhileFading != -1)
 	{
@@ -190,6 +216,7 @@ void W3DScriptedModelDraw::applyModelState(const ModelConditionInfo *state)
 	const std::string newName = AsciiStringUtil::lowered(state->modelName());
 	const bool recreate = m_curModelInfo == nullptr || newName != m_modelName || turretNamesDiffer(state, m_curModelInfo);
 	m_curModelInfo = state;
+	rebuildTextureSwaps();
 	if (!state->particleSysBones.empty() || !state->fxEvents.empty())
 	{
 		stop("S-095", "model state " + ModelCondition::describe(state->conditions) + " has ParticleSysBone / FXEvent entries, which are stored but not played");
@@ -1164,7 +1191,9 @@ void W3DScriptedModelDraw::poseView(W3DDrawPoseView &v) const
 	v.hiddenSubObjects = m_model ? &m_hiddenSubObjects : &noHidden;
 	v.hiddenGeneration = m_hiddenGeneration;
 	static const std::vector<std::pair<std::string, std::string>> noSwaps;
-	v.textureSwaps = m_curModelInfo ? &m_curModelInfo->textures : &noSwaps; // stop S-5015: a SNOW state's look is often its texture swap alone
+	// stop S-5015: a SNOW state's look is often its texture swap alone; the RandomTexture pairs first (RW 0x4C238A)
+	v.textureSwaps = m_curModelInfo ? &m_textureSwaps : &noSwaps;
+	v.textureSwapsGeneration = m_textureSwapsGeneration;
 }
 
 bool W3DScriptedModelDraw::modelCondition(const std::string &name)

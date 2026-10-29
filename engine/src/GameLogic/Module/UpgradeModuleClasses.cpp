@@ -684,9 +684,9 @@ void SubObjectsUpgrade::upgradeImplementation()
 			draw->showModule(*obj, n, true, false);
 			draw->showSubObject(*obj, n, true, true);
 		}
-		if (!m_data->m_upgradeTexture.empty()) // RW 0x8B911E
+		if (!m_data->m_upgradeTexture.empty()) // RW 0x8B911E (mode 0): every draw module takes this module's list
 		{
-			++s.textureSwapsNotPorted;
+			draw->upgradeTextures(*obj, upgradeTexturePairs());
 			if (m_data->m_recolorHouse)
 			{
 				++s.houseRecolorsNotPorted;
@@ -694,6 +694,16 @@ void SubObjectsUpgrade::upgradeImplementation()
 		}
 	}
 	setCustomAnim(true);
+}
+
+std::vector<std::pair<std::string, std::string>> SubObjectsUpgrade::upgradeTexturePairs() const
+{
+	std::vector<std::pair<std::string, std::string>> out;
+	for (const SubObjectsUpgradeModuleData::TextureSwap &t : m_data->m_upgradeTexture)
+	{
+		out.emplace_back(t.from, t.to);
+	}
+	return out;
 }
 
 void SubObjectsUpgrade::processUpgradeRemoval()
@@ -713,7 +723,7 @@ void SubObjectsUpgrade::processUpgradeRemoval()
 			}
 			if (!m_data->m_upgradeTexture.empty())
 			{
-				++UpgradeModuleClasses::stats().textureSwapsNotPorted;
+				draw->upgradeTextures(*obj, {}); // RW 0x8B911E (mode 1): an empty list
 			}
 		}
 		if (m_data->m_unHideSubObjectsOnRemove)
@@ -923,9 +933,9 @@ std::vector<std::string> UpgradeModuleClasses::stopLines()
 		"(the order an upgrade reaches the objects in is inferred)",
 		"[S-483] closed (lane DECOMP-2): Object::hasUpgrade asks a horde's members first (RW 0x68E040 -> contain slot 0x7C -> RW 0x86EC2D) and "
 		"Object::updateUpgradeModules adds the upgrades of a castle member's keep (RW 0x797BEF, member + 0x14 written at the unpack by RW 0x7990D9)",
-		"[S-484] SubObjectsUpgrade: the fade (FadeTimeInSeconds / WaitBeforeFadeInSeconds, RW 0x8B8F40), the UpgradeTexture swap (RW 0x8B911E) and the house recolour "
-		"(RW 0x67273A) are not drawn: " + std::to_string(s.subObjectFadesNotPorted) + " fades shown instantly, " + std::to_string(s.textureSwapsNotPorted) +
-		" texture swaps and " + std::to_string(s.houseRecolorsNotPorted) + " recolours not applied",
+		"[S-484] SubObjectsUpgrade: the fade (FadeTimeInSeconds / WaitBeforeFadeInSeconds, RW 0x8B8F40) and the house recolour (RW 0x67273A) are not drawn "
+		"(the UpgradeTexture list reaches every draw module, RW 0x8B911E; the order it takes against RandomTexture and the state's Texture pairs is inferred): " +
+		std::to_string(s.subObjectFadesNotPorted) + " fades shown instantly, " + std::to_string(s.houseRecolorsNotPorted) + " recolours not applied",
 		"[S-486] upgrade research details not ported: the sub upgrade cost skip of UpgradeTemplate::calcCostToBuild (RW 0x694BF8 / slot 0xAC), the castle cost "
 		"record of queueUpgrade (RW 0x8A10A0) (the completion's RW 0x79D322 / 0x79D833 are the producer's experience: PRODUCTION1, S-203), the first and third clauses of Object::affectedByUpgrade (RW 0x6939DF / "
 		"0x693A1A, RW 0x6ABDC2), HordeContain's second member list (+0x150) in the upgrade hand-down (RW 0x87566B) and in Object::hasUpgrade (RW 0x86EC2D: module + 0x170), the research sound, Eva event, UpgradeFX and UI "

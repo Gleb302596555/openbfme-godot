@@ -15,6 +15,8 @@
 // NOT PORTED (stop S-280): the manager's message-type actions (a meta message bound to a window, RW 0x75B2BA), the other registrations (the radial / stance sub-menus RW 0x96FCCB / 0x96FDFD, the garrison inventory RW 0x94518D, RW 0x92C0A2 .. 0x92DDE7, RW 0x505B6C), the
 // hotkey sounds (EnabledHotKeyPressed / DisabledHotKeyPressed are counted, not played), the RW 0x90F92C and InGameUI vslot 0x17C gates.
 // INFERENCE: the character is the layout's (the device passes it with the key); without one the US layout's letter or digit of the scan code is used.
+// NOT RETAIL (OpenBFME, the owner's request 2026-10-29): when the layout's character finds no action, the same key's character in the US, Russian and
+// Ukrainian layouts is tried in that order, so a button marked "&R" answers its key whichever of those layouts is active, and a Cyrillic "&" letter too.
 
 #pragma once
 
@@ -56,12 +58,16 @@ public:
 	static char32_t hotkeyOf(const std::u16string &text);
 	// the US layout's character of a DirectInput scan code (letters and digits), 0 for others
 	static char32_t usCharOf(int scanCode);
+	// the Russian (JCUKEN) layout's lower case letter of a scan code, 0 for others; `ukrainian`: the Ukrainian layout's (U+0456, U+0457, U+0454 where
+	// Russian has U+044B, U+044A, U+044D; the key left of 1 has no letter)
+	static char32_t cyrillicCharOf(int scanCode, bool ukrainian);
 
 	// what the presses did: "enabled" (a button ran), "disabled", "none"
 	const std::map<std::string, unsigned> &outcomes() const { return m_outcomes; }
 
 private:
 	const Entry *find(char32_t ch, bool &disabledSeen) const;
+	const Entry *findAnyCase(char32_t ch, bool &disabledSeen) const; // RW 0x75AEFA: the lower case first, then the upper case
 
 	HudContext &m_ctx;
 	std::vector<Entry> m_entries;

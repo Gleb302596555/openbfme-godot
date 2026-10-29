@@ -97,6 +97,8 @@ public:
 	void _notification(int what);
 	// review r3: counters of the MSAA encode (encodes run, framebuffers / pipelines / sample copies created) for the leak regression
 	Dictionary get_gamma_stats() const;
+	// the decode saturates the gamma-space buffer at 1 as D3D9's 8-bit frame buffer does (default); the enhanced look turns it off for its glow
+	static void set_saturate(bool on);
 
 protected:
 	static void _bind_methods();

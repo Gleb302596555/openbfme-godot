@@ -149,7 +149,9 @@ bool CommandTranslator::objectCanAttack(Object &obj)
 bool CommandTranslator::selectionCanSetRallyPoint()
 {
 	// ZH ActionManager::canSetRallyPoint through InGameUI::canSelectedObjectsDoAction(SET_RALLY_POINT, NULL, SELECTION_ALL): every selected object is ours and
-	// has a production queue with an exit (the producer's ExitInterface, RW 0x68BB14)
+	// has a production queue with an exit (the producer's ExitInterface, RW 0x68BB14) and, the click having no target, is KindOf AUTO_RALLYPOINT
+	// (RW 0x69D53F: the template's KindOf byte + 8 bit 0x20, bit 69). A unit that recruits through a QueueProductionExitUpdate without that kind
+	// (Ennorath's HaradSpy) moves on a ground click instead of setting a rally point.
 	if (m_ctx.ui.selected().empty())
 	{
 		return false;
@@ -157,7 +159,7 @@ bool CommandTranslator::selectionCanSetRallyPoint()
 	for (ObjectID id : m_ctx.ui.selected())
 	{
 		Object *o = m_ctx.logic.findObjectByID(id);
-		if (!o || !HudObjects::isLocallyControlled(m_ctx, *o) || !o->getProductionUpdate() || !o->getObjectExitInterface())
+		if (!o || !HudObjects::isLocallyControlled(m_ctx, *o) || !o->isKindOfName("AUTO_RALLYPOINT") || !o->getProductionUpdate() || !o->getObjectExitInterface())
 		{
 			return false;
 		}

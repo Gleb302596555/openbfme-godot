@@ -38,3 +38,22 @@ public:
 private:
 	bool m_needToRunOnBuildComplete = true; ///< the create module's flag (+ 0x14)
 };
+
+// SupplyWarehouseCreate (ZH GameLogic/Object/Create/SupplyWarehouseCreate.cpp): a warehouse registers with every player's ResourceGatheringManager when it
+// is created (warehouses are never built). TARGET FACTS: the name's table row RW 0x65AC39; onCreate RW 0x8BD063: with ThePlayerList, every player from the
+// last (+ 0x14 - 1) down to 0 that has a ResourceGatheringManager (Player + 0x304) gets addSupplyWarehouse(object) (RW 0x8FAA31). Ennorath's supply rocks
+// (SupplyRocksPile*) are warehouses: without this the stoneworkers' harvesters found none. The xfer is the create module base's, as SupplyCenterCreate's.
+class SupplyWarehouseCreate : public BehaviorModule, public CreateModuleInterface
+{
+public:
+	OBFME_MODULE_XFER(SupplyWarehouseCreate)
+	SupplyWarehouseCreate(Thing *thing, const SupplyCenterCreateModuleData *data) : BehaviorModule(thing, data) {}
+	static void registerClass(ModuleFactory &modules);
+	CreateModuleInterface *getCreate() override { return this; }
+	void onCreate() override; // RW 0x8BD063
+	void onBuildComplete() override { m_needToRunOnBuildComplete = false; }
+	void crc(StateHasher &hasher) const override;
+
+private:
+	bool m_needToRunOnBuildComplete = true; ///< the create module base's flag (+ 0x14)
+};

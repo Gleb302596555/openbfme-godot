@@ -119,6 +119,9 @@ public:
 	virtual void observerEvent(Object &, ObserverEvent::Kind, const Coord3D * = nullptr, const std::string & = {}, float = 0.0f) {}
 	// RW 0x628882: make the Drawable of a new object and bind it (Object::friend_bindToClient)
 	virtual void objectCreated(Object &obj) = 0;
+	// RW 0x6288A5 -> 0x6288D3: the creation draw is the new drawable's model variation (drawable + 0x364); the port draws it before the bind and stores it
+	// after (Object::friend_initObject), so it reaches the client here, right after objectCreated
+	virtual void objectVariation(Object &obj, int variation) { (void)obj; (void)variation; }
 	// the object is being deleted (processDestroyList): drop its drawable
 	virtual void objectDestroyed(Object &obj) = 0;
 	// a model condition bit of the object changed (ZH Object::setModelConditionFlags -> Drawable::setModelConditionFlags)
@@ -131,6 +134,9 @@ public:
 	virtual bool showModule(Object &obj, const std::string &tag, bool visible, bool permanent) { (void)obj; (void)tag; (void)visible; (void)permanent; return false; }
 	// RW 0x672823 Drawable::showSubObject
 	virtual void showSubObject(Object &obj, const std::string &name, bool visible, bool permanent) { (void)obj; (void)name; (void)visible; (void)permanent; }
+	// RW 0x8B911E (SubObjectsUpgrade's UpgradeTexture): every draw module of the drawable takes this list of (original, drawn instead) as its upgrade
+	// textures (draw module vslot 0x84), replacing the one it had; the removal hands an empty list
+	virtual void upgradeTextures(Object &obj, const std::vector<std::pair<std::string, std::string>> &swaps) { (void)obj; (void)swaps; }
 	// lane STEALTH-2, RW 0x776F03 (StealthUpdate's disguise): the object's drawable is destroyed (TheGameClient vslot 0x74) and a new one of `tmpl` made
 	// (RW 0x6CFE8C) and bound (RW 0x625AA4) at the object's position and orientation with its model conditions, in `color` when `hasColor`
 	virtual void replaceDrawable(Object &obj, const ThingTemplate *tmpl, bool hasColor, std::uint32_t color) { (void)obj; (void)tmpl; (void)hasColor; (void)color; }
@@ -232,6 +238,11 @@ struct GameLogicSettings
 	std::vector<AttackPriorityDef> attackPriorityDefs; ///< the AIData list (+ 0xFC) head first
 	bool forceModelsToFollowTimeOfDay = false;       ///< GameData ForceModelsToFollowTimeOfDay (a new drawable gets NIGHT)
 	bool forceModelsToFollowWeather = false;         ///< GameData ForceModelsToFollowWeather (SNOW)
+	// GameData EnableHouseColor (+ 0xDDC, row RW 0xC00A30; copied to TheGameLogic + 0x11C at a new game, RW 0x62A13A): off, a drawable shows its
+	// indicator colour only when its object is KindOf BASE_SITE or ALWAYS_SHOW_HOUSE_COLOR (Drawable::setIndicatorColor RW 0x674516 .. 0x67454A;
+	// Ennorath turns it off)
+	bool enableHouseColor = true;
+	bool showsHouseColor(const Object &obj) const;
 	bool bodyThresholdsLoaded = false;               ///< the two thresholds below were read from GameData (an ActiveBody that needs them throws when not)
 	float unitDamagedThreshold = 0.0f;               ///< GameData UnitDamagedThreshold (ActiveBody fallback fraction, stop S-149)
 	float unitReallyDamagedThreshold = 0.0f;         ///< GameData UnitReallyDamagedThreshold

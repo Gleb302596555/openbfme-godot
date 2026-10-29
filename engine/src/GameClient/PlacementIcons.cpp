@@ -92,6 +92,11 @@ std::uint32_t PlacementIcons::indicatorColor(const GameLogic &logic, ObjectID bu
 	{
 		return 0;
 	}
+	// RW 0x674516 .. 0x67454C: with GameData EnableHouseColor off the ghost (a drawable without an object) shows no colour
+	if (!logic.settings().enableHouseColor)
+	{
+		return 0;
+	}
 	return logic.settings().night ? p->getPlayerNightColor() : p->getPlayerColor();
 }
 

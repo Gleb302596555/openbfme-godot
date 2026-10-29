@@ -102,6 +102,7 @@ private:
 	const AttributeModifierStore *store() const;
 	std::vector<Entry> m_entries;                      ///< +0x20
 	unsigned m_nextWake = 0x3FFFFFFF;                  ///< +0x2C
+	int m_grantingIndex = -1;                          ///< OpenBFME: the list whose Upgrade grant is running (add's re-entry guard), not state
 	std::array<unsigned, 15> m_categoryDisabled{};     ///< +0x30
 	std::array<int, 15> m_categoryCount{};             ///< +0x6C
 };

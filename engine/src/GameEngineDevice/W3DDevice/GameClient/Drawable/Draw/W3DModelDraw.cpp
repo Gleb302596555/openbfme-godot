@@ -629,7 +629,8 @@ const FieldParse kLodOptionsFieldParse[] = {
 	{ nullptr, nullptr, nullptr, 0 },
 };
 
-// RW 0x4C7C56: RandomTexture = NAME [WEIGHT [REPLACEMENT]] ; entries with the same NAME (stricmp) share one record.
+// RW 0x4C7C56: RandomTexture = NEW [WEIGHT [ORIGINAL]]; the lines naming the same ORIGINAL (_stricmp, RW 0x4C7B8C) share one record, which collects
+// their NEW textures in line order and keeps the last WEIGHT (W3DRandomTextureInfo).
 void parseRandomTexture(INI *ini, void *instance, void *, const void *)
 {
 	W3DModelDrawModuleData *module = static_cast<W3DModelDrawModuleData *>(instance);
@@ -637,25 +638,25 @@ void parseRandomTexture(INI *ini, void *instance, void *, const void *)
 	{
 		return;
 	}
-	std::string name;
+	std::string texture;
 	if (const char *t = ini->getNextTokenOrNull())
 	{
-		name = t;
+		texture = t;
 	}
 	int weight = 0;
 	if (const char *t = ini->getNextTokenOrNull())
 	{
 		weight = ini->scanInt(t);
 	}
-	std::string replacement;
+	std::string original;
 	if (const char *t = ini->getNextTokenOrNull())
 	{
-		replacement = t;
+		original = t;
 	}
 	W3DRandomTextureInfo *record = nullptr;
 	for (W3DRandomTextureInfo &r : module->m_randomTextures)
 	{
-		if (AsciiStringUtil::compareNoCase(r.name, name) == 0)
+		if (AsciiStringUtil::compareNoCase(r.name, original) == 0)
 		{
 			record = &r;
 			break;
@@ -665,12 +666,10 @@ void parseRandomTexture(INI *ini, void *instance, void *, const void *)
 	{
 		module->m_randomTextures.push_back(W3DRandomTextureInfo());
 		record = &module->m_randomTextures.back();
-		record->name = name;
+		record->name = original;
 	}
-	W3DRandomTextureInfo::Entry e;
-	e.replacement = replacement;
-	e.weight = weight;
-	record->entries.push_back(e);
+	record->textures.push_back(texture);
+	record->weight = weight;
 }
 
 // RW 0x4C42A8 / 0x4C3321 / 0x4C30BD: kept as the words that were written (S-094).
@@ -912,6 +911,54 @@ void W3DHordeModelDrawModuleData::buildFieldParse(MultiIniFieldParse &p)
 void W3DDefaultDrawModuleData::buildFieldParse(MultiIniFieldParse &)
 {
 	// ModuleData has no fields (RW createData of W3DDefaultDraw is the base ModuleData; the retail INI bodies are empty).
+}
+
+// RW 0x4C238A (see the header): the records in order, i counting every record (an empty one too, RW 0x4C24EF)
+std::vector<std::pair<std::string, std::string>> W3DModelDrawModuleData::pickRandomTextures(int variation, int maxTextures) const
+{
+	std::vector<std::pair<std::string, std::string>> swaps;
+	bool fixed = m_randomTextureFixedRandomIndex; // RW 0x4C23D8 .. 0x4C2410: only when every record has as many textures
+	if (fixed)
+	{
+		size_t count = (size_t)-1;
+		for (const W3DRandomTextureInfo &r : m_randomTextures)
+		{
+			if (count != (size_t)-1 && r.textures.size() != count)
+			{
+				fixed = false;
+				break;
+			}
+			count = r.textures.size();
+		}
+	}
+	bool picked = false;
+	size_t index = 0;
+	for (size_t i = 0; i < m_randomTextures.size(); ++i)
+	{
+		const W3DRandomTextureInfo &r = m_randomTextures[i];
+		const size_t n = r.textures.size();
+		if (n == 0)
+		{
+			continue;
+		}
+		// RW 0x4C242F .. 0x4C245A: the limit is maxTextures - 1, at least 0, at most n - 1
+		const int limitRaw = maxTextures - 1;
+		const size_t limit = limitRaw < 0 ? 0 : std::min((size_t)limitRaw, n - 1);
+		if (!fixed || !picked)
+		{
+			// RW 0x4C2471 .. 0x4C249E: signed divisions (idiv), an unsigned sum and remainder (div)
+			const std::uint32_t v = (std::uint32_t)(variation / 3) + (std::uint32_t)(variation / 5) + (std::uint32_t)i +
+				(std::uint32_t)(variation & 0xF) * (std::uint32_t)(i + 1) + (std::uint32_t)variation;
+			index = std::min((size_t)(v % (std::uint32_t)n), limit);
+			picked = true;
+		}
+		const std::string &texture = r.textures[index];
+		if (AsciiStringUtil::compareNoCase(texture, r.name) != 0) // RW 0x4C24CC: the original itself is no swap
+		{
+			swaps.emplace_back(r.name, texture);
+		}
+	}
+	return swaps;
 }
 
 // RW 0x4B4379. A state "matches" when every one of its condition bits is in the query (the code ANDs the state's set with the query

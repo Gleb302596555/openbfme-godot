@@ -382,6 +382,9 @@ TEST_CASE("input1 hotkeys: the label's '&' character (RW 0x75A67F) and the HotKe
 	CHECK(HotKeyTranslator::usCharOf(KEY_F) == U'f');
 	CHECK(HotKeyTranslator::usCharOf(KEY_7) == U'7');
 	CHECK(HotKeyTranslator::usCharOf(KEY_F1) == 0);
+	CHECK(HotKeyTranslator::cyrillicCharOf(KEY_S, false) == U'ы');
+	CHECK(HotKeyTranslator::cyrillicCharOf(KEY_S, true) == U'і');
+	CHECK(HotKeyTranslator::cyrillicCharOf(KEY_F1, false) == 0);
 	if (!haveWorld("input1 hotkeys"))
 	{
 		return;
@@ -432,6 +435,31 @@ TEST_CASE("input1 hotkeys: the label's '&' character (RW 0x75A67F) and the HotKe
 	r.input->key(KEY_Q, KEY_STATE_UP, U'a');
 	r.input->update();
 	CHECK(pressed.size() == 3);
+
+	// NOT RETAIL (OpenBFME): a Russian or Ukrainian layout ('а' on the scan code of F) still presses the button marked "&F" (the US letter of the key),
+	// and a button marked with a Cyrillic letter ("&К" on R) answers the key in the US layout; a disabled match still stops the search
+	farm.key = U'F';
+	hk.setEntries({ farm });
+	r.input->key(KEY_F, KEY_STATE_DOWN, U'а');
+	r.input->key(KEY_F, KEY_STATE_UP, U'а');
+	r.input->update();
+	CHECK(pressed.size() == 4);
+	HotKeyTranslator::Entry recruit = farm;
+	recruit.key = U'К';
+	recruit.slot = 6;
+	hk.setEntries({ recruit });
+	r.input->key(KEY_R, KEY_STATE_DOWN, U'r');
+	r.input->key(KEY_R, KEY_STATE_UP, U'r');
+	r.input->update();
+	REQUIRE(pressed.size() == 5);
+	CHECK(pressed[4] == std::make_pair(6, true));
+	// the Ukrainian layout's letter of S (U+0456) where the Russian has U+044B
+	recruit.key = U'І';
+	hk.setEntries({ recruit });
+	r.input->key(KEY_S, KEY_STATE_DOWN, U's');
+	r.input->key(KEY_S, KEY_STATE_UP, U's');
+	r.input->update();
+	CHECK(pressed.size() == 6);
 }
 
 TEST_CASE("input1 r2 modifiers: the sides are tracked apart and the device's aggregate flags repair a lost transition (review r1)")

@@ -234,6 +234,7 @@ protected:
 	void processUpgradeRemoval() override;
 
 private:
+	std::vector<std::pair<std::string, std::string>> upgradeTexturePairs() const;
 	const SubObjectsUpgradeModuleData *m_data;
 	bool m_shown = false; ///< RW module + 0x20
 };

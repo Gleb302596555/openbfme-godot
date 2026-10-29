@@ -161,7 +161,7 @@ void DrawableManager::created(const ClientEvent &ev)
 {
 	const DrawableID id = (DrawableID)m_slots.size();
 	std::vector<std::string> problems;
-	std::unique_ptr<Drawable> d(new Drawable(m_services, ev.tmpl, id, ev.object, ev.clientModules, problems));
+	std::unique_ptr<Drawable> d(new Drawable(m_services, ev.tmpl, id, ev.object, ev.clientModules, problems, ev.variation));
 	for (const std::string &p : problems)
 	{
 		m_sink.message(ev.tmpl->getName(), std::string(), p);
@@ -273,6 +273,12 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 			if (Drawable *d = findByObject(ev.object))
 			{
 				d->showSubObject(ev.name, ev.visible, ev.permanent);
+			}
+			break;
+		case ClientEvent::UPGRADE_TEXTURES:
+			if (Drawable *d = findByObject(ev.object))
+			{
+				d->setUpgradeTextures(ev.textureSwaps);
 			}
 			break;
 		case ClientEvent::PLACEMENT:

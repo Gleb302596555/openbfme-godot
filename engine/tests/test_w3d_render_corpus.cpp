@@ -65,6 +65,7 @@ TEST_CASE("retail corpus: every mesh builds render data; zero-weight skins, dive
 	std::vector<std::string> sortedSingleMeshes; // bare meshes with a sorted blended surface: candidates for the viewer's sorting test
 	size_t rawBumpSurfaces = 0, rawHouseSurfaces = 0, randomStages = 0, timeVariantStages = 0;
 
+	std::vector<std::string> truncatedFiles; // a last chunk past the end of the file: loaded from what is there, as ZH's file reads do
 	std::vector<std::uint8_t> bytes;
 	for (const std::string &path : list)
 	{
@@ -80,6 +81,10 @@ TEST_CASE("retail corpus: every mesh builds render data; zero-weight skins, dive
 		{
 			++loadFailures;
 			continue;
+		}
+		if (contents.Truncated)
+		{
+			truncatedFiles.push_back(path);
 		}
 		for (const HLodDefClass &hl : contents.HLods) hlodByHierarchy.emplace(AsciiStringUtil::lowered(hl.HierarchyName), hl.Name);
 		auto scanFade = [&](const HAnimClass &a) {
@@ -225,8 +230,10 @@ TEST_CASE("retail corpus: every mesh builds render data; zero-weight skins, dive
 	for (const auto &kv : buildFailures) std::printf("[w3d render]   build failure x%zu: %s\n", kv.second, kv.first.c_str());
 	for (const auto &kv : buildWarnings) std::printf("[w3d render]   warning x%zu: mesh%s\n", kv.second, kv.first.c_str());
 
-	// The 8 corrupt files of spec 2.3 fail to load, nothing else does.
-	CHECK(loadFailures == 8);
+	// The 8 corrupt files of spec 2.3 fail to load, nothing else does; a corrupt file whose damage is only a short last chunk loads from what it
+	// has, as ZH reads it (ChunkLoadClass with allowTruncatedEnd)
+	for (const std::string &t : truncatedFiles) std::printf("[w3d render]   truncated, loaded: %s\n", t.c_str());
+	CHECK(loadFailures + truncatedFiles.size() == 8);
 	CHECK(buildFailures.empty());
 	// Spec 3.1: 1,653 vertices in 15 meshes carry weights 0/0.
 	CHECK(zeroWeightVertices == 1653);

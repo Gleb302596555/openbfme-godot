@@ -755,6 +755,39 @@ TEST_CASE("AttributeModifierAuraUpdate: the aura waits for its upgrade, then eve
 	CHECK(f.logic->getFrame() - firstPulse == period);
 }
 
+TEST_CASE("AttributeModifierPool::add: a list whose Upgrade runs a module that adds the same list again grants once and keeps one entry (Ennorath's MordorBarricade)")
+{
+	AuraFx f;
+	f.load("Upgrade Upgrade_TestLoop\n"
+		   "  Type = OBJECT\n"
+		   "End\n"
+		   "ModifierList TestLoopList\n"
+		   "  Category = BUFF\n"
+		   "  Duration = 2000\n"
+		   "  Modifier = DAMAGE_MULT 120%\n"
+		   "  Upgrade = Upgrade_TestLoop\n"
+		   "End\n"
+		   "Object LoopBarricade\n"
+		   "  KindOf = SELECTABLE STRUCTURE\n"
+		   "  Behavior = AttributeModifierPoolUpdate ModuleTag_Pool\n"
+		   "  End\n"
+		   "  Behavior = AttributeModifierUpgrade ModuleTag_Loop\n"
+		   "    TriggeredBy = Upgrade_TestLoop\n"
+		   "    AttributeModifier = TestLoopList\n"
+		   "  End\n"
+		   "End\n");
+	Object *o = f.at("LoopBarricade", "Alice", 0.0f);
+	f.frames(2); // past frame 0, where every category still reads as disabled (frame <= m_categoryDisabled)
+	CHECK(o->addAttributeModifier("TestLoopList", -1)); // without the re-entry guard this recursed until the stack ran out
+	CHECK(AuraFx::hasList(o, "TestLoopList"));
+	CHECK(o->hasUpgrade(std::string("Upgrade_TestLoop")));
+	float mult = 1.0f;
+	CHECK(o->attributeModifierProduct(ATTRIBUTE_DAMAGE_MULT, nullptr, true, mult));
+	CHECK(mult == doctest::Approx(1.2f)); // one entry, not two
+	f.frames(3);
+	CHECK(AuraFx::hasList(o, "TestLoopList"));
+}
+
 TEST_CASE("UnpauseSpecialPowerUpgrade: its upgrade unpauses the StartsPaused power of its template and makes it ready now (RW 0x8B9676)")
 {
 	AuraFx f;

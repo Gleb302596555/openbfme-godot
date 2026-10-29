@@ -667,6 +667,7 @@ private:
 		std::string model;              ///< the lower-case model the instance shows ("" none)
 		std::string rawModel, rawLowered; ///< lane PERF-1: the last model name as the draw gave it and its lower-case form (lowered once per change)
 		const void *swapSource = nullptr; ///< community PR #37 (S-5015): the swap list swapSuffix was made from (a model condition state's, stable)
+		std::uint32_t swapGeneration = 0; ///< its W3DDrawPoseView::textureSwapsGeneration
 		std::string swapSuffix;            ///< its W3DInstancer::Texture_Swap_Suffix, made once per change (not every frame)
 		std::vector<std::string> hidden;
 		std::uint32_t hiddenGeneration = 0; ///< lane PERF-3: the draw's hidden set generation and model `hidden` was made from (names made only when they change)

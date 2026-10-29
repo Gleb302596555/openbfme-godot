@@ -56,6 +56,7 @@ struct ClientEvent
 		MODEL_CONDITION, ///< bit, on
 		SHOW_MODULE,     ///< name (the module tag), visible, permanent
 		SHOW_SUB_OBJECT, ///< name, visible, permanent
+		UPGRADE_TEXTURES, ///< textureSwaps: SubObjectsUpgrade's UpgradeTexture list for every draw module (RW 0x8B911E)
 		PLACEMENT,       ///< flags (when setFlags), scale (when setScale), mirror
 		REPLACED,        ///< lane STEALTH-2 (RW 0x776F03): the drawable made again as CREATED's fields say (tmpl: the look, flags: the object's conditions)
 		MODEL_FLUSH,     ///< lane ANIM-1 (RW 0x67449C / 0x6759C4): the drawable's changed flags reach its draw modules; scriptTarget, weapon timing
@@ -81,6 +82,8 @@ struct ClientEvent
 	Coord3D position;
 	float angle = 0.0f;
 	KindOfMaskType kindOf{};   ///< CREATED: the object's KindOf bits (what the device layer asks of a drawable, e.g. INFANTRY's light set)
+	int variation = -1;        ///< CREATED: the drawable's model variation (drawable + 0x364: the creation draw, RW 0x6288A5; objectVariation)
+	std::vector<std::pair<std::string, std::string>> textureSwaps; ///< UPGRADE_TEXTURES
 	// CREATED: the drawable's ClientUpdate / ClientBehavior modules in creation order, resolved on the logic owner (ModuleFactory::resolveClientModule)
 	struct ClientModule
 	{
@@ -116,11 +119,13 @@ public:
 	const ObserverTimeline &observerTimeline() const { return m_timeline; }
 
 	void objectCreated(Object &obj) override;
+	void objectVariation(Object &obj, int variation) override;
 	void objectDestroyed(Object &obj) override;
 	void modelConditionChanged(Object &obj, int bit, bool on) override;
 	void flushModelConditions(Object &obj) override;
 	bool showModule(Object &obj, const std::string &tag, bool visible, bool permanent) override;
 	void showSubObject(Object &obj, const std::string &name, bool visible, bool permanent) override;
+	void upgradeTextures(Object &obj, const std::vector<std::pair<std::string, std::string>> &swaps) override;
 	void replaceDrawable(Object &obj, const ThingTemplate *tmpl, bool hasColor, std::uint32_t color) override;
 	void fadeIn(Object &obj, UnsignedInt frames) override;
 	void fadeOut(Object &obj, UnsignedInt frames) override;

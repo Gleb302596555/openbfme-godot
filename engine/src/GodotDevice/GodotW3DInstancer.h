@@ -118,6 +118,9 @@ public:
 	// state: KBHall.tga -> KBHall_snow.tga): its meshes are built again, under a name that carries Texture_Swap_Suffix, with every texture A loaded as B.
 	// The add clears them.
 	void Set_Build_Texture_Swaps(const std::vector<std::pair<std::string, std::string>> &swaps) { PendingSwaps = swaps; }
+	// C++ only: the next add_model builds a W3DFloorDraw's model (a structure's floor / bib): its opaque surfaces blend by their texel alpha, no depth write
+	// (W3DMaterialFactory::Set_Floor_Blend, stop S-4974); the model is cached under its own name ("#floor"). The add clears it.
+	void Set_Build_Floor(bool floor) { PendingFloor = floor; }
 	// "#tex&a=b&c=d" (lower case, in the state's order): the part of a model's cache name that its texture swaps make; empty without swaps
 	static std::string Texture_Swap_Suffix(const std::vector<std::pair<std::string, std::string>> &swaps);
 	// RENDER-1 (stop S-390): the instance is lit by the map's infantry light set (KINDOF_INFANTRY drawables) instead of the objects set;
@@ -326,6 +329,7 @@ private:
 	std::map<std::string, std::shared_ptr<MeshGpu>> MeshCache;
 	std::string BuildSuffix; // lane CAH-2: the colour set of the model being built (add_model_colored), part of the mesh cache key
 	std::vector<std::pair<std::string, std::string>> PendingSwaps; // stop S-5015: Set_Build_Texture_Swaps, taken by the next add_model
+	bool PendingFloor = false; // stop S-4974: Set_Build_Floor, taken by the next add_model
 	std::vector<std::unique_ptr<Model>> Models;
 	std::vector<Instance> Instances;
 	std::vector<Ref<ShaderMaterial>> AllMaterials;
