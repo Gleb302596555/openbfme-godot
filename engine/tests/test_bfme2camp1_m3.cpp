@@ -9,6 +9,8 @@
 
 #include "Common/Player.h"
 #include "Common/Team.h"
+#include "Common/XferLoad.h"
+#include "Common/XferSave.h"
 #include "GameClient/MapChunks.h"
 #include "GameLogic/AI/AIClosestEnemy.h"
 #include "GameLogic/AI/AIGuard.h"
@@ -286,6 +288,34 @@ TEST_CASE("bfme2camp1 the scripts' attack priority sets: SET_DEFAULT_ATTACK_PRIO
 	CHECK(later->getAIUpdateInterface()->attackInfo() == wave);
 	CHECK_FALSE(sword->getAIUpdateInterface()->hasAttackInfoOverride()); // another team's units keep their module data's set
 	CHECK(e.stats().unportedActions.empty());
+}
+
+TEST_CASE("bfme2camp1 the script engine snapshot: version 3 until a script edits the attack priorities, then version 6; versions 4 and 5 (other lanes' "
+		  "claims in logs/wire-versions.md, fields this build lacks) are refused, not misread")
+{
+	combattest::CombatWorld w;
+	startEngine(*w.logic);
+	ScriptEngine &e = w.logic->scriptEngine();
+	XferSave plain;
+	e.xfer(plain);
+	REQUIRE_FALSE(plain.data().empty());
+	CHECK(plain.data()[0] == 3);
+	e.executeAction(act("SET_DEFAULT_ATTACK_PRIORITY", { sp(28, "Wave"), ip(0, 5) }));
+	REQUIRE(e.attackPriorities().edited());
+	XferSave edited;
+	e.xfer(edited);
+	REQUIRE_FALSE(edited.data().empty());
+	CHECK(edited.data()[0] == 6);
+	for (std::uint8_t other : { (std::uint8_t)4, (std::uint8_t)5 })
+	{
+		std::vector<std::uint8_t> bytes = edited.data();
+		bytes[0] = other;
+		XferLoad load(bytes);
+		CHECK_THROWS_AS(e.xfer(load), XferException);
+	}
+	XferLoad back(edited.data());
+	CHECK_NOTHROW(e.xfer(back));
+	CHECK(back.atEnd());
 }
 
 TEST_CASE("bfme2camp1 PLAYER_TRANSFER_OWNERSHIP_PLAYER (RW 0x7BC0C3): the second player takes the first one's assets (transferAssetsFromThat RW 0x6AF598, "

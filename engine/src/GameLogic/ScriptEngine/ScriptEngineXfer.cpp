@@ -145,9 +145,15 @@ void ScriptEngine::xfer(Xfer &x)
 	// lane SAVE-4e: version 2 adds BACKLOG4's triggered special power lists (merged after SAVE-4d); no version 1 snapshot was ever written by a
 	// release (loads of snapshots begin with SAVE-4e), so version 1 is not read (a list it lacked would load empty, silently). Lane CASTLE-UNPACK:
 	// version 3 adds the object references (RW + 0x191B8); a version 2 game had none (its engine kept no such map), so it loads with an empty one
-	// lane BFME2CAMP1: version 4 adds the attack priority table, written only once a script edited it (every other snapshot is version 3's)
-	XferVersion v{ 2, (std::uint8_t)(loading || m_attackPriorities.edited() ? 4 : 3) };
+	// lane BFME2CAMP1: version 6 adds the attack priority table, written only once a script edited it (every other snapshot is version 3's). Versions 4
+	// and 5 are CASTLEAREA-1's run-time trigger list extent and MODCOMPAT-AI's completed upgrades (logs/wire-versions.md): 6's fields follow 5's. Until
+	// those fields are merged into this tree (MERGEQ-32 puts them in order) this build refuses version 4 and 5 snapshots rather than misread them
+	XferVersion v{ 2, (std::uint8_t)(loading || m_attackPriorities.edited() ? 6 : 3) };
 	x.xferVersion(v);
+	if (loading && (v.current == 4 || v.current == 5))
+	{
+		throw XferException("script engine: snapshot version " + std::to_string(v.current) + " holds fields this build does not have");
+	}
 	bool loaded = loading ? false : m_loaded;
 	x.xferBool(&loaded);
 	if (loading && loaded != m_loaded)
@@ -424,10 +430,10 @@ void ScriptEngine::xfer(Xfer &x)
 			}
 		}
 	}
-	// lane BFME2CAMP1 (version 4): the edited attack priority table (AttackPriorityStore::saved: every entry but the default, in order; its targets by name)
+	// lane BFME2CAMP1 (version 6): the edited attack priority table (AttackPriorityStore::saved: every entry but the default, in order; its targets by name)
 	bool priorities = loading ? false : m_attackPriorities.edited();
 	auto loadedPriorities = std::make_shared<std::vector<AttackPriorityStore::SavedEntry>>();
-	if (v.current >= 4)
+	if (v.current >= 6)
 	{
 		x.xferBool(&priorities);
 	}
