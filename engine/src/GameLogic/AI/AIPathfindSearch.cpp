@@ -683,7 +683,7 @@ bool Pathfinder::examineShortcutCell(PathfindCell *from, PathfindCell *to, int x
 		info.flags = d.mode;
 		info.ignoreId = d.ignoreId;
 		info.mv = d.mv;
-		if (!checkForMovement(d.obj, info, d.haveLast ? &d.last : nullptr))
+		if (!checkForMovementCached(d.obj, info, d.haveLast ? &d.last : nullptr))
 		{
 			return true;
 		}
@@ -695,7 +695,7 @@ bool Pathfinder::examineShortcutCell(PathfindCell *from, PathfindCell *to, int x
 		pos.x = x;
 		pos.y = y;
 		unsigned c = (unsigned)SimMath::truncToInt32(SimMath::addf32((float)from->getCostSoFar(), (to->getExtraPass() ? 2.5f : 5.0f)));
-		c += (unsigned)occupantCost(d.obj, from, x, y, d.radius, d.radius + (d.center ? 1 : 0), true);
+		c += (unsigned)occupantCostCached(d.obj, from, x, y, d.radius, d.radius + (d.center ? 1 : 0));
 		if (!to->allocateInfo(m_pool, pos))
 		{
 			return true;
@@ -908,7 +908,7 @@ int Pathfinder::examineNeighboringCells(PathfindCell *parentCell, PathfindCell *
 		info.flags = mode;
 		info.ignoreId = ignoreId;
 		info.mv = mv;
-		const bool ok = checkForMovement(obj, info, &parentNdx);
+		const bool ok = checkForMovementCached(obj, info, &parentNdx);
 		if (ok)
 		{
 			if (mvOK)
@@ -1000,7 +1000,7 @@ int Pathfinder::examineNeighboringCells(PathfindCell *parentCell, PathfindCell *
 			X >>= 1;
 		}
 		X += n->costSoFar(parentCell);
-		X += (unsigned)occupantCost(obj, parentCell, nc.x, nc.y, radius, radius + (centerInCell ? 1 : 0), true);
+		X += (unsigned)occupantCostCached(obj, parentCell, nc.x, nc.y, radius, radius + (centerInCell ? 1 : 0));
 		n->setCostSoFar(X);
 		n->setParentCell(parentCell);
 		if (m_isTunneling)

@@ -1233,6 +1233,46 @@ private:
 	bool blockerCallback(const PathfindObject *obj, const PathfindCell *cell, int *count, bool countAllies, PathfindObjectID ignoreId, bool ignoreUnits,
 		const PathfindMovement *rectMovement, bool isHuman);
 	int occupantCost(const PathfindObject *obj, const PathfindCell *parent, int x, int y, int r, int n, bool skipEnemies);
+	// lane PERF-LOGIC: checkForMovement / occupantCost for the neighbour expansion and the shortcut walk of a search (the same answers). A footprint cell lies in
+	// up to nine neighbours' footprints, and while the search memo is on for `obj` nothing a cell's part of the answer reads changes (the cell's type and
+	// occupant lists, the memo's facts): each cell's part is worked out once per search and parameter set and kept in stamped dense arrays. The parts combine
+	// in the original cell order (AIPathfindUnits.cpp); the calls outside the memo take the original functions
+	bool checkForMovementCached(const PathfindObject *obj, PathfindCheckMovement &info, const ICoord2D *prev);
+	int occupantCostCached(const PathfindObject *obj, const PathfindCell *parent, int x, int y, int r, int n);
+	struct CellMoveFacts
+	{
+		std::uint32_t first = PATHFIND_INVALID_ID, last = PATHFIND_INVALID_ID; // the walk's first and last unit
+		std::uint16_t f = 0;
+	};
+	CellMoveFacts cellMoveFacts(const PathfindObject *obj, const PathfindCheckMovement &info, const PathfindCell *c);
+	void cellCostFacts(const PathfindObject *obj, const PathfindCell *c, int i, int j, std::uint16_t &fixed8, std::vector<float> &reach);
+	struct CellFactsSlot
+	{
+		std::vector<std::uint32_t> stamp;
+		std::vector<CellMoveFacts> facts;
+		std::uint32_t gen = 0;
+		unsigned memoGen = 0;
+		unsigned flags = 0;
+		bool transient = false;
+		bool bound = false;
+		PathfindObjectID ignoreId = PATHFIND_INVALID_ID;
+		PathfindLayerEnum layer = LAYER_GROUND;
+		PathfindMovement mv;
+	};
+	CellFactsSlot m_cellFacts[2];
+	struct CellCostRecord
+	{
+		std::uint32_t stamp = 0;
+		std::uint32_t start = 0;
+		std::uint16_t fixed8 = 0;
+		std::uint16_t count = 0;
+	};
+	std::vector<CellCostRecord> m_cellCost;
+	std::vector<float> m_cellCostReach;
+	std::vector<float> m_cellCostScratch;
+	std::uint32_t m_cellCostGen = 0;
+	unsigned m_cellCostMemoGen = 0;
+	bool m_cellCostBound = false;
 	// lane PATHPERF-1: what checkForMovement and occupantCost ask of an occupant `id` and of the searching unit `obj` (only side-effect-free getters, all
 	// asked at once). While internalFindPath runs for `obj` nothing they read can change, so the answers are kept per search (generation counted) and an
 	// occupant met in many cells is resolved once; elsewhere they are asked afresh. Null when the occupant's object is gone
