@@ -111,6 +111,15 @@ private:
 	const AudioManager *m_rangeFor = nullptr;       ///< the audio manager m_rangeSq was computed for (port)
 	AnimationSoundClientBehavior *m_next = nullptr;  // + 0x14
 	AnimationSoundClientBehavior *m_prev = nullptr;  // + 0x18
+	// lane PERF-HD: the upper-case names of the animations last seen (update ran upper() on every track of every audible drawable in every render frame)
+	struct AnimName
+	{
+		const void *anim = nullptr;
+		std::string raw, upper;
+	};
+	AnimName m_animNames[3];
+	unsigned m_animNameNext = 0;
+	const std::string &upperName(const void *anim, const std::string &raw);
 };
 
 // TheAnimationSoundModuleManager, one per game's drawables (DrawServices::animationSounds)

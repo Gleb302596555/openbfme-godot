@@ -170,6 +170,20 @@ public:
 	// Advances the animations by `elapsedMs` of render time (RW 0x4BF560). Call it once per render frame; logic frames (5 per second)
 	// only change the flags.
 	void advance(double elapsedMs);
+	// lane PERF-HD: advance() will only step this draw's own tracks, fade and speed (no state selection, no script): a looping track 0 alone, nothing
+	// pending. Such a draw may advance on the client job pool
+	// lane PERF-HD: one track as frame() copies it (and the count frame() reports: the tracks up to the last with an animation), without the copy
+	const W3DDrawTrack &track(int i) const { return m_tracks[i]; }
+	int trackCount() const { return m_tracks[2].anim ? 3 : m_tracks[1].anim ? 2 : m_tracks[0].anim ? 1 : 0; }
+	bool advanceIsLocal() const
+	{
+		if (!m_model || !m_curAnimState)
+		{
+			return true; // advance returns at once
+		}
+		const int mode = m_tracks[0].mode;
+		return m_tracks[0].anim && !m_tracks[1].anim && !m_pending && (mode == 0 || mode == 1 || mode == 3 || mode == 5);
+	}
 
 	W3DDrawFrame frame() const;
 	// lane PERF-1: the same frame written into `f`, reusing its strings' and vector's storage (the render side asks for every animated drawable's frame

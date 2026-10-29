@@ -132,6 +132,8 @@ private:
 	bool m_parallelSync = true;
 	size_t m_parallelSyncMinimum = 512;
 	std::vector<Drawable::SyncPrep> m_syncScratch; ///< lane PERF-3: syncTransforms' per-slot results of the parallel part (kept: no allocation per frame)
+	std::vector<std::uint8_t> m_advancedScratch;   ///< lane PERF-HD: per slot, its animations advanced on the job pool (advance)
+	std::vector<std::uint8_t> m_containedScratch;  ///< lane PERF-HD: per slot, its record has a container (found on the job pool before the dependency flags)
 	AnimationSoundModuleManager m_animationSounds; ///< lane AUDIO-4 (before the drawables: their modules leave its lists when they go)
 	DrawServices m_services;
 	std::map<ObjectID, DrawableID> m_byObject;

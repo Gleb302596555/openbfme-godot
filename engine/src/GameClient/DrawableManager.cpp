@@ -352,12 +352,34 @@ void DrawableManager::prefetchAhead(size_t i) const
 
 void DrawableManager::advance(double elapsedMs)
 {
-	for (size_t i = 1; i < m_slots.size(); ++i)
+	// lane PERF-HD: a drawable whose animations only step their own tracks (Drawable::advanceIsLocal: no state selection, no script) advances on the client
+	// job pool; the others, and every fade, follow on this thread in slot order as before. A drawable's fade still comes after its animations
+	const size_t slots = m_slots.size();
+	if (m_advancedScratch.size() < slots)
+	{
+		m_advancedScratch.resize(slots + slots / 2);
+	}
+	JobSystem::client().parallelFor(slots, slots < m_parallelSyncMinimum ? std::max<size_t>(slots, 1) : 64, [&](size_t, size_t begin, size_t end) {
+		for (size_t i = begin; i < end; ++i)
+		{
+			Drawable *d = i > 0 ? m_slots[i].get() : nullptr;
+			m_advancedScratch[i] = 0;
+			if (d && m_parallelSync && d->advanceIsLocal())
+			{
+				d->advanceAnimationLocal(elapsedMs);
+				m_advancedScratch[i] = 1;
+			}
+		}
+	});
+	for (size_t i = 1; i < slots; ++i)
 	{
 		prefetchAhead(i); // lane PERF-3
 		if (Drawable *d = m_slots[i].get())
 		{
-			d->advanceAnimation(elapsedMs);
+			if (!m_advancedScratch[i])
+			{
+				d->advanceAnimation(elapsedMs);
+			}
 			d->updateFade(elapsedMs); // lane PROJ-2: RW 0x675AB7 (DrawableFade.cpp)
 		}
 	}
@@ -369,8 +391,57 @@ void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha
 	// lane COMBAT-4: RW 0x4BF2D8 (W3DModelDraw::replaceModelConditionState): a model draw with DependencySharedModelFlags hands the flags of that set to its dependent
 	// drawables (+ 0xA8, by drawable id; RW 0x67651E clearAndSet on each): Grond's MOVING / TURN_* / BACKING_UP reach its troll crew, whose pushing AnimationStates
 	// need them. INFERENCE (stop S-1791): the dependents are the drawables of the objects the container holds (its riders and crew); the writer of the list is not read
-	for (size_t i = 1; i < m_slots.size(); ++i)
+	// lane PERF-HD: which slots the walk can change is found on the client job pool (the snapshot and the slots do not change here; a horde's ten
+	// thousand members mostly carry its shared bits already); the flags are then applied on this thread in slot order, to those slots only
+	const size_t slotCount = m_slots.size();
+	if (m_containedScratch.size() < slotCount)
 	{
+		m_containedScratch.resize(slotCount + slotCount / 2);
+	}
+	JobSystem::client().parallelFor(slotCount, slotCount < m_parallelSyncMinimum ? std::max<size_t>(slotCount, 1) : 256, [&](size_t, size_t begin, size_t end) {
+		for (size_t i = begin; i < end; ++i)
+		{
+			const Drawable *d = i > 0 ? m_slots[i].get() : nullptr;
+			const ObjectSnapshot *rec = d ? snapshot.find(d->getObjectID()) : nullptr;
+			std::uint8_t mark = 0;
+			if (rec && rec->containedBy != INVALID_ID)
+			{
+				// a container's shared set changes during the walk below only when its own flags do, which needs it to be contained itself (a horde
+				// member's horde is not): such a container, or one sharing flags now, keeps the slot for the walk
+				const Drawable *container = findByObject(rec->containedBy);
+				if (container)
+				{
+					const ObjectSnapshot *crec = snapshot.find(container->getObjectID());
+					if (crec && crec->containedBy != INVALID_ID)
+					{
+						mark = 1; // a container that is contained itself: its flags may change in the walk
+					}
+					else
+					{
+						// the container's flags hold through the walk, so the change applyDependencyFlags would make is known now: only a real change
+						// is walked (most horde members already carry their horde's shared bits)
+						const ModelConditionFlags shared = container->dependencySharedModelFlags();
+						if (shared.any())
+						{
+							const std::uint32_t *own = d->getModelConditionFlags().words(), *sh = shared.words(),
+												*cf = container->getModelConditionFlags().words();
+							for (int w = 0; w < ModelConditionFlags::NUM_WORDS && !mark; ++w)
+							{
+								mark = ((own[w] & ~sh[w]) | (cf[w] & sh[w])) != own[w] ? 1 : 0;
+							}
+						}
+					}
+				}
+			}
+			m_containedScratch[i] = mark;
+		}
+	});
+	for (size_t i = 1; i < slotCount; ++i)
+	{
+		if (!m_containedScratch[i])
+		{
+			continue;
+		}
 		Drawable *d = m_slots[i].get();
 		const ObjectSnapshot *rec = d ? snapshot.find(d->getObjectID()) : nullptr;
 		if (!rec || rec->containedBy == INVALID_ID)
@@ -430,6 +501,17 @@ void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha
 			if (rec)
 			{
 				d->prepareSync(*rec, snapshot.frame, alpha, interpolate, prep);
+				// lane PERF-HD: without a projectile record startProjectileFade returns at once, so the commit writes this drawable and, through the
+				// transform's reaction, its client modules (the animation sound's toDirty, the only one: shared lists). The transform is set here with
+				// the reaction held back; the ordered pass below then makes the reaction, once (toDirty is idempotent), in slot order as before
+				prep.committed = false;
+				if (!rec->projectile)
+				{
+					d->setReactionMuted(true);
+					d->commitSync(prep);
+					d->setReactionMuted(false);
+					prep.committed = true;
+				}
 			}
 		}
 	});
@@ -440,6 +522,14 @@ void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha
 		const Drawable::SyncPrep &prep = m_syncScratch[i];
 		if (d && prep.rec)
 		{
+			if (prep.committed)
+			{
+				if (!d->clientModules().empty())
+				{
+					d->reactToTransformChange(d->getPosition(), d->getOrientation()); // the modules ignore the old transform (AnimationSoundClientBehavior)
+				}
+				continue;
+			}
 			d->startProjectileFade(*prep.rec, snapshot); // lane PROJ-2: RW 0x85EE00 for a launch the drawable has not seen (DrawableFade.cpp)
 			d->commitSync(prep);
 		}
