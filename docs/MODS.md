@@ -130,8 +130,6 @@ Work in progress (2026-10-29, nothing committed):
 - `ResourceGatheringManager::canTransferSuppliesAt` still refuses a warehouse dock (stop S-5202). Retail RW 0x82C66C lets a worker dock when
   the warehouse holds boxes (+ 0x88) and its relationship to the worker (RW 0x68D7AB) is not ENEMIES, then goes on as for a supply center;
   until that is ported the harvesters do not go to the rocks and the cursor offers no order on them;
-- `test_sdk1_packs.cpp:194` fails since the truncated-W3D change: an asset pack's damaged model now loads. A pack model whose
-  `W3DFileContents::Truncated` is set should stay an error (only the retail / mod mount reads truncated files as ZH does);
 - `test_hud6.cpp:787` (the Mordor fortress's lava moat upgrade does not queue) fails in the combined run of the upgrade / colour / texture
   tests and passes when its file runs alone: an order dependence, cause not found, not known to be from these changes.
 
