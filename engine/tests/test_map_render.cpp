@@ -194,7 +194,8 @@ TEST_CASE("WaterGeometry::buildStandingGrid: a polygon that touches itself fills
 	// neck. This is the same shape in miniature: two 100x100 lobes joined by a bridge edge (100,50)-(200,50)
 	// that the outline walks out along and back. The ear-clipping triangulator this replaced stopped with four
 	// vertices left; retail has no triangulation, it keeps the grid cells whose centre is inside by crossing parity.
-	// Expected values come from an independent Python port of RW 0x482A16 / 0x70E911 with float32 arithmetic.
+	// Expected values come from tools/render/standing_water_grid_oracle.py (an independent float32 port of RW 0x482A16 /
+	// 0x70E911): python tools/render/standing_water_grid_oracle.py synthetic; test_standing_water_grid_oracle.py pins the same numbers.
 	auto ground = [](float, float) { return 0.0f; };
 	StandingWaterArea area;
 	area.points = { { 0, 0 }, { 100, 0 }, { 100, 50 }, { 200, 50 }, { 200, 0 }, { 300, 0 }, { 300, 100 },

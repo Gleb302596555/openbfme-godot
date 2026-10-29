@@ -934,8 +934,10 @@ TEST_CASE("map corpus: Adorn River's one standing-water polygon (97 points, ten 
 	REQUIRE(area.points.size() == 97);
 	// The outline pinches to a zero-width neck at ten places, each a vertex visited twice (indices 5/93, 6/92,
 	// 12/84, 13/83, 22/76, 26/72, 33/63, 34/62, 42/56, 43/55). The ear-clipping triangulator this replaced stopped
-	// with 22 vertices left after 75 ears, so no water was drawn. Expected values come from an independent Python
-	// port of RW 0x482A16 / 0x70E911 (float32 arithmetic) run on the polygon read by tools/maps/oracle/fullparse.py.
+	// with 22 vertices left after 75 ears, so no water was drawn. Expected values come from
+	// tools/render/standing_water_grid_oracle.py, an independent float32 port of RW 0x482A16 / 0x70E911 that reads the
+	// polygon from the install: ROTWK_INSTALL=... BFME2_INSTALL=... python tools/render/standing_water_grid_oracle.py adorn
+	// (tools/render/test_standing_water_grid_oracle.py pins the same numbers).
 	std::size_t revisited = 0;
 	for (std::size_t i = 0; i < area.points.size(); ++i)
 		for (std::size_t j = i + 1; j < area.points.size(); ++j)
