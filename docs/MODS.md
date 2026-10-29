@@ -112,7 +112,15 @@ Other fixes of the Ennorath pass:
   `araranarthtwo.tga` from level 1 and his own texture again after Malbeth's prophecy, instead of the prophecy look from the start;
 - `SupplyWarehouseCreate` registers a warehouse with every player (RW 0x8BD063) and `SupplyWarehouseDockUpdate` gives a docked worker one
   box at a time (RW 0x8AB53D: StartingBoxes, DeleteWhenEmpty, a docker too far is nudged by +-4): Ennorath's supply rocks were never found by
-  the stoneworkers' harvesters. NOT BUILT YET (written after the last build, see the work in progress below);
+  the stoneworkers' harvesters. `ResourceGatheringManager::canTransferSuppliesAt` takes a warehouse dock when it holds boxes (+ 0x88) and
+  is not ENEMIES with the worker (RW 0x82C66C, RW 0x68D7AB), so the harvesters' own search finds the rocks (`test_supply_warehouse.cpp`);
+  the cursor still offers no order on them (the dock context command is not ported, stop S-286);
+- a structure a worker builds starts at 1 hit point before it is UNDER_CONSTRUCTION (RW 0x88D53A), so it takes REALLYDAMAGED, and the
+  heals of the rise do not change the look while it is under construction: the finished building kept REALLYDAMAGED and its smoke bones
+  (the black smoke at the end of every construction). The end of a construction now applies the body's damage state
+  (Construction::completeConstruction, INFERENCE);
+- the worker figure of a structure's repair fades away when the structure is killed, not only when it is deleted (GettingBuiltBehavior,
+  S-420, INFERENCE);
 - not retail: a command button's hotkey answers its key in the US, Russian and Ukrainian layouts when the active layout's letter finds none.
 
 To look at a mod's art in a game, `--visual2=structures` builds every template named in `VISUAL2_STRUCTURES` (a comma list) for the local
@@ -125,12 +133,9 @@ Not changed, as retail: model materials that name the texture `None`, and textur
 (`muminasmorgulea.tga`, `GBFS02.tga`, `haradfarm_bib2.tga`), draw retail's missing-texture magenta. Ennorath's own `housecolor.ini` lists 174
 textures where the base game lists 511.
 
-Work in progress (2026-10-29, nothing committed):
-- the last Windows build has everything above but the two supply warehouse modules; those compile with GCC on Linux and pass a synthetic
-  test (`test_supply_warehouse.cpp`), not yet built with MSVC;
-- `ResourceGatheringManager::canTransferSuppliesAt` takes a warehouse dock when it holds boxes (+ 0x88) and is not ENEMIES with the worker
-  (RW 0x82C66C, RW 0x68D7AB), so the harvesters' own search finds the rocks; the cursor still offers no order on them (the dock context
-  command is not ported, stop S-286);
+The supply warehouse, black smoke and repair worker fixes build with MSVC and pass their tests; they are not yet checked in the game.
+
+Work in progress (2026-10-29):
 - `test_hud6.cpp:787` (the Mordor fortress's lava moat upgrade does not queue) fails in the combined run of the upgrade / colour / texture
   tests and passes when its file runs alone: an order dependence, cause not found, not known to be from these changes.
 
@@ -141,14 +146,13 @@ Known problems, not fixed (the owner's playtest of 2026-10-29):
   retail's (RW 0x8B1FDA: a current locomotor of max speed 0); where the order stops was not found;
 - the Arnor fortress's Eye of the Palantir (`SpecialAbilityArnorFortressIvoryTowerVision` -> `OCL_SpawnEyeOfPalantir` -> `EyeOfPalantir`,
   model `ARPalaEye`) looks broken: blue streaks across the sky;
-- the end of every construction shows a black smoke; the construction dust is `BuildingContructDust`, the black part was not identified;
 - the twinkle over the supply rocks still animates too fast (its brightness is fixed); the GPU particles step at 30 Hz with retail's frame
-  time, the cause was not found;
+  time, the cause was not found (what was ruled out and the main suspect: docs/ARNOR_SPARKS_SPEED.md);
 - a farm's claim circle: the selected farm's circle is tinted retail's 0xFF6464C8; while placing a new farm the other farms' circles are
   shown as filled claim decals, as for a selected farm (stop S-5030: the outline arcs are not drawn) and the placement circle takes the
   claim band colour;
-- the worker figure that marks a building's repair stays after the building is destroyed;
-- a locked ability's button is drawn in greyscale (the luminance weights of the radial bubbles, S-5040) and reads as merely lighter, not locked;
+- a locked ability's button is drawn in greyscale (the luminance weights of the radial bubbles, S-5040) and reads as merely lighter, not locked
+  (what to read in retail: docs/LOCKED_ABILITY_LOOK.md);
 - the Harad cavalry's horses stop moving their legs after a trample (not looked at).
 
 ## Which file wins
