@@ -1893,7 +1893,7 @@ Dictionary AptMenuPlayer::boot_shell(const Ref<RetailFileSystem> &fs, Object *wo
 		INIEnvironment env;
 		env.fileSystem = fs->archive_fs();
 		INIBlockRecorder recorder;
-		RegisterRecordingBlockStubs(env.blocks, recorder, { "StaticGameLOD" }, StubExtent::Lenient);
+		RegisterRecordingBlockStubs(env.blocks, recorder, { "StaticGameLOD" }, StubExtent::LenientAfterEnd);
 		sm->gameLOD.registerBlocks(env.blocks);
 		try
 		{
