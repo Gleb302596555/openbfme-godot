@@ -14,7 +14,8 @@
 //     PC24, (dz^2 + dy^2) + dx^2 of worker - dock, stored as a float).
 //   * canTransferSuppliesAt RW 0x82C5A6(worker, dock): both set, the dock not effectively dead (+ 0x458 bit 0), neither the worker nor the dock UNDER_CONSTRUCTION
 //     (status 2), the dock not SOLD (status 0x13), the worker has an AI with a supply interface (AI vslot 0x178); a SupplyWarehouseDockUpdate dock needs boxes
-//     and a relationship (not ported: S-5202); a SupplyCenterDockUpdate dock needs the worker to carry boxes and the same controlling player; neither: false;
+//     (+ 0x88) and the dock not ENEMIES with the worker (RW 0x82C66C, RW 0x68D7AB); a SupplyCenterDockUpdate dock needs the worker to carry boxes and the
+//     same controlling player; neither: false;
 //     the worker must be available for supplying; a HUMAN worker's player (+ 0x5C == 0) must not see the dock as SHROUDED (Object RW 0x68D8F7 == 4).
 //   * findBestSupplyCenter RW 0x8FABC8: the worker's preferred dock (supply slot 0x3C) when it has a SupplyCenterDockUpdate (RW 0x68BDA5) and a cost below
 //     FLT_MAX; else the centers in list order, the strictly smallest cost (the first of equal costs). A missing object's node is erased, through the

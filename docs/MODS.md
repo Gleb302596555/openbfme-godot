@@ -127,9 +127,9 @@ textures where the base game lists 511.
 
 Work in progress (2026-10-29, nothing committed):
 - the last build has everything above but the two supply warehouse modules; those are written and not compiled;
-- `ResourceGatheringManager::canTransferSuppliesAt` still refuses a warehouse dock (stop S-5202). Retail RW 0x82C66C lets a worker dock when
-  the warehouse holds boxes (+ 0x88) and its relationship to the worker (RW 0x68D7AB) is not ENEMIES, then goes on as for a supply center;
-  until that is ported the harvesters do not go to the rocks and the cursor offers no order on them;
+- `ResourceGatheringManager::canTransferSuppliesAt` takes a warehouse dock when it holds boxes (+ 0x88) and is not ENEMIES with the worker
+  (RW 0x82C66C, RW 0x68D7AB), so the harvesters' own search finds the rocks; the cursor still offers no order on them (the dock context
+  command is not ported, stop S-286);
 - `test_sdk1_packs.cpp:194` fails since the truncated-W3D change: an asset pack's damaged model now loads. A pack model whose
   `W3DFileContents::Truncated` is set should stay an error (only the retail / mod mount reads truncated files as ZH does);
 - `test_hud6.cpp:787` (the Mordor fortress's lava moat upgrade does not queue) fails in the combined run of the upgrade / colour / texture
