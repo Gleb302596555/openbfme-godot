@@ -239,6 +239,9 @@ RampBridge makeRampBridge(const PathfindWallSurface &s)
 	return b;
 }
 
+// RW 0x67F2D0 at the four corners of cell (i, j): (x, y), (x, y + 10), (x + 10, y + 10), (x + 10, y); the ramp cell rule counts them
+int bridgeCorners(const RampBridge &b, int i, int j);
+
 // RW 0x67EF1F (x, y): the point inside the triangle or on its edges
 bool inTriangle2d(const Coord3D &a, const Coord3D &b, const Coord3D &c, float x, float y)
 {
@@ -263,6 +266,13 @@ bool bridgeContains(const RampBridge &b, float x, float y)
 }
 
 // RW 0x68044E: the height at (x, y) of the plane through fromLeft, fromRight and toLeft (a vertical line met with that plane, RW 0x47B887 / 0x468985)
+int bridgeCorners(const RampBridge &b, int i, int j)
+{
+	const float x0 = SimMath::sseFromInt32(i * 10), y0 = SimMath::sseFromInt32(j * 10);
+	const float x1 = SimMath::addf32(x0, 10.0f), y1 = SimMath::addf32(y0, 10.0f);
+	return (bridgeContains(b, x0, y0) ? 1 : 0) + (bridgeContains(b, x0, y1) ? 1 : 0) + (bridgeContains(b, x1, y1) ? 1 : 0) + (bridgeContains(b, x1, y0) ? 1 : 0);
+}
+
 float bridgeHeight(const RampBridge &b, float x, float y)
 {
 	using SimMath::addf32;
@@ -540,6 +550,10 @@ void Pathfinder::stampRampSurface(const PathfindWallSurface &s)
 	// getRamp builds from the RampMesh (makeRampBridge). A ramp meets the ground, a wall top or a raised walkway only at its start and end edges; its sides are
 	// type 5. (The port connected every ramp cell within 15 of the terrain to the ground, and every ramp cell beside a wall within 15 to that wall.)
 	const RampBridge b = makeRampBridge(s);
+	if (!b.valid)
+	{
+		return; // getRamp answers false (a flat RampMesh): RW records no ramp, so RW 0x9356DF never runs for it
+	}
 	const PathfindRegion r = surfaceCells(s);
 	if (b.valid)
 	{
@@ -562,11 +576,9 @@ void Pathfinder::stampRampSurface(const PathfindWallSurface &s)
 	{
 		for (int j = r.lo.y; j <= r.hi.y; ++j)
 		{
-			// the corners (x, y), (x, y + 10), (x + 10, y + 10), (x + 10, y) in the Bridge (RW 0x67F2D0)
 			const float x0 = SimMath::sseFromInt32(i * 10), y0 = SimMath::sseFromInt32(j * 10);
 			const float x1 = SimMath::addf32(x0, 10.0f), y1 = SimMath::addf32(y0, 10.0f);
-			const int corners = (bridgeContains(b, x0, y0) ? 1 : 0) + (bridgeContains(b, x0, y1) ? 1 : 0) + (bridgeContains(b, x1, y1) ? 1 : 0) +
-				(bridgeContains(b, x1, y0) ? 1 : 0);
+			const int corners = bridgeCorners(b, i, j);
 			if (corners == 0)
 			{
 				continue;
@@ -700,7 +712,8 @@ void Pathfinder::classifyWall(PathfindObject &obj, bool insert)
 		const WallPiece piece = *it;
 		m_wallPieces.erase(it);
 		// the piece's cells go back to the ground (their terrain class again: RW 0x934A85 keeps an obstacle), then the overlapping pieces are classified again
-		auto unstamp = [&](const PathfindWallSurface &s, auto &&isMine) {
+		// a ramp's cells are the ones its Bridge covers (RW 0x9356DF removes through the same cell rule it adds with), a wall top's its mesh's
+		auto unstamp = [&](const PathfindWallSurface &s, const RampBridge *bridge, auto &&isMine) {
 			const PathfindRegion r = surfaceCells(s);
 			for (int i = r.lo.x; i <= r.hi.x; ++i)
 			{
@@ -708,7 +721,7 @@ void Pathfinder::classifyWall(PathfindObject &obj, bool insert)
 				{
 					float h = 0.0f;
 					PathfindCell *c = getCell(LAYER_GROUND, i, j);
-					if (!c || cellCoverage(s, i, j, h) == 0)
+					if (!c || (bridge ? bridgeCorners(*bridge, i, j) : cellCoverage(s, i, j, h)) == 0)
 					{
 						continue;
 					}
@@ -719,9 +732,16 @@ void Pathfinder::classifyWall(PathfindObject &obj, bool insert)
 						c->setBit17(false);
 						classifyMapCell(i, j, c);
 					}
+					else if (bridge)
+					{
+						// RW 0x93527F's remove branch: every cell the ramp covers loses bit 17 (RW 0x93496C(0)) and its connect layer (RW 0x7681E8(0)): a joint
+						// of this ramp on the ground, a wall top or a walkway
+						c->setBit17(false);
+						c->setConnectLayer(LAYER_INVALID);
+					}
 					else if (c->getConnectLayer() == LAYER_RAMP)
 					{
-						c->setConnectLayer(LAYER_INVALID); // a joint of this piece's ramp
+						c->setConnectLayer(LAYER_INVALID); // a joint of a ramp on this wall top
 					}
 					c->setZone(PathfindZoneManager::UNINITIALIZED_ZONE);
 					if (!m_buildingMap) m_zoneManager.markCellDirty(i, j);
@@ -731,11 +751,15 @@ void Pathfinder::classifyWall(PathfindObject &obj, bool insert)
 		for (size_t k = 0; k < piece.walls.size(); ++k)
 		{
 			const PathfindLayerEnum layer = piece.wallLayers[k];
-			unstamp(piece.walls[k], [&](const PathfindCell &c) { return c.getLayer() == layer; });
+			unstamp(piece.walls[k], nullptr, [&](const PathfindCell &c) { return c.getLayer() == layer; });
 		}
 		for (const PathfindWallSurface &s : piece.ramps)
 		{
-			unstamp(s, [](const PathfindCell &c) { return c.getLayer() == LAYER_RAMP; });
+			const RampBridge b = makeRampBridge(s);
+			if (b.valid)
+			{
+				unstamp(s, &b, [](const PathfindCell &c) { return c.getLayer() == LAYER_RAMP; });
+			}
 		}
 		// lane WALL-2: the piece's raised areas leave their layers (RW: the layer is freed and its cells made again; an empty layer is no longer in use)
 		for (PathfindLayerEnum l : piece.raisedLayers)
