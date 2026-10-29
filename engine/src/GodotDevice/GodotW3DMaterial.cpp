@@ -656,6 +656,17 @@ W3DMaterialResult W3DMaterialFactory::Create(const MeshRenderData &mesh, const M
 			specColor = Color(vm.Specular.R / 255.0f, vm.Specular.G / 255.0f, vm.Specular.B / 255.0f, 1.0f);
 			shininess = vm.Shininess;
 		}
+		if (key.ConvertedFx && st.PriGradient == W3D_GRADIENT_DISABLE)
+		{
+			// MeshMatDescFXShaderConversion.cpp:286-327 / RW 0x599865-0x599a62: useMaterialColors = Get_Lighting() && primary gradient != 0, so an unlit surface
+			// hands DefaultW3D.fx ColorAmbient / ColorDiffuse / ColorSpecular as the record's zero vector (the record constructor RW 0x550B8C clears it), ColorEmissive
+			// 1, 1, 1 and Opacity 1.0; the vertex shader then outputs v0 = 0.5 * vertex colour (alpha: vertex colour alpha) and v1 = 0 (W3DShaderKey: the secondary
+			// texture code reads v_lit0 / v_lit1)
+			diffuse = Color(0, 0, 0, 1);
+			ambientMat = Color(0, 0, 0, 1);
+			emissive = Color(1, 1, 1, 1);
+			specColor = Color(0, 0, 0, 1);
+		}
 		for (int s = 0; s < 2; ++s)
 		{
 			if (surf.Stage[s].HasTexture)

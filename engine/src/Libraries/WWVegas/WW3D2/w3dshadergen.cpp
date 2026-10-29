@@ -573,19 +573,19 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 		//                               = 2 * lerp(t0 * (diffuse + specular), t1, alpha)   (t1 is doubled with the rest)
 		//   ModAlphaAddColor (mode 3):  r0 = t0 * v0; r0.rgb += v1 * r0.a; * cloud; * 2, Texture_1 is not sampled
 		//                               = 2 * (t0 * diffuse + specular * alpha)
-		// The cloud factor is not applied (S-390). An unlit surface (primary gradient Disable) has v0 = ColorEmissive 1 * 0.5 and v1 = 0 (INFERENCE: the conversion
-		// zeroes the material colours then, MeshMatDescFXShaderConversion.cpp:313-317; the vertex colour is not modelled for it either).
-		const bool lit = k.PriGradient != W3D_GRADIENT_DISABLE;
-		const std::string diffuse = lit ? "v_lit0.rgb" : "vec3(0.5)";
-		const std::string specular = lit ? "v_lit1" : "vec3(0.0)";
-		line(std::string("\t{ float al = ") + (lit ? "t0.a * v_lit0.a" : "t0.a") + ";");
+		// The cloud factor is not applied (S-390). An unlit surface (primary gradient Disable) takes the same expressions: its v0 / v1 are the vertex stage's, and
+		// the material factory gives such a converted surface the conversion's parameters (ColorDiffuse / ColorAmbient / ColorSpecular 0, ColorEmissive 1,
+		// Opacity 1: MeshMatDescFXShaderConversion.cpp:286-327, RW 0x599865-0x599a62), which the vertex shaders (VS_Array, every permutation: oD0.rgb =
+		// (lights * ColorDiffuse + ambient * ColorAmbient + ColorEmissive) * vertex colour * 0.5, oD0.a = vertex alpha * Opacity * OpacityOverride,
+		// oD1 = specular * ColorSpecular * 0.5; tools/render/test_secondary_texture_binary_facts.py) turn into v0 = 0.5 * vertex colour, v1 = 0
+		line("\t{ float al = t0.a * v_lit0.a;");
 		if (k.DetailColor == W3D_DETAILCOLOR_DETAILBLEND)
 		{
-			line("\t\tcur = vec4(2.0 * mix(t0.rgb * (" + diffuse + " + " + specular + "), t1.rgb, al), al); }");
+			line("\t\tcur = vec4(2.0 * mix(t0.rgb * (v_lit0.rgb + v_lit1), t1.rgb, al), al); }");
 		}
 		else
 		{
-			line("\t\tcur = vec4(2.0 * (t0.rgb * " + diffuse + " + " + specular + " * al), al); }");
+			line("\t\tcur = vec4(2.0 * (t0.rgb * v_lit0.rgb + v_lit1 * al), al); }");
 		}
 	}
 	else if (k.Tex[1] && k.Texturing && (k.DetailColor != W3D_DETAILCOLOR_DISABLE || k.DetailAlpha != W3D_DETAILALPHA_DISABLE))

@@ -16,6 +16,7 @@ Arg2 = SPECULAR). The texture of stage 1 is NOT doubled there.
 from __future__ import annotations
 
 import os
+import struct
 import sys
 from pathlib import Path
 
@@ -183,3 +184,55 @@ def test_the_low_shader_level_blend_also_doubles_the_second_texture(effect):
 def test_the_conversion_strings_name_the_supported_detail_colour_functions(img):
     assert b"Unsupported DetailColor mode. Supported: 'Disable', 'Scale', 'Scale2X', 'DetailBlend', 'ModAlphaAddColor' or 'HouseColor'" in img.data
     assert b"DetailAlpha is not 'Disable'" in img.data
+
+
+def _body(img, va, size):
+    return [f"{i.address:x} {i.mnemonic} {i.op_str}" for i in img.decode(va, size)]
+
+
+@needs_binary
+@needs_install
+def test_every_vertex_shader_outputs_half_the_material_colour_times_the_vertex_colour(effect):
+    # VS_Array (18 vs_2_0 permutations: rigid / skinned / dual bone x 6 light setups): oD0.rgb = (lights * ColorDiffuse + ambient * ColorAmbient + ColorEmissive)
+    # * vertex colour * 0.5, oD0.a = vertex alpha * Opacity * OpacityOverride, oD1.rgb = specular * ColorSpecular * 0.5. For an unlit converted surface (ColorDiffuse,
+    # ColorAmbient, ColorSpecular 0, ColorEmissive 1, Opacity 1) that is v0 = 0.5 * vertex colour, alpha = vertex alpha, v1 = 0.
+    import re
+
+    blobs = effect.blobs()
+    for index in range(151, 169):
+        lines = blobs[index][1]
+        consts = {}
+        for x in lines:
+            m = re.fullmatch(r"def (c\d+), (\S+), (\S+), (\S+), (\S+)", x)
+            if m:
+                consts[m.group(1)] = [float(v.rstrip(",")) for v in m.groups()[1:]]
+        assert any(x.startswith("dcl_color0") for x in lines), index
+        rgb = [x for x in lines if x.startswith("mul oD0.xyz, ")]
+        alpha = [x for x in lines if x.startswith("mul oD0.w, ")]
+        spec = [x for x in lines if x.startswith("mul oD1.xyz, ")]
+        assert len(rgb) == len(alpha) == len(spec) == 1, index
+        scale = re.fullmatch(r"mul oD0\.xyz, (r\d+), (c\d+)\.([xyzw])", rgb[0])
+        assert scale and consts[scale.group(2)]["xyzw".index(scale.group(3))] == 0.5, (index, rgb)
+        half = re.fullmatch(r"mul oD1\.xyz, (r\d+), (c\d+)\.([xyzw])", spec[0])
+        assert half and consts[half.group(2)]["xyzw".index(half.group(3))] == 0.5, (index, spec)
+        # the vertex colour is the colour input v4 / v5 / v8 (the one after the blend and position streams) in both the rgb and the alpha product
+        colour = re.fullmatch(r"mul oD0\.w, (v\d+)\.w, c\d+\.[xyzw]", alpha[0])
+        assert colour, (index, alpha)
+        assert any(re.fullmatch(rf"mul r\d+\.xyz, r\d+, {colour.group(1)}", x) for x in lines), index
+
+
+@needs_binary
+def test_the_conversion_gives_an_unlit_surface_zero_material_colours_and_unit_emissive_and_opacity(img):
+    # MeshMatDescFXShaderConversion.cpp:286-327 in RotWK (RW 0x599865-0x599a62): the record constructor clears the 16 byte vector (RW 0x550B8C: memset(+0xC, 0, 0x10)),
+    # ColorAmbient / ColorDiffuse / ColorSpecular are only filled when useMaterialColors, ColorEmissive and Opacity fall back to 1.0 (the float at RW 0xBD1908)
+    assert struct.unpack_from("<f", img.data, img.off(0xBD1908))[0] == 1.0
+    ctor = _body(img, 0x550BA0, 0x10)
+    assert ctor[:3] == ["550ba0 push 0x10", "550ba2 lea eax, [esi + 0xc]", "550ba5 push 0"]
+    # useMaterialColors = vertex material lighting && (shader word >> 10) & 7 != 0 (the 0x1C mask of the second byte)
+    lines = _body(img, 0x59986B, 0x1C)
+    assert "59987c test byte ptr [ebp - 0x13], 0x1c" in lines and "599880 mov byte ptr [ebp - 0xd], 1" in lines and "599886 mov byte ptr [ebp - 0xd], bl" in _body(img, 0x599886, 3)
+    # ColorEmissive: 1, 1, 1 unless the colours are the material's (RW 0x5999E6); Opacity: the primary gradient field (shr 0xa, and 7) zero -> 1.0 (RW 0x599A62)
+    assert "5999e6 movss xmm0, dword ptr [0xbd1908]" in _body(img, 0x5999E6, 8)
+    lines = _body(img, 0x599A23, 0x14)
+    assert "599a26 shr eax, 0xa" in lines and "599a29 and eax, 7" in lines and "599a33 je 0x599a62" in lines
+    assert "599a62 movss xmm0, dword ptr [0xbd1908]" in _body(img, 0x599A62, 8)

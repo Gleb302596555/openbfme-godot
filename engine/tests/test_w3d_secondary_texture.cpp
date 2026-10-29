@@ -36,6 +36,16 @@ std::string detailCode(const std::string &code)
 	REQUIRE(to != std::string::npos);
 	return code.substr(from, to - from);
 }
+
+// the converted secondary texture block: from `{ float al` to the alpha read
+std::string detailBlock(const std::string &code)
+{
+	const size_t from = code.find("	{ float al = ");
+	const size_t to = code.find("	float a = cur.a;");
+	REQUIRE(from != std::string::npos);
+	REQUIRE(to != std::string::npos);
+	return code.substr(from, to - from);
+}
 } // namespace
 
 TEST_CASE("secondary texture: a converted DetailBlend is 2 * lerp(t0 * light, t1, alpha) (PS_Array[8], blob 195)")
@@ -63,12 +73,20 @@ TEST_CASE("secondary texture: a converted ModAlphaAddColor is 2 * (t0 * diffuse 
 	CHECK_FALSE(has(detailCode(code), "l.rgb + l.a * o.rgb"));
 }
 
-TEST_CASE("secondary texture: an unlit converted surface has v0 = 0.5 (ColorEmissive 1 * 0.5) and no specular")
+TEST_CASE("secondary texture: an unlit converted surface reads the vertex stage's v0 / v1 like a lit one (the factory feeds it the conversion's parameters)")
 {
-	const std::string blend = Generate_W3D_Shader_Code(secondKey(W3D_DETAILCOLOR_DETAILBLEND, true, W3D_GRADIENT_DISABLE));
-	CHECK(has(blend, "\t{ float al = t0.a;\n\t\tcur = vec4(2.0 * mix(t0.rgb * (vec3(0.5) + vec3(0.0)), t1.rgb, al), al); }"));
-	const std::string add = Generate_W3D_Shader_Code(secondKey(W3D_DETAILCOLOR_MODALPHAADDCOLOR, true, W3D_GRADIENT_DISABLE));
-	CHECK(has(add, "\t{ float al = t0.a;\n\t\tcur = vec4(2.0 * (t0.rgb * vec3(0.5) + vec3(0.0) * al), al); }"));
+	// no invented constants: MeshMatDescFXShaderConversion.cpp:286-327 (RW 0x599865-0x599a62) gives an unlit surface ColorDiffuse / ColorAmbient / ColorSpecular 0,
+	// ColorEmissive 1 and Opacity 1, and defaultw3d.fxo's vertex shaders output oD0 = 0.5 * vertex colour, oD1 = 0 for them (test_secondary_texture_binary_facts.py)
+	for (int mode : { W3D_DETAILCOLOR_DETAILBLEND, W3D_DETAILCOLOR_MODALPHAADDCOLOR })
+	{
+		CAPTURE(mode);
+		const std::string unlit = Generate_W3D_Shader_Code(secondKey(mode, true, W3D_GRADIENT_DISABLE));
+		const std::string lit = Generate_W3D_Shader_Code(secondKey(mode, true));
+		CHECK(detailBlock(unlit) == detailBlock(lit));
+		CHECK_FALSE(has(detailBlock(unlit), "vec3(")); // no invented constants in the secondary texture code (the vertex stage has its own)
+	}
+	CHECK(has(Generate_W3D_Shader_Code(secondKey(W3D_DETAILCOLOR_DETAILBLEND, true, W3D_GRADIENT_DISABLE)),
+		"\t{ float al = t0.a * v_lit0.a;\n\t\tcur = vec4(2.0 * mix(t0.rgb * (v_lit0.rgb + v_lit1), t1.rgb, al), al); }"));
 }
 
 TEST_CASE("secondary texture: Scale and Scale2X are the same product converted or not (blobs 189 / 192)")
