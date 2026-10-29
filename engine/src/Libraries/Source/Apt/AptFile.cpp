@@ -530,9 +530,12 @@ bool parseText(AptReader &r, std::uint32_t at, AptTextInfo &t)
 	t.fontId = r.u32(at + 24, "text font character");
 	t.alignment = r.u32(at + 28, "text alignment");
 	t.fontHeight = r.f32(at + 36, "text font height");
-	t.readOnly = boolField(r, at + 40, "text read-only");
-	t.multiline = boolField(r, at + 44, "text multiline");
-	t.wordWrap = boolField(r, at + 48, "text word-wrap");
+	// The three flags are dwords the runtime reads in place (the file layout is the runtime layout, see AptFile.h). INFERENCE (the read sites were
+	// not traced): a flag is tested against zero, so any non-zero value is true. Retail data holds only 0 / 1; a mod's exporter can leave other
+	// bytes there (Ennorath 1.9.8 Palantir.apt: a word-wrap dword "srat", which retail runs)
+	t.readOnly = r.u32(at + 40, "text read-only") != 0;
+	t.multiline = r.u32(at + 44, "text multiline") != 0;
+	t.wordWrap = r.u32(at + 48, "text word-wrap") != 0;
 	t.initialText = r.cstring(r.u32(at + 52, "text content pointer"), "text content");
 	t.variableName = r.cstring(r.u32(at + 56, "text variable pointer"), "text variable");
 	if (r.ok() && t.alignment > 2)
@@ -645,16 +648,20 @@ bool AptFile::parse(const std::string &movieName, std::shared_ptr<const std::vec
 	}
 	AptReader r(aptBytes->data(), aptBytes->size(), movieName + ".apt");
 	const std::vector<std::uint8_t> &d = *aptBytes;
-	if (d.size() < 12 || std::memcmp(d.data(), "Apt Data", 8) != 0 || d[8] != ':' || d[10] != 0x1A || d[11] != 0)
+	// TARGET FACT, the movie's version RW 0xAF8110: byte 8 ':' -> (signed char)byte 9 - '0', else 6. Nothing else of the header is read (the
+	// binary holds no "Apt Data" string): Ennorath 1.9.8's MainMenu.apt starts "Apt Data:74" 1A 00 and is version 7 in retail. A version
+	// other than 6 or 7 is refused: which of the runtime's branches compare == 7 and which >= 7 is not established for other values
+	if (d.size() < 10)
 	{
-		return setError(error, movieName + ".apt: bad magic (expected \"Apt Data:N\" 1A 00)");
+		return setError(error, movieName + ".apt: " + std::to_string(d.size()) + " bytes, too short for the header");
 	}
-	if (d[9] != '6' && d[9] != '7')
+	const int version = d[8] == ':' ? (int)(signed char)d[9] - '0' : 6;
+	if (version != 6 && version != 7)
 	{
-		return setError(error, movieName + ".apt: unsupported Apt version '" + std::string(1, (char)d[9]) + "' (expected 6 or 7)");
+		return setError(error, movieName + ".apt: unsupported Apt version " + std::to_string(version) + " (RW 0xAF8110: header byte 9 - '0'; expected 6 or 7)");
 	}
 	out.name = movieName;
-	out.version = (std::uint32_t)(d[9] - '0');
+	out.version = (std::uint32_t)version;
 	out.consts = consts;
 	out.data = aptBytes;
 

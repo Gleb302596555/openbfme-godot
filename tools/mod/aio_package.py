@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 """Lane MODS-2: lay out one All In One BFME Launcher package the way OpenBFME mounts it (a developer tool for the mod corpus).
 
-    python3 tools/mod/aio_package.py <package guid> <corpus dir> [--dry-run]
+    python3 tools/mod/aio_package.py <package guid> <corpus dir> [--dry-run] [--language=XX] [--from-local=<game folder>]
+
+--language=XX takes the package's files for that language (the service's codes: EN, RU, DE, ...; default EN) besides its "ALL" files.
+--from-local=<game folder> takes each file from a folder the All In One launcher already installed (its game folder, where the package's
+files sit next to the retail ones) when the file at the same path, in any case, has the service's MD5: it is hard-linked (copied when the
+folder is on another volume) instead of downloaded. A file there with other bytes (another version, or overwritten by a later layer) is
+downloaded as usual. The base game is a package too: `original-RotWK` lays out the clean 2.01 files.
 
 The All In One launcher (github.com/MarcellVokk/BfmeFoundationProject, WorkshopKit BfmeWorkshopSyncManager.Sync) builds a game folder from
 layers: L1 the enabled enhancements (Type 2), L2 the package itself, L3 the patches it depends on (Type 0), L4 the base game; a file with
@@ -24,6 +30,7 @@ committed: the corpus lives on the developer machines (PLAN rule 6).
 import hashlib
 import json
 import os
+import shutil
 import sys
 import urllib.request
 
@@ -77,7 +84,7 @@ def folder_name(entry):
     return entry["Name"].strip().replace(" ", "_").replace("/", "_")
 
 
-def plan_entry(entry, taken, engine_edits, left_out):
+def plan_entry(entry, taken, engine_edits, left_out, language=LANGUAGE):
     """the files of one package, skipping destinations a higher layer took (AddFiles)"""
     plan = []
     if entry.get("Game") != 2:
@@ -88,7 +95,7 @@ def plan_entry(entry, taken, engine_edits, left_out):
     for f in entry["Files"]:
         name = f["Name"].replace("/", "\\")
         low = os.path.basename(name).lower()
-        if f.get("Language") not in ("ALL", "", None) and LANGUAGE not in f["Language"].split():
+        if f.get("Language") not in ("ALL", "", None) and language not in f["Language"].split():
             continue
         part = destination(entry)
         key = (part, name.lower())
@@ -108,15 +115,48 @@ def plan_entry(entry, taken, engine_edits, left_out):
     return plan
 
 
-def download(plan, out):
+def md5_of(path):
+    md5 = hashlib.md5()
+    with open(path, "rb") as i:
+        for block in iter(lambda: i.read(1 << 22), b""):
+            md5.update(block)
+    return md5.hexdigest()
+
+
+def local_index(root):
+    """every file below `root` by its lower-case relative name with backslashes (the service's names, in any case)"""
+    index = {}
+    for dirpath, _, names in os.walk(root):
+        for n in names:
+            full = os.path.join(dirpath, n)
+            index[os.path.relpath(full, root).replace("/", "\\").lower()] = full
+    return index
+
+
+def take_local(index, name, f, dst):
+    """hard-link (or copy, across volumes) the local file at `name` to `dst` when it has the service's bytes; False when it has not"""
+    src = index.get(name.lower())
+    if src is None or (f["Size"] > 0 and os.path.getsize(src) != f["Size"]) or md5_of(src) != f["Md5"].lower():
+        return False
+    try:
+        os.link(src, dst)
+    except OSError:
+        shutil.copyfile(src, dst)
+    return True
+
+
+def download(plan, out, local=None):
     bad = 0
     for part, name, f in plan:
         dst = os.path.join(out, part, *name.split("\\"))
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         if os.path.exists(dst) and os.path.getsize(dst) == f["Size"] and f["Size"] > 0:
             continue  # sized match (the store is content-addressed and the file was MD5-checked when it was written)
-        if os.path.exists(dst) and hashlib.md5(open(dst, "rb").read()).hexdigest() == f["Md5"]:
+        if os.path.exists(dst) and md5_of(dst) == f["Md5"].lower():
             continue
+        if local is not None and not os.path.exists(dst) and take_local(local, name, f, dst):
+            continue
+        print("download", name, f["Size"], flush=True)
         tmp = dst + ".part"
         have = os.path.getsize(tmp) if os.path.exists(tmp) else 0
         req = urllib.request.Request(f["Url"], headers={**HEADERS, **({"Range": f"bytes={have}-"} if have else {})})
@@ -145,13 +185,18 @@ def main(argv):
         return 2
     guid, corpus = argv[1], argv[2]
     dry = "--dry-run" in argv
+    language = next((a.split("=", 1)[1] for a in argv if a.startswith("--language=")), LANGUAGE).upper()
+    local_root = next((a.split("=", 1)[1] for a in argv if a.startswith("--from-local=")), None)
+    if local_root is not None and not os.path.isdir(local_root):
+        print("not a folder:", local_root)
+        return 2
     entry = fetch(guid)
     first, rest = layers(entry)
     stack = first + rest
     taken, engine_edits, left_out, bad, files, size = set(), [], [], 0, 0, 0
     plans = []
     for e in stack:
-        plan = plan_entry(e, taken, engine_edits, left_out)
+        plan = plan_entry(e, taken, engine_edits, left_out, language)
         plans.append((e, plan))
         files += len(plan)
         size += sum(f["Size"] for _, _, f in plan)
@@ -166,10 +211,11 @@ def main(argv):
     print("stack:", " > ".join(s["folder"] for s in summary["stack"]), flush=True)
     if dry:
         return 0
+    local = local_index(local_root) if local_root is not None else None
     for e, plan in plans:
         out = os.path.join(corpus, folder_name(e))
         os.makedirs(out, exist_ok=True)  # a package may hold nothing OpenBFME takes (only an engine-edit file: the 2.02 Delayfix Addon)
-        bad += download(plan, out)
+        bad += download(plan, out, local)
         if e is not entry and not os.path.exists(os.path.join(out, "openbfme-aio.json")):
             with open(os.path.join(out, "openbfme-aio.json"), "w") as o:  # a dependency's own record (its own stack is written when it is fetched itself)
                 json.dump({"schema": "openbfme.aio-package 2", "guid": e["Guid"], "name": e["Name"], "version": e["Version"], "type": e["Type"],

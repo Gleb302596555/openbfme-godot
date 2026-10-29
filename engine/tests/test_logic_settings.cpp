@@ -120,6 +120,41 @@ TEST_CASE("logic settings: fields no row reads and nested blocks are consumed an
 	CHECK_FALSE(L::scanAIData("AIData\n  EnableRepulsors = Yes\n  SideInfo Rohan\n    A = 1\n", h, &err));
 }
 
+TEST_CASE("logic settings: a nested block ends at its own End by the grammar, not by indentation (Ennorath 1.9.8's aidata.ini layout)")
+{
+	// the shape of Ennorath's file: a SkirmishBuildList header at column 0 whose Structure blocks and End are indented deeper, an AttackPriority after it,
+	// and the AIData block closed by an upper-case END at column 0. Retail reads every block by its fields (INI::initFromINI), so this loads there
+	GameLogicSettings g;
+	std::string err;
+	const std::string text =
+		"AIData\n"
+		"SkirmishBuildList Rohan\n"
+		"   Structure RohanKaserne\n"
+		"      Location = X:1 Y:2\n"
+		"    END\n"
+		"     Structure RohanFarm\n"
+		"      Location = X:3 Y:4\n"
+		"    END\n"
+		"  END ;SkirmishBuildList FactionRohan  END\n"
+		"   SideInfo Evilmen\n"
+		"    ResourceGatherersEasy = 0\n"
+		"  End\n"
+		"  \tAttackPriority AttackPriority_Eagle ; define THIS IS OUTDATED\n"
+		"\t\tDefault = 35\n"
+		"\tEnd\n"
+		"  RepulsedDistance = 130.0\n"
+		"END\n";
+	REQUIRE_MESSAGE(L::scanAIData(text, g, &err), err);
+	CHECK(g.unappliedFields.count("AIData.SkirmishBuildList") == 1);
+	CHECK(g.unappliedFields.count("AIData.SideInfo") == 1);
+	REQUIRE(g.attackPriorityDefs.size() == 1u); // read as AIData's own row, after the build list ended
+	CHECK(g.attackPriorityDefs[0].name == "AttackPriority_Eagle");
+	CHECK(g.repulsedDistance == 130.0f);
+	// a Structure block that is not closed swallows the build list's End: the AIData block then has none
+	GameLogicSettings h;
+	CHECK_FALSE(L::scanAIData("AIData\n  SkirmishBuildList Rohan\n    Structure RohanFarm\n  End\nEnd\n", h, &err));
+}
+
 // lane AIDATA-1: the AIData constructor's values (RW 0x6FFBEF; BFME2 decomp TAiData::TAiData) for every field a mod's aidata.ini leaves out; retail's parser
 // requires no AIData field (before: EnableRepulsors and RepulsedDistance were required, six defaults differed)
 TEST_CASE("aidata1 settings: an AIData block that names no field loads and keeps the AIData constructor's values")

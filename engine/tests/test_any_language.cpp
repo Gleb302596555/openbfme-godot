@@ -348,6 +348,80 @@ TEST_CASE("anylang: mounting a German folder, an unknown language and strict mod
 	}
 }
 
+TEST_CASE("anylang: the base install's language archives follow the game's language (RW 0xA14419), so a German RotWK over an English BFME2 "
+		  "reads its own lotr.csf")
+{
+	LangTempDir tmp;
+	const fs::path rotwkRoot = tmp.path / "rotwk", bfme2Root = tmp.path / "bfme2";
+	auto ini = makeBig("BIGF", { { "data\\ini\\weapon.ini", "rotwk" } });
+	auto rotwkEn = makeBig("BIGF", { { "data\\lotr.str", "rotwk english" } });
+	auto de = makeBig("BIGF", { { "lotr.csf", "rotwk german" } });
+	auto bfme2Ini = makeBig("BIGF", { { "data\\ini\\armor.ini", "bfme2" } });
+	auto bfme2En = makeBig("BIGF", { { "data\\lotr.str", "bfme2 english" } });
+	auto bfme2EnAudio = makeBig("BIGF", { { "data\\audio\\speech\\english.wav", "x" } });
+	writeBytes(rotwkRoot / "ini.big", ini);
+	writeBytes(rotwkRoot / "lang" / "german.big", de);
+	writeBytes(bfme2Root / "ini.big", bfme2Ini);
+	writeBytes(bfme2Root / "lang" / "english.big", bfme2En);
+	writeBytes(bfme2Root / "lang" / "englishaudio.big", bfme2EnAudio);
+
+	RetailInstall rotwk;
+	rotwk.label = "rotwk";
+	rotwk.root = rotwkRoot.u8string();
+	rotwk.policy.game = "rotwk-test";
+	rotwk.policy.patch = "2.01";
+	rotwk.policy.archives = { pin("INI.big", ini, "ALL"), pin("lang/English.big", rotwkEn, "EN") };
+	RetailInstall bfme2;
+	bfme2.label = "bfme2";
+	bfme2.root = bfme2Root.u8string();
+	bfme2.policy.game = "bfme2-test";
+	bfme2.policy.patch = "1.06";
+	bfme2.policy.archives = { pin("ini.big", bfme2Ini, "ALL"), pin("lang/english.big", bfme2En, "EN"), pin("lang/englishaudio.big", bfme2EnAudio, "EN") };
+
+	SUBCASE("the English BFME2 folder has no German archives: none of its language archives is mounted")
+	{
+		Win32BIGFileSystem fsys;
+		RetailMountReport r = MountRetailArchives(fsys, { rotwk, bfme2 }, RetailMountOptions());
+		REQUIRE_MESSAGE(r.ok, (r.errors.empty() ? std::string() : r.errors[0]));
+		CHECK(r.mounted.size() == 3); // rotwk ini.big and lang/German.big, bfme2 ini.big
+		CHECK(readVirtualFile(fsys, "lotr.csf") == "rotwk german");
+		CHECK_FALSE(fsys.doesFileExist("data\\lotr.str")); // so GameText reads the game's lotr.csf
+		CHECK(readVirtualFile(fsys, "data\\ini\\armor.ini") == "bfme2");
+		CHECK(r.languages == std::vector<std::string>{ "rotwk:German" });
+		const std::vector<std::string> excluded = { "bfme2:lang/english.big", "bfme2:lang/englishaudio.big" };
+		CHECK(r.excludedFound == excluded);
+		CHECK(std::count_if(r.warnings.begin(), r.warnings.end(), [](const std::string &w) { return w.find("none of them is mounted") != std::string::npos; }) == 1);
+	}
+
+	SUBCASE("a BFME2 folder that also holds the game's language mounts those")
+	{
+		auto bfme2De = makeBig("BIGF", { { "lotr.csf", "bfme2 german" }, { "data\\ini\\bfme2de.ini", "de" } });
+		writeBytes(bfme2Root / "lang" / "german.big", bfme2De);
+		writeBytes(bfme2Root / "lang" / "germanaudio.big", makeBig("BIGF", { { "data\\audio\\speech\\german.wav", "y" } }));
+		Win32BIGFileSystem fsys;
+		RetailMountReport r = MountRetailArchives(fsys, { rotwk, bfme2 }, RetailMountOptions());
+		REQUIRE_MESSAGE(r.ok, (r.errors.empty() ? std::string() : r.errors[0]));
+		CHECK(readVirtualFile(fsys, "lotr.csf") == "rotwk german"); // the game's first
+		CHECK(readVirtualFile(fsys, "data\\ini\\bfme2de.ini") == "de");
+		CHECK(readVirtualFile(fsys, "data\\audio\\speech\\german.wav") == "y");
+		CHECK_FALSE(fsys.doesFileExist("data\\lotr.str"));
+		CHECK_FALSE(fsys.doesFileExist("data\\audio\\speech\\english.wav"));
+		CHECK(r.languages == std::vector<std::string>{ "rotwk:German", "bfme2:German" });
+	}
+
+	SUBCASE("two installs of one language are mounted as before")
+	{
+		writeBytes(rotwkRoot / "lang" / "english.big", rotwkEn);
+		fs::remove(rotwkRoot / "lang" / "german.big");
+		Win32BIGFileSystem fsys;
+		RetailMountReport r = MountRetailArchives(fsys, { rotwk, bfme2 }, RetailMountOptions());
+		REQUIRE_MESSAGE(r.ok, (r.errors.empty() ? std::string() : r.errors[0]));
+		CHECK(r.mounted.size() == 5);
+		CHECK(readVirtualFile(fsys, "data\\lotr.str") == "rotwk english");
+		CHECK(r.excludedFound.empty());
+	}
+}
+
 TEST_CASE("anylang retail: the installs in ROTWK_INSTALL / BFME2_INSTALL check, mount and read their game text")
 {
 	const char *rotwkRoot = std::getenv("ROTWK_INSTALL");

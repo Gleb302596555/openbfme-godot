@@ -7,7 +7,8 @@
 //             u32 headerSize (32), then (u32 type, u32 value) records.
 //             Cross-checks: OpenSAGE OpenSage.Game/Data/Apt/ConstantData.cs,
 //             archived importer sage_apt.py parse_apt_constants.
-//   .apt    - "Apt Data:" + version digit + 1A 00; root Character (type 9, signature 0x09876543)
+//   .apt    - "Apt Data:" + version digit + 1A 00 (retail reads only bytes 8 and 9, RW 0xAF8110: AptFile::parse);
+//             root Character (type 9, signature 0x09876543)
 //             at aptDataEntryOffset.  Movie body, characters, frame items, place objects, clip
 //             actions and buttons follow OpenSAGE Data/Apt/{Characters,FrameItems}/*.cs and the
 //             archived importer retail_hud_apt_convert.py (_parse_* functions) which were checked

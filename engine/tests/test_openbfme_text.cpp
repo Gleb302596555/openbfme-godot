@@ -4,6 +4,8 @@
 
 #include "GameClient/OpenBFMEText.h"
 
+#include <ostream> // doctest only forward-declares std::ostream; MSVC 14.44's string_view operator<< needs the full type
+
 namespace
 {
 std::u16string fmt(std::u16string_view pattern, std::vector<OpenBFMEText::Argument> args, std::string_view language = "en",

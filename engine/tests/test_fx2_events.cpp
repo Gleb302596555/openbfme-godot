@@ -6,7 +6,9 @@
 #include "CombatTestUtil.h"
 #include "HudTestUtil.h"
 
+#include "BigTestUtil.h"
 #include "GameClient/FXPlayback.h"
+#include "GameEngineDevice/Win32Device/Common/Win32BIGFileSystem.h"
 #include "GameClient/LiveFX.h"
 #include "GameLogic/DamageFX.h"
 #include "GameLogic/FXEvents.h"
@@ -816,4 +818,36 @@ TEST_CASE("fx2 retail: a level-up in a live game plays the level's LevelUpFx thr
 	CHECK(sites.at("LevelUpFx") >= 16);                                          // the horde and its 15 soldiers
 	CHECK(fx.stats().missingFXLists.count("GenericLevelUp2FX") == 0);
 	MESSAGE("fx2 retail level-up: " << sites.at("LevelUpFx") << " LevelUpFx calls played");
+}
+
+TEST_CASE("fx2: the live game reads the FX files with the #define table of its own load, so a macro a mod defines outside GameData.ini resolves "
+		  "(Ennorath 1.9.8: Water.ini #includes the macro file its FXList.inc uses)")
+{
+	const std::string fxList = "FXList FX_ModFade\n"
+							   "  DynamicDecal\n"
+							   "    DecalName = EXModFade\n"
+							   "    OpacityFadeTimeOne = MOD_FADE_ONE\n"
+							   "  End\n"
+							   "End\n";
+	Win32BIGFileSystem fsys;
+	std::string error;
+	auto archive = fsys.openArchiveFromMemory("fx.big",
+		std::make_shared<const std::vector<std::uint8_t>>(bigtest::makeBig("BIGF", { { "data\\ini\\gamedata.ini", "" }, { "data\\ini\\fxparticlesystem.ini", "" },
+																					 { "data\\ini\\default\\fxlist.ini", "" }, { "data\\ini\\fxlist.ini", fxList } })),
+		&error);
+	REQUIRE_MESSAGE(archive, error);
+	fsys.mountArchive(std::move(archive), "fx.big", false);
+
+	// GameData.ini's macros alone (no game load): the macro is unknown, the block is an error
+	FXPlayback alone(fsys, RandomAlgorithm::RotWK_GameDat_LCG);
+	const std::vector<std::string> errors = alone.loadRetailData();
+	REQUIRE(errors.size() == 1u);
+	CHECK(errors[0].find("OpacityFadeTimeOne") != std::string::npos);
+
+	// the table as the game's load had it before the FX subsystems (SubsystemLoadReport::macrosBeforeFX)
+	INIMacroTable macros;
+	REQUIRE(macros.define("MOD_FADE_ONE", "1000", false));
+	FXPlayback live(fsys, RandomAlgorithm::RotWK_GameDat_LCG);
+	CHECK(live.loadRetailData(macros).empty());
+	CHECK(live.fxLists().findFXList("FX_ModFade") != nullptr);
 }

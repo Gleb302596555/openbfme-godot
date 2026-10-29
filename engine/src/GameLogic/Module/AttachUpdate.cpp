@@ -66,7 +66,8 @@ void parseEva(INI *ini, void *, void *store, const void *)
 	*static_cast<std::string *>(store) = AsciiStringUtil::compareNoCase(name, "None") == 0 ? std::string() : name;
 }
 
-// RW 0xC643B8
+// RW 0xC643B8. The last row's token is "ParentEnemyDiedtEvaEvent" in the binary (field-tables.json, offset 0x3C): retail accepts only that spelling,
+// and mods write it so (Ennorath 1.9.8 data\ini\crate.ini)
 const FieldParse kAttachParse[] = {
 	{ "ObjectFilter", parseFilter, nullptr, AU_OFF(m_objectFilter) },
 	{ "ScanRange", INI::parseReal, nullptr, AU_OFF(m_scanRange) },
@@ -79,7 +80,7 @@ const FieldParse kAttachParse[] = {
 	{ "AttachFX", parseFX, nullptr, AU_OFF(m_attachFX) },
 	{ "ParentOwnerDiedEvaEvent", parseEva, nullptr, AU_OFF(m_ownerDiedEva) },
 	{ "ParentAllyDiedEvaEvent", parseEva, nullptr, AU_OFF(m_allyDiedEva) },
-	{ "ParentEnemyDiedEvaEvent", parseEva, nullptr, AU_OFF(m_enemyDiedEva) },
+	{ "ParentEnemyDiedtEvaEvent", parseEva, nullptr, AU_OFF(m_enemyDiedEva) },
 	{ nullptr, nullptr, nullptr, 0 }
 };
 

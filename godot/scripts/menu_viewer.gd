@@ -1,4 +1,4 @@
-## The retail menus on screen (menus-apt.md step A8): mounts pure RotWK 2.01, boots the Apt player exactly as the headless tests do
+## The retail menus on screen (menus-apt.md step A8): mounts pure RotWK 2.01 (and a mod given on the command line), boots the Apt player exactly as the headless tests do
 ## (AptLevel0 as level 0, MainMenu as level 1), draws it through the AptMenuPlayer extension class and lets you click through.
 ##
 ##   godot --path godot res://scenes/menu_viewer.tscn -- [options]
@@ -7,6 +7,7 @@
 ## placeholders, Esc pops a screen.  Every fscommand the movies send is printed ("FSCOMMAND <command> (<argument>)").
 ##
 ## Options (after `--`):
+##   --mod-install=<folder>, -mod <path>   a mod's menus over 2.01, as the game mounts them (docs/MODS.md)
 ##   --movie=<Name>          the movie of level 1 instead of MainMenu (any of the 86 retail movies)
 ##   --res=1024x768          window size (default: the project's 1280x720)
 ##   --fit                   keep the stage aspect (default: stretch to the window, the donor rule)
@@ -119,6 +120,10 @@ func _ready() -> void:
 		_fail("the openbfme extension is not loaded (or too old); " + Release.extension_hint())
 		return
 	_fs = ClassDB.instantiate("RetailFileSystem")
+	# a mod's menus (lanes MODS-1 / MODS-2): -mod / --mod= and --mod-install= (or their environment variables) as the game takes them
+	var args := OS.get_cmdline_user_args()
+	_fs.set_mods(Release.mod_args(args, OS.get_environment("OPENBFME_MOD")))
+	_fs.set_install_mods(Release.install_mod_args(args, OS.get_environment("OPENBFME_MOD_INSTALL")))
 	var mount: Dictionary = _fs.mount_retail()
 	if not mount.ok:
 		_fail("mount failed:\n" + "\n".join(mount.errors))

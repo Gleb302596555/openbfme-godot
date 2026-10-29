@@ -13,7 +13,9 @@
 #include "GameLogic/ContainParseHooks.h"
 #include "GameLogic/Module/AttachUpdate.h"
 #include "GameLogic/ScriptEngine/ScriptActions.h"
+#include "Common/Thing/RwFieldTables.h"
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -254,4 +256,25 @@ TEST_CASE("camp1 fade: a finished CAMERA_FADE_* applies no fade any more (ZH Scr
 	CHECK(d.fade() == 1.0f);
 	d.update(400.0);
 	CHECK(d.fade() == 0.0f);
+}
+
+TEST_CASE("camp1 AttachUpdate: the field tokens are the binary's RW 0xC643B8, ParentEnemyDiedtEvaEvent spelled as retail spells it (Ennorath uses it)")
+{
+	MultiIniFieldParse p;
+	AttachUpdateModuleData::buildFieldParse(p);
+	REQUIRE(p.getCount() == 1);
+	std::vector<std::string> port, binary;
+	for (const FieldParse *f = p.getNthFieldParse(0); f->token; ++f)
+	{
+		port.push_back(f->token);
+	}
+	for (const RwRow &r : RwBinaryData::embedded().table("0xc643b8").rows)
+	{
+		binary.push_back(r.name);
+	}
+	std::sort(port.begin(), port.end());
+	std::sort(binary.begin(), binary.end());
+	CHECK(port == binary); // the offsets are the port's own struct layout (offsetof), not the binary's
+	CHECK(std::find(port.begin(), port.end(), "ParentEnemyDiedtEvaEvent") != port.end());
+	CHECK(std::find(port.begin(), port.end(), "ParentEnemyDiedEvaEvent") == port.end());
 }

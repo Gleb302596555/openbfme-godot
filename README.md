@@ -267,3 +267,6 @@ Video devlogs on the [OpenBFME YouTube channel](https://www.youtube.com/@OpenBFM
 ## Licence
 
 GPL-3.0; see `LICENSE` and `NOTICE` (Zero Hour-derived parts and EA's terms).
+
+python tools/mod/aio_package.py original-RotWK workspace/games --language=RU --from-local=<RotWK folder>
+python tools/mod/aio_package.py 05a64473-c7f5-4fff-8e00-f30e06db9d96 workspace/mods --language=RU --from-local=<RotWK folder>

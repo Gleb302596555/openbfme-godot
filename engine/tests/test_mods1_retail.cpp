@@ -18,6 +18,12 @@
 #include "GameLogic/Weapon.h"
 #include "GameLogic/WeaponStores.h"
 #include "Common/Thing/ThingFactory.h"
+#include "GameClient/FXPlayback.h"
+#include "GameClient/GUI/Skirmish/IniSkirmishSetupSource.h"
+#include "GameClient/MapCreationHooks.h"
+#include "GameClient/MapObjectDrawables.h"
+#include "GameLogic/GameLogic.h"
+#include "Libraries/Source/Apt/AptLoad.h"
 
 #include <chrono>
 #include <cstdlib>
@@ -287,10 +293,44 @@ TEST_CASE("MODS-1 mod corpus: every mod in OPENBFME_MOD_CORPUS mounts over 2.01 
 		CHECK_MESSAGE(loaded, error);
 		const size_t errors = loaded ? world.report().errors.size() : 0;
 		// the report a T1 run pins once the corpus is on the gate hosts (counts only, no mod bytes): MODS-2 turns the errors into fixes
-		MESSAGE("MODCORPUS " << p.filename().u8string() << (installMod ? " (install-folder mod" : " (-mod") << (installMod && !modPart.empty() ? " + -mod)" : ")") << ": archives " << report.archives.size() << ", loose files " << report.loose.files.size()
+		// std::string: doctest streams a bare const char * as its address
+		MESSAGE("MODCORPUS " << p.filename().u8string() << std::string(installMod ? " (install-folder mod" : " (-mod")
+							 << std::string(installMod && !modPart.empty() ? " + -mod)" : ")") << ": archives " << report.archives.size() << ", loose files " << report.loose.files.size()
 							 << ", INI errors " << errors << ", load " << (loaded ? world.loadSeconds() : 0.0) << " s");
 		if (loaded)
 		{
+			// the rest of what the game reads at start (GodotDevice GameWorld::setup, in its order): a mod that crashes or fails here never reaches
+			// the menu, even with a clean object world
+			MESSAGE("MODCORPUS   factions " << world.setupPlayerTemplates().playableSideIndices().size());
+			MapObjectOptions mapOptions;
+			CHECK_MESSAGE(MapObjectGameData::load(*fsys, mapOptions, &error), error);
+			CHECK_MESSAGE(MapObjectGameData::loadPlayerTemplates(*fsys, mapOptions, &error), error);
+			CHECK_MESSAGE(MapCreationHooks::load(*fsys, mapOptions.creationScripts, &error), error);
+			std::vector<MapCacheEntry> mapCache;
+			CHECK_MESSAGE(IniSkirmishSetupSource::loadMapCache(*fsys, mapCache, &error), error);
+			MESSAGE("MODCORPUS   maps " << mapCache.size());
+			GameLogicSettings settings;
+			CHECK_MESSAGE(GameLogicSettingsLoader::load(*fsys, settings, &error), error);
+			REQUIRE(world.report().macrosBeforeFXTaken);
+			FXPlayback fx(*fsys, RandomAlgorithm::RotWK_GameDat_LCG);
+			const std::vector<std::string> fxErrors = fx.loadRetailData(world.report().macrosBeforeFX);
+			CHECK_MESSAGE(fxErrors.empty(), joined(fxErrors));
+			// the menus and the HUD: every Apt movie of the mount loads and its imports resolve (the shell boots MainMenu from them)
+			AptArchiveFileSource aptSource(*fsys);
+			AptLoader apt(aptSource);
+			std::vector<std::string> aptErrors;
+			const std::vector<std::string> movies = aptSource.listMovies();
+			for (const std::string &name : movies)
+			{
+				std::shared_ptr<const AptFile> movie = apt.loadMovie(name, &error);
+				std::vector<AptResolvedImport> imports;
+				if (!movie || !apt.resolveImports(*movie, imports, &error))
+				{
+					aptErrors.push_back(name + ": " + error);
+				}
+			}
+			MESSAGE("MODCORPUS   apt movies " << movies.size());
+			CHECK_MESSAGE(aptErrors.empty(), joined(aptErrors));
 			for (const std::string &n : world.loadNotes())
 			{
 				MESSAGE("MODCORPUS   note: " << n);

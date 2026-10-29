@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <array>
+#include <cstring>
 #include <set>
 
 using namespace apttest;
@@ -247,15 +248,23 @@ TEST_CASE("apt file: structural errors are reported")
 	};
 	REQUIRE(parseBytes(a));
 
+	// the header as retail reads it (RW 0xAF8110): only byte 8 (':') and byte 9 (the version digit); the rest is never looked at
 	std::vector<std::uint8_t> bad = a;
 	bad[0] = 'B';
-	CHECK_FALSE(parseBytes(bad));
-	CHECK(err.find("magic") != std::string::npos);
+	bad[10] = '4'; // Ennorath 1.9.8's MainMenu.apt: "Apt Data:74" 1A 00 is version 7
+	REQUIRE_MESSAGE(parseBytes(bad), err);
+	CHECK(f.version == 7u);
+	bad = a;
+	bad[8] = '.'; // no ':' -> version 6
+	REQUIRE_MESSAGE(parseBytes(bad), err);
+	CHECK(f.version == 6u);
 
 	bad = a;
 	bad[9] = '5';
 	CHECK_FALSE(parseBytes(bad));
-	CHECK(err.find("version") != std::string::npos);
+	CHECK(err.find("unsupported Apt version 5") != std::string::npos);
+	CHECK_FALSE(parseBytes(std::vector<std::uint8_t>(a.begin(), a.begin() + 9)));
+	CHECK(err.find("too short") != std::string::npos);
 
 	bad = a;
 	std::uint32_t entry = cf.aptDataEntryOffset;
@@ -265,6 +274,29 @@ TEST_CASE("apt file: structural errors are reported")
 	bad = a;
 	bad.resize(entry + 10); // truncated root
 	CHECK_FALSE(parseBytes(bad));
+}
+
+TEST_CASE("apt file: an edit text's read-only / multiline / word-wrap dwords are true when non-zero (Ennorath 1.9.8 Palantir.apt word-wrap \"srat\")")
+{
+	TestMovie m;
+	const std::uint32_t rec = m.addEditText("999999", "stringName");
+	const std::uint32_t id = m.addCharacter(rec);
+	m.setRootFrames({});
+	std::vector<std::uint8_t> a, c;
+	m.build(a, c);
+	AptConstFile cf;
+	std::string err;
+	REQUIRE(AptConstFile::parse(c, cf, &err));
+	std::memcpy(a.data() + rec + 48, "srat", 4); // word wrap
+	patch32(a, rec + 44, 2);                      // multiline
+	AptFile f;
+	REQUIRE_MESSAGE(AptFile::parse("T", std::make_shared<const std::vector<std::uint8_t>>(a), cf, f, &err), err);
+	const AptCharacter &text = f.characters.at(id);
+	REQUIRE(text.text);
+	CHECK(text.text->wordWrap);
+	CHECK(text.text->multiline);
+	CHECK(text.text->readOnly);
+	CHECK(text.text->initialText == "999999");
 }
 
 TEST_CASE("apt file: export lookup is case-insensitive and flags conflicting duplicates")

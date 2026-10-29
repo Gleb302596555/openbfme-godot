@@ -552,6 +552,16 @@ void FXPlayer::_notification(int what)
 
 Dictionary FXPlayer::setup(const Ref<RetailFileSystem> &fs)
 {
+	return setupFrom(fs, nullptr);
+}
+
+Dictionary FXPlayer::setupWithMacros(const Ref<RetailFileSystem> &fs, const INIMacroTable &macrosBeforeFX)
+{
+	return setupFrom(fs, &macrosBeforeFX);
+}
+
+Dictionary FXPlayer::setupFrom(const Ref<RetailFileSystem> &fs, const INIMacroTable *macrosBeforeFX)
+{
 	Dictionary result;
 	Array errors;
 	m_fs = fs;
@@ -567,7 +577,7 @@ Dictionary FXPlayer::setup(const Ref<RetailFileSystem> &fs)
 	m_preloadNext = 0;
 	m_preloadQueued = false;
 	m_playback = std::make_unique<FXPlayback>(*fs->archive(), RandomAlgorithm::RotWK_GameDat_LCG);
-	for (const std::string &e : m_playback->loadRetailData())
+	for (const std::string &e : macrosBeforeFX ? m_playback->loadRetailData(*macrosBeforeFX) : m_playback->loadRetailData())
 	{
 		errors.push_back(toGodot(e));
 	}

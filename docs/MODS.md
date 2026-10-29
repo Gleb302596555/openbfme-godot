@@ -46,6 +46,48 @@ The files in that folder sit where they would sit in the game folder. For exampl
 
 A `-mod` can be added on top.
 
+### From a game folder the All In One launcher already merged
+
+When the AIO launcher has installed a mod into a RotWK folder, that folder is no longer clean 2.01 (the mod may overwrite `apt\*.big` and
+`lang\*.big` in place). `tools/mod/aio_package.py` splits it back into a clean base and the mod, taking every file whose MD5 the service lists
+from the folder (hard links, nothing copied on the same volume) and downloading only what the mod overwrote:
+
+```
+python tools/mod/aio_package.py original-RotWK workspace/games --language=RU --from-local=<merged folder>
+python tools/mod/aio_package.py <mod guid> workspace/mods --language=RU --from-local=<merged folder>
+set ROTWK_INSTALL=workspace\games\Vanilla_(2.01)\install
+openbfme -- --mod-install=workspace\mods\<mod>\install
+```
+
+The mod's guid is in the AIO launcher's `%APPDATA%\BFME Workshop\Config\active_patch_2.json`. `--language` is the install's language code
+(`EN` by default).
+
+### Ennorath 1.9.8 (lane MODS-4)
+
+Ennorath (AIO guid `05a64473-c7f5-4fff-8e00-f30e06db9d96`) is a data-only mod: its program files are retail's (`game.dat` md5
+`daed3668...`), so it needs no engine features. With `OPENBFME_MOD_CORPUS` pointing at its layout the corpus gate mounts it over 2.01 and
+loads, through the retail parsers, its object world (8946 templates, 0 INI errors), 11 playable factions, 267 maps, GameData / AIData /
+Multiplayer, the FX files and all 86 Apt movies. Getting there took four port fixes, each one a place where the port refused what retail
+reads:
+- AttachUpdate's last token is `ParentEnemyDiedtEvaEvent`, misspelt in the binary (RW 0xC643B8) and in Ennorath's `crate.ini`;
+- AIData's `SideInfo` / `SkirmishBuildList` blocks end at their own `End` by the grammar, not by indentation;
+- the FX files see the `#define` table retail's load has built before them (Ennorath defines its FX macros in a file `Water.ini`
+  includes);
+- an Apt movie's version is header byte 9 (RW 0xAF8110: Ennorath's `MainMenu.apt` says `Apt Data:74`), and an edit text's flags are
+  true when non-zero.
+
+The main menu, the Skirmish lobby, the loading screen and a skirmish as Arnor (`--auto --faction=FactionArnor`) run with Ennorath's own
+menus, models and HUD.
+
+Installs of two languages (RotWK Russian, BFME2 English, as the All In One launcher allows): retail mounts the BFME2 folder's
+`lang\<language>*.big` and `lang\<language>Audio.big` with the RotWK install's one language (RW 0xA14419, `%s*.big` over RW 0xDBACD0), so
+an English BFME2 folder under a Russian RotWK contributes no language archive; the mount does the same now (its English `data\lotr.str`
+used to hide the game's `lotr.csf`, and Ennorath's new names read `MISSING: 'INI:FactionArnor'`). The BFME2 voices of such an install
+are then missing, as in retail.
+
+Open: some of Ennorath's art: DDS files whose mip chain is shorter than their header says (`buwheat1.dds`) and model materials that name
+the texture `None`.
+
 ## Which file wins
 
 The order is retail's (RotWK 2.01, Common/ModMount.h). The first source that has a file wins:

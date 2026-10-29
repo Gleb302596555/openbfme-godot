@@ -979,6 +979,7 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 		report.errors.push_back("no installs given");
 	}
 	std::deque<RetailArchivePolicy> localizedPolicies; // one per install, its language's (stable addresses)
+	std::string gameLanguage; // the first install's (the game's) text language, lower case; "english" when it has none
 
 	for (const RetailInstall &install : installs)
 	{
@@ -1026,7 +1027,59 @@ RetailMountReport MountRetailArchives(Win32BIGFileSystem &fileSystem, const std:
 		// the install's language (RetailArchivePolicy.h "Languages"): an English folder keeps the policy as it is
 		RetailLanguageChoice language;
 		// kept until the replay: the pending checks point into it (entryCheck)
-		const RetailArchivePolicy &policy = localizedPolicies.emplace_back(LocalizeRetailPolicy(install.policy, onDiskSizes, &language));
+		RetailArchivePolicy &localized = localizedPolicies.emplace_back(LocalizeRetailPolicy(install.policy, onDiskSizes, &language));
+		const std::string ownLanguage = AsciiStringUtil::lowered(language.language.empty() ? std::string("English") : language.language);
+		if (&install == &installs.front())
+		{
+			gameLanguage = ownLanguage;
+		}
+		else if (!gameLanguage.empty() && ownLanguage != gameLanguage)
+		{
+			// lane MODS-4: a base install's language archives follow the GAME's one install language. TARGET FACT RW 0xA14419 (the BFME2 install's
+			// mount): loadBigFilesFromDirectory(<bfme2>lang\, sprintf("%s*.big", RW 0xDBACD0)), then lang\%sAudio.big with the same variable; there
+			// is no second language. A folder of another language (an English BFME2 under a Russian RotWK, as the All In One launcher allows) gives
+			// that glob nothing: none of its language archives is mounted, so its English data\lotr.str no longer hides the game's lotr.csf
+			std::map<std::string, std::uint64_t> asGame;
+			bool hasGameLanguage = false;
+			for (const auto &d : onDiskSizes)
+			{
+				const bool lang = d.first.compare(0, 5, "lang/") == 0 && d.first.find('/', 5) == std::string::npos;
+				const bool ofGame = lang && d.first.compare(5, gameLanguage.size(), gameLanguage) == 0;
+				hasGameLanguage = hasGameLanguage || (ofGame && d.first == "lang/" + gameLanguage + ".big");
+				if (!lang || ofGame)
+				{
+					asGame[d.first] = d.second;
+				}
+			}
+			if (hasGameLanguage)
+			{
+				localized = LocalizeRetailPolicy(install.policy, asGame, &language); // the game language's archives of the folder
+			}
+			else
+			{
+				std::vector<RetailArchiveEntry> kept;
+				for (const RetailArchiveEntry &a : localized.archives)
+				{
+					if (!isLanguageArchive(a))
+					{
+						kept.push_back(a);
+					}
+				}
+				localized.archives = kept;
+				language = RetailLanguageChoice();
+			}
+			for (const auto &d : onDiskSizes)
+			{
+				if (d.first.compare(0, 5, "lang/") == 0 && d.first.find('/', 5) == std::string::npos && !asGame.count(d.first))
+				{
+					localized.excluded.push_back(d.first); // known, not mounted
+				}
+			}
+			report.warnings.push_back(install.label + ": its language archives are " + (language.language.empty() ? std::string("English") : language.language) +
+				", the game's language is " + gameLanguage + ": " + (hasGameLanguage ? "the folder's " + gameLanguage + " archives are mounted" :
+				"none of them is mounted (retail mounts lang\\" + gameLanguage + "*.big there, RW 0xA14419)"));
+		}
+		const RetailArchivePolicy &policy = localized;
 		if (!language.language.empty())
 		{
 			report.languages.push_back(install.label + ":" + language.language +

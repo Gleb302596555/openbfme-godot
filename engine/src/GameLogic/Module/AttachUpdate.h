@@ -7,7 +7,7 @@
 //   * data, field table RW 0xC643B8: ObjectFilter (+8, RW 0x76392F), ParentStatus (+0xC, an object status mask, RW 0x7B1E5C), ScanRange (+0x1C, real),
 //     AlwaysTeleport (+0x20), AnchorToTopOfGeometry (+0x21), ParentOwnerAttachmentEvaEvent / ParentAllyAttachmentEvaEvent / ParentEnemyAttachmentEvaEvent
 //     (+0x24 / + 0x28 / + 0x2C, Eva events RW 0x5DE588), AttachFX (+0x30, an FXList RW 0x73A302), ParentOwnerDiedEvaEvent / ParentAllyDiedEvaEvent /
-//     ParentEnemyDiedEvaEvent (+0x34 / + 0x38 / + 0x3C);
+//     ParentEnemyDiedtEvaEvent (+0x34 / + 0x38 / + 0x3C; the binary's token has the 't');
 //   * constructor RW 0x8950A0: the parent id (+0x20) 0, the died Eva event (+0x24) -1, wake next frame (RW 0x850C32(1));
 //   * update RW 0x8953BB: first the attach scan RW 0x89515C, then, with a parent id: the parent gone or effectively dead (+0x458 bit 0): the id is cleared,
 //     the chosen died Eva event is played at the object (TheEva RW 0x5DD9EE) and the object kills itself (RW 0x698EC3: unresistable damage of its max

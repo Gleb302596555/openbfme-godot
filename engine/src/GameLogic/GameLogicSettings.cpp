@@ -23,8 +23,10 @@
 #include "Common/INI/INIBlockStubs.h"
 #include "Common/StateHash.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <set>
+#include <vector>
 
 namespace
 {
@@ -85,16 +87,6 @@ void parseNoting(INI *ini, void *instance, void *store, const void *userData)
 	static_cast<BlockState *>(instance)->seen |= (unsigned)(std::uintptr_t)userData;
 }
 
-size_t indentOf(const std::string &line)
-{
-	size_t n = 0;
-	while (n < line.size() && (line[n] == ' ' || line[n] == '\t'))
-	{
-		++n;
-	}
-	return n;
-}
-
 // the line without its ; or // comment
 std::string withoutComment(const std::string &line)
 {
@@ -107,43 +99,76 @@ std::string withoutComment(const std::string &line)
 	return cut == std::string::npos ? line : line.substr(0, cut);
 }
 
-bool firstTokenIsEnd(const std::string &line)
+// the line's first token (the INI separators " \t=" after the comment is cut), "" for an empty line
+std::string firstTokenOf(const std::string &line)
 {
 	const std::string l = withoutComment(line);
 	const size_t b = l.find_first_not_of(" \t");
 	if (b == std::string::npos)
 	{
-		return false;
+		return std::string();
 	}
 	const size_t e = l.find_first_of(" \t=", b);
-	return AsciiStringUtil::compareNoCase(l.substr(b, e == std::string::npos ? std::string::npos : e - b), "End") == 0;
+	return l.substr(b, e == std::string::npos ? std::string::npos : e - b);
 }
 
-// the catch-all row (token NULL): userData is the field name. A `Field = value` line is consumed (the rest of the line is not read). A line without
-// `=` is a nested block of the block being read (AIData's SideInfo / SkirmishBuildList / AttackPriority, with their own Structure sub blocks): it ends at
-// the first End that is not indented deeper than its header, the rule the recording stubs use for these same files.
+// The AIData rows that open a nested block this lane does not parse, and the sub-block rows inside each. DONOR, not read from the RotWK binary (its
+// AIData table RW 0xC1CB20 is not in field-tables.json): ZH GameLogic/AI/AI.cpp TheAIFieldParseTable with AI::parseSideInfo (SkillSet1 .. SkillSet5
+// blocks, AI::parseSkillSet) and AI::parseSkirmishBuildList (Structure blocks, BuildListInfo::parseStructure). Each block is read by INI::initFromINI, so
+// it ends at its own End line (the first token, compared without case) whatever the indentation, and field names compare case-sensitively. The retail
+// 2.01 and Ennorath 1.9.8 aidata.ini use only these (SideInfo without sub blocks, SkirmishBuildList with Structure); Ennorath writes a
+// SkirmishBuildList header unindented and its End indented, which retail reads.
+struct NestedBlockGrammar
+{
+	const char *row;
+	std::vector<const char *> subBlocks;
+};
+const NestedBlockGrammar kAIDataNestedBlocks[] = {
+	{ "SideInfo", { "SkillSet1", "SkillSet2", "SkillSet3", "SkillSet4", "SkillSet5" } },
+	{ "SkirmishBuildList", { "Structure" } },
+};
+
+// the catch-all row (token NULL): userData is the field name. A nested-block row of kAIDataNestedBlocks consumes its block and the sub blocks in it by
+// that grammar; any other field is a line (the rest of the line is not read: '=' is only a separator).
 void noteUnapplied(INI *ini, void *instance, void *, const void *userData)
 {
-	static_cast<BlockState *>(instance)->unapplied.insert(std::string(ini->getCurBlockStart()) + "." + static_cast<const char *>(userData));
-	const std::string header = ini->currentLineText();
-	if (withoutComment(header).find('=') != std::string::npos)
+	const char *name = static_cast<const char *>(userData);
+	static_cast<BlockState *>(instance)->unapplied.insert(std::string(ini->getCurBlockStart()) + "." + name);
+	const NestedBlockGrammar *grammar = nullptr;
+	for (const NestedBlockGrammar &g : kAIDataNestedBlocks)
+	{
+		if (std::string(ini->getCurBlockStart()) == "AIData" && std::string(g.row) == name)
+		{
+			grammar = &g;
+		}
+	}
+	if (!grammar)
 	{
 		return;
 	}
-	const size_t headerIndent = indentOf(header);
+	int depth = 0; // open sub blocks
 	for (;;)
 	{
 		const std::string *next = ini->peekNextLine();
 		if (!next)
 		{
-			throw INIException(4, "Missing 'END' token.\n\nError parsing nested block '%s' in file '%s', line %i.\n", static_cast<const char *>(userData), ini->getFilename().c_str(),
+			throw INIException(4, "Missing 'END' token.\n\nError parsing nested block '%s' in file '%s', line %i.\n", name, ini->getFilename().c_str(),
 				ini->currentSourceLine());
 		}
 		const std::string line = *next;
 		ini->readLine();
-		if (firstTokenIsEnd(line) && indentOf(line) <= headerIndent)
+		const std::string token = firstTokenOf(line);
+		if (AsciiStringUtil::compareNoCase(token, "End") == 0)
 		{
-			return;
+			if (depth == 0)
+			{
+				return;
+			}
+			--depth;
+		}
+		else if (depth == 0 && std::find(grammar->subBlocks.begin(), grammar->subBlocks.end(), token) != grammar->subBlocks.end())
+		{
+			++depth;
 		}
 	}
 }
