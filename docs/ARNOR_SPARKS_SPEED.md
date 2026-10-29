@@ -9,6 +9,10 @@ and drop this file in the same commit.
 The sparks over the Arnor stones animate too fast compared with retail. The report came from a run with the Ennorath mod mounted
 (`--mod-install=<Ennorath install>`); whether vanilla RotWK 2.01 shows it too is not known.
 
+This is the item already listed under Ennorath in `docs/MODS.md`: "the twinkle over the supply rocks still animates too fast (its
+brightness is fixed); the GPU particles step at 30 Hz with retail's frame time, the cause was not found". So the "Arnor stones" are
+the supply rocks, an earlier lane fixed the brightness, and it already ruled out the step rate. Drop that item from MODS.md with the fix.
+
 ## Ruled out (by reading the code)
 
 - Particle simulation speed. `FXPlayer::advance` (engine/src/GodotDevice/GodotFXPlayer.cpp) steps the playback at a fixed 30 Hz
