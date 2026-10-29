@@ -103,6 +103,9 @@ struct PaletteRdQueue
 		int rows = 0;
 		bool full = false;
 		PackedByteArray bytes;
+		// lane PERF-HD: a partial upload of several runs: `bytes` holds them one after another (padded to the stage's rows), each run (palette row,
+		// rows) copied to its place; empty: the one run row0 .. row0 + rows
+		std::vector<std::pair<int, int>> runs;
 		PackedByteArray fallback; // whole palette, used only if a partial copy is rejected
 		Ref<Texture2DRD> sampler;
 	};
@@ -197,27 +200,44 @@ static void palette_rd_apply(int64_t raw)
 				rd->texture_update(queue->palette, 0, op.bytes);
 				continue;
 			}
-			if (queue->stage_rows != op.rows || !queue->stage.is_valid())
+			// lane PERF-HD: a runs upload's bytes are padded to its stage's rows (one of a few fixed sizes), so the stage is seldom made again
+			const int stageRows = op.runs.empty() ? op.rows : (int)(op.bytes.size() / ((int64_t)W3D_PALETTE_WIDTH * 16));
+			if (queue->stage_rows != stageRows || !queue->stage.is_valid())
 			{
 				free_rid(queue->stage);
 				Ref<RDTextureFormat> fmt;
 				fmt.instantiate();
 				fmt->set_width(W3D_PALETTE_WIDTH);
-				fmt->set_height(op.rows);
+				fmt->set_height(stageRows);
 				fmt->set_format(RenderingDevice::DATA_FORMAT_R32G32B32A32_SFLOAT);
 				fmt->set_usage_bits(RenderingDevice::TEXTURE_USAGE_CAN_UPDATE_BIT | RenderingDevice::TEXTURE_USAGE_CAN_COPY_FROM_BIT);
 				Ref<RDTextureView> view;
 				view.instantiate();
 				queue->stage = rd->texture_create(fmt, view);
-				queue->stage_rows = queue->stage.is_valid() ? op.rows : 0;
+				queue->stage_rows = queue->stage.is_valid() ? stageRows : 0;
 			}
 			bool copied = false;
 			if (queue->stage.is_valid())
 			{
 				rd->texture_update(queue->stage, 0, op.bytes);
-				const Error err = rd->texture_copy(queue->stage, queue->palette, Vector3(0, 0, 0), Vector3(0, (real_t)op.row0, 0),
-					Vector3(W3D_PALETTE_WIDTH, (real_t)op.rows, 1), 0, 0, 0, 0);
-				copied = err == OK;
+				if (op.runs.empty())
+				{
+					const Error err = rd->texture_copy(queue->stage, queue->palette, Vector3(0, 0, 0), Vector3(0, (real_t)op.row0, 0),
+						Vector3(W3D_PALETTE_WIDTH, (real_t)op.rows, 1), 0, 0, 0, 0);
+					copied = err == OK;
+				}
+				else
+				{
+					copied = true;
+					int packed = 0;
+					for (const std::pair<int, int> &run : op.runs)
+					{
+						const Error err = rd->texture_copy(queue->stage, queue->palette, Vector3(0, (real_t)packed, 0), Vector3(0, (real_t)run.first, 0),
+							Vector3(W3D_PALETTE_WIDTH, (real_t)run.second, 1), 0, 0, 0, 0);
+						copied = copied && err == OK;
+						packed += run.second;
+					}
+				}
 			}
 			if (!copied)
 			{
@@ -1104,6 +1124,15 @@ void W3DInstancer::note_palette_rows(int offset, int texels)
 	}
 	const int r0 = offset / W3D_PALETTE_WIDTH;
 	const int r1 = (offset + texels - 1) / W3D_PALETTE_WIDTH;
+	// lane PERF-HD: the rows themselves, for an upload of the dirty runs only (culled poses leave most of the span between them unchanged)
+	if (PaletteDirtyMap.size() != (size_t)PaletteHeight)
+	{
+		PaletteDirtyMap.assign((size_t)PaletteHeight, 0);
+	}
+	for (int r = std::max(0, r0); r <= std::min(PaletteHeight - 1, r1); ++r)
+	{
+		PaletteDirtyMap[(size_t)r] = 1;
+	}
 	if (PaletteDirtyRow1 < PaletteDirtyRow0)
 	{
 		PaletteDirtyRow0 = r0;
@@ -1294,6 +1323,7 @@ void W3DInstancer::upload_palette()
 		PaletteFullUpload = false;
 		PaletteDirtyRow0 = 0;
 		PaletteDirtyRow1 = -1;
+		std::fill(PaletteDirtyMap.begin(), PaletteDirtyMap.end(), (std::uint8_t)0);
 	};
 	if (rows <= 0)
 	{
@@ -1308,10 +1338,70 @@ void W3DInstancer::upload_palette()
 		op.full = uploadFull;
 		op.row0 = row0;
 		op.rows = rows;
-		const int64_t nbytes = uploadFull ? (int64_t)PaletteHeight * W3D_PALETTE_WIDTH * 16 : (int64_t)rows * W3D_PALETTE_WIDTH * 16;
-		const std::uint8_t *src = PaletteImage->ptr() + (uploadFull ? 0 : (size_t)row0 * W3D_PALETTE_WIDTH * 16);
-		op.bytes.resize(nbytes);
-		std::memcpy(op.bytes.ptrw(), src, (size_t)nbytes);
+		// lane PERF-HD: a partial upload sends the dirty runs (gaps of up to kRunGap clean rows bridged) packed into a stage of a few fixed sizes
+		constexpr int kRunGap = 4;
+		constexpr int kStageRowStep = 64;
+		const size_t rowBytes = (size_t)W3D_PALETTE_WIDTH * 16;
+		if (!uploadFull && PaletteDirtyMap.size() == (size_t)PaletteHeight)
+		{
+			int total = 0;
+			for (int r = row0; r <= row1;)
+			{
+				if (!PaletteDirtyMap[(size_t)r])
+				{
+					++r;
+					continue;
+				}
+				int last = r, gap = 0;
+				for (int k = r + 1; k <= row1; ++k)
+				{
+					if (PaletteDirtyMap[(size_t)k])
+					{
+						last = k;
+						gap = 0;
+					}
+					else if (++gap > kRunGap)
+					{
+						break;
+					}
+				}
+				op.runs.emplace_back(r, last - r + 1);
+				total += last - r + 1;
+				r = last + 1;
+			}
+			if (!op.runs.empty())
+			{
+				// the stage is sized in steps of a quarter of the next power of two (at least kStageRowStep), so it is seldom made again
+				int pow2 = kStageRowStep;
+				while (pow2 < total)
+				{
+					pow2 *= 2;
+				}
+				const int step = std::max(kStageRowStep, pow2 / 4);
+				const int stageRows = std::min(((total + step - 1) / step) * step, std::max(PaletteHeight, total));
+				op.bytes.resize((int64_t)stageRows * (int64_t)rowBytes);
+				std::uint8_t *dst = op.bytes.ptrw();
+				for (const std::pair<int, int> &run : op.runs)
+				{
+					std::memcpy(dst, PaletteImage->ptr() + (size_t)run.first * rowBytes, (size_t)run.second * rowBytes);
+					dst += (size_t)run.second * rowBytes;
+				}
+				op.row0 = op.runs.front().first;
+				op.rows = total;
+				PaletteRowsUploaded = total;
+			}
+			else
+			{
+				op.runs.clear();
+			}
+		}
+		if (op.runs.empty())
+		{
+			const int64_t nbytes = uploadFull ? (int64_t)PaletteHeight * W3D_PALETTE_WIDTH * 16 : (int64_t)rows * W3D_PALETTE_WIDTH * 16;
+			const std::uint8_t *src = PaletteImage->ptr() + (uploadFull ? 0 : (size_t)row0 * W3D_PALETTE_WIDTH * 16);
+			op.bytes.resize(nbytes);
+			std::memcpy(op.bytes.ptrw(), src, (size_t)nbytes);
+		}
 		// A partial copy that can still succeed copies only the dirty rows. The whole image is copied
 		// above when uploadFull is set (the copy will not be attempted, or an earlier copy failed).
 		if (uploadFull)
@@ -2035,7 +2125,7 @@ void W3DInstancer::update_now()
 				const Vector3 centre = nodeXf.xform(inst.Xf.origin);
 				const Vector3 sc = inst.Xf.basis.get_scale_abs();
 				const Vector3 ns = nodeXf.basis.get_scale_abs();
-				const real_t r = cull_radius(*Models[(size_t)inst.Model]) * std::max(sc.x, std::max(sc.y, sc.z)) * std::max(ns.x, std::max(ns.y, ns.z));
+				real_t r = cull_radius(*Models[(size_t)inst.Model]) * std::max(sc.x, std::max(sc.y, sc.z)) * std::max(ns.x, std::max(ns.y, ns.z));
 				bool outside = false;
 				for (const Plane &pl : frustum)
 				{

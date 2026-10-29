@@ -354,6 +354,7 @@ private:
 	int PaletteDirtyRow0 = 0;
 	int PaletteDirtyRow1 = -1;                   // inclusive; empty when row1 < row0
 	int PaletteRowsUploaded = 0;
+	std::vector<std::uint8_t> PaletteDirtyMap;   // lane PERF-HD: per palette row, changed since the last upload
 	bool PaletteUploadFull = false;
 	double PosedTime = -1.0;                     // GlobalTime of the last evaluation of clip-driven instances
 	bool HaveLastCamera = false;
