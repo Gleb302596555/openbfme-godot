@@ -3,7 +3,6 @@
 
 #include "GameClient/MapWeather.h"
 
-#include "Common/GameClientRandomVariable.h"
 #include "Common/INI.h"
 #include "Common/INI/INIBlockStubs.h"
 
@@ -82,57 +81,18 @@ INILoadType loadTypeOf(bool mapOverride)
 // Weather
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------
 
-// The members of BFME2's WeatherSetting (the 0xB4-byte object; WeatherSettingCtor.cpp, constructor BFME2 0x201618) that the field table below
-// stores into, with the constructor's values. The offsets in the comments are retail's; the struct is this port's own layout, so the table uses offsetof.
-struct WeatherSettingFields
-{
-	std::string snowTexture = "EXSnowFlake.tga";         // +0x18
-	float snowFrequencyScaleX = 0.0533f;                 // +0x1C
-	float snowFrequencyScaleY = 0.0275f;                 // +0x20
-	float snowAmplitude = 5.0f;                          // +0x24
-	float snowPointSize = 1.0f;                          // +0x28
-	float snowMaxPointSize = 64.0f;                      // +0x2C
-	float snowMinPointSize = 0.0f;                       // +0x30
-	float snowQuadSize = 0.5f;                           // +0x34
-	float snowBoxHeight = 200.0f;                        // +0x38
-	float snowSpacing = 50.0f;                           // +0x3C
-	float snowSpeed = 100.0f;                            // +0x40
-	bool snowPointSprites = true;                        // +0x44
-	bool snowEnabled = false;                            // +0x45
-	bool isSnowing = false;                              // +0x46
-	int numberTiles = 4;                                 // +0x48
-	Coord2D snowXYSpeed;                                 // +0x4C
-	bool lightningEnabled = false;                       // +0x54
-	GameClientRandomVariable lightningFactor;            // +0x58
-	int lightningDuration = 30;                          // +0x64
-	float lightningChance = 0.01f;                       // +0x68
-	bool spellEnabled = true;                            // +0x6C
-	int spellDuration = 200;                             // +0x70
-	Coord2D rampControl = { 0.3f, 0.7f };                // +0x74
-	Coord2D rampSpeed = { 0.0f, 100.0f };                // +0x7C
-	Coord2D rampSpacing = { 50.0f, 20.0f };              // +0x84
-	RGBColor hardwareFogColor = { 0x88 / 255.0f, 0x66 / 255.0f, 0x55 / 255.0f }; // +0x8C
-	bool hardwareFogEnable = false;                      // +0x98
-	float hardwareFogStart = 300.0f;                     // +0x9C
-	float hardwareFogEnd = 1500.0f;                      // +0xA0
-	Coord2D cloudTextureSize = { 660.0f, 660.0f };       // +0xA4
-	Coord2D cloudOffsetPerSecond = { -0.012f, -0.018f }; // +0xAC
-
-	bool fogKeysSeen = false; // not retail: a HardwareFog* key was read (MapWeather::fogKeysSeen)
-};
-
 // A HardwareFog* key is read by retail's proc and noted, so MapWeather can say "this file set the fog".
 void weatherFogKey(INI *ini, void *instance, void *store, const void *userData, INIFieldParseProc proc)
 {
 	proc(ini, instance, store, userData);
-	static_cast<WeatherSettingFields *>(instance)->fogKeysSeen = true;
+	static_cast<WeatherSetting *>(instance)->fogKeysSeen = true;
 }
 void weatherFogColor(INI *ini, void *instance, void *store, const void *userData) { weatherFogKey(ini, instance, store, userData, INI::parseRGBColor); } // RW 0x42EF99
 void weatherFogEnable(INI *ini, void *instance, void *store, const void *userData) { weatherFogKey(ini, instance, store, userData, INI::parseBool); }   // RW 0x42E558
 void weatherFogStart(INI *ini, void *instance, void *store, const void *userData) { weatherFogKey(ini, instance, store, userData, INI::parseReal); }    // RW 0x42ED00
 void weatherFogEnd(INI *ini, void *instance, void *store, const void *userData) { weatherFogKey(ini, instance, store, userData, INI::parseReal); }
 
-#define WS_OFF(member) ((int)offsetof(WeatherSettingFields, member))
+#define WS_OFF(member) ((int)offsetof(WeatherSetting, member))
 // The WeatherSetting field table: RW 0xBF8D70 (31 rows; read from the RotWK game.dat, identical in token, parse proc and offset to BFME2's g_00BE2C10 in
 // INIParseWeatherDefinition.cpp). Procs: 0x42EE5E parseAsciiString, 0x42ED00 parseReal, 0x42E558 parseBool, 0x42EC5E parseInt, 0x42F298 parseCoord2D, 0x42EF99
 // parseRGBColor, 0x73A396 parseRandVar. A key outside the table, or a value its proc rejects, is an error, as in retail.
@@ -174,36 +134,49 @@ const FieldParse kWeatherSettingFields[] = {
 
 // INI::parseWeatherDefinition (INIParseWeatherDefinition.cpp, BFME2 0x20187A; the initFromINI call is RW 0x6012BE): the first block creates TheWeatherSetting; a
 // later block is an override of the setting in force only in a load of type INI_LOAD_CREATE_OVERRIDES (a map.ini), any other repeat is "WeatherSetting defined
-// twice". The override is copy-constructed from the setting in force, so a key it does not name keeps the earlier file's value; MapWeather carries the five
-// values the renderer reads (and `settingSeen`), the rest of the object is not kept.
-INIBlockParse weatherBlock(MapWeather &result)
+// twice". The override is copy-constructed from the setting in force, so a key it does not name keeps the earlier file's value: the handler reads into the one
+// setting of the load.
+INIBlockParse weatherBlock(WeatherSetting &setting)
 {
-	return [&result](INI *ini) {
-		if (result.settingSeen && ini->getLoadType() != INI_LOAD_CREATE_OVERRIDES)
+	return [&setting](INI *ini) {
+		if (setting.blockSeen && ini->getLoadType() != INI_LOAD_CREATE_OVERRIDES)
 		{
 			throw INIException(3, "WeatherSetting defined twice");
 		}
-		WeatherSettingFields f;
-		f.hardwareFogEnable = result.fogEnabled;
-		f.hardwareFogColor = { result.fogColor[0], result.fogColor[1], result.fogColor[2] };
-		f.hardwareFogStart = result.fogStart;
-		f.hardwareFogEnd = result.fogEnd;
-		f.cloudTextureSize = { result.cloudSize[0], result.cloudSize[1] };
-		f.cloudOffsetPerSecond = { result.cloudOffsetPerSecond[0], result.cloudOffsetPerSecond[1] };
-		ini->initFromINI(&f, kWeatherSettingFields);
-		result.settingSeen = true;
-		result.fogEnabled = f.hardwareFogEnable;
-		result.fogColor[0] = f.hardwareFogColor.red;
-		result.fogColor[1] = f.hardwareFogColor.green;
-		result.fogColor[2] = f.hardwareFogColor.blue;
-		result.fogStart = f.hardwareFogStart;
-		result.fogEnd = f.hardwareFogEnd;
-		result.cloudSize[0] = f.cloudTextureSize.x;
-		result.cloudSize[1] = f.cloudTextureSize.y;
-		result.cloudOffsetPerSecond[0] = f.cloudOffsetPerSecond.x;
-		result.cloudOffsetPerSecond[1] = f.cloudOffsetPerSecond.y;
-		result.fogKeysSeen = result.fogKeysSeen || f.fogKeysSeen;
+		ini->initFromINI(&setting, kWeatherSettingFields);
+		setting.blockSeen = true;
 	};
+}
+
+// What the renderer keeps of a WeatherSetting (MapWeather.h), and back.
+WeatherSetting settingOf(const MapWeather &w)
+{
+	WeatherSetting s;
+	s.hardwareFogEnable = w.fogEnabled;
+	s.hardwareFogColor = { w.fogColor[0], w.fogColor[1], w.fogColor[2] };
+	s.hardwareFogStart = w.fogStart;
+	s.hardwareFogEnd = w.fogEnd;
+	s.cloudTextureSize = { w.cloudSize[0], w.cloudSize[1] };
+	s.cloudOffsetPerSecond = { w.cloudOffsetPerSecond[0], w.cloudOffsetPerSecond[1] };
+	s.blockSeen = w.settingSeen;
+	s.fogKeysSeen = w.fogKeysSeen;
+	return s;
+}
+
+void keep(const WeatherSetting &s, MapWeather &w)
+{
+	w.fogEnabled = s.hardwareFogEnable;
+	w.fogColor[0] = s.hardwareFogColor.red;
+	w.fogColor[1] = s.hardwareFogColor.green;
+	w.fogColor[2] = s.hardwareFogColor.blue;
+	w.fogStart = s.hardwareFogStart;
+	w.fogEnd = s.hardwareFogEnd;
+	w.cloudSize[0] = s.cloudTextureSize.x;
+	w.cloudSize[1] = s.cloudTextureSize.y;
+	w.cloudOffsetPerSecond[0] = s.cloudOffsetPerSecond.x;
+	w.cloudOffsetPerSecond[1] = s.cloudOffsetPerSecond.y;
+	w.settingSeen = s.blockSeen;
+	w.fogKeysSeen = s.fogKeysSeen;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -214,24 +187,7 @@ INIBlockParse weatherBlock(MapWeather &result)
 // the index is the WaterSettings[] element (6 elements of 0x7C bytes at RW 0xDE4BE8).
 const char *const kTimeOfDayNames[WaterSetScan::kTimeOfDayCount] = { "NONE", "MORNING", "AFTERNOON", "EVENING", "NIGHT", "INTERPOLATE" };
 
-// BFME2's WaterSetting (WaterSettingCtor.cpp; every colour and number constructs as 0).
-struct WaterSettingFields
-{
-	std::string skyTextureFile;                // +0x04
-	std::string waterTextureFile;              // +0x08
-	int waterRepeatCount = 0;                  // +0x0C
-	float skyTexelsPerUnit = 0.0f;             // +0x10
-	RGBAColorInt vertex00Diffuse = { 0, 0, 0, 0 };         // +0x14
-	RGBAColorInt vertex10Diffuse = { 0, 0, 0, 0 };         // +0x24
-	RGBAColorInt vertex11Diffuse = { 0, 0, 0, 0 };         // +0x34
-	RGBAColorInt vertex01Diffuse = { 0, 0, 0, 0 };         // +0x44
-	RGBAColorInt waterDiffuseColor = { 0, 0, 0, 0 };       // +0x54
-	RGBAColorInt transparentWaterDiffuse = { 0, 0, 0, 0 }; // +0x64
-	float uScrollPerMs = 0.0f;                 // +0x74
-	float vScrollPerMs = 0.0f;                 // +0x78
-};
-
-#define WA_OFF(member) ((int)offsetof(WaterSettingFields, member))
+#define WA_OFF(member) ((int)offsetof(WaterSetting, member))
 // The WaterSetting field table: RW 0xC1E4A0 (12 rows; read from the RotWK game.dat, identical in token, proc and order to BFME2's m_waterSettingFieldParseTable
 // in WaterSettingCtor.cpp). Procs: 0x42EE5E parseAsciiString, 0x42F03F parseRGBAColorInt (R: G: B: and an optional A:), 0x42ED00 parseReal, 0x42EC5E parseInt.
 const FieldParse kWaterSettingFields[] = {
@@ -253,7 +209,7 @@ const FieldParse kWaterSettingFields[] = {
 
 // INI::parseWaterSettingDefinition (INIWater.cpp, RW 0x600564): the block's name picks the WaterSettings[] element ("No water setting found for time of day '%s'"
 // when it names none), whose fields are then read in place. "Note that this does not support override situations": a block repeated in any load type, or in a
-// map.ini, simply reads over the element, a key it does not name keeping its value. Only the DiffuseColors are kept here.
+// map.ini, simply reads over the element, a key it does not name keeping its value.
 INIBlockParse waterSetBlock(WaterSetScan::Settings &settings)
 {
 	return [&settings](INI *ini) {
@@ -271,10 +227,7 @@ INIBlockParse waterSetBlock(WaterSetScan::Settings &settings)
 		{
 			throw INIException(3, "No water setting found for time of day '%s'", name);
 		}
-		WaterSettingFields f;
-		f.waterDiffuseColor = settings.diffuseColor[index];
-		ini->initFromINI(&f, kWaterSettingFields);
-		settings.diffuseColor[index] = f.waterDiffuseColor;
+		ini->initFromINI(&settings.waterSettings[index], kWaterSettingFields);
 	};
 }
 
@@ -304,7 +257,7 @@ bool WaterSetScan::diffuseOf(const Settings &settings, int timeOfDay, float diff
 		}
 		return false;
 	}
-	const RGBAColorInt &c = settings.diffuseColor[timeOfDay];
+	const RGBAColorInt &c = settings.waterSettings[timeOfDay].waterDiffuseColor;
 	diffuse[0] = c.red / 255.0f;
 	diffuse[1] = c.green / 255.0f;
 	diffuse[2] = c.blue / 255.0f;
@@ -314,8 +267,6 @@ bool WaterSetScan::diffuseOf(const Settings &settings, int timeOfDay, float diff
 
 bool WaterSetScan::load(ArchiveFileSystem &fs, const std::string &mapDir, int timeOfDay, float diffuse[4], std::string *error)
 {
-	diffuse[0] = diffuse[1] = diffuse[2] = 175.0f / 255.0f; // what a caller that reports the error keeps drawing with
-	diffuse[3] = 1.0f;
 	Settings settings;
 	MapIniLoad load(&fs, "WaterSet", waterSetBlock(settings));
 	if (!load.runFile("data\\ini\\water.ini", INI_LOAD_OVERWRITE, error))
@@ -330,31 +281,44 @@ bool WaterSetScan::load(ArchiveFileSystem &fs, const std::string &mapDir, int ti
 	return diffuseOf(settings, timeOfDay, diffuse, error);
 }
 
-bool MapWeatherScan::applyText(const std::string &text, MapWeather &weather, std::string *error, bool mapOverride)
+bool MapWeatherScan::applySetting(const std::string &text, WeatherSetting &setting, std::string *error, bool mapOverride)
 {
-	MapWeather working = weather;
+	WeatherSetting working = setting;
 	MapIniLoad load(nullptr, "Weather", weatherBlock(working));
 	if (!load.run(mapOverride ? "map.ini" : "weather.ini", text, loadTypeOf(mapOverride), error))
 	{
 		return false;
 	}
-	weather = working;
+	setting = working;
+	return true;
+}
+
+bool MapWeatherScan::applyText(const std::string &text, MapWeather &weather, std::string *error, bool mapOverride)
+{
+	WeatherSetting setting = settingOf(weather);
+	if (!applySetting(text, setting, error, mapOverride))
+	{
+		return false;
+	}
+	keep(setting, weather);
 	return true;
 }
 
 bool MapWeatherScan::load(ArchiveFileSystem &fs, const std::string &mapDir, MapWeather &out, std::string *error)
 {
 	out = MapWeather();
-	MapIniLoad load(&fs, "Weather", weatherBlock(out));
+	WeatherSetting setting;
+	MapIniLoad load(&fs, "Weather", weatherBlock(setting));
 	if (!load.runFile("data\\ini\\weather.ini", INI_LOAD_OVERWRITE, error))
 	{
 		return false;
 	}
-	out.fogKeysSeen = false; // only map.ini fog counts as "the map set fog"
+	setting.fogKeysSeen = false; // only map.ini fog counts as "the map set fog"
 	const std::string mapIni = mapDir + "\\map.ini";
 	if (fs.doesFileExist(mapIni) && !load.runFile(mapIni, INI_LOAD_CREATE_OVERRIDES, error))
 	{
 		return false;
 	}
+	keep(setting, out);
 	return true;
 }

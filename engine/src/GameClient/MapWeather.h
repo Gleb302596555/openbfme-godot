@@ -11,6 +11,7 @@
 
 #include "Common/ArchiveFileSystem.h"
 #include "Common/INIDataTypes.h"
+#include "GameClient/WeatherSettings.h"
 
 #include <string>
 
@@ -36,7 +37,7 @@ namespace WaterSetScan
 constexpr int kTimeOfDayCount = 6;
 struct Settings
 {
-	RGBAColorInt diffuseColor[kTimeOfDayCount] = {}; // the WaterSetting constructor's value: R:0 G:0 B:0 A:0
+	WaterSetting waterSettings[kTimeOfDayCount]; // WaterSettings[6] (RW 0xDE4BE8): each element as the WaterSetting constructor leaves it until a block reads it
 };
 // Reads the WaterSet blocks of one file on top of `settings`. `mapOverride`: the text is a map.ini (INI_LOAD_CREATE_OVERRIDES); WaterSet takes no part in the
 // override chain, so only the load type of the nested INI differs. On failure `settings` is unchanged and `error` holds the INIException's text.
@@ -44,17 +45,19 @@ bool applyText(const std::string &text, Settings &settings, std::string *error, 
 // The RGBA of time of day 0 (NONE) .. 5 (INTERPOLATE) as 0..1; false for any other index.
 bool diffuseOf(const Settings &settings, int timeOfDay, float diffuse[4], std::string *error);
 // mapDir as MapWeatherScan::load takes it: the map's folder (MapClassification::mapDirectory, "maps\map mp evendim" or a user map's folder). timeOfDay 1 Morning
-// .. 4 Night (MapChunks.h). Missing map.ini is fine; a missing water.ini is an error. `diffuse` is R:175 G:175 B:175 A:255 until the files are read, which is what
-// a caller that reports the error keeps drawing with.
+// .. 4 Night (MapChunks.h). Missing map.ini is fine; a missing water.ini is an error. `diffuse` is written only when
+// the files were read and the time of day is a WaterSetting; on failure it is untouched and `error` says why (no colour stands in for one that was not read).
 bool load(ArchiveFileSystem &fs, const std::string &mapDir, int timeOfDay, float diffuse[4], std::string *error);
 } // namespace WaterSetScan
 
 namespace MapWeatherScan
 {
+// Reads the "Weather ... End" blocks of `text` on top of `setting` (every member of the WeatherSetting, for the tests); the rules of applyText.
+bool applySetting(const std::string &text, WeatherSetting &setting, std::string *error, bool mapOverride = false);
 // Applies the "Weather ... End" blocks of `text` on top of `weather`. `mapOverride`: the text is a map.ini (INI_LOAD_CREATE_OVERRIDES), where a second block
 // overrides; otherwise a second block is "WeatherSetting defined twice". On failure `weather` is unchanged and `error` holds the INIException's text.
 bool applyText(const std::string &text, MapWeather &weather, std::string *error, bool mapOverride = false);
 // data\ini\weather.ini then <mapDir>\map.ini (mapDir = MapClassification::mapDirectory, "maps\map mp evendim" or a user map's folder). Missing map.ini
-// is fine; a missing weather.ini is an error.
+// is fine; a missing weather.ini is an error. On failure `out` is a default MapWeather (nothing of a half-read setting) and `error` says why.
 bool load(ArchiveFileSystem &fs, const std::string &mapDir, MapWeather &out, std::string *error);
 } // namespace MapWeatherScan

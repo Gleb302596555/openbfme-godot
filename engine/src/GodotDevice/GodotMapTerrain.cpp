@@ -1238,9 +1238,12 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 				}
 			}
 			int64_t additiveRendered = 0;
-			float waterDiffuse[4];
+			// the rivers are lit with the time of day's WaterSet DiffuseColor: a water.ini / map.ini the INI parse rejects is reported and no river is built
+			// from a colour that was never read (no fallback colour)
+			float waterDiffuse[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
 			std::string waterError;
-			if (!WaterSetScan::load(*arch, mapDir, lighting ? lighting->timeOfDay : 2, waterDiffuse, &waterError))
+			const bool waterSetRead = WaterSetScan::load(*arch, mapDir, lighting ? lighting->timeOfDay : 2, waterDiffuse, &waterError);
+			if (!waterSetRead)
 			{
 				errors.push_back(toGodot("water.ini: " + waterError));
 			}
@@ -1251,7 +1254,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 			for (const RiverArea &r : map.chunks.riverAreas)
 			{
 				WaterGeometry::RiverStrip strip;
-				if (!WaterGeometry::buildRiverStrip(r, strip) || sh.is_null())
+				if (!waterSetRead || !WaterGeometry::buildRiverStrip(r, strip) || sh.is_null())
 				{
 					continue;
 				}

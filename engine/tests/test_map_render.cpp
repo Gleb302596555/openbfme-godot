@@ -356,7 +356,186 @@ TEST_CASE("WaterSetScan::applyText: the DiffuseColor of each time of day's Water
 	CHECK_FALSE(WaterSetScan::diffuseOf(settings, -1, diffuse, &error));
 }
 
-TEST_CASE("WaterSetScan::applyText: every WaterSetting field is read with its retail parser; what retail rejects is an error and leaves the settings alone")
+namespace
+{
+bool isColour(const RGBAColorInt &c, int r, int g, int b, int a)
+{
+	return c.red == r && c.green == g && c.blue == b && c.alpha == a;
+}
+bool isPair(const Coord2D &c, float x, float y)
+{
+	return c.x == x && c.y == y;
+}
+} // namespace
+
+TEST_CASE("WaterSetScan: every WaterSetting field lands in its member (RW 0xC1E4A0), the pairs whose order differs from the declaration included")
+{
+	WaterSetScan::Settings settings;
+	std::string error;
+	// Vertex11Color is written before Vertex01Color, the order of retail's table is Vertex00 Vertex10 Vertex01 Vertex11; every value is distinct
+	REQUIRE_MESSAGE(WaterSetScan::applyText(
+		"WaterSet EVENING\n"
+		"  WaterRepeatCount = 9\n"
+		"  SkyTexelsPerUnit = 2.25\n"
+		"  VScrollPerMS = -1.5\n"
+		"  UScrollPerMS = 0.5\n"
+		"  TransparentDiffuseColor = R:21 G:22 B:23 A:24\n"
+		"  DiffuseColor = R:17 G:18 B:19 A:20\n"
+		"  Vertex11Color = R:13 G:14 B:15 A:16\n"
+		"  Vertex01Color = R:9 G:10 B:11 A:12\n"
+		"  Vertex10Color = R:5 G:6 B:7 A:8\n"
+		"  Vertex00Color = R:1 G:2 B:3 A:4\n"
+		"  WaterTexture = zzwater.tga\n"
+		"  SkyTexture = zzsky.tga\n"
+		"End\n"
+		"WaterSet MORNING\n"
+		"  DiffuseColor = R:30 G:31 B:32 A:33\n"
+		"End\n", settings, &error), error);
+	const WaterSetting &e = settings.waterSettings[3]; // EVENING
+	CHECK(e.skyTextureFile == "zzsky.tga");
+	CHECK(e.waterTextureFile == "zzwater.tga");
+	CHECK(e.waterRepeatCount == 9);
+	CHECK(e.skyTexelsPerUnit == 2.25f);
+	CHECK(isColour(e.vertex00Diffuse, 1, 2, 3, 4));
+	CHECK(isColour(e.vertex10Diffuse, 5, 6, 7, 8));
+	CHECK(isColour(e.vertex01Diffuse, 9, 10, 11, 12));
+	CHECK(isColour(e.vertex11Diffuse, 13, 14, 15, 16));
+	CHECK(isColour(e.waterDiffuseColor, 17, 18, 19, 20));
+	CHECK(isColour(e.transparentWaterDiffuse, 21, 22, 23, 24));
+	CHECK(e.uScrollPerMs == 0.5f);
+	CHECK(e.vScrollPerMs == -1.5f);
+	// the other elements: MORNING has its DiffuseColor and nothing else, the rest are still as the constructor leaves them
+	const WaterSetting &m = settings.waterSettings[1];
+	CHECK(isColour(m.waterDiffuseColor, 30, 31, 32, 33));
+	CHECK(isColour(m.vertex00Diffuse, 0, 0, 0, 0));
+	CHECK(isColour(m.vertex01Diffuse, 0, 0, 0, 0));
+	CHECK(isColour(m.transparentWaterDiffuse, 0, 0, 0, 0));
+	CHECK(m.skyTextureFile.empty());
+	CHECK(m.waterRepeatCount == 0);
+	CHECK(m.uScrollPerMs == 0.0f);
+	for (int tod : { 0, 2, 4, 5 })
+	{
+		INFO("time of day " << tod);
+		const WaterSetting &o = settings.waterSettings[tod];
+		CHECK(isColour(o.waterDiffuseColor, 0, 0, 0, 0));
+		CHECK(isColour(o.vertex11Diffuse, 0, 0, 0, 0));
+		CHECK(o.waterTextureFile.empty());
+		CHECK(o.skyTexelsPerUnit == 0.0f);
+	}
+}
+
+TEST_CASE("MapWeatherScan: every WeatherSetting field lands in its member (RW 0xBF8D70), the pairs whose order differs from the declaration included")
+{
+	WeatherSetting s;
+	std::string error;
+	// the values differ from the constructor's and from each other; RampSpeed is written before RampSpacing (retail's table has RampSpacing first, the object
+	// RampSpeed first); fog and cloud keys are in no particular order
+	REQUIRE_MESSAGE(MapWeatherScan::applySetting(
+		"Weather\n"
+		"  CloudOffsetPerSecond = X:21.5 Y:-22.5\n"
+		"  CloudTextureSize = X:19.5 Y:20.5\n"
+		"  HardwareFogEnd = 24.25\n"
+		"  HardwareFogStart = 23.25\n"
+		"  HardwareFogEnable = Yes\n"
+		"  HardwareFogColor = R:10 G:20 B:30\n"
+		"  RampSpeed = X:15.5 Y:16.5\n"
+		"  RampSpacing = X:13.5 Y:14.5\n"
+		"  RampControl = X:11.5 Y:12.5\n"
+		"  SpellDuration = 201\n"
+		"  SpellEnabled = No\n"
+		"  LightningChance = 0.75\n"
+		"  LightningDuration = 31\n"
+		"  LightningFactor = 3.5 4.5 GAUSSIAN\n"
+		"  LightningEnabled = Yes\n"
+		"  SnowXYSpeed = X:17.5 Y:18.5\n"
+		"  NumberTiles = 7\n"
+		"  IsSnowing = Yes\n"
+		"  SnowEnabled = Yes\n"
+		"  SnowPointSprites = No\n"
+		"  SnowSpeed = 10.25\n"
+		"  SnowSpacing = 9.25\n"
+		"  SnowBoxHeight = 8.25\n"
+		"  SnowQuadSize = 7.25\n"
+		"  SnowMinPointSize = 6.25\n"
+		"  SnowMaxPointSize = 5.25\n"
+		"  SnowPointSize = 4.25\n"
+		"  SnowAmplitude = 3.25\n"
+		"  SnowFrequencyScaleY = 2.25\n"
+		"  SnowFrequencyScaleX = 1.25\n"
+		"  SnowTexture = zzsnow.tga\n"
+		"End\n", s, &error), error);
+	CHECK(s.snowTexture == "zzsnow.tga");
+	CHECK(s.snowFrequencyScaleX == 1.25f);
+	CHECK(s.snowFrequencyScaleY == 2.25f);
+	CHECK(s.snowAmplitude == 3.25f);
+	CHECK(s.snowPointSize == 4.25f);
+	CHECK(s.snowMaxPointSize == 5.25f);
+	CHECK(s.snowMinPointSize == 6.25f);
+	CHECK(s.snowQuadSize == 7.25f);
+	CHECK(s.snowBoxHeight == 8.25f);
+	CHECK(s.snowSpacing == 9.25f);
+	CHECK(s.snowSpeed == 10.25f);
+	CHECK_FALSE(s.snowPointSprites);
+	CHECK(s.snowEnabled);
+	CHECK(s.isSnowing);
+	CHECK(s.numberTiles == 7);
+	CHECK(isPair(s.snowXYSpeed, 17.5f, 18.5f));
+	CHECK(s.lightningEnabled);
+	CHECK(s.lightningFactor.m_type == (int)GameClientRandomVariable::GAUSSIAN);
+	CHECK(s.lightningFactor.m_low == 3.5f);
+	CHECK(s.lightningFactor.m_high == 4.5f);
+	CHECK(s.lightningDuration == 31);
+	CHECK(s.lightningChance == 0.75f);
+	CHECK_FALSE(s.spellEnabled);
+	CHECK(s.spellDuration == 201);
+	CHECK(isPair(s.rampControl, 11.5f, 12.5f));
+	CHECK(isPair(s.rampSpacing, 13.5f, 14.5f));
+	CHECK(isPair(s.rampSpeed, 15.5f, 16.5f));
+	CHECK(s.hardwareFogColor.red == 10 * (1.0f / 255.0f));
+	CHECK(s.hardwareFogColor.green == 20 * (1.0f / 255.0f));
+	CHECK(s.hardwareFogColor.blue == 30 * (1.0f / 255.0f));
+	CHECK(s.hardwareFogEnable);
+	CHECK(s.hardwareFogStart == 23.25f);
+	CHECK(s.hardwareFogEnd == 24.25f);
+	CHECK(isPair(s.cloudTextureSize, 19.5f, 20.5f));
+	CHECK(isPair(s.cloudOffsetPerSecond, 21.5f, -22.5f));
+	CHECK(s.blockSeen);
+	CHECK(s.fogKeysSeen);
+
+	// a block that names one key changes that member only: the setting in force is copied, as retail's override is
+	REQUIRE_MESSAGE(MapWeatherScan::applySetting("Weather\n  RampSpacing = X:1 Y:2\nEnd\n", s, &error, true), error);
+	CHECK(isPair(s.rampSpacing, 1.0f, 2.0f));
+	CHECK(isPair(s.rampSpeed, 15.5f, 16.5f));
+	CHECK(isPair(s.rampControl, 11.5f, 12.5f));
+	CHECK(s.snowTexture == "zzsnow.tga");
+	CHECK(s.hardwareFogEnd == 24.25f);
+}
+
+TEST_CASE("WaterSetScan::load: a load that fails writes no colour (no fallback colour stands in for the one that was not read)")
+{
+	Win32BIGFileSystem bad;
+	std::string error;
+	const std::string good = "WaterSet AFTERNOON\n  DiffuseColor = R:185 G:185 B:185 A:255\nEnd\n";
+	REQUIRE(mountMapIniFiles(bad, { { "data\\ini\\water.ini", good }, { "maps\\broken\\map.ini", "WaterSet AFTERNOON\n  DiffuseColor = R:1 G:2\nEnd\n" } }, error));
+	float diffuse[4] = { -1.0f, -2.0f, -3.0f, -4.0f };
+	CHECK_FALSE(WaterSetScan::load(bad, "maps\\broken", 2, diffuse, &error));
+	CHECK(contains(error, "can't omit value for color B"));
+	CHECK(diffuse[0] == -1.0f);
+	CHECK(diffuse[1] == -2.0f);
+	CHECK(diffuse[2] == -3.0f);
+	CHECK(diffuse[3] == -4.0f);
+	// a good map.ini, a time of day that is no WaterSetting: the same
+	CHECK_FALSE(WaterSetScan::load(bad, "maps\\none", 9, diffuse, &error));
+	CHECK(diffuse[0] == -1.0f);
+	CHECK(diffuse[3] == -4.0f);
+	// a missing water.ini
+	Win32BIGFileSystem none;
+	REQUIRE(mountMapIniFiles(none, { { "data\\ini\\other.ini", "" } }, error));
+	CHECK_FALSE(WaterSetScan::load(none, "maps\\x", 2, diffuse, &error));
+	CHECK(diffuse[1] == -2.0f);
+}
+
+TEST_CASE("WaterSetScan::applyText: the WaterSetting fields are read with their retail parsers; what retail rejects is an error and leaves the settings alone")
 {
 	WaterSetScan::Settings settings;
 	std::string error;
@@ -398,7 +577,7 @@ TEST_CASE("WaterSetScan::applyText: every WaterSetting field is read with its re
 		CHECK(contains(error, "water.ini: "));
 		INFO(error);
 		CHECK(contains(error, b[1]));
-		CHECK(settings.diffuseColor[1].red == before.diffuseColor[1].red);
+		CHECK(settings.waterSettings[1].waterDiffuseColor.red == before.waterSettings[1].waterDiffuseColor.red);
 	}
 	// a map.ini is named in the error
 	CHECK_FALSE(WaterSetScan::applyText("WaterSet DAWN\nEnd\n", settings, &error, true));
@@ -578,7 +757,7 @@ TEST_CASE("MapWeather: hardware fog and cloud keys of the Weather block; map.ini
 	CHECK(off.fogKeysSeen);
 }
 
-TEST_CASE("MapWeather: every WeatherSetting field is read with its retail parser, macros and expressions included")
+TEST_CASE("MapWeather: a full Weather block reads through macros and expressions")
 {
 	MapWeather w;
 	std::string error;
