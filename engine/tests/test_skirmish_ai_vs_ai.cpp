@@ -848,7 +848,11 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// window), seed 7 is now open at 9000 (the Men's defeat at 4533 before), seed 1234 stays open at 9000. At the merge points seed 7's defeat moved to 8399
 	// (DEVPORT-SIM), the game stayed open from PATHPRIO-1 on (as that lane measured), community #113 ended seed 1234 at 7647, IDLEMOTION-1 seed 7 at 7924
 	// (1234 open again); with FBSIM-1 all three are open. Engine pins, not retail values.
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, -1, -1 }, Game{ "FactionMordor", "FactionMen", 1234u, -1, -1 } })
+	// The capture release (an idle capture ability clears CAPTURING on its capturer, RW 0x85266D: the AI capture squads' teams become idle after a capture
+	// and take their next order, RW 0x8F135E), measured on its branch (Windows llvm-mingw): seed 2 stays open at 9000 with a new table (changed from the
+	// first window), seed 7 ends with the Men's defeat (start position 0) at 4899, seed 1234 with Mordor's defeat (start position 0) at 7847. Engine pins,
+	// not retail values.
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 0, 4899 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 7847 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;
@@ -871,17 +875,17 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 		{
 			// lane BANNER-1 (the banner carrier's refill as RotWK: replacements at the horde's experience and not counted as built, RW 0x89A40E; refills after
 			// RW 0x86EE52's windows): seed 2's table moves (fewer units built, other fights); the three games stay open at 9000
-			// merge queue q29: seed 2's table (both sides keep attacking, building and destroying through the windows; a sample every 1000 frames, cumulative)
+			// the capture release: seed 2's table (changed from the first window). Merge queue q29: seed 2's table (both sides keep attacking, building and destroying through the windows; a sample every 1000 frames, cumulative)
 			CHECK(run.progress ==
-		"frame 1000: [0 attacks 0 built 72u/8s destroyed 25u/2s] [1 attacks 0 built 75u/8s destroyed 35u/1s]\n"
-		"frame 2000: [0 attacks 1 built 260u/11s destroyed 116u/3s] [1 attacks 1 built 169u/10s destroyed 138u/4s]\n"
-		"frame 3000: [0 attacks 1 built 408u/12s destroyed 208u/4s] [1 attacks 2 built 306u/11s destroyed 337u/4s]\n"
-		"frame 4000: [0 attacks 4 built 595u/14s destroyed 301u/5s] [1 attacks 2 built 365u/14s destroyed 501u/4s]\n"
-		"frame 5000: [0 attacks 5 built 788u/16s destroyed 457u/5s] [1 attacks 3 built 512u/15s destroyed 673u/5s]\n"
-		"frame 6000: [0 attacks 7 built 986u/16s destroyed 573u/5s] [1 attacks 3 built 653u/15s destroyed 919u/6s]\n"
-		"frame 7000: [0 attacks 10 built 1186u/16s destroyed 630u/5s] [1 attacks 5 built 723u/18s destroyed 1175u/6s]\n"
-		"frame 8000: [0 attacks 11 built 1317u/17s destroyed 771u/6s] [1 attacks 5 built 833u/19s destroyed 1258u/6s]\n"
-		"frame 9000: [0 attacks 12 built 1418u/18s destroyed 849u/10s] [1 attacks 5 built 947u/22s destroyed 1385u/6s]\n");
+		"frame 1000: [0 attacks 0 built 72u/8s destroyed 29u/2s] [1 attacks 0 built 75u/8s destroyed 21u/1s]\n"
+		"frame 2000: [0 attacks 2 built 238u/10s destroyed 90u/3s] [1 attacks 1 built 169u/12s destroyed 193u/3s]\n"
+		"frame 3000: [0 attacks 3 built 471u/12s destroyed 193u/4s] [1 attacks 2 built 248u/13s destroyed 342u/6s]\n"
+		"frame 4000: [0 attacks 6 built 568u/14s destroyed 314u/6s] [1 attacks 3 built 360u/16s destroyed 527u/7s]\n"
+		"frame 5000: [0 attacks 6 built 680u/15s destroyed 412u/7s] [1 attacks 6 built 490u/17s destroyed 611u/9s]\n"
+		"frame 6000: [0 attacks 7 built 801u/15s destroyed 513u/7s] [1 attacks 8 built 595u/18s destroyed 748u/12s]\n"
+		"frame 7000: [0 attacks 8 built 874u/16s destroyed 600u/7s] [1 attacks 10 built 669u/21s destroyed 852u/15s]\n"
+		"frame 8000: [0 attacks 8 built 887u/16s destroyed 602u/7s] [1 attacks 10 built 685u/23s destroyed 908u/16s]\n"
+		"frame 9000: [0 attacks 8 built 889u/16s destroyed 633u/7s] [1 attacks 12 built 747u/24s destroyed 909u/16s]\n");
 		}
 	}
 }

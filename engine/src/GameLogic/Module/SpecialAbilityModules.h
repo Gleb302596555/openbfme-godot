@@ -265,7 +265,8 @@ protected:
 	void endPreparation();                         // RW 0x85260A
 	void setUnpackingVariation();                  // the UnpackingVariation model condition (RW 0x853C64 .. 0x853CDE)
 	void applyCustomAnim();                        // RW 0x851C48
-	UpdateSleepTime calcSleep() const;             // RW 0x85266D
+	UpdateSleepTime calcSleep();                   // RW 0x85266D (an idle capture ability also releases its capture: releaseCapture)
+	void releaseCapture();                         // the capture branch of RW 0x85266D
 	bool needToUnpack() const;                     // RW 0x85133C
 	bool needToPack() const;                       // RW 0x851316
 	bool persistentTrigger() const;                // RW 0x852465

@@ -614,17 +614,57 @@ bool SpecialAbilityUpdate::conditionsAllow() const
 }
 
 // RW 0x85266D
-UpdateSleepTime SpecialAbilityUpdate::calcSleep() const
+UpdateSleepTime SpecialAbilityUpdate::calcSleep()
 {
 	if (m_active || m_data->m_alwaysValidateSpecialObjects || m_effectExpiry != 0) // RW 0x85266D tests the effect expiry (+ 0x2C)
 	{
 		return (UpdateSleepTime)1;
 	}
+	releaseCapture();
 	if (m_data->m_requiredConditions == 0 && m_data->m_rejectedConditions == 0)
 	{
 		return UPDATE_SLEEP_FOREVER;
 	}
 	return (UpdateSleepTime)1;
+}
+
+// RW 0x85266D, the sleep calculation: in an ability that is no longer active (no effect running, not AlwaysValidateSpecialObjects): a
+// capture ability (special power type 0x1D) whose capturer and target (+ 0x40, kept after finishAbility) both exist releases the capture. The target on
+// the capturer's controlling player (RW 0x68B678 on both) takes CAPTURED (RW 0x5E3BA5(0x77)); else a target still recording this capturer (+ 0x80) shows
+// CANCEL_CAPTURE for LOGICFRAMES_PER_SECOND frames (RW 0x68B581(0x6F, RW 0xDE8E0C)). The capturer loses CAPTURING (RW 0x5E3B79(0x70)) either way, and in
+// both cases the target loses START_CAPTURE (RW 0x5E3B79(0x6E)) and its capturer (+ 0x80 = 0). The port set CAPTURING when the capture began (RW 0x851F39 .. 0x851FE7)
+// and never cleared it: the skirmish AI's capture squad (AITacticalAI.cpp updateIdleCounters, RW 0x8F135E) saw a capturing member for ever, its team never
+// idle, and gave it no further order after its first capture, completed or interrupted.
+void SpecialAbilityUpdate::releaseCapture()
+{
+	const SpecialPowerTemplate *spt = m_data->m_specialPowerTemplate; // RW 0x688D3C(module data + 0x38), the template's type at + 0x1C
+	if (!spt || spt->m_type != 0x1D)
+	{
+		return;
+	}
+	Object *obj = getObject();
+	Object *t = target(); // RW 0x449681(+ 0x40)
+	if (!t)
+	{
+		return;
+	}
+	bool release = false;
+	if (t->getControllingPlayer() == obj->getControllingPlayer())
+	{
+		setCondition(*t, kMcCaptured, true);
+		release = true;
+	}
+	else if (t->getCapturerID() == obj->getID())
+	{
+		t->setSpecialModelConditionState(kMcCancelCapture, 5); // LOGICFRAMES_PER_SECOND frames (RW 0xDE8E0C = RW 0xD9F608)
+		release = true;
+	}
+	setCondition(*obj, kMcCapturing, false);
+	if (release)
+	{
+		setCondition(*t, kMcStartCapture, false);
+		t->setCapturerID(INVALID_ID);
+	}
 }
 
 bool SpecialAbilityUpdate::needToUnpack() const // RW 0x85133C
