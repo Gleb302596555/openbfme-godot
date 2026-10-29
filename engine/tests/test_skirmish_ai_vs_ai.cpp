@@ -1079,7 +1079,10 @@ TEST_CASE("skirmish ai tactics: the offensive bodies make retail's draws in orde
 	// 15 seeds on the merged tree found seeds 37 and 41
 	// Lane SUMMON-1 (the OCLs' retail random draws, DoCommandUpgrade's rock-throw toggles): none of these twelve hands a Pincer team its waypoints within 2600
 	// frames; a probe of 16 seeds on the lane's tree (Deck) found 53 (two distances), 71, 101 and 113 (one each)
-	for (std::uint32_t seed : { 1234u, 2u, 7u, 11u, 13u, 17u, 19u, 31u, 29u, 67u, 37u, 41u, 53u, 71u })
+	// PR #137 (BFME2CAMP1's rebuild holes: a destroyed structure leaves a hole its owner's AI rebuilds, so the AI's targets and with them the random stream
+	// move): none of these fourteen hands a Pincer team its waypoints within 2600 frames (PR triage: 0 distances from b5a3bb549 on, main 87579746e measured
+	// 1); a probe of seeds 72 .. 131 on the PR's tree (srv1) found 74, 81, 100, 119, 124 (one each) and 99 (two)
+	for (std::uint32_t seed : { 1234u, 2u, 7u, 11u, 13u, 17u, 19u, 31u, 29u, 67u, 37u, 41u, 53u, 71u, 74u, 99u, 124u })
 	{
 		NewGameStart start(RandomAlgorithm::ZH_CarryChain);
 		REQUIRE_MESSAGE(NewGame::prepareNewGame(versusMessage(*s, "FactionMen", -1, "FactionMordor", 2, seed), s->world->playerTemplates(), s->settings, cache,
