@@ -191,7 +191,7 @@ bool InGameHeroSelect::loadCycleTimeout(ArchiveFileSystem &fs, unsigned &ms, std
 	INIEnvironment env;
 	env.fileSystem = &fs;
 	INIBlockRecorder recorder;
-	RegisterRecordingBlockStubs(env.blocks, recorder, { "InGameUI" }, StubExtent::LenientAfterEnd);
+	RegisterRecordingBlockStubs(env.blocks, recorder, { "InGameUI" }, StubExtent::Lenient);
 	CycleTimeoutState state;
 	env.blocks.registerBlock("InGameUI", [&state](INI *ini) {
 		state.inGameUi = true;

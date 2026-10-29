@@ -219,7 +219,7 @@ public:
 	explicit SettingsLoad(ArchiveFileSystem *fs)
 	{
 		m_env.fileSystem = fs;
-		RegisterRecordingBlockStubs(m_env.blocks, m_recorder, { "InGameUI", "Language" }, StubExtent::LenientAfterEnd);
+		RegisterRecordingBlockStubs(m_env.blocks, m_recorder, { "InGameUI", "Language" }, StubExtent::Lenient);
 		m_env.blocks.registerBlock("InGameUI", [this](INI *ini) {
 			m_state.inGameUi = true;
 			ini->initFromINI(&m_state, kInGameUiFields);
@@ -483,7 +483,7 @@ static bool loadInGameUiValue(ArchiveFileSystem *fs, const std::string *memory, 
 	INIEnvironment env;
 	env.fileSystem = fs;
 	INIBlockRecorder recorder;
-	RegisterRecordingBlockStubs(env.blocks, recorder, { "InGameUI" }, StubExtent::LenientAfterEnd);
+	RegisterRecordingBlockStubs(env.blocks, recorder, { "InGameUI" }, StubExtent::Lenient);
 	env.blocks.registerBlock("InGameUI", [&](INI *ini) {
 		state.inGameUi = true;
 		ini->initFromINI(&state, fields);

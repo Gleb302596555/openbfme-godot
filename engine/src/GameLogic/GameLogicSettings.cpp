@@ -368,11 +368,11 @@ public:
 		{
 			// recording stubs only: the world's own map.ini pass parses the Weapon / Locomotor / Armor / DamageFX / FX blocks into their stores, a second
 			// parse here would apply them again
-			RegisterRecordingBlockStubs(m_env.blocks, m_recorder, { "AIData" }, StubExtent::LenientAfterEnd, false);
+			RegisterRecordingBlockStubs(m_env.blocks, m_recorder, { "AIData" }, StubExtent::Lenient, false);
 			reg("AIData", kAIDataFields, 2u);
 			return;
 		}
-		RegisterRecordingBlockStubs(m_env.blocks, m_recorder, { "GameData", "AIData", "MultiplayerSettings", "MultiplayerColor" }, StubExtent::LenientAfterEnd);
+		RegisterRecordingBlockStubs(m_env.blocks, m_recorder, { "GameData", "AIData", "MultiplayerSettings", "MultiplayerColor" }, StubExtent::Lenient);
 		reg("GameData", kGameDataFields, 1u);
 		reg("AIData", kAIDataFields, 2u);
 		reg("MultiplayerSettings", kMultiplayerFields, 4u);

@@ -929,7 +929,7 @@ TEST_CASE("save2 retail T1 (SAVES.md): a 4-AI skirmish saved with each named sce
 	REQUIRE(runPeer("--profile-text " + profilePath) == 0);
 	const ProfileIdentity profile = ProfileIdentity::fromText(readText(profilePath));
 	std::remove(profilePath.c_str());
-	REQUIRE(profile.version() == 2); // lane PROFILE-2: the peer writes the simdata line
+	REQUIRE(profile.version() == 3); // lane PROFILE-2: the peer writes the simdata line (PROFILE-3: under header 3)
 	// merge queue q24: seed 8644 (8642 before). Since OFFMAP-1 (RotWK's idle state RW 0x745A64: no ZH frame <= 1 snap) seed 8642's game had no special power
 	// in flight in its 20 minutes (the Dwarves alive with 100+ objects; measured); seeds 8644 and 8645 hold all four scenarios (a DwarvenGuardianHorde's power
 	// at frame 1632 / 1887) and pass. The scenarios are the test's subject, the seed is not
