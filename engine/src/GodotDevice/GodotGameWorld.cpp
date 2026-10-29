@@ -2687,7 +2687,15 @@ void GameWorld::refresh_streaks(bool record)
 			}
 			// lane VISUAL-2 r2: a W3DStreakDraw is a draw module: a drawable that is not drawn (in the shroud, invisible to the local player, hidden by its
 			// container) neither records its trail nor shows it (its points stay for when it is drawn again)
-			const bool hidden = d->presentedLook(presented.get(), m_shroudDrawn).hidden;
+			// lane PERF-CLIENT: the look is asked only of a drawable with a streak entry (one in thousands), once
+			int hiddenState = -1;
+			auto hiddenNow = [&]() {
+				if (hiddenState < 0)
+				{
+					hiddenState = d->presentedLook(presented.get(), m_shroudDrawn).hidden ? 1 : 0;
+				}
+				return hiddenState == 1;
+			};
 			const std::vector<DrawEntry> &entries = d->entries();
 			DrawableView *view = id < m_views.size() && m_views[id].valid ? &m_views[id] : nullptr;
 			for (size_t k = 0; k < entries.size() && k < 256; ++k)
@@ -2713,6 +2721,7 @@ void GameWorld::refresh_streaks(bool record)
 				{
 					continue;
 				}
+				const bool hidden = hiddenNow();
 				StreakView &sv = m_streaks[((uint64_t)id << 8) | k];
 				sv.data = data;
 				sv.seen = true;
