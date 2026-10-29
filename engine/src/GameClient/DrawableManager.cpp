@@ -110,8 +110,41 @@ void DrawableManager::collect(const Drawable &d, Sink &sink)
 
 Drawable *DrawableManager::findByObject(ObjectID id) const
 {
-	auto it = m_byObject.find(id);
-	return it == m_byObject.end() ? nullptr : find(it->second);
+	if (id < m_byObject.size())
+	{
+		return find(m_byObject[id]); // 0: none (find(0) is null)
+	}
+	if (id < kDenseObjectIds || m_byObjectFar.empty())
+	{
+		return nullptr;
+	}
+	auto it = m_byObjectFar.find(id);
+	return it == m_byObjectFar.end() ? nullptr : find(it->second);
+}
+
+void DrawableManager::bindObject(ObjectID object, DrawableID id)
+{
+	if (object >= kDenseObjectIds)
+	{
+		if (id)
+		{
+			m_byObjectFar[object] = id;
+		}
+		else
+		{
+			m_byObjectFar.erase(object);
+		}
+		return;
+	}
+	if (object >= m_byObject.size())
+	{
+		if (!id)
+		{
+			return;
+		}
+		m_byObject.resize(std::max<size_t>((size_t)object + 1, m_byObject.size() + m_byObject.size() / 2), 0);
+	}
+	m_byObject[object] = id;
 }
 
 Drawable *DrawableManager::createClientDrawable(const ThingTemplate &tt)
@@ -179,7 +212,7 @@ void DrawableManager::created(const ClientEvent &ev)
 	d->setPosition(&ev.position);
 	d->setKindOf(ev.kindOf);
 	m_slots.push_back(std::move(d));
-	m_byObject[ev.object] = id;
+	bindObject(ev.object, id);
 	++m_live;
 	++m_created;
 	m_events.push_back({ true, id });
@@ -188,13 +221,21 @@ void DrawableManager::created(const ClientEvent &ev)
 
 void DrawableManager::destroyed(const ClientEvent &ev)
 {
-	auto it = m_byObject.find(ev.object);
-	if (it == m_byObject.end())
+	DrawableID id = 0;
+	if (ev.object < kDenseObjectIds)
+	{
+		id = ev.object < m_byObject.size() ? m_byObject[ev.object] : 0;
+	}
+	else
+	{
+		auto it = m_byObjectFar.find(ev.object);
+		id = it == m_byObjectFar.end() ? 0 : it->second;
+	}
+	if (id == 0)
 	{
 		return;
 	}
-	const DrawableID id = it->second;
-	m_byObject.erase(it);
+	bindObject(ev.object, 0);
 	if (Drawable *d = find(id))
 	{
 		collect(*d, m_sink);
