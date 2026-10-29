@@ -17,6 +17,10 @@ func _run() -> void:
 		print("SKIP: set ROTWK_INSTALL and BFME2_INSTALL")
 		quit(77)
 		return
+	for cls in ["RetailFileSystem", "MapObjectBuilder"]:
+		if not ClassDB.class_exists(cls):
+			_fail(cls + " is not registered (is the openbfme extension built and loaded?)")
+			return
 	create_timer(300).timeout.connect(func(): _fail("ini error test timed out"))
 	var temp := OS.get_environment("TMPDIR")
 	if temp.is_empty():
@@ -30,6 +34,9 @@ func _run() -> void:
 		return
 	var ini_path := folder.path_join("zzbad.ini")
 	var file := FileAccess.open(ini_path, FileAccess.WRITE)
+	if file == null:
+		_fail("could not write " + ini_path + ": " + error_string(FileAccess.get_open_error()))
+		return
 	file.store_string("Weapon ZzBadWeapon\n  Bogus = 1\nEnd\n")
 	file.close()
 	var fs = ClassDB.instantiate("RetailFileSystem")
