@@ -379,6 +379,10 @@ bool GlowPostEffect::ensureGpu(RenderingDevice *rd, int width)
 			a.resize((int64_t)pass.data.size());
 			std::memcpy(a.ptrw(), pass.data.data(), pass.data.size() * sizeof(float));
 			const PackedByteArray bytes = a.to_byte_array();
+			if (m_simulateBufferFailure.load())
+			{
+				return RID(); // the test hook: the allocation of the kernel buffer fails
+			}
 			return rd->storage_buffer_create((uint32_t)bytes.size(), bytes);
 		};
 		if (m_passH.groups > 0)
@@ -390,7 +394,22 @@ bool GlowPostEffect::ensureGpu(RenderingDevice *rd, int width)
 		m_gpuGroupsV = m_passV.groups;
 		m_gpuVersion = m_version;
 	}
-	return m_bufferH.is_valid() && m_bufferV.is_valid();
+	if (!m_bufferH.is_valid() || !m_bufferV.is_valid())
+	{
+		// no silent fallback (PLAN rule 10): a kernel buffer that could not be made is a reported failure, like the targets above
+		for (RID *r : { &m_bufferH, &m_bufferV })
+		{
+			if (r->is_valid())
+			{
+				rd->free_rid(*r);
+				*r = RID();
+			}
+		}
+		m_failed = true;
+		m_problem = "S-5231: the glow kernel buffers could not be created; the glow pass is not drawn";
+		return false;
+	}
+	return true;
 }
 
 void GlowPostEffect::_render_callback(int32_t p_effect_callback_type, RenderData *p_render_data)
@@ -500,6 +519,7 @@ GlowPostEffectHost::GlowPostEffectHost()
 void GlowPostEffectHost::_bind_methods()
 {
 	ClassDB::bind_method(D_METHOD("configure_dictionary", "effect", "grade"), &GlowPostEffectHost::configure_dictionary);
+	ClassDB::bind_method(D_METHOD("simulate_gpu_allocation_failure", "on"), &GlowPostEffectHost::simulate_gpu_allocation_failure);
 	ClassDB::bind_method(D_METHOD("set_effects_lod", "lod"), &GlowPostEffectHost::set_effects_lod);
 	ClassDB::bind_method(D_METHOD("get_effects_lod"), &GlowPostEffectHost::get_effects_lod);
 	ClassDB::bind_method(D_METHOD("get_glow_stats"), &GlowPostEffectHost::get_glow_stats);
@@ -543,6 +563,11 @@ void GlowPostEffectHost::configure_dictionary(const Dictionary &d, Node *grade)
 	e.terrainGlow = d.get("terrain_glow", false);
 	e.multipassGlowEnabled = d.get("multipass", false);
 	configure(e, Object::cast_to<MapPostEffectsHost>(grade));
+}
+
+void GlowPostEffectHost::simulate_gpu_allocation_failure(bool on)
+{
+	m_postEffect->simulateBufferFailure(on);
 }
 
 void GlowPostEffectHost::set_effects_lod(int64_t lod)

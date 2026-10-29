@@ -265,6 +265,23 @@ func _run() -> int:
 	await _frames(4)
 	_check(host.get_choice() == "glow" and host.get_glow_stats().active, "back to RotWK's block: the glow runs again")
 
+	# a refused GPU allocation (the kernel buffers) is reported, not a silent skip (PLAN rule 10)
+	var passes_before := int(host.get_glow_stats().passes)
+	host.simulate_gpu_allocation_failure(true)
+	host.configure_dictionary(RETAIL, null) # a new kernel: the buffers are allocated again
+	await _frames(6)
+	st = host.get_glow_stats()
+	_check(str(st.problem) == "S-5231: the glow kernel buffers could not be created; the glow pass is not drawn", "a failed kernel buffer allocation is reported (%s)" % [st.problem])
+	var passes_failed := int(st.passes)
+	await _frames(4)
+	_check(int(host.get_glow_stats().passes) == passes_failed, "and the pass does not run on (%d passes)" % passes_failed)
+	_check(passes_failed >= passes_before, "the passes already drawn stay counted (%d -> %d)" % [passes_before, passes_failed])
+	host.simulate_gpu_allocation_failure(false)
+	host.configure_dictionary(RETAIL, null) # reconfiguring clears the failure
+	await _frames(6)
+	st = host.get_glow_stats()
+	_check(str(st.problem).is_empty() and int(st.passes) > passes_failed, "after the allocation works again the glow runs and no problem is reported (%s)" % [st.problem])
+
 	# leaving the tree takes the glow off the camera
 	vp.remove_child(host)
 	await _frames(2)

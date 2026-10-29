@@ -53,6 +53,8 @@ public:
 	std::string configure(const GlowEffect &effect);
 	void setSceneViewport(const RID &viewport);
 	void setActive(bool active) { m_active.store(active); }
+	// Test hook (godot/tests/glow_test.gd): while set, the kernel buffers are not allocated, as when the device refuses; the pass must report it
+	void simulateBufferFailure(bool on) { m_simulateBufferFailure.store(on); }
 	bool active() const { return m_active.load(); }
 	int64_t passes() const { return m_passes.load(); }
 	std::string problem() const;
@@ -82,6 +84,7 @@ private:
 	std::string m_problem;
 	std::atomic<int64_t> m_passes{ 0 };
 	std::atomic<bool> m_failed{ false };
+	std::atomic<bool> m_simulateBufferFailure{ false };
 	// render thread
 	RID m_shaderResample, m_shaderBlur, m_shaderComposite;
 	RID m_pipelineResample, m_pipelineBlur, m_pipelineComposite;
@@ -106,6 +109,8 @@ public:
 	// The same from a Dictionary { enabled, diameter, intensity, texture_width, radius_scale1, amplitude1, radius_scale2, amplitude2, terrain_glow, multipass }
 	// and the map root's PostEffects host (or null): the test hook (godot/tests/glow_test.gd)
 	void configure_dictionary(const Dictionary &d, Node *grade);
+	// Test hook: the glow pass's kernel buffer allocation fails while on (the failure must be reported in the stats' problem)
+	void simulate_gpu_allocation_failure(bool on);
 	// StaticLODState::effectsLOD (0 VeryLow .. 4 UltraHigh); GameWorld.set_effects_lod
 	void set_effects_lod(int64_t lod);
 	int64_t get_effects_lod() const { return m_effectsLod; }
