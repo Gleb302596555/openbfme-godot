@@ -120,9 +120,59 @@ struct PaletteRdQueue
 	Ref<Texture2DRD> sampler;
 	std::atomic<bool> force_full{ false };
 	std::atomic<bool> create_failed{ false };
+	// lane PERF-CLIENT: the staging byte arrays the render thread is done with, handed out again by take(): an upload of several megabytes a frame
+	// allocated (and the system zeroed) a new array every frame
+	std::vector<PackedByteArray> spare;
 
 	void enqueue(Op op, bool retire);
+	PackedByteArray take(int64_t bytes);
+	void give(PackedByteArray &bytes);
 };
+
+PackedByteArray PaletteRdQueue::take(int64_t bytes)
+{
+	PackedByteArray out;
+	{
+		std::lock_guard<std::mutex> lock(mu);
+		size_t best = spare.size();
+		for (size_t i = 0; i < spare.size(); ++i)
+		{
+			if (spare[i].size() == bytes)
+			{
+				best = i;
+				break;
+			}
+			if (best == spare.size() || spare[i].size() > spare[best].size())
+			{
+				best = i;
+			}
+		}
+		if (best < spare.size())
+		{
+			out = std::move(spare[best]);
+			spare.erase(spare.begin() + (std::ptrdiff_t)best);
+		}
+	}
+	if (out.size() != bytes)
+	{
+		out.resize(bytes);
+	}
+	return out;
+}
+
+void PaletteRdQueue::give(PackedByteArray &bytes)
+{
+	if (bytes.is_empty())
+	{
+		return;
+	}
+	std::lock_guard<std::mutex> lock(mu);
+	if (spare.size() < 4)
+	{
+		spare.push_back(std::move(bytes));
+	}
+	bytes = PackedByteArray();
+}
 
 static void palette_rd_apply(int64_t raw)
 {
@@ -261,6 +311,16 @@ static void palette_rd_apply(int64_t raw)
 			queue->stage_rows = 0;
 			std::lock_guard<std::mutex> lock(queue->mu);
 			queue->sampler.unref();
+		}
+	}
+	if (!dropping)
+	{
+		for (PaletteRdQueue::Op &op : batch)
+		{
+			if (op.kind == PaletteRdQueue::Op::Upload)
+			{
+				queue->give(op.bytes); // the device copied them (texture_update stages its own copy)
+			}
 		}
 	}
 	bool destroy = false;
@@ -1379,7 +1439,7 @@ void W3DInstancer::upload_palette()
 				}
 				const int step = std::max(kStageRowStep, pow2 / 4);
 				const int stageRows = std::min(((total + step - 1) / step) * step, std::max(PaletteHeight, total));
-				op.bytes.resize((int64_t)stageRows * (int64_t)rowBytes);
+				op.bytes = PaletteQueue->take((int64_t)stageRows * (int64_t)rowBytes);
 				std::uint8_t *dst = op.bytes.ptrw();
 				for (const std::pair<int, int> &run : op.runs)
 				{
@@ -1399,7 +1459,7 @@ void W3DInstancer::upload_palette()
 		{
 			const int64_t nbytes = uploadFull ? (int64_t)PaletteHeight * W3D_PALETTE_WIDTH * 16 : (int64_t)rows * W3D_PALETTE_WIDTH * 16;
 			const std::uint8_t *src = PaletteImage->ptr() + (uploadFull ? 0 : (size_t)row0 * W3D_PALETTE_WIDTH * 16);
-			op.bytes.resize(nbytes);
+			op.bytes = PaletteQueue->take(nbytes);
 			std::memcpy(op.bytes.ptrw(), src, (size_t)nbytes);
 		}
 		// A partial copy that can still succeed copies only the dirty rows. The whole image is copied
@@ -1420,7 +1480,7 @@ void W3DInstancer::upload_palette()
 			fullOp.row0 = 0;
 			fullOp.rows = PaletteHeight;
 			const int64_t all = (int64_t)PaletteHeight * W3D_PALETTE_WIDTH * 16;
-			fullOp.bytes.resize(all);
+			fullOp.bytes = PaletteQueue->take(all);
 			std::memcpy(fullOp.bytes.ptrw(), PaletteImage->ptr(), (size_t)all);
 			PaletteQueue->force_full.store(false, std::memory_order_release);
 			PaletteQueue->enqueue(std::move(fullOp), false);
