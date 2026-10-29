@@ -73,6 +73,7 @@ namespace godot
 {
 
 class FXPlayer;
+class GodotWeather; // lane WEATHER-1
 class RetailFileSystem;
 class W3DInstancer;
 
@@ -194,6 +195,9 @@ public:
 	Dictionary debug_clear_weather();
 	// lane BACKLOG-8 r2 (proof captures): AIData UseFormations for the running game (test hooks only, never in a network game)
 	Dictionary debug_set_use_formations(bool on);
+	// lane WEATHER-1 (logged test hook, test_hooks only): TheGlobalWeatherSystem::setWeather(weather, 0, frames) (RW 0x71A024) without a power, so a viewer
+	// sees the client weather of Freezing Rain (RAINY) or Darkness (CLOUDY) on a map loaded without starting bases (no spell book can be used there)
+	Dictionary debug_set_weather(int64_t weather, int64_t frames);
 	// read-only: the live objects of `player` [{ id, template, structure, commandcenter, x, y, z }] (between logic frames)
 	Array get_player_objects(const String &player);
 	Array get_logic_trees(double x, double y, double radius) const; // lane SPELL-3: the logic's map trees within radius (2D): x, y, id, toppled, value
@@ -518,6 +522,15 @@ public:
 	// missing_fx_lists, unresolved_particle_systems (lane FX-3: retail's NULL templates, not played), fire_fx_at_bone, fire_fx_on_object, attached_live, attached_created, attached_destroyed, bone_misses, sounds,
 	// logic_events, stops, particles: FXPlayer.get_stats() }
 	Dictionary get_fx_report() const;
+	// lane WEATHER-1: the weather of the live game (GodotWeather::report): { loaded, files, snow, cloud, sound, client_frame, terrain_materials, errors, stops }
+	Dictionary get_weather_report() const;
+	// lane WEATHERFX-1: GodotWeather::fxState (the Enhanced look's weather reads it every render frame; empty without weather)
+	Dictionary get_weather_fx_state() const;
+	// lane WEATHERFX-1: the Enhanced look's wind: the vegetation SwayOffsets drawn times `scale` (1 = retail, the default; presentation only)
+	void set_weather_fx_sway(double scale);
+	// lane WEATHERFX-1: the ground height at SAGE (x, y) from the map's height map as loaded (GodotWeather::groundHeight): never waits for the logic
+	// worker (get_ground_height reads the live logic), so the Enhanced weather can place its rain, mist and bolts every render frame
+	double get_weather_fx_ground(double x, double y) const;
 	// the FXPlayer that draws the live effects (null before setup() succeeded)
 	Node3D *get_fx_player() const;
 	// lane OPTS-2: the texture reduction of the static detail level for the W3D textures loaded from now on (W3DMaterialFactory::Set_Texture_Reduction)
@@ -684,6 +697,9 @@ private:
 		int64_t fogLookInstance = -1;       ///< the instance it was handed to
 		int occlusion = 0;                  ///< lane OCCLUDE-1: the behind-building code the instance shows (occluder bit 0x100 | colour slot)
 		int64_t occlusionInstance = -1;     ///< the instance it was handed to
+		const void *shadowState = nullptr;  ///< S-3304: the model condition state and module data the shadow eligibility was made from
+		const void *shadowData = nullptr;
+		int64_t shadowInstance = -1;        ///< the instance it was handed to
 		std::uint32_t colorsRevision = 0;   ///< lane CAH-2: Drawable::customColorRevision the model choice saw
 		// lane HCKEY-1: a static entry's model key (lowered name + floor swap suffix + palette) and the inputs it was made from, rebuilt only
 		// when one of them changes (community PR #60 made it every frame for every coloured static drawable)
@@ -714,6 +730,7 @@ private:
 	void refresh_views(double deltaMs);
 	// VIS-1: the local player's shroud as a cell texture on the terrain materials (S-567)
 	void refresh_shroud(bool force, double dtMs = 0.0);
+	void loadWeather(const String &map_name, Dictionary &report); // lane WEATHER-1: errors under report["weather_errors"]
 	Ref<godot::ImageTexture> m_shroudTexture;
 	ShroudFade m_shroudFade; ///< lane FOGFX-1: the texels' fade toward their cell's level (RW 0x472CF2), client only
 	bool m_shroudFadeOn = true;
@@ -896,6 +913,7 @@ private:
 	// lane FX-2
 	FXPlayer *m_fxPlayer = nullptr;            ///< child node, kept by clear_scene
 	std::unique_ptr<LiveFX> m_liveFX;          ///< destroyed before m_game (it is the logic's FX sink and the drawables' FX host)
+	std::unique_ptr<GodotWeather> m_weather;   ///< lane WEATHER-1: the map's weather (snow / rain, darkness, lightning, its sound); destroyed before m_game
 	// lane SPELL-4: the BuffNugget buffs (GameClient/BuffDraw.h) as instances of the live objects' instancer, by TBuff serial
 	std::map<uint64_t, int64_t> m_buffInstances;
 	unsigned long long m_buffsDrawn = 0;

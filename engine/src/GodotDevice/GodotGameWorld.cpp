@@ -10,6 +10,7 @@
 #include <godot_cpp/variant/packed_byte_array.hpp>
 #include "GodotDevice/GodotGameWorld.h"
 #include "Common/MD5.h"
+#include "GameClient/ObjectShadow.h"
 #include "GameClient/InGameChat.h"
 
 #include "GameClient/FrameCensus.h"
@@ -40,6 +41,7 @@
 #include "GameClient/LiveFX.h"
 #include "GameClient/Visual2Stops.h"
 #include "GodotDevice/GodotFXPlayer.h"
+#include "GodotDevice/GodotWeather.h" // lane WEATHER-1
 #include "Common/Audio/AudioRequests.h"
 #include "Common/JobSystem.h"
 #include "Common/WindowsCrashDump.h"
@@ -313,8 +315,9 @@ void GameWorld::_bind_methods()
 	ClassDB::bind_method(D_METHOD("debug_kill_player_objects", "player", "keep"), &GameWorld::debug_kill_player_objects);
 	ClassDB::bind_method(D_METHOD("debug_damage_object", "id", "amount", "source_id"), &GameWorld::debug_damage_object);
 	ClassDB::bind_method(D_METHOD("debug_set_object_status", "id", "status", "on"), &GameWorld::debug_set_object_status); // lane SPELL-3
-	ClassDB::bind_method(D_METHOD("debug_clear_weather"), &GameWorld::debug_clear_weather);
-	ClassDB::bind_method(D_METHOD("debug_set_use_formations", "on"), &GameWorld::debug_set_use_formations); // lane BACKLOG-8 r2                                // lane SPELL-3
+	ClassDB::bind_method(D_METHOD("debug_clear_weather"), &GameWorld::debug_clear_weather);                                // lane SPELL-3
+	ClassDB::bind_method(D_METHOD("debug_set_weather", "weather", "frames"), &GameWorld::debug_set_weather);                // lane WEATHER-1
+	ClassDB::bind_method(D_METHOD("debug_set_use_formations", "on"), &GameWorld::debug_set_use_formations);                // lane BACKLOG-8 r2
 	ClassDB::bind_method(D_METHOD("get_player_objects", "player"), &GameWorld::get_player_objects);
 	ClassDB::bind_method(D_METHOD("get_logic_trees", "x", "y", "radius"), &GameWorld::get_logic_trees); // lane SPELL-3
 	ClassDB::bind_method(D_METHOD("destroy_object", "id"), &GameWorld::destroy_object);
@@ -418,6 +421,10 @@ void GameWorld::_bind_methods()
 	ClassDB::bind_method(D_METHOD("attach_audio"), &GameWorld::attach_audio);
 	ClassDB::bind_method(D_METHOD("get_audio_report"), &GameWorld::get_audio_report);
 	ClassDB::bind_method(D_METHOD("get_fx_report"), &GameWorld::get_fx_report);
+	ClassDB::bind_method(D_METHOD("get_weather_report"), &GameWorld::get_weather_report); // lane WEATHER-1
+	ClassDB::bind_method(D_METHOD("get_weather_fx_state"), &GameWorld::get_weather_fx_state); // lane WEATHERFX-1
+	ClassDB::bind_method(D_METHOD("set_weather_fx_sway", "scale"), &GameWorld::set_weather_fx_sway);
+	ClassDB::bind_method(D_METHOD("get_weather_fx_ground", "x", "y"), &GameWorld::get_weather_fx_ground);
 	ClassDB::bind_method(D_METHOD("get_fx_player"), &GameWorld::get_fx_player);
 	ClassDB::bind_static_method("GameWorld", D_METHOD("set_texture_reduction", "reduction"), &GameWorld::set_texture_reduction); // lane OPTS-2
 	ClassDB::bind_static_method("GameWorld", D_METHOD("get_texture_reduction"), &GameWorld::get_texture_reduction);
@@ -533,6 +540,7 @@ GameWorld::~GameWorld()
 	releaseLocalDrivers(); // lane MP-2: the recording / replay driver too
 	m_audio.reset(); // AUDIO-2: the audio side reads the game
 	// the game before the world and the assets it points into; the effect player before the game
+	m_weather.reset(); // lane WEATHER-1: before the effect player and the game
 	m_liveFX.reset();
 	m_spellStore.reset(); // lane SPELL-2 (review r1): the spell book screens hold the game's player and templates: they go before it
 	m_spellBar.reset();
@@ -692,6 +700,7 @@ Dictionary GameWorld::setup(const Ref<RetailFileSystem> &fs)
 			m_source = fs->renderW3DSource(); // lane SDK-0: the drawables' (render) assets, asset packs in front; LiveGame's launch bones read m_fs
 			m_assets.reset(new WW3DAssetManager(*m_source));
 			// lane FX-2: the effect player of the live games (FXParticleSystem.ini / FXList.ini through FX-1's FXPlayer), a child kept across loads
+			m_weather.reset(); // lane WEATHER-1
 			m_liveFX.reset();
 			if (!m_fxPlayer)
 			{
@@ -738,6 +747,7 @@ void GameWorld::clear_scene()
 	m_netSession.reset(); // MP-1: the session points at the game
 	releaseLocalDrivers(); // lane MP-2: the recording / replay driver too
 	m_audio.reset(); // AUDIO-2: the audio side reads the game
+	m_weather.reset(); // lane WEATHER-1: the weather (its sound, its terrain uniforms) before the effect player and the game
 	m_liveFX.reset(); // lane FX-2: the effect player leaves the logic and the drawables before they go
 	if (m_fxPlayer)
 	{
@@ -795,6 +805,7 @@ static std::vector<std::pair<std::string, std::string>> floorWeatherSwaps(const 
 void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &report, Array &errors, Array &stops)
 {
 	W3DInstancer *staticInst = memnew(W3DInstancer);
+	staticInst->set_shadow_receiving(true);
 	staticInst->set_name("StaticObjects");
 	add_child(staticInst);
 	m_staticId = staticInst->get_instance_id();
@@ -861,6 +872,12 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 		}
 		++instances;
 		// lane TREES1: a shrub or prop a construction or a felled tree may remove
+		if (p.kind != W3D_DRAWKIND_FLOOR)
+		{
+			const auto *module = p.module < d.draws.size() ? dynamic_cast<const W3DModelDrawModuleData *>(d.draws[p.module].data) : nullptr;
+			staticInst->set_instance_cast_shadow(instance, ObjectShadow::castsMap(d.info ? d.info->tmpl : nullptr, module,
+				p.draw ? p.draw->currentModelState() : nullptr));
+		}
 		if (d.fate == MAPOBJ_CLIENT_SHRUB || d.fate == MAPOBJ_CLIENT_PROP)
 		{
 			FootprintView f;
@@ -1236,7 +1253,7 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 		}
 		if (!terrainOptions.has("fog"))
 		{
-			terrainOptions["fog"] = false;
+			terrainOptions["fog"] = true; // lane WEATHER-1: the map's hardware fog as retail draws it (the free camera's extra distance is w3d_fog_shift, PLAY-1); {"fog": false} turns it off
 		}
 		Node3D *terrain = terrainBuilder->build_map(m_fs, map_name, terrainOptions);
 		const Dictionary trep = terrainBuilder->get_report();
@@ -1253,10 +1270,12 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 		timings["terrain_ms"] = timing::elapsedMs(t0);
 	}
 	emit(97);
+	loadWeather(map_name, report); // lane WEATHER-1
 
 	t0 = nowMs();
 	build_static_layer(m_fs, report, errors, stops);
 	W3DInstancer *dyn = memnew(W3DInstancer);
+	dyn->set_shadow_receiving(true);
 	dyn->set_name("LiveObjects");
 	add_child(dyn);
 	m_dynamicId = dyn->get_instance_id();
@@ -1444,6 +1463,7 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 		const GlobalLight &L = tod.objects[0];
 		Dictionary lit;
 		lit["time_of_day"] = gl.timeOfDay;
+		lit["shadow_color"] = (int64_t)gl.shadowColor;
 		lit["ambient"] = Color(L.ambient[0], L.ambient[1], L.ambient[2]);
 		lit["diffuse"] = Color(L.diffuse[0], L.diffuse[1], L.diffuse[2]);
 		lit["direction"] = Vector3(L.lightPos[0], L.lightPos[2], -L.lightPos[1]);
@@ -1864,6 +1884,15 @@ void GameWorld::refresh_views(double deltaMs)
 					{
 						dyn->set_instance_transform(ev.instance, entryXf);
 					}
+					const ModelConditionInfo *shadowState = e.draw->currentModelState();
+					if (ev.shadowInstance != ev.instance || ev.shadowState != shadowState || ev.shadowData != e.data) // S-3304: not every frame
+					{
+						dyn->set_instance_cast_shadow(ev.instance, e.kind != W3D_DRAWKIND_FLOOR &&
+							ObjectShadow::castsMap(d->getTemplate(), dynamic_cast<const W3DModelDrawModuleData *>(e.data), shadowState));
+						ev.shadowState = shadowState;
+						ev.shadowData = e.data;
+						ev.shadowInstance = ev.instance;
+					}
 					if (!ev.posed || animatedNow || flagsChanged) // RENDER-2: a MANUAL track (the build-up) changes its frame without being "animated"
 					{
 						// SMOOTH-1: the native call (no Godot String round trip per animated drawable per frame; the instancer caches the clip lookups)
@@ -1979,6 +2008,8 @@ void GameWorld::refresh_views(double deltaMs)
 						ev.instance = dyn->add_instance(mid, entryXf, String(), 0.0, 1.0);
 						ev.model = model;
 						ev.opacity = 1.0f; // a new instance starts opaque
+						dyn->set_instance_cast_shadow(ev.instance, e.kind != W3D_DRAWKIND_FLOOR &&
+							ObjectShadow::castsMap(d->getTemplate(), dynamic_cast<const W3DModelDrawModuleData *>(e.data), nullptr));
 					}
 				}
 				else if (entryXfChanged && ev.instance >= 0)
@@ -2164,6 +2195,12 @@ void GameWorld::advance(double delta)
 	const double tv = nowMs();
 	m_lastShroudMs = timing::spanMs(tv, t1);
 	refresh_views(dt * 1000.0);
+	if (m_weather)
+	{
+		// lane WEATHER-1: the weather follows the presented frame's TheGlobalWeatherSystem (never the live logic)
+		const std::shared_ptr<const LogicSnapshot> shown = m_game->presentedSnapshot();
+		m_weather->advance(dt, shown ? shown->globalWeather : 0);
+	}
 	const double tf = nowMs();
 	m_lastViewsMs = timing::spanMs(tf, tv);
 	updateTreeTopple(dt); // lane SPELL-3
@@ -4843,7 +4880,7 @@ ProfileIdentity GameWorld::profileIdentityFor(SimulationProfile profile) const
 	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain,
 		ModEngineFeatures::identityFeatures(), profile, // lane MODS-3: the mod's engine features
 		m_fs.is_valid() ? m_fs->modIdentity() : std::vector<std::string>(), // lane MODS-1
-		profileSimulationData());
+		profileSimulationData(), m_fs.is_valid() ? m_fs->packIdentity() : std::vector<std::string>()); // lane PROFILE-3: the packs, never counted
 }
 
 std::string GameWorld::profileSimulationData() const
@@ -5015,7 +5052,7 @@ ProfileIdentity GameWorld::net_profile() const
 	// the profile identity of this peer: the mounted archives in mount order with their verified md5, the build, the RNG prepare_new_game uses
 	return ProfileIdentity::compute(m_fs.is_valid() ? m_fs->mountedArchives() : std::vector<MountedArchive>(), RandomAlgorithm::ZH_CarryChain,
 		ModEngineFeatures::identityFeatures(), m_choice.current, m_fs.is_valid() ? m_fs->modIdentity() : std::vector<std::string>(), // lane UBER-1: "profile uber" in the Uber mode; MODS-1: the mod
-		profileSimulationData()); // lane PROFILE-2
+		profileSimulationData(), m_fs.is_valid() ? m_fs->packIdentity() : std::vector<std::string>()); // lane PROFILE-2; PROFILE-3: the packs
 }
 
 Dictionary GameWorld::set_simulation_profile(const String &name)
@@ -6005,6 +6042,57 @@ Node3D *GameWorld::get_fx_player() const
 	return m_fxPlayer;
 }
 
+// lane WEATHER-1: the map's weather (GodotWeather) once the terrain and the effect player are in place. A failure leaves the game without weather and
+// is reported under weather_errors (never a silent default), not counted as a failure of the start, as the terrain's errors are: a map plays without
+// its weather (a game whose data the weather port does not read, BFME1's, still starts)
+void GameWorld::loadWeather(const String &map_name, Dictionary &report)
+{
+	m_weather.reset();
+	W3D_Set_Sway_Scale(1.0); // lane WEATHERFX-1: a new game starts with the retail sway
+	if (!m_game || !m_fs.is_valid() || !m_fs->archive_fs())
+	{
+		return;
+	}
+	const LoadedMap &map = m_game->map();
+	if (!map.hasHeightMap)
+	{
+		report["weather_errors"] = Array::make("weather: the map has no height map");
+		return;
+	}
+	Node3D *terrainRoot = Object::cast_to<Node3D>(find_child("Terrain", false, false));
+	std::unique_ptr<GodotWeather> w(new GodotWeather());
+	std::string error;
+	if (!w->load(this, *m_fs->archive_fs(), toNative(map_name), map.heightMap, map.chunks.hasGlobalLighting ? &map.chunks.lighting : nullptr,
+			m_fxPlayer, terrainRoot, RandomAlgorithm::RotWK_GameDat_LCG,
+			[world = m_world.get()](const std::string &n) { return world && world->audioEventExists(n); }, &error))
+	{
+		report["weather_errors"] = Array::make(toGodot("weather: " + error));
+		return;
+	}
+	m_weather = std::move(w);
+	report["weather"] = m_weather->report();
+}
+
+Dictionary GameWorld::get_weather_report() const
+{
+	return m_weather ? m_weather->report() : Dictionary();
+}
+
+Dictionary GameWorld::get_weather_fx_state() const
+{
+	return m_weather ? m_weather->fxState() : Dictionary();
+}
+
+void GameWorld::set_weather_fx_sway(double scale)
+{
+	W3D_Set_Sway_Scale(scale); // the drawn offsets (GodotW3DMaterial: rendering)
+}
+
+double GameWorld::get_weather_fx_ground(double x, double y) const
+{
+	return m_weather ? m_weather->groundHeight(x, y) : 0.0;
+}
+
 Dictionary GameWorld::get_fx_report() const
 {
 	Dictionary d;
@@ -6723,6 +6811,24 @@ Dictionary GameWorld::debug_clear_weather()
 	out["modifier_before"] = toGodot(w.modifierName());
 	w.clear();
 	w.setWeather(GlobalWeatherSystem::WEATHER_NONE, 0, 0);
+	out["ok"] = true;
+	return out;
+}
+
+Dictionary GameWorld::debug_set_weather(int64_t weather, int64_t frames)
+{
+	Dictionary out;
+	out["ok"] = false;
+	if (!m_game || !m_testHooks || m_netHost || m_netClient || m_netStarted || m_netSession || weather < 0 || weather > 4 || frames < 0)
+	{
+		out["error"] = "refused (no game, test_hooks off, a network game or a weather outside 0 .. 4)";
+		return out;
+	}
+	const auto worldContext = m_world ? m_world->enterContext() : nullptr;
+	GlobalWeatherSystem &w = m_game->logic().weather();
+	out["weather_before"] = (int64_t)w.weather();
+	w.setWeather((int)weather, 0, (unsigned)frames);
+	UtilityFunctions::print("WEATHER-1 TEST HOOK: the logic weather set to ", weather, " for ", frames, " frames");
 	out["ok"] = true;
 	return out;
 }

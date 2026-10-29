@@ -299,6 +299,9 @@ void W3DInstancer::_bind_methods()
 	ClassDB::bind_method(D_METHOD("add_model", "model_name"), &W3DInstancer::add_model);
 	ClassDB::bind_method(D_METHOD("get_model_report", "model"), &W3DInstancer::get_model_report);
 	ClassDB::bind_method(D_METHOD("add_instance", "model", "transform", "clip", "start_time", "speed"), &W3DInstancer::add_instance, DEFVAL(String()), DEFVAL(0.0), DEFVAL(1.0));
+	ClassDB::bind_method(D_METHOD("set_instance_cast_shadow", "instance", "enabled"), &W3DInstancer::set_instance_cast_shadow);
+	ClassDB::bind_method(D_METHOD("set_shadow_receiving", "enabled"), &W3DInstancer::set_shadow_receiving);
+	ClassDB::bind_static_method("W3DInstancer", D_METHOD("set_shadow_maps_enabled", "enabled"), &W3DInstancer::set_shadow_maps_enabled);
 	ClassDB::bind_method(D_METHOD("set_instance_transform", "instance", "transform"), &W3DInstancer::set_instance_transform);
 	ClassDB::bind_method(D_METHOD("remove_instance", "instance"), &W3DInstancer::remove_instance);
 	ClassDB::bind_method(D_METHOD("set_instance_clip", "instance", "clip", "start_time", "speed"), &W3DInstancer::set_instance_clip, DEFVAL(0.0), DEFVAL(1.0));
@@ -415,6 +418,16 @@ void W3DInstancer::set_instance_occlusion(int64_t instance, bool occluder, int s
 			ensure_occlusion_passes(*d.Mesh, occluder, slot != 0);
 		}
 	}
+	PoseDirty = true;
+	mark_model(instance);
+}
+
+void W3DInstancer::set_instance_cast_shadow(int64_t instance, bool enabled)
+{
+	if (instance < 0 || instance >= (int64_t)Instances.size()) return;
+	Instance &inst = Instances[(size_t)instance];
+	if (inst.Removed || inst.CastShadow == enabled) return;
+	inst.CastShadow = enabled;
 	PoseDirty = true;
 	mark_model(instance);
 }
@@ -612,15 +625,12 @@ std::shared_ptr<W3DInstancer::MeshGpu> W3DInstancer::build_mesh(const MeshModelC
 		tangents.resize(nv * 4);
 		for (int64_t v = 0; v < nv; ++v)
 		{
-			Vector3 n(d.Normal[v * 3], d.Normal[v * 3 + 1], d.Normal[v * 3 + 2]);
-			Vector3 t(d.Tangent[v * 3], d.Tangent[v * 3 + 1], d.Tangent[v * 3 + 2]);
-			Vector3 b(d.Bitangent[v * 3], d.Bitangent[v * 3 + 1], d.Bitangent[v * 3 + 2]);
-			// V is flipped on load (u, 1 - v), so +v' runs along -bitangent; Godot's binormal = cross(normal, tangent) * w
-			float w = n.cross(t).dot(-b) < 0.0f ? -1.0f : 1.0f;
-			tangents.set(v * 4 + 0, t.x);
-			tangents.set(v * 4 + 1, t.y);
-			tangents.set(v * 4 + 2, t.z);
-			tangents.set(v * 4 + 3, w);
+			// Godot's BINORMAL = cross(NORMAL, TANGENT.xyz) * w is made the file's bitangent: retail's vertex buffer holds it raw and
+			// normalmapped.fxo blob 22 negates it (the generated shader's fx = -BINORMAL); S-023
+			tangents.set(v * 4 + 0, d.Tangent[v * 3]);
+			tangents.set(v * 4 + 1, d.Tangent[v * 3 + 1]);
+			tangents.set(v * 4 + 2, d.Tangent[v * 3 + 2]);
+			tangents.set(v * 4 + 3, Godot_Tangent_Sign(&d.Normal[v * 3], &d.Tangent[v * 3], &d.Bitangent[v * 3]));
 		}
 	}
 	PackedFloat32Array custom0, custom1, custom2;
@@ -741,8 +751,8 @@ std::shared_ptr<W3DInstancer::MeshGpu> W3DInstancer::build_mesh(const MeshModelC
 			W3DStopHit h;
 			h.Id = "S-119";
 			h.Message = W3D_Stop_Message("S-119", mesh.Get_Name() + (mat.Key.HouseColorBaked
-			 ? ": house texels recoloured before filtering; alpha replacement combine remains inferred (S-022)"
-			 : ": instance colour uses the approximate base * team mask path (S-022)"));
+			 ? ": house texels recoloured before filtering, combined after the light as retail's DefaultW3D.fx / fixed-function rules do; the owner's colour source is inferred (S-119)"
+			 : ": instance colour recolours the filtered house texel as RW 0x531C77 kind 1 (retail recolours before filtering), combined after the light; the owner's colour source is inferred (S-119)"));
 			gpu->Stops.push_back(h);
 		}
 	}
@@ -912,6 +922,7 @@ int64_t W3DInstancer::build_model(const String &model_name)
 			item.Node->set_name(toGodot(name + "_" + sub.Name));
 			item.Node->set_multimesh(item.MM);
 			item.Node->set_cast_shadows_setting(GeometryInstance3D::SHADOW_CASTING_SETTING_OFF);
+			item.Node->set_instance_shader_parameter("w3d_receive_shadows", ShadowReceiving);
 			add_child(item.Node);
 			model->Draws.push_back(std::move(item));
 		}
@@ -1893,6 +1904,43 @@ void W3DInstancer::write_buffers()
 			}
 			d.MM->set_buffer(d.Buffer);
 			d.MM->set_visible_instance_count(count);
+			// Share the actual surface shaders: skinning, vegetation sway and alpha cutouts must match the visible mesh.
+			// Separate batches are necessary because casting is a GeometryInstance property, while eligibility is per drawable.
+			int shadowCount = 0;
+			for (int id : ids)
+				if (Instances[(size_t)id].CastShadow) ++shadowCount;
+			if (shadowCount != 0 && d.ShadowMM.is_null())
+			{
+				d.ShadowMM.instantiate();
+				d.ShadowMM->set_transform_format(MultiMesh::TRANSFORM_3D);
+				d.ShadowMM->set_use_custom_data(true);
+				d.ShadowMM->set_mesh(d.Mesh->Mesh);
+				MultiMeshInstance3D *shadow = memnew(MultiMeshInstance3D);
+				shadow->set_name(String(d.Node->get_name()) + "_shadow");
+				shadow->set_multimesh(d.ShadowMM);
+				shadow->set_cast_shadows_setting(GeometryInstance3D::SHADOW_CASTING_SETTING_SHADOWS_ONLY);
+				add_child(shadow);
+			}
+			if (d.ShadowMM.is_valid())
+			{
+				if (d.ShadowMM->get_instance_count() != d.Allocated)
+				{
+					d.ShadowMM->set_instance_count(d.Allocated);
+					d.ShadowBuffer.resize((int64_t)d.Allocated * 16);
+				}
+				float *shadowBuffer = d.ShadowBuffer.ptrw();
+				int out = 0;
+				for (size_t i = 0; i < ids.size(); ++i)
+				{
+					if (Instances[(size_t)ids[i]].CastShadow)
+					{
+						std::memcpy(shadowBuffer + (size_t)out * 16, d.Buffer.ptr() + i * 16, 16 * sizeof(float));
+						++out;
+					}
+				}
+				d.ShadowMM->set_buffer(d.ShadowBuffer);
+				d.ShadowMM->set_visible_instance_count(shadowCount);
+			}
 			visible += count;
 			m.Dithered += d.Dithered;
 		}
@@ -2027,7 +2075,7 @@ void W3DInstancer::update_now()
 		Instance &inst = Instances[i];
 		if (!inst.Removed && (inst.PoseStale || (timeMoved && inst.Anim != nullptr && !inst.Explicit)))
 		{
-			if (cull)
+			if (cull && !(inst.CastShadow && ShadowMapsEnabled)) // an off-screen caster still throws an on-screen shadow
 			{
 				// the bounding sphere of the model around the instance's origin, scaled by the larger of the node's and the instance's scale
 				const Vector3 centre = nodeXf.xform(inst.Xf.origin);
