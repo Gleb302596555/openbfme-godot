@@ -65,6 +65,7 @@ Path *Pathfinder::findAttackPath(const PathfindObject *obj, const PathfindLocomo
 	{
 		return nullptr;
 	}
+	SearchMemoScope memo(*this, obj); // lane PATHPERF-1's memo for this search too
 	if (fallback)
 	{
 		*fallback = false;

@@ -415,7 +415,11 @@ public:
 	void addOccupant(PathfindCellInfoPool &pool, PathfindOccupantKind kind, PathfindObjectID owner, const ICoord2D &pos);
 	// unlink the node of `owner` in the kind's list; the info is released when no list holds a node (RW 0x8E1CC4)
 	bool removeOccupant(PathfindCellInfoPool &pool, PathfindOccupantKind kind, PathfindObjectID owner);
-	const PathfindOccupant *occupants(PathfindOccupantKind kind) const { return m_info ? m_info->m_occupants[(int)kind] : nullptr; }
+	// lane UBER-PATH: m_occMask's bit clear proves the kind's list empty without reading the pooled record (the search's per-cell checks)
+	const PathfindOccupant *occupants(PathfindOccupantKind kind) const
+	{
+		return (m_occMask >> (unsigned)kind & 1u) && m_info ? m_info->m_occupants[(int)kind] : nullptr;
+	}
 	bool hasOccupants(PathfindOccupantKind kind) const { return occupants(kind) != nullptr; }
 	bool hasAnyOccupant() const;
 	bool isOccupiedBy(PathfindOccupantKind kind, PathfindObjectID owner) const;
@@ -474,6 +478,9 @@ private:
 	std::uint32_t m_bit21 : 1;
 	std::uint32_t m_bit22 : 1;
 	std::uint32_t m_bit23 : 1;
+	// lane UBER-PATH: bit k set while occupant list k may be non-empty: set by addOccupant (the only link), cleared when removeOccupant empties the
+	// list and by reset. A set bit over an empty list only costs the record read; a clear bit is always an empty list
+	std::uint32_t m_occMask : OCC_KIND_COUNT;
 };
 
 // ---------------------------------------------------------------------------------------------------------
@@ -1253,7 +1260,52 @@ private:
 	};
 	const OccupantFacts *occupantFacts(const PathfindObject *obj, PathfindObjectID id);
 	SearcherFacts searcherFacts(const PathfindObject *obj) const;
-	struct SearchMemoScope; // internalFindPath's activation of the memo
+	// lane PATHPERF-1: the search memo is on for `obj` while the scope lives (a fresh generation each time; an object id's facts are asked once). Every
+	// search kind opens one (internalFindPath, the attack, move-away, patch and safe searches): the facts are reads no search changes. A nested scope
+	// gives back the outer one's searcher with a fresh generation (the inner entries hold the inner searcher's relationships)
+	struct SearchMemoScope
+	{
+		Pathfinder &pf;
+		bool wasActive;
+		const PathfindObject *outerObj;
+		SearcherFacts outerSelf;
+		ReachMemo outerReach;
+		SearchMemoScope(Pathfinder &p, const PathfindObject *obj)
+			: pf(p), wasActive(p.m_memoActive), outerObj(p.m_memoObj), outerSelf(p.m_memoSelf), outerReach(p.m_memoSelfReach)
+		{
+			begin(obj);
+			if (obj)
+			{
+				pf.m_memoSelf = pf.searcherFacts(obj);
+			}
+		}
+		~SearchMemoScope()
+		{
+			if (wasActive)
+			{
+				begin(outerObj);
+				pf.m_memoSelf = outerSelf;
+				pf.m_memoSelfReach = outerReach;
+				return;
+			}
+			pf.m_memoActive = false;
+			pf.m_memoObj = nullptr;
+		}
+		void begin(const PathfindObject *obj)
+		{
+			pf.m_memoActive = obj != nullptr;
+			pf.m_memoObj = obj;
+			if (++pf.m_memoGen == 0)
+			{
+				for (OccupantFacts &f : pf.m_memo)
+				{
+					f.gen = 0;
+				}
+				pf.m_memoGen = 1;
+			}
+			pf.m_memoSelfReach = ReachMemo();
+		}
+	};
 	// lane MOVE-3: RW 0x6ED46C, the footprint cost of a patch step (-1: blocked); `parent` null counts every footprint cell
 	int patchCellCost(const PathfindObject &obj, const ICoord2D *parent, const ICoord2D &cell, PathfindLayerEnum layer, int r, int n, bool skipHordePositions);
 	// RW 0x6ECFC5: the footprint of RW 0x6ED071 is centred on a cell (its size is odd)

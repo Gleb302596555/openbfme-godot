@@ -1092,35 +1092,6 @@ Path *Pathfinder::findPath(PathfindObject *obj, const PathfindLocomotorInfo &loc
 	return result;
 }
 
-// lane PATHPERF-1: the search memo is on for `obj` while the scope lives (a fresh generation each time; an object id's facts are asked once)
-struct Pathfinder::SearchMemoScope
-{
-	Pathfinder &pf;
-	SearchMemoScope(Pathfinder &p, const PathfindObject *obj) : pf(p)
-	{
-		pf.m_memoActive = obj != nullptr;
-		pf.m_memoObj = obj;
-		if (++pf.m_memoGen == 0)
-		{
-			for (OccupantFacts &f : pf.m_memo)
-			{
-				f.gen = 0;
-			}
-			pf.m_memoGen = 1;
-		}
-		if (obj)
-		{
-			pf.m_memoSelf = pf.searcherFacts(obj);
-		}
-		pf.m_memoSelfReach = ReachMemo();
-	}
-	~SearchMemoScope()
-	{
-		pf.m_memoActive = false;
-		pf.m_memoObj = nullptr;
-	}
-};
-
 Path *Pathfinder::findPathWithoutCorridor(PathfindObject *obj, const PathfindLocomotorInfo &loco, const Coord3D *from, const Coord3D *to, bool *partial)
 {
 	// the search findPath was before lane PATHPERF-1 (every block passable, no goal step-back), kept for AIMover::pathReachingGoal: it stands for RW 0x6F74D0,

@@ -968,6 +968,9 @@ private:
 	std::uint32_t hashState(std::vector<StateHashSection> *sections, std::vector<ObjectStateHash> *objects) const; // lane MP-1
 	// lane UBER-1: the Uber profile's "objects" section: every object's own hash on the logic job pool, then (count, id, hash) in list order
 	void hashObjectsUber(StateHasher &x) const;
+	void chainObjectsUber(StateHasher &x) const;
+	size_t listHashObjects() const;
+	static constexpr size_t kHashObjectsPerJob = 64;
 	mutable std::vector<const Object *> m_uberHashObjects;  ///< scratch of hashObjectsUber (the logic owner thread only)
 	mutable std::vector<std::uint32_t> m_uberHashValues;
 	// lane PERF-HD: the Faithful hash's tapes (StateHasher recording): one per section, one per object (kept between frames for their capacity)

@@ -133,7 +133,7 @@ TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1
 		REQUIRE(run.hashes.size() == (size_t)frames);
 		CHECK(run.troopsStart >= units);
 		CHECK(run.troopsEnd < run.troopsStart); // the armies fought: troops died
-		CHECK(run.hashDispatches >= (std::uint64_t)(2 * frames)); // every hash dispatched the objects and the other sections
+		CHECK(run.hashDispatches == (std::uint64_t)frames); // every hash dispatched the objects and the other sections once (lane UBER-HASH: in one dispatch)
 		CHECK(after.dispatches - before.dispatches > run.hashDispatches); // the frames' own jobs are counted apart
 		if (threads > 1)
 		{
@@ -173,9 +173,10 @@ TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1
 	uberbench::runBattle(*s->mount->fs, *s->world, s->options, s->settings, units, 1, SimulationProfile::Faithful, true, faithful);
 	REQUIRE(faithful.hashes.size() == 1u);
 	CHECK(faithful.hashes[0] != reference[0]);
-	// lane PERF-HD: the Faithful hash records its sections' words on the logic pool (the objects, then the other sections: two dispatches) and chains
-	// them in the list order on the calling thread: the one serial walk's value (the Faithful pins and the PERF-1 vectors prove it), found faster
-	CHECK(faithful.hashDispatches == 2u);
+	// lane PERF-HD: the Faithful hash records its sections' words on the logic pool (lane UBER-HASH: the objects and the other sections in one
+	// dispatch) and chains them in the list order on the calling thread: the one serial walk's value (the Faithful pins and the PERF-1 vectors prove
+	// it), found faster
+	CHECK(faithful.hashDispatches == 1u);
 }
 
 namespace

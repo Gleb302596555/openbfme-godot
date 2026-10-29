@@ -365,7 +365,7 @@ That's a research item, not a plan.
     `tests/data/uber1/battle3000_40.hashes`;
   - the hash's own dispatches are counted apart from the frame's, and with
     more than one thread its chunks ran on workers;
-  - a Faithful hash dispatches twice (lane PERF-HD: its words are recorded on
+  - a Faithful hash dispatches once (lane PERF-HD: its words are recorded on
     the pool, the objects' and the other sections', and chained in order on
     the calling thread: the serial walk's value).
 

@@ -25,6 +25,7 @@ Path *Pathfinder::findSafePath(const PathfindObject *obj, const PathfindLocomoto
 	{
 		return nullptr;
 	}
+	SearchMemoScope memo(*this, obj); // lane PATHPERF-1's memo for this search too
 	int radius = 0;
 	bool center = false;
 	getRadiusAndCenter(obj, radius, center);

@@ -1225,27 +1225,44 @@ std::uint32_t GameLogic::hashState(std::vector<StateHashSection> *sections, std:
 		{
 			tapes.resize(pending.size());
 		}
-		// the objects section's words stay on the objects' own tapes (gatherObjectTapes, the job pool), chained straight from there below
+		// the objects section's words stay on the objects' own tapes, chained straight from there below. Lane UBER-HASH: the objects' tapes and the
+		// other sections' tapes are found in ONE dispatch (the sections first: the pathfinder's and the shroud's walk every cell, so they start at once
+		// instead of after the objects' barrier); every tape is its own slot, so the words are the same
 		size_t objectsTape = pending.size();
 		for (size_t i = 0; i < pending.size(); ++i)
 		{
 			if (pending[i].name == "objects")
 			{
 				objectsTape = i;
-				gatherObjectTapes();
 			}
 		}
-		JobSystem::logic().parallelFor(pending.size(), 1, [&pending, &tapes, objectsTape](size_t, size_t begin, size_t end) {
-			for (size_t i = begin; i < end; ++i)
-			{
-				if (i != objectsTape)
+		const size_t objectJobs = objectsTape < pending.size() ? listHashObjects() : 0;
+		const std::vector<const Object *> &hashObjects = m_uberHashObjects;
+		std::vector<std::vector<std::uint32_t>> &objectTapes = m_hashObjectTapes;
+		const size_t sectionCount = pending.size();
+		JobSystem::logic().parallelFor(sectionCount + objectJobs, 1,
+			[&pending, &tapes, &hashObjects, &objectTapes, objectsTape, sectionCount](size_t, size_t begin, size_t end) {
+				for (size_t i = begin; i < end; ++i)
 				{
-					tapes[i].clear();
-					StateHasher rec(&tapes[i]);
-					pending[i].feed(rec);
+					if (i >= sectionCount)
+					{
+						const size_t first = (i - sectionCount) * kHashObjectsPerJob;
+						const size_t last = std::min(hashObjects.size(), first + kHashObjectsPerJob);
+						for (size_t o = first; o < last; ++o)
+						{
+							objectTapes[o].clear();
+							StateHasher rec(&objectTapes[o]);
+							hashObjects[o]->crc(rec);
+						}
+					}
+					else if (i != objectsTape)
+					{
+						tapes[i].clear();
+						StateHasher rec(&tapes[i]);
+						pending[i].feed(rec);
+					}
 				}
-			}
-		});
+			});
 		const size_t objectCount = m_uberHashObjects.size();
 		for (size_t i = 0; i < pending.size(); ++i)
 		{
@@ -1278,6 +1295,8 @@ std::uint32_t GameLogic::hashState(std::vector<StateHashSection> *sections, std:
 	// objects over the logic job pool itself, and a dispatch from inside a job would run inline), the other sections on the logic job pool one job each
 	// (each reads only its own subsystem; nothing changes the state while the hash runs); then the total chains every section's value in the list order.
 	// The result depends only on the state, never on the thread count; the breakdown's value is the section's, its chain the Uber total's.
+	// Lane UBER-HASH: the objects' own hashes and the other sections in ONE dispatch (the sections first, so the pathfinder's and the shroud's
+	// whole-map walks start at once instead of after the objects' barrier); every value lands in its own slot, so the hash is unchanged.
 	std::vector<std::uint32_t> values(pending.size(), 0u);
 	size_t objectsIndex = pending.size();
 	for (size_t i = 0; i < pending.size(); ++i)
@@ -1285,22 +1304,42 @@ std::uint32_t GameLogic::hashState(std::vector<StateHashSection> *sections, std:
 		if (pending[i].name == "objects")
 		{
 			objectsIndex = i;
-			StateHasher x;
-			pending[i].feed(x);
-			values[i] = x.value();
 		}
 	}
-	JobSystem::logic().parallelFor(pending.size(), 1, [&pending, &values, objectsIndex](size_t, size_t begin, size_t end) {
-		for (size_t i = begin; i < end; ++i)
-		{
-			if (i != objectsIndex)
+	const size_t objectJobs = objectsIndex < pending.size() ? listHashObjects() : 0;
+	m_uberHashValues.resize(m_uberHashObjects.size());
+	const std::vector<const Object *> &hashObjects = m_uberHashObjects;
+	std::vector<std::uint32_t> &objectValues = m_uberHashValues;
+	const size_t sectionCount = pending.size();
+	JobSystem::logic().parallelFor(sectionCount + objectJobs, 1,
+		[&pending, &values, &hashObjects, &objectValues, objectsIndex, sectionCount](size_t, size_t begin, size_t end) {
+			for (size_t i = begin; i < end; ++i)
 			{
-				StateHasher x;
-				pending[i].feed(x);
-				values[i] = x.value();
+				if (i >= sectionCount)
+				{
+					const size_t first = (i - sectionCount) * kHashObjectsPerJob;
+					const size_t last = std::min(hashObjects.size(), first + kHashObjectsPerJob);
+					for (size_t o = first; o < last; ++o)
+					{
+						StateHasher own;
+						hashObjects[o]->crc(own);
+						objectValues[o] = own.value();
+					}
+				}
+				else if (i != objectsIndex)
+				{
+					StateHasher x;
+					pending[i].feed(x);
+					values[i] = x.value();
+				}
 			}
-		}
-	});
+		});
+	if (objectsIndex < pending.size())
+	{
+		StateHasher x;
+		chainObjectsUber(x);
+		values[objectsIndex] = x.value();
+	}
 	for (size_t i = 0; i < pending.size(); ++i)
 	{
 		const std::uint32_t before = h.value();
@@ -1375,12 +1414,34 @@ void GameLogic::hashObjectsUber(StateHasher &x) const
 			values[i] = own.value();
 		}
 	});
+	chainObjectsUber(x);
+}
+
+// lane UBER-1: the Uber objects section's chain over m_uberHashValues (object list order in m_uberHashObjects)
+void GameLogic::chainObjectsUber(StateHasher &x) const
+{
+	const std::vector<const Object *> &objects = m_uberHashObjects;
 	x.addU32((std::uint32_t)objects.size());
 	for (size_t i = 0; i < objects.size(); ++i)
 	{
 		x.addU32(objects[i]->getID());
-		x.addU32(values[i]);
+		x.addU32(m_uberHashValues[i]);
 	}
+}
+
+// lane UBER-HASH: the object list in m_uberHashObjects (list order); the count of kHashObjectsPerJob runs
+size_t GameLogic::listHashObjects() const
+{
+	m_uberHashObjects.clear();
+	for (const Object *o = m_objectHead; o; o = o->getNextObject())
+	{
+		m_uberHashObjects.push_back(o);
+	}
+	if (m_hashObjectTapes.size() < m_uberHashObjects.size())
+	{
+		m_hashObjectTapes.resize(m_uberHashObjects.size());
+	}
+	return (m_uberHashObjects.size() + kHashObjectsPerJob - 1) / kHashObjectsPerJob;
 }
 
 // ---- reports --------------------------------------------------------------------------------------------------------------

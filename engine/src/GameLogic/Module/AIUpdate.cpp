@@ -66,24 +66,12 @@ const char *const kStopHost =
 // the registry bits, resolved once by name (a mod's own order cannot break them)
 int modelConditionIndex(const char *name)
 {
-	for (int i = 0; TheModelConditionNames[i]; ++i)
-	{
-		if (std::strcmp(TheModelConditionNames[i], name) == 0)
-		{
-			return i;
-		}
-	}
-	throw std::logic_error(std::string("model condition registry has no ") + name);
+	return CombatNames::modelCondition(name); // hashed (several callers ask per update)
 }
 
 int objectStatusBit(const char *name)
 {
-	const int bit = ObjectTemplateInfoBuilder::objectStatusIndex(name);
-	if (bit < 0)
-	{
-		throw std::logic_error(std::string("object status registry has no ") + name);
-	}
-	return bit;
+	return CombatNames::status(name);
 }
 
 struct StatusBits

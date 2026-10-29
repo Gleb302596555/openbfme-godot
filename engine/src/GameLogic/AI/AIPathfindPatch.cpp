@@ -397,6 +397,7 @@ Path *Pathfinder::patchPath(PathfindObject *obj, const PathfindLocomotorInfo &lo
 		return nullptr;
 	}
 	note(pathstops::kPatchLayers);
+	SearchMemoScope memo(*this, obj); // lane PATHPERF-1's memo for this search too
 	int radius = 0;
 	bool centerInCell = false;
 	getRadiusAndCenter(obj, radius, centerInCell);

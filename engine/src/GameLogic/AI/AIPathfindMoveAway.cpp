@@ -143,6 +143,7 @@ Path *Pathfinder::getMoveAwayFromPath(const PathfindObject *obj, const PathfindL
 	{
 		return nullptr;
 	}
+	SearchMemoScope memo(*this, obj); // lane PATHPERF-1's memo for this search too
 	m_zoneManager.setAllPassable(); // RW 0x6FB287
 	const bool isHuman = !obj->isComputerControlled();
 	const Coord3D pos = obj->getPosition();
