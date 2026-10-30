@@ -13,6 +13,7 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/ObjectFilterMatch.h"
 
 #include <algorithm>
 
@@ -260,6 +261,7 @@ bool InGameSpellBookModel::refresh(const CommandStore &commands, GameLogic &logi
 		out.power = TheSpecialPowerStore->findSpecialPowerTemplate(b->m_specialPowerName);
 		out.image = b->m_buttonImageName.empty() ? std::string() : b->m_buttonImageName.front();
 		out.needsPosition = (b->m_options & COMMAND_OPTION_NEED_TARGET_POS) != 0;
+		out.needsObject = (b->m_options & (COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT | COMMAND_OPTION_NEED_TARGET_NEUTRAL_OBJECT | COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT)) != 0;
 		out.radiusCursor = b->m_radiusCursor;
 		if (out.power)
 		{
@@ -309,8 +311,9 @@ bool InGameSpellBookModel::press(int index, int playerIndex, std::vector<GameMes
 		{
 			return false;
 		}
-		if (b.needsPosition)
+		if (b.needsPosition || b.needsObject)
 		{
+			// an object-targeted power waits for its target too: before, it was sent at once with no target and only started its recharge
 			m_targeting = index;
 			return true;
 		}
@@ -341,6 +344,42 @@ InGameSpellBookModel::Target InGameSpellBookModel::targetVerdict(GameLogic &logi
 		return Target::VALID;
 	}
 	return unported ? Target::UNPORTED : Target::INVALID;
+}
+
+bool InGameSpellBookModel::objectValid(GameLogic &logic, Object &target) const
+{
+	const Button *b = targetButton();
+	Object *book = logic.findObjectByID(m_book);
+	if (!b || !b->power || !b->button || !book || !b->ready || !b->needsObject || target.isEffectivelyDead())
+	{
+		return false;
+	}
+	const Relationship rel = target.getTeam() == book->getTeam() ? ALLIES : target.getRelationship(*book);
+	const std::uint32_t bit = rel == ENEMIES ? COMMAND_OPTION_NEED_TARGET_ENEMY_OBJECT : rel == NEUTRAL ? COMMAND_OPTION_NEED_TARGET_NEUTRAL_OBJECT
+		: COMMAND_OPTION_NEED_TARGET_ALLY_OBJECT;
+	if (!(b->button->m_options & bit))
+	{
+		return false;
+	}
+	return !b->power->m_objectFilter || ObjectFilterMatch::allows(logic, *b->power->m_objectFilter, target, book->getControllingPlayer());
+}
+
+bool InGameSpellBookModel::clickObject(Object &target, int playerIndex, std::vector<GameMessage> &out)
+{
+	const Button *b = targetButton();
+	if (!b || !b->power || !b->button)
+	{
+		m_targeting = -1;
+		return false;
+	}
+	GameMessage m(MSG_DO_SPECIAL_POWER_AT_OBJECT, playerIndex);
+	m.appendIntegerArgument((int)b->power->getID());
+	m.appendObjectIDArgument(target.getID());
+	m.appendIntegerArgument((int)b->button->m_options);
+	m.appendObjectIDArgument(m_book);
+	out.push_back(m);
+	m_targeting = -1;
+	return true;
 }
 
 bool InGameSpellBookModel::clickWorld(const Coord3D &where, int playerIndex, std::vector<GameMessage> &out)

@@ -307,7 +307,7 @@ struct HudDevice : public AptNativeHook
 		Ref<ImageTexture> albedo;
 	};
 	std::map<std::string, DecalTextures> unlitDecals;
-	const DecalTextures *unlitDecalFor(const std::string &file, uint32_t rgb);
+	const DecalTextures *unlitDecalFor(const std::string &file, uint32_t rgb, bool alphaFromLuminance = false);
 	std::string mergeKey;
 	MergedSelectionDecals merged;
 	int64_t mergeComposes = 0; ///< lane SELPERF-1: how often the state report composed the merged image
@@ -328,6 +328,8 @@ struct HudDevice : public AptNativeHook
 	Ref<ImageTexture> placeDecalTexture;
 	unsigned placeDecalVersion = ~0u;
 	int claimDecalsDrawn = 0;
+	std::vector<uint64_t> claimArcIds; // the outline arcs' TerrainClaimSegment decals (RW 0x8E9744)
+	int claimArcsDrawn = 0;
 	bool placeDecalDrawn = false;
 	bool placeTextDrawn = false;
 	bool chatHistoryShown = false; ///< lane CHAT-1: the scroll-back replaces the message lines while the chat window is open
@@ -337,6 +339,11 @@ struct HudDevice : public AptNativeHook
 	Rect2 placeTextRect;
 	std::string resourceDecalError;
 	void drawResourceFeedback();
+	// S-5205: the effects' DynamicDecal decals (LiveFX::decals), drawn as the claim decals are
+	std::vector<uint64_t> fxDecalIds;
+	int fxDecalsDrawn = 0;
+	std::string fxDecalError;
+	void drawFXDecals();
 	void drawPlacementText(const Ref<Font> &font, float k);
 	void applyCamera(const Vector2 &window, double alpha);
 };
@@ -345,8 +352,8 @@ struct HudDevice : public AptNativeHook
 // frame, never one being computed); the per-frame _process does not wait (InGameHud::update skips the frames the worker is busy in)
 static void waitLogic(const HudDevice *d, const char *file = __builtin_FILE(), int line = __builtin_LINE());
 
-// lane OWNERFIX-3: the texture's greyscale copy (the luminance 0.299 / 0.587 / 0.114 of each texel, its alpha kept: the radial bubbles' grey shader,
-// GodotHud6Draw.cpp kGrayShader), made once per file
+// lane OWNERFIX-3: the texture's greyscale copy (Render2DClass's Dot3 grey of each texel, kRender2DGrayWeights RW 0x51A5DC: half the luma, its alpha
+// kept), made once per file
 Ref<ImageTexture> HudDevice::grayTextureFor(const std::string &file)
 {
 	auto it = grayTextures.find(file);
@@ -371,7 +378,7 @@ Ref<ImageTexture> HudDevice::grayTextureFor(const std::string &file)
 			uint8_t *p = px.ptrw();
 			for (int64_t i = 0; i + 3 < px.size(); i += 4)
 			{
-				const uint8_t g = (uint8_t)std::lround(p[i] * 0.299f + p[i + 1] * 0.587f + p[i + 2] * 0.114f);
+				const uint8_t g = (uint8_t)std::lround(p[i] * kRender2DGrayWeights[0] + p[i + 1] * kRender2DGrayWeights[1] + p[i + 2] * kRender2DGrayWeights[2]);
 				p[i] = p[i + 1] = p[i + 2] = g;
 			}
 			out = ImageTexture::create_from_image(godot::Image::create_from_data(img->get_width(), img->get_height(), img->has_mipmaps(), godot::Image::FORMAT_RGBA8, px));
@@ -885,8 +892,8 @@ void HudDevice::drawPlaceholder(const AptCanvasOp &op, RID item)
 		}
 		// lane OWNERFIX-3: a disabled button's image (`_mode` GRAYSCALE, RenderImageDisabled) is drawn in greyscale, as the radial bubbles' disabled
 		// windows are (W3DGadgetPushButtonImageDrawOne RW 0x4A5112's grayscale mode); it was a 0.45 dimming before (an inference) and the owner saw
-		// another player's disabled buttons in colour. INFERENCE (S-5040): RotWK's RenderImage callback was not read; the luminance weights are the
-		// bubbles' shader's
+		// another player's disabled buttons in colour. RotWK's RenderImageDisabled (RW 0x8156FD) is TheDisplay's image draw in mode 1 (GRAYSCALE); the
+		// grey is Render2DClass's Dot3 grey (kRender2DGrayWeights, RW 0x51A5DC: half the luma, the owner saw the buttons bleached with the full luma)
 		Ref<ImageTexture> tex = img->grayscale ? grayTextureFor(mapped->filename) : textureFor(mapped->filename);
 		if (tex.is_null())
 		{
@@ -1066,7 +1073,7 @@ void HudDevice::drawIconOps(RID parent)
 				// a stage-sized text (the money texts) grows with the window as the HUD movies do: the window height over the 600 stage rows
 				const float stageScale = op.stageTextSize > 0.0f ? std::max(1.0f, (float)hud->windowHeight() / 600.0f) : 1.0f;
 				const int size_px = op.stageTextSize > 0.0f ? (int)std::lround(op.stageTextSize * stageScale * k) : fontSize;
-				const float drop = op.stageTextSize > 0.0f ? std::max(1.0f, std::round(stageScale)) : 1.0f;
+				const float drop = 1.0f; // a one-pixel shadow (user's choice: the window-scaled shadow made the money text read bold)
 				const Vector2 size = font->get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px);
 				const Vector2 at(op.x - std::floor(size.x / 2.0f), op.y + font->get_ascent(size_px)); // RW 0x677F1B: x - width / 2, the string's top at y
 				font->draw_string(iconItem, at + Vector2(drop, drop), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, col(op.dropColor));
@@ -1262,6 +1269,69 @@ void HudDevice::drawRadiusCursor()
 	radiusDecalDrawn = true;
 }
 
+void HudDevice::drawFXDecals()
+{
+	// S-5205 (INFERENCE: RW 0x5E05AB's decal is drawn by the terrain's dynamic decal pass, not read): a Godot Decal over the terrain layer per live decal,
+	// its texture tinted by the nugget's colour and faded by its opacity curve (FXDecalDesc::opacityAt). The ADDITIVE / SUBTRACT shaders are drawn blended
+	Node3D *root = decalRootId ? Object::cast_to<Node3D>(ObjectDB::get_instance(godot::ObjectID(decalRootId))) : nullptr;
+	fxDecalsDrawn = 0;
+	LiveFX *fx = world ? world->live_fx() : nullptr;
+	if (root && fx)
+	{
+		fx->pruneDecals();
+		const std::uint32_t now = fx->clientFrame();
+		for (const LiveFX::LiveDecal &ld : fx->decals())
+		{
+			const int opacity = ld.desc.opacityAt((int)(now - ld.born));
+			if (opacity <= 0)
+			{
+				continue;
+			}
+			const DecalTextures *tex = unlitDecalFor(ld.desc.name, ld.desc.color);
+			if (!tex)
+			{
+				fxDecalError = "DynamicDecal: no texture '" + ld.desc.name + "'";
+				continue;
+			}
+			const size_t i = (size_t)fxDecalsDrawn;
+			Decal *decal = i < fxDecalIds.size() ? Object::cast_to<Decal>(ObjectDB::get_instance(godot::ObjectID(fxDecalIds[i]))) : nullptr;
+			if (!decal)
+			{
+				decal = memnew(Decal);
+				root->add_child(decal);
+				if (i < fxDecalIds.size())
+				{
+					fxDecalIds[i] = decal->get_instance_id();
+				}
+				else
+				{
+					fxDecalIds.push_back(decal->get_instance_id());
+				}
+			}
+			// SAGE (x, y, z up) -> Godot (x, z, -y); projected down over a box `size` wide and 200 units deep around the point, turned by the nugget's yaw
+			const Coord3D &p = ld.desc.position;
+			decal->set_position(Vector3(p.x, p.z, -p.y));
+			decal->set_rotation(Vector3(0.0f, ld.desc.yaw, 0.0f));
+			decal->set_size(Vector3(ld.desc.size, 200.0f, ld.desc.size));
+			decal->set_albedo_mix(1.0f);
+			decal->set_cull_mask(1u << 19); // the terrain's layer (GodotMapTerrain)
+			decal->set_upper_fade(0.0f);
+			decal->set_lower_fade(0.0f);
+			decal->set_texture(Decal::TEXTURE_ALBEDO, tex->albedo);
+			decal->set_modulate(Color(1, 1, 1, opacity / 255.0f));
+			decal->set_visible(true);
+			++fxDecalsDrawn;
+		}
+	}
+	for (size_t i = (size_t)fxDecalsDrawn; i < fxDecalIds.size(); ++i)
+	{
+		if (Decal *decal = Object::cast_to<Decal>(ObjectDB::get_instance(godot::ObjectID(fxDecalIds[i]))))
+		{
+			decal->set_visible(false);
+		}
+	}
+}
+
 void HudDevice::drawResourceFeedback()
 {
 	// lane OWNERFIX-2 (GameClient/TerrainResourceFeedback.h): drawn as the selection decals are (S-2522): a Godot Decal over the terrain layer. The claim
@@ -1318,6 +1388,48 @@ void HudDevice::drawResourceFeedback()
 	for (size_t i = (size_t)claimDecalsDrawn; i < claimDecalIds.size(); ++i)
 	{
 		if (Decal *decal = Object::cast_to<Decal>(ObjectDB::get_instance(godot::ObjectID(claimDecalIds[i]))))
+		{
+			decal->set_visible(false);
+		}
+	}
+	// the outline arcs (RW 0x8E9744): TerrainClaimSegment squares (decal type 0x40) at opacity 255, each turned by its angle. Not retail (user's
+	// choice, docs/MODS.md): white, where retail tints them with the claimant owner's colour (s.color)
+	claimArcsDrawn = 0;
+	for (const ResourceClaimArcSegment &s : fb.claimArcSegments())
+	{
+		const DecalTextures *segTex = unlitDecalFor("TerrainClaimSegment", 0xFFFFFFu, true);
+		if (!segTex)
+		{
+			resourceDecalError = "TerrainClaimSegment: no texture";
+			break;
+		}
+		const size_t i = (size_t)claimArcsDrawn;
+		Decal *decal = i < claimArcIds.size() ? Object::cast_to<Decal>(ObjectDB::get_instance(godot::ObjectID(claimArcIds[i]))) : nullptr;
+		if (!decal)
+		{
+			decal = memnew(Decal);
+			root->add_child(decal);
+			if (i < claimArcIds.size())
+			{
+				claimArcIds[i] = decal->get_instance_id();
+			}
+			else
+			{
+				claimArcIds.push_back(decal->get_instance_id());
+			}
+		}
+		place(decal, s.position, s.size);
+		// SAGE's turn about z is Godot's about y ((x, y, z) -> (x, z, -y)). The texture's stripe runs along its top row, which a Godot Decal lays on
+		// its local -z (SAGE +y) side: turned by theta - 90 degrees (s.angle = -theta) it lies along the circle's edge, the stripe outward
+		decal->set_rotation(Vector3(0.0f, -s.angle - 1.57079632679f, 0.0f));
+		decal->set_texture(Decal::TEXTURE_ALBEDO, segTex->albedo);
+		decal->set_modulate(Color(1, 1, 1, s.opacity / 255.0f));
+		decal->set_visible(true);
+		++claimArcsDrawn;
+	}
+	for (size_t i = (size_t)claimArcsDrawn; i < claimArcIds.size(); ++i)
+	{
+		if (Decal *decal = Object::cast_to<Decal>(ObjectDB::get_instance(godot::ObjectID(claimArcIds[i]))))
 		{
 			decal->set_visible(false);
 		}
@@ -1773,10 +1885,10 @@ void HudDevice::composeMergeReport()
 	}
 }
 
-const HudDevice::DecalTextures *HudDevice::unlitDecalFor(const std::string &file, uint32_t rgb)
+const HudDevice::DecalTextures *HudDevice::unlitDecalFor(const std::string &file, uint32_t rgb, bool alphaFromLuminance)
 {
 	char key[16];
-	snprintf(key, sizeof(key), "|%06x", rgb);
+	snprintf(key, sizeof(key), alphaFromLuminance ? "|%06x+" : "|%06x", rgb);
 	auto it = unlitDecals.find(file + key);
 	if (it != unlitDecals.end())
 	{
@@ -1798,7 +1910,9 @@ const HudDevice::DecalTextures *HudDevice::unlitDecalFor(const std::string &file
 		{
 			pa[i + c] = (uint8_t)((img.rgba[i + c] * col[c] + 127) / 255u);
 		}
-		pa[i + 3] = img.rgba[i + 3];
+		// an additive texture with no alpha (TerrainClaimSegment, DXT1: a white stripe on black): a Godot Decal only mixes, so its brightest
+		// channel is the coverage and black adds nothing, as with ONE / ONE
+		pa[i + 3] = alphaFromLuminance ? std::max({ img.rgba[i], img.rgba[i + 1], img.rgba[i + 2] }) : img.rgba[i + 3];
 	}
 	DecalTextures t;
 	t.albedo = ImageTexture::create_from_image(Image::create_from_data(img.width, img.height, false, Image::FORMAT_RGBA8, albedo));
@@ -2741,8 +2855,14 @@ Dictionary InGameHudNode::get_spellbook_state()
 		}
 		f["claim_decals"] = claims;
 		f["claim_decals_drawn"] = (int64_t)d->claimDecalsDrawn;
+		f["claim_arcs_drawn"] = (int64_t)d->claimArcsDrawn;
 		f["error"] = toGodot(d->resourceDecalError);
 		r["resource_feedback"] = f;
+		Dictionary fxd; // S-5205
+		fxd["drawn"] = (int64_t)d->fxDecalsDrawn;
+		fxd["live"] = (int64_t)(d->world && d->world->live_fx() ? d->world->live_fx()->decals().size() : 0);
+		fxd["error"] = toGodot(d->fxDecalError);
+		r["fx_decals"] = fxd;
 	}
 	r["target_power"] = String(bar.targetButton() && bar.targetButton()->power ? bar.targetButton()->power->getName().c_str() : "");
 	Dictionary store;
@@ -3167,6 +3287,7 @@ void InGameHudNode::_process(double delta)
 	d->drawSelectionDecals();          // lane UI-4
 	d->drawRadiusCursor();             // lane SPELL-4
 	d->drawResourceFeedback();         // lane OWNERFIX-2
+	d->drawFXDecals();                 // S-5205
 	d->drawMessageLines();             // lane CHAT-1
 	const uint64_t tc = Time::get_singleton()->get_ticks_usec();
 	if (d->hud6)

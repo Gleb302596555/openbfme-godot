@@ -147,6 +147,9 @@ public:
 	// lane MODULES-3 r2: the attack-move order passes aiDoCommand's gate (RW 0x667174) before anything changes: a refused order arms nothing (false)
 	bool armAttackMove(const Coord3D &goal, CommandSourceType source = CMD_FROM_PLAYER);
 	bool attackMoveActive() const { return m_attackMoveActive; }
+	// the march ends without an order: in RotWK the attack-move is the machine's state 0x21, which a cleared machine leaves (S-328: the port keeps it as
+	// this flag, which an idle by the AI keeps for the resume)
+	void cancelAttackMove() { m_attackMoveActive = false; }
 	Object *attackMoveTarget();
 	// the idle state's resume: false when the march is over (arrived or cancelled)
 	bool resumeAttackMove();

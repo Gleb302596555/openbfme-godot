@@ -19,6 +19,7 @@
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstdio>
@@ -300,6 +301,31 @@ bool LiveFX::viewShake(const Coord3D &epicenter, int type, float angle)
 	}
 	m_viewShakes.push_back(ViewShake{ epicenter, type, angle });
 	++m_stats.viewShakes;
+	return true;
+}
+
+std::uint32_t LiveFX::clientFrame() const
+{
+	return m_playback.clientFrame();
+}
+
+void LiveFX::pruneDecals()
+{
+	const std::uint32_t now = clientFrame();
+	m_decals.erase(std::remove_if(m_decals.begin(), m_decals.end(), [now](const LiveDecal &d) { return d.desc.opacityAt((int)(now - d.born)) < 0; }),
+		m_decals.end());
+}
+
+bool LiveFX::createDecal(const FXDecalDesc &decal)
+{
+	pruneDecals();
+	if (m_decals.size() >= 128)
+	{
+		m_decals.erase(m_decals.begin());
+		++m_stats.decalsDropped;
+	}
+	m_decals.push_back(LiveDecal{ decal, clientFrame() });
+	++m_stats.decals;
 	return true;
 }
 

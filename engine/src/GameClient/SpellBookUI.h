@@ -38,6 +38,7 @@
 class CommandButton;
 class CommandStore;
 class GameLogic;
+class Object;
 class Player;
 class SpecialPowerTemplate;
 
@@ -116,6 +117,7 @@ public:
 		bool ready = false;            ///< isReadyForDisplay
 		float percent = 0.0f;          ///< getPercentReadyForDisplay (InGameSpellBookSpell%dTimer)
 		bool needsPosition = false;    ///< COMMAND_OPTION_NEED_TARGET_POS
+		bool needsObject = false;      ///< COMMAND_OPTION_NEED_TARGET_ENEMY / NEUTRAL / ALLY_OBJECT (options & 7)
 		std::string radiusCursor;      ///< RadiusCursorType
 		float radius = 0.0f;           ///< the SpecialPower's RadiusCursorRadius
 	};
@@ -144,6 +146,13 @@ public:
 	// lane SPELL-4: the callers (InGameHud, GameWorld) first ask targetValid: at an invalid location retail sends nothing and the targeting goes on
 	// (RW 0x81EAD3 -> 0x81EBE9: the invalid hint 0xAF)
 	bool clickWorld(const Coord3D &where, int playerIndex, std::vector<GameMessage> &out);
+	// an object-targeted power (options & 7: Ennorath's Command_SpellBookRebuildAoW, NEED_TARGET_ALLY_OBJECT): whether `target` may take it, as
+	// CommandTranslator's SPECIAL_POWER case drops an object (RW 0x81E60B): the target's relationship to the book's player must have its option bit
+	// (0x1 enemies, 0x2 neutral, 0x4 allies; one's own objects are allies), then the power's ObjectFilter (INFERENCE, S-2000: RW 0x6A4260's object
+	// tests are not read; Ennorath's SpellBookRebuild names ANY -FornostHammer +STRUCTURE)
+	bool objectValid(GameLogic &logic, Object &target) const;
+	// the targeting click on an object: MSG_DO_SPECIAL_POWER_AT_OBJECT { power id, target, the button's options, the book } (SpellCommands kind 2)
+	bool clickObject(Object &target, int playerIndex, std::vector<GameMessage> &out);
 	void cancel() { m_targeting = -1; }
 
 private:

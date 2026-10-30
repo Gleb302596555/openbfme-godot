@@ -2798,3 +2798,80 @@ TEST_CASE("herocast1 retail: a cast naming another player's object as its source
 	CHECK(h.g.spells.foreignSources() == foreign + 1);
 	CHECK(h.a->getAIUpdateInterface()->lastCommandSource() == before); // the running ability's AI never saw a player's command (RW 0x854F0B)
 }
+
+// the owner's playtest (2026-10-29): a hero fighting on an attack-move (hotkey A) ignored its abilities; after a stop, or while attacking by an order, they
+// worked. The ability's idle by the AI kept the port's attack-move flag (S-328), the idle state resumed the march as a player's move and the ability ended at
+// RW 0x854EAA. Eomer's dismount (ToggleMountedSpecialAbilityUpdate) is cast while he fights on an attack-move
+TEST_CASE("hero retail: a hero fighting on an attack-move still takes its dismount order, and the march ends")
+{
+	REQUIRE_RETAIL_WORLD(sh);
+	Game g(sh, "FactionMen", "FactionMordor", true);
+	HeroAbilityModules::registerHandlers(*g.dispatch);
+	const ThingTemplate *eomerT = sh.world->things().findTemplate("RohanEomer");
+	const ThingTemplate *victimT = sh.world->things().findTemplate("MordorGothmog");
+	REQUIRE(eomerT);
+	REQUIRE(victimT);
+	Object *hero = g.make(eomerT, g.me, 1000.0f, 1000.0f);
+	ToggleMountedSpecialAbilityUpdate *tm = nullptr;
+	for (const std::unique_ptr<BehaviorModule> &m : hero->modules())
+	{
+		tm = tm ? tm : dynamic_cast<ToggleMountedSpecialAbilityUpdate *>(m.get());
+	}
+	REQUIRE(tm);
+	const SpecialPowerTemplate *t = tm->abilityData()->m_specialPowerTemplate;
+	REQUIRE(t);
+	for (int i = 0; i < 40; ++i)
+	{
+		g.logic->runLogicFrame();
+	}
+	SpecialPowerModuleInterface *sp = SpecialPowerModules::findModule(*hero, t);
+	REQUIRE(sp);
+	if (dynamic_cast<SpecialPowerModule *>(sp)->pauseCount() != 0)
+	{
+		unlockByUpgrade(*hero, t);
+	}
+	hero->getBodyModule()->setMaxHealth(1000000.0f, 1);
+	Object *victim = g.make(victimT, g.enemy, 1200.0f, 1000.0f);
+	victim->getBodyModule()->setMaxHealth(1000000.0f, 1);
+	AIUpdateInterface *ai = hero->getAIUpdateInterface();
+	REQUIRE(ai);
+	// the attack-move past Gothmog (the hotkey A and a ground click: AICommands' MSG_DO_ATTACKMOVETO, a move then the armed march)
+	const Coord3D goal = { 1800.0f, 1000.0f, 0.0f };
+	ai->aiMoveToPosition(goal, CMD_FROM_PLAYER);
+	REQUIRE(ai->armAttackMove(ai->stateMachine().goalPosition()));
+	bool attacking = false;
+	for (int i = 0; i < 300 && !attacking; ++i)
+	{
+		g.logic->runLogicFrame();
+		attacking = ai->isAttacking();
+	}
+	REQUIRE_MESSAGE(attacking, "Eomer's attack-move never met Gothmog");
+	REQUIRE(ai->attackMoveActive());
+	for (int i = 0; i < 20; ++i)
+	{
+		g.logic->runLogicFrame();
+	}
+	MESSAGE("before the order: attacking " << ai->isAttacking() << ", last source " << (int)ai->lastCommandSource() << ", ready " << sp->getPercentReady()
+		<< ", loco " << (ai->curLocomotor() != nullptr) << " speed " << ai->curLocomotorSpeed());
+	const unsigned toggles = tm->toggles();
+	const unsigned long long refused = g.spells.refused();
+	GameMessage cast(MSG_DO_SPECIAL_POWER, g.me->getPlayerIndex());
+	cast.appendIntegerArgument((int)t->getID());
+	cast.appendIntegerArgument(0);
+	cast.appendObjectIDArgument(hero->getID());
+	g.list.append(cast);
+	g.logic->runLogicFrame();
+	CHECK(g.spells.refused() == refused);
+	CHECK(tm->isActive());
+	CHECK_FALSE(ai->attackMoveActive()); // RotWK's cleared machine left the attack-move state
+	// the toggle ends with the mounted template's replacement (the old object goes) or with the hero toggled in place
+	const ObjectID heroId = hero->getID();
+	bool toggled = false;
+	for (int i = 0; i < 300 && !toggled; ++i)
+	{
+		g.logic->runLogicFrame();
+		Object *h = g.logic->findObjectByID(heroId);
+		toggled = !h || h->isEffectivelyDead() || tm->toggles() > toggles;
+	}
+	CHECK(toggled);
+}

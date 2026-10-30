@@ -52,6 +52,7 @@ public:
 		unsigned long long forceAttackGrounds = 0;                                                  // lane PLAY-2
 		unsigned long long moves = 0, forceMoves = 0, attackMovesAsMoves = 0, waypoints = 0, stops = 0, formationMoves = 0, orientMoves = 0;
 		unsigned long long rejected = 0; // malformed messages (missing arguments, unknown player)
+		unsigned long long docks = 0, dockOrdersAccepted = 0; // S-286: MSG_DOCK / the workers sent to the dock
 	};
 	const Stats &stats() const { return m_stats; }
 
@@ -61,6 +62,9 @@ private:
 	bool attackObject(GameLogic &logic, const GameMessage &m); // lane COMBAT-1: MSG_DO_ATTACK_OBJECT / MSG_DO_FORCE_ATTACK_OBJECT (ZH AIGroup::groupAttackObject)
 	bool forceAttackGround(GameLogic &logic, const GameMessage &m); // lane PLAY-2: MSG_DO_FORCE_ATTACK_GROUND (RW 0x77AF93)
 	bool stop(GameLogic &logic, const GameMessage &m);
+	// S-286: MSG_DOCK (1069): arg0 the dock; ZH AIGroup::groupDock: every unit of the selection that may use the dock (ResourceGatheringManager::
+	// canTransferSuppliesAt, RW 0x82C5A6) docks there (aiDock, RW 0x66C609). INFERENCE: RotWK's dispatcher case of MSG_DOCK was not read
+	bool dock(GameLogic &logic, const GameMessage &m);
 	bool formationMove(GameLogic &logic, const GameMessage &m);
 	bool moveAndOrientate(GameLogic &logic, const GameMessage &m);
 	bool validPlayer(GameLogic &logic, const GameMessage &m);

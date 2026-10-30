@@ -45,7 +45,9 @@ std::string aptImageModeShader(AptImageMode mode)
 	}
 	if (grayscale)
 	{
-		code += "\tpixel.rgb = vec3(dot(pixel.rgb, vec3(0.299, 0.587, 0.114)));\n";
+		// Render2DClass's grey (kRender2DGrayWeights, RW 0x51A5DC)
+		code += "\tpixel.rgb = vec3(dot(pixel.rgb, vec3(" + std::to_string(kRender2DGrayWeights[0]) + ", " + std::to_string(kRender2DGrayWeights[1]) + ", " +
+			std::to_string(kRender2DGrayWeights[2]) + ")));\n";
 	}
 	code += "\tCOLOR = pixel * v_tint;\n}\n";
 	return code;
@@ -55,7 +57,7 @@ std::vector<std::string> aptImageModeStops()
 {
 	return { "[S-5016] HUD images and the farm placement feedback (community PR #37): a RenderImage clip's `_imageMap` that Palantir's dynamic image map "
 			 "does not hold is looked up in the MappedImageCollection (BFME2 AptPlayer::FindRenderImage 0x223AC4: its body and so the order of the two "
-			 "lookups was not read); the `_mode` render states (SOLID* without texture alpha, *GRAYSCALE by luma 0.299 / 0.587 / 0.114, ADDITIVE as "
+			 "lookups was not read); the `_mode` render states (SOLID* without texture alpha, *GRAYSCALE by Render2DClass's Dot3 grey RW 0x51A5DC, ADDITIVE as "
 			 "Godot's blend_add) are inferred (W3DDisplay's image draw was not read); the farm feedback (BFME2 PlaceTerrainResourceClaimantFeedback) is "
 			 "shown for a template whose first TerrainResourceBehavior has MaxIncome > 0 (which templates retail gives it to was not read)" };
 }

@@ -13,6 +13,9 @@
 ##     --map=<key>           (with --auto) the map cache key, default maps/map mp evendim/map mp evendim.map
 ##     --faction=<Name>      (with --auto) slot 0's PlayerTemplate (default FactionMen); --ai=<2..5> slot 1's AI level; --color=<index> slot 0's colour (default random)
 ##     --advance=<seconds>   (with --auto) game time to run after the first frame, then quit
+##     --rich[=money,points] (NOT RETAIL, a test mode of the skirmish: Cheat Mode, lane CHEAT-1) the local player gets resources and power points (spell book) as the game
+##                           starts, default 100000 and 200, through the cheat commands (every player sees the lines; limits per command 100000 and 100). With --auto the
+##                           lobby's Cheat Mode box is ticked; by hand tick Cheat Mode on the lobby's Rules tab, else the game says so and gives nothing
 ##     --free-camera         (lane PLAY-1) lift the camera's zoom-out limit to the map's extent (not retail; Options.ini OpenBFMEFreeCamera = yes does the same)
 ##     --zoom-out=<f>        (lane ZOOM-1) the Max zoom-out for the run: f times retail's highest camera, one of 1 (retail), 1.5, 2, 2.5, 3 (any other
 ##                           value: GAME FAIL, exit 2); without it Options.ini OpenBFMEMaxZoomOut (default 2.5)
@@ -379,6 +382,8 @@ var _weather_fx_effects := PackedStringArray() # lane WEATHERFX-1: --weatherfx-e
 var _cheat_script := ""  # lane CHEAT-1: --cheat-script=FRAME:STEP;... (scripts/cheat_panel.gd)
 var _cheat_lobby := false # lane CHEAT-1: --cheat-lobby (the --auto lobby ticks the Rules tab's Cheat Mode box)
 var _cheat_game := false  # lane CHEAT-1: the game being played / just ended had Cheat Mode (the score screen says so)
+var _rich_money := 0      # --rich: resources the local player is given at the start (0: off)
+var _rich_points := 0     # --rich: power points the local player is given at the start
 var _ping_wheel: CanvasLayer # scripts/ping_wheel.gd, the wheel the ping key opens
 ## lane PLAY-1: the free camera (the owner's presentation option, not retail): --free-camera or Options.ini "OpenBFMEFreeCamera = yes"
 var _free_camera_flag := false
@@ -742,6 +747,15 @@ func _ready() -> void:
 			_cheat_script = arg.substr(15) # lane CHEAT-1
 		elif arg == "--cheat-lobby":
 			_cheat_lobby = true
+		elif arg == "--rich" or arg.begins_with("--rich="):
+			_rich_money = 100000
+			_rich_points = 200
+			if arg.begins_with("--rich="):
+				var rich_args := arg.substr(7).split(",")
+				_rich_money = int(rich_args[0])
+				if rich_args.size() > 1:
+					_rich_points = int(rich_args[1])
+			_cheat_lobby = true # the --auto lobby ticks Cheat Mode: the cheat commands below need it
 		elif arg == "--auto":
 			_auto = true
 		elif arg.begins_with("--perf-stat="):
@@ -2737,6 +2751,27 @@ func _install_hud(rep: Dictionary) -> void:
 		printerr("GAME move hints: ", mh.errors)
 	_install_pings(hud)
 	_install_cheats(hud)
+	_give_rich()
+
+
+## --rich: the local player's resources and power points, through the Cheat Mode commands (100000 resources and 100 power points at most per command)
+func _give_rich() -> void:
+	if _rich_money <= 0 and _rich_points <= 0:
+		return
+	if not _cheat_game:
+		printerr("GAME --rich: this game has no Cheat Mode (tick it on the lobby's Rules tab); nothing was given")
+		return
+	var left_money := _rich_money
+	while left_money > 0:
+		var n := mini(left_money, 100000)
+		_world.cheat_command({"command": "add_resources", "target": _local_index, "value": n})
+		left_money -= n
+	var left_points := _rich_points
+	while left_points > 0:
+		var n := mini(left_points, 100)
+		_world.cheat_command({"command": "add_power_points", "target": _local_index, "value": n})
+		left_points -= n
+	print("GAME --rich: player %d is given %d resources and %d power points" % [_local_index, _rich_money, _rich_points])
 
 
 ## lane CHEAT-1: the open Cheat Mode (scripts/cheat_panel.gd), only in a game whose setup has it: every player gets the announced lines and the marker, the

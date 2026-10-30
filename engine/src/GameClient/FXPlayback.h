@@ -74,6 +74,8 @@ public:
 	virtual bool viewShake(const Coord3D & /*epicenter*/, int /*type*/, float /*angle*/) { return false; }
 	// lane WEATHER-1: the map's weather the FXList nuggets filter on (RW TheWritableGlobalData + 0x138: 0 NORMAL, 1 SNOWY; the map's WorldInfo "weather")
 	virtual int mapWeather() const = 0;
+	// a DynamicDecal nugget (RW 0x5E05AB): true when the world keeps it for drawing (else it is noted as an event, as before)
+	virtual bool createDecal(const FXDecalDesc & /*decal*/) { return false; }
 };
 
 class FXPlayback

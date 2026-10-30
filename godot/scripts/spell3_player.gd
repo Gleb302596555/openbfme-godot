@@ -457,8 +457,15 @@ func cast_and_judge(k: int, aim: Vector2) -> Dictionary:
 		r["result"] = "FAIL"
 		r["why"] = "the slot %d was not found" % (k + 1)
 		return r
+	var st_before: Dictionary = hud.get_spellbook_state()
+	var fx_before: Dictionary = world.get_spell_power_effect(me, power)
 	await click(spx)
 	await game._step(4)
+	# SPELL5: what the press did, to tell a click the HUD lost from a command the logic refused (slot state, the aiming flag, the module's trigger count)
+	var st_after: Dictionary = hud.get_spellbook_state()
+	var fx_after: Dictionary = world.get_spell_power_effect(me, power)
+	print("SPELL5 press %s (slot %d): state %s -> %s, targeting %s -> %s, triggers %d -> %d" % [power, k + 1, str(st_before.get("slots", [])[k]), str(st_after.get("slots", [])[k]),
+		str(st_before.get("targeting", false)), str(st_after.get("targeting", false)), int(fx_before.get("triggers", 0)), int(fx_after.get("triggers", 0))])
 	var cast_t := Time.get_ticks_msec()
 	if hud.get_spellbook_state().get("targeting", false):
 		await move_to(to_pixel(aim.x, aim.y))
@@ -674,6 +681,10 @@ func _scenario_spellbook() -> String:
 			break
 		var aim := target
 		var power: String = str(power_of_button(int(state.get("slot_buttons", [])[k])).get("power", "?"))
+		# SPELL3_ONLY=<power>[,<power>...]: only those powers are cast (the store still buys all), to judge one power without the earlier ones' leftovers
+		var only := OS.get_environment("SPELL3_ONLY")
+		if only != "" and not only.split(",").has(power):
+			continue
 		if power.contains("Devastation"):
 			aim = grove(base) # Devastation fells trees: the grove of harvestable map trees nearest the base (the logic's tree list, TerrainTrees)
 		var r: Dictionary = await cast_and_judge(k, aim)

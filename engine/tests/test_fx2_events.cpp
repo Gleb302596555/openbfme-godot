@@ -851,3 +851,35 @@ TEST_CASE("fx2: the live game reads the FX files with the #define table of its o
 	CHECK(live.loadRetailData(macros).empty());
 	CHECK(live.fxLists().findFXList("FX_ModFade") != nullptr);
 }
+
+// S-5205: a DynamicDecal's opacity curve (the field comments of the DynamicDecal nugget: hidden through the starting delay, StartOpacity to Peak over
+// FadeTimeOne, Peak for PeakTime, to End over FadeTimeTwo, End held until the lifetime); Ennorath's Cardolan forest floor (FX_CardolanHillsSpellFX)
+TEST_CASE("fx2: a DynamicDecal's opacity follows its delay, fades, peak and lifetime")
+{
+	FXDecalDesc d;
+	d.opacityStart = 0;
+	d.opacityPeak = 200;
+	d.opacityEnd = 0;
+	d.startDelayFrames = 10;
+	d.fadeOneFrames = 30;   // FROZEN_LAND_EFFECT_FADE_ONE 1000 ms
+	d.peakFrames = 100;
+	d.fadeTwoFrames = 40;
+	d.lifetimeFrames = 4800; // 160000 ms
+	CHECK(d.opacityAt(0) == 0);
+	CHECK(d.opacityAt(9) == 0);
+	CHECK(d.opacityAt(10) == 0);
+	CHECK(d.opacityAt(25) == 100);
+	CHECK(d.opacityAt(40) == 200);
+	CHECK(d.opacityAt(139) == 200);
+	CHECK(d.opacityAt(160) == 100);
+	CHECK(d.opacityAt(180) == 0);
+	CHECK(d.opacityAt(4799) == 0);
+	CHECK(d.opacityAt(4800) == -1);
+	CHECK(d.opacityAt(-1) == -1);
+	// Cardolan's: the peak (288500 ms) outlasts the lifetime (160000 ms): the floor stays at its peak until it goes
+	FXDecalDesc c = d;
+	c.startDelayFrames = 0;
+	c.peakFrames = 8655;
+	CHECK(c.opacityAt(4799) == 200);
+	CHECK(c.opacityAt(4800) == -1);
+}

@@ -402,6 +402,86 @@ func _scenario_units() -> String:
 	return ""
 
 
+## VISUAL2_HERO (comma list of templates): each made for the local player and selected, the camera on it: the Palantir shows its ability buttons
+## (the locked ones disabled), shot visual2-hero-<template>.png
+func _scenario_hero() -> String:
+	var names := OS.get_environment("VISUAL2_HERO").split(",", false)
+	if names.is_empty():
+		return "VISUAL2_HERO names no template"
+	var me := -1
+	var i := 0
+	for p in world.get_report().get("players", []):
+		if me < 0 and str(p).contains(game._local_name):
+			me = i
+		i += 1
+	var at := _local_base() + Vector2(300.0, 0.0)
+	var refused := []
+	for t in names:
+		var id: int = world.create_object(t, me, at.x, at.y, 0.0)
+		if id < 0:
+			refused.append(t)
+			continue
+		hud.camera_look_at(at)
+		await _frames(10)
+		hud.select_object(id)
+		await _frames(30)
+		game._save_named("visual2-hero-" + t)
+		world.destroy_object(id)
+		await _frames(5)
+	return "" if refused.is_empty() else "could not make " + str(refused)
+
+
+## VISUAL2_SPELL=<science>:<special power>:<target template>: the science bought (points given), the target made for the local player beside the
+## base, finished and damaged to half; the spell bar's button of that power pressed and clicked on the target; the target's health and the bar
+## printed before and 3 s after (visual2-spell-<power>.png). FAIL: the press or the click is refused, or the target's health does not rise
+func _scenario_spell() -> String:
+	var parts := OS.get_environment("VISUAL2_SPELL").split(":")
+	if parts.size() != 3:
+		return "VISUAL2_SPELL is not <science>:<button>:<target>"
+	var me := -1
+	var i := 0
+	for p in world.get_report().get("players", []):
+		if me < 0 and str(p).contains(game._local_name):
+			me = i
+		i += 1
+	world.debug_add_science_points(me, 100)
+	print("VISUAL2 spell: purchase %s -> %s" % [parts[0], str(world.purchase_science(me, parts[0]))])
+	var at := _local_base() + Vector2(400.0, 0.0)
+	var target: int = world.create_object(parts[2], me, at.x, at.y, 0.0)
+	if target < 0:
+		return "could not make " + parts[2]
+	world.debug_build_complete(target)
+	await _frames(10)
+	var before: Dictionary = world.get_object(target)
+	world.damage_object(target, float(before.get("max_health", before.get("health", 1000.0))) * 0.5)
+	await _frames(5)
+	before = world.get_object(target)
+	var bar: Variant = world.get_spell_bar(me)
+	print("VISUAL2 spell: target %s health %s / %s; bar %s" % [parts[2], str(before.get("health")), str(before.get("max_health")), JSON.stringify(bar).left(1500)])
+	var index := -1
+	for b in (bar.get("buttons", []) if bar is Dictionary else []):
+		if str(b.get("power", "")) == parts[1]:
+			index = int(b.get("index", -1))
+	if index < 0:
+		return "the bar has no " + parts[1]
+	hud.camera_look_at(at)
+	var pressed: Variant = world.spell_bar_press(me, index)
+	print("VISUAL2 spell: press %d -> %s; bar after %s" % [index, str(pressed), JSON.stringify(world.get_spell_bar(me)).left(800)])
+	var needs_object := false
+	for b in (bar.get("buttons", []) if bar is Dictionary else []):
+		if int(b.get("index", -1)) == index:
+			needs_object = bool(b.get("needs_object", false)) and not bool(b.get("needs_position", false))
+	var clicked: Variant = world.spell_bar_click_object(me, target) if needs_object else world.spell_bar_click_world(me, at.x, at.y)
+	print("VISUAL2 spell: click -> %s" % str(clicked))
+	await _seconds(3.0)
+	var after: Dictionary = world.get_object(target)
+	print("VISUAL2 spell: health after %s / %s; bar %s" % [str(after.get("health")), str(after.get("max_health")), JSON.stringify(world.get_spell_bar(me)).left(800)])
+	game._save_named("visual2-spell-" + parts[1])
+	if float(after.get("health", 0.0)) <= float(before.get("health", 0.0)):
+		return "the target's health did not rise"
+	return ""
+
+
 ## VISUAL2_PRODUCE=<producer>:<unit>[,...]: the producer made for the local player toward the map's middle, money given, the unit queued; every logic
 ## object of the unit's template (and the queue) printed each 2 s for 90 s, a shot when it is out (visual2-produce-<unit>.png). FAIL: it never appears
 func _scenario_produce() -> String:

@@ -15,6 +15,7 @@
 #include "Common/SpecialPower.h"
 #include "GameClient/ControlBarCommands.h"
 #include "Common/Player.h"
+#include "Common/ResourceGatheringManager.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/HudObjects.h"
 #include "GameLogic/GameMessage.h"
@@ -471,6 +472,31 @@ int CommandTranslator::evaluateContextCommand(Object *obj, const Coord3D *pos, E
 			else if (type == EvaluateType::DoHint)
 			{
 				hint(rising ? MouseCursorName::ResumeConstruction : MouseCursorName::DoRepair);
+			}
+			return msgType;
+		}
+	}
+	// ZH evaluateContextCommand's ACTIONTYPE_DOCK (CommandXlat.cpp, SELECTION_ANY with ActionManager::canDockAt): a click with a worker selected on a dock it may
+	// use (ResourceGatheringManager::canTransferSuppliesAt, RW 0x82C5A6: a supply warehouse with boxes left that is not its enemy, its player's supply center while
+	// it carries boxes) is MSG_DOCK, argument 0 the dock; the cursor is Mouse.ini's Dock. INFERENCE (S-286): RotWK's order of the context checks is not read
+	if (obj && !m_ctx.ui.isInForceAttackMode() && !HudObjects::isEffectivelyDead(*obj))
+	{
+		bool worker = false;
+		for (ObjectID id : m_ctx.ui.selected())
+		{
+			Object *o = m_ctx.logic.findObjectByID(id);
+			worker = worker || (o && o != obj && HudObjects::isLocallyControlled(m_ctx, *o) && ResourceGatheringManager::canTransferSuppliesAt(o, obj));
+		}
+		if (worker)
+		{
+			msgType = MSG_DOCK;
+			if (type == EvaluateType::DoCommand)
+			{
+				m_ctx.stream.append(msgType).appendObjectID(obj->getID());
+			}
+			else if (type == EvaluateType::DoHint)
+			{
+				hint(MouseCursorName::Dock);
 			}
 			return msgType;
 		}

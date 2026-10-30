@@ -108,6 +108,10 @@ struct FXDecalDesc
 	std::uint32_t color = 0xFFFFFF; ///< 0xRRGGBB
 	std::uint32_t opacityStart = 0, opacityPeak = 0, opacityEnd = 0;
 	int startDelayFrames = 0, lifetimeFrames = 0, fadeOneFrames = 0, peakFrames = 0, fadeTwoFrames = 0; ///< client frames: trunc(ms * 0.03)
+	// the opacity (0 .. 255) `age` client frames after the call; -1 once the lifetime is over (removed). INFERENCE (S-5205, the field comments of the INI's
+	// DynamicDecal: hidden through the starting delay, StartOpacity to Peak over FadeTimeOne, Peak for PeakTime, to End over FadeTimeTwo, End held until the
+	// lifetime, counted from the call)
+	int opacityAt(int age) const;
 };
 
 // The engine calls the nuggets make. Every call here names the RW call site it replaces (notes fx-fxlist.md 7, 9).

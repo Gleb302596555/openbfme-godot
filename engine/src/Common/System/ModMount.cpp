@@ -842,9 +842,27 @@ ModMountReport MountInstallOverlay(Win32BIGFileSystem &out, const RetailMountRep
 		merged.push_back(entry);
 		byCanonical[m.canonicalPath] = m;
 	}
+	// the game's text language (retail.languages "rotwk:Russian ..."; none listed = English): the startup mount's lang\<language>*.big glob
+	// (RW 0xA1766D, the language RW 0xDBACD0) takes the overlay's lang\ archives of that language too, with overwrite, so the mod's
+	// lang\russianpatch201.big (Ennorath's Russian text) wins over its lang\Russian.big as retail's patch does
+	std::string gameLanguage = "english";
+	for (const std::string &l : retail.languages)
+	{
+		if (l.compare(0, 6, "rotwk:") == 0)
+		{
+			gameLanguage = AsciiStringUtil::lowered(l.substr(6, l.find(' ', 6) == std::string::npos ? std::string::npos : l.find(' ', 6) - 6));
+		}
+	}
 	for (const OverlayArchive &a : mine)
 	{
-		merged.push_back({ a.path, a.hash.md5, a.hash.size });
+		RetailArchiveEntry entry{ a.path, a.hash.md5, a.hash.size };
+		const std::string lowered = AsciiStringUtil::lowered(a.path);
+		if (gameLanguage != "english" && lowered.compare(0, 5, "lang/") == 0 && lowered.find('/', 5) == std::string::npos &&
+			lowered.compare(5, gameLanguage.size(), gameLanguage) == 0)
+		{
+			entry.language = "lang";
+		}
+		merged.push_back(entry);
 		byCanonical[a.path] = MountedArchive{ "mod", a.path, a.disk.u8string(), a.hash.size, a.hash.md5 };
 	}
 	std::vector<MountedArchive> order;

@@ -7,6 +7,7 @@
 
 #include "Common/PlayerList.h"
 #include "Common/Player.h"
+#include "Common/ResourceGatheringManager.h"
 #include "GameLogic/AI/AIGroup.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/GameLogic.h"
@@ -56,6 +57,7 @@ void AICommands::registerHandlers(GameLogicDispatch &d)
 		}
 		return true;
 	});
+	d.registerHandler(MSG_DOCK, kLane, [this](GameLogic &l, const GameMessage &m) { return dock(l, m); });
 	d.registerHandler(MSG_DO_MOVETO_FORMATION, kLane, [this](GameLogic &l, const GameMessage &m) { return formationMove(l, m); });
 	d.registerHandler(MSG_DO_MOVE_AND_ORIENTATE_OBJECTTO, kLane, [this](GameLogic &l, const GameMessage &m) { return moveAndOrientate(l, m); });
 }
@@ -121,6 +123,33 @@ bool AICommands::move(GameLogic &logic, const GameMessage &m)
 					ai->armAttackMove(ai->stateMachine().goalPosition());
 				}
 			}
+		}
+	}
+	return true;
+}
+
+bool AICommands::dock(GameLogic &logic, const GameMessage &m)
+{
+	const GameMessageArgument *which = arg(m, 0, ARGUMENTDATATYPE_OBJECTID);
+	if (!which || !validPlayer(logic, m))
+	{
+		++m_stats.rejected;
+		return false;
+	}
+	++m_stats.docks;
+	Object *target = logic.findObjectByID(which->objectID);
+	if (!target || target->isEffectivelyDead())
+	{
+		return true;
+	}
+	for (ObjectID id : selection(logic, m.getPlayerIndex()))
+	{
+		Object *o = logic.findObjectByID(id);
+		AIUpdateInterface *ai = o ? o->getAIUpdateInterface() : nullptr;
+		if (ai && o != target && ResourceGatheringManager::canTransferSuppliesAt(o, target))
+		{
+			ai->aiDock(target, CMD_FROM_PLAYER);
+			++m_stats.dockOrdersAccepted;
 		}
 	}
 	return true;

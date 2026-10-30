@@ -346,6 +346,7 @@ void GameWorld::_bind_methods()
 	ClassDB::bind_method(D_METHOD("get_spell_bar", "player"), &GameWorld::get_spell_bar);
 	ClassDB::bind_method(D_METHOD("spell_bar_press", "player", "index"), &GameWorld::spell_bar_press);
 	ClassDB::bind_method(D_METHOD("spell_bar_click_world", "player", "x", "y"), &GameWorld::spell_bar_click_world);
+	ClassDB::bind_method(D_METHOD("spell_bar_click_object", "player", "id"), &GameWorld::spell_bar_click_object);
 	ClassDB::bind_method(D_METHOD("spell_bar_cancel"), &GameWorld::spell_bar_cancel);
 	ClassDB::bind_method(D_METHOD("debug_add_science_points", "player", "points"), &GameWorld::debug_add_science_points);
 	ClassDB::bind_method(D_METHOD("debug_set_object_rank", "id", "rank"), &GameWorld::debug_set_object_rank); // lane HUD-5
@@ -1692,6 +1693,13 @@ void GameWorld::refresh_views(double deltaMs)
 			if (e.constructionOffsetZ != 0.0f)
 			{
 				entryXf = toTransform(d->getBasis(), d->entryPosition(e), d->getInstanceScale());
+			}
+			if (e.noRotate)
+			{
+				// NoRotate (S-5204, INFERENCE): the model keeps the world's axes whatever the object faces (Ennorath's EyeOfPalantir: its slanted beam of light,
+				// ARPalaEye, stays put while the eye flies about)
+				static const float kIdentity[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
+				entryXf = toTransform(kIdentity, d->entryPosition(e), d->getInstanceScale());
 			}
 			const bool entryXfChanged = xfChanged || e.constructionOffsetZ != ev.offsetZ;
 			ev.offsetZ = e.constructionOffsetZ;
@@ -5317,6 +5325,7 @@ Dictionary GameWorld::get_spell_bar(int64_t player)
 		e["ready"] = b.ready;
 		e["percent"] = b.percent;
 		e["needs_position"] = b.needsPosition;
+		e["needs_object"] = b.needsObject;
 		e["radius"] = b.radius;
 		e["radius_cursor"] = toGodot(b.radiusCursor);
 		buttons.push_back(e);
@@ -5358,6 +5367,23 @@ bool GameWorld::spell_bar_click_world(int64_t player, double x, double y)
 		return false;
 	}
 	const bool ok = m_spellBar->clickWorld(pos, (int)player, out);
+	for (const GameMessage &m : out)
+	{
+		m_game->commands().append(m);
+	}
+	return ok;
+}
+
+bool GameWorld::spell_bar_click_object(int64_t player, int64_t id)
+{
+	const auto worldContext = m_world ? m_world->enterContext() : nullptr;
+	::Object *target = m_game ? m_game->logic().findObjectByID((::ObjectID)id) : nullptr;
+	if (!m_spellBar || !target || !m_spellBar->targeting() || !m_spellBar->objectValid(m_game->logic(), *target))
+	{
+		return false; // as InGameHud's click: an object the power may not take issues nothing and the targeting goes on
+	}
+	std::vector<GameMessage> out;
+	const bool ok = m_spellBar->clickObject(*target, (int)player, out);
 	for (const GameMessage &m : out)
 	{
 		m_game->commands().append(m);

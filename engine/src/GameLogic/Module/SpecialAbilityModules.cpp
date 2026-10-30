@@ -539,7 +539,10 @@ void SpecialAbilityUpdate::initiateIntentToDoSpecialPower(const SpecialPowerTemp
 	}
 	obj->setStatus(kStatusNoAutoAcquire, true); // RW 0x62684D(0x17, 1)
 	// RW 0x852F48 .. 0x852FB6: the AI's current goal is dropped (vslot 0x188, RW 0x76A252), AI + 0x3CA = 1, and the AI goes idle by the AI (twice when the last
-	// command came from a player who controls a computer player: the same effect here)
+	// command came from a player who controls a computer player: the same effect here). The cleared machine also leaves an attack-move (RotWK's state 0x21):
+	// the port's attack-move flag (S-328) is dropped here, else the idle state resumed the march as a player's move and the ability ended at RW 0x854EAA (the
+	// owner's playtest 2026-10-29: no ability while attack-moving with A)
+	ai->cancelAttackMove();
 	ai->aiIdle(CMD_FROM_AI);
 	m_noTarget = !targetObj && !loc;
 	if (m_data->m_unpackFrames == 0 || (m_noTarget && m_data->m_skipPackingWithNoTarget))

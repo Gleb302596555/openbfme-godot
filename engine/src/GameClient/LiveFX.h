@@ -116,6 +116,17 @@ public:
 		out.swap(m_viewShakes);
 		return out;
 	}
+	// the DynamicDecal nuggets' decals (RW 0x5E05AB, S-5205): kept with the client frame of the call, for the view; the ones past their lifetime are pruned
+	// at the next call or prune. Bounded: the oldest are dropped past 128
+	struct LiveDecal
+	{
+		FXDecalDesc desc;
+		std::uint32_t born = 0; ///< FXPlayback::clientFrame() at the call
+	};
+	bool createDecal(const FXDecalDesc &decal) override;
+	void pruneDecals();
+	const std::vector<LiveDecal> &decals() const { return m_decals; }
+	std::uint32_t clientFrame() const;
 	ClientBuffs &buffs() { return m_buffs; }
 	const ClientBuffs &buffs() const { return m_buffs; }
 	// the buff templates refused (BuffLogic::addBuff RW 0x707FFF: "No draw module specified for Buff!", "Buff <name> requires a W3DBuffDrawModule.")
@@ -137,6 +148,7 @@ public:
 		unsigned long long uncapturedFilters = 0;          ///< SMOOTH-1: an object filter asked at play time that the capture at the call did not evaluate (fails)
 		unsigned long long transitionSystemsCreated = 0, transitionSystemsDestroyed = 0; ///< lane FX-4: TransitionDamageFX's attached systems
 		unsigned long long viewShakes = 0, viewShakesDropped = 0; ///< lane FX-4: ViewShake calls queued for the view / dropped (no view took them)
+		unsigned long long decals = 0, decalsDropped = 0;         ///< DynamicDecal calls kept for the view / dropped past the bound
 	};
 	const Stats &stats() const { return m_stats; }
 	// RW 0x4B337B, the single-frame test of a FireWhenSkipped FXEvent (mode: W3D_ANIM_MODE_*, direction +1 / -1)
@@ -182,6 +194,7 @@ private:
 	FXPlayback &m_playback;
 	ClientBuffs m_buffs;                 // lane SPELL-4
 	std::vector<ViewShake> m_viewShakes; // lane FX-4
+	std::vector<LiveDecal> m_decals;     // S-5205
 	std::set<std::string> m_buffErrors;  // lane SPELL-4
 	std::map<std::string, std::string> m_buffModels; // lane SPELL-4: template -> ModelName (looked up only)
 	Stats m_stats;

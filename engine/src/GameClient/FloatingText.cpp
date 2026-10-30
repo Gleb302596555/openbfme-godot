@@ -92,7 +92,8 @@ void FloatingTextList::ops(const std::function<bool(const Coord3D &, float &, fl
 		op.kind = IconUIOp::TEXT;
 		op.x = x; // a TEXT op's x is its centre (the device takes width / 2 off)
 		op.y = y - (float)r.frameCount * m_settings.moveUpSpeed / kClientFramesPerSecond;
-		op.color = r.color;
+		// not retail (user's choice, docs/MODS.md): white with the record's alpha, where retail draws the owner's colour (r.color)
+		op.color = (r.color & 0xFF000000u) | 0xFFFFFFu;
 		op.dropColor = r.color & 0xFF000000u; // black with the text's alpha
 		op.text = r.text;
 		op.stageTextSize = kStageTextSize;
@@ -105,5 +106,6 @@ std::vector<std::string> FloatingTextList::acceptanceStops()
 	return { "[S-283] floating text: ported GUI:AddCash from the income log (InGameUIFloatingText.cpp, InGameUI_updateFloatingText.cpp, "
 			 "InGameUI_drawFloatingText.cpp); INFERENCE: FloatingTextTimeOut is milliseconds and FloatingTextMoveUpSpeed / FloatingTextVanishRate are taken "
 			 "as the INI writes them (the parsers' conversions were not read), both divisions use 30 client frames a second (GameEngine + 0x38 not read), "
-			 "and the text is drawn in the HUD's caption font at 15 stage pixels scaled with the window (the display string's font was not read)" };
+			 "and the text is drawn in the HUD's caption font at 12 stage pixels scaled with the window (the display string's font was not read); "
+			 "not retail (user's choice): white, a one-pixel shadow" };
 }

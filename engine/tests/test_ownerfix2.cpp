@@ -697,3 +697,35 @@ TEST_CASE("floating text: the runtime stop names the port's inferences (docs/STO
 		CHECK_MESSAGE(stops[0].find(inference) != std::string::npos, inference);
 	}
 }
+
+// S-5030: the outline arcs of the claim circles (RW 0x8E99EE / 0x8E9744): a lone circle is cut whole into TerrainClaimSegment squares (between 20 and 60
+// long, about 32 a turn), two overlapping circles keep only the parts the other does not cover, each in its owner's colour
+TEST_CASE("ownerfix2: the claim circles' outline arcs leave out what another circle covers")
+{
+	using C = TerrainResourceFeedback::ClaimCircle;
+	const std::vector<ResourceClaimArcSegment> lone = TerrainResourceFeedback::arcSegments({ C{ { 0.0f, 0.0f, 0.0f }, 100.0f, 0xFF112233u } });
+	REQUIRE(lone.size() == 31); // 2 pi 100 long: max(32, 10) segments, at most 628 / 20 = 31
+	for (const ResourceClaimArcSegment &s : lone)
+	{
+		// tolerance: the length goes through 2 pi and 1 / (2 pi) in float (RW 0x8E97B4), so it is the circumference only to a few ulps
+		CHECK(s.size == doctest::Approx(6.2831855f * 100.0f / 31.0f).epsilon(1e-5));
+		// tolerance: the centre is r * (cos, sin) in float; the distance back from it is r to a few ulps
+		CHECK(std::sqrt(s.position.x * s.position.x + s.position.y * s.position.y) == doctest::Approx(100.0f - s.size * 0.5f).epsilon(1e-5));
+		CHECK(s.color == 0xFF112233u);
+		CHECK(s.opacity == 255);
+	}
+	const std::vector<ResourceClaimArcSegment> pair =
+		TerrainResourceFeedback::arcSegments({ C{ { 0.0f, 0.0f, 0.0f }, 100.0f, 0xFF0000FFu }, C{ { 100.0f, 0.0f, 0.0f }, 100.0f, 0xFFFF0000u } });
+	size_t blue = 0, red = 0;
+	for (const ResourceClaimArcSegment &s : pair)
+	{
+		// the open arc of each is the 240 degrees away from the other's centre: no segment lies inside the other circle
+		const float ox = s.color == 0xFF0000FFu ? 100.0f : 0.0f;
+		// tolerance: a segment sits inside its own edge by half its size, so near the crossing it may dip that far into the other circle, no further
+		CHECK(std::sqrt((s.position.x - ox) * (s.position.x - ox) + s.position.y * s.position.y) > 100.0f - s.size);
+		(s.color == 0xFF0000FFu ? blue : red) += 1;
+	}
+	CHECK(blue == red);
+	CHECK(blue == 20); // the open 240 degrees: 419 long, max(21, 6) segments, at most 419 / 20 = 20
+	CHECK(TerrainResourceFeedback::arcSegments({}).empty());
+}

@@ -560,6 +560,37 @@ TEST_CASE("MODS-2: RotWK's startup load order (RW 0xA1766D / 0xA14419): lang\\En
 		std::vector<std::string>{ "lang/English.big", "lang/englishpatch106.big", "_patch106.big", "ini.big", "apt/MainMenu.big" });
 }
 
+TEST_CASE("MODS-2: a Russian install-folder mod's lang\\russianpatch201.big wins over its lang\\Russian.big (the lang\\Russian*.big glob, RW 0xA1766D)")
+{
+	TempDir tmp;
+	// a Russian RotWK as MountRetailArchives reports it, and Ennorath's layout: its own lang\Russian.big (the retail text) and lang\russianpatch201.big
+	// (the mod's text), both replacing the retail files of those paths
+	writeBig(tmp.path / "rotwk" / "INI.big", { { "data\\ini\\a.ini", "rotwk" } });
+	writeBig(tmp.path / "rotwk" / "lang" / "Russian.big", { { "lotr.csf", "retail text" } });
+	writeBig(tmp.path / "rotwk" / "lang" / "russianpatch201.big", { { "lotr.csf", "retail patch text" } });
+	RetailMountReport retail;
+	retail.ok = true;
+	retail.languages = { "rotwk:Russian" };
+	for (const std::string &p : { std::string("lang/russianpatch201.big"), std::string("lang/Russian.big"), std::string("INI.big") })
+	{
+		const fs::path disk = tmp.path / "rotwk" / fs::u8path(p);
+		retail.mounted.push_back({ "rotwk", p, disk.u8string(), (std::uint64_t)fs::file_size(disk), "md5-" + p });
+	}
+	const fs::path mod = tmp.path / "Ennorath" / "install";
+	writeBig(mod / "____enrth_data.big", { { "data\\ini\\a.ini", "ennorath" } });
+	writeBig(mod / "lang" / "Russian.big", { { "lotr.csf", "retail text" } });
+	writeBig(mod / "lang" / "russianpatch201.big", { { "lotr.csf", "ennorath text" } });
+
+	Win32BIGFileSystem merged;
+	const ModMountReport r = MountInstallOverlay(merged, retail, mod.u8string(), ModMountOptions());
+	REQUIRE_MESSAGE(r.ok, joined(r.errors));
+	REQUIRE(r.merged.size() == 4);
+	CHECK(r.merged[0].install + ":" + r.merged[0].canonicalPath == "mod:lang/russianpatch201.big");
+	CHECK(r.merged[1].install + ":" + r.merged[1].canonicalPath == "mod:lang/Russian.big");
+	CHECK(readVirtual(merged, "lotr.csf") == "ennorath text");
+	CHECK(readVirtual(merged, "data\\ini\\a.ini") == "ennorath");
+}
+
 TEST_CASE("MODS-2: stacked install-folder mods: the first folder holding an archive path wins it (WorkshopKit L1 .. L3)")
 {
 	TempDir tmp;

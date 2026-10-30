@@ -24,7 +24,28 @@ the supply rocks, an earlier lane fixed the brightness, and it already ruled out
 - W3D emitters embedded in models (`e_firesparks_sm` and the like). `FXPlayback::playW3DEmitter` is only reached from the FX viewer;
   the live game does not spawn them, so the sparks in a match come from an FXParticleSystem.
 
-## Main suspect: GpuDraw frame animation
+## Ruled out by the mod's data (2026-10-29)
+
+Ennorath's `SupplySmallTwinkle` (fxparticlesystem.ini) is `Type = GPU_PARTICLE` with `Draw = GpuDraw`, `FramesPerRow = 1`,
+`TotalFrames = 1`, `SpeedMultiplier = 1`: one frame, so the frame animation below cannot speed it up. Its other timings are in frames:
+`Lifetime = 35 35`, `Color2` at frame 5, `Color3` (black: the additive sparkle is gone) at frame 25, `SizeRate = 0.5 1.25`, `AngleZ =
+-7 7` (the initial angle, no `AngularRateZ`), one particle a burst with the default `BurstDelay`. What is left: the rate the GPU
+particles' `now` advances against retail's (a capture of retail's twinkle, its frames counted, gives the factor), and the
+`(age * rate) * (n * damping)` shape of the size growth.
+
+## The GPU clock, read in the binary (2026-10-29)
+
+- The particle's record (RW 0x7B115B ..): position, `Lifetime` (the template's frames, `[edi + 0x34]`), velocity, the birth time
+  `SyncTime * 30 * 0.001` (RW 0x7B1160, `[0xD9F60C]` = 30), a seed in 0 .. 15, the corner. The port writes the same (ParticleDraw `now`,
+  ParticleSystem::gpuNowFrames).
+- `SyncTime` (`[0xDD1E0C]`, WW3D::Sync RW 0x516E20) grows in W3DDisplay::draw (RW 0x44B911) by TheW3DFrameLengthInMsec (`[0xDC7A8C]`, set
+  to 1000 / 30 = 33 at RW 0xBC146C) times the client frames since the last draw (TheGameClient `[0xDE4388]` vslot 0x7C, RW 0x44B84B);
+  TheGameLogic is `[0xDE412C]`, so it is the client clock, 30 a second, as the port's.
+- The effect's global `Time` (RW 0x54CEC5) is `SyncTime * 0.001`; gpuparticle.fx's own parameters (RW 0x5F61E9 ..) have no time.
+
+So the clock is the same; what is left is a capture of retail's twinkle (its frames counted against the port's).
+
+## Former suspect: GpuDraw frame animation
 
 GPU particles with an animated texture (`Draw = GpuDraw` with `FramesPerRow`, `TotalFrames`, `SpeedMultiplier`) pick their frame in
 the GpuDraw vertex shader (`gpuShader` in engine/src/GodotDevice/GodotFXPlayer.cpp, "frame animation" block):

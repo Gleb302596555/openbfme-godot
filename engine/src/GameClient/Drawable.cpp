@@ -148,6 +148,7 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 				{
 					e.draw.reset(new W3DScriptedModelDraw(*data, services.drawAssets, services.random, &services.host, o));
 				}
+				e.noRotate = data->m_noRotate;
 				const W3DDrawFrame f = e.draw->frame();
 				e.animated = f.trackCount > 0 && f.tracks[0].anim && f.tracks[0].anim->Get_Num_Frames() > 1 && f.tracks[0].mode != W3D_ANIM_MODE_MANUAL;
 				// the draw runtime's errors and stops are collected by DrawableManager (DrawEntry::draw->errors() / stops()), after the script hooks ran

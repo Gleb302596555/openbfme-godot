@@ -83,3 +83,29 @@ TEST_CASE("LUMBER1 warehouse: a worker may take boxes at a warehouse with boxes 
 	REQUIRE(best);
 	CHECK(best->getID() == rocks->getID());
 }
+
+TEST_CASE("LUMBER1 warehouse (S-286): MSG_DOCK sends the selected worker to a warehouse it may use, and not to an enemy's")
+{
+	movetest::MoveWorld f(100, 100, kWarehouseObjects);
+	f.buildMap();
+	Object *worker = f.spawn("Quarryman", 100.0f, 100.0f, 0.0f, f.teamOf("Alice"));
+	Object *rocks = f.spawn("SupplyRocks", 200.0f, 100.0f, 0.0f, f.players.getNeutralPlayer()->getDefaultTeam());
+	Object *enemy = f.spawn("SupplyRocks", 300.0f, 100.0f, 0.0f, f.teamOf("Bob"));
+	const int alice = f.playerIndex("Alice");
+	f.select(alice, { worker });
+	f.frames(1);
+	GameMessage toEnemy(MSG_DOCK, alice);
+	toEnemy.appendObjectIDArgument(enemy->getID());
+	f.send(toEnemy);
+	f.frames(1);
+	CHECK(f.aiCommands.stats().docks == 1);
+	CHECK(f.aiCommands.stats().dockOrdersAccepted == 0);
+	GameMessage toRocks(MSG_DOCK, alice);
+	toRocks.appendObjectIDArgument(rocks->getID());
+	f.send(toRocks);
+	f.frames(1);
+	CHECK(f.aiCommands.stats().docks == 2);
+	CHECK(f.aiCommands.stats().dockOrdersAccepted == 1);
+	CHECK(worker->getAIUpdateInterface()->lastCommandSource() == CMD_FROM_PLAYER);
+	CHECK(worker->getAIUpdateInterface()->stateMachine().goalObjectID() == rocks->getID());
+}

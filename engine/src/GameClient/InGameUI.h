@@ -50,6 +50,7 @@ inline constexpr const char *EnterAggressive = "EnterAggressive";
 inline constexpr const char *SetRallyPoint = "SetRallyPoint";
 inline constexpr const char *ResumeConstruction = "ResumeConstruction"; // lane QA-1 (Mouse.ini MouseCursor ResumeConstruction)
 inline constexpr const char *DoRepair = "DoRepair";                     // lane QA-1 (Mouse.ini MouseCursor DoRepair)
+inline constexpr const char *Dock = "Dock";                             // S-286 (Mouse.ini MouseCursor Dock): a worker's dock order
 inline constexpr const char *Scroll = "Scroll";
 } // namespace MouseCursorName
 

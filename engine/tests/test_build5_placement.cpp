@@ -1244,3 +1244,19 @@ TEST_CASE("community PR #37: an Apt image clip's _mode is parsed as BFME2 0x412A
 	REQUIRE(stops.size() == 1);
 	CHECK(stops[0].rfind("[S-5016] ", 0) == 0);
 }
+
+// S-5040: RotWK's grey of a 2D image is Render2DClass's Dot3 grey with TFACTOR 0x8092A587 (RW 0x51A5DC): half the luma (ZH's 0x80A5CA8E gives the full
+// luma); a disabled ability button (RenderImageDisabled RW 0x8156FD, mode GRAYSCALE) is dark, not bleached
+TEST_CASE("S-5040: the GRAYSCALE image mode greys by RotWK's Render2D Dot3 weights (TFACTOR 0x8092A587)")
+{
+	// the weights are 2 * (TFACTOR's red, green, blue) / 255 - 1 of RW 0x51A664's 0x8092A587
+	const unsigned tfactor = 0x8092A587u;
+	CHECK(kRender2DGrayWeights[0] == 2.0f * (float)((tfactor >> 16) & 0xFFu) / 255.0f - 1.0f);
+	CHECK(kRender2DGrayWeights[1] == 2.0f * (float)((tfactor >> 8) & 0xFFu) / 255.0f - 1.0f);
+	CHECK(kRender2DGrayWeights[2] == 2.0f * (float)(tfactor & 0xFFu) / 255.0f - 1.0f);
+	const std::string grey = aptImageModeShader(APT_IMAGE_GRAYSCALE);
+	CHECK(grey.find("0.145098") != std::string::npos);
+	CHECK(grey.find("0.294118") != std::string::npos);
+	CHECK(grey.find("0.058824") != std::string::npos);
+	CHECK(grey.find("0.587") == std::string::npos);
+}

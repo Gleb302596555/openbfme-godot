@@ -73,6 +73,17 @@ struct ResourceClaimDecal
 	int opacity = 0x80;
 };
 
+// a segment of a claim circle's outline (TerrainClaimSegment, decal type 0x40, RW 0x8E9744): a square `size` wide at `position`, turned by `angle`,
+// in the claimant owner's indicator colour (RW 0x68B6F5) at opacity 255
+struct ResourceClaimArcSegment
+{
+	Coord3D position{ 0.0f, 0.0f, 0.0f };
+	float size = 0.0f;
+	float angle = 0.0f;
+	std::uint32_t color = 0xFF000000u;
+	int opacity = 255;
+};
+
 struct ResourcePlacementFeedback
 {
 	bool active = false;
@@ -101,6 +112,17 @@ public:
 	void updatePlacement(const GameLogic &logic, int localPlayer, const ThingTemplate *pending, const Coord3D &ghost, const std::u16string &format,
 		int pointerX = 0, int pointerY = 0);
 	const std::vector<ResourceClaimDecal> &claimedDecals() const { return m_claimed; }
+	// the outline arcs of the own / allied claim circles (RW 0x8EC1D6 -> 0x75B8CC, 0x8E99EE, 0x8E9744): the parts of each Visible claimant's circle no other
+	// such circle covers, cut into TerrainClaimSegment decals
+	const std::vector<ResourceClaimArcSegment> &claimArcSegments() const { return m_arcs; }
+	struct ClaimCircle
+	{
+		Coord3D center{ 0.0f, 0.0f, 0.0f };
+		float radius = 0.0f;
+		std::uint32_t color = 0xFF000000u;
+	};
+	// RW 0x8E99EE (the open arcs, steps of RW 0xC790A0 = pi / 320) and RW 0x8E9744 (the segments) for a set of circles
+	static std::vector<ResourceClaimArcSegment> arcSegments(const std::vector<ClaimCircle> &circles);
 	const ResourcePlacementFeedback &placement() const { return m_placement; }
 	static bool hasClientBehavior(const ThingTemplate &tt);
 	// the users of the claim decals (S-5030): the selected objects of `local` whose template lists a TerrainResourceClientBehavior, plus one while `pending`
@@ -111,6 +133,9 @@ public:
 
 private:
 	std::vector<ResourceClaimDecal> m_claimed;
+	std::vector<ResourceClaimArcSegment> m_arcs;
+	std::vector<ClaimCircle> m_arcCircles;           // the circles m_arcCache was built from
+	std::vector<ResourceClaimArcSegment> m_arcCache;
 	ResourcePlacementFeedback m_placement;
 	std::vector<std::int8_t> m_claimMemo; ///< lane FOGFX-1: updatePlacement's per-cell answers of RW 0x75C02D (-1 not asked yet)
 };

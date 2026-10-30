@@ -42,8 +42,8 @@ class FloatingTextList
 public:
 	static constexpr float kClientFramesPerSecond = 30.0f;
 	// INFERENCE (S-283): the text's size in 800 x 600 stage pixels (retail's display string font was not read); the device scales it with the window as the
-	// HUD movies are, so it reads the same at 5K as at 800 x 600
-	static constexpr float kStageTextSize = 15.0f;
+	// HUD movies are, so it reads the same at 5K as at 800 x 600. 12 (user's choice, docs/MODS.md: 15 read too big and bold)
+	static constexpr float kStageTextSize = 12.0f;
 	// a jump longer than this (a long stall) steps this many frames: every record has faded long before (the hold is 30, the fade under 100)
 	static constexpr unsigned kMaxStepFrames = 1800;
 

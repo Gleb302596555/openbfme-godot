@@ -258,6 +258,7 @@ public:
 	Dictionary get_spell_bar(int64_t player);
 	bool spell_bar_press(int64_t player, int64_t index);
 	bool spell_bar_click_world(int64_t player, double x, double y);
+	bool spell_bar_click_object(int64_t player, int64_t id); // an object-targeted power's click on object `id` (InGameSpellBookModel::clickObject)
 	void spell_bar_cancel();
 	// a viewer harness only (hud_viewer's spellbook scenario, like --spawn): adds purchase points to the player's science record directly, outside the
 	// command path (a real game earns them by rank); returns the new total

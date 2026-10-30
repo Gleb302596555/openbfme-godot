@@ -824,6 +824,7 @@ add_executable(openbfme_tests
     tests/test_any_language.cpp
     tests/test_mods1_mount.cpp
     tests/test_mods1_retail.cpp
+    tests/test_ennorath_men.cpp
     tests/test_logic_clock.cpp
     tests/test_chunkio.cpp
     tests/test_w3d_htree.cpp

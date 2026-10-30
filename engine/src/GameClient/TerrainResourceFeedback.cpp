@@ -5,6 +5,7 @@
 
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
+#include "Common/Team.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/UnitHelpSource.h"
 #include "GameLogic/Economy.h"
@@ -14,6 +15,7 @@
 #include "GameLogic/System/ShroudManager.h"
 #include "GameLogic/System/TerrainResourceManager.h"
 
+#include <algorithm>
 #include <cmath>
 #include <string>
 
@@ -283,13 +285,146 @@ int TerrainResourceFeedback::claimDecalUsers(const GameLogic &logic, const Playe
 	return users;
 }
 
+std::vector<ResourceClaimArcSegment> TerrainResourceFeedback::arcSegments(const std::vector<ClaimCircle> &circles)
+{
+	const float kTwoPi = 6.28318548f;       // RW 0xBDD38C
+	const float kInvTwoPi = 0.159154937f;   // RW 0xC36090
+	const float kStep = 0.00981747732f;     // RW 0xC790A0: pi / 320
+	const float kTurnAndStep = 6.29299307f; // RW 0xC7909C
+	const float kMaxSegment = 60.0f;        // the circle's + 0x2C (RW 0x8E95FE: RW 0xBDC1F8)
+	const float kMinSegment = 20.0f;        // + 0x28 (RW 0xBDBC6C)
+	std::vector<ResourceClaimArcSegment> out;
+	// RW 0x8E951F: the point of `c` at angle `a` lies within another circle of the set (3D distance from its centre at most its radius)
+	auto covered = [&](size_t c, float a) {
+		const ClaimCircle &k = circles[c];
+		const float x = k.center.x + std::cos(a) * k.radius, y = k.center.y + std::sin(a) * k.radius, z = k.center.z;
+		for (size_t o = 0; o < circles.size(); ++o)
+		{
+			if (o == c)
+			{
+				continue;
+			}
+			const float dx = circles[o].center.x - x, dy = circles[o].center.y - y, dz = circles[o].center.z - z;
+			if (circles[o].radius >= std::sqrt(dx * dx + dy * dy + dz * dz))
+			{
+				return true;
+			}
+		}
+		return false;
+	};
+	// RW 0x8E9744: an open arc cut into squares inside the circle's edge, each turned by minus its middle angle
+	auto segments = [&](const ClaimCircle &k, float lo, float hi) {
+		const float circumference = k.radius * kTwoPi;
+		const float length = (hi - lo) * kInvTwoPi * circumference;
+		int n = (int)(length / circumference * 32.0f);
+		n = std::max(n, (int)(length / kMaxSegment));
+		n = std::min(n, (int)(length / kMinSegment));
+		if (n <= 0)
+		{
+			return; // retail divides by zero: an infinite step draws nothing
+		}
+		const float size = length / (float)n, step = (hi - lo) / (float)n, last = hi - step * 0.1f;
+		for (float a = lo; last > a; a += step)
+		{
+			const float theta = a + step * 0.5f, r = k.radius - size * 0.5f;
+			ResourceClaimArcSegment s;
+			s.position = { k.center.x + std::cos(theta) * r, k.center.y + std::sin(theta) * r, k.center.z };
+			s.size = size;
+			s.angle = -theta;
+			s.color = k.color;
+			out.push_back(s);
+		}
+	};
+	for (size_t c = 0; c < circles.size(); ++c)
+	{
+		// RW 0x8E99EE: walk the circle until a covered part ends; a circle with no such end is drawn whole
+		bool inCovered = false, found = false;
+		float a = 0.0f;
+		do
+		{
+			const bool cov = covered(c, a);
+			if (!inCovered)
+			{
+				inCovered = cov;
+			}
+			else if (!cov)
+			{
+				found = true;
+				break;
+			}
+			a += kStep;
+		} while (kTwoPi >= a);
+		if (!found)
+		{
+			segments(circles[c], 0.0f, kTwoPi);
+			continue;
+		}
+		// one turn from the first open point: each open run ends at the next covered point
+		const float end = a + kTurnAndStep;
+		float runStart = a;
+		inCovered = false;
+		for (float t = a; end >= t; t += kStep)
+		{
+			const bool cov = covered(c, t);
+			if (!inCovered)
+			{
+				if (cov)
+				{
+					if (runStart < t)
+					{
+						segments(circles[c], runStart, t); // RW 0x8E99C0: only lo < hi
+					}
+					inCovered = true;
+				}
+			}
+			else if (!cov)
+			{
+				inCovered = false;
+				runStart = t;
+			}
+		}
+	}
+	return out;
+}
+
 void TerrainResourceFeedback::updateSelection(const GameLogic &logic, int localPlayer, int selectionUsers)
 {
 	m_claimed.clear();
+	m_arcs.clear();
 	if (selectionUsers <= 0)
 	{
 		return; // ResourceEntryOwner::rva004E7CEF: no user left, every decal goes
 	}
+	// the outline arcs (RW 0x8EC1D6): the set is filled by RW 0x75B8CC with the claimants of the local player and its allies (RW 0x6A8695 mask 3) through
+	// the visitor RW 0x8E9C35: a Visible claim adds its object's position, its radius and the object's indicator colour (RW 0x68B6F5: the team's controlling
+	// player's colour; the custom indicator colour is not ported, S-2522); no shroud test
+	std::vector<ClaimCircle> circles;
+	for (const TerrainResourceManager::Claimant &c : logic.economy().resources().claimants())
+	{
+		const Object *obj = c.visible ? logic.findObjectByID(c.id) : nullptr;
+		if (!obj || !alliedOrSelf(logic, obj->getControllingPlayer(), localPlayer))
+		{
+			continue;
+		}
+		ClaimCircle k;
+		k.center = *obj->getPosition();
+		k.radius = c.radius;
+		const Team *team = obj->getTeam();
+		const Player *owner = team ? team->getControllingPlayer() : nullptr;
+		k.color = owner ? owner->getPlayerColor() : 0xFF000000u;
+		circles.push_back(k);
+	}
+	// retail builds the arcs once, when the first user comes (RW 0x8EC1D6); the port keeps them while the set of circles is the same
+	const bool same = circles.size() == m_arcCircles.size() &&
+		std::equal(circles.begin(), circles.end(), m_arcCircles.begin(), [](const ClaimCircle &a, const ClaimCircle &b) {
+			return a.center.x == b.center.x && a.center.y == b.center.y && a.center.z == b.center.z && a.radius == b.radius && a.color == b.color;
+		});
+	if (!same)
+	{
+		m_arcCircles = circles;
+		m_arcCache = arcSegments(circles);
+	}
+	m_arcs = m_arcCache;
 	// ResourceEntryOwner RW twin of BFME2 0x4E7E3A: the claimants in the manager's order (front = high priority)
 	for (const TerrainResourceManager::Claimant &c : logic.economy().resources().claimants())
 	{

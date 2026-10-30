@@ -95,7 +95,13 @@ public:
 			note("removeBuff", std::to_string(type), nullptr);
 		}
 	}
-	void createDecal(const FXDecalDesc &d) override { note("decal", d.name, &d.position); }
+	void createDecal(const FXDecalDesc &d) override
+	{
+		if (!m_owner.m_world || !m_owner.m_world->createDecal(d))
+		{
+			note("decal", d.name, &d.position);
+		}
+	}
 	void createRayEffect(const Coord3D &a, const Coord3D &, const std::string &t) override { note("rayEffect", t, &a); }
 	void cursorParticles(const std::string &name, unsigned, const GameClientRandomVariable &, const GameClientRandomVariable &, const GameClientRandomVariable &,
 		const GameClientRandomVariable &) override { note("cursorParticles", name, nullptr); }

@@ -27,3 +27,10 @@ AptImageMode parseAptImageMode(const std::string &mode);
 std::string aptImageModeShader(AptImageMode mode);
 // [S-5016] (with the farm placement feedback's eligibility and the `_imageMap` lookup order, community PR #37)
 std::vector<std::string> aptImageModeStops();
+
+// RotWK's grey of a 2D image (Render2DClass::Render RW 0x5199E0, its grey batches RW 0x51A5DC: Dot3 hardware with 3 texture stages, RW 0x51A5F3 ..
+// 0x51AA34): stage 0 MULTIPLYADD(TFACTOR.a, TEXTURE, TFACTOR.a), stage 1 DOTPRODUCT3(CURRENT, TFACTOR) with TFACTOR 0x8092A587 (ZH's is 0x80A5CA8E):
+// 4 * sum((0.5 + 0.5 t - 0.5) * (f - 0.5)) = sum(t * 2 (f - 0.5)), the weights 2 * (0x92, 0xA5, 0x87) / 255 - 1: half the luma, so a disabled
+// button is dark. RotWK's RenderImageDisabled (RW 0x8156FD) draws through TheDisplay's image draw with mode 1 (GRAYSCALE). INFERENCE (S-5040):
+// the image draw's mode -> grey batch mapping was not read
+inline constexpr float kRender2DGrayWeights[3] = { 2.0f * 0x92 / 255.0f - 1.0f, 2.0f * 0xA5 / 255.0f - 1.0f, 2.0f * 0x87 / 255.0f - 1.0f };

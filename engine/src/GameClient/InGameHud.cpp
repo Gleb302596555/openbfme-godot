@@ -962,7 +962,14 @@ void InGameHud::updateRadiusCursor()
 		// RW 0x6A3D2A .. 0x6A3D60: no radius template, use the command's
 		// valid/invalid pointer. The existing empty-name inference is S-4640.
 		m_radiusCursor.clear();
-		if (m_pointerSeen && !isOverGui(m_pointerX, m_pointerY))
+		if (m_pointerSeen && !isOverGui(m_pointerX, m_pointerY) && spell && spell->needsObject && !spell->needsPosition)
+		{
+			// an object-targeted spell book power: valid over an object it may take (InGameSpellBookModel::objectValid)
+			Object *under = HudObjects::pickObject(m_input->context(), ICoord2D{ m_pointerX, m_pointerY });
+			const std::string &name = under && m_spellBar.objectValid(logic, *under) ? command->m_cursorName : command->m_invalidCursorName;
+			m_input->ui().hintCursor(name.empty() ? std::string(MouseCursorName::Target) : name);
+		}
+		else if (m_pointerSeen && !isOverGui(m_pointerX, m_pointerY))
 		{
 			Coord3D w;
 			if (m_config.view.screenToTerrain(ICoord2D{ m_pointerX, m_pointerY }, logic, w))
@@ -1436,6 +1443,20 @@ void InGameHud::mouseButton(HudInput::Button button, bool down, int x, int y, in
 			Coord3D world;
 			ICoord2D pixel{ x, y };
 			Player *local = m_config.game.players().getLocalPlayer();
+			const InGameSpellBookModel::Button *aimed = m_spellBar.targetButton();
+			if (local && aimed && aimed->needsObject && !aimed->needsPosition)
+			{
+				// an object-targeted power (Ennorath's Command_SpellBookRebuildAoW): the object under the pointer (View::pickDrawable), checked as
+				// CommandTranslator checks a SPECIAL_POWER target; anything else issues nothing and the targeting goes on
+				Object *target = HudObjects::pickObject(m_input->context(), pixel);
+				if (target && m_spellBar.objectValid(m_config.game.logic(), *target))
+				{
+					std::vector<GameMessage> out;
+					m_spellBar.clickObject(*target, local->getPlayerIndex(), out);
+					send(out);
+				}
+				return;
+			}
 			if (local && m_config.view.screenToTerrain(pixel, m_config.game.logic(), world))
 			{
 				// lane SPELL-4: RW 0x81EAD3 -> 0x81EBE9: an invalid location issues nothing and the targeting goes on

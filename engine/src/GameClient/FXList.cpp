@@ -973,6 +973,35 @@ void CursorParticleSystemFXNugget::doFXObj(FXServices &s, const FXObject *, cons
 	s.cursorParticles(m_anim2DTemplateName, m_burstCount, m_particleLife, m_systemLife, m_driftVelX, m_driftVelY);
 }
 
+int FXDecalDesc::opacityAt(int age) const
+{
+	if (age < 0 || age >= lifetimeFrames)
+	{
+		return -1;
+	}
+	int a = age - startDelayFrames;
+	if (a < 0)
+	{
+		return 0;
+	}
+	const auto lerp = [](int from, int to, int at, int span) { return from + (to - from) * at / span; };
+	if (a < fadeOneFrames)
+	{
+		return lerp((int)opacityStart, (int)opacityPeak, a, fadeOneFrames);
+	}
+	a -= fadeOneFrames;
+	if (a < peakFrames)
+	{
+		return (int)opacityPeak;
+	}
+	a -= peakFrames;
+	if (a < fadeTwoFrames)
+	{
+		return lerp((int)opacityPeak, (int)opacityEnd, a, fadeTwoFrames);
+	}
+	return (int)opacityEnd;
+}
+
 // DynamicDecal (RW 0x5e05ab / 0x5dfbec)
 void DynamicDecalFXNugget::doFXPos(FXServices &s, const Coord3D *pos, const Matrix3D *mtx, float, const Coord3D *) const
 {

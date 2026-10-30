@@ -85,6 +85,15 @@ an English BFME2 folder under a Russian RotWK contributes no language archive; t
 used to hide the game's `lotr.csf`, and Ennorath's new names read `MISSING: 'INI:FactionArnor'`). The BFME2 voices of such an install
 are then missing, as in retail.
 
+A mod's own language archives of the game's language join the game folder's `lang\<language>*.big` glob (RW 0xA1766D), which loads
+with overwrite, so the last one wins. Ennorath's Russian `lang\russianpatch201.big` (the mod's text) wins over its `lang\Russian.big` (the
+retail text). Before the fix the overlay put them last in ascending order, so the Russian layout showed vanilla's text.
+
+Not retail (the owner's choice, 2026-10-29):
+- The farm claim outline arcs (`TerrainClaimSegment`) are drawn white for every player, where retail tints them with the owner's colour.
+  The texture is DXT1 with no alpha (a white stripe on black). Retail adds it; the port takes its brightness as coverage.
+- The "+N" money text is white, 12 stage pixels, with a one-pixel shadow, where retail uses the owner's colour.
+
 Ennorath's art has DDS files that Godot's loader refuses but retail's D3D takes: a mip chain shorter than the header says (`buwheat1.dds`,
 `hablsmt.dds`) and sizes that are not a multiple of 4 (`mbfarm_bib.dds` is 690 x 690). They are read from their top level and get a generated mip
 chain (`DdsDecode`, GodotDevice/GodotDds.h), which is what turned Harad's buildings pink. A radar picture saved as RLE TGA (Amon Hen II) is read too.
@@ -114,7 +123,22 @@ Other fixes of the Ennorath pass:
   box at a time (RW 0x8AB53D: StartingBoxes, DeleteWhenEmpty, a docker too far is nudged by +-4): Ennorath's supply rocks were never found by
   the stoneworkers' harvesters. `ResourceGatheringManager::canTransferSuppliesAt` takes a warehouse dock when it holds boxes (+ 0x88) and
   is not ENEMIES with the worker (RW 0x82C66C, RW 0x68D7AB), so the harvesters' own search finds the rocks (`test_supply_warehouse.cpp`);
-  the cursor still offers no order on them (the dock context command is not ported, stop S-286);
+  a click with a worker selected on a dock it may use shows Mouse.ini's `Dock` cursor and sends it there (MSG_DOCK -> aiDock; ZH's
+  ACTIONTYPE_DOCK, RotWK's order of the context checks not read, S-286);
+- a hero on an attack-move (hotkey A) took no ability: the ability's idle by the AI kept the port's attack-move flag (S-328), the idle state
+  resumed the march as a player's move and the ability ended at once (RW 0x854EAA). The ability now leaves the attack-move, as RotWK's
+  cleared machine leaves its state 0x21 (`hero retail: a hero fighting on an attack-move ...`);
+- the Arnor fortress's Eye of the Palantir (`ARPalaEye`, a slanted beam of blue light by its own data: emissive 0, 50, 117, additive)
+  turned its beam with the flying eye: the draw module's `NoRotate = Yes` was parsed and never used. It is drawn with the world's axes now
+  (S-5204, INFERENCE);
+- an FXList's `DynamicDecal` was only noted, never drawn: the Cardolan forest's floor (`FX_CardolanHillsSpellFX`, `excardolanforest`, the
+  Arnor spell book's Forests of Cardolan) is drawn as a terrain decal with its fade curve now (S-5205);
+- a locked ability's button looked bleached: RotWK greys a 2D image with a Dot3 stage whose factor is 0x8092A587 (Render2DClass RW
+  0x51A5DC), which gives half the luma (0.145 / 0.294 / 0.059), where the port used the full luma. Both grey paths use RotWK's weights now
+  (S-5040, `S-5040: the GRAYSCALE image mode ...`);
+- the farms' claim circles get their outline arcs (S-5030): the parts of each own / allied claim circle no other circle covers, cut into
+  `TerrainClaimSegment` squares in the owner's colour (RW 0x8E99EE / 0x8E9744). The placement circle's colour band and the 0xFF6464C8 fill
+  of the claimed circles are retail's (RW 0x75C1A9, RW 0x8EC874);
 - a structure a worker builds starts at 1 hit point before it is UNDER_CONSTRUCTION (RW 0x88D53A), so it takes REALLYDAMAGED, and the
   heals of the rise do not change the look while it is under construction: the finished building kept REALLYDAMAGED and its smoke bones
   (the black smoke at the end of every construction). The end of a construction now applies the body's damage state
@@ -133,7 +157,8 @@ Not changed, as retail: model materials that name the texture `None`, and textur
 (`muminasmorgulea.tga`, `GBFS02.tga`, `haradfarm_bib2.tga`), draw retail's missing-texture magenta. Ennorath's own `housecolor.ini` lists 174
 textures where the base game lists 511.
 
-The supply warehouse, black smoke and repair worker fixes build with MSVC and pass their tests; they are not yet checked in the game.
+The supply warehouse, black smoke, repair worker, dock order, attack-move ability, NoRotate, DynamicDecal, locked ability grey and claim
+outline fixes build with MSVC and pass their tests; they are not yet checked in the game.
 
 Work in progress (2026-10-29):
 - `test_hud6.cpp:787` (the Mordor fortress's lava moat upgrade does not queue) fails in the combined run of the upgrade / colour / texture
@@ -142,17 +167,8 @@ Work in progress (2026-10-29):
 Known problems, not fixed (the owner's playtest of 2026-10-29):
 - no grass fire: TheFireLogicSystem is not ported (stop S-191), so a FireLogicNugget does nothing. The Carthaen scout's torch
   (`CardolanRangerFireKiller` -> `CarthaenTorchWeapon`) summons its archers and the scout leaves, but nothing burns; fire arrows the same;
-- a hero does not use an ability while it fights (Aranarth cannot dismount while attacking, he can while walking). The dismount refusal is
-  retail's (RW 0x8B1FDA: a current locomotor of max speed 0); where the order stops was not found;
-- the Arnor fortress's Eye of the Palantir (`SpecialAbilityArnorFortressIvoryTowerVision` -> `OCL_SpawnEyeOfPalantir` -> `EyeOfPalantir`,
-  model `ARPalaEye`) looks broken: blue streaks across the sky;
-- the twinkle over the supply rocks still animates too fast (its brightness is fixed); the GPU particles step at 30 Hz with retail's frame
-  time, the cause was not found (what was ruled out and the main suspect: docs/ARNOR_SPARKS_SPEED.md);
-- a farm's claim circle: the selected farm's circle is tinted retail's 0xFF6464C8; while placing a new farm the other farms' circles are
-  shown as filled claim decals, as for a selected farm (stop S-5030: the outline arcs are not drawn) and the placement circle takes the
-  claim band colour;
-- a locked ability's button is drawn in greyscale (the luminance weights of the radial bubbles, S-5040) and reads as merely lighter, not locked
-  (what to read in retail: docs/LOCKED_ABILITY_LOOK.md);
+- the twinkle over the supply rocks still animates too fast (its brightness is fixed). The GPU particles' clock was read in the binary and
+  matches the port's (docs/ARNOR_SPARKS_SPEED.md); the cause needs a capture of retail's twinkle;
 - the Harad cavalry's horses stop moving their legs after a trample (not looked at).
 
 ## Which file wins
