@@ -5,6 +5,7 @@
 // The templates are found by module class in the loaded data (no template name is hard-coded where a search can find one); the test prints which one it used.
 
 #include "doctest.h"
+#include "GameLogic/System/ShroudManager.h"
 
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
@@ -696,4 +697,23 @@ TEST_CASE("modules retail: HeroDie makes its special power ready at once on the 
 	CHECK(sp->getReadyFrame() == g.logic->getFrame());
 	CHECK(g.hash() != h0);
 	CHECK_FALSE(reportHas(g, "[S-980] HeroDie")); // lane MODULES-2: the walk order is unobservable (RW 0x8C642D only sets the ready frame)
+}
+
+TEST_CASE("shroud retail: Ivory Tower vision ping clears the map for its owner")
+{
+	REQUIRE_RETAIL_WORLD(sh);
+	Game g(*sh.world, *sh.mount);
+	ShroudManager shroud(*g.logic);
+	shroud.init(40.0f, 1);
+	shroud.setExtent(0.0f, 0.0f, 2000.0f, 2000.0f);
+	shroud.attach();
+	const int owner = g.player->getPlayerIndex();
+	const int enemy = g.enemy->getPlayerIndex();
+	CHECK(shroud.getCellStatus(owner, 49, 49) == CELLSHROUD_SHROUDED);
+	Object *ping = g.make(sh.world->things().findTemplate("IvoryTowerVisionPing"));
+	CHECK(ShroudManager::templateVision(*ping->getTemplate()).shroudClearingRange == 99999.0f);
+	shroud.update();
+	CHECK(shroud.getCellStatus(owner, 0, 0) == CELLSHROUD_CLEAR);
+	CHECK(shroud.getCellStatus(owner, 49, 49) == CELLSHROUD_CLEAR);
+	CHECK(shroud.getCellStatus(enemy, 49, 49) == CELLSHROUD_SHROUDED);
 }
