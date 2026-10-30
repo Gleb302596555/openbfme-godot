@@ -638,8 +638,10 @@ TEST_CASE("fly1 retail: a hunting fell beast (AI command 0x12: the hunt state wi
 	OPENBFME_REQUIRE_START(s);
 	FlyArena arena(*s, "FactionMordor", "FactionMen");
 	GameLogic &logic = arena.logic();
-	// Control the two hunt candidates: retail production exits let the map's
-	// goblin slaves leave their lair sooner, so they cannot be an implicit fixture.
+	// Control the hunt candidates: both the first-leg quick path and per-tick goal
+	// publication move the Moria lair's QueueProductionExitUpdate spawns
+	// (RW 0x8A3DD5 -> 0x87C9B8 -> state 7). The fell beast never enters state 7.
+	// Those goblins cannot be an implicit fixture.
 	arena.clearCreeps();
 	Object *lair = arena.make("MoriarGoblinLair", arena.b, 1500.0f, 800.0f);
 	auto *spawner = SpawnBehaviorInterface::of(*lair);

@@ -778,9 +778,13 @@ void AIFollowPathState::onExit(StateExitType status)
 		m_move->onExit();
 		m_move.reset();
 	}
-	if (m_exitProduction)
+	// RW 0x74B79E / 0x74B7A5 (S-001): every follow-path exit clears both fields.
+	ai().setCanPathThroughUnits(false);
+	ai().mover().ignoreObstacle(PATHFIND_INVALID_ID);
+	// RW 0x74B77D (BFME2 RVA 0x349D92): both path forms release individuals; the horde waits for its members in RW 0x89E2D0.
+	if (!owner().isKindOfName("HORDE"))
 	{
-		ai().setCanPathThroughUnits(false);
+		owner().setStatus(0x5A, false);
 	}
 }
 
@@ -791,8 +795,12 @@ StateReturnType AIFollowPathState::update()
 		return STATE_FAILURE;
 	}
 	// RW 0x74FA28 / BFME2 AIFollowPathState::update publishes the current segment goal each tick.
-	// Keep the exit machine goal current after computePath consumes the first leg.
-	if (m_exitProduction && !machine().isLocked()) machine().setGoalPosition(m_goalPosition);
+	// RW 0x661EFE -> 0x8DB810 uses FLT_MAX (no final facing), for every follow path.
+	if (!machine().isLocked())
+	{
+		machine().setGoalPosition(m_goalPosition);
+		machine().clearGoalAngle();
+	}
 	const StateReturnType ret = m_move->update();
 	if (ret == STATE_SUCCESS)
 	{

@@ -602,3 +602,31 @@ TEST_CASE("production exit: cancelling the doorway walk clears the exit flag")
 	CHECK_FALSE(mw.aiOf(unit)->canPathThroughUnits());
 	CHECK(mw.aiOf(unit)->mover().ignoredObstacleID() == PATHFIND_INVALID_ID);
 }
+
+TEST_CASE("follow path: every path publishes its segment without facing and clears ignored obstacles on exit")
+{
+	for (bool exitProduction : {false, true})
+	{
+		MoveWorld mw;
+		mw.buildMap();
+		Object *unit = mw.spawn("Walker", 205, 505);
+		auto *ai = mw.aiOf(unit);
+		AIStateMachine machine(*ai, "FollowPathTest");
+		const Coord3D goal{405, 505, 0};
+		machine.setGoalPath({goal});
+		AIFollowPathState state(machine, exitProduction);
+		state.onEnter();
+		machine.setGoalPosition(Coord3D{905, 905, 0});
+		machine.setGoalAngle(1.0f);
+		state.update();
+		CHECK(machine.goalPosition().x == goal.x);
+		CHECK(machine.goalPosition().y == goal.y);
+		CHECK(machine.goalPosition().z == goal.z);
+		CHECK_FALSE(machine.haveGoalAngle());
+		ai->setCanPathThroughUnits(true);
+		ai->mover().ignoreObstacle(42);
+		state.onExit(EXIT_RESET);
+		CHECK_FALSE(ai->canPathThroughUnits());
+		CHECK(ai->mover().ignoredObstacleID() == PATHFIND_INVALID_ID);
+	}
+}
