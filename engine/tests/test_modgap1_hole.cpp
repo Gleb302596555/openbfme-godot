@@ -1,4 +1,4 @@
-// OpenBFME. MODGAP-1 tests, group 2 (MODULE_GAPS.md, stop S-5603): RebuildHoleExposeDie (RW 0x889AAF) and RebuildHoleBehavior (RW 0x8868C2, reset RW 0x8865F7) on
+// OpenBFME. MODGAP-1 tests, group 2 (MODULE_GAPS.md, stop S-1427): RebuildHoleExposeDie (RW 0x889AAF) and RebuildHoleBehavior (RW 0x8868C2, reset RW 0x8865F7) on
 // synthetic data. The expected values are the data's own: the hole's max health, WorkerRespawnDelay in frames, the structure's paid price.
 #include "doctest.h"
 #include "CombatTestUtil.h"
@@ -103,9 +103,8 @@ TEST_CASE("modgap1 RebuildHole: a dead structure of a live player leaves its hol
 	CHECK(h->getName() == "TheLair"); // the script name moves to the hole (RW 0x759467)
 	RebuildHoleBehavior *rb = RebuildHoleBehavior::of(*h);
 	REQUIRE(rb != nullptr);
-	CHECK(rb->rebuildTemplate() == lairTemplate);
-	CHECK(rb->countdown() <= 5);  // WorkerRespawnDelay 1000 ms = 5 frames
-	CHECK(rb->countdown() >= 3);
+	CHECK(rb->getRebuildTemplate() == lairTemplate);
+	CHECK(rb->workerWaitCounter() == 4); // WorkerRespawnDelay 1000 ms = 5 frames, one update has run
 	(void)lairId;
 }
 
@@ -155,21 +154,4 @@ TEST_CASE("modgap1 RebuildHole: a structure still UNDER_CONSTRUCTION leaves no h
 	l->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL);
 	w.frames(2);
 	CHECK(w.alive("LairHole").empty());
-}
-
-TEST_CASE("modgap1 RebuildHole: a hole with a WorkerObjectName waits (the worker branch is S-5603)")
-{
-	HoleWorld w;
-	Object *l = w.unit("WorkerLair", 'A', 400, 400);
-	l->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL);
-	w.frames(30);
-	CHECK(w.alive("WorkerHole").size() == 1);
-	CHECK(w.alive("WorkerLair").empty());
-}
-
-TEST_CASE("modgap1 RebuildHole: the stop line names S-5603")
-{
-	const std::string line = RebuildHoleExposeDie::stopLine();
-	CHECK(line.compare(0, 8, "[S-5603]") == 0);
-	CHECK(line.find("WorkerObjectName") != std::string::npos);
 }

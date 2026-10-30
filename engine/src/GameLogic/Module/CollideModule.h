@@ -28,10 +28,6 @@ public:
 	// lane UBER-2B: true when ObjectCollide::pairIsInert below knows every way this module's onCollide can act (SquishCollide, HordeMemberCollide). An object
 	// with a module that answers false is never left out of a contact pair
 	virtual bool pairFactsKnown() const { return false; }
-	// lane MODGAP-1 (P-10): true for a collide module of an object WITHOUT an AI that must meet the mobile units touching it (a crate). RW's contact pairs come
-	// from the partition and physics managers (RW 0x62E93B) and include such objects; the port's overlap pass (AIWorld::processCollisions) pairs AI units only,
-	// so AIWorld::processStaticContacts pairs these objects with the mobile units (stop S-581)
-	virtual bool touchesMobileUnits() const { return false; }
 };
 
 namespace ObjectCollide

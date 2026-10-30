@@ -1,6 +1,6 @@
 // OpenBFME. MODGAP-1 tests (PROBLEMS.md P-10, stop S-260): SalvageCrateCollide on synthetic data. The target facts are RotWK game.dat
 // RW 0x8C06B6 (CrateCollide::onCollide), 0x8C080B / 0x8C145D (validity), 0x8C136C (outcome), 0x8C158B (execute), 0x8C148B (money); the touches come from
-// AIWorld::processStaticContacts (S-581). The expected values are the chest's own data (MinResource, Upgrade), not read back from the port.
+// AIWorld::processCrateContacts (S-780). The expected values are the chest's own data (MinResource, Upgrade), not read back from the port.
 #include "doctest.h"
 #include "CombatTestUtil.h"
 
@@ -8,6 +8,7 @@
 #include "GameLogic/Economy.h"
 #include "GameLogic/FXEvents.h"
 #include "GameLogic/Module/MoneyEventModules.h"
+#include "GameLogic/Module/SalvageCrateCollide.h"
 
 using namespace combattest;
 
@@ -136,8 +137,8 @@ TEST_CASE("modgap1 salvage: a unit that touches a chest takes its money, the che
 	CHECK(text->amount == 250);
 	CHECK(text->playerIndex == w.playerOf('A')->getPlayerIndex());
 	const auto &sites = w.logic->fxEvents().perSite();
-	REQUIRE(sites.count("SalvageCrateCollide ExecuteFX") == 1);
-	CHECK(sites.at("SalvageCrateCollide ExecuteFX") == 1);
+	REQUIRE(sites.count("CrateCollide") == 1);
+	CHECK(sites.at("CrateCollide") == 1);
 }
 
 TEST_CASE("modgap1 salvage: a unit that does not touch the chest leaves it alone")
@@ -226,12 +227,4 @@ TEST_CASE("modgap1 salvage: a chest with an Upgrade gives the picker's player th
 	CHECK_FALSE(w.playerOf('B')->hasUpgradeComplete("Upgrade_X"));
 	CHECK(w.cash('A') == before);
 	CHECK(w.byId(chestId) == nullptr);
-}
-
-TEST_CASE("modgap1 salvage: the stop line names what is not ported, and the class is registered as ported")
-{
-	const std::string line = SalvageCrateCollide::stopLine();
-	CHECK(line.compare(0, 7, "[S-260]") == 0);
-	CHECK(line.find("GUI:GainRank") != std::string::npos);
-	CHECK(line.find("ExecuteAnimation") != std::string::npos);
 }

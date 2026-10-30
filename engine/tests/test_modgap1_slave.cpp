@@ -109,11 +109,11 @@ TEST_CASE("modgap1 slave watcher: ObjectCreationUpgrade tells the watcher its sl
 	Object *master = w.unit("SlvMaster", 'A', 400, 400);
 	SlaveWatcherBehavior *watcher = SlaveWorld::watcher(master);
 	REQUIRE(watcher != nullptr);
-	CHECK(watcher->slave() == INVALID_ID);
+	CHECK(watcher->getSlaveID() == INVALID_ID);
 	master->giveUpgrade("Upgrade_Barracks2");
 	w.frames(4);
-	REQUIRE(watcher->slave() != INVALID_ID);
-	Object *slave = w.byId(watcher->slave());
+	REQUIRE(watcher->getSlaveID() != INVALID_ID);
+	Object *slave = w.byId(watcher->getSlaveID());
 	REQUIRE(slave != nullptr);
 	CHECK(slave->getTemplate()->getName() == "SlvUnit");
 	CHECK(master->hasUpgrade("Upgrade_Anything")); // ObjectCreationUpgrade's GrantUpgrade
@@ -122,7 +122,7 @@ TEST_CASE("modgap1 slave watcher: ObjectCreationUpgrade tells the watcher its sl
 	w.frames(4);
 	CHECK_FALSE(master->hasUpgrade("Upgrade_Anything"));  // the watcher's RemoveUpgrade
 	CHECK(master->hasUpgrade("Upgrade_Insurance"));       // the watcher's GrantUpgrade
-	CHECK(watcher->slave() == INVALID_ID);
+	CHECK(watcher->getSlaveID() == INVALID_ID);
 }
 
 TEST_CASE("modgap1 slave watcher: when the master goes the slave dies, unless LetSlaveLive")
@@ -133,7 +133,7 @@ TEST_CASE("modgap1 slave watcher: when the master goes the slave dies, unless Le
 		Object *master = w.unit("SlvMaster", 'A', 400, 400);
 		master->giveUpgrade("Upgrade_Barracks2");
 		w.frames(4);
-		const ObjectID slaveId = SlaveWorld::watcher(master)->slave();
+		const ObjectID slaveId = SlaveWorld::watcher(master)->getSlaveID();
 		REQUIRE(w.byId(slaveId) != nullptr);
 		w.logic->destroyObject(master);
 		w.frames(4);
@@ -146,7 +146,7 @@ TEST_CASE("modgap1 slave watcher: when the master goes the slave dies, unless Le
 		Object *master = w.unit("SlvMasterLive", 'A', 400, 400);
 		master->giveUpgrade("Upgrade_Barracks2");
 		w.frames(4);
-		const ObjectID slaveId = SlaveWorld::watcher(master)->slave();
+		const ObjectID slaveId = SlaveWorld::watcher(master)->getSlaveID();
 		REQUIRE(w.byId(slaveId) != nullptr);
 		w.logic->destroyObject(master);
 		w.frames(4);

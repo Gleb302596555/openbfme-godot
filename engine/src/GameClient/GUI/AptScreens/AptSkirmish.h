@@ -171,7 +171,7 @@ protected:
 	// lane ONLINE-5: the setup panel's flags (AptMpGameSetup + 0x3A4, the constructor's second argument): the online custom match screen passes
 	// 0x200001F0 (RW 0x9AF464), the LAN lobby 0x400001A0 (RW 0x848C6B). Bit 0x20 is the Ready column (RW 0x84214C) and the host's start notice (RW
 	// 0x8431B8: GUI:NotifiedStartIntent). The skirmish screen's own value: 0x10000007 (lane OWNERFIX-3: RotWK's AptSkirmish constructor pushes it, RW
-	// 0x929773; BFME2 decomp AptSkirmishConstructor.cpp the same): no 0x20 / 0x40; bit 0 (1) reads the profile's battle honors into the map list (RW 0x8460B5)
+	// 0x929773; BFME2 decomp AptSkirmish.cpp the same): no 0x20 / 0x40; bit 0 (1) reads the profile's battle honors into the map list (RW 0x8460B5)
 	virtual int setupFlags() const { return 0x10000007; }
 	// the slot's accepted flag (GameSlot + 8, RW 0x842185): the model's; the LAN lobby's are LANAPI's
 	virtual bool slotAccepted(int slot) const;

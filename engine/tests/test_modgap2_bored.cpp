@@ -41,22 +41,20 @@ struct BoredWorld : combattest::CombatWorld {
 };
 }
 
-TEST_CASE("modgap2 bored: a filtered scan reports the unsupported target validation")
+TEST_CASE("modgap2 bored: a filtered scan never reports the targetless stop (RW 0x82D925 runs; test_bored_modules.cpp)")
 {
     BoredWorld w(true);
     Object *obj = w.unit("TestBoredUnit", 'A', 300, 300);
     REQUIRE(obj);
     w.frames(5);
     bool found = false;
-    for (const auto &line : w.logic->report().stops) found = found || line == BoredUpdate::stopLine();
-    // RW 0x89A0A4: a filter with no other allied object does not reach
-    // ActionManager, so it must not report an attempted target validation.
+    for (const auto &line : w.logic->report().stops) found = found || line == BoredUpdate::stopLines().front();
     CHECK_FALSE(found);
     REQUIRE(w.unit("TestBoredUnit", 'A', 310, 300));
     w.frames(5);
     found = false;
-    for (const auto &line : w.logic->report().stops) found = found || line == BoredUpdate::stopLine();
-    CHECK(found);
+    for (const auto &line : w.logic->report().stops) found = found || line == BoredUpdate::stopLines().front();
+    CHECK_FALSE(found);
 }
 
 TEST_CASE("modgap2 bored: targetless power is triggered by the periodic scan")
@@ -77,6 +75,6 @@ TEST_CASE("modgap2 bored: unpaired BFME2 targetless validation reports a stop")
     REQUIRE(w.unit("TestBoredUnit", 'A', 300, 300));
     w.frames(5);
     bool found = false;
-    for (const auto &line : w.logic->report().stops) found = found || line == BoredUpdate::stopLine();
+    for (const auto &line : w.logic->report().stops) found = found || line == BoredUpdate::stopLines().front();
     CHECK(found);
 }

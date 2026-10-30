@@ -19,6 +19,7 @@
  ],
  "excluded": [
   {"glob": "src/GameClient/CreateAHeroStats.cpp", "reason": "Create-a-Hero client profile statistics file IO; never simulation state"},
+  {"glob": "src/GameClient/TutorialSettings.cpp", "reason": "lane BFME2CAMP1: GameData's Basic / Advanced tutorial records the main menu's OnTutorial reads (the map to start, its load screen and music); no logic state, the logic gets only the map name and the tutorial game mode"},
   {
    "glob": "src/Common/System/FloatFromChars.cpp",
    "reason": "the vendored fast_float parser behind Common/FloatFromChars.h (decimal text to float / double, correctly rounded; no simulation arithmetic of ours); it is compiled with the simulation flags, and tools/sim/compare_float_chars.cpp checks it against the C++ library; libclang 18 cannot parse its SSE2 header (the reason it is the only file that includes the vendored headers)"
@@ -494,6 +495,10 @@
   {
    "glob": "src/GodotDevice/GodotPostEffects.cpp",
    "reason": "the map's colour grade on the 3D colour buffer (LookupTablePostEffect, RENDER-4 / S-1650): rendering only"
+  },
+  {
+   "glob": "src/GodotDevice/GodotGlowEffect.cpp",
+   "reason": "retail's glow pass on the 3D colour buffer and the effects-LOD gate on the post chain (GLOW-1 / S-5231): rendering only"
   },
   {
    "glob": "src/GodotDevice/GodotFXPlayer.cpp",

@@ -117,16 +117,26 @@ TEST_CASE("module coverage: every registry class is ported, base AI, parsed only
 	// SIEGE-1 (community #64): seven ported (two of them base AI before): +7 -> 161 / 148, base AI 6 (merge queue q26).
 	// BANNER-1 (AllowBannerSpawnUpgrade, RW 0x650650): +1 -> 162 / 147 (merge queue q26). CHAT-1 (on the archive): BeaconClientUpdate missing -> ported: 163 / 146.
 	// community #117 (CitadelSlaughterHordeContain missing -> ported, merge queue q28): 164 / 145
-	// LUMBER1 supply warehouses (SupplyWarehouseCreate, SupplyWarehouseDockUpdate, Ennorath's supply rocks): +2 -> 166 / 143
-	// P-13 (AODHordeContain missing -> ported): 167 / 142
-	// MODGAP-1 (P-10, SalvageCrateCollide parsed only -> ported): 168, parsed only 13
-	// MODGAP-1 group 4 (SlaveWatcherBehavior, OCLUpdate) and agent B's BoredUpdate (Modgap2): +3 -> 171 / 139 (the totals the test printed); agent B's FlingPassengerSpecialAbilityUpdate: +1 -> 172 / 138
-	// MODGAP-1 group 5 (DeflectSpecialPower missing -> ported): +1 -> 173 / 137; group 6 (ReflectDamage): +1 -> 174 / 136; EvacuateDamage: +1 -> 175 / 135; group 2 (RebuildHoleExposeDie, RebuildHoleBehavior): +2 -> 177 / 133
-	CHECK(c.ported == 177); // + AODHordeContain, the supply warehouses, #117's CitadelSlaughterHordeContain, SIEGE-1's seven ported (two of them base AI before), BANNER-1's AllowBannerSpawnUpgrade, CHAT-1's BeaconClientUpdate
+	// MODCOMPAT-MOD1 (GeometryUpgrade missing -> ported, RW 0x6503A4): 165 / 144
+	// MODCOMPAT-MOD1 (RebuildHoleExposeDie, RebuildHoleBehavior missing -> ported): 167 / 142
+	// MODCOMPAT-MOD1 (SlaveWatcherBehavior missing -> ported): 168 / 141
+	// MODCOMPAT-MOD1 (CommandButtonHuntUpdate missing -> ported): 169 / 140
+	// MODCOMPAT-MOD1 (GrabPassengerSpecialPower missing -> ported): 170 / 139
+	// MODCOMPAT-MOD1 (CritterEmitterUpdate missing -> ported): 171 / 138
+	// MODCOMPAT-MOD1 (AudioLoopUpgrade missing -> ported): 172 / 137
+	// MODCOMPAT-MOD1 (ClickReactionBehavior missing -> ported): 173 / 136
+	// MODCOMPAT-MOD1 (PickupStuffUpdate missing -> ported): 174 / 135
+	// MODCOMPAT-MOD1 (AutoPickUpUpdate missing -> ported): 175 / 134
+	// MODCOMPAT-MOD1 (BoredUpdate missing -> ported): 176 / 133
+	// MODCOMPAT-MOD1 (SalvageCrateCollide parsed only -> ported, RW 0x651052): 177, parsed only 13
+	// BFME2CAMP1 (RebuildHoleExposeDie, RebuildHoleBehavior): missing -> ported: 166 / 143.
+	// LUMBER1 supply warehouses (SupplyWarehouseCreate, SupplyWarehouseDockUpdate, Ennorath's supply rocks): +2 -> 179 / 131
+	// P-13 (AODHordeContain), MODGAP-1 (OCLUpdate, DeflectSpecialPower, ReflectDamage, EvacuateDamage), MODGAP-2 (FlingPassengerSpecialAbilityUpdate): +6 -> 185 / 125
+	CHECK(c.ported == 185); // + the supply warehouses, + #117's CitadelSlaughterHordeContain, SIEGE-1's seven ported (two of them base AI before), BANNER-1's AllowBannerSpawnUpgrade, CHAT-1's BeaconClientUpdate
 	CHECK(c.baseAi == 6);
 	// S-207: SpawnUnitBehavior data is parsed-only; its runtime remains unported (S-140).
-	CHECK(c.parsedOnly == 13); // MODGAP-1: SalvageCrateCollide is ported (14 -> 13)
-	CHECK(c.missing == 133); // P-13 (AODHordeContain) 143 -> 142; the supply warehouses 145 -> 143; #117 (CitadelSlaughterHordeContain) 146 -> 145; CHAT-1 (BeaconClientUpdate) 147 -> 146; BANNER-1 (AllowBannerSpawnUpgrade) 148 -> 147; SIEGE-1 153 -> 148; WALL-2 (DynamicPortalBehaviour, FakePathfindPortalBehaviour) 155 -> 153; MODS-3 (FireWeaponWhenDamagedBehavior) 156 -> 155; LUMBER1 (SupplyCenterCreate, SupplyCenterDockUpdate) 158 -> 156; FX-4 (TransitionDamageFX) 159 -> 158; SUMMON-1 (SummonReplacementSpecialAbilityUpdate, DoCommandUpgrade); before: 161, the merge of the archive (S-207 SpawnUnitBehavior missing -> parsed only) with S-1991 (BloodthirstyUpdate missing -> ported)
+	CHECK(c.parsedOnly == 13); // MODCOMPAT-MOD1 (SalvageCrateCollide) 14 -> 13
+	CHECK(c.missing == 125); // the six Ennorath classes 131 -> 125; the supply warehouses 133 -> 131; MODCOMPAT-MOD1 (BoredUpdate) 134 -> 133; MODCOMPAT-MOD1 (AutoPickUpUpdate) 135 -> 134; MODCOMPAT-MOD1 (PickupStuffUpdate) 136 -> 135; MODCOMPAT-MOD1 (ClickReactionBehavior) 137 -> 136; MODCOMPAT-MOD1 (AudioLoopUpgrade) 138 -> 137; MODCOMPAT-MOD1 (CritterEmitterUpdate) 139 -> 138; MODCOMPAT-MOD1 (GrabPassengerSpecialPower) 140 -> 139; MODCOMPAT-MOD1 (CommandButtonHuntUpdate) 141 -> 140; MODCOMPAT-MOD1 (SlaveWatcherBehavior) 142 -> 141; MODCOMPAT-MOD1 (the rebuild holes) 144 -> 142; MODCOMPAT-MOD1 (GeometryUpgrade) 145 -> 144; #117 (CitadelSlaughterHordeContain) 146 -> 145; CHAT-1 (BeaconClientUpdate) 147 -> 146; BANNER-1 (AllowBannerSpawnUpgrade) 148 -> 147; SIEGE-1 153 -> 148; WALL-2 (DynamicPortalBehaviour, FakePathfindPortalBehaviour) 155 -> 153; MODS-3 (FireWeaponWhenDamagedBehavior) 156 -> 155; LUMBER1 (SupplyCenterCreate, SupplyCenterDockUpdate) 158 -> 156; FX-4 (TransitionDamageFX) 159 -> 158; SUMMON-1 (SummonReplacementSpecialAbilityUpdate, DoCommandUpgrade); before: 161, the merge of the archive (S-207 SpawnUnitBehavior missing -> parsed only) with S-1991 (BloodthirstyUpdate missing -> ported)
 
 	if (const char *out = std::getenv("OPENBFME_MODULE_COVERAGE_OUT"))
 	{

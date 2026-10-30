@@ -6,14 +6,13 @@
 #include "GameLogic/Module/FlingPassengerSpecialAbilityUpdate.h"
 #include "GameLogic/Module/AISpecialPowerUpdate.h"
 #include "GameLogic/Module/RepairSpecialPower.h"
+#include "GameLogic/Module/GrabPassengerSpecialPower.h"
 #include "GameLogic/Module/HordeDispatchSpecialPower.h"
 #include "GameLogic/Module/ObjectCreationUpgrade.h"
 #include "GameLogic/Module/OCLUpdate.h"
 #include "GameLogic/Module/DeflectSpecialPower.h"
 #include "GameLogic/Module/ReflectDamage.h"
 #include "GameLogic/Module/EvacuateDamage.h"
-#include "GameLogic/Module/RebuildHoleModules.h"
-#include "GameLogic/Module/SlaveWatcherBehavior.h"
 #include "GameLogic/Module/SlavedUpdate.h"
 #include "GameLogic/Module/SpawnBehavior.h"
 #include "GameLogic/Module/SpawnUnitBehavior.h"
@@ -64,6 +63,8 @@
 #include "GameLogic/Object/Contain/GarrisonContainRuntime.h"
 #include "GameLogic/Object/Contain/TransportContainRuntime.h"
 #include "GameLogic/Module/SiegeModules.h"
+#include "GameLogic/Module/PickupStuffUpdate.h"
+#include "GameLogic/Module/AutoPickUpUpdate.h"
 
 #include <stdexcept>
 
@@ -104,13 +105,10 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	StructureModules::registerAll(modules); // lane COMBAT-2: StructureBody, InactiveBody, StructureCollapseUpdate
 	UpgradeModuleClasses::registerAll(modules); // lane UPGRADE-1: the upgrade module classes
 	ObjectCreationUpgrade::registerClass(modules); // lane FACT-A: the object an upgrade makes (the Crystal Moat)
-	SlaveWatcherBehavior::registerClass(modules);  // lane MODGAP-1: the master of a structure's slave (the wall trebuchet)
 	OCLUpdate::registerClass(modules);             // lane MODGAP-1: the wall trebuchet / catapult makers
 	DeflectSpecialPower::registerClass(modules);   // lane MODGAP-1: the spear carriers' shield wall (inert in Ennorath, S-5601)
 	ReflectDamage::registerClass(modules);         // lane MODGAP-1: the Witch-king's and the Nazgul's thorns
 	EvacuateDamage::registerClass(modules);        // lane MODGAP-1: the towers' garrison runs out (S-5602)
-	RebuildHoleExposeDie::registerClass(modules);  // lane MODGAP-1: the ruin a creep lair leaves (S-5603)
-	RebuildHoleBehavior::registerClass(modules);
 	ReplaceSelfUpgrade::registerClass(modules);    // lane FACT-A: the wall segment's gates, towers and hubs
 	AttributeModifierPool::registerClass(modules); // lane XP-1: AttributeModifierPoolUpdate (every object's attribute modifier pool)
 	ExperienceUpgradeModules::registerAll(modules); // lane XP-1: LevelUpUpgrade, ExperienceScalarUpgrade
@@ -136,12 +134,15 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	AISpecialPowerUpdate::registerClass(modules); // lane MOD-4: the units' own use of their powers (computer players)
 	RepairSpecialPower::registerClass(modules); // lane MOD-4: the builders' repair power
 	HordeDispatchSpecialPower::registerClass(modules); // lane FACT-C: a horde's power passed on to its members
+	GrabPassengerSpecialPower::registerClass(modules); // lane MODCOMPAT-MOD1: the grabs' special power
 	ObjectCreationUpgrade::registerClass(modules); // lane FACT-C: the delayed spawn / grant upgrade (spike moats, wall catapults, the Sanctum's readiness)
 	SpawnBehavior::registerClass(modules); // lane MOD-4: the lairs' spawns
 	TransitionDamageFXModule::registerClass(modules); // lane FX-4: the damage state transition effects (S-686)
 	SlavedUpdate::registerClass(modules); // lane MOD-4: the spawns' guard
+	PickupStuffUpdate::registerModule(modules); // lane MODCOMPAT-MOD1: a skirmish AI's hordes walk to the crates near them (S-1422)
+	AutoPickUpUpdate::registerModule(modules); // lane MODCOMPAT-MOD1: the monsters' grab / eat scans and the WAKE_AUTO_PICKUP button (S-7160)
+	BoredUpdate::registerModule(modules); // lane MODCOMPAT-MOD1: an idle troll clubs a troll friend (S-7161)
 	LargeGroupAudioUpdate::registerClass(modules); // lane AUDIO-4: the logic half of the large group battle sounds
-	BoredUpdate::registerClass(modules); // MODGAP-2: targetless branch; S-6000 covers filtered targets
 	FlingPassengerSpecialAbilityUpdate::registerClass(modules); // MODGAP-2: release and landing warhead
 	ClientBehaviorModules::registerAll(modules); // lane AUDIO-4: the footsteps (a ClientBehavior: the drawables make it, GameClient/)
 	SiegeModules::registerAll(modules); // lane SIEGE-1: SiegeDockingBehavior, SiegeDeploySpecialPower, StopSpecialPower, SiegeAIUpdate (after the AI classes)

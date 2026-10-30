@@ -1,40 +1,45 @@
 // OpenBFME. GPL-3.0.
-// See GameLogic/Module/RebuildHoleModules.h for the target facts and the addresses.
+// See GameLogic/Module/RebuildHoleModules.h for the target facts, the donors and what is inference.
 
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 
 #include "GameLogic/Module/RebuildHoleModules.h"
-#include "GameLogic/SnapshotXfer.h"
 
+#include "Common/NumericState.h"
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
 #include "Common/StateHash.h"
+#include "Common/Team.h"
 #include "Common/Thing/ModuleFactory.h"
 #include "Common/Thing/ThingFactory.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "Common/Xfer.h"
+#include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/BitFlags.h"
-#include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Construction.h"
 #include "GameLogic/Damage.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Module/ActiveBody.h"
+#include "GameLogic/Module/ConstructionModules.h"
+#include "GameLogic/Module/DozerAIUpdate.h"
+#include "GameLogic/Module/SpawnBehavior.h"
+#include "GameLogic/Module/WorkerAIUpdate.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/ObjectTemplateInfo.h"
+#include "GameLogic/ScriptEngine/ScriptEngine.h"
 #include "GameLogic/SimMath.h"
+#include "GameLogic/SnapshotXfer.h"
 
 #include <cstddef>
+#include <memory>
 #include <stdexcept>
 
 namespace
 {
-const char *const kStop =
-	"[S-5603] RebuildHoleExposeDie / RebuildHoleBehavior (RW 0x889AAF, 0x8868C2) are ported for a hole WITHOUT WorkerObjectName (the creep lairs): the dead structure leaves its "
-	"hole, the hole is rebuilt complete at once after WorkerRespawnDelay, a destroyed hole makes its treasure. NOT ported: the worker branch (WorkerObjectName: the Wild and "
-	"Imladris holes stay until destroyed), TransferAttackers, the dead object's GeometryInfo on the hole, the spawner's active flag (a rebuilt spawner is active) and the "
-	"hole's fade-in";
-
-#define DM_ROWS(T)                                                                                                                                       \
+#define RH_DIE_MUX_ROWS(T)                                                                                                                               \
 	{ "DeathTypes", ParseDeathTypeFlags, nullptr, (int)offsetof(T, m_dieMux.m_deathTypes) },                                                              \
 	{ "ExemptStatus", ParseObjectStatusMask, nullptr, (int)offsetof(T, m_dieMux.m_exemptStatus) },                                                        \
 	{ "RequiredStatus", ParseObjectStatusMask, nullptr, (int)offsetof(T, m_dieMux.m_requiredStatus) },                                                    \
@@ -42,30 +47,68 @@ const char *const kStop =
 	{ "MinKillerAngle", INI::parseAngleReal, nullptr, (int)offsetof(T, m_dieMux.m_minKillerAngle) },                                                      \
 	{ "MaxKillerAngle", INI::parseAngleReal, nullptr, (int)offsetof(T, m_dieMux.m_maxKillerAngle) },                                                      \
 	{ nullptr, nullptr, nullptr, 0 }
-const FieldParse kExposeDieMux[] = { DM_ROWS(RebuildHoleExposeDieModuleData) };
-#undef DM_ROWS
 
-#define RHE_OFF(member) (int)offsetof(RebuildHoleExposeDieModuleData, member)
-const FieldParse kExposeDieFieldParse[] = { // RW 0xC616B8
-	{ "HoleName", INI::parseAsciiString, nullptr, RHE_OFF(m_holeName) },
-	{ "HoleMaxHealth", INI::parseReal, nullptr, RHE_OFF(m_holeMaxHealth) },
-	{ "TransferAttackers", INI::parseBool, nullptr, RHE_OFF(m_transferAttackers) },
-	{ "FadeInTimeSeconds", INI::parseReal, nullptr, RHE_OFF(m_fadeInTimeSeconds) },
+const FieldParse kExposeDieMux[] = { RH_DIE_MUX_ROWS(RebuildHoleExposeDieModuleData) }; // RW 0xC76BD8
+#undef RH_DIE_MUX_ROWS
+
+// RW 0xC616B8, in the binary's row order
+const FieldParse kExposeDie[] = {
+	{ "HoleName", INI::parseAsciiString, nullptr, (int)offsetof(RebuildHoleExposeDieModuleData, m_holeName) },               // RW 0x42EE5E, + 0x38
+	{ "HoleMaxHealth", INI::parseReal, nullptr, (int)offsetof(RebuildHoleExposeDieModuleData, m_holeMaxHealth) },            // RW 0x42ED00, + 0x3C
+	{ "TransferAttackers", INI::parseBool, nullptr, (int)offsetof(RebuildHoleExposeDieModuleData, m_transferAttackers) },    // RW 0x42E558, + 0x44
+	{ "FadeInTimeSeconds", INI::parseReal, nullptr, (int)offsetof(RebuildHoleExposeDieModuleData, m_fadeInTimeSeconds) },    // RW 0x42ED00, + 0x40
 	{ nullptr, nullptr, nullptr, 0 }
 };
-#undef RHE_OFF
 
-#define RHB_OFF(member) (int)offsetof(RebuildHoleBehaviorModuleData, member)
-const FieldParse kHoleFieldParse[] = { // RW 0xC60230
-	{ "WorkerObjectName", INI::parseAsciiString, nullptr, RHB_OFF(m_workerName) },
-	{ "WorkerRespawnDelay", INI::parseDurationReal, nullptr, RHB_OFF(m_workerRespawnDelay) },
-	{ "HoleHealthRegen%PerSecond", INI::parsePercentToReal, nullptr, RHB_OFF(m_regenPercentPerSecond) },
+// RW 0xC60230, in the binary's row order
+const FieldParse kRebuildHole[] = {
+	{ "WorkerObjectName", INI::parseAsciiString, nullptr, (int)offsetof(RebuildHoleBehaviorModuleData, m_workerObjectName) },          // RW 0x42EE5E, + 0x10
+	{ "WorkerRespawnDelay", INI::parseDurationReal, nullptr, (int)offsetof(RebuildHoleBehaviorModuleData, m_workerRespawnDelay) },     // RW 0x73A403, + 0x08
+	{ "HoleHealthRegen%PerSecond", INI::parsePercentToReal, nullptr, (int)offsetof(RebuildHoleBehaviorModuleData, m_holeHealthRegen) }, // RW 0x42EEFA, + 0x0C
 	{ nullptr, nullptr, nullptr, 0 }
 };
-#undef RHB_OFF
+
+const int kClientFramesPerSecond = 30; // RW 0xD9F60C
+const int kLogicFramesPerSecond = 5;   // RW 0xD9F608
+
+int statusBit(const char *name)
+{
+	const int bit = ObjectTemplateInfoBuilder::objectStatusIndex(name);
+	if (bit < 0)
+	{
+		throw std::logic_error(std::string("RebuildHoleModules: the object status ") + name + " is not in the binary's table");
+	}
+	return bit;
+}
+
+// RW 0x794311(3, 0x3C) with RW 0x68D440: UNSELECTABLE and UNATTACKABLE on / off
+void setHoleHidden(Object &hole, bool on)
+{
+	static const int unselectable = statusBit("UNSELECTABLE"), unattackable = statusBit("UNATTACKABLE");
+	hole.setStatus((unsigned)unselectable, on);
+	hole.setStatus((unsigned)unattackable, on);
+}
+
+// every object of the logic's list with an AI transfers its attack (RW 0x97338F getFirstObject, + 0x8C next, + 0x260 the AI, RW 0x66826E)
+void transferAttackers(GameLogic &logic, ObjectID from, ObjectID to)
+{
+	for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
+	{
+		if (AIUpdateInterface *ai = o->getAIUpdateInterface())
+		{
+			ai->transferAttack(from, to);
+		}
+	}
+}
+
+// TheScriptEngine RW 0x759467: a non-empty name moves to the object, with the script engine's name cache (ScriptEngine::transferObjectName)
+void transferObjectName(const std::string &name, Object &to)
+{
+	to.logic().scriptEngine().transferObjectName(name, to);
+}
 
 template <class Runtime, class Data>
-void bindRuntime(ModuleFactory &modules, const char *name)
+void bind(ModuleFactory &modules, const char *name)
 {
 	modules.bindTypedData<Data>(name, MODULETYPE_BEHAVIOR);
 	modules.bindModuleProc(name, MODULETYPE_BEHAVIOR, [name](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
@@ -79,220 +122,398 @@ void bindRuntime(ModuleFactory &modules, const char *name)
 }
 } // namespace
 
-// ---- RebuildHoleExposeDie -----------------------------------------------------------------------------------------------------------------------
 void RebuildHoleExposeDieModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
-	p.add(kExposeDieMux); // RW 0xC76BD8
-	p.add(kExposeDieFieldParse);
+	p.add(kExposeDieMux); // RW 0xC76BD8 (extra 8)
+	p.add(kExposeDie);    // RW 0xC616B8
 }
 
-RebuildHoleExposeDie::RebuildHoleExposeDie(Thing *thing, const RebuildHoleExposeDieModuleData *data)
-	: BehaviorModule(thing, data)
-	, m_data(data)
+void RebuildHoleBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
 {
+	p.add(kRebuildHole); // RW 0xC60230
 }
 
-const char *RebuildHoleExposeDie::stopLine()
+void RebuildHoleModules::registerModules(ModuleFactory &modules)
 {
-	return kStop;
+	bind<RebuildHoleExposeDie, RebuildHoleExposeDieModuleData>(modules, "RebuildHoleExposeDie"); // registration RW 0x658A4F
+	bind<RebuildHoleBehavior, RebuildHoleBehaviorModuleData>(modules, "RebuildHoleBehavior");    // registration RW 0x658695
 }
+
+// ---- RebuildHoleExposeDie --------------------------------------------------------------------------------------------------------------------------------
 
 // RW 0x889AAF
-void RebuildHoleExposeDie::onDie(const Event &event)
+void RebuildHoleExposeDie::onDie(const DieModuleInterface::Event &event)
 {
-	Object *obj = getObject();
-	if (!m_data->m_dieMux.isDieApplicable(*obj, event)) // RW 0x85FED5
+	Object *us = getObject();
+	GameLogic &logic = us->logic();
+	bool angle = false;
+	if (!m_data->m_dieMux.isDieApplicable(*us, event, &angle)) // RW 0x85FED5
 	{
 		return;
 	}
-	GameLogic &logic = obj->logic();
-	Player *owner = obj->getControllingPlayer();
-	if (!owner || owner == logic.players().getNeutralPlayer() || owner->isObserver() || owner->isDefeated()) // RW 0x889AE5, 0x6AAC52
+	if (angle)
 	{
-		return;
+		logic.noteStop("[S-980] RebuildHoleExposeDie of " + us->getTemplate()->getName() +
+			": MinKillerAngle / MaxKillerAngle are not ported (the die applies as if the killer were in the window)");
 	}
-	if (obj->isUnderConstruction()) // object + 0x94 bit 2
+	Player *player = us->getControllingPlayer(); // RW 0x68B678 (read unchecked by RW)
+	if (!player || player == logic.players().getNeutralPlayer() || player->isObserver() || player->isDefeated() || us->isUnderConstruction()) // RW 0x6AAC52
 	{
 		return;
 	}
 	const ThingTemplate *holeTemplate = logic.things().findTemplate(m_data->m_holeName); // RW 0x6D1305
-	if (!holeTemplate || !obj->getTeam())
+	Team *team = us->getTeam();                                                          // + 0x31C
+	if (!holeTemplate || !team)
 	{
+		// RW passes the null template / team to newObject unchecked
+		logic.reportError("RebuildHoleExposeDie of " + us->getTemplate()->getName() + ": " +
+			(!holeTemplate ? "HoleName '" + m_data->m_holeName + "' names no object template" : std::string("the object has no team")) + " [S-1427]");
 		return;
 	}
-	Object *hole = logic.newObject(holeTemplate, obj->getTeam(), ObjectStatusMaskType{}); // RW 0x6D165E
+	Object *hole = logic.newObject(holeTemplate, team, ObjectStatusMaskType{}); // RW 0x6D165E
 	if (!hole)
 	{
 		return;
 	}
-	hole->setPosition(obj->getPosition());      // RW 0x70C201
-	hole->setOrientation(obj->getOrientation()); // RW 0x70C31E
-	if (!obj->getName().empty())
+	++m_holes;
+	hole->setPosition(us->getPosition());       // RW 0x70C201
+	hole->setOrientation(us->getOrientation()); // RW 0x70C31E
+	hole->setGeometryInfoFrom(*us); // RW 0x699349: the dead structure's GeometryInfo (Object + 0xA8), "keep our extents for the rebuilding process"
+	transferObjectName(us->getName(), *hole); // RW 0x759467
+	if (AIWorld *ai = logic.aiWorld())
 	{
-		hole->setName(obj->getName()); // RW 0x759467: the script name moves to the hole
-		obj->setName("No Name");
+		ai->removeObjectFromPathfindMap(*us); // RW 0x6E85FB
+		ai->addObjectToPathfindMap(*hole);    // RW 0x6E85E9
 	}
-	if (BodyModuleInterface *body = hole->getBodyModule())
+	if (BodyModuleInterface *body = hole->getBodyModule()) // + 0x25C (RW calls it unchecked)
 	{
-		body->setMaxHealth(m_data->m_holeMaxHealth, 0); // body slot 0x5C
+		body->setMaxHealth(m_data->m_holeMaxHealth, 0); // vslot 0x5C, change type 0
 	}
-	if (RebuildHoleBehavior *rebuild = RebuildHoleBehavior::of(*hole)) // RW 0x886448
+	if (RebuildHoleBehavior *rhbi = RebuildHoleBehavior::of(*hole)) // RW 0x886448
 	{
-		rebuild->setRebuildData(obj->getTemplate(), obj->getID(), obj->getBuildCostPaid()); // RW 0x886831
+		if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(*us)) // RW 0x68C3A3
+		{
+			rhbi->setSpawnerWasActive(spawn->isSpawnerActive()); // slot 11 -> interface slot 4
+		}
+		rhbi->startRebuildProcess(static_cast<const ThingTemplate *>(us->getTemplate()), us->getID()); // slot 0
 	}
-	logic.noteStop(kStop);
+	if (m_data->m_transferAttackers)
+	{
+		transferAttackers(logic, us->getID(), hole->getID());
+	}
+	if (m_data->m_fadeInTimeSeconds > 0.0f) // comiss RW 0xC1B594 (0.0), jbe
+	{
+		if (ObjectClientHooks *client = logic.clientHooks())
+		{
+			// x87 fild 30, fmul, ftol (truncation): the client's fade (RW 0x70E013 -> RW 0x670AA2)
+			client->fadeIn(*hole, (UnsignedInt)SimMath::truncToInt32(NumericState::pc24Mul((float)kClientFramesPerSecond, m_data->m_fadeInTimeSeconds)));
+		}
+	}
+}
+
+void RebuildHoleExposeDie::crc(StateHasher &h) const
+{
+	h.addU32(m_holes);
 }
 
 void RebuildHoleExposeDie::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
 	xferBehaviorModule(x);
+	x.xferUnsignedInt(&m_holes);
 }
 
-void RebuildHoleExposeDie::registerClass(ModuleFactory &modules)
-{
-	bindRuntime<RebuildHoleExposeDie, RebuildHoleExposeDieModuleData>(modules, "RebuildHoleExposeDie");
-}
+// ---- RebuildHoleBehavior ---------------------------------------------------------------------------------------------------------------------------------
 
-// ---- RebuildHoleBehavior --------------------------------------------------------------------------------------------------------------------------
-void RebuildHoleBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
-{
-	p.add(kHoleFieldParse);
-}
-
+// RW 0x8864EE: the fields zero, + 0x40 0.0, + 0x44 TRUE; no wake call (the update runs every frame)
 RebuildHoleBehavior::RebuildHoleBehavior(Thing *thing, const RebuildHoleBehaviorModuleData *data)
 	: UpdateModule(thing, data)
 	, m_data(data)
 {
-	friend_setNextCallFrame((UnsignedInt)UPDATE_SLEEP_FOREVER); // until the die hands it the structure (setRebuildData wakes it)
 }
 
 RebuildHoleBehavior *RebuildHoleBehavior::of(const Object &obj)
 {
-	return dynamic_cast<RebuildHoleBehavior *>(obj.findModule("RebuildHoleBehavior"));
+	// RW 0x886448: the first module whose name key is "RebuildHoleBehavior" (module slot 0x10)
+	for (const std::unique_ptr<BehaviorModule> &m : obj.modules())
+	{
+		if (RebuildHoleBehavior *r = dynamic_cast<RebuildHoleBehavior *>(m.get()))
+		{
+			return r;
+		}
+	}
+	return nullptr;
 }
 
-// RW 0x886831 and the reset RW 0x8865F7
-void RebuildHoleBehavior::setRebuildData(const ThingTemplate *what, ObjectID spawnerId, float pricePaid)
+// RW 0x8865F7
+void RebuildHoleBehavior::newWorkerRespawnProcess(Object *existingWorker)
 {
-	m_template = what;
-	m_spawnerId = spawnerId;
-	m_pricePaid = pricePaid;
-	reset();
+	Object *hole = getObject();
+	GameLogic &logic = hole->logic();
+	if (existingWorker)
+	{
+		logic.destroyObject(existingWorker); // RW 0x62BBAB
+	}
+	m_workerID = INVALID_ID;
+	m_workerWaitCounter = (UnsignedInt)SimMath::truncToInt32(m_data->m_workerRespawnDelay); // x87 fld, RW 0xA3CFA4 (ftol)
+	hole->maskObject(false);           // RW 0x68BEB1(0)
+	setHoleHidden(*hole, false);       // RW 0x794311(3, 0x3C), RW 0x68D440(mask, 0)
+	hole->setScriptSelectable(true);   // RW 0x68BE3C(1)
+	if (AIWorld *ai = logic.aiWorld())
+	{
+		ai->addObjectToPathfindMap(*hole); // RW 0x6E85E9
+	}
 }
 
-void RebuildHoleBehavior::reset()
+// RW 0x886831
+void RebuildHoleBehavior::startRebuildProcess(const ThingTemplate *rebuild, ObjectID spawnerID)
 {
-	m_countdown = (unsigned)SimMath::truncToInt32(m_data->m_workerRespawnDelay); // fld; ftol
-	m_rebuiltId = INVALID_ID;
-	setWakeFrame(getObject(), UPDATE_SLEEP(1));
+	GameLogic &logic = getObject()->logic();
+	if (const Object *spawner = logic.findObjectByID(spawnerID))
+	{
+		m_pricePaid = spawner->getBuildCostPaid(); // + 0x40 = the spawner's + 0x33C
+	}
+	m_rebuildTemplate = rebuild; // + 0x3C
+	m_spawnerID = spawnerID;     // + 0x30
+	newWorkerRespawnProcess(logic.findObjectByID(m_workerID));
 }
 
 // RW 0x8868C2
 UpdateSleepTime RebuildHoleBehavior::update()
 {
-	static const unsigned kSupplySource = (unsigned)CombatNames::kindOf("SUPPLY_SOURCE");
 	Object *hole = getObject();
 	GameLogic &logic = hole->logic();
-	if (!m_template)
+	Object *reconstructing = nullptr;
+	Object *worker = nullptr;
+	if (m_workerID != INVALID_ID)
 	{
-		return UPDATE_SLEEP_FOREVER;
-	}
-	Object *rebuilt = m_rebuiltId != INVALID_ID ? logic.findObjectByID(m_rebuiltId) : nullptr;
-	if (m_rebuiltId != INVALID_ID && !rebuilt)
-	{
-		reset(); // RW 0x88691C: the rebuilt object is gone, the hole counts down again
-		rebuilt = nullptr;
-	}
-	if (!rebuilt && m_countdown > 0 && --m_countdown == 0) // RW 0x886934
-	{
-		if (!m_data->m_workerName.empty())
+		worker = logic.findObjectByID(m_workerID);
+		if (!worker)
 		{
-			logic.noteStop(kStop); // the worker branch (RW 0x886A01) is not ported: the hole stays
+			newWorkerRespawnProcess(nullptr);
+		}
+	}
+	if (m_reconstructingID != INVALID_ID)
+	{
+		reconstructing = logic.findObjectByID(m_reconstructingID);
+		if (!reconstructing)
+		{
+			newWorkerRespawnProcess(worker);
+			m_reconstructingID = INVALID_ID;
+		}
+	}
+	if (!worker && m_workerWaitCounter > 0 && --m_workerWaitCounter == 0)
+	{
+		Player *owner = hole->getControllingPlayer();
+		if (!m_rebuildTemplate || !owner)
+		{
+			// RW passes them unchecked (a hole made outside RebuildHoleExposeDie has no template)
+			logic.reportError("RebuildHoleBehavior of " + hole->getTemplate()->getName() + ": " +
+				(!m_rebuildTemplate ? std::string("no rebuild template (startRebuildProcess never ran)") : std::string("the hole has no player")) + " [S-1427]");
 			return UPDATE_SLEEP_FOREVER;
 		}
-		Player *owner = hole->getControllingPlayer();
-		Object *made = owner ? Construction::buildObjectNow(logic, hole, *m_template, *hole->getPosition(), hole->getOrientation(), *owner) : nullptr; // BuildAssistant slot 0x38
-		if (!made)
+		const Coord3D pos = *hole->getPosition();      // + 0x38
+		const float angle = hole->getOrientation();    // + 0x44
+		if (m_data->m_workerObjectName.empty())        // RW 0x401E64
 		{
-			return UPDATE_SLEEP_FOREVER; // RW 0x886AB9: the site is blocked, the hole waits for ever
+			if (AIWorld *ai = logic.aiWorld())
+			{
+				ai->removeObjectFromPathfindMap(*hole); // RW 0x6E85FB
+			}
+			reconstructing = Construction::buildObjectNow(logic, hole, *m_rebuildTemplate, pos, angle, *owner); // TheBuildAssistant slot 0x38 (RW 0x797796)
+			if (!reconstructing)
+			{
+				return UPDATE_SLEEP_FOREVER; // RW 0x886AB9
+			}
+			if (GettingBuiltBehavior *gb = dynamic_cast<GettingBuiltBehavior *>(reconstructing->findModule("GettingBuiltBehavior"))) // RW 0x68C3E6
+			{
+				if (BodyModuleInterface *body = reconstructing->getBodyModule())
+				{
+					body->setInitialHealthPercent(1.0f); // vslot 0x58 (1.0, 0)
+				}
+				gb->setForceComplete(true);  // slot 10
+				gb->startConstruction(true); // slot 4
+			}
+			Construction::setModelConditions(*reconstructing, {}, { "PARTIALLY_CONSTRUCTED", "ACTIVELY_BEING_CONSTRUCTED" }); // RW 0x5E417A(0x44, 0x45), RW 0x5E3BA5
+			if (ObjectClientHooks *client = logic.clientHooks())
+			{
+				client->flushModelConditions(*reconstructing); // RW 0x70E013 / 0x67449C(1): the drawable (client)
+			}
 		}
-		m_rebuiltId = made->getID();   // RW 0x886B1E
-		made->setProducer(hole);       // RW 0x68B6A1
-		made->setBuildCostPaid(m_pricePaid); // RW 0x886B2F: object + 0x33C
-		rebuilt = made;
+		else
+		{
+			if (!m_workerTemplate)
+			{
+				m_workerTemplate = logic.things().findTemplate(m_data->m_workerObjectName); // RW 0x6D1305
+			}
+			Team *team = hole->getTeam(); // + 0x31C
+			worker = m_workerTemplate && team ? logic.newObject(m_workerTemplate, team, ObjectStatusMaskType{}) : nullptr; // RW 0x6D165E
+			if (!m_workerTemplate)
+			{
+				logic.reportError("RebuildHoleBehavior of " + hole->getTemplate()->getName() + ": WorkerObjectName '" + m_data->m_workerObjectName +
+					"' names no object template [S-1427]");
+			}
+			if (worker)
+			{
+				worker->setPosition(&pos); // RW 0x70C201
+				m_workerID = worker->getID();
+				if (AIUpdateInterface *ai = worker->getAIUpdateInterface()) // + 0x260
+				{
+					if (!reconstructing)
+					{
+						if (AIWorld *world = logic.aiWorld())
+						{
+							world->removeObjectFromPathfindMap(*hole); // RW 0x6E85FB
+						}
+						// the AI's vslot 0x1F8 construct(template, position, angle, player, 1, 0)
+						if (WorkerAIUpdate *w = dynamic_cast<WorkerAIUpdate *>(ai))
+						{
+							reconstructing = w->constructForRebuild(*m_rebuildTemplate, pos, angle, *owner); // RW 0x8AD6A4
+						}
+						else if (DozerAIUpdate *d = dynamic_cast<DozerAIUpdate *>(ai))
+						{
+							reconstructing = d->construct(*m_rebuildTemplate, pos, angle, *owner, true); // RW 0x88C217
+						}
+						else
+						{
+							// AIUpdateInterface's own slot 0x1F8 (RW: no structure for a non-builder AI)
+							logic.reportError("RebuildHoleBehavior of " + hole->getTemplate()->getName() + ": the worker '" + m_data->m_workerObjectName +
+								"' has no dozer or worker AI, so nothing rebuilds [S-1427]");
+						}
+						if (!reconstructing)
+						{
+							return UPDATE_SLEEP_FOREVER; // RW 0x886AB9
+						}
+					}
+					else if (DozerAIUpdate *d = dynamic_cast<DozerAIUpdate *>(ai))
+					{
+						d->resumeConstruction(*reconstructing); // aiResumeConstruction(CMD_FROM_AI) RW 0x771526
+					}
+				}
+				static const int unselectable = statusBit("UNSELECTABLE");
+				worker->setStatus((unsigned)unselectable, true); // RW 0x6267C7(3), RW 0x68D440(mask, 1)
+			}
+		}
+		if (reconstructing)
+		{
+			transferAttackers(logic, hole->getID(), reconstructing->getID());
+			m_reconstructingID = reconstructing->getID();
+			reconstructing->setProducer(hole);              // RW 0x68B6A1
+			reconstructing->setBuildCostPaid(m_pricePaid);  // + 0x33C = + 0x40
+			if (!m_spawnerWasActive)
+			{
+				if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(*reconstructing)) // RW 0x68C3A3
+				{
+					spawn->stopSpawning(); // slot 9
+				}
+			}
+			++m_rebuilds;
+		}
+		hole->maskObject(true);          // RW 0x68BEB1(1)
+		setHoleHidden(*hole, true);      // RW 0x794311(3, 0x3C), RW 0x68D440(mask, 1)
+		hole->setScriptSelectable(false); // RW 0x68BE3C(0)
 	}
-	// RW 0x886B77: the hole heals while it waits
-	if (BodyModuleInterface *body = hole->getBodyModule())
+	if (BodyModuleInterface *body = hole->getBodyModule()) // + 0x25C (RW reads it unchecked)
 	{
-		if (body->getMaxHealth() > body->getHealth())
+		if (body->getHealth() < body->getMaxHealth()) // fcomip, jbe
 		{
-			DamageInfo heal;
-			heal.m_input.m_damageType = DAMAGE_HEALING;
-			heal.m_input.m_deathType = DEATH_NONE;
-			heal.m_input.m_sourceID = hole->getID();
-			const float perFrame = SimMath::divf32(m_data->m_regenPercentPerSecond, 5.0f); // LOGICFRAMES_PER_SECOND (RW 0xD9F608)
-			heal.m_input.m_amount = SimMath::mulf32(perFrame, body->getMaxHealth());
-			body->attemptHealing(heal);
+			DamageInfo healing;
+			// (HoleHealthRegen / 5) * max: x87 fidiv (fdivr) and fmulp, stored as a float (PC24)
+			healing.m_input.m_amount = NumericState::pc24Mul(NumericState::pc24Div(m_data->m_holeHealthRegen, (float)kLogicFramesPerSecond), body->getMaxHealth());
+			healing.m_input.m_sourceID = hole->getID();
+			healing.m_input.m_damageType = DAMAGE_HEALING; // 7
+			healing.m_input.m_deathType = DEATH_NONE;      // 1
+			body->attemptHealing(healing);                 // vslot 4
 		}
 	}
-	// RW 0x886BD8: a rebuilt structure that stands takes the script name back and the hole fades away (FADED: no treasure)
-	if (rebuilt)
+	if (reconstructing)
 	{
-		const bool supply = rebuilt->isKindOf(kSupplySource);
-		if (!supply && rebuilt->isUnderConstruction())
+		static const int canceled = statusBit("BUILD_BEING_CANCELED"); // 0x56
+		const bool cancelBuild = reconstructing->testStatus((unsigned)canceled);
+		if (cancelBuild || !reconstructing->isUnderConstruction())
 		{
-			return UPDATE_SLEEP_NONE;
+			const bool gettingBuilt = reconstructing->findModule("GettingBuiltBehavior") != nullptr; // RW 0x68C3E6
+			if (cancelBuild || !gettingBuilt || !reconstructing->isEffectivelyDead()) // + 0x458 bit 0
+			{
+				transferObjectName(hole->getName(), *reconstructing); // RW 0x759467
+				if (worker)
+				{
+					logic.destroyObject(worker); // RW 0x62BBAB
+				}
+				hole->kill(DAMAGE_UNRESISTABLE, 0x16); // RW 0x698EC3(8, 0x16)
+			}
 		}
-		if (!supply && rebuilt->isEffectivelyDead())
-		{
-			return UPDATE_SLEEP_NONE;
-		}
-		if (!hole->getName().empty() && hole->getName() != "No Name")
-		{
-			rebuilt->setName(hole->getName()); // RW 0x759467
-			hole->setName("No Name");
-		}
-		hole->kill(DAMAGE_UNRESISTABLE, DEATH_FADED); // RW 0x698EC3(8, 0x16)
 	}
-	return UPDATE_SLEEP_NONE;
+	return UPDATE_SLEEP_NONE; // RW 0x886C45: 1
+}
+
+// RW 0x886878
+void RebuildHoleBehavior::onDie(const DieModuleInterface::Event &)
+{
+	if (m_workerID != INVALID_ID)
+	{
+		GameLogic &logic = getObject()->logic();
+		if (Object *worker = logic.findObjectByID(m_workerID))
+		{
+			logic.destroyObject(worker); // RW 0x62BBAB
+			m_workerID = INVALID_ID;
+		}
+	}
+}
+
+// RW 0x8867BB (the destructor): the same as onDie
+void RebuildHoleBehavior::onDelete()
+{
+	if (m_workerID != INVALID_ID)
+	{
+		GameLogic &logic = getObject()->logic();
+		if (Object *worker = logic.findObjectByID(m_workerID))
+		{
+			logic.destroyObject(worker);
+			m_workerID = INVALID_ID;
+		}
+	}
 }
 
 void RebuildHoleBehavior::crc(StateHasher &h) const
 {
 	UpdateModule::crc(h);
-	h.addU32((std::uint32_t)m_spawnerId);
-	h.addU32((std::uint32_t)m_rebuiltId);
-	h.addU32(m_countdown);
+	h.addU32(m_workerID);
+	h.addU32(m_reconstructingID);
+	h.addU32(m_spawnerID);
+	h.addU32(m_workerWaitCounter);
+	h.addU32(m_workerTemplate ? m_workerTemplate->getTemplateID() : 0u);
+	h.addU32(m_rebuildTemplate ? m_rebuildTemplate->getTemplateID() : 0u);
 	h.addFloat(m_pricePaid);
+	h.addBool(m_spawnerWasActive);
+	h.addU32(m_rebuilds);
 }
 
-// OpenBFME native layout (S-4190): UpdateModule's, the template's name, the ids, the countdown and the price
+// RW 0x886669's fields in its order (OpenBFME native snapshot, S-4190), then the port's counter
 void RebuildHoleBehavior::xfer(Xfer &x)
 {
 	SnapshotXfer::version(x, 1, 1);
-	xferUpdateModule(x);
-	std::string name = m_template ? m_template->getName() : std::string();
-	x.xferAsciiString(&name);
-	if (x.isLoading())
-	{
-		m_template = nullptr;
-		if (!name.empty())
-		{
-			m_template = getObject()->logic().things().findTemplate(name);
-			if (!m_template)
-			{
-				throw std::runtime_error("a RebuildHoleBehavior's template " + name + " is unknown");
-			}
-		}
-	}
-	x.xferObjectID(&m_spawnerId);
-	x.xferObjectID(&m_rebuiltId);
-	x.xferUnsignedInt(&m_countdown);
+	xferUpdateModule(x); // RW 0x850C60
+	x.xferObjectID(&m_workerID);
+	x.xferObjectID(&m_reconstructingID);
+	x.xferObjectID(&m_spawnerID);
+	x.xferUnsignedInt(&m_workerWaitCounter);
+	GameLogic &logic = getObject()->logic();
+	SnapshotXfer::thingTemplate(x, logic, m_workerTemplate);
+	SnapshotXfer::thingTemplate(x, logic, m_rebuildTemplate);
+	x.xferBool(&m_spawnerWasActive);
 	x.xferReal(&m_pricePaid);
+	x.xferUnsignedInt(&m_rebuilds);
 }
 
-void RebuildHoleBehavior::registerClass(ModuleFactory &modules)
+std::vector<std::string> RebuildHoleBehavior::acceptanceStops()
 {
-	bindRuntime<RebuildHoleBehavior, RebuildHoleBehaviorModuleData>(modules, "RebuildHoleBehavior");
+	return {
+		"[S-1427] RebuildHoleExposeDie / RebuildHoleBehavior (lane MODCOMPAT-MOD1, ported from RW 0x889AAF / 0x8868C2 / 0x886831 / 0x8865F7 / 0x886878): a "
+		"live, non-neutral player's dead structure leaves its HoleName object, which rebuilds it after WorkerRespawnDelay (by itself through BuildAssistant "
+		"slot 0x38, or through its WorkerObjectName worker's construct with the rebuild byte: RECONSTRUCTING, no price), heals and dies when the structure "
+		"is done; the hole carries the dead structure's geometry (RW 0x699349). Not ported: Object::maskObject's "
+		"readers (RW 0x6C91EB / 0x81E691 / 0x83BDAF; the masked hole is UNSELECTABLE and UNATTACKABLE) and its deselection (client), a player's or AI's "
+		"worker order through RW 0x8AD6A4's non-rebuild branch (it runs DozerAIUpdate's phantom); the fades are the client's",
+	};
 }
