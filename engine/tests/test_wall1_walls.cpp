@@ -977,6 +977,7 @@ TEST_CASE("wall1 walls retail: on Helm's Deep a horde ordered onto a wall top ge
 	}
 	const Coord3D hp = *horde->getPosition();
 	MESSAGE("horde at " << hp.x << ", " << hp.y << " (goal " << goal.x << ", " << goal.y << "): " << up << " of " << members << " members up at frame " << arrived << ", largest step " << maxStep);
+	CHECK(arrived >= 0); // tolerance: the frame the move ended varies with the walk; -1 is a move that never ended with every member up
 	CHECK(members == 15); // GondorFighterHorde's 15 soldiers
 	CHECK(up == members);
 	CHECK(maxStep < 20.0f); // tolerance: a walking member's stride in one logic frame (its speed / 5) stays below 20; a member put on its goal would jump much farther
