@@ -305,6 +305,9 @@ public:
 	};
 	static constexpr int MAX_TRIGGERS_IN = 7;
 	void updateTriggerAreaFlags();
+	// lane CASTLEAREA-1: RW 0x68B9E9 (from PolygonTrigger removal, RW 0x6263AF): every entry of `trigger` is cleared (no exit is reported), then RW 0x68B98E keeps
+	// the entries still inside with their entered / exited flags cleared
+	void removeTriggerEntries(int trigger);
 	void updateOffMapStatus(); ///< lane CAMPUI-1: RW 0x69355D's extent test (RW 0x6936A9 / 0x6936B2)
 	// lane HUD-5: GeometryInfo::setActive(name, flag) on the object's own geometry (Object + 0xA8, RW 0xAD3520): every shape of the template's list whose name
 	// equals `name` exactly takes `on` as its active flag; the pathfinder's view of the object (ObjectPathfindAdapter::getGeometry) uses the object's flags from

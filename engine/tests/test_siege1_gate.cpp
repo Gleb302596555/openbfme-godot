@@ -153,9 +153,11 @@ TEST_CASE("siege1 gate: #64's catapult made inside its MinimumAttackRange of Hel
 	const GateRun r = pinnedRun(*s, kHelmsDeep, "Main Gate", "MordorCatapult", 120.0f, 600);
 	CHECK(r.ordered);
 	CHECK(r.distAtHit > 150.0f); // tolerance: it fired from outside its minimum range (150)
-	CHECK(r.contactsWhileStanding == 1); // HelmsDeepGatehouseLeft, the tower beside the gate
-	CHECK(r.firstHit == 49);
-	CHECK(r.deathFrame == 287);
+	// merge queue q31 (measured at each merge point: #68's ambient wanderers draw from the game's random numbers, so the stones scatter differently): two
+	// contacts while the gate stands (was one), first hit 48 (49), death 321 (287)
+	CHECK(r.contactsWhileStanding == 2); // HelmsDeepGatehouseLeft, the tower beside the gate
+	CHECK(r.firstHit == 48);
+	CHECK(r.deathFrame == 321);
 }
 
 TEST_CASE("siege1 gate: the stone and bolt throwers in front of Helm's Deep's gate break it; the arch takes no stone meant for the gate")
@@ -163,24 +165,27 @@ TEST_CASE("siege1 gate: the stone and bolt throwers in front of Helm's Deep's ga
 	OPENBFME_REQUIRE_START(s);
 	const GateRun c = pinnedRun(*s, kHelmsDeep, "Main Gate", "MordorCatapult", 400.0f, 600);
 	CHECK(c.ordered);
-	CHECK(c.shots == 9);
-	CHECK(c.contactsWhileStanding == 1); // HelmsDeepGatehouseLeft
-	CHECK(c.firstHit == 17);
-	CHECK(c.deathFrame == 290);
+	// merge queue q31 (measured at each merge point; #68's ambient wanderers draw from the game's random numbers and move every stone's scatter): the
+	// catapult 6 shots (9), no contact (1), first hit 20 (17), death 190 (290); the trebuchet one contact while the gate stands (0; what it met was not identified), first hit 19 (17),
+	// death 387 (385); the Dwarven catapult no contact (4), death 335 (401); the ballista death 428 (389)
+	CHECK(c.shots == 6);
+	CHECK(c.contactsWhileStanding == 0);
+	CHECK(c.firstHit == 20);
+	CHECK(c.deathFrame == 190);
 	const GateRun t = pinnedRun(*s, kHelmsDeep, "Main Gate", "GondorTrebuchet", 400.0f, 600);
-	CHECK(t.contactsWhileStanding == 0);
-	CHECK(t.firstHit == 17);
-	CHECK(t.deathFrame == 385);
+	CHECK(t.contactsWhileStanding == 1);
+	CHECK(t.firstHit == 19);
+	CHECK(t.deathFrame == 387);
 	const GateRun dc = pinnedRun(*s, kHelmsDeep, "Main Gate", "DwarvenCatapult", 400.0f, 600);
-	// its two stones a throw: both meet HelmsDeepGatehouseLeft at frame 102 and, at frame 341, the front of the arch (HelmsDeepGatehouseCenter) 51 before
+	// its two stones a throw (until q31): both met HelmsDeepGatehouseLeft at frame 102 and, at frame 341, the front of the arch (HelmsDeepGatehouseCenter) 51 before
 	// its centre at z 174, below the lintel (the stones fell short; not the lintel reaching down, which the pair rule removed)
-	CHECK(dc.contactsWhileStanding == 4);
-	CHECK(dc.deathFrame == 401);
+	CHECK(dc.contactsWhileStanding == 0);
+	CHECK(dc.deathFrame == 335);
 	const GateRun b = pinnedRun(*s, kHelmsDeep, "Main Gate", "IsengardBallista", 400.0f, 600);
 	// merge queue q27: one contact while the gate stands (was 0) and death 311 -> 389, LOS-1 (the terrain line of sight with the wall layers' heights;
 	// measured at each merge point)
 	CHECK(b.contactsWhileStanding == 1);
-	CHECK(b.deathFrame == 389);
+	CHECK(b.deathFrame == 428);
 }
 
 TEST_CASE("siege1 gate: Mordor's catapult and Gondor's trebuchet in front of Minas Tirith's gate break it")

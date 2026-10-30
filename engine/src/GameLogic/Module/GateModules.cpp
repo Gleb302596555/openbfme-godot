@@ -508,8 +508,8 @@ AIGateUpdate::AIGateUpdate(Thing *thing, const AIGateUpdateModuleData *data)
 {
 }
 
-// RW 0x8B4BB7 (the corners RW 0x8B4B31)
-void AIGateUpdate::loadTrigger()
+// RW 0x8B4BB7 (the corners RW 0x8B4B31). lane CASTLEAREA-1: savedIndex >= 0 is a snapshot load's (the trigger goes back at the index it had)
+void AIGateUpdate::loadTrigger(int savedIndex)
 {
 	const float zero = 0.0f;
 	if (m_data->m_triggerWidthX > zero && m_data->m_triggerWidthY > zero)
@@ -534,14 +534,26 @@ void AIGateUpdate::loadTrigger()
 		}
 		GameLogic &logic = obj->logic();
 		const ObjectID gateId = obj->getID();
-		m_trigger = logic.scriptEngine().addPolygonTrigger(area, [&logic, gateId](Object &other, bool entered) {
+		auto callback = [&logic, gateId](Object &other, bool entered) {
 			Object *gate = logic.findObjectByID(gateId);
 			AIGateUpdate *u = gate ? dynamic_cast<AIGateUpdate *>(gate->findModule("AIGateUpdate")) : nullptr;
 			if (u)
 			{
 				u->onTrigger(other, entered);
 			}
-		});
+		};
+		if (savedIndex >= 0)
+		{
+			logic.scriptEngine().addPolygonTriggerAt(savedIndex, area, callback);
+		}
+		else
+		{
+			m_trigger = logic.scriptEngine().addPolygonTrigger(area, callback);
+		}
+	}
+	else if (savedIndex >= 0)
+	{
+		throw XferException("the snapshot's AI gate " + std::to_string(getObject()->getID()) + " has a trigger, its data makes none");
 	}
 	m_loaded = true;
 }
@@ -687,4 +699,8 @@ void AIGateUpdate::xfer(Xfer &x)
 	x.xferInt(&m_enemies);
 	x.xferBool(&m_loaded);
 	x.xferBool(&m_enabled);
+	if (x.isLoading() && m_loaded && m_trigger >= 0)
+	{
+		loadTrigger(m_trigger); // lane CASTLEAREA-1: the trigger back in the script engine's list (the transform is loaded before the modules)
+	}
 }

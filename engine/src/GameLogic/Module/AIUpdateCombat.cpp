@@ -116,11 +116,14 @@ void AIUpdateInterface::readCombatSettings(const ModuleData *data)
 	m_combat = CombatSettings();
 	m_attackInfoGeneration = 0xFFFFFFFFu; // lane TARGET-1: AI + 0x70 is looked up again from the (new) name
 	m_minCowerTime = m_maxCowerTime = 0; // lane MODULES-3: RW ctor 0x66E8FF (+ 0x34 / + 0x30 = 0)
+	m_animalInterface = false; // lane CASTLEAREA-1: RW 0x64BB5B (AfraidOfCastles 1)
+	m_animalAfraidOfCastles = true;
 	const RawModuleData *raw = dynamic_cast<const RawModuleData *>(data);
 	if (!raw)
 	{
 		return;
 	}
+	m_animalInterface = raw->className() == "AnimalAIUpdate"; // RW 0x88C915
 	for (const RawModuleData::Line &l : raw->lines())
 	{
 		std::string name;
@@ -168,6 +171,10 @@ void AIUpdateInterface::readCombatSettings(const ModuleData *data)
 		else if (ieq(name, "StandGround"))
 		{
 			m_combat.standGround = ieq(tok[0], "Yes") || ieq(tok[0], "True") || tok[0] == "1";
+		}
+		else if (m_animalInterface && ieq(name, "AfraidOfCastles"))
+		{
+			m_animalAfraidOfCastles = ieq(tok[0], "Yes") || ieq(tok[0], "True") || tok[0] == "1"; // lane CASTLEAREA-1: parseBool RW 0x42E558 (as StandGround)
 		}
 		else if (ieq(name, "CanAttackWhileContained"))
 		{

@@ -34,6 +34,11 @@ rule (`helpers.py`; the engine's `test_numeric_state.cpp` does it for `x87_oracl
 `stale helper: <name> (...); rebuild with tools\retail_oracle\build.bat` instead of running against an old binary.
 Add an input to `helpers.json` when a helper starts including a new source or header.
 
+**Linux under Wine** (lane BFME2MODE-0): `LLVM_MINGW=<llvm-mingw folder> tools/retail_oracle/build_mingw.sh` builds the same
+`build/retail_oracle.exe` with llvm-mingw (i686). Off Windows, `oracle.py` runs it with `wine` (`$WINE` overrides the binary) and
+`WINEDLLOVERRIDES=msvcr71=n;msvcp71=n`, because Wine would otherwise substitute its builtin msvcr71 (lane WIN-1). Install paths are
+passed as `Z:\...`. The drivers still need MSVC. `test_edition_oracle.py` (the first edition branch, docs/EDITIONS.md) ran this way.
+
 `ROTWK_INSTALL` / `BFME2_INSTALL` name the install folders (defaults `F:\RotWK`, `F:\BFME2`).
 The suite SKIPS loudly (reason shown with `-rs`) if the helper is not built or a binary is absent.
 A binary that is present but is not the image a test's addresses were read from FAILS with the reason (never a fault at
