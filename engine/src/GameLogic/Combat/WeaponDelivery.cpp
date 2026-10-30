@@ -1433,6 +1433,10 @@ void damageContained(GameLogic &logic, const DamageContainedNugget &n, ObjectID 
 			continue;
 		}
 		BehaviorModule *hm = o->findModule("HordeContain");
+		if (!hm)
+		{
+			hm = o->findModule("AODHordeContain");
+		}
 		ContainModuleInterface *members = hm ? hm->getContain() : nullptr;
 		if (!members)
 		{

@@ -44,6 +44,7 @@ void MapHordeSpawn::bindHordeContainData(ModuleFactory &modules)
 {
 	modules.bindTypedData<HordeContainBehaviorData>("HordeContain", MODULETYPE_BEHAVIOR);
 	modules.bindTypedData<HordeContainBehaviorData>("HorseHordeContain", MODULETYPE_BEHAVIOR);
+	modules.bindTypedData<AODHordeContainBehaviorData>("AODHordeContain", MODULETYPE_BEHAVIOR);
 }
 
 bool MapHordeSpawn::unitTypeIsMachine(const ThingFactory &things, const std::string &unitType,
@@ -103,7 +104,7 @@ void MapHordeSpawn::spawn(const ThingTemplate &tmpl, const ThingFactory &things,
 	std::string className;
 	for (const ThingTemplate::Nugget &n : tmpl.behaviorModules().nuggets())
 	{
-		if (n.name == "HordeContain" || n.name == "HorseHordeContain")
+		if (n.name == "HordeContain" || n.name == "HorseHordeContain" || n.name == "AODHordeContain")
 		{
 			result.isHorde = true;
 			className = n.name;

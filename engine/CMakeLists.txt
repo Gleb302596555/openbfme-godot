@@ -221,6 +221,8 @@ include(cmake/CampSave1.cmake)  # CAMPSAVE-1: CampaignMenu.apt and the campaign'
 include(cmake/Ui1.cmake)        # UI-1: interface gaps (client only; OPENBFME_UI1_CLIENT_SOURCES / OPENBFME_UI1_TESTS)
 include(cmake/Release1.cmake)   # RELEASE-1: install discovery, version, session log (client only; OPENBFME_RELEASE1_SOURCES / _GODOT_SOURCES / _TESTS)
 include(cmake/Mod4.cmake)       # MOD-4: AISpecialPowerUpdate, RepairSpecialPower, ... (appends to OPENBFME_SIM_SOURCES; OPENBFME_MOD4_TESTS)
+include(cmake/Modgap1.cmake)    # MODGAP-1: the modules Ennorath uses that the port lacked (docs/ennorath/MODULE_GAPS.md; OPENBFME_MODGAP1_TESTS)
+include(cmake/Modgap2.cmake)    # MODGAP-2: agent B's Ennorath modules
 include(cmake/Aipow1.cmake)     # AIPOW-1: the AISpecialPowerUpdate decisions and the ActionManager tests (appends to OPENBFME_SIM_SOURCES; OPENBFME_AIPOW1_TESTS)
 include(cmake/Ui2.cmake)        # UI-2: owner menu feedback (client only; OPENBFME_UI2_CLIENT_SOURCES / OPENBFME_UI2_TESTS)
 include(cmake/Ui4.cmake)        # UI-4: owner menu / HUD findings on v0.3.0-preview.1 (client only)
@@ -763,6 +765,8 @@ add_executable(openbfme_tests
     ${OPENBFME_UI1_TESTS}
     ${OPENBFME_RELEASE1_TESTS}
     ${OPENBFME_MOD4_TESTS}
+    ${OPENBFME_MODGAP1_TESTS}
+    ${OPENBFME_MODGAP2_TESTS}
     ${OPENBFME_AIPOW1_TESTS}
     ${OPENBFME_UI2_TESTS}
     ${OPENBFME_UI4_TESTS}

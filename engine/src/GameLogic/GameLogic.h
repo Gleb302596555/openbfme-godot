@@ -551,6 +551,16 @@ public:
 	static constexpr size_t kBeaconNotices = 64;
 	void noteBeacon(BeaconNotice::Kind kind, int playerIndex, ObjectID object, const Coord3D &position);
 	const std::vector<BeaconNotice> &beaconNotices() const { return m_beaconNotices; }
+	// Presentation only: a successfully applied global rally command, consumed
+	// by the issuing player's HUD. Not part of the simulation hash or save.
+	struct GlobalRallyNotice
+	{
+		std::uint32_t seq = 0;
+		int playerIndex = -1;
+		Coord3D position{ 0.0f, 0.0f, 0.0f };
+	};
+	void noteGlobalRally(int playerIndex, const Coord3D &position);
+	const std::vector<GlobalRallyNotice> &globalRallyNotices() const { return m_globalRallyNotices; }
 	void noteRadarEvent(int type, const Coord3D &position, RadarEventNotice::Source source, int playerIndex);
 	const std::vector<RadarEventNotice> &radarEventNotices() const { return m_radarEventNotices; }
 
@@ -965,6 +975,8 @@ private:
 	std::vector<RadarEventNotice> m_radarEventNotices; ///< lane BACKLOG3: oldest first, at most kRadarEventNotices
 	std::vector<BeaconNotice> m_beaconNotices; ///< lane CHAT-1: oldest first, at most kBeaconNotices
 	std::uint32_t m_beaconSeq = 0;
+	std::vector<GlobalRallyNotice> m_globalRallyNotices;
+	std::uint32_t m_globalRallySeq = 0;
 	std::uint32_t m_radarEventSeq = 0;
 	ObjectClientHooks *m_clientHooks = nullptr;
 	ObjectCreatedProc m_objectCreatedProc;

@@ -590,7 +590,7 @@ void Economy::grantBuildingExperience(Object &obj, float points)
 	}
 }
 
-void Economy::noteIncome(Object &obj, Player &owner, int amount, IncomeEvent::TextAnchor anchor)
+void Economy::noteIncome(Object &obj, Player &owner, int amount, IncomeEvent::TextAnchor anchor, float textScale)
 {
 	++m_incomePayments;
 	IncomeEvent e;
@@ -600,6 +600,7 @@ void Economy::noteIncome(Object &obj, Player &owner, int amount, IncomeEvent::Te
 	e.frame = m_logic.getFrame();
 	e.textPos = *obj.getPosition();
 	e.textAnchor = anchor;
+	e.textScale = textScale;
 	if (anchor == IncomeEvent::TEXT_GEOMETRY_TOP && obj.getTemplate())
 	{
 		e.templateName = obj.getTemplate()->getName();

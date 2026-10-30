@@ -57,6 +57,7 @@ class RetailObjectWorld;
 class InGameHud
 {
 public:
+	static bool movieIsModAuthored(const ArchiveFileSystem &fs, const std::string &movie); // the movie ("palantir") comes from a mod's own archive
 	struct Config
 	{
 		LiveGame &game;
@@ -305,10 +306,12 @@ private:
 	unsigned long long m_guiMessagesShown = 0;
 	std::vector<std::string> m_missingMessageLabels;
 	std::uint32_t m_beaconNoticeSeen = 0;
+	std::uint32_t m_globalRallyNoticeSeen = 0;
 	std::set<ObjectID> m_beaconObjects;    ///< the beacons the notices made (live ones; pruned when gone)
 	std::uint32_t m_beaconPulseFrame = 0xFFFFFFFFu;
 	BeaconStats m_beaconStats;
 	void presentBeacons();              ///< lane CHAT-1: the notices and the pulses (logic held)
+	void presentGlobalRally();          ///< the local player's successfully applied global rally
 	void showMessageLabel(const std::string &label, const std::u16string *argument);
 
 	InGameSpellBookModel m_spellBar;          // lane SPELL-2
@@ -347,6 +350,7 @@ private:
 	void syncSpellBook();
 	// lane SPELL-4: InGameUI's radius cursor for spell-book and selected-unit targeting (RW 0x6A3B77 -> RW 0x6A077A, RadiusDecal::update RW 0x732926)
 	void updateRadiusCursor();
+	bool m_wasPlacing = false; ///< updateResourceFeedback: the placement started this frame
 	void updateResourceFeedback(); // lane OWNERFIX-2
 	TerrainResourceFeedback m_resourceFeedback;
 	PlayerMessageLog m_playerMessages;

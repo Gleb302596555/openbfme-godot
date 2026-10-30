@@ -20,6 +20,7 @@
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 
+#include <algorithm>
 #include <map>
 
 // lane CAMPUI-1: RW 0x96F53C (InGameToggleStanceCommandButton::SetStance): TheMessageStream's new message 0x468 (MSG_CHANGE_STANCE, vslot 0x48) with the stance as its
@@ -37,6 +38,46 @@ bool ControlBar::sendChangeStance(int stance, const char *site)
 	ClientMessage &m = m_ctx.stream.append(MSG_CHANGE_STANCE);
 	m.appendInteger(stance);
 	return true;
+}
+
+void ControlBar::playStanceVoice(int stance)
+{
+	// RW 0x96F5A8 .. 0x96F5D0: the voice 0x7E3 on the selection with the toggle's button, whose index RW 0x75D082 just set to this stance (RW 0x75D0B9 reads its
+	// UnitSpecificSound there). A selection without the toggle has the SET_STANCE button of the stance (INFERENCE: RW's own path is the toggle's)
+	if (m_stanceVoice)
+	{
+		std::string toggleSound, setSound;
+		for (const std::vector<ControlBarButton> *list : { &m_palantir, &m_side, &m_offBar })
+		{
+			for (const ControlBarButton &cb : *list)
+			{
+				if (!cb.button || cb.button->m_unitSpecificSound.empty())
+				{
+					continue;
+				}
+				const CommandButton &b = *cb.button;
+				const auto at = std::find(b.m_stances.begin(), b.m_stances.end(), stance);
+				if (at == b.m_stances.end())
+				{
+					continue;
+				}
+				if (b.m_command == GUI_COMMAND_TOGGLE_STANCE && toggleSound.empty())
+				{
+					const size_t k = (size_t)(at - b.m_stances.begin());
+					toggleSound = k < b.m_unitSpecificSound.size() ? b.m_unitSpecificSound[k] : std::string();
+				}
+				else if (b.m_command == GUI_COMMAND_SET_STANCE && setSound.empty())
+				{
+					setSound = b.m_unitSpecificSound.front();
+				}
+			}
+		}
+		const std::string &sound = !toggleSound.empty() ? toggleSound : setSound;
+		if (!sound.empty())
+		{
+			m_stanceVoice(sound);
+		}
+	}
 }
 
 bool ControlBar::pressButton(int slot, bool inPalantir)

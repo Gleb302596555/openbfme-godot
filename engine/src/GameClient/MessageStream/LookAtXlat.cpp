@@ -82,6 +82,16 @@ void LookAtTranslator::cancelHeld()
 
 MessageDisposition LookAtTranslator::translate(const ClientMessage &msg)
 {
+	if (m_ctx.ui.takeRightScrollStop())
+	{
+		// the button up of RW 0x83AC98, which SelectionTranslator destroyed when it ended a GUI command
+		m_lastMoveFrame = m_frame;
+		m_armed = false;
+		if (m_scrollType == SCROLL_RMB)
+		{
+			stopScrolling();
+		}
+	}
 	switch (msg.type())
 	{
 		case CMSG_RAW_KEY_DOWN:

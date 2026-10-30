@@ -497,6 +497,15 @@ private:
 	std::map<ObjectID, int> m_quarrelDistance;         ///< + 0x24C (size + 0x250: the quarrel runs while it is not empty)
 };
 
+// AODHordeContain (vtable RW 0xC5CC70): the Army of the Dead's horde. Not ported (S-5310): the path history, the member sway, the large unit lift and the scatter.
+class AODHordeContain : public HordeContain
+{
+public:
+	using HordeContain::HordeContain;
+	OBFME_MODULE_XFER(AODHordeContain)
+	bool addToContain(Object *obj) override;
+};
+
 class GameLogicDispatch;
 namespace HordeCommands
 {

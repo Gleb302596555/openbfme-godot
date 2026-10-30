@@ -526,7 +526,18 @@ MessageDisposition SelectionTranslator::translate(const ClientMessage &msg)
 				// this button up with the drag rectangle as its region.
 			}
 			break;
+		case CMSG_MOUSE_RIGHT_CLICK:
+		case CMSG_MOUSE_RIGHT_DOUBLE_CLICK:
+			// BFME2 / RW 0x83D8C2 .. 0x83DB8D destroy the click that ends a waiting command: "no order, no deselection follows from it". MetaEvent puts this click right after
+			// the button up that cancelled here; kept, it reached CommandTranslator as a move order (P-27)
+			if (m_swallowRightClick)
+			{
+				m_swallowRightClick = false;
+				disp = MessageDisposition::Destroy;
+			}
+			break;
 		case CMSG_RAW_MOUSE_RIGHT_BUTTON_DOWN:
+			m_swallowRightClick = false;
 			m_deselectAnchor = msg.arg(0).pixel;
 			m_lastClick = msg.arg(2).integer;
 			m_deselectDownCamera = m_ctx.view.position();
@@ -560,6 +571,10 @@ MessageDisposition SelectionTranslator::translate(const ClientMessage &msg)
 					m_ctx.ui.setGUICommand(nullptr);
 					disp = MessageDisposition::Destroy;
 					m_ctx.ui.setScrolling(false);
+					// the destroyed button up never reaches LookAtTranslator (60), which armed the right button scroll at the press: without this the pointer keeps scrolling
+					// with the button released (P-27)
+					m_ctx.ui.requestRightScrollStop();
+					m_swallowRightClick = true;
 				}
 				else if (!m_commands.useAlternateMouse())
 				{

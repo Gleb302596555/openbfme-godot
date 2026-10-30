@@ -20,6 +20,7 @@
 #include "GameLogic/SkirmishAI/SkirmishAIManager.h"
 #include "GameLogic/AI/AIGroup.h"
 #include "GameLogic/Combat/CombatLineOfSight.h"
+#include "GameLogic/Combat/CombatQueries.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/SlavedUpdate.h"
@@ -815,7 +816,10 @@ void AIWorld::attach()
 	m_hooksToken = m_logic.addWorldHooks([this](Object &o) { objectEnteredWorld(o); }, [this](Object &o) { objectLeftWorld(o); });
 	m_hashToken = m_logic.addStateHashContributor([this](StateHasher &h) { crc(h); }, "pathfinder and AI movers");
 	m_logic.installPhaseWork("pathfinderQueue", [this]() { processPathfindQueue(); });
-	m_logic.installPhaseWork("partitionAndCollision", [this]() { processCollisions(); });
+	m_logic.installPhaseWork("partitionAndCollision", [this]() {
+		processCollisions();
+		processStaticContacts(); // lane MODGAP-1: after the unit pairs
+	});
 	// PROD-1's hand-off: what production asks the AI of a produced object (move to the rally point, follow the exit path, idle, regroup) runs here, at the call sites
 	// production already has (GameLogic/AI/AICommandSink.h)
 	m_logic.aiCommands().setHandler([this](Object &obj, const AICommand &c) { return executeCommand(obj, c); });
@@ -1229,6 +1233,73 @@ void AIWorld::processPathfindQueue()
 		const int cells = m_pathfinder->cumulativeCellsAllocated();
 		m_peakTickCells = cells > m_peakTickCells ? cells : m_peakTickCells;
 		m_peakQueued = queued > m_peakQueued ? queued : m_peakQueued;
+	}
+}
+
+// lane MODGAP-1 (P-10, stop S-581; see AIWorld.h). The objects come from the logic's list and are sorted by id; the units that touch one are listed first and
+// then meet it one by one, because a contact can destroy the object (a picked-up crate) or create others.
+void AIWorld::processStaticContacts()
+{
+	if (!m_mapReady || m_ais.empty())
+	{
+		return;
+	}
+	m_staticContactIds.clear();
+	for (Object *o = m_logic.getFirstObject(); o; o = o->getNextObject())
+	{
+		if (o->isDestroyed() || !o->isInWorld() || o->getAIUpdateInterface())
+		{
+			continue;
+		}
+		for (CollideModuleInterface *c : o->collideModules())
+		{
+			if (c->touchesMobileUnits())
+			{
+				m_staticContactIds.push_back(o->getID());
+				break;
+			}
+		}
+	}
+	std::sort(m_staticContactIds.begin(), m_staticContactIds.end());
+	std::vector<ObjectID> touching;
+	for (ObjectID id : m_staticContactIds)
+	{
+		Object *still = m_logic.findObjectByID(id);
+		if (!still || still->isDestroyed())
+		{
+			continue;
+		}
+		const Coord3D p = *still->getPosition();
+		const float r = CombatQueries::boundingCircleRadius(*still);
+		touching.clear();
+		for (const auto &kv : m_ais) // ordered by id
+		{
+			AIUpdateInterface *ai = kv.second;
+			Object *unit = ai->getObject();
+			if (unit->isDestroyed() || ai->isImmobile() || !unit->isInWorld())
+			{
+				continue; // the units of the overlap pass
+			}
+			const Coord3D &q = *unit->getPosition();
+			const float dx = SimMath::subf32(p.x, q.x), dy = SimMath::subf32(p.y, q.y), rr = SimMath::addf32(r, ai->adapter().getGeometry().boundingCircleRadius());
+			if (SimMath::addf32(SimMath::mulf32(dx, dx), SimMath::mulf32(dy, dy)) < SimMath::mulf32(rr, rr))
+			{
+				touching.push_back(unit->getID());
+			}
+		}
+		for (ObjectID uid : touching)
+		{
+			Object *crate = m_logic.findObjectByID(id);
+			Object *unit = m_logic.findObjectByID(uid);
+			if (!crate || crate->isDestroyed())
+			{
+				break;
+			}
+			if (unit && !unit->isDestroyed())
+			{
+				ObjectCollide::onCollide(*crate, *unit);
+			}
+		}
 	}
 }
 

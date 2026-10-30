@@ -959,14 +959,13 @@ TEST_CASE("backlog8 retail: a goblin horde that keeps a wall to scale (RW 0x86C6
 }
 
 TEST_CASE("backlog8 retail: the FLOATING_Z horde members of the retail data: the Mumakil's Haradrim archers (speed 0) never reach the hub's near arm; the "
-		  "Oathbreakers' AODHordeContain is unbound, so their horde has no contain and no members")
+		  "Oathbreakers' AODHordeContain makes the members (P-13)")
 {
 	if (!haveWorld())
 	{
 		return;
 	}
 	const std::map<std::string, size_t> &unported = shared().world->modules().unportedCreated();
-	const size_t aodBefore = unported.count("AODHordeContain") ? unported.at("AODHordeContain") : 0;
 	Arena a(shared(), "FactionMordor", "FactionMen");
 	Object *mumak = a.place("MordorMumakil", 0, 600.0f, 600.0f, 0.0f);
 	Object *dead = a.place("RohanOathbreakerHorde", 1, 900.0f, 600.0f, 0.0f);
@@ -974,11 +973,10 @@ TEST_CASE("backlog8 retail: the FLOATING_Z horde members of the retail data: the
 	{
 		a.logic.runLogicFrame();
 	}
-	// AODHordeContain (ArmyOfTheDeadLocomotor members, FLOATING_Z) has no port: the factory counts it (S-140) and the object gets no contain module, so the
-	// Oathbreakers are a horde object without members: the member pass, and with it the height rule, never runs for them
-	CHECK(unported.at("AODHordeContain") == aodBefore + 1);
-	CHECK(dead->getContain() == nullptr);
-	CHECK(hordeContainOf(dead) == nullptr);
+	// P-13: a horde object without members has `Model = None`: AODHordeContain must make them (ArmyOfTheDeadLocomotor members, FLOATING_Z)
+	CHECK(unported.count("AODHordeContain") == 0);
+	REQUIRE(dynamic_cast<HordeContain *>(dead->getContain()) != nullptr);
+	CHECK(dead->getContain()->getContainCount() > 0);
 	// the archers on the Mumakil: a HordeContain inside the Mumakil's HordeTransportContain; FloatingCatapultLocomotor (FLOATING_Z) with speed 0, so the
 	// snap threshold min(acceleration, 0.2 * speed) is 0 and no distance is below it: the near arm (where the FLOATING_Z rule lives) is never taken
 	const ContainModuleInterface *howdah = mumak->getContain();

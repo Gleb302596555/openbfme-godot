@@ -18,12 +18,12 @@
 //     template (RW 0x6D1305); UseBuildingProduction: the owner's ProductionUpdate queues it (vslots 8 / 0x20; a refusal retries next frame); else the
 //     object made by TheThingFactory (vslot 0x38) for the owner's player at the owner's transform applied to Offset (RW 0x8B8515 .. 0x8B85C6: x = ((m01 oy
 //     + m02 oz) + m00 ox) + tx, the rows likewise), turned to the owner's angle + Angle, FadeInTime on its drawable, put at the point (RW 0x70C201), told
-//     to the owner's SlaveWatcherBehavior (RW 0x887AF5) and its create modules run (+ 0x24C list, slot 0x68 -> slot 4 with the owner). A failed creation
+//     to the owner's SlaveWatcherBehavior (RW 0x887AF5, lane MODGAP-1) and its create modules run (+ 0x24C list, slot 0x68 -> slot 4 with the owner). A failed creation
 //     ends there (no grant). The pending flag stays set (only processUpgradeRemoval clears it). Then GrantUpgrade given to the owner (RW 0x69388B) and RemoveUpgrade taken (RW 0x691438); UPDATE_SLEEP_FOREVER.
 //   * processUpgradeRemoval (mux slot 8, RW 0x8B87C5): not executed, not pending; with DestroyWhenSold the owner's SlaveWatcherBehavior's slave is
 //     killed (damage type 8) and DeathAnimAndDuration's condition set on it.
-// NOT PORTED (counted in unported(), stop S-2007): UpgradeObject (read by no code of the update), the SlaveWatcherBehavior
-// link and DestroyWhenSold's kill (SlaveWatcherBehavior has no runtime, S-1995), FadeInTime (a drawable fade: client).
+// NOT PORTED (counted in unported(), stop S-2007): UpgradeObject (read by no code of the update), FadeInTime (a drawable fade: client). The SlaveWatcherBehavior
+// link and DestroyWhenSold's kill run since lane MODGAP-1.
 
 #pragma once
 

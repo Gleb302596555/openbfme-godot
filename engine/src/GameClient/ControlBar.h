@@ -26,6 +26,7 @@
 #include "GameClient/HudContext.h"
 #include "GameLogic/ObjectTypes.h"
 
+#include <functional>
 #include <map>
 
 class Player;
@@ -138,6 +139,11 @@ public:
 	bool pressButton(int slot, bool inPalantir);
 	// lane CAMPUI-1: the stance toggle's SetStance (RW 0x96F53C): MSG_CHANGE_STANCE with `stance` (a stance item of the Palantir's radial, a SET_STANCE button)
 	bool sendChangeStance(int stance, const char *site = "ControlBar:SET_STANCE");
+	// RW 0x96F5A8 .. 0x96F5D0: SetStance's voice, the HUD plays it (VOICE_EVENT_STANCE on the selection); the argument is the button's sound of that stance.
+	// Called from the HUD's message observer for every MSG_CHANGE_STANCE. INFERENCE: the D / F / G hotkeys too: RW's meta case RW 0x8201F5 has no voice, but RW 0x96F890
+	// registers the same keys on the radial's items, whose press is SetStance; that route is not ported (S-280)
+	void playStanceVoice(int stance);
+	void setStanceVoiceHandler(std::function<void(const std::string &)> handler) { m_stanceVoice = std::move(handler); }
 	// right press on a build button: cancels one queued unit, or all with Shift and no MaxSimultaneousOfType (RW 0x940CD0); on a REVIVE button the hero record by
 	// its index (RW 0x940C57); on a PLAYER / OBJECT / CASTLE_UPGRADE button MSG_CANCEL_UPGRADE { mask bit } (RW 0x940E77 / 0x940FB3, lane FBSIM-1)
 	bool cancelQueued(int slot, bool inPalantir, bool shift = false);
@@ -206,6 +212,7 @@ private:
 	ObjectID m_source = INVALID_ID;
 	std::string m_setName;
 	std::vector<ControlBarButton> m_palantir, m_side, m_offBar;
+	std::function<void(const std::string &)> m_stanceVoice;
 	std::vector<ControlBarQueueEntry> m_queue;
 	std::uint32_t m_money = 0;
 	int m_cpUsed = 0, m_cpLimit = 0;

@@ -118,11 +118,15 @@ TEST_CASE("module coverage: every registry class is ported, base AI, parsed only
 	// BANNER-1 (AllowBannerSpawnUpgrade, RW 0x650650): +1 -> 162 / 147 (merge queue q26). CHAT-1 (on the archive): BeaconClientUpdate missing -> ported: 163 / 146.
 	// community #117 (CitadelSlaughterHordeContain missing -> ported, merge queue q28): 164 / 145
 	// LUMBER1 supply warehouses (SupplyWarehouseCreate, SupplyWarehouseDockUpdate, Ennorath's supply rocks): +2 -> 166 / 143
-	CHECK(c.ported == 166); // + the supply warehouses, #117's CitadelSlaughterHordeContain, SIEGE-1's seven ported (two of them base AI before), BANNER-1's AllowBannerSpawnUpgrade, CHAT-1's BeaconClientUpdate
+	// P-13 (AODHordeContain missing -> ported): 167 / 142
+	// MODGAP-1 (P-10, SalvageCrateCollide parsed only -> ported): 168, parsed only 13
+	// MODGAP-1 group 4 (SlaveWatcherBehavior, OCLUpdate) and agent B's BoredUpdate (Modgap2): +3 -> 171 / 139 (the totals the test printed); agent B's FlingPassengerSpecialAbilityUpdate: +1 -> 172 / 138
+	// MODGAP-1 group 5 (DeflectSpecialPower missing -> ported): +1 -> 173 / 137; group 6 (ReflectDamage): +1 -> 174 / 136; EvacuateDamage: +1 -> 175 / 135; group 2 (RebuildHoleExposeDie, RebuildHoleBehavior): +2 -> 177 / 133
+	CHECK(c.ported == 177); // + AODHordeContain, the supply warehouses, #117's CitadelSlaughterHordeContain, SIEGE-1's seven ported (two of them base AI before), BANNER-1's AllowBannerSpawnUpgrade, CHAT-1's BeaconClientUpdate
 	CHECK(c.baseAi == 6);
 	// S-207: SpawnUnitBehavior data is parsed-only; its runtime remains unported (S-140).
-	CHECK(c.parsedOnly == 14);
-	CHECK(c.missing == 143); // the supply warehouses 145 -> 143; #117 (CitadelSlaughterHordeContain) 146 -> 145; CHAT-1 (BeaconClientUpdate) 147 -> 146; BANNER-1 (AllowBannerSpawnUpgrade) 148 -> 147; SIEGE-1 153 -> 148; WALL-2 (DynamicPortalBehaviour, FakePathfindPortalBehaviour) 155 -> 153; MODS-3 (FireWeaponWhenDamagedBehavior) 156 -> 155; LUMBER1 (SupplyCenterCreate, SupplyCenterDockUpdate) 158 -> 156; FX-4 (TransitionDamageFX) 159 -> 158; SUMMON-1 (SummonReplacementSpecialAbilityUpdate, DoCommandUpgrade); before: 161, the merge of the archive (S-207 SpawnUnitBehavior missing -> parsed only) with S-1991 (BloodthirstyUpdate missing -> ported)
+	CHECK(c.parsedOnly == 13); // MODGAP-1: SalvageCrateCollide is ported (14 -> 13)
+	CHECK(c.missing == 133); // P-13 (AODHordeContain) 143 -> 142; the supply warehouses 145 -> 143; #117 (CitadelSlaughterHordeContain) 146 -> 145; CHAT-1 (BeaconClientUpdate) 147 -> 146; BANNER-1 (AllowBannerSpawnUpgrade) 148 -> 147; SIEGE-1 153 -> 148; WALL-2 (DynamicPortalBehaviour, FakePathfindPortalBehaviour) 155 -> 153; MODS-3 (FireWeaponWhenDamagedBehavior) 156 -> 155; LUMBER1 (SupplyCenterCreate, SupplyCenterDockUpdate) 158 -> 156; FX-4 (TransitionDamageFX) 159 -> 158; SUMMON-1 (SummonReplacementSpecialAbilityUpdate, DoCommandUpgrade); before: 161, the merge of the archive (S-207 SpawnUnitBehavior missing -> parsed only) with S-1991 (BloodthirstyUpdate missing -> ported)
 
 	if (const char *out = std::getenv("OPENBFME_MODULE_COVERAGE_OUT"))
 	{

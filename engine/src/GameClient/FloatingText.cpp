@@ -19,7 +19,7 @@ bool FloatingTextSettings::load(ArchiveFileSystem &fs, FloatingTextSettings &out
 	return true;
 }
 
-void FloatingTextList::add(const std::string &text, const Coord3D &pos, std::uint32_t color, unsigned frame)
+void FloatingTextList::add(const std::string &text, const Coord3D &pos, std::uint32_t color, unsigned frame, float textScale)
 {
 	if (!m_enabled) return;
 	Record r;
@@ -28,6 +28,7 @@ void FloatingTextList::add(const std::string &text, const Coord3D &pos, std::uin
 	r.pos = pos;
 	r.frameCount = 0;
 	r.addedFrame = frame;
+	r.textScale = textScale;
 	r.frameTimeOut = m_settings.timeOutMs == 0 ? frame + (unsigned)(kClientFramesPerSecond / 3.0f)
 	                                           : frame + (unsigned)(0.03f * (float)m_settings.timeOutMs); // BfmeClientFramesPerMillisecond
 	m_records.push_front(std::move(r));
@@ -92,11 +93,11 @@ void FloatingTextList::ops(const std::function<bool(const Coord3D &, float &, fl
 		op.kind = IconUIOp::TEXT;
 		op.x = x; // a TEXT op's x is its centre (the device takes width / 2 off)
 		op.y = y - (float)r.frameCount * m_settings.moveUpSpeed / kClientFramesPerSecond;
-		// not retail (user's choice, docs/MODS.md): white with the record's alpha, where retail draws the owner's colour (r.color)
-		op.color = (r.color & 0xFF000000u) | 0xFFFFFFu;
+		// the owner's colour with the record's alpha (retail; the owner's photos of 2026-10-30, docs/ennorath/PROBLEMS.md P-6)
+		op.color = r.color;
 		op.dropColor = r.color & 0xFF000000u; // black with the text's alpha
 		op.text = r.text;
-		op.stageTextSize = kStageTextSize;
+		op.stageTextSize = kStageTextSize * r.textScale;
 		out.push_back(std::move(op));
 	}
 }
@@ -107,5 +108,5 @@ std::vector<std::string> FloatingTextList::acceptanceStops()
 			 "InGameUI_drawFloatingText.cpp); INFERENCE: FloatingTextTimeOut is milliseconds and FloatingTextMoveUpSpeed / FloatingTextVanishRate are taken "
 			 "as the INI writes them (the parsers' conversions were not read), both divisions use 30 client frames a second (GameEngine + 0x38 not read), "
 			 "and the text is drawn in the HUD's caption font at 12 stage pixels scaled with the window (the display string's font was not read); "
-			 "not retail (user's choice): white, a one-pixel shadow" };
+			 "the owner's colour, a one-pixel shadow; the size is a fifth of the first version's 12 (the owner's photo, PROBLEMS.md P-6)" };
 }

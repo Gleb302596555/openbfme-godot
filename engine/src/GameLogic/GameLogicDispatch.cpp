@@ -328,7 +328,7 @@ void GameLogicDispatch::setRallyPoint(const GameMessage &m)
 	{
 		return;
 	}
-	auto apply = [&](Object &o, Coord3D dest, Object *tgt) {
+	auto apply = [&](Object &o, Coord3D dest, Object *tgt) -> bool {
 		ExitInterface *exit = o.getObjectExitInterface();
 		if (!exit)
 		{
@@ -337,13 +337,14 @@ void GameLogicDispatch::setRallyPoint(const GameMessage &m)
 				// lane BACKLOG-1: RW 0x68BB37 answers the contain's exit interface here and its setRallyPoint (RW 0x865679) takes the point: not wired (S-4320)
 				m_logic.noteStop(kStopContainRally);
 			}
-			return;
+			return false;
 		}
 		if (tgt)
 		{
 			dest = *tgt->getPosition();
 		}
 		exit->setRallyPoint(&dest); // RW 0x779544 step 4 (the pathfinder validation of the destination is not ported, S-202)
+		return true;
 	};
 	if (a2->boolean && !target)
 	{
@@ -351,13 +352,17 @@ void GameLogicDispatch::setRallyPoint(const GameMessage &m)
 		// is the local player on the machine that sent it)
 		static const int autoRally = ObjectTemplateInfoBuilder::kindOfIndex("AUTO_RALLYPOINT");
 		Player *player = m_logic.players().getNthPlayer(m.getPlayerIndex());
+		bool changed = false;
 		for (Object *o = m_logic.getFirstObject(); o; o = o->getNextObject())
 		{
 			if (o->getControllingPlayer() == player && autoRally >= 0 && o->isKindOf((unsigned)autoRally))
 			{
-				apply(*o, a1->location, nullptr);
+				changed = apply(*o, a1->location, nullptr) || changed;
 			}
 		}
+		// RW 0x7798D5 / BFME2 Rva 0x3774AB: report once, only after at
+		// least one eligible exit accepted the point. The client filters by owner.
+		if (changed) m_logic.noteGlobalRally(m.getPlayerIndex(), a1->location);
 		return;
 	}
 	apply(*obj, a1->location, target);

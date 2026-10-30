@@ -13,6 +13,6 @@ namespace Mod4Stops
 {
 // the module classes these stops cover, in stop order (each must stay an UnportedModule while its stop stands: test_mod4_modules.cpp pins it)
 const std::vector<std::string> &classes();
-// [S-1422] PickupStuffUpdate, [S-1423] GeometryUpgrade, [S-1424] ThreatFinderUpdate, [S-1427] RebuildHoleExposeDie / RebuildHoleBehavior
+// [S-1422] PickupStuffUpdate, [S-1423] GeometryUpgrade, [S-1424] ThreatFinderUpdate (the rebuild holes were [S-1427]; MODGAP-1 ported them, stop S-5603)
 std::vector<std::string> lines();
 } // namespace Mod4Stops

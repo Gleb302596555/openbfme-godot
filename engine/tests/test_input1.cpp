@@ -15,7 +15,10 @@
 #include "GameClient/TacticalCamera.h"
 #include "GameLogic/GameLogicDispatch.h"
 #include "GameLogic/GameMessage.h"
+#include "GameLogic/AI/AIOrdersManager.h"
+#include "GameLogic/AI/ObjectOrderQueue.h"
 #include "GameLogic/Map/TerrainLogic.h"
+#include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/PlayerCommands.h"
 
@@ -538,6 +541,157 @@ TEST_CASE("input1 r2 groups: recall and the camera skip what RW 0x8DB103 getLive
 	b->friend_setEffectivelyDead(false);
 }
 
+TEST_CASE("P-9 queue core: immediate, queued and planned orders activate in their original order")
+{
+	struct Owner : ObjectOrderQueue::Owner
+	{
+		std::vector<unsigned> activated, cancelled, finished, patrolPrepared;
+		bool ready = false;
+		unsigned clone = 0;
+		void activate(unsigned id, unsigned) override { activated.push_back(id); }
+		bool complete(unsigned, unsigned) override { return ready; }
+		void removed(unsigned id, unsigned, bool cancel) override { (cancel ? cancelled : finished).push_back(id); }
+		unsigned cloneForPatrol(unsigned) override { return clone; }
+		void preparePatrol(unsigned id, unsigned) override { patrolPrepared.push_back(id); }
+	} owner;
+	ObjectOrderQueue q(7);
+	// The manager maps immediate mode 0 to clear(1)/insert(1), and queued
+	// mode 1 to clear(2)/insert(1), RW 0x7572FA / BFME2 0x7557B7.
+	q.clear(1, owner);
+	q.insert(1, 10, owner);
+	q.clear(2, owner);
+	q.insert(1, 20, owner);
+	CHECK(owner.activated == std::vector<unsigned>{ 10 });
+	CHECK(q.orders() == std::list<unsigned>{ 10, 20 });
+	q.process(owner);
+	CHECK(owner.activated == std::vector<unsigned>{ 10 });
+	owner.ready = true;
+	q.process(owner);
+	CHECK(owner.finished == std::vector<unsigned>{ 10 });
+	CHECK(owner.activated == std::vector<unsigned>{ 10, 20 });
+	q.clear(1, owner);
+	q.insert(1, 30, owner);
+	CHECK(owner.cancelled == std::vector<unsigned>{ 20 });
+	CHECK(owner.activated == std::vector<unsigned>{ 10, 20, 30 });
+	// Planning mode 2 does not activate an order until it is committed.
+	q.insert(2, 40, owner);
+	CHECK(q.planned() == 40);
+	q.process(owner);
+	CHECK(owner.finished == std::vector<unsigned>{ 10, 30 });
+	CHECK(owner.activated == std::vector<unsigned>{ 10, 20, 30 });
+	q.commitPlanned(owner);
+	CHECK(owner.activated == std::vector<unsigned>{ 10, 20, 30, 40 });
+	CHECK(q.planned() == 0);
+	ObjectOrderQueue patrol(8);
+	owner.activated.clear();
+	owner.finished.clear();
+	patrol.insert(1, 50, owner);
+	patrol.insert(1, 60, owner);
+	patrol.setPatrolStart(50, 1, owner);
+	CHECK(owner.patrolPrepared == std::vector<unsigned>{ 50, 60 });
+	owner.clone = 70;
+	patrol.process(owner);
+	CHECK(owner.finished == std::vector<unsigned>{ 50 });
+	CHECK(patrol.orders() == std::list<unsigned>{ 60, 70 });
+	CHECK(patrol.patrolStart() == 60);
+	CHECK(owner.activated == std::vector<unsigned>{ 50, 60 });
+	ObjectOrderQueue restored;
+	const auto saved = patrol.state();
+	REQUIRE(restored.restore(saved));
+	CHECK(restored.state().object == 8);
+	CHECK(restored.orders() == std::list<unsigned>{ 60, 70 });
+	CHECK(restored.patrolStart() == 60);
+	auto damaged = saved;
+	damaged.patrolStart = 99;
+	CHECK_FALSE(restored.restore(damaged));
+	CHECK(restored.orders() == std::list<unsigned>{ 60, 70 });
+	CHECK(restored.patrolStart() == 60);
+}
+
+TEST_CASE("P-9 order manager: changing one unit's orders preserves its former group's other members")
+{
+	struct Event { unsigned order, object; };
+	struct Group : AIOrdersManager::GroupOrder
+	{
+		unsigned label;
+		std::vector<Event> &events;
+		bool &ready;
+		Group(unsigned labelIn, std::vector<unsigned> objects, std::vector<Event> &eventsIn, bool &readyIn)
+			: GroupOrder(std::move(objects)), label(labelIn), events(eventsIn), ready(readyIn) {}
+		void activate(unsigned object) override { events.push_back({ label, object }); }
+		bool complete(unsigned) override { return ready; }
+		void removed(unsigned) override {}
+		void preparePatrol(unsigned) override {}
+		std::unique_ptr<GroupOrder> clone() const override { return std::make_unique<Group>(label, objects(), events, ready); }
+	};
+	AIOrdersManager manager;
+	std::vector<Event> events;
+	bool ready = false;
+	const auto first = manager.submit(0, std::make_unique<Group>(1, std::vector<unsigned>{ 11, 12 }, events, ready));
+	const auto second = manager.submit(1, std::make_unique<Group>(2, std::vector<unsigned>{ 11, 12 }, events, ready));
+	REQUIRE(events.size() == 2);
+	CHECK(events[0].order == 1);
+	CHECK(events[0].object == 11);
+	CHECK(events[1].order == 1);
+	CHECK(events[1].object == 12);
+	ready = true;
+	manager.process(11);
+	REQUIRE(manager.order(first) != nullptr);
+	CHECK(manager.order(first)->objects() == std::vector<unsigned>{ 12 });
+	REQUIRE(events.size() == 3);
+	CHECK(events[2].order == 2);
+	CHECK(events[2].object == 11);
+	const auto third = manager.submit(0, std::make_unique<Group>(3, std::vector<unsigned>{ 12 }, events, ready));
+	CHECK(manager.order(first) == nullptr);
+	REQUIRE(manager.order(second) != nullptr);
+	CHECK(manager.order(second)->objects() == std::vector<unsigned>{ 11 });
+	REQUIRE(manager.order(third) != nullptr);
+	REQUIRE(events.size() == 4);
+	CHECK(events[3].order == 3);
+	CHECK(events[3].object == 12);
+}
+
+TEST_CASE("P-9: Alt queues a second move without replacing the active destination")
+{
+	if (!haveWorld("P-9 queued move")) return;
+	SharedWorld &s = shared();
+	Rig r(s);
+	const Coord3D c = r.freeSpot(mapCenter(r).x, mapCenter(r).y, 260.0f);
+	Object *unit = r.make(templates(s).infantry.front(), c.x, c.y);
+	AIUpdateInterface *ai = unit->getAIUpdateInterface();
+	REQUIRE(ai != nullptr);
+	r.lookAt(c, 300.0f, 380.0f);
+	r.frame(2);
+	const ICoord2D unitPixel = r.screenOf({ c.x, c.y, 6.0f });
+	r.leftClick(unitPixel.x, unitPixel.y);
+	r.frame(1);
+	const ICoord2D firstPixel = r.screenOf({ c.x + 180.0f, c.y + 80.0f, 0.0f });
+	const ICoord2D secondPixel = r.screenOf({ c.x - 180.0f, c.y + 80.0f, 0.0f });
+	r.leftClick(firstPixel.x, firstPixel.y);
+	r.frame(1);
+	const Coord3D firstGoal = ai->stateMachine().goalPosition();
+	REQUIRE(firstGoal.x != c.x); // the first order actually set a destination
+	r.setModifier(KEY_LALT, KEY_STATE_LALT, true);
+	r.frame(1);
+	REQUIRE(r.local->orderMode() == 1);
+	r.leftClick(secondPixel.x, secondPixel.y);
+	r.frame(1);
+	CHECK(ai->stateMachine().goalPosition().x == firstGoal.x);
+	CHECK(ai->stateMachine().goalPosition().y == firstGoal.y);
+	r.setModifier(KEY_LALT, KEY_STATE_LALT, false);
+	// The second order must eventually run as well: merely ignoring it would
+	// satisfy the checks above. Allow the first move time to finish.
+	Coord3D secondTarget{};
+	REQUIRE(r.view.screenToTerrain(secondPixel, r.logic(), secondTarget));
+	for (int frame = 0; frame < 600 && ai->stateMachine().goalPosition().x == firstGoal.x; ++frame)
+	{
+		r.frame(1);
+	}
+	const Coord3D secondGoal = ai->stateMachine().goalPosition();
+	const float dx = secondGoal.x - secondTarget.x, dy = secondGoal.y - secondTarget.y;
+	CHECK(dx * dx + dy * dy < 400.0f); // tolerance: pathfinder adjusts the clicked terrain position to a nearby walkable point.
+}
+
 TEST_CASE("input1 r2 orders: A makes no mode (RotWK has no case), Alt sends MSG_CHANGE_ORDERMODE and the logic stores the mode, a move stays a move (r3); the German Y / Z swap")
 {
 	if (!haveWorld("input1 order modes"))
@@ -647,6 +801,12 @@ TEST_CASE("input1 r3 force attack: Ctrl held makes the force-attack mode (ZH's B
 	r.move(pg.x, pg.y);
 	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Move));
 	CHECK(r.input->commandTranslator().retailNoOpMeta().count("BEGIN_FORCEATTACK") == 0);
+	// P-15, RW 0x6A3F63: one selected own STRUCTURE: the ground is not a move (GenericInvalid), whatever the selection was
+	Object *tower = r.make("WildSentryTower", c0.x - 220.0f, c0.y + 200.0f);
+	r.input->ui().mirrorSelection({ tower->getID() });
+	r.move(pg.x, pg.y);
+	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::GenericInvalid));
+	r.input->ui().mirrorSelection({ horde->getID() });
 	// lane BACKLOG3: the stops say what this is: S-1675 an OpenBFME addition (RotWK 2.01 never turns the mode on), S-4360 what RotWK does with Ctrl at a left press
 	bool s1675 = false, s4360 = false;
 	for (const std::string &l : r.input->stops())

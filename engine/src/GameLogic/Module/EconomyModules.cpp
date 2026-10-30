@@ -42,4 +42,5 @@ void EconomyModules::registerAll(ModuleFactory &modules)
 	modules.bindTypedData<PillageModuleData>("PillageModule", MODULETYPE_BEHAVIOR);
 	bindRuntime<PillageModule, PillageModuleData>(modules, "PillageModule");
 	modules.bindTypedData<SalvageCrateCollideModuleData>("SalvageCrateCollide", MODULETYPE_BEHAVIOR);
+	bindRuntime<SalvageCrateCollide, SalvageCrateCollideModuleData>(modules, "SalvageCrateCollide"); // lane MODGAP-1 (P-10, S-260)
 }

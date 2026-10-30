@@ -148,6 +148,9 @@ public:
 	const IRegion2D &areaSelectHint() const { return m_areaHint; }
 
 	// ---- the pointer ----
+	// the right button up that ended a GUI command is destroyed before LookAtTranslator sees it: this tells it the button is up
+	void requestRightScrollStop() { m_rightScrollStop = true; }
+	bool takeRightScrollStop() { const bool stop = m_rightScrollStop; m_rightScrollStop = false; return stop; }
 	// the cursor the translators chose this frame (a name of Mouse.ini)
 	const std::string &cursor() const { return m_cursor; }
 	// RotWK InGameUI::setMouseCursor (RW 0x69B06D, tier A: TheMouse->setCursor; in the GUI command mode a cursor other than Arrow / Scroll is the mode's own:
@@ -346,6 +349,7 @@ private:
 		}
 	}
 	bool m_scriptMouseHidden = false; ///< lane OWNERFIX-1: Mouse::setVisibility(false) of DISABLE_INPUT
+	bool m_rightScrollStop = false;
 	bool m_inputEnabled = true, m_scrolling = false, m_selecting = false, m_quitMenuVisible = false;
 	IRegion2D m_areaHint{};
 	bool m_hasAreaHint = false;

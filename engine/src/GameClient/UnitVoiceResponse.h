@@ -88,6 +88,7 @@ public:
 		VOICE_EVENT_FEAR = 0x7E0,
 		VOICE_EVENT_ALERT = 0x7E1,
 		VOICE_EVENT_FULLY_CREATED = 0x7E2,  ///< VoiceFullyCreatedFrom<producer template>, else VoiceFullyCreated
+		VOICE_EVENT_STANCE = 0x7E3,         ///< RW 0x8DFAE9: the command button's UnitSpecificSound (Info::commandSound)
 		VOICE_EVENT_ENTER_STATE_ATTACK = 0x7E6,
 		VOICE_EVENT_ENTER_STATE_MOVE = 0x7E7,
 		VOICE_EVENT_ENTER_STATE_ATTACKMOVE = 0x7E8,
@@ -110,6 +111,7 @@ public:
 		Coord3D position;
 		bool air = false;
 		ObjectID producer = INVALID_ID; ///< VOICE_EVENT_CREATED / FULLY_CREATED: the object that made the unit
+		std::string commandSound;       ///< VOICE_EVENT_STANCE: the button's current UnitSpecificSound (RW info + 0x20 -> 0x75D0B9)
 	};
 
 	// The client services (the device layer implements them). playSound: the audio event attached to the object (AudioApi::playSoundForObject); reportEva:

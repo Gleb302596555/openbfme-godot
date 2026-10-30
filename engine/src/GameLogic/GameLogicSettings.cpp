@@ -12,6 +12,7 @@
 
 #include "Common/BfmeGame.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectFilter.h"
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/SimMath.h"
@@ -239,6 +240,7 @@ const FieldParse kGameDataFields[] = {
 	{ "BuilderFadeInTime", parseNoting<INI::parseDurationUnsignedInt>, SEEN_DATA(SEEN_BUILDERFADE_IN), (int)offsetof(BlockState, values.builderFadeInFrames) },
 	// lane FACT-A: SellPercentage (row RW 0xC00690, parsePercentToReal RW 0x42EEFA, GlobalData + 0xB94): the share of the price a sold structure pays back (RW 0x794729)
 	{ "SellPercentage", parseNoting<INI::parsePercentToReal>, SEEN_DATA(SEEN_SELL), (int)offsetof(BlockState, values.sellPercentage) },
+	{ "EnableHouseColor", INI::parseBool, nullptr, (int)offsetof(BlockState, values.enableHouseColor) }, // row RW 0xC00A30, + 0xDDC
 	// lane COMBAT-2: Gravity (RW GlobalData + 0xC4, row RW 0xBFF9C0, parseAccelerationReal RW 0x73A4DC: value * k * k per frame^2) and DefaultStructureRubbleHeight (RW + 0xAE4,
 	// row RW 0xC004E0, parseReal): the structure collapse (StructureCollapseUpdate) and the rubble state of a structure body read them
 	{ "Gravity", parseNoting<INI::parseAccelerationReal>, SEEN_DATA(SEEN_GRAVITY), (int)offsetof(BlockState, values.gravity) },
@@ -781,4 +783,11 @@ void GameLogicSettings::crc(StateHasher &h) const
 	}
 	h.addBool(night);
 	h.addBool(snowy);
+}
+
+// RW 0x674516 .. 0x67455B (Drawable::setIndicatorColor): GameLogic + 0x11C, else the object's template KindOf has BASE_SITE (0x78) or
+// ALWAYS_SHOW_HOUSE_COLOR (0xB5) (RW 0x70C548 -> testAny RW 0x661359)
+bool GameLogicSettings::showsHouseColor(const Object &obj) const
+{
+	return enableHouseColor || obj.isKindOfName("BASE_SITE") || obj.isKindOfName("ALWAYS_SHOW_HOUSE_COLOR");
 }

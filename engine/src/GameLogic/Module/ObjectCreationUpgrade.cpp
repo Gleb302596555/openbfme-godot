@@ -18,6 +18,8 @@
 #include "GameLogic/Module/ProductionUpdate.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SimMath.h"
+#include "GameLogic/Damage.h"
+#include "GameLogic/Module/SlaveWatcherBehavior.h"
 #include "Common/INIException.h"
 #include "Common/ModelState.h"
 
@@ -116,8 +118,19 @@ void ObjectCreationUpgrade::processUpgradeRemoval()
 	m_pending = false;
 	if (m_data->m_destroyWhenSold)
 	{
-		++m_unported; // the slave of the owner's SlaveWatcherBehavior killed: that module has no runtime (S-1995)
-		++s_stopUses;
+		// RW 0x8B87F1 .. 0x8B886E (lane MODGAP-1): the owner's SlaveWatcherBehavior's slave is killed (damage type 8) and DeathAnimAndDuration's condition set on it
+		Object *owner = getObject();
+		if (SlaveWatcherBehavior *watcher = dynamic_cast<SlaveWatcherBehavior *>(owner->findModule("SlaveWatcherBehavior")))
+		{
+			if (Object *slave = owner->logic().findObjectByID(watcher->slave()))
+			{
+				slave->kill(DAMAGE_UNRESISTABLE, 0);
+				if (m_data->m_deathAnimCondition != -1)
+				{
+					slave->setSpecialModelConditionState(m_data->m_deathAnimCondition, m_data->m_deathAnimFrames); // RW 0x8B886E (RW 0x68B581)
+				}
+			}
+		}
 	}
 }
 
@@ -174,8 +187,10 @@ UpdateSleepTime ObjectCreationUpgrade::update()
 				++m_unported; // the drawable's fade in (client)
 				++s_stopUses;
 			}
-			++m_unported; // the owner's SlaveWatcherBehavior is not told (RW 0x887AF5; S-1995)
-			++s_stopUses;
+			if (SlaveWatcherBehavior *watcher = dynamic_cast<SlaveWatcherBehavior *>(obj->findModule("SlaveWatcherBehavior"))) // RW 0x8B86AB (RW 0x68BDA5)
+			{
+				watcher->setSlave(m_spawned); // RW 0x8B86C9 (RW 0x887AF5): lane MODGAP-1
+			}
 		}
 	}
 	if (const UpgradeTemplate *grant = TheUpgradeCenter && !d->m_grantUpgrade.empty() ? TheUpgradeCenter->findUpgrade(d->m_grantUpgrade) : nullptr) // RW 0x66F5E5
@@ -216,7 +231,7 @@ void ObjectCreationUpgrade::registerClass(ModuleFactory &modules)
 std::vector<std::string> ObjectCreationUpgrade::acceptanceStops()
 {
 	return { "[S-2007] ObjectCreationUpgrade (RW 0x8B8281 / 0x8B8464 / 0x8B87C5) runs: Delay, ThingToSpawn at Offset and Angle, GrantUpgrade, RemoveUpgrade; not ported: "
-			 "UpgradeObject, the SlaveWatcherBehavior link and DestroyWhenSold's kill (S-1995), FadeInTime (client): " +
+			 "UpgradeObject, FadeInTime (client); the SlaveWatcherBehavior link and DestroyWhenSold's kill run since lane MODGAP-1: " +
 			 std::to_string(s_stopUses) + " uses" };
 }
 

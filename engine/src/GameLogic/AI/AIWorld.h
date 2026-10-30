@@ -228,6 +228,10 @@ public:
 	// the overlap pass of the collision manager for mobile units: every pair of AI units whose footprints overlap meets in
 	// AIUpdateInterface::onCollide (RW 0x66E233), both ways, in id order (phase 2, RW 0x62E93B)
 	void processCollisions();
+	// lane MODGAP-1 (P-10, stop S-581): the contacts of the objects WITHOUT an AI whose collide modules touch mobile units (touchesMobileUnits: the crates). RW's
+	// collision manager pairs every solid object; the pass above pairs AI units only, so a chest never met anything. Each such object, in id order, meets the
+	// mobile AI units (in id order) whose planar footprint circle overlaps its own, in ObjectCollide::onCollide (the crate's modules only)
+	void processStaticContacts();
 	// lane PHYS-1: RW moveAllies 0x6F503B (AIUpdateAllies.cpp): every stationary ally on the cells along `path` is asked to step away; false when not done
 	bool moveAllies(AIUpdateInterface &mover, Path &path, bool force);
 	// lane MOVE-3 r2: RW 0x6F85A6 moveAlliesAwayFromDestination (RW 0x6F7F3E -> the Bresenham line RW 0x6F57C3 -> each cell RW 0x6F53AF): every cell of the line
@@ -289,6 +293,7 @@ private:
 	bool m_attached = false;
 	int m_hooksToken = 0, m_hashToken = 0; // the logic's removable registrations of the world hooks and the hash contributor
 	unsigned long long m_collisionPairs = 0;
+	std::vector<ObjectID> m_staticContactIds; ///< lane MODGAP-1: processStaticContacts' working list (rebuilt every pass, not state)
 	// lane PERF-1: processCollisions' working arrays, kept between frames so the pass allocates nothing once they have grown
 	struct CollisionUnit
 	{

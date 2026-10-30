@@ -218,6 +218,18 @@ void CommandTranslator::hint(const char *cursor)
 			return;
 		}
 	}
+	// RW 0x6A3F63 .. 0x6A3F87 (the default mode's move hint 0xBD, jump table RW 0x6A4099; BFME2 InGameUICreateCommandHint.cpp case 0xb3): nothing selectable under the pointer and a
+	// single selected object that the local player controls and that is a STRUCTURE (template + 0x108 & 0x80): GenericInvalid (12), not Move
+	if (m_ctx.ui.mouseMode() == 0 && c == MouseCursorName::Move && m_ctx.ui.getSelectCount() == 1)
+	{
+		const Object *over = m_ctx.logic.findObjectByID(m_ctx.ui.mouseoverObject());
+		const Object *selected = m_ctx.logic.findObjectByID(m_ctx.ui.firstSelected());
+		if (!(over && HudObjects::isSelectable(*over, m_ctx.ui.getGUICommand())) && selected && HudObjects::isLocallyControlled(m_ctx, *selected) && selected->isKindOfName("STRUCTURE"))
+		{
+			m_ctx.ui.hintCursor(MouseCursorName::GenericInvalid);
+			return;
+		}
+	}
 	m_ctx.ui.hintCursor(c);
 }
 
@@ -507,13 +519,18 @@ int CommandTranslator::evaluateContextCommand(Object *obj, const Coord3D *pos, E
 		msgType = MSG_SET_RALLY_POINT;
 		if (type == EvaluateType::DoCommand)
 		{
+			// Owner-requested control: Shift with a producer's ground order uses
+			// the existing global-rally message, for both editions. Without Shift
+			// each selected producer keeps its ordinary individual order.
+			const bool global = m_ctx.ui.isInPreferSelectionMode();
 			for (ObjectID id : m_ctx.ui.selected())
 			{
 				ClientMessage &m = m_ctx.stream.append(msgType);
 				m.appendObjectID(id);
 				m.appendLocation(*pos);
-				m.appendBoolean(false); // the RotWK message's global flag and target object (RW 0x77A26C)
+				m.appendBoolean(global); // the RotWK message's global flag and target object (RW 0x77A26C)
 				m.appendObjectID(INVALID_ID);
+				if (global) break; // one global message updates all eligible producers
 			}
 		}
 		else if (type == EvaluateType::DoHint)

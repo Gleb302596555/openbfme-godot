@@ -161,12 +161,13 @@ public:
 		};
 		Coord3D textPos{};
 		TextAnchor textAnchor = TEXT_RAISED_10;
+		float textScale = 1.0f; ///< of FloatingTextList::kStageTextSize (not retail: the owner's PillageModule size, PROBLEMS.md P-19)
 		std::string templateName;
 	};
 	typedef std::function<void(const IncomeEvent &)> IncomeListener;
 	void setIncomeListener(IncomeListener l) { m_incomeListener = std::move(l); }
 	// `anchor`: where the floating text appears (AutoDepositUpdate 10 above the object, TerrainResourceBehavior the geometry's top)
-	void noteIncome(Object &obj, Player &owner, int amount, IncomeEvent::TextAnchor anchor = IncomeEvent::TEXT_RAISED_10);
+	void noteIncome(Object &obj, Player &owner, int amount, IncomeEvent::TextAnchor anchor = IncomeEvent::TEXT_RAISED_10, float textScale = 1.0f);
 	const std::deque<IncomeEvent> &incomeLog() const { return m_incomeLog; }
 	unsigned long long incomePayments() const { return m_incomePayments; }
 	void clearIncomeLog() { m_incomeLog.clear(); }

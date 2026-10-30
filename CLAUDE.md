@@ -20,6 +20,8 @@ for reference, never extend it.
   (incrementally) builds the test helper executables in `tools/` (x87_oracle,
   retail_oracle and the engine drivers); the tests fail with "stale helper: ... rebuild
   with ..." when one is older than its sources.
+  The build runs at below-normal priority with a capped job count (`OPENBFME_BUILD_JOBS`, default a third of the cores, min 2) so the machine
+  stays usable; always build through `build.bat`, never `ninja`/`cmake --build` directly (docs/ENNORATH_FACTION_PLAN.md, "Нагрузка сборки").
 - `run_tests.bat` - C++ unit tests (doctest), then the headless Godot smoke test
   `godot/tests/smoke_test.gd`. Needs `GODOT` (the 4.7 `_console.exe`); with
   `ROTWK_INSTALL`/`BFME2_INSTALL` unset the smoke test prints SKIP and the script

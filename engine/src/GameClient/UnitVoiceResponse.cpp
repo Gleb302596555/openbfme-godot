@@ -267,6 +267,7 @@ bool UnitVoiceResponse::handles(int msgType)
 		case VOICE_EVENT_FEAR:
 		case VOICE_EVENT_ALERT:
 		case VOICE_EVENT_FULLY_CREATED:
+		case VOICE_EVENT_STANCE:
 		case VOICE_EVENT_ENTER_STATE_ATTACK:
 		case VOICE_EVENT_ENTER_STATE_MOVE:
 		case VOICE_EVENT_ENTER_STATE_ATTACKMOVE:
@@ -938,6 +939,15 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 				}
 				break;
 			}
+			case VOICE_EVENT_STANCE:
+				// RW 0x8DFAE9: the button's sound. Not ported: a SET_STANCE (0x39) button with Player + 0x770 == 2 takes MiscAudio + 0xE0 (RW 0x8DFAFF .. 0x8DFB5F; S-703)
+				if (info && !info->commandSound.empty())
+				{
+					Voice v;
+					v.sound = info->commandSound;
+					fill(c, v);
+				}
+				break;
 			case VOICE_EVENT_TASK_COMPLETE:
 				fillRow(c, obj, VOICE_TASK_COMPLETE);
 				break;

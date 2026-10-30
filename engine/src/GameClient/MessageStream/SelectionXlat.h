@@ -69,6 +69,7 @@ private:
 	ICoord2D m_selectAnchor{}, m_deselectAnchor{};
 	int m_lastClick = 0;
 	Coord3D m_deselectDownCamera;
+	bool m_swallowRightClick = false; ///< the right button up ended a GUI command: its click goes too
 	unsigned m_lastGroupSelTime = 0;
 	bool m_predicting = false;
 	unsigned m_predictionFrame = 0;

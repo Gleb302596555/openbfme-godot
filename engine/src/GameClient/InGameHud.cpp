@@ -54,6 +54,22 @@
 #include <chrono>
 #include <set>
 
+// Retail stretches the HUD's stage to the window; the port narrows its own retail movies back (docs/HUD_SCALING.md). A mod that ships its own movie authored it for
+// retail's stretch (Ennorath's Palantir.apt and SpellStore.apt in ___enrth_apt.big / widescreen.big are already narrow on a 16:9 stage), so a second correction
+// squeezed them (PROBLEMS.md): such a movie keeps retail's mapping. A movie from an archive of its own name (apt\Palantir.big) counts as retail's; a mod that
+// replaces that archive in place is not told apart.
+bool InGameHud::movieIsModAuthored(const ArchiveFileSystem &fs, const std::string &movie)
+{
+	std::string archive = fs.getArchiveFilenameForFile(movie + ".apt");
+	if (archive.empty())
+	{
+		return false;
+	}
+	const size_t slash = archive.find_last_of("\\/");
+	archive = slash == std::string::npos ? archive : archive.substr(slash + 1);
+	return AsciiStringUtil::compareNoCase(archive, movie + ".big") != 0;
+}
+
 InGameHud::InGameHud(Config config)
 	: m_config(config)
 	, m_source(config.fs)
@@ -118,6 +134,15 @@ InGameHud::InGameHud(Config config)
 		return DrawablePick::rayTest(*d, origin, dir, t);
 	};
 	m_bar = std::make_unique<ControlBar>(m_input->context());
+	m_bar->setStanceVoiceHandler([this](const std::string &sound) {
+		if (const Player *local = m_input->context().localPlayer())
+		{
+			m_voice->setLocalPlayerIndex(local->getPlayerIndex());
+		}
+		UnitVoiceResponse::Info info;
+		info.commandSound = sound;
+		m_voice->pickAndPlay(m_input->ui().selected(), UnitVoiceResponse::VOICE_EVENT_STANCE, &info);
+	});
 	m_radar = std::make_unique<Radar>(m_input->context());
 	m_input->commandTranslator().setRadar(m_radar.get()); // lane HUD-4: Space (VIEW_LAST_RADAR_EVENT)
 	// lane INPUT-1: a hotkey presses its command button as a click on it would (ControlBar::processCommandUI through pressButton)
@@ -146,6 +171,10 @@ InGameHud::InGameHud(Config config)
 			m_voice->setMinDelayBetweenEnterStateVoiceFrames(audio->ini().settings.minDelayBetweenEnterStateVoiceFrames);
 		}
 		PlayUnitVoiceForMessage(*m_voice, m_input->ui().selected(), msg);
+		if (msg.getType() == MSG_CHANGE_STANCE && msg.getArgumentCount() > 0)
+		{
+			m_bar->playStanceVoice(msg.getArgument(0)->integer);
+		}
 	});
 	// the logic's voice events (ProductionUpdate's VoiceCreated RW 0x8A2A48, ...): the made object alone is the "selection" (RW passes its drawable list)
 	AudioApi::installUnitVoiceHandler([this](int voiceEvent, std::uint32_t objectId, std::uint32_t producerId) {
@@ -370,11 +399,11 @@ void InGameHud::setWindowSize(int width, int height)
 	m_windowH = std::max(1, height);
 	if (m_palantirRef)
 	{
-		m_palantirRef->setViewportSize(m_windowW, m_windowH);
+		if (!movieIsModAuthored(m_config.fs, "palantir")) m_palantirRef->setViewportSize(m_windowW, m_windowH);
 	}
 	if (m_store && !isBfme1Data(m_config.fs))
 	{
-		m_store->setViewportSize(m_windowW, m_windowH);
+		if (!movieIsModAuthored(m_config.fs, "spellstore")) m_store->setViewportSize(m_windowW, m_windowH);
 	}
 }
 
@@ -596,7 +625,7 @@ void InGameHud::update(double seconds)
 		m_wm->update((int)(seconds * 1000.0));
 	}
 	part(m_updateParts.windows);
-	m_palantirRef->setViewportSize(m_windowW, m_windowH);
+	if (!movieIsModAuthored(m_config.fs, "palantir")) m_palantirRef->setViewportSize(m_windowW, m_windowH);
 	// lane HUD-2: the local side and the control bar's context the Palantir's update reads (AptPalantir::syncLocal, PalantirCommandUI.h). INFERENCE: the context
 	// drawable is the selection's only object; a multiple selection hands NULL, as ZH's ControlBar does for its multi-select context (the RotWK context rules,
 	// RW 0x944390 .. 0x9450B3, were not read)
@@ -691,6 +720,7 @@ void InGameHud::update(double seconds)
 	m_iconSettings.snapshot = iconSnap.get();
 	m_iconSettings.shroudDrawn = iconSnap && iconSnap->shroud && iconSnap->shroud->displayed;
 	presentBeacons(); // lane CHAT-1
+	presentGlobalRally(); // RW 0x7798D5: the issuing player's feedback after application
 	m_iconUI.build(m_config.game.logic(), m_config.game.drawables(), m_config.view, m_iconSettings, selectedSet, m_input->ui().mouseoverObject(), m_iconOps);
 	updateFloatingText(m_config.view, m_iconSettings.shroudDrawn);
 	m_iconSettings.snapshot = nullptr; // the frame's snapshot goes with this frame
@@ -878,7 +908,7 @@ void InGameHud::updateFloatingText(const TacticalView &view, bool shroudDrawn)
 			}
 			const std::string n = std::to_string(e.amount);
 			const std::string text = loadScreenU16ToUtf8(UnitHelpSource::format(format, { std::u16string(n.begin(), n.end()) }));
-			m_floatingText.add(text, pos, (owner->getPlayerColor() & 0xFFFFFFu) | 0xE6000000u, m_clientFrames);
+			m_floatingText.add(text, pos, (owner->getPlayerColor() & 0xFFFFFFu) | 0xE6000000u, m_clientFrames, e.textScale);
 		}
 		m_incomeSeen = paid;
 	}
@@ -906,6 +936,14 @@ void InGameHud::updateFloatingText(const TacticalView &view, bool shroudDrawn)
 
 void InGameHud::updateResourceFeedback()
 {
+	// RW 0x69C69B leaves Target (the attack-like cross) until the next hint, and retail's pointer sends its position every frame. This port's pointer sends it when it moves:
+	// a placement started by a hotkey with a still pointer would show Target until the mouse moved (the owner, PROBLEMS.md), so the start asks for the hint itself (INFERENCE)
+	const bool placing = m_input->ui().isPlacing();
+	if (placing && !m_wasPlacing && m_pointerSeen && !isOverGui(m_pointerX, m_pointerY))
+	{
+		m_input->mouseMove(m_pointerX, m_pointerY, m_keyState);
+	}
+	m_wasPlacing = placing;
 	// lane OWNERFIX-2 (GameClient/TerrainResourceFeedback.h): the placement feedback while a building waits for its site (InGameUI::handleBuildPlacements),
 	// the claim decals while a selected object of the local player, or the template being placed, lists a TerrainResourceClientBehavior (INFERENCE S-5030:
 	// the users follow the selection and the placement)
@@ -916,7 +954,17 @@ void InGameHud::updateResourceFeedback()
 	const ThingTemplate *pending = ui.isPlacing() && ui.placeHasGhost() ? logic.things().findTemplate(ui.placeBuildTemplate()) : nullptr;
 	m_resourceFeedback.updateSelection(logic, me, TerrainResourceFeedback::claimDecalUsers(logic, local, ui.selected(), pending));
 	const std::u16string format = pending ? fetchOrMissing(m_config.gameText, "GUI:TerrainResourcePercentageClaimable") : std::u16string();
-	m_resourceFeedback.updatePlacement(logic, me, pending, ui.placeLocation(), format, m_pointerX, m_pointerY);
+	// the percentage text follows the pointer, but not while the mouse is held to turn the building: the ghost stays put then, and so does the text (the owner, PROBLEMS.md)
+	ICoord2D textAt{ m_pointerX, m_pointerY };
+	if (ui.isPlacementAnchored())
+	{
+		ICoord2D ghostOnScreen{ 0, 0 };
+		if (m_config.view.worldToScreen(ui.placeLocation(), ghostOnScreen))
+		{
+			textAt = ghostOnScreen;
+		}
+	}
+	m_resourceFeedback.updatePlacement(logic, me, pending, ui.placeLocation(), format, textAt.x, textAt.y);
 }
 
 void InGameHud::updateRadiusCursor()
@@ -957,7 +1005,9 @@ void InGameHud::updateRadiusCursor()
 		return unported ? InGameSpellBookModel::Target::UNPORTED : InGameSpellBookModel::Target::INVALID;
 	};
 	m_targetingCursor = true;
-	if (command->m_radiusCursor.empty())
+	// RW 0x75CAA9 (BFME2 GapBodiesS3L.cpp rva0035AED4): a RadiusCursorType InGameUI.ini does not hold leaves the button's + 0x4C at 0, the same as no field: the
+	// command shows its CursorName (Ennorath's Command_SpellBookDraft and 56 more name the texture scFaramir_Ranger)
+	if (command->m_radiusCursor.empty() || !m_radiusTemplates.find(command->m_radiusCursor))
 	{
 		// RW 0x6A3D2A .. 0x6A3D60: no radius template, use the command's
 		// valid/invalid pointer. The existing empty-name inference is S-4640.
@@ -1050,7 +1100,7 @@ void InGameHud::syncSpellBook()
 	{
 		if (!isBfme1Data(m_config.fs))
 		{
-			m_store->setViewportSize(m_windowW, m_windowH);
+			if (!movieIsModAuthored(m_config.fs, "spellstore")) m_store->setViewportSize(m_windowW, m_windowH);
 		}
 		// lane SPELL-3 (S-923 inference): the store's update (RW 0x822E43) runs only after the movie stepped a frame in this update. Its SetLayout swaps the
 		// SpellStore's Buttons clip when the movie next steps; SetSpellButtonState sent before that step reached the Spell<n> clips being replaced, the new
@@ -1193,7 +1243,7 @@ bool InGameHud::openSpellStore(std::string *error)
 	}
 	if (!isBfme1Data(m_config.fs))
 	{
-		store->setViewportSize(m_windowW, m_windowH);
+		if (!movieIsModAuthored(m_config.fs, "spellstore")) store->setViewportSize(m_windowW, m_windowH);
 	}
 	m_store = std::move(store);
 	return true;
@@ -1598,6 +1648,21 @@ void InGameHud::showMessageLabel(const std::string &label, const std::u16string 
 	}
 	m_messageLines.addMessageText(argument ? InGameChat::formatLine(text, *argument) : text, nullptr, m_messageFrame);
 	++m_guiMessagesShown;
+}
+
+void InGameHud::presentGlobalRally()
+{
+	const Player *local = m_config.game.players().getLocalPlayer();
+	for (const GameLogic::GlobalRallyNotice &n : m_config.game.logic().globalRallyNotices())
+	{
+		if (n.seq <= m_globalRallyNoticeSeen) continue;
+		m_globalRallyNoticeSeen = n.seq;
+		if (!local || local->getPlayerIndex() != n.playerIndex) continue;
+		// RW 0x7798D5; BFME2 Rva 0x3774AB: message-line label and MiscAudio
+		// RallyPointSet once per successful global command, only for its owner.
+		showMessageLabel("GUI:GlobalRallyPointSet", nullptr);
+		m_input->ui().requestMiscSound("RallyPointSet");
+	}
 }
 
 void InGameHud::presentBeacons()

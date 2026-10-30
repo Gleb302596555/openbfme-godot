@@ -2,6 +2,8 @@
 rem Builds the OpenBFME engine: GDExtension into godot\bin and the unit test runner.
 rem build.bat [Release|Debug]; the default also builds tests and their helpers.
 rem Needs Visual Studio 2022 (C++ workload), CMake and Ninja on PATH.
+rem Load: the build runs at BELOW-NORMAL priority with at most OPENBFME_BUILD_JOBS parallel compile/link jobs (default: a third of the logical cores,
+rem at least 2) so the machine stays usable while it builds. OPENBFME_BUILD_JOBS=2 is lighter, OPENBFME_BUILD_JOBS=0 lets Ninja use every core.
 setlocal
 set "ROOT=%~dp0"
 set "BUILD_DIR=%ROOT%engine\build"
@@ -31,7 +33,13 @@ if errorlevel 1 goto no_msvc
 
 cmake -S "%ROOT%engine" -B "%BUILD_DIR%" -G Ninja -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DOPENBFME_BUILD_TESTS=ON -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl
 if errorlevel 1 exit /b 1
-cmake --build "%BUILD_DIR%" --target openbfme openbfme_tests
+if not defined OPENBFME_BUILD_JOBS set /a OPENBFME_BUILD_JOBS=%NUMBER_OF_PROCESSORS%/3
+if %OPENBFME_BUILD_JOBS% lss 0 set "OPENBFME_BUILD_JOBS=2"
+if %OPENBFME_BUILD_JOBS% equ 1 set "OPENBFME_BUILD_JOBS=2"
+set "BUILD_PARALLEL="
+if not %OPENBFME_BUILD_JOBS% equ 0 set "BUILD_PARALLEL=--parallel %OPENBFME_BUILD_JOBS%"
+echo build jobs: %OPENBFME_BUILD_JOBS% (0 = all cores), priority below normal
+start "" /b /wait /belownormal cmake --build "%BUILD_DIR%" --target openbfme openbfme_tests %BUILD_PARALLEL%
 if errorlevel 1 exit /b 1
 
 rem The helper executables the tests drive (x87_oracle, retail_oracle, numeric/apt/hash drivers): incremental,

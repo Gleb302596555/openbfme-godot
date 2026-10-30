@@ -63,12 +63,12 @@ TEST_CASE("factb inventory: Isengard and Mordor reach every structure, unit, her
 			classes.insert(kv.first);
 		}
 		const std::set<std::string> isengard = { "AnnounceBirthAndDeathBehavior", "AudioLoopUpgrade", "BaseUpgrade",
-			"EvacuateDamage", "FlingPassengerSpecialAbilityUpdate", "GeometryUpgrade",
-			"PickupStuffUpdate", "SlaveWatcherBehavior" }; // lane FX-4 ported TransitionDamageFX; lane SIEGE-1 SiegeDeployHordeSpecialPower; lane LUMBER1: SupplyCenterCreate / SupplyCenterDockUpdate ported (S-1993)
+			"EvacuateDamage", "GeometryUpgrade", // FlingPassengerSpecialAbilityUpdate ported by agent B
+			"PickupStuffUpdate" }; // lane MODGAP-1 ported SlaveWatcherBehavior; lane FX-4 ported TransitionDamageFX; lane SIEGE-1 SiegeDeployHordeSpecialPower; lane LUMBER1: SupplyCenterCreate / SupplyCenterDockUpdate ported (S-1993)
 		const std::set<std::string> mordor = { "AimWeaponBehavior", "AnnounceBirthAndDeathBehavior", "AudioLoopUpgrade", "AutoPickUpUpdate", "BaseUpgrade",
-			"BoredUpdate", "ClickReactionBehavior", "EvacuateDamage", // lane SUMMON-1 ported DoCommandUpgrade
-			"FlingPassengerSpecialAbilityUpdate", "GeometryUpgrade", "GrabPassengerSpecialPower", "HordeTransportContainDamage",
-			"PickupStuffUpdate", "RunOffMapBehavior", "SlaughterHordeContain", "SlaveWatcherBehavior" }; // lane FX-4 ported TransitionDamageFX; lane SIEGE-1 SiegeDeployHordeSpecialPower; lane LUMBER1: SupplyCenterCreate / SupplyCenterDockUpdate ported (S-1993)
+			"ClickReactionBehavior", "EvacuateDamage", // BoredUpdate ported by MODGAP-1 (agent B); lane SUMMON-1 ported DoCommandUpgrade
+			"GeometryUpgrade", "GrabPassengerSpecialPower", "HordeTransportContainDamage",
+			"PickupStuffUpdate", "RunOffMapBehavior", "SlaughterHordeContain" }; // lane MODGAP-1 ported SlaveWatcherBehavior; lane FX-4 ported TransitionDamageFX; lane SIEGE-1 SiegeDeployHordeSpecialPower; lane LUMBER1: SupplyCenterCreate / SupplyCenterDockUpdate ported (S-1993)
 		CHECK(classes == (std::string(f) == "FactionIsengard" ? isengard : mordor));
 	}
 	if (const char *out = std::getenv("FACTB_INVENTORY_OUT"))

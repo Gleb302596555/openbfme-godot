@@ -25,6 +25,7 @@
 #include "Common/PlayerList.h"
 #include "GameLogic/Module/BloodthirstyUpdate.h"
 #include "GameLogic/Module/HeroModules.h"
+#include "GameLogic/Module/MoneyEventModules.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Object/Object.h"
@@ -487,6 +488,17 @@ void ActiveBody::attemptDamage(DamageInfo &info)
 				if (DamageModuleInterface *d = m->getDamage())
 				{
 					d->onDamage(info);
+				}
+			}
+			// P-19, RW 0x8C4378 .. 0x8C4384 -> RW 0x68B8A3: the source object's modules hear of the hit they landed (behaviour slot 0x14: PillageModule, RW 0x88826E)
+			if (Object *source = logic.findObjectByID(info.m_input.m_sourceID))
+			{
+				for (const std::unique_ptr<BehaviorModule> &m : source->modules())
+				{
+					if (m->getModuleClassName() == "PillageModule")
+					{
+						static_cast<PillageModule *>(m.get())->onDamageDealt(obj);
+					}
 				}
 			}
 		}

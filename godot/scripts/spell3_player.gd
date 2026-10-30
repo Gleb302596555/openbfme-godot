@@ -169,7 +169,10 @@ func plant_probes(aim: Vector2, spread: float = 1.0) -> Dictionary:
 	for p in world.get_economy().players:
 		if not p.playable and str(p.name).to_lower().contains("creep"):
 			creeps = int(p.index)
-	probes["creep"] = world.create_object("NeutralWarg", creeps, aim.x + 15.0, aim.y + 10.0, 0.0) if creeps >= 0 else -1 # within Untamed Allegiance's 60
+	# Spread every forbidden-object probe, including the creep. With spread 1 it
+	# remains within Untamed Allegiance's 60; with spread 4 it no longer keeps
+	# summon powers' NO_FORBIDDEN_OBJECTS cursor red at the new aim.
+	probes["creep"] = world.create_object("NeutralWarg", creeps, aim.x + 15.0 * spread, aim.y + 10.0 * spread, 0.0) if creeps >= 0 else -1
 	probes["creep_player"] = creeps
 	# the probes are passive targets: NO_ATTACK (the mood scan then gives them no target: RW 0x668A43), so they do not fight each other or anything near
 	for id in probes.own + probes.foe + [probes.creep]:
@@ -466,9 +469,32 @@ func cast_and_judge(k: int, aim: Vector2) -> Dictionary:
 	var fx_after: Dictionary = world.get_spell_power_effect(me, power)
 	print("SPELL5 press %s (slot %d): state %s -> %s, targeting %s -> %s, triggers %d -> %d" % [power, k + 1, str(st_before.get("slots", [])[k]), str(st_after.get("slots", [])[k]),
 		str(st_before.get("targeting", false)), str(st_after.get("targeting", false)), int(fx_before.get("triggers", 0)), int(fx_after.get("triggers", 0))])
+	var wants_object: bool = bool(b.get("needs_object", false)) and not wants_spot
+	if (wants_spot or wants_object) and not bool(st_after.get("targeting", false)):
+		remove_probes(probes)
+		r["result"] = "FAIL"
+		r["why"] = "the slot press did not enter targeting; state %s -> %s" % [str(st_before.get("slots", [])[k]), str(st_after.get("slots", [])[k])]
+		return r
 	var cast_t := Time.get_ticks_msec()
 	if hud.get_spellbook_state().get("targeting", false):
-		await move_to(to_pixel(aim.x, aim.y))
+		var target_at := aim
+		if wants_object:
+			# Rebuild targets the wounded building, not the centre of the probe group.
+			# Other object-targeted powers need their own eligible probe and must not
+			# silently be judged against an arbitrary ground click.
+			if power != "SpellBookRebuild" or str(eff0.get("class", "")) != "PlayerHealSpecialPower":
+				await cancel_targeting_and_clean(probes, aim)
+				r["result"] = "FAIL"
+				r["why"] = "no object probe selected for class %s" % str(eff0.get("class", "?"))
+				return r
+			var target: Dictionary = world.get_object(int(probes.own[2]))
+			if not target.get("ok", false):
+				await cancel_targeting_and_clean(probes, aim)
+				r["result"] = "FAIL"
+				r["why"] = "the wounded building probe is missing"
+				return r
+			target_at = Vector2(float(target.x), float(target.y))
+		await move_to(to_pixel(target_at.x, target_at.y))
 		await game._step(4)
 		var rc: Dictionary = hud.get_spellbook_state().get("radius_cursor", {})
 		print("SPELL4 cursor %s: %s" % [power, JSON.stringify(rc)])
@@ -480,7 +506,12 @@ func cast_and_judge(k: int, aim: Vector2) -> Dictionary:
 			r["why"] = "the accepted spot %s is red again at the cast" % str(aim)
 			return r
 		shot("cursor-" + power)
-		await click(to_pixel(aim.x, aim.y))
+		await click(to_pixel(target_at.x, target_at.y))
+		if hud.get_spellbook_state().get("targeting", false):
+			await cancel_targeting_and_clean(probes, target_at)
+			r["result"] = "FAIL"
+			r["why"] = "target click at %s was not accepted" % str(target_at)
+			return r
 		cast_t = Time.get_ticks_msec()
 	# the cast's sound (review r1): the audio manager's playing events sampled for 2 s after the cast; the power's InitiateAtLocationSound (or InitiateSound)
 	var want_sound: String = str(eff0.get("initiate_at_location_sound", ""))

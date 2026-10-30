@@ -68,6 +68,9 @@ public:
 	// point as the group destination, its goal reserved there, a LARGE_RECTANGLE_PATHFIND unit's with its heading to it) and the move (RW 0x94DF1B ->
 	// aiMoveToPosition RW 0x66C4CA) or attack-move (RW 0x696266) to it. Every unit is sent to the one point: the destinations spread only by the reservations
 	void planningMoveToPosition(const Coord3D &pos, bool attackMove, CommandSourceType source);
+	// Calculate and reserve one member's destination (RW 0x94DF97; BFME2
+	// MoveToGroupOrder::rva005476C8). The future queued order keeps the result.
+	static Coord3D planningDestination(GameLogic &logic, Object &object, const Coord3D &pos);
 	// the stop line S-1831 (raised by every planning move)
 	static const char *planningStopLine();
 	// ZH AIGroup::groupIdle

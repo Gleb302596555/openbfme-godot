@@ -6,6 +6,7 @@
 #include "GameLogic/Module/HordeAIUpdate.h"
 #include "GameLogic/SimMath.h"
 
+#include "Common/GameCommon.h"
 #include "Common/StateHash.h"
 #include "Common/Thing/ModuleFactory.h"
 #include "Common/Thing/ThingFactory.h"
@@ -88,6 +89,26 @@ void HordeContain::registerClasses(ModuleFactory &modules)
 			return std::make_unique<HordeContain>(thing, dynamic_cast<const HordeContainBehaviorData *>(data));
 		});
 	}
+	// The Army of the Dead's contain (create RW 0x64B80A): a HordeContain whose onContaining fades the member in, see AODHordeContain
+	modules.bindModuleProc("AODHordeContain", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
+		return std::make_unique<AODHordeContain>(thing, dynamic_cast<const HordeContainBehaviorData *>(data));
+	});
+}
+
+// RW 0x87D650 .. 0x87D68E, BFME2 decomp AODHordeContainOnContaining.cpp 0x0047A3CB: Drawable::fadeIn(5 seconds of logic frames), then HordeContain::onContaining (RW 0x872D0A).
+// Not ported: the call on the member's experience tracker with 1 (RW 0x79D7AD, Object + 0x26C).
+bool AODHordeContain::addToContain(Object *obj)
+{
+	if (ObjectClientHooks *client = getObject()->logic().clientHooks())
+	{
+		client->fadeIn(*obj, LOGICFRAMES_PER_SECOND * 5);
+	}
+	return HordeContain::addToContain(obj);
+}
+
+void AODHordeContain::xfer(Xfer &x)
+{
+	HordeContain::xfer(x);
 }
 
 // the slot table is built when the module exists and its object is complete (RW 0x877751, from the contain's creation)

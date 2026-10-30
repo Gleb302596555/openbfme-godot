@@ -16,6 +16,7 @@
 #include "Common/Thing/ThingFactory.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/ControlBarCommands.h"
+#include "GameClient/InGameHud.h"
 #include "GameEngineDevice/Win32Device/Common/Win32BIGFileSystem.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/RetailObjectWorld.h"
@@ -294,4 +295,22 @@ TEST_CASE("ENNORATH Gondor: every reached command set, button and object is in t
 	CHECK(sets > 1000);
 	CHECK(buttons > 300);
 	CHECK(objects > 300);
+}
+
+// Ennorath ships its own Palantir.apt and SpellStore.apt, narrow on the stage for retail's stretch: the HUD must not narrow them again; retail's own stay corrected.
+TEST_CASE("ENNORATH: the mod's own HUD movies keep retail's stage mapping")
+{
+	const std::string install = envVar("OPENBFME_ENNORATH_INSTALL");
+	if (envVar("ROTWK_INSTALL").empty() || envVar("BFME2_INSTALL").empty() || install.empty())
+	{
+		retailtest::printSkip("Ennorath HUD movies (set ROTWK_INSTALL, BFME2_INSTALL and OPENBFME_ENNORATH_INSTALL)");
+		return;
+	}
+	EnnorathWorld loaded;
+	REQUIRE_MESSAGE(loaded.load(install), loaded.error);
+	MESSAGE("palantir.apt from " << loaded.merged.getArchiveFilenameForFile("palantir.apt") << ", spellstore.apt from " << loaded.merged.getArchiveFilenameForFile("spellstore.apt"));
+	CHECK(InGameHud::movieIsModAuthored(loaded.merged, "palantir"));
+	CHECK(InGameHud::movieIsModAuthored(loaded.merged, "spellstore"));
+	CHECK(InGameHud::movieIsModAuthored(*loaded.pure, "palantir") == false);
+	CHECK(InGameHud::movieIsModAuthored(*loaded.pure, "spellstore") == false);
 }

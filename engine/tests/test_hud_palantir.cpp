@@ -12,6 +12,7 @@
 #include "Common/PlayerTemplate.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameClient/GUI/ShellServices.h"
+#include "GameClient/GUI/GameTextSource.h"
 #include "GameClient/InGameHud.h"
 #include "GameLogic/Module/ProductionUpdate.h"
 #include "Libraries/Source/Apt/AptRenderList.h"
@@ -32,9 +33,9 @@ struct HudRig
 	Rig rig;
 	hudaudio::RecordingShellServices services;
 	std::unique_ptr<InGameHud> hud;
-	explicit HudRig(SharedWorld &s) : rig(s)
+	explicit HudRig(SharedWorld &s, GameTextSource *text = nullptr) : rig(s)
 	{
-		InGameHud::Config cfg{ *rig.game, *s.world, *s.mount->fs, services, rig.view, s.mouse, s.meta, nullptr };
+		InGameHud::Config cfg{ *rig.game, *s.world, *s.mount->fs, services, rig.view, s.mouse, s.meta, text };
 		hud = std::make_unique<InGameHud>(cfg);
 		std::string error;
 		REQUIRE_MESSAGE(hud->boot(&error), error);
@@ -502,6 +503,60 @@ TEST_CASE("hud palantir input: a rally point by the command button and by a clic
 	REQUIRE(exit->getRallyPoint() != nullptr);
 	CHECK(std::fabs(exit->getRallyPoint()->x - target.x) < 12.0f);
 	CHECK(std::fabs(exit->getRallyPoint()->y - target.y) < 12.0f);
+}
+
+TEST_CASE("hud rally: shift ground order sets every owned producer's rally point")
+{
+	if (!haveWorld("hud global rally")) return;
+	SharedWorld &s = shared();
+	struct RallyText : GameTextSource
+	{
+		bool fetch(const std::string &label, std::u16string &out) const override
+		{
+			if (label != "GUI:GlobalRallyPointSet") return false;
+			out = u"Global rally point set";
+			return true;
+		}
+	} text;
+	HudRig h(s, &text);
+	h.hud->input().commandTranslator().setUseAlternateMouse(true);
+	const Coord3D c = h.rig.freeSpot(2800, 1400, 250.0f);
+	Object *first = h.rig.make("GondorBarracks", c.x, c.y);
+	Object *second = h.rig.make("GondorBarracks", c.x + 100.0f, c.y);
+	h.rig.lookAt(c);
+	h.frames(30);
+	h.hud->input().ui().selectObject(first->getID());
+	h.hud->input().update();
+	ExitInterface *a = first->getObjectExitInterface();
+	ExitInterface *b = second->getObjectExitInterface();
+	REQUIRE(a != nullptr);
+	REQUIRE(b != nullptr);
+	const ICoord2D p = h.rig.screenOf(Coord3D{ c.x + 150.0f, c.y + 250.0f, 0.0f });
+	REQUIRE_FALSE(h.hud->isOverGui(p.x, p.y));
+	h.hud->key(KEY_LSHIFT, KEY_STATE_DOWN | KEY_STATE_LSHIFT);
+	h.frames(1);
+	REQUIRE(h.hud->input().ui().isInPreferSelectionMode());
+	h.hud->mouseMove(p.x, p.y, KEY_STATE_LSHIFT);
+	h.hud->mouseButton(HudInput::Button::Right, true, p.x, p.y, KEY_STATE_LSHIFT, 2000);
+	h.hud->mouseButton(HudInput::Button::Right, false, p.x, p.y, KEY_STATE_LSHIFT, 2040);
+	h.frames(12);
+	h.hud->key(KEY_LSHIFT, KEY_STATE_UP);
+	REQUIRE(a->getRallyPoint() != nullptr);
+	REQUIRE(b->getRallyPoint() != nullptr);
+	CHECK(a->getRallyPoint()->x == b->getRallyPoint()->x);
+	CHECK(a->getRallyPoint()->y == b->getRallyPoint()->y);
+	CHECK(a->getRallyPoint()->z == b->getRallyPoint()->z);
+	int lines = 0;
+	for (const auto &line : h.hud->messageLines().lines())
+		if (line.used && line.text == u"Global rally point set") ++lines;
+	CHECK(lines == 1);
+	const auto sounds = h.hud->input().ui().takeMiscSounds();
+	CHECK(std::count(sounds.begin(), sounds.end(), "RallyPointSet") == 1);
+	// A different player's global command must not produce local feedback.
+	h.rig.game->logic().noteGlobalRally(-1, Coord3D{});
+	h.frames(4);
+	CHECK(h.hud->input().ui().takeMiscSounds().empty());
+	CHECK(h.hud->guiMessagesShown() == 1);
 }
 
 TEST_CASE("hud rally banner: real right click sets the point and animates the retail flag while the produced horde walks there")

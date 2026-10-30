@@ -1105,8 +1105,8 @@ void AptPalantir::pressToggleStance(int position)
 }
 
 // RW 0x96F85A: the item's press: the toggle's SetStance (RW 0x96F53C: MSG_CHANGE_STANCE 0x468 with the stance through RW 0x7111E5, then the close request
-// of an open sub-menu), then the toggle flash's Go() (RW 0x9D2DA3 -> 0x92B9C8). NOT PORTED: SetStance's voice (RW 0x8DEDBB with 0x7E3 on the selection,
-// INFERENCE: the toggle's UnitSpecificSound); the toggle's image follows the logic's stance (ControlBar's StanceToButtonSlot, RW 0x96F5DE)
+// of an open sub-menu), then the toggle flash's Go() (RW 0x9D2DA3 -> 0x92B9C8). SetStance's voice (RW 0x8DEDBB with 0x7E3 on the selection, the toggle's UnitSpecificSound) is
+// ControlBar::sendChangeStance's; the toggle's image follows the logic's stance (ControlBar's StanceToButtonSlot, RW 0x96F5DE)
 void AptPalantir::pressStanceItem(int position, int item)
 {
 	InGameCommandButtonSubMenu *menu = m_subMenu[position].get();
