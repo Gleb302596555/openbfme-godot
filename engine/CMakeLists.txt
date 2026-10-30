@@ -101,6 +101,17 @@ option(OPENBFME_BUILD_FUZZERS "Build the asset-free save and replay libFuzzer ha
 option(OPENBFME_BUILD_TESTS "Build the C++ unit tests (five MP3 cases require verified fixtures when run)" ON)
 if(OPENBFME_BUILD_GODOT)
 add_subdirectory(thirdparty/godot-cpp EXCLUDE_FROM_ALL)
+if(MSVC)
+    # godot-cpp exports -D_HAS_EXCEPTIONS=0 (GODOTCPP_DISABLE_EXCEPTIONS) to everything that links it. The extension's own sources would then see a different
+    # std::exception than openbfme_core does, so INIException (an std::exception with a std::string) has two layouts in one DLL and the linker picks one
+    # copy of its inline special members: a `catch (INIException &)` in the core read a thrown INIException's message as garbage and crashed (godot/tests/
+    # ini_error_in_extension_test.gd). godot-cpp keeps the define for its own sources; only the interface copy goes.
+    get_target_property(OPENBFME_GODOTCPP_DEFS godot-cpp INTERFACE_COMPILE_DEFINITIONS)
+    if(OPENBFME_GODOTCPP_DEFS)
+        list(FILTER OPENBFME_GODOTCPP_DEFS EXCLUDE REGEX "_HAS_EXCEPTIONS")
+        set_property(TARGET godot-cpp PROPERTY INTERFACE_COMPILE_DEFINITIONS "${OPENBFME_GODOTCPP_DEFS}")
+    endif()
+endif()
 endif()
 
 option(OPENBFME_COVERAGE "Instrument engine tests for gcov line and branch coverage (GCC/Clang)" OFF)
@@ -288,6 +299,7 @@ include(cmake/Wall1.cmake)      # WALL-1: walkable wall tops and ramps (appends 
 include(cmake/Wall2.cmake)      # WALL-2: portals, portal modules, raised walkways (appends to OPENBFME_SIM_SOURCES; OPENBFME_WALL2_TESTS)
 include(cmake/Bridge1.cmake)    # BRIDGE-1: retail bridges crossed and destroyed (OPENBFME_BRIDGE1_TESTS)
 include(cmake/Siege1.cmake)     # SIEGE-1: the siege units (appends to OPENBFME_SIM_SOURCES; OPENBFME_SIEGE1_TESTS)
+include(cmake/Castlearea1.cmake) # CASTLEAREA-1: the castle area triggers (OPENBFME_CASTLEAREA1_TESTS)
 include(cmake/Weather1.cmake)   # WEATHER-1: snow, rain, darkness, lightning, the weather sound (client sources; OPENBFME_WEATHER1_TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
@@ -814,6 +826,7 @@ add_executable(openbfme_tests
     ${OPENBFME_WALL2_TESTS}
     ${OPENBFME_BRIDGE1_TESTS}
     ${OPENBFME_SIEGE1_TESTS}
+    ${OPENBFME_CASTLEAREA1_TESTS}
     ${OPENBFME_WEATHER1_TESTS}
     tests/test_main.cpp
     tests/test_big_archive.cpp

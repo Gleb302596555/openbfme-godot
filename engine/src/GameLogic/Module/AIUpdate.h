@@ -314,6 +314,7 @@ public:
 	bool isDoingGroundMovement() const;       // B1 AIUpdate.cpp:3978
 	bool isAircraftThatAdjustsDestination() const; // B1 AIUpdate.cpp:4010
 	bool canPathThroughUnits() const override { return m_canPathThroughUnits; } // AI + 0x3BA
+	void exitQuickPathMade(const Coord3D &dest) override; // RW 0x666079 .. 0x66607C
 	void setCanPathThroughUnits(bool v) { m_canPathThroughUnits = v; }
 	CommandSourceType lastCommandSource() const { return m_lastCommandSource; }
 	void setLastCommandSource(CommandSourceType s) { m_lastCommandSource = s; } // AI + 0x48 (lane HEROCAST-1: public, AIGroup's groupDoSpecialPower* write it)
@@ -482,6 +483,11 @@ public:
 	// AI module data + 0x34 / + 0x30 (MinCowerTime / MaxCowerTime, parseDurationUnsignedInt, default 0: RW ctor 0x66E8FF)
 	unsigned minCowerTime() const { return m_minCowerTime; }
 	unsigned maxCowerTime() const { return m_maxCowerTime; }
+	// lane CASTLEAREA-1: AI vslot 0x180, the animal interface: the base answers null; AnimalAIUpdate's (RW 0x88C915) its + 0x4A8 interface, whose slot 0 (RW
+	// 0x881EEE) answers the module data's + 0x7C, AfraidOfCastles (field table RW 0xC04EE8, parseBool RW 0x42E558; the data constructor RW 0x64BB2C sets it to
+	// 1, and no retail INI sets it: natureunits.ini has it commented out). The rest of AnimalAIUpdate is not ported (S-222): the class runs as the base AI
+	bool hasAnimalInterface() const { return m_animalInterface; }
+	bool animalAfraidOfCastles() const { return m_animalAfraidOfCastles; }
 	// RW 0x68E43B: the object's vision range (Object + 0x1B0, the template's VisionRange: S-1027) x (1 + the attribute modifier sum of type 16) x the height bonus
 	float objectVisionRange() const;
 	static float objectVisionRangeOf(Object &object); ///< the same for any object (RW 0x68E43B is Object's; lane CAMP-1H)
@@ -604,6 +610,7 @@ private:
 	bool m_preventPlayerCommands = false; // RW + 0x3C5
 	bool m_fastCower = false;             // RW + 0x3C4
 	unsigned m_minCowerTime = 0, m_maxCowerTime = 0;
+	bool m_animalInterface = false, m_animalAfraidOfCastles = true; ///< lane CASTLEAREA-1 (see hasAnimalInterface)
 	// lane GARRISON-2: the turret's data (the AI module's `Turret` block, the raw module data) and the turret (RW AI + 0x20C, made by the AI constructor RW 0x66ECFE)
 	std::unique_ptr<TurretAIData> m_turretData;
 	std::unique_ptr<TurretAI> m_turret;

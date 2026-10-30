@@ -40,7 +40,8 @@ TEST_CASE("siege1 attack retail: Isengard's battering ram breaks Helm's Deep's m
 	CHECK(r.healthAfterFirst == 3000.0f); // ISENGARD_BATTERINGRAM_DAMAGE 1000, the gate's armour full
 	// merge queue q27: death 335 -> 366, GATEPUSH-1 (the gate repels the units colliding with it when it opens or closes, RepelCollidingUnits; measured
 	// at each merge point)
-	CHECK(r.deathFrame == 366);
+	// merge queue q31 (#68's ambient wanderers draw from the game's random numbers; measured at each merge point): death 366 -> 364
+	CHECK(r.deathFrame == 364);
 	CHECK(r.dead);
 }
 
@@ -66,10 +67,11 @@ TEST_CASE("siege1 attack retail: Gondor's trebuchet hits a Helm's Deep wall from
 	CHECK(r.ordered);
 	CHECK(r.slotAtHit == 0);
 	// merge queue q26 (re-measured on the archive with SIEGE-1's pair rule and the rest): 20 / 5918.74951 / 5293.74854 -> 16 / 5929.4707 / 5506.29492
-	CHECK(r.firstHit == 16); // in range at once: no drive, the PreAttackDelay and the stone's flight
+	// merge queue q31 (#68's ambient wanderers draw from the game's random numbers; measured at each merge point): 16 / 5974.28516 / 5597.16553 -> 17 / 5929.73 / 5557.55
+	CHECK(r.firstHit == 17); // in range at once: no drive, the PreAttackDelay and the stone's flight
 	// lane FBSIM-1 (the scene's computer players build through their dozers, whose sites are now RotWK's phantoms until placed, RW 0x88D272 / 0x88D44F: the shared random stream and the AIs' play move), measured on the lane's tree (a CI host) with the AI defender: 5929.4707 / 5506.29492 -> 5974.28516 / 5597.16553
-	CHECK(r.healthAfterFirst == 5974.28516f); // the stone's damage (its scatter and splash: PROJ-2)
-	CHECK(r.healthAfter == 5597.16553f);
+	CHECK(r.healthAfterFirst == 5929.73486f); // the stone's damage (its scatter and splash: PROJ-2)
+	CHECK(r.healthAfter == 5557.54834f);
 }
 
 TEST_CASE("siege1 attack retail: Grond breaks Minas Tirith's gate with its ram (PRIMARY MordorGrondRam, OnlyAgainst BLOCKING_GATE): one blow")
@@ -92,12 +94,12 @@ TEST_CASE("siege1 attack retail: Mordor's catapult made inside its MinimumAttack
 	print("MordorCatapult", r);
 	CHECK(r.ordered);
 	CHECK(r.slotAtHit == 0);
-	CHECK(r.firstHit == 63); // merge queue q26: 47 -> 63
+	CHECK(r.firstHit == 48); // merge queue q26: 47 -> 63; merge queue q31 (#68's ambient wanderers draw from the game's random numbers; measured at each merge point): 63 -> 48
 	CHECK(r.distAtHit > 150.0f); // tolerance: it fired from outside its minimum range (the drive ends where the attack state's approach puts it: 243.2)
 	// merge queue q26 (the archive's pair rule, SIEGE-1 / test_siege1_gate.cpp): from its backed-off spot most stones are caught before the gate; at frame 600
 	// the gate still stands at 2935.86 (a follow-up: test_siege1_gate.cpp's back-off case)
 	CHECK(r.deathFrame == -1);
-	CHECK(r.healthAfter == 2935.87988f); // lane FBSIM-1 (the AI defender's phantom sites move the random stream): 2935.85986 -> 2935.87988
+	CHECK(r.healthAfter == 2869.33984f); // lane FBSIM-1 (the AI defender's phantom sites move the random stream): 2935.85986 -> 2935.87988; merge queue q31 (#68): -> 2869.33984
 }
 
 TEST_CASE("siege1 attack retail: a mumak and the Dwarven demolisher break Helm's Deep's main gate; Mordor's catapult from 500 toward Player_2_Start hits the flanking tower")
@@ -109,17 +111,19 @@ TEST_CASE("siege1 attack retail: a mumak and the Dwarven demolisher break Helm's
 	// merge queue q26: the mumak's first damage 66 / 3400 -> 18 / 3997.75 (a knockback graze before its first full hit), death 282 -> 424
 	// merge queue q27: first damage 18 -> 184, death 424 -> 415, LOS-1 (the terrain line of sight in the target search and the attack view; measured at
 	// each merge point)
-	CHECK(m.firstHit == 184);
-	CHECK(m.healthAfterFirst == 3997.75f);
-	CHECK(m.deathFrame == 415);
+	// merge queue q31 (#68's ambient wanderers draw from the game's random numbers; measured at each merge point): first damage 184 -> 196 (3997.75 -> 3999.25), death 415 -> 423
+	CHECK(m.firstHit == 196);
+	CHECK(m.healthAfterFirst == 3999.25f);
+	CHECK(m.deathFrame == 423);
 	const AttackResult d = siegeAttack(*s, kHelmsDeep, "Main Gate", "DwarvenDemolisher", false, 250.0f, 600, true);
 	print("DwarvenDemolisher", d);
 	CHECK(d.slotAtHit == 1); // DwarvenBatteringRamGate
 	// merge queue q27: first damage 254 -> 316, death 320 -> 382, GATEPUSH-1 (the gate's RepelCollidingUnits; measured at each merge point)
 	// merge queue q29: first damage 316 -> 315, death 382 -> 381, FBSIM-1 (the scene's computer defender builds phantom sites; measured at each merge point)
-	CHECK(d.firstHit == 315);
+	// merge queue q31 (#68's ambient wanderers draw from the game's random numbers; measured at each merge point): first damage 315 -> 317, death 381 -> 383
+	CHECK(d.firstHit == 317);
 	CHECK(d.healthAfterFirst == 3000.0f);
-	CHECK(d.deathFrame == 381);
+	CHECK(d.deathFrame == 383);
 	const AttackResult c = siegeAttack(*s, kHelmsDeep, "Main Gate", "MordorCatapult", false, 500.0f, 600, true);
 	print("MordorCatapult", c);
 	// on the archive (SIEGE-1, test_siege1_gate.cpp): from 500 toward Player_2_Start the catapult's stones meet HelmsDeepGatehouseRight in their line of fire,
