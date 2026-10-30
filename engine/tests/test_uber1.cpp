@@ -105,9 +105,32 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // on their hordes, RW 0x86C4EA, and the destination adjustment spiralling around the cell, RW 0x6FA2A4, #73 alone differs from it from frame 0; lane AIDATA-1: the horde run-down, RW 0x748650 /
 // 0x74AA69 / 0x6CC07C; lane AIEXPAND-1 re-measured it: the skirmish AI's state hash holds the EXPANSION heuristic's frame counter, RW 0x97D035; merge queue q29
 // re-measured it once on the merged tree: AIEXPAND-1's counter, before it AIDATA-1's run-down, compared at each merge point; merge queue q30 re-measured it
-// once on the merged tree: #130's allied clearing with the move state's update and exit, RW 0x749497 / 0x74949C, from frame 12; PORTERFOG-1 keeps it). The state hash's own dispatches are counted
+// once on the merged tree: #130's allied clearing with the move state's update and exit, RW 0x749497 / 0x74949C, from frame 12; PORTERFOG-1 keeps it; merge queue q32
+// re-measured it once on the merged tree: MODCOMPAT-AI's script references and completed upgrades, compared at each merge point; the other items keep it; merge queue q33
+// re-measured it once on the merged tree, compared at each merge point: #164 keeps it; MODCOMPAT-MOD1 (its modules), #133 (the straight production exits) and #166
+// (the Uber path-search cap) each move it). The state hash's own dispatches are counted
 // apart from the frame's (PERF-2's collision jobs): with more than one
 // thread the hash itself ran chunks on workers. The Uber hash is not the Faithful one, and a Faithful hash dispatches nothing.
+// Lane MODCOMPAT-MOD1 re-measured the pin vector at GeometryUpgrade's commit (OPENBFME_UBER1_REGEN=1, a CI host): GeometryUpgrade's per-object GeometryInfo
+// (RW Object + 0xA8: the object's shapes enter its hash) moves it, from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured the pin vector at RebuildHoleExposeDie's commit (OPENBFME_UBER1_REGEN=1, a CI host): RebuildHoleExposeDie /
+// RebuildHoleBehavior (the objects' mask bit Object + 0x459 and the dozers' rebuild byte AI + 0x4D0 in the hash), from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured the pin vector at CommandButtonHuntUpdate's commit (OPENBFME_UBER1_REGEN=1, a CI host): CommandButtonHuntUpdate's state (RW
+// 0x898A5D: the module sleeps forever until a hunt) in the object hash, from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured the pin vector at GrabPassengerSpecialPower's commit (OPENBFME_UBER1_REGEN=1, a CI host): GrabPassengerSpecialPower's
+// module state (RW 0x8C942D) in the object hash, from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured the pin vector at CritterEmitterUpdate's commit (OPENBFME_UBER1_REGEN=1, a CI host): CritterEmitterUpdate's module state
+// (xfer RW 0x8CD256) in the object hash, from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured the pin vector at AudioLoopUpgrade's commit (OPENBFME_UBER1_REGEN=1, a CI host): AudioLoopUpgrade's update module and
+// upgrade mux in the object hash, from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured the pin vector at ClickReactionBehavior's commit (OPENBFME_UBER1_REGEN=1, a CI host): ClickReactionBehavior's click meter
+// and countdown (RW 0x85C5DE) in the object hash, from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured the pin vector at PickupStuffUpdate's commit (OPENBFME_UBER1_REGEN=1, a CI host): PickupStuffUpdate (every horde's update
+// joins and leaves the sleepy update vectors, RW 0x62E982, and its scan state is in the hash), from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured the pin vector at AutoPickUpUpdate's commit (OPENBFME_UBER1_REGEN=1, a CI host): AutoPickUpUpdate (its constructor's logic
+// random draw, RW 0x8994BF, and its scan state in the object hash), from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured the pin vector at BoredUpdate's commit (OPENBFME_UBER1_REGEN=1, a CI host): BoredUpdate (its constructor's logic random
+// draw, RW 0x899F1F, and its countdown in the object hash), from frame 0.
 TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1, 4 and 16 logic threads and in a repeated run; the hash's own jobs run on "
 		  "workers; Faithful hashes differently and serially")
 {
@@ -116,6 +139,8 @@ TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1
 	const int units = 3000, frames = 40;
 	const char *regenEnv = std::getenv("OPENBFME_UBER1_REGEN");
 	const bool regen = regenEnv && *regenEnv == '1';
+	// Ambient movement: target idle wandering adds RNG draws and origin state,
+	// so these engine references are measured again for this simulation change.
 	const std::vector<std::uint32_t> pin = readUberHashes("battle3000_40.hashes");
 	if (!regen)
 	{

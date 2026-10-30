@@ -1882,11 +1882,16 @@ void Pathfinder::processPathfindQueue(PathfindRequestHandler &handler)
 		budget *= 100;
 	}
 	const int half = budget / 2;
+	auto capSearch = [&]() { // lane PERF-HD (Uber only): the search may count what the call has left, at least kUberSearchFloor
+		m_uberSearchCap = m_uberLimits ? std::max((int)kUberSearchFloor, budget - m_cumulativeCellsAllocated) : 0x7fffffff;
+		m_uberSearchAllocs = 0;
+	};
 	while (half > 0 && !m_queue2.empty() && m_cumulativeCellsAllocated < half)
 	{
 		const PathfindObjectID id = m_queue2.pop();
 		if (m_world && m_world->findObjectByID(id))
 		{
+			capSearch();
 			handler.doBlockedRepath(id);
 		}
 	}
@@ -1895,7 +1900,9 @@ void Pathfinder::processPathfindQueue(PathfindRequestHandler &handler)
 		const PathfindObjectID id = m_queue1.pop();
 		if (m_world && m_world->findObjectByID(id))
 		{
+			capSearch();
 			handler.doPathfind(id);
 		}
 	}
+	m_uberSearchCap = 0x7fffffff;
 }

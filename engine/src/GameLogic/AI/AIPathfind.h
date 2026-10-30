@@ -1087,7 +1087,13 @@ public:
 	// kUberBurstQueue requests wait (a mass order), the budget is kUberBudgetScale times retail's, so the burst is served in a few frames. A sustained
 	// battle's repaths keep 60-90 waiting (10,000 troops): they get retail's budget, which a larger one would only spend on the same steady trickle
 	// (+34 ms a frame at 4x). A Faithful game never turns the limits on
-	enum { kUberQueueLength = 16384, kUberBudgetScale = 4, kUberBurstQueue = 120, kUberBurstEnd = 40 };
+	enum { kUberQueueLength = 16384, kUberBudgetScale = 2, kUberBurstQueue = 120, kUberBurstEnd = 40 };
+	// lane PERF-HD (Uber only): a search the queue serves may count at most the budget the call has left, and at least this many cells (Helm's Deep: one
+	// search of 130,000 cells took 1.2 s of one logic frame; retail's budget is checked only between requests)
+	enum { kUberSearchFloor = 2000 };
+	// lane PERF-HD (Uber only): a second search of the request being served counts against the cap afresh (AIMover::computeAttackPath's fallback after
+	// findAttackPath), so the first search's cells do not end it at its first cell
+	void restartUberSearchCount() { m_uberSearchAllocs = 0; }
 	void setUberLimits(bool on);
 	bool uberLimits() const { return m_uberLimits; }
 	bool uberBurst() const { return m_uberBurst; } // lane PATHPERF-4: the request queue is draining a burst (the snapshot keeps it)
@@ -1206,7 +1212,7 @@ private:
 	PathfindLayerEnum raisedLayerFor(const PathfindWallSurface &s, PathfindObjectID owner);
 	void rebuildRaisedLayer(PathfindLayerEnum layer); // the cells (rebuildRaisedCells), then the units' slots on the layer registered again
 	void rebuildRaisedCells(PathfindLayerEnum layer);
-	void connectRampToRaised(int i, int j, PathfindCell *c, float rampHeight, int corners);
+	bool connectRampToRaised(int i, int j, PathfindCell *c, float rampHeight, int corners); // true when the cell joined a raised layer
 	void crcRaised(StateHasher &h) const;
 	PathfindLayerEnum wallLayerFor(float height);
 	void stampWallSurface(const PathfindWallSurface &s, PathfindLayerEnum layer);
@@ -1395,6 +1401,8 @@ private:
 	bool m_memoActive = false;
 	bool m_searchShortcuts = true;
 	bool m_uberLimits = false; // lane PATHPERF-4
+	int m_uberSearchCap = 0x7fffffff; // lane PERF-HD: the cap of the search being served (kUberSearchFloor .. the budget left); no cap outside the queue
+	int m_uberSearchAllocs = 0;       // lane PERF-HD: the cells the search being served closed (markClosed) or walked (examineShortcutCell), against the cap
 	bool m_uberBurst = false;  // lane PATHPERF-4: the queue is draining a burst (hashed in an Uber game)
 	// lane PATHPERF-2: the line memo (LineMemoScope): an open-addressed table of (cell index * 10 + entry code + 1) -> blocked, entries valid in generation
 	// m_lineMemoGen; the parameters are bound by the scope's first isLinePassable call

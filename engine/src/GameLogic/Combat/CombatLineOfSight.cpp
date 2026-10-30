@@ -104,18 +104,7 @@ bool CombatLineOfSight::isClearLineOfSightTerrain(GameLogic &logic, const Coord3
 
 float CombatLineOfSight::maxHeightAbovePosition(const Object &obj)
 {
-	const std::vector<ObjectGeometry::Shape> &shapes = ObjectGeometry::cachedShapesOf(*obj.getTemplate());
-	const std::vector<std::uint8_t> &active = obj.geometryActive();
-	if (active.empty())
-	{
-		return ObjectGeometry::maxHeightAbovePosition(shapes);
-	}
-	std::vector<ObjectGeometry::Shape> own = shapes;
-	for (size_t i = 0; i < own.size() && i < active.size(); ++i)
-	{
-		own[i].active = active[i] != 0;
-	}
-	return ObjectGeometry::maxHeightAbovePosition(own);
+	return ObjectGeometry::maxHeightAbovePosition(obj.geometryShapes()); // RW 0xAD1920 on the object's own GeometryInfo (Object + 0xA8)
 }
 
 Coord3D CombatLineOfSight::victimLineOfSightPoint(const Weapon &weapon, const Object &source, const Object &victim)

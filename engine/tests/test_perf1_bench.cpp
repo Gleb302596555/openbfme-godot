@@ -493,8 +493,61 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // Merge queue q30 re-measured both once on the merged tree (OPENBFME_PERF1_REGEN=1, a CI host), compared at each merge point: PORTERFOG-1 (an object out of
 // the world keeps its shroud record, RW 0x68C18F / 0x68E31F) moves the skirmish from frame 8 and leaves the battle; #130 (allied clearing runs the move
 // state's update and exit, RW 0x749497 -> 0x748E46 / 0x74949C -> 0x748D8A: MOVING while clearing) moves the battle from frame 103 and the skirmish again from frame 2506.
+// Lane BFME2CAMP1 re-measured the skirmish on main's tree after q30 (OPENBFME_PERF1_REGEN=1, a CI host): a destroyed creep lair leaves its hole and is
+// rebuilt (RebuildHoleExposeDie RW 0x889AAF, RebuildHoleBehavior RW 0x8868C2); the skirmish differs from frame 1566, the big battle is unchanged.
+// Lane MODCOMPAT-AI re-measured the skirmish (OPENBFME_PERF1_REGEN=1, a CI host): from frame 23 the retail skirmish AI's SET_UNIT_REFERENCE (four calls at frame 25)
+// writes the side's reference map (RW 0x7C2AF6 -> RW 0x608397), which is hashed, and completed upgrades enter the script engine's lists (RW 0x759A1C); the battle is unchanged.
+// The capture release re-measured the skirmish (OPENBFME_PERF1_REGEN=1, Windows llvm-mingw): an idle capture ability clears CAPTURING on its capturer
+// (RW 0x85266D), so the AI capture squads take their next order after a capture; it moves the skirmish from frame 717 and leaves the battle.
+// Merge queue q32 re-measured both once on the merged tree (OPENBFME_PERF1_REGEN=1, a CI host), compared at each merge point: #137 (the rebuild holes),
+// MODCOMPAT-AI (the skirmish AI's references and completed upgrades) and #156 (the capture release) each move the skirmish; #140, TEAMEVENTS-1 and #159 move
+// neither; the big battle is unchanged.
+// Merge queue q33 re-measured them once on the merged tree (OPENBFME_PERF1_REGEN=1, a CI host), compared at each merge point: #164 (the logic-frame
+// caches) moves neither; MODCOMPAT-MOD1 (its eleven modules in the update vectors and the object hash, MODCOMPAT-MOD1's own vectors were measured on its
+// older base) and #133 (the straight production exits) each move both; #166 (Uber only) moves neither.
+// Lane MODCOMPAT-MOD1 re-measured them at GeometryUpgrade's commit (OPENBFME_PERF1_REGEN=1, a CI host): GeometryUpgrade (every object reads its own
+// GeometryInfo: the pathfinder footprint, the combat circle and sphere, the partition cells, RW 0x68B244 / 0xAD2CE0; the structures' level shapes switch)
+// moves the skirmish from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured them at RebuildHoleExposeDie's commit (OPENBFME_PERF1_REGEN=1, a CI host): RebuildHoleExposeDie / RebuildHoleBehavior
+// (every object's mask bit, Object + 0x459 bit 1, and the dozers' rebuild byte, AI + 0x4D0, are hashed; a dead creep lair or Wild structure leaves its hole,
+// RW 0x889AAF, which rebuilds it, RW 0x8868C2) moves the battle from frame 0 and the skirmish from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured them at SlaveWatcherBehavior's commit (OPENBFME_PERF1_REGEN=1, a CI host): SlaveWatcherBehavior (the castle expansions' and
+// citadels' watched slave id and its state in the hash; the slave shares the structure's upgrades, RW 0x887AF5, and SlaveAttackNugget orders it, RW 0x910EA1)
+// moves the skirmish from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured them at CommandButtonHuntUpdate's commit (OPENBFME_PERF1_REGEN=1, a CI host): CommandButtonHuntUpdate (its button and hunt
+// state, RW 0x89903C, are in the object hash; the skirmish AI's TEAM_HUNT_WITH_COMMAND_BUTTON hunts with it) moves the battle from frame 0 and the skirmish
+// from frame 375.
+// Lane MODCOMPAT-MOD1 re-measured them at GrabPassengerSpecialPower's commit (OPENBFME_PERF1_REGEN=1, a CI host): GrabPassengerSpecialPower (the trolls' grab
+// power is a special power module with its state in the object hash, RW 0x8C942D; its grab of an object runs, RW 0x8C94D7) moves the battle from frame 0 and
+// the skirmish from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured them at CritterEmitterUpdate's commit (OPENBFME_PERF1_REGEN=1, a CI host): CritterEmitterUpdate (the BirdEmitter's module
+// state, RW 0x8CD256, in the object hash; a unit walking into it draws the logic random for its FXList and OCL, RW 0x8CD297, and the emitter rests out of the
+// collision manager, RW 0x8CD1F6) moves the battle from frame 0 and the skirmish from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured them at AudioLoopUpgrade's commit (OPENBFME_PERF1_REGEN=1, a CI host): AudioLoopUpgrade (its update module and upgrade mux
+// are in the object hash, crc after RW 0x8BBF93's xfer; the upgrade wakes its update after KillAfterMS, RW 0x8BBE71, in the logic's update vectors) moves the
+// skirmish from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured them at ClickReactionBehavior's commit (OPENBFME_PERF1_REGEN=1, a CI host): ClickReactionBehavior (the trolls' click meter
+// and reaction countdown, xfer RW 0x85C5DE, are in the object hash; its update RW 0x85C704 joins the sleepy update vectors) moves the battle from frame 0 and
+// the skirmish from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured them at PickupStuffUpdate's commit (OPENBFME_PERF1_REGEN=1, a CI host): PickupStuffUpdate (every horde's update module, RW
+// 0x8957B7: a human player's sleeps for ever after its first update, which reorders the sleepy update vectors, RW 0x62E982; the AI's kept temporary machine,
+// RW 0x6630A9, is in the AI hash) moves the battle from frame 0 and the skirmish from frame 296.
+// Lane MODCOMPAT-MOD1 re-measured them at AutoPickUpUpdate's commit (OPENBFME_PERF1_REGEN=1, a CI host): AutoPickUpUpdate (the trolls' and the Watcher's scan
+// countdown starts at a logic random value, RW 0x8994BF, and its state is in the object hash; a scan grabs or eats through the grab power, RW 0x89958F) moves
+// the battle from frame 0 and the skirmish from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured them at BoredUpdate's commit (OPENBFME_PERF1_REGEN=1, a CI host): BoredUpdate (the trolls' scan countdown starts at a logic
+// random value, RW 0x899F1F, and its state is in the object hash; an idle troll clubs a troll friend through its bored power, RW 0x899F9D) moves the battle
+// from frame 0 and the skirmish from frame 0.
+// Lane MODCOMPAT-MOD1 re-measured them at SalvageCrateCollide's commit (OPENBFME_PERF1_REGEN=1, a CI host): SalvageCrateCollide (a unit that touches a crate
+// collects it, CrateCollide RW 0x8C06B6, and the crate is destroyed; the AI hordes' pick-ups now begin and end, RW 0x895715) moves the skirmish from frame
+// 1577.
+// Lane MODCOMPAT-MOD1 re-measured them at the run-down aim fix's commit (OPENBFME_PERF1_REGEN=1, a CI host): the aim state of a unit running a target down
+// ends at once (AIAttackAimAtTargetState RW 0x753426 / 0x7524B5: the riders strike on other frames) moves the battle from frame 129 and the skirmish from
+// frame 598.
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
+	// Ambient movement: target idle wandering adds RNG draws and origin state,
+	// so these engine references are measured again for this simulation change.
 	const std::vector<std::uint32_t> battleRef = perf1::readHashes("big_battle_400.hashes");
 	const std::vector<std::uint32_t> skirmishRef = perf1::readHashes("skirmish4_6000.hashes");
 	// OPENBFME_PERF1_REGEN=1 rewrites the two reference vectors from this build instead of comparing: run it only when a merged change is MEANT to
@@ -548,7 +601,8 @@ TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after a
 
 // The allied blob (24 hordes sent to one point, 300 frames) on a world this test loads itself, against tests/data/perf1/allied_blob_300.hashes measured
 // with the build before the collision module caches (upstream main 87579746): the contact pairs' lookups must not change a frame. OPENBFME_PERF1_REGEN=1
-// rewrites the vector, as above.
+// rewrites the vector, as above. Merge queue q33 measured it on the archive's tree at #164's merge point (where every other PERF-1 / UBER-1 vector is the
+// archive's, byte for byte), then once on the merged tree: MODCOMPAT-MOD1 and #133 each move it, #166 keeps it.
 TEST_CASE("perf1: the allied blob (300 frames) hashes as the build before the collision module caches did in every frame")
 {
 	const std::vector<std::uint32_t> blobRef = perf1::readHashes("allied_blob_300.hashes");

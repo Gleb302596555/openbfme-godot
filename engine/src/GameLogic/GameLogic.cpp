@@ -972,6 +972,8 @@ void GameLogic::reset()
 	m_crushById.clear();
 	m_frame = 0;
 	m_gameDifficulty = 1; // lane CAMP-1H: GameLogic::reset RW 0x62D3EB (+ 0xA4 = 1)
+	m_buildableOverrides.clear(); // lane BFME2CAMP1 (review): a new game starts without the script's overrides (ZH GameLogic::reset clears its map; donor)
+	m_campaignCarryover.reset();  // lane BFME2CAMP1: the mission's start sets it again
 	m_showBehindBuildingMarkers = true; // lane OCCLUDE-1: GameLogic::reset RW 0x62D3D6 (+ 0x99 = 1)
 	m_nextObjectID = 1;
 	m_sharedProductionID = 0;
@@ -1064,6 +1066,31 @@ std::uint32_t GameLogic::computeStateHash() const
 	return hashState(nullptr, nullptr);
 }
 
+// lane BFME2CAMP1: RW 0x62FEE6 (see GameLogic.h)
+void GameLogic::setBuildableStatusOverride(const ThingTemplate *tt, std::int32_t status)
+{
+	if (tt)
+	{
+		m_buildableOverrides[tt->getName()] = status;
+	}
+}
+
+// RW 0x62EE6D
+bool GameLogic::findBuildableStatusOverride(const ThingTemplate *tt, std::int32_t &status) const
+{
+	if (!tt)
+	{
+		return false;
+	}
+	const auto it = m_buildableOverrides.find(tt->getName());
+	if (it == m_buildableOverrides.end())
+	{
+		return false;
+	}
+	status = it->second;
+	return true;
+}
+
 std::uint32_t GameLogic::computeStateHashBreakdown(std::vector<StateHashSection> &sections, std::vector<ObjectStateHash> *objects) const
 {
 	sections.clear();
@@ -1109,6 +1136,22 @@ std::uint32_t GameLogic::hashState(std::vector<StateHashSection> *sections, std:
 		if (m_simulationProfile != SimulationProfile::Faithful)
 		{
 			x.addI32((std::int32_t)m_simulationProfile);
+		}
+		// lane BFME2CAMP1: the script's buildability overrides, only when there are any (a game without keeps its hash)
+		if (!m_buildableOverrides.empty())
+		{
+			x.addU32((std::uint32_t)m_buildableOverrides.size());
+			for (const auto &e : m_buildableOverrides)
+			{
+				x.addString(e.first);
+				x.addI32(e.second);
+			}
+		}
+		// lane BFME2CAMP1: the campaign's carry-over, only in a campaign game that has it
+		if (m_campaignCarryover)
+		{
+			x.addU32(0xCA4401u);
+			m_campaignCarryover->crc(x);
 		}
 		x.addU32(m_nextObjectID);
 		if (ModEngineFeatures::has(ModEngineFeature::EdainUnchainedUniqueProductionId))
