@@ -12,7 +12,7 @@
 //
 // Scope limits (reported by get_model_report): no model condition states of its own (the draw module runtime,
 // GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.h, chooses model and clips and hands a clip pair to
-// set_instance_pose), no turrets / captured bones, no house colour, no shadows, no emitters. See GodotW3DMaterial.h for the shading divergences.
+// set_instance_pose), no turrets / captured bones, no projected/decal shadows, no emitters. See GodotW3DMaterial.h for the shading divergences.
 
 #pragma once
 
@@ -106,8 +106,8 @@ public:
 	bool set_instance_hidden_subobjects(int64_t instance, const PackedStringArray &names);
 	int64_t get_instance_count() const { return (int64_t)Instances.size(); }
 	// Stop S-119 (lane MAPOBJ-1): team colours. After setup() and BEFORE the first add_model, enable them and every classic surface whose stage
-	// 0 texture has a housecolor.ini texture gets the HouseColor shader permutation (W3DShaderKey::HouseColor: base = mix(base, base * team,
-	// house texture alpha), a HYPOTHESIS: the combine is unrecovered, S-022); the per-surface S-022 reports are replaced by one S-119 report
+	// 0 texture has a housecolor.ini texture gets the HouseColor shader permutation (W3DShaderKey::HouseColor: the texture recoloured with the instance's
+	// colour, combined after the light as retail does, S-022); the per-surface S-022 reports are replaced by one S-119 report
 	// per mesh. set_instance_house_color then tints one instance (alpha < 0.5: none).
 	void set_house_colors_enabled(bool enabled);
 	bool get_house_colors_enabled() const { return HouseColorEnabled; }
@@ -128,10 +128,17 @@ public:
 	// RENDER-1 (stop S-390): the instance is lit by the map's infantry light set (KINDOF_INFANTRY drawables) instead of the objects set;
 	// the buffer stores the palette base as -(base + 1) for it.
 	void set_instance_infantry_light(int64_t instance, bool infantry);
+	// lane GLOW-1 (stop S-5231): the model's draws are also drawn by the glow pass's camera (GodotGlowEffect.h kGlowLayer), as retail's glow-flagged render objects
+	// are in pass mode 3 (RW 0x46FE84): every instance of this model glows, so the caller keys glowing and plain draws of one W3D model apart. With
+	// emissive_only (GlowEmissive, RW 0xDD1E18) a mesh glows only when its first vertex material's emissive is above 0.01 (MeshClass::Render).
+	void set_model_glow(int64_t model, bool emissive_only);
 	// lane VISUAL-2: the tree's vegetation sway type (0 none, 1 .. 10: W3DVegetationSway, RW 0x4EC93A), written to INSTANCE_CUSTOM.w as bone + 1024 * type
 	void set_instance_sway(int64_t instance, int type);
 	// lane VISUAL-2: the instance is lit by the fogged light (a last-seen object in the fog: lights and ambient times w3d_fogged_frac), INSTANCE_CUSTOM.w += 16384
 	void set_instance_fogged(int64_t instance, bool fogged);
+	// lane INGAMEBG-1: false for an instance of a scene without fog (the Apt View3D's own scene, RW 0x5424E0: SceneClass's FogEnabled false): the map's
+	// hardware fog (S-1651) is not applied to it (INSTANCE_CUSTOM.w += W3D_NO_SCENE_FOG_BIT)
+	void set_instance_scene_fog(int64_t instance, bool fog);
 	// lane OCCLUDE-1: the instance's behind-building role (GameClient/RTS3DSceneOcclusion.h): an occluder marks the stencil where it is in front, an
 	// occludee (colour slot 1 .. 31 of the global w3d_occl_colors) is drawn in its colour where a mark covers it. The model's opaque surfaces get the
 	// occlusion passes (W3DShaderKey::OcclusionPass) chained the first time one of its instances asks for them. INSTANCE_CUSTOM.w carries the bits
@@ -141,6 +148,12 @@ public:
 	bool instance_outside(int64_t instance, const std::vector<Plane> &frustum);
 	// the occlusion pass materials made so far (for tests): { marks, colours }
 	Dictionary get_occlusion_pass_counts() const;
+	// Presentation only. Shadow-only batches share the posed mesh and palette, but contain only eligible instances.
+	void set_instance_cast_shadow(int64_t instance, bool enabled);
+	// Set before adding models. UI / standalone model viewers default to no shadow reception.
+	void set_shadow_receiving(bool enabled) { ShadowReceiving = enabled; }
+	// Engine-wide, set with the w3d_shadow global (object_shadows.gd): while no shadow map is drawn, casters are pose-culled like any instance.
+	static void set_shadow_maps_enabled(bool enabled) { ShadowMapsEnabled = enabled; }
 	// lane PROJ-2: the drawable's opacity (RW Drawable +0xB0, the fade of DrawableFade): multiplies every pivot's fade of the instance; 0 draws nothing
 	void set_instance_opacity(int64_t instance, double opacity);
 	// A scene that needs no per-frame work (every instance static) turns the automatic update off and calls update_now() itself after
@@ -236,6 +249,8 @@ private:
 		MultiMeshInstance3D *Node = nullptr;
 		Ref<MultiMesh> MM;
 		PackedFloat32Array Buffer;
+		Ref<MultiMesh> ShadowMM;
+		PackedFloat32Array ShadowBuffer;
 		int Allocated = 0;
 		std::vector<int> Order;          // instance ids as written by the last write_buffers
 		W3DSortBatch Batch;              // SMOOTH-1: the depths of the last write (sorted items), kept for the S-029 check of frames that skip this model
@@ -281,8 +296,10 @@ private:
 		bool InfantryLight = false;           // set_instance_infantry_light (INSTANCE_CUSTOM.x < 0)
 		int Sway = 0;                         // lane VISUAL-2: set_instance_sway (INSTANCE_CUSTOM.w += 1024 * Sway)
 		bool Fogged = false;                  // lane VISUAL-2: set_instance_fogged (INSTANCE_CUSTOM.w += 16384)
+		bool NoSceneFog = false;              // lane INGAMEBG-1: set_instance_scene_fog(false) (INSTANCE_CUSTOM.w += W3D_NO_SCENE_FOG_BIT)
 		bool Occluder = false;                // lane OCCLUDE-1: set_instance_occlusion (INSTANCE_CUSTOM.w += W3D_OCCLUSION_OCCLUDER_BIT)
 		int OcclusionSlot = 0;                // lane OCCLUDE-1: (INSTANCE_CUSTOM.w += slot << W3D_OCCLUSION_SLOT_SHIFT)
+		bool CastShadow = false;
 		std::vector<std::uint8_t> HiddenSubs; // by sub object index; empty = none hidden (set_instance_hidden_subobjects)
 		bool Removed = false;                 // remove_instance: skipped by the pose and buffer passes
 		float Opacity = 1.0f;                 // set_instance_opacity (lane PROJ-2)
@@ -337,6 +354,8 @@ private:
 	std::vector<std::pair<std::string, std::string>> PendingSwaps; // stop S-5015: Set_Build_Texture_Swaps, taken by the next add_model
 	std::vector<std::unique_ptr<Model>> Models;
 	std::vector<Instance> Instances;
+	bool ShadowReceiving = false;
+	static inline bool ShadowMapsEnabled = false;
 	std::vector<Ref<ShaderMaterial>> AllMaterials;
 	std::vector<W3DMapperBinding> Mappers;
 

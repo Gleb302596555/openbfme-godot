@@ -168,6 +168,7 @@ private:
 	std::unordered_set<ObjectID> m_battleCounted; // lane PERF-HD: membership only
 	unsigned m_ambientPass = 0;                  // lane PERF-HD: Ambient::seenPass
 	UnsignedInt m_ambientFrame = 0xffffffffu;    // lane PERF-HD: the logic frame of the last object scan
+	ObjectID m_ambientNextId = INVALID_ID;       // the logic's next object id at the last object scan (a new object rescans between frames)
 	std::unordered_map<const ThingTemplate *, std::uint8_t> m_templateAudio; // lane PERF-HD: 1 = an ambient sound field, 2 = an Eva event field (templateAudio)
 	std::uint8_t templateAudio(const ThingTemplate &tt);
 	Stats m_stats;

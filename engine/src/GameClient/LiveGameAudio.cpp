@@ -854,8 +854,9 @@ void LiveGameAudio::update()
 	};
 	// lane PERF-HD: what the scan reads (the objects, their death, construction, damage state and health) changes only with a logic frame; the held
 	// client window runs about twice per logic frame. Between frames only the ambients not started yet are tried again (the listener moves), as the
-	// scan tried them on every call
-	if (logic.getFrame() == m_ambientFrame)
+	// scan tried them on every call. An object made between frames (a script, the UI, a test) is new to the scan, so a new object id runs it again
+	// (PERF-1's test: its ambient starts at the next update, not the next frame)
+	if (logic.getFrame() == m_ambientFrame && logic.getNextObjectID() == m_ambientNextId)
 	{
 		for (auto &kv : m_ambients)
 		{
@@ -877,6 +878,7 @@ void LiveGameAudio::update()
 		return;
 	}
 	m_ambientFrame = logic.getFrame();
+	m_ambientNextId = logic.getNextObjectID();
 	const unsigned pass = ++m_ambientPass; // lane PERF-HD: the objects seen in this pass are stamped on their Ambient (was a std::map per pass)
 	for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
 	{
