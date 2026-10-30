@@ -62,28 +62,30 @@ Drogoth's incidental q28 auto-attack in the hero scene changes from one shot,
 explicitly. Ordered hero combat, stance guard bounds and the AI-power timing
 checks retain their existing expectations.
 
-## Remaining integration checks (2026-10-29)
+## Integration regression fixes (2026-10-29)
 
-The transport and Minas Tirith behaviour limits from review still fail with
-current public main merged. The follow-path goal/cleanup corrections above
-pass a two-mode state regression and the synthetic movement suite (16 cases,
-6,213 assertions), but do not resolve those two limits. No bound is relaxed.
+A stationary transport can have no requested destination and its rider no
+machine goal. The resulting exit path consists entirely of zero-initialized
+waypoints. Following the maintainer's #133 recommendation, OpenContain keeps
+the ordinary search for this absent lane: after entering state 7, it clears
+the straight-leg flag only if the ship request, rider goal and computed exit
+waypoint are all zero in all three coordinates. Production exits and nonzero
+ship/rider destinations retain the unconditional first leg. This is an explicit
+OpenBFME boundary policy, reported and registered under S-4160; it does not
+claim an additional RotWK binary finding or add save fields. The stationary
+transport regression retains its < 5 member-slot bound and now reports zero.
 
-The transport test still reports worst member slot error 9.99997 against < 5.
-Its stationary ship has no requested destination and the rider has no goal,
-so OpenContain::exitShipToShore constructs zero-valued waypoints. A global
-zero-coordinate exception has not been added: it would change the unconditional
-retail first-leg rule without establishing what the original does for that case.
+The Minas Tirith siege failure was a fixture dependency on map creeps. The
+extra contact was a scattered GondorTrebuchetRockProjectile hitting the side
+gatehouse MinisGate1 at logic frame 165, not the Gate target. Faster creep
+exits change guard RNG draws and subsequent weapon scatter. Two idle human
+slots alone did not isolate the weapon/structure pair: hostile lairs still
+spawned units and consumed logic RNG.
 
-A temporary contact trace identifies the extra Minas Tirith contact at logic
-frame 165: GondorTrebuchetRockProjectile hits MinisGate1, a side gatehouse,
-not the Gate target. A controlled run with only the exit quick-path branch
-disabled removes that contact. Logic RNG call logs first diverge at call 89:
-the enabled run enters AIGuard.cpp line 881, while the disabled run next draws
-LargeGroupAudioUpdate.cpp line 167. Later Weapon.cpp scatter draws differ.
-This establishes a scene/RNG dependency; it does not establish that the changed
-side-gatehouse contact is faithful to retail or justify weakening the bound.
-The enabled trebuchet death frame remains 203; disabling only the quick path
-after the goal-publication correction gives 204, versus the old expected 158.
-The broader follow-path correction itself therefore also affects scene pins.
-Diagnostic switches and logs are not part of the implementation.
+The gate fixture now removes objects hostile to both players before its first
+logic frame, including their spawners. The contact bound remains zero; the
+original Minas Tirith death frames remain 123 (catapult) and 158 (trebuchet).
+Only the first-hit engine pins change to 21 for both weapons in this isolated
+fixture. The gate suite still checks each run twice for determinism and keeps
+its positive side-tower/arch contact cases. No collision rule, weapon data,
+scatter rule or gameplay pin outside this fixture is changed.

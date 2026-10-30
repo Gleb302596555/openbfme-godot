@@ -37,6 +37,22 @@ GateRun attackFromFront(starttest::Shared &s, const char *map, const char *gateN
 {
 	GateRun r;
 	FortressGame g(s, map, false);
+	// Isolate the weapon/structure pair from map creep exits and their guard RNG.
+	// Both sides are idle humans; the original fixture still left hostile lairs
+	// spawning. Those draws change shot scatter when exit movement is corrected.
+	Player *attacker = g.ofFaction("FactionMordor");
+	Player *defender = g.ofFaction("FactionMen");
+	REQUIRE(attacker);
+	REQUIRE(defender);
+	std::vector<Object *> creeps;
+	for (Object *x = g.game->logic().getFirstObject(); x; x = x->getNextObject())
+	{
+		if (attacker->getRelationship(x->getTeam()) == ENEMIES && defender->getRelationship(x->getTeam()) == ENEMIES)
+		{
+			creeps.push_back(x);
+		}
+	}
+	for (Object *x : creeps) g.game->logic().destroyObject(x);
 	g.frames(2);
 	Object *gate = g.named(gateName);
 	REQUIRE(gate);
@@ -191,11 +207,13 @@ TEST_CASE("siege1 gate: Mordor's catapult and Gondor's trebuchet in front of Min
 	// merge queue q28 (measured once on the merged tree and at each merge point): the catapult's stones no longer meet MinisGate1 while the gate stands
 	// (1 -> 0) and the first hit is at 20 (21); the trebuchet breaks the gate at 158 (203)
 	CHECK(c.contactsWhileStanding == 0);
-	CHECK(c.firstHit == 20);
+	// With map creeps removed, both first-hit engine pins are frame 21.
+	// Contact limits and the original gate-death pins remain unchanged.
+	CHECK(c.firstHit == 21);
 	CHECK(c.deathFrame == 123);
 	const GateRun t = pinnedRun(*s, kMinasTirith, "Gate", "GondorTrebuchet", 400.0f, 600);
 	CHECK(t.contactsWhileStanding == 0);
-	CHECK(t.firstHit == 19);
+	CHECK(t.firstHit == 21);
 	CHECK(t.deathFrame == 158);
 }
 

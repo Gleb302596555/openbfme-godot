@@ -1011,7 +1011,8 @@ const char *OpenContain::shipStop()
 	return "S-4160: ship boarding and landing are ported only in the contain (lane SHIP-1: the shore spot RW 0x6EFBB8 as a SHIP's entry position, its riders' exit "
 	       "test and their exit to the shore): not ported are the boarding AI (AIPrepareForBoarding RW 0x74403F / 0x756651, the SHIP branch of "
 	       "AIMoveToPositionAndEnterState RW 0x751A8A / 0x756452: the destination adjustment, the ship's states 0x46 / 0x47 and its shore test, "
-	       "privateMoveToPositionAmphibious RW 0x66B564) and the angled exit path RW 0x77122F that the exit states' byte RW 0xDE9064 selects";
+	       "privateMoveToPositionAmphibious RW 0x66B564) and the angled exit path RW 0x77122F that the exit states' byte RW 0xDE9064 selects; "
+	       "OpenBFME boundary policy: a ship/rider exit with only zero-initialized destinations retains ordinary path checks instead of a straight leg";
 }
 
 // lane SHIP-1, RW 0x868516 .. 0x868733 (OpenContain::exitObjectViaDoor with NumberOfExitPaths 0 and a SHIP container). TARGET FACTS (RotWK game.dat, S-001):
@@ -1064,6 +1065,17 @@ void OpenContain::exitShipToShore(const Object &ship, Object &rider)
 	{
 		std::vector<Coord3D> path{ q, q, goal };
 		ai->aiFollowPath(path, const_cast<Object *>(&ship), CMD_FROM_AI, true);
+		// OpenBFME integration guard requested in #133: an untouched ship and
+		// rider have zero-initialized destinations, not an authored exit lane.
+		// Keep the ordinary search for that absent lane; do not reinterpret a
+		// real production exit or a nonzero ship/rider destination.
+		const Coord3D requested = shipAI->mover().requestedDestination();
+		if (requested.x == 0.0f && requested.y == 0.0f && requested.z == 0.0f &&
+		    goal.x == 0.0f && goal.y == 0.0f && goal.z == 0.0f &&
+		    q.x == 0.0f && q.y == 0.0f && q.z == 0.0f)
+		{
+			ai->setCanPathThroughUnits(false);
+		}
 		q = goal;
 	}
 	ai->world().pathfinder().updateGoal(ai->pathfindObject(), &q, LAYER_GROUND); // RW 0x68B3AB
