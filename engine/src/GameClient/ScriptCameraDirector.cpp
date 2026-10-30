@@ -234,6 +234,10 @@ void ScriptCameraDirector::apply(const ScriptClientRequest &r, const Coord3D &ca
 		}
 		return;
 	}
+	if (a == "SET_CAMERA_CLIP_DEPTH_MULTIPLIER")
+	{
+		return; // lane MODCOMPAT-AI: the HUD camera's far plane (scripts/campaign_cine.gd -> InGameHud camera_set_clip_depth_multiplier)
+	}
 	m_unhandled.push_back(a);
 }
 
