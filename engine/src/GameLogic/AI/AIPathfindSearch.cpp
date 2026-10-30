@@ -684,7 +684,7 @@ bool Pathfinder::examineShortcutCell(PathfindCell *from, PathfindCell *to, int x
 		info.flags = d.mode;
 		info.ignoreId = d.ignoreId;
 		info.mv = d.mv;
-		if (!checkForMovement(d.obj, info, d.haveLast ? &d.last : nullptr))
+		if (!checkForMovementCached(d.obj, info, d.haveLast ? &d.last : nullptr))
 		{
 			return true;
 		}
@@ -696,7 +696,7 @@ bool Pathfinder::examineShortcutCell(PathfindCell *from, PathfindCell *to, int x
 		pos.x = x;
 		pos.y = y;
 		unsigned c = (unsigned)SimMath::truncToInt32(SimMath::addf32((float)from->getCostSoFar(), (to->getExtraPass() ? 2.5f : 5.0f)));
-		c += (unsigned)occupantCost(d.obj, from, x, y, d.radius, d.radius + (d.center ? 1 : 0), true);
+		c += (unsigned)occupantCostCached(d.obj, from, x, y, d.radius, d.radius + (d.center ? 1 : 0));
 		if (++m_uberSearchAllocs, !to->allocateInfo(m_pool, pos))
 		{
 			return true;
@@ -909,7 +909,7 @@ int Pathfinder::examineNeighboringCells(PathfindCell *parentCell, PathfindCell *
 		info.flags = mode;
 		info.ignoreId = ignoreId;
 		info.mv = mv;
-		const bool ok = checkForMovement(obj, info, &parentNdx);
+		const bool ok = checkForMovementCached(obj, info, &parentNdx);
 		if (ok)
 		{
 			if (mvOK)
@@ -1001,7 +1001,7 @@ int Pathfinder::examineNeighboringCells(PathfindCell *parentCell, PathfindCell *
 			X >>= 1;
 		}
 		X += n->costSoFar(parentCell);
-		X += (unsigned)occupantCost(obj, parentCell, nc.x, nc.y, radius, radius + (centerInCell ? 1 : 0), true);
+		X += (unsigned)occupantCostCached(obj, parentCell, nc.x, nc.y, radius, radius + (centerInCell ? 1 : 0));
 		n->setCostSoFar(X);
 		n->setParentCell(parentCell);
 		if (m_isTunneling)
@@ -1099,35 +1099,6 @@ Path *Pathfinder::findPath(PathfindObject *obj, const PathfindLocomotorInfo &loc
 	}
 	return result;
 }
-
-// lane PATHPERF-1: the search memo is on for `obj` while the scope lives (a fresh generation each time; an object id's facts are asked once)
-struct Pathfinder::SearchMemoScope
-{
-	Pathfinder &pf;
-	SearchMemoScope(Pathfinder &p, const PathfindObject *obj) : pf(p)
-	{
-		pf.m_memoActive = obj != nullptr;
-		pf.m_memoObj = obj;
-		if (++pf.m_memoGen == 0)
-		{
-			for (OccupantFacts &f : pf.m_memo)
-			{
-				f.gen = 0;
-			}
-			pf.m_memoGen = 1;
-		}
-		if (obj)
-		{
-			pf.m_memoSelf = pf.searcherFacts(obj);
-		}
-		pf.m_memoSelfReach = ReachMemo();
-	}
-	~SearchMemoScope()
-	{
-		pf.m_memoActive = false;
-		pf.m_memoObj = nullptr;
-	}
-};
 
 Path *Pathfinder::findPathWithoutCorridor(PathfindObject *obj, const PathfindLocomotorInfo &loco, const Coord3D *from, const Coord3D *to, bool *partial)
 {
