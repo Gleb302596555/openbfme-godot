@@ -173,7 +173,6 @@ include(cmake/Upgrade.cmake)    # OPENBFME_UPGRADE_SOURCES / OPENBFME_UPGRADE_TE
 include(cmake/Render2.cmake)    # RENDER-2: launch bones, construction look (appends to OPENBFME_SIM_SOURCES; OPENBFME_RENDER2_TESTS)
 include(cmake/Render3.cmake)    # OPENBFME_RENDER3_TESTS (lane RENDER-3, client / draw only)
 include(cmake/Render4.cmake)    # OPENBFME_RENDER4_SOURCES / _TESTS / _GODOT_SOURCES (lane RENDER-4, client / draw only)
-include(cmake/Glow1.cmake)      # OPENBFME_GLOW1_SOURCES / _TESTS / _GODOT_SOURCES (lane GLOW-1, client / draw only)
 include(cmake/Path2.cmake)      # OPENBFME_PATH2_SOURCES / OPENBFME_PATH2_TESTS (lane PATH-2)
 include(cmake/Net.cmake)        # OPENBFME_NET_SOURCES / OPENBFME_NET_TESTS, openbfme_peer (lane MP-1)
 include(cmake/Experience.cmake) # OPENBFME_XP_SOURCES / OPENBFME_XP_TESTS (lane XP-1)
@@ -294,11 +293,14 @@ include(cmake/Menufix1.cmake)   # MENUFIX-1: the menus, consistent and retail-lo
 include(cmake/Hudredraw1.cmake) # HUDREDRAW-1: the HUD redraws only the changed Apt levels (OPENBFME_HUDREDRAW1_TESTS)
 include(cmake/Chat1.cmake)      # CHAT-1: in-game chat and beacons (OPENBFME_CHAT1_CLIENT_SOURCES / _TESTS)
 include(cmake/Campui1.cmake)    # CAMPUI-1: the campaign presentation, the mission objectives (appends to OPENBFME_SIM_SOURCES; OPENBFME_CAMPUI1_TESTS)
+include(cmake/Camanim1.cmake)   # CAMANIM-1: MOVE_CAMERA_BY_ANIMATION, the map's camera animations (OPENBFME_CAMANIM1_SOURCES / _TESTS)
 include(cmake/Offmap1.cmake)    # OFFMAP-1: off-map map objects and horde members (OPENBFME_OFFMAP1_TESTS)
 include(cmake/Wall1.cmake)      # WALL-1: walkable wall tops and ramps (appends to OPENBFME_SIM_SOURCES; OPENBFME_WALL1_TESTS)
 include(cmake/Wall2.cmake)      # WALL-2: portals, portal modules, raised walkways (appends to OPENBFME_SIM_SOURCES; OPENBFME_WALL2_TESTS)
 include(cmake/Bridge1.cmake)    # BRIDGE-1: retail bridges crossed and destroyed (OPENBFME_BRIDGE1_TESTS)
 include(cmake/Siege1.cmake)     # SIEGE-1: the siege units (appends to OPENBFME_SIM_SOURCES; OPENBFME_SIEGE1_TESTS)
+include(cmake/Castlearea1.cmake) # CASTLEAREA-1: the castle area triggers (OPENBFME_CASTLEAREA1_TESTS)
+include(cmake/Weather1.cmake)   # WEATHER-1: snow, rain, darkness, lightning, the weather sound (client sources; OPENBFME_WEATHER1_TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
     ${OPENBFME_APT_SOURCES}
@@ -317,7 +319,6 @@ add_library(openbfme_core STATIC
     ${OPENBFME_STRUCTURE_SOURCES}
     ${OPENBFME_RENDER_SOURCES}
     ${OPENBFME_RENDER4_SOURCES}
-    ${OPENBFME_GLOW1_SOURCES}
     ${OPENBFME_RENDER2_SOURCES}
     ${OPENBFME_FX2_SOURCES}
     ${OPENBFME_FX3_SOURCES}
@@ -341,6 +342,7 @@ add_library(openbfme_core STATIC
     ${OPENBFME_OWNERFIX3_CLIENT_SOURCES}
     ${OPENBFME_ANTICHEAT_SOURCES}
     ${OPENBFME_SCRIPT1_SOURCES}
+    ${OPENBFME_CAMANIM1_SOURCES}
     ${OPENBFME_CAMP1_SOURCES}
     ${OPENBFME_HUD5_CLIENT_SOURCES}
     ${OPENBFME_HUD6_CLIENT_SOURCES}
@@ -564,6 +566,7 @@ list(APPEND OPENBFME_SIM_SOURCES
 list(REMOVE_DUPLICATES OPENBFME_SIM_SOURCES)
 target_sources(openbfme_core PRIVATE ${OPENBFME_SIM_SOURCES})
 target_sources(openbfme_core PRIVATE ${OPENBFME_SPELL_CLIENT_SOURCES}) # lane SPELL-2 (client sources, Spell.cmake)
+target_sources(openbfme_core PRIVATE ${OPENBFME_WEATHER1_CLIENT_SOURCES}) # lane WEATHER-1 (client sources, Weather1.cmake)
 # Simulation sources of the GDExtension (they need godot-cpp, so they are registered with the `openbfme` target, not the core): GodotGameWorld.cpp calls the core
 # game start (GameLogic/NewGame, a thin caller since START-1), creates the logic objects and queues the player's commands (HUD-1 moves the commands into core);
 # GodotGameStart.cpp marshals the lobby's NewGameMessage between Godot Dictionaries and the logic's struct (the values the logic consumes), so it is audited too.
@@ -624,7 +627,6 @@ add_library(openbfme SHARED
     ${OPENBFME_START_GODOT_SOURCES}
     ${OPENBFME_RENDER3_GODOT_SOURCES}
     ${OPENBFME_RENDER4_GODOT_SOURCES}
-    ${OPENBFME_GLOW1_GODOT_SOURCES}
     ${OPENBFME_AUDIO_GODOT_SOURCES}
     ${OPENBFME_SCRIPT1_GODOT_SOURCES}
     ${OPENBFME_CHEAT1_GODOT_SOURCES}
@@ -637,7 +639,8 @@ add_library(openbfme SHARED
     ${OPENBFME_UI6_GODOT_SOURCES}
     ${OPENBFME_HUD4_GODOT_SOURCES}
     ${OPENBFME_HUD6_GODOT_SOURCES}
-    ${OPENBFME_CAH1_GODOT_SOURCES})
+    ${OPENBFME_CAH1_GODOT_SOURCES}
+    ${OPENBFME_WEATHER1_GODOT_SOURCES})
 target_sources(openbfme PRIVATE ${OPENBFME_SIM_SOURCES_GODOT}) # the simulation sources of the extension (listed in the manifest)
 target_link_libraries(openbfme PRIVATE openbfme_core godot-cpp)
 if(UNIX AND NOT APPLE)
@@ -719,7 +722,6 @@ add_executable(openbfme_tests
     ${OPENBFME_INTEG1_TESTS}
     ${OPENBFME_RENDER3_TESTS}
     ${OPENBFME_RENDER4_TESTS}
-    ${OPENBFME_GLOW1_TESTS}
     ${OPENBFME_FX2_TESTS}
     ${OPENBFME_FX3_TESTS}
     ${OPENBFME_FX4_TESTS}
@@ -801,6 +803,7 @@ add_executable(openbfme_tests
     ${OPENBFME_FACTC_TESTS}
     ${OPENBFME_BUGS1_TESTS}
     ${OPENBFME_CAMPUI1_TESTS}
+    ${OPENBFME_CAMANIM1_TESTS}
     ${OPENBFME_OFFMAP1_TESTS}
     ${OPENBFME_BACKLOG4_TESTS}
     ${OPENBFME_FLY1_TESTS}
@@ -823,6 +826,8 @@ add_executable(openbfme_tests
     ${OPENBFME_WALL2_TESTS}
     ${OPENBFME_BRIDGE1_TESTS}
     ${OPENBFME_SIEGE1_TESTS}
+    ${OPENBFME_CASTLEAREA1_TESTS}
+    ${OPENBFME_WEATHER1_TESTS}
     tests/test_main.cpp
     tests/test_big_archive.cpp
     tests/test_parser_fuzz_regressions.cpp

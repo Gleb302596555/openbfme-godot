@@ -77,6 +77,9 @@ const std::set<int> &clientActions()
 			// lane SCRIPT-4: RW 0x7BC604 doSetBorderShroud (BFME2 ScriptActions.cpp, tier A): TheDisplay vslot 0x138 with GlobalData ClearAlpha (+ 0xBE8) / ShroudAlpha
 			// (+ 0xBEA): the shroud border's fill (client, not saved)
 			"DISABLE_BORDER_SHROUD", "ENABLE_BORDER_SHROUD",
+			// lane CAMANIM-1: case 0x226 (RW 0x7CB8F4) -> RW 0x7BBB9D: TheCameraAnimationList's animation of that name (RW 0x7320BA) to TheTacticalView's
+			// slot 0x68 (RW 0x4864F9); client state only (GameClient/CameraAnimation.h)
+			"MOVE_CAMERA_BY_ANIMATION",
 		};
 		std::set<int> out;
 		for (const char *n : names)

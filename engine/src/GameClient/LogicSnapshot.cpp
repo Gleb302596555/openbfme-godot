@@ -13,6 +13,7 @@
 #include "Common/ModelState.h"
 #include "Common/Player.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/GlobalWeatherSystem.h"
 #include "GameClient/HudObjects.h"
 #include "GameClient/Radar.h"
 #include "GameClient/RTS3DSceneOcclusion.h"
@@ -118,6 +119,7 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 	snap->occludedColorLuminanceScale = logic.settings().occludedColorLuminanceScale;
 	const UnsignedInt occlusionFrame = RTS3DSceneOcclusion::occlusionFrame(snap->frame, logic.settings().defaultOcclusionDelay); // RW 0x470C15 .. 0x470C38
 	snap->nextObjectId = logic.getNextObjectID();
+	snap->globalWeather = logic.weather().weather(); // lane WEATHER-1: TheGlobalWeatherSystem + 0x10, what the client weather reads (WeatherClient)
 	snap->hashed = hashed;
 	snap->stateHash = stateHash;
 	snap->objects.reserve(previous ? previous->objects.size() + 16 : 256);
