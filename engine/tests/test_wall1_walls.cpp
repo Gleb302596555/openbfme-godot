@@ -939,8 +939,9 @@ TEST_CASE("wall1 walls retail: on Helm's Deep a horde ordered onto a wall top ge
 			}
 		}
 	};
-	// the walk ends when every member is up: the idle horde then guards its spot (state 16), and the Easy AI's first wave, whose route moves with the
-	// game's random draws and the pathfinder, can pass within its guard range and draw it off the wall before a fixed frame
+	// the walk ends when the move is over (the horde and every member stopped) with every member up, not at a fixed frame: the idle horde then guards its
+	// spot (state 16), and the Easy AI's first wave, whose route moves with the game's random draws and the pathfinder, can pass within its guard range
+	// and draw it off the wall. A member still on the stair is not stopped, so the strides of the whole walk are watched
 	int arrived = -1;
 	for (int f = 0; f < 1200 && arrived < 0; ++f)
 	{
@@ -961,7 +962,15 @@ TEST_CASE("wall1 walls retail: on Helm's Deep a horde ordered onto a wall top ge
 			last[o->getID()] = p;
 		}
 		countUp();
-		if (members > 0 && up == members)
+		bool stopped = !ai->isMoving();
+		for (Object *o = g.game->logic().getFirstObject(); o && stopped; o = o->getNextObject())
+		{
+			if (o->getContainedBy() == horde && o->getAIUpdateInterface() && o->getAIUpdateInterface()->isMoving())
+			{
+				stopped = false;
+			}
+		}
+		if (stopped && members > 0 && up == members)
 		{
 			arrived = f;
 		}
