@@ -101,6 +101,17 @@ option(OPENBFME_BUILD_FUZZERS "Build the asset-free save and replay libFuzzer ha
 option(OPENBFME_BUILD_TESTS "Build the C++ unit tests (five MP3 cases require verified fixtures when run)" ON)
 if(OPENBFME_BUILD_GODOT)
 add_subdirectory(thirdparty/godot-cpp EXCLUDE_FROM_ALL)
+if(MSVC)
+    # godot-cpp exports -D_HAS_EXCEPTIONS=0 (GODOTCPP_DISABLE_EXCEPTIONS) to everything that links it. The extension's own sources would then see a different
+    # std::exception than openbfme_core does, so INIException (an std::exception with a std::string) has two layouts in one DLL and the linker picks one
+    # copy of its inline special members: a `catch (INIException &)` in the core read a thrown INIException's message as garbage and crashed (godot/tests/
+    # ini_error_in_extension_test.gd). godot-cpp keeps the define for its own sources; only the interface copy goes.
+    get_target_property(OPENBFME_GODOTCPP_DEFS godot-cpp INTERFACE_COMPILE_DEFINITIONS)
+    if(OPENBFME_GODOTCPP_DEFS)
+        list(FILTER OPENBFME_GODOTCPP_DEFS EXCLUDE REGEX "_HAS_EXCEPTIONS")
+        set_property(TARGET godot-cpp PROPERTY INTERFACE_COMPILE_DEFINITIONS "${OPENBFME_GODOTCPP_DEFS}")
+    endif()
+endif()
 endif()
 
 option(OPENBFME_COVERAGE "Instrument engine tests for gcov line and branch coverage (GCC/Clang)" OFF)
@@ -162,6 +173,7 @@ include(cmake/Upgrade.cmake)    # OPENBFME_UPGRADE_SOURCES / OPENBFME_UPGRADE_TE
 include(cmake/Render2.cmake)    # RENDER-2: launch bones, construction look (appends to OPENBFME_SIM_SOURCES; OPENBFME_RENDER2_TESTS)
 include(cmake/Render3.cmake)    # OPENBFME_RENDER3_TESTS (lane RENDER-3, client / draw only)
 include(cmake/Render4.cmake)    # OPENBFME_RENDER4_SOURCES / _TESTS / _GODOT_SOURCES (lane RENDER-4, client / draw only)
+include(cmake/Glow1.cmake)      # OPENBFME_GLOW1_SOURCES / _TESTS / _GODOT_SOURCES (lane GLOW-1, client / draw only)
 include(cmake/Path2.cmake)      # OPENBFME_PATH2_SOURCES / OPENBFME_PATH2_TESTS (lane PATH-2)
 include(cmake/Net.cmake)        # OPENBFME_NET_SOURCES / OPENBFME_NET_TESTS, openbfme_peer (lane MP-1)
 include(cmake/Experience.cmake) # OPENBFME_XP_SOURCES / OPENBFME_XP_TESTS (lane XP-1)
@@ -207,6 +219,7 @@ include(cmake/Script1.cmake)    # SCRIPT-1: the map script engine (appends to OP
 include(cmake/Camp1.cmake)      # CAMP-1: the campaigns (OPENBFME_CAMP1_SOURCES / OPENBFME_CAMP1_TESTS)
 include(cmake/Camp2.cmake)      # CAMP-2: the movies' VP6 picture (OPENBFME_CAMP2_SOURCES / _GODOT_SOURCES / _TESTS)
 include(cmake/CampSave1.cmake)  # CAMPSAVE-1: CampaignMenu.apt and the campaign's saves between missions (OPENBFME_CAMPSAVE1_SOURCES / _TESTS)
+include(cmake/Bfme2Camp1.cmake) # BFME2CAMP1: the BFME2 campaigns and tutorials (OPENBFME_BFME2CAMP1_TESTS)
 include(cmake/Ui1.cmake)        # UI-1: interface gaps (client only; OPENBFME_UI1_CLIENT_SOURCES / OPENBFME_UI1_TESTS)
 include(cmake/Release1.cmake)   # RELEASE-1: install discovery, version, session log (client only; OPENBFME_RELEASE1_SOURCES / _GODOT_SOURCES / _TESTS)
 include(cmake/Mod4.cmake)       # MOD-4: AISpecialPowerUpdate, RepairSpecialPower, ... (appends to OPENBFME_SIM_SOURCES; OPENBFME_MOD4_TESTS)
@@ -288,6 +301,7 @@ include(cmake/Wall1.cmake)      # WALL-1: walkable wall tops and ramps (appends 
 include(cmake/Wall2.cmake)      # WALL-2: portals, portal modules, raised walkways (appends to OPENBFME_SIM_SOURCES; OPENBFME_WALL2_TESTS)
 include(cmake/Bridge1.cmake)    # BRIDGE-1: retail bridges crossed and destroyed (OPENBFME_BRIDGE1_TESTS)
 include(cmake/Siege1.cmake)     # SIEGE-1: the siege units (appends to OPENBFME_SIM_SOURCES; OPENBFME_SIEGE1_TESTS)
+include(cmake/Castlearea1.cmake) # CASTLEAREA-1: the castle area triggers (OPENBFME_CASTLEAREA1_TESTS)
 include(cmake/Weather1.cmake)   # WEATHER-1: snow, rain, darkness, lightning, the weather sound (client sources; OPENBFME_WEATHER1_TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
@@ -307,6 +321,7 @@ add_library(openbfme_core STATIC
     ${OPENBFME_STRUCTURE_SOURCES}
     ${OPENBFME_RENDER_SOURCES}
     ${OPENBFME_RENDER4_SOURCES}
+    ${OPENBFME_GLOW1_SOURCES}
     ${OPENBFME_RENDER2_SOURCES}
     ${OPENBFME_FX2_SOURCES}
     ${OPENBFME_FX3_SOURCES}
@@ -615,6 +630,7 @@ add_library(openbfme SHARED
     ${OPENBFME_START_GODOT_SOURCES}
     ${OPENBFME_RENDER3_GODOT_SOURCES}
     ${OPENBFME_RENDER4_GODOT_SOURCES}
+    ${OPENBFME_GLOW1_GODOT_SOURCES}
     ${OPENBFME_AUDIO_GODOT_SOURCES}
     ${OPENBFME_SCRIPT1_GODOT_SOURCES}
     ${OPENBFME_CHEAT1_GODOT_SOURCES}
@@ -710,6 +726,7 @@ add_executable(openbfme_tests
     ${OPENBFME_INTEG1_TESTS}
     ${OPENBFME_RENDER3_TESTS}
     ${OPENBFME_RENDER4_TESTS}
+    ${OPENBFME_GLOW1_TESTS}
     ${OPENBFME_FX2_TESTS}
     ${OPENBFME_FX3_TESTS}
     ${OPENBFME_FX4_TESTS}
@@ -746,6 +763,7 @@ add_executable(openbfme_tests
     ${OPENBFME_CAMP1_TESTS}
     ${OPENBFME_CAMP2_TESTS}
     ${OPENBFME_CAMPSAVE1_TESTS}
+    ${OPENBFME_BFME2CAMP1_TESTS}
     ${OPENBFME_UI1_TESTS}
     ${OPENBFME_RELEASE1_TESTS}
     ${OPENBFME_MOD4_TESTS}
@@ -814,6 +832,7 @@ add_executable(openbfme_tests
     ${OPENBFME_WALL2_TESTS}
     ${OPENBFME_BRIDGE1_TESTS}
     ${OPENBFME_SIEGE1_TESTS}
+    ${OPENBFME_CASTLEAREA1_TESTS}
     ${OPENBFME_WEATHER1_TESTS}
     tests/test_main.cpp
     tests/test_big_archive.cpp

@@ -3,6 +3,7 @@
 
 #include "GodotDevice/GodotAptPlayer.h"
 #include "Common/PathIO.h"
+#include "Common/GameEdition.h"
 #include <godot_cpp/classes/input.hpp>
 #include "GodotDevice/GodotVideoStream.h"
 #include "GameClient/GUI/PlatformIcons.h"
@@ -1302,6 +1303,7 @@ void AptMenuPlayer::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_tribute_world", "world"), &AptMenuPlayer::set_tribute_world);
 	ClassDB::bind_method(D_METHOD("set_player_status", "state"), &AptMenuPlayer::set_player_status); // lane HUD-5
 	ClassDB::bind_method(D_METHOD("set_objectives_screen", "state"), &AptMenuPlayer::set_objectives_screen); // lane CAMPUI-1
+	ClassDB::bind_method(D_METHOD("set_objectives_tutorial_input", "on"), &AptMenuPlayer::set_objectives_tutorial_input); // lane BFME2CAMP1
 	ClassDB::bind_method(D_METHOD("notification_box", "request"), &AptMenuPlayer::notification_box); // lane CAMPUI-1
 	ClassDB::bind_method(D_METHOD("shell_top_level"), &AptMenuPlayer::shell_top_level);
 	ClassDB::bind_method(D_METHOD("shell_invoke", "level", "function", "args"), &AptMenuPlayer::shell_invoke, DEFVAL(PackedStringArray()));
@@ -1888,7 +1890,7 @@ Dictionary AptMenuPlayer::boot_shell(const Ref<RetailFileSystem> &fs, Object *wo
 		INIEnvironment env;
 		env.fileSystem = fs->archive_fs();
 		INIBlockRecorder recorder;
-		RegisterRecordingBlockStubs(env.blocks, recorder, { "StaticGameLOD" }, StubExtent::Lenient);
+		RegisterRecordingBlockStubs(env.blocks, recorder, { "StaticGameLOD" }, StubExtent::LenientAfterEnd);
 		sm->gameLOD.registerBlocks(env.blocks);
 		try
 		{
@@ -2000,7 +2002,7 @@ Dictionary AptMenuPlayer::boot_shell(const Ref<RetailFileSystem> &fs, Object *wo
 			{
 				errors.push_back(toGodot("boot_shell: data\\ini\\gamedata.ini: " + readError));
 			}
-			else if (!fs->is_bfme1() && !Shell::readShellMapOn(std::string(bytes.begin(), bytes.end()), on, &parseError))
+			else if (!fs->is_bfme1() && !Shell::readShellMapOnForData(std::string(bytes.begin(), bytes.end()), isBfme2Data(*fs->archive_fs()), on, &parseError))
 			{
 				errors.push_back(toGodot("boot_shell: " + parseError));
 			}
@@ -3011,6 +3013,14 @@ Dictionary AptMenuPlayer::notification_box(const Dictionary &request)
 	}
 	out["call_errors"] = errors;
 	return out;
+}
+
+void AptMenuPlayer::set_objectives_tutorial_input(bool on)
+{
+	if (m->shell)
+	{
+		m->shell->objectivesScreen.tutorialInput = on;
+	}
 }
 
 Dictionary AptMenuPlayer::set_objectives_screen(const Dictionary &state)
