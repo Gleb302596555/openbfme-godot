@@ -3,6 +3,7 @@
 
 #include "GodotDevice/GodotAptPlayer.h"
 #include "Common/PathIO.h"
+#include "Common/GameEdition.h"
 #include <godot_cpp/classes/input.hpp>
 #include "GodotDevice/GodotVideoStream.h"
 #include "GameClient/GUI/PlatformIcons.h"
@@ -1888,7 +1889,7 @@ Dictionary AptMenuPlayer::boot_shell(const Ref<RetailFileSystem> &fs, Object *wo
 		INIEnvironment env;
 		env.fileSystem = fs->archive_fs();
 		INIBlockRecorder recorder;
-		RegisterRecordingBlockStubs(env.blocks, recorder, { "StaticGameLOD" }, StubExtent::Lenient);
+		RegisterRecordingBlockStubs(env.blocks, recorder, { "StaticGameLOD" }, StubExtent::LenientAfterEnd);
 		sm->gameLOD.registerBlocks(env.blocks);
 		try
 		{
@@ -2000,7 +2001,7 @@ Dictionary AptMenuPlayer::boot_shell(const Ref<RetailFileSystem> &fs, Object *wo
 			{
 				errors.push_back(toGodot("boot_shell: data\\ini\\gamedata.ini: " + readError));
 			}
-			else if (!fs->is_bfme1() && !Shell::readShellMapOn(std::string(bytes.begin(), bytes.end()), on, &parseError))
+			else if (!fs->is_bfme1() && !Shell::readShellMapOnForData(std::string(bytes.begin(), bytes.end()), isBfme2Data(*fs->archive_fs()), on, &parseError))
 			{
 				errors.push_back(toGodot("boot_shell: " + parseError));
 			}

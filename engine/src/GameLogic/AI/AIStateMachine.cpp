@@ -733,7 +733,6 @@ StateReturnType AIFollowPathState::enterSegment()
 	bool adjusts = true;
 	if (m_exitProduction)
 	{
-		a.setCanPathThroughUnits(true);
 		adjusts = false;
 		m_adjustFinal = true;
 	}
@@ -767,6 +766,12 @@ StateReturnType AIFollowPathState::enterSegment()
 StateReturnType AIFollowPathState::onEnter()
 {
 	m_index = 0;
+	if (m_exitProduction)
+	{
+		// RW 0x74F8E6 .. 0x74F8EE: the exit-production state (id 7) sets the path-through-units flag once, on enter; the segment advance (RW 0x74FA18) does not
+		// set it again, and computePath drops it after its one straight path (RW 0x666079)
+		ai().setCanPathThroughUnits(true);
+	}
 	return enterSegment();
 }
 

@@ -365,6 +365,8 @@ bool LiveGame::load(const Options &options, std::string *error)
 	}
 	// lane UBER-1: the game setup's simulation profile (a game without a start message, a map viewer or a tool, is Faithful unless its options say Uber)
 	m_logic->setSimulationProfile(options.start ? options.start->message.game.simulationProfile : options.simulationProfile);
+	// lane BFME2MODE-0: the edition is the mounted data's (BFME2 1.06 alone under OPENBFME_EDITION=bfme2), never an option
+	m_logic->setEdition(isBfme2Data(m_fs) ? GameEdition::BFME2_106 : GameEdition::RotWK201);
 	m_logic->economy().initAllCommandPoints();
 	{
 		PathfinderResourceTerrain resourceTerrain;

@@ -173,7 +173,7 @@ public:
 	int triggerIndex() const { return m_trigger; }
 
 private:
-	void loadTrigger(); // RW 0x8B4BB7
+	void loadTrigger(int savedIndex = -1); // RW 0x8B4BB7
 	const AIGateUpdateModuleData *m_data;
 	int m_trigger = -1;     ///< the trigger's index in the script engine's list (+0x24 holds its id)
 	int m_allies = 0;       ///< +0x28

@@ -5757,6 +5757,25 @@ func _online_spot(n: int) -> void:
 	await get_tree().process_frame
 
 
+## lane RULESOV1: the RULES tab of the staging room as drawn: every rule row (the movie's RuleComboBox / RuleCheckBox placeholders) lies above the
+## player list's first row (the owner's 2026-10-29 screenshot: the server browser's rule rows drawn over the player list with their old values).
+## Prints the rows and returns false when one is over the list
+func _online_rules_check(tag: String) -> bool:
+	var list_top := INF
+	var rows := []
+	for e in _shell.gadget_draw_list():
+		var root := str(e.get("root_name", ""))
+		var rect: Rect2 = e.get("root_rect", Rect2())
+		if root == "0/Player":
+			list_top = minf(list_top, rect.position.y)
+		elif root.begins_with("RuleComboBox") or root.begins_with("RuleCheckBox"):
+			if not rows.has(rect):
+				rows.append(rect)
+	var over := rows.filter(func(r: Rect2) -> bool: return r.end.y > list_top)
+	print("GAME RULES CHECK %s: %d rule rows drawn, the player list from y %s, %d over it %s" % [tag, rows.size(), str(list_top), over.size(), str(over)])
+	return not rows.is_empty() and list_top != INF and over.is_empty()
+
+
 func _online_apply(spec: Dictionary) -> void:
 	var r: Dictionary = _shell.online_apply(spec)
 	print("GAME ONLINE WALK %s -> %s" % [JSON.stringify(spec), "ok" if r.ok else str(r.errors)])
@@ -5816,6 +5835,10 @@ func _online_walk_run() -> void:
 	await _wait_seconds(2.0)
 	if _online_walk == "host":
 		_online_shot("openplay-empty")
+		# lane RULESOV1: the server browser's own RULES tab first (its rule rows are the staging room's until the room files its own)
+		await _online_click("*TabButtons.RulesTab")
+		await _wait_seconds(2.0)
+		_online_shot("openplay-rules")
 		await _online_click("*Controls.CreateGame") # the page's Create Game (the movie opens its pop-up: AptOnline::OnOpenCreateDialog)
 		await _wait_seconds(10.0)
 		_online_apply({"game_name": "%s's test game" % str(_shell.online_status().get("name", "Host")), "game_password": _online_password})
@@ -5861,6 +5884,8 @@ func _online_walk_run() -> void:
 			await _online_click("*TabButtons.RulesTab")
 			await _wait_seconds(1.5)
 			_online_shot("staging-rules-host")
+			if not _online_rules_check("host"):
+				return _online_walk_end(false)
 			# lane ONLINEMENU-1: the CONNECTIONS screen (each player's link to the relay in RotWK's grid), then its own Done back to the room
 			await _online_click("*LowerButtons_Host.Connections")
 			await _wait_seconds(4.0)
