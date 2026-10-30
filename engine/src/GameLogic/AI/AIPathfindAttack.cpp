@@ -151,6 +151,10 @@ Path *Pathfinder::findAttackPath(const PathfindObject *obj, const PathfindLocomo
 	{
 		m_zoneManager.setAllPassable();
 	}
+	// lane PERF-HD (Uber only): the cell search gets the queue's cap of its own, as in findPath; the block search may have spent it (a target in another
+	// zone scans the whole block map), and a spent cap ends the cell search at its first cell, before it chose an acceptable or closest cell: no path, so the
+	// unit never approaches. Also without a corridor: a unit off the ground keeps its closest cell then (S-4858, rankByDistance below)
+	m_uberSearchAllocs = 0;
 	// 4. the start and the goal cell
 	const int attackDistance = SimMath::truncToInt32(range.attackDistance()) + 30;
 	Coord3D start = pos;

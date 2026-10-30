@@ -1084,6 +1084,9 @@ public:
 	// lane PERF-HD (Uber only): a search the queue serves may count at most the budget the call has left, and at least this many cells (Helm's Deep: one
 	// search of 130,000 cells took 1.2 s of one logic frame; retail's budget is checked only between requests)
 	enum { kUberSearchFloor = 2000 };
+	// lane PERF-HD (Uber only): a second search of the request being served counts against the cap afresh (AIMover::computeAttackPath's fallback after
+	// findAttackPath), so the first search's cells do not end it at its first cell
+	void restartUberSearchCount() { m_uberSearchAllocs = 0; }
 	void setUberLimits(bool on);
 	bool uberLimits() const { return m_uberLimits; }
 	bool uberBurst() const { return m_uberBurst; } // lane PATHPERF-4: the request queue is draining a burst (the snapshot keeps it)

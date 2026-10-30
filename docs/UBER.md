@@ -525,7 +525,10 @@ closed 200,000+ cells, plus up to 25,000 of the shortcut walk.
   call has left of its budget (at least 2,000), counted in every cell the
   search closes or walks, in every search kind (the main loop, the attack path,
   the hierarchical block search, the patch, the safe and the move-away
-  searches); the capped search gives the exhausted search's answer. The burst
+  searches); the capped search gives the exhausted search's answer. The cell
+  search after a block search (in `findPath` and `findAttackPath`) and the
+  attack path's fallback search each count from zero, so a block search that
+  spent the cap still leaves them a closest cell. The burst
   scale is 2. What a player can notice: a unit in a press gets a partial path
   sooner. The Uber pin vector was regenerated.
 - **Uber rule change:** a contained object's EmotionTrackerUpdate sleeps until
