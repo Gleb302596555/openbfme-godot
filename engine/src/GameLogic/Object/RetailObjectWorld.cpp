@@ -24,6 +24,7 @@
 #include "GameLogic/ProductionStops.h"
 
 #include "Common/BfmeGame.h"
+#include "Common/GameEdition.h"
 
 #include <chrono>
 #include <stdexcept>
@@ -99,8 +100,9 @@ RetailObjectWorld::State::State(ArchiveFileSystem &fs)
 		"ExperienceLevel", "ExperienceScalarTable", "ModifierList", // XP-1: these three are parsed for real
 		"StanceTemplate", // INTEG-1: TheStanceTemplateStore (RW 0x835967)
 		"EmotionNugget", // MODULES-2: TheEmotionSystem (RW 0x8E0D59)
-		"CreateAHeroSystem", // HERO-2: TheCreateAHeroSystem (its own file, RW 0x61A10F)
-		"LinearCampaign" }; // CAMP-1: TheLinearCampaignManager (RW 0x5ECCB9)
+		"CreateAHeroSystem", "AwardSystem", // HERO-2: TheCreateAHeroSystem (its own file, RW 0x61A10F)
+		"LinearCampaign", // CAMP-1: TheLinearCampaignManager (RW 0x5ECCB9)
+		"MissionObjectiveList" }; // CAMPUI-1: TheMissionObjectiveTracker's block (RW 0x836497)
 	// AUDIO-1: the audio blocks (AudioEvent, DialogEvent, MusicTrack, ..., EvaEvent, AudioSettings, MiscAudio) are parsed for real
 	skip.insert(skip.end(), AudioIniState::blockKeywords().begin(), AudioIniState::blockKeywords().end());
 	// AI-1: the skirmish AI blocks are parsed for real (GameLogic/SkirmishAI/SkirmishAIData.h)
@@ -133,11 +135,17 @@ RetailObjectWorld::State::State(ArchiveFileSystem &fs)
 	m_createAHero.registerBlock(m_env.blocks); // HERO-2: TheCreateAHeroSystem (RW 0xDE3D84)
 	SpellStores::registerBlocks(m_env.blocks); // SPELL-1
 	m_linearCampaigns.registerBlock(m_env.blocks); // CAMP-1
+	m_env.blocks.registerBlock("MissionObjectiveList", [this](INI *ini) { MissionObjectiveTracker::parseList(ini, m_mapObjectives, m_mapObjectivesParsed); });
 }
 
 const AudioIniState &RetailObjectWorld::audio() const
 {
 	return *m_s->m_audio;
+}
+
+bool RetailObjectWorld::audioEventExists(const std::string &name) const
+{
+	return !name.empty() && m_s->m_audio->infos.contains(name);
 }
 
 namespace
@@ -391,6 +399,7 @@ bool RetailObjectWorld::loadState(std::string *error)
 	SubsystemLoadOptions options;
 	options.collectErrors = true;
 	options.bfme1 = isBfme1Data(m_fs);
+	options.bfme2 = isBfme2Data(m_fs); // lane BFME2MODE-0 (Common/GameEdition.h)
 	options.cinematics = true; // the census counts the Cinematic folder (338 templates), like the object-model retail test
 	const auto t0 = std::chrono::steady_clock::now();
 	try
@@ -416,6 +425,20 @@ bool RetailObjectWorld::loadState(std::string *error)
 			fe.file = "TheBaseTemplateLibrary";
 			fe.code = 0;
 			fe.message = e;
+			m_s->m_report.errors.push_back(fe);
+		}
+	}
+	// PR #88 review fix 8 (no fallbacks, CLAUDE.md): BFME2 and RotWK ship Data\INI\FormationAssistant.ini; a missing or unreadable file is an
+	// error in the report, never a silent skip. BFME1 has no formation assistant (the two-button gesture is BFME2's): its data is exempt.
+	if (!options.bfme1)
+	{
+		std::string formationError;
+		if (!m_s->m_formations.load(m_fs, &formationError))
+		{
+			SubsystemLoadReport::FileError fe;
+			fe.file = "Data\\INI\\FormationAssistant.ini";
+			fe.code = 3;
+			fe.message = formationError;
 			m_s->m_report.errors.push_back(fe);
 		}
 	}
@@ -448,6 +471,21 @@ bool RetailObjectWorld::loadState(std::string *error)
 	if (!options.bfme1) try
 	{
 		m_s->m_createAHero.load(m_s->m_env);
+		// AwardSystemManager::parseThingStat donor RVA 0x40BC7C validates all
+		// included/excluded template references after finishing each statistic.
+		for (const auto &stat : m_s->m_createAHero.awardSystem.statistics)
+		{
+			for (const auto *names : { &stat.included, &stat.excluded })
+				for (const auto &name : *names)
+					if (!m_s->m_things->findTemplate(name)) throw INIException(3, "ThingStat %s references unknown template %s", stat.name.c_str(), name.c_str());
+		}
+		for (const auto &cls : m_s->m_createAHero.classes()) for (const auto &sub : cls.subClasses)
+		{
+			for (const auto &name : sub.awards)
+				if (!m_s->m_createAHero.awardSystem.award(name)) throw INIException(3, "Create-a-Hero subclass references unknown award %s", name.c_str());
+			for (const auto &name : sub.stats)
+				if (!m_s->m_createAHero.awardSystem.stat(name)) throw INIException(3, "Create-a-Hero subclass references unknown statistic %s", name.c_str());
+		}
 		if (!m_s->m_createAHero.loaded())
 		{
 			throw INIException(3, "Data\\INI\\CreateAHeroSystem.ini has no CreateAHeroSystem block");
@@ -624,5 +662,13 @@ std::vector<std::string> RetailObjectWorld::acceptanceStops() const
 	{
 		out.push_back(l);
 	}
+	return out;
+}
+
+std::vector<std::string> RetailObjectWorld::loadNotes() const
+{
+	std::vector<std::string> out = m_s->m_upgrades.unknownSubUpgrades();
+	const std::vector<std::string> &bases = m_s->m_skirmishAI->missingLayouts();
+	out.insert(out.end(), bases.begin(), bases.end());
 	return out;
 }

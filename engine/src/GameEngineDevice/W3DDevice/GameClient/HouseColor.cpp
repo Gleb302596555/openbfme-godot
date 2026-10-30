@@ -151,3 +151,31 @@ void Recolor_House_Pixels(const HouseColorParams &params, std::uint8_t *rgba, st
 		}
 	}
 }
+
+HouseColorParams Render_House_Color_Params(std::uint32_t owner, int customKind, const std::uint32_t *customColors)
+{
+ HouseColorParams params;
+ if (customKind > 0) {
+  params.kind=customKind;
+  for(int i=0;i<3;++i) params.colors[i]=customColors[i];
+ } else if(owner!=0) {params.kind=1;params.colors[0]=owner;}
+ return params;
+}
+
+bool Is_House_Color_Material(std::string_view meshName)
+{
+ const auto dot=meshName.find('.');
+ if(dot!=std::string_view::npos) meshName.remove_prefix(dot+1);
+ constexpr std::string_view prefix="HOUSECOLOR";
+ if(meshName.size()<prefix.size()) return false;
+ for(size_t i=0;i<prefix.size();++i) {
+  char c=meshName[i];if(c>='a' && c<='z') c=(char)(c-'a'+'A');
+  if(c!=prefix[i]) return false;
+ }
+ return true;
+}
+
+TextureResolution Resolve_House_Texture(const std::string &name, const std::function<bool(const std::string &)> &exists, bool flatLayout)
+{
+	return Resolve_Packed_W3D_Texture(name, exists, flatLayout);
+}

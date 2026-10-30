@@ -19,9 +19,9 @@
 //   * a sequential script, a prototype's generic script copy (RW 0x7A1759) and a team's id are resolved again by name / id at load: a name the tree lacks
 //     or a team the game lacks is an error, never a skipped record;
 //   * NOT saved: the client requests and end requests (the client's, taken every frame), the statistics, the frame-local context (current player, side,
-//     script, call depth, the team scopes: constant between frames), the run-time polygon triggers (AIGateUpdate adds them with its object: left to the
-//     objects' block, SAVE-4b), and the Lua logic state, which retail does not save either (no block of its lists holds it; the AI's loadPostProcess registers every
-//     object with Lua again, RW 0x667BEF): the port's Lua engine is the client's (LiveScripting), outside GameLogic and its state hash.
+//     script, call depth, the team scopes: constant between frames), the run-time polygon triggers (AIGateUpdate and the castles add them with their
+//     objects: the objects' block puts them back, SAVE-4b; this block keeps only the list's extent, version 4), and the Lua logic state, which retail
+//     does not save either (no block of its lists holds it; the AI's loadPostProcess registers every object with Lua again, RW 0x667BEF): the port's Lua engine is the client's (LiveScripting), outside GameLogic and its state hash.
 //
 // Not simulation maths: the transfers copy values between frames.
 
@@ -37,6 +37,7 @@
 #include "Common/PlayerList.h"
 #include "Common/Team.h"
 #include "Common/Xfer.h"
+#include "GameClient/MapChunks.h"
 #include "GameLogic/GameLogic.h"
 
 #include <algorithm>
@@ -142,8 +143,11 @@ void ScriptEngine::xfer(Xfer &x)
 		m_pendingTeams.clear();
 	}
 	// lane SAVE-4e: version 2 adds BACKLOG4's triggered special power lists (merged after SAVE-4d); no version 1 snapshot was ever written by a
-	// release (loads of snapshots begin with SAVE-4e), so version 1 is not read (a list it lacked would load empty, silently)
-	XferVersion v{ 2, 2 };
+	// release (loads of snapshots begin with SAVE-4e), so version 1 is not read (a list it lacked would load empty, silently). Lane CASTLE-UNPACK:
+	// version 3 adds the object references (RW + 0x191B8); a version 2 game had none (its engine kept no such map), so it loads with an empty one.
+	// Lane CASTLEAREA-1: version 4 adds the run-time trigger list's extent (removed slots included: the next trigger's index follows it); a version 3
+	// game never removed a run-time trigger, so its owners' saved indices give the extent
+	XferVersion v{ 2, 4 };
 	x.xferVersion(v);
 	bool loaded = loading ? false : m_loaded;
 	x.xferBool(&loaded);
@@ -384,6 +388,59 @@ void ScriptEngine::xfer(Xfer &x)
 			}
 		}
 	}
+	// lane CASTLE-UNPACK (version 3): the object references by (side, name), in key order: the object's id (an id of this game; the object may be gone,
+	// as in retail's map)
+	std::map<std::pair<std::string, std::string>, ObjectID> loadedReferences;
+	auto &references = loading ? loadedReferences : m_references;
+	if (v.current >= 3)
+	{
+		n = loading ? 0 : (std::uint32_t)references.size();
+		x.xferCount(&n, 1 + 1 + 4, sizeof(std::pair<const std::pair<std::string, std::string>, ObjectID>) + Xfer::kNodeBytes);
+		auto rit = references.begin();
+		for (std::uint32_t i = 0; i < n; ++i)
+		{
+			std::pair<std::string, std::string> key;
+			ObjectID id = INVALID_ID;
+			if (!loading)
+			{
+				key = rit->first;
+				id = rit->second;
+				++rit;
+			}
+			x.xferAsciiString(&key.first);
+			x.xferAsciiString(&key.second);
+			x.xferObjectID(&id);
+			if (!loading)
+			{
+				continue;
+			}
+			if (id != INVALID_ID && id >= m_logic.getNextObjectID())
+			{
+				throw XferException("script engine: the reference '" + key.first + "/" + key.second + "' names the object " + std::to_string(id) +
+					", which this game never made");
+			}
+			if (!references.emplace(key, id).second)
+			{
+				throw XferException("script engine: the reference '" + key.first + "/" + key.second + "' twice");
+			}
+		}
+	}
+	// lane CASTLEAREA-1 (version 4): the run-time trigger list's extent. The objects block (loaded before this one) put each owner's trigger back at its
+	// index; the extent is at least the slots it gave and is bounded like the indices (ScriptEngine::addPolygonTriggerAt)
+	std::uint32_t runtimeExtent = loading ? 0 : (std::uint32_t)m_runtimeTriggers.size();
+	if (v.current >= 4)
+	{
+		x.xferUnsignedInt(&runtimeExtent);
+		if (loading && (runtimeExtent > 0x10000 || runtimeExtent < m_runtimeTriggers.size()))
+		{
+			throw XferException("script engine: the run-time trigger list's extent " + std::to_string(runtimeExtent) + " (the objects gave " +
+				std::to_string(m_runtimeTriggers.size()) + " slots)");
+		}
+	}
+	else if (loading)
+	{
+		runtimeExtent = (std::uint32_t)m_runtimeTriggers.size();
+	}
 	if (!loading)
 	{
 		return;
@@ -423,9 +480,9 @@ void ScriptEngine::xfer(Xfer &x)
 		std::map<std::pair<std::string, std::string>, Counter>, std::map<std::pair<std::string, std::string>, bool>,
 		std::vector<std::pair<std::string, std::vector<std::string>>>, std::vector<std::pair<std::string, ObjectID>>,
 		std::vector<std::vector<SequentialScript>>, std::array<AcquiredScienceQueue, 20>, std::vector<AudioTimer>,
-		std::array<std::vector<TriggeredSpecialPower>, kSpecialPowerListPlayers>>>(std::move(tree), std::move(loadedGeneric), std::move(loadedCounters),
-		std::move(loadedFlags), std::move(loadedLists), std::move(loadedNamed), std::move(loadedSequential), loadedQueues, std::move(loadedTimers),
-		std::move(loadedTriggered));
+		std::array<std::vector<TriggeredSpecialPower>, kSpecialPowerListPlayers>, std::map<std::pair<std::string, std::string>, ObjectID>>>(std::move(tree),
+		std::move(loadedGeneric), std::move(loadedCounters), std::move(loadedFlags), std::move(loadedLists), std::move(loadedNamed), std::move(loadedSequential),
+		loadedQueues, std::move(loadedTimers), std::move(loadedTriggered), std::move(loadedReferences));
 	m_pendingTeams.clear();
 	for (const auto &chain : std::get<6>(*staged))
 	{
@@ -437,7 +494,13 @@ void ScriptEngine::xfer(Xfer &x)
 			}
 		}
 	}
-	m_pendingLoad = [this, staged, firstUpdate, difficulty, bonus]() {
+	m_pendingLoad = [this, staged, firstUpdate, difficulty, bonus, runtimeExtent]() {
+		while (m_runtimeTriggers.size() < runtimeExtent)
+		{
+			RuntimeTrigger empty; // lane CASTLEAREA-1: a removed slot past the last owner's trigger
+			empty.area = std::make_shared<TriggerArea>();
+			m_runtimeTriggers.push_back(std::move(empty));
+		}
 		m_firstUpdate = firstUpdate;
 		m_gameDifficulty = difficulty;
 		m_objectsReceiveDifficultyBonus = bonus;
@@ -455,6 +518,7 @@ void ScriptEngine::xfer(Xfer &x)
 		m_acquiredSciences = std::get<7>(*staged);
 		m_audioTimers = std::move(std::get<8>(*staged));
 		m_triggeredSpecialPowers = std::move(std::get<9>(*staged)); // lane SAVE-4e
+		m_references = std::move(std::get<10>(*staged));             // lane CASTLE-UNPACK
 	};
 }
 

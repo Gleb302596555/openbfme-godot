@@ -137,12 +137,16 @@ TEST_CASE("retail data/lotr.str: parses, APT:Quit is QUIT, 36 labels are defined
 	AptArchiveFileSource source(mount.fs);
 	std::vector<std::uint8_t> bytes;
 	std::string error;
-	REQUIRE_MESSAGE(source.readFile("data/lotr.str", bytes, &error), error);
 	GameTextTable t;
-	REQUIRE_MESSAGE(t.parse(bytes, &error), error);
+	REQUIRE_MESSAGE(t.loadRetail(mount.fs, &error), error); // data/lotr.str, or a non-English install's lotr.csf
 	CHECK(t.size() > 10000);
 	std::string v;
 	REQUIRE(t.lookup("APT:Quit", v));
+	CHECK_FALSE(v.empty());
+	if (retailtest::skipUnlessEnglish("retail data/lotr.str's English words and its 36 duplicate labels"))
+	{
+		return;
+	}
 	CHECK(v == "QUIT");
 	std::string dup;
 	for (const std::string &d : t.duplicateLabels())
@@ -203,6 +207,10 @@ TEST_CASE("retail fontsubstitution.ini: SachaWynter is drawn as Omnia LT Std (8 
 	FontSubstitution f;
 	REQUIRE_MESSAGE(f.parse(std::string(bytes.begin(), bytes.end()), &error), error);
 	CHECK(f.blockCount() == 1);
+	if (retailtest::skipUnlessEnglish("retail fontsubstitution.ini's English sizes (the language archive's file)"))
+	{
+		return;
+	}
 	FontRequestResult r = f.resolve("SachaWynter", 8);
 	CHECK(r.name == "Omnia LT Std");
 	CHECK(r.size == doctest::Approx(12.0f));
@@ -326,6 +334,37 @@ TEST_CASE("canvas: a solid fill is window-space triangles with the fill colour t
 	CHECK(op.colors[3] == doctest::Approx(128.0f / 255.0f));
 	CHECK(op.uvs.empty());
 	CHECK(list.unverified == std::vector<std::string>{ "stage-mapping" });
+}
+
+TEST_CASE("canvas: packed gadget textures use BFME1's flat layout without changing BFME2 or RotWK")
+{
+	MemorySource source;
+	AptTextureStore textures(source);
+	CHECK(textures.packedTextureStem("AptComponents_001.tga") == "art/compiledtextures/ap/aptcomponents_001");
+	source.files["data/ini/default/subsystemlegend.ini"] = bytesOf("legend");
+	CHECK(textures.packedTextureStem("AptComponents_001.tga") == "art/textures/aptcomponents_001");
+	CHECK(textures.packedTextureStem("ScrollShroud.tga") == "art/textures/scrollshroud");
+	source.files["data/ini/awardsystem.ini"] = bytesOf("awards");
+	CHECK(textures.packedTextureStem("AptComponents_001.tga") == "art/compiledtextures/ap/aptcomponents_001");
+	source.files.erase("data/ini/awardsystem.ini");
+	source.files["data/ini/default/subsystemlegendexpansion1.ini"] = bytesOf("expansion");
+	CHECK(textures.packedTextureStem("AptComponents_001.tga") == "art/compiledtextures/ap/aptcomponents_001");
+}
+
+TEST_CASE("canvas: BFME1 gadget atlases decode TGA bytes packed under DDS names only for BFME1 data")
+{
+	MemorySource source;
+	source.files["data/ini/default/subsystemlegend.ini"] = bytesOf("legend");
+	source.files["art/textures/aptcomponents_004.dds"] = makeTga(1, 1, { { 3, 2, 1, 255 } });
+	AptTextureStore textures(source);
+	const auto &atlas = textures.get("AptComponents_004.tga");
+	REQUIRE_MESSAGE(atlas.ok, atlas.error);
+	CHECK(atlas.width == 1);
+	CHECK(atlas.height == 1);
+	CHECK(atlas.rgba == std::vector<std::uint8_t>{ 1, 2, 3, 255 });
+	source.files["data/ini/awardsystem.ini"] = bytesOf("awards");
+	AptTextureStore bfme2(source);
+	CHECK_FALSE(bfme2.get("AptComponents_004.tga").ok);
 }
 
 TEST_CASE("canvas: a textured fill takes UV = tc matrix * vertex / texture size, with rows flipped so v counts from the top; a missing texture is an error and draws nothing")
@@ -703,8 +742,7 @@ struct RetailMenu
 		REQUIRE_MESSAGE(apt->loadMovie(0, "AptLevel0", &error), error);
 		REQUIRE_MESSAGE(apt->loadMovie(1, "MainMenu", &error), error);
 		std::vector<std::uint8_t> bytes;
-		REQUIRE_MESSAGE(source.readFile("data/lotr.str", bytes, &error), error);
-		REQUIRE_MESSAGE(strings.parse(bytes, &error), error);
+		REQUIRE_MESSAGE(strings.loadRetail(mount.fs, &error), error); // data/lotr.str, or a non-English install's lotr.csf
 		REQUIRE_MESSAGE(source.readFile("data/ini/fontsubstitution.ini", bytes, &error), error);
 		REQUIRE_MESSAGE(fonts.parse(std::string(bytes.begin(), bytes.end()), &error), error);
 	}
@@ -862,7 +900,13 @@ TEST_CASE("retail MainMenu canvas: per frame the triangle count equals the rende
 		if (op.kind == AptCanvasOp::Kind::Text && op.path == "_level1.QuitMainMenu.instance3.Text")
 		{
 			quit = true;
-			CHECK(op.text == "QUIT");
+			std::string want; // the string table's APT:Quit in the install's language ("QUIT" in English)
+			REQUIRE(menu.strings.lookup("APT:Quit", want));
+			CHECK(op.text == want);
+			if (retailtest::installLanguage() == "English")
+			{
+				CHECK(op.text == "QUIT");
+			}
 			CHECK(op.fontName == "Albertus MT");
 			CHECK(op.drawFont == "Albertus MT"); // no substitution entry for it
 		}
@@ -1070,8 +1114,7 @@ TEST_CASE("retail corpus canvas: every movie translates; textures load; the rend
 	GameTextTable strings;
 	std::vector<std::uint8_t> bytes;
 	std::string error;
-	REQUIRE_MESSAGE(source.readFile("data/lotr.str", bytes, &error), error);
-	REQUIRE_MESSAGE(strings.parse(bytes, &error), error);
+	REQUIRE_MESSAGE(strings.loadRetail(mount.fs, &error), error); // data/lotr.str, or a non-English install's lotr.csf
 	AptTextureStore textures(source);
 	FontSubstitution fontTable;
 	REQUIRE_MESSAGE(source.readFile("data/ini/fontsubstitution.ini", bytes, &error), error);

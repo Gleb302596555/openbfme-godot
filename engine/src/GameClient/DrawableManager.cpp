@@ -240,6 +240,7 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 		case ClientEvent::MODEL_FLUSH:
 			if (Drawable *d = findByObject(ev.object))
 			{
+				if (ev.hasHouseColor) d->setHouseColor(ev.houseColor);
 				d->setScriptTarget(ev.scriptTarget); // lane FX-3: before the flush runs the state scripts
 				d->flushModelConditions(ev.hasWeaponTiming, ev.weaponTimingFrames);
 			}
@@ -254,6 +255,12 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 			if (Drawable *d = findByObject(ev.object))
 			{
 				d->fadeIn((double)ev.fadeFrames);
+			}
+			break;
+		case ClientEvent::FADE_OUT: // lane PORTERFOG-1 (RW 0x670A50)
+			if (Drawable *d = findByObject(ev.object))
+			{
+				d->fadeOut((double)ev.fadeFrames);
 			}
 			break;
 		case ClientEvent::SHOW_MODULE:
@@ -282,6 +289,8 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 				d->setDrawsInMirror(ev.mirror);
 			}
 			break;
+		case ClientEvent::CAH_STATISTICS: // consumed by LiveGame profile statistics, not a drawable event
+			break;
 		case ClientEvent::HERO_ATTACKED:
 			if (m_heroAttackedHandler)
 			{
@@ -293,6 +302,9 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 			{
 				m_heroFlashHandler(ev.name, ev.flashFrames);
 			}
+			break;
+		case ClientEvent::EVA_DAMAGED: // lane EVADAMAGE-1 (RW 0x67B4B7's Eva half)
+			EvaDamage::apply(ev, *this, m_evaDamage);
 			break;
 		}
 	}

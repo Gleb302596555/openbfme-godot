@@ -9,6 +9,8 @@
 ##
 ## Command line (after `--`):
 ##   --map=<name>            map directory/file stem, e.g. "map mp evendim" (default)
+##   --user-map=<name>       (lane MOD-5) a map of the user maps folder, <user data folder>\Maps\<name>\<name>.map, as WorldBuilder saves it
+##                           (static object layer only; not with --live)
 ##   --screenshot=<path>     save the viewport after the warm-up frames and quit
 ##   --cam=overview|low|top|horde|structure|unit|tinted  camera preset for the screenshot (default overview; the last three look at the
 ##                           first horde member / structure / unit of the object layer; `tinted`: a unit of a side the map colours)
@@ -57,6 +59,7 @@ extends Node3D
 const WARMUP_FRAMES := 24
 
 var _map_name := "map mp evendim"
+var _user_map := false  # lane MOD-5: _map_name is in the user maps folder
 var _screenshot_path := ""
 var _cam_preset := "overview"
 var _measure_frames := 0
@@ -127,6 +130,10 @@ func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--map="):
 			_map_name = arg.substr(6)
+			_user_map = false
+		elif arg.begins_with("--user-map="):
+			_map_name = arg.substr(11)
+			_user_map = true
 		elif arg.begins_with("--screenshot="):
 			_screenshot_path = arg.substr(13)
 		elif arg.begins_with("--cam="):
@@ -229,7 +236,13 @@ func _ready() -> void:
 		_options["markers"] = _markers_on or not _objects_on  # the object layer replaces the markers
 	if _cam_preset != "low" and not _options.has("fog"):
 		_options["fog"] = false  # an overview sees far beyond the map.ini fog range; the retail camera does not
+	if _user_map:
+		_options["user_map"] = true
+		_obj_options["user_map"] = true
 	_build_stage()
+	if _user_map and _live:
+		_fail("--user-map: a game on a user map is not ported yet (stop S-5160); leave out --live")
+		return
 	if not ClassDB.class_exists("MapTerrainBuilder"):
 		_fail("openbfme extension is not loaded (or too old); " + Release.extension_hint())
 		return
@@ -238,6 +251,8 @@ func _ready() -> void:
 	if not mount.ok:
 		_fail("mount failed:\n" + "\n".join(mount.errors))
 		return
+	if _user_map:
+		print("MAPVIEW user maps folder: %s" % [mount.get("user_map_folder", "")])
 	_builder = ClassDB.instantiate("MapTerrainBuilder")
 	_load_map()
 	if _measure_frames > 0:
@@ -331,7 +346,7 @@ func _build_pathfind() -> void:
 		return
 	_pf_view = ClassDB.instantiate("PathfindView")
 	var t0 := Time.get_ticks_msec()
-	var rep: Dictionary = _pf_view.build(_fs, _map_name, {"objects": _objects_on})
+	var rep: Dictionary = _pf_view.build(_fs, _map_name, {"objects": _objects_on, "user_map": _user_map})
 	print("PATHFIND built '%s' in %d ms (wall): ok=%s %dx%d cells, structures %d, fences %d" % [
 		_map_name, Time.get_ticks_msec() - t0, rep.get("ok", false), rep.get("width", 0), rep.get("height", 0), rep.get("structures", 0), rep.get("fences", 0)])
 	print("PATHFIND cells: ", JSON.stringify(rep.get("cells", {})))
@@ -766,10 +781,17 @@ func _live_overlay() -> void:
 		JSON.stringify(_game_world.get_stats().get("commands", {}))]
 
 
-## The models are lit by the map's object lighting at its time of day (GlobalLighting objects[0]): a DirectionalLight3D from the
-## diffuse colour and the light direction, the ambient colour in the environment (the terrain shader is unshaded and ignores both).
+func _exit_tree() -> void:
+	if _sun != null:
+		load("res://scripts/object_shadows.gd").disable()
+
+
+## The shaders retain map lighting; the directional light supplies shadow coverage.
 func _apply_object_lighting(rep: Dictionary) -> void:
 	if not rep.has("lighting"):
+		if _sun != null:
+			_sun.visible = false
+			load("res://scripts/object_shadows.gd").disable()
 		print("MAPOBJ no GlobalLighting chunk: object lighting is the viewer default")
 		_world_env.environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 		_world_env.environment.ambient_light_color = Color(0.6, 0.6, 0.6)
@@ -779,12 +801,13 @@ func _apply_object_lighting(rep: Dictionary) -> void:
 	_world_env.environment.ambient_light_color = lit.ambient
 	_world_env.environment.ambient_light_energy = 1.0
 	if _sun != null:
+		_sun.visible = false
 		_sun.queue_free()
 	_sun = DirectionalLight3D.new()
 	_sun.name = "ObjectSun"
 	_sun.light_color = lit.diffuse
 	_sun.light_energy = 1.0
-	_sun.shadow_enabled = false
+	load("res://scripts/object_shadows.gd").configure(_sun, lit)
 	var dir: Vector3 = lit.direction
 	if dir.length() > 0.0001:
 		_sun.transform = Transform3D(Basis.looking_at(dir.normalized(), Vector3.UP if absf(dir.normalized().y) < 0.99 else Vector3.RIGHT), Vector3.ZERO)

@@ -21,6 +21,7 @@
 #include "Common/Upgrade.h"
 #include "GameLogic/SkirmishAI/AIStatCollector.h"
 #include "GameLogic/SkirmishAI/AITacticalAI.h"
+#include "GameLogic/SkirmishAI/AIUpgrade.h"
 #include "GameLogic/SkirmishAI/SkirmishAIData.h"
 #include "GameLogic/SkirmishAI/SkirmishAIManager.h"
 #include "Libraries/WWVegas/WWMath/quat.h"
@@ -75,6 +76,10 @@ float AIBuildRequest::bestPriority() const
 
 Coord3D AIBuildRequest::sitePosition(const GameLogic &logic) const
 {
+	if (plain)
+	{
+		return offset; // RW 0x97DA4E: + 0x30 .. + 0x38 as stored (RW 0x97D986: z = the ground height at the position)
+	}
 	// RW 0x97DED8: (offset + base) in SSE, z = the ground height there
 	Coord3D p;
 	p.x = SimMath::addf32(basePosition.x, offset.x);
@@ -85,6 +90,10 @@ Coord3D AIBuildRequest::sitePosition(const GameLogic &logic) const
 
 float AIBuildRequest::siteAngle() const
 {
+	if (plain)
+	{
+		return angle; // RW 0x48DA54: fld [ecx + 0x3C]
+	}
 	return normalizeAngle(SimMath::addf32(baseAngle, angle)); // RW 0x97DDB8: x87 fadd of two floats, stored as float
 }
 
@@ -213,6 +222,21 @@ void AIBaseBuilder::init(GameLogic &logic, AISkirmishPlayer &ai, const std::stri
 	Coord3D pos = wp->location;
 	pos.z = logic.getGroundHeight(pos.x, pos.y);
 	s.startPosition = pos;
+	AIBaseBuilder::addBase(logic, ai, pos, mapFileName, anyTypeDisabledSlots, errors);
+}
+
+void AIBaseBuilder::addBase(GameLogic &logic, AISkirmishPlayer &ai, const Coord3D &pos, const std::string &mapFileName, const std::vector<int> &anyTypeDisabledSlots,
+	std::vector<std::string> &errors)
+{
+	AIBuildState &s = ai.build;
+	Player *player = logic.players().getNthPlayer(ai.playerIndex);
+	const TerrainLogic *terrain = logic.terrain();
+	if (!player || !terrain || !ai.store)
+	{
+		errors.push_back("[S-413] skirmish ai base builder: player " + std::to_string(ai.playerIndex) + " has no terrain or data");
+		return;
+	}
+	const int startPos = player->getMultiplayerStartIndex(); // RW 0x9BC734 / 0x9BCB40: the player's slot start position (RW 0x90CE35 + 0x10), for every base
 	// RW 0x90D3C7: the angle facing the map centre (the active extent: boundary 0)
 	float ex = 0.0f, ey = 0.0f;
 	terrain->getExtent(0, ex, ey);
@@ -302,10 +326,28 @@ void startRequest(AIBuildState &s, const std::shared_ptr<AIBuildRequest> &req, b
 	}
 }
 
-// RW 0x97DDC9 reset(state)
+} // namespace
+
+void AIBaseBuilder::startPlainRequest(AIBuildState &s, const std::shared_ptr<AIBuildRequest> &req)
+{
+	// RW 0x9618BA(player, 0): the state is 0; RW 0x8F0B92 (state 0) appends it to the pending queue
+	req->state = 0;
+	s.pending.push_back(req);
+}
+
+void AIBaseBuilder::leaveQueues(AIBuildState &s, const AIBuildRequest *req)
+{
+	auto same = [&](const std::shared_ptr<AIBuildRequest> &r) { return r.get() == req; };
+	s.pending.erase(std::remove_if(s.pending.begin(), s.pending.end(), same), s.pending.end());
+	s.inProgress.erase(std::remove_if(s.inProgress.begin(), s.inProgress.end(), same), s.inProgress.end());
+}
+
+namespace
+{
+// RW 0x97DDC9 reset(state); an upgrade's or expansion's vslot 0x1C is RW 0x993D2E (the state only; lane AI5)
 void resetRequest(GameLogic &logic, AIBuildRequest &req, int state)
 {
-	if (state == 3)
+	if (state == 3 && !req.upgrade && !req.expansion && !req.plain)
 	{
 		req.counts = false;
 		req.rebuildFrame = logic.getFrame() + kRebuildDelayFrames;
@@ -414,22 +456,30 @@ ObjectID pickDozer(GameLogic &logic, const AIBuildState &s, const Coord3D &pos)
 // the enemy count of RW 0x97DFCD and RW 0x9A1FA4 (the same four partition filters, range 300 around `site`)
 int enemiesNear(GameLogic &logic, const Player &player, const Coord3D &site)
 {
+	// lane BIGBATTLE-1: the KindOf bits looked up once (isKindOfName searched the names for every object, five times), and the range tested
+	// first: every test here is pure, so their order does not change the count; the AI asks this for every build request and walked every object
+	static const int kGollum = KindOfTokens::indexOf("NEUTRALGOLLUM"), kCanAttack = KindOfTokens::indexOf("CAN_ATTACK"),
+					 kStructure = KindOfTokens::indexOf("STRUCTURE"), kHero = KindOfTokens::indexOf("HERO"),
+					 kSupport = KindOfTokens::indexOf("SUPPORT");
+	const auto kind = [](const Object &o, int bit) { return bit >= 0 && o.isKindOf((unsigned)bit); };
+	const float range2 = SimMath::mulf32(kEnemyScanRadius, kEnemyScanRadius);
 	int enemies = 0;
 	for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
 	{
+		const float dx = SimMath::subf32(o->getPosition()->x, site.x), dy = SimMath::subf32(o->getPosition()->y, site.y);
+		if (!(SimMath::addf32(SimMath::mulf32(dx, dx), SimMath::mulf32(dy, dy)) <= range2))
+		{
+			continue;
+		}
 		// the four partition filters of RW 0x97DFCD: accept KindOf any of CAN_ATTACK | STRUCTURE | HERO | SUPPORT (RW 0xC309B4 -> 0x661359), reject
 		// NEUTRALGOLLUM (RW 0xC110A4), the AI's player ENEMIES with the object's team (RW 0xC1676C, mask 4), alive
 		// (object + 0x458 bit 0 clear, RW 0xC10E20); range 300 from the centre in 2D (partition vslot 0x34, mode 0)
-		if (o->isEffectivelyDead() || !o->isInWorld() || !isEnemyOf(player, *o) || o->isKindOfName("NEUTRALGOLLUM") ||
-			!(o->isKindOfName("CAN_ATTACK") || o->isKindOfName("STRUCTURE") || o->isKindOfName("HERO") || o->isKindOfName("SUPPORT")))
+		if (o->isEffectivelyDead() || !o->isInWorld() || !isEnemyOf(player, *o) || kind(*o, kGollum) ||
+			!(kind(*o, kCanAttack) || kind(*o, kStructure) || kind(*o, kHero) || kind(*o, kSupport)))
 		{
 			continue; // lane GARRISON-1: a contain's rider out of the world (RW 0x68C18F) is not in the partition
 		}
-		const float dx = SimMath::subf32(o->getPosition()->x, site.x), dy = SimMath::subf32(o->getPosition()->y, site.y);
-		if (SimMath::addf32(SimMath::mulf32(dx, dx), SimMath::mulf32(dy, dy)) <= SimMath::mulf32(kEnemyScanRadius, kEnemyScanRadius))
-		{
-			++enemies;
-		}
+		++enemies;
 	}
 	return enemies;
 }
@@ -438,11 +488,11 @@ int enemiesNear(GameLogic &logic, const Player &player, const Coord3D &site)
 int checkRequest(GameLogic &logic, const AIBuildRequest &req, Player &player)
 {
 	const Coord3D site = req.sitePosition(logic);
-	if (enemiesNear(logic, player, site) > 2)
+	if (!req.plain && enemiesNear(logic, player, site) > 2)
 	{
 		return 9;
 	}
-	// RW 0x97DC99
+	// RW 0x97DC99 (a plain request's whole check, lane AIEXPAND-1)
 	Object *dozer = logic.findObjectByID(req.producer);
 	const DozerAIUpdate *d = dozer ? dynamic_cast<const DozerAIUpdate *>(dozer->getAIUpdateInterface()) : nullptr;
 	if (!dozer || !d || d->taskTarget() != INVALID_ID) // AIUpdate vslot 0x1B8 (S-414: taken as "has a task", travelling to a site included)
@@ -514,7 +564,7 @@ namespace
 {
 const float kRushUnitPriority = 500.0f;   // RW 0xBDD97C (a phase 0 request's priority, RW 0x9A0F66 / 0x9A0D4F)
 const float kFortressClearRadiusSq = 122500.0f; // RW 0xC8A4B4 (350^2; lane BACKLOG6)
-const float kReservedCost = 1000.0f;      // RW 0xC88214 (cost >= it: the request draws on the money reserve, + 0x21; not ported, S-413)
+const float kReservedCost = 1000.0f;      // RW 0xC88214 (cost >= it: the request draws on the money reserve, + 0x21; lane AI5)
 
 // RW 0x9A0705: the first factory of the unit (multimap order) that exists, is alive (object + 0x458 bit 0), has a production interface and, unless
 // `ignoreBusy`, is not disabled (slot 25) and has an empty queue (slot 17); one whose id is in `exclude` is skipped
@@ -697,7 +747,8 @@ std::shared_ptr<AIBuildRequest> chooseUnit(GameLogic &logic, AISkirmishPlayer &a
 	req->templateName = pick;
 	req->commandPoints = tt ? BuildAssistant::commandPoints(*tt) : 0;
 	req->priority = ai.build.phase == 0 ? kRushUnitPriority : ai.army->defaultUnitPriority; // RW 0x9A0FC4 .. 0x9A0FD9
-	(void)kReservedCost;
+	// RW 0x9A101D .. 0x9A1030 (lane AI5, S-413): calcCostToBuild(no player, no producer) (cvtsi2ss) at least 1000.0f sets + 0x21: the request draws on the reserve
+	req->reserveMoney = tt && (float)BuildAssistant::calcCostToBuild(*tt->getFinalOverride(), nullptr, nullptr, -1) >= kReservedCost; // comiss, jc
 	return req;
 }
 
@@ -757,7 +808,7 @@ int heroIndexFor(GameLogic &logic, AISkirmishPlayer &ai, const Player &player)
 
 // RW 0x9A0993 (createBestHeroToBuild; BFME2 decomp attempt 0x0059858c.cpp, tier B edited: RotWK drops BFME2's queued-quantity term): the hero of
 // heroIndexFor, its factory (RW 0x9A0705, busy ones too); when it is neither owned nor requested and has a factory: its cost (+ 0x48, RW 0x73C25F with the
-// factory) and, when the player's money (the player info record's RW 0x99E766: money + its reserve adjustment, taken as 0: S-413) reaches it and its
+// factory) and, when the player's money (the player info record's RW 0x99E766: money + its reserve, lane AI5) reaches it and its
 // CommandPoints are below the remaining command points (limit - used, RW 0x6A7F6A; signed), a unit request with priority -1.0 (RW 0xBD19DC), + 0x21 set,
 // its CommandPoints, the index recorded as built (+ 0x3C) and + 0x38 / + 0x48 reset; else (owned, requested or no factory) + 0x38 = -1. A request marks
 // a hero out (+ 0x34)
@@ -789,7 +840,7 @@ std::shared_ptr<AIBuildRequest> createBestHero(GameLogic &logic, AISkirmishPlaye
 		return nullptr;
 	}
 	u.heroCost = BuildAssistant::calcCostToBuild(*tt->getFinalOverride(), &player, factory, -1);
-	if (!((std::uint32_t)player.getMoney()->countMoney() >= (std::uint32_t)u.heroCost) || !fits)
+	if (!((std::uint32_t)AIBaseBuilder::moneyPlusReserve(logic, player) >= (std::uint32_t)u.heroCost) || !fits) // RW 0x9A0A74: RW 0x99E766 (lane AI5)
 	{
 		return nullptr;
 	}
@@ -1233,8 +1284,17 @@ void queueDozer(GameLogic &logic, AISkirmishPlayer &ai, Object &factory)
 	}
 	const ProductionID id = pu->requestUniqueUnitID(); // vslot 8
 	const ThingTemplate *tt = logic.things().findTemplate(ai.dozerTemplate); // RW 0x6D1305 (TheThingFactory)
-	// RW 0x9A1A7D .. 0x9A1AA2: calcCostToBuild (RW 0x73C25F), capped by the player info record's money reserve (+ 0xC -> + 0x14), is drawn from that reserve
-	// (RW 0x99E79A); the reserve is not ported (S-413), so it holds 0 and nothing is drawn
+	// RW 0x9A1A7D .. 0x9A1AA2: calcCostToBuild (RW 0x73C25F, no producer), capped by the player info record's money reserve (+ 0xC -> + 0x14), is drawn from that
+	// reserve (RW 0x99E79A) before the queue call (lane AI5, S-413)
+	if (Player *owner = logic.players().getNthPlayer(ai.playerIndex))
+	{
+		const int cost = tt ? BuildAssistant::calcCostToBuild(*tt->getFinalOverride(), owner, nullptr, -1) : 0;
+		const AIStatCollector *rec = logic.skirmishAI().record(owner->getPlayerIndex());
+		if (cost > 0 && rec)
+		{
+			AIBaseBuilder::withdrawFromReserve(logic, *owner, std::min((std::uint32_t)cost, rec->reserve()));
+		}
+	}
 	if (tt && pu->queueCreateUnit(tt->getFinalOverride(), -1, id, -1, false, std::string(), false)) // vslot 0x20 (unit, -1, id, -1, 0, "", 0)
 	{
 		++m.queued;
@@ -1534,6 +1594,63 @@ void updateFortressTask(GameLogic &logic, AISkirmishPlayer &ai, AIBaseInstance &
 	buildFortressIfNeeded(logic, ai, base, player);
 }
 
+// lane AI5 (S-413): the vslot 0x24 cost a request draws from the money reserve at its execution (RW 0x96190B): a structure's or farm's RW 0x97DD6B (calcCostToBuild
+// with its producer unless BUILD_FOR_FREE, template + 0x11B bit 5), a unit's RW 0x9EDC36 (a HERO: the player's hero record cost RW 0x78131E / 0x780AD3 with
+// its factory; else as a structure), an upgrade's or expansion's base RW 0x7A69E1 (0.0f; the expansion draws in its own execute, RW 0x9ED951)
+int requestCost(GameLogic &logic, const AIBuildRequest &r, const Player &player)
+{
+	if (r.upgrade || r.expansion)
+	{
+		return 0;
+	}
+	const ThingTemplate *tt = logic.things().findTemplate(r.templateName); // RW 0x6D1305 (RW reads a null template's KindOf: a crash)
+	if (!tt)
+	{
+		return 0;
+	}
+	const Object *producer = logic.findObjectByID(r.producer);
+	static const int hero = kindIndex("HERO"), forFree = kindIndex("BUILD_FOR_FREE");
+	const KindOfMaskType &kind = logic.templateInfo(tt->getFinalOverride()).kindOf;
+	if (r.unit && hero >= 0 && MaskTest(kind, (unsigned)hero))
+	{
+		return player.heroes().costAt(logic, player, player.heroes().findIndex(*tt->getFinalOverride(), 0xFFFFFFFFu, 0), producer);
+	}
+	if (forFree >= 0 && MaskTest(kind, (unsigned)forFree))
+	{
+		return 0;
+	}
+	return BuildAssistant::calcCostToBuild(*tt->getFinalOverride(), &player, producer, -1); // RW 0x73C25F
+}
+
+// RW 0x961975: a request with + 0x21 is checked with the reserve deposited into the money (RW 0x7B18B8(reserve, 0, 0)) and withdrawn after it (RW 0x7B17EF)
+template <typename Check>
+int checkWithReserve(GameLogic &logic, const AIBuildRequest &r, Player &player, Check check)
+{
+	AIStatCollector *rec = r.reserveMoney ? logic.skirmishAI().record(player.getPlayerIndex()) : nullptr; // RW 0x6A9999
+	const std::uint32_t lent = rec ? rec->reserve() : 0u;
+	if (lent != 0)
+	{
+		player.getMoney()->deposit(lent, nullptr, false);
+	}
+	const int code = check();
+	if (lent != 0)
+	{
+		player.getMoney()->withdraw(lent, nullptr, false);
+	}
+	return code;
+}
+
+// RW 0x96190B before vslot 0x3C: a request with + 0x21 whose cost (vslot 0x24, ftol) is above 0 and within the reserve draws it from the reserve (RW 0x99E79A)
+void drawExecutionCost(GameLogic &logic, const AIBuildRequest &r, Player &player)
+{
+	const int cost = requestCost(logic, r, player);
+	const AIStatCollector *rec = logic.skirmishAI().record(player.getPlayerIndex());
+	if (r.reserveMoney && rec && cost > 0 && (std::uint32_t)cost <= rec->reserve())
+	{
+		AIBaseBuilder::withdrawFromReserve(logic, player, (std::uint32_t)cost);
+	}
+}
+
 // RW 0x8F0F7E .. 0x8F1104: the request processor (its early exits jump to RW 0x8F1104, the finished-request sweep)
 void processRequests(GameLogic &logic, AISkirmishPlayer &ai, Player &player)
 {
@@ -1550,6 +1667,43 @@ void processRequests(GameLogic &logic, AISkirmishPlayer &ai, Player &player)
 	{
 		const std::shared_ptr<AIBuildRequest> req = s.pending[i];
 		bool assigned = false;
+		if (req->upgrade || req->expansion)
+		{
+			// lane AI5: neither needs a producer (vslots 0x2C / 0x10 answer false, RW 0x5188EB); the check (RW 0x961975 -> vslot 0x40: RW 0x99F88B / 0x9ED764;
+			// its reserve deposit moves nothing, S-413), code 0 executes (RW 0x8F0E6C, RW 0x96190B -> vslot 0x3C: RW 0x99F7EF / 0x9ED8C4; base vslot 0x24 is 0.0f,
+			// RW 0x7A69E1: no reserve withdrawal) and ends the frame's processing, as do 2 and 8 (8 while requests are in progress); 9 and 10 fail it (RW
+			// 0x961901 -> vslot 0x1C(3) = RW 0x993D2E, the state only); other codes go on
+			const int code = checkWithReserve(logic, *req, player, [&]() { return AIUpgrade::check(logic, ai, *req, player); });
+			req->lastCheck = code;
+			if (code == 0)
+			{
+				drawExecutionCost(logic, *req, player); // 0.0f for both kinds (RW 0x7A69E1)
+				if (AIUpgrade::execute(logic, ai, *req, player))
+				{
+					req->state = 1; // RW 0x60011F then vslot 0x1C(1)
+					s.inProgress.push_back(req);
+					++s.executed;
+				}
+				else
+				{
+					req->state = 3;
+					++s.failed;
+				}
+				s.pending.erase(s.pending.begin() + (long)i);
+				return;
+			}
+			if ((code == 8 && dozerFactoryCount > 0) || code == 2)
+			{
+				++(code == 2 ? s.waitedForMoney : s.waitedForDozer);
+				return;
+			}
+			if (code == 10 || code == 9)
+			{
+				req->state = 3;
+				++s.failed;
+			}
+			continue;
+		}
 		if (req->unit)
 		{
 			// vslot 0x2C (needs a producer): the unit builder's free factory (RW 0x9A0705 with busy checks); none: skip it this frame (RW 0x8F106D)
@@ -1567,8 +1721,12 @@ void processRequests(GameLogic &logic, AISkirmishPlayer &ai, Player &player)
 			req->producer = pickDozer(logic, s, req->sitePosition(logic));
 		}
 		assigned = true;
-		const int code = req->unit ? checkUnitRequest(logic, *req) : checkRequest(logic, *req, player);
+		const int code = checkWithReserve(logic, *req, player, [&]() { return req->unit ? checkUnitRequest(logic, *req) : checkRequest(logic, *req, player); }); // RW 0x961975
 		req->lastCheck = code;
+		if (code == 0)
+		{
+			drawExecutionCost(logic, *req, player); // RW 0x96190B (lane AI5, S-413)
+		}
 		if (code == 0 && req->unit)
 		{
 			if (executeUnitRequest(logic, *req)) // RW 0x96190B -> vslot 0x3C
@@ -1668,6 +1826,45 @@ static void checkForNewUpgrades(GameLogic &logic, AISkirmishPlayer &ai, Player &
 	}
 }
 
+// RW 0x8F0502 (lane AI5, S-413; RotWK only): at + 0x158 (the AI's retryTimer, FPS * 30 at creation) and every 2 seconds after, the player info record's reserve
+// target (+ 0xC -> + 0x18) becomes max(the unit builder's hero cost + 0x48 (unsigned: -1 = none), min(difficulty, 2) * 5000); while it is -1 or the reserve is
+// below it, money * (PercentToSave[phase] / (3 - d)) (x87 at PC24: the quotient, then the product) above 1.0 with more than 2 economy structures is moved from
+// the money into the reserve (ftol, RW 0x99E773 -> RW 0x7B17EF(amount, 0, 1): the withdrawal's sound is the client's)
+void AIBaseBuilder::saveMoney(GameLogic &logic, AISkirmishPlayer &ai, Player &player)
+{
+	const std::uint32_t frame = logic.getFrame();
+	if (ai.retryTimer > frame || !ai.army)
+	{
+		return;
+	}
+	AIStatCollector *rec = logic.skirmishAI().record(player.getPlayerIndex()); // RW 0x6A9999
+	if (rec)
+	{
+		const int economy = (int)rec->economy().size(); // RW 0x945ADA on + 0xC
+		const int d = player.getSkirmishDifficulty() < 2 ? player.getSkirmishDifficulty() : 2; // RW 0x6AA61B
+		const std::uint32_t cap = (std::uint32_t)(d * 5000);
+		const std::uint32_t heroCost = (std::uint32_t)ai.build.units.heroCost; // AIPlayer + 0x80
+		const std::uint32_t target = heroCost <= cap ? cap : heroCost;
+		rec->setReserveTarget(target);
+		if (target == 0xFFFFFFFFu || rec->reserve() < target)
+		{
+			const float money = (float)player.getMoney()->countMoney(); // fild + 2^32 (RW 0xBD8698) when negative: the unsigned value
+			const float pct = ai.army->percentToSave[ai.build.phase < 0 ? 0 : ai.build.phase > 2 ? 2 : ai.build.phase]; // ArmyDefinition + 0xB8 + phase * 4
+			const float v = SimMath::mulf32(money, SimMath::divf32(pct, (float)(3 - d)));
+			if (1.0f < v && economy > 2)
+			{
+				const std::uint32_t amount = SimMath::ftol2Low32((double)v); // RW 0xA3CFA4: EAX of _ftol2
+				if (amount != 0) // RW 0x99E773
+				{
+					player.getMoney()->withdraw(amount, nullptr, false);
+					rec->setReserve(rec->reserve() + amount);
+				}
+			}
+		}
+	}
+	ai.retryTimer = frame + 2u * LOGICFRAMES_PER_SECOND; // + 0x158
+}
+
 void AIBaseBuilder::update(GameLogic &logic, AISkirmishPlayer &ai)
 {
 	AIBuildState &s = ai.build;
@@ -1733,6 +1930,16 @@ void AIBaseBuilder::update(GameLogic &logic, AISkirmishPlayer &ai)
 	{
 		updateEconomyBuilder(logic, ai, *player);
 	}
+	// RW 0x8F0F2E / 0x8F0F39 (lane AI5): the unit upgrader (+ 0x108, RW 0x9A1696) and the upgrade builder (+ 0x12C -> + 0xC, RW 0x9A0023); each skipped while
+	// disabled (RW 0x90CD00). Both read the AI's ArmyDefinition (every started AI has one: RW 0x9A0383; the port's guard)
+	if (!s.unitUpgrader.disabled && ai.army)
+	{
+		AIUpgrade::updateUnitUpgrader(logic, ai, *player);
+	}
+	if (!s.scienceBuilder.disabled && ai.army)
+	{
+		AIUpgrade::updateScienceBuilder(logic, ai, *player);
+	}
 	// RW 0x8F0F47: every pending request's vslot 0x14 (structures: effective priority = priority + dependents, none here; farms: RW 0x99F313), finished ones dropped
 	s.pending.erase(std::remove_if(s.pending.begin(), s.pending.end(), [](const std::shared_ptr<AIBuildRequest> &r) { return r->finished(); }), s.pending.end());
 	for (auto &r : s.pending)
@@ -1745,6 +1952,10 @@ void AIBaseBuilder::update(GameLogic &logic, AISkirmishPlayer &ai)
 		{
 			unitEffectivePriority(logic, ai, *r, *player);
 		}
+		else if (r->upgrade)
+		{
+			// an upgrade's vslot 0x14 does nothing (RW 0x63F3BF, lane AI5); an expansion's is the base's (RW 0x961D28) below
+		}
 		else
 		{
 			r->effectivePriority = SimMath::addf32(0.0f, r->priority);
@@ -1754,7 +1965,7 @@ void AIBaseBuilder::update(GameLogic &logic, AISkirmishPlayer &ai)
 	// RW 0x8F1104 .. 0x8F1130: finished requests leave the queue; RW 0x8F1138: the dozer manager
 	s.pending.erase(std::remove_if(s.pending.begin(), s.pending.end(), [](const std::shared_ptr<AIBuildRequest> &r) { return r->finished(); }), s.pending.end());
 	updateDozerManager(logic, ai, *player);
-	// RW 0x8F113F: the money saver (RW 0x8F0502, every 2 seconds: + 0x158 = frame + 2 * LOGICFRAMES_PER_SECOND) is not ported (S-413)
+	AIBaseBuilder::saveMoney(logic, ai, *player); // RW 0x8F113F -> RW 0x8F0502 (lane AI5)
 }
 
 // ---- the AIPlayer's object events (lane AI-2) -----------------------------------------------------------------------------------------------------------
@@ -1941,7 +2152,23 @@ void AIBaseBuilder::crcRequest(const AIBuildRequest &r, StateHasher &h)
 	h.addI32(r.owner);
 	h.addI32(r.failures);
 	h.addI32(r.siteIndex);
-	h.addU32((r.requeueOnProducerDeath ? 1u : 0u) | (r.reserveMoney ? 2u : 0u)); // one word: a request of 32 words would make the rotate-add hash blind to swaps
+	h.addU32((r.requeueOnProducerDeath ? 1u : 0u) | (r.reserveMoney ? 2u : 0u) | (r.plain ? 4u : 0u)); // one word: a request of 32 words would make the rotate-add hash blind to swaps
+	// lane AI5: the upgrade / expansion part (a request of neither kind adds nothing)
+	if (r.upgrade || r.expansion)
+	{
+		h.addU32((r.upgrade ? 1u : 0u) | (r.expansion ? 2u : 0u) | (r.upgrading ? 4u : 0u) | (r.expansionDone ? 8u : 0u));
+		h.addString(r.buttonName);
+		h.addI32(r.cost);
+		h.addI32(r.heuristicType);
+		h.addI32(r.heuristicResult);
+		h.addU32(r.heuristicNextFrame);
+		h.addI32(r.heuristicFortressResult);
+		h.addU32((std::uint32_t)r.heuristicUnlocks.size());
+		for (const std::string &n : r.heuristicUnlocks)
+		{
+			h.addString(n);
+		}
+	}
 }
 
 void AIBaseBuilder::crc(const AIBuildState &s, StateHasher &h)
@@ -2065,6 +2292,7 @@ void AIBaseBuilder::crc(const AIBuildState &s, StateHasher &h)
 	h.addU64(e.made);
 	h.addU64(e.refusedByDifficulty);
 	h.addU64(e.noSite);
+	AIUpgrade::crc(s.unitUpgrader, s.scienceBuilder, h); // lane AI5
 }
 
 std::vector<std::shared_ptr<AIBuildRequest>> AIBaseBuilder::makeFarmSites(GameLogic &logic)
@@ -2086,4 +2314,22 @@ std::vector<std::shared_ptr<AIBuildRequest>> AIBaseBuilder::makeFarmSites(GameLo
 		out.push_back(r);
 	}
 	return out;
+}
+
+// lane AI5 (S-413): RW 0x99E766 money + the player info record's reserve (Player + 0x94 + record + 0xC -> + 0x14, an int sum)
+int AIBaseBuilder::moneyPlusReserve(GameLogic &logic, const Player &player)
+{
+	const AIStatCollector *rec = logic.skirmishAI().record(player.getPlayerIndex());
+	return (int)(player.getMoney()->countMoney() + (rec ? rec->reserve() : 0u));
+}
+
+// RW 0x99E79A: an amount within the reserve goes back to the money (RW 0x7B18B8(amount, 0, 1): its sound is the client's)
+void AIBaseBuilder::withdrawFromReserve(GameLogic &logic, Player &player, std::uint32_t amount)
+{
+	AIStatCollector *rec = logic.skirmishAI().record(player.getPlayerIndex());
+	if (rec && amount <= rec->reserve())
+	{
+		player.getMoney()->deposit(amount, nullptr, false);
+		rec->setReserve(rec->reserve() - amount);
+	}
 }
