@@ -196,6 +196,10 @@
    "reason": "lane CAMP-1: TheLinearCampaignManager's LinearCampaign INI blocks and the shell's campaign progress (which mission to load next); no logic state, the logic gets only the map name and the difficulty"
   },
   {
+   "glob": "src/GameClient/CameraAnimation.cpp",
+   "reason": "lane CAMANIM-1: the map's camera animations played by the tactical view (MOVE_CAMERA_BY_ANIMATION): track interpolation, slerp and Look_At on the client frame clock; the logic only records the client request and never reads any of it"
+  },
+  {
    "glob": "src/GameClient/ScriptCameraDirector.cpp",
    "reason": "lane SCRIPT-1: the client half of the script engine's camera / letterbox / caption / fade requests on the render clock; the logic only records the requests and never reads this state"
   },
@@ -262,6 +266,26 @@
   {
    "glob": "src/GameClient/MapWeather.cpp",
    "reason": "weather particle parameters: rendering"
+  },
+  {
+   "glob": "src/GameClient/WeatherSetting.cpp",
+   "reason": "lane WEATHER-1: the Weather / WeatherData / CloudEffect INI data of the client's weather: rendering and audio"
+  },
+  {
+   "glob": "src/GameClient/SnowManager.cpp",
+   "reason": "lane WEATHER-1: TheSnowManager (falling snow / rain, its client random): rendering"
+  },
+  {
+   "glob": "src/GameClient/CloudEffect.cpp",
+   "reason": "lane WEATHER-1: TheCloudEffect (the darkening and lightning lights): rendering"
+  },
+  {
+   "glob": "src/GameClient/WeatherClient.cpp",
+   "reason": "lane WEATHER-1: the client weather of a game (client frames, the weather sound): rendering and audio"
+  },
+  {
+   "glob": "src/GodotDevice/GodotWeather.cpp",
+   "reason": "lane WEATHER-1: the weather in the Godot scene: rendering"
   },
   {
    "glob": "src/GameClient/MapCache.cpp",

@@ -1,10 +1,9 @@
 // OpenBFME tests. GPL-3.0. Lane L10N-1: the OpenBFME text catalog's engine loader on the generated catalog and synthetic patterns.
 
+#include <ostream>
 #include "doctest.h"
 
 #include "GameClient/OpenBFMEText.h"
-
-#include <ostream>
 
 namespace
 {

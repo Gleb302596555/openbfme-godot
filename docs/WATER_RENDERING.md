@@ -64,8 +64,15 @@ textures resolve. Other technique families/LODs explicitly report their
 bump approximation in water.material_stops.
 
 The mesh now follows BFME2's matched `W3DWater.cpp` allocation (RVA
-0x8304A): a shared 20-unit grid, doubled until at most 60000 cells, selected
-by polygon cell centres. Grid origins truncate toward zero. The matched
+0x8304A; RotWK `AllocateAndFillBuffers` is RW 0x482A16): a shared 20-unit grid,
+doubled until at most 60000 cells, selected by polygon cell centres. Retail
+draws every standing-water area this way, bump or PCA; there is no polygon
+triangulation (the earlier ear-clipping gate rejected Adorn River's pinched
+97-point outline, which visits ten vertices twice, so that map drew no water).
+The cell test is RW 0x70E911: a bounds check, then crossing parity with a
+half-open y range, so a cell centre on an edge follows retail's tie-break. Grid
+origins truncate toward zero; counts and origins scale by the float reciprocal
+`1.0f / spacing`, as the binary does. The matched
 `W3DWaterStandingWaveQuery.cpp` (0x8026B) selects enabled PCA shoreline
 segments by nearest midpoint, preserving source order and strict depth and
 radius gates. Degenerate segments are ignored. CUSTOM0/1 carry midpoint,

@@ -89,6 +89,14 @@ struct Bfme1FieldRowsRegistration
 {
 	Bfme1FieldRowsRegistration(const FieldParse *table, const FieldParse *bfme1Rows) { RegisterBfme1FieldRows(table, bfme1Rows); }
 };
+// lane BFME2MODE-0 (docs/EDITIONS.md): the same for BFME2 1.06's rows that RotWK 2.01's table dropped, found only when the environment reads BFME2 1.06's
+// archives alone (INIEnvironment::bfme2Data, Common/GameEdition.h isBfme2Data). Each row cites its BFME2 table row; RotWK data still fails on them as retail does
+void RegisterBfme2FieldRows(const FieldParse *table, const FieldParse *bfme2Rows);
+const FieldParse *Bfme2FieldRows(const FieldParse *table); // nullptr: the table has none
+struct Bfme2FieldRowsRegistration
+{
+	Bfme2FieldRowsRegistration(const FieldParse *table, const FieldParse *bfme2Rows) { RegisterBfme2FieldRows(table, bfme2Rows); }
+};
 
 // ZH Include/Common/INI.h:132-157, at most 16 tables.
 class MultiIniFieldParse
@@ -176,9 +184,12 @@ struct INIEnvironment
 	INIBlockRegistry blocks;
 	// community PR #36: the file system holds BFME1's data (isBfme1Data, Common/BfmeGame.h); asked once, then cached (false without a file system)
 	bool bfme1Data();
+	// lane BFME2MODE-0: the file system holds BFME2 1.06's archives alone (isBfme2Data); cached the same way
+	bool bfme2Data();
 
 private:
 	int m_bfme1 = -1;
+	int m_bfme2 = -1;
 };
 
 // loadDirectory options. ExcludePath / IncludePathCinematics come from the subsystem legend.
