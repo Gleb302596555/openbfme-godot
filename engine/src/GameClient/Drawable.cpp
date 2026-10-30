@@ -75,6 +75,10 @@ bool Drawable::isKindOfName(const char *name) const
 
 void Drawable::reactToTransformChange(const Coord3D *oldPos, float oldAngle)
 {
+	if (m_reactionMuted)
+	{
+		return;
+	}
 	for (std::unique_ptr<DrawableModule> &m : m_clientModules)
 	{
 		m->reactToTransformChange(oldPos, oldAngle); // lane AUDIO-4
@@ -372,6 +376,33 @@ void Drawable::flushModelConditions(bool hasWeaponTiming, int weaponTimingFrames
 	setModelConditionFlags(m_flags);
 }
 
+bool Drawable::advanceIsLocal() const
+{
+	for (const DrawEntry &e : m_entries)
+	{
+		if (e.draw && e.animated && !e.draw->advanceIsLocal())
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+void Drawable::advanceAnimationLocal(double elapsedMs)
+{
+	for (DrawEntry &e : m_entries)
+	{
+		if (e.draw && e.animated)
+		{
+			e.draw->advance(elapsedMs);
+		}
+		if (e.isTruck || !e.truckChecked || e.truckData != e.data)
+		{
+			advanceTires(e, elapsedMs);
+		}
+	}
+}
+
 void Drawable::advanceAnimation(double elapsedMs)
 {
 	m_services.host.setChunkName(m_template->getName());
@@ -381,7 +412,10 @@ void Drawable::advanceAnimation(double elapsedMs)
 		{
 			e.draw->advance(elapsedMs);
 		}
-		advanceTires(e, elapsedMs);
+		if (e.isTruck || !e.truckChecked || e.truckData != e.data) // lane PERF-HD: the call only for a truck (or an entry not looked at yet)
+		{
+			advanceTires(e, elapsedMs);
+		}
 	}
 }
 
