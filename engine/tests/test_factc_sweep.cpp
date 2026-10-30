@@ -129,7 +129,7 @@ void buildStructures(HudRig &h, const Inventory &inv)
 const std::map<std::string, std::string> &knownAbilityGaps()
 {
 	static const std::map<std::string, std::string> gaps = {
-		{ "GoblinCaveTroll Command_SpecialAbilityTrollGrabTree", "S-140: GrabPassengerSpecialPower is an unported module (the trolls' tree / goblin grab)|no module of the power" },
+		// (lane MODCOMPAT-MOD1: GrabPassengerSpecialPower is ported, the cave troll's tree grab reaches its ability: the S-140 pin went)
 		// (lane FLY-1: Drogoth flies, his WingBlast and Incinerate reach their point: the S-084 pins went)
 	};
 	return gaps;
@@ -138,11 +138,12 @@ const std::map<std::string, std::string> &knownAbilityGaps()
 // the upgrade buttons whose gap is registered
 const std::map<std::string, std::string> &knownUpgradeGaps()
 {
-	// the spike moat works now (ObjectCreationUpgrade, S-2007); the buy-new-catapult / giant buttons show only after the free one dies, which the unported
-	// SlaveWatcherBehavior reports (S-1995): "S-xxxx|text": the outcome must say the text
+	// the spike moat works now (ObjectCreationUpgrade, S-2007); the buy-new-catapult / giant buttons show only after the free one dies: the sweep's free
+	// catapult / giant lives, so retail shows no button here (lane MODCOMPAT-MOD1 ported SlaveWatcherBehavior, whose GrantUpgrade brings the button back
+	// when the slave dies: test_slavewatcher.cpp). "S-xxxx|text": the outcome must say the text
 	static const std::map<std::string, std::string> gaps = {
-		{ "AngmarCatapultExpansion Command_AngmarPurchaseNewWallCatapult", "S-1995 (SlaveWatcherBehavior: the free catapult is made, its death does not show the buy button)|button not shown" },
-		{ "WildGiantSentryExpansion Command_GoblinPurchaseNewWallGiantSentry", "S-1995 (SlaveWatcherBehavior: the free giant is made, its death does not show the buy button)|button not shown" },
+		{ "AngmarCatapultExpansion Command_AngmarPurchaseNewWallCatapult", "S-2007 (retail: the buy button shows once the free catapult dies, SlaveWatcherBehavior)|button not shown" },
+		{ "WildGiantSentryExpansion Command_GoblinPurchaseNewWallGiantSentry", "S-2007 (retail: the buy button shows once the free giant dies, SlaveWatcherBehavior)|button not shown" },
 	};
 	return gaps;
 }
