@@ -155,6 +155,8 @@ void W3D_Apply_Fog(bool enabled, const float color[3], float start, float end);
 // lane PLAY-1: the free camera moves every fog range out by `shift` world units (the global w3d_fog_shift; 0 = retail)
 // lane VISUAL-2: the vegetation SwayOffsets 1 .. 10 (W3D axes) the rigid W3D shaders read (w3dshadergen.cpp)
 void W3D_Set_Sway_Offsets(const float offsets[10][3]);
+// lane WEATHERFX-1: the Enhanced look's wind: the SwayOffsets drawn from now on times `scale` (1 = retail, the default; the sway's own state is untouched)
+void W3D_Set_Sway_Scale(double scale);
 // lane VISUAL-2: the fogged light fraction (RW 0x46DFD0: FogAlpha / ClearAlpha) a fogged instance's lights and ambient are scaled by
 void W3D_Set_Fogged_Light_Frac(float frac);
 // lane OCCLUDE-1: the behind-building colours (global w3d_occl_colors: a W3D_OCCLUSION_SLOTS x 1 RGBA8 texture, slot -> the colour, slot 0 unused) and

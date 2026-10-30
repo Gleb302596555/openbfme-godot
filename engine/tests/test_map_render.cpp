@@ -51,17 +51,6 @@ MapObject roadPoint(const char *name, float x, float y, int flags)
 	return o;
 }
 
-float polygonArea(const std::vector<Point2F> &p, const std::vector<std::uint32_t> &tri)
-{
-	double a = 0;
-	for (size_t i = 0; i + 2 < tri.size(); i += 3)
-	{
-		const Point2F &A = p[tri[i]], &B = p[tri[i + 1]], &C = p[tri[i + 2]];
-		a += std::fabs(((double)(B.x - A.x) * (C.y - A.y) - (double)(B.y - A.y) * (C.x - A.x)) * 0.5);
-	}
-	return (float)a;
-}
-
 } // namespace
 
 // ------------------------------------------------------------------------------------------------
@@ -200,37 +189,74 @@ TEST_CASE("TerrainRoads::getMaxCellHeight takes the maximum of the cell's four c
 // Water geometry
 // ------------------------------------------------------------------------------------------------
 
-TEST_CASE("WaterGeometry::triangulate: convex, non-convex and either winding give n-2 triangles that cover the polygon")
+TEST_CASE("WaterGeometry::buildStandingGrid: a polygon that touches itself fills as RW 0x482A16 fills it (Adorn River's pinched outline)")
 {
-	std::vector<std::uint32_t> tri;
-	std::vector<Point2F> square = { { 0, 0 }, { 10, 0 }, { 10, 10 }, { 0, 10 } };
-	REQUIRE(WaterGeometry::triangulate(square, tri));
-	CHECK(tri.size() == 6);
-	CHECK(polygonArea(square, tri) == doctest::Approx(100.0f));
-	CHECK(WaterGeometry::signedArea(square) == 100.0f);
+	// Adorn River's only standing-water polygon revisits ten vertices where the river pinches to a zero-width
+	// neck. This is the same shape in miniature: two 100x100 lobes joined by a bridge edge (100,50)-(200,50)
+	// that the outline walks out along and back. The ear-clipping triangulator this replaced stopped with four
+	// vertices left; retail has no triangulation, it keeps the grid cells whose centre is inside by crossing parity.
+	// Expected values come from tools/render/standing_water_grid_oracle.py (an independent float32 port of RW 0x482A16 /
+	// 0x70E911): python tools/render/standing_water_grid_oracle.py synthetic; test_standing_water_grid_oracle.py pins the same numbers.
+	auto ground = [](float, float) { return 0.0f; };
+	StandingWaterArea area;
+	area.points = { { 0, 0 }, { 100, 0 }, { 100, 50 }, { 200, 50 }, { 200, 0 }, { 300, 0 }, { 300, 100 },
+		{ 200, 100 }, { 200, 50 }, { 100, 50 }, { 100, 100 }, { 0, 100 } };
+	WaterGeometry::StandingGrid grid;
+	REQUIRE(WaterGeometry::buildStandingGrid(area, {}, ground, grid));
+	CHECK(grid.spacing == 20);
+	CHECK(grid.vertices.size() == 72);
+	CHECK(grid.indices.size() == 300); // 50 cells: 25 in each lobe, none on the bridge
+	for (size_t t = 0; t + 2 < grid.indices.size(); t += 3)
+	{
+		float cx = 0, cy = 0;
+		for (int k = 0; k < 3; ++k)
+		{
+			cx += grid.vertices[grid.indices[t + k]].point.x / 3;
+			cy += grid.vertices[grid.indices[t + k]].point.y / 3;
+		}
+		const bool lobe1 = cx > 0 && cx < 100 && cy > 0 && cy < 100;
+		const bool lobe2 = cx > 200 && cx < 300 && cy > 0 && cy < 100;
+		CHECK((lobe1 || lobe2));
+	}
+	// the winding does not matter: parity counts every edge
+	area.points = std::vector<Point2F>(area.points.rbegin(), area.points.rend());
+	REQUIRE(WaterGeometry::buildStandingGrid(area, {}, ground, grid));
+	CHECK(grid.vertices.size() == 72);
+	CHECK(grid.indices.size() == 300);
+}
 
-	std::vector<Point2F> cw(square.rbegin(), square.rend());
-	CHECK(WaterGeometry::signedArea(cw) == -100.0f);
-	REQUIRE(WaterGeometry::triangulate(cw, tri));
-	CHECK(tri.size() == 6);
-	CHECK(polygonArea(cw, tri) == doctest::Approx(100.0f));
+TEST_CASE("WaterGeometry::buildStandingGrid: a cell centre on the polygon's edge follows RW 0x70E911's half-open crossing rule")
+{
+	// The square (10,10)-(50,50) has cell centres exactly on its edges (centres at 10, 30, 50 with spacing 20).
+	// Retail counts an edge when a.y < y <= b.y and toggles on (y - a.y) * (b.x - a.x) >= (x - a.x) * (b.y - a.y),
+	// so the bottom row and left column are outside and the top row and right column inside: cells 1..2 of 0..2.
+	StandingWaterArea area;
+	area.points = { { 10, 10 }, { 50, 10 }, { 50, 50 }, { 10, 50 } };
+	WaterGeometry::StandingGrid grid;
+	REQUIRE(WaterGeometry::buildStandingGrid(area, {}, [](float, float) { return 0.0f; }, grid));
+	CHECK(grid.spacing == 20);
+	CHECK(grid.indices.size() == 24);
+	REQUIRE(grid.vertices.size() == 9);
+	float lowX = 1e9f, lowY = 1e9f, highX = -1e9f, highY = -1e9f;
+	for (const auto &v : grid.vertices)
+	{
+		lowX = std::min(lowX, v.point.x); highX = std::max(highX, v.point.x);
+		lowY = std::min(lowY, v.point.y); highY = std::max(highY, v.point.y);
+	}
+	CHECK(lowX == 20); CHECK(highX == 60);
+	CHECK(lowY == 20); CHECK(highY == 60);
+}
 
-	// an L shape (area 20*10 + 10*10 = 300): 6 points -> 4 triangles, none may cover the notch
-	std::vector<Point2F> L = { { 0, 0 }, { 20, 0 }, { 20, 10 }, { 10, 10 }, { 10, 20 }, { 0, 20 } };
-	REQUIRE(WaterGeometry::triangulate(L, tri));
-	CHECK(tri.size() == 12);
-	CHECK(polygonArea(L, tri) == doctest::Approx(300.0f));
-
-	// a comb (two teeth of width 3): area 9*3 + 2*(3*7) = 69
-	std::vector<Point2F> comb = { { 0, 0 }, { 9, 0 }, { 9, 10 }, { 6, 10 }, { 6, 3 }, { 3, 3 }, { 3, 10 }, { 0, 10 } };
-	REQUIRE(WaterGeometry::triangulate(comb, tri));
-	CHECK(tri.size() == 18);
-	CHECK(polygonArea(comb, tri) == doctest::Approx(9.0f * 3.0f + 2.0f * 3.0f * 7.0f));
-
-	// degenerate input is refused, not invented
-	std::vector<Point2F> line = { { 0, 0 }, { 5, 0 }, { 10, 0 } };
-	CHECK_FALSE(WaterGeometry::triangulate(line, tri));
-	CHECK_FALSE(WaterGeometry::triangulate({ { 0, 0 }, { 1, 1 } }, tri));
+TEST_CASE("WaterGeometry::buildStandingGrid: a polygon with fewer than three points or no cell centre inside is refused")
+{
+	StandingWaterArea area;
+	WaterGeometry::StandingGrid grid;
+	auto ground = [](float, float) { return 0.0f; };
+	area.points = { { 0, 0 }, { 10, 10 } };
+	CHECK_FALSE(WaterGeometry::buildStandingGrid(area, {}, ground, grid));
+	area.points = { { 0, 0 }, { 5, 0 }, { 10, 0 } }; // no area
+	CHECK_FALSE(WaterGeometry::buildStandingGrid(area, {}, ground, grid));
+	CHECK(grid.indices.empty());
 }
 
 TEST_CASE("WaterGeometry::buildRiverStrip: drawRiverWater's strip, the second end of each line first, v the same per line")
@@ -1339,7 +1365,7 @@ TEST_CASE("water acceptance: remaining shader and geometry approximations stay e
 {
 	const auto *stop = MapStops::find("S-035");
 	REQUIRE(stop != nullptr);
-	CHECK(std::string(stop->gap) == "Standing water preserves authored FX techniques, PCA/PCA_U normals and shoreline Gerstner displacement on a donor high-detail grid alongside the bump/specular path; TIME, LOD selection, scene-light binding and terrain depth are inferred; reflections, shadow filtering, other PCA LODs, river outline cross-section start and minimum water LOD, depth-colour LUT and legacy shoreline texture tracks remain unported");
+	CHECK(std::string(stop->gap) == "Standing water preserves authored FX techniques, PCA/PCA_U normals and shoreline Gerstner displacement alongside the bump/specular path; every area is drawn on the RW 0x482A16 grid (cell centres inside the polygon by crossing parity, RW 0x70E911), with no polygon triangulation; TIME, LOD selection (including the 40-unit grid of a low game LOD), scene-light binding and terrain depth are inferred; reflections, shadow filtering, other PCA LODs, river outline cross-section start and minimum water LOD, depth-colour LUT and legacy shoreline texture tracks remain unported");
 }
 
 namespace

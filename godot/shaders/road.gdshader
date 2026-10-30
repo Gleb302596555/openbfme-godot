@@ -22,7 +22,9 @@
 // Samplers: BaseSamplerWrapped / NormalSamplerWrapped are wrapped, MIN anisotropic (8), MAG / MIP linear (fxo sampler states 170 / 169 / 171 /
 // 174); the cloud and macro samplers are wrapped linear (terrain_common.gdshaderinc).
 shader_type spatial;
-render_mode unshaded, blend_mix, depth_draw_never, cull_disabled;
+render_mode ambient_light_disabled, specular_disabled, blend_mix, depth_draw_never, cull_disabled;
+
+#include "res://shaders/object_shadow.gdshaderinc"
 
 #include "res://shaders/terrain_common.gdshaderinc"
 
@@ -74,4 +76,13 @@ void fragment() {
 	}
 	ALBEDO = retail_output(col);
 	ALPHA = base.a * COLOR.a;
+	v_shadow_color = col;
+	EMISSION = ALBEDO * (1.0 - w3d_shadow.w);
+	ALBEDO = vec3(w3d_shadow.w);
+}
+
+void light() {
+	if (LIGHT_IS_DIRECTIONAL) {
+		DIFFUSE_LIGHT += retail_output(v_shadow_color * mix(w3d_shadow.rgb, vec3(1.0), ATTENUATION));
+	}
 }

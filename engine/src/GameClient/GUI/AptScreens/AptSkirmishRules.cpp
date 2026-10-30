@@ -156,6 +156,14 @@ void AptSkirmish::initRuleGadget(const std::string &name, GameWindow *window)
 	{
 		widgets->resize((std::size_t)position + 1, nullptr);
 	}
+	// OpenBFME: the row's earlier window (another placement of the rows: the server browser's MAP / RULES panel before the staging room's) is
+	// hidden with the filing: only the filed rows are the tab's. The owner's online Rules tab of 2026-10-29 drew the browser panel's rows, shown
+	// by a populate before the room's rows were all filed and never hidden after, over the room's player list with their old values
+	GameWindow *earlier = (*widgets)[(std::size_t)position];
+	if (earlier && earlier != window)
+	{
+		earlier->winHide(true);
+	}
 	(*widgets)[(std::size_t)position] = window;
 	window->winHide(true);
 	if (m_rulesPopulated)
