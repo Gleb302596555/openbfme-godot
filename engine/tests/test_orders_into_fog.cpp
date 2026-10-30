@@ -15,6 +15,7 @@
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/System/ShroudManager.h"
 #include "GameNetwork/CommandStreamChecks.h"
+#include "GameNetwork/FogCheckDriver.h"
 #include "GameNetwork/OrdersIntoFog.h"
 #include "GameNetwork/ViewChecks.h"
 
@@ -483,6 +484,44 @@ TEST_CASE("input rate (D5): more than 100 commands in 5 s of game time is an epi
 	const std::string j = c.json("0123456789abcdef", "match", 2);
 	CHECK(j.find("\"detector\":\"D5-input-rate\"") != std::string::npos);
 	CHECK(j.find("\"band\":\"none\"") != std::string::npos);
+}
+
+TEST_CASE("fog replay driver: recorded hashes outside Uber checkpoints are requested and mismatches are reported")
+{
+	Game g;
+	ReplayFile replay;
+	replay.header.game.game.simulationProfile = SimulationProfile::Uber;
+	replay.hashes = { { 1, 0x1234u }, { 5, 0x5678u }, { 7, 0x9ABCu } };
+	replay.finalFrame = 7;
+	ReplayPlayback playback(replay);
+	FogCheckDriver fog(playback, replay, *g.check);
+	LiveGameFrameDriver &driver = fog;
+	CHECK(driver.capture().hashEveryFrame);
+	CHECK(driver.hashWanted(1));
+	CHECK(driver.hashWanted(5));
+	CHECK(driver.hashWanted(7));
+	CHECK_FALSE(driver.hashWanted(0));
+	CHECK_FALSE(driver.hashWanted(2));
+	CHECK_FALSE(driver.hashWanted(8));
+
+	for (const auto &entry : replay.hashes)
+	{
+		FrameCompletion c;
+		c.frame = entry.first;
+		c.hashed = driver.hashWanted(c.frame);
+		c.hash = entry.second;
+		if (c.frame == 7)
+		{
+			c.hash ^= 1u; // a divergence on a recorded frame between five-frame checkpoints
+		}
+		driver.completed(c);
+	}
+	CHECK(playback.hashesCompared() == 3u);
+	CHECK(playback.mismatches() == 1u);
+	REQUIRE(playback.hasMismatch());
+	CHECK(playback.firstMismatch().frame == 7u);
+	CHECK(playback.firstMismatch().recorded == 0x9ABCu);
+	CHECK(playback.firstMismatch().played == 0x9ABDu);
 }
 
 TEST_CASE("command integrity (D6): unknown message types, malformed arguments and another player's object named as the issuer are listed")

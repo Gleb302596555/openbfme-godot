@@ -34,6 +34,7 @@ class AptPalantir : public AptScreen
 public:
 	bool isMenu() const override { return false; } // lane OPTS-6: the HUD, its keys are the game's
 	AptPalantir(WindowManager &windows, Shell &shell);
+	void setViewportSize(int width, int height);
 
 	// the commands the Palantir registers, in the binary's order (without the screen prefix of the command UI names)
 	static const std::vector<std::string> &retailCommandNames();
@@ -111,6 +112,7 @@ public:
 		std::string rankLabelFormat, timeRemainingText;
 	};
 	void setLocalState(const LocalState &s) { m_local = s; }
+	static std::string rankText(const LocalState &state);
 	// lane HUD-5: the movie calls UpdatePlayerStats made ("SetPlayerMagicProgress(37)", ...), the last 64, for tests and reports
 	const std::vector<std::string> &playerStatsCalls() const { return m_statsCalls; }
 	bool commandInterfaceShown() const { return m_commandShown; }
@@ -280,6 +282,7 @@ private:
 	bool call(const std::string &path, const std::string &fn, const std::vector<std::string> &args);
 	unsigned m_radarPingCalls = 0; ///< lane RADAR-1
 	void syncFrames(const std::vector<ControlBarButton> &buttons, bool arc);
+	void clearFrame(int position, bool arc);
 	// lane HUD-6 (AptPalantirSideBar.cpp): the side command bar's update (AptInGameSideCommandBar::Impl, RW 0x92F27D / 0x92F082 / 0x92F015)
 	void syncSideBar(const ControlBar &bar);
 	void sideBarLoaded(const std::string &arg);

@@ -354,7 +354,7 @@ TEST_CASE("platformicon1 online client: the create / join body carries platform 
 				"\",\"name\":\"p" + std::to_string(i) + "\",\"faction\":-1,\"color\":-1,\"startPos\":-1,\"team\":-1,\"ready\":false,\"you\":" +
 				(i == 1 ? "true" : "false") + (perSlot[(size_t)i].empty() ? "" : ",\"platform\":" + perSlot[(size_t)i]) + "}";
 		}
-		return "{\"v\":1,\"slot\":1,\"game\":{\"id\":\"0123456789abcdef\",\"name\":\"g\",\"state\":\"open\",\"hostSlot\":0,\"profile\":\"x\",\"setup\":{\"map\":\"m\","
+		return "{\"v\":1,\"slot\":1,\"game\":{\"id\":\"0123456789abcdef\",\"name\":\"g\",\"state\":\"open\",\"private\":false,\"hostSlot\":0,\"profile\":\"x\",\"setup\":{\"map\":\"m\","
 			   "\"startingCash\":1500,\"superweaponRestriction\":0,\"legendaryHeroes\":1,\"rules\":null},\"slots\":[" + slots + "],\"seq\":3}}";
 	};
 	auto joined = [&](const std::vector<std::string> &perSlot) {

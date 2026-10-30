@@ -109,6 +109,10 @@ public:
 	// world position (SAGE x, y) under a window pixel; (-1e9, -1e9) when the ray misses the ground
 	// lane CAM-1: the retail tactical camera's state (position, angle, zoom, heights, pose, limits) for the viewers and the tests; empty before attach()
 	Dictionary get_camera() const;
+	// lane CHEAT-1: a line in the in-game message log (InGameHud::addPlayerMessageText) and the log's place ({ x, y, point_size }: InGameUI's
+	// MessagePosition in 1024 x 768 units and its point size)
+	void add_player_message(const String &text);
+	Dictionary get_player_message_layout() const;
 	// edge scrolling is on in fullscreen (retail: GlobalData Windowed = No); a test or a windowed run can force it
 	void set_edge_scroll(bool on);
 	// lane PLAY-1: the free camera (the owner's presentation option, not retail: TacticalCamera::setFreeCamera); also the attach option free_camera
@@ -129,6 +133,10 @@ public:
 	// RW 0x443C81: TheTacticalView slot 0x1C setZoomLimited(!enable)) on the HUD's own camera, so a cinematic moves the camera the player then keeps
 	void camera_reset(const Vector2 &sage_xy);
 	void camera_set_zoom_limited(bool on);
+	// lane CAMANIM-1: a map script's camera request in the client's order for the view's camera animation (MOVE_CAMERA_BY_ANIMATION starts the map's
+	// animation of that name, the mode-writing camera actions end it: GameClient/CameraAnimation.h); true when the playback changed
+	bool camera_animation_request(const String &action, const String &name);
+	Dictionary camera_animation_state() const; ///< { active, name, time (client frames), animations (the map's count) }
 	// lane CAMPUI-1: the objectives screen's state for the Palantir's flag and a script's FLASH_*_BUTTON (slot 0 spell store, 1 objectives, 2 planning mode)
 	void set_objectives_screen_open(bool open);
 	void flash_palantir_button(int slot, int seconds);
@@ -139,6 +147,9 @@ public:
 	// lane IDLE-1: { ok, picked (the id the HUD's pick answers at `pixel`, 0 for none), target ("hit" / "miss" / "not_drawn" / "unknown" / "gone": the pick ray
 	// against object `id`'s drawn model alone), target_t, selectable (HudObjects::isSelectable of `id`) } (the QA harness's failed-click verdict)
 	Dictionary pick_probe(const Vector2 &pixel, int64_t id) const;
+	// lane SELECT-1: the screen pixels of points inside object `id`'s oriented pick box (the first top-LOD W3D_BOX_ATTRIBUTE_ORIENTED box of its drawn model,
+	// the one RotWK's pick tests: RW 0x59C680): the centre, then the centre +- 80 % of each half extent along the box's axes; empty without such a box
+	PackedVector2Array pick_box_pixels(int64_t id) const;
 	// engine -> movie: calls `function` on the clip at `path` below the HUD movie's root ("" = the root) with string arguments; { ok, result, error }
 	Dictionary invoke_at(const String &path, const String &function, const PackedStringArray &args);
 	// the radar picture's square in window pixels (Rect2; size 0 before the movie shows it)
@@ -172,6 +183,7 @@ public:
 	int64_t select_objects(const PackedInt64Array &ids); // lane SELPERF-1: the selection benchmark's N objects at once
 	bool open_spell_store();
 	void close_spell_store();
+	void cancel_spell_store();
 	bool spell_store_click(int64_t index);
 	bool press_spell_slot(int64_t slot);
 

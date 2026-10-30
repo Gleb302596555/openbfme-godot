@@ -1,5 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GameLogic/Module/PortalModules.h (lane WALL-2).
+// BFME1 masks follow Open-BFME-1 DynamicPortalBehaviourRva001F96E0.cpp and Map/Waypoint_method001ABBB0.cpp;
+// the all-kind allow default is constructor RVA 0x001FA3A0. See docs/BFME1.md for the compatibility scope.
 
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
@@ -32,6 +34,11 @@
 #include <cstring>
 #include <memory>
 #include <stdexcept>
+
+namespace ModelCondition
+{
+int indexOf(const std::string &name);
+}
 
 namespace
 {
@@ -95,6 +102,33 @@ void parseFilter(INI *ini, void *instance, void *store, const void *userData)
 	*static_cast<std::shared_ptr<const ObjectFilter> *>(store) = std::make_shared<const ObjectFilter>(std::move(f));
 }
 
+ObjectFilter legacyPortalDefaultFilter()
+{
+	ObjectFilter filter;
+	filter.includeKindOf.fill(~std::uint32_t{ 0 });
+	filter.rule = ObjectFilter::RULE_ANY;
+	return filter;
+}
+
+void parseLegacyPortalMask(INI *ini, void *instance, void *store, bool exclude)
+{
+	auto &filter = *static_cast<std::shared_ptr<const ObjectFilter> *>(store);
+	ObjectFilter parsed = filter ? *filter : legacyPortalDefaultFilter();
+	ParseKindOfMask(ini, instance, exclude ? &parsed.excludeKindOf : &parsed.includeKindOf, nullptr);
+	parsed.rule = ObjectFilter::RULE_ANY;
+	filter = std::make_shared<const ObjectFilter>(std::move(parsed));
+}
+
+void parseAllowKindOf(INI *ini, void *instance, void *store, const void *)
+{
+	parseLegacyPortalMask(ini, instance, store, false);
+}
+
+void parseRejectKindOf(INI *ini, void *instance, void *store, const void *)
+{
+	parseLegacyPortalMask(ini, instance, store, true);
+}
+
 #define DP_OFF(m) (int)offsetof(DynamicPortalBehaviourModuleData, m)
 const FieldParse kDynamicPortal[] = { // RW 0xC59220
 	{ "BonePrefix", INI::parseAsciiString, nullptr, DP_OFF(m_bonePrefix) },
@@ -111,6 +145,12 @@ const FieldParse kDynamicPortal[] = { // RW 0xC59220
 	{ "ObjectFilter", parseFilter, nullptr, DP_OFF(m_objectFilter) },
 	{ nullptr, nullptr, nullptr, 0 }
 };
+const FieldParse kBfme1DynamicPortal[] = {
+	{ "AllowKindOf", parseAllowKindOf, nullptr, DP_OFF(m_objectFilter) },
+	{ "RejectKindOf", parseRejectKindOf, nullptr, DP_OFF(m_objectFilter) },
+	{ nullptr, nullptr, nullptr, 0 }
+};
+const Bfme1FieldRowsRegistration kBfme1DynamicPortalRegistration(kDynamicPortal, kBfme1DynamicPortal);
 #undef DP_OFF
 
 #define FP_OFF(m) (int)offsetof(FakePathfindPortalBehaviourModuleData, m)
@@ -233,6 +273,30 @@ void DynamicPortalBehaviour::onDelete()
 DynamicPortalBehaviour *DynamicPortalBehaviour::of(const Object &obj)
 {
 	return dynamic_cast<DynamicPortalBehaviour *>(obj.findModule("DynamicPortalBehaviour"));
+}
+
+Coord3D DynamicPortalBehaviour::topAttackPosition()
+{
+	// RW 0x863D77 (lane SIEGE-1's reading): the object's planar X axis normalised by its larger component, its length scales TopAttackPos's X and Y; the point
+	// through the object's transform (RW 0x70BFD1)
+	using SimMath::addf32;
+	using SimMath::mulf32;
+	const Object *obj = getObject();
+	const float *b = obj->getBasis();
+	const Coord3D &p = *obj->getPosition();
+	const Coord3D &t = m_data->m_topAttackPos;
+	const double ax = SimMath::absD((double)b[0]), ay = SimMath::absD((double)b[3]);
+	const float m = (float)(ax >= ay ? ax : ay);
+	float lx = t.x, ly = t.y;
+	if (m != 0.0f)
+	{
+		const float len = SimMath::length2d(SimMath::divf32(b[0], m), SimMath::divf32(b[3], m));
+		lx = mulf32(t.x, len);
+		ly = mulf32(t.y, len);
+	}
+	return Coord3D{ addf32(addf32(addf32(mulf32(b[0], lx), mulf32(b[1], ly)), mulf32(b[2], t.z)), p.x),
+		addf32(addf32(addf32(mulf32(b[3], lx), mulf32(b[4], ly)), mulf32(b[5], t.z)), p.y),
+		addf32(addf32(addf32(mulf32(b[6], lx), mulf32(b[7], ly)), mulf32(b[8], t.z)), p.z) };
 }
 
 int DynamicPortalBehaviour::bones(std::vector<Coord3D> &out) const
@@ -465,10 +529,20 @@ std::function<bool(const PathfindObject &)> DynamicPortalBehaviour::waypointFilt
 {
 	const ObjectFilter *filter = m_data->m_objectFilter.get();
 	GameLogic *logic = &getObject()->logic();
-	return [logic, filter](const PathfindObject &o) {
+	const bool bfme1 = getObject()->getTemplate()->bfme1Data();
+	const int cavalry = ObjectTemplateInfoBuilder::kindOfIndex("CAVALRY");
+	const int mounted = ModelCondition::indexOf("MOUNTED");
+	return [logic, filter, bfme1, cavalry, mounted](const PathfindObject &o) {
 		static const ObjectFilter kDefault; // RW 0x76406F, the data constructor's filter
+		static const ObjectFilter kLegacyDefault = legacyPortalDefaultFilter();
+		const ObjectFilter &effective = filter ? *filter : (bfme1 ? kLegacyDefault : kDefault);
 		const ObjectPathfindAdapter *a = dynamic_cast<const ObjectPathfindAdapter *>(&o);
-		return a && ObjectFilterMatch::allows(*logic, filter ? *filter : kDefault, a->object(), nullptr);
+		if (!a || !ObjectFilterMatch::allows(*logic, effective, a->object(), nullptr))
+		{
+			return false;
+		}
+		return !bfme1 || cavalry < 0 || !MaskTest(effective.excludeKindOf, cavalry)
+			|| !a->object().testModelCondition(mounted);
 	};
 }
 

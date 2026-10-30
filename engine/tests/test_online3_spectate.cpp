@@ -6,6 +6,7 @@
 // observe-next-player (RW 0x6A8D2B) steps the view through the human players and back to "all".
 
 #include "doctest.h"
+#include "OnlineTestWait.h"
 
 #include "StartTestUtil.h"
 
@@ -34,8 +35,6 @@
 
 #include <cstdio>
 #include <algorithm>
-#include <chrono>
-#include <thread>
 #include <filesystem>
 #include <map>
 #include <fstream>
@@ -400,12 +399,12 @@ TEST_CASE("online3 spectators: a real Transport takes the spectator WELCOME (0x8
 	Transport t(client, 0, o);
 	CHECK(t.errors().empty());
 	auto deliver = [&](const std::vector<std::uint8_t> &d) {
-		relaySocket.sendTo(client.localAddress(), d.data(), d.size());
-		for (int i = 0; i < 50; ++i)
-		{
+		const auto received = t.stats().bytesReceived;
+		REQUIRE(relaySocket.sendTo(client.localAddress(), d.data(), d.size()));
+		REQUIRE(onlinetest::waitUntil([&] {
 			t.service();
-			NetSleepMilliseconds(1);
-		}
+			return t.stats().bytesReceived == received + d.size();
+		}));
 	};
 	std::array<std::uint8_t, kSessionTokenBytes> token{};
 	deliver(encodeWelcome(kGame, 0, token)); // slot 0: a player's WELCOME, not this spectator's
@@ -1228,11 +1227,7 @@ TEST_CASE("DEVPORT-5 renderwait: a spectator's Tab and a caster's POV switch ins
 	REQUIRE(game.logicThread());
 	game.advance(0.2);
 	game.advance(0.2); // frames are queued: the worker holds for the client window
-	const auto until = std::chrono::steady_clock::now() + std::chrono::seconds(5);
-	while (!game.beginClientWindow() && std::chrono::steady_clock::now() < until)
-	{
-		std::this_thread::sleep_for(std::chrono::milliseconds(2));
-	}
+	REQUIRE(onlinetest::waitUntil([&] { return game.beginClientWindow(); }));
 	REQUIRE(game.logicHeld());
 	REQUIRE_FALSE(game.logicIdle()); // a frame is queued behind the window
 	const UnsignedInt held = game.frame();

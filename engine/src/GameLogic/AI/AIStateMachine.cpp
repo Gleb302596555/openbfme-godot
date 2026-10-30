@@ -5,11 +5,13 @@
 
 #include "Common/GameCommon.h"
 #include "Common/StateHash.h"
+#include "GameLogic/AI/AIGuard.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/EmotionModules.h"
+#include "GameLogic/Module/StancesBehavior.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SimMath.h"
 
@@ -580,9 +582,25 @@ void AIIdleState::doInitIdleState()
 	a.setCurrentVictim(nullptr);
 }
 
+// stop S-5148 (review of #73): RotWK's idle update (RW 0x7553AB) fails the state every fifth update (the countdown + 0x22, 5 again at onEnter RW 0x7489B6)
+// for an owner that is not status 0x3A, has no temporary state machine (AI + 0x34) and has a StancesBehavior (RW 0x861E6E / 0x68BDA5) while its machine
+// defines state 0x4E (RW 0x8DBA9A); the idle state's failure goes to 0x4E (RW 0x7537E0 .. 0x7537EE: defineState(0, idle, 0, 0x4E)), AIGoingIdleState, whose
+// onEnter tells the StancesBehavior onMoveEnd (RW 0x743864): a stanced unit idle after an attack guards again where it stands (RW 0x662A21). The port's idle
+// state never fails and its failure goes to idle (AIUpdate.cpp), so such a unit stays idle (its plain mood scan, no guard); a FACE_OBJECT state (59) is not
+// ended by it either
+const char *idleStanceStopLine()
+{
+	return "[S-5148] idle stances: RotWK's idle state (RW 0x7553AB) fails every fifth update for a unit with a StancesBehavior and its failure goes to "
+	       "AIGoingIdleState 0x4E (RW 0x7537E0), which guards the unit again where it stands (RW 0x743864 -> 0x86228E); not ported: the unit stays idle";
+}
+
 StateReturnType AIIdleState::update()
 {
 	doInitIdleState();
+	if (machine().findState(AI_GOING_IDLE) && StancesBehavior::of(*ai().getObject()))
+	{
+		ai().getObject()->logic().noteStop(idleStanceStopLine()); // S-5148
+	}
 	AIUpdateInterface &self = ai();
 	if (self.attackMoveActive())
 	{
@@ -595,7 +613,7 @@ StateReturnType AIIdleState::update()
 	// onEnter offset, which is used once; unless the object is disabled EMP / PARALYZED / TEMPORARILY_BUSY (+ 0x1C8 & 0x14 / 0x100) or the mood matrix's idle
 	// action has IgnoreAll (RW 0x664E18(0) & 0x10), the mood scan getNextMoodTarget(1, 1) (RW 0x66844A) runs; a target is attacked (RW 0x66C536, AI command
 	// source 2); none: the sleep is shortened to the next mood check (AI + 0x21C) when that comes sooner, and then the offset is kept for the next time.
-	// Not ported here: the weapon's frame-window test (RW 0x6CA2C3), the stances countdown (+ 0x22) with state 0x4E, the hunt status 0x49, the HORDE_MEMBER
+	// Not ported here: the weapon's frame-window test (RW 0x6CA2C3), the stances countdown (+ 0x22) with state 0x4E (S-5148), the hunt status 0x49, the HORDE_MEMBER
 	// melee wait, the repulsors (KindOf + 0x10D bit 5) and the crate (RW 0x66810B: none in RotWK) (S-326)
 	const unsigned short oldSleepOffset = m_initialSleepOffset;
 	unsigned timeToSleep = kIdleCountdownDelay + oldSleepOffset;
@@ -715,7 +733,6 @@ StateReturnType AIFollowPathState::enterSegment()
 	bool adjusts = true;
 	if (m_exitProduction)
 	{
-		a.setCanPathThroughUnits(true);
 		adjusts = false;
 		m_adjustFinal = true;
 	}
@@ -749,6 +766,12 @@ StateReturnType AIFollowPathState::enterSegment()
 StateReturnType AIFollowPathState::onEnter()
 {
 	m_index = 0;
+	if (m_exitProduction)
+	{
+		// RW 0x74F8E6 .. 0x74F8EE: the exit-production state (id 7) sets the path-through-units flag once, on enter; the segment advance (RW 0x74FA18) does not
+		// set it again, and computePath drops it after its one straight path (RW 0x666079)
+		ai().setCanPathThroughUnits(true);
+	}
 	return enterSegment();
 }
 
@@ -763,6 +786,11 @@ void AIFollowPathState::onExit(StateExitType status)
 	if (m_exitProduction)
 	{
 		ai().setCanPathThroughUnits(false);
+	}
+	// RW 0x74B77D (BFME2 RVA 0x349D92): both path forms release individuals; the horde waits for its members in RW 0x89E2D0.
+	if (!owner().isKindOfName("HORDE"))
+	{
+		owner().setStatus(0x5A, false);
 	}
 }
 

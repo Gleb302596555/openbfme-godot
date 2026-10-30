@@ -214,6 +214,18 @@ public:
 	// trigger update RW 0x69264D). The index of a run-time trigger in the combined list is the map's count + its own index.
 	typedef std::function<void(Object &obj, bool entered)> TriggerCallback;
 	int addPolygonTrigger(const TriggerArea &area, TriggerCallback callback);
+	// lane CASTLEAREA-1: PolygonTrigger::removePolygonTrigger RW 0x6E4ABE (the castle's RW 0x79A37D): the trigger leaves the list, then RW 0x6263AF clears every
+	// object's entries of it (Object::removeTriggerEntries: no exit callback runs). The port keeps the slot, empty, so the later indices stay. An index outside the
+	// run-time list (one the engine's reset already dropped) is ignored. Retail's vslot 0x180 call on RW 0xDE42FC after the walk was not read
+	void removePolygonTrigger(int index);
+	// lane CASTLEAREA-1: the run-time triggers in a snapshot load (OpenBFME native, S-4190). retail rebuilds them from its modules' xfers (CastleBehavior RW
+	// 0x79B9D6 -> RW 0x79B881); the port's objects block clears the list once the old objects are gone (beginRuntimeTriggerLoad), each owner's xfer puts its
+	// triggers back at their saved indices (addPolygonTriggerAt; a slot given twice or a map trigger's index is an error), every slot no owner gave is an
+	// empty (removed) one, and endRuntimeTriggerLoad closes the load. In between no callback runs (the objects' saved entries and the owners' saved sets are the
+	// state) and addPolygonTrigger is an error
+	void beginRuntimeTriggerLoad();
+	void addPolygonTriggerAt(int index, const TriggerArea &area, TriggerCallback callback);
+	void endRuntimeTriggerLoad();
 	size_t triggerAreaCount() const;
 	const TriggerArea &triggerAreaAt(size_t i) const;
 	void triggerCallback(size_t i, Object &obj, bool entered) const;
@@ -452,7 +464,8 @@ private:
 		std::shared_ptr<TriggerArea> area; ///< shared: the type is incomplete here (the deleter is made in ScriptEngine.cpp)
 		TriggerCallback callback;
 	};
-	std::vector<RuntimeTrigger> m_runtimeTriggers; ///< lane HUD-5 (see addPolygonTrigger)
+	std::vector<RuntimeTrigger> m_runtimeTriggers; ///< lane HUD-5 (see addPolygonTrigger); a removed slot has an empty area and no callback
+	bool m_runtimeTriggerLoad = false;              ///< lane CASTLEAREA-1 (see beginRuntimeTriggerLoad)
 	const std::vector<NamedCamera> *m_cameras = nullptr;
 	Player *m_currentPlayer = nullptr;
 	std::string m_currentSide;

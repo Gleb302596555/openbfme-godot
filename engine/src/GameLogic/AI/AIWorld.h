@@ -10,8 +10,8 @@
 //     logic frame (the row's phase is "every phase": six calls per logic frame, each with the cell budget of PATH-1's processPathfindQueue);
 //   * Object::~Object leaves the world (RW 0x69A89D) and the pathfinder drops the unit's reservations first (ZH Object::~Object calls
 //     removeObjectFromPathfindMap; RW 0x69A6C6 / 0x69A89D are the world seams GameLogic exposes);
-//   * pathPriority RW 0x663F48 = (DOZER ? 100 : 0) + 10 * (int8) veterancy level (RW 0x68D4D0) + (CAVALRY ? 5 : 0): the level is 0 until the
-//     experience tracker is ported (stop S-142);
+//   * pathPriority RW 0x663F48 = (DOZER ? 100 : 0) + 10 * (int8) crushable level (RW 0x68D4D0) + (CAVALRY ? 5 : 0) (lane PATHPRIO-1: the middle term
+//     was misread as the veterancy level);
 //   * isContained RW 0x6939DF, isIdle RW 0x6643FC, isMoving RW 0x664485 as read in the disassembly; speedOf RW 0x68B34C (the current speed of
 //     the AI's locomotor, 0 without one); the unit direction is the X axis of the object's transform (RW 0x70B9E0).
 // DONOR: ZH AI.cpp / AIPathfind.cpp ownership (TheAI->pathfinder()), ZH Object.cpp (relationships, canCrushOrSquish).
@@ -133,6 +133,8 @@ public:
 	const PathfindWallGeometry *getWallGeometry() const override; // lane WALL-1: from the world's PathfindWallMeshSource, kept while the transform holds
 	bool isSkirmishAIControlled() const override; // lane WALL-2: Waypoint::isValidUnitType's AllowNonSkirmishAI test
 	bool inMoveAwaySearch() const override;       // lane WALL-2: RW AI + 0x3CF (Waypoint::isValidUnitType's type 7 test)
+	bool hasCurrentWeapon() const override;             // lane LOS-1: RW 0x68B58C(0)
+	bool isClearGoalFiringLineOfSightTerrain(const Coord3D &goalPos, const PathfindObject &victim) const override; // lane LOS-1: RW 0x6CC6DD
 
 private:
 	// AIWorld::movementInfo of the object's template, remembered with the template it was looked up for (lane PERF-1: the pathfinder and the

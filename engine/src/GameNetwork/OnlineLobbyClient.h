@@ -24,6 +24,7 @@
 
 #include "Common/SimulationProfile.h"
 #include "GameNetwork/GameInfo.h"
+#include "GameNetwork/JoinBuild.h"
 #include "GameNetwork/PlatformKind.h"
 
 #include <array>
@@ -45,10 +46,18 @@ public:
 	{
 		std::string installId, deviceHash; ///< supplied by the host; never part of simulation state
 		std::string clientPlatform, clientVersion;
+		// lane JOINVER-1: the rest of the build a create / join tells (lobby.mjs checkBuild; the version is clientVersion): the build day and whether
+		// this is an official release (1), not (0), not told (-1)
+		std::string buildDate;
+		int buildOfficial = -1;
 		std::string profileDigest;   ///< the profile identity's MD5 (ProfileIdentity::digest): the lobby compares it at the join
 		// lane UBERJOIN-1: the simulation profile that digest is of (the player's performance mode): the room made and the room joined carry it as their
 		// "mode" ("normal" / "uber"); a join of a room in the other mode is the lobby's "mode" refusal. setProfile changes both together
 		SimulationProfile profile = SimulationProfile::Faithful;
+		// lane PROFILE-2 (owner decision 10-26 "A"): the profile identity's archive lines without their index ("<install>:<path> <md5> <size>", mount
+		// order). A lobby with the "archives" feature is sent them once (POST /v1/profile-archives) and a create / join names them by their SHA-256,
+		// so an integrity checker can name the archives a player had that it lacks. Empty: nothing is sent
+		std::vector<std::string> profileArchives;
 		int playerTemplateCount = 0; ///< factions are indices below this (or -1 random); required
 		int colorCount = 0;          ///< colours likewise; required
 		std::uint32_t pollMs = 1000; ///< the staging room's poll interval (a lobby that does not hold polls; the pause after a poll that failed)
@@ -203,8 +212,19 @@ public:
 		int mapStartCount = LEGACY_MAX_SLOTS;
 		bool password = false;
 		SimulationProfile mode = SimulationProfile::Faithful; ///< lane UBERJOIN-1: the game's performance mode ("mode": absent = "normal", a room of an old client)
+		bool cheatMode = false;  ///< lane CHEAT-1: the host turned Cheat Mode on ("cheatMode": absent = off, a lobby before CHEAT-1)
 		std::string state;       ///< "open", or "started" (refreshList(true): a running game, to watch; mine(): the player's own, to rejoin)
 		int slot = -1;           ///< mine(): the player's slot in the running game
+		// lane JOINVER-1: the game's profile id and its host's build (an older lobby: both empty); a profile other than this client's cannot be joined
+		std::string profile;
+		JoinBuild::Build build;
+	};
+	// lane JOINVER-1: the lobby's 409 "profile" (a join refused for a different build): both sides' builds and profile ids (an older lobby: none)
+	struct ProfileRefusal
+	{
+		bool valid = false;
+		JoinBuild::Build host, yours;
+		std::string hostProfile, yourProfile;
 	};
 	struct ChatLine
 	{
@@ -276,7 +296,9 @@ public:
 	// a rejoin or spectator ticket, a session token's HMAC; with its dot-joined parts: the whole token) becomes "<redacted>". The lobby's ids (16 hex
 	// digits) and the profile digest (32) stay
 	static std::string redact(const std::string &text);
-	std::string platformField() const; // lane PLATFORMICON-1: ,"platform":"<name>" or nothing
+	std::string platformField() const;
+	std::string archivesField(); ///< lane PROFILE-2: ",\"archives\":\"<sha256>\"" (queues the upload first, once per lobby), or ""
+	std::string buildField() const; ///< lane JOINVER-1: ",\"build\":{...}" for create / join bodies, or "" (an odd version is not told) // lane PLATFORMICON-1: ,"platform":"<name>" or nothing
 
 	explicit OnlineLobbyClient(const Options &options);
 
@@ -324,6 +346,8 @@ public:
 	// screen, it unreadies nobody. Out of range values are refused here (nothing sent)
 	void reportLink(int rttMs, int lossPct);
 	const std::string &roomRelay() const { return m_roomRelay; } ///< lane ONLINEMENU-1: the relay the room's START will name ("" none)
+	/// lane JOINVER-1: whether the lobby's game view names its relay at all (false: an older lobby, without the Connections screen's data)
+	bool roomRelayTold() const { return m_roomRelayTold; }
 	// lane ONLINEMENU-1 (owner, 2026-10-20: "ping to server"): the lobby's response time, the fastest of the last kLobbyRttSamples answers to ordinary
 	// requests (held polls excluded: the lobby keeps them on purpose), in ms from the request handed to the host to its answer; -1 before the first
 	int lobbyRttMs() const;
@@ -348,8 +372,18 @@ public:
 	// to the game server is known outside a room too. Display data: a failure is kept in relayLookupError() (the screens note it), never a box
 	void fetchRelays();
 	bool relaysAsked() const { return m_relaysAsked; }
+	/// lane JOINVER-1: the last join refused for a different build (valid only when the lobby named the builds)
+	const ProfileRefusal &profileRefusal() const { return m_profileRefusal; }
+	/// lane JOINVER-1: this client's build as the lobby is told it
+	JoinBuild::Build ownBuild() const;
+	const std::string &profileDigest() const { return m_options.profileDigest; }
 	/// ONLINEMENU-1: a feature the lobby's /v1/health `features` names ("social", "oauth", "email"), asked before each guest sign-in
 	bool lobbyHasFeature(const std::string &name) const { return m_lobbyFeatures.count(name) != 0; }
+	// lane PROFILE-2: why the last archive-list upload failed ("" after one that succeeded); a failure never stops a create or join (the game plays,
+	// the checker reports the slot's archives as not uploaded); the next create / join uploads again
+	const std::string &lastArchivesError() const { return m_archivesError; }
+	// lane PROFILE-2: the SHA-256 (hex) of Options::profileArchives joined with "\n" after each line: the id a create / join names
+	static std::string archivesId(const std::vector<std::string> &lines);
 	const std::string &lobbyRelay() const { return m_lobbyRelay; }
 	const std::string &relayLookupError() const { return m_relayLookupError; }
 	// host: the game options (POST .../setup)
@@ -401,6 +435,9 @@ public:
 	const std::string &gameId() const { return m_gameId; }
 	const std::u16string &gameName() const { return m_gameName; }
 	bool amIHost() const { return inGame() && m_localSlot >= 0 && m_localSlot == m_hostSlot; }
+	// the game view's "private" (lobby.mjs: a room-code room is a Quick Match's or a tournament's, ONLINEHUB-1): SOLO-1's
+	// one-human start is for a custom game only; a private room keeps the two-human minimum; lane CHEAT-1: and has no Cheat Mode
+	bool privateRoom() const { return m_privateRoom; }
 	int localSlot() const { return m_localSlot; }
 	int hostSlot() const { return m_hostSlot; }
 	const SkirmishGameInfo &gameInfo() const { return m_info; }
@@ -487,6 +524,7 @@ private:
 	// the game we are in
 	std::string m_gameId;
 	std::u16string m_gameName;
+	bool m_privateRoom = false;
 	int m_localSlot = -1, m_hostSlot = -1;
 	SkirmishGameInfo m_info;
 	std::vector<std::string> m_platformNotes; // lane PLATFORMICON-1
@@ -530,6 +568,9 @@ private:
 	int m_ownRelayRtt = -1, m_ownRelayLoss = 100; ///< noteOwnLink
 	bool m_ownRelayKnown = false;
 	bool m_relaysAsked = false;
+	bool m_roomRelayTold = false; ///< lane JOINVER-1
+	ProfileRefusal m_profileRefusal; ///< lane JOINVER-1
 	std::set<std::string> m_lobbyFeatures; ///< ONLINEMENU-1: /v1/health `features` (empty: an older lobby, or the answer was unreadable)
+	std::string m_archivesUploaded, m_archivesError; ///< lane PROFILE-2: the archives id this lobby holds (sent this connection); the last upload's failure
 	std::string m_lobbyRelay, m_relayLookupError; ///< fetchRelays
 };

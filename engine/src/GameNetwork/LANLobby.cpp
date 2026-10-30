@@ -17,8 +17,8 @@ enum : std::uint8_t
 };
 constexpr std::uint64_t kResendMs = 150;
 constexpr std::uint8_t kLobbyVersion = LANLobby::kVersion;
-// lane P16: the START of a wide (16-slot-record) game; the rest of the datagram is identical to kLobbyVersion
-constexpr std::uint8_t kExtendedStartVersion = 5;
+// lane P16: the START of a wide (16-slot-record) game; the rest of the datagram is identical to kLobbyVersion (5 before CHEAT-1's Cheat Mode field, now 7)
+constexpr std::uint8_t kExtendedStartVersion = 7;
 
 NetByteWriter header(std::uint8_t kind)
 {

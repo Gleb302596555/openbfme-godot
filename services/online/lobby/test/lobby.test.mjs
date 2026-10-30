@@ -16,6 +16,93 @@ import { identityStorage } from './identity-storage.mjs';
 const sqlite = await import('node:sqlite').catch(() => null);
 const NO_SQLITE = !sqlite && 'SKIP LOUDLY: node:sqlite (Node 22.5+) is missing, so the Durable Object SQLite log store tests did not run';
 
+test('replay START repairs decoded legacy text and preserves well-formed bytes and binary logs', async () => {
+  const env = fakeEnv();
+  const lobby = new Lobby(env, configFromEnv(ENV));
+  const guest = (await call(lobby, 'POST', '/v1/auth/guest', { body: { name: 'Reader' } })).body;
+  const account = await lobby.account(`Bearer ${guest.token}`);
+  const id = '1234567890abcdef';
+  const encoder = new TextEncoder();
+  const decoder = new TextDecoder();
+  env.blobs.set(`players/${id}.json`, encoder.encode(JSON.stringify([account.id])));
+  const log = Uint8Array.of(0, 255, 128, 237, 160, 128);
+  env.blobs.set(`logs/${id}.obfmerlog`, log);
+  for (const text of ['\ud800x', 'é e\u0301 🌍 literal \\ud800x']) {
+    const start = { kind: 'openbfme-replay-start', setup: { map: text, slots: [{ name: text }], [text]: { name: text } } };
+    const bytes = encoder.encode(JSON.stringify(start, null, 2) + '\n');
+    env.blobs.set(`starts/${id}.json`, bytes);
+    const response = await rawCall(lobby, 'GET', `/v1/replays/${id}/start`, guest.token);
+    assert.equal(response.status, 200);
+    const json = decoder.decode(response.body);
+    const parsed = JSON.parse(json);
+    assert.equal(parsed.setup.map, text.toWellFormed());
+    assert.equal(parsed.setup.slots[0].name, text.toWellFormed());
+    assert.equal(parsed.setup[text.toWellFormed()].name, text.toWellFormed());
+    assert.equal(json.isWellFormed(), true);
+    if (text.isWellFormed()) assert.deepEqual(response.body, bytes);
+    assert.deepEqual((await rawCall(lobby, 'GET', `/v1/replays/${id}/log`, guest.token)).body, log);
+  }
+  env.blobs.set(`starts/${id}.json`, encoder.encode('{'));
+  const warnings = [];
+  const warn = console.warn;
+  console.warn = (message) => warnings.push(message);
+  try {
+    assert.equal((await rawCall(lobby, 'GET', `/v1/replays/${id}/start`, guest.token)).status, 404);
+    assert.match(warnings.join('\n'), /skipping malformed replay START/);
+  } finally { console.warn = warn; }
+});
+
+test('loaded game JSON routes repair names, setup and chat while preserving good text', async () => {
+  const env = fakeEnv();
+  const lobby = new Lobby(env, configFromEnv(ENV));
+  const host = (await call(lobby, 'POST', '/v1/auth/guest', { body: { name: 'Host' } })).body;
+  const game = (await call(lobby, 'POST', '/v1/games', {
+    token: host.token, body: { name: 'Room', profile: PROFILE, setup },
+  })).body;
+  const stored = structuredClone(lobby.games.get(game.id));
+  for (const text of ['\ud800x', 'é e\u0301 🌍']) {
+    const raw = structuredClone(stored);
+    raw.name = text;
+    raw.setup.map = text;
+    raw.slots[0].name = text;
+    raw.chat = [{ seq: 1, from: text, text, at: env.now() }];
+    const restored = new Lobby(env, configFromEnv(ENV));
+    restored.load([raw]);
+    const list = await rawCall(restored, 'GET', '/v1/games', host.token);
+    const detail = await rawCall(restored, 'GET', `/v1/games/${game.id}`, host.token);
+    assert.equal(list.status, 200);
+    assert.equal(detail.status, 200);
+    assert.equal(JSON.parse(list.body).games[0].name, text.toWellFormed());
+    const view = JSON.parse(detail.body);
+    assert.equal(view.game.name, text.toWellFormed());
+    assert.equal(view.game.setup.map, text.toWellFormed());
+    assert.equal(view.game.slots[0].name, text.toWellFormed());
+    assert.equal(view.chat[0].from, text.toWellFormed());
+    assert.equal(view.chat[0].text, text.toWellFormed());
+    if (text.isWellFormed()) {
+      assert.equal(JSON.stringify(restored.games.get(game.id)), JSON.stringify(raw));
+      assert.equal((await rawCall(restored, 'GET', `/v1/games/${game.id}`, host.token)).body, detail.body);
+    }
+  }
+});
+
+test('intake still refuses lone surrogates and old signed token names are signed out', async () => {
+  const env = fakeEnv();
+  const lobby = new Lobby(env, configFromEnv(ENV));
+  const host = (await call(lobby, 'POST', '/v1/auth/guest', { body: { name: 'Host' } })).body;
+  const tokenBody = JSON.parse(Buffer.from(host.token.split('.')[0], 'base64url').toString());
+  tokenBody.name = '\ud800x';
+  const payload = Buffer.from(JSON.stringify(tokenBody)).toString('base64url');
+  const signature = createHmac('sha256', Buffer.from(ENV.SESSION_KEY, 'hex')).update(Buffer.from(payload, 'base64url')).digest('base64url');
+  assert.equal((await call(lobby, 'GET', '/v1/games', { token: `${payload}.${signature}` })).status, 401);
+  assert.equal((await call(lobby, 'POST', '/v1/games', {
+    token: host.token, body: { name: '\ud800x', profile: PROFILE, setup },
+  })).status, 400);
+  assert.equal((await call(lobby, 'POST', '/v1/auth/guest', {
+    body: { name: 'Host', client: { platform: 'linux', version: '\ud800x' } }, ip: '198.51.100.2',
+  })).status, 400);
+});
+
 const KEY_HEX = Array.from({ length: 32 }, (_, i) => i.toString(16).padStart(2, '0')).join('');
 const PROFILE = '9ecbb999bef4925c679a5570eacd6b99';
 const ENV = { TICKET_KEYS: `# test\n1:${KEY_HEX}\n`, SESSION_KEY: 'aa'.repeat(32), UPLOAD_KEY: 'bb'.repeat(32), RELAYS: 'lab=192.0.2.10:7350', PUBLIC_URL: 'http://lobby.test' };
@@ -181,6 +268,68 @@ test('a game from sign-in to START: the profile check, ready flags, chat, one ti
   assert.equal(replayStart.relay, undefined);
   assert.equal(replayStart.setup.seed, sa.setup.seed);
   assert.ok(!JSON.stringify(replayStart).includes(sa.ticket) && !JSON.stringify(replayStart).includes(polled.start.ticket));
+});
+
+test('SOLO-1: a custom game starts with one human, with AI slots or none; a private room keeps the two-human minimum', async () => {
+  // the setup fixture is one player slot, one open slot and a hard AI: the host alone is a single human against the AI
+  const solo = async (body) => {
+    const lobby = new Lobby(fakeEnv(), configFromEnv(ENV));
+    const a = (await call(lobby, 'POST', '/v1/auth/guest', { body: { name: 'Ann' } })).body;
+    const created = await call(lobby, 'POST', '/v1/games', { token: a.token, body: { name: 'solo', profile: PROFILE, ...body } });
+    assert.equal(created.status, 200, JSON.stringify(created.body));
+    return { lobby, token: a.token, id: created.body.id };
+  };
+  // a custom game, the host and the AI: START signs a ticket for the one human slot (mask 0b001)
+  {
+    const { lobby, token, id } = await solo({ setup });
+    const started = await call(lobby, 'POST', `/v1/games/${id}/start`, { token });
+    assert.equal(started.status, 200, JSON.stringify(started.body));
+    assert.equal(started.body.start.kind, 'openbfme-start');
+    assert.equal(started.body.start.slot, 0);
+    assert.equal(base64UrlDecode(started.body.start.ticket)[11], 0b001);
+    assert.equal(started.body.start.setup.slots[2].state, 'hard');
+  }
+  // a custom game, the host alone: same START, the same one-slot mask
+  {
+    const alone = { ...setup, slots: [{ state: 'player', faction: 0, color: 0, startPos: 0, team: 0 }, { state: 'open' }, { state: 'open' }] };
+    const { lobby, token, id } = await solo({ setup: alone });
+    const started = await call(lobby, 'POST', `/v1/games/${id}/start`, { token });
+    assert.equal(started.status, 200, JSON.stringify(started.body));
+    assert.equal(base64UrlDecode(started.body.start.ticket)[11], 0b001);
+  }
+  // a private room (a Quick Match or tournament match, ONLINEHUB-1) refuses the start until a second human is ready
+  {
+    const { lobby, token, id } = await solo({ setup, room_code: 'QM-solo-123' });
+    const refused = await call(lobby, 'POST', `/v1/games/${id}/start`, { token });
+    assert.equal(refused.status, 409);
+    assert.equal(refused.body.error, 'players');
+    const b = (await call(lobby, 'POST', '/v1/auth/guest', { body: { name: 'Bea' } })).body;
+    const joined = await call(lobby, 'POST', `/v1/rooms/QM-solo-123/join`, { token: b.token, body: { profile: PROFILE } });
+    assert.equal(joined.status, 200, JSON.stringify(joined.body));
+    const notReady = await call(lobby, 'POST', `/v1/games/${id}/start`, { token });
+    assert.equal(notReady.body.error, 'not_ready'); // the two humans are there; the joiner's flag is what holds it
+    assert.equal((await call(lobby, 'POST', `/v1/games/${id}/ready`, { token: b.token, body: { ready: true } })).status, 200);
+    const started = await call(lobby, 'POST', `/v1/games/${id}/start`, { token });
+    assert.equal(started.status, 200, JSON.stringify(started.body));
+    assert.equal(base64UrlDecode(started.body.start.ticket)[11], 0b011);
+  }
+  // a spectator joins a started solo game: a custom game takes spectators with its setup's spectatorDelay (0 when unset)
+  {
+    const delayed = { ...setup, spectatorDelay: 30, slots: [{ state: 'player', faction: 0, color: 0, startPos: 0, team: 0 }, { state: 'open' }, { state: 'hard', name: 'Computer', faction: 2, color: 2, startPos: 2, team: 1 }] };
+    const { lobby, token, id } = await solo({ setup: delayed });
+    assert.equal((await call(lobby, 'POST', `/v1/games/${id}/start`, { token })).status, 200);
+    const watcher = (await call(lobby, 'POST', '/v1/auth/guest', { body: { name: 'Wat' } })).body;
+    const spect = await call(lobby, 'POST', `/v1/games/${id}/spectate`, { token: watcher.token });
+    assert.equal(spect.status, 200, JSON.stringify(spect.body));
+    assert.equal(spect.body.start.kind, 'openbfme-spectate');
+    assert.equal(spect.body.start.delay, 30);
+    // and the same game, a second spectator with no delay field on its own: the game's delay again (per-game, not per-spectator)
+    const watcher2 = (await call(lobby, 'POST', '/v1/auth/guest', { body: { name: 'Wa2' } })).body;
+    const spect2 = await call(lobby, 'POST', `/v1/games/${id}/spectate`, { token: watcher2.token });
+    assert.equal(spect2.status, 200, JSON.stringify(spect2.body));
+    assert.equal(spect2.body.start.delay, 30);
+    assert.notEqual(spect2.body.start.ticket, spect.body.start.ticket); // a fresh spectator index each time
+  }
 });
 
 test('tampered sessions, kicks, a host leaving, rate limits and bad fields are refused', async () => {
@@ -1877,6 +2026,88 @@ test('ONLINEMENU-1: a player reports their own link to the relay for the Connect
   const late = await post(b, 'link', { rtt: 43, loss: 0 });
   assert.equal(late.status, 409);
   assert.equal(late.body.error, 'started');
+});
+
+test('CHEAT-1: Cheat Mode is the host\'s open rule: listed before joining, the host\'s slot in the START and its record, never in a room with a code', async () => {
+  const env = fakeEnv();
+  const lobby = new Lobby(env, configFromEnv(ENV));
+  const a = (await call(lobby, 'POST', '/v1/auth/guest', { body: { name: 'Ann' } })).body;
+  const b = (await call(lobby, 'POST', '/v1/auth/guest', { body: { name: 'Bea' } })).body;
+  // a value other than true / false is refused; a room code with Cheat Mode is refused, nothing is made
+  for (const cheatMode of [1, 'yes', null]) {
+    const r = await call(lobby, 'POST', '/v1/games', { token: a.token, body: { name: 'x', profile: PROFILE, setup: { ...setup, cheatMode } } });
+    if (cheatMode === null) { assert.equal(r.status, 200); await call(lobby, 'POST', `/v1/games/${r.body.id}/leave`, { token: a.token }); continue; } // null: the default (off)
+    assert.equal(r.status, 400, String(cheatMode));
+    assert.equal(r.body.message, 'setup.cheatMode must be true or false');
+  }
+  const qm = await call(lobby, 'POST', '/v1/games', { token: a.token, body: { name: 'Quick Match', profile: PROFILE, setup: { ...setup, cheatMode: true }, room_code: 'QM-cheat-123' } });
+  assert.equal(qm.status, 400);
+  assert.equal(qm.body.message, 'a room with a room_code has no Cheat Mode');
+  // an ordinary game: off in the list, the host turns it on, the list and the view say so
+  const created = await call(lobby, 'POST', '/v1/games', { token: a.token, body: { name: 'Twitch night', profile: PROFILE, setup } });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const id = created.body.id;
+  assert.equal((await call(lobby, 'GET', '/v1/games')).body.games.find((g) => g.id === id).cheatMode, false);
+  const joined = await call(lobby, 'POST', `/v1/games/${id}/join`, { token: b.token, body: { profile: PROFILE } });
+  assert.equal(joined.body.slot, 1);
+  assert.equal((await call(lobby, 'POST', `/v1/games/${id}/setup`, { token: b.token, body: { cheatMode: true } })).status, 403); // the host's rule only
+  const on = await call(lobby, 'POST', `/v1/games/${id}/setup`, { token: a.token, body: { cheatMode: true } });
+  assert.equal(on.status, 200, JSON.stringify(on.body));
+  assert.equal(on.body.game.setup.cheatMode, true);
+  assert.equal((await call(lobby, 'GET', '/v1/games')).body.games.find((g) => g.id === id).cheatMode, true);
+  // the START names the host's slot; the kept record (starts/<id>.json, what stats read) carries it too
+  assert.equal((await call(lobby, 'POST', `/v1/games/${id}/ready`, { token: b.token, body: { ready: true } })).status, 200);
+  const started = await call(lobby, 'POST', `/v1/games/${id}/start`, { token: a.token });
+  assert.equal(started.status, 200, JSON.stringify(started.body));
+  assert.equal(started.body.start.setup.cheatMode, 0);
+  const record = JSON.parse(new TextDecoder().decode(env.blobs.get(`starts/${id}.json`)));
+  assert.equal(record.setup.cheatMode, 0);
+  // a game without it keeps the START of before (no field)
+  const plain = await call(lobby, 'POST', '/v1/games', { token: b.token, body: { name: 'Plain', profile: PROFILE, setup } });
+  const c = (await call(lobby, 'POST', '/v1/auth/guest', { body: { name: 'Cid' } })).body;
+  await call(lobby, 'POST', `/v1/games/${plain.body.id}/join`, { token: c.token, body: { profile: PROFILE } });
+  await call(lobby, 'POST', `/v1/games/${plain.body.id}/ready`, { token: c.token, body: { ready: true } });
+  const plainStart = await call(lobby, 'POST', `/v1/games/${plain.body.id}/start`, { token: b.token });
+  assert.equal(plainStart.status, 200, JSON.stringify(plainStart.body));
+  assert.equal('cheatMode' in plainStart.body.start.setup, false);
+});
+
+test('JOINVER-1: a join refused for a different build names both builds in plain words, the list carries the host build and profile', async () => {
+  const env = fakeEnv();
+  const lobby = new Lobby(env, configFromEnv(ENV));
+  const a = (await call(lobby, 'POST', '/v1/auth/guest', { body: { name: 'Ann' } })).body;
+  const b = (await call(lobby, 'POST', '/v1/auth/guest', { body: { name: 'Bea' } })).body;
+  const hostBuild = { version: 'v0.4.12-nightly.20261022', date: '2026-10-22', official: true, platform: 'windows' };
+  const created = await call(lobby, 'POST', '/v1/games', { token: a.token, body: { name: 'Ann\'s game', profile: PROFILE, setup, build: hostBuild } });
+  assert.equal(created.status, 200, JSON.stringify(created.body));
+  const id = created.body.id;
+  const row = (await call(lobby, 'GET', '/v1/games')).body.games[0];
+  assert.equal(row.profile, PROFILE);
+  assert.deepEqual(row.build, hostBuild);
+  const yours = { version: 'v0.4.11', date: '2026-10-18', official: false, platform: 'linux' };
+  const other = 'f'.repeat(32);
+  const wrong = await call(lobby, 'POST', `/v1/games/${id}/join`, { token: b.token, body: { profile: other, build: yours } });
+  assert.equal(wrong.status, 409);
+  assert.equal(wrong.body.error, 'profile');
+  assert.equal(wrong.body.message, 'You can\'t join this game: it runs a different OpenBFME version (host: Nightly 0.4.12 (2026-10-22), official, Windows; '
+    + 'you: Alpha 0.4.11, unofficial, Linux). Both players need the same version: update through the launcher.');
+  assert.ok(!wrong.body.message.includes(PROFILE) && !wrong.body.message.includes(other), 'no profile id in the words');
+  assert.deepEqual(wrong.body.host_build, hostBuild);
+  assert.deepEqual(wrong.body.your_build, yours);
+  assert.equal(wrong.body.host_profile, PROFILE);
+  assert.equal(wrong.body.your_profile, other);
+  // an older client tells no build: the sign-in's client stands in, else "an unknown version"
+  const old = await call(lobby, 'POST', `/v1/games/${id}/join`, { token: b.token, body: { profile: other } });
+  assert.equal(old.body.your_build, null);
+  assert.match(old.body.message, /you: an unknown version\)/);
+  // a malformed build is refused by name
+  for (const build of [{ version: 'v1 2' }, { version: 'v0.4.11', official: 'yes' }, { version: 'v0.4.11', date: '20261022' }, { version: 'v0.4.11', extra: 1 }, 'v0.4.11']) {
+    const r = await call(lobby, 'POST', `/v1/games/${id}/join`, { token: b.token, body: { profile: PROFILE, build } });
+    assert.equal(r.status, 400, JSON.stringify(build));
+    assert.equal(r.body.error, build.extra ? 'unknown_field' : 'bad_field');
+  }
+  assert.equal((await call(lobby, 'POST', `/v1/games/${id}/join`, { token: b.token, body: { profile: PROFILE, build: yours } })).body.slot, 1);
+  assert.ok(lobby.health().features.includes('build'));
 });
 
 // LOBBYSEC-1 (PR #93's review, 2026-10-22): a lone UTF-16 surrogate is legal in a JSON escape but is not text. /v1/games echoed it, and the

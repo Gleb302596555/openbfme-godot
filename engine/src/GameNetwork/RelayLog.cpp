@@ -2,10 +2,12 @@
 // See GameNetwork/RelayLog.h.
 
 #include "GameNetwork/RelayLog.h"
+#include "Common/PathIO.h"
 
 #include "GameNetwork/RelayFrameBundle.h"
 #include "GameNetwork/RelayMembership.h"
 
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <iterator>
@@ -30,7 +32,7 @@ std::uint64_t u64(NetByteReader &r)
 
 bool RelayLogFile::load(const std::string &path, RelayLogFile &out, std::string *error)
 {
-	std::ifstream f(path, std::ios::binary);
+	std::ifstream f(PathIO::native(path), std::ios::binary);
 	if (!f)
 	{
 		return fail(error, "cannot read " + path);
@@ -583,6 +585,9 @@ bool RelayLog::assemble(const RelayLogFile &log, const NetworkConfig &config, As
 		UnsignedInt end() const { return std::min(leave, drop); }
 	};
 	std::array<std::vector<Incarnation>, MAX_SLOTS> inc;
+	// lane SOLO-1: a one-human room's log has exactly one network slot; only such a log takes the solo paths below (a held slot's own REJOIN,
+	// the incarnation ended by its successor, its own CRC count). Every other log is assembled exactly as lane NETDIAG-1 did
+	const bool soloRoom = log.slotMask != 0 && (log.slotMask & (log.slotMask - 1)) == 0;
 	for (int s = 0; s < MAX_SLOTS; ++s)
 	{
 		if ((log.slotMask & (1u << s)) && config.slotPlayerIndex[(size_t)s] < 0)
@@ -600,6 +605,16 @@ bool RelayLog::assemble(const RelayLogFile &log, const NetworkConfig &config, As
 		{
 			const int rs = log.rejoins[nextRejoin].slot;
 			inc[(size_t)rs].emplace_back();
+			// lane SOLO-1: a rejoined incarnation proves the old one is over (its process restarted; the relay bound a newer-generation
+			// ticket): end it at its last logged frame so the slot is held from there on. Without it a dropped-and-restarted slot nobody
+			// logged a DROP for (the packet router was the dead slot itself: a solo game) stays a member forever and its first missing
+			// FRAMEINFO stops the walk before the new incarnation's REJOIN is reached
+			if (soloRoom)
+			{
+				inc[(size_t)rs][inc[(size_t)rs].size() - 2].drop = std::min<UnsignedInt>(
+					inc[(size_t)rs][inc[(size_t)rs].size() - 2].drop,
+					inc[(size_t)rs][inc[(size_t)rs].size() - 2].frames.empty() ? 0 : inc[(size_t)rs][inc[(size_t)rs].size() - 2].frames.rbegin()->first + 1);
+			}
 			inc[(size_t)rs].back().join = kNever; // until its REJOIN is seen
 			inc[(size_t)rs].back().generation = log.rejoins[nextRejoin].generation;
 			++nextRejoin;
@@ -687,12 +702,28 @@ bool RelayLog::assemble(const RelayLogFile &log, const NetworkConfig &config, As
 	{
 		const int rs = log.rejoins[nextRejoin].slot;
 		inc[(size_t)rs].emplace_back();
+		if (soloRoom) // lane SOLO-1: as above
+		{
+			inc[(size_t)rs][inc[(size_t)rs].size() - 2].drop = std::min<UnsignedInt>(
+				inc[(size_t)rs][inc[(size_t)rs].size() - 2].drop,
+				inc[(size_t)rs][inc[(size_t)rs].size() - 2].frames.empty() ? 0 : inc[(size_t)rs][inc[(size_t)rs].size() - 2].frames.rbegin()->first + 1);
+		}
 		inc[(size_t)rs].back().join = kNever;
 		++nextRejoin;
 	}
 	// the frames, in order: every needed incarnation announced, and the entries it announced are all here. A REJOIN of a held slot by the frame's packet
 	// router (Network::relayCommands: here the sender is taken as it, the peers checked it) starts the slot's next incarnation at the frame after; a drop
 	// ends the incarnation it falls in
+	// every slot's incarnations are a joined prefix then a pending suffix (a REJOIN joins the first pending one): firstPending is where the
+	// suffix starts, so neither a drop, the member search nor a REJOIN walks the pending incarnations (they cannot match: the same result)
+	std::array<size_t, MAX_SLOTS> firstPending{};
+	for (int s = 0; s < MAX_SLOTS; ++s)
+	{
+		while (firstPending[(size_t)s] < inc[(size_t)s].size() && inc[(size_t)s][firstPending[(size_t)s]].join != kNever)
+		{
+			++firstPending[(size_t)s];
+		}
+	}
 	auto applyDrops = [&](int s) {
 		for (const auto &d : drops)
 		{
@@ -700,11 +731,12 @@ bool RelayLog::assemble(const RelayLogFile &log, const NetworkConfig &config, As
 			{
 				continue;
 			}
-			for (auto it = inc[(size_t)s].rbegin(); it != inc[(size_t)s].rend(); ++it)
+			for (size_t i = firstPending[(size_t)s]; i-- > 0;)
 			{
-				if (it->join != kNever && it->join <= d.second)
+				Incarnation &in = inc[(size_t)s][i];
+				if (in.join <= d.second)
 				{
-					it->drop = std::min(it->drop, d.second);
+					in.drop = std::min(in.drop, d.second);
 					break;
 				}
 			}
@@ -713,6 +745,23 @@ bool RelayLog::assemble(const RelayLogFile &log, const NetworkConfig &config, As
 	for (int s = 0; s < MAX_SLOTS; ++s)
 	{
 		applyDrops(s);
+	}
+	// for the walk: per slot, its drop frames sorted (an incarnation joined during the walk takes the first drop at or after its join: every
+	// earlier one is already applied, applyDrops again would change nothing else), and its joined incarnations not known to be over, oldest
+	// first (an incarnation whose end has passed never runs again: frames only grow and an end only moves earlier)
+	std::array<std::vector<UnsignedInt>, MAX_SLOTS> dropFrames;
+	for (const auto &d : drops)
+	{
+		dropFrames[(size_t)d.first].push_back(d.second);
+	}
+	std::array<std::vector<size_t>, MAX_SLOTS> joined;
+	for (int s = 0; s < MAX_SLOTS; ++s)
+	{
+		std::sort(dropFrames[(size_t)s].begin(), dropFrames[(size_t)s].end());
+		for (size_t i = 0; i < firstPending[(size_t)s]; ++i)
+		{
+			joined[(size_t)s].push_back(i);
+		}
 	}
 	UnsignedInt last = 0;
 	for (const auto &sl : inc)
@@ -726,7 +775,7 @@ bool RelayLog::assemble(const RelayLogFile &log, const NetworkConfig &config, As
 		}
 	}
 	std::array<bool, MAX_SLOTS> gone{};
-	std::array<int, MAX_SLOTS> crcCount{};            // per slot, the CRCs its first incarnation sent (the n-th describes frame (n + 1) x interval)
+	std::array<int, MAX_SLOTS> crcCount{};            // per slot, the CRCs its incarnations sent so far (the n-th describes frame (n + 1) x interval)
 	std::map<UnsignedInt, UnsignedInt> crcFrameOfExecution;
 	std::map<UnsignedInt, std::map<int, std::uint32_t>> crcsOf; // CRC frame -> slot -> value
 	struct LateCrc
@@ -742,27 +791,46 @@ bool RelayLog::assemble(const RelayLogFile &log, const NetworkConfig &config, As
 		std::vector<int> rejoinedNow;
 		bool anyLive = false;
 		bool anyMember = false; // lane NETDIAG-1: a slot ran this frame (an incarnation it is a member of)
+		std::vector<int> selfAdmits; ///< lane SOLO-1: pending incarnations' own REJOINs of themselves on this frame
 		for (int s = 0; s < MAX_SLOTS; ++s)
 		{
 			if (!(log.slotMask & (1u << s)) || gone[(size_t)s])
 			{
 				continue;
 			}
+			// the newest incarnation that runs this frame (joined, its join frame reached, its end not)
 			int k = -1;
-			for (int i = (int)inc[(size_t)s].size() - 1; i >= 0; --i)
+			std::vector<size_t> &candidates = joined[(size_t)s];
+			while (!candidates.empty() && frame >= inc[(size_t)s][candidates.back()].end())
 			{
-				const Incarnation &in = inc[(size_t)s][(size_t)i];
-				if (in.join != kNever && in.join <= frame && frame < in.end())
-				{
-					k = i;
-					break;
-				}
+				candidates.pop_back();
+			}
+			if (!candidates.empty() && inc[(size_t)s][candidates.back()].join <= frame)
+			{
+				k = (int)candidates.back();
 			}
 			if (k < 0)
 			{
 				// not a member at this frame: left / dropped, or held until a later REJOIN (a held slot keeps the game going)
 				const Incarnation &lastInc = inc[(size_t)s].back();
 				anyLive = anyLive || (lastInc.join == kNever || frame < lastInc.end());
+				if (soloRoom && lastInc.join == kNever)
+				{
+					// lane SOLO-1: a held slot's own REJOIN of itself stands in for the router's once nobody at all runs
+					// this frame (a solo game's rejoined player has nobody left to send it; Network::relayCommands: the same)
+					const Incarnation &pending = inc[(size_t)s][firstPending[(size_t)s]];
+					const auto self = pending.frames.find(frame);
+					if (self != pending.frames.end())
+					{
+						for (int t : self->second.rejoins)
+						{
+							if (t == s)
+							{
+								selfAdmits.push_back(t);
+							}
+						}
+					}
+				}
 				continue;
 			}
 			anyLive = true;
@@ -836,15 +904,28 @@ bool RelayLog::assemble(const RelayLogFile &log, const NetworkConfig &config, As
 		{
 			break; // nothing after an incomplete frame can be trusted
 		}
+		if (soloRoom && !anyMember)
+		{
+			// lane SOLO-1: no member could have routed a REJOIN on this frame: a held slot's own REJOIN of itself admits it
+			rejoinedNow.insert(rejoinedNow.end(), selfAdmits.begin(), selfAdmits.end());
+		}
 		// a rejoined incarnation's CRCs: the CRC frame the first incarnations' CRCs of the same execution frame describe (every peer stamps the CRC of
-		// frame C with the same execution frame)
+		// frame C with the same execution frame). lane SOLO-1: with no first incarnation beside it (a solo game's own rejoined slot) its own CRC
+		// sequence continues the count and names the frame instead
 		for (const LateCrc &lc : lateCrcs)
 		{
 			const auto described = crcFrameOfExecution.find(frame);
 			if (described == crcFrameOfExecution.end())
 			{
-				a.problems.push_back("slot " + std::to_string(lc.slot) + "'s CRC on frame " + std::to_string(frame)
-					+ " (a rejoined incarnation) has no CRC of a first incarnation beside it to name its frame");
+				if (log.slotMask == (1u << lc.slot))
+				{
+					crcsOf[(UnsignedInt)(++crcCount[(size_t)lc.slot]) * (UnsignedInt)config.crcInterval][lc.slot] = lc.value;
+				}
+				else
+				{
+					a.problems.push_back("slot " + std::to_string(lc.slot) + "'s CRC on frame " + std::to_string(frame)
+						+ " (a rejoined incarnation) has no CRC of a first incarnation beside it to name its frame");
+				}
 				continue;
 			}
 			crcsOf[described->second][lc.slot] = lc.value;
@@ -857,16 +938,25 @@ bool RelayLog::assemble(const RelayLogFile &log, const NetworkConfig &config, As
 			{
 				continue;
 			}
-			for (Incarnation &in : inc[(size_t)t])
+			if (firstPending[(size_t)t] < inc[(size_t)t].size())
 			{
+				const size_t joinedIndex = firstPending[(size_t)t];
+				Incarnation &in = inc[(size_t)t][joinedIndex];
+				in.join = frame + 1;
+				a.membership.push_back({ Network::MembershipEvent::REJOIN, t, frame, in.generation });
 				if (in.join == kNever)
 				{
-					in.join = frame + 1;
-					a.membership.push_back({ Network::MembershipEvent::REJOIN, t, frame, in.generation });
-					break;
+					continue; // a REJOIN on frame 0xFFFFFFFE: its join frame is the "not joined" value, so the incarnation stays the first pending one
 				}
+				++firstPending[(size_t)t];
+				// a drop of the new incarnation logged before its REJOIN ran (applyDrops: the first drop at or after its join is the one it takes)
+				const auto d = std::lower_bound(dropFrames[(size_t)t].begin(), dropFrames[(size_t)t].end(), in.join);
+				if (d != dropFrames[(size_t)t].end())
+				{
+					in.drop = std::min(in.drop, *d);
+				}
+				joined[(size_t)t].push_back(joinedIndex);
 			}
-			applyDrops(t); // a drop of the new incarnation logged before its REJOIN ran
 		}
 		if (!list.messages().empty())
 		{
@@ -874,11 +964,40 @@ bool RelayLog::assemble(const RelayLogFile &log, const NetworkConfig &config, As
 		}
 		a.lastCompleteFrame = frame;
 		a.anyComplete = true;
-		if (!anyMember || frame == last)
+		if (soloRoom ? ((!anyMember && rejoinedNow.empty()) || frame == last) : (!anyMember || frame == last))
 		{
 			// lane NETDIAG-1 (a fuzzer's log: every slot gone but one held for a REJOIN, a command naming frame 0xFFFFFFFE: four billion empty frames,
 			// and `frame <= last` never ends at 0xFFFFFFFF): with no member this frame no REJOIN can come (only a member's frame carries one) and
-			// nothing changes any more, so every frame up to `last` is this one again: the walk ends there at once, with the same result
+			// nothing changes any more, so every frame up to `last` is this one again: the walk ends there at once, with the same result.
+			// lane SOLO-1: in a one-human room the held slot's own REJOIN is the exception (see selfAdmits): only the first pending incarnation
+			// can be admitted, so the walk goes straight to its next frame that carries one (it is admitted there: each incarnation's frames are
+			// looked at once), else ends as above
+			if (soloRoom && frame != last)
+			{
+				int solo = 0;
+				while (!(log.slotMask & (1u << solo)))
+				{
+					++solo;
+				}
+				UnsignedInt next = kNever;
+				if (firstPending[(size_t)solo] < inc[(size_t)solo].size())
+				{
+					const Incarnation &pending = inc[(size_t)solo][firstPending[(size_t)solo]];
+					for (auto f = pending.frames.upper_bound(frame); f != pending.frames.end(); ++f)
+					{
+						if (std::find(f->second.rejoins.begin(), f->second.rejoins.end(), solo) != f->second.rejoins.end())
+						{
+							next = f->first;
+							break;
+						}
+					}
+				}
+				if (next != kNever && next <= last)
+				{
+					frame = next - 1;
+					continue;
+				}
+			}
 			a.lastCompleteFrame = last;
 			break;
 		}

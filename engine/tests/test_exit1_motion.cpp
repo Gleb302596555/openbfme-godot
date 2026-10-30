@@ -357,7 +357,7 @@ TEST_CASE("idle1 retail: horde members turning where they stand end the frame wi
 	}
 	MESSAGE("member-frames turning on the spot " << probe.turned << " (with MOVING " << probe.turnedMoving << ", still the frame after outside the attack state " << probe.turnedMovingOutsideAttack << "); attacking " << probe.turnedAttacking << " ("
 										   << probe.turnedAttackingMoving << "); cavalry " << probe.turnedCavalry << " (" << probe.turnedCavalryMoving
-										   << "); members standing with MOVING for 5 frames " << probe.stillMovingStreaks << "; held by a back-up record (the pass skipping them): turns " << probe.turnedHeldByBackUp << ", standing frames with MOVING " << probe.framesHeldByBackUp << "; turned, then the horde walked: " << probe.turnedThenHordeMoved << "\n"
+										   << "); members standing with MOVING for 5 frames " << probe.stillMovingStreaks << "; held by a back-up record (the pass skipping them): turns " << probe.turnedHeldByBackUp << ", standing frames with MOVING " << probe.framesHeldByBackUp << "; held by the run-down and the leash: " << probe.framesHeldByRunDown << "; turned, then the horde walked: " << probe.turnedThenHordeMoved << "\n"
 										   << probe.samples.str());
 	// not vacuous: the game turns members on the spot, attacking ones (melee and the buildings' attackers) among them (the riders: test_idle1_turns.cpp)
 	CHECK(probe.turned >= 1000);
@@ -366,6 +366,8 @@ TEST_CASE("idle1 retail: horde members turning where they stand end the frame wi
 	// the attack's own aim turn (RW 0x75232F's vslot 0x21C, cleared by the aim's exit RW 0x74BEE7 with vslot 0x220 before the member update clears MOVING: it goes
 	// with the member's next update or its horde's pass, within the 5 frame rule below)
 	CHECK(probe.turnedMovingOutsideAttack == 0);
+	// lane IDLEMOTION-1: a member left behind while its horde runs a fleeing target down stands busy with MOVING, held by the run-down (RW 0x87631F) and the leash
+	// (RW 0x877B4F) until the run-down ends (test_hud_idlemotion1_retail.cpp): those frames are counted apart, as the back-up record's
 	CHECK(probe.stillMovingStreaks == 0);
 }
 
@@ -428,4 +430,38 @@ TEST_CASE("exit1 diagnostic: the motion probe over a recorded game (OPENBFME_EXI
 	MESSAGE(path << ": frames " << g.game->logic().getFrame() << " of " << replay.finalFrame << ", first hash difference at frame "
 				 << (playback.hasMismatch() ? (int)playback.firstMismatch().frame : -1) << "\n"
 				 << probe.report() << trace.str());
+}
+
+TEST_CASE("ambient retail: Harlindon flying birds leave their hold point while perched doves stay still")
+{
+	OPENBFME_REQUIRE_START(s);
+	NewGameMessage start = exitUdun(*s, 0, 1);
+	start.game.mapName = "maps/map mp harlindon/map mp harlindon.map";
+	for (int slot = 0; slot < 4; ++slot) start.game.slots[slot].state = slot < 2 ? SLOT_PLAYER : SLOT_CLOSED;
+	ExitGame g;
+	loadExitGame(*s, start, -1, g);
+	struct Bird { Object *object; Coord3D original; };
+	std::vector<Bird> flying, perched;
+	for (Object *o = g.game->logic().getFirstObject(); o; o = o->getNextObject())
+	{
+		const std::string &name = o->getTemplate()->getName();
+		if (name == "Crow" || name == "Dove_white_in_game") flying.push_back({ o, *o->getPosition() });
+		if (name == "Dove_Perched") perched.push_back({ o, *o->getPosition() });
+	}
+	CHECK(flying.size() == 41);
+	CHECK(perched.size() == 7);
+	for (int i = 0; i < 100; ++i) g.game->advance(0.2);
+	for (const Bird &b : flying)
+	{
+		INFO(b.object->getTemplate()->getName() << " #" << b.object->getID());
+		const Coord3D &p = *b.object->getPosition();
+		const float dx = p.x - b.original.x, dy = p.y - b.original.y;
+		// tolerance: 20 seconds of idle flight must leave the authored hold point by more than a terrain cell.
+		CHECK(dx * dx + dy * dy > 100);
+	}
+	for (const Bird &b : perched)
+	{
+		CHECK(b.object->getPosition()->x == b.original.x);
+		CHECK(b.object->getPosition()->y == b.original.y);
+	}
 }

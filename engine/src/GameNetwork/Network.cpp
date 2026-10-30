@@ -211,6 +211,7 @@ Network::Network(const NetworkConfig &config, NetTransport &transport)
 	for (int s = 0; s < MAX_SLOTS; ++s)
 	{
 		m_slots[(size_t)s].active = config.slotPlayerIndex[(size_t)s] >= 0;
+		m_memberSlots += m_slots[(size_t)s].active ? 1 : 0;
 	}
 	if (config.localSlot < 0 || config.localSlot >= MAX_SLOTS || !m_slots[(size_t)config.localSlot].active)
 	{
@@ -390,6 +391,19 @@ void Network::update(UnsignedInt logicFrame, CommandList &pending)
 			c.slot = (std::uint8_t)m_config.localSlot;
 			c.frame = (std::uint32_t)m_rejoinGeneration;
 			sendDirect(c);
+			// lane SOLO-1: a game born with the local slot as its only network player has nobody left to take it back once it
+			// drops (the packet router was itself): it admits itself, the REJOIN reaching the relay's log like every command
+			// sent with no live peer to get it (relayCommands takes a slot's own REJOIN when no member can route one)
+			if (m_memberSlots == 1 && !m_selfRejoinSent)
+			{
+				m_selfRejoinSent = true;
+				NetCommandMsg r;
+				r.type = NETCOMMANDTYPE_REJOIN;
+				r.slot = (std::uint8_t)m_config.localSlot;
+				r.executionFrame = executionFrame(m_logicFrame);
+				r.targetSlot = (std::uint8_t)m_config.localSlot;
+				send(r);
+			}
 		}
 		return;
 	}
@@ -704,6 +718,17 @@ void Network::file(const NetCommandMsg &c, int fromSlot)
 					+ std::to_string(owner) + "'s frame " + std::to_string(c.frame) + ", which is not the packet router's: refused");
 				return;
 			}
+			// lane CHEAT-1 (Sol review r1 / r2): a resend's owner is the sender's claim, not an authenticated origin, and MSG_OPENBFME_CHEAT's only
+			// authority is the player stamped from the frame's slot: in ordinary play a relayed Cheat Mode command could name the host's seat for a peer that
+			// misses the host's frame. It is refused with the whole resend while the owner is heard (DisconnectManager::heard, RW 0x8D335D: in the game,
+			// whether or not another player's silence put the disconnect screen up); the frame then waits for the owner's own packet. Once the owner is
+			// silent the survivors' resends are the only way to reach the same frame before its drop (allOnSameFrame), so they are taken as before
+			if (copy->getType() == MSG_OPENBFME_CHEAT && m_disconnect.slotHeard(*this, owner, now(), m_logicFrame))
+			{
+				m_errors.push_back("slot " + std::to_string(fromSlot) + " resent a Cheat Mode command in slot " + std::to_string(owner) + "'s frame " +
+					std::to_string(c.frame) + ": refused (a Cheat Mode command is never relayed)");
+				return;
+			}
 			if (copy->getType() != MSG_SELF_DESTRUCT)
 			{
 				copy->friend_setPlayerIndex(ownerPlayer);
@@ -955,17 +980,20 @@ void Network::relayCommands(UnsignedInt frame, CommandList &out)
 			h.runAheadChange[(size_t)s] = it->second.runAheadChange;
 			for (int t : it->second.rejoins)
 			{
-				// lane ONLINE-3: only the frame's packet router takes a slot back, and only a held one (deterministic: the same membership on every peer)
+				// lane ONLINE-3: only the frame's packet router takes a slot back, and only a held one (deterministic: the same membership on every peer).
+				// lane SOLO-1: when no member can route a REJOIN at all (every slot of the game has departed; a solo game's only
+				// member), a held slot's own REJOIN of itself stands in for the router's
+				const bool selfAdmit = t == s && routerAt(frame) < 0;
 				if (t >= 0 && t < MAX_SLOTS)
 				{
 					h.rejoinMask[(size_t)s] |= (std::uint16_t)(1u << t);
 				}
-				if (s != routerAt(frame))
+				if (s != routerAt(frame) && !selfAdmit)
 				{
 					m_errors.push_back("REJOIN of slot " + std::to_string(t) + " from slot " + std::to_string(s) + " for frame " + std::to_string(frame)
 						+ ", which is not the packet router's: ignored");
 				}
-				else if (t < 0 || t >= MAX_SLOTS || t == s || !m_slots[(size_t)t].active || !m_slots[(size_t)t].held || m_slots[(size_t)t].handedOver)
+				else if (t < 0 || t >= MAX_SLOTS || (t == s && !selfAdmit) || !m_slots[(size_t)t].active || !m_slots[(size_t)t].held || m_slots[(size_t)t].handedOver)
 				{
 					m_errors.push_back("REJOIN of slot " + std::to_string(t) + " for frame " + std::to_string(frame) + ", which is not held for a rejoin: ignored");
 				}
@@ -1534,7 +1562,9 @@ void Network::disconnectPlayer(int slot, UnsignedInt frame)
 	m_leftNotices.push_back(playerName(slot));
 	if (!m_reconstructing)
 	{
-		m_transport.retire(slot); // lane ONLINE-3 r2: beginLive retires the slots gone at its end
+		// lane MPDROP-3: the drop's DISCONNECTPLAYER (sent just before) keeps going to the dropped slot until it acknowledges it (retire dropped it with the
+		// rest of the queue: a hung game that lost the datagram never learned it was dropped, S-1341)
+		m_transport.retireDropped(slot, m_config.settings.playerTimeoutTime); // lane ONLINE-3 r2: beginLive retires the slots gone at its end
 	}
 	passRouterRole(slot, frame);
 	if (m_config.holdForRejoin && !sd.handedOver)

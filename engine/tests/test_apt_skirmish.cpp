@@ -8,6 +8,7 @@
 #include "AptRetail.h"
 
 #include "GameClient/GUI/AptGadgetLayer.h"
+#include "GameClient/GUI/AptMessageBox.h"
 #include "GameClient/GUI/AptScreens/AptScreenFactories.h"
 #include "GameClient/GUI/AptScreens/AptSkirmish.h"
 #include "GameClient/GUI/Gadgets.h"
@@ -20,10 +21,13 @@
 #include "GameClient/EndGame.h"
 #include "GameClient/GUI/Skirmish/SkirmishGameSetup.h"
 #include "GameClient/GUI/WindowManager.h"
+#include "GameClient/GUI/MenuNavigator.h"
+#include "GameClient/GameRecords.h"
 
 #include "Libraries/Source/Apt/AptActionDecoder.h"
 
 #include <algorithm>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <random>
@@ -172,6 +176,22 @@ SkirmishGameSetup makeSetup(FakeSetup &source, MapGameText &text)
 {
 	lobbyLabels(text);
 	return SkirmishGameSetup(source, &text);
+}
+
+TEST_CASE("localized text: lobby starting cash uses a typed amount")
+{
+	FakeSetup source;
+	MapGameText text;
+	SkirmishGameSetup setup = makeSetup(source, text);
+	struct Case { const char16_t *pattern; const char16_t *expected; };
+	for (const Case &c : { Case{ u"$%d", u"$1000" }, Case{ u"%s", u"1000" }, Case{ u"%n", u"%n" }, Case{ u"%x", u"%x" },
+		Case{ u"%p", u"%p" }, Case{ u"%999999d", u"%999999d" }, Case{ u"%", u"%" }, Case{ u"%ls/%S/%d", u"1000//" }, Case{ u"plain", u"plain" } })
+	{
+		text.labels["GUI:StartingMoneyFormat"] = c.pattern;
+		const auto entries = setup.startingCashEntries();
+		REQUIRE(entries.size() == 3);
+		CHECK(entries[1].text == c.expected);
+	}
 }
 
 } // namespace
@@ -958,17 +978,26 @@ TEST_CASE("retail lobby API: StartGame with more players than the map holds is r
 		}
 	}
 	REQUIRE(map);
-	for (int slot = 1; slot < LEGACY_MAX_SLOTS; ++slot)
+	REQUIRE(map->numPlayers == 2);
+	for (int slot = 1; slot < 3; ++slot)
 	{
 		GadgetComboBoxSetSelectedPos(fx.screen->slotGadget(slot, "Player"), 2, false); // every slot an easy AI
 	}
-	CHECK(fx.screen->setup()->info().numPlayers() == 8);
+	CHECK(fx.screen->setup()->info().numPlayers() == 3);
 	fx.wm->invokeCallback("AptSkirmish::StartGame", "");
 	fx.tick(2); // the screen update validates and posts (RotWK state 10)
 	CHECK(fx.sink.messages.empty());
 	REQUIRE(fx.sink.refusals.size() == 1);
 	CHECK(fx.sink.refusals[0].first.empty()); // lane GAMEMODES-1: MessageBoxOk(L"", text), RW 0x928482
 	CHECK(fx.sink.refusals[0].second == asciiToU16("Too many players: the map has " + std::to_string(map->numPlayers)));
+	REQUIRE(fx.screen->ruleBox());
+	CHECK(fx.screen->ruleBox()->type() == AptMessageBox::TYPE_OK);
+	CHECK(fx.screen->ruleBox()->title().empty());
+	CHECK(fx.screen->ruleBox()->text() == fx.sink.refusals[0].second);
+	fx.screen->ruleBox()->hide(true); // the API harness also runs the movie button's hide action
+	fx.wm->invokeCallback("_level" + std::to_string(fx.screen->ruleBox()->level()) + ".MessageBox_OnButtonOk", "");
+	fx.tick(30);
+	CHECK(fx.screen->ruleBox()->type() == AptMessageBox::TYPE_NONE);
 	// slots over the map's size are closed again: the lobby starts
 	for (int slot = (int)map->numPlayers; slot < LEGACY_MAX_SLOTS; ++slot)
 	{
@@ -1127,10 +1156,11 @@ TEST_CASE("stops S-178 / S-179: the lobby reports its inferences, the profile ga
 	CHECK(fx.screen->setup()->info().slots[0].handicap == -25);
 	GadgetComboBoxSetSelectedPos(handicap, 0, false);
 	CHECK(fx.screen->setup()->info().slots[0].handicap == 0);
-	// lane RULES-1: the rule rows of mode 0 (RW 0x960A46 / 0x960A5D: 2 combos + OpenBFME's Legendary Heroes row, 3 check boxes); the clan tab answers 0
+	// lane RULES-1: the rule rows of mode 0 (RW 0x960A46 / 0x960A5D: 2 combos + OpenBFME's Legendary Heroes row, 3 check boxes + lane CHEAT-1's Cheat
+	// Mode row); the clan tab answers 0
 	std::string value;
 	REQUIRE(fx.wm->getExtern("MpGameRules::NumCheckBoxes", value) == AptExternResult::Value);
-	CHECK(value == "3");
+	CHECK(value == "4");
 	REQUIRE(fx.wm->getExtern("MpGameRules::NumComboBoxes", value) == AptExternResult::Value);
 	CHECK(value == "3");
 	REQUIRE(fx.wm->getExtern("AptMpGameRules::ShowClans", value) == AptExternResult::Value);
@@ -1522,6 +1552,15 @@ TEST_CASE("retail lobby input: StartGame with more players than the map holds is
 	REQUIRE(fx.sink.refusals.size() == 1);
 	CHECK(fx.sink.refusals[0].first.empty()); // lane GAMEMODES-1: MessageBoxOk(L"", text), RW 0x928482
 	CHECK(fx.sink.refusals[0].second == asciiToU16("Too many players: the map has " + std::to_string(map->numPlayers)));
+	REQUIRE(fx.screen->ruleBox());
+	CHECK(fx.screen->ruleBox()->type() == AptMessageBox::TYPE_OK);
+	CHECK(fx.screen->ruleBox()->title().empty());
+	CHECK(fx.screen->ruleBox()->text() == fx.sink.refusals[0].second);
+	AptButtonInst *ok = firstButtonIn(fx.wm->apt().resolvePath(fx.wm->apt().level(fx.screen->ruleBox()->level()), "MessageBox.ButtonsOk.MessageBoxOk"));
+	REQUIRE(ok);
+	clickButton(fx, *ok);
+	fx.tick(30);
+	CHECK(fx.screen->ruleBox()->type() == AptMessageBox::TYPE_NONE);
 	for (int slot = (int)map->numPlayers; slot < LEGACY_MAX_SLOTS; ++slot)
 	{
 		chooseComboRow(fx, fx.screen->slotGadget(slot, "Player"), 1); // closed
@@ -1789,7 +1828,10 @@ TEST_CASE("rules1 retail lobby: the Rules tab shows RotWK's rows (Initial Resour
 	CHECK(fx.screen->ruleWindow(RULE_CLAN_GAME) == nullptr);
 	CHECK(GadgetCheckBoxIsChecked(fx.screen->ruleCheckWindow(0)));
 	CHECK(GadgetCheckBoxIsChecked(fx.screen->ruleCheckWindow(1)));
-	CHECK(fx.screen->ruleCheckWindow(2)->winIsHidden());
+	// lane CHEAT-1: OpenBFME's Cheat Mode row follows RotWK's rows (off), the clan row's place stays hidden after it
+	CHECK(fx.screen->cheatModeWindow() == fx.screen->ruleCheckWindow(2));
+	CHECK_FALSE(fx.screen->ruleCheckWindow(2)->winIsHidden());
+	CHECK_FALSE(GadgetCheckBoxIsChecked(fx.screen->ruleCheckWindow(2)));
 	CHECK(fx.screen->ruleCheckWindow(3)->winIsHidden());
 	// the row texts (RW 0x986B1C / 0x986810)
 	const std::string *t0 = fx.wm->aptText("APT:RuleComboBox_0");
@@ -1816,11 +1858,16 @@ TEST_CASE("rules1 retail lobby: the Rules tab shows RotWK's rows (Initial Resour
 	CHECK_FALSE(fx.screen->slotGadget(0, "Hero")->winGetEnabled()); // RW 0x842A85
 	GadgetComboBoxSetSelectedPos(legendary, 3, false);
 	CHECK(fx.screen->setup()->info().legendaryHeroes == 4);
+	// lane CHEAT-1: the host's Cheat Mode box puts the cheat seat on the host's slot
+	GadgetCheckBoxToggle(fx.screen->cheatModeWindow());
+	CHECK(fx.screen->setup()->info().cheatMode == 0);
 
 	// Reset (RW 0x98674C): the defaults, the widgets follow
 	fx.wm->invokeCallback("AptMpGameRules::Reset", "");
 	CHECK(fx.screen->setup()->info().rules == MpGameRules::defaults(RULES_MODE_SKIRMISH));
 	CHECK(fx.screen->setup()->info().legendaryHeroes == LegendaryHeroes::kOff);
+	CHECK(fx.screen->setup()->info().cheatMode == -1); // lane CHEAT-1
+	CHECK_FALSE(GadgetCheckBoxIsChecked(fx.screen->cheatModeWindow()));
 	CHECK(selectedValue(cash) == 1000);
 	CHECK(selectedValue(legendary) == 1);
 	CHECK(GadgetCheckBoxIsChecked(fx.screen->ruleCheckWindow(0)));
@@ -1829,6 +1876,7 @@ TEST_CASE("rules1 retail lobby: the Rules tab shows RotWK's rows (Initial Resour
 	// the game starts with the rules of the tab
 	GadgetComboBoxSetSelectedPos(cash, 4, false);
 	GadgetComboBoxSetSelectedPos(legendary, 3, false);
+	GadgetCheckBoxToggle(fx.screen->cheatModeWindow()); // lane CHEAT-1
 	fx.wm->invokeCallback("AptSkirmish::StartGame", "");
 	fx.tick(2);
 	REQUIRE(fx.sink.messages.size() == 1);
@@ -1836,6 +1884,7 @@ TEST_CASE("rules1 retail lobby: the Rules tab shows RotWK's rows (Initial Resour
 	CHECK(msg.game.rules[RULE_INITIAL_RESOURCES] == 1400);
 	CHECK(msg.game.rules[RULE_COMMAND_POINT_FACTOR] == 100);
 	CHECK(msg.game.legendaryHeroes == 4);
+	CHECK(msg.game.cheatMode == 0); // lane CHEAT-1
 	CHECK(msg.game.startingCash == -1);
 }
 
@@ -2245,4 +2294,781 @@ TEST_CASE("ownerfix3 retail lobby: a won skirmish against a Hard AI marks its ma
 	after << again.rdbuf();
 	CHECK(after.str() == before);
 	CHECK(score.honorsRecorded);
+}
+
+TEST_CASE("skirmish controller: shoulder tabs and explicit dropdown confirmation")
+{
+	OPENBFME_REQUIRE_RETAIL(mount);
+	LobbyFx fx(mount);
+	ruleLabels(fx.text);
+	openRulesTab(fx);
+	MenuNavigator nav(*fx.wm);
+	nav.setMenu(fx.screen->level(), fx.screen);
+	REQUIRE(nav.key(MenuNavKey::PagePrevious));
+	fx.tick(30);
+	bool maps = false;
+	for (const auto &target : nav.targets()) maps |= target.id.find(".TabButtons.RulesTab.") != std::string::npos;
+	CHECK(maps);
+	REQUIRE(nav.key(MenuNavKey::PageNext));
+	fx.tick(30);
+	REQUIRE(fx.screen->rulesPopulated());
+	GameWindow *combo = fx.screen->legendaryHeroesWindow();
+	REQUIRE(combo);
+	std::string id;
+	for (const auto &target : nav.targets()) if (target.window == combo) id = target.id;
+	REQUIRE_FALSE(id.empty());
+	for (int i = 0; i < 100 && nav.focusId() != id; ++i) REQUIRE(nav.key(MenuNavKey::Next));
+	REQUIRE(nav.focusId() == id);
+	int before = -1;
+	GadgetComboBoxGetSelectedPos(combo, &before);
+	REQUIRE(nav.key(MenuNavKey::Right));
+	int after = -1;
+	GadgetComboBoxGetSelectedPos(combo, &after);
+	CHECK(after == before); // closed dropdown navigation must not change the rule
+	for (int i = 0; i < 100 && nav.focusId() != id; ++i) REQUIRE(nav.key(MenuNavKey::Next));
+	REQUIRE(nav.focusId() == id);
+	REQUIRE(nav.key(MenuNavKey::Activate));
+	REQUIRE(fx.wm->gadgetLayer()->openDropDown() == combo);
+	REQUIRE(nav.key(MenuNavKey::Down));
+	GadgetComboBoxGetSelectedPos(combo, &after);
+	CHECK(after == before);
+	REQUIRE(nav.key(MenuNavKey::Activate));
+	CHECK(fx.wm->gadgetLayer()->openDropDown() == nullptr);
+	GadgetComboBoxGetSelectedPos(combo, &after);
+	CHECK(after == before + 1);
+	REQUIRE(nav.key(MenuNavKey::Activate));
+	REQUIRE(nav.key(MenuNavKey::Up));
+	REQUIRE(nav.key(MenuNavKey::Back));
+	GadgetComboBoxGetSelectedPos(combo, &before);
+	CHECK(before == after); // B cancels the preview
+	GameWindow *color = nullptr;
+	for (const auto &target : nav.targets())
+		if (target.window)
+		{
+			using Input = WindowMsgHandledType (*)(GameWindow *, std::uint32_t, WindowMsgData, WindowMsgData);
+			const auto input = target.window->winGetInputFunc();
+			const auto *fn = input.target<Input>();
+			if (fn && *fn == GadgetImageComboBoxInput) { color = target.window; id = target.id; break; }
+		}
+	REQUIRE(color);
+	for (int i = 0; i < 100 && nav.focusId() != id; ++i) REQUIRE(nav.key(MenuNavKey::Next));
+	REQUIRE(nav.focusId() == id);
+	// Crossing the player grid must preserve the row, including at its edges.
+	for (MenuNavKey direction : { MenuNavKey::Left, MenuNavKey::Right })
+	{
+		for (int i = 0; i < 100 && nav.focusId() != id; ++i) REQUIRE(nav.key(MenuNavKey::Next));
+		REQUIRE(nav.focusId() == id);
+		for (int step = 0; step < 8; ++step)
+		{
+			float previous[4], current[4];
+			REQUIRE(nav.focusBox(previous));
+			REQUIRE(nav.key(direction));
+			REQUIRE(nav.focusBox(current));
+			const float delta = std::fabs((previous[1] + previous[3] - current[1] - current[3]) * 0.5f);
+			// tolerance: same-row controls have different heights/centres; half the smaller height admits them but excludes the adjacent player row.
+			CHECK(delta <= 0.5f * std::min(previous[3] - previous[1], current[3] - current[1]));
+		}
+	}
+	for (int i = 0; i < 100 && nav.focusId() != id; ++i) REQUIRE(nav.key(MenuNavKey::Next));
+	REQUIRE(nav.focusId() == id);
+	GadgetImageComboBoxGetSelectedPos(color, &before);
+	REQUIRE(nav.key(MenuNavKey::Activate));
+	REQUIRE(fx.wm->gadgetLayer()->openDropDown() == color);
+	REQUIRE(nav.key(MenuNavKey::Down));
+	GadgetImageComboBoxGetSelectedPos(color, &after);
+	CHECK(after == before);
+	REQUIRE(nav.key(MenuNavKey::Back));
+	CHECK(fx.wm->gadgetLayer()->openDropDown() == nullptr);
+}
+
+TEST_CASE("skirmish controller: triggers confine navigation to three sections; keyboard is unrestricted")
+{
+	OPENBFME_REQUIRE_RETAIL(mount);
+	LobbyFx fx(mount);
+	ruleLabels(fx.text);
+	openRulesTab(fx);
+	MenuNavigator nav(*fx.wm);
+	nav.setMenu(fx.screen->level(), fx.screen);
+	const auto all = nav.targets();
+	nav.setControllerSections(true);
+	for (int section : { 2, 0, 1 })
+	{
+		nav.switchControllerSection(1);
+		CHECK(nav.controllerSection() == section);
+		const auto targets = nav.targets();
+		REQUIRE_FALSE(targets.empty());
+		for (const auto &t : targets)
+		{
+			if (section == 1) CHECK(t.id.find(".PlayerList.") != std::string::npos);
+			if (section == 2) CHECK(t.id.find(".MpMapAndSettings.") != std::string::npos);
+		}
+		if (section == 0)
+		{
+			bool start = false, back = false, profile = false;
+			for (const auto &t : targets)
+			{
+				start |= t.id.find(".StartGame.") != std::string::npos;
+				back |= t.id.find(".MainMenu.") != std::string::npos;
+				profile |= t.id.find(".ProfileNav.") != std::string::npos;
+			}
+			CHECK(start); CHECK(back); CHECK(profile);
+		}
+		for (MenuNavKey key : { MenuNavKey::Up, MenuNavKey::Down, MenuNavKey::Left, MenuNavKey::Right })
+			for (int i = 0; i < 10; ++i)
+			{
+				nav.key(key);
+				bool inside = false;
+				for (const auto &t : targets) inside |= t.id == nav.focusId();
+				CHECK(inside);
+			}
+		GadgetDrawList draw;
+		nav.appendFocusFrame(draw);
+		int accents = 0;
+		for (const auto &command : draw.commands)
+			if (command.window == "ControllerSection")
+			{
+				CHECK(command.kind == GadgetDrawCommand::Kind::Line);
+				CHECK(command.lineWidth == 1);
+				++accents;
+			}
+		CHECK(accents == 8);
+	}
+	nav.setControllerSections(false);
+	CHECK(nav.controllerSection() == -1);
+	CHECK(nav.targets().size() == all.size());
+}
+
+TEST_CASE("skirmish controller: bottom bar reaches Profile and player corners stop above toolbar")
+{
+	OPENBFME_REQUIRE_RETAIL(mount);
+	LobbyFx fx(mount);
+	ruleLabels(fx.text);
+	openRulesTab(fx);
+	MenuNavigator nav(*fx.wm);
+	nav.setMenu(fx.screen->level(), fx.screen);
+	const auto all = nav.targets();
+	float toolbarTop = 768;
+	for (const auto &t : all) if (t.id.find(".lobby.") != std::string::npos) toolbarTop = std::min(toolbarTop, t.y0);
+	nav.setControllerSections(true);
+	nav.switchControllerSection(-1);
+	for (int i = 0; i < 10 && nav.focusId().find(".MainMenu.") == std::string::npos; ++i) nav.key(MenuNavKey::Left);
+	REQUIRE(nav.focusId().find(".MainMenu.") != std::string::npos);
+	nav.key(MenuNavKey::Right);
+	CHECK(nav.focusId().find(".ProfileNav.") != std::string::npos);
+	fx.tick(60);
+	bool change = false;
+	for (const auto &t : nav.targets()) change |= t.id.find(".ProfileNav.ChangeProfile.") != std::string::npos;
+	CHECK(change);
+	// PROFILE still uses a full-stage click-away button on this non-main screen.
+	REQUIRE_FALSE(nav.catchers().empty());
+	REQUIRE(nav.key(MenuNavKey::Back));
+	fx.tick(90);
+	for (const auto &target : nav.targets())
+		CHECK(target.id.find(".ProfileNav.ChangeProfile.") == std::string::npos);
+	// Reopen through the same authored rollover before checking entry activation.
+	for (const auto &target : all)
+		if (target.id.find(".ProfileNav.bttn") != std::string::npos)
+			fx.wm->postMouseMove(target.cx(), target.cy());
+	fx.tick(60);
+	REQUIRE_FALSE(nav.catchers().empty());
+	REQUIRE(nav.key(MenuNavKey::Activate));
+	fx.tick(10);
+	CHECK(nav.focusId().find(".ProfileNav.") != std::string::npos);
+	bool selected = false;
+	for (int i = 0; i < 6 && !selected; ++i)
+	{
+		selected = nav.focusId().find(".ChangeProfile.") != std::string::npos;
+		if (!selected) { nav.key(MenuNavKey::Up); fx.tick(10); }
+	}
+	REQUIRE(selected);
+	REQUIRE(nav.key(MenuNavKey::Activate));
+	fx.tick(60);
+	CHECK(popupButton(fx, "ProfilePopup.Main.Cancel") != nullptr);
+	REQUIRE(fx.wm->invokeASAt(1, "ProfilePopup", "ClosePop", {}));
+	fx.tick(60);
+	fx.wm->postMouseMove(512, 300);
+	fx.tick(90);
+	nav.switchControllerSection(1);
+	fx.tick(90);
+	GadgetDrawList draw;
+	nav.appendFocusFrame(draw);
+	int corners = 0;
+	for (const auto &command : draw.commands) if (command.window == "ControllerSection")
+	{
+		// tolerance: the section accents must stay above the authored toolbar boundary.
+		CHECK(command.y0 < toolbarTop);
+		// tolerance: both endpoints of each corner stroke must stay above the toolbar.
+		CHECK(command.y1 < toolbarTop);
+		++corners;
+	}
+	CHECK(corners == 8);
+}
+
+TEST_CASE("results controller: A skips preview, More and Continue default, B returns")
+{
+	OPENBFME_REQUIRE_RETAIL(mount);
+	LobbyFx fx(mount, false);
+	ScoreScreenData score;
+	score.valid = true;
+	score.type = 2;
+	fx.environment.scoreScreen = &score;
+	fx.shell->push("TimeLine.apt");
+	fx.tick(30);
+	MenuNavigator nav(*fx.wm);
+	nav.setMenu(fx.shell->top()->level(), fx.shell->top());
+	nav.setControllerResults(true);
+	CHECK(nav.focusId().find(".MainButtons.Skip") != std::string::npos);
+	REQUIRE(nav.key(MenuNavKey::Previous));
+	const std::string previewFocus = nav.focusId();
+	nav.setControllerResults(true);
+	CHECK(nav.focusId() == previewFocus);
+	REQUIRE(nav.key(MenuNavKey::Activate));
+	fx.tick(60);
+	nav.setControllerResults(true);
+	CHECK(nav.focusId().find(".MainButtons.More") != std::string::npos);
+	REQUIRE(nav.key(MenuNavKey::Activate));
+	fx.tick(60);
+	nav.setControllerResults(true);
+	CHECK(nav.focusId().find(".MainButtons.Continue") != std::string::npos);
+	REQUIRE(nav.key(MenuNavKey::Previous));
+	REQUIRE(nav.key(MenuNavKey::Back));
+	fx.tick(60);
+	nav.setControllerResults(true);
+	CHECK(nav.focusId().find(".MainButtons.More") != std::string::npos);
+}
+
+namespace
+{
+struct Bfme1ProfileFixture
+{
+	std::filesystem::path folder = std::filesystem::temp_directory_path() / ("openbfme-bfme1-profile-" + std::to_string(std::random_device{}()));
+	MemorySource source;
+	RecordingShellServices services;
+	MapGameText text;
+	FakeSetup setup;
+	RecordingNewGameSink games;
+	Win32BIGFileSystem fs;
+	std::unique_ptr<SkirmishPreferences> profiles;
+	ShellEnvironment environment;
+	AptScreenFactoryTable factories;
+	GadgetSkinData skins;
+	WindowManager windows;
+	AptGadgetLayer layer;
+	Shell shell;
+	AptSkirmish *screen = nullptr;
+
+	explicit Bfme1ProfileFixture(bool bfme1 = true, bool existing = true, const std::string &templates = {})
+		: windows(source, services), layer(windows, source, skins), shell(windows, factories, services, environment)
+	{
+		std::filesystem::create_directories(folder);
+		profiles = std::make_unique<SkirmishPreferences>((folder / "Skirmish.ini").string());
+		if (existing)
+		{
+			REQUIRE(profiles->add(u"Alice"));
+			REQUIRE(profiles->setCurrent(u"Alice"));
+			REQUIRE(profiles->add(u"Bob"));
+		}
+		std::ofstream(folder / "AliceSkirmishStats.ini") << "ProfileCreatedDate = 2025-04-17\nGondorWins = 7\nGondorLosses = 3\nGondorWinStreak = 2\nGondorBestWinStreak = 4\nGondorTimePlayed = 97200\nGondorPoints = 9\nRohanWins = 2\nRohanPoints = 1500\n"
+			"maps\\fords\\fords.map_5 = 1\nmaps\\hard\\hard.map_4 = 1\nmaps\\medium\\medium.map_3 = 1\nmaps\\easy\\easy.map_2 = 1\n";
+		fs.setDerivedFile("Data/INI/Default/SubsystemLegend.ini", {}, "test", {});
+		if (!bfme1) fs.setDerivedFile("Data/INI/AwardSystem.ini", {}, "test", {});
+		setup.fac = { FakeSetup::faction("FactionGondor", "Gondor", true, "Castle"), FakeSetup::faction("FactionRohan", "Rohan", true, "Castle") };
+		if (!templates.empty())
+		{
+			std::string error;
+			REQUIRE_MESSAGE(IniSkirmishSetupSource::scanPlayerTemplates(templates, setup.fac, &error), error);
+		}
+		for (const char *name : { "AptRankIcon0", "AptRankIcon1", "AptRankIcon2", "AptRankIcon10", "AptRankIconGondor2", "AptRankIconRohan10" })
+		{
+			Image image;
+			image.name = name;
+			image.imageSize = { 8, 8 };
+			skins.images.addImage(image);
+		}
+		setup.map = { FakeSetup::mapEntry("maps/fords/fords.map", "Fords of Isen", 2, true, 1),
+			FakeSetup::mapEntry("maps/hard/hard.map", "Hard map", 2, true, 2),
+			FakeSetup::mapEntry("maps/medium/medium.map", "Medium map", 2, true, 3),
+			FakeSetup::mapEntry("maps/easy/easy.map", "Easy map", 2, true, 4),
+			FakeSetup::mapEntry("maps/custom/custom.map", "Custom map", 2, true, 5) };
+		for (auto &map : setup.map) map.isOfficial = map.name != "maps/custom/custom.map";
+		lobbyLabels(text);
+		for (const auto &label : std::map<std::string, std::string>{ { "APT:DashDash", "--" }, { "APT:NewProfile", "New profile" },
+			{ "APT:DeleteProfile", "Delete profile" }, { "APT:GondorCaps", "GONDOR" }, { "APT:RohanCaps", "ROHAN" },
+			{ "APT:CurrentLevelFormat", "Level %s" }, { "APT:CurrentLevelNumFormat", "Level %d" }, { "APT:WinsNumFormat", "%d wins" },
+			{ "APT:WinsNumFormatForOnePoint", "%d win" }, { "Apt:TimePlayed", "%d days %d hours" },
+			{ "Apt:OfficialMaps", "Official maps" }, { "Apt:PlayerMadeMaps", "Player-made maps" } }) text.set(label.first, label.second);
+		environment.gameText = &text;
+		environment.skirmish = &setup;
+		environment.profiles = profiles.get();
+		environment.newGame = &games;
+		environment.fileSystem = &fs;
+		TestMovie level0;
+		level0.setRootFrames({ {} });
+		source.add("AptLevel0", level0);
+		TestMovie movie;
+		const auto shape = movie.addCharacter(movie.addShape(0, 0, 100, 24, 0));
+		const auto sprite = movie.addCharacter(movie.addSprite({ { movie.addPlaceItem(placeChar(shape, 1, "bounds")) } }));
+		movie.addExport("ProfileCombo", sprite);
+		movie.addExport("ProfileList", sprite);
+		movie.addExport("ProfileEntry", sprite);
+		std::vector<std::uint32_t> frame;
+		int depth = 0;
+		for (const auto &widget : std::map<std::string, std::string>{ { "Skirmish::PlayerProfile", "AptSkirmish::InitGadgets" },
+			{ "Skirmish::CreatePersonaEntry", "AptSkirmish::InitGadgets" }, { "MapList", "MpGameSetup::GadgetInit" },
+			{ "MpGameSetup::MapType", "MpGameSetup::GadgetInit" }, { "0/PlayerTemplate", "MpGameSetup::GadgetInit" } })
+		{
+			++depth;
+			auto placement = placeChar(sprite, depth, "combo" + std::to_string(depth));
+			placement.flags |= APT_PLACE_HASCLIPACTION;
+			placement.events.push_back({ APT_CLIP_CONSTRUCT, 0, program(movie, [&](Asm &code) {
+				code.pushString("_type").setStringVar(widget.first == "MapList" ? "ProfileList" : widget.first == "Skirmish::CreatePersonaEntry" ? "ProfileEntry" : "ProfileCombo");
+				code.pushString("_Init").setStringVar(widget.second);
+				code.pushString("_WindowId").setStringVar(widget.first);
+			}) });
+			frame.push_back(movie.addPlaceItem(placement));
+		}
+		frame.insert(frame.begin(), movie.addActionItem(program(movie, [](Asm &code) {
+			code.defineFunction("ShowSkirmishMovie", { "value" }, [](Asm &body) {
+				body.getStringVar("_root").pushString("profileMovie").getStringVar("value").op(APT_OP_SETMEMBER);
+			});
+			code.defineFunction("SetProgressBar", { "value" }, [](Asm &body) {
+				body.getStringVar("_root").pushString("profileProgress").getStringVar("value").op(APT_OP_SETMEMBER);
+			});
+		})));
+		frame.push_back(movie.addActionItem(program(movie, [](Asm &code) { fscmd(code, "AptSkirmish::OnInitialized"); code.op(APT_OP_STOP); })));
+		movie.setRootFrames({ frame });
+		source.add("Skirmish", movie);
+		factories.registerFactory("Skirmish.apt", [](AptScreenContext &context) { return std::make_unique<AptSkirmish>(context.windows, context.shell, context.environment); });
+		for (const char *symbol : { "ProfileCombo", "ProfileList", "ProfileEntry" })
+		windows.registerComponent(symbol, [this](AptComponentRequest &request) -> std::shared_ptr<GameWindow> {
+			WinInstanceData instance;
+			GameWindow *window = nullptr;
+			if (request.type == "ProfileList")
+			{
+				instance.m_style = GWS_SCROLL_LISTBOX;
+				ListboxData data;
+				data.columns = 5;
+				data.columnWidthPercentage = { 8, 2, 70, 10, 10 };
+				data.listLength = 16;
+				window = layer.gadgets().gogoGadgetListBox(nullptr, WIN_STATUS_ENABLED, 0, 0, 300, 120, &instance, &data, nullptr, false);
+			}
+			else if (request.type == "ProfileEntry")
+			{
+				instance.m_style = GWS_ENTRY_FIELD;
+				EntryData data;
+				data.maxTextLen = 110;
+				window = layer.gadgets().gogoGadgetTextEntry(nullptr, WIN_STATUS_ENABLED, 0, 0, 150, 24, &instance, &data, nullptr, false);
+			}
+			else
+			{
+				instance.m_style = GWS_COMBO_BOX;
+				ComboBoxData data;
+				data.listboxTemplate.columns = 1;
+				data.listboxTemplate.listLength = 16;
+				data.maxDisplay = 8;
+				window = layer.gadgets().gogoGadgetComboBox(nullptr, WIN_STATUS_ENABLED, 0, 0, 100, 24, &instance, &data, nullptr, false);
+			}
+			if (!window) return {};
+			window->setAptInstanceName(request.instanceName);
+			return { window, [this](GameWindow *gadget) { layer.gadgets().winDestroy(gadget); layer.gadgets().processDestroyList(); } };
+		});
+		windows.init();
+		shell.push("Skirmish.apt");
+		screen = dynamic_cast<AptSkirmish *>(shell.top());
+		REQUIRE(screen);
+		for (int tick = 0; tick < 3; ++tick) windows.update(33);
+		REQUIRE(screen->setup());
+	}
+	~Bfme1ProfileFixture()
+	{
+		shell.clear();
+		std::error_code error;
+		std::filesystem::remove_all(folder, error);
+	}
+	std::string value(const std::string &name)
+	{
+		const auto *result = windows.aptText(name);
+		return result ? *result : "<unset>";
+	}
+	std::string movieValue(const std::string &name)
+	{
+		AptValue value;
+		return windows.apt().level(screen->level())->getMember(name, value) ? value.toString() : "<unset>";
+	}
+	void choose(GameWindow *combo, int row)
+	{
+		REQUIRE(combo);
+		GadgetComboBoxSetSelectedPos(combo, row, true);
+		layer.gadgets().winSendSystemMsg(screen->ownerWindow(), GCM_SELECTED, msgData(combo), 0);
+	}
+};
+}
+
+TEST_CASE("bfme1 skirmish profile: real honors, faction artwork and rank follow the selected faction")
+{
+	Bfme1ProfileFixture fixture;
+	CHECK(fixture.value("APT:PlayerNameNum") == "Alice");
+	CHECK(fixture.value("APT:SkirmishProfileCreatedNum") == "2025-04-17");
+	CHECK(fixture.value("APT:TotalCareerWinsNum") == "--");
+	fixture.choose(fixture.screen->slotGadget(0, "PlayerTemplate"), 1);
+	CHECK(fixture.value("APT:TotalCareerWinsNum") == "7");
+	CHECK(fixture.value("APT:TotalCareerLossesNum") == "3");
+	CHECK(fixture.value("APT:TotalCareerGamesNum") == "10");
+	CHECK(fixture.value("APT:CurrentWinStreakNumA") == "2");
+	CHECK(fixture.value("APT:BestWinStreakNumA") == "4");
+	CHECK(fixture.value("APT:TotalTimePlayedNum") == "1 days 3 hours");
+	CHECK(fixture.value("APT:CurFactionNameStr") == "GONDOR");
+	CHECK(fixture.value("APT:CurrentLevelFormat") == "Level 2");
+	CHECK(fixture.value("APT:NextWinsNumber") == "1 win");
+	CHECK(fixture.movieValue("profileMovie") == "0");
+	CHECK(fixture.movieValue("profileProgress") == "80");
+	REQUIRE(fixture.windows.aptImage("CreateComponents/ImageLevelIconMain"));
+	CHECK(*fixture.windows.aptImage("CreateComponents/ImageLevelIconMain") == "AptRankIconGondor2");
+	fixture.choose(fixture.screen->slotGadget(0, "PlayerTemplate"), 2);
+	CHECK(fixture.value("APT:CurFactionNameStr") == "ROHAN");
+	CHECK(fixture.value("APT:TotalCareerWinsNum") == "2");
+	CHECK(fixture.value("APT:CurrentLevelFormat") == "Level 10");
+	CHECK(fixture.value("APT:NextWinsNumber") == "0 wins");
+	CHECK(fixture.movieValue("profileMovie") == "1");
+	CHECK(fixture.movieValue("profileProgress") == "100");
+	fixture.choose(fixture.screen->slotGadget(0, "PlayerTemplate"), 0);
+	CHECK(fixture.value("APT:CurFactionNameStr") == "--");
+	CHECK(fixture.movieValue("profileMovie") == "0");
+	CHECK(fixture.movieValue("profileProgress") == "0");
+	CHECK(*fixture.windows.aptImage("CreateComponents/ImageLevelIconMain") == "AptRankIcon0");
+}
+
+TEST_CASE("bfme1 skirmish profile: loaded faction indices, renamed sides and mounted rank images drive presentation")
+{
+	const std::string templates =
+		"PlayerTemplate FactionHidden\nSide = Hidden\nPlayableSide = No\nEnd\n"
+		"PlayerTemplate FactionObserver\nSide = Observer\nPlayableSide = Yes\nIsObserver = Yes\nEnd\n"
+		"PlayerTemplate FactionRohan\nSide = Rohan\nPlayableSide = Yes\nDisplayName = INI:FactionRohan\nStartingBuilding = Castle\nEnd\n"
+		"PlayerTemplate FactionNorthRealm\nSide = Haven\nPlayableSide = Yes\nDisplayName = INI:FactionNorthRealm\nStartingBuilding = Castle\nEnd\n"
+		"PlayerTemplate FactionGondor\nSide = Gondor\nPlayableSide = Yes\nDisplayName = INI:FactionGondor\nStartingBuilding = Castle\nEnd\n";
+	Bfme1ProfileFixture fixture(true, true, templates);
+	fixture.text.set("INI:FactionNorthRealm", "Northern Haven");
+	fixture.text.set("APT:HavenCaps", "NORTHERN HAVEN");
+	std::ofstream(fixture.folder / "AliceSkirmishStats.ini", std::ios::app) << "HavenWins = 3\nHavenLosses = 1\nHavenPoints = 7\n";
+	std::string expectedIcon = "AptRankIcon2";
+	SUBCASE("a faction-specific mapped rank image takes precedence")
+	{
+		Image image;
+		image.name = "AptRankIconHaven2";
+		image.imageSize = { 8, 8 };
+		fixture.skins.images.addImage(image);
+		expectedIcon = image.name;
+	}
+	SUBCASE("the native generic rank image is used when faction artwork is absent") {}
+	GameWindow *combo = fixture.screen->slotGadget(0, "PlayerTemplate");
+	REQUIRE(combo);
+	CHECK(GadgetComboBoxGetLength(combo) == 4);
+	fixture.choose(combo, 1);
+	CHECK(fixture.screen->setup()->info().slots[0].playerTemplate == 2);
+	CHECK(fixture.value("APT:CurFactionNameStr") == "ROHAN");
+	CHECK(fixture.movieValue("profileMovie") == "2");
+	fixture.choose(combo, 2);
+	CHECK(fixture.screen->setup()->info().slots[0].playerTemplate == 3);
+	CHECK(fixture.value("APT:CurFactionNameStr") == "NORTHERN HAVEN");
+	CHECK(fixture.value("APT:TotalCareerWinsNum") == "3");
+	CHECK(fixture.value("APT:TotalCareerGamesNum") == "4");
+	CHECK(fixture.value("APT:CurrentLevelFormat") == "Level 2");
+	CHECK(fixture.value("APT:NextWinsNumber") == "3 wins");
+	CHECK(fixture.movieValue("profileMovie") == "3");
+	CHECK(fixture.movieValue("profileProgress") == "40");
+	REQUIRE(fixture.windows.aptImage("CreateComponents/ImageLevelIconMain"));
+	CHECK(*fixture.windows.aptImage("CreateComponents/ImageLevelIconMain") == expectedIcon);
+	fixture.choose(combo, 3);
+	CHECK(fixture.screen->setup()->info().slots[0].playerTemplate == 4);
+	CHECK(fixture.value("APT:CurFactionNameStr") == "GONDOR");
+	CHECK(fixture.movieValue("profileMovie") == "4");
+	fixture.choose(combo, 0);
+	CHECK(fixture.value("APT:CurFactionNameStr") == "--");
+	CHECK(fixture.movieValue("profileMovie") == "0");
+}
+
+TEST_CASE("bfme1 skirmish profile: profile and map type combos replace retail placeholder entries")
+{
+	Bfme1ProfileFixture fixture;
+	GameWindow *profiles = fixture.screen->profileComboWindow();
+	REQUIRE(profiles);
+	CHECK(GadgetComboBoxGetLength(profiles) == 4);
+	CHECK(GadgetComboBoxGetText(profiles) == u"Alice");
+	GameWindow *mapType = fixture.screen->mapTypeWindow();
+	REQUIRE(mapType);
+	CHECK(GadgetComboBoxGetLength(mapType) == 2);
+	CHECK(GadgetComboBoxGetText(mapType) == u"Official maps");
+	fixture.choose(mapType, 1);
+	CHECK_FALSE(fixture.screen->bfme1OfficialMaps());
+	CHECK(GadgetComboBoxGetText(mapType) == u"Player-made maps");
+	fixture.choose(profiles, 1);
+	CHECK(fixture.profiles->current() == u"Bob");
+	CHECK(fixture.value("APT:PlayerNameNum") == "Bob");
+	CHECK(fixture.value("APT:SkirmishProfileCreatedNum") == "--");
+	fixture.choose(fixture.screen->slotGadget(0, "PlayerTemplate"), 1);
+	CHECK(fixture.value("APT:TotalCareerWinsNum") == "0");
+	CHECK(fixture.value("APT:CurrentLevelFormat") == "Level 1");
+	CHECK_FALSE(std::filesystem::exists(fixture.folder / "BobSkirmishStats.ini"));
+}
+
+TEST_CASE("bfme1 skirmish profile: absent profiles show dashes without inventing a creation date")
+{
+	Bfme1ProfileFixture fixture(true, false);
+	CHECK(fixture.value("APT:PlayerNameNum") == "--");
+	CHECK(fixture.value("APT:SkirmishProfileCreatedNum") == "--");
+	CHECK(fixture.value("APT:TotalCareerWinsNum") == "--");
+	CHECK(fixture.value("APT:CurrentLevelFormat") == "Level --");
+}
+
+TEST_CASE("bfme1 skirmish profile: BFME2 data does not receive BFME1 profile records or dropdowns")
+{
+	Bfme1ProfileFixture fixture(false);
+	CHECK(fixture.value("APT:PlayerNameNum") == "<unset>");
+	CHECK(fixture.screen->profileComboWindow() == nullptr);
+	CHECK(fixture.screen->mapTypeWindow() == nullptr);
+	CHECK(fixture.windows.aptImage("CreateComponents/ImageLevelIconMain") == nullptr);
+	const auto images = fixture.screen->mapListImages();
+	fixture.screen->recordsChanged();
+	CHECK(fixture.screen->mapListImages() == images);
+	CHECK(fixture.value("APT:PlayerNameNum") == "<unset>");
+	REQUIRE(fixture.screen->profileEntryWindow());
+	GadgetTextEntrySetText(fixture.screen->profileEntryWindow(), u"BFME2New");
+	REQUIRE(fixture.windows.invokeCallback("AptSkirmish::OnAddProfileAccept", ""));
+	CHECK_FALSE(std::filesystem::exists(fixture.folder / "BFME2NewSkirmishStats.ini"));
+	CHECK(fixture.profiles->profileValue(0, "OpenBFMEProfileCreatedDate").empty());
+}
+
+TEST_CASE("bfme1 skirmish profile: new personas persist their real creation date without backfilling old profiles")
+{
+	Bfme1ProfileFixture fixture;
+	fixture.choose(fixture.screen->profileComboWindow(), 2);
+	REQUIRE(fixture.screen->profileEntryWindow());
+	GadgetTextEntrySetText(fixture.screen->profileEntryWindow(), u"Charlie");
+	const std::time_t before = std::time(nullptr);
+	REQUIRE(fixture.windows.invokeCallback("AptSkirmish::OnAddProfileAccept", ""));
+	const std::time_t after = std::time(nullptr);
+	REQUIRE(fixture.profiles->current() == u"Charlie");
+	auto date = [](std::time_t value) {
+		char result[32] = {};
+		const std::tm *local = std::localtime(&value);
+		if (local) std::strftime(result, sizeof(result), "%Y-%m-%d", local);
+		return std::string(result);
+	};
+	const std::string displayed = fixture.value("APT:SkirmishProfileCreatedNum");
+	CHECK((displayed == date(before) || displayed == date(after)));
+	OptionPreferences saved;
+	std::string error;
+	REQUIRE_MESSAGE(saved.load((fixture.folder / "CharlieSkirmishStats.ini").string(), &error), error);
+	CHECK(saved.get("ProfileCreatedDate") == displayed);
+	SkirmishPreferences reopened((fixture.folder / "Skirmish.ini").string());
+	CHECK(reopened.profileValue(0, "OpenBFMEProfileCreatedDate") == displayed);
+	fixture.choose(fixture.screen->profileComboWindow(), 1);
+	CHECK(fixture.value("APT:SkirmishProfileCreatedNum") == "--");
+	CHECK_FALSE(std::filesystem::exists(fixture.folder / "BobSkirmishStats.ini"));
+}
+
+TEST_CASE("bfme1 skirmish profile: recreating a deleted persona does not inherit its statistics")
+{
+	Bfme1ProfileFixture fixture;
+	fixture.choose(fixture.screen->slotGadget(0, "PlayerTemplate"), 1);
+	CHECK(fixture.value("APT:TotalCareerWinsNum") == "7");
+	std::ofstream(fixture.folder / "AliceSkirmishStats.ini", std::ios::app) << "OpenBFMERecordedGame:deleted-game = 1\n";
+	fixture.choose(fixture.screen->profileComboWindow(), 3);
+	REQUIRE(fixture.windows.invokeCallback("AptSkirmish::Skirmish::PersonaRemove", ""));
+	REQUIRE(fixture.profiles->current() == u"Bob");
+	fixture.choose(fixture.screen->profileComboWindow(), 1);
+	REQUIRE(fixture.screen->profileEntryWindow());
+	GadgetTextEntrySetText(fixture.screen->profileEntryWindow(), u"Alice");
+	REQUIRE(fixture.windows.invokeCallback("AptSkirmish::OnAddProfileAccept", ""));
+	REQUIRE(fixture.profiles->current() == u"Alice");
+	fixture.choose(fixture.screen->slotGadget(0, "PlayerTemplate"), 1);
+	for (const char *label : { "APT:TotalCareerWinsNum", "APT:TotalCareerLossesNum", "APT:TotalCareerGamesNum", "APT:CurrentWinStreakNumA", "APT:BestWinStreakNumA" })
+		CHECK(fixture.value(label) == "0");
+	CHECK(fixture.value("APT:CurrentLevelFormat") == "Level 1");
+	CHECK(fixture.value("APT:TotalTimePlayedNum") == "0 days 0 hours");
+	CHECK(fixture.movieValue("profileProgress") == "0");
+	CHECK(fixture.screen->mapListImages() == std::vector<std::string>(4, "AptDifficultyNotConquered"));
+	fixture.choose(fixture.screen->slotGadget(0, "PlayerTemplate"), 2);
+	CHECK(fixture.value("APT:TotalCareerWinsNum") == "0");
+	CHECK(fixture.value("APT:CurrentLevelFormat") == "Level 1");
+	OptionPreferences saved;
+	std::string error;
+	REQUIRE_MESSAGE(saved.load((fixture.folder / "AliceSkirmishStats.ini").string(), &error), error);
+	CHECK(saved.values().size() == 1);
+	CHECK(saved.get("ProfileCreatedDate") == fixture.value("APT:SkirmishProfileCreatedNum"));
+	CHECK(saved.get("ProfileCreatedDate") != "2025-04-17");
+	CHECK_FALSE(saved.has("OpenBFMERecordedGame:deleted-game"));
+	SkirmishPreferences reopened((fixture.folder / "Skirmish.ini").string());
+	CHECK(reopened.current() == u"Alice");
+	CHECK(reopened.profileValue(0, "OpenBFMEProfileCreatedDate") == saved.get("ProfileCreatedDate"));
+}
+
+TEST_CASE("bfme1 skirmish profile: switching personas refreshes map badges and preserves map selection and filter")
+{
+	Bfme1ProfileFixture fixture;
+	const auto keys = fixture.screen->mapListKeys();
+	const auto images = fixture.screen->mapListImages();
+	REQUIRE(keys.size() == 4);
+	auto selectMap = [&](int row) {
+		fixture.layer.gadgets().winSendSystemMsg(fixture.screen->ownerWindow(), GLM_SELECTED, msgData(fixture.screen->mapListWindow()), (WindowMsgData)row);
+	};
+	selectMap(0);
+	fixture.choose(fixture.screen->profileComboWindow(), 1);
+	selectMap(1);
+	fixture.choose(fixture.screen->profileComboWindow(), 0);
+	auto checkSelection = [&](const std::string &map) {
+		CHECK(fixture.screen->setup()->info().mapName == map);
+		const auto &currentKeys = fixture.screen->mapListKeys();
+		const auto selected = std::find(currentKeys.begin(), currentKeys.end(), map);
+		REQUIRE(selected != currentKeys.end());
+		int row = -1;
+		GadgetListBoxGetSelected(fixture.screen->mapListWindow(), &row);
+		CHECK(row == (int)std::distance(currentKeys.begin(), selected));
+	};
+	checkSelection(keys[0]);
+	fixture.choose(fixture.screen->profileComboWindow(), 1);
+	CHECK(fixture.screen->mapListKeys() == keys);
+	CHECK(fixture.screen->mapListImages() == std::vector<std::string>(4, "AptDifficultyNotConquered"));
+	checkSelection(keys[1]);
+	fixture.choose(fixture.screen->profileComboWindow(), 0);
+	CHECK(fixture.screen->mapListKeys() == keys);
+	CHECK(fixture.screen->mapListImages() == images);
+	checkSelection(keys[0]);
+	fixture.choose(fixture.screen->mapTypeWindow(), 1);
+	fixture.choose(fixture.screen->profileComboWindow(), 1);
+	CHECK_FALSE(fixture.screen->bfme1OfficialMaps());
+	CHECK(fixture.screen->mapListKeys() == std::vector<std::string>{ "maps/custom/custom.map" });
+	CHECK(fixture.screen->mapListImages() == std::vector<std::string>{ "AptDifficultyNotConquered" });
+	fixture.choose(fixture.screen->mapTypeWindow(), 0);
+	CHECK(fixture.screen->mapListImages() == std::vector<std::string>(4, "AptDifficultyNotConquered"));
+}
+
+TEST_CASE("bfme1 skirmish profile: recorded matches persist per-profile faction statistics once and refresh the display")
+{
+	Bfme1ProfileFixture fixture;
+	fixture.choose(fixture.screen->slotGadget(0, "PlayerTemplate"), 1);
+	GameRecord record;
+	record.id = "bfme1-profile-win";
+	record.kind = "skirmish";
+	record.mode = "faithful";
+	record.map = "maps/fords/fords.map";
+	record.start = 1700000000;
+	record.end = record.start + 3600;
+	record.durationS = 3600;
+	record.players = { { 0, "Alice", "FactionGondor", 0, true }, { 1, "AI", "FactionRohan", 1, false } };
+	record.meSlot = 0;
+	record.winnerTeam = 0;
+	std::string error;
+	REQUIRE_MESSAGE(Bfme1SkirmishProfiles::recordGame(*fixture.profiles, fixture.setup, record, &error), error);
+	REQUIRE(Bfme1SkirmishProfiles::recordGame(*fixture.profiles, fixture.setup, record, &error));
+	fixture.screen->recordsChanged();
+	CHECK(fixture.value("APT:TotalCareerWinsNum") == "8");
+	CHECK(fixture.value("APT:CurrentWinStreakNumA") == "3");
+	CHECK(fixture.value("APT:TotalTimePlayedNum") == "1 days 4 hours");
+	CHECK(fixture.value("APT:SkirmishProfileCreatedNum") == "2025-04-17");
+	CHECK(fixture.value("APT:CurrentLevelFormat") == "Level 2");
+	fixture.choose(fixture.screen->profileComboWindow(), 1);
+	record.id = "bfme1-profile-loss";
+	record.winnerTeam = 1;
+	REQUIRE(Bfme1SkirmishProfiles::recordGame(*fixture.profiles, fixture.setup, record, &error));
+	fixture.choose(fixture.screen->profileComboWindow(), 0);
+	fixture.choose(fixture.screen->slotGadget(0, "PlayerTemplate"), 1);
+	CHECK(fixture.value("APT:TotalCareerWinsNum") == "8");
+	CHECK(fixture.value("APT:TotalCareerLossesNum") == "4");
+	CHECK(fixture.value("APT:CurrentWinStreakNumA") == "0");
+	CHECK(fixture.value("APT:TotalTimePlayedNum") == "1 days 5 hours");
+	record.id = "bfme1-profile-cheat";
+	record.cheatMode = true;
+	REQUIRE(Bfme1SkirmishProfiles::recordGame(*fixture.profiles, fixture.setup, record, &error));
+	fixture.screen->recordsChanged();
+	CHECK(fixture.value("APT:TotalCareerLossesNum") == "4");
+	record.id = "bfme1-profile-lan";
+	record.cheatMode = false;
+	record.kind = "lan";
+	record.players[0].nick = "Bob";
+	REQUIRE(Bfme1SkirmishProfiles::recordGame(*fixture.profiles, fixture.setup, record, &error));
+	CHECK_FALSE(std::filesystem::exists(fixture.folder / "BobSkirmishStats.ini"));
+	record.id = "bfme1-profile-old-date-unknown";
+	record.kind = "skirmish";
+	REQUIRE(Bfme1SkirmishProfiles::recordGame(*fixture.profiles, fixture.setup, record, &error));
+	fixture.choose(fixture.screen->profileComboWindow(), 1);
+	fixture.choose(fixture.screen->slotGadget(0, "PlayerTemplate"), 1);
+	CHECK(fixture.value("APT:TotalCareerLossesNum") == "1");
+	CHECK(fixture.value("APT:SkirmishProfileCreatedNum") == "--");
+}
+
+TEST_CASE("bfme1 skirmish profile: rank points and hard-glow honors require a matching actual difficulty snapshot")
+{
+	Bfme1ProfileFixture fixture;
+	fixture.choose(fixture.screen->slotGadget(0, "PlayerTemplate"), 1);
+	GameRecord record;
+	record.id = "bfme1-profile-hard-win";
+	record.kind = "skirmish";
+	record.mode = "faithful";
+	record.map = "maps/fords/fords.map";
+	record.durationS = 3600;
+	record.players = { { 0, "Alice", "FactionGondor", 0, true }, { 1, "AI", "FactionRohan", 1, false } };
+	record.meSlot = 0;
+	record.winnerTeam = 0;
+	SkirmishHonorsGame game;
+	game.localSlot = 0;
+	game.mapKey = record.map;
+	game.mapPlayers = 2;
+	game.slots[0] = { SLOT_PLAYER, -1 };
+	game.slots[1] = { SLOT_HARD_AI, -1 };
+	std::string error;
+	OptionPreferences saved;
+	const std::string path = (fixture.folder / "AliceSkirmishStats.ini").string();
+	REQUIRE(saved.load(path, &error));
+	saved.erase("maps\\fords\\fords.map_5");
+	REQUIRE(saved.save(path, &error));
+	const auto keys = fixture.screen->mapListKeys();
+	const auto found = std::find(keys.begin(), keys.end(), record.map);
+	REQUIRE(found != keys.end());
+	const std::size_t row = (std::size_t)std::distance(keys.begin(), found);
+	fixture.screen->recordsChanged();
+	CHECK(fixture.screen->mapListImages()[row] == "AptDifficultyNotConquered");
+	REQUIRE_MESSAGE(Bfme1SkirmishProfiles::recordGame(*fixture.profiles, fixture.setup, record, &error, &game), error);
+	fixture.screen->recordsChanged();
+	CHECK(fixture.screen->mapListKeys() == keys);
+	CHECK(fixture.screen->mapListImages()[row] == "AptDifficultyHardGlowConquered");
+	CHECK(fixture.value("APT:CurrentLevelFormat") == "Level 3");
+	CHECK(fixture.value("APT:NextWinsNumber") == "17 wins");
+	CHECK(fixture.movieValue("profileProgress") == "15");
+	REQUIRE(saved.load(path, &error));
+	CHECK(saved.get("GondorPoints") == "13");
+	CHECK(saved.get("maps\\fords\\fords.map_5") == "1");
+	record.id = "bfme1-profile-mismatched-snapshot";
+	game.mapKey = "maps/other/other.map";
+	REQUIRE(Bfme1SkirmishProfiles::recordGame(*fixture.profiles, fixture.setup, record, &error, &game));
+	REQUIRE(saved.load(path, &error));
+	CHECK(saved.get("GondorPoints") == "13");
+	CHECK(saved.get("GondorWins") == "9");
+}
+
+TEST_CASE("bfme1 skirmish profile: map list uses two columns, counted names and hard-glow honors from SkirmishStats")
+{
+	Bfme1ProfileFixture fixture;
+	GameWindow *list = fixture.screen->mapListWindow();
+	REQUIRE(list);
+	CHECK(GadgetListBoxGetNumColumns(list) == 2);
+	const auto *data = static_cast<const ListboxData *>(list->winGetUserData());
+	REQUIRE(data);
+	CHECK(data->columnWidthPercentage == std::vector<int>{ 10, 90 });
+	const auto &keys = fixture.screen->mapListKeys();
+	REQUIRE(keys.size() == 4);
+	const std::map<std::string, std::pair<std::u16string, std::string>> expected = {
+		{ "maps/fords/fords.map", { u"Fords of Isen (2)", "AptDifficultyHardGlowConquered" } },
+		{ "maps/hard/hard.map", { u"Hard map (2)", "AptDifficultyHardConquered" } },
+		{ "maps/medium/medium.map", { u"Medium map (2)", "AptDifficultyMedConquered" } },
+		{ "maps/easy/easy.map", { u"Easy map (2)", "AptDifficultyEasyConquered" } }
+	};
+	for (std::size_t row = 0; row < keys.size(); ++row)
+	{
+		const auto &entry = expected.at(keys[row]);
+		CHECK(GadgetListBoxGetText(list, (int)row, 1) == entry.first);
+		CHECK(fixture.screen->mapListImages()[row] == entry.second);
+	}
+	fixture.choose(fixture.screen->mapTypeWindow(), 1);
+	CHECK(fixture.screen->mapListKeys() == std::vector<std::string>{ "maps/custom/custom.map" });
 }

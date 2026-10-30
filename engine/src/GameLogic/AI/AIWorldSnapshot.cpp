@@ -147,6 +147,18 @@ void AIWorld::xferBody(Xfer &x)
 		{
 			throw XferException("ai world: the next formation id " + std::to_string(nextFormation) + " (ids start at 1)");
 		}
+		if (loading)
+		{
+			// review of #74 (r2): every AI's formation id (loaded above) is 0 or one issued below the next id
+			for (auto &kv : m_ais)
+			{
+				if (kv.second->formationId() >= nextFormation)
+				{
+					throw XferException("ai world: the AI of object " + std::to_string(kv.first) + " has formation id " + std::to_string(kv.second->formationId()) +
+										", not one issued below the next formation id " + std::to_string(nextFormation));
+				}
+			}
+		}
 	}
 	else if (loading)
 	{

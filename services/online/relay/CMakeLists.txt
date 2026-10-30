@@ -3,6 +3,7 @@
 # SHA-256) and nothing else of the engine.
 cmake_minimum_required(VERSION 3.20)
 project(openbfme_relay CXX C)
+include("${CMAKE_CURRENT_SOURCE_DIR}/../../../engine/cmake/Sanitizers.cmake")
 find_package(Threads REQUIRED)
 if(NOT CMAKE_CXX_STANDARD)
     set(CMAKE_CXX_STANDARD 20)
@@ -44,6 +45,7 @@ target_compile_options(openbfme_relay PRIVATE -Wall -Wextra)
 add_executable(openbfme_relay_resource_tests
     ${OPENBFME_RELAY_ENGINE_SRC}/../tests/test_main.cpp
     ${OPENBFME_RELAY_ENGINE_SRC}/../tests/test_relay_resources.cpp
+    ${OPENBFME_RELAY_ENGINE_SRC}/Common/System/PathIO.cpp # test_main.cpp starts through PathIO::runMain (UTF-8 arguments)
     ${OPENBFME_RELAY_CORE_SOURCES})
 target_include_directories(openbfme_relay_resource_tests PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}
@@ -91,6 +93,7 @@ target_link_libraries(openbfme_net_sync_sim PRIVATE Threads::Threads)
 add_executable(openbfme_relay_membership_tests
     ${OPENBFME_RELAY_ENGINE_SRC}/../tests/test_main.cpp
     ${OPENBFME_RELAY_ENGINE_SRC}/../tests/test_relay_membership.cpp
+    ${OPENBFME_RELAY_ENGINE_SRC}/Common/System/PathIO.cpp # test_main.cpp starts through PathIO::runMain (UTF-8 arguments)
     ${OPENBFME_RELAY_ENGINE_SRC}/GameNetwork/RelayCommit.cpp
     ${OPENBFME_RELAY_ENGINE_SRC}/GameNetwork/RelayMembership.cpp
     ${OPENBFME_RELAY_ENGINE_SRC}/GameNetwork/RelayFrameBundle.cpp

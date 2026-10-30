@@ -333,10 +333,11 @@ TEST_CASE("horde: two hordes sent through each other both arrive on slots (movin
 	}
 	CHECK(f < 300);
 	CHECK(crossed);
-	// the order's goal lies inside the other horde's footprint, which stands there when the path is made: the pathfinder moves it to the nearest free cell
-	CHECK(dist2d(*a->getPosition(), Coord3D{ 905.0f, 405.0f, 0.0f }) <= 60.0f);
+	// the order's goal lies inside the other horde's footprint, which stands there when the path is made: the pathfinder moves it to the nearest cell
+	// whose box (RW 0x6F1584) meets none of b's member goals, b's slots centred on b at 905 (RW 0x86C4EA), found by the spiral around the goal
+	// (RW 0x6FA2A4): 50 short of it, on a's side (before, the search reached one cell toward -x and stopped a beyond b)
+	CHECK(a->getPosition()->x == 855.0f);
 	CHECK(dist2d(*b->getPosition(), Coord3D{ 205.0f, 405.0f, 0.0f }) <= 110.0f);
-	CHECK(a->getPosition()->x > 905.0f - 1.0f);
 	CHECK(b->getPosition()->x >= 205.0f); // lane MOVE-3: a's member goals moved to a's new goal (RW 0x86EF13), so b's goal at a's start is free
 	settle(mw, a, 1.0f, 60);
 	settle(mw, b, 1.0f, 60);
@@ -527,7 +528,7 @@ TEST_CASE("backlog8 horde: a parked horde 25 above the ground: FLOATING_Z member
 	}
 }
 
-TEST_CASE("horde production exit: members keep the shared straight exit path before forming ranks")
+TEST_CASE("horde production exit: a member's exit path starts with one straight path, then the member is steered to its slot (RW 0x666079, RW 0x877A7A)")
 {
 	MoveWorld mw;
 	mw.buildMap();
@@ -538,18 +539,39 @@ TEST_CASE("horde production exit: members keep the shared straight exit path bef
 	mw.frames(2); // Finish the initial payload placement before simulating a produced member.
 	const Coord3D start{405.0f, 505.0f, 0.0f};
 	member->teleportTo(&start, true);
-	mw.aiOf(member)->aiFollowPath({Coord3D{555.0f, 505.0f, 0.0f}}, nullptr, CMD_FROM_AI, true);
-	for (int frame = 0; frame < 8; ++frame)
+	AIUpdateInterface *a = mw.aiOf(member);
+	// two segments: the first ends 10 past the start, so the segment advance (RW 0x74FA18) happens while the member is still in the exit state
+	a->aiFollowPath({Coord3D{415.0f, 505.0f, 0.0f}, Coord3D{555.0f, 505.0f, 0.0f}}, nullptr, CMD_FROM_AI, true);
+	REQUIRE(a->currentStateId() == AI_FOLLOW_EXITPRODUCTION_PATH);
+	CHECK(a->canPathThroughUnits()); // RW 0x74F8EE: set once, on the state's enter
+	bool straight = false, secondSegment = false;
+	for (int frame = 0; frame < 300 && a->currentStateId() == AI_FOLLOW_EXITPRODUCTION_PATH; ++frame)
 	{
 		mw.frames(1);
-		// tolerance: binary32 locomotor integration must stay on the authored exit centreline.
-		CHECK(member->getPosition()->y == doctest::Approx(start.y).epsilon(0.00001));
-		CHECK(mw.aiOf(member)->currentStateId() == AI_FOLLOW_EXITPRODUCTION_PATH);
+		if (a->currentStateId() == AI_FOLLOW_EXITPRODUCTION_PATH && a->mover().path() && !a->canPathThroughUnits())
+		{
+			straight = straight || a->mover().path()->nodeCount() == 2u;
+		}
+		// tolerance: a path toward the second waypoint (555) rather than the first (415); the search may end on the goal cell's centre
+		if (a->currentStateId() == AI_FOLLOW_EXITPRODUCTION_PATH && straight && a->mover().path() && a->mover().path()->getLastNode()->getPosition()->x > 500.0f)
+		{
+			secondSegment = true; // the second segment's path is the one being walked
+		}
+		if (straight)
+		{
+			CHECK(!a->canPathThroughUnits()); // RW 0x666079: dropped after the straight path and never armed again by a segment (RW 0x74FA18)
+		}
 	}
-	CHECK(member->getPosition()->x != start.x);
+	CHECK(straight);
+	CHECK(secondSegment);
+	// RotWK's member order has no exit-state exemption: the member leaves the exit state and the formation pass brings it to its slot
+	CHECK(a->currentStateId() != AI_FOLLOW_EXITPRODUCTION_PATH);
+	mw.frames(300);
+	// tolerance: the formation pass's slot arrival (the other members stand in their slots already)
+	CHECK(worstSlotError(mw, horde) < 3.0f);
 }
 
-TEST_CASE("horde production exit: BFME1 and BFME2 members clear the building in one lane then form ranks")
+TEST_CASE("horde production exit: BFME1 and BFME2 members leave the building by their own exit paths then form ranks")
 {
 	for (bool bfme1 : {false, true})
 	{
@@ -586,12 +608,7 @@ End
 			CHECK(order.type == AICMD_FOLLOW_EXIT_PRODUCTION_PATH);
 			REQUIRE(order.path.size() == (bfme1 ? 1u : 3u));
 			CHECK(order.path.front().y == 505.0f);
-			for (int frame = 0; frame < 8; ++frame)
-			{
-				mw.frames(1);
-				// tolerance: an authored X-axis exit must not fan sideways inside the producer footprint.
-				CHECK(member->getPosition()->y == doctest::Approx(505.0f).epsilon(0.00001));
-			}
+			mw.frames(8);
 			// tolerance: eight 0.2-second steps at speed 55 advance past creation but cannot reach the halfway waypoint (515).
 			CHECK(member->getPosition()->x > 405.0f);
 			// tolerance: the same speed/time bound rules out teleporting directly into formation.
@@ -600,6 +617,10 @@ End
 		exit->releaseLastExit();
 		mw.frames(200);
 		CHECK(mw.membersOf(horde).size() == 15);
+		for (Object *m : mw.membersOf(horde))
+		{
+			CHECK(mw.aiOf(m)->currentStateId() != AI_FOLLOW_EXITPRODUCTION_PATH); // no member is left in the exit state
+		}
 		// tolerance: after the common exit lane, every soldier must reach its authored formation slot.
 		CHECK(worstSlotError(mw, horde) < 3.0f);
 	}

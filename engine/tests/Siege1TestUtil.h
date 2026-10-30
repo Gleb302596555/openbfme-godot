@@ -159,11 +159,13 @@ struct AttackResult
 	std::string target, victimAfter;
 };
 
-// `targetName` empty: the map object named `gateName`; else the WALK_ON_TOP_OF_WALL piece nearest it that is no gate
-inline AttackResult siegeAttack(starttest::Shared &s, const std::string &map, const std::string &gateName, const std::string &unit, bool wall, float d, int frames)
+// `targetName` empty: the map object named `gateName`; else the WALK_ON_TOP_OF_WALL piece nearest it that is no gate. `aiDefender`: the fortress side's
+// slot (SIEGEFIX-1's default false: a human slot that gives no order; test_siege1_attack.cpp keeps #64's Easy AI defender, true)
+inline AttackResult siegeAttack(starttest::Shared &s, const std::string &map, const std::string &gateName, const std::string &unit, bool wall, float d, int frames,
+								bool aiDefender = false)
 {
 	AttackResult res;
-	FortressGame g(s, map, false);
+	FortressGame g(s, map, aiDefender);
 	g.frames(2);
 	Object *gate = g.named(gateName);
 	REQUIRE(gate);

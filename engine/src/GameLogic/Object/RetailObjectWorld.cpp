@@ -24,6 +24,7 @@
 #include "GameLogic/ProductionStops.h"
 
 #include "Common/BfmeGame.h"
+#include "Common/GameEdition.h"
 
 #include <chrono>
 #include <stdexcept>
@@ -140,6 +141,11 @@ RetailObjectWorld::State::State(ArchiveFileSystem &fs)
 const AudioIniState &RetailObjectWorld::audio() const
 {
 	return *m_s->m_audio;
+}
+
+bool RetailObjectWorld::audioEventExists(const std::string &name) const
+{
+	return !name.empty() && m_s->m_audio->infos.contains(name);
 }
 
 namespace
@@ -393,6 +399,7 @@ bool RetailObjectWorld::loadState(std::string *error)
 	SubsystemLoadOptions options;
 	options.collectErrors = true;
 	options.bfme1 = isBfme1Data(m_fs);
+	options.bfme2 = isBfme2Data(m_fs); // lane BFME2MODE-0 (Common/GameEdition.h)
 	options.cinematics = true; // the census counts the Cinematic folder (338 templates), like the object-model retail test
 	const auto t0 = std::chrono::steady_clock::now();
 	try

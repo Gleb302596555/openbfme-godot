@@ -4,6 +4,7 @@
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/AI/AIDock.h"
 #include "GameLogic/AI/AIHarvest.h"
+#include "GameLogic/Module/AmbientAIUpdate.h"
 #include "GameLogic/Module/PhysicsBehavior.h"
 #include "GameLogic/AI/AIFollowPathAsTeam.h"
 #include "GameLogic/AI/AIGarrisonStates.h"
@@ -18,11 +19,14 @@
 #include "Common/Thing/ModuleFactory.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/AI/AIEmotionStates.h"
+#include "GameLogic/Module/SiegeModules.h"
+#include "GameLogic/Module/SquishCollide.h"
 #include "GameLogic/AI/AIAttackMelee.h"
 #include "GameLogic/AI/AIGuard.h"
 #include "GameLogic/AI/AIHunt.h"
 #include "GameLogic/AI/AIWaypointPath.h"
 #include "GameLogic/AI/AIWorld.h"
+#include "GameLogic/AttributeModifiers.h"
 #include "GameLogic/BitFlags.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/HordeAIUpdate.h"
@@ -44,7 +48,7 @@ namespace
 {
 const char *const kStopCommands =
 	"S-222 AIUpdateInterface executes the move / idle / follow-path / busy commands; every other AICommandType (attack, guard, hunt, enter, exit, dock, repair, wander, "
-	"face, waypoint paths, ...) is counted by AIUpdateInterface::unportedCommands() and does nothing (the combat and construction milestones port them)";
+	"waypoint paths, ...) is counted by AIUpdateInterface::unportedCommands() and does nothing (the combat and construction milestones port them)";
 const char *const kStopUpdate =
 	"S-222 AIUpdateInterface::update skips the turrets, the mood / auto-acquire scan, the dead-state machine and the surrender / demoralize timers (RW 0x6695EF blocks "
 	"that need weapons, bodies and emotions); the movement-complete refresh of the pathfinder goal is the B1 body (AIUpdate.cpp:2574-2594), RW forces m_doFinalPosition off";
@@ -57,8 +61,8 @@ const char *const kStopStates =
 	"0x47 = a state RotWK added); AIIdleState::onEnter draws its random sleep offset as ZH does (GetGameLogicRandomValue(0, 10, \"AIStates.cpp\", 0x520)): the RW draw was not read, "
 	"so a retail replay's RNG sequence can differ at the first idle of every unit";
 const char *const kStopHost =
-	"S-222 the movement host reports no river (RiverModifier), no crew power, no speed attribute modifier, no charge order, no physics suppression and no turn limiting "
-	"(the modules behind RW 0x68BF11, 0x68C82D, 0x5E3A1B and the terrain river query are other lanes'); the pending position of the movers lives in the AI";
+	"S-222 the movement host reports no river (RiverModifier), no crew power, no charge order, no physics suppression and no turn limiting "
+	"(the modules behind RW 0x68BF11, 0x5E3A1B and the terrain river query are other lanes'); the pending position of the movers lives in the AI";
 
 // the registry bits, resolved once by name (a mod's own order cannot break them)
 int modelConditionIndex(const char *name)
@@ -87,6 +91,7 @@ struct StatusBits
 {
 	int hordeMember = objectStatusBit("HORDE_MEMBER");
 	int immobile = objectStatusBit("IMMOBILE");
+	int deployed = objectStatusBit("DEPLOYED");
 };
 const StatusBits &statusBits()
 {
@@ -101,6 +106,7 @@ struct KindBits
 	int dozer = ObjectTemplateInfoBuilder::kindOfIndex("DOZER");
 	int cavalry = ObjectTemplateInfoBuilder::kindOfIndex("CAVALRY");
 	int horde = ObjectTemplateInfoBuilder::kindOfIndex("HORDE");
+	int siegeTower = ObjectTemplateInfoBuilder::kindOfIndex("SIEGE_TOWER");
 };
 const KindBits &kindBits()
 {
@@ -224,7 +230,12 @@ public:
 		const ContainModuleInterface *c = m_ai.getObject()->getContain();
 		return c ? c->getCrewPowerMultiplier() : 1.0f;
 	}
-	bool speedAttributeModifier(float &) const override { return false; }
+	bool speedAttributeModifier(float &out) const override
+	{
+		// TARGET: RW 0x5E4015 -> Object product 0x68C82D (type 8, no name, innate=true); Locomotor applies it at 0x5E401E.
+		// Query this object's pool only: HordeContain already propagates additions to the members (RW 0x870E50).
+		return obj().attributeModifierProduct(ATTRIBUTE_SPEED, nullptr, true, out);
+	}
 	bool isInRiver(float, float) const override { return false; }
 	bool isTurnLimited() const override { return !stationary(); }
 	bool isChargeOrdered() const override { return false; }
@@ -459,6 +470,8 @@ std::unique_ptr<AIStateMachine> AIUpdateInterface::makeStateMachine()
 	m->defineState(AI_BACK_AWAY, std::make_unique<AIBackAwayState>(*m), AI_IDLE, AI_IDLE);
 	m->defineState(AI_QUARREL, std::make_unique<AIQuarrelState>(*m), AI_IDLE, AI_IDLE);
 	m->defineState(AI_FACE_OBJECT_IDLE, std::make_unique<AIFaceObjectIdleState>(*m), AI_IDLE, AI_IDLE);
+	m->defineState(AI_FACE_POSITION, std::make_unique<AIFacePositionState>(*m), AI_IDLE, AI_IDLE); // lane SIEGE-1: RW 0x753755 state 0x25 (RW 0x7449D4 mode 0)
+	m->defineState(AI_FACE_OBJECT, std::make_unique<AIFaceState>(*m, true), AI_IDLE, AI_IDLE);
 	m->defineState(AI_HUNT, std::make_unique<AIHuntState>(*m), AI_IDLE, AI_IDLE); // lane SCRIPT-3: RW 0x741133 (AIHunt.cpp)
 	// lane PLAY-4 (RW 0x753755): AIGuardState 16 (RW 0x74109B) and AIGoingIdleState 0x4E (RW 0x7410C2), both ending in idle (AIGuard.cpp)
 	m->defineState(AI_GUARD, std::make_unique<AIGuardState>(*m), AI_IDLE, AI_IDLE);
@@ -817,30 +830,45 @@ void AIUpdateInterface::privateMoveToPosition(const Coord3D &pos, CommandSourceT
 	}
 }
 
-void AIUpdateInterface::aiMoveToPositionAndOrientate(const Coord3D &pos, float angle, CommandSourceType source)
+bool AIUpdateInterface::aiMoveToPositionAndOrientate(const Coord3D &pos, float angle, CommandSourceType source, Coord3D *takenGoal)
 {
 	if (!acceptCommand(source, kCommandUnidentifiedMove))
 	{
-		return; // lane MODULES-3: RW 0x667174
+		return false; // lane MODULES-3: RW 0x667174
 	}
 	{
 		RoutedCommand c; // lane FLY-1
 		c.type = kCommandUnidentifiedMove;
+		c.angle = angle;
 		c.position = pos;
 		c.source = source;
 		if (routeCommand(c))
 		{
-			return;
+			if (takenGoal)
+			{
+				*takenGoal = pos; // the subclass owns the command; the base goal and attack-move stay untouched, as in aiMoveToPosition
+			}
+			return true;
 		}
 	}
 	m_world->noteStop(kStopCommands);
 	Object *obj = getObject();
-	if (hasKind(*obj, kindBits().immobile))
+	// Object::isMobile (RW 0x690E97), as privateMoveToPosition (RW 0x66B3FD) and BFME2's privateAttackMoveToPositionAndOrientation (BFME2 RVA 0x26C04E, the
+	// attack formation's command) refuse an immobile, disabled (but type 8 alone) or stoned unit or a deployed siege tower: nothing of it changes
+	if (!GarrisonRules::isMobile(*obj))
 	{
-		return;
+		return false;
+	}
+	if (source != CMD_FROM_AI)
+	{
+		m_attackMoveActive = false; // an accepted player / script move order ends an attack-move, as aiMoveToPosition (COMBAT-1)
 	}
 	Coord3D goal;
 	goalPositionClipped(pos, source, goal);
+	if (takenGoal)
+	{
+		*takenGoal = goal;
+	}
 	m_machine->clear();
 	m_machine->setGoalPosition(goal);
 	m_machine->setGoalObject(INVALID_ID);
@@ -848,6 +876,7 @@ void AIUpdateInterface::aiMoveToPositionAndOrientate(const Coord3D &pos, float a
 	setLastCommandSource(source);
 	m_machine->setState(AI_MOVE_TO);
 	wakeUpNow();
+	return true;
 }
 
 void AIUpdateInterface::aiMoveToObject(Object *target, CommandSourceType source)
@@ -885,6 +914,31 @@ void AIUpdateInterface::aiIdle(CommandSourceType source)
 	m_machine->clear();
 	m_machine->setGoalObject(INVALID_ID);
 	m_machine->setState(AI_IDLE);
+	wakeUpNow();
+}
+
+void AIUpdateInterface::aiFaceObject(Object *target, CommandSourceType source)
+{
+	// TARGET RW 0x6643B6; Open-BFME-2 AIUpdateInterfacePrivateCommands.cpp
+	// privateFaceObject (RVA 0x2645B9) is the same body with different offsets.
+	if (!acceptCommand(source, 0x26))
+	{
+		return;
+	}
+	privateFaceObject(target, source);
+}
+
+void AIUpdateInterface::privateFaceObject(Object *target, CommandSourceType source)
+{
+	if (!GarrisonRules::isMobile(*getObject()))
+	{
+		return;
+	}
+	m_machine->clear();
+	m_machine->setGoalObject(target ? target->getID() : INVALID_ID);
+	m_mover->clearBlocked();
+	setLastCommandSource(source);
+	m_machine->setState(AI_FACE_OBJECT);
 	wakeUpNow();
 }
 
@@ -1331,6 +1385,18 @@ PathfindObject &AIUpdateInterface::pathfindObject()
 	return *m_adapter;
 }
 
+void AIUpdateInterface::exitQuickPathMade(const Coord3D &dest)
+{
+	// RW 0x666079: AI + 0x3BA = 0; RW 0x66607C -> 0x6654AD(dest, CMD_FROM_AI) -> 0x6636D9 (a goal from the AI is not clipped) -> 0x8DB810 (nothing while the
+	// machine is locked, else RW 0x8DB778: the goal position and + 0x30 = FLT_MAX)
+	m_canPathThroughUnits = false;
+	if (m_machine && !m_machine->isLocked())
+	{
+		m_machine->setGoalPosition(dest);
+		m_machine->clearGoalAngle(); // INFERENCE (as GiantBirdAIUpdate): + 0x30 = FLT_MAX is the machine's goal angle "none"
+	}
+}
+
 LocomotorHost &AIUpdateInterface::locomotorHost()
 {
 	return *m_locoHost;
@@ -1487,7 +1553,8 @@ Coord2D AIUpdateInterface::unitDirectionOf(const PathfindObject &o) const
 	return d;
 }
 
-// RW 0x663F48: (DOZER ? 100 : 0) + 10 * veterancy level (0 until the experience tracker, S-142) + (CAVALRY ? 5 : 0)
+// RW 0x663F48: (DOZER ? 100 : 0) + 10 * the crushable level (RW 0x68D4D0, its byte sign-extended: movsx) + (CAVALRY ? 5 : 0) (lane PATHPRIO-1;
+// the port had no middle term). BFME2: AIUpdateInterfaceRva0026417F.cpp:68
 int AIUpdateInterface::pathPriority() const
 {
 	int p = 0;
@@ -1495,6 +1562,7 @@ int AIUpdateInterface::pathPriority() const
 	{
 		p += 100;
 	}
+	p += 10 * ObjectCrush::crushableLevel(*getObject());
 	if (hasKind(*getObject(), kindBits().cavalry))
 	{
 		p += 5;
@@ -1502,9 +1570,42 @@ int AIUpdateInterface::pathPriority() const
 	return p;
 }
 
-PathfindObjectID AIUpdateInterface::attackTargetOf(const PathfindObject &) const
+// RW 0x66E2A4 .. 0x66E2BB: KindOf SIEGE_TOWER (template + 0x113 bit 0x20) with status DEPLOYED (0x3B, RW 0x44DDEC)
+bool AIUpdateInterface::isDeployedSiegeTower() const
 {
-	return PATHFIND_INVALID_ID; // the attack machine is the combat milestone's
+	return hasKind(*getObject(), kindBits().siegeTower) && getObject()->testStatus((unsigned)statusBits().deployed);
+}
+
+// RW 0x68B36F: the object's AI (+ 0x260) whose vslot 0x1BC answers true (RW 0x662B3C: the current state's isActive, true with none) -> its current victim
+// (RW 0x668303: AI + 0x40 -> findObjectByID RW 0x449681), else none (lane PATHPRIO-1; the port answered none for every object)
+PathfindObjectID AIUpdateInterface::attackTargetOf(const PathfindObject &o) const
+{
+	Object *obj = getObject()->logic().findObjectByID((ObjectID)o.getID());
+	const AIUpdateInterface *ai = obj ? obj->getAIUpdateInterface() : nullptr;
+	if (ai == nullptr || !ai->isStateActive())
+	{
+		return PATHFIND_INVALID_ID;
+	}
+	const Object *victim = ai->currentVictim();
+	return victim ? (PathfindObjectID)victim->getID() : PATHFIND_INVALID_ID;
+}
+
+// AI vslot 0x1FC (RW 0x664D12, ZH getEnterTarget AIUpdate.cpp:4292): the machine's goal object (RW 0x8DBACE) while the state type (RW 0x662D70) is 15 (AI_ENTER),
+// 0x18, 0x19, 0x2B, 0x31 or 52 (AI_HORDE_ENTER), or 56 (AI_MOVE_TO_POSITION_AND_ENTER) with a SHIP goal (its template + 0x11F bit 0x80); else none
+PathfindObjectID AIUpdateInterface::enterTargetOf(const PathfindObject &o) const
+{
+	Object *obj = getObject()->logic().findObjectByID((ObjectID)o.getID());
+	const AIUpdateInterface *ai = obj ? obj->getAIUpdateInterface() : nullptr;
+	const AIStateMachine *m = ai ? ai->stateMachineOrNull() : nullptr;
+	const Object *goal = m ? m->goalObject() : nullptr;
+	if (goal == nullptr)
+	{
+		return PATHFIND_INVALID_ID;
+	}
+	static const int kShip = ObjectTemplateInfoBuilder::kindOfIndex("SHIP");
+	const unsigned t = ai->aiStateType();
+	const bool entering = t == 15 || t == 0x31 || t == 0x18 || t == 0x2B || t == 0x19 || t == 52 || (t == 56 && hasKind(*goal, kShip));
+	return entering ? (PathfindObjectID)goal->getID() : PATHFIND_INVALID_ID;
 }
 
 bool AIUpdateInterface::crushOrSquishPolicy(const PathfindObject &other) const
@@ -1798,7 +1899,7 @@ void AIUpdateInterface::registerClasses(ModuleFactory &modules)
 			continue;
 		}
 		const bool horde = name == "HordeAIUpdate";
-		modules.bindModuleProc(name, MODULETYPE_BEHAVIOR, [horde](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &info) -> std::unique_ptr<Module> {
+		modules.bindModuleProc(name, MODULETYPE_BEHAVIOR, [horde, name](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &info) -> std::unique_ptr<Module> {
 			// a logic without an AIWorld (the LOGIC-1 fixtures) has no pathfinder to move on: the class is then the explicit unported module of S-140, as before
 			if (!thing->asObject() || !thing->asObject()->logic().aiWorld())
 			{
@@ -1807,6 +1908,10 @@ void AIUpdateInterface::registerClasses(ModuleFactory &modules)
 			if (horde)
 			{
 				return std::make_unique<HordeAIUpdate>(thing, data);
+			}
+			if (name == "AnimalAIUpdate" || name == "WanderAIUpdate")
+			{
+				return std::make_unique<AmbientAIUpdate>(thing, data, name == "AnimalAIUpdate");
 			}
 			return std::make_unique<AIUpdateInterface>(thing, data);
 		});

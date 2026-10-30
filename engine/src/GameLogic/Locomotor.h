@@ -527,12 +527,15 @@ public:
 	void moveTowardsPositionLegs(LocomotorHost &host, const Coord3D &goal, float onPathDistToGoal, float desiredSpeed);   // RW 0x5E63F3
 	void moveTowardsPositionWheels(LocomotorHost &host, const Coord3D &goal, float onPathDistToGoal, float desiredSpeed); // RW 0x5E83FD
 	void moveTowardsPositionHorde(LocomotorHost &host, const Coord3D &goal, float onPathDistToGoal, float desiredSpeed);  // RW 0x5E6D4F
+	void maintainCurrentPositionWings(LocomotorHost &host); // RW 0x5E74C1
 	void moveTowardsPositionOther(LocomotorHost &host, const Coord3D &goal, float onPathDistToGoal, float desiredSpeed);  // RW 0x5E6835
 	void moveTowardsPositionHover(LocomotorHost &host, const Coord3D &goal, float onPathDistToGoal, float desiredSpeed);  // RW 0x5E742E (lane SHIP-1)
 	void moveTowardsPositionShip(LocomotorHost &host, const Coord3D &goal, float onPathDistToGoal, float desiredSpeed);   // RW 0x5E613F (lane SHIP-1)
 	void moveForward(LocomotorHost &host, const Coord3D &goal, float onPathDistToGoal, float desiredSpeed);              // RW 0x5E586F
-	// RW 0x5E4F44 (ground branch): turns the working matrix by at most `maxTurnRate` radians towards `goal`.
+	// RW 0x5E4F44: turns the working matrix by at most `maxTurnRate` radians towards `goal`.
 	void rotateTowardsPosition(LocomotorHost &host, const Coord3D &goal, float maxTurnRate, float *outRelAngle);
+	// RW 0x5E4FD0 .. 0x5E5413 (lane TAKEOVER-1): its GIANT_BIRD branch (the transform turned about the pivot); false: nothing to turn
+	bool rotateGiantBird(LocomotorHost &host, const Coord3D &goal, float maxTurnRate, float *outRelAngle);
 	// RW 0x5E60C7: copy the object's transform into the working matrix, then rotateTowardsPosition with this
 	// locomotor's turn rate.
 	void rotateTowardsWrapper(LocomotorHost &host, const Coord3D &goal, float *outRelAngle);

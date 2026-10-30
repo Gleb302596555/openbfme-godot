@@ -113,12 +113,15 @@ TEST_CASE("module coverage: every registry class is ported, base AI, parsed only
 	// S-1991: BloodthirstyUpdate moves from missing to ported. SUMMON-1: SummonReplacementSpecialAbilityUpdate and DoCommandUpgrade missing -> ported: 148 / 159.
 	// FX-4: TransitionDamageFX missing -> ported: 149 / 158. LUMBER1 (SupplyCenterCreate, SupplyCenterDockUpdate): +2 -> 151 / 156.
 	// MODS-3: FireWeaponWhenDamagedBehavior missing -> ported (its DoCommandUpgrade is SUMMON-1's): +1 -> 152 / 155 (merge queue q24).
-	// WALL-2 (DynamicPortalBehaviour, FakePathfindPortalBehaviour): +2 -> 154 / 153 (merge queue q25). CHAT-1: BeaconClientUpdate missing -> ported: 155 / 152.
-	CHECK(c.ported == 155); // + WALL-2's DynamicPortalBehaviour and FakePathfindPortalBehaviour, + CHAT-1's BeaconClientUpdate
-	CHECK(c.baseAi == 8);
+	// WALL-2 (DynamicPortalBehaviour, FakePathfindPortalBehaviour): +2 -> 154 / 153 (merge queue q25).
+	// SIEGE-1 (community #64): seven ported (two of them base AI before): +7 -> 161 / 148, base AI 6 (merge queue q26).
+	// BANNER-1 (AllowBannerSpawnUpgrade, RW 0x650650): +1 -> 162 / 147 (merge queue q26). CHAT-1 (on the archive): BeaconClientUpdate missing -> ported: 163 / 146.
+	// community #117 (CitadelSlaughterHordeContain missing -> ported, merge queue q28): 164 / 145
+	CHECK(c.ported == 164); // + #117's CitadelSlaughterHordeContain, SIEGE-1's seven ported (two of them base AI before), BANNER-1's AllowBannerSpawnUpgrade, CHAT-1's BeaconClientUpdate
+	CHECK(c.baseAi == 6);
 	// S-207: SpawnUnitBehavior data is parsed-only; its runtime remains unported (S-140).
 	CHECK(c.parsedOnly == 14);
-	CHECK(c.missing == 152); // CHAT-1 (BeaconClientUpdate) 153 -> 152; WALL-2 (DynamicPortalBehaviour, FakePathfindPortalBehaviour) 155 -> 153; MODS-3 (FireWeaponWhenDamagedBehavior) 156 -> 155; LUMBER1 (SupplyCenterCreate, SupplyCenterDockUpdate) 158 -> 156
+	CHECK(c.missing == 145); // #117 (CitadelSlaughterHordeContain) 146 -> 145; CHAT-1 (BeaconClientUpdate) 147 -> 146; BANNER-1 (AllowBannerSpawnUpgrade) 148 -> 147; SIEGE-1 153 -> 148; WALL-2 (DynamicPortalBehaviour, FakePathfindPortalBehaviour) 155 -> 153; MODS-3 (FireWeaponWhenDamagedBehavior) 156 -> 155; LUMBER1 (SupplyCenterCreate, SupplyCenterDockUpdate) 158 -> 156; FX-4 (TransitionDamageFX) 159 -> 158; SUMMON-1 (SummonReplacementSpecialAbilityUpdate, DoCommandUpgrade); before: 161, the merge of the archive (S-207 SpawnUnitBehavior missing -> parsed only) with S-1991 (BloodthirstyUpdate missing -> ported)
 
 	if (const char *out = std::getenv("OPENBFME_MODULE_COVERAGE_OUT"))
 	{

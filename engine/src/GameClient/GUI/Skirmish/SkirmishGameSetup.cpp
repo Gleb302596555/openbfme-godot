@@ -3,6 +3,7 @@
 // See GameClient/GUI/Skirmish/SkirmishGameSetup.h.
 
 #include "GameClient/GUI/Skirmish/SkirmishGameSetup.h"
+#include "GameClient/LocalizedText.h"
 #include "Common/ExtendedPlayerColors.h"
 
 #include <algorithm>
@@ -43,21 +44,7 @@ std::string lowerAscii(std::string s)
 // UnicodeString::format with one %d (the only format the lobby texts use: GUI:TooManyPlayers, GUI:StartingMoneyFormat)
 std::u16string formatInt(const std::u16string &format, int value)
 {
-	std::u16string out;
-	for (std::size_t i = 0; i < format.size(); ++i)
-	{
-		if (format[i] == u'%' && i + 1 < format.size() && format[i + 1] == u'd')
-		{
-			const std::string number = std::to_string(value);
-			out.append(number.begin(), number.end());
-			++i;
-		}
-		else
-		{
-			out.push_back(format[i]);
-		}
-	}
-	return out;
+	return LocalizedText::format(format, { value });
 }
 } // namespace
 
@@ -147,6 +134,7 @@ bool SkirmishGameSetup::init(const std::u16string &userName, std::uint32_t seed,
 	m_info.startingCash = -1;
 	m_info.rules = MpGameRules::defaults(rulesMode());
 	m_info.legendaryHeroes = LegendaryHeroes::kOff;
+	m_info.cheatMode = -1; // lane CHEAT-1: every new setup starts without Cheat Mode (never kept with the profile's last game)
 	m_info.simulationProfile = m_simulationProfile; // lane UBER-1: the player's option, not a rule: a reset keeps it
 	m_info.seed = seed;
 	setSlotStateInternal(m_info.slots[0], SLOT_PLAYER, userName);
@@ -646,6 +634,7 @@ void SkirmishGameSetup::setStrategicMode(bool strategic)
 	}
 	m_strategic = strategic;
 	m_info.rules = MpGameRules::defaults(rulesMode());
+	m_info.cheatMode = -1; // lane CHEAT-1: Cheat Mode is a mode 0 rule
 }
 
 std::u16string SkirmishGameSetup::ruleName(int rule) const
@@ -688,6 +677,22 @@ void SkirmishGameSetup::resetRules()
 {
 	m_info.rules = MpGameRules::defaults(rulesMode());
 	m_info.legendaryHeroes = LegendaryHeroes::kOff;
+	m_info.cheatMode = -1; // lane CHEAT-1
+}
+
+bool SkirmishGameSetup::setCheatMode(bool on)
+{
+	if (!on)
+	{
+		m_info.cheatMode = -1;
+		return true;
+	}
+	if (rulesMode() != RULES_MODE_SKIRMISH || m_localSlot < 0 || m_localSlot >= MAX_SLOTS || !m_info.slots[m_localSlot].isHuman())
+	{
+		return false;
+	}
+	m_info.cheatMode = m_localSlot;
+	return true;
 }
 
 bool SkirmishGameSetup::setLegendaryHeroes(int factor)

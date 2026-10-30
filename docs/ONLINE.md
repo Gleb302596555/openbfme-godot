@@ -19,9 +19,10 @@ multiplayer direction" and M6):
   trusted results.
 
 The client side of the protocol lives in this repository; the hosted service
-is run separately. Phases: a relay with lobby and game log first (after the
-closed playtest), then the verifier, then the browser, accounts and
-spectators. Playing against the original game's 2.01 clients is a separate,
+is run separately. The original phase order below is historical: the browser,
+rejoin, delayed spectators and social identities are already implemented;
+the optional verifier and relay-managed snapshots remain planned. Playing
+against the original game's 2.01 clients is a separate,
 best-effort goal with its own checks (docs/PLAN.md, "Oracles and gates").
 
 The rest of this page is the engineering study behind that plan (lane
@@ -55,7 +56,8 @@ are charged to the applicable mutation window. A transport/body limit that
 rejects a request before routing and account authentication cannot be charged;
 the Node and Worker ingress limits are enforced at that boundary.
 
-Focused commands:
+Focused commands (Linux/macOS POSIX shell, or a Windows shell with Node on
+PATH; run from the repository root; Node 22+ with `node:sqlite` required):
 
 ```sh
 node --test services/online/lobby/test/social.test.mjs services/online/lobby/test/social-worker.test.mjs
@@ -81,7 +83,7 @@ on a Cloudflare Worker with one Durable Object per region (Workers Paid, $5 a
 month). Store replays in Cloudflare R2, which has no egress fees. Run the UDP
 turn relay as a small C++ process on two cheap VPSs with bandwidth included,
 one in US East and one in Western Europe (OVHcloud VPS, or Hetzner in the EU).
-At the measured load (1,000 players at peak, 300 in game on average) that
+At the modelled load (1,000 players at peak, 300 in game on average) that
 comes to about **$20-30 a month**, and it stays under $45 at three times that
 load. The fully AWS option only fits the budget on Lightsail bundles, and its
 $0.09/GB overage breaks the budget as soon as the load grows. Steam join
@@ -92,21 +94,21 @@ an `openbfme://join/<lobby>` link and Discord invites instead.
 
 Lane ONLINE-2 (2026-10-11) built phase O1 (section 6). Online play works from
 the command line and from `openbfme://join/<id>` links; the online screens
-(phase O2) are not built. **It is a test feature.** By the owner's decision
-of 2026-10-11, the service source is public, in `services/online/` (the
-first paragraph of this document said it would stay private). Its secrets are
+were added by phase O2 below. **It is a test feature.** The service source is
+in `services/online/`; source availability is separate from operating the
+hosted service. Its secrets are
 files read at deploy time (the deploy notes are kept outside this repository).
 
 | Piece | Where | What it does |
 |---|---|---|
-| Relay envelope and tickets | `engine/src/GameNetwork/RelayProtocol.{h,cpp}`, `Common/Sha256` | 4-byte envelope (`BR`, version 1, kind: HELLO / WELCOME / DATA / DATA_FROM / NOT_BOUND / REFUSED / BYE), plus the target or source slot on data: 5 bytes per datagram. A 32-byte ticket: game id, slot, slot mask, expiry, and 16 bytes of HMAC-SHA256 under a key ring that the lobby and the relays share. |
+| Relay envelope and tickets | `engine/src/GameNetwork/RelayProtocol.{h,cpp}`, `Common/Sha256` | 4-byte envelope (`BR`, version 3, kind), plus the target or source slot on data: 5 bytes of relay overhead per DATA / DATA_FROM datagram. Kinds also include STATUS, LOG_REQUEST and LOG_CHUNK for rejoin/spectators. Initial-player tickets are 32 bytes; rejoin and spectator tickets are 34 bytes, with a generation or delay respectively, and a 16-byte HMAC-SHA256 tag under the lobby/relay key ring. HELLO / WELCOME also carry the slot's session token. |
 | Transport relay mode | `GameNetwork/Transport.{h,cpp}` | Every peer's address is the relay's. Packets go out as DATA plus the target slot and come in as DATA_FROM plus the source slot. HELLO (the ticket) is sent until WELCOME, and again after NOT_BOUND (NAT rebinding, relay restart). The sender check becomes a slot check: the packet's sender byte must equal the source slot the relay stamped. Acks, resends and fragments stay end to end. |
 | The relay | `services/online/relay` (`RelayCore`, `relay_main.cpp`) | One thread, `recvmmsg` / `sendmmsg` batches of 64. A HELLO with a valid ticket binds an address to (game, slot). DATA is forwarded in place, after checking the sender byte against the bound slot, the target and a per-slot token bucket (32 KB/s, 256 KB burst). A game closes on every BYE or 60 s of silence. Then the relay writes the END record and keeps a tombstone that refuses late HELLOs. A JSON status file serves as the health check. |
 | Command log → replay | relay: the log; `GameNetwork/RelayLog.{h,cpp}`, `openbfme_peer --relay-log` | The relay follows every (sender, target) transport stream: in sequence order, fragments joined, duplicates dropped. It logs each sender's frame commands **once**, counting per frame across the streams. The converter assembles the frames as `Network::relayCommands` does and writes a replay whose hash records are the players' MSG_LOGIC_CRCs. `openbfme_peer --replay` then checks CRC parity. Limits: S-3710. |
 | The START from the service | `GameNetwork/OnlineStart.{h,cpp}`, `NetGameSession` | JSON (`"kind": "openbfme-start"`, version 1): game id, slot, relay address, ticket, run-ahead, CRC interval, the profile identity's MD5, and the setup (map, seed, cash, rules, slots). The service picks the seed, the relay and the timing. The client checks every field, its profile, and that the ticket matches its slot and the human slots. It then plays the game as a LAN START. |
-| The lobby | `services/online/lobby` (`lobby.mjs`; `worker.mjs` for Cloudflare, `server.mjs` self-hosted) | JSON over HTTP, `"v": 1`: guest sign-in (a signed token; Discord sign-in was dropped in round 2 until it has a way back into the game); list / create / join (the profile is compared) / leave / slot / setup / ready / chat / kick / start; polling with `?since=`; relay log upload (HMAC-signed, checked against the log's own game id) and `/v1/replays/<id>/{log,start}` (for that game's players only); an invite page `/j/<id>`. Rate limits are per account and per address. Games are kept in Durable Object storage (Cloudflare) or JSON files (self-hosted). |
+| The lobby | `services/online/lobby` (`lobby.mjs`; `worker.mjs` for Cloudflare, `server.mjs` self-hosted) | JSON over HTTP, `"v": 1`: nickname/installation sign-in and optional configured Discord/e-mail identity restore through the launcher; list / create / join (the profile is compared) / leave / slot / setup / ready / chat / kick / start; polling with `?since=`; relay log upload (HMAC-signed, checked against the log's own game id) and `/v1/replays/<id>/{log,start}` (for that game's players only); an invite page `/j/<id>`. Rate limits are per account and per address. Games are kept in Durable Object storage (Cloudflare) or JSON files (self-hosted); social rows use SQLite. |
 | Game client | `GodotDevice/GodotGameWorld` (`net_online`, `net_profile_digest`), `godot/scripts/online_lobby.gd`, `game.gd` | `--online-join=ID` (the debug "join by id"), `--online-host`, `--online-lobby=URL` (or `OPENBFME_LOBBY`), `--online-name`. A bare `openbfme://join/ID` argument also works. `net_status` reports the relay link. |
-| Launcher | `launcher/scripts/core/url_handler.gd`, `main.gd` | `openbfme://join/<16 hex>` starts the version Play starts, with `--online-join` / `--online-lobby`; nothing else is accepted. `--lobby=URL` remembers the lobby. `--register-url-handler`: HKCU on Windows (no UAC), an `x-scheme-handler/openbfme` desktop entry plus `xdg-mime` on Linux / the Deck. |
+| Launcher | `launcher/scripts/core/url_handler.gd`, `main.gd` | `openbfme://join/<16 lower-case hex digits>` (optional trailing slash) starts the version Play starts, with `--online-join` / `--online-lobby`; no other link shape is accepted. `--lobby=URL` remembers the lobby. `--register-url-handler`: Windows-only HKCU registration (no UAC), or Linux / Deck `x-scheme-handler/openbfme` desktop entry plus `xdg-mime`; registration is unsupported on macOS. |
 | Headless tools | `tools/net/online_client.py`, `tools/net/online2_soak.sh`, `openbfme_peer --online-start / --print-profile` | host / join through a lobby, or signed fixture STARTs; the relay soak (impaired links, log → replay → CRC parity) |
 
 Tests: `engine/tests/test_online_relay.cpp` (SHA-256 / HMAC vectors, the
@@ -126,7 +128,7 @@ the reviewer's attack:
   - the published record is an `openbfme-replay-start`: no ticket, slot or
     relay, and the game refuses it as a START;
   - the relay gives each slot a random 16-byte session token in WELCOME
-    (envelope version 2). Once a slot is bound, only a HELLO that carries
+    (introduced in envelope version 2; current envelope version 3). Once a slot is bound, only a HELLO that carries
     this token moves it (a NAT rebinding); the ticket alone gets
     `REFUSED: slot taken`.
 - **Relay DoS and log integrity:**
@@ -139,9 +141,10 @@ the reviewer's attack:
     forwarded: size over 1,200, CRC, layout, trailing bytes, a record beyond
     the window, an ack beyond what the target sent.
 - **Windows URL argument injection.** The launcher takes a link only as
-  exactly `-- --open-url <link>`, and checks this before anything else reads
-  the command line. Any other argument refuses the whole start. The link must
-  match `openbfme://join/<16 hex>` exactly.
+  `-- --open-url <link>` with no other non-test arguments, and checks this
+  before anything else reads the command line. Allowed development/test
+  options may precede it. The link must match
+  `openbfme://join/<16 lower-case hex digits>` with an optional trailing slash.
 - **Redirects.** The game's lobby client follows no redirect (Godot would
   send the bearer token to the new origin), and the lobby URL must be a plain
   `http(s)://host[:port][/path]`. The privacy guard checks both.
@@ -150,7 +153,9 @@ the reviewer's attack:
   - the Durable Object queues its requests;
   - request bodies are limited by the bytes actually received (also when
     chunked);
-  - Discord sign-in is removed; guest sign-in stays.
+  - Discord sign-in was removed in this review; the later social implementation
+    restores optional Discord/e-mail sign-in through the launcher, not this
+    original endpoint. Nickname sign-in remains available.
 
 **Round 3 (Sol r2):**
 - A discarded or finished partial command releases its allocation, and the
@@ -245,12 +250,14 @@ not do.
 
 ## Phase O2: what is built (ONLINE-4)
 
-Lane ONLINE-4 (2026-10-12) built section 5's flow, steps 1 to 7, on the
-retail movies. **The whole Online menu is a test feature** (docs/PLAYING.md).
+Lane ONLINE-4 (2026-10-12) built the nickname-based browse/create/join/start
+flow on the retail movies, not section 5's proposed browser authentication
+and WebSocket transport. **The whole Online menu is a test feature**
+(docs/PLAYING.md).
 
 | Piece | Where | What it does |
 |---|---|---|
-| The lobby client | `engine/src/GameNetwork/OnlineLobbyClient.{h,cpp}` | The online counterpart of `LANAPI`: guest sign-in, the game list, the message of the day, create (name, password, the setup), join (the profile identity, the password), the player's own slot, the host's slots and setup, ready, chat, kick, start, leave; it polls the staging room once a second. It does no I/O: it queues HTTP requests (one in flight, in order) and reads the answers. Every answer is checked (version 1, the fields, the faction and colour ranges); a refusal or a transport error is an event with the lobby's code and message. |
+| The lobby client | `engine/src/GameNetwork/OnlineLobbyClient.{h,cpp}` | The online counterpart of `LANAPI`: guest sign-in, the game list, the message of the day, create (name, password, the setup), join (the profile identity, the password), the player's own slot, the host's slots and setup, ready, chat, kick, start, leave. Godot enables held staging polls (20 seconds by default); one-second polling is the fallback when holds are unavailable. It does no I/O: it queues HTTP requests and reads the answers. A held room poll and a held social inbox poll can run beside the ordered ordinary requests. Every answer is checked (version 1, the fields, the faction and colour ranges); a refusal or a transport error is an event with the lobby's code and message. |
 | The screens | `engine/src/GameClient/GUI/AptScreens/AptOnlineShell.{h,cpp}` | `OnlineShell.apt` (CodePrefix `AptOnline`) with retail's pages: `AptOnline::ShellLoadScreen` / `ShellUnloadScreen` make and delete the page objects, which register the retail names (`AptOnline::Login::*` + `AptOnlineLogin::InitGadgets`, `AptOnline::OnlineHome::*` + `AptOnlineHome::InitGadgets`, `AptOnline::CustomMatch::*` + `AptOnlineCustomMatch::InitGadgets`, `GameSorter::OnSort*`). The staging room is AptSkirmish's MpGameSetup handling on the lobby game, as `AptLanLobby` does for the LAN. RW addresses and the BFME2 decomp files are cited in the header; the gaps are stops S-4070 .. S-4076. |
 | The transport | `godot/scripts/online_http.gd`, `AptMenuPlayer.set_online / online_take_requests / online_deliver / online_status / online_apply` | Godot's `HTTPRequest` (TLS for https), no redirects, the lobby URL checked as ONLINE-2's client does. |
 | The game | `godot/scripts/game.gd` | The main menu's Online (`AptMainMenu::OnlineButtonPressed`) opens the screens on the lobby from `--online-lobby`, `OPENBFME_LOBBY`, Options.ini `OpenBFMEOnlineLobby`, else `https://play.openbfme.com`. The guest name is kept in Options.ini (`OpenBFMEOnlineName`). The staging room's START (`ShellAction::OnlineGameStart`) is played by ONLINE-2's path (`GameWorld.net_online`). `--online-walk=host|join` drives the screens for tests and screenshots. |
@@ -262,13 +269,15 @@ every screen at 1280 x 800 and 1920 x 1080, START refused without a relay
 local relay both clients loaded the game from the staging room and played 150
 frames through it on equal state hashes (0 desyncs).
 
-**Still missing for the owner to test end to end:**
+**Outstanding at the 2026-10-12 checkpoint** (historical deployment/test
+status, not a statement of the currently operated service):
 - a live lobby at `https://play.openbfme.com` (CFDEPLOY-1 has the Cloudflare
   deploy, not run yet: the token launcher needs the owner's Windows session)
   with `MOTD` set, and a relay in its `RELAYS` (no VPS yet): until then START
   is refused with the message above;
 - (fixed by ONLINE-5: the staging room's Ready column, below);
-- War of the Ring online and the Messenger (S-4075); Quick Match, tournaments and Stats need the
+- War of the Ring online; the Messenger was subsequently implemented in
+  `AptMessenger` and `godot/scripts/online_social.gd`. Quick Match, tournaments and Stats need the
   platform API deployed (S-4880, below),
   ping per relay region (S-4073). (Create-a-Heroes and handicaps online: lane ONLINEMENU-1.)
 
@@ -1016,11 +1025,11 @@ screen shows the observed player instead (S-3902).
 
 | Piece | Where | What it does |
 |---|---|---|
-| Spectator ticket | `RelayProtocol` ticket version 3 (34 bytes: the spectator index 0..15 in the slot byte, the delay in seconds), `lobby.mjs` `POST /v1/games/<id>/spectate` | Any signed-in account that is not a player gets a spectator START, at the start (it asks again until the host starts) or mid-game. Each call gives a new index, so a spectator that restarted asks again. |
+| Spectator ticket | `RelayProtocol` ticket version 3 (34 bytes: the spectator index 0..15 in the slot byte, the delay in seconds), `lobby.mjs` `POST /v1/games/<id>/spectate` | An authorized signed-in account that is not a player can get a spectator START after the game starts (it asks again until then). Private rooms refuse spectators. Each call consumes a new index: at most 16 places can be issued over a game's lifetime, including restarts. |
 | The relay | `RelayCore::spectatorHello`, `data`, `logRequest`, `tick` | A spectator binds with WELCOME slot 0x80 + index. **Every DATA from a spectator ticket is refused** (REFUSED "a spectator sends no commands"), never logged nor forwarded. It gets no STATUS. It reads the game's log with LOG_REQUEST. The log file is its buffer: nothing is queued per spectator, so a slow spectator only reads later. A spectator silent for 30 s is dropped. A game that ends stays readable while spectators remain (then for its delay plus 2 minutes). |
-| The delay | the lobby setup's `spectatorDelay` (0..600 s, default 0), `RelayCore::spectatorLimit` | The relay serves a delayed spectator only the frames at least delay x 5 game frames behind the latest frame any player has logged. A pause holds it. After the game ends, the rest is released at the game's pace. |
+| The delay | the lobby setup's `spectatorDelay` (0..600 s, default 120), `RelayCore::spectatorLimit` | The relay serves a delayed spectator only the frames at least delay x 5 game frames behind the latest frame any player has logged. A pause holds it. After the game ends, the rest is released at the game's pace. |
 | The spectator client | `NetGameSession::beginSpectate` / `spectateStep`, `openbfme_peer` (a spectator START), `GameWorld.net_begin` | No Network: it sends nothing and takes no part in the CRC vote, the run-ahead or the disconnect vote. It catches up from the START + the log (the S-3900 catch-up), then follows the log. It compares its own CRC with every CRC the players logged (a mismatch stops it). Its local input never reaches the game. |
-| The view | `LiveGame::observeNextPlayer`, `game.gd` (`--online-spectate=ID`, Tab / Shift+Tab), `GameWorld.net_observed` | "Spectating - every player" or "observing <player>: resources, command points, power (spell book points), rank". |
+| The view | `LiveGame::observeNextPlayer`, `game.gd` (`--online-spectate=ID`), `godot/scripts/caster_hud.gd` | The caster HUD selects all vision with `0`, an occupied lobby slot with `1`–`8`, and allied vision with `T`. It labels the view and the absence of a recorded camera; see [CASTER.md](CASTER.md). |
 
 Tests: `engine/tests/test_online3_spectate.cpp` (the pinned spectator ticket
 and START; the relay binds a spectator, refuses its forged command with
@@ -1184,10 +1193,11 @@ room. The lobby now says so instead of refusing blindly:
   the member, started and password branches (also for a member's repeated join).
 - **Quick Match** (another lane) reads `OnlineLobbyClient::profile()` (`online_status().mode`: "normal" / "uber").
 
-## 1. What exists today
+## 1. LAN baseline and original relay design
 
-All of it is LAN multiplayer: peer to peer, IPv4, lockstep at 5 logic frames
-a second.
+The original ONLINE-1 study started from LAN multiplayer: peer to peer,
+IPv4, lockstep at 5 logic frames a second. The table describes that LAN
+baseline, not the full current online implementation above.
 
 | Piece | Where | What it does |
 |---|---|---|
@@ -1200,9 +1210,11 @@ a second.
 | Replays | `Common/Recorder` (MP-1, NET-3) | OpenBFME's own replay format: the start, every frame's commands, every frame's state hash. Playback names the first frame that differs. |
 | Soaks | `tools/net/mp2_soak.sh`, `tools/net/mp3_soak.sh`, `GameNetwork/NetImpairment` (MP-3) | MP-2: 4-peer 30-minute soaks with loss and jitter, 0 desyncs. MP-3: 8-peer games, 150 ± 50 ms / 5 % loss / duplication / reordering, a router that exits mid-game, fast resend (S-1890 .. S-1892). |
 
-What an internet relay needs on top of this:
+Original relay requirements on top of this LAN baseline (the forwarding
+relay, log, lobby and reconnect are implemented above; per-hop transport,
+standby and relay snapshots remain planned):
 
-1. **NAT and addressing.** Today every peer has to reach every other peer's
+1. **NAT and addressing.** On LAN every peer has to reach every other peer's
    socket address, which fails behind home NATs and CGNAT and exposes
    addresses (the roadmap says players must never see each other's). With a
    relay, every client opens one outbound UDP flow to the relay. The existing
@@ -1224,7 +1236,7 @@ What an internet relay needs on top of this:
    sending slot, never from the message (ZH `NetGameCommandMsg`).
 3. **IPv6.** `NetAddress` is IPv4 only. A relay with a public IPv4 address
    works for every client. IPv6 support for the relay can come later.
-4. **Reconnect.** Today a dropped peer is dropped. A rejoin needs the game so
+4. **Reconnect.** On LAN a dropped peer is dropped. A rejoin needs the game so
    far: the relay's log (every frame's commands) lets a returning client
    re-simulate from frame 0 at full speed and then rejoin the lockstep at the
    live frame. That is fast enough for short games. Snapshots come with the
@@ -1425,16 +1437,20 @@ per-game state plus the log, a few MB per game.
 
 ## 3. Accounts and identity
 
-The roadmap requires accounts for online play. All of these options are free
-or nearly free:
+Original ONLINE-1 account options (research, not the current sign-in flow):
+the current implementation keeps an installation identity with nickname
+sign-in, optional launcher Discord/e-mail restore and recovery codes. Steam
+OpenID is not implemented. The options and pricing below record the study;
+recheck provider terms before deployment.
 
 - **Steam sign-in (OpenID 2.0).** Steam is an OpenID provider at
   `https://steamcommunity.com/openid/`. Sign-in needs no app id; a Web API key
   is needed only for extras such as app ownership checks [S1]. The lobby
-  Worker handles the OpenID round trip and keeps the SteamID64. Most of this
+  Worker would handle the OpenID round trip and keep the SteamID64. Most of this
   community has a Steam account. Ownership of BFME cannot be checked this way
   (BFME is not sold on Steam), and it isn't needed: the profile identity
-  already proves the game files.
+  compares the clients' declared engine/data digests; it is not server-side
+  attestation of files.
 - **Discord OAuth2**, scope `identify`: user id and name, free [D1].
 - **E-mail magic links**: a Worker plus a transactional mail service, e.g.
   Resend's free tier (3,000 a month, 100 a day; $20 a month for 50,000) [M1].
@@ -1539,7 +1555,7 @@ the movies are not:
 | `OnlineQuickMatch.apt` | 38,607 | Quick match: side, colour, number of players, connection speed, "searching for players", "players found", widen search, ladder / relative rank. | yes (ONLINEHUB-1): the TOURNAMENT page: Quick Match on the platform, the tournaments panel |
 | `OnlineStrategic.apt` | 59,227 | The War of the Ring lobby (`StrategicLobbyTitle`, a load-game button). | later: with War of the Ring |
 | `MpGameSetup.apt` | 234,316 | The staging room (shared with LAN, already driven by UI-1/MP-2): player matrix with kick, map and settings, chat, ready, clans tab. | yes: already in use |
-| `Messenger.apt` | 123,265 | Friends / buddy list and chat window with tabs, add / remove friend. | later: friends phase |
+| `Messenger.apt` | 123,265 | Friends / buddy list and chat window with tabs, add / remove friend. | implemented: `AptMessenger` and `godot/scripts/online_social.gd` |
 | `Connections.apt` | 20,206 | Connection quality grid per player pair (excellent / good / poor / failed). | yes: relay link quality |
 | `InGameChat.apt` | 25,938 | In-game chat. | already used |
 | `Stats.apt` | 35,164 | Per-faction stats with Open Play / Strategic / Tournament tabs. | yes (ONLINEHUB-1): Your stats and the community's |
@@ -1560,32 +1576,43 @@ mod-friendly OpenBFME-styled screen would only be needed for features the
 movies don't have. Spectate and replay downloads are the first candidates;
 they go in `MenuExport`-styled frames, `GenericButton_Med` etc.
 
-Flow (all on the retail movies):
+Current flow (retail movies for the online screens; optional account restore
+in the launcher):
 1. **Main menu → Online** (`OnlineShell`). Without a session token,
-   `OnlineLogin` opens. Sign-in goes through Steam / Discord / e-mail in the
-   browser, and the token comes back through `openbfme://auth`.
+   `OnlineLogin` opens with a nickname only; account/password controls are
+   hidden. The launcher's **Multiplayer** page offers recovery-code restore
+   and optional configured Discord/e-mail sign-in. Steam sign-in and an
+   `openbfme://auth` handler are not implemented; Discord uses a loopback
+   callback and e-mail uses the launcher's poll flow.
 2. **Home** (`OnlineHome`): MOTD and news from the lobby; the nav goes to
    Open Play.
-3. **Browse** (`OnlineOpenPlay`): the region's game list arrives over the
-   WebSocket as deltas. Sorting, refresh, a password prompt, and a ping per
-   relay region in the status column.
+3. **Browse** (`OnlineOpenPlay`): the game list arrives as JSON over HTTP.
+   Sorting, refresh and a password prompt are implemented. Connections
+   measures the selected game server, not a regional WebSocket feed.
 4. **Host**: the Create Game popup (name, optional password) → the lobby
-   Durable Object for the game → `MpGameSetup` as host.
+   lobby → `MpGameSetup` as host. The Worker uses one Lobby Durable Object,
+   not a separate object per game.
 5. **Join**: from the list, or from an `openbfme://join/<id>` link →
    profile identity check on the server → `MpGameSetup` as player.
 6. **Lobby chat and setup**: `MpGameSetup` chat and slot changes go to the
-   game's Durable Object; it validates them and broadcasts.
+   lobby; it validates them and wakes held HTTP polls. The default Godot
+   staging-room wait is 20 seconds; inbox holds are at most 25 seconds.
 7. **Start**: the host presses Start when everyone is ready. The lobby sends
-   each client a START (`LobbyStart` fields + relay address + ticket);
-   `Connections` shows the relay links while loading; lockstep runs through
-   the relay.
-8. **Post-game**: the relay uploads the game log to R2 as a replay. The
-   client shows its local score screen and a "replay saved / view online"
-   link. The verifier phase adds trusted results to `Stats`.
+   each client a START (`LobbyStart` fields + relay address + ticket); the
+   game loads it and lockstep runs through the relay. **Connections** is a
+   relay-link information popup, not a peer-to-peer loading handshake.
+8. **Post-game**: the relay's upload helper posts the game log to the lobby;
+   the Worker supports SQLite or R2 storage when configured. The replay
+   START/log endpoints are for the game's players. A "view online" score
+   link and verifier-backed trusted results are not part of this flow.
 
 ## 6. Phased plan
 
-The phases follow ROADMAP "Online multiplayer direction" (relay MVP after the
+This is the original proposed phase split, not a current delivery checklist.
+The phase reports above record what shipped; rejoin, browser, social identities,
+Messenger and delayed spectators were delivered without waiting for the
+optional verifier/per-hop transport. The original estimates follow ROADMAP
+"Online multiplayer direction" (relay MVP after the
 closed playtest → verifier and snapshots → browser, accounts, spectators →
 retail gateway). Estimates are lane-days for one agent lane plus owner time,
 and they assume M6's multiplayer work is merged (MP-3 included).
@@ -1600,8 +1627,8 @@ and they assume M6's multiplayer work is merged (MP-3 included).
 | O6 Quick match, War of the Ring online | `OnlineQuickMatch`, `OnlineStrategic` | ports | matchmaker | 10-15 |
 | O7 Retail gateway | cross-play with retail 2.01 (PLAN's cross-play gates, S-721 retail transport) | retail wire format | gateway | open (depends on M7) |
 
-What the owner has to do (outside any lane): create the Cloudflare and VPS
-accounts, own the domain, and keep the service source private.
+The original operator prerequisites were to create the Cloudflare and VPS
+accounts, own the domain, and keep service credentials outside the source.
 
 ## Sources
 
@@ -1661,18 +1688,23 @@ Proof: `engine/tests/test_onlinehub1_screens.cpp` (the retail movies against a l
 
 ## Player count (lane ONLINECOUNT-1)
 
-The lobby's `GET /v1/stats` (counts of players online, open and running games; the deploy notes, kept outside this repository, have the request budget and
-the free-plan estimate) feeds three lines: the main menu's top-left "N players online" and the online menu's "N players online, M games open"
-(`godot/scripts/online_stats.gd`), and the launcher's Play card chip (`launcher/scripts/core/online_count.gd`). The setting "Show how many players are
-online" (launcher: Settings > General, `state.cfg` `[launcher] show_online_count`, `--online-count=on|off`) is on by default; off, neither asks the lobby.
+The lobby's `GET /v1/stats` feeds the unsigned main-menu count
+(`godot/scripts/online_stats.gd`) and the launcher's Play card chip
+(`launcher/scripts/core/online_count.gd`). The signed-in online menu instead
+uses the stats carried by the social inbox; it sends no separate stats poll.
+The setting "Show how many players are online" (launcher: Settings > General,
+`state.cfg` `[launcher] show_online_count`, `--online-count=on|off`) is on by
+default; off, no dedicated count requests are sent and the count is hidden,
+but sign-in, presence and inbox requests still run.
 The game reads the launcher's `state.cfg` (read only), so one switch covers both; a game without a launcher is turned off with `--no-online-count`,
 `OPENBFME_NO_ONLINE_COUNT=1` or Options.ini `OpenBFMEShowOnlineCount = No`. Development and scripted runs ask only when a lobby is named
 (`--online-lobby` / `OPENBFME_LOBBY`). A failed, malformed or missing answer shows nothing.
 
 Historical Free-plan limit (ONLINECOUNT-1): 100,000 Worker requests/day covered about 23 players constantly in idle staging rooms
-(20-second held poll, 180 requests/hour each). It is not a Paid-plan player cap. The player count adds no extra requests for those staging players
-and 40/hour for a player parked in the online menu. Use the Workers Paid monthly meters above for current planning; the Free-plan figures in
-services/online/DEPLOY.md are historical comparisons, not the approved operating budget.
+(20-second held poll, 180 requests/hour each). It is not a Paid-plan player cap. With the social inbox enabled, add up to 144 sequential
+unchanged 25-second inbox timeouts per player-hour; state changes can wake either sooner. Signed-in menu counts add no separate polling
+stream. Use the Workers Paid monthly meters above for current planning; the Free-plan figures in services/online/DEPLOY.md are historical
+comparisons, not the approved operating budget.
 
 
 ## The online menus in real use (lane ONLINEUX-1, 2026-10-17)
@@ -1709,7 +1741,8 @@ The MAP panel's map list keeps its own highlight while the preview and descripti
 
 Retail-first: 1 (RW 0x97A668 / BFME2 0x5706D4, 0x57166C), 3 and 4 (the player's OnlineShell.apt scripts), 5 (RW 0x9C8694, 0x9C881D, the label table RW
 0xDB9290), 11 (RW 0x91D9F9) and 12 (RW 0x9AB748) are ported; the rest is OpenBFME's (its lobby, its texts) and registered as stops S-5140 .. S-5144.
-Single-human online starts (the owner's "solo online") wait for lane SOLO-1 (not merged).
+Single-human online starts (the owner's "solo online") came with SOLO-1: a custom game may start with one human (its result is nobody's
+statistics, see PLATFORM_API.md), and the solo player's own REJOIN is assembled from the relay log like any other rejoin.
 
 **Lobby change for the coordinator (not deployed: deploys need review and the owner's OK).** `services/online/lobby/src/lobby.mjs`: a player who
 leaves a started game (`POST /v1/games/<id>/leave`) is done with it: the game is no longer in their `/v1/mine` and `POST .../rejoin` is refused with
@@ -1722,11 +1755,14 @@ session sends no frame counts and no PLAYERLEAVE for an incarnation that never w
 
 ## The online menus against retail, and the staging room's last two columns (lane ONLINEMENU-1, 2026-10-20)
 
-An inventory of every callback, provider and gadget name the RotWK binary has for its online screens, checked against what this port
+The initial inventory of every callback, provider and gadget name the RotWK binary has for its online screens, checked against what the port then
 registers, found every retail name wired except the Messenger's (`AptMessenger::*`, `Messenger::ChatTab_*` / `PlayersTab_*`),
 `Connection::OnRetryConnections`, `OnlineLogin::TOSText` and `MpClans::Initialized`. The buttons that only say "not available" are the
 Messenger, War of the Ring, Load Game, Connections and the staging room's Clans tab. RotWK's home page has no Official Site button (the
-callback is BFME2's; the RotWK movie never calls it).
+callback is BFME2's; the RotWK movie never calls it). This is the initial
+inventory, not the current availability list: the Messenger now implements
+friends, requests, invites and chat; Connections measures relay links (below).
+War of the Ring, Load Game and the Clans tab remain unavailable.
 
 **Handicap and Create-a-Hero online.** The staging room's Handicap and Hero columns work as in the LAN room. The lobby keeps each slot's
 `handicap` (0, -5 .. -95 in steps of 5: RotWK's Handicap combo, RW 0x840B9D) and each player's own `cah` (the Create-a-Hero record in its

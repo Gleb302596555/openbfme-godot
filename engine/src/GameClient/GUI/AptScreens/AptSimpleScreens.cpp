@@ -2,6 +2,7 @@
 // See GameClient/GUI/AptScreens/AptSimpleScreens.h.
 
 #include "GameClient/GUI/AptScreens/AptSimpleScreens.h"
+#include "GameClient/LocalizedText.h"
 
 #include "GameClient/GUI/AptGadgetLayer.h"
 #include "GameClient/GUI/Gadgets.h"
@@ -19,6 +20,7 @@
 #include "Libraries/Source/Apt/Apt.h"
 #include "Libraries/Source/Apt/AptButtonInst.h"
 #include "Libraries/Source/Apt/AptCharacterInst.h"
+#include "Libraries/Source/Apt/AptInput.h"
 #include "Libraries/Source/Apt/AptValue.h"
 
 #include <array>
@@ -209,6 +211,27 @@ void AptPlayerTribute::pageLoaded(const std::string &params)
 		registerCommand(page + "_OnEnabledContentLoaded", [this](const std::string &arg) { contentLoaded(arg); });
 		// RW 0x91653C -> RW 0x915946: the content and its rows are freed
 		registerCommand(page + "_OnEnabledContentUnloaded", [this](const std::string &) {
+			if (m_content.empty())
+			{
+				return;
+			}
+			// Dynamic row callbacks capture indices into m_rows: retire them with the content,
+			// before clearing its rows, so a reload can register fresh callbacks.
+			for (TRow &row : m_rows)
+			{
+				if (!row.path.empty())
+				{
+					const std::string root = pathPrefix() + "." + row.path;
+					windows().unregisterProvider(root + "_color");
+					windows().closeAptScreen(root + "_InitSlider");
+					windows().closeAptScreen(root + "_InitTextEntry");
+				}
+			}
+			for (const char *suffix : { "_OnRowShown", "_OnRowHidden", "_Reset", "_Send" })
+			{
+				windows().unregisterCommand(m_content + suffix);
+			}
+			windows().unregisterProvider(m_content + "_NumOfPlayers");
 			m_content.clear();
 			m_rows.clear();
 		});
@@ -450,6 +473,14 @@ void AptPlayerTribute::tributeRowHidden(const std::string &argument)
 		return;
 	}
 	TRow &row = m_rows[(size_t)index];
+	// A hidden clip can be replaced by the movie; its providers and _Init refs leave with it.
+	if (!row.path.empty())
+	{
+		const std::string root = pathPrefix() + "." + row.path;
+		windows().unregisterProvider(root + "_color");
+		windows().closeAptScreen(root + "_InitSlider");
+		windows().closeAptScreen(root + "_InitTextEntry");
+	}
 	row.path.clear();
 	row.slider = nullptr;
 	row.entry = nullptr;
@@ -1172,47 +1203,6 @@ bool equalsNoCase(const std::string &a, const char *b)
 	return i == a.size() && b[i] == 0;
 }
 
-// ZH UnicodeString::format (a vswprintf) of a "%d"-style game text: the integer conversions are replaced in order by the integers, with their flags,
-// width and precision (Version:Format2 is "Version %d.%02d": the minor version 1 shows as "01", RotWK's "Version 2.01"; lane MENUFIX-1, before the
-// width was dropped: "Version 2.1")
-std::u16string formatInts(const std::u16string &format, std::initializer_list<int> values)
-{
-	std::u16string out;
-	auto it = values.begin();
-	for (std::size_t i = 0; i < format.size(); ++i)
-	{
-		if (format[i] == u'%' && i + 1 < format.size())
-		{
-			std::size_t j = i + 1;
-			std::string spec = "%";
-			while (j < format.size() && (format[j] == u'-' || format[j] == u'+' || format[j] == u' ' || format[j] == u'#' || format[j] == u'.' ||
-					(format[j] >= u'0' && format[j] <= u'9')))
-			{
-				spec += (char)format[j++];
-			}
-			if (j < format.size() && (format[j] == u'd' || format[j] == u'i' || format[j] == u'u'))
-			{
-				if (it != values.end())
-				{
-					spec += (char)format[j];
-					char buf[64];
-					std::snprintf(buf, sizeof(buf), spec.c_str(), *it++);
-					out += asciiToU16(buf);
-				}
-				i = j;
-				continue;
-			}
-			if (format[i + 1] == u'%')
-			{
-				out += u'%';
-				++i;
-				continue;
-			}
-		}
-		out += format[i];
-	}
-	return out;
-}
 } // namespace
 
 std::u16string AptOptionsScreen::versionText(const GameTextSource *text)
@@ -1223,7 +1213,7 @@ std::u16string AptOptionsScreen::versionText(const GameTextSource *text)
 	{
 		format = u"Version:Format2"; // a missing label shows as the label (the game text's own rule)
 	}
-	return formatInts(format, { kVersionMajor, kVersionMinor });
+	return LocalizedText::format(format, { kVersionMajor, kVersionMinor });
 }
 
 namespace
@@ -1262,7 +1252,7 @@ AptOptionsScreen::AptOptionsScreen(WindowManager &windows, Shell &shell, ShellEn
 	registerCommand("AptOptions::Cancel", [this](const std::string &) {
 		if (extensionOpen())
 		{
-			m_extensionEvents.push_back({ OpenBFMEPageEvent::Kind::Cancel, std::string(), 0 });
+			addExtensionEvent({ OpenBFMEPageEvent::Kind::Cancel, std::string(), 0 });
 			return;
 		}
 		cancel();
@@ -1270,7 +1260,7 @@ AptOptionsScreen::AptOptionsScreen(WindowManager &windows, Shell &shell, ShellEn
 	registerCommand("AptOptions::Save", [this](const std::string &) {
 		if (extensionOpen())
 		{
-			m_extensionEvents.push_back({ OpenBFMEPageEvent::Kind::Accept, std::string(), 0 });
+			addExtensionEvent({ OpenBFMEPageEvent::Kind::Accept, std::string(), 0 });
 			return;
 		}
 		save();
@@ -1278,7 +1268,7 @@ AptOptionsScreen::AptOptionsScreen(WindowManager &windows, Shell &shell, ShellEn
 	registerCommand("AptOptions::Reset", [this](const std::string &) {
 		if (extensionOpen())
 		{
-			m_extensionEvents.push_back({ OpenBFMEPageEvent::Kind::Reset, std::string(), 0 });
+			addExtensionEvent({ OpenBFMEPageEvent::Kind::Reset, std::string(), 0 });
 			return;
 		}
 		reset();
@@ -2542,7 +2532,7 @@ bool AptOptionsScreen::openExtension(std::string *error)
 				}
 				return;
 			}
-			m_extensionEvents.push_back(e);
+			addExtensionEvent(e);
 		});
 	}
 	layer->setDecorator([this](GadgetDrawList &out) {
@@ -2572,6 +2562,7 @@ bool AptOptionsScreen::openExtension(std::string *error)
 	m_state = kExtensionState;
 	m_entryPressed = false;
 	m_barPressed = -1;
+	m_deferredEvents.clear();
 	setExtensionHidden(true);
 	return true;
 }
@@ -2621,9 +2612,28 @@ void AptOptionsScreen::closeExtension()
 	m_mirroredAtOpen.clear();
 }
 
+void AptOptionsScreen::addExtensionEvent(const OpenBFMEPageEvent &e, std::uint64_t inputSerial)
+{
+	if (inputSerial == 0 && m_deferredEvents.empty())
+	{
+		m_extensionEvents.push_back(e);
+		return;
+	}
+	m_deferredEvents.emplace_back(e, inputSerial);
+}
+
 std::vector<OpenBFMEPageEvent> AptOptionsScreen::takeExtensionEvents()
 {
-	// one FIFO: the page's changes and the bottom bar's / the button's clicks in the order they happened (Sol review r1)
+	// one FIFO: the page's changes and the bottom bar's / the button's clicks in the order they happened (Sol review r1). Lane MENUSND-1: a bar click
+	// joins it once the movie's input has processed the press and its cancel (the press's sound is asked for by then), the events behind it after it
+	const std::uint64_t processed = windows().apt().input().processed();
+	std::size_t ready = 0;
+	while (ready < m_deferredEvents.size() && m_deferredEvents[ready].second <= processed)
+	{
+		m_extensionEvents.push_back(m_deferredEvents[ready].first);
+		++ready;
+	}
+	m_deferredEvents.erase(m_deferredEvents.begin(), m_deferredEvents.begin() + (std::ptrdiff_t)ready);
 	std::vector<OpenBFMEPageEvent> out;
 	out.swap(m_extensionEvents);
 	return out;
@@ -2738,6 +2748,14 @@ bool AptOptionsScreen::mouseFilter(int kind, float x, float y)
 		if (kind == 1)
 		{
 			m_barPressed = hit;
+			if (hit >= 0)
+			{
+				// lane MENUSND-1: the press still reaches the movie, so the button plays what RotWK plays on it: MenuExport.apt's GenericButton goes to
+				// its `_down` frame (button action 4: gotoAndPlay("_down")), whose action calls _root.PlaySound("Gui_ShellMapSelect") (FSCommand PlaySound,
+				// RW 0x815772) and shows the pressed look. The press does nothing else there: the button's click (OnButtonClick) is its `_release end`
+				// frame, which the release reaches, and the release stays the page's
+				windows().apt().input().postMouseButton(true);
+			}
 			return hit >= 0;
 		}
 		const int pressed = m_barPressed;
@@ -2746,10 +2764,11 @@ bool AptOptionsScreen::mouseFilter(int kind, float x, float y)
 		{
 			return false;
 		}
+		const std::uint64_t serial = windows().apt().input().postCancelPress(); // the movie's press ends without its release (and so without its click)
 		if (pressed == hit)
 		{
 			static const OpenBFMEPageEvent::Kind kinds[3] = { OpenBFMEPageEvent::Kind::Cancel, OpenBFMEPageEvent::Kind::Reset, OpenBFMEPageEvent::Kind::Accept };
-			m_extensionEvents.push_back({ kinds[pressed], std::string(), 0 });
+			addExtensionEvent({ kinds[pressed], std::string(), 0 }, serial); // the page's event once the movie has the press (takeExtensionEvents)
 		}
 		return true;
 	}
@@ -2769,7 +2788,7 @@ bool AptOptionsScreen::mouseFilter(int kind, float x, float y)
 		m_entryPressed = false;
 		if (inside)
 		{
-			m_extensionEvents.push_back({ OpenBFMEPageEvent::Kind::Entry, std::string(), 0 });
+			addExtensionEvent({ OpenBFMEPageEvent::Kind::Entry, std::string(), 0 });
 		}
 		return true;
 	}
@@ -3191,7 +3210,7 @@ void AptOptionsScreen::menuUpdate()
 	{
 		windows().note("options-menu", "[S-4670] Options: the movie made no " + missing + ": the menu has no row for it");
 	}
-	m_extensionEvents.push_back({ OpenBFMEPageEvent::Kind::Entry, std::string(), m_openOnDetail ? 1 : 0 });
+	addExtensionEvent({ OpenBFMEPageEvent::Kind::Entry, std::string(), m_openOnDetail ? 1 : 0 });
 }
 
 void AptOptionsScreen::finishMenu(bool accept)

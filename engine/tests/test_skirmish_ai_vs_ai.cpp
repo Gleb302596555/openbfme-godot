@@ -519,7 +519,7 @@ TEST_CASE("skirmish ai dozers: an AI that loses its dozers queues a new one at i
 		for (Object *d : dozers)
 		{
 			killedIds.push_back(d->getID());
-			d->kill(0);
+			d->kill(DAMAGE_UNRESISTABLE, 0);
 		}
 		// the dozer must be affordable (an AI without dozers or money stays stuck in RW too): the test pays for it
 		const_cast<Player *>(me)->getMoney()->deposit(5000, false);
@@ -835,7 +835,20 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// made), SCRIPT-4, MODS-3's DoCommandUpgrade / PLAYER_UPGRADE buttons and library teams, and the amoeba reach that skips an enclosed occupant, on q23's
 	// tree; measured once on the merged tree, a CI host, the test file alone, twice): seed 2 stays open at 9000 with a new table (changed from the first window),
 	// seed 7 ends with the Men's defeat (start position 0) at 6368, seed 1234 stays open at 9000. Engine pins, not retail values.
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 0, 6368 }, Game{ "FactionMordor", "FactionMen", 1234u, -1, -1 } })
+	// Merge queue q26 (community #73 / #74's centred formations and spiral, BANNER-1's refills, #101's SPEED modifiers, SIEGE-1 (#64) and the rest on the
+	// archive's tree; measured once on the merged tree, two CI hosts): seed 2 stays open at 9000 with a new table (changed from the first window), seed 7 ends
+	// with the Men's defeat (start position 0) at 4890 (was 6368), seed 1234 stays open at 9000. Engine pins, not retail values.
+	// Merge queue q27 (LOS-1's terrain line of sight with #105's trees, RADIUSHEIGHT-1, GATEPUSH-1, HEROCAST-1 and #111 on the archive's tree; measured once
+	// on the merged tree and at each merge point, a CI host): seed 2 stays open at 9000 with a new table (changed from the first window), seed 7 ends with
+	// the Men's defeat (start position 0) at 6354 (was 4890), seed 1234 stays open at 9000; LOS-1 alone gives these three. Engine pins, not retail values.
+	// Merge queue q28 (#96 / #97 / #98, #117's fortress module in the update schedule, #124 and the archive's plain batch; measured once on the merged tree
+	// and at each merge point, a CI host): seed 2 stays open at 9000 with a new table (changed from the first window), seed 7 ends with the Men's defeat
+	// (start position 0) at 4533 (was 6354), seed 1234 stays open at 9000. Engine pins, not retail values.
+	// Merge queue q29 (measured once on the merged tree and at each merge point, a CI host): seed 2 stays open at 9000 with a new table (changed from the first
+	// window), seed 7 is now open at 9000 (the Men's defeat at 4533 before), seed 1234 stays open at 9000. At the merge points seed 7's defeat moved to 8399
+	// (DEVPORT-SIM), the game stayed open from PATHPRIO-1 on (as that lane measured), community #113 ended seed 1234 at 7647, IDLEMOTION-1 seed 7 at 7924
+	// (1234 open again); with FBSIM-1 all three are open. Engine pins, not retail values.
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, -1, -1 }, Game{ "FactionMordor", "FactionMen", 1234u, -1, -1 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;
@@ -856,17 +869,20 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 		CHECK(run.defeatFrame == g.defeatFrame);
 		if (g.seed == 2u)
 		{
-			// merge queue q23: seed 2's table (every side keeps attacking, building and destroying through the windows; a sample every 1000 frames, cumulative)
+			// lane BANNER-1 (the banner carrier's refill as RotWK: replacements at the horde's experience and not counted as built, RW 0x89A40E; refills after
+			// RW 0x86EE52's windows): seed 2's table moves (fewer units built, other fights); the three games stay open at 9000
+			// merge queue q29: seed 2's table (both sides keep attacking, building and destroying through the windows; a sample every 1000 frames, cumulative)
+			// merge queue q31 (#112's battalion exit paths; measured at each merge point): a new table; the three games stay open
 			CHECK(run.progress ==
-		"frame 1000: [0 attacks 2 built 90u/8s destroyed 8u/1s] [1 attacks 1 built 85u/7s destroyed 37u/2s]\n"
-		"frame 2000: [0 attacks 5 built 319u/11s destroyed 156u/3s] [1 attacks 4 built 231u/10s destroyed 216u/2s]\n"
-		"frame 3000: [0 attacks 8 built 504u/12s destroyed 354u/3s] [1 attacks 8 built 415u/11s destroyed 394u/3s]\n"
-		"frame 4000: [0 attacks 10 built 701u/15s destroyed 520u/4s] [1 attacks 9 built 616u/13s destroyed 647u/3s]\n"
-		"frame 5000: [0 attacks 13 built 985u/15s destroyed 667u/4s] [1 attacks 12 built 733u/15s destroyed 871u/4s]\n"
-		"frame 6000: [0 attacks 17 built 1238u/15s destroyed 769u/4s] [1 attacks 13 built 835u/17s destroyed 1191u/4s]\n"
-		"frame 7000: [0 attacks 21 built 1520u/16s destroyed 922u/4s] [1 attacks 16 built 973u/18s destroyed 1426u/4s]\n"
-		"frame 8000: [0 attacks 23 built 1684u/18s destroyed 1044u/5s] [1 attacks 17 built 1092u/19s destroyed 1565u/4s]\n"
-		"frame 9000: [0 attacks 25 built 1904u/18s destroyed 1150u/7s] [1 attacks 19 built 1228u/19s destroyed 1828u/4s]\n");
+		"frame 1000: [0 attacks 0 built 71u/8s destroyed 18u/2s] [1 attacks 0 built 76u/8s destroyed 23u/1s]\n"
+		"frame 2000: [0 attacks 1 built 244u/10s destroyed 90u/3s] [1 attacks 1 built 150u/11s destroyed 176u/3s]\n"
+		"frame 3000: [0 attacks 3 built 450u/13s destroyed 171u/4s] [1 attacks 2 built 245u/13s destroyed 305u/6s]\n"
+		"frame 4000: [0 attacks 3 built 530u/14s destroyed 233u/5s] [1 attacks 3 built 325u/15s destroyed 492u/6s]\n"
+		"frame 5000: [0 attacks 5 built 787u/14s destroyed 319u/5s] [1 attacks 5 built 394u/16s destroyed 738u/6s]\n"
+		"frame 6000: [0 attacks 6 built 1016u/17s destroyed 415u/5s] [1 attacks 6 built 505u/17s destroyed 939u/6s]\n"
+		"frame 7000: [0 attacks 10 built 1198u/17s destroyed 462u/5s] [1 attacks 6 built 539u/20s destroyed 1116u/6s]\n"
+		"frame 8000: [0 attacks 11 built 1293u/17s destroyed 559u/6s] [1 attacks 7 built 612u/23s destroyed 1267u/6s]\n"
+		"frame 9000: [0 attacks 13 built 1442u/17s destroyed 639u/6s] [1 attacks 9 built 669u/24s destroyed 1388u/6s]\n");
 		}
 	}
 }
@@ -928,8 +944,13 @@ TEST_CASE("skirmish ai vs ai: produced members catch up with their horde (RW 0x8
 	CHECK(run.worstSpread < 300.0f);
 }
 
-TEST_CASE("skirmish ai targetless: the generator's FarmKillSquad draw at creation, the per-frame pick and the squad's counters (RW 0x9BB3CA / 0x90C5E2 / 0x9BB1C4 / 0x9BB479)")
+TEST_CASE("skirmish ai targetless: the generator's FarmKillSquad draw at creation, the per-frame pick and the squads' counters (RW 0x9BB3CA / 0x90C5E2 / 0x9BC39F / 0x9BB1C4 / 0x9BB479)")
 {
+	// community #113 (FlagCaptureSquad ported, RW 0x9BC39F / 0x9BC1A0): FarmKillSquad is no longer the only targetless tactic that can apply. FlagCaptureSquad is
+	// the first prototype in RW 0x90C0EE's order and applies with no squad running and its next-run frame due (both counters start as 0, RW 0x6C7EDD) while a
+	// non-allied CAPTUREFLAG object stands (Evendim's neutral buildings); FarmKillSquad applies with its early flag set (RW 0x9BB1C4). Measured (engine pins, a
+	// CI host): at frame 10 both apply, the pick draws 0 of 0 .. 1 and starts the FlagCaptureSquad; at frame 11 it is running, so the pick draws among the
+	// FarmKillSquad alone (0 .. 0) and starts it
 	OPENBFME_REQUIRE_START(s);
 	static std::vector<MapCacheEntry> cache;
 	std::string error;
@@ -954,52 +975,80 @@ TEST_CASE("skirmish ai targetless: the generator's FarmKillSquad draw at creatio
 	const AISkirmishPlayer *ai = logic.skirmishAI().findAI(me->getPlayerIndex());
 	REQUIRE(ai != nullptr);
 	CHECK(ai->brain.generatorMade);
-	int firstStart = -1;
-	for (int i = 0; i < 2400 && firstStart < 0; ++i)
+	auto started = [&](const char *kind) {
+		auto it = ai->brain.tacticsByKind.find(kind);
+		return it == ai->brain.tacticsByKind.end() ? 0 : it->second;
+	};
+	auto counter = [&](const char *name) {
+		auto it = ai->brain.namedCounters.find(name);
+		return it == ai->brain.namedCounters.end() ? -1 : it->second;
+	};
+	int firstStart = -1, farmKillStart = -1;
+	for (int i = 0; i < 2400 && farmKillStart < 0; ++i)
 	{
 		game.advance(0.2);
-		if (ai->brain.targetlessStarted > 0)
+		if (firstStart < 0 && ai->brain.targetlessStarted > 0)
 		{
 			firstStart = (int)logic.getFrame();
+			MESSAGE("first targetless start at frame " << firstStart << ": FlagCaptureSquad " << started("FlagCaptureSquad") << ", FarmKillSquad "
+													 << started("FarmKillSquad") << ", picks " << ai->brain.targetlessPicks << ", unported applicability checks "
+													 << ai->brain.targetlessUnported);
+			CHECK(firstStart == 10);
+			CHECK(started("FlagCaptureSquad") == 1);
+			CHECK(started("FarmKillSquad") == 0);
+			CHECK(counter("AIFlagCaptureSquad_IsRunning") == 1);
+			CHECK(ai->brain.targetlessUnported == 9); // the other 9 prototypes' applicability, once per pick frame (S-893)
+		}
+		if (started("FarmKillSquad") > 0)
+		{
+			farmKillStart = (int)logic.getFrame();
 		}
 	}
-	MESSAGE("FarmKillSquad early flag " << ai->brain.farmKillEarly << ", first targetless start at frame " << firstStart << ", picks " << ai->brain.targetlessPicks
-									  << ", unported applicability checks " << ai->brain.targetlessUnported);
+	MESSAGE("FarmKillSquad early flag " << ai->brain.farmKillEarly << ", first targetless start at frame " << firstStart << ", FarmKillSquad's at "
+									  << farmKillStart << ", picks " << ai->brain.targetlessPicks << ", started " << ai->brain.targetlessStarted
+									  << " (FlagCaptureSquad " << started("FlagCaptureSquad") << "), unported applicability checks " << ai->brain.targetlessUnported);
 	REQUIRE(firstStart > 0);
-	// RW 0x9BB1C4: a FarmKillSquad needs the Rush phase over unless its + 0x60 flag (94%) is set; only it is ported, so every pick drew among exactly one candidate
+	REQUIRE(farmKillStart == 11);
+	// RW 0x90C5E2: the two always-started prototypes never apply here, so every start is one pick's draw
 	CHECK(ai->brain.targetlessPicks == ai->brain.targetlessStarted);
-	CHECK(ai->brain.tacticsByKind.count("FarmKillSquad") == 1);
-	auto running = ai->brain.namedCounters.find("FarmKillSquad::IsRunning");
-	REQUIRE(running != ai->brain.namedCounters.end());
-	CHECK(running->second == 1);
-	CHECK(ai->brain.targetlessUnported >= 10);
-	// RW 0x90C0EE constructs the prototype; RW 0x90C5E2 picks it even from a singleton pool,
-	// then RW 0x9BB43D constructs the clone before copying its prototype flag, and RW 0x9BB479 sets it up.
+	CHECK(ai->brain.targetlessStarted == 2);
+	CHECK(started("FlagCaptureSquad") == 1);
+	CHECK(started("FarmKillSquad") == 1);
+	CHECK(counter("FarmKillSquad::IsRunning") == 1);
+	CHECK(ai->brain.targetlessUnported == 18);
+	// RW 0x90C0EE constructs the prototype (its draw); each pick draws among the pool (AITacticsGenerator.cpp 0x1BC: 0 .. pool size - 1); a FlagCaptureSquad
+	// team draws its maximum (AIFlagCaptureSquad.cpp 0xEF, RW 0x9BC1A0) and its end its next run (0xD5, RW 0x9BBFDC); RW 0x9BB43D constructs the FarmKillSquad
+	// clone before copying its prototype flag, and RW 0x9BB479 sets it up (0x267)
 	std::vector<GameLogicRandom::Call> draws;
 	for (const auto &c : logic.random().callLog())
 	{
-		if (c.file == "AIFarmKillSquad.cpp" || (c.file == "AITacticsGenerator.cpp" && c.line == 0x1BC))
+		if (c.file == "AIFarmKillSquad.cpp" || c.file == "AIFlagCaptureSquad.cpp" || (c.file == "AITacticsGenerator.cpp" && c.line == 0x1BC))
 		{
 			draws.push_back(c);
 		}
 	}
-	REQUIRE(draws.size() == 4);
-	CHECK(draws[0].line == 0x39);
-	CHECK(draws[0].lo == 1);
-	CHECK(draws[0].hi == 100);
-	CHECK(draws[1].line == 0x1BC);
-	CHECK(draws[1].lo == 0);
-	CHECK(draws[1].hi == 0);
-	CHECK(draws[2].line == 0x39);
-	CHECK(draws[2].lo == 1);
-	CHECK(draws[2].hi == 100);
-	CHECK(draws[3].line == 0x267);
-	CHECK(draws[3].lo == (ai->build.phase == 0 ? 1 : 2));
-	CHECK(draws[3].hi == 3);
-	for (const auto &c : draws)
+	struct Draw
 	{
-		CHECK(c.drewNumber);
+		const char *file;
+		int line, lo, hi;
+	};
+	const Draw expected[] = { { "AIFarmKillSquad.cpp", 0x39, 1, 100 }, // the prototype at creation
+		{ "AITacticsGenerator.cpp", 0x1BC, 0, 1 },                       // frame 10: FlagCaptureSquad and FarmKillSquad apply
+		{ "AIFlagCaptureSquad.cpp", 0xEF, 1, 3 },                        // the FlagCaptureSquad team's maximum
+		{ "AITacticsGenerator.cpp", 0x1BC, 0, 0 },                       // frame 11: FarmKillSquad alone
+		{ "AIFarmKillSquad.cpp", 0x39, 1, 100 },                         // its clone's constructor
+		{ "AIFarmKillSquad.cpp", 0x267, ai->build.phase == 0 ? 1 : 2, 3 } };
+	REQUIRE(draws.size() == 6);
+	for (size_t i = 0; i < draws.size(); ++i)
+	{
+		INFO("draw " << i);
+		CHECK(draws[i].file == expected[i].file);
+		CHECK(draws[i].line == expected[i].line);
+		CHECK(draws[i].lo == expected[i].lo);
+		CHECK(draws[i].hi == expected[i].hi);
+		CHECK(draws[i].drewNumber);
 	}
+	CHECK(draws[1].result == 0); // the first in the pool: FlagCaptureSquad
 }
 
 TEST_CASE("skirmish ai tactics: the offensive bodies make retail's draws in order and walk their waypoints (Flank RW 0x9B461D, Pincer RW 0x9B4041, Feint RW 0x9B396A, Formation RW 0x9B4C32)")
@@ -1024,7 +1073,9 @@ TEST_CASE("skirmish ai tactics: the offensive bodies make retail's draws in orde
 	// 15 seeds on the merged tree found seeds 37 and 41
 	// Lane SUMMON-1 (the OCLs' retail random draws, DoCommandUpgrade's rock-throw toggles): none of these twelve hands a Pincer team its waypoints within 2600
 	// frames; a probe of 16 seeds on the lane's tree (Deck) found 53 (two distances), 71, 101 and 113 (one each)
-	for (std::uint32_t seed : { 1234u, 2u, 7u, 11u, 13u, 17u, 19u, 31u, 29u, 67u, 37u, 41u, 53u, 71u })
+	// Merge queue q31 (#112's battalion exit paths move every game): none of these fourteen hands a Pincer team its waypoints within 2600 frames; a probe of
+	// 18 seeds on the merged tree (73 .. 163) found 97, 101 and 139 (one each)
+	for (std::uint32_t seed : { 1234u, 2u, 7u, 11u, 13u, 17u, 19u, 31u, 29u, 67u, 37u, 41u, 53u, 71u, 97u, 101u })
 	{
 		NewGameStart start(RandomAlgorithm::ZH_CarryChain);
 		REQUIRE_MESSAGE(NewGame::prepareNewGame(versusMessage(*s, "FactionMen", -1, "FactionMordor", 2, seed), s->world->playerTemplates(), s->settings, cache,

@@ -68,9 +68,24 @@ int hotkeyOf(const std::string &)
 {
 	return 0; // the `&` accelerator of a label needs the game text: the HUD fills it when a text source is given
 }
+
+ButtonState buildAvailability(CanMakeType make, bool &commandPointsShort)
+{
+	switch (make)
+	{
+		case CANMAKE_OK: return ButtonState::Enabled;
+		case CANMAKE_NO_MONEY: return ButtonState::CantAfford;
+		case CANMAKE_UNKNOWN_7:
+			// RW 0x942F42: result 7 is availability 7, drawn as _cantAfford (RW 0x943C51 -> 0x943C46), not hidden by HIDE_WHILE_DISABLED
+			// (RW 0x943B39). A left press aborts silently (RW 0x940B87), unlike availability 6's insufficient-money message.
+			commandPointsShort = true;
+			return ButtonState::CantAfford;
+		default: return ButtonState::Restricted;
+	}
+}
 } // namespace
 
-ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool ignoreDisabled)
+ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &commandPointsShort, bool ignoreDisabled)
 {
 	// ZH ControlBar::getCommandAvailability (ControlBarCommand.cpp:1017), the subset whose logic is ported (stop S-290)
 	Player *player = obj.getControllingPlayer();
@@ -107,7 +122,8 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool ignor
 		b.m_command != GUI_COMMAND_EVACUATE && b.m_command != GUI_COMMAND_CREW_EVACUATE && b.m_command != GUI_COMMAND_EXIT_CONTAINER &&
 		b.m_command != GUI_COMMAND_BEACON_DELETE && b.m_command != GUI_COMMAND_SET_RALLY_POINT && b.m_command != GUI_COMMAND_SWITCH_WEAPON)
 	{
-		return evaluate(b, obj, true) == ButtonState::Hidden ? ButtonState::Hidden : ButtonState::Restricted;
+		bool ignored = false;
+		return evaluate(b, obj, ignored, true) == ButtonState::Hidden ? ButtonState::Hidden : ButtonState::Restricted;
 	}
 	// lane FACT-B, RW 0x9428A3 .. 0x942993 (before every command's own rule): a NEED_UPGRADE button (Options bit 0x40) needs its NeededUpgrade list (+0x28):
 	// every entry, or any one with NeededUpgradeAny (+0x34). A PLAYER entry asks Player::hasUpgradeComplete (RW 0x6AC2AF), an OBJECT entry Object::hasUpgrade
@@ -188,12 +204,12 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool ignor
 			{
 				return ButtonState::Restricted;
 			}
-			switch (BuildAssistant::canMakeUnit(obj, tt, -1))
+			const CanMakeType make = BuildAssistant::canMakeUnit(obj, tt, -1);
+			if (make == CANMAKE_UNKNOWN_7 && b.m_command != GUI_COMMAND_UNIT_BUILD)
 			{
-				case CANMAKE_OK: return ButtonState::Enabled;
-				case CANMAKE_NO_MONEY: return ButtonState::CantAfford;
-				default: return ButtonState::Restricted;
+				return ButtonState::Restricted;
 			}
+			return buildAvailability(make, commandPointsShort);
 		}
 		case GUI_COMMAND_PUSH_VISIBLE_COMMAND_RANGE:
 		case GUI_COMMAND_POP_VISIBLE_COMMAND_RANGE:
@@ -718,7 +734,7 @@ void ControlBar::update()
 					place(cb, start);
 					continue;
 				}
-				cb.state = evaluate(*b, *obj);
+				cb.state = evaluate(*b, *obj, cb.commandPointsShort);
 				// lane HUD-6: RW 0x943B39 .. 0x943B4C: a disabled button (availability 0) with the option HIDE_WHILE_DISABLED (CommandButton + 0x1E & 0x40,
 				// option bit 22 of RW 0xDA4C88) is hidden (3): the Mordor fortress's spire fireball before its upgrade. Lane OWNERFIX-3: the exception (bl,
 				// RW 0x943B18) is only for a button updateContextCommand itself turned to 0 in a foreign view (foreignDisable): one whose own availability was
@@ -872,7 +888,7 @@ bool ControlBar::reviveButton(ControlBarButton &cb, int n, Player &player, Objec
 			if (needed.empty()) availability.m_options &= ~COMMAND_OPTION_NEED_UPGRADE;
 		}
 	}
-	cb.state = evaluate(availability, producer);
+	cb.state = evaluate(availability, producer, cb.commandPointsShort);
 	if (cb.state != ButtonState::Enabled)
 	{
 		return true;
@@ -882,17 +898,12 @@ bool ControlBar::reviveButton(ControlBarButton &cb, int n, Player &player, Objec
 		cb.state = ButtonState::Restricted;
 		return true;
 	}
-	switch (BuildAssistant::canMakeUnit(producer, nullptr, n))
+	const CanMakeType make = BuildAssistant::canMakeUnit(producer, nullptr, n);
+	switch (make)
 	{
 		case CANMAKE_NO_MONEY:
-			cb.state = ButtonState::CantAfford;
-			return true;
 		case CANMAKE_UNKNOWN_7:
-			// lane HEROBUY-1: RW 0x942F42 .. 0x942F49: canMakeUnit 7 (the command points, RW 0x794035) is availability 7, which updateContextCommand draws as
-			// availability 6 (RW 0x943C51 -> 0x943C46: a disabled window with WIN_STATUS_ALWAYS_COLOR, the "_cantAfford" clip); HIDE_WHILE_DISABLED hides only
-			// availability 0 (RW 0x943B39), so a Goblin over its command point cap still sees Shelob's button. A left press aborts silently (RW 0x940B87)
-			cb.state = ButtonState::CantAfford;
-			cb.commandPointsShort = true;
+			cb.state = buildAvailability(make, cb.commandPointsShort);
 			return true;
 		case CANMAKE_MAXED_OUT_FOR_PLAYER:
 		case CANMAKE_PARKING_PLACES_FULL:
@@ -1088,9 +1099,12 @@ int ControlBar::stanceSlotOf(const CommandButton &b, Object &obj)
 	{
 		return -1;
 	}
+	// RW 0x96FF2F -> 0x861D8E: the toggle looks up the stance's class, not the stance (Uninitialized shows Battle, Porcupine / HoldGroundMoving show
+	// HoldGround), in the button's Stances (RW 0x96F2DA); the change listener RW 0x96F5DE gets the class too
+	const int stanceClass = StancesBehavior::stanceClass(sb->getStance());
 	for (size_t i = 0; i < b.m_stances.size(); ++i)
 	{
-		if (b.m_stances[i] == (int)sb->getStance())
+		if (b.m_stances[i] == stanceClass)
 		{
 			return (int)i;
 		}
@@ -1236,10 +1250,5 @@ std::vector<std::string> ControlBar::acceptanceStops()
 		"0x96F53C); a TOGGLE_STANCE press that reaches processCommandUI sends nothing and is counted (unportedPresses \"TOGGLE_STANCE (no sub-menu)\"); not ported: "
 		"SetStance's voice (RW 0x8DEDBB event 0x7E3, INFERENCE: the UnitSpecificSound), the items' hotkey registration (RW 0x96F890, S-280: D / F / G still send "
 		"through CommandXlat), the sub-menu owner's notifications (vslots 4 / 8), the press's context object checks (RW 0x449681 / 0x6A8803)",
-		"[S-4531] the left press's gate and click sound (lane NETLAG-1, read, not ported): RW 0x9D285E (BFME2 decomp Rva005C3427::Run, tier A) reads the "
-		"command button clip's state (RW 0xA00C0E: clip + 0x50, set by RW 0x9D2BEE: 1 _disabled, 2 _extraDisabled, 3 _cantAfford, 4 _static, 5 _notReady, "
-		"6 _up, 7 _visuallyEnabled) and for 1, 3 and 5 plays Gui_PalantirCommandButtonDisabledClick and drops the press; any other state goes to "
-		"processCommandUI (RW 0x9D2814) with no sound of its own, so an enabled press sounds only through its clip. Here every press reaches "
-		"ControlBar::pressButton, which refuses what it cannot do, silently",
 	};
 }
