@@ -256,9 +256,10 @@ TEST_CASE("banner1 retail: a rank-two Gondor horde refills after a real fight, m
 		REQUIRE(m->getExperienceTracker()->getRank() == 2);
 	}
 	MESSAGE("full " << full << " " << g.probe(*horde));
-	// three orc hordes: one alone dies without costing a rank-two Gondor horde a man
+	// two orc hordes: one alone dies without costing a rank-two Gondor horde a man; three beat it (all fifteen dead by frame 155) now that its members
+	// stay where they fight instead of being put back on their slots at every transform change (RW 0x871536 moves no member); two cost it five men
 	std::vector<ObjectID> foes;
-	for (int i = 0; i < 3; ++i)
+	for (int i = 0; i < 2; ++i)
 	{
 		Coord3D foeAt = g.position;
 		foeAt.x += 120.0f;
