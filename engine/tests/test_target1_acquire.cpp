@@ -5,6 +5,7 @@
 #include "CombatTestUtil.h"
 
 #include "GameLogic/AI/AIClosestEnemy.h"
+#include "GameLogic/AI/AIAttackMelee.h"
 #include "GameLogic/Combat/TargetFinder.h"
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Object/PartitionManager.h"
@@ -354,6 +355,29 @@ TEST_CASE("BFME2 building filters use scan flags and player type, not capturable
 	CHECK(finder.findClosestEnemy(*unit, 200, 0, CMD_FROM_AI) == capture);
 	CHECK(AI::allowsBuildingTarget(*unit, *linked));
 	CHECK(unit->getWeapons()->canAttackObject(*capture, CMD_FROM_PLAYER, false));
+}
+
+TEST_CASE("melee reacquire refuses NOT_AUTOACQUIRABLE buildings and units for computer players")
+{
+	CombatWorld w(
+		"ChildObject Wall Dummy\n KindOf = STRUCTURE NOT_AUTOACQUIRABLE\nEnd\n"
+		"ChildObject HiddenUnit Dummy\n KindOf = INFANTRY NOT_AUTOACQUIRABLE\nEnd\n");
+	w.combat().setAutoAcquireEnabled(false);
+	w.playerOf('A')->setPlayerType(PLAYER_COMPUTER, true);
+	auto *unit = w.unit("Slasher", 'A', 200, 200);
+	auto *wall = w.unit("Wall", 'B', 210, 200);
+	auto *hidden = w.unit("HiddenUnit", 'B', 220, 200);
+	auto *target = w.unit("Dummy", 'B', 230, 200);
+	w.frames(1);
+	REQUIRE(AI::allowsBuildingTarget(*unit, *wall)); // computer exemption must not bypass the kind filter
+	REQUIRE(unit->getWeapons()->canAttackObject(*hidden, CMD_FROM_PLAYER, false));
+	auto *ai = unit->getAIUpdateInterface();
+	REQUIRE(ai);
+	AIStateMachine machine(*ai, "ReacquireTest");
+	AIMeleeReAcquireState state(machine);
+	CHECK(state.onEnter() == STATE_SUCCESS);
+	CHECK(ai->currentVictim() == target);
+	CHECK(machine.goalObjectID() == target->getID());
 }
 
 TEST_CASE("BFME2 insignificant building filter keeps occupied garrisons and faction structures")
