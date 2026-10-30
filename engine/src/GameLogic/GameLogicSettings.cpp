@@ -12,7 +12,6 @@
 
 #include "Common/BfmeGame.h"
 #include "GameLogic/GameLogic.h"
-#include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectFilter.h"
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/SimMath.h"
@@ -24,10 +23,8 @@
 #include "Common/INI/INIBlockStubs.h"
 #include "Common/StateHash.h"
 
-#include <algorithm>
 #include <cstdint>
 #include <set>
-#include <vector>
 
 namespace
 {
@@ -100,74 +97,78 @@ std::string withoutComment(const std::string &line)
 	return cut == std::string::npos ? line : line.substr(0, cut);
 }
 
-// the line's first token (the INI separators " \t=" after the comment is cut), "" for an empty line
-std::string firstTokenOf(const std::string &line)
+// lane MODCOMPAT-1: a line opening one of the nested blocks of AIData's SideInfo / SkirmishBuildList / AttackPriority (no `=`, the first token one
+// of RotWK's block rows): Structure (BuildListInfo), SkillSet1 .. SkillSet5 (SideInfo), and the blocks themselves when nested
+bool opensSubBlock(const std::string &line)
+{
+	const std::string l = withoutComment(line);
+	if (l.find('=') != std::string::npos)
+	{
+		return false;
+	}
+	const size_t b = l.find_first_not_of(" \t");
+	if (b == std::string::npos)
+	{
+		return false;
+	}
+	const size_t e = l.find_first_of(" \t", b);
+	const std::string token = l.substr(b, e == std::string::npos ? std::string::npos : e - b);
+	for (const char *k : { "Structure", "SkillSet1", "SkillSet2", "SkillSet3", "SkillSet4", "SkillSet5", "SideInfo", "SkirmishBuildList", "AttackPriority" })
+	{
+		if (AsciiStringUtil::compareNoCase(token, k) == 0)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool firstTokenIsEnd(const std::string &line)
 {
 	const std::string l = withoutComment(line);
 	const size_t b = l.find_first_not_of(" \t");
 	if (b == std::string::npos)
 	{
-		return std::string();
+		return false;
 	}
 	const size_t e = l.find_first_of(" \t=", b);
-	return l.substr(b, e == std::string::npos ? std::string::npos : e - b);
+	return AsciiStringUtil::compareNoCase(l.substr(b, e == std::string::npos ? std::string::npos : e - b), "End") == 0;
 }
 
-// The AIData rows that open a nested block this lane does not parse, and the sub-block rows inside each. DONOR, not read from the RotWK binary (its
-// AIData table RW 0xC1CB20 is not in field-tables.json): ZH GameLogic/AI/AI.cpp TheAIFieldParseTable with AI::parseSideInfo (SkillSet1 .. SkillSet5
-// blocks, AI::parseSkillSet) and AI::parseSkirmishBuildList (Structure blocks, BuildListInfo::parseStructure). Each block is read by INI::initFromINI, so
-// it ends at its own End line (the first token, compared without case) whatever the indentation, and field names compare case-sensitively. The retail
-// 2.01 and Ennorath 1.9.8 aidata.ini use only these (SideInfo without sub blocks, SkirmishBuildList with Structure); Ennorath writes a
-// SkirmishBuildList header unindented and its End indented, which retail reads.
-struct NestedBlockGrammar
-{
-	const char *row;
-	std::vector<const char *> subBlocks;
-};
-const NestedBlockGrammar kAIDataNestedBlocks[] = {
-	{ "SideInfo", { "SkillSet1", "SkillSet2", "SkillSet3", "SkillSet4", "SkillSet5" } },
-	{ "SkirmishBuildList", { "Structure" } },
-};
-
-// the catch-all row (token NULL): userData is the field name. A nested-block row of kAIDataNestedBlocks consumes its block and the sub blocks in it by
-// that grammar; any other field is a line (the rest of the line is not read: '=' is only a separator).
+// the catch-all row (token NULL): userData is the field name. A `Field = value` line is consumed (the rest of the line is not read). A line without
+// `=` is a nested block of the block being read (AIData's SideInfo / SkirmishBuildList, with their own Structure / SkillSet sub blocks). Retail reads
+// these blocks token by token (ZH AI::parseSkirmishBuildList / BuildListInfo::parseStructure / AI::parseSideInfo through initFromINI; RotWK's AIData
+// field names at RW 0x81D3A4 SkirmishBuildList, 0x81D3B8 SideInfo, 0x81D738 .. 0x81D768 SkillSet5 .. 1): every sub block ends at its own End, and
+// the indentation means nothing (lane MODCOMPAT-1: Ennorath writes `SkirmishBuildList Rohan` at column 0 with deeper Ends, which the old
+// indentation rule read past the AIData block's own End). So the skip counts them: a line whose first token opens one of those sub blocks goes a
+// level deeper, an End goes a level up, and the block ends at the End of its own level.
 void noteUnapplied(INI *ini, void *instance, void *, const void *userData)
 {
-	const char *name = static_cast<const char *>(userData);
-	static_cast<BlockState *>(instance)->unapplied.insert(std::string(ini->getCurBlockStart()) + "." + name);
-	const NestedBlockGrammar *grammar = nullptr;
-	for (const NestedBlockGrammar &g : kAIDataNestedBlocks)
-	{
-		if (std::string(ini->getCurBlockStart()) == "AIData" && std::string(g.row) == name)
-		{
-			grammar = &g;
-		}
-	}
-	if (!grammar)
+	static_cast<BlockState *>(instance)->unapplied.insert(std::string(ini->getCurBlockStart()) + "." + static_cast<const char *>(userData));
+	const std::string header = ini->currentLineText();
+	if (withoutComment(header).find('=') != std::string::npos)
 	{
 		return;
 	}
-	int depth = 0; // open sub blocks
+	int depth = 1;
 	for (;;)
 	{
 		const std::string *next = ini->peekNextLine();
 		if (!next)
 		{
-			throw INIException(4, "Missing 'END' token.\n\nError parsing nested block '%s' in file '%s', line %i.\n", name, ini->getFilename().c_str(),
+			throw INIException(4, "Missing 'END' token.\n\nError parsing nested block '%s' in file '%s', line %i.\n", static_cast<const char *>(userData), ini->getFilename().c_str(),
 				ini->currentSourceLine());
 		}
 		const std::string line = *next;
 		ini->readLine();
-		const std::string token = firstTokenOf(line);
-		if (AsciiStringUtil::compareNoCase(token, "End") == 0)
+		if (firstTokenIsEnd(line))
 		{
-			if (depth == 0)
+			if (--depth == 0)
 			{
 				return;
 			}
-			--depth;
 		}
-		else if (depth == 0 && std::find(grammar->subBlocks.begin(), grammar->subBlocks.end(), token) != grammar->subBlocks.end())
+		else if (opensSubBlock(line))
 		{
 			++depth;
 		}
@@ -238,7 +239,6 @@ const FieldParse kGameDataFields[] = {
 	{ "BuilderFadeInTime", parseNoting<INI::parseDurationUnsignedInt>, SEEN_DATA(SEEN_BUILDERFADE_IN), (int)offsetof(BlockState, values.builderFadeInFrames) },
 	// lane FACT-A: SellPercentage (row RW 0xC00690, parsePercentToReal RW 0x42EEFA, GlobalData + 0xB94): the share of the price a sold structure pays back (RW 0x794729)
 	{ "SellPercentage", parseNoting<INI::parsePercentToReal>, SEEN_DATA(SEEN_SELL), (int)offsetof(BlockState, values.sellPercentage) },
-	{ "EnableHouseColor", INI::parseBool, nullptr, (int)offsetof(BlockState, values.enableHouseColor) }, // row RW 0xC00A30, + 0xDDC
 	// lane COMBAT-2: Gravity (RW GlobalData + 0xC4, row RW 0xBFF9C0, parseAccelerationReal RW 0x73A4DC: value * k * k per frame^2) and DefaultStructureRubbleHeight (RW + 0xAE4,
 	// row RW 0xC004E0, parseReal): the structure collapse (StructureCollapseUpdate) and the rubble state of a structure body read them
 	{ "Gravity", parseNoting<INI::parseAccelerationReal>, SEEN_DATA(SEEN_GRAVITY), (int)offsetof(BlockState, values.gravity) },
@@ -395,11 +395,11 @@ public:
 		{
 			// recording stubs only: the world's own map.ini pass parses the Weapon / Locomotor / Armor / DamageFX / FX blocks into their stores, a second
 			// parse here would apply them again
-			RegisterRecordingBlockStubs(m_env.blocks, m_recorder, { "AIData" }, StubExtent::Lenient, false);
+			RegisterRecordingBlockStubs(m_env.blocks, m_recorder, { "AIData" }, StubExtent::LenientAfterEnd, false);
 			reg("AIData", kAIDataFields, 2u);
 			return;
 		}
-		RegisterRecordingBlockStubs(m_env.blocks, m_recorder, { "GameData", "AIData", "MultiplayerSettings", "MultiplayerColor" }, StubExtent::Lenient);
+		RegisterRecordingBlockStubs(m_env.blocks, m_recorder, { "GameData", "AIData", "MultiplayerSettings", "MultiplayerColor" }, StubExtent::LenientAfterEnd);
 		reg("GameData", kGameDataFields, 1u);
 		reg("AIData", kAIDataFields, 2u);
 		reg("MultiplayerSettings", kMultiplayerFields, 4u);
@@ -781,11 +781,4 @@ void GameLogicSettings::crc(StateHasher &h) const
 	}
 	h.addBool(night);
 	h.addBool(snowy);
-}
-
-// RW 0x674516 .. 0x67455B (Drawable::setIndicatorColor): GameLogic + 0x11C, else the object's template KindOf has BASE_SITE (0x78) or
-// ALWAYS_SHOW_HOUSE_COLOR (0xB5) (RW 0x70C548 -> testAny RW 0x661359)
-bool GameLogicSettings::showsHouseColor(const Object &obj) const
-{
-	return enableHouseColor || obj.isKindOfName("BASE_SITE") || obj.isKindOfName("ALWAYS_SHOW_HOUSE_COLOR");
 }

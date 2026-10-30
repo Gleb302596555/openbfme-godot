@@ -507,6 +507,31 @@ void Object::updateTriggerAreaFlags()
 	}
 }
 
+// lane CASTLEAREA-1: RW 0x68B9E9 then RW 0x68B98E (see Object.h)
+void Object::removeTriggerEntries(int trigger)
+{
+	for (int i = 0; i < m_triggerCount; ++i)
+	{
+		if (m_triggers[i].trigger == trigger)
+		{
+			m_triggers[i] = TriggerEntry();
+		}
+	}
+	int kept = 0;
+	for (int i = 0; i < m_triggerCount; ++i)
+	{
+		if (m_triggers[i].inside)
+		{
+			m_triggers[kept].trigger = m_triggers[i].trigger;
+			m_triggers[kept].entered = false;
+			m_triggers[kept].exited = false;
+			m_triggers[kept].inside = true;
+			++kept;
+		}
+	}
+	m_triggerCount = kept;
+}
+
 // lane HUD-5: RW 0xAD3520 (see Object.h)
 void Object::setGeometryActive(const std::string &name, bool on)
 {

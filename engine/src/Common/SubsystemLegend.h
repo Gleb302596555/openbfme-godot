@@ -45,6 +45,9 @@ struct SubsystemLoadOptions
 	// The -cinematics command-line switch. Off by default, like a normal launch.
 	bool cinematics = false;
 	bool bfme1 = false;
+	// lane BFME2MODE-0: BFME2 1.06's archives alone (Common/GameEdition.h isBfme2Data): its legend is Data\INI\Default\SubsystemLegend.ini (BFME2 1.06
+	// ini.big has no SubsystemLegendExpansion1.ini). The load order stays RotWK's (Phase 0: RotWK's rules on BFME2 data)
+	bool bfme2 = false;
 	// false: an INI error propagates (retail SubsystemInterface::loadIniFilesFromLegend does not
 	// catch). true: errors are recorded in the report and loading continues with the next file
 	// (the test harness).

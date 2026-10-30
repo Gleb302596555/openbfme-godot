@@ -4,6 +4,7 @@
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/AI/AIDock.h"
 #include "GameLogic/AI/AIHarvest.h"
+#include "GameLogic/Module/AmbientAIUpdate.h"
 #include "GameLogic/Module/PhysicsBehavior.h"
 #include "GameLogic/AI/AIFollowPathAsTeam.h"
 #include "GameLogic/AI/AIGarrisonStates.h"
@@ -1384,6 +1385,18 @@ PathfindObject &AIUpdateInterface::pathfindObject()
 	return *m_adapter;
 }
 
+void AIUpdateInterface::exitQuickPathMade(const Coord3D &dest)
+{
+	// RW 0x666079: AI + 0x3BA = 0; RW 0x66607C -> 0x6654AD(dest, CMD_FROM_AI) -> 0x6636D9 (a goal from the AI is not clipped) -> 0x8DB810 (nothing while the
+	// machine is locked, else RW 0x8DB778: the goal position and + 0x30 = FLT_MAX)
+	m_canPathThroughUnits = false;
+	if (m_machine && !m_machine->isLocked())
+	{
+		m_machine->setGoalPosition(dest);
+		m_machine->clearGoalAngle(); // INFERENCE (as GiantBirdAIUpdate): + 0x30 = FLT_MAX is the machine's goal angle "none"
+	}
+}
+
 LocomotorHost &AIUpdateInterface::locomotorHost()
 {
 	return *m_locoHost;
@@ -1886,7 +1899,7 @@ void AIUpdateInterface::registerClasses(ModuleFactory &modules)
 			continue;
 		}
 		const bool horde = name == "HordeAIUpdate";
-		modules.bindModuleProc(name, MODULETYPE_BEHAVIOR, [horde](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &info) -> std::unique_ptr<Module> {
+		modules.bindModuleProc(name, MODULETYPE_BEHAVIOR, [horde, name](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &info) -> std::unique_ptr<Module> {
 			// a logic without an AIWorld (the LOGIC-1 fixtures) has no pathfinder to move on: the class is then the explicit unported module of S-140, as before
 			if (!thing->asObject() || !thing->asObject()->logic().aiWorld())
 			{
@@ -1895,6 +1908,10 @@ void AIUpdateInterface::registerClasses(ModuleFactory &modules)
 			if (horde)
 			{
 				return std::make_unique<HordeAIUpdate>(thing, data);
+			}
+			if (name == "AnimalAIUpdate" || name == "WanderAIUpdate")
+			{
+				return std::make_unique<AmbientAIUpdate>(thing, data, name == "AnimalAIUpdate");
 			}
 			return std::make_unique<AIUpdateInterface>(thing, data);
 		});

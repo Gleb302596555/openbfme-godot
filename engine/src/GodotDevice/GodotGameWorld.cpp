@@ -2985,6 +2985,8 @@ Dictionary GameWorld::get_object(int64_t id) const
 	d["angle"] = o->getOrientation();
 	d["construction_percent"] = o->getConstructionPercent(); // lane BUILD-1: -1 for a finished object, 0 .. 100 while it rises
 	d["under_construction"] = o->isUnderConstruction();
+	static const int insideCastle = ObjectTemplateInfoBuilder::objectStatusIndex("INSIDE_CASTLE");
+	d["inside_castle"] = insideCastle >= 0 && o->testStatus((unsigned)insideCastle); // lane CASTLEAREA-1: the status the castle areas set (viewers' proof captions)
 	if (const BodyModuleInterface *b = o->getBodyModule())
 	{
 		d["health"] = b->getHealth();
