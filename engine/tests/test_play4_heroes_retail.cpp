@@ -438,9 +438,11 @@ TEST_CASE("play4 heroes retail: every faction's heroes, recruited from the fortr
 			// the horde); every other hero fights the horde
 			// Merge queue q29 (measured once on the merged tree and at each merge point): Haldir fights the horde again from DEVPORT-SIM on (a hero leaving the
 			// fortress drops IS_LEAVING_FACTORY, RW 0x74B77D, and takes its Battle stance's guard), all 20 killed (1500 health) on the merged tree
+			// Merge queue q33 (measured at each merge point): #133's straight production exits move the scene's creeps and computer opponent: Haldir still
+			// fights the horde, 13 of 20 killed (975 health)
 			if (hero == "ElvenHaldir")
 			{
-				CHECK(own.lost == 1500.0f);
+				CHECK(own.lost == 975.0f);
 			}
 			else
 			{
@@ -585,8 +587,12 @@ TEST_CASE("attack1 heroes retail: the mounted Witch-king and Mouth of Sauron, or
 	// computer opponent builds phantom sites): the Witch-king 4 shots, all swings of his mace (the first took 450, 1200 outside the run, nothing in a crush run),
 	// 16 killed, nearest 29.9244, with CRUSHER_LEVEL -1 4 swings taking 1200 from 29.5534; the Mouth of Sauron 6 shots, 6 killed (300 in the crush run), 2
 	// swings (75 / 150), nearest 1.00478, with CRUSHER_LEVEL -1 5 swings taking 375 from 59.6801. The duels are unchanged. Engine pins, not retail values.
-	for (const Case &c : { Case{ "FactionAngmar", "AngmarWitchking", 4u, 16u, 0.0f, { 800.0f, 112.0f }, 4u, 450.0f, 1200.0f, { { 1500.0f, 800.0f }, { 700.0f, 700.0f } }, 0, -1, 4u, 1200.0f, 29.5534f, 29.9244f },
-			 Case{ "FactionMordor", "MordorMouthOfSauron", 6u, 6u, 300.0f, { 640.0f, 320.0f }, 2u, 75.0f, 150.0f, { { 1500.0f, 640.0f }, { 860.0f, 640.0f }, { 220.0f, 220.0f } }, 0, -1, 5u, 375.0f, 59.6801f, 1.00478f } })
+	// Merge queue q33 (measured once on the merged tree and at each merge point): #133's straight production exits move the scene's computer opponent; the
+	// Witch-king 4 shots, all swings of his mace (the first took 525, 1350 outside the run, nothing in a crush run), 18 killed, nearest 16.2647, with
+	// CRUSHER_LEVEL -1 4 swings taking 1350 from 15.5158; the Mouth of Sauron 7 shots, 7 killed (75 in the crush run), 5 swings (75 / 375), nearest 5.0722,
+	// with CRUSHER_LEVEL -1 4 swings taking 300 from 55.722. The duels and the blocking are unchanged. Engine pins, not retail values.
+	for (const Case &c : { Case{ "FactionAngmar", "AngmarWitchking", 4u, 18u, 0.0f, { 800.0f, 112.0f }, 4u, 525.0f, 1350.0f, { { 1500.0f, 800.0f }, { 700.0f, 700.0f } }, 0, -1, 4u, 1350.0f, 15.5158f, 16.2647f },
+			 Case{ "FactionMordor", "MordorMouthOfSauron", 7u, 7u, 75.0f, { 640.0f, 320.0f }, 5u, 75.0f, 375.0f, { { 1500.0f, 640.0f }, { 860.0f, 640.0f }, { 220.0f, 220.0f } }, 0, -1, 4u, 300.0f, 55.722f, 5.0722f } })
 	{
 		INFO(std::string(c.hero));
 		const ThingTemplate *tt = s->world->things().findTemplate(c.hero);

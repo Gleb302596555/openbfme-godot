@@ -145,6 +145,12 @@ void AIStateMachine::clear()
 {
 	if (m_locked)
 	{
+		// lane BFME2CAMP1, RW 0x75464E: past the locked temporary state's refusal, the goal squad (+ 0x4C) is deleted after StateMachine::clear (RW
+		// 0x8DB679) whether or not its lock let the state go
+		if (!temporaryStateLocked())
+		{
+			m_goalSquad.reset();
+		}
 		return;
 	}
 	if (m_temporaryState)
@@ -163,6 +169,17 @@ void AIStateMachine::clear()
 		s->onExit(EXIT_RESET);
 	}
 	internalClear();
+	m_goalSquad.reset(); // lane BFME2CAMP1: RW 0x754680 .. 0x75468F
+}
+
+void AIStateMachine::setGoalSquadFromTeam(const Team &team)
+{
+	// RW 0x751E97: a squad made (RW 0x66823E) when the machine has none, then RW 0x8DB149(team, true)
+	if (!m_goalSquad)
+	{
+		m_goalSquad = std::make_unique<AISquad>();
+	}
+	m_goalSquad->squadFromTeam(team, true);
 }
 
 StateReturnType AIStateMachine::resetToDefaultState()
@@ -766,7 +783,12 @@ StateReturnType AIFollowPathState::enterSegment()
 StateReturnType AIFollowPathState::onEnter()
 {
 	m_index = 0;
-	if (m_exitProduction) ai().setCanPathThroughUnits(true); // RW 0x74F8EE: exit entry, first path only
+	if (m_exitProduction)
+	{
+		// RW 0x74F8E6 .. 0x74F8EE: the exit-production state (id 7) sets the path-through-units flag once, on enter; the segment advance (RW 0x74FA18) does not
+		// set it again, and computePath drops it after its one straight path (RW 0x666079)
+		ai().setCanPathThroughUnits(true);
+	}
 	return enterSegment();
 }
 
@@ -845,6 +867,14 @@ void AIStateMachine::crc(StateHasher &h) const
 		h.addFloat(p.x);
 		h.addFloat(p.y);
 		h.addFloat(p.z);
+	}
+	if (m_goalSquad) // lane BFME2CAMP1: hashed once a squad exists (other machines keep their hashes)
+	{
+		h.addU32((std::uint32_t)m_goalSquad->objectIDs.size());
+		for (ObjectID id : m_goalSquad->objectIDs)
+		{
+			h.addU32(id);
+		}
 	}
 	if (m_currentState)
 	{

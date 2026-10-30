@@ -113,7 +113,6 @@ struct Unit : AIMoveHost
 
 	Unit(Sim *s, const LocomotorTemplate *t, PathfindObjectID id, float x, float y, int team);
 
-	void finishExitQuickPath(const Coord3D &) override { obj.throughUnits = false; }
 	PathfindObject &pathfindObject() override { return obj; }
 	LocomotorHost &locomotorHost() override { return lh; }
 	Locomotor *locomotor() override { return loco.get(); }
@@ -141,6 +140,15 @@ struct Unit : AIMoveHost
 	bool pathThroughUnits = false, deployedSiegeTower = false; // lane PATHPRIO-1: onCollide's exits (AI + 0x3BA, SIEGE_TOWER + DEPLOYED)
 	bool canPathThroughUnits() const override { return pathThroughUnits; }
 	bool isDeployedSiegeTower() const override { return deployedSiegeTower; }
+	// RW 0x666079 .. 0x66607C: the AI drops its path-through-units flag (the mock keeps it on the object) and takes the destination as its machine's goal
+	int exitQuickPaths = 0;
+	Coord3D exitQuickDest{};
+	void finishExitQuickPath(const Coord3D &d) override
+	{
+		++exitQuickPaths;
+		exitQuickDest = d;
+		obj.throughUnits = false;
+	}
 	bool crushOrSquishPolicy(const PathfindObject &other) const override { return obj.canCrushOrSquish(other); } // the mock's levels are its template's
 	float wanderFactor() const override { return 0.0f; }
 	float closeEnoughDist() const override { return 10.0f; }
@@ -1187,6 +1195,36 @@ TEST_CASE("backlog5: S-163 remains reported while retail exit-production consume
 		if (state == 7) {
 			REQUIRE(a.ai->computePath(Coord3D{405, 105, 0}));
 			CHECK(a.ai->path()->nodeCount() == 29u);
+		}
+	}
+	// RW 0x666036 .. 0x66607C for a battalion member: state 7 with the flag takes ONE straight path (through the wall), the flag is dropped and the machine's goal is
+	// the destination; the next segment's path (the flag gone) is the ordinary search around the wall. No S-166 line for a battalion member
+	{
+		Sim sim(60, 30);
+		for (int y = 0; y < 22; ++y)
+		{
+			sim.terrain.cliff.insert({ 30, y });
+		}
+		sim.build();
+		Unit &horde = sim.add(3, 105.0f, 255.0f);
+		horde.obj.kinds.insert(PK_HORDE);
+		Unit &a = sim.add(2, 205.0f, 105.0f);
+		a.container = horde.ai.get();
+		a.stateIdValue = 7;
+		a.obj.throughUnits = true;
+		const Coord3D dest{ 405.0f, 105.0f, 0.0f };
+		REQUIRE(a.ai->computePath(dest));
+		CHECK(a.ai->path()->nodeCount() == 2u); // the straight path
+		CHECK(!a.obj.throughUnits);             // RW 0x666079
+		CHECK(a.exitQuickPaths == 1);           // RW 0x66607C
+		CHECK(a.exitQuickDest.x == dest.x);
+		CHECK(a.exitQuickDest.y == dest.y);
+		REQUIRE(a.ai->computePath(dest));
+		CHECK(a.ai->path()->nodeCount() == 29u); // one-shot: the second path goes around the wall (the ordinary search's pinned result above)
+		CHECK(a.exitQuickPaths == 1);
+		for (const std::string &line : a.ai->stops())
+		{
+			CHECK(line.find("straight path for a non-battalion unit") == std::string::npos);
 		}
 	}
 	// S-1830: patchPath names what its layer step leaves out (lane WALL-2: the bridge layers)

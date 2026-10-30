@@ -436,6 +436,7 @@ bool AIMover::computeAttackPath()
 				m_pf.adjustDestination(obj, info, &adjusted, nullptr);
 				// lane PATHPERF-1: RW calls pathfinder slot +4 here (RW 0x666E51 -> FindClosestPath RW 0x6FB869, not ported: S-166), not findPath (slot 0, RW 0x6FE7CB):
 				// the stand-in is the search without findPath's hierarchical corridor and goal step-back
+				m_pf.restartUberSearchCount(); // lane PERF-HD (Uber only): its own cap, not what findAttackPath left
 				m_path = m_pf.findPathWithoutCorridor(&obj, info, &pos, &adjusted, nullptr);
 				if (m_path == nullptr)
 				{
