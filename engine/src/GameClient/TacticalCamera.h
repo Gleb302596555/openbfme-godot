@@ -171,8 +171,11 @@ public:
 	void setJumpHandler(std::function<void()> handler) { m_jumpHandler = std::move(handler); }
 	void commitFrame();
 	float nearPlane() const { return 10.0f; }
-	// retail's 1800 (RW 0x48B7B1); with the free camera or a zoom-out factor, plus twice fogShift() so the far map stays drawn when zoomed out beyond retail's limit
+	// retail's 1800 (RW 0x48B7B1) times GlobalData + 0x950 (1.0; a map script's SET_CAMERA_CLIP_DEPTH_MULTIPLIER sets it); with the free camera or a zoom-out
+	// factor, plus twice fogShift() so the far map stays drawn when zoomed out beyond retail's limit
 	float farPlane() const;
+	void setClipDepthMultiplier(float m) { m_clipDepthMultiplier = m; }
+	float clipDepthMultiplier() const { return m_clipDepthMultiplier; }
 
 	// ---- lane PLAY-1: the free camera (the owner's presentation option, NOT retail; client state only, never seen by the logic) ----
 	// Off (the default): retail's limits. On: the camera may zoom out up to freeMaxHeight() above the ground (the larger map extent, at least the map's
@@ -249,6 +252,7 @@ private:
 	Coord3D m_pos{ 870.0f, 770.0f, 0.0f }; // RW 0x48B6A4 (87.0f * 10, 77.0f * 10)
 	float m_angle = 0.0f, m_pitch = 0.0f, m_zoom = 1.0f, m_heightAboveGround = 0.0f;
 	bool m_zoomLimited = true;
+	float m_clipDepthMultiplier = 1.0f; // GlobalData + 0x950 (lane MODCOMPAT-AI)
 	float m_defaultAngle = 0.0f, m_defaultPitch = 0.0f;
 	float m_fov = 0.8726646f; // RW 0xBDD410: 50 degrees
 	bool m_widescreenWider = false; // lane UI-6: the Widescreen view option (Wider = Hor+; false = retail)

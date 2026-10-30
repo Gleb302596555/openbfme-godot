@@ -9,6 +9,7 @@
 #include "Common/PlayerList.h"
 #include "Common/StateHash.h"
 #include "Common/Team.h"
+#include "Common/Xfer.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/EmotionModules.h"
@@ -28,6 +29,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <cstdlib>
+#include <stdexcept>
 
 namespace
 {
@@ -98,7 +100,13 @@ ScriptEngine::ScriptEngine(GameLogic &logic)
 	resetBreeze(); // lane VISUAL-2: the reset's values before the first reset
 }
 
-ScriptEngine::~ScriptEngine() = default;
+ScriptEngine::~ScriptEngine()
+{
+	if (m_createActionsTeams)
+	{
+		m_createActionsTeams->setCreateActionsHook(nullptr); // lane TEAMEVENTS-1: the factory outlives the game's logic
+	}
+}
 
 std::string ScriptEngine::currentScriptName() const
 {
@@ -133,6 +141,10 @@ void ScriptEngine::reset()
 	}
 	m_audioTimers.clear();
 	for (std::vector<TriggeredSpecialPower> &l : m_triggeredSpecialPowers) // lane BACKLOG4: RW 0x607FB3
+	{
+		l.clear();
+	}
+	for (std::vector<TriggeredSpecialPower> &l : m_completedUpgrades) // lane MODCOMPAT-AI: RW 0x607FB3
 	{
 		l.clear();
 	}
@@ -232,6 +244,46 @@ void ScriptEngine::newGame(const std::vector<SideScripts> &sides, const std::vec
 	}
 	m_stats.sides = m_sides.size();
 	m_loaded = true;
+	// lane TEAMEVENTS-1: from now on a new team runs its production-condition actions at once; the teams made before the scripts existed (see
+	// TeamFactory::setCreateActionsHook) run theirs now, in creation order
+	TeamFactory &teams = m_logic.players().teams();
+	m_createActionsTeams = &teams;
+	teams.setCreateActionsHook([this](TeamPrototype &proto) { return runTeamCreateActions(proto); });
+	for (TeamPrototype *proto : teams.takePendingCreateActions())
+	{
+		runTeamCreateActions(*proto);
+	}
+}
+
+bool ScriptEngine::runTeamCreateActions(TeamPrototype &proto)
+{
+	if (!m_loaded)
+	{
+		return false;
+	}
+	const std::string &name = proto.templateScripts().productionCondition;
+	const Player *owner = proto.getControllingPlayer();
+	const std::string savedSide = m_currentSide;
+	m_currentSide = owner ? owner->getPlayerName() : std::string(); // RW 0x758ECB: prototype + 0x10 (the owner's name)
+	const std::string scope = qualify(name).first;
+	RScript *sc = findScript(name);
+	if (!sc)
+	{
+		m_currentSide = savedSide;
+		note("teamProductionCondition script not found: '" + name + "' (team " + proto.getName() + ")"); // retail: nothing runs
+		return true;
+	}
+	Team *const savedTeam = m_thisTeam;
+	Player *const savedPlayer = m_currentPlayer;
+	m_currentSide = scope; // RW 0x60D053: RW 0x604243 with the side the lookup answered
+	m_thisTeam = nullptr;
+	m_currentPlayer = nullptr;
+	executeActions(sc->def->actions, *sc);
+	m_thisTeam = savedTeam;
+	m_currentPlayer = savedPlayer;
+	m_currentSide = savedSide;
+	++m_stats.teamCreateActionsRun;
+	return true;
 }
 
 // ---- names ------------------------------------------------------------------------------------------------------------------------------------
@@ -356,11 +408,72 @@ const TriggerArea *ScriptEngine::findTrigger(const std::string &name) const
 // lane HUD-5 (see ScriptEngine.h)
 int ScriptEngine::addPolygonTrigger(const TriggerArea &area, TriggerCallback callback)
 {
+	if (m_runtimeTriggerLoad)
+	{
+		throw std::logic_error("ScriptEngine: a run-time polygon trigger '" + area.name + "' was added while a snapshot loads (its owner's xfer puts it back)");
+	}
 	RuntimeTrigger t;
 	t.area = std::make_shared<TriggerArea>(area);
 	t.callback = std::move(callback);
 	m_runtimeTriggers.push_back(std::move(t));
 	return (int)triggerAreaCount() - 1;
+}
+
+// lane CASTLEAREA-1 (see ScriptEngine.h)
+void ScriptEngine::removePolygonTrigger(int index)
+{
+	const size_t mapCount = m_triggers ? m_triggers->size() : 0;
+	if (index < 0 || (size_t)index < mapCount || (size_t)index - mapCount >= m_runtimeTriggers.size())
+	{
+		return;
+	}
+	RuntimeTrigger &t = m_runtimeTriggers[(size_t)index - mapCount];
+	t.area = std::make_shared<TriggerArea>();
+	t.callback = nullptr;
+	for (Object *o = m_logic.getFirstObject(); o; o = o->getNextObject())
+	{
+		o->removeTriggerEntries(index); // RW 0x6263AF -> RW 0x68B9E9
+	}
+}
+
+void ScriptEngine::beginRuntimeTriggerLoad()
+{
+	m_runtimeTriggers.clear();
+	m_runtimeTriggerLoad = true;
+}
+
+void ScriptEngine::addPolygonTriggerAt(int index, const TriggerArea &area, TriggerCallback callback)
+{
+	const size_t mapCount = m_triggers ? m_triggers->size() : 0;
+	if (!m_runtimeTriggerLoad)
+	{
+		throw std::logic_error("ScriptEngine: addPolygonTriggerAt outside a snapshot load");
+	}
+	// the bound: an object holds at most 7 entries, a castle a handful of areas; a saved index this far out is a corrupt snapshot, not a game's
+	if (index < 0 || (size_t)index < mapCount || (size_t)index - mapCount >= 0x10000)
+	{
+		throw XferException("the snapshot's run-time trigger '" + area.name + "' has the index " + std::to_string(index) + " (the map has " +
+			std::to_string(mapCount) + " triggers)");
+	}
+	const size_t slot = (size_t)index - mapCount;
+	while (m_runtimeTriggers.size() <= slot)
+	{
+		RuntimeTrigger empty;
+		empty.area = std::make_shared<TriggerArea>();
+		m_runtimeTriggers.push_back(std::move(empty));
+	}
+	RuntimeTrigger &t = m_runtimeTriggers[slot];
+	if (t.callback)
+	{
+		throw XferException("the snapshot gives the run-time trigger index " + std::to_string(index) + " twice");
+	}
+	t.area = std::make_shared<TriggerArea>(area);
+	t.callback = std::move(callback);
+}
+
+void ScriptEngine::endRuntimeTriggerLoad()
+{
+	m_runtimeTriggerLoad = false;
 }
 
 size_t ScriptEngine::triggerAreaCount() const
@@ -377,7 +490,7 @@ const TriggerArea &ScriptEngine::triggerAreaAt(size_t i) const
 void ScriptEngine::triggerCallback(size_t i, Object &obj, bool entered) const
 {
 	const size_t mapCount = m_triggers ? m_triggers->size() : 0;
-	if (i >= mapCount && i - mapCount < m_runtimeTriggers.size() && m_runtimeTriggers[i - mapCount].callback)
+	if (!m_runtimeTriggerLoad && i >= mapCount && i - mapCount < m_runtimeTriggers.size() && m_runtimeTriggers[i - mapCount].callback)
 	{
 		m_runtimeTriggers[i - mapCount].callback(obj, entered); // RW 0x6E4B21 / 0x6E4B3E (the map's triggers carry no callback)
 	}
@@ -479,6 +592,22 @@ void ScriptEngine::setReference(const std::string &name, const Object &obj)
 {
 	// RW 0x608397: the key (+ 0x1A20C, name) (RW 0x42C1CC), insert-or-find (RW 0x60741E), the node's + 0x18 = the object's id
 	m_references[{ m_currentSide, name }] = obj.getID();
+}
+
+void ScriptEngine::copyReference(const std::string &name, const std::string &source)
+{
+	// RW 0x608504: an empty source returns (RW 0x60851B .. 0x608532); the source's key (RW 0x604043 -> RW 0x72C43C), find (RW 0x606EA0); found: the
+	// key (+ 0x1A20C, name) (RW 0x42C1CC), insert-or-find (RW 0x60741E), the node's + 0x18 = the source node's + 0x18
+	if (source.empty())
+	{
+		return;
+	}
+	const auto it = m_references.find(qualify(source));
+	if (it != m_references.end())
+	{
+		const ObjectID id = it->second;
+		m_references[{ m_currentSide, name }] = id;
+	}
 }
 
 void ScriptEngine::nameInCache(const std::string &name, const Object &obj)
@@ -2115,6 +2244,20 @@ void ScriptEngine::crc(StateHasher &h) const
 			}
 		}
 	}
+	for (size_t i = 0; i < m_completedUpgrades.size(); ++i) // lane MODCOMPAT-AI: hashed once a player has an entry (the earlier hashes are unchanged)
+	{
+		const std::vector<TriggeredSpecialPower> &l = m_completedUpgrades[i];
+		if (!l.empty())
+		{
+			h.addU32(0x5B5u | ((std::uint32_t)i << 12));
+			h.addU32((std::uint32_t)l.size());
+			for (const TriggeredSpecialPower &e : l)
+			{
+				h.addU32(e.nameCrc);
+				h.addU32(e.source);
+			}
+		}
+	}
 }
 
 // ---- lane BACKLOG4 (S-529): the triggered special powers ---------------------------------------------------------------------------------------
@@ -2150,6 +2293,45 @@ bool ScriptEngine::isSpecialPowerTriggered(int playerIndex, const std::string &n
 	for (auto it = l.begin(); it != l.end(); ++it)
 	{
 		if (it->nameCrc == crc && (source == 0 || source == it->source)) // RW 0x758CEB .. 0x758CF7
+		{
+			if (remove)
+			{
+				l.erase(it); // RW 0x702055
+			}
+			return true;
+		}
+	}
+	return false;
+}
+
+// ---- lane MODCOMPAT-AI: the completed upgrades (RW + 0x1A458) -------------------------------------------------------------------------------------
+
+// RW 0x759A1C (the sibling of RW 0x759986: the CRC RW 0x7ED86B, appended at the list's end RW 0x777F5C)
+void ScriptEngine::notifyOfCompletedUpgrade(int playerIndex, const std::string &name, ObjectID source)
+{
+	if (playerIndex < 0 || playerIndex >= kSpecialPowerListPlayers)
+	{
+		note("[S-1180] an upgrade completed by a player index outside the script engine's 20 lists (RW 0x759A1C does not test it) is not recorded");
+		return;
+	}
+	TriggeredSpecialPower e;
+	e.nameCrc = specialPowerNameCrc(name);
+	e.source = source;
+	m_completedUpgrades[(size_t)playerIndex].push_back(e);
+}
+
+// RW 0x758DE5
+bool ScriptEngine::isUpgradeCompleted(int playerIndex, const std::string &name, bool remove, ObjectID source)
+{
+	if (playerIndex < 0 || playerIndex >= kSpecialPowerListPlayers)
+	{
+		return false; // RW 0x758DEB .. 0x758DF4
+	}
+	std::vector<TriggeredSpecialPower> &l = m_completedUpgrades[(size_t)playerIndex];
+	const std::uint32_t crc = specialPowerNameCrc(name);
+	for (auto it = l.begin(); it != l.end(); ++it)
+	{
+		if (it->nameCrc == crc && (source == 0 || source == it->source)) // RW 0x758E11 .. 0x758E1D
 		{
 			if (remove)
 			{

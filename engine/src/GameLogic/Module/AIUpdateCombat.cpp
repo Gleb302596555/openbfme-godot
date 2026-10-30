@@ -116,11 +116,14 @@ void AIUpdateInterface::readCombatSettings(const ModuleData *data)
 	m_combat = CombatSettings();
 	m_attackInfoGeneration = 0xFFFFFFFFu; // lane TARGET-1: AI + 0x70 is looked up again from the (new) name
 	m_minCowerTime = m_maxCowerTime = 0; // lane MODULES-3: RW ctor 0x66E8FF (+ 0x34 / + 0x30 = 0)
+	m_animalInterface = false; // lane CASTLEAREA-1: RW 0x64BB5B (AfraidOfCastles 1)
+	m_animalAfraidOfCastles = true;
 	const RawModuleData *raw = dynamic_cast<const RawModuleData *>(data);
 	if (!raw)
 	{
 		return;
 	}
+	m_animalInterface = raw->className() == "AnimalAIUpdate"; // RW 0x88C915
 	for (const RawModuleData::Line &l : raw->lines())
 	{
 		std::string name;
@@ -169,6 +172,10 @@ void AIUpdateInterface::readCombatSettings(const ModuleData *data)
 		{
 			m_combat.standGround = ieq(tok[0], "Yes") || ieq(tok[0], "True") || tok[0] == "1";
 		}
+		else if (m_animalInterface && ieq(name, "AfraidOfCastles"))
+		{
+			m_animalAfraidOfCastles = ieq(tok[0], "Yes") || ieq(tok[0], "True") || tok[0] == "1"; // lane CASTLEAREA-1: parseBool RW 0x42E558 (as StandGround)
+		}
 		else if (ieq(name, "CanAttackWhileContained"))
 		{
 			m_combat.canAttackWhileContained = ieq(tok[0], "Yes") || ieq(tok[0], "True") || tok[0] == "1"; // lane IDLE-1: as StandGround (the same parseBool RW 0x42E558)
@@ -207,7 +214,7 @@ void AIUpdateInterface::transferAttack(ObjectID from, ObjectID to)
 	{
 		m_currentVictim = to; // AI + 0x40
 	}
-	const Object *goal = m_machine->goalObject(); // RW 0x8DBACE
+	const Object *goal = m_machine ? m_machine->goalObject() : nullptr; // RW 0x8DBACE
 	if (goal && goal->getID() == from)
 	{
 		const Object *now = getObject()->logic().findObjectByID(to); // RW 0x449681
@@ -689,9 +696,9 @@ Object *AIUpdateInterface::getNextMoodTarget(bool calledByAI, bool calledDuringI
 	const unsigned kCloseRange = 7; // TheWeaponConditionNames (RW 0xDA1328) CLOSE_RANGE
 	// RW 0x66849D .. 0x6684EC: dead or OFF_MAP (+ 0x458 bits 0 / 3; lane CAMPUI-1: OFF_MAP from the map's extent, RW 0x69355D: MAP ANG Angmar's
 	// counterattack wolf riders wait below the map's edge until the scripts send them in), SPECIAL_ABILITY_PACKING_UNPACKING_OR_USING, the AI's temporary state
-	// machine (+ 0x34: BeginTemporaryStateMachine RW 0x6630A9, which nothing calls in the port, S-1222), NO_AUTO_ACQUIRE, HORDE_MEMBER, IGNORE_AI_COMMAND,
+	// machine (+ 0x34, RW 0x668489: lane MODCOMPAT-MOD1's beginTemporaryStateMachine RW 0x6630A9), NO_AUTO_ACQUIRE, HORDE_MEMBER, IGNORE_AI_COMMAND,
 	// the model conditions JUST_BUILT (lane SPELL-3: a castle member fading in) and COMING_OUT_OF_FACTORY: nothing
-	if (obj.isEffectivelyDead() || obj.isOffMap() || obj.testStatus((unsigned)kAbilityBusy) || obj.testStatus((unsigned)kNoAutoAcquire) || obj.testStatus((unsigned)kHordeMember) ||
+	if (obj.isEffectivelyDead() || obj.isOffMap() || obj.testStatus((unsigned)kAbilityBusy) || hasTemporaryStateMachine() || obj.testStatus((unsigned)kNoAutoAcquire) || obj.testStatus((unsigned)kHordeMember) ||
 		obj.testStatus((unsigned)kIgnoreAi) || obj.testModelCondition(kJustBuilt) || obj.testModelCondition(kComingOut))
 	{
 		return nullptr;

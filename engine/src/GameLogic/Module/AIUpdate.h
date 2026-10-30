@@ -103,7 +103,7 @@ public:
 
 	// ---- the command interface (ZH AICommandInterface) ----
 	void aiMoveToPosition(const Coord3D &pos, CommandSourceType source);
-	// lane BACKLOG2: RW 0x79664F AICommandInterface::aiMoveToPositionEvenIfSleeping (BFME2 decomp Rva00394191.cpp, tier A): AI command 0x36 with the position; the
+	// lane BACKLOG2: RW 0x79664F AICommandInterface::aiMoveToPositionEvenIfSleeping (BFME2 decomp AICommandInterface_aiMoveToPositionEvenIfSleeping.cpp, tier A): AI command 0x36 with the position; the
 	// gate RW 0x667174 lets it through a sleeping mood (BFME2 decomp AIUpdateInterfacePrivateCommands.cpp:isAllowedToRespondToAiCommands); the command runs the
 	// move to the position (ZH AIUpdateInterface::aiDoCommand AICMD_MOVE_TO_POSITION_EVEN_IF_SLEEPING -> privateMoveToPosition: donor fact)
 	void aiMoveToPositionEvenIfSleeping(const Coord3D &pos, CommandSourceType source);
@@ -272,8 +272,20 @@ public:
 	// the kept one is the machine again: the object goes on with what it did before it defected
 	void endDefectedStateMachine();
 	bool hasDefectedStateMachine() const { return m_defectedMachine != nullptr; }
-	// RW 0x6630D7 (decomp AIUpdateInterface::rva0026331C, tier A) gives the machine of the temporary slot (AI + 0x34) back: nothing while that slot is
-	// empty, and nothing fills it in this port (BeginTemporaryStateMachine RW 0x6630A9's callers are not ported: S-1222), so it has no call here
+
+	// ---- lane MODCOMPAT-MOD1 (S-1422): the temporary state machine (RW AI + 0x34, the machine kept while a temporary one runs) ----
+	// RW 0x6630A9 (BFME2 decomp AIUpdateInterface::BeginTemporaryStateMachine, AIUpdateInterface_predicates.cpp, tier A): nothing when a machine is kept
+	// already; else AI vslot 0x160 (RW 0x63F3BF, nothing, in every AI class's vtable), the machine is kept at + 0x34, a new one is made (vslot 0x258) and
+	// started (machine slot 0x1C). Its callers: PickupStuffUpdate RW 0x895715 and SpecialAbilityUpdate's initiate RW 0x852FB1 (not wired here: S-859)
+	void beginTemporaryStateMachine();
+	// RW 0x6630D7 (decomp AIUpdateInterface::rva0026331C, tier A): nothing without a kept machine; else the current machine is halted (machine slot 0x3C)
+	// and deleted unless it is the one whose update runs now (AI + 0x3E0: set around the machine's update while a machine is kept, RW 0x669725 ..
+	// 0x66974E; retail then drops the pointer without deleting the machine), the kept machine is the machine again and AI vslot 0x164 runs (RW 0x63F3BF,
+	// nothing, but GiantBirdAIUpdate's RW 0x76D3B1). Callers: aiDoCommand (RW 0x66A928: an order that is not CMD_FROM_AI), Object::defect /
+	// endDefection (RW 0x6993A4 / 0x69AC55), PhysicsBehavior's fling (RW 0x792E0E), PickupStuffUpdate (RW 0x895572), SpecialAbilityUpdate's finish
+	// (RW 0x853105, not wired: S-859)
+	void endTemporaryStateMachine();
+	bool hasTemporaryStateMachine() const { return m_temporaryKeptMachine != nullptr; } // RW AI + 0x34 != 0
 
 	// ---- lane GARRISON-2: the turret (GameLogic/AI/TurretAI.h; RW AI + 0x20C, one slot) ----
 	TurretAI *turret() const { return m_turret.get(); }
@@ -423,6 +435,7 @@ public:
 	bool isStatusImmobile() const override;
 	bool isContained() const override;
 	bool isDeployedSiegeTower() const override; // RW 0x66E2A4
+	void finishExitQuickPath(const Coord3D &destination) override;
 	int stateId() const override { return (int)currentStateId(); }
 	AIMover *moverOf(PathfindObjectID id) override;
 	AIMover *containerMover() override;
@@ -485,6 +498,10 @@ public:
 		{
 			return false;
 		}
+		if (source != CMD_FROM_AI)
+		{
+			endTemporaryStateMachine(); // lane MODCOMPAT-MOD1: RW 0x66A91A .. 0x66A92A: an order that is not the AI's own ends the temporary machine
+		}
 		stancesOnCommand(source);
 		cancelBloodthirstyCommand(*getObject(), command, target);
 		commandAccepted(source, command, target);
@@ -509,6 +526,11 @@ public:
 	// AI module data + 0x34 / + 0x30 (MinCowerTime / MaxCowerTime, parseDurationUnsignedInt, default 0: RW ctor 0x66E8FF)
 	unsigned minCowerTime() const { return m_minCowerTime; }
 	unsigned maxCowerTime() const { return m_maxCowerTime; }
+	// lane CASTLEAREA-1: AI vslot 0x180, the animal interface: the base answers null; AnimalAIUpdate's (RW 0x88C915) its + 0x4A8 interface, whose slot 0 (RW
+	// 0x881EEE) answers the module data's + 0x7C, AfraidOfCastles (field table RW 0xC04EE8, parseBool RW 0x42E558; the data constructor RW 0x64BB2C sets it to
+	// 1, and no retail INI sets it: natureunits.ini has it commented out). The rest of AnimalAIUpdate is not ported (S-222): the class runs as the base AI
+	bool hasAnimalInterface() const { return m_animalInterface; }
+	bool animalAfraidOfCastles() const { return m_animalAfraidOfCastles; }
 	// RW 0x68E43B: the object's vision range (Object + 0x1B0, the template's VisionRange: S-1027) x (1 + the attribute modifier sum of type 16) x the height bonus
 	float objectVisionRange() const;
 	static float objectVisionRangeOf(Object &object); ///< the same for any object (RW 0x68E43B is Object's; lane CAMP-1H)
@@ -555,6 +577,9 @@ protected:
 	virtual const char *machineName() const { return "AIUpdateInterfaceMachine"; }
 	// the state machine of the class (ZH makeStateMachine): the base states; a subclass adds its own
 	virtual std::unique_ptr<AIStateMachine> makeStateMachine();
+	// lane MODCOMPAT-MOD1: AI vslot 0x164, run by endTemporaryStateMachine (RW 0x66311F) once the kept machine is back: nothing (RW 0x63F3BF) but for
+	// GiantBirdAIUpdate (RW 0x76D3B1, not ported: S-4040)
+	virtual void onTemporaryStateMachineEnded() {}
 
 	// lane LUMBER1: the command bodies WorkerAIUpdate extends (RW 0x8ACE75 / 0x8ACE4A)
 	virtual void privateHarvest(const Coord3D &pos, CommandSourceType source);
@@ -579,6 +604,9 @@ private:
 	std::unique_ptr<ObjectLocomotorHost> m_locoHost;
 	std::unique_ptr<AIStateMachine> m_machine;
 	std::unique_ptr<AIStateMachine> m_defectedMachine; ///< lane BACKLOG4: RW AI + 0x38
+	std::unique_ptr<AIStateMachine> m_temporaryKeptMachine; ///< lane MODCOMPAT-MOD1: RW AI + 0x34 (beginTemporaryStateMachine)
+	bool m_updatingWithTemporaryMachine = false; ///< RW AI + 0x3E0: set around the machine's update while a machine is kept (RW 0x669725 .. 0x66974E)
+	std::unique_ptr<AIStateMachine> m_retiredMachine; ///< the machine endTemporaryStateMachine replaced during its own update (retail drops the pointer)
 	std::vector<std::unique_ptr<Locomotor>> m_locomotors; // the current set, in set order (B1 m_locomotorSet)
 	Locomotor *m_curLocomotor = nullptr;
 	int m_formationId = 0;        ///< Object + 0x42C (hashed with the offset once either is set)
@@ -635,6 +663,7 @@ private:
 	bool m_preventPlayerCommands = false; // RW + 0x3C5
 	bool m_fastCower = false;             // RW + 0x3C4
 	unsigned m_minCowerTime = 0, m_maxCowerTime = 0;
+	bool m_animalInterface = false, m_animalAfraidOfCastles = true; ///< lane CASTLEAREA-1 (see hasAnimalInterface)
 	// lane GARRISON-2: the turret's data (the AI module's `Turret` block, the raw module data) and the turret (RW AI + 0x20C, made by the AI constructor RW 0x66ECFE)
 	std::unique_ptr<TurretAIData> m_turretData;
 	std::unique_ptr<TurretAI> m_turret;

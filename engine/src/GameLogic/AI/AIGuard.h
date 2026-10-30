@@ -27,7 +27,7 @@
 //     computer unit, 0 asleep): an INVISIBLE_STEALTH object (model condition 0x222) finds nothing, an INVISIBLE_CAMOUFLAGE one (0x223) nothing in a stance of
 //     class 3; TheAI's closest enemy around the spot (RW 0x70146A) and, when none and the owner is more than half the range from the spot, around the owner
 //     within half the range (RW 0x701443); a HORDE victim is adjusted (RW 0x68D30E).
-//   * the states' bodies are the BFME2 decomp's AIGuardStates.cpp / AIGuardReturnStateOnEnter.cpp (RW 0x94A048 inner onEnter, 0x94A183 inner update,
+//   * the states' bodies are the BFME2 decomp's AIGuardStates.cpp / AIGuard.cpp (RW 0x94A048 inner onEnter, 0x94A183 inner update,
 //     0x94A29F outer onEnter, 0x94A407 outer update, 0x94A571 return onEnter (random(0, GuardEnemyReturnScanRate), line 0x371), 0x94A69E return update,
 //     0x949630 idle onEnter (random(0, GuardEnemyScanRate), line 0x3F5), 0x94A70A idle update, 0x94A805 aggressor onEnter); the AIData rows: GuardChaseUnitsDuration
 //     (+ 0x3C), GuardEnemyScanRate (+ 0x40), GuardEnemyReturnScanRate (+ 0x44) (table RW 0xC1CC00 .., parseDurationUnsignedInt RW 0x73A429).

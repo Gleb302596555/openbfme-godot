@@ -80,6 +80,12 @@ const std::set<int> &clientActions()
 			// lane SCRIPT-4: RW 0x7BC604 doSetBorderShroud (BFME2 ScriptActions.cpp, tier A): TheDisplay vslot 0x138 with GlobalData ClearAlpha (+ 0xBE8) / ShroudAlpha
 			// (+ 0xBEA): the shroud border's fill (client, not saved)
 			"DISABLE_BORDER_SHROUD", "ENABLE_BORDER_SHROUD",
+			// lane CAMANIM-1: case 0x226 (RW 0x7CB8F4) -> RW 0x7BBB9D: TheCameraAnimationList's animation of that name (RW 0x7320BA) to TheTacticalView's
+			// slot 0x68 (RW 0x4864F9); client state only (GameClient/CameraAnimation.h)
+			"MOVE_CAMERA_BY_ANIMATION",
+			// lane MODCOMPAT-AI: RW 0x7CAFA5 case 0x14E: GlobalData + 0x950 = the real parameter (movss), the camera's far clip multiplier that
+			// setCameraTransform reads (RW 0x48B7B1: far = + 0x950 * 1800); nothing else in the logic (client, not saved)
+			"SET_CAMERA_CLIP_DEPTH_MULTIPLIER",
 		};
 		std::set<int> out;
 		for (const char *n : names)
@@ -124,7 +130,7 @@ bool positionOf(ScriptEngine &engine, const std::string &name, Coord3D &out, boo
 }
 
 // Lane BACKLOG3 (S-2452): the scripts' radar events. TARGET FACTS (RotWK game.dat, caveat S-001; BFME2 decomp ScriptActionsRva003BB76E.cpp /
-// ScriptActionsRva003BB79D.cpp / ScriptGlueRva003C00CE.cpp, tier A for these addresses):
+// ScriptActions_doObjectRadarCreateEvent.cpp / ScriptActions_doTeamRadarCreateEvent.cpp, tier A for these addresses):
 //   RADAR_CREATE_EVENT (RW 0x7BC221): TheRadar->createEvent(the Coord3D parameter, the type parameter, 4.0f (RW 0xBD88C0)), then TheEva's event position (RW 0x5DD1F3);
 //   OBJECT_CREATE_RADAR_EVENT (RW 0x7BC250): the same at the named unit's position (Object + 0x38); nothing without the unit;
 //   TEAM_CREATE_RADAR_EVENT (RW 0x7C0B61): the team by name (getTeamNamed), only when it has a unit (RW 0x7A07D8: a member that is not dead, not Object + 0x94

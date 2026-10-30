@@ -129,6 +129,10 @@ func _process(delta: float) -> void:
 		for p in r.params:
 			ps.append(p.string if not String(p.string).is_empty() else (str(p.real) if p.type == 1 else str(p.int)))
 		print("SCRIPTREQ frame %d %s(%s) [%s]" % [r.frame, r.action, ", ".join(ps), r.script])
+		if hud_mode and hud != null:
+			# lane CAMANIM-1: the view's camera animation in the requests' order: MOVE_CAMERA_BY_ANIMATION (RW 0x7BBB9D -> view slot 0x68) starts the map's
+			# animation, the camera actions that write the view's mode (MOVE_CAMERA_TO, RESET_CAMERA, ...) end it (the HUD filters the actions)
+			hud.camera_animation_request(String(r.action), String(r.params[0].string) if r.params.size() > 0 else "")
 		if r.action == "MISSION_OBJECTIVE_SOUND":
 			# lane CAMPUI-1: the proof log reads what the audio side played half a second later (merge queue q24, RENDERWAIT-1: in a timer callback, not per frame)
 			get_tree().create_timer(0.5).timeout.connect(_report_sound_check, CONNECT_ONE_SHOT)
@@ -137,6 +141,8 @@ func _process(delta: float) -> void:
 		# lane CAMP-2: ScriptActions::executeAction (RW 0x7CAFA5): cases 118 / 119 doLetterBoxMode (RW 0x7BC8B7: HideControlBar(true) or ShowControlBar(false),
 		# then the display's letterbox), cases 347 / 348 HIDE_UI / SHOW_UI (HideControlBar(true) / ShowControlBar(false)); in the requests' order
 		# lane OWNERFIX-1: DISABLE_INPUT / ENABLE_INPUT (RW 0x7BC586 / 0x7BC5E9): the HUD's input flag, the selection and the pointer (InGameHud::scriptInput)
+		if r.action == "SET_CAMERA_CLIP_DEPTH_MULTIPLIER" and hud != null and r.params.size() > 0:
+			hud.camera_set_clip_depth_multiplier(float(r.params[0].real)) # lane MODCOMPAT-AI: GlobalData + 0x950, the far plane's multiplier (RW 0x48B7B1)
 		if input_hook.is_valid():
 			if r.action == "DISABLE_INPUT":
 				input_hook.call(false)

@@ -194,7 +194,7 @@ public:
 	AIWorld &ai(const char *file = __builtin_FILE(), int line = __builtin_LINE()) { holdLogic(file, line); return *m_ai; }
 	// VIS-1: TheShroudManager (attached to the logic) and the GameData / MultiplayerSettings values it was made from
 	ShroudManager &shroud(const char *file = __builtin_FILE(), int line = __builtin_LINE()) { holdLogic(file, line); return *m_shroud; }
-	// lane ONLINE-3 (retail PlayerList::observeNextPlayer, RW 0x6A8D2B; BFME2 decomp reverse/attempts/0x002a8306.cpp, tier B same-shape): when the local
+	// lane ONLINE-3 (retail PlayerList::observeNextPlayer, RW 0x6A8D2B; BFME2 decomp PlayerList_getNthPlayer.cpp, tier B same-shape): when the local
 	// player is not active (an observer, a spectator's ReplayObserver side, or defeated: RW 0x6A87F5 with isPlayerActive RW 0x6AAC52), the view steps
 	// from the observed player (TheControlBar + 0x218, RW 0x6A8839; none: the local player) to the next / prior human player (Player + 0x5C == 0, read
 	// as PLAYER_HUMAN: inference, S-3902) that is active, or to the observer itself ("all"), wrapping; the observed player becomes the shroud's view

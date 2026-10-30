@@ -51,6 +51,7 @@
 #include "Common/MpGameRules.h"
 #include "Common/PlayerList.h"
 #include "Common/RandomValue.h"
+#include "Common/GameEdition.h"
 #include "Common/SimulationProfile.h"
 #include "Common/Team.h"
 #include "GameLogic/CampaignCarryover.h"
@@ -583,6 +584,11 @@ public:
 	void setSimulationProfile(SimulationProfile p) { m_simulationProfile = p; }
 	SimulationProfile simulationProfile() const { return m_simulationProfile; }
 	bool uber() const { return m_simulationProfile == SimulationProfile::Uber; }
+	// lane BFME2MODE-0 (AGENTS.md, docs/EDITIONS.md): the game edition, decided by the mounted data (Common/GameEdition.h isBfme2Data) when the game loads.
+	// The one accessor every edition variant reads (per system, e.g. SkirmishAI/SkirmishAIEditionRules.h); not hashed in Phase 0 (the data identity already
+	// differs between the editions)
+	void setEdition(GameEdition e) { m_edition = e; }
+	GameEdition edition() const { return m_edition; }
 
 	// ---- frame ------------------------------------------------------------------------------------------------------------
 	UnsignedInt getFrame() const { return m_frame; }
@@ -986,8 +992,16 @@ private:
 	std::uint32_t hashState(std::vector<StateHashSection> *sections, std::vector<ObjectStateHash> *objects) const; // lane MP-1
 	// lane UBER-1: the Uber profile's "objects" section: every object's own hash on the logic job pool, then (count, id, hash) in list order
 	void hashObjectsUber(StateHasher &x) const;
+	void chainObjectsUber(StateHasher &x) const;
+	size_t listHashObjects() const;
+	static constexpr size_t kHashObjectsPerJob = 64;
 	mutable std::vector<const Object *> m_uberHashObjects;  ///< scratch of hashObjectsUber (the logic owner thread only)
 	mutable std::vector<std::uint32_t> m_uberHashValues;
+	// lane PERF-HD: the Faithful hash's tapes (StateHasher recording): one per section, one per object (kept between frames for their capacity)
+	void hashObjectsTaped(StateHasher &x) const;
+	void gatherObjectTapes() const;
+	mutable std::vector<std::vector<std::uint32_t>> m_hashSectionTapes;
+	mutable std::vector<std::vector<std::uint32_t>> m_hashObjectTapes;
 	struct HashContributor
 	{
 		int token;
@@ -1034,6 +1048,7 @@ private:
 	std::optional<CampaignCarryover::State> m_campaignCarryover; ///< lane BFME2CAMP1 (OpenBFME: retail's campaign manager)
 	CheatMode::State m_cheatMode;                  ///< lane CHEAT-1 (OpenBFME)
 	SimulationProfile m_simulationProfile = SimulationProfile::Faithful; ///< lane UBER-1 (OpenBFME)
+	GameEdition m_edition = GameEdition::RotWK201;                         ///< lane BFME2MODE-0 (OpenBFME)
 	bool m_frameAdvance = true;   ///< RW GameLogic + 0x44
 	bool m_inUpdate = false;      ///< RW + 0x70
 	int m_lastPhase = 0;          ///< RW + 0x17C

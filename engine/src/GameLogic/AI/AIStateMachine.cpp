@@ -750,7 +750,6 @@ StateReturnType AIFollowPathState::enterSegment()
 	bool adjusts = true;
 	if (m_exitProduction)
 	{
-		a.setCanPathThroughUnits(true);
 		adjusts = false;
 		m_adjustFinal = true;
 	}
@@ -784,6 +783,12 @@ StateReturnType AIFollowPathState::enterSegment()
 StateReturnType AIFollowPathState::onEnter()
 {
 	m_index = 0;
+	if (m_exitProduction)
+	{
+		// RW 0x74F8E6 .. 0x74F8EE: the exit-production state (id 7) sets the path-through-units flag once, on enter; the segment advance (RW 0x74FA18) does not
+		// set it again, and computePath drops it after its one straight path (RW 0x666079)
+		ai().setCanPathThroughUnits(true);
+	}
 	return enterSegment();
 }
 
@@ -795,10 +800,9 @@ void AIFollowPathState::onExit(StateExitType status)
 		m_move->onExit();
 		m_move.reset();
 	}
-	if (m_exitProduction)
-	{
-		ai().setCanPathThroughUnits(false);
-	}
+	// RW 0x74B79E / 0x74B7A5 (S-001): every follow-path exit clears both fields.
+	ai().setCanPathThroughUnits(false);
+	ai().mover().ignoreObstacle(PATHFIND_INVALID_ID);
 	// RW 0x74B77D (BFME2 RVA 0x349D92): both path forms release individuals; the horde waits for its members in RW 0x89E2D0.
 	if (!owner().isKindOfName("HORDE"))
 	{
@@ -811,6 +815,13 @@ StateReturnType AIFollowPathState::update()
 	if (!m_move)
 	{
 		return STATE_FAILURE;
+	}
+	// RW 0x74FA28 / BFME2 AIFollowPathState::update publishes the current segment goal each tick.
+	// RW 0x661EFE -> 0x8DB810 uses FLT_MAX (no final facing), for every follow path.
+	if (!machine().isLocked())
+	{
+		machine().setGoalPosition(m_goalPosition);
+		machine().clearGoalAngle();
 	}
 	const StateReturnType ret = m_move->update();
 	if (ret == STATE_SUCCESS)

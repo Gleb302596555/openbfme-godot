@@ -626,7 +626,7 @@ void InGameHud::update(double seconds)
 		local.skillPointsNext = sc.getSkillPointsLevelUp();
 		local.skillPointsThis = sc.getSkillPointsLevelDown();
 		local.storeOpen = m_store != nullptr;
-		// ControlBar RW 0x71FA12 (BFME2 decomp ControlBarPurchaseScienceStatus.cpp, tier A): button i of the player's purchase set has a science the player does not
+		// ControlBar RW 0x71FA12 (BFME2 decomp ControlBar.cpp, tier A): button i of the player's purchase set has a science the player does not
 		// own, has the prerequisites of and can pay for (RW 0x5FED5B). INFERENCE (S-923): the set is the template's PurchaseScienceCommandSet(MP), as the store's
 		const CommandSet *set = (pt && TheCommandStore)
 			? TheCommandStore->findCommandSet(sc.mode().skirmishOrMultiplayer ? pt->m_purchaseScienceCommandSetMP : pt->m_purchaseScienceCommandSet)
@@ -856,7 +856,7 @@ void InGameHud::updateFloatingText(const TacticalView &view, bool shroudDrawn)
 				continue;
 			}
 			Coord3D pos = e.textPos;
-			// BFME2 AutoDepositUpdateUpdate.cpp: "add a little z to make it show up above the unit".
+			// BFME2 AutoDepositUpdate.cpp: "add a little z to make it show up above the unit".
 			// Presentation offset: the income log keeps the simulation position unchanged.
 			if (e.textAnchor == Economy::IncomeEvent::TEXT_RAISED_10) pos.z += 10.0f;
 			if (e.textAnchor == Economy::IncomeEvent::TEXT_GEOMETRY_TOP)

@@ -290,8 +290,8 @@ TEST_CASE("bfme2camp1 the scripts' attack priority sets: SET_DEFAULT_ATTACK_PRIO
 	CHECK(e.stats().unportedActions.empty());
 }
 
-TEST_CASE("bfme2camp1 the script engine snapshot: version 3 until a script edits the attack priorities, then version 6; versions 4 and 5 (other lanes' "
-		  "claims in logs/wire-versions.md, fields this build lacks) are refused, not misread")
+TEST_CASE("bfme2camp1 the script engine snapshot: version 5 (CASTLEAREA-1's trigger list extent, MODCOMPAT-AI's completed upgrades) until a script "
+		  "edits the attack priorities, then version 6 (the table after 5's fields); both load back to their end")
 {
 	combattest::CombatWorld w;
 	startEngine(*w.logic);
@@ -299,20 +299,17 @@ TEST_CASE("bfme2camp1 the script engine snapshot: version 3 until a script edits
 	XferSave plain;
 	e.xfer(plain);
 	REQUIRE_FALSE(plain.data().empty());
-	CHECK(plain.data()[0] == 3);
+	CHECK(plain.data()[0] == 5);
+	XferLoad plainBack(plain.data());
+	CHECK_NOTHROW(e.xfer(plainBack));
+	CHECK(plainBack.atEnd());
 	e.executeAction(act("SET_DEFAULT_ATTACK_PRIORITY", { sp(28, "Wave"), ip(0, 5) }));
 	REQUIRE(e.attackPriorities().edited());
 	XferSave edited;
 	e.xfer(edited);
 	REQUIRE_FALSE(edited.data().empty());
 	CHECK(edited.data()[0] == 6);
-	for (std::uint8_t other : { (std::uint8_t)4, (std::uint8_t)5 })
-	{
-		std::vector<std::uint8_t> bytes = edited.data();
-		bytes[0] = other;
-		XferLoad load(bytes);
-		CHECK_THROWS_AS(e.xfer(load), XferException);
-	}
+	CHECK(edited.data().size() > plain.data().size());
 	XferLoad back(edited.data());
 	CHECK_NOTHROW(e.xfer(back));
 	CHECK(back.atEnd());

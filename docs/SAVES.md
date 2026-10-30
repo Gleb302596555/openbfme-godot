@@ -976,8 +976,10 @@ and T3 (Linux and Windows bytes equal) cover it.
   drawables as before, the game still running; a header whose hash its log does not end with; the verify mode naming the first differing byte);
   the legal but unusual events (a capture, a temporary defection, a death, a player's every object killed, saved right after them and 30 frames
   later, loaded into another world and played 300 frames equal, saved again byte for byte); T3 with a Windows peer (OPENBFME_WINDOWS_PEER).
+  Lane SAVE2SPLIT-1: the fresh-process T1 runs are a test case per save and load mode (`save2 retail T1 (SAVES.md) 4-AI skirmish <save>
+  ...`, `save2 retail T1 (SAVES.md) a script waiting on a timer <mode> ...`), each its own gate job; a process records each game once.
   `godot --path godot -- --auto --save-test` loads a snapshot save and a log-only save through the screens (prerequisites and isolated folder below).
-- **Measured** (Deck, Release, `openbfme_peer --load-save` in a fresh process, the 4-AI Fall Back game of `save2 retail T1 (SAVES.md)`): the
+- **Measured** (Deck, Release, `openbfme_peer --load-save` in a fresh process, the 4-AI Fall Back game of the `save2 retail T1 (SAVES.md) 4-AI skirmish ...` cases): the
   11-minute save (frame 3,301, a 4,240,033-byte snapshot) loads from its snapshot in 100 ms; the same save caught up from its log (the earlier
   alphas' path, `--verify-log`) takes 27.8 s. The Angmar mission at frame 151: 385 ms from the snapshot, 4.5 s caught up. The in-process load of a
   1.8 MB snapshot (frame 601): 114 ms. Through the screens (`--save-test`, a CI host): 32 ms for a skirmish at frame 150, 141 ms for the mission.
@@ -1034,7 +1036,7 @@ Every new field is versioned, and a block writes its new version only when the s
 | `GameLogicSnapshot.cpp` | obfme:GameLogic | 3 (written with a buildability override or a carry-over state) | the script buildability overrides (count; each: template name string, status int 0..3); the campaign carry-over state (bool present; the serialized state string) | versions 1 and 2: no overrides, no carry-over state |
 | `Object.cpp` | Object | 2 | the campaign carry-over bit (bool, Object + 0x458 bit 4) | version 1: false |
 | `Team.cpp` | the team prototypes | 2 (written when a prototype names an attack priority set) | each prototype's attack priority set name (string) | version 1: no name |
-| `ScriptEngineXfer.cpp` | the script engine | 6 (written once a script edited the attack priorities; 4 and 5 are other lanes' claims, logs/wire-versions.md, refused by this build) | the attack priority sets (bool; count; each: name string, default int, the template priorities as name / int pairs) | versions 2 and 3: the table as the map's INI made it |
+| `ScriptEngineXfer.cpp` | the script engine | 5 (always: CASTLEAREA-1's run-time trigger list extent at 4, MODCOMPAT-AI's completed upgrades at 5), 6 (written once a script edited the attack priorities) | the attack priority sets (bool; count; each: name string, default int, the template priorities as name / int pairs) | versions 2 and 3: the table as the map's INI made it |
 | `AIUpdateSnapshot.cpp` | AIUpdateInterface | 3 (an area guard or an attack info override), 4 (a team guard) | v3: the area to guard (int, checked against the map's areas), the attack info override (bool + name string); v4: the team to guard (team id) | versions 1 and 2: no area, no override; version 3: no team |
 | `AIUpdateSnapshot.cpp` | DozerAIUpdate | 3 | the rebuild flag (bool, + 0x4D0) | versions 1 and 2: false |
 | `AIStateMachineSnapshot.cpp` | the AI state machine | 2 (written with a goal squad) | the goal squad (bool; the member ids) | version 1: no squad |

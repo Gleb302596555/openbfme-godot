@@ -154,7 +154,13 @@ enum ConditionType
 	EVAL_TEAM_HEALTH = 174,
 	TYPE_SELECTED = 200,
 	CAMERA_SCROLL_DISTANCE = 189,    // lane BFME2CAMP1
-	OBJECTIVES_SCREEN_IS_OPEN = 198  // lane BFME2CAMP1
+	OBJECTIVES_SCREEN_IS_OPEN = 198, // lane BFME2CAMP1
+	// lane MODCOMPAT-AI (the mods' AI scripts, logs/mod-gap-census.md), each read from the RotWK body
+	PLAYER_ALL_DESTROYED = 5,
+	PLAYER_BUILT_UPGRADE = 69,
+	PLAYER_BUILT_UPGRADE_FROM_NAMED = 70,
+	CAN_BUILD_OBJECTTYPE_AT_BASE = 169,
+	PLAYER_HAS_NUM_UNITS_WITH_UPGRADE = 178
 };
 
 int kindOfBit(const char *name)
@@ -1746,7 +1752,7 @@ bool ScriptConditions::evaluate(ScriptEngine &engine, const ScriptCondition &c)
 		}
 		return false;
 	}
-	case TYPE_SIGHTED: // RW 0x7EB1C9 (BFME2 ScriptConditions_Rva003EA3AB.cpp:166, tier A; ZH evaluateTypeSighted)
+	case TYPE_SIGHTED: // RW 0x7EB1C9 (BFME2 ScriptConditions_evaluateTypeSighted.cpp:162, tier A; ZH evaluateTypeSighted)
 	{
 		// per player of the mask, ThePartitionManager's objects around the unit within its vision range (RW 0x68E43B, FROM_CENTER_2D) that the unit can
 		// see (RW 0x6612AC at the vision range), not stealthed from it (RW 0x660D2C), alive, controlled by the player, of the type set. Unlike
@@ -1832,7 +1838,7 @@ bool ScriptConditions::evaluate(ScriptEngine &engine, const ScriptCondition &c)
 		});
 		return hit;
 	}
-	case PLAYER_HAS_NUMBER_OBJECTS_WITH_MODELCONDITION: // RW 0x7E6B50 (BFME2 ScriptConditions_Rva003E5F73.cpp, tier A)
+	case PLAYER_HAS_NUMBER_OBJECTS_WITH_MODELCONDITION: // RW 0x7E6B50 (BFME2 ScriptConditions_evaluatePlayerHasNumberObjectsWithModelCondition.cpp, tier A)
 	{
 		// the bit by name (RW 0x4B3B5B: _strcmpi over the 591 names, -1 unknown); per player of the mask RW 0x6AC74F(bit, limit): its team members (dead
 		// ones too) with the model condition bit, each count stopping at limit + 1, the walk over the players stopping once the total passes the limit.
@@ -1864,7 +1870,7 @@ bool ScriptConditions::evaluate(ScriptEngine &engine, const ScriptCondition &c)
 		}
 		return compare(param(c, 2).intValue, total, limit);
 	}
-	case COMPARE_NUM_PLAYERS_IN_GAME: // RW 0x7E5FA5 (BFME2 ScriptConditions_Rva003E53C8.cpp, tier A) -> RW 0x6A8630(0)
+	case COMPARE_NUM_PLAYERS_IN_GAME: // RW 0x7E5FA5 (BFME2 ScriptConditions_evaluateNumPlayersInGame.cpp, tier A) -> RW 0x6A8630(0)
 	{
 		// the players with a template of a playable side (+ 0x151) that are not defeated (+ 0x754 / + 0x35A)
 		std::int32_t n = 0;
@@ -1932,6 +1938,102 @@ bool ScriptConditions::evaluate(ScriptEngine &engine, const ScriptCondition &c)
 		}
 		float distance = 0.0f;
 		return host->cameraScrollDistance(distance) && param(c, 0).realValue < distance;
+	}
+	case PLAYER_ALL_DESTROYED:
+	{
+		// lane MODCOMPAT-AI: RW 0x7EB7CD case 5 -> RW 0x7E4866(param 0): before ftol(5 * SecondsBeforeBaseCheckActive) false (RW 0x7E486A .. 0x7E48A6: the
+		// frame [0xDE412C] + 0x40 against _ftol RW 0xA3CFA4 of cvtsi2ss [0xD9F608] = 5 times GlobalData + 0x110C, unsigned `jb`), as PLAYER_HAS_N_OR_FEWER_BASES.
+		// Then the mask (RW 0x75968D; empty: true) walked by RW 0x6A85EE: a player for whom Player::hasAnyObjects(0) (RW 0x6ABDF7: its team prototypes
+		// + 0x34C, RW 0x7A1AC1 over each one's teams + 0x334, RW 0x7A0956(0) per team) answers false
+		const unsigned delay = (unsigned)SimMath::truncToInt32(SimMath::mulf32(SimMath::sseFromInt32(5), logic.settings().secondsBeforeBaseCheckActive));
+		if (logic.getFrame() < delay)
+		{
+			return false;
+		}
+		for (Player *p : players(engine, param(c, 0).stringValue))
+		{
+			for (const auto &proto : logic.players().teams().prototypes())
+			{
+				if (proto->getControllingPlayer() != p)
+				{
+					continue;
+				}
+				for (Team *tm : proto->teams())
+				{
+					if (teamHasAnyUnits(*tm))
+					{
+						return false;
+					}
+				}
+			}
+		}
+		return true;
+	}
+	case PLAYER_BUILT_UPGRADE:
+	case PLAYER_BUILT_UPGRADE_FROM_NAMED:
+	{
+		// lane MODCOMPAT-AI: RW 0x7EB7CD cases 0x45 / 0x46 -> RW 0x7E4F6A(player, upgrade, unit or 0): with a unit parameter the named unit must exist
+		// (RW 0x75A3D8; none: false) and its id is the source, else 0 (any); the first player of the mask (RW 0x75968D / 0x6A85EE) whose completed-upgrade
+		// list holds the upgrade's name (RW 0x758DE5(index + 0x54, the name, remove 1, source)) answers true, its entry removed
+		ObjectID source = INVALID_ID;
+		if (c.resolved == PLAYER_BUILT_UPGRADE_FROM_NAMED)
+		{
+			const Object *o = engine.getUnitNamed(param(c, 2).stringValue);
+			if (!o)
+			{
+				return false;
+			}
+			source = o->getID();
+		}
+		for (Player *p : players(engine, param(c, 0).stringValue))
+		{
+			if (engine.isUpgradeCompleted(p->getPlayerIndex(), param(c, 1).stringValue, true, source))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+	case CAN_BUILD_OBJECTTYPE_AT_BASE:
+	{
+		// lane MODCOMPAT-AI: RW 0x7EB7CD case 0xA9 -> RW 0x7E5BF4(player, unit, object type): the template by name (RW 0x6D1305; none: false), the unit
+		// (RW 0x75A3D8), the mask's player (RW 0x75968D / 0x6A85B6: only a mask of exactly one player), who controls the unit (RW 0x68B678); its
+		// CastleBehavior (RW 0x68BDA5, key RW 0x797AC1) answers RW 0x7996D3(template): CastleBehavior::canBuildAtBase
+		const ThingTemplate *tt = logic.things().findTemplate(param(c, 2).stringValue);
+		Object *unit = tt ? engine.getUnitNamed(param(c, 1).stringValue) : nullptr;
+		if (!unit)
+		{
+			return false;
+		}
+		const Player *p = playerOfMask(engine, param(c, 0).stringValue);
+		if (!p || unit->getControllingPlayer() != p)
+		{
+			return false;
+		}
+		const CastleBehavior *cb = dynamic_cast<const CastleBehavior *>(unit->findModule("CastleBehavior"));
+		return cb && cb->canBuildAtBase(tt);
+	}
+	case PLAYER_HAS_NUM_UNITS_WITH_UPGRADE:
+	{
+		// lane MODCOMPAT-AI: RW 0x7EB7CD case 0xB2 -> RW 0x7E9356(player, count, upgrade): the mask's player (RW 0x75968D / 0x6A85B6: only a mask of
+		// exactly one player) and the upgrade by name (RW 0x66F5E5); either missing: false. Over the player's team prototypes (+ 0x34C), each one's teams (+ 0x334, RW 0x895BF7), each team's
+		// members (RW 0x66362D / 0x6632C9): a member without the status HORDE_MEMBER (0x26, RW 0x44DDEC) that has the upgrade (RW 0x691421) counts; no
+		// alive or KindOf test. True when count >= n (RW 0x7E9428: cmp count, n; setge)
+		Player *owner = playerOfMask(engine, param(c, 0).stringValue);
+		const UpgradeTemplate *upgrade = owner ? Player::resolveUpgrade(param(c, 2).stringValue, false) : nullptr;
+		if (!upgrade)
+		{
+			return false;
+		}
+		static const int hordeMember = ObjectTemplateInfoBuilder::objectStatusIndex("HORDE_MEMBER");
+		std::int32_t count = 0;
+		forPlayerTeamMembers(logic, owner, [&](Object &o) {
+			if (!o.testStatus((unsigned)hordeMember) && o.hasUpgrade(upgrade))
+			{
+				++count;
+			}
+		});
+		return count >= param(c, 1).intValue;
 	}
 	default:
 		engine.noteUnportedCondition(t->name);

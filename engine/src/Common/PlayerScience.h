@@ -96,6 +96,7 @@ public:
 	int getSkillPointsLevelUp() const { return m_skillPointsNextRank; }
 	int getSkillPointsLevelDown() const { return m_skillPointsThisRank; }
 	void setSkillPointsModifier(float m) { m_skillPointsModifier = m; }
+	float skillPointsModifier() const { return m_skillPointsModifier; } // +0x10 (Player + 0x18)
 	void setRankLevelCap(int cap) { m_rankCap = cap; }
 	int getRankLevelCap() const { return m_rankCap; }
 	// RW 0x782942 (lane OWNERFIX-1): the first rank r in 1 .. max rank - 1 whose summed SciencePurchasePointsGranted (ranks 1 .. r) reaches `points`;

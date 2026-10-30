@@ -61,6 +61,9 @@ enum Qualifier : unsigned
 
 // RW 0x7006D7. `info` null: the partition's closest object; else the scored search. Never throws for a missing piece: unported parts are reported (S-326)
 Object *findClosestEnemy(Object &me, const Coord3D &pos, float range, unsigned qualifiers, const AttackPriorityInfo *info, PartitionFilter *optionalFilter, int arg);
+// Building filters shared with melee reacquisition (BFME2 RVAs 0x261B7E / 0x261246).
+bool allowsBuildingTarget(const Object &seeker, Object &target);
+bool isSignificantBuildingTarget(Object &target);
 // RW 0x701443
 Object *findClosestEnemy(Object &me, float range, unsigned qualifiers, const AttackPriorityInfo *info, PartitionFilter *optionalFilter, int arg);
 // lane BFME2CAMP1: RW 0x700F52(area, me, info), the attack-area state's search: isAbleToAttack false: none. The filters, linked in RW's order: the ENEMIES head

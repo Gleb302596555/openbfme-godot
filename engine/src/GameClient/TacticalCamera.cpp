@@ -551,7 +551,7 @@ float TacticalCamera::freeMaxHeight() const
 
 float TacticalCamera::farPlane() const
 {
-	return 1800.0f + 2.0f * fogShift(); // RW 0x48B7B1: 1800 (GlobalData + 0x950 = 1.0 times 1800); lane PLAY-1 / ZOOM-1: the extra eye distance
+	return m_clipDepthMultiplier * 1800.0f + 2.0f * fogShift(); // RW 0x48B7B1: GlobalData + 0x950 (1.0) times 1800; lane PLAY-1 / ZOOM-1: the extra eye distance
 }
 
 float TacticalCamera::fogShift() const

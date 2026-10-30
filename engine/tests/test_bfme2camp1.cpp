@@ -1956,16 +1956,16 @@ TEST_CASE("bfme2camp1 retail: a destroyed creep lair leaves its hole and is rebu
 	CHECK(hole->getBodyModule()->getMaxHealth() == 500.0f);            // HoleMaxHealth (body slot 0x5C)
 	RebuildHoleBehavior *rh = RebuildHoleBehavior::of(*hole);
 	REQUIRE(rh != nullptr);
-	CHECK(rh->spawnerId() == pitId);
-	REQUIRE(rh->rebuildTemplate() != nullptr);
-	CHECK(rh->rebuildTemplate()->getName() == "SpiderLair");
+	CHECK(rh->getSpawnerID() == pitId);
+	REQUIRE(rh->getRebuildTemplate() != nullptr);
+	CHECK(rh->getRebuildTemplate()->getName() == "SpiderLair");
 	const unsigned c1 = rh->workerWaitCounter();
 	REQUIRE(c1 <= 600u); // tolerance: a precondition (_ftol2(120000 ms * 0.005) = 600, less the frames the hole already updated), not the measured value
 	m.step(10);
 	CHECK(rh->workerWaitCounter() == c1 - 10u); // one frame each update
 	// the counter's end: the lair is rebuilt at the hole (TheBuildAssistant's build-now, then GettingBuiltBehavior builds it up from 1%)
-	REQUIRE(m.until([&] { return rh->reconstructingId() != INVALID_ID; }, (int)c1));
-	Object *lair = m.logic().findObjectByID(rh->reconstructingId());
+	REQUIRE(m.until([&] { return rh->getReconstructedBuildingID() != INVALID_ID; }, (int)c1));
+	Object *lair = m.logic().findObjectByID(rh->getReconstructedBuildingID());
 	REQUIRE(lair != nullptr);
 	CHECK(static_cast<const ThingTemplate *>(lair->getTemplate())->getName() == "SpiderLair");
 	CHECK(lair->getPosition()->x == at.x);
@@ -2073,16 +2073,16 @@ TEST_CASE("bfme2camp1 retail: a hole with a WorkerObjectName rebuilds through it
 	CHECK(hole->getBodyModule()->getMaxHealth() == 500.0f); // the cave's HoleMaxHealth
 	RebuildHoleBehavior *rh = RebuildHoleBehavior::of(*hole);
 	REQUIRE(rh != nullptr);
-	CHECK(rh->spawnerId() == caveId);
+	CHECK(rh->getSpawnerID() == caveId);
 	const unsigned c1 = rh->workerWaitCounter();
 	REQUIRE(c1 <= 600u); // tolerance: a precondition (WorkerRespawnDelay 120000 ms = 600 frames, less the frames already updated)
 	const unsigned money = creeps->getMoney()->countMoney();
-	REQUIRE(m.until([&] { return rh->reconstructingId() != INVALID_ID; }, (int)c1 + 5));
-	Object *worker = m.logic().findObjectByID(rh->workerId());
+	REQUIRE(m.until([&] { return rh->getReconstructedBuildingID() != INVALID_ID; }, (int)c1 + 5));
+	Object *worker = m.logic().findObjectByID(rh->getWorkerID());
 	REQUIRE(worker != nullptr);
 	CHECK(static_cast<const ThingTemplate *>(worker->getTemplate())->getName() == "MordorWorkerNoSelect");
 	CHECK(worker->getControllingPlayer() == creeps);
-	Object *rebuilt = m.logic().findObjectByID(rh->reconstructingId());
+	Object *rebuilt = m.logic().findObjectByID(rh->getReconstructedBuildingID());
 	REQUIRE(rebuilt != nullptr);
 	CHECK(static_cast<const ThingTemplate *>(rebuilt->getTemplate())->getName() == "GoblinCave");
 	CHECK(rebuilt->getBuilderID() == worker->getID()); // the worker's construct (RW 0x88D307)

@@ -182,6 +182,9 @@ public:
 	bool hasAnimatedEntry() const;
 	// steps every model draw's animations by `elapsedMs` of render time
 	void advanceAnimation(double elapsedMs);
+	// lane PERF-HD: every animated draw's advance is advanceIsLocal (and the tires are this drawable's): advanceAnimation touches only this drawable
+	bool advanceIsLocal() const;
+	void advanceAnimationLocal(double elapsedMs); ///< advanceAnimation without the host's chunk name (nothing it runs reports through the host)
 	void advanceTires(DrawEntry &e, double elapsedMs); ///< lane COMBAT-4: W3DTruckDraw's tire spin (RW 0x4CBFFB)
 
 	// RW 0x6789B4 Drawable::showModule: the draw module whose tag is `name` (exact, case sensitive) takes the request (true: a module exists; the
@@ -207,7 +210,10 @@ public:
 		RenderInterpolation::Pose pose;
 		bool sameBasis = false; ///< a rotation about Z already set on this basis: no new orientation
 		float c = 0.0f, s = 0.0f;
+		bool committed = false; ///< lane PERF-HD: commitSync ran on the job pool with the reaction held back (DrawableManager::syncTransforms)
 	};
+	// lane PERF-HD: while muted, a transform change does not reach the client modules (syncTransforms makes the reaction afterwards, in slot order)
+	void setReactionMuted(bool muted) { m_reactionMuted = muted; }
 	void prepareSync(const ObjectSnapshot &rec, UnsignedInt snapshotFrame, double alpha, bool interpolate, SyncPrep &out);
 	void commitSync(const SyncPrep &prep);
 	// lane PERF-3: the record DrawableManager::syncTransforms found for this drawable in `snapshot` (null: none), so the render side asks the same snapshot
@@ -320,6 +326,7 @@ private:
 	DrawableShroudLook m_shroudLook; ///< lane VISUAL-2
 	UnsignedInt m_evaDamageFarFrame = 0; ///< lane EVADAMAGE-1: RW + 0x388
 	bool m_zBasisCached = false;
+	bool m_reactionMuted = false; ///< lane PERF-HD: see setReactionMuted
 	float m_zCachedAngle = 0.0f;
 	float m_zCachedBasis[9] = {};
 	bool m_flagsDirty = false;           ///< lane ANIM-1: RW Drawable + 0x443

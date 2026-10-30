@@ -174,7 +174,7 @@ public:
 class RejectBuildingsFilter : public PartitionFilter
 {
 public:
-	explicit RejectBuildingsFilter(Object &me)
+	explicit RejectBuildingsFilter(const Object &me)
 		: m_me(me)
 	{
 		const Player *p = me.getControllingPlayer();
@@ -207,7 +207,7 @@ public:
 	}
 
 private:
-	Object &m_me;
+	const Object &m_me;
 	bool m_meComputer = false;
 };
 
@@ -661,6 +661,18 @@ Object *findClosestEnemyInArea(const TriggerArea &area, Object &me, const Attack
 		}
 	}
 	return best ? adjustVictim(*best, &me, true, 0) : nullptr; // RW 0x7012C3
+}
+
+bool allowsBuildingTarget(const Object &seeker, Object &target)
+{
+	RejectBuildingsFilter filter(seeker);
+	return filter.allow(target);
+}
+
+bool isSignificantBuildingTarget(Object &target)
+{
+	InsignificantBuildingsFilter filter;
+	return filter.allow(target);
 }
 
 Object *findClosestEnemy(Object &me, float range, unsigned qualifiers, const AttackPriorityInfo *info, PartitionFilter *optionalFilter, int arg)

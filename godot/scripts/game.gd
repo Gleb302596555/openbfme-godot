@@ -62,6 +62,8 @@
 ##                           rank-3 self heal and refill, hero heal), rally (the rally banner of a right click), formation (a mixed group's formation)
 ##     --banner1=<a,...>     (lane BANNER-1, with --auto) scripts/banner1_player.gd: refill (a rank-2 Gondor horde fights orcs, then its banner carrier
 ##                           refills it), losses (the same with five soldiers struck down instead of the fight)
+##     --weatherfx1=<a,b,...> (lane WEATHERFX-1, with --auto) scripts/weatherfx1_player.gd: the weather of the game (snow / rain / darkness), --weatherfx-look=
+##                           original|enhanced; --weatherfx-effects=a,b,... only those Enhanced weather effects (scripts/weather_fx.gd)
 ##     --spell3=<a,b,...>    (lane SPELL-3, with --auto) scripts/spell3_player.gd: spellbook (buy every power in the store, cast every slot by input);
 ##                           "SPELL3 <name>: ok / FAIL", spell3-<faction>-*.png in --screens
 ##     --play1=<a,b,...>     (lane PLAY-1, with --auto) the input-driven scenarios of scripts/play1_player.gd (orders, palantir, powers, camera, explore, dragbox, ghosts, phantom,
@@ -349,6 +351,7 @@ var _shell: Node2D           # AptMenuPlayer
 var _camera: Camera3D
 var _env: WorldEnvironment
 var _sun: DirectionalLight3D
+var _shadow_lighting: Dictionary = {}
 var _state := State.BOOT
 var _frames := 0
 var _menu_revealed := false
@@ -371,6 +374,8 @@ var _mouse_override := ""
 var _move_hints: Node3D
 var _pings: Node3D      # the ping wheel (not retail): scripts/ping_board.gd, the pings shown
 var _cheats: Node       # lane CHEAT-1: the open Cheat Mode (scripts/cheat_panel.gd): the lines, the marker and the host's panel
+var _weather_fx: Node3D # lane WEATHERFX-1: scripts/weather_fx.gd, the Enhanced look's weather of the game being played
+var _weather_fx_effects := PackedStringArray() # lane WEATHERFX-1: --weatherfx-effects=a,b,... (only these; default all)
 var _cheat_script := ""  # lane CHEAT-1: --cheat-script=FRAME:STEP;... (scripts/cheat_panel.gd)
 var _cheat_lobby := false # lane CHEAT-1: --cheat-lobby (the --auto lobby ticks the Rules tab's Cheat Mode box)
 var _cheat_game := false  # lane CHEAT-1: the game being played / just ended had Cheat Mode (the score screen says so)
@@ -650,6 +655,8 @@ var _scripted_skirmish_ini := ""
 
 
 func _exit_tree() -> void:
+	if _sun != null:
+		load("res://scripts/object_shadows.gd").disable()
 	if not _scripted_skirmish_ini.is_empty():
 		# lane MENU-1: the scripted run's own Skirmish.ini; lane OWNERFIX-3: its folder and the profiles' stats files in it
 		var dir := _scripted_skirmish_ini.get_base_dir()
@@ -729,6 +736,8 @@ func _ready() -> void:
 			_cah_real_profile = true
 		elif arg.begins_with("--seed="):
 			_seed = int(arg.substr(7))
+		elif arg.begins_with("--weatherfx-effects="):
+			_weather_fx_effects = arg.substr(20).split(",", false) # lane WEATHERFX-1
 		elif arg.begins_with("--cheat-script="):
 			_cheat_script = arg.substr(15) # lane CHEAT-1
 		elif arg == "--cheat-lobby":
@@ -831,6 +840,9 @@ func _ready() -> void:
 			_play_script = "res://scripts/aidata1_player.gd"
 		elif arg.begins_with("--gamemodes="):
 			_gamemodes = arg.substr(12)
+		elif arg.begins_with("--weatherfx1="):
+			_play1 = arg.substr(13).split(",", false)
+			_play_script = "res://scripts/weatherfx1_player.gd" # lane WEATHERFX-1: the weather of a real skirmish (power points by a logged test hook)
 		elif arg.begins_with("--spell3="):
 			_play1 = arg.substr(9).split(",", false)
 			_play_script = "res://scripts/spell3_player.gd"
@@ -1162,7 +1174,9 @@ func _ready() -> void:
 		get_tree().quit(2)
 		return
 	if _res != Vector2i(0, 0):
-		get_window().size = _res
+		var previous = _display.copy()
+		_display.resolution = _res
+		_display.apply(get_window(), previous)
 	RenderingServer.set_default_clear_color(Color(0, 0, 0))
 	_build_stage()
 	await get_tree().process_frame
@@ -2021,7 +2035,7 @@ func _hide_bfme2_campaign_buttons() -> void:
 ## RW 0x91BE05 ("GOOD_CAMPAIGN", RW 0xC7CEB4) / RW 0x91BDA6 ("EVIL_CAMPAIGN", RW 0xC7CEA4) -> RW 0x91B1D2, the campaign start ANGMAR_CAMPAIGN's starter
 ## RW 0x91BE64 uses too. The menu skips its music stop for 0xB / 0xC as for 0xD / 0xE (RW 0x91B432 .. 0x91B444). So the start is the Angmar
 ## campaign's (campaign_flow.start) with the other name. Donor: BFME2 1.06 registers the two buttons (decomp AptMainMenuCallbacks.cpp 0x00514AE0 /
-## 0x00514B03, Rva00515921Permuted.cpp). Off (BFME2_CAMPAIGNS), or without the campaign in TheLinearCampaignManager (a mod's legend), the request is
+## 0x00514B03, AptMainMenu.cpp). Off (BFME2_CAMPAIGNS), or without the campaign in TheLinearCampaignManager (a mod's legend), the request is
 ## refused by name with the main menu's "not available" box (AptMainMenu::screenUnavailable: GuiFX.apt's message box) and that line is returned;
 ## else "" once the campaign has started
 func start_bfme2_campaign(alignment: String, argument: String = "") -> String:
@@ -2268,7 +2282,7 @@ func _begin_game(message: Dictionary) -> void:
 	var world_was_visible: bool = _world.visible
 	_world.hide() # keep partially constructed terrain behind the loading screen
 	_on_load_progress(0) # present the initial bar before synchronous loading
-	var opts := {"progress": Callable(self, "_on_load_progress"), "test_hooks": _end or not _zoom1.is_empty() or _rules_shot > 0 or not _gamemodes.is_empty() or _uber1 > 0 or _play_script.ends_with("spell3_player.gd") or _play_script.ends_with("ownerfix1_player.gd") or _play_script.ends_with("devport7_player.gd") or _play_script.ends_with("banner1_player.gd") or _play_script.ends_with("ownerfix2_player.gd") or not _trees1.is_empty() or _play_script.ends_with("aidata1_player.gd")} # lane ZOOM-1: the bars scenario hurts some units (logged)
+	var opts := {"progress": Callable(self, "_on_load_progress"), "test_hooks": _end or not _zoom1.is_empty() or _rules_shot > 0 or not _gamemodes.is_empty() or _uber1 > 0 or _play_script.ends_with("spell3_player.gd") or _play_script.ends_with("weatherfx1_player.gd") or _play_script.ends_with("ownerfix1_player.gd") or _play_script.ends_with("devport7_player.gd") or _play_script.ends_with("banner1_player.gd") or _play_script.ends_with("ownerfix2_player.gd") or not _trees1.is_empty() or _play_script.ends_with("aidata1_player.gd")} # lane ZOOM-1: the bars scenario hurts some units (logged)
 	if _record and _net_state.is_empty():
 		opts["record"] = _last_replay_path() # lane MP-2: every skirmish is recorded
 	if _pingwheel.has("hash"):
@@ -2481,6 +2495,7 @@ func _on_load_progress(percent: int) -> void:
 
 
 func _enter_game(rep: Dictionary) -> void:
+	Release.set_crash_context(_crash_context(), _crash_settings()) # lane CRASHACT-1: what a crash report says about the game
 	_shell_leave_for_game() # Remove the loading ring before exposing gameplay.
 	_hide_rules_summary() # lane RULES-1
 	_shell.hide_still_load_screen() # lane MENU-1: a campaign mission's picture loading screen
@@ -2495,6 +2510,7 @@ func _enter_game(rep: Dictionary) -> void:
 	_control_bar_hidden = false # lane CAMP-2: a new HUD movie is shown
 	_apply_lighting(rep)
 	_camera.current = true
+	_install_weather_fx() # lane WEATHERFX-1
 	# AUDIO-2 (review r1 fix 2): the live game's audio side before the game advances: sound owners, the player filter, ambient / group / move sounds, TheEva's
 	# side and the in-game music scripts (which replace the load screen music)
 	_audio.stop_music(true)
@@ -2529,6 +2545,23 @@ func _enter_game(rep: Dictionary) -> void:
 		_caster.seek_requested.connect(_caster_seek, CONNECT_DEFERRED)
 		_caster.go_live_requested.connect(_caster_go_live, CONNECT_DEFERRED)
 		_game_nodes.append(_caster)
+
+
+## lane CRASHACT-1: the game on screen for a crash report (the crash service's context: map, mode, factions)
+func _crash_context() -> Dictionary:
+	var mode := "unknown"
+	if _campaign_flow != null and _campaign_flow.active:
+		mode = "campaign"
+	else:
+		mode = {"lan": "multiplayer", "network": "multiplayer", "skirmish": "skirmish", "restart": "skirmish", "replay": "replay"}.get(_game_kind, "unknown")
+	var faction := _faction.trim_prefix("Faction") if mode != "replay" else ""
+	return {"map": _map_key if not _map_key.is_empty() else "unknown", "mode": mode, "factions": [faction] if not faction.is_empty() else []}
+
+
+## lane CRASHACT-1: the report's graphics settings (the window's size and vsync; the rest is "unknown")
+func _crash_settings() -> Dictionary:
+	var size := DisplayServer.window_get_size()
+	return {"resolution_width": size.x, "resolution_height": size.y, "vsync": DisplayServer.window_get_vsync_mode() != DisplayServer.VSYNC_DISABLED}
 
 
 var _caster_seeking := false
@@ -2879,22 +2912,54 @@ func _zoom_out_setting() -> float:
 	return v.to_float()
 
 
+## lane WEATHERFX-2: the game's Enhanced weather goes with the game (the score screen, Restart, a load, a failed online game): freed at once, its
+## _exit_tree turns the weather's shader globals, the snow grade of the tone mapping and the sun's flash off before the next frame is drawn
+func _remove_weather_fx() -> void:
+	if _weather_fx != null and is_instance_valid(_weather_fx):
+		if _weather_fx.get_parent() != null:
+			_weather_fx.get_parent().remove_child(_weather_fx)
+		_weather_fx.free()
+	_weather_fx = null
+
+
+## lane WEATHERFX-1: a new game's Enhanced weather (it draws only under Options "Look: Enhanced", scripts/weather_fx.gd)
+func _install_weather_fx() -> void:
+	_remove_weather_fx()
+	_weather_fx = load("res://scripts/weather_fx.gd").new()
+	_weather_fx.setup(_world, _camera, _audio, _weather_fx_effects, _env.environment if _env != null else null, _sun)
+	if _game_options != null and _game_options.has_method("weather_fx_detail"):
+		_weather_fx.detail = _game_options.weather_fx_detail()
+	add_child(_weather_fx)
+
+
 func _apply_lighting(rep: Dictionary) -> void:
 	if not rep.has("lighting"):
+		if _sun != null:
+			_sun.visible = false
+			load("res://scripts/object_shadows.gd").disable()
 		return
 	var lit: Dictionary = rep.lighting
 	_env.environment.ambient_light_color = lit.ambient
 	_env.environment.ambient_light_energy = 1.0
 	if _sun != null:
+		_sun.visible = false
 		_sun.queue_free()
 	_sun = DirectionalLight3D.new()
 	_sun.name = "ObjectSun"
 	_sun.light_color = lit.diffuse
-	_sun.shadow_enabled = false
+	_shadow_lighting = lit
+	# the detail level's ShadowLOD; without a level (GameOptions.apply_detail reports why) no shadow map is drawn
+	var detail: Dictionary = _shell.get_detail_state() if _shell != null else {}
+	set_shadow_lod(int(detail.shadow_lod) if detail.get("ok", false) else 0)
 	var dir: Vector3 = lit.direction
 	if dir.length() > 0.0001:
 		_sun.transform = Transform3D(Basis.looking_at(dir.normalized(), Vector3.UP if absf(dir.normalized().y) < 0.99 else Vector3.RIGHT), Vector3.ZERO)
 	add_child(_sun)
+
+
+func set_shadow_lod(lod: int) -> void:
+	if _sun != null:
+		load("res://scripts/object_shadows.gd").configure(_sun, _shadow_lighting, lod)
 
 
 # ---- the scripted run (--auto) --------------------------------------------------------------------------------------------------------------
@@ -2907,12 +2972,12 @@ func _mouse_event(stage_position: Vector2, pressed: bool, with_button: bool) -> 
 		button.pressed = pressed
 		button.position = window_position
 		button.global_position = window_position
-		get_viewport().push_input(button)
+		get_viewport().push_input(button, true)
 	else:
 		var motion := InputEventMouseMotion.new()
 		motion.position = window_position
 		motion.global_position = window_position
-		get_viewport().push_input(motion)
+		get_viewport().push_input(motion, true)
 
 
 func _step(frames: int) -> void:
@@ -4270,6 +4335,7 @@ func _tear_down_game(why: String, clear_world: bool = true) -> void:
 		_hud.free()
 		_hud = null
 	_hud_installed = false
+	_remove_weather_fx() # lane WEATHERFX-2
 	_shell.set_tribute_world(null)
 	while _shell.shell_stack().size() > 0:
 		_shell.shell_pop()
@@ -4327,6 +4393,7 @@ func _exit_to_score_screen() -> void:
 		_hud.free()
 		_hud = null
 	_hud_installed = false
+	_remove_weather_fx() # lane WEATHERFX-2: no weather over the score screen and the menus after it
 	_shell.set_tribute_world(null)
 	while _shell.shell_stack().size() > 0:
 		_shell.shell_pop()
@@ -5728,6 +5795,25 @@ func _online_spot(n: int) -> void:
 	await get_tree().process_frame
 
 
+## lane RULESOV1: the RULES tab of the staging room as drawn: every rule row (the movie's RuleComboBox / RuleCheckBox placeholders) lies above the
+## player list's first row (the owner's 2026-10-29 screenshot: the server browser's rule rows drawn over the player list with their old values).
+## Prints the rows and returns false when one is over the list
+func _online_rules_check(tag: String) -> bool:
+	var list_top := INF
+	var rows := []
+	for e in _shell.gadget_draw_list():
+		var root := str(e.get("root_name", ""))
+		var rect: Rect2 = e.get("root_rect", Rect2())
+		if root == "0/Player":
+			list_top = minf(list_top, rect.position.y)
+		elif root.begins_with("RuleComboBox") or root.begins_with("RuleCheckBox"):
+			if not rows.has(rect):
+				rows.append(rect)
+	var over := rows.filter(func(r: Rect2) -> bool: return r.end.y > list_top)
+	print("GAME RULES CHECK %s: %d rule rows drawn, the player list from y %s, %d over it %s" % [tag, rows.size(), str(list_top), over.size(), str(over)])
+	return not rows.is_empty() and list_top != INF and over.is_empty()
+
+
 func _online_apply(spec: Dictionary) -> void:
 	var r: Dictionary = _shell.online_apply(spec)
 	print("GAME ONLINE WALK %s -> %s" % [JSON.stringify(spec), "ok" if r.ok else str(r.errors)])
@@ -5787,6 +5873,10 @@ func _online_walk_run() -> void:
 	await _wait_seconds(2.0)
 	if _online_walk == "host":
 		_online_shot("openplay-empty")
+		# lane RULESOV1: the server browser's own RULES tab first (its rule rows are the staging room's until the room files its own)
+		await _online_click("*TabButtons.RulesTab")
+		await _wait_seconds(2.0)
+		_online_shot("openplay-rules")
 		await _online_click("*Controls.CreateGame") # the page's Create Game (the movie opens its pop-up: AptOnline::OnOpenCreateDialog)
 		await _wait_seconds(10.0)
 		_online_apply({"game_name": "%s's test game" % str(_shell.online_status().get("name", "Host")), "game_password": _online_password})
@@ -5832,6 +5922,8 @@ func _online_walk_run() -> void:
 			await _online_click("*TabButtons.RulesTab")
 			await _wait_seconds(1.5)
 			_online_shot("staging-rules-host")
+			if not _online_rules_check("host"):
+				return _online_walk_end(false)
 			# lane ONLINEMENU-1: the CONNECTIONS screen (each player's link to the relay in RotWK's grid), then its own Done back to the room
 			await _online_click("*LowerButtons_Host.Connections")
 			await _wait_seconds(4.0)

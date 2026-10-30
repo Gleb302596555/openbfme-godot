@@ -81,6 +81,9 @@
 #include "Common/SpecialPower.h"
 #include "GameClient/ControlBarCommands.h"
 #include "Common/CommandPoints.h"
+#include "Common/BuildAssistant.h"
+#include "Common/Upgrade.h"
+#include "GameLogic/Module/ProductionUpdate.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Object/ExperienceTracker.h"
@@ -354,7 +357,7 @@ void createReinforcements(ScriptEngine &engine, const std::string &teamName, con
 		engine.note("[S-1186] CREATE_REINFORCEMENT_TEAM: no object creation host / AI world");
 		return;
 	}
-	Team *team = proto->getIsSingleton() && proto->getFirstTeam() ? proto->getFirstTeam() : teams.createTeam(proto);
+	Team *team = teams.createTeam(proto); // RW 0x7C8770 -> 0x7A6E8E (a singleton's existing team; lane TEAMEVENTS-1: both run the create actions)
 	const Dict &d = proto->getDict();
 	if (!d.getAsciiString("teamTransport").empty())
 	{
@@ -425,6 +428,59 @@ void createReinforcements(ScriptEngine &engine, const std::string &teamName, con
 		rowY = SimMath::sseAdd(SimMath::sseMul(radius, 2.0f), rowY);
 	}
 	team->setActive(); // lane CAMP-1H: RW 0x7C8CFA .. 0x7C8D0E: the new team (made inactive, RW 0x7A6E8E) is activated after its units are placed
+}
+
+// lane MODCOMPAT-AI: RW 0x8F7599 AIPlayer::buildUpgrade (ZH AIPlayer::buildUpgrade, the same shape): the upgrade by name (RW 0x66F5E5); none, an OBJECT
+// upgrade (+ 4 == 1), one the player has in production (RW 0x6AB2E1) or completed (RW 0x6AC2AF), or one it cannot afford (UpgradeCenter::canAffordUpgrade
+// RW 0x66F492(player, upgrade, 0, 0)) is ignored with a script debug message (RW 0x604D85, not kept here). Else over the object list (RW 0x97338F, next
+// + 0x8C): an object of the player (RW 0x68B678) that is neither UNDER_CONSTRUCTION (status 2) nor SOLD (0x13), whose command set (RW 0x69156B -> 0x71EFA2)
+// has in its 33 slots (RW 0x80C837) a named button (+ 0x10) whose upgrade (+ 0x24) is this one (the names compared, + 8): its ProductionUpdate (RW
+// 0x68C327(0)) queues the upgrade (vslot 0xC, RW 0x8A0FDA); the first that accepts ends the search. INFERENCE: the AIPlayer exists for a computer player
+// (setPlayerType RW 0x6AA450: type 1, or a skirmish slot with the global flag [0xDE4938] + 0x96C, read as clear)
+void aiBuildUpgrade(GameLogic &logic, Player &player, const std::string &upgradeName)
+{
+	if (player.getPlayerType() != PLAYER_COMPUTER)
+	{
+		return; // RW 0x6AA80E: no AIPlayer
+	}
+	const UpgradeTemplate *upgrade = Player::resolveUpgrade(upgradeName, false);
+	if (!upgrade || upgrade->getUpgradeType() == UPGRADE_TYPE_OBJECT || player.hasUpgradeInProduction(upgrade) || player.hasUpgradeComplete(upgrade) ||
+		!UpgradeCenter::canAffordUpgrade(&player, upgrade, nullptr))
+	{
+		return;
+	}
+	static const int underConstruction = ObjectTemplateInfoBuilder::objectStatusIndex("UNDER_CONSTRUCTION");
+	static const int sold = ObjectTemplateInfoBuilder::objectStatusIndex("SOLD");
+	for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
+	{
+		if (o->getControllingPlayer() != &player || o->testStatus((unsigned)underConstruction) || o->testStatus((unsigned)sold))
+		{
+			continue;
+		}
+		const CommandSet *set = TheCommandStore ? TheCommandStore->findCommandSet(o->getCommandSetName()) : nullptr;
+		if (!set)
+		{
+			continue;
+		}
+		bool found = false;
+		for (int i = 0; i < CommandSet::MAX_BUTTONS; ++i)
+		{
+			const CommandButton *b = set->getCommandButton(i);
+			if (b && !b->m_name.empty() && !b->m_upgradeName.empty() && Player::resolveUpgrade(b->m_upgradeName, false) == upgrade)
+			{
+				found = true;
+			}
+		}
+		if (!found)
+		{
+			continue;
+		}
+		ProductionUpdateInterface *pu = o->getProductionUpdate();
+		if (pu && pu->queueUpgrade(upgrade))
+		{
+			return;
+		}
+	}
 }
 
 } // namespace
@@ -1488,6 +1544,79 @@ bool ScriptActions::executeUnitAction(ScriptEngine &engine, const ScriptActionRe
 			count += ScriptConditions::countPlayerObjects(logic, *p, types);
 		}
 		engine.counter(param(a, 2).stringValue).value = count;
+		return true;
+	}
+	// ---- lane MODCOMPAT-AI: the actions the mods' AI scripts run (logs/mod-gap-census.md), each read from the RotWK body ----
+	if (name == "SET_UNIT_REFERENCE_TO_REFERENCE")
+	{
+		// RW 0x7CAFA5 case 0x17A -> RW 0x7C2AAC(ref, source ref, 1) -> ScriptEngine RW 0x608504(ref, a copy of the source's name): an empty source does
+		// nothing (RW 0x60851B); the source's key (RW 0x604043 -> RW 0x72C43C: "Side/name" or the current side) is found in the reference map (+ 0x191B8,
+		// RW 0x606EA0); found, the reference (the current side + 0x1A20C, the name) gets its object id (node + 0x18, insert-or-find RW 0x60741E). The named
+		// cache is not touched
+		engine.copyReference(param(a, 0).stringValue, param(a, 1).stringValue);
+		return true;
+	}
+	if (name == "BUILD_BASE_BUILDING")
+	{
+		// RW 0x7CAFA5 case 0x17F -> RW 0x7BEE14(template, unit, reference): the unit (RW 0x75A3D8), its controlling player (RW 0x68B678) allowed to build
+		// structures (+ 0x359) and the script's own player (RW 0x6057EE); the template (RW 0x6D1305); the unit's CastleBehavior (RW 0x68BDA5, key RW 0x797AC1)
+		// with a free pad for the template (RW 0x7996D3); Player::canBuild (RW 0x6AAA2E(template, 0): calcCostToBuild(player, no producer, -1) RW 0x73C25F at
+		// most the money + 0x94, signed); then RW 0x79A5EC(template, -2, 0) builds it on the first pad that takes it; a non-empty reference (RW 0x401E64)
+		// names the new structure in the reference map (RW 0x608397) and the named cache (RW 0x60A1D5(object, name, 0))
+		Object *unit = engine.getUnitNamed(param(a, 1).stringValue);
+		Player *owner = unit ? unit->getControllingPlayer() : nullptr;
+		if (!owner || !owner->canBuildBase() || owner != engine.currentPlayer())
+		{
+			return true;
+		}
+		const ThingTemplate *tt = logic.things().findTemplate(param(a, 0).stringValue);
+		CastleBehavior *castle = tt ? dynamic_cast<CastleBehavior *>(unit->findModule("CastleBehavior")) : nullptr;
+		if (!castle || !castle->canBuildAtBase(tt))
+		{
+			return true;
+		}
+		const std::int32_t cost = (std::int32_t)BuildAssistant::calcCostToBuild(*tt, owner, nullptr, -1);
+		if (cost > (std::int32_t)owner->getMoney()->countMoney())
+		{
+			return true;
+		}
+		Object *built = castle->buildAtBase(*tt);
+		if (built && !param(a, 2).stringValue.empty())
+		{
+			engine.setReference(param(a, 2).stringValue, *built); // RW 0x7BEECC
+			engine.nameInCache(param(a, 2).stringValue, *built);  // RW 0x7BEEDD
+		}
+		return true;
+	}
+	if (name == "SET_PLAYER_COMMAND_POINTS_AVAILABLE_TO_COUNTER")
+	{
+		// RW 0x7CAFA5 case 0x198 -> RW 0x7C37C9(player, counter): the mask (RW 0x758F7C(name, 0); 0: nothing), its player (RW 0x6A85B6: only a mask of
+		// exactly one player; none: nothing); the command point record + 0x60's RW 0x6A7F6A(1): the limit (RW 0x6A7B9F) minus the usage (+ 8), 32-bit;
+		// into the counter (get or create, RW 0x60817A)
+		if (const Player *p = ScriptConditions::playerOfMask(engine, param(a, 0).stringValue))
+		{
+			engine.counter(param(a, 1).stringValue).value = (std::int32_t)p->commandPointsAvailable();
+		}
+		return true;
+	}
+	if (name == "AI_PLAYER_BUILD_UPGRADE")
+	{
+		// RW 0x7CAFA5 case 0x122 -> RW 0x7BBBBF(player, upgrade): every player of the mask (RW 0x758F7C(name, 0), RW 0x6A85EE) with an AIPlayer (Player
+		// + 0x2FC, RW 0x6AA80E) runs AIPlayer::buildUpgrade (RW 0x8F7599)
+		for (Player *p : ScriptConditions::players(engine, param(a, 0).stringValue))
+		{
+			aiBuildUpgrade(logic, *p, param(a, 1).stringValue);
+		}
+		return true;
+	}
+	if (name == "PLAYER_AFFECT_RECEIVING_EXPERIENCE")
+	{
+		// RW 0x7CAFA5 case 0x13A -> RW 0x7BD6A8(player, real): every player of the mask (RW 0x758F7C(name, 0), RW 0x6A85EE): Player + 0x18 = the value
+		// (movss), the rank record's (+ 8) skill points modifier (+ 0x10; 1.0 from its constructor RW 0x782A28), which addSkillPoints multiplies by (RW 0x782AA4)
+		for (Player *p : ScriptConditions::players(engine, param(a, 0).stringValue))
+		{
+			p->science().setSkillPointsModifier(param(a, 1).realValue);
+		}
 		return true;
 	}
 	return false;
