@@ -95,7 +95,7 @@ public:
 	// lane COMBAT-4 (C++ only): bones turned about their own Y axis after the pose (W3D Control_Bone with Rotate_Y, what W3DTruckDraw does to its tires, RW 0x4CBFFB);
 	// a bone the hierarchy lacks is skipped. An unchanged list is not evaluated again
 	bool set_instance_bone_spins_native(int64_t instance, const std::vector<std::string> &bones, const std::vector<float> &angles);
-	// lane PERF-HD (C++ only): retail's horde pose sharing (W3DHordeModelDrawManager::ProcessGroup / PartOfSameGroup, openbfme2): instances of one model playing
+	// lane PERF-HD: experimental horde pose sharing (W3DHordeModelDrawManager::ProcessGroup / PartOfSameGroup, openbfme2): instances of one model playing
 	// one clip whose frames lie within `maxFrameDelta` of the group's first (the draw's LodOptions MaxAnimFrameDelta) are posed once, with the group's first
 	// instance's pose. A negative delta never shares. Only with pose culling (set_pose_culling): the bone queries still answer the instance's own pose
 	void set_instance_pose_share(int64_t instance, float maxFrameDelta);
@@ -429,7 +429,7 @@ private:
 	bool PoseCulling = false;                    // lane PERF-3: set_pose_culling
 	std::vector<Plane> ExtraPoseFrustum;
 	int PoseCulled = 0;                          // instances whose pose the last update left pending (outside the frustum)
-	bool PoseSharing = true;                     // lane PERF-HD: set_pose_sharing
+	bool PoseSharing = false;                    // P-30: frame-sorted sharing can jump at a loop boundary (S-6009)
 	int PoseShared = 0;                          // lane PERF-HD: instances drawn with another's pose in the last update
 	std::vector<size_t> ShareScratch;            // lane PERF-HD: per-frame scratch of the sharing candidates
 	std::vector<size_t> MemberScratch;           // lane PERF-HD: the instances drawn with another's pose this frame

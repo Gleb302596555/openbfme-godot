@@ -53,6 +53,9 @@ class HordeContainInterface
 {
 public:
 	virtual ~HordeContainInterface() = default;
+	// The death callback differs from ordinary removal for MACHINE templates.
+	// RW 0x87370B / 0x86C4BE; BFME2 0x870717 / 0x8693AD.
+	virtual void removeDyingMember(Object *member) = 0;
 	// the slot index a member holds, or -1
 	virtual int getMemberSlot(const Object *member) const = 0;
 	virtual unsigned getSlotCount() const = 0;
@@ -191,6 +194,7 @@ public:
 	bool isPassengerAllowedToFire() const override;
 	bool addToContain(Object *obj) override;
 	void removeFromContain(Object *obj) override;
+	void removeDyingMember(Object *obj) override;
 	void containReactToTransformChange() override;
 	HordeContainInterface *getHordeContainInterface() override { return this; }
 	// CreateModuleInterface
@@ -434,7 +438,7 @@ private:
 	void createPayload();
 	void placeMember(Object *member);
 	// the removal of removeFromContain; `keepSlot`: the release of slot 0xA8 (RW 0x86EBF4), the member keeps its slot (lane GARRISON-3)
-	void removeMember(Object *obj, bool keepSlot);
+	void removeMember(Object *obj, bool keepSlot, bool templateIsSpecial = false);
 	// lane GARRISON-3: a member on the way that is gone or dead gives its kept slot back (S-1620 inference)
 	void forgetMemberOnTheWay(ObjectID id);
 	// the member pass pieces (HordeMemberPass.cpp)

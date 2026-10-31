@@ -757,7 +757,16 @@ void HordeContain::removeFromContain(Object *obj)
 	removeMember(obj, false);
 }
 
-void HordeContain::removeMember(Object *obj, bool keepSlot)
+void HordeContain::removeDyingMember(Object *obj)
+{
+	if (!obj) return;
+	static const int machine = ObjectTemplateInfoBuilder::kindOfIndex("MACHINE");
+	if (machine < 0) throw std::logic_error("HordeContain: MACHINE kind is not registered");
+	const ObjectTemplateInfo &info = getObject()->logic().templateInfo(obj->getTemplate());
+	removeMember(obj, false, MaskTest(info.kindOf, (unsigned)machine));
+}
+
+void HordeContain::removeMember(Object *obj, bool keepSlot, bool templateIsSpecial)
 {
 	auto it = std::find(m_members.begin(), m_members.end(), obj);
 	if (it == m_members.end())
@@ -773,7 +782,7 @@ void HordeContain::removeMember(Object *obj, bool keepSlot)
 	}
 	else
 	{
-		m_core->removeMember(obj->getID(), false);
+		m_core->removeMember(obj->getID(), templateIsSpecial);
 		// RW 0x8737EE / 0x873885: remember the removed member's source at removal time, not hit time.
 		if (const auto *body = dynamic_cast<const ActiveBody *>(obj->getBodyModule()))
 		{

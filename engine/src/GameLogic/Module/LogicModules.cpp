@@ -8,6 +8,7 @@
 #include "GameLogic/Module/SpecialEnemySenseUpdate.h"
 #include "GameLogic/Module/OathbreakersFadeAwayBehavior.h"
 #include "GameLogic/Module/FlingPassengerSpecialAbilityUpdate.h"
+#include "GameLogic/Module/GiveUpgradeUpdate.h"
 #include "GameLogic/Module/LocomotorSetUpgrade.h"
 #include "GameLogic/Module/ReplaceObjectUpdate.h"
 #include "GameLogic/Module/ShipSlowDeathBehavior.h"
@@ -169,6 +170,7 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	BoredUpdate::registerModule(modules); // lane MODCOMPAT-MOD1: an idle troll clubs a troll friend (S-7161)
 	LargeGroupAudioUpdate::registerClass(modules); // lane AUDIO-4: the logic half of the large group battle sounds
 	FlingPassengerSpecialAbilityUpdate::registerClass(modules); // MODGAP-2: release and landing warhead
+	GiveUpgradeUpdate::registerClass(modules); // MODGAP-2: both editions, limitations S-6011
 	ReplaceObjectUpdate::registerClass(modules); // MODGAP-2: filtered replacement ability (S-6002)
 	ShipSlowDeathBehavior::registerClass(modules); // MODGAP-2: slow death with sinking rotation
 	ClearanceTestingSlowDeathBehavior::registerClass(modules); // MODGAP-2: select a death with clearance

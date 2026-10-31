@@ -402,6 +402,7 @@ void W3DInstancer::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_worker_threads", "count"), &W3DInstancer::set_worker_threads);
 	ClassDB::bind_method(D_METHOD("get_worker_threads"), &W3DInstancer::get_worker_threads);
 	ClassDB::bind_method(D_METHOD("set_pose_culling", "enabled"), &W3DInstancer::set_pose_culling); // lane PERF-3
+	ClassDB::bind_method(D_METHOD("set_instance_pose_share", "instance", "max_frame_delta"), &W3DInstancer::set_instance_pose_share);
 	ClassDB::bind_method(D_METHOD("set_extra_pose_frustum", "planes"), &W3DInstancer::set_extra_pose_frustum);
 	ClassDB::bind_method(D_METHOD("get_pose_culling"), &W3DInstancer::get_pose_culling);
 	ClassDB::bind_method(D_METHOD("get_instance_palette", "instance"), &W3DInstancer::get_instance_palette);
@@ -1714,6 +1715,10 @@ void W3DInstancer::set_instance_pose_share(int64_t instance, float maxFrameDelta
 		return;
 	}
 	Instances[(size_t)instance].ShareDelta = maxFrameDelta;
+	if (!PoseSharing && maxFrameDelta >= 0.0f && WarnedMessages.find("#stop S-6009") == WarnedMessages.end())
+	{
+		warn_stop({ "S-6009", W3D_Stop_Message("S-6009", "horde pose sharing is disabled: frame-sorted groups can jump at a loop boundary; retail's stable leader selection is not reproduced") });
+	}
 }
 
 namespace

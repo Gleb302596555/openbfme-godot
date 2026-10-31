@@ -1,5 +1,6 @@
 # MODGAP-2: Ennorath module tests and runtime sources owned by agent B.
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/FlingPassengerSpecialAbilityUpdate.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/GiveUpgradeUpdate.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/LocomotorSetUpgrade.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/ReplaceObjectUpdate.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/ShipSlowDeathBehavior.cpp)
@@ -19,6 +20,8 @@ set(OPENBFME_MODGAP2_TESTS
     tests/test_modgap2_special_enemy.cpp
     tests/test_modgap2_oath.cpp
     tests/test_modgap2_fling.cpp
+    tests/test_modgap2_give_upgrade.cpp
+    tests/test_ennorath_scenarios.cpp
     tests/test_modgap2_locomotor_upgrade.cpp
     tests/test_modgap2_replace.cpp
     tests/test_modgap2_ring_chain.cpp

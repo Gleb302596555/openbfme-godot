@@ -3,6 +3,7 @@
 #pragma GCC diagnostic ignored "-Winvalid-offsetof"
 #endif
 #include "GameLogic/Module/OathbreakersFadeAwayBehavior.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "Common/INI.h"
 #include "Common/StateHash.h"
 #include "Common/Thing/ModuleFactory.h"
@@ -66,7 +67,7 @@ UpdateSleepTime OathbreakersFadeAwayBehavior::update()
 				if (!contain || !contain->getHordeContainInterface())
 					throw std::logic_error("OathbreakersFadeAwayBehavior: horde producer lacks HordeContain");
 				logic.noteStop(hordeStop());
-				contain->removeFromContain(obj); // RW 0x87370B, HordeContain slot 0x34; S-5310
+				contain->getHordeContainInterface()->removeDyingMember(obj); // RW 0x87370B / BFME2 0x870717; remaining effects S-6006
 			}
 			logic.destroyObject(obj);
 		}
