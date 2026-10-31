@@ -2353,6 +2353,9 @@ TEST_CASE("online4 retail: OnlineShell.apt on a local lobby: guest sign-in, the 
 	CHECK(GadgetListBoxGetText(host.sh->chatListWindow(), GadgetListBoxGetNumEntries(host.sh->chatListWindow()) - 1, 0) == u"[Joiner] hello host");
 	// ---- ready: the joiner's press of its own box in the Ready column (lane ONLINE-5: RW 0x84211D gives the boxes their states), seen by the host ----
 	REQUIRE(runUntil({ &host, &join }, [&] { return join.sh->readyIcon(1) == "_enabledUnchecked"; }));
+	// the password pop-up closes with its own animation (ClosePassword: frames 25 .. 38, then frame 0) and its full-screen button (instance1) holds the
+	// room's clicks until it is done, as for a player; a fast join left the press inside that animation (the gate's "covered by popupPassword")
+	REQUIRE_MESSAGE(runUntil({ &host, &join }, [&] { return join.reachable("~1.Ready") != nullptr; }), "the Ready box stays covered: " << join.notes());
 	REQUIRE(join.click("~1.Ready"));
 	REQUIRE(runUntil({ &host, &join }, [&] { return host.client.slotViews()[1].ready && host.sh->setup()->info().slots[1].accepted; }));
 	// ---- Play Game without a relay: the lobby refuses (no_relay) and the player is told plainly ----

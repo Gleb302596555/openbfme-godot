@@ -46,6 +46,7 @@
 
 #pragma once
 
+#include "GameLogic/LivingWorld/LivingWorldBattleTags.h"
 #include "Common/ObserverEvent.h"
 
 #include "Common/MpGameRules.h"
@@ -409,6 +410,9 @@ public:
 	CombatState &combat() { return *m_combat; }
 	// lane COMBAT-2: the skirmish win / lose rules (init() after the players and their bases exist; update() runs in the logic frame's first phase)
 	VictoryConditions &victory() { return *m_victory; }
+	// WOTR2 milestone 7: a War of the Ring battle's army tags (GameLogic/LivingWorld/LivingWorldBattleTags.h; hashed while in use, obfme:GameLogic version 4)
+	LivingWorldBattleTags &livingWorldTags() { return m_livingWorldTags; }
+	const LivingWorldBattleTags &livingWorldTags() const { return m_livingWorldTags; }
 	BuildAssistantSell &sellList() { return *m_sell; } // lane FACT-A: TheBuildAssistant's sell list (RW 0x7966BB / 0x79468B)
 	const VictoryConditions &victory() const { return *m_victory; }
 	// lane AI-1: TheSkirmishAIManager (newGame after the starting bases; update() runs in phase 5 after the destroy list)
@@ -957,6 +961,8 @@ private:
 	LargeGroupAudioLink m_largeGroupAudio; // lane AUDIO-4
 	MissionObjectiveTracker m_missionObjectives; // lane CAMPUI-1
 	std::unique_ptr<VictoryConditions> m_victory;
+	LivingWorldBattleTags m_livingWorldTags;
+	void xferLivingWorldTags(Xfer &x); // WOTR2 milestone 7 (GameLogicSnapshot.cpp)
 	std::unique_ptr<BuildAssistantSell> m_sell; // lane FACT-A
 	std::unique_ptr<SkirmishAIManager> m_skirmishAI;
 	std::unique_ptr<ExperienceWorld> m_experience; // lane XP-1
