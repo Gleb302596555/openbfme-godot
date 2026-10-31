@@ -438,7 +438,8 @@ TEST_CASE("move2 retail: horde members stay near their slots on the march, settl
 				// the block search's block zones (RW 0x9389A6): the corridor no longer runs through the cliffs that cross a block, so the two hordes take shorter
 				// complete routes whose corners bring S-1834's corner effect (above): uruks on fall back 4p 22 frames (12 before), orcs on harlindon 46 (0 before);
 				// on fall back 4p the Dwarven phalanx, which stopped about 450 short before (the corridor's partial path), now marches to its goal. Measured
-				CHECK(r.straggleFrames == (run.tracks[i].name == std::string("IsengardFighterHorde") ? 22 : 46));
+				// merge queue q34 (measured once on the merged tree and at each merge point): on the archive's tree with #161 the uruks on fall back 4p straggle 4 frames (#161's 22 was measured on its own base); the orcs keep 46
+				CHECK(r.straggleFrames == (run.tracks[i].name == std::string("IsengardFighterHorde") ? 4 : 46));
 			}
 			else
 			{

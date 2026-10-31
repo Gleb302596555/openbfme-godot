@@ -676,8 +676,12 @@ void NetGameSession::finish(LiveGame &game)
 			m_network->update(game.protocolFrame(), game.commands());
 			game.commands().reset();
 		}
-		m_network->leave(game.protocolFrame());
-		m_network->update(game.protocolFrame(), m_empty);
+		const UnsignedInt protocolFrame = game.protocolFrame();
+		m_network->leave(protocolFrame);
+		// WOTR2 milestone 8: the leave's execution frame, Network::leave's PLAYERLEAVE (the frame after executionFrame of the same protocol frame: asking
+		// again returns the frame the leave used and moves nothing)
+		m_leaveFrame = m_network->executionFrame(protocolFrame) + 1;
+		m_network->update(protocolFrame, m_empty);
 	}
 	if (m_writer && m_writer->isOpen())
 	{

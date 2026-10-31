@@ -445,6 +445,10 @@ bool Pathfinder::findClosestHierarchicalPath(PathfindObject *obj, const Pathfind
 	{
 		PathfindCell *c = m_open.pop();
 		markClosed(c);
+		if (m_uberLimits && m_uberSearchAllocs > m_uberSearchCap)
+		{
+			break; // lane PERF-HD: the Uber queue's cap (an unreachable goal zone scanned the whole map's blocks); the closest block so far answers below
+		}
 		const zoneStorageType cz = searchZone(c);
 		const int bx = c->getXIndex() / kBlock, by = c->getYIndex() / kBlock;
 		int linkCells = 0;
