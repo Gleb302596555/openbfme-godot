@@ -11,6 +11,8 @@ for reference, never extend it.
 - `tools/precommit.py` is the commit gate; install it as the pre-commit
   hook and never bypass it.
 - Use Windows-native commands and stage explicit paths.
+- Agents work on their own branch and tree (`tools/agent_worktree.py new <agent> <topic>`), never with
+  uncommitted work in the main checkout. The Ennorath workflow is `docs/ennorath/PROCESS.md`.
 
 ## Build and test (rebuild scaffold)
 

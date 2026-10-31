@@ -5,6 +5,36 @@
 Снимок 2026-10-30. Только идентификаторы и счётчики, данных игры нет. Инструменты лежат в игнорируемой `workspace/ennorath-audit/tools`
 (`reach.py`, `mapscan.py`, `sample.py`, `mkdoc.py` и прежние `dumpini.py`, `modcensus2.py`, `rw.py`). Эффекты, прочитанные только по именам полей, помечены INFERENCE.
 
+## Что брать дальше
+
+Список создаёт `python tools/mod/ennorath_queue.py priority --update`.
+
+<!-- ennorath_queue.py priority: begin -->
+Открытых классов: 31, достижимых объектов мода: 721. Сверху вниз, занятые тоже показаны:
+
+| № | Класс | Объектов | Статус | Что делает | Состояние |
+|---|---|---|---|---|---|
+| 1 | `ModelConditionAudioLoopClientBehavior` | 500 | missing | голосовые петли насмешек и ликования отрядов в бою, звук обрушения здания | НЕ НАЧАТО |
+| 2 | `W3DStreakDraw` | 52 | parsed-only | следы за стрелами и снарядами; класс помечен как не рисуемый (S-113), 52 снаряда | НЕ НАЧАТО |
+| 3 | `W3DBuffDraw` | 50 | missing | свечение баффов (лечение, оглушение, мороз): по S-113 уже рисуется как баф BuffNugget; статус «отсутствует» может не значить «не работает»; проверить | НЕ НАЧАТО |
+| 4 | `TerrainResourceClientBehavior` | 26 | missing | круги зон ферм РИСУЮТСЯ (S-5030); статус «отсутствует» не значит «не работает», проверить, что именно не покрыто | НЕ НАЧАТО |
+| 5 | `EvaAnnounceClientCreate` | 21 | missing | голос Эвы при появлении объекта (кольцо найдено, герой вышел) | НЕ НАЧАТО |
+| 6 | `EvacuateDamage` | 13 | partial (2026-10-30) | боевая башня при попадании указанного оружия (MordorCatapultHumanHeads) выгоняет гарнизон | СДЕЛАНО В КОДЕ, тест (test_modgap1_evacuate.cpp), ждёт проверки владельцем: башню с гарнизоном бьёт катапульта Мордора с головами, гарнизон выходит. Не перенесено: паника при большом уроне за 6 кадров (команда ИИ 0x2E не определена, S-5602) |
+| 7 | `W3DTornadoDraw` | 11 | missing | смерч Радагаста, ветры Алатара, вихрь Элронда | НЕ НАЧАТО |
+| 8 | `TooltipUpgrade` | 9 | missing | после улучшения кнопка меняет название и описание | НЕ НАЧАТО |
+| 9 | `AnnounceBirthAndDeathBehavior` | 6 | missing | голос при появлении/смерти Саурона и больших героев | НЕ НАЧАТО |
+| 10 | `ReplaceObjectUpdate` | 6 | partial (2026-10-31) | способности героя-создания, заменяющие объект (Word of Poultry) | СДЕЛАНО В КОДЕ агентом B без Scatter, тест test_modgap2_replace.cpp, ждёт проверки владельцем |
+| 11 | `OathbreakersFadeAwayBehavior` | 5 | partial (2026-10-31) | призраки растворяются после исполнения клятвы (P-13) | СДЕЛАНО В КОДЕ для обеих редакций: RW 0x8BCC50 / 0x8BCC82, BFME2 0x8B8B0F / 0x8B8B41. Отрицательная проверка и тесты исчезновения, орды, сохранения и клиентского события прошли; выход из орды частичен (S-6006). BFME2 1.06 game.dat MD5 подтверждён, индекс 0x26 в обеих таблицах — HORDE_MEMBER, а не FAERIE_FIRE как подписано в декомпиляции. Подготовлен, но ещё не собран тест отсутствия фиктивного слота для MACHINE. Источник установки OATH_FULLFILLED в игровом сценарии ещё не установлен. Ждёт игровой проверки |
+| 12 | `ClearanceTestingSlowDeathBehavior` | 4 | partial (2026-10-31) | выбор варианта смерти с проверкой свободного места и высоты местности | ЗАНЯТО — агент, 2026-10-31. Обе редакции: RW 0x887191 / BFME2 0x883F19, выбор RW 0x861868; сэмплер RW 0x8E0354 / 0x8E047D (BFME2 0x8DC096 / 0x8DC1BF). Предыдущая версия: `modgap2 clearance*` 5 / 119 прошли, без привязки 4 теста класса падают. После чтения RW 0xAD2CE0 и 0x8E047D устранён ошибочный отказ при ненулевой оси: она не читается при проверке области. Новый тест оси и тест повёрнутой геометрии прошли в обеих редакциях; S-6005 закрыт, повторная сборка и тесты прошли; игровая проверка отложена по просьбе владельца |
+| 13 | `FlingPassengerSpecialAbilityUpdate` | 4 | partial (2026-10-31) | бросок захваченного (Шарку, Морчант, горные тролли) | ЗАНЯТО — агент, 2026-10-31. Тест OpenContain проходит; HordeContain требует отдельного переноса: хотя слоты извлечения совпадают (RW 0x866367 / 0x8665BE, BFME2 0x863291 / 0x863509), обычный `removeMember` в порте не воспроизводит все действия OpenContain при выходе (маска статусов и `Object::onRemovedFrom` RW 0x69024C). S-6001 остаётся |
+| 14 | `OilSpillUpdate` | 2 | missing | масляный след и поджиг (Mordor, Dwarves) | НЕ НАЧАТО |
+| 15 | `RunOffMapBehavior` | 2 | missing | мумак убегает за край карты по точке | БЛОКИРОВАНО — Claude, 2026-10-31: в моде бездействует: все 10 блоков RequiresSpecificTrigger = Yes, а запускает его только DetachableRiderUpdate, до которого фракции не доходят; нужны и команды ИИ 0x38 / 0x41 (RW 0x865332 / 0x86539E) |
+
+Дальше: `SpawnUnitBehavior` (2), `DestroyEnvironmentUpdate` (1), `PartTheHeavensUpdate` (1), `ProjectileStreamUpdate` (1), `RadarMarkerClientUpdate` (1), `StrafeAreaUpdate` (1), `W3DLightDraw` (1), `W3DProjectileStreamDraw` (1), `WallUpgradeUpdate` (1).
+
+Отложены, ни один объект мода их не достигает: `CombineHordeSpecialPower`, `RubbleRiseUpdate`, `SpellRechargeModifierUpgrade`, `StructureToppleUpdate`, `SwayClientUpdate`, `ThreatFinderUpdate`, `ToppleUpdate`.
+<!-- ennorath_queue.py priority: end -->
+
 ## Что сняли
 
 - **Список движка** (`OPENBFME_MODULE_COVERAGE_OUT`, `test_module_coverage.cpp`): 329 классов, перенесено 167, базовый ИИ 6, только читаются 14, отсутствуют 142.
@@ -24,7 +54,7 @@
 Таблицу ниже пишет `python tools/mod/ennorath_unique.py --update`, руками её не правим. Upstream идёт по своей переписи: чем больше модов задевает класс, тем раньше (`docs/MOD-COMPAT.md`). Порядок для нас: сначала `ennorath-only`, затем `shared`, от меньшего числа объектов в RotWK к большему. `upstream-main` не переносим, только проверяем на Ennorath; `upstream-work` сначала смотрим у них. Вид `shared` с малым числом объектов не даёт гарантии: upstream уже перенёс `BoredUpdate` с 7 объектами. Перед тем как взять класс: `python tools/mod/ennorath_unique.py --check <Класс>`.
 
 <!-- ennorath_unique.py: begin -->
-Итого: upstream-main 1, upstream-work 0, shared 33, ennorath-only 1.
+Итого: upstream-main 1, upstream-work 0, shared 31, ennorath-only 1.
 
 | Вид | Класс | Гр. | Статус | Достижимых в моде | Объектов в RotWK | Где у upstream |
 |---|---|---:|---|---:|---:|---|
@@ -41,7 +71,6 @@
 | shared | `ToppleUpdate` | 2 | missing | 0 | 3 |  |
 | shared | `OilSpillUpdate` | 12 | missing | 2 | 3 |  |
 | shared | `ClearanceTestingSlowDeathBehavior` | 8 | partial (2026-10-31) | 4 | 4 |  |
-| shared | `AODCrushCollide` | 9 | ported | 3 | 4 |  |
 | shared | `AnnounceBirthAndDeathBehavior` | 10 | missing | 6 | 4 |  |
 | shared | `TooltipUpgrade` | 10 | missing | 9 | 4 |  |
 | shared | `WallUpgradeUpdate` | 12 | missing | 1 | 4 |  |
@@ -54,7 +83,6 @@
 | shared | `RunOffMapBehavior` | 11 | missing | 2 | 11 |  |
 | shared | `TerrainResourceClientBehavior` | 14 | missing | 26 | 11 |  |
 | shared | `RubbleRiseUpdate` | 2 | missing | 0 | 17 |  |
-| shared | `GiveUpgradeUpdate` | 9 | missing | 4 | 21 |  |
 | shared | `EvaAnnounceClientCreate` | 10 | missing | 21 | 21 |  |
 | shared | `W3DBuffDraw` | 12 | missing | 50 | 22 |  |
 | shared | `EvacuateDamage` | 6 | partial (2026-10-30) | 13 | 23 |  |
@@ -115,7 +143,7 @@
 | 9 | `EntEnragedUpdate` | ported (2026-10-30) | 10 | Elves, Rohan | 2 (1) | — | энты впадают в ярость рядом с лесопилками врага или гибелью своих | S-5605 | СДЕЛАНО В КОДЕ, тест test_modgap1_unique.cpp, ждёт проверки владельцем |
 | 9 | `ReplaceObjectUpdate` | partial (2026-10-31) | 6 | Imladris, Rohan | — | — | способности героя-создания, заменяющие объект (Word of Poultry) | S-6002 | СДЕЛАНО В КОДЕ агентом B без Scatter, тест test_modgap2_replace.cpp, ждёт проверки владельцем |
 | 9 | `OathbreakersFadeAwayBehavior` | partial (2026-10-31) | 5 | Men, Rohan | — | — | призраки растворяются после исполнения клятвы (P-13) | S-5310, S-6006 | СДЕЛАНО В КОДЕ для обеих редакций: RW 0x8BCC50 / 0x8BCC82, BFME2 0x8B8B0F / 0x8B8B41. Отрицательная проверка и тесты исчезновения, орды, сохранения и клиентского события прошли; выход из орды частичен (S-6006). BFME2 1.06 game.dat MD5 подтверждён, индекс 0x26 в обеих таблицах — HORDE_MEMBER, а не FAERIE_FIRE как подписано в декомпиляции. Подготовлен, но ещё не собран тест отсутствия фиктивного слота для MACHINE. Источник установки OATH_FULLFILLED в игровом сценарии ещё не установлен. Ждёт игровой проверки |
-| 9 | `GiveUpgradeUpdate` | missing | 4 | Elves, Evilmen, Imladris | 3 (4) | 1 | носильщик Харада выдаёт улучшение ближайшему | S-140 | НЕ НАЧАТО |
+| 9 | `GiveUpgradeUpdate` | ported (частично) | 4 | Elves, Evilmen, Imladris | 3 (4) | 1 | поиск цели RW 0x89FEBD / BFME2 Rva 0x49C73A, выдача RW 0x8A01B2 / BFME2 Rva 0x49CA2F; явная цель, ближайший союзник и отряд проверены тестом обеих редакций; поиск сверен с BFME2 GetDeliveryTarget, всадники, вложенные цели и эффекты остаются за S-6011 | S-6011 | СДЕЛАНО В КОДЕ (Codex, завершил Claude, 2026-10-31), ждёт проверки владельца: носильщик доносит улучшение ближайшему отряду и растворяется |
 | 9 | `StoreObjectsSpecialPower` | ported (2026-10-31) | 4 | Dwarves, Evilmen, Imladris | — | — | запоминает отряд для телепорта | S-523 | СДЕЛАНО В КОДЕ, тест test_modgap2_store_objects.cpp, ждёт проверки владельцем |
 | 9 | `TeleportToCasterSpecialPower` | ported (2026-10-31) | 4 | Dwarves, Evilmen, Imladris | — | — | телепорт отряда к герою-создателю | S-6003 | СДЕЛАНО В КОДЕ, тест test_modgap2_store_teleport.cpp, ждёт проверки владельцем |
 | 9 | `AODCrushCollide` | ported (2026-10-31, синтетические тесты) | 3 | Men, Rohan | — | — | призраки давят/замораживают при касании | S-5310, S-6007, S-6008 | ЗАНЯТО — агент, 2026-10-31: проверка уникальности пройдена; 5 объявлений в 4 файлах. Collision RW 0x8C0201 / BFME2 0x8BC0B8, update RW 0x8C042F / BFME2 0x8BC2E6, таблица полей RW 0xC710A8. В декомпиляции `KIND_RAW_D7` — model condition `OATH_FULLFILLED` (RW 0x46E918 / BFME2 0x46F039), а поля `otherBody` / `selfBody` в RW — PhysicsBehavior (+0x264), флаг +0x5C — stunned: после вызова орды у цели обязателен физический модуль и он должен быть не stunned. Условие FIRING_A (41) держится до строго позже последнего контакта + 10 кадров. `DeadCollideSize` RW ThingTemplate +0x605: SMALL=0, MEDIUM=1, LARGE=2, по умолчанию SMALL (RW 0x73FFAF); выбирает пару FX/OCL. Уведомление AODHordeContain — интерфейсный слот 0x130, RW 0x87E894 / BFME2 0x87B628 (большая цель, данные высоты); исходный объект берётся из containedBy (RW +0x27C / BFME2 +0x274), а не из producer ID; в BFME2 тот же слот; этот участок пока не портирован. Синтетические тесты союзника, оглушения, объекта без физики, обычного и особого урона, самоурона, FIRING_A, выбора FX и стопа при крупной цели собраны и проходят (GCC, Linux); модуль зарегистрирован в LogicModules и добавлен в Modgap2.cmake. Неперенесённый трекер большой цели обозначен S-6007, неполный контекст OCL — S-6008 |

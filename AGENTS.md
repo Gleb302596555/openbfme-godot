@@ -34,3 +34,8 @@ keeps its current mode (RotWK's rules on BFME1 data, stop S-5017).
 
 Everything else (sources, numerics, tests, the commit gate, privacy) is in
 `CLAUDE.md` and `docs/PLAN.md`.
+
+## Where to work
+
+Agents work on their own branch and tree (`tools/agent_worktree.py new <agent> <topic>`), never with
+uncommitted work in the main checkout. The Ennorath workflow is `docs/ennorath/PROCESS.md`.
