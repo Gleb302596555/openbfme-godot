@@ -363,9 +363,11 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 	// Merge queue q34 (measured once on the merged tree and at each merge point; SPELLFIX-1 and #160 keep the census): #161's block search moves the AIs'
 	// play: a CommandButtonHuntUpdate and a SiegeDeployHordeSpecialPower object; no HordeNotifyTargetsOfImminentProbableCrushingUpdate or HorseHordeContain
 	// object (111)
+	// 2026-10-31 main on Windows: the frame-1500 inventory contains AutoHealBehavior;
+	// the other 110 names match the previous pin (workspace/save-clearance-1031.log).
 	CHECK(classes == std::set<std::string>{
 		"AISpecialPowerUpdate", "ActiveBody", "ArmorUpgrade", "ArrowStormUpdate", "AttributeModifierAuraUpdate", "AttributeModifierPoolUpdate",
-		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoPickUpUpdate", "BannerCarrierUpdate",
+		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoHealBehavior", "AutoPickUpUpdate", "BannerCarrierUpdate",
 		"BezierProjectileBehavior", "BloodthirstyUpdate", "BoredUpdate", "BuildableHeroListUpgrade", "BuildingBehavior", "CastleBehavior", "CastleMemberBehavior",
 		"CastleUpgrade", "CitadelSlaughterHordeContain", "ClickReactionBehavior", "CloudBreakSpecialPower", "CommandButtonHuntUpdate", "CommandPointsUpgrade", "CommandSetUpgrade",
 		"CostModifierUpgrade", "CreateObjectDie", "CritterEmitterUpdate", "DamageFilteredCreateObjectDie", "DarknessSpecialPower", "DefectionHelper",

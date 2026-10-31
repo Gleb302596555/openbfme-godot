@@ -327,7 +327,7 @@ void SlowDeathBehavior::onDie(const DieModuleInterface::Event &event)
 		}
 		total -= weights[i];
 		SlowDeathBehavior *pick = candidates[i];
-		if (pick->isDieApplicable(event))
+		if (pick->isDieApplicable(event) && pick->canBeginSlowDeath())
 		{
 			pick->beginSlowDeath(event);
 			return;

@@ -193,6 +193,9 @@ public:
 	bool fadeBegun() const { return m_fadeBegun; }
 
 protected:
+	// RW 0x861868 / BFME2 onDie 0x85E6B8: after the weighted pick, slot 0x0C
+	// lets a subclass reject it and the roulette tries the remaining choices.
+	virtual bool canBeginSlowDeath() const { return true; }
 	virtual void beginSlowDeath(const DieModuleInterface::Event &event); // RW 0x860E93 (SlowDeathBehaviorInterface slot 0); GiantBirdSlowDeathBehavior's RW 0x86511C overrides it
 	void setHitGroundPending() { m_hitGroundPending = true; } // RW + 0x40 (GiantBirdSlowDeathBehavior's update RW 0x865018)
 

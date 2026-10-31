@@ -3,6 +3,9 @@
 
 #include "GameLogic/Module/AttachUpdate.h"
 #include "GameLogic/Module/BoredUpdate.h"
+#include "GameLogic/Module/ClearanceTestingSlowDeathBehavior.h"
+#include "GameLogic/Module/SpecialEnemySenseUpdate.h"
+#include "GameLogic/Module/OathbreakersFadeAwayBehavior.h"
 #include "GameLogic/Module/FlingPassengerSpecialAbilityUpdate.h"
 #include "GameLogic/Module/LocomotorSetUpgrade.h"
 #include "GameLogic/Module/ReplaceObjectUpdate.h"
@@ -125,6 +128,8 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	FreeLifeBody::registerClass(modules);          // lane MODGAP-1: Glorfindel's free life
 	OneRingPenaltyUpdate::registerClass(modules);  // lane MODGAP-1: the Eye comes for the ring's wearer (S-5604)
 	EntEnragedUpdate::registerClass(modules);      // lane MODGAP-1: the ents' rage (S-5605)
+	SpecialEnemySenseUpdate::registerClass(modules); // both editions: RW 0x89D7E6, BFME2 0x89A037
+	OathbreakersFadeAwayBehavior::registerClass(modules); // both editions: RW 0x8BCC82, BFME2 0x8B8B41
 	GiantBirdSlowDeathBehavior::registerClass(modules); // lane MODGAP-1: a killed flyer's crash (S-5606)
 	AimWeaponBehavior::registerClass(modules);     // lane MODGAP-1: the aim model conditions (S-5607)
 	HordeTransportContainDamage::registerClass(modules); // lane MODGAP-1: a mumak's riders fall with its health (S-1103)
@@ -165,6 +170,7 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	FlingPassengerSpecialAbilityUpdate::registerClass(modules); // MODGAP-2: release and landing warhead
 	ReplaceObjectUpdate::registerClass(modules); // MODGAP-2: filtered replacement ability (S-6002)
 	ShipSlowDeathBehavior::registerClass(modules); // MODGAP-2: slow death with sinking rotation
+	ClearanceTestingSlowDeathBehavior::registerClass(modules); // MODGAP-2: select a death with clearance
 	StoreObjectsSpecialPower::registerClass(modules); // MODGAP-2: remember filtered teleport targets
 	SplitHordeSpecialPower::registerClass(modules); // MODGAP-2: a mixed horde splits (S-6004)
 	TeleportToCasterSpecialPower::registerClass(modules); // MODGAP-2: the stored units teleport (S-6003)

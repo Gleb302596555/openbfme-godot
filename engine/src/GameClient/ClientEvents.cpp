@@ -12,6 +12,7 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/MapObjectDrawables.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
+#include "GameLogic/Module/OathbreakersFadeAwayBehavior.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 
@@ -125,6 +126,12 @@ void ClientEventRecorder::fadeOut(Object &obj, UnsignedInt frames)
 {
 	ClientEvent &e = push(ClientEvent::FADE_OUT, obj);
 	e.fadeFrames = frames;
+}
+
+void ClientEventRecorder::setDrawableOpacity(Object &obj, float opacity)
+{
+	ClientEvent &e = push(ClientEvent::SET_OPACITY, obj);
+	e.opacity = opacity;
 }
 
 void ClientEventRecorder::setCustomColors(Object &obj, int kind, std::uint32_t c0, std::uint32_t c1, std::uint32_t c2)
@@ -241,6 +248,9 @@ void ClientEventRecorder::loadedObject(Object &obj)
 	}
 	undirty(obj.getID()); // the flush below covers the changes recorded before (the O(1) dirty marks, lane BIGBATTLE-1)
 	pushFlush(obj);
+	// Modules have no loadPostProcess (S-4190); restore the saved client value.
+	if (auto *fade = dynamic_cast<OathbreakersFadeAwayBehavior *>(obj.findModule("OathbreakersFadeAwayBehavior")))
+		if (fade->fadingStarted()) setDrawableOpacity(obj, fade->opacity());
 }
 
 void ClientEventRecorder::pushFlush(Object &obj)

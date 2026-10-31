@@ -305,6 +305,9 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 				d->fadeOut((double)ev.fadeFrames);
 			}
 			break;
+		case ClientEvent::SET_OPACITY: // RW 0x8BCD38
+			if (Drawable *d = findByObject(ev.object)) d->setDrawableOpacity(ev.opacity);
+			break;
 		case ClientEvent::SHOW_MODULE:
 			if (Drawable *d = findByObject(ev.object))
 			{
