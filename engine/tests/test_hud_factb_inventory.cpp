@@ -64,9 +64,9 @@ TEST_CASE("factb inventory: Isengard and Mordor reach every structure, unit, her
 		}
 		const std::set<std::string> isengard = { "AnnounceBirthAndDeathBehavior", "BaseUpgrade",
 			}; // MODGAP-1 ported EvacuateDamage, MODGAP-2 FlingPassengerSpecialAbilityUpdate; lane MODCOMPAT-MOD1 ported GeometryUpgrade, SlaveWatcherBehavior and PickupStuffUpdate; lane FX-4 ported TransitionDamageFX; lane SIEGE-1 SiegeDeployHordeSpecialPower; lane LUMBER1: SupplyCenterCreate / SupplyCenterDockUpdate ported (S-1993)
-		const std::set<std::string> mordor = { "AimWeaponBehavior", "AnnounceBirthAndDeathBehavior", "BaseUpgrade",
+		const std::set<std::string> mordor = { "AnnounceBirthAndDeathBehavior", "BaseUpgrade", // MODGAP-1 ported AimWeaponBehavior
 			// MODGAP-1 ported EvacuateDamage; lane SUMMON-1 ported DoCommandUpgrade; lane MODCOMPAT-MOD1 ClickReactionBehavior; lane MODCOMPAT-MOD1 AudioLoopUpgrade
-			"HordeTransportContainDamage", // MODGAP-2 ported FlingPassengerSpecialAbilityUpdate; lane MODCOMPAT-MOD1 ported GeometryUpgrade and GrabPassengerSpecialPower
+			// MODGAP-1 ported HordeTransportContainDamage; MODGAP-2 ported FlingPassengerSpecialAbilityUpdate; lane MODCOMPAT-MOD1 ported GeometryUpgrade and GrabPassengerSpecialPower
 			"RunOffMapBehavior", "SlaughterHordeContain" }; // lane MODCOMPAT-MOD1 ported SlaveWatcherBehavior, PickupStuffUpdate, AutoPickUpUpdate and BoredUpdate; lane FX-4 ported TransitionDamageFX; lane SIEGE-1 SiegeDeployHordeSpecialPower; lane LUMBER1: SupplyCenterCreate / SupplyCenterDockUpdate ported (S-1993)
 		CHECK(classes == (std::string(f) == "FactionIsengard" ? isengard : mordor));
 	}

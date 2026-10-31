@@ -33,6 +33,7 @@
 #include "GameLogic/ConstructionSite.h"
 #include "Common/Team.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Module/EntEnragedUpdate.h"
 #include "GameLogic/ObjectFilter.h"
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/ObjectTemplateInfo.h"
@@ -1116,10 +1117,14 @@ void CastleBehavior::releaseCrew(bool kill)
 	{
 		if (Object *o = logic.findObjectByID(id))
 		{
-			logic.noteStop("[S-951] castle: the crew's release (RW 0x798344, EntEnragedUpdate / LifetimeUpdate) is not ported");
+			logic.noteStop("[S-951] castle: the crew's release (RW 0x798344, LifetimeUpdate) is not ported");
 			if (kill)
 			{
 				o->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL); // RW 0x79A284: kill(8 = UNRESISTABLE, 0 = NORMAL)
+			}
+			else if (EntEnragedUpdate *ent = EntEnragedUpdate::of(*o))
+			{
+				ent->setForced(true, true); // RW 0x79A2D3
 			}
 		}
 	}

@@ -20,6 +20,7 @@
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Damage.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Module/EntEnragedUpdate.h"
 #include "GameLogic/ObjectCreationList.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/Object/Object.h"
@@ -306,7 +307,7 @@ void FlammableUpdate::tryToIgnite()
 		spread->startFireSpreading(); // reads the object's AFLAME status, set above
 	}
 	m_status = FS_AFLAME; // RW 0x890251
-	noteStop(*obj, "FlammableUpdate: the ignition's client parts (burning sound, FireFXList), the body slot 0x2C, the script event 10 and EntEnragedUpdate are not run");
+	noteStop(*obj, "FlammableUpdate: the ignition's client parts (burning sound, FireFXList), the body slot 0x2C and the script event 10 are not run");
 	const unsigned now = logic.getFrame();
 	m_aflameEndFrame = m_data->m_aflameDuration > 0 ? now + m_data->m_aflameDuration : (unsigned)UPDATE_SLEEP_FOREVER;
 	m_burnedEndFrame = m_data->m_burnedDelay ? now + m_data->m_burnedDelay : 0;
@@ -370,10 +371,15 @@ void FlammableUpdate::stopBurning()
 	{
 		obj->setModelConditionState(CombatNames::modelCondition("BURNT_TEXTURE"), false);
 	}
+	if (EntEnragedUpdate *ent = EntEnragedUpdate::of(*obj))
+	{
+		ent->setForced(false, false); // RW 0x89003B
+		ent->setSuppressed(false);    // RW 0x890044
+	}
 	obj->setStatus(kStatusAflame, false);
 	static const int kAflame = CombatNames::modelCondition("AFLAME");
 	obj->setModelConditionState(kAflame, false);
-	noteStop(*obj, "FlammableUpdate: the quench's RW 0x68F2F1(0), script event 11, EntEnragedUpdate, sound stop, panic locomotor end and body slot 0x2C are not run");
+	noteStop(*obj, "FlammableUpdate: the quench's RW 0x68F2F1(0), script event 11, sound stop, panic locomotor end and body slot 0x2C are not run");
 }
 
 // RW 0x88FB79
@@ -415,6 +421,10 @@ UpdateSleepTime FlammableUpdate::update()
 		if (m_data->m_runToWater)
 		{
 			noteStop(*obj, "FlammableUpdate: RunToWater's water search and move (RW 0x890782) is not ported");
+			if (EntEnragedUpdate *ent = EntEnragedUpdate::of(*obj))
+			{
+				ent->setForced(true, false); // RW 0x890A15: no water, the rage is forced (the search's other answer, RW 0x890A04, is S-5605)
+			}
 		}
 		return UPDATE_SLEEP_NONE;
 	}

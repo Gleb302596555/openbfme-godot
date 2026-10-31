@@ -110,7 +110,7 @@ const char *const kStopRuntime =
 	"KillPassengersOnDeath's fling, the rally point (S-1620)";
 
 const char *const kStopNotPorted =
-	"[S-1103] not ported by lanes GARRISON-1 / GARRISON-2: HordeTransportContainDamage (5 templates, an unported module, S-140), the siege "
+	"[S-1103] not ported by lanes GARRISON-1 / GARRISON-2 (HordeTransportContainDamage: lane MODGAP-1): the siege "
 	"tower's and the ladders' docking (SiegeDeploySpecialPower, SiegeAIUpdate, SiegeDockingBehavior, DynamicPortalBehaviour; the wall layer, S-164), the bridge layer (BridgeBehavior / "
 	"BridgeTowerBehavior / BridgeScaffoldBehavior, the pathfinder's bridge layers and destroyed bridges, S-362), the AI mood multipliers of the garrison range cap "
 	"(RW 0x6FF44A), the garrison pips (the exit / evacuate buttons: lane UI-1, S-1260), MSG_EVACUATE_CONTESTERS";

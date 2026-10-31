@@ -8,6 +8,8 @@ set(OPENBFME_MODGAP1_TESTS
     tests/test_modgap1_reflect.cpp
     tests/test_modgap1_evacuate.cpp
     tests/test_modgap1_hole.cpp
+    tests/test_modgap1_unique.cpp
+    tests/test_modgap1_aim.cpp
 )
 
 # simulation sources (sim audit manifest): module state that enters the lockstep hash
@@ -16,4 +18,10 @@ list(APPEND OPENBFME_SIM_SOURCES
     src/GameLogic/Module/DeflectSpecialPower.cpp
     src/GameLogic/Module/ReflectDamage.cpp
     src/GameLogic/Module/EvacuateDamage.cpp
+    src/GameLogic/Module/FreeLifeBody.cpp
+    src/GameLogic/Module/OneRingPenaltyUpdate.cpp
+    src/GameLogic/Module/EntEnragedUpdate.cpp
+    src/GameLogic/Module/GiantBirdSlowDeathBehavior.cpp
+    src/GameLogic/Module/AimWeaponBehavior.cpp
+    src/GameLogic/Module/HordeTransportContainDamage.cpp
 )

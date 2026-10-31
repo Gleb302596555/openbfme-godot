@@ -4,6 +4,12 @@
 #include "GameLogic/Module/AttachUpdate.h"
 #include "GameLogic/Module/BoredUpdate.h"
 #include "GameLogic/Module/FlingPassengerSpecialAbilityUpdate.h"
+#include "GameLogic/Module/LocomotorSetUpgrade.h"
+#include "GameLogic/Module/ReplaceObjectUpdate.h"
+#include "GameLogic/Module/ShipSlowDeathBehavior.h"
+#include "GameLogic/Module/StoreObjectsSpecialPower.h"
+#include "GameLogic/Module/SplitHordeSpecialPower.h"
+#include "GameLogic/Module/TeleportToCasterSpecialPower.h"
 #include "GameLogic/Module/AISpecialPowerUpdate.h"
 #include "GameLogic/Module/RepairSpecialPower.h"
 #include "GameLogic/Module/GrabPassengerSpecialPower.h"
@@ -13,6 +19,12 @@
 #include "GameLogic/Module/DeflectSpecialPower.h"
 #include "GameLogic/Module/ReflectDamage.h"
 #include "GameLogic/Module/EvacuateDamage.h"
+#include "GameLogic/Module/AimWeaponBehavior.h"
+#include "GameLogic/Module/EntEnragedUpdate.h"
+#include "GameLogic/Module/HordeTransportContainDamage.h"
+#include "GameLogic/Module/FreeLifeBody.h"
+#include "GameLogic/Module/GiantBirdSlowDeathBehavior.h"
+#include "GameLogic/Module/OneRingPenaltyUpdate.h"
 #include "GameLogic/Module/SlavedUpdate.h"
 #include "GameLogic/Module/SpawnBehavior.h"
 #include "GameLogic/Module/SpawnUnitBehavior.h"
@@ -104,11 +116,18 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	ProjectileModules::registerAll(modules); // lane PROJ-1: BezierProjectileBehavior
 	StructureModules::registerAll(modules); // lane COMBAT-2: StructureBody, InactiveBody, StructureCollapseUpdate
 	UpgradeModuleClasses::registerAll(modules); // lane UPGRADE-1: the upgrade module classes
+	LocomotorSetUpgrade::registerClass(modules); // MODGAP-2: switch the AI's normal locomotor set
 	ObjectCreationUpgrade::registerClass(modules); // lane FACT-A: the object an upgrade makes (the Crystal Moat)
 	OCLUpdate::registerClass(modules);             // lane MODGAP-1: the wall trebuchet / catapult makers
 	DeflectSpecialPower::registerClass(modules);   // lane MODGAP-1: the spear carriers' shield wall (inert in Ennorath, S-5601)
 	ReflectDamage::registerClass(modules);         // lane MODGAP-1: the Witch-king's and the Nazgul's thorns
 	EvacuateDamage::registerClass(modules);        // lane MODGAP-1: the towers' garrison runs out (S-5602)
+	FreeLifeBody::registerClass(modules);          // lane MODGAP-1: Glorfindel's free life
+	OneRingPenaltyUpdate::registerClass(modules);  // lane MODGAP-1: the Eye comes for the ring's wearer (S-5604)
+	EntEnragedUpdate::registerClass(modules);      // lane MODGAP-1: the ents' rage (S-5605)
+	GiantBirdSlowDeathBehavior::registerClass(modules); // lane MODGAP-1: a killed flyer's crash (S-5606)
+	AimWeaponBehavior::registerClass(modules);     // lane MODGAP-1: the aim model conditions (S-5607)
+	HordeTransportContainDamage::registerClass(modules); // lane MODGAP-1: a mumak's riders fall with its health (S-1103)
 	ReplaceSelfUpgrade::registerClass(modules);    // lane FACT-A: the wall segment's gates, towers and hubs
 	AttributeModifierPool::registerClass(modules); // lane XP-1: AttributeModifierPoolUpdate (every object's attribute modifier pool)
 	ExperienceUpgradeModules::registerAll(modules); // lane XP-1: LevelUpUpgrade, ExperienceScalarUpgrade
@@ -144,6 +163,11 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	BoredUpdate::registerModule(modules); // lane MODCOMPAT-MOD1: an idle troll clubs a troll friend (S-7161)
 	LargeGroupAudioUpdate::registerClass(modules); // lane AUDIO-4: the logic half of the large group battle sounds
 	FlingPassengerSpecialAbilityUpdate::registerClass(modules); // MODGAP-2: release and landing warhead
+	ReplaceObjectUpdate::registerClass(modules); // MODGAP-2: filtered replacement ability (S-6002)
+	ShipSlowDeathBehavior::registerClass(modules); // MODGAP-2: slow death with sinking rotation
+	StoreObjectsSpecialPower::registerClass(modules); // MODGAP-2: remember filtered teleport targets
+	SplitHordeSpecialPower::registerClass(modules); // MODGAP-2: a mixed horde splits (S-6004)
+	TeleportToCasterSpecialPower::registerClass(modules); // MODGAP-2: the stored units teleport (S-6003)
 	ClientBehaviorModules::registerAll(modules); // lane AUDIO-4: the footsteps (a ClientBehavior: the drawables make it, GameClient/)
 	SiegeModules::registerAll(modules); // lane SIEGE-1: SiegeDockingBehavior, SiegeDeploySpecialPower, StopSpecialPower, SiegeAIUpdate (after the AI classes)
 }

@@ -19,6 +19,53 @@
 1. Граф находит модуль только по тегу `ModuleTag_*`; у `AimWeaponModuleTag`, `WatchTheTreb`, `Module_EmotionTracker` и подобных тег другой. Первый прогон занижал, например, `AimWeaponBehavior` (4 вместо 32 достижимых). Прогон исправлен: класс берётся из значения поля, тег не нужен.
 2. Перепись показала то, чего нет в списке по INI: **условия скриптов ИИ** `PLAYER_HAS_NUM_UNITS_WITH_UPGRADE` (18600 раз) и `PLAYER_BUILT_UPGRADE` (600) не перенесены и всегда ложны, а действие `FOCAL_LENGTH_CAMERA` ничего не делает. Это не модуль, но так компьютерный противник не видит свои улучшения. Заводится как отдельная строка ниже (группа 13).
 
+## Что брать первым: уникальное для Ennorath
+
+Таблицу ниже пишет `python tools/mod/ennorath_unique.py --update`, руками её не правим. Upstream идёт по своей переписи: чем больше модов задевает класс, тем раньше (`docs/MOD-COMPAT.md`). Порядок для нас: сначала `ennorath-only`, затем `shared`, от меньшего числа объектов в RotWK к большему. `upstream-main` не переносим, только проверяем на Ennorath; `upstream-work` сначала смотрим у них. Вид `shared` с малым числом объектов не даёт гарантии: upstream уже перенёс `BoredUpdate` с 7 объектами. Перед тем как взять класс: `python tools/mod/ennorath_unique.py --check <Класс>`.
+
+<!-- ennorath_unique.py: begin -->
+Итого: upstream-main 1, upstream-work 0, shared 34, ennorath-only 1.
+
+| Вид | Класс | Гр. | Статус | Достижимых в моде | Объектов в RotWK | Где у upstream |
+|---|---|---:|---|---:|---:|---|
+| upstream-main | `AnimalAIUpdate` | 14 | base-ai | 11 | 36 |  |
+| shared | `DestroyEnvironmentUpdate` | 12 | missing | 1 | 1 |  |
+| shared | `PartTheHeavensUpdate` | 12 | missing | 1 | 1 |  |
+| shared | `ProjectileStreamUpdate` | 12 | missing | 1 | 1 |  |
+| shared | `StrafeAreaUpdate` | 12 | missing | 1 | 1 |  |
+| shared | `W3DProjectileStreamDraw` | 12 | missing | 1 | 1 |  |
+| shared | `SpellRechargeModifierUpgrade` | 13 | missing | 0 | 1 |  |
+| shared | `HordeWorkerAIUpdate` | 14 | base-ai | 2 | 1 |  |
+| shared | `ReplaceObjectUpdate` | 9 | partial (2026-10-31) | 6 | 2 |  |
+| shared | `SwayClientUpdate` | 12 | missing | 0 | 2 |  |
+| shared | `ToppleUpdate` | 2 | missing | 0 | 3 |  |
+| shared | `OilSpillUpdate` | 12 | missing | 2 | 3 |  |
+| shared | `ClearanceTestingSlowDeathBehavior` | 8 | missing | 4 | 4 |  |
+| shared | `AODCrushCollide` | 9 | missing | 3 | 4 |  |
+| shared | `SpecialEnemySenseUpdate` | 9 | missing | 13 | 4 |  |
+| shared | `AnnounceBirthAndDeathBehavior` | 10 | missing | 6 | 4 |  |
+| shared | `TooltipUpgrade` | 10 | missing | 9 | 4 |  |
+| shared | `WallUpgradeUpdate` | 12 | missing | 1 | 4 |  |
+| shared | `SpawnUnitBehavior` | 14 | parsed-only | 2 | 4 |  |
+| shared | `StructureToppleUpdate` | 2 | missing | 0 | 5 |  |
+| shared | `FlingPassengerSpecialAbilityUpdate` | 3 | partial (2026-10-31) | 4 | 5 |  |
+| shared | `OathbreakersFadeAwayBehavior` | 9 | missing | 5 | 6 |  |
+| shared | `W3DTornadoDraw` | 12 | missing | 11 | 6 |  |
+| shared | `RadarMarkerClientUpdate` | 12 | missing | 1 | 9 |  |
+| shared | `RunOffMapBehavior` | 11 | missing | 2 | 11 |  |
+| shared | `TerrainResourceClientBehavior` | 14 | missing | 26 | 11 |  |
+| shared | `RubbleRiseUpdate` | 2 | missing | 0 | 17 |  |
+| shared | `GiveUpgradeUpdate` | 9 | missing | 4 | 21 |  |
+| shared | `EvaAnnounceClientCreate` | 10 | missing | 21 | 21 |  |
+| shared | `W3DBuffDraw` | 12 | missing | 50 | 22 |  |
+| shared | `EvacuateDamage` | 6 | partial (2026-10-30) | 13 | 23 |  |
+| shared | `W3DStreakDraw` | 12 | parsed-only | 52 | 33 |  |
+| shared | `W3DLightDraw` | 12 | missing | 1 | 37 |  |
+| shared | `ThreatFinderUpdate` | 13 | missing | 0 | 40 |  |
+| shared | `ModelConditionAudioLoopClientBehavior` | 10 | missing | 500 | 254 |  |
+| ennorath-only | `CombineHordeSpecialPower` | 7 | missing | 0 | 0 |  |
+<!-- ennorath_unique.py: end -->
+
 ## Порядок работы (первые 10 групп)
 
 Записи владельца идут первыми. Первая незавершённая, **P-9** (приказы по Alt), не модуль, а отдельная подсистема (`AiOrdersManager`, очереди приказов, сохранение); в рабочем дереве от прошлой сессии лежат её незаконченные `AIOrdersManager.h` / `ObjectOrderQueue.h` и правки `AIGroup`/`CommandXlat`, другой сессии сейчас нет. Я её **не взял**, чтобы не смешивать два больших переноса; нужно решение владельца. Следующая запись, связанная с этой работой, **P-10**, идёт группой 1.
@@ -54,37 +101,37 @@
 | 3 | `AutoPickUpUpdate` | ported (upstream, MODCOMPAT-MOD1) | 10 | Mordor, Wild | — | 3 | горный тролль сам хватает и ест подходящего юнита (INFERENCE) | S-1995 | код upstream, ждёт проверки владельцем |
 | 3 | `GrabPassengerSpecialPower` | ported (upstream, MODCOMPAT-MOD1) | 9 | Mordor, Wild | — | 3 | тролль хватает юнита и бросает его (пещерные тролли, Рогаш); сейчас кнопка есть, эффекта нет (P-16) | S-1995 | код upstream, ждёт проверки владельцем |
 | 3 | `BoredUpdate` | ported (upstream + Ennorath) | 4 | Isengard, Wild | — | — | скучающий тролль сам применяет способность (INFERENCE) | S-7161, S-6000, S-142 | код upstream с бесцелевой формой MODGAP-2, тесты test_bored_modules.cpp и test_modgap2_bored.cpp, ждёт проверки владельцем |
-| 3 | `FlingPassengerSpecialAbilityUpdate` | partial (агент B) | 4 | Angmar, Isengard, Mordor, Wild | 1 (1) | — | бросок захваченного (Шарку, Морчант, горные тролли) | S-1995, S-6001 | ЗАНЯТО — агент B, 2026-10-30; тест освобождения первого пассажира, оружия и стопа проходит, без привязки падал. RW 0x89875A / BFME2 0x894FCC; строки данных RW 0xC0556C / BFME2 0xBEF20C. Проверка владельца в игре и остальные контейнеры остаются |
+| 3 | `FlingPassengerSpecialAbilityUpdate` | partial (2026-10-31) | 4 | Angmar, Isengard, Mordor, Wild | 1 (1) | — | бросок захваченного (Шарку, Морчант, горные тролли) | S-1995, S-6001 | ПРИОСТАНОВЛЕНО: агент B выбыл. Тест освобождения первого пассажира проходит; остальные контейнеры не перенесены (S-6001) |
 | 4 | `SlaveWatcherBehavior` | ported (2026-10-30) | 75 | все 11 | 13 (2) | 6 | при смерти подчинённого (требушет, баллиста) снимается улучшение у хозяина (RemoveUpgrade), и его можно купить снова | S-1995 | ВЫПОЛНЕНО: владелец проверил в игре 2026-10-30, работает |
 | 4 | `OCLUpdate` | ported (2026-10-30) | 3 | Arnor, Dwarves, Imladris, Men, Mordor, Rohan | — | — | настенный требушет возникает из здания-заготовки через OCL (по полям Amount/MinDelay; INFERENCE) | S-140 | ВЫПОЛНЕНО: владелец проверил в игре 2026-10-30, работает (CreateAtEdge: S-5501) |
 | 5 | `DeflectSpecialPower` | ported (2026-10-30) | 12 | Arnor, Evilmen, Rohan | 1 (1) | 24 | копейщики отбивают снаряды. **В Ennorath не видно**: способность ничто не запускает (кнопка и слот в commandset.ini закомментированы), а отбиваемые снаряды NO_COLLIDE и не попадают в пары столкновений (RW 0x68E31F) | S-5601 | СДЕЛАНО В КОДЕ, тест; для игрока ничего не меняется, проверять нечего |
 | 6 | `EvacuateDamage` | partial (2026-10-30) | 13 | Arnor, Dwarves, Evilmen, Imladris, Isengard, Men, Mordor, Rohan | 13 (22) | — | боевая башня при попадании указанного оружия (MordorCatapultHumanHeads) выгоняет гарнизон | S-1995, S-5602 | СДЕЛАНО В КОДЕ, тест (test_modgap1_evacuate.cpp), ждёт проверки владельцем: башню с гарнизоном бьёт катапульта Мордора с головами, гарнизон выходит. Не перенесено: паника при большом уроне за 6 кадров (команда ИИ 0x2E не определена, S-5602) |
 | 6 | `ReflectDamage` | ported (2026-10-30) | 5 | Angmar, Arnor, Imladris, Men, Mordor, Rohan | 2 (1) | — | часть урона возвращается нападающему (Король-чародей Ангмара: 30% от входящего урона, по типам CRUSH/SLASH/HERO/URUK/SPECIALIST; Назгул 2: 50%) | — | ВЫПОЛНЕНО: владелец проверил в игре 2026-10-30, работает (test_modgap1_reflect.cpp) |
-| 7 | `SplitHordeSpecialPower` | missing | 10 | Isengard, Mordor | — | — | кнопка разделения составного отряда (Изенгард, Мордор) | S-140 | НЕ НАЧАТО |
-| 7 | `CombineHordeSpecialPower` | missing | 0 | — | — | — | обратное слияние отрядов | S-140 | НЕ НАЧАТО |
-| 8 | `GiantBirdSlowDeathBehavior` | missing | 19 | все 11 | 2 (2) | — | падение орлов, назгулов на птицах, дракона: сейчас обычная смерть | S-140 | НЕ НАЧАТО |
-| 8 | `ClearanceTestingSlowDeathBehavior` | missing | 4 | Evilmen, Mordor | 1 (5) | — | смерть, проверяющая свободное место (INFERENCE) | S-140 | НЕ НАЧАТО |
-| 8 | `ShipSlowDeathBehavior` | missing | 0 | — | 4 (2) | — | тонущие корабли | S-140 | НЕ НАЧАТО |
+| 7 | `SplitHordeSpecialPower` | ported (2026-10-31) | 10 | Isengard, Mordor | — | — | кнопка разделения составного отряда (Изенгард, Мордор) | S-6004 | СДЕЛАНО В КОДЕ, тест test_modgap2_split.cpp, ждёт проверки владельцем |
+| 7 | `CombineHordeSpecialPower` | missing | 0 | — | — | — | обратное слияние отрядов | S-140 | БЛОКИРОВАНО — Claude, 2026-10-30: нужна команда ИИ слияния отрядов и вместимость HordeContain (RW 0x8CCCB4, контейнер слот 0x70, RW 0x66-команда), в порте их нет; MSG_COMBINE_HORDES_WITH_OBJECT без обработчика. Объекты мода до класса не доходят (0 достижимых) |
+| 8 | `GiantBirdSlowDeathBehavior` | ported (2026-10-30) | 19 | все 11 | 2 (2) | — | падение орлов, назгулов на птицах, дракона: сейчас обычная смерть | S-5606 | СДЕЛАНО В КОДЕ, тест test_modgap1_unique.cpp, ждёт проверки владельцем |
+| 8 | `ClearanceTestingSlowDeathBehavior` | missing | 4 | Evilmen, Mordor | 1 (5) | — | выбор варианта смерти с проверкой свободного места и высоты местности | S-140 | НЕ НАЧАТО (агент B выбыл). Прочитано: RW 0x887191, вызов RW 0x861868 после выбора варианта; нужна точка расширения в выборе SlowDeathBehavior и сэмплер ClearanceTestingSlowDeathGeometrySampler.cpp |
+| 8 | `ShipSlowDeathBehavior` | ported (2026-10-31) | 0 | — | 4 (2) | — | тонущие корабли | S-140 | СДЕЛАНО В КОДЕ агентом B, тест test_modgap2_ship_death.cpp, ждёт проверки владельцем |
 | 9 | `SpecialEnemySenseUpdate` | missing | 13 | Dwarves, Elves, Evilmen, Imladris, Men, Mordor, Wild | 4 (3) | — | назгул чувствует кольцо в радиусе 400 (INFERENCE: сигнал, не атака) | S-140 | НЕ НАЧАТО |
-| 9 | `EntEnragedUpdate` | missing | 10 | Elves, Rohan | 2 (1) | — | энты впадают в ярость рядом с лесопилками врага или гибелью своих | S-983 (частично) | НЕ НАЧАТО |
-| 9 | `ReplaceObjectUpdate` | missing | 6 | Imladris, Rohan | — | — | способности героя-создания, заменяющие объект (Word of Poultry) | S-1226 | НЕ НАЧАТО |
+| 9 | `EntEnragedUpdate` | ported (2026-10-30) | 10 | Elves, Rohan | 2 (1) | — | энты впадают в ярость рядом с лесопилками врага или гибелью своих | S-5605 | СДЕЛАНО В КОДЕ, тест test_modgap1_unique.cpp, ждёт проверки владельцем |
+| 9 | `ReplaceObjectUpdate` | partial (2026-10-31) | 6 | Imladris, Rohan | — | — | способности героя-создания, заменяющие объект (Word of Poultry) | S-6002 | СДЕЛАНО В КОДЕ агентом B без Scatter, тест test_modgap2_replace.cpp, ждёт проверки владельцем |
 | 9 | `OathbreakersFadeAwayBehavior` | missing | 5 | Men, Rohan | — | — | призраки растворяются в конце срока (P-13) | S-5310 | НЕ НАЧАТО |
 | 9 | `GiveUpgradeUpdate` | missing | 4 | Elves, Evilmen, Imladris | 3 (4) | 1 | носильщик Харада выдаёт улучшение ближайшему | S-140 | НЕ НАЧАТО |
-| 9 | `StoreObjectsSpecialPower` | missing | 4 | Dwarves, Evilmen, Imladris | — | — | запоминает отряд для телепорта | S-813 (смежный) | НЕ НАЧАТО |
-| 9 | `TeleportToCasterSpecialPower` | missing | 4 | Dwarves, Evilmen, Imladris | — | — | телепорт отряда к герою-создателю | S-813 (смежный) | НЕ НАЧАТО |
+| 9 | `StoreObjectsSpecialPower` | ported (2026-10-31) | 4 | Dwarves, Evilmen, Imladris | — | — | запоминает отряд для телепорта | S-523 | СДЕЛАНО В КОДЕ, тест test_modgap2_store_objects.cpp, ждёт проверки владельцем |
+| 9 | `TeleportToCasterSpecialPower` | ported (2026-10-31) | 4 | Dwarves, Evilmen, Imladris | — | — | телепорт отряда к герою-создателю | S-6003 | СДЕЛАНО В КОДЕ, тест test_modgap2_store_teleport.cpp, ждёт проверки владельцем |
 | 9 | `AODCrushCollide` | missing | 3 | Men, Rohan | — | — | призраки давят/замораживают при касании | S-5310 | НЕ НАЧАТО |
-| 9 | `LocomotorSetUpgrade` | missing | 3 | Arnor, Evilmen | — | — | улучшение меняет набор передвижения (лазание по стенам героя-создания) | S-140 | НЕ НАЧАТО |
-| 9 | `FreeLifeBody` | missing | 2 | Arnor, Imladris | — | — | Глорфиндел воскресает на месте после смерти на 10 уровне (FreeLifeTime) | S-140 | НЕ НАЧАТО |
-| 9 | `OneRingPenaltyUpdate` | missing | 1 | Elves | 1 (1) | — | Око Саурона вызывается, если Фродо носит кольцо слишком долго | S-140 | НЕ НАЧАТО |
+| 9 | `LocomotorSetUpgrade` | ported (2026-10-31) | 3 | Arnor, Evilmen | — | — | улучшение меняет набор передвижения (лазание по стенам героя-создания) | S-140 | СДЕЛАНО В КОДЕ агентом B, тест test_modgap2_locomotor_upgrade.cpp, ждёт проверки владельцем |
+| 9 | `FreeLifeBody` | ported (2026-10-30) | 2 | Arnor, Imladris | — | — | Глорфиндел воскресает на месте после смерти на 10 уровне (FreeLifeTime) | — | СДЕЛАНО В КОДЕ, тест test_modgap1_unique.cpp, ждёт проверки владельцем |
+| 9 | `OneRingPenaltyUpdate` | ported (2026-10-30) | 1 | Elves | 1 (1) | — | Око Саурона вызывается, если Фродо носит кольцо слишком долго | S-5604 | СДЕЛАНО В КОДЕ, тест test_modgap1_unique.cpp, ждёт проверки владельцем |
 | 10 | `ModelConditionAudioLoopClientBehavior` | missing | 500 | все 11 | 71 (12) | — | голосовые петли насмешек и ликования отрядов в бою, звук обрушения здания | S-140 | НЕ НАЧАТО |
 | 10 | `EvaAnnounceClientCreate` | missing | 21 | все 11 | 3 (145) | — | голос Эвы при появлении объекта (кольцо найдено, герой вышел) | S-140 | НЕ НАЧАТО |
 | 10 | `AudioLoopUpgrade` | ported (upstream, MODCOMPAT-MOD1) | 15 | все 11 | 5 (2) | 4 | звук стройки/улучшения здания, пока оно строится | S-1995 | код upstream, не проверено на Ennorath в игре |
 | 10 | `TooltipUpgrade` | missing | 9 | все 11 | 6 (2) | — | после улучшения кнопка меняет название и описание | S-140 | НЕ НАЧАТО |
 | 10 | `AnnounceBirthAndDeathBehavior` | missing | 6 | Dwarves, Men, Mordor | 2 (1) | — | голос при появлении/смерти Саурона и больших героев | S-1995 | НЕ НАЧАТО |
 | 11 | `GeometryUpgrade` | ported (upstream, MODCOMPAT-MOD1) | 71 | все 11 | 20 (2) | 27 | улучшение здания переключает его геометрию: след, путь юнитов, выбор; в переписи 27 живых | S-1995 | код upstream, не проверено на Ennorath в игре |
-| 11 | `AimWeaponBehavior` | missing | 32 | Angmar, Dwarves, Elves, Evilmen, Imladris, Mordor, Rohan, Wild | 7 (2) | 49 | прицеливание оружия по порогам AimLow/High и дистанциям (Haradrim, демон); эффект по декомпиляции не установлен; в переписи 49 живых | S-1995 | НЕ НАЧАТО |
-| 11 | `HordeTransportContainDamage` | missing | 3 | Evilmen | 1 (1) | — | мумак: урон делится на бойцов-пассажиров | S-1103 | НЕ НАЧАТО |
-| 11 | `RunOffMapBehavior` | missing | 2 | Evilmen | 1 (1) | — | мумак убегает за край карты по точке | S-1995 | НЕ НАЧАТО |
+| 11 | `AimWeaponBehavior` | ported (2026-10-31) | 32 | Angmar, Dwarves, Elves, Evilmen, Imladris, Mordor, Rohan, Wild | 7 (2) | 49 | прицеливание оружия по порогам AimLow/High и дистанциям (Haradrim, демон); эффект по декомпиляции не установлен; в переписи 49 живых | S-5607 | СДЕЛАНО В КОДЕ, тест test_modgap1_aim.cpp, ждёт проверки владельцем |
+| 11 | `HordeTransportContainDamage` | ported (2026-10-31) | 3 | Evilmen | 1 (1) | — | мумак: урон делится на бойцов-пассажиров | — | СДЕЛАНО В КОДЕ, тест формулы test_modgap1_aim.cpp; сквозного теста с мумаком нет, ждёт проверки владельцем |
+| 11 | `RunOffMapBehavior` | missing | 2 | Evilmen | 1 (1) | — | мумак убегает за край карты по точке | S-1995 | БЛОКИРОВАНО — Claude, 2026-10-31: в моде бездействует: все 10 блоков RequiresSpecificTrigger = Yes, а запускает его только DetachableRiderUpdate, до которого фракции не доходят; нужны и команды ИИ 0x38 / 0x41 (RW 0x865332 / 0x86539E) |
 | 12 | `W3DStreakDraw` | parsed-only | 52 | все 11 | — | — | следы за стрелами и снарядами; класс помечен как не рисуемый (S-113), 52 снаряда | S-113 | НЕ НАЧАТО |
 | 12 | `W3DBuffDraw` | missing | 50 | все 11 | — | — | свечение баффов (лечение, оглушение, мороз): по S-113 уже рисуется как баф BuffNugget; статус «отсутствует» может не значить «не работает»; проверить | S-113, S-4642 | НЕ НАЧАТО |
 | 12 | `W3DTornadoDraw` | missing | 11 | Arnor, Elves, Evilmen, Imladris | — | — | смерч Радагаста, ветры Алатара, вихрь Элронда | S-113 | НЕ НАЧАТО |
@@ -96,7 +143,7 @@
 | 12 | `StrafeAreaUpdate` | missing | 1 | Wild | — | — | дракон обстреливает область (сила Dragon Strike) | S-140 | НЕ НАЧАТО |
 | 12 | `W3DLightDraw` | missing | 1 | Mordor | 4 (7) | — | световые пятна факелов, костров, вспышек (на картах) | S-113 | НЕ НАЧАТО |
 | 12 | `W3DProjectileStreamDraw` | missing | 1 | Wild | — | — | поток огня/струя (огненный дракон) | S-113 | НЕ НАЧАТО |
-| 12 | `WallUpgradeUpdate` | missing | 1 | все 11 | 5 (2) | — | апгрейд стены меняет её вид | S-140 | НЕ НАЧАТО |
+| 12 | `WallUpgradeUpdate` | missing | 1 | все 11 | 5 (2) | — | апгрейд стены меняет её вид | S-140 | ПРИОСТАНОВЛЕНО — Claude, 2026-10-31: прочитано RW 0x8AEBD3 (update), 0x8AEB10 (поиск стройки: STRUCTURE + WALK_ON_TOP_OF_WALL, радиус 200), 0x8AEAE6 (RUBBLE: 40 кадров), 0x8AEAA9 (активно: UPGRADE_GARRISON / POSTERN_GATE / TREBUCHET). Сначала нужен сброс улучшений объекта RW 0x68E083 (его же ждут замки, S-952) и слот тела 0x28 (RW 0x8C1BF9), затем RW 0x8AEC79 |
 | 12 | `CritterEmitterUpdate` | ported (upstream, MODCOMPAT-MOD1) | 0 | — | 1 (22) | 13 | птицы/мелкая живность на картах; в переписи 13 живых | S-140 | код upstream, не проверено на Ennorath в игре |
 | 12 | `SwayClientUpdate` | missing | 0 | — | 2 (2) | — | покачивание объекта (деревья, знамёна) | S-140 | НЕ НАЧАТО |
 | 13 | `PickupStuffUpdate` | ported (upstream, MODCOMPAT-MOD1) | 347 | все 11 | 21 (3) | 17 | только компьютерный игрок (SkirmishAIOnly=Yes): отряды ИИ подбирают сундуки; 692 объекта в данных, 17 живых в переписи | S-1422 | код upstream, не проверено на Ennorath в игре |
