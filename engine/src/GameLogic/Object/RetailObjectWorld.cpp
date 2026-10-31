@@ -43,7 +43,6 @@ const RwBinaryData &bfme1Grammar()
 		constexpr unsigned line = 0xbf100001;
 		result.functions[line] = RwFunction();
 		const std::map<std::string, std::vector<std::string>> fields = {
-			{"AutoPickUpUpdate", {"PickUpKindOf", "PickUpKindOf2", "Bored", "BoredFilter"}},
 			{"DynamicPortalBehaviour", {"AllowKindOf", "RejectKindOf", "AllowEnemies"}},
 			{"BloodthirstyUpdate", {"NumToSacrifice", "InitiateVoice2"}},
 			{"SlaughterHordeContain", {"MaxHordeCapacity"}},
