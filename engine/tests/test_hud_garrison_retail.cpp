@@ -3,6 +3,7 @@
 // from the tower, the evacuate message brings them out, a destroyed tower ejects them; the run is deterministic. They share the HUD tests' retail world (the file
 // name sorts with the test_hud_* files) and SKIP when ROTWK_INSTALL / BFME2_INSTALL are unset.
 
+#include "HordeCompleteTestUtil.h"
 #include "doctest.h"
 #include "HudTestUtil.h"
 
@@ -107,6 +108,7 @@ struct Arena
 		Coord3D p{ x, y, 0.0f };
 		o->setPosition(&p);
 		o->setOrientation(angle);
+		testutil::completeHorde(o); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 		return o;
 	}
 	void run(int frames)
@@ -351,7 +353,7 @@ TEST_CASE("garrison retail: a destroyed tower ejects its garrison (EjectPassenge
 	const GarrisonRun r = garrisonAndFight(a, tower, archers, orcs, 5);
 	REQUIRE(r.framesToEnter > 0);
 	const size_t members = membersOf(*archers).size();
-	tower->kill(0);
+	tower->kill(DAMAGE_UNRESISTABLE, 0);
 	a.run(2);
 	CHECK(archers->getContainedBy() == nullptr);
 	CHECK(archers->isInWorld());
@@ -623,6 +625,7 @@ TEST_CASE("garrison retail: a plain GarrisonContain refuses NO_GARRISON objects 
 			}
 			Coord3D p{ 500.0f, 600.0f, 0.0f };
 			o->setPosition(&p);
+			testutil::completeHorde(o); // a horde makes its members where it stands (onBuildComplete, RW 0x8718ED)
 			if (g->garrisonAllows(*o))
 			{
 				++noGarrisonTested;
@@ -836,7 +839,7 @@ TEST_CASE("ring delivery retail: a battalion whose last approaching member dies 
 	for (size_t i = 0; i + 1 < members.size(); ++i)
 		REQUIRE(contain->addToContain(members[i]));
 	REQUIRE_FALSE(horde->allMembersEntered());
-	members.back()->kill(0);
+	members.back()->kill(DAMAGE_UNRESISTABLE, 0);
 	a.run(100);
 	CHECK(horde->allMembersEntered());
 	CHECK_FALSE(a.player(0)->hasUpgradeComplete("Upgrade_RingHero"));
