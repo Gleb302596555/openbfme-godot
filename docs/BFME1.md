@@ -3,6 +3,28 @@
 BFME1 is an experimental, separate game mode. It uses a BFME1 installation for
 both menus and gameplay, without mixing in BFME2 or RotWK data.
 
+The main menu loads BFME1's mapped textures from `art/textures`, including
+JPEG colour with a companion PNG alpha mask. The backdrop and native
+`RenderImage` logo use the same texture loader as the menu gadgets.
+`Video FrontEnd` in BFME1's `Video.ini` identifies `big_movie_with_alpha.vp6`
+as the movie for front-end menus. It loops over `ShellMapLowLOD`, preserves
+its alpha, and stops when the shell backdrop is hidden for gameplay.
+The movie fills the aspect-fitted backdrop beneath the APT menu and logo;
+this placement and immediate start/stop are presentation inferences, not a
+verified port of retail's display transitions.
+
+Submenus retain their authored 3D front-end background. When the BFME1 main
+menu becomes active again, it hides that background through its existing
+APT instant-hide function so it no longer covers the continuing movie. This
+main-menu activation rule is also a presentation inference; BFME2 and RotWK
+keep their existing background behaviour.
+
+`godot/tests/bfme1_menu_backdrop_test.gd` requires `BFME1_INSTALL` and a GPU.
+It compares independently decoded JPEG/PNG and VP6 assets against the menu
+at four resolutions, checks repeated Skirmish/Options returns, looping and
+gameplay/menu transitions, and writes screenshots under `BFME1_MENU_TEST_DIR`
+when that variable is set.
+
 From the checkout root on **Linux or macOS (POSIX shell)**, with a matching
 Godot 4.7 editor binary on `PATH`, the GDExtension already built into
 `godot/bin/`, and BFME1 data in `games/BFME1`, launch:
@@ -136,6 +158,15 @@ These are the places where BFME1's data or menus differ from RotWK's. Each one i
   `DynamicPortalBehaviourRva001F96E0.cpp` and `Map/Waypoint_method001ABBB0.cpp`.
   The default allows all defined kinds and rejects none. Rejecting `CAVALRY` also rejects units with the
   `MOUNTED` model condition, even without the cavalry kind. This does not establish full BFME1 waypoint parity.
+- **Automatic pickup:** BFME1 selects its own typed `AutoPickUpUpdate` data and runtime variant. Its
+  `PickUpKindOf` mask admits any matching kind, retains `+`/`-` edits and clears with `NONE`.
+  `Bored` and `BoredFilter` run the integrated allied-target boredom scan after eating and before ordinary
+  pickup, using the same scan/button gate. Sources: BFME1 field table VA `0x010BB9D0` and Open-BFME-1
+  `GameLogic/Object/Update/AutoPickUpUpdateUpdate.cpp`, RVA `0x00281F40`. The port maps the boredom power's
+  name to the shared enum ordinal; BFME1's binary ordinal differs. BFME2/RotWK retain `PickUpFilter`
+  (RW `0xC65B60`) and their separate `BoredUpdate`; they reject the BFME1-only fields. `PickUpKindOf2`
+  is absent from BFME1's verified table and is rejected. The shared tree-point/automatic-throw limitations
+  remain reported by S-7160; BFME1's broader simulation compatibility remains S-5017.
   `BloodthirstyUpdate` also reads BFME1's `NumToSacrifice` (default 1) and `InitiateVoice2` without widening
   BFME2/RotWK's field tables. The second initiation voice plays alongside the first, independently of crowd responses
   (`MessageStream/CommandXlatVoice.cpp`, case `0x7E9` and its two-slot playback tail). Voice voting groups the ordered
