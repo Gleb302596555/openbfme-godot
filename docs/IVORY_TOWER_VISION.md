@@ -17,3 +17,6 @@ enemy shrouded. These are engine regression tests using retail data, not a
 retail executable oracle. RotWK target-binary provenance remains subject to
 S-001; the implementation follows the BFME2 donor rather than claiming proven
 clean RotWK 2.01 equivalence.
+
+Merge queue q34: the code is SPELLFIX-1's identical rule with its RotWK cites (the ThingTemplate ctor's -1, RW 0x73FB7A; the Object ctor's
+fallback to VisionRange, RW 0x69990F), so this change merged as tests and this note only.
