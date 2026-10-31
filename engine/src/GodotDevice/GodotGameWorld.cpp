@@ -91,6 +91,7 @@
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SimMath.h"
 #include "GameLogic/Object/RetailObjectWorld.h"
+#include "GodotDevice/GodotLivingWorld.h" // WOTR2 milestone 8: lan_strategic_begin
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/PlacementGhost.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.h"
@@ -125,6 +126,7 @@
 #include <godot_cpp/variant/vector3.hpp>
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #if defined(__GLIBC__)
 #include <dlfcn.h>
@@ -387,6 +389,13 @@ void GameWorld::_bind_methods()
 	ClassDB::bind_method(D_METHOD("net_online", "start_json"), &GameWorld::net_online); // lane ONLINE-2
 	ClassDB::bind_method(D_METHOD("net_profile_digest"), &GameWorld::net_profile_digest);
 	ClassDB::bind_method(D_METHOD("net_begin", "options"), &GameWorld::net_begin, DEFVAL(Dictionary()));
+	ClassDB::bind_method(D_METHOD("lan_strategic_begin", "living_world", "slot_of_player", "options"), &GameWorld::lan_strategic_begin, DEFVAL(Dictionary())); // WOTR2 milestone 8
+	ClassDB::bind_method(D_METHOD("lan_strategic_end"), &GameWorld::lan_strategic_end);
+	ClassDB::bind_method(D_METHOD("lan_war_battle", "message", "lobby_slot_of_battle_slot"), &GameWorld::lan_war_battle);
+	ClassDB::bind_method(D_METHOD("lan_war_battle_end"), &GameWorld::lan_war_battle_end);
+	ClassDB::bind_method(D_METHOD("lan_war_battle_departed"), &GameWorld::lan_war_battle_departed);
+	ClassDB::bind_method(D_METHOD("lan_host_set_resume", "save", "state_hash", "seats", "lobby"), &GameWorld::lan_host_set_resume);
+	ClassDB::bind_method(D_METHOD("lan_war_battle_end_frame"), &GameWorld::lan_war_battle_end_frame);
 	ClassDB::bind_method(D_METHOD("net_status"), &GameWorld::net_status);
 	ClassDB::bind_method(D_METHOD("net_finish"), &GameWorld::net_finish);
 	ClassDB::bind_method(D_METHOD("net_write_census", "path"), &GameWorld::net_write_census); // lane MP-3
@@ -729,8 +738,20 @@ Dictionary GameWorld::setup(const Ref<RetailFileSystem> &fs)
 			m_fxSetupErrors = fx.get("errors", Array());
 			for (int64_t i = 0; i < m_fxSetupErrors.size(); ++i)
 			{
-				errors.push_back(String("FX: ") + String(m_fxSetupErrors[i]));
+				const String line = String("FX: ") + String(m_fxSetupErrors[i]);
+				if (modded)
+				{
+					// lane MODUI-1: the effect files follow the same S-5306 rule (FXPlayback::loadRetailData loads each file up to its error, as
+					// retail's INI::loadSubsystemFiles): Ennorath's FXList.ini names an undefined macro and the game stopped before the main menu
+					UtilityFunctions::print("GameWorld: S-5306: the mod's effect data: ", line, " (the rest of that file is skipped, as retail)");
+					modDataErrors.push_back(line);
+				}
+				else
+				{
+					errors.push_back(line);
+				}
 			}
+			result["mod_data_errors"] = modDataErrors;
 		}
 	}
 	result["ok"] = errors.is_empty();
@@ -1109,6 +1130,7 @@ Dictionary GameWorld::start_new_game(const Dictionary &options)
 	}
 	m_testHooks = optBool(options, "test_hooks", false);
 	Dictionary report = load_internal(lo, toGodot(m_start->mapName), options, progress, true);
+	// WOTR2 milestone 6: a War of the Ring battle is recorded too (replay format 12 carries its start, NewGameMessage::livingWorldBattle)
 	if ((bool)report.get("ok", false) && options.has("record") && !m_netStarted)
 	{
 		// lane MP-2: every skirmish is recorded (MP-1's ReplayWriter behind a driver without a network: the local commands run on the next frame as before)
@@ -1423,6 +1445,8 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 			o["y"] = p.position.y;
 			o["z"] = p.position.z;
 			o["structure"] = p.structure;
+			o["army"] = p.armyId; // lane WOTR-1: the War of the Ring army member (-1 none)
+			o["member"] = p.memberIndex;
 			objects.push_back(o);
 		}
 		for (int pc : r.progressCalls)
@@ -1432,6 +1456,7 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 		start["slot_players"] = slotPlayers;
 		start["starting_objects"] = objects;
 		start["errors"] = toArray(r.startErrors);
+		start["notes"] = toArray(r.startNotes); // lane WOTR-1
 		start["progress"] = startProgress;
 		const Player *local = m_game->players().getLocalPlayer();
 		start["local_player"] = local ? toGodot(local->getPlayerName()) : String();
@@ -1609,7 +1634,7 @@ void GameWorld::remove_view(uint32_t drawableId)
 
 void GameWorld::refresh_views(double deltaMs)
 {
-	m_stealthClockMs = StealthLook::advanceClock(m_stealthClockMs, deltaMs); // lane STEALTH-1: client time, presentation only
+	// lane STEALTHLOOK-1: the stealth pulse steps per client frame inside DrawableManager::advance (RW 0x673114), no clock needed here
 	W3DInstancer *dyn = instancerOf(m_dynamicId);
 	if (!m_game || !dyn)
 	{
@@ -1827,7 +1852,7 @@ void GameWorld::refresh_views(double deltaMs)
 					}
 					if (ev.instance >= 0) // lane STEALTH-1: the pulse moves without a pose change, and a revealed object returns to its own opacity
 					{
-						const float pulse = StealthLook::drawOpacity(d->drawOpacity(), stealthRec, presented.get(), m_stealthClockMs);
+						const float pulse = StealthLook::drawOpacity(d->drawOpacity(), d->stealth()); // lane STEALTHLOOK-1: the drawable's stepped stealth opacity (+0xB4)
 						if (pulse != ev.opacity)
 						{
 							dyn->set_instance_opacity(ev.instance, pulse);
@@ -2010,7 +2035,7 @@ void GameWorld::refresh_views(double deltaMs)
 					applyTires();
 					applyFogLook();
 					// PROJ-2: the drawable's fade (a launched stone hidden for its InvisibleFrames, then faded in: GameClient/DrawableFade)
-					const float opacity = StealthLook::drawOpacity(d->drawOpacity(), stealthRec, presented.get(), m_stealthClockMs); // lane STEALTH-1: the friend's invisibility pulse
+					const float opacity = StealthLook::drawOpacity(d->drawOpacity(), d->stealth()); // lane STEALTHLOOK-1: the friend's invisibility pulse (+0xB4)
 					if (opacity != ev.opacity)
 					{
 						dyn->set_instance_opacity(ev.instance, opacity);
@@ -2124,7 +2149,7 @@ void GameWorld::refresh_views(double deltaMs)
 				}
 				if (ev.instance >= 0) // lane STEALTH-1: a friend's invisible object pulses, a revealed one returns to full opacity (GameClient/StealthLook)
 				{
-					const float opacity = StealthLook::drawOpacity(1.0f, stealthRec, presented.get(), m_stealthClockMs);
+					const float opacity = d->stealthOpacity(); // lane STEALTHLOOK-1: the drawable's stepped stealth opacity (+0xB4)
 					if (opacity != ev.opacity)
 					{
 						dyn->set_instance_opacity(ev.instance, opacity);
@@ -4354,6 +4379,18 @@ bool GameWorld::onlineLimits(int &factions, int &colors) const
 	return true;
 }
 
+int GameWorld::warRegionCount(const std::string &scenario) const
+{
+	if (!m_world)
+	{
+		return -1;
+	}
+	const LivingWorld::LivingWorldStores &stores = m_world->livingWorld();
+	const LivingWorld::Campaign *c = stores.findCampaign(scenario);
+	const LivingWorld::RegionCampaign *rc = c && c->scenario ? stores.findRegionCampaign(c->scenario->regionCampaign) : nullptr;
+	return rc ? (int)rc->regions.size() : -1;
+}
+
 String GameWorld::net_profile_digest() const
 {
 	return toGodot(net_profile().digest); // lane ONLINE-2: what the lobby compares between players
@@ -4402,6 +4439,221 @@ Dictionary GameWorld::net_poll()
 		r["crc_interval"] = m_netStart.crcInterval;
 	}
 	return r;
+}
+
+Dictionary GameWorld::lan_strategic_begin(Object *living_world, const Array &slot_of_player, const Dictionary &options)
+{
+	Dictionary r;
+	r["ok"] = false;
+	LivingWorldGame *lw = Object::cast_to<LivingWorldGame>(living_world);
+	if (!m_netStarted || !m_netSocket || !lw)
+	{
+		r["error"] = "lan_strategic_begin needs a started LAN game (lan_begin) and a LivingWorldGame";
+		return r;
+	}
+	if (m_netStart.online || !m_netStart.game.game.warOfTheRing())
+	{
+		r["error"] = m_netStart.online ? "an online War of the Ring is not ported yet (WOTR2 milestone 8 step 4)" : "the started game is not a War of the Ring";
+		return r;
+	}
+	NetworkConfig config;
+	config.localSlot = m_netStart.localSlot;
+	config.runAhead = m_netStart.runAhead;
+	config.crcInterval = m_netStart.crcInterval;
+	std::string error;
+	if (!m_fs.is_valid() || !NetworkSettings::load(*m_fs->archive_fs(), config.settings, &error))
+	{
+		r["error"] = toGodot("network settings: " + error);
+		return r;
+	}
+	if (options.has("disconnect_ms"))
+	{
+		config.settings.disconnectTime = (std::uint32_t)(int64_t)options["disconnect_ms"];
+	}
+	if (options.has("player_timeout_ms"))
+	{
+		config.settings.playerTimeoutTime = (std::uint32_t)(int64_t)options["player_timeout_ms"];
+	}
+	for (int s = 0; s < MAX_SLOTS; ++s)
+	{
+		config.slotNames[(size_t)s] = m_netStart.game.game.slots[s].name;
+	}
+	for (int64_t p = 0; p < slot_of_player.size(); ++p)
+	{
+		const int slot = (int)(int64_t)slot_of_player[p];
+		if (slot >= 0 && slot < MAX_SLOTS && m_netStart.networkSlot[(size_t)slot])
+		{
+			config.slotPlayerIndex[(size_t)slot] = (int)p; // the Living World player of the slot (RW 0x932EB8 writes it into slot + 0x4C)
+		}
+	}
+	for (int s = 0; s < MAX_SLOTS; ++s)
+	{
+		if (m_netStart.networkSlot[(size_t)s] && config.slotPlayerIndex[(size_t)s] < 0)
+		{
+			r["error"] = toGodot("network slot " + std::to_string(s) + " has no player in the war");
+			return r;
+		}
+	}
+	auto transport = std::make_unique<Transport>(*m_netSocket, m_netStart.localSlot, Transport::Options());
+	for (int s = 0; s < MAX_SLOTS; ++s)
+	{
+		if (m_netStart.networkSlot[(size_t)s] && s != m_netStart.localSlot)
+		{
+			transport->setPeer(s, m_netStart.addresses[(size_t)s]);
+		}
+	}
+	const GameRules &rules = m_netStart.game.game.rules;
+	const int timer = MpGameRules::isNone(rules) ? 0 : rules[RULE_STRATEGIC_PHASE_TIMER]; // TheGameInfo + 0x78
+	const int battleChoice = MpGameRules::isNone(rules) ? 0 : rules[RULE_BATTLE_CHOICE]; // TheGameInfo + 0x80
+	// [S-1342] the battle maps' start positions (wotr.gd's map key: maps/<name>/<name>.map, lower case); a map this install does not have is -2: the logic
+	// reports it by name and auto-resolves its battle on every peer rather than never starting it
+	lw->setMapStartCount([this](const std::string &mapName) {
+		std::string lower = mapName;
+		for (char &c : lower)
+		{
+			c = (char)std::tolower((unsigned char)c);
+		}
+		const std::string key = "maps/" + lower + "/" + lower + ".map";
+		for (const MapCacheEntry &m : m_mapCache)
+		{
+			if (m.name == key)
+			{
+				return (int)m.numPlayers;
+			}
+		}
+		return -2;
+	});
+	if (!lw->attachNetwork(std::move(transport), config, timer, battleChoice, &error))
+	{
+		r["error"] = toGodot(error);
+		return r;
+	}
+	r["ok"] = true;
+	r["local_player"] = config.slotPlayerIndex[(size_t)m_netStart.localSlot];
+	r["timer"] = timer;
+	return r;
+}
+
+void GameWorld::lan_strategic_end()
+{
+	m_netSession.reset();
+	m_netClient.reset();
+	m_netHost.reset();
+	m_netSocket.reset();
+	m_netStart = LobbyStart();
+	m_netStarted = false;
+	m_netLoaded = false;
+	m_netScript = false;
+	m_netScriptFrame = 0xFFFFFFFFu;
+	m_netPlayer = -1;
+	m_netStartPos = -1;
+	m_netScripted = 0;
+}
+
+Dictionary GameWorld::lan_war_battle(const Dictionary &message, const Array &lobby_slot_of_battle_slot)
+{
+	Dictionary r;
+	r["ok"] = false;
+	if (!m_netStarted || !m_netSocket || !m_netStart.game.game.warOfTheRing() || m_warBattle)
+	{
+		r["error"] = "lan_war_battle needs a running LAN War of the Ring (lan_strategic_begin) and no battle running";
+		return r;
+	}
+	LobbyStart battle;
+	std::string error;
+	if (!newGameFromDictionary(message, battle.game, &error))
+	{
+		r["error"] = toGodot("the battle's start: " + error);
+		return r;
+	}
+	battle.runAhead = m_netStart.runAhead;
+	battle.crcInterval = m_netStart.crcInterval;
+	battle.profile = m_netStart.profile;
+	battle.localSlot = -1;
+	for (int64_t s = 0; s < lobby_slot_of_battle_slot.size() && s < MAX_SLOTS; ++s)
+	{
+		const int lobby = (int)(int64_t)lobby_slot_of_battle_slot[s];
+		if (lobby < 0 || lobby >= MAX_SLOTS || !m_netStart.networkSlot[(size_t)lobby])
+		{
+			continue; // an AI or an empty battle slot
+		}
+		battle.networkSlot[(size_t)s] = true;
+		battle.addresses[(size_t)s] = m_netStart.addresses[(size_t)lobby];
+		if (lobby == m_netStart.localSlot)
+		{
+			battle.localSlot = (int)s;
+		}
+	}
+	if (battle.localSlot < 0)
+	{
+		// RW 0x6B5E3E vs the 0x6A7 tally: a network battle is fought in real time only when every live human of the war is in it
+		r["error"] = "the local player has no slot in the battle";
+		return r;
+	}
+	m_warStart = m_netStart;
+	m_netStart = battle;
+	m_warBattle = true;
+	m_warLeftBeforeEnd = false;
+	m_warOtherDepartedBeforeEnd = false;
+	r["ok"] = true;
+	r["local_slot"] = battle.localSlot;
+	return r;
+}
+
+int64_t GameWorld::lan_war_battle_end_frame() const
+{
+	if (!m_warBattle || !m_game)
+	{
+		return -1;
+	}
+	return (int64_t)EndGameController::victoryTimerEndFrame(m_game->logic().victory().events());
+}
+
+bool GameWorld::lan_war_battle_departed() const
+{
+	// (Sol review wotr2m8s3r2) a departure ends the war only when it comes BEFORE the battle's end: every peer compares the same two logic frames, the slot's
+	// departure frame (its leave / drop, Network::departureFrame) and T_end, the victory event's frame + the end-game timer
+	// (EndGameController::victoryTimerEndFrame: no peer's timer runs out before it), once it has presented the departure's frame. A leave at or after T_end
+	// is the battle's end, not a departure; the leaving client applies the same rule to its own leave (net_finish: clear_game_data's war_left_before_end)
+	if (!m_warBattle || !m_netSession || !m_game)
+	{
+		return false;
+	}
+	const std::shared_ptr<const LogicSnapshot> snap = m_game->presentedSnapshot();
+	if (!snap)
+	{
+		return false;
+	}
+	const long long end = snap->endGame ? EndGameController::victoryTimerEndFrame(snap->endGame->events) : -1;
+	Network &net = m_netSession->network();
+	for (int s = 0; s < MAX_SLOTS; ++s)
+	{
+		if (s == m_netStart.localSlot || !m_netStart.networkSlot[(size_t)s])
+		{
+			continue;
+		}
+		const UnsignedInt dep = net.departureFrame(s);
+		if (dep == 0xFFFFFFFFu || dep > snap->frame)
+		{
+			continue; // none, or not presented yet: decided when this peer has run that frame
+		}
+		if (end < 0 || (long long)dep < end)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+void GameWorld::lan_war_battle_end()
+{
+	if (m_warBattle)
+	{
+		m_netSession.reset(); // the battle's transport releases the socket first
+		m_netStart = m_warStart;
+		m_netStarted = true;
+		m_warBattle = false;
+	}
 }
 
 Dictionary GameWorld::net_begin(const Dictionary &options)
@@ -5285,6 +5537,40 @@ void GameWorld::net_finish()
 	if (m_netSession && m_game)
 	{
 		m_netSession->finish(*m_game); // the local player leaves (PLAYERLEAVE), the recording gets its end record
+		if (m_warBattle)
+		{
+			// WOTR2 milestone 8: the rule lan_war_battle_departed applies on the other peers, on this client's own leave: its PLAYERLEAVE's frame against
+			// T_end (the drained logic's victory events; [S-1343] a victory inside the leave's run-ahead window, which the leaver has not run, is not seen)
+			// finish drained the worker (LiveGame::drainFrames), so the logic is held here and the read waits for nothing
+			if (m_game->logicHeld())
+			{
+				const long long end = EndGameController::victoryTimerEndFrame(m_game->logic().victory().events());
+				const UnsignedInt leave = m_netSession->leaveFrame();
+				m_warLeftBeforeEnd = leave != 0xFFFFFFFFu && (end < 0 || (long long)leave < end);
+				// (Sol review wotr2m8s3r3) and the other players' departures, the final check whatever the exit (the timer's, a waiting Exit): a peer whose
+				// logic ran T_end knows every departure before it (the lockstep runs no frame past a leave or a drop it has not been told of), so a
+				// departure the presentation had not shown yet is not missed
+				m_warOtherDepartedBeforeEnd = false;
+				const Network &net = m_netSession->network();
+				for (int s = 0; s < MAX_SLOTS; ++s)
+				{
+					if (s == m_netStart.localSlot || !m_netStart.networkSlot[(size_t)s])
+					{
+						continue;
+					}
+					const UnsignedInt dep = net.departureFrame(s);
+					if (dep != 0xFFFFFFFFu && (end < 0 || (long long)dep < end))
+					{
+						m_warOtherDepartedBeforeEnd = true;
+					}
+				}
+			}
+			else
+			{
+				UtilityFunctions::push_error("WotR: the battle's logic was not idle after the leave: its end frame cannot be judged; the war ends");
+				m_warLeftBeforeEnd = true;
+			}
+		}
 		const std::uint64_t t0 = NetMilliseconds();
 		// lane ONLINE-3: a spectator sent nothing; lane ONLINEUX-1 r2: nor did a rejoin that never went live
 		while (!m_netSpectating && !m_netSession->rejoinUnjoined() && !m_netSession->allAcked() && NetMilliseconds() - t0 < 2000)
@@ -6584,6 +6870,7 @@ Dictionary GameWorld::get_end_game_state() const
 	d["victory_screen"] = m_endGame->victoryScreen();
 	d["hidden"] = m_endGame->hidden();
 	d["fade_to_score"] = m_endGame->fadeToScore();
+	d["end_timer"] = m_endGame->endGameTimer(); // -1 not started, > 0 counting, 0 ran out (WOTR2 milestone 6: a War of the Ring battle was decided)
 	d["scripts_loaded"] = m_endGame->scriptsLoaded();
 	d["scripts"] = (int64_t)m_endGame->scripts().scriptCount();
 	d["scripts_run"] = (int64_t)m_endGame->scripts().scriptsRun();
@@ -6805,6 +7092,18 @@ Dictionary GameWorld::clear_game_data(bool show_score_screen)
 	net_finish();
 	clear_scene();
 	m_start.reset();
+	if (m_warBattle)
+	{
+		// WOTR2 milestone 8 (step 3): a LAN war's battle ended: the war goes on over the same socket (lan_war_battle_end, then a new strategic session)
+		m_netSession.reset();
+		m_netLoaded = false;
+		out["war_left_before_end"] = m_warLeftBeforeEnd;
+		out["war_other_departed_before_end"] = m_warOtherDepartedBeforeEnd;
+		m_warLeftBeforeEnd = false;
+		m_warOtherDepartedBeforeEnd = false;
+		out["ok"] = true;
+		return out;
+	}
 	// the lobby and socket owners and the network flags of the finished LAN game: the next skirmish starts as a skirmish
 	m_netClient.reset();
 	m_netHost.reset();
@@ -7041,6 +7340,88 @@ void GameWorld::releaseLocalDrivers()
 }
 
 // ---- lane MP-2: the LAN lobby ---------------------------------------------------------------------------------------------------------------------------------
+// WOTR2 milestone 8 (step 4): the host resumes a saved LAN war: the setup's save identity and state hash (GameInfo::resumeSave / resumeHash; the scenario
+// and the slots are set as for a new war first), and the saved human seats other than the host's ([slot, the saved player's name]) the joiners must fill
+Dictionary GameWorld::lan_host_set_resume(const String &save, int64_t state_hash, const Array &seats, const Dictionary &lobby)
+{
+	Dictionary r;
+	r["ok"] = false;
+	auto refuse = [&](const std::string &why) {
+		r["error"] = String::utf8(why.c_str());
+		return r;
+	};
+	if (!m_lan || !m_lan->amIHost())
+	{
+		return refuse("only the host of a LAN game resumes a saved war");
+	}
+	if (!m_lan->currentGame()->info.warOfTheRing())
+	{
+		return refuse("the LAN game is no War of the Ring");
+	}
+	// (Sol wotr2m8s4 #4) the saved lobby whole (RW 0x8182CF -> RW 0x840F3F: the saved GameInfo is the new game's): its scenario, rules and every slot as
+	// saved, closed and AI slots included; the saved humans' seats are opened for their players (hostSetOptions keeps a joiner already in one)
+	NewGameMessage saved;
+	std::string error;
+	if (!newGameFromDictionary(lobby, saved, &error))
+	{
+		return refuse("the save's lobby is damaged: " + error);
+	}
+	if (!saved.game.warOfTheRing() || !saved.game.slots[0].isHuman())
+	{
+		return refuse("the save's lobby is no LAN War of the Ring hosted from slot 0");
+	}
+	SkirmishGameInfo info = saved.game;
+	for (SkirmishGameSlot &slot : info.slots)
+	{
+		if (slot.state == SLOT_OPEN)
+		{
+			slot.state = SLOT_CLOSED; // no player of the saved war sat there: only the saved humans' seats take joiners
+		}
+	}
+	info.inProgress = false;
+	info.seed = 0; // the host's choice at the start
+	info.resumeSave = std::string(save.utf8().get_data());
+	info.resumeHash = (std::uint32_t)state_hash;
+	std::vector<LANAPI::ResumeSeat> list;
+	for (int64_t i = 0; i < seats.size(); ++i)
+	{
+		const Array seat = seats[i];
+		// (Sol wotr2m8s4 #5) the seats come from the save's session: a joiner's slot 1 .. MAX_SLOTS - 1 with the player's name, else the resume is refused
+		if (seat.size() != 2 || seat[0].get_type() != Variant::INT || (int64_t)seat[0] < 1 || (int64_t)seat[0] >= MAX_SLOTS || seat[1].get_type() != Variant::STRING)
+		{
+			return refuse("the save's seat " + std::to_string((long long)i) + " is not a joiner's slot and a name");
+		}
+		LANAPI::ResumeSeat rs;
+		rs.slot = (int)(int64_t)seat[0];
+		const String name = String(seat[1]);
+		for (int64_t k = 0; k < name.length(); ++k)
+		{
+			rs.name.push_back((char16_t)name[k]);
+		}
+		rs.saved = saved.game.slots[(size_t)rs.slot];
+		if (!rs.saved.isHuman())
+		{
+			return refuse("the save's seat " + std::to_string(rs.slot) + " is no human slot of its lobby");
+		}
+		list.push_back(rs);
+	}
+	for (int s = 1; s < MAX_SLOTS; ++s)
+	{
+		const bool seat = std::any_of(list.begin(), list.end(), [&](const LANAPI::ResumeSeat &x) { return x.slot == s; });
+		if (saved.game.slots[(size_t)s].isHuman() != seat)
+		{
+			return refuse("the save's players do not match its lobby's human slots (slot " + std::to_string(s) + ")");
+		}
+	}
+	m_lan->hostSetResumeSeats(list, saved.game.rules);
+	if (!m_lan->hostSetOptions(info))
+	{
+		return refuse("the host's setup refused the resume");
+	}
+	r["ok"] = true;
+	return r;
+}
+
 Dictionary GameWorld::lan_open(const Dictionary &options)
 {
 	Dictionary r;
@@ -7061,6 +7442,18 @@ Dictionary GameWorld::lan_open(const Dictionary &options)
 	o.colorCount = (int)m_settings->multiplayerColors.size();
 	// lane HERO-2: the slots' Create-a-Heroes are checked against this world's CreateAHeroSystem.ini and command buttons
 	o.validateCreateAHero = [this](const CreateAHeroHero &h, std::string *why) { return m_world->createAHeroSystem().validateHero(h, m_world->commands(), why); };
+	// WOTR2 milestone 8: a War of the Ring's start positions are the scenario's regions
+	o.warRegionCount = [this](const std::string &scenario) { return warRegionCount(scenario); };
+	// WOTR2 milestone 8 (step 4): a resumed LAN war: the script's check of this player's copy (wotr.gd resume_check: the save by its identity, loaded,
+	// its state hash compared); none: every resumed war is answered "cannot look"
+	if (options.has("resume_check"))
+	{
+		const Callable check = options["resume_check"];
+		o.resumeCheck = [check](const std::string &save, std::uint32_t hash) {
+			const Variant v = check.call(String(save.c_str()), (int64_t)hash);
+			return v.get_type() == Variant::STRING ? std::string(String(v).utf8().get_data()) : std::string("the save check gave no answer");
+		};
+	}
 	const Array targets = options.get("targets", Array());
 	for (int64_t i = 0; i < targets.size(); ++i)
 	{

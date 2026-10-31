@@ -248,23 +248,23 @@ TEST_CASE("apt file: structural errors are reported")
 	};
 	REQUIRE(parseBytes(a));
 
-	// the header as retail reads it (RW 0xAF8110): only byte 8 (':') and byte 9 (the version digit); the rest is never looked at
+	// lane MODUI-1: retail reads only bytes 8 and 9 of the header (AptGetSwfVersion, RW 0xAF8110): the rest of the text is not checked
 	std::vector<std::uint8_t> bad = a;
 	bad[0] = 'B';
-	bad[10] = '4'; // Ennorath 1.9.8's MainMenu.apt: "Apt Data:74" 1A 00 is version 7
+	bad[10] = '4'; // "Bpt Data:74": Edain's InGameHeroSelect.apt and Ennorath's MainMenu.apt carry "Apt Data:74" 1A 00
 	REQUIRE_MESSAGE(parseBytes(bad), err);
-	CHECK(f.version == 7u);
-	bad = a;
-	bad[8] = '.'; // no ':' -> version 6
+	CHECK(f.version == 7);
+	bad[8] = '-'; // no ':' -> version 6
 	REQUIRE_MESSAGE(parseBytes(bad), err);
-	CHECK(f.version == 6u);
+	CHECK(f.version == 6);
 
 	bad = a;
 	bad[9] = '5';
 	CHECK_FALSE(parseBytes(bad));
-	CHECK(err.find("unsupported Apt version 5") != std::string::npos);
-	CHECK_FALSE(parseBytes(std::vector<std::uint8_t>(a.begin(), a.begin() + 9)));
-	CHECK(err.find("too short") != std::string::npos);
+	CHECK(err.find("version 5") != std::string::npos);
+
+	bad.assign(a.begin(), a.begin() + 9);
+	CHECK_FALSE(parseBytes(bad));
 
 	bad = a;
 	std::uint32_t entry = cf.aptDataEntryOffset;
@@ -944,4 +944,32 @@ TEST_CASE("loader: .swf urls name movies (EA DispatchLiteral008C5840: suffix tes
 	CHECK_FALSE(AptLoader::movieNameFromSwf("Y.swf2", name));
 	CHECK_FALSE(AptLoader::movieNameFromSwf("swf", name));
 	CHECK_FALSE(AptLoader::movieNameFromSwf("FSCommand:Foo", name));
+}
+
+TEST_CASE("apt file: an edit text's multiline and word-wrap dwords are on when non-zero, as retail reads them (MODUI-1)")
+{
+	// RW 0x4AA3D2 / 0x4AA3DB compare the whole dwords with 0; mod tools leave values like 161 (Edain's MpGameSetup.apt) and 0x001E4000 there
+	const std::pair<std::uint32_t, bool> cases[] = { { 0u, false }, { 1u, true }, { 161u, true }, { 0x001E4000u, true }, { 0x74616C73u, true } };
+	for (const auto &[value, on] : cases)
+	{
+		CAPTURE(value);
+		TestMovie m;
+		const std::uint32_t textRec = m.addEditText("", "");
+		m.addCharacter(0);
+		m.addCharacter(textRec);
+		m.setRootFrames({});
+		std::vector<std::uint8_t> a, c;
+		m.build(a, c);
+		patch32(a, textRec + 44, value);
+		patch32(a, textRec + 48, value);
+		AptConstFile cf;
+		std::string err;
+		REQUIRE(AptConstFile::parse(c, cf, &err));
+		AptFile f;
+		REQUIRE_MESSAGE(AptFile::parse("T", std::make_shared<const std::vector<std::uint8_t>>(a), cf, f, &err), err);
+		REQUIRE(f.characters.size() == 2);
+		REQUIRE(f.characters[1].text);
+		CHECK(f.characters[1].text->multiline == on);
+		CHECK(f.characters[1].text->wordWrap == on);
+	}
 }

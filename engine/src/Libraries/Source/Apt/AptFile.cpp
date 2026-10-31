@@ -530,10 +530,10 @@ bool parseText(AptReader &r, std::uint32_t at, AptTextInfo &t)
 	t.fontId = r.u32(at + 24, "text font character");
 	t.alignment = r.u32(at + 28, "text alignment");
 	t.fontHeight = r.f32(at + 36, "text font height");
-	// The three flags are dwords the runtime reads in place (the file layout is the runtime layout, see AptFile.h). INFERENCE (the read sites were
-	// not traced): a flag is tested against zero, so any non-zero value is true. Retail data holds only 0 / 1; a mod's exporter can leave other
-	// bytes there (Ennorath 1.9.8 Palantir.apt: a word-wrap dword "srat", which retail runs)
-	t.readOnly = r.u32(at + 40, "text read-only") != 0;
+	t.readOnly = boolField(r, at + 40, "text read-only");
+	// lane MODUI-1: the multiline and word-wrap dwords are compared with 0 where retail reads them (the display string ctor, RW 0x4AA3D2 /
+	// 0x4AA3DB: cmp dword [src + 0x28 / + 0x24], 0 with src = the character + 8), so any non-zero value is "on". Mod tools leave other
+	// non-zero values there (Edain's MpGameSetup.apt: 161; others 0x001E4000), which retail shows as wrapping multiline fields.
 	t.multiline = r.u32(at + 44, "text multiline") != 0;
 	t.wordWrap = r.u32(at + 48, "text word-wrap") != 0;
 	t.initialText = r.cstring(r.u32(at + 52, "text content pointer"), "text content");
@@ -648,17 +648,18 @@ bool AptFile::parse(const std::string &movieName, std::shared_ptr<const std::vec
 	}
 	AptReader r(aptBytes->data(), aptBytes->size(), movieName + ".apt");
 	const std::vector<std::uint8_t> &d = *aptBytes;
-	// TARGET FACT, the movie's version RW 0xAF8110: byte 8 ':' -> (signed char)byte 9 - '0', else 6. Nothing else of the header is read (the
-	// binary holds no "Apt Data" string): Ennorath 1.9.8's MainMenu.apt starts "Apt Data:74" 1A 00 and is version 7 in retail. A version
-	// other than 6 or 7 is refused: which of the runtime's branches compare == 7 and which >= 7 is not established for other values
+	// lane MODUI-1: retail never checks the .apt's header text (RotWK holds no "Apt Data" string); its only reader is AptGetSwfVersion
+	// (RW 0xAF8110): byte 9 - '0' when byte 8 is ':', else 6. Mod tools write other headers (Edain's InGameHeroSelect.apt and Ennorath's
+	// MainMenu.apt start "Apt Data:74" 1A 00), which retail plays as version 7. The movie itself is found through the .const's entry offset.
 	if (d.size() < 10)
 	{
-		return setError(error, movieName + ".apt: " + std::to_string(d.size()) + " bytes, too short for the header");
+		return setError(error, movieName + ".apt: " + std::to_string(d.size()) + " bytes, shorter than the version header retail reads (RW 0xAF8110)");
 	}
-	const int version = d[8] == ':' ? (int)(signed char)d[9] - '0' : 6;
+	const int version = d[8] == ':' ? (int)(std::int8_t)d[9] - '0' : 6;
 	if (version != 6 && version != 7)
 	{
-		return setError(error, movieName + ".apt: unsupported Apt version " + std::to_string(version) + " (RW 0xAF8110: header byte 9 - '0'; expected 6 or 7)");
+		// stop: only the SWF 6 and 7 rules (AptValue.h: the code branches on version == 7) are ported and pinned against retail
+		return setError(error, movieName + ".apt: Apt version " + std::to_string(version) + " (RW 0xAF8110) is not ported (6 and 7 are)");
 	}
 	out.name = movieName;
 	out.version = (std::uint32_t)version;

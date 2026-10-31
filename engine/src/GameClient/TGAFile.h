@@ -29,7 +29,8 @@ struct TGAImage
 namespace TGAFile
 {
 // maxDimension: images larger than this are refused (terrain: 1024).
-// allowRle: also read type 10 (RLE true-colour). Terrain tiles keep it off, as retail's readTiles; a map's radar art goes through the texture
-// manager, which takes any TGA (Ennorath's maps ship RLE art).
-bool decode(const std::uint8_t *data, size_t size, TGAImage &out, std::string *error, int maxDimension = 1024, bool allowRle = false);
+// rle (lane MODUI-1): also read run-length encoded true-colour images (type 10). The terrain reader refuses them (above); the textures retail
+// loads through its texture loader (the Apt menu images and map previews) are read with ZH WWLib TARGA.CPP Targa::Load, which decodes type 10
+// (TGA_TRUECOLOR_ENCODED -> DecodeImage: a packet byte, bit 7 = a run of count + 1 copies of one pixel, else count + 1 literal pixels).
+bool decode(const std::uint8_t *data, size_t size, TGAImage &out, std::string *error, int maxDimension = 1024, bool rle = false);
 }
