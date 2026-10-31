@@ -95,6 +95,7 @@ RetailObjectWorld::State::State(ArchiveFileSystem &fs)
 	m_spellStores = std::make_unique<SpellStores>(m_keys);
 	m_audio = std::make_unique<AudioIniState>();
 	m_skirmishAI = std::make_unique<SkirmishAIStore>(m_keys);
+	m_livingWorld = std::make_shared<LivingWorld::LivingWorldStores>(); // WOTR-1
 	m_env.fileSystem = &m_fs;
 	m_legend.registerBlock(m_env.blocks);
 	m_things->registerBlocks(m_env.blocks);
@@ -116,9 +117,12 @@ RetailObjectWorld::State::State(ArchiveFileSystem &fs)
 	{
 		skip.push_back(*k); // SPELL-1: Science, Rank, SpecialPower
 	}
+	// WOTR-1: the War of the Ring blocks with real parsers (GameLogic/LivingWorld/LivingWorldData.h); the presentation and AutoResolve blocks stay stubs
+	skip.insert(skip.end(), LivingWorld::LivingWorldStores::blockKeywords().begin(), LivingWorld::LivingWorldStores::blockKeywords().end());
 	RegisterRecordingBlockStubs(m_env.blocks, m_recorder, skip, StubExtent::Lenient);
 	m_audio->registerBlocks(m_env.blocks);
 	m_skirmishAI->registerBlocks(m_env.blocks);
+	m_livingWorld->registerBlocks(m_env.blocks); // WOTR-1
 	// PROD-1: the control bar's two block parsers (RW 0x5DA711 / 0x7205B9) replace their recording stubs
 	m_env.blocks.registerBlock("CommandButton", [](INI *ini) { CommandStore::parseCommandButtonDefinitionGlobal(ini); });
 	m_env.blocks.registerBlock("CommandSet", [](INI *ini) { CommandStore::parseCommandSetDefinitionGlobal(ini); });
