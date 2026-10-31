@@ -10,6 +10,7 @@ list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/ClearanceTestingSlowDeathG
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/ClearanceTestingSlowDeathBehavior.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/SpecialEnemySenseUpdate.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/OathbreakersFadeAwayBehavior.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/AODCrushCollide.cpp)
 set(OPENBFME_MODGAP2_TESTS
     tests/test_modgap2_bored.cpp
     tests/test_modgap2_aod_crush.cpp

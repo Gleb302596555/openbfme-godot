@@ -3,6 +3,7 @@
 
 #include "GameLogic/Module/AttachUpdate.h"
 #include "GameLogic/Module/BoredUpdate.h"
+#include "GameLogic/Module/AODCrushCollide.h"
 #include "GameLogic/Module/ClearanceTestingSlowDeathBehavior.h"
 #include "GameLogic/Module/SpecialEnemySenseUpdate.h"
 #include "GameLogic/Module/OathbreakersFadeAwayBehavior.h"
@@ -171,6 +172,7 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	ReplaceObjectUpdate::registerClass(modules); // MODGAP-2: filtered replacement ability (S-6002)
 	ShipSlowDeathBehavior::registerClass(modules); // MODGAP-2: slow death with sinking rotation
 	ClearanceTestingSlowDeathBehavior::registerClass(modules); // MODGAP-2: select a death with clearance
+	AODCrushCollide::registerClass(modules); // MODGAP-2, both editions: collision RW 0x8C0201 / BFME2 0x8BC0B8, update RW 0x8C042F / BFME2 0x8BC2E6
 	StoreObjectsSpecialPower::registerClass(modules); // MODGAP-2: remember filtered teleport targets
 	SplitHordeSpecialPower::registerClass(modules); // MODGAP-2: a mixed horde splits (S-6004)
 	TeleportToCasterSpecialPower::registerClass(modules); // MODGAP-2: the stored units teleport (S-6003)
