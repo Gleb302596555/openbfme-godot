@@ -110,6 +110,7 @@ const SettingsScreen := preload("res://scripts/ui/settings_screen.gd")
 const MessagePanel := preload("res://scripts/ui/message_panel.gd")
 const PlayerMessages := preload("res://scripts/ui/player_messages.gd")
 const InstanceLock := preload("res://scripts/core/instance_lock.gd")
+const LauncherCrash := preload("res://scripts/core/launcher_crash.gd")
 const GameStart := preload("res://scripts/core/game_start.gd")
 const OnlineCount := preload("res://scripts/core/online_count.gd")  # lane ONLINECOUNT-1
 const HttpFetch := preload("res://scripts/net/http_fetch.gd")
@@ -133,6 +134,7 @@ const RECHECK_SECONDS := 3600.0  # lane UI-5: while the launcher stays open, it 
 var info: RefCounted
 var updater: Updater
 var _instance: InstanceLock  # lane UI-5 (Sol r2): one launcher at a time
+var _crash_marker := false   # lane CRASHACT-1: this launcher wrote user://launcher.running (removed when it ends normally)
 var aio: AioInstall
 var game_files: GameFiles
 var _verify_panel: VerifyFilesPanel
@@ -383,6 +385,7 @@ func _ready() -> void:
 	_problem = problem
 	_build_ui()
 	_init_social()
+	_crash_start()
 	if start.message != "":
 		_set_status(start.message)
 	_refresh_installed()
@@ -415,6 +418,30 @@ func _ready() -> void:
 	for a in args:
 		if a.begins_with("--screenshot="):
 			_screenshot(a.substr(13))
+
+
+## lane CRASHACT-1 (scripts/core/launcher_crash.gd): the last launcher's crash reported (queued, or offered when automatic reports are off), this
+## launcher's marker written, the queue sent in the background. Only a packaged launcher (or a test's loopback crash service), holding the lock.
+func _crash_start() -> void:
+	if not LauncherCrash.eligible(info.packaged) or _demo != "" or _instance == null:
+		return
+	var previous := LauncherCrash.take_previous()
+	LauncherCrash.write_marker(info.version)
+	_crash_marker = true
+	var automatic := LauncherCrash.automatic()
+	if not previous.is_empty():
+		var r: Dictionary = LauncherCrash.report(previous)
+		if not r.ok:
+			Log.line("LAUNCHER CRASH the last launcher did not end normally; not reported: " + str(r.error))
+		elif automatic:
+			LauncherCrash.enqueue(r.wire)
+		else:
+			Log.line("LAUNCHER CRASH the last launcher did not end normally; automatic reports are off: Send report offered")
+			_message.ask(L10n.t("launcher.crash.title"), L10n.t("launcher.crash.offer"), L10n.t("launcher.crash.send"), func() -> void:
+				if LauncherCrash.enqueue(r.wire).is_empty():
+					LauncherCrash.upload(self))
+	if automatic:
+		LauncherCrash.upload(self)
 
 
 ## tests (MACPLAY-1): press the real PLAY button `times` times, each once no job runs (its pressed signal: the player's click, _on_play),
@@ -2529,5 +2556,7 @@ func _exit_tree() -> void:
 			mods.request_stop("pause")
 		updater.http.cancelled = true
 		_thread.wait_to_finish()
+	if _crash_marker:
+		LauncherCrash.remove_marker()
 	if _instance != null:
 		_instance.release()

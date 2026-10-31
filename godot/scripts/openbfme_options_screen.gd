@@ -80,6 +80,7 @@ const HELP := {
 	"note:Camera": "None of these changes the game itself: the camera and the mouse only.",
 	"note:Interface": "\"Selected and damaged\" and \"Always\" health bars are this rebuild's.",
 	"OpenBFMEShowPing": "The top left corner of the online menus shows your ping to the game server. In a game room, the Players list and the CONNECTIONS button show everyone's ping.",
+	"OpenBFMECrashReports": "When OpenBFME crashes, a report goes to the OpenBFME team by itself at the next start: the version, the system, the crash and the end of the log, without names, folders or addresses. Off: the crash message offers Send report instead.",
 	"OpenBFMEShareResults": "After each LAN or online game: your install id, nickname and the game's summary (map, armies, teams, winner) go to the OpenBFME statistics service. Off: nothing is sent.",
 	"note:Online": "The original game's network settings, and what OpenBFME's online services receive.",
 	"note:Performance": "Uber performance mode changes how the game itself runs: read its warning.",
@@ -599,6 +600,8 @@ func _interface_rows() -> Array:
 		_extra_choice("OpenBFMEUIScale", "Interface scale", UI_SCALE_ITEMS, HELP.OpenBFMEUIScale),
 		_extra_check("OpenBFMEPingWheel", "Ping wheel", HELP.OpenBFMEPingWheel),
 		_extra_choice("OpenBFMEPingKey", "Ping key", PING_KEY_ITEMS, HELP.OpenBFMEPingKey),
+		# lane CRASHACT-1: here, not on Online (that tab's rows already fill the page above its footer)
+		_extra_check("OpenBFMECrashReports", "Send crash reports automatically", HELP.OpenBFMECrashReports),
 	])
 
 

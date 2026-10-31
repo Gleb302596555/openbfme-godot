@@ -160,7 +160,7 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 			}
 			if (const ThingTemplate *tt = b.getThingTemplate())
 			{
-				const int buildable = BuildAssistant::buildable(*tt);
+				const int buildable = BuildAssistant::buildable(*tt, obj.logic());
 				if (buildable == 2 || (buildable == 3 && player->getPlayerType() != PLAYER_COMPUTER))
 				{
 					return ButtonState::Hidden;
@@ -191,7 +191,7 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 			{
 				return ButtonState::Hidden;
 			}
-			const int buildable = BuildAssistant::buildable(*tt);
+			const int buildable = BuildAssistant::buildable(*tt, obj.logic());
 			if (buildable == 2 || (buildable == 3 && player->getPlayerType() != PLAYER_COMPUTER))
 			{
 				return ButtonState::Hidden; // Buildable = No, and Only_By_AI for a human
@@ -1099,9 +1099,12 @@ int ControlBar::stanceSlotOf(const CommandButton &b, Object &obj)
 	{
 		return -1;
 	}
+	// RW 0x96FF2F -> 0x861D8E: the toggle looks up the stance's class, not the stance (Uninitialized shows Battle, Porcupine / HoldGroundMoving show
+	// HoldGround), in the button's Stances (RW 0x96F2DA); the change listener RW 0x96F5DE gets the class too
+	const int stanceClass = StancesBehavior::stanceClass(sb->getStance());
 	for (size_t i = 0; i < b.m_stances.size(); ++i)
 	{
-		if (b.m_stances[i] == (int)sb->getStance())
+		if (b.m_stances[i] == stanceClass)
 		{
 			return (int)i;
 		}

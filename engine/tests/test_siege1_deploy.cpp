@@ -136,7 +136,7 @@ void orderPowerAt(Rig &r, Object &unit, const char *powerName, Object *target)
 	}());
 }
 
-// The WALL-2 integration point played by the test (S-4940): IsEndPortalAboveWall as Open-BFME-2 DynamicPortalBehaviourGetPosition.cpp has it (BFME2 0x460DF6,
+// The WALL-2 integration point played by the test (S-4940): IsEndPortalAboveWall as Open-BFME-2 DynamicPortalBehaviour.cpp has it (BFME2 0x460DF6,
 // RW 0x863EB3): the bone of the waypoint AboveWall of the template's DynamicPortalBehaviour (the ladder's and the tower's: BonePrefix Ladder, NumberOfBones 4,
 // AboveWall 3 -> WayPoint Index:3, the fourth bone "Ladder04") in world space, on a wall (Pathfinder::isPointOnWall(point, false)). The waypoints' creation and
 // removal are counted
@@ -596,7 +596,7 @@ TEST_CASE("siege1 retail review of #64: a ladder killed on its approach frees it
 		reserved += e.reservedBy == ladder ? 1 : 0;
 	}
 	REQUIRE(reserved == 1);
-	sc.ladder->kill(DEATH_NORMAL);
+	sc.ladder->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL);
 	r.frame(6); // the dock refreshes its reservations every 5 frames (RW 0x85D216 -> RW 0x85CBC8)
 	REQUIRE(r.logic().findObjectByID(ladder) != nullptr); // still there: its death plays
 	for (const SiegeDockingBehavior::Entry &e : SiegeDockingBehavior::of(*sc.wall)->entries())
@@ -679,7 +679,7 @@ TEST_CASE("siege1 retail: a player's order during the approach ends the deploy (
 		r.frame(1);
 	}
 	REQUIRE(sc.deploy->isDeployed());
-	sc.wall->kill(0);
+	sc.wall->kill(DAMAGE_UNRESISTABLE, 0);
 	int raised = -1;
 	for (int f = 1; f <= 40 && raised < 0; ++f)
 	{
@@ -874,10 +874,10 @@ TEST_CASE("siege1 retail: Grond (CrusherLevel 2) drives over an enemy soldier an
 			const Object *s = r.logic().findObjectByID(sid);
 			dead = !s || s->isEffectivelyDead();
 		}
-		r.logic().findObjectByID(eng->getID())->kill(0);
+		r.logic().findObjectByID(eng->getID())->kill(DAMAGE_UNRESISTABLE, 0);
 		if (Object *s = r.logic().findObjectByID(sid))
 		{
-			s->kill(0);
+			s->kill(DAMAGE_UNRESISTABLE, 0);
 		}
 		r.frame(2);
 		return dead;
