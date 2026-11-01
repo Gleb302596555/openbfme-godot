@@ -7,6 +7,7 @@ set(OPENBFME_CHAT1_CLIENT_SOURCES
     src/GameClient/GUI/AptScreens/AptInGameChat.cpp     # InGameChat.apt
     src/GameClient/EvaAnnounceClientCreate.cpp
     src/GameClient/BeaconClientUpdate.cpp               # the multiplayer beacon's client module (minimap pulses, hidden for enemies)
+    src/GameClient/RadarMarkerClientUpdate.cpp          # MODGAP-2: radar marker / ping client update module (S-2451)
 )
 set(OPENBFME_CHAT1_TESTS
     tests/test_chat1.cpp

@@ -18,8 +18,14 @@
   "SimMath::acosDet"
  ],
  "excluded": [
-  {"glob": "src/GameClient/CreateAHeroStats.cpp", "reason": "Create-a-Hero client profile statistics file IO; never simulation state"},
-  {"glob": "src/GameClient/TutorialSettings.cpp", "reason": "lane BFME2CAMP1: GameData's Basic / Advanced tutorial records the main menu's OnTutorial reads (the map to start, its load screen and music); no logic state, the logic gets only the map name and the tutorial game mode"},
+  {
+   "glob": "src/GameClient/CreateAHeroStats.cpp",
+   "reason": "Create-a-Hero client profile statistics file IO; never simulation state"
+  },
+  {
+   "glob": "src/GameClient/TutorialSettings.cpp",
+   "reason": "lane BFME2CAMP1: GameData's Basic / Advanced tutorial records the main menu's OnTutorial reads (the map to start, its load screen and music); no logic state, the logic gets only the map name and the tutorial game mode"
+  },
   {
    "glob": "src/Common/System/FloatFromChars.cpp",
    "reason": "the vendored fast_float parser behind Common/FloatFromChars.h (decimal text to float / double, correctly rounded; no simulation arithmetic of ours); it is compiled with the simulation flags, and tools/sim/compare_float_chars.cpp checks it against the C++ library; libclang 18 cannot parse its SSE2 header (the reason it is the only file that includes the vendored headers)"
@@ -531,6 +537,10 @@
   {
    "glob": "src/GameClient/BeaconClientUpdate.cpp",
    "reason": "CHAT-1, the multiplayer beacon's ClientUpdate module: decides on the client when a shown beacon pulses on the minimap and keeps an enemy's beacon hidden; never read by the logic (the beacon object itself is BeaconCommands.cpp, a simulation source)"
+  },
+  {
+   "glob": "src/GameClient/RadarMarkerClientUpdate.cpp",
+   "reason": "MODGAP-2, radar marker client module: connects a drawable to TheRadar ping/marker; client presentation only, never read by logic"
   },
   {
    "glob": "src/GameClient/InGameChat.cpp",

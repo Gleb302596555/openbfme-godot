@@ -15,6 +15,8 @@
 #include "GameLogic/Module/StoreObjectsSpecialPower.h"
 #include "GameLogic/Module/SplitHordeSpecialPower.h"
 #include "GameLogic/Module/TeleportToCasterSpecialPower.h"
+#include "GameLogic/Module/DestroyEnvironmentUpdate.h"
+#include "GameLogic/Module/PartTheHeavensUpdate.h"
 #include "GameLogic/Module/AISpecialPowerUpdate.h"
 #include "GameLogic/Module/RepairSpecialPower.h"
 #include "GameLogic/Module/GrabPassengerSpecialPower.h"
@@ -178,6 +180,8 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	StoreObjectsSpecialPower::registerClass(modules); // MODGAP-2: remember filtered teleport targets
 	SplitHordeSpecialPower::registerClass(modules); // MODGAP-2: a mixed horde splits (S-6004)
 	TeleportToCasterSpecialPower::registerClass(modules); // MODGAP-2: the stored units teleport (S-6003)
+	DestroyEnvironmentUpdate::registerClass(modules); // MODGAP-2: both editions RW 0x64F128 / BFME2 0x64F43C (S-7092)
+	PartTheHeavensUpdate::registerClass(modules); // MODGAP-2: both editions RW 0x64F1B1 / BFME2 0x64F4C5 (S-7093)
 	ClientBehaviorModules::registerAll(modules); // lane AUDIO-4: the footsteps (a ClientBehavior: the drawables make it, GameClient/)
 	SiegeModules::registerAll(modules); // lane SIEGE-1: SiegeDockingBehavior, SiegeDeploySpecialPower, StopSpecialPower, SiegeAIUpdate (after the AI classes)
 }

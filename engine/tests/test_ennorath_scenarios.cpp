@@ -25,6 +25,9 @@
 #include "GameLogic/Module/GiveUpgradeUpdate.h"
 #include "GameLogic/Module/ReflectDamage.h"
 #include "GameLogic/Module/SalvageCrateCollide.h"
+#include "GameLogic/Module/DestroyEnvironmentUpdate.h"
+#include "GameLogic/Module/PartTheHeavensUpdate.h"
+#include "GameClient/RadarMarkerClientUpdate.h"
 
 using ennorathscenario::World;
 
@@ -229,4 +232,63 @@ TEST_CASE("ENNORATH scenario EvaAnnounceClientCreate: visible dropped ring annou
  bool sight = false;
  CHECK(m.update(17, false, true, false, 0, sight) == -1);
  CHECK(m.update(18, false, true, false, 0, sight) == discovered);
+}
+
+TEST_CASE("ENNORATH scenario PartTheHeavensUpdate: PartTheHeavens spell effect has configured curves")
+{
+	World world;
+	if (!world.load("Ennorath scenario PartTheHeavensUpdate")) return;
+	const ThingTemplate *tt = world.shared.world->things().findTemplate("PartTheHeavens");
+	if (!tt) return;
+	const PartTheHeavensUpdateModuleData *data = nullptr;
+	for (const auto &m : tt->behaviorModules().nuggets())
+	{
+		if (m.name == "PartTheHeavensUpdate")
+		{
+			data = dynamic_cast<const PartTheHeavensUpdateModuleData *>(m.data.get());
+			break;
+		}
+	}
+	REQUIRE(data);
+	CHECK(data->m_texture == "SCCommandBar");
+	CHECK(data->m_color == 0x00FFFFFF);
+	CHECK(data->m_radius(0.0f) > 0.0f); // tolerance: radius curve evaluation produces positive decal size
+}
+
+TEST_CASE("ENNORATH scenario DestroyEnvironmentUpdate: PartTheHeavens specifies environment destruction times")
+{
+	World world;
+	if (!world.load("Ennorath scenario DestroyEnvironmentUpdate")) return;
+	const ThingTemplate *tt = world.shared.world->things().findTemplate("PartTheHeavens");
+	if (!tt) return;
+	const DestroyEnvironmentUpdateModuleData *data = nullptr;
+	for (const auto &m : tt->behaviorModules().nuggets())
+	{
+		if (m.name == "DestroyEnvironmentUpdate")
+		{
+			data = dynamic_cast<const DestroyEnvironmentUpdateModuleData *>(m.data.get());
+			break;
+		}
+	}
+	REQUIRE(data);
+	CHECK(data->m_destructionTime > 0); // tolerance: valid positive destruction countdown in frames
+}
+
+TEST_CASE("ENNORATH scenario RadarMarkerClientUpdate: TheDroppedRing specifies PingOneRing marker type")
+{
+	World world;
+	if (!world.load("Ennorath scenario RadarMarkerClientUpdate")) return;
+	const ThingTemplate *tt = world.shared.world->things().findTemplate("TheDroppedRing");
+	if (!tt) return;
+	const RadarMarkerClientUpdateModuleData *data = nullptr;
+	for (const auto &n : tt->clientUpdateModules().nuggets())
+	{
+		if (n.name == "RadarMarkerClientUpdate")
+		{
+			data = dynamic_cast<const RadarMarkerClientUpdateModuleData *>(n.data.get());
+			break;
+		}
+	}
+	REQUIRE(data);
+	CHECK(data->m_markerType == "PingOneRing");
 }

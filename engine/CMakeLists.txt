@@ -994,7 +994,7 @@ target_compile_definitions(openbfme_tests PRIVATE OPENBFME_AUDIO_FIXTURE_DIR="${
 target_compile_definitions(openbfme_tests PRIVATE OPENBFME_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/tests/data"
     OPENBFME_DOCS_DIR="${CMAKE_CURRENT_SOURCE_DIR}/../docs")
 if(MSVC)
-    target_compile_options(openbfme_tests PRIVATE /utf-8)
+    target_compile_options(openbfme_tests PRIVATE /utf-8 /EHsc)
 endif()
 endif()
 
