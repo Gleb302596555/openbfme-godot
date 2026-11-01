@@ -42,19 +42,33 @@ struct FlingWorld : combattest::CombatWorld {
 };
 }
 
-TEST_CASE("modgap2 fling: unsupported contain family is reported")
+TEST_CASE("modgap2 fling: carrier with HordeContain flings its member")
 {
-    FlingWorld w(true);
-    Object *carrier = w.unit("TestFlingCarrier", 'A', 300, 300);
-    REQUIRE(carrier);
-    REQUIRE(carrier->getContain());
-    auto *ability = dynamic_cast<SpecialAbilityUpdate *>(carrier->findModule("FlingPassengerSpecialAbilityUpdate"));
-    REQUIRE(ability);
-    ability->initiateIntentToDoSpecialPower(ability->abilityData()->m_specialPowerTemplate, nullptr, nullptr, 0, 0);
-    w.frames(20);
-    bool found = false;
-    for (const auto &line : w.logic->report().stops) found = found || line == FlingPassengerSpecialAbilityUpdate::stopLine();
-    CHECK(found);
+    for (GameEdition edition : { GameEdition::RotWK201, GameEdition::BFME2_106 }) {
+        FlingWorld w(true);
+        w.logic->setEdition(edition);
+        CAPTURE(gameEditionName(edition));
+        Object *carrier = w.unit("TestFlingCarrier", 'A', 300, 300);
+        Object *rider = w.unit("TestFlingRider", 'A', 310, 300);
+        REQUIRE(carrier);
+        REQUIRE(rider);
+        ContainModuleInterface *contain = carrier->getContain();
+        REQUIRE(contain);
+        REQUIRE(contain->addToContain(rider));
+        CHECK(rider->testStatus(0x26)); // HORDE_MEMBER
+        CHECK(rider->getContainedBy() == carrier);
+        auto *ability = dynamic_cast<SpecialAbilityUpdate *>(carrier->findModule("FlingPassengerSpecialAbilityUpdate"));
+        REQUIRE(ability);
+        ability->initiateIntentToDoSpecialPower(ability->abilityData()->m_specialPowerTemplate, nullptr, nullptr, 0, 0);
+        w.frames(20);
+        CHECK(ability->abilitiesTriggered() == 1);
+        CHECK(contain->getContainCount() == 0);
+        CHECK(rider->getContainedBy() == nullptr);
+        CHECK_FALSE(rider->testStatus(0x26)); // HORDE_MEMBER cleared on removal
+        CHECK_FALSE(rider->isEffectivelyDead());
+        REQUIRE(rider->getBodyModule());
+        CHECK(rider->getBodyModule()->getHealth() == 90.0f);
+    }
 }
 
 TEST_CASE("modgap2 fling: activating a carrier's ability releases its first passenger")

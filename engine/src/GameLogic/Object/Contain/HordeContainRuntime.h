@@ -513,6 +513,7 @@ public:
 	using HordeContain::HordeContain;
 	OBFME_MODULE_XFER(AODHordeContain)
 	bool addToContain(Object *obj) override;
+	UpdateSleepTime update() override; // RW 0x87DC7E .. 0x87DCA6 / BFME2 0x87AD8E .. 0x87ADB6
 };
 
 class GameLogicDispatch;

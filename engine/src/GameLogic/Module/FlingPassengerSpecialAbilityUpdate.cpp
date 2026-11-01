@@ -39,14 +39,10 @@ void FlingPassengerSpecialAbilityUpdate::triggerAbilityEffect() {
     Object *owner = getObject();
     ContainModuleInterface *contain = owner->getContain();
     if (!contain) throw std::logic_error("FlingPassengerSpecialAbilityUpdate: no contain interface");
-    // RW's slot 0x114/0x13C are verified here only for OpenContain and its
-    // transport heirs. Other contain families must not silently use this rule.
-    OpenContain *open = dynamic_cast<OpenContain *>(contain);
-    if (!open) { owner->logic().noteStop(stopLine()); return; }
-    const auto *items = open->getContainedItemsList();
+    const auto *items = contain->getContainedItemsList();
     if (!items || items->empty()) return;
     Object *rider = items->front();
-    open->removeFromContain(rider); // RW 0x866367, slot 0x13C with null filter
+    contain->removeFromContain(rider); // RW 0x866367, slot 0x13C with null filter
     if (m_warhead) ObjectWeapons::createAndFireTempWeaponAt(m_warhead, owner, *rider);
     if (rider->isEffectivelyDead()) {
         rider->setModelConditionState(62, true);

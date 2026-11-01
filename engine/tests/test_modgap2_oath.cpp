@@ -47,7 +47,7 @@ TEST_CASE("modgap2 oath: removing a MACHINE member does not release a formation 
     }
 }
 
-TEST_CASE("modgap2 oath: a horde member keeps selection and reports partial removal")
+TEST_CASE("modgap2 oath: a horde member keeps selection and removal cleans status")
 {
     for (GameEdition edition : { GameEdition::RotWK201, GameEdition::BFME2_106 }) {
         const std::string objects = std::string(kObjects) + kHorde;
@@ -59,15 +59,35 @@ TEST_CASE("modgap2 oath: a horde member keeps selection and reports partial remo
         REQUIRE(horde); REQUIRE(ghost); REQUIRE(horde->getContain());
         REQUIRE(horde->getContain()->addToContain(ghost));
         const ObjectID id = ghost->getID();
+        CHECK(ghost->testStatus(0x26)); // HORDE_MEMBER
         ghost->setModelConditionState(CombatNames::modelCondition("OATH_FULLFILLED"), true);
         w.frames(7);
         REQUIRE(w.logic->findObjectByID(id));
         CHECK(ghost->isScriptSelectable()); // HORDE_MEMBER skips the start action
         w.frames(30);
         CHECK(w.logic->findObjectByID(id) == nullptr);
-        bool found = false;
-        for (const auto &line : w.logic->report().stops) found = found || line == OathbreakersFadeAwayBehavior::hordeStop();
-        CHECK(found);
+    }
+}
+
+TEST_CASE("modgap2 oath: AODHordeContain propagates OATH_FULLFILLED to all members")
+{
+    for (GameEdition edition : { GameEdition::RotWK201, GameEdition::BFME2_106 }) {
+        const std::string aodObjects = std::string(kObjects) +
+            "Object TestAODHorde\n KindOf = HORDE SELECTABLE\n"
+            " Body = ActiveBody BodyTag\n MaxHealth = 100\n End\n"
+            " Behavior = AODHordeContain ContainTag\n Slots = 2\n End\nEnd\n";
+        combattest::CombatWorld w(aodObjects.c_str());
+        w.logic->setEdition(edition);
+        CAPTURE(gameEditionName(edition));
+        Object *horde = w.unit("TestAODHorde", 'A', 300, 300);
+        Object *ghost = w.unit("TestOathbreaker", 'A', 310, 300);
+        REQUIRE(horde); REQUIRE(ghost); REQUIRE(horde->getContain());
+        REQUIRE(horde->getContain()->addToContain(ghost));
+        const int oath = CombatNames::modelCondition("OATH_FULLFILLED");
+        CHECK_FALSE(ghost->testModelCondition(oath));
+        horde->setModelConditionState(oath, true);
+        w.frames(2);
+        CHECK(ghost->testModelCondition(oath));
     }
 }
 

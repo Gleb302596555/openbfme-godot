@@ -66,8 +66,7 @@ UpdateSleepTime OathbreakersFadeAwayBehavior::update()
 				ContainModuleInterface *contain = producer->getContain();
 				if (!contain || !contain->getHordeContainInterface())
 					throw std::logic_error("OathbreakersFadeAwayBehavior: horde producer lacks HordeContain");
-				logic.noteStop(hordeStop());
-				contain->getHordeContainInterface()->removeDyingMember(obj); // RW 0x87370B / BFME2 0x870717; remaining effects S-6006
+				contain->getHordeContainInterface()->removeDyingMember(obj); // RW 0x87370B / BFME2 0x870717
 			}
 			logic.destroyObject(obj);
 		}

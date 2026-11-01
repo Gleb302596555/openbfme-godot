@@ -114,6 +114,36 @@ void AODHordeContain::xfer(Xfer &x)
 	HordeContain::xfer(x);
 }
 
+// RW 0x87DC7E .. 0x87DCA6 / BFME2 0x87AD8E .. 0x87ADB6:
+// Propagate OATH_FULLFILLED (model condition bit 215) from horde object to all contained members.
+UpdateSleepTime AODHordeContain::update()
+{
+	UpdateSleepTime res = HordeContain::update();
+	const int oath = CombatNames::modelCondition("OATH_FULLFILLED");
+	if (oath >= 0)
+	{
+		const bool fulfilled = getObject()->testModelCondition(oath);
+		if (const ContainedItemsList *items = getContainedItemsList())
+		{
+			for (Object *member : *items)
+			{
+				if (member && !member->isDestroyed())
+				{
+					if (fulfilled && !member->testModelCondition(oath))
+					{
+						member->setModelConditionState(oath, true);
+					}
+					else if (!fulfilled && member->testModelCondition(oath))
+					{
+						member->setModelConditionState(oath, false);
+					}
+				}
+			}
+		}
+	}
+	return res;
+}
+
 // the slot table is built when the module exists and its object is complete (RW 0x877751, from the contain's creation)
 void HordeContain::onObjectCreated()
 {
@@ -775,7 +805,12 @@ void HordeContain::removeMember(Object *obj, bool keepSlot, bool templateIsSpeci
 	}
 	m_members.erase(it);
 	m_producedMembers.erase(std::remove(m_producedMembers.begin(), m_producedMembers.end(), obj->getID()), m_producedMembers.end());
-	obj->friend_setContainedBy(nullptr);
+	const int bit = hordeMemberStatusBit();
+	if (bit >= 0)
+	{
+		obj->setStatus((unsigned)bit, false);
+	}
+	obj->onRemovedFrom(getObject()); // RW 0x69024C / BFME2 0x68F80C
 	if (keepSlot)
 	{
 		m_core->releaseMember(obj->getID()); // lane GARRISON-3: RW 0x86CF2A frees no slot, no fill-in, the dirty byte untouched

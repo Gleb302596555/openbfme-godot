@@ -297,6 +297,29 @@ std::unique_ptr<BehaviorModule> Object::friend_replaceModule(BehaviorModule *old
 	throw std::logic_error("Object::friend_replaceModule: the module is not this object's");
 }
 
+// RW 0x69024C / BFME2 0x68F80C Object::onRemovedFrom
+void Object::onRemovedFrom(Object *container)
+{
+	if (container)
+	{
+		if (ContainModuleInterface *cmi = container->getContain())
+		{
+			if (const ObjectStatusMaskType *mask = cmi->getObjectStatusOfContainedFor(this))
+			{
+				for (std::size_t i = 0; i < mask->size(); ++i)
+				{
+					if ((*mask)[i])
+					{
+						setStatus(static_cast<unsigned>(i), false);
+					}
+				}
+			}
+		}
+	}
+	friend_setContainedBy(nullptr);
+	friend_setContainedFrame(0);
+}
+
 void Object::friend_setContainedBy(Object *container)
 {
 	const bool left = m_containedBy != nullptr && container == nullptr;
