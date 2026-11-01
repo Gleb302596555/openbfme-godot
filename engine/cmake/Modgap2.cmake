@@ -12,6 +12,8 @@ list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/ClearanceTestingSlowDeathB
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/SpecialEnemySenseUpdate.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/OathbreakersFadeAwayBehavior.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/AODCrushCollide.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/TooltipUpgrade.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/AnnounceBirthAndDeathBehavior.cpp)
 set(OPENBFME_MODGAP2_TESTS
     tests/test_modgap2_bored.cpp
     tests/test_modgap2_aod_crush.cpp
@@ -31,4 +33,6 @@ set(OPENBFME_MODGAP2_TESTS
     tests/test_modgap2_store_teleport.cpp
     tests/test_modgap2_store_objects.cpp
     tests/test_modgap2_troll_animation.cpp
+    tests/test_modgap2_tooltip_upgrade.cpp
+    tests/test_modgap2_announce.cpp
 )

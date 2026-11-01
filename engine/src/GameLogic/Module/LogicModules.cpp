@@ -2,6 +2,8 @@
 // See GameLogic/Module/LogicModules.h.
 
 #include "GameLogic/Module/AttachUpdate.h"
+#include "GameLogic/Module/AnnounceBirthAndDeathBehavior.h"
+#include "GameLogic/Module/TooltipUpgrade.h"
 #include "GameLogic/Module/BoredUpdate.h"
 #include "GameLogic/Module/AODCrushCollide.h"
 #include "GameLogic/Module/ClearanceTestingSlowDeathBehavior.h"
@@ -178,6 +180,8 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	StoreObjectsSpecialPower::registerClass(modules); // MODGAP-2: remember filtered teleport targets
 	SplitHordeSpecialPower::registerClass(modules); // MODGAP-2: a mixed horde splits (S-6004)
 	TeleportToCasterSpecialPower::registerClass(modules); // MODGAP-2: the stored units teleport (S-6003)
+	AnnounceBirthAndDeathBehavior::registerClass(modules); // MODGAP-2: both editions (RW 0x6592CA / BFME2 0x658038), stop S-6012
+	TooltipUpgrade::registerClass(modules);                // MODGAP-2: both editions (RW 0x65B257 / BFME2 0x659E2F), stop S-6013
 	ClientBehaviorModules::registerAll(modules); // lane AUDIO-4: the footsteps (a ClientBehavior: the drawables make it, GameClient/)
 	SiegeModules::registerAll(modules); // lane SIEGE-1: SiegeDockingBehavior, SiegeDeploySpecialPower, StopSpecialPower, SiegeAIUpdate (after the AI classes)
 }

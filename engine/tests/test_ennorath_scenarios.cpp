@@ -25,6 +25,8 @@
 #include "GameLogic/Module/GiveUpgradeUpdate.h"
 #include "GameLogic/Module/ReflectDamage.h"
 #include "GameLogic/Module/SalvageCrateCollide.h"
+#include "GameLogic/Module/AnnounceBirthAndDeathBehavior.h"
+#include "GameLogic/Module/TooltipUpgrade.h"
 
 using ennorathscenario::World;
 
@@ -229,4 +231,63 @@ TEST_CASE("ENNORATH scenario EvaAnnounceClientCreate: visible dropped ring annou
  bool sight = false;
  CHECK(m.update(17, false, true, false, 0, sight) == -1);
  CHECK(m.update(18, false, true, false, 0, sight) == discovered);
+}
+
+TEST_CASE("ENNORATH scenario TooltipUpgrade: Gondor infantry banner changes tooltip name to GondorHauptmann on HerzdesFeuers upgrade")
+{
+	World world;
+	if (!world.load("Ennorath scenario TooltipUpgrade")) return;
+	structtest::Arena arena(world.shared, "FactionMen", "FactionMordor");
+	Object *banner = world.place(arena, "GondorInfantryBanner", 0, 400, 400);
+	REQUIRE(banner);
+	auto *tu = dynamic_cast<TooltipUpgrade *>(banner->findModule("TooltipUpgrade"));
+	REQUIRE(tu);
+	CHECK(TooltipUpgrade::displayNameOf(*banner).empty());
+
+	const UpgradeTemplate *upgrade = TheUpgradeCenter->findUpgrade("Upgrade_HerzdesFeuers");
+	REQUIRE(upgrade);
+	banner->giveUpgrade(upgrade);
+	CHECK(TooltipUpgrade::displayNameOf(*banner) == "OBJECT:GondorHauptmann");
+	CHECK(tu->activeDisplayName() == "OBJECT:GondorHauptmann");
+
+	bool stopped = false;
+	for (const auto &line : arena.logic.report().stops)
+	{
+		if (line == TooltipUpgrade::stopLine())
+		{
+			stopped = true;
+			break;
+		}
+	}
+	CHECK(stopped);
+}
+
+TEST_CASE("ENNORATH scenario AnnounceBirthAndDeathBehavior: GondorEarnur hero initial spawn and death trigger announcements and stop S-6012")
+{
+	World world;
+	if (!world.load("Ennorath scenario AnnounceBirthAndDeathBehavior")) return;
+	structtest::Arena arena(world.shared, "FactionMen", "FactionMordor");
+	Object *earnur = world.place(arena, "GondorEarnur", 0, 400, 400);
+	REQUIRE(earnur);
+	auto *announce = dynamic_cast<AnnounceBirthAndDeathBehavior *>(earnur->findModule("AnnounceBirthAndDeathBehavior"));
+	REQUIRE(announce);
+
+	CHECK(announce->birthAnnouncementCount() == 1);
+	CHECK(announce->lastNotificationType() == AnnounceBirthAndDeathBehavior::kHeroInitialSpawnType);
+	CHECK(AnnounceBirthAndDeathBehavior::shouldAnnounceHeroEvent(*earnur, arena.player(0)));
+
+	bool stopped = false;
+	for (const auto &line : arena.logic.report().stops)
+	{
+		if (line == AnnounceBirthAndDeathBehavior::stopLine())
+		{
+			stopped = true;
+			break;
+		}
+	}
+	CHECK(stopped);
+
+	damage(earnur, INVALID_ID, DAMAGE_SLASH, 10000.0f);
+	CHECK(announce->deathAnnouncementCount() == 1);
+	CHECK(announce->lastNotificationType() == AnnounceBirthAndDeathBehavior::kHeroDeathType);
 }
