@@ -58,9 +58,6 @@ func _run() -> void:
 		var id: int = group.add_instance(group_model, Transform3D(Basis.IDENTITY, Vector3(float(i), 0, 0)), "", 0.0, 1.0)
 		ids.append(id)
 		group.set_instance_pose_share(id, 2.0)
-	if not "[S-6009]" in " ".join(group.get_warnings()):
-		push_error("P-30 missing S-6009 report")
-		failures += 1
 	group.set_pose_culling(true)
 	# The default presentation must not switch a moving unit between another
 	# unit's frame and its own at a loop boundary (P-30).
@@ -82,6 +79,10 @@ func _run() -> void:
 		if offsets[0] == offsets[1]:
 			failures += 1
 		print("P30 share step=%d frames=%.1f,%.1f offsets=%s shared=%s" % [step, fmod(float(step), 23.0), fmod(float(step) + 1.5, 23.0), offsets, group.get_stats().pose_shared])
+	# the pose pass notes the stop on the main thread: set_instance_pose_share runs on the job pool (lane PERF-CLIENT)
+	if not "[S-6009]" in " ".join(group.get_warnings()):
+		push_error("P-30 missing S-6009 report")
+		failures += 1
 	group.queue_free()
 	inst.queue_free()
 	quit(1 if failures else 0)
