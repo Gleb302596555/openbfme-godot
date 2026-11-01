@@ -665,30 +665,58 @@ TEST_CASE("P-9 order manager: discarding the last order releases its group membe
 	AIOrdersManager manager;
 	const auto immediate = manager.submit(0, std::make_unique<Group>(std::vector<unsigned>{ 11, 12 }));
 	manager.setPatrolStart(11, immediate, 3);
-	manager.discardLastPlanned(11);
+	manager.discardLastOrder(11);
 	REQUIRE(manager.order(immediate) != nullptr);
 	CHECK(manager.order(immediate)->objects() == std::vector<unsigned>{ 12 });
 	REQUIRE(manager.queue(11) != nullptr);
 	CHECK(manager.queue(11)->orders().empty());
 	CHECK(manager.queue(11)->patrolStart() == 0);
 	CHECK(manager.queue(11)->nextPatrolStart() == 0);
-	manager.discardLastPlanned(12);
+	manager.discardLastOrder(12);
 	CHECK(manager.order(immediate) == nullptr);
 
 	const auto first = manager.submit(2, std::make_unique<Group>(std::vector<unsigned>{ 11, 12 }));
 	const auto last = manager.submit(2, std::make_unique<Group>(std::vector<unsigned>{ 11, 12 }));
-	manager.discardLastPlanned(11);
+	manager.discardLastOrder(11);
 	REQUIRE(manager.order(last) != nullptr);
 	CHECK(manager.order(last)->objects() == std::vector<unsigned>{ 12 });
 	CHECK(manager.queue(11)->planned() == first);
-	manager.discardLastPlanned(11);
+	manager.discardLastOrder(11);
 	CHECK(manager.queue(11)->planned() == 0);
 	REQUIRE(manager.order(first) != nullptr);
 	CHECK(manager.order(first)->objects() == std::vector<unsigned>{ 12 });
-	manager.discardLastPlanned(12);
+	manager.discardLastOrder(12);
 	CHECK(manager.order(last) == nullptr);
-	manager.discardLastPlanned(12);
+	manager.discardLastOrder(12);
 	CHECK(manager.order(first) == nullptr);
+}
+
+TEST_CASE("P-9 order manager: discarding a planned order leaves immediate orders intact")
+{
+	struct Group : AIOrdersManager::GroupOrder
+	{
+		using GroupOrder::GroupOrder;
+		void activate(unsigned) override {}
+		bool complete(unsigned) override { return false; }
+		void removed(unsigned) override {}
+		void preparePatrol(unsigned) override {}
+		std::unique_ptr<GroupOrder> clone() const override { return std::make_unique<Group>(objects()); }
+	};
+	AIOrdersManager manager;
+	const auto immediate = manager.submit(0, std::make_unique<Group>(std::vector<unsigned>{ 11 }));
+	manager.discardLastPlanned(11);
+	REQUIRE(manager.queue(11) != nullptr);
+	CHECK(manager.queue(11)->orders() == std::list<unsigned>{ immediate });
+	REQUIRE(manager.order(immediate) != nullptr);
+	CHECK(manager.order(immediate)->objects() == std::vector<unsigned>{ 11 });
+
+	const auto planned = manager.submit(2, std::make_unique<Group>(std::vector<unsigned>{ 22 }));
+	manager.discardLastPlanned(22);
+	REQUIRE(manager.queue(22) != nullptr);
+	CHECK(manager.queue(22)->orders().empty());
+	CHECK(manager.queue(22)->planned() == 0);
+	REQUIRE(manager.order(planned) != nullptr);
+	CHECK(manager.order(planned)->objects() == std::vector<unsigned>{ 22 });
 }
 
 TEST_CASE("P-9: Alt queues a second move without replacing the active destination")

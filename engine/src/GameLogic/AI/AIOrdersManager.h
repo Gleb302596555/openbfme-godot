@@ -79,7 +79,12 @@ public:
 	void discardLastPlanned(ObjectId object)
 	{
 		auto it = m_queues.find(object);
-		if (it != m_queues.end()) it->second.discardLastPlanned(*this);
+		if (it != m_queues.end()) it->second.discardLastPlanned();
+	}
+	void discardLastOrder(ObjectId object)
+	{
+		auto it = m_queues.find(object);
+		if (it != m_queues.end()) it->second.discardLastOrder(*this);
 	}
 	const ObjectOrderQueue *queue(ObjectId object) const
 	{
