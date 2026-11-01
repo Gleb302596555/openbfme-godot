@@ -21,6 +21,7 @@ set(OPENBFME_MODGAP2_TESTS
     tests/test_modgap2_oath.cpp
     tests/test_modgap2_fling.cpp
     tests/test_modgap2_give_upgrade.cpp
+    tests/test_modgap2_audio_loop.cpp
     tests/test_ennorath_scenarios.cpp
     tests/test_modgap2_locomotor_upgrade.cpp
     tests/test_modgap2_replace.cpp

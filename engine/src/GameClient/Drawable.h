@@ -49,6 +49,7 @@ typedef std::uint32_t DrawableID;
 // The services every draw module of a game shares (one per DrawableManager).
 class ModuleFactory;
 class AnimationSoundModuleManager;
+class ModelConditionAudioLoopClientBehavior;
 
 // lane FX-2: the client effect player the draw modules call (GameClient/LiveFX). Read at call time, so drawables made before the player was installed use it too.
 class DrawableFXHost
@@ -332,6 +333,7 @@ private:
 	float m_geometryHeight = -1.0f;          ///< RENDER-2: RW 0xAD1920 of the template's shapes (computed on first use)
 	std::vector<DrawEntry> m_entries;
 	std::vector<std::unique_ptr<DrawableModule>> m_clientModules;
+	std::vector<ModelConditionAudioLoopClientBehavior *> m_audioLoops; ///< those of m_clientModules the flush tells (RW 0x67449C)
 	bool m_evaFirstSighted = false; // RW Drawable +0x114 bit 0x80; sighting consumer remains S-709
 	bool m_clientHidden = false; ///< lane CHAT-1
 	bool m_phantomLook = false;  ///< lane FBSIM-1: drawn as a dozer's phantom structure (0.4 opacity)

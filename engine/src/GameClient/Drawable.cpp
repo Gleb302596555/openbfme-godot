@@ -8,6 +8,7 @@
 #include "Common/AsciiString.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/MapObjectDrawables.h"
+#include "GameClient/ModelConditionAudioLoopClientBehavior.h"
 #include "GameClient/RenderInterpolation.h"
 #include "GameClient/StealthLook.h"
 #include "GameLogic/ObjectTemplateInfo.h"
@@ -60,6 +61,10 @@ Drawable::Drawable(DrawServices &services, const ThingTemplate *tt, DrawableID i
 		}
 		mod.release();
 		m_clientModules.push_back(std::unique_ptr<DrawableModule>(dm));
+		if (auto *loop = dynamic_cast<ModelConditionAudioLoopClientBehavior *>(dm))
+		{
+			m_audioLoops.push_back(loop); // RW 0x67449C: the list + 0x158 the flush walks
+		}
 	}
 	for (std::unique_ptr<DrawableModule> &m : m_clientModules)
 	{
@@ -228,6 +233,10 @@ void Drawable::setModelConditionFlags(const ModelConditionFlags &flags)
 			const W3DDrawFrame f = e.draw->frame();
 			e.animated = f.trackCount > 0 && f.tracks[0].anim && f.tracks[0].anim->Get_Num_Frames() > 1 && f.tracks[0].mode != W3D_ANIM_MODE_MANUAL;
 		}
+	}
+	for (ModelConditionAudioLoopClientBehavior *loop : m_audioLoops)
+	{
+		loop->modelConditionFlagsChanged(flags); // RW 0x67449C -> 0x8D04CA
 	}
 }
 

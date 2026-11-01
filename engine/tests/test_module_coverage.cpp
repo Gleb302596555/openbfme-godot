@@ -138,11 +138,11 @@ TEST_CASE("module coverage: every registry class is ported, base AI, parsed only
 	// MODGAP-1 (AimWeaponBehavior, HordeTransportContainDamage): +2 -> 194 / 116
 	// MODGAP-2: StoreObjects, SplitHorde, TeleportToCaster, then ClearanceTestingSlowDeath: 194 -> 198.
 	// MODGAP-2: AODCrushCollide registered: 200 -> 201, missing 110 -> 109.
-	CHECK(c.ported == 203); // EvaAnnounceClientCreate 202 -> 203 (limitations S-7091).
+	CHECK(c.ported == 204); // ModelConditionAudioLoopClientBehavior + EvaAnnounceClientCreate 202 -> 204 (limitations S-7091).
 	CHECK(c.baseAi == 6);
 	// S-207: SpawnUnitBehavior data is parsed-only; its runtime remains unported (S-140).
 	CHECK(c.parsedOnly == 13); // MODCOMPAT-MOD1 (SalvageCrateCollide) 14 -> 13
-	CHECK(c.missing == 107); // EvaAnnounceClientCreate 108 -> 107.
+	CHECK(c.missing == 106); // 108 -> 106.
 
 	if (const char *out = std::getenv("OPENBFME_MODULE_COVERAGE_OUT"))
 	{

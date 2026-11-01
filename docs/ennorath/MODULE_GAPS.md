@@ -10,27 +10,27 @@
 Список создаёт `python tools/mod/ennorath_queue.py priority --update`.
 
 <!-- ennorath_queue.py priority: begin -->
-Открытых классов: 31, достижимых объектов мода: 721. Сверху вниз, занятые тоже показаны:
+Открытых классов: 30, достижимых объектов мода: 221. Сверху вниз, занятые тоже показаны:
 
 | № | Класс | Объектов | Статус | Что делает | Состояние |
 |---|---|---|---|---|---|
-| 1 | `ModelConditionAudioLoopClientBehavior` | 500 | missing | голосовые петли насмешек и ликования отрядов в бою, звук обрушения здания | НЕ НАЧАТО |
-| 2 | `W3DStreakDraw` | 52 | parsed-only | следы за стрелами и снарядами; рисуется клиентом (S-391 / S-1002); геометрия ленты перенесена из SimpleStreakRendererClass::RenderStreak | ЗАНЯТО — Copilot, 2026-11-01, ждёт проверки владельцем |
-| 3 | `W3DBuffDraw` | 50 | missing | свечение баффов (лечение, оглушение, мороз): по S-113 уже рисуется как баф BuffNugget; статус «отсутствует» может не значить «не работает»; проверить | НЕ НАЧАТО |
-| 4 | `TerrainResourceClientBehavior` | 26 | missing | круги зон ферм РИСУЮТСЯ (S-5030); статус «отсутствует» не значит «не работает», проверить, что именно не покрыто | НЕ НАЧАТО |
-| 5 | `EvaAnnounceClientCreate` | 21 | partial | голос Эвы при появлении объекта (кольцо найдено, герой вышел) | IN PROGRESS - Codex, 2026-11-01; RW 0x8CDED6 / 0x8CDF07, BFME2 0x4C9A51 / 0x4C9A82; S-7091; awaiting tests and owner review |
-| 6 | `EvacuateDamage` | 13 | partial (2026-10-30) | боевая башня при попадании указанного оружия (MordorCatapultHumanHeads) выгоняет гарнизон | СДЕЛАНО В КОДЕ, тест (test_modgap1_evacuate.cpp), ждёт проверки владельцем: башню с гарнизоном бьёт катапульта Мордора с головами, гарнизон выходит. Не перенесено: паника при большом уроне за 6 кадров (команда ИИ 0x2E не определена, S-5602) |
-| 7 | `W3DTornadoDraw` | 11 | missing | смерч Радагаста, ветры Алатара, вихрь Элронда | НЕ НАЧАТО |
-| 8 | `TooltipUpgrade` | 9 | missing | после улучшения кнопка меняет название и описание | НЕ НАЧАТО |
-| 9 | `AnnounceBirthAndDeathBehavior` | 6 | missing | голос при появлении/смерти Саурона и больших героев | НЕ НАЧАТО |
-| 10 | `ReplaceObjectUpdate` | 6 | partial (2026-10-31) | способности героя-создания, заменяющие объект (Word of Poultry) | СДЕЛАНО В КОДЕ агентом B без Scatter, тест test_modgap2_replace.cpp, ждёт проверки владельцем |
-| 11 | `OathbreakersFadeAwayBehavior` | 5 | partial (2026-10-31) | призраки растворяются после исполнения клятвы (P-13) | СДЕЛАНО В КОДЕ для обеих редакций: RW 0x8BCC50 / 0x8BCC82, BFME2 0x8B8B0F / 0x8B8B41. Отрицательная проверка и тесты исчезновения, орды, сохранения и клиентского события прошли; выход из орды частичен (S-6006). BFME2 1.06 game.dat MD5 подтверждён, индекс 0x26 в обеих таблицах — HORDE_MEMBER, а не FAERIE_FIRE как подписано в декомпиляции. Подготовлен, но ещё не собран тест отсутствия фиктивного слота для MACHINE. Источник установки OATH_FULLFILLED в игровом сценарии ещё не установлен. Ждёт игровой проверки |
-| 12 | `ClearanceTestingSlowDeathBehavior` | 4 | partial (2026-10-31) | выбор варианта смерти с проверкой свободного места и высоты местности | ЗАНЯТО — агент, 2026-10-31. Обе редакции: RW 0x887191 / BFME2 0x883F19, выбор RW 0x861868; сэмплер RW 0x8E0354 / 0x8E047D (BFME2 0x8DC096 / 0x8DC1BF). Предыдущая версия: `modgap2 clearance*` 5 / 119 прошли, без привязки 4 теста класса падают. После чтения RW 0xAD2CE0 и 0x8E047D устранён ошибочный отказ при ненулевой оси: она не читается при проверке области. Новый тест оси и тест повёрнутой геометрии прошли в обеих редакциях; S-6005 закрыт, повторная сборка и тесты прошли; игровая проверка отложена по просьбе владельца |
-| 13 | `FlingPassengerSpecialAbilityUpdate` | 4 | partial (2026-10-31) | бросок захваченного (Шарку, Морчант, горные тролли) | ЗАНЯТО — агент, 2026-10-31. Тест OpenContain проходит; HordeContain требует отдельного переноса: хотя слоты извлечения совпадают (RW 0x866367 / 0x8665BE, BFME2 0x863291 / 0x863509), обычный `removeMember` в порте не воспроизводит все действия OpenContain при выходе (маска статусов и `Object::onRemovedFrom` RW 0x69024C). S-6001 остаётся |
-| 14 | `OilSpillUpdate` | 2 | missing | масляный след и поджиг (Mordor, Dwarves) | НЕ НАЧАТО |
-| 15 | `RunOffMapBehavior` | 2 | missing | мумак убегает за край карты по точке | БЛОКИРОВАНО — Claude, 2026-10-31: в моде бездействует: все 10 блоков RequiresSpecificTrigger = Yes, а запускает его только DetachableRiderUpdate, до которого фракции не доходят; нужны и команды ИИ 0x38 / 0x41 (RW 0x865332 / 0x86539E) |
+| 1 | `W3DStreakDraw` | 52 | parsed-only | следы за стрелами и снарядами; рисуется клиентом (RENDER-1 / PROJ-2: точки следа RW 0x4CF884, V, режимы смешивания, цвет, погодная текстура), статус «parsed-only» верен для модульной таблицы, но не значит «не рисуется» | ЗАНЯТО — Copilot, 2026-11-01: проверено, что покрыто и что нет. Покрыто тестами `render streak:*`, `proj2 arrows:*`. Не хватало геометрии ленты (была лента лицом к камере, вывод): перенесён `SimpleStreakRendererClass::RenderStreak` (BFME2 Rva 0x126433, WB 0xA1E840; RW 0x525E1F — INFERENCE: тот же размер 11 984 Б, те же шесть аргументов, константы 0.9 и 0.0001; построчно не сверялось). Ждёт проверки владельцем в игре: стрелы лучников — лента ровная, не перекручена при повороте, V на оперении 0, на наконечнике 1 |
+| 2 | `W3DBuffDraw` | 50 | missing | свечение баффов (лечение, оглушение, мороз): по S-113 уже рисуется как баф BuffNugget; статус «отсутствует» может не значить «не работает»; проверить | НЕ НАЧАТО |
+| 3 | `TerrainResourceClientBehavior` | 26 | missing | круги зон ферм РИСУЮТСЯ (S-5030); статус «отсутствует» не значит «не работает», проверить, что именно не покрыто | НЕ НАЧАТО |
+| 4 | `EvaAnnounceClientCreate` | 21 | partial | голос Эвы при появлении объекта (кольцо найдено, герой вышел) | СДЕЛАНО В КОДЕ — Codex, 2026-11-01; RW 0x8CDED6 / 0x8CDF07, BFME2 0x4C9A51 / 0x4C9A82; S-7091; тесты и сценарий Ennorath прошли, ждёт проверки владельцем |
+| 5 | `EvacuateDamage` | 13 | partial (2026-10-30) | боевая башня при попадании указанного оружия (MordorCatapultHumanHeads) выгоняет гарнизон | СДЕЛАНО В КОДЕ, тест (test_modgap1_evacuate.cpp), ждёт проверки владельцем: башню с гарнизоном бьёт катапульта Мордора с головами, гарнизон выходит. Не перенесено: паника при большом уроне за 6 кадров (команда ИИ 0x2E не определена, S-5602) |
+| 6 | `W3DTornadoDraw` | 11 | missing | смерч Радагаста, ветры Алатара, вихрь Элронда | НЕ НАЧАТО |
+| 7 | `TooltipUpgrade` | 9 | missing | после улучшения кнопка меняет название и описание | НЕ НАЧАТО |
+| 8 | `AnnounceBirthAndDeathBehavior` | 6 | missing | голос при появлении/смерти Саурона и больших героев | НЕ НАЧАТО |
+| 9 | `ReplaceObjectUpdate` | 6 | partial (2026-10-31) | способности героя-создания, заменяющие объект (Word of Poultry) | СДЕЛАНО В КОДЕ агентом B без Scatter, тест test_modgap2_replace.cpp, ждёт проверки владельцем |
+| 10 | `OathbreakersFadeAwayBehavior` | 5 | partial (2026-10-31) | призраки растворяются после исполнения клятвы (P-13) | СДЕЛАНО В КОДЕ для обеих редакций: RW 0x8BCC50 / 0x8BCC82, BFME2 0x8B8B0F / 0x8B8B41. Отрицательная проверка и тесты исчезновения, орды, сохранения и клиентского события прошли; выход из орды частичен (S-6006). BFME2 1.06 game.dat MD5 подтверждён, индекс 0x26 в обеих таблицах — HORDE_MEMBER, а не FAERIE_FIRE как подписано в декомпиляции. Подготовлен, но ещё не собран тест отсутствия фиктивного слота для MACHINE. Источник установки OATH_FULLFILLED в игровом сценарии ещё не установлен. Ждёт игровой проверки |
+| 11 | `ClearanceTestingSlowDeathBehavior` | 4 | partial (2026-10-31) | выбор варианта смерти с проверкой свободного места и высоты местности | ЗАНЯТО — агент, 2026-10-31. Обе редакции: RW 0x887191 / BFME2 0x883F19, выбор RW 0x861868; сэмплер RW 0x8E0354 / 0x8E047D (BFME2 0x8DC096 / 0x8DC1BF). Предыдущая версия: `modgap2 clearance*` 5 / 119 прошли, без привязки 4 теста класса падают. После чтения RW 0xAD2CE0 и 0x8E047D устранён ошибочный отказ при ненулевой оси: она не читается при проверке области. Новый тест оси и тест повёрнутой геометрии прошли в обеих редакциях; S-6005 закрыт, повторная сборка и тесты прошли; игровая проверка отложена по просьбе владельца |
+| 12 | `FlingPassengerSpecialAbilityUpdate` | 4 | partial (2026-10-31) | бросок захваченного (Шарку, Морчант, горные тролли) | ЗАНЯТО — агент, 2026-10-31. Тест OpenContain проходит; HordeContain требует отдельного переноса: хотя слоты извлечения совпадают (RW 0x866367 / 0x8665BE, BFME2 0x863291 / 0x863509), обычный `removeMember` в порте не воспроизводит все действия OpenContain при выходе (маска статусов и `Object::onRemovedFrom` RW 0x69024C). S-6001 остаётся |
+| 13 | `OilSpillUpdate` | 2 | missing | масляный след и поджиг (Mordor, Dwarves) | НЕ НАЧАТО |
+| 14 | `RunOffMapBehavior` | 2 | missing | мумак убегает за край карты по точке | БЛОКИРОВАНО — Claude, 2026-10-31: в моде бездействует: все 10 блоков RequiresSpecificTrigger = Yes, а запускает его только DetachableRiderUpdate, до которого фракции не доходят; нужны и команды ИИ 0x38 / 0x41 (RW 0x865332 / 0x86539E) |
+| 15 | `SpawnUnitBehavior` | 2 | parsed-only | здание рождает юнитов (S-207) | НЕ НАЧАТО |
 
-Дальше: `SpawnUnitBehavior` (2), `DestroyEnvironmentUpdate` (1), `PartTheHeavensUpdate` (1), `ProjectileStreamUpdate` (1), `RadarMarkerClientUpdate` (1), `StrafeAreaUpdate` (1), `W3DLightDraw` (1), `W3DProjectileStreamDraw` (1), `WallUpgradeUpdate` (1).
+Дальше: `DestroyEnvironmentUpdate` (1), `PartTheHeavensUpdate` (1), `ProjectileStreamUpdate` (1), `RadarMarkerClientUpdate` (1), `StrafeAreaUpdate` (1), `W3DLightDraw` (1), `W3DProjectileStreamDraw` (1), `WallUpgradeUpdate` (1).
 
 Отложены, ни один объект мода их не достигает: `CombineHordeSpecialPower`, `RubbleRiseUpdate`, `SpellRechargeModifierUpgrade`, `StructureToppleUpdate`, `SwayClientUpdate`, `ThreatFinderUpdate`, `ToppleUpdate`.
 <!-- ennorath_queue.py priority: end -->
@@ -89,7 +89,7 @@
 | shared | `W3DStreakDraw` | 12 | parsed-only | 52 | 33 |  |
 | shared | `W3DLightDraw` | 12 | missing | 1 | 37 |  |
 | shared | `ThreatFinderUpdate` | 13 | missing | 0 | 40 |  |
-| shared | `ModelConditionAudioLoopClientBehavior` | 10 | missing | 500 | 254 |  |
+| shared | `ModelConditionAudioLoopClientBehavior` | 10 | ported | 500 | 254 |  |
 | ennorath-only | `CombineHordeSpecialPower` | 7 | missing | 0 | 0 |  |
 <!-- ennorath_unique.py: end -->
 
@@ -150,8 +150,8 @@
 | 9 | `LocomotorSetUpgrade` | ported (2026-10-31) | 3 | Arnor, Evilmen | — | — | улучшение меняет набор передвижения (лазание по стенам героя-создания) | S-140 | СДЕЛАНО В КОДЕ агентом B, тест test_modgap2_locomotor_upgrade.cpp, ждёт проверки владельцем |
 | 9 | `FreeLifeBody` | ported (2026-10-30) | 2 | Arnor, Imladris | — | — | Глорфиндел воскресает на месте после смерти на 10 уровне (FreeLifeTime) | — | СДЕЛАНО В КОДЕ, тест test_modgap1_unique.cpp, ждёт проверки владельцем |
 | 9 | `OneRingPenaltyUpdate` | ported (2026-10-30) | 1 | Elves | 1 (1) | — | Око Саурона вызывается, если Фродо носит кольцо слишком долго | S-5604 | СДЕЛАНО В КОДЕ, тест test_modgap1_unique.cpp, ждёт проверки владельцем |
-| 10 | `ModelConditionAudioLoopClientBehavior` | missing | 500 | все 11 | 71 (12) | — | голосовые петли насмешек и ликования отрядов в бою, звук обрушения здания | S-140 | НЕ НАЧАТО |
-| 10 | `EvaAnnounceClientCreate` | partial | 21 | все 11 | 3 (145) | — | голос Эвы при появлении объекта (кольцо найдено, герой вышел) | S-140 | IN PROGRESS - Codex, 2026-11-01; RW 0x8CDED6 / 0x8CDF07, BFME2 0x4C9A51 / 0x4C9A82; S-7091; awaiting tests and owner review |
+| 10 | `ModelConditionAudioLoopClientBehavior` | ported (2026-11-01) | 500 | все 11 | 71 (12) | — | голоса насмешек, ликования, указания и подъёма флага (EMOTION_TAUNTING, EMOTION_CELEBRATING, EMOTION_POINTING, RAISING_FLAG), звук обрушения здания (RUBBLE) | S-6024 | СДЕЛАНО В КОДЕ: RW 0x8D07CF, 0x8D02D9, 0x8D0425, 0x8D03F8; тест test_modgap2_audio_loop.cpp, сценарий ENNORATH; ждёт проверки владельца на слух |
+| 10 | `EvaAnnounceClientCreate` | partial | 21 | все 11 | 3 (145) | — | голос Эвы при появлении объекта (кольцо найдено, герой вышел) | S-7091 | СДЕЛАНО В КОДЕ — Codex, 2026-11-01; RW 0x8CDED6 / 0x8CDF07, BFME2 0x4C9A51 / 0x4C9A82; S-7091; тесты и сценарий Ennorath прошли, ждёт проверки владельцем |
 | 10 | `AudioLoopUpgrade` | ported (upstream, MODCOMPAT-MOD1) | 15 | все 11 | 5 (2) | 4 | звук стройки/улучшения здания, пока оно строится | S-1995 | код upstream, не проверено на Ennorath в игре |
 | 10 | `TooltipUpgrade` | missing | 9 | все 11 | 6 (2) | — | после улучшения кнопка меняет название и описание | S-140 | НЕ НАЧАТО |
 | 10 | `AnnounceBirthAndDeathBehavior` | missing | 6 | Dwarves, Men, Mordor | 2 (1) | — | голос при появлении/смерти Саурона и больших героев | S-1995 | НЕ НАЧАТО |

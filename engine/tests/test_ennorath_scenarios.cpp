@@ -2,13 +2,24 @@
 // A case named "ENNORATH scenario <Class>: ..." takes that class off the owner's list (tools/mod/ennorath_queue.py checklist).
 // The owner still checks what is seen and heard. Expected values come from the INI file each case names.
 #include "EnnorathScenario.h"
+#include "Common/Audio/AudioAssetCache.h"
+#include "Common/Audio/AudioIni.h"
+#include "Common/Audio/GameAudio.h"
+#include "Common/Audio/SimulatedAudioDevice.h"
+#include "Common/INI.h"
+#include "Common/ModelState.h"
 #include "Common/Money.h"
 #include "Common/Audio/AudioIni.h"
 #include "GameClient/EvaAnnounceClientCreate.h"
 #include "GameClient/ClientEvents.h"
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
+#include "Common/Thing/ThingTemplate.h"
 #include "Common/Upgrade.h"
+#include "GameClient/DrawableManager.h"
+#include "GameClient/LiveGame.h"
+#include "GameClient/LiveGameAudio.h"
+#include "GameClient/ModelConditionAudioLoopClientBehavior.h"
 #include "GameLogic/Damage.h"
 #include "GameLogic/Economy.h"
 #include "GameLogic/Module/GiveUpgradeUpdate.h"
@@ -53,6 +64,86 @@ TEST_CASE("ENNORATH scenario ReflectDamage: the Witch-king returns 30% of a hit 
 	damage(witchKing, attacker->getID(), DAMAGE_PIERCE, 100.0f);
 	damage(twin, witchKing->getID(), DAMAGE_REFLECTED, 30.0f);
 	CHECK(health(attacker) == doctest::Approx(health(twin))); // tolerance: float health of the same arithmetic
+}
+
+TEST_CASE("ENNORATH scenario ModelConditionAudioLoopClientBehavior: Faramir's scout taunts while it raises a flag and falls silent when engaged; a fortress holds its collapse sound for RUBBLE")
+{
+	World world;
+	if (!world.load("Ennorath scenario ModelConditionAudioLoopClientBehavior")) return;
+	hudtest::Rig game(world.shared);
+	INIEnvironment env;
+	env.fileSystem = world.merged.fs.get();
+	AudioIniState ini;
+	ini.registerBlocks(env.blocks);
+	INI reader(env);
+	ini.loadAll(reader);
+	AudioAssetCache cache(world.merged.fs.get(), 32u << 20);
+	SimulatedAudioDevice device(&cache);
+	AudioManager mgr(ini, cache, device, RandomAlgorithm::ZH_CarryChain, 3);
+	mgr.enableEventLog(true);
+	LiveGameAudio att(*game.game, mgr);
+	// data\ini\object\goodfaction\units\men\faramirscout.ini: Required:RAISING_FLAG Excluded:DYING ENGAGED Sound:EmotionMenGoodCompilationBFME1and2VoxTauntSinglesLoop
+	const std::string taunt = "EmotionMenGoodCompilationBFME1and2VoxTauntSinglesLoop";
+	std::string error;
+	Object *scout = game.game->createObject("GondorFaramirScout", game.index(), Coord3D{ 1200.0f, 1200.0f, 0.0f }, 0.0f, &error);
+	REQUIRE_MESSAGE(scout != nullptr, error);
+	mgr.setListenerPosition(*scout->getPosition(), Coord3D{ 0.0f, 1.0f, 0.0f });
+	double t = 0.0;
+	auto frames = [&](int n) {
+		for (int i = 0; i < n; ++i)
+		{
+			game.logic().runLogicFrame();
+			for (int c = 0; c < 6; ++c)
+			{
+				game.game->refreshClient(1000.0 / 30.0, (double)c / 6.0);
+				t += 1000.0 / 30.0;
+				device.setTime(t);
+				mgr.update(t);
+			}
+		}
+	};
+	frames(2);
+	ModelConditionAudioLoopClientBehavior *loop = nullptr;
+	for (const auto &m : game.game->drawables().findByObject(scout->getID())->clientModules())
+	{
+		loop = loop ? loop : dynamic_cast<ModelConditionAudioLoopClientBehavior *>(m.get());
+	}
+	REQUIRE(loop != nullptr);
+	CHECK(loop->handle() == AHSV_NoSound);
+	scout->setModelConditionState(ModelCondition::indexOf("RAISING_FLAG"), true);
+	frames(2);
+	CHECK(loop->heldSound() == taunt);
+	REQUIRE(loop->handle() >= AHSV_FirstHandle); // tolerance: the audio manager numbers its handles; any real one is at least the first
+	const AudioHandle playing = loop->handle();
+	CHECK(mgr.isCurrentlyPlaying(playing));
+	bool logged = false;
+	for (const AudioLogEntry &e : mgr.takeEventLog())
+	{
+		logged = logged || (e.event == taunt && e.drawableId == (std::uint32_t)game.game->drawables().findByObject(scout->getID())->getID());
+	}
+	CHECK(logged);
+	scout->setModelConditionState(ModelCondition::indexOf("ENGAGED"), true);
+	frames(2);
+	CHECK(loop->heldSound().empty());
+	// the loop ends: a removed event stops looping and plays its Decay (AudioManager::stopAudioEvent); one still looping would never end
+	for (int i = 0; i < 100 && mgr.isCurrentlyPlaying(playing); ++i)
+	{
+		frames(1);
+	}
+	CHECK_FALSE(mgr.isCurrentlyPlaying(playing));
+	// data\ini\object\goodfaction\structures\arnor\arnorfortress.ini: REQUIRED:RUBBLE Sound:BuildingSink
+	const ThingTemplate *fortress = world.shared.world->things().findTemplate("ArnorFortress");
+	REQUIRE(fortress != nullptr);
+	const ModelConditionAudioLoopClientBehaviorModuleData *data = nullptr;
+	for (const auto &n : fortress->clientBehaviorModules().nuggets())
+	{
+		data = data ? data : dynamic_cast<const ModelConditionAudioLoopClientBehaviorModuleData *>(n.data.get());
+	}
+	REQUIRE(data != nullptr);
+	ModelConditionFlags rubble;
+	rubble.set(ModelCondition::indexOf("RUBBLE"));
+	CHECK(data->selectSound(rubble) == "BuildingSink");
+	CHECK(data->selectSound(ModelConditionFlags()).empty());
 }
 
 TEST_CASE("ENNORATH scenario SalvageCrateCollide: a unit on the treasure chest collects the 5000 the chest holds")
