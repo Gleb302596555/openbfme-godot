@@ -114,6 +114,8 @@ public:
 		if (it == m_queues.end()) return;
 		it->second.clear(3, *this);
 		m_queues.erase(it);
+		// A game that ends with its queues gone starts the next one at id 0, as a new manager does (retail resets the manager on a new game)
+		if (m_queues.empty() && m_orders.empty()) m_nextId = 0;
 	}
 	void reset()
 	{
