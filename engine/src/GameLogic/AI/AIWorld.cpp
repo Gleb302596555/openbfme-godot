@@ -854,6 +854,12 @@ bool AIWorld::executeCommand(Object &obj, const AICommand &c)
 			}
 			ai->aiFollowPath(c.path, c.target != INVALID_ID ? m_logic.findObjectByID(c.target) : nullptr, c.source, true);
 			return true;
+		case AICMD_PANIC:
+		{
+			Object *source = c.target != INVALID_ID ? m_logic.findObjectByID(c.target) : nullptr;
+			ai->aiPanic(source, c.source);
+			return true;
+		}
 		case AICMD_MOVE_TO_OBJECT:
 		{
 			Object *target = m_logic.findObjectByID(c.target);

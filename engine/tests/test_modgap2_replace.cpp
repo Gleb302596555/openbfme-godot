@@ -62,8 +62,13 @@ TEST_CASE("modgap2 replace: matching enemy is replaced and unsupported scatter i
         const auto hits = w.logic->partition().iterateObjectsInRange(at, 30, FROM_CENTER_2D, { &replacements }, ITER_FASTEST);
         REQUIRE(hits.size() == 1);
         CHECK(hits[0].object->getControllingPlayer() == w.players.getNeutralPlayer());
-        bool stopped = false;
-        for (const auto &line : w.logic->report().stops) stopped = stopped || line == ReplaceObjectUpdate::scatterStop();
-        CHECK(stopped);
+        bool sawScatterPanic = false;
+        for (const auto &cmd : w.logic->aiCommands().issued()) {
+            if (cmd.type == AICMD_PANIC && cmd.target == source->getID()) {
+                sawScatterPanic = true;
+                break;
+            }
+        }
+        CHECK(sawScatterPanic);
     }
 }

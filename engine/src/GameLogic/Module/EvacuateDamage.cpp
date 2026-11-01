@@ -181,17 +181,22 @@ void EvacuateDamage::trackDamage(const DamageInfo &info)
 	}
 }
 
-// RW 0x8BF076
+// RW 0x8BF076; BFME2 0x8BAF2D: slot 0x13C / command 0x2E (RW 0x881FF3 / BFME2 0x87ED64)
 void EvacuateDamage::panic(Object &source)
 {
-	(void)source;
 	Object *self = getObject();
 	if (!self->getAIUpdateInterface())
 	{
 		return;
 	}
-	m_tracked.clear();                    // RW 0x862535
-	self->logic().noteStop(kStop);        // AI command 0x2E (RW 0x881FF3) is not ported
+	m_tracked.clear();                    // RW 0x862535 / BFME2 0x63DAA5
+	AICommand cmd;
+	cmd.type = AICMD_PANIC;
+	cmd.source = CMD_FROM_AI;
+	cmd.object = self->getID();
+	cmd.target = source.getID();
+	cmd.frame = self->logic().getFrame();
+	self->logic().aiCommands().issue(*self, cmd);
 }
 
 void EvacuateDamage::crc(StateHasher &h) const

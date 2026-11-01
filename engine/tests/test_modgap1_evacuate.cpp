@@ -113,6 +113,14 @@ TEST_CASE("modgap1 EvacuateDamage: damage of the tracked type is kept for Tracki
 	CHECK(evac->tracked().size() == 1); // the first entry is erased by the sum, 60 < 0.1 * 1000
 	hit(t, enemy, DAMAGE_SLASH, 60.0f);
 	CHECK(evac->tracked().size() == 0); // 120 >= 100: the panic, the list is cleared (RW 0x862535); the AI command 0x2E is S-5602
+	bool sawPanic = false;
+	for (const auto &cmd : t->logic().aiCommands().issued()) {
+		if (cmd.type == AICMD_PANIC && cmd.object == t->getID() && cmd.target == enemy->getID()) {
+			sawPanic = true;
+			break;
+		}
+	}
+	CHECK(sawPanic);
 }
 
 TEST_CASE("modgap1 EvacuateDamage: the stop line names S-5602 and the AI command")

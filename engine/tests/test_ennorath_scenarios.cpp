@@ -293,6 +293,7 @@ TEST_CASE("ENNORATH scenario RadarMarkerClientUpdate: TheDroppedRing specifies P
 	}
 	REQUIRE(data);
 	CHECK(data->m_markerType == "PingOneRing");
+}
 
 TEST_CASE("ENNORATH scenario TooltipUpgrade: Gondor infantry banner changes tooltip name to GondorHauptmann on HerzdesFeuers upgrade")
 {

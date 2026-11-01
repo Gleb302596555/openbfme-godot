@@ -67,7 +67,16 @@ void ReplaceObjectUpdate::triggerAbilityEffect() {
             if (created) {
                 if (FXEventLog::isFXName(m_replace->replaceFX))
                     logic.fxEvents().emit(FXEventLog::objectEvent(FXEvent::OBJECT_FX, "ReplaceObjectUpdate ReplaceFX", logic.getFrame(), m_replace->replaceFX, *created));
-                if (m_replace->scatter && created->getAIUpdateInterface()) logic.noteStop(scatterStop());
+                if (m_replace->scatter && created->getAIUpdateInterface()) {
+                    // RW 0x8B6D8E / BFME2 0x8B2C7E: AI command 0x2E (AICMD_PANIC) with owner/source
+                    AICommand cmd;
+                    cmd.type = AICMD_PANIC;
+                    cmd.source = CMD_FROM_AI;
+                    cmd.object = created->getID();
+                    cmd.target = source->getID();
+                    cmd.frame = logic.getFrame();
+                    logic.aiCommands().issue(*created, cmd);
+                }
             }
             DamageInfo damage;
             damage.m_input.m_sourceID = source->getID();

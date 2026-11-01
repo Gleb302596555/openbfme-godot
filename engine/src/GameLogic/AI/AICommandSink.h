@@ -28,6 +28,7 @@ enum AICommandType
 	AICMD_MOVE_TO_POSITION = 0,       ///< RW 0x66C4CA aiMoveToPosition(pos, source)
 	AICMD_IDLE = 5,                   ///< RW 0x5E821A aiIdle(source)
 	AICMD_FOLLOW_EXIT_PRODUCTION_PATH = 10, ///< RW 0x87C9B8 aiFollowExitProductionPath(path, source object, source)
+	AICMD_PANIC = 0x2E,               ///< RW 0x881FF3 / BFME2 0x87ED64 aiPanic(sourceObject, source)
 	AICMD_MOVE_TO_OBJECT = 0x42,      ///< RW 0x770EDE
 	// OpenBFME marker (not a retail command number): the horde regroup call of QueueProductionExitUpdate::releaseLastExit (HordeContain slot 4, RW 0x8759FF)
 	AICMD_HORDE_RETURN_TO_FORMATION = 0x1000

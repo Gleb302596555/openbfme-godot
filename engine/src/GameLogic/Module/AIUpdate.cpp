@@ -1003,6 +1003,25 @@ void AIUpdateInterface::aiBusy(CommandSourceType source)
 	wakeUpNow();
 }
 
+// RW 0x66491A / BFME2 0x664B16: slot 0x13C (command 0x2E, RW 0x881FF3 / BFME2 0x87ED64)
+void AIUpdateInterface::aiPanic(Object *sourceObject, CommandSourceType source)
+{
+	Object *obj = getObject();
+	if (!obj || obj->isEffectivelyDead())
+	{
+		return;
+	}
+	if (!m_machine)
+	{
+		return;
+	}
+	setLastCommandSource(source);
+	m_machine->saveGoalForTemporaryState();                         // RW 0x741675
+	m_machine->setGoalObject(sourceObject ? sourceObject->getID() : INVALID_ID); // machine vslot 0x38
+	m_machine->setTemporaryStateRW(AI_PANIC, -1);                    // RW 0x74168E (state 20)
+	wakeUpNow();
+}
+
 void AIUpdateInterface::aiBusyFor(unsigned frames, CommandSourceType source)
 {
 	if (frames == 0)

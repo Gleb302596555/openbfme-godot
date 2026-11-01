@@ -123,6 +123,8 @@ public:
 	void aiFollowPath(const std::vector<Coord3D> &path, Object *ignoreObject, CommandSourceType source, bool exitProduction);
 	void aiFollowPathAppend(const Coord3D &pos, CommandSourceType source);
 	void aiBusy(CommandSourceType source);
+	// RW 0x66491A / BFME2 0x664B16: slot 0x13c (command 0x2E, RW 0x881FF3 / BFME2 0x87ED64): panic/flee from source object
+	void aiPanic(Object *sourceObject, CommandSourceType source = CMD_FROM_AI);
 	// lane FLANK-1: RW 0x852E2A(frames, source) -> aiDoCommand command 0x31 -> RW 0x66498A with frames > 0: the goal is saved (RW 0x741675) and the busy state 0x2A runs
 	// as the machine's temporary state for `frames` (RW 0x74168E); frames 0 is aiBusy
 	void aiBusyFor(unsigned frames, CommandSourceType source);
