@@ -72,11 +72,15 @@ public:
 		if (flags & 2) m_nextPatrolStart = id;
 	}
 
-	void discardLastPlanned()
+	// RW 0x94ECAE / BFME2 0x9483C6: remove the last order, even without a planned segment.
+	void discardLastPlanned(Owner &owner)
 	{
-		if (m_orders.empty() || !m_planned) return;
+		if (m_orders.empty()) return;
+		const OrderId last = m_orders.back();
+		if (!m_planned) m_patrolStart = 0;
 		m_nextPatrolStart = 0;
-		if (m_orders.back() == m_planned) m_planned = 0;
+		if (last == m_planned) m_planned = 0;
+		owner.removed(last, m_object, true);
 		m_orders.pop_back();
 	}
 

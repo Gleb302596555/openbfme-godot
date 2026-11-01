@@ -651,6 +651,46 @@ TEST_CASE("P-9 order manager: changing one unit's orders preserves its former gr
 	CHECK(events[3].object == 12);
 }
 
+TEST_CASE("P-9 order manager: discarding the last order releases its group membership")
+{
+	struct Group : AIOrdersManager::GroupOrder
+	{
+		using GroupOrder::GroupOrder;
+		void activate(unsigned) override {}
+		bool complete(unsigned) override { return false; }
+		void removed(unsigned) override {}
+		void preparePatrol(unsigned) override {}
+		std::unique_ptr<GroupOrder> clone() const override { return std::make_unique<Group>(objects()); }
+	};
+	AIOrdersManager manager;
+	const auto immediate = manager.submit(0, std::make_unique<Group>(std::vector<unsigned>{ 11, 12 }));
+	manager.setPatrolStart(11, immediate, 3);
+	manager.discardLastPlanned(11);
+	REQUIRE(manager.order(immediate) != nullptr);
+	CHECK(manager.order(immediate)->objects() == std::vector<unsigned>{ 12 });
+	REQUIRE(manager.queue(11) != nullptr);
+	CHECK(manager.queue(11)->orders().empty());
+	CHECK(manager.queue(11)->patrolStart() == 0);
+	CHECK(manager.queue(11)->nextPatrolStart() == 0);
+	manager.discardLastPlanned(12);
+	CHECK(manager.order(immediate) == nullptr);
+
+	const auto first = manager.submit(2, std::make_unique<Group>(std::vector<unsigned>{ 11, 12 }));
+	const auto last = manager.submit(2, std::make_unique<Group>(std::vector<unsigned>{ 11, 12 }));
+	manager.discardLastPlanned(11);
+	REQUIRE(manager.order(last) != nullptr);
+	CHECK(manager.order(last)->objects() == std::vector<unsigned>{ 12 });
+	CHECK(manager.queue(11)->planned() == first);
+	manager.discardLastPlanned(11);
+	CHECK(manager.queue(11)->planned() == 0);
+	REQUIRE(manager.order(first) != nullptr);
+	CHECK(manager.order(first)->objects() == std::vector<unsigned>{ 12 });
+	manager.discardLastPlanned(12);
+	CHECK(manager.order(last) == nullptr);
+	manager.discardLastPlanned(12);
+	CHECK(manager.order(first) == nullptr);
+}
+
 TEST_CASE("P-9: Alt queues a second move without replacing the active destination")
 {
 	if (!haveWorld("P-9 queued move")) return;
