@@ -23,8 +23,9 @@
 //     renderer's +0x1C). RW 0x525E1F (the renderer's draw) maps the texture V along the points: v = (point length - (newest point length - Length)) /
 //     Length, so the head (the newest point) is at V 1 and the texture spans one Length behind it; U is 0 / 1 across. The retail arrow textures (16 x 64 /
 //     32 x 64) have the fletching at V 0 and the head at V 1; EXArrowStreakFire's flame pixels are nearly transparent (alpha 9) and only show added ONE / ONE.
-// INFERENCE (stop S-391 / S-1002): the strip is drawn here as a camera-facing ribbon of `Width` through the points; the rest of RW 0x525E1F's vertex
-// construction was not compared.
+// INFERENCE (stop S-391 / S-1002): that RW 0x525E1F is BFME2's SimpleStreakRendererClass::RenderStreak (Rva 0x126433): both are 11,984 B (RW 0x525E1F ..
+// 0x528CEF), both take six stack arguments (ret 0x18: rinfo, transform, point count, points, texture positions, sphere) and RW holds its constants 0.9
+// (RW 0x5278D2 / 0x527BA0) and 0.0001 (RW 0x5266AB); the instructions were not compared (no RW <-> BFME2 map in the tree).
 
 #pragma once
 
@@ -81,8 +82,7 @@ struct W3DStreakVertex
 	float u, v;
 };
 
-// The ribbon through the points (inference S-391): two vertices per point (left, right), as a triangle strip per streak; empty with
-// fewer than two points or a zero total length. `eye` is the camera position (same space as the points).
+// The ribbon through the points: SimpleStreakRendererClass::RenderStreak (see W3DStreakRibbon below). `W3DStreakVertex` is one vertex of it.
 // The texture failures of the streak draw (review r2): a material whose requested texture did not load is not drawn, and the
 // failure is reported. Both live per scene: beginScene() (a map load / clear) forgets the failed keys AND the messages together,
 // so the next scene asks for the texture again and reports it again instead of skipping silently.
@@ -107,7 +107,27 @@ std::string W3DStreakDrawStopLine();
 std::string W3DStreakRenderStopLine();
 
 // RW 0x525E1F's V: 1 at the head, 0 one `length` (the module's Length) behind it
-std::vector<W3DStreakVertex> W3DStreakStrip(const std::vector<W3DStreakPoint> &points, float width, float length, const float eye[3]);
+// The camera of a draw in the space of the streak points: its eye and its view basis (retail's D3D view space: x right, y up, z forward).
+struct W3DStreakCamera
+{
+	float eye[3];
+	float right[3];
+	float up[3];
+	float forward[3];
+};
+
+// The triangles of one streak: vertices in the space of the points, `indices` three to a triangle (both winding orders are drawn: no culling).
+struct W3DStreakMesh
+{
+	std::vector<W3DStreakVertex> vertices;
+	std::vector<unsigned> indices;
+};
+
+// SimpleStreakRendererClass::RenderStreak (BFME2 Rva 0x126433, WorldBuilder 0xA1E840; RW 0x525E1F by its size and constants, INFERENCE S-1002): the points are
+// taken into view space, every segment gets the planes through the eye of its two edges (Width / 2 each side of the line at its nearest point to the eye), the
+// two edges of consecutive segments meet along a ray through the eye (a mitre; a fold swaps the edges), and a point's two vertices lie on those rays at the
+// point's depth along them. One strip of triangles per chunk of 129 points. Empty with fewer than two points or no Length (retail divides by it).
+W3DStreakMesh W3DStreakRibbon(const std::vector<W3DStreakPoint> &points, float width, float length, const W3DStreakCamera &camera);
 
 // RW 0x4CFA9A: the texture for the map's weather (`weather`: the WeatherType index of the WeatherTexture list, 0 NORMAL, 1 SNOWY)
 const std::string &W3DStreakTexture(const W3DStreakDrawModuleData &data, int weather);

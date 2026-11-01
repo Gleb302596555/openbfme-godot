@@ -76,6 +76,11 @@ std::vector<std::string> W3DDrawModules::notDrawnClasses()
 	{
 		if (c.kind == W3D_DRAWKIND_NOT_DRAWN)
 		{
+			if (std::string(c.name) == "W3DStreakDraw")
+			{
+				out.push_back("W3DStreakDraw: no model, its trail is drawn by the streak renderer (S-391 / S-1002)"); // GameWorld::refresh_streaks draws it
+				continue;
+			}
 			out.push_back(std::string(c.name) + ": effect draw, not drawn (S-113)");
 		}
 		else if (c.kind == W3D_DRAWKIND_NOTHING)
