@@ -10,27 +10,27 @@
 Список создаёт `python tools/mod/ennorath_queue.py priority --update`.
 
 <!-- ennorath_queue.py priority: begin -->
-Открытых классов: 30, достижимых объектов мода: 221. Сверху вниз, занятые тоже показаны:
+Открытых классов: 25, достижимых объектов мода: 167. Сверху вниз, занятые тоже показаны:
 
 | № | Класс | Объектов | Статус | Что делает | Состояние |
 |---|---|---|---|---|---|
 | 1 | `W3DStreakDraw` | 52 | parsed-only | следы за стрелами и снарядами; рисуется клиентом (RENDER-1 / PROJ-2: точки следа RW 0x4CF884, V, режимы смешивания, цвет, погодная текстура), статус «parsed-only» верен для модульной таблицы, но не значит «не рисуется» | ЗАНЯТО — Copilot, 2026-11-01: проверено, что покрыто и что нет. Покрыто тестами `render streak:*`, `proj2 arrows:*`. Не хватало геометрии ленты (была лента лицом к камере, вывод): перенесён `SimpleStreakRendererClass::RenderStreak` (BFME2 Rva 0x126433, WB 0xA1E840; RW 0x525E1F — INFERENCE: тот же размер 11 984 Б, те же шесть аргументов, константы 0.9 и 0.0001; построчно не сверялось). Ждёт проверки владельцем в игре: стрелы лучников — лента ровная, не перекручена при повороте, V на оперении 0, на наконечнике 1 |
-| 2 | `W3DBuffDraw` | 50 | parsed-only (2026-11-01) | свечение баффов (лечение, оглушение, мороз): рисуется на юнитах через `ClientBuffs` (S-4642); сам `W3DBuffDraw::doDrawModule` в обеих редакциях пустой (RW 0xBE3010 / BFME2 0xBCD178 слот 11 RW 0x9F3A3C = `ret 4`); перенесён типизированный `W3DBuffDrawModuleData` (`ModelName` +0x08, `PreDraw` +0x0C, RW 0x4CE61A / 0xBE318C, BFME2 0x4CEE4C / 0xBCD2F4) | СДЕЛАНО В КОДЕ (обе редакции), тесты в test_mapobj_draw_data.cpp и test_spell4_buffs.cpp, ждёт проверки владельцем |
-| 3 | `TerrainResourceClientBehavior` | 26 | ported (2026-11-01) | круги зон ферм и дуги контуров (S-5030); перенесён `TerrainResourceClientBehavior` (RW 0x6549B1 / 0x652B8C / 0x8D0A08 / 0x8D0A58 / 0x8D0A78, BFME2 0x654C56 / 0x652DEB / 0x8CC55A / 0x8CC5AA / 0x8CC5CA) и слоты 17/18 `DrawableModule` (`createSelectionFeedback` / `removeSelectionFeedback`, RW 0x672ED1 / 0x672F0D, BFME2 0x672BAB / 0x672BE7) | СДЕЛАНО В КОДЕ (обе редакции), тесты в test_ownerfix2.cpp и test_logic_objects.cpp, ждёт проверки владельцем |
-| 4 | `EvaAnnounceClientCreate` | 21 | partial | голос Эвы при появлении объекта (кольцо найдено, герой вышел) | СДЕЛАНО В КОДЕ — Codex, 2026-11-01; RW 0x8CDED6 / 0x8CDF07, BFME2 0x4C9A51 / 0x4C9A82; S-7091; тесты и сценарий Ennorath прошли, ждёт проверки владельцем |
-| 5 | `EvacuateDamage` | 13 | partial (2026-10-30) | боевая башня при попадании указанного оружия (MordorCatapultHumanHeads) выгоняет гарнизон | СДЕЛАНО В КОДЕ, тест (test_modgap1_evacuate.cpp), ждёт проверки владельцем: башню с гарнизоном бьёт катапульта Мордора с головами, гарнизон выходит. Не перенесено: паника при большом уроне за 6 кадров (команда ИИ 0x2E не определена, S-5602) |
-| 6 | W3DTornadoDraw | 11 | ported (2026-11-01) | смерч Радагаста, ветры Алатара, вихрь Элронда: модуль отрисовки декалей смерча и следования за объектом | СДЕЛАНО В КОДЕ (обе редакции: RW 0x00464930, BFME2 0x0046513A), S-113, тесты test_modgap2_tornado.cpp и test_mapobj_draw_data.cpp, ждёт проверки владельцем |
-| 7 | TooltipUpgrade | 9 | ported (2026-11-01) | после улучшения кнопка меняет название и описание | СДЕЛАНО В КОДЕ (обе редакции: RW 0x65B257, BFME2 0x659E2F), S-6013, тест test_modgap2_tooltip_upgrade.cpp, ждёт проверки владельцем |
-| 8 | AnnounceBirthAndDeathBehavior | 6 | ported (2026-11-01) | голос при появлении/смерти Саурона и больших героев | СДЕЛАНО В КОДЕ (обе редакции: RW 0x6592CA, BFME2 0x658038), S-6012, тест test_modgap2_announce.cpp, ждёт проверки владельцем |
-| 9 | `ReplaceObjectUpdate` | 6 | partial (2026-10-31) | способности героя-создания, заменяющие объект (Word of Poultry) | СДЕЛАНО В КОДЕ агентом B без Scatter, тест test_modgap2_replace.cpp, ждёт проверки владельцем |
-| 10 | `OathbreakersFadeAwayBehavior` | 5 | partial (2026-10-31) | призраки растворяются после исполнения клятвы (P-13) | СДЕЛАНО В КОДЕ для обеих редакций: RW 0x8BCC50 / 0x8BCC82, BFME2 0x8B8B0F / 0x8B8B41. Отрицательная проверка и тесты исчезновения, орды, сохранения и клиентского события прошли; выход из орды частичен (S-6006). BFME2 1.06 game.dat MD5 подтверждён, индекс 0x26 в обеих таблицах — HORDE_MEMBER, а не FAERIE_FIRE как подписано в декомпиляции. Подготовлен, но ещё не собран тест отсутствия фиктивного слота для MACHINE. Источник установки OATH_FULLFILLED в игровом сценарии ещё не установлен. Ждёт игровой проверки |
-| 11 | `ClearanceTestingSlowDeathBehavior` | 4 | partial (2026-10-31) | выбор варианта смерти с проверкой свободного места и высоты местности | ЗАНЯТО — агент, 2026-10-31. Обе редакции: RW 0x887191 / BFME2 0x883F19, выбор RW 0x861868; сэмплер RW 0x8E0354 / 0x8E047D (BFME2 0x8DC096 / 0x8DC1BF). Предыдущая версия: `modgap2 clearance*` 5 / 119 прошли, без привязки 4 теста класса падают. После чтения RW 0xAD2CE0 и 0x8E047D устранён ошибочный отказ при ненулевой оси: она не читается при проверке области. Новый тест оси и тест повёрнутой геометрии прошли в обеих редакциях; S-6005 закрыт, повторная сборка и тесты прошли; игровая проверка отложена по просьбе владельца |
-| 12 | `FlingPassengerSpecialAbilityUpdate` | 4 | partial (2026-10-31) | бросок захваченного (Шарку, Морчант, горные тролли) | ЗАНЯТО — агент, 2026-10-31. Тест OpenContain проходит; HordeContain требует отдельного переноса: хотя слоты извлечения совпадают (RW 0x866367 / 0x8665BE, BFME2 0x863291 / 0x863509), обычный `removeMember` в порте не воспроизводит все действия OpenContain при выходе (маска статусов и `Object::onRemovedFrom` RW 0x69024C). S-6001 остаётся |
-| 13 | `OilSpillUpdate` | 2 | ported (2026-11-01) | масляный след и поджиг (Mordor, Dwarves): спавн хлебных крошек (OilSpill), поджог и FXEvent | СДЕЛАНО В КОДЕ (обе редакции: RW 0x0064CC80, BFME2 0x0024CFA7), S-6025, тест test_modgap2_oilspill.cpp, ждёт проверки владельцем |
-| 14 | `RunOffMapBehavior` | 2 | missing | мумак убегает за край карты по точке | БЛОКИРОВАНО — Claude, 2026-10-31: в моде бездействует: все 10 блоков RequiresSpecificTrigger = Yes, а запускает его только DetachableRiderUpdate, до которого фракции не доходят; нужны и команды ИИ 0x38 / 0x41 (RW 0x865332 / 0x86539E) |
-| 15 | `SpawnUnitBehavior` | 2 | parsed-only | здание рождает юнитов (S-207) | НЕ НАЧАТО |
+| 2 | `W3DBuffDraw` | 50 | parsed-only (2026-11-01) | свечение баффов (лечение, оглушение, мороз): рисуется на юнитах через `ClientBuffs` (S-4642); сам `W3DBuffDraw::doDrawModule` в обеих редакциях пустой (RW 0xBE3010 / BFME2 0xBCD178 слот 11 RW 0x9F3A3C = `ret 4`); перенесён типизированный `W3DBuffDrawModuleData` (`ModelName` +0x08, `PreDraw` +0x0C, RW 0x4CE61A / 0xBE318C, BFME2 0x4CEE4C / 0xBCD2F4) и передача `PreDraw` в `LiveFX::turnOnBuff` / `ClientBuffs::turnOn` (RW 0x707FFF / 0x4D1981, BFME2 0x70682A / 0x4D21B5) | СДЕЛАНО В КОДЕ для обеих редакций, тесты в test_mapobj_draw_data.cpp и test_spell4_buffs.cpp, ждёт проверки владельцем |
+| 3 | `EvaAnnounceClientCreate` | 21 | partial | голос Эвы при появлении объекта (кольцо найдено, герой вышел) | СДЕЛАНО В КОДЕ — Codex, 2026-11-01; RW 0x8CDED6 / 0x8CDF07, BFME2 0x4C9A51 / 0x4C9A82; S-7091; тесты и сценарий Ennorath прошли, ждёт проверки владельцем |
+| 4 | `EvacuateDamage` | 13 | partial (2026-10-30) | боевая башня при попадании указанного оружия (MordorCatapultHumanHeads) выгоняет гарнизон | СДЕЛАНО В КОДЕ, тест (test_modgap1_evacuate.cpp), ждёт проверки владельцем: башню с гарнизоном бьёт катапульта Мордора с головами, гарнизон выходит. Не перенесено: паника при большом уроне за 6 кадров (команда ИИ 0x2E не определена, S-5602) |
+| 5 | `ReplaceObjectUpdate` | 6 | partial (2026-10-31) | способности героя-создания, заменяющие объект (Word of Poultry) | СДЕЛАНО В КОДЕ агентом B без Scatter, тест test_modgap2_replace.cpp, ждёт проверки владельцем |
+| 6 | `OathbreakersFadeAwayBehavior` | 5 | partial (2026-10-31) | призраки растворяются после исполнения клятвы (P-13) | СДЕЛАНО В КОДЕ для обеих редакций: RW 0x8BCC50 / 0x8BCC82, BFME2 0x8B8B0F / 0x8B8B41. Отрицательная проверка и тесты исчезновения, орды, сохранения и клиентского события прошли; выход из орды частичен (S-6006). BFME2 1.06 game.dat MD5 подтверждён, индекс 0x26 в обеих таблицах — HORDE_MEMBER, а не FAERIE_FIRE как подписано в декомпиляции. Подготовлен, но ещё не собран тест отсутствия фиктивного слота для MACHINE. Источник установки OATH_FULLFILLED в игровом сценарии ещё не установлен. Ждёт игровой проверки |
+| 7 | `ClearanceTestingSlowDeathBehavior` | 4 | partial (2026-10-31) | выбор варианта смерти с проверкой свободного места и высоты местности | ЗАНЯТО — агент, 2026-10-31. Обе редакции: RW 0x887191 / BFME2 0x883F19, выбор RW 0x861868; сэмплер RW 0x8E0354 / 0x8E047D (BFME2 0x8DC096 / 0x8DC1BF). Предыдущая версия: `modgap2 clearance*` 5 / 119 прошли, без привязки 4 теста класса падают. После чтения RW 0xAD2CE0 и 0x8E047D устранён ошибочный отказ при ненулевой оси: она не читается при проверке области. Новый тест оси и тест повёрнутой геометрии прошли в обеих редакциях; S-6005 закрыт, повторная сборка и тесты прошли; игровая проверка отложена по просьбе владельца |
+| 8 | `FlingPassengerSpecialAbilityUpdate` | 4 | partial (2026-10-31) | бросок захваченного (Шарку, Морчант, горные тролли) | ЗАНЯТО — агент, 2026-10-31. Тест OpenContain проходит; HordeContain требует отдельного переноса: хотя слоты извлечения совпадают (RW 0x866367 / 0x8665BE, BFME2 0x863291 / 0x863509), обычный `removeMember` в порте не воспроизводит все действия OpenContain при выходе (маска статусов и `Object::onRemovedFrom` RW 0x69024C). S-6001 остаётся |
+| 9 | `RunOffMapBehavior` | 2 | missing | мумак убегает за край карты по точке | БЛОКИРОВАНО — Claude, 2026-10-31: в моде бездействует: все 10 блоков RequiresSpecificTrigger = Yes, а запускает его только DetachableRiderUpdate, до которого фракции не доходят; нужны и команды ИИ 0x38 / 0x41 (RW 0x865332 / 0x86539E) |
+| 10 | `SpawnUnitBehavior` | 2 | parsed-only | здание рождает юнитов (S-207) | НЕ НАЧАТО |
+| 11 | `DestroyEnvironmentUpdate` | 1 | partial (2026-11-01) | та же сила: разрушение деревьев/камня в области | СДЕЛАНО В КОДЕ частично (обе редакции: RW 0x8AFEB5 / BFME2 0x4AC84B; поля StartTime и DestructionTime, задержка, xfer), тесты test_modgap2_env_heavens_radar.cpp и сценарий ENNORATH. В игре эффекта нет: цель ищется через слот 31 (RW 0x8AFC5F), которого не реализует ни один модуль, поэтому объект не находится и модуль засыпает (S-7092). Проверять в игре нечего, пока слот не перенесён |
+| 12 | `PartTheHeavensUpdate` | 1 | partial (2026-11-01) | раскрытие небес: расходящийся круг света (сила) | СДЕЛАНО В КОДЕ частично (обе редакции: RW 0x8B0214 / BFME2 0x4ACBB3; кривые Radius, Angle и Opacity, xfer, `FunctionCurve`), тесты test_modgap2_env_heavens_radar.cpp и сценарий ENNORATH. В игре круга света нет: проекция декали (RW 0x8B0075 / BFME2 0x4AC9FA) не перенесена, значения кривых только считаются (S-7093) |
+| 13 | `ProjectileStreamUpdate` | 1 | missing | логика потока: дальность и цепочка снарядов | НЕ НАЧАТО |
+| 14 | `RadarMarkerClientUpdate` | 1 | partial (2026-11-01) | метка на миникарте | СДЕЛАНО В КОДЕ частично (обе редакции: RW 0x8CE116 / BFME2 0x4C9CF7; поле MarkerType и регистрация), тест test_modgap2_env_heavens_radar.cpp и сценарий ENNORATH. В игре метка на миникарте не двигается: запрос маркера у TheRadar (vslot 0x30, RW 0x44F0FA) не перенесён (S-2451) |
+| 15 | `StrafeAreaUpdate` | 1 | missing | дракон обстреливает область (сила Dragon Strike) | НЕ НАЧАТО |
 
-Дальше: `DestroyEnvironmentUpdate` (1), `PartTheHeavensUpdate` (1), `ProjectileStreamUpdate` (1), `RadarMarkerClientUpdate` (1), `StrafeAreaUpdate` (1), `W3DLightDraw` (1), `W3DProjectileStreamDraw` (1), `WallUpgradeUpdate` (1).
+Дальше: `W3DLightDraw` (1), `W3DProjectileStreamDraw` (1), `WallUpgradeUpdate` (1).
 
 Отложены, ни один объект мода их не достигает: `CombineHordeSpecialPower`, `RubbleRiseUpdate`, `SpellRechargeModifierUpgrade`, `StructureToppleUpdate`, `SwayClientUpdate`, `ThreatFinderUpdate`, `ToppleUpdate`.
 <!-- ennorath_queue.py priority: end -->
@@ -54,13 +54,13 @@
 Таблицу ниже пишет `python tools/mod/ennorath_unique.py --update`, руками её не правим. Upstream идёт по своей переписи: чем больше модов задевает класс, тем раньше (`docs/MOD-COMPAT.md`). Порядок для нас: сначала `ennorath-only`, затем `shared`, от меньшего числа объектов в RotWK к большему. `upstream-main` не переносим, только проверяем на Ennorath; `upstream-work` сначала смотрим у них. Вид `shared` с малым числом объектов не даёт гарантии: upstream уже перенёс `BoredUpdate` с 7 объектами. Перед тем как взять класс: `python tools/mod/ennorath_unique.py --check <Класс>`.
 
 <!-- ennorath_unique.py: begin -->
-Итого: upstream-main 1, upstream-work 0, shared 31, ennorath-only 1.
+Итого: upstream-main 1, upstream-work 0, shared 25, ennorath-only 1.
 
 | Вид | Класс | Гр. | Статус | Достижимых в моде | Объектов в RotWK | Где у upstream |
 |---|---|---:|---|---:|---:|---|
 | upstream-main | `AnimalAIUpdate` | 14 | base-ai | 11 | 36 |  |
-| shared | `DestroyEnvironmentUpdate` | 12 | missing | 1 | 1 |  |
-| shared | `PartTheHeavensUpdate` | 12 | missing | 1 | 1 |  |
+| shared | `DestroyEnvironmentUpdate` | 12 | partial (2026-11-01) | 1 | 1 |  |
+| shared | `PartTheHeavensUpdate` | 12 | partial (2026-11-01) | 1 | 1 |  |
 | shared | `ProjectileStreamUpdate` | 12 | missing | 1 | 1 |  |
 | shared | `StrafeAreaUpdate` | 12 | missing | 1 | 1 |  |
 | shared | `W3DProjectileStreamDraw` | 12 | missing | 1 | 1 |  |
@@ -69,27 +69,21 @@
 | shared | `ReplaceObjectUpdate` | 9 | partial (2026-10-31) | 6 | 2 |  |
 | shared | `SwayClientUpdate` | 12 | missing | 0 | 2 |  |
 | shared | `ToppleUpdate` | 2 | missing | 0 | 3 |  |
-| shared | `OilSpillUpdate` | 12 | ported (2026-11-01) | 2 | 3 |  |
 | shared | `ClearanceTestingSlowDeathBehavior` | 8 | partial (2026-10-31) | 4 | 4 |  |
-| shared | AnnounceBirthAndDeathBehavior | 10 | ported (2026-11-01) | 6 | 4 |  |
-| shared | TooltipUpgrade | 10 | ported (2026-11-01) | 9 | 4 |  |
 | shared | `WallUpgradeUpdate` | 12 | missing | 1 | 4 |  |
 | shared | `SpawnUnitBehavior` | 14 | parsed-only | 2 | 4 |  |
 | shared | `StructureToppleUpdate` | 2 | missing | 0 | 5 |  |
 | shared | `FlingPassengerSpecialAbilityUpdate` | 3 | partial (2026-10-31) | 4 | 5 |  |
 | shared | `OathbreakersFadeAwayBehavior` | 9 | partial (2026-10-31) | 5 | 6 |  |
-| shared | `W3DTornadoDraw` | 12 | ported (2026-11-01) | 11 | 6 |  |
-| shared | `RadarMarkerClientUpdate` | 12 | missing | 1 | 9 |  |
+| shared | `RadarMarkerClientUpdate` | 12 | partial (2026-11-01) | 1 | 9 |  |
 | shared | `RunOffMapBehavior` | 11 | missing | 2 | 11 |  |
-| shared | `TerrainResourceClientBehavior` | 14 | missing | 26 | 11 |  |
 | shared | `RubbleRiseUpdate` | 2 | missing | 0 | 17 |  |
-| shared | `EvaAnnounceClientCreate` | 10 | missing | 21 | 21 |  |
-| shared | `W3DBuffDraw` | 12 | missing | 50 | 22 |  |
+| shared | `EvaAnnounceClientCreate` | 10 | partial | 21 | 21 |  |
+| shared | `W3DBuffDraw` | 12 | parsed-only (2026-11-01) | 50 | 22 |  |
 | shared | `EvacuateDamage` | 6 | partial (2026-10-30) | 13 | 23 |  |
 | shared | `W3DStreakDraw` | 12 | parsed-only | 52 | 33 |  |
 | shared | `W3DLightDraw` | 12 | missing | 1 | 37 |  |
 | shared | `ThreatFinderUpdate` | 13 | missing | 0 | 40 |  |
-| shared | `ModelConditionAudioLoopClientBehavior` | 10 | ported | 500 | 254 |  |
 | ennorath-only | `CombineHordeSpecialPower` | 7 | missing | 0 | 0 |  |
 <!-- ennorath_unique.py: end -->
 
@@ -163,10 +157,10 @@
 | 12 | `W3DBuffDraw` | parsed-only (2026-11-01) | 50 | все 11 | — | — | свечение баффов (лечение, оглушение, мороз): рисуется на юнитах через `ClientBuffs` (S-4642); сам `W3DBuffDraw::doDrawModule` в обеих редакциях пустой (RW 0xBE3010 / BFME2 0xBCD178 слот 11 RW 0x9F3A3C = `ret 4`); перенесён типизированный `W3DBuffDrawModuleData` (`ModelName` +0x08, `PreDraw` +0x0C, RW 0x4CE61A / 0xBE318C, BFME2 0x4CEE4C / 0xBCD2F4) и передача `PreDraw` в `LiveFX::turnOnBuff` / `ClientBuffs::turnOn` (RW 0x707FFF / 0x4D1981, BFME2 0x70682A / 0x4D21B5) | S-113, S-4642 | СДЕЛАНО В КОДЕ для обеих редакций, тесты в test_mapobj_draw_data.cpp и test_spell4_buffs.cpp, ждёт проверки владельцем |
 | 12 | `W3DTornadoDraw` | ported (2026-11-01) | 11 | Arnor, Elves, Evilmen, Imladris | — | — | смерч Радагаста, ветры Алатара, вихрь Элронда: модуль отрисовки декалей смерча и следования за объектом | S-113 | СДЕЛАНО В КОДЕ (обе редакции: RW 0x00464930, BFME2 0x0046513A), тесты test_modgap2_tornado.cpp и test_mapobj_draw_data.cpp, ждёт проверки владельцем |
 | 12 | `OilSpillUpdate` | ported (2026-11-01) | 2 | Dwarves, Mordor | — | — | масляный след и поджиг (Mordor, Dwarves): спавн хлебных крошек (OilSpill), поджог и FXEvent | S-6025 | СДЕЛАНО В КОДЕ (обе редакции: RW 0x0064CC80, BFME2 0x0024CFA7), тест test_modgap2_oilspill.cpp, ждёт проверки владельцем |
-| 12 | `DestroyEnvironmentUpdate` | missing | 1 | Dwarves, Imladris, Men | — | — | та же сила: разрушение деревьев/камня в области | S-140 | НЕ НАЧАТО |
-| 12 | `PartTheHeavensUpdate` | missing | 1 | Dwarves, Imladris, Men | — | — | раскрытие небес: расходящийся круг света (сила) | S-140 | НЕ НАЧАТО |
+| 12 | `DestroyEnvironmentUpdate` | partial (2026-11-01) | 1 | Dwarves, Imladris, Men | — | — | та же сила: разрушение деревьев/камня в области | S-7092 | СДЕЛАНО В КОДЕ частично (обе редакции: RW 0x8AFEB5 / BFME2 0x4AC84B; поля StartTime и DestructionTime, задержка, xfer), тесты test_modgap2_env_heavens_radar.cpp и сценарий ENNORATH. В игре эффекта нет: цель ищется через слот 31 (RW 0x8AFC5F), которого не реализует ни один модуль, поэтому объект не находится и модуль засыпает (S-7092). Проверять в игре нечего, пока слот не перенесён |
+| 12 | `PartTheHeavensUpdate` | partial (2026-11-01) | 1 | Dwarves, Imladris, Men | — | — | раскрытие небес: расходящийся круг света (сила) | S-7093 | СДЕЛАНО В КОДЕ частично (обе редакции: RW 0x8B0214 / BFME2 0x4ACBB3; кривые Radius, Angle и Opacity, xfer, `FunctionCurve`), тесты test_modgap2_env_heavens_radar.cpp и сценарий ENNORATH. В игре круга света нет: проекция декали (RW 0x8B0075 / BFME2 0x4AC9FA) не перенесена, значения кривых только считаются (S-7093) |
 | 12 | `ProjectileStreamUpdate` | missing | 1 | Wild | — | — | логика потока: дальность и цепочка снарядов | S-113 | НЕ НАЧАТО |
-| 12 | `RadarMarkerClientUpdate` | missing | 1 | все 11 | — | — | метка на миникарте | S-140 | НЕ НАЧАТО |
+| 12 | `RadarMarkerClientUpdate` | partial (2026-11-01) | 1 | все 11 | — | — | метка на миникарте | S-2451 | СДЕЛАНО В КОДЕ частично (обе редакции: RW 0x8CE116 / BFME2 0x4C9CF7; поле MarkerType и регистрация), тест test_modgap2_env_heavens_radar.cpp и сценарий ENNORATH. В игре метка на миникарте не двигается: запрос маркера у TheRadar (vslot 0x30, RW 0x44F0FA) не перенесён (S-2451) |
 | 12 | `StrafeAreaUpdate` | missing | 1 | Wild | — | — | дракон обстреливает область (сила Dragon Strike) | S-140 | НЕ НАЧАТО |
 | 12 | `W3DLightDraw` | missing | 1 | Mordor | 4 (7) | — | световые пятна факелов, костров, вспышек (на картах) | S-113 | НЕ НАЧАТО |
 | 12 | `W3DProjectileStreamDraw` | missing | 1 | Wild | — | — | поток огня/струя (огненный дракон) | S-113 | НЕ НАЧАТО |
