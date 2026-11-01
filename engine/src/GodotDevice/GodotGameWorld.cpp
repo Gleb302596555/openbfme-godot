@@ -2913,7 +2913,7 @@ Dictionary GameWorld::get_victory_report() const
 }
 
 // RENDER-1: W3DStreakDraw (RW 0x4CF884, stop S-391). Every render frame each streak entry of a live drawable records the drawable's
-// shown (interpolated) position into its trail; the trails are drawn as camera-facing ribbons (W3DStreakStrip) in one ImmediateMesh.
+// shown (interpolated) position into its trail; the trails are drawn as mitred ribbons (W3DStreakRibbon) in one ImmediateMesh.
 // The material: the texture modulated by the vertex colour in gamma space (unshaded, converted to linear once), alpha blended, or
 // added when the module is Additive (the colour then carries the opacity, RW 0x4CFA38).
 void GameWorld::reset_streaks()
@@ -3079,7 +3079,18 @@ void GameWorld::refresh_streaks(bool record)
 		return;
 	}
 	const Vector3 eg = cam->get_global_position();
-	const float eye[3] = { eg.x, -eg.z, eg.y }; // Godot -> SAGE
+	// the camera in the space of the streak points (SAGE: x, -z, y of Godot), with retail's D3D view basis: x right, y up, z forward (the camera looks down -z)
+	const Basis cb = cam->get_global_transform().basis;
+	const auto toSage = [](const Vector3 &g, float out[3]) {
+		out[0] = g.x;
+		out[1] = -g.z;
+		out[2] = g.y;
+	};
+	W3DStreakCamera streakCamera;
+	toSage(eg, streakCamera.eye);
+	toSage(cb.get_column(0), streakCamera.right);
+	toSage(cb.get_column(1), streakCamera.up);
+	toSage(-cb.get_column(2), streakCamera.forward);
 	if (!m_streakTextures && m_fs.is_valid() && m_fs->archive_fs())
 	{
 		m_streakTextures.reset(new W3DMaterialFactory(*m_fs->archive_fs()));
@@ -3147,8 +3158,8 @@ void GameWorld::refresh_streaks(bool record)
 		bool begun = false;
 		for (const StreakView *sv : g.second)
 		{
-			const std::vector<W3DStreakVertex> strip = W3DStreakStrip(sv->trail.points(), sv->data->m_width, sv->data->m_length, eye);
-			if (strip.size() < 4)
+			const W3DStreakMesh ribbon = W3DStreakRibbon(sv->trail.points(), sv->data->m_width, sv->data->m_length, streakCamera);
+			if (ribbon.indices.empty())
 			{
 				continue;
 			}
@@ -3161,15 +3172,12 @@ void GameWorld::refresh_streaks(bool record)
 			const float op = sv->opacity;
 			const Color col = sv->data->m_additive ? Color(SimMath::sseMul(sv->data->m_color.red, op), SimMath::sseMul(sv->data->m_color.green, op), SimMath::sseMul(sv->data->m_color.blue, op), 1.0f)
 												   : Color(sv->data->m_color.red, sv->data->m_color.green, sv->data->m_color.blue, op);
-			for (size_t i = 0; i + 3 < strip.size(); i += 2)
+			for (unsigned index : ribbon.indices)
 			{
-				const W3DStreakVertex *q[6] = { &strip[i], &strip[i + 1], &strip[i + 2], &strip[i + 1], &strip[i + 3], &strip[i + 2] };
-				for (const W3DStreakVertex *v : q)
-				{
-					m_streakMesh->surface_set_color(col);
-					m_streakMesh->surface_set_uv(Vector2(v->u, v->v));
-					m_streakMesh->surface_add_vertex(Vector3(v->pos[0], v->pos[2], -v->pos[1]));
-				}
+				const W3DStreakVertex &v = ribbon.vertices[index];
+				m_streakMesh->surface_set_color(col);
+				m_streakMesh->surface_set_uv(Vector2(v.u, v.v));
+				m_streakMesh->surface_add_vertex(Vector3(v.pos[0], v.pos[2], -v.pos[1]));
 			}
 		}
 		if (begun)

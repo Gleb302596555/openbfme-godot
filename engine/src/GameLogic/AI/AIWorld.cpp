@@ -24,6 +24,7 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/SkirmishAI/SkirmishAIManager.h"
 #include "GameLogic/AI/AIGroup.h"
+#include "GameLogic/AI/AIGroupOrders.h"
 #include "GameLogic/Combat/CombatLineOfSight.h"
 #include "GameLogic/Combat/CombatQueries.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
@@ -1152,6 +1153,7 @@ void AIWorld::objectLeftWorld(Object &obj)
 	{
 		m_crates.erase(crate);
 	}
+	m_orders.forget(obj.getID()); // OpenBFME: the object's order queue goes with it (see AIGroupOrders.h)
 	if (!m_attached)
 	{
 		return;
@@ -1222,6 +1224,10 @@ void AIWorld::crc(StateHasher &h)
 	if (m_nextFormationId != 1)
 	{
 		h.addI32(m_nextFormationId); // lane BACKLOG-8: only once a formation was made (a game without one keeps its hash)
+	}
+	if (!m_orders.empty())
+	{
+		AIGroupOrders::crc(m_orders, h); // P-9: only once an order was queued (a game without one keeps its hash)
 	}
 }
 

@@ -72,6 +72,19 @@ public:
 		if (flags & 2) m_nextPatrolStart = id;
 	}
 
+	// RW 0x94ECAE / BFME2 0x9483C6: remove the last order and notify its owner.
+	void discardLastOrder(Owner &owner)
+	{
+		if (m_orders.empty()) return;
+		const OrderId last = m_orders.back();
+		if (!m_planned) m_patrolStart = 0;
+		m_nextPatrolStart = 0;
+		if (last == m_planned) m_planned = 0;
+		owner.removed(last, m_object, true);
+		m_orders.pop_back();
+	}
+
+	// RW 0x94EFE8 / BFME2 0x948700: discard a planned tail without notifying its owner.
 	void discardLastPlanned()
 	{
 		if (m_orders.empty() || !m_planned) return;

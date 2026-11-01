@@ -3,6 +3,7 @@
 
 #include "GameLogic/AI/AIGroup.h"
 
+#include "GameLogic/AI/AIGroupOrders.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "Common/Thing/KindOfTokens.h"
 #include "GameLogic/GameLogic.h"
@@ -393,9 +394,11 @@ void AIGroup::groupMoveToPosition(const Coord3D &posIn, bool addWaypoint, Comman
 
 const char *AIGroup::planningStopLine()
 {
-	return "S-1831 the group manager's move order (RW 0x75748C / 0x94E232) is executed at once and alone: the order queue's modes (player + 0x770, RW 0x7572FA), the "
-		"chained orders (RW 0x7571A7 / 0x756F76), the order's completion test (slot 0x14 RW 0x94DC37), its save data, the SHIP / AMPHIBIOUS transport branch "
-		"(RW 0x94DA57 -> 0x68F3F2 / 0x770D27) and the object + 0x27C branch (RW 0x754B18) are not ported";
+	return "S-1831 the group manager's move order (RW 0x75748C / 0x94E232) is queued in the members' queues by the player's order mode (RW 0x7572FA) and run by the AI "
+		"update (RW 0x66E5B0 / 0x66E65D, completion slot 0x14 RW 0x94DC37); not ported: the other order classes (attack object, garrison, formation move), the patrol "
+		"chaining (RW 0x7571A7 / 0x756F76), the planning commit (RW 0x6AAC85), the other callers that clear a queue (RW 0x77B0DD, 0x8760F9, 0x88C704), the pending-command "
+		"block of the AI update (RW 0x66E5C3), the SHIP / AMPHIBIOUS transport branch (RW 0x94DA57 -> 0x68F3F2 / 0x770D27) and the object + 0x27C branch (RW 0x754B18); "
+		"INFERENCE: RotWK keeps the queue of a dead object, here it is dropped with the object";
 }
 
 Coord3D AIGroup::planningDestination(GameLogic &logic, Object &object, const Coord3D &pos)
@@ -420,7 +423,7 @@ Coord3D AIGroup::planningDestination(GameLogic &logic, Object &object, const Coo
 	return p;
 }
 
-void AIGroup::planningMoveToPosition(const Coord3D &pos, bool attackMove, CommandSourceType source)
+void AIGroup::planningMoveToPosition(const Coord3D &pos, bool attackMove, int orderMode)
 {
 	AIWorld *world = m_logic.aiWorld();
 	if (!world || m_members.empty())
@@ -428,29 +431,33 @@ void AIGroup::planningMoveToPosition(const Coord3D &pos, bool attackMove, Comman
 		return;
 	}
 	world->noteStop(planningStopLine());
+	std::vector<ObjectID> ids;
 	for (Object *o : m_members)
 	{
-		if (o->isDestroyed())
+		if (!o->isDestroyed())
 		{
-			continue;
+			ids.push_back(o->getID());
 		}
-		AIUpdateInterface *ai = o->getAIUpdateInterface();
-		if (!ai || ai->isContained()) // RW 0x94E184: RW 0x6939DF (a horde member) or no AI (+ 0x260): nothing
-		{
-			continue;
-		}
-		// lane MODULES-3 r2: the order passes aiDoCommand's gate (RW 0x667174) before anything of the unit changes
-		if (!ai->acceptCommand(source, 0))
-		{
-			continue;
-		}
-		const Coord3D dest = planningDestination(m_logic, *o, pos);
-		// RW 0x94DF1B: the order's attack flag (+ 0x24) picks the attack-move (RW 0x696266(dest, 0x7FFFFFFF, 0)), else aiMoveToPosition(dest, 0) (RW 0x66C4CA)
-		ai->aiMoveToPosition(dest, source);
-		if (attackMove)
-		{
-			ai->armAttackMove(ai->stateMachine().goalPosition()); // the port's attack-move (lane COMBAT-1, S-328)
-		}
+	}
+	if (ids.empty())
+	{
+		return;
+	}
+	// RW 0x75748C: the order is made from the group (RW 0x94E232) and registered with the player's mode (RW 0x7573E6 -> 0x7572FA); a mode outside 0 .. 2 queues
+	// nothing, as RW 0x7572FA's default case. The queue that takes it as its first order runs it at once (MoveToGroupOrder::activate)
+	world->ordersManager().submit(orderMode, std::make_unique<MoveToGroupOrder>(m_logic, std::move(ids), pos, attackMove));
+}
+
+void AIGroup::clearOrders()
+{
+	AIWorld *world = m_logic.aiWorld();
+	if (!world)
+	{
+		return;
+	}
+	for (Object *o : m_members)
+	{
+		world->ordersManager().clear(o->getID(), 3); // RW 0x756E5C -> 0x756C87(mgr, 3, id) -> 0x94EBD1(3)
 	}
 }
 
