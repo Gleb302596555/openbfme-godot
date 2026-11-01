@@ -3,7 +3,8 @@
 // TARGET: RW 0x7572FA (addOrderToObjectQueues) and 0x94F19E (remove member),
 // caveat S-001. BFME2 1.06: Rva 0x3557B7 (AiOrdersManager.cpp) and
 // Rva 0x548984 (Rva00548984Order.cpp), Open-BFME-2 byte-matched rows.
-// This core is not wired into live commands or native saves (S-281).
+// AIWorld owns one (TheAiOrdersManager, RW 0xDE7860); MoveToGroupOrder (AIGroupOrders.h) is its live order, saved and hashed through AIGroupOrders.
+// Not ported (S-1831 / S-281): the other group order classes, the patrol chaining that starts a patrol (RW 0x7571A7), the planning commit.
 #pragma once
 
 #include "GameLogic/AI/ObjectOrderQueue.h"
@@ -12,6 +13,7 @@
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -32,6 +34,7 @@ public:
 		virtual void preparePatrol(ObjectId object) = 0;
 		virtual std::unique_ptr<GroupOrder> clone() const = 0;
 		const std::vector<ObjectId> &objects() const { return m_objects; }
+		OrderId cloneId() const { return m_clone; }
 
 	private:
 		friend class AIOrdersManager;
@@ -95,6 +98,77 @@ public:
 	{
 		auto it = m_orders.find(id);
 		return it == m_orders.end() ? nullptr : it->second.get();
+	}
+
+	using OrderMap = std::map<OrderId, std::unique_ptr<GroupOrder>>;
+	using QueueMap = std::map<ObjectId, ObjectOrderQueue>;
+	bool empty() const { return m_orders.empty() && m_queues.empty(); }
+	const OrderMap &orders() const { return m_orders; }
+	const QueueMap &queues() const { return m_queues; }
+	OrderId nextId() const { return m_nextId; }
+
+	// OpenBFME (not in RotWK, which keeps the queue of a dead object): an object that left the world takes its queue with it, every order of it cancelled
+	void forget(ObjectId object)
+	{
+		auto it = m_queues.find(object);
+		if (it == m_queues.end()) return;
+		it->second.clear(3, *this);
+		m_queues.erase(it);
+	}
+	void reset()
+	{
+		m_orders.clear();
+		m_queues.clear();
+		m_nextId = 0;
+	}
+
+	// A saved state, validated before anything changes: every order has members and an ID the manager issued, a clone names an order, every queue names an
+	// order it holds that exists and lists the queue's object as a member. False with `why` set leaves the manager as it was.
+	struct OrderRecord
+	{
+		OrderId id = 0, clone = 0;
+		std::unique_ptr<GroupOrder> order;
+	};
+	bool restore(OrderId nextId, std::vector<OrderRecord> orders, const std::vector<ObjectOrderQueue::State> &queues, std::string *why)
+	{
+		const auto refuse = [why](const std::string &text) {
+			if (why) *why = text;
+			return false;
+		};
+		OrderMap newOrders;
+		for (OrderRecord &r : orders)
+		{
+			if (!r.id || !r.order) return refuse("an order without an id or a body");
+			if (r.id > nextId) return refuse("order " + std::to_string(r.id) + " is beyond the next id " + std::to_string(nextId));
+			if (r.order->objects().empty()) return refuse("order " + std::to_string(r.id) + " has no members");
+			r.order->m_clone = r.clone;
+			if (!newOrders.emplace(r.id, std::move(r.order)).second) return refuse("order " + std::to_string(r.id) + " is saved twice");
+		}
+		for (const auto &kv : newOrders)
+		{
+			const OrderId clone = kv.second->m_clone;
+			if (clone && (clone == kv.first || !newOrders.count(clone))) return refuse("order " + std::to_string(kv.first) + " names the clone " + std::to_string(clone));
+		}
+		QueueMap newQueues;
+		for (const ObjectOrderQueue::State &s : queues)
+		{
+			if (!s.object) return refuse("a queue without an object");
+			ObjectOrderQueue q(s.object);
+			if (!q.restore(s)) return refuse("the queue of object " + std::to_string(s.object) + " is inconsistent");
+			for (OrderId id : s.orders)
+			{
+				auto it = newOrders.find(id);
+				if (it == newOrders.end()) return refuse("the queue of object " + std::to_string(s.object) + " holds the missing order " + std::to_string(id));
+				const std::vector<ObjectId> &m = it->second->objects();
+				if (std::find(m.begin(), m.end(), s.object) == m.end())
+					return refuse("the queue of object " + std::to_string(s.object) + " holds order " + std::to_string(id) + ", which does not name it");
+			}
+			if (!newQueues.emplace(s.object, std::move(q)).second) return refuse("the queue of object " + std::to_string(s.object) + " is saved twice");
+		}
+		m_nextId = nextId;
+		m_orders = std::move(newOrders);
+		m_queues = std::move(newQueues);
+		return true;
 	}
 
 private:

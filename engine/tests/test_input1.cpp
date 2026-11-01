@@ -10,12 +10,17 @@
 
 #include "Common/INI.h"
 #include "Common/INIException.h"
+#include "Common/StateHash.h"
+#include "Common/XferLoad.h"
+#include "Common/XferSave.h"
 #include "GameClient/CameraSettings.h"
 #include "GameClient/HudObjects.h"
 #include "GameClient/TacticalCamera.h"
 #include "GameLogic/GameLogicDispatch.h"
 #include "GameLogic/GameMessage.h"
+#include "GameLogic/AI/AIGroupOrders.h"
 #include "GameLogic/AI/AIOrdersManager.h"
+#include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/AI/ObjectOrderQueue.h"
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Module/AIUpdate.h"
@@ -760,6 +765,144 @@ TEST_CASE("P-9: Alt queues a second move without replacing the active destinatio
 	CHECK(dx * dx + dy * dy < 400.0f); // tolerance: pathfinder adjusts the clicked terrain position to a nearby walkable point.
 }
 
+TEST_CASE("P-9: an immediate order replaces the queued ones whole and Stop clears the queue")
+{
+	if (!haveWorld("P-9 queue clearing")) return;
+	SharedWorld &s = shared();
+	Rig r(s);
+	const Coord3D c = r.freeSpot(mapCenter(r).x, mapCenter(r).y, 260.0f);
+	Object *unit = r.make(templates(s).infantry.front(), c.x, c.y);
+	REQUIRE(unit->getAIUpdateInterface() != nullptr);
+	AIOrdersManager &queue = r.logic().aiWorld()->ordersManager();
+	r.lookAt(c, 300.0f, 380.0f);
+	r.frame(2);
+	const ICoord2D unitPixel = r.screenOf({ c.x, c.y, 6.0f });
+	r.leftClick(unitPixel.x, unitPixel.y);
+	r.frame(1);
+	const ICoord2D first = r.screenOf({ c.x + 180.0f, c.y + 80.0f, 0.0f });
+	const ICoord2D second = r.screenOf({ c.x - 180.0f, c.y + 80.0f, 0.0f });
+	const ICoord2D third = r.screenOf({ c.x, c.y - 200.0f, 0.0f });
+	r.leftClick(first.x, first.y);
+	r.frame(1);
+	r.setModifier(KEY_LALT, KEY_STATE_LALT, true);
+	r.frame(1);
+	r.leftClick(second.x, second.y);
+	r.frame(1);
+	r.leftClick(third.x, third.y);
+	r.frame(1);
+	r.setModifier(KEY_LALT, KEY_STATE_LALT, false);
+	r.frame(1);
+	REQUIRE(queue.queue(unit->getID()) != nullptr);
+	const std::vector<unsigned> queued(queue.queue(unit->getID())->orders().begin(), queue.queue(unit->getID())->orders().end());
+	REQUIRE(queued.size() == 3); // RW 0x7572FA mode 1: each order goes behind the others
+	// an immediate order (mode 0, RW 0x94EBD1 flags 1) takes every earlier order of the unit away, the active one too
+	r.leftClick(second.x, second.y);
+	r.frame(1);
+	REQUIRE(queue.queue(unit->getID())->orders().size() == 1);
+	for (unsigned id : queued)
+	{
+		CHECK(queue.order(id) == nullptr); // the old orders had no other member: they are gone
+	}
+	// Alt again, one more order behind it, then Stop (RW 0x77ABF7 -> 0x756E5C(manager, 3, group)): the whole queue goes
+	r.setModifier(KEY_LALT, KEY_STATE_LALT, true);
+	r.frame(1);
+	r.leftClick(third.x, third.y);
+	r.frame(1);
+	r.setModifier(KEY_LALT, KEY_STATE_LALT, false);
+	r.frame(1);
+	CHECK(queue.queue(unit->getID())->orders().size() == 2);
+	r.pressKey(KEY_S);
+	r.frame(1);
+	CHECK(queue.queue(unit->getID())->orders().empty());
+	CHECK(queue.orders().empty());
+}
+
+TEST_CASE("P-9: the order queues round-trip through the native save, keep the hash, and an inconsistent image is refused")
+{
+	if (!haveWorld("P-9 queue save")) return;
+	SharedWorld &s = shared();
+	Rig r(s);
+	const Coord3D c = r.freeSpot(mapCenter(r).x, mapCenter(r).y, 260.0f);
+	Object *a = r.make(templates(s).infantry.front(), c.x, c.y);
+	Object *b = r.make(templates(s).infantry.front(), c.x + 40.0f, c.y);
+	REQUIRE(a->getAIUpdateInterface() != nullptr);
+	REQUIRE(b->getAIUpdateInterface() != nullptr);
+	AIWorld &world = *r.logic().aiWorld();
+	AIOrdersManager &manager = world.ordersManager();
+	const std::vector<ObjectID> both{ a->getID(), b->getID() };
+	manager.submit(0, std::make_unique<MoveToGroupOrder>(r.logic(), both, Coord3D{ c.x + 150.0f, c.y + 60.0f, 0.0f }, false));
+	manager.submit(1, std::make_unique<MoveToGroupOrder>(r.logic(), std::vector<ObjectID>{ a->getID() }, Coord3D{ c.x - 150.0f, c.y + 60.0f, 0.0f }, true));
+	r.frame(3);
+	REQUIRE(manager.orders().size() == 2);
+	REQUIRE(manager.queue(a->getID())->orders().size() == 2);
+	REQUIRE(manager.queue(b->getID())->orders().size() == 1);
+
+	// the manager alone
+	AIGroupOrders::Image image = AIGroupOrders::capture(manager);
+	XferSave save;
+	AIGroupOrders::xfer(save, image, r.logic());
+	XferLoad load(save.data());
+	AIGroupOrders::Image loaded;
+	AIGroupOrders::xfer(load, loaded, r.logic());
+	AIOrdersManager other;
+	AIGroupOrders::install(other, std::move(loaded), r.logic());
+	StateHasher h1, h2;
+	AIGroupOrders::crc(manager, h1);
+	AIGroupOrders::crc(other, h2);
+	CHECK(h1.value() == h2.value());
+	CHECK(other.nextId() == manager.nextId());
+	CHECK(other.orders().size() == 2);
+
+	// the whole AI world: a save and a load of the same game keep the world's hash
+	StateHasher before;
+	world.crc(before);
+	XferSave worldSave;
+	world.xfer(worldSave);
+	XferLoad worldLoad(worldSave.data());
+	world.xfer(worldLoad);
+	StateHasher after;
+	world.crc(after);
+	CHECK(before.value() == after.value());
+	CHECK(manager.queue(a->getID())->orders().size() == 2);
+
+	// an image whose queue holds an order that does not exist is refused before anything changes
+	AIGroupOrders::Image bad = AIGroupOrders::capture(manager);
+	REQUIRE_FALSE(bad.queues.empty());
+	bad.queues.front().orders.push_back(bad.nextId + 7);
+	AIOrdersManager untouched;
+	CHECK_THROWS_AS(AIGroupOrders::install(untouched, std::move(bad), r.logic()), XferException);
+	CHECK(untouched.empty());
+	// ... and so is a queue of an object the game lacks
+	AIGroupOrders::Image gone = AIGroupOrders::capture(manager);
+	gone.queues.front().object = 0x7FFFF000u;
+	CHECK_THROWS_AS(AIGroupOrders::install(untouched, std::move(gone), r.logic()), XferException);
+	CHECK(untouched.empty());
+}
+
+TEST_CASE("P-9: an object that leaves the world takes its queue and its place in the orders with it")
+{
+	if (!haveWorld("P-9 queue forget")) return;
+	SharedWorld &s = shared();
+	Rig r(s);
+	const Coord3D c = r.freeSpot(mapCenter(r).x, mapCenter(r).y, 260.0f);
+	Object *a = r.make(templates(s).infantry.front(), c.x, c.y);
+	Object *b = r.make(templates(s).infantry.front(), c.x + 40.0f, c.y);
+	AIOrdersManager &manager = r.logic().aiWorld()->ordersManager();
+	const unsigned id = manager.submit(0, std::make_unique<MoveToGroupOrder>(r.logic(), std::vector<ObjectID>{ a->getID(), b->getID() },
+		Coord3D{ c.x + 150.0f, c.y + 60.0f, 0.0f }, false));
+	REQUIRE(manager.order(id) != nullptr);
+	const ObjectID aId = a->getID(), bId = b->getID();
+	r.logic().destroyObject(a);
+	r.frame(2);
+	CHECK(manager.queue(aId) == nullptr);
+	REQUIRE(manager.order(id) != nullptr);
+	CHECK(manager.order(id)->objects() == std::vector<unsigned>{ bId });
+	r.logic().destroyObject(b);
+	r.frame(2);
+	CHECK(manager.order(id) == nullptr);
+	CHECK(manager.empty());
+}
+
 TEST_CASE("input1 r2 orders: A makes no mode (RotWK has no case), Alt sends MSG_CHANGE_ORDERMODE and the logic stores the mode, a move stays a move (r3); the German Y / Z swap")
 {
 	if (!haveWorld("input1 order modes"))
@@ -785,7 +928,7 @@ TEST_CASE("input1 r2 orders: A makes no mode (RotWK has no case), Alt sends MSG_
 	r.frame(1);
 	CHECK(r.local->orderMode() == 1);
 	CHECK_FALSE(r.input->ui().isInWaypointMode()); // RotWK keeps the UI's waypoint flag for BEGIN_WAYPOINTS (unbound)
-	// r3: the AiOrdersManager queue that reads the mode is not ported (stop S-281): a move given in mode 1 is a move, not a waypoint
+	// r3: a move given in mode 1 is a move message, not a waypoint; the order queue (P-9) holds it behind the active order
 	const auto before = r.game->aiCommands().stats();
 	r.leftClick(p.x + 150, p.y + 80); // the standard setup of the rig: the left click orders
 	r.frame(1);
