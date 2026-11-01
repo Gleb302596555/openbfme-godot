@@ -123,6 +123,8 @@ public:
 	virtual void observerEvent(Object &, ObserverEvent::Kind, const Coord3D * = nullptr, const std::string & = {}, float = 0.0f) {}
 	// RW 0x628882: make the Drawable of a new object and bind it (Object::friend_bindToClient)
 	virtual void objectCreated(Object &obj) = 0;
+	// RW 0x68D27A: notify the drawable create interfaces after the object modules.
+	virtual void objectBuildComplete(Object &obj) { (void)obj; }
 	// RW 0x6288A5 -> 0x6288D3: the creation draw is the new drawable's model variation (drawable + 0x364); the port draws it before the bind and stores it
 	// after (Object::friend_initObject), so it reaches the client here, right after objectCreated
 	virtual void objectVariation(Object &obj, int variation) { (void)obj; (void)variation; }

@@ -1,0 +1,37 @@
+// OpenBFME. GPL-3.0.
+// EvaAnnounceClientCreate: RW 0x8CDE22, 0x8CDED6, 0x8CDF07 (S-001);
+// BFME2 0x4C9A51 / 0x4C9A82, EvaAnnounceClientCreateSlots.cpp.
+// Client presentation only. See S-7091 for snapshot timing, first-sight, radar
+// and saves.
+#pragma once
+#include "Common/Module.h"
+#include <cstdint>
+class ModuleFactory;
+class MultiIniFieldParse;
+class EvaAnnounceClientCreateModuleData : public ModuleData
+{
+  public:
+	static void buildFieldParse(MultiIniFieldParse &p);
+	int enemy = -1, ally = -1, owner = -1;
+	unsigned delay = 0;
+	bool onlyVisible = false, firstSight = false, usePosition = false, fakeRadar = false;
+};
+class EvaAnnounceClientCreate : public DrawableModule
+{
+  public:
+	EvaAnnounceClientCreate(Thing *thing, const EvaAnnounceClientCreateModuleData *data);
+	OBFME_MODULE_XFER(EvaAnnounceClientCreate);
+	void onBuildCompleteAt(std::uint32_t frame);
+	// relationship: ENEMIES=0, NEUTRAL=1, ALLIES=2; owner selects owner event.
+	int update(std::uint32_t frame, bool hidden, bool hasObject, bool owner, int relationship, bool &firstSight);
+	bool usePosition() const
+	{
+		return m_data->usePosition;
+	}
+	static void registerClass(ModuleFactory &modules);
+
+  private:
+	const EvaAnnounceClientCreateModuleData *m_data;
+	std::uint32_t m_due = 0;
+	bool m_started = false;
+};

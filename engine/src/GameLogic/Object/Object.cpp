@@ -1171,6 +1171,7 @@ void Object::friend_onBuildComplete()
 			c->onBuildComplete();
 		}
 	}
+	if (m_client) m_client->objectBuildComplete(*this);
 }
 
 void Object::friend_onMapPlacement(const Dict *properties)

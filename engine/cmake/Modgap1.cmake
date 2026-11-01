@@ -9,6 +9,7 @@ set(OPENBFME_MODGAP1_TESTS
     tests/test_modgap1_evacuate.cpp
     tests/test_modgap1_hole.cpp
     tests/test_modgap1_unique.cpp
+    tests/test_modgap1_eva.cpp
     tests/test_modgap1_aim.cpp
 )
 

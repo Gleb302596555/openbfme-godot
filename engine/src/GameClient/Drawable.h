@@ -253,6 +253,8 @@ public:
 	// lane CHAT-1: this client's own hiding (ZH Drawable::setDrawableHidden from BeaconClientUpdate::hideBeacon, RW 0x6718FB + 0x43D): an enemy's beacon
 	void setClientHidden(bool hidden) { m_clientHidden = hidden; }
 	bool clientHidden() const { return m_clientHidden; }
+	void markEvaFirstSighted() { m_evaFirstSighted = true; }
+	bool evaFirstSighted() const { return m_evaFirstSighted; }
 	const ObjectSnapshot *syncedRecord(const LogicSnapshot &snapshot, bool &found) const
 	{
 		found = m_syncSnapshot == &snapshot && m_syncFrame == snapshot.frame;
@@ -330,6 +332,7 @@ private:
 	float m_geometryHeight = -1.0f;          ///< RENDER-2: RW 0xAD1920 of the template's shapes (computed on first use)
 	std::vector<DrawEntry> m_entries;
 	std::vector<std::unique_ptr<DrawableModule>> m_clientModules;
+	bool m_evaFirstSighted = false; // RW Drawable +0x114 bit 0x80; sighting consumer remains S-709
 	bool m_clientHidden = false; ///< lane CHAT-1
 	bool m_phantomLook = false;  ///< lane FBSIM-1: drawn as a dozer's phantom structure (0.4 opacity)
 	Fade m_fade; ///< lane PROJ-2

@@ -5,6 +5,7 @@ set(OPENBFME_CHAT1_CLIENT_SOURCES
     src/GameClient/InGameChat.cpp                       # the chat window's rules (modes, recipients, formats, scroll-back)
     src/GameClient/InGameUIMessages.cpp                 # the InGameUI message lines (chat lines and GUI notices)
     src/GameClient/GUI/AptScreens/AptInGameChat.cpp     # InGameChat.apt
+    src/GameClient/EvaAnnounceClientCreate.cpp
     src/GameClient/BeaconClientUpdate.cpp               # the multiplayer beacon's client module (minimap pulses, hidden for enemies)
 )
 set(OPENBFME_CHAT1_TESTS

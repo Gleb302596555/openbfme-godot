@@ -3,6 +3,9 @@
 // The owner still checks what is seen and heard. Expected values come from the INI file each case names.
 #include "EnnorathScenario.h"
 #include "Common/Money.h"
+#include "Common/Audio/AudioIni.h"
+#include "GameClient/EvaAnnounceClientCreate.h"
+#include "GameClient/ClientEvents.h"
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
 #include "Common/Upgrade.h"
@@ -97,4 +100,42 @@ TEST_CASE("ENNORATH scenario GiveUpgradeUpdate: a Dwarven porter carries Forged 
 	CHECK_FALSE(farther->hasUpgrade(blades));
 	CHECK_FALSE(enemy->hasUpgrade(blades));
 	CHECK(arena.logic.findObjectByID(porterId) == nullptr);
+}
+
+TEST_CASE("ENNORATH scenario EvaAnnounceClientCreate: visible dropped ring announces after its delay")
+{
+ World world;
+ if (!world.load("Ennorath scenario EvaAnnounceClientCreate")) return;
+ // data/ini/crate.ini: TheDroppedRing, ModuleTag_AnnounceCreate.
+ const ThingTemplate *tt = world.shared.world->things().findTemplate("TheDroppedRing");
+ REQUIRE(tt);
+ const EvaAnnounceClientCreateModuleData *data = nullptr;
+ for (const auto &n : tt->clientUpdateModules().nuggets())
+  if (n.name == "EvaAnnounceClientCreate") data = dynamic_cast<const EvaAnnounceClientCreateModuleData *>(n.data.get());
+ REQUIRE(data);
+ const int discovered = world.shared.world->audio().eva.findIndex("DiscoveredRing", false);
+ REQUIRE(discovered != -1);
+ CHECK(data->owner == discovered);
+ CHECK(data->ally == discovered);
+ CHECK(data->enemy == discovered);
+ CHECK(data->delay == 8);
+ CHECK(data->onlyVisible);
+ CHECK(data->usePosition);
+ CHECK(data->fakeRadar);
+ structtest::Arena arena(world.shared, "FactionAngmar", "FactionMen");
+ ClientEventRecorder recorder(arena.logic);
+ arena.logic.setClientHooks(&recorder);
+ struct Unbind { GameLogic &logic; ~Unbind() { logic.setClientHooks(nullptr); } } unbind{arena.logic};
+ Object *ring = world.place(arena, "TheDroppedRing", 0, 400, 400);
+ const auto creation = recorder.take(false);
+ for (const auto &e : creation) CHECK(e.kind != ClientEvent::BUILD_COMPLETE);
+ ring->friend_onBuildComplete();
+ const auto completed = recorder.take(false);
+ REQUIRE(completed.size() == 1);
+ CHECK(completed[0].kind == ClientEvent::BUILD_COMPLETE);
+ CHECK(completed[0].object == ring->getID());
+ EvaAnnounceClientCreate m(nullptr, data); m.onBuildCompleteAt(10);
+ bool sight = false;
+ CHECK(m.update(17, false, true, false, 0, sight) == -1);
+ CHECK(m.update(18, false, true, false, 0, sight) == discovered);
 }
