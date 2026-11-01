@@ -40,9 +40,10 @@
 - [ ] `CritterEmitterUpdate` (0; —): птицы/мелкая живность на картах; в переписи 13 живых
 - [ ] `ShipSlowDeathBehavior` (0; —): тонущие корабли
 
-## Проверено сценарием на данных мода (2)
+## Проверено сценарием на данных мода (3)
 
 Логику проверяет `openbfme_tests -tc="ENNORATH scenario*"`. Смотреть в игре стоит только внешний вид и звук.
 
+- `ModelConditionAudioLoopClientBehavior` (500)
 - `SalvageCrateCollide` (6)
 - `GiveUpgradeUpdate` (4)
