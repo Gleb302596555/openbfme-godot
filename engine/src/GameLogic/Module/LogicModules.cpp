@@ -2,11 +2,14 @@
 // See GameLogic/Module/LogicModules.h.
 
 #include "GameLogic/Module/AttachUpdate.h"
+#include "GameLogic/Module/AnnounceBirthAndDeathBehavior.h"
+#include "GameLogic/Module/TooltipUpgrade.h"
 #include "GameLogic/Module/BoredUpdate.h"
 #include "GameLogic/Module/AODCrushCollide.h"
 #include "GameLogic/Module/ClearanceTestingSlowDeathBehavior.h"
 #include "GameLogic/Module/SpecialEnemySenseUpdate.h"
 #include "GameLogic/Module/OathbreakersFadeAwayBehavior.h"
+#include "GameLogic/Module/OilSpillUpdate.h"
 #include "GameLogic/Module/FlingPassengerSpecialAbilityUpdate.h"
 #include "GameLogic/Module/GiveUpgradeUpdate.h"
 #include "GameLogic/Module/LocomotorSetUpgrade.h"
@@ -134,6 +137,7 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	EntEnragedUpdate::registerClass(modules);      // lane MODGAP-1: the ents' rage (S-5605)
 	SpecialEnemySenseUpdate::registerClass(modules); // both editions: RW 0x89D7E6, BFME2 0x89A037
 	OathbreakersFadeAwayBehavior::registerClass(modules); // both editions: RW 0x8BCC82, BFME2 0x8B8B41
+	OilSpillUpdate::registerClass(modules); // both editions: RW 0x0088F863, BFME2 0x0048C1F7
 	GiantBirdSlowDeathBehavior::registerClass(modules); // lane MODGAP-1: a killed flyer's crash (S-5606)
 	AimWeaponBehavior::registerClass(modules);     // lane MODGAP-1: the aim model conditions (S-5607)
 	HordeTransportContainDamage::registerClass(modules); // lane MODGAP-1: a mumak's riders fall with its health (S-1103)
@@ -182,6 +186,8 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	TeleportToCasterSpecialPower::registerClass(modules); // MODGAP-2: the stored units teleport (S-6003)
 	DestroyEnvironmentUpdate::registerClass(modules); // MODGAP-2: both editions RW 0x64F128 / BFME2 0x64F43C (S-7092)
 	PartTheHeavensUpdate::registerClass(modules); // MODGAP-2: both editions RW 0x64F1B1 / BFME2 0x64F4C5 (S-7093)
+	AnnounceBirthAndDeathBehavior::registerClass(modules); // MODGAP-2: both editions (RW 0x6592CA / BFME2 0x658038), stop S-6012
+	TooltipUpgrade::registerClass(modules);                // MODGAP-2: both editions (RW 0x65B257 / BFME2 0x659E2F), stop S-6013
 	ClientBehaviorModules::registerAll(modules); // lane AUDIO-4: the footsteps (a ClientBehavior: the drawables make it, GameClient/)
 	SiegeModules::registerAll(modules); // lane SIEGE-1: SiegeDockingBehavior, SiegeDeploySpecialPower, StopSpecialPower, SiegeAIUpdate (after the AI classes)
 }
