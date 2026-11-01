@@ -19,6 +19,10 @@ list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/OilSpillUpdate.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTornadoDraw.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/TooltipUpgrade.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/AnnounceBirthAndDeathBehavior.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/ProjectileStreamUpdate.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/StrafeAreaUpdate.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DProjectileStreamDraw.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLightDraw.cpp)
 set(OPENBFME_MODGAP2_TESTS
     tests/test_modgap2_bored.cpp
     tests/test_modgap2_aod_crush.cpp
@@ -43,4 +47,5 @@ set(OPENBFME_MODGAP2_TESTS
     tests/test_modgap2_tornado.cpp
     tests/test_modgap2_tooltip_upgrade.cpp
     tests/test_modgap2_announce.cpp
+    tests/test_modgap2_stream_strafe_light.cpp
 )

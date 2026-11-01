@@ -4,6 +4,8 @@
 #include "GameLogic/Module/AttachUpdate.h"
 #include "GameLogic/Module/AnnounceBirthAndDeathBehavior.h"
 #include "GameLogic/Module/TooltipUpgrade.h"
+#include "GameLogic/Module/ProjectileStreamUpdate.h"
+#include "GameLogic/Module/StrafeAreaUpdate.h"
 #include "GameLogic/Module/BoredUpdate.h"
 #include "GameLogic/Module/AODCrushCollide.h"
 #include "GameLogic/Module/ClearanceTestingSlowDeathBehavior.h"
@@ -188,6 +190,8 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	PartTheHeavensUpdate::registerClass(modules); // MODGAP-2: both editions RW 0x64F1B1 / BFME2 0x64F4C5 (S-7093)
 	AnnounceBirthAndDeathBehavior::registerClass(modules); // MODGAP-2: both editions (RW 0x6592CA / BFME2 0x658038), stop S-6012
 	TooltipUpgrade::registerClass(modules);                // MODGAP-2: both editions (RW 0x65B257 / BFME2 0x659E2F), stop S-6013
+	ProjectileStreamUpdate::registerClass(modules);        // MODGAP-2: both editions (RW 0x00890AE0 / BFME2 0x0088D370)
+	StrafeAreaUpdate::registerClass(modules);              // MODGAP-2: both editions (RW 0x008A3950 / BFME2 0x0089F9F0)
 	ClientBehaviorModules::registerAll(modules); // lane AUDIO-4: the footsteps (a ClientBehavior: the drawables make it, GameClient/)
 	SiegeModules::registerAll(modules); // lane SIEGE-1: SiegeDockingBehavior, SiegeDeploySpecialPower, StopSpecialPower, SiegeAIUpdate (after the AI classes)
 }
