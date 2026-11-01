@@ -23,11 +23,20 @@ class EvaAnnounceClientCreate : public DrawableModule
 	OBFME_MODULE_XFER(EvaAnnounceClientCreate);
 	void onBuildCompleteAt(std::uint32_t frame);
 	// relationship: ENEMIES=0, NEUTRAL=1, ALLIES=2; owner selects owner event.
-	int update(std::uint32_t frame, bool hidden, bool hasObject, bool owner, int relationship, bool &firstSight);
+	int update(std::uint32_t frame, bool hidden, bool hasObject, bool owner, int relationship, bool &firstSight, bool alreadySighted = false);
 	bool usePosition() const
 	{
 		return m_data->usePosition;
 	}
+	void restoreLoaded(bool started, std::uint32_t due)
+	{
+		m_started = started;
+		m_due = due;
+	}
+	bool started() const { return m_started; }
+	std::uint32_t due() const { return m_due; }
+	void setStarted(bool started) { m_started = started; }
+	void setDue(std::uint32_t due) { m_due = due; }
 	static void registerClass(ModuleFactory &modules);
 
   private:

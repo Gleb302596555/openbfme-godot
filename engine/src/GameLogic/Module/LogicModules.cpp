@@ -94,8 +94,7 @@
 
 void LogicModules::registerAll(ModuleFactory &modules)
 {
-	// Only its S-207 offer is ported; keep the runtime's unported registration.
-	modules.bindTypedData<SpawnUnitBehaviorModuleData>("SpawnUnitBehavior", MODULETYPE_BEHAVIOR);
+	SpawnUnitBehavior::registerClass(modules); // both editions: RW 0x8BC9B0 / BFME2 0x89ECC0 (S-207)
 	modules.bindTypedData<ActiveBodyModuleData>("ActiveBody", MODULETYPE_BEHAVIOR);
 	modules.bindModuleProc("ActiveBody", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
 		const ActiveBodyModuleData *typed = dynamic_cast<const ActiveBodyModuleData *>(data);

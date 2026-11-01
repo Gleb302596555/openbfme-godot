@@ -2,7 +2,6 @@
 // See GameLogic/Module/UnportedModule.h.
 
 #include "GameLogic/Module/UnportedModule.h"
-#include "GameLogic/Module/SpawnUnitBehavior.h"
 #include "Common/Thing/RawModuleData.h"
 
 #include <stdexcept>
@@ -26,16 +25,6 @@ std::unique_ptr<Module> makeUnportedModule(Thing *thing, const ModuleData *data,
 {
 	if (type == MODULETYPE_BEHAVIOR)
 	{
-		// A raw-data-only factory still reports an entirely unported module.
-		if (className == "SpawnUnitBehavior" && !dynamic_cast<const RawModuleData *>(data))
-		{
-			const auto *typed = dynamic_cast<const SpawnUnitBehaviorModuleData *>(data);
-			if (!typed)
-			{
-				throw std::logic_error("SpawnUnitBehavior: missing typed module data");
-			}
-			return std::make_unique<SpawnUnitBehavior>(thing, typed, interfaceMask);
-		}
 		if (interfaceMask & MODULEINTERFACE_UPDATE)
 		{
 			return std::make_unique<UnportedUpdateModule>(thing, data, interfaceMask);

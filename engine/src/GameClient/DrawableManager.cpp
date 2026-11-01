@@ -467,11 +467,11 @@ void DrawableManager::updateEvaAnnounces(const LogicSnapshot &snapshot)
 			const int local = snapshot.players->localIndex;
 			const bool hidden = d->shroudLook().fullyObscured || d->clientHidden() || o->drawableHidden;
 			bool sight = false;
-			int event = eva->update(snapshot.frame + 1, hidden, true, o->ownerIndex == local, snapshot.players->relationshipOf(local, o->ownerIndex), sight);
+			int event = eva->update(snapshot.frame + 1, hidden, true, o->ownerIndex == local, snapshot.players->relationshipOf(local, o->ownerIndex), sight, d->evaFirstSighted());
 			if (sight)
 				d->markEvaFirstSighted();
 			if (event >= 0)
-				AudioApi::reportEva(event, eva->usePosition() ? d->getPosition() : nullptr);
+				AudioApi::reportEva(event, eva->usePosition() ? d->getPosition() : nullptr, d->getPosition());
 		}
 	}
 }

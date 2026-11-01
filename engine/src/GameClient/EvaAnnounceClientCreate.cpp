@@ -48,13 +48,15 @@ void EvaAnnounceClientCreate::onBuildCompleteAt(std::uint32_t frame)
 	m_started = true;
 	m_due = std::max<std::uint32_t>(7, frame + std::max<std::uint32_t>(2, m_data->delay));
 }
-int EvaAnnounceClientCreate::update(std::uint32_t frame, bool hidden, bool hasObject, bool owner, int relationship, bool &firstSight)
+int EvaAnnounceClientCreate::update(std::uint32_t frame, bool hidden, bool hasObject, bool owner, int relationship, bool &firstSight, bool alreadySighted)
 {
 	firstSight = false;
 	if (!m_due || m_due > frame)
 		return -1;
 	m_due = 0;
 	if ((m_data->onlyVisible && hidden) || !hasObject)
+		return -1;
+	if (m_data->firstSight && alreadySighted)
 		return -1;
 	firstSight = m_data->firstSight;
 	if (owner)

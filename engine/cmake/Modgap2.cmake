@@ -48,4 +48,5 @@ set(OPENBFME_MODGAP2_TESTS
     tests/test_modgap2_tooltip_upgrade.cpp
     tests/test_modgap2_announce.cpp
     tests/test_modgap2_stream_strafe_light.cpp
+    tests/test_modgap2_eva_spawn.cpp
 )
