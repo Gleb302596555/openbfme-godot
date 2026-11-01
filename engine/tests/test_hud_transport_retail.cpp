@@ -9,6 +9,7 @@
 
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/Combat/CombatNames.h"
+#include "GameLogic/Combat/CombatState.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/Damage.h"
 #include "GameLogic/AI/AIGarrisonStates.h"
@@ -27,6 +28,7 @@
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/System/ShroudManager.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <map>
@@ -192,10 +194,22 @@ TEST_CASE("transport retail: the mumak's archers shoot an enemy horde from its b
 	const float after = orcs && !orcs->isDestroyed() ? healthOfMembers(*orcs) : 0.0f;
 	std::printf("  info: Gondor fighters beside the mumak: health %.0f -> %.0f\n", before, after);
 	CHECK(after < before);
-	// the mumak dies: EjectPassengersOnDeath (Yes) throws every member off its bone and kills it
+	// RW 0x8C4351 calls the damage modules before death; HordeTransportContainDamage RW 0x8BF3E7 / BFME2 0x8BB176 kills five of six for a full-health lethal hit.
+	// The remaining member is thrown by HordeTransportContain RW 0x87AA2C. Trace the deaths against the fling draws to check both phases and their order.
+	REQUIRE(ridersOf(*horde).size() == 6u);
+	REQUIRE(mumak->getBodyModule()->getHealth() == mumak->getBodyModule()->getMaxHealth());
+	for (Object *member : ridersOf(*horde)) REQUIRE_FALSE(member->isEffectivelyDead());
+	std::vector<size_t> drawsAtDeath;
 	r.logic().random().clearCallLog();
 	r.logic().random().enableCallLog(true);
+	r.logic().combat().setDamageTrace([&](const Object &victim, std::uint32_t, float, float) {
+		if (std::find(memberIds.begin(), memberIds.end(), victim.getID()) == memberIds.end()) return;
+		size_t n = 0;
+		for (const auto &c : r.logic().random().callLog()) n += (c.file == "HordeTransportContain.cpp" && c.line == 0x234) ? 1u : 0u;
+		drawsAtDeath.push_back(n);
+	});
 	kill(*mumak);
+	r.logic().combat().setDamageTrace(nullptr);
 	r.frame(1);
 	size_t draws = 0;
 	for (const auto &c : r.logic().random().callLog())
@@ -211,7 +225,8 @@ TEST_CASE("transport retail: the mumak's archers shoot an enemy horde from its b
 	}
 	std::printf("  info: the mumak died: %zu of %zu riders dead, %zu fling draws (5, 10)\n", dead, members.size(), draws);
 	CHECK(dead == members.size());
-	CHECK(draws == members.size()); // every member has a PhysicsBehavior
+	CHECK(draws == 1u);
+	CHECK((drawsAtDeath == std::vector<size_t>{ 0u, 0u, 0u, 0u, 0u, 1u }));
 }
 
 TEST_CASE("transport retail: the Dwarven battle wagon: an upgrade makes its passengers (UpgradeCreationTrigger RW 0x86B169), LOADED, and its death kills them")
