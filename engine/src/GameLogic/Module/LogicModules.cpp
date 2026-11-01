@@ -7,6 +7,7 @@
 #include "GameLogic/Module/ClearanceTestingSlowDeathBehavior.h"
 #include "GameLogic/Module/SpecialEnemySenseUpdate.h"
 #include "GameLogic/Module/OathbreakersFadeAwayBehavior.h"
+#include "GameLogic/Module/OilSpillUpdate.h"
 #include "GameLogic/Module/FlingPassengerSpecialAbilityUpdate.h"
 #include "GameLogic/Module/GiveUpgradeUpdate.h"
 #include "GameLogic/Module/LocomotorSetUpgrade.h"
@@ -132,6 +133,7 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	EntEnragedUpdate::registerClass(modules);      // lane MODGAP-1: the ents' rage (S-5605)
 	SpecialEnemySenseUpdate::registerClass(modules); // both editions: RW 0x89D7E6, BFME2 0x89A037
 	OathbreakersFadeAwayBehavior::registerClass(modules); // both editions: RW 0x8BCC82, BFME2 0x8B8B41
+	OilSpillUpdate::registerClass(modules); // both editions: RW 0x0088F863, BFME2 0x0048C1F7
 	GiantBirdSlowDeathBehavior::registerClass(modules); // lane MODGAP-1: a killed flyer's crash (S-5606)
 	AimWeaponBehavior::registerClass(modules);     // lane MODGAP-1: the aim model conditions (S-5607)
 	HordeTransportContainDamage::registerClass(modules); // lane MODGAP-1: a mumak's riders fall with its health (S-1103)

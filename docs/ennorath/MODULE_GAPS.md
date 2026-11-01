@@ -19,14 +19,14 @@
 | 3 | `TerrainResourceClientBehavior` | 26 | ported (2026-11-01) | круги зон ферм и дуги контуров (S-5030); перенесён `TerrainResourceClientBehavior` (RW 0x6549B1 / 0x652B8C / 0x8D0A08 / 0x8D0A58 / 0x8D0A78, BFME2 0x654C56 / 0x652DEB / 0x8CC55A / 0x8CC5AA / 0x8CC5CA) и слоты 17/18 `DrawableModule` (`createSelectionFeedback` / `removeSelectionFeedback`, RW 0x672ED1 / 0x672F0D, BFME2 0x672BAB / 0x672BE7) | СДЕЛАНО В КОДЕ (обе редакции), тесты в test_ownerfix2.cpp и test_logic_objects.cpp, ждёт проверки владельцем |
 | 4 | `EvaAnnounceClientCreate` | 21 | partial | голос Эвы при появлении объекта (кольцо найдено, герой вышел) | СДЕЛАНО В КОДЕ — Codex, 2026-11-01; RW 0x8CDED6 / 0x8CDF07, BFME2 0x4C9A51 / 0x4C9A82; S-7091; тесты и сценарий Ennorath прошли, ждёт проверки владельцем |
 | 5 | `EvacuateDamage` | 13 | partial (2026-10-30) | боевая башня при попадании указанного оружия (MordorCatapultHumanHeads) выгоняет гарнизон | СДЕЛАНО В КОДЕ, тест (test_modgap1_evacuate.cpp), ждёт проверки владельцем: башню с гарнизоном бьёт катапульта Мордора с головами, гарнизон выходит. Не перенесено: паника при большом уроне за 6 кадров (команда ИИ 0x2E не определена, S-5602) |
-| 6 | `W3DTornadoDraw` | 11 | missing | смерч Радагаста, ветры Алатара, вихрь Элронда | НЕ НАЧАТО |
+| 6 | `W3DTornadoDraw` | 11 | ported (2026-11-01) | смерч Радагаста, ветры Алатара, вихрь Элронда: модуль отрисовки декалей смерча и следования за объектом | СДЕЛАНО В КОДЕ (обе редакции: RW 0x00464930, BFME2 0x0046513A), S-113, тесты test_modgap2_tornado.cpp и test_mapobj_draw_data.cpp, ждёт проверки владельцем |
 | 7 | `TooltipUpgrade` | 9 | missing | после улучшения кнопка меняет название и описание | НЕ НАЧАТО |
 | 8 | `AnnounceBirthAndDeathBehavior` | 6 | missing | голос при появлении/смерти Саурона и больших героев | НЕ НАЧАТО |
 | 9 | `ReplaceObjectUpdate` | 6 | partial (2026-10-31) | способности героя-создания, заменяющие объект (Word of Poultry) | СДЕЛАНО В КОДЕ агентом B без Scatter, тест test_modgap2_replace.cpp, ждёт проверки владельцем |
 | 10 | `OathbreakersFadeAwayBehavior` | 5 | partial (2026-10-31) | призраки растворяются после исполнения клятвы (P-13) | СДЕЛАНО В КОДЕ для обеих редакций: RW 0x8BCC50 / 0x8BCC82, BFME2 0x8B8B0F / 0x8B8B41. Отрицательная проверка и тесты исчезновения, орды, сохранения и клиентского события прошли; выход из орды частичен (S-6006). BFME2 1.06 game.dat MD5 подтверждён, индекс 0x26 в обеих таблицах — HORDE_MEMBER, а не FAERIE_FIRE как подписано в декомпиляции. Подготовлен, но ещё не собран тест отсутствия фиктивного слота для MACHINE. Источник установки OATH_FULLFILLED в игровом сценарии ещё не установлен. Ждёт игровой проверки |
 | 11 | `ClearanceTestingSlowDeathBehavior` | 4 | partial (2026-10-31) | выбор варианта смерти с проверкой свободного места и высоты местности | ЗАНЯТО — агент, 2026-10-31. Обе редакции: RW 0x887191 / BFME2 0x883F19, выбор RW 0x861868; сэмплер RW 0x8E0354 / 0x8E047D (BFME2 0x8DC096 / 0x8DC1BF). Предыдущая версия: `modgap2 clearance*` 5 / 119 прошли, без привязки 4 теста класса падают. После чтения RW 0xAD2CE0 и 0x8E047D устранён ошибочный отказ при ненулевой оси: она не читается при проверке области. Новый тест оси и тест повёрнутой геометрии прошли в обеих редакциях; S-6005 закрыт, повторная сборка и тесты прошли; игровая проверка отложена по просьбе владельца |
 | 12 | `FlingPassengerSpecialAbilityUpdate` | 4 | partial (2026-10-31) | бросок захваченного (Шарку, Морчант, горные тролли) | ЗАНЯТО — агент, 2026-10-31. Тест OpenContain проходит; HordeContain требует отдельного переноса: хотя слоты извлечения совпадают (RW 0x866367 / 0x8665BE, BFME2 0x863291 / 0x863509), обычный `removeMember` в порте не воспроизводит все действия OpenContain при выходе (маска статусов и `Object::onRemovedFrom` RW 0x69024C). S-6001 остаётся |
-| 13 | `OilSpillUpdate` | 2 | missing | масляный след и поджиг (Mordor, Dwarves) | НЕ НАЧАТО |
+| 13 | `OilSpillUpdate` | 2 | ported (2026-11-01) | масляный след и поджиг (Mordor, Dwarves): спавн хлебных крошек (OilSpill), поджог и FXEvent | СДЕЛАНО В КОДЕ (обе редакции: RW 0x0064CC80, BFME2 0x0024CFA7), S-6025, тест test_modgap2_oilspill.cpp, ждёт проверки владельцем |
 | 14 | `RunOffMapBehavior` | 2 | missing | мумак убегает за край карты по точке | БЛОКИРОВАНО — Claude, 2026-10-31: в моде бездействует: все 10 блоков RequiresSpecificTrigger = Yes, а запускает его только DetachableRiderUpdate, до которого фракции не доходят; нужны и команды ИИ 0x38 / 0x41 (RW 0x865332 / 0x86539E) |
 | 15 | `SpawnUnitBehavior` | 2 | parsed-only | здание рождает юнитов (S-207) | НЕ НАЧАТО |
 
@@ -69,7 +69,7 @@
 | shared | `ReplaceObjectUpdate` | 9 | partial (2026-10-31) | 6 | 2 |  |
 | shared | `SwayClientUpdate` | 12 | missing | 0 | 2 |  |
 | shared | `ToppleUpdate` | 2 | missing | 0 | 3 |  |
-| shared | `OilSpillUpdate` | 12 | missing | 2 | 3 |  |
+| shared | `OilSpillUpdate` | 12 | ported (2026-11-01) | 2 | 3 |  |
 | shared | `ClearanceTestingSlowDeathBehavior` | 8 | partial (2026-10-31) | 4 | 4 |  |
 | shared | `AnnounceBirthAndDeathBehavior` | 10 | missing | 6 | 4 |  |
 | shared | `TooltipUpgrade` | 10 | missing | 9 | 4 |  |
@@ -78,7 +78,7 @@
 | shared | `StructureToppleUpdate` | 2 | missing | 0 | 5 |  |
 | shared | `FlingPassengerSpecialAbilityUpdate` | 3 | partial (2026-10-31) | 4 | 5 |  |
 | shared | `OathbreakersFadeAwayBehavior` | 9 | partial (2026-10-31) | 5 | 6 |  |
-| shared | `W3DTornadoDraw` | 12 | missing | 11 | 6 |  |
+| shared | `W3DTornadoDraw` | 12 | ported (2026-11-01) | 11 | 6 |  |
 | shared | `RadarMarkerClientUpdate` | 12 | missing | 1 | 9 |  |
 | shared | `RunOffMapBehavior` | 11 | missing | 2 | 11 |  |
 | shared | `TerrainResourceClientBehavior` | 14 | missing | 26 | 11 |  |
@@ -161,8 +161,8 @@
 | 11 | `RunOffMapBehavior` | missing | 2 | Evilmen | 1 (1) | — | мумак убегает за край карты по точке | S-1995 | БЛОКИРОВАНО — Claude, 2026-10-31: в моде бездействует: все 10 блоков RequiresSpecificTrigger = Yes, а запускает его только DetachableRiderUpdate, до которого фракции не доходят; нужны и команды ИИ 0x38 / 0x41 (RW 0x865332 / 0x86539E) |
 | 12 | `W3DStreakDraw` | parsed-only | 52 | все 11 | — | — | следы за стрелами и снарядами; рисуется клиентом (RENDER-1 / PROJ-2: точки следа RW 0x4CF884, V, режимы смешивания, цвет, погодная текстура), статус «parsed-only» верен для модульной таблицы, но не значит «не рисуется» | S-391, S-1002 | ЗАНЯТО — Copilot, 2026-11-01: проверено, что покрыто и что нет. Покрыто тестами `render streak:*`, `proj2 arrows:*`. Не хватало геометрии ленты (была лента лицом к камере, вывод): перенесён `SimpleStreakRendererClass::RenderStreak` (BFME2 Rva 0x126433, WB 0xA1E840; RW 0x525E1F — INFERENCE: тот же размер 11 984 Б, те же шесть аргументов, константы 0.9 и 0.0001; построчно не сверялось). Ждёт проверки владельцем в игре: стрелы лучников — лента ровная, не перекручена при повороте, V на оперении 0, на наконечнике 1 |
 | 12 | `W3DBuffDraw` | parsed-only (2026-11-01) | 50 | все 11 | — | — | свечение баффов (лечение, оглушение, мороз): рисуется на юнитах через `ClientBuffs` (S-4642); сам `W3DBuffDraw::doDrawModule` в обеих редакциях пустой (RW 0xBE3010 / BFME2 0xBCD178 слот 11 RW 0x9F3A3C = `ret 4`); перенесён типизированный `W3DBuffDrawModuleData` (`ModelName` +0x08, `PreDraw` +0x0C, RW 0x4CE61A / 0xBE318C, BFME2 0x4CEE4C / 0xBCD2F4) и передача `PreDraw` в `LiveFX::turnOnBuff` / `ClientBuffs::turnOn` (RW 0x707FFF / 0x4D1981, BFME2 0x70682A / 0x4D21B5) | S-113, S-4642 | СДЕЛАНО В КОДЕ для обеих редакций, тесты в test_mapobj_draw_data.cpp и test_spell4_buffs.cpp, ждёт проверки владельцем |
-| 12 | `W3DTornadoDraw` | missing | 11 | Arnor, Elves, Evilmen, Imladris | — | — | смерч Радагаста, ветры Алатара, вихрь Элронда | S-113 | НЕ НАЧАТО |
-| 12 | `OilSpillUpdate` | missing | 2 | Dwarves, Mordor | — | — | масляный след и поджиг (Mordor, Dwarves) | S-140 | НЕ НАЧАТО |
+| 12 | `W3DTornadoDraw` | ported (2026-11-01) | 11 | Arnor, Elves, Evilmen, Imladris | — | — | смерч Радагаста, ветры Алатара, вихрь Элронда: модуль отрисовки декалей смерча и следования за объектом | S-113 | СДЕЛАНО В КОДЕ (обе редакции: RW 0x00464930, BFME2 0x0046513A), тесты test_modgap2_tornado.cpp и test_mapobj_draw_data.cpp, ждёт проверки владельцем |
+| 12 | `OilSpillUpdate` | ported (2026-11-01) | 2 | Dwarves, Mordor | — | — | масляный след и поджиг (Mordor, Dwarves): спавн хлебных крошек (OilSpill), поджог и FXEvent | S-6025 | СДЕЛАНО В КОДЕ (обе редакции: RW 0x0064CC80, BFME2 0x0024CFA7), тест test_modgap2_oilspill.cpp, ждёт проверки владельцем |
 | 12 | `DestroyEnvironmentUpdate` | missing | 1 | Dwarves, Imladris, Men | — | — | та же сила: разрушение деревьев/камня в области | S-140 | НЕ НАЧАТО |
 | 12 | `PartTheHeavensUpdate` | missing | 1 | Dwarves, Imladris, Men | — | — | раскрытие небес: расходящийся круг света (сила) | S-140 | НЕ НАЧАТО |
 | 12 | `ProjectileStreamUpdate` | missing | 1 | Wild | — | — | логика потока: дальность и цепочка снарядов | S-113 | НЕ НАЧАТО |

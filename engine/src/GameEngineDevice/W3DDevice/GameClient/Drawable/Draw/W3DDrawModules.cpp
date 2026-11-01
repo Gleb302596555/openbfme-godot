@@ -9,6 +9,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawVariants.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DStreakDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTornadoDraw.h"
 
 namespace
 {
@@ -69,6 +70,7 @@ void W3DDrawModules::registerTypedDrawModuleData(ModuleFactory &modules)
 	modules.bindTypedData<W3DSupplyDrawModuleData>("W3DSupplyDraw", MODULETYPE_DRAW);
 	modules.bindTypedData<W3DStreakDrawModuleData>("W3DStreakDraw", MODULETYPE_DRAW); // RENDER-1: RW 0x46473E / 0xBE39F8
 	modules.bindTypedData<W3DBuffDrawModuleData>("W3DBuffDraw", MODULETYPE_DRAW);     // both editions: RW 0x46448B / 0xBE3108, BFME2 0x464C94 / 0xBCD270
+	modules.bindTypedData<W3DTornadoDrawModuleData>("W3DTornadoDraw", MODULETYPE_DRAW); // both editions: RW 0x464968 / 0xBE4130, BFME2 0x465171 / 0xBCE150
 }
 
 std::vector<std::string> W3DDrawModules::notDrawnClasses()
@@ -86,6 +88,11 @@ std::vector<std::string> W3DDrawModules::notDrawnClasses()
 			if (std::string(c.name) == "W3DBuffDraw")
 			{
 				out.push_back("W3DBuffDraw: no model on the buff template itself (RW 0xBE3010 / BFME2 0xBCD178 doDrawModule is a no-op); its ModelName is drawn on buffed units by ClientBuffs (S-4642)");
+				continue;
+			}
+			if (std::string(c.name) == "W3DTornadoDraw")
+			{
+				out.push_back("W3DTornadoDraw: effect draw, tornado decals/particles not fully drawn (S-113)");
 				continue;
 			}
 			out.push_back(std::string(c.name) + ": effect draw, not drawn (S-113)");

@@ -120,7 +120,7 @@ TEST_CASE("mapobj draw data: the registry's 20 draw classes are all classified, 
 		REQUIRE_MESSAGE(t != nullptr, c.name);
 		const bool typedKind = c.kind == W3D_DRAWKIND_MODEL || c.kind == W3D_DRAWKIND_TREE || c.kind == W3D_DRAWKIND_PROP || c.kind == W3D_DRAWKIND_FLOOR ||
 			std::string(c.name) == "W3DDefaultDraw" || std::string(c.name) == "W3DStreakDraw" ||
-			std::string(c.name) == "W3DBuffDraw"; // RENDER-1 binds the streak data; SPELL-4 binds the buff draw data (RW 0x46448B / BFME2 0x464C94)
+			std::string(c.name) == "W3DBuffDraw" || std::string(c.name) == "W3DTornadoDraw"; // RENDER-1 binds the streak data; SPELL-4 binds the buff draw data; MODGAP-2 binds tornado data
 		CHECK_MESSAGE(t->typed == typedKind, c.name);
 	}
 	size_t drawClasses = 0;
@@ -129,7 +129,7 @@ TEST_CASE("mapobj draw data: the registry's 20 draw classes are all classified, 
 		(void)n;
 		++drawClasses;
 	}
-	CHECK(w.modules.typedCount() == 13); // + W3DStreakDraw (RENDER-1) + W3DBuffDraw (SPELL-4)
+	CHECK(w.modules.typedCount() == 14); // + W3DStreakDraw (RENDER-1) + W3DBuffDraw (SPELL-4) + W3DTornadoDraw (MODGAP-2)
 	CHECK(W3DDrawModules::find("w3dtreedraw") == nullptr); // class names are case sensitive
 	REQUIRE(W3DDrawModules::find("W3DTreeDraw") != nullptr);
 	CHECK(W3DDrawModules::find("W3DTreeDraw")->kind == W3D_DRAWKIND_TREE);

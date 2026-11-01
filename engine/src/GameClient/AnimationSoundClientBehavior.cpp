@@ -11,6 +11,7 @@
 #include "GameClient/ClientBehaviorModules.h"
 #include "GameClient/ModelConditionAudioLoopClientBehavior.h"
 #include "GameClient/SoundSelectorClientBehavior.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTornadoDraw.h"
 #include "GameClient/TerrainResourceFeedback.h"
 
 #include "Common/AsciiString.h"
@@ -695,4 +696,5 @@ void ClientBehaviorModules::registerAll(ModuleFactory &modules)
 	EvaAnnounceClientCreate::registerClass(modules);
 	BeaconClientUpdate::registerClass(modules);                    // lane CHAT-1: the multiplayer beacon's minimap pulse
 	TerrainResourceClientBehavior::registerClass(modules);         // both editions: RW 0x6549B1 / BFME2 0x654C56, the resource building's selection feedback (S-5030)
+	W3DTornadoDraw::registerClass(modules);                 // both editions: RW 0x00464930, BFME2 0x0046513A
 }
