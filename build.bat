@@ -4,10 +4,9 @@ rem build.bat [Release|Debug]; the default also builds tests and their helpers.
 rem Needs Visual Studio 2022 (C++ workload), CMake and Ninja on PATH.
 rem Load: the build runs at BELOW-NORMAL priority with at most OPENBFME_BUILD_JOBS parallel compile/link jobs (default: a third of the logical cores,
 rem at least 2) so the machine stays usable while it builds. OPENBFME_BUILD_JOBS=2 is lighter, OPENBFME_BUILD_JOBS=0 lets Ninja use every core.
-rem Compile cache: OPENBFME_COMPILER_CACHE=<full path to sccache.exe> compiles through it (paths relative to this tree, so worktrees share results).
+rem Compile cache: OPENBFME_COMPILER_CACHE=<full path to sccache.exe> compiles through it. Measured 2026-11-01: a tree at another path got 1 hit of 2483, so it does not speed up a new tree.
 setlocal
 set "ROOT=%~dp0"
-if defined OPENBFME_COMPILER_CACHE set "SCCACHE_BASEDIRS=%ROOT%"
 set "BUILD_DIR=%ROOT%engine\build"
 set "BUILD_TYPE=Release"
 if not "%~1"=="" set "BUILD_TYPE=%~1"
