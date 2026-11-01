@@ -21,20 +21,47 @@
 // - TBuff::UpdateFade (RW 0x4D1417, decomp TBuff.cpp), once per drawn frame after the TBuff is filled: state 0 adds 1/12 (0.083333336) up to
 //   1 (then state 1), state 2 subtracts 1/12 down to 0 (then state 3); the fill (RW 0x4D1ACD, decomp W3DBuffBuffer.cpp) draws the buff model's
 //   meshes at the TBuff's position + the mesh's translation, the vertices times the scale, the colour emissive * vertex colour * opacity.
+// - W3DBuffDraw / W3DBuffDrawModuleData (both editions: RW 0x464453 / BFME2 0x464C5C friend_newModuleInstance, RW 0x46448B / BFME2 0x464C94
+//   friend_newModuleData; module ctor RW 0x4CE5AF / BFME2 0x4CEDE1, vtable RW 0xBE3010 / BFME2 0xBCD178 where slot 11 doDrawModule RW 0x9F3A3C is a
+//   no-op ret 4; module data ctor RW 0x4CE61A / BFME2 0x4CEE4C, vtable RW 0xBE3108 / BFME2 0xBCD270, slot 17 getAsW3DBuffDrawModuleData RW 0x8CEF91 /
+//   BFME2 0x8BA009; buildFieldParse RW 0x4CE661 / BFME2 0x4CEE93, table RW 0xBE318C / BFME2 0xBCD2F4: ModelName +0x08 parseAsciiString, PreDraw +0x0C
+//   parseBool; W3DBuffBuffer::addBuffType RW 0x4D1981 / BFME2 0x4D21B5 copies both, W3DBuffBuffer::drawBuffs RW 0x4D20C6 / BFME2 0x4D28FA splits the
+//   depth-tested preDraw pass from the post-draw pass).
 // INFERENCE (stop S-4642): the expiry test (an active instance turned off when the logic frame reaches its expiry) and the TBuff's position following
 //   the drawable every frame are taken from the fields the code keeps (+ 0x14, the drawable pointer), the updater was not read; a TBuff in state 3 is
 //   released then; the model is drawn through the live object instancer (its own materials, the opacity as the instance fade) instead of the
-//   W3DBuffBuffer's additive pass; the camera-facing ALIGNED meshes are not turned to the target.
+//   W3DBuffBuffer's additive preDraw / post-draw passes; the camera-facing ALIGNED meshes are not turned to the target.
 
 #pragma once
 
+#include "Common/INI.h"
 #include "Common/INIDataTypes.h"
+#include "Common/Module.h"
 #include "GameLogic/ObjectTypes.h"
 
 #include <cstdint>
 #include <map>
 #include <string>
 #include <vector>
+
+// W3DBuffDrawModuleData (both editions: RW 0x4CE61A / BFME2 0x4CEE4C ctor, size 0x10; RW 0x4CE661 / BFME2 0x4CEE93 buildFieldParse, table RW 0xBE318C /
+// BFME2 0xBCD2F4). Bound on "W3DBuffDraw" in W3DDrawModules::registerTypedDrawModuleData; read by LiveFX::turnOnBuff (BuffLogic::addBuff RW 0x707FFF /
+// BFME2 0x70682A).
+class W3DBuffDrawModuleData : public ModuleData
+{
+public:
+	W3DBuffDrawModuleData() = default;
+
+	std::string m_modelName;   ///< +0x08: ModelName (INI::parseAsciiString, default "")
+	bool m_preDraw = false;    ///< +0x0C: PreDraw (INI::parseBool, default false)
+
+	static void buildFieldParse(MultiIniFieldParse &p);
+};
+
+namespace W3DBuffDrawTables
+{
+const FieldParse *buff(); ///< RW 0xBE318C / BFME2 0xBCD2F4
+} // namespace W3DBuffDrawTables
 
 class ClientBuffs
 {
@@ -56,7 +83,8 @@ public:
 		ObjectID object = INVALID_ID;
 		int type = 0;              ///< BuffType 1 .. 8
 		std::string thing;         ///< the buff ThingTemplate (BuffInfantryTemplate, ...)
-		std::string model;         ///< its W3DBuffDraw ModelName
+		std::string model;         ///< its W3DBuffDraw ModelName (+0x08)
+		bool preDraw = false;      ///< its W3DBuffDraw PreDraw (+0x0C, W3DBuffBuffer::m_types[i].m_preDraw +0x20, RW 0x4D1981 / BFME2 0x4D21B5)
 		bool active = false;       ///< BuffInstance + 0x04
 		unsigned expireFrame = 0;  ///< BuffInstance + 0x14: the logic frame it is turned off at
 		int state = FADE_IN;       ///< TBuff + 0x08
@@ -65,7 +93,7 @@ public:
 	};
 
 	// Drawable::TurnOnBuff / MakeNormalBuff. False when nothing was made (type outside 1 .. 8, no template / model, the template's 1000 TBuffs)
-	bool turnOn(ObjectID object, int type, const std::string &thing, const std::string &model, unsigned lifeFrames, unsigned logicFrame);
+	bool turnOn(ObjectID object, int type, const std::string &thing, const std::string &model, unsigned lifeFrames, unsigned logicFrame, bool preDraw = false);
 	// BuffManager::TurnOffBuff
 	void turnOff(ObjectID object, int type, bool immediate);
 	// the object is gone: its buffs go at once (its drawable and BuffManager are deleted)

@@ -178,6 +178,10 @@ public:
 	const std::vector<std::unique_ptr<DrawableModule>> &clientModules() const { return m_clientModules; }
 	// ZH Object::friend_bindToDrawable -> Drawable: calls onDrawableBoundToObject on the client modules
 	void friend_boundToObject();
+	// Drawable::createSelectionFeedback (RW 0x672ED1 / BFME2 0x672BAB) and removeSelectionFeedback (RW 0x672F0D / BFME2 0x672BE7): walk the client modules
+	// calling slot 17 / slot 18 (TerrainResourceClientBehavior, RW 0x8D0A58 / 0x8D0A78, BFME2 0x8CC5AA / 0x8CC5CA)
+	void createSelectionFeedback();
+	void removeSelectionFeedback();
 	// lane AUDIO-4: the client modules hear every transform change (Thing::setPosition / setOrientation / setTransform)
 	void reactToTransformChange(const Coord3D *oldPos, float oldAngle) override;
 	DrawServices &drawServices() { return m_services; }

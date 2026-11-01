@@ -3,7 +3,35 @@
 
 #include "GameClient/BuffDraw.h"
 
+#include <cstddef>
 #include <iterator>
+
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic ignored "-Winvalid-offsetof"
+#endif
+
+namespace
+{
+#define BUFF_ROW(name, parse, field) { name, parse, nullptr, (int)offsetof(W3DBuffDrawModuleData, field) }
+// RW 0xBE318C / BFME2 0xBCD2F4, 2 rows in the binary's order
+const FieldParse kBuffFieldParse[] = {
+	BUFF_ROW("ModelName", INI::parseAsciiString, m_modelName),
+	BUFF_ROW("PreDraw", INI::parseBool, m_preDraw),
+	{ nullptr, nullptr, nullptr, 0 }
+};
+#undef BUFF_ROW
+} // namespace
+
+void W3DBuffDrawModuleData::buildFieldParse(MultiIniFieldParse &p)
+{
+	// RW 0x4CE661 / BFME2 0x4CEE93: ModuleData::buildFieldParse is a no-op; adds the 2-row table
+	p.add(kBuffFieldParse);
+}
+
+const FieldParse *W3DBuffDrawTables::buff()
+{
+	return kBuffFieldParse;
+}
 
 void ClientBuffs::updateFade(int &state, float &opacity)
 {
@@ -47,7 +75,7 @@ void ClientBuffs::release(std::map<std::pair<ObjectID, int>, Buff>::iterator it)
 	m_buffs.erase(it);
 }
 
-bool ClientBuffs::turnOn(ObjectID object, int type, const std::string &thing, const std::string &model, unsigned lifeFrames, unsigned logicFrame)
+bool ClientBuffs::turnOn(ObjectID object, int type, const std::string &thing, const std::string &model, unsigned lifeFrames, unsigned logicFrame, bool preDraw)
 {
 	// BuffManager::TurnOnBuff (RW 0x764483): types 1 .. 8; MakeNormalBuff (RW 0x7641A2)
 	if (type >= MAX_TYPES || type < 1 || thing.empty() || model.empty())
@@ -74,6 +102,7 @@ bool ClientBuffs::turnOn(ObjectID object, int type, const std::string &thing, co
 		b.type = type;
 		b.thing = thing;
 		b.model = model;
+		b.preDraw = preDraw;
 		b.serial = ++m_serial;
 		it = m_buffs.emplace(key, b).first;
 	}

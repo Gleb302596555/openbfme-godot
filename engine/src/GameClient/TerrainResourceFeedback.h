@@ -24,31 +24,62 @@
 //   * RW 0x75C1A9 (vx, vy in map vertices of 10 units, the cell of a vertex is (v / 2)): the vertex's own cell not claimable -> alpha 0; else weight 12 minus
 //     4 per unclaimable edge neighbour (x +- 1, y +- 1 halved), 2 for (+1, +1) and (-1, -1), 3 for (-1, +1) and (+1, -1), 1 per unclaimable (x +- 2, y +- 2);
 //     weight <= 0 -> 0, below 12 -> alpha * weight / 12;
-//   * the selection feedback (TerrainResourceClientBehavior::createSelectionFeedback, BFME2 decomp TerrainResourceClientBehavior.cpp, slot 17): the holder
-//     at InGameUI + 0x58C counts its users; while it has any, each client frame (ResourceEntryOwner RW twin of BFME2 0x4E7E3A) every claimant whose owner is the
-//     local player or an ally (getPlayersWithRelationship(local, ALLOW_SAME_PLAYER | ALLOW_ALLIES = 3)) and is Visible (the claim's flag, RW twin of 0x4E81DE)
-//     keeps one decal (TerrainResourceClaimFeedback::Impl::updateClaimedDecalForClaimant, BFME2 0x4E7FCA): TerrainResourceClaimDecal, type 0x20, 2 * radius,
-//     colour 0xFF6464C8, opacity 0x80, at the claimant's position; a claimant FOGGED / SHROUDED for the local player has none; a claimant gone loses it.
-// INFERENCE (stop S-5030): the user count follows the local selection and the placement (one user per selected object of the local player whose template
-//   lists a TerrainResourceClientBehavior, one more while such a template waits for its site: retail shows the other farms' circles while a farm is placed;
-//   retail's Drawable select path into slot 17 and the ghost drawable's were not read); the collector's outline arcs of the own / allied claim circles (RW twin of BFME2 0x4E5372,
-//   W3D "cloud arcs") are not drawn; the device interpolates the vertex alphas bilinearly across a terrain quad (retail splits it into two triangles); the
-//   client form never erases a dead owner from a cell (retail's draw-path cell write of RW 0x75C02D): such a cell reads as claimable, the value retail returns.
+//   * the selection feedback (both editions: TerrainResourceClientBehavior ctor RW 0x652B8C / BFME2 0x652DEB, dtor RW 0x8D0A08 / BFME2 0x8CC55A,
+//     createSelectionFeedback slot 17 RW 0x8D0A58 / BFME2 0x8CC5AA, removeSelectionFeedback slot 18 RW 0x8D0A78 / BFME2 0x8CC5CA; called from
+//     Drawable::onSelected RW 0x67580E / BFME2 0x6754E3 -> Drawable::createSelectionFeedback RW 0x672ED1 / BFME2 0x672BAB when the object is locally
+//     controlled, and from Drawable::onDeselected RW 0x675870 / BFME2 0x675545 -> Drawable::removeSelectionFeedback RW 0x672F0D / BFME2 0x672BE7): the holder
+//     at InGameUI + 0x58C counts its users (+ 0x04, show RW 0x8EC271 -> 0x8EC1D6 / BFME2 0x8E7B0C -> 0x8E7A85, hide RW 0x8EC449 -> 0x8EC41B /
+//     BFME2 0x8E7D1D -> 0x8E7CEF); while it has any, each client frame (ResourceEntryOwner RW 0x8EC76F / BFME2 0x8E7E3A) every claimant whose owner is the
+//     local player or an ally (getPlayersWithRelationship(local, ALLOW_SAME_PLAYER | ALLOW_ALLIES = 3)) and is Visible (the claim's flag, RW 0x8ECB54 /
+//     BFME2 0x8E81DE) keeps one decal (TerrainResourceClaimFeedback::Impl::updateClaimedDecalForClaimant, RW 0x8EC930 / BFME2 0x8E7FCA):
+//     TerrainResourceClaimDecal, type 0x20, 2 * radius, colour 0xFF6464C8, opacity 0x80, at the claimant's position; a claimant FOGGED / SHROUDED for the
+//     local player has none; a claimant gone loses it.
+// INFERENCE (stop S-5030): the HUD's user count follows the local selection and the placement (one user per selected object of the local player whose template
+//   lists a TerrainResourceClientBehavior, one more while such a template waits for its site: retail shows the other farms' circles while a farm is placed);
+//   the device interpolates the vertex alphas bilinearly across a terrain quad (retail splits it into two triangles); the client form never erases a dead owner
+//   from a cell (retail's draw-path cell write of RW 0x75C02D): such a cell reads as claimable, the value retail returns.
 
 #pragma once
 
 #include "Common/INIDataTypes.h"
+#include "Common/Module.h"
 #include "GameLogic/ObjectTypes.h"
 
 #include <cstdint>
 #include <string>
 #include <vector>
 
+class Drawable;
 class GameLogic;
+class ModuleFactory;
 class Player;
+class TerrainResourceFeedback;
 class ThingTemplate;
 class TerrainResourceBehaviorModuleData;
 struct TerrainResourceUiSettings;
+
+// TerrainResourceClientBehavior (both editions: RW 0x6549B1 / BFME2 0x654C56 friend_newModuleInstance, RW 0x708243 / BFME2 0x706A6E friend_newModuleData;
+// ctor RW 0x652B8C / BFME2 0x652DEB, size 0x10, vtable RW 0xC06278 / BFME2 0xBFE710; dtor RW 0x8D0A08 / BFME2 0x8CC55A; slot 17 createSelectionFeedback
+// RW 0x8D0A58 / BFME2 0x8CC5AA; slot 18 removeSelectionFeedback RW 0x8D0A78 / BFME2 0x8CC5CA).
+class TerrainResourceClientBehavior : public DrawableModule
+{
+public:
+	TerrainResourceClientBehavior(Thing *thing, const ModuleData *moduleData);
+	~TerrainResourceClientBehavior() override;
+
+	void createSelectionFeedback() override;
+	void removeSelectionFeedback() override;
+
+	bool isShowing() const { return m_showing; } ///< +0x0C
+	void setFeedback(TerrainResourceFeedback *feedback) { m_feedback = feedback; }
+	TerrainResourceFeedback *feedback() const { return m_feedback; }
+
+	static void registerClass(ModuleFactory &modules);
+
+private:
+	bool m_showing = false; ///< +0x0C: true while this drawable contributes a user to the TerrainResourceClaimFeedback holder
+	TerrainResourceFeedback *m_feedback = nullptr;
+};
 
 namespace TerrainResourceClaimView
 {
@@ -124,7 +155,13 @@ public:
 	// RW 0x8E99EE (the open arcs, steps of RW 0xC790A0 = pi / 320) and RW 0x8E9744 (the segments) for a set of circles
 	static std::vector<ResourceClaimArcSegment> arcSegments(const std::vector<ClaimCircle> &circles);
 	const ResourcePlacementFeedback &placement() const { return m_placement; }
+	// TerrainResourceClaimFeedback::show (RW 0x8EC271 -> 0x8EC1D6 / BFME2 0x8E7B0C -> 0x8E7A85) and hide (RW 0x8EC449 -> 0x8EC41B / BFME2 0x8E7D1D -> 0x8E7CEF):
+	// the user count at Impl + 0x04 driven by TerrainResourceClientBehavior::createSelectionFeedback / removeSelectionFeedback / ~TerrainResourceClientBehavior
+	void show();
+	void hide();
+	int users() const { return m_users; }
 	static bool hasClientBehavior(const ThingTemplate &tt);
+	static bool hasClientBehavior(const Drawable &d);
 	// the users of the claim decals (S-5030): the selected objects of `local` whose template lists a TerrainResourceClientBehavior, plus one while `pending`
 	// (the template waiting for its site, null: none) lists one
 	static int claimDecalUsers(const GameLogic &logic, const Player *local, const std::vector<ObjectID> &selected, const ThingTemplate *pending);
@@ -132,6 +169,7 @@ public:
 	static constexpr float kVertexSpacing = 10.0f; ///< MAP_XY_FACTOR (RW 0xBD83D4 = 0.1 the inverse)
 
 private:
+	int m_users = 0; ///< TerrainResourceClaimFeedback::Impl + 0x04
 	std::vector<ResourceClaimDecal> m_claimed;
 	std::vector<ResourceClaimArcSegment> m_arcs;
 	std::vector<ClaimCircle> m_arcCircles;           // the circles m_arcCache was built from

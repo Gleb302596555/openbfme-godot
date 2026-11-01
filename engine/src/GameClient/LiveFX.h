@@ -196,7 +196,12 @@ private:
 	std::vector<ViewShake> m_viewShakes; // lane FX-4
 	std::vector<LiveDecal> m_decals;     // S-5205
 	std::set<std::string> m_buffErrors;  // lane SPELL-4
-	std::map<std::string, std::string> m_buffModels; // lane SPELL-4: template -> ModelName (looked up only)
+	struct BuffTemplate
+	{
+		std::string model;
+		bool preDraw = false;
+	};
+	std::map<std::string, BuffTemplate> m_buffModels; // lane SPELL-4: template -> W3DBuffDraw (ModelName, PreDraw) (looked up only)
 	Stats m_stats;
 	std::map<DrawableID, Attached> m_attached;
 	std::map<std::pair<ObjectID, std::uint32_t>, FXParticleSystem::ParticleSystemID> m_transitionSystems; // lane FX-4: (object, slot) -> system; looked up only

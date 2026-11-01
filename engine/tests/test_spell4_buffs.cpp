@@ -40,6 +40,7 @@ TEST_CASE("SPELL-4: ClientBuffs follows BuffManager::TurnOnBuff / MakeNormalBuff
 	REQUIRE(b.count() == 1u);
 	const ClientBuffs::Buff &h = b.buffs().begin()->second;
 	CHECK(h.object == 7u);
+	CHECK_FALSE(h.preDraw);
 	CHECK(h.active);
 	CHECK(h.expireFrame == 172u);
 	CHECK(h.state == ClientBuffs::FADE_IN);
@@ -73,9 +74,10 @@ TEST_CASE("SPELL-4: ClientBuffs follows BuffManager::TurnOnBuff / MakeNormalBuff
 	CHECK(b.count() == 1u);
 	CHECK(b.buffs().begin()->second.thing == "LeadershipBuffInfantryLvl1");
 	CHECK(b.buffs().begin()->second.serial != first);
-	// another type is another instance
-	REQUIRE(b.turnOn(7, 3, "HealingBuff", "EXHealbuff", 10, 222));
+	// another type is another instance (with preDraw = true: RW 0x4D1981 / BFME2 0x4D21B5)
+	REQUIRE(b.turnOn(7, 3, "HealingBuff", "EXHealbuff", 10, 222, true));
 	CHECK(b.count() == 2u);
+	CHECK(b.buffs().at(std::make_pair(7u, 3)).preDraw == true);
 	// a turn-off fades out (not immediate) and the faded buff is released after 12 frames
 	b.turnOff(7, 3, false);
 	int out = 0;

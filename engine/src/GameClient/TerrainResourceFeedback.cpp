@@ -6,7 +6,9 @@
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
 #include "Common/Team.h"
+#include "Common/Thing/ModuleFactory.h"
 #include "Common/Thing/ThingTemplate.h"
+#include "GameClient/Drawable.h"
 #include "GameClient/UnitHelpSource.h"
 #include "GameLogic/Economy.h"
 #include "GameLogic/GameLogic.h"
@@ -252,12 +254,85 @@ std::uint32_t TerrainResourceClaimView::bandColor(float fraction)
 	return 0xFF000000u;
 }
 
+TerrainResourceClientBehavior::TerrainResourceClientBehavior(Thing *thing, const ModuleData *moduleData)
+	: DrawableModule(thing, moduleData)
+{
+	// RW 0x652B8C / BFME2 0x652DEB: m_showing (+0x0C) = false
+}
+
+TerrainResourceClientBehavior::~TerrainResourceClientBehavior()
+{
+	// RW 0x8D0A08 / BFME2 0x8CC55A: if m_showing (+0x0C), hide the claim feedback (RW 0x8EC449 / BFME2 0x8E7D1D -> RW 0x8EC41B / BFME2 0x8E7CEF)
+	if (m_showing && m_feedback)
+	{
+		m_feedback->hide();
+	}
+	m_showing = false;
+}
+
+void TerrainResourceClientBehavior::createSelectionFeedback()
+{
+	// RW 0x8D0A58 / BFME2 0x8CC5AA (vslot 17 +0x44): if !m_showing, show the claim feedback (RW 0x8EC271 / BFME2 0x8E7B0C -> RW 0x8EC1D6 / BFME2 0x8E7A85)
+	if (!m_showing)
+	{
+		if (m_feedback)
+		{
+			m_feedback->show();
+		}
+		m_showing = true;
+	}
+}
+
+void TerrainResourceClientBehavior::removeSelectionFeedback()
+{
+	// RW 0x8D0A78 / BFME2 0x8CC5CA (vslot 18 +0x48): if m_showing, hide the claim feedback (RW 0x8EC449 / BFME2 0x8E7D1D -> RW 0x8EC41B / BFME2 0x8E7CEF)
+	if (m_showing)
+	{
+		if (m_feedback)
+		{
+			m_feedback->hide();
+		}
+		m_showing = false;
+	}
+}
+
+void TerrainResourceClientBehavior::registerClass(ModuleFactory &modules)
+{
+	// both editions: RW 0x6549B1 / BFME2 0x654C56 friend_newModuleInstance, RW 0x708243 / BFME2 0x706A6E ModuleData::friend_newModuleData (emptyTables in grammar)
+	modules.bindModuleProc("TerrainResourceClientBehavior", MODULETYPE_CLIENT_BEHAVIOR,
+		[](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
+			return std::make_unique<TerrainResourceClientBehavior>(thing, data);
+		});
+}
+
+void TerrainResourceFeedback::show()
+{
+	// RW 0x8EC271 -> 0x8EC1D6 / BFME2 0x8E7B0C -> 0x8E7A85: increment the user count (+0x04)
+	++m_users;
+}
+
+void TerrainResourceFeedback::hide()
+{
+	// RW 0x8EC449 -> 0x8EC41B / BFME2 0x8E7D1D -> 0x8E7CEF: decrement the user count (+0x04); when it reaches 0, release the decals and arcs
+	if (m_users > 0)
+	{
+		--m_users;
+	}
+	if (m_users == 0)
+	{
+		m_claimed.clear();
+		m_arcs.clear();
+		m_arcCircles.clear();
+		m_arcCache.clear();
+	}
+}
+
 std::string TerrainResourceFeedback::stopLine()
 {
-	return "[S-5030] resource claim feedback (lane OWNERFIX-2): the placement's claimable percentage, colour and masked decal (RW 0x75B561 / 0x75C02D / 0x75C1A9) and "
-		   "the selected resource building's claim decals (TerrainResourceClaimFeedback) are ported; INFERENCE: the claim decals show while a selected object of the "
-		   "local player, or the template being placed, lists a TerrainResourceClientBehavior (retail's select path into slot 17 and the ghost's not read), the collector's outline arcs (RW twin of BFME2 "
-		   "0x4E5372) are not drawn, the vertex alphas are bilinear across a terrain quad, the text uses the fallback font at the INI's size";
+	return "[S-5030] resource claim feedback (lane OWNERFIX-2): the placement's claimable percentage, colour and masked decal (RW 0x75B561 / 0x75C02D / 0x75C1A9), "
+		   "the selected resource building's claim decals (TerrainResourceClaimFeedback, TerrainResourceClientBehavior RW 0x652B8C / 0x8D0A58 / 0x8D0A78 / 0x8D0A08, "
+		   "BFME2 0x652DEB / 0x8CC5AA / 0x8CC5CA / 0x8CC55A) and the outline arcs (RW 0x8EC1D6 / 0x8E99EE / 0x8E9744) are ported; INFERENCE: the HUD's user count "
+		   "follows the local selection and the placement, the vertex alphas are bilinear across a terrain quad, the text uses the fallback font at the INI's size";
 }
 
 bool TerrainResourceFeedback::hasClientBehavior(const ThingTemplate &tt)
@@ -265,6 +340,18 @@ bool TerrainResourceFeedback::hasClientBehavior(const ThingTemplate &tt)
 	for (const ThingTemplate::Nugget &n : tt.moduleList(MODULETYPE_CLIENT_BEHAVIOR).nuggets())
 	{
 		if (n.name == "TerrainResourceClientBehavior")
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool TerrainResourceFeedback::hasClientBehavior(const Drawable &d)
+{
+	for (const std::unique_ptr<DrawableModule> &m : d.clientModules())
+	{
+		if (dynamic_cast<const TerrainResourceClientBehavior *>(m.get()) != nullptr)
 		{
 			return true;
 		}

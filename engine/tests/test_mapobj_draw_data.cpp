@@ -6,6 +6,7 @@
 #include "doctest.h"
 
 #include "Common/MiniJson.h"
+#include "GameClient/BuffDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawModules.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawVariants.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
@@ -118,7 +119,8 @@ TEST_CASE("mapobj draw data: the registry's 20 draw classes are all classified, 
 		const ModuleFactory::ModuleTemplate *t = w.modules.findModuleTemplate(c.name, MODULETYPE_DRAW);
 		REQUIRE_MESSAGE(t != nullptr, c.name);
 		const bool typedKind = c.kind == W3D_DRAWKIND_MODEL || c.kind == W3D_DRAWKIND_TREE || c.kind == W3D_DRAWKIND_PROP || c.kind == W3D_DRAWKIND_FLOOR ||
-			std::string(c.name) == "W3DDefaultDraw" || std::string(c.name) == "W3DStreakDraw"; // RENDER-1 binds the streak data
+			std::string(c.name) == "W3DDefaultDraw" || std::string(c.name) == "W3DStreakDraw" ||
+			std::string(c.name) == "W3DBuffDraw"; // RENDER-1 binds the streak data; SPELL-4 binds the buff draw data (RW 0x46448B / BFME2 0x464C94)
 		CHECK_MESSAGE(t->typed == typedKind, c.name);
 	}
 	size_t drawClasses = 0;
@@ -127,7 +129,7 @@ TEST_CASE("mapobj draw data: the registry's 20 draw classes are all classified, 
 		(void)n;
 		++drawClasses;
 	}
-	CHECK(w.modules.typedCount() == 12); // + W3DStreakDraw (RENDER-1)
+	CHECK(w.modules.typedCount() == 13); // + W3DStreakDraw (RENDER-1) + W3DBuffDraw (SPELL-4)
 	CHECK(W3DDrawModules::find("w3dtreedraw") == nullptr); // class names are case sensitive
 	REQUIRE(W3DDrawModules::find("W3DTreeDraw") != nullptr);
 	CHECK(W3DDrawModules::find("W3DTreeDraw")->kind == W3D_DRAWKIND_TREE);
@@ -347,4 +349,44 @@ TEST_CASE("mapobj draw data: the ModelDraw variants add their own table after th
 	CHECK(su->m_supplyBonePrefix == "Box");
 	// each variant rejects another variant's field
 	CHECK(objtest::contains(w.load("Object Z1\n  Draw = W3DQuadrupedDraw T\n    DefaultModelConditionState\n      Model = Q\n    End\n    CabBone = X\n  End\nEnd\n"), "Unknown field 'CabBone'"));
+}
+
+TEST_CASE("mapobj draw data: W3DBuffDrawModuleData parses ModelName and PreDraw and keeps constructor defaults (both editions: RW 0x4CE61A / 0xBE318C, BFME2 0x4CEE4C / 0xBCD2F4)")
+{
+	// table RW 0xBE318C / BFME2 0xBCD2F4: 2 rows in binary order (ModelName parseAsciiString, PreDraw parseBool)
+	const FieldParse *table = W3DBuffDrawTables::buff();
+	REQUIRE(table != nullptr);
+	REQUIRE(table[0].token != nullptr);
+	CHECK(std::string(table[0].token) == "ModelName");
+	CHECK(table[0].parse == INI::parseAsciiString);
+	REQUIRE(table[1].token != nullptr);
+	CHECK(std::string(table[1].token) == "PreDraw");
+	CHECK(table[1].parse == INI::parseBool);
+	CHECK(table[2].token == nullptr);
+
+	World w;
+	const std::string text =
+		"Object HealingBuff\n"
+		"  Draw = W3DBuffDraw ModuleTag_01\n"
+		"    ModelName = EXHealbuff\n"
+		"    PreDraw = Yes\n"
+		"  End\n"
+		"End\n"
+		"Object DefaultBuff\n"
+		"  Draw = W3DBuffDraw ModuleTag_01\n"
+		"  End\n"
+		"End\n";
+	REQUIRE(w.load(text).empty());
+	const W3DBuffDrawModuleData *hb = drawData<W3DBuffDrawModuleData>(w.get("HealingBuff"));
+	REQUIRE(hb != nullptr);
+	CHECK(hb->m_modelName == "EXHealbuff");
+	CHECK(hb->m_preDraw == true);
+
+	const W3DBuffDrawModuleData *db = drawData<W3DBuffDrawModuleData>(w.get("DefaultBuff"));
+	REQUIRE(db != nullptr);
+	CHECK(db->m_modelName.empty()); // RW 0x4CE61A / BFME2 0x4CEE4C default ""
+	CHECK(db->m_preDraw == false);  // RW 0x4CE61A / BFME2 0x4CEE4C default false
+
+	// negative check: unknown field in W3DBuffDraw is rejected
+	CHECK(objtest::contains(w.load("Object BadBuff\n  Draw = W3DBuffDraw ModuleTag_01\n    Texture = Foo\n  End\nEnd\n"), "Unknown field 'Texture'"));
 }

@@ -93,6 +93,24 @@ void Drawable::friend_boundToObject()
 	}
 }
 
+void Drawable::createSelectionFeedback()
+{
+	// RW 0x672ED1 / BFME2 0x672BAB: walks the client modules calling slot 17 (+0x44)
+	for (std::unique_ptr<DrawableModule> &m : m_clientModules)
+	{
+		m->createSelectionFeedback();
+	}
+}
+
+void Drawable::removeSelectionFeedback()
+{
+	// RW 0x672F0D / BFME2 0x672BE7: walks the client modules calling slot 18 (+0x48)
+	for (std::unique_ptr<DrawableModule> &m : m_clientModules)
+	{
+		m->removeSelectionFeedback();
+	}
+}
+
 void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nugget, std::vector<std::string> &problems)
 {
 	DrawEntry e;

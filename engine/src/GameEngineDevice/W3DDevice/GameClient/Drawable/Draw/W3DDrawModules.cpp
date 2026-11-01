@@ -4,6 +4,7 @@
 
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawModules.h"
 
+#include "GameClient/BuffDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawVariants.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DStreakDraw.h"
@@ -67,6 +68,7 @@ void W3DDrawModules::registerTypedDrawModuleData(ModuleFactory &modules)
 	modules.bindTypedData<W3DTankDrawModuleData>("W3DTankDraw", MODULETYPE_DRAW);
 	modules.bindTypedData<W3DSupplyDrawModuleData>("W3DSupplyDraw", MODULETYPE_DRAW);
 	modules.bindTypedData<W3DStreakDrawModuleData>("W3DStreakDraw", MODULETYPE_DRAW); // RENDER-1: RW 0x46473E / 0xBE39F8
+	modules.bindTypedData<W3DBuffDrawModuleData>("W3DBuffDraw", MODULETYPE_DRAW);     // both editions: RW 0x46448B / 0xBE3108, BFME2 0x464C94 / 0xBCD270
 }
 
 std::vector<std::string> W3DDrawModules::notDrawnClasses()
@@ -79,6 +81,11 @@ std::vector<std::string> W3DDrawModules::notDrawnClasses()
 			if (std::string(c.name) == "W3DStreakDraw")
 			{
 				out.push_back("W3DStreakDraw: no model, its trail is drawn by the streak renderer (S-391 / S-1002)"); // GameWorld::refresh_streaks draws it
+				continue;
+			}
+			if (std::string(c.name) == "W3DBuffDraw")
+			{
+				out.push_back("W3DBuffDraw: no model on the buff template itself (RW 0xBE3010 / BFME2 0xBCD178 doDrawModule is a no-op); its ModelName is drawn on buffed units by ClientBuffs (S-4642)");
 				continue;
 			}
 			out.push_back(std::string(c.name) + ": effect draw, not drawn (S-113)");

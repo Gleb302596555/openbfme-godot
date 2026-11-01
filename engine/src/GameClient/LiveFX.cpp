@@ -214,12 +214,12 @@ std::vector<std::string> LiveFX::stops()
 bool LiveFX::turnOnBuff(const FXObject &obj, int type, const std::string &thingTemplate, int lifeFrames)
 {
 	// BuffNugget (BFME2 decomp BuffNuggetFXNugget.cpp): TheThingFactory->findTemplate (none: no buff); Drawable::TurnOnBuff -> MakeNormalBuff ->
-	// BuffLogic::addBuff (RW 0x707FFF): the template's first draw module data must be a W3DBuffDraw's, its ModelName the model (W3DBuffDrawModuleData,
-	// fields RW 0xBCD2F4 twin: ModelName + 0x08, PreDraw + 0x0C)
+	// BuffLogic::addBuff (RW 0x707FFF / BFME2 0x70682A): the template's first draw module data must be a W3DBuffDraw's (vslot 17 getAsW3DBuffDrawModuleData
+	// RW 0x8CEF91 / BFME2 0x8BA009), its ModelName (+0x08) and PreDraw (+0x0C) from W3DBuffDrawModuleData (table RW 0xBE318C / BFME2 0xBCD2F4)
 	auto cached = m_buffModels.find(thingTemplate);
 	if (cached == m_buffModels.end())
 	{
-		std::string model;
+		BuffTemplate entry;
 		const ThingTemplate *t = m_game.logic().things().findTemplate(thingTemplate);
 		if (!t)
 		{
@@ -227,14 +227,24 @@ bool LiveFX::turnOnBuff(const FXObject &obj, int type, const std::string &thingT
 		}
 		const ThingTemplate::ModuleInfo &draws = t->drawModules();
 		const ThingTemplate::Nugget *first = draws.nuggets().empty() ? nullptr : &draws.nuggets().front();
+		const W3DBuffDrawModuleData *typed = first ? dynamic_cast<const W3DBuffDrawModuleData *>(first->data.get()) : nullptr;
 		const RawModuleData *raw = first ? dynamic_cast<const RawModuleData *>(first->data.get()) : nullptr;
 		if (!first)
 		{
 			m_buffErrors.insert("No draw module specified for Buff! In Buff (" + thingTemplate + ")");
 		}
-		else if (first->name != "W3DBuffDraw" || !raw)
+		else if (first->name != "W3DBuffDraw" || (!typed && !raw))
 		{
 			m_buffErrors.insert("Buff " + thingTemplate + " requires a W3DBuffDrawModule.");
+		}
+		else if (typed)
+		{
+			entry.model = typed->m_modelName;
+			entry.preDraw = typed->m_preDraw;
+			if (entry.model.empty())
+			{
+				m_buffErrors.insert("Buff " + thingTemplate + ": its W3DBuffDraw has no ModelName");
+			}
 		}
 		else
 		{
@@ -251,23 +261,30 @@ bool LiveFX::turnOnBuff(const FXObject &obj, int type, const std::string &thingT
 					const size_t e = v.find_last_not_of(" \t\r");
 					return b == std::string::npos ? std::string() : v.substr(b, e - b + 1);
 				};
-				if (AsciiStringUtil::compareNoCase(trim(text.substr(0, eq)), "ModelName") == 0)
+				const std::string key = trim(text.substr(0, eq));
+				const std::string val = trim(text.substr(eq + 1));
+				if (AsciiStringUtil::compareNoCase(key, "ModelName") == 0)
 				{
-					model = trim(text.substr(eq + 1));
+					entry.model = val;
+				}
+				else if (AsciiStringUtil::compareNoCase(key, "PreDraw") == 0)
+				{
+					entry.preDraw = AsciiStringUtil::compareNoCase(val, "Yes") == 0 || AsciiStringUtil::compareNoCase(val, "True") == 0 || val == "1";
 				}
 			}
-			if (model.empty())
+			if (entry.model.empty())
 			{
 				m_buffErrors.insert("Buff " + thingTemplate + ": its W3DBuffDraw has no ModelName");
 			}
 		}
-		cached = m_buffModels.emplace(thingTemplate, model).first;
+		cached = m_buffModels.emplace(thingTemplate, entry).first;
 	}
-	if (cached->second.empty())
+	if (cached->second.model.empty())
 	{
 		return true; // refused above (the error is in buffErrors)
 	}
-	m_buffs.turnOn(obj.objectId(), type, thingTemplate, cached->second, lifeFrames < 0 ? 0u : (unsigned)lifeFrames, m_game.logic().getFrame());
+	m_buffs.turnOn(obj.objectId(), type, thingTemplate, cached->second.model, lifeFrames < 0 ? 0u : (unsigned)lifeFrames, m_game.logic().getFrame(),
+		cached->second.preDraw);
 	return true;
 }
 

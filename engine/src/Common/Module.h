@@ -203,6 +203,10 @@ public:
 	Drawable *getDrawable() const { return m_drawable; }
 	// lane AUDIO-4: the drawable's transform changed (ZH DrawModule::reactToTransformChange; RotWK's ClientBehavior slot 11, read as this)
 	virtual void reactToTransformChange(const Coord3D * /*oldPos*/, float /*oldAngle*/) {}
+	// ClientBehavior slot 17 (+0x44, RW 0x8D0A58 / BFME2 0x8CC5AA) and slot 18 (+0x48, RW 0x8D0A78 / BFME2 0x8CC5CA), called by
+	// Drawable::createSelectionFeedback (RW 0x672ED1 / BFME2 0x672BAB) and Drawable::removeSelectionFeedback (RW 0x672F0D / BFME2 0x672BE7)
+	virtual void createSelectionFeedback() {}
+	virtual void removeSelectionFeedback() {}
 
 private:
 	Drawable *m_drawable;

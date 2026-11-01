@@ -731,3 +731,112 @@ TEST_CASE("ownerfix2: the claim circles' outline arcs leave out what another cir
 	CHECK(blue == 20); // the open 240 degrees: 419 long, max(21, 6) segments, at most 419 / 20 = 20
 	CHECK(TerrainResourceFeedback::arcSegments({}).empty());
 }
+
+#include "GameClient/BuffDraw.h"
+#include "GameClient/ClientBehaviorModules.h"
+#include "GameClient/DrawableManager.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawModules.h"
+#include "LogicTestUtil.h"
+
+TEST_CASE("ownerfix2 binary facts: TerrainResourceClientBehavior (RW 0x652B8C / 0xC06278, BFME2 0x652DEB / 0xBFE710) and W3DBuffDraw (RW 0x4CE5AF / 0xBE3010, BFME2 0x4CEDE1 / 0xBCD178)")
+{
+	const PeImage *pe = PeImage::fromEnvironment();
+	if (!pe)
+	{
+		retailtest::printSkip("ownerfix2 binary facts TerrainResourceClientBehavior & W3DBuffDraw (RW_GAME_DAT unset)");
+		return;
+	}
+	// TerrainResourceClientBehavior ctor RW 0x652B8C: mov dword ptr [esi], 0xC06278; mov byte ptr [esi + 0x0C], 0 (c6 46 0c 00)
+	CHECK(pe->u32At(0x652B9E) == 0xC06278u);
+	CHECK(pe->hex(0x652BA2, 4) == "c6460c00");
+	// vtable RW 0xC06278: slot 17 (+0x44) createSelectionFeedback = 0x8D0A58, slot 18 (+0x48) removeSelectionFeedback = 0x8D0A78
+	CHECK(pe->u32At(0xC06278 + 0x44) == 0x8D0A58u);
+	CHECK(pe->u32At(0xC06278 + 0x48) == 0x8D0A78u);
+	// W3DBuffDraw vtable RW 0xBE3010: slot 11 (+0x2C) doDrawModule = 0x9F3A3C (ret 4)
+	CHECK(pe->u32At(0xBE3010 + 0x2C) == 0x9F3A3Cu);
+	CHECK(pe->hex(0x9F3A3C, 3) == "c20400");
+	// W3DBuffDrawModuleData vtable RW 0xBE3108: slot 17 (+0x44) getAsW3DBuffDrawModuleData = 0x8CEF91 (mov eax, ecx; ret)
+	CHECK(pe->u32At(0xBE3108 + 0x44) == 0x8CEF91u);
+	CHECK(pe->hex(0x8CEF91, 3) == "8bc1c3");
+	// W3DBuffDrawModuleData field parse table RW 0xBE318C: ModelName (+0x08, 0x42EE5E), PreDraw (+0x0C, 0x42E558), terminator
+	CHECK(pe->cstring(pe->u32At(0xBE318C)) == "ModelName");
+	CHECK(pe->u32At(0xBE318C + 4) == 0x42EE5Eu);
+	CHECK(pe->u32At(0xBE318C + 12) == 8u);
+	CHECK(pe->cstring(pe->u32At(0xBE318C + 16)) == "PreDraw");
+	CHECK(pe->u32At(0xBE318C + 20) == 0x42E558u);
+	CHECK(pe->u32At(0xBE318C + 28) == 12u);
+	CHECK(pe->u32At(0xBE318C + 32) == 0u);
+}
+
+TEST_CASE("ownerfix2: TerrainResourceClientBehavior registers as a ported ClientBehavior and drives selection feedback (both editions: RW 0x652B8C / 0x8D0A58 / 0x8D0A78 / 0x8D0A08, BFME2 0x652DEB / 0x8CC5AA / 0x8CC5CA / 0x8CC55A)")
+{
+	logictest::LogicWorld lw;
+	REQUIRE(lw.loadError.empty());
+	W3DDrawModules::registerTypedDrawModuleData(lw.w.modules);
+	ClientBehaviorModules::registerAll(lw.w.modules);
+	REQUIRE(lw.w.load(
+		"Object TestFarm\n"
+		"  Draw = W3DDefaultDraw ModuleTag_Draw\n  End\n"
+		"  ClientBehavior = TerrainResourceClientBehavior ModuleTag_MoneyProductionClient\n  End\n"
+		"End\n"
+		"Object TestBarracks\n"
+		"  Draw = W3DDefaultDraw ModuleTag_Draw\n  End\n"
+		"End\n").empty());
+	ArchiveW3DFileSource source(lw.w.fx.fsys);
+	WW3DAssetManager assets(source);
+	DrawableManager dm(assets, *lw.logic);
+	ClientEventRecorder rec(*lw.logic);
+	lw.logic->setClientHooks(&rec);
+	Object *farm = lw.make("TestFarm");
+	Object *barracks = lw.make("TestBarracks");
+	dm.applyEvents(rec.take());
+
+	Drawable *dFarm = dm.findByObject(farm->getID());
+	Drawable *dBarracks = dm.findByObject(barracks->getID());
+	REQUIRE(dFarm != nullptr);
+	REQUIRE(dBarracks != nullptr);
+	CHECK(TerrainResourceFeedback::hasClientBehavior(*dFarm));
+	CHECK_FALSE(TerrainResourceFeedback::hasClientBehavior(*dBarracks));
+
+	// TerrainResourceClientBehavior is ported (not an UnportedDrawableModule, not counted in S-140)
+	REQUIRE(dFarm->clientModules().size() == 1);
+	CHECK_FALSE(dFarm->clientModules()[0]->isUnported());
+	CHECK(dm.report().unportedClientModules.count("TerrainResourceClientBehavior") == 0);
+
+	auto *cb = dynamic_cast<TerrainResourceClientBehavior *>(dFarm->clientModules()[0].get());
+	REQUIRE(cb != nullptr);
+	CHECK_FALSE(cb->isShowing());
+
+	TerrainResourceFeedback fb;
+	cb->setFeedback(&fb);
+	CHECK(fb.users() == 0);
+
+	// Drawable::createSelectionFeedback (RW 0x672ED1 / BFME2 0x672BAB) -> slot 17 (RW 0x8D0A58 / BFME2 0x8CC5AA): m_showing guards against double show
+	dFarm->createSelectionFeedback();
+	CHECK(cb->isShowing());
+	CHECK(fb.users() == 1);
+	dFarm->createSelectionFeedback();
+	CHECK(cb->isShowing());
+	CHECK(fb.users() == 1);
+
+	// Drawable::removeSelectionFeedback (RW 0x672F0D / BFME2 0x672BE7) -> slot 18 (RW 0x8D0A78 / BFME2 0x8CC5CA): m_showing guards against double hide
+	dFarm->removeSelectionFeedback();
+	CHECK_FALSE(cb->isShowing());
+	CHECK(fb.users() == 0);
+	dFarm->removeSelectionFeedback();
+	CHECK_FALSE(cb->isShowing());
+	CHECK(fb.users() == 0);
+
+	// Destructor (~TerrainResourceClientBehavior, RW 0x8D0A08 / BFME2 0x8CC55A) hides when destroyed while m_showing is true
+	dFarm->createSelectionFeedback();
+	CHECK(cb->isShowing());
+	CHECK(fb.users() == 1);
+	lw.logic->destroyObject(farm);
+	lw.logic->runLogicFrame();
+	dm.applyEvents(rec.take());
+	CHECK(dm.findByObject(farm->getID()) == nullptr);
+	CHECK(fb.users() == 0);
+
+	lw.logic->reset();
+	lw.logic->setClientHooks(nullptr);
+}
