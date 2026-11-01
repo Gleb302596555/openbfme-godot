@@ -26,11 +26,11 @@
 | 10 | `SpawnUnitBehavior` | 2 | parsed-only | здание рождает юнитов (S-207) | НЕ НАЧАТО |
 | 11 | `DestroyEnvironmentUpdate` | 1 | partial (2026-11-01) | та же сила: разрушение деревьев/камня в области | СДЕЛАНО В КОДЕ частично (обе редакции: RW 0x8AFEB5 / BFME2 0x4AC84B; поля StartTime и DestructionTime, задержка, xfer), тесты test_modgap2_env_heavens_radar.cpp и сценарий ENNORATH. В игре эффекта нет: цель ищется через слот 31 (RW 0x8AFC5F), которого не реализует ни один модуль, поэтому объект не находится и модуль засыпает (S-7092). Проверять в игре нечего, пока слот не перенесён |
 | 12 | `PartTheHeavensUpdate` | 1 | partial (2026-11-01) | раскрытие небес: расходящийся круг света (сила) | СДЕЛАНО В КОДЕ частично (обе редакции: RW 0x8B0214 / BFME2 0x4ACBB3; кривые Radius, Angle и Opacity, xfer, `FunctionCurve`), тесты test_modgap2_env_heavens_radar.cpp и сценарий ENNORATH. В игре круга света нет: проекция декали (RW 0x8B0075 / BFME2 0x4AC9FA) не перенесена, значения кривых только считаются (S-7093) |
-| 13 | `ProjectileStreamUpdate` | 1 | missing | логика потока: дальность и цепочка снарядов | НЕ НАЧАТО |
+| 13 | `ProjectileStreamUpdate` | 1 | ported (2026-11-01) | логика потока: дальность и цепочка снарядов | СДЕЛАНО В КОДЕ для обеих редакций: RW 0x00890AE0, BFME2 0x0088D370; тест test_modgap2_stream_strafe_light.cpp |
 | 14 | `RadarMarkerClientUpdate` | 1 | partial (2026-11-01) | метка на миникарте | СДЕЛАНО В КОДЕ частично (обе редакции: RW 0x8CE116 / BFME2 0x4C9CF7; поле MarkerType и регистрация), тест test_modgap2_env_heavens_radar.cpp и сценарий ENNORATH. В игре метка на миникарте не двигается: запрос маркера у TheRadar (vslot 0x30, RW 0x44F0FA) не перенесён (S-2451) |
-| 15 | `StrafeAreaUpdate` | 1 | missing | дракон обстреливает область (сила Dragon Strike) | НЕ НАЧАТО |
+| 15 | `StrafeAreaUpdate` | 1 | ported (2026-11-01) | дракон обстреливает область (сила Dragon Strike) | СДЕЛАНО В КОДЕ для обеих редакций: RW 0x008A3950, BFME2 0x0089F9F0; тест test_modgap2_stream_strafe_light.cpp, стоп S-6026 |
 
-Дальше: `W3DLightDraw` (1), `W3DProjectileStreamDraw` (1), `WallUpgradeUpdate` (1).
+Дальше: `WallUpgradeUpdate` (1).
 
 Отложены, ни один объект мода их не достигает: `CombineHordeSpecialPower`, `RubbleRiseUpdate`, `SpellRechargeModifierUpgrade`, `StructureToppleUpdate`, `SwayClientUpdate`, `ThreatFinderUpdate`, `ToppleUpdate`.
 <!-- ennorath_queue.py priority: end -->
@@ -61,9 +61,9 @@
 | upstream-main | `AnimalAIUpdate` | 14 | base-ai | 11 | 36 |  |
 | shared | `DestroyEnvironmentUpdate` | 12 | partial (2026-11-01) | 1 | 1 |  |
 | shared | `PartTheHeavensUpdate` | 12 | partial (2026-11-01) | 1 | 1 |  |
-| shared | `ProjectileStreamUpdate` | 12 | missing | 1 | 1 |  |
-| shared | `StrafeAreaUpdate` | 12 | missing | 1 | 1 |  |
-| shared | `W3DProjectileStreamDraw` | 12 | missing | 1 | 1 |  |
+| shared | `ProjectileStreamUpdate` | 12 | ported (2026-11-01) | 1 | 1 |  |
+| shared | `StrafeAreaUpdate` | 12 | ported (2026-11-01) | 1 | 1 |  |
+| shared | `W3DProjectileStreamDraw` | 12 | ported (2026-11-01) | 1 | 1 |  |
 | shared | `SpellRechargeModifierUpgrade` | 13 | missing | 0 | 1 |  |
 | shared | `HordeWorkerAIUpdate` | 14 | base-ai | 2 | 1 |  |
 | shared | `ReplaceObjectUpdate` | 9 | ported (2026-11-01) | 6 | 2 |  |
@@ -82,7 +82,7 @@
 | shared | `W3DBuffDraw` | 12 | parsed-only (2026-11-01) | 50 | 22 |  |
 | shared | `EvacuateDamage` | 6 | ported (2026-11-01) | 13 | 23 |  |
 | shared | `W3DStreakDraw` | 12 | parsed-only | 52 | 33 |  |
-| shared | `W3DLightDraw` | 12 | missing | 1 | 37 |  |
+| shared | `W3DLightDraw` | 12 | ported (2026-11-01) | 1 | 37 |  |
 | shared | `ThreatFinderUpdate` | 13 | missing | 0 | 40 |  |
 | ennorath-only | `CombineHordeSpecialPower` | 7 | missing | 0 | 0 |  |
 <!-- ennorath_unique.py: end -->
@@ -159,11 +159,11 @@
 | 12 | `OilSpillUpdate` | ported (2026-11-01) | 2 | Dwarves, Mordor | — | — | масляный след и поджиг (Mordor, Dwarves): спавн хлебных крошек (OilSpill), поджог и FXEvent | S-6025 | СДЕЛАНО В КОДЕ (обе редакции: RW 0x0064CC80, BFME2 0x0024CFA7), тест test_modgap2_oilspill.cpp, ждёт проверки владельцем |
 | 12 | `DestroyEnvironmentUpdate` | partial (2026-11-01) | 1 | Dwarves, Imladris, Men | — | — | та же сила: разрушение деревьев/камня в области | S-7092 | СДЕЛАНО В КОДЕ частично (обе редакции: RW 0x8AFEB5 / BFME2 0x4AC84B; поля StartTime и DestructionTime, задержка, xfer), тесты test_modgap2_env_heavens_radar.cpp и сценарий ENNORATH. В игре эффекта нет: цель ищется через слот 31 (RW 0x8AFC5F), которого не реализует ни один модуль, поэтому объект не находится и модуль засыпает (S-7092). Проверять в игре нечего, пока слот не перенесён |
 | 12 | `PartTheHeavensUpdate` | partial (2026-11-01) | 1 | Dwarves, Imladris, Men | — | — | раскрытие небес: расходящийся круг света (сила) | S-7093 | СДЕЛАНО В КОДЕ частично (обе редакции: RW 0x8B0214 / BFME2 0x4ACBB3; кривые Radius, Angle и Opacity, xfer, `FunctionCurve`), тесты test_modgap2_env_heavens_radar.cpp и сценарий ENNORATH. В игре круга света нет: проекция декали (RW 0x8B0075 / BFME2 0x4AC9FA) не перенесена, значения кривых только считаются (S-7093) |
-| 12 | `ProjectileStreamUpdate` | missing | 1 | Wild | — | — | логика потока: дальность и цепочка снарядов | S-113 | НЕ НАЧАТО |
+| 12 | `ProjectileStreamUpdate` | ported (2026-11-01) | 1 | Wild | — | — | логика потока: дальность и цепочка снарядов | S-113 | СДЕЛАНО В КОДЕ (обе редакции: RW 0x00890AE0, BFME2 0x0088D370), тест test_modgap2_stream_strafe_light.cpp, ждёт проверки владельцем |
 | 12 | `RadarMarkerClientUpdate` | partial (2026-11-01) | 1 | все 11 | — | — | метка на миникарте | S-2451 | СДЕЛАНО В КОДЕ частично (обе редакции: RW 0x8CE116 / BFME2 0x4C9CF7; поле MarkerType и регистрация), тест test_modgap2_env_heavens_radar.cpp и сценарий ENNORATH. В игре метка на миникарте не двигается: запрос маркера у TheRadar (vslot 0x30, RW 0x44F0FA) не перенесён (S-2451) |
-| 12 | `StrafeAreaUpdate` | missing | 1 | Wild | — | — | дракон обстреливает область (сила Dragon Strike) | S-140 | НЕ НАЧАТО |
-| 12 | `W3DLightDraw` | missing | 1 | Mordor | 4 (7) | — | световые пятна факелов, костров, вспышек (на картах) | S-113 | НЕ НАЧАТО |
-| 12 | `W3DProjectileStreamDraw` | missing | 1 | Wild | — | — | поток огня/струя (огненный дракон) | S-113 | НЕ НАЧАТО |
+| 12 | `StrafeAreaUpdate` | ported (2026-11-01) | 1 | Wild | — | — | дракон обстреливает область (сила Dragon Strike) | S-6026 | СДЕЛАНО В КОДЕ (обе редакции: RW 0x008A3950, BFME2 0x0089F9F0), тест test_modgap2_stream_strafe_light.cpp, ждёт проверки владельцем |
+| 12 | `W3DLightDraw` | ported (2026-11-01) | 1 | Mordor | 4 (7) | — | световые пятна факелов, костров, вспышек (на картах) | S-113 | СДЕЛАНО В КОДЕ (обе редакции: RW 0x004CE750, BFME2 0x004CEF80), тест test_modgap2_stream_strafe_light.cpp, ждёт проверки владельцем |
+| 12 | `W3DProjectileStreamDraw` | ported (2026-11-01) | 1 | Wild | — | — | поток огня/струя (огненный дракон) | S-113 | СДЕЛАНО В КОДЕ (обе редакции: RW 0x004D0780, BFME2 0x004D0F70), тест test_modgap2_stream_strafe_light.cpp, ждёт проверки владельцем |
 | 12 | `WallUpgradeUpdate` | missing | 1 | все 11 | 5 (2) | — | апгрейд стены меняет её вид | S-140 | ПРИОСТАНОВЛЕНО — Claude, 2026-10-31: прочитано RW 0x8AEBD3 (update), 0x8AEB10 (поиск стройки: STRUCTURE + WALK_ON_TOP_OF_WALL, радиус 200), 0x8AEAE6 (RUBBLE: 40 кадров), 0x8AEAA9 (активно: UPGRADE_GARRISON / POSTERN_GATE / TREBUCHET). Сначала нужен сброс улучшений объекта RW 0x68E083 (его же ждут замки, S-952) и слот тела 0x28 (RW 0x8C1BF9), затем RW 0x8AEC79 |
 | 12 | `CritterEmitterUpdate` | ported (upstream, MODCOMPAT-MOD1) | 0 | — | 1 (22) | 13 | птицы/мелкая живность на картах; в переписи 13 живых | S-140 | код upstream, не проверено на Ennorath в игре |
 | 12 | `SwayClientUpdate` | missing | 0 | — | 2 (2) | — | покачивание объекта (деревья, знамёна) | S-140 | НЕ НАЧАТО |

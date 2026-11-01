@@ -10,6 +10,8 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DStreakDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTornadoDraw.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DProjectileStreamDraw.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLightDraw.h"
 
 namespace
 {
@@ -71,6 +73,8 @@ void W3DDrawModules::registerTypedDrawModuleData(ModuleFactory &modules)
 	modules.bindTypedData<W3DStreakDrawModuleData>("W3DStreakDraw", MODULETYPE_DRAW); // RENDER-1: RW 0x46473E / 0xBE39F8
 	modules.bindTypedData<W3DBuffDrawModuleData>("W3DBuffDraw", MODULETYPE_DRAW);     // both editions: RW 0x46448B / 0xBE3108, BFME2 0x464C94 / 0xBCD270
 	modules.bindTypedData<W3DTornadoDrawModuleData>("W3DTornadoDraw", MODULETYPE_DRAW); // both editions: RW 0x464968 / 0xBE4130, BFME2 0x465171 / 0xBCE150
+	modules.bindTypedData<W3DProjectileStreamDrawModuleData>("W3DProjectileStreamDraw", MODULETYPE_DRAW); // both editions: RW 0x4648DF / 0x00BDBAA8, BFME2 0x46509A / 0x00BCDFB0
+	modules.bindTypedData<W3DLightDrawModuleData>("W3DLightDraw", MODULETYPE_DRAW); // both editions: RW 0x464626 / 0x00BDBB08, BFME2 0x464E2F / 0x00BCD918
 }
 
 std::vector<std::string> W3DDrawModules::notDrawnClasses()
