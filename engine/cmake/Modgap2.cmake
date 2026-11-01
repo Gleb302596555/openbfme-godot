@@ -14,6 +14,8 @@ list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/OathbreakersFadeAwayBehavi
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/AODCrushCollide.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/OilSpillUpdate.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTornadoDraw.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/TooltipUpgrade.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/AnnounceBirthAndDeathBehavior.cpp)
 set(OPENBFME_MODGAP2_TESTS
     tests/test_modgap2_bored.cpp
     tests/test_modgap2_aod_crush.cpp
@@ -35,4 +37,6 @@ set(OPENBFME_MODGAP2_TESTS
     tests/test_modgap2_troll_animation.cpp
     tests/test_modgap2_oilspill.cpp
     tests/test_modgap2_tornado.cpp
+    tests/test_modgap2_tooltip_upgrade.cpp
+    tests/test_modgap2_announce.cpp
 )
