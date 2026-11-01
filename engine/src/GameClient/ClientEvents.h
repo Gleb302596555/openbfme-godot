@@ -68,6 +68,7 @@ struct ClientEvent
 		HERO_FLASH,      ///< RW 0x7BDD7A: name = exact template name, flashFrames = signed client-frame duration
 		CAH_STATISTICS,   ///< hero unique id and the matching statistic names, client profile data
 		MODEL_CONDITIONS, ///< lane SAVE-4e: flags, the object's whole set stored (Drawable::replaceModelConditionFlags RW 0x679512 takes a whole set)
+		BUILD_COMPLETE,   ///< RW 0x68D27A: client create interfaces, after object interfaces
 		EVA_DAMAGED,      ///< lane EVADAMAGE-1 (RW 0x67B4B7's Eva half): position (the object's, + 0x38), eva (the logic's part of the choice)
 	};
 	std::string heroUniqueID;
@@ -121,6 +122,7 @@ public:
 	const ObserverTimeline &observerTimeline() const { return m_timeline; }
 
 	void objectCreated(Object &obj) override;
+	void objectBuildComplete(Object &obj) override;
 	void objectVariation(Object &obj, int variation) override;
 	void objectDestroyed(Object &obj) override;
 	void modelConditionChanged(Object &obj, int bit, bool on) override;

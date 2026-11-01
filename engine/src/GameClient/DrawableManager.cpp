@@ -4,6 +4,8 @@
 #include "GameClient/DrawableManager.h"
 #include "GameClient/RenderInterpolation.h"
 #include "GameClient/ClientEvents.h"
+#include "GameClient/EvaAnnounceClientCreate.h"
+#include "Common/Audio/AudioRequests.h"
 
 #include "Common/AsciiString.h"
 #include "Common/JobSystem.h"
@@ -262,7 +264,15 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 		switch (ev.kind)
 		{
 		case ClientEvent::CREATED: created(ev); break;
-		case ClientEvent::DESTROYED: destroyed(ev); break;
+		case ClientEvent::BUILD_COMPLETE:
+			if (Drawable *d = findByObject(ev.object))
+				for (const auto &module : d->clientModules())
+					if (auto *eva = dynamic_cast<EvaAnnounceClientCreate *>(module.get()))
+						eva->onBuildCompleteAt(ev.frame);
+			break;
+		case ClientEvent::DESTROYED:
+			destroyed(ev);
+			break;
 		case ClientEvent::REPLACED: // lane STEALTH-2 (RW 0x776F03): the old drawable goes, a new one of the event's template comes
 			destroyed(ev);
 			created(ev);
@@ -438,9 +448,38 @@ void DrawableManager::advance(double elapsedMs)
 	}
 }
 
+void DrawableManager::updateEvaAnnounces(const LogicSnapshot &snapshot)
+{
+	// The snapshot owns the client-visible object and player data; never read the live logic here.
+	for (size_t i = 1; i < m_slots.size(); ++i)
+	{
+		Drawable *d = m_slots[i].get();
+		if (!d)
+			continue;
+		const ObjectSnapshot *o = snapshot.find(d->getObjectID());
+		for (const auto &module : d->clientModules())
+		{
+			auto *eva = dynamic_cast<EvaAnnounceClientCreate *>(module.get());
+			if (!eva)
+				continue;
+			if (!o || !snapshot.players || snapshot.players->localIndex < 0)
+				continue;
+			const int local = snapshot.players->localIndex;
+			const bool hidden = d->shroudLook().fullyObscured || d->clientHidden() || o->drawableHidden;
+			bool sight = false;
+			int event = eva->update(snapshot.frame + 1, hidden, true, o->ownerIndex == local, snapshot.players->relationshipOf(local, o->ownerIndex), sight);
+			if (sight)
+				d->markEvaFirstSighted();
+			if (event >= 0)
+				AudioApi::reportEva(event, eva->usePosition() ? d->getPosition() : nullptr);
+		}
+	}
+}
+
 void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha, bool interpolate)
 {
 	m_scriptFrame = snapshot.frame;
+
 	// lane COMBAT-4: RW 0x4BF2D8 (W3DModelDraw::replaceModelConditionState): a model draw with DependencySharedModelFlags hands the flags of that set to its dependent
 	// drawables (+ 0xA8, by drawable id; RW 0x67651E clearAndSet on each): Grond's MOVING / TURN_* / BACKING_UP reach its troll crew, whose pushing AnimationStates
 	// need them. INFERENCE (stop S-1791): the dependents are the drawables of the objects the container holds (its riders and crew); the writer of the list is not read
@@ -533,6 +572,7 @@ void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha
 			}
 		}
 		m_animationSounds.update();
+		updateEvaAnnounces(snapshot);
 		return;
 	}
 	if (m_syncScratch.size() < slots)
@@ -592,6 +632,7 @@ void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha
 	}
 	// lane AUDIO-4: TheAnimationSoundModuleManager's client update (RW 0x83F321), after the animations advanced and the drawables moved
 	m_animationSounds.update();
+	updateEvaAnnounces(snapshot);
 }
 
 void DrawableManager::applyPlacement(Object &obj, const MapObjectDrawable &placement)
@@ -647,6 +688,7 @@ DrawableManager::Report DrawableManager::report(const LogicSnapshot *presented) 
 	{
 		r.stops.push_back(l); // SMOOTH-1
 	}
+	bool hasEvaAnnounce = false;
 	size_t unportedClient = 0;
 	for (size_t i = 1; i < m_slots.size(); ++i)
 	{
@@ -655,12 +697,19 @@ DrawableManager::Report DrawableManager::report(const LogicSnapshot *presented) 
 			for (const std::unique_ptr<DrawableModule> &m : d->clientModules())
 			{
 				unportedClient += m->isUnported() ? 1 : 0;
+				hasEvaAnnounce |= dynamic_cast<const EvaAnnounceClientCreate *>(m.get()) != nullptr;
 			}
 		}
 	}
+	if (hasEvaAnnounce)
+	{
+		r.stops.push_back("[S-7091] EvaAnnounceClientCreate: snapshot timing and visibility are inferred; first-sighting consumption, second Eva position "
+			"and drawable save are not ported; Eva queue S-247");
+	}
 	if (unportedClient)
 	{
-		r.stops.push_back("[S-140] client modules: " + std::to_string(unportedClient) + " live ClientUpdate / ClientBehavior modules are UnportedDrawableModules that do nothing (sway, beacon pulses, resource trees ...)");
+		r.stops.push_back("[S-140] client modules: " + std::to_string(unportedClient) +
+						  " live ClientUpdate / ClientBehavior modules are UnportedDrawableModules that do nothing (sway, beacon pulses, resource trees ...)");
 	}
 	r.scriptsRun = m_services.host.scriptsRun();
 	for (const std::string &f : m_services.host.failures())

@@ -7,6 +7,7 @@
 
 #include "GameClient/AnimationSoundClientBehavior.h"
 #include "GameClient/BeaconClientUpdate.h"
+#include "GameClient/EvaAnnounceClientCreate.h"
 #include "GameClient/ClientBehaviorModules.h"
 #include "GameClient/ModelConditionAudioLoopClientBehavior.h"
 #include "GameClient/SoundSelectorClientBehavior.h"
@@ -691,6 +692,7 @@ void ClientBehaviorModules::registerAll(ModuleFactory &modules)
 	AnimationSoundClientBehavior::registerClass(modules);
 	ModelConditionAudioLoopClientBehavior::registerClass(modules); // MODGAP-2: the taunts, cheers and collapse sounds (S-6024)
 	SoundSelectorClientBehavior::registerClasses(modules);         // lane DECOMP-2: the three sound selectors (S-701)
+	EvaAnnounceClientCreate::registerClass(modules);
 	BeaconClientUpdate::registerClass(modules);                    // lane CHAT-1: the multiplayer beacon's minimap pulse
 	TerrainResourceClientBehavior::registerClass(modules);         // both editions: RW 0x6549B1 / BFME2 0x654C56, the resource building's selection feedback (S-5030)
 }

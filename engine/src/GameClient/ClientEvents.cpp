@@ -4,6 +4,7 @@
 // and writes only its own event list, never simulation state.
 
 #include "GameClient/ClientEvents.h"
+#include "Common/AsciiString.h"
 
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
@@ -89,6 +90,17 @@ void ClientEventRecorder::objectCreated(Object &obj)
 	e.kindOf = obj.getKindOf();
 	e.angle = obj.getOrientation();
 	obj.friend_bindToClient(this);
+}
+
+// RW 0x68D27A: the drawable's create interfaces receive build-complete.
+void ClientEventRecorder::objectBuildComplete(Object &obj)
+{
+    for (const auto &n : obj.getTemplate()->clientUpdateModules().nuggets())
+	if (AsciiStringUtil::compareNoCase(n.name, "EvaAnnounceClientCreate") == 0)
+	{
+	    push(ClientEvent::BUILD_COMPLETE, obj);
+	    return;
+	}
 }
 
 // the CREATED event of the object, the last one it has (objectVariation follows objectCreated in Object::friend_initObject)
