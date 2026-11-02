@@ -587,8 +587,11 @@ bool canDoSpecialPowerAtLocation(Object &obj, const CommandButton &button, const
 	if (button.m_command == GUI_COMMAND_FIRE_WEAPON)
 	{
 		++stats().fireWeaponButtons;
-		logic.noteStop(kStopUpgrade);
-		return false;
+		if (const UpgradeTemplate *upgrade = buttonUpgrade(button); upgrade && !obj.hasUpgrade(upgrade))
+		{
+			return false; // RW 0x75CC5A
+		}
+		return logic.getFrame() >= obj.getFireWeaponDeadline(); // RW 0x75CC69
 	}
 	return canDoSpecialPower(obj, powerOf(button));
 }
@@ -610,8 +613,11 @@ bool canUseCommandButton(Object &obj, const CommandButton &button)
 	if (button.m_command == GUI_COMMAND_FIRE_WEAPON)
 	{
 		++stats().fireWeaponButtons;
-		logic.noteStop(kStopUpgrade);
-		return false;
+		if (const UpgradeTemplate *upgrade = buttonUpgrade(button); upgrade && !obj.hasUpgrade(upgrade))
+		{
+			return false; // RW 0x75CC5A
+		}
+		return logic.getFrame() >= obj.getFireWeaponDeadline(); // RW 0x75CC69
 	}
 	return canDoSpecialPower(obj, powerOf(button));
 }

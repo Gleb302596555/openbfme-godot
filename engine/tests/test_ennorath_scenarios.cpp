@@ -30,6 +30,9 @@
 #include "GameClient/RadarMarkerClientUpdate.h"
 #include "GameLogic/Module/AnnounceBirthAndDeathBehavior.h"
 #include "GameLogic/Module/TooltipUpgrade.h"
+#include "GameLogic/Object/ObjectDoCommandButton.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
+#include "GameLogic/Module/UpgradeModuleClasses.h"
 
 using ennorathscenario::World;
 
@@ -353,4 +356,61 @@ TEST_CASE("ENNORATH scenario AnnounceBirthAndDeathBehavior: GondorEarnur hero in
 	damage(earnur, INVALID_ID, DAMAGE_SLASH, 50000.0f);
 	CHECK(announce->deathAnnouncementCount() == 1);
 	CHECK(announce->lastNotificationType() == AnnounceBirthAndDeathBehavior::kHeroDeathType);
+}
+
+TEST_CASE("ENNORATH scenario AISpecialPowerUpdate: GondorFighterHorde toggles formation with Command_ToggleFormationGondorFighter")
+{
+	World world;
+	if (!world.load("Ennorath scenario AISpecialPowerUpdate formation")) return;
+	structtest::Arena arena(world.shared, "FactionMen", "FactionMordor");
+	Object *horde = world.place(arena, "GondorFighterHorde", 0, 400, 400);
+	REQUIRE(horde);
+	ContainModuleInterface *c = horde->getContain();
+	REQUIRE(c);
+	HordeContain *hc = dynamic_cast<HordeContain *>(c);
+	REQUIRE(hc);
+	const CommandButton *btn = TheCommandStore->findCommandButton("Command_ToggleFormationGondorFighter");
+	REQUIRE(btn);
+	const unsigned long long before = ObjectDoCommandButton::stats().formationToggles;
+	horde->doCommandButton(btn, CMD_FROM_SCRIPT, false);
+	CHECK(ObjectDoCommandButton::stats().formationToggles == before + 1);
+}
+
+TEST_CASE("ENNORATH scenario AISpecialPowerUpdate: Command_AttackMove sets attack-move state on unit")
+{
+	World world;
+	if (!world.load("Ennorath scenario AISpecialPowerUpdate attack-move")) return;
+	structtest::Arena arena(world.shared, "FactionMen", "FactionMordor");
+	Object *fighter = world.place(arena, "GondorFighter", 0, 400, 400);
+	REQUIRE(fighter);
+	AIUpdateInterface *ai = fighter->getAIUpdateInterface();
+	REQUIRE(ai);
+	const CommandButton *btn = TheCommandStore->findCommandButton("Command_AttackMove");
+	REQUIRE(btn);
+	const unsigned long long before = ObjectDoCommandButton::stats().attackMoves;
+	fighter->doCommandButtonAtPosition(btn, Coord3D{ 600, 600, 0 }, CMD_FROM_SCRIPT, false);
+	CHECK(ObjectDoCommandButton::stats().attackMoves == before + 1);
+	CHECK(ai->attackMoveActive());
+}
+
+TEST_CASE("ENNORATH scenario DoCommandUpgrade: Command_MountToggleBlackrider on BlackRiderHorde toggles formation")
+{
+	World world;
+	if (!world.load("Ennorath scenario DoCommandUpgrade Blackrider")) return;
+	structtest::Arena arena(world.shared, "FactionMordor", "FactionMen");
+	Object *horde = world.place(arena, "MordorSchwarzeReiterHorde", 0, 400, 400);
+	REQUIRE(horde);
+	HordeContain *hc = dynamic_cast<HordeContain *>(horde->getContain());
+	REQUIRE(hc);
+	const ThingTemplate *oldAlt = hc->alternateFormationTemplate();
+	REQUIRE(oldAlt);
+	const CommandButton *btn = TheCommandStore->findCommandButton("Command_MountToggleBlackrider");
+	REQUIRE(btn);
+	const unsigned long long before = ObjectDoCommandButton::stats().formationToggles;
+	DoCommandUpgrade::doCommandButton(*horde, *btn);
+	CHECK(ObjectDoCommandButton::stats().formationToggles == before + 1);
+	HordeContain *newHc = dynamic_cast<HordeContain *>(horde->getContain());
+	REQUIRE(newHc != nullptr);
+	CHECK(newHc != hc);
+	CHECK(newHc->alternateFormationTemplate() != oldAlt);
 }
