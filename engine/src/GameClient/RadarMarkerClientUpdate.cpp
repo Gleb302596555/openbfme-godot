@@ -2,6 +2,7 @@
 // See GameClient/RadarMarkerClientUpdate.h (lane MODGAP-2; editions: both RotWK 2.01 and BFME2 1.06).
 
 #include "GameClient/RadarMarkerClientUpdate.h"
+#include "GameClient/Drawable.h"
 
 #include "Common/INI.h"
 #include "Common/Thing/ModuleFactory.h"
@@ -42,8 +43,13 @@ const std::string &RadarMarkerClientUpdate::markerType() const
 // RW 0x8CE116 / BFME2 0x4C9CF7
 void RadarMarkerClientUpdate::clientUpdate()
 {
-	// In retail: queries TheRadar for marker with data->m_markerType and passes drawable's position.
-	// Tracked by existing stop S-2451.
+	Drawable *d = getDrawable();
+	if (!d || !m_data || m_data->m_markerType.empty())
+	{
+		return;
+	}
+	m_markerPosition = *d->getPosition();
+	m_hasMarker = true;
 }
 
 void RadarMarkerClientUpdate::registerClass(ModuleFactory &modules)

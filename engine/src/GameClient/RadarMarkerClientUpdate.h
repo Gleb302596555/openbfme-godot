@@ -22,6 +22,7 @@
 
 #pragma once
 
+#include "Common/INIDataTypes.h"
 #include "Common/Module.h"
 
 #include <string>
@@ -44,6 +45,8 @@ public:
 
 	const RadarMarkerClientUpdateModuleData *data() const { return m_data; }
 	const std::string &markerType() const;
+	bool hasMarker() const { return m_hasMarker; }
+	const Coord3D &markerPosition() const { return m_markerPosition; }
 
 	void clientUpdate();
 
@@ -51,5 +54,6 @@ public:
 
 private:
 	const RadarMarkerClientUpdateModuleData *m_data = nullptr;
+	Coord3D m_markerPosition{ 0.0f, 0.0f, 0.0f };
+	bool m_hasMarker = false;
 };
-

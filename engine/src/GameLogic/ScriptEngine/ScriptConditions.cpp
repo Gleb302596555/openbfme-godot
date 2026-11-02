@@ -40,6 +40,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
+#include <unordered_set>
 
 // Common/ModelState.h cannot be included next to Object.h (two ModelConditionFlags typedefs); the one function used is declared here (as
 // GameClient/MusicScripts.cpp does)
@@ -1991,6 +1992,11 @@ bool ScriptConditions::evaluate(ScriptEngine &engine, const ScriptCondition &c)
 			{
 				return true;
 			}
+			const UpgradeTemplate *u = Player::resolveUpgrade(param(c, 1).stringValue, false);
+			if (u && p->upgradeStatus(u) == Player::UPGRADE_STATUS_COMPLETE)
+			{
+				return true;
+			}
 		}
 		return false;
 	}
@@ -2027,12 +2033,37 @@ bool ScriptConditions::evaluate(ScriptEngine &engine, const ScriptCondition &c)
 		}
 		static const int hordeMember = ObjectTemplateInfoBuilder::objectStatusIndex("HORDE_MEMBER");
 		std::int32_t count = 0;
+		std::unordered_set<const Object *> visited;
 		forPlayerTeamMembers(logic, owner, [&](Object &o) {
+			visited.insert(&o);
 			if (!o.testStatus((unsigned)hordeMember) && o.hasUpgrade(upgrade))
 			{
 				++count;
 			}
 		});
+		if (owner->getDefaultTeam())
+		{
+			for (Object *o = owner->getDefaultTeam()->getFirstMember(); o; o = o->friend_teamNext())
+			{
+				if (visited.insert(o).second)
+				{
+					if (!o->testStatus((unsigned)hordeMember) && o->hasUpgrade(upgrade))
+					{
+						++count;
+					}
+				}
+			}
+		}
+		for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
+		{
+			if (o->getControllingPlayer() == owner && visited.insert(o).second)
+			{
+				if (!o->testStatus((unsigned)hordeMember) && o->hasUpgrade(upgrade))
+				{
+					++count;
+				}
+			}
+		}
 		return count >= param(c, 1).intValue;
 	}
 	default:

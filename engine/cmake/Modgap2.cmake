@@ -23,6 +23,8 @@ list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/ProjectileStreamUpdate.cpp
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/StrafeAreaUpdate.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DProjectileStreamDraw.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLightDraw.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/AnimalAIUpdate.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/HordeWorkerAIUpdate.cpp)
 set(OPENBFME_MODGAP2_TESTS
     tests/test_modgap2_bored.cpp
     tests/test_modgap2_aod_crush.cpp
@@ -49,4 +51,5 @@ set(OPENBFME_MODGAP2_TESTS
     tests/test_modgap2_announce.cpp
     tests/test_modgap2_stream_strafe_light.cpp
     tests/test_modgap2_eva_spawn.cpp
+    tests/test_modgap2_ai_scripts.cpp
 )

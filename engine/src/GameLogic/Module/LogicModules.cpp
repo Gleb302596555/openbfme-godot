@@ -75,6 +75,8 @@
 #include "GameLogic/Module/ConstructionModules.h"
 #include "GameLogic/WallSpan.h"
 #include "GameLogic/Module/DozerAIUpdate.h"
+#include "GameLogic/Module/AnimalAIUpdate.h"
+#include "GameLogic/Module/HordeWorkerAIUpdate.h"
 #include "GameLogic/Module/DockUpdate.h"
 #include "GameLogic/Module/SupplyCenterCreate.h"
 #include "GameLogic/Module/GiantBirdAIUpdate.h"
@@ -116,6 +118,8 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	DozerAIUpdate::registerClass(modules); // lane BUILD-1 (after the AI classes: it replaces the base AI's binding of DozerAIUpdate)
 	GiantBirdAIUpdate::registerClass(modules); // lane FLY-1 (after the AI classes: it replaces the base AI's binding of GiantBirdAIUpdate)
 	DozerAIUpdate::registerWorkerClass(modules); // lane BUILD-2 / LUMBER1: WorkerAIUpdate, the dozer half and the supply half
+	AnimalAIUpdate::registerClass(modules); // lane MODGAP-2
+	HordeWorkerAIUpdate::registerClass(modules); // lane MODGAP-2
 	SupplyCenterCreate::registerClass(modules);     // lane LUMBER1: the lumber mills' registration with the players' ResourceGatheringManager
 	SupplyWarehouseCreate::registerClass(modules);  // the warehouses' (Ennorath's supply rocks), RW 0x8BD063
 	SupplyCenterDockUpdate::registerClass(modules); // lane LUMBER1: the lumber mills' dock (the income of a delivery)
