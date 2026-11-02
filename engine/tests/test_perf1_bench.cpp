@@ -566,6 +566,13 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // PR #184 re-measured the skirmish (OPENBFME_PERF1_REGEN=1, macOS arm64): the dozer's completion-time body visual refresh (RW 0x88DF6B;
 // clean BFME2 1.06 0x88AC76) clears the stale REALLYDAMAGED model condition left by 1-hit-point placement once the building is healthy.
 // The skirmish moves from frame 167; the big battle is unchanged.
+// P-31 re-measured all three on the Ennorath fork (OPENBFME_PERF1_REGEN=1, Windows MSVC). Against upstream 4de0b3b0, whose build passes the old vectors on the same
+// machine, each change was switched on alone with every other fork change off (with all of them off the three vectors are upstream's, frame for frame):
+// 0171fba2 AnimalAIUpdate in place of AmbientAIUpdate moves all three from frame 0 (the animals' module state in the object hash);
+// 51166ca0 the member's exit from a horde, status and contained frame cleared (RW 0x69024C / BFME2 0x68F80C), moves the battle from frame 39 and the skirmish from 637;
+// d84204b4 SpawnUnitBehavior and cc368c62 GiveUpgradeUpdate each move the skirmish from frame 0; 56399493 an ability cancelling the attack-move (the owner's playtest,
+// no RW address: the flag is the port's, S-328) from 975; 7a6a1ba7 a killed structure's worker fading (INFERENCE, S-420) from 4127; 69101aa2 / 51166ca0
+// FlingPassengerSpecialAbilityUpdate from 5427. The script condition's extra loops of 0171fba2, the PillageModule call and canBeginSlowDeath move none of them.
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,

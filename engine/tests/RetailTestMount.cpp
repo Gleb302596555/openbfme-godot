@@ -2,6 +2,7 @@
 
 #include "RetailTestMount.h"
 
+#include "Common/ModMount.h"
 #include "Common/RetailArchivePolicy.h"
 #include "GameEngineDevice/Win32Device/Common/Win32BIGFileSystem.h"
 
@@ -59,6 +60,27 @@ std::unique_ptr<Mount> build(const std::vector<std::pair<std::string, std::strin
 		m->archives.push_back(a.install + ":" + a.canonicalPath);
 	}
 	m->identityArchives = report.mounted;
+	// the button sweep (docs/ennorath/BUTTON_SWEEP.md): OPENBFME_SWEEP_OVERLAY=<a mod's install folder> mounts the mod over this base for the whole process, as
+	// EnnorathScenario.h does, so the FACT sweeps run on the mod's data. Only the sweep's own runs set it; a failed mount is an error, never the base alone.
+	const std::string overlay = envOrEmpty("OPENBFME_SWEEP_OVERLAY");
+	if (!overlay.empty() && installs.size() == 2)
+	{
+		static std::vector<std::unique_ptr<Win32BIGFileSystem>> bases; // the overlay's file system reads through the base's archives for the process
+		bases.push_back(std::move(m->fs));
+		m->fs = std::make_unique<Win32BIGFileSystem>();
+		ModMountOptions modOptions;
+		modOptions.rotwkInstallRoot = installs[0].root;
+		const ModMountReport mounted = MountInstallOverlay(*m->fs, report, overlay, modOptions);
+		if (!mounted.ok)
+		{
+			m->error = "the sweep's overlay did not mount: " + overlay + "\n";
+			for (const std::string &e : mounted.errors)
+			{
+				m->error += e + "\n";
+			}
+			m->fs.reset();
+		}
+	}
 	return m;
 }
 
