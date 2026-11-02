@@ -4,6 +4,7 @@
 #include "HordeCompleteTestUtil.h"
 #include "doctest.h"
 #include "GameLogic/Module/AmbientAIUpdate.h"
+#include "GameLogic/Module/AnimalAIUpdate.h"
 #include "GameLogic/Module/PhysicsBehavior.h"
 #include "GameLogic/Module/StructureModules.h"
 
@@ -302,7 +303,7 @@ std::vector<SweepResult> sweepBatch(RetailGame &g, const std::vector<const Thing
 		}
 		out[i].setSpeed = ai->locomotorSetSpeed();
 		out[i].accelerationFrames = ai->curLocomotor() ? ai->curLocomotor()->getTemplate().m_acceleration : 0u;
-		out[i].ambient = dynamic_cast<const AmbientAIUpdate *>(ai) != nullptr;
+		out[i].ambient = dynamic_cast<const AmbientAIUpdate *>(ai) != nullptr || dynamic_cast<const AnimalAIUpdate *>(ai) != nullptr;
 		out[i].startDist = std::sqrt((dests[i].x - objs[i]->getPosition()->x) * (dests[i].x - objs[i]->getPosition()->x) + (dests[i].y - objs[i]->getPosition()->y) * (dests[i].y - objs[i]->getPosition()->y));
 		out[i].nearestDist = out[i].startDist;
 		ai->aiMoveToPosition(dests[i], CMD_FROM_PLAYER);

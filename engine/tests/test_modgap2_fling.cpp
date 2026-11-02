@@ -50,11 +50,14 @@ TEST_CASE("modgap2 fling: carrier with HordeContain flings its member")
         CAPTURE(gameEditionName(edition));
         Object *carrier = w.unit("TestFlingCarrier", 'A', 300, 300);
         Object *rider = w.unit("TestFlingRider", 'A', 310, 300);
+        Object *second = w.unit("TestFlingRider", 'A', 315, 300);
         REQUIRE(carrier);
         REQUIRE(rider);
+        REQUIRE(second);
         ContainModuleInterface *contain = carrier->getContain();
         REQUIRE(contain);
         REQUIRE(contain->addToContain(rider));
+        REQUIRE(contain->addToContain(second));
         CHECK(rider->testStatus(0x26)); // HORDE_MEMBER
         CHECK(rider->getContainedBy() == carrier);
         auto *ability = dynamic_cast<SpecialAbilityUpdate *>(carrier->findModule("FlingPassengerSpecialAbilityUpdate"));
@@ -62,8 +65,9 @@ TEST_CASE("modgap2 fling: carrier with HordeContain flings its member")
         ability->initiateIntentToDoSpecialPower(ability->abilityData()->m_specialPowerTemplate, nullptr, nullptr, 0, 0);
         w.frames(20);
         CHECK(ability->abilitiesTriggered() == 1);
-        CHECK(contain->getContainCount() == 0);
+        CHECK(contain->getContainCount() == 1);
         CHECK(rider->getContainedBy() == nullptr);
+        CHECK(second->getContainedBy() == carrier);
         CHECK_FALSE(rider->testStatus(0x26)); // HORDE_MEMBER cleared on removal
         CHECK_FALSE(rider->isEffectivelyDead());
         REQUIRE(rider->getBodyModule());

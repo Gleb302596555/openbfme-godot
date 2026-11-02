@@ -1992,11 +1992,6 @@ bool ScriptConditions::evaluate(ScriptEngine &engine, const ScriptCondition &c)
 			{
 				return true;
 			}
-			const UpgradeTemplate *u = Player::resolveUpgrade(param(c, 1).stringValue, false);
-			if (u && p->upgradeStatus(u) == Player::UPGRADE_STATUS_COMPLETE)
-			{
-				return true;
-			}
 		}
 		return false;
 	}

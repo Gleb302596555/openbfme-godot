@@ -102,10 +102,10 @@ TEST_CASE("modgap2 ai: PLAYER_HAS_NUM_UNITS_WITH_UPGRADE and PLAYER_BUILT_UPGRAD
 		ScriptCondition builtCond = cond("PLAYER_BUILT_UPGRADE", { sp(11, alice->getPlayerName()), sp(33, "Upgrade_TestBuilt") });
 		CHECK_FALSE(ScriptConditions::evaluate(w.logic->scriptEngine(), builtCond));
 
-		// Grant persistent completed upgrade to player
-		const UpgradeTemplate *up = Player::resolveUpgrade("Upgrade_TestBuilt", true);
-		alice->addUpgrade(up, Player::UPGRADE_STATUS_COMPLETE);
+		// Grant completed upgrade notification to script engine
+		w.logic->scriptEngine().notifyOfCompletedUpgrade(alice->getPlayerIndex(), "Upgrade_TestBuilt", 0);
 		CHECK(ScriptConditions::evaluate(w.logic->scriptEngine(), builtCond));
+		const UpgradeTemplate *up = Player::resolveUpgrade("Upgrade_TestBuilt", true);
 
 		// 2. Test PLAYER_HAS_NUM_UNITS_WITH_UPGRADE (condition 178)
 		ScriptCondition hasCond1 = cond("PLAYER_HAS_NUM_UNITS_WITH_UPGRADE", { sp(11, alice->getPlayerName()), ip(0, 1), sp(33, "Upgrade_TestBuilt") });

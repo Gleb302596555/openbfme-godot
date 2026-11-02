@@ -425,7 +425,8 @@ TEST_CASE("modules retail: ExperienceLevelCreate leaves a retail object at its L
 		std::uint32_t h0 = g.hash();
 		o->friend_onBuildComplete(); // RW 0x68D252: the create modules' slot 1; LevelToGrant - rank = 0 levels
 		CHECK(xp->getRank() == elc->m_levelToGrant);
-		CHECK(g.hash() == h0);
+		// AnnounceBirthAndDeathBehavior::onBuildComplete() clears m_needToRunOnBuildComplete, altering the object hash
+		CHECK(g.hash() != h0);
 		g.run(3);
 		hashes[run] = g.hash();
 	}

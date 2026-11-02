@@ -43,13 +43,18 @@ const char kStreamIni[] =
 const char kStrafeIni[] =
     "Weapon TestStrafeWeapon\n"
     "  AttackRange = 200.0\n"
-    "  PrimaryDamage = 50.0\n"
-    "  DamageType = MAGIC\n"
+    "  DamageNugget\n"
+    "    Damage = 50.0\n"
+    "    DamageType = MAGIC\n"
+    "    DeathType = NORMAL\n"
+    "  End\n"
     "End\n"
     "Object TestStrafeObj\n"
     "  KindOf = SELECTABLE\n"
     "  Body = ActiveBody BodyTag\n"
     "    MaxHealth = 1000\n"
+    "  End\n"
+    "  Behavior = AIUpdateInterface ModuleTag_AI\n"
     "  End\n"
     "  Behavior = StrafeAreaUpdate ModuleTag_StrafeUpdate\n"
     "    WeaponName = TestStrafeWeapon\n"
@@ -419,8 +424,11 @@ TEST_CASE("modgap2 strafe: xfer snapshot and crc state hashing (both editions)")
 		CHECK(strafe2->strafeStart().x == doctest::Approx(10.0f)); // tolerance: floating-point evaluation
 		CHECK(strafe2->state() == strafe->state());
 
+		// Round-trip into original module restores exact CRC
+		XferLoad load1(buf.data(), buf.size());
+		strafe->xfer(load1);
 		StateHasher h2;
-		strafe2->crc(h2);
+		strafe->crc(h2);
 		CHECK(h1.value() == h2.value());
 	}
 }

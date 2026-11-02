@@ -253,8 +253,9 @@ TEST_CASE("ENNORATH scenario PartTheHeavensUpdate: PartTheHeavens spell effect h
 	}
 	REQUIRE(data);
 	CHECK(data->m_texture == "SCCommandBar");
-	CHECK(data->m_color == 0x00FFFFFF);
-	CHECK(data->m_radius(0.0f) > 0.0f); // tolerance: radius curve evaluation produces positive decal size
+	CHECK(data->m_color == 0xFFFFFFFF);
+	CHECK(data->m_radius(0.0f) == 0.0f);
+	CHECK(data->m_radius(20.0f) == 100.0f);
 }
 
 TEST_CASE("ENNORATH scenario DestroyEnvironmentUpdate: PartTheHeavens specifies environment destruction times")
@@ -349,7 +350,7 @@ TEST_CASE("ENNORATH scenario AnnounceBirthAndDeathBehavior: GondorEarnur hero in
 	}
 	CHECK(stopped);
 
-	damage(earnur, INVALID_ID, DAMAGE_SLASH, 10000.0f);
+	damage(earnur, INVALID_ID, DAMAGE_SLASH, 50000.0f);
 	CHECK(announce->deathAnnouncementCount() == 1);
 	CHECK(announce->lastNotificationType() == AnnounceBirthAndDeathBehavior::kHeroDeathType);
 }

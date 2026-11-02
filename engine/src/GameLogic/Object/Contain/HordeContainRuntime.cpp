@@ -805,18 +805,19 @@ void HordeContain::removeMember(Object *obj, bool keepSlot, bool templateIsSpeci
 	}
 	m_members.erase(it);
 	m_producedMembers.erase(std::remove(m_producedMembers.begin(), m_producedMembers.end(), obj->getID()), m_producedMembers.end());
-	const int bit = hordeMemberStatusBit();
-	if (bit >= 0)
-	{
-		obj->setStatus((unsigned)bit, false);
-	}
-	obj->onRemovedFrom(getObject()); // RW 0x69024C / BFME2 0x68F80C
 	if (keepSlot)
 	{
+		obj->friend_setContainedBy(nullptr);
 		m_core->releaseMember(obj->getID()); // lane GARRISON-3: RW 0x86CF2A frees no slot, no fill-in, the dirty byte untouched
 	}
 	else
 	{
+		const int bit = hordeMemberStatusBit();
+		if (bit >= 0)
+		{
+			obj->setStatus((unsigned)bit, false);
+		}
+		obj->onRemovedFrom(getObject()); // RW 0x69024C / BFME2 0x68F80C
 		m_core->removeMember(obj->getID(), templateIsSpecial);
 		// RW 0x8737EE / 0x873885: remember the removed member's source at removal time, not hit time.
 		if (const auto *body = dynamic_cast<const ActiveBody *>(obj->getBodyModule()))

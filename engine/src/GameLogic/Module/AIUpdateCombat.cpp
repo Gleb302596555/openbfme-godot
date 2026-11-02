@@ -14,6 +14,7 @@
 #include "GameLogic/AI/AIHunt.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Module/DozerAIUpdate.h"
+#include "GameLogic/Module/AnimalAIUpdate.h"
 #include "GameLogic/ScriptEngine/ScriptEngine.h"
 #include "GameLogic/Weapon.h"
 #include "GameLogic/Combat/CombatNames.h"
@@ -118,6 +119,12 @@ void AIUpdateInterface::readCombatSettings(const ModuleData *data)
 	m_minCowerTime = m_maxCowerTime = 0; // lane MODULES-3: RW ctor 0x66E8FF (+ 0x34 / + 0x30 = 0)
 	m_animalInterface = false; // lane CASTLEAREA-1: RW 0x64BB5B (AfraidOfCastles 1)
 	m_animalAfraidOfCastles = true;
+	if (const auto *animal = dynamic_cast<const AnimalAIUpdateModuleData *>(data))
+	{
+		m_animalInterface = true;
+		m_animalAfraidOfCastles = animal->m_afraidOfCastles;
+		return;
+	}
 	const RawModuleData *raw = dynamic_cast<const RawModuleData *>(data);
 	if (!raw)
 	{

@@ -216,7 +216,7 @@ UpdateSleepTime StrafeAreaUpdate::update()
 
 void StrafeAreaUpdate::xfer(Xfer &x)
 {
-	XferVersion v{ 1, 3 };
+	XferVersion v{ 1, 4 };
 	x.xferVersion(v);
 	xferUpdateModule(x);
 
