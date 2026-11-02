@@ -1652,10 +1652,6 @@ GameLogic::Report GameLogic::report() const
 	{
 		r.stops.push_back(u);
 	}
-	for (const std::string &u : AttributeModifierPool::stopLines())
-	{
-		r.stops.push_back(u);
-	}
 	for (const std::string &u : UpgradeModuleClasses::stopLines()) // lane UPGRADE-1 (S-480 ..)
 	{
 		r.stops.push_back(u);

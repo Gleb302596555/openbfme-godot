@@ -1560,6 +1560,12 @@ void unitsOf(const std::string &faction, Results &res)
 					res.fail(item, "the button left the bar during the baseline frames");
 					continue;
 				}
+				// the button sweep's link 10: the other buttons on the bar, before the press (docs/ennorath/BUTTON_SWEEP.md)
+				std::map<const CommandButton *, ButtonState> barBefore;
+				for (const ControlBarButton &x : g.visible())
+				{
+					barBefore[x.button] = x.state;
+				}
 				if (!g.press(b))
 				{
 					res.fail(item, "the press sent nothing");
@@ -1802,6 +1808,35 @@ void unitsOf(const std::string &faction, Results &res)
 					if (!missing.empty())
 					{
 						res.fail(item, cb->m_specialPowerName + " (target " + target + ") fired but " + missing + (firstTry.empty() ? "" : " (first try, " + firstTry + ")"));
+					}
+				}
+				// the button sweep's link 10, on the mod's data only: a button that was usable before the press may be restricted while the ability runs (a
+				// DisableOnModelCondition), but not for good. Two minutes of game time; a button that left the bar is not judged (a form change swaps the set)
+				if (fired && std::getenv("OPENBFME_SWEEP_OVERLAY"))
+				{
+					g.hud->input().ui().setGUICommand(nullptr);
+					std::string blocked;
+					for (int f = 0; f <= 600; f += 10)
+					{
+						blocked.clear();
+						for (const ControlBarButton &x : g.visible())
+						{
+							const auto was = barBefore.find(x.button);
+							if (x.button != cb && was != barBefore.end() && x.state == ButtonState::Restricted
+								&& (was->second == ButtonState::Enabled || was->second == ButtonState::Active))
+							{
+								blocked += " " + x.button->m_name;
+							}
+						}
+						if (blocked.empty() || !g.logic().findObjectByID(uid))
+						{
+							break;
+						}
+						g.step(10);
+					}
+					if (!blocked.empty())
+					{
+						res.fail(item, "STUCK: 600 frames after the press still restricted:" + blocked);
 					}
 				}
 				// one unported effect is S-920's: the victims' "outside the playable area" flag (RW 0xC0F374) every SpecialPowerModule scan counts
