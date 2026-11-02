@@ -18,6 +18,15 @@ const char kReplaceObjects[] =
     "  ReplaceRadius = 30\n Scatter = Yes\n"
     "  ReplaceObject\n   TargetObjectFilter = NONE +INFANTRY ENEMIES\n   ReplacementObjectName = TestReplacement\n  End\n"
     " End\nEnd\n"
+    "Object TestReplaceCasterUnknown\n KindOf = INFANTRY SELECTABLE HERO\n"
+    " Body = ActiveBody BodyTag\n MaxHealth = 100\n End\n"
+    " Behavior = AIUpdateInterface AITag\n End\n"
+    " Behavior = SpecialPowerModule PowerTag\n SpecialPowerTemplate = TestReplacePower\n UpdateModuleStartsAttack = Yes\n End\n"
+    " Behavior = ReplaceObjectUpdate ReplaceTag\n"
+    "  SpecialPowerTemplate = TestReplacePower\n UnpackTime = 200\n PreparationTime = 200\n PackTime = 200\n StartAbilityRange = 200\n IgnoreFacingCheck = Yes\n"
+    "  ReplaceRadius = 30\n"
+    "  ReplaceObject\n   TargetObjectFilter = NONE +INFANTRY ENEMIES\n   ReplacementObjectName = NoSuchReplacement\n  End\n"
+    " End\nEnd\n"
     "Object TestReplaceVictim\n KindOf = INFANTRY SELECTABLE\n"
     " Body = ActiveBody BodyTag\n MaxHealth = 100\n End\nEnd\n"
     "Object TestReplacement\n KindOf = INFANTRY SELECTABLE NO_COLLIDE\n"
@@ -70,5 +79,28 @@ TEST_CASE("modgap2 replace: matching enemy is replaced and unsupported scatter i
             }
         }
         CHECK(sawScatterPanic);
+    }
+}
+
+// RW 0x8B6D2A .. 0x8B6D9B (BFME2 0x4B2C00; BuildAssistant.cpp buildObjectNow, retail 0x3952D8): a replacement name no INI defines makes nothing and the victim still goes.
+// Ennorath 1.9.8 data\ini\object\goodfaction\units\rohan\rohanradagast.ini names Racoon_Replacement, which it never defines; the port threw here and ended the game.
+TEST_CASE("modgap2 replace: an undefined replacement name removes the victim and makes nothing, as retail")
+{
+    for (GameEdition edition : { GameEdition::RotWK201, GameEdition::BFME2_106 }) {
+        ReplaceWorld w;
+        w.logic->setEdition(edition);
+        CAPTURE(gameEditionName(edition));
+        Object *source = w.unit("TestReplaceCasterUnknown", 'A', 300, 300);
+        Object *enemy = w.unit("TestReplaceVictim", 'B', 320, 300);
+        REQUIRE(source);
+        REQUIRE(enemy);
+        const ObjectID enemyID = enemy->getID();
+        auto *power = dynamic_cast<SpecialAbilityUpdate *>(source->findModule("ReplaceObjectUpdate"));
+        REQUIRE(power);
+        const Coord3D at{ 320, 300, 0 };
+        power->initiateIntentToDoSpecialPower(power->abilityData()->m_specialPowerTemplate, nullptr, &at, 0, 0);
+        w.frames(20);
+        CHECK(w.byId(enemyID) == nullptr);
+        CHECK(w.byId(source->getID()) == source);
     }
 }

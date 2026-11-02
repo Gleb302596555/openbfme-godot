@@ -60,10 +60,12 @@ void ReplaceObjectUpdate::triggerAbilityEffect() {
             if (entry.replacements.empty()) throw std::logic_error("ReplaceObjectUpdate: ReplacementObjectName is empty");
             const int index = logic.random().getValue(0, (int)entry.replacements.size() - 1, "ReplaceObjectUpdate.cpp", 0x47);
             const ThingTemplate *replacement = logic.things().findTemplate(entry.replacements[(size_t)index]);
-            if (!replacement) throw std::logic_error("ReplaceObjectUpdate: unknown replacement " + entry.replacements[(size_t)index]);
+            // RW 0x8B6D2A .. 0x8B6D65 / BFME2 0x4B2C00: the template goes unchecked to BuildAssistant::buildObjectNow (slot 0x38), which makes nothing for a null one
+            // (BFME2 BuildAssistant.cpp, retail 0x3952D8); the victim is removed all the same (RW 0x8B6D9B -> 0x8B6B65). Ennorath's Word of Poultry names
+            // Racoon_Replacement, which no INI defines: that draw takes the victim and leaves nothing
             Player *neutral = logic.players().getNeutralPlayer();
             if (!neutral) throw std::logic_error("ReplaceObjectUpdate: neutral player is missing");
-            Object *created = Construction::buildObjectNow(logic, source, *replacement, *victim->getPosition(), victim->getOrientation(), *neutral);
+            Object *created = replacement ? Construction::buildObjectNow(logic, source, *replacement, *victim->getPosition(), victim->getOrientation(), *neutral) : nullptr;
             if (created) {
                 if (FXEventLog::isFXName(m_replace->replaceFX))
                     logic.fxEvents().emit(FXEventLog::objectEvent(FXEvent::OBJECT_FX, "ReplaceObjectUpdate ReplaceFX", logic.getFrame(), m_replace->replaceFX, *created));
