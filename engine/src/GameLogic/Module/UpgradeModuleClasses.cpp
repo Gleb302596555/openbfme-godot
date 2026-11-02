@@ -618,8 +618,11 @@ void DoCommandUpgrade::doCommandButton(Object &obj, const CommandButton &b)
 		WeaponSetToggle::toggleFromCommandButton(obj);
 		return;
 	case GUI_COMMAND_PLAYER_UPGRADE:
-		// lane MODS-3: the upgrade case of RW 0x696FD2 (its gate RW 0x695338, the research queue) through Object::doCommandButton (S-5305): the Hall of
-		// Twilight's DoCommandUpgrade modules buy its technologies as it levels (retail angmarhalloftwilight.ini)
+	case GUI_COMMAND_OBJECT_UPGRADE:
+	case GUI_COMMAND_HORDE_TOGGLE_FORMATION:
+	case GUI_COMMAND_SET_STANCE:
+	case GUI_COMMAND_FIRE_WEAPON:
+		// lane LOGIC-BUTTONS: routed through Object::doCommandButton (RW 0x696FD2 / S-5145)
 		obj.doCommandButton(&b, CMD_FROM_PLAYER, false);
 		return;
 	default:

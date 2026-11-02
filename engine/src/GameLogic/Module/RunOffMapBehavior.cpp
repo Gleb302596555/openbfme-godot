@@ -6,7 +6,6 @@
 #include "Common/INI.h"
 #include "Common/Thing/ModuleFactory.h"
 #include "Common/Xfer.h"
-#include "GameLogic/Damage.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SnapshotXfer.h"
@@ -57,14 +56,10 @@ void RunOffMapBehavior::triggerFlee()
 	obj->setStatus(0x32, true);                  // STATUS_FLEEING (0x32)
 	obj->setModelConditionState(0xFC, true);      // RUNNING_OFF_MAP (0xFC)
 
-	if (m_data->m_dieOnMap)
-	{
-		obj->kill(DAMAGE_UNRESISTABLE, 0);
-	}
-	else
-	{
-		obj->logic().destroyObject(obj);
-	}
+	// RW 0x865519 .. 0x865534: the unit gets AI command 0x41 (DieOnMap, RW 0x86539E) or 0x38 (RW 0x865332) towards the waypoint or a point ahead, and nothing here
+	// removes it. Neither command is ported (S-5308), so it stays where it is. It must not be destroyed here: this runs in the constructor, before the object is
+	// in the world (retail's GondorCavalryRiderless ended `move retail` with SIGABRT)
+	obj->logic().noteStop("[S-5308] RunOffMapBehavior: the run off the map is not ported (AI commands 0x38 / 0x41, RW 0x865332 / 0x86539E, target RW 0x86540A); the unit stays where it is");
 }
 
 void RunOffMapBehavior::xfer(Xfer &x)

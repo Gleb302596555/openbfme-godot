@@ -196,6 +196,10 @@ public:
 	// lane RADAR-1: the logic frame of the last hit the drawable's damage notice (RW 0x67B4B7, from RW 0x6968BC) would report to the radar as an attack (0xFFFFFFFF:
 	// none); client state the radar reads through the snapshot (Radar::noteAttacks), never hashed
 	UnsignedInt radarAttackFrame() const { return m_radarAttackFrame; }
+	// lane LOGIC-BUTTONS: RW 0x68C91B / BFME2 decomp Object.cpp:2022 rva0028C24C: the 10s fire-weapon deadline (+0x478 in RotWK, +0x458 in BFME2)
+	UnsignedInt getFireWeaponDeadline() const { return m_fireWeaponDeadline; }
+	void setFireWeaponDeadline();
+	void setFireWeaponDeadline(UnsignedInt deadline) { m_fireWeaponDeadline = deadline; }
 	// RW 0x690532 Object::attemptHealing: a HEALING hit from `source` (INVALID_ID: itself)
 	void attemptHealing(float amount, const Object *source);
 	// lane BUILD-2: RW 0x690584 Object::attemptHealingFromSoleBenefactor(amount, source, duration): only one healer at a time (RW + 0x3D4 its id, + 0x3D8 the frame its claim
@@ -669,6 +673,7 @@ private:
 	bool m_hasShroudClearingRange = false;            ///< lane DECOMP-1: RW + 0x1B4 was set (else it holds the template's ShroudClearingRange)
 	float m_shroudClearingRange = 0.0f;               ///< RW + 0x1B4 once set
 	UnsignedInt m_radarAttackFrame = 0xFFFFFFFFu;     ///< lane RADAR-1 (radarAttackFrame)
+	UnsignedInt m_fireWeaponDeadline = 0;             ///< lane LOGIC-BUTTONS: RW + 0x478 (RW 0x68C91B / BFME2 Object.cpp:2022 deadline +0x458)
 	ObjectClientHooks *m_client = nullptr; ///< SMOOTH-1: set by friend_bindToClient (no Drawable pointer in the simulation)
 
 	ModelConditionBits m_modelCondition{};                   ///< RW + 0x10C

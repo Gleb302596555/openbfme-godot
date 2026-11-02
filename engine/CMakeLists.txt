@@ -47,7 +47,8 @@ endif()
 # including optimized Release. /Z7 embeds library debug info in its object files.
 if(MSVC)
     add_compile_options(/Z7)
-    add_link_options(/DEBUG:FULL /INCREMENTAL:NO "/PDBALTPATH:%_PDB%"
+    # the test runner is never shipped: FASTLINK's PDB points at the object files, which takes its link from gigabytes of memory to a fraction (lane build speed)
+    add_link_options("$<IF:$<STREQUAL:$<TARGET_PROPERTY:NAME>,openbfme_tests>,/DEBUG:FASTLINK,/DEBUG:FULL>" /INCREMENTAL:NO "/PDBALTPATH:%_PDB%"
         "$<$<NOT:$<CONFIG:Debug>>:/OPT:REF>" "$<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>")
 endif()
 
@@ -962,6 +963,22 @@ target_sources(openbfme_tests PRIVATE
     tests/test_coverage_mp3.cpp
     tests/test_coverage_online_hub.cpp)
 target_link_libraries(openbfme_tests PRIVATE openbfme_core)
+# Build speed (docs/ennorath/PROCESS.md, section 7): the test runner's files share a precompiled standard library and doctest (its light link: add_link_options above).
+# Only here: the simulation's own sources (openbfme_core, cmake/SimFp.cmake) keep their settings.
+if(MSVC)
+    target_precompile_headers(openbfme_tests PRIVATE
+        "$<$<COMPILE_LANGUAGE:CXX>:doctest.h>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<algorithm$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<cstdint$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<cstring$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<functional$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<map$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<memory$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<set$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<string$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<unordered_map$<ANGLE-R>>"
+        "$<$<COMPILE_LANGUAGE:CXX>:<vector$<ANGLE-R>>")
+endif()
 openbfme_online3_targets() # ONLINE-3: the rejoin, hold and pause tests
 openbfme_mpdrop1_targets() # MP-DROP-1: the disconnect path's drop tests
 # a separate process for the independent-process determinism test of lua_pushusertag userdata (tests/test_lua_runtime.cpp)

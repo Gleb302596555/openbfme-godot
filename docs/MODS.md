@@ -89,10 +89,11 @@ A mod's own language archives of the game's language join the game folder's `lan
 with overwrite, so the last one wins. Ennorath's Russian `lang\russianpatch201.big` (the mod's text) wins over its `lang\Russian.big` (the
 retail text). Before the fix the overlay put them last in ascending order, so the Russian layout showed vanilla's text.
 
-Not retail (the owner's choice, 2026-10-29):
-- The farm claim outline arcs (`TerrainClaimSegment`) are drawn white for every player, where retail tints them with the owner's colour.
-  The texture is DXT1 with no alpha (a white stripe on black). Retail adds it; the port takes its brightness as coverage.
-- The "+N" money text is white, 12 stage pixels, with a one-pixel shadow, where retail uses the owner's colour.
+Not retail (the owner's choices). Everything else must match Ennorath; the rule and the logic deviations are in `docs/ennorath/PROCESS.md`, section 1:
+- The money text of a theft is 30% larger than the farm's (P-19, 2026-10-30).
+- Shift on a ground order sets the rally point of every recruiting building (P-8, 2026-10-30, at the owner's request; the message itself is retail's global rally point).
+
+The white claim arcs and the white "+N" text of 2026-10-29 are gone: both take the owner's colour as in retail, and the farm's text is small again (P-5, P-6).
 
 Ennorath's art has DDS files that Godot's loader refuses but retail's D3D takes: a mip chain shorter than the header says (`buwheat1.dds`,
 `hablsmt.dds`) and sizes that are not a multiple of 4 (`mbfarm_bib.dds` is 690 x 690). They are read from their top level and get a generated mip

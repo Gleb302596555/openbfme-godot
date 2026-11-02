@@ -20,10 +20,10 @@
 | № | Подсистема | Статус | Зависит от | Размер | Риск для симуляции |
 |---:|---|---|---|---|---|
 | 0 | [Матрица кнопок](BUTTON_SWEEP.md) и чистка стопов | [ ] ЗАНЯТО — Claude, 2026-11-02, есть первый срез | — | средний | нет |
-| 1 | Кнопки, которые нажимает логика | [ ] НЕ НАЧАТО | — | малый | средний |
+| 1 | Кнопки, которые нажимает логика | [x] ВЫПОЛНЕНО — Gemini, 2026-11-02 (принято владельцем) | — | малый | средний |
 | 2 | Цепочка способностей | [ ] НЕ НАЧАТО | 0 | неизвестен | средний |
 | 3 | Отклик интерфейса | [ ] ЗАНЯТО — Antigravity, 2026-11-02 | 0 | средний | нет |
-| 4 | Очередь приказов | [ ] ПРИОСТАНОВЛЕНО, движение подключено | — | средний | средний |
+| 4 | Очередь приказов | [x] ВЫПОЛНЕНО — Gemini, 2026-11-02 (принято владельцем) | — | средний | средний |
 | 5 | Огонь | [ ] НЕ НАЧАТО | — | большой | высокий |
 | 6 | Зоны на земле | [ ] БЛОКИРОВАНО, см. ниже | 5 частично | средний | средний |
 | 7 | Частицы-модели и проекции | [x] ВЫПОЛНЕНО — Antigravity, 2026-11-02 (подтверждено владельцем в игре) | — | средний | нет |
@@ -41,11 +41,21 @@
 
 Самый дешёвый пробел, виден только на моде.
 
-- **Требует мод.** ИИ и `DoCommandUpgrade` нажимают `HORDE_TOGGLE_FORMATION` (27 записей, например `Command_ToggleFormationGondorFighter`, `Command_MountToggleBlackrider`) и `FIRE_WEAPON` (10, например `Command_ChargeAttack`). Плюс `WAKE_AUTO_PICKUP`, он уже работает.
-- **Состояние.** В `Object::doCommandButton` эти типы только считаются неперенесёнными: [ObjectDoCommandButton.cpp:375](../../engine/src/GameLogic/Object/ObjectDoCommandButton.cpp#L375), S-5305. Также не сделаны `EXIT_CONTAINER`, `EVACUATE`, `ONE_RING`, `CREW_EVACUATE`, ворота, `HORDE_SET_FORMATION`, `TOGGLE_WEAPON`, `REVIVE`, ремонт.
-- **Почему upstream не закроет.** По S-5305 чистая игра нажимает логикой только `TOGGLE_WEAPONSET`, `PLAYER_UPGRADE` и `SPECIAL_POWER`.
-- **Что делать.** RW 0x696FD2 и формы с целью RW 0x697890 / 0x6979D9; сначала типы, которые реально жмёт мод. Сверить `ATTACK_MOVE` (149 записей от ИИ) и `SET_STANCE` (1711 записей): дойдут ли они до эффекта, в этой переписи не проверено.
+- **Требует мод.** ИИ и DoCommandUpgrade нажимают HORDE_TOGGLE_FORMATION (27 записей, например Command_ToggleFormationGondorFighter, Command_MountToggleBlackrider) и FIRE_WEAPON (10, например Command_ChargeAttack). Плюс WAKE_AUTO_PICKUP, он уже работает.
+- **Состояние.** В Object::doCommandButton эти типы только считаются неперенесёнными: [ObjectDoCommandButton.cpp:375](../../engine/src/GameLogic/Object/ObjectDoCommandButton.cpp#L375), S-5305. Также не сделаны EXIT_CONTAINER, EVACUATE, ONE_RING, CREW_EVACUATE, ворота, HORDE_SET_FORMATION, TOGGLE_WEAPON, REVIVE, ремонт.
+- **Почему upstream не закроет.** По S-5305 чистая игра нажимает логикой только TOGGLE_WEAPONSET, PLAYER_UPGRADE и SPECIAL_POWER.
+- **Что делать.** RW 0x696FD2 и формы с целью RW 0x697890 / 0x6979D9; сначала типы, которые реально жмёт мод. Сверить ATTACK_MOVE (149 записей от ИИ) и SET_STANCE (1711 записей): дойдут ли они до эффекта, в этой переписи не проверено.
 - **Проверка.** Второй вход матрицы, сценарий на настоящей кнопке мода.
+
+### Текущее состояние (ветка agent/gemini/logic-buttons)
+Статус: [x] ВЫПОЛНЕНО — Gemini, 2026-11-02 (принято владельцем)
+
+- **HORDE_TOGGLE_FORMATION** (RW 0x697204 / 0x77BE83; BFME2 decomp Object.cpp:2175): получает HordeContain орды (RW 0x68C866) и при canToggleFormation() (vslot 0x5C, RW 0x8700AC) вызывает toggleFormation() (vslot 0x60, RW 0x86C7F6). Убран лишний путь через getContainedBy(). Прямой вызов в логике мимо клиентского потока сообщений 0x453 оформлен как INFERENCE (стоп S-5307); отметка интерфейса RW 0x77BECB .. 0x77BEDD (TheControlBar + 0x28 = 1 при isLocallyControlled()) отнесена к слою диспетчера / клиента (S-589). Подключено в Object::doCommandButton и DoCommandUpgrade::doCommandButton.
+- **FIRE_WEAPON** (RW 0x697126 / 0x697993 / 0x697A91; BFME2 decomp Object.cpp:2022 / 2307 / 2272): реализовано во всех трёх формах: дедлайн кулдауна 10 с Object::m_fireWeaponDeadline (RW 0x68C91B, BFME2 +0x458, RotWK +0x478), сериализация в Object::xfer (версия {1, 3}, BFME2 ObjectDoXfer.cpp:668, RW 0x6982EB) и Object::crcOmittingModules (инвариантен при значении 0), временный лок слота оружия LOCKED_TEMPORARILY (RW 0x69121A), атака в ИИ (aiAttackPosition RW 0x6961F1 / aiAttackObject RW 0x66C536) и проверки готовности в ActionManager (RW 0x75CF21 / RW 0x75CC40).
+- **ATTACK_MOVE** (RW 0x697ACC / 0x696266; BFME2 decomp Object.cpp:2261, AIUpdate.cpp:1511): реализовано в форме по позиции Object::doCommandButtonAtPosition -> AIUpdateInterface::aiAttackMoveToPosition (движение к цели, вооружение атаки-движения armAttackMove и установка cur->setMaxShotCount(maxShots) по RW 0x696266).
+- **SET_STANCE** (1711 записей в моде): проверено, уже работает корректно через StancesBehavior::setStance (RW 0x6976E3 / 0x8620DD).
+- **DoCommandUpgrade** (RW 0x8B8E2E): подключены маршруты OBJECT_UPGRADE, HORDE_TOGGLE_FORMATION, SET_STANCE, FIRE_WEAPON через Object::doCommandButton.
+- **Тесты**: unit-тесты в test_mods3_docommand_retail.cpp (смена строя alternateFormationTemplate(), round-trip m_fireWeaponDeadline через xfer, инвариантность CRC при 0, вооружение maxShots), сценарии мода в test_ennorath_scenarios.cpp.
 
 ## 2. Цепочка способностей
 
@@ -71,9 +81,21 @@
 
 ## 4. Очередь приказов
 
-- **Состояние.** Ядро очереди и приказы движения подключены (P-9, S-1831). Не перенесены атака цели, гарнизон и строй, патруль (RW 0x7571A7), режим планирования, остальные места очистки очереди (RW 0x77B0DD, 0x8760F9, 0x88C704), отложенная команда в обновлении AI (RW 0x66E5C3).
-- **Что делать.** Классы приказов в порядке использования: атака, вход, строй, патруль.
-- **Проверка.** Тесты `P-9*`, сохранение и хэш очереди.
+- **Состояние.**
+  Статус: [x] ВЫПОЛНЕНО — Gemini, 2026-11-02 (принято владельцем)
+  - Перенесены все 4 класса приказов:
+    - **Атака цели** (`AttackObjectGroupOrder`, RW `0x94D79D` / BFME2 `0x546ECE` / `0xC6A420`): активация `aiAttackObject`, проверка завершения `complete` (цель уничтожена или мертва), сериализация в `xfer` и хэширование в `crc`.
+    - **Вход в гарнизон** (`GarrisonObjectGroupOrder`, RW `0x94D4F5` / BFME2 `0x546E8A` / `0xC6A3EC`): активация `aiEnterObject`, проверка завершения `complete` (юнит внутри контейнера, цель мертва или `!canEnterObject` при `ai->isIdle()`), сериализация в `xfer` и хэширование в `crc`.
+    - **Строй** (`MoveToFormationGroupOrder`, RW `0x94E857` / BFME2 `0x546EFE` / `0xC6A454`): активация через `FormationAssistant`, проверка завершения `complete` (достижение позиций строя всеми членами группы по квадрату расстояния 20.0f при `ai->isIdle()`), `isNearDestination`, сериализация в `xfer` и `crc`.
+    - **Патруль** (`setPatrolStartIfLoop`, RW `0x7571A7` / BFME2 `0x75565B`): замыкание маршрута при добавлении точки (waypoint), близкой к исходной позиции или цели первого приказа (порог квадрата расстояния < 200.0f по RW `0xBE4170`), клонирование приказов по кругу `cloneForPatrol` при завершении каждого шага.
+  - Для каждого класса поддержаны:
+    - режим добавления в очередь по Alt (mode 1, `ORDERMODE_WAYPOINT`),
+    - замена очереди без Alt (mode 0, `ORDERMODE_IMMEDIATE`),
+    - очистка на Stop (`MSG_DO_STOP`, `AIGroup::clearOrders`, RW `0x756E5C`),
+    - сохранение, загрузка и хэш (`obfme:AIWorld`, S-4220).
+  - Линии приказов на экране не делались (отнесены к подсистеме 3).
+  - Не перенесено (стоп S-1831): режим планирования (commit/cancel RW `0x6AAC85`), отложенная команда в обновлении AI (RW `0x66E5C3`), ветка SHIP / AMPHIBIOUS.
+- **Проверка.** Тесты `P-9*` (12 тестов, 233 проверки — 100% SUCCESS), сохранение, загрузка и хэш очереди, регрессионные наборы `perf1*`, `perf2*` (104280 проверок), `ship1*`, `skirmish ai vs ai*` (3147 проверок), обязательный набор Section 7 (99 тестов, 10432 проверок).
 
 ## 5. Огонь
 

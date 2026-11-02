@@ -54,6 +54,7 @@
 
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/ObjectDoCommandButton.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 
 #include "Common/Player.h"
 #include "Common/SpecialPower.h"
@@ -372,9 +373,27 @@ void Object::doCommandButton(const CommandButton *button, CommandSourceType cmdS
 		s->setStance((StanceType)b.m_stances[0], "Object::doCommandButton:RW_6977BB");
 		return;
 	}
+	case GUI_COMMAND_HORDE_TOGGLE_FORMATION:
+	{
+		// RW 0x697204 appends MSG_HORDE_TOGGLE_FORMATION (0x453) with this->getID() (RW 0x69719B).
+		// INFERENCE (stop S-5307): in retail, doCommandButton appends message 0x453 to the client message stream,
+		// and the logic message dispatcher at RW 0x77BE83 executes it later.
+		// Directly calling toggleFormation() here bypasses the client message stream.
+		// RW 0x77BE83 gets ContainModuleInterface directly on the horde object (RW 0x68C866, no getContainedBy fallback);
+		// if canToggleFormation() (vslot 0x5C, RW 0x8700AC), calls toggleFormation() (vslot 0x60, RW 0x86C7F6).
+		// The interface mark (RW 0x77BECB .. 0x77BEDD: TheControlBar + 0x28 = 1 when isLocallyControlled())
+		// belongs to the client UI / dispatcher layer (S-589 / HordeFormation.cpp), not simulation logic.
+		ContainModuleInterface *contain = getContain();
+		HordeContain *horde = contain && contain->getHordeContainInterface() ? dynamic_cast<HordeContain *>(contain) : nullptr;
+		if (horde && horde->canToggleFormation())
+		{
+			horde->toggleFormation();
+			++g_stats.formationToggles;
+		}
+		return;
+	}
 	case GUI_COMMAND_EXIT_CONTAINER:
 	case GUI_COMMAND_EVACUATE:
-	case GUI_COMMAND_HORDE_TOGGLE_FORMATION:
 	case GUI_COMMAND_ONE_RING:
 	case GUI_COMMAND_CREW_EVACUATE:
 	case GUI_COMMAND_CLOSE_GATE:
@@ -383,8 +402,20 @@ void Object::doCommandButton(const CommandButton *button, CommandSourceType cmdS
 		unported(*this, b, "doCommandButton", "a message appended to the local client's message stream from the logic");
 		return;
 	case GUI_COMMAND_FIRE_WEAPON:
-		unported(*this, b, "doCommandButton", "Object + 0x478, RW 0x68C91B");
+	{
+		// RW 0x697126 (BFME2 decomp Object.cpp:2022 RVA 0x296749):
+		// RW 0x68C91B writes Object + 0x478 (BFME2 deadline +0x458): frame + 10 * LOGICFRAMES_PER_SECOND
+		// ObjectWeapons::setObjectWeaponLock(*this, b.m_weaponSlot, LOCKED_TEMPORARILY) (RW 0x69121A)
+		// with AI: ai->aiAttackPosition(*getPosition(), 1, cmdSource) (RW 0x6961F1)
+		setFireWeaponDeadline();
+		ObjectWeapons::setObjectWeaponLock(*this, b.m_weaponSlot, LOCKED_TEMPORARILY);
+		if (ai)
+		{
+			ai->aiAttackPosition(*getPosition(), 1, cmdSource);
+		}
+		++g_stats.fireWeapons;
 		return;
+	}
 	case GUI_COMMAND_TOGGLE_WEAPON:
 		unported(*this, b, "doCommandButton", "RW 0x69720E");
 		return;
@@ -446,8 +477,20 @@ void Object::doCommandButtonAtObject(const CommandButton *button, Object *target
 		}
 		return;
 	case GUI_COMMAND_FIRE_WEAPON:
-		unported(*this, b, "doCommandButtonAtObject", "Object + 0x478, RW 0x68C91B");
+	{
+		// RW 0x697993 (BFME2 decomp Object.cpp:2307 RVA 0x297000):
+		// RW 0x68C91B writes Object + 0x478 (BFME2 deadline +0x458): frame + 10 * LOGICFRAMES_PER_SECOND
+		// ObjectWeapons::setObjectWeaponLock(*this, b.m_weaponSlot, LOCKED_TEMPORARILY) (RW 0x69121A)
+		// with AI: ai->aiAttackObject(target, cmdSource, 1) (RW 0x66C536)
+		setFireWeaponDeadline();
+		ObjectWeapons::setObjectWeaponLock(*this, b.m_weaponSlot, LOCKED_TEMPORARILY);
+		if (ai)
+		{
+			ai->aiAttackObject(target, cmdSource, 1);
+		}
+		++g_stats.fireWeapons;
 		return;
+	}
 	default:
 		return;
 	}
@@ -484,11 +527,31 @@ void Object::doCommandButtonAtPosition(const CommandButton *button, const Coord3
 		}
 		return;
 	case GUI_COMMAND_ATTACK_MOVE:
-		unported(*this, b, "doCommandButtonAtPosition", "aiAttackMoveToPosition RW 0x696266");
+	{
+		// RW 0x697ACC (BFME2 decomp Object.cpp:2261 RVA 0x297000):
+		// with AI: aiAttackMoveToPosition(pos, b.m_maxShots, cmdSource) (RW 0x696266)
+		if (ai)
+		{
+			ai->aiAttackMoveToPosition(pos, b.m_maxShotsToFire, cmdSource);
+		}
+		++g_stats.attackMoves;
 		return;
+	}
 	case GUI_COMMAND_FIRE_WEAPON:
-		unported(*this, b, "doCommandButtonAtPosition", "Object + 0x478, RW 0x68C91B");
+	{
+		// RW 0x697A91 (BFME2 decomp Object.cpp:2272 RVA 0x297000):
+		// RW 0x68C91B writes Object + 0x478 (BFME2 deadline +0x458): frame + 10 * LOGICFRAMES_PER_SECOND
+		// ObjectWeapons::setObjectWeaponLock(*this, b.m_weaponSlot, LOCKED_TEMPORARILY) (RW 0x69121A)
+		// with AI: ai->aiAttackPosition(pos, 1, cmdSource) (RW 0x6961F1)
+		setFireWeaponDeadline();
+		ObjectWeapons::setObjectWeaponLock(*this, b.m_weaponSlot, LOCKED_TEMPORARILY);
+		if (ai)
+		{
+			ai->aiAttackPosition(pos, 1, cmdSource);
+		}
+		++g_stats.fireWeapons;
 		return;
+	}
 	case GUI_COMMAND_DOZER_CONSTRUCT:
 		unported(*this, b, "doCommandButtonAtPosition", "TheBuildAssistant slot 0x38, RW 0x697A57");
 		return;

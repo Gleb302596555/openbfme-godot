@@ -45,6 +45,7 @@ public:
 	void removed(ObjectID) override {}
 	void preparePatrol(ObjectID) override {}
 	std::unique_ptr<GroupOrder> clone() const override;
+	bool isNearDestination(const Coord3D &pos) const override;
 
 	const Coord3D &destination() const { return m_destination; }
 	bool attackMove() const { return m_attackMove; }
@@ -72,15 +73,133 @@ private:
 	unsigned m_stuck = 0;
 };
 
+// RW 0x94D79D / 0xC813D8 (BFME2 Rva 0x546ECE / 0x00C6A420): group attack on an object
+class AttackObjectGroupOrder final : public AIOrdersManager::GroupOrder
+{
+public:
+	AttackObjectGroupOrder(GameLogic &logic, std::vector<ObjectID> objects, ObjectID targetID);
+
+	void activate(ObjectID object) override;
+	bool complete(ObjectID object) override;
+	void removed(ObjectID) override {}
+	void preparePatrol(ObjectID) override {}
+	std::unique_ptr<GroupOrder> clone() const override;
+
+	ObjectID targetID() const { return m_targetID; }
+	bool completed() const { return m_completed; }
+	const Coord3D &lastTargetPos() const { return m_lastTargetPos; }
+
+	struct State
+	{
+		ObjectID targetID = 0;
+		bool completed = false;
+		Coord3D lastTargetPos{};
+	};
+	void setState(const State &state);
+
+private:
+	GameLogic &m_logic;
+	ObjectID m_targetID = 0;
+	bool m_completed = false;
+	Coord3D m_lastTargetPos{};
+};
+
+// RW 0x94D4F5 / 0xC8137C (BFME2 Rva 0x546E8A / 0x00C6A3EC): group enter/garrison into an object
+class GarrisonObjectGroupOrder final : public AIOrdersManager::GroupOrder
+{
+public:
+	GarrisonObjectGroupOrder(GameLogic &logic, std::vector<ObjectID> objects, ObjectID targetID);
+
+	void activate(ObjectID object) override;
+	bool complete(ObjectID object) override;
+	void removed(ObjectID) override {}
+	void preparePatrol(ObjectID) override {}
+	std::unique_ptr<GroupOrder> clone() const override;
+
+	ObjectID targetID() const { return m_targetID; }
+	bool completed() const { return m_completed; }
+	const Coord3D &lastTargetPos() const { return m_lastTargetPos; }
+
+	struct State
+	{
+		ObjectID targetID = 0;
+		bool completed = false;
+		Coord3D lastTargetPos{};
+	};
+	void setState(const State &state);
+
+private:
+	GameLogic &m_logic;
+	ObjectID m_targetID = 0;
+	bool m_completed = false;
+	Coord3D m_lastTargetPos{};
+};
+
+// RW 0x94E857 / 0xC81484 (BFME2 Rva 0x546EFE / 0x00C6A454): group move in formation
+class MoveToFormationGroupOrder final : public AIOrdersManager::GroupOrder
+{
+public:
+	MoveToFormationGroupOrder(GameLogic &logic, std::vector<ObjectID> objects, int formationType, const Coord3D &destination, float angle, bool attackMove);
+
+	void activate(ObjectID object) override;
+	bool complete(ObjectID object) override;
+	void removed(ObjectID) override {}
+	void preparePatrol(ObjectID) override {}
+	std::unique_ptr<GroupOrder> clone() const override;
+	bool isNearDestination(const Coord3D &pos) const override;
+
+	int formationType() const { return m_formationType; }
+	const Coord3D &destination() const { return m_destination; }
+	float angle() const { return m_angle; }
+	bool attackMove() const { return m_attackMove; }
+	const std::map<ObjectID, Coord3D> &positions() const { return m_positions; }
+	bool completed() const { return m_completed; }
+	unsigned stuckCount() const { return m_stuck; }
+
+	struct State
+	{
+		int formationType = 0;
+		Coord3D destination{};
+		float angle = 0.0f;
+		bool attackMove = false;
+		std::map<ObjectID, Coord3D> positions;
+		bool completed = false;
+		unsigned stuck = 0;
+	};
+	void setState(const State &state);
+
+private:
+	GameLogic &m_logic;
+	int m_formationType = 0;
+	Coord3D m_destination{};
+	float m_angle = 0.0f;
+	bool m_attackMove = false;
+	std::map<ObjectID, Coord3D> m_positions;
+	bool m_completed = false;
+	unsigned m_stuck = 0;
+};
+
 // The hash and the native save of the manager's state (stop S-4220: OpenBFME layout, not retail's CHUNK_AiOrdersManager). The save is one image: loading
 // reads and checks it whole, install() then replaces the manager's state.
 namespace AIGroupOrders
 {
+enum class OrderKind : std::uint8_t
+{
+	Move = 1,
+	Attack = 2,
+	Garrison = 3,
+	Formation = 4,
+};
+
 struct OrderImage
 {
+	OrderKind kind = OrderKind::Move;
 	AIOrdersManager::OrderId id = 0, clone = 0;
 	std::vector<AIOrdersManager::ObjectId> objects;
 	MoveToGroupOrder::State move;
+	AttackObjectGroupOrder::State attack;
+	GarrisonObjectGroupOrder::State garrison;
+	MoveToFormationGroupOrder::State formation;
 };
 struct Image
 {
