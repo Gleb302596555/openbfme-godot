@@ -4,6 +4,8 @@ rem build.bat [Release|Debug]; the default also builds tests and their helpers.
 rem Needs Visual Studio 2022 (C++ workload), CMake and Ninja on PATH.
 rem Load: the build runs at BELOW-NORMAL priority with at most OPENBFME_BUILD_JOBS parallel compile/link jobs (default: a third of the logical cores,
 rem at least 2) so the machine stays usable while it builds. OPENBFME_BUILD_JOBS=2 is lighter, OPENBFME_BUILD_JOBS=0 lets Ninja use every core.
+rem Queue: at most OPENBFME_BUILD_SLOTS builds (default 2) run on the machine, the others wait (tools\build_slot.ps1). OPENBFME_BUILD_SLOTS=1 is for a machine that lags.
+rem Targets: OPENBFME_BUILD_TARGETS (default "openbfme openbfme_tests"); OPENBFME_BUILD_TARGETS=openbfme_tests skips the game's library when only tests are needed.
 rem Compile cache: OPENBFME_COMPILER_CACHE=<full path to sccache.exe> compiles through it. Measured 2026-11-01: a tree at another path got 1 hit of 2483, so it does not speed up a new tree.
 setlocal
 set "ROOT=%~dp0"
@@ -37,17 +39,16 @@ if errorlevel 1 exit /b 1
 if not defined OPENBFME_BUILD_JOBS set /a OPENBFME_BUILD_JOBS=%NUMBER_OF_PROCESSORS%/3
 if %OPENBFME_BUILD_JOBS% lss 0 set "OPENBFME_BUILD_JOBS=2"
 if %OPENBFME_BUILD_JOBS% equ 1 set "OPENBFME_BUILD_JOBS=2"
-set "BUILD_PARALLEL="
-if not %OPENBFME_BUILD_JOBS% equ 0 set "BUILD_PARALLEL=--parallel %OPENBFME_BUILD_JOBS%"
 echo build jobs: %OPENBFME_BUILD_JOBS% (0 = all cores), priority below normal
-start "" /b /wait /belownormal cmake --build "%BUILD_DIR%" --target openbfme openbfme_tests %BUILD_PARALLEL%
+if not defined OPENBFME_BUILD_TARGETS set "OPENBFME_BUILD_TARGETS=openbfme openbfme_tests"
+"%SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "%ROOT%tools\build_slot.ps1" -BuildDir "%BUILD_DIR%" -Targets "%OPENBFME_BUILD_TARGETS%" -Jobs %OPENBFME_BUILD_JOBS%
 if errorlevel 1 exit /b 1
 
 rem The helper executables the tests drive (x87_oracle, retail_oracle, numeric/apt/hash drivers): incremental,
 rem rebuilt only when older than their sources (tools\retail_oracle\helpers.json). The tests refuse stale ones.
 call "%ROOT%tools\retail_oracle\build.bat"
 if errorlevel 1 exit /b 1
-echo BUILD OK: godot\bin\ and engine\build\openbfme_tests.exe, test helpers in tools\
+echo BUILD OK: %OPENBFME_BUILD_TARGETS%, test helpers in tools\
 exit /b 0
 
 :no_msvc

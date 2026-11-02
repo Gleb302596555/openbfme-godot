@@ -4,8 +4,10 @@
     test_select.py [--base main] [--run EXE] [--log P]    prints the doctest -tc= filter, or runs it
 
 A changed test file selects its own cases. A changed source or header selects the test files that include it through any chain of headers; a .cpp counts
-as its header of the same name, or as every test when it has none and is not a test. A change no test can be traced from (a .gd, CMake, or a wide header
-that reaches over half of the test files) answers FULL: do not run the whole suite on a branch, run the required sets of PROCESS.md section 7 and say so in the report. The full suite runs nightly on main.
+as its header of the same name, else as the headers it includes from its own folder whose name starts its own (AIUpdateCombat.cpp -> AIUpdate.h). A file under
+engine/tests/data selects the test files that name it. A change no test can be traced from (a .gd, CMake, a source with neither header, a data file nothing names,
+or a wide header that reaches over half of the test files) answers FULL: do not run the whole suite on a branch, run the required sets of PROCESS.md section 7 and
+say so in the report. The full suite runs nightly on main: --run refuses it unless --full is given.
 """
 from __future__ import annotations
 
@@ -71,6 +73,25 @@ def reached_tests(changed: str, includers: dict[str, set[str]], cases: dict[str,
     return {name for name in seen if name in cases}
 
 
+def part_of_headers(name: str, repo: Path) -> list[str]:
+    """The headers of a .cpp that is one part of a class split over files: included from its own folder, with a name its own starts with; the longest such name."""
+    path = Path(name)
+    text = (repo / name).read_text(encoding="utf-8", errors="replace") if (repo / name).exists() else ""
+    found = []
+    for target in INCLUDE.findall(text):
+        header = Path(target)
+        if header.suffix == ".h" and path.stem.startswith(header.stem) and (repo / path.parent / header.name).exists():
+            found.append((path.parent / header.name).as_posix())
+    longest = max((len(Path(h).stem) for h in found), default=0)
+    return sorted({h for h in found if len(Path(h).stem) == longest})
+
+
+def tests_naming(data_file: str, repo: Path, cases: dict[str, list[str]]) -> set[str]:
+    """The test files whose text names this data file; a test header that names it counts for the test files that include it."""
+    base = Path(data_file).name
+    return {name for name in cases if base in (repo / name).read_text(encoding="utf-8", errors="replace")}
+
+
 def mask(case: str) -> str:
     """A doctest mask for a case name: up to the first comma or quote escape, which doctest's list syntax cannot carry."""
     head = re.split(r"[,\\]", case, maxsplit=1)[0].strip()
@@ -93,9 +114,16 @@ def select(changed: list[str], repo: Path) -> tuple[bool, str, list[str]]:
             tests |= reached_tests(name, includers, cases)
         elif name.startswith(ROOTS) and path.suffix == ".cpp":
             header = path.with_suffix(".h").as_posix()
-            if not (repo / header).exists():
+            headers = [header] if (repo / header).exists() else part_of_headers(name, repo)
+            if not headers:
                 return True, f"{name} has no header of its name, no test can be traced from it", []
-            tests |= reached_tests(header, includers, cases)
+            for one in headers:
+                tests |= reached_tests(one, includers, cases)
+        elif name.startswith("engine/tests/data/"):
+            named = tests_naming(name, repo, cases)
+            if not named:
+                return True, f"{name}: no test file names it", []
+            tests |= named
         elif name.startswith(("docs/", "tools/")) or path.suffix == ".md":
             continue  # the engine does not read these; tools/ have their own pytest files
         else:
@@ -118,6 +146,7 @@ def main() -> int:
     parser.add_argument("--base", default="main")
     parser.add_argument("--run", help="openbfme_tests.exe: run the selection instead of printing it")
     parser.add_argument("--log", help="with --run: write the output here")
+    parser.add_argument("--full", action="store_true", help="with --run: run the whole suite when the answer is FULL (about 5 hours; nightly on main, not on a branch)")
     args = parser.parse_args()
     changed = changed_files(args.base, REPO)
     full, why, masks = select(changed, REPO)
@@ -126,6 +155,9 @@ def main() -> int:
     if not args.run:
         print("(whole suite)" if full else filters[0])
         return 0
+    if full and not args.full:
+        print("not running the whole suite on a branch: run the required sets of docs/ennorath/PROCESS.md section 7 and say so in the report (--full overrides)", file=sys.stderr)
+        return 2
     if args.log:
         with open(args.log, "wb") as out:
             return subprocess.run([args.run, *filters], stdout=out, stderr=subprocess.STDOUT).returncode
