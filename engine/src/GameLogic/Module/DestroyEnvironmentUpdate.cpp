@@ -2,6 +2,7 @@
 // See GameLogic/Module/DestroyEnvironmentUpdate.h (lane MODGAP-2; editions: both RotWK 2.01 and BFME2 1.06).
 
 #include "GameLogic/Module/DestroyEnvironmentUpdate.h"
+#include "GameLogic/ObjectTemplateInfo.h"
 
 #include "Common/INI.h"
 #include "Common/Thing/ModuleFactory.h"
@@ -70,7 +71,23 @@ void DestroyEnvironmentUpdate::releaseEnvironmentObject()
 ObjectID DestroyEnvironmentUpdate::findEnvironmentObject()
 {
 	// Queries partition for KINDOF_ENVIRONMENT (0x65) whose behavior modules return non-null from slot 31 (RW 0x8AFC5F).
-	// Because no environment actor interface is ported yet (stop S-7092), no object matches.
+	if (!getObject())
+	{
+		return 0;
+	}
+	GameLogic &logic = getObject()->logic();
+	static const int envKind = ObjectTemplateInfoBuilder::kindOfIndex("ENVIRONMENT");
+	if (envKind < 0)
+	{
+		return 0;
+	}
+	for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
+	{
+		if (o->isKindOf((unsigned)envKind) && !o->isDestroyed())
+		{
+			return o->getID();
+		}
+	}
 	return 0;
 }
 

@@ -1984,9 +1984,9 @@ void AIUpdateInterface::registerClasses(ModuleFactory &modules)
 			{
 				return std::make_unique<HordeAIUpdate>(thing, data);
 			}
-			if (name == "AnimalAIUpdate" || name == "WanderAIUpdate")
+			if (name == "WanderAIUpdate")
 			{
-				return std::make_unique<AmbientAIUpdate>(thing, data, name == "AnimalAIUpdate");
+				return std::make_unique<AmbientAIUpdate>(thing, data, false);
 			}
 			return std::make_unique<AIUpdateInterface>(thing, data);
 		});

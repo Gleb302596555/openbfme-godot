@@ -2,6 +2,7 @@
 // See GameLogic/Module/PartTheHeavensUpdate.h (lane MODGAP-2; editions: both RotWK 2.01 and BFME2 1.06).
 
 #include "GameLogic/Module/PartTheHeavensUpdate.h"
+#include "GameLogic/FXEvents.h"
 
 #include "Common/INI.h"
 #include "Common/Thing/ModuleFactory.h"
@@ -78,7 +79,12 @@ UpdateSleepTime PartTheHeavensUpdate::update()
 	int rawOpacity = (int)(m_data->m_opacity(t) * 255.0f);
 	m_currentOpacity = (std::uint8_t)std::clamp(rawOpacity, 0, 255);
 
-	// Client projected shadow / decal emission is tracked by stop S-7093.
+	// Client projected shadow / decal emission (RW 0x8B0075 / BFME2 0x4AC9FA):
+	if (getObject() && m_currentOpacity > 0)
+	{
+		GameLogic &logic = getObject()->logic();
+		logic.fxEvents().emit(FXEventLog::objectEvent(FXEvent::OBJECT_FX, "PartTheHeavensDecal", logic.getFrame(), "PartTheHeavens", *getObject()));
+	}
 
 	return UPDATE_SLEEP_NONE;
 }
