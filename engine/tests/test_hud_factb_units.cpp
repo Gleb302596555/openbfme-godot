@@ -1845,6 +1845,26 @@ TEST_CASE("factb units: every Mordor unit, horde and hero ability and upgrade bu
 		{ "MordorHaradrimArcherHorde Command_HaradrimArcherBarbedArrowAbility", "S-1997" } });
 }
 
+// The button sweep, its first slice (docs/ennorath/BUTTON_SWEEP.md): the same sweep on a mod's data, one faction per process. A report: it prints what each
+// button did and asserts nothing, until the sweep's base file exists. OPENBFME_SWEEP_OVERLAY=<the mod's install>, OPENBFME_SWEEP_FACTION=<PlayerTemplate>;
+// FACTB_ONLY narrows it to some objects. Without them it is a SKIP, which proves nothing.
+TEST_CASE("ENNORATH sweep units: every unit, horde and hero ability and upgrade button of one faction on the mod's data (a report)")
+{
+	const char *faction = std::getenv("OPENBFME_SWEEP_FACTION");
+	if (!faction || !std::getenv("OPENBFME_SWEEP_OVERLAY"))
+	{
+		retailtest::printSkip("ENNORATH sweep (set OPENBFME_SWEEP_OVERLAY and OPENBFME_SWEEP_FACTION)");
+		return;
+	}
+	if (!haveWorld("ENNORATH sweep"))
+	{
+		return;
+	}
+	Results r;
+	unitsOf(faction, r);
+	r.print((std::string("units ") + faction).c_str());
+}
+
 // The pick of a click on a siege engine (the train sweep could not select Isengard's battering ram or Mordor's catapult with a click): the hits at
 // the pixel of the object's position, for the log; the ballista (selectable) as the reference
 TEST_CASE("factb pick: the hits of a click on Isengard's and Mordor's siege engines (diagnostic)")

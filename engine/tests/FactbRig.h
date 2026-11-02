@@ -14,6 +14,7 @@
 #include "GameClient/InGameHud.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <functional>
 #include <memory>
 #include <string>
@@ -22,6 +23,14 @@
 namespace factb
 {
 inline void prepareStartedSkirmish(const std::string &faction, NewGameStart &start, bool idleOpponent = false);
+
+// the sweep's map: fall back 4p, which retail's map cache lists; a mod's cache may not (Ennorath 1.9.8 ships fall back 8p), so its sweep names one
+// (OPENBFME_SWEEP_MAP, docs/ennorath/BUTTON_SWEEP.md)
+inline const char *sweepMap()
+{
+	const char *map = std::getenv("OPENBFME_SWEEP_MAP");
+	return map ? map : "map mp fall back 4p";
+}
 
 // lane FACT-C: while a StartedScope lives, every HudGame made without an explicit choice runs a started skirmish whose slot 1 is a human that never sends
 // a command (the FACT-C cases run the long sweeps on the lobby's start without the opponent's raids)
@@ -47,7 +56,7 @@ struct HudGame
 
 	// `started`: the HUD on a started skirmish (prepareStartedSkirmish: the starting base and its castle, slot 1 the enemy) instead of the bare map
 	// (lane FACT-C: `started` defaults to an open StartedScope, whose start has the idle opponent)
-	HudGame(hudtest::SharedWorld &s, const char *faction, bool started = startedByDefault()) : rig(s, "map mp fall back 4p", faction)
+	HudGame(hudtest::SharedWorld &s, const char *faction, bool started = startedByDefault()) : rig(s, sweepMap(), faction)
 	{
 		if (started)
 		{
@@ -380,7 +389,7 @@ inline void prepareStartedSkirmish(const std::string &faction, NewGameStart &sta
 		return -1;
 	};
 	NewGameMessage m;
-	m.game.mapName = "maps/map mp fall back 4p/map mp fall back 4p.map";
+	m.game.mapName = std::string("maps/") + sweepMap() + "/" + sweepMap() + ".map";
 	m.game.seed = 5;
 	m.game.startingCash = 1000;
 	for (int i = 0; i < 2; ++i)

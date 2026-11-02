@@ -432,7 +432,7 @@ TEST_CASE("ship1 retail: an Elven battle ship sails into range, its five archers
 	CHECK(otherHits == 0);
 	CHECK(shipHits == 20); // 250 / 12.5: the twentieth arrow sank the ship
 	CHECK(shipTaken == 250.0f);
-	CHECK(pitHits == 484); // measured on this tree: the archers turn to the pit after the sinking and shoot it for the rest of the 300 frames (lane TARGET-1: 487, was 489: the turn to the pit is RotWK's mood scan, on its own cadence; ATTACKPATH-1 alone 488; merge queue q23 with both and FLANK-1's in-flight hits: 484)
+	CHECK(pitHits == 486); // P-31: ShipSlowDeathBehavior (202213a7, RW 0x861AA9 / 0x861B45) sinks the ship slowly, which moves the archers' turn to the pit: 484 with the class unbound, 486 with it, the only fork change that moves it. Measured on this tree: the archers turn to the pit after the sinking and shoot it for the rest of the 300 frames (lane TARGET-1: 487, was 489: the turn to the pit is RotWK's mood scan, on its own cadence; ATTACKPATH-1 alone 488; merge queue q23 with both and FLANK-1's in-flight hits: 484)
 	CHECK(pitTaken == 1500.0f - hp(pitNow));
 	Object *shipNow = logic.findObjectByID(shipId);
 	CHECK((shipNow == nullptr || shipNow->isEffectivelyDead()));
