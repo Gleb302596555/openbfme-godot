@@ -64,6 +64,7 @@ public:
 		m_spellPress = nullptr;
 		m_spellStoreOpen = nullptr;
 		m_stancePress = nullptr;
+		m_subMenuChangeHandler = nullptr;
 		m_helpBoxHandler = nullptr;
 		setHeroSelectHandler(nullptr);
 	}
@@ -163,6 +164,7 @@ public:
 	// and opens the sub-menu, or requests its close when open; an item's press (RW 0x96F85A -> 0x96F53C) sends MSG_CHANGE_STANCE with the item's stance,
 	// requests the close and plays the toggle flash's Go() (RW 0x9D2DA3). The content's destructor hides an open sub-menu (RW 0x96FCCB).
 	void setStanceHandler(std::function<void(int stance)> send) { m_stancePress = std::move(send); }
+	void setSubMenuChangeHandler(std::function<void()> handler) { m_subMenuChangeHandler = std::move(handler); }
 	const InGameCommandButtonSubMenu *subMenu(int position) const
 	{
 		return position >= 0 && position < kArcPositions ? m_subMenu[position].get() : nullptr;
@@ -171,6 +173,15 @@ public:
 	unsigned toggleFlashGoes() const { return m_flashGoes; }
 	// RW 0x92FF5C's test for the arc position: its button is TOGGLE_STANCE and the slot has a sub-menu and a toggle flash
 	bool isToggleStanceContent(int position) const;
+	bool hasStanceSubMenu(int position) const
+	{
+		return position >= 0 && position < kArcPositions && !m_bfme1 && m_subMenu[position] && !m_toggleFlashPath[position].empty();
+	}
+	void pressToggleStance(int position);                       // RW 0x96FAC6
+	void pressStanceItem(int position, int item);               // RW 0x96F85A -> 0x96F53C
+	void setStanceFromHotkey(int position, int stance);         // RW 0x96F880 -> 0x96F53C
+	void onStanceChanged(int stance);                           // RW 0x96F53C: closes open radial and flashes
+	void hideStanceMenu(int position);                          // RW 0x96FCCB: Hide() when open
 	// a clip inside a stance item's content ("_level<N>.<item frame>.Button..."): the toggle's command set slot, the item's stance and its index in the
 	// toggle's Stances list (RW 0x96F2DA; RW 0x96F33E: the item's help is the toggle's TextLabel / DescriptLabel at that index); false none
 	struct StanceItemHit
@@ -357,9 +368,6 @@ private:
 	// lane CAMPUI-1: the arc slots' sub-menus (+ 4) and toggle flash clips (+ 8), the stance radial
 	void subMenuLoaded(const std::string &arg, bool loaded);   // RW 0x93023D / 0x930340
 	void toggleFlashLoaded(const std::string &arg, bool loaded);
-	void pressToggleStance(int position);                       // RW 0x96FAC6
-	void pressStanceItem(int position, int item);               // RW 0x96F85A -> 0x96F53C
-	void hideStanceMenu(int position);                          // RW 0x96FCCB: Hide() when open
 	void syncSubMenus();                                        // RW 0x9D2F92 for each slot's sub-menu
 	bool createStanceItem(int position, int item);              // RW 0x9D2E25 -> 0x96F7B7
 	void updateStanceItem(int position, int item);
@@ -368,6 +376,7 @@ private:
 	std::string m_toggleFlashPath[kArcPositions];
 	std::set<std::string> m_subMenuRegistered, m_itemRegistered;
 	std::function<void(int)> m_stancePress;
+	std::function<void()> m_subMenuChangeHandler;
 	unsigned m_flashGoes = 0;
 	std::vector<std::string> m_stanceErrors;
 

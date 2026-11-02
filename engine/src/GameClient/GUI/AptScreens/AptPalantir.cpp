@@ -1033,6 +1033,10 @@ void AptPalantir::subMenuLoaded(const std::string &arg, bool loaded)
 			if (m_subMenu[i] && m_subMenu[i]->path() == path)
 			{
 				m_subMenu[i]->onClosed();
+				if (m_subMenuChangeHandler)
+				{
+					m_subMenuChangeHandler();
+				}
 			}
 		});
 	}
@@ -1110,10 +1114,51 @@ void AptPalantir::pressToggleStance(int position)
 		{
 			stanceError(menu->path() + ".Show(" + std::to_string(menu->itemCount()) + ") refused by the movie");
 		}
+		if (m_subMenuChangeHandler)
+		{
+			m_subMenuChangeHandler();
+		}
 	}
 	else
 	{
 		menu->requestClose();
+		if (m_subMenuChangeHandler)
+		{
+			m_subMenuChangeHandler();
+		}
+	}
+}
+
+void AptPalantir::setStanceFromHotkey(int position, int stance)
+{
+	// RW 0x96F880 (BFME2 0x0096773E) -> RW 0x96F53C (BFME2 0x00967A6E): SetStance
+	if (m_stancePress)
+	{
+		m_stancePress(stance);
+	}
+	else
+	{
+		stanceError("stance " + std::to_string(stance) + ": no stance handler, MSG_CHANGE_STANCE not sent");
+	}
+	if (position >= 0 && position < kArcPositions)
+	{
+		InGameCommandButtonSubMenu *menu = m_subMenu[position].get();
+		if (menu && menu->isOpen())
+		{
+			menu->requestClose();
+			if (m_subMenuChangeHandler)
+			{
+				m_subMenuChangeHandler();
+			}
+		}
+		if (!m_toggleFlashPath[position].empty())
+		{
+			++m_flashGoes;
+			if (!call(m_toggleFlashPath[position], "Go", {})) // RW 0xC86830
+		{
+			stanceError(m_toggleFlashPath[position] + ".Go() refused by the movie");
+		}
+	}
 	}
 }
 
@@ -1128,24 +1173,34 @@ void AptPalantir::pressStanceItem(int position, int item)
 		return;
 	}
 	const int stance = menu->item(item).value;
-	if (m_stancePress)
+	setStanceFromHotkey(position, stance);
+}
+
+void AptPalantir::onStanceChanged(int stance)
+{
+	(void)stance;
+	// RW 0x96F53C (BFME2 0x00967A6E): a stance change closes any open stance radial and flashes Go()
+	for (int pos = 0; pos < kArcPositions; ++pos)
 	{
-		m_stancePress(stance);
-	}
-	else
-	{
-		stanceError("stance " + std::to_string(stance) + ": no stance handler, MSG_CHANGE_STANCE not sent");
-	}
-	if (menu->isOpen())
-	{
-		menu->requestClose();
-	}
-	if (!m_toggleFlashPath[position].empty())
-	{
-		++m_flashGoes;
-		if (!call(m_toggleFlashPath[position], "Go", {})) // RW 0xC86830
+		if (hasStanceSubMenu(pos))
 		{
-			stanceError(m_toggleFlashPath[position] + ".Go() refused by the movie");
+			InGameCommandButtonSubMenu *menu = m_subMenu[pos].get();
+			if (menu && menu->isOpen() && !menu->closeRequested())
+			{
+				menu->requestClose();
+				if (m_subMenuChangeHandler)
+				{
+					m_subMenuChangeHandler();
+				}
+				if (!m_toggleFlashPath[pos].empty())
+				{
+					++m_flashGoes;
+					if (!call(m_toggleFlashPath[pos], "Go", {}))
+					{
+						stanceError(m_toggleFlashPath[pos] + ".Go() refused by the movie");
+					}
+				}
+			}
 		}
 	}
 }
@@ -1155,6 +1210,10 @@ void AptPalantir::hideStanceMenu(int position)
 	if (position >= 0 && position < kArcPositions && m_subMenu[position] && m_subMenu[position]->isOpen())
 	{
 		m_subMenu[position]->hide(); // RW 0x96FCCB -> 0x9D32CD
+		if (m_subMenuChangeHandler)
+		{
+			m_subMenuChangeHandler();
+		}
 	}
 }
 

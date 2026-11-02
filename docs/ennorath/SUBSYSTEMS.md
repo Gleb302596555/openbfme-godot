@@ -72,7 +72,7 @@
 Логика может работать, а игрок считает, что нет.
 
 - **Звук.** Перенесены звуки нажатия хоткеев `EnabledHotKeyPressed` (RW 0x75A544, BFME2 0x00358A53) и `DisabledHotKeyPressed` (RW 0x75A5BC, BFME2 0x00358ACB) в `HotKeyTranslator::translate`. В `ControlBar::pressButton` перенесён вызов голоса отклика юнита `UnitSpecificSound` (RW 0x9407D9, BFME2 0x00539DCB, голос 0x7E3) с учётом `ALTERNATE_FORMATION` при смене строя; в `ControlBar::rightPressButton` перенесён отклик авто-способностей `SetAutoAbilityUnitSound` / `UnsetAutoAbilityUnitSound` (RW 0x940848..0x940857, BFME2 0x00539DEC, голоса 0x7E4/0x7E5). Хоткей Stop `S` (`Command_Stop`) отрабатывает через `m_offBar` и даёт звук включённого хоткея. Следующий шаг: звук применения сил, `InitiateAtLocationSound`, `InitiateSound` и фильтр `player` (S-200, записи P-23, P-24).
-- **Радиальные меню.** S-280, S-3803: хоткеи пунктов радиального меню.
+- **Радиальные меню.** Перенесены хоткеи пунктов радиального меню стоек (S-280, S-3803, RW 0x96F890 / BFME2 0x00967DA6; дерегистрация/деструктор RW 0x96FCCB / BFME2 0x0096820D; обработчик SetStanceHotKeyAction RW 0x96F880 / BFME2 0x0096773E и маппинг мета-сообщений CMSG_META_STANCE_* RW 0xC84178 / BFME2 0x00C6CE8C). Хоткеи D, F, G и '&'-буквы из строковых ресурсов регистрируются в HotKeyManager, вызывают смену стойки через MSG_CHANGE_STANCE, запрашивают закрытие открытого радиального меню и воспроизводят флеш-анимацию Go().
 - **Линии приказов.** Отрисовка очереди приказов, зависит от п. 4.
 - **Номера групп над юнитами.** По поиску по именам кода не найдено (INFERENCE): проверить в RW.
 - **Выбор нейтральных объектов.** Крипы, просмотр в палантире (P-28).

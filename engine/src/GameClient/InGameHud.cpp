@@ -176,7 +176,12 @@ InGameHud::InGameHud(Config config)
 		PlayUnitVoiceForMessage(*m_voice, m_input->ui().selected(), msg);
 		if (msg.getType() == MSG_CHANGE_STANCE && msg.getArgumentCount() > 0)
 		{
-			m_bar->playStanceVoice(msg.getArgument(0)->integer);
+			const int stance = msg.getArgument(0)->integer;
+			m_bar->playStanceVoice(stance);
+			if (m_palantirRef)
+			{
+				m_palantirRef->onStanceChanged(stance);
+			}
 		}
 	});
 	// the logic's voice events (ProductionUpdate's VoiceCreated RW 0x8A2A48, ...): the made object alone is the "selection" (RW passes its drawable list)
@@ -291,6 +296,9 @@ bool InGameHud::boot(std::string *error)
 			const auto worldContext = enterContext();
 			m_bar->sendChangeStance(stance, "Palantir:stance-radial:RW_96F53C");
 		});
+	});
+	m_palantirRef->setSubMenuChangeHandler([this]() {
+		registerHotkeys();
 	});
 	m_palantirRef->setRightButtonHandler([this](int slot, bool inPalantir) { // lane AUTOCAST-1
 		const bool shift = (m_keyState & KEY_STATE_SHIFT) != 0;
@@ -1139,7 +1147,87 @@ void InGameHud::registerHotkeys()
 	auto add = [&](const std::vector<ControlBarButton> &buttons, bool inPalantir) {
 		for (const ControlBarButton &b : buttons)
 		{
-			if (b.state == ButtonState::Hidden || b.textLabel.empty() || !m_config.gameText)
+			if (b.state == ButtonState::Hidden || !b.button || !m_config.gameText)
+			{
+				continue;
+			}
+			if (inPalantir && b.button->m_command == GUI_COMMAND_TOGGLE_STANCE)
+			{
+				// RW 0x96F890 (BFME2 0x00967DA6): InGameToggleStanceCommandButton registers one hotkey per stance of the button
+				// instead of the toggle button's own hotkey (RW 0x96FE90 unregisters the toggle's own hotkey; RW 0x96FCCB / BFME2 0x0096820D clears on hide/change).
+				const int position = b.position;
+				const auto &stances = b.button->m_stances;
+				for (size_t k = 0; k < stances.size() && k < 3; ++k)
+				{
+					const int stance = stances[k];
+					std::string label;
+					if (k < b.button->m_textLabel.size() && !b.button->m_textLabel[k].empty())
+					{
+						label = b.button->m_textLabel[k];
+					}
+					else if (const char *stanceBtnName = AptPalantir::setStanceButtonName(stance))
+					{
+						if (TheCommandStore)
+						{
+							if (const CommandButton *sb = TheCommandStore->findCommandButton(stanceBtnName))
+							{
+								if (!sb->m_textLabel.empty())
+								{
+									label = sb->m_textLabel.front();
+								}
+							}
+						}
+					}
+					char32_t key = 0;
+					std::u16string text;
+					if (m_config.gameText && !label.empty() && m_config.gameText->fetch(label, text))
+					{
+						key = HotKeyTranslator::hotkeyOf(text);
+					}
+					auto makeEntry = [&](char32_t hotkey) {
+						HotKeyTranslator::Entry e;
+						e.key = hotkey;
+						e.slot = b.slot;
+						e.inPalantir = true;
+						e.availability = (b.state == ButtonState::Enabled || b.state == ButtonState::Active)
+											 ? HotKeyTranslator::Availability::Enabled
+											 : HotKeyTranslator::Availability::Disabled;
+						e.run = [this, position, k, stance]() {
+							if (m_palantirRef)
+							{
+								if (m_palantirRef->subMenu(position) && m_palantirRef->subMenu(position)->isOpen())
+								{
+									m_palantirRef->pressStanceItem(position, (int)k);
+								}
+								else
+								{
+									m_palantirRef->setStanceFromHotkey(position, stance);
+								}
+								return true;
+							}
+							return false;
+						};
+						return e;
+					};
+					if (key != 0)
+					{
+						entries.push_back(makeEntry(key));
+					}
+					char32_t metaChar = 0;
+					switch (stance)
+					{
+						case STANCE_HOLD_GROUND: metaChar = U'g'; break;
+						case STANCE_BATTLE: metaChar = U'f'; break;
+						case STANCE_AGGRESSIVE: metaChar = U'd'; break;
+					}
+					if (metaChar != 0 && metaChar != key)
+					{
+						entries.push_back(makeEntry(metaChar));
+					}
+				}
+				continue;
+			}
+			if (b.textLabel.empty())
 			{
 				continue;
 			}

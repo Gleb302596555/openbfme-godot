@@ -1247,8 +1247,8 @@ std::vector<std::string> ControlBar::acceptanceStops()
 		"[S-3803] stance buttons (lanes PLAY-4, CAMPUI-1): SET_STANCE sends MSG_CHANGE_STANCE with its stance (RW 0x96F53C); TOGGLE_STANCE is available with a "
 		"StancesBehavior (RW 0x942A77) and shows the current stance's image and labels (StanceToButtonSlot); on the Palantir its press opens / closes the radial of "
 		"its Stances (InGameToggleStanceCommandButton RW 0x92FF5C / 0x96FAC6, the sub-menu RW 0x9D3380 .. 0x9D3550) and an item sends its stance (RW 0x96F85A -> "
-		"0x96F53C); a TOGGLE_STANCE press that reaches processCommandUI sends nothing and is counted (unportedPresses \"TOGGLE_STANCE (no sub-menu)\"); not ported: "
-		"the items' hotkey registration (RW 0x96F890, S-280: D / F / G still send "
-		"through CommandXlat), the sub-menu owner's notifications (vslots 4 / 8), the press's context object checks (RW 0x449681 / 0x6A8803)",
+		"0x96F53C); a TOGGLE_STANCE press that reaches processCommandUI sends nothing and is counted (unportedPresses \"TOGGLE_STANCE (no sub-menu)\"); the items' "
+		"hotkey registration is ported (RW 0x96F890, BFME2 0x00967DA6; RW 0x96FCCB, BFME2 0x0096820D; S-280); not ported: "
+		"the sub-menu owner's notifications (vslots 4 / 8), the press's context object checks (RW 0x449681 / 0x6A8803)",
 	};
 }

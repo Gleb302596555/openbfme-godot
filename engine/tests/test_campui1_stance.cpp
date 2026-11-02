@@ -29,6 +29,7 @@
 #include "GameClient/GUI/ShellServices.h"
 #include "GameClient/GUI/WindowManager.h"
 #include "GameClient/InGameHud.h"
+#include "GameClient/MessageStream/MetaEvent.h"
 #include "GameLogic/Module/StancesBehavior.h"
 #include "GameLogic/Object/Object.h"
 
@@ -46,9 +47,9 @@ struct StanceRig
 	Rig rig;
 	RecordingShellServices services;
 	std::unique_ptr<InGameHud> hud;
-	explicit StanceRig(SharedWorld &s) : rig(s, "map mp fall back 4p", "FactionAngmar")
+	explicit StanceRig(SharedWorld &s, GameTextSource *gt = nullptr) : rig(s, "map mp fall back 4p", "FactionAngmar")
 	{
-		InGameHud::Config cfg{ *rig.game, *s.world, *s.mount->fs, services, rig.view, s.mouse, s.meta, nullptr };
+		InGameHud::Config cfg{ *rig.game, *s.world, *s.mount->fs, services, rig.view, s.mouse, s.meta, gt };
 		hud = std::make_unique<InGameHud>(cfg);
 		std::string error;
 		REQUIRE_MESSAGE(hud->boot(&error), error);
@@ -496,4 +497,97 @@ TEST_CASE("campui1 stance: the sub-menu protocol (RW 0x9D3380 .. 0x9D3550) witho
 	menu.hide();
 	CHECK(calls.back() == "CommandButtons.subMenu1.Hide()");
 	CHECK_FALSE(menu.isOpen());
+}
+
+
+TEST_CASE("campui1 stance retail: radial items hotkeys register and execute SetStance (RW 0x96F890 / BFME2 0x00967DA6, RW 0x96FCCB / BFME2 0x0096820D)")
+{
+	if (!haveWorld("campui1 stance"))
+	{
+		return;
+	}
+	SharedWorld &s = shared();
+	GameTextTableSource text;
+	std::vector<std::uint8_t> bytes;
+	std::string error;
+	REQUIRE_MESSAGE(s.mount->fs->readFile("data/lotr.str", bytes, &error), error);
+	REQUIRE_MESSAGE(text.table.parse(bytes, &error), error);
+
+	StanceRig h(s, &text);
+	h.hud->setWindowSize(1024, 768);
+	h.rig.view.setScreen(1024, 768);
+
+	const Coord3D c = h.rig.freeSpot(2800, 1400, 200.0f);
+	Object *wk = h.rig.make("AngmarWitchking", c.x, c.y);
+	h.frames(10);
+	h.select(wk);
+
+	StancesBehavior *sb = StancesBehavior::of(*wk);
+	REQUIRE(sb);
+	const ControlBarButton *toggle = h.toggle();
+	REQUIRE(toggle);
+	AptPalantir &pal = h.palantir();
+	const InGameCommandButtonSubMenu *menu = pal.subMenu(toggle->position);
+	REQUIRE(menu);
+	CHECK_FALSE(menu->isOpen());
+
+	// 1. Verify hotkeys are registered for stances (RW 0x96F890 / BFME2 0x00967DA6):
+	// Hold Ground (CMSG_META_STANCE_HOLDGROUND -> 'G')
+	// Battle (CMSG_META_STANCE_BATTLE -> 'F')
+	// Aggressive (CMSG_META_STANCE_AGGRESSIVE -> 'D')
+	const auto &entries = h.hud->input().hotKeyTranslator().entries();
+	bool foundG = false, foundF = false, foundD = false;
+	for (const auto &e : entries)
+	{
+		if (e.key == U'G' || e.key == U'g') foundG = true;
+		if (e.key == U'F' || e.key == U'f') foundF = true;
+		if (e.key == U'D' || e.key == U'd') foundD = true;
+	}
+	CHECK(foundG);
+	CHECK(foundF);
+	CHECK(foundD);
+
+	// 2. Press hotkey for Hold Ground (KEY_G) while closed:
+	// Executes SetStance (RW 0x96F880 -> 0x96F53C): sends MSG_CHANGE_STANCE 3, plays toggle flash Go()
+	unsigned initialGoes = pal.toggleFlashGoes();
+	h.hud->key(KEY_G, KEY_STATE_DOWN, 0);
+	h.hud->key(KEY_G, KEY_STATE_UP, 0);
+	h.frames(5);
+	CHECK(sb->getStance() == STANCE_HOLD_GROUND);
+	CHECK(pal.toggleFlashGoes() == initialGoes + 1);
+
+	// 3. Open radial menu: press toggle
+	REQUIRE(h.pressToggle(*toggle));
+	REQUIRE(h.waitItems(*menu, 90));
+	REQUIRE(menu->isOpen());
+	REQUIRE(menu->itemCount() == 3);
+
+	// 4. Press hotkey for Battle Stance (KEY_F) while radial menu is open:
+	// Executes SetStance: sends MSG_CHANGE_STANCE 1, requests close (FadeOut), plays toggle flash Go()
+	unsigned prevGoes = pal.toggleFlashGoes();
+	h.hud->key(KEY_F, KEY_STATE_DOWN, 0);
+	h.hud->key(KEY_F, KEY_STATE_UP, 0);
+	h.frames(1);
+	CHECK(menu->fading());
+	CHECK(pal.toggleFlashGoes() == prevGoes + 1);
+	REQUIRE(h.waitClosed(*menu, 90));
+	h.frames(5);
+	CHECK(sb->getStance() == STANCE_BATTLE);
+
+	// 5. Open again, then deselect: selection change hides open radial and unregisters hotkeys (RW 0x96FCCB / BFME2 0x0096820D)
+	REQUIRE(h.pressToggle(*toggle));
+	REQUIRE(h.waitItems(*menu, 90));
+	REQUIRE(menu->isOpen());
+	h.hud->input().ui().deselectAll();
+	h.frames(5);
+	CHECK_FALSE(menu->isOpen());
+	bool hasStanceKey = false;
+	for (const auto &e : h.hud->input().hotKeyTranslator().entries())
+	{
+		if (e.key == U'G' || e.key == U'g' || e.key == U'F' || e.key == U'f' || e.key == U'D' || e.key == U'd')
+		{
+			hasStanceKey = true;
+		}
+	}
+	CHECK_FALSE(hasStanceKey);
 }
