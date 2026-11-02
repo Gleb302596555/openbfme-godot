@@ -680,9 +680,10 @@ void SpecialPowerModule::triggerSpecialPower(const Coord3D *loc, const Object *)
 	{
 		const Player *owner = obj->getControllingPlayer();
 		const int playerIndex = owner ? owner->getPlayerIndex() : -1;
-		if (t && !t->m_initiateSound.empty())
+		const std::string &sound = (d && !d->m_initiateSound.empty()) ? d->m_initiateSound : (t ? t->m_initiateSound : std::string());
+		if (!sound.empty())
 		{
-			AudioApi::playSoundForObject(t->m_initiateSound, obj->getID(), playerIndex);
+			AudioApi::playSoundForObject(sound, obj->getID(), playerIndex);
 		}
 		if (loc && t && !t->m_initiateAtLocationSound.empty())
 		{

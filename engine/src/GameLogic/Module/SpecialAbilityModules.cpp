@@ -7,6 +7,7 @@
 #endif
 
 #include "GameLogic/Module/SpecialAbilityModules.h"
+#include "Common/Audio/AudioRequests.h"
 #include "GameLogic/Combat/CombatLineOfSight.h"
 #include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/Module/GiantBirdAIUpdate.h"
@@ -1163,7 +1164,12 @@ void SpecialAbilityUpdate::triggerAbilityEffect()
 			p->science().addSkillPoints((float)skill, false); // RW 0x782AA4(points, 0)
 		}
 	}
-	// RW 0x853F9C: the light points (no manager in a skirmish, S-531); RW 0x853FC0: TriggerSound / ActiveLoopSound (client)
+	// RW 0x853F9C: the light points (no manager in a skirmish, S-531); RW 0x853FC0 / BFME2 0x85116E: TriggerSound / ActiveLoopSound (client)
+	if (!m_data->m_triggerSound.empty())
+	{
+		const Player *p = obj->getControllingPlayer();
+		AudioApi::playSoundForObject(m_data->m_triggerSound, obj->getID(), p ? p->getPlayerIndex() : -1);
+	}
 	const SpecialPowerTemplate *t = m_data->m_specialPowerTemplate;
 	const int type = t ? t->m_type : 0;
 	if (type == 0x80 || type == 0x8F)

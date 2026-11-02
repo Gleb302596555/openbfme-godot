@@ -76,6 +76,9 @@ struct AudioWorldQueries
 	std::function<bool(const Coord3D &)> isOnScreen;
 	std::function<float(const Coord3D &)> offscreenDistanceSq;
 	std::function<float()> zoomFadeFactor;
+	// RW 0x4533A9 / RW 0x6DB566; BFME2 0x004533A9 / BFME2 0x006DB192: owning player of object / drawable when owner is not passed in the event
+	std::function<int(std::uint32_t objectId)> objectOwner;
+	std::function<int(std::uint32_t drawableId)> drawableOwner;
 
 	// Lane AUDIO-4 (QA-1 U21): the player list outside a live game (the shell, the lobby, the score screen). The port has no player list there; the
 	// sounds requested there (APT PlaySound, the shell's gadgets: RW 0x72937E -> 0x815772) carry no owner (player index -1), and for an ownerless event

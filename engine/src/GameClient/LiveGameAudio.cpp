@@ -322,25 +322,84 @@ LiveGameAudio::LiveGameAudio(LiveGame &game, AudioManager &audio)
 	AudioWorldQueries q;
 	LiveGame *lg = &m_game;
 	q.localPlayerIndex = [lg]() {
+		if (lg->logicIdle())
+		{
+			const Player *local = lg->players().getLocalPlayer();
+			return local ? local->getPlayerIndex() : -1;
+		}
 		const std::shared_ptr<const LogicSnapshot> s = lg->latestSnapshot();
 		return s && s->players ? s->players->localIndex : -1;
 	};
 	q.playerExists = [lg](int index) {
+		if (lg->logicIdle())
+		{
+			return index >= 0 && index < lg->players().getPlayerCount();
+		}
 		const std::shared_ptr<const LogicSnapshot> s = lg->latestSnapshot();
 		return s && s->players && index >= 0 && index < s->players->count;
 	};
 	q.relationship = [lg](int owner, int local) {
-		const std::shared_ptr<const LogicSnapshot> s = lg->latestSnapshot();
-		if (!s || !s->players || owner < 0 || local < 0 || owner >= s->players->count || local >= s->players->count)
+		if (lg->logicIdle())
 		{
-			return AR_NEUTRAL;
+			Player *op = lg->players().getNthPlayer(owner);
+			Player *lp = lg->players().getNthPlayer(local);
+			if (op && lp)
+			{
+				return toAudio(op->getRelationship(lp));
+			}
 		}
-		// ZH AudioManager::shouldPlayLocally: the owner's relationship TO the local player
-		return toAudio((Relationship)s->players->relationshipOf(owner, local));
+		const std::shared_ptr<const LogicSnapshot> s = lg->latestSnapshot();
+		if (s && s->players && owner >= 0 && local >= 0 && owner < s->players->count && local < s->players->count)
+		{
+			return toAudio((Relationship)s->players->relationshipOf(owner, local));
+		}
+		return AR_NEUTRAL;
 	};
-	// lane AUDIO-4 (QA-1 U21): RotWK's shroud test RW 0x452003: ThePartitionManager's status (RW 0xB4D9A0 -> 0xB4FB20) for the local player at the
-	// position is not CLEAR: shrouded. The snapshot's ShroudView is that status for the local player (ShroudView::statusAt, RW 0xB4FB20); a game
-	// without a shroud manager has no view, which is retail's ThePartitionManager == 0 branch (RW 0x452024): not shrouded
+	q.objectOwner = [lg](std::uint32_t id) -> int {
+		if (lg->logicIdle())
+		{
+			if (const Object *o = lg->logic().findObjectByID((ObjectID)id))
+			{
+				const Player *p = o->getControllingPlayer();
+				return p ? p->getPlayerIndex() : -1;
+			}
+		}
+		const std::shared_ptr<const LogicSnapshot> s = lg->latestSnapshot();
+		if (s)
+		{
+			if (const ObjectSnapshot *rec = s->find((ObjectID)id))
+			{
+				return rec->ownerIndex;
+			}
+		}
+		return -1;
+	};
+	q.drawableOwner = [lg](std::uint32_t id) -> int {
+		if (const Drawable *d = lg->drawables().find((DrawableID)id))
+		{
+			const ObjectID oid = d->getObjectID();
+			if (oid != INVALID_ID)
+			{
+				if (lg->logicIdle())
+				{
+					if (const Object *o = lg->logic().findObjectByID(oid))
+					{
+						const Player *p = o->getControllingPlayer();
+						return p ? p->getPlayerIndex() : -1;
+					}
+				}
+				const std::shared_ptr<const LogicSnapshot> s = lg->latestSnapshot();
+				if (s)
+				{
+					if (const ObjectSnapshot *rec = s->find(oid))
+					{
+						return rec->ownerIndex;
+					}
+				}
+			}
+		}
+		return -1;
+	};
 	q.isShroudClear = [lg](int playerIndex, const Coord3D &pos) {
 		const std::shared_ptr<const LogicSnapshot> s = lg->latestSnapshot();
 		return shroudClearFor(s.get(), playerIndex, pos);
@@ -601,10 +660,10 @@ void LiveGameAudio::largeGroupUpdate()
 					const LgaRuntime::Member &m = mv.second;
 					// the height of the sound: the member's drawable (the maps keep x, y only)
 					Coord3D at{ m.x, m.y, 0.0f };
-					Coord3D live;
-					if (objectPosition((std::uint32_t)mv.first, &live))
+					Coord3D livePos;
+					if (objectPosition((std::uint32_t)mv.first, &livePos))
 					{
-						at.z = live.z;
+						at.z = livePos.z;
 					}
 					const std::pair<int, int> cell((int)std::floor(m.x / map.size), (int)std::floor(m.y / map.size));
 					auto &c = cells[cell];

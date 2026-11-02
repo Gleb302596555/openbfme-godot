@@ -916,7 +916,16 @@ bool AudioManager::shouldPlayLocally(const AudioEventRTS &event)
 		noteMissingHook("player filter (localPlayerIndex / relationship / playerExists)");
 		return true;
 	}
-	const int owner = event.getPlayerIndex();
+	// RW 0x4533A9 / RW 0x6DB566; BFME2 0x004533A9 / BFME2 0x006DB192: resolve owner from object / drawable if not given explicitly
+	int owner = event.getPlayerIndex();
+	if (owner < 0 && event.getObjectID() != 0 && m_queries.objectOwner)
+	{
+		owner = m_queries.objectOwner(event.getObjectID());
+	}
+	if (owner < 0 && event.getDrawableID() != 0 && m_queries.drawableOwner)
+	{
+		owner = m_queries.drawableOwner(event.getDrawableID());
+	}
 	const bool ownerExists = owner >= 0 && m_queries.playerExists(owner);
 	if (!ownerExists)
 	{

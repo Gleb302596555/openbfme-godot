@@ -253,20 +253,20 @@
 - Проверка: Появилось снова 
 
 ### P-23. У силы Draft нет курсора
-- Статус: [ ] **ЗАНЯТО — Claude, 2026-10-30** — курсор подтверждён, звук не исправлен
+- Статус: [ ] **ЖДЁТ ПРОВЕРКИ В ИГРЕ** — курсор подтверждён; звук исправлен (`InitiateSound` в `SpecialPowerModule::triggerSpecialPower`, RW 0x897183 / BFME2 0x008939AB, подтверждён на `SimulatedAudioDevice` сценарием)
 - Добавлено: 2026-10-30, владелец
 - Описание: Абилка из палантира Draft крестьян не имеет курсора- чтобы починить чекни как работает в оригинале.
-- Взял: Claude, 2026-10-30
-- Причина и исправление: `Command_SpellBookDraft` указывает `RadiusCursorType = scFaramir_Ranger`, но такого шаблона в `InGameUI.ini` нет: это имя текстуры. В RotWK парсер (RW 0x75CAA9, проверка RW 0x6A0738) в таком случае не заполняет поле + 0x4C, и команда показывает свой `CursorName`. Порт сохранял имя как есть, прятал курсор и не рисовал круг. Исправлено в `InGameHud::updateRadiusCursor`: неизвестный шаблон считается отсутствующим. Всего в данных мода таких кнопок 76, общий механизм исправляет все. Владелец: после применения нет звука, как в моде. По данным: `InitiateAtLocationSound = SpellBauernHerrschauStereo` → `Multisound` → `SpellBauernHerrschauHorn` (`URohan_horn01`, файл есть в `audio.big`, `Type = ui player shrouded`, `Delay = 1000 1000`). Код `baseDo` этот звук запрашивает, причина тишины не установлена. Следующий шаг: тест на Ennorath, который применяет силу и пишет запросы к звуку и решение фильтра в `GameAudio`.
-- Проверка: курсор подтверждён владельцем в игре; звук нет.
+- Взял: Claude, 2026-10-30; звук: Antigravity, 2026-11-02
+- Причина и исправление: `Command_SpellBookDraft` указывает `RadiusCursorType = scFaramir_Ranger`, но такого шаблона в `InGameUI.ini` нет: это имя текстуры. В RotWK парсер (RW 0x75CAA9, проверка RW 0x6A0738) в таком случае не заполняет поле + 0x4C, и команда показывает свой `CursorName`. Порт сохранял имя как есть, прятал курсор и не рисовал круг. Исправлено в `InGameHud::updateRadiusCursor`: неизвестный шаблон считается отсутствующим. Всего в данных мода таких кнопок 76, общий механизм исправляет все. По звуку: `InitiateSound` на `SpecialPowerModule` не воспроизводился из модуля при срабатывании силы без указания цели. В `SpecialPowerModule::triggerSpecialPower` добавлено воспроизведение `sound` (`m_initiateSound`, RW 0x897183 / BFME2 0x008939AB). Проверен сценарием `SpecialPowerAudio`: `SpellBauernHerrschauStereo` запускает multisound с задержкой 1000 мс `SpellBauernHerrschauHorn` (`URohan_horn01.wav`), доходит до `SimulatedAudioDevice`.
+- Проверка: курсор подтверждён владельцем в игре; звук проверен в `TEST_CASE("ENNORATH scenario SpecialPowerAudio...")` на `SimulatedAudioDevice` (обе редакции RotWK 2.01 и BFME2 1.06), ждёт проверки владельцем в игре.
 
 ### P-24. У силы налогов больного Теодена нет курсора
-- Статус: [ ] **ЗАНЯТО — Claude, 2026-10-30** — курсор подтверждён, звук не исправлен
+- Статус: [ ] **ЖДЁТ ПРОВЕРКИ В ИГРЕ** — курсор подтверждён; фильтр звука исправлен (разрешение владельца в `GameAudio::shouldPlayLocally` через queries объекта/drawable и запрос активного локального игрока в `LiveGameAudio`, RW 0x4533A9 / BFME2 0x004533A9)
 - Добавлено: 2026-10-30, владелец
 - Описание: У рохана у героя теоднена в его больной форме  абилка налогов не имеет курсора - чтобы починить чекни как работает в оригинале.
-- Взял: Claude, 2026-10-30
-- Причина и исправление: та же причина и то же исправление, что в P-23: `Command_SpecialAbilityTheodenAusbeutesteuer`, `RadiusCursorType = scFaramir_Ranger`, `CursorName = Defector`. Цель проверяется отдельно: `ObjectFilter = NONE +RohanFarmPlayer +RohanFarmMod ALLIES`. Владелец: нет звука денег и звука успешного применения. По данным: `OCL_SpawnAusbeutesteuer` → `TheodenAusbeutesteuerModifier` → `SlowDeathBehavior` с `FX = INITIAL FX_GoldChestPickup` → звук `TreasurePickup` (`Type = world player`, файлы есть). Объект живёт 0 мс и уничтожается сразу. Версия: событие FX теряет объект или игрока, и фильтр `player` отбрасывает звук; не подтверждено. Следующий шаг: тот же тест, что в P-23.
-- Проверка: курсор подтверждён владельцем в игре; звук нет.
+- Взял: Claude, 2026-10-30; звук: Antigravity, 2026-11-02
+- Причина и исправление: та же причина и то же исправление курсора, что в P-23: `Command_SpecialAbilityTheodenAusbeutesteuer`, `RadiusCursorType = scFaramir_Ranger`, `CursorName = Defector`. Цель проверяется отдельно: `ObjectFilter = NONE +RohanFarmPlayer +RohanFarmMod ALLIES`. По звуку: `TreasurePickup` (`Type = world player`) при вызове с `owner = -1` отбрасывался фильтром `player` из-за отсутствия fallback разрешения владельца объекта в `AudioManager::shouldPlayLocally` и использования замороженного снимка в `LiveGameAudio` вместо активного `lg->players().getLocalPlayer()`. Исправлено: в `AudioWorldQueries` добавлены колбэки `objectOwner` и `drawableOwner`, `shouldPlayLocally` резолвит владельца через них, а `LiveGameAudio` опрашивает `lg->players()` при `lg->logicIdle()`. Проверено сценарием `SpecialPowerAudio`: событие `TreasurePickup` принимается фильтром игрока и воспроизводится в `SimulatedAudioDevice`.
+- Проверка: курсор подтверждён владельцем в игре; звук проверен в `TEST_CASE("ENNORATH scenario SpecialPowerAudio...")` на `SimulatedAudioDevice` (обе редакции RotWK 2.01 и BFME2 1.06), ждёт проверки владельцем в игре.
 
 ### P-25. Таран Рохана из мастерской поломан
 - Статус: [ ] **ПРИОСТАНОВЛЕНО** — расхождения с данными не найдено, нужно сравнение с оригиналом

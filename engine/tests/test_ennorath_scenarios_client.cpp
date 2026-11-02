@@ -10,8 +10,15 @@
 #include "GameClient/LiveFX.h"
 #include "GameClient/ParticleDraw.h"
 #include "Libraries/WWVegas/WW3D2/assetmgr.h"
+#include "Common/NameKeyGenerator.h"
+#include "GameClient/LiveGameAudio.h"
+#include "GameLogic/Module/SpecialAbilityModules.h"
+#include "GameLogic/Module/SpecialPowerModules.h"
+#include "HudAudioTestUtil.h"
+#include "Common/SpecialPower.h"
 
 #include <chrono>
+#include <iostream>
 #include <cmath>
 
 using ennorathscenario::World;
@@ -58,7 +65,7 @@ TEST_CASE("ENNORATH scenario RenderObjectDraw: CloudBreakSunbeam attaches CloudB
 
 		LiveFX liveFX(*game.game, playback);
 		playback.seedClientRandom(42);
-
+		
 		// Spawn CloudBreakSunbeam (data\ini\object\goodfaction\goodfactionprops.ini: Model = None, ParticleSysBone = None CloudBreakRays)
 		std::string createErr;
 		Object *sunbeam = game.game->createObject("CloudBreakSunbeam", game.index(), Coord3D{ 500.0f, 600.0f, 0.0f }, 0.0f, &createErr);
@@ -162,5 +169,196 @@ TEST_CASE("ENNORATH scenario RenderObjectDraw: CloudBreakSunbeam attaches CloudB
 		INFO("225 CloudBreakRays systems: " << totalDrawables << " drawable particles built in " << buildMs << " ms");
 		CHECK(totalDrawables > 100u); // tolerance: stochastic particle emission across 225 systems
 		CHECK(buildMs < 15.0); // tolerance: wall-clock frame build timing budget (< 15 ms for 225 systems)
+	}
+}
+
+struct ExposedSpecialAbilityUpdate : public SpecialAbilityUpdate
+{
+	using SpecialAbilityUpdate::triggerAbilityEffect;
+};
+
+TEST_CASE("ENNORATH scenario SpecialPowerAudio: initiate sound, fortress trigger sound, Draft delayed horn and Theoden tax treasure pickup player filter (P-23, P-24, RW 0x897183 / BFME2 0x008939AB, RW 0x853FC0 / BFME2 0x85116E, RW 0x4533A9 / BFME2 0x004533A9)")
+{
+	World world;
+	if (!world.load("Ennorath scenario SpecialPowerAudio (P-23, P-24, Eomer, Hornburg)"))
+	{
+		return;
+	}
+
+	for (GameEdition edition : { GameEdition::RotWK201, GameEdition::BFME2_106 })
+	{
+		CAPTURE(gameEditionName(edition));
+		hudtest::Rig game(world.shared);
+		game.logic().setEdition(edition);
+		game.game->shroud().revealMapForPlayerPermanently(game.index());
+
+		hudaudio::RetailAudio audio(*world.merged.fs);
+		audio.manager->enableEventLog(true);
+
+		std::string liveErr;
+		std::unique_ptr<LiveGameAudio> liveAudio = LiveGameAudio::attachToInstalled(*game.game, nullptr, &liveErr, nullptr);
+		REQUIRE_MESSAGE(liveAudio != nullptr, liveErr);
+		liveAudio->enableEventLog(true);
+
+		FXPlayback playback(*world.merged.fs, RandomAlgorithm::RotWK_GameDat_LCG);
+		playback.loadRetailData(world.shared.world->report().macrosBeforeFX);
+		LiveFX liveFX(*game.game, playback);
+		playback.seedClientRandom(42);
+		audio.manager->updateMicrophone(Coord3D{ 500.0f, 500.0f, 100.0f }, Coord3D{ 500.0f, 500.0f, 0.0f });
+
+		double audioTimeMs = 1000.0;
+		auto stepAudio = [&](double dtMs) {
+			audioTimeMs += dtMs;
+			audio.device->setTime(audioTimeMs);
+			audio.manager->update(audioTimeMs);
+		};
+		stepAudio(0.0); // start clock at initial audioTimeMs
+
+		// 1. Eomer (InitiateSound on SpecialPowerModule: RW 0x897183 / BFME2 0x008939AB)
+		std::string createErr;
+		Object *eomer = game.game->createObject("RohanEomer", game.index(), Coord3D{ 500.0f, 500.0f, 0.0f }, 0.0f, &createErr);
+		REQUIRE_MESSAGE(eomer != nullptr, createErr);
+		NameKeyType smiteKey = world.shared.world->nameKeys().nameToKey("ModuleTag_EowynSmiteStarter");
+		BehaviorModule *smiteMod = eomer->findModuleByTag(smiteKey);
+		REQUIRE(smiteMod != nullptr);
+		SpecialPowerModule *spm = dynamic_cast<SpecialPowerModule *>(smiteMod);
+		REQUIRE(spm != nullptr);
+		REQUIRE(spm->spData() != nullptr);
+		CHECK(spm->spData()->m_initiateSound == "EomerVoiceAttackSpear");
+
+		spm->triggerFromUpdate();
+		stepAudio(100.0 / 3.0);
+
+		bool eomerFound = false;
+		for (const AudioLogEntry &e : audio.manager->takeEventLog())
+		{
+			if (e.event == "EomerVoiceAttackSpear")
+			{
+				eomerFound = true;
+
+				CHECK(e.outcome.find("refused") == std::string::npos);
+			}
+		}
+		CHECK(eomerFound == true);
+
+
+		bool eomerPlayed = false;
+		for (const auto &devEntry : audio.device->log())
+		{
+			if (devEntry.kind == SimulatedAudioDevice::LogEntry::Start &&
+				(devEntry.file.find("GUEomer_voiatcc") != std::string::npos ||
+				 devEntry.file.find("GUEomer_voisebf") != std::string::npos))
+			{
+				eomerPlayed = true;
+				break;
+			}
+		}
+		CHECK(eomerPlayed == true);
+
+		// 2. Hornburg (TriggerSound on ModelConditionSpecialAbilityUpdate: RW 0x853FC0 / BFME2 0x85116E)
+		Object *tower = game.game->createObject("HelmsDeepTowerEdain", game.index(), Coord3D{ 600.0f, 600.0f, 0.0f }, 0.0f, &createErr);
+		REQUIRE_MESSAGE(tower != nullptr, createErr);
+		NameKeyType hornKey = world.shared.world->nameKeys().nameToKey("ModuleTag_HelmsHornUpdate");
+		BehaviorModule *hornMod = tower->findModuleByTag(hornKey);
+		REQUIRE(hornMod != nullptr);
+		SpecialAbilityUpdate *sau = dynamic_cast<SpecialAbilityUpdate *>(hornMod);
+		REQUIRE(sau != nullptr);
+
+		static_cast<ExposedSpecialAbilityUpdate *>(sau)->triggerAbilityEffect();
+		stepAudio(100.0 / 3.0);
+
+		bool hornFound = false;
+		for (const AudioLogEntry &e : audio.manager->takeEventLog())
+		{
+			if (e.event == "HelmsHornFortress")
+			{
+				hornFound = true;
+				CHECK(e.outcome.find("refused") == std::string::npos);
+			}
+		}
+		CHECK(hornFound == true);
+
+		bool hornPlayed = false;
+		for (const auto &devEntry : audio.device->log())
+		{
+			if (devEntry.kind == SimulatedAudioDevice::LogEntry::Start &&
+				devEntry.file.find("HornofHelmHammerhand") != std::string::npos)
+			{
+				hornPlayed = true;
+				break;
+			}
+		}
+		CHECK(hornPlayed == true);
+
+		// 3. Draft (P-23: InitiateAtLocationSound with 1000ms delay and player filter: RW 0x897183 / BFME2 0x008939AB)
+		const SpecialPowerTemplate *draftTmpl = world.shared.world->spellStores().specialPowers().findSpecialPowerTemplate("SpellBookDraft");
+		REQUIRE(draftTmpl != nullptr);
+		CHECK(draftTmpl->m_initiateAtLocationSound == "SpellBauernHerrschauStereo");
+
+		const Coord3D draftPos{ 500.0f, 500.0f, 0.0f };
+		AudioApi::playSoundAtPositionForPlayer(draftTmpl->m_initiateAtLocationSound, draftPos, game.index());
+
+		bool draftQueued = false;
+		for (const AudioLogEntry &e : audio.manager->takeEventLog())
+		{
+			if (e.event == "SpellBauernHerrschauStereo" || e.event == "SpellBauernHerrschauHorn")
+			{
+				draftQueued = true;
+				CHECK(e.outcome.find("refused") == std::string::npos);
+			}
+		}
+		CHECK(draftQueued == true);
+
+		// Advance audio by >= 1000 ms to trigger delayed horn
+		for (int s = 0; s < 35; ++s)
+		{
+			stepAudio(100.0 / 3.0);
+		}
+
+		bool draftPlayed = false;
+		for (const auto &devEntry : audio.device->log())
+		{
+			if (devEntry.kind == SimulatedAudioDevice::LogEntry::Start &&
+				devEntry.file.find("URohan_horn01") != std::string::npos)
+			{
+				draftPlayed = true;
+				break;
+			}
+		}
+		CHECK(draftPlayed == true);
+
+		// 4. Theoden's Tax (P-24: TreasurePickup on TheodenAusbeutesteuerModifier with player filter: RW 0x4533A9 / BFME2 0x004533A9)
+		Object *taxMod = game.game->createObject("TheodenAusbeutesteuerModifier", game.index(), Coord3D{ 500.0f, 500.0f, 0.0f }, 0.0f, &createErr);
+		REQUIRE_MESSAGE(taxMod != nullptr, createErr);
+
+		game.logic().runLogicFrame();
+		game.game->refreshClient(1000.0 / 30.0, 1.0);
+		liveFX.flushPending();
+		stepAudio(100.0 / 3.0);
+
+		bool taxFound = false;
+		for (const AudioLogEntry &e : audio.manager->takeEventLog())
+		{
+			if (e.event == "TreasurePickup")
+			{
+				taxFound = true;
+				CHECK(e.outcome.find("refused") == std::string::npos);
+			}
+		}
+		CHECK(taxFound == true);
+
+		bool taxPlayed = false;
+		for (const auto &devEntry : audio.device->log())
+		{
+			if (devEntry.kind == SimulatedAudioDevice::LogEntry::Start &&
+				(devEntry.file.find("UTreasurea") != std::string::npos ||
+				 devEntry.file.find("UTreasureb") != std::string::npos ||
+				 devEntry.file.find("UTreasurec") != std::string::npos))
+			{
+				taxPlayed = true;
+				break;
+			}
+		}
+		CHECK(taxPlayed == true);
 	}
 }
