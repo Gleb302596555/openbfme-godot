@@ -5,7 +5,7 @@
 
 A changed test file selects its own cases. A changed source or header selects the test files that include it through any chain of headers; a .cpp counts
 as its header of the same name, or as every test when it has none and is not a test. A change no test can be traced from (a .gd, CMake, or a wide header
-that reaches over half of the test files) answers FULL: run the whole suite. The full suite stays required before landing on main.
+that reaches over half of the test files) answers FULL: do not run the whole suite on a branch, run the required sets of PROCESS.md section 7 and say so in the report. The full suite runs nightly on main.
 """
 from __future__ import annotations
 

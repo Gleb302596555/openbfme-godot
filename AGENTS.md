@@ -38,4 +38,4 @@ Everything else (sources, numerics, tests, the commit gate, privacy) is in
 ## Where to work
 
 Agents work on their own branch and tree (`tools/agent_worktree.py new <agent> <topic>`), never with
-uncommitted work in the main checkout. The Ennorath workflow is `docs/ennorath/PROCESS.md`.
+uncommitted work in the main checkout. The Ennorath workflow is `docs/ennorath/PROCESS.md`; read it before any change. Its section 5 (porting checks), section 7 (tests before landing, changing test expectations and hash pins) and section 14 (reports) bind every agent.
