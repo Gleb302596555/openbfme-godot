@@ -365,6 +365,9 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 	// object (111)
 	// Merge queue q35 (measured once on the merged tree and at each merge point; SIMSMALL-1, #178 and #179 keep the census): #132's melee reach moves the
 	// AIs' play: a salvage crate stands at frame 3000 (DeletionUpdate, SalvageCrateCollide) and a RebuildHoleBehavior object (114)
+	// Lane ENNORATH-REGRESSIONS / MODGAP-2 (measured at SpawnUnitBehavior and ported update modules): cavalry production and combat pacing move the
+	// AIs' play: now also HordeNotifyTargetsOfImminentProbableCrushingUpdate, HorseHordeContain; no AutoHealBehavior, RebuildHoleBehavior,
+	// RepairSpecialPower object (113)
 	CHECK(classes == std::set<std::string>{
 		"AISpecialPowerUpdate", "ActiveBody", "ArmorUpgrade", "ArrowStormUpdate", "AttributeModifierAuraUpdate", "AttributeModifierPoolUpdate",
 		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoPickUpUpdate", "BannerCarrierUpdate",

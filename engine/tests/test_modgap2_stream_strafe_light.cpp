@@ -421,15 +421,29 @@ TEST_CASE("modgap2 strafe: xfer snapshot and crc state hashing (both editions)")
 
 		CHECK(strafe2->strafeTarget().x == doctest::Approx(200.0f)); // tolerance: floating-point evaluation
 		CHECK(strafe2->strafeTarget().y == doctest::Approx(150.0f)); // tolerance: floating-point evaluation
+		CHECK(strafe2->strafeTarget().z == doctest::Approx(50.0f)); // tolerance: floating-point evaluation
 		CHECK(strafe2->strafeStart().x == doctest::Approx(10.0f)); // tolerance: floating-point evaluation
+		CHECK(strafe2->strafeStart().y == doctest::Approx(20.0f)); // tolerance: floating-point evaluation
+		CHECK(strafe2->strafeStart().z == doctest::Approx(30.0f)); // tolerance: floating-point evaluation
+		CHECK(strafe2->sweepPhase() == doctest::Approx(strafe->sweepPhase()));
 		CHECK(strafe2->state() == strafe->state());
+		CHECK(strafe2->started() == strafe->started());
+		CHECK(strafe2->nextFireFrame() == strafe->nextFireFrame());
+		CHECK(strafe2->friend_getNextCallFrame() == strafe->friend_getNextCallFrame());
 
-		// Round-trip into original module restores exact CRC
-		XferLoad load1(buf.data(), buf.size());
-		strafe->xfer(load1);
+		// strafe2 belongs to obj2, a distinct object in the world whose UpdateModule has a different
+		// scheduler slot (m_indexInLogic: 1 vs 0). Per retail RW 0x850C60, xferUpdateModule transfers
+		// only m_nextCallFrame; scheduler slots are world state restored by GameLogic's scheduler block.
+		// Therefore strafe2->crc() legitimately differs from strafe->crc() across distinct objects:
 		StateHasher h2;
-		strafe->crc(h2);
-		CHECK(h1.value() == h2.value());
+		strafe2->crc(h2);
+		CHECK(h2.value() != h1.value());
+
+		// Aligning the scheduler slot proves all module-specific CRC state restored identically:
+		strafe2->friend_setIndexInLogic(strafe->friend_getIndexInLogic(), strafe->friend_getPhaseInLogic());
+		StateHasher h2Aligned;
+		strafe2->crc(h2Aligned);
+		CHECK(h2Aligned.value() == h1.value());
 	}
 }
 
