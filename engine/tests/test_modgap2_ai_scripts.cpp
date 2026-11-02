@@ -25,6 +25,7 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/AnimalAIUpdate.h"
 #include "GameLogic/Module/DestroyEnvironmentUpdate.h"
+#include "GameLogic/Module/RainOfFireUpdate.h"
 #include "GameLogic/Module/HordeWorkerAIUpdate.h"
 #include "GameLogic/Module/LogicModules.h"
 #include "GameLogic/Module/PartTheHeavensUpdate.h"
@@ -71,11 +72,23 @@ const char kAiScriptTestIni[] =
     "    InitialHealth = 250\n"
     "  End\n"
     "End\n"
+    "Object TestDummyEnv\n"
+    "  KindOf = ENVIRONMENT\n"
+    "  Body = ActiveBody BodyTag\n"
+    "    MaxHealth = 100\n"
+    "  End\n"
+    "End\n"
     "Object TestEnvActor\n"
     "  KindOf = ENVIRONMENT\n"
     "  Body = ActiveBody BodyTag\n"
     "    MaxHealth = 100\n"
     "  End\n"
+    "  Behavior = RainOfFireUpdate ModuleTag_RainOfFire\n"
+    "    Darkness = 0.5\n"
+    "  End\n"
+    "End\n"
+    "Object TestDestroySpell\n"
+    "  KindOf = SYSTEM\n"
     "  Behavior = DestroyEnvironmentUpdate ModuleTag_DestroyEnv\n"
     "    StartTime = 5\n"
     "    DestructionTime = 20\n"
@@ -210,14 +223,19 @@ TEST_CASE("modgap2 ai: DestroyEnvironmentUpdate partition lookup and RadarMarker
 		combattest::CombatWorld w(kAiScriptTestIni);
 		w.logic->setEdition(edition);
 
-		// DestroyEnvironmentUpdate finds KINDOF_ENVIRONMENT actor
+		// DestroyEnvironmentUpdate finds KINDOF_ENVIRONMENT actor via slot 31 (RW 0x8AFC5F)
+		Object *dummy = w.unit("TestDummyEnv", 'A', 100.0f, 100.0f);
+		REQUIRE(dummy != nullptr);
 		Object *envObj = w.unit("TestEnvActor", 'A', 200.0f, 200.0f);
 		REQUIRE(envObj != nullptr);
+		Object *spell = w.unit("TestDestroySpell", 'A', 50.0f, 50.0f);
+		REQUIRE(spell != nullptr);
 
-		auto *deu = dynamic_cast<DestroyEnvironmentUpdate *>(envObj->findModule("DestroyEnvironmentUpdate"));
+		auto *deu = dynamic_cast<DestroyEnvironmentUpdate *>(spell->findModule("DestroyEnvironmentUpdate"));
 		REQUIRE(deu != nullptr);
 
 		deu->update();
+		// Authentically selects envObj (which implements slot 31), skipping dummy:
 		CHECK(deu->objectID() == envObj->getID());
 
 		// RadarMarkerClientUpdate

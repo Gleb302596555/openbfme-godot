@@ -91,6 +91,9 @@
 #include "GameLogic/Module/SiegeModules.h"
 #include "GameLogic/Module/PickupStuffUpdate.h"
 #include "GameLogic/Module/AutoPickUpUpdate.h"
+#include "GameLogic/Module/RainOfFireUpdate.h"
+#include "GameLogic/Module/WallUpgradeUpdate.h"
+#include "GameLogic/Module/RunOffMapBehavior.h"
 
 #include <stdexcept>
 
@@ -176,6 +179,9 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	SpawnBehavior::registerClass(modules); // lane MOD-4: the lairs' spawns
 	TransitionDamageFXModule::registerClass(modules); // lane FX-4: the damage state transition effects (S-686)
 	SlavedUpdate::registerClass(modules); // lane MOD-4: the spawns' guard
+	RainOfFireUpdate::registerClass(modules); // MODGAP-2: both editions RW 0x8AF739 / BFME2 0x004AC0A8 (S-7092)
+	WallUpgradeUpdate::registerClass(modules); // MODGAP-2: both editions RW 0x8AEBD3 / BFME2 0x4AB4D8
+	RunOffMapBehavior::registerClass(modules); // MODGAP-2: both editions RW 0x8652BB / BFME2 0x46217B (S-1995)
 	PickupStuffUpdate::registerModule(modules); // lane MODCOMPAT-MOD1: a skirmish AI's hordes walk to the crates near them (S-1422)
 	AutoPickUpUpdate::registerModule(modules); // lane MODCOMPAT-MOD1: the monsters' grab / eat scans and the WAKE_AUTO_PICKUP button (S-7160)
 	BoredUpdate::registerModule(modules); // lane MODCOMPAT-MOD1: an idle troll clubs a troll friend (S-7161)

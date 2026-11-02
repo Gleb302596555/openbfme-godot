@@ -47,6 +47,26 @@ DestroyEnvironmentUpdate::~DestroyEnvironmentUpdate()
 	releaseEnvironmentObject();
 }
 
+// RW 0x8AFC5F / BFME2 0x4AC5F5
+EnvironmentActor *DestroyEnvironmentUpdate::findEnvironmentActor(Object *obj)
+{
+	if (!obj)
+	{
+		return nullptr;
+	}
+	for (auto &m : obj->modules())
+	{
+		if (auto *bm = dynamic_cast<BehaviorModule *>(m.get()))
+		{
+			if (EnvironmentActor *actor = bm->slot31())
+			{
+				return actor;
+			}
+		}
+	}
+	return nullptr;
+}
+
 // RW 0x8AFD8C / BFME2 0x4AC722
 void DestroyEnvironmentUpdate::releaseEnvironmentObject()
 {
@@ -59,8 +79,10 @@ void DestroyEnvironmentUpdate::releaseEnvironmentObject()
 		Object *obj = getObject()->logic().findObjectByID(m_objectID);
 		if (obj)
 		{
-			// In retail, calls actor->release(0.0f) and TheGameLogic->destroyObject(obj).
-			// Environment actor interface is tracked by stop S-7092.
+			if (EnvironmentActor *actor = findEnvironmentActor(obj))
+			{
+				actor->release(0.0f);
+			}
 			getObject()->logic().destroyObject(obj);
 		}
 	}
@@ -85,7 +107,10 @@ ObjectID DestroyEnvironmentUpdate::findEnvironmentObject()
 	{
 		if (o->isKindOf((unsigned)envKind) && !o->isDestroyed())
 		{
-			return o->getID();
+			if (findEnvironmentActor(o) != nullptr)
+			{
+				return o->getID();
+			}
 		}
 	}
 	return 0;
@@ -130,8 +155,15 @@ UpdateSleepTime DestroyEnvironmentUpdate::update()
 	}
 	else
 	{
-		// In retail: actor->advance(-1.0f / (float)m_data->m_destructionTime)
-		// Tracked by stop S-7092.
+		// RW 0x8AFEB5 / BFME2 0x4AC84B: actor->advance(-1.0f / (float)m_data->m_destructionTime)
+		if (getObject())
+		{
+			Object *obj = getObject()->logic().findObjectByID(m_objectID);
+			if (EnvironmentActor *actor = findEnvironmentActor(obj))
+			{
+				actor->advance(-1.0f / (float)m_data->m_destructionTime);
+			}
+		}
 	}
 
 	return UPDATE_SLEEP_NONE;

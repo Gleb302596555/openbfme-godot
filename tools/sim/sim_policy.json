@@ -542,6 +542,10 @@
    "glob": "src/GameClient/RadarMarkerClientUpdate.cpp",
    "reason": "MODGAP-2, radar marker client module: connects a drawable to TheRadar ping/marker; client presentation only, never read by logic"
   },
+   {
+    "glob": "src/GameClient/ProjectedShadowManager.cpp",
+    "reason": "MODGAP-2, projected shadow and decal emission manager: client visual effect rendering only, never read by logic"
+   },
   {
    "glob": "src/GameClient/InGameChat.cpp",
    "reason": "CHAT-1, the in-game chat window's rules (recipient masks, labels, line formats, scroll-back): client state and direct network commands, never frame data or logic state"

@@ -14,6 +14,7 @@
 #pragma once
 
 #include "Common/Module.h"
+#include "GameLogic/Module/EnvironmentActor.h"
 #include "GameLogic/ObjectTypes.h"
 
 #include <cstdint>
@@ -86,6 +87,8 @@ public:
 	virtual std::string getGrabObjectName() const { return std::string(); }
 	// lane XP-1: RW vt[0x5C] (ActiveBody RW 0x8C1CD5) setMaxHealth(newMax, changeType): 1 keeps the health ratio, 2 adds the difference to the health
 	// (the AttributeModifier HEALTH / HEALTH_MULT bonuses use 1). A body class without the override counts the call (bodyMaxHealthCallsIgnored)
+	// RW 0x8C1BF9 / BFME2 slot 9: slot 0x28 of body interface
+	virtual void resetDamageState(int state = 0) { (void)state; }
 	virtual void setMaxHealth(float newMax, int changeType)
 	{
 		(void)newMax;
@@ -245,6 +248,9 @@ public:
 	// broadcasts it after the map objects are placed (RW 0x62F36B / 0x62F8EA) and after FoundationAIUpdate places a structure (RW 0x858A94). Default nothing
 	// (DynamicPortalBehaviour's RW 0x864341 generates its portals there)
 	virtual void onMapPlacement(const Dict *properties) { (void)properties; }
+	// RW 0x8AFC5F / BFME2 0x4AC5F5: slot 31 (offset 0x7C) of the +0xC interface
+	virtual EnvironmentActor *slot31() { return nullptr; }
+	EnvironmentActor *getEnvironmentActor() { return slot31(); }
 
 protected:
 	// lane SAVE-4b: BehaviorModule::xfer, version (1, 1) (RW 0x8CD4AA, the base xfer every UpdateModule / UpgradeModule xfer calls; inference: it is

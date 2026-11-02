@@ -29,6 +29,7 @@
 
 class ModuleFactory;
 class MultiIniFieldParse;
+class RadarMarker;
 
 class RadarMarkerClientUpdateModuleData : public ModuleData
 {
@@ -42,11 +43,13 @@ class RadarMarkerClientUpdate : public DrawableModule
 {
 public:
 	RadarMarkerClientUpdate(Thing *thing, const RadarMarkerClientUpdateModuleData *data);
+	~RadarMarkerClientUpdate() override;
 
 	const RadarMarkerClientUpdateModuleData *data() const { return m_data; }
 	const std::string &markerType() const;
 	bool hasMarker() const { return m_hasMarker; }
 	const Coord3D &markerPosition() const { return m_markerPosition; }
+	RadarMarker *marker() const { return m_marker; }
 
 	void clientUpdate();
 
@@ -54,6 +57,7 @@ public:
 
 private:
 	const RadarMarkerClientUpdateModuleData *m_data = nullptr;
+	RadarMarker *m_marker = nullptr;
 	Coord3D m_markerPosition{ 0.0f, 0.0f, 0.0f };
 	bool m_hasMarker = false;
 };

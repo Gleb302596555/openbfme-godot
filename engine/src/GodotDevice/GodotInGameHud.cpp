@@ -38,6 +38,7 @@
 #include "GameClient/TacticalCamera.h"
 #include "GameClient/CameraAnimation.h"
 #include "GameClient/LiveFX.h"
+#include "GameClient/ProjectedShadowManager.h"
 #include "GameClient/TacticalView.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/RetailObjectWorld.h"
@@ -346,6 +347,7 @@ struct HudDevice : public AptNativeHook
 	std::string resourceDecalError;
 	void drawResourceFeedback();
 	// S-5205: the effects' DynamicDecal decals (LiveFX::decals), drawn as the claim decals are
+	std::unique_ptr<ProjectedShadowManager> projectedShadows;
 	std::vector<uint64_t> fxDecalIds;
 	int fxDecalsDrawn = 0;
 	std::string fxDecalError;
@@ -1335,6 +1337,57 @@ void HudDevice::drawFXDecals()
 			decal->set_modulate(Color(1, 1, 1, opacity / 255.0f));
 			decal->set_visible(true);
 			++fxDecalsDrawn;
+		}
+		if (TheProjectedShadowManager)
+		{
+			TheProjectedShadowManager->prune();
+			for (const auto &s : TheProjectedShadowManager->shadows())
+			{
+				if (!s || !s->m_active || s->m_opacity <= 0)
+				{
+					continue;
+				}
+				const DecalTextures *tex = unlitDecalFor(s->m_texture, s->m_color);
+				if (!tex)
+				{
+					continue;
+				}
+				const ShadowChild *children[2] = { s->m_58, s->m_5c };
+				for (const ShadowChild *child : children)
+				{
+					if (!child || child->m_sizeX <= 0.0f)
+					{
+						continue;
+					}
+					const size_t i = (size_t)fxDecalsDrawn;
+					Decal *decal = i < fxDecalIds.size() ? Object::cast_to<Decal>(ObjectDB::get_instance(godot::ObjectID(fxDecalIds[i]))) : nullptr;
+					if (!decal)
+					{
+						decal = memnew(Decal);
+						root->add_child(decal);
+						if (i < fxDecalIds.size())
+						{
+							fxDecalIds[i] = decal->get_instance_id();
+						}
+						else
+						{
+							fxDecalIds.push_back(decal->get_instance_id());
+						}
+					}
+					const Coord3D &p = s->m_pos08;
+					decal->set_position(Vector3(p.x, p.z, -p.y));
+					decal->set_rotation(Vector3(0.0f, child->m_angle, 0.0f));
+					decal->set_size(Vector3(child->m_sizeX, 200.0f, child->m_sizeY));
+					decal->set_albedo_mix(1.0f);
+					decal->set_cull_mask(1u << 19);
+					decal->set_upper_fade(0.0f);
+					decal->set_lower_fade(0.0f);
+					decal->set_texture(Decal::TEXTURE_ALBEDO, tex->albedo);
+					decal->set_modulate(Color(1, 1, 1, s->m_opacity / 255.0f));
+					decal->set_visible(true);
+					++fxDecalsDrawn;
+				}
+			}
 		}
 	}
 	for (size_t i = (size_t)fxDecalsDrawn; i < fxDecalIds.size(); ++i)

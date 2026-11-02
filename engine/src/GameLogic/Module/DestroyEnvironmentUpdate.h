@@ -26,11 +26,11 @@
 //   * if elapsed >= DestructionTime, calls releaseEnvironmentObject()
 //   * else advances actor by -1.0f / DestructionTime and returns UPDATE_SLEEP_NONE
 // - xfer: RW 0x8AFD35 / BFME2 0x4AC6CB (version 1, m_startFrame, m_objectID).
-// - Limitations: stop S-7092 (environment actor slot 31 is not implemented by any module yet).
 
 #pragma once
 
 #include "Common/Module.h"
+#include "GameLogic/Module/EnvironmentActor.h"
 #include "GameLogic/Module/UpdateModule.h"
 
 #include <cstdint>
@@ -66,6 +66,7 @@ public:
 private:
 	void releaseEnvironmentObject();
 	ObjectID findEnvironmentObject();
+	EnvironmentActor *findEnvironmentActor(Object *obj);
 
 	const DestroyEnvironmentUpdateModuleData *m_data = nullptr;
 	std::uint32_t m_startFrame = 0; ///< +0x20
