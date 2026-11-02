@@ -35,6 +35,7 @@ namespace godot
 {
 
 class RetailFileSystem;
+class W3DInstancer;
 
 class FXPlayer : public Node3D
 {
@@ -95,6 +96,7 @@ public:
 	Array get_batch_summary() const { return m_summary; }
 	// lane FX-2 (C++ only): the playback the live game's LiveFX drives; null before setup() succeeded
 	FXPlayback *playback() const { return m_playback.get(); }
+	W3DInstancer *drawablesInstancer() const { return m_drawablesInstancer; }
 	// lane WEATHER-1 (C++ only): a particle texture through this player's cache (the snow manager's TextureAsset::Get is the particle texture loader,
 	// BFME2 0x00132D89); a name that does not resolve is the 1x1 white and is reported in get_stats().missing_textures
 	Ref<Texture2D> particleTexture(const std::string &name) { return loadTexture(name); }
@@ -142,6 +144,7 @@ private:
 	Ref<Shader> shaderFor(const std::string &key, const std::string &code);
 	Batch &batchSlot(size_t index, const std::string &key, int kind);
 	void upload(const std::vector<FXParticleSystem::DrawBatch> &batches);
+	void uploadDrawables(const std::vector<FXParticleSystem::DrawBatch> &batches);
 	void summarize(const std::vector<FXParticleSystem::DrawBatch> &batches); // lane RENDER-4
 	static void applyOrder(Batch &b, const FXParticleSystem::BatchOrder &order);
 	// lane PERF-1: hands `buf` to the slot's MultiMesh unless it is bit for bit the buffer the slot already shows
@@ -162,7 +165,24 @@ private:
 	double m_accumulator = 0.0;
 	bool m_paused = false;
 	double m_stepUs = 0.0, m_buildUs = 0.0, m_uploadUs = 0.0;
-	size_t m_sprites = 0, m_gpu = 0, m_vertices = 0, m_batchCount = 0;
+	size_t m_sprites = 0, m_gpu = 0, m_vertices = 0, m_drawableInstances = 0, m_batchCount = 0;
+
+	struct DrawableModelSlot
+	{
+		int64_t modelId = -1;
+		String defaultClip;
+		std::vector<int64_t> freeInstances;
+	};
+	struct ActiveDrawableParticle
+	{
+		std::string modelKey;
+		int64_t modelId = -1;
+		int64_t instanceId = -1;
+		bool seen = false;
+	};
+	W3DInstancer *m_drawablesInstancer = nullptr;
+	std::map<std::string, DrawableModelSlot> m_drawableModels;
+	std::map<std::uint64_t, ActiveDrawableParticle> m_activeDrawables;
 };
 
 } // namespace godot

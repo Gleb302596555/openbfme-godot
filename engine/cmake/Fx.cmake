@@ -18,4 +18,5 @@ set(OPENBFME_FX_TESTS
     tests/test_fx_draw.cpp
     tests/test_fx_retail.cpp
     tests/test_w3d_emitter_sim.cpp
-    tests/test_fx_review.cpp)
+    tests/test_fx_review.cpp
+    tests/test_ennorath_scenarios_client.cpp)

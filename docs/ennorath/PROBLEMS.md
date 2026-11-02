@@ -211,12 +211,13 @@
 - Проверка: чтение кода; замеров нет.
 
 ### P-18. Cloud Break: нет видимого эффекта
-- Статус: [ ] **ПРИОСТАНОВЛЕНО** — причина найдена, исправление не сделано
+- Статус: [x] **ВЫПОЛНЕНО — Antigravity, 2026-11-02** (подтверждено владельцем в игре)
+- Подсистема: 7 (Частицы-модели и проекции)
 - Добавлено: 2026-10-30, владелец
 - Описание: Применяется ли Cloud Break: меняется ли погода и начинается ли перезарядка. Да но как будто не сразу уходит в откат и нету визуального эфекта
 - Взял: Claude, 2026-10-30
-- Причина и исправление: `CloudBreakSunbeam` имеет `Model = None` и показывает только систему `CloudBreakRays`, у которой `Type = DRAWABLE` (`EXCldBrkRays.W3D`). Порт такие частицы не рисует (S-195, RW 0x964C00). Это общий пробел: в ванильных данных таких систем 135. Перенос не сделан: нужен мост от `RenderObjectDraw` к `W3DInstancer` (модель на частицу, преобразование, цвет и прозрачность), и вслепую без сборки его писать рискованно. Следующий шаг: сделать мост в отдельной сборке.
-- Проверка: чтение данных и кода.
+- Причина и исправление: `CloudBreakSunbeam` имеет `Model = None` и показывает только систему `CloudBreakRays`, у которой `Type = DRAWABLE` (`ParticleName = EXCldBrkRays.W3D`, `Shader = W3D_EMISSIVE`). Две причины в коде (обе редакции): (1) `ParticleSystem::isParticleInvisible` (RW 0x5F449F / BFME2 0x005F4E2D) не проверял наличие W3D-объекта у `PARTICLE_TYPE_DRAWABLE` (`cmp dword ptr [esi+0x8c], 0; jne 0x5f44e4` на RW 0x5F44A2) и удалял частицы с `Shader = W3D_DIFFUSE` / `W3D_ALPHA` / `W3D_EMISSIVE` (`shader >= 8`) в конце первого же кадра; (2) не был перенесён мост `RenderObjectDraw` (`MODULE_RENDER_OBJECT_DRAW`, RW 0x964C00 / BFME2 0x00562DDB `RenderObjectDrawModuleDoParticles.cpp`, `RenderParticle::RenderParticle` RW 0x5FBBC4 / BFME2 0x005FC49D) к `W3DInstancer`. Исправлено в `ParticleSys.cpp`, `ParticleDraw.h/.cpp`, `w3dshadergen.h/.cpp`, `GodotW3DMaterial.h/.cpp`, `GodotW3DInstancer.h/.cpp`, `GodotFXPlayer.h/.cpp`: `ParticleDrawBuilder::buildRenderObjects` собирает `DrawBatch::DRAWABLES` (имя модели без `.w3d`, 3D-матрица с вращением `angleZ` и масштабом `size[0..2]`, `SinkOnTerrainCollision` / `SinkRate`, цвет/прозрачность `W3D_EMISSIVE` / `W3D_DIFFUSE` / `W3D_ALPHA`), а `FXPlayer` отрисовывает их через дочерний `W3DInstancer` с поддержкой скелетной анимации `<model>.<model>` и текстурных мапперов (`LinearOffset`, `SineLinearOffset`). Симуляция не затронута.
+- Проверка: синтетический тест `draw: RenderObjectDraw builds W3D drawable instances with stripped model name, 3D transform, and shader color/opacity in both editions (RW 0x964C00 / BFME2 0x00562DDB)` (`engine/tests/test_fx_draw.cpp`) и сценарный тест на реальных данных Ennorath `ENNORATH scenario RenderObjectDraw: CloudBreakSunbeam attaches CloudBreakRays and builds W3D drawable instances for EXCldBrkRays in both editions (P-18, RW 0x964C00 / BFME2 0x00562DDB)` (`engine/tests/test_ennorath_scenarios_client.cpp`, стоимость `build` на 225 лучах ~0.04 мс/кадр) прошли в обеих редакциях (RotWK 2.01 и BFME2 1.06). Владелец подтвердил в игре на профиле Ennorath 2026-11-02: лучи Cloud Break и частицы-модели работают.
 
 ### P-19. Юниты не воруют деньги с ферм
 - Статус: [x] **ВЫПОЛНЕНО — владелец, 2026-11-02**: надпись кражи на 30% больше

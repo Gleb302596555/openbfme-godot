@@ -94,6 +94,7 @@ public:
 	void Set_Asset_Packs(const AssetPacks *packs) { Packs = packs; }
 	// lane BUILD-5 r3: the surfaces this factory builds belong to a translucent drawable (W3DShaderKey::AlphaOverride); off by default
 	void Set_Alpha_Override(bool on) { AlphaOverride = on; }
+	void Set_Particle_Color(bool on) { ParticleColor = on; }
 	// W3DFloorDraw: the model being built is a structure's floor (its bib). Its opaque classic surfaces blend by their texel alpha, which carries the
 	// bib's feathered edge, and write no depth (INFERENCE, stop S-4974: retail's terrain render object draws floors; the module only passes the fade
 	// of a dead object's floor on, FloorFadeRateOnObjectDeath). Off by default.
@@ -141,6 +142,7 @@ private:
 	HouseColorParams HouseParams;
 	std::vector<std::pair<std::string, std::string>> TextureSwaps; // stop S-5015
 	bool AlphaOverride = false;
+	bool ParticleColor = false;
 	bool FloorBlend = false;
 	std::map<std::string, Ref<Shader>> Shaders;
 	std::map<std::string, Ref<Texture2D>> Textures; // by virtual path

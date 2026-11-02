@@ -80,6 +80,8 @@ struct W3DShaderKey
 	//    (global w3d_occl_colors[slot], gamma space, blended SRC_ALPHA / ONE_MINUS_SRC_ALPHA as retail's quad) once: the pixel's stencil becomes
 	//    W3D_OCCLUSION_STENCIL_DONE, which no longer passes the compare. Off while the global w3d_occl_on is 0
 	int OcclusionPass = 0;
+	// RenderObjectDraw particles (RW 0x964c00 / BFME2 0x00562ddb): INSTANCE_CUSTOM.z (> 0.5: W3D_EMISSIVE, < -0.5: W3D_DIFFUSE) overrides the surface's emissive / diffuse RGB per particle
+	bool ParticleColor = false;
 
 	std::string Id() const;
 };

@@ -26,7 +26,7 @@
 | 4 | Очередь приказов | [ ] ПРИОСТАНОВЛЕНО, движение подключено | — | средний | средний |
 | 5 | Огонь | [ ] НЕ НАЧАТО | — | большой | высокий |
 | 6 | Зоны на земле | [ ] БЛОКИРОВАНО, см. ниже | 5 частично | средний | средний |
-| 7 | Частицы-модели и проекции | [ ] НЕ НАЧАТО | — | средний | нет |
+| 7 | Частицы-модели и проекции | [x] ВЫПОЛНЕНО — Antigravity, 2026-11-02 (подтверждено владельцем в игре) | — | средний | нет |
 | 8 | Контакты | [ ] НЕ НАЧАТО | P-31 | большой | высокий |
 
 Условие для п. 8 и для всего, что меняет ход симуляции: [P-31](PROBLEMS.md). Причины `perf1`, `perf2`, `ship1` и `skirmish ai vs ai` названы, эталоны перемерены 2026-11-02, эти тесты снова показывают регрессии. Открыт `backlog8` (`AODCrushCollide`, S-6007): его надо закрыть перед п. 8.
@@ -103,9 +103,14 @@
 
 ## 7. Частицы-модели и проекции
 
-- **Требует мод.** 343 определения `Type = DRAWABLE` против 135 в чистой игре (S-195).
-- **Состояние.** Не рисуются: нет моста от `RenderObjectDraw` к `W3DInstancer`. Круг света `PartTheHeavensUpdate` уже перенесён (S-7093 закрыт), его путь через `ProjectedShadowManager` стоит посмотреть перед работой над проекциями.
-- **Что делать.** Мост, затем проверка производительности: 343 системы могут стоить дорого.
+- **Требует мод.** 343 определения `Type = DRAWABLE` (338 уникальных имён; 313 упоминаются в INI мода, 167 определений / 165 уникальных достижимы по графу 11 игровых фракций) против 135 в чистой RotWK 2.01 и 121 в BFME2 1.06 (S-195). `TERRAIN_PARTICLE` (тип 6) в Ennorath и в обеих чистых играх не используется (0 определений) и не переносится (остаётся за S-195).
+- **Состояние.** Перенесено (обе редакции): мост `RenderObjectDraw` (`MODULE_RENDER_OBJECT_DRAW`) → `ParticleDrawBuilder` (`DrawBatch::DRAWABLES`) → дочерний `W3DInstancer` в `FXPlayer`:
+  - **Модель на частицу**: `ParticleName` без суффикса `.w3d` (4 символа с конца, `RenderParticle::RenderParticle` RW 0x5FBBC4 / BFME2 0x005FC49D `RenderParticleConstructor.cpp`, `RenderObjectDrawModule::modelName` RW 0x964A1C / BFME2 0x00562BF8). В `ParticleSystem::isParticleInvisible` (RW 0x5F449F / BFME2 0x005F4E2D) частица `PARTICLE_TYPE_DRAWABLE` с W3D-объектом (`+0x8C`, `RW 0x5F44A2`) никогда не отбраковывается по спрайтовому шейдеру (`shader >= 8`).
+  - **Трансформация**: `RenderObjectDrawModule::doParticles` (RW 0x964C00 / BFME2 0x00562DDB `RenderObjectDrawModuleDoParticles.cpp`): до 512 видимых частиц на систему (`!isParticleInvisible`), базовая матрица системы `transform()`, вращение `PARTICLE_ROTATION_OFF` / `X` / `Y` / `Z` / `V` на угол `angleZ` с домножением на базовый поворот при `!isLocalIdentity()`, трёхосевой масштаб `size[0..2]` с отсечкой `>= 0.0001f`, перенос `p.pos`, ветвь `SinkOnTerrainCollision` / `SinkRate`.
+  - **Цвет и прозрачность**: по `Shader` системы (`RW 0x965217..0x9652D3`): `W3D_EMISSIVE` → `SetEmissive(color * alpha)` (RW 0x50E040 / BFME2 0x0050E643), `W3D_DIFFUSE` → `SetDiffuse(color * alpha)` (RW 0x50E413 / BFME2 0x0050EA16), `W3D_ALPHA` → `SetOpacity(alpha)` (RW 0x50E244 / BFME2 0x0050E847), прочие (`ALPHA`, `NONE`) оставляют материал модели без переопределения (`opacity = 1.0`).
+  - **Анимация**: циклическая скелетная анимация `<model>.<model>` при наличии в `.w3d` (`RW 0x5FBD33` / `BFME2 0x005FC60F`, `Set_Animation(anim, 0.0f, ANIM_MODE_LOOP)`) и текстурные мапперы (`LinearOffset`, `SineLinearOffset` у `EXCldBrkRays.W3D`) через `W3DInstancer`.
+  - **Не перенесено**: `TERRAIN_PARTICLE` (тип 6, 0 в Ennorath и чистых играх, остаётся S-195); случайный выбор группы `MultiRenderObjects` (RW 0x964A1C / BFME2 0x00562BF8, 0 определений в Ennorath и чистых играх; при включении берётся `Object1` и пишется `unverified`). Круг света `PartTheHeavensUpdate` уже перенесён (S-7093 закрыт).
+- **Что делать.** Выполнено (обе редакции): мост `RenderObjectDraw` → `W3DInstancer` перенесён и проверен тестами; стоимость `ParticleDrawBuilder::build` на 225 системах `CloudBreakRays` — ~0.04 мс/кадр; подтверждено владельцем в игре (2026-11-02).
 - **Проверка.** Только отображение, симуляция не меняется. Просмотр владельцем: лучи Cloud Break (P-18), обломки.
 
 ## 8. Контакты

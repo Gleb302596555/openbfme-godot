@@ -126,6 +126,7 @@ std::string W3DShaderKey::Id() const
 	if (Fog) id += "_fog" + std::to_string(Fog); // lane RENDER-4
 	if (AlphaOverride) id += "_ao"; // lane BUILD-5 r3
 	if (OcclusionPass) id += "_occl" + std::to_string(OcclusionPass); // lane OCCLUDE-1
+	if (ParticleColor) id += "_pcol";
 	return id;
 }
 
@@ -408,9 +409,13 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 	}
 	line(k.Uv2 ? "\tv_uv = vec4(UV, UV2);" : "\tv_uv = vec4(UV, UV);");
 	line("\tv_fade = INSTANCE_CUSTOM.y;");
+	if (k.HouseColor || k.ParticleColor) { line("\tv_instance.z = INSTANCE_CUSTOM.z;"); } else if (false)
 	if (k.HouseColor)
 	{
 		line("\tv_instance.z = INSTANCE_CUSTOM.z;");
+	{
+		line("\tv_instance.z = INSTANCE_CUSTOM.z;");
+	}
 	}
 	line("\tv_vpos = (MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz;");
 	line("\tv_vnrm = normalize((MODELVIEW_NORMAL_MATRIX * NORMAL));");
@@ -470,7 +475,17 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 		line("\t\t\tssum += lc[i] * ((ndl > 0.0 && ndh > 0.0) ? pow(ndh, clamp(w3d_shininess, " + fmt(-W3D_LIT_POWER_LIMIT) + ", " + fmt(W3D_LIT_POWER_LIMIT) + ")) : 0.0);");
 		line("\t\t}");
 		line(k.HasDCG ? "\t\tvec4 vc = COLOR;" : "\t\tvec4 vc = vec4(1.0);");
-		line("\t\tv_lit0 = clamp(vec4((dsum * w3d_diffuse.rgb + amb * w3d_ambient_mat + w3d_emissive) * vc.rgb * 0.5, vc.a * w3d_diffuse.a), 0.0, 1.0);");
+		if (k.ParticleColor)
+		{
+			line("\t\tvec3 diff_rgb = w3d_diffuse.rgb; vec3 emis_rgb = w3d_emissive;");
+			line("\t\tif (v_instance.z > 0.5) { float hv = v_instance.z - 1.0; emis_rgb = vec3(floor(hv / 65536.0), floor(mod(hv, 65536.0) / 256.0), mod(hv, 256.0)) / 255.0; }");
+			line("\t\telse if (v_instance.z < -0.5) { float hv = -v_instance.z - 1.0; diff_rgb = vec3(floor(hv / 65536.0), floor(mod(hv, 65536.0) / 256.0), mod(hv, 256.0)) / 255.0; }");
+			line("\t\tv_lit0 = clamp(vec4((dsum * diff_rgb + amb * w3d_ambient_mat + emis_rgb) * vc.rgb * 0.5, vc.a * w3d_diffuse.a), 0.0, 1.0);");
+		}
+		else
+		{
+			line("\t\tv_lit0 = clamp(vec4((dsum * w3d_diffuse.rgb + amb * w3d_ambient_mat + w3d_emissive) * vc.rgb * 0.5, vc.a * w3d_diffuse.a), 0.0, 1.0);");
+		}
 		line("\t\tv_lit1 = clamp(ssum * w3d_spec_color * 0.5, 0.0, 1.0);");
 		line("\t}");
 	}
@@ -587,7 +602,16 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 		line("\tvec3 amb = inf ? w3d_amb_inf : w3d_amb_obj;");
 		line("\tlc[0] += w3d_tint; lc[1] += w3d_tint; lc[2] += w3d_tint; amb += w3d_tint;");
 		line("\tlc *= v_instance.y; amb *= v_instance.y;"); // lane VISUAL-2: the fogged light environment
-		line("\tvec3 base = t0.rgb * w3d_diffuse.rgb;");
+		if (k.ParticleColor)
+		{
+			line("\tvec3 diff_rgb = w3d_diffuse.rgb;");
+			line("\tif (v_instance.z < -0.5) { float hv = -v_instance.z - 1.0; diff_rgb = vec3(floor(hv / 65536.0), floor(mod(hv, 65536.0) / 256.0), mod(hv, 256.0)) / 255.0; }");
+			line("\tvec3 base = t0.rgb * diff_rgb;");
+		}
+		else
+		{
+			line("\tvec3 base = t0.rgb * w3d_diffuse.rgb;");
+		}
 		line("\tvec3 col = t0.rgb * clamp(amb * w3d_ambient_mat * 0.5, 0.0, 1.0) * 2.0;");
 		line("\tfor (int i = 0; i < 3; i++) {");
 		line("\t\tfloat ndl = dot(nt, lts[i]);");
@@ -602,7 +626,16 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 	{
 		// RENDER-2: simple.fxo ps_1_1 (blob 0): r0.rgb = t0 * v0 with v0 = oD0 = ColorEmissive (saturated by the colour interpolator), r0.a = t0.a;
 		// the fog lerp is not applied (S-390)
-		line("\tcur = vec4(t0.rgb * clamp(w3d_emissive, 0.0, 1.0), t0.a);");
+		if (k.ParticleColor)
+		{
+			line("\tvec3 emis_rgb = w3d_emissive;");
+			line("\tif (v_instance.z > 0.5) { float hv = v_instance.z - 1.0; emis_rgb = vec3(floor(hv / 65536.0), floor(mod(hv, 65536.0) / 256.0), mod(hv, 256.0)) / 255.0; }");
+			line("\tcur = vec4(t0.rgb * clamp(emis_rgb, 0.0, 1.0), t0.a);");
+		}
+		else
+		{
+			line("\tcur = vec4(t0.rgb * clamp(w3d_emissive, 0.0, 1.0), t0.a);");
+		}
 	}
 	else if (k.Texturing && k.PriGradient == W3D_GRADIENT_DISABLE)
 	{

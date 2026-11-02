@@ -1426,6 +1426,13 @@ void ParticleSystem::updateParticleEvents(Particle &p)
 // RW 0x5f449f
 bool ParticleSystem::isParticleInvisible(const Particle &p) const
 {
+	// RW 0x5f44a2 / BFME2 0x005f4e2d: cmp dword ptr [esi + 0x8c], 0; jne 0x5f44e4 — a RenderParticle with a W3D render object (+0x8c, created by
+	// RW 0x5fbbc4 / BFME2 0x005fc49d when m_particleType == PARTICLE_TYPE_DRAWABLE) is never culled as invisible by the 2D sprite shader test.
+	if (m_info.m_particleType == PARTICLE_TYPE_DRAWABLE &&
+		(!m_info.m_particleTypeName.empty() || (m_draw && m_draw->classId == MODULE_RENDER_OBJECT_DRAW && static_cast<const RenderObjectDrawModuleData *>(m_draw)->m_multiRenderObjects)))
+	{
+		return false;
+	}
 	const int shader = m_info.m_shaderType;
 	if (shader <= 0 || shader >= 8)
 	{

@@ -213,6 +213,7 @@ public:
 	ParticleSystemID masterID() const { return m_masterID; }
 	ParticleSystemID slaveID() const { return m_slaveID; }
 	bool isIdentity() const { return m_isIdentity; }
+	bool isLocalIdentity() const { return m_isLocalIdentity; }
 	const std::string &attachedBone() const { return m_attachedBone; }
 	std::uint32_t attachedDrawableID() const { return m_attachedDrawableID; } ///< lane FX-3 (tests)
 	// the first / next particle in this system's list, oldest first (-1 at the end)
@@ -358,6 +359,7 @@ public:
 	ParticleSettings &settings() { return m_settings; }
 	const ParticleSettings &settings() const { return m_settings; }
 	ParticleEnvironment &environment() { return m_env; }
+	ParticleEnvironment &environment() const { return m_env; }
 	const FXParticleSystemTemplateStore &templates() const { return m_templates; }
 
 	// RW 0x5f526a: createParticleSystem(template, createSlaves). Null template -> INVALID id.

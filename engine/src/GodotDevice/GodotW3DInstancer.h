@@ -119,6 +119,9 @@ public:
 	// lane BUILD-5 r3: every instance of this instancer is a translucent drawable (the placement ghost): set after setup() and BEFORE the first add_model, its
 	// opaque surfaces blend at the instance opacity (W3DShaderKey::AlphaOverride, ZH's translucent pass) instead of the dither
 	void set_alpha_override(bool enabled);
+	void set_particle_color(bool enabled);
+	void set_instance_particle_color(int64_t instance, int shader, float r, float g, float b);
+	bool has_model_file(const std::string &name) const;
 	// lane CAH-2 (stop S-1408): a model whose house colour textures are recoloured for a colour set (RotWK's house colour options, HouseColor.h: kind
 	// 1 .. 3 and up to three ARGB colours; a Create-a-Hero is kind 3 with its record's three colours) texel by texel BEFORE filtering (RW 0x531C77), as
 	// retail builds the render object "#<model>#<options>" with its own recoloured textures (RW 0x54BDE0). Its instances take no team colour.
@@ -419,6 +422,7 @@ private:
 	bool Playing = true;
 	bool AutoUpdate = true;
 	bool HouseColorEnabled = false;
+	bool ParticleColor = false;
 
 	// stats
 	double PoseMs = 0.0, UploadMs = 0.0, MapperMs = 0.0;
