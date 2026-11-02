@@ -144,6 +144,8 @@ public:
 	// registers the same keys on the radial's items, whose press is SetStance; that route is not ported (S-280)
 	void playStanceVoice(int stance);
 	void setStanceVoiceHandler(std::function<void(const std::string &)> handler) { m_stanceVoice = std::move(handler); }
+	// RW 0x9407D9, BFME2 0x00539DCB: command button voice handler (pickAndPlayUnitVoiceResponse 0x7E3 / 0x7E4 / 0x7E5)
+	void setCommandVoiceHandler(std::function<void(const std::string &)> handler) { m_commandVoice = std::move(handler); }
 	// right press on a build button: cancels one queued unit, or all with Shift and no MaxSimultaneousOfType (RW 0x940CD0); on a REVIVE button the hero record by
 	// its index (RW 0x940C57); on a PLAYER / OBJECT / CASTLE_UPGRADE button MSG_CANCEL_UPGRADE { mask bit } (RW 0x940E77 / 0x940FB3, lane FBSIM-1)
 	bool cancelQueued(int slot, bool inPalantir, bool shift = false);
@@ -213,6 +215,7 @@ private:
 	std::string m_setName;
 	std::vector<ControlBarButton> m_palantir, m_side, m_offBar;
 	std::function<void(const std::string &)> m_stanceVoice;
+	std::function<void(const std::string &)> m_commandVoice;
 	std::vector<ControlBarQueueEntry> m_queue;
 	std::uint32_t m_money = 0;
 	int m_cpUsed = 0, m_cpLimit = 0;

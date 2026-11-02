@@ -13,7 +13,7 @@
 // destroyed. The command bar registers an action per command window (ControlBar::setControlCommand RW 0x71CF3E, the call RW 0x71D139 -> RW 0x75AE14; RW 0x96F890 registers the stance sub-menu's): its key is the character after the first '&' of
 // the button's translated TextLabel (RW 0x75A7CB -> RW 0x75A67F).
 // NOT PORTED (stop S-280): the manager's message-type actions (a meta message bound to a window, RW 0x75B2BA), the other registrations (the radial / stance sub-menus RW 0x96FCCB / 0x96FDFD, the garrison inventory RW 0x94518D, RW 0x92C0A2 .. 0x92DDE7, RW 0x505B6C), the
-// hotkey sounds (EnabledHotKeyPressed / DisabledHotKeyPressed are counted, not played), the RW 0x90F92C and InGameUI vslot 0x17C gates.
+// hotkey sounds: EnabledHotKeyPressed (RW 0x75A544, BFME2 0x00358A53) / DisabledHotKeyPressed (RW 0x75A5BC, BFME2 0x00358ACB), the RW 0x90F92C and InGameUI vslot 0x17C gates.
 // INFERENCE: the character is the layout's (the device passes it with the key); without one the US layout's letter or digit of the scan code is used.
 // NOT RETAIL (OpenBFME, the owner's request 2026-10-29): when the layout's character finds no action, the same key's character in the US, Russian and
 // Ukrainian layouts is tried in that order, so a button marked "&R" answers its key whichever of those layouts is active, and a Cyrillic "&" letter too.

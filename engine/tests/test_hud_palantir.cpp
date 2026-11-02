@@ -1193,3 +1193,107 @@ TEST_CASE("hud click audio: hero portrait movie request")
 	CHECK(down == std::vector<std::string>{ "Gui_PalantirHeroButtonClick" });
 	CHECK(up.empty());
 }
+
+
+// Subtask 1: Button sounds & voices on hotkeys (RW 0x75A544 / RW 0x75A5BC, BFME2 0x00358A53 / BFME2 0x00358ACB; ControlBar RW 0x9407D9, BFME2 0x00539DCB)
+TEST_CASE("hud audio feedback: hotkey sounds and unit voice response on command button")
+{
+	if (!haveWorld("hud audio feedback"))
+	{
+		return;
+	}
+	SharedWorld &s = shared();
+	hudaudio::RetailAudio audio(*s.mount->fs);
+	struct FeedbackText : GameTextSource
+	{
+		bool fetch(const std::string &label, std::u16string &out) const override
+		{
+			if (label == "CONTROLBAR:Stop")
+			{
+				out = u"&Stop";
+				return true;
+			}
+			if (label == "CONTROLBAR:ToggleBlockFormation")
+			{
+				out = u"&Block Formation";
+				return true;
+			}
+			if (label == "CONTROLBAR:ToggleLineFormation")
+			{
+				out = u"&Line Formation";
+				return true;
+			}
+			return false;
+		}
+	} text;
+	HudRig h(s, &text);
+	h.hud->setWindowSize(1024, 768);
+	h.rig.view.setScreen(1024, 768);
+	h.frames(40);
+
+	auto hasAudioEvent = [](const std::vector<AudioLogEntry> &log, const std::string &name) {
+		for (const auto &e : log)
+		{
+			if (e.event == name)
+			{
+				return true;
+			}
+		}
+		return false;
+	};
+
+	// 1. Spawn GondorFighterHorde and select it
+	const Coord3D c = h.rig.freeSpot(2800, 1400, 200.0f);
+	Object *horde = h.rig.make("GondorFighterHorde", c.x, c.y);
+	h.frames(20);
+	h.hud->input().ui().deselectAll();
+	h.frames(2);
+	h.hud->input().ui().selectObject(horde->getID());
+	GameMessage selMsg(MSG_CREATE_SELECTED_GROUP, h.rig.local->getPlayerIndex());
+	selMsg.appendBooleanArgument(true);
+	selMsg.appendObjectIDArgument(horde->getID());
+	h.rig.game->commands().append(selMsg);
+	h.frames(20);
+	REQUIRE(h.hud->input().ui().selected() == std::vector<ObjectID>{ horde->getID() });
+
+	// 2. Stop hotkey 'S' (Command_Stop in offBar) dispatches EnabledHotKeyPressed (RW 0x75A544, BFME2 0x00358A53)
+	audio.manager->takeEventLog();
+	h.hud->key(KEY_S, KEY_STATE_DOWN, U's');
+	h.frames(2);
+	h.hud->key(KEY_S, KEY_STATE_UP, U's');
+	h.frames(4);
+	std::vector<AudioLogEntry> stopLog = audio.manager->takeEventLog();
+	CHECK(hasAudioEvent(stopLog, "Gui_EnabledHotkeyPressed"));
+
+	// 3. Verify formation toggle button exists in palantir
+	const ControlBar &bar = h.hud->controlBar();
+	// tolerance: horde command set contains stance toggle, formation toggle and upgrade buttons
+	REQUIRE(bar.palantirButtons().size() >= 2);
+	const ControlBarButton &formationBtn = bar.palantirButtons()[1];
+	REQUIRE(formationBtn.button != nullptr);
+	CHECK(formationBtn.button->m_command == GUI_COMMAND_HORDE_TOGGLE_FORMATION);
+
+	int bx = 0, by = 0;
+	REQUIRE(buttonCentre(h, "CommandButtons.1.content", bx, by));
+
+	// 4. Click formation button -> triggers unit voice response (RW 0x9407D9, BFME2 0x00539DCB)
+	audio.manager->takeEventLog();
+	h.hud->mouseMove(bx, by);
+	h.frames(2);
+	h.hud->mouseButton(HudInput::Button::Left, true, bx, by, 0, 4000);
+	h.frames(2);
+	h.hud->mouseButton(HudInput::Button::Left, false, bx, by, 0, 4040);
+	h.frames(10);
+	std::vector<AudioLogEntry> clickLog = audio.manager->takeEventLog();
+	CHECK(hasAudioEvent(clickLog, "GondorSoldierVoiceBlockFormationOn"));
+
+	// 5. Hotkey 'B' toggle back -> triggers EnabledHotKeyPressed and GondorSoldierVoiceLineFormation
+	audio.manager->takeEventLog();
+	h.hud->key(KEY_B, KEY_STATE_DOWN, U'b');
+	h.frames(2);
+	h.hud->key(KEY_B, KEY_STATE_UP, U'b');
+	h.frames(10);
+	std::vector<AudioLogEntry> hotkeyLog = audio.manager->takeEventLog();
+	CHECK(hasAudioEvent(hotkeyLog, "Gui_EnabledHotkeyPressed"));
+	CHECK(hasAudioEvent(hotkeyLog, "GondorSoldierVoiceLineFormation"));
+}

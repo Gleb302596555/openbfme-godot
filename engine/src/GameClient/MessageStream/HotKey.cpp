@@ -2,10 +2,31 @@
 // See HotKey.h.
 
 #include "GameClient/MessageStream/HotKey.h"
+#include "Common/Audio/AudioEntryPoints.h"
+#include "Common/Audio/GameAudio.h"
 
 #include "GameClient/MessageStream/MetaEvent.h"
 
 #include <cwctype>
+
+namespace
+{
+void playHotKeyEnabledSound()
+{
+	// RW 0x75A544, BFME2 0x00358A53 (HotKeyManager::rva00358A53): MiscAudio + 0x80 (EnabledHotKeyPressed)
+	AudioManager *audio = AudioApi::current();
+	const std::string &sound = audio ? audio->ini().miscAudio.get("EnabledHotKeyPressed") : std::string();
+	AudioApi::playUiSound(!sound.empty() ? sound : "Gui_EnabledHotkeyPressed");
+}
+
+void playHotKeyDisabledSound()
+{
+	// RW 0x75A5BC, BFME2 0x00358ACB (HotKeyManager::rva00358ACB): MiscAudio + 0x84 (DisabledHotKeyPressed)
+	AudioManager *audio = AudioApi::current();
+	const std::string &sound = audio ? audio->ini().miscAudio.get("DisabledHotKeyPressed") : std::string();
+	AudioApi::playUiSound(!sound.empty() ? sound : "Gui_DisabledHotkeyPressed");
+}
+} // namespace
 
 char32_t HotKeyTranslator::hotkeyOf(const std::u16string &text)
 {
@@ -156,16 +177,22 @@ MessageDisposition HotKeyTranslator::translate(const ClientMessage &msg)
 	}
 	if (!e)
 	{
-		++m_outcomes[disabled ? "disabled" : "none"]; // RW 0x75A5BC: DisabledHotKeyPressed (not played)
+		++m_outcomes[disabled ? "disabled" : "none"]; // RW 0x75A5BC, BFME2 0x00358ACB: DisabledHotKeyPressed
+		if (disabled)
+		{
+			playHotKeyDisabledSound();
+		}
 		return MessageDisposition::Keep;
 	}
 	if (e->run ? e->run() : (m_press && m_press(e->slot, e->inPalantir)))
 	{
-		++m_outcomes["enabled"]; // RW 0x75A544: EnabledHotKeyPressed (not played)
+		++m_outcomes["enabled"]; // RW 0x75A544, BFME2 0x00358A53: EnabledHotKeyPressed
+		playHotKeyEnabledSound();
 	}
 	else
 	{
 		++m_outcomes["press refused"];
+		playHotKeyDisabledSound(); // RW 0x75A5BC, BFME2 0x00358ACB: DisabledHotKeyPressed
 	}
 	return MessageDisposition::Destroy;
 }

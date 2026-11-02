@@ -135,7 +135,7 @@ InGameHud::InGameHud(Config config)
 		return DrawablePick::rayTest(*d, origin, dir, t);
 	};
 	m_bar = std::make_unique<ControlBar>(m_input->context());
-	m_bar->setStanceVoiceHandler([this](const std::string &sound) {
+	auto voiceHandler = [this](const std::string &sound) {
 		if (const Player *local = m_input->context().localPlayer())
 		{
 			m_voice->setLocalPlayerIndex(local->getPlayerIndex());
@@ -143,7 +143,9 @@ InGameHud::InGameHud(Config config)
 		UnitVoiceResponse::Info info;
 		info.commandSound = sound;
 		m_voice->pickAndPlay(m_input->ui().selected(), UnitVoiceResponse::VOICE_EVENT_STANCE, &info);
-	});
+	};
+	m_bar->setStanceVoiceHandler(voiceHandler);
+	m_bar->setCommandVoiceHandler(voiceHandler);
 	m_radar = std::make_unique<Radar>(m_input->context());
 	m_input->commandTranslator().setRadar(m_radar.get()); // lane HUD-4: Space (VIEW_LAST_RADAR_EVENT)
 	// lane INPUT-1: a hotkey presses its command button as a click on it would (ControlBar::processCommandUI through pressButton)

@@ -19,6 +19,7 @@
 #include "GameLogic/GameMessage.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
+#include "GameLogic/Combat/CombatNames.h"
 
 #include <algorithm>
 #include <map>
@@ -125,6 +126,25 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 	{
 		m_ctx.ui.message("GUI:NotEnoughMoneyToBuild"); // processCommandUI: CANMAKE_NO_MONEY
 		return false;
+	}
+	// RW 0x9407D9, BFME2 0x00539DCB: unit voice response for the pressed command button (pickAndPlayUnitVoiceResponse 0x7E3)
+	if (m_commandVoice && !b.m_unitSpecificSound.empty() && b.m_command != GUI_COMMAND_SET_STANCE)
+	{
+		size_t soundIndex = 0;
+		if (b.m_command == GUI_COMMAND_HORDE_TOGGLE_FORMATION)
+		{
+			const ContainModuleInterface *c = obj->getContain();
+			const ContainModuleInterface::ContainedItemsList *members = c ? c->getContainedItemsList() : nullptr;
+			if (members && !members->empty() && (*members->begin())->testModelCondition(CombatNames::modelCondition("ALTERNATE_FORMATION")))
+			{
+				soundIndex = 1;
+			}
+		}
+		const std::string &sound = soundIndex < b.m_unitSpecificSound.size() ? b.m_unitSpecificSound[soundIndex] : b.m_unitSpecificSound.front();
+		if (!sound.empty())
+		{
+			m_commandVoice(sound);
+		}
 	}
 	switch (b.m_command)
 	{
@@ -583,6 +603,15 @@ bool ControlBar::rightPressButton(int slot, bool inPalantir, bool shift)
 			m_ctx.ui.setGUICommand(nullptr);
 		}
 		return false;
+	}
+	// RW 0x940848 .. 0x940857, BFME2 0x00539DEC: AutoAbility toggle voice (0x7E4 / 0x7E5)
+	if (m_commandVoice && b.m_autoAbility)
+	{
+		const std::vector<std::string> &list = !cb->autoAbility ? b.m_setAutoAbilityUnitSound : b.m_unsetAutoAbilityUnitSound;
+		if (!list.empty() && !list.front().empty())
+		{
+			m_commandVoice(list.front());
+		}
 	}
 	switch (b.m_command)
 	{
