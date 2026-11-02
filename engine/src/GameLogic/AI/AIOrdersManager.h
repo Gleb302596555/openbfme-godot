@@ -17,6 +17,9 @@
 #include <utility>
 #include <vector>
 
+struct Coord3D;
+class GameLogic;
+
 class AIOrdersManager final : private ObjectOrderQueue::Owner
 {
 public:
@@ -33,6 +36,7 @@ public:
 		virtual void removed(ObjectId object) = 0;
 		virtual void preparePatrol(ObjectId object) = 0;
 		virtual std::unique_ptr<GroupOrder> clone() const = 0;
+		virtual bool isNearDestination(const Coord3D &pos) const { (void)pos; return false; }
 		const std::vector<ObjectId> &objects() const { return m_objects; }
 		OrderId cloneId() const { return m_clone; }
 
@@ -79,6 +83,7 @@ public:
 		auto it = m_queues.find(object);
 		if (it != m_queues.end()) it->second.setPatrolStart(orderId, flags, *this);
 	}
+	void setPatrolStartIfLoop(GameLogic &logic, const std::vector<ObjectId> &objects, const Coord3D &dest, unsigned flags);
 	void discardLastPlanned(ObjectId object)
 	{
 		auto it = m_queues.find(object);

@@ -7,6 +7,7 @@
 #include "Common/PlayerList.h"
 #include "GameLogic/AI/AICommands.h"
 #include "GameLogic/AI/AIGroup.h"
+#include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/GameLogic.h"
@@ -53,6 +54,12 @@ bool enter(GameLogic &logic, const GameMessage &m)
 	}
 	AIGroup group(logic, AICommands::selection(logic, m.getPlayerIndex()));
 	group.releaseWeaponLockForGroup(LOCKED_TEMPORARILY); // RW 0x77AC55
+	if (logic.aiWorld() && logic.aiWorld()->config().pathfind.planningModeEnabled)
+	{
+		// RW 0x77AC5A .. 0x77AC7F: MSG_ENTER with PlanningModeEnabled submits GarrisonObjectGroupOrder (RW 0x75754C)
+		group.planningGarrisonObject(container->getID(), logic.players().getNthPlayer(m.getPlayerIndex())->orderMode());
+		return true;
+	}
 	if (!container->getContain())
 	{
 		return true; // RW 0x774EEC: no contain, no order

@@ -69,6 +69,12 @@ public:
 	// its goal reserved there, a LARGE_RECTANGLE_PATHFIND unit's with its heading to it) and the move (RW 0x94DF1B -> aiMoveToPosition RW 0x66C4CA) or
 	// attack-move (RW 0x696266) to it. Every unit is sent to the one point: the destinations spread only by the reservations
 	void planningMoveToPosition(const Coord3D &pos, bool attackMove, int orderMode);
+	// RW 0x77C22F .. 0x77C254: MSG_DO_ATTACK_OBJECT with PlanningModeEnabled submits AttackObjectGroupOrder (RW 0x7574F8)
+	void planningAttackObject(ObjectID targetID, int orderMode);
+	// RW 0x77AC5A .. 0x77AC7F: MSG_ENTER with PlanningModeEnabled submits GarrisonObjectGroupOrder (RW 0x75754C)
+	void planningGarrisonObject(ObjectID containerID, int orderMode);
+	// RW 0x77BBC1 .. 0x77BBED: MSG_DO_MOVETO_FORMATION with PlanningModeEnabled submits MoveToFormationGroupOrder (RW 0x757419)
+	void planningMoveToFormation(int formationType, const Coord3D &pos, float angle, bool attackMove, int orderMode);
 	// RW 0x756E5C(manager, 3, group) (MSG_DO_STOP): every member's queue is cleared whole
 	void clearOrders();
 	// Calculate and reserve one member's destination (RW 0x94DF97; BFME2
