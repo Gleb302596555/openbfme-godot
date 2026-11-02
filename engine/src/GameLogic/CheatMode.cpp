@@ -207,13 +207,7 @@ bool runCommand(GameLogic &logic, const GameMessage &msg, Command command, int t
 			{
 				ai->addObjectToPathfindMap(*o);
 			}
-			for (const std::unique_ptr<BehaviorModule> &m : o->modules())
-			{
-				if (CreateModuleInterface *create = m->getCreate())
-				{
-					create->onBuildComplete();
-				}
-			}
+			o->friend_onBuildComplete(); // RW 0x68D252, with the drawable's create interfaces (RW 0x68D27A: EvaAnnounceClientCreate)
 			++made;
 		}
 		text = "spawned " + std::to_string(made) + " " + name + " for " + who;

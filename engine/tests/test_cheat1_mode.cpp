@@ -10,6 +10,7 @@
 #include "Common/PlayerScience.h"
 #include "Common/Thing/ThingFactory.h"
 #include "Common/Thing/ThingTemplate.h"
+#include "GameClient/EvaAnnounceClientCreate.h"
 #include "GameLogic/CheatMode.h"
 #include "GameLogic/GameLogicDispatch.h"
 #include "GameLogic/GameMessage.h"
@@ -207,6 +208,26 @@ TEST_CASE("cheat1 mode: every command's effect and limits in a Cheat Mode game")
 		CHECK(lastEntry(logic).text == "Cheat Mode: Player_1 (not done): a spawn point is off the map");
 		CHECK(!send(CheatMode::makeMessage(h, Command::Spawn, h, 1, templateId(logic, "GondorBoromir"), nullptr)).executed);
 		CHECK(lastEntry(logic).text == "Cheat Mode: Player_1 (not done): a spawn needs a location");
+	}
+	SUBCASE("spawn: a unit with EvaAnnounceClientCreate starts its announcement, as every creator's onBuildComplete does (RW 0x68D252, 0x68D27A)")
+	{
+		const Coord3D at{ 600.0f, 600.0f, 0.0f };
+		REQUIRE(send(CheatMode::makeMessage(h, Command::Spawn, o, 1, templateId(logic, "SummonedDragon"), &at)).executed);
+		r.frame(1);
+		const std::vector<Object *> dragons = objectsOf(logic, other, "SummonedDragon");
+		REQUIRE(dragons.size() == 1);
+		Drawable *d = r.game->drawables().findByObject(dragons[0]->getID());
+		REQUIRE(d != nullptr);
+		const EvaAnnounceClientCreate *eva = nullptr;
+		for (const auto &module : d->clientModules())
+		{
+			if (const auto *found = dynamic_cast<const EvaAnnounceClientCreate *>(module.get()))
+			{
+				eva = found;
+			}
+		}
+		REQUIRE(eva != nullptr);
+		CHECK(eva->started());
 	}
 	SUBCASE("level up: a hero of the target gains the levels; another player's object or a dead one is refused")
 	{
