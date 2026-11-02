@@ -25,6 +25,9 @@ list(APPEND OPENBFME_SIM_SOURCES src/GameEngineDevice/W3DDevice/GameClient/Drawa
 list(APPEND OPENBFME_SIM_SOURCES src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLightDraw.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/AnimalAIUpdate.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/HordeWorkerAIUpdate.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/RainOfFireUpdate.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/WallUpgradeUpdate.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/RunOffMapBehavior.cpp)
 set(OPENBFME_MODGAP2_TESTS
     tests/test_modgap2_bored.cpp
     tests/test_modgap2_aod_crush.cpp

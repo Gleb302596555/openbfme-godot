@@ -141,11 +141,12 @@ TEST_CASE("module coverage: every registry class is ported, base AI, parsed only
 	// MODGAP-2: TooltipUpgrade, AnnounceBirthAndDeathBehavior, W3DTornadoDraw, OilSpillUpdate, DestroyEnvironmentUpdate, PartTheHeavensUpdate, RadarMarkerClientUpdate: 205 -> 212.
 	// MODGAP-2: ProjectileStreamUpdate, W3DProjectileStreamDraw, StrafeAreaUpdate, W3DLightDraw: 212 -> 216, missing 97 -> 93.
 	// MODGAP-2: AnimalAIUpdate, HordeWorkerAIUpdate ported: 217 -> 219, baseAi 6 -> 4.
-	CHECK(c.ported == 219);
+	// MODGAP-2: RainOfFireUpdate, WallUpgradeUpdate, RunOffMapBehavior: 219 -> 222, missing 93 -> 90.
+	CHECK(c.ported == 222);
 	CHECK(c.baseAi == 4);
 	// S-207: SpawnUnitBehavior data is parsed-only; its runtime remains unported (S-140).
 	CHECK(c.parsedOnly == 13); // W3DBuffDraw 13 -> 14 (drawn via ClientBuffs, S-4642).
-	CHECK(c.missing == 93);
+	CHECK(c.missing == 90);
 
 	if (const char *out = std::getenv("OPENBFME_MODULE_COVERAGE_OUT"))
 	{

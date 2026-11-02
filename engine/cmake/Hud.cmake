@@ -20,6 +20,7 @@ set(OPENBFME_HUD_SOURCES
     src/GameClient/InGameHud.cpp
     src/GameClient/ControlBar.cpp
     src/GameClient/Radar.cpp
+    src/GameClient/ProjectedShadowManager.cpp
     src/GameClient/ControlBarCommandProcessing.cpp
     src/GameClient/GUI/AptScreens/AptPalantir.cpp
     src/GameClient/GUI/AptScreens/AptImageMode.cpp # community PR #37

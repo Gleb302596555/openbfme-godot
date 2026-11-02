@@ -3,6 +3,7 @@
 
 #include "GameClient/RadarMarkerClientUpdate.h"
 #include "GameClient/Drawable.h"
+#include "GameClient/Radar.h"
 
 #include "Common/INI.h"
 #include "Common/Thing/ModuleFactory.h"
@@ -35,6 +36,16 @@ RadarMarkerClientUpdate::RadarMarkerClientUpdate(Thing *thing, const RadarMarker
 {
 }
 
+// RW 0x8CE071 / BFME2 0x4C9C38
+RadarMarkerClientUpdate::~RadarMarkerClientUpdate()
+{
+	if (m_marker)
+	{
+		m_marker->DeleteReference();
+		m_marker = nullptr;
+	}
+}
+
 const std::string &RadarMarkerClientUpdate::markerType() const
 {
 	return m_data ? m_data->m_markerType : kEmptyString;
@@ -48,8 +59,20 @@ void RadarMarkerClientUpdate::clientUpdate()
 	{
 		return;
 	}
-	m_markerPosition = *d->getPosition();
-	m_hasMarker = true;
+	if (!m_marker)
+	{
+		if (!TheRadar)
+		{
+			return;
+		}
+		m_marker = TheRadar->createMarker(m_data->m_markerType);
+	}
+	if (m_marker && d->getPosition())
+	{
+		m_marker->setPosition(*d->getPosition());
+		m_markerPosition = *d->getPosition();
+		m_hasMarker = true;
+	}
 }
 
 void RadarMarkerClientUpdate::registerClass(ModuleFactory &modules)

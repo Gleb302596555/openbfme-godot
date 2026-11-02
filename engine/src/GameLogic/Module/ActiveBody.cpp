@@ -147,6 +147,16 @@ BodyDamageType ActiveBody::calcDamageState() const
 }
 
 // ZH ActiveBody::setInitialHealth (ActiveBody.cpp): the initial health is a percent of the max health; the current and previous health follow
+// RW 0x8C1BF9 / BFME2 slot 9: slot 0x28 of body interface
+void ActiveBody::resetDamageState(int state)
+{
+	if (state == 0)
+	{
+		m_currentHealth = m_maxHealth;
+		m_curDamageState = BODY_PRISTINE;
+	}
+}
+
 void ActiveBody::setInitialHealth(int initialPercent)
 {
 	m_initialHealth = SimMath::divf32(SimMath::mulf32(m_maxHealth, (float)initialPercent), 100.0f); // ZH order: (max * percent) / 100
