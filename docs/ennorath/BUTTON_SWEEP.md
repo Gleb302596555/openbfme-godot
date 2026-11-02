@@ -2,7 +2,29 @@
 
 Первый рабочий шаг порта, решение владельца 2026-11-02 ([план](../ENNORATH_FACTION_PLAN.md), этап E2). Матрица отвечает на вопрос, который не видит таблица классов: что происходит, когда игрок нажимает каждую кнопку каждой фракции. Её результат решает, какие подсистемы из [SUBSYSTEMS.md](SUBSYSTEMS.md) брать первыми.
 
-Статус: [ ] **НЕ НАЧАТО**. Кода и результатов ещё нет.
+Статус: [ ] **ЗАНЯТО — Claude, 2026-11-02**. Есть первый срез: прогон `unitsOf` на данных мода, тест `ENNORATH sweep units`, только отчёт.
+
+## Первый срез, 2026-11-02
+
+Запуск: `OPENBFME_SWEEP_OVERLAY=<install мода>`, `OPENBFME_SWEEP_FACTION=FactionRohan`, `OPENBFME_SWEEP_MAP=map mp fall back 8p` (в кэше карт мода нет `fall back 4p`), `FACTB_ONLY=<часть имени>` для отдельных объектов, тест `--test-case="ENNORATH sweep units*"`.
+
+Рохан, 98 строк: 65 прошли; 22 кнопка тактики, которая открывает радиальное меню (S-289); 11 к разбору:
+
+| Итог | Строк | Кнопки |
+|---|---:|---|
+| `NO-RULE`, пробел проверки | 5 | `ModelConditionSpecialAbilityUpdate` (`Command_SpecialAbilityHornGamling`, `Command_SpecialAbilityHamaSeiteanSeite`), `InvisibilitySpecialPower` (`Command_SpecialAbilityWaldfhrer`), `SpecialDisguiseUpdate` (`Command_DisguiseEowynEdain`), `ReplaceObjectUpdate` (`Command_SpecialAbilityRadagastConvertEnemy`) |
+| `NO-EFFECT`, кандидаты на ошибку | 3 | `Command_SpecialAbilityGeheimeWege`, `Command_PorterExtinguishFire`, `Command_TheodredReparaturarbeiten` |
+| `NO-FIRE` | 1 | `Command_Repair` у `RohanPorter` |
+| Не открылась | 2 | `Command_SpecialAbilityRohanTraitors`, `Command_SpecialAbilityTheodenAusbeutesteuer` у `RohanOldMan` |
+
+Что срез уже дал: падение из-за `Racoon_Replacement`, которого нет в данных мода (исправлено, `ReplaceObjectUpdate`).
+
+Чего срез пока не видит:
+
+- **Покрытие.** 98 кнопок против 422 по графу: `factb::inventory` не раскрывает формы, смены набора команд, призывы и здания. Часть разницы это завышение графа; сколько именно, не измерено.
+- **Звенья 3, 8, 9 и 10** не реализованы. Поэтому медитация Ган Бури Гана проходит: на каждую кнопку берётся новый юнит, и блокировка других кнопок после неё не проверяется.
+
+Вывод пока осторожный: массовой поломки на уровне «нажал, сила сработала, эффект есть» в этих 98 строках нет. Жалобы владельца, вероятно, лежат в непокрытых формах и в звеньях 3, 8–10. Следующие шаги: звено 10, затем звенья 3 и 8, затем инвентарь.
 
 ## Зачем
 

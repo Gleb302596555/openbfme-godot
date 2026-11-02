@@ -17,10 +17,6 @@
 | Тест | Место или сообщение |
 |---|---|
 | `backlog8 retail: the FLOATING_Z horde members...` (P-31) | `test_hud_horde2_retail.cpp:991`, `memberIds(archers).size() == 6` |
-| `perf1: the allied blob`, `perf1: the big battle` (P-31) | `test_perf1_bench.cpp:651`, `:599`, хэши |
-| `perf2: the big battle` (P-31) | `test_perf2_determinism.cpp:82`, хэши |
-| `ship1 retail: an Elven battle ship sails into range...` (P-31) | `test_ship1_ships.cpp:435`, `pitHits`: 486 вместо 484 |
-| `skirmish ai vs ai: Evendim` (P-31) | `test_skirmish_ai_vs_ai.cpp:931`, `defeatFrame` |
 | `MODS-1` (3 теста: `overridden Apt movie`, `parseMod`, `precedence`) | `test_mods1_mount.cpp:270`, `:110`, `:171` |
 | `script4 conditions: BUILT_BY_PLAYER...` | `test_script4.cpp:446`, `PLAYER_HAS_SCIENCEPURCHASEPOINTS` |
 | `hero abilities retail: FactionIsengard` | `test_hero_retail.cpp:1461`, `unexplained == 0` |
