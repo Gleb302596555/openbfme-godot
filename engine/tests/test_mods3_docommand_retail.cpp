@@ -22,6 +22,10 @@
 #include "GameLogic/Object/ObjectDoCommandButton.h"
 #include "GameLogic/Object/RetailObjectWorld.h"
 #include "GameLogic/WeaponSetToggle.h"
+#include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/AI/AIWorld.h"
+#include "PathfindTestUtil.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "ProdTestUtil.h"
 #include "RetailTestMount.h"
 
@@ -76,6 +80,9 @@ struct Game
 	PlayerList players;
 	std::unique_ptr<GameLogic> logic;
 	Player *player = nullptr;
+	AIWorldConfig cfg;
+	pathtest::SyntheticTerrain terrain{ 120, 120 };
+	std::unique_ptr<AIWorld> ai;
 	explicit Game(RetailObjectWorld &world, retailtest::Mount &mount, const std::string &faction)
 		: players(world.nameKeys(), world.playerTemplates(), teams)
 	{
@@ -92,8 +99,17 @@ struct Game
 		logic->setUpgradeTypes(&world.upgradeTypes());
 		REQUIRE_MESSAGE(EconomySettings::load(*mount.fs, logic->economy().settings(), &err), err);
 		logic->economy().initAllCommandPoints();
+		REQUIRE_MESSAGE(AIWorldConfigLoader::load(*mount.fs, cfg, &err), err);
+		ai = std::make_unique<AIWorld>(*logic, cfg, world.iniMacros());
+		ai->attach();
+		ai->newMap(terrain);
 		player = players.findPlayerWithName("Tester");
 		REQUIRE(player);
+	}
+	~Game()
+	{
+		logic.reset();
+		ai.reset();
 	}
 	Object *make(RetailObjectWorld &world, const std::string &name)
 	{
@@ -101,6 +117,8 @@ struct Game
 		REQUIRE_MESSAGE(tt, name);
 		Object *o = logic->newObject(tt, player->getDefaultTeam(), ObjectStatusMaskType{});
 		REQUIRE(o);
+		Coord3D p{ 500, 500, 0 };
+		o->setPosition(&p);
 		return testutil::completeHorde(o);
 	}
 	bool stopNoted(const std::string &prefix) const
@@ -260,21 +278,21 @@ TEST_CASE("MODS-3 retail: a disabled object presses nothing; an unported command
 	hall->doCommandButton(soulButton, CMD_FROM_PLAYER, false);
 	CHECK(pu->getProductionCount() == 1);
 
-	// HORDE_TOGGLE_FORMATION appends MSG 0x453 to the local client's message stream from inside the logic: not ported, named
-	const CommandButton *formation = nullptr;
+	// EXIT_CONTAINER appends MSG 0x41D to the local client's message stream from inside the logic: not ported, named
+	const CommandButton *unportedBtn = nullptr;
 	for (const std::string &name : TheCommandStore->buttonNames())
 	{
 		const CommandButton *b = TheCommandStore->findCommandButton(name);
-		if (b && b->m_command == GUI_COMMAND_HORDE_TOGGLE_FORMATION)
+		if (b && b->m_command == GUI_COMMAND_EXIT_CONTAINER)
 		{
-			formation = b;
+			unportedBtn = b;
 			break;
 		}
 	}
-	REQUIRE(formation);
-	const std::string prefix = "[S-5305] Object::doCommandButton (RW 0x696FD2 / 0x697890 / 0x6979D9): doCommandButton HORDE_TOGGLE_FORMATION";
+	REQUIRE(unportedBtn);
+	const std::string prefix = "[S-5305] Object::doCommandButton (RW 0x696FD2 / 0x697890 / 0x6979D9): doCommandButton EXIT_CONTAINER";
 	CHECK_FALSE(g.stopNoted(prefix));
-	hall->doCommandButton(formation, CMD_FROM_PLAYER, false);
+	hall->doCommandButton(unportedBtn, CMD_FROM_PLAYER, false);
 	CHECK(g.stopNoted(prefix));
 }
 
@@ -338,4 +356,67 @@ TEST_CASE("MODS-3: CommandButton QueueIgnoreCP parses only with edain-unchained.
 	REQUIRE(f.commands.findCommandButton("Command_B"));
 	CHECK(f.commands.findCommandButton("Command_A")->m_queueIgnoreCP);
 	CHECK_FALSE(f.commands.findCommandButton("Command_B")->m_queueIgnoreCP); // RW 0x75D688 (patched): the dword store zeroes + 0x10D
+}
+
+TEST_CASE("MODS-3 retail: HORDE_TOGGLE_FORMATION toggles a horde's formation (RW 0x697204 / 0x77BE83)")
+{
+	REQUIRE_RETAIL_WORLD(sh);
+	Game g(*sh.world, *sh.mount, "FactionMen");
+	Object *horde = g.make(*sh.world, "GondorFighterHorde");
+	REQUIRE(horde);
+	ContainModuleInterface *contain = horde->getContain();
+	REQUIRE(contain);
+	HordeContain *hc = dynamic_cast<HordeContain *>(contain);
+	REQUIRE(hc);
+	CHECK(hc->canToggleFormation());
+	const CommandButton *btn = TheCommandStore->findCommandButton("Command_ToggleFormationGondorFighter");
+	REQUIRE(btn);
+	REQUIRE(btn->m_command == GUI_COMMAND_HORDE_TOGGLE_FORMATION);
+	const unsigned long long togglesBefore = ObjectDoCommandButton::stats().formationToggles;
+	horde->doCommandButton(btn, CMD_FROM_PLAYER, false);
+	CHECK(ObjectDoCommandButton::stats().formationToggles == togglesBefore + 1);
+}
+
+TEST_CASE("MODS-3 retail: FIRE_WEAPON sets 10s deadline on object and temporarily locks weapon slot (RW 0x697126 / 0x68C91B / 0x69121A)")
+{
+	REQUIRE_RETAIL_WORLD(sh);
+	Game g(*sh.world, *sh.mount, "FactionMen");
+	Object *hero = g.make(*sh.world, "GondorFighter");
+	REQUIRE(hero);
+	CommandButton b;
+	b.m_command = GUI_COMMAND_FIRE_WEAPON;
+	b.m_weaponSlot = 0;
+	const unsigned long long fwBefore = ObjectDoCommandButton::stats().fireWeapons;
+	hero->doCommandButton(&b, CMD_FROM_PLAYER, false);
+	CHECK(ObjectDoCommandButton::stats().fireWeapons == fwBefore + 1);
+	CHECK(hero->getFireWeaponDeadline() == hero->logic().getFrame() + 10u * (UnsignedInt)LOGICFRAMES_PER_SECOND);
+}
+
+TEST_CASE("MODS-3 retail: ATTACK_MOVE at position calls aiAttackMoveToPosition (RW 0x697ACC / 0x696266)")
+{
+	REQUIRE_RETAIL_WORLD(sh);
+	Game g(*sh.world, *sh.mount, "FactionMen");
+	Object *unit = g.make(*sh.world, "GondorFighterHorde");
+	REQUIRE(unit);
+	AIUpdateInterface *ai = unit->getAIUpdateInterface();
+	REQUIRE(ai);
+	CommandButton b;
+	b.m_command = GUI_COMMAND_ATTACK_MOVE;
+	const unsigned long long amBefore = ObjectDoCommandButton::stats().attackMoves;
+	unit->doCommandButtonAtPosition(&b, Coord3D{ 500, 500, 0 }, CMD_FROM_PLAYER, false);
+	CHECK(ObjectDoCommandButton::stats().attackMoves == amBefore + 1);
+	CHECK(ai->attackMoveActive());
+}
+
+TEST_CASE("MODS-3 retail: DoCommandUpgrade runs HORDE_TOGGLE_FORMATION (S-5145)")
+{
+	REQUIRE_RETAIL_WORLD(sh);
+	Game g(*sh.world, *sh.mount, "FactionMen");
+	Object *horde = g.make(*sh.world, "GondorFighterHorde");
+	REQUIRE(horde);
+	CommandButton b;
+	b.m_command = GUI_COMMAND_HORDE_TOGGLE_FORMATION;
+	const unsigned notPortedBefore = UpgradeModuleClasses::stats().doCommandsNotPorted;
+	DoCommandUpgrade::doCommandButton(*horde, b);
+	CHECK(UpgradeModuleClasses::stats().doCommandsNotPorted == notPortedBefore);
 }

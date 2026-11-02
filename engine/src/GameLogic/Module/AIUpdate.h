@@ -103,6 +103,8 @@ public:
 
 	// ---- the command interface (ZH AICommandInterface) ----
 	void aiMoveToPosition(const Coord3D &pos, CommandSourceType source);
+	// lane LOGIC-BUTTONS: RW 0x696266 (BFME2 decomp Object.cpp:2261): attack-move to position (AICMD 0xF)
+	void aiAttackMoveToPosition(const Coord3D &pos, int maxShots, CommandSourceType source);
 	// lane BACKLOG2: RW 0x79664F AICommandInterface::aiMoveToPositionEvenIfSleeping (BFME2 decomp AICommandInterface_aiMoveToPositionEvenIfSleeping.cpp, tier A): AI command 0x36 with the position; the
 	// gate RW 0x667174 lets it through a sleeping mood (BFME2 decomp AIUpdateInterfacePrivateCommands.cpp:isAllowedToRespondToAiCommands); the command runs the
 	// move to the position (ZH AIUpdateInterface::aiDoCommand AICMD_MOVE_TO_POSITION_EVEN_IF_SLEEPING -> privateMoveToPosition: donor fact)

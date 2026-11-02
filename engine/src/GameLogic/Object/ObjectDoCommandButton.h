@@ -18,6 +18,9 @@ struct Stats
 	unsigned long long gates = 0;                   ///< TOGGLE_GATE opens / closes
 	unsigned long long voiceResponsesNotPlayed = 0; ///< the gate case's selection voice (client sound, RW 0x8DEDBB)
 	unsigned long long unported = 0;                ///< the cases of stop S-5305 met
+	unsigned long long formationToggles = 0;        ///< HORDE_TOGGLE_FORMATION (RW 0x697204 / 0x77BE83)
+	unsigned long long fireWeapons = 0;             ///< FIRE_WEAPON (RW 0x697126 / 0x697993 / 0x697A91)
+	unsigned long long attackMoves = 0;             ///< ATTACK_MOVE (RW 0x697ACC / 0x696266)
 };
 const Stats &stats();
 void resetStats();

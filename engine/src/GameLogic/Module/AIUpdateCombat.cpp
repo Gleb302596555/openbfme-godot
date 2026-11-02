@@ -914,6 +914,14 @@ Object *AIUpdateInterface::getNextMoodTarget(bool calledByAI, bool calledDuringI
 	return target;
 }
 
+// lane LOGIC-BUTTONS: RW 0x696266 (BFME2 decomp Object.cpp:2261): attack-move to position (AICMD 0xF)
+void AIUpdateInterface::aiAttackMoveToPosition(const Coord3D &pos, int maxShots, CommandSourceType source)
+{
+	(void)maxShots;
+	aiMoveToPosition(pos, source);
+	armAttackMove(pos, source);
+}
+
 // ZH groupAttackMoveToPosition (stop S-328)
 bool AIUpdateInterface::armAttackMove(const Coord3D &goal, CommandSourceType source)
 {

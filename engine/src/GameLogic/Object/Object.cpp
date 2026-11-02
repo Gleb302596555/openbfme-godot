@@ -3032,3 +3032,9 @@ void Object::xfer(Xfer &x)
 		x.endBlock();
 	}
 }
+
+// lane LOGIC-BUTTONS: RW 0x68C91B / BFME2 decomp Object.cpp rva0028C24C
+void Object::setFireWeaponDeadline()
+{
+	m_fireWeaponDeadline = m_logic.getFrame() + 10u * (UnsignedInt)LOGICFRAMES_PER_SECOND;
+}

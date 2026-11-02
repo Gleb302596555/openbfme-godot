@@ -20,7 +20,7 @@
 | № | Подсистема | Статус | Зависит от | Размер | Риск для симуляции |
 |---:|---|---|---|---|---|
 | 0 | [Матрица кнопок](BUTTON_SWEEP.md) и чистка стопов | [ ] НЕ НАЧАТО | — | средний | нет |
-| 1 | Кнопки, которые нажимает логика | [ ] НЕ НАЧАТО | — | малый | средний |
+| 1 | Кнопки, которые нажимает логика | [x] ГОТОВО — Gemini, 2026-11-02 | — | малый | средний |
 | 2 | Цепочка способностей | [ ] НЕ НАЧАТО | 0 | неизвестен | средний |
 | 3 | Отклик интерфейса | [ ] НЕ НАЧАТО | 0 | средний | нет |
 | 4 | Очередь приказов | [ ] ПРИОСТАНОВЛЕНО, движение подключено | — | средний | средний |
@@ -39,13 +39,14 @@
 
 ## 1. Кнопки, которые нажимает логика
 
-Самый дешёвый пробел, виден только на моде.
+Реализовано (lane LOGIC-BUTTONS, Gemini, 2026-11-02):
 
-- **Требует мод.** ИИ и `DoCommandUpgrade` нажимают `HORDE_TOGGLE_FORMATION` (27 записей, например `Command_ToggleFormationGondorFighter`, `Command_MountToggleBlackrider`) и `FIRE_WEAPON` (10, например `Command_ChargeAttack`). Плюс `WAKE_AUTO_PICKUP`, он уже работает.
-- **Состояние.** В `Object::doCommandButton` эти типы только считаются неперенесёнными: [ObjectDoCommandButton.cpp:375](../../engine/src/GameLogic/Object/ObjectDoCommandButton.cpp#L375), S-5305. Также не сделаны `EXIT_CONTAINER`, `EVACUATE`, `ONE_RING`, `CREW_EVACUATE`, ворота, `HORDE_SET_FORMATION`, `TOGGLE_WEAPON`, `REVIVE`, ремонт.
-- **Почему upstream не закроет.** По S-5305 чистая игра нажимает логикой только `TOGGLE_WEAPONSET`, `PLAYER_UPGRADE` и `SPECIAL_POWER`.
-- **Что делать.** RW 0x696FD2 и формы с целью RW 0x697890 / 0x6979D9; сначала типы, которые реально жмёт мод. Сверить `ATTACK_MOVE` (149 записей от ИИ) и `SET_STANCE` (1711 записей): дойдут ли они до эффекта, в этой переписи не проверено.
-- **Проверка.** Второй вход матрицы, сценарий на настоящей кнопке мода.
+- **HORDE_TOGGLE_FORMATION** (RW 0x697204 / 0x77BE83; BFME2 decomp Object.cpp:2175): получает `HordeContain` орды (или контейнера) и при `canToggleFormation()` (vslot 0x5C, RW 0x8700AC) вызывает `toggleFormation()` (vslot 0x60, RW 0x86C7F6). Подключено в `Object::doCommandButton` и `DoCommandUpgrade::doCommandButton`.
+- **FIRE_WEAPON** (RW 0x697126 / 0x697993 / 0x697A91; BFME2 decomp Object.cpp:2022 / 2307 / 2272): реализовано во всех трёх формах: установка дедлайна кулдауна 10 с (Object + 0x478 в RotWK / + 0x458 в BFME2, RW 0x68C91B / BFME2 rva0028C24C), временный лок слота оружия `ObjectWeapons::setObjectWeaponLock(..., LOCKED_TEMPORARILY)` (RW 0x69121A) и вызов атаки в ИИ (`aiAttackPosition` RW 0x6961F1 / `aiAttackObject` RW 0x66C536). Проверка готовности подключена в `ActionManager` (RW 0x75CF21 / RW 0x75CC40: проверка апгрейда RW 0x75CC5A и дедлайна RW 0x75CC69).
+- **ATTACK_MOVE** (RW 0x697ACC / 0x696266; BFME2 decomp Object.cpp:2261): реализовано в форме по позиции `Object::doCommandButtonAtPosition` -> `AIUpdateInterface::aiAttackMoveToPosition` (AICMD 0xF: движение к цели и вооружение атаки-движения `armAttackMove`).
+- **SET_STANCE** (1711 записей в моде): проверено, уже работает корректно через `StancesBehavior::setStance` (RW 0x6976E3 / 0x8620DD).
+- **DoCommandUpgrade** (RW 0x8B8E2E): подключены маршруты `OBJECT_UPGRADE`, `HORDE_TOGGLE_FORMATION`, `SET_STANCE`, `FIRE_WEAPON` через `Object::doCommandButton`.
+- **Тесты**: синтетические тесты в `test_mods3_docommand_retail.cpp`, сценарии мода в `test_ennorath_scenarios.cpp`.
 
 ## 2. Цепочка способностей
 
