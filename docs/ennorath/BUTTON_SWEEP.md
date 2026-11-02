@@ -32,7 +32,12 @@
 
 - До исправления: `Command_SpecialAbilityGhanMeditation` даёт `STUCK`, `Command_SpecialAbilityGrausamerGiftpfeil` и `Command_SpecialAbilityWaldfhrer` заблокированы.
 - Причина общая, не в этом герое: истёкший модификатор не снимался (стоп S-633), его условие модели оставалось навсегда. Медитация ставит `STONED`, эти кнопки выключаются по `DisableOnModelCondition = STONED`. Это касалось любого модификатора с условием модели и сроком, в моде и в чистой игре.
-- Исправление: перенесены RW 0x80585F и 0x8052FB (`AttributeModifierPool`). После него на всём Рохане `STUCK` нет. Итоги остальных строк таблицы выше не изменились. В игре владелец ещё не проверял.
+- Исправление: перенесены RW 0x80585F и 0x8052FB (`AttributeModifierPool`). После него на всём Рохане `STUCK` нет. Итоги остальных строк таблицы выше не изменились. Владелец в игре подтвердил, что эффекты спадают (2026-11-02).
+
+Что владелец заметил после этого:
+
+- **Больной Теоден, налоги и отступники, не ошибка.** В моде кнопки включаются только в 200 от постройки Рохана: `EnableOnModelCondition = USER_3`, а `USER_3` даёт `AllowedTheodenButtons`, который постройка обновляет каждые 2 секунды (`structures/rohan/farm.ini`, `ModuleTag_FeelGoodTheoden`). Раньше условие оставалось навсегда, поэтому кнопки горели и вдали от построек. Закреплено тестом. Поэтому те две строки `RohanOldMan` в таблице выше относятся к проверке: ей нужна постройка рядом.
+- **Мерри, значок кражи, ошибка порта, общая.** `Command_GiveMeTheMoneyBitch` это пассивный значок (`Command = NONE`, `NONPRESSABLE`). Команду без правила RW считает доступной (RW 0x942FF1), а порт считал заблокированной: `default` в `ControlBar::evaluate`. Исправлено для всех таких команд. `SPELL_BOOK`, `SPECIAL_POWER_TOGGLE` и `SPECIAL_POWER_FROM_COMMAND_CENTER` по таблице RW 0x9438CF идут в правило силы и теперь тоже. Правила `COMBATDROP`, `SWITCH_WEAPON`, `TOGGLE_WEAPON`, `ONE_RING`, `CREW_EVACUATE`, `WAKE_AUTO_PICKUP`, `START_SELF_REPAIR`, `HORDE_SET_FORMATION`, `START_NEIGHBORHOOD_REPAIR`, `CANCEL_NEIGHBORHOOD` есть в RW, но ещё не перенесены (S-290). Сама кража работает отдельно, через `PillageModule` (P-19).
 
 ## Зачем
 

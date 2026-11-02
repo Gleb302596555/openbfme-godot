@@ -366,6 +366,9 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 			return ButtonState::Enabled;
 		}
 		case GUI_COMMAND_SPECIAL_POWER:
+		case GUI_COMMAND_SPECIAL_POWER_FROM_COMMAND_CENTER: // the jump table RW 0x9438CF sends these three to the same RW 0x943343
+		case GUI_COMMAND_SPECIAL_POWER_TOGGLE:
+		case GUI_COMMAND_SPELL_BOOK:
 		{
 			// RW 0x943343..0x943606: the special-power availability branch (remaining update-module / BattlePlan gates: S-850).
 			const SpecialPowerTemplate *t = specialPowerOf(b);
@@ -440,8 +443,22 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 			const CastleBehavior *castle = dynamic_cast<const CastleBehavior *>(obj.findModule("CastleBehavior"));
 			return castle && castle->isUnpacked() && castle->isPlayerAllowedToPackOrUnpack(player) ? ButtonState::Active : ButtonState::Hidden;
 		}
-		default:
+		// RW has a rule for these (the jump table RW 0x9438CF), not read yet (S-290): the port restricts them
+		case GUI_COMMAND_COMBATDROP:             // RW 0x94324C
+		case GUI_COMMAND_SWITCH_WEAPON:          // RW 0x94375C
+		case GUI_COMMAND_TOGGLE_WEAPON:          // RW 0x9437E7
+		case GUI_COMMAND_ONE_RING:               // RW 0x94387B
+		case GUI_COMMAND_CREW_EVACUATE:          // RW 0x94331B
+		case GUI_COMMAND_WAKE_AUTO_PICKUP:       // RW 0x942FC6
+		case GUI_COMMAND_START_SELF_REPAIR:      // RW 0x942D83
+		case GUI_COMMAND_HORDE_SET_FORMATION:    // RW 0x9438A0
+		case GUI_COMMAND_START_NEIGHBORHOOD_REPAIR: // RW 0x942DED
+		case GUI_COMMAND_CANCEL_NEIGHBORHOOD:    // RW 0x942DD2
 			return ButtonState::Restricted;
+		default:
+			// RW 0x942A5C .. 0x942A63 and the table's other entries -> RW 0x942FF1: a command without a rule, Command = NONE among them, is available (1). A NONPRESSABLE one
+			// takes no click and draws _static (RW 0x9D2BFA): Ennorath's passive Command_GiveMeTheMoneyBitch was drawn disabled
+			return ButtonState::Enabled;
 	}
 }
 

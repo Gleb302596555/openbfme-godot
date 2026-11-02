@@ -1900,6 +1900,67 @@ TEST_CASE("ENNORATH sweep units: every unit, horde and hero ability and upgrade 
 	r.print((std::string("units ") + faction).c_str());
 }
 
+// Two buttons the owner saw disabled (docs/ennorath/BUTTON_SWEEP.md), on the mod's data:
+// RohanOldMan's Command_SpecialAbilityTheodenAusbeutesteuer and Command_SpecialAbilityRohanTraitors have EnableOnModelCondition USER_3, which comes from AllowedTheodenButtons (Duration
+// 2000), given again every 2000 ms within 200 of a Rohan building (PassiveAreaEffectBehavior ModuleTag_FeelGoodTheoden, data\ini\object\goodfaction\structures\rohan\farm.ini): the mod
+// keeps them on by a building only. Command_GiveMeTheMoneyBitch (includes\commandbutton.inc: Command = NONE, NONPRESSABLE) is a passive's icon: available (RW 0x942FF1), never disabled.
+TEST_CASE("ENNORATH sweep: the old Theoden's buttons follow a Rohan building, Merry's passive steal icon is available (RW 0x942FF1)")
+{
+	if (!std::getenv("OPENBFME_SWEEP_OVERLAY"))
+	{
+		retailtest::printSkip("ENNORATH sweep (set OPENBFME_SWEEP_OVERLAY)");
+		return;
+	}
+	if (!haveWorld("ENNORATH sweep"))
+	{
+		return;
+	}
+	SharedWorld &s = shared();
+	factb::HudGame g(s, "FactionRohan");
+	g.logic().combat().setAutoAcquireEnabled(false);
+	auto stateOf = [&](const char *button) {
+		for (const ControlBarButton &x : g.visible())
+		{
+			if (x.button->m_name == button)
+			{
+				return x.state;
+			}
+		}
+		FAIL_CHECK(button << " is not on the bar");
+		return ButtonState::Hidden;
+	};
+	const Coord3D home = g.home();
+	const Coord3D far = g.rig.freeSpot(home.x + 1500.0f, home.y + 300.0f, 200.0f);
+	Object *old = g.rig.make("RohanOldMan", far.x, far.y);
+	g.step(25);
+	REQUIRE(g.select(old));
+	CHECK(stateOf("Command_SpecialAbilityTheodenAusbeutesteuer") == ButtonState::Restricted);
+	CHECK(stateOf("Command_SpecialAbilityRohanTraitors") == ButtonState::Restricted);
+	const ObjectID farmId = g.rig.make("RohanFarmMod", far.x + 120.0f, far.y)->getID();
+	// a list of 10 frames given again every 10: the buttons hold across the gives
+	for (int k = 0; k < 8; ++k)
+	{
+		g.step(5);
+		CHECK(stateOf("Command_SpecialAbilityTheodenAusbeutesteuer") == ButtonState::Enabled);
+		CHECK(stateOf("Command_SpecialAbilityRohanTraitors") == ButtonState::Enabled);
+	}
+	g.logic().destroyObject(g.logic().findObjectByID(farmId));
+	g.step(15);
+	CHECK(stateOf("Command_SpecialAbilityTheodenAusbeutesteuer") == ButtonState::Restricted);
+	CHECK(stateOf("Command_SpecialAbilityRohanTraitors") == ButtonState::Restricted);
+
+	const Coord3D at = g.rig.freeSpot(home.x + 1500.0f, home.y - 500.0f, 200.0f);
+	Object *merry = g.rig.make("RohanMerry_mod", at.x, at.y);
+	g.step(25);
+	REQUIRE(g.select(merry));
+	CHECK(stateOf("Command_GiveMeTheMoneyBitch") == ButtonState::Enabled);
+	ControlBarButton icon;
+	REQUIRE(g.reveal(merry, [](const CommandButton &x) { return x.m_name == "Command_GiveMeTheMoneyBitch"; }, icon));
+	const auto unported = g.hud->controlBar().unportedPresses();
+	CHECK_FALSE(g.press(icon)); // NONPRESSABLE: it takes no click
+	CHECK(g.hud->controlBar().unportedPresses() == unported);
+}
+
 // The pick of a click on a siege engine (the train sweep could not select Isengard's battering ram or Mordor's catapult with a click): the hits at
 // the pixel of the object's position, for the log; the ballista (selectable) as the reference
 TEST_CASE("factb pick: the hits of a click on Isengard's and Mordor's siege engines (diagnostic)")
