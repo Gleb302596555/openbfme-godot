@@ -8,9 +8,13 @@
 #include "doctest.h"
 
 #include "Common/BuildAssistant.h"
+#include "Common/GameState.h"
 #include "Common/ModEngineFeatures.h"
 #include "Common/PlayerList.h"
 #include "Common/Team.h"
+#include "Common/StateHash.h"
+#include "GameLogic/Combat/ObjectWeapons.h"
+#include "GameLogic/Weapon.h"
 #include "GameClient/ControlBarCommands.h"
 #include "GameEngineDevice/Win32Device/Common/Win32BIGFileSystem.h"
 #include "GameLogic/Economy.h"
@@ -369,12 +373,18 @@ TEST_CASE("MODS-3 retail: HORDE_TOGGLE_FORMATION toggles a horde's formation (RW
 	HordeContain *hc = dynamic_cast<HordeContain *>(contain);
 	REQUIRE(hc);
 	CHECK(hc->canToggleFormation());
+	const ThingTemplate *oldAlt = hc->alternateFormationTemplate();
+	REQUIRE(oldAlt);
 	const CommandButton *btn = TheCommandStore->findCommandButton("Command_ToggleFormationGondorFighter");
 	REQUIRE(btn);
 	REQUIRE(btn->m_command == GUI_COMMAND_HORDE_TOGGLE_FORMATION);
 	const unsigned long long togglesBefore = ObjectDoCommandButton::stats().formationToggles;
 	horde->doCommandButton(btn, CMD_FROM_PLAYER, false);
 	CHECK(ObjectDoCommandButton::stats().formationToggles == togglesBefore + 1);
+	HordeContain *newHc = dynamic_cast<HordeContain *>(horde->getContain());
+	REQUIRE(newHc != nullptr);
+	CHECK(newHc != hc);
+	CHECK(newHc->alternateFormationTemplate() != oldAlt);
 }
 
 TEST_CASE("MODS-3 retail: FIRE_WEAPON sets 10s deadline on object and temporarily locks weapon slot (RW 0x697126 / 0x68C91B / 0x69121A)")
@@ -392,20 +402,67 @@ TEST_CASE("MODS-3 retail: FIRE_WEAPON sets 10s deadline on object and temporaril
 	CHECK(hero->getFireWeaponDeadline() == hero->logic().getFrame() + 10u * (UnsignedInt)LOGICFRAMES_PER_SECOND);
 }
 
-TEST_CASE("MODS-3 retail: ATTACK_MOVE at position calls aiAttackMoveToPosition (RW 0x697ACC / 0x696266)")
+TEST_CASE("MODS-3 retail: m_fireWeaponDeadline saves and loads through Object::xfer and leaves CRC unchanged when 0 (BFME2 ObjectDoXfer.cpp:668, RW +0x478)")
 {
 	REQUIRE_RETAIL_WORLD(sh);
 	Game g(*sh.world, *sh.mount, "FactionMen");
-	Object *unit = g.make(*sh.world, "GondorFighterHorde");
+	Object *hero = g.make(*sh.world, "GondorFighter");
+	REQUIRE(hero);
+	CHECK(hero->getFireWeaponDeadline() == 0);
+
+	// Check CRC invariance: CRC when m_fireWeaponDeadline == 0 matches baseline
+	StateHasher h0;
+	hero->crc(h0);
+	const std::uint32_t hash0 = h0.value();
+
+	// Explicitly setting deadline to 0 leaves CRC identical
+	hero->setFireWeaponDeadline(0);
+	StateHasher h0_again;
+	hero->crc(h0_again);
+	CHECK(h0_again.value() == hash0);
+
+	// Set deadline: CRC changes
+	hero->setFireWeaponDeadline();
+	const std::uint32_t deadline = hero->getFireWeaponDeadline();
+	CHECK(deadline == 50);
+
+	StateHasher h1;
+	hero->crc(h1);
+	CHECK(h1.value() != hash0);
+
+	const ObjectID heroId = hero->getID();
+
+	// Test save / load round-trip of Object state
+	const std::vector<std::string> blocks = { "obfme:TeamFactory", "obfme:Players", "obfme:GameLogic", "obfme:Random", "obfme:Objects" };
+	std::vector<std::uint8_t> stream;
+	g.logic->gameState().saveBlocks(blocks, stream);
+
+	g.logic->gameState().loadBlocks(blocks, stream);
+	Object *loadedHero = g.logic->findObjectByID(heroId);
+	REQUIRE(loadedHero != nullptr);
+	CHECK(loadedHero->getFireWeaponDeadline() == deadline);
+}
+
+TEST_CASE("MODS-3 retail: ATTACK_MOVE at position calls aiAttackMoveToPosition and arms maxShots (RW 0x697ACC / 0x696266)")
+{
+	REQUIRE_RETAIL_WORLD(sh);
+	Game g(*sh.world, *sh.mount, "FactionMen");
+	Object *unit = g.make(*sh.world, "GondorFighter");
 	REQUIRE(unit);
 	AIUpdateInterface *ai = unit->getAIUpdateInterface();
 	REQUIRE(ai);
 	CommandButton b;
 	b.m_command = GUI_COMMAND_ATTACK_MOVE;
+	b.m_maxShotsToFire = 5;
 	const unsigned long long amBefore = ObjectDoCommandButton::stats().attackMoves;
 	unit->doCommandButtonAtPosition(&b, Coord3D{ 500, 500, 0 }, CMD_FROM_PLAYER, false);
 	CHECK(ObjectDoCommandButton::stats().attackMoves == amBefore + 1);
 	CHECK(ai->attackMoveActive());
+	ObjectWeapons *w = unit->getWeapons();
+	REQUIRE(w != nullptr);
+	Weapon *cur = w->currentWeapon();
+	REQUIRE(cur != nullptr);
+	CHECK(cur->maxShotCount() == 5);
 }
 
 TEST_CASE("MODS-3 retail: DoCommandUpgrade runs HORDE_TOGGLE_FORMATION (S-5145)")
@@ -414,9 +471,19 @@ TEST_CASE("MODS-3 retail: DoCommandUpgrade runs HORDE_TOGGLE_FORMATION (S-5145)"
 	Game g(*sh.world, *sh.mount, "FactionMen");
 	Object *horde = g.make(*sh.world, "GondorFighterHorde");
 	REQUIRE(horde);
+	ContainModuleInterface *contain = horde->getContain();
+	REQUIRE(contain);
+	HordeContain *hc = dynamic_cast<HordeContain *>(contain);
+	REQUIRE(hc);
+	const ThingTemplate *oldAlt = hc->alternateFormationTemplate();
+	REQUIRE(oldAlt);
 	CommandButton b;
 	b.m_command = GUI_COMMAND_HORDE_TOGGLE_FORMATION;
 	const unsigned notPortedBefore = UpgradeModuleClasses::stats().doCommandsNotPorted;
 	DoCommandUpgrade::doCommandButton(*horde, b);
 	CHECK(UpgradeModuleClasses::stats().doCommandsNotPorted == notPortedBefore);
+	HordeContain *newHc = dynamic_cast<HordeContain *>(horde->getContain());
+	REQUIRE(newHc != nullptr);
+	CHECK(newHc != hc);
+	CHECK(newHc->alternateFormationTemplate() != oldAlt);
 }

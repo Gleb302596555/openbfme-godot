@@ -258,6 +258,7 @@ void registerHandlers(GameLogicDispatch &d)
 		if (hc && hc->canToggleFormation())
 		{
 			hc->toggleFormation();
+			// RW 0x77BECB .. 0x77BEDD: if (horde->isLocallyControlled()) TheControlBar + 0x28 = 1 (refresh UI mark)
 		}
 		return true;
 	});

@@ -199,6 +199,7 @@ public:
 	// lane LOGIC-BUTTONS: RW 0x68C91B / BFME2 decomp Object.cpp:2022 rva0028C24C: the 10s fire-weapon deadline (+0x478 in RotWK, +0x458 in BFME2)
 	UnsignedInt getFireWeaponDeadline() const { return m_fireWeaponDeadline; }
 	void setFireWeaponDeadline();
+	void setFireWeaponDeadline(UnsignedInt deadline) { m_fireWeaponDeadline = deadline; }
 	// RW 0x690532 Object::attemptHealing: a HEALING hit from `source` (INVALID_ID: itself)
 	void attemptHealing(float amount, const Object *source);
 	// lane BUILD-2: RW 0x690584 Object::attemptHealingFromSoleBenefactor(amount, source, duration): only one healer at a time (RW + 0x3D4 its id, + 0x3D8 the frame its claim

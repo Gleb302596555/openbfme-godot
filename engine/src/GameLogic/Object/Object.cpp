@@ -2562,6 +2562,10 @@ void Object::crcOmittingModules(StateHasher &h, const std::function<bool(const B
 	{
 		h.addU32(0x5C100000u); // lane BFME2CAMP1: only when set (a game without a campaign's carry-over keeps its hash)
 	}
+	if (m_fireWeaponDeadline != 0)
+	{
+		h.addU32(0x5C200000u | m_fireWeaponDeadline); // BFME2 ObjectDoXfer.cpp:668, RW +0x478; hashed only when set
+	}
 	// lane PERF-HD: the bit's index once (isKindOfName searched the KindOf names for every object in every frame's hash)
 	static const int kSelectable = ObjectTemplateInfoBuilder::kindOfIndex("SELECTABLE");
 	if (m_scriptSelectable != (kSelectable >= 0 && isKindOf((unsigned)kSelectable)))
@@ -2786,7 +2790,7 @@ void Object::setScriptStatus(std::uint8_t bits, bool set)
 // (the Objects block's order) and the team links (the TeamFactory's post-process).
 void Object::xfer(Xfer &x)
 {
-	XferVersion version{ 1, 2 }; // lane BFME2CAMP1: version 2 adds the campaign carry-over bit (Object + 0x458 bit 4)
+	XferVersion version{ 1, 3 }; // version 2 adds campaignCarryover; version 3 adds m_fireWeaponDeadline (BFME2 ObjectDoXfer.cpp:668, RW +0x478)
 	x.xferVersion(version);
 	// a load never reads its destination: the save-side values are built from the members only when saving (SAVES.md, rules for xfer authors)
 	const bool saving = !x.isLoading();
@@ -2885,6 +2889,14 @@ void Object::xfer(Xfer &x)
 	else if (x.isLoading())
 	{
 		m_campaignCarryover = false;
+	}
+	if (version.current >= 3)
+	{
+		x.xferUnsignedInt(&m_fireWeaponDeadline);
+	}
+	else if (x.isLoading())
+	{
+		m_fireWeaponDeadline = 0;
 	}
 	x.xferBool(&m_scriptSelectable);
 	x.xferBool(&m_masked); // lane MODCOMPAT-MOD1: RW + 0x459 bit 1

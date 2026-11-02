@@ -57,14 +57,8 @@ void RunOffMapBehavior::triggerFlee()
 	obj->setStatus(0x32, true);                  // STATUS_FLEEING (0x32)
 	obj->setModelConditionState(0xFC, true);      // RUNNING_OFF_MAP (0xFC)
 
-	if (m_data->m_dieOnMap)
-	{
-		obj->kill(DAMAGE_UNRESISTABLE, 0);
-	}
-	else
-	{
-		obj->logic().destroyObject(obj);
-	}
+	// RW 0x86540A / BFME2 0x4622FC: in retail, orders AI to move to the off-map waypoint/edge via aiMoveToPosition
+
 }
 
 void RunOffMapBehavior::xfer(Xfer &x)

@@ -375,16 +375,16 @@ void Object::doCommandButton(const CommandButton *button, CommandSourceType cmdS
 	}
 	case GUI_COMMAND_HORDE_TOGGLE_FORMATION:
 	{
-		// RW 0x697204 appends MSG_HORDE_TOGGLE_FORMATION (0x453), which at RW 0x77BE83 calls
-		// getHordeContainInterface() (RW 0x68C866) and, if canToggleFormation() (vslot 0x5C, RW 0x8700AC),
-		// toggleFormation() (vslot 0x60, RW 0x86C7F6).
+		// RW 0x697204 appends MSG_HORDE_TOGGLE_FORMATION (0x453) with this->getID() (RW 0x69719B).
+		// INFERENCE (stop S-5307): in retail, doCommandButton appends message 0x453 to the client message stream,
+		// and the logic message dispatcher at RW 0x77BE83 executes it later.
+		// Directly calling toggleFormation() here bypasses the client message stream.
+		// RW 0x77BE83 gets ContainModuleInterface directly on the horde object (RW 0x68C866, no getContainedBy fallback);
+		// if canToggleFormation() (vslot 0x5C, RW 0x8700AC), calls toggleFormation() (vslot 0x60, RW 0x86C7F6).
+		// The interface mark (RW 0x77BECB .. 0x77BEDD: TheControlBar + 0x28 = 1 when isLocallyControlled())
+		// belongs to the client UI / dispatcher layer (S-589 / HordeFormation.cpp), not simulation logic.
 		ContainModuleInterface *contain = getContain();
 		HordeContain *horde = contain && contain->getHordeContainInterface() ? dynamic_cast<HordeContain *>(contain) : nullptr;
-		if (!horde && getContainedBy())
-		{
-			ContainModuleInterface *cc = getContainedBy()->getContain();
-			horde = cc && cc->getHordeContainInterface() ? dynamic_cast<HordeContain *>(cc) : nullptr;
-		}
 		if (horde && horde->canToggleFormation())
 		{
 			horde->toggleFormation();

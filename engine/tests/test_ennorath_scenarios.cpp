@@ -400,9 +400,17 @@ TEST_CASE("ENNORATH scenario DoCommandUpgrade: Command_MountToggleBlackrider on 
 	structtest::Arena arena(world.shared, "FactionMordor", "FactionMen");
 	Object *horde = world.place(arena, "MordorSchwarzeReiterHorde", 0, 400, 400);
 	REQUIRE(horde);
+	HordeContain *hc = dynamic_cast<HordeContain *>(horde->getContain());
+	REQUIRE(hc);
+	const ThingTemplate *oldAlt = hc->alternateFormationTemplate();
+	REQUIRE(oldAlt);
 	const CommandButton *btn = TheCommandStore->findCommandButton("Command_MountToggleBlackrider");
 	REQUIRE(btn);
 	const unsigned long long before = ObjectDoCommandButton::stats().formationToggles;
 	DoCommandUpgrade::doCommandButton(*horde, *btn);
 	CHECK(ObjectDoCommandButton::stats().formationToggles == before + 1);
+	HordeContain *newHc = dynamic_cast<HordeContain *>(horde->getContain());
+	REQUIRE(newHc != nullptr);
+	CHECK(newHc != hc);
+	CHECK(newHc->alternateFormationTemplate() != oldAlt);
 }
