@@ -29,7 +29,7 @@ namespace
 const FieldParse kStrafeAreaUpdateFields[] = {
 	STRAFE_ROW("WeaponName", INI::parseAsciiString, m_weaponName),
 	STRAFE_ROW("StrafeAreaRadius", INI::parseReal, m_strafeAreaRadius),
-	STRAFE_ROW("SweepFrequency", INI::parseReal, m_sweepFrequency),
+	STRAFE_ROW("Sweepfrequency", INI::parseReal, m_sweepFrequency), // retail's spelling (RW table 0xC31968)
 	STRAFE_ROW("SweepAmplitude", INI::parseReal, m_sweepAmplitude),
 	STRAFE_ROW("Slope", INI::parseReal, m_slope),
 	STRAFE_ROW("InitialSweepPhase", INI::parseReal, m_initialSweepPhase),

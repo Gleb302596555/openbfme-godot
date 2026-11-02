@@ -54,7 +54,7 @@ const char kStrafeIni[] =
     "  Behavior = StrafeAreaUpdate ModuleTag_StrafeUpdate\n"
     "    WeaponName = TestStrafeWeapon\n"
     "    StrafeAreaRadius = 180.0\n"
-    "    SweepFrequency = 0.5\n"
+    "    Sweepfrequency = 0.5\n"
     "    SweepAmplitude = 120.0\n"
     "    Slope = 60.0\n"
     "    InitialSweepPhase = 0.1\n"
@@ -312,7 +312,7 @@ TEST_CASE("modgap2 strafe: module data defaults and field table (both editions: 
 	CHECK(d.m_initialSweepPhase == doctest::Approx(0.0f)); // tolerance: floating-point evaluation
 
 	const FieldParse *t = StrafeAreaUpdateTables::strafe();
-	const char *const expected[] = { "WeaponName", "StrafeAreaRadius", "SweepFrequency", "SweepAmplitude", "Slope", "InitialSweepPhase" };
+	const char *const expected[] = { "WeaponName", "StrafeAreaRadius", "Sweepfrequency", "SweepAmplitude", "Slope", "InitialSweepPhase" };
 	int n = 0;
 	for (; t[n].token; ++n)
 	{

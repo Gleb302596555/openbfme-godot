@@ -56,7 +56,7 @@ public:
 	UpdateSleepTime update() override;
 
 	void crc(StateHasher &h) const override;
-	void xfer(Xfer &x) override;
+	OBFME_MODULE_XFER(AnimalAIUpdate)
 
 	static void registerClass(ModuleFactory &modules);
 

@@ -36,7 +36,7 @@ public:
 	void commandAccepted(CommandSourceType source, int command, Object *target) override;
 
 	void crc(StateHasher &h) const override;
-	void xfer(Xfer &x) override;
+	OBFME_MODULE_XFER(HordeWorkerAIUpdate)
 
 	static void registerClass(ModuleFactory &modules);
 

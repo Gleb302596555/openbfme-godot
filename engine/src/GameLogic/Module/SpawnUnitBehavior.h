@@ -27,7 +27,7 @@ public:
 
 	UpdateSleepTime update() override;
 
-	void xfer(Xfer &x) override;
+	OBFME_MODULE_XFER(SpawnUnitBehavior)
 	void crc(StateHasher &hasher) const override;
 
 	SpawnUnitBehaviorInterface *getSpawnUnitBehaviorInterface() override { return this; }
