@@ -177,6 +177,12 @@ bool AICommands::attackObject(GameLogic &logic, const GameMessage &m)
 	{
 		group.releaseWeaponLockForGroup(LOCKED_TEMPORARILY); // RW 0x77AF7C (lane PLAY-2)
 	}
+	else if (logic.aiWorld() && logic.aiWorld()->config().pathfind.planningModeEnabled)
+	{
+		// lane MOVE-3 / P-9: RW 0x77C22F .. 0x77C254: MSG_DO_ATTACK_OBJECT submits AttackObjectGroupOrder (RW 0x7574F8)
+		group.planningAttackObject(who->objectID, logic.players().getNthPlayer(m.getPlayerIndex())->orderMode());
+		return true;
+	}
 	for (Object *o : group.members())
 	{
 		AIUpdateInterface *ai = o->getAIUpdateInterface();
@@ -261,6 +267,14 @@ bool AICommands::formationMove(GameLogic &logic, const GameMessage &m)
 	const float twoPi = 6.2831855f;
 	if (!type || !attack || (!world && !m_formations) || !finiteLocation(dest->location) || !(angle->real >= -twoPi && angle->real <= twoPi)) { ++m_stats.rejected; return false; }
 	const auto ids=selection(logic,m.getPlayerIndex());
+	if (logic.aiWorld() && logic.aiWorld()->config().pathfind.planningModeEnabled)
+	{
+		// RW 0x77BBC1 .. 0x77BBED: MSG_DO_MOVETO_FORMATION submits MoveToFormationGroupOrder (RW 0x757419)
+		AIGroup group(logic, ids);
+		group.planningMoveToFormation(type->integer, dest->location, angle->real, attack->boolean, logic.players().getNthPlayer(m.getPlayerIndex())->orderMode());
+		++m_stats.formationMoves;
+		return true;
+	}
 	// An assistant set explicitly (setFormationAssistant: the unit tests' synthetic worlds) wins over the registered world's, so a retail
 	// world left registered by another test cannot replace it; the game sets none and uses the world's FormationAssistant.ini
 	const auto &assistant=m_formations?*m_formations:world->formations();

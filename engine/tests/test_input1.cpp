@@ -18,6 +18,7 @@
 #include "GameClient/TacticalCamera.h"
 #include "GameLogic/GameLogicDispatch.h"
 #include "GameLogic/GameMessage.h"
+#include "GameLogic/AI/AIGroup.h"
 #include "GameLogic/AI/AIGroupOrders.h"
 #include "GameLogic/AI/AIOrdersManager.h"
 #include "GameLogic/AI/AIWorld.h"
@@ -901,6 +902,238 @@ TEST_CASE("P-9: an object that leaves the world takes its queue and its place in
 	r.frame(2);
 	CHECK(manager.order(id) == nullptr);
 	CHECK(manager.empty());
+}
+
+TEST_CASE("P-9 attack: Alt queues an attack, immediate attack replaces the queue, Stop clears it, and save/load preserves hash")
+{
+	if (!haveWorld("P-9 attack queue")) return;
+	SharedWorld &s = shared();
+	Rig r(s);
+	const Coord3D c = r.freeSpot(mapCenter(r).x, mapCenter(r).y, 260.0f);
+	Object *unit = r.make(templates(s).infantry.front(), c.x, c.y);
+	Object *enemy = r.make(templates(s).infantry.front(), c.x + 200.0f, c.y);
+	REQUIRE(unit->getAIUpdateInterface() != nullptr);
+	REQUIRE(enemy != nullptr);
+	AIWorld &world = *r.logic().aiWorld();
+	AIOrdersManager &manager = world.ordersManager();
+
+	// 1. Move order (mode 0)
+	const Coord3D firstPos{ c.x + 100.0f, c.y, 0.0f };
+	manager.submit(0, std::make_unique<MoveToGroupOrder>(r.logic(), std::vector<ObjectID>{ unit->getID() }, firstPos, false));
+	r.frame(1);
+	REQUIRE(manager.queue(unit->getID()) != nullptr);
+	REQUIRE(manager.queue(unit->getID())->orders().size() == 1);
+	const Coord3D activeGoal = unit->getAIUpdateInterface()->stateMachine().goalPosition();
+
+	// 2. Alt queues AttackObjectGroupOrder (mode 1)
+	manager.submit(1, std::make_unique<AttackObjectGroupOrder>(r.logic(), std::vector<ObjectID>{ unit->getID() }, enemy->getID()));
+	r.frame(1);
+	REQUIRE(manager.queue(unit->getID())->orders().size() == 2);
+	// Active move goal is unchanged:
+	CHECK(unit->getAIUpdateInterface()->stateMachine().goalPosition().x == activeGoal.x);
+
+	// 3. Immediate attack (mode 0) replaces the queue
+	manager.submit(0, std::make_unique<AttackObjectGroupOrder>(r.logic(), std::vector<ObjectID>{ unit->getID() }, enemy->getID()));
+	r.frame(1);
+	REQUIRE(manager.queue(unit->getID())->orders().size() == 1);
+
+	// 4. Save, load and hash roundtrip
+	AIGroupOrders::Image img = AIGroupOrders::capture(manager);
+	XferSave save;
+	AIGroupOrders::xfer(save, img, r.logic());
+	XferLoad load(save.data());
+	AIGroupOrders::Image loaded;
+	AIGroupOrders::xfer(load, loaded, r.logic());
+	AIOrdersManager restored;
+	AIGroupOrders::install(restored, std::move(loaded), r.logic());
+	StateHasher h1, h2;
+	AIGroupOrders::crc(manager, h1);
+	AIGroupOrders::crc(restored, h2);
+	CHECK(h1.value() == h2.value());
+	CHECK(restored.queue(unit->getID())->orders().size() == 1);
+
+	// 5. Clear on Stop
+	AIGroup group(r.logic(), { unit->getID() });
+	group.clearOrders();
+	r.frame(1);
+	CHECK(manager.queue(unit->getID())->orders().empty());
+}
+
+TEST_CASE("P-9 garrison: Alt queues garrison order, immediate replaces the queue, Stop clears it, and save/load preserves hash")
+{
+	if (!haveWorld("P-9 garrison queue")) return;
+	SharedWorld &s = shared();
+	Rig r(s);
+	const Coord3D c = r.freeSpot(mapCenter(r).x, mapCenter(r).y, 260.0f);
+	Object *unit = r.make(templates(s).infantry.front(), c.x, c.y);
+	Object *container = r.make("GondorKeep", c.x + 180.0f, c.y);
+	REQUIRE(unit->getAIUpdateInterface() != nullptr);
+	REQUIRE(container != nullptr);
+	AIWorld &world = *r.logic().aiWorld();
+	AIOrdersManager &manager = world.ordersManager();
+
+	// 1. Move order (mode 0)
+	manager.submit(0, std::make_unique<MoveToGroupOrder>(r.logic(), std::vector<ObjectID>{ unit->getID() }, Coord3D{ c.x + 80.0f, c.y, 0.0f }, false));
+	r.frame(1);
+	REQUIRE(manager.queue(unit->getID()) != nullptr);
+	REQUIRE(manager.queue(unit->getID())->orders().size() == 1);
+
+	// 2. Alt queues GarrisonObjectGroupOrder (mode 1)
+	manager.submit(1, std::make_unique<GarrisonObjectGroupOrder>(r.logic(), std::vector<ObjectID>{ unit->getID() }, container->getID()));
+	r.frame(1);
+	REQUIRE(manager.queue(unit->getID())->orders().size() == 2);
+
+	// 3. Immediate garrison (mode 0) replaces the queue
+	manager.submit(0, std::make_unique<GarrisonObjectGroupOrder>(r.logic(), std::vector<ObjectID>{ unit->getID() }, container->getID()));
+	r.frame(1);
+	REQUIRE(manager.queue(unit->getID())->orders().size() == 1);
+
+	// 4. Save, load and hash roundtrip
+	AIGroupOrders::Image img = AIGroupOrders::capture(manager);
+	XferSave save;
+	AIGroupOrders::xfer(save, img, r.logic());
+	XferLoad load(save.data());
+	AIGroupOrders::Image loaded;
+	AIGroupOrders::xfer(load, loaded, r.logic());
+	AIOrdersManager restored;
+	AIGroupOrders::install(restored, std::move(loaded), r.logic());
+	StateHasher h1, h2;
+	AIGroupOrders::crc(manager, h1);
+	AIGroupOrders::crc(restored, h2);
+	CHECK(h1.value() == h2.value());
+	CHECK(restored.queue(unit->getID())->orders().size() == 1);
+
+	// 5. Clear on Stop
+	AIGroup group(r.logic(), { unit->getID() });
+	group.clearOrders();
+	r.frame(1);
+	CHECK(manager.queue(unit->getID())->orders().empty());
+}
+
+TEST_CASE("P-9 formation: Alt queues formation move, immediate replaces the queue, Stop clears it, and save/load preserves hash")
+{
+	if (!haveWorld("P-9 formation queue")) return;
+	SharedWorld &s = shared();
+	Rig r(s);
+	const Coord3D c = r.freeSpot(mapCenter(r).x, mapCenter(r).y, 260.0f);
+	Object *a = r.make(templates(s).infantry.front(), c.x, c.y);
+	Object *b = r.make(templates(s).infantry.front(), c.x + 30.0f, c.y);
+	REQUIRE(a->getAIUpdateInterface() != nullptr);
+	REQUIRE(b->getAIUpdateInterface() != nullptr);
+	AIWorld &world = *r.logic().aiWorld();
+	AIOrdersManager &manager = world.ordersManager();
+	const std::vector<ObjectID> both{ a->getID(), b->getID() };
+
+	// 1. Move order (mode 0)
+	manager.submit(0, std::make_unique<MoveToGroupOrder>(r.logic(), both, Coord3D{ c.x + 90.0f, c.y, 0.0f }, false));
+	r.frame(1);
+	REQUIRE(manager.queue(a->getID())->orders().size() == 1);
+	REQUIRE(manager.queue(b->getID())->orders().size() == 1);
+
+	// 2. Alt queues MoveToFormationGroupOrder (mode 1)
+	const Coord3D formDest{ c.x + 150.0f, c.y + 60.0f, 0.0f };
+	manager.submit(1, std::make_unique<MoveToFormationGroupOrder>(r.logic(), both, 0, formDest, 0.5f, false));
+	r.frame(1);
+	REQUIRE(manager.queue(a->getID())->orders().size() == 2);
+	REQUIRE(manager.queue(b->getID())->orders().size() == 2);
+
+	// 3. Immediate formation move (mode 0) replaces the queue
+	manager.submit(0, std::make_unique<MoveToFormationGroupOrder>(r.logic(), both, 0, formDest, 0.5f, false));
+	r.frame(1);
+	REQUIRE(manager.queue(a->getID())->orders().size() == 1);
+	REQUIRE(manager.queue(b->getID())->orders().size() == 1);
+
+	// 4. Save, load and hash roundtrip
+	AIGroupOrders::Image img = AIGroupOrders::capture(manager);
+	XferSave save;
+	AIGroupOrders::xfer(save, img, r.logic());
+	XferLoad load(save.data());
+	AIGroupOrders::Image loaded;
+	AIGroupOrders::xfer(load, loaded, r.logic());
+	AIOrdersManager restored;
+	AIGroupOrders::install(restored, std::move(loaded), r.logic());
+	StateHasher h1, h2;
+	AIGroupOrders::crc(manager, h1);
+	AIGroupOrders::crc(restored, h2);
+	CHECK(h1.value() == h2.value());
+	CHECK(restored.queue(a->getID())->orders().size() == 1);
+	CHECK(restored.queue(b->getID())->orders().size() == 1);
+
+	// 5. Clear on Stop
+	AIGroup group(r.logic(), both);
+	group.clearOrders();
+	r.frame(1);
+	CHECK(manager.queue(a->getID())->orders().empty());
+	CHECK(manager.queue(b->getID())->orders().empty());
+}
+
+TEST_CASE("P-9 patrol: looping waypoints establish patrolStart, orders clone upon completion, immediate breaks loop, and Stop clears")
+{
+	if (!haveWorld("P-9 patrol loop")) return;
+	SharedWorld &s = shared();
+	Rig r(s);
+	const Coord3D c = r.freeSpot(mapCenter(r).x, mapCenter(r).y, 260.0f);
+	Object *unit = r.make(templates(s).infantry.front(), c.x, c.y);
+	REQUIRE(unit->getAIUpdateInterface() != nullptr);
+	AIWorld &world = *r.logic().aiWorld();
+	AIOrdersManager &manager = world.ordersManager();
+	const ObjectID id = unit->getID();
+
+	// 1. First move (mode 0) to waypoint 1
+	const Coord3D wp1{ c.x + 80.0f, c.y, 0.0f };
+	AIGroup g1(r.logic(), { id });
+	g1.planningMoveToPosition(wp1, false, 0);
+	r.frame(1);
+	REQUIRE(manager.queue(id) != nullptr);
+	REQUIRE(manager.queue(id)->orders().size() == 1);
+	CHECK(manager.queue(id)->patrolStart() == 0);
+
+	// 2. Alt second move (mode 1) to waypoint 2
+	const Coord3D wp2{ c.x + 160.0f, c.y + 60.0f, 0.0f };
+	AIGroup g2(r.logic(), { id });
+	g2.planningMoveToPosition(wp2, false, 1);
+	r.frame(1);
+	REQUIRE(manager.queue(id)->orders().size() == 2);
+	CHECK(manager.queue(id)->patrolStart() == 0);
+
+	// 3. Alt third move (mode 1) looping back to waypoint 1 (triggers setPatrolStartIfLoop)
+	AIGroup g3(r.logic(), { id });
+	g3.planningMoveToPosition(wp1, false, 1);
+	r.frame(1);
+	REQUIRE(manager.queue(id)->orders().size() == 3);
+	const unsigned firstOrderId = manager.queue(id)->orders().front();
+	CHECK(manager.queue(id)->patrolStart() == firstOrderId);
+
+	// 4. Save/load preserves patrolStart and state hash
+	AIGroupOrders::Image img = AIGroupOrders::capture(manager);
+	XferSave save;
+	AIGroupOrders::xfer(save, img, r.logic());
+	XferLoad load(save.data());
+	AIGroupOrders::Image loaded;
+	AIGroupOrders::xfer(load, loaded, r.logic());
+	AIOrdersManager restored;
+	AIGroupOrders::install(restored, std::move(loaded), r.logic());
+	StateHasher h1, h2;
+	AIGroupOrders::crc(manager, h1);
+	AIGroupOrders::crc(restored, h2);
+	CHECK(h1.value() == h2.value());
+	CHECK(restored.queue(id)->patrolStart() == firstOrderId);
+
+	// 5. Completion of patrolStart order clones it to the tail
+	manager.process(id);
+	CHECK(manager.order(firstOrderId) != nullptr);
+
+	// 6. Immediate move (mode 0) replaces patrol and clears patrolStart
+	AIGroup g4(r.logic(), { id });
+	g4.planningMoveToPosition(Coord3D{ c.x - 80.0f, c.y, 0.0f }, false, 0);
+	r.frame(1);
+	REQUIRE(manager.queue(id)->orders().size() == 1);
+	CHECK(manager.queue(id)->patrolStart() == 0);
+
+	// 7. Stop clears the queue
+	g4.clearOrders();
+	r.frame(1);
+	CHECK(manager.queue(id)->orders().empty());
 }
 
 TEST_CASE("input1 r2 orders: A makes no mode (RotWK has no case), Alt sends MSG_CHANGE_ORDERMODE and the logic stores the mode, a move stays a move (r3); the German Y / Z swap")

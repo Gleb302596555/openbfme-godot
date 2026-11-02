@@ -445,7 +445,89 @@ void AIGroup::planningMoveToPosition(const Coord3D &pos, bool attackMove, int or
 	}
 	// RW 0x75748C: the order is made from the group (RW 0x94E232) and registered with the player's mode (RW 0x7573E6 -> 0x7572FA); a mode outside 0 .. 2 queues
 	// nothing, as RW 0x7572FA's default case. The queue that takes it as its first order runs it at once (MoveToGroupOrder::activate)
-	world->ordersManager().submit(orderMode, std::make_unique<MoveToGroupOrder>(m_logic, std::move(ids), pos, attackMove));
+	AIOrdersManager &mgr = world->ordersManager();
+	mgr.submit(orderMode, std::make_unique<MoveToGroupOrder>(m_logic, ids, pos, attackMove));
+	if (orderMode == 1)
+	{
+		mgr.setPatrolStartIfLoop(m_logic, ids, pos, 1);
+	}
+}
+
+void AIGroup::planningAttackObject(ObjectID targetID, int orderMode)
+{
+	AIWorld *world = m_logic.aiWorld();
+	if (!world || m_members.empty())
+	{
+		return;
+	}
+	world->noteStop(planningStopLine());
+	std::vector<ObjectID> ids;
+	for (Object *o : m_members)
+	{
+		if (!o->isDestroyed())
+		{
+			ids.push_back(o->getID());
+		}
+	}
+	if (ids.empty())
+	{
+		return;
+	}
+	// RW 0x77C22F .. 0x77C254: MSG_DO_ATTACK_OBJECT submits AttackObjectGroupOrder (RW 0x7574F8)
+	world->ordersManager().submit(orderMode, std::make_unique<AttackObjectGroupOrder>(m_logic, std::move(ids), targetID));
+}
+
+void AIGroup::planningGarrisonObject(ObjectID containerID, int orderMode)
+{
+	AIWorld *world = m_logic.aiWorld();
+	if (!world || m_members.empty())
+	{
+		return;
+	}
+	world->noteStop(planningStopLine());
+	std::vector<ObjectID> ids;
+	for (Object *o : m_members)
+	{
+		if (!o->isDestroyed())
+		{
+			ids.push_back(o->getID());
+		}
+	}
+	if (ids.empty())
+	{
+		return;
+	}
+	// RW 0x77AC5A .. 0x77AC7F: MSG_ENTER submits GarrisonObjectGroupOrder (RW 0x75754C)
+	world->ordersManager().submit(orderMode, std::make_unique<GarrisonObjectGroupOrder>(m_logic, std::move(ids), containerID));
+}
+
+void AIGroup::planningMoveToFormation(int formationType, const Coord3D &pos, float angle, bool attackMove, int orderMode)
+{
+	AIWorld *world = m_logic.aiWorld();
+	if (!world || m_members.empty())
+	{
+		return;
+	}
+	world->noteStop(planningStopLine());
+	std::vector<ObjectID> ids;
+	for (Object *o : m_members)
+	{
+		if (!o->isDestroyed())
+		{
+			ids.push_back(o->getID());
+		}
+	}
+	if (ids.empty())
+	{
+		return;
+	}
+	// RW 0x77BBC1 .. 0x77BBED: MSG_DO_MOVETO_FORMATION submits MoveToFormationGroupOrder (RW 0x757419)
+	AIOrdersManager &mgr = world->ordersManager();
+	mgr.submit(orderMode, std::make_unique<MoveToFormationGroupOrder>(m_logic, ids, formationType, pos, angle, attackMove));
+	if (orderMode == 1)
+	{
+		mgr.setPatrolStartIfLoop(m_logic, ids, pos, 1);
+	}
 }
 
 void AIGroup::clearOrders()
