@@ -49,6 +49,19 @@ std::string describe(const std::vector<DrawBatch> &batches)
 			out += std::to_string(i) + ",";
 		}
 		out += "\n";
+		out += b.modelName + "|";
+		for (const DrawableInstance &d : b.drawables)
+		{
+			for (int r = 0; r < 3; ++r)
+			{
+				for (int c = 0; c < 4; ++c)
+				{
+					bits(d.transform.Row[r][c]);
+				}
+			}
+			bits(d.r), bits(d.g), bits(d.b), bits(d.a);
+			out += std::to_string(d.particleId) + ";";
+		}
 	}
 	return out;
 }
@@ -118,10 +131,13 @@ TEST_CASE("perf2 client: the particle batches of 60 systems (sprites, quads, str
 	}
 	// each stop noted once, in the list order of the first system that hit it: Sys1 (sprites: S-1440, lane FX-3), Sys3 (streak: S-199), Sys4 (smudge: S-194),
 	// Sys5 (render object: S-195)
-	REQUIRE(wantNotes.size() == 4u);
+	// Sys5 (render object: previously S-195, now ported as RenderObjectDrawModule::doParticles RW 0x964C00 / BFME2 0x00562DDB RenderObjectDrawModuleDoParticles.cpp,
+	// RenderParticle RW 0x5FBBC4 / BFME2 0x005FC49D; S-195 remains only for TERRAIN_PARTICLE type 6)
+	CHECK(want.find("Sys5|") != std::string::npos);
+	REQUIRE(wantNotes.size() == 3u);
 	CHECK(wantNotes[0].compare(0, 6, "S-1440") == 0);
 	CHECK(wantNotes[1].compare(0, 5, "S-199") == 0);
 	CHECK(wantNotes[2].compare(0, 5, "S-194") == 0);
-	CHECK(wantNotes[3].compare(0, 5, "S-195") == 0);
+	CHECK(wantNotes[2].compare(0, 5, "S-194") == 0);
 	JobSystem::client().setThreadCount(before);
 }

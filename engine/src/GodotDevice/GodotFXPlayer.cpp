@@ -5,6 +5,8 @@
 #include "GodotDevice/GodotDds.h"
 
 #include "GodotDevice/GodotRetailFileSystem.h"
+#include "GodotDevice/GodotW3DInstancer.h"
+#include "Common/AsciiString.h"
 #include "GodotDevice/GodotW3DMaterial.h"
 #include "GameEngineDevice/W3DDevice/GameClient/W3DHardwareFog.h"
 #include "GameClient/ParticleTexture.h"
@@ -54,6 +56,30 @@ double usSince(const std::chrono::steady_clock::time_point &t0)
 // SAGE (x east, y north, z up) -> Godot (x, z, -y)
 Vector3 toGodotSpace(const Coord3D &c) { return Vector3(c.x, c.z, -c.y); }
 Coord3D toSage(const Vector3 &v) { return Coord3D{ v.x, -v.z, v.y }; }
+
+// SAGE 3x4 Matrix3D (basis columns with 3-axis scale in Row[0..2][0..2], position in Row[0..2][3]) -> Godot (x, z, -y)
+Transform3D toGodotTransform(const Matrix3D &m)
+{
+	static const float P[3][3] = { { 1.0f, 0.0f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, -1.0f, 0.0f } };
+	float b[3][3];
+	for (int i = 0; i < 3; ++i)
+	{
+		for (int j = 0; j < 3; ++j)
+		{
+			float v = 0.0f;
+			for (int a = 0; a < 3; ++a)
+			{
+				for (int c = 0; c < 3; ++c)
+				{
+					v += P[i][a] * m.Row[a][c] * P[j][c];
+				}
+			}
+			b[i][j] = v;
+		}
+	}
+	const Basis basisG(Vector3(b[0][0], b[1][0], b[2][0]), Vector3(b[0][1], b[1][1], b[2][1]), Vector3(b[0][2], b[1][2], b[2][2]));
+	return Transform3D(basisG, Vector3(m.Row[0][3], m.Row[2][3], -m.Row[1][3]));
+}
 
 using namespace FXParticleSystem;
 
@@ -586,6 +612,22 @@ Dictionary FXPlayer::setupFrom(const Ref<RetailFileSystem> &fs, const INIMacroTa
 	m_renderRandom->seed(1);
 	m_builder = std::make_unique<ParticleDrawBuilder>(*m_renderRandom);
 	m_quad = makeQuadMesh();
+	m_drawableModels.clear();
+	m_activeDrawables.clear();
+	m_drawableInstances = 0;
+	if (m_drawablesInstancer)
+	{
+		remove_child(m_drawablesInstancer);
+		memdelete(m_drawablesInstancer);
+		m_drawablesInstancer = nullptr;
+	}
+	m_drawablesInstancer = memnew(W3DInstancer);
+	m_drawablesInstancer->set_name("DrawableParticles");
+	m_drawablesInstancer->set_auto_update(false);
+	m_drawablesInstancer->set_alpha_override(true);
+	m_drawablesInstancer->set_particle_color(true);
+	m_drawablesInstancer->setup(fs);
+	add_child(m_drawablesInstancer);
 	result["ok"] = errors.is_empty();
 	result["errors"] = errors;
 	result["particle_systems"] = (int64_t)m_playback->particleTemplates().templateCount();
@@ -938,9 +980,9 @@ void FXPlayer::summarize(const std::vector<DrawBatch> &batches)
 	{
 		Dictionary e;
 		e["template"] = toGodot(b.templateName);
-		e["kind"] = b.kind == DrawBatch::SPRITES ? "sprites" : (b.kind == DrawBatch::GPU ? "gpu" : "mesh");
+		e["kind"] = b.kind == DrawBatch::SPRITES ? "sprites" : (b.kind == DrawBatch::GPU ? "gpu" : (b.kind == DrawBatch::DRAWABLES ? "drawables" : "mesh"));
 		e["shader"] = (int64_t)b.shader;
-		e["texture"] = toGodot(b.texture);
+		e["texture"] = toGodot(b.kind == DrawBatch::DRAWABLES ? b.modelName : b.texture);
 		e["deferred"] = b.deferred;
 		e["ground_aligned"] = b.groundAligned;
 		double cx = 0, cy = 0, cz = 0, size = 0, maxSize = 0, r = 0, g = 0, bl = 0, a = 0, maxA = 0;
@@ -960,6 +1002,17 @@ void FXPlayer::summarize(const std::vector<DrawBatch> &batches)
 			for (const GpuInstance &s : b.gpu)
 			{
 				cx += s.x; cy += s.y; cz += s.z;
+				++n;
+			}
+		}
+		else if (b.kind == DrawBatch::DRAWABLES)
+		{
+			for (const DrawableInstance &d : b.drawables)
+			{
+				cx += d.transform.Row[0][3]; cy += d.transform.Row[1][3]; cz += d.transform.Row[2][3];
+				const float sx = std::sqrt(d.transform.Row[0][0] * d.transform.Row[0][0] + d.transform.Row[1][0] * d.transform.Row[1][0] + d.transform.Row[2][0] * d.transform.Row[2][0]);
+				size += sx; maxSize = std::max(maxSize, (double)sx);
+				r += d.r; g += d.g; bl += d.b; a += d.a; maxA = std::max(maxA, (double)d.a);
 				++n;
 			}
 		}
@@ -1068,6 +1121,10 @@ void FXPlayer::upload(const std::vector<DrawBatch> &batches)
 	std::vector<Merged> merged;
 	for (const DrawBatch &b : batches)
 	{
+		if (b.kind == DrawBatch::DRAWABLES)
+		{
+			continue;
+		}
 		if (b.kind == DrawBatch::SPRITES)
 		{
 			const std::string key = "S|" + b.texture + "|" + std::to_string(b.shader) + "|" + (b.groundAligned ? "g" : "b") + (b.volume ? "v" : "") + "|" + (b.deferred ? "d" : "n");
@@ -1352,6 +1409,136 @@ void FXPlayer::upload(const std::vector<DrawBatch> &batches)
 	{
 		m_batches.resize(slot);
 	}
+	uploadDrawables(batches);
+}
+
+void FXPlayer::uploadDrawables(const std::vector<DrawBatch> &batches)
+{
+	m_drawableInstances = 0;
+	if (!m_drawablesInstancer)
+	{
+		return;
+	}
+	const double nowSec = m_playback ? (double)m_playback->clientFrame() / 30.0 : 0.0;
+	m_drawablesInstancer->set_global_time(nowSec);
+	for (auto &kv : m_activeDrawables)
+	{
+		kv.second.seen = false;
+	}
+	for (const DrawBatch &b : batches)
+	{
+		if (b.kind != DrawBatch::DRAWABLES)
+		{
+			continue;
+		}
+		m_drawableInstances += b.drawables.size();
+		const std::string modelKey = AsciiStringUtil::lowered(b.modelName);
+		auto mit = m_drawableModels.find(modelKey);
+		if (mit == m_drawableModels.end())
+		{
+			DrawableModelSlot slot;
+			if (!modelKey.empty() && m_drawablesInstancer->has_model_file(modelKey))
+			{
+				slot.modelId = m_drawablesInstancer->add_model(toGodot(modelKey));
+				if (slot.modelId >= 0)
+				{
+					// RW 0x5FBD08 / BFME2 0x005FC5D0 RenderParticleConstructor.cpp: <model>.<model> loop animation
+					const String clipCandidate = toGodot(modelKey + "." + modelKey);
+					const Dictionary clipInfo = m_drawablesInstancer->get_clip_info(slot.modelId, clipCandidate);
+					if ((bool)clipInfo.get("ok", false))
+					{
+						slot.defaultClip = clipCandidate;
+					}
+				}
+			}
+			mit = m_drawableModels.emplace(modelKey, std::move(slot)).first;
+		}
+		DrawableModelSlot &slot = mit->second;
+		if (slot.modelId < 0)
+		{
+			continue;
+		}
+		for (const DrawableInstance &inst : b.drawables)
+		{
+			const std::uint64_t key = ((std::uint64_t)b.system << 32) | (std::uint64_t)inst.particleId;
+			const Transform3D tf = toGodotTransform(inst.transform);
+			auto ait = m_activeDrawables.find(key);
+			if (ait != m_activeDrawables.end() && ait->second.modelId != slot.modelId)
+			{
+				if (ait->second.instanceId >= 0)
+				{
+					m_drawablesInstancer->set_instance_opacity(ait->second.instanceId, 0.0);
+					m_drawablesInstancer->set_instance_clip(ait->second.instanceId, String(), 0.0, 1.0);
+					auto oldMit = m_drawableModels.find(ait->second.modelKey);
+					if (oldMit != m_drawableModels.end())
+					{
+						oldMit->second.freeInstances.push_back(ait->second.instanceId);
+					}
+				}
+				m_activeDrawables.erase(ait);
+				ait = m_activeDrawables.end();
+			}
+			int64_t instId = -1;
+			if (ait == m_activeDrawables.end())
+			{
+				if (!slot.freeInstances.empty())
+				{
+					instId = slot.freeInstances.back();
+					slot.freeInstances.pop_back();
+					if (!slot.defaultClip.is_empty())
+					{
+						m_drawablesInstancer->set_instance_clip(instId, slot.defaultClip, -nowSec, 1.0);
+					}
+				}
+				else
+				{
+					instId = m_drawablesInstancer->add_instance(slot.modelId, tf, slot.defaultClip, -nowSec, 1.0);
+				}
+				ActiveDrawableParticle active;
+				active.modelKey = modelKey;
+				active.modelId = slot.modelId;
+				active.instanceId = instId;
+				active.seen = true;
+				m_activeDrawables.emplace(key, std::move(active));
+			}
+			else
+			{
+				ait->second.seen = true;
+				instId = ait->second.instanceId;
+			}
+			if (instId >= 0)
+			{
+				m_drawablesInstancer->set_instance_transform(instId, tf);
+				m_drawablesInstancer->set_instance_opacity(instId, inst.a);
+				m_drawablesInstancer->set_instance_particle_color(instId, b.shader, inst.r, inst.g, inst.b);
+			}
+		}
+	}
+	for (auto it = m_activeDrawables.begin(); it != m_activeDrawables.end();)
+	{
+		if (!it->second.seen)
+		{
+			if (it->second.instanceId >= 0)
+			{
+				m_drawablesInstancer->set_instance_opacity(it->second.instanceId, 0.0);
+				m_drawablesInstancer->set_instance_clip(it->second.instanceId, String(), 0.0, 1.0);
+				auto mit = m_drawableModels.find(it->second.modelKey);
+				if (mit != m_drawableModels.end())
+				{
+					mit->second.freeInstances.push_back(it->second.instanceId);
+				}
+			}
+			it = m_activeDrawables.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
+	if (!m_drawableModels.empty())
+	{
+		m_drawablesInstancer->update_now();
+	}
 }
 
 Dictionary FXPlayer::get_stats() const
@@ -1372,6 +1559,7 @@ Dictionary FXPlayer::get_stats() const
 	d["sprites"] = (int64_t)m_sprites;
 	d["gpu_instances"] = (int64_t)m_gpu;
 	d["mesh_vertices"] = (int64_t)m_vertices;
+	d["drawable_instances"] = (int64_t)m_drawableInstances;
 	d["step_us"] = m_stepUs;
 	d["build_us"] = m_buildUs;
 	d["upload_us"] = m_uploadUs;
@@ -1443,6 +1631,25 @@ void FXPlayer::clearTextureCache()
 	m_preloadQueue.clear();
 	m_preloadNext = 0;
 	m_preloadQueued = false;
+	m_drawableModels.clear();
+	m_activeDrawables.clear();
+	m_drawableInstances = 0;
+	if (m_drawablesInstancer)
+	{
+		remove_child(m_drawablesInstancer);
+		memdelete(m_drawablesInstancer);
+		m_drawablesInstancer = nullptr;
+	}
+	if (m_fs.is_valid())
+	{
+		m_drawablesInstancer = memnew(W3DInstancer);
+		m_drawablesInstancer->set_name("DrawableParticles");
+		m_drawablesInstancer->set_auto_update(false);
+		m_drawablesInstancer->set_alpha_override(true);
+		m_drawablesInstancer->set_particle_color(true);
+		m_drawablesInstancer->setup(m_fs);
+		add_child(m_drawablesInstancer);
+	}
 }
 
 } // namespace godot

@@ -523,6 +523,152 @@ void ParticleDrawBuilder::buildLightning(const ParticleSystem &s, const Particle
 	}
 }
 
+// RenderObjectDraw (RW 0x964c00 / BFME2 0x00562ddb RenderObjectDrawModuleDoParticles.cpp; RenderParticle RW 0x5fbbc4 / BFME2 0x005fc49d)
+void ParticleDrawBuilder::buildRenderObjects(const ParticleSystem &s, const ParticleSystemManager &m, DrawBatch &b)
+{
+	b.kind = DrawBatch::DRAWABLES;
+	const RenderObjectDrawModuleData *d = static_cast<const RenderObjectDrawModuleData *>(s.drawModule());
+	const bool hasUpdate = s.updateModule() != nullptr || s.renderObjectUpdateModule() != nullptr;
+	int n = 0;
+	for (int p = s.firstParticle(); p >= 0 && n < MAX_PARTICLES_PER_DRAW; p = m.particle(p).sysNext)
+	{
+		const Particle &pp = m.particle(p);
+		if (s.isParticleInvisible(pp))
+		{
+			continue;
+		}
+		float sx = (hasUpdate && pp.update.present) ? pp.update.size[0] : 0.0f;
+		float sy = (hasUpdate && pp.update.present) ? pp.update.size[1] : 0.0f;
+		float sz = (hasUpdate && pp.update.present) ? pp.update.size[2] : 0.0f;
+		Matrix3D xf = s.isIdentity() ? Matrix3D() : s.transform();
+		if (d && d->m_sinkOnTerrainCollision && m.environment().groundHeight(pp.pos.x, pp.pos.y) > pp.pos.z)
+		{
+			const auto key = std::make_pair(s.id(), pp.particleID);
+			const auto it = m_drawableTransforms.find(key);
+			if (it != m_drawableTransforms.end())
+			{
+				xf = it->second;
+			}
+			xf.Row[2][3] += d->m_sinkRate;
+			m_drawableTransforms[key] = xf;
+		}
+		else
+		{
+			const int rot = pp.update.present ? pp.update.rotation : 0;
+			const float a = pp.update.present ? pp.update.angleZ : 0.0f;
+			float orient[3][3] = { { 1.0f, 0.0f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f, 1.0f } };
+			const float c = std::cos(a), sn = std::sin(a);
+			switch (rot)
+			{
+			case PARTICLE_ROTATION_X: // D3DXMatrixRotationX (RW 0x964fdc / BFME2 0x00562fd1)
+				orient[1][1] = c;
+				orient[1][2] = sn;
+				orient[2][1] = -sn;
+				orient[2][2] = c;
+				break;
+			case PARTICLE_ROTATION_Y: // D3DXMatrixRotationY (RW 0x965018 / BFME2 0x00563008)
+				orient[0][0] = c;
+				orient[0][2] = -sn;
+				orient[2][0] = sn;
+				orient[2][2] = c;
+				break;
+			case PARTICLE_ROTATION_Z: // D3DXMatrixRotationZ (RW 0x965054 / BFME2 0x0056303f)
+				orient[0][0] = c;
+				orient[0][1] = sn;
+				orient[1][0] = -sn;
+				orient[1][1] = c;
+				break;
+			case PARTICLE_ROTATION_V: // D3DXMatrixRotationAxis(&pp.vel, a) (RW 0x965090 / BFME2 0x00563076)
+			{
+				const float l = std::sqrt(dot(pp.vel, pp.vel));
+				if (l > 0.0f)
+				{
+					const float ux = pp.vel.x / l, uy = pp.vel.y / l, uz = pp.vel.z / l;
+					const float t = 1.0f - c;
+					orient[0][0] = t * ux * ux + c;
+					orient[0][1] = t * ux * uy + sn * uz;
+					orient[0][2] = t * ux * uz - sn * uy;
+					orient[1][0] = t * ux * uy - sn * uz;
+					orient[1][1] = t * uy * uy + c;
+					orient[1][2] = t * uy * uz + sn * ux;
+					orient[2][0] = t * ux * uz + sn * uy;
+					orient[2][1] = t * uy * uz - sn * ux;
+					orient[2][2] = t * uz * uz + c;
+				}
+				break;
+			}
+			default:
+				break;
+			}
+			if (rot != PARTICLE_ROTATION_OFF && rot != 0)
+			{
+				if (!s.isLocalIdentity())
+				{
+					float prod[3][3];
+					for (int r = 0; r < 3; ++r)
+					{
+						for (int col = 0; col < 3; ++col)
+						{
+							prod[r][col] = xf.Row[r][0] * orient[0][col] + xf.Row[r][1] * orient[1][col] + xf.Row[r][2] * orient[2][col];
+						}
+					}
+					std::copy(&prod[0][0], &prod[0][0] + 9, &orient[0][0]);
+				}
+				for (int r = 0; r < 3; ++r)
+				{
+					for (int col = 0; col < 3; ++col)
+					{
+						xf.Row[r][col] = orient[r][col];
+					}
+				}
+			}
+			sx = std::max(sx, 0.0001f);
+			sy = std::max(sy, 0.0001f);
+			sz = std::max(sz, 0.0001f);
+			if (sx != 1.0f || sy != 1.0f || sz != 1.0f)
+			{
+				for (int r = 0; r < 3; ++r)
+				{
+					xf.Row[r][0] *= sx;
+					xf.Row[r][1] *= sy;
+					xf.Row[r][2] *= sz;
+				}
+			}
+			xf.Row[0][3] = pp.pos.x;
+			xf.Row[1][3] = pp.pos.y;
+			xf.Row[2][3] = pp.pos.z;
+			if (d && d->m_sinkOnTerrainCollision)
+			{
+				m_drawableTransforms[std::make_pair(s.id(), pp.particleID)] = xf;
+			}
+		}
+		const float cr = pp.color.present ? pp.color.color[0] : 0.0f;
+		const float cg = pp.color.present ? pp.color.color[1] : 0.0f;
+		const float cb = pp.color.present ? pp.color.color[2] : 0.0f;
+		const float ca = pp.alpha.present ? pp.alpha.alpha : 0.0f;
+		DrawableInstance inst;
+		inst.transform = xf;
+		inst.particleId = pp.particleID;
+		// RW 0x965217..0x9652d3 / BFME2 0x005631dd..0x0056328a: W3D_EMISSIVE -> SetEmissive(color * alpha), W3D_ALPHA -> SetOpacity(alpha), W3D_DIFFUSE -> SetDiffuse(color * alpha)
+		if (b.shader == PARTICLE_SHADER_W3D_EMISSIVE || b.shader == PARTICLE_SHADER_W3D_DIFFUSE)
+		{
+			inst.r = cr * ca;
+			inst.g = cg * ca;
+			inst.b = cb * ca;
+			inst.a = 1.0f;
+		}
+		else if (b.shader == PARTICLE_SHADER_W3D_ALPHA)
+		{
+			inst.r = 1.0f;
+			inst.g = 1.0f;
+			inst.b = 1.0f;
+			inst.a = ca;
+		}
+		b.drawables.push_back(inst);
+		++n;
+	}
+}
+
 std::vector<DrawBatch> ParticleDrawBuilder::build(const ParticleSystemManager &manager, const DrawCamera &camera)
 {
 	// lane PERF-2: three passes. 1: the systems in list order on this thread: the skipped kinds and their notes, the batch headers, and the draws that
@@ -599,7 +745,41 @@ std::vector<DrawBatch> ParticleDrawBuilder::build(const ParticleSystemManager &m
 			parallel.push_back(slots.size());
 			break;
 		case MODULE_RENDER_OBJECT_DRAW:
-			deferNote("S-195", "DRAWABLE particle systems (RenderObjectDraw) move one W3D render object per particle; the render-object bridge is not part of the batch builder");
+			if (type != PARTICLE_TYPE_DRAWABLE)
+			{
+				return; // RW 0x5fbbe8 / BFME2 0x005fc4c1: RenderParticle creates a render object only for PARTICLE_TYPE_DRAWABLE
+			}
+			{
+				const RenderObjectDrawModuleData *ro = static_cast<const RenderObjectDrawModuleData *>(draw);
+				std::string rawName = s.info().m_particleTypeName;
+				if (ro && ro->m_multiRenderObjects)
+				{
+					for (int g = 0; g < 3; ++g)
+					{
+						if (!ro->m_renderGroup[g].empty() && ro->m_numObjects[g] > 0)
+						{
+							rawName = ro->m_renderGroup[g] + "01.w3d";
+							b.shader = ro->m_shader[g];
+							break;
+						}
+					}
+				}
+				b.modelName = rawName.size() > 4 ? rawName.substr(0, rawName.size() - 4) : std::string(); // RW 0x5fbc59: strip 4-char .w3d suffix
+				if (b.modelName.empty())
+				{
+					return;
+				}
+				if (ro && ro->m_sinkOnTerrainCollision)
+				{
+					buildRenderObjects(s, manager, b);
+				}
+				else
+				{
+					parallel.push_back(slots.size());
+				}
+			}
+			break;
+		case MODULE_CLASS_COUNT:
 			return;
 		default:
 			return;
@@ -617,6 +797,7 @@ std::vector<DrawBatch> ParticleDrawBuilder::build(const ParticleSystemManager &m
 			case MODULE_QUAD_DRAW: buildQuads(*slot.system, manager, slot.batch); break;
 			case MODULE_BUTTERFLY_DRAW: buildButterflies(*slot.system, manager, slot.batch); break;
 			case MODULE_STREAK_DRAW: buildStreak(*slot.system, manager, slot.batch, camera); break;
+			case MODULE_RENDER_OBJECT_DRAW: buildRenderObjects(*slot.system, manager, slot.batch); break;
 			default: break;
 			}
 		}
@@ -630,7 +811,7 @@ std::vector<DrawBatch> ParticleDrawBuilder::build(const ParticleSystemManager &m
 			continue;
 		}
 		DrawBatch &b = slots[ev.slot].batch;
-		const bool empty = b.sprites.empty() && b.gpu.empty() && b.vertices.empty();
+		const bool empty = b.sprites.empty() && b.gpu.empty() && b.vertices.empty() && b.drawables.empty();
 		if (empty)
 		{
 			continue;

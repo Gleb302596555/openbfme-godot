@@ -444,6 +444,53 @@ void W3DInstancer::set_alpha_override(bool enabled)
 	}
 }
 
+void W3DInstancer::set_particle_color(bool enabled)
+{
+	ParticleColor = enabled;
+	if (Materials)
+	{
+		Materials->Set_Particle_Color(enabled);
+	}
+}
+
+void W3DInstancer::set_instance_particle_color(int64_t instance, int shader, float r, float g, float b)
+{
+	if (instance < 0 || instance >= (int64_t)Instances.size()) return;
+	Instance &inst = Instances[(size_t)instance];
+	float packed = 0.0f;
+	if (shader == 10 || shader == 8) // PARTICLE_SHADER_W3D_EMISSIVE (10) or PARTICLE_SHADER_W3D_DIFFUSE (8)
+	{
+		const int ir = (int)std::lround(std::clamp(r, 0.0f, 1.0f) * 255.0f);
+		const int ig = (int)std::lround(std::clamp(g, 0.0f, 1.0f) * 255.0f);
+		const int ib = (int)std::lround(std::clamp(b, 0.0f, 1.0f) * 255.0f);
+		packed = W3D_Pack_House_Color(ir, ig, ib);
+		if (shader == 8) packed = -packed;
+	}
+	if (inst.HcPacked == packed) return;
+	inst.HcPacked = packed;
+	note_pose_dirty();
+	mark_model(instance);
+}
+
+bool W3DInstancer::has_model_file(const std::string &name) const
+{
+	if (!Source || name.size() < 2)
+	{
+		return false;
+	}
+	const std::string key = AsciiStringUtil::lowered(name);
+	if (Source->Exists(W3D_Asset_Path(key, Source->FlatAssetLayout())))
+	{
+		return true;
+	}
+	const size_t dot = key.find('.');
+	if (dot != std::string::npos && dot >= 2 && Source->Exists(W3D_Asset_Path(key.substr(0, dot), Source->FlatAssetLayout())))
+	{
+		return true;
+	}
+	return false;
+}
+
 void W3DInstancer::set_house_colors_enabled(bool enabled)
 {
 	HouseColorEnabled = enabled;
@@ -691,6 +738,7 @@ Dictionary W3DInstancer::setup(const Ref<RetailFileSystem> &fs)
 		Materials.reset(new W3DMaterialFactory(*fs->archive_fs()));
 		Materials->Set_Asset_Packs(fs->assetPacks().empty() ? nullptr : &fs->assetPacks());
 		Materials->Set_Alpha_Override(AlphaOverride); // lane BUILD-5 r3
+		Materials->Set_Particle_Color(ParticleColor);
 		// housecolor.ini: the table only names which textures have a house texture; applying it is stop S-022 (reported per surface).
 		// A missing or malformed file is an error, not an empty table.
 		std::vector<std::uint8_t> hcBytes;

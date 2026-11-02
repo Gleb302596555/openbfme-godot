@@ -6,6 +6,7 @@
 
 #include "FxTestUtil.h"
 
+#include "Common/GameEdition.h"
 #include "GameClient/ParticleDraw.h"
 
 using namespace FXParticleSystem;
@@ -85,11 +86,17 @@ TEST_CASE("draw: invisible particles are skipped; the stops S-194 (smudge) and S
 	sim.step();
 	ParticleDrawBuilder builder(sim.env.rng);
 	const std::vector<DrawBatch> batches = builder.build(*sim.mgr, DrawCamera());
-	CHECK(batches.empty()); // the smudge and the render-object system draw nothing here
+	// Previously Model (Type = DRAWABLE / RenderObjectDraw) emitted the temporary stop stub S-195 and drew nothing; RenderObjectDrawModule::doParticles
+	// is now ported (RW 0x964C00 / BFME2 0x00562DDB RenderObjectDrawModuleDoParticles.cpp, RenderParticle RW 0x5FBBC4 / BFME2 0x005FC49D) and strips the last 4
+	// characters (".w3d") of ParticleName (RW 0x964A1C / BFME2 0x00562BF8). S-195 remains only for TERRAIN_PARTICLE (type 6, tested in test_fx_review.cpp).
+	REQUIRE(batches.size() == 1u);
+	CHECK(batches[0].kind == DrawBatch::DRAWABLES);
+	CHECK(batches[0].modelName == "XXXXM"); // "XXXXModel" minus 4 chars (RW 0x964A1C)
+	REQUIRE(batches[0].drawables.size() == 1u);
 	const std::vector<std::string> u = builder.unverified();
-	REQUIRE(u.size() == 2u);
+	REQUIRE(u.size() == 1u);
 	CHECK(u[0].compare(0, 5, "S-194") == 0);
-	CHECK(u[1].compare(0, 5, "S-195") == 0);
+
 }
 
 TEST_CASE("draw: GPU particles carry the spawn record and the GpuDraw parameters (RW 0x7b1141, 0x5f61b1)")
@@ -196,4 +203,130 @@ TEST_CASE("draw: ground-aligned and volume flags reach the batch; GPU types are 
 	REQUIRE(batches.size() == 1u);
 	CHECK(batches[0].groundAligned);
 	CHECK(batches[0].volume);
+}
+
+TEST_CASE("draw: RenderObjectDraw builds W3D drawable instances with stripped model name, 3D transform, and shader color/opacity in both editions (RW 0x964C00 / BFME2 0x00562DDB)")
+{
+	// Both editions share identical RenderObjectDrawModule::doParticles (RW 0x964C00 / BFME2 0x00562DDB RenderObjectDrawModuleDoParticles.cpp) and
+	// RenderParticle::RenderParticle (RW 0x5FBBC4 / BFME2 0x005FC49D RenderParticleConstructor.cpp).
+	const std::string ini =
+		withDraw("EmissiveRay",
+			"    Type = DRAWABLE\n    Shader = W3D_EMISSIVE\n    ParticleName = EXCldBrkRays.W3D\n    Lifetime = 50 50\n    BurstCount = 1 1\n    BurstDelay = 100 100\n",
+			std::string(kPointOrtho) +
+			"  Color = DefaultColor\n    Color1 = R:200 G:100 B:50 0\n  End\n"
+			"  Alpha = DefaultAlpha\n    Alpha1 = 0.5 0.5 0\n  End\n"
+			"  Update = RenderObjectUpdate\n    Rotation = ROTATE_Z\n    AngleZ = 1.5707964 1.5707964\n"
+			"    StartSizeX = 2.0 2.0\n    StartSizeY = 3.0 3.0\n    StartSizeZ = 4.0 4.0\n  End\n",
+			"  Draw = RenderObjectDraw\n  End\n") +
+		withDraw("DiffuseDebris",
+			"    Type = DRAWABLE\n    Shader = W3D_DIFFUSE\n    ParticleName = EXDebris01.w3d\n    Lifetime = 50 50\n    BurstCount = 1 1\n    BurstDelay = 100 100\n",
+			std::string(kPointOrtho) +
+			"  Color = DefaultColor\n    Color1 = R:100 G:200 B:255 0\n  End\n"
+			"  Alpha = DefaultAlpha\n    Alpha1 = 0.4 0.4 0\n  End\n"
+			"  Update = RenderObjectUpdate\n    Rotation = ROTATION_OFF\n    StartSizeX = 0.0 0.0\n    StartSizeY = 1.5 1.5\n    StartSizeZ = 2.5 2.5\n  End\n",
+			"  Draw = RenderObjectDraw\n    SinkOnTerrainCollision = Yes\n    SinkRate = 0.25\n  End\n") +
+		withDraw("AlphaModel",
+			"    Type = DRAWABLE\n    Shader = W3D_ALPHA\n    ParticleName = EXSmokeMod.w3d\n    Lifetime = 50 50\n    BurstCount = 1 1\n    BurstDelay = 100 100\n",
+			std::string(kPointOrtho) +
+			"  Color = DefaultColor\n    Color1 = R:128 G:64 B:32 0\n  End\n"
+			"  Alpha = DefaultAlpha\n    Alpha1 = 0.75 0.75 0\n  End\n"
+			"  Update = RenderObjectUpdate\n    Rotation = ROTATE_X\n    AngleZ = 1.5707964 1.5707964\n    StartSizeX = 1.0 1.0\n    StartSizeY = 2.0 2.0\n    StartSizeZ = 3.0 3.0\n  End\n",
+			"  Draw = RenderObjectDraw\n  End\n");
+
+	for (GameEdition edition : { GameEdition::RotWK201, GameEdition::BFME2_106 })
+	{
+		CAPTURE(gameEditionName(edition));
+		Sim sim(ini);
+		if (edition == GameEdition::BFME2_106) sim.fixture.mount({ { "Data\\INI\\Default\\SubsystemLegend.ini", "" }, { "Data\\INI\\AwardSystem.ini", "" } });
+		CHECK(sim.fixture.env.bfme2Data() == (edition == GameEdition::BFME2_106));
+		sim.env.ground = 10.0f;
+
+		const ParticleSystemID idEmissive = sim.spawn("EmissiveRay");
+		const ParticleSystemID idDiffuse = sim.spawn("DiffuseDebris");
+		const ParticleSystemID idAlpha = sim.spawn("AlphaModel");
+
+		// Give EmissiveRay a non-identity parent orientation (90 deg around Z) so !sys.isLocalIdentity() multiplies parent 3x3 (RW 0x965184 / BFME2 0x0056338A)
+		ParticleSystem *sysEmissive = sim.mgr->findParticleSystemByID(idEmissive);
+		REQUIRE(sysEmissive != nullptr);
+		Matrix3D localRot;
+		localRot.Make_Identity();
+		localRot.Row[0][0] = 0.0f; localRot.Row[0][1] = -1.0f;
+		localRot.Row[1][0] = 1.0f; localRot.Row[1][1] = 0.0f;
+		sysEmissive->setLocalTransform(localRot);
+		sysEmissive->setPosition(Coord3D{ 10.0f, 20.0f, 30.0f });
+
+		ParticleSystem *sysDiffuse = sim.mgr->findParticleSystemByID(idDiffuse);
+		REQUIRE(sysDiffuse != nullptr);
+		sysDiffuse->setPosition(Coord3D{ 5.0f, 6.0f, 12.0f });
+
+		ParticleSystem *sysAlpha = sim.mgr->findParticleSystemByID(idAlpha);
+		REQUIRE(sysAlpha != nullptr);
+
+		sim.step();
+
+		const size_t rngBefore = sim.env.rng.calls.size();
+		ParticleDrawBuilder builder(sim.env.rng);
+		const std::vector<DrawBatch> batches = builder.build(*sim.mgr, DrawCamera());
+		CHECK(sim.env.rng.calls.size() == rngBefore); // rendering never draws from RNG
+
+		REQUIRE(batches.size() == 3u);
+
+		// 1. EmissiveRay: W3D_EMISSIVE (10) -> r, g, b = color * alpha (RW 0x50E040 / BFME2 0x0050E643), modelName stripped of ".W3D" (RW 0x964A1C)
+		const DrawBatch &b0 = batches[0];
+		CHECK(b0.kind == DrawBatch::DRAWABLES);
+		CHECK(b0.modelName == "EXCldBrkRays");
+		CHECK(b0.shader == PARTICLE_SHADER_W3D_EMISSIVE);
+		REQUIRE(b0.drawables.size() == 1u);
+		const DrawableInstance &d0 = b0.drawables[0];
+		const float c90 = std::cos(1.5707964f);
+		const float s90 = std::sin(1.5707964f);
+		const float inv255 = 1.0f / 255.0f;
+		CHECK(d0.r == (200.0f * inv255) * 0.5f);
+		CHECK(d0.g == (100.0f * inv255) * 0.5f);
+		CHECK(d0.b == (50.0f * inv255) * 0.5f);
+		CHECK(d0.a == 1.0f);
+		// localRot (pi/2 around Z: [[0, -1, 0], [1, 0, 0], [0, 0, 1]]) * D3DXMatrixRotationZ(pi/2: [[0, 1, 0], [-1, 0, 0], [0, 0, 1]]) = Identity,
+		// then scaled by (2, 3, 4) -> diag(2, 3, 4)
+		CHECK(d0.transform.Row[0][0] == 2.0f * s90);
+		CHECK(d0.transform.Row[0][1] == -3.0f * c90);
+		CHECK(d0.transform.Row[1][0] == 2.0f * c90);
+		CHECK(d0.transform.Row[1][1] == 3.0f * s90);
+		CHECK(d0.transform.Row[2][2] == 4.0f);
+		CHECK(d0.transform.Row[0][3] == 10.0f);
+		CHECK(d0.transform.Row[1][3] == 20.0f);
+		CHECK(d0.transform.Row[2][3] == 30.0f);
+
+		// 2. DiffuseDebris: W3D_DIFFUSE (8) -> r, g, b = color * alpha (RW 0x50E413 / BFME2 0x0050EA16), X scale 0 clamped to 0.0001f (RW 0x964E15)
+		const DrawBatch &b1 = batches[1];
+		CHECK(b1.kind == DrawBatch::DRAWABLES);
+		CHECK(b1.modelName == "EXDebris01");
+		CHECK(b1.shader == PARTICLE_SHADER_W3D_DIFFUSE);
+		REQUIRE(b1.drawables.size() == 1u);
+		const DrawableInstance &d1 = b1.drawables[0];
+		CHECK(d1.r == (100.0f * inv255) * 0.4f);
+		CHECK(d1.g == (200.0f * inv255) * 0.4f);
+		CHECK(d1.b == 1.0f * 0.4f);
+		CHECK(d1.a == 1.0f);
+		CHECK(d1.transform.Row[0][0] == 0.0001f);
+		CHECK(d1.transform.Row[1][1] == 1.5f);
+		CHECK(d1.transform.Row[2][2] == 2.5f);
+
+		// 3. AlphaModel: W3D_ALPHA (9) -> r, g, b = color (unmultiplied), a = alpha (RW 0x50E244 / BFME2 0x0050E847), ROTATE_X by pi/2
+		const DrawBatch &b2 = batches[2];
+		CHECK(b2.kind == DrawBatch::DRAWABLES);
+		CHECK(b2.modelName == "EXSmokeMod");
+		CHECK(b2.shader == PARTICLE_SHADER_W3D_ALPHA);
+		REQUIRE(b2.drawables.size() == 1u);
+		const DrawableInstance &d2 = b2.drawables[0];
+		CHECK(d2.r == 1.0f);
+		CHECK(d2.g == 1.0f);
+		CHECK(d2.b == 1.0f);
+		CHECK(d2.a == 0.75f);
+		// Scale (1, 2, 3) * D3DXMatrixRotationX(pi/2): Row0 = [1, 0, 0], Row1 = [0, 0, 3], Row2 = [0, -2, 0]
+		CHECK(d2.transform.Row[0][0] == 1.0f);
+		CHECK(d2.transform.Row[1][1] == 2.0f * c90);
+		CHECK(d2.transform.Row[1][2] == 3.0f * s90);
+		CHECK(d2.transform.Row[2][1] == -2.0f * s90);
+		CHECK(d2.transform.Row[2][2] == 3.0f * c90);
+	}
 }

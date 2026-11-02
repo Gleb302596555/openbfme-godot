@@ -56,6 +56,14 @@ struct GpuInstance
 	float random;
 };
 
+// RenderObjectDraw instance (RW 0x964c00 / BFME2 0x00562ddb RenderObjectDrawModule::doParticles, RenderParticle RW 0x5fbbc4 / BFME2 0x005fc49d).
+struct DrawableInstance
+{
+	Matrix3D transform;               ///< 3x4 SAGE world matrix (RW 0x964ed2..0x965208)
+	float r = 1.0f, g = 1.0f, b = 1.0f, a = 1.0f; ///< W3D_EMISSIVE / W3D_DIFFUSE: color * alpha, a = 1; W3D_ALPHA: 1,1,1, alpha; others: 1,1,1,1
+	std::uint32_t particleId = 0;     ///< Particle::particleID (+0x88)
+};
+
 struct MeshVertex
 {
 	float x, y, z;
@@ -88,7 +96,8 @@ struct DrawBatch
 	{
 		SPRITES,
 		GPU,
-		MESH
+		MESH,
+		DRAWABLES
 	};
 	Kind kind = SPRITES;
 	std::string texture;       ///< ParticleName as written in the INI
@@ -106,6 +115,8 @@ struct DrawBatch
 	std::vector<MeshVertex> vertices;
 	std::vector<std::uint32_t> indices;
 	bool ribbon = false;       ///< a Streak / Lightning strip (cull enabled; the others draw both faces)
+	std::string modelName;     ///< RenderObjectDraw: ParticleName with 4-char .w3d suffix stripped (RW 0x5fbbc4 / BFME2 0x005fc49d)
+	std::vector<DrawableInstance> drawables;
 };
 
 class ParticleDrawBuilder
@@ -136,10 +147,12 @@ private:
 	void buildButterflies(const ParticleSystem &s, const ParticleSystemManager &m, DrawBatch &b);
 	void buildStreak(const ParticleSystem &s, const ParticleSystemManager &m, DrawBatch &b, const DrawCamera &camera);
 	void buildLightning(const ParticleSystem &s, const ParticleSystemManager &m, DrawBatch &b, const DrawCamera &camera);
+	void buildRenderObjects(const ParticleSystem &s, const ParticleSystemManager &m, DrawBatch &b);
 	void note(const char *code, const char *text);
 
 	W3DDrawRandom &m_render;
 	std::map<ParticleSystemID, LightningState> m_lightning;
+	std::map<std::pair<ParticleSystemID, std::uint32_t>, Matrix3D> m_drawableTransforms; ///< SinkOnTerrainCollision state (RW 0x964eff)
 	std::vector<std::string> m_unverified;
 };
 
