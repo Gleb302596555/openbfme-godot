@@ -1,4 +1,4 @@
-// Ennorath scenarios: RotWK + BFME2 + the player's own Ennorath overlay, loaded once for a test case, in an Arena of real data. GPL-3.0.
+// Ennorath scenarios: RotWK + BFME2 + the player's own Ennorath overlay, loaded once for the process (as hudtest::shared() the retail world), in an Arena of real data. GPL-3.0.
 // The expected values of a scenario come from the mod's INI (name the file in a comment), never from the port. The mod stays outside the repository (PLAN rule 6).
 #pragma once
 #include "doctest.h"
@@ -14,12 +14,27 @@
 
 namespace ennorathscenario
 {
-struct World
+// what the mount and the parse make: the world's data does not change in a game, each case's game is its own
+struct LoadedWorld
 {
-	std::string rotwk = env("ROTWK_INSTALL"), bfme2 = env("BFME2_INSTALL"), mod = env("OPENBFME_ENNORATH_INSTALL");
 	Win32BIGFileSystem pure;
 	retailtest::Mount merged;
 	hudtest::SharedWorld shared;
+	bool loaded = false;
+};
+
+inline LoadedWorld &loadedWorld()
+{
+	static LoadedWorld world;
+	return world;
+}
+
+struct World
+{
+	std::string rotwk = env("ROTWK_INSTALL"), bfme2 = env("BFME2_INSTALL"), mod = env("OPENBFME_ENNORATH_INSTALL");
+	Win32BIGFileSystem &pure = loadedWorld().pure;
+	retailtest::Mount &merged = loadedWorld().merged;
+	hudtest::SharedWorld &shared = loadedWorld().shared;
 
 	static std::string env(const char *name)
 	{
@@ -46,6 +61,10 @@ struct World
 			retailtest::printSkip((std::string(what) + " (set ROTWK_INSTALL, BFME2_INSTALL, OPENBFME_ENNORATH_INSTALL)").c_str());
 			return false;
 		}
+		if (loadedWorld().loaded)
+		{
+			return true;
+		}
 		std::string err;
 		std::vector<RetailInstall> installs(2);
 		installs[0].label = "rotwk";
@@ -68,6 +87,7 @@ struct World
 		shared.world = std::make_unique<RetailObjectWorld>(*merged.fs);
 		REQUIRE_MESSAGE(shared.world->load(&err), err);
 		REQUIRE(shared.world->report().errors.empty());
+		loadedWorld().loaded = true;
 		return true;
 	}
 };
