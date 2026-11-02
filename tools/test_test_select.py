@@ -42,6 +42,41 @@ def test_a_source_without_a_header_asks_for_the_full_suite(repo: Path):
     assert full and "Lone.cpp" in why
 
 
+def test_a_part_of_a_split_class_counts_as_the_header_it_shares(repo: Path):
+    (repo / "engine/src/HighCombat.cpp").write_text('#include "High.h"\n#include "Low.h"\n', encoding="utf-8")
+    full, _, masks = ts.select(["engine/src/HighCombat.cpp"], repo)
+    assert not full
+    assert masks == ["a one", "a two*", "module coverage*"]
+
+
+def test_a_source_that_only_includes_an_unrelated_header_still_asks_for_the_full_suite(repo: Path):
+    (repo / "engine/src/Other.cpp").write_text('#include "High.h"\n', encoding="utf-8")
+    full, why, _ = ts.select(["engine/src/Other.cpp"], repo)
+    assert full and "Other.cpp" in why
+
+
+def test_a_data_file_selects_the_tests_that_name_it(repo: Path):
+    path = repo / "engine/tests/test_c.cpp"
+    path.write_text('// reads big_battle.hashes\n' + path.read_text(encoding="utf-8"), encoding="utf-8")
+    assert ts.select(["engine/tests/data/perf1/big_battle.hashes"], repo)[2] == ["c one", "module coverage*"]
+
+
+def test_a_data_file_nothing_names_asks_for_the_full_suite(repo: Path):
+    full, why, _ = ts.select(["engine/tests/data/orphan.tsv"], repo)
+    assert full and "orphan.tsv" in why
+
+
+def test_run_refuses_the_whole_suite_without_full(repo: Path, monkeypatch, capsys):
+    monkeypatch.setattr(ts, "REPO", repo)
+    monkeypatch.setattr(ts, "changed_files", lambda base, r: ["godot/scripts/game.gd"])
+    called = []
+    monkeypatch.setattr(ts.subprocess, "run", lambda *a, **k: called.append(a))
+    monkeypatch.setattr(sys, "argv", ["test_select.py", "--run", "tests.exe"])
+    assert ts.main() == 2
+    assert not called
+    assert "not running the whole suite" in capsys.readouterr().err
+
+
 def test_a_file_no_test_can_be_traced_from_asks_for_the_full_suite(repo: Path):
     assert ts.select(["godot/scripts/game.gd"], repo)[0]
     assert ts.select(["engine/CMakeLists.txt"], repo)[0]
