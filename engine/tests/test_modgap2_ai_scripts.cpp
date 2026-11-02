@@ -24,6 +24,7 @@
 #include "GameClient/RadarMarkerClientUpdate.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/AnimalAIUpdate.h"
+#include "GameLogic/Module/RunOffMapBehavior.h"
 #include "GameLogic/Module/DestroyEnvironmentUpdate.h"
 #include "GameLogic/Module/RainOfFireUpdate.h"
 #include "GameLogic/Module/HordeWorkerAIUpdate.h"
@@ -39,6 +40,17 @@ using namespace scripttest;
 namespace
 {
 const char kAiScriptTestIni[] =
+    "Object TestRunOffAtBirth\n"
+    "  KindOf = INFANTRY\n"
+    "  Body = ActiveBody BodyTag\n"
+    "    MaxHealth = 100\n"
+    "  End\n"
+    "  Behavior = AIUpdateInterface AITag\n"
+    "  End\n"
+    "  Behavior = RunOffMapBehavior RunOffTag\n"
+    "    RequiresSpecificTrigger = No\n"
+    "  End\n"
+    "End\n"
     "Upgrade Upgrade_TestBuilt\n"
     "  Type = PLAYER\n"
     "End\n"
@@ -132,6 +144,36 @@ TEST_CASE("modgap2 ai: PLAYER_HAS_NUM_UNITS_WITH_UPGRADE and PLAYER_BUILT_UPGRAD
 
 		u2->giveUpgradeSelf(up);
 		CHECK(ScriptConditions::evaluate(w.logic->scriptEngine(), hasCond2));
+	}
+}
+
+// RW 0x865321: a module that needs no trigger runs when the unit is made; RW 0x865519 .. 0x865534 gives it an AI command and removes nothing. The port destroyed the
+// object there, in its constructor, which ended `move retail` with SIGABRT on retail's GondorCavalryRiderless. The AI commands themselves are S-5308.
+TEST_CASE("modgap2 ai: RunOffMapBehavior without a trigger leaves the new unit alive and reports the unported run (both editions)")
+{
+	for (GameEdition edition : { GameEdition::RotWK201, GameEdition::BFME2_106 })
+	{
+		CAPTURE(gameEditionName(edition));
+		combattest::CombatWorld w(kAiScriptTestIni);
+		w.logic->setEdition(edition);
+		Object *unit = w.unit("TestRunOffAtBirth", 'A', 100.0f, 100.0f);
+		REQUIRE(unit != nullptr);
+		const ObjectID id = unit->getID();
+		const Coord3D at = *unit->getPosition();
+		w.frames(10);
+		Object *now = w.byId(id);
+		REQUIRE(now != nullptr);
+		CHECK_FALSE(now->isEffectivelyDead());
+		CHECK(now->getPosition()->x == at.x);
+		auto *run = dynamic_cast<RunOffMapBehavior *>(now->findModule("RunOffMapBehavior"));
+		REQUIRE(run != nullptr);
+		CHECK(run->hasTriggered());
+		bool reported = false;
+		for (const auto &line : w.logic->report().stops)
+		{
+			reported = reported || line.find("[S-5308]") != std::string::npos;
+		}
+		CHECK(reported);
 	}
 }
 
