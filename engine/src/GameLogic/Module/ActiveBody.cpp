@@ -202,23 +202,23 @@ void ActiveBody::crc(StateHasher &h) const
 	}
 }
 
-// the model conditions of the applied damage state (+0x30): its flag of DAMAGED / REALLYDAMAGED / RUBBLE, the other two cleared (INFERENCE: ZH
-// Drawable::reactToBodyDamageStateChange, what vslot 0x94 sets)
-void ActiveBody::applyDamageStateModelConditions()
+void ActiveBody::evaluateVisualCondition()
 {
+	// RW 0x8C1D53 -> Object RW 0x6903B6: the damage flags follow the stored body state, without the construction suppression of internalChangeHealth.
+	// The ambient-sound / damage-stage tail remains S-653; this is the existing damage-flag mapping.
+	Object &obj = *getObject();
 	Object::ModelConditionBits clear{}, set{};
 	const int damaged = CombatNames::modelCondition("DAMAGED"), really = CombatNames::modelCondition("REALLYDAMAGED"), rubble = CombatNames::modelCondition("RUBBLE");
 	for (int bit : { damaged, really, rubble })
 	{
 		clear[(size_t)bit >> 5] |= 1u << (bit & 31);
 	}
-	const BodyDamageType now = m_curDamageState;
-	const int on = now == BODY_DAMAGED ? damaged : now == BODY_REALLYDAMAGED ? really : now == BODY_RUBBLE ? rubble : -1;
+	const int on = m_curDamageState == BODY_DAMAGED ? damaged : m_curDamageState == BODY_REALLYDAMAGED ? really : m_curDamageState == BODY_RUBBLE ? rubble : -1;
 	if (on >= 0)
 	{
 		set[(size_t)on >> 5] |= 1u << (on & 31);
 	}
-	getObject()->clearAndSetModelConditionFlags(clear, set);
+	obj.clearAndSetModelConditionFlags(clear, set);
 }
 
 // RW 0x8C2A5D (setCorrectDamageState). TARGET FACTS read from the binary: the damage state field (+0x30) is rewritten from calcDamageState (RW 0x8C1B79); when it changed vslot 0x34 runs
@@ -234,7 +234,7 @@ void ActiveBody::applyDamageStateModelConditions()
 // NOT PORTED (S-342): the geometry height (the geometry is the template's, an Object has none of its own), the upgrade removal, the attribute modifier
 // pool clear and the Damaged / ReallyDamaged attribute modifiers, the damage FX transitions of the tail (RW 0x8C2C64..0x8C2EF1) and the Bookend of walls.
 // The model conditions DAMAGED / REALLYDAMAGED / RUBBLE: internalChangeHealth calls the visual update (vslot 0x94, RW 0x8C32A8) after the state changed, not while the
-// object is UNDER_CONSTRUCTION (unless dead); INFERENCE: what vslot 0x94 sets is ZH Drawable::reactToBodyDamageStateChange's (the state's flag, the other two cleared).
+// object is UNDER_CONSTRUCTION (unless dead). RW 0x8C1D53 -> Object RW 0x6903B6 sets the state's flag and clears the other two.
 void ActiveBody::updateDamageState(bool initial)
 {
 	const BodyDamageType old = m_curDamageState;
@@ -250,7 +250,7 @@ void ActiveBody::updateDamageState(bool initial)
 	// structure (1 hit point at the start, RW 0x85895D) keeps its construction states instead of REALLYDAMAGED / DAMAGED.
 	if (m_currentHealth <= 0.0f || !obj.testStatus((unsigned)CombatNames::statuses().underConstruction))
 	{
-		applyDamageStateModelConditions();
+		evaluateVisualCondition();
 	}
 	// lane FX-4: RotWK's setCorrectDamageState does not tell the damage modules (ZH's does); attemptDamage / attemptHealing do (notifyDamageStateChange)
 	if (!obj.isKindOf((unsigned)CombatNames::kinds().structure))

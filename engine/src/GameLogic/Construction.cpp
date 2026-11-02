@@ -182,13 +182,12 @@ void Construction::completeConstruction(Object &structure, Object *builder)
 	structure.setConstructionPercent(-1.0f);
 	structure.setStatus(OBJECT_STATUS_UNDER_CONSTRUCTION, false);
 	setModelConditions(structure, { "AWAITING_CONSTRUCTION", "PARTIALLY_CONSTRUCTED", "ACTIVELY_BEING_CONSTRUCTED" }, { "CONSTRUCTION_COMPLETE" });
-	// INFERENCE (Discord: black smoke on a finished structure, as if it were being destroyed): the dozer's placement sets the 1 hit point before UNDER_CONSTRUCTION
-	// (RW 0x88D53A), so the site rises REALLYDAMAGED, and the rise's heals change the damage state while internalChangeHealth skips the visual change (RW 0x8C3290).
-	// GettingBuiltBehavior's completion check (RW 0x857C9E ff) clears DAMAGED / REALLYDAMAGED only at full health and once its update reaches it; a dozer-completed
-	// structure takes the model conditions of its body's damage state when UNDER_CONSTRUCTION clears (RW 0x88DEE0 "the model conditions"), as ZH's buildup does
+	// Both editions: the dozer explicitly refreshes the body's visual condition before notifying the player (RW 0x88DF6B, body slot 0x94;
+	// clean BFME2 1.06 0x88AC76, slot 0x90; DozerAIUpdateCtor.cpp:Rva0048A69E). Health changes during construction suppress this refresh, so a
+	// stale REALLYDAMAGED flag from placement must not survive until GettingBuiltBehavior's next update. Preserve actual damage at completion.
 	if (ActiveBody *body = dynamic_cast<ActiveBody *>(structure.getBodyModule()))
 	{
-		body->applyDamageStateModelConditions();
+		body->evaluateVisualCondition();
 	}
 	if (Player *owner = structure.getControllingPlayer())
 	{

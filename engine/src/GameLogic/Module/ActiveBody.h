@@ -83,6 +83,8 @@ public:
 	float getReviveReference() const { return m_reviveReference; }
 	BodyDamageType getDamageState() const override { return calcDamageState(); }
 	void applyInitialDamageState() override { updateDamageState(true); }
+	// Body interface RW 0x8C1D53: apply the stored damage state even when health did not change (e.g. construction completion).
+	void evaluateVisualCondition();
 	void setInitialHealth(int initialPercent) override;
 	// lane SUMMON-1: RW 0x8C47DE (vt[0x58]) with its second argument 0 (the ObjectCreationList's health)
 	void setInitialHealthPercent(float percent) override;
@@ -134,9 +136,6 @@ public:
 	}
 	// lane COMBAT-2: the damage state the body last applied (RW + 0x30, written by setCorrectDamageState RW 0x8C2A5D)
 	BodyDamageType appliedDamageState() const { return m_curDamageState; }
-	// the model conditions DAMAGED / REALLYDAMAGED / RUBBLE set to the applied damage state; internalChangeHealth skips them while the object is UNDER_CONSTRUCTION,
-	// so the end of a construction applies them (Construction::completeConstruction)
-	void applyDamageStateModelConditions();
 	void crc(StateHasher &hasher) const override;
 	OBFME_MODULE_XFER(ActiveBody) // lane SAVE-4b (OpenBFME native, S-4190)
 
