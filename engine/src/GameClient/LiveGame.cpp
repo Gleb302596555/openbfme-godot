@@ -23,6 +23,7 @@
 #include "GameLogic/UpgradeCommands.h"
 #include "GameLogic/BeaconCommands.h"
 #include "GameLogic/Combat/CombatState.h"
+#include "GameLogic/Map/FireLogicSystem.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Module/HeroAbilityModules.h"
@@ -445,6 +446,7 @@ bool LiveGame::load(const Options &options, std::string *error)
 		m_shroud->setExtent(0.0f, 0.0f, maxX, maxY);
 		// lane MODULES-2: RW 0x62FCC3 .. 0x62FCCD: ThePartitionManager gets the same extent (RW 0xA39030 -> 0xA3B450), before the map's objects exist
 		m_logic->partition().setRegion(0.0f, 0.0f, maxX, maxY);
+		m_logic->fireLogic().newMap(0.0f, 0.0f, maxX, maxY); // RW 0x687015
 	}
 	m_shroud->attach();
 	if (const Player *local = m_players->getLocalPlayer())

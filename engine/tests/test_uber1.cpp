@@ -137,6 +137,7 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // draw, RW 0x899F1F, and its countdown in the object hash), from frame 0.
 // The modifier pool's expiry update (RW 0x80585F, S-633) re-measured the pin vector (OPENBFME_UBER1_REGEN=1, Windows MSVC): every object's pool is a sleepy update
 // module in the object hash, from frame 0.
+// Lane FIRE re-measured the pin vector at TheFireLogicSystem's commit (OPENBFME_UBER1_REGEN=1): logical fire grid, FireLogicNugget delivery and object fire watching (RW 0x6886E0, RW 0x912241), first differing at frame 23.
 TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1, 4 and 16 logic threads and in a repeated run; the hash's own jobs run on "
 		  "workers; Faithful hashes differently and serially")
 {
