@@ -39,6 +39,11 @@ class GameLogic;
 class AICommands
 {
 public:
+	AICommands();
+	~AICommands();
+
+	static void recordAttackOrderAccepted();
+
 	void setFormationAssistant(const FormationAssistant *assistant) { m_formations = assistant; }
 	// registers one handler per message type this class executes (a type another lane registered first is a logic error)
 	void registerHandlers(GameLogicDispatch &dispatcher);

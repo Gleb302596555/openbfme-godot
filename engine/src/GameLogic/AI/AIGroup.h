@@ -24,6 +24,7 @@
 
 #include "Common/INIDataTypes.h"
 
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -74,7 +75,7 @@ public:
 	// RW 0x77AC5A .. 0x77AC7F: MSG_ENTER with PlanningModeEnabled submits GarrisonObjectGroupOrder (RW 0x75754C)
 	void planningGarrisonObject(ObjectID containerID, int orderMode);
 	// RW 0x77BBC1 .. 0x77BBED: MSG_DO_MOVETO_FORMATION with PlanningModeEnabled submits MoveToFormationGroupOrder (RW 0x757419)
-	void planningMoveToFormation(int formationType, const Coord3D &pos, float angle, bool attackMove, int orderMode);
+	void planningMoveToFormation(int formationType, const Coord3D &pos, float angle, bool attackMove, int orderMode, std::map<ObjectID, Coord3D> positions = {});
 	// RW 0x756E5C(manager, 3, group) (MSG_DO_STOP): every member's queue is cleared whole
 	void clearOrders();
 	// Calculate and reserve one member's destination (RW 0x94DF97; BFME2

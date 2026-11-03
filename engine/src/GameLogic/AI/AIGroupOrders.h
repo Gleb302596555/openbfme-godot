@@ -139,7 +139,7 @@ private:
 class MoveToFormationGroupOrder final : public AIOrdersManager::GroupOrder
 {
 public:
-	MoveToFormationGroupOrder(GameLogic &logic, std::vector<ObjectID> objects, int formationType, const Coord3D &destination, float angle, bool attackMove);
+	MoveToFormationGroupOrder(GameLogic &logic, std::vector<ObjectID> objects, int formationType, const Coord3D &destination, float angle, bool attackMove, std::map<ObjectID, Coord3D> positions = {});
 
 	void activate(ObjectID object) override;
 	bool complete(ObjectID object) override;

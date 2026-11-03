@@ -541,3 +541,57 @@ TEST_CASE("formation intent: the armed slot goal and a refused member's kept goa
 	REQUIRE(w.aiOf(b)->resumeAttackMove());
 	checkGoal(w.aiOf(b)->stateMachine().goalPosition(), old);
 }
+
+
+TEST_CASE("orders queue: immediate order without Alt executes same frame, queued order with Alt waits in queue until first completes")
+{
+	FormationIntentWorld w;
+	Object *a = w.spawn("Walker", 205.0f, 205.0f);
+	Object *b = w.spawn("Walker", 205.0f, 245.0f);
+	w.frames(2);
+	w.select(w.player, { a, b });
+
+	AIOrdersManager &mgr = w.ai->ordersManager();
+	const ObjectID idA = a->getID();
+	Player *alice = w.players.findPlayerWithName("Alice");
+	REQUIRE(alice != nullptr);
+
+	// 1. Immediate formation move without Alt (mode 0) executes in the very same frame
+	alice->setOrderMode(0);
+	const Coord3D goal1{ 605.0f, 605.0f, 0.0f };
+	w.order(false, goal1);
+	REQUIRE(mgr.queue(idA) != nullptr);
+	CHECK(mgr.queue(idA)->orders().size() == 1);
+	CHECK_FALSE(w.aiOf(a)->isIdle());
+	const Coord3D slotA1 = w.aiOf(a)->stateMachine().goalPosition();
+	// On current main, layout fails and slot falls back to (20, 20); with the fix it takes the formation slot near 605
+	CHECK(slotA1.x > 500.0f); // tolerance: formation slot layout distributes around target (605, 605)
+	CHECK(slotA1.y > 500.0f); // tolerance: formation slot layout distributes around target (605, 605)
+
+	// 2. Queued order with Alt (mode 1) waits in queue behind active order
+	alice->setOrderMode(1);
+	const Coord3D goal2{ 805.0f, 805.0f, 0.0f };
+	w.order(false, goal2);
+	REQUIRE(mgr.queue(idA)->orders().size() == 2);
+	// Active goal must remain slotA1, unit continues executing order 1
+	checkGoal(w.aiOf(a)->stateMachine().goalPosition(), slotA1);
+
+	// 3. Advance until order 1 completes: order 2 activates and goal changes to slot 2
+	for (int f = 0; f < 300 && mgr.queue(idA)->orders().size() == 2; ++f)
+	{
+		w.frames(1);
+	}
+	CHECK(mgr.queue(idA)->orders().size() == 1);
+	const Coord3D slotA2 = w.aiOf(a)->stateMachine().goalPosition();
+	CHECK(slotA2.x > 700.0f); // tolerance: formation slot layout distributes around target (805, 805)
+	CHECK(slotA2.y > 700.0f); // tolerance: formation slot layout distributes around target (805, 805)
+
+	// 4. Immediate order without Alt (mode 0) replaces the queue whole and executes same frame
+	alice->setOrderMode(0);
+	const Coord3D goal3{ 405.0f, 405.0f, 0.0f };
+	w.order(false, goal3);
+	CHECK(mgr.queue(idA)->orders().size() == 1);
+	const Coord3D slotA3 = w.aiOf(a)->stateMachine().goalPosition();
+	CHECK(slotA3.x < 500.0f); // tolerance: formation slot layout distributes around target (405, 405)
+	CHECK(slotA3.y < 500.0f); // tolerance: formation slot layout distributes around target (405, 405)
+}

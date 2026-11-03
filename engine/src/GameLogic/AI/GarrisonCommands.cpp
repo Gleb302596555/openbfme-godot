@@ -34,6 +34,8 @@ GarrisonCommands::Stats &stats()
 	return s;
 }
 
+
+
 // MSG_ENTER (RW 0x77AC26): argument 1 is the container; once it exists the player's group releases its temporary weapon locks (RW 0x77AC55: RW 0x76FB64(1),
 // lane BACKLOG-1) and enters it through RW 0x774EDF: when
 // the container has a contain, every unit of the group gets AI command 0x42 (RW 0x774897 with the target in the parameters' slot 3 -> RW 0x770EDE). The group
@@ -175,4 +177,9 @@ void GarrisonCommands::registerHandlers(GameLogicDispatch &d)
 const GarrisonCommands::Stats &GarrisonCommands::stats()
 {
 	return ::stats();
+}
+
+void GarrisonCommands::recordEnterOrderAccepted()
+{
+	++::stats().enterOrders;
 }

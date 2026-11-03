@@ -21,6 +21,7 @@
 namespace
 {
 const char *const kLane = "MOVE-1";
+AICommands *s_activeCommands = nullptr;
 
 const GameMessageArgument *arg(const GameMessage &m, size_t i, GameMessageArgumentDataType type)
 {
@@ -34,8 +35,30 @@ bool finiteLocation(const Coord3D &p)
 }
 }
 
+AICommands::AICommands()
+{
+	s_activeCommands = this;
+}
+
+AICommands::~AICommands()
+{
+	if (s_activeCommands == this)
+	{
+		s_activeCommands = nullptr;
+	}
+}
+
+void AICommands::recordAttackOrderAccepted()
+{
+	if (s_activeCommands)
+	{
+		++s_activeCommands->m_stats.attackOrdersAccepted;
+	}
+}
+
 void AICommands::registerHandlers(GameLogicDispatch &d)
 {
+	s_activeCommands = this;
 	for (int t : { (int)MSG_DO_MOVETO, (int)MSG_DO_FORCEMOVETO, (int)MSG_DO_ATTACKMOVETO, (int)MSG_ADD_WAYPOINT })
 	{
 		d.registerHandler(t, kLane, [this](GameLogic &l, const GameMessage &m) { return move(l, m); });
@@ -180,7 +203,9 @@ bool AICommands::attackObject(GameLogic &logic, const GameMessage &m)
 	else if (logic.aiWorld() && logic.aiWorld()->config().pathfind.planningModeEnabled)
 	{
 		// lane MOVE-3 / P-9: RW 0x77C22F .. 0x77C254: MSG_DO_ATTACK_OBJECT submits AttackObjectGroupOrder (RW 0x7574F8)
+		group.releaseWeaponLockForGroup(LOCKED_TEMPORARILY); // RW 0x77C226
 		group.planningAttackObject(who->objectID, logic.players().getNthPlayer(m.getPlayerIndex())->orderMode());
+		group.clearTemporarySpeedCaps(); // RW 0x77C254 -> 0x77B00A -> 0x77A342 (RW 0x76FD04)
 		return true;
 	}
 	for (Object *o : group.members())
@@ -266,34 +291,43 @@ bool AICommands::formationMove(GameLogic &logic, const GameMessage &m)
 	// result): a huge finite facing (1e20) never leaves the final-turn wrap loop (AIMove, RW 0x748E46), whose 2 pi steps vanish at that magnitude
 	const float twoPi = 6.2831855f;
 	if (!type || !attack || (!world && !m_formations) || !finiteLocation(dest->location) || !(angle->real >= -twoPi && angle->real <= twoPi)) { ++m_stats.rejected; return false; }
-	const auto ids=selection(logic,m.getPlayerIndex());
+	const auto ids = selection(logic, m.getPlayerIndex());
+	// An assistant set explicitly (setFormationAssistant: the unit tests' synthetic worlds) wins over the registered world's, so a retail
+	// world left registered by another test cannot replace it; the game sets none and uses the world's FormationAssistant.ini
+	const auto &assistant = m_formations ? *m_formations : world->formations();
+	const auto slots = assistant.layout(logic, ids, type->integer, dest->location);
+	if (slots.empty()) { ++m_stats.rejected; return false; }
+	const float c = SimMath::cosDet(SimMath::addf32(angle->real, 1.5707964f)), s = SimMath::sinDet(SimMath::addf32(angle->real, 1.5707964f));
+	std::map<ObjectID, Coord3D> computedPositions;
+	for (const auto &slot : slots)
+	{
+		Coord3D position{ SimMath::subf32(SimMath::addf32(dest->location.x, SimMath::mulf32(slot.offset.x, c)), SimMath::mulf32(slot.offset.y, s)),
+		                  SimMath::addf32(SimMath::addf32(dest->location.y, SimMath::mulf32(slot.offset.x, s)), SimMath::mulf32(slot.offset.y, c)), 0 };
+		// The preview centres occupied ranks; the horde object origin need not.
+		if (const auto *object = logic.findObjectByID(slot.object))
+		{
+			const auto center = FormationAssistant::rankCenter(*object);
+			const float facingCos = SimMath::cosDet(angle->real), facingSin = SimMath::sinDet(angle->real);
+			position.x = SimMath::subf32(position.x, SimMath::subf32(SimMath::mulf32(center.x, facingCos), SimMath::mulf32(center.y, facingSin)));
+			position.y = SimMath::subf32(position.y, SimMath::addf32(SimMath::mulf32(center.x, facingSin), SimMath::mulf32(center.y, facingCos)));
+		}
+		position.z = logic.getGroundHeight(position.x, position.y);
+		computedPositions[slot.object] = position;
+	}
 	if (logic.aiWorld() && logic.aiWorld()->config().pathfind.planningModeEnabled)
 	{
 		// RW 0x77BBC1 .. 0x77BBED: MSG_DO_MOVETO_FORMATION submits MoveToFormationGroupOrder (RW 0x757419)
 		AIGroup group(logic, ids);
-		group.planningMoveToFormation(type->integer, dest->location, angle->real, attack->boolean, logic.players().getNthPlayer(m.getPlayerIndex())->orderMode());
+		group.planningMoveToFormation(type->integer, dest->location, angle->real, attack->boolean, logic.players().getNthPlayer(m.getPlayerIndex())->orderMode(), computedPositions);
 		++m_stats.formationMoves;
 		return true;
 	}
-	// An assistant set explicitly (setFormationAssistant: the unit tests' synthetic worlds) wins over the registered world's, so a retail
-	// world left registered by another test cannot replace it; the game sets none and uses the world's FormationAssistant.ini
-	const auto &assistant=m_formations?*m_formations:world->formations();
-	const auto slots=assistant.layout(logic,ids,type->integer,dest->location);
-	if(slots.empty()){++m_stats.rejected;return false;}
-	const float c=SimMath::cosDet(SimMath::addf32(angle->real,1.5707964f)),s=SimMath::sinDet(SimMath::addf32(angle->real,1.5707964f));
-	for(const auto &slot:slots) {
-		Coord3D position{SimMath::subf32(SimMath::addf32(dest->location.x,SimMath::mulf32(slot.offset.x,c)),SimMath::mulf32(slot.offset.y,s)),SimMath::addf32(SimMath::addf32(dest->location.y,SimMath::mulf32(slot.offset.x,s)),SimMath::mulf32(slot.offset.y,c)),0};
-		// The preview centres occupied ranks; the horde object origin need not.
-		if(const auto *object=logic.findObjectByID(slot.object)) {
-		 const auto center=FormationAssistant::rankCenter(*object);
-		 const float facingCos=SimMath::cosDet(angle->real),facingSin=SimMath::sinDet(angle->real);
-		 position.x=SimMath::subf32(position.x,SimMath::subf32(SimMath::mulf32(center.x,facingCos),SimMath::mulf32(center.y,facingSin)));
-		 position.y=SimMath::subf32(position.y,SimMath::addf32(SimMath::mulf32(center.x,facingSin),SimMath::mulf32(center.y,facingCos)));
-		}
-		position.z=logic.getGroundHeight(position.x,position.y);
+	for (const auto &[objId, position] : computedPositions)
+	{
 		// PR #88 review fix 4, issue #100: with the attack flag set, groupMoveToPosition arms each member's attack-move toward the slot goal its oriented
 		// move installed (RW 0x94E72B -> RW 0x770CA5), and only when that move was accepted; a refused member keeps its earlier intent
-		AIGroup group(logic,{slot.object});group.groupMoveToPosition(position,false,CMD_FROM_PLAYER,true,angle->real,attack->boolean);
+		AIGroup group(logic, { objId });
+		group.groupMoveToPosition(position, false, CMD_FROM_PLAYER, true, angle->real, attack->boolean);
 	}
 	++m_stats.formationMoves;
 	return true;

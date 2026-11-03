@@ -4,6 +4,8 @@
 #include "GameLogic/AI/AIGroupOrders.h"
 
 #include "Common/StateHash.h"
+#include "GameLogic/AI/AICommands.h"
+#include "GameLogic/AI/GarrisonCommands.h"
 #include "GameLogic/AI/AIGroup.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/AI/AIXfer.h"
@@ -166,17 +168,16 @@ void AttackObjectGroupOrder::activate(ObjectID id)
 	{
 		return;
 	}
-	if (!ai->acceptCommand(CMD_FROM_PLAYER, 0))
-	{
-		return;
-	}
 	Object *target = victim;
 	if (obj->isKindOf((unsigned)CombatNames::kinds().horde) && victim->getContainedBy() && victim->getContainedBy()->getContain() &&
 		victim->getContainedBy()->getContain()->getHordeContainInterface())
 	{
 		target = victim->getContainedBy();
 	}
-	ai->aiAttackObject(target, CMD_FROM_PLAYER);
+	if (ai->aiAttackObject(target, CMD_FROM_PLAYER))
+	{
+		AICommands::recordAttackOrderAccepted();
+	}
 }
 
 bool AttackObjectGroupOrder::complete(ObjectID id)
@@ -243,11 +244,10 @@ void GarrisonObjectGroupOrder::activate(ObjectID id)
 	{
 		return;
 	}
-	if (!ai->acceptCommand(CMD_FROM_PLAYER, 0))
+	if (ai->aiEnter(target, CMD_FROM_PLAYER))
 	{
-		return;
+		GarrisonCommands::recordEnterOrderAccepted();
 	}
-	ai->aiEnterObject(target, CMD_FROM_PLAYER);
 }
 
 bool GarrisonObjectGroupOrder::complete(ObjectID id)
@@ -271,6 +271,13 @@ bool GarrisonObjectGroupOrder::complete(ObjectID id)
 	{
 		return true;
 	}
+	for (const Object *c = obj; c; c = c->getContainedBy())
+	{
+		if (c->getID() == m_targetID)
+		{
+			return true;
+		}
+	}
 	AIUpdateInterface *ai = obj->getAIUpdateInterface();
 	if (!ai)
 	{
@@ -278,22 +285,14 @@ bool GarrisonObjectGroupOrder::complete(ObjectID id)
 	}
 	if (ai->isIdle())
 	{
-		for (const Object *c = obj; c; c = c->getContainedBy())
-		{
-			if (c->getID() == m_targetID)
-			{
-				return true;
-			}
-		}
 		if (!GarrisonRules::canEnterObject(*obj, target, CMD_FROM_PLAYER, 0, true))
 		{
 			return true;
 		}
-		ai->aiEnterObject(target, CMD_FROM_PLAYER);
+		ai->aiEnter(target, CMD_FROM_PLAYER);
 	}
 	return false;
 }
-
 std::unique_ptr<AIOrdersManager::GroupOrder> GarrisonObjectGroupOrder::clone() const
 {
 	auto copy = std::make_unique<GarrisonObjectGroupOrder>(m_logic, objects(), m_targetID);
@@ -309,13 +308,14 @@ void GarrisonObjectGroupOrder::setState(const State &state)
 	m_lastTargetPos = state.lastTargetPos;
 }
 
-MoveToFormationGroupOrder::MoveToFormationGroupOrder(GameLogic &logic, std::vector<ObjectID> objects, int formationType, const Coord3D &destination, float angle, bool attackMove)
+MoveToFormationGroupOrder::MoveToFormationGroupOrder(GameLogic &logic, std::vector<ObjectID> objects, int formationType, const Coord3D &destination, float angle, bool attackMove, std::map<ObjectID, Coord3D> positions)
 	: GroupOrder(std::move(objects))
 	, m_logic(logic)
 	, m_formationType(formationType)
 	, m_destination(destination)
 	, m_angle(angle)
 	, m_attackMove(attackMove)
+	, m_positions(std::move(positions))
 {
 }
 
@@ -369,16 +369,19 @@ void MoveToFormationGroupOrder::activate(ObjectID id)
 		return;
 	}
 	AIUpdateInterface *ai = obj->getAIUpdateInterface();
-	if (!ai || ai->isContained() || !ai->acceptCommand(CMD_FROM_PLAYER, 0))
+	if (!ai || ai->isContained())
 	{
 		return;
 	}
 	auto it = m_positions.find(id);
 	Coord3D goal = (it != m_positions.end()) ? it->second : m_destination;
-	ai->aiMoveToPositionAndOrientate(goal, m_angle, CMD_FROM_PLAYER);
-	if (m_attackMove)
+	Coord3D taken;
+	if (ai->aiMoveToPositionAndOrientate(goal, m_angle, CMD_FROM_PLAYER, &taken))
 	{
-		ai->armAttackMove(ai->stateMachine().goalPosition());
+		if (m_attackMove)
+		{
+			ai->armAttackMove(taken, CMD_FROM_PLAYER);
+		}
 	}
 }
 
@@ -398,23 +401,30 @@ bool MoveToFormationGroupOrder::complete(ObjectID id)
 	{
 		return true;
 	}
-	auto it = m_positions.find(id);
-	if (it == m_positions.end())
+	if (m_positions.find(id) == m_positions.end())
 	{
-		m_stuck = 0;
 		return true;
 	}
-	if (MoveToGroupOrder::closeEnough(*object, it->second))
+	for (const auto &[memberId, pos] : m_positions)
 	{
-		m_stuck = 0;
-		return true;
+		const Object *m = m_logic.findObjectByID(memberId);
+		if (!m || m->isEffectivelyDead())
+		{
+			continue;
+		}
+		if (MoveToGroupOrder::closeEnough(*m, pos))
+		{
+			continue;
+		}
+		const AIUpdateInterface *mai = m->getAIUpdateInterface();
+		if (!mai || mai->isIdle())
+		{
+			continue;
+		}
+		return false;
 	}
-	if (ai->isIdle())
-	{
-		return ++m_stuck > 1;
-	}
-	m_stuck = 0;
-	return false;
+	m_completed = true;
+	return true;
 }
 
 bool MoveToFormationGroupOrder::isNearDestination(const Coord3D &pos) const

@@ -501,7 +501,7 @@ void AIGroup::planningGarrisonObject(ObjectID containerID, int orderMode)
 	world->ordersManager().submit(orderMode, std::make_unique<GarrisonObjectGroupOrder>(m_logic, std::move(ids), containerID));
 }
 
-void AIGroup::planningMoveToFormation(int formationType, const Coord3D &pos, float angle, bool attackMove, int orderMode)
+void AIGroup::planningMoveToFormation(int formationType, const Coord3D &pos, float angle, bool attackMove, int orderMode, std::map<ObjectID, Coord3D> positions)
 {
 	AIWorld *world = m_logic.aiWorld();
 	if (!world || m_members.empty())
@@ -523,7 +523,7 @@ void AIGroup::planningMoveToFormation(int formationType, const Coord3D &pos, flo
 	}
 	// RW 0x77BBC1 .. 0x77BBED: MSG_DO_MOVETO_FORMATION submits MoveToFormationGroupOrder (RW 0x757419)
 	AIOrdersManager &mgr = world->ordersManager();
-	mgr.submit(orderMode, std::make_unique<MoveToFormationGroupOrder>(m_logic, ids, formationType, pos, angle, attackMove));
+	mgr.submit(orderMode, std::make_unique<MoveToFormationGroupOrder>(m_logic, ids, formationType, pos, angle, attackMove, std::move(positions)));
 	if (orderMode == 1)
 	{
 		mgr.setPatrolStartIfLoop(m_logic, ids, pos, 1);

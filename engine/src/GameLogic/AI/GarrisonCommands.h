@@ -18,4 +18,5 @@ struct Stats
 };
 // process-wide counters (diagnostics, not simulation state)
 const Stats &stats();
+void recordEnterOrderAccepted();
 } // namespace GarrisonCommands
