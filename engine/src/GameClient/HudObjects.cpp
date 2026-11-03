@@ -191,6 +191,10 @@ bool canSelect(const HudContext &ctx, const Object &obj, bool dragSelecting)
 	}
 	if (!isSelectable(obj, ctx.ui.getGUICommand()))
 	{
+		if (obj.isKindOfName("CREEP") && obj.isKindOfName("SELECTABLE") && !dragSelecting)
+		{
+			return true;
+		}
 		return false;
 	}
 	// only your own objects can be drag selected

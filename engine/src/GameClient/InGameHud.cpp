@@ -966,12 +966,16 @@ void InGameHud::updateFloatingText(const TacticalView &view, bool shroudDrawn)
 
 void InGameHud::updateResourceFeedback()
 {
-	// RW 0x69C69B leaves Target (the attack-like cross) until the next hint, and retail's pointer sends its position every frame. This port's pointer sends it when it moves:
-	// a placement started by a hotkey with a still pointer would show Target until the mouse moved (the owner, PROBLEMS.md), so the start asks for the hint itself (INFERENCE)
+	// RW 0x69C69B / RW 0x6A3E1E: in retail, building placement overrides cursor to Build (10, hidden without Mouse.ini entry).
+	// When placement starts, immediately set cursor to Build to avoid any flash of Target (P-22).
 	const bool placing = m_input->ui().isPlacing();
-	if (placing && !m_wasPlacing && m_pointerSeen && !isOverGui(m_pointerX, m_pointerY))
+	if (placing && !m_wasPlacing)
 	{
-		m_input->mouseMove(m_pointerX, m_pointerY, m_keyState);
+		m_input->ui().setCursor(MouseCursorName::Build);
+		if (m_pointerSeen && !isOverGui(m_pointerX, m_pointerY))
+		{
+			m_input->mouseMove(m_pointerX, m_pointerY, m_keyState);
+		}
 	}
 	m_wasPlacing = placing;
 	// lane OWNERFIX-2 (GameClient/TerrainResourceFeedback.h): the placement feedback while a building waits for its site (InGameUI::handleBuildPlacements),

@@ -11,6 +11,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/WorldHeightMap.h"
 
 #include "GameClient/HudObjects.h"
+#include "GameClient/DrawableIconUI.h"
 #include "GameLogic/GameLogicDispatch.h"
 #include "GameLogic/GameMessage.h"
 #include "GameLogic/Map/TerrainLogic.h"
@@ -945,10 +946,10 @@ TEST_CASE("synthetic HUD: the waiting attack move shows its CursorName (createCo
 	attackMove.m_cursorName = "AttackMove";
 	attackMove.m_invalidCursorName = "GenericInvalid";
 	r.input->ui().setGUICommand(&attackMove);
-	// setGUICommand 0x0029A889: Arrow, the GUI command mode (2) with the Arrow as its cursor
+	// RW 0x6A3B77 / BFME2 0x002A3273: GUI command mode with NEED_TARGET immediately shows its CursorName
 	CHECK(r.input->ui().mouseMode() == 2);
-	CHECK(r.input->ui().cursor() == "Arrow");
-	CHECK(r.input->ui().mouseModeCursor() == "Arrow");
+	CHECK(r.input->ui().cursor() == "AttackMove");
+	CHECK(r.input->ui().mouseModeCursor() == "AttackMove");
 	r.move(310, 300);
 	CHECK(r.input->ui().cursor() == "AttackMove");
 	CHECK(r.input->ui().mouseModeCursor() == "AttackMove");
@@ -1412,4 +1413,63 @@ TEST_CASE("synthetic HUD: two-button hold previews formation without camera pan 
 	button(HudInput::Button::Right, false, 500, 300);
 	REQUIRE(commands.messages().size() == 1);
 	CHECK(commands.messages().front().getType() == MSG_DO_MOVETO);
+}
+
+
+TEST_CASE("synthetic HUD: building placement mode sets cursor to Build, never flashing Target (P-22)")
+{
+	// RW 0x6A3E1E / BFME2 0x002A3273: placement mode cursor is Build (10, hidden without Mouse.ini block)
+	InGameUI ui;
+	CHECK(ui.mouseMode() == 0);
+	CHECK(ui.mouseModeCursor() == MouseCursorName::Arrow);
+	ui.placeBuildAvailable("TestBarracks", 42);
+	CHECK(ui.isPlacing());
+	CHECK(ui.mouseMode() == 1);
+	CHECK(ui.mouseModeCursor() == MouseCursorName::Build);
+}
+
+TEST_CASE("synthetic HUD: pressing attack hotkey A toggles the command off, and sets AttackMove cursor immediately")
+{
+	// RW 0x940891 / BFME2 0x00539E5C: processCommandUI toggles off an active GUI command
+	synthetichud::Rig r;
+	CommandButton attack;
+	attack.m_command = GUI_COMMAND_ATTACK_MOVE;
+	attack.m_options = COMMAND_OPTION_NEED_TARGET_POS;
+	attack.m_cursorName = "AttackMove";
+
+	// First press: activates GUI command and sets AttackMove cursor immediately
+	r.input->ui().setGUICommand(&attack);
+	CHECK(r.input->ui().getGUICommand() == &attack);
+	CHECK(r.input->ui().mouseMode() == 2);
+	CHECK(r.input->ui().cursor() == "AttackMove");
+
+	// Toggle off: setGUICommand(nullptr) resets cursor to Arrow
+	r.input->ui().setGUICommand(r.input->ui().getGUICommand() == &attack ? nullptr : &attack);
+	CHECK(r.input->ui().getGUICommand() == nullptr);
+	CHECK(r.input->ui().mouseMode() == 0);
+	CHECK(r.input->ui().cursor() == "Arrow");
+}
+
+TEST_CASE("synthetic HUD: selecting neutral creeps and objects displays health bar and foreign view (P-28)")
+{
+	// P-28: creeps and neutral objects can be clicked/selected, show health bar and set foreign view
+	synthetichud::Rig r;
+	REQUIRE(r.w.load(
+		"Object TestCreep\n KindOf = SELECTABLE INFANTRY CREEP\nEnd\n"
+		"Object TestCreepLair\n KindOf = SELECTABLE STRUCTURE IMMOBILE\nEnd\n") == "");
+
+	Object *creep = r.place("TestCreep", 200, 200, "Bob");
+	REQUIRE(creep != nullptr);
+	CHECK(creep->isKindOfName("CREEP"));
+
+	// Click on the creep: it becomes selected
+	r.click(200, 200);
+	r.selected({ creep->getID() });
+	CHECK(r.input->ui().selected() == std::vector<ObjectID>{ creep->getID() });
+
+	// Health bar test: wantsHealthBar returns true for selected creep
+	IconUISettings iconSettings;
+	iconSettings.showObjectHealth = true;
+	std::set<ObjectID> selSet{ creep->getID() };
+	CHECK(wantsHealthBar(*creep, iconSettings, selSet, INVALID_ID, r.players.getLocalPlayer()));
 }

@@ -220,6 +220,7 @@ void bandColors(float v, std::uint32_t out[3])
 		}
 	}
 }
+} // namespace
 
 // RW 0x676346 (BFME2 0x67601B): whether the drawable's object gets a health bar
 bool wantsHealthBar(const Object &obj, const IconUISettings &s, const std::set<ObjectID> &selected, ObjectID mousedOver, const Player *local)
@@ -227,6 +228,7 @@ bool wantsHealthBar(const Object &obj, const IconUISettings &s, const std::set<O
 	static const int HERO = kindIndex("HERO"), MACHINE = kindIndex("MACHINE"), MONSTER = kindIndex("MONSTER"), MINE = kindIndex("MINE");
 	static const int STRUCTURE = kindIndex("STRUCTURE"), HAS_HEALTH_BAR = kindIndex("HAS_HEALTH_BAR"), INFANTRY = kindIndex("INFANTRY"), CAVALRY = kindIndex("CAVALRY");
 	static const int WALL_UPGRADE = kindIndex("WALL_UPGRADE"), DEFENSIVE_WALL = kindIndex("DEFENSIVE_WALL"), UNATTACKABLE = kindIndex("UNATTACKABLE");
+	static const int CREEP = kindIndex("CREEP");
 	static const int ROCK_VENDOR = kindIndex("ROCK_VENDOR"), HORDE = kindIndex("HORDE");
 	if (!s.showObjectHealth)
 	{
@@ -257,7 +259,7 @@ bool wantsHealthBar(const Object &obj, const IconUISettings &s, const std::set<O
 			return false;
 		}
 	}
-	if (!kindOf(obj, HERO) && !kindOf(obj, MACHINE) && !kindOf(obj, MONSTER) && !kindOf(obj, MINE) && !kindOf(obj, STRUCTURE) && !kindOf(obj, HAS_HEALTH_BAR))
+	if (!sel && !kindOf(obj, HERO) && !kindOf(obj, MACHINE) && !kindOf(obj, MONSTER) && !kindOf(obj, MINE) && !kindOf(obj, STRUCTURE) && !kindOf(obj, HAS_HEALTH_BAR) && !kindOf(obj, CREEP))
 	{
 		// lane ZOOM-1: the OpenBFME "Always (all players)" mode shows the infantry and cavalry bars as AllHealthBars does (the owner, 2026-10-10: "see all my
 		// troops' health bars all the time, and the enemies' too"); retail's AllHealthBars alone only widens the kinds of the selected / moused-over objects
@@ -277,7 +279,6 @@ bool wantsHealthBar(const Object &obj, const IconUISettings &s, const std::set<O
 	}
 	return !kindOf(obj, UNATTACKABLE) && !kindOf(obj, ROCK_VENDOR) && !kindOf(obj, HORDE);
 }
-} // namespace
 
 // the template's health box values, computed once per template (Object + 0xB8 is the object's GeometryInfo bounding circle: the template's shapes; a gate's own
 // shape flags are not followed here)

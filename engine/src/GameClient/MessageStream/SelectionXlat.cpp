@@ -31,6 +31,11 @@ Object *listable(HudContext &ctx, Object *o)
 		{
 			return c;
 		}
+		// P-28: a creep with KindOf SELECTABLE is selectable by the player
+		if (o->isKindOfName("CREEP") && o->isKindOfName("SELECTABLE") && !o->isDestroyed())
+		{
+			return o;
+		}
 		return nullptr;
 	}
 	(void)ctx;
@@ -410,7 +415,8 @@ MessageDisposition SelectionTranslator::leftClick(const ClientMessage &msg)
 			else
 			{
 				const Relationship rel = HudObjects::relationshipToLocal(m_ctx, *obj);
-				take = (si.selectEnemies && rel == ENEMIES) || (si.selectCivilians && rel == NEUTRAL) || (si.selectFriends && rel == ALLIES);
+				take = (si.selectEnemies && rel == ENEMIES) || (si.selectCivilians && rel == NEUTRAL) || (si.selectFriends && rel == ALLIES)
+					|| ((si.selectEnemies || si.selectCivilians) && obj->isKindOfName("CREEP"));
 			}
 			if (take)
 			{

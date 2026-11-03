@@ -3581,7 +3581,12 @@ void InGameHudNode::_process(double delta)
 		const bool hidden = d->hud->scriptMouseHidden() && !overGui;
 		if (d->godotMouse)
 		{
-			d->godotMouse->updateCursor(delta, hidden ? std::string() : (overGui ? std::string(MouseCursorName::Arrow) : ui.cursor()), ui.scrollAmountX(), ui.scrollAmountY(), ui.isScrolling());
+			std::string wantedCur = ui.cursor();
+			if (ui.isPlacing() && (wantedCur == MouseCursorName::Target || wantedCur == MouseCursorName::Build))
+			{
+				wantedCur = MouseCursorName::Build;
+			}
+			d->godotMouse->updateCursor(delta, hidden ? std::string() : (overGui ? std::string(MouseCursorName::Arrow) : wantedCur), ui.scrollAmountX(), ui.scrollAmountY(), ui.isScrolling());
 		}
 	}
 	// lane ANTICHEAT-1 (owner 2026-10-21): twice a second, the player's view (the camera's look-at point, the ground under the pointer) for the relay's

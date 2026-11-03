@@ -51,6 +51,7 @@ class MappedImageCollection;
 class Player;
 class TacticalView;
 class ThingTemplate;
+class Object;
 struct ObjectFilter;
 
 struct IconUIOp
@@ -120,6 +121,9 @@ struct IconUISettings
 	const LogicSnapshot *snapshot = nullptr;
 	bool shroudDrawn = false;
 };
+
+// RW 0x676346 (BFME2 0x67601B): whether the drawable's object gets a health bar
+bool wantsHealthBar(const Object &obj, const IconUISettings &s, const std::set<ObjectID> &selected, ObjectID mousedOver, const Player *local);
 
 class DrawableIconUI
 {

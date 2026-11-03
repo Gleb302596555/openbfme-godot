@@ -187,12 +187,21 @@ void InGameUI::mirrorSelection(const std::vector<ObjectID> &ids)
 
 void InGameUI::setGUICommand(const CommandButton *command)
 {
-	// BFME2 InGameUI::setGUICommand (0x0029A889, InGameUIInputModes.cpp, matched): the command is kept, the cursor is set to Arrow (setMouseCursor(ARROW)) and
-	// the GUI command mode's cursor (+ 0x800) becomes the mouse's cursor, Arrow. Not ported here: the recorder playback guard, the drop of a command whose
-	// Options need no target, the radius cursor (the HUD's: InGameHud::updateRadiusCursor)
+	// BFME2 InGameUI::setGUICommand (0x0029A889, InGameUIInputModes.cpp, matched): the command is kept.
+	// RW 0x6A3B77 / BFME2 0x002A3273: GUI command mode with NEED_TARGET and no radius cursor immediately initializes
+	// its mode cursor to the command's CursorName (e.g. AttackMove), avoiding a one-frame delay waiting for mouse move.
 	m_guiCommand = command;
-	setCursor(MouseCursorName::Arrow);
-	m_guiModeCursor = MouseCursorName::Arrow;
+	if (command && (command->m_options & 0x227u) != 0 && command->m_radiusCursor.empty())
+	{
+		const std::string &cur = command->m_cursorName.empty() ? std::string(MouseCursorName::Target) : command->m_cursorName;
+		setCursor(cur);
+		m_guiModeCursor = cur;
+	}
+	else
+	{
+		setCursor(MouseCursorName::Arrow);
+		m_guiModeCursor = MouseCursorName::Arrow;
+	}
 }
 
 int InGameUI::mouseMode() const
@@ -211,11 +220,12 @@ int InGameUI::mouseMode() const
 
 const std::string &InGameUI::mouseModeCursor() const
 {
-	static const std::string target = MouseCursorName::Target, arrow = MouseCursorName::Arrow;
+	static const std::string build = MouseCursorName::Build, arrow = MouseCursorName::Arrow;
 	switch (mouseMode())
 	{
 		case 1:
-			return target;
+			// RW 0x6A3E1E / BFME2 0x002A3273: mode 1 placement hint cursor is Build (10, hidden)
+			return build;
 		case 2:
 			return m_guiModeCursor;
 		default:

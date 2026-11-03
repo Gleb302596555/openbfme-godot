@@ -340,7 +340,8 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 		case GUI_COMMAND_GUARD_WITHOUT_PURSUIT:
 		case GUI_COMMAND_GUARD_FLYING_UNITS_ONLY:
 		case GUI_COMMAND_SET_RALLY_POINT:
-			m_ctx.ui.setGUICommand(&b); // waits for the target (GUICommandTranslator)
+			// RW 0x940891 / BFME2 0x00539E5C: toggle off if already active
+			m_ctx.ui.setGUICommand(m_ctx.ui.getGUICommand() == &b ? nullptr : &b);
 			return true;
 		case GUI_COMMAND_PUSH_VISIBLE_COMMAND_RANGE:
 			m_rangeStack.push_back({ b.m_commandRangeStart, b.m_commandRangeCount });
