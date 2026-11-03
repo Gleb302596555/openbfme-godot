@@ -22,7 +22,8 @@ Open the in-game menu (Esc), then press **CHEAT MODE**. The panel uses the same 
 | Tab | What it does |
 |---|---|
 | Resources | Gives a player resources, command points or spell book power points. |
-| Units | Spawns 1 to 10 units, heroes or structures of any faction for any player, at the centre of your view. |
+| Units | Spawns 1 to 10 units or heroes of any faction for any player, at the centre of your view. |
+| Buildings | Spawns 1 to 10 buildings of any faction for any player, built at once and side by side (a footprint apart), at the centre of your view. They work as built ones: they train, research and cast. |
 | Selected | Acts on the units you selected before Esc: freeze (they stand and fight where they are) or release, hold fire or fire at will, heal, kill, level up, make every ability ready, give them to a player. |
 | Heroes | Levels up one of the player's living heroes. |
 | Map | Reveals the whole map for a player, or hides it again. |
@@ -72,7 +73,7 @@ world.take_cheat_lines()    # [ { frame, text, executed, command } ]: the lines 
 | `add_resources` | player index | 1 .. 100000 | | `Money::deposit`, as ZH's MSG_CHEAT_ADD_CASH does |
 | `add_command_points` | player index | 1 .. 1000 | | Adds to the player's command point bonus, which raises the limit |
 | `add_power_points` | player index | 1 .. 100 | | Spell book purchase points |
-| `spawn` | player index | 1 .. 10 | `template` (name), `x`, `y` (map coordinates) | Spawns that many in rows of 4, 15 units apart, units, heroes or structures. Every point must be on the map. Projectiles and Create-a-Hero templates are refused. |
+| `spawn` | player index | 1 .. 10 | `template` (name), `x`, `y` (map coordinates) | Spawns that many in rows of 4, 15 units apart (structures: their footprint and 20 more apart), units, heroes or structures. Every point must be on the map. Projectiles and Create-a-Hero templates are refused. |
 | `level_up` | player index | 1 .. 10 | `object` (id) | Levels a living object of that player that can gain levels |
 | `reveal_map` | player index | 1 reveal, 0 hide | | Reveals once per player. Hiding undoes only Cheat Mode's own reveal. |
 | `end_game` | player index | 0 | | Every player outside the target's alliance is defeated, and the alliance wins |

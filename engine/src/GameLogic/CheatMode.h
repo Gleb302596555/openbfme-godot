@@ -96,6 +96,7 @@ constexpr int kMaxPowerPoints = 100;
 constexpr int kMaxSpawn = 10;
 constexpr int kMaxLevels = 10;
 constexpr int kMaxObjects = 100;
+constexpr float kStructureGap = 20.0f; // world units between two spawned structures
 constexpr std::size_t kLogCap = 256;
 
 struct LogEntry

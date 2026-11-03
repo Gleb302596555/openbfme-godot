@@ -15,6 +15,7 @@
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Damage.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
+#include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/SkirmishAI/SkirmishAIManager.h"
 #include "GameLogic/GameLogicDispatch.h"
 #include "GameLogic/GameMessage.h"
@@ -203,8 +204,14 @@ TEST_CASE("cheat1 mode: every command's effect and limits in a Cheat Mode game")
 		CHECK(objectsOf(logic, host, "GondorBoromir").size() == 1);
 		// the test sandbox (2026-11-03): a structure is spawned too
 		const Coord3D away{ 1400.0f, 1400.0f, 0.0f };
-		CHECK(send(CheatMode::makeMessage(h, Command::Spawn, h, 1, templateId(logic, "GondorBarracks"), &away)).executed);
-		CHECK(objectsOf(logic, host, "GondorBarracks").size() == 1);
+		CHECK(send(CheatMode::makeMessage(h, Command::Spawn, h, 2, templateId(logic, "GondorBarracks"), &away)).executed);
+		const std::vector<Object *> barracks = objectsOf(logic, host, "GondorBarracks");
+		REQUIRE(barracks.size() == 2);
+		// side by side, a footprint apart: not on top of one another
+		const float dx = barracks[1]->getPosition()->x - barracks[0]->getPosition()->x, dy = barracks[1]->getPosition()->y - barracks[0]->getPosition()->y;
+		float lo[3], hi[3];
+		ObjectGeometry::localBox(ObjectGeometry::cachedShapesOf(*barracks[0]->getTemplate()), lo, hi);
+		CHECK(std::sqrt(dx * dx + dy * dy) >= std::max(hi[0] - lo[0], hi[1] - lo[1])); // tolerance: a footprint apart at least (the free spot search may move one further)
 		CHECK(!send(CheatMode::makeMessage(h, Command::Spawn, h, 1, templateId(logic, "CreateAHero"), &at)).executed);
 		CHECK(lastEntry(logic).text == "Cheat Mode: Player_1 (not done): CreateAHero is a Create-a-Hero: it is made from its player's own record, never on its own");
 		CHECK(!send(CheatMode::makeMessage(h, Command::Spawn, h, 11, templateId(logic, "GondorBoromir"), &at)).executed);

@@ -26,6 +26,7 @@
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/SimMath.h"
 #include "GameLogic/System/ShroudManager.h"
 #include "GameLogic/VictoryConditions.h"
@@ -335,13 +336,21 @@ bool runCommand(GameLogic &logic, const GameMessage &msg, Command command, int t
 			text = name + " is a Create-a-Hero: it is made from its player's own record, never on its own";
 			return false;
 		}
-		// rows of 4 at 15 world units (SimMath: the simulation's float operations); every point must be on the map
+		// rows of 4 at 15 world units (SimMath: the simulation's float operations); every point must be on the map. A structure's spacing is its footprint:
+		// the larger side of the box around its shapes (ObjectGeometry::localBox, RW 0xAD2040) and kStructureGap between two, so they stand side by side
+		float spacing = 15.0f;
+		if (logic.economy().templateKindOf(*tt, "STRUCTURE"))
+		{
+			float lo[3] = { 0.0f, 0.0f, 0.0f }, hi[3] = { 0.0f, 0.0f, 0.0f };
+			ObjectGeometry::localBox(ObjectGeometry::cachedShapesOf(*tt), lo, hi);
+			spacing = SimMath::addf32(std::max(SimMath::subf32(hi[0], lo[0]), SimMath::subf32(hi[1], lo[1])), kStructureGap);
+		}
 		std::vector<Coord3D> points;
 		for (int i = 0; i < value; ++i)
 		{
 			Coord3D pos;
-			pos.x = SimMath::addf32(where->location.x, SimMath::mulf32(SimMath::sseFromInt32(i % 4), 15.0f));
-			pos.y = SimMath::addf32(where->location.y, SimMath::mulf32(SimMath::sseFromInt32(i / 4), 15.0f));
+			pos.x = SimMath::addf32(where->location.x, SimMath::mulf32(SimMath::sseFromInt32(i % 4), spacing));
+			pos.y = SimMath::addf32(where->location.y, SimMath::mulf32(SimMath::sseFromInt32(i / 4), spacing));
 			pos.z = 0.0f;
 			points.push_back(pos);
 		}
