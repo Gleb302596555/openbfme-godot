@@ -13,19 +13,24 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "Common/Xfer.h"
 #include "GameLogic/AI/AIWorld.h"
+#include "GameLogic/AI/WeaponCommands.h"
+#include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Economy.h"
 #include "GameLogic/FindPositionAround.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/GameLogicDispatch.h"
 #include "GameLogic/GameMessage.h"
 #include "GameLogic/Map/TerrainLogic.h"
+#include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/BehaviorModule.h"
+#include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SimMath.h"
 #include "GameLogic/System/ShroudManager.h"
 #include "GameLogic/VictoryConditions.h"
 
+#include <algorithm>
 #include <exception>
 #include <utility>
 
@@ -72,6 +77,183 @@ const GameMessageArgument *intArg(const GameMessage &m, std::size_t i)
 {
 	const GameMessageArgument *a = m.getArgument(i);
 	return a && a->type == ARGUMENTDATATYPE_INTEGER ? a : nullptr;
+}
+
+// the living objects an object command names (argument 3 the count, then the ids), each once
+std::vector<Object *> namedObjects(GameLogic &logic, const GameMessage &msg, int count)
+{
+	std::vector<Object *> out;
+	for (int i = 0; i < count; ++i)
+	{
+		const GameMessageArgument *a = intArg(msg, 4 + (std::size_t)i);
+		Object *o = a ? logic.findObjectByID((ObjectID)(std::uint32_t)a->integer) : nullptr;
+		if (o && !o->isDestroyed() && !o->isEffectivelyDead() && std::find(out.begin(), out.end(), o) == out.end())
+		{
+			out.push_back(o);
+		}
+	}
+	return out;
+}
+
+// the object and, for a horde, its members (they move, heal and recharge on their own)
+std::vector<Object *> withMembers(Object &o)
+{
+	std::vector<Object *> out{ &o };
+	if (o.isKindOf((unsigned)CombatNames::kinds().horde) && o.getContain() && o.getContain()->getContainedItemsList())
+	{
+		for (Object *m : *o.getContain()->getContainedItemsList())
+		{
+			out.push_back(m);
+		}
+	}
+	return out;
+}
+
+std::string countText(std::size_t n)
+{
+	return std::to_string(n) + (n == 1 ? " object" : " objects");
+}
+
+// the object commands (takesObjects): true when it changed the game
+bool runObjectCommand(GameLogic &logic, Command command, Player *p, int value, const std::vector<Object *> &objects, std::string &text)
+{
+	if (objects.empty())
+	{
+		text = "none of the named objects is alive";
+		return false;
+	}
+	const std::string n = countText(objects.size());
+	switch (command)
+	{
+	case Command::Freeze:
+		if (value != 0 && value != 1)
+		{
+			text = "the freeze value must be 0 .. 1";
+			return false;
+		}
+		for (Object *o : objects)
+		{
+			for (Object *m : withMembers(*o))
+			{
+				if (value == 1)
+				{
+					m->setDisabled(DISABLED_HELD, UPDATE_SLEEP_FOREVER); // RW 0x692432
+				}
+				else
+				{
+					m->clearDisabled(DISABLED_HELD); // RW 0x692443
+				}
+			}
+			if (AIUpdateInterface *ai = value == 1 ? o->getAIUpdateInterface() : nullptr)
+			{
+				ai->aiIdle(CMD_FROM_PLAYER);
+			}
+		}
+		text = std::string(value ? "froze " : "released ") + n;
+		return true;
+	case Command::HoldFire:
+		if (value != 0 && value != 1)
+		{
+			text = "the hold fire value must be 0 .. 1";
+			return false;
+		}
+		for (Object *o : objects)
+		{
+			WeaponCommands::setNoAutoAcquire(*o, value == 1);
+			AIUpdateInterface *ai = o->getAIUpdateInterface();
+			if (value == 1 && ai && ai->isAttacking())
+			{
+				ai->aiIdle(CMD_FROM_PLAYER); // as the hold-fire button (RW 0x77B6C4)
+			}
+		}
+		text = std::string(value ? "set hold fire on " : "let fire again ") + n;
+		return true;
+	case Command::Heal:
+		for (Object *o : objects)
+		{
+			for (Object *m : withMembers(*o))
+			{
+				if (BodyModuleInterface *body = m->getBodyModule())
+				{
+					m->attemptHealing(body->getMaxHealth(), nullptr); // RW 0x690532
+				}
+			}
+		}
+		text = "healed " + n;
+		return true;
+	case Command::Kill:
+		for (Object *o : objects)
+		{
+			o->kill(DAMAGE_UNRESISTABLE, 0); // RW 0x698E7D, DEATH_NORMAL
+		}
+		text = "killed " + n;
+		return true;
+	case Command::LevelUpObjects:
+	{
+		if (value < 1 || value > kMaxLevels)
+		{
+			text = "levels must be 1 .. " + std::to_string(kMaxLevels);
+			return false;
+		}
+		std::size_t levelled = 0;
+		for (Object *o : objects)
+		{
+			ExperienceTracker *xp = o->getExperienceTracker();
+			if (xp && xp->isTrainable())
+			{
+				xp->gainLevels(value, true); // RW 0x79D7E5
+				++levelled;
+			}
+		}
+		if (levelled == 0)
+		{
+			text = "none of the objects can gain levels";
+			return false;
+		}
+		text = "gave " + std::to_string(value) + (value == 1 ? " level to " : " levels to ") + countText(levelled);
+		return true;
+	}
+	case Command::ResetCooldowns:
+		for (Object *o : objects)
+		{
+			for (Object *m : withMembers(*o))
+			{
+				for (const std::unique_ptr<BehaviorModule> &module : m->modules())
+				{
+					if (SpecialPowerModuleInterface *sp = module->getSpecialPower())
+					{
+						// slot 0x20 (RW 0x99344A). A paused countdown (a power waiting for its level, a disabled object) reads the stored frame shifted by
+						// the time since the pause (RW 0x89724B: now - pause frame + stored), so the stored frame is moved back by that shift
+						const unsigned now = logic.getFrame();
+						sp->setReadyFrame(now);
+						const unsigned reads = sp->getReadyFrame();
+						if (reads > now)
+						{
+							sp->setReadyFrame(now - (reads - now));
+						}
+					}
+				}
+			}
+		}
+		text = "made every power of " + n + " ready";
+		return true;
+	case Command::GiveTo:
+		if (!p->getDefaultTeam())
+		{
+			text = nameOf(logic, p->getPlayerIndex()) + " has no team";
+			return false;
+		}
+		for (Object *o : objects)
+		{
+			o->setTeam(p->getDefaultTeam()); // RW 0x697C09; a horde's members follow (RW 0x69962F)
+		}
+		text = "gave " + n + " to " + nameOf(logic, p->getPlayerIndex());
+		return true;
+	default:
+		break;
+	}
+	text = "unknown command " + std::to_string((int)command);
+	return false;
 }
 
 // the effect of one checked command: true when it changed the game; `text` is what it did, or why not
@@ -143,9 +325,9 @@ bool runCommand(GameLogic &logic, const GameMessage &msg, Command command, int t
 			return false;
 		}
 		const std::string &name = tt->getName();
-		if (logic.economy().templateKindOf(*tt, "STRUCTURE") || logic.economy().templateKindOf(*tt, "PROJECTILE"))
+		if (logic.economy().templateKindOf(*tt, "PROJECTILE"))
 		{
-			text = name + " is a structure or a projectile, not a unit";
+			text = name + " is a projectile";
 			return false;
 		}
 		if (logic.economy().templateKindOf(*tt, "CREATE_A_HERO"))
@@ -302,6 +484,27 @@ bool runCommand(GameLogic &logic, const GameMessage &msg, Command command, int t
 		text = "declared the game void: no winner";
 		return true;
 	}
+	case Command::PauseAI:
+		if (!range(0, 1, "the pause value"))
+		{
+			return false;
+		}
+		if (state.aiPaused(target) == (value == 1))
+		{
+			text = std::string("the AI of ") + who + (value ? " is paused already" : " is running already");
+			return false;
+		}
+		state.setAIPaused(target, value == 1);
+		text = std::string(value ? "paused the AI of " : "resumed the AI of ") + who;
+		return true;
+	case Command::Freeze:
+	case Command::HoldFire:
+	case Command::Heal:
+	case Command::Kill:
+	case Command::LevelUpObjects:
+	case Command::ResetCooldowns:
+	case Command::GiveTo:
+		return runObjectCommand(logic, command, p, value, namedObjects(logic, msg, extra), text);
 	}
 	text = "unknown command " + std::to_string((int)command);
 	return false;
@@ -341,6 +544,10 @@ void State::crc(StateHasher &h) const
 	h.addBool(m_voided);
 	h.addU32(m_executed);
 	h.addU32(m_refused);
+	if (m_aiPausedMask != 0) // a game that never paused an AI keeps the hash it had before PauseAI
+	{
+		h.addU32(m_aiPausedMask);
+	}
 }
 
 void State::xfer(Xfer &x)
@@ -355,6 +562,11 @@ void State::xfer(Xfer &x)
 	{
 		throw XferException("the game's cheat seat (slot " + std::to_string(m_slot) + ", player " + std::to_string(m_player) + ")");
 	}
+}
+
+void State::xferPausedAI(Xfer &x)
+{
+	x.xferUnsignedInt(&m_aiPausedMask);
 }
 
 void registerHandlers(GameLogicDispatch &d)
@@ -376,7 +588,18 @@ bool execute(GameLogic &logic, const GameMessage &msg)
 		entry.value = a2->integer;
 		entry.extra = a3 ? a3->integer : 0;
 	}
-	const bool needsExtra = entry.command == (int)Command::Spawn || entry.command == (int)Command::LevelUp;
+	const bool objectCommand = entry.command >= kFirstCommand && entry.command <= kLastCommand && takesObjects((Command)entry.command);
+	const bool needsExtra = entry.command == (int)Command::Spawn || entry.command == (int)Command::LevelUp || objectCommand;
+	// an object command: 1 .. kMaxObjects ids follow the count, every one an integer
+	bool objectsOk = !objectCommand;
+	if (objectCommand && a3 && a3->integer >= 1 && a3->integer <= kMaxObjects)
+	{
+		objectsOk = true;
+		for (int i = 0; i < a3->integer; ++i)
+		{
+			objectsOk = objectsOk && intArg(msg, 4 + (std::size_t)i) != nullptr;
+		}
+	}
 	std::string why;
 	// the checks, in this order on every peer
 	if (!state.enabled())
@@ -387,7 +610,7 @@ bool execute(GameLogic &logic, const GameMessage &msg)
 	{
 		why = "refused: " + nameOf(logic, msg.getPlayerIndex()) + " is not the host";
 	}
-	else if (!a0 || !a1 || !a2 || (needsExtra && !a3))
+	else if (!a0 || !a1 || !a2 || (needsExtra && !a3) || !objectsOk)
 	{
 		why = "refused: a malformed command";
 	}
@@ -418,6 +641,20 @@ bool execute(GameLogic &logic, const GameMessage &msg)
 	return true;
 }
 
+GameMessage makeObjectsMessage(int player, Command command, int target, int value, const std::vector<ObjectID> &objects)
+{
+	GameMessage m(MSG_OPENBFME_CHEAT, player);
+	m.appendIntegerArgument((int)command);
+	m.appendIntegerArgument(target);
+	m.appendIntegerArgument(value);
+	m.appendIntegerArgument((int)objects.size());
+	for (ObjectID id : objects)
+	{
+		m.appendIntegerArgument((int)(std::uint32_t)id);
+	}
+	return m;
+}
+
 GameMessage makeMessage(int player, Command command, int target, int value, int extra, const Coord3D *location)
 {
 	GameMessage m(MSG_OPENBFME_CHEAT, player);
@@ -437,7 +674,9 @@ GameMessage makeMessage(int player, Command command, int target, int value, int 
 
 namespace
 {
-const char *const kNames[] = { "add_resources", "add_command_points", "add_power_points", "spawn", "level_up", "reveal_map", "end_game", "void_game" };
+const char *const kNames[] = { "add_resources", "add_command_points", "add_power_points", "spawn", "level_up", "reveal_map", "end_game", "void_game", "freeze",
+	"hold_fire", "heal", "kill", "level_up_objects", "reset_cooldowns", "give_to", "pause_ai" };
+static_assert(sizeof(kNames) / sizeof(kNames[0]) == kLastCommand - kFirstCommand + 1, "a name per command");
 }
 
 const char *commandName(int command)

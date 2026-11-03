@@ -7,6 +7,8 @@
 ##   * the panel: only the host's seat. The in-game menu (QuitMenu.apt, Esc) gets a CHEAT MODE button (AptQuitMenu: the menus' own look) that opens an
 ##     OpenBFME page over the menu (RotWK's combobox.wnd gadgets, Options.apt's frames and lettering): Resources, Units, Heroes, Map, Game. Each button
 ##     sends one MSG_OPENBFME_CHEAT through GameWorld.cheat_command; the lockstep command list carries it to every peer.
+## The test sandbox (the owner, 2026-11-03): the Units tab spawns any side's units, heroes or structures for any player; the Selected tab acts on the
+## host's selection (freeze, hold fire, heal, kill, levels, ready powers, give to a player); the Game tab pauses a player's AI.
 ## --cheat-script=FRAME:STEP;... presses the panel's steps for unattended captures, FRAME counting the game's drawn frames (a paused skirmish's logic
 ## frame stands still while the menu is open). STEP: menu (Esc: the in-game menu opens / closes), open (the menu's CHEAT MODE button), tab:N,
 ## value:KEY:INDEX, press:KEY, close, shot:NAME (a screenshot in --screens).
@@ -14,7 +16,9 @@ extends Node
 
 const MenuText := preload("res://scripts/menu_text.gd")
 
-const TABS := ["Resources", "Units", "Heroes", "Map", "Game"]
+const TABS := ["Resources", "Units", "Selected", "Heroes", "Map", "Game"]
+const KINDS := ["Units and heroes", "Structures"]
+const KIND_KEYS := ["units", "structures"]
 const RESOURCES := [500, 1000, 2000, 5000, 10000, 50000]
 const COMMAND_POINTS := [10, 25, 50, 100, 250]
 const POWER_POINTS := [1, 5, 10, 25, 50]
@@ -37,6 +41,8 @@ var _tab := 0
 var _choice := {}         # page key -> index (kept across tabs)
 var _players: Array = []
 var _units: Array = []
+var _sides: Array = []
+var _selection: Array = []
 var _heroes: Array = []
 var _menu_was_open := false
 var _script: Array = []   # [ [frame, step] ]
@@ -146,8 +152,8 @@ func _on_event(e: Dictionary) -> void:
 			_show()
 		"value":
 			_choice[e.key] = int(e.value)
-			if e.key == "player":
-				_show() # another player's units and heroes
+			if e.key in ["player", "side", "kind"]:
+				_show() # another player's heroes, another faction's or kind's list
 		"press":
 			_press(e.key)
 
@@ -176,8 +182,15 @@ func _label(label: String, fallback: String) -> String:
 func _show() -> void:
 	_players = world.cheat_players()
 	var player := _player()
-	_units = world.cheat_units(player) if player >= 0 else []
+	_sides = world.cheat_sides()
+	if not _choice.has("side"):
+		# the Units tab starts on the player's own side
+		var own: String = _players[clampi(_choice.get("player", 0), 0, _players.size() - 1)].side if not _players.is_empty() else ""
+		_choice["side"] = maxi(0, _sides.find(own))
+	var side: String = _sides[clampi(_choice.get("side", 0), 0, _sides.size() - 1)] if not _sides.is_empty() else ""
+	_units = world.cheat_spawnables(side, KIND_KEYS[clampi(_choice.get("kind", 0), 0, KIND_KEYS.size() - 1)]) if not side.is_empty() else []
 	_heroes = world.cheat_heroes(player) if player >= 0 else []
+	_selection = hud.get_selection() if hud != null and hud.has_method("get_selection") else []
 	var player_items: Array = _players.map(func(p): return p.name)
 	var rows: Array = []
 	var choice := func(key: String, label: String, items: Array, help: String) -> Dictionary:
@@ -196,23 +209,47 @@ func _show() -> void:
 			rows.append(choice.call("power_points", "Power points", _items(POWER_POINTS, "+%d"), "Points for the spell book"))
 			rows.append(button.call("give_power_points", "", "GIVE POWER POINTS", "Points for the spell book"))
 		1:
-			rows.append(choice.call("player", "Player", player_items, "The player who gets the units"))
+			rows.append(choice.call("player", "Player", player_items, "The player who gets them"))
+			rows.append(choice.call("side", "Faction", _sides, "Any faction's units, for any player"))
+			rows.append(choice.call("kind", "Kind", KINDS, "Units and heroes, or structures"))
 			var unit_items: Array = _units.map(func(u): return ("Hero: " if u.hero else "") + _label(u.label, u.template))
-			rows.append(choice.call("unit", "Unit or hero", unit_items, "The units and heroes of the player's faction"))
+			rows.append(choice.call("unit", "What", unit_items, "The faction's units and heroes, or its structures"))
 			rows.append(choice.call("count", "How many", _items(COUNTS, "%d"), "1 to 10 at once"))
 			rows.append(button.call("spawn", "", "SPAWN", "At the centre of your view", not unit_items.is_empty()))
 		2:
+			var some := not _selection.is_empty()
+			rows.append({"kind": "section", "label": "%d selected (select units before Esc)" % _selection.size()})
+			rows.append(button.call("freeze", "", "FREEZE", "They stand where they are and still fight there", some))
+			rows.append(button.call("release", "", "RELEASE", "They move again", some))
+			rows.append(button.call("hold_fire_on", "", "HOLD FIRE", "They do not attack on their own", some))
+			rows.append(button.call("hold_fire_off", "", "FIRE AT WILL", "They attack on their own again", some))
+			rows.append(button.call("heal", "", "HEAL", "Full health", some))
+			rows.append(button.call("kill", "", "KILL", "They die", some))
+			# the right column (the page holds ten rows a column)
+			var right: Array = [
+				choice.call("levels", "Levels", _items(LEVELS, "+%d"), "How many levels"),
+				button.call("level_up_selected", "", "LEVEL UP", "Every one that can gain levels", some),
+				button.call("reset_cooldowns", "", "POWERS READY", "Every ability recharged now", some),
+				choice.call("player", "Player", player_items, "Whom to give them"),
+				button.call("give_to", "", "GIVE TO PLAYER", "The player owns them from now on (an AI player uses them)", some),
+			]
+			for r in right:
+				r["column"] = 1
+				rows.append(r)
+		3:
 			rows.append(choice.call("player", "Player", player_items, "Whose hero"))
 			var hero_items: Array = _heroes.map(func(h): return "%s (level %d)" % [_label(h.label, h.template), int(h.level)])
 			rows.append(choice.call("hero", "Hero", hero_items, "The player's living heroes"))
 			rows.append(choice.call("levels", "Levels", _items(LEVELS, "+%d"), "How many levels"))
 			rows.append(button.call("level_up", "", "LEVEL UP", "The hero gains the levels", not hero_items.is_empty()))
-		3:
+		4:
 			rows.append(choice.call("player", "Player", player_items, "Whose map"))
 			rows.append(button.call("reveal_map", "", "REVEAL MAP", "The player sees the whole map until it is hidden again"))
 			rows.append(button.call("hide_map", "", "HIDE MAP AGAIN", "Undoes the reveal"))
-		4:
-			rows.append(choice.call("player", "Winner", player_items, "This player's alliance wins"))
+		5:
+			rows.append(choice.call("player", "Player", player_items, "The winner, or the AI to pause"))
+			rows.append(button.call("pause_ai", "", "PAUSE AI", "A computer player stops building, training and attacking"))
+			rows.append(button.call("resume_ai", "", "RESUME AI", "The computer player plays again"))
 			rows.append(button.call("end_game", "", "END GAME", "Every player outside the winner's alliance is defeated"))
 			rows.append(button.call("void_game", "", "VOID GAME", "The game ends with no winner"))
 	rows.append({"kind": "section", "label": ""})
@@ -276,6 +313,37 @@ func _press(key: String) -> void:
 			_send({"command": "end_game", "target": target, "value": 0})
 		"void_game":
 			_send({"command": "void_game", "target": -1, "value": 0})
+			"freeze":
+				_send_selected("freeze", target, 1)
+			"release":
+				_send_selected("freeze", target, 0)
+			"hold_fire_on":
+				_send_selected("hold_fire", target, 1)
+			"hold_fire_off":
+				_send_selected("hold_fire", target, 0)
+			"heal":
+				_send_selected("heal", target, 0)
+			"kill":
+				_send_selected("kill", target, 0)
+			"level_up_selected":
+				_send_selected("level_up_objects", target, LEVELS[_choice.get("levels", 0)])
+			"reset_cooldowns":
+				_send_selected("reset_cooldowns", target, 0)
+			"give_to":
+				_send_selected("give_to", target, 0)
+			"pause_ai":
+				_send({"command": "pause_ai", "target": target, "value": 1})
+			"resume_ai":
+				_send({"command": "pause_ai", "target": target, "value": 0})
+
+
+## an object command on the host's selection (read when pressed: the panel may have been open a while)
+func _send_selected(command: String, target: int, value: int) -> void:
+	_selection = hud.get_selection() if hud != null and hud.has_method("get_selection") else []
+	if _selection.is_empty():
+		errors.append("cheat %s: nothing is selected" % command)
+		return
+	_send({"command": command, "target": target, "value": value, "objects": _selection})
 
 
 func report() -> Dictionary:

@@ -12,6 +12,10 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/EvaAnnounceClientCreate.h"
 #include "GameLogic/CheatMode.h"
+#include "GameLogic/Combat/CombatNames.h"
+#include "GameLogic/Damage.h"
+#include "GameLogic/Module/SpecialPowerModules.h"
+#include "GameLogic/SkirmishAI/SkirmishAIManager.h"
 #include "GameLogic/GameLogicDispatch.h"
 #include "GameLogic/GameMessage.h"
 #include "GameLogic/Object/ExperienceTracker.h"
@@ -197,8 +201,10 @@ TEST_CASE("cheat1 mode: every command's effect and limits in a Cheat Mode game")
 		CHECK(objectsOf(logic, other, "GondorFighterHorde").size() == before + 3);
 		CHECK(send(CheatMode::makeMessage(h, Command::Spawn, h, 1, templateId(logic, "GondorBoromir"), &at)).executed);
 		CHECK(objectsOf(logic, host, "GondorBoromir").size() == 1);
-		CHECK(!send(CheatMode::makeMessage(h, Command::Spawn, h, 1, templateId(logic, "GondorBarracks"), &at)).executed);
-		CHECK(lastEntry(logic).text == "Cheat Mode: Player_1 (not done): GondorBarracks is a structure or a projectile, not a unit");
+		// the test sandbox (2026-11-03): a structure is spawned too
+		const Coord3D away{ 1400.0f, 1400.0f, 0.0f };
+		CHECK(send(CheatMode::makeMessage(h, Command::Spawn, h, 1, templateId(logic, "GondorBarracks"), &away)).executed);
+		CHECK(objectsOf(logic, host, "GondorBarracks").size() == 1);
 		CHECK(!send(CheatMode::makeMessage(h, Command::Spawn, h, 1, templateId(logic, "CreateAHero"), &at)).executed);
 		CHECK(lastEntry(logic).text == "Cheat Mode: Player_1 (not done): CreateAHero is a Create-a-Hero: it is made from its player's own record, never on its own");
 		CHECK(!send(CheatMode::makeMessage(h, Command::Spawn, h, 11, templateId(logic, "GondorBoromir"), &at)).executed);
@@ -243,6 +249,120 @@ TEST_CASE("cheat1 mode: every command's effect and limits in a Cheat Mode game")
 		CHECK(lastEntry(logic).text == "Cheat Mode: Player_1 gave 2 levels to Player_1's GondorBoromir");
 		CHECK(!send(CheatMode::makeMessage(h, Command::LevelUp, o, 1, (int)heroes[0]->getID())).executed);
 		CHECK(!send(CheatMode::makeMessage(h, Command::LevelUp, h, 11, (int)heroes[0]->getID())).executed);
+	}
+	SUBCASE("the sandbox's object commands: freeze, hold fire, heal, kill, levels, ready powers, give to a player")
+	{
+		const Coord3D at{ 600.0f, 600.0f, 0.0f };
+		REQUIRE(send(CheatMode::makeMessage(h, Command::Spawn, o, 1, templateId(logic, "GondorFighterHorde"), &at)).executed);
+		REQUIRE(send(CheatMode::makeMessage(h, Command::Spawn, h, 1, templateId(logic, "GondorBoromir"), &at)).executed);
+		r.frame(5);
+		const std::vector<Object *> hordes = objectsOf(logic, other, "GondorFighterHorde");
+		const std::vector<Object *> heroes = objectsOf(logic, host, "GondorBoromir");
+		REQUIRE(hordes.size() == 1);
+		REQUIRE(heroes.size() == 1);
+		Object *horde = hordes[0];
+		Object *hero = heroes[0];
+		REQUIRE(horde->getContain() != nullptr);
+		const std::vector<Object *> members(horde->getContain()->getContainedItemsList()->begin(), horde->getContain()->getContainedItemsList()->end());
+		REQUIRE(!members.empty());
+		auto objects = [&](Command c, int target, int value, std::vector<ObjectID> ids) { return send(CheatMode::makeObjectsMessage(h, c, target, value, ids)); };
+
+		// freeze: the horde and its members are held; release clears it
+		CHECK(objects(Command::Freeze, h, 1, { horde->getID() }).executed);
+		CHECK(lastEntry(logic).text == "Cheat Mode: Player_1 froze 1 object");
+		CHECK(horde->isDisabledByType(DISABLED_HELD));
+		for (Object *m : members)
+		{
+			CHECK(m->isDisabledByType(DISABLED_HELD));
+		}
+		CHECK(objects(Command::Freeze, h, 0, { horde->getID() }).executed);
+		CHECK_FALSE(horde->isDisabledByType(DISABLED_HELD));
+		CHECK_FALSE(members[0]->isDisabledByType(DISABLED_HELD));
+
+		// hold fire: the hold-fire button's status on the horde and its members
+		static const int noAuto = CombatNames::status("NO_AUTO_ACQUIRE");
+		CHECK(objects(Command::HoldFire, h, 1, { horde->getID() }).executed);
+		CHECK(horde->testStatus((unsigned)noAuto));
+		CHECK(members[0]->testStatus((unsigned)noAuto));
+		CHECK(objects(Command::HoldFire, h, 0, { horde->getID() }).executed);
+		CHECK_FALSE(horde->testStatus((unsigned)noAuto));
+
+		// give to a player: the horde and its members change owner (from here no enemy stands beside the hero)
+		CHECK(objects(Command::GiveTo, h, 0, { horde->getID() }).executed);
+		CHECK(lastEntry(logic).text == "Cheat Mode: Player_1 gave 1 object to Player_1");
+		CHECK(horde->getControllingPlayer() == host);
+		CHECK(members[0]->getControllingPlayer() == host);
+
+		// heal: a wounded hero has its full health again
+		DamageInfo hit;
+		hit.m_input.m_damageType = DAMAGE_UNRESISTABLE;
+		hit.m_input.m_amount = 100.0f;
+		hero->attemptDamage(hit);
+		REQUIRE(hero->getBodyModule()->getHealth() < hero->getBodyModule()->getMaxHealth()); // tolerance: the hero's armour sets the loss; only "wounded" matters
+		CHECK(objects(Command::Heal, h, 0, { hero->getID() }).executed);
+		CHECK(hero->getBodyModule()->getHealth() == hero->getBodyModule()->getMaxHealth());
+
+		// levels on the named objects
+		const int rank = hero->getExperienceTracker()->getRank();
+		CHECK(objects(Command::LevelUpObjects, h, 2, { hero->getID() }).executed);
+		CHECK(hero->getExperienceTracker()->getRank() == rank + 2);
+		CHECK(!objects(Command::LevelUpObjects, h, 11, { hero->getID() }).executed);
+
+		// ready powers: every special power module is ready now
+		std::size_t powers = 0;
+		for (const auto &module : hero->modules())
+		{
+			if (SpecialPowerModuleInterface *sp = module->getSpecialPower())
+			{
+				sp->setReadyFrame(logic.getFrame() + 3000);
+				++powers;
+			}
+		}
+		REQUIRE(powers > 0); // tolerance: Boromir has several powers; any number of them is the scene
+		CHECK(objects(Command::ResetCooldowns, h, 0, { hero->getID() }).executed);
+		for (const auto &module : hero->modules())
+		{
+			if (SpecialPowerModuleInterface *sp = module->getSpecialPower())
+			{
+				CHECK(sp->getReadyFrame() <= logic.getFrame()); // tolerance: ready at the command's frame or earlier: the check runs a frame later
+			}
+		}
+
+		// kill; then the named objects are gone and the command is refused
+		CHECK(objects(Command::Kill, h, 0, { hero->getID(), hero->getID() }).executed);
+		CHECK(lastEntry(logic).text == "Cheat Mode: Player_1 killed 1 object");
+		CHECK(hero->isEffectivelyDead());
+		CHECK(!objects(Command::Heal, h, 0, { hero->getID() }).executed);
+		CHECK(lastEntry(logic).text == "Cheat Mode: Player_1 (not done): none of the named objects is alive");
+
+		// a list without its ids, or longer than the limit: malformed
+		GameMessage shortList(MSG_OPENBFME_CHEAT, h);
+		for (int v : { (int)Command::Heal, h, 0, 2, (int)horde->getID() })
+		{
+			shortList.appendIntegerArgument(v);
+		}
+		CHECK(!send(shortList).executed);
+		CHECK(lastEntry(logic).text == "Cheat Mode: refused: a malformed command");
+		CHECK(!objects(Command::Heal, h, 0, std::vector<ObjectID>(CheatMode::kMaxObjects + 1, horde->getID())).executed);
+		CHECK(lastEntry(logic).text == "Cheat Mode: refused: a malformed command");
+	}
+	SUBCASE("pause AI: the player's skirmish AI does not update while paused; hashed only once used, and saved")
+	{
+		const std::uint32_t before = logic.computeStateHash();
+		CHECK(send(CheatMode::makeMessage(h, Command::PauseAI, o, 1)).executed);
+		CHECK(lastEntry(logic).text == "Cheat Mode: Player_1 paused the AI of Player_2");
+		CHECK(logic.cheatMode().aiPaused(o));
+		CHECK(!send(CheatMode::makeMessage(h, Command::PauseAI, o, 1)).executed);
+		CHECK(before != logic.computeStateHash());
+		std::vector<std::uint8_t> saved;
+		std::string err;
+		REQUIRE_MESSAGE(logic.saveSnapshot(saved, &err), err);
+		const std::uint32_t atSave = logic.computeStateHash();
+		CHECK(send(CheatMode::makeMessage(h, Command::PauseAI, o, 0)).executed);
+		CHECK(!logic.cheatMode().aiPaused(o));
+		REQUIRE_MESSAGE(logic.loadSnapshot(saved, &err), err);
+		CHECK(logic.cheatMode().aiPaused(o));
+		CHECK(logic.computeStateHash() == atSave);
 	}
 	SUBCASE("reveal: once per player, undo once")
 	{

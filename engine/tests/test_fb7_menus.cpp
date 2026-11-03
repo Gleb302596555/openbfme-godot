@@ -1770,6 +1770,61 @@ TEST_CASE("opts4 gadget layer retail: an open drop-down list is drawn after ever
 	CHECK(fx.layer->openDropDown() == scale);
 }
 
+// The owner, 2026-11-04 (the Cheat Mode page): choosing an entry of an open list also pressed the page's button under the list (BACK TO MENU closed the
+// page). The page's tabs and buttons are hit-tested by the page itself (OpenBFMEOptionsPage::mouse), not by the gadget layer: under an open list they
+// now take nothing, as the gadget rows under it (the test above)
+TEST_CASE("opts4 options retail: choosing an entry of an open list over a button row chooses the entry and does not press the button")
+{
+	OPENBFME_REQUIRE_RETAIL(mount);
+	ShellFx fx(mount, "StaticGameLOD = High\n");
+	AptOptionsScreen *options = fx.openOptionsFromMainMenu();
+	REQUIRE(options);
+	options->setExtensionAvailable(true);
+	fx.tick(40);
+	std::string error;
+	REQUIRE_MESSAGE(options->openExtension(&error), error);
+	OpenBFMEOptionsPage *page = options->extensionPage();
+	REQUIRE(page);
+	OpenBFMEPageSpec spec = stackedChoices();
+	OpenBFMEPageRow back;
+	back.kind = OpenBFMEPageRow::Kind::Button;
+	back.key = "back";
+	back.valueText = u"BACK";
+	spec.rows[1] = back; // the button row lies where the open list is drawn
+	REQUIRE_MESSAGE(page->show(spec, &error), error);
+	fx.tick(10);
+	options->takeExtensionEvents();
+	GameWindow *look = page->gadget("look");
+	REQUIRE(look);
+	GameWindow *lookList = GadgetComboBoxGetListBox(look);
+	REQUIRE(lookList);
+	std::array<int, 4> backRect{};
+	REQUIRE(page->rect("back", backRect));
+	// with the list closed the button takes its click
+	clickStage(fx, (backRect[0] + backRect[2]) / 2.0f, (backRect[1] + backRect[3]) / 2.0f);
+	std::vector<OpenBFMEPageEvent> events = options->takeExtensionEvents();
+	REQUIRE(events.size() == 1);
+	CHECK(events[0].kind == OpenBFMEPageEvent::Kind::Press);
+	CHECK(events[0].key == "back");
+	// the list opened over it: a click on its second entry inside the button's box is the list's only
+	const std::array<int, 4> arrow = screenRect(GadgetComboBoxGetDropDownButton(look));
+	clickStage(fx, (arrow[0] + arrow[2]) / 2.0f, (arrow[1] + arrow[3]) / 2.0f);
+	REQUIRE(fx.layer->openDropDown() == look);
+	options->takeExtensionEvents();
+	const std::array<int, 4> list = screenRect(lookList);
+	// the list's last entry (22 tall) where it lies over the button's box: the middle of their overlap
+	const float x = (backRect[0] + backRect[2]) / 2.0f, y = (std::max(backRect[1], list[3] - 22) + std::min(backRect[3], list[3])) / 2.0f;
+	REQUIRE(y > backRect[1]); // tolerance: the point lies in the button's box (its top is above the list's last entry)
+	REQUIRE(y < backRect[3]); // tolerance: and above its bottom
+	clickStage(fx, x, y);
+	events = options->takeExtensionEvents();
+	REQUIRE(events.size() == 1);
+	CHECK(events[0].kind == OpenBFMEPageEvent::Kind::Value);
+	CHECK(events[0].key == "look");
+	CHECK(events[0].value == 1);
+	CHECK(lookList->winIsHidden());
+}
+
 // Bug 2 (the owner: "the % bars overflow"): RotWK's slider draw (RW 0x4A1130) scales its boxes by the display's width / 800 and height / 600 unless the
 // window has status 0x08000000, which every component made from the template skins has (RW 0x815389 / 0x7190B4 / 0x718D93). The port left the bit
 // off, so at its 1024 x 768 stage a box was 1.28 times the window's height: below the frame at every window size

@@ -214,10 +214,11 @@ void GameLogic::xferCore(Xfer &x)
 {
 	// lane CHEAT-1: version 2 adds the Cheat Mode block at the end; lane BFME2CAMP1: version 3 adds the buildability overrides (GameLogic.h, RW GameLogic
 	// + 0x10) and the campaign's carry-over after it; WOTR2 milestone 7: version 4 adds the War of the Ring battle's army tags after those (it was
-	// version 3 on feature/wotr before the archive merge: never released). Each version is written only when its state is there, so every other game's
-	// snapshot is byte-identical to version 1's (an older snapshot loads with none of the later state)
+	// version 3 on feature/wotr before the archive merge: never released); the test sandbox (2026-11-03): version 5 adds Cheat Mode's paused AIs at the end.
+	// Each version is written only when its state is there, so every other game's snapshot is byte-identical to version 1's (an older snapshot loads with
+	// none of the later state)
 	const bool campaignState = !m_buildableOverrides.empty() || m_campaignCarryover.has_value();
-	XferVersion v{ 1, (std::uint8_t)(x.isLoading() || m_livingWorldTags.inUse() ? 4 : campaignState ? 3 : m_cheatMode.enabled() ? 2 : 1) };
+	XferVersion v{ 1, (std::uint8_t)(x.isLoading() || m_cheatMode.aiPausedMask() != 0 ? 5 : m_livingWorldTags.inUse() ? 4 : campaignState ? 3 : m_cheatMode.enabled() ? 2 : 1) };
 	x.xferVersion(v);
 	x.xferUnsignedInt(&m_frame);
 	x.xferBool(&m_frameAdvance);
@@ -321,6 +322,14 @@ void GameLogic::xferCore(Xfer &x)
 	else if (x.isLoading())
 	{
 		m_livingWorldTags.clear();
+	}
+	if (v.current >= 5)
+	{
+		m_cheatMode.xferPausedAI(x);
+	}
+	else if (x.isLoading())
+	{
+		m_cheatMode.clearPausedAI();
 	}
 }
 

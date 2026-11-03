@@ -22,10 +22,15 @@ Open the in-game menu (Esc), then press **CHEAT MODE**. The panel uses the same 
 | Tab | What it does |
 |---|---|
 | Resources | Gives a player resources, command points or spell book power points. |
-| Units | Spawns 1 to 10 of a unit or hero from that player's faction at the centre of your view. |
+| Units | Spawns 1 to 10 units, heroes or structures of any faction for any player, at the centre of your view. |
+| Selected | Acts on the units you selected before Esc: freeze (they stand and fight where they are) or release, hold fire or fire at will, heal, kill, level up, make every ability ready, give them to a player. |
 | Heroes | Levels up one of the player's living heroes. |
 | Map | Reveals the whole map for a player, or hides it again. |
-| Game | Ends the game so that the chosen player's alliance wins, or voids it (no winner). |
+| Game | Ends the game so that the chosen player's alliance wins, or voids it (no winner). Pauses or resumes a computer player's AI. |
+
+### Testing with it
+
+The Units, Selected and Game tabs' sandbox tools (2026-11-03) are for testing the port in a skirmish: start a skirmish with Cheat Mode on and one computer player, pause its AI if it should not build or attack, spawn the units to test for yourself and for it, and freeze the ones that should stand still. Units given to a computer player whose AI runs are its own to use.
 
 ## Records and statistics
 
@@ -51,6 +56,8 @@ In any other case the command is refused, logged and announced on every peer. A 
 world.cheat_info()          # { enabled, seat_slot, seat_player, seat_name, local_is_seat, voided, executed, refused, label }
 world.cheat_players()       # [ { index, name, side, defeated } ]: the players a command may name
 world.cheat_units(player)   # [ { template, id, hero, label } ]: that player's faction's units and heroes, heroes first
+world.cheat_sides()         # [ "Men", "Elves", ... ]: the playable factions
+world.cheat_spawnables(side, kind)  # kind "units" (units and heroes) or "structures": [ { template, id, hero, label } ]
 world.cheat_heroes(player)  # [ { id, template, label, level } ]: that player's living heroes that can level up
 world.cheat_command({ "command": "add_resources", "target": 3, "value": 2000 })   # -> { ok, error }
 world.take_cheat_lines()    # [ { frame, text, executed, command } ]: the lines announced since the last call
@@ -65,11 +72,19 @@ world.take_cheat_lines()    # [ { frame, text, executed, command } ]: the lines 
 | `add_resources` | player index | 1 .. 100000 | | `Money::deposit`, as ZH's MSG_CHEAT_ADD_CASH does |
 | `add_command_points` | player index | 1 .. 1000 | | Adds to the player's command point bonus, which raises the limit |
 | `add_power_points` | player index | 1 .. 100 | | Spell book purchase points |
-| `spawn` | player index | 1 .. 10 | `template` (name), `x`, `y` (map coordinates) | Spawns that many in rows of 4, 15 units apart. Every point must be on the map. Structures, projectiles and Create-a-Hero templates are refused. |
+| `spawn` | player index | 1 .. 10 | `template` (name), `x`, `y` (map coordinates) | Spawns that many in rows of 4, 15 units apart, units, heroes or structures. Every point must be on the map. Projectiles and Create-a-Hero templates are refused. |
 | `level_up` | player index | 1 .. 10 | `object` (id) | Levels a living object of that player that can gain levels |
 | `reveal_map` | player index | 1 reveal, 0 hide | | Reveals once per player. Hiding undoes only Cheat Mode's own reveal. |
 | `end_game` | player index | 0 | | Every player outside the target's alliance is defeated, and the alliance wins |
 | `void_game` | -1 | 0 | | Every player is defeated. The game ends with no winner. Works once. |
+| `freeze` | any player | 1 freeze, 0 release | `objects` (ids) | The objects (a horde with its members) cannot move; they still fight where they stand (DISABLED_HELD, as a garrison holds its riders) |
+| `hold_fire` | any player | 1 on, 0 off | `objects` | The hold-fire status (NO_AUTO_ACQUIRE), as the units' hold-fire button sets it |
+| `heal` | any player | 0 | `objects` | Full health (a horde's members too) |
+| `kill` | any player | 0 | `objects` | Unresistable damage of the full health |
+| `level_up_objects` | any player | 1 .. 10 | `objects` | Levels for each object that can gain them |
+| `reset_cooldowns` | any player | 0 | `objects` | Every special power of the objects (and a horde's members) is ready now |
+| `give_to` | player index | 0 | `objects` | The objects change owner to that player |
+| `pause_ai` | player index | 1 pause, 0 resume | | The player's skirmish AI does not update while paused (saved with the game) |
 
 A value outside its range, a player that is not in the game (the neutral player, an observer or a map side), an unknown template or object, or a point off the map is refused. The refusal is announced as "Cheat Mode: <host> (not done): <why>".
 
@@ -79,9 +94,10 @@ In C++, `CheatMode::makeMessage` builds the message. The arguments are, in order
 
 - integers: `command`, `target`, `value`;
 - for `spawn` and `level_up`, one more integer: the template id (`ThingFactory::findByTemplateID`) or the object id;
+- for the object commands (`freeze` .. `give_to`), the number of objects (1 .. 100), then each object id;
 - for `spawn`, then a location argument: the first unit's point.
 
-The command numbers are `add_resources` 1, `add_command_points` 2, `add_power_points` 3, `spawn` 4, `level_up` 5, `reveal_map` 6, `end_game` 7, `void_game` 8.
+The command numbers are `add_resources` 1, `add_command_points` 2, `add_power_points` 3, `spawn` 4, `level_up` 5, `reveal_map` 6, `end_game` 7, `void_game` 8, `freeze` 9, `hold_fire` 10, `heal` 11, `kill` 12, `level_up_objects` 13, `reset_cooldowns` 14, `give_to` 15, `pause_ai` 16.
 
 ### Ideas for a plugin (not built)
 
