@@ -1009,7 +1009,7 @@ void FireLogicSystem::xfer(Xfer &x)
 	x.xferInt(&cols);
 	if (rows != m_numRows || cols != m_numCols)
 	{
-		return;
+		throw XferException("the snapshot's fire grid is " + std::to_string(rows) + " x " + std::to_string(cols) + ", this game's " + std::to_string(m_numRows) + " x " + std::to_string(m_numCols));
 	}
 
 	if (ver < 2 && x.isLoading())

@@ -402,6 +402,7 @@ TEST_CASE("save4a: the game's block registry is the exact inventory: every simul
 						  "obfme:AIWorld xfer SAVE-4c",
 						  "obfme:Shroud xfer SAVE-4c",
 						  "obfme:SkirmishAI xfer SAVE-4c",
+						  "obfme:FireLogic xfer SAVE-4c",
 						  "obfme:ScriptEngine xfer SAVE-4d",
 						  "obfme:Victory xfer SAVE-4d",
 						  "obfme:Weather xfer SAVE-4d",

@@ -981,6 +981,7 @@ blocks). The three can run in parallel: their blocks do not overlap, and each bl
 | SAVE-4c | `obfme:AIWorld` | "pathfinder and AI movers" | the pathfinder's queues and the AI movers; with the AIUpdate module family and its state machines (AIUpdateInterface::xfer RW 0x667416, StateMachine and the AI states, all inventoried) |
 | SAVE-4c | `obfme:Shroud` | "shroud" | the shroud cells per player |
 | SAVE-4c | `obfme:SkirmishAI` | "skirmish AI" | AIPlayer / AISkirmishPlayer (RW 0x8F5756 / 0x8F3F6C), the builders, tactics, target chooser, groups |
+| lane FIRE | `obfme:FireLogic` | "fire logic" | the grid, the slice counter and the burning cells (RW 0x688384); the cells' watchers and trees come back with the objects and the map |
 | SAVE-4d | `obfme:ScriptEngine` | "script engine" | flags, counters, timers, completed and sequential scripts, the acquired-science queues' cursors (the players' notice history is saved by obfme:Players); Lua client state is not saved |
 | SAVE-4d | `obfme:Victory`, `obfme:Weather`, `obfme:Economy`, `obfme:CreateAHero`, `obfme:TerrainTrees`, `obfme:LargeGroupAudio` | "victory", "weather", "economy", "create-a-hero", "terrain trees", "large group audio" | the weather changes every frame (seen by the core test); the economy's settings part is configuration (declare it rebuilt), its context and terrain resource cells are state |
 

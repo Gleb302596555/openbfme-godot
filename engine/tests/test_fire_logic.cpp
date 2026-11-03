@@ -15,6 +15,11 @@
 #include "GameLogic/Object/Object.h"
 #include "Common/Snapshot.h"
 #include "Common/StateHash.h"
+#include "Common/XferLoad.h"
+#include "Common/XferSave.h"
+
+#include <cstdint>
+#include <vector>
 
 using namespace combattest;
 
@@ -267,6 +272,27 @@ TEST_CASE("fire logic: CRC and snapshot xfer")
 	fire.crc(h2);
 	uint32_t hashBurning = h2.value();
 	CHECK(hashQuiet != hashBurning);
+
+	// the saved fire comes back as it was, on a grid of the same size (RW 0x688384)
+	XferSave out;
+	fire.xfer(out);
+	const std::vector<std::uint8_t> saved = out.data();
+	fire.changeBurnRateAll(-100);
+	CHECK(!fire.anyBurning());
+	{
+		XferLoad in(saved);
+		fire.xfer(in);
+	}
+	StateHasher h3;
+	fire.crc(h3);
+	CHECK(h3.value() == hashBurning);
+
+	// a snapshot of another map's grid is refused, its cells are not read as this one's
+	fire.newMap(0.0f, 0.0f, 200.0f, 200.0f);
+	{
+		XferLoad in(saved);
+		CHECK_THROWS_AS(fire.xfer(in), XferException);
+	}
 
 	// Extinguish: returns to non-burning state
 	fire.changeBurnRateAll(-100);

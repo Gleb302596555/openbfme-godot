@@ -21,6 +21,7 @@
 #include "Common/Snapshot.h"
 #include "Common/Xfer.h"
 #include "GameLogic/AI/AIWorld.h"
+#include "GameLogic/Map/FireLogicSystem.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/SkirmishAI/SkirmishAIManager.h"
 #include "GameLogic/System/EmotionSystem.h"
@@ -131,6 +132,8 @@ void GameLogic::registerSnapshotBlocks()
 		},
 		{ "shroud" });
 	add4c("obfme:SkirmishAI", kSaveLoadAndDeepCRC, [this](Xfer &x) { m_skirmishAI->xfer(x); }, nullptr, { "skirmish AI" });
+	// RW 0x688384. Objects register their cells again as a load creates them (RW 0x68E3C2) and trees with the map, so the cells' lists are not saved.
+	add4c("obfme:FireLogic", kSaveLoad, [this](Xfer &x) { m_fireLogic->xfer(x); }, nullptr, { "fire logic" });
 	// ---- SAVE-4d: the script engine, victory, weather and the rest (GameLogicSnapshot4d.cpp) ----
 	registerSave4dBlocks(gs);
 	// ---- rebuilt from the START and the data ----
