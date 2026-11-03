@@ -60,11 +60,77 @@ static void writeCoverage()
 }
 #endif
 
+#if defined(_MSC_VER)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#include <dbghelp.h>
+#pragma comment(lib, "dbghelp.lib")
+
+#include <cstdio>
+#include <cstdlib>
+
+// OPENBFME_CRASH_STACK=1: an access violation, stack overflow or illegal instruction prints its stack (function, file, line from the PDB) to stderr
+// before doctest reports the test case as CRASHED, which names no place. A vectored handler sees the exception first; the process goes on to doctest's.
+static LONG WINAPI crashStack(EXCEPTION_POINTERS *info)
+{
+	const DWORD code = info->ExceptionRecord->ExceptionCode;
+	if (code != EXCEPTION_ACCESS_VIOLATION && code != EXCEPTION_STACK_OVERFLOW && code != EXCEPTION_ILLEGAL_INSTRUCTION)
+	{
+		return EXCEPTION_CONTINUE_SEARCH;
+	}
+	static bool printed = false;
+	if (printed)
+	{
+		return EXCEPTION_CONTINUE_SEARCH;
+	}
+	printed = true;
+	HANDLE process = GetCurrentProcess(), thread = GetCurrentThread();
+	SymSetOptions(SYMOPT_LOAD_LINES | SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS);
+	SymInitialize(process, nullptr, TRUE);
+	CONTEXT context = *info->ContextRecord;
+	STACKFRAME64 frame = {};
+	frame.AddrPC.Offset = context.Rip;
+	frame.AddrPC.Mode = AddrModeFlat;
+	frame.AddrFrame.Offset = context.Rbp;
+	frame.AddrFrame.Mode = AddrModeFlat;
+	frame.AddrStack.Offset = context.Rsp;
+	frame.AddrStack.Mode = AddrModeFlat;
+	std::fprintf(stderr, "CRASH STACK: exception 0x%08lX at 0x%llX\n", code, (unsigned long long)context.Rip);
+	for (int i = 0; i < 48 && StackWalk64(IMAGE_FILE_MACHINE_AMD64, process, thread, &frame, &context, nullptr, SymFunctionTableAccess64, SymGetModuleBase64, nullptr); ++i)
+	{
+		alignas(SYMBOL_INFO) char buffer[sizeof(SYMBOL_INFO) + 512] = {};
+		auto *symbol = reinterpret_cast<SYMBOL_INFO *>(buffer);
+		symbol->SizeOfStruct = sizeof(SYMBOL_INFO);
+		symbol->MaxNameLen = 511;
+		DWORD64 displacement = 0;
+		const bool named = SymFromAddr(process, frame.AddrPC.Offset, &displacement, symbol) != FALSE;
+		IMAGEHLP_LINE64 line = {};
+		line.SizeOfStruct = sizeof(line);
+		DWORD column = 0;
+		const bool lined = SymGetLineFromAddr64(process, frame.AddrPC.Offset, &column, &line) != FALSE;
+		std::fprintf(stderr, "  #%02d %s  %s:%lu\n", i, named ? symbol->Name : "?", lined ? line.FileName : "?", lined ? line.LineNumber : 0ul);
+	}
+	std::fflush(stderr);
+	return EXCEPTION_CONTINUE_SEARCH;
+}
+#endif
+
 static int testMain(int argc, char **argv)
 {
 #ifdef OPENBFME_TEST_COVERAGE
 	coverageFlags(std::getenv("OPENBFME_COVERAGE_STARTUP"), true);
 	std::atexit(writeCoverage);
+#endif
+#if defined(_MSC_VER)
+	if (const char *stack = std::getenv("OPENBFME_CRASH_STACK"); stack && *stack && *stack != '0')
+	{
+		AddVectoredExceptionHandler(1, crashStack);
+	}
 #endif
 	doctest::Context context(argc, argv);
 	context.setAsDefaultForAssertsOutOfTestCases();
