@@ -2,7 +2,7 @@
 """One branch and one working tree per agent (docs/ennorath/PROCESS.md, section 4). Work left by an agent that stops stays on its branch.
 
     agent_worktree.py new <agent> <topic>   branch agent/<agent>/<topic> from main, tree workspace/wt/<agent>-<topic>, godot-cpp, the commit gate
-    agent_worktree.py list                  each agent branch: its tree, commits ahead of and behind main, uncommitted files
+    agent_worktree.py list                  each agent branch: its tree, commits ahead of and behind main, uncommitted files; the parked trees
     agent_worktree.py sync [--tests-exe P]  run inside a tree: merge main in, then regenerate the counts (tools/sync_counts.py)
     agent_worktree.py land <branch>         after the owner's approval: fast-forward main to the branch, then remove its tree and branch
     agent_worktree.py remove <branch>       remove a tree and branch that are already in main; unmerged or dirty work is refused
@@ -10,6 +10,11 @@
 
 A new tree builds on its own (engine/build, godot/bin), so it does not hold another tree's library. `land` refuses anything but a fast-forward
 and a clean main checkout: nothing is overwritten and nothing is merged silently.
+
+Parked trees: `land` and `remove` keep up to PARKED_MAX clean trees (HEAD detached, engine/build kept) instead of deleting them, and `new` takes one
+of them for the new branch. git rewrites only the files that differ, so ninja rebuilds only those: minutes instead of the 20 of a new tree. A build
+folder cannot be copied to another path (CMake and ninja hold absolute paths) and the compiler cache misses between paths (build.bat), so the tree
+keeps its path; its name is the first branch's, the branch is the one `list` shows.
 """
 from __future__ import annotations
 
@@ -21,6 +26,7 @@ from pathlib import Path
 
 NAME = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 GODOT_CPP = "engine/thirdparty/godot-cpp"
+PARKED_MAX = 3  # a tree's engine/build is 12-14 GB (measured 2026-11-03)
 HOOK = '#!/bin/sh\n# Installed by tools/agent_worktree.py: the gate of the tree being committed in.\nexec python "$(git rev-parse --show-toplevel)/tools/precommit.py"\n'
 
 
@@ -48,6 +54,19 @@ def worktrees(root: Path) -> dict[str, Path]:
     return out
 
 
+def parked_trees(root: Path) -> list[Path]:
+    """Trees under workspace/wt with a detached HEAD: kept by `land` / `remove` for the next `new`."""
+    out: list[Path] = []
+    path = None
+    wt = (root / "workspace" / "wt").resolve()
+    for line in git("worktree", "list", "--porcelain", cwd=root).splitlines():
+        if line.startswith("worktree "):
+            path = Path(line[len("worktree "):])
+        elif line == "detached" and path and path.resolve().parent == wt:
+            out.append(path)
+    return out
+
+
 def is_merged(branch: str, root: Path) -> bool:
     return subprocess.run(["git", "merge-base", "--is-ancestor", branch, "main"], cwd=root).returncode == 0
 
@@ -70,13 +89,20 @@ def cmd_new(agent: str, topic: str) -> int:
         if not NAME.match(part):
             raise SystemExit(f"{part!r}: use lower-case letters, digits, '.', '_' and '-'")
     root = main_root()
-    branch, tree = f"agent/{agent}/{topic}", root / "workspace" / "wt" / f"{agent}-{topic}"
-    git("worktree", "add", "-b", branch, str(tree), "main", cwd=root)
+    branch = f"agent/{agent}/{topic}"
+    reused = next((p for p in parked_trees(root) if p.exists() and not dirty(p)), None)
+    if reused:
+        tree = reused
+        git("switch", "-c", branch, "main", cwd=tree)
+    else:
+        tree = root / "workspace" / "wt" / f"{agent}-{topic}"
+        git("worktree", "add", "-b", branch, str(tree), "main", cwd=root)
     reference = root / GODOT_CPP
     extra = ["--reference", str(reference)] if (reference / "CMakeLists.txt").exists() else []
     git("submodule", "update", "--init", *extra, GODOT_CPP, cwd=tree)
     install_hook(root)
-    print(f"branch {branch}\ntree   {tree}\nbuild there with build.bat; commit there; `agent_worktree.py sync`, then ask the owner to land it")
+    how = "a parked tree: only the files that differ rebuild" if reused else "a new tree: the first build is a full one"
+    print(f"branch {branch}\ntree   {tree} ({how})\nbuild there with build.bat; commit there; `agent_worktree.py sync`, then ask the owner to land it")
     return 0
 
 
@@ -87,6 +113,8 @@ def cmd_list() -> int:
         ahead, behind = git("rev-list", "--left-right", "--count", f"{branch}...main", cwd=root).split()
         tree = trees.get(branch)
         print(f"{branch}: ahead {ahead}, behind {behind}, " + (f"{len(dirty(tree))} uncommitted, {tree}" if tree else "no tree"))
+    for tree in parked_trees(root):
+        print(f"parked: {tree}")
     return 0
 
 
@@ -121,8 +149,12 @@ def cmd_remove(branch: str) -> int:
     if tree:
         if dirty(tree):
             raise SystemExit(f"{tree} has uncommitted files: not removed")
-        # --force: the initialised submodule makes git refuse a clean tree
-        git("worktree", "remove", "--force", str(tree), cwd=root)
+        if len(parked_trees(root)) < PARKED_MAX:
+            git("switch", "--detach", cwd=tree)  # the files and engine/build stay for the next `new`
+            print(f"parked {tree}")
+        else:
+            # --force: the initialised submodule makes git refuse a clean tree
+            git("worktree", "remove", "--force", str(tree), cwd=root)
     git("branch", "-d", branch, cwd=root)
     print(f"removed {branch}")
     return 0
