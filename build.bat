@@ -6,12 +6,19 @@ rem Load: the build runs at BELOW-NORMAL priority with at most OPENBFME_BUILD_JO
 rem at least 2) so the machine stays usable while it builds. OPENBFME_BUILD_JOBS=2 is lighter, OPENBFME_BUILD_JOBS=0 lets Ninja use every core.
 rem Queue: at most OPENBFME_BUILD_SLOTS builds (default 2) run on the machine, the others wait (tools\build_slot.ps1). OPENBFME_BUILD_SLOTS=1 is for a machine that lags.
 rem Targets: OPENBFME_BUILD_TARGETS (default "openbfme openbfme_tests"); OPENBFME_BUILD_TARGETS=openbfme_tests skips the game's library when only tests are needed.
+rem Test map: OPENBFME_TEST_COVERAGE=1 builds the tests into engine\build-cov with the marks tools\test_coverage_map.py reads; the normal build folder is not touched.
 rem Compile cache: OPENBFME_COMPILER_CACHE=<full path to sccache.exe> compiles through it. Measured 2026-11-01: a tree at another path got 1 hit of 2483, so it does not speed up a new tree.
 setlocal
 set "ROOT=%~dp0"
 set "BUILD_DIR=%ROOT%engine\build"
 set "BUILD_TYPE=Release"
 if not "%~1"=="" set "BUILD_TYPE=%~1"
+set "COVERAGE=OFF"
+if defined OPENBFME_TEST_COVERAGE (
+    set "COVERAGE=ON"
+    set "BUILD_DIR=%ROOT%engine\build-cov"
+    set "OPENBFME_BUILD_TARGETS=openbfme_tests"
+)
 if not "%~2"=="" (
     echo ERROR: usage: build.bat [Release^|Debug]
     exit /b 2
@@ -34,7 +41,7 @@ call "%VSDIR%\VC\Auxiliary\Build\vcvars64.bat" >nul
 if errorlevel 1 goto no_msvc
 :have_msvc
 
-cmake -S "%ROOT%engine" -B "%BUILD_DIR%" -G Ninja -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DOPENBFME_BUILD_TESTS=ON -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl "-DCMAKE_C_COMPILER_LAUNCHER=%OPENBFME_COMPILER_CACHE%" "-DCMAKE_CXX_COMPILER_LAUNCHER=%OPENBFME_COMPILER_CACHE%"
+cmake -S "%ROOT%engine" -B "%BUILD_DIR%" -G Ninja -DCMAKE_BUILD_TYPE=%BUILD_TYPE% -DOPENBFME_BUILD_TESTS=ON -DOPENBFME_TEST_COVERAGE=%COVERAGE% -DCMAKE_C_COMPILER=cl -DCMAKE_CXX_COMPILER=cl "-DCMAKE_C_COMPILER_LAUNCHER=%OPENBFME_COMPILER_CACHE%" "-DCMAKE_CXX_COMPILER_LAUNCHER=%OPENBFME_COMPILER_CACHE%"
 if errorlevel 1 exit /b 1
 if not defined OPENBFME_BUILD_JOBS set /a OPENBFME_BUILD_JOBS=%NUMBER_OF_PROCESSORS%/3
 if %OPENBFME_BUILD_JOBS% lss 0 set "OPENBFME_BUILD_JOBS=2"
