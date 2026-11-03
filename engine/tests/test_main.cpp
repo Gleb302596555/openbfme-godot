@@ -93,6 +93,12 @@ static LONG WINAPI crashStack(EXCEPTION_POINTERS *info)
 	SymSetOptions(SYMOPT_LOAD_LINES | SYMOPT_UNDNAME | SYMOPT_DEFERRED_LOADS);
 	SymInitialize(process, nullptr, TRUE);
 	CONTEXT context = *info->ContextRecord;
+	if (context.Rip == 0)
+	{
+		// a call through a null pointer: the caller's return address is on top of the stack
+		context.Rip = *reinterpret_cast<const DWORD64 *>(context.Rsp);
+		context.Rsp += 8;
+	}
 	STACKFRAME64 frame = {};
 	frame.AddrPC.Offset = context.Rip;
 	frame.AddrPC.Mode = AddrModeFlat;
@@ -113,7 +119,9 @@ static LONG WINAPI crashStack(EXCEPTION_POINTERS *info)
 		line.SizeOfStruct = sizeof(line);
 		DWORD column = 0;
 		const bool lined = SymGetLineFromAddr64(process, frame.AddrPC.Offset, &column, &line) != FALSE;
-		std::fprintf(stderr, "  #%02d %s  %s:%lu\n", i, named ? symbol->Name : "?", lined ? line.FileName : "?", lined ? line.LineNumber : 0ul);
+		const DWORD64 module = SymGetModuleBase64(process, frame.AddrPC.Offset);
+		std::fprintf(stderr, "  #%02d %s  %s:%lu  rva 0x%llX%s\n", i, named ? symbol->Name : "?", lined ? line.FileName : "?", lined ? line.LineNumber : 0ul,
+			(unsigned long long)(frame.AddrPC.Offset - (module ? module : (DWORD64)GetModuleHandleW(nullptr))), module == (DWORD64)GetModuleHandleW(nullptr) || !module ? " (exe)" : "");
 	}
 	std::fflush(stderr);
 	return EXCEPTION_CONTINUE_SEARCH;
