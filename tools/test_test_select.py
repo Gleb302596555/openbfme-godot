@@ -186,3 +186,9 @@ def test_a_source_with_code_before_main_keeps_the_include_rule_too(repo: Path):
 def test_a_source_without_a_header_with_code_before_main_asks_for_the_full_suite(repo: Path):
     the_map = ts.TestMap({"commit": "0" * 40, "files": ["engine/src/Lone.cpp"], "tests": {"engine/tests/test_a.cpp": []}, "unmapped": [], "startup": [0]})
     assert ts.select(["engine/src/Lone.cpp"], repo, the_map)[0]
+
+def test_the_fork_scope_options_come_from_the_file_without_comments(tmp_path: Path):
+    assert ts.scope_options(tmp_path) == []
+    (tmp_path / "tools").mkdir()
+    (tmp_path / "tools/fork_scope.txt").write_text("# why\n-sfe=*test_x.cpp\n\n  -tce=*bfme1*  \n", encoding="utf-8")
+    assert ts.scope_options(tmp_path) == ["-sfe=*test_x.cpp", "-tce=*bfme1*"]
