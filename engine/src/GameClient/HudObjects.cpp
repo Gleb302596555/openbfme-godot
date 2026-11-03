@@ -189,8 +189,11 @@ bool canSelect(const HudContext &ctx, const Object &obj, bool dragSelecting)
 	{
 		return false;
 	}
+	// RW 0x7108F2 (SelectionTranslator partition callback) / RW 0x671A3F (CanSelectDrawable) -> RW 0x68DE58 (Object::isSelectable).
+	// Retail objects are selectable unless destroyed, effectively dead (without KeepSelectableWhenDead), status UNSELECTABLE, or DRONE.
 	if (!isSelectable(obj, ctx.ui.getGUICommand()))
 	{
+		// INFERENCE (owner-verified in game, P-28): ensure neutral / creep units can be selected by single click.
 		if (obj.isKindOfName("CREEP") && obj.isKindOfName("SELECTABLE") && !dragSelecting)
 		{
 			return true;

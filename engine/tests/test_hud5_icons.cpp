@@ -705,4 +705,60 @@ TEST_CASE("hud5 icons retail: group numbers over units in hotkey squads (RW 0x67
 	auto coloredTextIt = std::find_if(coloredOps.begin(), coloredOps.end(), [](const IconUIOp &o) { return o.kind == IconUIOp::TEXT; });
 	REQUIRE(coloredTextIt != coloredOps.end());
 	CHECK(coloredTextIt->color == r.rig.local->getPlayerColor());
+
+	// 8. DropShadowOffsetX/Y applied to IconUIOp
+	CHECK(textOpIt->dropOffsetX == 1.0f);
+	CHECK(textOpIt->dropOffsetY == 1.0f);
+	r.settings.drawGroupInfo.dropShadowOffsetX = 3;
+	r.settings.drawGroupInfo.dropShadowOffsetY = -2;
+	auto offsetOps = IconRig::of(r.build({ hero->getID() }, 0), hero->getID());
+	auto offsetIt = std::find_if(offsetOps.begin(), offsetOps.end(), [](const IconUIOp &o) { return o.kind == IconUIOp::TEXT; });
+	REQUIRE(offsetIt != offsetOps.end());
+	CHECK(offsetIt->dropOffsetX == 3.0f);
+	CHECK(offsetIt->dropOffsetY == -2.0f);
+}
+
+TEST_CASE("hud5 icons: DrawGroupInfo engine INI parser and error handling (Rule 4, RW 0x00BF1F88 / RW 0x005DC3F3)")
+{
+	DrawGroupInfo dgi;
+	std::string err;
+	// 1. Valid INI with DrawGroupInfo block
+	const std::string validIni =
+		"DrawGroupInfo\n"
+		"  UsePlayerColor = Yes\n"
+		"  ColorForText = R:200 G:100 B:50 A:255\n"
+		"  ColorForTextDropShadow = R:10 G:20 B:30 A:255\n"
+		"  DropShadowOffsetX = 4\n"
+		"  DropShadowOffsetY = -5\n"
+		"  FontName = \"Albertus MT\"\n"
+		"  FontSize = 14\n"
+		"  FontIsBold = Yes\n"
+		"  DrawPositionXPixel = 12\n"
+		"  DrawPositionYPercent = 50%\n"
+		"End\n";
+	CHECK(DrawGroupInfo::parse(validIni, dgi, &err));
+	CHECK(dgi.usePlayerColor == true);
+	CHECK(dgi.colorForText == GameMakeColor(200, 100, 50, 255));
+	CHECK(dgi.colorForTextDropShadow == GameMakeColor(10, 20, 30, 255));
+	CHECK(dgi.dropShadowOffsetX == 4);
+	CHECK(dgi.dropShadowOffsetY == -5);
+	CHECK(dgi.fontName == "Albertus MT");
+	CHECK(dgi.fontSize == 14);
+	CHECK(dgi.fontIsBold == true);
+	CHECK(dgi.usingPixelOffsetX == true);
+	CHECK(dgi.pixelOffsetX == 12);
+	CHECK(dgi.usingPixelOffsetY == false);
+	CHECK(dgi.percentOffsetY == 0.5f);
+
+	// 2. Missing block is an error (no silent defaults per Rule 4)
+	DrawGroupInfo dgiBad;
+	std::string errBad;
+	CHECK_FALSE(DrawGroupInfo::parse("SomeOtherBlock\n End\n", dgiBad, &errBad));
+	CHECK_FALSE(errBad.empty());
+
+	// 3. Unknown key inside block is rejected with error
+	DrawGroupInfo dgiUnknown;
+	std::string errUnknown;
+	CHECK_FALSE(DrawGroupInfo::parse("DrawGroupInfo\n UnknownKey = 123\nEnd\n", dgiUnknown, &errUnknown));
+	CHECK_FALSE(errUnknown.empty());
 }

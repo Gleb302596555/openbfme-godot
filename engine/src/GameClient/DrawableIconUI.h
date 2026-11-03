@@ -53,6 +53,7 @@ class TacticalView;
 class ThingTemplate;
 class Object;
 struct ObjectFilter;
+struct FieldParse;
 
 struct IconUIOp
 {
@@ -74,6 +75,8 @@ struct IconUIOp
 	float stageTextSize = 0.0f;        ///< TEXT: a size in 800 x 600 stage pixels, scaled with the window (0: the device's caption size)
 	float pixelTextSize = 0.0f;        ///< TEXT: a size in window pixels (0: stageTextSize or the caption size)
 	bool bottomRight = false;          ///< TEXT: x, y is the string's bottom right corner, not its top centre
+	float dropOffsetX = 1.0f;          ///< TEXT: drop shadow X offset (DrawGroupInfo.ini DropShadowOffsetX)
+	float dropOffsetY = 1.0f;          ///< TEXT: drop shadow Y offset (DrawGroupInfo.ini DropShadowOffsetY)
 };
 
 // Retail Data\INI\DrawGroupInfo.ini (TheDrawGroupInfo, RW 0x00DE7720 / BFME2 0x00A01CD8, S-1950)
@@ -96,6 +99,7 @@ struct DrawGroupInfo
 
 	static bool load(ArchiveFileSystem &fs, DrawGroupInfo &out, std::string *error = nullptr);
 	static bool parse(const std::string &content, DrawGroupInfo &out, std::string *error = nullptr);
+	static const FieldParse *getFieldParse();
 };
 
 struct IconUISettings

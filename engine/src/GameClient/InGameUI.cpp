@@ -187,11 +187,11 @@ void InGameUI::mirrorSelection(const std::vector<ObjectID> &ids)
 
 void InGameUI::setGUICommand(const CommandButton *command)
 {
-	// BFME2 InGameUI::setGUICommand (0x0029A889, InGameUIInputModes.cpp, matched): the command is kept.
-	// RW 0x6A3B77 / BFME2 0x002A3273: GUI command mode with NEED_TARGET and no radius cursor immediately initializes
+	// RW 0x69B34A / BFME2 0x0029A889: InGameUI::setGUICommand (0x0029A889, InGameUIInputModes.cpp, matched): the command is kept.
+	// RW 0x6A3B77 / BFME2 0x002A3273: GUI command mode with COMMAND_OPTION_NEED_TARGET (RW 0x69B34A) and no radius cursor immediately initializes
 	// its mode cursor to the command's CursorName (e.g. AttackMove), avoiding a one-frame delay waiting for mouse move.
 	m_guiCommand = command;
-	if (command && (command->m_options & 0x227u) != 0 && command->m_radiusCursor.empty())
+	if (command && (command->m_options & COMMAND_OPTION_NEED_TARGET) != 0 && command->m_radiusCursor.empty())
 	{
 		const std::string &cur = command->m_cursorName.empty() ? std::string(MouseCursorName::Target) : command->m_cursorName;
 		setCursor(cur);
@@ -210,8 +210,8 @@ int InGameUI::mouseMode() const
 	{
 		return 1;
 	}
-	// BFME2 0x0029A889: MOUSEMODE_GUI_COMMAND (2) for a command other than DOZER_CONSTRUCT (0x35) with an Options bit of COMMAND_OPTION_NEED_TARGET (0x227)
-	if (m_guiCommand && m_guiCommand->m_command != GUI_COMMAND_DOZER_CONSTRUCT && (m_guiCommand->m_options & 0x227u) != 0)
+	// RW 0x69B34A / BFME2 0x0029A889: MOUSEMODE_GUI_COMMAND (2) for a command other than DOZER_CONSTRUCT (0x35) with COMMAND_OPTION_NEED_TARGET (0x227)
+	if (m_guiCommand && m_guiCommand->m_command != GUI_COMMAND_DOZER_CONSTRUCT && (m_guiCommand->m_options & COMMAND_OPTION_NEED_TARGET) != 0)
 	{
 		return 2;
 	}

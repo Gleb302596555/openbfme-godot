@@ -1082,7 +1082,7 @@ void HudDevice::drawIconOps(RID parent)
 				const float stageScale = op.stageTextSize > 0.0f ? std::max(1.0f, (float)hud->windowHeight() / 600.0f) : 1.0f;
 				const int size_px = op.pixelTextSize > 0.0f ? (int)std::lround(op.pixelTextSize * k)
 					: op.stageTextSize > 0.0f ? (int)std::lround(op.stageTextSize * stageScale * k) : fontSize;
-				const float drop = 1.0f; // a one-pixel shadow (user's choice: the window-scaled shadow made the money text read bold)
+				const float dropX = op.dropOffsetX, dropY = op.dropOffsetY;
 				const Vector2 size = font->get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px);
 				// RW 0x677F1B: x - width / 2, the string's top at y; a bottom-right text (the group number, RW 0x673F6D) ends at x, y
 				const Vector2 at = op.bottomRight ? Vector2(op.x - std::ceil(size.x), op.y - size.y + font->get_ascent(size_px))
@@ -1093,7 +1093,7 @@ void HudDevice::drawIconOps(RID parent)
 				{
 					dropColor.a *= 0.35f;
 				}
-				font->draw_string(iconItem, at + Vector2(drop, drop), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, dropColor);
+				font->draw_string(iconItem, at + Vector2(dropX, dropY), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, dropColor);
 				font->draw_string(iconItem, at, text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, col(op.color));
 				break;
 			}
