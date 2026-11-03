@@ -3,6 +3,9 @@
 
 #include "GameClient/DrawableIconUI.h"
 #include "GameClient/LocalizedText.h"
+#include "Common/ArchiveFileSystem.h"
+#include <sstream>
+#include <cstdio>
 
 #include "Common/INI/HostRealText.h"
 #include "Common/Player.h"
@@ -302,6 +305,149 @@ const DrawableIconUI::TemplateBox &DrawableIconUI::boxOf(const ThingTemplate &tt
 	return m_boxes.emplace(&tt, b).first->second;
 }
 
+bool DrawGroupInfo::parse(const std::string &content, DrawGroupInfo &out, std::string *error)
+{
+	(void)error;
+	std::istringstream stream(content);
+	std::string line;
+	bool inBlock = false;
+	while (std::getline(stream, line))
+	{
+		size_t commentPos = line.find(';');
+		if (commentPos != std::string::npos)
+		{
+			line = line.substr(0, commentPos);
+		}
+		size_t start = line.find_first_not_of(" \t\r\n");
+		if (start == std::string::npos)
+		{
+			continue;
+		}
+		size_t end = line.find_last_not_of(" \t\r\n");
+		line = line.substr(start, end - start + 1);
+
+		if (line == "DrawGroupInfo")
+		{
+			inBlock = true;
+			continue;
+		}
+		if (inBlock && line == "End")
+		{
+			inBlock = false;
+			break;
+		}
+		if (!inBlock)
+		{
+			continue;
+		}
+
+		size_t eqPos = line.find('=');
+		if (eqPos == std::string::npos)
+		{
+			continue;
+		}
+		std::string key = line.substr(0, eqPos);
+		std::string val = line.substr(eqPos + 1);
+		auto trim = [](std::string &s) {
+			size_t s1 = s.find_first_not_of(" \t\r\n");
+			if (s1 == std::string::npos) { s.clear(); return; }
+			size_t s2 = s.find_last_not_of(" \t\r\n");
+			s = s.substr(s1, s2 - s1 + 1);
+		};
+		trim(key);
+		trim(val);
+
+		if (key == "UsePlayerColor")
+		{
+			out.usePlayerColor = (val == "yes" || val == "Yes" || val == "1" || val == "true");
+		}
+		else if (key == "ColorForText")
+		{
+			int r = 255, g = 255, b = 255, a = 255;
+			if (std::sscanf(val.c_str(), "R:%d G:%d B:%d A:%d", &r, &g, &b, &a) >= 3)
+			{
+				out.colorForText = GameMakeColor(r, g, b, a);
+			}
+		}
+		else if (key == "ColorForTextDropShadow")
+		{
+			int r = 0, g = 0, b = 0, a = 255;
+			if (std::sscanf(val.c_str(), "R:%d G:%d B:%d A:%d", &r, &g, &b, &a) >= 3)
+			{
+				out.colorForTextDropShadow = GameMakeColor(r, g, b, a);
+			}
+		}
+		else if (key == "DropShadowOffsetX")
+		{
+			out.dropShadowOffsetX = std::atoi(val.c_str());
+		}
+		else if (key == "DropShadowOffsetY")
+		{
+			out.dropShadowOffsetY = std::atoi(val.c_str());
+		}
+		else if (key == "FontName")
+		{
+			if (val.size() >= 2 && val.front() == '"' && val.back() == '"')
+			{
+				out.fontName = val.substr(1, val.size() - 2);
+			}
+			else
+			{
+				out.fontName = val;
+			}
+		}
+		else if (key == "FontSize")
+		{
+			out.fontSize = std::atoi(val.c_str());
+		}
+		else if (key == "FontIsBold")
+		{
+			out.fontIsBold = (val == "yes" || val == "Yes" || val == "1" || val == "true");
+		}
+		else if (key == "DrawPositionXPercent")
+		{
+			float pct = 0.0f;
+			if (std::sscanf(val.c_str(), "%f%%", &pct) >= 1 || std::sscanf(val.c_str(), "%f", &pct) >= 1)
+			{
+				out.usingPixelOffsetX = false;
+				out.percentOffsetX = pct * 0.01f;
+			}
+		}
+		else if (key == "DrawPositionXPixel")
+		{
+			out.usingPixelOffsetX = true;
+			out.pixelOffsetX = std::atoi(val.c_str());
+		}
+		else if (key == "DrawPositionYPercent")
+		{
+			float pct = 0.0f;
+			if (std::sscanf(val.c_str(), "%f%%", &pct) >= 1 || std::sscanf(val.c_str(), "%f", &pct) >= 1)
+			{
+				out.usingPixelOffsetY = false;
+				out.percentOffsetY = pct * 0.01f;
+			}
+		}
+		else if (key == "DrawPositionYPixel")
+		{
+			out.usingPixelOffsetY = true;
+			out.pixelOffsetY = std::atoi(val.c_str());
+		}
+	}
+	return true;
+}
+
+bool DrawGroupInfo::load(ArchiveFileSystem &fs, DrawGroupInfo &out, std::string *error)
+{
+	std::vector<std::uint8_t> bytes;
+	if (!fs.readFile("data/ini/drawgroupinfo.ini", bytes, error) &&
+	    !fs.readFile("data\\ini\\drawgroupinfo.ini", bytes, error))
+	{
+		return false;
+	}
+	std::string content(bytes.begin(), bytes.end());
+	return parse(content, out, error);
+}
+
 std::string DrawableIconUI::constructionText(const GameTextSource *text, double percent)
 {
 	return loadScreenU16ToUtf8(LocalizedText::format(fetchOrMissing(text, "CONTROLBAR:UnderConstructionDesc"), { percent }));
@@ -562,14 +708,140 @@ void DrawableIconUI::build(GameLogic &logic, const DrawableManager &drawables, c
 			}
 		}
 	}
+	// list 3: the group number (RW 0x673F6D / BFME2 0x00273C47, S-1950)
+	const Player *localPlayer = logic.players().getLocalPlayer();
+	if (localPlayer)
+	{
+		static const int HORDE = kindIndex("HORDE");
+		for (const Queued &q : queued)
+		{
+			Object &obj = *q.obj;
+			// Retail RW 0x6792F7: only for selected drawables (Drawable + 0x43C)
+			// that are locally controlled and not effectively dead
+			const bool isSelected = selected.count(obj.getID()) != 0 ||
+			                        (obj.getContainedBy() && selected.count(obj.getContainedBy()->getID()) != 0);
+			if (!isSelected)
+			{
+				continue;
+			}
+			if (obj.getControllingPlayer() != localPlayer)
+			{
+				continue;
+			}
+			// Horde members do not draw their own group number; the horde container draws it on carrier/first member (RW 0x673F6D)
+			if (obj.getContainedBy() && kindOf(*obj.getContainedBy(), HORDE))
+			{
+				continue;
+			}
+
+			// Find which hotkey squad 0..9 contains this object
+			int squad = -1;
+			const ObjectID objID = obj.getID();
+			for (int sIdx = 0; sIdx < Player::NUM_HOTKEY_SQUADS; ++sIdx)
+			{
+				const auto &squadMembers = localPlayer->hotkeySquad(sIdx);
+				for (ObjectID mID : squadMembers)
+				{
+					if (mID == objID)
+					{
+						squad = sIdx;
+						break;
+					}
+				}
+				if (squad != -1)
+				{
+					break;
+				}
+			}
+			if (squad < 0 || squad >= 10)
+			{
+				continue;
+			}
+
+			// Retail RW 0x673F6D: a horde draws on its banner carrier (slot 0x118), else first member (slot 0x110)
+			float x0 = q.x0;
+			float y0 = q.y0;
+			float w = q.x1 - q.x0;
+			float h = q.y1 - q.y0;
+			if (kindOf(obj, HORDE) && obj.getContain())
+			{
+				const HordeContain *hcontain = dynamic_cast<const HordeContain *>(obj.getContain());
+				const Object *carrier = nullptr;
+				if (hcontain)
+				{
+					carrier = hcontain->bannerCarrier() ? logic.findObjectByID(hcontain->bannerCarrier()) : nullptr;
+					if (!carrier && !hcontain->getContainedItemsList()->empty())
+					{
+						carrier = hcontain->getContainedItemsList()->front();
+					}
+					if (!carrier && !hcontain->core().registeredMembers().empty())
+					{
+						carrier = logic.findObjectByID((ObjectID)*hcontain->core().registeredMembers().begin());
+					}
+				}
+				if (carrier)
+				{
+					for (const Queued &cq : queued)
+					{
+						if (cq.obj == carrier)
+						{
+							x0 = cq.x0;
+							y0 = cq.y0;
+							w = cq.x1 - cq.x0;
+							h = cq.y1 - cq.y0;
+							break;
+						}
+					}
+				}
+			}
+
+			const DrawGroupInfo &dgi = s.drawGroupInfo;
+			float posX = x0;
+			float posY = y0;
+			if (dgi.usingPixelOffsetX)
+			{
+				posX += (float)dgi.pixelOffsetX;
+			}
+			else
+			{
+				posX += w * dgi.percentOffsetX;
+			}
+			if (dgi.usingPixelOffsetY)
+			{
+				posY += (float)dgi.pixelOffsetY;
+			}
+			else
+			{
+				posY += h * dgi.percentOffsetY;
+			}
+
+			std::uint32_t textColor = dgi.usePlayerColor ? localPlayer->getPlayerColor() : dgi.colorForText;
+
+			IconUIOp op;
+			op.kind = IconUIOp::TEXT;
+			op.object = obj.getID();
+			// GodotInGameHud: op.x is horizontal center, op.y is top
+			// Retail RW 0x673F6D: drawX = x - extents.width; drawY = y - extents.height
+			// For 12px numeral (extent width ~8px, height ~12px):
+			// center op.x sits at posX - 8px, top op.y at posY - 8px
+			op.x = posX - 8.0f;
+			op.y = posY - 8.0f;
+			op.text = std::to_string(squad);
+			op.color = textColor;
+			op.dropColor = dgi.colorForTextDropShadow;
+			op.stageTextSize = (float)dgi.fontSize;
+			out.push_back(op);
+		}
+	}
 }
 
 std::vector<std::string> DrawableIconUI::acceptanceStops()
 {
 	return {
-		"[S-1950] the drawable decorations (HUD-5): the health bar (unit, structure and construction looks RW 0x6723C3 / 0x6721CC / 0x671FD5), the construction text and "
-		"the veterancy marks (a horde's on its banner carrier or first member, RW 0x67939F) run as RW 0x679129 / 0x676346 / 0x677CF9 / 0x6780DF, with the stealth tests "
-		"(RW 0x4853EB, 0x6763DA); not ported: the wall upgrade's \"upgrade active\" test, the other decoration lists (the group number, the caption, lists 1, 3, 5)",
+		"[S-1950] the drawable decorations (HUD-5): the health bar (unit, structure and construction looks RW 0x6723C3 / 0x6721CC / 0x671FD5), the construction text, "
+		"the veterancy marks (a horde's on its banner carrier or first member, RW 0x67939F) and the group number (list 3, RW 0x673F6D / BFME2 0x00273C47, "
+		"TheDrawGroupInfo parsed from data/ini/drawgroupinfo.ini) run as RW 0x679129 / 0x676346 / 0x677CF9 / 0x6780DF / 0x673F6D, with the stealth tests "
+		"(RW 0x4853EB, 0x6763DA); not ported: the wall upgrade's \"upgrade active\" test, the caption, lists 1, 5",
 		"[S-1951] the drawable decorations' inference: the in-game UI's drawable caption font of the construction text (InGameUI + 0x7A0 / + 0x7A4), the icon toggle "
 		"(TheGameLogic + 0x9A) and the script letterbox (TheScriptEngine + 0x1A238) of the queue, the queue's fog / shroud test (RW 0x68D8F7 <= 2) read from the presented snapshot (one client frame behind the live logic the icons read), the "
 		"horde anchor's H+0x170 set taken as HordeContainCore's registered members (the members on their way into a garrison are kept apart)",

@@ -636,3 +636,71 @@ TEST_CASE("hud5 icons: the acceptance stops are reported")
 	CHECK(stops[0].rfind("[S-1950]", 0) == 0);
 	CHECK(stops[1].rfind("[S-1951]", 0) == 0);
 }
+
+TEST_CASE("hud5 icons retail: group numbers over units in hotkey squads (RW 0x673F6D / BFME2 0x00273C47, S-1950)")
+{
+	if (!haveWorld("hud5 icons group numbers"))
+	{
+		return;
+	}
+	IconRig r(shared());
+	std::string error;
+	CHECK(DrawGroupInfo::load(*shared().mount->fs, r.settings.drawGroupInfo, &error));
+	CHECK(r.settings.drawGroupInfo.fontSize == 12);
+
+	Player *enemy = r.rig.game->players().findPlayerWithName("Player_2");
+	REQUIRE(enemy);
+
+	Object *hero = r.place("RohanTheoden", r.rig.local, 700.0f, 700.0f);
+	Object *enemyUnit = r.place("RohanTheoden", enemy, 900.0f, 700.0f);
+	Object *horde = r.place("GondorFighterHorde", r.rig.local, 750.0f, 700.0f);
+	r.rig.game->advance(0.2);
+	r.look(*hero);
+
+	auto texts = [&](const std::vector<IconUIOp> &ops) {
+		std::vector<std::string> out;
+		for (const IconUIOp &op : ops)
+		{
+			if (op.kind == IconUIOp::TEXT)
+			{
+				out.push_back(op.text);
+			}
+		}
+		return out;
+	};
+
+	// 1. Initially, no squads assigned: no group numbers
+	CHECK(texts(IconRig::of(r.build({ hero->getID() }, 0), hero->getID())).empty());
+
+	// 2. Assign hero to hotkey squad 1 (key 1)
+	r.rig.local->hotkeySquad(1).push_back(hero->getID());
+
+	// 3. Hero in squad 1, but NOT selected: retail RW 0x6792F7 skips unselected
+	CHECK(texts(IconRig::of(r.build({}, 0), hero->getID())).empty());
+
+	// 4. Hero in squad 1 and selected: renders "1"
+	auto heroOps = IconRig::of(r.build({ hero->getID() }, 0), hero->getID());
+	CHECK(texts(heroOps) == std::vector<std::string>{ "1" });
+	auto textOpIt = std::find_if(heroOps.begin(), heroOps.end(), [](const IconUIOp &o) { return o.kind == IconUIOp::TEXT; });
+	REQUIRE(textOpIt != heroOps.end());
+	CHECK(textOpIt->text == "1");
+	CHECK(textOpIt->stageTextSize == 12.0f);
+	CHECK(textOpIt->color == 0xFFFFFFFFu); // ColorForText in DrawGroupInfo.ini
+	CHECK(textOpIt->dropColor == 0xFF000000u);
+
+	// 5. Assign horde to hotkey squad 4
+	r.rig.local->hotkeySquad(4).push_back(horde->getID());
+	auto hordeOps = IconRig::of(r.build({ horde->getID() }, 0), horde->getID());
+	CHECK(texts(hordeOps) == std::vector<std::string>{ "4" });
+
+	// 6. Enemy unit in an enemy squad: not locally controlled, shows no group number to local player
+	enemy->hotkeySquad(2).push_back(enemyUnit->getID());
+	CHECK(texts(IconRig::of(r.build({ enemyUnit->getID() }, 0), enemyUnit->getID())).empty());
+
+	// 7. When usePlayerColor is enabled, text color matches player color
+	r.settings.drawGroupInfo.usePlayerColor = true;
+	auto coloredOps = IconRig::of(r.build({ hero->getID() }, 0), hero->getID());
+	auto coloredTextIt = std::find_if(coloredOps.begin(), coloredOps.end(), [](const IconUIOp &o) { return o.kind == IconUIOp::TEXT; });
+	REQUIRE(coloredTextIt != coloredOps.end());
+	CHECK(coloredTextIt->color == r.rig.local->getPlayerColor());
+}

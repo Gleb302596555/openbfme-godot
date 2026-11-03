@@ -256,6 +256,15 @@ bool InGameHud::boot(std::string *error)
 			m_errors.push_back("message lines: " + msError);
 		}
 	}
+	// Retail RW 0x646771 / BFME2 0x0023A1BB: load DrawGroupInfo.ini (S-1950)
+	{
+		DrawGroupInfo dgi;
+		std::string dgiError;
+		if (DrawGroupInfo::load(m_config.fs, dgi, &dgiError))
+		{
+			m_iconSettings.drawGroupInfo = dgi;
+		}
+	}
 	if (m_ownedWindows)
 	{
 		m_ownedWindows->init();

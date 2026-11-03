@@ -42,6 +42,7 @@
 #include <string>
 #include <vector>
 
+class ArchiveFileSystem;
 class DrawableManager;
 class GameLogic;
 class GameTextSource;
@@ -72,6 +73,28 @@ struct IconUIOp
 	float stageTextSize = 0.0f;        ///< TEXT: a size in 800 x 600 stage pixels, scaled with the window (0: the device's caption size)
 };
 
+// Retail Data\INI\DrawGroupInfo.ini (TheDrawGroupInfo, RW 0x00DE7720 / BFME2 0x00A01CD8, S-1950)
+struct DrawGroupInfo
+{
+	bool usePlayerColor = false;
+	std::uint32_t colorForText = 0xFFFFFFFFu;
+	std::uint32_t colorForTextDropShadow = 0xFF000000u;
+	int dropShadowOffsetX = 1;
+	int dropShadowOffsetY = 1;
+	std::string fontName = "Albertus MT";
+	int fontSize = 12;
+	bool fontIsBold = false;
+	bool usingPixelOffsetX = false;
+	float percentOffsetX = 0.0f;
+	int pixelOffsetX = 0;
+	bool usingPixelOffsetY = true;
+	float percentOffsetY = 0.0f;
+	int pixelOffsetY = 0;
+
+	static bool load(ArchiveFileSystem &fs, DrawGroupInfo &out, std::string *error = nullptr);
+	static bool parse(const std::string &content, DrawGroupInfo &out, std::string *error = nullptr);
+};
+
 struct IconUISettings
 {
 	bool showObjectHealth = false;       ///< GameData ShowObjectHealth
@@ -80,6 +103,7 @@ struct IconUISettings
 	const MappedImageCollection *images = nullptr;
 	const GameTextSource *text = nullptr;
 	float zoom = 1.0f;                   ///< View::getZoom (+0x124)
+	DrawGroupInfo drawGroupInfo;
 	// lane OPTS-2 (the OpenBFME Interface option, NOT retail; client only): which objects show a health bar besides retail's selected / moused-over
 	// ones: RETAIL none, DAMAGED those below their maximum health, ALWAYS every one (the kind and visibility rules of RW 0x676346 still apply; lane ZOOM-1:
 	// ALWAYS also takes infantry and cavalry, as AllHealthBars does, so every unit and building of every player shows its bar)
