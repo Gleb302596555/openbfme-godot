@@ -684,7 +684,9 @@ TEST_CASE("hud5 icons retail: group numbers over units in hotkey squads (RW 0x67
 	auto textOpIt = std::find_if(heroOps.begin(), heroOps.end(), [](const IconUIOp &o) { return o.kind == IconUIOp::TEXT; });
 	REQUIRE(textOpIt != heroOps.end());
 	CHECK(textOpIt->text == "1");
-	CHECK(textOpIt->stageTextSize == 12.0f);
+	CHECK(textOpIt->pixelTextSize == 8.0f); // the owner's 8 window pixels (2026-11-03), not FontSize 12
+	CHECK(textOpIt->stageTextSize == 0.0f);
+	CHECK(textOpIt->bottomRight); // RW 0x673F6D: x - width, y - height
 	CHECK(textOpIt->color == 0xFFFFFFFFu); // ColorForText in DrawGroupInfo.ini
 	CHECK(textOpIt->dropColor == 0xFF000000u);
 

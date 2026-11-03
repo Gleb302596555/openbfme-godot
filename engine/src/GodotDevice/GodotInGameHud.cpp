@@ -1080,10 +1080,13 @@ void HudDevice::drawIconOps(RID parent)
 				const String text = String::utf8(op.text.c_str());
 				// a stage-sized text (the money texts) grows with the window as the HUD movies do: the window height over the 600 stage rows
 				const float stageScale = op.stageTextSize > 0.0f ? std::max(1.0f, (float)hud->windowHeight() / 600.0f) : 1.0f;
-				const int size_px = op.stageTextSize > 0.0f ? (int)std::lround(op.stageTextSize * stageScale * k) : fontSize;
+				const int size_px = op.pixelTextSize > 0.0f ? (int)std::lround(op.pixelTextSize * k)
+					: op.stageTextSize > 0.0f ? (int)std::lround(op.stageTextSize * stageScale * k) : fontSize;
 				const float drop = 1.0f; // a one-pixel shadow (user's choice: the window-scaled shadow made the money text read bold)
 				const Vector2 size = font->get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px);
-				const Vector2 at(op.x - std::floor(size.x / 2.0f), op.y + font->get_ascent(size_px)); // RW 0x677F1B: x - width / 2, the string's top at y
+				// RW 0x677F1B: x - width / 2, the string's top at y; a bottom-right text (the group number, RW 0x673F6D) ends at x, y
+				const Vector2 at = op.bottomRight ? Vector2(op.x - std::ceil(size.x), op.y - size.y + font->get_ascent(size_px))
+												  : Vector2(op.x - std::floor(size.x / 2.0f), op.y + font->get_ascent(size_px));
 				// a money text's shadow is faint (35%): at full strength it made the small text read bold (the owner asked for a thinner text, PROBLEMS.md P-6)
 				Color dropColor = col(op.dropColor);
 				if (op.stageTextSize > 0.0f)

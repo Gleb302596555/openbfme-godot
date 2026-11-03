@@ -576,6 +576,14 @@ void InGameHud::update(double seconds)
 		ms = std::chrono::duration<double, std::milli>(now - partStart).count();
 		partStart = now;
 	};
+	// ZH Mouse::createStreamMessages (Mouse.cpp: "basic position messages are always created", before the frame's button events): the pointer's
+	// position enters the stream every client frame, not only when it moves, so the mode cursor and the hover hint follow a change made under a still
+	// pointer (a command started or cancelled by a key, a placement, a selection change, an object moving under it) one frame later, as in retail
+	if (m_pointerSeen && !m_pointerSent && !m_modal)
+	{
+		m_input->framePointer(m_pointerX, m_pointerY, m_keyState);
+	}
+	m_pointerSent = false;
 	m_input->update();
 	// lane CHAT-1: the logic frame the message lines stamp and fade by; the GUI labels the translators and the control bar posted (InGameUI::message:
 	// TheGameText's text of the label, the alternating colours)
@@ -967,15 +975,11 @@ void InGameHud::updateFloatingText(const TacticalView &view, bool shroudDrawn)
 void InGameHud::updateResourceFeedback()
 {
 	// RW 0x69C69B / RW 0x6A3E1E: in retail, building placement overrides cursor to Build (10, hidden without Mouse.ini entry).
-	// When placement starts, immediately set cursor to Build to avoid any flash of Target (P-22).
+	// When placement starts, immediately set cursor to Build to avoid any flash of Target (P-22); the next frame's position (update) gives the hint
 	const bool placing = m_input->ui().isPlacing();
 	if (placing && !m_wasPlacing)
 	{
 		m_input->ui().setCursor(MouseCursorName::Build);
-		if (m_pointerSeen && !isOverGui(m_pointerX, m_pointerY))
-		{
-			m_input->mouseMove(m_pointerX, m_pointerY, m_keyState);
-		}
 	}
 	m_wasPlacing = placing;
 	// lane OWNERFIX-2 (GameClient/TerrainResourceFeedback.h): the placement feedback while a building waits for its site (InGameUI::handleBuildPlacements),
@@ -1205,17 +1209,11 @@ void InGameHud::registerHotkeys()
 						e.availability = (b.state == ButtonState::Enabled || b.state == ButtonState::Active)
 											 ? HotKeyTranslator::Availability::Enabled
 											 : HotKeyTranslator::Availability::Disabled;
-						e.run = [this, position, k, stance]() {
+						e.run = [this, position, stance]() {
 							if (m_palantirRef)
 							{
-								if (m_palantirRef->subMenu(position) && m_palantirRef->subMenu(position)->isOpen())
-								{
-									m_palantirRef->pressStanceItem(position, (int)k);
-								}
-								else
-								{
-									m_palantirRef->setStanceFromHotkey(position, stance);
-								}
+								// RW 0x96F880: the hotkey runs SetStance alone, the radial open or not (no toggle flash, that is the item press's)
+								m_palantirRef->setStanceFromHotkey(position, stance);
 								return true;
 							}
 							return false;
@@ -1226,17 +1224,9 @@ void InGameHud::registerHotkeys()
 					{
 						entries.push_back(makeEntry(key));
 					}
-					char32_t metaChar = 0;
-					switch (stance)
-					{
-						case STANCE_HOLD_GROUND: metaChar = U'g'; break;
-						case STANCE_BATTLE: metaChar = U'f'; break;
-						case STANCE_AGGRESSIVE: metaChar = U'd'; break;
-					}
-					if (metaChar != 0 && metaChar != key)
-					{
-						entries.push_back(makeEntry(metaChar));
-					}
+					// RW 0x96F967 .. 0x96F987: the stance's meta message (RW 0x96F20D, the table RW 0xC84178) is bound through RW 0x75B2BA, not a
+					// character: the CommandMap key arrives as CMSG_META_STANCE_* and CommandTranslator::changeStance sends its one MSG_CHANGE_STANCE
+					// (a character entry for the same key sent a second order on the key's release)
 				}
 				continue;
 			}
@@ -1569,6 +1559,7 @@ void InGameHud::mouseMove(int x, int y, int keyState)
 		return; // lane OPTS-6: the menus' movies saw the pointer; the world did not (no edge scroll, no hover pick)
 	}
 	m_input->mouseMove(x, y, keyState);
+	m_pointerSent = true;
 }
 
 void InGameHud::mouseButton(HudInput::Button button, bool down, int x, int y, int keyState, int timeMs, bool doubleClick)

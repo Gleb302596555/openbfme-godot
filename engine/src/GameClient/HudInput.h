@@ -43,6 +43,8 @@ public:
 
 	// ---- raw input (ZH Mouse / Keyboard createStreamMessages) ----
 	void mouseMove(int x, int y, int keyState = 0);
+	// ZH Mouse::createStreamMessages: the frame's position message, ahead of the frame's button and key events
+	void framePointer(int x, int y, int keyState);
 	void mouseButton(Button button, bool down, int x, int y, int keyState, int timeMs, bool doubleClick = false, bool overGui = false);
 	// a key: `key` a KeyCode, `keyState` the KeyState flags including the modifier flags after this event (KEY_STATE_DOWN / UP, AUTOREPEAT)
 	// `character`: the keyboard layout's character of the key (lane INPUT-1: RotWK's hotkeys look the character up, RW 0x63F14D), 0 when unknown

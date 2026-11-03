@@ -531,30 +531,23 @@ TEST_CASE("campui1 stance retail: radial items hotkeys register and execute SetS
 	REQUIRE(menu);
 	CHECK_FALSE(menu->isOpen());
 
-	// 1. Verify hotkeys are registered for stances (RW 0x96F890 / BFME2 0x00967DA6):
-	// Hold Ground (CMSG_META_STANCE_HOLDGROUND -> 'G')
-	// Battle (CMSG_META_STANCE_BATTLE -> 'F')
-	// Aggressive (CMSG_META_STANCE_AGGRESSIVE -> 'D')
-	const auto &entries = h.hud->input().hotKeyTranslator().entries();
-	bool foundG = false, foundF = false, foundD = false;
-	for (const auto &e : entries)
-	{
-		if (e.key == U'G' || e.key == U'g') foundG = true;
-		if (e.key == U'F' || e.key == U'f') foundF = true;
-		if (e.key == U'D' || e.key == U'd') foundD = true;
-	}
-	CHECK(foundG);
-	CHECK(foundF);
-	CHECK(foundD);
+	// 1. RW 0x96F890 / BFME2 0x00967DA6 binds each stance's meta message (the table RW 0xC84178: stance 1 -> 0x95, 2 -> 0x93, 3 -> 0x94, read by
+	// RW 0x96F20D) to the toggle's action through RW 0x75B2BA, not a character: the CommandMap keys (G, F, D) arrive as CMSG_META_STANCE_* and the
+	// CommandTranslator's stance case sends the one MSG_CHANGE_STANCE. No character entry may repeat them (the owner, 2026-11-03: the stance voice
+	// played several times on one key press)
 
 	// 2. Press hotkey for Hold Ground (KEY_G) while closed:
-	// Executes SetStance (RW 0x96F880 -> 0x96F53C): sends MSG_CHANGE_STANCE 3, plays toggle flash Go()
+	// Executes SetStance alone (RW 0x96F880 -> 0x96F53C): sends MSG_CHANGE_STANCE 3; no toggle flash (Go() is the item press's, RW 0x96F85A; the owner
+	// checked Ennorath in retail, 2026-11-03: a stance hotkey does not flash)
 	unsigned initialGoes = pal.toggleFlashGoes();
+	const size_t before = h.stanceMessages().size();
 	h.hud->key(KEY_G, KEY_STATE_DOWN, 0);
 	h.hud->key(KEY_G, KEY_STATE_UP, 0);
 	h.frames(5);
 	CHECK(sb->getStance() == STANCE_HOLD_GROUND);
-	CHECK(pal.toggleFlashGoes() == initialGoes + 1);
+	REQUIRE(h.stanceMessages().size() == before + 1); // one key press, one order (one voice)
+	CHECK(h.stanceMessages().back() == "MSG_CHANGE_STANCE i3");
+	CHECK(pal.toggleFlashGoes() == initialGoes);
 
 	// 3. Open radial menu: press toggle
 	REQUIRE(h.pressToggle(*toggle));
@@ -563,16 +556,19 @@ TEST_CASE("campui1 stance retail: radial items hotkeys register and execute SetS
 	REQUIRE(menu->itemCount() == 3);
 
 	// 4. Press hotkey for Battle Stance (KEY_F) while radial menu is open:
-	// Executes SetStance: sends MSG_CHANGE_STANCE 1, requests close (FadeOut), plays toggle flash Go()
+	// Executes SetStance alone: sends MSG_CHANGE_STANCE 1, requests close (FadeOut), no toggle flash
 	unsigned prevGoes = pal.toggleFlashGoes();
+	const size_t beforeF = h.stanceMessages().size();
 	h.hud->key(KEY_F, KEY_STATE_DOWN, 0);
 	h.hud->key(KEY_F, KEY_STATE_UP, 0);
 	h.frames(1);
 	CHECK(menu->fading());
-	CHECK(pal.toggleFlashGoes() == prevGoes + 1);
+	CHECK(pal.toggleFlashGoes() == prevGoes);
 	REQUIRE(h.waitClosed(*menu, 90));
 	h.frames(5);
 	CHECK(sb->getStance() == STANCE_BATTLE);
+	REQUIRE(h.stanceMessages().size() == beforeF + 1);
+	CHECK(h.stanceMessages().back() == "MSG_CHANGE_STANCE i1");
 
 	// 5. Open again, then deselect: selection change hides open radial and unregisters hotkeys (RW 0x96FCCB / BFME2 0x0096820D)
 	REQUIRE(h.pressToggle(*toggle));

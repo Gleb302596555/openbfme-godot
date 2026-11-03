@@ -56,6 +56,13 @@ void HudInput::mouseMove(int x, int y, int keyState)
 	m.appendInteger(keyState);
 }
 
+void HudInput::framePointer(int x, int y, int keyState)
+{
+	ClientMessage &m = m_stream.prepend(CMSG_RAW_MOUSE_POSITION);
+	m.appendPixel({ x, y });
+	m.appendInteger(keyState);
+}
+
 void HudInput::mouseButton(Button button, bool down, int x, int y, int keyState, int timeMs, bool doubleClick, bool overGui)
 {
 	bool *ignoreUp = button == Button::Left ? &m_ignoreLeftUp : button == Button::Right ? &m_ignoreRightUp : &m_ignoreMiddleUp;

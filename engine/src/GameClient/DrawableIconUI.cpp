@@ -39,6 +39,8 @@
 
 namespace
 {
+constexpr float kGroupNumberPixels = 8.0f; // the group number's height in window pixels (the owner, 2026-11-03)
+
 int kindIndex(const char *name)
 {
 	return ObjectTemplateInfoBuilder::kindOfIndex(name);
@@ -821,16 +823,15 @@ void DrawableIconUI::build(GameLogic &logic, const DrawableManager &drawables, c
 			IconUIOp op;
 			op.kind = IconUIOp::TEXT;
 			op.object = obj.getID();
-			// GodotInGameHud: op.x is horizontal center, op.y is top
-			// Retail RW 0x673F6D: drawX = x - extents.width; drawY = y - extents.height
-			// For 12px numeral (extent width ~8px, height ~12px):
-			// center op.x sits at posX - 8px, top op.y at posY - 8px
-			op.x = posX - 8.0f;
-			op.y = posY - 8.0f;
+			// Retail RW 0x673F6D: drawX = x - extents.width; drawY = y - extents.height (the string's bottom right corner at the point, whatever its size)
+			op.x = posX;
+			op.y = posY;
+			op.bottomRight = true;
 			op.text = std::to_string(squad);
 			op.color = textColor;
 			op.dropColor = dgi.colorForTextDropShadow;
-			op.stageTextSize = (float)dgi.fontSize;
+			// the owner's choice (2026-11-03): the number is 8 window pixels high, not DrawGroupInfo.ini's FontSize 12 (dgi.fontSize)
+			op.pixelTextSize = kGroupNumberPixels;
 			out.push_back(op);
 		}
 	}

@@ -364,6 +364,7 @@ private:
 	RadiusCursor m_radiusCursor;
 	int m_pointerX = 0, m_pointerY = 0;
 	bool m_pointerSeen = false;
+	bool m_pointerSent = false; ///< update: the pointer's position reached the stream since the last update (mouseMove)
 	bool m_modal = false; // lane OPTS-6
 	bool m_targetingCursor = false; ///< power targeting set the pointer (it is given back at its end)
 	std::set<std::string> m_cursorStopPowers; ///< the powers whose unported location test the cursor met (S-4641), once each

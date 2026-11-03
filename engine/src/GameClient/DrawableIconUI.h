@@ -72,6 +72,8 @@ struct IconUIOp
 	ObjectID object = 0;
 	float width = 1.0f;                ///< OPEN_RECT: the outline's line width (Display +0xE0's fifth argument; Render2D Add_Outline)
 	float stageTextSize = 0.0f;        ///< TEXT: a size in 800 x 600 stage pixels, scaled with the window (0: the device's caption size)
+	float pixelTextSize = 0.0f;        ///< TEXT: a size in window pixels (0: stageTextSize or the caption size)
+	bool bottomRight = false;          ///< TEXT: x, y is the string's bottom right corner, not its top centre
 };
 
 // Retail Data\INI\DrawGroupInfo.ini (TheDrawGroupInfo, RW 0x00DE7720 / BFME2 0x00A01CD8, S-1950)

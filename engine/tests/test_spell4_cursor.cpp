@@ -571,3 +571,40 @@ TEST_CASE("SUMMONLOC-1 retail: Dain's Royal Guard (SPELL_BOOK_MEN_OF_DALE_ALLIES
 	CHECK(castsQueued(*r.rig.game) == queued + 1);
 	CHECK(r.hud->input().ui().getGUICommand() == nullptr);
 }
+
+// The owner (2026-11-03): pressing A a second time left the plain BFME cursor until the mouse moved. ZH Mouse::createStreamMessages puts the pointer's
+// position in the stream every client frame ("basic position messages are always created"), ahead of the frame's events; the port sent it only on a
+// move, so every mode cursor waited for the mouse (InGameHud::update now sends it each frame)
+TEST_CASE("cursor retail: a command cancelled under a still pointer shows the selection's cursor on the next frame, without a mouse move")
+{
+	if (!haveWorld("still pointer cursor")) return;
+	SharedWorld &s = shared();
+	CursorRig r(s);
+	auto context = r.hud->enterContext();
+	GameLogic &logic = r.rig.logic();
+	Object *hero = r.rig.make("ElvenElrond", 800.0f, 650.0f);
+	REQUIRE(hero);
+	r.hud->input().ui().selectObject(hero->getID());
+	r.rig.game->shroud().revealMapForPlayerPermanently(r.rig.local->getPlayerIndex());
+	r.frames(20);
+	const Coord3D ground{ 800.0f, 750.0f, logic.getGroundHeight(800.0f, 750.0f) };
+	r.rig.lookAt(ground);
+	const ICoord2D pixel = r.rig.screenOf(ground);
+	r.hud->mouseMove(pixel.x, pixel.y, 0);
+	r.hud->update(0.034);
+	const std::string selectionCursor = r.hud->input().ui().cursor();
+	CHECK(selectionCursor == "Move");
+	CommandButton attackMove;
+	attackMove.m_command = GUI_COMMAND_ATTACK_MOVE;
+	attackMove.m_options = COMMAND_OPTION_NEED_TARGET_POS;
+	attackMove.m_cursorName = "AttackMove";
+	r.hud->input().ui().setGUICommand(&attackMove);
+	r.hud->update(0.034);
+	CHECK(r.hud->input().ui().cursor() == "AttackMove");
+	r.hud->input().ui().setGUICommand(nullptr); // the second A (ControlBar::pressButton's toggle, RW 0x940891)
+	CHECK(r.hud->input().ui().cursor() == "Arrow");
+	r.hud->update(0.034); // no mouse move
+	CHECK(r.hud->input().ui().cursor() == selectionCursor);
+	r.hud->update(0.034);
+	CHECK(r.hud->input().ui().cursor() == selectionCursor);
+}

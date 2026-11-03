@@ -1131,7 +1131,8 @@ void AptPalantir::pressToggleStance(int position)
 
 void AptPalantir::setStanceFromHotkey(int position, int stance)
 {
-	// RW 0x96F880 (BFME2 0x0096773E) -> RW 0x96F53C (BFME2 0x00967A6E): SetStance
+	// RW 0x96F880 (BFME2 0x0096773E) -> RW 0x96F53C (BFME2 0x00967A6E): SetStance, the stance message and the close request of an open sub-menu. The hotkey
+	// action calls SetStance alone (RW 0x96F880 .. 0x96F88D): the toggle flash's Go() is the item press's (RW 0x96F85A, pressStanceItem)
 	if (m_stancePress)
 	{
 		m_stancePress(stance);
@@ -1151,14 +1152,6 @@ void AptPalantir::setStanceFromHotkey(int position, int stance)
 				m_subMenuChangeHandler();
 			}
 		}
-		if (!m_toggleFlashPath[position].empty())
-		{
-			++m_flashGoes;
-			if (!call(m_toggleFlashPath[position], "Go", {})) // RW 0xC86830
-		{
-			stanceError(m_toggleFlashPath[position] + ".Go() refused by the movie");
-		}
-	}
 	}
 }
 
@@ -1174,12 +1167,20 @@ void AptPalantir::pressStanceItem(int position, int item)
 	}
 	const int stance = menu->item(item).value;
 	setStanceFromHotkey(position, stance);
+	if (!m_toggleFlashPath[position].empty())
+	{
+		++m_flashGoes;
+		if (!call(m_toggleFlashPath[position], "Go", {})) // RW 0xC86830
+		{
+			stanceError(m_toggleFlashPath[position] + ".Go() refused by the movie");
+		}
+	}
 }
 
 void AptPalantir::onStanceChanged(int stance)
 {
 	(void)stance;
-	// RW 0x96F53C (BFME2 0x00967A6E): a stance change closes any open stance radial and flashes Go()
+	// RW 0x96F53C (BFME2 0x00967A6E): a stance change closes any open stance radial; it plays no toggle flash (only the item press does, RW 0x96F85A)
 	for (int pos = 0; pos < kArcPositions; ++pos)
 	{
 		if (hasStanceSubMenu(pos))
@@ -1191,14 +1192,6 @@ void AptPalantir::onStanceChanged(int stance)
 				if (m_subMenuChangeHandler)
 				{
 					m_subMenuChangeHandler();
-				}
-				if (!m_toggleFlashPath[pos].empty())
-				{
-					++m_flashGoes;
-					if (!call(m_toggleFlashPath[pos], "Go", {}))
-					{
-						stanceError(m_toggleFlashPath[pos] + ".Go() refused by the movie");
-					}
 				}
 			}
 		}
