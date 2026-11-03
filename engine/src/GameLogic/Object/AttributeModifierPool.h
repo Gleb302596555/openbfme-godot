@@ -20,12 +20,20 @@
 //     HEALTH > 0: body.setMaxHealth(max + HEALTH_MULT product * HEALTH (when the pool has a HEALTH_MULT) or max + HEALTH, 1) (RW 0x805D3A), HEALTH_MULT > 0:
 //     body.setMaxHealth(max * HEALTH_MULT, 1) (RW 0x805DB5), then the entry is appended, the category count grows, and SHROUD_CLEARING (type 0x14) > 0 marks
 //     the object's shroud record dirty (RW 0x68C213 -> 0xB4E2A0; lane DECOMP-1 r3, earlier read as an auto heal refresh).
-// NOT PORTED (stop S-633, counted): the expiry update that removes entries (their HEALTH / ClearModelCondition reversal, EndFX, the category counts; the
-// queries' own frame < expiry test already ignores an expired entry), the delayed Upgrade grant, the FX / EndFX of the client and the xfer.
+//   * update (RW 0x80585F, sleepy; the interface's disabled mask RW 0x792C6A: DISABLED_PARALYZED): an entry whose Upgrade delay (+0xC, frame + delay, only an
+//     add's new entry sets it) has come queues its grant and zeroes it; an entry at or past its expiry has the list's ModelCondition flags cleared (the
+//     ClearModelCondition flags stay clear, a HEALTH bonus stays: only RW 0x8052FB reverses those), SNOW on a snowy map and NIGHT on a night map are set
+//     back (RW 0x805906 / 0x80593A: GameData's weather and time of day), and, unless its grant is still ahead, it plays the EndFX, the category count falls
+//     and the entry goes; the grants run after the scan; the next wake is the nearest of the entries' expiries and delays (RW 0x804D01);
+//   * remove (RW 0x8052FB): the entry goes, then the list's ModelCondition flags are cleared, HEALTH > 0 with a live body takes the bonus off (the pool's
+//     HEALTH_MULT product scales it, the entry gone), HEALTH_MULT > 0 with a live body divides, EndFX, the category count falls, SHROUD_CLEARING > 0 marks the
+//     shroud record dirty.
+// Ported from the disassembly, lane sweep-links: the expiry was stop S-633, so a list's model condition stayed for good (Ghan Buri Ghan's meditation: STONED,
+// which his other buttons' DisableOnModelCondition reads, restricted them for the rest of the game).
 
 #pragma once
 
-#include "GameLogic/Module/BehaviorModule.h"
+#include "GameLogic/Module/UpdateModule.h"
 
 #include <array>
 #include <string>
@@ -34,12 +42,15 @@
 class AttributeModifierStore;
 class ModuleFactory;
 
-class AttributeModifierPool : public BehaviorModule
+class AttributeModifierPool : public UpdateModule
 {
 public:
 	OBFME_MODULE_XFER(AttributeModifierPool) // lane SAVE-4b
 	AttributeModifierPool(Thing *thing, const ModuleData *data);
 	static void registerClass(ModuleFactory &modules);
+
+	UpdateSleepTime update() override; ///< RW 0x80585F
+	DisabledMaskType getDisabledTypesToProcess() const override { return (DisabledMaskType)(1u << DISABLED_PARALYZED); } // RW 0x792C6A
 
 	bool add(const std::string &listName, int duration); ///< RW 0x805A8E
 	// RW 0x804F02 (lane BANNER-1; BFME2 0x40334B): every entry, in order, goes to `obj` through Object::addAttributeModifier(name, expiry - frame) (RW 0x68F1A8)
@@ -47,7 +58,7 @@ public:
 	bool sum(int type, const char *name, float &out) const; ///< RW 0x804F39
 	bool product(int type, const char *name, bool innate, float &out) const; ///< RW 0x804FFF
 	bool hasList(const std::string &listName) const;
-	// RW 0x8052FB (Object::removeAttributeModifier RW 0x68F259, lane INTEG-1): the list's entry goes; its removal side effects are not ported (S-633)
+	// RW 0x8052FB (Object::removeAttributeModifier RW 0x68F259, lane INTEG-1): the list's entry goes, with its removal side effects
 	void remove(const std::string &listName) { removeByName(listName); }
 	// RW 0x804FCC (lane SPELL-2): every category whose bit is set in `mask` (15 categories) is disabled until `frame` (the suppressed test of RW 0x804D27)
 	void disableCategories(unsigned mask, unsigned frame)
@@ -75,14 +86,6 @@ public:
 	int categoryCount(int category) const { return (category >= 0 && category < 15) ? m_categoryCount[(size_t)category] : 0; }
 	void crc(StateHasher &hasher) const override;
 
-	struct Stats
-	{
-		unsigned long long delayedUpgrades = 0;   ///< Upgrade with a delay: not granted (S-633)
-		unsigned long long expiringAdds = 0;      ///< entries that will expire without the removal side effects
-	};
-	static Stats &stats();
-	static std::vector<std::string> stopLines();
-
 private:
 	friend struct XpTestAccess; // lane XP-1 tests: isolated state hash mutations
 	struct Entry
@@ -90,9 +93,10 @@ private:
 		int index = -1;
 		std::string name;
 		unsigned expire = 0;
+		unsigned delayFrame = 0; ///< +0xC: the frame the list's delayed Upgrade is granted, 0 when none is ahead
 	};
 	bool suppressed(unsigned frame, const struct ModifierListTemplate &list, bool innate) const; ///< RW 0x804D27 (the entry's list, fetched by the caller)
-	void removeByName(const std::string &listName);                   ///< RW 0x8052FB (the entry only: S-633)
+	void removeByName(const std::string &listName);                   ///< RW 0x8052FB
 
 	// lane HDPERF-1: the AttributeModifierStore of the object's world, taken when the module is made (on the logic thread, in the world's context). A job
 	// worker has no world context (Common/JobSystem.h: the thread_local stores are null there), and the pool is read on the job pool (the shroud's look

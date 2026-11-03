@@ -33,6 +33,9 @@
 #include "GameLogic/Object/ObjectDoCommandButton.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Module/UpgradeModuleClasses.h"
+#include "GameLogic/Map/FireLogicSystem.h"
+#include "GameLogic/Combat/WeaponDelivery.h"
+#include "GameLogic/WeaponStores.h"
 
 using ennorathscenario::World;
 
@@ -413,4 +416,111 @@ TEST_CASE("ENNORATH scenario DoCommandUpgrade: Command_MountToggleBlackrider on 
 	REQUIRE(newHc != nullptr);
 	CHECK(newHc != hc);
 	CHECK(newHc->alternateFormationTemplate() != oldAlt);
+}
+
+// Subsystem 5 (TheFireLogicSystem, lane FIRE): Carthaen torch and fire arrows ignite grass,
+// fire decays, Freezing Rain extinguishes ground fire, and PorterFireExtinguisher puts out fires.
+// RW 0x6886E0, 0x6878D1, 0x687C4C, 0x912241, 0x8C918D.
+TEST_CASE("ENNORATH scenario FireLogic: Carthaen torch and fire arrows ignite grass and fire decays")
+{
+	World world;
+	if (!world.load("Ennorath scenario FireLogic torch and arrows")) return;
+	structtest::Arena arena(world.shared, "FactionMen", "FactionMordor");
+
+	// data\ini\includes\weapon.inc: Weapon CarthaenTorchWeapon (INCREASE_BURN_RATE 15, INCREASE_FUEL 30)
+	// data\ini\weapon.ini: Weapon GondorArcherBowBombardFireWarhead (INCREASE_BURN_RATE)
+	FireLogicSystem &fire = arena.logic.fireLogic();
+	fire.newMap(0.0f, 0.0f, 1000.0f, 1000.0f);
+
+	const WeaponTemplate *torch = TheWeaponStore ? TheWeaponStore->findWeaponTemplate("CarthaenTorchWeapon") : nullptr;
+	REQUIRE(torch != nullptr);
+
+	const Coord3D at{ 500.0f, 500.0f, 0.0f };
+	CHECK(!fire.isCellBurning(50, 50));
+
+	unsigned long long unported = 0;
+	DeliverNuggets(arena.logic, INVALID_ID, *torch, WeaponBonus{}, nullptr, &at, false, &unported);
+	CHECK(unported == 0u);
+
+	// Cell under torch should now be burning
+	CHECK(fire.isCellBurning(50, 50));
+	CHECK(fire.getCellBurnRate(50, 50) == 15); // CarthaenTorchWeapon INCREASE_BURN_RATE 15
+
+	// Gondor fire arrows warhead at (520, 500)
+	const WeaponTemplate *fireArrow = TheWeaponStore ? TheWeaponStore->findWeaponTemplate("GondorArcherBowBombardFireWarhead") : nullptr;
+	REQUIRE(fireArrow != nullptr);
+
+	const Coord3D atArrow{ 520.0f, 500.0f, 0.0f };
+	DeliverNuggets(arena.logic, INVALID_ID, *fireArrow, WeaponBonus{}, nullptr, &atArrow, false, &unported);
+	CHECK(unported == 0u);
+	CHECK(fire.isCellBurning(52, 50));
+
+	// Let fire burn and consume fuel over frames until it decays
+	for (int i = 0; i < 60; ++i)
+	{
+		fire.update();
+	}
+	// tolerance: fuel drains from 130 as slices process burning frames
+	CHECK(fire.getCellFuel(50, 50) < 50);
+}
+
+TEST_CASE("ENNORATH scenario FireLogic: Freezing Rain extinguishes all active fires across map")
+{
+	World world;
+	if (!world.load("Ennorath scenario FireLogic Freezing Rain")) return;
+	structtest::Arena arena(world.shared, "FactionIsengard", "FactionMen");
+
+	// data\ini\specialpower.ini: SpecialPower SpellBookFreezingRain
+	// data\ini\object\evilfaction\units\isengard\saruman.ini: Behavior = FreezingRainSpecialPower (BurnRateModifier = -100)
+	// RW 0x8C918D: FreezingRainSpecialPower calls fireLogic().changeBurnRateAll(m_data->m_burnRateModifier) (RW 0x687C4C)
+	FireLogicSystem &fire = arena.logic.fireLogic();
+	fire.newMap(0.0f, 0.0f, 1000.0f, 1000.0f);
+
+	Coord3D pos1{ 200.0f, 200.0f, 0.0f };
+	Coord3D pos2{ 700.0f, 800.0f, 0.0f };
+	fire.changeBurnRateInArea(pos1, 20.0f, 25, false);
+	fire.changeBurnRateInArea(pos2, 20.0f, 25, false);
+
+	for (int i = 0; i < 10; ++i)
+	{
+		fire.update();
+	}
+
+	CHECK(fire.anyBurning());
+	CHECK(fire.isCellBurning(20, 20));
+	CHECK(fire.isCellBurning(70, 80));
+
+	// Freezing Rain strikes: changeBurnRateAll(-100) per specialpower.ini BurnRateModifier = -100
+	fire.changeBurnRateAll(-100);
+
+	CHECK(!fire.anyBurning());
+	CHECK(!fire.isCellBurning(20, 20));
+	CHECK(!fire.isCellBurning(70, 80));
+}
+
+TEST_CASE("ENNORATH scenario FireLogic: Command_PorterExtinguishFire delivers PorterFireExtinguisher")
+{
+	World world;
+	if (!world.load("Ennorath scenario FireLogic Porter Extinguish")) return;
+	structtest::Arena arena(world.shared, "FactionMen", "FactionMordor");
+
+	// data\ini\commandbutton.ini: Command_PorterExtinguishFire
+	// data\ini\object\includes\porterextinguishfire.inc: WeaponFireSpecialAbilityUpdate (PorterFireExtinguisher)
+	// data\ini\weapon.ini: Weapon PorterFireExtinguisher (DECREASE_BURN_RATE)
+	FireLogicSystem &fire = arena.logic.fireLogic();
+	fire.newMap(0.0f, 0.0f, 1000.0f, 1000.0f);
+
+	const Coord3D targetPos{ 450.0f, 450.0f, 0.0f };
+	fire.changeBurnRateInArea(targetPos, 15.0f, 30, false);
+	CHECK(fire.isCellBurning(45, 45));
+
+	const WeaponTemplate *extinguisher = TheWeaponStore ? TheWeaponStore->findWeaponTemplate("PorterFireExtinguisher") : nullptr;
+	REQUIRE(extinguisher != nullptr);
+
+	unsigned long long unported = 0;
+	DeliverNuggets(arena.logic, INVALID_ID, *extinguisher, WeaponBonus{}, nullptr, &targetPos, false, &unported);
+	CHECK(unported == 0u);
+
+	// Fire in that area should now be extinguished
+	CHECK(!fire.isCellBurning(45, 45));
 }

@@ -38,7 +38,7 @@ const char *const kStop =
 	"entries' ModifierLists through the attribute modifier pool, the horde's MeleeBehavior through HordeContain slot 0x260, the porcupine formation toggled back, the "
 	"idle commands), MSG_CHANGE_STANCE (RW 0x77BC59 -> AIGroup::setStance RW 0x76FF27) and (lane PLAY-4) the guard RW 0x662A21 (AIGuard: Battle mode 0, HoldGround / "
 	"Porcupine mode 1, S-3802), onMoveStart from aiDoCommand (RW 0x66A948) and onMoveEnd from AIGoingIdleState (RW 0x743882) are ported; NOT ported: the "
-	"listener notice RW 0x861F97 (the stance button's image follows the stance in the control bar), the group manager branch (S-223), the scripted and map object stances (RW 0x94D4EB, 0x695B93), a ModifierList's removal side effects (S-633); HordeNotifyTargetsOf"
+	"listener notice RW 0x861F97 (the stance button's image follows the stance in the control bar), the group manager branch (S-223), the scripted and map object stances (RW 0x94D4EB, 0x695B93); HordeNotifyTargetsOf"
 	"ImminentProbableCrushingUpdate (RW 0x8D3167) is not ported";
 
 const FieldParse kModuleParse[] = {

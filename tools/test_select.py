@@ -8,10 +8,16 @@ as its header of the same name, else as the headers it includes from its own fol
 engine/tests/data selects the test files that name it. A change no test can be traced from (a .gd, CMake, a source with neither header, a data file nothing names,
 or a wide header that reaches over half of the test files) answers FULL: do not run the whole suite on a branch, run the required sets of PROCESS.md section 7 and
 say so in the report. The full suite runs nightly on main: --run refuses it unless --full is given.
+
+With the test map (tools/test_coverage_map.py, workspace/test-map/map.json in the main checkout) a source selects the test files that really ran it, through virtual calls too, and not the ones
+that only include its header. A header selects the test files that ran any file including it: a changed layout or constant changes those files' code. The #include rule stays for a test file
+the map does not know (new, changed since the map, crashed, or it starts a helper whose code has no marks), for a source the map has never seen, and for a source with code that runs before
+main: every process runs that, so the map cannot tell who reads its statics.
 """
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import subprocess
 import sys
@@ -63,14 +69,53 @@ def resolve(target: str, includer: str, known: set[str], by_name: dict[str, list
     return same[0] if len(same) == 1 else None
 
 
-def reached_tests(changed: str, includers: dict[str, set[str]], cases: dict[str, list[str]]) -> set[str]:
+def reached_files(changed: str, includers: dict[str, set[str]]) -> set[str]:
     seen, stack = {changed}, [changed]
     while stack:
         for includer in includers.get(stack.pop(), ()):
             if includer not in seen:
                 seen.add(includer)
                 stack.append(includer)
-    return {name for name in seen if name in cases}
+    return seen
+
+
+def reached_tests(changed: str, includers: dict[str, set[str]], cases: dict[str, list[str]]) -> set[str]:
+    return {name for name in reached_files(changed, includers) if name in cases}
+
+
+class TestMap:
+    """What tools/test_coverage_map.py recorded: source file -> the test files that ran it."""
+
+    def __init__(self, data: dict, stale_tests: set[str] = frozenset()):
+        self.commit = data["commit"]
+        self.ran_by: dict[str, set[str]] = {name: set() for name in data["files"]}
+        for test, files in data["tests"].items():
+            for index in files:
+                self.ran_by[data["files"][index]].add(test)
+        self.startup = {data["files"][index] for index in data.get("startup", ())}
+        self.unmapped = set(data["unmapped"]) | set(stale_tests)
+        self.known_tests = set(data["tests"]) - self.unmapped
+
+    def ran(self, names: set[str]) -> set[str]:
+        return {test for name in names for test in self.ran_by.get(name, ())} & self.known_tests
+
+
+def map_folder(repo: Path) -> Path:
+    """workspace/test-map of the main checkout: every agent's tree reads the one map."""
+    done = subprocess.run(["git", "rev-parse", "--path-format=absolute", "--git-common-dir"], cwd=repo, capture_output=True, text=True, encoding="utf-8")
+    return Path(done.stdout.strip()).parent / "workspace" / "test-map" if done.returncode == 0 else repo / "workspace" / "test-map"
+
+
+def load_map(repo: Path, base: str) -> TestMap | None:
+    path = map_folder(repo) / "map.json"
+    if not path.exists():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    done = subprocess.run(["git", "diff", "--name-only", data["commit"], base], cwd=repo, capture_output=True, text=True, encoding="utf-8")
+    if done.returncode != 0:
+        print(f"the test map's commit {data['commit'][:8]} is not comparable with {base}: not using the map", file=sys.stderr)
+        return None
+    return TestMap(data, {name for name in done.stdout.splitlines() if name.startswith("engine/tests/")})
 
 
 def part_of_headers(name: str, repo: Path) -> list[str]:
@@ -98,10 +143,12 @@ def mask(case: str) -> str:
     return head + ("*" if head != case else "")
 
 
-def select(changed: list[str], repo: Path) -> tuple[bool, str, list[str]]:
+def select(changed: list[str], repo: Path, test_map: TestMap | None = None) -> tuple[bool, str, list[str]]:
     """(needs the full suite, why, masks)."""
     includers, cases = scan(repo)
     tests: set[str] = set()
+    # the #include rule answers only for the test files the map cannot speak for
+    traced = (lambda found: found - test_map.known_tests) if test_map else (lambda found: found)
     for name in changed:
         path = Path(name)
         if name == REGISTRATION or LANE_LIST.fullmatch(name):
@@ -111,14 +158,22 @@ def select(changed: list[str], repo: Path) -> tuple[bool, str, list[str]]:
         elif name.startswith("engine/tests/") and path.suffix in SOURCE_SUFFIXES and not (repo / name).exists():
             continue  # a removed test file
         elif name.startswith(ROOTS) and path.suffix in (".h", ".inl"):
-            tests |= reached_tests(name, includers, cases)
+            reached = reached_files(name, includers)
+            direct = {file for file in reached if file in cases}
+            tests |= direct | test_map.ran(reached) if test_map else direct
         elif name.startswith(ROOTS) and path.suffix == ".cpp":
+            mapped = test_map is not None and name in test_map.ran_by and name not in test_map.startup
+            if test_map:
+                tests |= test_map.ran({name})
             header = path.with_suffix(".h").as_posix()
             headers = [header] if (repo / header).exists() else part_of_headers(name, repo)
             if not headers:
+                if mapped:
+                    continue
                 return True, f"{name} has no header of its name, no test can be traced from it", []
             for one in headers:
-                tests |= reached_tests(one, includers, cases)
+                found = reached_tests(one, includers, cases)
+                tests |= traced(found) if mapped else found
         elif name.startswith("engine/tests/data/"):
             named = tests_naming(name, repo, cases)
             if not named:
@@ -149,8 +204,10 @@ def main() -> int:
     parser.add_argument("--full", action="store_true", help="with --run: run the whole suite when the answer is FULL (about 5 hours; nightly on main, not on a branch)")
     args = parser.parse_args()
     changed = changed_files(args.base, REPO)
-    full, why, masks = select(changed, REPO)
-    print(f"{len(changed)} changed files; {'FULL suite: ' if full else ''}{why}", file=sys.stderr)
+    test_map = load_map(REPO, args.base)
+    full, why, masks = select(changed, REPO, test_map)
+    source = f"the test map of {test_map.commit[:8]}" if test_map else "no test map, the #include rule"
+    print(f"{len(changed)} changed files, {source}; {'FULL suite: ' if full else ''}{why}", file=sys.stderr)
     filters = [] if full else ["-tc=" + ",".join(masks)]
     if not args.run:
         print("(whole suite)" if full else filters[0])

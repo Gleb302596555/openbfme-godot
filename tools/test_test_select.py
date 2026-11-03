@@ -69,6 +69,7 @@ def test_a_data_file_nothing_names_asks_for_the_full_suite(repo: Path):
 def test_run_refuses_the_whole_suite_without_full(repo: Path, monkeypatch, capsys):
     monkeypatch.setattr(ts, "REPO", repo)
     monkeypatch.setattr(ts, "changed_files", lambda base, r: ["godot/scripts/game.gd"])
+    monkeypatch.setattr(ts, "load_map", lambda r, base: None)
     called = []
     monkeypatch.setattr(ts.subprocess, "run", lambda *a, **k: called.append(a))
     monkeypatch.setattr(sys, "argv", ["test_select.py", "--run", "tests.exe"])
@@ -97,3 +98,61 @@ def test_a_wide_change_asks_for_the_full_suite(repo: Path):
         path.write_text('#include "High.h"\n' + path.read_text(encoding="utf-8"), encoding="utf-8")
     full, why, _ = ts.select(["engine/src/High.h"], repo)
     assert full and "3 of 3" in why
+
+
+def more_tests(repo: Path) -> None:
+    """Enough test files that two selected ones are not a wide change."""
+    for name in "defg":
+        (repo / f"engine/tests/test_{name}.cpp").write_text(f'TEST_CASE("{name} one") {{}}\n', encoding="utf-8")
+
+
+def recorded(**tests) -> ts.TestMap:
+    """A map: test file (without engine/tests/ and .cpp) -> the source files it ran."""
+    files = sorted({name for found in tests.values() for name in found})
+    return ts.TestMap({"commit": "0" * 40, "files": files, "tests": {f"engine/tests/{t}.cpp": [files.index(n) for n in found] for t, found in tests.items()}, "unmapped": []})
+
+
+def test_with_the_map_a_source_selects_who_ran_it_not_who_includes_its_header(repo: Path):
+    the_map = recorded(test_a=[], test_b=["engine/src/Low.cpp"], test_c=[])
+    assert ts.select(["engine/src/Low.cpp"], repo, the_map)[2] == ["b one", "module coverage*"]
+
+
+def test_with_the_map_a_source_without_a_header_needs_no_full_suite(repo: Path):
+    the_map = recorded(test_a=[], test_b=[], test_c=["engine/src/Lone.cpp"])
+    full, _, masks = ts.select(["engine/src/Lone.cpp"], repo, the_map)
+    assert not full and masks == ["c one", "module coverage*"]
+
+
+def test_with_the_map_a_header_selects_who_ran_a_file_including_it(repo: Path):
+    more_tests(repo)
+    the_map = recorded(test_a=[], test_b=["engine/src/Low.cpp"], test_c=[])
+    assert ts.select(["engine/src/Low.h"], repo, the_map)[2] == ["a one", "a two*", "b one", "module coverage*"]
+
+
+def test_a_test_file_the_map_does_not_know_keeps_the_include_rule(repo: Path):
+    more_tests(repo)
+    the_map = ts.TestMap({"commit": "0" * 40, "files": ["engine/src/Low.cpp"], "tests": {"engine/tests/test_b.cpp": [0], "engine/tests/test_c.cpp": []}, "unmapped": []})
+    assert ts.select(["engine/src/Low.cpp"], repo, the_map)[2] == ["a one", "a two*", "b one", "module coverage*"]
+
+
+def test_a_test_that_starts_a_helper_keeps_the_include_rule(repo: Path):
+    more_tests(repo)
+    the_map = ts.TestMap({"commit": "0" * 40, "files": ["engine/src/Low.cpp"], "tests": {"engine/tests/test_a.cpp": [], "engine/tests/test_b.cpp": [0]}, "unmapped": ["engine/tests/test_a.cpp"]})
+    assert ts.select(["engine/src/Low.cpp"], repo, the_map)[2] == ["a one", "a two*", "b one", "module coverage*"]
+
+
+def test_a_source_the_map_never_saw_keeps_the_include_rule(repo: Path):
+    the_map = recorded(test_a=[], test_b=["engine/src/Low.h"], test_c=[])
+    full, _, masks = ts.select(["engine/src/Low.cpp"], repo, the_map)
+    assert not full and masks == ["a one", "a two*", "module coverage*"]
+
+
+def test_a_source_with_code_before_main_keeps_the_include_rule_too(repo: Path):
+    more_tests(repo)
+    the_map = ts.TestMap({"commit": "0" * 40, "files": ["engine/src/Low.cpp"], "tests": {"engine/tests/test_a.cpp": [], "engine/tests/test_b.cpp": [0], "engine/tests/test_c.cpp": []}, "unmapped": [], "startup": [0]})
+    assert ts.select(["engine/src/Low.cpp"], repo, the_map)[2] == ["a one", "a two*", "b one", "module coverage*"]
+
+
+def test_a_source_without_a_header_with_code_before_main_asks_for_the_full_suite(repo: Path):
+    the_map = ts.TestMap({"commit": "0" * 40, "files": ["engine/src/Lone.cpp"], "tests": {"engine/tests/test_a.cpp": []}, "unmapped": [], "startup": [0]})
+    assert ts.select(["engine/src/Lone.cpp"], repo, the_map)[0]

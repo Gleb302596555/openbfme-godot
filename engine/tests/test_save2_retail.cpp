@@ -2021,6 +2021,43 @@ TEST_CASE("save4e retail: a save with a snapshot loads in one step into a new ga
 	CHECK(verify.hashesCompared() == (unsigned long long)kBefore);
 }
 
+// the stream's blocks: (token, the offset of the block's first byte, its end), read from the framing (GameState: "ALAE" "2STR" version tagged, then per
+// block its token (u8 length or 0xFF + u32), "BLOK", the absolute end offset)
+struct BlockAt
+{
+	std::string token;
+	size_t begin = 0, end = 0;
+};
+std::vector<BlockAt> blocksOf(const std::vector<std::uint8_t> &b)
+{
+	std::vector<BlockAt> out;
+	auto u32 = [&](size_t at) { return (std::uint32_t)b[at] | ((std::uint32_t)b[at + 1] << 8) | ((std::uint32_t)b[at + 2] << 16) | ((std::uint32_t)b[at + 3] << 24); };
+	size_t at = 16;
+	for (;;)
+	{
+		size_t n = b[at++];
+		if (n == 0xFF)
+		{
+			n = u32(at);
+			at += 4;
+		}
+		const std::string token(b.begin() + (std::ptrdiff_t)at, b.begin() + (std::ptrdiff_t)(at + n));
+		at += n;
+		if (token == "SG_EOF")
+		{
+			break;
+		}
+		REQUIRE(std::string(b.begin() + (std::ptrdiff_t)at, b.begin() + (std::ptrdiff_t)at + 4) == "KOLB"); // "BLOK" as a little-endian u32
+		BlockAt blk;
+		blk.token = token;
+		blk.end = u32(at + 4);
+		blk.begin = at + 8;
+		out.push_back(blk);
+		at = blk.end;
+	}
+	return out;
+}
+
 TEST_CASE("save4e retail: a refused snapshot is a named error and the started game is as it was (its state hash and frame), and it still runs: a changed "
 		  "byte, a truncated snapshot, another game's snapshot, a header's other hash; the verify mode names the first byte a snapshot differs from its log")
 {
@@ -2057,7 +2094,11 @@ TEST_CASE("save4e retail: a refused snapshot is a named error and the started ga
 	};
 	{
 		SaveGameFile bad = rec.save;
-		bad.snapshot[bad.snapshot.size() / 2] ^= 0x5A; // inside a block's data
+		// inside a block's data, the objects': the middle of the file is now the fire grid (RW 0x688384), and the state hash holds only its burning cells (FireLogicSystem::crc)
+		const std::vector<BlockAt> blocks = blocksOf(bad.snapshot);
+		const auto objects = std::find_if(blocks.begin(), blocks.end(), [](const BlockAt &b) { return b.token == "obfme:Objects"; });
+		REQUIRE(objects != blocks.end());
+		bad.snapshot[(objects->begin + objects->end) / 2] ^= 0x5A;
 		refused(bad, "", "a changed byte");
 	}
 	{
@@ -2254,42 +2295,6 @@ void toppleATree(LiveGame &game, size_t skip = 0)
 	REQUIRE(trees.anyChanged());
 }
 
-// the stream's blocks: (token, the offset of the block's first byte, its end), read from the framing (GameState: "ALAE" "2STR" version tagged, then per
-// block its token (u8 length or 0xFF + u32), "BLOK", the absolute end offset)
-struct BlockAt
-{
-	std::string token;
-	size_t begin = 0, end = 0;
-};
-std::vector<BlockAt> blocksOf(const std::vector<std::uint8_t> &b)
-{
-	std::vector<BlockAt> out;
-	auto u32 = [&](size_t at) { return (std::uint32_t)b[at] | ((std::uint32_t)b[at + 1] << 8) | ((std::uint32_t)b[at + 2] << 16) | ((std::uint32_t)b[at + 3] << 24); };
-	size_t at = 16;
-	for (;;)
-	{
-		size_t n = b[at++];
-		if (n == 0xFF)
-		{
-			n = u32(at);
-			at += 4;
-		}
-		const std::string token(b.begin() + (std::ptrdiff_t)at, b.begin() + (std::ptrdiff_t)(at + n));
-		at += n;
-		if (token == "SG_EOF")
-		{
-			break;
-		}
-		REQUIRE(std::string(b.begin() + (std::ptrdiff_t)at, b.begin() + (std::ptrdiff_t)at + 4) == "KOLB"); // "BLOK" as a little-endian u32
-		BlockAt blk;
-		blk.token = token;
-		blk.end = u32(at + 4);
-		blk.begin = at + 8;
-		out.push_back(blk);
-		at = blk.end;
-	}
-	return out;
-}
 } // namespace
 
 TEST_CASE("save4e retail review r1: a refused snapshot (a hostile end token, a late truncation, a late block's version refused) with a toppled tree "
@@ -2368,7 +2373,7 @@ TEST_CASE("save4e retail review r1: a refusal inside each block of a real snapsh
 	}
 	CHECK(tokens == std::vector<std::string>{ "obfme:TeamFactory", "obfme:Players", "obfme:GameLogic", "obfme:Random", "obfme:Objects",
 						"obfme:UpdateScheduler", "obfme:TunnelTracker", "obfme:Combat", "obfme:SellList", "obfme:Experience", "obfme:Invisibility",
-						"obfme:DamageOverTime", "obfme:Partition", "obfme:Emotions", "obfme:AIWorld", "obfme:Shroud", "obfme:SkirmishAI",
+						"obfme:DamageOverTime", "obfme:Partition", "obfme:Emotions", "obfme:AIWorld", "obfme:Shroud", "obfme:SkirmishAI", "obfme:FireLogic",
 						"obfme:ScriptEngine", "obfme:Victory", "obfme:Weather", "obfme:Economy", "obfme:CreateAHero", "obfme:TerrainTrees",
 						"obfme:LargeGroupAudio", "CHUNK_ObjectivesMenu", "CHUNK_MissionObjectives" });
 	Loaded g;

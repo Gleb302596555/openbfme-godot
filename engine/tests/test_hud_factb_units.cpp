@@ -1560,6 +1560,12 @@ void unitsOf(const std::string &faction, Results &res)
 					res.fail(item, "the button left the bar during the baseline frames");
 					continue;
 				}
+				// the button sweep's link 10: the other buttons on the bar, before the press (docs/ennorath/BUTTON_SWEEP.md)
+				std::map<const CommandButton *, ButtonState> barBefore;
+				for (const ControlBarButton &x : g.visible())
+				{
+					barBefore[x.button] = x.state;
+				}
 				if (!g.press(b))
 				{
 					res.fail(item, "the press sent nothing");
@@ -1804,6 +1810,35 @@ void unitsOf(const std::string &faction, Results &res)
 						res.fail(item, cb->m_specialPowerName + " (target " + target + ") fired but " + missing + (firstTry.empty() ? "" : " (first try, " + firstTry + ")"));
 					}
 				}
+				// the button sweep's link 10, on the mod's data only: a button that was usable before the press may be restricted while the ability runs (a
+				// DisableOnModelCondition), but not for good. Two minutes of game time; a button that left the bar is not judged (a form change swaps the set)
+				if (fired && std::getenv("OPENBFME_SWEEP_OVERLAY"))
+				{
+					g.hud->input().ui().setGUICommand(nullptr);
+					std::string blocked;
+					for (int f = 0; f <= 600; f += 10)
+					{
+						blocked.clear();
+						for (const ControlBarButton &x : g.visible())
+						{
+							const auto was = barBefore.find(x.button);
+							if (x.button != cb && was != barBefore.end() && x.state == ButtonState::Restricted
+								&& (was->second == ButtonState::Enabled || was->second == ButtonState::Active))
+							{
+								blocked += " " + x.button->m_name;
+							}
+						}
+						if (blocked.empty() || !g.logic().findObjectByID(uid))
+						{
+							break;
+						}
+						g.step(10);
+					}
+					if (!blocked.empty())
+					{
+						res.fail(item, "STUCK: 600 frames after the press still restricted:" + blocked);
+					}
+				}
 				// one unported effect is S-920's: the victims' "outside the playable area" flag (RW 0xC0F374) every SpecialPowerModule scan counts
 				res.pass(item, str("%s fired (target %s) after %u frames: %s%s", cb->m_specialPowerName.c_str(), target.c_str(), g.frame() - pressFrame, effect.c_str(),
 								   unported ? " (S-920 noted)" : ""));
@@ -1863,6 +1898,67 @@ TEST_CASE("ENNORATH sweep units: every unit, horde and hero ability and upgrade 
 	Results r;
 	unitsOf(faction, r);
 	r.print((std::string("units ") + faction).c_str());
+}
+
+// Two buttons the owner saw disabled (docs/ennorath/BUTTON_SWEEP.md), on the mod's data:
+// RohanOldMan's Command_SpecialAbilityTheodenAusbeutesteuer and Command_SpecialAbilityRohanTraitors have EnableOnModelCondition USER_3, which comes from AllowedTheodenButtons (Duration
+// 2000), given again every 2000 ms within 200 of a Rohan building (PassiveAreaEffectBehavior ModuleTag_FeelGoodTheoden, data\ini\object\goodfaction\structures\rohan\farm.ini): the mod
+// keeps them on by a building only. Command_GiveMeTheMoneyBitch (includes\commandbutton.inc: Command = NONE, NONPRESSABLE) is a passive's icon: available (RW 0x942FF1), never disabled.
+TEST_CASE("ENNORATH sweep: the old Theoden's buttons follow a Rohan building, Merry's passive steal icon is available (RW 0x942FF1)")
+{
+	if (!std::getenv("OPENBFME_SWEEP_OVERLAY"))
+	{
+		retailtest::printSkip("ENNORATH sweep (set OPENBFME_SWEEP_OVERLAY)");
+		return;
+	}
+	if (!haveWorld("ENNORATH sweep"))
+	{
+		return;
+	}
+	SharedWorld &s = shared();
+	factb::HudGame g(s, "FactionRohan");
+	g.logic().combat().setAutoAcquireEnabled(false);
+	auto stateOf = [&](const char *button) {
+		for (const ControlBarButton &x : g.visible())
+		{
+			if (x.button->m_name == button)
+			{
+				return x.state;
+			}
+		}
+		FAIL_CHECK(button << " is not on the bar");
+		return ButtonState::Hidden;
+	};
+	const Coord3D home = g.home();
+	const Coord3D far = g.rig.freeSpot(home.x + 1500.0f, home.y + 300.0f, 200.0f);
+	Object *old = g.rig.make("RohanOldMan", far.x, far.y);
+	g.step(25);
+	REQUIRE(g.select(old));
+	CHECK(stateOf("Command_SpecialAbilityTheodenAusbeutesteuer") == ButtonState::Restricted);
+	CHECK(stateOf("Command_SpecialAbilityRohanTraitors") == ButtonState::Restricted);
+	const ObjectID farmId = g.rig.make("RohanFarmMod", far.x + 120.0f, far.y)->getID();
+	// a list of 10 frames given again every 10: the buttons hold across the gives
+	for (int k = 0; k < 8; ++k)
+	{
+		g.step(5);
+		CHECK(stateOf("Command_SpecialAbilityTheodenAusbeutesteuer") == ButtonState::Enabled);
+		CHECK(stateOf("Command_SpecialAbilityRohanTraitors") == ButtonState::Enabled);
+	}
+	g.logic().destroyObject(g.logic().findObjectByID(farmId));
+	g.step(15);
+	CHECK(stateOf("Command_SpecialAbilityTheodenAusbeutesteuer") == ButtonState::Restricted);
+	CHECK(stateOf("Command_SpecialAbilityRohanTraitors") == ButtonState::Restricted);
+
+	const Coord3D at = g.rig.freeSpot(home.x + 1500.0f, home.y - 500.0f, 200.0f);
+	Object *merry = g.rig.make("RohanMerry_mod", at.x, at.y);
+	g.step(25);
+	REQUIRE(g.select(merry));
+	CHECK(stateOf("Command_GiveMeTheMoneyBitch") == ButtonState::Enabled);
+	ControlBarButton icon;
+	REQUIRE(g.reveal(merry, [](const CommandButton &x) { return x.m_name == "Command_GiveMeTheMoneyBitch"; }, icon));
+	const auto unported = g.hud->controlBar().unportedPresses();
+	CHECK_FALSE(g.press(icon)); // NONPRESSABLE: it takes no click
+	CHECK(g.hud->controlBar().unportedPresses() == unported);
 }
 
 // The pick of a click on a siege engine (the train sweep could not select Isengard's battering ram or Mordor's catapult with a click): the hits at
@@ -3542,6 +3638,7 @@ void upgradeEffectsOf(const std::string &faction, Results &res)
 				{
 					std::vector<float> drops, expected;
 					std::string text;
+					const ArmorTemplate *armour = nullptr; // an armour scene: the carrier's armour after the scene
 				};
 				auto scene = [&](bool bought, std::string &why) -> Scene {
 					const Coord3D home = g.home();
@@ -3668,6 +3765,10 @@ void upgradeEffectsOf(const std::string &faction, Results &res)
 							member = !member && x && (x->hasUpgrade(ut) || x->affectedByUpgrade(ut)) ? x : member;
 						}
 						Object *attacker = weapon ? member : hero, *victim = weapon ? hero : member;
+						if (const ActiveBody *vb = !weapon && victim ? dynamic_cast<const ActiveBody *>(victim->getBodyModule()) : nullptr)
+						{
+							out.armour = vb->currentArmor();
+						}
 						for (int slot = 0; attacker && victim && attacker->getWeapons() && slot < 3; ++slot)
 						{
 							if (const Weapon *w = attacker->getWeapons()->weaponInSlot(slot); w && w->getTemplate())
@@ -3736,6 +3837,13 @@ void upgradeEffectsOf(const std::string &faction, Results &res)
 				else if (before.drops.empty() || after.drops.empty())
 				{
 					res.fail(item, str("no hit %s (%zu without, %zu with)", how, before.drops.size(), after.drops.size()));
+				}
+				else if (fresh.empty() && !weapon && before.armour && after.armour && before.armour != after.armour)
+				{
+					// lane WARG-1: the upgrade swapped the armour set, and the new armour gives the hero's damage the coefficient the old one did: the scene's
+					// hero cannot show it, whatever its hits (the smallest-hit test below passed or failed on whether a two-hit frame happened, S-2008)
+					res.fail(item, str("the armour changed (%s -> %s) but gives the hero's damage the same coefficient (%s)", before.armour->m_name.c_str(),
+									   after.armour->m_name.c_str(), after.text.c_str()));
 				}
 				else if (fresh.empty() && !weapon)
 				{
@@ -3939,7 +4047,11 @@ TEST_CASE("factc upgrade effects: every Goblin and Angmar weapon and armour upgr
 	// (600 -> 300), so the line passes as in q31 (MODCOMPAT-MOD1's last expectation was measured on its older base)
 	// fix/horde-contain-no-follow (members walk to their slots, RW 0x871536): a two-hit frame without the armour again (600 -> 300), so the line passes and
 	// its pin goes; the armour still does not change Boromir's HERO hit (S-2008 keeps the explanation)
-	factcCase("upgrade effects", "FactionAngmar", upgradeEffectsOf, {});
+	// lane WARG-1: an armour scene whose upgrade swaps the armour set to one with the same coefficient for the hero's damage is reported as such, without
+	// reading the hits (the line no longer passes or fails on a two-hit frame): the snow trolls' Dark Iron Armor (SnowTrollArmor -> SnowTrollHeavyArmor, both
+	// HERO 100%) is S-2008's again
+	factcCase("upgrade effects", "FactionAngmar", upgradeEffectsOf,
+			  { { "upgrade effect AngmarSnowTrollHorde Upgrade_AngmarDarkIronArmor", "S-2008|gives the hero's damage the same coefficient" } });
 }
 
 TEST_CASE("factc spell book: every Goblin and Angmar spell bought in the store and cast through the spell bar shows its effect")

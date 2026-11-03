@@ -5,6 +5,7 @@
 #include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/System/ShroudManager.h"
 
+#include "Common/ModelState.h"
 #include "Common/StateHash.h"
 #include "Common/Thing/ModuleFactory.h"
 #include "GameLogic/AttributeModifiers.h"
@@ -13,10 +14,13 @@
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SimMath.h"
 
+#include <algorithm>
+
 AttributeModifierPool::AttributeModifierPool(Thing *thing, const ModuleData *data)
-	: BehaviorModule(thing, data)
+	: UpdateModule(thing, data)
 	, m_store(TheAttributeModifierStore) // the world's store, taken where the object is made (see m_store)
 {
+	setWakeFrame(getObject(), UPDATE_SLEEP_FOREVER); // RW 0x805826
 }
 
 const AttributeModifierStore *AttributeModifierPool::store() const
@@ -29,21 +33,6 @@ void AttributeModifierPool::registerClass(ModuleFactory &modules)
 	modules.bindModuleProc("AttributeModifierPoolUpdate", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
 		return std::make_unique<AttributeModifierPool>(thing, data);
 	});
-}
-
-AttributeModifierPool::Stats &AttributeModifierPool::stats()
-{
-	static Stats s;
-	return s;
-}
-
-std::vector<std::string> AttributeModifierPool::stopLines()
-{
-	const Stats &s = stats();
-	return { "[S-633] AttributeModifierPoolUpdate (RW 0x8057B0): add / sum / product run; not ported: the expiry update that removes entries (HEALTH / "
-		"ClearModelCondition reversal, EndFX, category counts; the queries skip an expired entry themselves) with " + std::to_string(s.expiringAdds) +
-		" expiring adds, the delayed Upgrade grant (" + std::to_string(s.delayedUpgrades) + " not granted), the expiry's EndFX and the xfer (lane DECOMP-1: a SHROUD_CLEARING list marks the shroud record dirty, RW 0x68C213; AttributeModifierNugget's anti-category "
-		"disabling RW 0x804FCC runs)" };
 }
 
 // RW 0x804D27 (the entry's list fetched by the caller)
@@ -125,18 +114,6 @@ bool AttributeModifierPool::hasList(const std::string &listName) const
 	return false;
 }
 
-void AttributeModifierPool::removeByName(const std::string &listName)
-{
-	for (auto it = m_entries.begin(); it != m_entries.end(); ++it)
-	{
-		if (it->name == listName)
-		{
-			m_entries.erase(it);
-			return;
-		}
-	}
-}
-
 namespace
 {
 // lane SPELL-4: RW 0x804E32 (FX) / 0x804E8A (EndFX): with MultiLevelFX and the object's pool, the entry (category count - 1) of FX / FX2 / FX3, else FX.
@@ -167,18 +144,132 @@ void emitModifierFX(Object &obj, const std::string &fx)
 }
 } // namespace
 
+void AttributeModifierPool::removeByName(const std::string &listName)
+{
+	const int index = store() ? store()->findIndex(listName) : -1;
+	const ModifierListTemplate *list = store() ? store()->get(index) : nullptr;
+	if (!list)
+	{
+		return; // RW 0x805337
+	}
+	const auto it = std::find_if(m_entries.begin(), m_entries.end(), [&](const Entry &e) { return e.index == index; });
+	if (it == m_entries.end())
+	{
+		return;
+	}
+	m_entries.erase(it); // RW 0x805359
+	Object &obj = *getObject();
+	const Object::ModelConditionBits none{};
+	obj.clearAndSetModelConditionFlags(list->m_modelCondition, none); // RW 0x805375
+	BodyModuleInterface *body = obj.getBodyModule();
+	float health = 0.0f;
+	if (list->value(ATTRIBUTE_HEALTH, nullptr, health) && health > 0.0f && body && body->getHealth() > 0.0f)
+	{
+		float mult = 1.0f;
+		const float max = body->getMaxHealth();
+		if (product(ATTRIBUTE_HEALTH_MULT, nullptr, true, mult)) // RW 0x8053DB (the entry already gone)
+		{
+			body->setMaxHealth(SimMath::subf32(max, SimMath::mulf32(mult, health)), 1); // RW 0x8053ED: fld mult; fmul health; fsubp (PC24)
+		}
+		else
+		{
+			body->setMaxHealth(SimMath::subf32(max, health), 1); // RW 0x8053FA
+		}
+	}
+	float healthMult = 0.0f;
+	if (list->value(ATTRIBUTE_HEALTH_MULT, nullptr, healthMult) && healthMult > 0.0f && body && body->getHealth() > 0.0f)
+	{
+		body->setMaxHealth(SimMath::divf32(body->getMaxHealth(), healthMult), 1); // RW 0x805459
+	}
+	const int cat = list->m_category;
+	emitModifierFX(obj, pickModifierFX(list->m_endFx, list->m_multiLevelFX, categoryCount(cat))); // RW 0x805471, before the count falls
+	if (cat >= 0 && cat < 15)
+	{
+		--m_categoryCount[(size_t)cat]; // RW 0x8054A2
+	}
+	float shroudClearing = 0.0f;
+	if (list->value(ATTRIBUTE_SHROUD_CLEARING, nullptr, shroudClearing) && shroudClearing > 0.0f)
+	{
+		if (ShroudManager *sm = obj.logic().shroud())
+		{
+			sm->markDirty(obj, true); // RW 0x8054D3
+		}
+	}
+}
+
+UpdateSleepTime AttributeModifierPool::update()
+{
+	Object &obj = *getObject();
+	const unsigned frame = obj.logic().getFrame();
+	const GameLogicSettings &settings = obj.logic().settings();
+	const Object::ModelConditionBits none{};
+	unsigned next = 0x3FFFFFFFu;
+	std::vector<int> grants;
+	for (auto it = m_entries.begin(); it != m_entries.end();)
+	{
+		if (it->delayFrame > 0 && frame >= it->delayFrame) // RW 0x8058AF
+		{
+			grants.push_back(it->index);
+			it->delayFrame = 0;
+		}
+		if (frame < it->expire)
+		{
+			const unsigned wake = it->delayFrame > 0 ? std::min(it->expire, it->delayFrame) : it->expire; // RW 0x804D01
+			next = std::min(next, wake);
+			++it;
+			continue;
+		}
+		const ModifierListTemplate *list = store() ? store()->get(it->index) : nullptr;
+		if (list)
+		{
+			obj.clearAndSetModelConditionFlags(list->m_modelCondition, none); // RW 0x8058F4
+			// RW 0x8058F9 .. 0x80595E: a list that held SNOW (bit 8) or NIGHT (bit 7) leaves the map's own condition on
+			static const int snow = ModelCondition::indexOf("SNOW"), night = ModelCondition::indexOf("NIGHT");
+			if (((list->m_modelCondition[0] >> 8) & 1u) && settings.snowy && !obj.testModelCondition(snow))
+			{
+				obj.setModelConditionState(snow, true);
+			}
+			if (((list->m_modelCondition[0] >> 7) & 1u) && settings.night && !obj.testModelCondition(night))
+			{
+				obj.setModelConditionState(night, true);
+			}
+		}
+		if (it->delayFrame > frame) // RW 0x805963: its grant is still ahead
+		{
+			next = std::min(next, it->delayFrame);
+			++it;
+			continue;
+		}
+		if (list)
+		{
+			const int cat = list->m_category;
+			emitModifierFX(obj, pickModifierFX(list->m_endFx, list->m_multiLevelFX, categoryCount(cat))); // RW 0x805972
+			if (cat >= 0 && cat < 15)
+			{
+				--m_categoryCount[(size_t)cat]; // RW 0x8059A2
+			}
+		}
+		it = m_entries.erase(it); // RW 0x8059A8
+	}
+	m_nextWake = next; // RW 0x8059F4
+	for (int index : grants) // RW 0x8059F9 .. 0x805A27
+	{
+		const ModifierListTemplate *list = store() ? store()->get(index) : nullptr;
+		if (list && list->m_upgrade && list->m_upgrade->upgrade)
+		{
+			obj.giveUpgrade(list->m_upgrade->upgrade); // RW 0x805A14
+		}
+	}
+	// RW 0x805A29: read again, a grant's own add may have moved it
+	return m_nextWake < 0x3FFFFFFFu ? (UpdateSleepTime)(m_nextWake - frame) : UPDATE_SLEEP_FOREVER;
+}
+
 void AttributeModifierPool::handDownTo(Object &obj) const
 {
 	const unsigned frame = getObject()->logic().getFrame();
 	const std::vector<Entry> entries = m_entries; // the member's own pool is another module: the copy only guards against a hand-down to this object
 	for (const Entry &e : entries)
 	{
-		// INFERENCE (S-633, lane BANNER-1 review r1): the port keeps an expired entry (the pool's expiry removal is not ported) where retail's would be gone; it is
-		// not handed down (a non-positive remaining duration would give the list its own default duration again)
-		if (e.expire <= frame)
-		{
-			continue;
-		}
 		obj.addAttributeModifier(e.name, (int)(e.expire - frame)); // RW 0x804F18 .. 0x804F27
 	}
 }
@@ -233,9 +324,10 @@ bool AttributeModifierPool::add(const std::string &listName, int duration)
 		if (e.index == index)
 		{
 			e.expire = expire; // RW 0x805C73
-			if (expire < m_nextWake)
+			if (expire < m_nextWake) // RW 0x805C79
 			{
 				m_nextWake = expire;
+				setWakeFrame(&obj, (UpdateSleepTime)d);
 			}
 			// RW 0x805C8E .. 0x805CB9 (lane SPELL-4): the refresh plays the list's FX while the entry runs, its EndFX when the expiry is already past
 			const int count = categoryCount(cat);
@@ -248,6 +340,7 @@ bool AttributeModifierPool::add(const std::string &listName, int duration)
 	const Object::ModelConditionBits none{};
 	obj.clearAndSetModelConditionFlags(none, list->m_modelCondition);
 	obj.clearAndSetModelConditionFlags(list->m_clearModelCondition, none);
+	unsigned delayFrame = 0;
 	if (list->m_upgrade && list->m_upgrade->upgrade)
 	{
 		if (list->m_upgrade->delayFrames == 0)
@@ -273,16 +366,14 @@ bool AttributeModifierPool::add(const std::string &listName, int duration)
 		}
 		else
 		{
-			++stats().delayedUpgrades;
+			delayFrame = list->m_upgrade->delayFrames + frame; // RW 0x805CD8
 		}
 	}
-	if (expire < m_nextWake)
+	const unsigned wake = delayFrame > 0 ? std::min(expire, delayFrame) : expire; // RW 0x804D01
+	if (wake < m_nextWake) // RW 0x805CE8: the wake is the duration's, as in the refresh; an earlier grant waits for it
 	{
-		m_nextWake = expire;
-	}
-	if (expire != 0x3FFFFFFFu)
-	{
-		++stats().expiringAdds;
+		m_nextWake = wake;
+		setWakeFrame(&obj, (UpdateSleepTime)d);
 	}
 	// RW 0x805D00 .. 0x805D27 (lane SPELL-4): a new entry that has not expired plays the list's FX on the object (before the category count grows).
 	// INFERENCE (S-633): RW 0x70E013's pointer (+ 0x84) is taken as the object's drawable; the client skips an object without one (LiveFX), so the logic
@@ -322,6 +413,7 @@ bool AttributeModifierPool::add(const std::string &listName, int duration)
 	e.index = index;
 	e.name = listName;
 	e.expire = expire;
+	e.delayFrame = delayFrame;
 	m_entries.push_back(e);
 	if (cat >= 0 && cat < 15)
 	{
@@ -342,12 +434,14 @@ bool AttributeModifierPool::add(const std::string &listName, int duration)
 
 void AttributeModifierPool::crc(StateHasher &hasher) const
 {
+	UpdateModule::crc(hasher);
 	hasher.addU32((std::uint32_t)m_entries.size());
 	for (const Entry &e : m_entries)
 	{
 		hasher.addI32(e.index);
 		hasher.addString(e.name);
 		hasher.addU32(e.expire);
+		hasher.addU32(e.delayFrame);
 	}
 	hasher.addU32(m_nextWake);
 	for (unsigned f : m_categoryDisabled)
@@ -364,8 +458,8 @@ void AttributeModifierPool::crc(StateHasher &hasher) const
 // fields not identified one by one): the entries in order (each list's store index and name), the wake frame and the category tables --------------------
 void AttributeModifierPool::xfer(Xfer &x)
 {
-	SnapshotXfer::version(x, 1, 1);
-	xferBehaviorModule(x);
+	SnapshotXfer::version(x, 2, 2); // 2: an update module, with the entries' delayed grants
+	xferUpdateModule(x);
 	SnapshotXfer::each(x, m_entries, 9, [&](Entry &e) {
 		x.xferInt(&e.index);
 		x.xferAsciiString(&e.name);
@@ -377,6 +471,7 @@ void AttributeModifierPool::xfer(Xfer &x)
 				+ (index < 0 ? std::string("not") : "at " + std::to_string(index)));
 		}
 		x.xferUnsignedInt(&e.expire);
+		x.xferUnsignedInt(&e.delayFrame);
 	});
 	x.xferUnsignedInt(&m_nextWake);
 	for (unsigned &f : m_categoryDisabled)

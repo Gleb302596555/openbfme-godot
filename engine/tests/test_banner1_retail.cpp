@@ -474,8 +474,8 @@ TEST_CASE("banner1 retail: a horde garrisoned in the Gondor tower expansion is r
 	CHECK(otherAllow->isAlreadyUpgraded());
 }
 
-// review r1 follow-up: RW 0x804F02 hands down the pool's entries with their remaining time; an entry already past its expiry (kept by the port, whose expiry
-// removal is not ported, S-633) is not handed down, a live one is with what is left of it
+// review r1 follow-up: RW 0x804F02 hands down the pool's entries with their remaining time; an entry past its expiry has left the pool (RW 0x80585F), a live one
+// is handed down with what is left of it
 TEST_CASE("banner1 retail: the attribute modifier hand-down skips expired entries and hands down live ones (RW 0x804F02)")
 {
 	OPENBFME_REQUIRE_START(s);
@@ -500,4 +500,61 @@ TEST_CASE("banner1 retail: the attribute modifier hand-down skips expired entrie
 	pool->handDownTo(*target);
 	CHECK_FALSE(targetPool->hasList("GenericBuff"));
 	CHECK(targetPool->hasList("StandardDebuff"));
+}
+
+// S-633, RW 0x80585F: an expired list leaves the pool and takes its ModelCondition flags off the object (Ghan Buri Ghan's meditation left STONED on for good, which
+// restricted his other buttons: docs/ennorath/BUTTON_SWEEP.md, link 10). The list is any of the game's with a model condition and a duration.
+TEST_CASE("banner1 retail: an expired modifier list clears its model conditions, lowers its category count and leaves the pool (RW 0x80585F)")
+{
+	OPENBFME_REQUIRE_START(s);
+	BannerGame g;
+	g.start(*s);
+	g.logic().combat().setAutoAcquireEnabled(false);
+	Object *o = g.make("GondorFighter", g.owner, g.position);
+	g.step(2);
+	auto *pool = dynamic_cast<AttributeModifierPool *>(o->findModule("AttributeModifierPoolUpdate"));
+	REQUIRE(pool);
+	const ModifierListTemplate *list = nullptr;
+	for (int i = 0; TheAttributeModifierStore->get(i) && !list; ++i)
+	{
+		const ModifierListTemplate *l = TheAttributeModifierStore->get(i);
+		bool any = false, overlap = false;
+		for (size_t w = 0; w < l->m_modelCondition.size(); ++w)
+		{
+			any = any || l->m_modelCondition[w] != 0;
+			overlap = overlap || (l->m_modelCondition[w] & o->getModelConditionBits()[w]) != 0;
+		}
+		list = any && !overlap && l->m_duration > 0 ? l : nullptr;
+	}
+	REQUIRE(list);
+	INFO(list->m_name);
+	auto holdsFlags = [&]() {
+		for (size_t w = 0; w < list->m_modelCondition.size(); ++w)
+		{
+			if ((o->getModelConditionBits()[w] & list->m_modelCondition[w]) != list->m_modelCondition[w])
+			{
+				return false;
+			}
+		}
+		return true;
+	};
+	const int countBefore = pool->categoryCount(list->m_category);
+	REQUIRE(pool->add(list->m_name, 10));
+	CHECK(pool->hasList(list->m_name));
+	CHECK(holdsFlags());
+	CHECK(pool->categoryCount(list->m_category) == countBefore + 1);
+	g.step(5);
+	CHECK(pool->hasList(list->m_name)); // still running
+	CHECK(holdsFlags());
+	g.step(7);
+	CHECK_FALSE(pool->hasList(list->m_name));
+	CHECK_FALSE(holdsFlags());
+	CHECK(pool->categoryCount(list->m_category) == countBefore);
+	// the removal path (RW 0x8052FB) does the same at once
+	REQUIRE(pool->add(list->m_name, 100));
+	CHECK(holdsFlags());
+	pool->remove(list->m_name);
+	CHECK_FALSE(pool->hasList(list->m_name));
+	CHECK_FALSE(holdsFlags());
+	CHECK(pool->categoryCount(list->m_category) == countBefore);
 }

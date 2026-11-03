@@ -26,7 +26,8 @@
 #include "Common/Thing/ThingFactory.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/Map/TerrainLogic.h"
-#include "GameLogic/Map/TerrainTrees.h"
+#include "GameLogic/Map/FireLogicSystem.h"
+#include "GameLogic/Map/TerrainTrees.h" 
 #include "GameLogic/Module/ObjectHelper.h"
 #include "GameLogic/Module/SquishCollide.h"
 #include "GameLogic/Module/UnportedModule.h"
@@ -64,6 +65,7 @@ GameLogic::GameLogic(ThingFactory &things, ModuleFactory &modules, PlayerList &p
 	, m_skirmishAI(std::make_unique<SkirmishAIManager>(*this))
 	, m_experience(std::make_unique<ExperienceWorld>(*this))
 	, m_createAHeroes(std::make_unique<CreateAHeroGame>(*this))
+	, m_fireLogic(std::make_unique<FireLogicSystem>(*this))
 	, m_weather(std::make_unique<GlobalWeatherSystem>(*this))
 	, m_invisibility(std::make_unique<InvisibilityManager>(*this))
 	, m_dot(std::make_unique<DOTManager>(*this)) // lane DECOMP-1
@@ -102,6 +104,7 @@ void GameLogic::friend_objectEnteredWorld(Object &obj)
 {
 	invisibilityNoteCreated(obj); // lane STEALTH-2: RW 0x69A6BF, just before the world entry RW 0x69A6C6
 	partitionEnter(obj); // lane MODULES-2: RW 0x68E3B6, before the script world (RW 0x68E3E2)
+	m_fireLogic->registerObject(&obj); // RW 0x68E3C2 -> 0x688354
 	if (m_enteredWorld)
 	{
 		m_enteredWorld(obj);
@@ -122,6 +125,7 @@ void GameLogic::friend_objectLeftWorld(Object &obj)
 	if (inWorld)
 	{
 		partitionLeave(obj); // lane MODULES-2: RW 0x68C1B4
+		m_fireLogic->unregisterObject(&obj); // RW 0x68C1E5 -> 0x68836C
 		if (m_leftWorld)
 		{
 			m_leftWorld(obj);
@@ -616,6 +620,7 @@ void GameLogic::update(int phase)
 		runRow(ROW_SUBSYSTEMS_PHASE1);
 		runRow(ROW_LOGIC_CRC);
 		runRow(ROW_RECORDER_STATS);
+		m_fireLogic->update(); // RW 0x62E8BB: TheFireLogicSystem::update (RW 0x6886E0)
 		m_weather->update(); // RW 0x62E8BE: TheGlobalWeatherSystem vslot 0x28 (RW 0x71A09E), one of that row's subsystems (lane SPELL-2)
 		m_dot->update(); // RW 0x62E8C9 .. 0x62E8CF: GameLogic + 0x174, the DOTManager (lane DECOMP-1)
 		m_invisibility->update(); // RW 0x62E8D4 .. 0x62E8DA: GameLogic + 0x178, the last of that row, before the command list (lane STEALTH-1)
@@ -1008,6 +1013,7 @@ void GameLogic::reset()
 	m_experience->reset();
 	m_partition->reset();
 	m_emotions->reset();
+	m_fireLogic->reset();
 	m_weather->reset(); // lane SPELL-2 (the objects are gone: nothing to remove from them)
 	m_invisibility->reset();
 	m_dot->reset(); // lane DECOMP-1
@@ -1303,6 +1309,10 @@ std::uint32_t GameLogic::hashState(std::vector<StateHashSection> *sections, std:
 	if (!m_createAHeroes->heroes().empty()) // lane HERO-2: only a game with a Create-a-Hero has the section
 	{
 		section("create-a-hero", [&](StateHasher &x) { x.addU32(m_createAHeroes->crc()); });
+	}
+	if (m_fireLogic->anyBurning())
+	{
+		section("fire logic", [&](StateHasher &x) { m_fireLogic->crc(x); });
 	}
 	section("weather", [&](StateHasher &x) { m_weather->crc(x); }); // lane SPELL-2
 	section("invisibility", [&](StateHasher &x) { m_invisibility->crc(x); }); // lane STEALTH-1
@@ -1649,10 +1659,6 @@ GameLogic::Report GameLogic::report() const
 		r.stops.push_back(u);
 	}
 	for (const std::string &u : CreateAHeroGame::stopLines()) // lane HERO-2 (S-1226)
-	{
-		r.stops.push_back(u);
-	}
-	for (const std::string &u : AttributeModifierPool::stopLines())
 	{
 		r.stops.push_back(u);
 	}

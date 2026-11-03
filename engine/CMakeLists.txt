@@ -52,6 +52,19 @@ if(MSVC)
         "$<$<NOT:$<CONFIG:Debug>>:/OPT:REF>" "$<$<NOT:$<CONFIG:Debug>>:/OPT:ICF>")
 endif()
 
+# The test map (tools/test_coverage_map.py): every function gets a flag its first run sets, the linker's map says where each flag lies.
+# Its own build folder (build.bat with OPENBFME_TEST_COVERAGE=1): nothing of this reaches the normal build or the game.
+option(OPENBFME_TEST_COVERAGE "MSVC: mark the code each test process runs, for tools/test_coverage_map.py" OFF)
+if(OPENBFME_TEST_COVERAGE)
+    if(NOT MSVC)
+        message(FATAL_ERROR "OPENBFME_TEST_COVERAGE needs MSVC")
+    endif()
+    add_compile_options(/fsanitize-coverage=inline-bool-flag)
+    add_compile_definitions(OPENBFME_TEST_COVERAGE)
+    add_link_options(/MAP)
+    link_libraries(libsancov)
+endif()
+
 # WINCRASH-1: the llvm-mingw Windows build (tools/release/build_windows.sh) writes CodeView line tables to a PDB next to the GDExtension DLL
 # (and its test executables): tools/release/archive_symbols.sh keeps it per version, so a crash report's DLL offsets map to functions and
 # lines (llvm-symbolizer). It is not packaged: Godot 4.7's own Windows crash handler cannot read it (stop S-1923): it symbolizes with
