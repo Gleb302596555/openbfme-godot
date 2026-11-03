@@ -34,6 +34,15 @@ MAX_FILTER = 30000
 ALWAYS = "module coverage*"
 REGISTRATION = "engine/src/GameLogic/Module/LogicModules.cpp"
 LANE_LIST = re.compile(r"engine/cmake/Modgap\d*\.cmake")
+SCOPE = "tools/fork_scope.txt"
+
+
+def scope_options(repo: Path) -> list[str]:
+    """The doctest options that leave out the tests outside the fork's scope (other games, other mods: PROCESS.md section 16); none without the file."""
+    path = repo / SCOPE
+    if not path.exists():
+        return []
+    return [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip() and not line.lstrip().startswith("#")]
 
 
 def scan(repo: Path) -> tuple[dict[str, set[str]], dict[str, list[str]]]:
@@ -219,9 +228,12 @@ def main() -> int:
     full, why, masks = select(changed, REPO, test_map)
     source = f"the test map of {test_map.commit[:8]}" if test_map else "no test map, the #include rule"
     print(f"{len(changed)} changed files, {source}; {'FULL suite: ' if full else ''}{why}", file=sys.stderr)
-    filters = [[]] if full else [[f] for f in chunks(masks)]
+    scope = scope_options(REPO)
+    filters = [list(scope)] if full else [[f, *scope] for f in chunks(masks)]
+    if scope:
+        print(f"outside the fork's scope, left out: {' '.join(scope)}", file=sys.stderr)
     if not args.run:
-        print("(whole suite)" if full else "\n".join(f[0] for f in filters))
+        print("(whole suite)" if full else "\n".join(" ".join(f) for f in filters))
         return 0
     if full and not args.full:
         print("FULL: the whole suite runs before the branch lands (docs/ennorath/PROCESS.md section 15, rule 8; overnight is fine): give --full", file=sys.stderr)
