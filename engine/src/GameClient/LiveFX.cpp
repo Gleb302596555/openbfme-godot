@@ -15,6 +15,7 @@
 #include "GameLogic/System/InvisibilityManager.h"
 #include "GameLogic/Combat/CombatQueries.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Map/FireLogicSystem.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/ObjectTemplateInfo.h"
@@ -177,10 +178,32 @@ LiveFX::LiveFX(LiveGame &game, FXPlayback &playback) : m_game(game), m_mapWeathe
 	m_playback.setWorld(this);
 	m_game.logic().fxEvents().setSink(this);
 	m_game.drawables().setFXHost(this);
+
+	// RW 0x00498144 / BFME2 0x0063BEA6: W3DFireManager::ensureSystems creates GpuTerrainFire and GpuTerrainSmoke
+	const FXParticleSystem::ParticleSystemTemplate *fireTmpl = m_playback.particles().templates().findTemplate("GpuTerrainFire");
+	if (fireTmpl)
+	{
+		m_terrainFireSystem = m_playback.particles().createParticleSystem(fireTmpl, true);
+	}
+	const FXParticleSystem::ParticleSystemTemplate *smokeTmpl = m_playback.particles().templates().findTemplate("GpuTerrainSmoke");
+	if (smokeTmpl)
+	{
+		m_terrainSmokeSystem = m_playback.particles().createParticleSystem(smokeTmpl, true);
+	}
 }
 
 LiveFX::~LiveFX()
 {
+	if (m_terrainFireSystem != FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID)
+	{
+		m_playback.particles().destroyParticleSystemByID(m_terrainFireSystem);
+		m_terrainFireSystem = FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID;
+	}
+	if (m_terrainSmokeSystem != FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID)
+	{
+		m_playback.particles().destroyParticleSystemByID(m_terrainSmokeSystem);
+		m_terrainSmokeSystem = FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID;
+	}
 	m_game.drawables().setFXHost(nullptr);
 	if (m_game.logic().fxEvents().sink() == this)
 	{
@@ -190,6 +213,16 @@ LiveFX::~LiveFX()
 	{
 		m_playback.setWorld(nullptr);
 	}
+}
+
+const std::set<std::pair<int, int>> *LiveFX::burningCells()
+{
+	return &m_game.logic().fireLogic().cellsOnFire();
+}
+
+int LiveFX::maxCellsBurning() const
+{
+	return m_game.logic().fireLogic().maxCellsBurning();
 }
 
 std::vector<std::string> LiveFX::stops()

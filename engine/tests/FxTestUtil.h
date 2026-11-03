@@ -52,7 +52,9 @@ public:
 	W3DDrawRandom &clientRandom() override { return rng; }
 	std::uint32_t clientFrame() const override { return frame; }
 	float groundHeight(float, float) override { return ground; }
-	int shroudStatusAt(const Coord3D &) override { return 0; }
+	int shroudStatusAt(const Coord3D &) override { return shroudStatus; }
+	const std::set<std::pair<int, int>> *burningCells() override { return &burning; }
+	int maxCellsBurning() const override { return maxBurning; }
 	ParticleAttachInfo attachedDrawable(std::uint32_t, const std::string &) override { return ParticleAttachInfo(); }
 	ParticleAttachInfo attachedObject(std::uint32_t id, const std::string &, int) override
 	{
@@ -71,6 +73,9 @@ public:
 	std::uint32_t frame = 0;
 	std::uint32_t objectId = 0;
 	float ground = 0.0f;
+	int shroudStatus = 0;
+	int maxBurning = 100;
+	std::set<std::pair<int, int>> burning;
 	std::set<std::string> fxLists;
 	std::vector<std::pair<std::string, Coord3D>> plays;
 };

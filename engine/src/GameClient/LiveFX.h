@@ -93,6 +93,8 @@ public:
 	int shroudStatusAt(const Coord3D &pos) override;
 	bool objectShroudedForLocalPlayer(const FXObject &obj) override;
 	int mapWeather() const override { return m_mapWeather; } // lane WEATHER-1
+	const std::set<std::pair<int, int>> *burningCells() override;
+	int maxCellsBurning() const override;
 	FXParticleSystem::ParticleAttachInfo attachedDrawable(std::uint32_t drawableId, const std::string &boneName) override;
 	FXParticleSystem::ParticleAttachInfo attachedObject(std::uint32_t objectId, const std::string &boneName, int localPlayerIndex) override;
 	bool boneWorldMatrix(const FXObject &obj, const std::string &boneName, Matrix3D &out) override;
@@ -188,6 +190,9 @@ private:
 	// lookup is a step of the walk instead of a search of the map
 	void frameEvents(Drawable &d, size_t entryIndex, const DrawEntry &e, FrameEventMap::iterator &pos);
 	void fireFrameEvent(Drawable &d, const FXEventInfo &ev, const RenderObjPrototype *model);
+
+	FXParticleSystem::ParticleSystemID m_terrainFireSystem = FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID;
+	FXParticleSystem::ParticleSystemID m_terrainSmokeSystem = FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID;
 
 	LiveGame &m_game;
 	int m_mapWeather = 0; ///< lane WEATHER-1: the map's WorldInfo weather (GameLogicSettings::snowy), read at construction (the logic is idle then)

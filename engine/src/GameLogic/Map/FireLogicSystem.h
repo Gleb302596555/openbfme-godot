@@ -138,6 +138,7 @@ public:
 	void setDecayModifier(int mod) { m_decayModifier = mod; }
 	int decayModifier() const { return m_decayModifier; }
 	void setMaxCellsBurning(int m) { m_maxCellsBurning = m; }
+	int maxCellsBurning() const { return m_maxCellsBurning; }
 	void setFuelRegenRate(int r) { m_fuelRegenRate = r; }
 
 private:

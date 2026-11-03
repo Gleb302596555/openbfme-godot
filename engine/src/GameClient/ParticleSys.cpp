@@ -199,10 +199,7 @@ ParticleSystem::ParticleSystem(ParticleSystemManager &manager, const ParticleSys
 		}
 	}
 
-	if (m_info.m_particleType == PARTICLE_TYPE_GPU_TERRAINFIRE)
-	{
-		manager.noteUnverified("S-191", "GPU_TERRAINFIRE systems emit nothing: RW walks the terrain fire cell list (RW 0x7b13a5, global 0xde46a8), which the terrain lane has not ported");
-	}
+
 	// step 10: system-level module state. Only Wind and the Event modules consume randomness.
 	if (m_wind)
 	{
@@ -548,7 +545,20 @@ void ParticleSystem::updateStorage()
 	}
 	if (m_info.m_particleType == PARTICLE_TYPE_GPU_TERRAINFIRE)
 	{
-		return; // needs the terrain fire cell list (stop S-191)
+		// RW 0x007B12F4 / BFME2 0x007B07B8: clean up expired particles
+		const float now = gpuNowFrames();
+		for (int p = m_firstParticle; p >= 0;)
+		{
+			const int next = m_manager.particle(p).sysNext;
+			if (m_manager.particle(p).gpuExpiry < now)
+			{
+				m_manager.deleteParticle(p);
+			}
+			p = next;
+		}
+		// RW 0x007B13A5 / BFME2 0x007B0869: emit particles at burning terrain cells
+		updateTerrainFire();
+		return;
 	}
 	// CPU storage: oldest first; particles created earlier in this system update are included
 	for (int p = m_firstParticle; p >= 0;)
@@ -565,6 +575,10 @@ void ParticleSystem::updateStorage()
 // ---- emit (RW 0x5f3ccf) -----------------------------------------------------------------------------------------------
 void ParticleSystem::emit(const Coord3D &posIn, int priority, bool isIdentity, const Matrix3D &xf)
 {
+	if (m_info.m_particleType == PARTICLE_TYPE_GPU_TERRAINFIRE)
+	{
+		return; // RW 0x7B13A5: emission handled per burning cell in updateTerrainFire
+	}
 	ParticleEnvironment &env = m_manager.environment();
 	W3DDrawRandom &rng = env.clientRandom();
 	ParticleSystem *sys = this;
@@ -968,50 +982,43 @@ bool ParticleSystem::createParticle(const ParticleInfo &info, int priority, cons
 		}
 	}
 	const int type = m_info.m_particleType;
-	int index = -1;
-	if (type == PARTICLE_TYPE_GPU_TERRAINFIRE)
+	// RW 0x7B10B4 / BFME2 0x007B0578: both GPU_PARTICLE and GPU_TERRAINFIRE use the GPU particle layout
+	const int index = mgr.allocParticle();
+	Particle &p = mgr.m_pool[(size_t)index];
+	p.vel = info.vel;
+	p.pos = info.pos;
+	p.emitterPos = info.emitterPos;
+	p.lifetime = info.lifetime;
+	p.lifetimeLeft = info.lifetime;
+	p.upTowardsEmitter = info.particleUpTowardsEmitter;
+	p.createFrame = mgr.environment().clientFrame();
+	p.system = this;
+	p.systemID = m_id;
+	mgr.addParticleToGlobal(index, m_info.m_priority); // RW 0x5f3904
+	// the system's list (RW storage addParticle 0x7b08d2 / GPU 0x7b10b4)
+	p.sysPrev = m_lastParticle;
+	p.sysNext = -1;
+	if (m_lastParticle >= 0)
 	{
-		index = -1; // no particle objects
+		mgr.m_pool[(size_t)m_lastParticle].sysNext = index;
 	}
 	else
 	{
-		index = mgr.allocParticle();
-		Particle &p = mgr.m_pool[(size_t)index];
-		p.vel = info.vel;
-		p.pos = info.pos;
-		p.emitterPos = info.emitterPos;
-		p.lifetime = info.lifetime;
-		p.lifetimeLeft = info.lifetime;
-		p.upTowardsEmitter = info.particleUpTowardsEmitter;
-		p.createFrame = mgr.environment().clientFrame();
-		p.system = this;
-		p.systemID = m_id;
-		mgr.addParticleToGlobal(index, m_info.m_priority); // RW 0x5f3904
-		// the system's list (RW storage addParticle 0x7b08d2 / GPU 0x7b10b4)
-		p.sysPrev = m_lastParticle;
-		p.sysNext = -1;
-		if (m_lastParticle >= 0)
-		{
-			mgr.m_pool[(size_t)m_lastParticle].sysNext = index;
-		}
-		else
-		{
-			m_firstParticle = index;
-		}
-		m_lastParticle = index;
-		++m_particleCount;
-		if (type == PARTICLE_TYPE_GPU_PARTICLE)
-		{
-			Particle &g = mgr.m_pool[(size_t)index];
-			g.gpuBirth = gpuNowFrames();
-			g.random = realDraw(mgr.environment().clientRandom(), 0.0f, 15.0f); // RW 0x7b119f
-			g.gpuExpiry = g.gpuBirth + (float)g.lifetime;
-		}
-		else
-		{
-			p.particleID = m_nextParticleID++;
-			initParticleModules(mgr.m_pool[(size_t)index]);
-		}
+		m_firstParticle = index;
+	}
+	m_lastParticle = index;
+	++m_particleCount;
+	if (type == PARTICLE_TYPE_GPU_PARTICLE || type == PARTICLE_TYPE_GPU_TERRAINFIRE)
+	{
+		Particle &g = mgr.m_pool[(size_t)index];
+		g.gpuBirth = gpuNowFrames();
+		g.random = realDraw(mgr.environment().clientRandom(), 0.0f, 15.0f); // RW 0x7b119f
+		g.gpuExpiry = g.gpuBirth + (float)g.lifetime;
+	}
+	else
+	{
+		p.particleID = m_nextParticleID++;
+		initParticleModules(mgr.m_pool[(size_t)index]);
 	}
 	if (attached)
 	{
@@ -1868,3 +1875,76 @@ int ParticleSystemManager::removeOldestParticles(std::uint32_t count, int priori
 }
 
 } // namespace FXParticleSystem
+
+// RW 0x007B13A5 (RotWK) / BFME2 0x007B0869 (TerrainFireSystemStorageModule::update)
+void FXParticleSystem::ParticleSystem::updateTerrainFire()
+{
+	ParticleEnvironment &env = m_manager.environment();
+	const std::set<std::pair<int, int>> *cells = env.burningCells();
+	if (!cells || cells->empty())
+	{
+		return;
+	}
+
+	// RW 0x005F32FF..0x005F332D / BFME2 0x007B03F3: slot capacity is maxCellsBurning * 3 clamped to [128, 2048]
+	const int maxBurning = env.maxCellsBurning();
+	const int cap = std::clamp(maxBurning * 3, 128, 2048);
+
+	W3DDrawRandom &rng = env.clientRandom();
+	float emissionChance = 0.7f; // RW 0x00BDE0A8 ctor default
+	if (m_volume && m_volume->classId == MODULE_TERRAIN_FIRE_EMISSION)
+	{
+		emissionChance = static_cast<const TerrainFireEmissionModuleData *>(m_volume)->m_cellEmissionChance;
+	}
+
+	for (const auto &cell : *cells)
+	{
+		// RW 0x007B146C / 0x007B1490: stop if cap reached
+		if ((int)m_particleCount >= cap)
+		{
+			break;
+		}
+
+		// RW 0x007B14BB..0x007B14D4: cell emission chance check
+		const float r = realDraw(rng, 0.0f, 1.0f);
+		if (r > emissionChance)
+		{
+			continue;
+		}
+
+		// RW 0x007B14FB: sample ground height at cell center
+		const float cellX = (float)cell.first;
+		const float cellY = (float)cell.second;
+		const float groundZ = env.groundHeight(cellX, cellY);
+
+		// RW 0x007B152B: sample emission volume offset
+		const Coord3D offset = computeParticlePosition(0, 1);
+		const Coord3D pos{ cellX + offset.x, cellY + offset.y, groundZ + offset.z };
+
+		// RW 0x007B156A..0x007B1578: shroud check (TheShroud->test != 0 means obscured)
+		if (env.shroudStatusAt(pos) != 0)
+		{
+			continue;
+		}
+
+		// RW 0x007B1594: sample emission velocity
+		const Coord3D vel = computeParticleVelocity(pos);
+
+		// RW 0x007B15A8: sample lifetime
+		const float lifeVal = m_info.m_lifetime.getValue(rng);
+		std::uint32_t life = (std::uint32_t)ftol(lifeVal);
+		if (life == 0)
+		{
+			life = 1;
+		}
+
+		ParticleInfo pinfo;
+		pinfo.pos = pos;
+		pinfo.vel = vel;
+		pinfo.emitterPos = pos;
+		pinfo.lifetime = life;
+		pinfo.particleUpTowardsEmitter = false;
+
+		createParticle(pinfo, m_info.m_priority, nullptr, false);
+	}
+}

@@ -721,7 +721,7 @@ std::vector<DrawBatch> ParticleDrawBuilder::build(const ParticleSystemManager &m
 		switch (draw->classId)
 		{
 		case MODULE_GPU_DRAW:
-			if (type != PARTICLE_TYPE_GPU_PARTICLE)
+			if (type != PARTICLE_TYPE_GPU_PARTICLE && type != PARTICLE_TYPE_GPU_TERRAINFIRE)
 			{
 				return;
 			}
