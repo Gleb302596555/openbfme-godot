@@ -414,7 +414,14 @@ TEST_CASE("SPELL-4 retail: Men of the West: each targeted spell book power aims 
 		CHECK_FALSE(r.hud->spellBar().targeting());
 		r.frames(12); // the message runs in the next logic frame (5 a second)
 		CHECK_FALSE(r.hud->radiusCursor().active());
-		CHECK(r.hud->input().ui().cursor() == "Arrow");
+		// the radius cursor's None is gone; the still pointer shows what is under it now (the Lone Tower the cast put there: Select), the same hint a
+		// mouse move gives: the position enters the stream every client frame (ZH Mouse::createStreamMessages). Before 2026-11-03 the port kept the
+		// Arrow until the mouse moved
+		const std::string stillCursor = r.hud->input().ui().cursor();
+		CHECK(stillCursor != "None");
+		r.hud->mouseMove(px.x, px.y, 0);
+		r.hud->update(0.034);
+		CHECK(r.hud->input().ui().cursor() == stillCursor);
 		const InGameSpellBookModel::Button *after = buttonOf(*r.hud, e.command);
 		REQUIRE(after);
 		CHECK_FALSE(after->ready); // the cast took its recharge
@@ -587,13 +594,14 @@ TEST_CASE("cursor retail: a command cancelled under a still pointer shows the se
 	r.hud->input().ui().selectObject(hero->getID());
 	r.rig.game->shroud().revealMapForPlayerPermanently(r.rig.local->getPlayerIndex());
 	r.frames(20);
-	const Coord3D ground{ 800.0f, 750.0f, logic.getGroundHeight(800.0f, 750.0f) };
-	r.rig.lookAt(ground);
-	const ICoord2D pixel = r.rig.screenOf(ground);
+	// the pointer rests on the selected hero: the mouse-over hint of an own unit (Select), which differs from the cancel's Arrow
+	const Coord3D at{ hero->getPosition()->x, hero->getPosition()->y, hero->getPosition()->z };
+	r.rig.lookAt(at);
+	const ICoord2D pixel = r.rig.screenOf(at);
 	r.hud->mouseMove(pixel.x, pixel.y, 0);
 	r.hud->update(0.034);
 	const std::string selectionCursor = r.hud->input().ui().cursor();
-	CHECK(selectionCursor == "Move");
+	REQUIRE(selectionCursor != "Arrow");
 	CommandButton attackMove;
 	attackMove.m_command = GUI_COMMAND_ATTACK_MOVE;
 	attackMove.m_options = COMMAND_OPTION_NEED_TARGET_POS;
