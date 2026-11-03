@@ -913,7 +913,10 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// The modifier pool's expiry update (RW 0x80585F, S-633: a timed list now ends, and every pool sits in the update vectors), measured on its branch (Windows MSVC): seed 2 stays
 	// open at 9000 with a new table, seed 7 ends with Mordor's defeat (start position 1) at 7527, seed 1234 with Mordor's defeat (start position 0) at 8303. Engine pins,
 	// not retail values.
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 7527 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 8303 } })
+	// The merge with upstream a4047af5 (WARG-1's FindClosestPath and unclamped cells on top of the modifier pool's update and the fire system), measured once on the merged tree
+	// (Windows MSVC): seed 2 ends with Mordor's defeat (start position 0) at 7144 with a new table, seed 7 stays open at 9000, seed 1234 ends with Mordor's defeat (start
+	// position 0) at 8206. Engine pins, not retail values.
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, 0, 7144 }, Game{ "FactionMen", "FactionMordor", 7u, -1, -1 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 8206 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;
@@ -924,7 +927,7 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 		MESSAGE("progress, seed " << g.seed << ":\n" << run.progress);
 		// lane MODCOMPAT-MOD1 (PickupStuffUpdate, measured at its commit): the seed 7 game launches three (its AI hordes' crate scans and every horde's update in
 		// the sleepy update vectors move it)
-		CHECK(run.attacks[0] + run.attacks[1] >= (g.seed == 2u ? 2u : g.seed == 7u ? 3u : 4u)); // tolerance: a floor of launches per game (DECOMP-1 r3: seed 2 launches two; seed 7 three)
+		CHECK(run.attacks[0] + run.attacks[1] >= (g.seed == 7u ? 3u : 2u)); // tolerance: a floor of launches per game (DECOMP-1 r3: seed 2 launches two; seed 7 three; lane WARG-1: seed 1234 two before its end at 7803)
 		// SMOOTH-2 (the pending position cleared every frame, RW 0x62618F, feeds the crush warning's velocity RW 0x68EF58) ends seed 1234 with Men's defeat:
 		// 5275 on SMOOTH-2's base, 5186 on the merged tree (with GARRISON-1 / STEALTH-2 / END-2); seeds 2 and 7 stay open. Lane SMOOTH-3 (RotWK's member hub near arm RW 0x874F09, the angle goal RW 0x5E98D6 turning at the locomotor's rate): seed 1234 is open at 9000 as well. Engine pins, not retail values.
 		// SCRIPT-2 (merged with AUDIO-3 / GARRISON-2 / SMOOTH-3): the AI libraries' scripts now evaluate the conditions they use (PLAYER_HAS_OBJECT_COMPARISON ...
@@ -955,16 +958,15 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 			// merge queue q34 (measured once on the merged tree and at each merge point): SPELLFIX-1 and #160 end it at 7162; #161's block search keeps it open
 			// at 9000 with this table
 			// merge queue q35 (measured once on the merged tree and at each merge point): #132's melee reach ends it with Mordor's defeat at 7060
+			// lane WARG-1 (measured once on the lane's tree after the archive merge): FindClosestPath and the unclamped cells end it at 7971 with this table
 			CHECK(run.progress ==
-			"frame 1000: [0 attacks 0 built 70u/8s destroyed 7u/1s] [1 attacks 1 built 91u/8s destroyed 23u/2s]\n"
-			"frame 2000: [0 attacks 1 built 242u/11s destroyed 85u/1s] [1 attacks 1 built 156u/10s destroyed 157u/6s]\n"
-			"frame 3000: [0 attacks 2 built 341u/14s destroyed 180u/1s] [1 attacks 1 built 258u/13s destroyed 230u/8s]\n"
-			"frame 4000: [0 attacks 4 built 448u/17s destroyed 257u/8s] [1 attacks 2 built 297u/15s destroyed 334u/12s]\n"
-			"frame 5000: [0 attacks 4 built 451u/17s destroyed 260u/12s] [1 attacks 2 built 298u/16s destroyed 393u/15s]\n"
-			"frame 6000: [0 attacks 4 built 452u/17s destroyed 266u/12s] [1 attacks 2 built 299u/17s destroyed 398u/15s]\n"
-			"frame 7000: [0 attacks 4 built 452u/17s destroyed 266u/12s] [1 attacks 2 built 299u/18s destroyed 398u/15s]\n"
-			"frame 8000: [0 attacks 4 built 452u/17s destroyed 266u/12s] [1 attacks 2 built 299u/18s destroyed 398u/15s]\n"
-			"frame 9000: [0 attacks 4 built 452u/18s destroyed 266u/12s] [1 attacks 2 built 299u/18s destroyed 398u/15s]\n");
+			"frame 1000: [0 attacks 0 built 85u/8s destroyed 11u/0s] [1 attacks 1 built 91u/8s destroyed 23u/2s]\n"
+			"frame 2000: [0 attacks 1 built 271u/10s destroyed 101u/0s] [1 attacks 1 built 177u/12s destroyed 196u/4s]\n"
+			"frame 3000: [0 attacks 3 built 480u/12s destroyed 181u/3s] [1 attacks 1 built 232u/14s destroyed 404u/8s]\n"
+			"frame 4000: [0 attacks 4 built 604u/15s destroyed 269u/3s] [1 attacks 2 built 325u/16s destroyed 459u/9s]\n"
+			"frame 5000: [0 attacks 5 built 760u/15s destroyed 336u/4s] [1 attacks 3 built 414u/19s destroyed 652u/11s]\n"
+			"frame 6000: [0 attacks 6 built 839u/16s destroyed 414u/4s] [1 attacks 5 built 501u/24s destroyed 794u/14s]\n"
+			"frame 7000: [0 attacks 6 built 860u/17s destroyed 466u/4s] [1 attacks 6 built 521u/24s destroyed 857u/17s]\n");
 		}
 	}
 }
@@ -1165,7 +1167,9 @@ TEST_CASE("skirmish ai tactics: the offensive bodies make retail's draws in orde
 	// PR #137 (BFME2CAMP1's rebuild holes: a destroyed structure leaves a hole its owner's AI rebuilds, so the AI's targets and with them the random stream
 	// move): none of these fourteen hands a Pincer team its waypoints within 2600 frames (PR triage: 0 distances from b5a3bb549 on, main 87579746e measured
 	// 1); a probe of seeds 72 .. 131 on the PR's tree (a CI host) found 74, 81, 100, 119, 124 (one each) and 99 (two)
-	for (std::uint32_t seed : { 1234u, 2u, 7u, 11u, 13u, 17u, 19u, 31u, 29u, 67u, 37u, 41u, 53u, 71u, 83u, 107u })
+	// Lane WARG-1 (FindClosestPath RW 0x6FB869 and the unclamped cells RW 0x6E8CE6 move every game): none of these sixteen hands a Pincer team its waypoints
+	// within 2600 frames; a probe of twelve seeds on the lane's tree after the archive merge (74 .. 139 and 126, a CI host) found 126 (one)
+	for (std::uint32_t seed : { 1234u, 2u, 7u, 11u, 13u, 17u, 19u, 31u, 29u, 67u, 37u, 41u, 53u, 71u, 83u, 107u, 126u })
 	{
 		NewGameStart start(RandomAlgorithm::ZH_CarryChain);
 		REQUIRE_MESSAGE(NewGame::prepareNewGame(versusMessage(*s, "FactionMen", -1, "FactionMordor", 2, seed), s->world->playerTemplates(), s->settings, cache,

@@ -577,6 +577,10 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // same machine: every object's pool is now a sleepy update module (RW 0x805826) with its scheduler state in the object hash, and an expired list clears its model
 // conditions and leaves the pool. It moves all three from frame 0.
 // Lane FIRE re-measured the skirmish (OPENBFME_PERF1_REGEN=1): FireLogicSystem, FireLogicNugget delivery, object flammability and fire watching (RW 0x6886E0, RW 0x912241), moving the skirmish from frame 1652; the big battle is unchanged.
+// Lane WARG-1 re-measured both once on the lane's tree after the archive merge (OPENBFME_PERF1_REGEN=1, a CI host): FindClosestPath (RW 0x6FB869) at
+// computePath's fallback and the attack and melee approach paths, the unclamped cells of RW 0x6E8CE6 and the attack-follow states (RW 0x755D78).
+// Merge queue q36 re-measured the skirmish once on the merged tree (OPENBFME_PERF1_REGEN=1), compared at each merge point: WARG-1 on top of #184 moves
+// it (both had moved it apart); PR #182 (Uber only) keeps all four vectors.
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,
