@@ -75,7 +75,7 @@ def test_run_refuses_the_whole_suite_without_full(repo: Path, monkeypatch, capsy
     monkeypatch.setattr(sys, "argv", ["test_select.py", "--run", "tests.exe"])
     assert ts.main() == 2
     assert not called
-    assert "not running the whole suite" in capsys.readouterr().err
+    assert "FULL: the whole suite runs before the branch lands" in capsys.readouterr().err
 
 
 def test_a_file_no_test_can_be_traced_from_asks_for_the_full_suite(repo: Path):
@@ -92,12 +92,42 @@ def test_documents_and_tools_select_only_the_pin(repo: Path):
     assert ts.select(["docs/x.md", "tools/y.py"], repo) == (False, "0 of 3 test files", ["module coverage*"])
 
 
-def test_a_wide_change_asks_for_the_full_suite(repo: Path):
+def test_a_wide_change_runs_its_selection_not_the_full_suite(repo: Path):
     for name in ("test_b.cpp", "test_c.cpp"):
         path = repo / "engine/tests" / name
         path.write_text('#include "High.h"\n' + path.read_text(encoding="utf-8"), encoding="utf-8")
-    full, why, _ = ts.select(["engine/src/High.h"], repo)
-    assert full and "3 of 3" in why
+    full, why, masks = ts.select(["engine/src/High.h"], repo)
+    assert not full and "3 of 3" in why and "wide" in why
+    assert masks == ["a one", "a two*", "b one", "c one", "module coverage*"]
+
+
+def test_chunks_split_the_masks_under_the_limit_in_order():
+    masks = ["a" * 10, "b" * 10, "c" * 10, "d" * 10]
+    parts = ts.chunks(masks, 25)
+    assert parts == ["-tc=" + "a" * 10 + "," + "b" * 10, "-tc=" + "c" * 10 + "," + "d" * 10]
+    assert ts.chunks(masks) == ["-tc=" + ",".join(masks)]
+
+
+def test_run_goes_through_every_part_and_keeps_the_worst_exit(repo: Path, monkeypatch, tmp_path: Path):
+    monkeypatch.setattr(ts, "REPO", repo)
+    monkeypatch.setattr(ts, "changed_files", lambda base, r: ["engine/tests/test_a.cpp", "engine/tests/test_b.cpp"])
+    monkeypatch.setattr(ts, "load_map", lambda r, base: None)
+    monkeypatch.setattr(ts, "MAX_FILTER", 12)
+    calls = []
+
+    class Done:
+        def __init__(self, code):
+            self.returncode = code
+
+    def run(args, **kwargs):
+        calls.append(args)
+        return Done(1 if len(calls) == 2 else 0)
+
+    monkeypatch.setattr(ts.subprocess, "run", run)
+    monkeypatch.setattr(sys, "argv", ["test_select.py", "--run", "tests.exe", "--log", str(tmp_path / "log.txt")])
+    assert ts.main() == 1
+    assert len(calls) > 1 and all(c[0] == "tests.exe" for c in calls)
+    assert ",".join(c[1][4:] for c in calls) == "a one,a two*,b one,module coverage*"
 
 
 def more_tests(repo: Path) -> None:
@@ -156,3 +186,9 @@ def test_a_source_with_code_before_main_keeps_the_include_rule_too(repo: Path):
 def test_a_source_without_a_header_with_code_before_main_asks_for_the_full_suite(repo: Path):
     the_map = ts.TestMap({"commit": "0" * 40, "files": ["engine/src/Lone.cpp"], "tests": {"engine/tests/test_a.cpp": []}, "unmapped": [], "startup": [0]})
     assert ts.select(["engine/src/Lone.cpp"], repo, the_map)[0]
+
+def test_the_fork_scope_options_come_from_the_file_without_comments(tmp_path: Path):
+    assert ts.scope_options(tmp_path) == []
+    (tmp_path / "tools").mkdir()
+    (tmp_path / "tools/fork_scope.txt").write_text("# why\n-sfe=*test_x.cpp\n\n  -tce=*bfme1*  \n", encoding="utf-8")
+    assert ts.scope_options(tmp_path) == ["-sfe=*test_x.cpp", "-tce=*bfme1*"]

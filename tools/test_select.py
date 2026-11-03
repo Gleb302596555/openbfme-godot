@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """The test cases a branch's change can reach, so a branch does not run the whole suite (docs/ennorath/PROCESS.md, section 7).
 
-    test_select.py [--base main] [--run EXE] [--log P]    prints the doctest -tc= filter, or runs it
+    test_select.py [--base main] [--run EXE] [--log P]    prints the doctest -tc= filters, or runs them
 
 A changed test file selects its own cases. A changed source or header selects the test files that include it through any chain of headers; a .cpp counts
 as its header of the same name, else as the headers it includes from its own folder whose name starts its own (AIUpdateCombat.cpp -> AIUpdate.h). A file under
 engine/tests/data selects the test files that name it. A change no test can be traced from (a .gd, CMake, a source with neither header, a data file nothing names,
-or a wide header that reaches over half of the test files) answers FULL: do not run the whole suite on a branch, run the required sets of PROCESS.md section 7 and
-say so in the report. The full suite runs nightly on main: --run refuses it unless --full is given.
+answers FULL: the whole suite runs before the branch lands (PROCESS.md section 15, rule 8; it may run overnight), --run refuses it unless --full is given.
+A wide selection is no FULL: it runs, split into as many -tc= runs as the command line needs (each under MAX_FILTER characters), one after the other.
 
 With the test map (tools/test_coverage_map.py, workspace/test-map/map.json in the main checkout) a source selects the test files that really ran it, through virtual calls too, and not the ones
 that only include its header. A header selects the test files that ran any file including it: a changed layout or constant changes those files' code. The #include rule stays for a test file
@@ -34,6 +34,15 @@ MAX_FILTER = 30000
 ALWAYS = "module coverage*"
 REGISTRATION = "engine/src/GameLogic/Module/LogicModules.cpp"
 LANE_LIST = re.compile(r"engine/cmake/Modgap\d*\.cmake")
+SCOPE = "tools/fork_scope.txt"
+
+
+def scope_options(repo: Path) -> list[str]:
+    """The doctest options that leave out the tests outside the fork's scope (other games, other mods: PROCESS.md section 16); none without the file."""
+    path = repo / SCOPE
+    if not path.exists():
+        return []
+    return [line.strip() for line in path.read_text(encoding="utf-8").splitlines() if line.strip() and not line.lstrip().startswith("#")]
 
 
 def scan(repo: Path) -> tuple[dict[str, set[str]], dict[str, list[str]]]:
@@ -183,12 +192,23 @@ def select(changed: list[str], repo: Path, test_map: TestMap | None = None) -> t
             continue  # the engine does not read these; tools/ have their own pytest files
         else:
             return True, f"{name}: no test can be traced from this file", []
-    if len(tests) > len(cases) * WIDE_SHARE:
-        return True, f"the change reaches {len(tests)} of {len(cases)} test files", []
     masks = sorted({mask(case) for name in tests for case in cases[name]} | {ALWAYS})
-    if sum(len(m) + 1 for m in masks) > MAX_FILTER:
-        return True, f"{len(masks)} cases do not fit one command line", []
-    return False, f"{len(tests)} of {len(cases)} test files", masks
+    wide = " (a wide change)" if len(tests) > len(cases) * WIDE_SHARE else ""
+    return False, f"{len(tests)} of {len(cases)} test files{wide}", masks
+
+
+def chunks(masks: list[str], limit: int = None) -> list[str]:
+    """The masks as -tc= filters, each under `limit` characters (the command line's room); the order of the masks is kept."""
+    limit = MAX_FILTER if limit is None else limit
+    out, part = [], []
+    for m in masks:
+        if part and sum(len(x) + 1 for x in part) + len(m) + 1 > limit:
+            out.append("-tc=" + ",".join(part))
+            part = []
+        part.append(m)
+    if part:
+        out.append("-tc=" + ",".join(part))
+    return out
 
 
 def changed_files(base: str, repo: Path) -> list[str]:
@@ -208,17 +228,28 @@ def main() -> int:
     full, why, masks = select(changed, REPO, test_map)
     source = f"the test map of {test_map.commit[:8]}" if test_map else "no test map, the #include rule"
     print(f"{len(changed)} changed files, {source}; {'FULL suite: ' if full else ''}{why}", file=sys.stderr)
-    filters = [] if full else ["-tc=" + ",".join(masks)]
+    scope = scope_options(REPO)
+    filters = [list(scope)] if full else [[f, *scope] for f in chunks(masks)]
+    if scope:
+        print(f"outside the fork's scope, left out: {' '.join(scope)}", file=sys.stderr)
     if not args.run:
-        print("(whole suite)" if full else filters[0])
+        print("(whole suite)" if full else "\n".join(" ".join(f) for f in filters))
         return 0
     if full and not args.full:
-        print("not running the whole suite on a branch: run the required sets of docs/ennorath/PROCESS.md section 7 and say so in the report (--full overrides)", file=sys.stderr)
+        print("FULL: the whole suite runs before the branch lands (docs/ennorath/PROCESS.md section 15, rule 8; overnight is fine): give --full", file=sys.stderr)
         return 2
-    if args.log:
-        with open(args.log, "wb") as out:
-            return subprocess.run([args.run, *filters], stdout=out, stderr=subprocess.STDOUT).returncode
-    return subprocess.run([args.run, *filters]).returncode
+    if len(filters) > 1:
+        print(f"the selection runs in {len(filters)} parts", file=sys.stderr)
+    worst = 0
+    out = open(args.log, "wb") if args.log else None
+    try:
+        for f in filters:
+            code = subprocess.run([args.run, *f], stdout=out, stderr=subprocess.STDOUT if out else None).returncode
+            worst = worst or code
+    finally:
+        if out:
+            out.close()
+    return worst
 
 
 if __name__ == "__main__":
