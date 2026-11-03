@@ -313,28 +313,28 @@ func _press(key: String) -> void:
 			_send({"command": "end_game", "target": target, "value": 0})
 		"void_game":
 			_send({"command": "void_game", "target": -1, "value": 0})
-			"freeze":
-				_send_selected("freeze", target, 1)
-			"release":
-				_send_selected("freeze", target, 0)
-			"hold_fire_on":
-				_send_selected("hold_fire", target, 1)
-			"hold_fire_off":
-				_send_selected("hold_fire", target, 0)
-			"heal":
-				_send_selected("heal", target, 0)
-			"kill":
-				_send_selected("kill", target, 0)
-			"level_up_selected":
-				_send_selected("level_up_objects", target, LEVELS[_choice.get("levels", 0)])
-			"reset_cooldowns":
-				_send_selected("reset_cooldowns", target, 0)
-			"give_to":
-				_send_selected("give_to", target, 0)
-			"pause_ai":
-				_send({"command": "pause_ai", "target": target, "value": 1})
-			"resume_ai":
-				_send({"command": "pause_ai", "target": target, "value": 0})
+		"freeze":
+			_send_selected("freeze", target, 1)
+		"release":
+			_send_selected("freeze", target, 0)
+		"hold_fire_on":
+			_send_selected("hold_fire", target, 1)
+		"hold_fire_off":
+			_send_selected("hold_fire", target, 0)
+		"heal":
+			_send_selected("heal", target, 0)
+		"kill":
+			_send_selected("kill", target, 0)
+		"level_up_selected":
+			_send_selected("level_up_objects", target, LEVELS[_choice.get("levels", 0)])
+		"reset_cooldowns":
+			_send_selected("reset_cooldowns", target, 0)
+		"give_to":
+			_send_selected("give_to", target, 0)
+		"pause_ai":
+			_send({"command": "pause_ai", "target": target, "value": 1})
+		"resume_ai":
+			_send({"command": "pause_ai", "target": target, "value": 0})
 
 
 ## an object command on the host's selection (read when pressed: the panel may have been open a while)
