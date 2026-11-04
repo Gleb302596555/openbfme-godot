@@ -391,3 +391,64 @@ P-9: приказы по Alt (очередь движения подключен
 Эфекту палантира арнора не хватает синего эфекта на полу как ваниле 
 
 Shelling у всех лучников не работает на иконку нажимаешь и нечего не происходит.
+
+
+Когда стоитель тушит  что то вода улитает не в сторону куда смотрел стоитель в цель  а вверх
+
+### P-32. Тест хэша BACKLOG2 r1 determinism падает в форке
+- Статус: [ ] **НЕ НАЧАТО**
+- Добавлено: 2026-11-04, Claude (по поручению владельца)
+- Описание: `BACKLOG2 r1 determinism: three units on a build site: the draw assignment, the orders, the movement and the hashes are the same in two runs and are the pinned ones (RW 0x797465)` падает: `test_backlog2_retail.cpp:726`, `CHECK( a.hashes.back() == 0x24ADB575U )`, получено `0x30D7827D` (`lastHash 0x30D7827D`). Найдено длинным прогоном `test_select` ветки `agent/claude/object-sounds` (сборка `0003a25c`). Правка ветки (звуки объекта S-707) ни при чём: сборка того же дерева с выключенными новыми вызовами звука даёт тот же хэш. Значит, падает код `main` `b00f2609`, от которого отходит ветка. В `TEST_BASELINE.md` записи нет. На свежем `main` `be2b1729` то же: от `b00f2609` до него в `engine/` и `godot/` нет изменений (только `tools/mod/field_audit.py` и документы). Эталон не обновлять, пока не названа правка, которая сдвинула хэш, и почему (PROCESS.md, раздел 7).
+- Подсистема: — (детерминизм / закреплённые хэши; заполнить при разборе)
+- Взял: —
+- Причина и исправление: —
+- Проверка: —
+
+### P-33. Тест FACT-A abilities: две кнопки гномов не срабатывают
+- Статус: [ ] **НЕ НАЧАТО**
+- Добавлено: 2026-11-04, Claude (по поручению владельца)
+- Описание: `FACT-A abilities: every hero and unit ability of Men, Elves and Dwarves pressed on the control bar at the top level, its target clicked; the power runs` падает: `test_hud_facta_abilities.cpp:576`, `CHECK( problems == 0 )`, получено 2 (у гномов). Проблемы по выводу теста:
+  - `FactionDwarves DwarvenCaptainofDale Command_SpecialAbilityDaleSlamArrow (SPECIAL_POWER)`: кнопка нажата и осталась доступной, сила не сработала (`module SpecialPowerModule, casts +1, refused +0, percent ready 1.000000`);
+  - `FactionDwarves DwarvenFortressCitadel Command_FireWeaponMightyCatapult (SPECIAL_POWER)`: объект погиб, пока тест кликал, чтобы его выбрать.
+  
+  У эльфов тест тоже пишет проблему `NoldorWarriorHorde Command_ArcherBombard (FIRE_WEAPON)`: кнопка осталась доступной, сила не сработала (`module -, casts +0`); по выводу тест считает у эльфов 1 проблему, у гномов 2, а проверка на строке 576 упала один раз со значением 2; почему проблема эльфов не дала своего падения, не разбиралось. Найдено тем же прогоном, что P-32; сборка с выключенными звуками S-707 даёт те же проблемы, значит, это код `main` `b00f2609`. В `TEST_BASELINE.md` записи нет; на свежем `main` `be2b1729` то же (движок не менялся с `b00f2609`). INFERENCE: `ArcherBombard` может быть тем же, что запись владельца выше «Shelling у всех лучников не работает».
+- Подсистема: — (кнопки способностей; заполнить при разборе)
+- Взял: —
+- Причина и исправление: —
+- Проверка: —
+
+### P-34. Нет звуков урона и попадания у объектов (S-707)
+- Статус: [x] **ВЫПОЛНЕНО — Claude, 2026-11-04** (тестами), подтверждено владельцем в игре 2026-11-04: все звуки слышно
+- Добавлено: 2026-11-04, Claude (по поручению владельца; задача 1, аудит полей: пункт 3 двадцатки)
+- Описание: поля объекта `SoundOnDamaged` (1292 определения мода), `SoundOnReallyDamaged` (1295) и `SoundImpact` (981) разбирались, но не звучали: здание или юнит при переходе в повреждённое состояние и при ударной волне молчали.
+- Подсистема: звук
+- Взял: Claude, 2026-11-04
+- Причина и исправление: места вызова не были перенесены (S-707). `ActiveBody::attemptDamage` (RW 0x8C4422 .. 0x8C44C1) после смены состояния урона играет `SoundOnDamaged` при переходе в DAMAGED и `SoundOnReallyDamaged` в REALLYDAMAGED; обработчик ударной волны (RW 0x696947 .. 0x696A0E, `ObjectKnockback::shockWave` в `PhysicsBehavior.cpp`) играет `SoundImpact`, при циклоническом ударе `SoundImpactCyclonic`, если объект ещё не оглушён. Звук берётся из строк шаблона (`UnitSpecificSound::templateSound`), общий механизм для всех объектов. Остальные звуки S-707 (`SoundCreated`, `SoundEnter` / `Exit`, `SoundStealthOn` / `Off`, `SoundCrushing` ...) не перенесены.
+- Проверка: два теста `SOUND-707 retail: ...` в `test_audio3.cpp` (`RohanHeroStatueNoLeadership`: `BuildingLightDamageWood` / `BuildingHeavyDamageWood`; `MordorArcher`: `ImpactHorse`) падают без исправления и проходят с ним, профиль RotWK 2.01. Длинный прогон `test_select`: части 1–5 и начало 6 без новых падений от правки; конец части 6 и части 7–8 (интерфейс, рендер, скрипты, камера) не прогнаны по решению владельца из-за времени; вместо них прогнаны 17 файлов, которые правка может задеть (сохранения, хэши, сеть, голоса, здоровье зданий, бой, ИИ против ИИ, осада): 128 тестов, 0 падений. Попутно найдены падения базы ветки, не связанные с правкой: P-32, P-33, `hud5 icons retail: health bars only on selection or hover` (`test_hud5_icons.cpp:348`, 15 вместо 0, падает и отдельно) и `cheat1` (`test_cheat1_mode.cpp:373`, только в наборе: `'Upgrade_AngmarFaction' is not an Upgrade`). Владелец проверил в игре 2026-11-04 (Эннорат, сборка `g0003a25c`): все звуки слышно.
+
+### P-35. Тест hud5 icons: полоски здоровья у солдат отряда без AllHealthBars
+- Статус: [ ] **НЕ НАЧАТО**
+- Добавлено: 2026-11-04, Claude (по правилу PROCESS.md, раздел 7)
+- Описание: `hud5 icons retail: health bars only on selection or hover; AllHealthBars lets a selected horde's soldiers have them, never all the time` падает: `test_hud5_icons.cpp:348`, `CHECK( bars({ h->getID() }, 0) == (all ? (int)soldiers.size() : 0) )`, получено `15 == 0` при `all := false`. Падает и отдельно, и в сборке с выключенными звуками S-707. Найдено длинным прогоном `test_select` ветки `agent/claude/object-sounds` (сборка `0003a25c`, база `b00f2609`; движок на `main` `fa6f77d0` тот же). В `TEST_BASELINE.md` записи нет.
+- Подсистема: — (полоски здоровья; заполнить при разборе)
+- Взял: —
+- Причина и исправление: —
+- Проверка: —
+
+### P-36. Тест cheat1: сохранение не загружается только в общем прогоне
+- Статус: [ ] **НЕ НАЧАТО**
+- Добавлено: 2026-11-04, Claude (по правилу PROCESS.md, раздел 7)
+- Описание: `test_cheat1_mode.cpp:373`, `REQUIRE( logic.loadSnapshot(saved, &err) )`, ошибка `block 'obfme:Players': 'Upgrade_AngmarFaction' is not an Upgrade`. Отдельно все 5 тестов файла проходят: падение зависит от тестов, которые шли до него (INFERENCE: общее состояние шаблонов апгрейдов после другого теста). Найдено длинным прогоном `test_select` ветки `agent/claude/object-sounds` (сборка `0003a25c`, база `b00f2609`; движок на `main` `fa6f77d0` тот же). В `TEST_BASELINE.md` записи нет.
+- Подсистема: — (сохранения; заполнить при разборе)
+- Взял: —
+- Причина и исправление: —
+- Проверка: —
+
+### P-37. Тест online3 rejoin: временная папка занята другим процессом
+- Статус: [ ] **НЕ НАЧАТО**
+- Добавлено: 2026-11-04, Claude (по правилу PROCESS.md, раздел 7)
+- Описание: `test_online3_rejoin.cpp:2398`: `test case THREW exception: remove_all: The process cannot access the file because it is being used by another process`. Та же ошибка, что у записанных в `TEST_BASELINE.md` `online16-fix`, `online3 spectators` и `onlineux1 r2`, но `online3 rejoin` там не записан. Найдено длинным прогоном `test_select` ветки `agent/claude/object-sounds` (сборка `0003a25c`, база `b00f2609`; движок на `main` `fa6f77d0` тот же).
+- Подсистема: — (онлайн, тестовое окружение; заполнить при разборе)
+- Взял: —
+- Причина и исправление: —
+- Проверка: —

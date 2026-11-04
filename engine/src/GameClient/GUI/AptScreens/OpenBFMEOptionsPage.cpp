@@ -505,6 +505,18 @@ bool OpenBFMEOptionsPage::mouse(int kind, float x, float y)
 	{
 		return false;
 	}
+	// an open drop-down list is drawn over the rows and takes the pointer (GameWindowManager::winPickPointerWindow, S-3503): the page's own tabs and
+	// buttons under it take neither the hover nor the press, so choosing a list entry never also presses the button under it (the owner, 2026-11-04:
+	// choosing the levels closed the Cheat Mode page through BACK TO MENU under the list). The release of a press the list took finds no press here
+	if (m_layer.openDropDown())
+	{
+		m_hoverRow = m_hoverTab = m_hoverButton = -1;
+		if (kind == 1)
+		{
+			m_pressTab = m_pressButton = -1;
+		}
+		return false;
+	}
 	const int tab = tabAt(x, y);
 	const int button = buttonAt(x, y); // lane CHEAT-1
 	if (kind == 0)

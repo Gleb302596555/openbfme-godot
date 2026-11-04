@@ -181,6 +181,21 @@ TEST_CASE("transport retail: the mumak's archers shoot an enemy horde from its b
 	Object *orcs = r.make("GondorFighterHorde", c0.x + 150.0f, c0.y);
 	const ObjectID orcsId = orcs->getID();
 	r.frame(5);
+	const float before = healthOfMembers(*orcs);
+	r.frame(150);
+	orcs = r.logic().findObjectByID(orcsId);
+	const float after = orcs && !orcs->isDestroyed() ? healthOfMembers(*orcs) : 0.0f;
+	std::printf("  info: Gondor fighters beside the mumak: health %.0f -> %.0f\n", before, after);
+	CHECK(after < before); // tolerance: the claim is that the riders shoot at all; how much the fighters lose follows the fight's timing
+	// the death below needs a mumak at full health: since an attacker may path into its own target (RW 0x6EBAA0, upstream #182) the fighters reach this one
+	// and wound it, so the death is a second mumak's, made after they are gone
+	if (orcs && !orcs->isDestroyed())
+	{
+		r.logic().destroyObject(orcs);
+	}
+	const Coord3D c1 = centre(r, 600.0f);
+	mumak = r.make("MordorMumakil", c1.x, c1.y, enemy);
+	r.frame(5);
 	Object *horde = ridersOf(*mumak).front();
 	const std::vector<Object *> members = ridersOf(*horde);
 	std::vector<ObjectID> memberIds;
@@ -188,12 +203,6 @@ TEST_CASE("transport retail: the mumak's archers shoot an enemy horde from its b
 	{
 		memberIds.push_back(m->getID());
 	}
-	const float before = healthOfMembers(*orcs);
-	r.frame(150);
-	orcs = r.logic().findObjectByID(orcsId);
-	const float after = orcs && !orcs->isDestroyed() ? healthOfMembers(*orcs) : 0.0f;
-	std::printf("  info: Gondor fighters beside the mumak: health %.0f -> %.0f\n", before, after);
-	CHECK(after < before);
 	// RW 0x8C4351 calls the damage modules before death; HordeTransportContainDamage RW 0x8BF3E7 / BFME2 0x8BB176 kills five of six for a full-health lethal hit.
 	// The remaining member is thrown by HordeTransportContain RW 0x87AA2C. Trace the deaths against the fling draws to check both phases and their order.
 	REQUIRE(ridersOf(*horde).size() == 6u);
