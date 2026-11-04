@@ -177,6 +177,8 @@ public:
 	std::vector<std::string> takeSdkBanners();
 	std::vector<std::string> takeSdkReports();
 	DrawableManager &drawables() { return *m_drawables; }
+	RetailObjectWorld &world() { return m_world; }
+	const RetailObjectWorld &world() const { return m_world; }
 	// RENDER-2: the launch bone provider the logic's projectile launches ask (CombatState::setLaunchOffsets)
 	DrawableLaunchBones &launchBones(const char *file = __builtin_FILE(), int line = __builtin_LINE()) { holdLogic(file, line); return *m_launchBones; }
 	const LoadedMap &map() const { return m_map; }

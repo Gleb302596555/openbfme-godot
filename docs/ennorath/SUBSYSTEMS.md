@@ -112,7 +112,7 @@
   - Тушение огня по области (`PorterFireExtinguisher`, RW 0x6878D1) и глобально через Freezing Rain (`changeBurnRateAll`, RW 0x8C918D -> RW 0x687C4C, закрыт стоп S-1997).
   - Парсинг блока `Flammability` на `ThingTemplate` (+0x314) и `BurningDeathTime` в `CombatSettings` на `AIUpdate`.
   - Сериализация `xfer` (версии 1 и 2) и подсчет CRC сетки (RW 0x688354, 0x68836C).
-  - Сетка горения S-5260 закрыта; частицы `GPU_TERRAINFIRE` (S-191) остаются за визуальной стороной.
+  - Сетка горения S-5260 закрыта; частицы GPU_TERRAINFIRE (S-191) закрыты: рождаются на горящих клетках земли по RW 0x7B13A5 / BFME2 0x007B0869 в системах GpuTerrainFire и GpuTerrainSmoke.
 - **Проверка.**
   - 101 синтетический тест в `test_fire_logic.cpp` (все 101 пройдены, 931 проверка).
   - 3 сценария Ennorath на реальных данных мода и игры в `test_ennorath_scenarios.cpp`: факел Carthaen и огненные стрелы Гондора, глобальное тушение Freezing Rain, тушение носильщиком `PorterFireExtinguisher` (все 3 пройдены, 52 проверки).

@@ -6,6 +6,10 @@
 // and its return-value quirk (RW 0x5f3f18), and determinism for a given client seed.
 
 #include "FxTestUtil.h"
+#include "GameClient/ParticleDraw.h"
+#include "GameClient/FireSetting.h"
+#include "IniTestUtil.h"
+#include "Common/INI.h"
 
 using namespace FXParticleSystem;
 using namespace fxtest;
@@ -419,26 +423,15 @@ TEST_CASE("lifetime keyframes: Particle::isInvisible kills a faded additive part
 	CHECK(sim.particles(id).empty());
 }
 
-TEST_CASE("stops S-191 / S-192: behaviour RW has that the port does not reproduce is reported, not hidden")
+TEST_CASE("stop S-192: behaviour RW has that the port does not reproduce is reported, not hidden")
 {
-	{
-		Sim sim("FXParticleSystem Fire\n  System\n    Type = GPU_TERRAINFIRE\n    Priority = ALWAYS_RENDER\n    BurstCount = 1 1\n  End\n  EmissionVolume = TerrainFireEmission\n  End\n  Draw = GpuDraw\n  End\nEnd\n");
-		sim.spawn("Fire");
-		sim.step();
-		const std::vector<std::string> u = sim.mgr->unverified();
-		REQUIRE(u.size() == 1u);
-		CHECK(u[0].find("S-191") == 0u);
-		CHECK(sim.mgr->particleCount() == 0u);
-	}
-	{
-		Sim sim(std::string("FXParticleSystem Bolt\n  System\n    Priority = ALWAYS_RENDER\n    BurstCount = 40 40\n    BurstDelay = 100 100\n    Lifetime = 10 10\n  End\n"
-			"  EmissionVolume = LightningEmission\n    EndPoint = X:10 Y:0 Z:0\n  End\n  EmissionVelocity = OrthoEmissionVelocity\n  End\n  Draw = LightningDraw\n  End\nEnd\n"));
-		sim.spawn("Bolt");
-		sim.step();
-		const std::vector<std::string> u = sim.mgr->unverified();
-		REQUIRE(u.size() == 1u);
-		CHECK(u[0].find("S-192") == 0u);
-	}
+	Sim sim(std::string("FXParticleSystem Bolt\n  System\n    Priority = ALWAYS_RENDER\n    BurstCount = 40 40\n    BurstDelay = 100 100\n    Lifetime = 10 10\n  End\n"
+		"  EmissionVolume = LightningEmission\n    EndPoint = X:10 Y:0 Z:0\n  End\n  EmissionVelocity = OrthoEmissionVelocity\n  End\n  Draw = LightningDraw\n  End\nEnd\n"));
+	sim.spawn("Bolt");
+	sim.step();
+	const std::vector<std::string> u = sim.mgr->unverified();
+	REQUIRE(u.size() == 1u);
+	CHECK(u[0].find("S-192") == 0u);
 }
 
 TEST_CASE("stop S-193: Swirly physics reports that the object influence record is not provided")
@@ -453,4 +446,178 @@ TEST_CASE("stop S-193: Swirly physics reports that the object influence record i
 	const std::vector<std::string> u = sim.mgr->unverified();
 	REQUIRE(u.size() == 1u);
 	CHECK(u[0].find("S-193") == 0u);
+}
+
+TEST_CASE("GPU_TERRAINFIRE (RW 0x7b13a5 / BFME2 0x007b0869): particles emitted at burning terrain cells with ground height and emission offsets")
+{
+	Sim sim("FXParticleSystem GpuTerrainFire\n"
+		"  System\n"
+		"    Priority = ALWAYS_RENDER\n"
+		"    Type = GPU_TERRAINFIRE\n"
+		"    ParticleName = EXFireScroll2.tga\n"
+		"    Lifetime = 25 25\n"
+		"    Size = 5 20\n"
+		"    BurstDelay = 2 2\n"
+		"    BurstCount = 2 2\n"
+		"  End\n"
+		"  EmissionVolume = TerrainFireEmission\n"
+		"    Xoffset = 0 0\n"
+		"    Yoffset = 0 0\n"
+		"    Zoffset = 3 3\n"
+		"    CellEmissionChance = 1.0\n"
+		"  End\n"
+		"  EmissionVelocity = OrthoEmissionVelocity\n"
+		"    X = 0 0\n"
+		"    Y = 0 0\n"
+		"    Z = 1 1\n"
+		"  End\n"
+		"  Draw = GpuDraw\n"
+		"    FramesPerRow = 4\n"
+		"    TotalFrames = 16\n"
+		"    SpeedMultiplier = 0.7\n"
+		"  End\n"
+		"End\n");
+	sim.env.ground = 10.0f;
+	sim.env.burning.insert({ 100, 200 });
+	const ParticleSystemID id = sim.spawn("GpuTerrainFire");
+	sim.step();
+
+	// 1. Particle creation: unverified is clean, particle created at cell with ground + Z offset
+	CHECK(sim.mgr->unverified().empty());
+	REQUIRE(sim.mgr->particleCount() == 1u);
+	const Particle &p = sim.mgr->particle(sim.mgr->findParticleSystemByID(id)->firstParticle());
+	CHECK(p.pos.x == 100.0f);
+	CHECK(p.pos.y == 200.0f);
+	CHECK(p.pos.z == 13.0f);
+	CHECK(p.vel.z == 1.0f);
+	CHECK(p.lifetime == 25u);
+
+	// 2. Draw module produces GPU batch (ParticleDraw.cpp buildGpu)
+	ParticleDrawBuilder builder(sim.env.rng);
+	DrawCamera cam;
+	const std::vector<DrawBatch> batches = builder.build(*sim.mgr, cam);
+	REQUIRE(batches.size() == 1u);
+	CHECK(batches[0].kind == DrawBatch::GPU);
+	REQUIRE(batches[0].gpu.size() == 1u);
+	CHECK(batches[0].gpu[0].x == 100.0f);
+	CHECK(batches[0].gpu[0].y == 200.0f);
+	CHECK(batches[0].gpu[0].z == 13.0f);
+	CHECK(batches[0].gpu[0].vz == 1.0f);
+	CHECK(batches[0].gpu[0].life == 25.0f);
+
+	// 3. Shroud check (RW 0x7b156a..0x7b1578): shrouded cell emits nothing
+	sim.env.shroudStatus = 2;
+	const std::uint32_t countBefore = sim.mgr->particleCount();
+	sim.step();
+	// No new particles emitted while shrouded
+	CHECK(sim.mgr->particleCount() == countBefore);
+
+	// 4. Expiry (RW 0x7b12f4): particles expire after lifetime frames
+	sim.env.shroudStatus = 0;
+	sim.env.burning.clear(); // stop emitting new ones
+	for (int step = 0; step < 30; ++step)
+	{
+		sim.step();
+	}
+	CHECK(sim.mgr->particleCount() == 0u);
+}
+
+TEST_CASE("fire settings: Fire block INI parsing and fields (RW 0x00C1EBC8 / RW 0x0070C77C)")
+{
+	FireSettingStore store;
+	INIEnvironment env;
+	store.registerBlock(env.blocks);
+
+	const std::string iniText =
+		"Fire\n"
+		"  TerrainFireSystem = MyCustomFire\n"
+		"  TerrainSmokeSystem = MyCustomSmoke\n"
+		"  BurntTerrainColor = R:51 G:102 B:153\n"
+		"  FuelIndicatorColor = R:204 G:221 B:238\n"
+		"  EnableScorches = Yes\n"
+		"  ScorchFrequency = 20 80\n"
+		"  ScorchSize = 8 16\n"
+		"  ScorchIntensity = 0.8\n"
+		"End\n";
+
+	REQUIRE(initest::loadError(env, "fire.ini", iniText).empty());
+
+	const FireSetting &f = store.active();
+	CHECK(f.terrainFireSystem == "MyCustomFire");
+	CHECK(f.terrainSmokeSystem == "MyCustomSmoke");
+	CHECK(f.burntTerrainColor.red == doctest::Approx(51.0f / 255.0f)); // tolerance: 1/255 float scaling
+	CHECK(f.burntTerrainColor.green == doctest::Approx(102.0f / 255.0f)); // tolerance: 1/255 float scaling
+	CHECK(f.burntTerrainColor.blue == doctest::Approx(153.0f / 255.0f)); // tolerance: 1/255 float scaling
+	CHECK(f.fuelIndicatorColor.red == doctest::Approx(204.0f / 255.0f)); // tolerance: 1/255 float scaling
+	CHECK(f.fuelIndicatorColor.green == doctest::Approx(221.0f / 255.0f)); // tolerance: 1/255 float scaling
+	CHECK(f.fuelIndicatorColor.blue == doctest::Approx(238.0f / 255.0f)); // tolerance: 1/255 float scaling
+	CHECK(f.enableScorches == true);
+	CHECK(f.scorchFrequency.m_low == 20.0f);
+	CHECK(f.scorchFrequency.m_high == 80.0f);
+	CHECK(f.scorchSize.m_low == 8.0f);
+	CHECK(f.scorchSize.m_high == 16.0f);
+	CHECK(f.scorchIntensity == doctest::Approx(0.8f)); // tolerance: INI parseReal float
+}
+
+TEST_CASE("terrain fire: without TerrainFireEmission module, emissionChance is 0.0f (RW 0x005F4B1D)")
+{
+	// System with Type = GPU_TERRAINFIRE but EmissionVolume = Point (not TerrainFireEmission)
+	Sim sim("FXParticleSystem NoEmissionVolume\n"
+		"  System\n"
+		"    Priority = ALWAYS_RENDER\n"
+		"    Type = GPU_TERRAINFIRE\n"
+		"    ParticleName = EXFireScroll2.tga\n"
+		"    Lifetime = 25 25\n"
+		"    BurstDelay = 0 0\n"
+		"    BurstCount = 1 1\n"
+		"  End\n"
+		"  EmissionVolume = PointEmissionVolume\n"
+		"  End\n"
+		"  EmissionVelocity = OrthoEmissionVelocity\n"
+		"    Z = 1 1\n"
+		"  End\n"
+		"  Draw = GpuDraw\n"
+		"  End\n"
+		"End\n");
+
+	sim.env.ground = 10.0f;
+	sim.env.burning.insert({ 100, 200 });
+	sim.spawn("NoEmissionVolume");
+	sim.step();
+
+	// RW 0x005F4B1D: ParticleSystem::getCellEmissionChance returns 0.0f when not TerrainFireEmission -> 0 particles
+	CHECK(sim.mgr->particleCount() == 0u);
+}
+
+TEST_CASE("terrain fire: lifetime uses raw ftol without life == 0 clamp (RW 0x007B15A8..0x007B15B2)")
+{
+	// System with Lifetime = 0.5 0.5 (ftol yields 0, no if (life == 0) life = 1 clamp)
+	Sim sim("FXParticleSystem ZeroLife\n"
+		"  System\n"
+		"    Priority = ALWAYS_RENDER\n"
+		"    Type = GPU_TERRAINFIRE\n"
+		"    ParticleName = EXFireScroll2.tga\n"
+		"    Lifetime = 0.5 0.5\n"
+		"    BurstDelay = 0 0\n"
+		"    BurstCount = 1 1\n"
+		"  End\n"
+		"  EmissionVolume = TerrainFireEmission\n"
+		"    CellEmissionChance = 1.0\n"
+		"  End\n"
+		"  EmissionVelocity = OrthoEmissionVelocity\n"
+		"    Z = 1 1\n"
+		"  End\n"
+		"  Draw = GpuDraw\n"
+		"  End\n"
+		"End\n");
+
+	sim.env.ground = 10.0f;
+	sim.env.burning.insert({ 100, 200 });
+	const ParticleSystemID id = sim.spawn("ZeroLife");
+	sim.step();
+
+	REQUIRE(sim.mgr->particleCount() == 1u);
+	const Particle &p = sim.mgr->particle(sim.mgr->findParticleSystemByID(id)->firstParticle());
+	// RW 0x007B15B2: ftol(0.5f) == 0; retail does not clamp to 1
+	CHECK(p.lifetime == 0u);
 }

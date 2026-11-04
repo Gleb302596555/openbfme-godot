@@ -58,7 +58,7 @@ class LiveFX : public FXEventSink, public FXPlaybackWorld, public DrawableFXHost
 {
 public:
 	// installs itself as the logic's sink, the drawables' FX host and the playback's world; the destructor uninstalls. Both must outlive it.
-	LiveFX(LiveGame &game, FXPlayback &playback);
+	LiveFX(LiveGame &game, FXPlayback &playback, int effectsLod = 4);
 	~LiveFX() override;
 	LiveFX(const LiveFX &) = delete;
 	LiveFX &operator=(const LiveFX &) = delete;
@@ -66,6 +66,10 @@ public:
 	// FXEventSink. SMOOTH-1 (merge with FX-2): called on the simulation owner (the logic worker) at the moment of the retail call; it only CAPTURES what the
 	// effect will read of its objects (position, transform, conditions, owner, relationship, kinds, radius, drawable, the list's object filters) and queues
 	// it; flushPending plays the queue on the render side at a worker-idle point, in call order
+	void setEffectsLod(int lod);
+	int effectsLod() const { return m_effectsLod; }
+	void ensureSystems();
+
 	void onFXEvent(const FXEvent &event) override;
 	// plays the queued logic effects and entering-state effects, in order (the render side, while the logic is idle)
 	void flushPending();
@@ -93,6 +97,8 @@ public:
 	int shroudStatusAt(const Coord3D &pos) override;
 	bool objectShroudedForLocalPlayer(const FXObject &obj) override;
 	int mapWeather() const override { return m_mapWeather; } // lane WEATHER-1
+	const std::set<std::pair<int, int>> *burningCells() override;
+	int maxCellsBurning() const override;
 	FXParticleSystem::ParticleAttachInfo attachedDrawable(std::uint32_t drawableId, const std::string &boneName) override;
 	FXParticleSystem::ParticleAttachInfo attachedObject(std::uint32_t objectId, const std::string &boneName, int localPlayerIndex) override;
 	bool boneWorldMatrix(const FXObject &obj, const std::string &boneName, Matrix3D &out) override;
@@ -189,7 +195,11 @@ private:
 	void frameEvents(Drawable &d, size_t entryIndex, const DrawEntry &e, FrameEventMap::iterator &pos);
 	void fireFrameEvent(Drawable &d, const FXEventInfo &ev, const RenderObjPrototype *model);
 
+	FXParticleSystem::ParticleSystemID m_terrainFireSystem = FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID;
+	FXParticleSystem::ParticleSystemID m_terrainSmokeSystem = FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID;
+
 	LiveGame &m_game;
+	int m_effectsLod = 4;
 	int m_mapWeather = 0; ///< lane WEATHER-1: the map's WorldInfo weather (GameLogicSettings::snowy), read at construction (the logic is idle then)
 	FXPlayback &m_playback;
 	ClientBuffs m_buffs;                 // lane SPELL-4

@@ -1304,7 +1304,7 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 	m_shroudDrawn = m_game->shroud().displayed();
 	if (m_fxPlayer && m_fxPlayer->playback())
 	{
-		m_liveFX.reset(new LiveFX(*m_game, *m_fxPlayer->playback())); // lane FX-2: from here on the logic's effect calls play
+		m_liveFX.reset(new LiveFX(*m_game, *m_fxPlayer->playback(), (int)m_effectsLod)); // lane FX-2: from here on the logic's effect calls play
 		// lane PERF-1 r2: every particle texture decoded during the load (280 retail textures, about 30-70 ms), not at its first use in a battle
 		const double tp = nowMs();
 		m_fxPlayer->preload_textures(0.0);
@@ -6876,6 +6876,10 @@ double GameWorld::get_weather_fx_ground(double x, double y) const
 void GameWorld::set_effects_lod(int64_t lod)
 {
 	m_effectsLod = lod;
+	if (m_liveFX)
+	{
+		m_liveFX->setEffectsLod((int)lod);
+	}
 	if (GlowPostEffectHost *host = Object::cast_to<GlowPostEffectHost>(ObjectDB::get_instance(m_glowHost)))
 	{
 		host->set_effects_lod(lod);

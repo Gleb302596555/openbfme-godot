@@ -76,6 +76,8 @@ public:
 	virtual int mapWeather() const = 0;
 	// a DynamicDecal nugget (RW 0x5E05AB): true when the world keeps it for drawing (else it is noted as an event, as before)
 	virtual bool createDecal(const FXDecalDesc & /*decal*/) { return false; }
+	virtual const std::set<std::pair<int, int>> *burningCells() { return nullptr; }
+	virtual int maxCellsBurning() const { return 0; }
 };
 
 class FXPlayback

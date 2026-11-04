@@ -15,6 +15,7 @@
 #include "GameLogic/System/InvisibilityManager.h"
 #include "GameLogic/Combat/CombatQueries.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Map/FireLogicSystem.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/ObjectTemplateInfo.h"
@@ -172,15 +173,69 @@ LiveFXObject eventPrimary(GameLogic &logic, Object *obj, const FXEvent &e)
 }
 } // namespace
 
-LiveFX::LiveFX(LiveGame &game, FXPlayback &playback) : m_game(game), m_mapWeather(game.logic().settings().snowy ? 1 : 0), m_playback(playback)
+LiveFX::LiveFX(LiveGame &game, FXPlayback &playback, int effectsLod) : m_game(game), m_effectsLod(effectsLod), m_mapWeather(game.logic().settings().snowy ? 1 : 0), m_playback(playback)
 {
 	m_playback.setWorld(this);
 	m_game.logic().fxEvents().setSink(this);
 	m_game.drawables().setFXHost(this);
+
+	ensureSystems();
+}
+
+void LiveFX::setEffectsLod(int lod)
+{
+	if (m_effectsLod != lod)
+	{
+		m_effectsLod = lod;
+		ensureSystems();
+	}
+}
+
+void LiveFX::ensureSystems()
+{
+	// RW 0x00498144: W3DFireManager::ensureSystems
+	const FireSetting &fire = m_game.world().fireSetting().active();
+	if (m_terrainFireSystem == FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID && !fire.terrainFireSystem.empty())
+	{
+		// RW 0x0096C698: reads active Fire setting +0x00 (m_terrainFireSystemName)
+		const FXParticleSystem::ParticleSystemTemplate *fireTmpl = m_playback.particles().templates().findTemplate(fire.terrainFireSystem.c_str());
+		if (fireTmpl)
+		{
+			m_terrainFireSystem = m_playback.particles().createParticleSystem(fireTmpl, true);
+		}
+	}
+	// RW 0x004981EE: smoke system only created when [TheGameLODManager + 0x1778] > 1 (EffectsLOD > 1)
+	if (m_effectsLod > 1)
+	{
+		if (m_terrainSmokeSystem == FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID && !fire.terrainSmokeSystem.empty())
+		{
+			// RW 0x00498038: reads active Fire setting +0x04 (m_terrainSmokeSystemName)
+			const FXParticleSystem::ParticleSystemTemplate *smokeTmpl = m_playback.particles().templates().findTemplate(fire.terrainSmokeSystem.c_str());
+			if (smokeTmpl)
+			{
+				m_terrainSmokeSystem = m_playback.particles().createParticleSystem(smokeTmpl, true);
+			}
+		}
+	}
+	else if (m_terrainSmokeSystem != FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID)
+	{
+		m_playback.particles().destroyParticleSystemByID(m_terrainSmokeSystem);
+		m_terrainSmokeSystem = FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID;
+	}
 }
 
 LiveFX::~LiveFX()
 {
+	if (m_terrainFireSystem != FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID)
+	{
+		m_playback.particles().destroyParticleSystemByID(m_terrainFireSystem);
+		m_terrainFireSystem = FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID;
+	}
+	if (m_terrainSmokeSystem != FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID)
+	{
+		m_playback.particles().destroyParticleSystemByID(m_terrainSmokeSystem);
+		m_terrainSmokeSystem = FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID;
+	}
 	m_game.drawables().setFXHost(nullptr);
 	if (m_game.logic().fxEvents().sink() == this)
 	{
@@ -190,6 +245,16 @@ LiveFX::~LiveFX()
 	{
 		m_playback.setWorld(nullptr);
 	}
+}
+
+const std::set<std::pair<int, int>> *LiveFX::burningCells()
+{
+	return &m_game.logic().fireLogic().cellsOnFire();
+}
+
+int LiveFX::maxCellsBurning() const
+{
+	return m_game.logic().fireLogic().maxCellsBurning();
 }
 
 std::vector<std::string> LiveFX::stops()
