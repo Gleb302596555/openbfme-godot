@@ -513,6 +513,7 @@ class Source:
 
         line_func, line_class = [], []  # every line's function and innermost class ("" outside one)
         in_define = None  # (macro name, its parameters) inside a multi-line #define
+        defines: dict[str, list[str]] = defaultdict(list)  # a multi-line #define's lines (its first holds the parameters)
         for n, line in enumerate(lines, 1):
             if in_define or (line.lstrip().startswith("#define") and line.rstrip().endswith("\\")):
                 if not in_define:
@@ -520,6 +521,7 @@ class Source:
                     in_define = (dm.group(1), [x.strip() for x in dm.group(2).split(",")]) if dm else ("", [])
                 for field, parser, member, struct in self._rows(line.split("//", 1)[0], macros, lambda x: x.split("::")[-1] if x else ""):
                     self.macro_rows[in_define[0]].append((field, parser, member, struct, in_define[1]))
+                defines[in_define[0]].append(line.split("//", 1)[0].rstrip().rstrip("\\"))
                 if not line.rstrip().endswith("\\"):
                     in_define = None
                 line_func.append("")
@@ -542,6 +544,19 @@ class Source:
                         if b:
                             self.bases[m.group(1)].add(res(b))
             elif code_depth() == 0 and not code.lstrip().startswith("#"):
+                # a function a macro defines (W3DModelDraw.cpp's SHADOW_FIELD_PARSER(parseShadowSizeX, sizeX, INI::parseReal)): its body with the
+                # arguments put in, under the name the argument gives it
+                mm = re.match(r"\s*(\w+)\s*\((.*)\)\s*;?\s*$", code)
+                if mm and mm.group(1) in defines:
+                    head, *body = defines[mm.group(1)]
+                    dm = re.match(r"\s*#define\s+\w+\s*\(([^)]*)\)", head)
+                    params = [x.strip() for x in dm.group(1).split(",")] if dm else []
+                    args = [x.strip() for x in mm.group(2).split(",")]
+                    sub = dict(zip(params, args)) if len(args) == len(params) else {}
+                    text = "\n".join(body)
+                    name = next((sub[p] for p in params if p in sub and re.search(r"\b[\w:<>\*&]+\s+" + re.escape(p) + r"\s*\(", text)), "")
+                    if name:
+                        self.funcs[(f, name)] += [re.sub(r"\b\w+\b", lambda w: sub.get(w.group(0), w.group(0)), x) for x in body]
                 fm = FUNC.match(code)
                 if fm and fm.group(1).split("::")[-1] not in NOT_FUNC and not code.rstrip().endswith(";"):
                     pending = fm.group(1)
@@ -598,16 +613,67 @@ class Source:
         for (f, fn), body in self.funcs.items():
             by_short[(f, fn.split("::")[-1])] += body
         for r in self.rows:
-            if r.member.startswith("m_") or re.fullmatch(r"[A-Za-z_]\w{2,}", r.member):
+            if r.member.startswith("m_") or re.fullmatch(r"[A-Za-z_]\w+", r.member):
                 continue
-            body = by_short.get((r.file, r.parser.split("::")[-1]))
+            short = re.sub(r"<[^<>]*>$", "", r.parser.split("::")[-1])  # parseAnimAndDuration<0>: the template's body
+            body = by_short.get((r.file, short)) or self._nested_body(r.file, short)
             if body:
                 text = "\n".join(body)
                 # the m_* members it names, and the plain members it stores into (info.model = ..., d->names.push_back(...))
                 members = set(re.findall(r"\b(m_\w+)", text))
                 members |= set(re.findall(r"(?:->|\.)\s*([a-z]\w{2,})\s*(?:=(?!=)|\.\s*(?:push_back|emplace_back|assign|insert|append)\b)", text))
+                # a member of the instance handed to a helper (W3DModelDraw.cpp's parseParticleSysBoneInto(ini, ..(instance)->particleSysBones))
+                # (the last name of a chain that is no call: (instance)->gauge.cool is cool, (instance)->list.push_back(..) is list)
+                members |= {re.split(r"\s*(?:\.|->)\s*", c)[-1] for c in
+                            re.findall(r"\(\s*(?:instance|store)\s*\)\s*->\s*([a-z]\w+(?:\s*(?:\.|->)\s*[a-z]\w+)*)\b(?!\s*\()", text)}
+                # the address of a member handed to a parser (`Parser(ini, instance, &self->shadow.sizeX, nullptr)`,
+                # `INI::parseAngleReal(ini, instance, &lastTurret(..).artAngle, nullptr)`): the last name of the argument
+                members |= self._address_members(text)
                 if members:
                     r.member = "|".join(sorted(members))
+
+    def _nested_body(self, f: str, name: str) -> list[str]:
+        """the body of a function defined inside another one (EvaEvents.cpp's parseRecord: `struct Parsers { static void priority(..) { .. } }`,
+        which the scan records as its outer function's lines): from its signature to its closing brace"""
+        code = [x.split("//", 1)[0] for x in self.files[f]]
+        sig = re.compile(r"\b(?:static\s+)?(?:void|bool|int)\s+" + re.escape(name) + r"\s*\(")
+        for i, line in enumerate(code):
+            m = sig.search(line)
+            if not m:
+                continue
+            out, depth, opened = [], 0, False
+            for x in code[i:i + 80]:
+                out.append(x)
+                depth += x.count("{") - x.count("}")
+                opened = opened or "{" in x
+                if opened and depth <= 0:
+                    return out
+                if not opened and x.rstrip().endswith(";"):
+                    break
+        return []
+
+    @staticmethod
+    def _address_members(text: str) -> set[str]:
+        """the members whose address a call argument takes: `&<expression>.member` or `->member` up to the argument's end (a `,` or `)` outside
+        the expression's own parentheses)"""
+        out = set()
+        for m in re.finditer(r"(?<![&\w)\]])&(?!&)", text):
+            depth, j = 0, m.end()
+            while j < len(text):
+                c = text[j]
+                if c in "([":
+                    depth += 1
+                elif c in ")]":
+                    if depth == 0:
+                        break
+                    depth -= 1
+                elif c in ",;" and depth == 0:
+                    break
+                j += 1
+            a = re.search(r"(?:->|\.)\s*([a-z]\w{2,})\s*$", text[m.end():j])
+            if a:
+                out.add(a.group(1))
+        return out
 
     @staticmethod
     def _rows(code, macros, res):
@@ -619,8 +685,9 @@ class Source:
             if not struct:
                 mm = re.match(r"\(?\s*(?:\(\s*int\s*\)\s*)?(\w+)\s*\(", rest)
                 struct = macros.get(mm.group(1), "") if mm else ""
-            # the last name of the offset argument; an element of an array member (ES_OFF(goodMP[0])) is the array's
-            ids = re.findall(r"\b(m_\w+)", rest) or re.findall(r"(\w+)\s*(?:\[[^\]]*\]\s*)?\)*\s*$", rest)
+            # the last name of the offset argument; an element of an array member (ES_OFF(goodMP[0])) is the array's, and so is a byte step into
+            # it (SkirmishAIData.cpp's AD_OFF(percentToSave) + 4)
+            ids = re.findall(r"\b(m_\w+)", rest) or re.findall(r"(\w+)\s*(?:\[[^\]]*\]\s*)?\)*\s*$", re.sub(r"\s*\+\s*\d+\s*$", "", rest))
             if re.search(r"\w\s*\.\s*\w", rest.split(",", 1)[-1]):
                 struct = "?"  # offsetof(BlockState, values.x): the member belongs to a member's type, read through another struct: search everywhere
             out.append((r.group(1), r.group(2), ids[-1] if ids else "", struct))
@@ -956,14 +1023,22 @@ class Source:
         row's own parser stores into): the files that see a file declaring a member of that name among the files origin (the row's file) includes,
         the nearest declarations first (EvaEvents.cpp's SideCtx::side, then EvaEvents.h's EvaSideSound::side); everywhere if there is none"""
         files = self.visible(struct, origin) if struct and struct != "?" else set()
-        scopes = [sorted(files)] if files else []
+        if files:
+            # a member of a base is read where the base is seen (FlingPassengerSpecialAbilityUpdateModuleData's m_customAnimCondition is
+            # SpecialAbilityUpdateModuleData's, read in SpecialAbilityModules.cpp, which never sees the derived struct)
+            files = set(files)  # (visible() is cached)
+            for base in (self.member_owners(member) & self.ancestors(struct)) - {struct}:
+                files |= self.visible(base, origin)
+        # a file naming the struct (or a base) in its code first: `.side` in a file that never names ArmyDefinition is likely another struct's
+        # member of that name (LivingWorldUnits.cpp's ObjectFilter f.side); such a read still counts, marked INFERENCE. Without a struct, the
+        # struct is the class of the nearest declarations (W3DModelDraw.h's ModelShadowInfo::maxHeight, not DrawableIconUI.h's box.maxHeight)
+        scopes = [(sorted(files), self.ancestors(struct))] if files else []
         if not files and origin:
             for hits in self.declaring_by_depth(origin, member):
-                scopes.append(sorted({x for h in hits for x in (self.visible_file(h) if h.endswith((".h", ".hpp")) else {h})}))
-        # a file naming the struct (or a base) in its code first: `.side` in a file that never names ArmyDefinition is likely another struct's
-        # member of that name (LivingWorldUnits.cpp's ObjectFilter f.side); such a read still counts, marked INFERENCE
-        names = self.ancestors(struct) if struct and struct != "?" else set()
-        for scope in scopes or [sorted(self.files)]:
+                owners = {self.line_class[h][n] for h in hits for n in self.declarations(h, member) if self.line_class[h][n]}
+                scopes.append((sorted({x for h in hits for x in (self.visible_file(h) if h.endswith((".h", ".hpp")) else {h})}),
+                               {a for o in owners for a in self.ancestors(o)}))
+        for scope, names in scopes or [(sorted(self.files), set())]:
             named = [f for f in scope if not names or self.names_any(f, names)]
             for f in named:
                 for n in self.words_of(f).get(member, ()):
@@ -990,8 +1065,12 @@ class Source:
                 for n in self.words_of(f).get(member, ()):
                     if self.is_read(f, n, member, struct, parser) and self.copy_used(f, n, member, depth, skip):
                         # one declaration of that name in the source: the read is this member, whatever the file names
-                        return f"{f}:{n}" if self.declared_once(member) else f"{f}:{n} INFERENCE: the file does not name {struct}"
+                        return f"{f}:{n}" if self.declared_once(member) else f"{f}:{n} INFERENCE: the file does not name {self._named(struct, names)}"
         return ""
+
+    @staticmethod
+    def _named(struct: str, names: set[str]) -> str:
+        return struct if struct and struct != "?" else ", ".join(sorted(names)[:3])
 
     def copy_dest(self, f: str, n: int, member: str) -> str:
         """the member a read only copies the value into (VisionSettings.cpp's `out.stealthFriendlyOpacity = s.stealth;`, also through a call such as
@@ -1052,6 +1131,22 @@ class Source:
                         for s in set(STRING.findall(line.split("//", 1)[0])):
                             self._strings[s.lower()].append((f, n))
         return self._strings.get(field.lower(), [])
+
+    def branch_member(self, f: str, n: int) -> tuple[str, int]:
+        """(member, line) of the first member the branch a key test opens names (TerrainRoads.cpp's `if (key == "roadwidth") { cur.roadWidth = ..; }`,
+        CursorFile.cpp's `ls >> cur->image;`, ProductionSettings.cpp's parseMultiPlay(value, out.multiPlayUnitSpeedMult, n)), up to the next else;
+        a call (val.c_str()) is no member. ("", 0) when the line is no key test or the branch names no member"""
+        code = self.code_of(f)
+        if not re.search(r"==\s*\"\w+\"|compareNoCase\s*\([^;]*\"\w+\"\s*\)", self.files[f][n - 1]):
+            return "", 0
+        for k in range(n, min(len(code), n + 8)):
+            x = code[k]
+            if re.match(r"\s*(?:\}\s*)?else\b", x):
+                break
+            m = re.search(r"\b[A-Za-z_]\w*\s*(?:\.|->)\s*((?:[A-Za-z_]\w*\s*(?:\.|->)\s*)*[A-Za-z_]\w*)\b(?!\s*\()", x)
+            if m:
+                return re.split(r"\s*(?:\.|->)\s*", m.group(1))[-1], k + 1
+        return "", 0
 
     def files_naming(self, name: str) -> set[str]:
         """the files whose code names the word (UnitSpecificSound: the readers of the UnitSpecificSounds lines)"""
@@ -1168,6 +1263,46 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
     def files_of(structs):
         return {r.file for s in structs for r in rows_of(s)}
 
+    def dynamic_status(field, hit, numbered):
+        """a row made at run time. Numbered ("Color" + std::to_string(i + 1), then ROW(.., d, m_colorKey[i]) with `static DefaultColorModuleData d;`):
+        the member the row stores is followed, and so is the member a name on one line or a key test's branch reads it into. Named by a list
+        of the block's own (MiscAudio::fieldNames()): read when another line asks for the name as a literal (`miscAudio.get("EnabledHotKeyPressed")`);
+        a name list of another file (read by index) or nothing is left to a hand check"""
+        f, n = hit.rsplit(":", 1)
+        n = int(n)
+        if numbered and "to_string" in src.files[f][n - 1]:
+            code = src.code_of(f)
+            near = [m.group(1) for x in code[n:n + 3] for m in [re.search(r"\b(m_\w+)\s*\[", x)] if m]
+            if near:
+                body = "\n".join(code[max(0, n - 8):n])
+                st = re.findall(r"\bstatic\s+(\w+)\s+\w+\s*;", body)
+                use = src.member_read(near[0], st[-1] if st else "?", origin=f)
+                return ("used", use, near[0], "generated-row") if use else ("parsed-unused", hit, near[0], "generated-row")
+            return "dynamic-row", hit, "", "string"
+        # the name and the member it is read into on one line (AIPathfindConfig.cpp's getInt(gd, "MaxCellsPatchPath", c.patchPathLimit, ..)):
+        # that member is followed
+        into = re.search(r"\"" + re.escape(field) + r"\"\s*,\s*&?\s*\w+\s*(?:\.|->)\s*(\w+)\s*[,)]", src.files[f][n - 1])
+        if into:
+            use = src.member_read(into.group(1), "?", origin=f, skip=frozenset({(f, n)}))  # (that line stores it)
+            return ("used", use, into.group(1), "named-row") if use else ("parsed-unused", hit, into.group(1), "named-row")
+        # a key test whose branch stores it (ProductionSettings.cpp's compareNoCase(key, "MultiPlayUnitSpeedMult") .. out.multiPlayUnitSpeedMult)
+        member, k = src.branch_member(f, n)
+        if member:
+            use = src.member_read(member, "?", origin=f, skip=frozenset({(f, k)}))
+            return ("used", use, member, "named-row") if use else ("parsed-unused", f"{f}:{k}", member, "named-row")
+        # only in a file that sees the list's header, and only a distinctive name (8+ characters: a "Color" or "Alpha" elsewhere is some other
+        # key, GodotGameWorld.cpp's dictionaries)
+        hdr = f.rsplit(".", 1)[0] + ".h"
+        seen = src.visible_file(hdr) if hdr in src.files else set()
+        asks = [(g, k) for g, k in src.string_lines(field) if g != f and g in seen] if len(field) >= 8 else []
+        use = next((f"{g}:{k}" for g, k in asks if not src.name_list_line(g, k)), "")
+        if use:
+            return "used", f"{use} (asks for the row by name)", "", "by-name"
+        listed = next((f"{g}:{k}" for g, k in asks if src.name_list_line(g, k)), "")
+        # a name list of another file is read by index too (UnitVoiceResponse.cpp's kRowNames for SoundSelectorClientBehavior's rows): which
+        # rows it asks for is not followed, a lead for the hand check
+        return "dynamic-row", f"{listed} (a name list of another file, read by index)" if listed else hit, "", "string"
+
     def typed_status(field, structs, nested, files=(), path=(), block="", block_path=()):
         cands = [r for s in structs for r in rows_of(s) if r.field.lower() == field.lower()] if not path else []
         how = "struct"
@@ -1202,17 +1337,21 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
                     # numbered names made at run time: "Color" + std::to_string(i + 1)
                     hit = next((f"{f}:{n}" for f, n in src.string_lines(numbered.group(1)) if f in fs and "to_string" in src.files[f][n - 1]), "")
                 if hit:
-                    return "dynamic-row", hit, "", "string"
+                    return dynamic_status(field, hit, numbered)
         if not cands:
             return "no-table-row", "", "", how
         followed = False
         for r in cands:
             for m in r.member.split("|"):
-                if not re.fullmatch(r"[A-Za-z_]\w{2,}", m) or m in ("nullptr", "NULL"):
+                if not re.fullmatch(r"[A-Za-z_]\w+", m) or m in ("nullptr", "NULL"):
                     continue
                 followed = True
                 # a row of the struct's own tables without offsetof stores into that struct; a nested or block-file row of no known struct: anywhere
                 use = src.member_read(m, r.struct or (structs[0] if how == "struct" and structs else "?"), origin=r.file, parser=(r.file, r.func))
+                if use and "|" in r.member:
+                    # a parser shared by several rows (CameraSettings.cpp's parseShake, its userData picks the member): which one this row's is, is
+                    # not told
+                    use += f" INFERENCE: its parser names several members ({r.member}), {m} may be another row's"
                 if use:
                     return "used", use, m, how
         r = cands[0]
@@ -1310,8 +1449,15 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
             # a recording stub in the INI registry, but a hand-written reader of its own may read the file (TerrainTypes.cpp reads terrain.ini's
             # Texture lines): a file naming the block keyword or its .ini that names the field as a string (any case)
             readers = src.own_reader_files(typ)
-            hit = next((f"{f}:{n}" for f, n in src.string_lines(field) if f in readers), "")
-            status, where, how = ("own-reader", hit, "string") if hit else ("stub-block", "", "")
+            hits = [(f, n) for f, n in src.string_lines(field) if f in readers]
+            status, where, how = ("own-reader", f"{hits[0][0]}:{hits[0][1]}", "string") if hits else ("stub-block", "", "")
+            # a key test whose branch stores the value into a member (TerrainRoads.cpp's `if (key == "roadwidth") cur.roadWidth = ..`): followed
+            for f, n in hits:
+                member, k = src.branch_member(f, n)
+                if member:
+                    use = src.member_read(member, "?", origin=f, skip=frozenset({(f, k)}))
+                    status, where, how = ("used", use, "own-reader-member") if use else ("parsed-unused", f"{f}:{k}", "own-reader-member")
+                    break
         elif typ == "commandset" and field.isdigit():
             struct, member, how = "CommandSet", "m_command", "slot-key"
             if not 1 <= int(field) <= COMMANDSET_SLOTS:

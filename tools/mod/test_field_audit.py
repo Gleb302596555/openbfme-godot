@@ -20,7 +20,7 @@ STUBS = r'''
 const std::vector<std::string> &RotwkBlockKeywords()
 {
 	static const std::vector<std::string> keywords = {
-		"AIBase", "ArmyDefinition", "Bridge", "Object", "Weapon",
+		"AIBase", "ArmyDefinition", "Bridge", "MiscAudio", "Object", "Weapon",
 	};
 	return keywords;
 }
@@ -47,6 +47,15 @@ public:
 	int m_spare = 0, m_rare = 0; // a declarator list (CastleModules.h's m_maxCastleRadius)
 	std::string m_tagA, m_tagB; // its later name is no read (CreateAHeroSystem.h)
 	std::vector<std::string> m_names;
+	std::vector<int> bones;
+	PartInfo part;
+	int m_slot = 0;
+	int m_left = 0;
+	int m_right = 0;
+};
+struct PartInfo
+{
+	float width = 0.0f, depth = 0.0f, angle = 0.0f;
 };
 '''
 
@@ -64,10 +73,51 @@ void parseFX(INI *ini, void *instance, void *, const void *)
 	static_cast<TypedThingModuleData *>(instance)->m_fx = 1;
 }
 
+// a parser handing a member of the instance to a helper (W3DModelDraw.cpp's parseParticleSysBoneInto(ini, ..(instance)->particleSysBones))
+void parseBoneInto(INI *ini, std::vector<int> &out) { out.push_back(1); }
+void parseBone(INI *ini, void *instance, void *, const void *)
+{
+	parseBoneInto(ini, static_cast<TypedThingModuleData *>(instance)->bones);
+}
+
+// parsers a macro defines (W3DModelDraw.cpp's SHADOW_FIELD_PARSER), each handing the address of a member to a parser; one handing the
+// address of a member of a call's result (parseTurretArtAngle's &lastTurret(..).artAngle)
+#define PART_PARSER(Name, Member)                                          \
+	void Name(INI *ini, void *instance, void *, const void *)              \
+	{                                                                      \
+		TypedThingModuleData *self = static_cast<TypedThingModuleData *>(instance); \
+		INI::parseReal(ini, instance, &self->part.Member, nullptr);        \
+	}
+PART_PARSER(parsePartWidth, width)
+PART_PARSER(parsePartDepth, depth)
+#undef PART_PARSER
+void parseAngle(INI *ini, void *instance, void *, const void *)
+{
+	INI::parseReal(ini, instance, &partOf(static_cast<TypedThingModuleData *>(instance), "Angle").angle, nullptr);
+}
+// a template parser (SpecialAbilityModules.cpp's parseAnimAndDuration<0>) and one shared by two rows, its userData picking the member
+// (CameraSettings.cpp's parseShake): which member is the row's is not told
+template <int Which>
+void parseSlot(INI *ini, void *instance, void *, const void *)
+{
+	static_cast<TypedThingModuleData *>(instance)->m_slot = Which;
+}
+void parseSide(INI *ini, void *instance, void *, const void *userData)
+{
+	TypedThingModuleData *d = static_cast<TypedThingModuleData *>(instance);
+	(userData ? d->m_left : d->m_right) = 1;
+}
+
 const FieldParse kTyped[] = {
 	{ "Used", INI::parseReal, nullptr, TT_OFF(m_used) },
 	{ "Unused", &INI::parseReal, nullptr, TT_OFF(m_unused) },
 	{ "FX", parseFX, nullptr, 0 },
+	{ "Bone", parseBone, nullptr, 0 },
+	{ "PartWidth", parsePartWidth, nullptr, 0 },
+	{ "PartDepth", parsePartDepth, nullptr, 0 },
+	{ "Angle", parseAngle, nullptr, 0 },
+	{ "Slot", parseSlot<0>, nullptr, 0 },
+	{ "Left", parseSide, nullptr, 0 },
 	{ "Names", INI::parseAsciiStringVector, nullptr, TT_OFF(m_names) },
 	{ "Level", INI::parseInt, nullptr, TT_OFF(m_level) },
 	{ "Rare", INI::parseInt, nullptr, TT_OFF(m_rare) },
@@ -94,11 +144,51 @@ float TypedThing::speed() const
 	return 0.0f;
 }
 
+int TypedThing::boneCount() const
+{
+	int n = 0;
+	for (int b : m_data->bones)
+		n += b;
+	return n;
+}
+
+float TypedThing::partWidth() const { return m_data->part.width; }
+int TypedThing::slotOf() const { return m_data->m_slot + m_data->m_right; }
+
 void TypedThing::registerModule(ModuleFactory &modules)
 {
 	static const char kName[] = "TypedThing";
 	modules.bindTypedData<TypedThingModuleData>(kName, MODULETYPE_BEHAVIOR);
 	modules.bindModuleProc(kName, MODULETYPE_BEHAVIOR, nullptr);
+}
+'''
+
+# a module whose data derives from a base declaring the member; the base's own file reads it and never sees the derived struct
+# (FlingPassengerSpecialAbilityUpdateModuleData's m_customAnimCondition, read in SpecialAbilityModules.cpp)
+BASE_H = r'''
+class BaseThingModuleData : public ModuleData
+{
+public:
+	int m_baseLevel = 0;
+};
+'''
+BASE_CPP = r'''#include "GameLogic/Module/BaseThing.h"
+int BaseThing::level() const { return static_cast<const BaseThingModuleData *>(m_data)->m_baseLevel; }
+'''
+DERIVED_CPP = r'''#include "GameLogic/Module/BaseThing.h"
+class DerivedThingModuleData : public BaseThingModuleData
+{
+public:
+	static void buildFieldParse(MultiIniFieldParse &p);
+};
+const FieldParse kDerived[] = {
+	{ "BaseLevel", INI::parseInt, nullptr, (int)offsetof(DerivedThingModuleData, m_baseLevel) },
+	{ nullptr, nullptr, nullptr, 0 }
+};
+void DerivedThingModuleData::buildFieldParse(MultiIniFieldParse &p) { p.add(kDerived); }
+void DerivedThing::registerModule(ModuleFactory &modules)
+{
+	modules.bindTypedData<DerivedThingModuleData>("DerivedThing", MODULETYPE_BEHAVIOR);
 }
 '''
 
@@ -132,6 +222,10 @@ class WeaponTemplate
 public:
 	float m_attackRange = 0.0f;
 	float m_unread = 0.0f;
+	float heat = 0.0f;
+	float ranges[2] = {};
+	int id = 0;
+	WeaponGauge gauge;
 	struct Pair { int start, cap; } counts[2];
 	static const FieldParse *getFieldParse();
 };
@@ -143,16 +237,136 @@ const FieldParse *WeaponTemplate::getFieldParse()
 		{ "AttackRange", INI::parseReal, nullptr, (int)offsetof(WeaponTemplate, m_attackRange) },
 		{ "Unread", INI::parseReal, nullptr, (int)offsetof(WeaponTemplate, m_unread) },
 		{ "Count2", parsePair, nullptr, (int)offsetof(WeaponTemplate, counts[1]) },
+		{ "Range2", INI::parseReal, nullptr, (int)offsetof(WeaponTemplate, ranges) + 4 }, // a byte step into an array (SkirmishAIData.cpp's AD_OFF)
+		{ "Id", INI::parseInt, nullptr, (int)offsetof(WeaponTemplate, id) }, // a two-letter member (AODCrushCollide.cpp's fx[0])
 		{ nullptr, nullptr, nullptr, 0 }
 	};
 	return table;
 }
+// a parser defined inside another function (EvaEvents.cpp's parseRecord: struct Parsers { static void priority(..) { .. } })
+void WeaponStore::parseExtra(INI *ini, WeaponTemplate &w)
+{
+	struct Parsers
+	{
+		static void heat(INI *ini2, void *instance, void *, const void *) { INI::parseReal(ini2, nullptr, &static_cast<WeaponTemplate *>(instance)->heat, nullptr); }
+		static void cool(INI *ini2, void *instance, void *, const void *) { INI::parseReal(ini2, nullptr, &static_cast<WeaponTemplate *>(instance)->gauge.cool, nullptr); }
+	};
+	const FieldParse table[] = { { "Heat", Parsers::heat, nullptr, 0 }, { "Cool", Parsers::cool, nullptr, 0 }, { nullptr, nullptr, nullptr, 0 } };
+	ini->initFromINI(&w, table);
+}
+// numbered rows made at run time (FXParticleSystem.cpp's "Color" + std::to_string(i + 1) into m_colorKey[i]); keyOf reads them
+struct WeaponKeys
+{
+	int m_key[4];
+};
+const FieldParse *keyTable()
+{
+	static Table t;
+	if (t.empty())
+	{
+		static WeaponKeys d;
+		for (int i = 0; i < 4; ++i)
+		{
+			static std::string names[4];
+			names[i] = "Key" + std::to_string(i + 1);
+			t.push_back(ROW(names[i].c_str(), INI::parseInt, nullptr, d, m_key[i]));
+		}
+	}
+	return t.data();
+}
+int keyOf(const WeaponKeys &k) { return k.m_key[0]; }
+float WeaponTemplate::heatOf() const { return heat; }
+float WeaponTemplate::secondRange() const { return ranges[1]; }
+int WeaponTemplate::idOf() const { return id; }
 float WeaponTemplate::range() const { return m_attackRange; }
 int WeaponTemplate::secondCount() const { return counts[1].start; }
 void WeaponStore::registerBlocks(INIBlockRegistry &registry)
 {
 	registry.registerBlock("Weapon", [](INI *ini) { WeaponStore::parseWeaponTemplateDefinitionGlobal(ini); });
 }
+'''
+
+# a member of a member (the Cool row's gauge.cool) declared in a header; GaugeUse.cpp reads a cool of its own Dial, and never names WeaponGauge
+WEAPON_H = r'''
+struct WeaponGauge
+{
+	float cool = 0.0f;
+};
+'''
+GAUGE_USE_CPP = r'''#include "GameLogic/Weapon.h"
+struct Dial
+{
+	float cool = 0.0f;
+};
+float dialCool(const Dial &d) { return d.cool; }
+'''
+
+# a block whose rows come from a name list of its own and are asked for by name (MiscAudio.cpp's fieldNames(), HotKey.cpp's
+# miscAudio.get("EnabledHotKeyPressed")); nothing asks for DingSound
+MISC_H = r'''
+class Misc
+{
+public:
+	static const std::vector<std::string> &fieldNames();
+	const std::string &get(const std::string &name) const;
+};
+struct Levels
+{
+	int volume = 0;
+	int pitch = 0;
+};
+'''
+MISC_CPP = r'''#include "Common/Audio/Misc.h"
+const std::vector<std::string> &Misc::fieldNames()
+{
+	static const std::vector<std::string> names = {
+		"ClickSound", "DingSound", "BuzzSound", "Pan",
+	};
+	return names;
+}
+// a name and the member it is read into on one line (AIPathfindConfig.cpp's getInt(gd, "MaxCellsPatchPath", c.patchPathLimit, ..))
+void Misc::load(const Data &gd, Levels &out)
+{
+	getInt(gd, "Volume", out.volume, error);
+	getInt(gd, "Pitch", out.pitch, error);
+}
+void Misc::registerBlocks(INIBlockRegistry &registry)
+{
+	registry.registerBlock("MiscAudio", [this](INI *ini) { parse(ini); });
+}
+'''
+CLICK_CPP = r'''#include "Common/Audio/Misc.h"
+const std::string &clickSound(const Misc &m) { return m.get("ClickSound"); }
+int volumeOf(const Levels &l) { return l.volume; }
+// a short name asked for is some other key; a name list of this file is read by index (which rows, is not followed)
+int pan(const Misc &m) { return m.get("Pan").size(); }
+const char *const kSamples[] = {
+	"BuzzSound", "Other",
+};
+'''
+
+# a stub block read by a reader of its own (TerrainRoads.cpp): its key tests store into a member; bridgeHeight reads height, nothing reads depth
+BRIDGE_H = r'''
+struct BridgeDef
+{
+	float height = 0.0f;
+	float depth = 0.0f;
+};
+'''
+BRIDGE_CPP = r'''#include "GameClient/BridgeReader.h"
+void readBridges(const std::string &key, const std::string &val, BridgeDef &cur)
+{
+	// the file is "Data\INI\Bridge.ini"
+	if (key == "height")
+	{
+		cur.height = (float)std::atof(val.c_str());
+	}
+	else if (key == "depth")
+	{
+		cur.depth = (float)std::atof(val.c_str());
+	}
+}
+float bridgeHeight(const BridgeDef &b) { return b.height; }
 '''
 
 # the Object's own fields are read by name (ThingTemplate::findField)
@@ -457,6 +671,12 @@ Object TestUnit
     Used = 1.0
     Unused = 2.0
     FX = INITIAL FX_Puff
+    Bone = BONE01
+    PartWidth = 2
+    PartDepth = 3
+    Angle = 4
+    Slot = 1
+    Left = 1
     DeathTypes = ALL
     Names = A B
     Level = 2
@@ -471,6 +691,9 @@ Object TestUnit
     End
     Envelope InitialOpacity = 0.0 PeakOpacity = 1.0
     Bogus = 3
+  End
+  Behavior = DerivedThing ModuleTag_06
+    BaseLevel = 2
   End
   Behavior = RawThing Some_Tag
     Radius = 10
@@ -505,6 +728,20 @@ Weapon TestBow
   AttackRange = 200
   Unread = 1
   Count2 = 1 2
+  Heat = 1
+  Range2 = 5
+  Id = 7
+  Cool = 2
+  Key2 = 3
+End
+
+MiscAudio
+  ClickSound = A
+  DingSound = B
+  Volume = 1
+  Pitch = 2
+  BuzzSound = C
+  Pan = D
 End
 
 ArmyDefinition TestArmy
@@ -526,6 +763,8 @@ End
 
 Bridge TestBridge
   Width = 5
+  Height = 2
+  Depth = 3
 End
 '''
 
@@ -535,7 +774,7 @@ def rw_tables(rw: Path):
     def table(*names, fn="0x1"):
         return {"rows": [{"name": n, "fn": fn, "offset": 0, "userData": 0} for n in names], "terminated": True}
     tables = {
-        "0xa1": {"rows": table("Used", "Unused", "FX", "DeathTypes", "Names", "Envelope", "Level", "Rare", "TagB", "Shared", "Copied", "Shown", "Factor")["rows"]
+        "0xa1": {"rows": table("Used", "Unused", "FX", "Bone", "PartWidth", "PartDepth", "Angle", "Slot", "Left", "DeathTypes", "Names", "Envelope", "Level", "Rare", "TagB", "Shared", "Copied", "Shown", "Factor")["rows"]
                  + [{"name": "MeleeBehavior", "fn": "0xb3", "offset": 0, "userData": 0}], "terminated": True},
         "0xa2": table("Radius", "Height"),
         "0xa3": table("Bar"),
@@ -547,6 +786,7 @@ def rw_tables(rw: Path):
                  + [{"name": n, "fn": "0xb4", "offset": 0, "userData": 0} for n in ("UnitSpecificSounds", "LookDecal", "Award", "Threat")],
                  "terminated": True},
         "0xa9": table("FacingBonus"),
+        "0xab": table("BaseLevel"),
         "0xaa": {"rows": [], "catchAll": "0xb5", "terminated": True},
         "0xa8": table("VoiceSelect", "VoiceFear"),
     }
@@ -559,7 +799,7 @@ def rw_tables(rw: Path):
                                                       "audioTable": {"table": "0xa8", "extra": 292}}),
                                           encoding="utf-8")
     classes = [{"name": n, "tables": [{"table": t, "extra": 0}]} for n, t in
-               (("TypedThing", "0xa1"), ("RawThing", "0xa2"), ("GoneThing", "0xa3"), ("EmotionThing", "0xa4"), ("ScriptThing", "0xa6"))]
+               (("TypedThing", "0xa1"), ("RawThing", "0xa2"), ("GoneThing", "0xa3"), ("EmotionThing", "0xa4"), ("ScriptThing", "0xa6"), ("DerivedThing", "0xab"))]
     (rw / "module-registry.json").write_text(json.dumps({"classes": classes}), encoding="utf-8")
 
 
@@ -569,6 +809,7 @@ RawThing\tBehavior\tported\t0\t0\t-
 GoneThing\tBehavior\tmissing\t0\t0\t-
 EmotionThing\tBehavior\tported\t1\t0\t-
 ScriptThing\tDraw\tmissing\t0\t0\t5
+DerivedThing\tBehavior\tported\t1\t0\t-
 """
 
 
@@ -592,7 +833,10 @@ def result(tmp_path_factory):
                       "GameClient/PreviewReader.cpp": PREVIEW_CPP, "GameClient/PreviewUse.cpp": PREVIEW_USE_CPP, "GameLogic/Module/DieMux.cpp": DIEMUX_CPP,
                       "GameLogic/Module/Other.cpp": OTHER_CPP, "GameLogic/Module/Ambig.cpp": AMBIG_CPP, "GameLogic/Module/Copy.cpp": COPY_CPP, "GameLogic/AI/Army.cpp": ARMY_CPP, "GameClient/Voice.cpp": VOICE_CPP, "GameClient/Decal.h": DECAL_H, "Common/ADecal.h": OTHER_DECAL_H,
                       "GameClient/Decal.cpp": DECAL_CPP, "GameLogic/AI/Threat.cpp": THREAT_CPP,
-                      "GameClient/Settings.h": SETTINGS_H, "GameClient/Middle.h": MIDDLE_H}.items():
+                      "GameClient/Settings.h": SETTINGS_H, "GameClient/Middle.h": MIDDLE_H, "GameLogic/Weapon.h": WEAPON_H,
+                      "GameLogic/GaugeUse.cpp": GAUGE_USE_CPP, "GameLogic/Module/BaseThing.h": BASE_H, "GameLogic/Module/BaseThing.cpp": BASE_CPP,
+                      "GameLogic/Module/DerivedThing.cpp": DERIVED_CPP, "Common/Audio/Misc.h": MISC_H, "Common/Audio/Misc.cpp": MISC_CPP,
+                      "GameClient/Click.cpp": CLICK_CPP, "GameClient/BridgeReader.h": BRIDGE_H, "GameClient/BridgeReader.cpp": BRIDGE_CPP}.items():
         (src / rel).parent.mkdir(parents=True, exist_ok=True)
         (src / rel).write_text(text, encoding="utf-8")
     rw = root / "rw"
@@ -622,6 +866,16 @@ def test_typed_module_fields(result):
     assert status(result, "object", "TypedThing", "DeathTypes") == "used"  # a row of the multi-line MUX_ROWS(T) macro
     assert result[0][("object", "TypedThing", "DeathTypes")]["where"] == "GameLogic/Module/DieMux.cpp:2"  # m_dieMux.m_deathTypes: read anywhere
     assert status(result, "object", "TypedThing", "FX") == "used"  # its own parser stores m_fx, which speed() reads
+    # its own parser hands (instance)->bones to a helper; boneCount() reads it
+    assert status(result, "object", "TypedThing", "Bone") == "used"
+    assert result[0][("object", "TypedThing", "Bone")]["member"] == "bones"
+    # parsers a macro defines, each storing through the address of a member: partWidth() reads width, nothing reads depth or angle
+    assert (status(result, "object", "TypedThing", "PartWidth"), result[0][("object", "TypedThing", "PartWidth")]["member"]) == ("used", "width")
+    assert (status(result, "object", "TypedThing", "PartDepth"), result[0][("object", "TypedThing", "PartDepth")]["member"]) == ("parsed-unused", "depth")
+    assert (status(result, "object", "TypedThing", "Angle"), result[0][("object", "TypedThing", "Angle")]["member"]) == ("parsed-unused", "angle")
+    assert (status(result, "object", "TypedThing", "Slot"), result[0][("object", "TypedThing", "Slot")]["member"]) == ("used", "m_slot")
+    left = result[0][("object", "TypedThing", "Left")]
+    assert left["status"] == "used" and "INFERENCE: its parser names several members (m_left|m_right)" in left["where"]
     assert status(result, "object", "TypedThing", "Names") == "parsed-unused"  # `std::vector<std::string> m_names;` is a declaration, not a read
     # a read in a file naming the struct comes first (Other.cpp sorts before TypedThing.cpp); a read only in a file that never names it is marked
     assert status(result, "object", "TypedThing", "Level") == "used"
@@ -634,6 +888,8 @@ def test_typed_module_fields(result):
     assert result[0][("object", "TypedThing", "Shared")]["where"] == ("GameLogic/Module/Ambig.cpp:2 AMBIGUOUS: the file also names Filter with a "
                                                                       "member m_shared")
     assert status(result, "object", "TypedThing", "Bogus") == "not-in-rotwk"  # MeleeBehavior's End did not close the module
+    # a member of the base, read where the base is seen
+    assert result[0][("object", "DerivedThing", "BaseLevel")]["where"] == "GameLogic/Module/BaseThing.cpp:2"
 
 
 def test_rotwk_grammar_blocks(result):
@@ -681,7 +937,25 @@ def test_definition_fields(result):
     assert status(result, "weapon", "", "Unread") == "parsed-unused"
     assert status(result, "weapon", "", "Count2") == "used"
     assert result[0][("weapon", "", "Count2")]["member"] == "counts"
+    assert (status(result, "weapon", "", "Heat"), result[0][("weapon", "", "Heat")]["member"]) == ("used", "heat")  # a parser inside parseExtra
+    assert (status(result, "weapon", "", "Range2"), result[0][("weapon", "", "Range2")]["member"]) == ("used", "ranges")
+    assert (status(result, "weapon", "", "Id"), result[0][("weapon", "", "Id")]["member"]) == ("used", "id")
+    # the struct of a member of a member is its declaring class: Dial's d.cool is no read of WeaponGauge::cool (only a marked lead)
+    assert result[0][("weapon", "", "Cool")]["where"] == "GameLogic/GaugeUse.cpp:6 INFERENCE: the file does not name WeaponGauge"
+    # rows made at run time: a numbered one follows the member it stores; a listed one is read when another file asks for its name
+    assert (status(result, "weapon", "", "Key2"), result[0][("weapon", "", "Key2")]["member"]) == ("used", "m_key")
+    assert status(result, "miscaudio", "", "ClickSound") == "used"
+    assert result[0][("miscaudio", "", "ClickSound")]["where"] == "GameClient/Click.cpp:2 (asks for the row by name)"
+    assert status(result, "miscaudio", "", "DingSound") == "dynamic-row"
+    assert (status(result, "miscaudio", "", "Volume"), result[0][("miscaudio", "", "Volume")]["where"]) == ("used", "GameClient/Click.cpp:3")
+    assert status(result, "miscaudio", "", "Pitch") == "parsed-unused"
+    assert status(result, "miscaudio", "", "Pan") == "dynamic-row"
+    buzz = result[0][("miscaudio", "", "BuzzSound")]
+    assert (buzz["status"], buzz["where"]) == ("dynamic-row", "GameClient/Click.cpp:7 (a name list of another file, read by index)")
     assert status(result, "bridge", "", "Width") == "stub-block"
+    # its own reader stores Height and Depth into members (TerrainRoads.cpp): followed
+    assert (status(result, "bridge", "", "Height"), result[0][("bridge", "", "Height")]["where"]) == ("used", "GameClient/BridgeReader.cpp:14")
+    assert status(result, "bridge", "", "Depth") == "parsed-unused"
     assert ("object", "SecondUnit", "Used") not in result[0]
 
 
@@ -724,7 +998,7 @@ def test_previous_run_with_quotes(tmp_path):
     assert not changed  # every row of the previous run read back as it was written
     cov = tmp_path / "coverage.tsv"
     cov.write_text(COVERAGE.replace("RawThing\tBehavior", '"RawThing\tBehavior'), encoding="utf-8")
-    assert len(fa.load_coverage(cov)) == 5
+    assert len(fa.load_coverage(cov)) == len(COVERAGE.splitlines()) - 1  # every class row of COVERAGE, the quoted one too
 
 
 def test_manual_verdicts(result, tmp_path):
