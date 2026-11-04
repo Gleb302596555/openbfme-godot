@@ -1212,7 +1212,11 @@ void PlayUnitVoiceForMessage(UnitVoiceResponse &voice, const std::vector<ObjectI
 	UnitVoiceResponse::Info info;
 	const bool selects = type == MSG_CREATE_SELECTED_GROUP || type == MSG_CREATE_SELECTED_GROUP_IDLE_WORKER_VOICE || type == MSG_CREATE_SELECT_ALL_GROUP ||
 		(type >= MSG_SELECT_TEAM0 && type <= MSG_SELECT_TEAM9);
-	for (size_t i = 0; i < msg.getArgumentCount(); ++i)
+	// TOP20 #9 (the owner's check, 2026-11-04): MSG_ENTER carries the entering object first and the container second (CommandXlat's MSG_ENTER, the logic case
+	// RW 0x77AC26 reads argument 1); the voice's target is the container, the drawable under the cursor RW 0x8DD74F reads from the pick info (+ 4). Taking
+	// the first id made the entering horde its own target: never a STRUCTURE, so VoiceGarrison was never asked
+	const size_t firstTargetArg = type == MSG_ENTER ? 1u : 0u;
+	for (size_t i = firstTargetArg; i < msg.getArgumentCount(); ++i)
 	{
 		const GameMessageArgument *a = msg.getArgument(i);
 		if (!selects && a->type == ARGUMENTDATATYPE_OBJECTID && info.target == INVALID_ID)

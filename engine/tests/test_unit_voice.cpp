@@ -522,4 +522,14 @@ TEST_CASE("TOP20-9 enter voice: VoiceGarrison into a structure, VoiceGetHealed o
 	CHECK(enter("Stable") == "PorterStable"); // VoiceEnterUnit<target> comes first (RW 0x8DF484)
 	CHECK(ActionManager::getEnterMessage(*r.f.logic->findObjectByID(r.make("Keep")), { r.f.logic->findObjectByID(porter) }) ==
 		  ActionManager::ENTER_MESSAGE_ENTER); // no contain module (RW 0x82CF22)
+	// the HUD's path: MSG_ENTER as CommandXlat writes it (argument 0 the entering object, argument 1 the container); the voice's target is the container
+	// (the owner's in-game check: the first id made the porter its own target and it said nothing for a building)
+	const ObjectID keep = r.make("Keep");
+	GameMessage m(MSG_ENTER, 0);
+	m.appendObjectIDArgument(porter);
+	m.appendObjectIDArgument(keep);
+	r.sink.clear();
+	PlayUnitVoiceForMessage(*r.voice, { porter }, m);
+	CHECK(r.sink.sounds == std::vector<std::string>{ "PorterGarrison" });
+	CHECK(r.voice->stats().calls >= 1); // tolerance: a precondition, the picker ran
 }
