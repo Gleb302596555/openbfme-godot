@@ -20,7 +20,7 @@ STUBS = r'''
 const std::vector<std::string> &RotwkBlockKeywords()
 {
 	static const std::vector<std::string> keywords = {
-		"AIBase", "ArmyDefinition", "Bridge", "FxThing", "MiscAudio", "Object", "Scheme", "Weapon",
+		"AIBase", "ArmyDefinition", "Bridge", "FxThing", "Logic", "MiscAudio", "Object", "Scheme", "Weapon",
 	};
 	return keywords;
 }
@@ -130,8 +130,19 @@ void parseLane(INI *ini, void *instance, void *, const void *)
 	TypedThingModuleData *d = static_cast<TypedThingModuleData *>(instance);
 	d->lanes[laneIndex(ini->getNextToken())] = 1;
 }
+// a nested block of any names, kept by name (SoundSelectorClientBehavior.cpp's kUnitSpecificTable: its one row the catch-all)
+void parseUnitSpecificLine(INI *ini, void *, void *store, const void *userData) { (*static_cast<NameMap *>(store))[(const char *)userData] = 1; }
+const FieldParse kUnitSpecific[] = {
+	{ nullptr, parseUnitSpecificLine, nullptr, 0 }
+};
+void parseUnitSpecific(INI *ini, void *instance, void *, const void *)
+{
+	ini->initFromINI(&static_cast<TypedThingModuleData *>(instance)->m_unitSpecific, kUnitSpecific);
+}
 
 const FieldParse kTyped[] = {
+	{ "UnitSpecificSounds", parseUnitSpecific, nullptr, 0 },
+	{ "Curve", Curve::parseCurve, nullptr, TT_OFF(m_curve) },
 	{ "Used", INI::parseReal, nullptr, TT_OFF(m_used) },
 	{ "Unused", &INI::parseReal, nullptr, TT_OFF(m_unused) },
 	{ "FX", parseFX, nullptr, 0 },
@@ -875,6 +886,81 @@ void FxStore::registerBlocks(INIBlockRegistry &registry)
 }
 '''
 
+# a block whose table a registration helper gives and ends in a catch-all row (GameLogicSettings.cpp's GameData): Speed is read; any other name, a
+# nested block whose key has no row included, is taken by the catch-all and applied nowhere; Order's nested block has a row of its own
+LOGIC_CPP = r'''
+struct BlockState
+{
+	float speed = 0.0f;
+	int order = 0;
+};
+const FieldParse kLogicFields[] = {
+	{ "Speed", INI::parseReal, nullptr, (int)offsetof(BlockState, speed) },
+	{ "Order", parseOrderBlock, nullptr, 0 },
+	{ nullptr, noteUnapplied, nullptr, 0 }
+};
+float speedOf(const BlockState &s) { return s.speed; }
+void Load::reg(const char *name, const FieldParse *table)
+{
+	m_env.blocks.registerBlock(name, [this, table](INI *ini) { ini->initFromINI(&m_state, table); });
+}
+Load::Load()
+{
+	reg("Logic", kLogicFields, 1u);
+}
+'''
+
+# a second reader of the Logic block with a table of its own, given after another argument (VisionSettings.cpp's Load m(nullptr,
+# "MultiplayerSettings", kMultiplayer, ..)), and a hand-written reader of the block's text (Shell.cpp's readGameDataBool(text, "ShellMapOn"))
+SHROUD_CPP = r'''
+struct ShroudState
+{
+	bool shroud = false;
+};
+const FieldParse kShroudFields[] = {
+	{ "Shroud", INI::parseBool, nullptr, (int)offsetof(ShroudState, shroud) },
+	{ nullptr, nullptr, nullptr, 0 }
+};
+bool shroudOf(const ShroudState &s) { return s.shroud; }
+bool loadShroud(ShroudState &s)
+{
+	Load m(nullptr, "Logic", kShroudFields, &s);
+	return m.run();
+}
+'''
+# a row's parser of another file calling a parse method on the object (FunctionCurve::parseFunctionCurve's curve->parse(ini)), whose table is
+# local to the method
+CURVE_CPP = r'''
+struct Curve
+{
+	float m_key = 0.0f;
+	float m_pad = 0.0f;
+};
+float keyOf(const Curve &c) { return c.m_key; }
+void Curve::parse(INI *ini)
+{
+	FieldParse fields[] = {
+		{ "Key", INI::parseReal, nullptr, (int)offsetof(Curve, m_key) },
+		{ "Pad", INI::parseReal, nullptr, (int)offsetof(Curve, m_pad) },
+		{ nullptr, nullptr, nullptr, 0 }
+	};
+	ini->initFromINI(this, fields);
+}
+void Curve::parseCurve(INI *ini, void *, void *store, const void *)
+{
+	auto *curve = reinterpret_cast<Curve *>(store);
+	curve->parse(ini);
+}
+'''
+
+SHELL_CPP = r'''
+bool shellOn(const std::string &text)
+{
+	bool inBlock = text == "logic";
+	return inBlock && readBool(text, "ShellOn");
+}
+'''
+
 RAW_CPP = r'''
 // RawThing keeps its lines (RawModuleData); one value is read by name
 int rawRadius(const RawModuleData &d) { return d.find("RawThing", "Radius"); }
@@ -889,6 +975,14 @@ Object TestUnit
   PreviewScale = 2
   VoiceSelect = TestUnitVoiceSelect
   VoiceFear = TestUnitVoiceFear
+  ReplaceModule ModuleTag_09
+    Behavior = TypedThing ModuleTag_10
+      Rare = 2
+      MeleeBehavior = Amoeba
+        FacingBonus = 10.0
+      End
+    End
+  End
   UnitSpecificSounds
     VoiceGarrison = TestUnitVoiceGarrison
     VoiceEnterUnitSecondUnit = A
@@ -936,6 +1030,14 @@ Object TestUnit
     TagB = X
     MeleeBehavior = Amoeba
       FacingBonus = 30.0
+    End      Lost = 1
+    Curve = FCurve
+      Key = 1
+      Pad = 2
+    End
+    UnitSpecificSounds
+      VoiceGarrison = TestUnitVoiceGarrison
+      VoiceNobody = A
     End
     Envelope InitialOpacity = 0.0 PeakOpacity = 1.0
     Bogus = 3
@@ -1036,6 +1138,21 @@ Bridge TestBridge
   Height = 2
   Depth = 3
 End
+
+Logic
+  Speed = 2
+  ShellMap = X
+  Shroud = Yes
+  ShellOn = Yes
+  BuildList Rohan
+    Structure Fort
+      Angle = 1
+    End
+  End
+  Order
+    Rank = 1
+  End
+End
 '''
 
 
@@ -1045,7 +1162,10 @@ def rw_tables(rw: Path):
         return {"rows": [{"name": n, "fn": fn, "offset": 0, "userData": 0} for n in names], "terminated": True}
     tables = {
         "0xa1": {"rows": table("Used", "Unused", "FX", "Bone", "PartWidth", "PartDepth", "Angle", "Slot", "Left", "Span", "Lane", "LateStep3", "RightFlag", "Regen%PerSecond", "Plain", "GlobalLateGain", "NightGlow", "DeathTypes", "Names", "Envelope", "Level", "Rare", "TagB", "Shared", "Copied", "Shown", "Factor")["rows"]
-                 + [{"name": "MeleeBehavior", "fn": "0xb3", "offset": 0, "userData": 0}], "terminated": True},
+                 + [{"name": "MeleeBehavior", "fn": "0xb3", "offset": 0, "userData": 0}, {"name": "UnitSpecificSounds", "fn": "0xb4", "offset": 0, "userData": 0},
+                    {"name": "Curve", "fn": "0xb6", "offset": 0, "userData": 0}],
+                 "terminated": True},
+        "0xac": table("Key", "Pad"),
         "0xa2": table("Radius", "Height"),
         "0xa3": table("Bar"),
         "0xa4": {"rows": [{"name": "AddEmotion", "fn": "0xb1", "offset": 0, "userData": 0}], "terminated": True},
@@ -1053,7 +1173,8 @@ def rw_tables(rw: Path):
         "0xa6": {"rows": [{"name": "BeginScript", "fn": "0xb2", "offset": 0, "userData": 0}, {"name": "Model", "fn": "0x1", "offset": 0, "userData": 0}],
                  "terminated": True},
         "0xa7": {"rows": table("BuildCost", "VisionRange", "PreviewDecal", "PreviewTint", "PreviewScale", "Behavior", "Draw")["rows"]
-                 + [{"name": n, "fn": "0xb4", "offset": 0, "userData": 0} for n in ("UnitSpecificSounds", "LookDecal", "Award", "Threat")],
+                 + [{"name": n, "fn": "0xb4", "offset": 0, "userData": 0} for n in ("UnitSpecificSounds", "LookDecal", "Award", "Threat")]
+                 + [{"name": "ReplaceModule", "fn": "0xb7", "offset": 0, "userData": 0}],
                  "terminated": True},
         "0xa9": table("FacingBonus"),
         "0xab": table("BaseLevel", "BaseFlag"),
@@ -1064,7 +1185,9 @@ def rw_tables(rw: Path):
                  "0xb2": {"kind": "script", "terminator": "ENDSCRIPT"},
                  # MeleeBehavior's table is picked by its value (RW 0x86C30A); UnitSpecificSounds' table takes any name
                  "0xb3": {"kind": "block", "tables": [], "dispatch": {"names": ["Swarm", "Amoeba"], "tables": [[], [{"extra": 0, "table": "0xa9"}]]}},
-                 "0xb4": {"kind": "block", "tables": [{"extra": 0, "table": "0xaa"}]}}
+                 "0xb4": {"kind": "block", "tables": [{"extra": 0, "table": "0xaa"}]}, "0xb6": {"kind": "block", "tables": [{"extra": 0, "table": "0xac"}]},
+                 # ReplaceModule's sub-table is the Object's own (a module inside, then its End)
+                 "0xb7": {"kind": "block", "tables": [{"extra": 0, "table": "0xa7"}]}}
     (rw / "field-tables.json").write_text(json.dumps({"tables": tables, "functions": functions, "objectTable": {"table": "0xa7", "extra": 0},
                                                       "audioTable": {"table": "0xa8", "extra": 292}}),
                                           encoding="utf-8")
@@ -1107,7 +1230,9 @@ def result(tmp_path_factory):
                       "GameLogic/GaugeUse.cpp": GAUGE_USE_CPP, "GameLogic/Module/BaseThing.h": BASE_H, "GameLogic/Module/BaseThing.cpp": BASE_CPP,
                       "GameLogic/Module/DerivedThing.cpp": DERIVED_CPP, "Common/Audio/Misc.h": MISC_H, "Common/Audio/Misc.cpp": MISC_CPP,
                       "GameClient/Click.cpp": CLICK_CPP, "GameClient/BridgeReader.h": BRIDGE_H, "GameClient/BridgeReader.cpp": BRIDGE_CPP,
-                      "GameClient/FxThing.h": FX_H, "GameClient/FxThing.cpp": FX_CPP, "GameLogic/System/Nugget.cpp": NUGGET_CPP}.items():
+                      "GameClient/FxThing.h": FX_H, "GameClient/FxThing.cpp": FX_CPP, "GameLogic/System/Nugget.cpp": NUGGET_CPP,
+                      "GameLogic/Logic.cpp": LOGIC_CPP, "GameLogic/Shroud.cpp": SHROUD_CPP,
+                      "GameClient/Shell.cpp": SHELL_CPP, "Common/Curve.cpp": CURVE_CPP}.items():
         (src / rel).parent.mkdir(parents=True, exist_ok=True)
         (src / rel).write_text(text, encoding="utf-8")
     rw = root / "rw"
@@ -1160,6 +1285,9 @@ def test_typed_module_fields(result):
     # a row of the base's table, added by an unqualified buildBaseFieldParse(p) of the base's file
     assert (status(result, "object", "DerivedThing", "BaseFlag"), result[0][("object", "DerivedThing", "BaseFlag")]["member"]) == ("used", "m_baseFlag")
     assert status(result, "object", "TypedThing", "Names") == "parsed-unused"  # `std::vector<std::string> m_names;` is a declaration, not a read
+    # a nested block read by a parse method its row's parser calls on the object (curve->parse(ini)): the method's local table
+    assert (status(result, "object", "TypedThing/Curve", "Key"), result[0][("object", "TypedThing/Curve", "Key")]["member"]) == ("used", "m_key")
+    assert status(result, "object", "TypedThing/Curve", "Pad") == "parsed-unused"
     # a read in a file naming the struct comes first (Other.cpp sorts before TypedThing.cpp); a read only in a file that never names it is marked
     assert status(result, "object", "TypedThing", "Level") == "used"
     assert result[0][("object", "TypedThing", "Level")]["where"] == "GameLogic/Module/Other.cpp:2 INFERENCE: the file does not name TypedThingModuleData"
@@ -1178,6 +1306,12 @@ def test_typed_module_fields(result):
 def test_rotwk_grammar_blocks(result):
     # a block whose table is picked by the value (MeleeBehavior = Amoeba): its rows are the block's, its End is not the module's
     assert ("object", "TypedThing/MeleeBehavior", "FacingBonus") in result[0]
+    # its `End      Lost = 1` (a lost line break) is its End: INI reads the first token, the rest of the line is not read
+    assert not any(k[1].startswith("TypedThing/MeleeBehavior") and k[2] in ("End", "Lost") for k in result[0])
+    assert ("object", "TypedThing/UnitSpecificSounds", "VoiceGarrison") in result[0]
+    # ReplaceModule's module (with a block of its own inside) and both Ends: the Object goes on after them
+    assert result[0][("object", "TypedThing", "Rare")]["uses"] == 2 and result[0][("object", "TypedThing/MeleeBehavior", "FacingBonus")]["uses"] == 2
+    assert not result[1]["unclosed"] and ("object", "", "LookDecal") in result[0]
     # a sub-table taking any name (UnitSpecificSounds): its lines are the block's, not the Object's
     assert ("object", "/UnitSpecificSounds", "VoiceGarrison") in result[0]
     assert ("object", "", "VoiceGarrison") not in result[0]
@@ -1263,6 +1397,17 @@ def test_definition_fields(result):
     assert (status(result, "bridge", "", "Height"), result[0][("bridge", "", "Height")]["where"]) == ("used", "GameClient/BridgeReader.cpp:14")
     assert status(result, "bridge", "", "Depth") == "parsed-unused"
     assert ("object", "SecondUnit", "Used") not in result[0]
+    # the block table's catch-all row takes a name no row has, and a nested block whose key has no row: loaded, applied nowhere (S-152)
+    assert status(result, "logic", "", "Speed") == "used"
+    catch = f"GameLogic/Logic.cpp:{next(i for i, x in enumerate(LOGIC_CPP.splitlines(), 1) if 'noteUnapplied' in x)}"
+    for owner, field in (("", "ShellMap"), ("/BuildList/Structure", "Angle")):
+        row = result[0][("logic", owner, field)]
+        assert (row["status"], row["how"]) == ("not-read", "catch-all") and row["where"].startswith(catch + " (the catch-all row: noteUnapplied"), field
+    assert status(result, "logic", "/Order", "Rank") == "no-table-row"  # Order has a row: its parser's table is not followed here
+    # the block's second reader has a row of it; a hand-written reader of the block's text names it (a hand check)
+    assert (status(result, "logic", "", "Shroud"), result[0][("logic", "", "Shroud")]["member"]) == ("used", "shroud")
+    shell = result[0][("logic", "", "ShellOn")]
+    assert (shell["status"], shell["where"]) == ("own-reader", "GameClient/Shell.cpp:" + str(next(i for i, x in enumerate(SHELL_CPP.splitlines(), 1) if "ShellOn" in x)))
 
 
 def army_line(needle: str) -> str:
@@ -1317,6 +1462,7 @@ def test_manual_verdicts(result, tmp_path):
                       "object\tTypedThing\tUnused\tcustom-parser\tused\tx.cpp:1\n"  # the tool now says parsed-unused: neither
                       "object\tTypedThing\tNames\tparsed-unused\tused\tx.cpp:2\n"  # the tool now asks for a hand check: no conflict
                       "object\t\tGone\tparsed-unused\tparsed-unused\tnone\n"
+                      "object\tTypedThing\tRegen%PerSecond\tused\tused\tx.cpp:3\n"  # a '%' in the name
                       "aidata\t\t(75 fields)\tstub-block\tused\tGameLogicSettings.cpp:401\n", encoding="utf-8")
     by = {(r["block"], r["owner"], r["field"]): r for r in rows}
     by[("object", "TypedThing", "Names")]["status"] = "custom-parser"  # (FormationPreviewItemDecal: parsed-unused when checked, custom-parser now)
@@ -1324,7 +1470,7 @@ def test_manual_verdicts(result, tmp_path):
     fx = by[("object", "TypedThing", "FX")]
     assert (fx["status"], fx["tool"], fx["how"]) == ("used", "used", "manual")
     assert fx["where"] == "GameLogic/Module/TypedThing.cpp:79 MANUAL: parseFX stores m_fx"
-    assert got["applied"] == 3
+    assert got["applied"] == 4 and by[("object", "TypedThing", "Regen%PerSecond")]["how"] == "manual"
     assert [(c["field"], now) for c, now, _ in got["conflicts"]] == [("Unused", "parsed-unused")]
     assert [c["field"] for c in got["unmatched"]] == ["Gone"] and [c["field"] for c in got["skipped"]] == ["(75 fields)"]
     fa.write(rows, tmp_path, [], {}, got)
@@ -1343,6 +1489,10 @@ def test_by_name_block(result):
     # VoiceSelect = TestUnitVoiceSelect names it, and VoiceSelect is read
     assert status(result, "object", "/UnitSpecificSounds", "TestUnitVoiceSelect") == "used"
     assert result[0][("object", "/UnitSpecificSounds", "TestUnitVoiceSelect")]["where"].startswith("named by object/VoiceSelect (used")
+    # a module's UnitSpecificSounds (a sound selector's, its table a catch-all row): asked for through the same reader
+    assert (status(result, "object", "TypedThing/UnitSpecificSounds", "VoiceGarrison"),
+            result[0][("object", "TypedThing/UnitSpecificSounds", "VoiceGarrison")]["how"]) == ("used", "by-name")
+    assert status(result, "object", "TypedThing/UnitSpecificSounds", "VoiceNobody") == "parsed-unused"
 
 
 def test_object_nested_readers(result):

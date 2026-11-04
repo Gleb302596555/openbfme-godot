@@ -40,8 +40,10 @@ Statuses, from the worst:
   stub-block       the definition's block keyword is a recording stub: the block is skipped, no value is kept
   raw              the runtime class is ported but its data is raw: no value is parsed (unless a raw reader names the field: used-raw)
   struct-unknown   the coverage says typed, but no binding in the source names the data struct (the tool cannot follow it)
-  no-table-row     the class's (or the block's) tables have no row of that name (the engine would refuse it: the tool missed a table, or a nested parser)
-  not-read         a hand check found that nothing reads the line (--manual only)
+  no-table-row     the class's (or the block's) tables have no row of that name and no catch-all row (the engine would refuse it: the tool missed a
+                   table, or a nested parser)
+  not-read         nothing reads the line: a hand check (--manual), or the block table's catch-all row takes the name and applies nothing
+                   (how catch-all: GameLogicSettings.cpp's noteUnapplied for GameData, AIData and MultiplayerSettings, stop S-152)
   unmapped-block   no struct of the port is known for that definition type (DEF_STRUCTS)
   parsed-unused    the value is parsed into a member that nothing reads
   custom-parser    the row's own parser stores it where the tool cannot follow (no member named in its body): check by hand
@@ -213,13 +215,15 @@ def mod_fields(vfs, block_types: set[str], diag: dict | None = None, grammar: "G
                     i = j
                 elif kind is not None and kind[0] == "block":
                     add(owner, key, value, s)
-                    if opens_block(lines, i + 1, kind[1], node):
+                    if opens_block(lines, i + 1, kind[1], node, classes):
                         stack.append((owner + "/" + key, kind[1]))
-                elif kind is not None or "=" in t:
+                elif kind is not None or ("=" in t and key.lower() != "end"):
                     add(owner, key, value, s)
                     if kind is None and key.lower() in eg.BLOCK_KEYS:
                         stack.append((owner + "/" + key, None))
-                elif tk[0].lower() == "end":
+                elif key.lower() == "end":
+                    # INI's first token closes the block, the rest of the line is not read (ZH INI::initFromINIMulti; INI.cpp:699): a mod's
+                    # `End            StateName    = Sword` (a lost line break) ends the block there
                     if not stack:
                         i += 1
                         break
@@ -276,10 +280,11 @@ def headers(lines, j: int, block_types: set[str], line_names: set[str] = frozens
     return out
 
 
-def block_end(lines, j: int, child: dict | None) -> int:
+def block_end(lines, j: int, child: dict | None, classes: dict | None = None) -> int:
     """the index of the End closing a block-kind row's sub-table that starts at line j, or -1 when the row is one line: the lines up to that End
     must all be rows of the sub-table (a script row skips to its EndScript, a block row inside recurses). A block row can be one line (AddEmotion
-    opens its nugget only after OVERRIDE, RW 0x8B618C), and then the next line is the parent's. Without a sub-table the next End closes it."""
+    opens its nugget only after OVERRIDE, RW 0x8B618C), and then the next line is the parent's. Without a sub-table the next End closes it. A
+    module inside (`Behavior = <Class> <tag>` .. End: ReplaceModule's, AddModule's) is passed over up to its own End (module_end)."""
     while j < len(lines):
         t = lines[j][0]
         key = (t.split("=", 1)[0] if "=" in t else t).split()
@@ -292,6 +297,14 @@ def block_end(lines, j: int, child: dict | None) -> int:
         if child is None:
             j += 1
             continue
+        if classes is not None and k in MODULE_KEYS and "=" in t:
+            vt = t.split("=", 1)[1].replace("=", " ").split()
+            if vt:
+                j = module_end(lines, j + 1, classes.get(vt[0]))
+                if j < 0:
+                    return -1
+                j += 1
+                continue
         if row_kind(child, k) is None:
             return -1
         kind, grand = row_kind(child, k)
@@ -306,11 +319,33 @@ def block_end(lines, j: int, child: dict | None) -> int:
     return -1
 
 
-def opens_block(lines, j: int, child: dict | None, parent: dict | None = None) -> bool:
+def module_end(lines, j: int, node: dict | None) -> int:
+    """the index of a module's End from line j: its block rows' sub-tables and its scripts are passed over; a line its class's table does not
+    name (the mod's own error, or a class RotWK does not know) is one line"""
+    while j < len(lines):
+        t = lines[j][0]
+        key = (t.split("=", 1)[0] if "=" in t else t).split()
+        if key:
+            k = key[0].lower()
+            if k == "end":
+                return j
+            kind = row_kind(node, k) if node is not None else None
+            if kind and kind[0] == "script":
+                while j < len(lines) and lines[j][0].split()[0].lower() != "endscript":
+                    j += 1
+            elif kind and kind[0] == "block":
+                e = block_end(lines, j + 1, kind[1])
+                if e >= 0:
+                    j = e
+        j += 1
+    return -1
+
+
+def opens_block(lines, j: int, child: dict | None, parent: dict | None = None, classes: dict | None = None) -> bool:
     """whether the block-kind row before line j opens its sub-table. The End found must also leave the parent open: the line after it is a row of
     the parent or the parent's End. (`AddEmotion = Alert_Base` as the module's last row is followed by the module's End, which the next line, a
     Behavior of the Object, proves is not the nugget's.)"""
-    e = block_end(lines, j, child)
+    e = block_end(lines, j, child, classes)
     if e < 0:
         return False
     if parent is None:
@@ -424,6 +459,8 @@ ROW_BRACE = re.compile(r"\{\s*\"([A-Za-z0-9_%]+)\"\s*,\s*&?\s*([\w:<>]+)\s*,\s*(
 ROW_CALL = re.compile(r"\b(\w+)\s*\(\s*(?:([\w:]+)\s*,\s*)?\"([A-Z][A-Za-z0-9_%]*)\"\s*,\s*&?\s*([\w:]+)\s*,([^;]*?)\)\s*[,;)}]")
 ROW_STRUCT_FIRST = re.compile(r"\b(\w+)\s*\(\s*([\w:]+)\s*,\s*\"([A-Z][A-Za-z0-9_%]*)\"\s*,\s*([\w.]+)\s*\)")
 TABLE = re.compile(r"\bFieldParse\s+(\w+)\s*\[\s*\]\s*=")
+# a table's catch-all row: no name, a parser (GameLogicSettings.cpp's `{ nullptr, noteUnapplied, nullptr, 0 }`); the end row has no parser
+CATCH_ALL_ROW = re.compile(r"\{\s*(?:nullptr|NULL)\s*,\s*(?!(?:nullptr|NULL)\b)(\w+)\s*,")
 FUNC = re.compile(r"^\s*(?:[\w:<>\*&,]+\s+)*?[\*&]?((?:\w+::)?~?\w+)\s*\(")
 NOT_FUNC = {"if", "for", "while", "switch", "return", "sizeof", "static_assert", "catch", "namespace"}
 STRUCT_DECL = re.compile(r"^\s*(?:template\s*<[^>]*>\s*)?(?:struct|class)\s+(?:\w+\s+)?(\w+)\s*(?:final\s*)?(?::\s*([^{;]+))?\{?\s*$")
@@ -499,6 +536,7 @@ class Source:
         self.decl_all: dict[str, list[str]] = defaultdict(list)  # struct -> every file declaring a struct of that name
         self.includes: dict[str, set[str]] = defaultdict(set)
         self.macro_rows: dict[str, list] = defaultdict(list)  # a multi-line #define's rows (DM_ROWS(T)): expanded where the macro is used
+        self.catch_alls: dict[tuple[str, str], tuple[str, int]] = {}  # (file, table) -> (the catch-all row's parser, its line)
         for f, lines in self.files.items():
             self._scan(f, lines)
         self._infer_custom_members()
@@ -624,6 +662,9 @@ class Source:
             t = TABLE.search(code)
             if t:
                 table = t.group(1)
+            c = CATCH_ALL_ROW.search(code) if table else None
+            if c:
+                self.catch_alls.setdefault((f, table), (c.group(1), n))
             for field, parser, member, struct in self._rows(code, macros, res):
                 self.rows.append(Row(field, parser, member, struct, f, table or "", func or pending, n))
                 self.row_lines.add((f, n))
@@ -973,6 +1014,11 @@ class Source:
                 out += [r for r in self.rows if r.file in {k[0] for k in keys} and r.func.split("::")[-1] in calls and r not in out]
             for m in re.finditer(r"\b(k\w+)\b", text):
                 out += [r for r in self.rows if r.table == m.group(1)]
+            # a parse method it calls on an object of a class its body names (FunctionCurve::parseFunctionCurve's curve->parse(ini), the table
+            # local to FunctionCurve::parse)
+            for name in set(re.findall(r"(?:->|\.)\s*([Pp]arse\w*)\s*\(", text)):
+                out += [r for r in self.rows if "::" in r.func and r.func.split("::")[-1] == name and r.func.split("::")[0] != "INI"
+                        and re.search(r"\b" + re.escape(r.func.split("::")[0]) + r"\b", text)]
             if depth > 1:
                 for m in set(re.findall(r"\b(parse\w+|Parse\w+)\s*\(", text)):
                     if m != short:
@@ -1367,16 +1413,27 @@ class Source:
         """the files registering a parser for the block keyword (registerBlock("Keyword", ...) or INIBlockStubs.cpp's keyword == "Keyword")"""
         if not hasattr(self, "_block_files"):
             self._block_files: dict[str, set[str]] = defaultdict(set)
+            self._block_tables: dict[str, set[tuple[str, str]]] = defaultdict(set)
             tables = {(r.file, r.table) for r in self.rows if r.table}
             for f, lines in self.files.items():
                 for line in lines:
                     for k in re.findall(r"registerBlock\(\s*\"(\w+)\"", line):
                         self._block_files[k.lower()].add(f)
-                    # a registration helper given the keyword and its table: reg("AIData", kAIDataFields, 2u) (GameLogicSettings.cpp)
-                    for k, t in re.findall(r"\b\w+\(\s*\"([A-Z]\w+)\"\s*,\s*(k\w+)\s*[,)]", line):
+                    # a registration helper given the keyword and its table: reg("AIData", kAIDataFields, 2u) (GameLogicSettings.cpp), a loader
+                    # given them after other arguments (VisionSettings.cpp's Load m(nullptr, "MultiplayerSettings", kMultiplayer, ..))
+                    for k, t in re.findall(r"\b\w+\s*\((?:[^()\"]*,)?\s*\"([A-Z]\w+)\"\s*,\s*(k\w+)\s*[,)]", line):
                         if (f, t) in tables:
                             self._block_files[k.lower()].add(f)
+                            self._block_tables[k.lower()].add((f, t))
         return self._block_files.get(keyword.lower(), set())
+
+    def catch_all(self, keyword: str) -> tuple[str, str, str, int] | None:
+        """(file, table, parser, line) of the catch-all row of the table a registration helper gives the block (GameLogicSettings.cpp's GameData,
+        AIData and MultiplayerSettings: `{ nullptr, noteUnapplied, nullptr, 0 }` takes every name no row has, nested blocks included, records it
+        unapplied and applies nothing, stop S-152); None without one"""
+        self.block_files(keyword)
+        return next(((f, t, *self.catch_alls[(f, t)]) for f, t in sorted(self._block_tables.get(keyword.lower(), ())) if (f, t) in self.catch_alls),
+                    None)
 
     def block_parser_rows(self, keyword: str) -> list[Row]:
         """the rows of the parser a registerBlock("Keyword", lambda) calls: the tables the lambda names and the parse functions it calls
@@ -1539,6 +1596,16 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
                     hit = next((f"{f}:{n}" for f, n in src.string_lines(numbered.group(1)) if f in fs and "to_string" in src.files[f][n - 1]), "")
                 if hit:
                     return dynamic_status(field, hit, numbered)
+        if not cands and block:
+            # a name no row of the block's table has, or a nested block whose key has none, falls to the table's catch-all row: the port loads it
+            # and applies nothing (the name is in RotWK's own table or the mod's error; the field is not read either way)
+            ca = src.catch_all(block)
+            if ca and not (block_path and any(r.file == ca[0] and r.table == ca[1] and r.field.lower() == block_path[0].lower() for r in src.rows)):
+                # unless a hand-written reader of the block's text names it (Shell.cpp's readGameDataBool(text, "ShellMapOn")): a hand check
+                hit = next(((f, n) for f, n in src.string_lines(field) if f in src.own_reader_files(block) and f != ca[0]), None)
+                if hit:
+                    return "own-reader", f"{hit[0]}:{hit[1]}", "", "string"
+                return "not-read", f"{ca[0]}:{ca[3]} (the catch-all row: {ca[2]} records it unapplied, S-152)", "", "catch-all"
         if not cands:
             return "no-table-row", "", "", how
         followed = False
@@ -1613,6 +1680,11 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
                     status = "struct-unknown"
                 else:
                     status, where, member, how = typed_status(field, [struct], nested, path=tuple(owner.split("/")[1:]))
+                    last = "/" + owner.split("/")[-1].lower()
+                    if status == "no-table-row" and nested and last in BY_NAME_BLOCKS:
+                        # a module's block of any names (a sound selector's UnitSpecificSounds: SoundSelectorClientBehavior.cpp's kUnitSpecificTable,
+                        # a catch-all row) is asked for by the Object's reader (UnitVoiceResponse::objectNameVoice asks the selectors first)
+                        status, where, how = by_name(BY_NAME_BLOCKS[last], field, object_names)
                 if cov["status"] == "parsed-only" and status in ("used", "parsed-unused"):
                     status = "parsed-only-module"
         elif typ == "object":
@@ -1716,7 +1788,13 @@ NESTED_DEF_STRUCTS = {
 KNOWN_LIMIT = ("text in quotes and comments, a local or a parameter of the member's name and a declaration are not taken for reads any more; "
                "a member of another struct with the same name, read in a file that names our struct too, still is (its where is marked AMBIGUOUS and can "
                "point at the other struct's read; the status is wrong only when our member has no read of its own). STAGED, INFERENCE and "
-               "AMBIGUOUS in where are leads to check by hand.")
+               "AMBIGUOUS in where are leads to check by hand; so is `INFERENCE: its parser names several members` (one parser stores several "
+               "members, which one is this row's is not told) and `(asks for the row by name)` (a literal of the row's name in a reader). "
+               "Every .ini of the archives is read, also one the game never loads (fxparticlesystemcustom.ini: its InitFile is commented out in "
+               "default/subsystemlegend.ini), so such a file's fields are reported as if loaded. Outside RotWK's grammar a line without '=' "
+               "opens a block only when an End closes it (headers()). Rows a builder makes at run time (name arrays, a loop's number, add(..)) "
+               "are followed only in the forms the tool knows; the rest stay no-table-row. A catch-all row (GameLogicSettings.cpp's "
+               "noteUnapplied, S-152) gives not-read: the port loads the field and applies nothing.")
 COLS = ["status", "block", "owner", "field", "defs", "uses", "struct", "member", "where", "how", "stop", "values", "src", "tool"]
 
 # a hand-checked verdict (manual-check.tsv, columns block owner field status-tool verdict where note)
@@ -1738,7 +1816,7 @@ def apply_manual(rows, path: Path) -> dict:
     out = {"applied": 0, "conflicts": [], "unmatched": [], "skipped": []}
     for c in checks:
         key = (c["block"], c["owner"], c["field"])
-        if c["verdict"] not in VERDICTS or not re.fullmatch(r"[\w.]+", c["field"] or ""):
+        if c["verdict"] not in VERDICTS or not re.fullmatch(r"[\w.%]+", c["field"] or ""):  # (a '%' in a name: HoleHealthRegen%PerSecond)
             out["skipped"].append(c)
             continue
         r = by_key.get(key)
