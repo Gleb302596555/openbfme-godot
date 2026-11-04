@@ -532,4 +532,11 @@ TEST_CASE("TOP20-9 enter voice: VoiceGarrison into a structure, VoiceGetHealed o
 	PlayUnitVoiceForMessage(*r.voice, { porter }, m);
 	CHECK(r.sink.sounds == std::vector<std::string>{ "PorterGarrison" });
 	CHECK(r.voice->stats().calls >= 1); // tolerance: a precondition, the picker ran
+	// the target argument by message layout (the writers: CommandXlat, GUICommandTranslator), not "the first object id"
+	CHECK(UnitVoiceResponse::voiceTargetArgument(MSG_ENTER) == 1);
+	CHECK(UnitVoiceResponse::voiceTargetArgument(MSG_DO_WEAPON_AT_OBJECT) == 1);
+	CHECK(UnitVoiceResponse::voiceTargetArgument(MSG_DO_ATTACK_OBJECT) == 0);
+	CHECK(UnitVoiceResponse::voiceTargetArgument(MSG_DO_GUARD_OBJECT) == 0);
+	CHECK(UnitVoiceResponse::voiceTargetArgument(MSG_CREATE_SELECTED_GROUP) == -1);
+	CHECK(UnitVoiceResponse::voiceTargetArgument(MSG_DO_MOVETO) == -1);
 }

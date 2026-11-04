@@ -228,6 +228,35 @@ UnitVoiceResponse::Voice UnitVoiceResponse::unitSpecificVoice(const ThingTemplat
 	return value.empty() ? Voice() : parseVoiceValue(value, std::string());
 }
 
+int UnitVoiceResponse::voiceTargetArgument(int msgType)
+{
+	// TOP20 #9 (the owner's check, 2026-11-04: a horde entering a building said nothing): the target is the object RW 0x8DD74F takes from the pick info (+ 4,
+	// the drawable under the cursor), i.e. the message argument the logic case reads as the target. The layouts are the producers' (this port's message
+	// writers); guessing "the first object id" made MSG_ENTER's entering object its own target
+	switch (msgType)
+	{
+		case MSG_DO_ATTACK_OBJECT:       // CommandXlat: (target, ...)
+		case MSG_DO_FORCE_ATTACK_OBJECT: // CommandXlat: (target, location)
+		case MSG_DO_GUARD_OBJECT:        // GUICommandTranslator: (target, mode)
+		case MSG_DOCK:                   // CommandXlat: (dock)
+			return 0;
+		case MSG_DO_WEAPON_AT_OBJECT:    // GUICommandTranslator: (weapon slot, target, max shots)
+		case MSG_ENTER:                  // CommandXlat: (entering object, container); the logic case RW 0x77AC26 reads argument 1
+			return 1;
+		case MSG_GET_REPAIRED:           // no writer in the port; ZH CommandXlat writes the target alone
+		case MSG_GET_HEALED:
+		case MSG_DO_SALVAGE:
+		case MSG_DOZER_CONSTRUCT:
+		case MSG_RESUME_CONSTRUCTION:
+		case MSG_COMBATDROP_AT_OBJECT:
+		case MSG_DO_REPAIR:
+		case MSG_HARVEST:
+			return 0;
+		default:                         // selections (their ids are the selection, not a target), locations, events: no target
+			return -1;
+	}
+}
+
 bool UnitVoiceResponse::handles(int msgType)
 {
 	switch (msgType)
@@ -1208,22 +1237,17 @@ void PlayUnitVoiceForMessage(UnitVoiceResponse &voice, const std::vector<ObjectI
 	{
 		return;
 	}
-	// ZH PickAndPlayInfo from the command: the target object and the location the command carries (the select messages carry the selected ids, not a target)
+	// ZH PickAndPlayInfo from the command: the target object (the argument voiceTargetArgument names) and the first location the command carries
 	UnitVoiceResponse::Info info;
-	const bool selects = type == MSG_CREATE_SELECTED_GROUP || type == MSG_CREATE_SELECTED_GROUP_IDLE_WORKER_VOICE || type == MSG_CREATE_SELECT_ALL_GROUP ||
-		(type >= MSG_SELECT_TEAM0 && type <= MSG_SELECT_TEAM9);
-	// TOP20 #9 (the owner's check, 2026-11-04): MSG_ENTER carries the entering object first and the container second (CommandXlat's MSG_ENTER, the logic case
-	// RW 0x77AC26 reads argument 1); the voice's target is the container, the drawable under the cursor RW 0x8DD74F reads from the pick info (+ 4). Taking
-	// the first id made the entering horde its own target: never a STRUCTURE, so VoiceGarrison was never asked
-	const size_t firstTargetArg = type == MSG_ENTER ? 1u : 0u;
-	for (size_t i = firstTargetArg; i < msg.getArgumentCount(); ++i)
+	const int targetArg = UnitVoiceResponse::voiceTargetArgument(type);
+	if (targetArg >= 0 && (size_t)targetArg < msg.getArgumentCount() && msg.getArgument((size_t)targetArg)->type == ARGUMENTDATATYPE_OBJECTID)
+	{
+		info.target = msg.getArgument((size_t)targetArg)->objectID;
+	}
+	for (size_t i = 0; i < msg.getArgumentCount(); ++i)
 	{
 		const GameMessageArgument *a = msg.getArgument(i);
-		if (!selects && a->type == ARGUMENTDATATYPE_OBJECTID && info.target == INVALID_ID)
-		{
-			info.target = a->objectID;
-		}
-		else if (a->type == ARGUMENTDATATYPE_LOCATION && !info.hasPosition)
+		if (a->type == ARGUMENTDATATYPE_LOCATION && !info.hasPosition)
 		{
 			info.hasPosition = true;
 			info.position = a->location;
