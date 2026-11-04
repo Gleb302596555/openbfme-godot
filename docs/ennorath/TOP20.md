@@ -45,7 +45,19 @@
 | 19 | `Object/EmotionRange` | 547 | parsed-unused | чтения нет | эмоции юнитов | открыто |
 | 20 | `ActiveBody/CheerRadius` (+ `RespawnBody/CheerRadius` 246) | 505 | parsed-unused | разобрано (`ActiveBody.cpp:85`), чтения нет | радиус ликования | открыто |
 
-Сразу за двадцаткой: `CampnessValue` 446 (S-560), `HordeAIUpdate` (raw, 404: `AutoAcquireEnemiesWhenIdle`, `MinCowerTime`, `MaxCowerTime`, `MoodAttackCheckRate`, `AttackPriority`), `OCL CreateObject/FadeIn` 462 и `FadeTime` 412, `ActiveBody/BurningDeathFX` 448, `MeshNameMatches` (stub-block, 380), `Weapon/HitPassengerPercentage` 320 (S-321).
+Просмотрено 2026-11-04 (станция claude/station-2), не взято как большое; адреса для того, кто возьмётся:
+
+- 7 `ThingClass`: потребитель записи RW 0x912BBC вызывается из RW 0x912F49, дальше не прослежен.
+- 8 `UseStandardModelNames`: читается в поиске LOD-модели для орд (RW 0x4C27D4, рядом сообщения о `StaticModelLODMode`), это отрисовка.
+- 9 `VoiceGarrison`: RW 0x8DF68E выбирает `VoiceGetHealed` / `VoiceGarrison` / `VoiceEnter` по KindOf цели, но только для вида входа `[ebp-0x84]` = 0xB9 (RW 0x8DF50D), а вид — это классификация действия, стоп S-704.
+- 12 `DoCaptureFX`: RW 0x852B14 .. 0x852C88 — вспышка drawable цели цветом игрока (RW 0x678FA7), поиск соседнего объекта (RW 0xA39090) и сообщение интерфейса; поле + 0x70 — состояние логики.
+- 14 `LevelUpTint*`: в порту нет оттенков drawable (TintEnvelope).
+- 17 `ShowPips`: порт не рисует значки контейнера.
+- 19 `EmotionRange`: объект копирует его в + 0x1BC (RW 0x699DFD), читатель не найден; порт берёт радиус обзора (EmotionModules.cpp:667).
+- 20 `CheerRadius`: RW 0x8C3B89 (виртуальный, ActiveBody) ищет объекты в радиусе (RW 0xA39340) и просит у каждого эмоцию (RW 0x68F37F); путь эмоций RW 0x68F37F в порту не запущен (`emotionsNotRun`, ExperienceWorld).
+- `ActiveBody/BurningDeathFX`: часть механики сгорания в attemptDamage (RW 0x8C417D ..), которой в порту нет.
+
+Сразу за двадцаткой: `CampnessValue` 446 (S-560), `HordeAIUpdate` (raw, 404: `AutoAcquireEnemiesWhenIdle`, `MinCowerTime`, `MaxCowerTime`, `MoodAttackCheckRate`, `AttackPriority`), `OCL CreateObject/FadeIn` 462 и `FadeTime` 412 (исправлено вместе с `FadeOut` и `FadeSound`, ждёт: владельца — RW 0x5F1678 .. 0x5F17A6, узкий тест `TOP20-OCL fade*`), `ActiveBody/BurningDeathFX` 448, `MeshNameMatches` (stub-block, 380), `Weapon/HitPassengerPercentage` 320 (S-321).
 
 ## Убрано из главных
 

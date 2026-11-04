@@ -16,6 +16,7 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "Common/XferLoad.h"
 #include "Common/XferSave.h"
+#include "GameClient/ClientEvents.h"
 #include "GameClient/FXList.h"
 #include "GameLogic/AttributeModifiers.h"
 #include "GameLogic/BitFlags.h"
@@ -697,4 +698,51 @@ TEST_CASE("summon1 OCL: a CreateDebris nugget is counted and noted as S-530")
 		noted = noted || s.find("[S-530] ObjectCreationList: not run: CreateDebris") != std::string::npos;
 	}
 	CHECK(noted);
+}
+
+// TOP20 (just past the twenty: OCL CreateObject FadeIn / FadeOut / FadeTime), RW 0x5F1678 .. 0x5F17A6: FadeIn fades the created object's drawable in
+// (RW 0x670AA2), FadeOut fades it out (RW 0x670A50), over FadeTime as parsed (a duration: 1000 ms = 5 logic frames), handed to the drawable unscaled
+TEST_CASE("TOP20-OCL fade: CreateObject FadeIn / FadeOut fade each created object's drawable over FadeTime (RW 0x5F1731 / 0x5F1797)")
+{
+	OCLWorld f(
+		"ObjectCreationList OCL_FadeIn\n  CreateObject\n    ObjectNames = Dummy\n    Count = 2\n    FadeIn = Yes\n    FadeTime = 1000\n  End\nEnd\n"
+		"ObjectCreationList OCL_FadeOut\n  CreateObject\n    ObjectNames = Dummy\n    FadeOut = Yes\n    FadeTime = 2000\n  End\nEnd\n"
+		"ObjectCreationList OCL_NoFade\n  CreateObject\n    ObjectNames = Dummy\n    FadeTime = 2000\n  End\nEnd\n");
+	ClientEventRecorder events(*f.logic);
+	f.logic->setClientHooks(&events);
+	struct Unhook
+	{
+		GameLogic &logic;
+		~Unhook() { logic.setClientHooks(nullptr); } // before the recorder goes, even when a REQUIRE ends the test
+	} unhook{ *f.logic };
+	Object *source = f.unit("Swordsman", 'A', 200, 200);
+	events.take();
+	auto fadesOf = [&](const char *list, ClientEvent::Kind kind) {
+		const std::vector<Object *> made = f.list(list).create(*f.logic, source, Coord3D{ 500, 500, 0 }, nullptr);
+		std::vector<std::pair<ObjectID, UnsignedInt>> fades;
+		for (const ClientEvent &e : events.take(false))
+		{
+			if (e.kind == kind)
+			{
+				fades.push_back({ e.object, e.fadeFrames });
+			}
+		}
+		std::vector<ObjectID> ids;
+		for (Object *o : made)
+		{
+			ids.push_back(o->getID());
+		}
+		return std::make_pair(ids, fades);
+	};
+	const auto in = fadesOf("OCL_FadeIn", ClientEvent::FADE_IN);
+	REQUIRE(in.first.size() == 2);
+	REQUIRE(in.second.size() == 2);
+	CHECK(in.second[0] == std::make_pair(in.first[0], (UnsignedInt)5));
+	CHECK(in.second[1] == std::make_pair(in.first[1], (UnsignedInt)5));
+	const auto out = fadesOf("OCL_FadeOut", ClientEvent::FADE_OUT);
+	REQUIRE(out.first.size() == 1);
+	REQUIRE(out.second.size() == 1);
+	CHECK(out.second[0] == std::make_pair(out.first[0], (UnsignedInt)10));
+	CHECK(fadesOf("OCL_NoFade", ClientEvent::FADE_IN).second.empty());
+	CHECK(fadesOf("OCL_NoFade", ClientEvent::FADE_OUT).second.empty());
 }

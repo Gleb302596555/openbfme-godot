@@ -9,6 +9,7 @@
 
 #include "GameLogic/ObjectCreationList.h"
 
+#include "Common/Audio/AudioRequests.h"
 #include "Common/BuildAssistant.h"
 #include "Common/INIException.h"
 #include "Common/Player.h"
@@ -378,6 +379,63 @@ Coord3D velocityOf(const Object &source)
 	const float *b = source.getBasis();
 	const float speed = speedOf(source);
 	return Coord3D{ SimMath::mulf32(b[0], speed), SimMath::mulf32(b[3], speed), SimMath::mulf32(b[6], speed) };
+}
+
+// TOP20 (OCL CreateObject FadeIn / FadeOut / FadeTime / FadeSound), RW 0x5F1678 .. 0x5F17A6, after the object is made and placed:
+//   * FadeIn (+ 0xAC): an AudioEventRTS of FadeSound (+ 0x7C, RW 0x6DA95E) for the source's id (+ 0x74, RW 0x6DA6A7; none without a source) added through
+//     TheAudio's slot 0x64; then a HORDE (template + 0x115 bit 0x20) fades in every member of its contain's list (+ 0x258 slot 0x78, then slot 0x108; a
+//     horde without a contain or a list fades nothing), any other object fades its own drawable in (RW 0x670AA2), over FadeTime (+ 0x78) as it is;
+//   * FadeOut (+ 0xAD): the same sound, then the object's own drawable fades out (RW 0x670A50) over FadeTime, a horde's members are not walked.
+// FadeTime is parsed as a duration (logic frames) and handed to the drawable unscaled, which counts client frames (RW 0x5F170A / 0x5F178A push + 0x78 as
+// is). The drawables are the client's (ObjectClientHooks); no logic state changes. INFERENCE: an empty FadeSound plays nothing in retail (no event of that
+// name), so the port does not post it.
+void fadeCreated(GameLogic &logic, const OCLNugget &n, Object &o, const Object *source)
+{
+	if (!n.fadeIn && !n.fadeOut)
+	{
+		return;
+	}
+	ObjectClientHooks *client = logic.clientHooks();
+	auto fadeSound = [&]() {
+		if (!n.fadeSound.empty())
+		{
+			AudioApi::playSoundForObject(n.fadeSound, source ? (std::uint32_t)source->getID() : 0u);
+		}
+	};
+	if (n.fadeIn)
+	{
+		fadeSound();
+		if (client)
+		{
+			if (o.isKindOf((unsigned)CombatNames::kinds().horde))
+			{
+				const ContainModuleInterface *contain = o.getContain();
+				const ContainModuleInterface::ContainedItemsList *members = contain ? contain->getContainedItemsList() : nullptr;
+				if (members)
+				{
+					for (Object *member : *members)
+					{
+						if (member)
+						{
+							client->fadeIn(*member, n.fadeTime);
+						}
+					}
+				}
+			}
+			else
+			{
+				client->fadeIn(o, n.fadeTime);
+			}
+		}
+	}
+	if (n.fadeOut)
+	{
+		fadeSound();
+		if (client)
+		{
+			client->fadeOut(o, n.fadeTime);
+		}
+	}
 }
 } // namespace
 
@@ -783,7 +841,7 @@ std::vector<Object *> ObjectCreationList::createCore(GameLogic &logic, const OCL
 		{
 			if (AIWorld *ai = logic.aiWorld()) ai->addObjectToPathfindMap(*o);
 		}
-		// RW 0x5F1678 .. 0x5F17B7: FadeIn / FadeOut (the FadeSound and the drawable fade), the drawable refresh: client
+		fadeCreated(logic, n, *o, source); // RW 0x5F1678 .. 0x5F17A6; the drawable refresh after it (RW 0x5F17AB) is the client's
 	}
 	return made;
 }
