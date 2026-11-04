@@ -866,8 +866,9 @@ class Source:
                 continue  # a store (m_x = ..., m_x += ...)
             prev = re.search(r"(\w+)\W*$", before)
             if (re.match(r"\s*[;{\[]", after) and re.search(r"[\w>\*&]\s+[\*&]?\s*$", before) and not before.rstrip().endswith(("->", ".", "(", "::"))
-                    and not (prev and prev.group(1) in ("return", "case", "else", "throw", "co_return", "delete", "sizeof", "do"))):
-                continue  # a declaration (Type m_x; Type m_x{...}; Type m_x[N]), not `return m_x;`
+                    and not (prev and prev.group(1) in ("return", "case", "else", "throw", "co_return", "delete", "sizeof", "do"))
+                    and re.fullmatch(r"\s*(?:[\w:<>,]+\s*)+[\*&]?\s*", before)):
+                continue  # a declaration (Type m_x; Type *m_x; Type m_x{...}; Type m_x[N]) from the line's start: not `return m_x;`, not `a * m_x;`
             if re.match(r"\s*[({]", after) and re.search(r"[:,]\s*$", before) and not fn:
                 continue  # a constructor's initialiser list outside a recorded body
             if re.match(r"\s*[,)]", after) and re.search(r"\b(?:struct|class)\b|^\s*[\w:<>]+\s+$", before):
@@ -949,7 +950,8 @@ class Source:
             level = sorted({h for f in level for h in self._includes_of.get(f, ()) if h not in seen})
         return out
 
-    def member_read(self, member: str, struct: str, origin: str = "", staged: bool = True, parser: tuple[str, str] = ("", "")) -> str:
+    def member_read(self, member: str, struct: str, origin: str = "", staged: bool = True, parser: tuple[str, str] = ("", ""), depth: int = 2,
+                    skip: frozenset = frozenset()) -> str:
         """the first read of the member in a file that sees its struct. Without a struct ("?": a member of a member, offsetof(S, a.b), or a member a
         row's own parser stores into): the files that see a file declaring a member of that name among the files origin (the row's file) includes,
         the nearest declarations first (EvaEvents.cpp's SideCtx::side, then EvaEvents.h's EvaSideSound::side); everywhere if there is none"""
@@ -965,7 +967,7 @@ class Source:
             named = [f for f in scope if not names or self.names_any(f, names)]
             for f in named:
                 for n in self.words_of(f).get(member, ()):
-                    if self.is_read(f, n, member, struct, parser):
+                    if self.is_read(f, n, member, struct, parser) and self.copy_used(f, n, member, depth, skip):
                         return f"{f}:{n}" + (self.ambiguous(f, member, names) if names else "")
             # then a block's parser consuming the local it parsed (staged_read; the parsers are no reads otherwise): a key is a use; a value stored
             # into a member is used when that member is read (one step); a value passed to a call is marked, where it goes is not followed
@@ -986,10 +988,37 @@ class Source:
                             "not followed")
             for f in sorted(set(scope) - set(named)):
                 for n in self.words_of(f).get(member, ()):
-                    if self.is_read(f, n, member, struct, parser):
+                    if self.is_read(f, n, member, struct, parser) and self.copy_used(f, n, member, depth, skip):
                         # one declaration of that name in the source: the read is this member, whatever the file names
                         return f"{f}:{n}" if self.declared_once(member) else f"{f}:{n} INFERENCE: the file does not name {struct}"
         return ""
+
+    def copy_dest(self, f: str, n: int, member: str) -> str:
+        """the member a read only copies the value into (VisionSettings.cpp's `out.stealthFriendlyOpacity = s.stealth;`, also through a call such as
+        `def.rgb = packRgb(block.rgb)`), or "": a local, a call's argument or any other use is no copy"""
+        code = self.code_of(f)[n - 1]
+        for m in re.finditer(r"\b" + re.escape(member) + r"\b", code):
+            d = re.search(r"(\w+)\s*(?:\[[^=]*\])?\s*(?<![<>!=+\-*/|&^])=(?!=)[^=;?]*$", code[:m.start()])
+            if not d or re.search(r"\b(?:return|if|while|for)\b", code[:d.start()]):
+                return ""
+            dest = d.group(1)
+            return "" if self.local_named(f, n, dest) else dest
+        return ""
+
+    def copy_used(self, f: str, n: int, member: str, depth: int, skip: frozenset) -> bool:
+        """whether a read counts: a copy into a member counts only when that member is read in turn (depth steps; at the last step a copy
+        counts, as before)"""
+        if (f, n) in skip:
+            return False
+        dest = self.copy_dest(f, n, member)
+        if not dest or depth <= 0:
+            return True
+        key = (dest, f, depth - 1, skip | {(f, n)})
+        if not hasattr(self, "_copies"):
+            self._copies: dict = {}
+        if key not in self._copies:
+            self._copies[key] = bool(self.member_read(dest, "?", origin=f, staged=False, depth=depth - 1, skip=skip | {(f, n)}))
+        return self._copies[key]
 
     def names_any(self, f: str, names: set[str]) -> bool:
         """whether the file's code (not its comments or literals) names one of the structs"""

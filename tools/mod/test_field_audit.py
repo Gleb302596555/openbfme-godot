@@ -39,6 +39,11 @@ public:
 	int m_fx = 0;
 	int m_level = 0;
 	int m_shared = 0;
+	int m_copied = 0;
+	float m_factor = 1.0f;
+	// a product is no declaration (AudioEventRTS.h's `return m_perFilePitch * m_pitchShift;`)
+	float factored() const { return m_used * m_factor; }
+	int m_shown = 0;
 	int m_spare = 0, m_rare = 0; // a declarator list (CastleModules.h's m_maxCastleRadius)
 	std::string m_tagA, m_tagB; // its later name is no read (CreateAHeroSystem.h)
 	std::vector<std::string> m_names;
@@ -67,6 +72,9 @@ const FieldParse kTyped[] = {
 	{ "Level", INI::parseInt, nullptr, TT_OFF(m_level) },
 	{ "Rare", INI::parseInt, nullptr, TT_OFF(m_rare) },
 	{ "Shared", INI::parseInt, nullptr, TT_OFF(m_shared) },
+	{ "Copied", INI::parseInt, nullptr, TT_OFF(m_copied) },
+	{ "Factor", INI::parseReal, nullptr, TT_OFF(m_factor) },
+	{ "Shown", INI::parseInt, nullptr, TT_OFF(m_shown) },
 	{ "TagB", INI::parseAsciiString, nullptr, TT_OFF(m_tagB) },
 	MUX_ROWS(TypedThingModuleData),
 	{ nullptr, nullptr, nullptr, 0 }
@@ -235,6 +243,22 @@ struct Filter
 	int m_level = 0;
 	int m_shared = 0;
 };
+'''
+
+# a loader copying the values into a settings struct (VisionSettings.cpp's `out.stealthFriendlyOpacity = s.stealth;`): a copy is a use only
+# when what it is copied into is read; out.lonely is read by no one, out.shown is
+COPY_CPP = r'''#include "GameLogic/Module/TypedThing.h"
+struct Out
+{
+	int lonely = 0;
+	int shown = 0;
+};
+void loadOut(const TypedThingModuleData &d, Out &out)
+{
+	out.lonely = d.m_copied;
+	out.shown = clampShown(d.m_shown);
+}
+int shownOf(const Out &o) { return o.shown; }
 '''
 
 # a file naming TypedThingModuleData and Filter, both with a member m_shared: its read may be either's (the known limit), marked AMBIGUOUS
@@ -438,6 +462,9 @@ Object TestUnit
     Level = 2
     Rare = 1
     Shared = 1
+    Copied = 1
+    Factor = 2
+    Shown = 1
     TagB = X
     MeleeBehavior = Amoeba
       FacingBonus = 30.0
@@ -508,7 +535,7 @@ def rw_tables(rw: Path):
     def table(*names, fn="0x1"):
         return {"rows": [{"name": n, "fn": fn, "offset": 0, "userData": 0} for n in names], "terminated": True}
     tables = {
-        "0xa1": {"rows": table("Used", "Unused", "FX", "DeathTypes", "Names", "Envelope", "Level", "Rare", "TagB", "Shared")["rows"]
+        "0xa1": {"rows": table("Used", "Unused", "FX", "DeathTypes", "Names", "Envelope", "Level", "Rare", "TagB", "Shared", "Copied", "Shown", "Factor")["rows"]
                  + [{"name": "MeleeBehavior", "fn": "0xb3", "offset": 0, "userData": 0}], "terminated": True},
         "0xa2": table("Radius", "Height"),
         "0xa3": table("Bar"),
@@ -563,7 +590,7 @@ def result(tmp_path_factory):
                       "GameLogic/Module/EmotionThing.cpp": EMOTION_CPP, "GameLogic/Object/Weapon.cpp": WEAPON_CPP,
                       "Common/Thing/ThingFactory.cpp": THING_CPP, "GameLogic/Module/RawRead.cpp": RAW_CPP,
                       "GameClient/PreviewReader.cpp": PREVIEW_CPP, "GameClient/PreviewUse.cpp": PREVIEW_USE_CPP, "GameLogic/Module/DieMux.cpp": DIEMUX_CPP,
-                      "GameLogic/Module/Other.cpp": OTHER_CPP, "GameLogic/Module/Ambig.cpp": AMBIG_CPP, "GameLogic/AI/Army.cpp": ARMY_CPP, "GameClient/Voice.cpp": VOICE_CPP, "GameClient/Decal.h": DECAL_H, "Common/ADecal.h": OTHER_DECAL_H,
+                      "GameLogic/Module/Other.cpp": OTHER_CPP, "GameLogic/Module/Ambig.cpp": AMBIG_CPP, "GameLogic/Module/Copy.cpp": COPY_CPP, "GameLogic/AI/Army.cpp": ARMY_CPP, "GameClient/Voice.cpp": VOICE_CPP, "GameClient/Decal.h": DECAL_H, "Common/ADecal.h": OTHER_DECAL_H,
                       "GameClient/Decal.cpp": DECAL_CPP, "GameLogic/AI/Threat.cpp": THREAT_CPP,
                       "GameClient/Settings.h": SETTINGS_H, "GameClient/Middle.h": MIDDLE_H}.items():
         (src / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -587,7 +614,8 @@ def status(result, block, owner, field):
 
 def test_typed_module_fields(result):
     assert status(result, "object", "TypedThing", "Used") == "used"
-    assert result[0][("object", "TypedThing", "Used")]["where"].endswith("TypedThing.cpp:38")  # the read in speed(), not the table row
+    used_line = next(i for i, x in enumerate(TYPED_CPP.splitlines(), 1) if "return m_data->m_used" in x)
+    assert result[0][("object", "TypedThing", "Used")]["where"] == f"GameLogic/Module/TypedThing.cpp:{used_line}"  # the read in speed(), not the table row
     assert result[0][("object", "TypedThing", "Used")]["defs"] == 2
     assert status(result, "object", "TypedThing", "Unused") == "parsed-unused"  # &INI::parseReal: the row is still found
     # (the member's name in a string literal or a /* */ comment of a visible file is not a read)
@@ -600,6 +628,9 @@ def test_typed_module_fields(result):
     assert result[0][("object", "TypedThing", "Level")]["where"] == "GameLogic/Module/Other.cpp:2 INFERENCE: the file does not name TypedThingModuleData"
     assert result[0][("object", "TypedThing", "Rare")]["where"] == "GameLogic/Module/Other.cpp:3"  # the only m_rare of the source
     assert status(result, "object", "TypedThing", "TagB") == "parsed-unused"
+    assert status(result, "object", "TypedThing", "Factor") == "used"
+    assert status(result, "object", "TypedThing", "Copied") == "parsed-unused"  # copied into out.lonely, which no one reads
+    assert result[0][("object", "TypedThing", "Shown")]["where"] == "GameLogic/Module/Copy.cpp:10"  # copied into out.shown, which shownOf reads
     assert result[0][("object", "TypedThing", "Shared")]["where"] == ("GameLogic/Module/Ambig.cpp:2 AMBIGUOUS: the file also names Filter with a "
                                                                       "member m_shared")
     assert status(result, "object", "TypedThing", "Bogus") == "not-in-rotwk"  # MeleeBehavior's End did not close the module
