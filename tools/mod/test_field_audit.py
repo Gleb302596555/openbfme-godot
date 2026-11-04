@@ -143,6 +143,11 @@ void ThingFactory::registerBlocks(INIBlockRegistry &registry)
 # a second reader of the Object block with its own table (FormationAssistant's FormationPreviewDecal) and a row storing into a staging struct's member
 # (offsetof(Stage, values.preview)) that another file reads through the settings it is copied into
 PREVIEW_CPP = r'''
+#include "GameClient/Settings.h"
+struct LocalCopy
+{
+	std::string preview;
+};
 struct Stage
 {
 	Settings values;
@@ -157,7 +162,17 @@ void PreviewReader::registerBlocks(INIBlockRegistry &registry)
 }
 '''
 
-PREVIEW_USE_CPP = r'''
+# the reader sees Settings.h only through Middle.h
+SETTINGS_H = r'''
+struct Settings
+{
+	std::string preview;
+};
+'''
+MIDDLE_H = r'''
+#include "GameClient/Settings.h"
+'''
+PREVIEW_USE_CPP = r'''#include "GameClient/Middle.h"
 const std::string &previewTexture(const GameLogic &logic) { return logic.settings().preview; }
 '''
 
@@ -273,7 +288,8 @@ def result(tmp_path_factory):
     for rel, text in {"Common/INI/INIBlockStubs.cpp": STUBS, "GameLogic/Module/TypedThing.h": TYPED_H, "GameLogic/Module/TypedThing.cpp": TYPED_CPP,
                       "GameLogic/Module/EmotionThing.cpp": EMOTION_CPP, "GameLogic/Object/Weapon.cpp": WEAPON_CPP,
                       "Common/Thing/ThingFactory.cpp": THING_CPP, "GameLogic/Module/RawRead.cpp": RAW_CPP,
-                      "GameClient/PreviewReader.cpp": PREVIEW_CPP, "GameClient/PreviewUse.cpp": PREVIEW_USE_CPP, "GameLogic/Module/DieMux.cpp": DIEMUX_CPP}.items():
+                      "GameClient/PreviewReader.cpp": PREVIEW_CPP, "GameClient/PreviewUse.cpp": PREVIEW_USE_CPP, "GameLogic/Module/DieMux.cpp": DIEMUX_CPP,
+                      "GameClient/Settings.h": SETTINGS_H, "GameClient/Middle.h": MIDDLE_H}.items():
         (src / rel).parent.mkdir(parents=True, exist_ok=True)
         (src / rel).write_text(text, encoding="utf-8")
     rw = root / "rw"

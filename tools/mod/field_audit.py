@@ -575,19 +575,22 @@ class Source:
     # -- queries
     def visible(self, struct: str) -> set[str]:
         """the files that can see the struct: the file declaring it and every file including that one (transitively)"""
-        if struct in self._visible:
-            return self._visible[struct]
         h = self.decl.get(struct)
+        return self.visible_file(h) if h else set()
+
+    def visible_file(self, h: str) -> set[str]:
+        """the file and every file including it (transitively)"""
+        if h in self._visible:
+            return self._visible[h]
         out: set[str] = set()
-        if h:
-            todo = [h]
-            while todo:
-                x = todo.pop()
-                if x in out:
-                    continue
-                out.add(x)
-                todo += self.included_by.get(x, ())
-        self._visible[struct] = out
+        todo = [h]
+        while todo:
+            x = todo.pop()
+            if x in out:
+                continue
+            out.add(x)
+            todo += self.included_by.get(x, ())
+        self._visible[h] = out
         return out
 
     def ancestors(self, struct: str) -> set[str]:
@@ -721,7 +724,7 @@ class Source:
         if not files and origin:
             for h in self.forward(origin):
                 if self.declares(h, member):
-                    files |= self.visible(h) if h.endswith((".h", ".hpp")) else {h}
+                    files |= self.visible_file(h) if h.endswith((".h", ".hpp")) else {h}
         scope = sorted(files) if files else sorted(self.files)
         for f in scope:
             for n in self.words_of(f).get(member, ()):
