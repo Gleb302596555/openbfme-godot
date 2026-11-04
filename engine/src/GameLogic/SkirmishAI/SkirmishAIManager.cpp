@@ -314,6 +314,10 @@ AISkirmishPlayer *SkirmishAIManager::groupFirstAI(AISkirmishGroup &g) const
 void SkirmishAIManager::updateAI(AISkirmishPlayer &ai, AISkirmishGroup &g)
 {
 	// RW 0x6C7946
+	if (m_logic.cheatMode().aiPaused(ai.playerIndex))
+	{
+		return; // OpenBFME's Cheat Mode PauseAI (GameLogic/CheatMode.h): the AI stands still while paused
+	}
 	++m_counters.aiUpdates;
 	if (ai.disabled)
 	{

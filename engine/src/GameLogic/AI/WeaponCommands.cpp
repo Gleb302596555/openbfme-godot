@@ -193,6 +193,11 @@ void WeaponCommands::registerHandlers(GameLogicDispatch &d)
 	d.registerHandler(MSG_DO_WEAPON_AT_OBJECT, kLane, atObject);
 }
 
+void WeaponCommands::setNoAutoAcquire(Object &o, bool on)
+{
+	::setNoAutoAcquire(o, on);
+}
+
 const WeaponCommands::Stats &WeaponCommands::stats()
 {
 	return ::stats();

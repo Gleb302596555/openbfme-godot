@@ -24,6 +24,7 @@
 #include <vector>
 
 class GameLogic;
+class Object;
 
 namespace WeaponCommands
 {
@@ -35,4 +36,6 @@ struct Stats
 };
 const Stats &stats();
 std::vector<std::string> acceptanceStops();
+// RW 0x77B6EF .. 0x77B7C7: the status NO_AUTO_ACQUIRE of an object, a horde's members with it (also Cheat Mode's HoldFire)
+void setNoAutoAcquire(Object &o, bool on);
 } // namespace WeaponCommands
