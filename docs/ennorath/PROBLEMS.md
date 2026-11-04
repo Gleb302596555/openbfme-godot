@@ -425,3 +425,30 @@ Shelling у всех лучников не работает на иконку н
 - Взял: Claude, 2026-11-04
 - Причина и исправление: места вызова не были перенесены (S-707). `ActiveBody::attemptDamage` (RW 0x8C4422 .. 0x8C44C1) после смены состояния урона играет `SoundOnDamaged` при переходе в DAMAGED и `SoundOnReallyDamaged` в REALLYDAMAGED; обработчик ударной волны (RW 0x696947 .. 0x696A0E, `ObjectKnockback::shockWave` в `PhysicsBehavior.cpp`) играет `SoundImpact`, при циклоническом ударе `SoundImpactCyclonic`, если объект ещё не оглушён. Звук берётся из строк шаблона (`UnitSpecificSound::templateSound`), общий механизм для всех объектов. Остальные звуки S-707 (`SoundCreated`, `SoundEnter` / `Exit`, `SoundStealthOn` / `Off`, `SoundCrushing` ...) не перенесены.
 - Проверка: два теста `SOUND-707 retail: ...` в `test_audio3.cpp` (`RohanHeroStatueNoLeadership`: `BuildingLightDamageWood` / `BuildingHeavyDamageWood`; `MordorArcher`: `ImpactHorse`) падают без исправления и проходят с ним, профиль RotWK 2.01. Длинный прогон `test_select`: части 1–5 и начало 6 без новых падений от правки; конец части 6 и части 7–8 (интерфейс, рендер, скрипты, камера) не прогнаны по решению владельца из-за времени; вместо них прогнаны 17 файлов, которые правка может задеть (сохранения, хэши, сеть, голоса, здоровье зданий, бой, ИИ против ИИ, осада): 128 тестов, 0 падений. Попутно найдены падения базы ветки, не связанные с правкой: P-32, P-33, `hud5 icons retail: health bars only on selection or hover` (`test_hud5_icons.cpp:348`, 15 вместо 0, падает и отдельно) и `cheat1` (`test_cheat1_mode.cpp:373`, только в наборе: `'Upgrade_AngmarFaction' is not an Upgrade`). Владелец проверил в игре 2026-11-04 (Эннорат, сборка `g0003a25c`): все звуки слышно.
+
+### P-35. Тест hud5 icons: полоски здоровья у солдат отряда без AllHealthBars
+- Статус: [ ] **НЕ НАЧАТО**
+- Добавлено: 2026-11-04, Claude (по правилу PROCESS.md, раздел 7)
+- Описание: `hud5 icons retail: health bars only on selection or hover; AllHealthBars lets a selected horde's soldiers have them, never all the time` падает: `test_hud5_icons.cpp:348`, `CHECK( bars({ h->getID() }, 0) == (all ? (int)soldiers.size() : 0) )`, получено `15 == 0` при `all := false`. Падает и отдельно, и в сборке с выключенными звуками S-707. Найдено длинным прогоном `test_select` ветки `agent/claude/object-sounds` (сборка `0003a25c`, база `b00f2609`; движок на `main` `fa6f77d0` тот же). В `TEST_BASELINE.md` записи нет.
+- Подсистема: — (полоски здоровья; заполнить при разборе)
+- Взял: —
+- Причина и исправление: —
+- Проверка: —
+
+### P-36. Тест cheat1: сохранение не загружается только в общем прогоне
+- Статус: [ ] **НЕ НАЧАТО**
+- Добавлено: 2026-11-04, Claude (по правилу PROCESS.md, раздел 7)
+- Описание: `test_cheat1_mode.cpp:373`, `REQUIRE( logic.loadSnapshot(saved, &err) )`, ошибка `block 'obfme:Players': 'Upgrade_AngmarFaction' is not an Upgrade`. Отдельно все 5 тестов файла проходят: падение зависит от тестов, которые шли до него (INFERENCE: общее состояние шаблонов апгрейдов после другого теста). Найдено длинным прогоном `test_select` ветки `agent/claude/object-sounds` (сборка `0003a25c`, база `b00f2609`; движок на `main` `fa6f77d0` тот же). В `TEST_BASELINE.md` записи нет.
+- Подсистема: — (сохранения; заполнить при разборе)
+- Взял: —
+- Причина и исправление: —
+- Проверка: —
+
+### P-37. Тест online3 rejoin: временная папка занята другим процессом
+- Статус: [ ] **НЕ НАЧАТО**
+- Добавлено: 2026-11-04, Claude (по правилу PROCESS.md, раздел 7)
+- Описание: `test_online3_rejoin.cpp:2398`: `test case THREW exception: remove_all: The process cannot access the file because it is being used by another process`. Та же ошибка, что у записанных в `TEST_BASELINE.md` `online16-fix`, `online3 spectators` и `onlineux1 r2`, но `online3 rejoin` там не записан. Найдено длинным прогоном `test_select` ветки `agent/claude/object-sounds` (сборка `0003a25c`, база `b00f2609`; движок на `main` `fa6f77d0` тот же).
+- Подсистема: — (онлайн, тестовое окружение; заполнить при разборе)
+- Взял: —
+- Причина и исправление: —
+- Проверка: —
