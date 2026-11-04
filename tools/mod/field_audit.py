@@ -174,9 +174,13 @@ def mod_fields(vfs, block_types: set[str], diag: dict | None = None, grammar: "G
                     i += 1
                     continue
                 owner, node = stack[-1] if stack else ("", root)
-                key = t.split("=", 1)[0].strip() if "=" in t else tk[0]
-                value = t.split("=", 1)[1] if "=" in t else t[len(tk[0]):]
-                kind = node.get(key.lower()) if node is not None else None
+                key, value = field_key(t)
+                if node is None:
+                    kind = None
+                elif tk[0].lower() in block_types:
+                    kind = node.get(key.lower())  # a definition keyword is a row only by name (a catch-all does not take the next definition)
+                else:
+                    kind = row_kind(node, key)
                 if "=" not in t and tk[0].lower() in block_types and kind is None:
                     if stack:
                         diag["unclosed"].append(f"{typ} {defname} ({src}; open: {' > '.join(o for o, _ in stack)} at {s})")
@@ -229,9 +233,9 @@ def block_end(lines, j: int, child: dict | None) -> int:
         if child is None:
             j += 1
             continue
-        if k not in child:
+        if row_kind(child, k) is None:
             return -1
-        kind, grand = child[k]
+        kind, grand = row_kind(child, k)
         if kind == "script":
             while j < len(lines) and lines[j][0].split()[0].lower() != "endscript":
                 j += 1
@@ -255,8 +259,24 @@ def opens_block(lines, j: int, child: dict | None, parent: dict | None = None) -
     for t, _ in lines[e + 1:]:
         key = (t.split("=", 1)[0] if "=" in t else t).split()
         if key:
-            return key[0].lower() == "end" or key[0].lower() in parent
+            return key[0].lower() == "end" or row_kind(parent, key[0]) is not None
     return True
+
+
+CATCH_ALL = "*"  # a grammar node's key when its table takes any name
+
+
+def row_kind(node: dict, key: str):
+    """the node's (kind, child) of a row name: its own row, else a catch-all table's line (End is never a row)"""
+    k = key.lower()
+    return node.get(k) or (node.get(CATCH_ALL) if k != "end" else None)
+
+
+def field_key(text: str) -> tuple[str, str]:
+    """the field name and the rest of an INI line: the name is the first token up to a blank or '=' (INI's field token, ZH INI.cpp's
+    strtok(" \t\n=")), so `Envelope InitialOpacity = 0.0 ..` is Envelope's line"""
+    m = re.match(r"\s*([^\s=]+)\s*=?(.*)", text)
+    return (m.group(1), m.group(2)) if m else ("", "")
 
 
 # ---- RotWK's tables --------------------------------------------------------------------------------------------------------------------------------
@@ -270,7 +290,8 @@ class Grammar:
         self._nodes: dict[tuple[str, ...], dict] = {}
         registry = json.loads((rw / "module-registry.json").read_text(encoding="utf-8"))["classes"]
         self.classes = {c["name"]: self.node(tuple(t["table"] for t in c.get("tables", []))) for c in registry}
-        self.object = self.node((doc["objectTable"]["table"],))
+        # RW 0x73C13C (ThingFactory::buildFieldParse): Object is read by two tables, the Object table and the audio table (VoiceSelect, SoundOnDamaged ..)
+        self.object = self.node((doc["objectTable"]["table"], doc["audioTable"]["table"]))
 
     def node(self, tables: tuple[str, ...]) -> dict:
         if tables in self._nodes:
@@ -278,16 +299,22 @@ class Grammar:
         out: dict = {}
         self._nodes[tables] = out
         for t in tables:
-            for row in self.tables.get(t, {}).get("rows", []):
+            table = self.tables.get(t, {})
+            if table.get("catchAll"):
+                out[CATCH_ALL] = ("line", None)  # a table that takes any name (UnitSpecificSounds' sub-table: every line is a sound name and its value)
+            for row in table.get("rows", []):
                 fn = self.functions.get(row["fn"], {})
                 kind = fn.get("kind", "line")
-                child = self.node(tuple(x["table"] for x in fn.get("tables", []))) if kind == "block" else None
+                subs = [x["table"] for x in fn.get("tables", [])]
+                # a block whose table is picked by the value (MeleeBehavior = Amoeba, RW 0x86C30A): any of the dispatch tables' rows is a row of it
+                subs += [x["table"] for alt in fn.get("dispatch", {}).get("tables", []) for x in alt]
+                child = self.node(tuple(dict.fromkeys(subs))) if kind == "block" else None
                 out.setdefault(row["name"].lower(), (kind, child))
         return out
 
 
 def rotwk_tables(rw: Path) -> tuple[dict[str, set[str]], set[str]]:
-    """(module class -> the field names its RotWK tables name, the Object table's names); lower case"""
+    """(module class -> the field names its RotWK tables name, the names of the Object table and the audio table); lower case"""
     doc = json.loads((rw / "field-tables.json").read_text(encoding="utf-8"))
     tables = doc["tables"]
     registry = json.loads((rw / "module-registry.json").read_text(encoding="utf-8"))["classes"]
@@ -297,7 +324,7 @@ def rotwk_tables(rw: Path) -> tuple[dict[str, set[str]], set[str]]:
         for ref in c.get("tables", []):
             for row in tables.get(ref["table"], {}).get("rows", []):
                 out[c["name"]].add(row["name"].lower())
-    obj = {row["name"].lower() for row in tables[doc["objectTable"]["table"]]["rows"]}
+    obj = {row["name"].lower() for key in ("objectTable", "audioTable") for row in tables[doc[key]["table"]]["rows"]}
     return out, obj
 
 
@@ -309,7 +336,7 @@ DRAWN_KINDS = {"0", "1", "2", "3"}
 def load_coverage(path: Path) -> dict[str, dict[str, str]]:
     """the engine's table; a Draw class the client draws (drawkind 0..3) is "ported": its runtime is the draw runtime, not a bound module proc"""
     with open(path, encoding="utf-8", newline="") as f:
-        rows = list(csv.DictReader(f, delimiter="\t"))
+        rows = list(csv.DictReader(f, delimiter="\t", quoting=csv.QUOTE_NONE))
     need = {"class", "type", "status", "typed", "drawkind"}
     if not rows or not need <= set(rows[0]):
         raise SystemExit(f"{path}: not the engine's module coverage table (columns {sorted(need)} needed)")
@@ -992,7 +1019,7 @@ def write(rows, out: Path, queue, diag):
     prev = out / "field-audit.tsv"
     if prev.exists():
         with open(prev, encoding="utf-8", newline="") as f:
-            for r in csv.DictReader(f, delimiter="\t"):
+            for r in csv.DictReader(f, delimiter="\t", quoting=csv.QUOTE_NONE):  # a mod value's quote is text, not a quoted cell
                 old[(r["block"], r["owner"], r["field"])] = r.get("status", "")
     with open(prev, "w", encoding="utf-8", newline="\n") as f:
         f.write("\t".join(COLS) + "\n")

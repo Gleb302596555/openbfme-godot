@@ -134,6 +134,7 @@ void WeaponStore::registerBlocks(INIBlockRegistry &registry)
 THING_CPP = r'''
 #include "Common/Thing/ThingTemplate.h"
 float buildCost(const ThingTemplate &tt) { return number(tt.findField("BuildCost")); }
+const char *selectVoice(const ThingTemplate &tt) { return text(tt.findField("VoiceSelect")); }
 void ThingFactory::registerBlocks(INIBlockRegistry &registry)
 {
 	registry.registerBlock("Object", [this](INI *ini) { parse(ini); });
@@ -193,12 +194,20 @@ Object TestUnit
   BuildCost = 100
   VisionRange = 50
   PreviewDecal = Arrow
+  VoiceSelect = TestUnitVoiceSelect
+  UnitSpecificSounds
+    VoiceGarrison = TestUnitVoiceGarrison
+  End
   Behavior = TypedThing ModuleTag_01
     Used = 1.0
     Unused = 2.0
     FX = INITIAL FX_Puff
     DeathTypes = ALL
     Names = A B
+    MeleeBehavior = Amoeba
+      FacingBonus = 30.0
+    End
+    Envelope InitialOpacity = 0.0 PeakOpacity = 1.0
     Bogus = 3
   End
   Behavior = RawThing Some_Tag
@@ -242,22 +251,31 @@ End
 
 
 def rw_tables(rw: Path):
-    """the RotWK field tables of the made-up classes and the Object table"""
+    """the RotWK field tables of the made-up classes, the Object table and the Object's audio table"""
     def table(*names, fn="0x1"):
         return {"rows": [{"name": n, "fn": fn, "offset": 0, "userData": 0} for n in names], "terminated": True}
     tables = {
-        "0xa1": table("Used", "Unused", "FX", "DeathTypes", "Names"),
+        "0xa1": {"rows": table("Used", "Unused", "FX", "DeathTypes", "Names", "Envelope")["rows"]
+                 + [{"name": "MeleeBehavior", "fn": "0xb3", "offset": 0, "userData": 0}], "terminated": True},
         "0xa2": table("Radius", "Height"),
         "0xa3": table("Bar"),
         "0xa4": {"rows": [{"name": "AddEmotion", "fn": "0xb1", "offset": 0, "userData": 0}], "terminated": True},
         "0xa5": table("Duration"),
         "0xa6": {"rows": [{"name": "BeginScript", "fn": "0xb2", "offset": 0, "userData": 0}, {"name": "Model", "fn": "0x1", "offset": 0, "userData": 0}],
                  "terminated": True},
-        "0xa7": table("BuildCost", "VisionRange", "PreviewDecal"),
+        "0xa7": {"rows": table("BuildCost", "VisionRange", "PreviewDecal", "Behavior", "Draw")["rows"]
+                 + [{"name": "UnitSpecificSounds", "fn": "0xb4", "offset": 0, "userData": 0}], "terminated": True},
+        "0xa9": table("FacingBonus"),
+        "0xaa": {"rows": [], "catchAll": "0xb5", "terminated": True},
+        "0xa8": table("VoiceSelect"),
     }
     functions = {"0x1": {"kind": "line"}, "0xb1": {"kind": "block", "tables": [{"extra": 0, "table": "0xa5"}]},
-                 "0xb2": {"kind": "script", "terminator": "ENDSCRIPT"}}
-    (rw / "field-tables.json").write_text(json.dumps({"tables": tables, "functions": functions, "objectTable": {"table": "0xa7", "extra": 0}}),
+                 "0xb2": {"kind": "script", "terminator": "ENDSCRIPT"},
+                 # MeleeBehavior's table is picked by its value (RW 0x86C30A); UnitSpecificSounds' table takes any name
+                 "0xb3": {"kind": "block", "tables": [], "dispatch": {"names": ["Swarm", "Amoeba"], "tables": [[], [{"extra": 0, "table": "0xa9"}]]}},
+                 "0xb4": {"kind": "block", "tables": [{"extra": 0, "table": "0xaa"}]}}
+    (rw / "field-tables.json").write_text(json.dumps({"tables": tables, "functions": functions, "objectTable": {"table": "0xa7", "extra": 0},
+                                                      "audioTable": {"table": "0xa8", "extra": 292}}),
                                           encoding="utf-8")
     classes = [{"name": n, "tables": [{"table": t, "extra": 0}]} for n, t in
                (("TypedThing", "0xa1"), ("RawThing", "0xa2"), ("GoneThing", "0xa3"), ("EmotionThing", "0xa4"), ("ScriptThing", "0xa6"))]
@@ -320,7 +338,18 @@ def test_typed_module_fields(result):
     assert result[0][("object", "TypedThing", "DeathTypes")]["where"] == "GameLogic/Module/DieMux.cpp:2"  # m_dieMux.m_deathTypes: read anywhere
     assert status(result, "object", "TypedThing", "FX") == "used"  # its own parser stores m_fx, which speed() reads
     assert status(result, "object", "TypedThing", "Names") == "parsed-unused"  # `std::vector<std::string> m_names;` is a declaration, not a read
-    assert status(result, "object", "TypedThing", "Bogus") == "not-in-rotwk"
+    assert status(result, "object", "TypedThing", "Bogus") == "not-in-rotwk"  # MeleeBehavior's End did not close the module
+
+
+def test_rotwk_grammar_blocks(result):
+    # a block whose table is picked by the value (MeleeBehavior = Amoeba): its rows are the block's, its End is not the module's
+    assert ("object", "TypedThing/MeleeBehavior", "FacingBonus") in result[0]
+    # a sub-table taking any name (UnitSpecificSounds): its lines are the block's, not the Object's
+    assert ("object", "/UnitSpecificSounds", "VoiceGarrison") in result[0]
+    assert ("object", "", "VoiceGarrison") not in result[0]
+    # the field name is the first token (INI's strtok on blank and '='): `Envelope InitialOpacity = 0.0 ..` is Envelope's line
+    assert ("object", "TypedThing", "Envelope") in result[0]
+    assert ("object", "TypedThing", "Envelope InitialOpacity") not in result[0]
 
 
 def test_raw_missing_and_unknown_modules(result):
@@ -348,6 +377,8 @@ def test_definition_fields(result):
     # the Object's second reader parses it into a staging struct; the read is in a file that never sees Stage
     assert status(result, "object", "", "PreviewDecal") == "used"
     assert result[0][("object", "", "PreviewDecal")]["where"] == "GameClient/PreviewUse.cpp:2"
+    # the Object is read by two RotWK tables (RW 0x73C13C): a field of the audio table is RotWK's, not the mod's error
+    assert status(result, "object", "", "VoiceSelect") == "used"
     assert status(result, "weapon", "", "AttackRange") == "used"
     assert status(result, "weapon", "", "Unread") == "parsed-unused"
     assert status(result, "bridge", "", "Width") == "stub-block"
@@ -360,3 +391,15 @@ def test_binding_and_visibility(result):
     assert source.binds["EmotionThing"][0] == "EmotionThingModuleData"  # bind<Runtime, Data>(modules, "Class")
     assert "GameLogic/Module/TypedThing.cpp" in source.visible("TypedThingModuleData")
     assert "GameLogic/Object/Weapon.cpp" not in source.visible("TypedThingModuleData")
+
+
+def test_previous_run_with_quotes(tmp_path):
+    """a mod value with a quote is text: reading the previous field-audit.tsv back gives every row (csv's default quoting glued rows together)"""
+    rows = [{c: "" for c in fa.COLS} | {"status": "used", "block": "object", "owner": "", "field": f"F{i}", "values": v}
+            for i, v in enumerate(['"Open quote', "plain", 'Closed" quote', "plain"])]
+    fa.write(rows, tmp_path, [], {})
+    counts, changed = fa.write(rows, tmp_path, [], {})
+    assert not changed  # every row of the previous run read back as it was written
+    cov = tmp_path / "coverage.tsv"
+    cov.write_text(COVERAGE.replace("RawThing\tBehavior", '"RawThing\tBehavior'), encoding="utf-8")
+    assert len(fa.load_coverage(cov)) == 5
