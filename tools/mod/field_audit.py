@@ -714,22 +714,38 @@ class Source:
         return self._forward[f]
 
     def declares(self, f: str, member: str) -> bool:
-        return any(re.match(r"^\s*[\w:<>,\s\*&]+[\s\*&]" + re.escape(member) + r"\s*(?:=[^=]|;|\[|\{)", line) for line in self.files[f])
+        """a class-level declaration of the member in the file (a local variable of a function body does not count)"""
+        funcs = self.line_func.get(f, [])
+        pat = re.compile(r"^\s*[\w:<>,\s\*&]+[\s\*&]" + re.escape(member) + r"\s*(?:=[^=]|;|\[|\{)")
+        return any(pat.match(line) and not (n < len(funcs) and funcs[n]) for n, line in enumerate(self.files[f]))
+
+    def declaring_by_depth(self, origin: str, member: str) -> list[list[str]]:
+        """the files declaring the member, grouped by include depth from origin (origin itself first)"""
+        if not hasattr(self, "_includes_of"):
+            self.forward(origin)
+        out, level, seen = [], [origin], set()
+        while level:
+            hits = [f for f in level if self.declares(f, member)]
+            if hits:
+                out.append(hits)
+            seen |= set(level)
+            level = sorted({h for f in level for h in self._includes_of.get(f, ()) if h not in seen})
+        return out
 
     def member_read(self, member: str, struct: str, origin: str = "") -> str:
         """the first read of the member in a file that sees its struct. Without a struct ("?": a member of a member, offsetof(S, a.b), or a member a
-        row's own parser stores into): the files that see a header declaring a member of that name among the files origin (the row's file) includes;
-        everywhere if there is none"""
+        row's own parser stores into): the files that see a file declaring a member of that name among the files origin (the row's file) includes,
+        the nearest declarations first (EvaEvents.cpp's SideCtx::side, then EvaEvents.h's EvaSideSound::side); everywhere if there is none"""
         files = self.visible(struct) if struct and struct != "?" else set()
+        scopes = [sorted(files)] if files else []
         if not files and origin:
-            for h in self.forward(origin):
-                if self.declares(h, member):
-                    files |= self.visible_file(h) if h.endswith((".h", ".hpp")) else {h}
-        scope = sorted(files) if files else sorted(self.files)
-        for f in scope:
-            for n in self.words_of(f).get(member, ()):
-                if self.is_read(f, n, member, struct):
-                    return f"{f}:{n}"
+            for hits in self.declaring_by_depth(origin, member):
+                scopes.append(sorted({x for h in hits for x in (self.visible_file(h) if h.endswith((".h", ".hpp")) else {h})}))
+        for scope in scopes or [sorted(self.files)]:
+            for f in scope:
+                for n in self.words_of(f).get(member, ()):
+                    if self.is_read(f, n, member, struct):
+                        return f"{f}:{n}"
         return ""
 
     def string_read(self, field: str, near: str = "") -> str:

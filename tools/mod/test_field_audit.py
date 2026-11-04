@@ -144,10 +144,12 @@ void ThingFactory::registerBlocks(INIBlockRegistry &registry)
 # (offsetof(Stage, values.preview)) that another file reads through the settings it is copied into
 PREVIEW_CPP = r'''
 #include "GameClient/Settings.h"
-struct LocalCopy
+// a local variable of the same name (EvaEvents.cpp's parser has one) is not the member's declaration
+void parsePreviewName(INI *ini, void *instance, void *, const void *)
 {
-	std::string preview;
-};
+	std::string preview = ini->getNextToken();
+	static_cast<Stage *>(instance)->values.preview = preview;
+}
 struct Stage
 {
 	Settings values;
