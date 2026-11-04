@@ -370,6 +370,43 @@ NOT_FUNC = {"if", "for", "while", "switch", "return", "sizeof", "static_assert",
 STRUCT_DECL = re.compile(r"^\s*(?:template\s*<[^>]*>\s*)?(?:struct|class)\s+(?:\w+\s+)?(\w+)\s*(?:final\s*)?(?::\s*([^{;]+))?\{?\s*$")
 INCLUDE = re.compile(r"^\s*#include\s+\"([^\"]+)\"")
 STRING = re.compile(r"\"([A-Za-z0-9_]+)\"")
+
+
+def code_only(lines: list[str]) -> list[str]:
+    """the lines with comments (// and /* */, across lines) and the text of string and character literals blanked: a word inside a report line's
+    text ("the human side's script library") is not a read of a member of that name. Positions and the quotes are kept."""
+    out, in_block = [], False
+    for line in lines:
+        buf, i, n = [], 0, len(line)
+        while i < n:
+            c = line[i]
+            if in_block:
+                if line.startswith("*/", i):
+                    in_block = False
+                    buf.append("  ")
+                    i += 2
+                else:
+                    buf.append(" ")
+                    i += 1
+            elif line.startswith("//", i):
+                buf.append(" " * (n - i))
+                break
+            elif line.startswith("/*", i):
+                in_block = True
+                buf.append("  ")
+                i += 2
+            elif c in "\"'":
+                j = i + 1
+                while j < n and line[j] != c:
+                    j += 2 if line[j] == "\\" else 1
+                j = min(j, n - 1)
+                buf.append(c + " " * (j - i - 1) + (line[j] if j > i else ""))
+                i = j + 1
+            else:
+                buf.append(c)
+                i += 1
+        out.append("".join(buf))
+    return out
 WRITE_AFTER = re.compile(r"\s*(?:[-+*/|&^]|<<|>>)?=(?!=)")
 
 
@@ -427,6 +464,8 @@ class Source:
             if m:
                 o = OFFSETOF.search(m.group(3))
                 macros[m.group(1)] = res(o.group(1)) if o and o.group(1) not in m.group(2) else ""
+                if o and re.search(r",\s*\w+\s*(?:\.|->)", m.group(3)[o.start():]):
+                    macros[m.group(1)] = "?"  # ES_OFF(member) = offsetof(State, values.member): a member of a member, as offsetof(S, a.b) itself
         names = {m.group(1): [m.group(2)] for m in NAMEVAR.finditer(text)}
         for m in LOOPVAR.finditer(text):
             names[m.group(1)] = STRING.findall(m.group(2))
@@ -561,7 +600,8 @@ class Source:
             if not struct:
                 mm = re.match(r"\(?\s*(?:\(\s*int\s*\)\s*)?(\w+)\s*\(", rest)
                 struct = macros.get(mm.group(1), "") if mm else ""
-            ids = re.findall(r"\b(m_\w+)", rest) or re.findall(r"(\w+)\s*\)*\s*$", rest)
+            # the last name of the offset argument; an element of an array member (ES_OFF(goodMP[0])) is the array's
+            ids = re.findall(r"\b(m_\w+)", rest) or re.findall(r"(\w+)\s*(?:\[[^\]]*\]\s*)?\)*\s*$", rest)
             if re.search(r"\w\s*\.\s*\w", rest.split(",", 1)[-1]):
                 struct = "?"  # offsetof(BlockState, values.x): the member belongs to a member's type, read through another struct: search everywhere
             out.append((r.group(1), r.group(2), ids[-1] if ids else "", struct))
@@ -689,17 +729,38 @@ class Source:
         w = self._words.get(f)
         if w is None:
             w = defaultdict(list)
-            for n, line in enumerate(self.files[f], 1):
-                code = line.split("//", 1)[0]
+            for n, code in enumerate(self.code_of(f), 1):
                 for x in set(re.findall(r"[A-Za-z_]\w*", code)):
                     w[x].append(n)
             self._words[f] = w
         return w
 
+    def code_of(self, f: str) -> list[str]:
+        """the file's lines without comments and literal text (code_only)"""
+        if not hasattr(self, "_code"):
+            self._code: dict[str, list[str]] = {}
+        if f not in self._code:
+            self._code[f] = code_only(self.files[f])
+        return self._code[f]
+
+    def local_named(self, f: str, n: int, name: str) -> bool:
+        """whether the function around line n declares a local or a parameter of that name before it (the signature's lines included)"""
+        funcs, code = self.line_func[f], self.code_of(f)
+        fn, k = funcs[n - 1], n - 1
+        while k > 0 and funcs[k - 1] == fn:
+            k -= 1
+        decl = re.compile(r"(?:[\w>\*&]\s+|[\*&])" + re.escape(name) + r"\s*(?:[=;,)\[{(:]|$)")
+        for i in range(max(0, k - 3), n):
+            for m in decl.finditer(code[i]):
+                head = code[i][:m.start() + 1].rstrip()
+                if not re.search(r"\b(?:return|case|else|throw|delete|sizeof|do)$", head):
+                    return True
+        return False
+
     def is_read(self, f: str, n: int, member: str, struct: str) -> bool:
         if (f, n) in self.row_lines:
             return False
-        code = self.files[f][n - 1].split("//", 1)[0]
+        code = self.code_of(f)[n - 1]
         if re.search(r"offsetof|_OFF\s*\(|_ROW\s*\(", code):
             return False
         fn = self.line_func[f][n - 1]
@@ -709,6 +770,9 @@ class Source:
             return False
         for m in re.finditer(r"\b" + re.escape(member) + r"\b", code):
             before, after = code[:m.start()], code[m.end():]
+            if not member.startswith("m_") and not re.search(r"(?:\.|->)\s*$", before) and not self.declares(f, member) \
+                    and ("::" not in fn or self.local_named(f, n, member)):
+                continue  # a bare `side` is this member only inside a method (Cls::fn) with no local or parameter of that name (LiveGame.cpp's side)
             if WRITE_AFTER.match(after):
                 continue  # a store (m_x = ..., m_x += ...)
             prev = re.search(r"(\w+)\W*$", before)

@@ -67,6 +67,10 @@ const FieldParse kTyped[] = {
 
 void TypedThingModuleData::buildFieldParse(MultiIniFieldParse &p) { p.add(kTyped); }
 
+// a report line and a block comment naming the member are not reads of it
+std::vector<std::string> TypedThing::stopLines() { return { "[S-1] m_unused is kept, nothing reads it" }; }
+void TypedThing::note() { /* m_unused */ }
+
 float TypedThing::speed() const
 {
 	if (m_data->m_dieMux.applies() && m_data->m_fx)
@@ -112,18 +116,23 @@ class WeaponTemplate
 public:
 	float m_attackRange = 0.0f;
 	float m_unread = 0.0f;
+	struct Pair { int start, cap; } counts[2];
 	static const FieldParse *getFieldParse();
 };
+// a row storing into an array element (EconomySettings.cpp's ES_OFF(goodMP[0])): the member is the array, not what the parser's body names
+void parsePair(INI *ini, void *, void *store, const void *) { static_cast<WeaponTemplate::Pair *>(store)->cap = 1; }
 const FieldParse *WeaponTemplate::getFieldParse()
 {
 	static const FieldParse table[] = {
 		{ "AttackRange", INI::parseReal, nullptr, (int)offsetof(WeaponTemplate, m_attackRange) },
 		{ "Unread", INI::parseReal, nullptr, (int)offsetof(WeaponTemplate, m_unread) },
+		{ "Count2", parsePair, nullptr, (int)offsetof(WeaponTemplate, counts[1]) },
 		{ nullptr, nullptr, nullptr, 0 }
 	};
 	return table;
 }
 float WeaponTemplate::range() const { return m_attackRange; }
+int WeaponTemplate::secondCount() const { return counts[1].start; }
 void WeaponStore::registerBlocks(INIBlockRegistry &registry)
 {
 	registry.registerBlock("Weapon", [](INI *ini) { WeaponStore::parseWeaponTemplateDefinitionGlobal(ini); });
@@ -155,8 +164,12 @@ struct Stage
 {
 	Settings values;
 };
+// a row macro storing through a member (EconomySettings.cpp's ES_OFF(member) = offsetof(State, values.member)): the member is Settings', not Stage's
+#define PV_OFF(m) (int)offsetof(Stage, values.m)
 const FieldParse kPreview[] = {
 	{ "PreviewDecal", INI::parseAsciiString, nullptr, (int)offsetof(Stage, values.preview) },
+	{ "PreviewTint", INI::parseInt, nullptr, (int)offsetof(Stage, values.tint) },
+	{ "PreviewScale", INI::parseReal, nullptr, PV_OFF(scale) },
 	{ nullptr, nullptr, nullptr, 0 }
 };
 void PreviewReader::registerBlocks(INIBlockRegistry &registry)
@@ -170,6 +183,8 @@ SETTINGS_H = r'''
 struct Settings
 {
 	std::string preview;
+	int tint = 0;
+	float scale = 1.0f;
 };
 '''
 MIDDLE_H = r'''
@@ -177,6 +192,14 @@ MIDDLE_H = r'''
 '''
 PREVIEW_USE_CPP = r'''#include "GameClient/Middle.h"
 const std::string &previewTexture(const GameLogic &logic) { return logic.settings().preview; }
+// a local variable of a member's name (LiveGame.cpp's `side`) is not a read of the member: outside a file declaring it, a read is .tint or ->tint
+int tintOf() { int tint = 3; return tint; }
+int GameLogic::tintOf(int tint) const { return tint; }
+// inside a method a bare name is the member (AudioSettings.cpp's joinFolder(audioRoot, ..))
+float Settings::scaled() const
+{
+	return scale * 2.0f;
+}
 '''
 
 # DieMux's own method reads the member the MUX_ROWS row stores through m_dieMux (a file that never sees TypedThingModuleData)
@@ -194,6 +217,8 @@ Object TestUnit
   BuildCost = 100
   VisionRange = 50
   PreviewDecal = Arrow
+  PreviewTint = 2
+  PreviewScale = 2
   VoiceSelect = TestUnitVoiceSelect
   UnitSpecificSounds
     VoiceGarrison = TestUnitVoiceGarrison
@@ -242,6 +267,7 @@ End
 Weapon TestBow
   AttackRange = 200
   Unread = 1
+  Count2 = 1 2
 End
 
 Bridge TestBridge
@@ -263,7 +289,7 @@ def rw_tables(rw: Path):
         "0xa5": table("Duration"),
         "0xa6": {"rows": [{"name": "BeginScript", "fn": "0xb2", "offset": 0, "userData": 0}, {"name": "Model", "fn": "0x1", "offset": 0, "userData": 0}],
                  "terminated": True},
-        "0xa7": {"rows": table("BuildCost", "VisionRange", "PreviewDecal", "Behavior", "Draw")["rows"]
+        "0xa7": {"rows": table("BuildCost", "VisionRange", "PreviewDecal", "PreviewTint", "PreviewScale", "Behavior", "Draw")["rows"]
                  + [{"name": "UnitSpecificSounds", "fn": "0xb4", "offset": 0, "userData": 0}], "terminated": True},
         "0xa9": table("FacingBonus"),
         "0xaa": {"rows": [], "catchAll": "0xb5", "terminated": True},
@@ -331,9 +357,10 @@ def status(result, block, owner, field):
 
 def test_typed_module_fields(result):
     assert status(result, "object", "TypedThing", "Used") == "used"
-    assert result[0][("object", "TypedThing", "Used")]["where"].endswith("TypedThing.cpp:30")  # the read in speed(), not the table row
+    assert result[0][("object", "TypedThing", "Used")]["where"].endswith("TypedThing.cpp:34")  # the read in speed(), not the table row
     assert result[0][("object", "TypedThing", "Used")]["defs"] == 2
     assert status(result, "object", "TypedThing", "Unused") == "parsed-unused"  # &INI::parseReal: the row is still found
+    # (the member's name in a string literal or a /* */ comment of a visible file is not a read)
     assert status(result, "object", "TypedThing", "DeathTypes") == "used"  # a row of the multi-line MUX_ROWS(T) macro
     assert result[0][("object", "TypedThing", "DeathTypes")]["where"] == "GameLogic/Module/DieMux.cpp:2"  # m_dieMux.m_deathTypes: read anywhere
     assert status(result, "object", "TypedThing", "FX") == "used"  # its own parser stores m_fx, which speed() reads
@@ -377,10 +404,14 @@ def test_definition_fields(result):
     # the Object's second reader parses it into a staging struct; the read is in a file that never sees Stage
     assert status(result, "object", "", "PreviewDecal") == "used"
     assert result[0][("object", "", "PreviewDecal")]["where"] == "GameClient/PreviewUse.cpp:2"
+    assert status(result, "object", "", "PreviewTint") == "parsed-unused"  # only a local variable or a parameter of that name is read
+    assert status(result, "object", "", "PreviewScale") == "used"  # a method's bare name
     # the Object is read by two RotWK tables (RW 0x73C13C): a field of the audio table is RotWK's, not the mod's error
     assert status(result, "object", "", "VoiceSelect") == "used"
     assert status(result, "weapon", "", "AttackRange") == "used"
     assert status(result, "weapon", "", "Unread") == "parsed-unused"
+    assert status(result, "weapon", "", "Count2") == "used"
+    assert result[0][("weapon", "", "Count2")]["member"] == "counts"
     assert status(result, "bridge", "", "Width") == "stub-block"
     assert ("object", "SecondUnit", "Used") not in result[0]
 
