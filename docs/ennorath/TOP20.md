@@ -26,7 +26,7 @@
 |---|---|---|---|---|---|---|
 | 1 | `CommandButton/ButtonBorderType` | 5858 | parsed-unused | `m_commandButtonBorder` только объявлен (`ControlBarCommands.h:164`) | рамка кнопки: видно в интерфейсе | открыто |
 | 2 | `Object/EvaEnemyObjectSightedEvent` | 1707 | parsed-unused | в `engine/src` ссылок нет | оповещение EVA «замечен враг» | открыто |
-| 3 | `Object/SoundOnDamaged`, `SoundOnReallyDamaged`, `SoundImpact` | 1292 / 1295 / 981 | parsed-unused | стоп S-707: звуки объекта не портированы | звук урона и попадания | исправлено (S-707, `0003a25c`), владелец: работает (`7c2a8e22`), ждёт: аудит |
+| 3 | `Object/SoundOnDamaged`, `SoundOnReallyDamaged`, `SoundImpact` | 1292 / 1295 / 981 | parsed-unused | стоп S-707: звуки объекта не портированы | звук урона и попадания | проверено: узкий тест `SOUND-707 retail*`, владелец: работает (`7c2a8e22`), аудит `used` (`ActiveBody.cpp:422`, `PhysicsBehavior.cpp:774`); ждёт ночи |
 | 4 | `Terrain/Class` | 1277 | not-read | `TerrainTypes.cpp` читает только `Texture` | класс текстуры земли (ZH: для редактора; проверить RW) | открыто |
 | 5 | `Object/ShadowTexture`, `ShadowSizeX`, `ShadowSizeY` | 1138 | parsed-unused | стопы S-3304, S-5032: тени объекта разбираются и отбрасываются | тени | открыто |
 | 6 | `AIUpdateInterface/AILuaEventsList` | 985 | raw | данные модуля не типизированы; стопы S-127, S-147 | Lua-события ИИ | открыто |
