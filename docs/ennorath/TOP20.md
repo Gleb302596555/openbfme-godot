@@ -24,7 +24,7 @@
 
 | # | поле | опр. | статус в порту | что известно | решить | статус |
 |---|---|---|---|---|---|---|
-| 1 | `CommandButton/ButtonBorderType` | 5858 | parsed-unused | `m_commandButtonBorder` только объявлен (`ControlBarCommands.h:164`) | рамка кнопки: видно в интерфейсе | открыто |
+| 1 | `CommandButton/ButtonBorderType` | 5858 | parsed-unused | `m_commandButtonBorder` только объявлен (`ControlBarCommands.h:164`) | рамка кнопки: видно в интерфейсе | стоп S-7162: RotWK читает (setControlCommand RW 0x71CF3E -> RW 0x71C4F4 -> RW 0x729EA7) и рисует рамку только у не-радиальных окон команд (RW 0x4A579C); окна кольца радиальные или убраны за экран (RW 0x9459D1), видна только у кнопки продажи таймера OCL (RW 0x944D9D), которой в порту нет; нужны цвета ControlBarScheme (RW 0x7206D5) и это окно |
 | 2 | `Object/EvaEnemyObjectSightedEvent` | 1707 | parsed-unused | в `engine/src` ссылок нет | оповещение EVA «замечен враг» | открыто |
 | 3 | `Object/SoundOnDamaged`, `SoundOnReallyDamaged`, `SoundImpact` | 1292 / 1295 / 981 | parsed-unused | стоп S-707: звуки объекта не портированы | звук урона и попадания | проверено: узкий тест `SOUND-707 retail*`, владелец: работает (`7c2a8e22`), аудит `used` (`ActiveBody.cpp:422`, `PhysicsBehavior.cpp:774`); ждёт ночи |
 | 4 | `Terrain/Class` | 1277 | not-read | `TerrainTypes.cpp` читает только `Texture` | класс текстуры земли (ZH: для редактора; проверить RW) | открыто |
