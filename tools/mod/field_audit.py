@@ -33,6 +33,7 @@ Statuses, from the worst:
   unmapped-block   no struct of the port is known for that definition type (DEF_STRUCTS)
   parsed-unused    the value is parsed into a member that nothing reads
   custom-parser    the row's own parser stores it where the tool cannot follow (no member named in its body): check by hand
+  own-reader       a stub block read by a hand-written reader of its own that names the field (TerrainTypes.cpp): the use not followed
   dynamic-row      the row is made at run time from a name list (MiscAudio, "Color" + to_string(i)): parsed, the use not followed
   used-raw         a raw class whose field name is read by name (a raw reader such as RawModuleData's find) in a file that names the class
   used             the member is read outside the parser
@@ -750,14 +751,27 @@ class Source:
                             self._strings[s.lower()].append((f, n))
         return self._strings.get(field.lower(), [])
 
+    def own_reader_files(self, keyword: str) -> set[str]:
+        """the files (other than the INI keyword table) naming a block keyword as a string or its data\\ini file (terrain.ini)"""
+        if not hasattr(self, "_text"):
+            self.string_lines("")
+        k = keyword.lower()
+        return {f for f, text in self._text.items() if f != "Common/INI/INIBlockStubs.cpp" and not f.endswith(".inc")
+                and (f'"{k}"' in text.lower() or f"{k}.ini" in text.lower())}
+
     def block_files(self, keyword: str) -> set[str]:
         """the files registering a parser for the block keyword (registerBlock("Keyword", ...) or INIBlockStubs.cpp's keyword == "Keyword")"""
         if not hasattr(self, "_block_files"):
             self._block_files: dict[str, set[str]] = defaultdict(set)
+            tables = {(r.file, r.table) for r in self.rows if r.table}
             for f, lines in self.files.items():
                 for line in lines:
                     for k in re.findall(r"registerBlock\(\s*\"(\w+)\"", line):
                         self._block_files[k.lower()].add(f)
+                    # a registration helper given the keyword and its table: reg("AIData", kAIDataFields, 2u) (GameLogicSettings.cpp)
+                    for k, t in re.findall(r"\b\w+\(\s*\"([A-Z]\w+)\"\s*,\s*(k\w+)\s*[,)]", line):
+                        if (f, t) in tables:
+                            self._block_files[k.lower()].add(f)
         return self._block_files.get(keyword.lower(), set())
 
     def block_keywords(self) -> tuple[set[str], set[str]]:
@@ -768,10 +782,7 @@ class Source:
             raise SystemExit("engine/src/Common/INI/INIBlockStubs.cpp: RotwkBlockKeywords not found")
         every = {k.lower() for k in STRING.findall(m.group(1))}
         real = {k.lower() for k in re.findall(r"else if \(keyword == \"(\w+)\"\)", stubs)}
-        for lines in self.files.values():
-            for line in lines:
-                for k in re.findall(r"registerBlock\(\s*\"(\w+)\"", line):
-                    real.add(k.lower())
+        real |= {k for k in every if self.block_files(k)}
         return every, real
 
 
@@ -788,14 +799,16 @@ def load_stops(path: Path | None) -> list[tuple[str, str]]:
 
 
 def stops_for(stops, cls: str, field: str) -> str:
-    if not stops or not cls:
+    """the STOPS.md rows naming the module class and the field; for a definition's field (no class), the rows naming the field when its name is
+    distinctive (8+ characters, HitPassengerPercentage -> S-321)"""
+    if not stops or not (cls or len(field) >= 8):
         return ""
-    hits = [sid for sid, line in stops if re.search(r"\b" + re.escape(cls) + r"\b", line) and (not field or re.search(r"\b" + re.escape(field) + r"\b", line))]
+    hits = [sid for sid, line in stops if (not cls or re.search(r"\b" + re.escape(cls) + r"\b", line)) and re.search(r"\b" + re.escape(field) + r"\b", line)]
     return " ".join(hits[:3])
 
 
 # ---- the join --------------------------------------------------------------------------------------------------------------------------------------
-ORDER = ["missing-module", "parsed-only-module", "stub-block", "raw", "struct-unknown", "no-table-row", "unmapped-block", "parsed-unused", "custom-parser", "dynamic-row",
+ORDER = ["missing-module", "parsed-only-module", "stub-block", "raw", "struct-unknown", "no-table-row", "unmapped-block", "parsed-unused", "custom-parser", "own-reader", "dynamic-row",
          "used-raw", "used", "not-in-rotwk", "unknown-class"]
 
 
@@ -900,7 +913,11 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
                     if use or not others:
                         status, where, how = ("used", use, "by-name") if use else ("parsed-unused", "", "by-name")
         elif typ not in real_blocks:
-            status = "stub-block"
+            # a recording stub in the INI registry, but a hand-written reader of its own may read the file (TerrainTypes.cpp reads terrain.ini's
+            # Texture lines): a file naming the block keyword or its .ini that names the field as a string (any case)
+            readers = src.own_reader_files(typ)
+            hit = next((f"{f}:{n}" for f, n in src.string_lines(field) if f in readers), "")
+            status, where, how = ("own-reader", hit, "string") if hit else ("stub-block", "", "")
         elif typ == "commandset" and field.isdigit():
             struct, member, how = "CommandSet", "m_command", "slot-key"
             if not 1 <= int(field) <= COMMANDSET_SLOTS:
