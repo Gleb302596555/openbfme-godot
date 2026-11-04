@@ -31,7 +31,7 @@ unless one class in the source declares that name. A block's parser consuming th
 is a read too, marked STAGED. A where with STAGED or INFERENCE is a lead to check, not a proof.
 
 Known limit (KNOWN_LIMIT, also in field-audit.md): a member of another struct with the same name, read in a file that names our struct too,
-counts as our read (`x.side` of some other struct in a file that also names ArmyDefinition). The where of such a row can point at the other
+counts as our read (`x.side` of some other struct in a file that also names ArmyDefinition); such a where is marked AMBIGUOUS. It can point at the other
 struct's read; the status is wrong only when our member has no read of its own.
 
 Statuses, from the worst:
@@ -446,6 +446,7 @@ class Source:
         self.binds: dict[str, tuple[str, str]] = {}  # module class -> (data struct, file:line)
         self.funcs: dict[tuple[str, str], list[str]] = defaultdict(list)  # (file, [Struct::]function) -> body lines
         self.line_func: dict[str, list[str]] = {}  # file -> the function of every line ("" outside one)
+        self.line_class: dict[str, list[str]] = {}  # file -> the innermost class of every line ("" outside one)
         self.bases: dict[str, set[str]] = defaultdict(set)
         self.decl: dict[str, str] = {}  # struct -> the file declaring it
         self.decl_all: dict[str, list[str]] = defaultdict(list)  # struct -> every file declaring a struct of that name
@@ -510,7 +511,7 @@ class Source:
         def code_depth():
             return sum(1 for k in stack if k == "code")
 
-        line_func = []
+        line_func, line_class = [], []  # every line's function and innermost class ("" outside one)
         in_define = None  # (macro name, its parameters) inside a multi-line #define
         for n, line in enumerate(lines, 1):
             if in_define or (line.lstrip().startswith("#define") and line.rstrip().endswith("\\")):
@@ -522,6 +523,7 @@ class Source:
                 if not line.rstrip().endswith("\\"):
                     in_define = None
                 line_func.append("")
+                line_class.append("")
                 continue
             m = INCLUDE.match(line)
             if m:
@@ -581,11 +583,13 @@ class Source:
                         func, pending = "", ""
             cur = func or touched or ""
             line_func.append(cur)
+            line_class.append(next((k[6:] for k in reversed(stack) if k.startswith("class:")), ""))
             if cur:
                 self.funcs[(f, cur)].append(code)
             if table and "};" in code:
                 table = None
         self.line_func[f] = line_func
+        self.line_class[f] = line_class
 
     def _infer_custom_members(self):
         """a row with its own parser and no member (`{ "FX", parseFX, nullptr, 0 }`): the members that parser's body names (m_*), in the row's
@@ -908,6 +912,21 @@ class Source:
         listed = re.compile(r"^\s*[\w:<>]+[\s\*&]+\w+[^(]*,\s*[\*&]?" + re.escape(member) + r"\s*(?:=[^=]|;|,|\[|\{)")
         return [n for n, line in enumerate(self.files[f]) if (pat.match(line) or listed.match(line)) and not (n < len(funcs) and funcs[n])]
 
+    def member_owners(self, member: str) -> set[str]:
+        """the classes declaring a member of that name (class-level declarations, anywhere in the source)"""
+        if not hasattr(self, "_owners"):
+            self._owners: dict[str, set[str]] = {}
+        if member not in self._owners:
+            self._owners[member] = {self.line_class[f][n] for f in self.files if member in self.words_of(f)
+                                    for n in self.declarations(f, member) if self.line_class[f][n]}
+        return self._owners[member]
+
+    def ambiguous(self, f: str, member: str, names: set[str]) -> str:
+        """" AMBIGUOUS: .." when the reading file names another class declaring a member of that name as well as ours: the read may be that
+        class's (the known limit), check it by hand"""
+        others = sorted(o for o in self.member_owners(member) - names if o in self.words_of(f))
+        return f" AMBIGUOUS: the file also names {', '.join(others[:3])} with a member {member}" if others else ""
+
     def declared_once(self, member: str) -> bool:
         """whether one class-level declaration in the whole source has that name: then a read of it is that member, whatever the reading
         file names (AimWeaponBehavior.cpp reads WeaponTemplate's m_isAimingWeapon through a getter's result)"""
@@ -947,7 +966,7 @@ class Source:
             for f in named:
                 for n in self.words_of(f).get(member, ()):
                     if self.is_read(f, n, member, struct, parser):
-                        return f"{f}:{n}"
+                        return f"{f}:{n}" + (self.ambiguous(f, member, names) if names else "")
             # then a block's parser consuming the local it parsed (staged_read; the parsers are no reads otherwise): a key is a use; a value stored
             # into a member is used when that member is read (one step); a value passed to a call is marked, where it goes is not followed
             # (a key anywhere before a copy: `chain.unit < 0` is a check, `combatChains[chain.unit]` the use)
@@ -1309,9 +1328,9 @@ NESTED_DEF_STRUCTS = {
 
 # ---- the output ------------------------------------------------------------------------------------------------------------------------------------
 KNOWN_LIMIT = ("text in quotes and comments, a local or a parameter of the member's name and a declaration are not taken for reads any more; "
-               "a member of another struct with the same name, read in a file that names our struct too, still is (its where can point at the "
-               "other struct's read; the status is wrong only when our member has no read of its own). STAGED and INFERENCE in where are leads "
-               "to check by hand.")
+               "a member of another struct with the same name, read in a file that names our struct too, still is (its where is marked AMBIGUOUS and can "
+               "point at the other struct's read; the status is wrong only when our member has no read of its own). STAGED, INFERENCE and "
+               "AMBIGUOUS in where are leads to check by hand.")
 COLS = ["status", "block", "owner", "field", "defs", "uses", "struct", "member", "where", "how", "stop", "values", "src", "tool"]
 
 # a hand-checked verdict (manual-check.tsv, columns block owner field status-tool verdict where note)

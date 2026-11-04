@@ -38,6 +38,7 @@ public:
 	DieMux m_dieMux;
 	int m_fx = 0;
 	int m_level = 0;
+	int m_shared = 0;
 	int m_spare = 0, m_rare = 0; // a declarator list (CastleModules.h's m_maxCastleRadius)
 	std::string m_tagA, m_tagB; // its later name is no read (CreateAHeroSystem.h)
 	std::vector<std::string> m_names;
@@ -65,6 +66,7 @@ const FieldParse kTyped[] = {
 	{ "Names", INI::parseAsciiStringVector, nullptr, TT_OFF(m_names) },
 	{ "Level", INI::parseInt, nullptr, TT_OFF(m_level) },
 	{ "Rare", INI::parseInt, nullptr, TT_OFF(m_rare) },
+	{ "Shared", INI::parseInt, nullptr, TT_OFF(m_shared) },
 	{ "TagB", INI::parseAsciiString, nullptr, TT_OFF(m_tagB) },
 	MUX_ROWS(TypedThingModuleData),
 	{ nullptr, nullptr, nullptr, 0 }
@@ -227,7 +229,13 @@ struct Filter
 {
 	float m_used = 0.0f;
 	int m_level = 0;
+	int m_shared = 0;
 };
+'''
+
+# a file naming TypedThingModuleData and Filter, both with a member m_shared: its read may be either's (the known limit), marked AMBIGUOUS
+AMBIG_CPP = r'''#include "GameLogic/Module/TypedThing.h"
+int sharedOf(const Filter &filter, const TypedThingModuleData *d) { return filter.m_shared; }
 '''
 
 # a block's parser that parses a local and consumes it (SkirmishAIData.cpp's parseArmyDefinition, Locomotor.cpp's parseLocomotorSet): army.side is a
@@ -424,6 +432,7 @@ Object TestUnit
     Names = A B
     Level = 2
     Rare = 1
+    Shared = 1
     TagB = X
     MeleeBehavior = Amoeba
       FacingBonus = 30.0
@@ -494,7 +503,7 @@ def rw_tables(rw: Path):
     def table(*names, fn="0x1"):
         return {"rows": [{"name": n, "fn": fn, "offset": 0, "userData": 0} for n in names], "terminated": True}
     tables = {
-        "0xa1": {"rows": table("Used", "Unused", "FX", "DeathTypes", "Names", "Envelope", "Level", "Rare", "TagB")["rows"]
+        "0xa1": {"rows": table("Used", "Unused", "FX", "DeathTypes", "Names", "Envelope", "Level", "Rare", "TagB", "Shared")["rows"]
                  + [{"name": "MeleeBehavior", "fn": "0xb3", "offset": 0, "userData": 0}], "terminated": True},
         "0xa2": table("Radius", "Height"),
         "0xa3": table("Bar"),
@@ -549,7 +558,7 @@ def result(tmp_path_factory):
                       "GameLogic/Module/EmotionThing.cpp": EMOTION_CPP, "GameLogic/Object/Weapon.cpp": WEAPON_CPP,
                       "Common/Thing/ThingFactory.cpp": THING_CPP, "GameLogic/Module/RawRead.cpp": RAW_CPP,
                       "GameClient/PreviewReader.cpp": PREVIEW_CPP, "GameClient/PreviewUse.cpp": PREVIEW_USE_CPP, "GameLogic/Module/DieMux.cpp": DIEMUX_CPP,
-                      "GameLogic/Module/Other.cpp": OTHER_CPP, "GameLogic/AI/Army.cpp": ARMY_CPP, "GameClient/Voice.cpp": VOICE_CPP, "GameClient/Decal.h": DECAL_H, "Common/ADecal.h": OTHER_DECAL_H,
+                      "GameLogic/Module/Other.cpp": OTHER_CPP, "GameLogic/Module/Ambig.cpp": AMBIG_CPP, "GameLogic/AI/Army.cpp": ARMY_CPP, "GameClient/Voice.cpp": VOICE_CPP, "GameClient/Decal.h": DECAL_H, "Common/ADecal.h": OTHER_DECAL_H,
                       "GameClient/Decal.cpp": DECAL_CPP, "GameLogic/AI/Threat.cpp": THREAT_CPP,
                       "GameClient/Settings.h": SETTINGS_H, "GameClient/Middle.h": MIDDLE_H}.items():
         (src / rel).parent.mkdir(parents=True, exist_ok=True)
@@ -573,7 +582,7 @@ def status(result, block, owner, field):
 
 def test_typed_module_fields(result):
     assert status(result, "object", "TypedThing", "Used") == "used"
-    assert result[0][("object", "TypedThing", "Used")]["where"].endswith("TypedThing.cpp:37")  # the read in speed(), not the table row
+    assert result[0][("object", "TypedThing", "Used")]["where"].endswith("TypedThing.cpp:38")  # the read in speed(), not the table row
     assert result[0][("object", "TypedThing", "Used")]["defs"] == 2
     assert status(result, "object", "TypedThing", "Unused") == "parsed-unused"  # &INI::parseReal: the row is still found
     # (the member's name in a string literal or a /* */ comment of a visible file is not a read)
@@ -586,6 +595,8 @@ def test_typed_module_fields(result):
     assert result[0][("object", "TypedThing", "Level")]["where"] == "GameLogic/Module/Other.cpp:2 INFERENCE: the file does not name TypedThingModuleData"
     assert result[0][("object", "TypedThing", "Rare")]["where"] == "GameLogic/Module/Other.cpp:3"  # the only m_rare of the source
     assert status(result, "object", "TypedThing", "TagB") == "parsed-unused"
+    assert result[0][("object", "TypedThing", "Shared")]["where"] == ("GameLogic/Module/Ambig.cpp:2 AMBIGUOUS: the file also names Filter with a "
+                                                                      "member m_shared")
     assert status(result, "object", "TypedThing", "Bogus") == "not-in-rotwk"  # MeleeBehavior's End did not close the module
 
 
