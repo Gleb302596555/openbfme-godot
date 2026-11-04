@@ -1,6 +1,6 @@
 # TOP20: поля Эннората, которые порт не использует
 
-Рабочий список по разделу 7а [PROCESS.md](PROCESS.md): брать сверху вниз, одна проблема — одна ветка. Источник — аудит полей (задача 1, [audit/](audit/)), исходный файл `workspace/ennorath-audit1/TOP20-problems.md`.
+Рабочий список по разделу 7а [PROCESS.md](PROCESS.md): брать сверху вниз, по одной, в своей рабочей станции (раздел 4). Источник — аудит полей (задача 1, [audit/](audit/)), исходный файл `workspace/ennorath-audit/TOP20-problems.md`.
 
 Статус: `открыто` → `исправлено, ждёт: <узкий тест | владельца | аудит>` → `проверено` (узкий тест прошёл, владелец сказал «работает» или в игре не видно, аудит `used`) → окончательно после ночного прогона ([NIGHT_WATCH.md](NIGHT_WATCH.md), `ночь: прошло`). Можно и `стоп S-<номер>` или `RotWK тоже не использует` с адресом.
 
@@ -54,6 +54,8 @@
 - 11 полей `fxparticlesystemcustom.ini`: RotWK этот файл не загружает (`InitFile` закомментирован в `default/subsystemlegend.ini:70`).
 
 ## Найдено попутно (не в двадцатке, но решить)
+
+- Блок `Fire` (`terrain-fire`, `8d487f95`): `EnableScorches`, `ScorchFrequency`, `ScorchSize`, `ScorchIntensity`, `BurntTerrainColor`, `FuelIndicatorColor` разбираются в `FireSetting.h`, но не применяются (обугленная земля, подпалины), а стоп S-191 закрыт целиком без нового стопа. Нужен стоп или перенос по RW.
 
 - `FireLogicNugget`: `DelayTime` (20), `DamageScalar` (1) в порту не читаются — нагет доставляется только через `fireLogicAt` (`WeaponDelivery.cpp:1602`). Читает ли их RotWK (RW `0x912241`), не проверено.
 - Микрофон Living World (`LivingWorldMicrophone*`, `LivingWorldZoomMaxDistance`): вид Living World в звуке никто не включает (`set_current_view` без вызова в `godot/`).

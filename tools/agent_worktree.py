@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """One branch and one working tree per agent (docs/ennorath/PROCESS.md, section 4). Work left by an agent that stops stays on its branch.
 
+Workstations (the owner's rule of 2026-11-04): an agent keeps its trees as workstations, branches agent/<agent>/station-<n>, and works in them task
+after task instead of making a new branch per task (a new tree costs a 20-minute build, a parked one still rebuilds what differs). `land` of a
+station fast-forwards main and keeps the branch and the tree; `sync` before the next task. `new` refuses an agent that has a free station.
+
     agent_worktree.py new <agent> <topic>   branch agent/<agent>/<topic> from main, tree workspace/wt/<agent>-<topic>, godot-cpp, the commit gate
     agent_worktree.py list                  each agent branch: its tree, commits ahead of and behind main, uncommitted files; the parked trees
     agent_worktree.py sync [--tests-exe P]  run inside a tree: merge main in, then regenerate the counts (tools/sync_counts.py)
     agent_worktree.py land <branch>         after the owner's approval: fast-forward main to the branch, then remove its tree and branch
+                                            (a station's branch and tree stay)
     agent_worktree.py remove <branch>       remove a tree and branch that are already in main; unmerged or dirty work is refused
     agent_worktree.py hook                  install the commit gate (shared by every tree)
 
@@ -25,6 +30,7 @@ import sys
 from pathlib import Path
 
 NAME = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
+STATION = re.compile(r"^agent/[a-z0-9][a-z0-9._-]*/station-\d+$")
 GODOT_CPP = "engine/thirdparty/godot-cpp"
 PARKED_MAX = 3  # a tree's engine/build is 12-14 GB (measured 2026-11-03)
 HOOK = '#!/bin/sh\n# Installed by tools/agent_worktree.py: the gate of the tree being committed in.\nexec python "$(git rev-parse --show-toplevel)/tools/precommit.py"\n'
@@ -89,6 +95,10 @@ def cmd_new(agent: str, topic: str) -> int:
         if not NAME.match(part):
             raise SystemExit(f"{part!r}: use lower-case letters, digits, '.', '_' and '-'")
     root = main_root()
+    trees = worktrees(root)
+    free = [b for b in trees if STATION.match(b) and b.startswith(f"agent/{agent}/") and is_merged(b, root) and not dirty(trees[b])]
+    if free and not STATION.match(f"agent/{agent}/{topic}"):
+        raise SystemExit(f"{agent} has a free workstation ({', '.join(free)}): work there (`sync`, then commit), not in a new branch")
     branch = f"agent/{agent}/{topic}"
     reused = next((p for p in parked_trees(root) if p.exists() and not dirty(p)), None)
     if reused:
@@ -138,6 +148,9 @@ def cmd_land(branch: str) -> int:
         raise SystemExit(f"{tree} has uncommitted files: nothing is landed")
     git("merge", "--ff-only", branch, cwd=root)
     print(f"main is at {git('rev-parse', '--short', 'main', cwd=root)}")
+    if STATION.match(branch):
+        print(f"{branch} is a workstation: its branch and tree stay")
+        return 0
     return cmd_remove(branch)
 
 
