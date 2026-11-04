@@ -409,6 +409,9 @@ public:
 	Array cheat_players() const;
 	// the units and heroes of a player's side: [ { template, id, hero, label (the DisplayName label) } ], heroes first
 	Array cheat_units(int64_t player) const;
+	// the test sandbox: the playable sides, and what a side can spawn (kind "units": units and heroes, "structures")
+	Array cheat_sides() const;
+	Array cheat_spawnables(const String &side, const String &kind) const;
 	// a player's living heroes that can gain levels: [ { id, template, label, level } ]
 	Array cheat_heroes(int64_t player) const;
 	// queues MSG_OPENBFME_CHEAT for the local player (only the cheat seat): { command, target, value, template, object, x, y } -> { ok, error }

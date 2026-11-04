@@ -467,7 +467,8 @@ void GettingBuiltBehavior::startConstruction(bool force)
 	{
 		// RW 0x856736: calcTimeToBuild(owner, no producer, -1)
 		const int frames = BuildAssistant::calcTimeToBuild(*obj->getTemplate(), player, nullptr, -1, logic.productionSettings(), logic);
-		m_buildFrames = (UnsignedInt)frames;
+		// OpenBFME's Cheat Mode InstantBuild (GameLogic/CheatMode.h): one frame; not RotWK
+		m_buildFrames = logic.cheatMode().instantBuild(player->getPlayerIndex()) ? 1u : (UnsignedInt)frames;
 	}
 	m_rebuilding = obj->isEffectivelyDead();
 	if (m_rebuilding)

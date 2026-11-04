@@ -8,6 +8,7 @@
 #include "Common/Player.h"
 #include "Common/PlayerHeroList.h"
 #include "Common/PlayerList.h"
+#include "Common/PlayerTemplate.h"
 #include "Common/Thing/ThingFactory.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/CommandButtonHelp.h"
@@ -76,6 +77,8 @@ void GameWorld::bindCheatMethods()
 	ClassDB::bind_method(D_METHOD("cheat_info"), &GameWorld::cheat_info);
 	ClassDB::bind_method(D_METHOD("cheat_players"), &GameWorld::cheat_players);
 	ClassDB::bind_method(D_METHOD("cheat_units", "player"), &GameWorld::cheat_units);
+	ClassDB::bind_method(D_METHOD("cheat_sides"), &GameWorld::cheat_sides);
+	ClassDB::bind_method(D_METHOD("cheat_spawnables", "side", "kind"), &GameWorld::cheat_spawnables);
 	ClassDB::bind_method(D_METHOD("cheat_heroes", "player"), &GameWorld::cheat_heroes);
 	ClassDB::bind_method(D_METHOD("cheat_command", "command"), &GameWorld::cheat_command);
 	ClassDB::bind_method(D_METHOD("take_cheat_lines"), &GameWorld::take_cheat_lines);
@@ -131,19 +134,49 @@ Array GameWorld::cheat_players() const
 
 Array GameWorld::cheat_units(int64_t player) const
 {
-	// the units and heroes of the player's side: every template of that Side a command button builds, with a build cost, not a structure or a projectile, heroes
-	// first, then by name. A mod's own units are listed the same way (nothing here names a retail template)
+	// the units and heroes of the player's side (the Units tab before the sandbox, and the API)
+	if (!m_game)
+	{
+		return Array();
+	}
+	const ::Player *p = m_game->logic().players().getNthPlayer((int)player);
+	return p ? cheat_spawnables(g(p->getSide()), "units") : Array();
+}
+
+Array GameWorld::cheat_sides() const
+{
+	// the playable sides (PlayableSide, not an observer: PlayerTemplateStore::playableSideIndices), each once, in the store's order
+	Array out;
+	if (!m_world)
+	{
+		return out;
+	}
+	std::set<std::string> seen;
+	const PlayerTemplateStore &store = m_world->playerTemplates();
+	for (int i : store.playableSideIndices())
+	{
+		const PlayerTemplate *pt = store.getNthPlayerTemplate(i);
+		if (pt && !pt->m_side.empty() && seen.insert(pt->m_side).second)
+		{
+			out.push_back(g(pt->m_side));
+		}
+	}
+	return out;
+}
+
+Array GameWorld::cheat_spawnables(const String &sideName, const String &kindName) const
+{
+	// what a side can spawn. "units": every template of that Side a command button builds, with a build cost, selectable, not a structure or a projectile,
+	// and the side's recruitable heroes (PlayerTemplate BuildableHeroesMP / BuildableRingHeroesMP, named by no build button); "structures": the side's
+	// structures a command button builds. Heroes first, then by name. A mod's own objects are listed the same way (nothing here names a retail template)
 	Array out;
 	if (!m_game)
 	{
 		return out;
 	}
 	GameLogic &logic = m_game->logic();
-	const ::Player *p = logic.players().getNthPlayer((int)player);
-	if (!p)
-	{
-		return out;
-	}
+	const std::string side = n(sideName);
+	const bool structures = n(kindName) == "structures";
 	struct Row
 	{
 		bool hero;
@@ -169,13 +202,17 @@ Array GameWorld::cheat_units(int64_t player) const
 	}
 	for (const ThingTemplate *tt : logic.things().templates())
 	{
-		if (!tt || fieldText(*tt, "Side") != p->getSide() || !buildable.count(tt->getFinalOverride()))
+		if (!tt || fieldText(*tt, "Side") != side || !buildable.count(tt->getFinalOverride()))
 		{
 			continue;
 		}
 		tt = tt->getFinalOverride();
 		const Economy &economy = logic.economy();
-		if (economy.templateKindOf(*tt, "STRUCTURE") || economy.templateKindOf(*tt, "PROJECTILE") || !economy.templateKindOf(*tt, "SELECTABLE"))
+		if (economy.templateKindOf(*tt, "STRUCTURE") != structures || economy.templateKindOf(*tt, "PROJECTILE") || !economy.templateKindOf(*tt, "SELECTABLE"))
+		{
+			continue;
+		}
+		if (std::any_of(rows.begin(), rows.end(), [&](const Row &r) { return r.name == tt->getName(); }))
 		{
 			continue;
 		}
@@ -187,16 +224,31 @@ Array GameWorld::cheat_units(int64_t player) const
 		}
 		rows.push_back({ hero, tt->getName(), (int)tt->getTemplateID(), CommandButtonHelp::templateLabel(*tt, "DisplayName") });
 	}
-	// the player's heroes: the recruitable list its fortress offers (Player::heroes, the PlayerTemplate's buildable heroes), named by no build button
-	const PlayerHeroList &list = p->heroes();
-	for (std::size_t i = 0; i < list.size(); ++i)
+	// the side's heroes: the recruitable lists its fortress offers (the PlayerTemplate's BuildableHeroesMP and BuildableRingHeroesMP), named by no build button
+	if (!structures && m_world)
 	{
-		const ThingTemplate *tt = logic.things().findTemplate(list.records()[i].templateName);
-		if (!tt || logic.economy().templateKindOf(*tt, "CREATE_A_HERO") || std::any_of(rows.begin(), rows.end(), [&](const Row &r) { return r.name == tt->getName(); }))
+		const PlayerTemplateStore &store = m_world->playerTemplates();
+		for (int t = 0; t < store.getPlayerTemplateCount(); ++t)
 		{
-			continue;
+			const PlayerTemplate *pt = store.getNthPlayerTemplate(t);
+			if (!pt || pt->m_side != side)
+			{
+				continue;
+			}
+			for (const std::vector<std::string> *names : { &pt->m_buildableHeroesMP, &pt->m_buildableRingHeroesMP })
+			{
+				for (const std::string &name : *names)
+				{
+					const ThingTemplate *tt = logic.things().findTemplate(name);
+					if (!tt || logic.economy().templateKindOf(*tt, "CREATE_A_HERO") ||
+						std::any_of(rows.begin(), rows.end(), [&](const Row &r) { return r.name == tt->getName(); }))
+					{
+						continue;
+					}
+					rows.push_back({ true, tt->getName(), (int)tt->getTemplateID(), CommandButtonHelp::templateLabel(*tt->getFinalOverride(), "DisplayName") });
+				}
+			}
 		}
-		rows.push_back({ true, tt->getName(), (int)tt->getTemplateID(), CommandButtonHelp::templateLabel(*tt->getFinalOverride(), "DisplayName") });
 	}
 	std::sort(rows.begin(), rows.end(), [](const Row &a, const Row &b) { return a.hero != b.hero ? a.hero : a.name < b.name; });
 	for (const Row &r : rows)
@@ -283,6 +335,24 @@ Dictionary GameWorld::cheat_command(const Dictionary &spec)
 	else if (command == (int)CheatMode::Command::LevelUp)
 	{
 		extra = (int)(int64_t)spec.get("object", (int64_t)0);
+	}
+	else if (CheatMode::takesObjects((CheatMode::Command)command))
+	{
+		// the object commands: `objects` the ids (the host's selection, InGameHud.get_selection)
+		const Array ids = spec.get("objects", Array());
+		if (ids.is_empty() || ids.size() > CheatMode::kMaxObjects)
+		{
+			return fail("select 1 to " + std::to_string(CheatMode::kMaxObjects) + " objects first");
+		}
+		std::vector<::ObjectID> objects;
+		for (int64_t i = 0; i < ids.size(); ++i)
+		{
+			objects.push_back((::ObjectID)(std::uint32_t)(int64_t)ids[i]);
+		}
+		m_game->commands().append(CheatMode::makeObjectsMessage(local->getPlayerIndex(), (CheatMode::Command)command, target, value, objects));
+		Dictionary d;
+		d["ok"] = true;
+		return d;
 	}
 	m_game->commands().append(CheatMode::makeMessage(local->getPlayerIndex(), (CheatMode::Command)command, target, value, extra, &at));
 	Dictionary d;
