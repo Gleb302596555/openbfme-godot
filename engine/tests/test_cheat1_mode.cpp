@@ -14,6 +14,7 @@
 #include "GameLogic/CheatMode.h"
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Damage.h"
+#include "Common/PlayerHeroList.h"
 #include "Common/Upgrade.h"
 #include "GameLogic/Module/ProductionUpdate.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
@@ -390,6 +391,17 @@ TEST_CASE("cheat1 mode: every command's effect and limits in a Cheat Mode game")
 		r.frame(3);
 		CHECK(host->hasUpgradeComplete(level2));
 		CHECK_FALSE(other->hasUpgradeComplete(level2));
+		// a hero's recruit counts on its record (PlayerHeroList::progressAt, RW 0x780C11), not on the entry: one frame for the host, its time for the other
+		PlayerHeroList &mineHeroes = host->heroes(), &theirHeroes = other->heroes();
+		REQUIRE(mineHeroes.size() > 0); // tolerance: Gondor has several recruitable heroes; the first is the scene
+		REQUIRE(theirHeroes.size() > 0); // tolerance: as above
+		REQUIRE(mineHeroes.startProduction(0, 0x7FFF0001u, logic.getFrame()));
+		REQUIRE(theirHeroes.startProduction(0, 0x7FFF0002u, logic.getFrame()));
+		r.frame(1);
+		CHECK(mineHeroes.progressAt(logic, *host, 0, nullptr) >= 1.0); // tolerance: done is any progress of 1 or more
+		CHECK(theirHeroes.progressAt(logic, *other, 0, nullptr) < 1.0); // tolerance: still recruiting is any progress under 1
+		mineHeroes.cancelProduction(0x7FFF0001u);
+		theirHeroes.cancelProduction(0x7FFF0002u);
 		CHECK(send(CheatMode::makeMessage(h, Command::InstantBuild, o, 1)).executed);
 		CHECK(lastEntry(logic).text == "Cheat Mode: Player_1 made building instant for Player_2");
 		r.frame(3);

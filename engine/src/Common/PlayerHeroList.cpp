@@ -106,6 +106,10 @@ int PlayerHeroList::recordCost(GameLogic &logic, const Player &owner, const Hero
 // RW 0x780687
 int PlayerHeroList::recordFrames(GameLogic &logic, const Player &owner, const HeroRecord &r, const Object *producer) const
 {
+	if (logic.cheatMode().instantBuild(owner.getPlayerIndex()))
+	{
+		return 1; // OpenBFME's Cheat Mode InstantBuild (GameLogic/CheatMode.h): a hero's recruit or revive takes one frame; not RotWK
+	}
 	float m = 1.0f;
 	if (producer)
 	{
