@@ -41,7 +41,7 @@
 | 15 | `Upgrade/DisplayName` | 643 | parsed-unused | `m_displayName` не читается; стопы S-072, S-145, S-178 | имя апгрейда в интерфейсе | открыто |
 | 16 | `Object/DescriptionStrategic`, `DisplayNameStrategic` | 616 / 363 | parsed-unused | по RW не определено: смещения `0x3C` и `0x54` слишком частые | тексты Войны Кольца | открыто |
 | 17 | `HordeContain/ShowPips` | 598 | parsed-unused | только объявлено и конструктор (`OpenContain.h:71`) | значки отряда | открыто |
-| 18 | `SlowDeathBehavior/FadeTime` | 596 | parsed-unused | разобрано (`CombatModules.cpp:142`), чтения нет | исчезновение трупа | исправлено, ждёт: владельца — RW 0x860D35 .. 0x860D5E: при наступлении FadeDelay тело гаснет (fadeOut RW 0x670A50) за FadeTime * 6 кадров клиента; узкий тест `TOP20-18 slow death*` |
+| 18 | `SlowDeathBehavior/FadeTime` | 596 | parsed-unused | разобрано (`CombatModules.cpp:142`), чтения нет | исчезновение трупа | проверено: узкий тест `TOP20-18 slow death*`, владелец: работает (Gondor Worker), аудит `used` (`CombatModules.cpp:628`); ждёт ночи — RW 0x860D35 .. 0x860D5E: при наступлении FadeDelay тело гаснет (fadeOut RW 0x670A50) за FadeTime * 6 кадров клиента |
 | 19 | `Object/EmotionRange` | 547 | parsed-unused | чтения нет | эмоции юнитов | открыто |
 | 20 | `ActiveBody/CheerRadius` (+ `RespawnBody/CheerRadius` 246) | 505 | parsed-unused | разобрано (`ActiveBody.cpp:85`), чтения нет | радиус ликования | открыто |
 
@@ -57,7 +57,7 @@
 - 20 `CheerRadius`: RW 0x8C3B89 (виртуальный, ActiveBody) ищет объекты в радиусе (RW 0xA39340) и просит у каждого эмоцию (RW 0x68F37F); путь эмоций RW 0x68F37F в порту не запущен (`emotionsNotRun`, ExperienceWorld).
 - `ActiveBody/BurningDeathFX`: часть механики сгорания в attemptDamage (RW 0x8C417D ..), которой в порту нет.
 
-Сразу за двадцаткой: `CampnessValue` 446 (S-560), `HordeAIUpdate` (raw, 404: `AutoAcquireEnemiesWhenIdle`, `MinCowerTime`, `MaxCowerTime`, `MoodAttackCheckRate`, `AttackPriority`), `OCL CreateObject/FadeIn` 462 и `FadeTime` 412 (исправлено вместе с `FadeOut` и `FadeSound`, ждёт: владельца — RW 0x5F1678 .. 0x5F17A6, узкий тест `TOP20-OCL fade*`), `ActiveBody/BurningDeathFX` 448, `MeshNameMatches` (stub-block, 380), `Weapon/HitPassengerPercentage` 320 (S-321).
+Сразу за двадцаткой: `CampnessValue` 446 (S-560), `HordeAIUpdate` (raw, 404: `AutoAcquireEnemiesWhenIdle`, `MinCowerTime`, `MaxCowerTime`, `MoodAttackCheckRate`, `AttackPriority`), `OCL CreateObject/FadeIn` 462 и `FadeTime` 412 (исправлено вместе с `FadeOut` и `FadeSound`, проверено: узкий тест `TOP20-OCL fade*`, владелец: работает (Армия мёртвых, Око Саурона), аудит `used` (ручной вердикт обновлён); ждёт ночи — RW 0x5F1678 .. 0x5F17A6), `ActiveBody/BurningDeathFX` 448, `MeshNameMatches` (stub-block, 380), `Weapon/HitPassengerPercentage` 320 (S-321).
 
 ## Убрано из главных
 
