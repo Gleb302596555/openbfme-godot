@@ -139,12 +139,14 @@ class ModField:
         self.src = ""
 
 
-def mod_fields(vfs, block_types: set[str], diag: dict | None = None, grammar: "Grammar | None" = None) -> dict[tuple[str, str, str], ModField]:
+def mod_fields(vfs, block_types: set[str], diag: dict | None = None, grammar: "Grammar | None" = None,
+               line_rows: dict[str, set[str]] | None = None) -> dict[tuple[str, str, str], ModField]:
     """(block type, owner, field) -> what the mod writes. The owner is the module class (with /<nested key> inside a nested block), /<key> for a
     block nested in the definition, or "" for the definition's own fields. Where RotWK's grammar knows the open block (a module class, Object and
     the sub-tables of both), a line without '=' is what the table says: a field (`ParticleSysBone Bone Fx`), a sub-block or a script (BeginScript up
-    to EndScript, one field); elsewhere a line without '=' opens a nested block. diag gets the definitions whose blocks did not close and the module
-    classes' definitions."""
+    to EndScript, one field); elsewhere a line without '=' opens a nested block when an End closes it (headers(); line_rows: the names the port's
+    tables of a block type parse as one line, never a block). diag gets the definitions whose blocks did not close and the module classes'
+    definitions."""
     out: dict[tuple[str, str, str], ModField] = defaultdict(ModField)
     diag = diag if diag is not None else {}
     diag.setdefault("unclosed", [])
@@ -168,6 +170,8 @@ def mod_fields(vfs, block_types: set[str], diag: dict | None = None, grammar: "G
             typ = FOLD.get(toks[0].lower(), toks[0].lower())
             defname = toks[1] if len(toks) > 1 else ""
             root = grammar.object if grammar and typ == "object" else None
+            # outside RotWK's grammar, the lines without '=' that open a block: the ones an End closes (the others are fields, `Side Mordor`)
+            heads = None if root is not None else headers(lines, i + 1, block_types, (line_rows or {}).get(typ, set()))
             stack: list[tuple[str, dict | None]] = []  # the open blocks inside the definition: (owner of the fields inside, its grammar node)
 
             def add(owner, key, value, s):
@@ -222,10 +226,53 @@ def mod_fields(vfs, block_types: set[str], diag: dict | None = None, grammar: "G
                     stack.pop()
                 elif tk[0].lower() in ONE_LINE:
                     pass
+                elif heads is not None and i not in heads:
+                    add(owner, key, value, s)  # a field written without '=' (ControlBarScheme's `ScreenCreationRes X:1024 Y:768`)
                 else:
                     # a nested block header the grammar does not know (a weapon's DamageNugget, an FXList's nugget, ...)
                     stack.append((owner + "/" + tk[0], None))
                 i += 1
+    return out
+
+
+def headers(lines, j: int, block_types: set[str], line_names: set[str] = frozenset()) -> set[int]:
+    """a definition without RotWK's grammar (starting at line j): the lines without '=' that open a nested block. INI takes the first token for
+    the field and '=' is optional, so `Side Mordor` is a field and `ImagePart` a block: which is which, only the Ends tell. The definition's last
+    End is its own; every other End closes the innermost open line, a one-word one before others (ControlBarScheme's ImagePart after
+    `Position X:0 Y:520`), and the lines it passes over are fields. A '=' line opening a state block (eg.BLOCK_KEYS) is always one; a name the
+    port's tables parse as one line (line_names: StancesBehavior.cpp's AttributeModifier, INI::parseAsciiString) never is. The limit: a named
+    block holding only lines of several words that no port table names is not told from them: the innermost is taken, as before"""
+    span = []
+    while j < len(lines):
+        t = lines[j][0]
+        tk = t.split()
+        if tk and not t.startswith("#"):
+            if "=" not in t and tk[0].lower() in block_types:
+                break  # the next definition
+            span.append((j, tk, "=" in t))
+        j += 1
+    last = max((k for k, tk, _ in span if tk[0].lower() == "end"), default=-1)
+    open_: list[tuple[int, int, bool]] = []  # (line, tokens, forced)
+    out: set[int] = set()
+    for k, tk, eq in span:
+        key = tk[0].lower() if not eq else tk[0].split("=")[0].lower()
+        if key == "end":
+            if k == last:
+                break
+            if not open_:
+                continue
+            if open_[-1][2]:
+                open_.pop()  # a state block's End
+                continue
+            free = [x for x in open_ if not x[2]]
+            pick = next((x for x in reversed(free) if x[1] == 1), free[-1])
+            out.add(pick[0])
+            del open_[open_.index(pick):]
+        elif eq:
+            if key in eg.BLOCK_KEYS:
+                open_.append((k, len(tk), True))
+        elif key not in ONE_LINE and key not in line_names:
+            open_.append((k, len(tk), False))
     return out
 
 
@@ -373,9 +420,9 @@ BIND_PROC = re.compile(r"\bbindDataProc\s*\(\s*(\"\w+\"|\w+)\s*,")
 PROC_STRUCT = re.compile(r"&\s*([\w:]+)::buildFieldParse")
 # { "Name", parser, user, offset } or { "Name", parser, offset-macro(...) }: an argument may hold a macro call with commas (UM_NAMES(a, b))
 _ARG = r"(?:[^,{}()]|\((?:[^()]|\([^()]*\))*\))*"
-ROW_BRACE = re.compile(r"\{\s*\"([A-Za-z0-9_]+)\"\s*,\s*&?\s*([\w:<>]+)\s*,\s*(?:" + _ARG + r",\s*)?(" + _ARG + r")\}")
-ROW_CALL = re.compile(r"\b(\w+)\s*\(\s*(?:([\w:]+)\s*,\s*)?\"([A-Z][A-Za-z0-9_]*)\"\s*,\s*&?\s*([\w:]+)\s*,([^;]*?)\)\s*[,;)}]")
-ROW_STRUCT_FIRST = re.compile(r"\b(\w+)\s*\(\s*([\w:]+)\s*,\s*\"([A-Z][A-Za-z0-9_]*)\"\s*,\s*([\w.]+)\s*\)")
+ROW_BRACE = re.compile(r"\{\s*\"([A-Za-z0-9_%]+)\"\s*,\s*&?\s*([\w:<>]+)\s*,\s*(?:" + _ARG + r",\s*)?(" + _ARG + r")\}")
+ROW_CALL = re.compile(r"\b(\w+)\s*\(\s*(?:([\w:]+)\s*,\s*)?\"([A-Z][A-Za-z0-9_%]*)\"\s*,\s*&?\s*([\w:]+)\s*,([^;]*?)\)\s*[,;)}]")
+ROW_STRUCT_FIRST = re.compile(r"\b(\w+)\s*\(\s*([\w:]+)\s*,\s*\"([A-Z][A-Za-z0-9_%]*)\"\s*,\s*([\w.]+)\s*\)")
 TABLE = re.compile(r"\bFieldParse\s+(\w+)\s*\[\s*\]\s*=")
 FUNC = re.compile(r"^\s*(?:[\w:<>\*&,]+\s+)*?[\*&]?((?:\w+::)?~?\w+)\s*\(")
 NOT_FUNC = {"if", "for", "while", "switch", "return", "sizeof", "static_assert", "catch", "namespace"}
@@ -480,6 +527,11 @@ class Source:
                 macros[m.group(1)] = res(o.group(1)) if o and o.group(1) not in m.group(2) else ""
                 if o and re.search(r",\s*\w+\s*(?:\.|->)", m.group(3)[o.start():]):
                     macros[m.group(1)] = "?"  # ES_OFF(member) = offsetof(State, values.member): a member of a member, as offsetof(S, a.b) itself
+        # the file's name arrays (`static const char *const kStates[] = { "Damaged", "ReallyDamaged", "Rubble" };`)
+        arrays = {m.group(1): STRING.findall(m.group(2)) for m in re.finditer(r"\b(\w+)\s*\[\s*\w*\s*\]\s*=\s*\{([^{}]*)\}", text)}
+        # and arrays of rows, by the first literal of each (AudioSettings.cpp's `const Row group[] = { { "MicrophoneMaxDistanceToCamera", .. }, .. };`)
+        for m in re.finditer(r"\b(\w+)\s*\[\s*\w*\s*\]\s*=\s*\{\s*(\{.*?\})\s*,?\s*\};", text, re.S):
+            arrays.setdefault(m.group(1), re.findall(r"\{\s*\"([A-Za-z0-9_%]+)\"", m.group(2)))
         names = {m.group(1): [m.group(2)] for m in NAMEVAR.finditer(text)}
         for m in LOOPVAR.finditer(text):
             names[m.group(1)] = STRING.findall(m.group(2))
@@ -518,7 +570,10 @@ class Source:
             if in_define or (line.lstrip().startswith("#define") and line.rstrip().endswith("\\")):
                 if not in_define:
                     dm = re.match(r"\s*#define\s+(\w+)\s*\(([^)]*)\)", line)
-                    in_define = (dm.group(1), [x.strip() for x in dm.group(2).split(",")]) if dm else ("", [])
+                    # a macro without parameters (FireWeaponWhenDamagedBehavior.cpp's `#define FWWD_ROWS \` of rows): None, expanded by its name
+                    plain = re.match(r"\s*#define\s+(\w+)\s*\\", line)
+                    in_define = ((dm.group(1), [x.strip() for x in dm.group(2).split(",")]) if dm else (plain.group(1), None) if plain
+                                 else ("", []))
                 for field, parser, member, struct in self._rows(line.split("//", 1)[0], macros, lambda x: x.split("::")[-1] if x else ""):
                     self.macro_rows[in_define[0]].append((field, parser, member, struct, in_define[1]))
                 defines[in_define[0]].append(line.split("//", 1)[0].rstrip().rstrip("\\"))
@@ -572,8 +627,18 @@ class Source:
             for field, parser, member, struct in self._rows(code, macros, res):
                 self.rows.append(Row(field, parser, member, struct, f, table or "", func or pending, n))
                 self.row_lines.add((f, n))
+            for field, parser, member, struct in self._generated_rows(f, lines, n, code, arrays, macros, res):
+                self.rows.append(Row(field, parser, member, struct, f, table or "", func or pending, n))
+                self.row_lines.add((f, n))
+            for name, mrows in self.macro_rows.items():
+                if name and mrows[0][4] is None and not code.lstrip().startswith("#") and re.search(r"\b" + name + r"\b", code):
+                    for field, parser, member, struct, _ in mrows:
+                        self.rows.append(Row(field, parser, member, res(struct), f, table or "", func or pending, n))
+                        self.row_lines.add((f, n))
             for mm in re.finditer(r"\b(\w+)\s*\(\s*([\w:]+)\s*\)", code):
                 for field, parser, member, struct, params in self.macro_rows.get(mm.group(1), ()):
+                    if params is None:
+                        continue
                     arg = res(mm.group(2))
                     self.rows.append(Row(field, parser, member, "?" if struct == "?" else (arg if not struct or struct in params else struct), f, table or "", func or pending, n))
                     self.row_lines.add((f, n))
@@ -619,9 +684,11 @@ class Source:
             body = by_short.get((r.file, short)) or self._nested_body(r.file, short)
             if body:
                 text = "\n".join(body)
-                # the m_* members it names, and the plain members it stores into (info.model = ..., d->names.push_back(...))
+                # the m_* members it names, and the plain members it stores into (info.model = ..., d->names.push_back(...), also through an
+                # index: LivingWorldAutoResolveData.cpp's parseArmorRow `a->scalar[scanUnitType(..)] = value`)
                 members = set(re.findall(r"\b(m_\w+)", text))
-                members |= set(re.findall(r"(?:->|\.)\s*([a-z]\w{2,})\s*(?:=(?!=)|\.\s*(?:push_back|emplace_back|assign|insert|append)\b)", text))
+                members |= set(re.findall(r"(?:->|\.)\s*([a-z]\w{2,})\s*(?:\[(?:[^\[\]]|\[[^\[\]]*\])*\]\s*)?"
+                                          r"(?:=(?!=)|\.\s*(?:push_back|emplace_back|assign|insert|append)\b)", text))
                 # a member of the instance handed to a helper (W3DModelDraw.cpp's parseParticleSysBoneInto(ini, ..(instance)->particleSysBones))
                 # (the last name of a chain that is no call: (instance)->gauge.cool is cool, (instance)->list.push_back(..) is list)
                 members |= {re.split(r"\s*(?:\.|->)\s*", c)[-1] for c in
@@ -674,6 +741,87 @@ class Source:
             if a:
                 out.add(a.group(1))
         return out
+
+    def _generated_rows(self, f: str, lines: list[str], n: int, code: str, arrays: dict[str, list[str]], macros: dict[str, str],
+                        res) -> list[tuple[str, str, str, str]]:
+        """(field, parser, member, struct) of a row a table builder pushes with a name it makes (TransitionDamageFX.cpp's buildTable): an element
+        of a name array (`rows.push_back({ kSub[k], parseSubObjects, ..})`) or the name pushed just before (`names.push_back(std::string(kStates[s])
+        + kKinds[kind] + std::to_string(i + 1)); rows.push_back({ names.back().c_str(), parseEntry, ..})`, also through a helper:
+        AudioSettings.cpp's `add(reverbNames.back().c_str(), INI::parsePercentToReal, AS(reverbMultiplier) + ..)`): every name the parts make, a
+        number running from 1 to the bound of the loop over its variable, a local's literals (`prefix = g == 0 ? "" : "LivingWorld"`) or the
+        names of the rows of an array the loop walks (`prefix + r.name` over `group[] = { { "MicrophoneMaxDistanceToCamera", .. } }`: such a
+        row's parser and member are the named row's)"""
+        m = re.search(r"push_back\(\s*\{\s*(?:(\w+)\s*\[\s*\w+\s*\]|(\w+)\.back\(\)\.c_str\(\))\s*,\s*&?\s*([\w:<>.]+)\s*,(.*)\}", code)
+        m = m or re.search(r"\b\w+\(\s*()(\w+)\.back\(\)\.c_str\(\)\s*,\s*&?\s*([\w:<>.]+)\s*,(.*)\)\s*;", code)
+        if not m:
+            return []
+        rest = m.group(4)
+        member, struct = "", ""
+        o = re.search(r"\b(\w+)\s*\(\s*(\w+)\s*\)", rest)
+        if o and o.group(1) in macros:
+            member, struct = o.group(2), macros[o.group(1)]
+        if m.group(1):
+            return [(x, m.group(3), member, struct) for x in arrays.get(m.group(1), [])]
+        expr = next((e.group(1) for k in range(n - 2, max(-1, n - 5), -1)
+                     for e in [re.search(r"\b" + re.escape(m.group(2)) + r"\.push_back\((.*)\);", lines[k])] if e), "")
+        parts, depth, cur = [], 0, ""
+        for c in expr:
+            depth += (c == "(") - (c == ")")
+            if c == "+" and depth == 0:
+                parts.append(cur)
+                cur = ""
+            else:
+                cur += c
+        parts.append(cur)
+        names, based = [""], False
+        for p in (x.strip() for x in parts if x.strip()):
+            a = re.search(r"\b(\w+)\s*\[", p)
+            loop = re.fullmatch(r"(\w+)\s*\.\s*name", p)
+            walk = loop and next((w.group(1) for k in range(n - 2, max(-1, n - 5), -1)
+                                  for w in [re.search(r"for\s*\(\s*const\s+\w+\s*&\s*" + loop.group(1) + r"\s*:\s*(\w+)\s*\)", lines[k])] if w), "")
+            local = re.fullmatch(r"\w+", p) and next((d.group(1) for k in range(n - 2, max(-1, n - 30), -1)
+                                                      for d in [re.search(r"\b" + p + r"\s*=\s*([^;]+);", lines[k])] if d), "")
+            if re.fullmatch(r'(?:std::string\s*\()?\s*"[^"]*"\s*\)?', p):
+                vals = STRING.findall(p)
+            elif a and a.group(1) in arrays:
+                vals = arrays[a.group(1)]
+            elif walk and walk in arrays:
+                vals, based = arrays[walk], True
+            elif local:
+                vals = STRING.findall(local) + ([""] if '""' in local else [])
+            elif "to_string" in p:
+                var = re.search(r"to_string\(\s*(\w+)\s*\+\s*1\s*\)", p)
+                bound = var and next((b.group(1) for k in range(n - 2, max(-1, n - 8), -1)
+                                      for b in [re.search(r"\b" + re.escape(var.group(1)) + r"\s*<\s*([\w:]+)", lines[k])] if b), "")
+                count = self._constant(bound) if bound else 0
+                if not count:
+                    return []  # a number of rows the tool cannot tell: no rows (the field stays no-table-row, a lead)
+                vals = [str(i) for i in range(1, count + 1)]
+            else:
+                return []
+            names = [x + v for x in names for v in vals]
+        if based:
+            # the walked array's own row of that name gives the parser and the member (its row in this file)
+            own = {r.field: r for r in self.rows if r.file == f}
+            out = []
+            for x in names:
+                base = next((own[b] for b in sorted(own, key=len, reverse=True) if x.endswith(b)), None)
+                if base and x != base.field:
+                    out.append((x, base.parser, base.member, base.struct))
+            return out
+        return [(x, m.group(3), member, struct) for x in names]
+
+    def _constant(self, name: str) -> int:
+        """the value of an integer constant (`static constexpr int MAX_FX = 12;`, Data::MAX_FX) or a literal; 0 when it is not found"""
+        if name.isdigit():
+            return int(name)
+        short = name.split("::")[-1]
+        for lines in self.files.values():
+            for line in lines:
+                c = re.search(r"\b" + re.escape(short) + r"\s*=\s*(\d+)\s*[;,]", line)
+                if c and re.search(r"\b(?:constexpr|const|enum)\b|^\s*" + re.escape(short), line):
+                    return int(c.group(1))
+        return 0
 
     @staticmethod
     def _rows(code, macros, res):
@@ -782,12 +930,17 @@ class Source:
                     files = {r.file for r in self.rows if r.table == tname}
                     same = [r for r in self.rows if r.table == tname] if len(files) == 1 else []
                 out += same
+            # a table a free function of the file builds (TransitionDamageFX.cpp's `table = buildTable(); p.add(table.data());`)
+            for c in set(re.findall(r"(?<!->)(?<![.:\w])\s*\b(\w+)\s*\(", body)):
+                out += [r for r in self.rows if r.file == f and r.func == c]
             for c in re.finditer(r"(?:(\w+)::)?(buildFieldParse|getFieldParse|build\w*FieldParse|\w*[Ff]ields?)\s*\(", body):
                 cls, fname = c.group(1), c.group(2)
                 if cls:
                     todo += [(g, h) for (g, h) in self.funcs if h == f"{cls}::{fname}"]
                 else:
-                    todo += [(g, h) for (g, h) in self.funcs if g == f and h.split("::")[-1] == fname]
+                    # an unqualified call is the file's function or a base's method of another file (UpgradeModules.cpp's
+                    # buildBaseFieldParse(p) is UpgradeModuleData's, in UpgradeModule.cpp)
+                    todo += [(g, h) for (g, h) in self.funcs if h.split("::")[-1] == fname and (g == f or h.split("::")[0] in structs)]
         uniq, seen = [], set()
         for r in out:
             if (r.file, r.line, r.field) not in seen:
@@ -798,7 +951,10 @@ class Source:
     def parser_rows(self, parser: str, file: str, depth: int = 2) -> list[Row]:
         """the rows a row's own parser reads its sub-block with: the tables and the X::fieldParse()/getFieldParse() functions its body names (the
         parser's file first), and the parsers it calls in turn (depth levels)"""
-        short = parser.split("::")[-1]
+        # a template parser's class argument (FXList.cpp's parseNugget<TerrainScorchFXNugget>): its body's unqualified n->fieldParse() is that
+        # class's, not every nugget's
+        targs = re.findall(r"<\s*([\w:]+)\s*>", parser)
+        short = re.sub(r"<[^<>]*>$", "", parser.split("::")[-1])
         keys = [(f, fn) for (f, fn) in self.funcs if fn.split("::")[-1] == short and f == file]
         keys = keys or [(f, fn) for (f, fn) in self.funcs if fn.split("::")[-1] == short]
         bodies = [self.funcs[k] for k in keys]
@@ -806,15 +962,35 @@ class Source:
         out: list[Row] = [r for r in self.rows if (r.file, r.func) in set(keys)]
         for body in bodies:
             text = "\n".join(body)
-            for m in re.finditer(r"\b(?:(\w+)::)?(\w*[Ff]ield[Pp]arse\w*|\w*[Ff]ields)\s*\(", text):
-                fn = f"{m.group(1)}::{m.group(2)}" if m.group(1) else m.group(2)
-                out += [r for r in self.rows if r.func == fn or r.func.endswith("::" + fn)]
+            for m in re.finditer(r"(->|\.)?\s*\b(?:(\w+)::)?(\w*[Ff]ield[Pp]arse\w*|\w*[Ff]ields)\s*\(", text):
+                cls = m.group(2) or (targs[0].split("::")[-1] if targs and m.group(1) else "")
+                fn = f"{cls}::{m.group(3)}" if cls else m.group(3)
+                out += self.table_rows(fn)
+            if targs:
+                # the tables of the file's free functions the body calls (parseNugget's baseTable(), the rows every nugget shares; not its
+                # n->fieldParse(), the class argument's above)
+                calls = set(re.findall(r"(?<!->)(?<![.:\w])\s*\b(\w+)\s*\(", text))
+                out += [r for r in self.rows if r.file in {k[0] for k in keys} and r.func.split("::")[-1] in calls and r not in out]
             for m in re.finditer(r"\b(k\w+)\b", text):
                 out += [r for r in self.rows if r.table == m.group(1)]
             if depth > 1:
                 for m in set(re.findall(r"\b(parse\w+|Parse\w+)\s*\(", text)):
                     if m != short:
                         out += self.parser_rows(m, file, depth - 1)
+        return out
+
+    def table_rows(self, fn: str) -> list[Row]:
+        """the rows of a table function ([Cls::]fieldParse); one without rows of its own hands out another function's table (FXList.cpp's
+        FXList::fieldParse() returns FXListParseAccess::table()) or a table of its file by name (EmotionSystem.cpp's EmotionNuggetTemplate::
+        fieldParse() returns kNuggetParse): the rows of the functions of its file its body calls and of the tables it names"""
+        out = [r for r in self.rows if r.func == fn or r.func.endswith("::" + fn)]
+        if not out:
+            for (g, h), body in self.funcs.items():
+                if h == fn or h.endswith("::" + fn):
+                    text = "\n".join(body)
+                    calls = set(re.findall(r"\b(\w+)\s*\(", text)) - {fn.split("::")[-1]}
+                    tables = set(re.findall(r"\b(k\w+)\b", text))
+                    out += [r for r in self.rows if r.file == g and (r.func.split("::")[-1] in calls or r.table in tables)]
         return out
 
     def words_of(self, f: str) -> dict[str, list[int]]:
@@ -839,7 +1015,10 @@ class Source:
         """whether the function around line n declares a local or a parameter of that name before it (the signature's lines included)"""
         code, k = self.code_of(f), self.func_start(f, n)
         decl = re.compile(r"(?:[\w>\*&]\s+|[\*&])" + re.escape(name) + r"\s*(?:[=;,)\[{(:]|$)")
+        members = set(self.declarations(f, name))
         for i in range(max(0, k - 3), n):
+            if i in members:
+                continue  # the class's member above a one-line method (LivingWorldAutoResolveData.h's scalar, then damageScalar() { return scalar[..]; })
             for m in decl.finditer(code[i]):
                 head = code[i][:m.start() + 1].rstrip()
                 if not re.search(r"\b(?:return|case|else|throw|delete|sizeof|do)$", head):
@@ -916,6 +1095,8 @@ class Source:
         cls = fn.split("::")[0] if "::" in fn else ""
         if "parse" in short or short in ("xfer", "crc", "xferimpl") or (cls and short == cls.lower()) or short.startswith("~"):
             return False
+        if fn and self.hashes(f, n):
+            return False  # a hash or a save of the state (Object.cpp's crcOmittingModules(StateHasher &h, ..), SnapshotXfer.cpp's damageInput(Xfer &x, ..)), no use
         if fn and (f, fn) == parser:
             return False  # the function holding the row's table parses the block, whatever its name (AwardSystemManager.cpp's objectAward)
         if not fn and n - 1 in self.declarations(f, member):
@@ -942,6 +1123,17 @@ class Source:
                 continue
             return True
         return False
+
+    def hashes(self, f: str, n: int) -> bool:
+        """whether the signature of the function around line n takes a StateHasher or an Xfer: its body's first line up to the brace and the lines
+        before it that continue the signature (not a declaration ended by `;` above a one-line getter: AutoPickUpUpdate.h's xfer(Xfer &x) override;)"""
+        code, k = self.code_of(f), self.func_start(f, n)
+        sig = [code[k].split("{", 1)[0]]
+        i = k - 1
+        while i >= max(0, k - 3) and code[i].strip() and not code[i].rstrip().endswith((";", "}", "{")):
+            sig.insert(0, code[i])
+            i -= 1
+        return bool(re.search(r"\b(?:StateHasher|Xfer)\s*[&\*]", "\n".join(sig)))
 
     def forward(self, f: str) -> set[str]:
         """the file and every file it includes, transitively"""
@@ -1211,6 +1403,14 @@ class Source:
                     out += [r for r in self.rows if r.table == t and r.file == f]
                 for p in set(re.findall(r"\b(\w*[Pp]arse\w*)\s*\(", text)):
                     out += self.parser_rows(p, f)
+        return out
+
+    def line_rows(self, keywords: set[str]) -> dict[str, set[str]]:
+        """block keyword -> the row names (lower case) its parser's files parse with a plain INI::parse* reader: one line each, never a block"""
+        out = {}
+        for k in keywords:
+            files = self.block_files(k) | {f for f in DEF_FILES.get(k, []) if f in self.files}
+            out[k] = {r.field.lower() for r in self.rows if r.file in files and r.parser.startswith("INI::parse")}
         return out
 
     def block_keywords(self) -> tuple[set[str], set[str]]:
@@ -1641,7 +1841,7 @@ def main():
     every, real = src.block_keywords()
     vfs = eg.mount(a.base, a.overlay)
     diag: dict = {}
-    mod = mod_fields(vfs, every, diag, Grammar(a.rw))
+    mod = mod_fields(vfs, every, diag, Grammar(a.rw), src.line_rows(every & real))
     rw, rw_object = rotwk_tables(a.rw)
     coverage = load_coverage(a.coverage)
     rows = audit(mod, rw, rw_object, coverage, src, real, load_stops(a.stops))

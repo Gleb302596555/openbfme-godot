@@ -20,7 +20,7 @@ STUBS = r'''
 const std::vector<std::string> &RotwkBlockKeywords()
 {
 	static const std::vector<std::string> keywords = {
-		"AIBase", "ArmyDefinition", "Bridge", "MiscAudio", "Object", "Weapon",
+		"AIBase", "ArmyDefinition", "Bridge", "FxThing", "MiscAudio", "Object", "Scheme", "Weapon",
 	};
 	return keywords;
 }
@@ -54,6 +54,14 @@ public:
 	int m_right = 0;
 	int m_spanMin = 0;
 	int m_spanMax = 0;
+	int lanes[4] = {};
+	static constexpr int MAX_STEPS = 3;
+	int m_steps[2][MAX_STEPS] = {};
+	int m_flags[2] = {};
+	int m_plain = 0;
+	float m_regen = 0.0f;
+	float m_gain[2] = {};
+	float m_glow = 0.0f;
 };
 struct PartInfo
 {
@@ -116,6 +124,12 @@ void parseSpan(INI *ini, void *instance, void *, const void *)
 	d->m_spanMin = 1;
 	d->m_spanMax = 2;
 }
+// a store through an index (LivingWorldAutoResolveData.cpp's parseArmorRow: a->scalar[scanUnitType(..)] = value)
+void parseLane(INI *ini, void *instance, void *, const void *)
+{
+	TypedThingModuleData *d = static_cast<TypedThingModuleData *>(instance);
+	d->lanes[laneIndex(ini->getNextToken())] = 1;
+}
 
 const FieldParse kTyped[] = {
 	{ "Used", INI::parseReal, nullptr, TT_OFF(m_used) },
@@ -129,6 +143,7 @@ const FieldParse kTyped[] = {
 	{ "Left", parseSide, nullptr, 0 },
 	{ "Right", parseSide, (const void *)1, 0 },
 	{ "Span", parseSpan, nullptr, 0 },
+	{ "Lane", parseLane, nullptr, 0 },
 	{ "Names", INI::parseAsciiStringVector, nullptr, TT_OFF(m_names) },
 	{ "Level", INI::parseInt, nullptr, TT_OFF(m_level) },
 	{ "Rare", INI::parseInt, nullptr, TT_OFF(m_rare) },
@@ -137,12 +152,82 @@ const FieldParse kTyped[] = {
 	{ "Factor", INI::parseReal, nullptr, TT_OFF(m_factor) },
 	{ "Shown", INI::parseInt, nullptr, TT_OFF(m_shown) },
 	{ "TagB", INI::parseAsciiString, nullptr, TT_OFF(m_tagB) },
+	{ "Regen%PerSecond", INI::parsePercentToReal, nullptr, TT_OFF(m_regen) }, // a '%' in the name (RebuildHoleModules.cpp)
 	MUX_ROWS(TypedThingModuleData),
 	{ nullptr, nullptr, nullptr, 0 }
 };
+
+// a macro of rows without parameters (FireWeaponWhenDamagedBehavior.cpp's FWWD_ROWS), expanded by its name
+#define PLAIN_ROWS                                                         \
+	{ "Plain", INI::parseInt, nullptr, TT_OFF(m_plain) }
+const FieldParse kPlain[] = { PLAIN_ROWS, { nullptr, nullptr, nullptr, 0 } };
+#undef PLAIN_ROWS
+
+// rows a builder makes at run time (TransitionDamageFX.cpp's buildTable): names from name arrays and a loop's number, and an array's elements
+void parseStep(INI *ini, void *instance, void *, const void *)
+{
+	static_cast<TypedThingModuleData *>(instance)->m_steps[0][0] = 1;
+}
+void parseFlag(INI *ini, void *instance, void *, const void *)
+{
+	static_cast<TypedThingModuleData *>(instance)->m_flags[0] = 1;
+}
+std::vector<FieldParse> buildTable()
+{
+	static std::vector<std::string> names;
+	static const char *const kPhases[] = { "Early", "Late" };
+	static const char *const kSides[] = { "LeftFlag", "RightFlag" };
+	std::vector<FieldParse> rows;
+	for (int p = 0; p < 2; ++p)
+	{
+		for (int i = 0; i < TypedThingModuleData::MAX_STEPS; ++i)
+		{
+			names.push_back(std::string(kPhases[p]) + "Step" + std::to_string(i + 1));
+			rows.push_back({ names.back().c_str(), parseStep, nullptr, 0 });
+		}
+	}
+	for (int k = 0; k < 2; ++k)
+		rows.push_back({ kSides[k], parseFlag, nullptr, 0 });
+	// through a helper, and a local prefix on the names of an array of rows (AudioSettings.cpp's reverb multipliers and LivingWorld rows)
+	auto add = [&](const char *name, INIFieldParseProc proc, int offset) { rows.push_back({ name, proc, nullptr, offset }); };
+	static std::deque<std::string> gains;
+	for (int i = 0; i < 2; ++i)
+	{
+		gains.push_back(std::string("Global") + kPhases[i] + "Gain");
+		add(gains.back().c_str(), INI::parseReal, TT_OFF(m_gain) + i * (int)sizeof(float));
+	}
+	struct Row
+	{
+		const char *name;
+		INIFieldParseProc proc;
+		int member;
+	};
+	for (int g = 0; g < 2; ++g)
+	{
+		const std::string prefix = g == 0 ? "" : "Night";
+		const Row group[] = {
+			{ "Glow", INI::parseReal, TT_OFF(m_glow) },
+		};
+		for (const Row &r : group)
+		{
+			gains.push_back(prefix + r.name);
+			add(gains.back().c_str(), r.proc, r.member);
+		}
+	}
+	return rows;
+}
 } // namespace
 
-void TypedThingModuleData::buildFieldParse(MultiIniFieldParse &p) { p.add(kTyped); }
+void TypedThingModuleData::buildFieldParse(MultiIniFieldParse &p)
+{
+	p.add(kTyped);
+	p.add(kPlain);
+	static const std::vector<FieldParse> table = buildTable();
+	p.add(table.data());
+}
+int TypedThing::stepOf() const { return m_data->m_steps[1][2]; }
+float TypedThing::plainRegen() const { return m_data->m_plain * m_data->m_regen; }
+float TypedThing::glow() const { return m_data->m_gain[1] + m_data->m_glow; }
 
 // a report line and a block comment naming the member are not reads of it
 std::vector<std::string> TypedThing::stopLines() { return { "[S-1] m_unused is kept, nothing reads it" }; }
@@ -165,6 +250,7 @@ int TypedThing::boneCount() const
 
 float TypedThing::partWidth() const { return m_data->part.width; }
 int TypedThing::slotOf() const { return m_data->m_slot + m_data->m_right + m_data->m_spanMax; }
+int TypedThing::laneOf(int i) const { return m_data->lanes[i]; }
 
 void TypedThing::registerModule(ModuleFactory &modules)
 {
@@ -180,11 +266,20 @@ BASE_H = r'''
 class BaseThingModuleData : public ModuleData
 {
 public:
+	static void buildBaseFieldParse(MultiIniFieldParse &p);
 	int m_baseLevel = 0;
+	int m_baseFlag = 0;
 };
 '''
+# the base's own table, added by the derived struct's unqualified buildBaseFieldParse(p) (UpgradeModule.cpp's CustomAnimAndDuration row)
 BASE_CPP = r'''#include "GameLogic/Module/BaseThing.h"
-int BaseThing::level() const { return static_cast<const BaseThingModuleData *>(m_data)->m_baseLevel; }
+int BaseThing::level() const { return static_cast<const BaseThingModuleData *>(m_data)->m_baseLevel + m_data->m_baseFlag; }
+void parseBaseFlag(INI *ini, void *instance, void *, const void *) { static_cast<BaseThingModuleData *>(instance)->m_baseFlag = 1; }
+const FieldParse kBase[] = { { "BaseFlag", parseBaseFlag, nullptr, 0 }, { nullptr, nullptr, nullptr, 0 } };
+void BaseThingModuleData::buildBaseFieldParse(MultiIniFieldParse &p)
+{
+	p.add(kBase);
+}
 '''
 DERIVED_CPP = r'''#include "GameLogic/Module/BaseThing.h"
 class DerivedThingModuleData : public BaseThingModuleData
@@ -196,7 +291,11 @@ const FieldParse kDerived[] = {
 	{ "BaseLevel", INI::parseInt, nullptr, (int)offsetof(DerivedThingModuleData, m_baseLevel) },
 	{ nullptr, nullptr, nullptr, 0 }
 };
-void DerivedThingModuleData::buildFieldParse(MultiIniFieldParse &p) { p.add(kDerived); }
+void DerivedThingModuleData::buildFieldParse(MultiIniFieldParse &p)
+{
+	p.add(kDerived);
+	buildBaseFieldParse(p);
+}
 void DerivedThing::registerModule(ModuleFactory &modules)
 {
 	modules.bindTypedData<DerivedThingModuleData>("DerivedThing", MODULETYPE_BEHAVIOR);
@@ -213,6 +312,8 @@ struct EmotionThingModuleData : public ModuleData
 void parseAddEmotion(INI *ini, void *instance, void *, const void *)
 {
 	static_cast<EmotionThingModuleData *>(instance)->m_count += 1;
+	NuggetThing copy;
+	ini->initFromINI(&copy, NuggetThing::fieldParse());
 }
 const FieldParse kEmotion[] = {
 	{ "AddEmotion", parseAddEmotion, nullptr, 0 },
@@ -226,6 +327,24 @@ void EmotionThing::registerModule(ModuleFactory &modules)
 }
 '''
 
+# the nugget's table in a file of its own, handed out by name (EmotionSystem.cpp's EmotionNuggetTemplate::fieldParse() returns kNuggetParse)
+NUGGET_CPP = r'''
+struct NuggetThing
+{
+	unsigned duration = 0;
+	static const FieldParse *fieldParse();
+};
+const FieldParse kNuggetParse[] = {
+	{ "Duration", INI::parseDurationUnsignedInt, nullptr, (int)offsetof(NuggetThing, duration) },
+	{ nullptr, nullptr, nullptr, 0 }
+};
+const FieldParse *NuggetThing::fieldParse()
+{
+	return kNuggetParse;
+}
+unsigned nuggetDuration(const NuggetThing &n) { return n.duration; }
+'''
+
 WEAPON_CPP = r'''
 #include "GameLogic/Weapon.h"
 class WeaponTemplate
@@ -236,12 +355,22 @@ public:
 	float heat = 0.0f;
 	float ranges[2] = {};
 	int id = 0;
+	float hashOnly = 0.0f;
+	float saveOnly = 0.0f;
+	// the member just above a one-line method reading it (LivingWorldAutoResolveData.h's scalar and damageScalar()) is no local of the method
+	float scalar[4] = {};
+	float scalarOf(int i) const { return scalar[i]; }
+	// a getter under a save's declaration is no save (AutoPickUpUpdate.h's xfer(Xfer &x) override; then getRunFromButtonNumber())
+	float readOnly = 0.0f;
+	void xfer(Xfer &x);
+	float readOf() const { return readOnly; }
 	WeaponGauge gauge;
 	struct Pair { int start, cap; } counts[2];
 	static const FieldParse *getFieldParse();
 };
 // a row storing into an array element (EconomySettings.cpp's ES_OFF(goodMP[0])): the member is the array, not what the parser's body names
 void parsePair(INI *ini, void *, void *store, const void *) { static_cast<WeaponTemplate::Pair *>(store)->cap = 1; }
+void parseScalar(INI *ini, void *instance, void *, const void *) { static_cast<WeaponTemplate *>(instance)->scalar[kindOf(ini)] = 1.0f; }
 const FieldParse *WeaponTemplate::getFieldParse()
 {
 	static const FieldParse table[] = {
@@ -250,6 +379,10 @@ const FieldParse *WeaponTemplate::getFieldParse()
 		{ "Count2", parsePair, nullptr, (int)offsetof(WeaponTemplate, counts[1]) },
 		{ "Range2", INI::parseReal, nullptr, (int)offsetof(WeaponTemplate, ranges) + 4 }, // a byte step into an array (SkirmishAIData.cpp's AD_OFF)
 		{ "Id", INI::parseInt, nullptr, (int)offsetof(WeaponTemplate, id) }, // a two-letter member (AODCrushCollide.cpp's fx[0])
+		{ "HashOnly", INI::parseReal, nullptr, (int)offsetof(WeaponTemplate, hashOnly) },
+		{ "SaveOnly", INI::parseReal, nullptr, (int)offsetof(WeaponTemplate, saveOnly) },
+		{ "ReadOnly", INI::parseReal, nullptr, (int)offsetof(WeaponTemplate, readOnly) },
+		{ "Scalar", parseScalar, nullptr, 0 },
 		{ nullptr, nullptr, nullptr, 0 }
 	};
 	return table;
@@ -308,6 +441,17 @@ float WeaponTemplate::secondRange() const { return ranges[1]; }
 int WeaponTemplate::idOf() const { return id; }
 float WeaponTemplate::range() const { return m_attackRange; }
 int WeaponTemplate::secondCount() const { return counts[1].start; }
+// a hash of the state is no use of the value (Object.cpp's crcOmittingModules hashes m_fxTrigger): nothing else reads hashOnly
+void WeaponTemplate::crcOmittingParts(StateHasher &h,
+                                      bool deep) const
+{
+	h.addFloat(hashOnly);
+}
+// so is a save helper of any name (SnapshotXfer.cpp's damageInput(Xfer &x, DamageInfoInput &in)): nothing else reads saveOnly
+void saveWeapon(Xfer &x, WeaponTemplate &w)
+{
+	x.xferReal(&w.saveOnly);
+}
 void WeaponStore::registerBlocks(INIBlockRegistry &registry)
 {
 	registry.registerBlock("Weapon", [](INI *ini) { WeaponStore::parseWeaponTemplateDefinitionGlobal(ini); });
@@ -663,6 +807,74 @@ int threatOf(const ThingTemplate &tt)
 }
 '''
 
+# a nugget block of an FXList-like definition (FXList.cpp): the definition's fieldParse() hands out another function's table, whose rows parse
+# each nugget with a template parser (parseNugget<TerrainScorchFXNugget>); the nugget's rows are its class's fieldParse() and the shared baseTable().
+# Both nuggets have a Type row: Scorch's is m_scorchType, not Shake's m_type
+FX_H = r'''
+struct ShakeNugget
+{
+	int m_type = 0;
+	const FieldParse *fieldParse() const;
+};
+struct ScorchNugget
+{
+	int m_scorchType = 0;
+	int m_weather = 0;
+	const FieldParse *fieldParse() const;
+};
+'''
+FX_CPP = r'''#include "GameClient/FxThing.h"
+#define ROW(token, proc, ud, obj, member) FieldParse{ token, proc, ud, offsetIn(obj, (obj).member) }
+const FieldParse *baseTable()
+{
+	static Table t;
+	static ScorchNugget d;
+	t.push_back(ROW("Weather", INI::parseInt, nullptr, d, m_weather));
+	return t.data();
+}
+template <class T>
+void parseNugget(INI *ini, void *instance, void *, const void *)
+{
+	std::unique_ptr<T> n = std::make_unique<T>();
+	MultiIniFieldParse tables;
+	tables.add(n->fieldParse());
+	tables.add(baseTable());
+	ini->initFromINIMulti(n.get(), tables);
+}
+const FieldParse *ShakeNugget::fieldParse() const
+{
+	static Table t;
+	static ShakeNugget d;
+	t.push_back(ROW("Type", INI::parseInt, nullptr, d, m_type));
+	return t.data();
+}
+const FieldParse *ScorchNugget::fieldParse() const
+{
+	static Table t;
+	static ScorchNugget d;
+	t.push_back(ROW("Type", INI::parseInt, nullptr, d, m_scorchType));
+	return t.data();
+}
+struct FxAccess
+{
+	static const FieldParse *table()
+	{
+		static Table t;
+		t.push_back(FieldParse{ "Shake", parseNugget<ShakeNugget>, nullptr, 0 });
+		t.push_back(FieldParse{ "Scorch", parseNugget<ScorchNugget>, nullptr, 0 });
+		return t.data();
+	}
+};
+const FieldParse *FxThing::fieldParse() { return FxAccess::table(); }
+void FxStore::parseDefinition(INI *ini) { ini->initFromINI(&m_fx, FxThing::fieldParse()); }
+int ShakeNugget::shake() const { return m_type; }
+int ScorchNugget::scorch() const { return m_scorchType + m_weather; }
+void FxStore::registerBlocks(INIBlockRegistry &registry)
+{
+	registry.registerBlock("FxThing", [this](INI *ini) { parseDefinition(ini); });
+}
+'''
+
 RAW_CPP = r'''
 // RawThing keeps its lines (RawModuleData); one value is read by name
 int rawRadius(const RawModuleData &d) { return d.find("RawThing", "Radius"); }
@@ -706,6 +918,13 @@ Object TestUnit
     Slot = 1
     Left = 1
     Span = 1 2
+    Lane = LEFT
+    LateStep3 = 1
+    RightFlag = 1
+    Regen%PerSecond = 5%
+    Plain = 1
+    GlobalLateGain = 1
+    NightGlow = 2
     DeathTypes = ALL
     Names = A B
     Level = 2
@@ -723,6 +942,7 @@ Object TestUnit
   End
   Behavior = DerivedThing ModuleTag_06
     BaseLevel = 2
+    BaseFlag = 1
   End
   Behavior = RawThing Some_Tag
     Radius = 10
@@ -760,6 +980,10 @@ Weapon TestBow
   Heat = 1
   Range2 = 5
   Id = 7
+  HashOnly = 1
+  SaveOnly = 1
+  ReadOnly = 1
+  Scalar = HERO 50%
   Cool = 2
   Key2 = 3
   Tag3 = 1
@@ -782,13 +1006,29 @@ ArmyDefinition TestArmy
   Banner = 1
   Speed = 2
   Slot = 1
-  Member
-    Unit = Archer
+  Member Archers
+    Unit Archer
   End
 End
 
 AIBase TestBase
   Side = Men
+End
+
+Scheme TestScheme
+  ScreenCreationRes X:1024 Y:768
+  Side Men
+  ImagePart
+    Position X:0 Y:520
+    Layer 4
+  End
+End
+
+FxThing TestFx
+  Scorch
+    Type = 2
+    Weather = 1
+  End
 End
 
 Bridge TestBridge
@@ -804,7 +1044,7 @@ def rw_tables(rw: Path):
     def table(*names, fn="0x1"):
         return {"rows": [{"name": n, "fn": fn, "offset": 0, "userData": 0} for n in names], "terminated": True}
     tables = {
-        "0xa1": {"rows": table("Used", "Unused", "FX", "Bone", "PartWidth", "PartDepth", "Angle", "Slot", "Left", "Span", "DeathTypes", "Names", "Envelope", "Level", "Rare", "TagB", "Shared", "Copied", "Shown", "Factor")["rows"]
+        "0xa1": {"rows": table("Used", "Unused", "FX", "Bone", "PartWidth", "PartDepth", "Angle", "Slot", "Left", "Span", "Lane", "LateStep3", "RightFlag", "Regen%PerSecond", "Plain", "GlobalLateGain", "NightGlow", "DeathTypes", "Names", "Envelope", "Level", "Rare", "TagB", "Shared", "Copied", "Shown", "Factor")["rows"]
                  + [{"name": "MeleeBehavior", "fn": "0xb3", "offset": 0, "userData": 0}], "terminated": True},
         "0xa2": table("Radius", "Height"),
         "0xa3": table("Bar"),
@@ -816,7 +1056,7 @@ def rw_tables(rw: Path):
                  + [{"name": n, "fn": "0xb4", "offset": 0, "userData": 0} for n in ("UnitSpecificSounds", "LookDecal", "Award", "Threat")],
                  "terminated": True},
         "0xa9": table("FacingBonus"),
-        "0xab": table("BaseLevel"),
+        "0xab": table("BaseLevel", "BaseFlag"),
         "0xaa": {"rows": [], "catchAll": "0xb5", "terminated": True},
         "0xa8": table("VoiceSelect", "VoiceFear"),
     }
@@ -866,7 +1106,8 @@ def result(tmp_path_factory):
                       "GameClient/Settings.h": SETTINGS_H, "GameClient/Middle.h": MIDDLE_H, "GameLogic/Weapon.h": WEAPON_H,
                       "GameLogic/GaugeUse.cpp": GAUGE_USE_CPP, "GameLogic/Module/BaseThing.h": BASE_H, "GameLogic/Module/BaseThing.cpp": BASE_CPP,
                       "GameLogic/Module/DerivedThing.cpp": DERIVED_CPP, "Common/Audio/Misc.h": MISC_H, "Common/Audio/Misc.cpp": MISC_CPP,
-                      "GameClient/Click.cpp": CLICK_CPP, "GameClient/BridgeReader.h": BRIDGE_H, "GameClient/BridgeReader.cpp": BRIDGE_CPP}.items():
+                      "GameClient/Click.cpp": CLICK_CPP, "GameClient/BridgeReader.h": BRIDGE_H, "GameClient/BridgeReader.cpp": BRIDGE_CPP,
+                      "GameClient/FxThing.h": FX_H, "GameClient/FxThing.cpp": FX_CPP, "GameLogic/System/Nugget.cpp": NUGGET_CPP}.items():
         (src / rel).parent.mkdir(parents=True, exist_ok=True)
         (src / rel).write_text(text, encoding="utf-8")
     rw = root / "rw"
@@ -876,7 +1117,7 @@ def result(tmp_path_factory):
     source = fa.Source(src)
     every, real = source.block_keywords()
     diag: dict = {}
-    mod = fa.mod_fields(MemoryVfs({"data/ini/object/test.ini": MOD_INI}), every, diag, fa.Grammar(rw))
+    mod = fa.mod_fields(MemoryVfs({"data/ini/object/test.ini": MOD_INI}), every, diag, fa.Grammar(rw), source.line_rows(every & real))
     rw_cls, rw_obj = fa.rotwk_tables(rw)
     rows = fa.audit(mod, rw_cls, rw_obj, fa.load_coverage(root / "coverage.tsv"), source, real)
     return {(r["block"], r["owner"], r["field"]): r for r in rows}, diag, mod, source
@@ -908,6 +1149,16 @@ def test_typed_module_fields(result):
     assert left["status"] == "used" and "INFERENCE: its parser names several members (m_left|m_right)" in left["where"]
     span = result[0][("object", "TypedThing", "Span")]
     assert span["status"] == "used" and "INFERENCE" not in span["where"]
+    assert (status(result, "object", "TypedThing", "Lane"), result[0][("object", "TypedThing", "Lane")]["member"]) == ("used", "lanes")
+    # rows a builder makes at run time: kPhases[p] + "Step" + to_string(i + 1) up to MAX_STEPS, and the elements of kSides
+    assert (status(result, "object", "TypedThing", "LateStep3"), result[0][("object", "TypedThing", "LateStep3")]["member"]) == ("used", "m_steps")
+    assert (status(result, "object", "TypedThing", "RightFlag"), result[0][("object", "TypedThing", "RightFlag")]["member"]) == ("parsed-unused", "m_flags")
+    assert (status(result, "object", "TypedThing", "GlobalLateGain"), result[0][("object", "TypedThing", "GlobalLateGain")]["member"]) == ("used", "m_gain")
+    assert (status(result, "object", "TypedThing", "NightGlow"), result[0][("object", "TypedThing", "NightGlow")]["member"]) == ("used", "m_glow")
+    assert (status(result, "object", "TypedThing", "Regen%PerSecond"), result[0][("object", "TypedThing", "Regen%PerSecond")]["member"]) == ("used", "m_regen")
+    assert (status(result, "object", "TypedThing", "Plain"), result[0][("object", "TypedThing", "Plain")]["member"]) == ("used", "m_plain")
+    # a row of the base's table, added by an unqualified buildBaseFieldParse(p) of the base's file
+    assert (status(result, "object", "DerivedThing", "BaseFlag"), result[0][("object", "DerivedThing", "BaseFlag")]["member"]) == ("used", "m_baseFlag")
     assert status(result, "object", "TypedThing", "Names") == "parsed-unused"  # `std::vector<std::string> m_names;` is a declaration, not a read
     # a read in a file naming the struct comes first (Other.cpp sorts before TypedThing.cpp); a read only in a file that never names it is marked
     assert status(result, "object", "TypedThing", "Level") == "used"
@@ -945,12 +1196,23 @@ def test_raw_missing_and_unknown_modules(result):
 def test_block_rows_and_scripts(result):
     # AddEmotion = Terror_Base is one line; OVERRIDE Doom_Base opens the nugget up to its End; Alert_Base before the module's End is one line again
     assert ("object", "EmotionThing/AddEmotion", "Duration") in result[0]
+    # the nugget's rows: a fieldParse() returning its table by name
+    duration = result[0][("object", "EmotionThing/AddEmotion", "Duration")]
+    assert (duration["status"], duration["member"]) == ("used", "duration")
     assert status(result, "object", "EmotionThing", "AddEmotion") == "used"
     assert result[0][("object", "EmotionThing", "AddEmotion")]["uses"] == 3
     # BeginScript .. EndScript is one field; the lines inside are neither fields nor blocks (a `Prev = ...` line inside is not a field)
     assert ("object", "ScriptThing", "BeginScript") in result[0]
     assert ("object", "ScriptThing", "Prev") not in result[0]
     assert status(result, "object", "ScriptThing", "Model") == "missing-module"
+    # outside RotWK's grammar a line without '=' is a field unless an End closes it (ControlBarScheme's `Side Mordor`, then ImagePart .. End);
+    # a one-word line is the block before the lines after it
+    mod = result[2]
+    for key in (("scheme", "", "ScreenCreationRes"), ("scheme", "", "Side"), ("scheme", "/ImagePart", "Position"), ("scheme", "/ImagePart", "Layer")):
+        assert key in mod, key
+    assert mod[("scheme", "", "Side")].values == {"Men": 1}
+    # a name the port's table parses as one line is never the block (stances.ini's `Stance Aggressive` / `AttributeModifier X` / End)
+    assert mod[("armydefinition", "/Member", "Unit")].values == {"Archer": 1}
     assert not result[1]["unclosed"]
 
 
@@ -972,6 +1234,12 @@ def test_definition_fields(result):
     assert (status(result, "weapon", "", "Heat"), result[0][("weapon", "", "Heat")]["member"]) == ("used", "heat")  # a parser inside parseExtra
     assert (status(result, "weapon", "", "Range2"), result[0][("weapon", "", "Range2")]["member"]) == ("used", "ranges")
     assert (status(result, "weapon", "", "Id"), result[0][("weapon", "", "Id")]["member"]) == ("used", "id")
+    assert status(result, "weapon", "", "HashOnly") == "parsed-unused"  # only crcOmittingParts(StateHasher &h, ..) reads it
+    assert status(result, "weapon", "", "SaveOnly") == "parsed-unused"  # only saveWeapon(Xfer &x, ..) reads it
+    assert status(result, "weapon", "", "ReadOnly") == "used"  # readOf() under `void xfer(Xfer &x);`
+    scalar = result[0][("weapon", "", "Scalar")]
+    assert (scalar["status"], scalar["member"], scalar["where"]) == ("used", "scalar", "GameLogic/Object/Weapon.cpp:" + str(
+        next(i for i, x in enumerate(WEAPON_CPP.splitlines(), 1) if "return scalar[i]" in x)))
     # the struct of a member of a member is its declaring class: Dial's d.cool is no read of WeaponGauge::cool (only a marked lead)
     assert result[0][("weapon", "", "Cool")]["where"] == "GameLogic/GaugeUse.cpp:6 INFERENCE: the file does not name WeaponGauge"
     # rows made at run time: a numbered one follows the member it stores; a listed one is read when another file asks for its name
@@ -985,6 +1253,11 @@ def test_definition_fields(result):
     assert status(result, "miscaudio", "", "Pan") == "dynamic-row"
     buzz = result[0][("miscaudio", "", "BuzzSound")]
     assert (buzz["status"], buzz["where"]) == ("dynamic-row", "GameClient/Click.cpp:7 (a name list of another file, read by index)")
+    # a nugget's rows: its template parser's class (parseNugget<ScorchNugget> -> ScorchNugget::fieldParse) and the shared table, reached through
+    # the definition's fieldParse() handing out another function's table
+    scorch = result[0][("fxthing", "/Scorch", "Type")]
+    assert (scorch["status"], scorch["member"], scorch["how"]) == ("used", "m_scorchType", "block-parser")
+    assert (status(result, "fxthing", "/Scorch", "Weather"), result[0][("fxthing", "/Scorch", "Weather")]["member"]) == ("used", "m_weather")
     assert status(result, "bridge", "", "Width") == "stub-block"
     # its own reader stores Height and Depth into members (TerrainRoads.cpp): followed
     assert (status(result, "bridge", "", "Height"), result[0][("bridge", "", "Height")]["where"]) == ("used", "GameClient/BridgeReader.cpp:14")
