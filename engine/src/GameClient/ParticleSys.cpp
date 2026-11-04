@@ -1876,7 +1876,7 @@ int ParticleSystemManager::removeOldestParticles(std::uint32_t count, int priori
 
 } // namespace FXParticleSystem
 
-// RW 0x007B13A5 (RotWK) / BFME2 0x007B0869 (TerrainFireSystemStorageModule::update)
+// RW 0x007B13A5: TerrainFireSystemStorageModule::update
 void FXParticleSystem::ParticleSystem::updateTerrainFire()
 {
 	ParticleEnvironment &env = m_manager.environment();
@@ -1886,15 +1886,15 @@ void FXParticleSystem::ParticleSystem::updateTerrainFire()
 		return;
 	}
 
-	// RW 0x005F32FF..0x005F332D / BFME2 0x007B03F3: slot capacity is maxCellsBurning * 3 clamped to [128, 2048]
+	// RW 0x005F32FF..0x005F332D: slot capacity is maxCellsBurning * 3 clamped to [128, 2048]
 	const int maxBurning = env.maxCellsBurning();
 	const int cap = std::clamp(maxBurning * 3, 128, 2048);
 
 	W3DDrawRandom &rng = env.clientRandom();
-	float emissionChance = 0.7f; // RW 0x00BDE0A8 ctor default
+	float emissionChance = 0.0f; // RW 0x005F4B1D: ParticleSystem::getCellEmissionChance returns 0.0f when m_volume == nullptr
 	if (m_volume && m_volume->classId == MODULE_TERRAIN_FIRE_EMISSION)
 	{
-		emissionChance = static_cast<const TerrainFireEmissionModuleData *>(m_volume)->m_cellEmissionChance;
+		emissionChance = static_cast<const TerrainFireEmissionModuleData *>(m_volume)->m_cellEmissionChance; // RW 0x005F4B16: vslot +0x18
 	}
 
 	for (const auto &cell : *cells)
@@ -1930,13 +1930,9 @@ void FXParticleSystem::ParticleSystem::updateTerrainFire()
 		// RW 0x007B1594: sample emission velocity
 		const Coord3D vel = computeParticleVelocity(pos);
 
-		// RW 0x007B15A8: sample lifetime
+		// RW 0x007B15A8..0x007B15B2: sample lifetime and ftol (no life == 0 clamp in retail)
 		const float lifeVal = m_info.m_lifetime.getValue(rng);
 		std::uint32_t life = (std::uint32_t)ftol(lifeVal);
-		if (life == 0)
-		{
-			life = 1;
-		}
 
 		ParticleInfo pinfo;
 		pinfo.pos = pos;

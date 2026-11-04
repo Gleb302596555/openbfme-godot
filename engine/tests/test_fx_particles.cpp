@@ -7,6 +7,9 @@
 
 #include "FxTestUtil.h"
 #include "GameClient/ParticleDraw.h"
+#include "GameClient/FireSetting.h"
+#include "IniTestUtil.h"
+#include "Common/INI.h"
 
 using namespace FXParticleSystem;
 using namespace fxtest;
@@ -517,4 +520,104 @@ TEST_CASE("GPU_TERRAINFIRE (RW 0x7b13a5 / BFME2 0x007b0869): particles emitted a
 		sim.step();
 	}
 	CHECK(sim.mgr->particleCount() == 0u);
+}
+
+TEST_CASE("fire settings: Fire block INI parsing and fields (RW 0x00C1EBC8 / RW 0x0070C77C)")
+{
+	FireSettingStore store;
+	INIEnvironment env;
+	store.registerBlock(env.blocks);
+
+	const std::string iniText =
+		"Fire\n"
+		"  TerrainFireSystem = MyCustomFire\n"
+		"  TerrainSmokeSystem = MyCustomSmoke\n"
+		"  BurntTerrainColor = R:51 G:102 B:153\n"
+		"  FuelIndicatorColor = R:204 G:221 B:238\n"
+		"  EnableScorches = Yes\n"
+		"  ScorchFrequency = 20 80\n"
+		"  ScorchSize = 8 16\n"
+		"  ScorchIntensity = 0.8\n"
+		"End\n";
+
+	REQUIRE(initest::loadError(env, "fire.ini", iniText).empty());
+
+	const FireSetting &f = store.active();
+	CHECK(f.terrainFireSystem == "MyCustomFire");
+	CHECK(f.terrainSmokeSystem == "MyCustomSmoke");
+	CHECK(f.burntTerrainColor.red == doctest::Approx(51.0f / 255.0f)); // tolerance: 1/255 float scaling
+	CHECK(f.burntTerrainColor.green == doctest::Approx(102.0f / 255.0f)); // tolerance: 1/255 float scaling
+	CHECK(f.burntTerrainColor.blue == doctest::Approx(153.0f / 255.0f)); // tolerance: 1/255 float scaling
+	CHECK(f.fuelIndicatorColor.red == doctest::Approx(204.0f / 255.0f)); // tolerance: 1/255 float scaling
+	CHECK(f.fuelIndicatorColor.green == doctest::Approx(221.0f / 255.0f)); // tolerance: 1/255 float scaling
+	CHECK(f.fuelIndicatorColor.blue == doctest::Approx(238.0f / 255.0f)); // tolerance: 1/255 float scaling
+	CHECK(f.enableScorches == true);
+	CHECK(f.scorchFrequency.m_low == 20.0f);
+	CHECK(f.scorchFrequency.m_high == 80.0f);
+	CHECK(f.scorchSize.m_low == 8.0f);
+	CHECK(f.scorchSize.m_high == 16.0f);
+	CHECK(f.scorchIntensity == doctest::Approx(0.8f)); // tolerance: INI parseReal float
+}
+
+TEST_CASE("terrain fire: without TerrainFireEmission module, emissionChance is 0.0f (RW 0x005F4B1D)")
+{
+	// System with Type = GPU_TERRAINFIRE but EmissionVolume = Point (not TerrainFireEmission)
+	Sim sim("FXParticleSystem NoEmissionVolume\n"
+		"  System\n"
+		"    Priority = ALWAYS_RENDER\n"
+		"    Type = GPU_TERRAINFIRE\n"
+		"    ParticleName = EXFireScroll2.tga\n"
+		"    Lifetime = 25 25\n"
+		"    BurstDelay = 0 0\n"
+		"    BurstCount = 1 1\n"
+		"  End\n"
+		"  EmissionVolume = PointEmissionVolume\n"
+		"  End\n"
+		"  EmissionVelocity = OrthoEmissionVelocity\n"
+		"    Z = 1 1\n"
+		"  End\n"
+		"  Draw = GpuDraw\n"
+		"  End\n"
+		"End\n");
+
+	sim.env.ground = 10.0f;
+	sim.env.burning.insert({ 100, 200 });
+	sim.spawn("NoEmissionVolume");
+	sim.step();
+
+	// RW 0x005F4B1D: ParticleSystem::getCellEmissionChance returns 0.0f when not TerrainFireEmission -> 0 particles
+	CHECK(sim.mgr->particleCount() == 0u);
+}
+
+TEST_CASE("terrain fire: lifetime uses raw ftol without life == 0 clamp (RW 0x007B15A8..0x007B15B2)")
+{
+	// System with Lifetime = 0.5 0.5 (ftol yields 0, no if (life == 0) life = 1 clamp)
+	Sim sim("FXParticleSystem ZeroLife\n"
+		"  System\n"
+		"    Priority = ALWAYS_RENDER\n"
+		"    Type = GPU_TERRAINFIRE\n"
+		"    ParticleName = EXFireScroll2.tga\n"
+		"    Lifetime = 0.5 0.5\n"
+		"    BurstDelay = 0 0\n"
+		"    BurstCount = 1 1\n"
+		"  End\n"
+		"  EmissionVolume = TerrainFireEmission\n"
+		"    CellEmissionChance = 1.0\n"
+		"  End\n"
+		"  EmissionVelocity = OrthoEmissionVelocity\n"
+		"    Z = 1 1\n"
+		"  End\n"
+		"  Draw = GpuDraw\n"
+		"  End\n"
+		"End\n");
+
+	sim.env.ground = 10.0f;
+	sim.env.burning.insert({ 100, 200 });
+	const ParticleSystemID id = sim.spawn("ZeroLife");
+	sim.step();
+
+	REQUIRE(sim.mgr->particleCount() == 1u);
+	const Particle &p = sim.mgr->particle(sim.mgr->findParticleSystemByID(id)->firstParticle());
+	// RW 0x007B15B2: ftol(0.5f) == 0; retail does not clamp to 1
+	CHECK(p.lifetime == 0u);
 }

@@ -173,22 +173,54 @@ LiveFXObject eventPrimary(GameLogic &logic, Object *obj, const FXEvent &e)
 }
 } // namespace
 
-LiveFX::LiveFX(LiveGame &game, FXPlayback &playback) : m_game(game), m_mapWeather(game.logic().settings().snowy ? 1 : 0), m_playback(playback)
+LiveFX::LiveFX(LiveGame &game, FXPlayback &playback, int effectsLod) : m_game(game), m_effectsLod(effectsLod), m_mapWeather(game.logic().settings().snowy ? 1 : 0), m_playback(playback)
 {
 	m_playback.setWorld(this);
 	m_game.logic().fxEvents().setSink(this);
 	m_game.drawables().setFXHost(this);
 
-	// RW 0x00498144 / BFME2 0x0063BEA6: W3DFireManager::ensureSystems creates GpuTerrainFire and GpuTerrainSmoke
-	const FXParticleSystem::ParticleSystemTemplate *fireTmpl = m_playback.particles().templates().findTemplate("GpuTerrainFire");
-	if (fireTmpl)
+	ensureSystems();
+}
+
+void LiveFX::setEffectsLod(int lod)
+{
+	if (m_effectsLod != lod)
 	{
-		m_terrainFireSystem = m_playback.particles().createParticleSystem(fireTmpl, true);
+		m_effectsLod = lod;
+		ensureSystems();
 	}
-	const FXParticleSystem::ParticleSystemTemplate *smokeTmpl = m_playback.particles().templates().findTemplate("GpuTerrainSmoke");
-	if (smokeTmpl)
+}
+
+void LiveFX::ensureSystems()
+{
+	// RW 0x00498144: W3DFireManager::ensureSystems
+	const FireSetting &fire = m_game.world().fireSetting().active();
+	if (m_terrainFireSystem == FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID && !fire.terrainFireSystem.empty())
 	{
-		m_terrainSmokeSystem = m_playback.particles().createParticleSystem(smokeTmpl, true);
+		// RW 0x0096C698: reads active Fire setting +0x00 (m_terrainFireSystemName)
+		const FXParticleSystem::ParticleSystemTemplate *fireTmpl = m_playback.particles().templates().findTemplate(fire.terrainFireSystem.c_str());
+		if (fireTmpl)
+		{
+			m_terrainFireSystem = m_playback.particles().createParticleSystem(fireTmpl, true);
+		}
+	}
+	// RW 0x004981EE: smoke system only created when [TheGameLODManager + 0x1778] > 1 (EffectsLOD > 1)
+	if (m_effectsLod > 1)
+	{
+		if (m_terrainSmokeSystem == FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID && !fire.terrainSmokeSystem.empty())
+		{
+			// RW 0x00498038: reads active Fire setting +0x04 (m_terrainSmokeSystemName)
+			const FXParticleSystem::ParticleSystemTemplate *smokeTmpl = m_playback.particles().templates().findTemplate(fire.terrainSmokeSystem.c_str());
+			if (smokeTmpl)
+			{
+				m_terrainSmokeSystem = m_playback.particles().createParticleSystem(smokeTmpl, true);
+			}
+		}
+	}
+	else if (m_terrainSmokeSystem != FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID)
+	{
+		m_playback.particles().destroyParticleSystemByID(m_terrainSmokeSystem);
+		m_terrainSmokeSystem = FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID;
 	}
 }
 
