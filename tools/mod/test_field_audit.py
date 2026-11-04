@@ -591,3 +591,28 @@ def test_previous_run_with_quotes(tmp_path):
     cov = tmp_path / "coverage.tsv"
     cov.write_text(COVERAGE.replace("RawThing\tBehavior", '"RawThing\tBehavior'), encoding="utf-8")
     assert len(fa.load_coverage(cov)) == 5
+
+
+def test_manual_verdicts(result, tmp_path):
+    """a hand check sets the status and keeps the tool's own; a verdict the tool now disagrees with in a new way, a field that is gone and an
+    aggregate row are listed"""
+    rows = [dict(r) for r in result[0].values()]
+    manual = tmp_path / "manual-check.tsv"
+    manual.write_text("block\towner\tfield\tstatus-tool\tverdict\twhere\tnote\n"
+                      "object\tTypedThing\tFX\tcustom-parser\tused\tGameLogic/Module/TypedThing.cpp:79\tparseFX stores m_fx\n"
+                      "object\tTypedThing\tUnused\tcustom-parser\tused\tx.cpp:1\n"  # the tool now says parsed-unused: neither
+                      "object\tTypedThing\tNames\tparsed-unused\tused\tx.cpp:2\n"  # the tool now asks for a hand check: no conflict
+                      "object\t\tGone\tparsed-unused\tparsed-unused\tnone\n"
+                      "aidata\t\t(75 fields)\tstub-block\tused\tGameLogicSettings.cpp:401\n", encoding="utf-8")
+    by = {(r["block"], r["owner"], r["field"]): r for r in rows}
+    by[("object", "TypedThing", "Names")]["status"] = "custom-parser"  # (FormationPreviewItemDecal: parsed-unused when checked, custom-parser now)
+    got = fa.apply_manual(rows, manual)
+    fx = by[("object", "TypedThing", "FX")]
+    assert (fx["status"], fx["tool"], fx["how"]) == ("used", "used", "manual")
+    assert fx["where"] == "GameLogic/Module/TypedThing.cpp:79 MANUAL: parseFX stores m_fx"
+    assert got["applied"] == 3
+    assert [(c["field"], now) for c, now, _ in got["conflicts"]] == [("Unused", "parsed-unused")]
+    assert [c["field"] for c in got["unmatched"]] == ["Gone"] and [c["field"] for c in got["skipped"]] == ["(75 fields)"]
+    fa.write(rows, tmp_path, [], {}, got)
+    text = (tmp_path / "field-audit.md").read_text(encoding="utf-8")
+    assert "| object | TypedThing | Unused | custom-parser | used | parsed-unused |" in text

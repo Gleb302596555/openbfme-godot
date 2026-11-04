@@ -3,6 +3,11 @@
 this port reads it and uses it. A field the port does not use is a problem found before it shows in a game.
 
     field_audit.py --base <ROTWK_INSTALL> --overlay <mod install> --coverage <module-coverage.tsv> --out <dir> [--src engine/src] [--rw engine/data/rotwk-201]
+                   [--manual <manual-check.tsv>]
+
+--manual takes the hand-checked verdicts (columns block owner field status-tool verdict where note; verdict used, parsed-unused or not-read): the
+verdict is the field's status, the tool's own goes to the tool column. A verdict the tool now disagrees with in a new way (its status is neither
+the one the check saw nor the verdict) is listed in field-audit.md, with the rows that match no field and the ones skipped (`(75 fields)`).
 
 The coverage table is the engine's own (`OPENBFME_MODULE_COVERAGE_OUT=<tsv> openbfme_tests.exe "-tc=module coverage: every registry class*"`, columns
 class type status typed ai drawkind). A previous field-audit.tsv in --out is compared with the new one (field-audit-diff.md) before it is replaced.
@@ -20,8 +25,14 @@ The three sides:
     (INIBlockStubs.cpp: the others are recording stubs that keep no value).
 
 USED means a READ of the member outside the field tables, the parse functions, the constructors and xfer/crc, in a file that can see the struct
-(its header's file and every file including that header, transitively). Two structs with a member of the same name in one file still count each
-other's reads: every used row names the first read so it can be checked.
+(its header's file and every file including that header, transitively). Code only: text in quotes and comments, a local or a parameter of the
+member's name and a declaration are no reads. A file naming the struct comes first; a read in a file that does not name it is marked INFERENCE
+unless one class in the source declares that name. A block's parser consuming the local it parsed (initFromINI(&local, ..) then local.member)
+is a read too, marked STAGED. A where with STAGED or INFERENCE is a lead to check, not a proof.
+
+Known limit (KNOWN_LIMIT, also in field-audit.md): a member of another struct with the same name, read in a file that names our struct too,
+counts as our read (`x.side` of some other struct in a file that also names ArmyDefinition). The where of such a row can point at the other
+struct's read; the status is wrong only when our member has no read of its own.
 
 Statuses, from the worst:
   missing-module   the class has no runtime class (an UnportedModule is made): nothing it says happens
@@ -30,6 +41,7 @@ Statuses, from the worst:
   raw              the runtime class is ported but its data is raw: no value is parsed (unless a raw reader names the field: used-raw)
   struct-unknown   the coverage says typed, but no binding in the source names the data struct (the tool cannot follow it)
   no-table-row     the class's (or the block's) tables have no row of that name (the engine would refuse it: the tool missed a table, or a nested parser)
+  not-read         a hand check found that nothing reads the line (--manual only)
   unmapped-block   no struct of the port is known for that definition type (DEF_STRUCTS)
   parsed-unused    the value is parsed into a member that nothing reads
   custom-parser    the row's own parser stores it where the tool cannot follow (no member named in its body): check by hand
@@ -1055,8 +1067,8 @@ def stops_for(stops, cls: str, field: str) -> str:
 
 
 # ---- the join --------------------------------------------------------------------------------------------------------------------------------------
-ORDER = ["missing-module", "parsed-only-module", "stub-block", "raw", "struct-unknown", "no-table-row", "unmapped-block", "parsed-unused", "custom-parser", "own-reader", "dynamic-row",
-         "used-raw", "used", "not-in-rotwk", "unknown-class"]
+ORDER = ["missing-module", "parsed-only-module", "stub-block", "raw", "struct-unknown", "no-table-row", "not-read", "unmapped-block", "parsed-unused", "custom-parser",
+         "own-reader", "dynamic-row", "used-raw", "used", "not-in-rotwk", "unknown-class"]
 
 
 def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stops=()):
@@ -1192,7 +1204,7 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
         top =sorted(mf.values.items(), key=lambda kv: -kv[1])[:3]
         rows.append({"status": status, "block": typ, "owner": owner, "field": field, "defs": len(mf.defs), "uses": mf.count, "struct": struct,
                      "member": member, "where": where, "how": how, "stop": stops_for(stops, cls, field), "values": " | ".join(v for v, _ in top),
-                     "src": mf.src})
+                     "src": mf.src, "tool": status})
     rank = {s: i for i, s in enumerate(ORDER)}
     rows.sort(key=lambda r: (rank.get(r["status"], 99), -r["defs"], r["block"], r["owner"], r["field"]))
     return rows
@@ -1207,7 +1219,44 @@ NESTED_DEF_STRUCTS = {
 
 
 # ---- the output ------------------------------------------------------------------------------------------------------------------------------------
-COLS = ["status", "block", "owner", "field", "defs", "uses", "struct", "member", "where", "how", "stop", "values", "src"]
+KNOWN_LIMIT = ("text in quotes and comments, a local or a parameter of the member's name and a declaration are not taken for reads any more; "
+               "a member of another struct with the same name, read in a file that names our struct too, still is (its where can point at the "
+               "other struct's read; the status is wrong only when our member has no read of its own). STAGED and INFERENCE in where are leads "
+               "to check by hand.")
+COLS = ["status", "block", "owner", "field", "defs", "uses", "struct", "member", "where", "how", "stop", "values", "src", "tool"]
+
+# a hand-checked verdict (manual-check.tsv, columns block owner field status-tool verdict where note)
+VERDICTS = {"used", "parsed-unused", "not-read"}
+# the statuses that leave the use to a hand check: they never contradict a verdict
+HAND = {"custom-parser", "own-reader", "dynamic-row", "unmapped-block"}
+
+
+def apply_manual(rows, path: Path) -> dict:
+    """sets the status of every field a hand check gave a verdict to; the tool's own status stays in the tool column. Returns the rows to look at
+    again: conflicts (the tool's status now is neither the one the check saw nor the verdict: the tool erred again or the code changed), unmatched
+    (no field of that name any more) and skipped (an aggregate row such as `(75 fields)` or a verdict that is not one of VERDICTS)"""
+    with open(path, encoding="utf-8", newline="") as f:
+        checks = list(csv.DictReader(f, delimiter="\t", quoting=csv.QUOTE_NONE))
+    need = {"block", "owner", "field", "status-tool", "verdict", "where"}
+    if not checks or not need <= set(checks[0]):
+        raise SystemExit(f"{path}: not a manual check table (columns {sorted(need)} needed)")
+    by_key = {(r["block"], r["owner"], r["field"]): r for r in rows}
+    out = {"applied": 0, "conflicts": [], "unmatched": [], "skipped": []}
+    for c in checks:
+        key = (c["block"], c["owner"], c["field"])
+        if c["verdict"] not in VERDICTS or not re.fullmatch(r"[\w.]+", c["field"] or ""):
+            out["skipped"].append(c)
+            continue
+        r = by_key.get(key)
+        if r is None:
+            out["unmatched"].append(c)
+            continue
+        if r["status"] not in (c["status-tool"], c["verdict"]) and r["status"] not in HAND:
+            out["conflicts"].append((c, r["status"], r["where"]))
+        r["tool"] = r["status"]
+        r["status"], r["where"], r["how"] = c["verdict"], f"{c['where']} MANUAL" + (f": {c['note']}" if c.get("note") else ""), "manual"
+        out["applied"] += 1
+    return out
 
 
 def module_queue(rows, coverage, mod_module_defs):
@@ -1223,7 +1272,7 @@ def module_queue(rows, coverage, mod_module_defs):
     return out
 
 
-def write(rows, out: Path, queue, diag):
+def write(rows, out: Path, queue, diag, manual: dict | None = None):
     out.mkdir(parents=True, exist_ok=True)
     old = {}
     prev = out / "field-audit.tsv"
@@ -1247,6 +1296,16 @@ def write(rows, out: Path, queue, diag):
         for k in ORDER:
             if counts.get(k):
                 f.write(f"| {k} | {counts[k]} |\n")
+        f.write(f"\nKnown limit: {KNOWN_LIMIT}\n")
+        if manual is not None:
+            f.write(f"\nHand-checked verdicts applied: {manual['applied']} (status = the verdict, the tool's own in the tool column of field-audit.tsv)\n")
+            f.write(f"\n## Hand checks to look at again ({len(manual['conflicts'])} conflicts, {len(manual['unmatched'])} unmatched, "
+                    f"{len(manual['skipped'])} skipped)\n\n| block | owner | field | checked as | verdict | tool now | where now |\n|---|---|---|---|---|---|---|\n")
+            for c, now, where in manual["conflicts"]:
+                f.write(f"| {c['block']} | {c['owner']} | {c['field']} | {c['status-tool']} | {c['verdict']} | {now} | {where} |\n")
+            for kind in ("unmatched", "skipped"):
+                for c in manual[kind]:
+                    f.write(f"| {c['block']} | {c['owner']} | {c['field']} | {c['status-tool']} | {c['verdict']} | {kind} | |\n")
         if diag.get("unclosed"):
             f.write(f"\n{len(diag['unclosed'])} definitions ended at a new definition with a block still open (first: {diag['unclosed'][0]})\n")
         f.write("\n## Module queue (missing, parsed-only, raw; by the mod's definitions)\n\n| class | status | definitions | type |\n|---|---|---|---|\n")
@@ -1282,6 +1341,7 @@ def main():
     ap.add_argument("--src", type=Path, default=here / "engine" / "src")
     ap.add_argument("--rw", type=Path, default=here / "engine" / "data" / "rotwk-201")
     ap.add_argument("--stops", type=Path, default=here / "docs" / "STOPS.md")
+    ap.add_argument("--manual", type=Path, help="hand-checked verdicts (manual-check.tsv): they set the status, a disagreement is listed")
     a = ap.parse_args()
     src = Source(a.src)
     every, real = src.block_keywords()
@@ -1291,7 +1351,11 @@ def main():
     rw, rw_object = rotwk_tables(a.rw)
     coverage = load_coverage(a.coverage)
     rows = audit(mod, rw, rw_object, coverage, src, real, load_stops(a.stops))
-    counts, changed = write(rows, a.out, module_queue(rows, coverage, diag.get("modules", {})), diag)
+    manual = apply_manual(rows, a.manual) if a.manual else None
+    counts, changed = write(rows, a.out, module_queue(rows, coverage, diag.get("modules", {})), diag, manual)
+    if manual is not None:
+        print(f"hand checks: {manual['applied']} applied, {len(manual['conflicts'])} conflicts, {len(manual['unmatched'])} unmatched, "
+              f"{len(manual['skipped'])} skipped (field-audit.md)")
     print(f"{len(rows)} fields of the mod; " + ", ".join(f"{k} {counts[k]}" for k in ORDER if counts.get(k)))
     print(f"bound classes {len(src.binds)}, table rows {len(src.rows)}, block keywords {len(every)} (parsed {len(every & real)})")
     if changed:
