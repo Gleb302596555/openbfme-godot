@@ -394,3 +394,25 @@ Shelling у всех лучников не работает на иконку н
 
 
 Когда стоитель тушит  что то вода улитает не в сторону куда смотрел стоитель в цель  а вверх
+
+### P-32. Тест хэша BACKLOG2 r1 determinism падает в форке
+- Статус: [ ] **НЕ НАЧАТО**
+- Добавлено: 2026-11-04, Claude (по поручению владельца)
+- Описание: `BACKLOG2 r1 determinism: three units on a build site: the draw assignment, the orders, the movement and the hashes are the same in two runs and are the pinned ones (RW 0x797465)` падает: `test_backlog2_retail.cpp:726`, `CHECK( a.hashes.back() == 0x24ADB575U )`, получено `0x30D7827D` (`lastHash 0x30D7827D`). Найдено длинным прогоном `test_select` ветки `agent/claude/object-sounds` (сборка `0003a25c`). Правка ветки (звуки объекта S-707) ни при чём: сборка того же дерева с выключенными новыми вызовами звука даёт тот же хэш. Значит, падает код `main` `b00f2609`, от которого отходит ветка. В `TEST_BASELINE.md` записи нет. Не проверено: падает ли на свежем `main` (ветка отстаёт на 24 коммита). Эталон не обновлять, пока не названа правка, которая сдвинула хэш, и почему (PROCESS.md, раздел 7).
+- Подсистема: — (детерминизм / закреплённые хэши; заполнить при разборе)
+- Взял: —
+- Причина и исправление: —
+- Проверка: —
+
+### P-33. Тест FACT-A abilities: две кнопки гномов не срабатывают
+- Статус: [ ] **НЕ НАЧАТО**
+- Добавлено: 2026-11-04, Claude (по поручению владельца)
+- Описание: `FACT-A abilities: every hero and unit ability of Men, Elves and Dwarves pressed on the control bar at the top level, its target clicked; the power runs` падает: `test_hud_facta_abilities.cpp:576`, `CHECK( problems == 0 )`, получено 2 (у гномов). Проблемы по выводу теста:
+  - `FactionDwarves DwarvenCaptainofDale Command_SpecialAbilityDaleSlamArrow (SPECIAL_POWER)`: кнопка нажата и осталась доступной, сила не сработала (`module SpecialPowerModule, casts +1, refused +0, percent ready 1.000000`);
+  - `FactionDwarves DwarvenFortressCitadel Command_FireWeaponMightyCatapult (SPECIAL_POWER)`: объект погиб, пока тест кликал, чтобы его выбрать.
+  
+  У эльфов тест тоже пишет проблему `NoldorWarriorHorde Command_ArcherBombard (FIRE_WEAPON)`: кнопка осталась доступной, сила не сработала (`module -, casts +0`); по выводу тест считает у эльфов 1 проблему, у гномов 2, а проверка на строке 576 упала один раз со значением 2; почему проблема эльфов не дала своего падения, не разбиралось. Найдено тем же прогоном, что P-32; сборка с выключенными звуками S-707 даёт те же проблемы, значит, это код `main` `b00f2609`. В `TEST_BASELINE.md` записи нет; на свежем `main` не проверено. INFERENCE: `ArcherBombard` может быть тем же, что запись владельца выше «Shelling у всех лучников не работает».
+- Подсистема: — (кнопки способностей; заполнить при разборе)
+- Взял: —
+- Причина и исправление: —
+- Проверка: —
