@@ -483,6 +483,10 @@
    "reason": "builds the terrain meshes and textures from the map: rendering (reads TerrainLogic, writes none)"
   },
   {
+   "glob": "src/GodotDevice/GodotTerrainScorches.cpp",
+   "reason": "uploads the terrain's scorch marks (TerrainScorchBuffer, a client-only list built in the core) as a mesh: rendering, never read by the logic"
+  },
+  {
    "glob": "src/GodotDevice/GodotMapObjectBuilder.cpp",
    "reason": "builds the Godot scene nodes of the map's objects for display: rendering (reads the retail object world, creates no logic objects)"
   },

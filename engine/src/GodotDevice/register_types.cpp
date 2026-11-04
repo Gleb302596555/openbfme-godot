@@ -13,6 +13,7 @@
 #include "GodotDevice/GodotPathfindView.h"
 #include "GodotDevice/GodotGlowEffect.h"
 #include "GodotDevice/GodotPostEffects.h"
+#include "GodotDevice/GodotTerrainScorches.h"
 #include "GodotDevice/GodotRelease.h"
 #include "Common/ConsoleFilter.h"
 #include "Common/WindowsCrashDump.h"
@@ -51,6 +52,7 @@ static void initialize_openbfme(ModuleInitializationLevel p_level)
 	GDREGISTER_CLASS(GammaCompositeHost);
 	GDREGISTER_CLASS(LookupTablePostEffect); // RENDER-4 (S-1650)
 	GDREGISTER_CLASS(MapPostEffectsHost);
+	GDREGISTER_CLASS(TerrainScorchLayer); // TOP20 Fire, scorches (S-117)
 	GDREGISTER_CLASS(GlowPostEffect); // GLOW-1 (S-5231)
 	GDREGISTER_CLASS(GlowPostEffectHost);
 	GDREGISTER_CLASS(ReleaseInfo); // RELEASE-1
