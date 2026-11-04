@@ -41,7 +41,7 @@
 | 15 | `Upgrade/DisplayName` | 643 | parsed-unused | `m_displayName` не читается; стопы S-072, S-145, S-178 | имя апгрейда в интерфейсе | открыто |
 | 16 | `Object/DescriptionStrategic`, `DisplayNameStrategic` | 616 / 363 | parsed-unused | по RW не определено: смещения `0x3C` и `0x54` слишком частые | тексты Войны Кольца | открыто |
 | 17 | `HordeContain/ShowPips` | 598 | parsed-unused | только объявлено и конструктор (`OpenContain.h:71`) | значки отряда | открыто |
-| 18 | `SlowDeathBehavior/FadeTime` | 596 | parsed-unused | разобрано (`CombatModules.cpp:142`), чтения нет | исчезновение трупа | открыто |
+| 18 | `SlowDeathBehavior/FadeTime` | 596 | parsed-unused | разобрано (`CombatModules.cpp:142`), чтения нет | исчезновение трупа | исправлено, ждёт: владельца — RW 0x860D35 .. 0x860D5E: при наступлении FadeDelay тело гаснет (fadeOut RW 0x670A50) за FadeTime * 6 кадров клиента; узкий тест `TOP20-18 slow death*` |
 | 19 | `Object/EmotionRange` | 547 | parsed-unused | чтения нет | эмоции юнитов | открыто |
 | 20 | `ActiveBody/CheerRadius` (+ `RespawnBody/CheerRadius` 246) | 505 | parsed-unused | разобрано (`ActiveBody.cpp:85`), чтения нет | радиус ликования | открыто |
 

@@ -7,6 +7,7 @@
 #include "HudTestUtil.h"
 
 #include "BigTestUtil.h"
+#include "GameClient/ClientEvents.h"
 #include "GameClient/FXPlayback.h"
 #include "GameEngineDevice/Win32Device/Common/Win32BIGFileSystem.h"
 #include "GameClient/LiveFX.h"
@@ -889,4 +890,64 @@ TEST_CASE("fx2: a DynamicDecal's opacity follows its delay, fades, peak and life
 	c.peakFrames = 8655;
 	CHECK(c.opacityAt(4799) == 200);
 	CHECK(c.opacityAt(4800) == -1);
+}
+
+// TOP20 #18: SlowDeathBehavior's FadeTime. RW 0x860D1C .. 0x860D5E: once the fade frame (FadeDelay) is reached, the drawable fades out (RW 0x670A50) over
+// ftol([RW 0xDE4324 + 0x38] * FadeTime) client frames: 6 client frames per logic frame, FadeTime 2000 ms = 10 logic frames -> 60. The fade is asked once.
+TEST_CASE("TOP20-18 slow death: FadeTime fades the corpse's drawable out over FadeTime * 6 client frames once the FadeDelay frame is reached (RW 0x860D5E)")
+{
+	static const char kFadeCorpse[] =
+		"Object FxFadeCorpse\n"
+		"  KindOf = INFANTRY SELECTABLE\n"
+		"  Geometry = CYLINDER\n"
+		"  GeometryMajorRadius = 8\n"
+		"  GeometryMinorRadius = 8\n"
+		"  GeometryHeight = 20\n"
+		"  ArmorSet\n"
+		"    Conditions = None\n"
+		"    Armor = NoArmor\n"
+		"  End\n"
+		"  Body = ActiveBody ModuleTag_Body\n"
+		"    MaxHealth = 100\n"
+		"  End\n"
+		"  Behavior = SlowDeathBehavior ModuleTag_Death\n"
+		"    DeathTypes = ALL\n"
+		"    DestructionDelay = 10000\n"
+		"    FadeDelay = 1000\n"
+		"    FadeTime = 2000\n"
+		"  End\n"
+		"End\n";
+	CombatWorld w((std::string(kFxObjects) + kFadeCorpse).c_str());
+	ClientEventRecorder events(*w.logic);
+	w.logic->setClientHooks(&events);
+	struct Unhook
+	{
+		GameLogic &logic;
+		~Unhook() { logic.setClientHooks(nullptr); } // before the recorder goes, even when a REQUIRE ends the test
+	} unhook{ *w.logic };
+	Object *a = w.unit("Swordsman", 'A', 300, 300);
+	Object *c = w.unit("FxFadeCorpse", 'B', 340, 300);
+	w.frames(3);
+	const ObjectID id = c->getID();
+	DamageInfo big = hit(a, 1000.0f);
+	c->attemptDamage(big);
+	REQUIRE(c->isEffectivelyDead());
+	const unsigned deathFrame = w.logic->getFrame();
+	events.take();
+	std::vector<std::pair<unsigned, UnsignedInt>> fades; // (logic frame, client frames)
+	for (int i = 0; i < 20; ++i)
+	{
+		w.frames(1);
+		for (const ClientEvent &e : events.take())
+		{
+			if (e.kind == ClientEvent::FADE_OUT && e.object == id)
+			{
+				fades.push_back({ w.logic->getFrame(), e.fadeFrames });
+			}
+		}
+	}
+	REQUIRE(fades.size() == 1);
+	CHECK(fades[0].second == 60u);
+	// RW 0x8609A8: the fade frame is the death frame + FadeDelay (1000 ms = 5 logic frames); RW 0x860D17 fades once the logic frame reaches it
+	CHECK(fades[0].first == deathFrame + 5u);
 }

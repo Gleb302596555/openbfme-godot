@@ -558,7 +558,7 @@ int SlowDeathBehaviorModuleData::resolvedMask() const
 //   * flung and not down: every frame (decay only when not 0) one later; once the body is no longer above the ground (RW 0x4B12E8: height > 0): EXPLODED_FLAILING goes,
 //     EXPLODED_BOUNCING (121) comes (RW 0x68D607), flag 8;
 //   * a HIT_GROUND entry pending: RUBBLE (5) cleared; less than 1.0 above the ground: the HIT_GROUND phase, RUBBLE set, no longer pending;
-//   * the fade frame reached with a FadeDelay: once (+ 0x48) the drawable fades over FadeTime (client);
+//   * the fade frame reached with a FadeDelay: once (+ 0x48) the drawable fades out over FadeTime * 6 client frames (RW 0x670A50, ObjectClientHooks::fadeOut);
 //   * the sink frame reached with a SinkRate above 0: without a flight in progress (PhysicsBehavior's points) and not significantly above the ground (RW 0x70C50C(0): not
 //     CAN_CLIMB_WALLS / SHIP, height > gravity * -9.0) the object is DISABLED_HELD for good (RW 0x692432(3)); SINKING (status 0x38) set; z - SinkRate / scale (x87),
 //     5.7 more (RW 0xC588F0, SSE) while that is still above the terrain; setPosition;
@@ -618,7 +618,15 @@ UpdateSleepTime SlowDeathBehavior::update()
 	}
 	if (m_fadeFrame <= now && d->m_fadeDelay != 0xFACADE00u && !m_fadeBegun)
 	{
-		m_fadeBegun = true; // RW 0x670A50(FadeTime) on the drawable: the client fades the body (fadeFrame() / fadeBegun())
+		m_fadeBegun = true;
+		// TOP20 #18, RW 0x860D35 .. 0x860D5E: the drawable fades out (RW 0x670A50) over ftol((double)[RW 0xDE4324 + 0x38] * (double)FadeTime) client frames:
+		// FadeTime (+ 0x184) is in logic frames, the global is 6 client frames per logic frame (30 / 5, RW 0x63CF0F .. 0x63CF27; DrawableFade.cpp). The fade is
+		// the client's: no logic state changes here
+		if (ObjectClientHooks *client = logic.clientHooks())
+		{
+			const double kClientFramesPerLogicFrame = 6.0;
+			client->fadeOut(*obj, (UnsignedInt)(kClientFramesPerLogicFrame * (double)d->m_fadeTime));
+		}
 	}
 	if (m_sinkFrame <= now && d->m_sinkRate > 0.0f)
 	{
