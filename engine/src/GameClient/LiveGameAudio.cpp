@@ -1134,7 +1134,8 @@ std::vector<std::string> LiveGameAudio::acceptanceStops()
 		"at onEnter RW 0x74E06F, the loop removed at onEnter / onExit) with the move loop's handle kept by the audio side (AudioApi::postHeldSound), not at "
 		"state + 0x40, and without the draw module's sound overrides (RW 0x676A8A, S-701)",
 		"[S-709] Eva from deaths and sightings (narrowed by EVADAMAGE-1: the damage rows are retail's RW 0x67B4B7, stop S-7090): EvaEventDieOwner / Ally / "
-		"Enemy are reported by a client watch of the objects (a death); retail's death call sites (RW 0x698F06) were not decoded, nor the sighting and detection events",
+		"Enemy are reported by a client watch of the objects (a death); retail's death call sites (RW 0x698F06) were not decoded, nor the detection events; the "
+		"sighting events (EvaEnemyObjectSightedEvent, EvaOnFirstSightingEvent*: RW 0x678C69 on the shroud transition RW 0x678F54, TOP20 #2) are decoded and not ported",
 		"[S-1240] held sounds (lane AUDIO-3): the handles retail keeps in its modules (GettingBuiltBehavior + 0x24, the dozer's building sound, "
 		"AIInternalMoveToState + 0x40) are kept by the audio side keyed by the holder object (AudioApi::postHeldSound); an object keeps one move loop (retail: one per "
 		"move state instance); the dozer's building sound starts at RW's dock sub task 2 -> 3 (RW 0x88DD65, ported by lane BUILD-3)",
