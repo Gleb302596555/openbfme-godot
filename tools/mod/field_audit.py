@@ -32,6 +32,8 @@ Statuses, from the worst:
   no-table-row     the class's (or the block's) tables have no row of that name (the engine would refuse it: the tool missed a table, or a nested parser)
   unmapped-block   no struct of the port is known for that definition type (DEF_STRUCTS)
   parsed-unused    the value is parsed into a member that nothing reads
+  custom-parser    the row's own parser stores it where the tool cannot follow (no member named in its body): check by hand
+  dynamic-row      the row is made at run time from a name list (MiscAudio, "Color" + to_string(i)): parsed, the use not followed
   used-raw         a raw class whose field name is read by name (a raw reader such as RawModuleData's find) in a file that names the class
   used             the member is read outside the parser
   not-in-rotwk     RotWK's table does not have the field: the mod's own error, RotWK does not use it either
@@ -103,6 +105,7 @@ DEF_FILES = {
     "largegroupaudiounusedknownkeys": ["Common/Audio/LargeGroupAudio.cpp"],
     "strategichud": ["GameClient/GUI/AptScreens/StrategicHUDData.cpp"],
     "awardsystem": ["GameLogic/CreateAHeroSystem.cpp"],
+    "rank": ["GameLogic/RankInfo.cpp"],
     # GameData is read in parts, each reader with its own table and the other rows skipped
     "gamedata": ["GameClient/CameraSettings.cpp", "GameClient/MapObjectDrawables.cpp", "GameClient/TutorialSettings.cpp", "GameLogic/AI/AIPathfindConfig.cpp",
                  "GameLogic/AI/AIWorld.cpp", "GameLogic/EconomySettings.cpp", "GameLogic/GameLogicSettings.cpp", "GameLogic/ProductionSettings.cpp",
@@ -177,7 +180,7 @@ def mod_fields(vfs, block_types: set[str], diag: dict | None = None, grammar: "G
                     if stack:
                         diag["unclosed"].append(f"{typ} {defname} ({src}; open: {' > '.join(o for o, _ in stack)} at {s})")
                     break  # the next definition (a definition without a final End)
-                vt = value.split()
+                vt = value.replace("=", " ").split()  # '=' is a separator: `Draw == W3DScriptedModelDraw ModuleTag_01` names W3DScriptedModelDraw
                 if key.lower() in MODULE_KEYS and len(vt) >= 2:  # `Behavior = <Class> <tag>`: the tag is any name (Draw_PalanrirWatcherEffects)
                     stack.append((vt[0], classes.get(vt[0])))  # the module class
                     modules[vt[0]].add(defname)
@@ -473,7 +476,7 @@ class Source:
             for mm in re.finditer(r"\b(\w+)\s*\(\s*([\w:]+)\s*\)", code):
                 for field, parser, member, struct, params in self.macro_rows.get(mm.group(1), ()):
                     arg = res(mm.group(2))
-                    self.rows.append(Row(field, parser, member, arg if not struct or struct in params else struct, f, table or "", func or pending, n))
+                    self.rows.append(Row(field, parser, member, "?" if struct == "?" else (arg if not struct or struct in params else struct), f, table or "", func or pending, n))
                     self.row_lines.add((f, n))
             touched = func  # the function a one-line body (`{ p.add(kRows); }`) opens and closes on this line
             if code_depth() == 0 and re.search(r"^\s*(namespace\b|extern\s+\"C\")", code) and not code.rstrip().endswith(";"):
@@ -509,13 +512,16 @@ class Source:
         for (f, fn), body in self.funcs.items():
             by_short[(f, fn.split("::")[-1])] += body
         for r in self.rows:
-            if r.member.startswith("m_"):
+            if r.member.startswith("m_") or re.fullmatch(r"[A-Za-z_]\w{2,}", r.member):
                 continue
             body = by_short.get((r.file, r.parser.split("::")[-1]))
             if body:
-                members = sorted(set(re.findall(r"\b(m_\w+)", "\n".join(body))))
+                text = "\n".join(body)
+                # the m_* members it names, and the plain members it stores into (info.model = ..., d->names.push_back(...))
+                members = set(re.findall(r"\b(m_\w+)", text))
+                members |= set(re.findall(r"(?:->|\.)\s*([a-z]\w{2,})\s*(?:=(?!=)|\.\s*(?:push_back|emplace_back|assign|insert|append)\b)", text))
                 if members:
-                    r.member = "|".join(members)
+                    r.member = "|".join(sorted(members))
 
     @staticmethod
     def _rows(code, macros, res):
@@ -528,6 +534,8 @@ class Source:
                 mm = re.match(r"\(?\s*(?:\(\s*int\s*\)\s*)?(\w+)\s*\(", rest)
                 struct = macros.get(mm.group(1), "") if mm else ""
             ids = re.findall(r"\b(m_\w+)", rest) or re.findall(r"(\w+)\s*\)*\s*$", rest)
+            if re.search(r"\w\s*\.\s*\w", rest.split(",", 1)[-1]):
+                struct = "?"  # offsetof(BlockState, values.x): the member belongs to a member's type, read through another struct: search everywhere
             out.append((r.group(1), r.group(2), ids[-1] if ids else "", struct))
         if out:
             return out
@@ -672,8 +680,10 @@ class Source:
             before, after = code[:m.start()], code[m.end():]
             if WRITE_AFTER.match(after):
                 continue  # a store (m_x = ..., m_x += ...)
-            if re.match(r"\s*[;{\[]", after) and re.search(r"[\w>\*&]\s+[\*&]?\s*$", before) and not re.search(r"[(.>]\s*$", before.rstrip()[-1:] or " "):
-                continue  # a declaration (Type m_x; Type m_x{...}; Type m_x[N])
+            prev = re.search(r"(\w+)\W*$", before)
+            if (re.match(r"\s*[;{\[]", after) and re.search(r"[\w>\*&]\s+[\*&]?\s*$", before) and not re.search(r"[(.>]\s*$", before.rstrip()[-1:] or " ")
+                    and not (prev and prev.group(1) in ("return", "case", "else", "throw", "co_return", "delete", "sizeof", "do"))):
+                continue  # a declaration (Type m_x; Type m_x{...}; Type m_x[N]), not `return m_x;`
             if re.match(r"\s*[({]", after) and re.search(r"[:,]\s*$", before) and not fn:
                 continue  # a constructor's initialiser list outside a recorded body
             if re.match(r"\s*[,)]", after) and re.search(r"\b(?:struct|class)\b|^\s*[\w:<>]+\s+$", before):
@@ -682,7 +692,7 @@ class Source:
         return False
 
     def member_read(self, member: str, struct: str) -> str:
-        files = self.visible(struct) if struct else set()
+        files = self.visible(struct) if struct and struct != "?" else set()  # "?": a member of a member (offsetof(S, a.b)): everywhere
         scope = sorted(files) if files else sorted(self.files)
         for f in scope:
             for n in self.words_of(f).get(member, ()):
@@ -757,7 +767,7 @@ def stops_for(stops, cls: str, field: str) -> str:
 
 
 # ---- the join --------------------------------------------------------------------------------------------------------------------------------------
-ORDER = ["missing-module", "parsed-only-module", "stub-block", "raw", "struct-unknown", "no-table-row", "unmapped-block", "parsed-unused", "dynamic-row",
+ORDER = ["missing-module", "parsed-only-module", "stub-block", "raw", "struct-unknown", "no-table-row", "unmapped-block", "parsed-unused", "custom-parser", "dynamic-row",
          "used-raw", "used", "not-in-rotwk", "unknown-class"]
 
 
@@ -793,18 +803,26 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
             if not cands:
                 # a table built at run time from a list of names (MiscAudio's fieldNames(), TransitionDamageFX's generated rows)
                 hit = next((f"{f}:{n}" for f, n in src.string_lines(field) if f in fs), "")
+                numbered = re.fullmatch(r"([A-Za-z_]+?)(\d+)", field)
+                if not hit and numbered:
+                    # numbered names made at run time: "Color" + std::to_string(i + 1)
+                    hit = next((f"{f}:{n}" for f, n in src.string_lines(numbered.group(1)) if f in fs and "to_string" in src.files[f][n - 1]), "")
                 if hit:
                     return "dynamic-row", hit, "", "string"
         if not cands:
             return "no-table-row", "", "", how
+        followed = False
         for r in cands:
             for m in r.member.split("|"):
                 if not re.fullmatch(r"[A-Za-z_]\w{2,}", m) or m in ("nullptr", "NULL"):
                     continue
+                followed = True
                 use = src.member_read(m, r.struct or (structs[0] if structs else ""))
                 if use:
                     return "used", use, m, how
         r = cands[0]
+        if not followed:
+            return "custom-parser", r.loc, r.parser, how  # the row's own parser stores where the tool cannot follow
         return "parsed-unused", r.loc, r.member, how
 
     for (typ, owner, field), mf in mod.items():
@@ -843,8 +861,15 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
                     struct = structs[0]
                     status, where, member, how = typed_status(field, structs, False)
             else:
-                use = src.string_read(field)
-                status, where, how = ("used", use, "by-name") if use else ("parsed-unused", "", "by-name")
+                # another reader of the Object block with its own table (FormationAssistant's FormationPreviewDecal), else ThingFactory's slot read
+                # by name (ThingTemplate::findField)
+                others = {f for f in src.block_files("object") if any(r.file == f and r.field.lower() == field.lower() for r in src.rows)}
+                if others:
+                    status, where, member, how = typed_status(field, [], False, others)
+                if not others or status != "used":
+                    use = src.string_read(field)
+                    if use or not others:
+                        status, where, how = ("used", use, "by-name") if use else ("parsed-unused", "", "by-name")
         elif typ not in real_blocks:
             status = "stub-block"
         elif typ == "commandset" and field.isdigit():
@@ -925,7 +950,7 @@ def write(rows, out: Path, queue, diag):
         f.write("\n## Module queue (missing, parsed-only, raw; by the mod's definitions)\n\n| class | status | definitions | type |\n|---|---|---|---|\n")
         for q in queue:
             f.write(f"| {q[0]} | {q[1]} | {q[2]} | {q[3]} |\n")
-        for status in ORDER[:8]:
+        for status in ORDER[:ORDER.index("dynamic-row") + 1]:
             part = [r for r in rows if r["status"] == status]
             if not part:
                 continue
