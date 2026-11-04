@@ -82,7 +82,7 @@ enum MapObjectFate
 	MAPOBJ_NO_TEMPLATE_EMPTY,   ///< empty template name
 	MAPOBJ_WAYPOINT,            ///< no template, waypointID INT (TerrainLogic keeps it)
 	MAPOBJ_GENERIC_AI,          ///< no template, GenericAIObjectID INT (AI wall hubs and the like)
-	MAPOBJ_SCORCH,              ///< no template, scorchType INT (a terrain decal; not drawn, S-117)
+	MAPOBJ_SCORCH,              ///< no template, scorchType INT (a terrain decal: TerrainScorchBuffer::addMapScorches, RW 0x491E36; S-117 closed)
 	MAPOBJ_LIGHT,               ///< no template, lightHeightAboveTerrain REAL
 	MAPOBJ_NO_TEMPLATE_STAR,    ///< a "*" name without a template that no property explains
 	MAPOBJ_UNRESOLVED,          ///< a name that does not resolve and nothing explains: an error

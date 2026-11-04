@@ -66,8 +66,8 @@ std::vector<std::string> stopLines()
 	return {
 		"[S-033] terrain light scale (GlobalLighting v8): the storage, the eight readers, their guards and the terrain rendering mode "
 		"(FlatHeightMap vtable slot 147 = the terrain.fx technique level) are target facts; applied here to the per-pixel sun, the terrain vertex "
-		"lights and the roads (rendering mode 0 only), and to the object light sets (shader LOD below 2). Not applied because not drawn: the "
-		"scorch marks (always scaled in retail), the tank tracks, the per-instance prop / tree vertex light (RW 0x4E44FB, its role is inferred), "
+		"lights and the roads (rendering mode 0 only), to the scorch marks (always, RW 0x4670E1: TerrainScorchBuffer) and to the object light sets "
+		"(shader LOD below 2). Not applied because not drawn: the tank tracks, the per-instance prop / tree vertex light (RW 0x4E44FB, its role is inferred), "
 		"the per-object light of renderOneObject and the tree light environment of Flush (RW 0x46F89E, 0x46FB58, 0x471429). The map renderers draw "
 		"the High tier (normal-mapped terrain, shader LOD 2 or above), where the scale is 1: only the viewer options use_terrain_normal_map / "
 		"terrain_lod / shader_lod of MapTerrainBuilder (terrain, roads) and MapObjectBuilder (object lights) select a lower tier, GameWorld lights "

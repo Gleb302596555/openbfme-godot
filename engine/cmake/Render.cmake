@@ -13,4 +13,5 @@ set(OPENBFME_RENDER_TESTS
     tests/test_render_lighting.cpp
     tests/test_terrain_light_scale.cpp
     tests/test_terrain_scorches.cpp
+    tests/test_terrain_scorches_fire.cpp
     tests/test_render_streak.cpp)

@@ -76,6 +76,11 @@ public:
 	virtual int mapWeather() const = 0;
 	// a DynamicDecal nugget (RW 0x5E05AB): true when the world keeps it for drawing (else it is noted as an event, as before)
 	virtual bool createDecal(const FXDecalDesc & /*decal*/) { return false; }
+	// a TerrainScorch nugget (RW 0x5E0045 -> TheGameClient slot 0x58 = W3DGameClient::addScorch RW 0x44C047: the terrain's addScorch RW 0x46765B when there
+	// is a terrain): true when the world keeps it (else it is noted as an event, as before)
+	virtual bool addScorch(const Coord3D & /*pos*/, float /*radius*/, int /*type*/) { return false; }
+	// one client frame (FXPlayback::step, after the frame counter moved on, before the particles update): the client subsystems that run per frame
+	virtual void clientFrameUpdate() {}
 	virtual const std::set<std::pair<int, int>> *burningCells() { return nullptr; }
 	virtual int maxCellsBurning() const { return 0; }
 };

@@ -705,7 +705,8 @@ func _map_objects(fs: RefCounted) -> void:
 	var stop_ids := {}
 	for line in stops:
 		stop_ids[String(line).substr(1, 5)] = true
-	for id in ["S-110", "S-111", "S-112", "S-113", "S-114", "S-115", "S-116", "S-117", "S-118"]:
+	# S-117 closed: the Scorch objects are drawn as terrain scorch marks (TerrainScorchBuffer, RW 0x491E36 .. 0x491EC3)
+	for id in ["S-110", "S-111", "S-112", "S-113", "S-114", "S-115", "S-116", "S-118"]:
 		_check(stop_ids.has(id), "stop %s is reported with the objects" % id)
 	_check(rep.map_ini.map_ini == true, "the map's map.ini was loaded (load type 2)")
 	# the scene: two instancers, batched (a few hundred MultiMeshes at most, not one node per object)

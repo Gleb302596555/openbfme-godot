@@ -951,6 +951,7 @@ private:
 	void clearFootprint(const Coord3D &pos, float angle, const std::vector<ObjectGeometry::Shape> &shapes, bool propsOnly);
 	size_t m_treeEventsSeen = 0;
 	void heldClientWork(); // lane RENDERWAIT-1: the render side's reads of the live logic, where it is held
+	void presentScorches(); // TOP20 "Fire, scorches": the terrain's scorch layer draws the live effect player's buffer (drawScorches RW 0x468BCB)
 	void updateTreeTopple(double dt);
 	std::unique_ptr<W3DVegetationSway> m_vegSway; ///< lane VISUAL-2: the W3DTreeDraw trees' sway (null: the map has none)
 	std::array<int64_t, 11> m_swayTypeCounts{}; ///< lane VISUAL-2: the trees given each sway type (0: TaintedTree)
@@ -1021,6 +1022,7 @@ private:
 	// lane FX-2
 	FXPlayer *m_fxPlayer = nullptr;            ///< child node, kept by clear_scene
 	ObjectID m_glowHost;                       ///< lane GLOW-1: the loaded game's glow pass host (a child, freed by clear_scene)
+	ObjectID m_scorchLayer;                    ///< the terrain's scorch layer (Terrain/Scorches, freed with the terrain), looked up per frame
 	int64_t m_effectsLod = 4;                  ///< lane GLOW-1: GameLODManager::kDetectedLevel until the options say otherwise
 	std::unique_ptr<LiveFX> m_liveFX;          ///< destroyed before m_game (it is the logic's FX sink and the drawables' FX host)
 	std::unique_ptr<GodotWeather> m_weather;   ///< lane WEATHER-1: the map's weather (snow / rain, darkness, lightning, its sound); destroyed before m_game

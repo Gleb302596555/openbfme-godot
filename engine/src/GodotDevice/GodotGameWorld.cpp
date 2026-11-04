@@ -44,6 +44,7 @@
 #include "GodotDevice/GodotWeather.h" // lane WEATHER-1
 #include "GodotDevice/GodotGlowEffect.h"
 #include "GodotDevice/GodotPostEffects.h"
+#include "GodotDevice/GodotTerrainScorches.h"
 #include "Common/Audio/AudioRequests.h"
 #include "Common/JobSystem.h"
 #include "Common/WindowsCrashDump.h"
@@ -1343,6 +1344,16 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 		}
 		terrain->set_name("Terrain");
 		add_child(terrain);
+		// TOP20 "Fire, scorches": the live game's scorch marks (LiveFX::scorches: the map's Scorch objects, the FXList nugget, the burning terrain)
+		// are drawn by the terrain's layer from here on (presentScorches)
+		if (TerrainScorchLayer *scorches = Object::cast_to<TerrainScorchLayer>(terrain->get_node_or_null(NodePath("Scorches"))))
+		{
+			if (m_liveFX)
+			{
+				scorches->setLive(true);
+				m_scorchLayer = scorches->get_instance_id();
+			}
+		}
 		report["terrain"] = trep;
 		timings["terrain_ms"] = timing::elapsedMs(t0);
 	}
@@ -2504,6 +2515,7 @@ void GameWorld::advance(double delta)
 	const double tv = nowMs();
 	m_lastShroudMs = timing::spanMs(tv, t1);
 	refresh_views(dt * 1000.0);
+	presentScorches();
 	if (m_weather)
 	{
 		// lane WEATHER-1: the weather follows the presented frame's TheGlobalWeatherSystem (never the live logic)
@@ -2638,6 +2650,18 @@ void GameWorld::syncBuffs(double dt)
 			dyn->remove_instance(it->second);
 		}
 		it = m_buffInstances.erase(it);
+	}
+}
+
+void GameWorld::presentScorches()
+{
+	if (!m_liveFX)
+	{
+		return;
+	}
+	if (TerrainScorchLayer *layer = Object::cast_to<TerrainScorchLayer>(ObjectDB::get_instance(m_scorchLayer)))
+	{
+		layer->present(m_liveFX->scorches());
 	}
 }
 

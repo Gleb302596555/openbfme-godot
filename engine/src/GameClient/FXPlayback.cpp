@@ -67,7 +67,13 @@ public:
 		note("cameraShaker", "r=" + std::to_string(radius) + " s=" + std::to_string(seconds) + " a=" + std::to_string(amplitude), &pos);
 	}
 	void lightPulse(const Coord3D &pos, const RGBColor &, float radius, std::uint32_t, std::uint32_t) override { note("lightPulse", "r=" + std::to_string(radius), &pos); }
-	void addScorch(const Coord3D &pos, float radius, int type) override { note("scorch", "type=" + std::to_string(type) + " r=" + std::to_string(radius), &pos); }
+	void addScorch(const Coord3D &pos, float radius, int type) override
+	{
+		if (!m_owner.m_world || !m_owner.m_world->addScorch(pos, radius, type))
+		{
+			note("scorch", "type=" + std::to_string(type) + " r=" + std::to_string(radius), &pos);
+		}
+	}
 	float groundHeight(float x, float y, const Coord3D &) override { return m_owner.m_world ? m_owner.m_world->groundHeight(x, y) : m_owner.m_groundZ; }
 	bool isWater(float x, float y) override { return m_owner.m_world && m_owner.m_world->isWater(x, y); }
 	bool particleSystemTemplateExists(const std::string &name) override { return m_owner.m_templates.findTemplate(name) != nullptr; }
@@ -290,6 +296,10 @@ bool FXPlayback::playFXList(const std::string &name, const Coord3D &pos, bool as
 void FXPlayback::step()
 {
 	++m_frame;
+	if (m_world)
+	{
+		m_world->clientFrameUpdate(); // e.g. the fire manager's scorches (RW 0x49829C, LiveFX::updateFireScorches)
+	}
 	m_manager->update(true, 0);
 	m_emitterWorld.sync(W3DEmitterWorld::kFrameLengthMs * m_frame); // WW3D::Sync (RW 0x516e20): 33 ms per client frame
 	m_emitterWorld.update();
