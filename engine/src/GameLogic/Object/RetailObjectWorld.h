@@ -28,6 +28,7 @@
 #include "GameClient/ControlBarCommands.h"
 #include "GameClient/LinearCampaign.h"
 #include "GameEngineDevice/W3DDevice/GameClient/GlowEffect.h"
+#include "GameClient/FireSetting.h"
 #include "GameLogic/AttributeModifiers.h"
 #include "GameLogic/CreateAHeroSystem.h"
 #include "GameLogic/ExperienceLevels.h"
@@ -72,6 +73,8 @@ public:
 	// lane GLOW-1: the GlowEffect block (environment.ini, and a map.ini's override while its map is the loaded one) - the device's glow pass reads active()
 	GlowEffectStore &glowEffect() { return m_s->m_glow; }
 	const GlowEffectStore &glowEffect() const { return m_s->m_glow; }
+	FireSettingStore &fireSetting() { return m_s->m_fire; }
+	const FireSettingStore &fireSetting() const { return m_s->m_fire; }
 	// SPELL-1: the Science, Rank and SpecialPower blocks are parsed for real into these stores
 	SpellStores &spellStores() { return *m_s->m_spellStores; }
 	const SpellStores &spellStores() const { return *m_s->m_spellStores; }
@@ -226,6 +229,7 @@ private:
 		std::unique_ptr<SpellStores> m_spellStores; // SPELL-1
 		std::shared_ptr<LivingWorld::LivingWorldStores> m_livingWorld; // WOTR-1 (shared: livingWorldShared)
 		GlowEffectStore m_glow;                     // GLOW-1: RW 0xDA28C0 / 0xDA28E4
+		FireSettingStore m_fire;                     // RW 0xDE4F00 / 0xDE4F40
 		SubsystemLoadReport m_report;
 		double m_seconds = 0.0;
 		~State();

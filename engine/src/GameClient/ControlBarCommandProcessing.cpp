@@ -597,9 +597,9 @@ bool ControlBar::rightPressButton(int slot, bool inPalantir, bool shift)
 	const bool autoable = b.m_autoAbility || cancelable;
 	if (!autoable)
 	{
-		// RW 0x940877 .. 0x94089C: a button that needs a target (Options & 0x227) leaves the GUI command mode (setGUICommand(null)); INFERENCE: the
+		// RW 0x940877 .. 0x94089C: a button that needs a target (Options & COMMAND_OPTION_NEED_TARGET, RW 0x69B34A) leaves the GUI command mode (setGUICommand(null)); INFERENCE: the
 		// availability tests before it (RW 0x75CC3E / 0x942733) are not repeated here: leaving the mode on a press of an unavailable button is harmless
-		if (b.m_options & 0x227u)
+		if (b.m_options & COMMAND_OPTION_NEED_TARGET)
 		{
 			m_ctx.ui.setGUICommand(nullptr);
 		}

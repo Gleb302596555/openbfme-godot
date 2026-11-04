@@ -4,6 +4,7 @@
 #include "GameClient/DrawableIconUI.h"
 #include "GameClient/LocalizedText.h"
 #include "Common/ArchiveFileSystem.h"
+#include "Common/INI.h"
 #include <sstream>
 #include <cstdio>
 
@@ -261,7 +262,10 @@ bool wantsHealthBar(const Object &obj, const IconUISettings &s, const std::set<O
 			return false;
 		}
 	}
-	if (!sel && !kindOf(obj, HERO) && !kindOf(obj, MACHINE) && !kindOf(obj, MONSTER) && !kindOf(obj, MINE) && !kindOf(obj, STRUCTURE) && !kindOf(obj, HAS_HEALTH_BAR) && !kindOf(obj, CREEP))
+	// RW 0x67641A..0x676461: HERO, MACHINE, MONSTER, MINE, STRUCTURE, HAS_HEALTH_BAR always get health bars (when selected or moused over).
+	// INFANTRY and CAVALRY (RW 0x67645E) require allHealthBars (or OpenBFME Always mode).
+	// INFERENCE (owner decision P-28): units with KindOf CREEP (e.g. WargSentry or neutral creeps) show health bar when selected without requiring allHealthBars.
+	if (!kindOf(obj, HERO) && !kindOf(obj, MACHINE) && !kindOf(obj, MONSTER) && !kindOf(obj, MINE) && !kindOf(obj, STRUCTURE) && !kindOf(obj, HAS_HEALTH_BAR) && !kindOf(obj, CREEP))
 	{
 		// lane ZOOM-1: the OpenBFME "Always (all players)" mode shows the infantry and cavalry bars as AllHealthBars does (the owner, 2026-10-10: "see all my
 		// troops' health bars all the time, and the enemies' too"); retail's AllHealthBars alone only widens the kinds of the selected / moused-over objects
@@ -308,143 +312,117 @@ const DrawableIconUI::TemplateBox &DrawableIconUI::boxOf(const ThingTemplate &tt
 	return m_boxes.emplace(&tt, b).first->second;
 }
 
+namespace
+{
+void parseCoordPixel(INI *ini, void *instance, void *store, const void *userData)
+{
+	(void)store;
+	DrawGroupInfo *dgi = static_cast<DrawGroupInfo *>(instance);
+	if (userData == nullptr)
+	{
+		dgi->usingPixelOffsetX = true;
+		INI::parseInt(ini, instance, &dgi->pixelOffsetX, nullptr);
+	}
+	else
+	{
+		dgi->usingPixelOffsetY = true;
+		INI::parseInt(ini, instance, &dgi->pixelOffsetY, nullptr);
+	}
+}
+
+void parseCoordPercent(INI *ini, void *instance, void *store, const void *userData)
+{
+	(void)store;
+	DrawGroupInfo *dgi = static_cast<DrawGroupInfo *>(instance);
+	if (userData == nullptr)
+	{
+		dgi->usingPixelOffsetX = false;
+		INI::parsePercentToReal(ini, instance, &dgi->percentOffsetX, nullptr);
+	}
+	else
+	{
+		dgi->usingPixelOffsetY = false;
+		INI::parsePercentToReal(ini, instance, &dgi->percentOffsetY, nullptr);
+	}
+}
+} // namespace
+
+#define DGI_OFF(f) ((int)offsetof(DrawGroupInfo, f))
+
+// Retail RW 0x00BF1F88 (BFME2 0x007DBE10)
+const FieldParse *DrawGroupInfo::getFieldParse()
+{
+	static const FieldParse kFields[] = {
+		{ "UsePlayerColor", INI::parseBool, nullptr, DGI_OFF(usePlayerColor) },
+		{ "ColorForText", INI::parseColorInt, nullptr, DGI_OFF(colorForText) },
+		{ "ColorForTextDropShadow", INI::parseColorInt, nullptr, DGI_OFF(colorForTextDropShadow) },
+		{ "FontName", INI::parseQuotedAsciiString, nullptr, DGI_OFF(fontName) },
+		{ "FontSize", INI::parseInt, nullptr, DGI_OFF(fontSize) },
+		{ "FontIsBold", INI::parseBool, nullptr, DGI_OFF(fontIsBold) },
+		{ "DropShadowOffsetX", INI::parseInt, nullptr, DGI_OFF(dropShadowOffsetX) },
+		{ "DropShadowOffsetY", INI::parseInt, nullptr, DGI_OFF(dropShadowOffsetY) },
+		{ "DrawPositionXPixel", parseCoordPixel, nullptr, 0 },
+		{ "DrawPositionXPercent", parseCoordPercent, nullptr, 0 },
+		{ "DrawPositionYPixel", parseCoordPixel, reinterpret_cast<const void *>(1), 0 },
+		{ "DrawPositionYPercent", parseCoordPercent, reinterpret_cast<const void *>(1), 0 },
+		{ nullptr, nullptr, nullptr, 0 }
+	};
+	return kFields;
+}
+
+// Retail RW 0x005DC3F3 (BFME2 0x001DCC9F): parseDrawGroupNumberDefinition
 bool DrawGroupInfo::parse(const std::string &content, DrawGroupInfo &out, std::string *error)
 {
-	(void)error;
-	std::istringstream stream(content);
-	std::string line;
-	bool inBlock = false;
-	while (std::getline(stream, line))
+	INIEnvironment env;
+	bool foundBlock = false;
+	env.blocks.registerBlock("DrawGroupInfo", [&out, &foundBlock](INI *ini) {
+		foundBlock = true;
+		ini->initFromINI(&out, DrawGroupInfo::getFieldParse());
+	});
+	INI ini(env);
+	try
 	{
-		size_t commentPos = line.find(';');
-		if (commentPos != std::string::npos)
+		ini.loadMemory("drawgroupinfo.ini", std::vector<std::uint8_t>(content.begin(), content.end()), INI_LOAD_OVERWRITE);
+	}
+	catch (const std::exception &e)
+	{
+		if (error)
 		{
-			line = line.substr(0, commentPos);
+			*error = e.what();
 		}
-		size_t start = line.find_first_not_of(" \t\r\n");
-		if (start == std::string::npos)
+		return false;
+	}
+	if (!foundBlock)
+	{
+		if (error)
 		{
-			continue;
+			*error = "missing required block: DrawGroupInfo";
 		}
-		size_t end = line.find_last_not_of(" \t\r\n");
-		line = line.substr(start, end - start + 1);
-
-		if (line == "DrawGroupInfo")
-		{
-			inBlock = true;
-			continue;
-		}
-		if (inBlock && line == "End")
-		{
-			inBlock = false;
-			break;
-		}
-		if (!inBlock)
-		{
-			continue;
-		}
-
-		size_t eqPos = line.find('=');
-		if (eqPos == std::string::npos)
-		{
-			continue;
-		}
-		std::string key = line.substr(0, eqPos);
-		std::string val = line.substr(eqPos + 1);
-		auto trim = [](std::string &s) {
-			size_t s1 = s.find_first_not_of(" \t\r\n");
-			if (s1 == std::string::npos) { s.clear(); return; }
-			size_t s2 = s.find_last_not_of(" \t\r\n");
-			s = s.substr(s1, s2 - s1 + 1);
-		};
-		trim(key);
-		trim(val);
-
-		if (key == "UsePlayerColor")
-		{
-			out.usePlayerColor = (val == "yes" || val == "Yes" || val == "1" || val == "true");
-		}
-		else if (key == "ColorForText")
-		{
-			int r = 255, g = 255, b = 255, a = 255;
-			if (std::sscanf(val.c_str(), "R:%d G:%d B:%d A:%d", &r, &g, &b, &a) >= 3)
-			{
-				out.colorForText = GameMakeColor(r, g, b, a);
-			}
-		}
-		else if (key == "ColorForTextDropShadow")
-		{
-			int r = 0, g = 0, b = 0, a = 255;
-			if (std::sscanf(val.c_str(), "R:%d G:%d B:%d A:%d", &r, &g, &b, &a) >= 3)
-			{
-				out.colorForTextDropShadow = GameMakeColor(r, g, b, a);
-			}
-		}
-		else if (key == "DropShadowOffsetX")
-		{
-			out.dropShadowOffsetX = std::atoi(val.c_str());
-		}
-		else if (key == "DropShadowOffsetY")
-		{
-			out.dropShadowOffsetY = std::atoi(val.c_str());
-		}
-		else if (key == "FontName")
-		{
-			if (val.size() >= 2 && val.front() == '"' && val.back() == '"')
-			{
-				out.fontName = val.substr(1, val.size() - 2);
-			}
-			else
-			{
-				out.fontName = val;
-			}
-		}
-		else if (key == "FontSize")
-		{
-			out.fontSize = std::atoi(val.c_str());
-		}
-		else if (key == "FontIsBold")
-		{
-			out.fontIsBold = (val == "yes" || val == "Yes" || val == "1" || val == "true");
-		}
-		else if (key == "DrawPositionXPercent")
-		{
-			float pct = 0.0f;
-			if (std::sscanf(val.c_str(), "%f%%", &pct) >= 1 || std::sscanf(val.c_str(), "%f", &pct) >= 1)
-			{
-				out.usingPixelOffsetX = false;
-				out.percentOffsetX = pct * 0.01f;
-			}
-		}
-		else if (key == "DrawPositionXPixel")
-		{
-			out.usingPixelOffsetX = true;
-			out.pixelOffsetX = std::atoi(val.c_str());
-		}
-		else if (key == "DrawPositionYPercent")
-		{
-			float pct = 0.0f;
-			if (std::sscanf(val.c_str(), "%f%%", &pct) >= 1 || std::sscanf(val.c_str(), "%f", &pct) >= 1)
-			{
-				out.usingPixelOffsetY = false;
-				out.percentOffsetY = pct * 0.01f;
-			}
-		}
-		else if (key == "DrawPositionYPixel")
-		{
-			out.usingPixelOffsetY = true;
-			out.pixelOffsetY = std::atoi(val.c_str());
-		}
+		return false;
 	}
 	return true;
 }
 
 bool DrawGroupInfo::load(ArchiveFileSystem &fs, DrawGroupInfo &out, std::string *error)
 {
+	static const char *kPaths[] = { "data/ini/drawgroupinfo.ini", "data\\ini\\drawgroupinfo.ini" };
 	std::vector<std::uint8_t> bytes;
-	if (!fs.readFile("data/ini/drawgroupinfo.ini", bytes, error) &&
-	    !fs.readFile("data\\ini\\drawgroupinfo.ini", bytes, error))
+	std::string loadErr;
+	bool found = false;
+	for (const char *path : kPaths)
 	{
+		if (fs.readFile(path, bytes, &loadErr))
+		{
+			found = true;
+			break;
+		}
+	}
+	if (!found)
+	{
+		if (error)
+		{
+			*error = loadErr.empty() ? "DrawGroupInfo.ini not found in file system" : loadErr;
+		}
 		return false;
 	}
 	std::string content(bytes.begin(), bytes.end());
@@ -830,6 +808,8 @@ void DrawableIconUI::build(GameLogic &logic, const DrawableManager &drawables, c
 			op.text = std::to_string(squad);
 			op.color = textColor;
 			op.dropColor = dgi.colorForTextDropShadow;
+			op.dropOffsetX = (float)dgi.dropShadowOffsetX;
+			op.dropOffsetY = (float)dgi.dropShadowOffsetY;
 			// the owner's choice (2026-11-03): the number is 8 window pixels high, not DrawGroupInfo.ini's FontSize 12 (dgi.fontSize)
 			op.pixelTextSize = kGroupNumberPixels;
 			out.push_back(op);

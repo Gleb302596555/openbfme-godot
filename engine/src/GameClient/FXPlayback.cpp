@@ -12,6 +12,14 @@ public:
 	std::uint32_t clientFrame() const override { return m_owner.m_frame; }
 	float groundHeight(float x, float y) override { return m_owner.m_world ? m_owner.m_world->groundHeight(x, y) : m_owner.m_groundZ; }
 	int shroudStatusAt(const Coord3D &p) override { return m_owner.m_world ? m_owner.m_world->shroudStatusAt(p) : 0; }
+	const std::set<std::pair<int, int>> *burningCells() override
+	{
+		return m_owner.m_world ? m_owner.m_world->burningCells() : nullptr;
+	}
+	int maxCellsBurning() const override
+	{
+		return m_owner.m_world ? m_owner.m_world->maxCellsBurning() : 0;
+	}
 	FXParticleSystem::ParticleAttachInfo attachedDrawable(std::uint32_t id, const std::string &bone) override
 	{
 		return m_owner.m_world ? m_owner.m_world->attachedDrawable(id, bone) : FXParticleSystem::ParticleAttachInfo();

@@ -85,6 +85,9 @@ public:
 	// Event modules fire an FXList by name at a position (RW FXList::doFXPos static wrapper 0x494615)
 	virtual void playFXList(const std::string &fxListName, const Coord3D &pos, const Matrix3D *mtx) = 0;
 	virtual bool hasFXList(const std::string &fxListName) = 0;           ///< RW 0x5e20a2 found a list (an event whose list is unknown never fires)
+	// Terrain fire cells (TheFireLogicSystem RW 0xDE46A8 / BFME2 0xDFEC68)
+	virtual const std::set<std::pair<int, int>> *burningCells() { return nullptr; }
+	virtual int maxCellsBurning() const { return 0; }
 };
 
 // ZH ParticleInfo as RW's generateParticleInfo fills it (RW 0x40-byte struct, vtable 0xbf76e0).
@@ -280,6 +283,7 @@ private:
 	float gpuNowFrames() const;
 	void updateWindSystemState();
 	void updateSystemEvents();
+	void updateTerrainFire();
 
 	ParticleSystemManager &m_manager;
 	const ParticleSystemTemplate *m_template;

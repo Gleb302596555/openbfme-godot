@@ -264,6 +264,10 @@ bool InGameHud::boot(std::string *error)
 		{
 			m_iconSettings.drawGroupInfo = dgi;
 		}
+		else
+		{
+			m_errors.push_back("draw group info: " + dgiError);
+		}
 	}
 	if (m_ownedWindows)
 	{
