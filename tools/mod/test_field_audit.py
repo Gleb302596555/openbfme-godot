@@ -269,6 +269,7 @@ void WeaponStore::parseExtra(INI *ini, WeaponTemplate &w)
 struct WeaponKeys
 {
 	int m_key[4];
+	int m_tag[4];
 };
 const FieldParse *keyTable()
 {
@@ -281,6 +282,22 @@ const FieldParse *keyTable()
 			static std::string names[4];
 			names[i] = "Key" + std::to_string(i + 1);
 			t.push_back(ROW(names[i].c_str(), INI::parseInt, nullptr, d, m_key[i]));
+		}
+	}
+	return t.data();
+}
+// the row's own line is no read: nothing reads m_tag
+const FieldParse *tagTable()
+{
+	static Table t;
+	if (t.empty())
+	{
+		static WeaponKeys d;
+		for (int i = 0; i < 4; ++i)
+		{
+			static std::string names[4];
+			names[i] = "Tag" + std::to_string(i + 1);
+			t.push_back(ROW(names[i].c_str(), INI::parseInt, nullptr, d, m_tag[i]));
 		}
 	}
 	return t.data();
@@ -745,6 +762,7 @@ Weapon TestBow
   Id = 7
   Cool = 2
   Key2 = 3
+  Tag3 = 1
 End
 
 MiscAudio
@@ -958,6 +976,7 @@ def test_definition_fields(result):
     assert result[0][("weapon", "", "Cool")]["where"] == "GameLogic/GaugeUse.cpp:6 INFERENCE: the file does not name WeaponGauge"
     # rows made at run time: a numbered one follows the member it stores; a listed one is read when another file asks for its name
     assert (status(result, "weapon", "", "Key2"), result[0][("weapon", "", "Key2")]["member"]) == ("used", "m_key")
+    assert (status(result, "weapon", "", "Tag3"), result[0][("weapon", "", "Tag3")]["member"]) == ("parsed-unused", "m_tag")
     assert status(result, "miscaudio", "", "ClickSound") == "used"
     assert result[0][("miscaudio", "", "ClickSound")]["where"] == "GameClient/Click.cpp:2 (asks for the row by name)"
     assert status(result, "miscaudio", "", "DingSound") == "dynamic-row"

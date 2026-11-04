@@ -1272,12 +1272,13 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
         n = int(n)
         if numbered and "to_string" in src.files[f][n - 1]:
             code = src.code_of(f)
-            near = [m.group(1) for x in code[n:n + 3] for m in [re.search(r"\b(m_\w+)\s*\[", x)] if m]
+            near = [(m.group(1), k + 1) for k in range(n, min(len(code), n + 3)) for m in [re.search(r"\b(m_\w+)\s*\[", code[k])] if m]
             if near:
                 body = "\n".join(code[max(0, n - 8):n])
                 st = re.findall(r"\bstatic\s+(\w+)\s+\w+\s*;", body)
-                use = src.member_read(near[0], st[-1] if st else "?", origin=f)
-                return ("used", use, near[0], "generated-row") if use else ("parsed-unused", hit, near[0], "generated-row")
+                # (the row's own line, ROW(names[i].c_str(), .., d, m_colorKey[i]), is no read)
+                use = src.member_read(near[0][0], st[-1] if st else "?", origin=f, skip=frozenset({(f, near[0][1])}))
+                return ("used", use, near[0][0], "generated-row") if use else ("parsed-unused", hit, near[0][0], "generated-row")
             return "dynamic-row", hit, "", "string"
         # the name and the member it is read into on one line (AIPathfindConfig.cpp's getInt(gd, "MaxCellsPatchPath", c.patchPathLimit, ..)):
         # that member is followed
