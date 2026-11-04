@@ -745,10 +745,7 @@ class Source:
 
     def local_named(self, f: str, n: int, name: str) -> bool:
         """whether the function around line n declares a local or a parameter of that name before it (the signature's lines included)"""
-        funcs, code = self.line_func[f], self.code_of(f)
-        fn, k = funcs[n - 1], n - 1
-        while k > 0 and funcs[k - 1] == fn:
-            k -= 1
+        code, k = self.code_of(f), self.func_start(f, n)
         decl = re.compile(r"(?:[\w>\*&]\s+|[\*&])" + re.escape(name) + r"\s*(?:[=;,)\[{(:]|$)")
         for i in range(max(0, k - 3), n):
             for m in decl.finditer(code[i]):
@@ -756,6 +753,63 @@ class Source:
                 if not re.search(r"\b(?:return|case|else|throw|delete|sizeof|do)$", head):
                     return True
         return False
+
+    def func_start(self, f: str, n: int) -> int:
+        """the index (0-based) of the first line of the function around line n"""
+        funcs, k = self.line_func[f], n - 1
+        while k > 0 and funcs[k - 1] == funcs[n - 1]:
+            k -= 1
+        return k
+
+    def staged_read(self, f: str, n: int, member: str, names: set[str] = frozenset()) -> tuple[str, str]:
+        """a block's parser that parses a local of its own and then consumes it (SkirmishAIData.cpp's parseArmyDefinition: `ArmyDefinition army;
+        ini->initFromINI(&army, ..); nameToKey(army.side)`, Locomotor.cpp's parseLocomotorSet: entry.speed into the set): a read of `<local>.member`
+        after that initFromINI in the same function. Returns (how, destination): how is "key" when the value goes into a lookup (a
+        nameToKey/find*/scanIndexList call or an operator[]), "copy" when it is stored elsewhere or passed on (destination: the member it is stored
+        into, "" when it is not a member), "" when it is no such read. With names, the local's declared type must be one of them
+        (parseArmyDefinition's army is no AIBase)"""
+        code = self.code_of(f)
+        start = self.func_start(f, n)
+        local = set()
+        for i in range(start, n - 1):
+            local |= set(re.findall(r"initFromINI\w*\s*\(\s*&\s*(\w+)\s*,", code[i]))
+        if names:
+            body = "\n".join(code[start:n - 1])
+            local = {v for v in local if any(t.split("::")[-1] in names
+                                             for t in re.findall(r"([\w:]+)\s+" + re.escape(v) + r"\s*(?:;|\{|=|\()", body))}
+        if not local:
+            return "", ""
+        line = code[n - 1]
+        for m in re.finditer(r"\b(\w+)\s*\.\s*" + re.escape(member) + r"\b", line):
+            if m.group(1) not in local or re.search(r"&\s*$", line[:m.start()]):
+                continue  # &entry.x hands the member to a writer
+            after = line[m.end():]
+            if WRITE_AFTER.match(after) or re.match(r"\s*\.\s*(?:push_back|emplace_back|insert|clear|assign|append|resize|erase)\b", after):
+                continue
+            if re.match(r"\s*\.\s*(?:empty|size|length)\s*\(", after):
+                continue  # only whether it was given (PlayerTemplate.cpp's parseBlock: a stop line's flag), not the value
+            # the innermost open call or subscript around the read
+            depth, j = 0, m.start() - 1
+            while j >= 0:
+                c = line[j]
+                if c in ")]":
+                    depth += 1
+                elif c in "([":
+                    if depth == 0:
+                        break
+                    depth -= 1
+                j -= 1
+            if j >= 0 and line[j] == "[":
+                return "key", ""
+            call = re.search(r"(\w+)\s*$", line[:j]) if j >= 0 else None
+            if call and re.fullmatch(r"nameToKey|findKey|find\w*|scanIndexList\w*|lookup\w*", call.group(1)):
+                return "key", ""
+            # stored into a member (`def.livingWorldRgb = packRgb(block.livingWorld)`, `m_dozers[key] = rec.unit`): that member's read is the use;
+            # a local or a call's argument (set.set(condition, loco, entry.speed)) is not followed
+            dest = re.search(r"(\w+)\s*(?:\[[^=]*\])?\s*=(?!=)[^=;]*$", line[:m.start()])
+            dest = dest.group(1) if dest and not self.local_named(f, n, dest.group(1)) else ""
+            return "copy", dest
+        return "", ""
 
     def is_read(self, f: str, n: int, member: str, struct: str) -> bool:
         if (f, n) in self.row_lines:
@@ -827,7 +881,7 @@ class Source:
             level = sorted({h for f in level for h in self._includes_of.get(f, ()) if h not in seen})
         return out
 
-    def member_read(self, member: str, struct: str, origin: str = "") -> str:
+    def member_read(self, member: str, struct: str, origin: str = "", staged: bool = True) -> str:
         """the first read of the member in a file that sees its struct. Without a struct ("?": a member of a member, offsetof(S, a.b), or a member a
         row's own parser stores into): the files that see a file declaring a member of that name among the files origin (the row's file) includes,
         the nearest declarations first (EvaEvents.cpp's SideCtx::side, then EvaEvents.h's EvaSideSound::side); everywhere if there is none"""
@@ -840,15 +894,29 @@ class Source:
         # member of that name (LivingWorldUnits.cpp's ObjectFilter f.side); such a read still counts, marked INFERENCE
         names = self.ancestors(struct) if struct and struct != "?" else set()
         for scope in scopes or [sorted(self.files)]:
-            later = []
-            for f in scope:
-                if names and not self.names_any(f, names):
-                    later.append(f)
-                    continue
+            named = [f for f in scope if not names or self.names_any(f, names)]
+            for f in named:
                 for n in self.words_of(f).get(member, ()):
                     if self.is_read(f, n, member, struct):
                         return f"{f}:{n}"
-            for f in later:
+            # then a block's parser consuming the local it parsed (staged_read; the parsers are no reads otherwise): a key is a use; a value stored
+            # into a member is used when that member is read (one step); a value passed to a call is marked, where it goes is not followed
+            # (a key anywhere before a copy: `chain.unit < 0` is a check, `combatChains[chain.unit]` the use)
+            found = [(f, n, *self.staged_read(f, n, member, names)) for f in (named if staged else ()) for n in self.words_of(f).get(member, ())
+                     if (f, n) not in self.row_lines]
+            for f, n, how, dest in sorted(found, key=lambda x: x[2] != "key"):
+                fn = self.line_func[f][n - 1]
+                if how == "key":
+                    return f"{f}:{n} STAGED: the block's parser {fn} uses it as a key"
+                if how == "copy" and dest:
+                    use = self.member_read(dest, "?", origin=f, staged=False)
+                    if use:
+                        return f"{f}:{n} STAGED: the block's parser {fn} stores it in {dest}, read at {use}"
+            for f, n, how, dest in found:
+                if how == "copy" and not dest:
+                    return (f"{f}:{n} STAGED: the block's parser {self.line_func[f][n - 1]} passes it on; INFERENCE: the read of where it goes is "
+                            "not followed")
+            for f in sorted(set(scope) - set(named)):
                 for n in self.words_of(f).get(member, ()):
                     if self.is_read(f, n, member, struct):
                         return f"{f}:{n} INFERENCE: the file does not name {struct}"
@@ -904,6 +972,30 @@ class Source:
                             self._block_files[k.lower()].add(f)
         return self._block_files.get(keyword.lower(), set())
 
+    def block_parser_rows(self, keyword: str) -> list[Row]:
+        """the rows of the parser a registerBlock("Keyword", lambda) calls: the tables the lambda names and the parse functions it calls
+        (parser_rows). Several blocks of one file (SkirmishAIData.cpp's ArmyDefinition, AIBase, AIDozerAssignment) each have a Side row: the
+        block's own is the one its parser reads"""
+        out: list[Row] = []
+        for f in self.block_files(keyword):
+            lines = self.code_of(f)
+            for n, line in enumerate(self.files[f]):
+                if not re.search(r"registerBlock\(\s*\"" + re.escape(keyword) + r"\"", line, re.I):
+                    continue
+                # the lambda up to its closing `});`
+                body, depth = [], 0
+                for x in lines[n:n + 40]:
+                    body.append(x)
+                    depth += x.count("{") - x.count("}")
+                    if depth <= 0 and ")" in x:
+                        break
+                text = "\n".join(body)
+                for t in set(re.findall(r"\b(k\w+)\b", text)):
+                    out += [r for r in self.rows if r.table == t and r.file == f]
+                for p in set(re.findall(r"\b(\w*[Pp]arse\w*)\s*\(", text)):
+                    out += self.parser_rows(p, f)
+        return out
+
     def block_keywords(self) -> tuple[set[str], set[str]]:
         """(every RotWK block keyword, the ones the engine parses for real), lower case, from INIBlockStubs.cpp and the registerBlock calls"""
         stubs = "\n".join(self.files.get("Common/INI/INIBlockStubs.cpp", []))
@@ -954,9 +1046,18 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
     def files_of(structs):
         return {r.file for s in structs for r in rows_of(s)}
 
-    def typed_status(field, structs, nested, files=(), path=()):
+    def typed_status(field, structs, nested, files=(), path=(), block="", block_path=()):
         cands = [r for s in structs for r in rows_of(s) if r.field.lower() == field.lower()] if not path else []
         how = "struct"
+        if not cands and block:
+            # the block's own parser's rows before any row of that name in its files; a nested block's through the parser of its key's row
+            # (ArmyDefinition's ArmyMemberDefinition row -> parseArmyMemberDefinition -> its table, not CombatChainDefinition's Unit)
+            level = src.block_parser_rows(block)
+            for key in block_path:
+                heads = [r for r in level if r.field.lower() == key.lower()]
+                level = [x for h in heads for x in src.parser_rows(h.parser, h.file)]
+            cands = [r for r in level if r.field.lower() == field.lower()]
+            how = "block-parser"
         if path:
             # a block nested in a module: follow the owner's row of each nested key to the tables its parser reads
             level = [r for s in structs for r in rows_of(s)]
@@ -1062,8 +1163,8 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
                 status = "unmapped-block"
             else:
                 struct = structs[0] if structs else ""
-                status, where, member, how = typed_status(field, structs, nested, files)
-        top = sorted(mf.values.items(), key=lambda kv: -kv[1])[:3]
+                status, where, member, how = typed_status(field, structs, nested, files, block=typ, block_path=tuple(owner.split("/")[1:]))
+        top =sorted(mf.values.items(), key=lambda kv: -kv[1])[:3]
         rows.append({"status": status, "block": typ, "owner": owner, "field": field, "defs": len(mf.defs), "uses": mf.count, "struct": struct,
                      "member": member, "where": where, "how": how, "stop": stops_for(stops, cls, field), "values": " | ".join(v for v, _ in top),
                      "src": mf.src})

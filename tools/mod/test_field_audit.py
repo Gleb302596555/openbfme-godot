@@ -20,7 +20,7 @@ STUBS = r'''
 const std::vector<std::string> &RotwkBlockKeywords()
 {
 	static const std::vector<std::string> keywords = {
-		"Bridge", "Object", "Weapon",
+		"AIBase", "ArmyDefinition", "Bridge", "Object", "Weapon",
 	};
 	return keywords;
 }
@@ -219,6 +219,92 @@ OTHER_CPP = r'''#include "GameLogic/Module/TypedThing.h"
 bool filterPasses(const Filter &f) { return f.m_used > 0 && f.m_level > 1; }
 '''
 
+# a block's parser that parses a local and consumes it (SkirmishAIData.cpp's parseArmyDefinition, Locomotor.cpp's parseLocomotorSet): army.side is a
+# key; army.unit is stored into m_units, which unitOf() reads; army.banner into def.bannerRgb, which nothing reads (GameLogicSettings.cpp's
+# MultiplayerColor LivingWorldBannerColor); army.speed is passed to a call (parseLocomotorSet's set.set(.., entry.speed)); army.tag is only handed to
+# a reader (&army.tag), army.left is only tested for being given (PlayerTemplate.cpp's stop-line flag); base.side is AIBase's, not army.side;
+# army.slot is checked, then a key (SkirmishAIData.cpp's parseCombatChainDefinition: chain.unit < 0, then combatChains[chain.unit]). The nested
+# Member block's Unit is MemberDef's (its row's parser parseMember), not ArmyDefinition's Unit of the same file
+ARMY_CPP = r'''
+struct ArmyDefinition
+{
+	std::string side;
+	std::string unit;
+	std::string tag;
+	std::string left;
+	int banner = 0;
+	float speed = 0.0f;
+	int slot = 0;
+	std::vector<MemberDef> members;
+};
+struct MemberDef
+{
+	std::string unit;
+};
+const FieldParse kMemberFields[] = {
+	{ "Unit", INI::parseAsciiString, nullptr, (int)offsetof(MemberDef, unit) },
+	{ nullptr, nullptr, nullptr, 0 }
+};
+void parseMember(INI *ini, void *, void *store, const void *)
+{
+	MemberDef member;
+	ini->initFromINI(&member, kMemberFields);
+	((ArmyDefinition *)store)->members.push_back(member);
+}
+struct ColorDef
+{
+	int bannerRgb = 0;
+};
+class ArmyStore
+{
+	std::map<int, std::string> m_units;
+};
+const FieldParse kArmyFields[] = {
+	{ "Side", INI::parseAsciiString, nullptr, (int)offsetof(ArmyDefinition, side) },
+	{ "Unit", INI::parseAsciiString, nullptr, (int)offsetof(ArmyDefinition, unit) },
+	{ "Tag", INI::parseAsciiString, nullptr, (int)offsetof(ArmyDefinition, tag) },
+	{ "Left", INI::parseAsciiString, nullptr, (int)offsetof(ArmyDefinition, left) },
+	{ "Banner", INI::parseInt, nullptr, (int)offsetof(ArmyDefinition, banner) },
+	{ "Speed", INI::parseReal, nullptr, (int)offsetof(ArmyDefinition, speed) },
+	{ "Slot", INI::parseInt, nullptr, (int)offsetof(ArmyDefinition, slot) },
+	{ "Member", parseMember, nullptr, 0 },
+	{ nullptr, nullptr, nullptr, 0 }
+};
+void ArmyStore::parseArmyDefinition(INI *ini)
+{
+	ArmyDefinition army;
+	ini->initFromINI(&army, kArmyFields);
+	readTag(ini, &army.tag);
+	m_units[m_keys.nameToKey(army.side)] = army.unit;
+	m_given = !army.left.empty();
+	ColorDef def;
+	def.bannerRgb = pack(army.banner);
+	m_set.set(army.speed);
+	if (army.slot < 0)
+		return;
+	m_slots[army.slot] = 1;
+}
+const std::string &ArmyStore::unitOf(int key) const { return m_units.at(key); }
+struct AIBase
+{
+	std::string side;
+};
+const FieldParse kAIBaseFields[] = {
+	{ "Side", INI::parseAsciiString, nullptr, (int)offsetof(AIBase, side) },
+	{ nullptr, nullptr, nullptr, 0 }
+};
+void ArmyStore::parseAIBase(INI *ini)
+{
+	AIBase base;
+	ini->initFromINI(&base, kAIBaseFields);
+}
+void ArmyStore::registerBlocks(INIBlockRegistry &registry)
+{
+	registry.registerBlock("ArmyDefinition", [this](INI *ini) { parseArmyDefinition(ini); });
+	registry.registerBlock("AIBase", [this](INI *ini) { parseAIBase(ini); });
+}
+'''
+
 RAW_CPP = r'''
 // RawThing keeps its lines (RawModuleData); one value is read by name
 int rawRadius(const RawModuleData &d) { return d.find("RawThing", "Radius"); }
@@ -281,6 +367,23 @@ Weapon TestBow
   AttackRange = 200
   Unread = 1
   Count2 = 1 2
+End
+
+ArmyDefinition TestArmy
+  Side = Men
+  Unit = Soldier
+  Tag = A
+  Left = B
+  Banner = 1
+  Speed = 2
+  Slot = 1
+  Member
+    Unit = Archer
+  End
+End
+
+AIBase TestBase
+  Side = Men
 End
 
 Bridge TestBridge
@@ -348,7 +451,7 @@ def result(tmp_path_factory):
                       "GameLogic/Module/EmotionThing.cpp": EMOTION_CPP, "GameLogic/Object/Weapon.cpp": WEAPON_CPP,
                       "Common/Thing/ThingFactory.cpp": THING_CPP, "GameLogic/Module/RawRead.cpp": RAW_CPP,
                       "GameClient/PreviewReader.cpp": PREVIEW_CPP, "GameClient/PreviewUse.cpp": PREVIEW_USE_CPP, "GameLogic/Module/DieMux.cpp": DIEMUX_CPP,
-                      "GameLogic/Module/Other.cpp": OTHER_CPP,
+                      "GameLogic/Module/Other.cpp": OTHER_CPP, "GameLogic/AI/Army.cpp": ARMY_CPP,
                       "GameClient/Settings.h": SETTINGS_H, "GameClient/Middle.h": MIDDLE_H}.items():
         (src / rel).parent.mkdir(parents=True, exist_ok=True)
         (src / rel).write_text(text, encoding="utf-8")
@@ -431,6 +534,28 @@ def test_definition_fields(result):
     assert result[0][("weapon", "", "Count2")]["member"] == "counts"
     assert status(result, "bridge", "", "Width") == "stub-block"
     assert ("object", "SecondUnit", "Used") not in result[0]
+
+
+def army_line(needle: str) -> str:
+    """Army.cpp:<the line of ARMY_CPP holding needle>"""
+    return "GameLogic/AI/Army.cpp:" + str(next(i for i, x in enumerate(ARMY_CPP.splitlines(), 1) if needle in x))
+
+
+def test_staged_block_parser(result):
+    """the block's parser reads the local it parsed (the parse functions are no reads otherwise): a key is a use, a value stored on is marked"""
+    side = result[0][("armydefinition", "", "Side")]
+    assert side["status"] == "used"
+    assert side["where"].startswith(army_line("nameToKey(army.side)") + " STAGED") and "as a key" in side["where"]
+    unit = result[0][("armydefinition", "", "Unit")]
+    assert unit["status"] == "used" and unit["where"].endswith("stores it in m_units, read at " + army_line("m_units.at(key)"))
+    assert status(result, "armydefinition", "", "Banner") == "parsed-unused"  # def.bannerRgb is read by no one
+    speed = result[0][("armydefinition", "", "Speed")]
+    assert speed["status"] == "used" and "passes it on; INFERENCE" in speed["where"]
+    assert result[0][("armydefinition", "", "Slot")]["where"].startswith(army_line("m_slots[army.slot]") + " STAGED")  # the key, not the check before it
+    assert status(result, "armydefinition", "/Member", "Unit") == "parsed-unused"  # members is read by no one
+    assert status(result, "armydefinition", "", "Tag") == "parsed-unused"  # &army.tag hands it to a writer
+    assert status(result, "armydefinition", "", "Left") == "parsed-unused"
+    assert status(result, "aibase", "", "Side") == "parsed-unused"  # army.side is another struct's
 
 
 def test_binding_and_visibility(result):
