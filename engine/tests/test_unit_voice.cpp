@@ -11,6 +11,7 @@
 #include "Common/Audio/AudioEntryPoints.h"
 #include "GameClient/LiveGameAudio.h"
 #include "GameClient/UnitVoiceResponse.h"
+#include "GameLogic/ActionManager.h"
 #include "GameLogic/GameMessage.h"
 
 #include <cstdio>
@@ -471,4 +472,54 @@ TEST_CASE("unit voice review r1: no charge voice while the unit is ATTACKING (RW
 	const ObjectID fresh = r.make("Soldier");
 	CHECK(r.voice->pickAndPlay({ fresh }, MSG_DO_ATTACK_OBJECT, nullptr));
 	CHECK(r.sink.sounds.back() == "SoldierCharge");
+}
+
+// TOP20 #9 (VoiceGarrison). RW 0x8DF50D .. 0x8DF716: after VoiceEnterUnit<target>, MSG_ENTER picks by the enter kind ActionManager::getEnterMessage
+// (RW 0x82CEFB) gives; a target without a contain module is ENTER (0xB9, RW 0x82CF22), and ENTER chooses by the target's KindOf: HEAL_PAD (template
+// + 0x10C bit 0) VoiceGetHealed, STRUCTURE (+ 0x108 bit 7) VoiceGarrison, else VoiceEnter. Without the port every target said VoiceEnter.
+TEST_CASE("TOP20-9 enter voice: VoiceGarrison into a structure, VoiceGetHealed onto a heal pad, VoiceEnter else; VoiceEnterUnit<target> first")
+{
+	VoiceRig r;
+	const char kEnter[] =
+		"Object Porter\n"
+		"  KindOf = INFANTRY SELECTABLE\n"
+		"  UnitSpecificSounds\n"
+		"    VoiceEnter = PorterEnter\n"
+		"    VoiceGarrison = PorterGarrison\n"
+		"    VoiceGetHealed = PorterHealed\n"
+		"    VoiceEnterUnitStable = PorterStable\n"
+		"  End\n"
+		"End\n"
+		"Object Keep\n"
+		"  KindOf = STRUCTURE SELECTABLE\n"
+		"End\n"
+		"Object Stable\n"
+		"  KindOf = STRUCTURE SELECTABLE\n"
+		"End\n"
+		"Object Well\n"
+		"  KindOf = HEAL_PAD SELECTABLE\n"
+		"End\n"
+		"Object Cart\n"
+		"  KindOf = SELECTABLE\n"
+		"End\n";
+	const std::string err = r.f.w.load(kEnter, INI_LOAD_OVERWRITE, "enter.ini");
+	REQUIRE_MESSAGE(err.empty(), err);
+	for (const char *s : { "PorterEnter", "PorterGarrison", "PorterHealed", "PorterStable" })
+	{
+		r.sink.known.insert(s);
+	}
+	const ObjectID porter = r.make("Porter");
+	auto enter = [&](const char *target) {
+		UnitVoiceResponse::Info info;
+		info.target = r.make(target);
+		r.sink.clear();
+		CHECK(r.voice->pickAndPlay({ porter }, MSG_ENTER, &info));
+		return r.sink.sounds.empty() ? std::string() : r.sink.sounds.back();
+	};
+	CHECK(enter("Keep") == "PorterGarrison");
+	CHECK(enter("Well") == "PorterHealed");
+	CHECK(enter("Cart") == "PorterEnter");
+	CHECK(enter("Stable") == "PorterStable"); // VoiceEnterUnit<target> comes first (RW 0x8DF484)
+	CHECK(ActionManager::getEnterMessage(*r.f.logic->findObjectByID(r.make("Keep")), { r.f.logic->findObjectByID(porter) }) ==
+		  ActionManager::ENTER_MESSAGE_ENTER); // no contain module (RW 0x82CF22)
 }

@@ -32,7 +32,7 @@
 | 6 | `AIUpdateInterface/AILuaEventsList` | 985 | raw | данные модуля не типизированы; стопы S-127, S-147 | Lua-события ИИ | стопы S-127, S-147: порт уже читает поле (MapCreationHooks.cpp:335 по сырым строкам модуля, LiveScripting.cpp:198 привязывает EventList); аудит видит `raw`, потому что данные модуля ИИ не типизированы |
 | 7 | `Object/ThingClass` | 985 | parsed-unused | RotWK читает: RW `0x912BDA` пишет имя класса (UNSPECIFIED, HORDE_UNIT, CHARACTER_UNIT ...) в запись рядом с именем шаблона; потребитель записи не прослежен | найти, куда идёт запись (RW `0x912BC8`) | открыто |
 | 8 | `W3DScriptedModelDraw/UseStandardModelNames` | 985 | parsed-unused | только объявлено (`W3DModelDraw.h:289`) | имена моделей | открыто |
-| 9 | `UnitSpecificSounds/VoiceGarrison` | 918 | parsed-unused | ни один читатель порта не просит это имя; RotWK просит (RW `0x8DF698`) | голос при входе в здание | открыто |
+| 9 | `UnitSpecificSounds/VoiceGarrison` | 918 | parsed-unused | ни один читатель порта не просит это имя; RotWK просит (RW `0x8DF698`) | голос при входе в здание | исправлено, ждёт: владельца — вид входа `ActionManager::getEnterMessage` (RW 0x82CEFB: ENTER / CONTEST при чужом занятом контейнере и CAN_ENTER_ANYTHING / DELIVER_RING в COMMANDCENTER с HOLDING_THE_RING / SLAUGHTER по слоту контейнера 0x30); голос MSG_ENTER после VoiceEnterUnit<цель> (RW 0x8DF50D .. 0x8DF716): ENTER — VoiceGetHealed (HEAL_PAD) / VoiceGarrison (STRUCTURE) / VoiceEnter, VoiceEnterHostile, VoiceSendToSlaughterhouse / VoiceDeliverRing; узкий тест `TOP20-9 enter voice*`; аудит `used` (`UnitVoiceResponse.cpp:960`, ручной вердикт обновлён); S-704 уточнён |
 | 10 | `Object/VoiceMoveToCamp`, `VoiceRetreatToCastle` (+ `VoiceEnterStateMoveToCamp`, `VoiceEnterStateRetreatToCastle`) | 857 / 774 (354 / 331) | parsed-unused | стоп S-704: правила голосов лагеря и крепости не портированы | голоса | открыто |
 | 11 | `UnitSpecificSounds/VoiceInitiateCaptureBuilding` | 813 | parsed-unused | его имя называет `SpecialPower/UnitSpecificSoundToUseAsInitiateIntendToDoVoice`, а это поле тоже не читается (`SpecialPower.cpp:73`) | голос захвата здания | открыто |
 | 12 | `SpecialAbilityUpdate/DoCaptureFX` | 781 | parsed-unused | разобрано (`SpecialAbilityModules.cpp:200`), чтения нет | эффект захвата | открыто |
@@ -49,7 +49,6 @@
 
 - 7 `ThingClass`: потребитель записи RW 0x912BBC вызывается из RW 0x912F49, дальше не прослежен.
 - 8 `UseStandardModelNames`: читается в поиске LOD-модели для орд (RW 0x4C27D4, рядом сообщения о `StaticModelLODMode`), это отрисовка.
-- 9 `VoiceGarrison`: RW 0x8DF68E выбирает `VoiceGetHealed` / `VoiceGarrison` / `VoiceEnter` по KindOf цели, но только для вида входа `[ebp-0x84]` = 0xB9 (RW 0x8DF50D), а вид — это классификация действия, стоп S-704.
 - 12 `DoCaptureFX`: RW 0x852B14 .. 0x852C88 — вспышка drawable цели цветом игрока (RW 0x678FA7), поиск соседнего объекта (RW 0xA39090) и сообщение интерфейса; поле + 0x70 — состояние логики.
 - 14 `LevelUpTint*`: в порту нет оттенков drawable (TintEnvelope).
 - 17 `ShowPips`: порт не рисует значки контейнера.
