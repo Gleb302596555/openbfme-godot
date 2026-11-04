@@ -822,6 +822,8 @@ class Source:
         cls = fn.split("::")[0] if "::" in fn else ""
         if "parse" in short or short in ("xfer", "crc", "xferimpl") or (cls and short == cls.lower()) or short.startswith("~"):
             return False
+        if not fn and n - 1 in self.declarations(f, member):
+            return False  # a class-level declaration, a declarator list's later name too (`std::string a, b;`)
         for m in re.finditer(r"\b" + re.escape(member) + r"\b", code):
             before, after = code[:m.start()], code[m.end():]
             if not member.startswith("m_") and not re.search(r"(?:\.|->)\s*$", before):
@@ -864,9 +866,31 @@ class Source:
 
     def declares(self, f: str, member: str) -> bool:
         """a class-level declaration of the member in the file (a local variable of a function body does not count)"""
+        return bool(self.declarations(f, member))
+
+    def declarations(self, f: str, member: str) -> list[int]:
+        """the lines (0-based) of the file's class-level declarations of the member"""
+        if not hasattr(self, "_decls"):
+            self._decls: dict[tuple[str, str], list[int]] = {}
+        if (f, member) not in self._decls:
+            self._decls[(f, member)] = self._declarations(f, member)
+        return self._decls[(f, member)]
+
+    def _declarations(self, f: str, member: str) -> list[int]:
         funcs = self.line_func.get(f, [])
         pat = re.compile(r"^\s*[\w:<>,\s\*&]+[\s\*&]" + re.escape(member) + r"\s*(?:=[^=]|;|\[|\{)")
-        return any(pat.match(line) and not (n < len(funcs) and funcs[n]) for n, line in enumerate(self.files[f]))
+        # a later name of a declarator list (CastleModules.h's `float m_decalSize = 1.0f, .., m_maxCastleRadius = ..;`), not a parameter list
+        listed = re.compile(r"^\s*[\w:<>]+[\s\*&]+\w+[^(]*,\s*[\*&]?" + re.escape(member) + r"\s*(?:=[^=]|;|,|\[|\{)")
+        return [n for n, line in enumerate(self.files[f]) if (pat.match(line) or listed.match(line)) and not (n < len(funcs) and funcs[n])]
+
+    def declared_once(self, member: str) -> bool:
+        """whether one class-level declaration in the whole source has that name: then a read of it is that member, whatever the reading
+        file names (AimWeaponBehavior.cpp reads WeaponTemplate's m_isAimingWeapon through a getter's result)"""
+        if not hasattr(self, "_once"):
+            self._once: dict[str, bool] = {}
+        if member not in self._once:
+            self._once[member] = sum(len(self.declarations(f, member)) for f in self.files if member in self.words_of(f)) == 1
+        return self._once[member]
 
     def declaring_by_depth(self, origin: str, member: str) -> list[list[str]]:
         """the files declaring the member, grouped by include depth from origin (origin itself first)"""
@@ -919,7 +943,8 @@ class Source:
             for f in sorted(set(scope) - set(named)):
                 for n in self.words_of(f).get(member, ()):
                     if self.is_read(f, n, member, struct):
-                        return f"{f}:{n} INFERENCE: the file does not name {struct}"
+                        # one declaration of that name in the source: the read is this member, whatever the file names
+                        return f"{f}:{n}" if self.declared_once(member) else f"{f}:{n} INFERENCE: the file does not name {struct}"
         return ""
 
     def names_any(self, f: str, names: set[str]) -> bool:

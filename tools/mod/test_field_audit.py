@@ -38,6 +38,8 @@ public:
 	DieMux m_dieMux;
 	int m_fx = 0;
 	int m_level = 0;
+	int m_spare = 0, m_rare = 0; // a declarator list (CastleModules.h's m_maxCastleRadius)
+	std::string m_tagA, m_tagB; // its later name is no read (CreateAHeroSystem.h)
 	std::vector<std::string> m_names;
 };
 '''
@@ -62,6 +64,8 @@ const FieldParse kTyped[] = {
 	{ "FX", parseFX, nullptr, 0 },
 	{ "Names", INI::parseAsciiStringVector, nullptr, TT_OFF(m_names) },
 	{ "Level", INI::parseInt, nullptr, TT_OFF(m_level) },
+	{ "Rare", INI::parseInt, nullptr, TT_OFF(m_rare) },
+	{ "TagB", INI::parseAsciiString, nullptr, TT_OFF(m_tagB) },
 	MUX_ROWS(TypedThingModuleData),
 	{ nullptr, nullptr, nullptr, 0 }
 };
@@ -214,9 +218,16 @@ DIEMUX_CPP = r'''
 bool DieMux::applies() const { return m_deathTypes != 0; }
 '''
 
-# a file seeing TypedThing.h that never names TypedThingModuleData: its .m_used / .m_level are another struct's members of those names
+# a file seeing TypedThing.h that never names TypedThingModuleData: its .m_used / .m_level are another struct's members of those names; m_rare is
+# declared by one class only, so its read through a getter's result is TypedThingModuleData's (AimWeaponBehavior.cpp's m_isAimingWeapon)
 OTHER_CPP = r'''#include "GameLogic/Module/TypedThing.h"
 bool filterPasses(const Filter &f) { return f.m_used > 0 && f.m_level > 1; }
+int rareOf(const TypedThing &t) { return t.data()->m_rare; }
+struct Filter
+{
+	float m_used = 0.0f;
+	int m_level = 0;
+};
 '''
 
 # a block's parser that parses a local and consumes it (SkirmishAIData.cpp's parseArmyDefinition, Locomotor.cpp's parseLocomotorSet): army.side is a
@@ -328,6 +339,8 @@ Object TestUnit
     DeathTypes = ALL
     Names = A B
     Level = 2
+    Rare = 1
+    TagB = X
     MeleeBehavior = Amoeba
       FacingBonus = 30.0
     End
@@ -397,7 +410,7 @@ def rw_tables(rw: Path):
     def table(*names, fn="0x1"):
         return {"rows": [{"name": n, "fn": fn, "offset": 0, "userData": 0} for n in names], "terminated": True}
     tables = {
-        "0xa1": {"rows": table("Used", "Unused", "FX", "DeathTypes", "Names", "Envelope", "Level")["rows"]
+        "0xa1": {"rows": table("Used", "Unused", "FX", "DeathTypes", "Names", "Envelope", "Level", "Rare", "TagB")["rows"]
                  + [{"name": "MeleeBehavior", "fn": "0xb3", "offset": 0, "userData": 0}], "terminated": True},
         "0xa2": table("Radius", "Height"),
         "0xa3": table("Bar"),
@@ -474,7 +487,7 @@ def status(result, block, owner, field):
 
 def test_typed_module_fields(result):
     assert status(result, "object", "TypedThing", "Used") == "used"
-    assert result[0][("object", "TypedThing", "Used")]["where"].endswith("TypedThing.cpp:35")  # the read in speed(), not the table row
+    assert result[0][("object", "TypedThing", "Used")]["where"].endswith("TypedThing.cpp:37")  # the read in speed(), not the table row
     assert result[0][("object", "TypedThing", "Used")]["defs"] == 2
     assert status(result, "object", "TypedThing", "Unused") == "parsed-unused"  # &INI::parseReal: the row is still found
     # (the member's name in a string literal or a /* */ comment of a visible file is not a read)
@@ -485,6 +498,8 @@ def test_typed_module_fields(result):
     # a read in a file naming the struct comes first (Other.cpp sorts before TypedThing.cpp); a read only in a file that never names it is marked
     assert status(result, "object", "TypedThing", "Level") == "used"
     assert result[0][("object", "TypedThing", "Level")]["where"] == "GameLogic/Module/Other.cpp:2 INFERENCE: the file does not name TypedThingModuleData"
+    assert result[0][("object", "TypedThing", "Rare")]["where"] == "GameLogic/Module/Other.cpp:3"  # the only m_rare of the source
+    assert status(result, "object", "TypedThing", "TagB") == "parsed-unused"
     assert status(result, "object", "TypedThing", "Bogus") == "not-in-rotwk"  # MeleeBehavior's End did not close the module
 
 
