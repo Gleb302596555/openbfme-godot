@@ -770,9 +770,13 @@ class Source:
             return False
         for m in re.finditer(r"\b" + re.escape(member) + r"\b", code):
             before, after = code[:m.start()], code[m.end():]
-            if not member.startswith("m_") and not re.search(r"(?:\.|->)\s*$", before) and not self.declares(f, member) \
-                    and ("::" not in fn or self.local_named(f, n, member)):
-                continue  # a bare `side` is this member only inside a method (Cls::fn) with no local or parameter of that name (LiveGame.cpp's side)
+            if not member.startswith("m_") and not re.search(r"(?:\.|->)\s*$", before):
+                # a bare `side` is a local or a parameter of that name in a function declaring one (LiveGame.cpp's local, findDozer(const std::string
+                # &side)); otherwise this member only inside a method (Cls::fn) or in a file declaring such a member
+                if (fn and self.local_named(f, n, member)) or ("::" not in fn and not self.declares(f, member)):
+                    continue
+                if re.match(r"\s*[,)=]", after) and re.search(r"[\w>]\s*[&\*]?\s*$", before) and not re.search(r"\b(?:return|case|throw)\s*$", before):
+                    continue  # a parameter in a signature (`const std::string &side)`, its line not yet the function's)
             if WRITE_AFTER.match(after):
                 continue  # a store (m_x = ..., m_x += ...)
             prev = re.search(r"(\w+)\W*$", before)
@@ -832,12 +836,28 @@ class Source:
         if not files and origin:
             for hits in self.declaring_by_depth(origin, member):
                 scopes.append(sorted({x for h in hits for x in (self.visible_file(h) if h.endswith((".h", ".hpp")) else {h})}))
+        # a file naming the struct (or a base) in its code first: `.side` in a file that never names ArmyDefinition is likely another struct's
+        # member of that name (LivingWorldUnits.cpp's ObjectFilter f.side); such a read still counts, marked INFERENCE
+        names = self.ancestors(struct) if struct and struct != "?" else set()
         for scope in scopes or [sorted(self.files)]:
+            later = []
             for f in scope:
+                if names and not self.names_any(f, names):
+                    later.append(f)
+                    continue
                 for n in self.words_of(f).get(member, ()):
                     if self.is_read(f, n, member, struct):
                         return f"{f}:{n}"
+            for f in later:
+                for n in self.words_of(f).get(member, ()):
+                    if self.is_read(f, n, member, struct):
+                        return f"{f}:{n} INFERENCE: the file does not name {struct}"
         return ""
+
+    def names_any(self, f: str, names: set[str]) -> bool:
+        """whether the file's code (not its comments or literals) names one of the structs"""
+        words = self.words_of(f)
+        return any(nm in words for nm in names)
 
     def string_read(self, field: str, near: str = "") -> str:
         """the first source line naming "field" as a string outside the tables and the .inc field lists; with near, only in a file that also names

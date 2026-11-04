@@ -37,6 +37,7 @@ public:
 	float m_unused = 0.0f;
 	DieMux m_dieMux;
 	int m_fx = 0;
+	int m_level = 0;
 	std::vector<std::string> m_names;
 };
 '''
@@ -60,6 +61,7 @@ const FieldParse kTyped[] = {
 	{ "Unused", &INI::parseReal, nullptr, TT_OFF(m_unused) },
 	{ "FX", parseFX, nullptr, 0 },
 	{ "Names", INI::parseAsciiStringVector, nullptr, TT_OFF(m_names) },
+	{ "Level", INI::parseInt, nullptr, TT_OFF(m_level) },
 	MUX_ROWS(TypedThingModuleData),
 	{ nullptr, nullptr, nullptr, 0 }
 };
@@ -186,6 +188,11 @@ struct Settings
 	int tint = 0;
 	float scale = 1.0f;
 };
+// a parameter of the member's name in the file declaring the member (SkirmishAIData.cpp's findDozer(const std::string &side)) is not its read
+const int *Settings::findByTint(const int &tint) const
+{
+	return lookup(tint);
+}
 '''
 MIDDLE_H = r'''
 #include "GameClient/Settings.h"
@@ -205,6 +212,11 @@ float Settings::scaled() const
 # DieMux's own method reads the member the MUX_ROWS row stores through m_dieMux (a file that never sees TypedThingModuleData)
 DIEMUX_CPP = r'''
 bool DieMux::applies() const { return m_deathTypes != 0; }
+'''
+
+# a file seeing TypedThing.h that never names TypedThingModuleData: its .m_used / .m_level are another struct's members of those names
+OTHER_CPP = r'''#include "GameLogic/Module/TypedThing.h"
+bool filterPasses(const Filter &f) { return f.m_used > 0 && f.m_level > 1; }
 '''
 
 RAW_CPP = r'''
@@ -229,6 +241,7 @@ Object TestUnit
     FX = INITIAL FX_Puff
     DeathTypes = ALL
     Names = A B
+    Level = 2
     MeleeBehavior = Amoeba
       FacingBonus = 30.0
     End
@@ -281,7 +294,7 @@ def rw_tables(rw: Path):
     def table(*names, fn="0x1"):
         return {"rows": [{"name": n, "fn": fn, "offset": 0, "userData": 0} for n in names], "terminated": True}
     tables = {
-        "0xa1": {"rows": table("Used", "Unused", "FX", "DeathTypes", "Names", "Envelope")["rows"]
+        "0xa1": {"rows": table("Used", "Unused", "FX", "DeathTypes", "Names", "Envelope", "Level")["rows"]
                  + [{"name": "MeleeBehavior", "fn": "0xb3", "offset": 0, "userData": 0}], "terminated": True},
         "0xa2": table("Radius", "Height"),
         "0xa3": table("Bar"),
@@ -335,6 +348,7 @@ def result(tmp_path_factory):
                       "GameLogic/Module/EmotionThing.cpp": EMOTION_CPP, "GameLogic/Object/Weapon.cpp": WEAPON_CPP,
                       "Common/Thing/ThingFactory.cpp": THING_CPP, "GameLogic/Module/RawRead.cpp": RAW_CPP,
                       "GameClient/PreviewReader.cpp": PREVIEW_CPP, "GameClient/PreviewUse.cpp": PREVIEW_USE_CPP, "GameLogic/Module/DieMux.cpp": DIEMUX_CPP,
+                      "GameLogic/Module/Other.cpp": OTHER_CPP,
                       "GameClient/Settings.h": SETTINGS_H, "GameClient/Middle.h": MIDDLE_H}.items():
         (src / rel).parent.mkdir(parents=True, exist_ok=True)
         (src / rel).write_text(text, encoding="utf-8")
@@ -357,7 +371,7 @@ def status(result, block, owner, field):
 
 def test_typed_module_fields(result):
     assert status(result, "object", "TypedThing", "Used") == "used"
-    assert result[0][("object", "TypedThing", "Used")]["where"].endswith("TypedThing.cpp:34")  # the read in speed(), not the table row
+    assert result[0][("object", "TypedThing", "Used")]["where"].endswith("TypedThing.cpp:35")  # the read in speed(), not the table row
     assert result[0][("object", "TypedThing", "Used")]["defs"] == 2
     assert status(result, "object", "TypedThing", "Unused") == "parsed-unused"  # &INI::parseReal: the row is still found
     # (the member's name in a string literal or a /* */ comment of a visible file is not a read)
@@ -365,6 +379,9 @@ def test_typed_module_fields(result):
     assert result[0][("object", "TypedThing", "DeathTypes")]["where"] == "GameLogic/Module/DieMux.cpp:2"  # m_dieMux.m_deathTypes: read anywhere
     assert status(result, "object", "TypedThing", "FX") == "used"  # its own parser stores m_fx, which speed() reads
     assert status(result, "object", "TypedThing", "Names") == "parsed-unused"  # `std::vector<std::string> m_names;` is a declaration, not a read
+    # a read in a file naming the struct comes first (Other.cpp sorts before TypedThing.cpp); a read only in a file that never names it is marked
+    assert status(result, "object", "TypedThing", "Level") == "used"
+    assert result[0][("object", "TypedThing", "Level")]["where"] == "GameLogic/Module/Other.cpp:2 INFERENCE: the file does not name TypedThingModuleData"
     assert status(result, "object", "TypedThing", "Bogus") == "not-in-rotwk"  # MeleeBehavior's End did not close the module
 
 
