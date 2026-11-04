@@ -374,7 +374,7 @@ PROC_STRUCT = re.compile(r"&\s*([\w:]+)::buildFieldParse")
 # { "Name", parser, user, offset } or { "Name", parser, offset-macro(...) }: an argument may hold a macro call with commas (UM_NAMES(a, b))
 _ARG = r"(?:[^,{}()]|\((?:[^()]|\([^()]*\))*\))*"
 ROW_BRACE = re.compile(r"\{\s*\"([A-Za-z0-9_]+)\"\s*,\s*&?\s*([\w:<>]+)\s*,\s*(?:" + _ARG + r",\s*)?(" + _ARG + r")\}")
-ROW_CALL = re.compile(r"\b(\w+)\s*\(\s*(?:[\w:]+\s*,\s*)?\"([A-Z][A-Za-z0-9_]*)\"\s*,\s*&?\s*([\w:]+)\s*,([^;]*?)\)\s*[,;)}]")
+ROW_CALL = re.compile(r"\b(\w+)\s*\(\s*(?:([\w:]+)\s*,\s*)?\"([A-Z][A-Za-z0-9_]*)\"\s*,\s*&?\s*([\w:]+)\s*,([^;]*?)\)\s*[,;)}]")
 ROW_STRUCT_FIRST = re.compile(r"\b(\w+)\s*\(\s*([\w:]+)\s*,\s*\"([A-Z][A-Za-z0-9_]*)\"\s*,\s*([\w.]+)\s*\)")
 TABLE = re.compile(r"\bFieldParse\s+(\w+)\s*\[\s*\]\s*=")
 FUNC = re.compile(r"^\s*(?:[\w:<>\*&,]+\s+)*?[\*&]?((?:\w+::)?~?\w+)\s*\(")
@@ -448,6 +448,7 @@ class Source:
         self.line_func: dict[str, list[str]] = {}  # file -> the function of every line ("" outside one)
         self.bases: dict[str, set[str]] = defaultdict(set)
         self.decl: dict[str, str] = {}  # struct -> the file declaring it
+        self.decl_all: dict[str, list[str]] = defaultdict(list)  # struct -> every file declaring a struct of that name
         self.includes: dict[str, set[str]] = defaultdict(set)
         self.macro_rows: dict[str, list] = defaultdict(list)  # a multi-line #define's rows (DM_ROWS(T)): expanded where the macro is used
         for f, lines in self.files.items():
@@ -529,6 +530,8 @@ class Source:
             m = STRUCT_DECL.match(code)
             if m:
                 self.decl.setdefault(m.group(1), f)
+                if f not in self.decl_all[m.group(1)]:
+                    self.decl_all[m.group(1)].append(f)
                 if code_depth() == 0:
                     pending_class = m.group(1)
                 if m.group(2):
@@ -620,11 +623,13 @@ class Source:
         if out:
             return out
         for r in ROW_CALL.finditer(code):
-            macro, field, parser, rest = r.groups()
+            macro, first, field, parser, rest = r.groups()
             if "parse" not in parser.lower() and macro not in macros:
                 continue
             o = OFFSETOF.search(rest)
             struct = res(o.group(1)) if o else macros.get(macro, "")
+            if not o and not struct and first and macro in macros:
+                struct = res(first)  # the struct is the macro's first argument (FormationAssistant.cpp's FIELD(F::Decal, "Texture", ..))
             ids = re.findall(r"\b(m_\w+)", rest) or re.findall(r"(\w+)", rest)
             out.append((field, parser, ids[-1] if ids else "", struct))
         if out:
@@ -652,9 +657,11 @@ class Source:
                     self.included_by[c].add(f)
 
     # -- queries
-    def visible(self, struct: str) -> set[str]:
-        """the files that can see the struct: the file declaring it and every file including that one (transitively)"""
-        h = self.decl.get(struct)
+    def visible(self, struct: str, origin: str = "") -> set[str]:
+        """the files that can see the struct: the file declaring it and every file including that one (transitively). A name several files
+        declare (FormationAssistant.h's nested Unit and others) is the declaration origin (the row's file) sees, when it sees one"""
+        near = [h for h in self.decl_all.get(struct, ()) if origin and h in self.forward(origin)]
+        h = near[0] if near else self.decl.get(struct)
         return self.visible_file(h) if h else set()
 
     def visible_file(self, h: str) -> set[str]:
@@ -721,9 +728,11 @@ class Source:
         """the rows a row's own parser reads its sub-block with: the tables and the X::fieldParse()/getFieldParse() functions its body names (the
         parser's file first), and the parsers it calls in turn (depth levels)"""
         short = parser.split("::")[-1]
-        bodies = [b for (f, fn), b in self.funcs.items() if fn.split("::")[-1] == short and f == file]
-        bodies = bodies or [b for (f, fn), b in self.funcs.items() if fn.split("::")[-1] == short]
-        out: list[Row] = []
+        keys = [(f, fn) for (f, fn) in self.funcs if fn.split("::")[-1] == short and f == file]
+        keys = keys or [(f, fn) for (f, fn) in self.funcs if fn.split("::")[-1] == short]
+        bodies = [self.funcs[k] for k in keys]
+        # a table of the parser's own (FormationAssistant.cpp's parseDecal: `const FieldParse fields[] = {FIELD(F::Decal, "Texture", ..)}`)
+        out: list[Row] = [r for r in self.rows if (r.file, r.func) in set(keys)]
         for body in bodies:
             text = "\n".join(body)
             for m in re.finditer(r"\b(?:(\w+)::)?(\w*[Ff]ield[Pp]arse\w*|\w*[Ff]ields)\s*\(", text):
@@ -800,6 +809,8 @@ class Source:
                 continue
             if re.match(r"\s*\.\s*(?:empty|size|length)\s*\(", after):
                 continue  # only whether it was given (PlayerTemplate.cpp's parseBlock: a stop line's flag), not the value
+            if re.match(r"\s*if\s*\(", line) and re.search(r"\)\s*throw\b", line):
+                continue  # a check that only refuses the block (AwardSystemManager.cpp's `if (missing(a.image)) throw ..`)
             # the innermost open call or subscript around the read
             depth, j = 0, m.start() - 1
             while j >= 0:
@@ -823,7 +834,7 @@ class Source:
             return "copy", dest
         return "", ""
 
-    def is_read(self, f: str, n: int, member: str, struct: str) -> bool:
+    def is_read(self, f: str, n: int, member: str, struct: str, parser: tuple[str, str] = ("", "")) -> bool:
         if (f, n) in self.row_lines:
             return False
         code = self.code_of(f)[n - 1]
@@ -834,6 +845,8 @@ class Source:
         cls = fn.split("::")[0] if "::" in fn else ""
         if "parse" in short or short in ("xfer", "crc", "xferimpl") or (cls and short == cls.lower()) or short.startswith("~"):
             return False
+        if fn and (f, fn) == parser:
+            return False  # the function holding the row's table parses the block, whatever its name (AwardSystemManager.cpp's objectAward)
         if not fn and n - 1 in self.declarations(f, member):
             return False  # a class-level declaration, a declarator list's later name too (`std::string a, b;`)
         for m in re.finditer(r"\b" + re.escape(member) + r"\b", code):
@@ -917,11 +930,11 @@ class Source:
             level = sorted({h for f in level for h in self._includes_of.get(f, ()) if h not in seen})
         return out
 
-    def member_read(self, member: str, struct: str, origin: str = "", staged: bool = True) -> str:
+    def member_read(self, member: str, struct: str, origin: str = "", staged: bool = True, parser: tuple[str, str] = ("", "")) -> str:
         """the first read of the member in a file that sees its struct. Without a struct ("?": a member of a member, offsetof(S, a.b), or a member a
         row's own parser stores into): the files that see a file declaring a member of that name among the files origin (the row's file) includes,
         the nearest declarations first (EvaEvents.cpp's SideCtx::side, then EvaEvents.h's EvaSideSound::side); everywhere if there is none"""
-        files = self.visible(struct) if struct and struct != "?" else set()
+        files = self.visible(struct, origin) if struct and struct != "?" else set()
         scopes = [sorted(files)] if files else []
         if not files and origin:
             for hits in self.declaring_by_depth(origin, member):
@@ -933,7 +946,7 @@ class Source:
             named = [f for f in scope if not names or self.names_any(f, names)]
             for f in named:
                 for n in self.words_of(f).get(member, ()):
-                    if self.is_read(f, n, member, struct):
+                    if self.is_read(f, n, member, struct, parser):
                         return f"{f}:{n}"
             # then a block's parser consuming the local it parsed (staged_read; the parsers are no reads otherwise): a key is a use; a value stored
             # into a member is used when that member is read (one step); a value passed to a call is marked, where it goes is not followed
@@ -954,7 +967,7 @@ class Source:
                             "not followed")
             for f in sorted(set(scope) - set(named)):
                 for n in self.words_of(f).get(member, ()):
-                    if self.is_read(f, n, member, struct):
+                    if self.is_read(f, n, member, struct, parser):
                         # one declaration of that name in the source: the read is this member, whatever the file names
                         return f"{f}:{n}" if self.declared_once(member) else f"{f}:{n} INFERENCE: the file does not name {struct}"
         return ""
@@ -985,6 +998,21 @@ class Source:
                         for s in set(STRING.findall(line.split("//", 1)[0])):
                             self._strings[s.lower()].append((f, n))
         return self._strings.get(field.lower(), [])
+
+    def files_naming(self, name: str) -> set[str]:
+        """the files whose code names the word (UnitSpecificSound: the readers of the UnitSpecificSounds lines)"""
+        return {f for f in self.files if name in self.words_of(f)}
+
+    def name_prefixes(self, files: set[str]) -> list[tuple[str, int, str]]:
+        """(file, line, literal) of the literals a name is made of by appending to them (`"VoiceEnterUnit" + ..`,
+        `std::string(enterState ? "VoiceEnterStateAttackUnit" : "VoiceAttackUnit") + ..`), the longest first"""
+        out = []
+        for f in sorted(files):
+            for n, line in enumerate(self.files[f], 1):
+                m = re.search(r"^(.*\"\s*\)?\s*)\+", line.split("//", 1)[0])
+                if m:
+                    out += [(f, n, s) for s in STRING.findall(m.group(1))]
+        return sorted(out, key=lambda x: -len(x[2]))
 
     def own_reader_files(self, keyword: str) -> set[str]:
         """the files (other than the INI keyword table) naming a block keyword as a string or its data\\ini file (terrain.ini)"""
@@ -1019,14 +1047,17 @@ class Source:
             for n, line in enumerate(self.files[f]):
                 if not re.search(r"registerBlock\(\s*\"" + re.escape(keyword) + r"\"", line, re.I):
                     continue
-                # the lambda up to its closing `});`
-                body, depth = [], 0
+                # the call up to its end: the lambda's braces closed (its [&fa](INI *ini) can be on a line of its own), or a `;` before any
+                body, depth, opened = [], 0, False
                 for x in lines[n:n + 40]:
                     body.append(x)
                     depth += x.count("{") - x.count("}")
-                    if depth <= 0 and ")" in x:
+                    opened = opened or "{" in x
+                    if (opened and depth <= 0) or (not opened and x.rstrip().endswith(";")):
                         break
                 text = "\n".join(body)
+                # a table of the lambda's own (FormationAssistant.cpp's `const FieldParse fields[] = {{"FormationPreviewDecal", parseDecal, ..}}`)
+                out += [r for r in self.rows if r.file == f and n < r.line <= n + len(body)]
                 for t in set(re.findall(r"\b(k\w+)\b", text)):
                     out += [r for r in self.rows if r.table == t and r.file == f]
                 for p in set(re.findall(r"\b(\w*[Pp]arse\w*)\s*\(", text)):
@@ -1127,13 +1158,43 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
                     continue
                 followed = True
                 # a row of the struct's own tables without offsetof stores into that struct; a nested or block-file row of no known struct: anywhere
-                use = src.member_read(m, r.struct or (structs[0] if how == "struct" and structs else "?"), origin=r.file)
+                use = src.member_read(m, r.struct or (structs[0] if how == "struct" and structs else "?"), origin=r.file, parser=(r.file, r.func))
                 if use:
                     return "used", use, m, how
         r = cands[0]
         if not followed:
             return "custom-parser", r.loc, r.parser, how  # the row's own parser stores where the tool cannot follow
         return "parsed-unused", r.loc, r.member, how
+
+    object_names = {d for (t, _, _), mf in mod.items() if t == "object" for d in mf.defs}
+
+    def by_name(reader, field, names):
+        """a line of a block kept by name (UnitSpecificSounds): read when a reader of the block (a file naming its reader class) asks for that
+        name, as a literal or as a literal prefix and an Object's name (UnitVoiceResponse.cpp's "VoiceEnterUnit" + target->getTemplate()->getName())"""
+        readers = src.files_naming(reader)
+        hit = next((f"{f}:{n}" for f, n in src.string_lines(field) if f in readers), "")
+        if hit:
+            return "used", hit, "by-name"
+        for f, n, prefix in src.name_prefixes(readers):
+            rest = field[len(prefix):]
+            if field.startswith(prefix) and rest:
+                if rest in names:
+                    return "used", f"{f}:{n} (\"{prefix}\" + the Object {rest})", "by-name-prefix"
+                return "parsed-unused", f"{f}:{n} asks for \"{prefix}\" + an Object's name; no Object {rest}", "by-name-prefix"
+        return "parsed-unused", "no reader asks for this name", "by-name"
+
+    def raw_block(owner, field):
+        """an Object's nested block the template keeps as raw lines (ThingFactory.cpp, stop S-071): its readers are the files that walk the raw
+        blocks (rawBlocks) and name the block (AIThreatFinder.cpp's "ThreatBreakdown", LivingWorldUnits.cpp's readSets(tt, "AutoResolveArmor",
+        "Armor", ..)); a field is read when such a file names it. None when no file reads the block"""
+        block = owner.split("/")[1]
+        readers = {f for f in src.files_naming("rawBlocks") | src.files_naming("m_rawBlocks") if any(g == f for g, _ in src.string_lines(block))}
+        if not readers:
+            return None
+        hit = next((f"{f}:{n}" for f, n in src.string_lines(field) if f in readers), "")
+        if hit:
+            return "used", hit, "raw-block"
+        return "parsed-unused", f"the block's readers ({', '.join(sorted(readers))}) do not ask for it", "raw-block"
 
     for (typ, owner, field), mf in mod.items():
         cls = owner.split("/")[0] if owner else ""
@@ -1163,10 +1224,17 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
         elif typ == "object":
             if not nested and field.lower() not in rw_object:
                 status = "not-in-rotwk"
+            elif owner.lower() in BY_NAME_BLOCKS:
+                status, where, how = by_name(BY_NAME_BLOCKS[owner.lower()], field, object_names)
             elif nested:
                 structs = [s for s in NESTED_DEF_STRUCTS.get(owner.lower(), [])]
                 if not structs:
-                    status = "unmapped-block"
+                    # a second reader of the Object block parsing the nested block (FormationAssistant.cpp's FormationPreviewDecal row ->
+                    # parseDecal -> Texture), else a raw block read by name, else the tool cannot tell
+                    status, where, member, how = typed_status(field, [], False, block="object", block_path=tuple(owner.split("/")[1:]))
+                    if status == "no-table-row":
+                        raw = raw_block(owner, field)
+                        status, where, member, how = (raw[0], raw[1], "", raw[2]) if raw else ("unmapped-block", "", "", "")
                 else:
                     struct = structs[0]
                     status, where, member, how = typed_status(field, structs, False)
@@ -1205,10 +1273,31 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
         rows.append({"status": status, "block": typ, "owner": owner, "field": field, "defs": len(mf.defs), "uses": mf.count, "struct": struct,
                      "member": member, "where": where, "how": how, "stop": stops_for(stops, cls, field), "values": " | ".join(v for v, _ in top),
                      "src": mf.src, "tool": status})
+    # a name no reader asks for itself may be asked for through another field holding it (SpecialPower's
+    # UnitSpecificSoundToUseAsInitiateIntendToDoVoice = VoiceInitiateCaptureBuilding): read when that field is
+    by_key = {(r["block"], r["owner"], r["field"]): r for r in rows}
+    holders: dict[str, list[tuple]] = defaultdict(list)
+    for key, mf in mod.items():
+        if key[1].lower() not in BY_NAME_BLOCKS:
+            for v in mf.values:
+                for tok in v.replace("=", " ").split():
+                    holders[tok].append(key)
+    for r in rows:
+        if r["how"] == "by-name" and r["status"] == "parsed-unused" and holders.get(r["field"]):
+            refs = sorted(holders[r["field"]], key=lambda k: by_key[k]["status"] != "used")
+            ref = by_key[refs[0]]
+            name = "/".join(x for x in refs[0] if x)
+            r["status"] = r["tool"] = "used" if ref["status"] == "used" else "parsed-unused"
+            r["where"] = f"named by {name} ({ref['status']}{': ' + ref['where'] if ref['where'] else ''})"
+            r["how"] = "by-name-field"
     rank = {s: i for i, s in enumerate(ORDER)}
     rows.sort(key=lambda r: (rank.get(r["status"], 99), -r["defs"], r["block"], r["owner"], r["field"]))
     return rows
 
+
+# Object's nested blocks kept as raw lines and read by name (ThingFactory.cpp keeps them, stop S-071; GameLogic/UnitSpecificSound.cpp's rawValue
+# answers a name): every line is a name and a value, the name is the field
+BY_NAME_BLOCKS = {"/unitspecificsounds": "UnitSpecificSound", "/unitspecificfx": "UnitSpecificFX"}
 
 # Object's nested blocks: the struct each one's parser fills (ThingFactory's keyword table; ArmorSet.cpp, WeaponSet.cpp, ...)
 NESTED_DEF_STRUCTS = {

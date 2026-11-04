@@ -316,6 +316,75 @@ void ArmyStore::registerBlocks(INIBlockRegistry &registry)
 }
 '''
 
+# the UnitSpecificSounds lines are kept raw and asked for by name (UnitVoiceResponse.cpp): a literal, or a literal and an Object's name
+VOICE_CPP = r'''
+#include "GameLogic/UnitSpecificSound.h"
+std::string garrisonVoice(const ThingTemplate &tt, const ThingTemplate &target)
+{
+	if (UnitSpecificSound::rawValue(tt, "VoiceGarrison").empty())
+		return UnitSpecificSound::rawValue(tt, "VoiceEnterUnit" + target.getName());
+	return "";
+}
+'''
+
+# a second Object reader whose table is the lambda's own and whose nested parser has a table of its own (FormationAssistant.cpp's
+# FormationPreviewDecal -> parseDecal -> FIELD(F::Decal, "Texture", ..)); Decal is also a struct of another file (Common/ADecal.h), not seen here.
+# readAward holds its table, so its reads are the parser's, and its check only refuses the block (AwardSystemManager.cpp's objectAward)
+DECAL_H = r'''
+struct Decal
+{
+	std::string texture;
+	int tint = 0;
+	int shade = 0;
+};
+'''
+OTHER_DECAL_H = r'''
+struct Decal
+{
+	int texture = 0;
+};
+'''
+DECAL_CPP = r'''#include "GameClient/Decal.h"
+#define FIELD(T, N, P, M) {N, P, nullptr, (int)offsetof(T, M)}
+void parseDecal(INI *ini, void *instance, void *, const void *)
+{
+	const FieldParse fields[] = {FIELD(Decal, "Texture", INI::parseAsciiString, texture), FIELD(Decal, "Tint", INI::parseInt, tint),
+	                             {nullptr, nullptr, nullptr, 0}};
+	ini->initFromINI(instance, fields);
+}
+void readAward(INI *ini, void *, void *store, const void *)
+{
+	const FieldParse fields[] = {FIELD(Decal, "Shade", INI::parseInt, shade), {nullptr, nullptr, nullptr, 0}};
+	Decal d;
+	ini->initFromINI(&d, fields);
+	if (d.shade < 0) throw INIException(3, "bad shade");
+	static_cast<Store *>(store)->decals.push_back(d);
+}
+void DecalReader::registerBlocks(INIBlockRegistry &registry)
+{
+	registry.registerBlock("Object",
+		[](INI *ini)
+		{
+			const FieldParse fields[] = {{"LookDecal", parseDecal, nullptr, 0}, {"Award", readAward, nullptr, 0}, {nullptr, nullptr, nullptr, 0}};
+			ini->initFromINI(&g_decal, fields);
+		});
+}
+const std::string &decalTexture() { return g_decal.texture; }
+'''
+
+# an Object block kept as raw lines and read by name by a file walking the raw blocks (AIThreatFinder.cpp's ThreatBreakdown / AIKindOf)
+THREAT_CPP = r'''
+int threatOf(const ThingTemplate &tt)
+{
+	for (const RawBlock &b : tt.rawBlocks())
+		if (b.field == "Threat")
+			for (const RawLine &l : b.lines)
+				if (l.text.find("Kind") == 0)
+					return 1;
+	return 0;
+}
+'''
+
 RAW_CPP = r'''
 // RawThing keeps its lines (RawModuleData); one value is read by name
 int rawRadius(const RawModuleData &d) { return d.find("RawThing", "Radius"); }
@@ -331,6 +400,21 @@ Object TestUnit
   VoiceSelect = TestUnitVoiceSelect
   UnitSpecificSounds
     VoiceGarrison = TestUnitVoiceGarrison
+    VoiceEnterUnitSecondUnit = A
+    VoiceEnterUnitNoSuchUnit = B
+    VoiceGetHealed = C
+    TestUnitVoiceSelect = D
+  End
+  LookDecal
+    Texture = Arrow
+    Tint = 3
+  End
+  Award
+    Shade = 2
+  End
+  Threat
+    Kind = INFANTRY
+    Other = 1
   End
   Behavior = TypedThing ModuleTag_01
     Used = 1.0
@@ -419,7 +503,8 @@ def rw_tables(rw: Path):
         "0xa6": {"rows": [{"name": "BeginScript", "fn": "0xb2", "offset": 0, "userData": 0}, {"name": "Model", "fn": "0x1", "offset": 0, "userData": 0}],
                  "terminated": True},
         "0xa7": {"rows": table("BuildCost", "VisionRange", "PreviewDecal", "PreviewTint", "PreviewScale", "Behavior", "Draw")["rows"]
-                 + [{"name": "UnitSpecificSounds", "fn": "0xb4", "offset": 0, "userData": 0}], "terminated": True},
+                 + [{"name": n, "fn": "0xb4", "offset": 0, "userData": 0} for n in ("UnitSpecificSounds", "LookDecal", "Award", "Threat")],
+                 "terminated": True},
         "0xa9": table("FacingBonus"),
         "0xaa": {"rows": [], "catchAll": "0xb5", "terminated": True},
         "0xa8": table("VoiceSelect"),
@@ -464,7 +549,8 @@ def result(tmp_path_factory):
                       "GameLogic/Module/EmotionThing.cpp": EMOTION_CPP, "GameLogic/Object/Weapon.cpp": WEAPON_CPP,
                       "Common/Thing/ThingFactory.cpp": THING_CPP, "GameLogic/Module/RawRead.cpp": RAW_CPP,
                       "GameClient/PreviewReader.cpp": PREVIEW_CPP, "GameClient/PreviewUse.cpp": PREVIEW_USE_CPP, "GameLogic/Module/DieMux.cpp": DIEMUX_CPP,
-                      "GameLogic/Module/Other.cpp": OTHER_CPP, "GameLogic/AI/Army.cpp": ARMY_CPP,
+                      "GameLogic/Module/Other.cpp": OTHER_CPP, "GameLogic/AI/Army.cpp": ARMY_CPP, "GameClient/Voice.cpp": VOICE_CPP, "GameClient/Decal.h": DECAL_H, "Common/ADecal.h": OTHER_DECAL_H,
+                      "GameClient/Decal.cpp": DECAL_CPP, "GameLogic/AI/Threat.cpp": THREAT_CPP,
                       "GameClient/Settings.h": SETTINGS_H, "GameClient/Middle.h": MIDDLE_H}.items():
         (src / rel).parent.mkdir(parents=True, exist_ok=True)
         (src / rel).write_text(text, encoding="utf-8")
@@ -616,3 +702,26 @@ def test_manual_verdicts(result, tmp_path):
     fa.write(rows, tmp_path, [], {}, got)
     text = (tmp_path / "field-audit.md").read_text(encoding="utf-8")
     assert "| object | TypedThing | Unused | custom-parser | used | parsed-unused |" in text
+
+
+def test_by_name_block(result):
+    """a UnitSpecificSounds line is read when a reader of the block asks for its name: a literal, a literal and an existing Object's name, or
+    another field holding the name that is read itself"""
+    assert status(result, "object", "/UnitSpecificSounds", "VoiceGarrison") == "used"
+    assert result[0][("object", "/UnitSpecificSounds", "VoiceEnterUnitSecondUnit")]["how"] == "by-name-prefix"
+    assert status(result, "object", "/UnitSpecificSounds", "VoiceEnterUnitSecondUnit") == "used"
+    assert status(result, "object", "/UnitSpecificSounds", "VoiceEnterUnitNoSuchUnit") == "parsed-unused"  # no Object NoSuchUnit
+    assert status(result, "object", "/UnitSpecificSounds", "VoiceGetHealed") == "parsed-unused"  # no reader asks for it
+    # VoiceSelect = TestUnitVoiceSelect names it, and VoiceSelect is read
+    assert status(result, "object", "/UnitSpecificSounds", "TestUnitVoiceSelect") == "used"
+    assert result[0][("object", "/UnitSpecificSounds", "TestUnitVoiceSelect")]["where"].startswith("named by object/VoiceSelect (used")
+
+
+def test_object_nested_readers(result):
+    """an Object nested block parsed by a second reader (through the lambda's table and the nested parser's own), or kept raw and read by name"""
+    texture = result[0][("object", "/LookDecal", "Texture")]
+    assert texture["status"] == "used" and texture["where"].startswith("GameClient/Decal.cpp:")  # the Decal Decal.cpp sees, not ADecal.h's
+    assert status(result, "object", "/LookDecal", "Tint") == "parsed-unused"
+    assert status(result, "object", "/Award", "Shade") == "parsed-unused"  # the parser's own check that throws is no use
+    assert status(result, "object", "/Threat", "Kind") == "used"
+    assert status(result, "object", "/Threat", "Other") == "parsed-unused"
