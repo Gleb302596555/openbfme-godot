@@ -681,7 +681,7 @@ class Source:
             if WRITE_AFTER.match(after):
                 continue  # a store (m_x = ..., m_x += ...)
             prev = re.search(r"(\w+)\W*$", before)
-            if (re.match(r"\s*[;{\[]", after) and re.search(r"[\w>\*&]\s+[\*&]?\s*$", before) and not re.search(r"[(.>]\s*$", before.rstrip()[-1:] or " ")
+            if (re.match(r"\s*[;{\[]", after) and re.search(r"[\w>\*&]\s+[\*&]?\s*$", before) and not before.rstrip().endswith(("->", ".", "(", "::"))
                     and not (prev and prev.group(1) in ("return", "case", "else", "throw", "co_return", "delete", "sizeof", "do"))):
                 continue  # a declaration (Type m_x; Type m_x{...}; Type m_x[N]), not `return m_x;`
             if re.match(r"\s*[({]", after) and re.search(r"[:,]\s*$", before) and not fn:
@@ -691,8 +691,36 @@ class Source:
             return True
         return False
 
-    def member_read(self, member: str, struct: str) -> str:
-        files = self.visible(struct) if struct and struct != "?" else set()  # "?": a member of a member (offsetof(S, a.b)): everywhere
+    def forward(self, f: str) -> set[str]:
+        """the file and every file it includes, transitively"""
+        if not hasattr(self, "_forward"):
+            self._forward: dict[str, set[str]] = {}
+            self._includes_of: dict[str, set[str]] = defaultdict(set)
+            for h, users in self.included_by.items():
+                for u in users:
+                    self._includes_of[u].add(h)
+        if f not in self._forward:
+            out, todo = set(), [f]
+            while todo:
+                x = todo.pop()
+                if x not in out:
+                    out.add(x)
+                    todo += self._includes_of.get(x, ())
+            self._forward[f] = out
+        return self._forward[f]
+
+    def declares(self, f: str, member: str) -> bool:
+        return any(re.match(r"^\s*[\w:<>,\s\*&]+[\s\*&]" + re.escape(member) + r"\s*(?:=[^=]|;|\[|\{)", line) for line in self.files[f])
+
+    def member_read(self, member: str, struct: str, origin: str = "") -> str:
+        """the first read of the member in a file that sees its struct. Without a struct ("?": a member of a member, offsetof(S, a.b), or a member a
+        row's own parser stores into): the files that see a header declaring a member of that name among the files origin (the row's file) includes;
+        everywhere if there is none"""
+        files = self.visible(struct) if struct and struct != "?" else set()
+        if not files and origin:
+            for h in self.forward(origin):
+                if self.declares(h, member):
+                    files |= self.visible(h) if h.endswith((".h", ".hpp")) else {h}
         scope = sorted(files) if files else sorted(self.files)
         for f in scope:
             for n in self.words_of(f).get(member, ()):
@@ -817,7 +845,8 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
                 if not re.fullmatch(r"[A-Za-z_]\w{2,}", m) or m in ("nullptr", "NULL"):
                     continue
                 followed = True
-                use = src.member_read(m, r.struct or (structs[0] if structs else ""))
+                # a row of the struct's own tables without offsetof stores into that struct; a nested or block-file row of no known struct: anywhere
+                use = src.member_read(m, r.struct or (structs[0] if how == "struct" and structs else "?"), origin=r.file)
                 if use:
                     return "used", use, m, how
         r = cands[0]

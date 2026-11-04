@@ -37,6 +37,7 @@ public:
 	float m_unused = 0.0f;
 	DieMux m_dieMux;
 	int m_fx = 0;
+	std::vector<std::string> m_names;
 };
 '''
 
@@ -58,6 +59,7 @@ const FieldParse kTyped[] = {
 	{ "Used", INI::parseReal, nullptr, TT_OFF(m_used) },
 	{ "Unused", &INI::parseReal, nullptr, TT_OFF(m_unused) },
 	{ "FX", parseFX, nullptr, 0 },
+	{ "Names", INI::parseAsciiStringVector, nullptr, TT_OFF(m_names) },
 	MUX_ROWS(TypedThingModuleData),
 	{ nullptr, nullptr, nullptr, 0 }
 };
@@ -179,6 +181,7 @@ Object TestUnit
     Unused = 2.0
     FX = INITIAL FX_Puff
     DeathTypes = ALL
+    Names = A B
     Bogus = 3
   End
   Behavior = RawThing Some_Tag
@@ -226,7 +229,7 @@ def rw_tables(rw: Path):
     def table(*names, fn="0x1"):
         return {"rows": [{"name": n, "fn": fn, "offset": 0, "userData": 0} for n in names], "terminated": True}
     tables = {
-        "0xa1": table("Used", "Unused", "FX", "DeathTypes"),
+        "0xa1": table("Used", "Unused", "FX", "DeathTypes", "Names"),
         "0xa2": table("Radius", "Height"),
         "0xa3": table("Bar"),
         "0xa4": {"rows": [{"name": "AddEmotion", "fn": "0xb1", "offset": 0, "userData": 0}], "terminated": True},
@@ -292,12 +295,13 @@ def status(result, block, owner, field):
 
 def test_typed_module_fields(result):
     assert status(result, "object", "TypedThing", "Used") == "used"
-    assert result[0][("object", "TypedThing", "Used")]["where"].endswith("TypedThing.cpp:29")  # the read in speed(), not the table row
+    assert result[0][("object", "TypedThing", "Used")]["where"].endswith("TypedThing.cpp:30")  # the read in speed(), not the table row
     assert result[0][("object", "TypedThing", "Used")]["defs"] == 2
     assert status(result, "object", "TypedThing", "Unused") == "parsed-unused"  # &INI::parseReal: the row is still found
     assert status(result, "object", "TypedThing", "DeathTypes") == "used"  # a row of the multi-line MUX_ROWS(T) macro
     assert result[0][("object", "TypedThing", "DeathTypes")]["where"] == "GameLogic/Module/DieMux.cpp:2"  # m_dieMux.m_deathTypes: read anywhere
     assert status(result, "object", "TypedThing", "FX") == "used"  # its own parser stores m_fx, which speed() reads
+    assert status(result, "object", "TypedThing", "Names") == "parsed-unused"  # `std::vector<std::string> m_names;` is a declaration, not a read
     assert status(result, "object", "TypedThing", "Bogus") == "not-in-rotwk"
 
 
