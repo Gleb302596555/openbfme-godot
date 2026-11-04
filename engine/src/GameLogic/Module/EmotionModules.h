@@ -97,6 +97,8 @@ public:
 	static void forceEmotion(Object &obj, int type, float seconds, Object *source);
 
 	bool requested(int type) const { return type >= 0 && type < EMOTION_TYPE_COUNT && m_requested[(size_t)type]; }
+	ObjectID requestSource(int type) const { return type >= 0 && type < EMOTION_TYPE_COUNT ? m_source[(size_t)type] : INVALID_ID; } ///< + 0x60
+	UnsignedInt requestEnd(int type) const { return type >= 0 && type < EMOTION_TYPE_COUNT ? m_requestEnd[(size_t)type] : 0; }      ///< + 0x30
 	const EmotionNugget *current() const { return m_current; }
 	int forcedType() const { return m_forcedType; }
 	int forcedFrames() const { return m_forcedFrames; }

@@ -34,6 +34,9 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/Object/PartitionManager.h"
+#include "GameLogic/Module/EmotionModules.h"
+#include "GameLogic/System/EmotionSystem.h"
 
 #include <cstddef>
 #include <stdexcept>
@@ -566,6 +569,14 @@ void ActiveBody::attemptDamage(DamageInfo &info)
 			// RW 0x8C4593: RespawnBody owns the death callback when RespawnUpdate exists.
 			if (!dynamic_cast<RespawnUpdate *>(obj.findModule("RespawnUpdate")))
 			{
+				// TOP20 #20, RW 0x8C460C .. 0x8C463E, read before the death: the victim counts as contained only in a container (Object + 0x27C) whose
+				// contain module (+ 0x258) holds two or more (vslot 0x114(0) >= 2)
+				bool contained = false;
+				if (Object *outer = obj.getContainedBy())
+				{
+					ContainModuleInterface *c = outer->getContain();
+					contained = !c || c->getContainCount() >= 2;
+				}
 				DieModuleInterface::Event event;
 				event.sourceId = info.m_input.m_sourceID;
 				event.deathType = info.m_input.m_deathType;
@@ -575,6 +586,12 @@ void ActiveBody::attemptDamage(DamageInfo &info)
 				event.actualDamageDealt = info.m_output.m_actualDamageDealt;
 				event.actualDamageClipped = info.m_output.m_actualDamageClipped;
 				obj.friend_onDie(event);
+				// TOP20 #20, RW 0x8C4679 .. 0x8C46A6: after the death (and the linked object's, RW 0x8C464A), a victim that was not contained, killed by a
+				// source (DamageInfo + 8), and neither PROJECTILE nor INERT makes its enemies around cheer (primary vslot 0x58)
+				if (!contained && info.m_input.m_sourceID != INVALID_ID && !isCheerExempt(obj))
+				{
+					cheer();
+				}
 			}
 		}
 		// lane XP-1: RW 0x8C46A9 .. 0x8C46EA: the attacker's player earns skill points for the share of the victim's maximum health the hit took (capped at
@@ -594,6 +611,47 @@ void ActiveBody::attemptDamage(DamageInfo &info)
 	}
 	// (19) doDamageFX (RW 0x8C2F02, lane FX-2)
 	doDamageFX(info);
+}
+
+// TOP20 #20: the template exemption both callers of the cheer test (RW 0x8C1E27 .. 0x8C1E3D, 0x8C4686 .. 0x8C469F): ThingTemplate KindOf + 0x108 bit 25
+// (PROJECTILE) or + 0x110 bit 25 (KindOf 89, INERT)
+bool ActiveBody::isCheerExempt(const Object &obj)
+{
+	static const int kProjectile = ObjectTemplateInfoBuilder::kindOfIndex("PROJECTILE"); // 25
+	static const int kInert = ObjectTemplateInfoBuilder::kindOfIndex("INERT");           // 89
+	return obj.isKindOf((unsigned)kProjectile) || obj.isKindOf((unsigned)kInert);
+}
+
+// TOP20 #20, RW 0x8C3B89 (ActiveBody primary vslot 0x58, inherited by every body vtable that holds it, RW 0xC71BD0 ..): with CheerRadius (module data
+// + 0x4C) above 0, every object ThePartitionManager finds within it (RW 0xA39340: FROM_CENTER_2D, ITER_FASTEST) through the filters RW 0xC11DC0(self, 1, 0)
+// (the object's relationship to it is ENEMIES), RW 0xC10E20 (alive: + 0x458 bit 0 clear) and RW 0xC0F374(self) (the same + 0x458 bit 3: never set in the
+// port) is asked for EMOTION_CHEER with this object as the source for 10 frames (RW 0x68F37F(1, self, 0xA): the request of the outermost container's
+// EmotionTrackerUpdate). Not ported: the debug circle drawn when GlobalData + 0xE9C is set (RW 0x8C3BAF .. 0x8C3C07, TheTacticalView slot 0x30).
+void ActiveBody::cheer()
+{
+	const float radius = m_data->m_cheerRadius;
+	if (!(radius > 0.0f)) // RW 0x8C3B9D: comiss 0, radius; jae: 0 >= radius returns
+	{
+		return;
+	}
+	Object *self = getObject();
+	PartitionFilterFn filters([self](Object &o) { return self->getRelationship(o) == ENEMIES && !o.isEffectivelyDead(); });
+	const PartitionHits hits = self->logic().partition().iterateObjectsInRange(*self->getPosition(), radius, FROM_CENTER_2D, { &filters }, ITER_FASTEST);
+	for (const PartitionHit &hit : hits)
+	{
+		EmotionTrackerUpdate::requestEmotion(*hit.object, EMOTION_CHEER, self, 10); // RW 0x8C3C85 .. 0x8C3C8C
+	}
+}
+
+// TOP20 #20, RW 0x8C1E18 (ActiveBody primary vslot 8, onDelete): an object deleted while not effectively dead (+ 0x458 bit 0) and neither PROJECTILE nor
+// INERT cheers its enemies (vslot 0x58), then the body's particle systems go (vslot 0x50; the port keeps none on the body)
+void ActiveBody::onDelete()
+{
+	Object *obj = getObject();
+	if (!obj->isEffectivelyDead() && !isCheerExempt(*obj))
+	{
+		cheer();
+	}
 }
 
 // RW 0x8C2F02 doDamageFX (lane FX-2). The body's DamageFX (+0xFC) is the one of the armour set chosen for the object's armour flags (the ArmorSet's DamageFX

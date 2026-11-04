@@ -139,6 +139,11 @@ public:
 	BodyDamageType appliedDamageState() const { return m_curDamageState; }
 	void crc(StateHasher &hasher) const override;
 	OBFME_MODULE_XFER(ActiveBody) // lane SAVE-4b (OpenBFME native, S-4190)
+	// TOP20 #20: RW 0x8C1E18, primary vslot 8 (see ActiveBody.cpp)
+	void onDelete() override;
+	// TOP20 #20: RW 0x8C3B89, primary vslot 0x58: the enemies within CheerRadius are asked to cheer (see ActiveBody.cpp)
+	void cheer();
+	static bool isCheerExempt(const Object &obj);
 
 protected:
 	// the DamageInfo attemptDamage is processing (RW passes it down to internalChangeHealth, RW 0x8C553F / 0x8C5828 read and change it); null outside a hit

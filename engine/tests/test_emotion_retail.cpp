@@ -9,6 +9,8 @@
 #include "Common/StateHash.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Combat/CombatState.h"
+#include "GameLogic/Damage.h"
+#include "GameLogic/Module/ActiveBody.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/BitFlags.h"
 #include "GameLogic/Module/EmotionModules.h"
@@ -285,4 +287,80 @@ TEST_CASE("emotions retail: each tracker draws the quarrel number once per frame
 	MESSAGE("top-level trackers " << trackers);
 	CHECK(trackers >= 2);
 	CHECK(draws == 2 * trackers);
+}
+
+// TOP20 #20 (CheerRadius). RW 0x8C4679 .. 0x8C46A6: a victim killed by a source, not contained in a container of two or more and neither PROJECTILE nor INERT,
+// runs ActiveBody vslot 0x58 (RW 0x8C3B89): every enemy within CheerRadius (ActiveBody default 200, RW 0xBE4170) gets RW 0x68F37F(EMOTION_CHEER, victim, 10).
+// RW 0x8C1E18 (onDelete) runs it for an object deleted while alive. Without the port nothing asks for CHEER (the request bit stays clear).
+TEST_CASE("TOP20-20 cheer: a Mordor troll killed near a Gondor horde makes it request CHEER for 10 frames; far, unsourced and dead deletions do not")
+{
+	if (!hudtest::haveWorld("TOP20-20 cheer"))
+	{
+		return;
+	}
+	hudtest::SharedWorld &sh = hudtest::shared();
+	auto scope = sh.world->enterContext();
+	auto kill = [](Object &victim, ObjectID source) {
+		DamageInfo info;
+		info.m_input.m_damageType = DAMAGE_UNRESISTABLE;
+		info.m_input.m_deathType = DEATH_NORMAL;
+		info.m_input.m_sourceID = source;
+		info.m_input.m_amount = 1.0e6f;
+		victim.getBodyModule()->attemptDamage(info);
+	};
+	{
+		mod2test::RetailGame g(sh);
+		Object *near = g.make("GondorFighterHorde", "Men", 300.0f, 300.0f);
+		Object *far = g.make("GondorFighterHorde", "Men", 300.0f, 800.0f);
+		Object *troll = g.make("MordorAttackTroll", "Mordor", 360.0f, 300.0f);
+		Object *orcs = g.make("MordorFighterHorde", "Mordor", 330.0f, 360.0f);
+		g.run(2);
+		EmotionTrackerUpdate *tn = EmotionTrackerUpdate::of(*near);
+		EmotionTrackerUpdate *tf = EmotionTrackerUpdate::of(*far);
+		EmotionTrackerUpdate *to = EmotionTrackerUpdate::of(*orcs);
+		REQUIRE(tn);
+		REQUIRE(tf);
+		REQUIRE(to);
+		const ActiveBody *trollBody = dynamic_cast<const ActiveBody *>(troll->getBodyModule());
+		REQUIRE(trollBody);
+		MESSAGE("MordorAttackTroll CheerRadius " << trollBody->data()->m_cheerRadius);
+		REQUIRE(trollBody->data()->m_cheerRadius == 100.0f); // RotWK 2.01 MordorAttackTroll's CheerRadius; the near horde is 60 away, the far one 500
+		const std::vector<Object *> gondor = g.members(near);
+		const std::vector<Object *> mordor = g.members(orcs);
+		REQUIRE(gondor.size() >= 2); // tolerance: a precondition, the member count is not the subject
+		REQUIRE(mordor.size() >= 2); // tolerance: a precondition, a container of two or more (RW 0x8C463C)
+		CHECK_FALSE(tn->requested(EMOTION_CHEER));
+
+		// neighbour: a member of a full horde (contained, count >= 2, RW 0x8C461E .. 0x8C463E) dies without a cheer
+		kill(*mordor.front(), gondor.front()->getID());
+		CHECK(mordor.front()->isEffectivelyDead());
+		CHECK_FALSE(tn->requested(EMOTION_CHEER));
+
+		// the port: the troll killed by a Gondor soldier -> the near horde's tracker (members climb to it, RW 0x68F383) asks for CHEER from the troll
+		kill(*troll, gondor.front()->getID());
+		REQUIRE(troll->isEffectivelyDead());
+		CHECK(tn->requested(EMOTION_CHEER));
+		CHECK(tn->requestSource(EMOTION_CHEER) == troll->getID());
+		CHECK(tn->requestEnd(EMOTION_CHEER) == g.logic.getFrame() + 10u);
+		CHECK_FALSE(tf->requested(EMOTION_CHEER)); // out of CheerRadius
+		CHECK_FALSE(to->requested(EMOTION_CHEER)); // the troll's ally (the ENEMIES filter)
+	}
+
+	// neighbour: deleting the dead troll (effectively dead, RW 0x8C1E1E) asks nothing more; a hit without a source (DamageInfo + 8 == 0) neither
+	mod2test::RetailGame g2(sh);
+	Object *near2 = g2.make("GondorFighterHorde", "Men", 300.0f, 300.0f);
+	Object *troll2 = g2.make("MordorAttackTroll", "Mordor", 360.0f, 300.0f);
+	Object *troll3 = g2.make("MordorAttackTroll", "Mordor", 300.0f, 240.0f);
+	g2.run(2);
+	EmotionTrackerUpdate *tn2 = EmotionTrackerUpdate::of(*near2);
+	REQUIRE(tn2);
+	kill(*troll2, INVALID_ID);
+	REQUIRE(troll2->isEffectivelyDead());
+	CHECK_FALSE(tn2->requested(EMOTION_CHEER));
+	g2.logic.destroyObject(troll2);
+	CHECK_FALSE(tn2->requested(EMOTION_CHEER));
+	// the port: a live troll deleted (onDelete RW 0x8C1E18) cheers
+	g2.logic.destroyObject(troll3);
+	CHECK(tn2->requested(EMOTION_CHEER));
+	CHECK(tn2->requestSource(EMOTION_CHEER) == troll3->getID());
 }

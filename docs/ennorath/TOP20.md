@@ -43,7 +43,7 @@
 | 17 | `HordeContain/ShowPips` | 598 | parsed-unused | только объявлено и конструктор (`OpenContain.h:71`) | значки отряда | открыто |
 | 18 | `SlowDeathBehavior/FadeTime` | 596 | parsed-unused | разобрано (`CombatModules.cpp:142`), чтения нет | исчезновение трупа | проверено: узкий тест `TOP20-18 slow death*`, владелец: работает (Gondor Worker), аудит `used` (`CombatModules.cpp:628`); ждёт ночи — RW 0x860D35 .. 0x860D5E: при наступлении FadeDelay тело гаснет (fadeOut RW 0x670A50) за FadeTime * 6 кадров клиента |
 | 19 | `Object/EmotionRange` | 547 | parsed-unused | чтения нет | эмоции юнитов | открыто |
-| 20 | `ActiveBody/CheerRadius` (+ `RespawnBody/CheerRadius` 246) | 505 | parsed-unused | разобрано (`ActiveBody.cpp:85`), чтения нет | радиус ликования | открыто |
+| 20 | `ActiveBody/CheerRadius` (+ `RespawnBody/CheerRadius` 246) | 505 | parsed-unused | разобрано (`ActiveBody.cpp:85`), чтения нет | радиус ликования | исправлено, ждёт: владельца — RW 0x8C3B89 (слот 0x58 тела): враги в CheerRadius (ENEMIES, живые) получают запрос EMOTION_CHEER на 10 кадров (RW 0x68F37F); вызывают смерть от источника вне полного контейнера (RW 0x8C4679 .. 0x8C46A6) и удаление живого (onDelete RW 0x8C1E18), кроме PROJECTILE / INERT; узкий тест `TOP20-20 cheer*`, аудит `used` (`ActiveBody.cpp:632`); эталоны хэша `perf1` пересняты (сдвиг с кадров 103 / 723) |
 
 Просмотрено 2026-11-04 (станция claude/station-2), не взято как большое — по правилу 2а раздела 7а [PROCESS.md](PROCESS.md) так больше не делать, эти пункты брать по порядку; адреса для того, кто возьмётся:
 
@@ -54,7 +54,6 @@
 - 14 `LevelUpTint*`: в порту нет оттенков drawable (TintEnvelope).
 - 17 `ShowPips`: порт не рисует значки контейнера.
 - 19 `EmotionRange`: объект копирует его в + 0x1BC (RW 0x699DFD), читатель не найден; порт берёт радиус обзора (EmotionModules.cpp:667).
-- 20 `CheerRadius`: RW 0x8C3B89 (виртуальный, ActiveBody) ищет объекты в радиусе (RW 0xA39340) и просит у каждого эмоцию (RW 0x68F37F); путь эмоций RW 0x68F37F в порту не запущен (`emotionsNotRun`, ExperienceWorld).
 - `ActiveBody/BurningDeathFX`: часть механики сгорания в attemptDamage (RW 0x8C417D ..), которой в порту нет.
 
 Сразу за двадцаткой: `CampnessValue` 446 (S-560), `HordeAIUpdate` (raw, 404: `AutoAcquireEnemiesWhenIdle`, `MinCowerTime`, `MaxCowerTime`, `MoodAttackCheckRate`, `AttackPriority`), `OCL CreateObject/FadeIn` 462 и `FadeTime` 412 (исправлено вместе с `FadeOut` и `FadeSound`, проверено: узкий тест `TOP20-OCL fade*`, владелец: работает (Армия мёртвых, Око Саурона), аудит `used` (ручной вердикт обновлён); ждёт ночи — RW 0x5F1678 .. 0x5F17A6), `ActiveBody/BurningDeathFX` 448, `MeshNameMatches` (stub-block, 380), `Weapon/HitPassengerPercentage` 320 (S-321).
