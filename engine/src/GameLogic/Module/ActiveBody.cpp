@@ -6,6 +6,9 @@
 #endif
 
 #include "GameLogic/Module/ActiveBody.h"
+#include "Common/Audio/AudioLog.h"
+#include "Common/Audio/AudioRequests.h"
+#include "GameLogic/UnitSpecificSound.h"
 #include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/Object/Contain/HordeFlank.h"
 #include "GameLogic/SimMath.h"
@@ -406,6 +409,31 @@ void HighlanderBody::attemptDamage(DamageInfo &info)
 	ActiveBody::attemptDamage(info);
 }
 
+namespace
+{
+// lane SOUND-707, RW 0x8C4422 .. 0x8C44C1 (attemptDamage, inside the state-changed branch RW 0x8C438F, after the modules' slot 2 loop): with a drawable
+// (RW 0x70E013) the object's SoundOnDamaged (row 0x2D, RW 0x8C22C0) when the new state is DAMAGED (1, RW 0x8C4439), SoundOnReallyDamaged (row 0x2E,
+// RW 0x8C22D9) when REALLYDAMAGED (2, RW 0x8C4460), nothing for another state; an AudioEventRTS (RW 0x6DA95E) for the object's id (+ 0x74, RW 0x6DA6A7)
+// added through TheAudio's slot 0x64. Any change into those states by a hit plays it (a hit that leaves RUBBLE does not; healing, RW 0x8C3139, never calls it).
+// INFERENCE: the drawable test is taken as true (every retail logic object has a drawable); the row comes from the template, not through the draw
+// module's sound selectors (RW 0x676A8A asks them first; S-701, as SoundMoveStart)
+void playDamageStateSound(const Object &obj, BodyDamageType state)
+{
+	const char *row = state == BODY_DAMAGED ? "SoundOnDamaged" : state == BODY_REALLYDAMAGED ? "SoundOnReallyDamaged" : nullptr;
+	const ThingTemplate *tt = obj.getTemplate();
+	if (!row || !tt)
+	{
+		return;
+	}
+	const std::string sound = UnitSpecificSound::templateSound(*tt, row);
+	if (!sound.empty())
+	{
+		AudioLog::Scope scope(row);
+		AudioApi::playSoundForObject(sound, obj.getID());
+	}
+}
+} // namespace
+
 // RW 0x8C3FA3, in the order of scratch/weapon1/damage.md 2.7
 void ActiveBody::attemptDamage(DamageInfo &info)
 {
@@ -526,6 +554,7 @@ void ActiveBody::attemptDamage(DamageInfo &info)
 		if (m_curDamageState != stateBefore)
 		{
 			notifyDamageStateChange(&info, stateBefore, m_curDamageState);
+			playDamageStateSound(obj, m_curDamageState);
 		}
 		// (18) death: health <= 0 and the hit took health
 		if (m_currentHealth <= 0.0f && previous > 0.0f)

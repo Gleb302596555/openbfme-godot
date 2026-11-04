@@ -117,12 +117,27 @@ struct FactRig
 		return p;
 	}
 	// true when both the HUD's and the logic's selection are the object alone (a stealthed or unselectable object is not picked). The click aims at the body
-	// (clickPoint), then a little beside it (a model with a gap at its centre, a catapult's frame)
-	bool select(Object *o)
+	// (clickPoint), then a little beside it (a model with a gap at its centre, a catapult's frame). The game runs between the tries, so the object is found
+	// again by its ID each time: one that died meanwhile ends the tries (`died`), its pointer is not read again (PROCESS.md section 5, step 6)
+	bool select(Object *o, bool *died = nullptr)
 	{
 		static const float offsets[][2] = { { 0, 0 }, { 18, 0 }, { -18, 0 }, { 0, 18 }, { 0, -18 }, { 35, 35 }, { -35, 35 }, { 35, -35 }, { -35, -35 } };
+		const ObjectID id = o->getID();
+		if (died)
+		{
+			*died = false;
+		}
 		for (const auto &d : offsets)
 		{
+			o = rig.logic().findObjectByID(id);
+			if (!o || o->isDestroyed())
+			{
+				if (died)
+				{
+					*died = true;
+				}
+				return false;
+			}
 			// a left click on the object, as the player selects it (the selection translator sends the group message)
 			hud->input().ui().deselectAll();
 			Coord3D at = clickPoint(*o);
@@ -140,7 +155,7 @@ struct FactRig
 			frames(2);
 			const std::vector<ObjectID> &ui = hud->input().ui().selected();
 			const std::vector<ObjectID> &logicSel = rig.local->selection();
-			if (ui.size() == 1 && ui.front() == o->getID() && logicSel.size() == 1 && logicSel.front() == o->getID())
+			if (ui.size() == 1 && ui.front() == id && logicSel.size() == 1 && logicSel.front() == id)
 			{
 				resetRange();
 				return true;

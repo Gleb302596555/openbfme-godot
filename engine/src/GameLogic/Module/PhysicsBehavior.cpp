@@ -6,6 +6,9 @@
 #endif
 
 #include "GameLogic/Module/PhysicsBehavior.h"
+#include "Common/Audio/AudioLog.h"
+#include "Common/Audio/AudioRequests.h"
+#include "GameLogic/UnitSpecificSound.h"
 #include "GameLogic/SnapshotXfer.h"
 
 #include "Common/GameCommon.h"
@@ -729,7 +732,7 @@ float ObjectKnockback::shockwaveResistance(const Object &obj)
 //   * nothing unless D+0x40 (amount) > 0 and D+0x44 (radius) > 0 (comiss); cyclonic = D+0x68 != 0; nothing without a PhysicsBehavior (+ 0x264) or when it is
 //     stunned (+ 0x5C) and the hit is not cyclonic;
 //   * RW 0x696947 .. 0x696A0E (drawable present and not stunned): an audio event of the template's (RW 0x68FFBD / 0x68FFD6) through TheAudio (RW 0xDE42FC slot 0x64):
-//     client, not ported;
+//     ported by lane SOUND-707 (below);
 //   * RW 0x68E16A(cyclonic): the template's ShockwaveResistance (+ 0x620) >= 100 (RW 0xBD88D8) and not (cyclonic and KindOf SHIP, template + 0x11F bit 7): the
 //     object stands up (RW 0x792AFF) and nothing more;
 //   * RESIST_KNOCKBACK (attribute modifier 10, RW 0x804F39 through the pool RW 0x68C4A6) at least 1.0: nothing;
@@ -760,6 +763,22 @@ bool ObjectKnockback::shockWave(Object &obj, const DamageInfo &info)
 	if (!phys || (phys->isStunned() && !cyclonic))
 	{
 		return true;
+	}
+	// lane SOUND-707, RW 0x696947 .. 0x696A0E: with a drawable and not stunned (+ 0x5C), SoundImpactCyclonic (row 0x36, RW 0x68FFD6) for a cyclonic hit, else
+	// SoundImpact (row 0x35, RW 0x68FFBD); an AudioEventRTS (RW 0x6DA95E) for the object's id (+ 0x74) added through TheAudio's slot 0x64, before the
+	// resistance test. INFERENCE: the drawable is taken as present; the row comes from the template, not through the draw module's selectors (S-701)
+	if (!phys->isStunned())
+	{
+		if (const ThingTemplate *tt = obj.getTemplate())
+		{
+			const char *row = cyclonic ? "SoundImpactCyclonic" : "SoundImpact";
+			const std::string sound = UnitSpecificSound::templateSound(*tt, row);
+			if (!sound.empty())
+			{
+				AudioLog::Scope scope(row);
+				AudioApi::playSoundForObject(sound, obj.getID());
+			}
+		}
 	}
 	GameLogic &logic = obj.logic();
 	CombatState::Counters &counters = logic.combat().counters();

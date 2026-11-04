@@ -1089,6 +1089,10 @@ int DozerAIUpdate::workOnBuild(int t, Object &structure)
 			frames = std::max(1, SimMath::truncToInt32(SimMath::divf32(SimMath::sseFromInt32(frames), f)));
 		}
 	}
+	if (self->getControllingPlayer() && logic.cheatMode().instantBuild(self->getControllingPlayer()->getPlayerIndex()))
+	{
+		frames = 1; // OpenBFME's Cheat Mode InstantBuild (GameLogic/CheatMode.h): not RotWK
+	}
 	const float framesF = SimMath::sseFromInt32(frames);
 	structure.setConstructionPercent(SimMath::addf32(structure.getConstructionPercent(), SimMath::divf32(100.0f, framesF)));
 	if (ActiveBody *body = dynamic_cast<ActiveBody *>(structure.getBodyModule()))

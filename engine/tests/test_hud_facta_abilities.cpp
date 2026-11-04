@@ -157,11 +157,16 @@ void runObject(FactRig &r, const std::string &faction, const std::string &name, 
 		}
 		r.frames(3);
 		const std::string tag = faction + " " + name + " " + b->m_name + " (" + commandName(b->m_command) + ")";
-		if (!r.select(o))
+		const ObjectID made = o->getID();
+		bool died = false;
+		if (!r.select(o, &died))
 		{
-			effects[tag] = "not selected";
-			out.problems.push_back(tag + ": a click does not select the object");
-			r.logic().destroyObject(o);
+			effects[tag] = died ? "died before it was selected" : "not selected";
+			out.problems.push_back(tag + (died ? ": the object died while the clicks tried to select it" : ": a click does not select the object"));
+			if (Object *left = r.logic().findObjectByID(made))
+			{
+				r.logic().destroyObject(left);
+			}
 			r.frames(2);
 			continue;
 		}

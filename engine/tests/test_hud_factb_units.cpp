@@ -2586,6 +2586,12 @@ void damageOf(const std::string &faction, Results &res, bool siege = false)
 			}
 			g.cameraBack = 420.0f;
 			float before = v->getBodyModule()->getHealth(), lost = 0.0f;
+			// the burning ground's damage has no source (FireLogicSystem, RW 0x6886E0): the baby drakes' flame lights the grass under the hero, and its ticks
+			// are not the attacker's hit, so they are left out of the health it lost
+			float sourceless = 0.0f;
+			g.logic().combat().setDamageTrace([&](const Object &victim, std::uint32_t src, float, float taken) {
+				sourceless += (victim.getID() == vid && src == INVALID_ID) ? taken : 0.0f;
+			});
 			int maxHits = 1;
 			std::string expectedText;
 			std::vector<float> expected;
@@ -2651,8 +2657,9 @@ void damageOf(const std::string &faction, Results &res, bool siege = false)
 				g.step(1);
 				v = g.logic().findObjectByID(vid);
 				const float now = v && v->getBodyModule() ? v->getBodyModule()->getHealth() : 0.0f;
-				lost = before - now;
+				lost = before - now - sourceless;
 			}
+			g.logic().combat().setDamageTrace(nullptr);
 			if (lost <= 0.0f)
 			{
 				a = g.logic().findObjectByID(aid);

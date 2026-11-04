@@ -23,6 +23,7 @@
 #include "GameClient/LiveGame.h"
 #include "GameClient/LiveGameAudio.h"
 #include "GameLogic/Construction.h"
+#include "GameLogic/Damage.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/GameMessage.h"
 #include "GameLogic/Module/AIUpdate.h"
@@ -189,6 +190,84 @@ TEST_CASE("STOPS-B1 S-685 retail: slow-death sounds retain their dying object ow
 		}
 	}
 	CHECK(deathSounds == 1);
+}
+
+// lane SOUND-707: ActiveBody::attemptDamage (RW 0x8C4422 .. 0x8C44C1) posts the object's SoundOnDamaged (row 0x2D, RW 0x8C22C0) when a hit moves it into DAMAGED
+// and SoundOnReallyDamaged (row 0x2E, RW 0x8C22D9) when into REALLYDAMAGED, once per change; healing (RW 0x8C3139) never does. Retail's one template with both
+// set: RohanHeroStatueNoLeadership (data/ini/object/obsolete/obsolete.ini:9234 SoundOnDamaged = BuildingLightDamageWood, :9235 SoundOnReallyDamaged =
+// BuildingHeavyDamageWood)
+TEST_CASE("SOUND-707 retail: a hit into DAMAGED plays SoundOnDamaged, into REALLYDAMAGED SoundOnReallyDamaged, once each; healing plays nothing")
+{
+	if (!hudtest::haveWorld("SOUND-707 damage"))
+	{
+		return;
+	}
+	auto &shared = hudtest::shared();
+	hudtest::Rig rig(shared);
+	RetailAudio audio(*shared.mount->fs);
+	std::string error;
+	Object *statue = rig.game->createObject("RohanHeroStatueNoLeadership", rig.index(), Coord3D{ 1200.0f, 1200.0f, 0.0f }, 0.0f, &error);
+	REQUIRE_MESSAGE(statue, error);
+	rig.logic().runLogicFrame();
+	BodyModuleInterface *body = statue->getBodyModule();
+	REQUIRE(body);
+	REQUIRE(body->getDamageState() == BODY_PRISTINE);
+	audio.manager->takeEventLog();
+	std::vector<AudioLogEntry> log;
+	for (int i = 0; i < 40 && body->getDamageState() != BODY_REALLYDAMAGED; ++i)
+	{
+		DamageInfo hit;
+		hit.m_input.m_amount = body->getMaxHealth() * 0.05f;
+		hit.m_input.m_damageType = DAMAGE_UNRESISTABLE;
+		statue->attemptDamage(hit);
+		std::vector<AudioLogEntry> more = audio.manager->takeEventLog();
+		log.insert(log.end(), more.begin(), more.end());
+	}
+	REQUIRE(body->getDamageState() == BODY_REALLYDAMAGED);
+	const std::uint32_t id = (std::uint32_t)statue->getID();
+	CHECK(audio.requests(log, "BuildingLightDamageWood", id, "SoundOnDamaged") == 1);
+	CHECK(audio.requests(log, "BuildingHeavyDamageWood", id, "SoundOnReallyDamaged") == 1);
+	// back to full health by healing (attemptHealing, RW 0x8C3139: no call of the rows' getters): no damage sound
+	statue->attemptHealing(body->getMaxHealth(), nullptr);
+	REQUIRE(body->getDamageState() == BODY_PRISTINE);
+	const std::vector<AudioLogEntry> healed = audio.manager->takeEventLog();
+	CHECK(audio.requests(healed, "BuildingLightDamageWood", 0, "") == 0);
+	CHECK(audio.requests(healed, "BuildingHeavyDamageWood", 0, "") == 0);
+}
+
+// lane SOUND-707: the shockwave handler (RW 0x6968BC) posts the object's SoundImpact (row 0x35, RW 0x68FFBD; SoundImpactCyclonic RW 0x68FFD6 for a cyclonic hit)
+// when it has a PhysicsBehavior that is not stunned (RW 0x696931 .. 0x696947); the throw stuns it, so a second plain hit during the flight is silent. MordorArcher:
+// data/ini/object/evilfaction/units/mordor/mordorarcher.ini:679 SoundImpact = ImpactHorse
+TEST_CASE("SOUND-707 retail: a shockwave hit plays SoundImpact once; a second plain hit while the object is stunned plays nothing")
+{
+	if (!hudtest::haveWorld("SOUND-707 impact"))
+	{
+		return;
+	}
+	auto &shared = hudtest::shared();
+	hudtest::Rig rig(shared);
+	RetailAudio audio(*shared.mount->fs);
+	std::string error;
+	Object *archer = rig.game->createObject("MordorArcher", rig.index(), Coord3D{ 1200.0f, 1200.0f, 0.0f }, 0.0f, &error);
+	REQUIRE_MESSAGE(archer, error);
+	rig.logic().runLogicFrame();
+	audio.manager->takeEventLog();
+	DamageInfo hit;
+	hit.m_input.m_damageType = DAMAGE_CRUSH;
+	hit.m_input.m_shockWaveVector = Coord3D{ 3.0f, 4.0f, 0.0f };
+	hit.m_input.m_shockWaveAmount = 6.0f;
+	hit.m_input.m_shockWaveZMult = 1.5f;
+	hit.m_input.m_shockWaveRadius = 10.0f;
+	hit.m_input.m_shockWaveTaperOff = 0.75f;
+	DamageInfo first = hit;
+	archer->attemptDamage(first);
+	std::vector<AudioLogEntry> log = audio.manager->takeEventLog();
+	const std::uint32_t id = (std::uint32_t)archer->getID();
+	CHECK(audio.requests(log, "ImpactHorse", id, "SoundImpact") == 1);
+	DamageInfo second = hit;
+	archer->attemptDamage(second);
+	log = audio.manager->takeEventLog();
+	CHECK(audio.requests(log, "ImpactHorse", id, "") == 0);
 }
 
 TEST_CASE("STOPS-B1 S-481 retail: ring upgrade announcements select local allied and enemy events")
