@@ -152,6 +152,10 @@ THING_CPP = r'''
 #include "Common/Thing/ThingTemplate.h"
 float buildCost(const ThingTemplate &tt) { return number(tt.findField("BuildCost")); }
 const char *selectVoice(const ThingTemplate &tt) { return text(tt.findField("VoiceSelect")); }
+// a name list read by index (UnitVoiceResponse.cpp's kRowNames): naming VoiceFear there is no request for it
+const char *const kRowNames[] = {
+	"VoiceSelect", "VoiceFear",
+};
 void ThingFactory::registerBlocks(INIBlockRegistry &registry)
 {
 	registry.registerBlock("Object", [this](INI *ini) { parse(ini); });
@@ -406,6 +410,7 @@ Object TestUnit
   PreviewTint = 2
   PreviewScale = 2
   VoiceSelect = TestUnitVoiceSelect
+  VoiceFear = TestUnitVoiceFear
   UnitSpecificSounds
     VoiceGarrison = TestUnitVoiceGarrison
     VoiceEnterUnitSecondUnit = A
@@ -516,7 +521,7 @@ def rw_tables(rw: Path):
                  "terminated": True},
         "0xa9": table("FacingBonus"),
         "0xaa": {"rows": [], "catchAll": "0xb5", "terminated": True},
-        "0xa8": table("VoiceSelect"),
+        "0xa8": table("VoiceSelect", "VoiceFear"),
     }
     functions = {"0x1": {"kind": "line"}, "0xb1": {"kind": "block", "tables": [{"extra": 0, "table": "0xa5"}]},
                  "0xb2": {"kind": "script", "terminator": "ENDSCRIPT"},
@@ -640,6 +645,7 @@ def test_definition_fields(result):
     assert status(result, "object", "", "PreviewScale") == "used"  # a method's bare name
     # the Object is read by two RotWK tables (RW 0x73C13C): a field of the audio table is RotWK's, not the mod's error
     assert status(result, "object", "", "VoiceSelect") == "used"
+    assert status(result, "object", "", "VoiceFear") == "dynamic-row"  # only a name list read by index names it: a hand check
     assert status(result, "weapon", "", "AttackRange") == "used"
     assert status(result, "weapon", "", "Unread") == "parsed-unused"
     assert status(result, "weapon", "", "Count2") == "used"

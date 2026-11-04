@@ -996,13 +996,19 @@ class Source:
         words = self.words_of(f)
         return any(nm in words for nm in names)
 
-    def string_read(self, field: str, near: str = "") -> str:
+    def string_read(self, field: str, near: str = "", lists: bool = False) -> str:
         """the first source line naming "field" as a string outside the tables and the .inc field lists; with near, only in a file that also names
-        near (a raw class's reader names its class)"""
+        near (a raw class's reader names its class). A line of a name list (`"VoiceSelect", "VoiceMove", ..` in UnitVoiceResponse.cpp's kRowNames)
+        is not a request for the name: the list is read by index, which rows are asked is not followed; with lists, only such lines"""
         for f, n in self.string_lines(field):
-            if not near or re.search(r"\b" + re.escape(near) + r"\b", self._text[f]):
+            if (not near or re.search(r"\b" + re.escape(near) + r"\b", self._text[f])) and self.name_list_line(f, n) == lists:
                 return f"{f}:{n}"
         return ""
+
+    def name_list_line(self, f: str, n: int) -> bool:
+        """a line holding only string literals (two or more), commas and braces: a row of a name list"""
+        line = self.files[f][n - 1].split("//", 1)[0]
+        return len(STRING.findall(line)) >= 2 and not re.sub(r"\"[^\"]*\"|[\s,{}]|const\s+char\s*\*\s*const\s+\w+\[[^\]]*\]\s*=", "", line)
 
     def string_lines(self, field: str) -> list[tuple[str, int]]:
         """the source lines naming "field" (any case) as a string literal outside the tables and the .inc field lists"""
@@ -1265,7 +1271,11 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
                     status, where, member, how = typed_status(field, [], False, others)
                 if not others or status != "used":
                     use = src.string_read(field)
-                    if use or not others:
+                    listed = "" if use else src.string_read(field, lists=True)
+                    if listed:
+                        # only in a name list read by index (the voice and sound rows): which rows the port asks for is not followed
+                        status, where, how = "dynamic-row", f"{listed} (a name list read by index: the rows asked are not followed)", "by-index"
+                    elif use or not others:
                         status, where, how = ("used", use, "by-name") if use else ("parsed-unused", "", "by-name")
         elif typ not in real_blocks:
             # a recording stub in the INI registry, but a hand-written reader of its own may read the file (TerrainTypes.cpp reads terrain.ini's
