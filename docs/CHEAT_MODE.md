@@ -27,7 +27,7 @@ Open the in-game menu (Esc), then press **CHEAT MODE**. The panel uses the same 
 | Selected | Acts on the units you selected before Esc: freeze (they stand and fight where they are) or release, hold fire or fire at will, heal, kill, level up, make every ability ready, give them to a player. |
 | Heroes | Levels up one of the player's living heroes. |
 | Map | Reveals the whole map for a player, or hides it again. |
-| Game | Ends the game so that the chosen player's alliance wins, or voids it (no winner). Pauses or resumes a computer player's AI. |
+| Game | Ends the game so that the chosen player's alliance wins, or voids it (no winner). Pauses or resumes a computer player's AI. Switches instant building per player (on for the host from the start). |
 
 ### Testing with it
 
@@ -86,6 +86,7 @@ world.take_cheat_lines()    # [ { frame, text, executed, command } ]: the lines 
 | `reset_cooldowns` | any player | 0 | `objects` | Every special power of the objects (and a horde's members) is ready now |
 | `give_to` | player index | 0 | `objects` | The objects change owner to that player |
 | `pause_ai` | player index | 1 pause, 0 resume | | The player's skirmish AI does not update while paused (saved with the game) |
+| `instant_build` | player index | 1 on, 0 off | | The player's units, heroes, upgrades and buildings are done in one frame. On for the host when the game starts (saved with the game) |
 
 A value outside its range, a player that is not in the game (the neutral player, an observer or a map side), an unknown template or object, or a point off the map is refused. The refusal is announced as "Cheat Mode: <host> (not done): <why>".
 
@@ -98,7 +99,7 @@ In C++, `CheatMode::makeMessage` builds the message. The arguments are, in order
 - for the object commands (`freeze` .. `give_to`), the number of objects (1 .. 100), then each object id;
 - for `spawn`, then a location argument: the first unit's point.
 
-The command numbers are `add_resources` 1, `add_command_points` 2, `add_power_points` 3, `spawn` 4, `level_up` 5, `reveal_map` 6, `end_game` 7, `void_game` 8, `freeze` 9, `hold_fire` 10, `heal` 11, `kill` 12, `level_up_objects` 13, `reset_cooldowns` 14, `give_to` 15, `pause_ai` 16.
+The command numbers are `add_resources` 1, `add_command_points` 2, `add_power_points` 3, `spawn` 4, `level_up` 5, `reveal_map` 6, `end_game` 7, `void_game` 8, `freeze` 9, `hold_fire` 10, `heal` 11, `kill` 12, `level_up_objects` 13, `reset_cooldowns` 14, `give_to` 15, `pause_ai` 16, `instant_build` 17.
 
 ### Ideas for a plugin (not built)
 

@@ -14,6 +14,8 @@
 #include "GameLogic/CheatMode.h"
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Damage.h"
+#include "Common/Upgrade.h"
+#include "GameLogic/Module/ProductionUpdate.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/SkirmishAI/SkirmishAIManager.h"
@@ -370,6 +372,31 @@ TEST_CASE("cheat1 mode: every command's effect and limits in a Cheat Mode game")
 		REQUIRE_MESSAGE(logic.loadSnapshot(saved, &err), err);
 		CHECK(logic.cheatMode().aiPaused(o));
 		CHECK(logic.computeStateHash() == atSave);
+	}
+	SUBCASE("instant build: on for the cheat seat's player from the start; an upgrade takes one frame there, its own time elsewhere; switched per player")
+	{
+		CHECK(logic.cheatMode().instantBuild(h));
+		CHECK_FALSE(logic.cheatMode().instantBuild(o));
+		const Coord3D mine{ 1400.0f, 1400.0f, 0.0f }, theirs{ 600.0f, 1400.0f, 0.0f };
+		REQUIRE(send(CheatMode::makeMessage(h, Command::Spawn, h, 1, templateId(logic, "GondorBarracks"), &mine)).executed);
+		REQUIRE(send(CheatMode::makeMessage(h, Command::Spawn, o, 1, templateId(logic, "GondorBarracks"), &theirs)).executed);
+		Object *a = objectsOf(logic, host, "GondorBarracks").front();
+		Object *b = objectsOf(logic, other, "GondorBarracks").front();
+		const UpgradeTemplate *level2 = s.world->upgrades().findUpgrade("Upgrade_TechnologyGondorHeavyArmor"); // a player upgrade, researched once per player
+		REQUIRE(level2 != nullptr);
+		REQUIRE(level2->calcTimeToBuild(host) > 5); // tolerance: its own time is longer than the frames below
+		REQUIRE(a->getProductionUpdate()->queueUpgrade(level2));
+		REQUIRE(b->getProductionUpdate()->queueUpgrade(level2));
+		r.frame(3);
+		CHECK(host->hasUpgradeComplete(level2));
+		CHECK_FALSE(other->hasUpgradeComplete(level2));
+		CHECK(send(CheatMode::makeMessage(h, Command::InstantBuild, o, 1)).executed);
+		CHECK(lastEntry(logic).text == "Cheat Mode: Player_1 made building instant for Player_2");
+		r.frame(3);
+		CHECK(other->hasUpgradeComplete(level2));
+		CHECK(send(CheatMode::makeMessage(h, Command::InstantBuild, h, 0)).executed);
+		CHECK_FALSE(logic.cheatMode().instantBuild(h));
+		CHECK(!send(CheatMode::makeMessage(h, Command::InstantBuild, h, 0)).executed);
 	}
 	SUBCASE("reveal: once per player, undo once")
 	{

@@ -844,6 +844,10 @@ ProductionEntry *ProductionUpdate::currentEntry()
 // RW 0x8A04DA
 int ProductionUpdate::totalProductionFrames(const ProductionEntry &e, Player *player) const
 {
+	if (player && getObject()->logic().cheatMode().instantBuild(player->getPlayerIndex()))
+	{
+		return 1; // OpenBFME's Cheat Mode InstantBuild (GameLogic/CheatMode.h): not RotWK
+	}
 	if (e.type == PRODUCTION_UNIT)
 	{
 		Object *obj = getObject();

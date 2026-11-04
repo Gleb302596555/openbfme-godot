@@ -47,6 +47,9 @@
 //   ResetCooldowns   every special power module's setReadyFrame(now) (slot 0x20, RW 0x99344A): every power is ready
 //   GiveTo           Object::setTeam(the target player's default team) (RW 0x697C09; a horde's members follow, RW 0x69962F)
 //   PauseAI          value 1 / 0: the target player's skirmish AI skips its update (SkirmishAIManager::updateAI); State's paused mask, hashed and saved
+//   InstantBuild     value 1 / 0: the target player's production (units, heroes, upgrades: ProductionUpdate::totalProductionFrames) and construction (a
+//                    dozer's build step, GettingBuiltBehavior's frames) take one frame. On for the cheat seat's player when the game starts (the owner,
+//                    2026-11-04: "units, upgrades and buildings at once with Cheat Mode on"); State's instant mask, hashed and saved
 // The announcements (take*): one per command, display data only, never hashed or saved (a replay announces the same lines again as it plays).
 #pragma once
 
@@ -82,10 +85,11 @@ enum class Command : int
 	LevelUpObjects = 13,
 	ResetCooldowns = 14,
 	GiveTo = 15,
-	PauseAI = 16
+	PauseAI = 16,
+	InstantBuild = 17
 };
 constexpr int kFirstCommand = 1;
-constexpr int kLastCommand = 16;
+constexpr int kLastCommand = 17;
 // the commands whose arguments are a list of objects (argument 3 the count, then the ids)
 constexpr bool takesObjects(Command c) { return c >= Command::Freeze && c <= Command::GiveTo; }
 
@@ -119,6 +123,7 @@ public:
 	{
 		m_slot = slot;
 		m_player = slot >= 0 ? playerIndex : -1;
+		m_instantMask = m_player >= 0 && m_player < 32 ? (1u << m_player) : 0u; // InstantBuild: on for the cheat seat's player
 	}
 	bool enabled() const { return m_slot >= 0 && m_player >= 0; }
 	int slot() const { return m_slot; }
@@ -131,7 +136,17 @@ public:
 	bool aiPaused(int playerIndex) const { return playerIndex >= 0 && playerIndex < 32 && ((m_aiPausedMask >> playerIndex) & 1u); }
 	void setAIPaused(int playerIndex, bool on) { m_aiPausedMask = on ? (m_aiPausedMask | (1u << playerIndex)) : (m_aiPausedMask & ~(1u << playerIndex)); }
 	std::uint32_t aiPausedMask() const { return m_aiPausedMask; }
-	void clearPausedAI() { m_aiPausedMask = 0; }
+	// InstantBuild: the players whose production and construction take one frame
+	bool instantBuild(int playerIndex) const { return enabled() && playerIndex >= 0 && playerIndex < 32 && ((m_instantMask >> playerIndex) & 1u); }
+	void setInstantBuild(int playerIndex, bool on) { m_instantMask = on ? (m_instantMask | (1u << playerIndex)) : (m_instantMask & ~(1u << playerIndex)); }
+	std::uint32_t instantMask() const { return m_instantMask; }
+	// the sandbox block (GameLogic::xferCore version 5) is written while one of its masks is set
+	bool sandboxInUse() const { return m_aiPausedMask != 0 || m_instantMask != 0; }
+	void clearSandbox()
+	{
+		m_aiPausedMask = 0;
+		m_instantMask = 0;
+	}
 	std::uint32_t executedCount() const { return m_executed; }
 	std::uint32_t refusedCount() const { return m_refused; }
 	const std::vector<LogEntry> &log() const { return m_log; }
@@ -145,14 +160,15 @@ public:
 	void crc(StateHasher &h) const;
 	// GameLogic::xferCore (version 2): the seat, the reveals, void and the counts (the log and the announcements are display data)
 	void xfer(Xfer &x);
-	// GameLogic::xferCore (version 5): the paused AIs
-	void xferPausedAI(Xfer &x);
+	// GameLogic::xferCore (version 5): the paused AIs and the instant builders
+	void xferSandbox(Xfer &x);
 
 private:
 	int m_slot = -1;
 	int m_player = -1;
 	std::uint32_t m_revealedMask = 0;
 	std::uint32_t m_aiPausedMask = 0;
+	std::uint32_t m_instantMask = 0;
 	bool m_voided = false;
 	std::uint32_t m_executed = 0, m_refused = 0;
 	std::vector<LogEntry> m_log;

@@ -254,9 +254,11 @@ func _show() -> void:
 			rows.append(button.call("reveal_map", "", "REVEAL MAP", "The player sees the whole map until it is hidden again"))
 			rows.append(button.call("hide_map", "", "HIDE MAP AGAIN", "Undoes the reveal"))
 		6:
-			rows.append(choice.call("player", "Player", player_items, "The winner, or the AI to pause"))
+			rows.append(choice.call("player", "Player", player_items, "The winner, the AI to pause, or whose build time"))
 			rows.append(button.call("pause_ai", "", "PAUSE AI", "A computer player stops building, training and attacking"))
 			rows.append(button.call("resume_ai", "", "RESUME AI", "The computer player plays again"))
+			rows.append(button.call("instant_on", "", "INSTANT BUILD", "Units, heroes, upgrades and buildings of this player are done at once (on for you from the start)"))
+			rows.append(button.call("instant_off", "", "NORMAL BUILD TIME", "This player builds in the original times again"))
 			rows.append(button.call("end_game", "", "END GAME", "Every player outside the winner's alliance is defeated"))
 			rows.append(button.call("void_game", "", "VOID GAME", "The game ends with no winner"))
 	rows.append({"kind": "section", "label": ""})
@@ -350,6 +352,10 @@ func _press(key: String) -> void:
 			_send({"command": "pause_ai", "target": target, "value": 1})
 		"resume_ai":
 			_send({"command": "pause_ai", "target": target, "value": 0})
+		"instant_on":
+			_send({"command": "instant_build", "target": target, "value": 1})
+		"instant_off":
+			_send({"command": "instant_build", "target": target, "value": 0})
 
 
 ## an object command on the host's selection (read when pressed: the panel may have been open a while)

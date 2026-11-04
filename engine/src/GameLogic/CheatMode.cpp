@@ -506,6 +506,19 @@ bool runCommand(GameLogic &logic, const GameMessage &msg, Command command, int t
 		state.setAIPaused(target, value == 1);
 		text = std::string(value ? "paused the AI of " : "resumed the AI of ") + who;
 		return true;
+	case Command::InstantBuild:
+		if (!range(0, 1, "the instant build value"))
+		{
+			return false;
+		}
+		if (state.instantBuild(target) == (value == 1))
+		{
+			text = std::string("instant building is ") + (value ? "on" : "off") + " for " + who + " already";
+			return false;
+		}
+		state.setInstantBuild(target, value == 1);
+		text = std::string(value ? "made building instant for " : "made building take its time again for ") + who;
+		return true;
 	case Command::Freeze:
 	case Command::HoldFire:
 	case Command::Heal:
@@ -553,10 +566,8 @@ void State::crc(StateHasher &h) const
 	h.addBool(m_voided);
 	h.addU32(m_executed);
 	h.addU32(m_refused);
-	if (m_aiPausedMask != 0) // a game that never paused an AI keeps the hash it had before PauseAI
-	{
-		h.addU32(m_aiPausedMask);
-	}
+	h.addU32(m_aiPausedMask);
+	h.addU32(m_instantMask);
 }
 
 void State::xfer(Xfer &x)
@@ -573,9 +584,10 @@ void State::xfer(Xfer &x)
 	}
 }
 
-void State::xferPausedAI(Xfer &x)
+void State::xferSandbox(Xfer &x)
 {
 	x.xferUnsignedInt(&m_aiPausedMask);
+	x.xferUnsignedInt(&m_instantMask);
 }
 
 void registerHandlers(GameLogicDispatch &d)
@@ -684,7 +696,7 @@ GameMessage makeMessage(int player, Command command, int target, int value, int 
 namespace
 {
 const char *const kNames[] = { "add_resources", "add_command_points", "add_power_points", "spawn", "level_up", "reveal_map", "end_game", "void_game", "freeze",
-	"hold_fire", "heal", "kill", "level_up_objects", "reset_cooldowns", "give_to", "pause_ai" };
+	"hold_fire", "heal", "kill", "level_up_objects", "reset_cooldowns", "give_to", "pause_ai", "instant_build" };
 static_assert(sizeof(kNames) / sizeof(kNames[0]) == kLastCommand - kFirstCommand + 1, "a name per command");
 }
 
