@@ -1348,9 +1348,9 @@ def audit(mod, rw, rw_object, coverage, src: Source, real_blocks: set[str], stop
                 followed = True
                 # a row of the struct's own tables without offsetof stores into that struct; a nested or block-file row of no known struct: anywhere
                 use = src.member_read(m, r.struct or (structs[0] if how == "struct" and structs else "?"), origin=r.file, parser=(r.file, r.func))
-                if use and "|" in r.member:
+                if use and "|" in r.member and sum(1 for x in src.rows if x.file == r.file and x.parser == r.parser) > 1:
                     # a parser shared by several rows (CameraSettings.cpp's parseShake, its userData picks the member): which one this row's is, is
-                    # not told
+                    # not told (one row's parser storing a min and a max is no such case)
                     use += f" INFERENCE: its parser names several members ({r.member}), {m} may be another row's"
                 if use:
                     return "used", use, m, how

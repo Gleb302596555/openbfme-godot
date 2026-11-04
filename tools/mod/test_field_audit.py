@@ -52,6 +52,8 @@ public:
 	int m_slot = 0;
 	int m_left = 0;
 	int m_right = 0;
+	int m_spanMin = 0;
+	int m_spanMax = 0;
 };
 struct PartInfo
 {
@@ -107,6 +109,13 @@ void parseSide(INI *ini, void *instance, void *, const void *userData)
 	TypedThingModuleData *d = static_cast<TypedThingModuleData *>(instance);
 	(userData ? d->m_left : d->m_right) = 1;
 }
+// one row's parser storing two members (WeaponTemplate's DelayBetweenShots min and max): no other row's
+void parseSpan(INI *ini, void *instance, void *, const void *)
+{
+	TypedThingModuleData *d = static_cast<TypedThingModuleData *>(instance);
+	d->m_spanMin = 1;
+	d->m_spanMax = 2;
+}
 
 const FieldParse kTyped[] = {
 	{ "Used", INI::parseReal, nullptr, TT_OFF(m_used) },
@@ -118,6 +127,8 @@ const FieldParse kTyped[] = {
 	{ "Angle", parseAngle, nullptr, 0 },
 	{ "Slot", parseSlot<0>, nullptr, 0 },
 	{ "Left", parseSide, nullptr, 0 },
+	{ "Right", parseSide, (const void *)1, 0 },
+	{ "Span", parseSpan, nullptr, 0 },
 	{ "Names", INI::parseAsciiStringVector, nullptr, TT_OFF(m_names) },
 	{ "Level", INI::parseInt, nullptr, TT_OFF(m_level) },
 	{ "Rare", INI::parseInt, nullptr, TT_OFF(m_rare) },
@@ -153,7 +164,7 @@ int TypedThing::boneCount() const
 }
 
 float TypedThing::partWidth() const { return m_data->part.width; }
-int TypedThing::slotOf() const { return m_data->m_slot + m_data->m_right; }
+int TypedThing::slotOf() const { return m_data->m_slot + m_data->m_right + m_data->m_spanMax; }
 
 void TypedThing::registerModule(ModuleFactory &modules)
 {
@@ -677,6 +688,7 @@ Object TestUnit
     Angle = 4
     Slot = 1
     Left = 1
+    Span = 1 2
     DeathTypes = ALL
     Names = A B
     Level = 2
@@ -774,7 +786,7 @@ def rw_tables(rw: Path):
     def table(*names, fn="0x1"):
         return {"rows": [{"name": n, "fn": fn, "offset": 0, "userData": 0} for n in names], "terminated": True}
     tables = {
-        "0xa1": {"rows": table("Used", "Unused", "FX", "Bone", "PartWidth", "PartDepth", "Angle", "Slot", "Left", "DeathTypes", "Names", "Envelope", "Level", "Rare", "TagB", "Shared", "Copied", "Shown", "Factor")["rows"]
+        "0xa1": {"rows": table("Used", "Unused", "FX", "Bone", "PartWidth", "PartDepth", "Angle", "Slot", "Left", "Span", "DeathTypes", "Names", "Envelope", "Level", "Rare", "TagB", "Shared", "Copied", "Shown", "Factor")["rows"]
                  + [{"name": "MeleeBehavior", "fn": "0xb3", "offset": 0, "userData": 0}], "terminated": True},
         "0xa2": table("Radius", "Height"),
         "0xa3": table("Bar"),
@@ -876,6 +888,8 @@ def test_typed_module_fields(result):
     assert (status(result, "object", "TypedThing", "Slot"), result[0][("object", "TypedThing", "Slot")]["member"]) == ("used", "m_slot")
     left = result[0][("object", "TypedThing", "Left")]
     assert left["status"] == "used" and "INFERENCE: its parser names several members (m_left|m_right)" in left["where"]
+    span = result[0][("object", "TypedThing", "Span")]
+    assert span["status"] == "used" and "INFERENCE" not in span["where"]
     assert status(result, "object", "TypedThing", "Names") == "parsed-unused"  # `std::vector<std::string> m_names;` is a declaration, not a read
     # a read in a file naming the struct comes first (Other.cpp sorts before TypedThing.cpp); a read only in a file that never names it is marked
     assert status(result, "object", "TypedThing", "Level") == "used"
