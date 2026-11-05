@@ -557,6 +557,11 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // ShroudClearingRange clears the VisionRange, RW 0x73FB7A / 0x69990F; the economy's PRODUCTION product) moves the battle, the skirmish and the allied blob;
 // #160 (members made where their horde stands, RW 0x8718ED, and left where they are by a move, RW 0x871536) moves the battle and the allied blob, not the
 // skirmish; #161 (the block search's block zones RW 0x9389A6 and raised branch RW 0x9389CE) moves all three.
+// pin: TOP20 rampage, Lua ObjectEnterRampageState ported (RW 0x738A24 -> AIRampageState 0x2D, the unit dies); hurt trolls of the vanilla data now rampage
+// TOP20 rampage re-measured both (OPENBFME_PERF1_REGEN=1, station-1, Windows MSVC) at d83c78f0: Lua ObjectEnterRampageState is no longer a stub
+// (RW 0x738A24: the DelayedDeathBody's `checked`, body vt[0x98] RW 0x8C57A1, then AI command 0x3A and AIRampageState 0x2D, which ends in the unit's death,
+// RW 0x74D7C7); a hurt MordorAttackTroll (TrollFunctions ReallyDamaged -> GoIntoRampage) moves the battle from frame 151, a CaveTroll_Slaved the skirmish from
+// frame 2720. With the Lua path switched off the old hashes held in every frame.
 // Lane SIMSMALL-1 re-measured the skirmish (OPENBFME_PERF1_REGEN=1, a CI host): the rubble ExperienceTracker reset (RW 0x8C1BB7), the dead-but-kept heals
 // (RW 0x8C2FC1) and the PreferredTargetBone aim (RW 0x6CB85A) move the skirmish from frame 795; the battle does not move.
 // Merge queue q35 re-measured the skirmish once on the merged tree (OPENBFME_PERF1_REGEN=1, a CI host), compared at each merge point: SIMSMALL-1 moves it

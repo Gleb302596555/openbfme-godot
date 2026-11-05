@@ -391,13 +391,16 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 		classList += c + " ";
 	}
 	MESSAGE("classes of the snapshot: " << classList);
-	CHECK(classes == std::set<std::string>{
+		// TOP20 rampage (measured at d83c78f0, station-1, Windows MSVC; with Lua ObjectEnterRampageState switched off the old sets held): the trolls' rampage
+	// (RW 0x738A24 -> AIRampageState RW 0x74D7C7, the unit dies) moves the AIs' play: no AutoHealBehavior and no WorkerAIUpdate object at the snapshot, a
+	// DeletionUpdate and a dead troll's SalvageCrateCollide crate in it
+CHECK(classes == std::set<std::string>{
 		"AISpecialPowerUpdate", "ActiveBody", "ArmorUpgrade", "ArrowStormUpdate", "AttributeModifierAuraUpdate", "AttributeModifierPoolUpdate",
-		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoHealBehavior", "AutoPickUpUpdate",
+		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoPickUpUpdate",
 		"BannerCarrierUpdate", "BezierProjectileBehavior", "BloodthirstyUpdate", "BoredUpdate", "BuildableHeroListUpgrade", "BuildingBehavior",
 		"CastleBehavior", "CastleMemberBehavior", "CastleUpgrade", "CitadelSlaughterHordeContain", "ClickReactionBehavior", "CloudBreakSpecialPower",
 		"CommandPointsUpgrade", "CommandSetUpgrade", "CostModifierUpgrade", "CreateObjectDie", "CritterEmitterUpdate", "DamageFilteredCreateObjectDie",
-		"DarknessSpecialPower", "DefectionHelper", "DelayedDeathBody", "DestroyDie", "DevastateSpecialPower", "DoCommandUpgrade", "DualWeaponBehavior",
+		"DarknessSpecialPower", "DefectionHelper", "DelayedDeathBody", "DeletionUpdate", "DestroyDie", "DevastateSpecialPower", "DoCommandUpgrade", "DualWeaponBehavior",
 		"ElvenWoodSpecialPower", "EmotionTrackerUpdate", "FXListDie", "FiringTrackerHelper", "FoundationAIUpdate", "FreezingRainSpecialPower",
 		"GeometryUpgrade", "GettingBuiltBehavior", "GiveUpgradeUpdate", "GrabPassengerSpecialPower", "GrantUpgradeCreate", "GuardingHelper",
 		"HighlanderBody", "HitReactionBehavior", "HordeContain", "HordeDispatchSpecialPower", "HordeMemberCollide",
@@ -405,7 +408,7 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 		"LargeGroupAudioUpdate", "LargeGroupBonusUpdate", "LevelUpUpgrade", "LifetimeUpdate", "ModelConditionUpgrade", "MonitorConditionUpdate",
 		"OCLSpecialPower", "ObjectCreationUpgrade", "PassiveAreaEffectBehavior", "PhysicsBehavior", "PickupStuffUpdate", "PlayerHealSpecialPower",
 		"PlayerUpgradeSpecialPower", "PorcupineFormationBodyModule", "ProductionSpeedBonus", "ProductionUpdate", "QueueProductionExitUpdate",
-		"RebuildHoleExposeDie", "RecoveryHelper", "RefundDie", "SMCHelper", "ScavengerSpecialPower", "ShareExperienceBehavior", "SiegeDeployHordeSpecialPower",
+		"RebuildHoleExposeDie", "RecoveryHelper", "RefundDie", "SMCHelper", "SalvageCrateCollide", "ScavengerSpecialPower", "ShareExperienceBehavior", "SiegeDeployHordeSpecialPower",
 		"SlaughterHordeContain", "SlaveWatcherBehavior", "SlavedUpdate", "SlowDeathBehavior", "SpawnBehavior", "SpawnPointProductionExitUpdate",
 		"SpawnUnitBehavior", "SpecialAbilityUpdate", "SpecialPowerModule", "SpellRechargeModifierUpgrade", "SquishCollide", "StancesBehavior", "StatusBitsUpgrade",
 		"StealthDetectorUpdate", "StructureBody", "StructureCollapseUpdate", "SubObjectsUpgrade", "TaintSpecialPower", "TemporarilyDefectUpdate",
@@ -417,5 +420,6 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 	// Lane MODCOMPAT-MOD1 (measured at BoredUpdate's commit, a CI host): the AI update family of this game: no WorkerAIUpdate: BoredUpdate's random draws move
 	// the AIs' play (RW 0x899F1F)
 	// The merge with upstream 7e98ac2f (measured once on the merged tree, Windows MSVC): the AI update family of this game: now also WorkerAIUpdate
-	CHECK(aiClasses == std::set<std::string>{ "AIUpdateInterface", "AnimalAIUpdate", "DozerAIUpdate", "HordeAIUpdate", "WorkerAIUpdate" });
+	// TOP20 rampage (measured at d83c78f0, see above): no WorkerAIUpdate
+	CHECK(aiClasses == std::set<std::string>{ "AIUpdateInterface", "AnimalAIUpdate", "DozerAIUpdate", "HordeAIUpdate" });
 }
