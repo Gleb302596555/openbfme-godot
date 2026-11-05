@@ -209,3 +209,32 @@ TEST_CASE("atkreset1 AIAttackFireWeaponState::onExit (RW 0x74C8BE): a cancelled 
 	CHECK_FALSE(archer->testStatus(endFire));
 }
 
+
+// TOP20 #21 r3 (the owner's check: archers kept shooting at a soldier running in its burning death): the attack machine's Aim and Fire states leave with failure
+// when getAbleToAttackSpecificObject (RW 0x68D6A6 -> WeaponSet RW 0x6C9147) no longer answers POSSIBLE or POSSIBLE_AFTER_MOVING for the victim (RotWK's
+// cannotPossiblyAttackObject RW 0x7417E4 .. 0x741807); the victim's status UNATTACKABLE (0x3C, RW 0x6C9207), which AIBurningDeathState sets, refuses every
+// attack, forced (ATTACK_CONTINUED_TARGET_FORCED 3) or not (2)
+TEST_CASE("TOP20 burning death r3: an attack on a victim that turns UNATTACKABLE ends (RW 0x7417E4 -> RW 0x6C9207); the unit fires no more shots at it")
+{
+	for (const bool forced : { false, true })
+	{
+		CAPTURE(forced);
+		LockWorld w;
+		Object *archer = w.unit("SlowArcher", 'A', 300, 300);
+		Object *foe = w.unit("Dummy", 'B', 400, 300);
+		w.frames(2);
+		AIUpdateInterface *ai = archer->getAIUpdateInterface();
+		REQUIRE((forced ? ai->aiForceAttackObject(foe, CMD_FROM_PLAYER) : ai->aiAttackObject(foe, CMD_FROM_PLAYER)));
+		w.runUntil([&] { return w.bow(archer)->lastFireFrame() != 0; }, 200);
+		REQUIRE(w.bow(archer)->lastFireFrame() == 5);
+		REQUIRE(ai->currentStateId() == (unsigned)(forced ? AI_FORCE_ATTACK_OBJECT : AI_ATTACK_OBJECT));
+		foe->setStatus((unsigned)CombatNames::status("UNATTACKABLE"), true); // AIBurningDeathState::onEnter, RW 0x751BE5
+		// the inner machine waits out SlowBow's shot delay in AIWaitUntilFinishedFiringState (no exit conditions in RW's lists, only Aim and Fire carry
+		// them); its next Aim leaves with failure, before the shot it could fire at frame 36
+		w.frames(60);
+		CHECK(ai->currentStateId() != (unsigned)AI_ATTACK_OBJECT);
+		CHECK(ai->currentStateId() != (unsigned)AI_FORCE_ATTACK_OBJECT);
+		CHECK(w.bow(archer)->lastFireFrame() == 5);
+		CHECK_FALSE(foe->isEffectivelyDead());
+	}
+}

@@ -1129,23 +1129,31 @@ bool ObjectWeapons::chooseBestWeaponForTarget(const Object *victimIn, WeaponChoi
 
 bool ObjectWeapons::canAttackObject(const Object &victim, CommandSourceType source, bool forced) const
 {
-	const CombatNames::Status &st = CombatNames::statuses();
-	if (&victim == m_owner || !CombatQueries::isAlive(*m_owner) || !CombatQueries::isAlive(victim))
-	{
-		return false;
-	}
-	if (victim.isKindOf((unsigned)CombatNames::kinds().unattackable) || (victim.testStatus((unsigned)st.noAttackFromAI) && source == CMD_FROM_AI))
-	{
-		return false;
-	}
-	// RW 0x6C9147: the non-forced relationship veto applies only to player commands (source 0).
-	if (!forced && source == CMD_FROM_PLAYER && m_owner->getRelationship(victim) != ENEMIES)
+	if (!canAttackObjectNoShroud(victim, source, forced))
 	{
 		return false;
 	}
 	// VIS-1 (RW 0x82C167, the action helper; stop S-565): a human player's order (any source but a script) cannot target an object that is fogged or shrouded
 	// for that player
-	if (source != CMD_FROM_SCRIPT && ShroudManager::isShroudedForAction(*m_owner, victim))
+	return !(source != CMD_FROM_SCRIPT && ShroudManager::isShroudedForAction(*m_owner, victim));
+}
+
+bool ObjectWeapons::canAttackObjectNoShroud(const Object &victim, CommandSourceType source, bool forced) const
+{
+	const CombatNames::Status &st = CombatNames::statuses();
+	if (&victim == m_owner || !CombatQueries::isAlive(*m_owner) || !CombatQueries::isAlive(victim))
+	{
+		return false;
+	}
+	// RW 0x6C91F7 .. 0x6C9229: KindOf UNATTACKABLE (template + 0x10E & 0x40), the status UNATTACKABLE (0x3C, RW 0x6C9207: whoever attacks, forced or not;
+	// TOP20 #21 r3: a soldier in its burning death (AIBurningDeathState sets it) stops being shot at), NO_ATTACK_FROM_AI (0x1A) for source 2
+	if (victim.isKindOf((unsigned)CombatNames::kinds().unattackable) || victim.testStatus((unsigned)st.unattackable) ||
+	    (victim.testStatus((unsigned)st.noAttackFromAI) && source == CMD_FROM_AI))
+	{
+		return false;
+	}
+	// RW 0x6C9147: the non-forced relationship veto applies only to player commands (source 0).
+	if (!forced && source == CMD_FROM_PLAYER && m_owner->getRelationship(victim) != ENEMIES)
 	{
 		return false;
 	}
