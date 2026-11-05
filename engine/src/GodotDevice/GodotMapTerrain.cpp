@@ -28,6 +28,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/W3DHardwareFog.h"
 #include "GameEngineDevice/W3DDevice/GameClient/W3DLookupTablePostEffect.h"
 #include "GodotDevice/GodotPostEffects.h"
+#include "GodotDevice/GodotTerrainScorches.h"
 #include "GodotDevice/GodotW3DMaterial.h"
 
 #include <godot_cpp/classes/array_mesh.hpp>
@@ -192,6 +193,7 @@ const int TERRAIN_RENDER_PRIORITY = 0;
 const int WATER_RENDER_PRIORITY = 1;
 const int RIVER_RENDER_PRIORITY = 2;
 const int ROAD_RENDER_PRIORITY = 3;
+const int SCORCH_RENDER_PRIORITY = 4; // the terrain render's pass order (RW 0x4E2ECD RenderRoads, then RW 0x4E2FD0 RenderScorches)
 
 Ref<ImageTexture> makeRecordsTexture(const TerrainComposite::Records &records)
 {
@@ -897,6 +899,49 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 		for (const std::string &a : mstats.assumptions)
 		{
 			assumptions.push_back(toGodot(a));
+		}
+
+		// TOP20 "Fire, scorches" (S-117): the terrain's scorch marks (GodotTerrainScorches.h). The layer holds the map's Scorch objects for a map
+		// viewer; a live game presents its effect player's buffer instead (GameWorld)
+		{
+			Ref<ShaderMaterial> scorchMat;
+			Ref<Shader> scorchShader = loadShader("res://shaders/scorch.gdshader", errors);
+			Array scorchTexErrors;
+			Ref<Texture2D> scorchTex = loadTexture(rfs, TerrainScorchBuffer::TEXTURE, scorchTexErrors);
+			for (int64_t i = 0; i < scorchTexErrors.size(); ++i)
+			{
+				errors.push_back(scorchTexErrors[i]);
+			}
+			if (scorchShader.is_valid())
+			{
+				scorchMat.instantiate();
+				scorchMat->set_shader(scorchShader);
+				scorchMat->set_render_priority(SCORCH_RENDER_PRIORITY);
+				if (scorchTex.is_valid())
+				{
+					scorchMat->set_shader_parameter("scorch_tex", scorchTex);
+				}
+				scorchMat->set_shader_parameter("output_gamma", 1.0f); // lane RENDER-3 (S-831): the transparent pass composites in gamma space
+				scorchMat->set_shader_parameter("fog_enabled", weather.fogEnabled ? 1.0f : 0.0f);
+				scorchMat->set_shader_parameter("fog_color", Vector3(weather.fogColor[0], weather.fogColor[1], weather.fogColor[2]));
+				scorchMat->set_shader_parameter("fog_range_start", weather.fogStart);
+				scorchMat->set_shader_parameter("fog_range_end", weather.fogEnd);
+			}
+			TerrainScorchLayer *scorchLayer = memnew(TerrainScorchLayer);
+			scorchLayer->set_name("Scorches");
+			// RW 0x4670E1: the time of day's terrain light 0, the map's light scale unconditionally (Scales::scorch), the overbright byte RW 0xD9B03C
+			scorchLayer->setup(TerrainScorchBuffer::terrainFrom(hm, chunks), TerrainScorchBuffer::shadeFrom(tod, lightScales.scorch, overbright), scorchMat);
+			std::vector<std::string> scorchErrors;
+			const int mapScorches = TerrainScorchBuffer::addMapScorches(scorchLayer->ownBuffer(), map.chunks.objects, scorchErrors);
+			for (const std::string &e : scorchErrors)
+			{
+				errors.push_back(toGodot(e));
+			}
+			root->add_child(scorchLayer);
+			Dictionary sd;
+			sd["map_scorches"] = mapScorches;
+			sd["texture"] = scorchTex.is_valid();
+			m_report["scorches"] = sd;
 		}
 
 		double t3 = nowMs();

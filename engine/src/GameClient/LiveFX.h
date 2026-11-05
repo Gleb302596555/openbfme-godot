@@ -43,9 +43,11 @@
 #include "GameClient/BuffDraw.h"
 #include "GameClient/Drawable.h"
 #include "GameClient/FXPlayback.h"
+#include "GameEngineDevice/W3DDevice/GameClient/TerrainScorches.h"
 #include "GameLogic/FXEvents.h"
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <set>
 #include <string>
@@ -53,6 +55,7 @@
 
 class LiveGame;
 class Object;
+struct FireSetting;
 
 class LiveFX : public FXEventSink, public FXPlaybackWorld, public DrawableFXHost
 {
@@ -130,6 +133,29 @@ public:
 		std::uint32_t born = 0; ///< FXPlayback::clientFrame() at the call
 	};
 	bool createDecal(const FXDecalDesc &decal) override;
+	// TOP20 "Fire, scorches": the terrain's scorch marks, one store for the three sources RotWK has (TerrainScorches.h):
+	//   * the TerrainScorch nugget (W3DGameClient::addScorch RW 0x44C047 -> RW 0x46765B), this override;
+	//   * the map's Scorch objects, added when the live game is made (W3DTerrainVisual::load RW 0x491E36 .. 0x491EC3: every map object with the scorch
+	//     flag, + 0x44 bit 3 = a scorchType INT, RW 0x70F5A9: its location, the REAL "objectRadius" (NameKey RW 0xDA2E84, string RW 0xC1F840) and the
+	//     INT "scorchType" (RW 0xDA2E9C, RW 0xC1F874)), in map order; a Scorch object without a REAL objectRadius is an error (stats().scorchErrors);
+	//   * the burning terrain, once per client frame (clientFrameUpdate -> updateFireScorches, RW 0x49829C).
+	bool addScorch(const Coord3D &pos, float radius, int type) override;
+	void clientFrameUpdate() override;
+	// RW 0x49829C (the fire manager's update, W3DFire vtable RW 0xBDE280 slot 10): with the Fire block's EnableScorches (the manager's copy + 0x2C of the
+	// active record + 0x20, RW 0x70C5F8) and the effects LOD (TheGameLODManager + 0x1778) above 1, once the client frame passes the stored one (+ 0x64,
+	// zero after the manager's reset RW 0x497F5A): the stored frame becomes the frame plus (int) ScorchFrequency (+ 0x30, GameClientRandomVariable
+	// RW 0x6D343B, _ftol2 RW 0xA3CFA4); then for every burning cell of TheFireLogicSystem (RW 0xDE46A8 + 0x84, its world x / y at node + 0x18 / + 0x1C, in
+	// set order) a client draw Real(0, 1) (RW 0x498352, line 0xA2) below ScorchIntensity (+ 0x48) adds a scorch, with a terrain (RW 0xDC78EC), at
+	// (x + Real(-10, 10), y + Real(-10, 10), ground(x, y) + 1) - the y offset is drawn first (line 0xA7, RW 0x4983BC), then the x offset (line 0xA6,
+	// RW 0x4983E5) - of ScorchSize (+ 0x3C, drawn after the offsets, RW 0x49840C) and type 7, or 8 when GlobalData + 0x138 (the map weather) is 1
+	// (RW 0x4983F6). INFERENCE: the frame update runs after the client frame moved on, once per frame (the subsystem's caller was not traced).
+	void updateFireScorches();
+	// the body of RW 0x49829C past the effect systems, over explicit inputs (tests): returns the scorches added
+	static int fireScorchUpdate(const FireSetting &fire, int effectsLod, std::uint32_t clientFrame, std::uint32_t &nextScorchFrame,
+		const std::set<std::pair<int, int>> &burningCells, W3DDrawRandom &rng, int mapWeather, const std::function<float(float, float)> &groundHeight,
+		TerrainScorchBuffer &scorches);
+	TerrainScorchBuffer &scorches() { return m_scorches; }
+	const TerrainScorchBuffer &scorches() const { return m_scorches; }
 	void pruneDecals();
 	const std::vector<LiveDecal> &decals() const { return m_decals; }
 	std::uint32_t clientFrame() const;
@@ -155,6 +181,8 @@ public:
 		unsigned long long transitionSystemsCreated = 0, transitionSystemsDestroyed = 0; ///< lane FX-4: TransitionDamageFX's attached systems
 		unsigned long long viewShakes = 0, viewShakesDropped = 0; ///< lane FX-4: ViewShake calls queued for the view / dropped (no view took them)
 		unsigned long long decals = 0, decalsDropped = 0;         ///< DynamicDecal calls kept for the view / dropped past the bound
+		unsigned long long scorchesFX = 0, scorchesMap = 0, scorchesFire = 0; ///< addScorch calls per source (TerrainScorchBuffer)
+		std::vector<std::string> scorchErrors;                    ///< Scorch map objects that could not be added (no REAL objectRadius)
 	};
 	const Stats &stats() const { return m_stats; }
 	// RW 0x4B337B, the single-frame test of a FireWhenSkipped FXEvent (mode: W3D_ANIM_MODE_*, direction +1 / -1)
@@ -205,6 +233,8 @@ private:
 	ClientBuffs m_buffs;                 // lane SPELL-4
 	std::vector<ViewShake> m_viewShakes; // lane FX-4
 	std::vector<LiveDecal> m_decals;     // S-5205
+	TerrainScorchBuffer m_scorches;      // BaseHeightMap's scorch list (RW 0x46765B)
+	std::uint32_t m_nextScorchFrame = 0; // the fire manager's + 0x64 (RW 0x498310)
 	std::set<std::string> m_buffErrors;  // lane SPELL-4
 	struct BuffTemplate
 	{

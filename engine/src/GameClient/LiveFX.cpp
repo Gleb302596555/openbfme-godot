@@ -180,6 +180,9 @@ LiveFX::LiveFX(LiveGame &game, FXPlayback &playback, int effectsLod) : m_game(ga
 	m_game.drawables().setFXHost(this);
 
 	ensureSystems();
+
+	// W3DTerrainVisual::load RW 0x491E36 .. 0x491EC3: the map's Scorch objects
+	m_stats.scorchesMap = (unsigned long long)TerrainScorchBuffer::addMapScorches(m_scorches, m_game.map().chunks.objects, m_stats.scorchErrors);
 }
 
 void LiveFX::setEffectsLod(int lod)
@@ -409,6 +412,72 @@ bool LiveFX::createDecal(const FXDecalDesc &decal)
 	m_decals.push_back(LiveDecal{ decal, clientFrame() });
 	++m_stats.decals;
 	return true;
+}
+
+bool LiveFX::addScorch(const Coord3D &pos, float radius, int type)
+{
+	m_scorches.addScorch(pos, radius, type); // W3DGameClient::addScorch RW 0x44C047 -> RW 0x46765B
+	++m_stats.scorchesFX;
+	return true;
+}
+
+void LiveFX::clientFrameUpdate()
+{
+	updateFireScorches();
+}
+
+// RW 0x49829C
+void LiveFX::updateFireScorches()
+{
+	m_stats.scorchesFire += (unsigned long long)fireScorchUpdate(m_game.world().fireSetting().active(), m_effectsLod, clientFrame(), m_nextScorchFrame,
+		m_game.logic().fireLogic().cellsOnFire(), m_playback.clientRandom(), m_mapWeather, [this](float x, float y) { return groundHeight(x, y); },
+		m_scorches);
+}
+
+int LiveFX::fireScorchUpdate(const FireSetting &fire, int effectsLod, std::uint32_t frame, std::uint32_t &nextScorchFrame,
+	const std::set<std::pair<int, int>> &cells, W3DDrawRandom &rng, int mapWeather, const std::function<float(float, float)> &ground,
+	TerrainScorchBuffer &scorches)
+{
+	// RW 0x4982B2 .. 0x4982D2: EnableScorches and TheGameLODManager + 0x1778 (the effects LOD) above 1
+	if (!fire.enableScorches || effectsLod <= 1)
+	{
+		return 0;
+	}
+	// RW 0x4982D8 .. 0x4982EB: TheGameClient->getFrame() (slot 0x7C) above the stored frame
+	if (!(frame > nextScorchFrame))
+	{
+		return 0;
+	}
+	// RW 0x4982F1 .. 0x49830D: the frame plus (int) ScorchFrequency
+	const int delay = (int)fire.scorchFrequency.getValue(rng);
+	nextScorchFrame = frame + (std::uint32_t)delay;
+	int added = 0;
+	// RW 0x498310 .. 0x498450: the burning cells in set order (their world x, y)
+	for (const std::pair<int, int> &cell : cells)
+	{
+		// RW 0x498339 .. 0x498361: ScorchIntensity above GameClientRandomValueReal(0, 1) (RW 0x6D33AB)
+		const float chance = fire.scorchIntensity;
+		if (!(chance > rng.real(0.0f, 1.0f)))
+		{
+			continue;
+		}
+		// RW 0x498374 .. 0x4983A4: TheTerrainLogic->getGroundHeight((float)x, (float)y) + 1.0 (RW 0xBD1908)
+		const float z = ground((float)cell.first, (float)cell.second) + 1.0f;
+		// RW 0x4983A7 .. 0x4983C1: the y offset Real(-10, 10) (RW 0xBDE2C0 / 0xBD83D8) plus the cell's y, then the x offset (RW 0x4983CC .. 0x4983EA)
+		const float y = rng.real(-10.0f, 10.0f) + (float)cell.second;
+		const float x = rng.real(-10.0f, 10.0f) + (float)cell.first;
+		// RW 0x4983ED .. 0x498407: SCORCH_8 when the map's weather (GlobalData + 0x138) is 1, else SCORCH_7
+		const int type = mapWeather == 1 ? 8 : 7;
+		// RW 0x498409 .. 0x49843D: ScorchSize, then the terrain's addScorch
+		const float radius = fire.scorchSize.getValue(rng);
+		Coord3D pos;
+		pos.x = x;
+		pos.y = y;
+		pos.z = z;
+		scorches.addScorch(pos, radius, type);
+		++added;
+	}
+	return added;
 }
 
 bool LiveFX::playSound(const std::string &eventName, const Coord3D *pos, int playerIndex)

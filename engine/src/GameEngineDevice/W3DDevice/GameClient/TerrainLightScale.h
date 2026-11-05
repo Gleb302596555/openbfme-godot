@@ -34,8 +34,8 @@
 //   BaseHeightMapDoTheLight.cpp:309, RTS3DSceneRenderOneObject.cpp:21 / 527 / 547 / 633, RTS3DSceneFlush.cpp:213-219,
 //   W3DSceneUpdateFixedLightEnvironments.cpp:326-331, W3DTerrainTracksFlush.cpp:264-269 (the tank-track twin of the scorch colour).
 // INFERENCE: the role of RW 0x4E44FB (a per-instance vertex light for terrain props / trees; the caller shape is read, the buffer is not) and
-//   RW 0x46F48E (renderOneObject, matched to the decomp by its light-array walk) are inferred; the scorch marks and the tank tracks are not
-//   drawn by this port (stop S-033).
+//   RW 0x46F48E (renderOneObject, matched to the decomp by its light-array walk) are inferred; the tank tracks are not drawn by this port
+//   (stop S-033); the scorch marks take Scales::scorch (TerrainScorches.h).
 
 #pragma once
 

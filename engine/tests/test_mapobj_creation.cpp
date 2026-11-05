@@ -672,12 +672,13 @@ TEST_CASE("mapobj creation: every stop line is registered in docs/STOPS.md and c
 		ids.insert(id);
 		CHECK_MESSAGE(doc.find("| " + id + " |") != std::string::npos, "docs/STOPS.md has no row for " << id);
 	}
-	// the lane's range: S-110 .. S-119
+	// the lane's range: S-110 .. S-119, without S-117: the Scorch objects are drawn as terrain scorch marks (TerrainScorchBuffer::addMapScorches,
+	// W3DTerrainVisual::load RW 0x491E36 .. 0x491EC3 -> addScorch RW 0x46765B), the stop is closed
 	for (int n = 110; n <= 119; ++n)
 	{
-		CHECK_MESSAGE(ids.count("S-" + std::to_string(n)) == 1, "report lacks S-" << n);
+		CHECK_MESSAGE(ids.count("S-" + std::to_string(n)) == (n == 117 ? 0u : 1u), "report S-" << n);
 	}
-	CHECK(MapObjectCreation::stopLines().size() == 10);
+	CHECK(MapObjectCreation::stopLines().size() == 9);
 }
 
 TEST_CASE("mapobj creation: side colours come from playerColor, else from the PreferredColor of a faction PlayerTemplate (S-119)")
