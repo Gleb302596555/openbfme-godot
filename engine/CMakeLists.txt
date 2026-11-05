@@ -185,6 +185,7 @@ include(cmake/SkirmishAI.cmake) # OPENBFME_SKIRMISH_AI_SOURCES / OPENBFME_SKIRMI
 include(cmake/Vis.cmake)        # OPENBFME_VIS_SOURCES / OPENBFME_VIS_TESTS (lane VIS-1)
 include(cmake/Upgrade.cmake)    # OPENBFME_UPGRADE_SOURCES / OPENBFME_UPGRADE_TESTS (lane UPGRADE-1)
 include(cmake/Render2.cmake)    # RENDER-2: launch bones, construction look (appends to OPENBFME_SIM_SOURCES; OPENBFME_RENDER2_TESTS)
+include(cmake/Taint.cmake)     # TheTaintManager: OPENBFME_TAINT_TESTS (appends to OPENBFME_SIM_SOURCES)
 include(cmake/Render3.cmake)    # OPENBFME_RENDER3_TESTS (lane RENDER-3, client / draw only)
 include(cmake/Render4.cmake)    # OPENBFME_RENDER4_SOURCES / _TESTS / _GODOT_SOURCES (lane RENDER-4, client / draw only)
 include(cmake/Glow1.cmake)      # OPENBFME_GLOW1_SOURCES / _TESTS / _GODOT_SOURCES (lane GLOW-1, client / draw only)
@@ -745,6 +746,7 @@ add_executable(openbfme_tests
     ${OPENBFME_SKIRMISH_AI_TESTS}
     ${OPENBFME_VIS_TESTS}
     ${OPENBFME_RENDER2_TESTS}
+    ${OPENBFME_TAINT_TESTS}
     ${OPENBFME_HORDE2_TESTS}
     ${OPENBFME_INTEG1_TESTS}
     ${OPENBFME_RENDER3_TESTS}
