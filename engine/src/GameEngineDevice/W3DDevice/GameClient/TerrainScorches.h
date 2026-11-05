@@ -118,6 +118,17 @@ public:
 	};
 	// RW 0x4670E1 .. 0x4671A4
 	static std::uint32_t scorchDiffuse(const Shade &shade);
+
+	// ---- the depth bias of the draw (drawScorches RW 0x468C43: Set_DX8_ZBias(1.0) RW 0x51EB60, back to 0.0 at RW 0x468CAE) ----
+	static constexpr float DEPTH_BIAS = 1.0f;       // RW 0x468C43 (fld1)
+	static constexpr float ZBIAS_SCALE = 0.000625f; // RW 0xBE6CF8
+	// RW 0x51EB60: a changed bias copies the projection (RW 0xDD3670) and, when ZNear (RW 0xDD1F30) differs from ZFar (RW 0xDD3438), takes
+	// zbias * ZBIAS_SCALE * (zfar * znear / (zfar - znear)) off its _43 (RW 0xDD3668), the projection set again (SetTransform 3). The depth a
+	// point at eye distance d gets under the D3D projection (_33 = zfar / (zfar - znear), _43 = -znear * zfar / (zfar - znear)): _33 + _43' / d.
+	static float zBiasedDepth(float zbias, float znear, float zfar, float d);
+	// The same depth as a point drawn without bias: _43 grows by the factor (1 + zbias * ZBIAS_SCALE), which is the depth of the point at
+	// d / (1 + zbias * ZBIAS_SCALE). The draw scales the eye-space vertex by this (the screen position stays, the camera's near and far drop out).
+	static float depthBiasViewScale(float zbias);
 	// The height map as updateScorches reads it, the cell diagonals taken from the base layer of the terrain mesh as drawn (HeightMapMesh, cellId /
 	// cellFlip; the INFERENCE above)
 	static Terrain terrainFrom(const WorldHeightMap &map, const std::vector<TerrainChunk> &chunks);

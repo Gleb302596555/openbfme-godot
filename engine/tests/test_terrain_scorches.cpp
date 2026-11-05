@@ -229,3 +229,24 @@ TEST_CASE("terrain scorches: the vertex budget takes the last mark's vertices ba
 	CHECK(buf.indices().size() == 9 * 9 * 6);
 	CHECK(buf.scorchesInBuffer() == 2);
 }
+
+TEST_CASE("terrain scorches: the draw's depth bias is the eye-space scale 1 / (1 + 1.0 * 0.000625) (RW 0x468C43, RW 0x51EB60)")
+{
+	CHECK(TerrainScorchBuffer::DEPTH_BIAS == 1.0f);       // RW 0x468C43 fld1
+	CHECK(TerrainScorchBuffer::ZBIAS_SCALE == 0.000625f); // RW 0xBE6CF8
+	CHECK(TerrainScorchBuffer::depthBiasViewScale(1.0f) == 1.0f / 1.000625f);
+	CHECK(TerrainScorchBuffer::depthBiasViewScale(0.0f) == 1.0f); // RW 0x468CAE: back to 0, no bias
+	// RW 0x51EB60 takes zbias * 0.000625 * zfar * znear / (zfar - znear) off _43: the biased depth of a point at d is the unbiased depth of the
+	// point at d * depthBiasViewScale, whatever the clip planes
+	const float planes[][2] = { { 1.0f, 1000.0f }, { 10.0f, 5000.0f }, { 4.0f, 2600.0f } };
+	for (const auto &p : planes)
+	{
+		for (float d : { 20.0f, 300.0f, 900.0f })
+		{
+			const float biased = TerrainScorchBuffer::zBiasedDepth(1.0f, p[0], p[1], d);
+			const float moved = TerrainScorchBuffer::zBiasedDepth(0.0f, p[0], p[1], d * TerrainScorchBuffer::depthBiasViewScale(1.0f));
+			CHECK(biased < TerrainScorchBuffer::zBiasedDepth(0.0f, p[0], p[1], d)); // tolerance: the bias draws the mark nearer, a strict order
+			CHECK(biased == doctest::Approx(moved).epsilon(1e-6)); // tolerance: the two forms round differently in float (a few ulps)
+		}
+	}
+}

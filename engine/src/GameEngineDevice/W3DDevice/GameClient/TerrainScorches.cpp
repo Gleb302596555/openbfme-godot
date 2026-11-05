@@ -150,6 +150,28 @@ TerrainScorchBuffer::Shade TerrainScorchBuffer::shadeFrom(const TimeOfDayLights 
 	return s;
 }
 
+// RW 0x51EB60 on the D3D projection of the camera's clip planes
+float TerrainScorchBuffer::zBiasedDepth(float zbias, float znear, float zfar, float d)
+{
+	const float m33 = zfar / (zfar - znear);
+	float m43 = -(znear * zfar) / (zfar - znear);
+	if (zfar != znear) // RW 0x51EC77 .. 0x51EC96
+	{
+		// RW 0x51EC98 .. 0x51ECB7: xmm1 = zbias * 0.000625; xmm4 = zfar * znear / (zfar - znear) * xmm1; _43 -= xmm4
+		const float b = zbias * ZBIAS_SCALE;
+		float t = zfar * znear;
+		t = t / (zfar - znear);
+		t = t * b;
+		m43 = m43 - t;
+	}
+	return (m33 * d + m43) / d;
+}
+
+float TerrainScorchBuffer::depthBiasViewScale(float zbias)
+{
+	return 1.0f / (1.0f + zbias * ZBIAS_SCALE);
+}
+
 // RW 0x4670BC .. 0x4671A4
 std::uint32_t TerrainScorchBuffer::scorchDiffuse(const Shade &shade)
 {

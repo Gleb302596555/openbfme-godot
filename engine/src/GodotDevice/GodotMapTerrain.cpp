@@ -922,6 +922,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 					scorchMat->set_shader_parameter("scorch_tex", scorchTex);
 				}
 				scorchMat->set_shader_parameter("output_gamma", 1.0f); // lane RENDER-3 (S-831): the transparent pass composites in gamma space
+				scorchMat->set_shader_parameter("depth_bias_scale", TerrainScorchBuffer::depthBiasViewScale(TerrainScorchBuffer::DEPTH_BIAS)); // RW 0x51EB60
 				scorchMat->set_shader_parameter("fog_enabled", weather.fogEnabled ? 1.0f : 0.0f);
 				scorchMat->set_shader_parameter("fog_color", Vector3(weather.fogColor[0], weather.fogColor[1], weather.fogColor[2]));
 				scorchMat->set_shader_parameter("fog_range_start", weather.fogStart);
