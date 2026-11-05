@@ -27,6 +27,7 @@
 #include "GameLogic/Object/Contain/TransportContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/System/ShroudManager.h"
+#include "GameLogic/Weapon.h"
 
 #include <algorithm>
 #include <cmath>
@@ -163,6 +164,58 @@ TEST_CASE("transport retail: a mumak carries its Haradrim archer horde (InitialP
 	CHECK(horde->getPosition()->x == mumak->getPosition()->x); // RW 0x87A51F: the horde object stands at the mumak
 	std::printf("  info: the mumak moved %.0f, its riders kept within 60 of it\n", moved);
 	CHECK(reportHas(r.logic(), "[S-1104]")); // the transports' stop reaches the game's report
+}
+
+// TOP20 S-321: HitPassengerPercentage (RW 0x6CCD46 .. 0x6CCDA7, the roll at line 0x5E1; the redirect RW 0x6CCE9E, the non-independent branch): a shot at the
+// mumak (HordeTransportContain, slot 0x7C null) hits the passenger its slot 0xF4 names (RW 0x87A38E -> RW 0x990D14: the shown archer nearest to the mumak's
+// position) instead of the beast; at 0% the beast is hit
+TEST_CASE("TOP20-321 hit passenger: a GondorSword copy with HitPassengerPercentage 100% at a mumak hurts its nearest archer, not the beast")
+{
+	if (!haveWorld("transport retail"))
+	{
+		return;
+	}
+	SharedWorld &s = shared();
+	Rig r(s);
+	const Coord3D c0 = gridCentre(r, 200.0f);
+	Player *enemy = r.game->players().findPlayerWithName("Player_2");
+	REQUIRE(enemy != nullptr);
+	Object *mumak = r.make("MordorMumakil", c0.x, c0.y, enemy);
+	r.frame(2);
+	REQUIRE(mumak->getContain()->getContainCount() == 1u);
+	Object *horde = ridersOf(*mumak).front();
+	const std::vector<Object *> members = ridersOf(*horde);
+	REQUIRE(!members.empty());
+	Object *expected = mumak->getContain()->passengerToHit(*mumak->getPosition());
+	REQUIRE(expected != nullptr);
+	CHECK(expected->getContainedBy() == horde);
+	CHECK_FALSE(expected->isDrawableHidden());
+	const Coord3D &mp = *mumak->getPosition();
+	auto d2 = [&](const Object &o) { return (o.getPosition()->x - mp.x) * (o.getPosition()->x - mp.x) + (o.getPosition()->y - mp.y) * (o.getPosition()->y - mp.y); };
+	for (Object *m : members)
+	{
+		if (!m->isDrawableHidden())
+		{
+			CHECK(d2(*expected) <= d2(*m)); // tolerance: the port computes the same SSE squares; a tie keeps the earlier member
+		}
+	}
+	Object *shooter = r.make("GondorFighter", c0.x + 150.0f, c0.y);
+	const WeaponTemplate *sword = TheWeaponStore->findWeaponTemplate("GondorSword");
+	REQUIRE(sword);
+	WeaponTemplate w100 = *sword;
+	w100.m_attackRange = 10000.0f;
+	w100.m_hitPercentage = 1.0f;
+	w100.m_hitPassengerPercentage = 1.0f;
+	const float beastBefore = mumak->getBodyModule()->getHealth();
+	const float archerBefore = expected->getBodyModule()->getHealth();
+	ObjectWeapons::createAndFireTempWeaponAt(&w100, shooter, *mumak);
+	CHECK(expected->getBodyModule()->getHealth() < archerBefore); // tolerance: the claim is which object the shot hits; the amount follows the armour and damage scalars, checked elsewhere
+	CHECK(mumak->getBodyModule()->getHealth() == beastBefore);
+	// HitPassengerPercentage 0: the beast takes the hit
+	WeaponTemplate w0 = w100;
+	w0.m_hitPassengerPercentage = 0.0f;
+	ObjectWeapons::createAndFireTempWeaponAt(&w0, shooter, *mumak);
+	CHECK(mumak->getBodyModule()->getHealth() < beastBefore); // tolerance: the claim is which object the shot hits; the amount follows the armour and damage scalars, checked elsewhere
 }
 
 TEST_CASE("transport retail: the mumak's archers shoot an enemy horde from its back; a dead mumak throws them off and they die (RW 0x87AA2C, GameLogicRandomValue(5, 10))")

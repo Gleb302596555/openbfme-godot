@@ -9,6 +9,8 @@
 
 #include "GameLogic/BitFlags.h"
 #include "GameLogic/Locomotor.h"
+#include "Common/XferLoad.h"
+#include "Common/XferSave.h"
 #include "GameLogic/WeaponState.h"
 
 #include <algorithm>
@@ -1283,4 +1285,26 @@ TEST_CASE("ambient flight: idle wings circle in both directions and climb withou
 	CHECK(h.pos.x == 0);
 	CHECK(h.pos.y == 0);
 	CHECK(h.pos.z == 0);
+}
+
+// The locomotor snapshot refused every flag outside a hand list that lacked ALLOW_INVALID_POSITION (AIEnterState RW 0x7516D7, the 2026-11-04 enter fix) and
+// OVER_WATER (the hover mover on water, RW 0x5E745D): a save with a unit entering a container or a ship on water did not load. The list is now the enum's mask.
+TEST_CASE("locomotor snapshot: every flag a mover or a state sets saves and loads (ALLOW_INVALID_POSITION, OVER_WATER); an unknown bit is refused")
+{
+	LocoFixture f("  Surfaces = GROUND\n");
+	Locomotor loco(f.tmpl());
+	loco.setFlags(LOCOMOTOR_FLAG_ALLOW_INVALID_POSITION | LOCOMOTOR_FLAG_OVER_WATER);
+	XferSave save;
+	loco.xfer(save);
+	Locomotor back(f.tmpl());
+	XferLoad load(save.data());
+	back.xfer(load);
+	CHECK(back.flags() == (unsigned)(LOCOMOTOR_FLAG_ALLOW_INVALID_POSITION | LOCOMOTOR_FLAG_OVER_WATER));
+	Locomotor odd(f.tmpl());
+	odd.setFlags(0x100);
+	XferSave saveOdd;
+	odd.xfer(saveOdd);
+	Locomotor backOdd(f.tmpl());
+	XferLoad loadOdd(saveOdd.data());
+	CHECK_THROWS_AS(backOdd.xfer(loadOdd), XferException);
 }

@@ -14,6 +14,7 @@
 #include "GameLogic/Combat/CombatQueries.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Locomotor.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/CollideModule.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
@@ -33,7 +34,8 @@ const char *const kStop =
 	"weapon lock release (RW 0x76FB64), privateEnter's locomotor point and blocked fields (RW 0x5E39CE, AI + 0x16C / + 0x3B8); not ported: the SHIP branches "
 	"(RW 0x82CED4, privateEnter's AI command 0x4F RW 0x66C6E3), behaviour slot 0x48 of the collide branch, getCanAttackObject's STRUCTURE and "
 	"SPAWNS_ARE_THE_WEAPONS parts (reported), the container AI's slot 0x1A8 in the exit states (taken as not 2), the members' AI slot 0x1C4 of RW 0x875C93, "
-	"the locomotor's allow-invalid-position flag, the group manager of MSG_ENTER (GameData + 0x11CA)";
+	"the group manager of MSG_ENTER (GameData + 0x11CA); AIEnterState's ignored obstacle (the container, RW 0x7516C8 / 0x752B31) and the locomotor's "
+	"allow-invalid-position flag (RW 0x7516D7 / 0x752B40) are set and cleared as RW does, no reader of the flag is located";
 
 int statusBit(const char *name)
 {
@@ -391,7 +393,14 @@ public:
 		{
 			m_goal = *container->getPosition();
 		}
-		// RW 0x7516CD .. 0x7516D7: the locomotor flag + 0x44 bit 1 (ZH setAllowInvalidPosition); the port's locomotor has no reader of it (S-1101)
+		// RW 0x7516B3 .. 0x7516C8: the AI ignores the goal object (the container) as an obstacle (RW 0x66831A), so the path may end inside its footprint at the
+		// EntryPosition (the owner's 2026-11-04 check: without it the members of a horde stood at the tower's wall until the horde forced them in one by one)
+		ai().mover().ignoreObstacle(container->getID());
+		// RW 0x7516CD .. 0x7516D7: the current locomotor's flag + 0x44 bit 1 (ZH setAllowInvalidPosition); no reader of it is located (S-1101)
+		if (Locomotor *loco = ai().curLocomotor())
+		{
+			loco->setFlags(loco->flags() | LOCOMOTOR_FLAG_ALLOW_INVALID_POSITION);
+		}
 		m_move = std::make_unique<AIMoveToState>(ai().mover(), m_goal, true);
 		return m_move->onEnter();
 	}
@@ -474,6 +483,12 @@ public:
 		{
 			m_move->onExit();
 			m_move.reset();
+		}
+		// RW 0x752B2D .. 0x752B40: ignoreObstacle(0) (RW 0x66831A) and the locomotor's + 0x44 bit 1 cleared
+		ai().mover().ignoreObstacle(PATHFIND_INVALID_ID);
+		if (Locomotor *loco = ai().curLocomotor())
+		{
+			loco->setFlags(loco->flags() & ~(unsigned)LOCOMOTOR_FLAG_ALLOW_INVALID_POSITION);
 		}
 		if (m_container != INVALID_ID)
 		{

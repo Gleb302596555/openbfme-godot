@@ -257,7 +257,8 @@ void AIGroup::delayMoodCheckForStealth(Object &obj, AIUpdateInterface &ai)
 	ai.setNextMoodCheckTime(m_logic.getFrame() + draw + delay); // RW 0x774CF0 .. 0x774CFB: 32-bit adds
 }
 
-void AIGroup::groupMoveToPosition(const Coord3D &posIn, bool addWaypoint, CommandSourceType source, bool haveFinalAngle, float finalAngle, bool attackMove)
+void AIGroup::groupMoveToPosition(const Coord3D &posIn, bool addWaypoint, CommandSourceType source, bool haveFinalAngle, float finalAngle, bool attackMove,
+	const Object *goalObject)
 {
 	AIWorld *world = m_logic.aiWorld();
 	if (!world || m_members.empty())
@@ -365,6 +366,12 @@ void AIGroup::groupMoveToPosition(const Coord3D &posIn, bool addWaypoint, Comman
 		if (source == CMD_FROM_PLAYER && !managed)
 		{
 			delayMoodCheckForStealth(*o, *ai);
+		}
+		if (goalObject)
+		{
+			// RW 0x774D0E .. 0x774D18: the command's goal object (+ 8), RW 0x66831A. INFERENCE: the port's stand-in for a group the formation manager took
+			// (`managed`) runs here too; RW hands the goal to moveFormationToPos (RW 0x77348C), not ported (S-895)
+			ai->mover().ignoreObstacle(goalObject->getID());
 		}
 		if (!addWaypoint)
 		{

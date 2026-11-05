@@ -492,10 +492,14 @@ public:
 enum LocomotorFlags
 {
 	LOCOMOTOR_FLAG_BRAKING = 0x01,      // RW 0x5E5970 sets, 0x5E5911 clears
+	LOCOMOTOR_FLAG_ALLOW_INVALID_POSITION = 0x02, // ZH setAllowInvalidPosition: AIEnterState sets it (RW 0x7516D7) and clears it (RW 0x752B40); no reader located (S-1101)
 	LOCOMOTOR_FLAG_BIT2 = 0x04,         // cleared by the dispatcher on entry (RW 0x5E8875); set by maintainCurrentPosition with the held position (RW 0x5E7D2A, lane EXIT-1)
 	LOCOMOTOR_FLAG_NO_BRAKE = 0x10,     // moveForward does not start braking while it is set (setter not located)
 	LOCOMOTOR_FLAG_OVER_WATER = 0x20,   // the HOVER mover's last water test (RW 0x5E745D, ZH OVER_WATER; lane SHIP-1)
-	LOCOMOTOR_FLAG_BACKING_UP = 0x80    // Legs / Wheels / HORDE movers
+	LOCOMOTOR_FLAG_BACKING_UP = 0x80,   // Legs / Wheels / HORDE movers
+	// every bit above: what a saved locomotor may hold (the snapshot's validation, AIMoveSnapshot.cpp); a new flag is added here and in this mask together
+	LOCOMOTOR_FLAGS_KNOWN = LOCOMOTOR_FLAG_BRAKING | LOCOMOTOR_FLAG_ALLOW_INVALID_POSITION | LOCOMOTOR_FLAG_BIT2 | LOCOMOTOR_FLAG_NO_BRAKE | LOCOMOTOR_FLAG_OVER_WATER |
+		LOCOMOTOR_FLAG_BACKING_UP
 };
 
 class Locomotor

@@ -13,6 +13,8 @@
 #include "GameClient/UnitVoiceResponse.h"
 #include "GameLogic/ActionManager.h"
 #include "GameLogic/GameMessage.h"
+#include "GameLogic/Object/Object.h"
+#include "GameLogic/System/ShroudManager.h"
 
 #include <cstdio>
 #include <set>
@@ -82,6 +84,22 @@ const char kVoiceObjects[] =
 	"End\n"
 	"Object Wall\n"
 	"  KindOf = STRUCTURE\n"
+	"End\n"
+	// TOP20 S-560: a camp (the shroud's campness channel, RW 0x68EC3B) and a unit with the camp rows (RW 0x8DEABD)
+	"Object Camp\n"
+	"  KindOf = STRUCTURE IMMOBILE\n"
+	"  ShroudClearingRange = 40\n"
+	"  CampnessValue = 10\n"
+	"  CampnessValueRadius = 80\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 5\n"
+	"End\n"
+	"Object Camper\n"
+	"  KindOf = INFANTRY SELECTABLE\n"
+	"  VoiceMove = CamperMove\n"
+	"  VoiceMoveToCamp = CamperToCamp\n"
+	"  VoiceEnterStateMove = CamperGo\n"
+	"  VoiceEnterStateMoveToCamp = CamperGoToCamp\n"
 	"End\n";
 
 struct VoiceRig
@@ -94,7 +112,7 @@ struct VoiceRig
 		const std::string err = f.w.load(kVoiceObjects, INI_LOAD_OVERWRITE, "voices.ini");
 		REQUIRE_MESSAGE(err.empty(), err);
 		for (const char *s : { "SoldierSelect", "SoldierMove", "SoldierAttack", "SoldierCharge", "SoldierGo", "SoldierBombard", "SoldierHatesTowers", "ArcherSelect",
-				 "CaptainSelect", "ChampionSelect", "BuilderVoxReady" })
+				 "CaptainSelect", "ChampionSelect", "BuilderVoxReady", "CamperMove", "CamperToCamp", "CamperGo", "CamperGoToCamp" })
 		{
 			sink.known.insert(s);
 		}
@@ -539,4 +557,53 @@ TEST_CASE("TOP20-9 enter voice: VoiceGarrison into a structure, VoiceGetHealed o
 	CHECK(UnitVoiceResponse::voiceTargetArgument(MSG_DO_GUARD_OBJECT) == 0);
 	CHECK(UnitVoiceResponse::voiceTargetArgument(MSG_CREATE_SELECTED_GROUP) == -1);
 	CHECK(UnitVoiceResponse::voiceTargetArgument(MSG_DO_MOVETO) == -1);
+}
+
+// TOP20 S-560: RW 0x8DEABD .. 0x8DEBC6 with RW 0x8DD6F3: a move order from where the owner's campness (the shroud's channel 2) is at most
+// VoiceMoveToCampMaxCampnessAtStartPoint to where it is at least VoiceMoveToCampMinCampnessAtEndPoint says VoiceMoveToCamp (enter state: its row 0x1F)
+TEST_CASE("TOP20-560 camp voice: a move into the owner's camp says VoiceMoveToCamp; from inside it, out of it or without the AudioSettings thresholds VoiceMove")
+{
+	VoiceRig r;
+	ShroudManager sm(*r.f.logic);
+	sm.init(40.0f, 1);
+	sm.setExtent(0.0f, 0.0f, 1000.0f, 800.0f);
+	sm.attach();
+	Object *camp = r.f.make("Camp", r.f.teamOf("Alice"));
+	Coord3D cp{ 420.0f, 420.0f, 0.0f };
+	camp->setPosition(&cp);
+	Object *camper = r.f.make("Camper", r.f.teamOf("Alice"));
+	Coord3D start{ 100.0f, 100.0f, 0.0f };
+	camper->setPosition(&start);
+	Object *enemy = r.f.make("Camper", r.f.teamOf("Bob"));
+	enemy->setPosition(&start);
+	sm.update();
+	REQUIRE(sm.channelSum(420.0f, 420.0f, 2, 1u << r.f.players.findPlayerWithName("Alice")->getPlayerIndex()) == 10);
+	UnitVoiceResponse::Info intoCamp;
+	intoCamp.hasPosition = true;
+	intoCamp.position = Coord3D{ 430.0f, 410.0f, 0.0f };
+	UnitVoiceResponse::Info elsewhere;
+	elsewhere.hasPosition = true;
+	elsewhere.position = Coord3D{ 900.0f, 700.0f, 0.0f };
+	// no thresholds yet (no TheAudio settings, RW 0x8DD6F9): VoiceMove
+	CHECK(r.voice->pickAndPlay({ camper->getID() }, MSG_DO_MOVETO, &intoCamp));
+	CHECK(r.sink.sounds.back() == "CamperMove");
+	r.voice->setMoveToCampThresholds(5, 10);
+	CHECK(r.voice->pickAndPlay({ camper->getID() }, MSG_DO_MOVETO, &intoCamp));
+	CHECK(r.sink.sounds.back() == "CamperToCamp");
+	CHECK(r.voice->pickAndPlay({ camper->getID() }, UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_MOVE, &intoCamp));
+	CHECK(r.sink.sounds.back() == "CamperGoToCamp");
+	CHECK(r.voice->pickAndPlay({ camper->getID() }, MSG_DO_MOVETO, &elsewhere));
+	CHECK(r.sink.sounds.back() == "CamperMove");
+	// an enemy's camp is not the mover's (the mask is the owner's bit)
+	CHECK(r.voice->pickAndPlay({ enemy->getID() }, MSG_DO_MOVETO, &intoCamp));
+	CHECK(r.sink.sounds.back() == "CamperMove");
+	// from inside the camp (10 > 5 at the start)
+	camper->setPosition(&cp);
+	CHECK(r.voice->pickAndPlay({ camper->getID() }, MSG_DO_MOVETO, &intoCamp));
+	CHECK(r.sink.sounds.back() == "CamperMove");
+	// the end threshold: 11 is not reached
+	camper->setPosition(&start);
+	r.voice->setMoveToCampThresholds(5, 11);
+	CHECK(r.voice->pickAndPlay({ camper->getID() }, MSG_DO_MOVETO, &intoCamp));
+	CHECK(r.sink.sounds.back() == "CamperMove");
 }

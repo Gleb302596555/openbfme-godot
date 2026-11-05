@@ -17,11 +17,14 @@
 #include "Common/Thing/ThingFactory.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/Object/ObjectGeometry.h"
+#include "GameLogic/ObjectTemplateInfo.h"
+#include "Common/Module.h"
 #include "GameClient/GUI/Skirmish/IniSkirmishSetupSource.h"
 #include "GameClient/LiveGame.h"
 #include "GameEngineDevice/Win32Device/Common/Win32BIGFileSystem.h"
 #include "GameLogic/AI/AICommandSink.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
+#include "CombatTestUtil.h"
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/NewGame/NewGame.h"
@@ -80,6 +83,25 @@ const char kObjects[] =
 	"  ShroudClearingRange = 100\n"
 	"  Geometry = CYLINDER\n"
 	"  GeometryMajorRadius = 90\n"
+	"End\n"
+	// TOP20 S-560: the channel rows (RW 0x68EC3B)
+	"Object Camp\n"
+	"  KindOf = STRUCTURE IMMOBILE\n"
+	"  ShroudClearingRange = 40\n"
+	"  BuildCost = 300\n"
+	"  ThreatValue = 5\n"
+	"  ThreatRadius = 40\n"
+	"  CampnessValue = 7\n"
+	"  CampnessValueRadius = 80\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 5\n"
+	"End\n"
+	"Object BigCamp\n"
+	"  KindOf = STRUCTURE IMMOBILE\n"
+	"  ShroudClearingRange = 40\n"
+	"  CampnessValue = 40000\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 5\n"
 	"End\n"
 	"Object Tower\n"
 	"  KindOf = STRUCTURE IMMOBILE\n"
@@ -764,11 +786,136 @@ TEST_CASE("shroud objects: a geometry row that does not parse is an error naming
 	CHECK_THROWS_WITH_AS(f.shroud.update(), doctest::Contains("shroud: template Bogus"), std::logic_error);
 }
 
+// TOP20 S-560: the channels as RW 0x68EC3B / 0xB4EF50 / 0xB51030 build them (cell size 40; the circles are kCircle1 / kCircle2 above)
+TEST_CASE("shroud channels: a structure's CampnessValue, its BuildCost and ThreatValue; moved; clamped at 0xFFFF")
+{
+	Fx f;
+	const int alice = f.idx("Alice"), bob = f.idx("Bob");
+	const std::uint32_t a = 1u << alice, b = 1u << bob;
+	auto at = [&](int ch, int x, int y, std::uint32_t mask) { return f.shroud.channelSum((float)(x * 40 + 20), (float)(y * 40 + 20), ch, mask); };
+	auto cellsWith = [&](int ch, std::uint32_t mask) {
+		std::set<std::pair<int, int>> s;
+		for (int y = 0; y < f.shroud.cellCountY(); ++y)
+		{
+			for (int x = 0; x < f.shroud.cellCountX(); ++x)
+			{
+				if (at(ch, x, y, mask) != 0)
+				{
+					s.insert({ x, y });
+				}
+			}
+		}
+		return s;
+	};
+	f.place("Camp", "Alice", 420.0f, 420.0f);
+	f.shroud.update();
+	// campness 7 over ceil(80 / 40) = 2 cells for Alice and her allies (Bob is her enemy); value 300 over the vision range 0 (its own cell); threat 5 over 1
+	CHECK(cellsWith(2, a) == kCircle2);
+	CHECK(at(2, 10, 10, a) == 7);
+	CHECK(at(2, 12, 10, a) == 7);
+	CHECK(cellsWith(2, b).empty());
+	CHECK(cellsWith(0, a) == std::set<std::pair<int, int>>{ { 10, 10 } });
+	CHECK(at(0, 10, 10, a) == 300);
+	CHECK(cellsWith(1, a) == kCircle1);
+	CHECK(at(1, 10, 9, a) == 5);
+	// moved: taken off at the old look cell (RW 0xB4F1E0), put on at the new one
+	Object *mover = f.place("Camp", "Alice", 820.0f, 420.0f);
+	f.shroud.update();
+	CHECK(at(1, 20, 10, a) == 5);
+	Coord3D p{ 820.0f, 260.0f, 0.0f };
+	mover->setPosition(&p);
+	f.shroud.update();
+	CHECK(at(1, 20, 10, a) == 0);
+	CHECK(at(1, 20, 6, a) == 5);
+	CHECK(at(2, 20, 8, a) == 7);
+	CHECK(at(2, 20, 9, a) == 0);
+	// two 40000 campness in one cell clamp at 0xFFFF (RW 0xB52BF0); taking one off leaves 0xFFFF - 40000
+	f.place("BigCamp", "Bob", 620.0f, 620.0f);
+	Object *second = f.place("BigCamp", "Bob", 620.0f, 620.0f);
+	f.shroud.update();
+	CHECK(at(2, 15, 15, b) == 0xFFFF);
+	Coord3D away{ 900.0f, 100.0f, 0.0f };
+	second->setPosition(&away);
+	f.shroud.update();
+	CHECK(at(2, 15, 15, b) == 0xFFFF - 40000);
+	CHECK(at(2, 22, 2, b) == 40000);
+}
+
+// TOP20 S-560: a non-STRUCTURE with ThreatRadius 0 threatens with its health (body slot 0x10, _ftol2) over the template's VisionRange (RW 0x68ED4D .. 0x68ED73),
+// its BuildCost goes over its vision range (RW 0x68E43B); the combat world makes the ActiveBody and the AI world the body needs
+TEST_CASE("shroud channels: a unit's threat is its health truncated over VisionRange, read again when it looks; a structure under construction keeps only its campness")
+{
+	static const char kBrute[] =
+		"Object Brute\n"
+		"  KindOf = INFANTRY\n"
+		"  ShroudClearingRange = 100\n"
+		"  VisionRange = 80\n"
+		"  BuildCost = 70\n"
+		"  ThreatValue = 9\n"
+		"  Body = ActiveBody ModuleTag_Body\n"
+		"    MaxHealth = 123.75\n"
+		"    InitialHealth = 123.75\n"
+		"  End\n"
+		"  Geometry = CYLINDER\n"
+		"  GeometryMajorRadius = 5\n"
+		"End\n"
+		"Object Site\n"
+		"  KindOf = STRUCTURE IMMOBILE\n"
+		"  ShroudClearingRange = 40\n"
+		"  BuildCost = 300\n"
+		"  ThreatValue = 5\n"
+		"  ThreatRadius = 40\n"
+		"  CampnessValue = 7\n"
+		"  CampnessValueRadius = 80\n"
+		"  Geometry = CYLINDER\n"
+		"  GeometryMajorRadius = 5\n"
+		"End\n";
+	combattest::CombatWorld cw(kBrute);
+	ShroudManager sm(*cw.logic);
+	sm.init(40.0f, 1);
+	sm.setExtent(0.0f, 0.0f, 1000.0f, 1000.0f);
+	sm.attach();
+	const std::uint32_t a = 1u << cw.players.findPlayerWithName("Alice")->getPlayerIndex();
+	auto at = [&](int ch, int x, int y) { return sm.channelSum((float)(x * 40 + 20), (float)(y * 40 + 20), ch, a); };
+	Object *brute = cw.unit("Brute", 'A', 820.0f, 420.0f);
+	cw.frames(1);
+	REQUIRE(brute->getBodyModule() != nullptr);
+	CHECK(brute->getBodyModule()->getHealth() == 123.75f);
+	CHECK(at(1, 20, 10) == 123);
+	CHECK(at(1, 22, 10) == 123); // ceil(80 / 40) = 2 cells
+	CHECK(at(1, 23, 10) == 0);
+	CHECK(at(0, 20, 12) == 70);
+	CHECK(at(2, 20, 10) == 0);
+	// the health is read when the record looks again: a move to the next cell takes 123 off and puts the new value on
+	dynamic_cast<ActiveBody &>(*brute->getBodyModule()).friend_setHealthRaw(50.5f);
+	Coord3D p{ 860.0f, 420.0f, 0.0f };
+	brute->setPosition(&p);
+	cw.frames(1);
+	CHECK(at(1, 21, 10) == 50);
+	CHECK(at(1, 19, 10) == 50);
+	CHECK(at(1, 18, 10) == 0);
+	// under construction (RW 0x68ED00 / 0x68ED7D: status 2): no value and no threat; the campness still counts (its range is the geometry's radius while
+	// building, RW 0x68E4E2: the AI world gives it)
+	Object *site = cw.unit("Site", 'A', 220.0f, 620.0f);
+	site->setStatus(OBJECT_STATUS_UNDER_CONSTRUCTION, true);
+	sm.markDirty(*site, true);
+	cw.frames(1);
+	CHECK(at(2, 5, 15) == 7);
+	CHECK(at(0, 5, 15) == 0);
+	CHECK(at(1, 5, 15) == 0);
+	site->setStatus(OBJECT_STATUS_UNDER_CONSTRUCTION, false);
+	sm.markDirty(*site, true);
+	cw.frames(1);
+	CHECK(at(0, 5, 15) == 300);
+	CHECK(at(1, 5, 15) == 5);
+}
+
 TEST_CASE("shroud stops: S-560 .. S-567 are the exact stop lines and reach GameLogic::report().stops once the manager is attached")
 {
 	const std::vector<std::string> expected = {
-		"[S-560] shroud channels: the three per-cell channels of RW 0xB51030 (BuildCost / ThreatValue / CampnessValue maps the AI reads, RW 0x68EC3B) are not "
-		"added; no AI consumer is ported",
+		"[S-560] shroud channels: the three per-cell channels (RW 0xB51030, the object's RW 0x68EC3B: BuildCost / ThreatValue or health / CampnessValue) are "
+		"added; their readers: the emotion tracker's threat and the unit voice's camp test (RW 0x8DD6F3) are ported; the channel search RW 0xB52740 is read "
+		"only by script action 261 SKIRMISH_ATTACK_NEAREST_GROUP_WITH_VALUE (RW 0x7C19D7, the editor's UNUSED, no retail map uses it), not ported; a body-less object's health threat is 0 (retail reads the body unchecked; no retail template gets there without one)",
 		"[S-561] ghost objects: a destroyed immobile object's record is not kept for the players that saw it fogged (RW 0xB4E190, the ghost object of RW "
 		"0x691602 / TheGhostObjectManager); its remembered building disappears when it dies",
 		"[S-562] shroud inference: the object statuses are evaluated eagerly in update() (retail on demand); the covered cells use the template's last geometry "
@@ -834,13 +981,28 @@ TEST_CASE("shroud retail: every template of the retail object world gives the sh
 {
 	OPENBFME_REQUIRE_START(s);
 	size_t n = 0;
+	// TOP20 S-560: RW 0x68ED5E reads the body of every non-STRUCTURE with a positive clearing range and ThreatRadius 0 unchecked; no retail template
+	// gets there without one (the port's body-less 0 is for synthetic objects only)
+	const int structure = ObjectTemplateInfoBuilder::kindOfIndex("STRUCTURE");
+	std::vector<std::string> bodyless;
 	for (const ThingTemplate *t : s->world->things().templates())
 	{
 		const ThingTemplate &tt = *t->getFinalOverride();
 		CHECK_NOTHROW(ShroudManager::templateVision(tt));
 		++n;
+		const ShroudManager::TemplateVision v = ShroudManager::templateVision(tt);
+		bool body = false;
+		for (const ThingTemplate::Nugget &g : tt.behaviorModules().nuggets())
+		{
+			body = body || (g.interfaceMask & MODULEINTERFACE_BODY) != 0;
+		}
+		if (v.shroudClearingRange > 0.0f && v.threatRadius == 0.0f && !MaskTest(ObjectTemplateInfoBuilder::build(tt).kindOf, (unsigned)structure) && !body)
+		{
+			bodyless.push_back(tt.getName());
+		}
 	}
 	CHECK(n > 1000);
+	CHECK(bodyless == std::vector<std::string>{});
 }
 
 TEST_CASE("shroud hash: peers with different local players hash the same after the local refresh and after a grid resize")

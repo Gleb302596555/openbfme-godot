@@ -126,7 +126,7 @@ void HordeContain::releaseMembersToward(Object *container, int source)
 	}
 	std::vector<ObjectID> ids(m_garrisonEntering.begin(), m_garrisonEntering.end());
 	AIGroup group(getObject()->logic(), ids);
-	group.groupMoveToPosition(*container->getPosition(), false, (CommandSourceType)source);
+	group.groupMoveToPosition(*container->getPosition(), false, (CommandSourceType)source, false, 0.0f, false, container); // RW 0x875D85: the container is the goal object (+ 8)
 }
 
 void HordeContain::enterContainer(Object *container, int source)

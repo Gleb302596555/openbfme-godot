@@ -177,7 +177,7 @@ void Locomotor::xfer(Xfer &x)
 	if (x.isLoading())
 	{
 		AIXfer::inRange(m_turnDirection, -1, 1, "locomotor: the turn direction");
-		if (m_flags & ~(unsigned)(LOCOMOTOR_FLAG_BRAKING | LOCOMOTOR_FLAG_BIT2 | LOCOMOTOR_FLAG_NO_BRAKE | LOCOMOTOR_FLAG_BACKING_UP))
+		if (m_flags & ~(unsigned)LOCOMOTOR_FLAGS_KNOWN) // TOP20 enter fix: was a list without ALLOW_INVALID_POSITION and OVER_WATER (a hovering ship's save refused)
 		{
 			throw XferException("locomotor: the flags 0x" + std::to_string(m_flags) + " hold bits no mover sets");
 		}

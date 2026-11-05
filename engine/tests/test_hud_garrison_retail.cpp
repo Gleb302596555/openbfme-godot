@@ -5,6 +5,10 @@
 
 #include "HordeCompleteTestUtil.h"
 #include "doctest.h"
+
+#include "Siege1TestUtil.h"
+#include "GameLogic/AI/AIGarrisonStates.h"
+#include "GameLogic/Combat/CombatQueries.h"
 #include "HudTestUtil.h"
 
 #include "Common/PlayerList.h"
@@ -849,4 +853,131 @@ TEST_CASE("ring delivery retail: a battalion whose last approaching member dies 
 	CHECK(carrier->getContainedBy() == fortress);
 	CHECK(contain->pendingRingExit() == INVALID_ID);
 	CHECK(a.logic.fxEvents().perSite().count("CitadelSlaughterHordeContain") == 0);
+}
+
+
+// The owner's 2026-11-04 check: half of a horde ordered into a tower went in at once, the rest walked around the tower for 10-15 s. RotWK lets the members walk
+// into the container's footprint: AIEnterState::onEnter ignores the container as an obstacle (RW 0x7516B3 .. 0x7516C8, RW 0x66831A) and the group move that
+// HordeContain slot 0x7C sends the released members on carries the container as its goal object, which every member ignores (RW 0x875D85, RW 0x774D0E ..
+// 0x774D18). Without them the path ended at the tower's wall, AIEnterState's move never finished (it adds a member once the move stops, RW 0x7561A0) and the horde
+// forced them in one per WaitToForceMemberToEnterDelay + 1 frames (RW 0x876BA9 .. 0x876BE6). On a real map (the synthetic arena's terrain has no footprints).
+TEST_CASE("garrison map: a horde's members walk into the tower's footprint and enter by themselves (RW 0x7516C8, 0x774D18)")
+{
+	OPENBFME_REQUIRE_START(s);
+	siege1test::FortressGame g(*s, "maps/map mp fall back 4p/map mp fall back 4p.map", false);
+	Player *men = g.ofFaction("FactionMen");
+	REQUIRE(men);
+	const Waypoint *w = g.game->logic().terrain()->findWaypointByName("Player_1_Start");
+	REQUIRE(w);
+	std::string error;
+	const Coord3D tp{ w->location.x + 250.0f, w->location.y, 0.0f };
+	Object *tower = g.game->createObject("GondorKeep", men->getPlayerIndex(), tp, 0.0f, &error);
+	REQUIRE_MESSAGE(tower, error);
+	Object *horde = g.game->createObject("GondorFighterHorde", men->getPlayerIndex(), Coord3D{ tp.x - 160.0f, tp.y + 40.0f, 0.0f }, 0.0f, &error);
+	REQUIRE_MESSAGE(horde, error);
+	g.frames(40);
+	HordeContainInterface *h = horde->getContain()->getHordeContainInterface();
+	GameMessage sel(MSG_CREATE_SELECTED_GROUP, men->getPlayerIndex());
+	sel.appendBooleanArgument(true);
+	sel.appendObjectIDArgument(horde->getID());
+	g.game->commands().append(sel);
+	GameMessage m(MSG_ENTER, men->getPlayerIndex());
+	m.appendObjectIDArgument(horde->getID());
+	m.appendObjectIDArgument(tower->getID());
+	g.game->commands().append(m);
+	Coord3D entry;
+	tower->getContain()->getEntryPosition(entry);
+	const float radius = CombatQueries::boundingCircleRadius(*tower);
+	float nearest = 1.0e9f;            // the nearest a member on the way came to the EntryPosition (2D)
+	bool ignoresTower = false;         // a member on the way in AIEnterState ignored the tower as an obstacle
+	int done = -1;
+	for (int f = 0; f < 600 && done < 0; ++f)
+	{
+		g.frames(1);
+		for (ObjectID id : h->membersEntering())
+		{
+			Object *mm = g.game->logic().findObjectByID(id);
+			if (!mm || !mm->getAIUpdateInterface())
+			{
+				continue;
+			}
+			AIUpdateInterface *ai = mm->getAIUpdateInterface();
+			const float dx = mm->getPosition()->x - entry.x, dy = mm->getPosition()->y - entry.y;
+			nearest = std::min(nearest, std::sqrt(dx * dx + dy * dy));
+			ignoresTower = ignoresTower || (ai->currentStateId() == (unsigned)AI_ENTER && ai->mover().ignoredObstacleID() == (PathfindObjectID)tower->getID());
+		}
+		if (horde->getContainedBy() == tower && h->allMembersEntered())
+		{
+			done = f + 1;
+		}
+	}
+	MESSAGE("entered after " << done << " frames; nearest member " << nearest << ", the tower's radius " << radius);
+	CHECK(ignoresTower);
+	CHECK(nearest < radius); // tolerance: the claim is "inside the footprint" (before the port: 26.9 from the EntryPosition, at the wall)
+	CHECK(done == 45);       // regression pin: this port's deterministic result (seed 9); 63 frames before the port
+	CHECK(membersOf(*horde).size() == 15u);
+}
+
+// TOP20 S-321: HitPassengerPercentage (RW 0x6CCD46 .. 0x6CCDA7, the roll at line 0x5E1; the redirect RW 0x6CCE9E) at a horde garrison: slot 0xF4 (RW 0x87CE79
+// -> RW 0x990D14) takes only a member whose drawable is shown (RW 0x67055A: + 0x43D). The keep's contain is ENCLOSED, so GarrisonContain::onContaining hid every
+// member (RW 0x87BF38): no passenger is named and the keep takes the hit, even at 100%. The shown case (the mumak's archers) is test_hud_transport_retail.cpp's
+TEST_CASE("TOP20-321 hit passenger: an ENCLOSED keep's horde members are hidden, so a HitPassengerPercentage 100% shot at the keep hits the keep (RW 0x990D14)")
+{
+	OPENBFME_REQUIRE_START(s);
+	siege1test::FortressGame g(*s, "maps/map mp fall back 4p/map mp fall back 4p.map", false);
+	Player *men = g.ofFaction("FactionMen");
+	Player *mordor = g.ofFaction("FactionMordor");
+	REQUIRE(men);
+	REQUIRE(mordor);
+	const Waypoint *w = g.game->logic().terrain()->findWaypointByName("Player_1_Start");
+	REQUIRE(w);
+	std::string error;
+	const Coord3D tp{ w->location.x + 250.0f, w->location.y, 0.0f };
+	Object *tower = g.game->createObject("GondorKeep", men->getPlayerIndex(), tp, 0.0f, &error);
+	REQUIRE_MESSAGE(tower, error);
+	Object *horde = g.game->createObject("GondorFighterHorde", men->getPlayerIndex(), Coord3D{ tp.x - 160.0f, tp.y + 40.0f, 0.0f }, 0.0f, &error);
+	REQUIRE_MESSAGE(horde, error);
+	g.frames(40);
+	HordeContainInterface *h = horde->getContain()->getHordeContainInterface();
+	GameMessage sel(MSG_CREATE_SELECTED_GROUP, men->getPlayerIndex());
+	sel.appendBooleanArgument(true);
+	sel.appendObjectIDArgument(horde->getID());
+	g.game->commands().append(sel);
+	GameMessage m(MSG_ENTER, men->getPlayerIndex());
+	m.appendObjectIDArgument(horde->getID());
+	m.appendObjectIDArgument(tower->getID());
+	g.game->commands().append(m);
+	for (int f = 0; f < 600 && !(horde->getContainedBy() == tower && h->allMembersEntered()); ++f)
+	{
+		g.frames(1);
+	}
+	REQUIRE(horde->getContainedBy() == tower);
+	g.frames(5);
+	const std::vector<Object *> members = membersOf(*horde);
+	REQUIRE(!members.empty());
+	for (Object *mm : members)
+	{
+		CHECK(mm->isDrawableHidden()); // RW 0x87BF38: the keep is ENCLOSED
+	}
+	CHECK(tower->getContain()->passengerToHit(*tower->getPosition()) == nullptr);
+	Object *orc = g.game->createObject("MordorFighter", mordor->getPlayerIndex(), Coord3D{ tp.x + 120.0f, tp.y, 0.0f }, 0.0f, &error);
+	REQUIRE_MESSAGE(orc, error);
+	const WeaponTemplate *sword = TheWeaponStore->findWeaponTemplate("GondorSword");
+	REQUIRE(sword);
+	WeaponTemplate w100 = *sword;
+	w100.m_attackRange = 10000.0f;
+	w100.m_hitPercentage = 1.0f;
+	w100.m_hitPassengerPercentage = 1.0f;
+	std::vector<float> membersBefore;
+	for (Object *mm : members)
+	{
+		membersBefore.push_back(mm->getBodyModule()->getHealth());
+	}
+	const float towerBefore = tower->getBodyModule()->getHealth();
+	ObjectWeapons::createAndFireTempWeaponAt(&w100, orc, *tower);
+	CHECK(tower->getBodyModule()->getHealth() < towerBefore); // tolerance: the claim is which object the shot hits; the amount follows the armour and damage scalars, checked elsewhere
+	for (size_t i = 0; i < members.size(); ++i)
+	{
+		CHECK(members[i]->getBodyModule()->getHealth() == membersBefore[i]);
+	}
 }

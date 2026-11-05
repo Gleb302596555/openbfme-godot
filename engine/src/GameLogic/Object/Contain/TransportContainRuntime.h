@@ -138,6 +138,7 @@ public:
 	void crc(StateHasher &hasher) const override;
 	bool isValidContainerFor(const Object &obj, bool checkCapacity, bool checkPath) const override; // RW 0x87A48C
 	bool addToContain(Object *obj) override;                                                      // RW 0x87A677
+	Object *passengerToHit(const Coord3D &pos) const override { return nearestShownHordeMember(m_contained, pos); } // slot 0xF4 RW 0x87A38E -> 0x990D14 (S-321)
 	void removeFromContain(Object *obj) override;                                                 // RW 0x87A6D3
 	void orderAllPassengersToExit(int source) override;                                           // RW 0x87A559 -> 0x991027
 	void exitObjectViaDoor(Object *obj, int door) override;                                       // RW 0x87A89E
