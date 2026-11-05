@@ -45,6 +45,29 @@
 // (TerrainTrees::events), not simulation; the CRITTER_EMITTER objects use the partition's centre distance in 2D (FROM_CENTER_2D). Lane TREES1 (stop S-5260):
 // slot 0x6C's shrub push aside is not sent (the client's shrubs do not bend), and the fire grid (TheFireLogicSystem: burning cells take a tree's lumber,
 // RW 0x6886E0 -> 0x67F4C2) is not ported.
+//
+// The Taint / Elven Wood tree morph (stop S-921), TARGET FACTS (RotWK game.dat, caveat S-001):
+//   * the spells (RW 0x8C8E67 Taint, type 1, TaintRadius + 0x80; RW 0x8C7DBA Elven Wood, type 2, ElvenWoodRadius + 0x90), before their FX and OCL: TheTerrainLogic
+//     RW 0x67F6F0(location, radius, type), then RW 0x67D4CE(location, radius + 50.0 (RW 0xBD88C4, SSE), type);
+//   * RW 0x67F6F0 -> the bucket walk RW 0x67E879 (the query's: radius + 7.0, the bucket rectangle, x outer, y inner, the list from its head; ignoreToppled 0,
+//     mode 0): a record with an id whose 3D squared distance ((dz^2 + dy^2) + dx^2) is below r^2 goes to TheTerrainVisual slot 0x74 (RW 0x49192E -> the
+//     tree buffer's RW 0x4EC8EB(id, type)): the tree of that id that is not morphing (+ 0x694 == 0 and + 0x688 == 0) morphs (RW 0x4EC40E):
+//       - its type's W3DTreeDraw (+ 0x600, the type list + 0x44578): type 1 skips a TaintedTree (+ 0x54), type 2 skips one that is not; a sinking tree
+//         (+ 0x684) is skipped;
+//       - a toppled tree (+ 0x640) gives TheTerrainLogic RW 0x67F738(id): the first record of that id is harvested of its whole value (RW 0x67D6E1);
+//       - else MorphTime (+ 0x4C) -> + 0x694, the type -> + 0x688; the drawn model A (+ 0x698) is the type's, at alpha 1; when the type's MorphTree (+ 0x445B0,
+//         from RW 0x4EC7B6: the MorphTree template's W3DTreeDraw, -2 without one) exists, model B (+ 0x69C) is that of the tree's target (+ 0x690, the
+//         add-time type's MorphTree), at alpha 0; MorphFX (+ 0x50) plays at the tree (RW 0x494615);
+//   * TheTerrainLogic's update (RW 0x67D08D, every logic frame, GameLogic phase 1) calls TheTerrainVisual slot 0x44 (RW 0x491804 -> RW 0x46786B: the
+//     tree buffer's RW 0x4EAD92, then the shrub buffer's RW 0x4E74C5): every tree with a type and + 0x688 set (RW 0x4EACB0): a toppled or sinking one ends
+//     at once; else + 0x694 is decremented, A's alpha is + 0x694 / MorphTime and B's 1 - that, and at 0 the morph ends (RW 0x4EAAA7): an upright tree
+//     takes the target (+ 0x690) for type 1 with B, its add-time type (+ 0x68C) for type 2; both models go; without B, TheTerrainLogic RW 0x684412(id):
+//     the frame stamped (+ 0x1910), the first record of the id leaves the fire grid and is cleared, slot 0x58 (the tree goes at once); + 0x688 = 0;
+//   * a morphing tree refuses the topple (RW 0x4E9E4E: + 0x688) and the harvest check (slot 0x80, RW 0x4EA005);
+//   * RW 0x67D4CE -> TheTerrainVisual slot 0x40 (RW 0x4917E5 -> 0x46782B): the shrub buffer (RW 0x4E8AEB: every shrub with a type whose 3D squared distance
+//     is below the radius squared morphs the same way, RW 0x4E8A9C -> 0x4E85EE) and the prop buffer (RW 0x4EDA0B: every prop within it goes).
+// INFERENCE (S-921): the tree buffer's morph state is kept in the logic records (it calls back into the logic: the harvest and the removal), so it is hashed
+// and saved; the shrubs and props are the client's (the event MORPH_AREA).
 
 #pragma once
 
@@ -77,6 +100,11 @@ public:
 		bool harvestable = false;          ///< + 0x2D
 		std::int16_t next = -1;            ///< + 0x2E
 		bool changed = false;              ///< toppled or harvested since the map start (the hash covers only these)
+		// the tree buffer's morph (S-921, see above), mirrored here
+		const ThingTemplate *drawTmpl = nullptr; ///< the tree's type now (+ 0x600; the add-time template, + 0x68C, until a morph ends)
+		int morph = 0;                     ///< + 0x688: 0, 1 Taint, 2 Elven Wood
+		std::int32_t morphLeft = 0;        ///< + 0x694
+		bool morphTarget = false;          ///< model B (+ 0x69C) was made
 	};
 	// what the client shows: a tree starts to fall (TheGameClient vslot 0x70) or its lumber is gone (vslot 0x7C)
 	struct Event
@@ -87,7 +115,10 @@ public:
 			REMOVE, ///< slot 0x7C: the lumber is gone, the tree sinks
 			REMOVE_NOW, ///< lane TREES1: slot 0x58 (construction): the tree goes at once
 			CLEAR_FOOTPRINT, ///< lane TREES1: slot 0x48 (construction): the shrubs and props the geometry (`position`, `angle`, `shapes`) overlaps go
-			HIDE_SCORCHES ///< slot 0x5C (the radius clear RW 0x683393 -> RW 0x46947C): the scorch marks within `radius` of `position` are hidden
+			HIDE_SCORCHES, ///< slot 0x5C (the radius clear RW 0x683393 -> RW 0x46947C): the scorch marks within `radius` of `position` are hidden
+			MORPH,     ///< slot 0x74 (S-921): the tree starts to morph (`morphType`, `from` the model drawn now, `to` the target's or null, `morphTime`)
+			MORPH_END, ///< the morph ended (TheTerrainVisual slot 0x44): the tree is drawn as `to` (a REMOVE_NOW follows when it had no target)
+			MORPH_AREA ///< slot 0x40: the shrubs within `radius` of `position` morph (`morphType`), the props within it go
 		};
 		Kind kind = TOPPLE;
 		std::uint32_t clientId = 0;
@@ -97,7 +128,10 @@ public:
 		Coord3D position{};
 		float angle = 0.0f;
 		std::vector<ObjectGeometry::Shape> shapes;
-		float radius = 0.0f; ///< HIDE_SCORCHES
+		float radius = 0.0f; ///< HIDE_SCORCHES, MORPH_AREA
+		int morphType = 0;   ///< MORPH, MORPH_AREA
+		const ThingTemplate *from = nullptr, *to = nullptr; ///< MORPH, MORPH_END
+		std::int32_t morphTime = 0; ///< MORPH: MorphTime (+ 0x4C) in logic frames
 	};
 	enum
 	{
@@ -136,6 +170,16 @@ public:
 	int removeTreesInRadius(const Coord3D &position, float radius);
 	// TheTerrainVisual slot 0x5C from the radius clear (RW 0x683498): a client event (HIDE_SCORCHES)
 	void hideScorches(const Coord3D &position, float radius);
+	// S-921: RW 0x67F6F0 (the trees within `radius` start to morph, `type` 1 Taint / 2 Elven Wood); the number that started
+	int morphTreesInRadius(const Coord3D &position, float radius, int type);
+	// S-921: RW 0x67D4CE (TheTerrainVisual slot 0x40 with radius + 50: the client's shrubs and props, MORPH_AREA)
+	void morphArea(const Coord3D &position, float radius, int type);
+	// S-921: TheTerrainLogic's update (RW 0x67D08D) -> TheTerrainVisual slot 0x44: the morphing trees advance a logic frame
+	void update();
+	// the tree buffer's W3DTreeDraw of a type (its template's; null without one) and the type of its MorphTree (RW 0x4EC7B6; null for -2)
+	static const class W3DTreeDrawModuleData *treeDrawOf(const ThingTemplate *tmpl);
+	const ThingTemplate *morphTargetOf(const ThingTemplate *tmpl) const;
+	int morphing() const { return m_morphing; }
 
 	// TerrainLogic + 0x1918, the topple speed the client is given (Devastation sets it around its loop)
 	void setToppleSpeed(float s) { m_toppleSpeed = s; }
@@ -171,4 +215,8 @@ private:
 	float m_toppleSpeed = 0.0f;      ///< + 0x1918
 	std::uint32_t m_changedFrame = 0; ///< + 0x1910
 	int m_changed = 0;
+	int m_morphing = 0; ///< the records with `morph` set (update's fast path)
+	bool startMorph(Record &tree, int type);  ///< RW 0x4EC8EB / 0x4EC40E: true when the tree started to morph
+	void endMorph(Record &tree);              ///< RW 0x4EAAA7
+	void removeTreeNow(std::uint32_t treeId); ///< RW 0x684412
 };

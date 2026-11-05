@@ -16,4 +16,5 @@ set(OPENBFME_TAINT_TESTS
     tests/test_taint_manager.cpp
     tests/test_taint_clear.cpp
     tests/test_taint_mask.cpp
+    tests/test_tree_morph.cpp
 )

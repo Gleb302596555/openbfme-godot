@@ -91,6 +91,14 @@ public:
 	std::vector<FX> takeFX();
 	const std::vector<Tree> &trees() const { return m_trees; }
 	size_t animating() const;
+	// S-921: a morph ended and the tree is of another type now (its topple and sink read that type's W3DTreeDraw, RW 0x4EAB0A)
+	void setData(size_t index, const W3DTreeDrawModuleData *data)
+	{
+		if (index < m_trees.size() && data)
+		{
+			m_trees[index].data = data;
+		}
+	}
 
 private:
 	void update(Tree &t); // RW 0x4ED508's step: the sink, then updateTopplingTree

@@ -384,7 +384,8 @@ TEST_CASE("save4d retail trees: changed records of version 1 (no running index, 
 	std::vector<std::uint8_t> v2;
 	la.gameState().saveBlocks({ "obfme:TerrainTrees" }, v2);
 	// the stream: the 16-byte header, the token, "BLOK" and the block's end offset; the payload: version, record count, next index, frame, speed, the
-	// changed count; then the record: its index, version, position, client id, name, toppled, direction, value, link, two flags, running index
+	// changed count; then the record: its index, version, position, client id, name, toppled, direction, value, link, two flags, running index and (version 3,
+	// S-921) the type drawn now (a name), the morph type, the frames left and model B
 	const size_t payload = 16 + 1 + std::string("obfme:TerrainTrees").size() + 8;
 	const size_t count = payload + 1 + 4 + 4 + 4 + 4;
 	REQUIRE(u32At(v2, count) == 1u);
@@ -392,7 +393,8 @@ TEST_CASE("save4d retail trees: changed records of version 1 (no running index, 
 	REQUIRE(u32At(v2, rec) == index);
 	const size_t name = rec + 4 + 1 + 12 + 4;
 	const size_t link = name + 1 + v2[name] + 1 + 12 + 4;
-	REQUIRE(v2[rec + 4] == 2);
+	REQUIRE(v2[rec + 4] == 3);
+	const size_t morphFields = 1 + v2[name] + 4 + 4 + 1; // version 3: the drawn type's name (the template's here), morph, frames left, model B
 	REQUIRE((std::int16_t)(v2[link] | (v2[link + 1] << 8)) == first->next);
 	const std::uint32_t before = lb.computeStateHash();
 
@@ -408,11 +410,11 @@ TEST_CASE("save4d retail trees: changed records of version 1 (no running index, 
 	CHECK(lb.computeStateHash() == before);
 	CHECK_FALSE(lb.trees().anyChanged());
 
-	// version 1: the same record without its running index (the block 4 bytes shorter, its end offset with it)
-	std::vector<std::uint8_t> v1(v2.begin(), v2.end() - 7 - 4);
+	// version 1: the same record without its running index and the version 3 fields (the block that much shorter, its end offset with it)
+	std::vector<std::uint8_t> v1(v2.begin(), v2.end() - 7 - 4 - (std::ptrdiff_t)morphFields);
 	v1[rec + 4] = 1;
 	v1.insert(v1.end(), v2.end() - 7, v2.end());
-	putU32At(v1, payload - 4, u32At(v2, payload - 4) - 4);
+	putU32At(v1, payload - 4, u32At(v2, payload - 4) - 4 - (std::uint32_t)morphFields);
 	REQUIRE(treesLoadError(lb, v1) == "(loaded)");
 	CHECK(lb.trees().records()[index].toppled);
 	CHECK(lb.trees().records()[index].index == records[index].index); // the map's running index kept

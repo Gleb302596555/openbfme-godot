@@ -262,11 +262,15 @@ void WeatherFamilySpecialPower::emitCentreFX(const std::string &fx, const Coord3
 	emitPositionFX(logic, "SpecialPower map centre FX", fx, *getObject(), c); // RW 0x494615
 }
 
-Object *WeatherFamilySpecialPower::seedArea(const Coord3D &loc, const std::string &fx, const std::string &ocl, const std::string &objectName)
+Object *WeatherFamilySpecialPower::seedArea(const Coord3D &loc, const std::string &fx, const std::string &ocl, const std::string &objectName, float radius,
+                                            int morphType)
 {
 	Object *obj = getObject();
 	GameLogic &logic = obj->logic();
-	++m_unported; // RW 0x67F6F0 / 0x67D4CE: the terrain's taint / elven wood area of the radius (S-921)
+	// S-921: RW 0x8C8E9B / 0x8C7DEE: TheTerrainLogic RW 0x67F6F0 (the trees within the radius morph), then RW 0x8C8EBC / 0x8C7E0F: RW 0x67D4CE with the
+	// radius + 50 (the client's shrubs and props)
+	logic.trees().morphTreesInRadius(loc, radius, morphType);
+	logic.trees().morphArea(loc, radius, morphType);
 	emitPositionFX(logic, "SpecialPower area FX", fx, *obj, loc); // RW 0x494615
 	if (!ocl.empty())
 	{
@@ -390,7 +394,7 @@ void TaintSpecialPower::doSpecialPowerAtLocation(const Coord3D &loc, unsigned op
 		return;
 	}
 	baseDo(&loc, nullptr, options);
-	Object *made = seedArea(loc, m_data->m_taintFX, m_data->m_taintOCL, m_data->m_taintObject);
+	Object *made = seedArea(loc, m_data->m_taintFX, m_data->m_taintOCL, m_data->m_taintObject, m_data->m_taintRadius, 1); // RW 0x8C8E83: type 1
 	m_lastObject = made ? made->getID() : (ObjectID)INVALID_ID;
 	paintArea(loc, m_data->m_taintRadius, made, 0x00); // RW 0x8C8F22 .. 0x8C8F65
 }
@@ -414,7 +418,7 @@ void ElvenWoodSpecialPower::doSpecialPowerAtLocation(const Coord3D &loc, unsigne
 		return;
 	}
 	baseDo(&loc, nullptr, options);
-	Object *made = seedArea(loc, m_data->m_elvenWoodFX, m_data->m_elvenWoodOCL, m_data->m_elvenGroveObject);
+	Object *made = seedArea(loc, m_data->m_elvenWoodFX, m_data->m_elvenWoodOCL, m_data->m_elvenGroveObject, m_data->m_elvenWoodRadius, 2); // RW 0x8C7DD6: type 2
 	m_lastObject = made ? made->getID() : (ObjectID)INVALID_ID;
 	if (made)
 	{

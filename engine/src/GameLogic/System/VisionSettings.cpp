@@ -37,6 +37,8 @@ struct State
 	bool showRandomPlayerTemplate = true, showRandomStartPos = true, showRandomColor = true; // lane HUD-5 (RW 0x7836C0 defaults)
 	bool taintOn = false;          // S-5261: GameData TaintOn + 0xC6A (parseBool RW 0x42E558); no constructor write
 	std::uint8_t taintAlpha = 0x80; // TaintAlpha + 0xC04 (parseUnsignedByte RW 0x42EB75); the constructor's 0x80 (RW 0x6432F8)
+	RGBColor taintColor{ 1.0f, 1.0f, 1.0f };     // TaintColor + 0xBEC (parseRGBColor RW 0x42EF99); the constructor's 0xFFFFFF (RW 0x6432DA .. 0x6432EB)
+	RGBColor elvenWoodColor{ 0.0f, 0.0f, 0.0f }; // ElvenWoodColor + 0xBF8 (parseRGBColor); no constructor write
 	unsigned seen = 0;
 	bool gameData = false, multiplayer = false;
 };
@@ -117,6 +119,8 @@ FieldParse kGameData[] = {
 	{ "StealthFriendlyOpacity", parseNoting<INI::parsePercentToReal>, SEEN_DATA(SEEN_STEALTH), VS_OFF(stealth) },
 	{ "TaintOn", INI::parseBool, nullptr, VS_OFF(taintOn) },              // S-5261 (the terrain's taint mask, W3DTaintMask.h)
 	{ "TaintAlpha", INI::parseUnsignedByte, nullptr, VS_OFF(taintAlpha) },
+	{ "TaintColor", INI::parseRGBColor, nullptr, VS_OFF(taintColor) },         // S-5261: the radar's taint (Radar::taintTexels)
+	{ "ElvenWoodColor", INI::parseRGBColor, nullptr, VS_OFF(elvenWoodColor) },
 	{ nullptr, skipField, nullptr, 0 }
 };
 
@@ -218,6 +222,12 @@ bool finish(const State &s, VisionSettings &out, std::string *error)
 	out.showRandomColor = s.showRandomColor;
 	out.taintOn = s.taintOn;
 	out.taintAlpha = s.taintAlpha;
+	out.taintColor[0] = s.taintColor.red;
+	out.taintColor[1] = s.taintColor.green;
+	out.taintColor[2] = s.taintColor.blue;
+	out.elvenWoodColor[0] = s.elvenWoodColor.red;
+	out.elvenWoodColor[1] = s.elvenWoodColor.green;
+	out.elvenWoodColor[2] = s.elvenWoodColor.blue;
 	out.loaded = true;
 	return true;
 }

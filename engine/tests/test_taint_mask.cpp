@@ -6,6 +6,7 @@
 #include "doctest.h"
 
 #include "GameClient/FireSetting.h"
+#include "GameClient/Radar.h"
 #include "GameEngineDevice/W3DDevice/GameClient/W3DTaintMask.h"
 #include "GameLogic/System/TaintManager.h"
 
@@ -70,4 +71,31 @@ TEST_CASE("taint mask: TheTaintManager's version moves with every cell write and
 	CHECK(tm.version() == v1);
 	tm.paint(at, 10.0f, 0x00, true, -1);
 	CHECK(tm.version() != v1);
+}
+
+TEST_CASE("taint mask: the radar's taint texel and image (W3DRadar vslot 0x2C, RW 0x44E5F3)")
+{
+	const float taint[3] = { 120.0f / 255.0f, 90.0f / 255.0f, 80.0f / 255.0f }; // RotWK's gamedata.ini TaintColor
+	const float elven[3] = { 70.0f / 255.0f, 120.0f / 255.0f, 50.0f / 255.0f }; // ElvenWoodColor
+	CHECK(Radar::taintTexel(0x80, taint, elven) == 0x00FFFFFFu);
+	// value 0: k = 254, the alpha 0xFE, (int)(120 / 255 * 254) = 119, 89, 79
+	CHECK(Radar::taintTexel(0x00, taint, elven) == 0xFE77594Fu);
+	// value 0x7F: k = 0, black and clear
+	CHECK(Radar::taintTexel(0x7F, taint, elven) == 0x00000000u);
+	// value 0xFF: k = 254 with ElvenWoodColor: 69, 119, 49
+	CHECK(Radar::taintTexel(0xFF, taint, elven) == 0xFE457731u);
+	// value 0x81: k = 2
+	CHECK(Radar::taintTexel(0x81, taint, elven) == 0x02000000u);
+	// the image: a radar without terrain covers 0 .. 1; one cell of size 1 spans texels 0 .. 127 (clamped) both ways
+	Radar radar;
+	TaintView view;
+	view.countX = view.countY = 1;
+	view.cellSize = 1.0f;
+	view.values = { 0x00 };
+	view.fireTypes = { 0 };
+	std::vector<std::uint32_t> texels;
+	radar.taintTexels(view, taint, elven, texels);
+	REQUIRE(texels.size() == (size_t)Radar::kCells * (size_t)Radar::kCells);
+	CHECK(texels.front() == 0xFE77594Fu);
+	CHECK(texels.back() == 0xFE77594Fu);
 }

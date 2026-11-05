@@ -30,9 +30,12 @@ struct VisionSettings
 	// as random). Default true: MultiplayerSettings' constructor (RW 0x7836C0, BFME2 decomp MultiplayerSettings.cpp, tier B same-shape); optional fields
 	bool showRandomPlayerTemplate = true, showRandomStartPos = true, showRandomColor = true;
 	// S-5261: GameData TaintOn (+ 0xC6A, no constructor write: off) and TaintAlpha (+ 0xC04, constructor 0x80, RW 0x6432F8), optional fields; the
-	// terrain's taint mask (W3DTaintMask.h). TaintColor / ElvenWoodColor feed only the fixed-function texel, which is not ported
+	// terrain's taint mask (W3DTaintMask.h). TaintColor (+ 0xBEC, constructor white, RW 0x6432EB) / ElvenWoodColor (+ 0xBF8, no constructor write):
+	// parseRGBColor 0 .. 1, read by the radar's taint (Radar::taintTexels, RW 0x44E5F3) and the fixed-function texel (not ported)
 	bool taintOn = false;
 	unsigned taintAlpha = 0x80;
+	float taintColor[3] = { 1.0f, 1.0f, 1.0f };
+	float elvenWoodColor[3] = { 0.0f, 0.0f, 0.0f };
 
 	static bool load(ArchiveFileSystem &fs, VisionSettings &out, std::string *error);
 	// the two files' texts (tests)

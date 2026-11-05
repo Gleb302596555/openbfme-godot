@@ -137,7 +137,7 @@ protected:
 	// RW 0xDE46A8 + 0x98 = 0 after the base (Darkness, CloudBreak)
 	void zeroBurnDecay();
 	// RW 0x8C8E67 / 0x8C7DBA: the terrain area, FX, OCL and the area object of Taint / ElvenWood; returns the object made (null: none)
-	Object *seedArea(const Coord3D &loc, const std::string &fx, const std::string &ocl, const std::string &objectName);
+	Object *seedArea(const Coord3D &loc, const std::string &fx, const std::string &ocl, const std::string &objectName, float radius, int morphType);
 	// RW 0x8C8F22 .. 0x8C8F65 / 0x8C7E89 .. 0x8C7ECD: TheTaintManager's paint of the area (TaintManager.h)
 	void paintArea(const Coord3D &loc, float radius, const Object *areaObject, int value);
 	// the FX at the centre of the terrain's extent (RW 0x8C931C / 0x8C9104 / 0x8C8ADA); castLoc: its z (null: the ground height there)

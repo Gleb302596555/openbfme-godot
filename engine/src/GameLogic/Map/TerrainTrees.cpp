@@ -8,6 +8,7 @@
 #include "Common/Thing/ThingFactory.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "Common/Xfer.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
 #include "GameLogic/Economy.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Object/Object.h"
@@ -29,6 +30,7 @@ const float kPropClearRadius = 25.0f;        // RW 0xC69574 (lane TREES1)
 const float kCrushTreeHeight = 20.0f;        // RW 0xBDBC6C (lane TREES1)
 const float kConstructionTreeHeight = 35.0f; // RW 0xBE4CB8 (lane TREES1)
 const float kConstructionTreeRadius = 14.0f; // RW 0xBDD368 (lane TREES1)
+const float kMorphAreaMargin = 50.0f;        // RW 0xBD88C4 (S-921)
 
 bool hasTreeDraw(const ThingTemplate &tmpl)
 {
@@ -73,6 +75,7 @@ void TerrainTrees::reset()
 	m_toppleSpeed = 0.0f;
 	m_changedFrame = 0;
 	m_changed = 0;
+	m_morphing = 0;
 	m_start.clear();
 }
 
@@ -124,6 +127,7 @@ bool TerrainTrees::addTree(const ThingTemplate &tmpl, const Coord3D &position, s
 	r.clientId = clientId;
 	r.index = m_nextIndex++;
 	r.tmpl = &tmpl;
+	r.drawTmpl = &tmpl; // the tree buffer's type of the template (RW 0x4EC93A)
 	r.next = m_heads[(size_t)bucket]; // RW 0x683E86 .. 0x683E9B: the new record is the bucket's head
 	m_heads[(size_t)bucket] = (std::int16_t)m_records.size();
 	const long long overrideValue = Economy::templateInt(tmpl, "SupplyOverride"); // ThingTemplate + 0x5C8
@@ -169,6 +173,14 @@ void TerrainTrees::clearRecord(Record &tree)
 	{
 		m_logic.fireLogic().unregisterTree(tree.clientId, tree.position); // RW 0x684C54 / 0x686B2E
 	}
+	if (tree.morph != 0)
+	{
+		--m_morphing; // the client's tree is gone with it (slot 0x58 / 0x7C): it never updates again
+	}
+	tree.drawTmpl = nullptr;
+	tree.morph = 0;
+	tree.morphLeft = 0;
+	tree.morphTarget = false;
 	tree.position = Coord3D{};
 	tree.clientId = 0;
 	tree.index = 0;
@@ -250,8 +262,9 @@ void TerrainTrees::toppleTree(Record &tree, const Coord3D &from, const Object *s
 	}
 	const Coord3D &o = source ? *source->getPosition() : from;
 	Coord3D dir{ SimMath::subf32(tree.position.x, o.x), SimMath::subf32(tree.position.y, o.y), 0.0f };
-	// TheTerrainVisual slot 0x70 (the tree buffer's topple, RW 0x4E9E4E): INFERENCE (S-930) true for a record with an id
-	if (tree.clientId == 0)
+	// TheTerrainVisual slot 0x70 (the tree buffer's topple, RW 0x4E9E4E): INFERENCE (S-930) true for a record with an id; a morphing tree refuses it
+	// (RW 0x4E9EAD: + 0x688, S-921)
+	if (tree.clientId == 0 || tree.morph != 0)
 	{
 		return;
 	}
@@ -490,6 +503,227 @@ void TerrainTrees::hideScorches(const Coord3D &position, float radius)
 	m_events.push_back(e);
 }
 
+// S-921 ----------------------------------------------------------------------------------------------------------------------------------------------
+const W3DTreeDrawModuleData *TerrainTrees::treeDrawOf(const ThingTemplate *tmpl)
+{
+	if (!tmpl)
+	{
+		return nullptr;
+	}
+	for (const ThingTemplate::Nugget &n : tmpl->drawModules().nuggets())
+	{
+		if (n.name == "W3DTreeDraw")
+		{
+			return dynamic_cast<const W3DTreeDrawModuleData *>(n.data.get());
+		}
+	}
+	return nullptr;
+}
+
+// RW 0x4EC7B6: an empty MorphTree, an unknown template or one without a W3DTreeDraw is -2 (no target)
+const ThingTemplate *TerrainTrees::morphTargetOf(const ThingTemplate *tmpl) const
+{
+	const W3DTreeDrawModuleData *d = treeDrawOf(tmpl);
+	if (!d || d->m_morphTree.empty())
+	{
+		return nullptr;
+	}
+	const ThingTemplate *t = m_logic.things().findTemplate(d->m_morphTree); // RW 0x6D1305
+	return treeDrawOf(t) ? t : nullptr;
+}
+
+// RW 0x67F6F0 -> 0x67E879 (the bucket walk) -> TheTerrainVisual slot 0x74 for every record found
+int TerrainTrees::morphTreesInRadius(const Coord3D &position, float radius, int type)
+{
+	if (m_records.empty() || !m_hasExtent)
+	{
+		return 0; // RW 0x67E895: no records
+	}
+	const float r = SimMath::addf32(radius, kQueryMargin); // RW 0x67E89B
+	int x0, y0, x1, y1;
+	bucketRange(position, r, x0, y0, x1, y1);
+	const float r2 = SimMath::mulf32(r, r);
+	const int n = (int)m_records.size();
+	int started = 0;
+	for (int bx = x0; bx < x1; ++bx) // RW 0x67EB0E: x outer
+	{
+		for (int by = y0; by < y1; ++by)
+		{
+			if (bx < 0 || by < 0 || bx >= BUCKETS || by >= BUCKETS)
+			{
+				continue;
+			}
+			for (int i = m_heads[(size_t)(by * BUCKETS + bx)]; i != -1;)
+			{
+				if (i < 0 || i >= n)
+				{
+					break; // RW 0x67EA5A .. 0x67EA64
+				}
+				Record &t = m_records[(size_t)i];
+				if (t.clientId != 0) // RW 0x67EA73 (ignoreToppled 0, mode 0)
+				{
+					const float dx = SimMath::subf32(t.position.x, position.x);
+					const float dy = SimMath::subf32(t.position.y, position.y);
+					const float dz = SimMath::subf32(t.position.z, position.z);
+					const float d3 = SimMath::addf32(SimMath::addf32(SimMath::mulf32(dz, dz), SimMath::mulf32(dy, dy)), SimMath::mulf32(dx, dx));
+					if (r2 > d3 && startMorph(t, type)) // RW 0x67D6A5 -> slot 0x74
+					{
+						++started;
+					}
+				}
+				i = t.next; // RW 0x67EAF3: read after the call (a cleared record keeps its link)
+			}
+		}
+	}
+	return started;
+}
+
+// RW 0x4EC8EB / 0x4EC40E
+bool TerrainTrees::startMorph(Record &tree, int type)
+{
+	if (tree.morphLeft != 0 || tree.morph != 0) // RW 0x4EC910 / 0x4EC915: the tree is still morphing
+	{
+		return false;
+	}
+	const W3DTreeDrawModuleData *d = treeDrawOf(tree.drawTmpl);
+	if (!d)
+	{
+		return false; // the tree buffer's types are W3DTreeDraw's
+	}
+	if ((type == 1 && d->m_taintedTree) || (type == 2 && !d->m_taintedTree)) // RW 0x4EC442 .. 0x4EC472
+	{
+		return false;
+	}
+	if (tree.toppled) // RW 0x4EC486: + 0x640, TheTerrainLogic RW 0x67F738(id)
+	{
+		const std::uint32_t id = tree.clientId;
+		for (Record &r : m_records)
+		{
+			if (r.clientId == id)
+			{
+				harvestTree(r, r.value); // RW 0x67F75F: the whole value
+				break;
+			}
+		}
+		return false;
+	}
+	keepStart();
+	tree.morphLeft = (std::int32_t)d->m_morphTime; // RW 0x4EC4C7 .. 0x4EC4D2
+	tree.morph = type;
+	const ThingTemplate *target = morphTargetOf(tree.tmpl); // + 0x690: the add-time type's MorphTree
+	tree.morphTarget = morphTargetOf(tree.drawTmpl) != nullptr && target != nullptr; // RW 0x4EC613: the type's MorphTree
+	markChanged(tree);
+	++m_morphing;
+	Event e;
+	e.kind = Event::MORPH;
+	e.clientId = tree.clientId;
+	e.frame = m_logic.getFrame();
+	e.position = tree.position;
+	e.morphType = type;
+	e.from = tree.drawTmpl;
+	e.to = tree.morphTarget ? target : nullptr;
+	e.morphTime = tree.morphLeft;
+	m_events.push_back(e);
+	return true;
+}
+
+// RW 0x67D4CE -> TheTerrainVisual slot 0x40
+void TerrainTrees::morphArea(const Coord3D &position, float radius, int type)
+{
+	Event e;
+	e.kind = Event::MORPH_AREA;
+	e.frame = m_logic.getFrame();
+	e.position = position;
+	e.radius = SimMath::addf32(radius, kMorphAreaMargin); // RW 0x8C7DF8 / 0x8C8EA5 (addss)
+	e.morphType = type;
+	m_events.push_back(e);
+}
+
+// RW 0x67D08D -> TheTerrainVisual slot 0x44 -> RW 0x4EAD92
+void TerrainTrees::update()
+{
+	if (m_morphing == 0)
+	{
+		return;
+	}
+	for (Record &t : m_records) // the tree buffer's order (its trees in add order, INFERENCE S-921)
+	{
+		if (t.morph == 0 || t.clientId == 0)
+		{
+			continue;
+		}
+		if (t.toppled) // RW 0x4EACED: + 0x640 ends it at once
+		{
+			endMorph(t);
+			continue;
+		}
+		--t.morphLeft; // RW 0x4EACFA
+		if (t.morphLeft == 0) // RW 0x4EAD76
+		{
+			endMorph(t);
+		}
+	}
+}
+
+// RW 0x4EAAA7
+void TerrainTrees::endMorph(Record &tree)
+{
+	const bool upright = !tree.toppled; // RW 0x4EAAD3 / 0x4EAADF
+	const int type = tree.morph;
+	const bool hadTarget = tree.morphTarget;
+	keepStart();
+	if (upright)
+	{
+		if (type == 1)
+		{
+			if (hadTarget)
+			{
+				tree.drawTmpl = morphTargetOf(tree.tmpl); // RW 0x4EAAFC: + 0x690
+			}
+		}
+		else
+		{
+			tree.drawTmpl = tree.tmpl; // RW 0x4EAB04: + 0x68C
+		}
+	}
+	tree.morph = 0; // RW 0x4EABCB (+ 0x694 keeps what it had)
+	tree.morphTarget = false;
+	--m_morphing;
+	markChanged(tree);
+	Event e;
+	e.kind = Event::MORPH_END;
+	e.clientId = tree.clientId;
+	e.frame = m_logic.getFrame();
+	e.position = tree.position;
+	e.to = tree.drawTmpl;
+	m_events.push_back(e);
+	if (upright && !hadTarget)
+	{
+		removeTreeNow(tree.clientId); // RW 0x4EAB74
+	}
+}
+
+// RW 0x684412
+void TerrainTrees::removeTreeNow(std::uint32_t treeId)
+{
+	m_changedFrame = m_logic.getFrame(); // RW 0x684429
+	for (Record &r : m_records)
+	{
+		if (r.clientId == treeId)
+		{
+			keepStart();
+			clearRecord(r); // RW 0x684452 (the fire grid) and RW 0x684459
+			markChanged(r);
+			break;
+		}
+	}
+	Event e;
+	e.kind = Event::REMOVE_NOW; // RW 0x684467: slot 0x58
+	e.clientId = treeId;
+	e.frame = m_logic.getFrame();
+	m_events.push_back(e);
+}
+
 void TerrainTrees::crc(StateHasher &h) const
 {
 	h.addU32((std::uint32_t)m_changed);
@@ -506,6 +740,13 @@ void TerrainTrees::crc(StateHasher &h) const
 		h.addFloat(r.toppleDirection.x);
 		h.addFloat(r.toppleDirection.y);
 		h.addI32(r.value);
+		if (r.morph != 0 || r.morphLeft != 0 || r.drawTmpl != r.tmpl) // S-921: only a tree a morph touched (the hash of other games stays)
+		{
+			h.addI32(r.morph);
+			h.addI32(r.morphLeft);
+			h.addBool(r.morphTarget);
+			h.addString(r.drawTmpl ? r.drawTmpl->getName() : std::string());
+		}
 	}
 }
 
@@ -561,7 +802,7 @@ void TerrainTrees::xfer(Xfer &x)
 			r = m_records[index];
 		}
 		x.xferUnsignedInt(&index);
-		XferVersion rv{ 1, 2 };
+		XferVersion rv{ 1, 3 };
 		x.xferVersion(rv);
 		x.xferReal(&r.position.x);
 		x.xferReal(&r.position.y);
@@ -580,6 +821,15 @@ void TerrainTrees::xfer(Xfer &x)
 		if (rv.current >= 2)
 		{
 			x.xferInt(&r.index);
+		}
+		// version 3 (S-921): the tree buffer's morph mirrored in the record: the type now (a template name), + 0x688, + 0x694, model B made
+		std::string drawName = r.drawTmpl ? r.drawTmpl->getName() : std::string();
+		if (rv.current >= 3)
+		{
+			x.xferAsciiString(&drawName);
+			x.xferInt(&r.morph);
+			x.xferInt(&r.morphLeft);
+			x.xferBool(&r.morphTarget);
 		}
 		if (!loading)
 		{
@@ -606,6 +856,22 @@ void TerrainTrees::xfer(Xfer &x)
 		{
 			throw XferException(tree + " names the template '" + name + "', which this game lacks");
 		}
+		if (rv.current < 3)
+		{
+			drawName = name; // the add-time type, no morph
+			r.morph = 0;
+			r.morphLeft = 0;
+			r.morphTarget = false;
+		}
+		r.drawTmpl = drawName.empty() ? nullptr : m_logic.things().findTemplate(drawName);
+		if (!drawName.empty() && !r.drawTmpl)
+		{
+			throw XferException(tree + " is drawn as the template '" + drawName + "', which this game lacks");
+		}
+		if (r.morph < 0 || r.morph > 2)
+		{
+			throw XferException(tree + ": the morph type " + std::to_string(r.morph));
+		}
 		const Record &startRecord = m_start.empty() ? m_records[index] : m_start[index];
 		if (r.next != startRecord.next)
 		{
@@ -628,6 +894,11 @@ void TerrainTrees::xfer(Xfer &x)
 		m_records[e.first] = e.second;
 	}
 	m_changed = (int)changed;
+	m_morphing = 0;
+	for (const Record &r : m_records)
+	{
+		m_morphing += (r.morph != 0 && r.clientId != 0) ? 1 : 0;
+	}
 	m_changedFrame = changedFrame;
 	m_toppleSpeed = toppleSpeed;
 }
@@ -646,7 +917,8 @@ std::string TerrainTrees::trees1StopLine()
 	return "[S-5260] terrain trees (lane TREES1): units crush trees (RW 0x6858BE / 0x6854FD: crusher level 2 or more, or MACHINE) and a dozer's structure "
 		   "removes the trees, shrubs and props under it (RW 0x684BCA). Not ported: "
 		   "the shrubs' push aside (slot 0x6C), the fire grid (TheFireLogicSystem: burning cells take a tree's lumber, RW 0x6886E0), a tree made an object "
-		   "(RW 0x68449B: attacked, grabbed, set alight by FireSpreadUpdate), the grab powers, Taint / ElvenWood's tree morph (RW 0x67F6F0 -> 0x4EC40E), "
+		   "(RW 0x68449B: attacked, grabbed, set alight by FireSpreadUpdate), the grab powers, "
 		   "ClearRemovables (RW 0x5F0EE6) and trees an ObjectCreationList adds (the radius clear RW 0x683393 runs: TerrainTaintClear.h); INFERENCE: TheTerrainVisual's "
-		   "harvest check (slot 0x80, RW 0x4EA005: the tree toppled, not sinking, not morphing) is answered by the logic";
+		   "harvest check (slot 0x80, RW 0x4EA005: the tree toppled, not sinking, not morphing) is answered by the logic. Taint / ElvenWood's tree morph "
+		   "runs (S-921: RW 0x67F6F0 -> 0x4EC40E, the frame RW 0x4EACB0 from TerrainLogic's update, kept in the records)";
 }

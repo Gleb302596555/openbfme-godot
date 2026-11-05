@@ -40,6 +40,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/W3DVegetationSway.h"
 #include "GodotDevice/GodotW3DMaterial.h"
 #include "GameEngineDevice/W3DDevice/GameClient/HouseColor.h" // lane HCKEY-1: EntryView::staticKeyPalette
+#include "GameLogic/Map/TerrainTrees.h" // S-921: TerrainTrees::Event in the morph handlers
 
 #include <godot_cpp/classes/immediate_mesh.hpp>
 #include <godot_cpp/classes/mesh_instance3d.hpp>
@@ -942,7 +943,17 @@ private:
 		float basis[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
 		Coord3D position{};
 		float scale = 1.0f;
+		// S-921: the Taint / Elven Wood morph (TerrainTrees MORPH / MORPH_END): the model drawn now, the target's instance (model B) fading in
+		std::string model;           ///< the drawn model (W3DTreeDraw ModelName)
+		int swayType = 0;
+		bool castShadow = false;
+		int64_t morphInstance = -1;
+		std::string morphModel;
+		std::uint32_t morphStart = 0;
+		std::int32_t morphTime = 0;
+		bool morphing = false;
 	};
+	std::map<std::uint32_t, size_t> m_treeViewOfId; ///< S-921: the TerrainTrees client id -> m_treeViews index
 	std::unique_ptr<TreeTopple> m_treeTopple;
 	std::vector<ToppleTreeView> m_treeViews; ///< index = the animator's tree index
 	// lane TREES1: the client-only shrubs and props a construction (TheTerrainVisual slot 0x48) or a felled tree (slot 0x4C, props only) removes
@@ -953,9 +964,30 @@ private:
 		float scale = 1.0f;
 		bool prop = false; ///< MAPOBJ_CLIENT_PROP (the prop buffer), else a shrub (the shrub buffer)
 		bool removed = false;
+		// S-921: a shrub's morph (the shrub buffer's RW 0x4E85EE, the frame RW 0x4E7401, the end RW 0x4E6FB6), the client's own
+		float basis[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
+		const class ThingTemplate *tmpl = nullptr;     ///< the add-time type (+ 0x19E0)
+		const class ThingTemplate *drawTmpl = nullptr; ///< the type now (+ 0x1998)
+		std::string model;
+		bool castShadow = false;
+		int morph = 0;             ///< + 0x19DC
+		std::int32_t morphLeft = 0; ///< + 0x19E8
+		bool morphTarget = false;   ///< model B (+ 0x19F0) made
+		int64_t morphInstance = -1;
+		std::string morphModel;
+		std::uint32_t morphStart = 0;
+		std::int32_t morphTime = 0;
 	};
 	std::vector<FootprintView> m_footprintViews;
 	void clearFootprint(const Coord3D &pos, float angle, const std::vector<ObjectGeometry::Shape> &shapes, bool propsOnly);
+	// S-921: the tree and shrub morph of Taint / Elven Wood (TerrainTrees.h)
+	int64_t addTreeModelInstance(const std::string &model, const float basis[9], const Coord3D &pos, float scale, bool castShadow, int swayType);
+	void morphTree(const TerrainTrees::Event &e);    ///< MORPH (slot 0x74)
+	void morphTreeEnd(const TerrainTrees::Event &e); ///< MORPH_END
+	void morphArea(const TerrainTrees::Event &e);    ///< MORPH_AREA (slot 0x40: the shrubs morph, the props go)
+	void endShrubMorph(FootprintView &f);            ///< RW 0x4E6FB6
+	void updateMorphs();                             ///< the fades at the presented frame (A: left / MorphTime, B: 1 - that)
+	std::vector<size_t> m_morphTrees, m_morphShrubs;
 	size_t m_treeEventsSeen = 0;
 	void heldClientWork(); // lane RENDERWAIT-1: the render side's reads of the live logic, where it is held
 	void presentScorches(); // TOP20 "Fire, scorches": the terrain's scorch layer draws the live effect player's buffer (drawScorches RW 0x468BCB)

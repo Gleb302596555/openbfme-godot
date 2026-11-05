@@ -636,6 +636,7 @@ void GameLogic::update(int phase)
 	if (phase == 1)
 	{
 		m_scriptEngine->update(); // lane SCRIPT-1: RW 0x62E6AF, TheScriptEngine vslot 0x28, the first of the row
+		m_trees->update();        // S-921: the row's TheTerrainLogic update (RW 0x67D08D) -> TheTerrainVisual slot 0x44: the tree morph's frame
 		runRow(ROW_SUBSYSTEMS_PHASE1);
 		runRow(ROW_LOGIC_CRC);
 		runRow(ROW_RECORDER_STATS);

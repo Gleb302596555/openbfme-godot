@@ -246,8 +246,9 @@ StateReturnType AIHarvestWorkSiteState::update()
 	{
 		GameLogic &logic = obj.logic();
 		TerrainTrees::Record *tree = closestTree(logic, *obj.getPosition(), sup->getHarvestActivationRange(), 2);
-		// TheGameClient vslot 0x80 with the client id (RW 0x67D734): INFERENCE (S-930) true for a record the query found
-		if (!tree || tree->index != sup->getCurrentTree() || tree->clientId == 0)
+		// TheGameClient vslot 0x80 with the client id (RW 0x67D734): INFERENCE (S-930) true for a record the query found that is not morphing (RW 0x4EA056:
+		// + 0x688, S-921)
+		if (!tree || tree->index != sup->getCurrentTree() || tree->clientId == 0 || tree->morph != 0)
 		{
 			sup->setForceWantingState(true); // RW 0x94BA3E
 			return STATE_FAILURE;

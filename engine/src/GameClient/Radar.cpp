@@ -86,6 +86,7 @@ void Radar::removeMarker(RadarMarker *marker)
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/System/InvisibilityManager.h"
 #include "GameLogic/System/ShroudManager.h"
+#include "GameLogic/SimMath.h"
 
 #include <algorithm>
 #include <cmath>
@@ -868,6 +869,69 @@ std::uint32_t Radar::modulateColor(std::uint32_t c1, std::uint32_t c2)
 	components(c1, a1, r1, g1, b1);
 	components(c2, a2, r2, g2, b2);
 	return pack(a1 * a2 / 255u, r1 * r2 / 255u, g1 * g2 / 255u, b1 * b2 / 255u);
+}
+
+std::uint32_t Radar::taintTexel(int value, const float taint[3], const float elvenWood[3])
+{
+	const unsigned v = (unsigned)value & 0xFFu;
+	int k = 0;
+	const float *c = nullptr;
+	if (v < 0x80u)
+	{
+		k = (0x7F - (int)v) * 2; // RW 0x44E6FF .. 0x44E711
+		c = taint;               // GlobalData + 0xBEC
+	}
+	else if (v > 0x80u)
+	{
+		k = (int)v * 2 - 0x100; // RW 0x44E74E
+		c = elvenWood;          // + 0xBF8
+	}
+	else
+	{
+		return 0x00FFFFFFu; // RW 0x44E789: 0xFF each, alpha 0
+	}
+	const float kf = (float)k; // cvtsi2ss
+	auto ch = [kf](float col) { return (std::uint32_t)SimMath::truncToInt32(SimMath::mulf32(col, kf)) & 0xFFu; }; // mulss, cvttss2si, the low byte
+	return (((std::uint32_t)k & 0xFFu) << 24) | (ch(c[0]) << 16) | (ch(c[1]) << 8) | ch(c[2]); // RW 0x44E7B7 .. 0x44E7CE
+}
+
+void Radar::taintTexels(const TaintView &view, const float taint[3], const float elvenWood[3], std::vector<std::uint32_t> &texels) const
+{
+	const int n = kCells;
+	texels.assign((size_t)n * (size_t)n, 0u); // RW 0x44DC57: the texture cleared to 0
+	// Radar + 0x24 / + 0x28: the extent's size x 0.0078125 (RW 0x6D8EBE)
+	const float sx = SimMath::mulf32(m_maxX - m_minX, 0.0078125f), sy = SimMath::mulf32(m_maxY - m_minY, 0.0078125f);
+	auto toRadar = [&](float wx, float wy, int &tx, int &ty) {
+		// RW 0x6D881F: (int)(p / sample) (divss, cvttss2si), clamped to 0 .. 127
+		tx = std::clamp((int)SimMath::truncToInt32(SimMath::divf32(wx, sx)), 0, n - 1);
+		ty = std::clamp((int)SimMath::truncToInt32(SimMath::divf32(wy, sy)), 0, n - 1);
+	};
+	const float cell = view.cellSize; // W3DTaint + 0x10 / + 0x14
+	for (int cy = 0; cy < view.countY; ++cy)
+	{
+		for (int cx = 0; cx < view.countX; ++cx)
+		{
+			const std::uint32_t t = taintTexel(view.values[(size_t)cy * (size_t)view.countX + (size_t)cx], taint, elvenWood);
+			// RW 0x44E64D .. 0x44E6E7: the corners (int)(n * cell), (int)((n + 1) * cell) (mulss, cvttss2si), back to floats
+			const float wx0 = (float)SimMath::truncToInt32(SimMath::mulf32((float)cx, cell));
+			const float wy0 = (float)SimMath::truncToInt32(SimMath::mulf32((float)cy, cell));
+			const float wx1 = (float)SimMath::truncToInt32(SimMath::mulf32((float)(cx + 1), cell));
+			const float wy1 = (float)SimMath::truncToInt32(SimMath::mulf32((float)(cy + 1), cell));
+			int x0, y0, x1, y1;
+			toRadar(wx0, wy0, x0, y0);
+			toRadar(wx1, wy1, x1, y1);
+			for (int ty = y0; ty <= y1; ++ty) // RW 0x44E7A3 .. 0x44E7EB: rows outer, both ends inclusive
+			{
+				for (int tx = x0; tx <= x1; ++tx)
+				{
+					if (tx >= 0 && ty >= 0 && tx < n && ty < n) // RW 0x44DDA3
+					{
+						texels[(size_t)ty * (size_t)n + (size_t)tx] = t; // RW 0x5165E0: the texel set
+					}
+				}
+			}
+		}
+	}
 }
 
 std::uint32_t Radar::blendColor(std::uint32_t dst, std::uint32_t src, std::uint8_t factor)

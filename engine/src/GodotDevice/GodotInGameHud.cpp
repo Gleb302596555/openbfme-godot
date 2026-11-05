@@ -241,6 +241,9 @@ struct HudDevice : public AptNativeHook
 	std::uint64_t radarVersion = 0;
 	int radarSize = 128;
 	Ref<ImageTexture> radarOverlay;                ///< lane RADAR-1: W3DRadar's object overlay (+ 0x147C)
+	Ref<ImageTexture> radarTaint;                  ///< S-5261: W3DRadar's taint image (+ 0x1494 / + 0x1498)
+	std::shared_ptr<const TaintView> radarTaintView; ///< the view radarTaint was made from
+	std::vector<std::uint32_t> radarTaintTexels;
 	std::vector<std::uint32_t> radarOverlayTexels;
 	unsigned radarOverlayFrame = ~0u;
 	Rect2 radarPicture;                            ///< lane RADAR-1: the picture rectangle RenderRadar drew (the view box's frame)
@@ -741,6 +744,43 @@ void HudDevice::drawPlaceholder(const AptCanvasOp &op, RID item)
 			{
 				radarOverlay->update(img);
 			}
+		}
+		// S-5261: the taint image (W3DRadar + 0x1494) is drawn after the overlay's rebuild and before the overlay (RW 0x4501B0, the picture's rectangle);
+		// retail writes it from TheTaintManager's callback only with GameData TaintOn and the terrain's W3DTaint (RW 0x44E605 .. 0x44E62B). The port
+		// rebuilds it from the presented snapshot's TaintView when that changes (INFERENCE: retail writes the changed cells)
+		const VisionSettings *vision = world && world->hud_game() ? &world->hud_game()->visionSettings() : nullptr;
+		if (snap && vision && vision->taintOn && snap->taint && snap->taint != radarTaintView)
+		{
+			radarTaintView = snap->taint;
+			radar.taintTexels(*snap->taint, vision->taintColor, vision->elvenWoodColor, radarTaintTexels);
+			const int n = Radar::kCells;
+			PackedByteArray px;
+			px.resize((int64_t)n * n * 4);
+			uint8_t *w = px.ptrw();
+			for (int y = 0; y < n; ++y)
+			{
+				const std::uint32_t *row = &radarTaintTexels[(size_t)(n - 1 - y) * (size_t)n]; // shown with UV (0,1)-(1,0) as the overlay
+				for (int x = 0; x < n; ++x, w += 4)
+				{
+					w[0] = (uint8_t)(row[x] >> 16);
+					w[1] = (uint8_t)(row[x] >> 8);
+					w[2] = (uint8_t)row[x];
+					w[3] = (uint8_t)(row[x] >> 24);
+				}
+			}
+			Ref<::godot::Image> img = ::godot::Image::create_from_data(n, n, false, ::godot::Image::FORMAT_RGBA8, px);
+			if (radarTaint.is_null())
+			{
+				radarTaint = ImageTexture::create_from_image(img);
+			}
+			else
+			{
+				radarTaint->update(img);
+			}
+		}
+		if (radarTaint.is_valid() && vision && vision->taintOn)
+		{
+			rs->canvas_item_add_texture_rect(item, sq, radarTaint->get_rid());
 		}
 		if (radarOverlay.is_valid())
 		{

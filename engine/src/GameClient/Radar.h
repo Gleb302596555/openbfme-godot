@@ -249,6 +249,14 @@ public:
 	static std::uint32_t modulateColor(std::uint32_t a, std::uint32_t b);
 	// RW 0x44D717: `src` blended over `dst` with the weight src alpha * factor / 255
 	static std::uint32_t blendColor(std::uint32_t dst, std::uint32_t src, std::uint8_t factor);
+	// RW 0x44E5F3 (W3DRadar vslot 0x2C, TheTaintManager's client callback RW 0x6D8B6E): the texel of a taint cell's value. Below 0x80 k = 2 * (127 -
+	// value) and TaintColor, above it k = 2 * value - 256 and ElvenWoodColor: each channel (int) (colour * k) (SSE, truncated), alpha the low byte of k;
+	// 0x80: 0x00FFFFFF
+	static std::uint32_t taintTexel(int value, const float taint[3], const float elvenWood[3]);
+	// the image + 0x1494 / texture + 0x1498 (kCells x kCells, made at RW 0x44E14A, cleared to 0 at RW 0x44DC57): every cell of `view` in TheTaintManager's
+	// callback order (rows of y, RW 0xAD4F00) writes its texel over the texels of its world rectangle ((int)(n * cell size) .. (int)((n + 1) * cell size),
+	// worldToRadar RW 0x6D881F, both ends inclusive, NOT squeezed to the aspect); index ty * kCells + tx, ty the radar row as the overlay's
+	void taintTexels(const TaintView &view, const float taint[3], const float elvenWood[3], std::vector<std::uint32_t> &texels) const;
 	// RW 0x44DFBA: false when the object is not drawn; a stealthed object the local player sees blinks (its alpha replaced). `stealthLook` is
 	// InvisibilityManager::clientLook (INFERENCE for the mapping, stop S-2454)
 	static bool stealthBlink(int stealthLook, unsigned clientFrame, std::uint32_t &color);

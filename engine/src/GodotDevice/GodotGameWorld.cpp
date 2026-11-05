@@ -886,6 +886,9 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 	m_clientRuntime->build(m_game->clientOnly(), false);
 	m_treeTopple.reset(new TreeTopple()); // lane SPELL-3
 	m_treeViews.clear();
+	m_treeViewOfId.clear();   // S-921
+	m_morphTrees.clear();
+	m_morphShrubs.clear();
 	m_footprintViews.clear(); // lane TREES1
 	m_vegSway.reset(); // lane VISUAL-2
 	m_swayTypeCounts.fill(0);
@@ -934,11 +937,12 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 		}
 		++instances;
 		// lane TREES1: a shrub or prop a construction or a felled tree may remove
+		bool castShadow = false;
 		if (p.kind != W3D_DRAWKIND_FLOOR)
 		{
 			const auto *module = p.module < d.draws.size() ? dynamic_cast<const W3DModelDrawModuleData *>(d.draws[p.module].data) : nullptr;
-			staticInst->set_instance_cast_shadow(instance, ObjectShadow::castsMap(d.info ? d.info->tmpl : nullptr, module,
-				p.draw ? p.draw->currentModelState() : nullptr));
+			castShadow = ObjectShadow::castsMap(d.info ? d.info->tmpl : nullptr, module, p.draw ? p.draw->currentModelState() : nullptr);
+			staticInst->set_instance_cast_shadow(instance, castShadow);
 		}
 		if (d.fate == MAPOBJ_CLIENT_SHRUB || d.fate == MAPOBJ_CLIENT_PROP)
 		{
@@ -947,6 +951,10 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 			f.position = d.position;
 			f.scale = d.scale;
 			f.prop = d.fate == MAPOBJ_CLIENT_PROP;
+			std::copy(d.basis, d.basis + 9, f.basis); // S-921: a shrub's morph places its other model the same way
+			f.tmpl = f.drawTmpl = d.info ? d.info->tmpl : nullptr;
+			f.model = p.modelName;
+			f.castShadow = castShadow;
 			m_footprintViews.push_back(f);
 		}
 		// lane SPELL-3: a tree the logic may topple (its TerrainTrees client id is the map object index + 1, S-930)
@@ -969,6 +977,10 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 				std::copy(d.basis, d.basis + 9, v.basis);
 				v.position = d.position;
 				v.scale = d.scale;
+				v.model = p.modelName; // S-921
+				v.swayType = swayType;
+				v.castShadow = castShadow;
+				m_treeViewOfId[(std::uint32_t)d.objectIndex + 1u] = m_treeViews.size();
 				m_treeViews.push_back(v);
 			}
 		}
@@ -2529,6 +2541,7 @@ void GameWorld::advance(double delta)
 	const double tf = nowMs();
 	m_lastViewsMs = timing::spanMs(tf, tv);
 	updateTreeTopple(dt); // lane SPELL-3
+	updateMorphs();       // S-921
 	updateTreeSway(dt);   // lane VISUAL-2
 	const double t2 = nowMs();
 	m_lastFxMs = timing::spanMs(t2, tf);
@@ -2708,6 +2721,11 @@ void GameWorld::heldClientWork()
 				}
 				continue;
 			}
+			if (e.kind == TerrainTrees::Event::MORPH_AREA)
+			{
+				morphArea(e); // S-921: slot 0x40, the shrubs and props (no tree layer needed)
+				continue;
+			}
 			if (!m_treeTopple)
 			{
 				continue;
@@ -2727,7 +2745,14 @@ void GameWorld::heldClientWork()
 			case TerrainTrees::Event::CLEAR_FOOTPRINT:
 				clearFootprint(e.position, e.angle, e.shapes, false); // lane TREES1: slot 0x48
 				break;
+			case TerrainTrees::Event::MORPH:
+				morphTree(e); // S-921: slot 0x74
+				break;
+			case TerrainTrees::Event::MORPH_END:
+				morphTreeEnd(e);
+				break;
 			case TerrainTrees::Event::HIDE_SCORCHES:
+			case TerrainTrees::Event::MORPH_AREA:
 				break;
 			}
 		}
@@ -2796,6 +2821,348 @@ void GameWorld::clearFootprint(const Coord3D &pos, float angle, const std::vecto
 	{
 		st->update_now();
 	}
+}
+
+// S-921 ----------------------------------------------------------------------------------------------------------------------------------------------
+namespace
+{
+std::string treeModelOf(const ThingTemplate *tmpl)
+{
+	const W3DTreeDrawModuleData *d = TerrainTrees::treeDrawOf(tmpl);
+	return d ? d->m_modelName : std::string();
+}
+
+bool sameModel(const std::string &a, const std::string &b)
+{
+	return AsciiStringUtil::lowered(a) == AsciiStringUtil::lowered(b);
+}
+} // namespace
+
+// the tree buffer's model of a type at the tree's placement (RW 0x4EC505 .. 0x4EC5F5: W3DAssetManager's render object of the type's ModelName)
+int64_t GameWorld::addTreeModelInstance(const std::string &model, const float basis[9], const Coord3D &pos, float scale, bool castShadow, int swayType)
+{
+	W3DInstancer *st = instancerOf(m_staticId);
+	if (!st || model.empty())
+	{
+		return -1;
+	}
+	const std::string key = AsciiStringUtil::lowered(model) + W3DInstancer::Texture_Swap_Suffix({});
+	auto it = m_staticModels.find(key);
+	int64_t m;
+	if (it == m_staticModels.end())
+	{
+		st->Set_Build_Texture_Swaps({});
+		st->Set_Build_Floor(false);
+		m = st->add_model(toGodot(model));
+		m_staticModels[key] = m;
+	}
+	else
+	{
+		m = it->second;
+	}
+	if (m < 0)
+	{
+		return -1;
+	}
+	const int64_t inst = st->add_instance(m, toTransform(basis, pos, scale), String(), 0.0, 1.0);
+	if (inst >= 0)
+	{
+		st->set_instance_cast_shadow(inst, castShadow);
+		st->set_instance_sway(inst, swayType);
+	}
+	return inst;
+}
+
+// RW 0x4EC40E: model A (the type's, drawn now) at alpha 1, model B (the target's) at alpha 0, MorphFX at the tree
+void GameWorld::morphTree(const TerrainTrees::Event &e)
+{
+	auto it = m_treeViewOfId.find(e.clientId);
+	W3DInstancer *st = instancerOf(m_staticId);
+	if (it == m_treeViewOfId.end() || !st)
+	{
+		return;
+	}
+	ToppleTreeView &v = m_treeViews[it->second];
+	if (const W3DTreeDrawModuleData *d = TerrainTrees::treeDrawOf(e.from))
+	{
+		if (!d->m_morphFX.empty() && m_fxPlayer && m_fxPlayer->playback())
+		{
+			m_fxPlayer->playback()->playFXList(d->m_morphFX, e.position, false); // RW 0x4EC79E: MorphFX (+ 0x50) at the tree
+		}
+	}
+	if (v.morphInstance >= 0)
+	{
+		st->remove_instance(v.morphInstance);
+	}
+	v.morphInstance = -1;
+	v.morphModel = treeModelOf(e.to);
+	if (!v.morphModel.empty())
+	{
+		v.morphInstance = addTreeModelInstance(v.morphModel, v.basis, v.position, v.scale, v.castShadow, v.swayType);
+		if (v.morphInstance >= 0)
+		{
+			st->set_instance_opacity(v.morphInstance, 0.0); // RW 0x4EC74F
+		}
+	}
+	st->set_instance_opacity(v.instance, 1.0); // RW 0x4EC737
+	v.morphStart = e.frame;
+	v.morphTime = e.morphTime;
+	if (!v.morphing)
+	{
+		v.morphing = true;
+		m_morphTrees.push_back(it->second);
+	}
+	st->update_now();
+}
+
+// RW 0x4EAAA7: the tree is drawn as its type now; both morph models go
+void GameWorld::morphTreeEnd(const TerrainTrees::Event &e)
+{
+	auto it = m_treeViewOfId.find(e.clientId);
+	W3DInstancer *st = instancerOf(m_staticId);
+	if (it == m_treeViewOfId.end() || !st)
+	{
+		return;
+	}
+	ToppleTreeView &v = m_treeViews[it->second];
+	const std::string now = treeModelOf(e.to);
+	if (!now.empty() && !sameModel(now, v.model))
+	{
+		if (v.morphInstance >= 0 && sameModel(now, v.morphModel))
+		{
+			st->remove_instance(v.instance);
+			v.instance = v.morphInstance;
+			v.morphInstance = -1;
+		}
+		else
+		{
+			const int64_t n = addTreeModelInstance(now, v.basis, v.position, v.scale, v.castShadow, v.swayType);
+			if (n >= 0)
+			{
+				st->remove_instance(v.instance);
+				v.instance = n;
+			}
+		}
+		v.model = now;
+	}
+	if (v.morphInstance >= 0)
+	{
+		st->remove_instance(v.morphInstance);
+		v.morphInstance = -1;
+	}
+	st->set_instance_opacity(v.instance, 1.0);
+	v.morphing = false;
+	m_treeTopple->setData(it->second, TerrainTrees::treeDrawOf(e.to)); // its topple and sink read the new type
+	st->update_now();
+}
+
+// TheTerrainVisual slot 0x40 (RW 0x46782B): the shrub buffer's RW 0x4E8AEB (every shrub with a type within the radius, 3D squared distance, morphs:
+// RW 0x4E8A9C -> 0x4E85EE) and the prop buffer's RW 0x4EDA0B (every prop within the radius goes)
+void GameWorld::morphArea(const TerrainTrees::Event &e)
+{
+	W3DInstancer *st = instancerOf(m_staticId);
+	if (!st || !m_game)
+	{
+		return;
+	}
+	const float r2 = SimMath::mulf32(e.radius, e.radius);
+	bool any = false;
+	for (size_t i = 0; i < m_footprintViews.size(); ++i)
+	{
+		FootprintView &f = m_footprintViews[i];
+		if (f.removed)
+		{
+			continue;
+		}
+		const float dx = SimMath::subf32(f.position.x, e.position.x);
+		const float dy = SimMath::subf32(f.position.y, e.position.y);
+		const float dz = SimMath::subf32(f.position.z, e.position.z);
+		const float d3 = SimMath::addf32(SimMath::addf32(SimMath::mulf32(dz, dz), SimMath::mulf32(dy, dy)), SimMath::mulf32(dx, dx));
+		if (!(r2 > d3))
+		{
+			continue;
+		}
+		if (f.prop)
+		{
+			// RW 0x4EDA88 .. 0x4EDAD0: the prop's position zeroed and its render object released: drawn at scale 0 from then on
+			static const float identity[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
+			st->set_instance_transform(f.instance, toTransform(identity, f.position, 0.0f));
+			f.removed = true;
+			any = true;
+			continue;
+		}
+		// RW 0x4E8A9C: a shrub that is not morphing (+ 0x19E8 == 0, + 0x19DC == 0)
+		if (f.morph != 0 || f.morphLeft != 0)
+		{
+			continue;
+		}
+		const W3DTreeDrawModuleData *d = TerrainTrees::treeDrawOf(f.drawTmpl);
+		if (!d)
+		{
+			continue;
+		}
+		if ((e.morphType == 1 && d->m_taintedTree) || (e.morphType == 2 && !d->m_taintedTree)) // RW 0x4E8626 .. 0x4E8656
+		{
+			continue;
+		}
+		const TerrainTrees &trees = m_game->logic().trees();
+		const ThingTemplate *target = trees.morphTargetOf(f.tmpl); // + 0x19E4
+		f.morph = e.morphType;
+		f.morphLeft = f.morphTime = (std::int32_t)d->m_morphTime; // RW 0x4E8669 .. 0x4E867D
+		f.morphStart = e.frame;
+		f.morphTarget = trees.morphTargetOf(f.drawTmpl) != nullptr && target != nullptr; // RW 0x4E87C1
+		if (f.morphInstance >= 0)
+		{
+			st->remove_instance(f.morphInstance);
+		}
+		f.morphInstance = -1;
+		f.morphModel = f.morphTarget ? treeModelOf(target) : std::string();
+		if (!f.morphModel.empty())
+		{
+			f.morphInstance = addTreeModelInstance(f.morphModel, f.basis, f.position, f.scale, f.castShadow, 0);
+			if (f.morphInstance >= 0)
+			{
+				st->set_instance_opacity(f.morphInstance, 0.0);
+			}
+		}
+		st->set_instance_opacity(f.instance, 1.0);
+		m_morphShrubs.push_back(i);
+		any = true;
+	}
+	if (any)
+	{
+		st->update_now();
+	}
+}
+
+// RW 0x4E6FB6: type 1 with model B takes the target (+ 0x19E4), type 2 the add-time type (+ 0x19E0); both models go; without B the shrub goes (RW 0x4E6A9A)
+void GameWorld::endShrubMorph(FootprintView &f)
+{
+	W3DInstancer *st = instancerOf(m_staticId);
+	if (!st || !m_game)
+	{
+		return;
+	}
+	const TerrainTrees &trees = m_game->logic().trees();
+	if (f.morph == 1)
+	{
+		if (f.morphTarget)
+		{
+			f.drawTmpl = trees.morphTargetOf(f.tmpl);
+		}
+	}
+	else
+	{
+		f.drawTmpl = f.tmpl;
+	}
+	if (!f.morphTarget)
+	{
+		static const float identity[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
+		st->set_instance_transform(f.instance, toTransform(identity, f.position, 0.0f));
+		f.removed = true;
+	}
+	else
+	{
+		const std::string now = treeModelOf(f.drawTmpl);
+		if (!now.empty() && !sameModel(now, f.model))
+		{
+			if (f.morphInstance >= 0 && sameModel(now, f.morphModel))
+			{
+				st->remove_instance(f.instance);
+				f.instance = f.morphInstance;
+				f.morphInstance = -1;
+			}
+			else
+			{
+				const int64_t n = addTreeModelInstance(now, f.basis, f.position, f.scale, f.castShadow, 0);
+				if (n >= 0)
+				{
+					st->remove_instance(f.instance);
+					f.instance = n;
+				}
+			}
+			f.model = now;
+		}
+		st->set_instance_opacity(f.instance, 1.0);
+	}
+	if (f.morphInstance >= 0)
+	{
+		st->remove_instance(f.morphInstance);
+		f.morphInstance = -1;
+	}
+	f.morph = 0; // RW 0x4E7066
+	f.morphTarget = false;
+}
+
+// RW 0x4EACB0 / 0x4E7401: A's alpha is the frames left / MorphTime, B's 1 - that (the trees' frames are the logic's, MORPH_END ends them; the shrubs end
+// here at the presented frame start + MorphTime)
+void GameWorld::updateMorphs()
+{
+	if ((m_morphTrees.empty() && m_morphShrubs.empty()) || !m_game)
+	{
+		return;
+	}
+	W3DInstancer *st = instancerOf(m_staticId);
+	if (!st)
+	{
+		return;
+	}
+	const std::uint32_t frame = (std::uint32_t)m_game->frame();
+	auto alphaOf = [frame](std::uint32_t start, std::int32_t time) {
+		if (time <= 0)
+		{
+			return 1.0f; // MorphTime 0: retail's + 0x694 goes below 0 and the morph never ends; A stays
+		}
+		const std::int64_t left = (std::int64_t)time - ((std::int64_t)frame - (std::int64_t)start);
+		return (float)std::clamp<std::int64_t>(left, 0, time) / (float)time;
+	};
+	for (size_t k = 0; k < m_morphTrees.size();)
+	{
+		ToppleTreeView &v = m_treeViews[m_morphTrees[k]];
+		if (!v.morphing)
+		{
+			m_morphTrees[k] = m_morphTrees.back();
+			m_morphTrees.pop_back();
+			continue;
+		}
+		const float a = alphaOf(v.morphStart, v.morphTime);
+		st->set_instance_opacity(v.instance, a);
+		if (v.morphInstance >= 0)
+		{
+			st->set_instance_opacity(v.morphInstance, 1.0f - a);
+		}
+		++k;
+	}
+	for (size_t k = 0; k < m_morphShrubs.size();)
+	{
+		FootprintView &f = m_footprintViews[m_morphShrubs[k]];
+		if (f.morph == 0 || f.removed)
+		{
+			m_morphShrubs[k] = m_morphShrubs.back();
+			m_morphShrubs.pop_back();
+			continue;
+		}
+		if (f.morphTime > 0)
+		{
+			const std::int64_t elapsed = (std::int64_t)frame - (std::int64_t)f.morphStart;
+			f.morphLeft = (std::int32_t)std::max<std::int64_t>(0, (std::int64_t)f.morphTime - elapsed);
+			if (f.morphLeft == 0)
+			{
+				endShrubMorph(f);
+				m_morphShrubs[k] = m_morphShrubs.back();
+				m_morphShrubs.pop_back();
+				continue;
+			}
+		}
+		const float a = alphaOf(f.morphStart, f.morphTime);
+		st->set_instance_opacity(f.instance, a);
+		if (f.morphInstance >= 0)
+		{
+			st->set_instance_opacity(f.morphInstance, 1.0f - a);
+		}
+		++k;
+	}
+	st->update_now();
 }
 
 void GameWorld::updateTreeTopple(double dt)
