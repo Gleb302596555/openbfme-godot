@@ -181,6 +181,11 @@ public:
 	// lane IDLE-1: contain vslot 0xB8, asked by the idle mood scan (RW 0x66844A) of the object that owns this contain when that object is itself contained:
 	// false for OpenContain, its plain heirs and HordeContain (RW 0x9188EB), SiegeEngineContain's CrewAllowedToFire (RW 0x87EDA9: data + 0x1A0)
 	virtual bool moodScanWhileContained() const { return false; }
+	// TOP20 S-321: slot 0xF4, the passenger a HitPassengerPercentage shot at the container hits instead (Weapon RW 0x6CCEA4, with the victim's position):
+	// OpenContain RW 0x8663B6 the contained object nearest to `pos`; the horde garrison / tunnel / slaughter house (RW 0x87CE79) and the horde transport (RW
+	// 0x87A38E) RW 0x990D14 the nearest shown member of a contained horde; null: the container itself is hit. HordeContain's slot 0x7C (its horde interface,
+	// RW 0x872A6F) keeps a horde out of the roll
+	virtual Object *passengerToHit(const Coord3D &pos) const { (void)pos; return nullptr; }
 };
 
 // ZH CreateModuleInterface: onCreate runs for every create module, in list order, after the object's constructor (spec 5.3 step 3;

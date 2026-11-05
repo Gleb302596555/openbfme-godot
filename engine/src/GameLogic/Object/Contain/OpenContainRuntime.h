@@ -48,6 +48,9 @@ public:
 	ContainModuleInterface *getContain() override { return this; }
 	DieModuleInterface *getDie() override { return this; }
 	void onDelete() override; // main slot 0x20 RW 0x86708F
+	Object *passengerToHit(const Coord3D &pos) const override; // slot 0xF4 RW 0x8663B6 (TOP20 S-321)
+	// RW 0x990D14: the member nearest to `pos` (2D, strictly nearer than FLT_MAX) of the hordes in `contained` whose drawable is not hidden (RW 0x67055A)
+	static Object *nearestShownHordeMember(const ContainedItemsList &contained, const Coord3D &pos);
 	void crc(StateHasher &hasher) const override;
 	// ---- UpdateModule (RW 0x86702D: every frame) ----
 	UpdateSleepTime update() override;

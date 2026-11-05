@@ -105,6 +105,11 @@ public:
 
 	// ---- queries (tests, the HUD, the launch) ----
 	bool isHordeGarrison() const { return m_horde != nullptr; }
+	// slot 0xF4 (TOP20 S-321): HordeGarrisonContain, TunnelContain and CitadelSlaughterHordeContain RW 0x87CE79 -> RW 0x990D14; GarrisonContain OpenContain's
+	Object *passengerToHit(const Coord3D &pos) const override
+	{
+		return isHordeGarrison() ? nearestShownHordeMember(m_contained, pos) : OpenContain::passengerToHit(pos);
+	}
 	// RW slot 0x114: the contained count; RW 0x87D252 (the horde garrison's capacity test)
 	bool hasRoomFor(const Object &obj) const;
 	int getContainMax() const override;

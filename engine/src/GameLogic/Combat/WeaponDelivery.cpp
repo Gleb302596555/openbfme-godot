@@ -1948,6 +1948,7 @@ void ObjectWeaponDelivery::fireWeaponTemplate(const WeaponBonus &bonus, int curB
 	}
 	// the miss rolls (scratch/weapon1/damage.md 2.7, in this order)
 	bool miss = false;
+	bool hitPassenger = false;
 	if (victim && !scattered)
 	{
 		// (1) no roll. lane FLANK-1: DisableScatterForTargetsOnWall (+ 0x3D) only spares an infantry victim standing on a wall (RW 0x6CCC7F -> 0x6EA857
@@ -1980,17 +1981,37 @@ void ObjectWeaponDelivery::fireWeaponTemplate(const WeaponBonus &bonus, int curB
 				}
 			}
 		}
-		// (4) HitPassengerPercentage: the victim's contain module (garrison) is not a passenger target in this lane (S-321)
+		// (4) TOP20 S-321, RW 0x6CCD46 .. 0x6CCDA7: a shot that did not miss at a victim with a contain (Object + 0x258) whose slot 0x7C answers null (every
+		// contain but HordeContain's horde interface, RW 0x872A6F) and a HitPassengerPercentage (+ 0x15C) above 0 draws (line 0x5E1): percentage >= draw hits a
+		// passenger
+		const ContainModuleInterface *contain = victim->getContain();
+		if (!miss && contain && !const_cast<ContainModuleInterface *>(contain)->getHordeContainInterface() && t.m_hitPassengerPercentage > 0.0f)
+		{
+			const float r = rng.getValueReal(0.0f, 1.0f, kWeaponCpp, 1505);
+			if (t.m_hitPassengerPercentage >= r)
+			{
+				hitPassenger = true;
+			}
+		}
 	}
 	// RW 0x6CCDBA .. 0x6CCE5A: ScatterIndependently (+ 0x3C) delivers every nugget through the position path (slot 2, then slot 6 at the target), a miss scattering
 	// again before each one (the first with the victim, the others without: RW 0x6CC399 with a null victim draws the full circle); otherwise one scatter for all
-	// (lane FLANK-1; BFME2 decomp WeaponPrivateFireWeapon.cpp:1053). HitPassengerPercentage's redirect (RW 0x6CCD5A, the non-independent branch) is S-321's
+	// (lane FLANK-1; BFME2 decomp WeaponPrivateFireWeapon.cpp:1053)
 	const bool independently = t.m_scatterIndependently;
 	Object *scatterVictim = victim;
 	if (miss && !independently)
 	{
 		pos = scatterTargetPos(scatterVictim, pos);
 		victim = nullptr;
+	}
+	// TOP20 S-321, RW 0x6CCE9E .. 0x6CCEBE (the non-independent branch only): a passenger hit goes to the victim's contain's slot 0xF4 at the victim's position;
+	// none there leaves the container the victim
+	if (hitPassenger && !independently && victim)
+	{
+		if (Object *passenger = victim->getContain()->passengerToHit(*victim->getPosition()))
+		{
+			victim = passenger;
+		}
 	}
 	// the nugget loop in parse order
 	for (const std::shared_ptr<WeaponNugget> &np : t.m_nuggets)

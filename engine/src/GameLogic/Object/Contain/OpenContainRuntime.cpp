@@ -25,6 +25,7 @@
 #include "GameLogic/Module/MoneyEventModules.h"
 #include "GameLogic/Module/OpenContain.h"
 #include "GameLogic/Module/PhysicsBehavior.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/SimMath.h"
@@ -1219,4 +1220,67 @@ void OpenContain::xfer(Xfer &x)
 	SnapshotXfer::u64(x, m_openStats.exitedViaDoor);
 	SnapshotXfer::u64(x, m_openStats.shipExitsToShore);      // lane SAVE-4e (merge): SHIP-1's counters, which replaced the unported ship exit count
 	SnapshotXfer::u64(x, m_openStats.shipExitsWithoutShore);
+}
+
+namespace
+{
+// RW 0x8663B6 / 0x990D14: (pos - p)^2 in x and y, SSE single precision (subss, mulss, addss: y's square plus x's)
+float distanceSquared2D(const Coord3D &pos, const Coord3D &p)
+{
+	const float dx = NumericState::sseSub(pos.x, p.x);
+	const float dy = NumericState::sseSub(pos.y, p.y);
+	return NumericState::sseAdd(NumericState::sseMul(dy, dy), NumericState::sseMul(dx, dx));
+}
+} // namespace
+
+Object *OpenContain::passengerToHit(const Coord3D &pos) const
+{
+	// RW 0x8663B6: the contained list in order; the first object is taken, a later one only when strictly nearer (comiss / jbe)
+	Object *best = nullptr;
+	float bestDistance = 3.40282347e+38f; // RW 0xBD1910
+	for (Object *o : m_contained)
+	{
+		if (!o)
+		{
+			continue;
+		}
+		const float d = distanceSquared2D(pos, *o->getPosition());
+		if (!best || bestDistance > d)
+		{
+			best = o;
+			bestDistance = d;
+		}
+	}
+	return best;
+}
+
+Object *OpenContain::nearestShownHordeMember(const ContainedItemsList &contained, const Coord3D &pos)
+{
+	// RW 0x990D14: every contained object whose contain answers slot 0x78 (a horde) gives its contained members (horde interface slot 0x108, RW 0x872AB5);
+	// a member whose drawable is hidden (RW 0x70E013 -> 0x67055A: + 0x43D, a member inside the building; + 0x43E, a stealth look, is client state the logic
+	// does not read: INFERENCE, S-321) is skipped; the nearest is taken only when strictly nearer than the best so far, which starts at FLT_MAX
+	Object *best = nullptr;
+	float bestDistance = 3.40282347e+38f; // RW 0xBD1910
+	for (Object *h : contained)
+	{
+		const ContainModuleInterface *c = h ? h->getContain() : nullptr;
+		if (!c || !const_cast<ContainModuleInterface *>(c)->getHordeContainInterface())
+		{
+			continue;
+		}
+		for (Object *m : *c->getContainedItemsList())
+		{
+			if (!m || m->isDrawableHidden())
+			{
+				continue;
+			}
+			const float d = distanceSquared2D(pos, *m->getPosition());
+			if (bestDistance > d)
+			{
+				best = m;
+				bestDistance = d;
+			}
+		}
+	}
+	return best;
 }

@@ -587,6 +587,9 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // TOP20 S-560 (station claude/station-2) re-measured both (OPENBFME_PERF1_REGEN=1, Windows MSVC): the shroud's three channels (RW 0x68EC3B -> 0xB51030:
 // value, threat, campness) are filled; the shroud hash holds them, so both move from frame 0, and the emotion tracker reads the threat channel (with the
 // channels' fill switched off both match the previous vectors).
+// TOP20 S-321 (station claude/station-2) re-measured the skirmish (OPENBFME_PERF1_REGEN=1, Windows MSVC): HitPassengerPercentage (RW 0x6CCD46: a draw at
+// Weapon.cpp:1505 for a shot at a victim with a non-horde contain, RW 0x6CCE9E: the redirect to the contain's slot 0xF4 passenger) moves it from frame 1453;
+// the battle keeps its vector (with the roll switched off the skirmish matches the previous vector).
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,
