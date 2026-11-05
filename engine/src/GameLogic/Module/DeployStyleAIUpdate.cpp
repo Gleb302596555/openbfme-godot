@@ -53,7 +53,7 @@ std::string rawField(const ModuleData *data, const char *field)
 	std::string value;
 	for (const RawModuleData::Line &l : raw->lines())
 	{
-		std::string text = l.text;
+		std::string text = l.resolved; // TOP20 #21: macros resolved (RawModuleData::Line::resolved)
 		const size_t cut = text.find(';');
 		if (cut != std::string::npos)
 		{

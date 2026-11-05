@@ -75,6 +75,8 @@ const char kExtraObjects[] =
 	"End\n"
 	// TOP20 #21: the burning death. The locomotors are Ennorath's / RotWK's locomotor.ini BurningDeathLocomotorInfantry (BurningDeathRadius 120) and
 	// BurningDeathLocomotorCavalry (BurningDeathIsCavalry Yes, radius 20000); BurningDeathTime 1000 ms = 5 frames (the mod's infantry has 5000, cavalry 2500)
+	// TOP20 #21: BurningDeathTime by a macro, as RotWK's / Ennorath's _gamedata.inc BURNINGDEATH_DURATION_INFANTRY (raw module values resolve macros)
+	"#define TEST_BURNINGDEATH_DURATION 1000\n"
 	"Locomotor BurnInfantryLoco\n"
 	"  Surfaces = GROUND\n"
 	"  TurnTime = 500\n"
@@ -105,7 +107,7 @@ const char kExtraObjects[] =
 	"  GeometryMinorRadius = 8\n"
 	"  GeometryHeight = 20\n"
 	"  Behavior = AIUpdateInterface ModuleTag_AI\n"
-	"    BurningDeathTime = 1000\n"
+	"    BurningDeathTime = TEST_BURNINGDEATH_DURATION\n"
 	"  End\n"
 	"  LocomotorSet\n"
 	"    Locomotor = WalkerLoco\n"

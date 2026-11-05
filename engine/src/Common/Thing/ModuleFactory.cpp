@@ -8,6 +8,48 @@
 
 #include <stdexcept>
 
+// TOP20 #21: RawModuleData::Line::resolved. The name part (up to '=') is kept; every value word (split at blanks, '=' and ',', the INI's token
+// separators) goes through INI::preprocessMacro, the scanners' lookup (RW 0x42D0A9); the comment after ';' or '//' is dropped
+std::string RawModuleData::resolveMacros(INI &ini, const std::string &text)
+{
+	std::string body = text;
+	const size_t semi = body.find(';');
+	if (semi != std::string::npos)
+	{
+		body.erase(semi);
+	}
+	const size_t slashes = body.find("//");
+	if (slashes != std::string::npos)
+	{
+		body.erase(slashes);
+	}
+	const size_t eq = body.find('=');
+	if (eq == std::string::npos)
+	{
+		return body;
+	}
+	std::string out = body.substr(0, eq + 1);
+	const auto isSep = [](char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '=' || c == ','; };
+	size_t i = eq + 1;
+	while (i < body.size())
+	{
+		if (isSep(body[i]))
+		{
+			out += body[i++];
+			continue;
+		}
+		size_t j = i;
+		while (j < body.size() && !isSep(body[j]))
+		{
+			++j;
+		}
+		const std::string word = body.substr(i, j - i);
+		out += ini.preprocessMacro(word.c_str());
+		i = j;
+	}
+	return out;
+}
+
 ModuleFactory::ModuleFactory(NameKeyGenerator &keys, const RwGrammar &grammar)
 	: m_keys(keys)
 	, m_grammar(grammar)

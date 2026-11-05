@@ -22,6 +22,11 @@ public:
 		std::string file;
 		int sourceLine = 0;
 		std::string text;
+		// TOP20 #21: the text with every value word that names a #define macro replaced by the macro's value, the way the INI scanners read a
+		// number (INI::preprocessMacro, RW 0x42D0A9 / B1 INIPreprocessMacro.cpp:83-110: a word starting with a digit is kept, a known macro name
+		// becomes its value); the comment (';' / '//') is dropped. The readers of numeric raw fields use it: BurningDeathTime =
+		// BURNINGDEATH_DURATION_INFANTRY (RotWK's and Ennorath's _gamedata.inc) read as 0 from `text`. Math (#MULTIPLY ...) stays as written
+		std::string resolved;
 	};
 
 	RawModuleData(std::string className, ModuleType type)
@@ -36,7 +41,7 @@ public:
 	const std::vector<Line> &lines() const { return m_lines; }
 
 	// Copies lines [first, last) of the INI's line array (see INI::lineTextAt).
-	void capture(const INI &ini, size_t first, size_t last)
+	void capture(INI &ini, size_t first, size_t last)
 	{
 		for (size_t i = first; i < last; ++i)
 		{
@@ -44,9 +49,12 @@ public:
 			l.file = ini.sourceFileAt(i);
 			l.sourceLine = ini.sourceLineAt(i);
 			l.text = ini.lineTextAt(i);
+			l.resolved = resolveMacros(ini, l.text);
 			m_lines.push_back(std::move(l));
 		}
 	}
+	// see Line::resolved
+	static std::string resolveMacros(INI &ini, const std::string &text);
 
 private:
 	std::string m_className;

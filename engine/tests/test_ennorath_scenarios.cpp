@@ -566,3 +566,56 @@ TEST_CASE("ENNORATH scenario AIRampageState: an aflame, badly hurt MordorMumakil
 	CHECK(mumak->testModelCondition(ModelCondition::indexOf("WEAPONSET_RAMPAGE"))); // what GoIntoRampage tests before it broadcasts BeAfraidOfRampage
 	CHECK_FALSE(trollRampaged);
 }
+
+// TOP20 #21: the burning death on the mod's objects. GondorFighter (data\ini\object\goodfaction\units\men\gondorfighter.ini: ActiveBody
+// BurningDeathBehavior = Yes, BurningDeathFX = FX_InfantryBurningFlame; AIUpdateInterface BurningDeathTime = BURNINGDEATH_DURATION_INFANTRY,
+// data\ini\_gamedata.inc #define 5000 ms = ceil(5000 * 0.005) = 25 frames); WildDrogothnew's DrogothGroundFireBreath (data\ini\includes\weapon.inc:
+// two FLAME and two MAGIC DamageNuggets)
+TEST_CASE("ENNORATH scenario AIBurningDeathState: a GondorFighter hit by a fatal FLAME blow burns for BURNINGDEATH_DURATION_INFANTRY (25 frames) at 1 health, then dies; the dragon's breath sets the horde burning")
+{
+	World world;
+	if (!world.load("Ennorath scenario AIBurningDeathState")) return;
+	hudtest::Rig game(world.shared);
+	const int enemy = game.game->players().findPlayerWithName("Player_2")->getPlayerIndex();
+	std::string error;
+	Object *horde = game.game->createObject("GondorFighterHorde", game.index(), Coord3D{ 1200.0f, 1200.0f, 0.0f }, 0.0f, &error);
+	REQUIRE_MESSAGE(horde != nullptr, error);
+	Object *dragon = game.game->createObject("WildDrogothnew", enemy, Coord3D{ 1260.0f, 1200.0f, 0.0f }, 0.0f, &error);
+	REQUIRE_MESSAGE(dragon != nullptr, error);
+	for (int i = 0; i < 5; ++i) game.logic().runLogicFrame();
+	REQUIRE(horde->getContain());
+	std::vector<Object *> members(horde->getContain()->getContainedItemsList()->begin(), horde->getContain()->getContainedItemsList()->end());
+	REQUIRE(members.size() == 15u); // data/ini/object/goodfaction/hordes/men/menhordes.ini: InitialPayload = GondorFighter GOOD_MEN_GIANT_HORDE_SIZE (15)
+	Object *m0 = members[0];
+	AIUpdateInterface *a0 = m0->getAIUpdateInterface();
+	REQUIRE(a0 != nullptr);
+	CHECK(a0->combatSettings().burningDeathTime == 25u); // the macro resolved (it read 0 before: every burning unit died the next frame)
+	damage(m0, dragon->getID(), DAMAGE_FLAME, 5000.0f);
+	CHECK(health(m0) == 1.0f);
+	CHECK(a0->currentStateId() == 0x4Au);
+	CHECK(m0->getContainedBy() == nullptr); // out of its horde (RW 0x8C4779)
+	for (int f = 0; f < 24; ++f) game.logic().runLogicFrame();
+	CHECK_FALSE(m0->isEffectivelyDead());
+	CHECK(a0->currentStateId() == 0x4Au);
+	for (int f = 0; f < 3; ++f) game.logic().runLogicFrame();
+	CHECK(m0->isEffectivelyDead());
+	// the breath: members its FLAME nuggets would kill burn instead of dying at once
+	const WeaponTemplate *breath = TheWeaponStore ? TheWeaponStore->findWeaponTemplate("DrogothGroundFireBreath") : nullptr;
+	REQUIRE(breath != nullptr);
+	int burningAlive = 0;
+	for (int shot = 0; shot < 20 && burningAlive == 0; ++shot)
+	{
+		const Coord3D at = *members[1]->getPosition();
+		unsigned long long unported = 0;
+		DeliverNuggets(game.logic(), dragon->getID(), *breath, WeaponBonus{}, nullptr, &at, false, &unported);
+		for (int i = 0; i < 5; ++i) game.logic().runLogicFrame();
+		for (Object *m : members)
+		{
+			if (m != m0 && !m->isEffectivelyDead() && m->testModelCondition(CombatNames::modelCondition("BURNINGDEATH")))
+			{
+				++burningAlive;
+			}
+		}
+	}
+	CHECK(burningAlive > 0); // tolerance: how many of the horde the breath reaches depends on the members' places; one burning survivor proves the path
+}

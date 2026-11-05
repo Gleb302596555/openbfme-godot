@@ -1589,7 +1589,7 @@ GiantBirdAIUpdateData GiantBirdAIUpdate::parseData(const ModuleData *data)
 	}
 	for (const RawModuleData::Line &l : raw->lines())
 	{
-		std::string text = l.text;
+		std::string text = l.resolved; // TOP20 #21: macros resolved (RawModuleData::Line::resolved)
 		const size_t semi = text.find(';');
 		if (semi != std::string::npos)
 		{

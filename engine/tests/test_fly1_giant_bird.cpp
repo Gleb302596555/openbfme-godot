@@ -16,6 +16,7 @@
 #include "Common/SpecialPower.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/GameMessage.h"
+#include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/Weapon.h"
@@ -529,14 +530,19 @@ TEST_CASE("fly1 retail: Drogoth's breath: his fireball (SpecialAbilityDrogothFir
 	// only on fell beasts and Gwaihir) at SoldierArmor's 100 % is 850, above GONDOR_SOLDIER_HEALTH 200: the soldiers the blast covers die, 200 each. Lane FLANK-1:
 	// DrogothFireballProjectile is not NO_COLLIDE and its warhead's ProjectileCollidesWith has ENEMIES (RW 0x6CC79C), so the ball goes off on the first soldier it
 	// touches, backed off its path (RW 0x85EA5F), not at the aimed soldier at the path's end: nine soldiers are inside the blast there (six before), 9 x 200
-	CHECK(total0 - hordeHealth() == 1800.0f);
-	int killed = 0;
+	// TOP20 #21: GondorFighter has BurningDeathBehavior (ActiveBody), so the FLAME nugget, first in the warhead, is capped at health - 1 (RW 0x8C41DF ..
+	// 0x8C4214): 199 each, the nine soldiers burn (AIBurningDeathState, RW 0x751BE5: UNATTACKABLE) and the MAGIC nuggets after it take nothing (attemptDamage's
+	// UNATTACKABLE test). Was 1800 / 9 killed before the burning death was ported
+	CHECK(total0 - hordeHealth() == 1791.0f);
+	int killed = 0, burning = 0;
 	for (ObjectID id : members)
 	{
 		Object *m = logic.findObjectByID(id);
 		killed += !m || m->isEffectivelyDead() ? 1 : 0;
+		burning += m && !m->isEffectivelyDead() && m->testModelCondition(CombatNames::modelCondition("BURNINGDEATH")) ? 1 : 0;
 	}
-	CHECK(killed == 9);
+	CHECK(killed == 0);
+	CHECK(burning == 9);
 }
 
 TEST_CASE("fly1 retail: every template of the retail data with a GiantBirdAIUpdate, by exact name, runs the class and flies to a point")

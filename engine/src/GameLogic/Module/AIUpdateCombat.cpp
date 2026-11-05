@@ -135,7 +135,7 @@ void AIUpdateInterface::readCombatSettings(const ModuleData *data)
 	{
 		std::string name;
 		std::vector<std::string> tok;
-		if (!splitField(l.text, name, tok) || tok.empty())
+		if (!splitField(l.resolved, name, tok) || tok.empty()) // TOP20 #21: macros resolved (RawModuleData::Line::resolved)
 		{
 			continue;
 		}
