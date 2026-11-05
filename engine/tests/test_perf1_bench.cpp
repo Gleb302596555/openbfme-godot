@@ -601,6 +601,9 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // moves the big battle and the skirmish, and ATKRESET-1 (attack orders end the FiringDuration lock) moves both again; the allied blob keeps #187's vector.
 // pin: the merge with upstream 7e98ac2f re-measured all three once on the merged tree (OPENBFME_PERF1_REGEN=1, Windows MSVC): PATH-REBUILD, ATKRESET-1, LOCODIST-1 and
 // AIMAIM-1 on top of the fork's cheer, shroud channels, HitPassengerPercentage and fire system; the vectors differ from both parents.
+// pin: TOP20 #21, the burning death ported (09a8a625: a fatal FLAME / LOGICAL_FIRE hit on a BurningDeathBehavior body leaves 1 health, RW 0x8C4169, and
+// AIBurningDeathState 0x4A runs, RW 0x751BE5, drawing the logic random for its wander, RW 0x748418) re-measured the skirmish (OPENBFME_PERF1_REGEN=1, Windows MSVC):
+// it moves from frame 1661; the big battle is unchanged. Attributed by a build with the cap switched off (burningDeathCaps false): both pass on the old vectors.
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,
