@@ -217,6 +217,9 @@ public:
 	bool aiRampage(CommandSourceType source);
 	// RW 0x664D5D getRampageTime: 0 when RampageRequiresAflame and the object is not AFLAME (status 10), else RampageTime (frames)
 	unsigned rampageTime() const;
+	// TOP20 #21: AI command 0x53 (RW 0x8C3EC3, made only by ActiveBody::attemptDamage's burning death): aiDoCommand's gate, then privateBurningDeath (AI vslot
+	// 0x134, RW 0x6648B6: an immobile object nothing, else the machine cleared, the source kept, state 0x4A); false when nothing changed (AIBurningDeathState.cpp)
+	bool aiBurningDeath(CommandSourceType source);
 	// lane BFME2CAMP1: AI command 0x23 (RW 0x77145C aiAttackArea) -> aiDoCommand's gate, then privateAttackArea RW 0x66C24E (AIHunt.cpp): attack the enemies inside
 	// `area` (the state 0x1F, AIAttackAreaState); false when nothing changed
 	bool aiAttackArea(const TriggerArea &area, CommandSourceType source);

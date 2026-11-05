@@ -20,6 +20,7 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/AI/AIEmotionStates.h"
 #include "GameLogic/AI/AIRampageState.h"
+#include "GameLogic/AI/AIBurningDeathState.h"
 #include "GameLogic/Module/SiegeModules.h"
 #include "GameLogic/Module/SquishCollide.h"
 #include "GameLogic/AI/AIAttackMelee.h"
@@ -460,6 +461,7 @@ std::unique_ptr<AIStateMachine> AIUpdateInterface::makeStateMachine()
 	m->defineState(AI_BACK_AWAY, std::make_unique<AIBackAwayState>(*m), AI_IDLE, AI_IDLE);
 	m->defineState(AI_QUARREL, std::make_unique<AIQuarrelState>(*m), AI_IDLE, AI_IDLE);
 	m->defineState(AI_RAMPAGE, std::make_unique<AIRampageState>(*m), AI_IDLE, AI_IDLE); // TOP20 rampage: RW 0x754401 (AIRampageState.cpp)
+	m->defineState(AI_BURNING_DEATH, std::make_unique<AIBurningDeathState>(*m), AI_IDLE, AI_IDLE); // TOP20 #21: RW 0x75393A (AIBurningDeathState.cpp)
 	m->defineState(AI_FACE_OBJECT_IDLE, std::make_unique<AIFaceObjectIdleState>(*m), AI_IDLE, AI_IDLE);
 	m->defineState(AI_FACE_POSITION, std::make_unique<AIFacePositionState>(*m), AI_IDLE, AI_IDLE); // lane SIEGE-1: RW 0x753755 state 0x25 (RW 0x7449D4 mode 0)
 	m->defineState(AI_FACE_OBJECT, std::make_unique<AIFaceState>(*m, true), AI_IDLE, AI_IDLE);
