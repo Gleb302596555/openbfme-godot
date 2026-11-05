@@ -35,6 +35,8 @@ struct State
 	float stealth = 0.0f;
 	bool useShroud = false;
 	bool showRandomPlayerTemplate = true, showRandomStartPos = true, showRandomColor = true; // lane HUD-5 (RW 0x7836C0 defaults)
+	bool taintOn = false;          // S-5261: GameData TaintOn + 0xC6A (parseBool RW 0x42E558); no constructor write
+	std::uint8_t taintAlpha = 0x80; // TaintAlpha + 0xC04 (parseUnsignedByte RW 0x42EB75); the constructor's 0x80 (RW 0x6432F8)
 	unsigned seen = 0;
 	bool gameData = false, multiplayer = false;
 };
@@ -113,6 +115,8 @@ FieldParse kGameData[] = {
 	{ "FogAlpha", parseNoting<INI::parseUnsignedByte>, SEEN_DATA(SEEN_FOG), VS_OFF(fogAlpha) },
 	{ "ShroudAlpha", parseNoting<INI::parseUnsignedByte>, SEEN_DATA(SEEN_SHROUD), VS_OFF(shroudAlpha) },
 	{ "StealthFriendlyOpacity", parseNoting<INI::parsePercentToReal>, SEEN_DATA(SEEN_STEALTH), VS_OFF(stealth) },
+	{ "TaintOn", INI::parseBool, nullptr, VS_OFF(taintOn) },              // S-5261 (the terrain's taint mask, W3DTaintMask.h)
+	{ "TaintAlpha", INI::parseUnsignedByte, nullptr, VS_OFF(taintAlpha) },
 	{ nullptr, skipField, nullptr, 0 }
 };
 
@@ -212,6 +216,8 @@ bool finish(const State &s, VisionSettings &out, std::string *error)
 	out.showRandomPlayerTemplate = s.showRandomPlayerTemplate;
 	out.showRandomStartPos = s.showRandomStartPos;
 	out.showRandomColor = s.showRandomColor;
+	out.taintOn = s.taintOn;
+	out.taintAlpha = s.taintAlpha;
 	out.loaded = true;
 	return true;
 }

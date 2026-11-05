@@ -826,6 +826,13 @@ private:
 	bool m_shroudParamEnabled = false;
 	Vector2 m_shroudParamOrigin, m_shroudParamExtent;
 	Color m_shroudParamColor;
+	// stop S-5261: TheTaintManager's ground (the Taint / Elven Wood spells) and the fire grid's colours as terrain.fxo's taint mask (W3DTaintMask.h)
+	void refresh_taint(bool force);
+	Ref<godot::ImageTexture> m_taintTexture;
+	std::shared_ptr<const struct TaintView> m_taintShown;
+	bool m_taintParamsSet = false;
+	bool m_taintParamEnabled = false;
+	Vector2 m_taintParamOffset, m_taintParamScale;
 	void refresh_streaks(bool record = true); ///< RENDER-1: W3DStreakDraw trails of the live drawables (S-391)
 	void remove_view(uint32_t drawableId);
 

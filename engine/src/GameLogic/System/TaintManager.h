@@ -94,6 +94,8 @@ public:
 	// whether any cell differs from the constructor's (0x80, 0, -1): the hash section exists only then (a game without taint keeps its hash, and a
 	// loaded game has it exactly when the saved one had)
 	bool anyPainted() const { return m_nonDefault > 0; }
+	// moves with every cell write, region change and load (the client's ground tint rebuilds when it moves; not state: neither hashed nor saved)
+	std::uint64_t version() const { return m_version; }
 
 	void xfer(Xfer &x);
 	void crc(StateHasher &h) const;
@@ -116,4 +118,5 @@ private:
 	std::vector<Cell> m_cells;
 	Callback m_callback;
 	size_t m_nonDefault = 0; ///< the cells that differ from the constructor's
+	std::uint64_t m_version = 0;
 };

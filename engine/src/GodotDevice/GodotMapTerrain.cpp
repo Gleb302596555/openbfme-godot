@@ -781,9 +781,24 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 			errors.push_back(texErrors[i]);
 		}
 	}
+	// stop S-5261: terrain.fxo's TaintLowTexture / TaintHighTexture, loaded by BaseHeightMap at RW 0x46C5DB .. 0x46C61C (TSTaintMed.tga -> + 0x3840,
+	// TSElvenMed.tga -> + 0x384C; the files are BFME2's art\compiledtextures\ts\*.dds). A missing file is an error in the report, no default
+	Ref<Texture2D> taintLowTex, taintHighTex;
+	if (wantTerrain)
+	{
+		Array texErrors;
+		taintLowTex = loadTexture(rfs, "TSTaintMed.tga", texErrors);
+		taintHighTex = loadTexture(rfs, "TSElvenMed.tga", texErrors);
+		for (int64_t i = 0; i < texErrors.size(); ++i)
+		{
+			errors.push_back(texErrors[i]);
+		}
+	}
 	auto applyMapLighting = [&](const Ref<ShaderMaterial> &m) {
 		if (cloudTex.is_valid()) m->set_shader_parameter("cloud_tex", cloudTex);
 		if (macroTex.is_valid()) m->set_shader_parameter("macro_tex", macroTex);
+		if (taintLowTex.is_valid()) m->set_shader_parameter("taint_low_tex", taintLowTex);
+		if (taintHighTex.is_valid()) m->set_shader_parameter("taint_high_tex", taintHighTex);
 		if (tod)
 		{
 			const GlobalLight &sun = tod->terrain[0];

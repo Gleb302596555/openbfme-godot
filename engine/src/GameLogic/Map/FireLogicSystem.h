@@ -122,6 +122,11 @@ public:
 	int numCols() const { return m_numCols; }
 	int cellsBurningCount() const { return (int)m_cellsOnFire.size(); }
 	bool anyBurning() const { return !m_cellsOnFire.empty(); }
+	// RW 0x686459: the type (0 neutral, 1 burning, 2 burnt out) of the cell at a world point given in integers: (x / 10, y / 10), C division,
+	// then floor(n + 0.5) (x87); 0 without a grid or outside it. Read by the client's ground tint (TheFireManager slot 0x3C, RW 0x497F60)
+	int cellTypeAt(int worldX, int worldY) const;
+	// how many times a cell's type was written (the client's ground tint rebuilds when it moves; not state: neither hashed nor saved)
+	std::uint64_t typeVersion() const { return m_typeVersion; }
 	const std::set<std::pair<int, int>> &cellsOnFire() const { return m_cellsOnFire; }
 
 	// Snapshot interface
@@ -157,6 +162,7 @@ private:
 	int m_maxCellsBurning = 0x7FFFFFFF;
 	int m_fuelRegenRate = 1;
 	int m_decayModifier = 0;
+	std::uint64_t m_typeVersion = 0;
 };
 
 extern FireLogicSystem *TheFireLogicSystem;

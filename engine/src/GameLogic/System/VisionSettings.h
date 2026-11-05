@@ -29,6 +29,10 @@ struct VisionSettings
 	// lane HUD-5: MultiplayerSettings ShowRandomPlayerTemplate / ShowRandomStartPos / ShowRandomColor (GameSlot::getApparent*: an enemy's random choice is shown
 	// as random). Default true: MultiplayerSettings' constructor (RW 0x7836C0, BFME2 decomp MultiplayerSettings.cpp, tier B same-shape); optional fields
 	bool showRandomPlayerTemplate = true, showRandomStartPos = true, showRandomColor = true;
+	// S-5261: GameData TaintOn (+ 0xC6A, no constructor write: off) and TaintAlpha (+ 0xC04, constructor 0x80, RW 0x6432F8), optional fields; the
+	// terrain's taint mask (W3DTaintMask.h). TaintColor / ElvenWoodColor feed only the fixed-function texel, which is not ported
+	bool taintOn = false;
+	unsigned taintAlpha = 0x80;
 
 	static bool load(ArchiveFileSystem &fs, VisionSettings &out, std::string *error);
 	// the two files' texts (tests)

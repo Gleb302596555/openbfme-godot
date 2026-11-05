@@ -22,6 +22,8 @@
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/System/InvisibilityManager.h"
+#include "GameLogic/System/TaintManager.h"
+#include "GameLogic/Map/FireLogicSystem.h"
 
 #include "Common/PlayerList.h"
 #include "Common/JobSystem.h"           // lane PERF-SNAP: the records on the logic job pool
@@ -245,6 +247,41 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 		snap->breeze.breezeVersion = b.breezeVersion;
 	}
 	snap->endGame = EndGameView::build(logic, previous ? previous->endGame : std::shared_ptr<const EndGameView>());
+	{
+		// S-5261: the terrain's taint mask reads TheTaintManager's values and TheFireLogicSystem's type at each cell's centre (W3DTaintMask.h, RW 0x4735AB);
+		// a new copy only when either moved
+		const TaintManager &tm = logic.taint();
+		const FireLogicSystem &fire = logic.fireLogic();
+		const TaintView *pv = previous ? previous->taint.get() : nullptr;
+		if (pv && pv->taintVersion == tm.version() && pv->fireVersion == fire.typeVersion())
+		{
+			snap->taint = previous->taint;
+		}
+		else
+		{
+			auto v = std::make_shared<TaintView>();
+			v->taintVersion = tm.version();
+			v->fireVersion = fire.typeVersion();
+			v->countX = tm.countX();
+			v->countY = tm.countY();
+			v->originX = tm.region().loX;
+			v->originY = tm.region().loY;
+			v->cellSize = tm.cellSize();
+			v->values.resize((size_t)v->countX * (size_t)v->countY);
+			v->fireTypes.resize(v->values.size());
+			for (int y = 0; y < v->countY; ++y)
+			{
+				const int fy = W3DTaintMask::cellCentre(y, v->cellSize);
+				for (int x = 0; x < v->countX; ++x)
+				{
+					const size_t i = (size_t)y * (size_t)v->countX + (size_t)x;
+					v->values[i] = tm.cell(x, y).value;
+					v->fireTypes[i] = (std::uint8_t)fire.cellTypeAt(W3DTaintMask::cellCentre(x, v->cellSize), fy);
+				}
+			}
+			snap->taint = v;
+		}
+	}
 	// lane PERF-SNAP: the records are filled on the logic job pool, one object per slot in list order (the sort below sees the order the serial
 	// loop made). Every per-object read is a read of the frame's state except the caches a first read fills, which are filled here, on this
 	// thread, so the pool only finds: the template's info (GameLogic::templateInfo, through Radar::captureObject) for every object, and for the

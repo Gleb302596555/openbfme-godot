@@ -25,6 +25,7 @@
 #include "GameLogic/System/ShroudManager.h"
 #include "GameClient/DrawableScriptTarget.h"
 #include "GameEngineDevice/W3DDevice/GameClient/W3DVegetationSway.h"
+#include "GameEngineDevice/W3DDevice/GameClient/W3DTaintMask.h"
 
 #include <cstdint>
 #include <memory>
@@ -161,6 +162,7 @@ struct LogicSnapshot
 	// find checks the stored id, so a stale slot cannot return another object's pose.
 	std::vector<int> idToIndex;
 	std::shared_ptr<const ShroudView> shroud;   ///< null without a shroud manager
+	std::shared_ptr<const TaintView> taint;     ///< TheTaintManager and the fire grid as the terrain's taint mask reads them (W3DTaintMask.h)
 	std::shared_ptr<const PlayerView> players;
 	std::shared_ptr<const EndGameView> endGame; ///< lane END-1: the victory state the end sequence reads (GameClient/EndGame.h)
 	std::vector<ObjectID> observedSelection; ///< CASTER-1: recorded command selection, never a new selection command

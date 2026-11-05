@@ -18,8 +18,8 @@ struct FireSetting
 {
 	std::string terrainFireSystem;            // +0x00
 	std::string terrainSmokeSystem;           // +0x04
-	RGBColor burntTerrainColor = { 0, 0, 0 }; // +0x08
-	RGBColor fuelIndicatorColor = { 0, 0, 0 };// +0x14
+	RGBColor burntTerrainColor = { 0.2f, 0.2f, 0.2f };  // +0x08; the constructor RW 0x70C637: 0.2 (RW 0xBDAD78) each
+	RGBColor fuelIndicatorColor = { 0.8f, 0.7f, 0.6f }; // +0x14; RW 0x70C670 .. 0x70C692: 0.8 (RW 0xBDE8D8), 0.7 (RW 0xBDE0A8), 0.6 (RW 0xBDAD70)
 	bool enableScorches = false;              // +0x20
 	GameClientRandomVariable scorchFrequency; // +0x24
 	GameClientRandomVariable scorchSize;      // +0x30

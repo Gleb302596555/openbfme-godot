@@ -160,6 +160,7 @@ void FireLogicSystem::newMap(float, float, float hiX, float hiY)
 		{
 			Cell *cell = &m_cells[x][y];
 			cell->m_type = 0;
+			++m_typeVersion;
 			cell->m_fuel = 0;
 			cell->m_check = 0;
 			cell->m_flammability = 0;
@@ -222,6 +223,7 @@ void FireLogicSystem::update()
 				if (cell->m_fuel > 0)
 				{
 					cell->m_type = 2; // burnt out
+					++m_typeVersion;
 				}
 			}
 			else
@@ -247,12 +249,14 @@ void FireLogicSystem::update()
 					if (cell->m_fuel > 0)
 					{
 						cell->m_type = 2; // burnt out
+					++m_typeVersion;
 					}
 				}
 				else
 				{
 					consumed = cell->m_check;
 					cell->m_type = 1; // burning
+					++m_typeVersion;
 				}
 				cell->m_fuel -= (unsigned short)consumed;
 
@@ -953,6 +957,23 @@ void FireLogicSystem::unregisterObject(Object *obj)
 	}
 }
 
+// RW 0x686459
+int FireLogicSystem::cellTypeAt(int worldX, int worldY) const
+{
+	if (!m_cells) // RW 0x686463: no grid (+ 0x70)
+	{
+		return 0;
+	}
+	// RW 0x686468 .. 0x6864BB: idiv by 10, fild, + 0.5 (RW 0xBD869C), floor, fistp: an integer n gives n
+	const int cx = worldX / 10;
+	const int cy = worldY / 10;
+	if (cx < 0 || cx >= m_numRows || cy < 0 || cy >= m_numCols) // RW 0x6864C1 .. 0x6864D4 (+ 0x78 / + 0x7C)
+	{
+		return 0;
+	}
+	return m_cells[cx][cy].m_type; // RW 0x6864D6 .. 0x6864DF
+}
+
 bool FireLogicSystem::isCellBurning(int x, int y) const
 {
 	if (x >= 0 && x < m_numRows && y >= 0 && y < m_numCols)
@@ -1034,6 +1055,7 @@ void FireLogicSystem::xfer(Xfer &x)
 			if (x.isLoading())
 			{
 				cell->m_type = type;
+				++m_typeVersion;
 			}
 			x.xferUnsignedShort(&cell->m_fuel);
 			x.xferUnsignedShort(&cell->m_check);

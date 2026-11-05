@@ -32,7 +32,9 @@
 // Filtering (lane TERRAIN-SAMPLING): the Base / Normal samplers are 8x anisotropic in retail (terrain.fxo); see atlas_gradients(). The shroud texel is the 4-bit red
 // nibble of W3DShroud's A4R4G4B4 pixel (RW 0x47266B; engine ShroudTexel.h), sampled bilinearly with clamp (ShroudSampler).
 //
-// Not wired here (reported by the builder, stop S-031): the Taint mask path (albedo = base) and the shadow-receiving variants.
+// S-5261: the Taint path of every pass (terrain.fxo ps_2_0): a = mask.a, d = 2|a - 0.5|; t = a <= 0.5 ? TaintLow : TaintHigh at the layer's UV;
+//   albedo = mask.rgb * lerp(albedo, t, d) while Taint.IsEnabled (GameData TaintOn); the mask's UV (world.xy + Offset) * Scale (W3DTaintMask.h).
+// Not wired here (reported by the builder, stop S-031): the shadow-receiving variants.
 
 // lane TERRAIN-SAMPLING: retail's BaseSampler* and NormalSampler* (terrain.fxo, Clamped and Wrapped) are MinFilter ANISOTROPIC (3), MagFilter and MipFilter LINEAR (2),
 // MaxAnisotropy 8; only the _L (low detail) samplers are linear. The anisotropic hint makes the hardware filter along the footprint's major axis; the level it
@@ -89,6 +91,14 @@ uniform vec2 shroud_extent = vec2(1.0);
 uniform vec3 shroud_color = vec3(1.0);
 uniform bool shroud_enabled = false;
 varying vec2 v_shroud_uv;
+// S-5261: terrain.fxo's Taint struct (IsEnabled, MaskTexture, LowTexture, HighTexture, Offset, Scale; RW 0x4E2002 .. 0x4E2096)
+uniform bool taint_enabled = false;
+uniform sampler2D taint_mask_tex : filter_linear, repeat_disable, hint_default_white; // TaintMaskSampler: LINEAR, CLAMP
+uniform sampler2D taint_low_tex : filter_linear_mipmap, repeat_enable, hint_default_white;  // TaintLowSampler: LINEAR, WRAP (TSTaintMed.tga)
+uniform sampler2D taint_high_tex : filter_linear_mipmap, repeat_enable, hint_default_white; // TaintHighSampler: LINEAR, WRAP (TSElvenMed.tga)
+uniform vec2 taint_offset = vec2(0.0);
+uniform vec2 taint_scale = vec2(1.0);
+varying vec2 v_taint_uv;
 uniform float output_gamma = 2.2; // != 1: decode for Godot's linear output (retail_output)
 // Debug views (0 = retail maths): 1 albedo, 2 vertex colour, 3 normal map, 4 uv, 5 lit without cloud/macro,
 // 6 cloud*macro, 7 the gamma-space composite of the raw layer albedos converted once (numeric shader test)
@@ -218,6 +228,13 @@ vec3 shade_layer(vec2 uv_unwrapped, vec4 rect, vec4 vcol, vec2 gx, vec2 gy) {
 	vec3 albedo = textureGrad(base_atlas, uv, gx, gy).rgb;
 	if (debug_mode == 7) {
 		return albedo;
+	}
+	if (taint_enabled) {
+		// S-5261: terrain.fxo's Taint path (W3DTaintMask.h); the mask has one level (textureLod keeps it valid in this per-layer branch)
+		vec4 mask = textureLod(taint_mask_tex, v_taint_uv, 0.0);
+		float d = 2.0 * abs(mask.a - 0.5);
+		vec3 t = (0.5 - mask.a >= 0.0) ? textureGrad(taint_low_tex, uv_unwrapped, gx, gy).rgb : textureGrad(taint_high_tex, uv_unwrapped, gx, gy).rgb;
+		albedo = mask.rgb * mix(albedo, t, d);
 	}
 	vec4 nm = textureGrad(normal_atlas, uv, gx, gy);
 	vec2 nxy = 2.0 * nm.xy - 1.0;

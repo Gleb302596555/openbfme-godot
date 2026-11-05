@@ -89,6 +89,7 @@ void TaintManager::resize(const Region &in, float cellSize)
 
 void TaintManager::recount()
 {
+	++m_version;
 	m_nonDefault = 0;
 	for (const Cell &c : m_cells)
 	{
@@ -177,6 +178,7 @@ void TaintManager::row(int x0, int x1, int y, int value, bool set, std::int32_t 
 		Cell &c = m_cells[(size_t)y * (size_t)m_countX + (size_t)i];
 		const bool wasDefault = isDefault(c);
 		writeCell(c, value, set, owner);
+		++m_version;
 		const bool nowDefault = isDefault(c);
 		if (wasDefault != nowDefault)
 		{

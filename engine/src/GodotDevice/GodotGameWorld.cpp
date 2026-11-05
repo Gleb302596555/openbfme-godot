@@ -84,6 +84,8 @@
 #include "GameLogic/Economy.h"
 #include "GameLogic/Construction.h"
 #include "GameClient/ShroudTexel.h"
+#include "GameClient/FireSetting.h"
+#include "GameEngineDevice/W3DDevice/GameClient/W3DTaintMask.h"
 #include "GameLogic/SimMath.h"
 #include "GameLogic/Damage.h"
 #include "GameClient/LogicSnapshot.h"
@@ -1405,6 +1407,7 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 
 	t0 = nowMs();
 	refresh_shroud(true);
+	refresh_taint(true);
 	refresh_views(0.0);
 	dyn->update_now();
 	timings["live_layer_ms"] = timing::elapsedMs(t0);
@@ -2512,6 +2515,7 @@ void GameWorld::advance(double delta)
 	m_lastNewModelMs = 0.0;
 	// lane FOGFX-1: the shroud fades on the wall clock (RW 0x472CF2 reads timeGetTime), the render frame's unscaled delta (fixed under Movie Maker)
 	refresh_shroud(false, timing::secondsToMs(delta));
+	refresh_taint(false);
 	const double tv = nowMs();
 	m_lastShroudMs = timing::spanMs(tv, t1);
 	refresh_views(dt * 1000.0);
@@ -6634,6 +6638,116 @@ void GameWorld::refresh_shroud(bool force, double dtMs)
 			m->set_shader_parameter("shroud_extent", extent);
 			m->set_shader_parameter("shroud_color", color);
 			m->set_shader_parameter("shroud_enabled", m_shroudDrawn);
+		}
+	}
+}
+
+void GameWorld::refresh_taint(bool force)
+{
+	if (!m_game)
+	{
+		return;
+	}
+	// stop S-5261: the mask from the presented snapshot's TaintView (the logic's TaintManager and fire grid are the worker's: never read here), rebuilt
+	// when the view changed (LogicSnapshot reuses the same view while neither version moved). Retail writes the changed cells (RW 0x4735AB from the
+	// callback RW 0x6D8B6E); the texels are the same
+	const std::shared_ptr<const LogicSnapshot> presented = m_game->presentedSnapshot();
+	std::shared_ptr<const TaintView> view = presented ? presented->taint : nullptr;
+	if (!view || view->countX <= 0 || view->countY <= 0)
+	{
+		return;
+	}
+	if (view == m_taintShown && !force)
+	{
+		return;
+	}
+	m_taintShown = view;
+	const VisionSettings &vs = m_game->visionSettings();
+	const FireSetting &fire = m_game->world().fireSetting().active();
+	std::vector<std::uint32_t> texels;
+	int tw = 0, th = 0;
+	W3DTaintMask::build(*view, fire, (std::uint8_t)vs.taintAlpha, texels, tw, th);
+	// A8R8G8B8 (RW 0x4730E2, D3DFMT 0x15) -> RGBA8 bytes
+	PackedByteArray bytes;
+	bytes.resize((int64_t)texels.size() * 4);
+	uint8_t *w = bytes.ptrw();
+	for (size_t i = 0; i < texels.size(); ++i)
+	{
+		const std::uint32_t t = texels[i];
+		w[i * 4 + 0] = (uint8_t)(t >> 16);
+		w[i * 4 + 1] = (uint8_t)(t >> 8);
+		w[i * 4 + 2] = (uint8_t)t;
+		w[i * 4 + 3] = (uint8_t)(t >> 24);
+	}
+	Ref<Image> img = Image::create_from_data(tw, th, false, Image::FORMAT_RGBA8, bytes);
+	bool newTexture = false;
+	if (m_taintTexture.is_null() || m_taintTexture->get_width() != tw || m_taintTexture->get_height() != th)
+	{
+		m_taintTexture = ImageTexture::create_from_image(img);
+		newTexture = true;
+	}
+	else
+	{
+		m_taintTexture->update(img);
+	}
+	Node *terrain = get_node_or_null(NodePath("Terrain"));
+	if (!terrain)
+	{
+		return;
+	}
+	// RW 0x4E2033: Offset = cell size - the grid's origin; RW 0x4E2096: Scale = 1 / (texture size * cell size) (the audited file's float rule)
+	const float cs = view->cellSize;
+	const Vector2 offset(SimMath::subf32(cs, view->originX), SimMath::subf32(cs, view->originY));
+	const Vector2 scale(SimMath::divf32(1.0f, SimMath::mulf32((float)tw, cs)), SimMath::divf32(1.0f, SimMath::mulf32((float)th, cs)));
+	const bool enabled = vs.taintOn; // RW 0x4E2002: Taint.IsEnabled = GameData TaintOn
+	// as the shroud (lane BIGBATTLE-1): the materials are visited only when a parameter changes; the texture above is updated in place
+	if (!force && !newTexture && m_taintParamsSet && offset == m_taintParamOffset && scale == m_taintParamScale && enabled == m_taintParamEnabled)
+	{
+		return;
+	}
+	m_taintParamsSet = true;
+	m_taintParamOffset = offset;
+	m_taintParamScale = scale;
+	m_taintParamEnabled = enabled;
+	std::vector<Node *> stack{ terrain };
+	while (!stack.empty())
+	{
+		Node *n = stack.back();
+		stack.pop_back();
+		for (int64_t i = 0; i < n->get_child_count(); ++i)
+		{
+			stack.push_back(n->get_child((int)i));
+		}
+		GeometryInstance3D *g = Object::cast_to<GeometryInstance3D>(n);
+		if (!g)
+		{
+			continue;
+		}
+		std::vector<Ref<ShaderMaterial>> mats;
+		if (Ref<ShaderMaterial> m = g->get_material_override(); m.is_valid())
+		{
+			mats.push_back(m);
+		}
+		if (MeshInstance3D *mi = Object::cast_to<MeshInstance3D>(n))
+		{
+			if (mi->get_mesh().is_valid())
+			{
+				for (int32_t s = 0; s < mi->get_mesh()->get_surface_count(); ++s)
+				{
+					Ref<ShaderMaterial> m = mi->get_active_material(s);
+					if (m.is_valid())
+					{
+						mats.push_back(m);
+					}
+				}
+			}
+		}
+		for (Ref<ShaderMaterial> &m : mats)
+		{
+			m->set_shader_parameter("taint_mask_tex", m_taintTexture);
+			m->set_shader_parameter("taint_offset", offset);
+			m->set_shader_parameter("taint_scale", scale);
+			m->set_shader_parameter("taint_enabled", enabled);
 		}
 	}
 }
