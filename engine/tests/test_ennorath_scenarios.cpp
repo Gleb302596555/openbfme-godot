@@ -21,6 +21,8 @@
 #include "GameClient/LiveGameAudio.h"
 #include "GameClient/ModelConditionAudioLoopClientBehavior.h"
 #include "GameLogic/Damage.h"
+#include "GameLogic/Combat/CombatNames.h"
+#include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Economy.h"
 #include "GameLogic/Module/GiveUpgradeUpdate.h"
 #include "GameLogic/Module/ReflectDamage.h"
@@ -523,4 +525,44 @@ TEST_CASE("ENNORATH scenario FireLogic: Command_PorterExtinguishFire delivers Po
 
 	// Fire in that area should now be extinguished
 	CHECK(!fire.isCellBurning(45, 45));
+}
+
+// TOP20 rampage on the mod's own data (PROCESS 15.11). ScriptEvents.xml of the mod: MumakilFunctions has ReallyDamagedAndAflame (+REALLYDAMAGED +AFLAME) ->
+// GoIntoRampage (Scripts.lua: ObjectEnterRampageState); mumakil.ini: MordorMumakil RampageTime 7960 (40 frames), RampageRequiresAflame Yes.
+// TrollFunctions lists ReallyDamaged twice (GoIntoRampage, then OnHeroInjured): the second replaces the first (RW 0x733FAF finds the event's record and
+// assigns the new function), so the mod's trolls (MordorTrollupgrade: TrollFunctions, RampageTime 4470) never rampage
+TEST_CASE("ENNORATH scenario AIRampageState: an aflame, badly hurt MordorMumakil rampages through the mod's Lua; a badly hurt MordorTrollupgrade does not (its handler is replaced)")
+{
+	World world;
+	if (!world.load("Ennorath scenario AIRampageState")) return;
+	hudtest::Rig game(world.shared);
+	std::string error;
+	Object *mumak = game.game->createObject("MordorMumakil", game.index(), Coord3D{ 1200.0f, 1200.0f, 0.0f }, 0.0f, &error);
+	REQUIRE_MESSAGE(mumak != nullptr, error);
+	Object *troll = game.game->createObject("MordorTrollupgrade", game.index(), Coord3D{ 1600.0f, 1200.0f, 0.0f }, 0.0f, &error);
+	REQUIRE_MESSAGE(troll != nullptr, error);
+	game.logic().runLogicFrame();
+	game.logic().runLogicFrame();
+	AIUpdateInterface *ai = mumak->getAIUpdateInterface();
+	AIUpdateInterface *trollAi = troll->getAIUpdateInterface();
+	REQUIRE(ai != nullptr);
+	REQUIRE(trollAi != nullptr);
+	CHECK(ai->combatSettings().rampageTime == 40u);
+	CHECK(trollAi->combatSettings().rampageTime == 23u);
+	// set aflame (status 10 for getRampageTime, the model condition for the event) and down to 20%: REALLYDAMAGED
+	mumak->setStatus((unsigned)CombatNames::status("AFLAME"), true);
+	mumak->setModelConditionState(ModelCondition::indexOf("AFLAME"), true);
+	damage(mumak, INVALID_ID, DAMAGE_UNRESISTABLE, health(mumak) * 0.8f);
+	damage(troll, INVALID_ID, DAMAGE_UNRESISTABLE, health(troll) * 0.8f);
+	REQUIRE(troll->testModelCondition(ModelCondition::indexOf("REALLYDAMAGED")));
+	bool rampaged = false, trollRampaged = false;
+	for (int i = 0; i < 10; ++i)
+	{
+		game.logic().runLogicFrame();
+		rampaged = rampaged || ai->currentStateId() == 0x2Du;
+		trollRampaged = trollRampaged || trollAi->currentStateId() == 0x2Du;
+	}
+	REQUIRE(rampaged); // the mod's Lua called ObjectEnterRampageState
+	CHECK(mumak->testModelCondition(ModelCondition::indexOf("WEAPONSET_RAMPAGE"))); // what GoIntoRampage tests before it broadcasts BeAfraidOfRampage
+	CHECK_FALSE(trollRampaged);
 }
