@@ -8,6 +8,7 @@
 //   obfme:Economy          Economy::xfer (TerrainResourceManager in retail's layout, RW 0x75C7AE)     "economy"
 //   obfme:CreateAHero      CreateAHeroGame::xfer (the records in retail's layout, RW 0x80B4F5)        "create-a-hero"
 //   obfme:TerrainTrees     TerrainTrees::xfer (the records in retail's layout, RW 0x680753)           "terrain trees"
+//   obfme:TaintManager     TaintManager::xfer (CHUNK_TaintManager's layout, RW 0xAD4B80)              "taint"
 //   obfme:LargeGroupAudio  LargeGroupAudioLink::xfer                                                  "large group audio"
 // Their references are player indices, names and ids: the indices and names are resolved and checked while loading; obfme:ScriptEngine (the sequential
 // scripts' teams) and obfme:Economy (the resource claimants' objects) stage what they loaded and check those ids in their post-process, after every
@@ -23,6 +24,7 @@
 #include "GameLogic/Economy.h"
 #include "GameLogic/GlobalWeatherSystem.h"
 #include "GameLogic/Map/TerrainTrees.h"
+#include "GameLogic/System/TaintManager.h"
 #include "GameLogic/ScriptEngine/ScriptEngine.h"
 #include "GameLogic/VictoryConditions.h"
 
@@ -77,6 +79,7 @@ void GameLogic::registerSave4dBlocks(GameState &gs)
 	gs.setLoadPreparation("obfme:CreateAHero", [this](Xfer &x) { m_createAHeroes->prepareLoad(x); },
 		[this]() { m_createAHeroes->clearLoadPreparation(); });
 	add("obfme:TerrainTrees", saveLoad, [this](Xfer &x) { m_trees->xfer(x); }, nullptr, "terrain trees");
+	add("obfme:TaintManager", saveLoad, [this](Xfer &x) { m_taint->xfer(x); }, nullptr, "taint"); // retail's CHUNK_TaintManager layout (RW 0xAD4B80)
 	add("obfme:LargeGroupAudio", saveLoad, [this](Xfer &x) { m_largeGroupAudio.xfer(x); }, nullptr, "large group audio");
 	// lane CAMPUI-1: retail's own blocks and layouts (MissionObjectiveTracker.h), list 0 only: retail's CRC xfer skips both and no hash section holds them
 	gs.addOwnedSnapshotBlock("CHUNK_ObjectivesMenu", std::make_unique<Save4dSnapshot>(gs, [this](Xfer &x) { m_missionObjectives.xferMenu(x); }, nullptr),

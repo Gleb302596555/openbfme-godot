@@ -235,6 +235,9 @@ public:
 	AttributeModifierAuraUpdate(Thing *thing, const AttributeModifierAuraUpdateModuleData *data); ///< RW 0x89ED5C
 	UpgradeMux *getUpgrade() override { return this; }
 	UpdateSleepTime update() override; ///< RW 0x89F42D
+	// the destructor RW 0x89EE67: an object of KindOf TAINT (template + 0x11B bit 0) clears the taint within Range at its position, owned by its id
+	// (TheTerrainLogic RW 0x683393, GameLogic/Map/TerrainTaintClear.h)
+	void onDelete() override;
 	void crc(StateHasher &h) const override;
 	unsigned pulses() const { return m_pulses; }
 	unsigned long long antiCategoryRequests() const { return m_anti; }

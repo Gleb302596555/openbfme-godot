@@ -2689,13 +2689,25 @@ void GameWorld::heldClientWork()
 		syncBuffs(m_fxPendingDt); // lane SPELL-4
 	}
 	m_fxPendingDt = 0.0;
-	if (m_treeTopple)
 	{
-		// lane SPELL-3: the logic's tree events (TerrainTrees: Devastation's topple and the lumber taken) start the falls of the static layer's trees
+		// lane SPELL-3: the logic's TheTerrainVisual events (TerrainTrees: Devastation's topple and the lumber taken start the falls of the static layer's
+		// trees; the radius clear hides the scorch marks); without the tree layer the tree events pass
 		const std::vector<TerrainTrees::Event> &events = m_game->logic().trees().events();
 		for (; m_treeEventsSeen < events.size(); ++m_treeEventsSeen)
 		{
 			const TerrainTrees::Event &e = events[m_treeEventsSeen];
+			if (e.kind == TerrainTrees::Event::HIDE_SCORCHES)
+			{
+				if (m_liveFX)
+				{
+					m_liveFX->scorches().hideScorchesInRadius(e.position, e.radius); // slot 0x5C (RW 0x46947C)
+				}
+				continue;
+			}
+			if (!m_treeTopple)
+			{
+				continue;
+			}
 			switch (e.kind)
 			{
 			case TerrainTrees::Event::TOPPLE:
@@ -2710,6 +2722,8 @@ void GameWorld::heldClientWork()
 				break;
 			case TerrainTrees::Event::CLEAR_FOOTPRINT:
 				clearFootprint(e.position, e.angle, e.shapes, false); // lane TREES1: slot 0x48
+				break;
+			case TerrainTrees::Event::HIDE_SCORCHES:
 				break;
 			}
 		}

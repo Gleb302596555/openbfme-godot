@@ -36,6 +36,8 @@
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/ObjectFilter.h"
 #include "GameLogic/ObjectTemplateInfo.h"
+#include "GameLogic/Map/TerrainTaintClear.h"
+#include "GameLogic/System/TaintManager.h"
 #include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
@@ -772,6 +774,19 @@ UpdateSleepTime AttributeModifierAuraUpdate::update()
 	return next;
 }
 
+// RW 0x89EE67 (the destructor; vtables RW 0xC675A4 / 0xC67838 / 0xC67598 / 0xC67550): the object (+ 0x8) of KindOf TAINT gets the radius clear
+// RW 0x683393 at its position (+ 0x38) with Range (data + 0x1C) and its id (+ 0x74) as the owner
+void AttributeModifierAuraUpdate::onDelete()
+{
+	Object *obj = getObject();
+	static const int kTaint = ObjectTemplateInfoBuilder::kindOfIndex("TAINT");
+	if (kTaint < 0 || !obj->isKindOf((unsigned)kTaint)) // RW 0x89EE9D
+	{
+		return;
+	}
+	TerrainTaintClear::clearRadius(obj->logic(), obj->getPosition(), m_data->m_range, (std::int32_t)obj->getID()); // RW 0x89EEA9 .. 0x89EEBD
+}
+
 // RW 0x89F114
 void AttributeModifierAuraUpdate::affect(Object &o, const Pulse &pulse)
 {
@@ -806,10 +821,22 @@ void AttributeModifierAuraUpdate::affect(Object &o, const Pulse &pulse)
 	}
 	if (d->m_requiredConditions & 6u)
 	{
-		// RW 0x89F1F8 .. 0x89F271: TAINT / ELVEN_WOOD need the terrain area at the object (RW 0xAD49B0) to be of that kind and owned by an ally; the areas are
-		// not ported, so no object is in one (S-856)
-		logic.noteStop("[S-856] AttributeModifierAuraUpdate: RequiredConditions TAINT / ELVEN_WOOD need the terrain areas (RW 0xAD49B0), not ported: no object is in one");
-		return;
+		// RW 0x89F200 .. 0x89F271: TAINT (bit 2) needs TheTaintManager's state 2 at the object (RW 0xAD49B0 -> 0xAD4FA0), else ELVEN_WOOD (bit 4) state 1;
+		// the cell's owner (-1 before the call) other than -1 must be an object (RW 0x449681) whose relationship to this one (RW 0x68D7AB) is not ENEMIES
+		std::int32_t owner = -1;
+		const std::int32_t state = logic.taint().stateAt(*o.getPosition(), &owner);
+		if (state != ((d->m_requiredConditions & 2u) ? TaintManager::STATE_TAINT : TaintManager::STATE_ELVEN_WOOD))
+		{
+			return;
+		}
+		if (owner != -1)
+		{
+			const Object *areaOwner = logic.findObjectByID((ObjectID)owner);
+			if (!areaOwner || areaOwner->getRelationship(o) == ENEMIES)
+			{
+				return;
+			}
+		}
 	}
 	static const int kHorde = ObjectTemplateInfoBuilder::kindOfIndex("HORDE");
 	if (pulse.containedMode && kHorde >= 0 && o.isKindOf((unsigned)kHorde))

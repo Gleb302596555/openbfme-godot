@@ -409,6 +409,7 @@ TEST_CASE("save4a: the game's block registry is the exact inventory: every simul
 						  "obfme:Economy xfer SAVE-4d",
 						  "obfme:CreateAHero xfer SAVE-4d",
 						  "obfme:TerrainTrees xfer SAVE-4d",
+						  "obfme:TaintManager xfer SAVE-4d",
 						  "obfme:LargeGroupAudio xfer SAVE-4d",
 						  "CHUNK_ObjectivesMenu xfer CAMPUI-1",
 						  "CHUNK_MissionObjectives xfer CAMPUI-1",

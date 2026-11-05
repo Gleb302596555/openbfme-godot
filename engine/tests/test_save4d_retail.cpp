@@ -115,8 +115,9 @@ void runTo(Game &g, UnsignedInt frame)
 }
 
 const std::vector<std::string> kOurs = { "obfme:ScriptEngine", "obfme:Victory", "obfme:Weather", "obfme:Economy", "obfme:CreateAHero",
-	"obfme:TerrainTrees", "obfme:LargeGroupAudio" };
-const std::vector<std::string> kOurSections = { "script engine", "victory", "weather", "economy", "create-a-hero", "terrain trees", "large group audio" };
+	"obfme:TerrainTrees", "obfme:TaintManager", "obfme:LargeGroupAudio" };
+const std::vector<std::string> kOurSections = { "script engine", "victory", "weather", "economy", "create-a-hero", "terrain trees", "taint",
+	"large group audio" };
 
 std::map<std::string, std::uint32_t> sectionValues(const GameLogic &logic)
 {

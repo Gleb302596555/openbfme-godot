@@ -91,8 +91,9 @@ public:
 	int countX() const { return m_countX; }
 	int countY() const { return m_countY; }
 	const Cell &cell(int cx, int cy) const { return m_cells[(size_t)cy * (size_t)m_countX + (size_t)cx]; }
-	// whether any cell was ever written: the hash section exists only then (a game without taint keeps its hash)
-	bool anyPainted() const { return m_painted; }
+	// whether any cell differs from the constructor's (0x80, 0, -1): the hash section exists only then (a game without taint keeps its hash, and a
+	// loaded game has it exactly when the saved one had)
+	bool anyPainted() const { return m_nonDefault > 0; }
 
 	void xfer(Xfer &x);
 	void crc(StateHasher &h) const;
@@ -104,6 +105,8 @@ private:
 	void circle(int cx, int cy, int r, int value, bool set, std::int32_t owner);
 	void row(int x0, int x1, int y, int value, bool set, std::int32_t owner);
 	static void writeCell(Cell &c, int value, bool set, std::int32_t owner);
+	static bool isDefault(const Cell &c) { return c.value == NEUTRAL && c.state == STATE_NONE && c.owner == -1; }
+	void recount();
 	const Cell *cellAt(const Coord3D &pos) const;
 
 	Region m_region;
@@ -112,5 +115,5 @@ private:
 	int m_countX = 0, m_countY = 0;
 	std::vector<Cell> m_cells;
 	Callback m_callback;
-	bool m_painted = false;
+	size_t m_nonDefault = 0; ///< the cells that differ from the constructor's
 };

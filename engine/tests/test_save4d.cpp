@@ -597,7 +597,7 @@ TEST_CASE("save4d T4: the registry gives the seven SAVE-4d blocks their xfer; wi
 		}
 	}
 	CHECK(ours == std::vector<std::string>{ "obfme:ScriptEngine xfer +deepcrc", "obfme:Victory xfer", "obfme:Weather xfer", "obfme:Economy xfer",
-					  "obfme:CreateAHero xfer", "obfme:TerrainTrees xfer", "obfme:LargeGroupAudio xfer" });
+					  "obfme:CreateAHero xfer", "obfme:TerrainTrees xfer", "obfme:TaintManager xfer", "obfme:LargeGroupAudio xfer" });
 	std::vector<std::uint8_t> out;
 	std::string error;
 	REQUIRE_MESSAGE(f.logic->saveSnapshot(out, &error), error);
@@ -607,7 +607,7 @@ TEST_CASE("save4d T4: the registry gives the seven SAVE-4d blocks their xfer; wi
 TEST_CASE("save4d T8 as far as the blocks allow: the SAVE-4d blocks of a game played under Uber are the same bytes at 1, 4 and 16 logic threads")
 {
 	const std::vector<std::string> kOurs = { "obfme:ScriptEngine", "obfme:Victory", "obfme:Weather", "obfme:Economy", "obfme:CreateAHero",
-		"obfme:TerrainTrees", "obfme:LargeGroupAudio" };
+		"obfme:TerrainTrees", "obfme:TaintManager", "obfme:LargeGroupAudio" };
 	const int before = JobSystem::logic().threadCount();
 	std::vector<std::uint8_t> first;
 	for (int threads : { 1, 4, 16 })

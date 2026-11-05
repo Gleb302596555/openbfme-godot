@@ -29,6 +29,7 @@
 #include "GameLogic/ObjectFilter.h"
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/SimMath.h"
+#include "GameLogic/System/TaintManager.h"
 #include "Common/StateHash.h"
 #include "Common/Team.h"
 
@@ -285,7 +286,7 @@ Object *WeatherFamilySpecialPower::seedArea(const Coord3D &loc, const std::strin
 	if (made)
 	{
 		made->setPosition(&loc); // RW 0x70C201
-		++m_unported;            // RW 0x69954A (with the caster's + 0x31C) and the terrain decals (RW 0xAD4C10, client): S-921
+		++m_unported;            // RW 0x69954A (with the caster's + 0x31C): S-921
 	}
 	return made;
 }
@@ -391,6 +392,19 @@ void TaintSpecialPower::doSpecialPowerAtLocation(const Coord3D &loc, unsigned op
 	baseDo(&loc, nullptr, options);
 	Object *made = seedArea(loc, m_data->m_taintFX, m_data->m_taintOCL, m_data->m_taintObject);
 	m_lastObject = made ? made->getID() : (ObjectID)INVALID_ID;
+	paintArea(loc, m_data->m_taintRadius, made, 0x00); // RW 0x8C8F22 .. 0x8C8F65
+}
+
+// RW 0x8C8F22 .. 0x8C8F65 (Taint, value 0) / RW 0x8C7E89 .. 0x8C7ECD (Elven Wood, value 0xFF): TheTaintManager paints 0x80 over radius * 1.25 (SSE,
+// RW 0xC2E434) with no owner, then, with the area object, `value` over the radius owned by the object's id (+ 0x74)
+void WeatherFamilySpecialPower::paintArea(const Coord3D &loc, float radius, const Object *areaObject, int value)
+{
+	TaintManager &taint = getObject()->logic().taint();
+	taint.paint(loc, SimMath::mulf32(radius, 1.25f), TaintManager::NEUTRAL, true, -1);
+	if (areaObject)
+	{
+		taint.paint(loc, radius, value, true, (std::int32_t)areaObject->getID());
+	}
 }
 
 void ElvenWoodSpecialPower::doSpecialPowerAtLocation(const Coord3D &loc, unsigned options)
@@ -406,6 +420,7 @@ void ElvenWoodSpecialPower::doSpecialPowerAtLocation(const Coord3D &loc, unsigne
 	{
 		made->setStatus(0x54, true); // RW 0x8C7E3A: status 0x54 on the grove
 	}
+	paintArea(loc, m_data->m_elvenWoodRadius, made, 0xFF); // RW 0x8C7E89 .. 0x8C7ECD
 }
 
 // ---- ProductionSpeedBonus ------------------------------------------------------------------------------------------------------------------
@@ -595,7 +610,7 @@ std::vector<std::string> SpellBookPowers::stopLines()
 		"active boundary taken as 0: only scripts change it) and CloudBreak's SunbeamObject grid (RW 0x8C8B57: every created sunbeam draws what its "
 		"constructor and sendObjectCreated draw, TWO logic random draws each for the retail CloudBreakSunbeam (LifetimeUpdate's lifetime and the seed), "
 		"2 * N per cast for N grid points); not ported (counted per cast): the fire grid burn rate (RW 0x687C4C), CloudBreak's fire put-out (RW 0x68F383) "
-		"and the sunbeams' Lua terror (their panic gameplay), the terrain taint / elven wood areas and decals (RW 0x67F6F0, 0x67D4CE, 0xAD4C10), RW "
+		"and the sunbeams' Lua terror (their panic gameplay), the terrain's taint / elven wood tree areas (RW 0x67F6F0, 0x67D4CE; TheTaintManager's paint RW 0xAD4C10 runs, TaintManager.h), RW "
 		"0x69954A on the area object, the production speed bonus consumer (RW 0x6AF3C8 is stored only), the defect side effects (RW 0x699368 / 0x6938BD), "
 		"Devastate's FireWeapon (lane DECOMP-1) and its trees, FX and money (lane SPELL-3, S-930) run",
 	};

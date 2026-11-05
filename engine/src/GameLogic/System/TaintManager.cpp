@@ -84,12 +84,22 @@ void TaintManager::resize(const Region &in, float cellSize)
 	m_countX = nx;
 	m_countY = ny;
 	m_cellSize = cellSize;
+	recount();
+}
+
+void TaintManager::recount()
+{
+	m_nonDefault = 0;
+	for (const Cell &c : m_cells)
+	{
+		m_nonDefault += isDefault(c) ? 0 : 1;
+	}
 }
 
 // RW 0xAD4BB0 (vtable slot 4; reset slot 0x24 -> RW 0xA39010 -> slot 4)
 void TaintManager::reset()
 {
-	setRegion(Region{}, 0.0f);
+	setRegion(Region{}, 0.0f); // the one cell left keeps the old (0, 0) value (RW 0xAD5534)
 }
 
 // RW 0xAD4C10
@@ -165,8 +175,13 @@ void TaintManager::row(int x0, int x1, int y, int value, bool set, std::int32_t 
 	for (int i = begin; i < end; ++i, ++x)
 	{
 		Cell &c = m_cells[(size_t)y * (size_t)m_countX + (size_t)i];
+		const bool wasDefault = isDefault(c);
 		writeCell(c, value, set, owner);
-		m_painted = true;
+		const bool nowDefault = isDefault(c);
+		if (wasDefault != nowDefault)
+		{
+			m_nonDefault = nowDefault ? m_nonDefault - 1 : m_nonDefault + 1;
+		}
 		if (m_callback)
 		{
 			m_callback(x, y, c.value); // RW 0xAD508E: the grid's + 0x2C
@@ -327,15 +342,7 @@ void TaintManager::xfer(Xfer &x)
 		m_countX = nx;
 		m_countY = ny;
 		m_cells.swap(cells);
-		m_painted = false;
-		for (const Cell &c : m_cells)
-		{
-			if (c.value != NEUTRAL || c.state != STATE_NONE || c.owner != -1)
-			{
-				m_painted = true;
-				break;
-			}
-		}
+		recount();
 		notifyAll(); // RW 0xAD5290
 	}
 }

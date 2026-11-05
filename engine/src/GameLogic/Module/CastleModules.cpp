@@ -8,6 +8,7 @@
 #include "GameLogic/Module/CastleModules.h"
 #include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/Module/CastleUpgrade.h"
+#include "GameLogic/Map/TerrainTaintClear.h"
 #include "GameLogic/Object/PartitionManager.h"
 
 #include "Common/BuildAssistant.h"
@@ -616,6 +617,9 @@ bool CastleBehavior::unpack(bool instant)
 		}
 		buildAreas(*layout); // lane CASTLEAREA-1: RW 0x79BF0C -> RW 0x79B881 (the template form only)
 	}
+	// RW 0x79BF1B .. 0x79BF36 (after either form): TheTerrainLogic's castle clear RW 0x683955 at the castle's position with MaxCastleRadius (RW 0x797ED7:
+	// the data's + 0x2C, 0 without data): the TAINT objects within it and the taint they left go (GameLogic/Map/TerrainTaintClear.h)
+	TerrainTaintClear::clearForCastle(getObject()->logic(), getObject()->getPosition(), m_data ? m_data->m_maxCastleRadius : 0.0f);
 	// lane CASTLE-1: RW 0x79BF76 .. 0x79BFF7: the unpack frame (+ 0x48, the crew's clock) and every member of the lists learns the keep (member + 0x14, RW 0x7990D9: the port
 	// keeps a pad's occupant in its occupantId, see S-952; lane DECOMP-2: the keep goes to the member's keepId, which Object::updateUpgradeModules reads)
 	for (const std::vector<ObjectID> *list : { &m_foundations, &m_members, &m_defenseFoundations }) // RW + 0x50, + 0x5C, + 0x74 (RW 0x79BF3B .. 0x79BF5A)

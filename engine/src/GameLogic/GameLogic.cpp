@@ -30,6 +30,7 @@
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Map/FireLogicSystem.h"
 #include "GameLogic/Map/TerrainTrees.h" 
+#include "GameLogic/System/TaintManager.h"
 #include "GameLogic/Module/ObjectHelper.h"
 #include "GameLogic/Module/SquishCollide.h"
 #include "GameLogic/Module/UnportedModule.h"
@@ -72,6 +73,7 @@ GameLogic::GameLogic(ThingFactory &things, ModuleFactory &modules, PlayerList &p
 	, m_weather(std::make_unique<GlobalWeatherSystem>(*this))
 	, m_invisibility(std::make_unique<InvisibilityManager>(*this))
 	, m_dot(std::make_unique<DOTManager>(*this)) // lane DECOMP-1
+	, m_taint(std::make_unique<TaintManager>()) // RW 0x63BF6C .. 0x63BF81
 	, m_trees(std::make_unique<TerrainTrees>(*this)) // lane SPELL-3
 	, m_scriptEngine(std::make_unique<ScriptEngine>(*this)) // lane SCRIPT-1
 {
@@ -1114,6 +1116,7 @@ void GameLogic::reset()
 	m_invisibility->reset();
 	m_dot->reset(); // lane DECOMP-1
 	m_trees->reset(); // lane SPELL-3
+	m_taint->reset(); // RW 0x62D2FF: TheTaintManager's reset (slot 0x24 -> RW 0xAD4BB0)
 	m_scriptEngine->reset(); // lane SCRIPT-1
 }
 
@@ -1419,6 +1422,10 @@ std::uint32_t GameLogic::hashState(std::vector<StateHashSection> *sections, std:
 	if (m_trees->anyChanged())
 	{
 		section("terrain trees", [&](StateHasher &x) { m_trees->crc(x); }); // lane SPELL-3: only once a tree toppled or was harvested (a game without keeps its hash)
+	}
+	if (m_taint->anyPainted())
+	{
+		section("taint", [&](StateHasher &x) { m_taint->crc(x); }); // TheTaintManager: only once a cell was painted (a game without keeps its hash)
 	}
 	section("large group audio", [&](StateHasher &x) { m_largeGroupAudio.crc(x); }); // lane AUDIO-4: TheLargeGroupAudio's gate (+ 0x38 / + 0x3C)
 	if (m_scriptEngine->loaded())

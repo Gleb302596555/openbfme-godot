@@ -26,10 +26,12 @@
 //       - TaintSpecialPower (RW 0x8C8D4F; table RW 0xC741A0: TaintObject + 0x7C, TaintRadius + 0x80, TaintFX + 0x84, TaintOCL + 0x88): AtLocation
 //         RW 0x8C8FF5: not disabled and a TaintObject name: the base, then RW 0x8C8E67: the terrain's taint area (RW 0x67F6F0 / 0x67D4CE, kind 1:
 //         S-921), TaintFX at the location, TaintOCL at the location (source: the object), the TaintObject made on the neutral team at the location
-//         (RW 0x8C8DF9: one creation draw; its RW 0x69954A call with the caster's + 0x31C: S-921) and the terrain decals (RW 0xAD4C10, client);
+//         (RW 0x8C8DF9: one creation draw; its RW 0x69954A call with the caster's + 0x31C: S-921), then TheTaintManager (RW 0xDE435C, logic, not a
+//         client decal) paints 0x80 over TaintRadius * 1.25 with no owner and, with the object, 0 over TaintRadius owned by its id (RW 0x8C8F22 .. 0x8C8F65);
 //       - ElvenWoodSpecialPower (RW 0x8C7B48; table RW 0xC73C98: ElvenGroveObject + 0x88, ElvenNumObjects + 0x8C, ElvenWoodObject (name, real)
 //         pairs + 0x7C, ElvenWoodRadius + 0x90, ElvenWoodFX + 0x94, ElvenWoodOCL + 0x98): AtLocation RW 0x8C7FA2: not disabled and an
-//         ElvenGroveObject name: the base, then RW 0x8C7DBA: the same steps as Taint with kind 2, the grove object (RW 0x8C7C22) gets status 0x54.
+//         ElvenGroveObject name: the base, then RW 0x8C7DBA: the same steps as Taint with kind 2, the grove object (RW 0x8C7C22) gets status 0x54, and
+//         the paint is 0xFF over ElvenWoodRadius (RW 0x8C7E89 .. 0x8C7ECD).
 //   * ProductionSpeedBonus (RW 0x8C70FC; table RW 0xC73620: NumberOfFrames + 0x7C, SpeedMulitplier + 0x80, Type + 0x84 a name list): doSpecialPower
 //     RW 0x8C7171: for each Type name, the player's production bonus (RW 0x6AF3C8: name -> NumberOfFrames and (mult - 1.0) / (mult * -1.0), x87
 //     doubles RW 0xBD2C98 / 0xBDFC10); then, not disabled, the base AtLocation at the object's position. The production side is not ported (S-921).
@@ -136,6 +138,8 @@ protected:
 	void zeroBurnDecay();
 	// RW 0x8C8E67 / 0x8C7DBA: the terrain area, FX, OCL and the area object of Taint / ElvenWood; returns the object made (null: none)
 	Object *seedArea(const Coord3D &loc, const std::string &fx, const std::string &ocl, const std::string &objectName);
+	// RW 0x8C8F22 .. 0x8C8F65 / 0x8C7E89 .. 0x8C7ECD: TheTaintManager's paint of the area (TaintManager.h)
+	void paintArea(const Coord3D &loc, float radius, const Object *areaObject, int value);
 	// the FX at the centre of the terrain's extent (RW 0x8C931C / 0x8C9104 / 0x8C8ADA); castLoc: its z (null: the ground height there)
 	void emitCentreFX(const std::string &fx, const Coord3D *castLoc);
 };

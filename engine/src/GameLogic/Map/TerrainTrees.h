@@ -86,7 +86,8 @@ public:
 			TOPPLE, ///< slot 0x70, then slot 0x4C: the props within a cylinder of 25.0 at the tree, 5.0 higher (`position`, `shapes`)
 			REMOVE, ///< slot 0x7C: the lumber is gone, the tree sinks
 			REMOVE_NOW, ///< lane TREES1: slot 0x58 (construction): the tree goes at once
-			CLEAR_FOOTPRINT ///< lane TREES1: slot 0x48 (construction): the shrubs and props the geometry (`position`, `angle`, `shapes`) overlaps go
+			CLEAR_FOOTPRINT, ///< lane TREES1: slot 0x48 (construction): the shrubs and props the geometry (`position`, `angle`, `shapes`) overlaps go
+			HIDE_SCORCHES ///< slot 0x5C (the radius clear RW 0x683393 -> RW 0x46947C): the scorch marks within `radius` of `position` are hidden
 		};
 		Kind kind = TOPPLE;
 		std::uint32_t clientId = 0;
@@ -96,6 +97,7 @@ public:
 		Coord3D position{};
 		float angle = 0.0f;
 		std::vector<ObjectGeometry::Shape> shapes;
+		float radius = 0.0f; ///< HIDE_SCORCHES
 	};
 	enum
 	{
@@ -128,6 +130,12 @@ public:
 	                          bool ignoreToppled, int mode);
 	// lane TREES1: RW 0x684BCA, removeTreesForConstruction: the trees the geometry overlaps go (no topple, no lumber); the number removed
 	int removeTreesForConstruction(const Coord3D &position, const std::vector<ObjectGeometry::Shape> &shapes, float angle);
+	// RW 0x67F63F (from the radius clear RW 0x683393): every record of the list in order with an id whose 2D distance from `position` (RW 0x405482:
+	// pos - tree in SSE, then the x87 root of y * y + x * x) is not above `radius` leaves the fire grid, is cleared, goes from the client at once (slot
+	// 0x58) and stamps TerrainLogic + 0x1910; the number removed
+	int removeTreesInRadius(const Coord3D &position, float radius);
+	// TheTerrainVisual slot 0x5C from the radius clear (RW 0x683498): a client event (HIDE_SCORCHES)
+	void hideScorches(const Coord3D &position, float radius);
 
 	// TerrainLogic + 0x1918, the topple speed the client is given (Devastation sets it around its loop)
 	void setToppleSpeed(float s) { m_toppleSpeed = s; }

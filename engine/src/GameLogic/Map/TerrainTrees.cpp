@@ -448,6 +448,48 @@ int TerrainTrees::removeTreesForConstruction(const Coord3D &position, const std:
 	return removed;
 }
 
+// RW 0x67F63F
+int TerrainTrees::removeTreesInRadius(const Coord3D &position, float radius)
+{
+	int removed = 0;
+	for (Record &t : m_records) // RW 0x67F649 .. 0x67F6E3: the record list in order
+	{
+		if (t.clientId == 0) // RW 0x67F65E
+		{
+			continue;
+		}
+		// RW 0x67F664 .. 0x67F6A1: the difference in SSE, then RW 0x405482 (x87: y * y + x * x, the CRT root); radius < length skips the tree
+		const float dx = SimMath::subf32(position.x, t.position.x), dy = SimMath::subf32(position.y, t.position.y);
+		const double len = NumericState::sqrtPC24(NumericState::pc24AddW(NumericState::pc24MulW(dy, dy), NumericState::pc24MulW(dx, dx)));
+		if ((double)radius < len)
+		{
+			continue;
+		}
+		keepStart();
+		Event e;
+		e.kind = Event::REMOVE_NOW; // RW 0x67F6C9: TheTerrainVisual slot 0x58
+		e.clientId = t.clientId;
+		e.frame = m_logic.getFrame();
+		m_events.push_back(e);
+		clearRecord(t); // RW 0x67F6B4 (the fire grid, RW 0x686B2E) and RW 0x67F6BB (RW 0x67D3C2)
+		markChanged(t);
+		m_changedFrame = m_logic.getFrame(); // RW 0x67F6D4
+		++removed;
+	}
+	return removed;
+}
+
+// RW 0x683465 .. 0x683498: TheTerrainVisual slot 0x5C with a copy of the position
+void TerrainTrees::hideScorches(const Coord3D &position, float radius)
+{
+	Event e;
+	e.kind = Event::HIDE_SCORCHES;
+	e.frame = m_logic.getFrame();
+	e.position = position;
+	e.radius = radius;
+	m_events.push_back(e);
+}
+
 void TerrainTrees::crc(StateHasher &h) const
 {
 	h.addU32((std::uint32_t)m_changed);
@@ -605,6 +647,6 @@ std::string TerrainTrees::trees1StopLine()
 		   "removes the trees, shrubs and props under it (RW 0x684BCA). Not ported: "
 		   "the shrubs' push aside (slot 0x6C), the fire grid (TheFireLogicSystem: burning cells take a tree's lumber, RW 0x6886E0), a tree made an object "
 		   "(RW 0x68449B: attacked, grabbed, set alight by FireSpreadUpdate), the grab powers, Taint / ElvenWood's tree morph (RW 0x67F6F0 -> 0x4EC40E), "
-		   "ClearRemovables (RW 0x5F0EE6), the radius clear (RW 0x683393) and trees an ObjectCreationList adds; INFERENCE: TheTerrainVisual's "
+		   "ClearRemovables (RW 0x5F0EE6) and trees an ObjectCreationList adds (the radius clear RW 0x683393 runs: TerrainTaintClear.h); INFERENCE: TheTerrainVisual's "
 		   "harvest check (slot 0x80, RW 0x4EA005: the tree toppled, not sinking, not morphing) is answered by the logic";
 }

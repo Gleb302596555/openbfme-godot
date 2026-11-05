@@ -4,8 +4,10 @@
 # simulation sources (sim audit manifest): the grid is logic state (the aura's RequiredConditions read it)
 list(APPEND OPENBFME_SIM_SOURCES
     src/GameLogic/System/TaintManager.cpp
+    src/GameLogic/Map/TerrainTaintClear.cpp
 )
 
 set(OPENBFME_TAINT_TESTS
     tests/test_taint_manager.cpp
+    tests/test_taint_clear.cpp
 )

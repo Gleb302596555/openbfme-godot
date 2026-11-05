@@ -102,6 +102,7 @@ class BuildAssistantSell;
 class InvisibilityManager;
 class DOTManager;
 class TerrainTrees;
+class TaintManager;
 class SkirmishAIManager;
 class ShroudManager;
 class PartitionManager;
@@ -458,6 +459,9 @@ public:
 	// lane SPELL-3: TheTerrainLogic + 0x578, the map's optimized trees (GameLogic/Map/TerrainTrees.h); filled by MapObjectLoop, hashed once a tree changed
 	TerrainTrees &trees() { return *m_trees; }
 	const TerrainTrees &trees() const { return *m_trees; }
+	// TheTaintManager (RW 0xDE435C): the Taint / Elven Wood ground grid (GameLogic/System/TaintManager.h)
+	TaintManager &taint() { return *m_taint; }
+	const TaintManager &taint() const { return *m_taint; }
 	const CombatState &combat() const { return *m_combat; }
 	const GameLogicSettings &settings() const { return m_settings; }
 	void setClientHooks(ObjectClientHooks *hooks) { m_clientHooks = hooks; }
@@ -1020,6 +1024,7 @@ private:
 	std::unique_ptr<GlobalWeatherSystem> m_weather; // lane SPELL-2
 	std::unique_ptr<InvisibilityManager> m_invisibility; // lane STEALTH-1
 	std::unique_ptr<DOTManager> m_dot;                   // lane DECOMP-1
+	std::unique_ptr<TaintManager> m_taint;               // RW 0xDE435C
 	std::unique_ptr<TerrainTrees> m_trees;               // lane SPELL-3
 	std::unique_ptr<ScriptEngine> m_scriptEngine;        // lane SCRIPT-1
 	CastleTemplateStore m_castleTemplates;

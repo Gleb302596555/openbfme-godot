@@ -44,6 +44,7 @@
 #include "GameLogic/VictoryConditions.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/System/PathfinderResourceTerrain.h"
+#include "GameLogic/System/TaintManager.h"
 #include "GameLogic/AI/AIPathfindConfig.h"
 #include "Common/BfmeGame.h"
 #include "Libraries/WWVegas/WW3D2/assetmgr.h"
@@ -431,6 +432,7 @@ bool LiveGame::load(const Options &options, std::string *error)
 	}
 	m_shroud = std::make_unique<ShroudManager>(*m_logic);
 	m_shroud->init(m_vision.partitionCellSize, m_vision.unlookPersistFrames);
+	m_logic->taint().setRegion(TaintManager::Region{}, m_vision.partitionCellSize); // RW 0x62CFE3 .. 0x62CFFC: TheTaintManager at PartitionCellSize
 	m_shroud->setDisplayLevels(m_vision.clearAlpha, m_vision.fogAlpha, m_vision.shroudAlpha);
 	m_shroud->setDisplayed(options.start != nullptr); // a bare map load (viewers) has no explored map: the client shows it without the shroud
 	{
@@ -447,6 +449,12 @@ bool LiveGame::load(const Options &options, std::string *error)
 		// lane MODULES-2: RW 0x62FCC3 .. 0x62FCCD: ThePartitionManager gets the same extent (RW 0xA39030 -> 0xA3B450), before the map's objects exist
 		m_logic->partition().setRegion(0.0f, 0.0f, maxX, maxY);
 		m_logic->fireLogic().newMap(0.0f, 0.0f, maxX, maxY); // RW 0x687015
+		// RW 0x62FCE2 .. 0x62FD01: TheTaintManager gets the same extent with the size kept, then calls its callback for every cell (RW 0xAD4F00)
+		TaintManager::Region taintRegion;
+		taintRegion.hiX = maxX;
+		taintRegion.hiY = maxY;
+		m_logic->taint().setRegion(taintRegion, 0.0f);
+		m_logic->taint().notifyAll();
 	}
 	m_shroud->attach();
 	if (const Player *local = m_players->getLocalPlayer())
