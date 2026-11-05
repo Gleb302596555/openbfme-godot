@@ -217,6 +217,7 @@ InGameHud::~InGameHud()
 		m_palantirRef->releaseHandlers(); // the shell-hosted screen outlives this HUD (a failed install left a handler on a freed HUD)
 	}
 	m_config.game.drawables().setHeroAttackedHandler(nullptr);
+	m_config.game.drawables().setDeselectHandler(nullptr);
 	m_config.game.drawables().setHeroFlashHandler(nullptr);
 	m_heroSelect.reset();
 	// the screen before the window manager it registered on
@@ -349,6 +350,7 @@ bool InGameHud::boot(std::string *error)
 	// lane UI-4: the hero bar (InGameHeroSelect.h): AptPalantir::OnHeroSelectLoaded hands the movie's clip path (InGameHeroSelectInterface ctor RW 0x92DDE7)
 	m_heroSelect = std::make_unique<InGameHeroSelect>(m_input->context(), builderCycleTimeoutMs);
 	m_config.game.drawables().setHeroAttackedHandler([this](ObjectID id) { m_heroSelect->onHeroAttacked(id); });
+	m_config.game.drawables().setDeselectHandler([this](ObjectID id) { m_input->ui().deselectObject(id); }); // TOP20 rampage (RW 0x6257E5)
 	m_config.game.drawables().setHeroFlashHandler([this](const std::string &name, int frames) { m_heroSelect->flashHeroButton(name, frames); });
 	m_palantirRef->setHeroSelectHandler([this](const std::string &clipPath, bool loaded) {
 		if (!loaded)

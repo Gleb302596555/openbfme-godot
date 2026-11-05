@@ -21,6 +21,8 @@
 #include "GameLogic/Locomotor.h"
 #include "GameLogic/AI/AIMove.h"
 #include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Module/RunOffMapBehavior.h"
+#include "GameLogic/Module/StructureModules.h"
 #include "GameLogic/Module/TransportContainBehavior.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Contain/SiegeEngineContainRuntime.h"
@@ -603,4 +605,47 @@ TEST_CASE("idle1 retail: a battering ram's crew does not acquire targets from it
 	CHECK_FALSE(se->crewList()->front()->getAIUpdateInterface()->combatSettings().canAttackWhileContained);
 	Object *archers = r.make("MordorArcherHorde", c0.x - 300.0f, c0.y, computer);
 	CHECK(archers->getAIUpdateInterface()->combatSettings().canAttackWhileContained);
+}
+
+// TOP20 rampage on the real RotWK MordorMumakil (mumakil.ini: AIUpdateInterface RampageTime 7960 ms = ceil(39.8) = 40 frames, RampageRequiresAflame Yes;
+// DelayedDeathBody; RunOffMapBehavior RequiresSpecificTrigger "Only triggered after a rampage takes place"; WeaponSet Conditions RAMPAGE: MumakilRampage):
+// AI command 0x3A (AIRampageState.h) gives WEAPONSET_RAMPAGE (the model condition the flag mirrors, which Scripts.lua GoIntoRampage tests), the beast stomps
+// with its RAMPAGE weapon at its own position (RW 0x74D826), and at the end RW 0x699282 triggers the RunOffMapBehavior and the exit's kill (RW 0x698EC3)
+// meets the DelayedDeathBody that ObjectEnterRampageState had `checked` (body vt[0x98], RW 0x8C57A1)
+TEST_CASE("TOP20 rampage retail: an aflame MordorMumakil rampages 40 frames with WEAPONSET_RAMPAGE, stomps, then runs off the map trigger and starts its delayed death")
+{
+	if (!haveWorld("transport retail"))
+	{
+		return;
+	}
+	SharedWorld &s = shared();
+	Rig r(s);
+	const Coord3D c0 = gridCentre(r, 300.0f);
+	Player *enemy = r.game->players().findPlayerWithName("Player_2");
+	REQUIRE(enemy != nullptr);
+	Object *mumak = r.make("MordorMumakil", c0.x, c0.y, enemy);
+	r.frame(2);
+	AIUpdateInterface *ai = mumak->getAIUpdateInterface();
+	REQUIRE(ai != nullptr);
+	CHECK(ai->combatSettings().rampageTime == 40u);
+	CHECK(ai->combatSettings().rampageRequiresAflame);
+	mumak->setStatus((unsigned)CombatNames::status("AFLAME"), true);
+	mumak->getBodyModule()->setDelayedDeathChecked(true); // what ObjectEnterRampageState does first (RW 0x738A7A)
+	REQUIRE(ai->aiRampage(CMD_FROM_SCRIPT));
+	CHECK(mumak->testModelCondition(CombatNames::modelCondition("WEAPONSET_RAMPAGE")));
+	const Weapon *stomp = mumak->getWeapons() ? mumak->getWeapons()->currentWeapon() : nullptr;
+	REQUIRE(stomp != nullptr);
+	CHECK(stomp->getTemplate()->getName() == "MumakilRampage");
+	r.frame(20);
+	CHECK(ai->currentStateId() == 0x2Du);
+	CHECK(mumak->testStatus((unsigned)CombatNames::statuses().isFiringWeapon)); // RW 0x74D883: the stomp began
+	r.frame(25);
+	CHECK(ai->currentStateId() != 0x2Du);
+	CHECK_FALSE(mumak->testStatus((unsigned)CombatNames::status("RAMPAGING")));
+	const RunOffMapBehavior *run = dynamic_cast<const RunOffMapBehavior *>(mumak->findModule("RunOffMapBehavior"));
+	REQUIRE(run != nullptr);
+	CHECK(run->hasTriggered()); // RW 0x699282 -> RW 0x86540A
+	const DelayedDeathBody *body = dynamic_cast<const DelayedDeathBody *>(mumak->getBodyModule());
+	REQUIRE(body != nullptr);
+	CHECK((body->started() || mumak->isEffectivelyDead())); // the exit's kill (RW 0x698EC3) starts the delayed death of the checked body
 }
