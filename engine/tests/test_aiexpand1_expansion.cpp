@@ -23,6 +23,7 @@
 #include "GameClient/GUI/Skirmish/IniSkirmishSetupSource.h"
 #include "GameClient/LiveGame.h"
 #include "GameLogic/Map/TerrainLogic.h"
+#include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/NewGame/NewGame.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SkirmishAI/AIBaseBuilder.h"
@@ -468,6 +469,18 @@ TEST_CASE("aiexpand1 expansion in a game: the Medium Men computer kept above 300
 			g.computer->getMoney()->deposit(5000u, nullptr, false);
 		}
 		g.game->advance(0.2);
+		// TOP20 #21 r3: the passive human's base is kept standing (every object of the human healed to full each frame). The scenario needs a game that goes on:
+		// RotWK refuses an attack on the castle foundation MordorFortress (its CastleBehavior sets the status UNATTACKABLE, RW 0x798297 -> RW 0x68D440;
+		// WeaponSet RW 0x6C9207 refuses it; the attack state leaves, RW 0x7417E4), so the Men army no longer spends the game shooting it (6454 refused
+		// shots before r3) and defeats the passive Mordor player before frame 2250, and with no enemy left the AI never expands
+		for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
+		{
+			const BodyModuleInterface *body = o->getBodyModule();
+			if (o->getControllingPlayer() == g.human && body && !o->isEffectivelyDead() && body->getHealth() < body->getMaxHealth())
+			{
+				o->attemptHealing(body->getMaxHealth() - body->getHealth(), nullptr);
+			}
+		}
 		const int frame = (int)logic.getFrame();
 		const AISkirmishPlayer &ai = *aiPtr;
 		const AIBrainState &b = ai.brain;
@@ -627,10 +640,13 @@ TEST_CASE("aiexpand1 expansion in a game: the Medium Men computer kept above 300
 	// lane PATH-REBUILD (RW 0x767B0E: every found path bent from the unit's facing with its corners rounded; measured on the lane's tree, Windows MSVC): the same
 	// start is chosen at 1519, its request at 1569 (1894), in progress at 1570 (1895), complete with the second base at 2372 (2635)
 	// pin: merge queue q41 (DECOMPFIX-1104B: AIMAIM-1's aim, RW 0x75232F, with BUMP-1's give-way rules and STARTRANGE-1's start range; measured once on the merged tree and at its merge point, NECRODIE-1 keeps it): request 1569 -> 1894, in progress 1570 -> 1895, complete and second base 2372 -> 2634
-	CHECK(requestFrame == 1894);
-	CHECK(inProgressFrame == 1895);
-	CHECK(doneFrame == 2634);
-	CHECK(baseFrame == 2634);
+	// pin: TOP20 #21 r3 (an attack ends when its victim is UNATTACKABLE, RW 0x7417E4 / 0x6C9207; measured on station-1, Windows MSVC): the Men army no longer shoots the
+	// MordorFortress foundation and the human's base is kept standing by the loop above; the same start is chosen at 1519, its request at 2075 (1894), in progress
+	// at 2076 (1895), complete with the second base at 2815 (2634).
+	CHECK(requestFrame == 2075);
+	CHECK(inProgressFrame == 2076);
+	CHECK(doneFrame == 2815);
+	CHECK(baseFrame == 2815);
 	MESSAGE("EXPANSION target on frame " << chosenFrame << " at (" << chosenAt.x << ", " << chosenAt.y << "); SimpleExpansion on frame " << tacticFrame
 		<< ", its request on " << requestFrame << " (last state " << lastState << ", in progress on " << inProgressFrame << ", complete on " << doneFrame
 		<< "), the second base on " << baseFrame << "; bases " << aiPtr->build.bases.size() << ", tactics started " << aiPtr->brain.tacticsStarted
