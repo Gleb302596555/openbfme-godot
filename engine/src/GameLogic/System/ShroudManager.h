@@ -48,7 +48,8 @@
 //     CampnessValueRadius), and adds each amount over the integer circle of ceil(range / cell) (RW 0xB51030 -> 0xB509E0, cells clamped 0 .. 0xFFFF).
 //     An object out of the world leaves its amount and mask: the record's last amount comes back at radius 0 (retail's order kept).
 //
-// NOT PORTED / INFERENCE (stops S-560 .. S-566, ShroudManager::stopLines): the channels' readers other than the emotion tracker (S-560); ghost objects (RW 0xB4E190 keeps a destroyed immobile object's record for a player that saw it
+// NOT PORTED / INFERENCE (stops S-560 .. S-566, ShroudManager::stopLines): the AI's channel search RW 0xB52740 (S-560; the emotion tracker and the unit
+// voice's camp test RW 0x8DD6F3 read the channels); ghost objects (RW 0xB4E190 keeps a destroyed immobile object's record for a player that saw it
 // fogged) are not kept; the status cache is evaluated eagerly in update() for every invalidated record (retail evaluates it when asked, which only moves when
 // the "seen" byte changes); the vision attribute modifiers, the spied mask and the contained-object rule read no state yet; the x87 extended precision of the
 // polygon vertices is computed in binary64.

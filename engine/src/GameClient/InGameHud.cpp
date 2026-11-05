@@ -172,6 +172,7 @@ InGameHud::InGameHud(Config config)
 		if (AudioManager *audio = AudioApi::current())
 		{
 			m_voice->setMinDelayBetweenEnterStateVoiceFrames(audio->ini().settings.minDelayBetweenEnterStateVoiceFrames);
+			m_voice->setMoveToCampThresholds(audio->ini().settings.voiceMoveToCampMaxCampnessAtStartPoint, audio->ini().settings.voiceMoveToCampMinCampnessAtEndPoint);
 		}
 		PlayUnitVoiceForMessage(*m_voice, m_input->ui().selected(), msg);
 		if (msg.getType() == MSG_CHANGE_STANCE && msg.getArgumentCount() > 0)

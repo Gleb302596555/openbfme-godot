@@ -14,6 +14,7 @@
 #include "GameLogic/Module/BloodthirstyUpdate.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectTemplateInfo.h"
+#include "GameLogic/System/ShroudManager.h"
 #include "GameLogic/UnitSpecificSound.h"
 
 #include <cctype>
@@ -622,7 +623,7 @@ void UnitVoiceResponse::moveVoices(Object &obj, int msgType, const Info *info, C
 	const int whileAttacking = enterState ? 32 : VOICE_MOVE_WHILE_ATTACKING;
 	const int higherGround = enterState ? 28 : VOICE_MOVE_TO_HIGHER_GROUND;
 	// the planning mode branch (player + 0x770 == 2: MiscAudio PlanningModeOrderGiven), VoiceCrush (GameData + 0x8B9 and a crushable target), the busy gate
-	// (GameData + 0x8B0), the castle / camp rules (RW 0x8DDBC4, 0x8DD6F3 campness) and VoiceMoveOverWalls (RW 0x8DE628) are not ported: stop S-704
+	// (GameData + 0x8B0), the castle rule (RW 0x8DDBC4) and VoiceMoveOverWalls (RW 0x8DE628) are not ported: stop S-704
 	if (!enterState && msgType == MSG_DO_SALVAGE)
 	{
 		if (fillName(c, obj, "VoiceSalvage"))
@@ -635,6 +636,28 @@ void UnitVoiceResponse::moveVoices(Object &obj, int msgType, const Info *info, C
 		return; // RW 0x8DEA60: a special voice ends the rule list
 	}
 	const bool hasPosition = info && info->hasPosition;
+	// TOP20 S-560, RW 0x8DEABD .. 0x8DEBC6: the camp rule. The object (its drawable's row, RW 0x676B30) or its crowd entry (RW 0x8DDA06) has VoiceMoveToCamp
+	// (0x11; enter state 0x1F) or VoiceRetreatToCastle (0x10; 0x1E), it has a controlling player and the order moves it into a camp (RW 0x8DD6F3 for the
+	// owner's bit): in battle (RW 0x8DD7DC) with the castle row VoiceRetreatToCastle, else VoiceMoveToCamp
+	if (!done(c) && hasPosition)
+	{
+		const int castleRow = enterState ? 30 : VOICE_RETREAT_TO_CASTLE;
+		const int campRow = enterState ? 31 : VOICE_MOVE_TO_CAMP;
+		auto has = [&](int row) { return objectVoice(obj, row).any() || crowdVoice(c.crowdEntry, rowName(row)).any(); };
+		const bool hasCamp = has(campRow), hasCastle = has(castleRow);
+		const Player *owner = obj.getControllingPlayer();
+		if ((hasCamp || hasCastle) && owner && movesIntoCamp(1u << (owner->getPlayerIndex() & 31), *obj.getPosition(), info->position))
+		{
+			if (hasCastle && inBattle(obj))
+			{
+				fillRow(c, obj, castleRow);
+			}
+			if (!done(c))
+			{
+				fillRow(c, obj, campRow);
+			}
+		}
+	}
 	// VoiceMoveToHigherGround: the template threshold (tt + 0x534) above 0 and the destination that much higher than the object
 	if (!done(c) && hasPosition)
 	{
@@ -656,6 +679,22 @@ void UnitVoiceResponse::moveVoices(Object &obj, int msgType, const Info *info, C
 	{
 		fillRow(c, obj, base);
 	}
+}
+
+bool UnitVoiceResponse::movesIntoCamp(std::uint32_t mask, const Coord3D &from, const Coord3D &to) const
+{
+	// RW 0x8DD6F3: TheAudio's settings (vslot 0x134) and TheShroudManager, else false; campness (channel 2, RW 0xB4D9E0) at the start <= + 0x44 and at the
+	// end >= + 0x48 (unsigned compares)
+	const ShroudManager *sm = m_logic.shroud();
+	if (!m_haveCampThresholds || !sm)
+	{
+		return false;
+	}
+	if ((unsigned)sm->channelSum(from.x, from.y, 2, mask) > m_campMaxAtStart)
+	{
+		return false;
+	}
+	return (unsigned)sm->channelSum(to.x, to.y, 2, mask) >= m_campMinAtEnd;
 }
 
 void UnitVoiceResponse::attackVoices(Object &obj, int msgType, const Info *info, Choice &c) const
@@ -1205,8 +1244,7 @@ std::vector<std::string> UnitVoiceResponse::acceptanceStops()
 		"the planned action queue (0x46A), VoiceDesperateAttack / RapidFire / CaptureBuildingComplete / StartCharging / NoBuild (0x7DB .. 0x7DD, 0x7EA .. 0x7EC), "
 		"the Ring voices (0x7E3 .. 0x7E5, 0x7E9)",
 		"[S-704] unit voice: rules of the move / attack / enter helpers not ported: the planning order mode (player + 0x770 == 2 -> MiscAudio PlanningModeOrderGiven), "
-		"VoiceCrush (GameData + 0x8B9, crushable target), the busy gate (GameData + 0x8B0), the castle and camp rules (RW 0x8DDBC4, campness RW 0x8DD6F3 with "
-		"AudioSettings VoiceMoveToCampMaxCampnessAtStartPoint / MinCampnessAtEndPoint), VoiceMoveOverWalls (RW 0x8DE628), the weapon's voice (RW 0x68B58C weapon "
+		"VoiceCrush (GameData + 0x8B9, crushable target), the busy gate (GameData + 0x8B0), the castle rule (RW 0x8DDBC4), VoiceMoveOverWalls (RW 0x8DE628), the weapon's voice (RW 0x68B58C weapon "
 		"template + 0xD0 / + 0xD8), the charge voice's drawable gate (RW 0x671EE4: no drawable, no charge)",
 		"[S-705] unit voice: the candidate order is selection then member order (retail iterates a hash map keyed by Object pointers), a count tie between "
 		"two sounds goes to the lower-case name order (retail: the lower audio info POINTER, RW 0x8DE522's unsigned compare), and a hero's level is the "

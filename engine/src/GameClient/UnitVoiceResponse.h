@@ -130,6 +130,16 @@ public:
 	void setLocalPlayerIndex(int index) { m_localPlayer = index; }
 	// AudioSettings MinDelayBetweenEnterStateVoiceMS converted by parseDurationUnsignedInt (frames; AudioSettings::minDelayBetweenEnterStateVoiceFrames)
 	void setMinDelayBetweenEnterStateVoiceFrames(unsigned frames) { m_minDelayEnterStateFrames = frames; }
+	// AudioSettings VoiceMoveToCampMaxCampnessAtStartPoint / VoiceMoveToCampMinCampnessAtEndPoint (RW AudioSettings + 0x44 / + 0x48); without them (no
+	// TheAudio, RW 0x8DD6F9) the camp test answers false
+	void setMoveToCampThresholds(unsigned maxAtStart, unsigned minAtEnd)
+	{
+		m_campMaxAtStart = maxAtStart;
+		m_campMinAtEnd = minAtEnd;
+		m_haveCampThresholds = true;
+	}
+	// RW 0x8DD6F3: the shroud's campness channel (2) for `mask` is at most MaxCampnessAtStartPoint at `from` and at least MinCampnessAtEndPoint at `to`
+	bool movesIntoCamp(std::uint32_t mask, const Coord3D &from, const Coord3D &to) const;
 
 	// RW 0x8DEDBB: picks the voice of `selection` (object ids, the client's selection order) for message `msgType` and plays it. true when something played.
 	bool pickAndPlay(const std::vector<ObjectID> &selection, int msgType, const Info *info = nullptr);
@@ -240,6 +250,8 @@ private:
 	Sink &m_sink;
 	int m_localPlayer = -1;
 	unsigned m_minDelayEnterStateFrames = 0;
+	unsigned m_campMaxAtStart = 0, m_campMinAtEnd = 0;
+	bool m_haveCampThresholds = false;
 	std::map<ObjectID, Memory> m_memory;
 	std::map<std::string, CrowdResponse> m_crowd;
 	// lane DECOMP-2: the RandomSoundSelectorClientBehavior state of each asked object (retail keeps it in the drawable's module) and the client random its rolls

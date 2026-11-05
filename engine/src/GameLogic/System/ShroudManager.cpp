@@ -1639,8 +1639,8 @@ std::vector<std::string> ShroudManager::stopLines()
 {
 	return {
 		"[S-560] shroud channels: the three per-cell channels (RW 0xB51030, the object's RW 0x68EC3B: BuildCost / ThreatValue or health / CampnessValue) are "
-		"added; their readers: the emotion tracker's threat (ported), the unit voice's camp test (RW 0x8DD6F3, S-704) and the AI's channel search (RW 0xB52740 "
-		"from RW 0x7C1A60) are not ported; a body-less object's health threat is 0 (retail reads the body unchecked; no retail template gets there without one)",
+		"added; their readers: the emotion tracker's threat and the unit voice's camp test (RW 0x8DD6F3) are ported, the AI's channel search (RW 0xB52740 "
+		"from RW 0x7C1A60) is not; a body-less object's health threat is 0 (retail reads the body unchecked; no retail template gets there without one)",
 		"[S-561] ghost objects: a destroyed immobile object's record is not kept for the players that saw it fogged (RW 0xB4E190, the ghost object of RW "
 		"0x691602 / TheGhostObjectManager); its remembered building disappears when it dies",
 		"[S-562] shroud inference: the object statuses are evaluated eagerly in update() (retail on demand); the covered cells use the template's last geometry "
