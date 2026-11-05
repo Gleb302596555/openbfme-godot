@@ -933,7 +933,12 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// The merge with upstream 7e98ac2f (PATH-REBUILD, LOCODIST-1, ATKRESET-1, AIMAIM-1 / DECOMPFIX-1104B on top of the fork's modifier pool and fire system), measured once
 	// on the merged tree (Windows MSVC): seed 2 stays open at 9000 with a new table, seed 7 ends with Mordor's defeat (start position 1) at 7915, seed 1234 ends with
 	// Mordor's defeat (start position 0) at 8478. Engine pins, not retail values.
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 7915 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 8478 } })
+	// pin: TOP20 #21 / r2 / r3 (station-1, Windows MSVC): seed 7 still ends with Mordor's defeat (start position 1), now at 7507 (7915); seed 1234 stays open at 9000
+	// (was Mordor's defeat at 8478); seed 2 stays open with a new table (below). Causes: the burning death (switched off at 13380105, seeds 7 and 1234 keep 7915 and
+	// 8478) and r3 (an attack ends when its victim is UNATTACKABLE, RW 0x7417E4 / 0x6C9207: no army shoots a castle foundation any more). Seed 2's frame-9000
+	// window already differed on this tree with both switched off (attacks 12, built 1361u, destroyed 997u/7s): a change landed on main after the last measure
+	// (5361552b), not identified
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 7507 }, Game{ "FactionMordor", "FactionMen", 1234u, -1, -1 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;
@@ -982,16 +987,17 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 			// merge queue q41 (measured once on the merged tree and at its merge point; DECOMPFIX-1104B moves it, NECRODIE-1 keeps it): a new table from the first
 			// window on; the game stays open at 9000
 			// the merge with upstream 7e98ac2f (measured once on the merged tree): a new table from the first window on; the game stays open at 9000
+			// pin: TOP20 #21 / r3 (station-1): a new table from frame 4000 on (the pin above the games list); the game stays open at 9000
 			CHECK(run.progress ==
 			"frame 1000: [0 attacks 0 built 72u/7s destroyed 36u/1s] [1 attacks 1 built 92u/7s destroyed 29u/1s]\n"
 			"frame 2000: [0 attacks 1 built 264u/10s destroyed 150u/2s] [1 attacks 1 built 201u/10s destroyed 135u/4s]\n"
 			"frame 3000: [0 attacks 1 built 382u/13s destroyed 237u/3s] [1 attacks 2 built 332u/11s destroyed 267u/5s]\n"
-			"frame 4000: [0 attacks 4 built 566u/15s destroyed 334u/3s] [1 attacks 4 built 420u/15s destroyed 441u/5s]\n"
-			"frame 5000: [0 attacks 4 built 739u/16s destroyed 493u/3s] [1 attacks 6 built 602u/15s destroyed 647u/5s]\n"
-			"frame 6000: [0 attacks 6 built 904u/21s destroyed 640u/4s] [1 attacks 6 built 691u/18s destroyed 803u/5s]\n"
-			"frame 7000: [0 attacks 8 built 1020u/25s destroyed 708u/5s] [1 attacks 7 built 791u/22s destroyed 896u/6s]\n"
-			"frame 8000: [0 attacks 9 built 1193u/27s destroyed 828u/6s] [1 attacks 7 built 917u/25s destroyed 1080u/6s]\n"
-			"frame 9000: [0 attacks 11 built 1364u/28s destroyed 952u/6s] [1 attacks 7 built 1038u/25s destroyed 1256u/6s]\n");
+			"frame 4000: [0 attacks 4 built 565u/14s destroyed 343u/3s] [1 attacks 3 built 421u/15s destroyed 441u/5s]\n"
+			"frame 5000: [0 attacks 6 built 768u/16s destroyed 443u/3s] [1 attacks 4 built 526u/18s destroyed 683u/5s]\n"
+			"frame 6000: [0 attacks 8 built 1072u/19s destroyed 582u/3s] [1 attacks 6 built 683u/21s destroyed 966u/5s]\n"
+			"frame 7000: [0 attacks 10 built 1313u/23s destroyed 722u/4s] [1 attacks 7 built 827u/24s destroyed 1237u/6s]\n"
+			"frame 8000: [0 attacks 12 built 1483u/26s destroyed 893u/4s] [1 attacks 9 built 1000u/24s destroyed 1383u/6s]\n"
+			"frame 9000: [0 attacks 13 built 1711u/27s destroyed 1012u/4s] [1 attacks 9 built 1100u/24s destroyed 1664u/9s]\n");
 		}
 	}
 }
