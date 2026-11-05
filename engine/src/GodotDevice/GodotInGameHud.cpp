@@ -340,21 +340,10 @@ struct HudDevice : public AptNativeHook
 	bool radiusDecalDrawn = false;
 	std::string radiusDecalError; ///< the texture of the cursor that could not be read (also in the HUD's draw errors)
 	void drawRadiusCursor();
-	// lane OWNERFIX-2: the resource claim feedback (InGameHud::resourceFeedback, GameClient/TerrainResourceFeedback.h): the selected resource building's
-	// claim decals, the placement decal (its texture masked by the claimable vertices) and the placement's percentage text
-	std::vector<uint64_t> claimDecalIds;
-	uint64_t placeDecalId = 0;
-	Ref<ImageTexture> placeDecalTexture;
-	Ref<ImageTexture> placeDecalGlow; // the disc's wash (its emission)
-	Ref<ImageTexture> placeDecalBase, placeDecalGlowBase; // the plain disc
-	PackedByteArray placeDiscAlbedo, placeDiscGlow; // its pixels, to cut the rings of built farms out of a copy
-	int placeDiscW = 0, placeDiscH = 0;
-	std::uint64_t placeDiscCutSignature = 0;
-	unsigned placeDecalVersion = ~0u;
-	int claimDecalsDrawn = 0;
+	// lane OWNERFIX-2: the resource claim feedback (InGameHud::resourceFeedback, GameClient/TerrainResourceFeedback.h): the claim circles' outline
+	// arcs (the claim decals and the placement decal are upstream's, in the grid: P-40) and the placement's percentage text
 	std::vector<uint64_t> claimArcIds; // the outline arcs' TerrainClaimSegment decals (RW 0x8E9744)
 	int claimArcsDrawn = 0;
-	bool placeDecalDrawn = false;
 	std::vector<SelectionDecal> selExtras; ///< lane PLACEDECAL-1: this frame's other decals: the ghost's shadows (the fork draws the resource claims as Godot Decals)
 	std::vector<SelectionDecal> selList;   ///< lane PLACEDECAL-1: the grid's decals when there are others: the shadows, then the selection's
 	uint64_t selExtrasKey = 0;             ///< lane PLACEDECAL-1: what the last grid's other decals were (0: none)
@@ -1506,18 +1495,13 @@ void HudDevice::drawFXDecals()
 
 void HudDevice::drawResourceFeedback()
 {
-	// lane OWNERFIX-2 (GameClient/TerrainResourceFeedback.h): drawn as the selection decals are (S-2522): a Godot Decal over the terrain layer. The claim
-	// decals: TerrainResourceClaimDecal tinted 0x6464C8 at opacity 0x80 (type 0x20, SHADOW_ALPHA_DECAL); the placement decal: PlaceTerrainResourceClaimantDecal
-	// tinted the band colour, its alpha the texture's times the claimable vertices' alpha (RW 0x75C1A9 with the opacity 0x80; INFERENCE S-5030: bilinear across
-	// a terrain quad)
+	// lane OWNERFIX-2 (GameClient/TerrainResourceFeedback.h), P-40: the claim zones and the placement disc are upstream's (TerrainResourceFeedback::appendDecals, in
+	// the shaders' decal grid: drawSelectionDecals); this draws only what upstream has not: the outline arcs of the built farms' claim circles, as Godot Decals
 	Node3D *root = decalRoot();
-	claimDecalsDrawn = 0;
-	placeDecalDrawn = false;
 	if (!root)
 	{
 		return;
 	}
-	const TerrainResourceUiSettings &ui = hud->radiusCursorTemplates().resourceUi();
 	const TerrainResourceFeedback &fb = hud->resourceFeedback();
 	auto place = [](Decal *decal, const Coord3D &p, float size) {
 		// SAGE (x, y, z up) -> Godot (x, z, -y); projected down over a box `size` wide and 200 units deep around the point
@@ -1529,41 +1513,6 @@ void HudDevice::drawResourceFeedback()
 		decal->set_upper_fade(0.0f);
 		decal->set_lower_fade(0.0f);
 	};
-	const std::vector<ResourceClaimDecal> &claimed = fb.claimedDecals();
-	const DecalTextures *claimTex = claimed.empty() ? nullptr : unlitDecalFor(ui.claimDecal, 0x6464C8u);
-	if (!claimed.empty() && !claimTex)
-	{
-		resourceDecalError = "TerrainResourceClaimDecal: no texture '" + ui.claimDecal + "'";
-	}
-	for (size_t i = 0; claimTex && i < claimed.size(); ++i)
-	{
-		Decal *decal = i < claimDecalIds.size() ? Object::cast_to<Decal>(ObjectDB::get_instance(godot::ObjectID(claimDecalIds[i]))) : nullptr;
-		if (!decal)
-		{
-			decal = memnew(Decal);
-			root->add_child(decal);
-			if (i < claimDecalIds.size())
-			{
-				claimDecalIds[i] = decal->get_instance_id();
-			}
-			else
-			{
-				claimDecalIds.push_back(decal->get_instance_id());
-			}
-		}
-		place(decal, claimed[i].position, claimed[i].size);
-		decal->set_texture(Decal::TEXTURE_ALBEDO, claimTex->albedo);
-		decal->set_modulate(Color(1, 1, 1, claimed[i].opacity / 255.0f));
-		decal->set_visible(true);
-		++claimDecalsDrawn;
-	}
-	for (size_t i = (size_t)claimDecalsDrawn; i < claimDecalIds.size(); ++i)
-	{
-		if (Decal *decal = Object::cast_to<Decal>(ObjectDB::get_instance(godot::ObjectID(claimDecalIds[i]))))
-		{
-			decal->set_visible(false);
-		}
-	}
 	// the outline arcs (RW 0x8E9744): TerrainClaimSegment squares (decal type 0x40) at opacity 255, each turned by its angle, tinted with the claimant
 	// owner's colour (s.color; the owner's photo, docs/ennorath/PROBLEMS.md P-5)
 	claimArcsDrawn = 0;
@@ -1594,9 +1543,9 @@ void HudDevice::drawResourceFeedback()
 		// SAGE's turn about z is Godot's about y ((x, y, z) -> (x, z, -y)). The texture's stripe runs along its top row, which a Godot Decal lays on
 		// its local -z (SAGE +y) side: turned by theta - 90 degrees (s.angle = -theta) it lies along the circle's edge, the stripe outward
 		decal->set_rotation(Vector3(0.0f, -s.angle - 1.57079632679f, 0.0f));
-		decal->set_sorting_offset(5000.0f); // the rings of built farms stay on top of the placement disc (the owner, PROBLEMS.md P-4)
+		decal->set_sorting_offset(5000.0f); // the arcs stay on top of the grid's placement disc
 		decal->set_texture(Decal::TEXTURE_ALBEDO, segTex->albedo);
-		// the placement disc's wash is emission and adds over any albedo, whatever the sort order: the rings glow in their own colour too, so the disc stays under them
+		// emission as well as albedo: the rings glow in their own colour
 		decal->set_texture(Decal::TEXTURE_EMISSION, segTex->albedo);
 		decal->set_emission_energy(1.0f);
 		decal->set_modulate(Color(1, 1, 1, s.opacity / 255.0f));
@@ -1610,216 +1559,6 @@ void HudDevice::drawResourceFeedback()
 			decal->set_visible(false);
 		}
 	}
-	const ResourcePlacementFeedback &rp = fb.placement();
-	Decal *pd = placeDecalId ? Object::cast_to<Decal>(ObjectDB::get_instance(godot::ObjectID(placeDecalId))) : nullptr;
-	if (!rp.active || rp.maskW <= 0 || rp.maskH <= 0 || !(rp.decalSize > 0.0f))
-	{
-		if (pd)
-		{
-			pd->set_visible(false);
-		}
-		return;
-	}
-	// the disc is one fixed texture made once (PROBLEMS.md P-4): a texture changed in place under a Decal kept showing its first, empty content
-	if (placeDecalTexture.is_null())
-	{
-		const DecalImage img = decalImageFor(ui.placeDecal);
-		if (img.width <= 0 || !img.rgba)
-		{
-			resourceDecalError = "PlaceTerrainResourceClaimantDecal: no texture '" + ui.placeDecal + "'";
-			if (pd)
-			{
-				pd->set_visible(false);
-			}
-			return;
-		}
-		const int w = img.width, h = img.height;
-		PackedByteArray px;
-		px.resize((int64_t)w * h * 4);
-		uint8_t *out = px.ptrw();
-		const float half = rp.decalSize * 0.5f;
-		// the owner's look (2026-10-30, PROBLEMS.md P-4): the ground washed out white with its detail still showing, a lighter rim. The decal's albedo alone either
-		// darkens (grey) or hardly shows (white), so the wash is its emission, with a little white albedo; the rings of built farms stay on top
-		constexpr float kDiscAlpha = 0.10f, kRimAlpha = 0.26f, kDiscGlow = 85.0f, kRimGlow = 155.0f; // matched to the owner's reference shot (docs/ennorath/photo_1.jpg)
-		PackedByteArray glow;
-		glow.resize((int64_t)w * h * 4);
-		uint8_t *glowOut = glow.ptrw();
-		auto maskAt = [&](float vx, float vy) {
-			// bilinear between the four vertices around (vx, vy), in vertex units relative to the mask's first vertex
-			const float fx = std::clamp(vx, 0.0f, (float)(rp.maskW - 1)), fy = std::clamp(vy, 0.0f, (float)(rp.maskH - 1));
-			const int x0 = std::min((int)fx, rp.maskW - 1), y0 = std::min((int)fy, rp.maskH - 1);
-			const int x1 = std::min(x0 + 1, rp.maskW - 1), y1 = std::min(y0 + 1, rp.maskH - 1);
-			const float tx = fx - (float)x0, ty = fy - (float)y0;
-			auto a = [&](int x, int y) { return (float)rp.maskAlpha[(size_t)y * (size_t)rp.maskW + (size_t)x]; };
-			return (a(x0, y0) * (1 - tx) + a(x1, y0) * tx) * (1 - ty) + (a(x0, y1) * (1 - tx) + a(x1, y1) * tx) * ty;
-		};
-		for (int j = 0; j < h; ++j)
-		{
-			// the texture's v runs along Godot +z = SAGE -y
-			const float wy = rp.decalCenter.y + half - ((float)j + 0.5f) / (float)h * rp.decalSize;
-			for (int i = 0; i < w; ++i)
-			{
-				const float wx = rp.decalCenter.x - half + ((float)i + 0.5f) / (float)w * rp.decalSize;
-				(void)maskAt;
-				(void)wx;
-				(void)wy;
-				const size_t o = ((size_t)j * (size_t)w + (size_t)i) * 4;
-				// white inside the texture's own circle (its alpha is the circle's shape, 44 of 255 inside), as strong as the claimable share (the mask)
-				const float cover = 1.0f; // the whole circle, as on the owner's photo (the claimable share is the label's)
-				out[o] = out[o + 1] = out[o + 2] = 255;
-				const float shape = std::min(1.0f, img.rgba[o + 3] / 44.0f);
-				float a = 255.0f * kDiscAlpha * shape * cover;
-				float g = kDiscGlow * shape;
-				// the white rim at the circle's edge (the owner's photo 1): the outer band of the circle, 0.94 .. 1.0 of the radius
-				const float nx = ((float)i + 0.5f) / (float)w * 2.0f - 1.0f, ny = ((float)j + 0.5f) / (float)h * 2.0f - 1.0f;
-				const float r = std::sqrt(nx * nx + ny * ny);
-				if (r > 1.0f)
-				{
-					a = 0.0f; // the circle ends at its rim
-					g = 0.0f;
-				}
-				else if (r > 0.94f)
-				{
-					const float band = std::min(1.0f, (r - 0.94f) / 0.01f) * std::min(1.0f, (1.0f - r) / 0.008f); // a thin band on the very edge, its outer side smooth
-					const float edge = std::min(1.0f, (1.0f - r) / 0.008f);
-					a = std::max(a * edge, band * 255.0f * kRimAlpha * cover);
-					g = std::max(g * edge, kRimGlow * band);
-				}
-				out[o + 3] = (uint8_t)std::min(255L, std::lround(a));
-				glowOut[o] = (uint8_t)std::lround(g * 0.92f); // a little cool, as the reference
-				glowOut[o + 1] = (uint8_t)std::lround(g * 0.97f);
-				glowOut[o + 2] = (uint8_t)std::lround(g);
-				glowOut[o + 3] = 255;
-			}
-		}
-		placeDiscW = w;
-		placeDiscH = h;
-		placeDiscAlbedo = px;
-		placeDiscGlow = glow;
-		placeDecalBase = ImageTexture::create_from_image(Image::create_from_data(w, h, false, Image::FORMAT_RGBA8, px));
-		placeDecalGlowBase = ImageTexture::create_from_image(Image::create_from_data(w, h, false, Image::FORMAT_RGBA8, glow));
-		placeDecalTexture = placeDecalBase;
-		placeDecalGlow = placeDecalGlowBase;
-		placeDecalVersion = rp.version;
-	}
-	// the rings of built farms lie over the disc (the owner, PROBLEMS.md): the disc's wash adds over anything drawn in that spot, so the disc is cut where a ring's
-	// stripe runs, by TerrainClaimSegment's own pixels. A new texture only while a ring crosses the disc: the plain
-	// disc stays one texture, so moving it over free ground costs nothing
-	{
-		const float half = rp.decalSize * 0.5f;
-		std::vector<const ResourceClaimArcSegment *> crossing;
-		std::uint64_t signature = 0;
-		for (const ResourceClaimArcSegment &s : fb.claimArcSegments())
-		{
-			if (std::fabs(s.position.x - rp.decalCenter.x) < half + s.size && std::fabs(s.position.y - rp.decalCenter.y) < half + s.size)
-			{
-				crossing.push_back(&s);
-				signature = signature * 1099511628211ull + (std::uint64_t)std::lround(s.position.x * 8.0f) * 31u + (std::uint64_t)std::lround(s.position.y * 8.0f);
-			}
-		}
-		// the part of the disc and its rim inside a built farm's circle is not drawn at all (the owner's shot, 2026-10-30): the new circle ends at that farm's ring
-		std::vector<const ResourceClaimDecal *> inside;
-		for (const ResourceClaimDecal &c : fb.claimedDecals())
-		{
-			const float dx = c.position.x - rp.decalCenter.x, dy = c.position.y - rp.decalCenter.y;
-			if (std::sqrt(dx * dx + dy * dy) < half + c.size * 0.5f)
-			{
-				inside.push_back(&c);
-				signature = signature * 1099511628211ull + (std::uint64_t)std::lround(c.position.x * 8.0f) * 31u + (std::uint64_t)std::lround(c.position.y * 8.0f) + (std::uint64_t)std::lround(c.size);
-			}
-		}
-		if (!crossing.empty() || !inside.empty())
-		{
-			signature = signature * 1099511628211ull + (std::uint64_t)std::lround(rp.decalCenter.x) * 31u + (std::uint64_t)std::lround(rp.decalCenter.y) + 1u;
-		}
-		if (signature != placeDiscCutSignature)
-		{
-			placeDiscCutSignature = signature;
-			if (crossing.empty() && inside.empty())
-			{
-				placeDecalTexture = placeDecalBase;
-				placeDecalGlow = placeDecalGlowBase;
-			}
-			else
-			{
-				PackedByteArray albedo = placeDiscAlbedo, glow = placeDiscGlow;
-				uint8_t *pa = albedo.ptrw(), *pg = glow.ptrw();
-				const int w = placeDiscW, h = placeDiscH;
-				const float perPixel = rp.decalSize / (float)w;
-				const DecalImage seg = decalImageFor("TerrainClaimSegment");
-				for (const ResourceClaimDecal *c : inside)
-				{
-					const float radius = c->size * 0.5f;
-					for (int j = 0; j < h; ++j)
-					{
-						const float dy = rp.decalCenter.y + half - ((float)j + 0.5f) * perPixel - c->position.y;
-						for (int i = 0; i < w; ++i)
-						{
-							const float dx = rp.decalCenter.x - half + ((float)i + 0.5f) * perPixel - c->position.x;
-							if (dx * dx + dy * dy < radius * radius)
-							{
-								const size_t o = ((size_t)j * (size_t)w + (size_t)i) * 4;
-								pa[o + 3] = 0;
-								pg[o] = pg[o + 1] = pg[o + 2] = 0;
-							}
-						}
-					}
-				}
-				for (const ResourceClaimArcSegment *s : crossing)
-				{
-					// the square's outward normal, as the ring's decal is turned above (s.angle = -theta)
-					const float nx = std::cos(s->angle), ny = -std::sin(s->angle);
-					const float reach = s->size * 0.75f;
-					const int i0 = std::max(0, (int)((s->position.x - reach - (rp.decalCenter.x - half)) / perPixel));
-					const int i1 = std::min(w - 1, (int)((s->position.x + reach - (rp.decalCenter.x - half)) / perPixel) + 1);
-					const int j0 = std::max(0, (int)(((rp.decalCenter.y + half) - (s->position.y + reach)) / perPixel));
-					const int j1 = std::min(h - 1, (int)(((rp.decalCenter.y + half) - (s->position.y - reach)) / perPixel) + 1);
-					for (int j = j0; j <= j1; ++j)
-					{
-						const float dy = rp.decalCenter.y + half - ((float)j + 0.5f) * perPixel - s->position.y;
-						for (int i = i0; i <= i1; ++i)
-						{
-							const float dx = rp.decalCenter.x - half + ((float)i + 0.5f) * perPixel - s->position.x;
-							const float along = -ny * dx + nx * dy, out = nx * dx + ny * dy;
-							// the ring's own wavy stripe, sampled as its decal lays it (u along the local x = -along, v = 0 at the outer edge), no wider
-							const float u = 0.5f - along / s->size, v = 0.5f - out / s->size;
-							if (u < 0.0f || u >= 1.0f || v < 0.0f || v >= 1.0f || !seg.rgba)
-							{
-								continue;
-							}
-							const size_t so = ((size_t)(v * seg.height) * (size_t)seg.width + (size_t)(u * seg.width)) * 4;
-							if (std::max({ seg.rgba[so], seg.rgba[so + 1], seg.rgba[so + 2] }) > 40)
-							{
-								const size_t o = ((size_t)j * (size_t)w + (size_t)i) * 4;
-								pa[o + 3] = 0;
-								pg[o] = pg[o + 1] = pg[o + 2] = 0;
-							}
-						}
-					}
-				}
-				placeDecalTexture = ImageTexture::create_from_image(Image::create_from_data(w, h, false, Image::FORMAT_RGBA8, albedo));
-				placeDecalGlow = ImageTexture::create_from_image(Image::create_from_data(w, h, false, Image::FORMAT_RGBA8, glow));
-			}
-		}
-	}
-	if (!pd)
-	{
-		pd = memnew(Decal);
-		root->add_child(pd);
-		placeDecalId = pd->get_instance_id();
-	}
-	place(pd, rp.decalCenter, rp.decalSize);
-	// the placement point's height is the pointer's, not the ground's under the whole circle: the box reaches 2000 units up and down so the disc lands
-	// on the terrain wherever it is (PROBLEMS.md P-4; 200 deep missed it on the owner's map)
-	pd->set_size(Vector3(rp.decalSize, 4000.0f, rp.decalSize));
-	pd->set_texture(Decal::TEXTURE_ALBEDO, placeDecalTexture);
-	pd->set_texture(Decal::TEXTURE_EMISSION, placeDecalGlow);
-	// OPENBFME_DISC_VIS: the wash's strength (default 1), to tune it on the owner's screen without a build
-	static const float discVis = std::getenv("OPENBFME_DISC_VIS") ? (float)std::atof(std::getenv("OPENBFME_DISC_VIS")) : 1.0f;
-	pd->set_emission_energy(discVis);
-	pd->set_modulate(Color(1, 1, 1, 1));
-	pd->set_visible(true);
-	placeDecalDrawn = true;
 }
 
 namespace
@@ -1998,8 +1737,9 @@ void HudDevice::drawSelectionDecals()
 		ghost->appendShadowDecals(selExtras);
 	}
 	const size_t shadows = selExtras.size();
-	// Ennorath fork: the claims and the placement disc stay drawResourceFeedback's Godot Decals (the owner's look, docs/ennorath/PROBLEMS.md P-4 / P-5,
-	// with the claim circles' outline arcs); upstream's TerrainResourceFeedback::appendDecals is not put in the grid, so they are not drawn twice; which look matches the mod is docs/ennorath/PROBLEMS.md P-40
+	hud->resourceFeedback().appendDecals(hud->radiusCursorTemplates().resourceUi().claimDecal, hud->radiusCursorTemplates().resourceUi().placeDecal, selExtras);
+	// P-40: the claims and the placement disc are upstream's, in the grid (the owner chose them over the fork's Godot Decals); the claim circles' outline arcs are
+	// the fork's (drawResourceFeedback)
 	// what the other decals are (the grid is built again when it changes: the ghost moves, a claim comes or goes, the mask changes)
 	uint64_t key = 0;
 	if (!selExtras.empty())
@@ -2291,9 +2031,7 @@ Node3D *HudDevice::decalRoot()
 		root->set_name("ResourceDecals");
 		parent->add_child(root);
 		decalRootId = root->get_instance_id();
-		claimDecalIds.clear();
 		claimArcIds.clear();
-		placeDecalId = 0;
 		fxDecalIds.clear();
 	}
 	return root;
@@ -2306,9 +2044,7 @@ void HudDevice::freeSelectionDecals()
 		root->queue_free();
 	}
 	decalRootId = 0;
-	claimDecalIds.clear();
 	claimArcIds.clear();
-	placeDecalId = 0;
 	fxDecalIds.clear();
 	if (radiusCursorBound)
 	{
@@ -2818,7 +2554,7 @@ Dictionary InGameHudNode::get_state() const
 		m["composes"] = d->mergeComposes; // lane SELPERF-1
 		m["gpu_decals"] = (int64_t)d->selGrid.decals;
 		m["gpu_alpha_decals"] = (int64_t)d->selGrid.alphaDecals; // lane HERORING-1 (lane PLACEDECAL-1: with the extra decals below)
-		m["gpu_extra_decals"] = (int64_t)(d->extraDecalsDrawn + (unsigned)d->claimDecalsDrawn + (d->placeDecalDrawn ? 1u : 0u)); // the ghost's and the resource decals
+		m["gpu_extra_decals"] = (int64_t)d->extraDecalsDrawn; // the ghost's and the resource decals (the grid's)
 		m["gpu_max_alpha_per_cell"] = (int64_t)d->selGrid.maxAlphaPerCell;
 		m["gpu_cells"] = (int64_t)d->selGrid.cellsX * d->selGrid.cellsY;
 		m["gpu_max_per_cell"] = (int64_t)d->selGrid.maxPerCell;
@@ -3203,7 +2939,7 @@ Dictionary InGameHudNode::get_spellbook_state()
 		}
 		f["mask_vertices"] = (int64_t)rp.maskAlpha.size();
 		f["mask_visible"] = visible;
-		f["place_decal_drawn"] = d->placeDecalDrawn;
+		f["place_decal_drawn"] = rp.active && rp.maskW > 0 && rp.maskH > 0 && rp.decalSize > 0.0f; // upstream's grid decal (P-40)
 		f["text_drawn"] = d->placeTextDrawn;
 		f["text_rect"] = d->placeTextRect;
 		Array claims;
@@ -3219,7 +2955,7 @@ Dictionary InGameHudNode::get_spellbook_state()
 			claims.push_back(e);
 		}
 		f["claim_decals"] = claims;
-		f["claim_decals_drawn"] = (int64_t)d->claimDecalsDrawn;
+		f["claim_decals_drawn"] = (int64_t)fb.claimedDecals().size(); // all are in the grid (P-40)
 		f["claim_arcs_drawn"] = (int64_t)d->claimArcsDrawn;
 		f["error"] = toGodot(d->resourceDecalError);
 		r["resource_feedback"] = f;
@@ -3651,7 +3387,7 @@ void InGameHudNode::_process(double delta)
 	d->drawIconOps(get_canvas_item()); // lane HUD-5
 	const uint64_t tb = Time::get_singleton()->get_ticks_usec();
 	d->drawRadiusCursor();             // lane SPELL-4
-	d->drawResourceFeedback();         // lane OWNERFIX-2
+	d->drawResourceFeedback();         // lane OWNERFIX-2 (P-40: only the outline arcs of built farms' claim circles)
 	d->drawFXDecals();                 // S-5205
 	d->drawMessageLines();             // lane CHAT-1
 	const uint64_t tc = Time::get_singleton()->get_ticks_usec();

@@ -139,7 +139,8 @@ Other fixes of the Ennorath pass:
   (S-5040, `S-5040: the GRAYSCALE image mode ...`);
 - the farms' claim circles get their outline arcs (S-5030): the parts of each own / allied claim circle no other circle covers, cut into
   `TerrainClaimSegment` squares in the owner's colour (RW 0x8E99EE / 0x8E9744). The placement circle's colour band and the 0xFF6464C8 fill
-  of the claimed circles are retail's (RW 0x75C1A9, RW 0x8EC874);
+  of the claimed circles are retail's (RW 0x75C1A9, RW 0x8EC874). The zones and the placement disc are drawn by the shaders' decal grid
+  (upstream's `TerrainResourceFeedback::appendDecals`); only the outline arcs are the fork's Godot Decals (docs/ennorath/PROBLEMS.md P-40);
 - a structure a worker builds starts at 1 hit point before it is UNDER_CONSTRUCTION (RW 0x88D53A), so it takes REALLYDAMAGED, and the
   heals of the rise do not change the look while it is under construction: the finished building kept REALLYDAMAGED and its smoke bones
   (the black smoke at the end of every construction). The end of a construction now applies the body's damage state
