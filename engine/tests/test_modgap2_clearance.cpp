@@ -4,7 +4,7 @@
 #include "GameClient/MapChunks.h"
 #include "GameEngineDevice/W3DDevice/GameClient/WorldHeightMap.h"
 #include "GameLogic/Map/TerrainLogic.h"
-#include "GameLogic/Module/ClearanceTestingSlowDeathBehavior.h"
+#include "GameLogic/Module/CombatModules.h"
 
 namespace {
 const char kClearanceObjects[] =
@@ -45,7 +45,7 @@ TEST_CASE("modgap2 clearance death: rotation anchor does not reject a clear area
         REQUIRE(creature);
         auto *death = dynamic_cast<ClearanceTestingSlowDeathBehavior *>(creature->findModule("ClearanceTestingSlowDeathBehavior"));
         REQUIRE(death);
-        CHECK(death->clearanceSatisfied());
+        CHECK(death->canBeginSlowDeath());
     }
 }
 
@@ -58,10 +58,10 @@ TEST_CASE("modgap2 clearance death: an obstacle rejects the selected death") {
         REQUIRE(creature);
         auto *death = dynamic_cast<ClearanceTestingSlowDeathBehavior *>(creature->findModule("ClearanceTestingSlowDeathBehavior"));
         REQUIRE(death);
-        CHECK(death->clearanceSatisfied());
+        CHECK(death->canBeginSlowDeath());
         Object *obstacle = w.unit("TestClearanceObstacle", 'A', 340, 300);
         REQUIRE(obstacle);
-        CHECK_FALSE(death->clearanceSatisfied());
+        CHECK_FALSE(death->canBeginSlowDeath());
         creature->kill(DAMAGE_UNRESISTABLE, 0);
         CHECK_FALSE(death->isSlowDeathActivated());
     }
@@ -76,7 +76,7 @@ TEST_CASE("modgap2 clearance death: an unobstructed selected death starts") {
         REQUIRE(creature);
         auto *death = dynamic_cast<ClearanceTestingSlowDeathBehavior *>(creature->findModule("ClearanceTestingSlowDeathBehavior"));
         REQUIRE(death);
-        REQUIRE(death->clearanceSatisfied());
+        REQUIRE(death->canBeginSlowDeath());
         creature->kill(DAMAGE_UNRESISTABLE, 0);
         CHECK(death->isSlowDeathActivated());
     }
@@ -113,7 +113,7 @@ TEST_CASE("modgap2 clearance death: terrain at the height limit is allowed") {
         const auto atHeight = [&](float z) {
             const Coord3D at{300, 300, z};
             creature->setPosition(&at);
-            return death->clearanceSatisfied();
+            return death->canBeginSlowDeath();
         };
         CHECK(atHeight(-20.0f)); // equal to the upper limit is not high
         CHECK_FALSE(atHeight(-21.0f));

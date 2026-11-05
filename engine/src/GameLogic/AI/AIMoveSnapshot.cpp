@@ -181,6 +181,9 @@ void Locomotor::xfer(Xfer &x)
 		{
 			throw XferException("locomotor: the flags 0x" + std::to_string(m_flags) + " hold bits no mover sets");
 		}
+		// bit 10 is the template's CloseEnoughDist3D, written only by the constructor (RW 0x5E3E6A, lane LOCODIST-1): a load takes it from the template
+		// (snapshots written before the bit was ported lack it)
+		m_flags = (m_flags & ~(unsigned)LOCOMOTOR_FLAG_CLOSE_ENOUGH_DIST_3D) | (m_template->m_closeEnoughDist3D ? (unsigned)LOCOMOTOR_FLAG_CLOSE_ENOUGH_DIST_3D : 0u);
 	}
 	AIXfer::coord(x, m_preferredPoint);
 	AIXfer::coord(x, m_maintainPosition);

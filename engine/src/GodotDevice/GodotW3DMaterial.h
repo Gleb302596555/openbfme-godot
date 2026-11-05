@@ -99,6 +99,9 @@ public:
 	// bib's feathered edge, and write no depth (INFERENCE, stop S-4974: retail's terrain render object draws floors; the module only passes the fade
 	// of a dead object's floor on, FloorFadeRateOnObjectDeath). Off by default.
 	void Set_Floor_Blend(bool on) { FloorBlend = on; }
+	// lane SELWALL-1: the surfaces this factory builds belong to a wall top or bridge model (W3DShaderKey::SelectionDecals: its opaque surfaces draw the
+	// selection's merge decals); off by default
+	void Set_Selection_Decals(bool on) { SelectionDecals = on; }
 	// RW 0x531C77 applied to the texture `name` (its A8R8G8B8 texels; another format stays as it is, as retail's switch leaves it), then mipmaps; cached
 	// by "#<path>#<kind>&<c0>&<c1>&<c2>" (retail names the new texture "#<texture>#<options>", RW 0x54BDE0). Invalid when the texture is missing.
 	Ref<Texture2D> Recolored_House_Texture(const std::string &name, const HouseColorParams &params, std::vector<std::string> &errors, std::vector<std::string> &notes);
@@ -144,6 +147,7 @@ private:
 	bool AlphaOverride = false;
 	bool ParticleColor = false;
 	bool FloorBlend = false;
+	bool SelectionDecals = false; // lane SELWALL-1
 	std::map<std::string, Ref<Shader>> Shaders;
 	std::map<std::string, Ref<Texture2D>> Textures; // by virtual path
 	std::map<std::string, std::string> PackedHouseTextureNotes; // retain S-1482 on cache hits

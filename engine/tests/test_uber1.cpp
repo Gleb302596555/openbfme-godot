@@ -144,6 +144,11 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // 0x6FB869) at computePath's fallback and the attack and melee approach paths, and the unclamped cells of RW 0x6E8CE6.
 // TOP20 S-560 (station claude/station-2) re-measured the pin vector (OPENBFME_UBER1_REGEN=1, Windows MSVC): the shroud's channels (RW 0x68EC3B -> 0xB51030)
 // are in the shroud hash from frame 0 (with their fill switched off it matches the previous vector).
+// Lane PATH-REBUILD re-measured the pin vector (OPENBFME_UBER1_REGEN=1 on its tree): every found path is rebuilt from its optimised nodes (RW 0x767B0E)
+// and the mover hash covers the path's node chain, from frame 0.
+// Merge queue q37 re-measured it once on the merged tree (OPENBFME_UBER1_REGEN=1), compared at each merge point: #187 on top of WARG-1 and #182 moves it,
+// and ATKRESET-1 (attack orders end the FiringDuration lock) moves it again.
+// pin: the merge with upstream 7e98ac2f re-measured the pin vector once on the merged tree (OPENBFME_UBER1_REGEN=1, Windows MSVC); it differs from both parents.
 TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1, 4 and 16 logic threads and in a repeated run; the hash's own jobs run on "
 		  "workers; Faithful hashes differently and serially")
 {

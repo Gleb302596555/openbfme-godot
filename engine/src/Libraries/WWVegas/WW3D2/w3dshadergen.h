@@ -82,6 +82,11 @@ struct W3DShaderKey
 	int OcclusionPass = 0;
 	// RenderObjectDraw particles (RW 0x964c00 / BFME2 0x00562ddb): INSTANCE_CUSTOM.z (> 0.5: W3D_EMISSIVE, < -0.5: W3D_DIFFUSE) overrides the surface's emissive / diffuse RGB per particle
 	bool ParticleColor = false;
+	// lane SELWALL-1: the surface receives the selection's merge decals (godot/shaders/selection_decals.gdshaderinc sel_merge_at, the wall side): RotWK
+	// projects every selection decal onto the parts of the WALK_ON_TOP_OF_WALL objects near it (W3DProjectedShadowManager RW 0x50C23A, BFME2 0x50C841;
+	// GameClient/SelectionDecals.h). Set by the material factory for an opaque surface of a wall model (W3DMaterialFactory::Set_Selection_Decals); the
+	// generator ignores it for any other surface. The decal is laid over the lit colour as on the terrain, kept above the object shadows
+	bool SelectionDecals = false;
 
 	std::string Id() const;
 };

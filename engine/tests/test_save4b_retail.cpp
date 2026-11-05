@@ -372,6 +372,19 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 	// RepairSpecialPower object (113)
 	// The modifier pool's expiry update (RW 0x80585F, S-633) moves the AIs' play: no salvage crate stands at frame 3000 (no DeletionUpdate, SalvageCrateCollide), no
 	// HordeNotifyTargetsOfImminentProbableCrushingUpdate or HorseHordeContain object (109)
+	// Lane PATH-REBUILD (the found paths rebuilt from their optimised nodes, RW 0x767B0E, move the AIs' play; measured twice on the lane's tree): no salvage
+	// crate stands at frame 3000 (no DeletionUpdate, SalvageCrateCollide), no RebuildHoleBehavior or RepairSpecialPower object; a
+	// HordeNotifyTargetsOfImminentProbableCrushingUpdate and a HorseHordeContain object (112); with the arc's segment count at x87 precision control 24 (RW 0x765E00; measured twice on the lane's tree) also no
+	// CommandButtonHuntUpdate, HordeDispatchSpecialPower, HordeNotifyTargetsOfImminentProbableCrushingUpdate or HorseHordeContain object (108)
+	// Merge queue q37 (#187's rebuilt paths on top of WARG-1, measured once on the merged tree): a HordeNotifyTargetsOfImminentProbableCrushingUpdate and a
+	// HorseHordeContain object again (109)
+	// Merge queue q38 (LOCODIST-1's retail locomotor distance to the goal, RW 0x664127, moves the AIs' play; measured once on the merged tree and at each merge point, #172 keeps the census): a
+	// CommandButtonHuntUpdate and a HordeDispatchSpecialPower object; no HordeNotifyTargetsOfImminentProbableCrushingUpdate or HorseHordeContain object (109)
+	// Merge queue q41 (DECOMPFIX-1104B: AIMAIM-1's aim, RW 0x75232F, with BUMP-1's give-way rules and STARTRANGE-1's start range, moves the AIs' play;
+	// measured once on the merged tree and at its merge point, NECRODIE-1 keeps the census): no CommandButtonHuntUpdate object; an AutoHealBehavior,
+	// HordeNotifyTargetsOfImminentProbableCrushingUpdate, HorseHordeContain and RepairSpecialPower object (112)
+	// The merge with upstream 7e98ac2f (PATH-REBUILD, LOCODIST-1, AIMAIM-1 on top of the fork; measured once on the merged tree, Windows MSVC): the fork's census
+	// holds (an AutoHealBehavior, HordeNotifyTargetsOfImminentProbableCrushingUpdate and HorseHordeContain object; no RepairSpecialPower object: 111)
 	std::string classList;
 	for (const std::string &c : classes)
 	{
@@ -380,15 +393,16 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 	MESSAGE("classes of the snapshot: " << classList);
 	CHECK(classes == std::set<std::string>{
 		"AISpecialPowerUpdate", "ActiveBody", "ArmorUpgrade", "ArrowStormUpdate", "AttributeModifierAuraUpdate", "AttributeModifierPoolUpdate",
-		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoPickUpUpdate", "BannerCarrierUpdate",
-		"BezierProjectileBehavior", "BloodthirstyUpdate", "BoredUpdate", "BuildableHeroListUpgrade", "BuildingBehavior", "CastleBehavior", "CastleMemberBehavior",
-		"CastleUpgrade", "CitadelSlaughterHordeContain", "ClickReactionBehavior", "CloudBreakSpecialPower", "CommandButtonHuntUpdate", "CommandPointsUpgrade", "CommandSetUpgrade",
-		"CostModifierUpgrade", "CreateObjectDie", "CritterEmitterUpdate", "DamageFilteredCreateObjectDie", "DarknessSpecialPower", "DefectionHelper",
-		"DelayedDeathBody", "DestroyDie", "DevastateSpecialPower", "DoCommandUpgrade", "DualWeaponBehavior", "ElvenWoodSpecialPower", "EmotionTrackerUpdate",
-		"FXListDie", "FiringTrackerHelper", "FoundationAIUpdate", "FreezingRainSpecialPower", "GeometryUpgrade", "GettingBuiltBehavior", "GiveUpgradeUpdate",
-		"GrabPassengerSpecialPower", "GrantUpgradeCreate", "GuardingHelper", "HighlanderBody", "HitReactionBehavior", "HordeContain", "HordeDispatchSpecialPower",
-		"HordeMemberCollide", "ImmortalBody", "InactiveBody", "InvisibilityUpdate",
-		"KeepObjectDie", "LargeGroupAudioUpdate", "LargeGroupBonusUpdate", "LevelUpUpgrade", "LifetimeUpdate", "ModelConditionUpgrade", "MonitorConditionUpdate",
+		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoHealBehavior", "AutoPickUpUpdate",
+		"BannerCarrierUpdate", "BezierProjectileBehavior", "BloodthirstyUpdate", "BoredUpdate", "BuildableHeroListUpgrade", "BuildingBehavior",
+		"CastleBehavior", "CastleMemberBehavior", "CastleUpgrade", "CitadelSlaughterHordeContain", "ClickReactionBehavior", "CloudBreakSpecialPower",
+		"CommandPointsUpgrade", "CommandSetUpgrade", "CostModifierUpgrade", "CreateObjectDie", "CritterEmitterUpdate", "DamageFilteredCreateObjectDie",
+		"DarknessSpecialPower", "DefectionHelper", "DelayedDeathBody", "DestroyDie", "DevastateSpecialPower", "DoCommandUpgrade", "DualWeaponBehavior",
+		"ElvenWoodSpecialPower", "EmotionTrackerUpdate", "FXListDie", "FiringTrackerHelper", "FoundationAIUpdate", "FreezingRainSpecialPower",
+		"GeometryUpgrade", "GettingBuiltBehavior", "GiveUpgradeUpdate", "GrabPassengerSpecialPower", "GrantUpgradeCreate", "GuardingHelper",
+		"HighlanderBody", "HitReactionBehavior", "HordeContain", "HordeDispatchSpecialPower", "HordeMemberCollide",
+		"HordeNotifyTargetsOfImminentProbableCrushingUpdate", "HorseHordeContain", "ImmortalBody", "InactiveBody", "InvisibilityUpdate", "KeepObjectDie",
+		"LargeGroupAudioUpdate", "LargeGroupBonusUpdate", "LevelUpUpgrade", "LifetimeUpdate", "ModelConditionUpgrade", "MonitorConditionUpdate",
 		"OCLSpecialPower", "ObjectCreationUpgrade", "PassiveAreaEffectBehavior", "PhysicsBehavior", "PickupStuffUpdate", "PlayerHealSpecialPower",
 		"PlayerUpgradeSpecialPower", "PorcupineFormationBodyModule", "ProductionSpeedBonus", "ProductionUpdate", "QueueProductionExitUpdate",
 		"RebuildHoleExposeDie", "RecoveryHelper", "RefundDie", "SMCHelper", "ScavengerSpecialPower", "ShareExperienceBehavior", "SiegeDeployHordeSpecialPower",
@@ -402,5 +416,6 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 	// random draws and grabs move the AIs' play (RW 0x8994BF / 0x89958F)
 	// Lane MODCOMPAT-MOD1 (measured at BoredUpdate's commit, a CI host): the AI update family of this game: no WorkerAIUpdate: BoredUpdate's random draws move
 	// the AIs' play (RW 0x899F1F)
-	CHECK(aiClasses == std::set<std::string>{ "AIUpdateInterface", "AnimalAIUpdate", "DozerAIUpdate", "HordeAIUpdate" });
+	// The merge with upstream 7e98ac2f (measured once on the merged tree, Windows MSVC): the AI update family of this game: now also WorkerAIUpdate
+	CHECK(aiClasses == std::set<std::string>{ "AIUpdateInterface", "AnimalAIUpdate", "DozerAIUpdate", "HordeAIUpdate", "WorkerAIUpdate" });
 }

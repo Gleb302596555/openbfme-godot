@@ -590,6 +590,12 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // TOP20 S-321 (station claude/station-2) re-measured the skirmish (OPENBFME_PERF1_REGEN=1, Windows MSVC): HitPassengerPercentage (RW 0x6CCD46: a draw at
 // Weapon.cpp:1505 for a shot at a victim with a non-horde contain, RW 0x6CCE9E: the redirect to the contain's slot 0xF4 passenger) moves it from frame 1453;
 // the battle keeps its vector (with the roll switched off the skirmish matches the previous vector).
+// Lane PATH-REBUILD re-measured all three (OPENBFME_PERF1_REGEN=1 on its tree): every found path is rebuilt from its optimised nodes (RW 0x767B0E) and
+// the mover hash covers the path's node chain, so the big battle and the allied blob differ from frame 0, the skirmish from frame 2.
+// Merge queue q37 re-measured once on the merged tree (OPENBFME_PERF1_REGEN=1), compared at each merge point: #187 on top of WARG-1's FindClosestPath
+// moves the big battle and the skirmish, and ATKRESET-1 (attack orders end the FiringDuration lock) moves both again; the allied blob keeps #187's vector.
+// pin: the merge with upstream 7e98ac2f re-measured all three once on the merged tree (OPENBFME_PERF1_REGEN=1, Windows MSVC): PATH-REBUILD, ATKRESET-1, LOCODIST-1 and
+// AIMAIM-1 on top of the fork's cheer, shroud channels, HitPassengerPercentage and fire system; the vectors differ from both parents.
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,

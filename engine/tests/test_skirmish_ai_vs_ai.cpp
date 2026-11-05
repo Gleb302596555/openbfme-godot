@@ -916,7 +916,24 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// The merge with upstream a4047af5 (WARG-1's FindClosestPath and unclamped cells on top of the modifier pool's update and the fire system), measured once on the merged tree
 	// (Windows MSVC): seed 2 ends with Mordor's defeat (start position 0) at 7144 with a new table, seed 7 stays open at 9000, seed 1234 ends with Mordor's defeat (start
 	// position 0) at 8206. Engine pins, not retail values.
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, 0, 7144 }, Game{ "FactionMen", "FactionMordor", 7u, -1, -1 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 8206 } })
+	// Lane PATH-REBUILD (the found paths rebuilt from their optimised nodes, RW 0x767B0E: every unit walks other lines; measured twice on the lane's tree):
+	// seed 2 ends with Mordor's defeat (start position 0) at 7211 with a new table, seed 7 stays open at 9000, seed 1234 ends with the Men's defeat (start
+	// position 1) at 8168; with the arc's segment count at x87 precision control 24 (RW 0x765E00; measured twice on the lane's tree): seed 2 ends with Mordor's defeat at 7094
+	// with a new table, seeds 7 and 1234 stay open at 9000. Engine pins, not retail values.
+	// Merge queue q37 (measured once on the merged tree and at each merge point): at #187's (on top of WARG-1) seed 2 stays open at 9000 and seed 7 ends
+	// with the Men's defeat (start position 0) at 7246; ATKRESET-1 (attack orders end the FiringDuration lock) ends seed 2 with the Men's defeat (start
+	// position 1) at 6858 with a new table and seed 7 with Mordor's defeat (start position 1) at 8584; seed 1234 stays open at 9000. Engine pins, not
+	// retail values.
+	// Merge queue q38 (measured once on the merged tree and at each merge point; #172 keeps them): LOCODIST-1's retail locomotor distance to the goal
+	// (RW 0x664127) keeps seed 2 open at 9000 with a new table and ends seed 7 with Mordor's defeat (start position 1) at 8995; seed 1234 stays open at
+	// 9000. Engine pins, not retail values.
+	// Merge queue q41 (measured once on the merged tree and at its merge point; NECRODIE-1 keeps them): DECOMPFIX-1104B (AIMAIM-1's aim, RW 0x75232F,
+	// with BUMP-1's give-way rules and STARTRANGE-1's start range) keeps seed 2 open at 9000 with a new table and seed 7 open at 9000 (Mordor's defeat at
+	// 8995 before); seed 1234 stays open at 9000. Engine pins, not retail values.
+	// The merge with upstream 7e98ac2f (PATH-REBUILD, LOCODIST-1, ATKRESET-1, AIMAIM-1 / DECOMPFIX-1104B on top of the fork's modifier pool and fire system), measured once
+	// on the merged tree (Windows MSVC): seed 2 stays open at 9000 with a new table, seed 7 ends with Mordor's defeat (start position 1) at 7915, seed 1234 ends with
+	// Mordor's defeat (start position 0) at 8478. Engine pins, not retail values.
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 7915 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 8478 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;
@@ -958,15 +975,23 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 			// merge queue q34 (measured once on the merged tree and at each merge point): SPELLFIX-1 and #160 end it at 7162; #161's block search keeps it open
 			// at 9000 with this table
 			// merge queue q35 (measured once on the merged tree and at each merge point): #132's melee reach ends it with Mordor's defeat at 7060
-			// lane WARG-1 (measured once on the lane's tree after the archive merge): FindClosestPath and the unclamped cells end it at 7971 with this table
+			// lane PATH-REBUILD (measured twice on the lane's tree): a new table from the first window on; the game ends with Mordor's defeat at 7094
+			// merge queue q37 (measured once on the merged tree; ATKRESET-1 moves it): a new table from the first window on; the game ends with the Men's defeat at 6858
+			// merge queue q38 (measured once on the merged tree and at each merge point; LOCODIST-1 moves it, #172 keeps it): a new table from the first window on; the game
+			// stays open at 9000
+			// merge queue q41 (measured once on the merged tree and at its merge point; DECOMPFIX-1104B moves it, NECRODIE-1 keeps it): a new table from the first
+			// window on; the game stays open at 9000
+			// the merge with upstream 7e98ac2f (measured once on the merged tree): a new table from the first window on; the game stays open at 9000
 			CHECK(run.progress ==
-			"frame 1000: [0 attacks 0 built 85u/8s destroyed 11u/0s] [1 attacks 1 built 91u/8s destroyed 23u/2s]\n"
-			"frame 2000: [0 attacks 1 built 271u/10s destroyed 101u/0s] [1 attacks 1 built 177u/12s destroyed 196u/4s]\n"
-			"frame 3000: [0 attacks 3 built 480u/12s destroyed 181u/3s] [1 attacks 1 built 232u/14s destroyed 404u/8s]\n"
-			"frame 4000: [0 attacks 4 built 604u/15s destroyed 269u/3s] [1 attacks 2 built 325u/16s destroyed 459u/9s]\n"
-			"frame 5000: [0 attacks 5 built 760u/15s destroyed 336u/4s] [1 attacks 3 built 414u/19s destroyed 652u/11s]\n"
-			"frame 6000: [0 attacks 6 built 839u/16s destroyed 414u/4s] [1 attacks 5 built 501u/24s destroyed 794u/14s]\n"
-			"frame 7000: [0 attacks 6 built 860u/17s destroyed 466u/4s] [1 attacks 6 built 521u/24s destroyed 857u/17s]\n");
+			"frame 1000: [0 attacks 0 built 72u/7s destroyed 36u/1s] [1 attacks 1 built 92u/7s destroyed 29u/1s]\n"
+			"frame 2000: [0 attacks 1 built 264u/10s destroyed 150u/2s] [1 attacks 1 built 201u/10s destroyed 135u/4s]\n"
+			"frame 3000: [0 attacks 1 built 382u/13s destroyed 237u/3s] [1 attacks 2 built 332u/11s destroyed 267u/5s]\n"
+			"frame 4000: [0 attacks 4 built 566u/15s destroyed 334u/3s] [1 attacks 4 built 420u/15s destroyed 441u/5s]\n"
+			"frame 5000: [0 attacks 4 built 739u/16s destroyed 493u/3s] [1 attacks 6 built 602u/15s destroyed 647u/5s]\n"
+			"frame 6000: [0 attacks 6 built 904u/21s destroyed 640u/4s] [1 attacks 6 built 691u/18s destroyed 803u/5s]\n"
+			"frame 7000: [0 attacks 8 built 1020u/25s destroyed 708u/5s] [1 attacks 7 built 791u/22s destroyed 896u/6s]\n"
+			"frame 8000: [0 attacks 9 built 1193u/27s destroyed 828u/6s] [1 attacks 7 built 917u/25s destroyed 1080u/6s]\n"
+			"frame 9000: [0 attacks 11 built 1364u/28s destroyed 952u/6s] [1 attacks 7 built 1038u/25s destroyed 1256u/6s]\n");
 		}
 	}
 }
@@ -1038,6 +1063,9 @@ TEST_CASE("skirmish ai targetless: the generator's FarmKillSquad draw at creatio
 	// merge queue q33 (#133's straight production exits shift the shared random stream before frame 10; measured at each merge point): with seed 1234 the
 	// frame-10 pick draws 1 and starts the FarmKillSquad first; seeds 1234 .. 1249 measured on the merged tree: 1240, 1243, 1245, 1246, 1248 and 1249 draw 0
 	// there (the FlagCaptureSquad at 10, the FarmKillSquad at 11), so the game moves to seed 1240
+	// lane PATH-REBUILD (the found paths rebuilt from their optimised nodes, RW 0x767B0E, shift the shared random stream before frame 10): with seed 1240 the
+	// frame-10 pick draws 1 again (the FarmKillSquad first); seeds 1240 .. 1255 measured on the lane's tree: 1241, 1242, 1247, 1248, 1253 and 1254 draw 0
+	// there, so the game moves to seed 1241 (the test's draws below hold)
 	OPENBFME_REQUIRE_START(s);
 	static std::vector<MapCacheEntry> cache;
 	std::string error;
@@ -1046,7 +1074,7 @@ TEST_CASE("skirmish ai targetless: the generator's FarmKillSquad draw at creatio
 		REQUIRE_MESSAGE(IniSkirmishSetupSource::loadMapCache(*s->mount->fs, cache, &error), error);
 	}
 	NewGameStart start(RandomAlgorithm::ZH_CarryChain);
-	REQUIRE_MESSAGE(NewGame::prepareNewGame(versusMessage(*s, "FactionMen", -1, "FactionMordor", 1, 1240u), s->world->playerTemplates(), s->settings, cache,
+	REQUIRE_MESSAGE(NewGame::prepareNewGame(versusMessage(*s, "FactionMen", -1, "FactionMordor", 1, 1241u), s->world->playerTemplates(), s->settings, cache,
 						RandomAlgorithm::ZH_CarryChain, start, &error),
 		error);
 	ArchiveW3DFileSource source(*s->mount->fs);

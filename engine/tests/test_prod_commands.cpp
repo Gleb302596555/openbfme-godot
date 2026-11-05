@@ -188,13 +188,13 @@ TEST_CASE("commands retail: the real CommandButton.ini and CommandSet.ini load c
 }
 
 // TOP20 #1: ButtonBorderType is read by retail's setControlCommand (RW 0x71CF3E -> 0x71C4F4) and drawn only around non-RADIAL command windows
-// (RW 0x4A579C); the port parses it and draws nothing, which is reported (stop S-7162)
-TEST_CASE("commands: stop S-7162: ButtonBorderType is parsed and the button border is reported as not drawn")
+// (RW 0x4A579C); the port parses it and draws nothing, which is reported (stop S-7176)
+TEST_CASE("commands: stop S-7176: ButtonBorderType is parsed and the button border is reported as not drawn")
 {
-	bool s7162 = false;
+	bool s7176 = false;
 	for (const std::string &l : CommandStore::acceptanceStops())
 	{
-		s7162 = s7162 || l.rfind("[S-7162]", 0) == 0;
+		s7176 = s7176 || l.rfind("[S-7176]", 0) == 0;
 	}
-	CHECK(s7162);
+	CHECK(s7176);
 }

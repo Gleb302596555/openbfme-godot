@@ -130,6 +130,12 @@ TEST_CASE("module coverage: every registry class is ported, base AI, parsed only
 	// MODCOMPAT-MOD1 (BoredUpdate missing -> ported): 176 / 133
 	// MODCOMPAT-MOD1 (SalvageCrateCollide parsed only -> ported, RW 0x651052): 177, parsed only 13
 	// BFME2CAMP1 (RebuildHoleExposeDie, RebuildHoleBehavior): missing -> ported: 166 / 143.
+	// TOPPLE-1 (StructureToppleUpdate missing -> ported, RW 0x8A8BB4): 178 / 132
+	// S-207: SpawnUnitBehavior data is parsed-only; its runtime remains unported (S-140).
+	// upstream before the merge: ported 180; // SIEGEFALL-1 (ClearanceTestingSlowDeathBehavior) and TOPPLE-1 (StructureToppleUpdate) missing -> ported: 180 / 130; VeterancyCrateCollide now has a runtime; + #117's CitadelSlaughterHordeContain, SIEGE-1's seven ported (two of them base AI before), BANNER-1's AllowBannerSpawnUpgrade, CHAT-1's BeaconClientUpdate
+	// upstream before the merge: baseAi 6;
+	// upstream before the merge: parsedOnly 13; // MODCOMPAT-MOD1 (SalvageCrateCollide) 14 -> 13
+	// upstream before the merge: missing 130; // TOPPLE-1 (StructureToppleUpdate) 131 -> 130; SIEGEFALL-1 (ClearanceTestingSlowDeathBehavior) 132 -> 131; VeterancyCrateCollide no longer missing; MODCOMPAT-MOD1 (BoredUpdate) 134 -> 133; MODCOMPAT-MOD1 (AutoPickUpUpdate) 135 -> 134; MODCOMPAT-MOD1 (PickupStuffUpdate) 136 -> 135; MODCOMPAT-MOD1 (ClickReactionBehavior) 137 -> 136; MODCOMPAT-MOD1 (AudioLoopUpgrade) 138 -> 137; MODCOMPAT-MOD1 (CritterEmitterUpdate) 139 -> 138; MODCOMPAT-MOD1 (GrabPassengerSpecialPower) 140 -> 139; MODCOMPAT-MOD1 (CommandButtonHuntUpdate) 141 -> 140; MODCOMPAT-MOD1 (SlaveWatcherBehavior) 142 -> 141; MODCOMPAT-MOD1 (the rebuild holes) 144 -> 142; MODCOMPAT-MOD1 (GeometryUpgrade) 145 -> 144; #117 (CitadelSlaughterHordeContain) 146 -> 145; CHAT-1 (BeaconClientUpdate) 147 -> 146; BANNER-1 (AllowBannerSpawnUpgrade) 148 -> 147; SIEGE-1 153 -> 148; WALL-2 (DynamicPortalBehaviour, FakePathfindPortalBehaviour) 155 -> 153; MODS-3 (FireWeaponWhenDamagedBehavior) 156 -> 155; LUMBER1 (SupplyCenterCreate, SupplyCenterDockUpdate) 158 -> 156; FX-4 (TransitionDamageFX) 159 -> 158; SUMMON-1 (SummonReplacementSpecialAbilityUpdate, DoCommandUpgrade); before: 161, the merge of the archive (S-207 SpawnUnitBehavior missing -> parsed only) with S-1991 (BloodthirstyUpdate missing -> ported)
 	// LUMBER1 supply warehouses (SupplyWarehouseCreate, SupplyWarehouseDockUpdate, Ennorath's supply rocks): +2 -> 179 / 131
 	// P-13 (AODHordeContain), MODGAP-1 (OCLUpdate, DeflectSpecialPower, ReflectDamage, EvacuateDamage), MODGAP-2 (FlingPassengerSpecialAbilityUpdate): +6 -> 185 / 125
 	// MODGAP-1, the classes unique to Ennorath (FreeLifeBody, OneRingPenaltyUpdate, EntEnragedUpdate, GiantBirdSlowDeathBehavior): +4 -> 189 / 121
@@ -142,11 +148,12 @@ TEST_CASE("module coverage: every registry class is ported, base AI, parsed only
 	// MODGAP-2: ProjectileStreamUpdate, W3DProjectileStreamDraw, StrafeAreaUpdate, W3DLightDraw: 212 -> 216, missing 97 -> 93.
 	// MODGAP-2: AnimalAIUpdate, HordeWorkerAIUpdate ported: 217 -> 219, baseAi 6 -> 4.
 	// MODGAP-2: RainOfFireUpdate, WallUpgradeUpdate, RunOffMapBehavior: 219 -> 222, missing 93 -> 90.
-	CHECK(c.ported == 222);
+	// the merge with upstream 7e98ac2f: TOPPLE-1 (StructureToppleUpdate) and VeterancyCrateCollide's runtime (#172) missing -> ported: 222 -> 224, missing 90 -> 88
+	CHECK(c.ported == 224);
 	CHECK(c.baseAi == 4);
 	// S-207: SpawnUnitBehavior data is parsed-only; its runtime remains unported (S-140).
 	CHECK(c.parsedOnly == 13); // W3DBuffDraw 13 -> 14 (drawn via ClientBuffs, S-4642).
-	CHECK(c.missing == 90);
+	CHECK(c.missing == 88);
 
 	if (const char *out = std::getenv("OPENBFME_MODULE_COVERAGE_OUT"))
 	{

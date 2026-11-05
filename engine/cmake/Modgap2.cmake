@@ -8,7 +8,6 @@ list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/StoreObjectsSpecialPower.c
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/SplitHordeSpecialPower.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/TeleportToCasterSpecialPower.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/ClearanceTestingSlowDeathGeometry.cpp)
-list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/ClearanceTestingSlowDeathBehavior.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/SpecialEnemySenseUpdate.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/OathbreakersFadeAwayBehavior.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/AODCrushCollide.cpp)

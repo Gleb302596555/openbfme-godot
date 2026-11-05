@@ -415,6 +415,8 @@ public:
 	virtual unsigned logicFrame() const = 0;                 // TheGameLogic+0x40
 	virtual bool containerAllowsBackingUp() const = 0;       // RW 0x5E6530-0x5E655A (HORDE_MEMBER inside a container whose template flag +0xD8 is set)
 	virtual float groundHeightAt(float x, float y) const = 0; // terrain height for NO_Z_MOTIVE_FORCE
+	// lane WALL-4: the object's layer is the ramp's (0x10) or a raised walkway's (2 .. 15; RW 0x5E2F24), for NO_Z_MOTIVE_FORCE's height hold (RW 0x5E77C2)
+	virtual bool isOnRampOrRaisedLayer() const { return false; }
 	virtual LocomotorPath *getPath() = 0;                    // RW 0x5E3884
 	// obj+0x94 ObjectStatus bits and obj+0x10C model condition bits (by index into the registries).
 	virtual bool testObjectStatus(int bit) const = 0;
@@ -497,9 +499,10 @@ enum LocomotorFlags
 	LOCOMOTOR_FLAG_NO_BRAKE = 0x10,     // moveForward does not start braking while it is set (setter not located)
 	LOCOMOTOR_FLAG_OVER_WATER = 0x20,   // the HOVER mover's last water test (RW 0x5E745D, ZH OVER_WATER; lane SHIP-1)
 	LOCOMOTOR_FLAG_BACKING_UP = 0x80,   // Legs / Wheels / HORDE movers
+	LOCOMOTOR_FLAG_CLOSE_ENOUGH_DIST_3D = 0x400, // ZH CLOSE_ENOUGH_DIST_3D: the constructor's RW 0x5E2CC1(10, template + 0xC8 CloseEnoughDist3D) (lane LOCODIST-1)
 	// every bit above: what a saved locomotor may hold (the snapshot's validation, AIMoveSnapshot.cpp); a new flag is added here and in this mask together
 	LOCOMOTOR_FLAGS_KNOWN = LOCOMOTOR_FLAG_BRAKING | LOCOMOTOR_FLAG_ALLOW_INVALID_POSITION | LOCOMOTOR_FLAG_BIT2 | LOCOMOTOR_FLAG_NO_BRAKE | LOCOMOTOR_FLAG_OVER_WATER |
-		LOCOMOTOR_FLAG_BACKING_UP
+		LOCOMOTOR_FLAG_BACKING_UP | LOCOMOTOR_FLAG_CLOSE_ENOUGH_DIST_3D
 };
 
 class Locomotor
