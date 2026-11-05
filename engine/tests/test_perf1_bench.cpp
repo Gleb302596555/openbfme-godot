@@ -584,6 +584,9 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // TOP20 #20 (station claude/station-2) re-measured both (OPENBFME_PERF1_REGEN=1, Windows MSVC): ActiveBody's cheer (RW 0x8C3B89, from the death RW
 // 0x8C4679 and onDelete RW 0x8C1E18) requests EMOTION_CHEER of the victim's enemies within CheerRadius; it moves the battle from frame 103 and the skirmish
 // from frame 723 (with the cheer switched off both match the previous vectors).
+// TOP20 S-560 (station claude/station-2) re-measured both (OPENBFME_PERF1_REGEN=1, Windows MSVC): the shroud's three channels (RW 0x68EC3B -> 0xB51030:
+// value, threat, campness) are filled; the shroud hash holds them, so both move from frame 0, and the emotion tracker reads the threat channel (with the
+// channels' fill switched off both match the previous vectors).
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,
@@ -642,7 +645,8 @@ TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after a
 // The allied blob (24 hordes sent to one point, 300 frames) on a world this test loads itself, against tests/data/perf1/allied_blob_300.hashes measured
 // with the build before the collision module caches (upstream main 87579746): the contact pairs' lookups must not change a frame. OPENBFME_PERF1_REGEN=1
 // rewrites the vector, as above. Merge queue q33 measured it on the archive's tree at #164's merge point (where every other PERF-1 / UBER-1 vector is the
-// archive's, byte for byte), then once on the merged tree: MODCOMPAT-MOD1 and #133 each move it, #166 keeps it.
+// archive's, byte for byte), then once on the merged tree: MODCOMPAT-MOD1 and #133 each move it, #166 keeps it. TOP20 S-560 re-measured it: the shroud's
+// channels (RW 0x68EC3B -> 0xB51030) move it from frame 0 (with their fill switched off it matches the previous vector).
 TEST_CASE("perf1: the allied blob (300 frames) hashes as the build before the collision module caches did in every frame")
 {
 	const std::vector<std::uint32_t> blobRef = perf1::readHashes("allied_blob_300.hashes");

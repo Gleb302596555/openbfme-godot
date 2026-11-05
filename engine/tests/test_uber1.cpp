@@ -142,6 +142,8 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // Lane FIRE re-measured the pin vector at TheFireLogicSystem's commit (OPENBFME_UBER1_REGEN=1): logical fire grid, FireLogicNugget delivery and object fire watching (RW 0x6886E0, RW 0x912241), first differing at frame 23.
 // Lane WARG-1 re-measured the pin vector once on the lane's tree after the archive merge (OPENBFME_UBER1_REGEN=1, a CI host): FindClosestPath (RW
 // 0x6FB869) at computePath's fallback and the attack and melee approach paths, and the unclamped cells of RW 0x6E8CE6.
+// TOP20 S-560 (station claude/station-2) re-measured the pin vector (OPENBFME_UBER1_REGEN=1, Windows MSVC): the shroud's channels (RW 0x68EC3B -> 0xB51030)
+// are in the shroud hash from frame 0 (with their fill switched off it matches the previous vector).
 TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1, 4 and 16 logic threads and in a repeated run; the hash's own jobs run on "
 		  "workers; Faithful hashes differently and serially")
 {

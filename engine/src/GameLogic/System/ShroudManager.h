@@ -41,8 +41,14 @@
 //     permanent reveal and every other player revealMapForPlayer unless MultiplayerSettings UseShroud (RW 0xDE7D3C + 0x1C, table RW 0xC2F778) is set. The retail
 //     multiplayer.ini says `UseShroud = No`: a skirmish starts with the whole map explored (fogged), not black.
 //
-// NOT PORTED / INFERENCE (stops S-560 .. S-566, ShroudManager::stopLines): the three channels (RW 0xB51030: value / threat / campness maps the AI reads, RW
-// 0x68EC3B) are computed and stored but no consumer reads them; ghost objects (RW 0xB4E190 keeps a destroyed immobile object's record for a player that saw it
+//   * The channels (TOP20 S-560): when a record looks again it takes its three channels off at its old look cell (RW 0xB4F1D5), asks the object for each
+//     (slot 0x10, RW 0x68EC3B: in the world, a controlling player, alive, a positive shroud clearing range and not HORDE_MEMBER; 0 value: BuildCost for the
+//     owner over the vision range RW 0x68E43B, not UNDER_CONSTRUCTION; 1 threat: ThreatValue over ThreatRadius, a non-STRUCTURE with ThreatRadius 0 the
+//     health (_ftol2) over VisionRange, not UNDER_CONSTRUCTION; 2 campness: a STRUCTURE's CampnessValue for the owner and its allies over
+//     CampnessValueRadius), and adds each amount over the integer circle of ceil(range / cell) (RW 0xB51030 -> 0xB509E0, cells clamped 0 .. 0xFFFF).
+//     An object out of the world leaves its amount and mask: the record's last amount comes back at radius 0 (retail's order kept).
+//
+// NOT PORTED / INFERENCE (stops S-560 .. S-566, ShroudManager::stopLines): the channels' readers other than the emotion tracker (S-560); ghost objects (RW 0xB4E190 keeps a destroyed immobile object's record for a player that saw it
 // fogged) are not kept; the status cache is evaluated eagerly in update() for every invalidated record (retail evaluates it when asked, which only moves when
 // the "seen" byte changes); the vision attribute modifiers, the spied mask and the contained-object rule read no state yet; the x87 extended precision of the
 // polygon vertices is computed in binary64.
@@ -98,6 +104,11 @@ public:
 		int bonusTestSegments = 0;
 		bool small = false;
 		ObjectGeometry::Shape shape; ///< the default shape when the template has no geometry row
+		// the channel rows (RW 0x68EC3B reads them directly: + 0x5EA BuildCost and + 0x5EE ThreatValue u16, + 0x540 ThreatRadius, + 0x5E4 CampnessValue,
+		// + 0x550 CampnessValueRadius, + 0x4BC VisionRange)
+		unsigned buildCost = 0, threatValue = 0;
+		float threatRadius = 0.0f, campnessRadius = 0.0f, visionRange = 0.0f;
+		unsigned campness = 0;
 	};
 	// throws std::logic_error naming the template when a geometry row does not parse (PLAN rule 10: no default coverage)
 	// the inputs of one look, as the object answers them (RW 0x694A45); a negative radius means "does not look"
@@ -112,6 +123,9 @@ public:
 		std::function<void(const Object &, const TemplateVision &, LookInputs &)> look; ///< slot 0xC (the template's values read once for this look)
 		std::function<bool(const Object &, int player)> hidesWhenFogged;    ///< slot 0x14 (RW 0x68EDD0)
 		std::function<float(const Object &)> coverageRadius;                ///< the geometry's radius for the covered cells
+		// slot 0x10 (RW 0x68EC3B): the channel's amount, player mask and range (a negative range: none); an object out of the world answers 0 and leaves
+		// amount and mask as they were (the record's last values)
+		std::function<float(Object &, const TemplateVision &, int channel, int &amount, std::uint32_t &mask)> channel;
 	};
 
 	static TemplateVision templateVision(const ThingTemplate &finalOverride);
@@ -182,6 +196,8 @@ public:
 	int channelSum(float x, float y, int channel, std::uint32_t playerMask) const;
 	// lane MODULES-2: RW 0x68E4E2 getShroudClearingRange of a live object (the port of the look's range, the attribute modifier S-560 aside)
 	float visionRange(const Object &obj);
+	// RW 0x68E43B: the object's vision range (the template's VisionRange, the type 0x10 attribute modifier, the height bonus); AIUpdateInterface reads it too
+	static float objectVisionRange(Object &obj, const TemplateVision &tv);
 	// RW 0x82C167 (stop S-565): the source's controlling player is human and the target is FOGGED or worse for it (the caller exempts scripts)
 	static bool isShroudedForAction(const Object &source, const Object &target);
 
@@ -270,6 +286,10 @@ private:
 	void edge(Cell &c, int index, int player, CellShroudStatus s);
 	bool hline(int x1, int x2, int y, std::uint32_t mask, bool add);
 	void circle(int cx, int cy, int r, std::uint32_t mask, bool add);
+	// RW 0xB51030: `delta` added to `channel` of the players of `mask` over the integer circle of radius r (RW 0xB509E0, the look's circle; each cell clamped
+	// to 0 .. 0xFFFF, RW 0xB52BF0); nothing for an empty mask, a negative radius, a channel out of range or a zero delta
+	void addChannel(int cx, int cy, int r, int channel, int delta, std::uint32_t mask);
+	void takeChannelsOff(Record &r, bool forget); ///< the record's channels off at its look cell (RW 0xB4F1E0 / RW 0xB4E141: `forget` sets the radius to -1)
 	void polygon(const int *xs, const int *ys, int n, std::uint32_t mask, bool add);
 	void shape(int cx, int cy, const Radii &r, float facing, std::uint32_t mask, bool add);
 	void queueUnlook(const Record &r);
@@ -290,6 +310,10 @@ private:
 		bool force = false;      ///< r.force after the facing test
 		bool look = false;       ///< the record looks again (in holds the inputs)
 		LookInputs in;
+		// the object's three channels (RW 0xB4F2D0's slot 0x10 calls; the record's amount and mask unless the object writes them)
+		std::array<float, kChannels> channelRange{};
+		std::array<int, kChannels> channelAmount{};
+		std::array<std::uint32_t, kChannels> channelMask{};
 	};
 	void prepareRecord(Record &r, Prepared &p);
 	void applyRecord(Record &r, Prepared &p);

@@ -66,6 +66,26 @@ bool geometryIsSmall(const ThingTemplate &tt)
 	}
 	return small;
 }
+
+// RW 0x6A8695(index, 3, 0): the owner and every player the owner counts as an ally (the look's mask and the campness channel's)
+std::uint32_t ownerAndAllies(const PlayerList &players, const Player &owner)
+{
+	std::uint32_t mask = 0;
+	const int self = owner.getPlayerIndex();
+	if (self >= 0 && self < 32)
+	{
+		mask |= 1u << self;
+	}
+	for (int i = 0; i < players.getPlayerCount(); ++i)
+	{
+		const Player *p = players.getNthPlayer(i);
+		if (p && p != &owner && p->getPlayerIndex() >= 0 && p->getPlayerIndex() < 32 && owner.getRelationship(p->getDefaultTeam()) == ALLIES)
+		{
+			mask |= 1u << p->getPlayerIndex();
+		}
+	}
+	return mask;
+}
 } // namespace
 
 ShroudManager::Cell::Cell()
@@ -367,8 +387,11 @@ bool ShroudManager::hline(int x1, int x2, int y, std::uint32_t mask, bool add)
 	return true;
 }
 
-// RW 0xB50100 / 0xB50570: the integer circle of hlines
-void ShroudManager::circle(int cx, int cy, int r, std::uint32_t mask, bool add)
+namespace
+{
+// RW 0xB50100 / 0xB50570 (the look) and RW 0xB509E0 (the channels): the integer circle, its rows given to `row(left, right, y)` in retail's order
+template <class Row>
+void circleRows(int cx, int cy, int r, Row &&row)
 {
 	int x = 0, xNext = 0;
 	int err = 2 - 2 * r;
@@ -384,12 +407,12 @@ void ShroudManager::circle(int cx, int cy, int r, std::uint32_t mask, bool add)
 				++right;
 				--left;
 			}
-			hline(left, right, cy + dy, mask, add);
+			row(left, right, cy + dy);
 			if (dy == 0)
 			{
 				return;
 			}
-			hline(left, right, cy - dy, mask, add);
+			row(left, right, cy - dy);
 			--dy;
 			err += -2 * dy + 1;
 			x = xNext;
@@ -401,6 +424,67 @@ void ShroudManager::circle(int cx, int cy, int r, std::uint32_t mask, bool add)
 			--left;
 			err += 1 + 2 * x;
 			xNext = x;
+		}
+	}
+}
+} // namespace
+
+void ShroudManager::circle(int cx, int cy, int r, std::uint32_t mask, bool add)
+{
+	circleRows(cx, cy, r, [&](int l, int rr, int y) { hline(l, rr, y, mask, add); });
+}
+
+void ShroudManager::addChannel(int cx, int cy, int r, int channel, int delta, std::uint32_t mask)
+{
+	// RW 0xB51030
+	if (mask == 0 || r < 0 || channel < 0 || channel >= kChannels || delta == 0)
+	{
+		return;
+	}
+	mask &= kPlayerBits;
+	circleRows(cx, cy, r, [&](int x1, int x2, int y) {
+		// RW 0xB4FDC0: the row clipped like the look's (RW 0xB4E460), then every player of the mask over its cells
+		if (x2 < 0 || x1 >= m_countX || y < 0 || y >= m_countY)
+		{
+			return;
+		}
+		if (x2 < x1)
+		{
+			x2 = x1;
+		}
+		const int start = x1 > 0 ? x1 : 0;
+		const int end = x2 < m_countX ? x2 + 1 : m_countX;
+		const int rowStart = y * m_countX;
+		int player = 0;
+		for (std::uint32_t m = mask; m != 0; m >>= 1, ++player)
+		{
+			if (!(m & 1u))
+			{
+				continue;
+			}
+			for (int x = start; x < end; ++x)
+			{
+				// RW 0xB52BF0: the sum clamped to 0 .. 0xFFFF
+				std::uint16_t &v = m_cells[(size_t)(rowStart + x)].channels[(size_t)player][(size_t)channel];
+				const int sum = (int)v + delta;
+				v = (std::uint16_t)(sum < 0 ? 0 : (sum > 0xFFFF ? 0xFFFF : sum));
+			}
+		}
+	});
+}
+
+void ShroudManager::takeChannelsOff(Record &r, bool forget)
+{
+	for (int k = 0; k < kChannels; ++k)
+	{
+		// RW 0xB4F1E0 / 0xB4E147: a radius >= 0 and an amount != 0 (retail's `test; jbe`) come off at the look cell
+		if (r.channelRadius[(size_t)k] >= 0 && r.channelAmount[(size_t)k] != 0)
+		{
+			addChannel(r.lookX, r.lookY, r.channelRadius[(size_t)k], k, -r.channelAmount[(size_t)k], r.channelMask[(size_t)k]);
+			if (forget)
+			{
+				r.channelRadius[(size_t)k] = -1;
+			}
 		}
 	}
 }
@@ -917,10 +1001,11 @@ ShroudManager::TemplateVision ShroudManager::templateVision(const ThingTemplate 
 	// with another layout resolves again); the VALUES are always the template's current ones
 	enum
 	{
-		F_RANGE, F_SIDE, F_REAR, F_PERFOOT, F_RADIUS, F_MAX, F_MIN, F_SEGMENTS, F_VISION, F_COUNT
+		F_RANGE, F_SIDE, F_REAR, F_PERFOOT, F_RADIUS, F_MAX, F_MIN, F_SEGMENTS, F_VISION, F_BUILDCOST, F_THREAT, F_THREATRADIUS, F_CAMP, F_CAMPRADIUS, F_COUNT
 	};
 	static const char *const names[F_COUNT] = { "ShroudClearingRange", "VisionSide", "VisionRear", "VisionBonusPercentPerFoot", "VisionBonusTestRadius",
-		"MaxVisionBonusPercent", "MinVisionBonusPercent", "VisionBonusTestSegments", "VisionRange" };
+		"MaxVisionBonusPercent", "MinVisionBonusPercent", "VisionBonusTestSegments", "VisionRange", "BuildCost", "ThreatValue", "ThreatRadius", "CampnessValue",
+		"CampnessValueRadius" };
 	struct Slots
 	{
 		const std::vector<std::string> *table = nullptr;
@@ -979,13 +1064,24 @@ ShroudManager::TemplateVision ShroudManager::templateVision(const ThingTemplate 
 	v.bonusTestRadius = real(F_RADIUS, 0.0f);
 	v.maxBonus = real(F_MAX, 0.0f);
 	v.minBonus = real(F_MIN, 0.0f);
-	if (const FieldValue *f = field(F_SEGMENTS))
-	{
-		if (const long long *i = std::get_if<long long>(f))
+	auto integer = [&](int k) -> long long {
+		if (const FieldValue *f = field(k))
 		{
-			v.bonusTestSegments = (int)*i;
+			if (const long long *i = std::get_if<long long>(f))
+			{
+				return *i;
+			}
 		}
-	}
+		return 0;
+	};
+	v.bonusTestSegments = (int)integer(F_SEGMENTS);
+	// the channel rows (RW 0x68EC3B): BuildCost and ThreatValue are u16 (RW parser 0x42EC11), CampnessValue a dword (RW 0x42ECB2)
+	v.visionRange = real(F_VISION, 0.0f);
+	v.buildCost = (unsigned)(integer(F_BUILDCOST) & 0xFFFF);
+	v.threatValue = (unsigned)(integer(F_THREAT) & 0xFFFF);
+	v.threatRadius = real(F_THREATRADIUS, 0.0f);
+	v.campness = (unsigned)integer(F_CAMP);
+	v.campnessRadius = real(F_CAMPRADIUS, 0.0f);
 	return v;
 }
 
@@ -1052,7 +1148,7 @@ void ShroudManager::removeLookOf(Record &r)
 		queueUnlook(r);
 		r.radii.forward = -1;
 	}
-	r.channelRadius.fill(-1); // the channels are not added (S-560)
+	takeChannelsOff(r, true);
 }
 
 void ShroudManager::queueUnlook(const Record &r)
@@ -1288,6 +1384,14 @@ void ShroudManager::prepareRecord(Record &r, Prepared &p)
 		{
 			m_source.look(*p.obj, p.tv, p.in);
 		}
+		// RW 0xB4F2D0: the object's slot 0x10 for channels 0 .. 2, after its look (the look refreshed the ground reference the vision range reads); the
+		// record's amount and mask are what the object leaves unwritten
+		p.channelAmount = r.channelAmount;
+		p.channelMask = r.channelMask;
+		for (int k = 0; k < kChannels; ++k)
+		{
+			p.channelRange[(size_t)k] = m_source.channel ? m_source.channel(*p.obj, p.tv, k, p.channelAmount[(size_t)k], p.channelMask[(size_t)k]) : -1.0f;
+		}
 	}
 }
 
@@ -1314,6 +1418,7 @@ void ShroudManager::applyRecord(Record &r, Prepared &p)
 		{
 			queueUnlook(r);
 		}
+		takeChannelsOff(r, false); // RW 0xB4F1D5 .. 0xB4F212: at the old look cell
 		const LookInputs &in = p.in;
 		r.mask = in.mask;
 		r.facing = facing;
@@ -1329,6 +1434,24 @@ void ShroudManager::applyRecord(Record &r, Prepared &p)
 		if (r.radii.forward >= 0)
 		{
 			lookAt(cx, cy, r.radii, r.facing, r.mask);
+		}
+		// RW 0xB4F2C1 .. 0xB4F350: each channel's radius ceil(range * inverse) (-1 for a negative range, like the look's), then its amount at the new cell;
+		// a mask the object left 0 takes the look's (+ 0xEC)
+		for (int k = 0; k < kChannels; ++k)
+		{
+			const float range = p.channelRange[(size_t)k];
+			const int radius = range >= 0.0f ? SimMath::ceilToInt(SimMath::pc24Mul(range, m_cellSizeInv)) : -1;
+			r.channelRadius[(size_t)k] = radius;
+			r.channelAmount[(size_t)k] = p.channelAmount[(size_t)k];
+			r.channelMask[(size_t)k] = p.channelMask[(size_t)k];
+			if (radius >= 0 && r.channelAmount[(size_t)k] != 0)
+			{
+				if (r.channelMask[(size_t)k] == 0)
+				{
+					r.channelMask[(size_t)k] = r.mask;
+				}
+				addChannel(cx, cy, radius, k, r.channelAmount[(size_t)k], r.channelMask[(size_t)k]);
+			}
 		}
 		r.lookX = cx;
 		r.lookY = cy;
@@ -1515,8 +1638,9 @@ bool ShroudManager::isShroudedForAction(const Object &source, const Object &targ
 std::vector<std::string> ShroudManager::stopLines()
 {
 	return {
-		"[S-560] shroud channels: the three per-cell channels of RW 0xB51030 (BuildCost / ThreatValue / CampnessValue maps the AI reads, RW 0x68EC3B) are not "
-		"added; no AI consumer is ported",
+		"[S-560] shroud channels: the three per-cell channels (RW 0xB51030, the object's RW 0x68EC3B: BuildCost / ThreatValue or health / CampnessValue) are "
+		"added; their readers: the emotion tracker's threat (ported), the unit voice's camp test (RW 0x8DD6F3, S-704) and the AI's channel search (RW 0xB52740 "
+		"from RW 0x7C1A60) are not ported; a body-less object's health threat is 0 (retail reads the body unchecked; no retail template gets there without one)",
 		"[S-561] ghost objects: a destroyed immobile object's record is not kept for the players that saw it fogged (RW 0xB4E190, the ghost object of RW "
 		"0x691602 / TheGhostObjectManager); its remembered building disappears when it dies",
 		"[S-562] shroud inference: the object statuses are evaluated eagerly in update() (retail on demand); the covered cells use the template's last geometry "
@@ -1599,6 +1723,33 @@ float shroudClearingRange(const Object &obj, ShroudManager &sm, const ShroudMana
 }
 } // namespace
 
+float ShroudManager::objectVisionRange(Object &obj, const TemplateVision &tv)
+{
+	// RW 0x68E43B: Object + 0x1B0 (S-1027: the template's VisionRange) x (1 + the attribute modifier sum of type 0x10, RW 0x804F39) x the height bonus
+	float range = tv.visionRange;
+	float sum = 0.0f;
+	if (obj.attributeModifierSum(16, nullptr, sum))
+	{
+		range = SimMath::pc24Mul(SimMath::pc24Add(sum, 1.0f), range);
+	}
+	ShroudManager *sm = obj.logic().shroud();
+	if (sm && tv.bonusPerFoot > 0.0f) // template + 0x4CC
+	{
+		float bonus = SimMath::pc24Mul(SimMath::pc24Sub(obj.getPosition()->z, sm->groundReferenceFor(obj, tv)), tv.bonusPerFoot);
+		// RW 0x68AF8E
+		if (bonus > tv.maxBonus)
+		{
+			bonus = tv.maxBonus;
+		}
+		if (tv.minBonus > bonus)
+		{
+			bonus = tv.minBonus;
+		}
+		range = SimMath::pc24Mul(SimMath::pc24Add(bonus, 1.0f), range);
+	}
+	return range;
+}
+
 float ShroudManager::visionRange(const Object &obj)
 {
 	const ThingTemplate *tt = static_cast<const ThingTemplate *>(obj.getTemplate())->getFinalOverride();
@@ -1662,33 +1813,78 @@ ShroudManager::ObjectSource ShroudManager::retailObjectSource()
 				}
 			}
 		}
-		const PlayerList &players = obj.logic().players();
-		if (obj.isKindOf((unsigned)revealToAll))
-		{
-			in.mask = kPlayerBits;
-		}
-		else
-		{
-			// RW 0x6A8695(index, 3, 0): the owner and every player the owner counts as an ally
-			std::uint32_t mask = 0;
-			const int self = owner->getPlayerIndex();
-			if (self >= 0 && self < 32)
-			{
-				mask |= 1u << self;
-			}
-			for (int i = 0; i < players.getPlayerCount(); ++i)
-			{
-				const Player *p = players.getNthPlayer(i);
-				if (p && p != owner && p->getPlayerIndex() >= 0 && p->getPlayerIndex() < 32 && owner->getRelationship(p->getDefaultTeam()) == ALLIES)
-				{
-					mask |= 1u << p->getPlayerIndex();
-				}
-			}
-			in.mask = mask;
-		}
+		in.mask = obj.isKindOf((unsigned)revealToAll) ? kPlayerBits : ownerAndAllies(obj.logic().players(), *owner);
 		in.forward = in.side = in.rear = range;
 		in.side = SimMath::pc24Mul(in.side, tv.visionSide);
 		in.rear = SimMath::pc24Mul(in.rear, tv.visionRear);
+	};
+	s.channel = [](Object &obj, const TemplateVision &tv, int channel, int &amount, std::uint32_t &mask) -> float {
+		// RW 0x68EC3B (Object vtable 0xC123B0 slot 0x10)
+		static const int structure = kindIndex("STRUCTURE");
+		static const int hordeMember = CombatNames::status("HORDE_MEMBER");
+		if (!obj.isInWorld())
+		{
+			return 0.0f; // RW 0x68EC41: Object + 0x474 clear: 0.0 with the amount and the mask unwritten
+		}
+		const Player *owner = obj.getControllingPlayer();
+		ShroudManager *sm = obj.logic().shroud();
+		// RW 0x68EC5C .. 0x68EC94: no controlling player, dead (+ 0x458 bit 0), no shroud clearing range (RW 0x68E4E2 <= 0) or HORDE_MEMBER (38): amount 0
+		if (!owner || !sm || obj.isEffectivelyDead() || shroudClearingRange(obj, *sm, tv) <= 0.0f || obj.testStatus((unsigned)hordeMember))
+		{
+			amount = 0;
+			return 0.0f;
+		}
+		const int self = owner->getPlayerIndex();
+		switch (channel)
+		{
+		case 0:
+			// RW 0x68ED7D: not UNDER_CONSTRUCTION: BuildCost for the owner over the object's vision range (RW 0x68E43B)
+			if (obj.isUnderConstruction())
+			{
+				break;
+			}
+			amount = (int)tv.buildCost;
+			mask = 1u << (self & 31);
+			return objectVisionRange(obj, tv);
+		case 1:
+		{
+			// RW 0x68ED00: not UNDER_CONSTRUCTION: ThreatValue over ThreatRadius; a ThreatRadius of 0.0 on a non-STRUCTURE takes the health (body slot 0x10,
+			// _ftol2) over the template's VisionRange
+			if (obj.isUnderConstruction())
+			{
+				break;
+			}
+			amount = (int)tv.threatValue;
+			mask = 1u << (self & 31);
+			float range = tv.threatRadius;
+			if (range == 0.0f && !obj.isKindOf((unsigned)structure))
+			{
+				// INFERENCE (S-560): retail reads the body unchecked; every retail template that gets here has one (`shroud retail: every template ...`
+				// pins it); only a synthetic body-less object counts 0
+				const BodyModuleInterface *body = obj.getBodyModule();
+				amount = body ? ftolLow((double)body->getHealth()) : 0;
+				range = tv.visionRange;
+			}
+			return range;
+		}
+		case 2:
+			// RW 0x68ECB1: a STRUCTURE's CampnessValue (none: 0) for the owner and its allies (RW 0x6A8695(index, 3, 0)) over CampnessValueRadius
+			if (!obj.isKindOf((unsigned)structure))
+			{
+				break;
+			}
+			amount = (int)tv.campness;
+			if (amount == 0)
+			{
+				return 0.0f;
+			}
+			mask = ownerAndAllies(obj.logic().players(), *owner);
+			return tv.campnessRadius;
+		default:
+			break;
+		}
+		amount = 0;
+		return 0.0f;
 	};
 	s.hidesWhenFogged = [](const Object &obj, int player) {
 		// RW 0x68EDD0

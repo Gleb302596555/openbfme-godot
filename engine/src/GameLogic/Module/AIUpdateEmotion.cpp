@@ -126,42 +126,9 @@ float AIUpdateInterface::objectVisionRange() const
 
 float AIUpdateInterface::objectVisionRangeOf(Object &object)
 {
-	// RW 0x68E43B (an Object function: lane CAMP-1H reads it for objects without an AI too, ENEMY_SIGHTED)
-	Object *obj = &object;
-	const ThingTemplate *tt = static_cast<const ThingTemplate *>(obj->getTemplate())->getFinalOverride();
-	float range = 0.0f; // Object + 0x1B0 (S-1027: the template's VisionRange)
-	if (const FieldValue *v = tt->findField("VisionRange"))
-	{
-		if (const float *f = std::get_if<float>(v))
-		{
-			range = *f;
-		}
-	}
-	float sum = 0.0f;
-	if (obj->attributeModifierSum(16, nullptr, sum)) // RW 0x804F39(0x10)
-	{
-		range = SimMath::pc24Mul(SimMath::pc24Add(sum, 1.0f), range);
-	}
-	ShroudManager *sm = obj->logic().shroud();
-	if (sm)
-	{
-		const ShroudManager::TemplateVision tv = ShroudManager::templateVision(*tt);
-		if (tv.bonusPerFoot > 0.0f) // template + 0x4CC
-		{
-			float bonus = SimMath::pc24Mul(SimMath::pc24Sub(obj->getPosition()->z, sm->groundReferenceFor(*obj, tv)), tv.bonusPerFoot);
-			// RW 0x68AF8E
-			if (bonus > tv.maxBonus)
-			{
-				bonus = tv.maxBonus;
-			}
-			if (tv.minBonus > bonus)
-			{
-				bonus = tv.minBonus;
-			}
-			range = SimMath::pc24Mul(SimMath::pc24Add(bonus, 1.0f), range);
-		}
-	}
-	return range;
+	// RW 0x68E43B (an Object function: lane CAMP-1H reads it for objects without an AI too, ENEMY_SIGHTED); one port with the shroud's value channel
+	const ThingTemplate *tt = static_cast<const ThingTemplate *>(object.getTemplate())->getFinalOverride();
+	return ShroudManager::objectVisionRange(object, ShroudManager::templateVision(*tt));
 }
 
 bool AIUpdateInterface::repulsorPosition(PathfindObjectID id, Coord3D &out)
