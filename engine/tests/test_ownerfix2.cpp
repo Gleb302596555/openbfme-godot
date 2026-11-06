@@ -596,8 +596,14 @@ TEST_CASE("ownerfix2 retail: a farm's placement shows its claimable share (RW 0x
 		// lane PLACEDECAL-1: the claims as the HUD draws them: SHADOW_ALPHA_DECAL, the diffuse 0x806464C8 (setColor, then setOpacity 0x80), terrain only
 		std::vector<SelectionDecal> decals;
 		fb.updatePlacement(logic, me, nullptr, Coord3D{ px, py, 0.0f }, u"%d%%");
-		fb.appendDecals("TerrainResourceClaimDecal", "PlaceTerrainResourceClaimantDecal", decals);
-		REQUIRE(decals.size() == fb.claimedDecals().size());
+		// with a farm selected the outline arcs come too (RW 0x8EC1D6 -> RW 0x8EC21D, the fork's reading): appendDecals puts them first (lane ECOCIRCLE-2)
+		const TerrainResourceDecalCounts counts = fb.appendDecals("TerrainResourceClaimDecal", "PlaceTerrainResourceClaimantDecal", decals);
+		CHECK(counts.arcs == fb.claimArcs().size());
+		CHECK(counts.arcs > 0); // tolerance: the exact count follows the Men start's castle claims; counts.arcs == claimArcs().size() above pins it
+		CHECK(counts.place == 0);
+		REQUIRE(counts.claims == fb.claimedDecals().size());
+		REQUIRE(decals.size() == counts.arcs + counts.claims);
+		decals.erase(decals.begin(), decals.begin() + (std::ptrdiff_t)counts.arcs);
 		for (size_t i = 0; i < decals.size(); ++i)
 		{
 			CHECK(decals[i].object == fb.claimedDecals()[i].id);

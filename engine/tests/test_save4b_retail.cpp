@@ -402,9 +402,11 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 	// 147827fa (this set's previous values pass there; the macro resolution is the only code change since)
 	// pin: the fork's merge of upstream 3e363ff9 (2026-11-06, measured once on the merged tree, Windows MSVC: CASTLEATK-1, ATKSTATE-1a and the banner
 	// carrier rule on top of the fork) moves the AIs' play: a CommandButtonHuntUpdate object and a RebuildHoleBehavior hole in the snapshot (111)
+		// pin: the fork's merge of upstream 69dcd7ff (2026-11-06, measured once on the merged tree, Windows MSVC: the skirmish AI's tactics and powers, AIRBORNE-1 and the Brutal discount on top of the fork):
+	// an AutoHealBehavior object again, no RebuildHoleBehavior hole (110)
 	CHECK(classes == std::set<std::string>{
 		"AISpecialPowerUpdate", "ActiveBody", "ArmorUpgrade", "ArrowStormUpdate", "AttributeModifierAuraUpdate", "AttributeModifierPoolUpdate",
-		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoPickUpUpdate",
+		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoHealBehavior", "AutoPickUpUpdate",
 		"BannerCarrierUpdate", "BezierProjectileBehavior", "BloodthirstyUpdate", "BoredUpdate", "BuildableHeroListUpgrade", "BuildingBehavior",
 		"CastleBehavior", "CastleMemberBehavior", "CastleUpgrade", "CitadelSlaughterHordeContain", "ClickReactionBehavior", "CloudBreakSpecialPower",
 		"CommandButtonHuntUpdate", "CommandPointsUpgrade", "CommandSetUpgrade", "CostModifierUpgrade", "CreateObjectDie", "CritterEmitterUpdate", "DamageFilteredCreateObjectDie",
@@ -416,7 +418,7 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 		"LargeGroupAudioUpdate", "LargeGroupBonusUpdate", "LevelUpUpgrade", "LifetimeUpdate", "ModelConditionUpgrade", "MonitorConditionUpdate",
 		"OCLSpecialPower", "ObjectCreationUpgrade", "PassiveAreaEffectBehavior", "PhysicsBehavior", "PickupStuffUpdate", "PlayerHealSpecialPower",
 		"PlayerUpgradeSpecialPower", "PorcupineFormationBodyModule", "ProductionSpeedBonus", "ProductionUpdate", "QueueProductionExitUpdate",
-		"RebuildHoleBehavior", "RebuildHoleExposeDie", "RecoveryHelper", "RefundDie", "SMCHelper", "ScavengerSpecialPower", "ShareExperienceBehavior", "SiegeDeployHordeSpecialPower",
+		"RebuildHoleExposeDie", "RecoveryHelper", "RefundDie", "SMCHelper", "ScavengerSpecialPower", "ShareExperienceBehavior", "SiegeDeployHordeSpecialPower",
 		"SlaughterHordeContain", "SlaveWatcherBehavior", "SlavedUpdate", "SlowDeathBehavior", "SpawnBehavior", "SpawnPointProductionExitUpdate",
 		"SpawnUnitBehavior", "SpecialAbilityUpdate", "SpecialPowerModule", "SpellRechargeModifierUpgrade", "SquishCollide", "StancesBehavior", "StatusBitsUpgrade",
 		"StealthDetectorUpdate", "StructureBody", "StructureCollapseUpdate", "SubObjectsUpgrade", "TaintSpecialPower", "TemporarilyDefectUpdate",
