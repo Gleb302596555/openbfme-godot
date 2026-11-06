@@ -610,6 +610,10 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // pin: TOP20 #21 r3, an attack ends when its victim turns UNATTACKABLE (RW 0x7417E4 .. 0x741807, WeaponSet RW 0x6C9207): re-measured the skirmish
 // (OPENBFME_PERF1_REGEN=1, Windows MSVC, station-1): it moves from line 368 of skirmish4_6000.hashes; the big battle is unchanged. Attributed by r2's build
 // 13380105 (this test passes there on the previous vectors; r3 is the only code change since)
+// pin: the fire grid's one NewMap before the map's objects (c0ff4bcd, RW 0x62FDB1; P-43): the map's structures now register their fire cells and take
+// ground fire in a fresh game, as RotWK's do; re-measured the skirmish (OPENBFME_PERF1_REGEN=1, Windows MSVC, station-1): it moves from frame 1343; the
+// big battle is unchanged. Attributed by the night run of 2026-11-06 on main da6cbfdf (this test passes there on the previous vectors; 7bb69587 between
+// them changes a stop's text and a test only)
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,
