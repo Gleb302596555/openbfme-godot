@@ -32,9 +32,9 @@
 //         team gate, not in onEnslave and not in the movement helper.
 //       - PORT-11: 0x8A5E66 tests data + 0x54; false jumps to 0x8A5E7C. True: 0x8A5E6C mov ecx,ebx (MASTER), 0x8A5E6E call Object::getLayer
 //         RW 0x68BBE0; 0x8A5E73 mov ecx,[ebp-4] (SLAVE), push eax, 0x8A5E77 call Object::setLayer RW 0x68BB9D. The receiver swap proves the direction
-//         master -> slave. Both paths then clear the SLAVE's Object + 0x39C bit 6 unconditionally (0x8A5E82 .. 0x8A5E88), before any repair/attack work.
+//         master -> slave. Both paths then clear the MASTER's Object + 0x39C bit 6 unconditionally (0x8A5E82 .. 0x8A5E89), before any repair/attack work.
 //       - 0x8A5E91 reads the master's victim (RW 0x668303); 0x8A5EA2 reads health only with RepairRatePerSecond > 0. 0x8A5EC9 health <=
-//         RepairWhenBelowHealth% -> repair 0x8A5B75. 0x8A5EF8 AttackRange + victim -> endRepair (0x8A5F0D) and doAttackLogic (0x8A5F18).
+//         RepairWhenBelowHealth% -> repair 0x8A5B75. 0x8A5EEB AttackRange + victim -> endRepair (0x8A5EFC) and doAttackLogic (0x8A5F06).
 //         0x8A5F2C ScoutRange + a master path -> scout 0x8A54DD when its end is farther than (GuardMaxRange / 2)^2 (RW 0x6CA525).
 //         0x8A5F8B health < 100 -> repair. 0x8A5FA5 builds the guard point from the master's transform and GuardPositionOffset (SSE).
 //       - 0x8A5FFB FadeOutRange: drawable fade (client). 0x8A6024 GuardMaxRange: a guard target -> moveTo(target, false) at 0x8A605F; otherwise
@@ -52,15 +52,17 @@
 //     AIUpdateInterface::setLayer writes that same storage, already hashed and xferred. PORT-11 uses those APIs, adds no duplicate layer state, and
 //     does not change the existing terrain/partition limitations of the port's setter.
 //   * Object + 0x39C bit 6 is DRONE_SPOTTING: RW name-pointer table 0xDA1740, entry 6 at 0xDA1758 points to 0xC18008 ("DRONE_SPOTTING").
-//     The update clear is 0x8A5E88 and [ebp-4]; the matching set in doAttackLogic is 0x8A54CF on ebx (the master resolved at 0x8A5336), inside the
-//     DistToTargetToGrantRangeBonus^2 test (0x8A54AE .. 0x8A54CA). The two operations affect different objects: clear the slave, set the master.
+//     The update clear is 0x8A5E82 and [ebx] (the master resolved at 0x8A5E0B); the matching set in doAttackLogic is 0x8A54CF on ebx (the master
+//     resolved at 0x8A5336, loaded into ebx at 0x8A5379 / 0x8A5401), inside the DistToTargetToGrantRangeBonus^2 test (0x8A54BD .. 0x8A54CD).
+//     Both operations affect the MASTER; the slave's mask is untouched. The compared distance is the edge-squared result of RW 0x6CA525 stored at
+//     [ebp-0xC] (0x8A5351): the slave's bounding circle radius (+0xB8) is subtracted at 0x6CA536 before squaring, not the centre distance.
 //   * RW 0x8A567E(pos, idleFirst): LEASHED_RETURNING within GuardWanderRange^2 of pos clears (the status and the model condition); GuardWanderRange:
 //     pos += (cos a, sin a) * GuardWanderRange, a = GameLogicRandomValueReal(0, 2 pi) line 0x21F, the offset's z the ground height there; the AI:
 //     idleFirst: aiIdle(CMD_FROM_AI) then aiMoveToPosition(pos, CMD_FROM_AI) (RW 0x5E821A / 0x66C4CA); else AI command 15 (ZH ATTACKMOVE_TO_POSITION,
 //     RW 0x696266(pos, ?, CMD_FROM_AI)).
 //   * the attack logic RW 0x8A5319 (ZH doAttackLogic): the victim's position, or the slaver's position plus AttackRange along slaver -> victim when the
 //     victim is beyond AttackRange^2 (RW 0x6CA525 from the object); AttackWanderRange: the random offset (line 0x1B5); aiMoveToPosition(CMD_FROM_AI);
-//     within DistToTargetToGrantRangeBonus^2 the slaver's weapon bonus bit 6 sets.
+//     within DistToTargetToGrantRangeBonus^2 of the slave's bounding circle edge (RW 0x6CA525) the slaver's weapon bonus bit 6 sets.
 //   * endRepair RW 0x8A52B2: a repair state clears (model condition 0x5E); the AI's vslot 0x238(0) and the locomotor's + 0x44 bits 3 / 6 (not identified).
 // INFERENCE / NOT PORTED (stop S-1426, stopLines()): the repair path (RW 0x8A5B75 / 0x8A58FA: no retail object repairs), the scout path's slaver path end
 // (the AI's path is not kept as RotWK's + 0x140), AI command 15's second argument (RW 0x68B58C(0) + 0x34) and its state (ported as the attack-move of COMBAT-1,

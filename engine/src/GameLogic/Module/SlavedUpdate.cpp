@@ -311,9 +311,11 @@ void SlavedUpdate::doAttackLogic(Object &slaver, Object &target)
 	{
 		ai->aiMoveToPosition(pos, CMD_FROM_AI); // RW 0x66C4CA(pos, 2)
 	}
-	// RW 0x8A54BD .. 0x8A54CF: the squared distance from the slave to the victim is within DistToTargetToGrantRangeBonus^2 -> set DRONE_SPOTTING
-	// on the MASTER (ebx was resolved from m_slaverID at 0x8A5336). The update's clear at 0x8A5E88 is on the slave, not this object.
-	if (distSqTo(*obj, *target.getPosition()) <= intSquare(m_data->m_distToTargetToGrantRangeBonus))
+	// RW 0x8A54BD .. 0x8A54CF: the same edge-squared distance from 0x6CA525 (the slave's bounding circle +0xB8 subtracted at 0x6CA536)
+	// within DistToTargetToGrantRangeBonus^2 -> set DRONE_SPOTTING on the MASTER (ebx = the master resolved from m_slaverID at 0x8A5336,
+	// loaded into ebx at 0x8A5379 / 0x8A5401). The update's clear at 0x8A5E82 is also on the master; the slave's mask is untouched.
+	const int bonusRange = m_data->m_distToTargetToGrantRangeBonus;
+	if (dist <= (float)(bonusRange * bonusRange))
 	{
 		slaver.setWeaponBonusCondition(droneSpottingBit(), true);
 	}
@@ -391,9 +393,10 @@ UpdateSleepTime SlavedUpdate::update()
 	{
 		ai->setLayer(ai->world().adapterFor(*slaver).getLayer());
 	}
-	// RW 0x8A5E82 .. 0x8A5E88: both flag paths unconditionally clear bit 6 (DRONE_SPOTTING, name table 0xDA1740) on the SLAVE's
-	// Object + 0x39C, before repair / attack / guard. Preserve every other bonus bit; the master's matching set is in doAttackLogic (0x8A54CF).
-	obj->setWeaponBonusCondition(droneSpottingBit(), false);
+	// RW 0x8A5E82 .. 0x8A5E89: both flag paths unconditionally clear bit 6 (DRONE_SPOTTING, name table 0xDA1740) on the MASTER's
+	// Object + 0x39C (ebx was replaced by the master at 0x8A5E0B), before repair / attack / guard. Preserve every other bonus bit;
+	// the matching set is in doAttackLogic (0x8A54CF). The slave's own mask is not touched here.
+	slaver->setWeaponBonusCondition(droneSpottingBit(), false);
 	AIUpdateInterface *slaverAI = slaver->getAIUpdateInterface();
 	Object *target = slaverAI ? slaverAI->currentVictim() : nullptr; // RW 0x668303
 	const int healthPercent = 100; // RepairRatePerSecond above 0 only (no retail slave repairs): S-1426
