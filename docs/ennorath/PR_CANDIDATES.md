@@ -33,6 +33,8 @@
 
 | решение | дата | автор | где | проверено | upstream |
 |---|---|---|---|---|---|
+| PORT-6: `StealthDetectorUpdate` в контейнере выбирает поле по его виду: гарнизон — `CanDetectWhileGarrisoned`, иначе `CanDetectWhileContained` (RW 0x8A6492) | 2026-11-06 | арена (issue #59) | PR #63: `6744b7a5`, `a5505bc7`, `db2b04fa`, `9fb1c691` | `PORT-6*` 3/3, `*stealth*` 36/36, `*garrison*` 63/63; в игре проверить нечем (в моде поля только у `MordorRingWraithNoGlow`, оба одинаковы) | не предложено |
+| PORT-8: `PhysicsBehavior` с `OrientToFlightPath` разворачивает тело вдоль полёта, `TumbleRandomly` только гасит разворот (RW 0x793608 .. 0x7936F7), S-782 сужен | 2026-11-06 | арена (issue #61) | PR #69: `7a52b9c6`, `e28a26bc`, `e127032d`, `397f3dbf`, `f16c7ab5`; эталоны с обломками зданий могут сдвинуться (ночь) | `PORT-8*` 5/5, `proj*` / `flank1*` / `move3*` / `exit1*` / `physics*` 62/62; в игре ждёт (обломки `GondorBuildingGeneral01` под катапультой) | не предложено |
 | P-33: огонь на земле бьёт как `DAMAGE_LOGICAL_FIRE` (RW 0x688A13), смерть `BURNED`, а не `FLAME` (`FireLogicSystem.cpp`) | 2026-11-06 | Claude (station-1) | `cc34e80d` (`agent/claude/station-1`); эталон `perf1` skirmish в том же коммите | `fire logic: a burning cell hits its watchers*`; в игре ждёт | не предложено |
 | Сетка огня: один `FireLogicSystem::newMap` до объектов карты (RW 0x62FDB1), размер по самой большой границе (P-43) | 2026-11-06 | Claude (station-1) | `c0ff4bcd` (`agent/claude/station-1`); эталон `perf1` — `a4b23adb` | `save2 retail fire*` | не предложено |
 | TOP20 #24: `ShadowWhenDead` — медленная смерть выключает тени трупа (RW 0x860F44) | 2026-11-06 | Claude (station-1) | `501d6120` (`agent/claude/station-1`) | `TOP20-24 slow death*`; в игре ждёт | не предложено |
