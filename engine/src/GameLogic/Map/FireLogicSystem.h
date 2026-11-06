@@ -118,6 +118,9 @@ public:
 	bool isCellBurning(int x, int y) const;
 	int getCellBurnRate(int x, int y) const;
 	int getCellFuel(int x, int y) const;
+	bool hasGrid() const { return m_cells != nullptr; } ///< NewMap ran (RW 0x687748); the map's objects need it before they enter the world
+	// the cells an object watches (Object + 0x49C, RW 0x68B2A6): -1 not registered, 0 registered with none, else the count its fire damage is taken over
+	static int watchedCells(const Object &obj);
 	int numRows() const { return m_numRows; }
 	int numCols() const { return m_numCols; }
 	int cellsBurningCount() const { return (int)m_cellsOnFire.size(); }

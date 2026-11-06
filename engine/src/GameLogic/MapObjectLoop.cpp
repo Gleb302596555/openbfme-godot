@@ -15,6 +15,7 @@
 #include "GameLogic/Map/TerrainTrees.h"
 #include "GameLogic/Map/FireLogicSystem.h"
 #include "Common/Upgrade.h"
+#include <stdexcept>
 
 namespace
 {
@@ -282,7 +283,12 @@ MapObjectLoopResult MapObjectLoop::create(GameLogic &logic, const LoadedMap &map
 		float lx = 0.0f, ly = 0.0f, hx = 0.0f, hy = 0.0f;
 		terrain->getMapExtentIncludingBorder(lx, ly, hx, hy);
 		logic.trees().setExtent(lx, ly, hx, hy);
-		logic.fireLogic().newMap(lx, ly, hx, hy); // RW 0x687015 (TheFireLogicSystem::NewMap)
+		// TheFireLogicSystem's grid is made before the map's objects (LiveGame, RW 0x62FDB1), not here: a NewMap after them cleared every object's fire cells
+		// (RW 0x687752 -> 0x6873F7) and the structures never registered again, so a fresh game's map buildings took no ground fire and a loaded game's did
+		if (!logic.fireLogic().hasGrid())
+		{
+			throw std::logic_error("MapObjectLoop: TheFireLogicSystem has no grid (its NewMap, RW 0x62FDB1, comes before the map's objects)");
+		}
 	}
 	for (const MapObjectDrawable &d : classified.drawables)
 	{

@@ -34,6 +34,7 @@
 #include "GameClient/LinearCampaign.h"
 #include "GameClient/LiveGame.h"
 #include "GameLogic/NewGame/NewGame.h"
+#include "GameLogic/Map/FireLogicSystem.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/AttributeModifierPool.h"
 #include "Common/BuildVersion.h"
@@ -922,6 +923,51 @@ int runPeer(const std::string &args)
 }
 #endif
 } // namespace
+
+// Night run 2026-11-06 (save2 T1's five saves all differed from frame 3455): TheFireLogicSystem's grid is made once, before the map's objects (NewMap RW 0x687748,
+// its only call RW 0x62FDB1), so each placed object registers its fire cells as it enters the world (RW 0x68E3C2 -> 0x688354). A second NewMap after the map
+// object loop cleared them (RW 0x687752 -> 0x6873F7) and a structure, which never moves, never registered again (RW 0x693636): in a fresh game the map's
+// buildings took no ground fire, in a loaded one (registered as they were restored) they did; Fall Back 8p's FireDrakeLair (object 207) then burnt only
+// after a load. Every placed structure on the grid watches at least one cell (FireLogicSystem::updateWatchers adds the cells under its shapes or position)
+TEST_CASE("save2 retail fire: a fresh skirmish's map structures watch their fire cells, as a loaded game's do (NewMap RW 0x62FDB1 before the map's objects)")
+{
+	OPENBFME_REQUIRE_START(s);
+	Loaded g;
+	load(*s, fourAiMessage(*s, 8644u), g);
+	GameLogic &logic = g.game->logic();
+	REQUIRE(logic.fireLogic().hasGrid());
+	int structures = 0, unwatched = 0, lairCells = -2;
+	std::string firstUnwatched;
+	for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
+	{
+		if (!o->getTemplate() || !o->isKindOfName("STRUCTURE"))
+		{
+			continue;
+		}
+		// on the grid: cells of 10 from (0, 0) (RW 0x687766 .. 0x6877B1); a structure placed in the map's border (Fall Back 8p's GondorAmonHenR1 at y -43)
+		// has no cell to watch
+		const Coord3D &p = *o->getPosition();
+		if (p.x < 0.0f || p.y < 0.0f || p.x >= logic.fireLogic().numRows() * 10.0f || p.y >= logic.fireLogic().numCols() * 10.0f)
+		{
+			continue;
+		}
+		++structures;
+		const int cells = FireLogicSystem::watchedCells(*o);
+		if (o->getTemplate()->getName() == "FireDrakeLair")
+		{
+			lairCells = cells;
+		}
+		if (cells <= 0)
+		{
+			firstUnwatched = firstUnwatched.empty() ? o->getTemplate()->getName() + " " + std::to_string(cells) : firstUnwatched;
+			++unwatched;
+		}
+	}
+	MESSAGE(structures << " placed structures on the fire grid, " << unwatched << " watch no fire cell (first: " << firstUnwatched << "); FireDrakeLair watches " << lairCells);
+	REQUIRE(structures > 0); // tolerance: a precondition, the map's placed structures
+	CHECK(lairCells > 0);
+	CHECK(unwatched == 0);
+}
 
 #ifdef OPENBFME_PEER_EXE
 namespace

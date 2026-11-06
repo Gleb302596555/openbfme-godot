@@ -448,7 +448,15 @@ bool LiveGame::load(const Options &options, std::string *error)
 		m_shroud->setExtent(0.0f, 0.0f, maxX, maxY);
 		// lane MODULES-2: RW 0x62FCC3 .. 0x62FCCD: ThePartitionManager gets the same extent (RW 0xA39030 -> 0xA3B450), before the map's objects exist
 		m_logic->partition().setRegion(0.0f, 0.0f, maxX, maxY);
-		m_logic->fireLogic().newMap(0.0f, 0.0f, maxX, maxY); // RW 0x687015
+		// RW 0x62FDAB .. 0x62FDB1: TheFireLogicSystem (RW 0xDE46A8) NewMap (RW 0x687748), its only call, after the partition's extent and before the map's
+		// objects, so each object entering the world registers its fire cells (RW 0x68E3C2 -> 0x688354); NewMap's clear (RW 0x687752 -> 0x6873F7) drops every
+		// registration, and a structure never re-registers (it does not move, RW 0x693636). Its size: NewMap asks TheTerrainLogic vslot 0x30
+		// (RW 0x687757 .. 0x687763 -> 0x46273E: lo (0, 0), hi the largest boundary x and y * 10, (0, 0) without boundaries) and takes floor(hi * 0.1) + 1
+		// cells (RW 0x687766 .. 0x6877B1). Until 2026-11-06 the port's grid was the bordered map's: saves made before then hold that size and are refused
+		// (FireLogicSystem::xfer), the owner's decision (no saves to keep)
+		float fireHiX = 0.0f, fireHiY = 0.0f;
+		m_terrain.getLargestExtent(fireHiX, fireHiY); // false without boundaries: hi stays (0, 0), as RW 0x46273E leaves it
+		m_logic->fireLogic().newMap(0.0f, 0.0f, fireHiX, fireHiY);
 		// RW 0x62FCE2 .. 0x62FD01: TheTaintManager gets the same extent with the size kept, then calls its callback for every cell (RW 0xAD4F00)
 		TaintManager::Region taintRegion;
 		taintRegion.hiX = maxX;

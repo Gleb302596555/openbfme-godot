@@ -19,6 +19,7 @@
 #include "GameClient/MapUtil.h"
 #include "GameEngineDevice/Win32Device/Common/Win32BIGFileSystem.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Map/FireLogicSystem.h"
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/MapObjectLoop.h"
 #include "GameLogic/Module/UpdateModule.h"
@@ -240,6 +241,11 @@ void fullRun(const std::string &mapName, const SkirmishSetup &setup, std::vector
 	logic.settings() = settings;
 	logic.castleTemplates().setLoader(CastleTemplateStore::fileSystemLoader(*s.mount->fs)); // BUILD-1: the map's castles unpack their base layouts
 	logic.setTerrain(&terrain);
+	{ // the fire grid before the map's objects, as LiveGame makes it (RW 0x62FDB1; its size RW 0x46273E: the largest boundary)
+		float hx = 0.0f, hy = 0.0f;
+		terrain.getLargestExtent(hx, hy);
+		logic.fireLogic().newMap(0.0f, 0.0f, hx, hy);
+	}
 	logic.random().seedRandom(12345);
 	const auto t0 = std::chrono::steady_clock::now();
 	statsOut.loop = MapObjectLoop::create(logic, map, classified, nullptr);
@@ -509,6 +515,11 @@ TEST_CASE("logic retail: live drawables show the same models as MAPOBJ-1's stati
 	logic.settings().night = map.chunks.hasGlobalLighting && map.chunks.lighting.timeOfDay == 4;
 	logic.settings().snowy = map.chunks.hasWorldInfo && map.chunks.worldInfo.getInt("weather") == 1;
 	logic.setTerrain(&terrain);
+	{ // the fire grid before the map's objects, as LiveGame makes it (RW 0x62FDB1; its size RW 0x46273E: the largest boundary)
+		float hx = 0.0f, hy = 0.0f;
+		terrain.getLargestExtent(hx, hy);
+		logic.fireLogic().newMap(0.0f, 0.0f, hx, hy);
+	}
 	DrawableManager drawables(assets, logic);
 	ClientEventRecorder recorder(logic); // SMOOTH-1: the logic's client calls are ordered events, applied by the render side's manager
 	logic.setClientHooks(&recorder);

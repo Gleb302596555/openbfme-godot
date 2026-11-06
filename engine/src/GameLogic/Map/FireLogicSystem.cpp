@@ -948,6 +948,11 @@ void FireLogicSystem::registerObject(Object *obj)
 	}
 }
 
+int FireLogicSystem::watchedCells(const Object &obj)
+{
+	return obj.m_fireWatchCount;
+}
+
 // RW 0x68836C (FireLogicSystem::UnregisterObject)
 void FireLogicSystem::unregisterObject(Object *obj)
 {
