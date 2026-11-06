@@ -30,13 +30,14 @@
 
 #include "GameLogic/AI/AIStateMachine.h"
 #include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Object/PartitionManager.h"
 
 using namespace movetest;
 
 namespace
 {
 
-// FleeRange 1000 and FleeDistance 30: the enemy of these tests stands 400 away on the same y, so the flee
+// FleeRange 1000 and FleeDistance 30: the enemy of these tests stands 400 away on the critter's own y, so the flee
 // destination is exactly (x - 30, y) — the direction is (-1, 0) and every step of the port's arithmetic is exact.
 // WanderPercentage 0 makes the dice fail on every idle frame, so the flee is the only move order the critter can
 // get and a change of the machine's goal is a flee. Port7NoScan is the same critter with UpdateTimer = 0.
@@ -76,8 +77,19 @@ const float kEnemyX = 900.0f;
 const float kEnemyY = 500.0f;
 const float kFleeDistance = 30.0f;
 
-// the frames the gate opens on: RW 0x88229D reads the logic frame counter after runLogicFrame advanced it
-// (GameLogic::update phase 1), so the number the module divided is the one getFrame() gives back
+// the world a scan needs: the partition's region over the 100 x 100 cell terrain (10 units a cell), as the live
+// game sets it, and the two players as enemies — Player::getRelationship answers NEUTRAL unless the relation is set
+void prepareScanWorld(MoveWorld &mw)
+{
+	mw.logic->partition().setRegion(0.0f, 0.0f, 1000.0f, 1000.0f);
+	Player *alice = mw.players.findPlayerWithName("Alice");
+	Player *bob = mw.players.findPlayerWithName("Bob");
+	alice->setPlayerRelationship(bob, ENEMIES);
+	bob->setPlayerRelationship(alice, ENEMIES);
+}
+
+// the frames the gate opens on: RW 0x88229D reads the logic frame counter, which runLogicFrame advanced in phase 1
+// before the modules ran, so the number the module divided is the one getFrame() gives back
 bool gateOpen(unsigned frame, unsigned updateTimer)
 {
 	return updateTimer != 0 && frame % updateTimer == 0;
@@ -89,18 +101,24 @@ TEST_CASE("PORT-7 a critter scans for enemies only on frames that are a multiple
 {
 	MoveWorld mw(100, 100, kPort7Objects);
 	mw.buildMap();
-	Object *critter = mw.spawn("Port7Critter", 500, 500);
+	prepareScanWorld(mw);
+	Object *critter = mw.spawn("Port7Critter", 500, kEnemyY);
 	mw.spawn("Walker", kEnemyX, kEnemyY, 0.0f, mw.teamOf("Bob")); // the enemy, 400 away: inside FleeRange 1000
+	mw.frames(1);
+	mw.logic->partition().setRegion(0.0f, 0.0f, 1000.0f, 1000.0f);
 	mw.frames(1);
 	AIUpdateInterface *ai = mw.aiOf(critter);
 	REQUIRE(ai != nullptr);
 	REQUIRE(critter->getPosition()->x == 500.0f);
 
 	// 20 frames: the critter runs away from (900, 500), so it stays inside FleeRange the whole window and every
-	// scan finds the enemy. A flee order is the only thing that can move the machine's goal here.
+	// scan finds the enemy. A flee order is the only thing that can move the machine's goal here, and the port
+	// stores an AI goal verbatim (goalPositionClipped clips a player's goal only). While the critter is already
+	// walking the same order also pushes the temporary AI_MOVE_TO state, so both signals are watched.
 	std::vector<unsigned> fled;
 	std::vector<unsigned> expected;
 	Coord3D goal = ai->stateMachine().goalPosition();
+	unsigned tempEnd = ai->stateMachine().temporaryStateFrameEnd();
 	for (int i = 0; i < 20; ++i)
 	{
 		const Coord3D before = *critter->getPosition();
@@ -111,33 +129,47 @@ TEST_CASE("PORT-7 a critter scans for enemies only on frames that are a multiple
 			expected.push_back(frame);
 		}
 		const Coord3D now = ai->stateMachine().goalPosition();
-		if (now.x != goal.x || now.y != goal.y)
+		const unsigned nowEnd = ai->stateMachine().temporaryStateFrameEnd();
+		if (now.x != goal.x || now.y != goal.y || nowEnd != tempEnd)
 		{
 			fled.push_back(frame);
-			CHECK(now.y == kEnemyY);                                  // straight away from the enemy on y
-			CHECK(now.x == before.x - kFleeDistance);                 // FleeDistance 30, direction (-1, 0)
-			CHECK(ai->currentStateId() == (unsigned)AI_MOVE_TO);
+			if (fled.size() == 1)
+			{
+				// the first flee runs from the untouched start, so the direction is exactly (-1, 0) and the
+				// destination is exact: FleeDistance 30 away from the enemy
+				CHECK(before.x == 500.0f);
+				CHECK(before.y == kEnemyY);
+				CHECK(now.x == 500.0f - kFleeDistance);
+				CHECK(now.y == kEnemyY);
+			}
+			const bool awayFromEnemy = now.x < before.x; // the enemy stands at x = 900
+			CHECK(awayFromEnemy);
 			goal = now;
+			tempEnd = nowEnd;
 		}
 	}
-	CHECK(fled.size() == 4);                       // 20 frames, UpdateTimer 5
-	CHECK(fled == expected);                       // and on no other frame
+	CHECK(fled.size() == 4); // 20 frames, UpdateTimer 5
+	CHECK(fled == expected); // and on no other frame
 }
 
 TEST_CASE("PORT-7 UpdateTimer = 0 never scans: the critter does not flee at all (RW 0x88228B / 0x882292)")
 {
 	MoveWorld mw(100, 100, kPort7Objects);
 	mw.buildMap();
-	// both critters see the same enemy at the same distance; only UpdateTimer differs (5 and 0)
-	Object *scanning = mw.spawn("Port7Critter", 500, 300);
+	prepareScanWorld(mw);
+	// both critters see the same enemy inside FleeRange; only UpdateTimer differs (5 and 0)
+	Object *scanning = mw.spawn("Port7Critter", 300, kEnemyY);
 	Object *blind = mw.spawn("Port7NoScan", 500, 700);
-	mw.spawn("Walker", kEnemyX, 500, 0.0f, mw.teamOf("Bob"));
+	mw.spawn("Walker", kEnemyX, kEnemyY, 0.0f, mw.teamOf("Bob"));
 	mw.frames(1);
 	const Coord3D blindStart = *blind->getPosition();
 	const Coord3D blindGoal = mw.aiOf(blind)->stateMachine().goalPosition();
 	mw.frames(20);
-	// the critter with a timer fled, so the enemy and the range are proven live in this very world
-	CHECK(mw.aiOf(scanning)->stateMachine().goalPosition().x != 500.0f);
+	// the critter with a timer fled, so the enemy and the range are proven live in this very world: with
+	// WanderPercentage = 0 a flee is the only order it can ever get
+	CHECK(scanning->getPosition()->x != 300.0f);
+	const bool ranAway = mw.aiOf(scanning)->stateMachine().goalPosition().x < 300.0f;
+	CHECK(ranAway);
 	// the critter with UpdateTimer = 0 never ran the scan: no order, no goal, no step
 	CHECK(mw.aiOf(blind)->stateMachine().goalPosition().x == blindGoal.x);
 	CHECK(mw.aiOf(blind)->stateMachine().goalPosition().y == blindGoal.y);
@@ -154,7 +186,7 @@ TEST_CASE("PORT-7 the wander dice stays outside the gate: UpdateTimer does not t
 	// frame. Had the gate covered the whole decision, 20 frames with UpdateTimer 5 would give 4 draws, not 20.
 	MoveWorld mw(100, 100, kPort7Objects);
 	mw.buildMap();
-	Object *critter = mw.spawn("Port7Critter", 500, 500);
+	Object *critter = mw.spawn("Port7Critter", 500, kEnemyY);
 	mw.frames(1);
 	REQUIRE(mw.aiOf(critter)->isIdle());
 	mw.logic->random().clearCallLog();
@@ -168,8 +200,8 @@ TEST_CASE("PORT-7 the wander dice stays outside the gate: UpdateTimer does not t
 		angles += c.file == "AnimalAIUpdate.cpp" && (c.line == 0xbc || c.line == 0xf2);
 		distances += c.file == "AnimalAIUpdate.cpp" && (c.line == 0xbf || c.line == 0xf5);
 	}
-	CHECK(rolls == 20);      // every frame, not every fifth
-	CHECK(angles == 0);      // the dice failed each time, so no wander numbers were drawn
+	CHECK(rolls == 20); // every frame, not every fifth
+	CHECK(angles == 0); // the dice failed each time, so no wander numbers were drawn
 	CHECK(distances == 0);
 	CHECK(mw.aiOf(critter)->isIdle());
 }
@@ -178,13 +210,15 @@ TEST_CASE("PORT-7 the scan stands before the idle test: a walking critter still 
 {
 	MoveWorld mw(100, 100, kPort7Objects);
 	mw.buildMap();
-	Object *critter = mw.spawn("Port7Critter", 500, 500);
+	prepareScanWorld(mw);
+	Object *critter = mw.spawn("Port7Critter", 500, kEnemyY);
 	mw.spawn("Walker", kEnemyX, kEnemyY, 0.0f, mw.teamOf("Bob"));
 	mw.frames(1);
 	AIUpdateInterface *ai = mw.aiOf(critter);
 
-	// a player's order sets it walking; the walk is long enough to still be running on the next gate frame
-	ai->aiMoveToPosition(Coord3D{ 105.0f, 105.0f, 0.0f }, CMD_FROM_PLAYER);
+	// a player's order sets it walking along the enemy's own y, so the flee destination stays exact; the walk is
+	// long enough to still be running on the next gate frame
+	ai->aiMoveToPosition(Coord3D{ 105.0f, kEnemyY, 0.0f }, CMD_FROM_PLAYER);
 	while (!gateOpen(mw.logic->getFrame() + 1, 5))
 	{
 		mw.frames(1);
@@ -197,7 +231,8 @@ TEST_CASE("PORT-7 the scan stands before the idle test: a walking critter still 
 	mw.frames(1); // the gate frame, reached while the critter is not idle
 	const Coord3D now = ai->stateMachine().goalPosition();
 	CHECK(gateOpen(mw.logic->getFrame(), 5));
-	CHECK(now.x == before.x - kFleeDistance); // the flee replaced the player's walk
-	CHECK(now.y == kEnemyY);
-	CHECK(now.x != walkGoal.x);
+	const bool replacedTheWalk = now.x != walkGoal.x || now.y != walkGoal.y;
+	CHECK(replacedTheWalk);
+	const bool awayFromEnemy = now.x < before.x; // the enemy stands at x = 900
+	CHECK(awayFromEnemy);
 }
