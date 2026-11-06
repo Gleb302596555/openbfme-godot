@@ -1,5 +1,17 @@
 # Acceptance stops
 
+## PORT-5 research stop (issue #57)
+
+`ChargeAttackSpeedBoost` is not yet ported. RW clears `CHARGING` in the
+common ability helper at `0x851BCF`, called at start and finish; the speed
+predicate at `0x5E3EF7` also depends on Object `+0x251`. The existing S-860
+and S-222 code stops remain applicable. The remaining blocking evidence is the
+source and lifecycle of state `0x3F`'s saved wait fields `+0x4C/+0x50`, the
+complete command `0x47/0x48` and GiantBird dispatch paths, and the lifecycle
+of Object `+0x251`. Until those are traced and the behavior is implemented and
+tested, no PORT-5 acceptance or gameplay fix is claimed. See
+`docs/ennorath/PORT5_RW_ANALYSIS.md` for checked addresses and open branches.
+
 ## SOCIAL-1 launcher integration gate
 
 S-D's stand-in lobby and launch tests do not prove end-to-end room entry. A
