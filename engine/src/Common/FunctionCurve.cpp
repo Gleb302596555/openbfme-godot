@@ -12,6 +12,11 @@
 #include <cstring>
 #include <stdexcept>
 
+#ifndef _WIN32
+#include <strings.h>
+#define _stricmp strcasecmp // MSVC's <string.h> name; the Linux / macOS builds have strcasecmp
+#endif
+
 namespace
 {
 constexpr float kRadsPerDegree = 0.0174532925f;
