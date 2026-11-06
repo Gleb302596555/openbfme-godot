@@ -618,6 +618,8 @@ TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after a
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,
 	// so these engine references are measured again for this simulation change.
+	// pin: P-33 re-measured the skirmish vector: the ground fire hits as LOGICAL_FIRE (RW 0x688A13), not FLAME, from frame 1346 (with FLAME it matches the
+	// previous vector); the big battle has no fire and keeps its vector.
 	const std::vector<std::uint32_t> battleRef = perf1::readHashes("big_battle_400.hashes");
 	const std::vector<std::uint32_t> skirmishRef = perf1::readHashes("skirmish4_6000.hashes");
 	// OPENBFME_PERF1_REGEN=1 rewrites the two reference vectors from this build instead of comparing: run it only when a merged change is MEANT to

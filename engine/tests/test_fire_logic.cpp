@@ -225,6 +225,63 @@ TEST_CASE("fire logic: object damage while watching burning cell")
 	CHECK(hp1 < hp0);
 }
 
+// P-33: the ground fire's hit is DAMAGE_LOGICAL_FIRE (RW 0x688A13, type 0x17), death BURNED, no source: the armor's LOGICAL_FIRE line scales it, its FLAME line
+// does not. A fortress (FortressArmor: FLAME 25%, LOGICAL_FIRE 1% in Ennorath) burned down on burning grass while the hit was FLAME
+TEST_CASE("fire logic: a burning cell hits its watchers with LOGICAL_FIRE, not FLAME (RW 0x688A13)")
+{
+	static const char kObjects[] =
+		"Armor FlameProofArmor\n"
+		"  Armor = DEFAULT 100%\n"
+		"  Armor = FLAME 0%\n"
+		"End\n"
+		"Armor LogicalFireProofArmor\n"
+		"  Armor = DEFAULT 100%\n"
+		"  Armor = LOGICAL_FIRE 0%\n"
+		"End\n"
+		"Object FlameProofHut\n"
+		"  KindOf = STRUCTURE SELECTABLE IMMOBILE\n"
+		"  Geometry = BOX\n"
+		"  GeometryMajorRadius = 15\n"
+		"  GeometryMinorRadius = 15\n"
+		"  GeometryHeight = 20\n"
+		"  ArmorSet\n"
+		"    Conditions = None\n"
+		"    Armor = FlameProofArmor\n"
+		"  End\n"
+		"  Body = ActiveBody ModuleTag_Body\n"
+		"    MaxHealth = 500\n"
+		"  End\n"
+		"End\n"
+		"Object LogicalFireProofHut\n"
+		"  KindOf = STRUCTURE SELECTABLE IMMOBILE\n"
+		"  Geometry = BOX\n"
+		"  GeometryMajorRadius = 15\n"
+		"  GeometryMinorRadius = 15\n"
+		"  GeometryHeight = 20\n"
+		"  ArmorSet\n"
+		"    Conditions = None\n"
+		"    Armor = LogicalFireProofArmor\n"
+		"  End\n"
+		"  Body = ActiveBody ModuleTag_Body\n"
+		"    MaxHealth = 500\n"
+		"  End\n"
+		"End\n";
+	CombatWorld w(kObjects, 50);
+	FireLogicSystem &fire = w.logic->fireLogic();
+	fire.newMap(0.0f, 0.0f, 200.0f, 200.0f);
+	Object *flameProof = w.unit("FlameProofHut", 'A', 60.0f, 60.0f);
+	Object *logicalProof = w.unit("LogicalFireProofHut", 'A', 140.0f, 140.0f);
+	REQUIRE(flameProof);
+	REQUIRE(logicalProof);
+	fire.changeBurnRateInArea(Coord3D{ 60.0f, 60.0f, 0.0f }, 10.0f, 15, false);
+	fire.changeBurnRateInArea(Coord3D{ 140.0f, 140.0f, 0.0f }, 10.0f, 15, false);
+	REQUIRE(fire.isCellBurning(6, 6));
+	REQUIRE(fire.isCellBurning(14, 14));
+	w.frames(20);
+	CHECK(flameProof->getBodyModule()->getHealth() == 0.0f);     // FLAME 0% does not stop the ground fire: the hut burns down in the 20 frames
+	CHECK(logicalProof->getBodyModule()->getHealth() == 500.0f); // LOGICAL_FIRE 0% does
+}
+
 TEST_CASE("fire logic: terrain tree lumber burning")
 {
 	CombatWorld w(kFireObjects, 50);
