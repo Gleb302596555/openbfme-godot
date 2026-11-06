@@ -13,6 +13,7 @@
 #include "GameLogic/AI/AIApproachMath.h"
 #include "GameLogic/AI/AICommandSink.h"
 #include "GameLogic/AI/AIStateMachine.h"
+#include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Combat/CombatQueries.h"
 #include "GameLogic/Construction.h"
 #include "GameLogic/GameLogic.h"
