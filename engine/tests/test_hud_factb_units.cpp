@@ -3115,7 +3115,9 @@ TEST_CASE("factb spell book: every Isengard spell book power cast through the HU
 	// fight so the Devastation scene misses the 500 heuristic again (1600 lost with the cast, 1604 without): a KNOWN line once more (S-921)
 	// lane DECOMPFIX-1104B (AIMAIM-1's aim and RW 0x70B9E0's facing in relAngle, measured on the lane's tree): the Devastation scene meets the 500 heuristic
 	// again (664 more lost with the cast), so its line passes; S-921 keeps the explanation (no effect of its own is asserted). Dragon Strike stays KNOWN (S-1997)
-	r.check({ { "spell SpellBookIndustry", "S-1997" },
+	// pin: P-45 (2026-11-06, PROCESS 7 rule 2): on the fork the upstream merge 5361552b's fight misses the 500 heuristic again (1868 lost with the cast, 1936
+	// without; 55aa2e22, its first parent, passes): a KNOWN line once more (S-921), as after q38
+	r.check({ { "spell SpellBookDevastation", "S-921" }, { "spell SpellBookIndustry", "S-1997" },
 		{ "spell SpellBookFueltheFires", "S-1997" }, { "spell SpellBookDragonStrike", "S-1997" }, { "spell SpellBookIsengardTaint", "S-1997" } });
 }
 

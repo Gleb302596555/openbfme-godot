@@ -423,7 +423,9 @@ TEST_CASE("skirmish ai attack: AI vs AI on Evendim (Medium Mordor against Medium
 	}
 	{
 		AttackRun run;
-		runAttackGame(*s, attackMessage(*s, "FactionMordor", "FactionMen", true, 1234u), 2400, run, false, true);
+		// pin: P-47 (2026-11-06, PROCESS 7 rule 2): the upstream merge 5361552b (55aa2e22, its first parent, attacks within 2400) moves seed 1234's first attack
+		// past frame 2400 (0 attacks); measured on 11ebdf60 with 3600 frames (12 game minutes): 1 attack, 9 farms. The first attack's frame stays chaotic (below)
+		runAttackGame(*s, attackMessage(*s, "FactionMordor", "FactionMen", true, 1234u), 3600, run, false, true);
 		MESSAGE("AI vs AI (seed 1234): Mordor farms " << run.farmsBuilt << " in flight " << run.farmsInFlight << ", attacks " << run.attacksLaunched);
 		// before PATH-2 the two dozers were killed at their 0 % foundations and the base stalled; with PATH-2's multi-shape footprints and the
 		// cylinder bounding sphere (RW 0xAD2770) the defenders' reach and the build sites change, the dozers survive and Mordor develops

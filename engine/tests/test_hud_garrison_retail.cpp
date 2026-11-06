@@ -914,7 +914,8 @@ TEST_CASE("garrison map: a horde's members walk into the tower's footprint and e
 	MESSAGE("entered after " << done << " frames; nearest member " << nearest << ", the tower's radius " << radius);
 	CHECK(ignoresTower);
 	CHECK(nearest < radius); // tolerance: the claim is "inside the footprint" (before the port: 26.9 from the EntryPosition, at the wall)
-	CHECK(done == 45);       // regression pin: this port's deterministic result (seed 9); 63 frames before the port
+	// pin: P-44 (2026-11-06, PROCESS 7 rule 2): 45 -> 47, moved by the upstream merge 5361552b (62 commits; 55aa2e22, its first parent, gives 45)
+	CHECK(done == 47);       // regression pin: this port's deterministic result (seed 9); 63 frames before the port
 	CHECK(membersOf(*horde).size() == 15u);
 }
 

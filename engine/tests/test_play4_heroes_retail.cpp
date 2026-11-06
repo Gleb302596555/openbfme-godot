@@ -408,8 +408,10 @@ TEST_CASE("play4 heroes retail: every faction's heroes, recruited from the fortr
 				// Merge queue q38 (measured once on the merged tree and at each merge point; #172 keeps it): with LOCODIST-1 a GIANT_BIRD locomotor's distance
 				// to the goal is 0 (RW 0x664127), so Drogoth, on his own, strikes the horde once (825 health, 11 of 20 killed); the fell beasts stay passive
 				CHECK(own.shots == (drogoth ? 1u : 0u));
-				CHECK(own.lost == (drogoth ? 825.0f : 0.0f));
-				CHECK(own.membersKilled == (drogoth ? 11u : 0u));
+				// pin: P-46 (2026-11-06, PROCESS 7 rule 2): 825 / 11 -> 900 / 12, moved by the upstream merge 5361552b (55aa2e22 gives 825 / 11; the burning death
+				// off gives the same 900 / 12)
+				CHECK(own.lost == (drogoth ? 900.0f : 0.0f));
+				CHECK(own.membersKilled == (drogoth ? 12u : 0u));
 				// lane BACKLOG4: 3 strikes (4 before): the hero's creation uses the teleport form (RW 0x7814CF: RW 0x696E63(pos, 0)), which idles the new
 				// hero's AI and wakes it; the fight's damage and kills are unchanged (measured with and without that call)
 				// lane STEALTHFLY1: 2 strikes (3 before): recruited from the fortress, Drogoth leaves along its production exit path in the bird's own follow

@@ -406,7 +406,7 @@ Shelling у всех лучников не работает на иконку н
 
 пещерній троль гоблинов віходит и сразу его анимация ломаеться и он замерает и скользит по карте
 ### P-32. Тест хэша BACKLOG2 r1 determinism падает в форке
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — Claude, 2026-11-06** (переснят 2026-11-06 по правилу 3 раздела 7: первая правка `c8fe929d`, затем позднейшие правки форка до `11ebdf60`; эталон `0x45726314` -> `0x79D1C520` (`test_backlog2_retail.cpp`, `// pin: P-32`))
 - Добавлено: 2026-11-04, Claude (по поручению владельца)
 - Описание: `BACKLOG2 r1 determinism: three units on a build site: the draw assignment, the orders, the movement and the hashes are the same in two runs and are the pinned ones (RW 0x797465)` падает: `test_backlog2_retail.cpp:726`, `CHECK( a.hashes.back() == 0x24ADB575U )`, получено `0x30D7827D` (`lastHash 0x30D7827D`). Найдено длинным прогоном `test_select` ветки `agent/claude/object-sounds` (сборка `0003a25c`). Правка ветки (звуки объекта S-707) ни при чём: сборка того же дерева с выключенными новыми вызовами звука даёт тот же хэш. Значит, падает код `main` `b00f2609`, от которого отходит ветка. В `TEST_BASELINE.md` записи нет. На свежем `main` `be2b1729` то же: от `b00f2609` до него в `engine/` и `godot/` нет изменений (только `tools/mod/field_audit.py` и документы). Эталон не обновлять, пока не названа правка, которая сдвинула хэш, и почему (PROCESS.md, раздел 7).
 - Подсистема: — (детерминизм / закреплённые хэши; заполнить при разборе)
@@ -523,7 +523,7 @@ Shelling у всех лучников не работает на иконку н
 - Проверка: новый `save2 retail fire: a fresh skirmish's map structures watch their fire cells*`: 164 постройки на сетке, все с клетками, логово 89; с возвращённым вторым вызовом 121 без клеток, логово 0 (падает). Пять `save2 retail T1 (SAVES.md) 4-AI skirmish*`, `fire logic*` и тесты `test_logic_retail.cpp`: 25 тестов, 22253 проверки, проходят. Видимое в игре: постройки карты и логова крипов теперь горят от огня на земле.
 
 ### P-44. Ночной прогон: отряд входит в башню за 47 кадров, эталон 45 (garrison map)
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — Claude, 2026-11-06** (переснят 2026-11-06 по правилу 2 раздела 7: причина — слияние upstream `5361552b` целиком; 45 -> 47 (`test_hud_garrison_retail.cpp`, `// pin: P-44`))
 - Добавлено: 2026-11-06, Claude (ночной прогон `da6cbfdf`)
 - Описание: `garrison map: a horde's members walk into the tower's footprint and enter by themselves (RW 0x7516C8, 0x774D18)` падает: `test_hud_garrison_retail.cpp:917`, `CHECK( done == 45 )`, получено 47. Обе проверки P-39 держатся: солдаты игнорируют башню (`ignoresTower`) и доходят до 0,85 от точки входа при радиусе 20,4. Отдельно падает так же.
 - Подсистема: вход в контейнер (P-39)
@@ -533,7 +533,7 @@ Shelling у всех лучников не работает на иконку н
 - Проверка: —
 
 ### P-45. Ночной прогон: Devastation Изенгарда без видимого эффекта (factb spell book)
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — Claude, 2026-11-06** (переснят 2026-11-06 по правилу 2 раздела 7: причина — слияние upstream `5361552b`; Devastation снова строка KNOWN (S-921), как после q38 (`test_hud_factb_units.cpp`, `// pin: P-45`))
 - Добавлено: 2026-11-06, Claude (ночной прогон `da6cbfdf`)
 - Описание: `factb spell book: every Isengard spell book power cast through the HUD's spell bar shows its effect` падает: `test_hud_factb_units.cpp:129`, `spell SpellBookDevastation: cast, but no effect seen beyond the control run` (врагов потеряно 1868 с заклинанием, 1936 без). Остальные четыре (DragonStrike, FueltheFires, Industry, IsengardTaint) записаны KNOWN (S-1997).
 - Подсистема: книга заклинаний
@@ -543,7 +543,7 @@ Shelling у всех лучников не работает на иконку н
 - Проверка: —
 
 ### P-46. Ночной прогон: Дрогот один бьёт отряд сильнее эталона (play4 heroes)
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — Claude, 2026-11-06** (переснят 2026-11-06 по правилу 2 раздела 7: причина — слияние upstream `5361552b`; Дрогот 825 / 11 -> 900 / 12 (`test_play4_heroes_retail.cpp`, `// pin: P-46`))
 - Добавлено: 2026-11-06, Claude (ночной прогон `da6cbfdf`)
 - Описание: `play4 heroes retail: every faction's heroes, recruited from the fortress, fight an enemy horde on their own and, auto-acquire off, on an order` падает: `test_play4_heroes_retail.cpp:411-412`, `FactionWild Drogoth`: сам по себе 900 урона и 12 убитых, эталон 825 и 11 (merge queue q38 upstream). Сборка с выключенной горящей смертью даёт то же: TOP20 #21 ни при чём.
 - Подсистема: герои / летающие
@@ -553,7 +553,7 @@ Shelling у всех лучников не работает на иконку н
 - Проверка: —
 
 ### P-47. Ночной прогон: Мордор с сидом 1234 не атакует за 2400 кадров (skirmish ai attack)
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — Claude, 2026-11-06** (переснят 2026-11-06 по правилу 2 раздела 7: причина — слияние upstream `5361552b`; окно сида 1234 2400 -> 3600 кадров (1 атака, 9 ферм; `test_skirmish_ai_attack.cpp`, `// pin: P-47`))
 - Добавлено: 2026-11-06, Claude (ночной прогон `da6cbfdf`)
 - Описание: `skirmish ai attack: AI vs AI on Evendim (Medium Mordor against Medium Men): both build, train and attack; no side is beaten in the first 2400 frames (S-420)` падает: `test_skirmish_ai_attack.cpp:434`, сид 1234: 6 ферм и 1 в постройке, 0 атак. Сборка с выключенной горящей смертью даёт то же.
 - Подсистема: ИИ скирмиша
@@ -563,7 +563,7 @@ Shelling у всех лучников не работает на иконку н
 - Проверка: —
 
 ### P-48. Ночной прогон: волки бьют цитадель Ангмара реже эталона (script2 angmar)
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — Claude, 2026-11-06** (переснят 2026-11-06 по правилу 2 раздела 7: причина — TOP20 #21 r3 (`04636a95`); волки 982 -> 829, знаменосец 97 -> 43, катапульты 4 x 1350 и последний удар 28 (`test_script2_angmar.cpp`, `// pin: P-48`))
 - Добавлено: 2026-11-06, Claude (ночной прогон `da6cbfdf`)
 - Описание: `script2 angmar: MAP ANG Angmar an undefended Uber citadel loss reaches defeat` падает: `test_script2_angmar.cpp:138`, `CHECK( kinds == expected )`: удары волчьих всадников 829 (эталон 982), знаменосца 43 (97), последний удар катапульты берёт 28 (1285), четвёртый удар 50. Числа RotWK у катапульт (50 и 1350) не изменились, поражение наступает.
 - Подсистема: бой / атака (TOP20 #21 r3)
@@ -573,7 +573,7 @@ Shelling у всех лучников не работает на иконку н
 - Проверка: —
 
 ### P-49. Ночной прогон: net retail hud5 — ворота Хельмовой Пади переключаются реже 8 раз
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — Claude, 2026-11-06** (не переснимался: на `main` `11ebdf60` ворота переключаются 14 раз (порог 8), тест проходит; падение давал огонь `c0ff4bcd` (6), вернула правка огня P-33 `cc34e80d` (числа: `5361552b` 12, `c0ff4bcd` 6, `cc34e80d` 14))
 - Добавлено: 2026-11-06, Claude (ночной прогон `da6cbfdf`)
 - Описание: `net retail hud5: two peer processes on Helm's Deep, the fortress' gates toggled by the host, stay in lockstep with every frame's full hash equal` падает: `test_net_retail.cpp:732`, `gate_messages >= 8`, получено 2. Синхронность и хэши в порядке, упала только эта проверка. В `TEST_BASELINE.md` тест записан как нестабильный, но здесь сдвиг воспроизводится и у него есть коммит.
 - Подсистема: сеть / ворота крепости

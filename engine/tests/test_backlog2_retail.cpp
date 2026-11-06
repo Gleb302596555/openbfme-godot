@@ -735,7 +735,9 @@ TEST_CASE("BACKLOG2 r1 determinism: three units on a build site: the draw assign
 	// in the mover hash)
 	// merge queue q38 (measured once on the merged tree and at LOCODIST-1's merge point; goals unchanged): 0xE4523180 -> 0x45726314 (the retail locomotor
 	// distance to the goal, RW 0x664127, moves when the units arrive)
-	CHECK(a.hashes.back() == 0x45726314U);   // q19: BACKLOG-8 hashes the formation and march rows of AIData / GameData in GameLogicSettings::crc (unconditionally) and moves the march;
+	// pin: P-32 (2026-11-06, PROCESS 7 rule 3): 0x45726314 -> 0x79D1C520 on the fork. First mover c8fe929d (the modifier pools are update modules in the object hash from
+	// frame 0: bf9ed8ca 0x45726314's tree passes, c8fe929d gives 0x30D7827D), then later fork ports up to 11ebdf60 (the pool's two hash lines off alone give 0x657BFC29)
+	CHECK(a.hashes.back() == 0x79D1C520U);   // q19: BACKLOG-8 hashes the formation and march rows of AIData / GameData in GameLogicSettings::crc (unconditionally) and moves the march;
 	                                         // re-measured on the merged tree (a CI host); was 0x78A9CB12 (q18: DEVPORT-3C castle keep gate / Horde removal record, before 0x2BD4804B); goals and positions unchanged
 	// every unit left the spot it stood on
 	CHECK(a.positions[0] != a.goals[0]);
