@@ -64,16 +64,19 @@ UpdateSleepTime AnimalAIUpdate::update()
 		m_origin = *obj.getPosition();
 		m_processed = true;
 	}
-	if (state != AI_IDLE)
-	{
-		return UPDATE_SLEEP_NONE;
-	}
 
 	GameLogic &logic = obj.logic();
 	Coord3D dest = *obj.getPosition();
 
-	// Enemy flee check (RW 0x882058)
-	if (m_data && m_data->m_fleeRange > 0.0f)
+	// Enemy flee check (RW 0x882058), gated by UpdateTimer — RW 0x882288 .. RW 0x8822A6 (docs/re/rotwk/RW_0x882058.md):
+	//   RW 0x882288 mov ecx, [data+0x78]  UpdateTimer (row RW 0xC04F38, parser RW 0x42EC5E, default RW 0x64BB3D)
+	//   RW 0x88228B test ecx, ecx / RW 0x882292 jbe RW 0x882508   zero: no scan at all
+	//   RW 0x882298 mov eax, [RW 0xDE412C] (TheGameLogic) / RW 0x88229D mov eax, [eax+0x40]  the logic frame
+	//   RW 0x8822A2 div ecx / RW 0x8822A4 test edx, edx / RW 0x8822A6 jne RW 0x882508   remainder: no scan this frame
+	// Both skips land on RW 0x882508, which is the idle test below and not a return: the update is 2,916 bytes
+	// (RW 0x882058 .. RW 0x882BBC) and 1,716 bytes of code follow, so the gate covers the scan only — the wander dice
+	// stays on every idle frame. The scan also stands before the idle test, so a moving animal scans too.
+	if (m_data && m_data->m_updateTimer != 0 && (logic.getFrame() % m_data->m_updateTimer) == 0 && m_data->m_fleeRange > 0.0f)
 	{
 		PartitionFilterFn enemyFilter([&](Object &other) -> bool {
 			if (&other == &obj || other.isEffectivelyDead())
@@ -114,6 +117,13 @@ UpdateSleepTime AnimalAIUpdate::update()
 			aiMoveToPosition(dest, CMD_FROM_AI);
 			return UPDATE_SLEEP_NONE;
 		}
+	}
+
+	// RW 0x882508 — the idle test stands after the gated scan (both of the gate's skips jump here, see the block
+	// above), and the scaring object is cleared only below it, so an animal that is not idle keeps its threat.
+	if (state != AI_IDLE)
+	{
+		return UPDATE_SLEEP_NONE;
 	}
 	m_threatID = 0;
 
