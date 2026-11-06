@@ -616,6 +616,9 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // them changes a stop's text and a test only)
 // pin: the fork's merge of upstream 3e363ff9 (2026-11-06) re-measured both once on the merged tree (OPENBFME_PERF1_REGEN=1, Windows MSVC, station-1):
 // CASTLEATK-1, ATKSTATE-1a and the banner carrier rule on top of the fork; the vectors differ from both parents
+// pin: merge queue q44 re-measured all three once on the merged tree (OPENBFME_PERF1_REGEN=1), compared at each merge point: AIRBORNE-1 alone (the locomotor
+// update sets AIRBORNE_TARGET from the height above terrain, RW 0x66A472) moves the big battle and the allied blob from frame 0 and the skirmish from
+// frame 2; the Brutal discount and the garrison weapon set leave all three as they were.
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,

@@ -1,9 +1,10 @@
 // OpenBFME. GPL-3.0.
 //
-// TerrainResourceFeedback (lane OWNERFIX-2, the owner's playtest of 2026-10-17: "retail shows, while placing and on the building, the overlap with other
-// resource buildings and how effective the building will be"): the client half of RotWK's TerrainResourceManager. Client only: it reads the logic's claim
-// grid and the local player's shroud, it never writes them (the simulation half, the income share of overlapping claims, is TerrainResourceManager /
-// TerrainResourceBehavior).
+// TerrainResourceFeedback (lanes OWNERFIX-2 and ECOCIRCLE-1/2: the owner's playtests of 2026-10-17 "retail shows, while placing and on the building, the
+// overlap with other resource buildings and how effective the building will be" and of 2026-11-06 "placing economy buildings needs to show the circles at
+// all times, also circles of other economy buildings and of enemy ones"): the client half of RotWK's TerrainResourceManager. Client only: it reads the
+// logic's claim grid and the local player's shroud, it never writes them (the simulation half, the income share of overlapping claims, is
+// TerrainResourceManager / TerrainResourceBehavior).
 //
 // TARGET FACTS (rotwk201_game.exe, caveat S-001; the BFME2 twins are tier A with byte-matched decomp C++ unless marked):
 //   * the placement feedback (InGameUI::handleBuildPlacements, BFME2 decomp InGameUIHandleBuildPlacements.cpp): when a building starts waiting for its site
@@ -28,20 +29,37 @@
 //   * RW 0x75C1A9 (vx, vy in map vertices of 10 units, the cell of a vertex is (v / 2)): the vertex's own cell not claimable -> alpha 0; else weight 12 minus
 //     4 per unclaimable edge neighbour (x +- 1, y +- 1 halved), 2 for (+1, +1) and (-1, -1), 3 for (-1, +1) and (+1, -1), 1 per unclaimable (x +- 2, y +- 2);
 //     weight <= 0 -> 0, below 12 -> alpha * weight / 12;
-//   * the selection feedback (both editions: TerrainResourceClientBehavior ctor RW 0x652B8C / BFME2 0x652DEB, dtor RW 0x8D0A08 / BFME2 0x8CC55A,
-//     createSelectionFeedback slot 17 RW 0x8D0A58 / BFME2 0x8CC5AA, removeSelectionFeedback slot 18 RW 0x8D0A78 / BFME2 0x8CC5CA; called from
-//     Drawable::onSelected RW 0x67580E / BFME2 0x6754E3 -> Drawable::createSelectionFeedback RW 0x672ED1 / BFME2 0x672BAB when the object is locally
-//     controlled, and from Drawable::onDeselected RW 0x675870 / BFME2 0x675545 -> Drawable::removeSelectionFeedback RW 0x672F0D / BFME2 0x672BE7): the holder
-//     at InGameUI + 0x58C counts its users (+ 0x04, show RW 0x8EC271 -> 0x8EC1D6 / BFME2 0x8E7B0C -> 0x8E7A85, hide RW 0x8EC449 -> 0x8EC41B /
-//     BFME2 0x8E7D1D -> 0x8E7CEF); while it has any, each client frame (ResourceEntryOwner RW 0x8EC76F / BFME2 0x8E7E3A) every claimant whose owner is the
-//     local player or an ally (getPlayersWithRelationship(local, ALLOW_SAME_PLAYER | ALLOW_ALLIES = 3)) and is Visible (the claim's flag, RW 0x8ECB54 /
-//     BFME2 0x8E81DE) keeps one decal (TerrainResourceClaimFeedback::Impl::updateClaimedDecalForClaimant, RW 0x8EC930 / BFME2 0x8E7FCA):
-//     TerrainResourceClaimDecal, type 0x20, 2 * radius, colour 0xFF6464C8, opacity 0x80, at the claimant's position; a claimant FOGGED / SHROUDED for the
-//     local player has none; a claimant gone loses it.
-// INFERENCE (stop S-5030): the HUD's user count follows the local selection and the placement (one user per selected object of the local player whose template
-//   lists a TerrainResourceClientBehavior, one more while such a template waits for its site: retail shows the other farms' circles while a farm is placed);
-//   the device interpolates the vertex alphas bilinearly across a terrain quad (retail splits it into two triangles); the client form never erases a dead owner
-//   from a cell (retail's draw-path cell write of RW 0x75C02D): such a cell reads as claimable, the value retail returns.
+//   * the placement claim circles (RW 0x6A2CC1 .. 0x6A2CFC, the twin of BFME2 InGameUI::handleBuildPlacements 0x2A21E1's feedbackState == 2 branch): when
+//     the pending template's resource data has MaxIncome > 0 and the manager exists, the global collector (RW 0xDE483C) is cleared (RW 0x8E9B9A), filled by
+//     TerrainResourceManager::enumerateRegisteredClaimants (RW 0x75B8CC) with mask = getPlayersWithRelationship(local, 3, false) (RW 0x6A8695: 3 = the same
+//     player | allies, so ENEMY claimants are not collected), then finished (RW 0x8E9B34 -> RW 0x8E99EE the arc sampler, RW 0x8E9958 the segment builder);
+//   * the collector's callback (RW 0x8E9C35, slot 0 of the vtable RW 0xC790A4): an entry whose object is gone or whose Visible flag (record + 0x10) is false
+//     is dropped; else the object's position (+ 0x38), the record's radius (+ 0xC) and Object::getIndicatorColor (RW 0x68B6F5) are added (RW 0x8E9BD5);
+//   * the arc sampler (RW 0x8E99EE, BFME2 0x4E5372): every angle of every collected circle, at step 0.00981747732 rad from 0 to 2 pi (RW 0xBDD38C), is tested
+//     against every OTHER collected circle (point = centre + (sin a, cos a) * radius, covered when its 2D distance to the other centre <= that radius); a
+//     circle with no covered/free transition adds its whole range (0 .. 2 pi), else the free ranges are added (the scan runs one step past 2 pi, RW 0xC7909C);
+//   * the segment builder (RW 0x8E9958 -> RW 0x8E9744, BFME2 0x4E50C8): each free range is cut into count = min(max(32 * length / circumference,
+//     (int)(length / 60)), (int)(length / 20)) segments, pieceLength = length / count, step = range / count; each segment is a TerrainClaimSegment shadow
+//     (RW 0xC79088, type 0x40 SHADOW_ADDITIVE_DECAL) at centre + (sin mid, cos mid) * (radius - pieceLength / 2), rotated -mid, opacity 1.0, the object's
+//     indicator colour, its two size floats pieceLength (BFME2 0x4E4F82: minLength 20, maxLength 60, opacity 1, colour -1 until set);
+//   * the collector is cleared when the placement ends (placeBuildAvailable null, RW 0x69C606 / 0x69C80B) and refilled at the next placement start;
+//   * the draw order (RW 0x6A2CA8 .. 0x6A2D01, read in the binary): handleBuildPlacements constructs PlaceTerrainResourceClaimantFeedback (RW 0x4EAE72 ->
+//     its constructor RW 0x4EADC7 ends in createPotentialClaimDecal RW 0x8EACFC) before it finishes the collector (RW 0x4E9B34 -> RW 0x4E9958 ->
+//     RW 0x4E9744); the shadow factory puts a new decal before the first one of its texture, else at the head (BFME2 0x10BB11), so the TerrainClaimSegment
+//     shadows (all one texture) precede the placement claim decal and the older claims in the list: RotWK draws the arcs first (they do not overlap);
+//   * the selection feedback (TerrainResourceClientBehavior::createSelectionFeedback, BFME2 decomp TerrainResourceClientBehavior.cpp, slot 17): the holder
+//     at InGameUI + 0x58C counts its users; while it has any, each client frame (ResourceEntryOwner RW twin of BFME2 0x4E7E3A) every claimant whose owner is the
+//     local player or an ally (getPlayersWithRelationship(local, ALLOW_SAME_PLAYER | ALLOW_ALLIES = 3)) and is Visible (the claim's flag, RW twin of 0x4E81DE)
+//     keeps one decal (TerrainResourceClaimFeedback::Impl::updateClaimedDecalForClaimant, BFME2 0x4E7FCA): TerrainResourceClaimDecal, type 0x20, 2 * radius,
+//     colour 0xFF6464C8, opacity 0x80, at the claimant's position; a claimant FOGGED / SHROUDED for the local player has none; a claimant gone loses it.
+// INFERENCE (stop S-5030): the user count follows the local selection (one user while a selected object's template lists a TerrainResourceClientBehavior;
+//   retail's Drawable select path into slot 17 was not read); the device draws a claim segment as an additive decal in the selection decals' grid (lane
+//   ECOCIRCLE-2: the shaders' sel_alpha_at adds texel x colour x opacity, RotWK's SHADOW_ADDITIVE_DECAL blending, without a shader varying) rather than as a
+//   projected shadow; retail's collector has no shroud test (RW 0x8E9C35) but its shroud pass covers the terrain under the shadows, so the device dims a
+//   segment by the cell's display level and drops it when the cell is SHROUDED; the device interpolates the vertex alphas bilinearly across a terrain quad (retail splits it into two triangles); the client form
+//   never erases a dead owner from a cell (retail's draw-path cell write of RW 0x75C02D): such a cell reads as claimable, the value retail returns; the
+//   port-placement branch's collector fill (RW 0x6A38C3 .. 0x6A38ED, the build port's special-power positions) is not ported (no resource-building
+//   placement reaches it).
 
 #pragma once
 
@@ -50,6 +68,7 @@
 #include "GameClient/SelectionDecals.h"
 #include "GameLogic/ObjectTypes.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
@@ -58,33 +77,9 @@ class Drawable;
 class GameLogic;
 class ModuleFactory;
 class Player;
-class TerrainResourceFeedback;
 class ThingTemplate;
 class TerrainResourceBehaviorModuleData;
 struct TerrainResourceUiSettings;
-
-// TerrainResourceClientBehavior (both editions: RW 0x6549B1 / BFME2 0x654C56 friend_newModuleInstance, RW 0x708243 / BFME2 0x706A6E friend_newModuleData;
-// ctor RW 0x652B8C / BFME2 0x652DEB, size 0x10, vtable RW 0xC06278 / BFME2 0xBFE710; dtor RW 0x8D0A08 / BFME2 0x8CC55A; slot 17 createSelectionFeedback
-// RW 0x8D0A58 / BFME2 0x8CC5AA; slot 18 removeSelectionFeedback RW 0x8D0A78 / BFME2 0x8CC5CA).
-class TerrainResourceClientBehavior : public DrawableModule
-{
-public:
-	TerrainResourceClientBehavior(Thing *thing, const ModuleData *moduleData);
-	~TerrainResourceClientBehavior() override;
-
-	void createSelectionFeedback() override;
-	void removeSelectionFeedback() override;
-
-	bool isShowing() const { return m_showing; } ///< +0x0C
-	void setFeedback(TerrainResourceFeedback *feedback) { m_feedback = feedback; }
-	TerrainResourceFeedback *feedback() const { return m_feedback; }
-
-	static void registerClass(ModuleFactory &modules);
-
-private:
-	bool m_showing = false; ///< +0x0C: true while this drawable contributes a user to the TerrainResourceClaimFeedback holder
-	TerrainResourceFeedback *m_feedback = nullptr;
-};
 
 namespace TerrainResourceClaimView
 {
@@ -109,15 +104,40 @@ struct ResourceClaimDecal
 	int opacity = 0x80;
 };
 
-// a segment of a claim circle's outline (TerrainClaimSegment, decal type 0x40, RW 0x8E9744): a square `size` wide at `position`, turned by `angle`,
-// in the claimant owner's indicator colour (RW 0x68B6F5) at opacity 255
-struct ResourceClaimArcSegment
+// one angular interval of a claim circle's outline that no other collected circle covers (RW 0x8E99EE's AngleRange)
+struct ResourceClaimAngle
 {
+	float first = 0.0f;
+	float last = 0.0f;
+};
+
+// one collected claimant circle while a resource building waits for its site (RW 0xDE483C's entries)
+struct ResourceClaimCircle
+{
+	ObjectID id = INVALID_ID;
 	Coord3D position{ 0.0f, 0.0f, 0.0f };
-	float size = 0.0f;
-	float angle = 0.0f;
+	float radius = 0.0f;
+	std::uint32_t color = 0xFF000000u; ///< Object::getIndicatorColor (RW 0x68B6F5)
+	std::vector<ResourceClaimAngle> uncovered; ///< the ranges RW 0x8E99EE leaves free (a fully covered circle keeps the whole range, as retail)
+};
+
+// one TerrainClaimSegment shadow of RW 0x8E9744: pieceLength long, centred radius - pieceLength / 2 out, rotated -angle
+struct ResourceClaimArc
+{
+	ObjectID id = INVALID_ID;
+	Coord3D position{ 0.0f, 0.0f, 0.0f };
+	float angle = 0.0f;  ///< mid
+	float length = 0.0f; ///< pieceLength (the shadow's two size floats)
 	std::uint32_t color = 0xFF000000u;
-	int opacity = 255;
+	unsigned shroudLevel = 255; ///< the local player's shroud display level at the segment's centre (0: do not draw; INFERENCE, see the header)
+};
+
+// how many decals appendDecals added of each kind (the HUD counts what the shaders' grid took of them)
+struct TerrainResourceDecalCounts
+{
+	std::size_t place = 0;
+	std::size_t claims = 0;
+	std::size_t arcs = 0;
 };
 
 struct ResourcePlacementFeedback
@@ -139,29 +159,46 @@ struct ResourcePlacementFeedback
 	unsigned version = 0;            ///< bumped when the mask or the colour changed
 };
 
+class TerrainResourceFeedback;
+
+// TerrainResourceClientBehavior (both editions: RW 0x6549B1 / BFME2 0x654C56 friend_newModuleInstance, RW 0x708243 / BFME2 0x706A6E friend_newModuleData;
+// ctor RW 0x652B8C / BFME2 0x652DEB, size 0x10, vtable RW 0xC06278 / BFME2 0xBFE710; dtor RW 0x8D0A08 / BFME2 0x8CC55A; slot 17 createSelectionFeedback
+// RW 0x8D0A58 / BFME2 0x8CC5AA; slot 18 removeSelectionFeedback RW 0x8D0A78 / BFME2 0x8CC5CA).
+class TerrainResourceClientBehavior : public DrawableModule
+{
+public:
+	TerrainResourceClientBehavior(Thing *thing, const ModuleData *moduleData);
+	~TerrainResourceClientBehavior() override;
+
+	void createSelectionFeedback() override;
+	void removeSelectionFeedback() override;
+
+	bool isShowing() const { return m_showing; } ///< +0x0C
+	void setFeedback(TerrainResourceFeedback *feedback) { m_feedback = feedback; }
+	TerrainResourceFeedback *feedback() const { return m_feedback; }
+
+	static void registerClass(ModuleFactory &modules);
+
+private:
+	bool m_showing = false; ///< +0x0C: true while this drawable contributes a user to the TerrainResourceClaimFeedback holder
+	TerrainResourceFeedback *m_feedback = nullptr;
+};
+
 class TerrainResourceFeedback
 {
 public:
-	// `selectionUsers`: claimDecalUsers (S-5030)
+	// `selectionUsers`: the selected objects of the local player whose template lists a TerrainResourceClientBehavior (S-5030)
 	void updateSelection(const GameLogic &logic, int localPlayer, int selectionUsers);
 	// `pending` the template waiting for its site (null: none), `ghost` its drawable's position, `format` the GUI:TerrainResourcePercentageClaimable text
 	void updatePlacement(const GameLogic &logic, int localPlayer, const ThingTemplate *pending, const Coord3D &ghost, const std::u16string &format,
 		int pointerX = 0, int pointerY = 0);
 	const std::vector<ResourceClaimDecal> &claimedDecals() const { return m_claimed; }
-	// the outline arcs of the own / allied claim circles (RW 0x8EC1D6 -> 0x75B8CC, 0x8E99EE, 0x8E9744): the parts of each Visible claimant's circle no other
-	// such circle covers, cut into TerrainClaimSegment decals
-	const std::vector<ResourceClaimArcSegment> &claimArcSegments() const { return m_arcs; }
-	struct ClaimCircle
-	{
-		Coord3D center{ 0.0f, 0.0f, 0.0f };
-		float radius = 0.0f;
-		std::uint32_t color = 0xFF000000u;
-	};
-	// RW 0x8E99EE (the open arcs, steps of RW 0xC790A0 = pi / 320) and RW 0x8E9744 (the segments) for a set of circles
-	static std::vector<ResourceClaimArcSegment> arcSegments(const std::vector<ClaimCircle> &circles);
+	const std::vector<ResourceClaimCircle> &claimCircles() const { return m_claimCircles; } ///< the placement's collected claimants (empty: no placement)
+	const std::vector<ResourceClaimArc> &claimArcs() const { return m_claimArcs; } ///< the segments the device draws
 	// lane PLACEDECAL-1: the placement claim decal and the claims, in RotWK's draw order, as the selection decals' alpha decals (the shaders' grid,
-	// BuildMergeDecalGrid)
-	void appendDecals(const std::string &claimTexture, const std::string &placeTexture, std::vector<SelectionDecal> &out) const;
+	// BuildMergeDecalGrid); lane ECOCIRCLE-2: the placement's claim arcs (TerrainClaimSegment.dds, SHADOW_ADDITIVE_DECAL) first: they are the newest of
+	// RotWK's addDecal list
+	TerrainResourceDecalCounts appendDecals(const std::string &claimTexture, const std::string &placeTexture, std::vector<SelectionDecal> &out) const;
 	const ResourcePlacementFeedback &placement() const { return m_placement; }
 	// TerrainResourceClaimFeedback::show (RW 0x8EC271 -> 0x8EC1D6 / BFME2 0x8E7B0C -> 0x8E7A85) and hide (RW 0x8EC449 -> 0x8EC41B / BFME2 0x8E7D1D -> 0x8E7CEF):
 	// the user count at Impl + 0x04 driven by TerrainResourceClientBehavior::createSelectionFeedback / removeSelectionFeedback / ~TerrainResourceClientBehavior
@@ -170,18 +207,23 @@ public:
 	int users() const { return m_users; }
 	static bool hasClientBehavior(const ThingTemplate &tt);
 	static bool hasClientBehavior(const Drawable &d);
-	// the users of the claim decals (S-5030): the selected objects of `local` whose template lists a TerrainResourceClientBehavior, plus one while `pending`
-	// (the template waiting for its site, null: none) lists one
+	// the HUD's user count (INFERENCE S-5030, the fork's owner check): the selected objects of the local player whose template lists a
+	// TerrainResourceClientBehavior, plus one while such a template waits for its site (the other farms' claims show while a farm is placed)
 	static int claimDecalUsers(const GameLogic &logic, const Player *local, const std::vector<ObjectID> &selected, const ThingTemplate *pending);
 	static std::string stopLine(); ///< "[S-5030] ..." (the HUD's stops)
 	static constexpr float kVertexSpacing = 10.0f; ///< MAP_XY_FACTOR (RW 0xBD83D4 = 0.1 the inverse)
+	static constexpr const char *kClaimArcTexture = "TerrainClaimSegment.dds"; ///< the shadow's texture (RW 0xC79088)
 
 private:
-	int m_users = 0; ///< TerrainResourceClaimFeedback::Impl + 0x04
+	void buildClaimCircles(const GameLogic &logic, int localPlayer);
+	void buildClaimArcs(const GameLogic &logic, int localPlayer);
+
 	std::vector<ResourceClaimDecal> m_claimed;
-	std::vector<ResourceClaimArcSegment> m_arcs;
-	std::vector<ClaimCircle> m_arcCircles;           // the circles m_arcCache was built from
-	std::vector<ResourceClaimArcSegment> m_arcCache;
 	ResourcePlacementFeedback m_placement;
 	std::vector<std::int8_t> m_claimMemo; ///< lane FOGFX-1: updatePlacement's per-cell answers of RW 0x75C02D (-1 not asked yet)
+	std::vector<ResourceClaimCircle> m_claimCircles; ///< the collector of RW 0xDE483C (own / allied Visible claimants only)
+	std::vector<ResourceClaimArc> m_claimArcs;       ///< RW 0x8E9744's TerrainClaimSegment shadows, local player's shroud applied
+	int m_users = 0; ///< TerrainResourceClaimFeedback::Impl + 0x04
+	int m_selectionUsers = 0; ///< updateSelection's users: while any, RW 0x8EC1D6 fills the collector and its arcs outside a placement too
+	std::uint32_t m_circleSignature = 0;             ///< the claimant set the circles were built from (0: none)
 };
