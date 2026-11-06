@@ -8,12 +8,14 @@
 
 #include "Common/PlayerList.h"
 #include "Common/Team.h"
+#include "GameLogic/AI/AIBurningDeathState.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Combat/CombatState.h"
 #include "GameLogic/Combat/WeaponDelivery.h"
 #include "GameLogic/Economy.h"
 #include "GameLogic/EconomySettings.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/RetailObjectWorld.h"
@@ -198,8 +200,19 @@ TEST_CASE("radiusheight1: the Balrog's breath spares an eagle flying above it an
 		a.frames(15); // DelayTime 1000: the hits land 5 frames later (the victims were chosen at delivery)
 		std::printf("  info: caps %d: Gwaihir %.1f -> %.9g, soldier %.1f -> %.1f, soldier 30 up %.1f -> %.1f\n", (int)keepCaps, eagleFull, health(*eagle), groundFull,
 			health(*ground), lowFull, health(*low));
-		CHECK(health(*ground) == 0.0f); // burnt to death
-		CHECK(health(*low) == 0.0f); // 30 up is under the cap: burnt
+		// TOP20 #21: GondorFighter has BurningDeathBehavior (RotWK's gondorfighter.ini), so the breath's lethal FLAME hit is cut to health - 1
+		// (ActiveBody::attemptDamage RW 0x8C41DF .. 0x8C4214) and the soldier runs burning (AI command 0x53 RW 0x6648B6 -> state 0x4A); it dies
+		// BurningDeathTime later (AIBurningDeathState::update RW 0x751CE6 .. 0x751CF4, kill a frame later RW 0x695031). The claim is unchanged: both are burnt
+		for (Object *burnt : { ground, low }) // the soldier on the ground, then the one 30 up (under the cap)
+		{
+			CHECK(health(*burnt) == 1.0f); // the breath hit it: RW 0x8C41DF .. 0x8C4214's cut
+			REQUIRE(burnt->getAIUpdateInterface() != nullptr);
+			CHECK(burnt->getAIUpdateInterface()->currentStateId() == (unsigned)AI_BURNING_DEATH);
+		}
+		const unsigned burnTime = ground->getAIUpdateInterface()->combatSettings().burningDeathTime; // AI data + 0x40 (RW 0x662DAC)
+		a.frames((int)burnTime + 2); // RW 0x751CE6: the death frame, then the AI update's kill a frame later (RW 0x695031)
+		CHECK(ground->isEffectivelyDead()); // burnt to death
+		CHECK(low->isEffectivelyDead()); // 30 up is under the cap: burnt
 		if (keepCaps)
 		{
 			CHECK(health(*eagle) == eagleFull);
