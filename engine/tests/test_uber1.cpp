@@ -152,6 +152,8 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // pin: TOP20 #21 (the burning death), r2 and r3 (an attack ends when its victim turns UNATTACKABLE, RW 0x7417E4 / 0x6C9207) re-measured the pin vector once at
 // r3 (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-1): it moves from frame 16. The previous vector holds with the burning death's cap switched off at 13380105;
 // r3's own share is not split out
+// pin: the fork's merge of upstream 3e363ff9 (2026-11-06) re-measured the pin vector once on the merged tree (OPENBFME_UBER1_REGEN=1, Windows MSVC,
+// station-1); it differs from both parents
 TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1, 4 and 16 logic threads and in a repeated run; the hash's own jobs run on "
 		  "workers; Faithful hashes differently and serially")
 {
