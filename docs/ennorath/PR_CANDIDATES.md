@@ -33,6 +33,7 @@
 
 | решение | дата | автор | где | проверено | upstream |
 |---|---|---|---|---|---|
+| PORT-7: `AnimalAIUpdate/UpdateTimer` (`AnimalAIUpdateModuleData` + 0x78) — зверь ищет врага только на кадре, кратном `UpdateTimer`, и никогда при `UpdateTimer = 0` (RW 0x882288 .. 0x8822A6); поиск стоит до проверки покоя RW 0x882508, поэтому идущий зверь ищет тоже; стоп S-7183 (`aiFleeFromObject` не перенесён) | 2026-11-06 | арена (issue #60) | PR #64: `12ebcda9`, `169d8ad3`, `dcfeb9fb`, `a3762b24`, `b5536920` (`arena/9504a4c6-openbfme-godot`); эталоны не пересняты — задача запретила, `perf1*` / `uber1*` / `skirmish ai vs ai*` могут сдвинуться, в upstream этот PR без них красный там, где на карте есть звери | `PORT-7*`; в игре ждёт | не предложено |
 | P-33: огонь на земле бьёт как `DAMAGE_LOGICAL_FIRE` (RW 0x688A13), смерть `BURNED`, а не `FLAME` (`FireLogicSystem.cpp`) | 2026-11-06 | Claude (station-1) | `cc34e80d` (`agent/claude/station-1`); эталон `perf1` skirmish в том же коммите | `fire logic: a burning cell hits its watchers*`; в игре ждёт | не предложено |
 | Сетка огня: один `FireLogicSystem::newMap` до объектов карты (RW 0x62FDB1), размер по самой большой границе (P-43) | 2026-11-06 | Claude (station-1) | `c0ff4bcd` (`agent/claude/station-1`); эталон `perf1` — `a4b23adb` | `save2 retail fire*` | не предложено |
 | TOP20 #24: `ShadowWhenDead` — медленная смерть выключает тени трупа (RW 0x860F44) | 2026-11-06 | Claude (station-1) | `501d6120` (`agent/claude/station-1`) | `TOP20-24 slow death*`; в игре ждёт | не предложено |
