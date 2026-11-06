@@ -614,6 +614,8 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // ground fire in a fresh game, as RotWK's do; re-measured the skirmish (OPENBFME_PERF1_REGEN=1, Windows MSVC, station-1): it moves from frame 1343; the
 // big battle is unchanged. Attributed by the night run of 2026-11-06 on main da6cbfdf (this test passes there on the previous vectors; 7bb69587 between
 // them changes a stop's text and a test only)
+// pin: the fork's merge of upstream 3e363ff9 (2026-11-06) re-measured both once on the merged tree (OPENBFME_PERF1_REGEN=1, Windows MSVC, station-1):
+// CASTLEATK-1, ATKSTATE-1a and the banner carrier rule on top of the fork; the vectors differ from both parents
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,

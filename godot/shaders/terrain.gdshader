@@ -35,7 +35,6 @@ void vertex() {
 	v_rec = CUSTOM1.x;
 	vec3 world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	v_shroud_uv = (vec2(world.x, -world.z) - shroud_origin) / shroud_extent;
-	v_taint_uv = (vec2(world.x, -world.z) + taint_offset) * taint_scale; // S-5261: terrain.fxo vs (world.xy + Taint.Offset) * Taint.Scale
 	v_sage_xy = vec2(world.x, -world.z);
 	v_weather_vcol = weather_relit ? weather_vertex_color(NORMAL, COLOR) : COLOR;
 	v_wfx_pos = vec3(world.x, -world.z, world.y); // lane WEATHERFX-1 (terrain_common.gdshaderinc)

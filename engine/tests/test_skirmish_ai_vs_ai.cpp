@@ -938,7 +938,10 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// 8478) and r3 (an attack ends when its victim is UNATTACKABLE, RW 0x7417E4 / 0x6C9207: no army shoots a castle foundation any more). Seed 2's frame-9000
 	// window already differed on this tree with both switched off (attacks 12, built 1361u, destroyed 997u/7s): a change landed on main after the last measure
 	// (5361552b), not identified
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 7507 }, Game{ "FactionMordor", "FactionMen", 1234u, -1, -1 } })
+	// pin: the fork's merge of upstream 3e363ff9 (2026-11-06, measured once on the merged tree, Windows MSVC: CASTLEATK-1, ATKSTATE-1a and the banner
+	// carrier rule on top of the fork's TOP20 #21 r3): seed 7 ends with Mordor's defeat (start position 1) at 3655 (7507; upstream alone: 6563), seed 1234
+	// stays open at 9000, seed 2 stays open with a new table from the 4000 window on. Engine pins, not retail values; seed 7's early end is for the night run
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 3655 }, Game{ "FactionMordor", "FactionMen", 1234u, -1, -1 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;
@@ -949,7 +952,8 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 		MESSAGE("progress, seed " << g.seed << ":\n" << run.progress);
 		// lane MODCOMPAT-MOD1 (PickupStuffUpdate, measured at its commit): the seed 7 game launches three (its AI hordes' crate scans and every horde's update in
 		// the sleepy update vectors move it)
-		CHECK(run.attacks[0] + run.attacks[1] >= (g.seed == 7u ? 3u : 2u)); // tolerance: a floor of launches per game (DECOMP-1 r3: seed 2 launches two; seed 7 three; lane WARG-1: seed 1234 two before its end at 7803)
+		// merge queue q42: CASTLEATK-1's seed 7 game ends with Mordor's defeat at 6563 after two launches, so its floor is two again
+		CHECK(run.attacks[0] + run.attacks[1] >= 2u); // tolerance: a floor of launches per game (DECOMP-1 r3: seed 2 launches two; seed 7 three until q42's two; lane WARG-1: seed 1234 two before its end at 7803)
 		// SMOOTH-2 (the pending position cleared every frame, RW 0x62618F, feeds the crush warning's velocity RW 0x68EF58) ends seed 1234 with Men's defeat:
 		// 5275 on SMOOTH-2's base, 5186 on the merged tree (with GARRISON-1 / STEALTH-2 / END-2); seeds 2 and 7 stay open. Lane SMOOTH-3 (RotWK's member hub near arm RW 0x874F09, the angle goal RW 0x5E98D6 turning at the locomotor's rate): seed 1234 is open at 9000 as well. Engine pins, not retail values.
 		// SCRIPT-2 (merged with AUDIO-3 / GARRISON-2 / SMOOTH-3): the AI libraries' scripts now evaluate the conditions they use (PLAYER_HAS_OBJECT_COMPARISON ...
@@ -987,17 +991,18 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 			// merge queue q41 (measured once on the merged tree and at its merge point; DECOMPFIX-1104B moves it, NECRODIE-1 keeps it): a new table from the first
 			// window on; the game stays open at 9000
 			// the merge with upstream 7e98ac2f (measured once on the merged tree): a new table from the first window on; the game stays open at 9000
-			// pin: TOP20 #21 / r3 (station-1): a new table from frame 4000 on (the pin above the games list); the game stays open at 9000
+			// TOP20 #21 / r3 (station-1): a new table from frame 4000 on; the game stays open at 9000
+			// pin: the fork's merge of upstream 3e363ff9 (2026-11-06, the pin above the games list): a new table from frame 4000 on; open at 9000
 			CHECK(run.progress ==
 			"frame 1000: [0 attacks 0 built 72u/7s destroyed 36u/1s] [1 attacks 1 built 92u/7s destroyed 29u/1s]\n"
 			"frame 2000: [0 attacks 1 built 264u/10s destroyed 150u/2s] [1 attacks 1 built 201u/10s destroyed 135u/4s]\n"
 			"frame 3000: [0 attacks 1 built 382u/13s destroyed 237u/3s] [1 attacks 2 built 332u/11s destroyed 267u/5s]\n"
-			"frame 4000: [0 attacks 4 built 565u/14s destroyed 343u/3s] [1 attacks 3 built 421u/15s destroyed 441u/5s]\n"
-			"frame 5000: [0 attacks 6 built 768u/16s destroyed 443u/3s] [1 attacks 4 built 526u/18s destroyed 683u/5s]\n"
-			"frame 6000: [0 attacks 8 built 1072u/19s destroyed 582u/3s] [1 attacks 6 built 683u/21s destroyed 966u/5s]\n"
-			"frame 7000: [0 attacks 10 built 1313u/23s destroyed 722u/4s] [1 attacks 7 built 827u/24s destroyed 1237u/6s]\n"
-			"frame 8000: [0 attacks 12 built 1483u/26s destroyed 893u/4s] [1 attacks 9 built 1000u/24s destroyed 1383u/6s]\n"
-			"frame 9000: [0 attacks 13 built 1711u/27s destroyed 1012u/4s] [1 attacks 9 built 1100u/24s destroyed 1664u/9s]\n");
+			"frame 4000: [0 attacks 3 built 564u/15s destroyed 330u/3s] [1 attacks 3 built 422u/15s destroyed 469u/5s]\n"
+			"frame 5000: [0 attacks 5 built 812u/15s destroyed 457u/3s] [1 attacks 6 built 582u/17s destroyed 681u/5s]\n"
+			"frame 6000: [0 attacks 6 built 1060u/15s destroyed 564u/3s] [1 attacks 7 built 592u/20s destroyed 959u/5s]\n"
+			"frame 7000: [0 attacks 8 built 1226u/20s destroyed 635u/4s] [1 attacks 10 built 684u/24s destroyed 1208u/5s]\n"
+			"frame 8000: [0 attacks 9 built 1388u/22s destroyed 744u/4s] [1 attacks 11 built 852u/25s destroyed 1323u/7s]\n"
+			"frame 9000: [0 attacks 10 built 1557u/24s destroyed 891u/4s] [1 attacks 12 built 1013u/25s destroyed 1504u/7s]\n");
 		}
 	}
 }

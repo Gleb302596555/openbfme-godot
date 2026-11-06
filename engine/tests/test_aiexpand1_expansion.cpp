@@ -634,6 +634,9 @@ TEST_CASE("aiexpand1 expansion in a game: the Medium Men computer kept above 300
 	// merge queue q33 (measured once on the merged tree and at each merge point): MODCOMPAT-MOD1's own values hold at its merge point; #133's straight
 	// production exits move this AI game: the same start is still chosen at 1519, its request at 2196 (1841), in progress at 2197 (1842), complete with the
 	// second base at 2937 (2611)
+	// pin: merge queue q42 (CASTLEATK-1: nothing attacks an object with the status UNATTACKABLE, RW 0x6C9207, with ATKSTATE-1a's attack-state gates; measured once on the merged tree and at each merge point, #225 keeps it): the start is chosen at 1519 -> 2123
+	// pin: the fork's merge of upstream 3e363ff9 (2026-11-06, measured once on the merged tree, Windows MSVC): with the fork's TOP20 #21 r3 on top of CASTLEATK-1
+	// the start is chosen at 1519 again (q42's 2123 is upstream's tree without r3); the request, progress and completion frames below hold
 	CHECK(chosenFrame == 1519);
 	CHECK(tacticFrame == 1519);
 	// merge queue q35 (#132's ground-structure melee reach, measured once on the merged tree and at each merge point; SIMSMALL-1, #178 and #179 keep the archive's values): the same start is chosen at 1519, its request at 1894 (2196), in progress at 1895 (2197), complete with the second base at 2635 (2937)

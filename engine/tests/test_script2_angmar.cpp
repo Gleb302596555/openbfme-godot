@@ -133,11 +133,11 @@ static void runFoundation(SimulationProfile profile, bool defend, const SaveGame
 		// #172 keeps it): wolf rider hits 1006 -> 1016, banner carrier hits 83 -> 88, the last sling hit takes 1111 (955)
 		// merge queue q41 (measured once on the merged tree and at its merge point; DECOMPFIX-1104B's aim and give-way rules, AIMAIM-1 RW 0x75232F and BUMP-1,
 		// move it, NECRODIE-1 keeps it): wolf rider hits 1016 -> 982, banner carrier hits 88 -> 97, the last sling hit takes 1285 (1111)
-		// pin: P-48 (2026-11-06, PROCESS 7 rule 2): TOP20 #21 r3 (04636a95: an attack ends when its victim turns UNATTACKABLE, RW 0x7417E4 .. 0x741807; 13380105,
-		// r2, gives the q41 table): wolf rider hits 982 -> 829, banner carrier hits 97 -> 43, the slings' fourth 1350 lands whole and a fifth 50 takes the last
-		// 28 (was: three 1350, the fourth took 1285). The slings' retail numbers (50, 1350) are unchanged and the loss still reaches defeat
-		const std::map<std::string, int> expected = { { "AngmarThrallMasterWolfBanner dealt 2 taken 2", 43 }, { "AngmarTrollSling dealt 1350 taken 1350", 4 },
-			{ "AngmarTrollSling dealt 50 taken 28", 1 }, { "AngmarTrollSling dealt 50 taken 50", 4 }, { "AngmarWolfRider dealt 5 taken 5", 829 } };
+		// pin: the fork's merge of upstream 3e363ff9 (2026-11-06, measured once on the merged tree, Windows MSVC): the merged tree gives upstream's q42 table
+		// (CASTLEATK-1 and #216's banner rule; the fork's TOP20 #21 r3, P-48's cause, adds nothing on top): wolf rider hits 829 -> 401, banner carrier 43 -> 48,
+		// four full sling hits, five 50s, the last sling hit taking 1318
+		const std::map<std::string, int> expected = { { "AngmarThrallMasterWolfBanner dealt 2 taken 2", 48 }, { "AngmarTrollSling dealt 1350 taken 1318", 1 },
+			{ "AngmarTrollSling dealt 1350 taken 1350", 4 }, { "AngmarTrollSling dealt 50 taken 50", 5 }, { "AngmarWolfRider dealt 5 taken 5", 401 } };
 		CHECK(kinds == expected);
 	};
 	if (!saved)
