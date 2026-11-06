@@ -1956,7 +1956,7 @@ void ObjectWeaponDelivery::fireWeaponTemplate(const WeaponBonus &bonus, int curB
 		// RW 0x6EA86B .. 0x6EA87F: wall layer > 0x10; argument 0 ignores cell occupancy/type.
 		if (t.m_infantryInaccuracyDist > 0.0f && victim->isKindOf((unsigned)CombatNames::kinds().infantry))
 		{
-			const AIWorld *world = m_logic.aiWorld();
+			const AIWorld *world = logic.aiWorld();
 			miss = !(t.m_disableScatterForTargetsOnWall && world &&
 				world->pathfinder().isPointOnWall(*victim->getPosition(), false));
 		}
