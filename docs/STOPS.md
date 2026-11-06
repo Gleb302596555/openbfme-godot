@@ -7,9 +7,12 @@ common ability helper at `0x851BCF`, called at start and finish; the speed
 predicate at `0x5E3EF7` also depends on Object `+0x251`. The existing S-860
 and S-222 code stops remain applicable. The remaining blocking evidence is the
 the remaining branches of common movement `0x74DADA` / `0x748E46`, the
-retail behavior when a deferred GiantBird target is no longer available, and
-any indirect writes or module-replacement effects on Object `+0x251`. The
-GiantBird dispatch and state `0x3F` wait setup have now been traced, but none of
+reachability of a deferred GiantBird command after its target is deleted
+(including indirect deletion callbacks; the phase order alone cannot rule it
+out), and any indirect writes or module-replacement effects on Object `+0x251`.
+The owner prescribed cancellation with a diagnostic counter if the RW crash is
+reachable, otherwise an error report for a violated invariant (2026-11-06,
+issue #57). The GiantBird dispatch and state `0x3F` wait setup have now been traced, but none of
 the missing gameplay code or its tests has been implemented. Until then, no
 PORT-5 acceptance or gameplay fix is claimed. See
 `docs/ennorath/PORT5_RW_ANALYSIS.md` for checked addresses and open branches.
