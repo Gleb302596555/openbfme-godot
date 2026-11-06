@@ -140,6 +140,12 @@ void ClientEventRecorder::fadeOut(Object &obj, UnsignedInt frames)
 	e.fadeFrames = frames;
 }
 
+void ClientEventRecorder::setShadowsEnabled(Object &obj, bool enabled)
+{
+	ClientEvent &e = push(ClientEvent::SET_SHADOWS, obj);
+	e.shadowsOn = enabled;
+}
+
 void ClientEventRecorder::setDrawableOpacity(Object &obj, float opacity)
 {
 	ClientEvent &e = push(ClientEvent::SET_OPACITY, obj);
