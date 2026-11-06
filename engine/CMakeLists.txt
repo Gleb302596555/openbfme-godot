@@ -193,6 +193,7 @@ include(cmake/Path2.cmake)      # OPENBFME_PATH2_SOURCES / OPENBFME_PATH2_TESTS 
 include(cmake/Net.cmake)        # OPENBFME_NET_SOURCES / OPENBFME_NET_TESTS, openbfme_peer (lane MP-1)
 include(cmake/Experience.cmake) # OPENBFME_XP_SOURCES / OPENBFME_XP_TESTS (lane XP-1)
 include(cmake/FactB.cmake)      # OPENBFME_FACTB_TESTS (lane FACT-B: Isengard and Mordor)
+include(cmake/Port4.cmake) # OPENBFME_PORT4_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
 include(cmake/Port1.cmake) # PORT-1: Weapon/FinishAttackOnceStarted (issue #53; OPENBFME_PORT1_TESTS)
 include(cmake/Port6.cmake) # PORT-6: StealthDetectorUpdate/CanDetectWhileGarrisoned (issue #59; OPENBFME_PORT6_TESTS)
@@ -747,6 +748,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT8_TESTS}
     ${OPENBFME_PORT7_TESTS}
     ${OPENBFME_PORT11_TESTS}
+    ${OPENBFME_PORT4_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}
