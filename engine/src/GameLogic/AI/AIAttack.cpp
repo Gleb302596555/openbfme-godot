@@ -838,14 +838,33 @@ StateReturnType AIAttackFireState::update()
 {
 	Object &obj = owner();
 	Object *victim = victimOf(machine());
-	if (m_att->isAttackingObject() && victimGone(victim))
+	// lane PORT-1 (issue #53): the current weapon is taken before the victim is looked at, as RW 0x74C4D3 .. RW 0x74C4E5 does (RW 0x68B58C; no weapon
+	// leaves the state at RW 0x74C72B): the decision below needs its template.
+	ObjectWeapons *w = obj.getWeapons();
+	Weapon *weapon = w ? w->currentWeapon() : nullptr;
+	if (!w || !weapon)
 	{
 		return STATE_FAILURE;
 	}
-	ObjectWeapons *w = obj.getWeapons();
-	if (!w || !w->currentWeapon())
+	// lane PORT-1 (issue #53): RW 0x74C6A8 .. RW 0x74C6D9: with an attack on an object (notify vslot 3, RW 0x9DBF60 = AIAttackState + 0x41) and a victim
+	// that is gone — no victim object (RW 0x74C6C3), a dead one (Object + 0x458 bit 0, RW 0x74C6C7) or one with the status FLEE_OFF_MAP (0x32, RW 0x74C6D0)
+	// — the weapon's FinishAttackOnceStarted decides the rest (WeaponTemplate + 0x161, reached through Weapon + 4 as at RW 0x74C509; parser RW 0x42E558,
+	// the constructor's default 1 at RW 0x6CE164): RW 0x74C6E5 `cmp byte ptr [eax+0x161], 0` and RW 0x74C6EC `jne` keep the shot — the state goes on into
+	// the fire path RW 0x74C530 and fires at the victim's last position — while zero goes to RW 0x74C6F2 (the machine's setGoalObject(NULL); not ported,
+	// stop S-7182) and returns STATE_FAILURE at RW 0x74C8AC: the attack ends and no shot is fired.
+	static const int kFleeOffMap = CombatNames::status("FLEE_OFF_MAP");
+	const WeaponTemplate *tmpl = weapon->getTemplate();
+	// RW 0x74C50F .. RW 0x74C52A: before the decision, a NoVictimNeeded weapon (+ 0x16B) jumps straight into the fire path when it has no victim (RW 0x74C51C) or
+	// when the victim is not IMMOBILE (KindOf bit 2 of the victim's template, RW 0x74C523 `test byte ptr [eax+0x108], 4`): RW 0x74C52C sets the flag [ebp-0xd] and
+	// falls into RW 0x74C530, and that flag later sends the shot to the position fire RW 0x74C88B. Those shots never read the field; the port fires them at the
+	// machine's goal position (a null victim), which is the same call.
+	const bool positionShot = tmpl->m_noVictimNeeded && (!victim || !victim->isKindOf((unsigned)CombatNames::kinds().immobile));
+	if (!positionShot && m_att->isAttackingObject() && (victimGone(victim) || victim->testStatus((unsigned)kFleeOffMap)))
 	{
-		return STATE_FAILURE;
+		if (!tmpl->m_finishAttackOnceStarted)
+		{
+			return STATE_FAILURE;
+		}
 	}
 	if (m_deferred)
 	{
