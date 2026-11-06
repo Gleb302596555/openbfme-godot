@@ -389,7 +389,7 @@ UpdateSleepTime SlavedUpdate::update()
 	// ObjectPathfindAdapter::m_layer; adapterFor also reads a master without an AI module. setLayer writes that same stored, hashed/xferred layer.
 	if (m_data->m_stayOnSameLayerAsMaster)
 	{
-		ai->setLayer(ai->world().adapterFor(slaver).getLayer());
+		ai->setLayer(ai->world().adapterFor(*slaver).getLayer());
 	}
 	// RW 0x8A5E82 .. 0x8A5E88: both flag paths unconditionally clear bit 6 (DRONE_SPOTTING, name table 0xDA1740) on the SLAVE's
 	// Object + 0x39C, before repair / attack / guard. Preserve every other bonus bit; the master's matching set is in doAttackLogic (0x8A54CF).
