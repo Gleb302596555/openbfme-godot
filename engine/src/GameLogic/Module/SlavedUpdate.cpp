@@ -20,6 +20,7 @@
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/SimMath.h"
+#include "GameLogic/Weapon.h"
 
 #include <cstddef>
 #include <stdexcept>
@@ -38,6 +39,17 @@ const int kSlavedUpdateRate = LOGICFRAMES_PER_SECOND / 4; // RW 0xDE95FC (RW 0xB
 int statusBit(const char *name)
 {
 	return ObjectTemplateInfoBuilder::objectStatusIndex(name);
+}
+
+// RW 0xDA1740 entry 6 (0xDA1758 -> 0xC18008): DRONE_SPOTTING. Resolve the name once; a missing registry name is an error, never a silent bit choice.
+int droneSpottingBit()
+{
+	static const int bit = INI::scanIndexList("DRONE_SPOTTING", TheWeaponBonusConditionNames);
+	if (bit < 0)
+	{
+		throw std::logic_error("SlavedUpdate: DRONE_SPOTTING is absent from TheWeaponBonusConditionNames (RW 0xDA1740)");
+	}
+	return bit;
 }
 
 // RW 0x5E3BE4 (this = the object): x87 (x - px)^2 + (y - py)^2 + (z - pz)^2, the subtractions and the products each rounded at PC24, left wide
@@ -298,7 +310,12 @@ void SlavedUpdate::doAttackLogic(Object &slaver, Object &target)
 	{
 		ai->aiMoveToPosition(pos, CMD_FROM_AI); // RW 0x66C4CA(pos, 2)
 	}
-	// within DistToTargetToGrantRangeBonus^2 the slaver's weapon bonus bit 6 (+ 0x39C) sets: the drone spotting bonus has no RotWK user (not ported)
+	// RW 0x8A54BD .. 0x8A54CF: the squared distance from the slave to the victim is within DistToTargetToGrantRangeBonus^2 -> set DRONE_SPOTTING
+	// on the MASTER (ebx was resolved from m_slaverID at 0x8A5336). The update's clear at 0x8A5E88 is on the slave, not this object.
+	if (distSqTo(*obj, *target.getPosition()) <= intSquare(m_data->m_distToTargetToGrantRangeBonus))
+	{
+		slaver.setWeaponBonusCondition(droneSpottingBit(), true);
+	}
 	++stats().attackMoves;
 }
 
@@ -366,7 +383,16 @@ UpdateSleepTime SlavedUpdate::update()
 		stopSlavedEffects();
 		return UPDATE_SLEEP_FOREVER;
 	}
-	// StayOnSameLayerAsMaster (RW 0x68BBE0 / 0x68BB9D): the layers are not ported (every object is on the ground layer here)
+	// PORT-11, RW 0x8A5E66 .. 0x8A5E7A: after the live-master / ALLIES gate, StayOnSameLayerAsMaster copies the MASTER's Object layer
+	// (getter 0x68BBE0, receiver ebx) onto the SLAVE (setter 0x68BB9D, receiver [ebp-4]). The port's Object layer is the existing
+	// ObjectPathfindAdapter::m_layer; adapterFor also reads a master without an AI module. setLayer writes that same stored, hashed/xferred layer.
+	if (m_data->m_stayOnSameLayerAsMaster)
+	{
+		ai->setLayer(ai->world().adapterFor(slaver).getLayer());
+	}
+	// RW 0x8A5E82 .. 0x8A5E88: both flag paths unconditionally clear bit 6 (DRONE_SPOTTING, name table 0xDA1740) on the SLAVE's
+	// Object + 0x39C, before repair / attack / guard. Preserve every other bonus bit; the master's matching set is in doAttackLogic (0x8A54CF).
+	obj->setWeaponBonusCondition(droneSpottingBit(), false);
 	AIUpdateInterface *slaverAI = slaver->getAIUpdateInterface();
 	Object *target = slaverAI ? slaverAI->currentVictim() : nullptr; // RW 0x668303
 	const int healthPercent = 100; // RepairRatePerSecond above 0 only (no retail slave repairs): S-1426
