@@ -105,8 +105,6 @@ TEST_CASE("PORT-7 a critter scans for enemies only on frames that are a multiple
 	Object *critter = mw.spawn("Port7Critter", 500, kEnemyY);
 	mw.spawn("Walker", kEnemyX, kEnemyY, 0.0f, mw.teamOf("Bob")); // the enemy, 400 away: inside FleeRange 1000
 	mw.frames(1);
-	mw.logic->partition().setRegion(0.0f, 0.0f, 1000.0f, 1000.0f);
-	mw.frames(1);
 	AIUpdateInterface *ai = mw.aiOf(critter);
 	REQUIRE(ai != nullptr);
 	REQUIRE(critter->getPosition()->x == 500.0f);
