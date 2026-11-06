@@ -20,8 +20,13 @@
 // - AnimalAIUpdate:
 //   ctor RW 0x881DAA / BFME2 0x47ECA8,
 //   dtor RW 0x881E19 / BFME2 0x47ECE0,
-//   update RW 0x882058 / BFME2 0x47EDC9,
+//   update RW 0x882058 / BFME2 0x47EDC9 (2,916 bytes; docs/re/rotwk/RW_0x882058.md),
 //   xfer RW 0x881E3E / BFME2 0x47EBAF.
+// - update's UpdateTimer gate (lane PORT-7): the enemy scan runs only when the logic frame is a multiple of
+//   UpdateTimer — RW 0x882288 `mov ecx, [data+0x78]`, RW 0x88228B / 0x882292 `test ecx, ecx` / `jbe RW 0x882508`
+//   (zero never scans), RW 0x882298 / 0x88229D TheGameLogic `[RW 0xDE412C]` frame `[eax+0x40]`, RW 0x8822A2
+//   `div ecx`, RW 0x8822A4 / 0x8822A6 `test edx, edx` / `jne RW 0x882508`. RW 0x882508 is the idle test, not a
+//   return, so the gate covers the scan alone and stands before that test.
 
 #pragma once
 
