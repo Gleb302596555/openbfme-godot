@@ -158,3 +158,17 @@ TEST_CASE("PORT-18 retained related pointer: next per-object toggle can clear th
     CHECK_FALSE(w.held(next));
     CHECK_FALSE(w.held(master));
 }
+
+TEST_CASE("PORT-18 neighbor: an individually selected horde member does not toggle its horde")
+{
+    P18World w;
+    Object *horde = w.unit("SwordHorde", 'A', 500, 500);
+    auto members = w.membersOf(horde);
+    REQUIRE(members.size() == 6);
+    Object *member = members[0];
+    w.choose({member});
+    w.toggle(); // RW 0x77B785 / 0x77B7C7 tests the selected object's HORDE kind, not its containing horde.
+    CHECK(w.held(member));
+    CHECK_FALSE(w.held(horde));
+    CHECK_FALSE(w.held(members[1]));
+}
