@@ -225,6 +225,32 @@ TEST_CASE("PORT-5: charge ability trigger, actual locomotor host and ability sna
  ability->finishAbility(false, true);
  CHECK_FALSE(charger->testModelCondition(0x84));
 
+ // Object transfers model conditions and modules; AIWorld separately transfers each AI's machine state.
+ ability->initiateIntentToDoSpecialPower(ability->abilityData()->m_specialPowerTemplate, nullptr, nullptr, 0, 0);
+ ability->update();
+ REQUIRE(charger->testModelCondition(0x84));
+ XferSave objectSaved;
+ charger->xfer(objectSaved);
+ XferSave objectAIState;
+ ai->xferAIState(objectAIState);
+ StateHasher objectBefore;
+ charger->crc(objectBefore);
+ ability->finishAbility(false, true);
+ CHECK_FALSE(charger->testModelCondition(0x84));
+ XferLoad objectLoad(objectSaved.data());
+ charger->xfer(objectLoad);
+ CHECK(objectLoad.atEnd());
+ XferLoad objectAILoad(objectAIState.data());
+ ai->xferAIState(objectAILoad);
+ CHECK(objectAILoad.atEnd());
+ CHECK(charger->hasChargeAttackAbility());
+ CHECK(charger->testModelCondition(0x84));
+ CHECK(ai->locomotor()->getMaxSpeedForCondition(ai->locomotorHost()) == doctest::Approx(12.0)); // tolerance: float32 speed conversion
+ StateHasher objectAfter;
+ charger->crc(objectAfter);
+ CHECK(objectAfter.value() == objectBefore.value());
+ ability->finishAbility(false, true);
+
  // Exercise real base AI command 0x48 and restore its approach state (the path hook is rebound on load).
  REQUIRE(ai->aiAbilityApproachObject(ordinary, CMD_FROM_AI));
  CHECK(ai->aiStateType() == AI_ABILITY_APPROACH);
