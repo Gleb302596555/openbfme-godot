@@ -411,3 +411,30 @@ TEST_CASE("PORT-5: blocked ability approach waits through its deadline after an 
  CHECK(w.logic->getFrame() == 53);
  CHECK(ai->currentStateId() == (unsigned)AI_IDLE);
 }
+
+TEST_CASE("PORT-5: blocked ability approach backs off to a reachable path")
+{
+ combattest::CombatWorld w;
+ Object *unit = w.unit("Swordsman", 'A', 100.0f, 500.0f);
+ REQUIRE(unit);
+ w.frames(2);
+ AIUpdateInterface *ai = unit->getAIUpdateInterface();
+ REQUIRE(ai);
+ Pathfinder &pf = w.ai->pathfinder();
+ // Cover the target and every cell within 150 of it; leave the caster's side reachable.
+ for (int x = 70; x < 100; ++x)
+  for (int y = 0; y < 100; ++y)
+   if (PathfindCell *cell = pf.getCell(LAYER_GROUND, x, y)) cell->setType(PathfindCell::CELL_IMPASSABLE);
+ const Coord3D goal{ 850.0f, 500.0f, 0.0f };
+ CHECK_FALSE(pf.canApproachToTarget(ai->adapter(), ai->locomotorInfo(), goal, 0.0f, false, false));
+ REQUIRE(ai->aiAbilityApproachPosition(goal, CMD_FROM_AI));
+ CHECK(ai->currentStateId() == (unsigned)AI_ABILITY_APPROACH);
+ w.frames(1);
+ REQUIRE(ai->mover().path());
+ REQUIRE(ai->mover().path()->getLastNode());
+ // RW 0x745C6C: 20-unit probes and CastleSiegeStandBackDistance (500 in this fixture), then destination adjustment.
+ const Coord3D *end = ai->mover().path()->getLastNode()->getPosition();
+ CHECK(end->x == 180.5f);
+ CHECK(end->y == 500.5f);
+ CHECK(ai->currentStateId() == (unsigned)AI_ABILITY_APPROACH);
+}
