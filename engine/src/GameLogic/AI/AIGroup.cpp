@@ -643,6 +643,38 @@ void AIGroup::groupAttackPosition(const Coord3D &pos, int maxShotsToFire, Comman
 	}
 }
 
+void AIGroup::groupAttackMoveToPosition(const Coord3D &pos, int maxShots, CommandSourceType source)
+{
+	// RW 0x774E2F: count > 1 && AIData AttackMoveUsesFormations (+ 0xBA) && source == CMD_FROM_PLAYER && AIData UseFormations (+ 0xBD) ->
+	// gatherAndMoveInFormation(pos, CMD_FROM_PLAYER, /*mode=*/1, /*ground=*/true) (RW 0x7747DE; unlike RW 0x774897, no tighten-rectangle check)
+	const GameLogicSettings &gs = m_logic.settings();
+	if (m_members.size() > 1 && gs.attackMoveUsesFormations && source == CMD_FROM_PLAYER && gs.useFormations)
+	{
+		if (gatherAndMoveInFormation(pos, CMD_FROM_PLAYER, 1, true))
+		{
+			return;
+		}
+	}
+	groupMoveToPosition(pos, false, source, false, 0.0f, true);
+	for (Object *o : m_members)
+	{
+		if (AIUpdateInterface *ai = o->getAIUpdateInterface())
+		{
+			ai->armAttackMove(ai->stateMachine().goalPosition(), source);
+			if (maxShots != 0x7FFFFFFF)
+			{
+				if (ObjectWeapons *w = o->getWeapons())
+				{
+					if (Weapon *cur = w->currentWeapon())
+					{
+						cur->setMaxShotCount(maxShots);
+					}
+				}
+			}
+		}
+	}
+}
+
 void AIGroup::clearTemporarySpeedCaps()
 {
 	for (Object *o : m_members)
