@@ -211,7 +211,11 @@ bool toggleNoAutoAcquire(GameLogic &logic, const GameMessage &m)
 		// an individually selected member is set directly even when it belongs to a horde.
 		if (o->isKindOf((unsigned)CombatNames::kinds().horde))
 		{
-			o->setStatusAcrossHorde((unsigned)noAuto, value); // RW 0x748650 -> 0x694569
+			// RW 0x69458A..0x694591: the horde interface is mandatory, not just any contain.
+			if (o->getContain() && o->getContain()->getHordeContainInterface())
+			{
+				o->setStatusAcrossHorde((unsigned)noAuto, value); // RW 0x748650 -> 0x694569
+			}
 		}
 		else
 		{
