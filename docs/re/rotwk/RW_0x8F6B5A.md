@@ -88,6 +88,12 @@ unported.
   byte +0x78 clear, and whose slot +0x44 plus 10 is strictly greater than
   the frame (RW 0x8F5B6B–0x8F5B93). On success RW 0x8F5BCE–0x8F5BD7 stores
   the member's ID in AI +0x74 and returns true; otherwise it returns false.
+* The same helper has another caller: RW 0x8F744B clears AI +0x70, RW
+  0x8F744F calls RW 0x8F5ABD, and RW 0x8F7458–0x8F746A resolves AI +0x74
+  if it returned true. On failure it calls the source chooser RW 0x8F6B5A
+  (RW 0x8F746C–0x8F7476). The caller belongs to an action outside this
+  issue; a correct implementation must share the helper and its state, not
+  add a separate condition-only copy.
 * Record +0x78 is `DamageInfoOutput::m_noEffect`: constructor RW
   0x66365E clears it and copy RW 0x744200–0x744203 copies it. ActiveBody
   uses that copy at RW 0x8C42F1–0x8C42F5. The port's `ActiveBody` stores
