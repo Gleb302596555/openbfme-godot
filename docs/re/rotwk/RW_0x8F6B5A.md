@@ -28,9 +28,9 @@ unported.
   if the caller's flag or this byte is nonzero, otherwise the base constructor.
   In the port `Player::setPlayerType` stores only type and the caller's flag,
   and `ForceSkirmishAI` is not parsed. A reconstruction from `isSkirmishAI()`
-  alone misses the byte's branch. The owner has since allowed the additional
-  parsing change; it is still a prerequisite, not yet implemented here. It
-  must not be replaced by a hard-coded value.
+  alone misses the byte's branch. The owner allowed the additional parsing
+  change; the parser and setting are now present, but the Player AI class
+  selection still does not consume the setting.
 
 ## SAFE: selection and scan
 
@@ -117,8 +117,9 @@ unported.
   add a separate condition-only copy.
 * Record +0x78 is `DamageInfoOutput::m_noEffect`: constructor RW
   0x66365E clears it and copy RW 0x744200–0x744203 copies it. ActiveBody
-  uses that copy at RW 0x8C42F1–0x8C42F5. The port's `ActiveBody` stores
-  only selected fields of the last damage record, not `m_noEffect`.
+  uses that copy at RW 0x8C42F1–0x8C42F5. The port now stores `m_noEffect`
+  with the selected fields of the last damage record; synthetic tests are
+  written but have not yet been run.
   Whether this byte can be true on any body path that the condition can scan
   has not been proved. RW 0x8C403F–0x8C4044 clears output floats +0x70 and
   +0x74 but does not clear +0x78 at those instructions; on the recording
@@ -130,10 +131,10 @@ unported.
   output byte. SymbioticStructuresBody's body table 0xC72200 instead has
   slot +0x40 RW 0x8C4FD7 and +0x44 RW 0x8C5100, which forward to the
   resolved symbiote's body or return null / -1 when it is absent. The port's
-  `SymbioticStructuresBody` inherits ActiveBody's last-record accessor rather
-  than forwarding it; this is a second body-interface dependency, not proof
-  that the byte is always false. The owner has now permitted changes to
-  ActiveBody and SymbioticStructuresBody for this mechanism.
+  The port now forwards both last-record accessors and the damage-frame slot
+  from `SymbioticStructuresBody` to the linked body's interface. The owner
+  permitted changes to ActiveBody and SymbioticStructuresBody for this
+  mechanism; these changes have not yet been run in tests.
 * The record is not overwritten for every hit: RW 0x8C4294–0x8C42F5 writes
   immediately if the saved frame is neither the current frame nor the previous
   frame (unsigned wrap matters at frame 0). Otherwise it resolves the previous
@@ -142,16 +143,18 @@ unported.
   0x68DAE6 allows the incoming source when it has FS_POWER, FS_FACTORY,
   FS_BASE_DEFENSE, FS_TECHNOLOGY or FS_CASH_PRODUCER. On a copy RW
   0x8C42F5 copies the entire DamageInfo, resets the clearable-attacker flag,
-  and stores the current frame. The port currently overwrites its partial
-  record on every damaging hit, so adding only the new byte would preserve the
-  wrong hit. These selection branches must apply to the existing fields too.
+  and stores the current frame. The port formerly overwrote its partial
+  record on every damaging hit; its existing fields and the new byte now
+  follow the same replacement decision. Runtime verification is pending.
+  The native ActiveBody snapshot was bumped to version 3 and rejects older
+  versions, which did not record `m_noEffect` and cannot reconstruct it.
 
 ## Outstanding before code
 
-Resolve the two +0x2FC AI variants and their lifetime in the port, implement
-and use the now-authorized `ForceSkirmishAI` parser, confirm exact x87
-behavior and record-byte possibilities across body implementations, and design
-the condition cache and player AI timer/ID with hash and xfer. Confirm all
-relevant callers and tests before claiming parity. Existing manager AI state
-is not proof of the separate player AI's presence or behavior. No PORT-16
-test or behavioral change is claimed by this note.
+Resolve the two +0x2FC AI variants and their lifetime in the port, use the
+now-parsed `ForceSkirmishAI`, confirm exact x87 behavior and record-byte
+possibilities across body implementations, and design the condition cache
+and player AI timer/ID with hash and xfer. Confirm all relevant callers and
+tests before claiming parity. Existing manager AI state is not proof of the
+separate player AI's presence or behavior. `PORT-16` prerequisite tests exist
+but have not yet run; no implementation of the two conditions is claimed.
