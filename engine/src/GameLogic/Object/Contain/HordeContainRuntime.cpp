@@ -911,6 +911,19 @@ unsigned HordeContain::getSlotCount() const
 	return (unsigned)m_core->slots().size();
 }
 
+// lane PORT-25 (issue #97): HordeContainInterface vslots 0x258 / 0x25C read module data + 0x274 / + 0x278 straight (RW 0x872B9E:
+// `mov eax, [ecx-0x118]; fld dword ptr [eax+0x274]`; RW 0x872BAB the same for + 0x278). No scaled or clamped copy: the look applies the
+// `> 0` test itself (RW 0x694B82 .. 0x694B8B).
+float HordeContain::getVisionRearOverride() const
+{
+	return m_data->horde.m_visionRearOverride;
+}
+
+float HordeContain::getVisionSideOverride() const
+{
+	return m_data->horde.m_visionSideOverride;
+}
+
 std::vector<int> HordeContain::freeSlotIndices() const
 {
 	return std::vector<int>(m_core->freeList().begin(), m_core->freeList().end());
