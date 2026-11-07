@@ -147,7 +147,8 @@ void PlacementIcons::rebuild(const InGameUI &ui)
 	main.drawable = make(*tt, m_icons.size());
 	main.angle = placementViewAngle(*main.tt); // RW 0x69C6FC
 	main.drawable->setOrientation(main.angle);
-	main.drawable->setHouseColor(indicatorColor(m_logic, m_source)); // RW 0x674504
+	main.drawable->setIndicatorColor(indicatorColor(m_logic, m_source)); // RW 0x674504
+	main.drawable->setHouseColor(indicatorColor(m_logic, m_source));
 	m_icons.push_back(std::move(main));
 	// a castle: the local faction's layout (RW 0x6A3484 .. 0x6A3760)
 	const Player *local = m_logic.players().getLocalPlayer();
@@ -246,6 +247,7 @@ void PlacementIcons::updateWall(const InGameUI &ui)
 			Icon icon;
 			icon.tt = tt;
 			icon.drawable = make(*icon.tt, i);
+			icon.drawable->setIndicatorColor(indicatorColor(m_logic, m_source));
 			icon.drawable->setHouseColor(indicatorColor(m_logic, m_source));
 			m_icons[i] = std::move(icon);
 		}

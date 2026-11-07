@@ -884,15 +884,31 @@ void Drawable::colorTint(const RGBColor *color)
 
 void Drawable::flashAsSelected(const RGBColor *color)
 {
-	// RW 0x678FA7 / BFME2 0x678C4F: plays on m_selectionFlashEnvelope (+0x64) with attack=0, decay=4, sustain=0
+	// RW 0x678FA7 / BFME2 0x678C4F: plays on m_selectionFlashEnvelope (+0x64) with attack=0, decay=4, sustain=1
 	if (color)
 	{
-		m_selectionFlashEnvelope.play(color, 0u, 4u, 0u);
+		m_selectionFlashEnvelope.play(color, 0u, 4u, 1u);
 	}
 	else
 	{
-		const RGBColor white{ 1.0f, 1.0f, 1.0f };
-		m_selectionFlashEnvelope.play(&white, 0u, 4u, 0u);
+		// RW 0x67908E .. 0x67910B: with SelectionFlashHouseColor, flash uses indicator / house color; else white (0xBD1908).
+		// Multiplied by SelectionFlashSaturationFactor (RW 0x6790CB, GlobalData +0xB54), shifted by -sat * 0.5f (RW 0x6790E3 / 0xBD869C).
+		RGBColor baseColor{ 1.0f, 1.0f, 1.0f };
+		if (m_services.selectionFlashHouseColor && m_indicatorColor != 0u)
+		{
+			// RW 0x67908E / 0x679097: indicator color [drawable + 0x454] / Object::getIndicatorColor (RW 0x68B6F5)
+			// RW 0x4049FB (RGBColor::setFromInt on indicatorColor): unpack 0xRRGGBB / 0xAARRGGBB
+			baseColor.red = (float)((m_indicatorColor >> 16) & 0xFF) / 255.0f;
+			baseColor.green = (float)((m_indicatorColor >> 8) & 0xFF) / 255.0f;
+			baseColor.blue = (float)(m_indicatorColor & 0xFF) / 255.0f;
+		}
+		const float sat = m_services.selectionFlashSaturationFactor;
+		const RGBColor flashColor{
+			baseColor.red * sat - sat * 0.5f,
+			baseColor.green * sat - sat * 0.5f,
+			baseColor.blue * sat - sat * 0.5f
+		};
+		m_selectionFlashEnvelope.play(&flashColor, 0u, 4u, 1u);
 	}
 }
 

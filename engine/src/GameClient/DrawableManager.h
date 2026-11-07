@@ -84,6 +84,9 @@ public:
 
 	// render side: animations by elapsed render milliseconds, then the interpolated poses (alpha in [0, 1))
 	void advance(double elapsedMs);
+	// lane LOCAL-3: RotWK 30 Hz shared client clock & frame counter (RW 0x6487D6 TheGameClient->getFrame)
+	unsigned clientFrame() const { return m_clientFrame; }
+	void flashAsSelected(ObjectID id, const RGBColor *color = nullptr);
 	void syncTransforms(const LogicSnapshot &snapshot, double alpha, bool interpolate);
 	void updateEvaAnnounces(const LogicSnapshot &snapshot);
 
@@ -139,6 +142,7 @@ private:
 	std::vector<std::uint8_t> m_advancedScratch;   ///< lane PERF-HD: per slot, its animations advanced on the job pool (advance)
 	std::vector<std::uint8_t> m_containedScratch;  ///< lane PERF-HD: per slot, its record has a container (found on the job pool before the dependency flags)
 	AnimationSoundModuleManager m_animationSounds; ///< lane AUDIO-4 (before the drawables: their modules leave its lists when they go)
+	GameLogic &m_logic;
 	DrawServices m_services;
 	// lane PERF-CLIENT: object id -> drawable id (0: none), indexed by the object id (ids are small and dense: GameLogic hands them out in order); was a
 	// std::map searched per lookup (the audio, the HUD's horde anchors, the dependency flags: tens of thousands a frame in a battle)
@@ -153,6 +157,8 @@ private:
 	size_t m_dependencyUpdates = 0; ///< lane COMBAT-4: dependent drawables whose shared flags changed (RW 0x4BF2D8)
 	std::uint32_t m_nextSeq = 0;
 	size_t m_eventsApplied = 0;
+	double m_clientClockMs = 0.0;
+	unsigned m_clientFrame = 0;
 	std::vector<std::unique_ptr<Drawable>> m_slots; ///< index = drawable id
 	size_t m_live = 0;
 	size_t m_created = 0, m_destroyed = 0;

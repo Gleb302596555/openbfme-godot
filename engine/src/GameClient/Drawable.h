@@ -124,6 +124,8 @@ struct DrawServices
 	W3DLuaDrawScriptHost host; ///< the real Lua of the drawable state (lane LUA-1): BeginScript bodies of every draw module
 	DrawableFXHost *fx = nullptr; ///< lane FX-2 (null: EnteringStateFX and ParticleSysBone stay S-095)
 	AnimationSoundModuleManager *animationSounds = nullptr; ///< lane AUDIO-4: TheAnimationSoundModuleManager of the game's drawables
+	bool selectionFlashHouseColor = true; ///< lane LOCAL-3: GameData SelectionFlashHouseColor (RW 0xC005E0, GlobalData +0xB58)
+	float selectionFlashSaturationFactor = 0.6f; ///< lane LOCAL-3: GameData SelectionFlashSaturationFactor (RW 0xC005D0, GlobalData +0xB54)
 };
 
 // One draw module of a drawable.
@@ -200,9 +202,12 @@ public:
 
 	float getInstanceScale() const { return m_scale; }
 	void setInstanceScale(float scale) { m_scale = scale; }
-	// 0xAARRGGBB of the owner's colour, 0 when the owner has none
+	// 0xAARRGGBB of the owner's colour for model recolour (RW 0x6712A6: [drawable + 0x3AA] flag, 0 when showsHouseColor is false)
 	std::uint32_t getHouseColor() const { return m_houseColor; }
 	void setHouseColor(std::uint32_t argb) { m_houseColor = argb; }
+	// 0xAARRGGBB of the owner's indicator colour (RW 0x674510: [drawable + 0x454] set always; read by flashAsSelected RW 0x679097)
+	std::uint32_t indicatorColor() const { return m_indicatorColor; }
+	void setIndicatorColor(std::uint32_t argb) { m_indicatorColor = argb; }
 	// lane CAH-2 (RW 0x6727B0): the house colour set the draw modules recolour with (kind 0 none, 1 .. 3 colours, HouseColor.h); the revision moves on
 	// every set so the device layer re-applies it
 	void setCustomColors(int kind, const std::uint32_t colors[3])
@@ -413,6 +418,7 @@ private:
 	float m_scale = 1.0f;
 	int m_variation = -1; ///< + 0x364
 	std::uint32_t m_houseColor = 0;
+	std::uint32_t m_indicatorColor = 0; ///< RW +0x454 (Drawable::setIndicatorColor RW 0x674510: indicator color)
 	int m_customKind = 0;                              // lane CAH-2
 	std::uint32_t m_customColors[3] = { 0u, 0u, 0u };
 	std::uint32_t m_customRevision = 0;

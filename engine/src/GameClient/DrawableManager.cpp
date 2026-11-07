@@ -14,14 +14,19 @@
 #include "Common/Team.h"
 #include "GameClient/MapObjectRuntime.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/Module/BehaviorModule.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 
 #include <algorithm>
 
 DrawableManager::DrawableManager(WW3DAssetManager &assets, GameLogic &logic)
-	: m_services(assets, logic.modules(), hostOptions(m_scriptFrame))
+	: m_logic(logic)
+	, m_services(assets, logic.modules(), hostOptions(m_scriptFrame))
 {
 	m_slots.resize(1); // slot 0 unused
 	m_services.animationSounds = &m_animationSounds; // lane AUDIO-4
+	m_services.selectionFlashHouseColor = logic.settings().selectionFlashHouseColor; // LOCAL-3: RW 0xC005E0
+	m_services.selectionFlashSaturationFactor = logic.settings().selectionFlashSaturationFactor; // LOCAL-3: RW 0xC005D0
 }
 
 DrawableManager::~DrawableManager() = default;
@@ -207,6 +212,10 @@ void DrawableManager::created(const ClientEvent &ev)
 	{
 		d->setModelConditionFlags(ev.flags);
 	}
+	if (ev.hasIndicatorColor)
+	{
+		d->setIndicatorColor(ev.indicatorColor);
+	}
 	if (ev.hasHouseColor)
 	{
 		d->setHouseColor(ev.houseColor);
@@ -292,6 +301,7 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 		case ClientEvent::MODEL_FLUSH:
 			if (Drawable *d = findByObject(ev.object))
 			{
+				if (ev.hasIndicatorColor) d->setIndicatorColor(ev.indicatorColor);
 				if (ev.hasHouseColor) d->setHouseColor(ev.houseColor);
 				d->setScriptTarget(ev.scriptTarget); // lane FX-3: before the flush runs the state scripts
 				d->flushModelConditions(ev.hasWeaponTiming, ev.weaponTimingFrames);
@@ -454,11 +464,75 @@ void DrawableManager::advance(double elapsedMs)
 				d->advanceAnimation(elapsedMs);
 			}
 			d->updateFade(elapsedMs); // lane PROJ-2: RW 0x675AB7 (DrawableFade.cpp)
-			d->updateTint();          // LOCAL-3: RW 0x675D8B .. 0x675F8A (Drawable.cpp)
-			// lane STEALTHLOOK-1: RW 0x673114 (GameClient/StealthLook.cpp, updateDrawable RW 0x675996): the horde parent's drawable or the step
-			d->updateStealthLook(d->stealthParentId() != INVALID_ID ? findByObject(d->stealthParentId()) : nullptr);
 		}
 	}
+
+	// lane LOCAL-3: RotWK 30 Hz shared client clock (RW 0x6487D6 via GameClient::update RW 0x64849E)
+	m_clientClockMs += elapsedMs;
+	int clientTicks = 0;
+	static constexpr double kClientTickMs = 1000.0 / 30.0;
+	while (m_clientClockMs >= kClientTickMs - 1e-6 && clientTicks < 8)
+	{
+		m_clientClockMs -= kClientTickMs;
+		++clientTicks;
+	}
+	if (clientTicks >= 8)
+	{
+		m_clientClockMs = 0.0; // clamp stall
+	}
+	if (m_clientClockMs < 0.0)
+	{
+		m_clientClockMs = 0.0;
+	}
+	for (int t = 0; t < clientTicks; ++t)
+	{
+		++m_clientFrame;
+		for (size_t i = 1; i < slots; ++i)
+		{
+			if (Drawable *d = m_slots[i].get())
+			{
+				d->updateTint(); // LOCAL-3: RW 0x675D8B .. 0x675F8A (Drawable.cpp)
+				// lane STEALTHLOOK-1: RW 0x673114 (GameClient/StealthLook.cpp, updateDrawable RW 0x675996)
+				d->updateStealthLook(d->stealthParentId() != INVALID_ID ? findByObject(d->stealthParentId()) : nullptr);
+			}
+		}
+	}
+}
+
+void DrawableManager::flashAsSelected(ObjectID id, const RGBColor *color)
+{
+	// RW 0x678FA7 / 0x81DC79 / 0x81E0A7: Selection flash for units, buildings, and hordes
+	Drawable *d = findByObject(id);
+	if (!d)
+	{
+		return;
+	}
+	const Object *obj = m_logic.findObjectByID(id);
+	if (obj && obj->isKindOfName("HORDE"))
+	{
+		// RW 0x678FDF..0x679032: contain (+0x258) -> getHordeContainInterface (vslot 0x7C) -> member list (vslot 0x10C)
+		if (ContainModuleInterface *contain = obj->getContain())
+		{
+			if (contain->getHordeContainInterface())
+			{
+				if (const auto *items = contain->getContainedItemsList())
+				{
+					for (const Object *member : *items)
+					{
+						if (member)
+						{
+							if (Drawable *m = findByObject(member->getID()))
+							{
+								m->flashAsSelected(color); // RW 0x679032
+							}
+						}
+					}
+				}
+			}
+		}
+		return; // RW 0x679049 -> 0x679113: horde container returns without playing envelope on itself
+	}
+	d->flashAsSelected(color);
 }
 
 void DrawableManager::updateEvaAnnounces(const LogicSnapshot &snapshot)

@@ -377,6 +377,10 @@ struct GameLogicSettings
 	bool useBehindBuildingMarker = true;
 	unsigned defaultOcclusionDelay = 15;
 	float occludedColorLuminanceScale = 0.5f;
+	// lane LOCAL-3: selection flash (rows RW 0xC005E0 SelectionFlashHouseColor parseBool RW 0x42E558, RW 0xC005D0 SelectionFlashSaturationFactor parseReal RW 0x42ED00;
+	// GlobalData +0xB58 / +0xB54; defaults: constructor RW 0x642DC4 Yes / 0.6f; used by Drawable::flashAsSelected RW 0x678FA7). Presentation only: not in the settings hash
+	bool selectionFlashHouseColor = true;
+	float selectionFlashSaturationFactor = 0.6f;
 	unsigned initialCredits[5] = { 0, 0, 0, 0, 0 };  ///< MultiplayerSettings InitialCreditsVeryLow .. VeryHigh: the lobby's money choices
 	// lane CHAT-1: MultiplayerSettings MaxBeaconsPerPlayer (+ 0x18): a player's beacons at most (retail multiplayer.ini: 3). INFERENCE: the default is ZH's
 	// MultiplayerSettings constructor value (RotWK's constructor was not read). Not hashed (crc below): data every peer of a game reads alike (the profile)

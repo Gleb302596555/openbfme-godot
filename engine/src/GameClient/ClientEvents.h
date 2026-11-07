@@ -83,6 +83,8 @@ struct ClientEvent
 	ModelConditionFlags flags;
 	bool hasHouseColor = false;
 	std::uint32_t houseColor = 0;
+	bool hasIndicatorColor = false;
+	std::uint32_t indicatorColor = 0; ///< RW +0x454 (Drawable::setIndicatorColor RW 0x674510)
 	Coord3D position;
 	float angle = 0.0f;
 	KindOfMaskType kindOf{};   ///< CREATED: the object's KindOf bits (what the device layer asks of a drawable, e.g. INFANTRY's light set)

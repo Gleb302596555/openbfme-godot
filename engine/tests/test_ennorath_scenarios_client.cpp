@@ -501,10 +501,11 @@ TEST_CASE("LOCAL-3: Ennorath TintDrawable FXList drives drawable custom tint env
 		CHECK(d->getSelectionColor() == nullptr);
 		CHECK(d->evaluateRenderTint(0u, renderTint) == false);
 
-		// Test Drawable::flashAsSelected (RW 0x678FA7: decay=4, attack=0, sustain=1, white)
-		d->flashAsSelected();
+		// Test Drawable::flashAsSelected with explicit white (RW 0x8E395E capture building flash)
+		const RGBColor white{ 1.0f, 1.0f, 1.0f };
+		d->flashAsSelected(&white);
 		CHECK(d->getSelectionColor() != nullptr);
-		// Advance one frame so updateTint() steps from initial (0,0,0) to peak (1,1,1)
+		// Advance one client tick so updateTint() steps from initial (0,0,0) to peak (1,1,1)
 		game.game->drawables().advance(1000.0 / 30.0);
 		CHECK(d->evaluateRenderTint(0u, renderTint) == true);
 		CHECK(renderTint.red == 1.0f);
@@ -632,4 +633,177 @@ TEST_CASE("ENNORATH scenario LOCAL-4: Container occupant pips show for Ennorath 
 		CHECK(containPipCount == 5); // 5 empty pips (0xFF7F7F7F)
 		CHECK(frameCount == 5);      // 5 slot frames
 	}
+}
+
+TEST_CASE("LOCAL-3: Shared 30 Hz client clock preserves envelope duration across 30 and 144 fps (RW 0x6487D6 / 0x675996)")
+{
+	World world;
+	if (!world.load("LOCAL-3 Ennorath scenario TintDrawable (FX_LurtzBloodRageLong / FX_AufhellLeadership)"))
+	{
+		return;
+	}
+
+	hudtest::Rig game(world.shared);
+	game.game->shroud().revealMapForPlayerPermanently(game.index());
+
+	std::string createErr;
+	Object *soldier = game.game->createObject("GondorFighter", game.index(), Coord3D{ 500.0f, 500.0f, 0.0f }, 0.0f, &createErr);
+	REQUIRE_MESSAGE(soldier != nullptr, createErr);
+	game.logic().runLogicFrame();
+	game.game->refreshClient(1000.0 / 30.0, 1.0);
+
+	Drawable *d = game.game->drawables().findByObject(soldier->getID());
+	REQUIRE(d != nullptr);
+
+	// Test 1: Lurtz Carnage sustained duration (600 client frames = 20.0 seconds at 30 fps)
+	// At 144 fps, 10.0 seconds of simulated wall time is 1440 render frames.
+	// Without the 30 Hz clock, 1440 render frames would deplete 600 sustain frames in ~4.1 seconds.
+	// With the 30 Hz client clock, 10.0 seconds equals exactly 300 client frames, leaving sustainCounter at 300.
+	const RGBColor carnageColor{ 1.0f, 0.0f, 0.0f };
+	d->setCustomTintEnvelope(carnageColor, 0u, 10u, 600u, 0.0f, 0.0f);
+	// Tick 1: updateTint() activates the envelope (status -> play)
+	game.game->drawables().advance(1000.0 / 30.0);
+	CHECK(d->colorTintEnvelope().isEffective() == true);
+	// Tick 2: updateTint() steps attack phase to peak color (RW 0x674A87)
+	game.game->drawables().advance(1000.0 / 30.0);
+	// Tick 3: updateTint() transitions deltaLen==0 to SUSTAIN (RW 0x674A85 -> 0x674ABA)
+	game.game->drawables().advance(1000.0 / 30.0);
+	CHECK(d->colorTintEnvelope().state() == TintEnvelope::ENV_STATE_SUSTAIN);
+	CHECK(d->colorTintEnvelope().sustainCounter() == 600u);
+
+	// Advance 1440 frames of 1000.0 / 144.0 ms (exactly 10.0 seconds = 300 client ticks)
+	const double dt144 = 1000.0 / 144.0;
+	for (int f = 0; f < 1440; ++f)
+	{
+		game.game->drawables().advance(dt144);
+	}
+
+	// At 10.0 seconds, exactly 300 client ticks passed out of 600 sustain frames!
+	CHECK(d->colorTintEnvelope().state() == TintEnvelope::ENV_STATE_SUSTAIN);
+	CHECK(d->colorTintEnvelope().sustainCounter() == 300u);
+	CHECK(d->colorTintEnvelope().isEffective() == true);
+
+	// Advance another 10.0 seconds (1440 frames at 144 fps = another 300 client ticks)
+	for (int f = 0; f < 1440; ++f)
+	{
+		game.game->drawables().advance(dt144);
+	}
+
+	// At 20.0 seconds, sustain reaches 0
+	CHECK(d->colorTintEnvelope().sustainCounter() == 0u);
+
+	// One more client tick transitions to DECAY
+	game.game->drawables().advance(1000.0 / 30.0);
+	CHECK(d->colorTintEnvelope().state() == TintEnvelope::ENV_STATE_DECAY);
+
+	// Advance decay (10 client frames = 333.3 ms)
+	for (int f = 0; f < 50; ++f)
+	{
+		game.game->drawables().advance(dt144);
+	}
+	CHECK(d->colorTintEnvelope().isResting() == true);
+}
+
+TEST_CASE("LOCAL-3: Selection flash wires through InGameUI with player house color for units, buildings, hordes (RW 0x678FA7 / 0x81DC79 / 0x81E0A7)")
+{
+	World world;
+	if (!world.load("LOCAL-3 Ennorath scenario TintDrawable (FX_LurtzBloodRageLong / FX_AufhellLeadership)"))
+	{
+		return;
+	}
+
+	hudtest::Rig game(world.shared);
+	game.game->shroud().revealMapForPlayerPermanently(game.index());
+
+	// Set distinct player color (blue: 0x0000FF)
+	const std::uint32_t houseColor = 0xFF0000FF;
+	game.local->setPlayerColor(houseColor);
+
+	std::string createErr;
+	Object *soldier = game.game->createObject("GondorFighter", game.index(), Coord3D{ 500.0f, 500.0f, 0.0f }, 0.0f, &createErr);
+	REQUIRE_MESSAGE(soldier != nullptr, createErr);
+
+	Object *barracks = game.game->createObject("GondorBarracks", game.index(), Coord3D{ 600.0f, 500.0f, 0.0f }, 0.0f, &createErr);
+	REQUIRE_MESSAGE(barracks != nullptr, createErr);
+
+	Object *horde = game.game->createObject("GondorFighterHorde", game.index(), Coord3D{ 700.0f, 500.0f, 0.0f }, 0.0f, &createErr);
+	REQUIRE_MESSAGE(horde != nullptr, createErr);
+
+	game.logic().runLogicFrame();
+	game.game->refreshClient(1000.0 / 30.0, 1.0);
+
+	Drawable *dSoldier = game.game->drawables().findByObject(soldier->getID());
+	REQUIRE(dSoldier != nullptr);
+	Drawable *dBarracks = game.game->drawables().findByObject(barracks->getID());
+	REQUIRE(dBarracks != nullptr);
+	Drawable *dHorde = game.game->drawables().findByObject(horde->getID());
+	REQUIRE(dHorde != nullptr);
+
+	// Expected selection flash color for blue house color:
+	// base = (0, 0, 1), sat = 0.6
+	// red = 0 * 0.6 - 0.3 = -0.3
+	// green = 0 * 0.6 - 0.3 = -0.3
+	// blue = 1 * 0.6 - 0.3 = +0.3
+	const float baseR = (float)((houseColor >> 16) & 0xFF) / 255.0f;
+	const float baseG = (float)((houseColor >> 8) & 0xFF) / 255.0f;
+	const float baseB = (float)(houseColor & 0xFF) / 255.0f;
+	const float sat = 0.6f;
+	const float expectedR = baseR * sat - sat * 0.5f;
+	const float expectedG = baseG * sat - sat * 0.5f;
+	const float expectedB = baseB * sat - sat * 0.5f;
+
+	// 1. Single Unit Selection Flash via InGameUI::selectObject (RW 0x81E0A7)
+	// In Ennorath EnableHouseColor = No: unit has no model house color, but indicator color (+0x454) is set
+	CHECK(dSoldier->getHouseColor() == 0u);
+	CHECK(dSoldier->indicatorColor() == houseColor);
+	CHECK(dSoldier->selectionFlashEnvelope().isEffective() == false);
+	game.input->ui().selectObject(soldier->getID());
+	CHECK(dSoldier->selectionFlashEnvelope().isEffective() == true);
+
+	// Step one client tick to reach peak
+	game.game->drawables().advance(1000.0 / 30.0);
+	const RGBColor *selColor = dSoldier->getSelectionColor();
+	REQUIRE(selColor != nullptr);
+	CHECK(selColor->red == doctest::Approx(expectedR)); // tolerance: float color multiplication and subtraction
+	CHECK(selColor->green == doctest::Approx(expectedG)); // tolerance: float color multiplication and subtraction
+	CHECK(selColor->blue == doctest::Approx(expectedB)); // tolerance: float color multiplication and subtraction
+
+	// 2. Building / Structure Selection Flash (RW 0x81DC79 / 0x678FA7)
+	CHECK(dBarracks->indicatorColor() == houseColor);
+	CHECK(dBarracks->selectionFlashEnvelope().isEffective() == false);
+	game.input->ui().selectObject(barracks->getID());
+	CHECK(dBarracks->selectionFlashEnvelope().isEffective() == true);
+	game.game->drawables().advance(1000.0 / 30.0);
+	const RGBColor *bldColor = dBarracks->getSelectionColor();
+	REQUIRE(bldColor != nullptr);
+	CHECK(bldColor->red == doctest::Approx(expectedR)); // tolerance: float color multiplication and subtraction
+	CHECK(bldColor->green == doctest::Approx(expectedG)); // tolerance: float color multiplication and subtraction
+	CHECK(bldColor->blue == doctest::Approx(expectedB)); // tolerance: float color multiplication and subtraction
+
+	// 3. Horde Selection Flash (RW 0x678FDF..0x679032: contain vslot 0x7C / 0x10C member list iteration)
+	const ContainModuleInterface *hordeContain = horde->getContain();
+	REQUIRE(hordeContain != nullptr);
+	const auto *hordeMembers = hordeContain->getContainedItemsList();
+	REQUIRE(hordeMembers != nullptr);
+	REQUIRE(!hordeMembers->empty());
+
+	game.input->ui().selectObject(horde->getID());
+	// Horde container itself does not play selection flash (RW 0x679049 -> 0x679113)
+	CHECK(dHorde->selectionFlashEnvelope().isEffective() == false);
+
+	// All contained horde member drawables flash in player house color
+	size_t memberFlashCount = 0;
+	for (const Object *mObj : *hordeMembers)
+	{
+		if (mObj)
+		{
+			Drawable *m = game.game->drawables().findByObject(mObj->getID());
+			REQUIRE(m != nullptr);
+			CHECK(m->selectionFlashEnvelope().isEffective() == true);
+			CHECK(m->indicatorColor() == houseColor);
+			CHECK(m->getHouseColor() == 0u);
+			++memberFlashCount;
+		}
+	}
+	CHECK(memberFlashCount == hordeMembers->size());
 }

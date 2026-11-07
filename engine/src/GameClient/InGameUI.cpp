@@ -84,6 +84,10 @@ void InGameUI::selectObject(ObjectID id)
 	{
 		markSelectionChanged();
 		m_selected.insert(m_selected.begin(), id); // ZH m_selectedDrawables.push_front: the newest selection is the first one
+		if (m_selectHandler)
+		{
+			m_selectHandler(id); // LOCAL-3: flashAsSelected RW 0x81DC79 / 0x81E0A7
+		}
 	}
 }
 
