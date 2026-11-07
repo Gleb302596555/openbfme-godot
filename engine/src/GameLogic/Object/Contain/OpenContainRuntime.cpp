@@ -22,6 +22,8 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/ActiveBody.h"
 #include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Module/InvisibilityModules.h"
+#include "GameLogic/System/InvisibilityManager.h"
 #include "GameLogic/Module/MoneyEventModules.h"
 #include "GameLogic/Module/OpenContain.h"
 #include "GameLogic/Module/PhysicsBehavior.h"
@@ -61,6 +63,106 @@ void setStatusMask(Object &obj, const ObjectStatusMaskType &mask, bool on)
 }
 
 } // namespace
+
+// RW 0x867C40 OpenContain::tryToEvacuate(Object *entering): module vslot 0x4C (the C++ name is INFERENCE)
+// Copies m_contained (RW 0x867C58..0x867C65) and walks each rider (esi) to reveal and evacuate enemy STEALTH_GARRISON occupants.
+// Every subclass keeps RW 0x867C40 in main vtable slot +0x4C (OpenContain 0xC599D8, TransportContain 0xC5A588, HordeTransportContain 0xC5C240,
+// SiegeEngineContain 0xC5D520, HordeSiegeEngineContain 0xC5D8C0, GarrisonContain 0xC5C570, etc.).
+bool OpenContain::tryToEvacuate(Object *entering)
+{
+	// RW 0x867C40: the entering object is the argument (ebx in onCollide, pushed at 0x865A0D)
+	// RW 0x867C58..0x867C65: copy m_contained (interface + 0x34) into a temporary list on the stack
+	const std::vector<Object *> copy(m_contained.begin(), m_contained.end()); // RW 0x867C58 copy, 0x867C63 list head
+	// RW 0x867C85: pEntering = entering->getControllingPlayer() (RW 0x68B678)
+	const Player *pEntering = entering ? entering->getControllingPlayer() : nullptr;
+	// RW 0x867C9A: KindOf STEALTH_GARRISON is bit 33 (template + 0x10C & 2)
+	static const int kStealthGarrison = CombatNames::kindOf("STEALTH_GARRISON");
+	for (Object *rider : copy) // esi = each rider in the copied list
+	{
+		// RW 0x867C8E: pRider = rider->getControllingPlayer() (RW 0x68B678)
+		const Player *pRider = rider ? rider->getControllingPlayer() : nullptr;
+		// RW 0x867C95: if (pRider == pEntering) continue;
+		if (pRider == pEntering)
+		{
+			continue; // RW 0x867C95..0x867C99
+		}
+		// RW 0x867C9A..0x867CA5: if (!(rider->getTemplate()->[+0x10C] & 2)) continue; // STEALTH_GARRISON
+		if (!rider || !rider->isKindOf((unsigned)kStealthGarrison))
+		{
+			continue; // RW 0x867CA2
+		}
+		// RW 0x867CAC: if (rider->getAIUpdateInterface())
+		if (AIUpdateInterface *ai = rider->getAIUpdateInterface())
+		{
+			// RW 0x867CA1..0x867CB2: StealthUpdate::of(*rider) (RW 0x68FBD3) and markAsDetected(0, 1, nullptr, true) (RW 0x7767A9)
+			if (StealthUpdate *su = StealthUpdate::of(*rider))
+			{
+				su->markAsDetected(0, 1, nullptr, true); // RW 0x867CB2..0x867CBF: frames 0 -> StealthDelay, mode 1, horde true
+			}
+			// RW 0x867CB7..0x867CC7: TheInvisibilityManager->markDetected(rider, nullptr, 0, 1) (RW 0x81C32C)
+			rider->logic().invisibility().markDetected(rider, nullptr, 0, 1); // RW 0x867CC7
+			// RW 0x867CCC..0x867CDB: rider->getAIUpdateInterface()->aiExit(getObject(), CMD_FROM_AI) (RW 0x7716C1(obj, 2))
+			ai->aiExit(getObject(), CMD_FROM_AI); // RW 0x867CDB
+		}
+		else
+		{
+			// RW 0x867CE2..0x867CEA: else removeFromContain(rider, true) (contain vslot 0xA4)
+			// In the port removeFromContain has no bool param; RW 0x865EB6 with exposeStealthUnits=true does:
+			// RW 0x865EF5..0x865EFF: rider->isKindOf(STEALTH_GARRISON) true
+			// RW 0x865F01..0x865F22: StealthUpdate::markAsDetected(0, 1, nullptr, true) + invisibility().markDetected(rider, nullptr, 0, 1)
+			// We replicate that here, then remove.
+			if (StealthUpdate *su = StealthUpdate::of(*rider))
+			{
+				su->markAsDetected(0, 1, nullptr, true); // RW 0x865F0E
+			}
+			rider->logic().invisibility().markDetected(rider, nullptr, 0, 1); // RW 0x865F1B..0x865F22
+			removeFromContain(rider); // RW 0x867CEA: contain vslot 0xA4(rider, true) -> openContainRemove
+		}
+	}
+	// RW 0x867D0F: return al = 1 (true) after destroying the temporary list
+	return true; // RW 0x867D0F
+}
+
+// RW 0x8659D8 OpenContain::onCollide(other, loc, normal): CollideModuleInterface slot + 0x00, vtable RW 0xC5D650 (module + 0x24). Installed by OpenContain
+// (RW 0x867FC1), TransportContain (RW 0x86B6CF), HordeTransportContain (RW 0x87A2CF), SiegeEngineContain (RW 0x87F525), HordeSiegeEngineContain (RW 0x88051C),
+// GarrisonContain (RW 0x87B1FA), HordeGarrisonContain (RW 0x87D30F), TunnelContain (RW 0x880EBB); HordeContain (RW 0x872800) installs RW 0xC5D250 instead
+// (the empty RW 0x46E918), so a HordeContain never runs this.
+void OpenContain::onCollide(Object *other, const Coord3D *, const Coord3D *)
+{
+	if (!other) // RW 0x8659DD .. 0x8659E2
+	{
+		return;
+	}
+	Object *container = getObject(); // RW 0x8659E5: module + 0x08
+	static const int kShip = CombatNames::kindOf("SHIP");
+	if (container->isKindOf((unsigned)kShip)) // RW 0x8659EB: template + 0x11F bit 0x80
+	{
+		return;
+	}
+	const AIUpdateInterface *otherAI = other->getAIUpdateInterface(); // RW 0x8659F4: Object + 0x260
+	if (!otherAI || otherAI->enterTarget() != container) // RW 0x8659FA .. 0x865A08: AI vslot 0x1FC (RW 0x664D12) must name this container
+	{
+		return;
+	}
+	if (!tryToEvacuate(other)) // RW 0x865A0A .. 0x865A15: module vslot 0x4C (RW 0x867C40)
+	{
+		return;
+	}
+	if (!isValidContainerFor(*other, true, false)) // RW 0x865A17 .. 0x865A2B: contain vslot 0x98 (other, 1, 0)
+	{
+		return;
+	}
+	if (other->getContainedBy() == container) // RW 0x865A2D .. 0x865A33: Object + 0x27C
+	{
+		return;
+	}
+	if (!m_open->m_collidePickup) // RW 0x865A38 .. 0x865A3F: module data + 0x81 (default 1, RW 0x867ECF)
+	{
+		return;
+	}
+	addToContain(other); // RW 0x865A41 .. 0x865A48: contain vslot 0x9C
+}
+
 
 // RW 0x68C5AF Object::getSingleLogicalBonePosition through the launch bone provider, then RW 0x70BCE7 (the object's transform, retail's SSE order); false
 // without a provider or without exactly one such bone (the caller keeps the object's own position)

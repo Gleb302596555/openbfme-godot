@@ -133,6 +133,19 @@ void AIMoveToMachineState::xfer(Xfer &x)
 	xferMove(x, ai().mover(), m_move);
 }
 
+void AIAbilityApproachState::xfer(Xfer &x)
+{
+	XferVersion v{ 1, 1 };
+	x.xferVersion(v);
+	AIMoveToMachineState::xfer(x);
+	x.xferUnsignedInt(&m_waitUntil); // RW 0x741A5C..0x741A6F
+	x.xferBool(&m_waiting);
+	if (m_move)
+	{
+		m_move->setComputePathHook(this); // reconstructed owner link, not stored
+	}
+}
+
 void AIFollowPathState::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 1 };

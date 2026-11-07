@@ -113,6 +113,8 @@ public:
 	unsigned evenIfSleepingOrders() const { return m_evenIfSleepingOrders; }
 	const Coord3D &lastEvenIfSleepingGoal() const { return m_lastEvenIfSleepingGoal; }
 	void aiMoveToObject(Object *obj, CommandSourceType source);
+	bool aiAbilityApproachPosition(const Coord3D &pos, CommandSourceType source); // RW 0x852D59, command 0x47
+	bool aiAbilityApproachObject(Object *obj, CommandSourceType source);          // RW 0x852DC5, command 0x48
 	// RW 0x770C2C (MSG_DO_MOVE_AND_ORIENTATE_OBJECTTO): a move that ends facing `angle`. False when the gate or the mobility test refuses it (nothing
 	// changed); true when the base installed the move (`takenGoal`: its clipped goal) or a subclass took it (`takenGoal`: `pos`)
 	bool aiMoveToPositionAndOrientate(const Coord3D &pos, float angle, CommandSourceType source, Coord3D *takenGoal = nullptr);
@@ -472,6 +474,8 @@ public:
 	int pathPriority() const override;
 	PathfindObjectID attackTargetOf(const PathfindObject &o) const override;
 	PathfindObjectID enterTargetOf(const PathfindObject &o) const override; // AI vslot 0x1FC, RW 0x664D12
+	// AI vslot 0x1FC itself (RW 0x664D12): the object this AI is entering, or null; enterTargetOf and OpenContain::onCollide (RW 0x865A00) both call it
+	const Object *enterTarget() const;
 	bool crushOrSquishPolicy(const PathfindObject &other) const override; // lane ATTACK-1: RW 0x69519A(other, 2)
 	float wanderFactor() const override;
 	float closeEnoughDist() const override;

@@ -20,7 +20,9 @@
 //     REALLYDAMAGED (2); damagedFraction * maxHealth >= health = DAMAGED (1); else PRISTINE (0).
 //   * which GlobalData fields +0xB4 / +0xB8 are is INFERENCE (the INI names UnitDamagedThreshold / UnitReallyDamagedThreshold; the offsets
 //     are not tied to the names): stop S-149.
-// Not ported: the transition times and RecoveryTime consumers, DodgePercent, the Grab* fields (rock throwing), the attribute modifiers, the
+// RecoveryTime is read by attemptDamage exactly where RW 0x8C425D does and handed to the empty RW 0x9F3A3C (see scheduleRecovery below): retail keeps no
+// state from it, and neither does the port.
+// Not ported: the transition times' consumers, DodgePercent, the Grab* fields (rock throwing), the attribute modifiers, the
 // burning death behaviour, CheerRadius, the damage creation list: the fields are parsed and kept (the FX and OCL names unresolved: their
 // stores are not loaded, stop S-149); nothing acts on them yet.
 
@@ -96,6 +98,24 @@ public:
 	void setIndestructible(bool on) override { m_indestructible = on; } // lane SCRIPT-2 (RW 0x8C3326)
 	bool isIndestructible() const override { return m_indestructible; }
 	void attemptHealing(DamageInfo &info) override;
+	// PORT-2 (RecoveryTime): RW 0x8C425D .. 0x8C4276, inside attemptDamage between the health change (branch 16) and the record (branch 18). The data's
+	// +0x24 (field row RW 0xC71DA8, parser RW 0x73A429) is read, a zero value skips the call (RW 0x8C4265), and `current frame (TheGameLogic + 0x40) +
+	// RecoveryTime` (RW 0x8C4267 .. 0x8C4270) goes to `call 0x9F3A3C` (RW 0x8C4276), the image's shared EMPTY function (`ret 4`; STOPS.md S-113 cites the
+	// same address as `W3DBuffDraw::doDrawModule`'s empty slot). Nothing stores the deadline and nothing reads it: no state, no hash, no save. Every body
+	// class that reaches the shared function (DelayedDeathBody, RespawnBody, HighlanderBody, ImmortalBody, StructureBody, HiveStructureBody,
+	// PorcupineFormationBodyModule) therefore computes the same deadline and drops it, as retail does
+	void scheduleRecovery();
+	// the test observer of scheduleRecovery: calls whose RecoveryTime was non-zero, and the last deadline computed (never hashed, never saved)
+	static unsigned long long &recoverySchedules()
+	{
+		static unsigned long long n = 0;
+		return n;
+	}
+	static UnsignedInt &lastRecoveryDeadline()
+	{
+		static UnsignedInt frame = 0;
+		return frame;
+	}
 	// TOP20 #21 (ActiveBody.cpp): the burning death's cap test (RW 0x8C4169 .. 0x8C41DD) and the capped hit's tail (RW 0x8C476C .. 0x8C47BD)
 	bool burningDeathCaps(const Object &obj, int damageType, const Object *container, const class ContainModuleInterface *hordeHelper) const;
 	void startBurningDeath(class ContainModuleInterface *hordeHelper);

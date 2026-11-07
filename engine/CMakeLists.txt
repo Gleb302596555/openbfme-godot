@@ -193,12 +193,18 @@ include(cmake/Path2.cmake)      # OPENBFME_PATH2_SOURCES / OPENBFME_PATH2_TESTS 
 include(cmake/Net.cmake)        # OPENBFME_NET_SOURCES / OPENBFME_NET_TESTS, openbfme_peer (lane MP-1)
 include(cmake/Experience.cmake) # OPENBFME_XP_SOURCES / OPENBFME_XP_TESTS (lane XP-1)
 include(cmake/FactB.cmake)      # OPENBFME_FACTB_TESTS (lane FACT-B: Isengard and Mordor)
+include(cmake/Port4.cmake) # OPENBFME_PORT4_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
+include(cmake/Port5.cmake) # OPENBFME_PORT5_TESTS (lane PORT-5)
 include(cmake/Port1.cmake) # PORT-1: Weapon/FinishAttackOnceStarted (issue #53; OPENBFME_PORT1_TESTS)
+include(cmake/Port2.cmake) # PORT-2: ActiveBody/RecoveryTime (issue #54; OPENBFME_PORT2_TESTS)
 include(cmake/Port6.cmake) # PORT-6: StealthDetectorUpdate/CanDetectWhileGarrisoned (issue #59; OPENBFME_PORT6_TESTS)
 include(cmake/Port8.cmake) # PORT-8: PhysicsBehavior/OrientToFlightPath (issue #61; OPENBFME_PORT8_TESTS)
 include(cmake/Port7.cmake) # PORT-7: AnimalAIUpdate/UpdateTimer (issue #60; OPENBFME_PORT7_TESTS)
 include(cmake/Port11.cmake) # PORT-11: SlavedUpdate/StayOnSameLayerAsMaster (issue #66; OPENBFME_PORT11_TESTS)
+include(cmake/Port19.cmake) # PORT-19: RespawnUpdate/producer exit query (issue #75; OPENBFME_PORT19_TESTS)
+include(cmake/Port15.cmake) # PORT-15: LockWeaponCreate/Object::setWeaponLock (issue #71; OPENBFME_PORT15_TESTS)
+include(cmake/Port9.cmake) # PORT-9: TransportContain/CollidePickup (issue #62; OPENBFME_PORT9_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
@@ -742,11 +748,17 @@ add_executable(openbfme_tests
     ${OPENBFME_XP_TESTS}
     ${OPENBFME_FACTB_TESTS}
     ${OPENBFME_PLAY2_TESTS}
+    ${OPENBFME_PORT5_TESTS}
     ${OPENBFME_PORT1_TESTS}
+    ${OPENBFME_PORT2_TESTS}
     ${OPENBFME_PORT6_TESTS}
     ${OPENBFME_PORT8_TESTS}
     ${OPENBFME_PORT7_TESTS}
     ${OPENBFME_PORT11_TESTS}
+    ${OPENBFME_PORT4_TESTS}
+    ${OPENBFME_PORT19_TESTS}
+    ${OPENBFME_PORT15_TESTS}
+    ${OPENBFME_PORT9_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}
@@ -989,6 +1001,8 @@ add_executable(openbfme_tests
     tests/test_logic_hash.cpp
     tests/test_logic_settings.cpp
     tests/test_logic_retail.cpp
+    # lane LOCAL-1 (GameData logic fields)
+    tests/test_local_1.cpp
     # shared numeric facade (WEAPON-1 e75dd8c, imported unchanged: wide PC24 results, SSE binary32 ops, retail integer conversions)
     tests/test_numeric_facade.cpp
     # lane ECON-1: the economy

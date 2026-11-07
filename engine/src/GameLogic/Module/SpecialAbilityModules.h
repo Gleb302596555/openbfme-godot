@@ -255,6 +255,7 @@ protected:
 	virtual void triggerAbilityEffect();           // slot 0x44, RW 0x853EDF
 	virtual void onEffectExpired() {}              // slot 0x48, RW 0x851E9A
 	virtual void finishAfterPacking();             // slot 0x4C, RW 0x8549E7
+	void clearAbilityModelConditions();             // RW 0x851BCF: shared by initiate and finish
 	virtual bool handlePackingProcessing();        // slot 0x50, RW 0x851E9F
 	virtual void startPacking(bool success);       // slot 0x54, RW 0x853468
 	virtual void startUnpacking();                 // slot 0x58, RW 0x8536EA

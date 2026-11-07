@@ -343,6 +343,7 @@ public:
 	// getMaxHeightAbovePosition RW 0xAD1920) ask these. While no flag was ever set they ARE the template's (no copy is kept: the same values, and an object
 	// without a geometry change hashes as before); after that, a copy with the object's flags, rebuilt when geometryVersion moves.
 	const std::vector<ObjectGeometry::Shape> &geometryShapes() const;
+	bool hasChargeAttackAbility() const { return m_hasChargeAttackAbility; } // RW 0x69A549, Object + 0x251
 	// the same for the pathfinder's form: `templateGeometry` (the template's, AIWorld::movementInfo) itself while no flag changed, else its copy with the
 	// object's flags and their radii (RW 0xAD3520 ends with RW 0xAD2860: GeometryInfo + 0x10 / + 0x14 recomputed over the active shapes)
 	const PathfindGeometry &ownPathfindGeometry(const PathfindGeometry &templateGeometry) const;
@@ -625,6 +626,7 @@ private:
 	UnsignedInt m_enteredOrExitedFrame = 0;      ///< RW + 0x414
 	std::int32_t m_triggerCellX = 0, m_triggerCellY = 0; ///< RW + 0x418 / + 0x41C (the integer position of the last check)
 
+	bool m_hasChargeAttackAbility = false; ///< RW 0x699AC6 / 0x69A549: computed once after the initial modules (Object + 0x251)
 	std::vector<std::unique_ptr<BehaviorModule>> m_modules; ///< helpers first, then the template's behaviors
 	std::vector<CollideModuleInterface *> m_collideModules; ///< lane UBER-2B: m_modules' collide interfaces, in order (rebuilt by buildModules / friend_replaceModule)
 	bool m_collideModulesKnown = true;

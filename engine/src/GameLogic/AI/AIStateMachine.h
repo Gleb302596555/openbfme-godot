@@ -71,6 +71,7 @@ enum AIStateType
 	AI_MOVE_AND_TIGHTEN = 27,
 	AI_BUSY = 42,
 	AI_FOLLOW_PATH_AS_TEAM = 54, // lane BACKLOG-8 r2: RotWK's state 54 (decomp AIStateMachineCtor.cpp: AIFollowPathAsTeamState, the formation march)
+	AI_ABILITY_APPROACH = 0x3F, // RW 0x753823 -> 0x741A7B
 	AI_NO_STATE = 0xF423F
 };
 static const unsigned INVALID_STATE_ID = 0xFFFFFFFFu;
@@ -296,6 +297,24 @@ protected:
 	std::unique_ptr<AIMoveToState> m_move;
 	Coord3D m_goalPosition{ 0.0f, 0.0f, 0.0f };
 	bool m_adjustsDestination = true;
+};
+
+// RW 0x753823 -> 0x741A7B, vtable 0xC28560: special-ability approach (state 0x3F).
+class AIAbilityApproachState : public AIMoveToMachineState, public AIMoveComputePathHook
+{
+public:
+	explicit AIAbilityApproachState(AIStateMachine &m) : AIMoveToMachineState(m, "AIAbilityApproachState") {}
+	StateReturnType onEnter() override;
+	StateReturnType update() override;
+	bool computeSpecialPath(AIMoveToState &move) override; // RW 0x749344
+	void crc(class StateHasher &h) const override;
+	void crcPersistent(class StateHasher &h) const override;
+	bool hasPersistentCrc() const override { return true; }
+	void xfer(class Xfer &x) override;
+private:
+	bool backOff(Coord3D &goal); // RW 0x745C6C
+	unsigned m_waitUntil = 0; // RW state + 0x4C
+	bool m_waiting = false;   // RW state + 0x50
 };
 
 // AIFollowPathState (ZH AIStates.cpp:3253-3420): walks the machine's goal path node by node; the exit-production variant (id 7) does not

@@ -3,6 +3,7 @@
 
 #include "Common/FunctionCurve.h"
 
+#include "Common/AsciiString.h"
 #include "Common/INI.h"
 #include "Common/INIException.h"
 
@@ -297,7 +298,7 @@ void FunctionCurve::parseFunctionCurve(INI *ini, void *, void *store, const void
 		return;
 	}
 
-	if (_stricmp(token, "FCurve") == 0 || _stricmp(token, "Keys") == 0)
+	if (AsciiStringUtil::compareNoCase(token, "FCurve") == 0 || AsciiStringUtil::compareNoCase(token, "Keys") == 0)
 	{
 		curve->parse(ini);
 		return;
