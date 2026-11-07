@@ -202,6 +202,7 @@ include(cmake/Port8.cmake) # PORT-8: PhysicsBehavior/OrientToFlightPath (issue #
 include(cmake/Port7.cmake) # PORT-7: AnimalAIUpdate/UpdateTimer (issue #60; OPENBFME_PORT7_TESTS)
 include(cmake/Port11.cmake) # PORT-11: SlavedUpdate/StayOnSameLayerAsMaster (issue #66; OPENBFME_PORT11_TESTS)
 include(cmake/Port19.cmake) # PORT-19: RespawnUpdate/producer exit query (issue #75; OPENBFME_PORT19_TESTS)
+include(cmake/Port15.cmake) # PORT-15: LockWeaponCreate/Object::setWeaponLock (issue #71; OPENBFME_PORT15_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
@@ -753,6 +754,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT11_TESTS}
     ${OPENBFME_PORT4_TESTS}
     ${OPENBFME_PORT19_TESTS}
+    ${OPENBFME_PORT15_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}
