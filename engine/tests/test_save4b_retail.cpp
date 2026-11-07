@@ -404,16 +404,19 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 	// carrier rule on top of the fork) moves the AIs' play: a CommandButtonHuntUpdate object and a RebuildHoleBehavior hole in the snapshot (111)
 		// pin: the fork's merge of upstream 69dcd7ff (2026-11-06, measured once on the merged tree, Windows MSVC: the skirmish AI's tactics and powers, AIRBORNE-1 and the Brutal discount on top of the fork):
 	// an AutoHealBehavior object again, no RebuildHoleBehavior hole (110)
+	// pin: Port 5 (PR #93, issue #57: the charge ability's speed boost and approach, RW 0x853B53 -> 0x66434E, Object + 0x251) moves the AIs' play: no
+	// AutoHealBehavior and no CommandButtonHuntUpdate object, a HordeNotifyTargetsOfImminentProbableCrushingUpdate and a HorseHordeContain object (110).
+	// Attributed by the station-3 build without #93 (2f27180f), where the previous set holds; measured once on the merged tree, Windows MSVC
 	CHECK(classes == std::set<std::string>{
 		"AISpecialPowerUpdate", "ActiveBody", "ArmorUpgrade", "ArrowStormUpdate", "AttributeModifierAuraUpdate", "AttributeModifierPoolUpdate",
-		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoHealBehavior", "AutoPickUpUpdate",
+		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoPickUpUpdate",
 		"BannerCarrierUpdate", "BezierProjectileBehavior", "BloodthirstyUpdate", "BoredUpdate", "BuildableHeroListUpgrade", "BuildingBehavior",
 		"CastleBehavior", "CastleMemberBehavior", "CastleUpgrade", "CitadelSlaughterHordeContain", "ClickReactionBehavior", "CloudBreakSpecialPower",
-		"CommandButtonHuntUpdate", "CommandPointsUpgrade", "CommandSetUpgrade", "CostModifierUpgrade", "CreateObjectDie", "CritterEmitterUpdate", "DamageFilteredCreateObjectDie",
+		"CommandPointsUpgrade", "CommandSetUpgrade", "CostModifierUpgrade", "CreateObjectDie", "CritterEmitterUpdate", "DamageFilteredCreateObjectDie",
 		"DarknessSpecialPower", "DefectionHelper", "DelayedDeathBody", "DestroyDie", "DevastateSpecialPower", "DoCommandUpgrade", "DualWeaponBehavior",
 		"ElvenWoodSpecialPower", "EmotionTrackerUpdate", "FXListDie", "FiringTrackerHelper", "FoundationAIUpdate", "FreezingRainSpecialPower",
 		"GeometryUpgrade", "GettingBuiltBehavior", "GiveUpgradeUpdate", "GrabPassengerSpecialPower", "GrantUpgradeCreate", "GuardingHelper",
-		"HighlanderBody", "HitReactionBehavior", "HordeContain", "HordeDispatchSpecialPower", "HordeMemberCollide",
+		"HighlanderBody", "HitReactionBehavior", "HordeContain", "HordeDispatchSpecialPower", "HordeMemberCollide", "HordeNotifyTargetsOfImminentProbableCrushingUpdate", "HorseHordeContain",
 		"ImmortalBody", "InactiveBody", "InvisibilityUpdate", "KeepObjectDie",
 		"LargeGroupAudioUpdate", "LargeGroupBonusUpdate", "LevelUpUpgrade", "LifetimeUpdate", "ModelConditionUpgrade", "MonitorConditionUpdate",
 		"OCLSpecialPower", "ObjectCreationUpgrade", "PassiveAreaEffectBehavior", "PhysicsBehavior", "PickupStuffUpdate", "PlayerHealSpecialPower",

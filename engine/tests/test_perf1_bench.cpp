@@ -481,6 +481,9 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // it looks, and the new AI state and AIData rows are hashed. Community #73 (the formations centred on their hordes, RW 0x86C4EA) and #74 (the destination
 // adjustment spiralling around the cell, RW 0x6FA2A4) re-measured both on the merged tree (OPENBFME_PERF1_REGEN=1); #73 alone differs from these from frame 0
 // (the big battle) and frame 69 (the skirmish).
+// Port 5 (PR #93, issue #57) re-measured the skirmish file only (OPENBFME_PERF1_REGEN=1 on station-3 3c6eb328): units with a charge ability chase and approach
+// as RotWK (Object + 0x251, RW 0x662E88, RW 0x745A18) and the object hash carries the byte; the 4-player skirmish differs from frame 357. The battle and
+// blob files are unchanged; the station-3 build without #93 (2f27180f) matches the previous skirmish file
 // Lane AIDATA-1 re-measured both (OPENBFME_PERF1_REGEN=1 on its tree): a horde running down a fleeing target sets RUNNING_DOWN_FROM_BEHIND on its members
 // (RW 0x748650) with the goal's speed in the gap (RW 0x74AA69) and its riders are in melee range within ChaseFromBehindLimit (RW 0x6CC07C, 0 before); the
 // battle's first changed frame is 36, the skirmish's 820. Lane IDLEMOTION-1 re-measured the skirmish (OPENBFME_PERF1_REGEN=1 on its tree): the crush state
