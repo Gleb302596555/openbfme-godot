@@ -132,9 +132,19 @@ unported.
   resolved symbiote's body or return null / -1 when it is absent. The port's
   `SymbioticStructuresBody` inherits ActiveBody's last-record accessor rather
   than forwarding it; this is a second body-interface dependency, not proof
-  that the byte is always false. ActiveBody and these body modules are out of
-  scope for #72; do not silently treat the missing field as false or modify
-  those modules.
+  that the byte is always false. The owner has now permitted changes to
+  ActiveBody and SymbioticStructuresBody for this mechanism.
+* The record is not overwritten for every hit: RW 0x8C4294–0x8C42F5 writes
+  immediately if the saved frame is neither the current frame nor the previous
+  frame (unsigned wrap matters at frame 0). Otherwise it resolves the previous
+  and incoming source IDs. No incoming source keeps the old record; a missing
+  previous source or incoming INFANTRY / CAVALRY replaces it; otherwise RW
+  0x68DAE6 allows the incoming source when it has FS_POWER, FS_FACTORY,
+  FS_BASE_DEFENSE, FS_TECHNOLOGY or FS_CASH_PRODUCER. On a copy RW
+  0x8C42F5 copies the entire DamageInfo, resets the clearable-attacker flag,
+  and stores the current frame. The port currently overwrites its partial
+  record on every damaging hit, so adding only the new byte would preserve the
+  wrong hit. These selection branches must apply to the existing fields too.
 
 ## Outstanding before code
 
