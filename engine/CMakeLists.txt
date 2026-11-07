@@ -195,6 +195,7 @@ include(cmake/Experience.cmake) # OPENBFME_XP_SOURCES / OPENBFME_XP_TESTS (lane 
 include(cmake/FactB.cmake)      # OPENBFME_FACTB_TESTS (lane FACT-B: Isengard and Mordor)
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
 include(cmake/Port1.cmake) # PORT-1: Weapon/FinishAttackOnceStarted (issue #53; OPENBFME_PORT1_TESTS)
+include(cmake/Port9.cmake) # PORT-9: TransportContain/CollidePickup (issue #62; OPENBFME_PORT9_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
@@ -736,6 +737,7 @@ add_executable(openbfme_tests
     ${OPENBFME_FACTB_TESTS}
     ${OPENBFME_PLAY2_TESTS}
     ${OPENBFME_PORT1_TESTS}
+    ${OPENBFME_PORT9_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}
