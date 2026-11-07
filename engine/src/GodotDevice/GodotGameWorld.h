@@ -789,6 +789,10 @@ private:
 		std::uint32_t animKeySwapsGeneration = 0; ///< the poseView's textureSwapsGeneration
 		int animKeyKind = -1;
 		int animKeyGlow = 0;                      ///< lane GLOW-1: the poseView's glow flags (part of the key since the glow pass)
+		bool animKeyTinted = false;               ///< LOCAL-3: whether the posed model key carries "|tint:<id>" for this drawable's active tint envelope
+		bool staticKeyTinted = false;             ///< LOCAL-3: whether the static model key carries "|tint:<id>"
+		int64_t tintModelId = -1;                 ///< LOCAL-3: the instancer model id for set_model_tint
+		RGBColor lastTint{ -1.0f, -1.0f, -1.0f }; ///< LOCAL-3: the last w3d_tint uniform sent to `tintModelId`
 		std::uint32_t animKeyColors[3] = { 0u, 0u, 0u };
 		HouseColorParams staticKeyPalette; ///< and what it was made from (used when a new model is built)
 		bool staticKeyColored = false;

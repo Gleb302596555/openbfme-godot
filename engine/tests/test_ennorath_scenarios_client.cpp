@@ -16,6 +16,8 @@
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "HudAudioTestUtil.h"
 #include "Common/SpecialPower.h"
+#include "GameClient/Drawable.h"
+#include "GameClient/DrawableManager.h"
 
 #include <chrono>
 #include <iostream>
@@ -360,5 +362,185 @@ TEST_CASE("ENNORATH scenario SpecialPowerAudio: initiate sound, fortress trigger
 			}
 		}
 		CHECK(taxPlayed == true);
+	}
+}
+
+TEST_CASE("LOCAL-3: TintEnvelope phases, pulse modulation, and Drawable selection/tint evaluation (RW 0x674818 / 0x6748B7 / 0x671B92 / 0x46F4E7)")
+{
+	TintEnvelope env;
+	CHECK(env.isResting() == true);
+	CHECK(env.isEffective() == false);
+	CHECK(env.state() == TintEnvelope::ENV_STATE_REST);
+	CHECK(env.getColor()->red == 0.0f);
+
+	// Attack = 2 frames, decay = 2 frames, sustain = 1 frame
+	const RGBColor peak{ 1.0f, 0.5f, 0.25f };
+	env.play(&peak, 2u, 2u, 1u);
+	CHECK(env.isEffective() == true);
+	CHECK(env.isResting() == false);
+	CHECK(env.state() == TintEnvelope::ENV_STATE_ATTACK);
+	CHECK(env.sustainCounter() == 1u);
+
+	// Step 1: attack step -> currentColor moves halfway towards peak
+	env.update();
+	CHECK(env.state() == TintEnvelope::ENV_STATE_ATTACK);
+	CHECK(env.getColor()->red == 0.5f);
+	CHECK(env.getColor()->green == 0.25f);
+	CHECK(env.getColor()->blue == 0.125f);
+
+	// Step 2: attack step reaches peak
+	env.update();
+	CHECK(env.getColor()->red == 1.0f);
+	CHECK(env.getColor()->green == 0.5f);
+	CHECK(env.getColor()->blue == 0.25f);
+
+	// Step 3: deltaLen <= 0.001f -> transitions to SUSTAIN
+	env.update();
+	CHECK(env.state() == TintEnvelope::ENV_STATE_SUSTAIN);
+	CHECK(env.sustainCounter() == 1u);
+
+	// Step 4: sustain counter decrements from 1 to 0
+	env.update();
+	CHECK(env.state() == TintEnvelope::ENV_STATE_SUSTAIN);
+	CHECK(env.sustainCounter() == 0u);
+
+	// Step 5: sustain counter was 0 -> transitions to DECAY
+	env.update();
+	CHECK(env.state() == TintEnvelope::ENV_STATE_DECAY);
+
+	// Step 6: decay step -> moves halfway back to 0
+	env.update();
+	CHECK(env.getColor()->red == 0.5f);
+	CHECK(env.getColor()->green == 0.25f);
+	CHECK(env.getColor()->blue == 0.125f);
+
+	// Step 7: decay step reaches 0
+	env.update();
+	CHECK(env.getColor()->red == 0.0f);
+	CHECK(env.getColor()->green == 0.0f);
+	CHECK(env.getColor()->blue == 0.0f);
+
+	// Step 8: curLen <= 0.001f -> REST
+	env.update();
+	CHECK(env.state() == TintEnvelope::ENV_STATE_REST);
+	CHECK(env.isEffective() == false);
+	CHECK(env.isResting() == true);
+	CHECK(env.getColor()->red == 0.0f);
+	CHECK(env.getColor()->green == 0.0f);
+	CHECK(env.getColor()->blue == 0.0f);
+
+	// Test immediate peak transition (diff <= 0.001f):
+	env.play(&peak, 1u, 1u, 3u);
+	CHECK(env.state() == TintEnvelope::ENV_STATE_ATTACK);
+	env.update(); // reaches peak
+	env.update(); // transitions to sustain (sustain=3)
+	CHECK(env.state() == TintEnvelope::ENV_STATE_SUSTAIN);
+	CHECK(env.sustainCounter() == 3u);
+	// Now currentColor == peak; calling play with peak again:
+	env.play(&peak, 2u, 2u, 5u);
+	// diff is <= 0.001f -> immediately transitions to SUSTAIN!
+	CHECK(env.state() == TintEnvelope::ENV_STATE_SUSTAIN);
+	CHECK(env.sustainCounter() == 5u);
+
+	// Sine pulse modulation test (RW 0x671B92):
+	// modulated = currentColor * (sin(logicFrame * freq) * amp * 0.5 + 0.5)
+	env.setPulse(0.5f, 0.1f);
+	// logicFrame = 0: sin(0) = 0 -> factor = 0.5
+	const RGBColor *mod0 = env.getColor(0u);
+	CHECK(mod0->red == 0.5f);
+	CHECK(mod0->green == 0.25f);
+	CHECK(mod0->blue == 0.125f);
+}
+
+TEST_CASE("LOCAL-3: Ennorath TintDrawable FXList drives drawable custom tint envelope in both editions (RW 0x5E0108 -> 0x671A73 -> 0x675E9A)")
+{
+	World world;
+	if (!world.load("LOCAL-3 Ennorath scenario TintDrawable (FX_LurtzBloodRageLong / FX_AufhellLeadership)"))
+	{
+		return;
+	}
+
+	for (GameEdition edition : { GameEdition::RotWK201, GameEdition::BFME2_106 })
+	{
+		CAPTURE(gameEditionName(edition));
+		hudtest::Rig game(world.shared);
+		game.logic().setEdition(edition);
+		game.game->shroud().revealMapForPlayerPermanently(game.index());
+
+		FXPlayback playback(*world.merged.fs, RandomAlgorithm::RotWK_GameDat_LCG);
+		playback.loadRetailData(world.shared.world->report().macrosBeforeFX);
+		LiveFX liveFX(*game.game, playback);
+
+		// Verify Ennorath FXLists exist:
+		// FX_LurtzBloodRageLong: TintDrawable Color=R:180 G:0 B:0, Pre=10, Post=10, Sustained=900
+		const FXList *bloodRage = playback.fxLists().findFXList("FX_LurtzBloodRageLong");
+		REQUIRE(bloodRage != nullptr);
+
+		// FX_AufhellLeadership: TintDrawable Color=R:255 G:255 B:255, Pre=0, Post=0, Sustained=30
+		const FXList *aufhell = playback.fxLists().findFXList("FX_AufhellLeadership");
+		REQUIRE(aufhell != nullptr);
+
+		std::string createErr;
+		Object *soldier = game.game->createObject("GondorFighter", game.index(), Coord3D{ 500.0f, 500.0f, 0.0f }, 0.0f, &createErr);
+		REQUIRE_MESSAGE(soldier != nullptr, createErr);
+
+		// Run logic and client refresh so client events create the drawable
+		game.logic().runLogicFrame();
+		game.game->refreshClient(1000.0 / 30.0, 1.0);
+
+		Drawable *d = game.game->drawables().findByObject(soldier->getID());
+		REQUIRE(d != nullptr);
+
+		// Initially no tint or selection flash
+		RGBColor renderTint{ -1.0f, -1.0f, -1.0f };
+		CHECK(d->getTintColor() == nullptr);
+		CHECK(d->getSelectionColor() == nullptr);
+		CHECK(d->evaluateRenderTint(0u, renderTint) == false);
+
+		// Test Drawable::flashAsSelected (RW 0x678FA7: decay=4, attack=0, sustain=1, white)
+		d->flashAsSelected();
+		CHECK(d->getSelectionColor() != nullptr);
+		// Advance one frame so updateTint() steps from initial (0,0,0) to peak (1,1,1)
+		game.game->drawables().advance(1000.0 / 30.0);
+		CHECK(d->evaluateRenderTint(0u, renderTint) == true);
+		CHECK(renderTint.red == 1.0f);
+		CHECK(renderTint.green == 1.0f);
+		CHECK(renderTint.blue == 1.0f);
+
+		// Step client: selection flash decays over 4 frames after sustain
+		for (int f = 0; f < 10; ++f)
+		{
+			game.game->drawables().advance(1000.0 / 30.0);
+		}
+		CHECK(d->getSelectionColor() == nullptr);
+
+		// Now fire Ennorath's FX_LurtzBloodRageLong on the object (RW 0x5E0108 -> 0x671A73)
+		FXEvent ev;
+		ev.kind = FXEvent::OBJECT_FX;
+		ev.primary = soldier->getID();
+		ev.position = *soldier->getPosition();
+		const std::string fxName = "FX_LurtzBloodRageLong";
+		ev.fxList = &fxName;
+		liveFX.onFXEvent(ev);
+		liveFX.flushPending();
+
+		// Custom tint envelope was set on the drawable with status TINT_STATUS_CUSTOM (0x20)
+		CHECK(d->testTintStatus(Drawable::TINT_STATUS_CUSTOM) == true);
+
+		// Frame 1: updateTint() activates and plays the custom envelope
+		game.game->drawables().advance(1000.0 / 30.0);
+		// Frame 2: steps the attack phase (1/10th of peak)
+		game.game->drawables().advance(1000.0 / 30.0);
+
+		const RGBColor *tintColor = d->getTintColor();
+		REQUIRE(tintColor != nullptr);
+		// PreColorTime was 10 frames, so on step 1 of attack it is 1/10th of peak (180/255 = 0.70588)
+		const float expectedPeakR = 180.0f / 255.0f;
+		CHECK(tintColor->red == doctest::Approx(expectedPeakR * 0.1f)); // tolerance: float division in attack rate
+		CHECK(tintColor->green == 0.0f);
+		CHECK(tintColor->blue == 0.0f);
+
+		CHECK(d->evaluateRenderTint(0u, renderTint) == true);
+		CHECK(renderTint.red == tintColor->red);
 	}
 }

@@ -51,6 +51,52 @@ class ModuleFactory;
 class AnimationSoundModuleManager;
 class ModelConditionAudioLoopClientBehavior;
 
+// LOCAL-3: TintEnvelope (ZH Include/GameClient/TintEnvelope.h, RW 0x671B20 .. 0x674AD7 / BFME2 0x671800 .. 0x6747B1, both editions identical).
+// Steps a drawable's additive tint or selection flash through attack, sustain and decay at the client frame rate, with optional sine modulation by the
+// logic frame (RW 0x671B92).
+class TintEnvelope
+{
+public:
+	enum EnvelopeState : std::int8_t
+	{
+		ENV_STATE_REST = 0,
+		ENV_STATE_ATTACK = 1,
+		ENV_STATE_DECAY = 2,
+		ENV_STATE_SUSTAIN = 3,
+	};
+
+	TintEnvelope() = default; // RW 0x671B20 / BFME2 0x671800
+
+	void play(const RGBColor *peak, UnsignedInt attackFrames = 0, UnsignedInt decayFrames = 0, UnsignedInt sustainAtPeak = 0); // RW 0x674818 / BFME2 0x6744F2
+	void update();                                                                                                             // RW 0x6748B7 / BFME2 0x674591
+	bool isEffective() const { return m_affect; }                                                                              // RW +0x39
+	void setEffective(bool affect) { m_affect = affect; }
+	bool isResting() const { return m_envState == ENV_STATE_REST; } // RW +0x38 == 0
+	const RGBColor *getColor(UnsignedInt logicFrame = 0) const;     // RW 0x671B92 / BFME2 0x671872
+	void setAttackFrames(UnsignedInt frames);                       // RW 0x671C25 / BFME2 0x671905
+	void setDecayFrames(UnsignedInt frames);                        // RW 0x671CBA / BFME2 0x67199A
+	void setPulse(float amplitude, float frequency)                 // RW 0x671CA1 / BFME2 0x671981
+	{
+		m_amplitude = amplitude;
+		m_frequency = frequency;
+	}
+	void setSustainCounter(UnsignedInt count) { m_sustainCounter = count; } // RW +0x34
+	EnvelopeState state() const { return m_envState; }
+	UnsignedInt sustainCounter() const { return m_sustainCounter; }
+
+private:
+	RGBColor m_attackRate{ 0.0f, 0.0f, 0.0f };           ///< +0x04..+0x0C
+	RGBColor m_decayRate{ 0.0f, 0.0f, 0.0f };            ///< +0x10..+0x18
+	RGBColor m_peakColor{ 0.0f, 0.0f, 0.0f };            ///< +0x1C..+0x24
+	RGBColor m_currentColor{ 0.0f, 0.0f, 0.0f };         ///< +0x28..+0x30
+	UnsignedInt m_sustainCounter = 0;                    ///< +0x34
+	EnvelopeState m_envState = ENV_STATE_REST;           ///< +0x38
+	bool m_affect = false;                               ///< +0x39
+	float m_amplitude = 0.0f;                            ///< +0x3C
+	float m_frequency = 0.0f;                            ///< +0x40
+	mutable RGBColor m_modulatedColor{ 0.0f, 0.0f, 0.0f }; ///< +0x44..+0x4C
+};
+
 // lane FX-2: the client effect player the draw modules call (GameClient/LiveFX). Read at call time, so drawables made before the player was installed use it too.
 class DrawableFXHost
 {
@@ -323,6 +369,39 @@ public:
 	// RW +0x3AB: a draw module's data is not affected by stealth (the drawable cannot hide for look 5)
 	bool cannotHideByStealth() const { return m_cannotHideByStealth; }
 
+	// ---- LOCAL-3: the drawable's tint and selection flash envelopes (RW Drawable +0x64 m_selectionFlashEnvelope, +0x68 m_colorTintEnvelope,
+	// +0x6C..+0x88 custom tint parameters, +0x118 m_tintStatus, +0x11C m_prevTintStatus; both editions identical) ----
+	enum TintStatus : UnsignedInt
+	{
+		TINT_STATUS_DISABLED = 0x01u,               ///< RW 0x675DAD: disabled / dazed dark tint (-0.5, -0.5, -0.5) at RW 0xDA06E8
+		TINT_STATUS_IRRADIATED = 0x02u,             ///< RW 0x675DF3: irradiated green tint (0, 1, 0)
+		TINT_STATUS_POISONED = 0x04u,               ///< RW 0x675DD0: poisoned green-red tint (0.5, 1, 0)
+		TINT_STATUS_GAINING_SUBDUAL_DAMAGE = 0x08u, ///< RW 0x675E1E: frenzy pulsing red tint (0.5, -0.5, -0.5) at RW 0xDA0700
+		TINT_STATUS_FRENZY = 0x10u,                 ///< RW 0x675E5E: locked red tint (0.5, -0.5, -0.5) at RW 0xDA0700
+		TINT_STATUS_CUSTOM = 0x20u,                 ///< RW 0x675E9A: custom tint envelope (+0x6C..+0x88)
+	};
+	void setTintStatus(UnsignedInt statusBits) { m_tintStatus |= statusBits; }   // RW +0x118
+	void clearTintStatus(UnsignedInt statusBits) { m_tintStatus &= ~statusBits; }
+	bool testTintStatus(UnsignedInt statusBits) const { return (m_tintStatus & statusBits) != 0u; }
+	UnsignedInt tintStatus() const { return m_tintStatus; }
+	// RW 0x671A73 / BFME2 0x671753 (Drawable::setCustomTintEnvelope) + caller `or [drawable+0x118], 0x20` (RW 0x5E0127 / 0x4D1241 / 0x6ED185)
+	void setCustomTintEnvelope(const RGBColor &color, UnsignedInt attackFrames, UnsignedInt decayFrames, UnsignedInt sustainFrames, float frequency, float amplitude);
+	// RW 0x675749 / BFME2 0x67541E (Drawable::colorFlash): argument order in game.dat is (color, decayFrames, attackFrames, sustainAtPeak)
+	void colorFlash(const RGBColor *color, UnsignedInt decayFrames = 0, UnsignedInt attackFrames = 0, UnsignedInt sustainAtPeak = 0);
+	// RW 0x6757BB / BFME2 0x675490 (Drawable::colorTint)
+	void colorTint(const RGBColor *color);
+	// RW 0x678FA7 / BFME2 0x678C4F (Drawable::flashAsSelected)
+	void flashAsSelected(const RGBColor *color = nullptr);
+	// RW 0x672F9A / BFME2 0x672C74 (Drawable::getTintColor) & RW 0x672FAF / BFME2 0x672C89 (Drawable::getSelectionColor)
+	const RGBColor *getTintColor(UnsignedInt logicFrame = 0) const;
+	const RGBColor *getSelectionColor(UnsignedInt logicFrame = 0) const;
+	// RW 0x46F4E7 .. 0x46F5A0 / BFME2 0x46F1F1 .. 0x46F2AA (RTS3DScene::Customized_Render): sums the active tint and selection flash for the shader
+	bool evaluateRenderTint(UnsignedInt logicFrame, RGBColor &out) const;
+	// RW 0x675D8B .. 0x675F8A / BFME2 0x675A60 .. 0x675C5F (Drawable::updateDrawable): steps the envelopes and reconciles m_tintStatus / m_prevTintStatus
+	void updateTint();
+	const TintEnvelope &colorTintEnvelope() const { return m_colorTintEnvelope; }
+	const TintEnvelope &selectionFlashEnvelope() const { return m_selectionFlashEnvelope; }
+
 private:
 	void addEntry(DrawServices &services, const ThingTemplate::Nugget &nugget, std::vector<std::string> &problems);
 
@@ -370,5 +449,16 @@ private:
 	bool m_flagsDirty = false;           ///< lane ANIM-1: RW Drawable + 0x443
 	bool m_hasWeaponTiming = false;      ///< lane ANIM-1: the last flush's weapon cycle (RW 0x4BEE31 reads the object's when the draw applies the flags)
 	int m_weaponTimingFrames = 0;
+	// LOCAL-3: RW Drawable +0x64 m_selectionFlashEnvelope, +0x68 m_colorTintEnvelope, +0x6C..+0x88 custom tint parameters, +0x118..+0x11C tint status
+	TintEnvelope m_selectionFlashEnvelope;
+	TintEnvelope m_colorTintEnvelope;
+	RGBColor m_customTintColor{ -1.0f, -1.0f, -1.0f }; ///< RW 0x67A01E..0x67A028 (+0x6C..+0x74)
+	UnsignedInt m_customTintAttackFrames = 0;          ///< +0x78
+	UnsignedInt m_customTintDecayFrames = 0;           ///< +0x7C
+	UnsignedInt m_customTintSustainFrames = 0;         ///< +0x80
+	float m_customTintAmplitude = 0.0f;                ///< +0x84
+	float m_customTintFrequency = 0.0f;                ///< +0x88
+	UnsignedInt m_tintStatus = 0;                      ///< +0x118
+	UnsignedInt m_prevTintStatus = 0;                  ///< +0x11C
 	void setFadeHidden(bool hidden); ///< RW 0x6718FB (bumps the change count when it changes)
 };

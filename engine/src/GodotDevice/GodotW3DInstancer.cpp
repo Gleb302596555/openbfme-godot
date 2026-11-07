@@ -541,6 +541,19 @@ void W3DInstancer::set_model_glow(int64_t model, bool emissive_only)
 	}
 }
 
+void W3DInstancer::set_model_tint(int64_t model, const Vector3 &tint)
+{
+	if (model < 0 || (size_t)model >= Models.size())
+	{
+		warn("set_model_tint: unknown model " + std::to_string(model));
+		return;
+	}
+	for (DrawItem &d : Models[(size_t)model]->Draws)
+	{
+		d.Node->set_instance_shader_parameter("w3d_tint", tint);
+	}
+}
+
 void W3DInstancer::set_instance_infantry_light(int64_t instance, bool infantry)
 {
 	if (instance < 0 || instance >= (int64_t)Instances.size()) return;

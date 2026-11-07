@@ -1756,6 +1756,12 @@ bool GameWorld::view_is_local(size_t id, const W3DInstancer &dyn, const LogicSna
 	{
 		return false; // remove_view
 	}
+	RGBColor renderTint{};
+	const bool tinted = d->evaluateRenderTint(presented ? presented->frame : 0u, renderTint);
+	if (tinted)
+	{
+		return false; // LOCAL-3: set_model_tint updates the DrawItem's w3d_tint shader parameter on the main thread
+	}
 	const bool fogHidden = d->presentedLook(presented, m_shroudDrawn).hidden;
 	const bool flagsChanged = d->getChangeCount() != v.seenChange || fogHidden != v.fogHidden;
 	const std::vector<DrawEntry> &entries = d->entries();
@@ -1763,6 +1769,10 @@ bool GameWorld::view_is_local(size_t id, const W3DInstancer &dyn, const LogicSna
 	{
 		const DrawEntry &e = entries[k];
 		const EntryView &ev = v.entries[k];
+		if (ev.animKeyTinted || ev.staticKeyTinted)
+		{
+			return false; // LOCAL-3: leaving a tinted model key rebuilds the untinted key on the serial pass
+		}
 		if (e.kind == W3D_DRAWKIND_MODEL && e.draw)
 		{
 			if (ev.instance >= 0 && !(e.frontTireBones.empty() && e.rearTireBones.empty()) && !(ev.tireChanges == e.tireChanges && ev.tireInstance == ev.instance))
@@ -1864,6 +1874,8 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 	const bool fogChanged = fogHidden != v.fogHidden;
 	v.fogHidden = fogHidden;
 	const bool flagsChanged = d->getChangeCount() != v.seenChange || fogChanged;
+	RGBColor renderTint{};
+	const bool tinted = d->evaluateRenderTint(presented ? presented->frame : 0u, renderTint);
 	std::vector<DrawEntry> &entries = d->entries();
 	for (size_t k = 0; k < entries.size() && k < v.entries.size(); ++k)
 	{
@@ -1923,7 +1935,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			animated += animatedNow ? 1 : 0;
 			// lane CAH-2: a new colour set (Drawable::setCustomColors, RW 0x6727B0) chooses another model below
 			const bool colorsChanged = d->customColorRevision() != ev.colorsRevision;
-			if (!flagsChanged && !animatedNow && !colorsChanged && ev.posed)
+			if (!flagsChanged && !animatedNow && !colorsChanged && ev.posed && !tinted && !ev.animKeyTinted)
 			{
 				if (entryXfChanged && ev.instance >= 0)
 				{
@@ -1956,6 +1968,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			// while they hold the key is `ev.model` already, so the strings are not made and compared again (every animated troop, every frame)
 			const bool keySame = ev.animKeyValid && ev.animKeyShown == shown && ev.animKeyHouse == m_houseColors && ev.animKeyName == f.modelName
 				&& ev.animKeySwaps == (const void *)f.textureSwaps && ev.animKeySwapsGeneration == f.textureSwapsGeneration && ev.animKeyKind == palette.kind && ev.animKeyGlow == f.glow
+				&& ev.animKeyTinted == tinted
 				&& ev.animKeyColors[0] == (std::uint32_t)palette.colors[0] && ev.animKeyColors[1] == (std::uint32_t)palette.colors[1]
 				&& ev.animKeyColors[2] == (std::uint32_t)palette.colors[2];
 			if (!keySame)
@@ -1999,7 +2012,15 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			{
 				selModel = (glowModel.empty() ? plainModel : glowModel) + "|sel";
 			}
-			const std::string &model = !selModel.empty() ? selModel : glowModel.empty() ? plainModel : glowModel;
+			const std::string &baseModel = !selModel.empty() ? selModel : glowModel.empty() ? plainModel : glowModel;
+			// LOCAL-3 (RW 0x46F4E7 .. 0x46F5A0): a drawable with an active tint or selection flash envelope gets its own model key so w3d_tint is applied
+			// to its DrawItems without tinting other drawables of the same W3D model
+			std::string tintModel;
+			if (shown && tinted)
+			{
+				tintModel = baseModel + "|tint:" + std::to_string(id);
+			}
+			const std::string &model = !tintModel.empty() ? tintModel : baseModel;
 			if (model != ev.model)
 			{
 				if (ev.instance >= 0)
@@ -2012,6 +2033,8 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 				ev.hidden.clear();
 				ev.hiddenModel = nullptr;
 				ev.opacity = 1.0f; // a new instance starts opaque
+				ev.tintModelId = -1;
+				ev.lastTint = RGBColor{ -1.0f, -1.0f, -1.0f };
 				if (!model.empty())
 				{
 					auto it = m_dynamicModels.find(model);
@@ -2052,6 +2075,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 					{
 						mid = it->second;
 					}
+					ev.tintModelId = mid;
 					if (mid >= 0)
 					{
 						ev.instance = dyn->add_instance(mid, entryXf, String(), 0.0, 1.0);
@@ -2074,6 +2098,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			ev.animKeySwapsGeneration = f.textureSwapsGeneration; // an upgrade's texture list keeps the same vector (RW 0x8B911E)
 			ev.animKeyKind = palette.kind;
 			ev.animKeyGlow = f.glow;
+			ev.animKeyTinted = tinted;
 			for (int i = 0; i < 3; ++i)
 			{
 				ev.animKeyColors[i] = (std::uint32_t)palette.colors[i];
@@ -2081,6 +2106,12 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			}
 			if (ev.instance >= 0)
 			{
+				if (tinted && ev.tintModelId >= 0 &&
+					(ev.lastTint.red != renderTint.red || ev.lastTint.green != renderTint.green || ev.lastTint.blue != renderTint.blue))
+				{
+					dyn->set_model_tint(ev.tintModelId, Vector3(renderTint.red, renderTint.green, renderTint.blue));
+					ev.lastTint = renderTint;
+				}
 				if (entryXfChanged && ev.posed)
 				{
 					dyn->set_instance_transform(ev.instance, entryXf);
@@ -2161,7 +2192,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			const std::uint32_t *custom = d->customColors();
 			if (!ev.staticKeyValid || ev.staticKeySource != e.staticModel || ev.staticKeyData != e.data || ev.staticKeyKind != (int)e.kind ||
 				ev.staticKeyWeather != m_streakWeather || ev.staticKeyHouse != m_houseColors || ev.staticKeyOwner != owner ||
-				ev.staticKeyCustomKind != customKind || std::memcmp(ev.staticKeyCustom, custom, sizeof(ev.staticKeyCustom)) != 0)
+				ev.staticKeyCustomKind != customKind || ev.staticKeyTinted != tinted || std::memcmp(ev.staticKeyCustom, custom, sizeof(ev.staticKeyCustom)) != 0)
 			{
 				ev.staticKeyPalette = drawTakesHouseColor(e, *d) ? Render_House_Color_Params(owner, customKind, custom) : HouseColorParams(); // RW 0x4B4A30
 				ev.staticKeyColored = m_houseColors && ev.staticKeyPalette.kind > 0;
@@ -2181,6 +2212,10 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 					const HouseColorParams &pp = ev.staticKeyPalette;
 					ev.staticKey += "#palette&" + std::to_string(pp.kind) + "&" + std::to_string(pp.colors[0]) + "&" + std::to_string(pp.colors[1]) + "&" + std::to_string(pp.colors[2]);
 				}
+				if (tinted)
+				{
+					ev.staticKey += "|tint:" + std::to_string(id); // LOCAL-3: per-drawable tinted model key
+				}
 				ev.staticKeySource = e.staticModel;
 				ev.staticKeyData = e.data;
 				ev.staticKeyKind = (int)e.kind;
@@ -2188,6 +2223,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 				ev.staticKeyHouse = m_houseColors;
 				ev.staticKeyOwner = owner;
 				ev.staticKeyCustomKind = customKind;
+				ev.staticKeyTinted = tinted;
 				std::memcpy(ev.staticKeyCustom, custom, sizeof(ev.staticKeyCustom));
 				ev.staticKeyValid = true;
 			}
@@ -2199,6 +2235,8 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			if (!ev.posed)
 			{
 				ev.posed = true;
+				ev.tintModelId = -1;
+				ev.lastTint = RGBColor{ -1.0f, -1.0f, -1.0f };
 				auto it = m_dynamicModels.find(model);
 				int64_t mid;
 				if (it == m_dynamicModels.end())
@@ -2223,6 +2261,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 				{
 					mid = it->second;
 				}
+				ev.tintModelId = mid;
 				if (mid >= 0)
 				{
 					ev.instance = dyn->add_instance(mid, entryXf, String(), 0.0, 1.0);
@@ -2235,6 +2274,12 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			else if (entryXfChanged && ev.instance >= 0)
 			{
 				dyn->set_instance_transform(ev.instance, entryXf);
+			}
+			if (ev.instance >= 0 && tinted && ev.tintModelId >= 0 &&
+				(ev.lastTint.red != renderTint.red || ev.lastTint.green != renderTint.green || ev.lastTint.blue != renderTint.blue))
+			{
+				dyn->set_model_tint(ev.tintModelId, Vector3(renderTint.red, renderTint.green, renderTint.blue));
+				ev.lastTint = renderTint;
 			}
 			if (ev.instance >= 0 && (ev.fogLook != fogLook || ev.fogLookInstance != ev.instance)) // lane VISUAL-2: the fogged light (as above)
 			{

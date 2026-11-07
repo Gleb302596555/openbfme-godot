@@ -110,6 +110,9 @@ public:
 	// lane SPELL-4: the BuffNugget's buffs (GameClient/BuffDraw.h): the template's W3DBuffDraw model on the object's drawable
 	bool turnOnBuff(const FXObject &obj, int type, const std::string &thingTemplate, int lifeFrames) override;
 	bool turnOffBuff(const FXObject &obj, int type) override;
+	// LOCAL-3: TintDrawableFXNugget::doFXObj (RW 0x5E0108 / BFME2 0x5DFE1E -> Drawable::setCustomTintEnvelope RW 0x671A73 + m_tintStatus |= 0x20)
+	bool tintDrawable(const FXObject &obj, const RGBColor &color, unsigned attackFrames, unsigned decayFrames, unsigned sustainFrames, float frequency,
+		float amplitude) override;
 	// lane FX-4: the ViewShake calls the effects made (W3DView::shake RW 0x486D86 with the client stream's angle), for the view: the HUD takes them before its
 	// camera's client frame (TacticalCamera::shake). Bounded: without a view taking them, the oldest are dropped
 	struct ViewShake
