@@ -604,7 +604,7 @@ UpdateSleepTime RespawnUpdate::update()
 		{
 			if (ExitInterface *exit = producer->getObjectExitInterface())
 			{
-				exit->exitObjectViaDoor(obj, DOOR_1); // slot 8 (obj, 0)
+				exit->exitObjectViaDoor(obj, DOOR_1); // vtable offset +8 / interface method 2 (obj, 0), RW 0x8B3AEA
 				// (RW 0x8B3B5F: the object's group, Object + 0x47C, is not ported)
 			}
 		}
