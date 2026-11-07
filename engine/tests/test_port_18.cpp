@@ -104,7 +104,9 @@ TEST_CASE("PORT-18 related object: both statuses follow the selected slave and a
     REQUIRE(sa->currentStateId() == (unsigned)AI_GUARD);
     REQUIRE(ma->currentStateId() == (unsigned)AI_GUARD);
     w.choose({slave});
+    const auto before = WeaponCommands::stats().noAutoAcquire;
     w.toggle(slave->getID());
+    CHECK(WeaponCommands::stats().noAutoAcquire == before + 1); // one message, one handler execution
     // RW 0x77B7C7 and 0x77B7FB; active guard slot 0x24 returns true (RW 0x8BD372).
     CHECK(w.held(slave));
     CHECK(w.held(master));
