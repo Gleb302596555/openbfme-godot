@@ -10,6 +10,9 @@ using namespace combattest;
 namespace
 {
 const char kObjects[] =
+    "Object P18HordeNoContain\n"
+    "  KindOf = HORDE SELECTABLE\n"
+    "End\n"
     "Weapon P18SlaveWeapon\n"
     "  AttackRange = 100\n"
     "  SlaveAttackNugget\n"
@@ -171,4 +174,13 @@ TEST_CASE("PORT-18 neighbor: an individually selected horde member does not togg
     CHECK(w.held(member));
     CHECK_FALSE(w.held(horde));
     CHECK_FALSE(w.held(members[1]));
+}
+
+TEST_CASE("PORT-18 neighbor: a horde without a contain does not receive the status")
+{
+    P18World w;
+    Object *horde = w.unit("P18HordeNoContain", 'A', 500, 500);
+    w.choose({horde});
+    w.toggle(); // RW 0x77B7C0 -> 0x69458F..0x694591: no horde interface returns without writing.
+    CHECK_FALSE(w.held(horde));
 }
