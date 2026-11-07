@@ -16,7 +16,7 @@
 // PRESENTATION CORRECTION (not retail): retail truncates the step of every render and drops the fraction, so its fade slows above 30 fps and stops
 // below 4 ms a frame; Godot renders at any rate, so the milliseconds below one step are carried to the next frame (the fade takes the same wall
 // time at every frame rate, retail's at 30 fps).
-#include <cstddef>
+#include <cstddef> // size_t (MSVC provides it transitively; libstdc++ does not)
 #include <cstdint>
 #include <vector>
 
@@ -35,8 +35,8 @@ public:
 	bool step(double ms);
 	// every current level moved to its final one (a forced rebuild: a load, the shroud drawn again)
 	void snap();
-	std::uint8_t current(int x, int y) const { return m_current[(std::size_t)y * (std::size_t)m_w + (std::size_t)x]; }
-	std::uint8_t finalLevel(int x, int y) const { return m_final[(std::size_t)y * (std::size_t)m_w + (std::size_t)x]; }
+	std::uint8_t current(int x, int y) const { return m_current[(size_t)y * (size_t)m_w + (size_t)x]; }
+	std::uint8_t finalLevel(int x, int y) const { return m_final[(size_t)y * (size_t)m_w + (size_t)x]; }
 	const std::vector<std::uint8_t> &currentLevels() const { return m_current; }
 	bool fading() const { return !m_dirty.empty(); }
 

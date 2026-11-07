@@ -272,7 +272,9 @@ void FireLogicSystem::update()
 		}
 	}
 
-	// 2. Fire damage to watching objects (RW 0x6886E0: damage type 0x17 DAMAGE_FLAME, death type 3 DEATH_BURNED)
+	// 2. Fire damage to watching objects (RW 0x6886E0; RW 0x688A13 .. 0x688A1D: damage type 0x17 DAMAGE_LOGICAL_FIRE (D+0x10; name table RW 0xDA15A8 index
+	// 23), death type 3 DEATH_BURNED (D+0x1C); RW 0x688A4D: the amount (D+0x20) is the summed check; no source). An armor's LOGICAL_FIRE line, not its FLAME
+	// line, scales it (P-33: FLAME let the ground fire burn a fortress down)
 	std::map<ObjectID, int> damage;
 	for (const auto &p : m_cellsOnFire)
 	{
@@ -297,8 +299,8 @@ void FireLogicSystem::update()
 		if (obj && !obj->isEffectivelyDead())
 		{
 			DamageInfo info;
-			info.m_input.m_damageType = DAMAGE_FLAME;
-			info.m_input.m_deathType = DEATH_BURNED;
+			info.m_input.m_damageType = DAMAGE_LOGICAL_FIRE; // RW 0x688A13
+			info.m_input.m_deathType = DEATH_BURNED;         // RW 0x688A1D
 			info.m_input.m_amount = (float)pair.second;
 			obj->attemptDamage(info);
 		}

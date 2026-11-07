@@ -90,7 +90,6 @@ uniform vec2 shroud_origin = vec2(0.0);
 uniform vec2 shroud_extent = vec2(1.0);
 uniform vec3 shroud_color = vec3(1.0);
 uniform bool shroud_enabled = false;
-varying vec2 v_shroud_uv;
 // S-5261: terrain.fxo's Taint struct (IsEnabled, MaskTexture, LowTexture, HighTexture, Offset, Scale; RW 0x4E2002 .. 0x4E2096)
 uniform bool taint_enabled = false;
 uniform sampler2D taint_mask_tex : filter_linear, repeat_disable, hint_default_white; // TaintMaskSampler: LINEAR, CLAMP
@@ -98,7 +97,6 @@ uniform sampler2D taint_low_tex : filter_linear_mipmap, repeat_enable, hint_defa
 uniform sampler2D taint_high_tex : filter_linear_mipmap, repeat_enable, hint_default_white; // TaintHighSampler: LINEAR, WRAP (TSElvenMed.tga)
 uniform vec2 taint_offset = vec2(0.0);
 uniform vec2 taint_scale = vec2(1.0);
-varying vec2 v_taint_uv;
 uniform float output_gamma = 2.2; // != 1: decode for Godot's linear output (retail_output)
 // Debug views (0 = retail maths): 1 albedo, 2 vertex colour, 3 normal map, 4 uv, 5 lit without cloud/macro,
 // 6 cloud*macro, 7 the gamma-space composite of the raw layer albedos converted once (numeric shader test)
@@ -115,12 +113,19 @@ vec3 retail_output(vec3 c) {
 	return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
 }
 
-varying vec3 v_lts;
+// The smooth varyings are packed into vec4s: every varying takes one interpolator slot whatever its size, and
+// Intel Arc (DG2) allows 29 in total with Godot's own; the terrain shader used 31 and failed to compile there
+// (flat brown ground). The names stay as macros so the maths reads unchanged.
+varying vec4 v_pack_lts_fog;    // xyz: v_lts, w: v_fog
+varying vec4 v_pack_cloud_macro; // xy: v_cloud, zw: v_macro
+varying vec4 v_pack_shroud_local; // xy: v_shroud_uv, zw: v_local (cell-local coordinates 0..1 of the pixel)
+#define v_lts v_pack_lts_fog.xyz
+#define v_fog v_pack_lts_fog.w
+#define v_cloud v_pack_cloud_macro.xy
+#define v_macro v_pack_cloud_macro.zw
+#define v_shroud_uv v_pack_shroud_local.xy
+#define v_local v_pack_shroud_local.zw
 varying vec3 v_hts;
-varying float v_fog;
-varying vec2 v_cloud;
-varying vec2 v_macro;
-varying vec2 v_local;        // cell-local coordinates (0..1) of the pixel
 varying flat vec4 v_wrap;    // base layer class wrap rect (x0, y0, w, h); w == 0: none
 varying flat float v_rec;    // record index of the cell's blend layers, or -1
 // lane WEATHERFX-1: the SAGE world point, vertex normal and camera of the Enhanced look's weather (weather_fx.gdshaderinc)
@@ -231,7 +236,7 @@ vec3 shade_layer(vec2 uv_unwrapped, vec4 rect, vec4 vcol, vec2 gx, vec2 gy) {
 	}
 	if (taint_enabled) {
 		// S-5261: terrain.fxo's Taint path (W3DTaintMask.h); the mask has one level (textureLod keeps it valid in this per-layer branch)
-		vec4 mask = textureLod(taint_mask_tex, v_taint_uv, 0.0);
+		vec4 mask = textureLod(taint_mask_tex, (v_wfx_pos.xy + taint_offset) * taint_scale, 0.0); // terrain.fxo vs (world.xy + Taint.Offset) * Taint.Scale; v_wfx_pos.xy is the SAGE point (no varying of its own: Intel varying budget)
 		float d = 2.0 * abs(mask.a - 0.5);
 		vec3 t = (0.5 - mask.a >= 0.0) ? textureGrad(taint_low_tex, uv_unwrapped, gx, gy).rgb : textureGrad(taint_high_tex, uv_unwrapped, gx, gy).rgb;
 		albedo = mask.rgb * mix(albedo, t, d);

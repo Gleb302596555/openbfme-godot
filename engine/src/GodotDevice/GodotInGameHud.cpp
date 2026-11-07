@@ -5,6 +5,7 @@
 #include "Common/Audio/AudioEntryPoints.h"
 #include "Common/Audio/AudioLog.h"
 #include "GodotDevice/GodotInGameHud.h"
+#include "GodotDevice/GodotShaderBudget.h"
 #include "GodotDevice/MacOSTrackpad.h"
 #include <godot_cpp/classes/input_event_pan_gesture.hpp>
 #include <godot_cpp/classes/input_event_magnify_gesture.hpp>
@@ -340,15 +341,18 @@ struct HudDevice : public AptNativeHook
 	bool radiusDecalDrawn = false;
 	std::string radiusDecalError; ///< the texture of the cursor that could not be read (also in the HUD's draw errors)
 	void drawRadiusCursor();
-	// lane OWNERFIX-2: the resource claim feedback (InGameHud::resourceFeedback, GameClient/TerrainResourceFeedback.h): the claim circles' outline
-	// arcs (the claim decals and the placement decal are upstream's, in the grid: P-40) and the placement's percentage text
-	std::vector<uint64_t> claimArcIds; // the outline arcs' TerrainClaimSegment decals (RW 0x8E9744)
+	// lane OWNERFIX-2: the resource claim feedback (InGameHud::resourceFeedback, GameClient/TerrainResourceFeedback.h): the selected resource building's
+	// claim decals, the placement decal (its texture masked by the claimable vertices), the placement's claim arcs (lane ECOCIRCLE-2) and the placement's
+	// percentage text; lane PLACEDECAL-1: the decals are in the selection decals' grid (drawSelectionDecals), these count what went in
+	int claimDecalsDrawn = 0;
 	int claimArcsDrawn = 0;
-	std::vector<SelectionDecal> selExtras; ///< lane PLACEDECAL-1: this frame's other decals: the ghost's shadows (the fork draws the resource claims as Godot Decals)
-	std::vector<SelectionDecal> selList;   ///< lane PLACEDECAL-1: the grid's decals when there are others: the shadows, then the selection's
+	bool placeDecalDrawn = false;
+	std::vector<SelectionDecal> selExtras; ///< lane PLACEDECAL-1: this frame's other decals: the ghost's shadows, then the resource claims'
+	std::vector<SelectionDecal> selList;   ///< lane PLACEDECAL-1: the grid's decals when there are others: the shadows, the resource decals, the selection's
 	uint64_t selExtrasKey = 0;             ///< lane PLACEDECAL-1: what the last grid's other decals were (0: none)
 	unsigned extraDecalsDrawn = 0;         ///< lane PLACEDECAL-1: the ghost's decal shadows in the grid
 	unsigned shadowCount = 0;              ///< lane PLACEDECAL-1: the last build's counts (the grid it built stays until the next)
+	int claimCount = 0, arcCount = 0, placeCount = 0;
 	double decalsLateMs = 0.0;             ///< lane PLACEDECAL-1: drawSelectionDecals' time (it runs after the ghost, inside the camera part)
 	bool placeTextDrawn = false;
 	bool chatHistoryShown = false; ///< lane CHAT-1: the scroll-back replaces the message lines while the chat window is open
@@ -357,7 +361,6 @@ struct HudDevice : public AptNativeHook
 	void drawMessageLines();
 	Rect2 placeTextRect;
 	std::string resourceDecalError;
-	void drawResourceFeedback();
 	// S-5205: the effects' DynamicDecal decals (LiveFX::decals), drawn as the claim decals are
 	std::unique_ptr<ProjectedShadowManager> projectedShadows;
 	std::vector<uint64_t> fxDecalIds;
@@ -616,7 +619,7 @@ bool HudDevice::ensureGlobe()
 		return false;
 	}
 	globeShader.instantiate();
-	globeShader->set_code(kGlobeShader);
+	SetShaderCode(globeShader.ptr(), kGlobeShader, "Palantir globe composite");
 	globeMaterial.instantiate();
 	globeMaterial->set_shader(globeShader);
 	globeMaterial->set_shader_parameter("add_tex", globeAdd.view->get_texture());
@@ -1011,7 +1014,7 @@ void HudDevice::drawPlaceholder(const AptCanvasOp &op, RID item)
 			{
 				Ref<Shader> shader;
 				shader.instantiate();
-				shader->set_code(String(aptImageModeShader(mode).c_str()));
+				SetShaderCode(shader.ptr(), String(aptImageModeShader(mode).c_str()), "apt image mode " + String(varOf(op, "_mode").c_str()));
 				material.instantiate();
 				material->set_shader(shader);
 			}
@@ -1493,74 +1496,6 @@ void HudDevice::drawFXDecals()
 	}
 }
 
-void HudDevice::drawResourceFeedback()
-{
-	// lane OWNERFIX-2 (GameClient/TerrainResourceFeedback.h), P-40: the claim zones and the placement disc are upstream's (TerrainResourceFeedback::appendDecals, in
-	// the shaders' decal grid: drawSelectionDecals); this draws only what upstream has not: the outline arcs of the built farms' claim circles, as Godot Decals
-	Node3D *root = decalRoot();
-	if (!root)
-	{
-		return;
-	}
-	const TerrainResourceFeedback &fb = hud->resourceFeedback();
-	auto place = [](Decal *decal, const Coord3D &p, float size) {
-		// SAGE (x, y, z up) -> Godot (x, z, -y); projected down over a box `size` wide and 200 units deep around the point
-		decal->set_position(Vector3(p.x, p.z, -p.y));
-		decal->set_rotation(Vector3(0.0f, 0.0f, 0.0f));
-		decal->set_size(Vector3(size, 200.0f, size));
-		decal->set_albedo_mix(1.0f);
-		decal->set_cull_mask(1u << 19); // the terrain's layer (GodotMapTerrain)
-		decal->set_upper_fade(0.0f);
-		decal->set_lower_fade(0.0f);
-	};
-	// the outline arcs (RW 0x8E9744): TerrainClaimSegment squares (decal type 0x40) at opacity 255, each turned by its angle, tinted with the claimant
-	// owner's colour (s.color; the owner's photo, docs/ennorath/PROBLEMS.md P-5)
-	claimArcsDrawn = 0;
-	for (const ResourceClaimArcSegment &s : fb.claimArcSegments())
-	{
-		const DecalTextures *segTex = unlitDecalFor("TerrainClaimSegment", s.color & 0xFFFFFFu, true);
-		if (!segTex)
-		{
-			resourceDecalError = "TerrainClaimSegment: no texture";
-			break;
-		}
-		const size_t i = (size_t)claimArcsDrawn;
-		Decal *decal = i < claimArcIds.size() ? Object::cast_to<Decal>(ObjectDB::get_instance(godot::ObjectID(claimArcIds[i]))) : nullptr;
-		if (!decal)
-		{
-			decal = memnew(Decal);
-			root->add_child(decal);
-			if (i < claimArcIds.size())
-			{
-				claimArcIds[i] = decal->get_instance_id();
-			}
-			else
-			{
-				claimArcIds.push_back(decal->get_instance_id());
-			}
-		}
-		place(decal, s.position, s.size);
-		// SAGE's turn about z is Godot's about y ((x, y, z) -> (x, z, -y)). The texture's stripe runs along its top row, which a Godot Decal lays on
-		// its local -z (SAGE +y) side: turned by theta - 90 degrees (s.angle = -theta) it lies along the circle's edge, the stripe outward
-		decal->set_rotation(Vector3(0.0f, -s.angle - 1.57079632679f, 0.0f));
-		decal->set_sorting_offset(5000.0f); // the arcs stay on top of the grid's placement disc
-		decal->set_texture(Decal::TEXTURE_ALBEDO, segTex->albedo);
-		// emission as well as albedo: the rings glow in their own colour
-		decal->set_texture(Decal::TEXTURE_EMISSION, segTex->albedo);
-		decal->set_emission_energy(1.0f);
-		decal->set_modulate(Color(1, 1, 1, s.opacity / 255.0f));
-		decal->set_visible(true);
-		++claimArcsDrawn;
-	}
-	for (size_t i = (size_t)claimArcsDrawn; i < claimArcIds.size(); ++i)
-	{
-		if (Decal *decal = Object::cast_to<Decal>(ObjectDB::get_instance(godot::ObjectID(claimArcIds[i]))))
-		{
-			decal->set_visible(false);
-		}
-	}
-}
-
 namespace
 {
 // UTF-16 (the engine's UnicodeString) to a Godot String: surrogate pairs joined, a lone surrogate shown as U+FFFD
@@ -1737,9 +1672,9 @@ void HudDevice::drawSelectionDecals()
 		ghost->appendShadowDecals(selExtras);
 	}
 	const size_t shadows = selExtras.size();
-	hud->resourceFeedback().appendDecals(hud->radiusCursorTemplates().resourceUi().claimDecal, hud->radiusCursorTemplates().resourceUi().placeDecal, selExtras);
-	// P-40: the claims and the placement disc are upstream's, in the grid (the owner chose them over the fork's Godot Decals); the claim circles' outline arcs are
-	// the fork's (drawResourceFeedback)
+	const TerrainResourceUiSettings &resourceUi = hud->radiusCursorTemplates().resourceUi();
+	const TerrainResourceFeedback &resources = hud->resourceFeedback();
+	const TerrainResourceDecalCounts appended = resources.appendDecals(resourceUi.claimDecal, resourceUi.placeDecal, selExtras);
 	// what the other decals are (the grid is built again when it changes: the ghost moves, a claim comes or goes, the mask changes)
 	uint64_t key = 0;
 	if (!selExtras.empty())
@@ -1809,6 +1744,8 @@ void HudDevice::drawSelectionDecals()
 		}
 		// lane OWNERFIX-2's state report: the resource decals that went into the grid (a missing texture or a refused decal is also in drawErrors). A
 		// grid that is not built (a merge decal's texture missing) draws none of them
+		resourceDecalError.clear();
+		claimCount = arcCount = placeCount = 0;
 		shadowCount = 0;
 		for (size_t i = 0; extras && i < selList.size(); ++i)
 		{
@@ -1822,8 +1759,33 @@ void HudDevice::drawSelectionDecals()
 			{
 				break; // the selection's
 			}
+			// lane ECOCIRCLE-2: appendDecals' order (the arcs, the placement decal, the claims) gives the kind of each entry
+			const size_t at = i - shadows;
+			const char *name = nullptr;
+			if (at < appended.arcs)
+			{
+				arcCount += in ? 1 : 0;
+				name = "TerrainClaimSegment";
+			}
+			else if (at < appended.arcs + appended.place)
+			{
+				placeCount += in ? 1 : 0;
+				name = "PlaceTerrainResourceClaimantDecal";
+			}
+			else
+			{
+				claimCount += in ? 1 : 0;
+				name = "TerrainResourceClaimDecal";
+			}
+			if (!in)
+			{
+				resourceDecalError = !built ? "the selection decal grid was not built: " + error : std::string(name) + " '" + selList[i].texture + "' not drawn: " + error;
+			}
 		}
 	}
+	claimDecalsDrawn = claimCount;
+	claimArcsDrawn = arcCount;
+	placeDecalDrawn = placeCount > 0;
 	extraDecalsDrawn = shadowCount;
 	const int mode = SelectionDecalShaderMode(selGrid); // lane HERORING-1: + 4 when there are alpha decals (sel_alpha_at)
 	if (mode != 0 && rs)
@@ -1871,7 +1833,7 @@ void HudDevice::drawSelectionDecals()
 			rs->global_shader_parameter_set("sel_alpha_ref", (float)selGrid.alphaRef);
 			selAlphaSet = selGrid.alphaRef;
 		}
-		decalsDrawn += (unsigned)(selGrid.decals + selGrid.alphaDecals) - extraDecalsDrawn;
+		decalsDrawn += (unsigned)(selGrid.decals + selGrid.alphaDecals) - extraDecalsDrawn - (unsigned)claimDecalsDrawn - (unsigned)claimArcsDrawn - (placeDecalDrawn ? 1u : 0u);
 	}
 	else if (mode != selMode && rs)
 	{
@@ -2031,7 +1993,6 @@ Node3D *HudDevice::decalRoot()
 		root->set_name("ResourceDecals");
 		parent->add_child(root);
 		decalRootId = root->get_instance_id();
-		claimArcIds.clear();
 		fxDecalIds.clear();
 	}
 	return root;
@@ -2044,7 +2005,6 @@ void HudDevice::freeSelectionDecals()
 		root->queue_free();
 	}
 	decalRootId = 0;
-	claimArcIds.clear();
 	fxDecalIds.clear();
 	if (radiusCursorBound)
 	{
@@ -2554,7 +2514,7 @@ Dictionary InGameHudNode::get_state() const
 		m["composes"] = d->mergeComposes; // lane SELPERF-1
 		m["gpu_decals"] = (int64_t)d->selGrid.decals;
 		m["gpu_alpha_decals"] = (int64_t)d->selGrid.alphaDecals; // lane HERORING-1 (lane PLACEDECAL-1: with the extra decals below)
-		m["gpu_extra_decals"] = (int64_t)d->extraDecalsDrawn; // the ghost's and the resource decals (the grid's)
+		m["gpu_extra_decals"] = (int64_t)(d->extraDecalsDrawn + (unsigned)d->claimDecalsDrawn + (unsigned)d->claimArcsDrawn + (d->placeDecalDrawn ? 1u : 0u)); // the ghost's and the resource decals
 		m["gpu_max_alpha_per_cell"] = (int64_t)d->selGrid.maxAlphaPerCell;
 		m["gpu_cells"] = (int64_t)d->selGrid.cellsX * d->selGrid.cellsY;
 		m["gpu_max_per_cell"] = (int64_t)d->selGrid.maxPerCell;
@@ -2955,7 +2915,22 @@ Dictionary InGameHudNode::get_spellbook_state()
 			claims.push_back(e);
 		}
 		f["claim_decals"] = claims;
-		f["claim_decals_drawn"] = (int64_t)fb.claimedDecals().size(); // all are in the grid (P-40)
+		f["claim_decals_drawn"] = (int64_t)d->claimDecalsDrawn;
+		// lane ECOCIRCLE-2: the placement's claim circles (RW 0xDE483C's collector) and the arcs the grid drew (RW 0x8E9744)
+		Array circles;
+		for (const ResourceClaimCircle &cc : fb.claimCircles())
+		{
+			Dictionary e;
+			e["id"] = (int64_t)cc.id;
+			e["x"] = cc.position.x;
+			e["y"] = cc.position.y;
+			e["radius"] = cc.radius;
+			e["color"] = (int64_t)cc.color;
+			e["uncovered"] = (int64_t)cc.uncovered.size();
+			circles.push_back(e);
+		}
+		f["claim_circles"] = circles;
+		f["claim_arcs"] = (int64_t)fb.claimArcs().size();
 		f["claim_arcs_drawn"] = (int64_t)d->claimArcsDrawn;
 		f["error"] = toGodot(d->resourceDecalError);
 		r["resource_feedback"] = f;
@@ -3387,7 +3362,6 @@ void InGameHudNode::_process(double delta)
 	d->drawIconOps(get_canvas_item()); // lane HUD-5
 	const uint64_t tb = Time::get_singleton()->get_ticks_usec();
 	d->drawRadiusCursor();             // lane SPELL-4
-	d->drawResourceFeedback();         // lane OWNERFIX-2 (P-40: only the outline arcs of built farms' claim circles)
 	d->drawFXDecals();                 // S-5205
 	d->drawMessageLines();             // lane CHAT-1
 	const uint64_t tc = Time::get_singleton()->get_ticks_usec();

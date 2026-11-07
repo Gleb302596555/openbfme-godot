@@ -35,7 +35,6 @@ void vertex() {
 	v_rec = CUSTOM1.x;
 	vec3 world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 	v_shroud_uv = (vec2(world.x, -world.z) - shroud_origin) / shroud_extent;
-	v_taint_uv = (vec2(world.x, -world.z) + taint_offset) * taint_scale; // S-5261: terrain.fxo vs (world.xy + Taint.Offset) * Taint.Scale
 	v_sage_xy = vec2(world.x, -world.z);
 	v_weather_vcol = weather_relit ? weather_vertex_color(NORMAL, COLOR) : COLOR;
 	v_wfx_pos = vec3(world.x, -world.z, world.y); // lane WEATHERFX-1 (terrain_common.gdshaderinc)
@@ -54,9 +53,10 @@ void fragment() {
 	// lane SELPERF-1: the selection's merge decals over the terrain, as RotWK's stencil passes draw them after it (selection_decals.gdshaderinc)
 	// lane HERORING-1: the alpha decals (a hero's ring) first, blended in retail's gamma space (the terrain's output decoded back, shadow_to_gamma is
 	// retail_output's inverse), then the merge decals over them (RotWK draws the merge list after the alpha list, RW 0x50DE6C after RW 0x50D9EB .. 0x50DA6A); the terrain's colour saturated first, as D3D9's
-	// frame buffer is before the decal blends
+	// frame buffer is before the decal blends. Lane ECOCIRCLE-2: an additive decal has a == 0 and only rgb (the surface keeps its colour), so either
+	// share draws the pair
 	vec4 sela = sel_alpha_at(vec3(v_sage_xy, 0.0), false);
-	if (sela.a > 0.0) {
+	if (sela.a > 0.0 || any(greaterThan(sela.rgb, vec3(0.0)))) {
 		vec3 gamma = clamp(output_gamma == 1.0 ? ALBEDO : shadow_to_gamma(ALBEDO), 0.0, 1.0);
 		shadow_gamma = gamma * (1.0 - sela.a);
 		shadow_over = sela.rgb;

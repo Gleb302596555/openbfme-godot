@@ -400,17 +400,21 @@ TEST_CASE("save4b retail T4: a real 4-player skirmish's snapshot is written (SAV
 	// TOP20 #21 r2: raw module values resolve #define macros (RawModuleData::Line::resolved): BurningDeathTime = BURNINGDEATH_DURATION_INFANTRY reads 5000 ms
 	// (25 frames) instead of 0, the burning units live their burning death: an AutoHealBehavior object, no RebuildHoleBehavior hole. Attributed by the parent
 	// 147827fa (this set's previous values pass there; the macro resolution is the only code change since)
-CHECK(classes == std::set<std::string>{
+	// pin: the fork's merge of upstream 3e363ff9 (2026-11-06, measured once on the merged tree, Windows MSVC: CASTLEATK-1, ATKSTATE-1a and the banner
+	// carrier rule on top of the fork) moves the AIs' play: a CommandButtonHuntUpdate object and a RebuildHoleBehavior hole in the snapshot (111)
+		// pin: the fork's merge of upstream 69dcd7ff (2026-11-06, measured once on the merged tree, Windows MSVC: the skirmish AI's tactics and powers, AIRBORNE-1 and the Brutal discount on top of the fork):
+	// an AutoHealBehavior object again, no RebuildHoleBehavior hole (110)
+	CHECK(classes == std::set<std::string>{
 		"AISpecialPowerUpdate", "ActiveBody", "ArmorUpgrade", "ArrowStormUpdate", "AttributeModifierAuraUpdate", "AttributeModifierPoolUpdate",
 		"AttributeModifierUpgrade", "AudioLoopUpgrade", "AutoAbilityBehavior", "AutoDepositUpdate", "AutoHealBehavior", "AutoPickUpUpdate",
 		"BannerCarrierUpdate", "BezierProjectileBehavior", "BloodthirstyUpdate", "BoredUpdate", "BuildableHeroListUpgrade", "BuildingBehavior",
 		"CastleBehavior", "CastleMemberBehavior", "CastleUpgrade", "CitadelSlaughterHordeContain", "ClickReactionBehavior", "CloudBreakSpecialPower",
-		"CommandPointsUpgrade", "CommandSetUpgrade", "CostModifierUpgrade", "CreateObjectDie", "CritterEmitterUpdate", "DamageFilteredCreateObjectDie",
+		"CommandButtonHuntUpdate", "CommandPointsUpgrade", "CommandSetUpgrade", "CostModifierUpgrade", "CreateObjectDie", "CritterEmitterUpdate", "DamageFilteredCreateObjectDie",
 		"DarknessSpecialPower", "DefectionHelper", "DelayedDeathBody", "DestroyDie", "DevastateSpecialPower", "DoCommandUpgrade", "DualWeaponBehavior",
 		"ElvenWoodSpecialPower", "EmotionTrackerUpdate", "FXListDie", "FiringTrackerHelper", "FoundationAIUpdate", "FreezingRainSpecialPower",
 		"GeometryUpgrade", "GettingBuiltBehavior", "GiveUpgradeUpdate", "GrabPassengerSpecialPower", "GrantUpgradeCreate", "GuardingHelper",
 		"HighlanderBody", "HitReactionBehavior", "HordeContain", "HordeDispatchSpecialPower", "HordeMemberCollide",
-		"HordeNotifyTargetsOfImminentProbableCrushingUpdate", "HorseHordeContain", "ImmortalBody", "InactiveBody", "InvisibilityUpdate", "KeepObjectDie",
+		"ImmortalBody", "InactiveBody", "InvisibilityUpdate", "KeepObjectDie",
 		"LargeGroupAudioUpdate", "LargeGroupBonusUpdate", "LevelUpUpgrade", "LifetimeUpdate", "ModelConditionUpgrade", "MonitorConditionUpdate",
 		"OCLSpecialPower", "ObjectCreationUpgrade", "PassiveAreaEffectBehavior", "PhysicsBehavior", "PickupStuffUpdate", "PlayerHealSpecialPower",
 		"PlayerUpgradeSpecialPower", "PorcupineFormationBodyModule", "ProductionSpeedBonus", "ProductionUpdate", "QueueProductionExitUpdate",

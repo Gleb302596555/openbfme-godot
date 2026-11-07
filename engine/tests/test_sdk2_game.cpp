@@ -169,7 +169,7 @@ TEST_CASE("SDK-2: a mod's sim scripts are an identity line naming the mod; its p
 	const std::string why = ProfileIdentity::difference(pa, pc);
 	CHECK(why.find("ours: 'sdk sim " + a.report.sdkSimFingerprint + "'") != std::string::npos); // the lobby's / replay's refusal quotes the scripts' line
 
-	MountedMod d(std::map<std::string, std::string>{ { "openbfme/sdk/mod.json", R"({"sdk": 1, "name": "Broken", "sim": ["missing"]})" } });
+	MountedMod d(std::map<std::string, std::string>{ { "openbfme/sdk/mod.json", R"({"sdk": 1, "name": "Broken", "sim": ["missing"]})" } }); // the map is spelled out: a one-pair brace list is ambiguous under GCC
 	CHECK_FALSE(d.report.ok);
 	CHECK(joined(d.report.errors).find("mod: openbfme/sdk/mod.json: the sim script 'missing' is not in the mod") != std::string::npos);
 

@@ -530,6 +530,9 @@ public:
 	// it changes no pixel of a frame and nothing of the simulation. Default on
 	void set_perf3_client(bool enabled);
 	bool get_perf3_client() const { return m_perf3Client; }
+	// lane GPUPERF-2: the draw culling of the live and the static objects' instancers (W3DInstancer::set_draw_culling) on / off (default on)
+	void set_draw_culling(bool enabled);
+	bool get_draw_culling() const { return m_drawCulling; }
 	// SMOOTH-1 (S-810): the logic worker thread on / off (the single-thread fallback for debugging); also the default of the next load (option logic_thread)
 	void set_logic_thread(bool enabled);
 	bool get_logic_thread() const;
@@ -765,6 +768,7 @@ private:
 		const void *shadowState = nullptr;  ///< S-3304: the model condition state and module data the shadow eligibility was made from
 		const void *shadowData = nullptr;
 		int64_t shadowInstance = -1;        ///< the instance it was handed to
+		bool shadowOn = true;               ///< TOP20 #24: the drawable's shadowsEnabled() it was made with
 		std::uint32_t colorsRevision = 0;   ///< lane CAH-2: Drawable::customColorRevision the model choice saw
 		// lane HCKEY-1: a static entry's model key (lowered name + floor swap suffix + palette) and the inputs it was made from, rebuilt only
 		// when one of them changes (community PR #60 made it every frame for every coloured static drawable)
@@ -1004,6 +1008,7 @@ private:
 	bool m_animations = true;
 	bool m_houseColors = true;
 	bool m_perf3Client = true; // lane PERF-3: set_perf3_client
+	bool m_drawCulling = true; // lane GPUPERF-2: set_draw_culling
 	bool m_textureAnimation = true;
 	double m_timeScale = 1.0;
 	double m_textureClock = 0.0;

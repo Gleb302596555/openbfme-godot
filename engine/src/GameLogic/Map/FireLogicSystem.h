@@ -6,7 +6,7 @@
 //   * Grid: 10 world units per cell (RW 0x6878A0 / 0x687015), cell coords floor(pos * 0.1f + 0.5f), centre (cx * 10 + 5, cy * 10 + 5).
 //   * update: RW 0x6886E0 (BFME2 decomp FireLogicSystem.cpp 0x00287FAD). Burns 1/10th rows per frame (m_80 accumulator);
 //     decay / fuel consumption; tree harvesting via TerrainTrees::burnTreeLumber (RW 0x67F4C2 -> 0x67D6E1);
-//     damage to objects watching burning cells (DamageType 0x17 DAMAGE_FLAME, DeathType 3 DEATH_BURNED, amount = cell->check);
+//     damage to objects watching burning cells (DamageType 0x17 DAMAGE_LOGICAL_FIRE, DeathType 3 DEATH_BURNED, amount = cell->check);
 //     spreading to 4 orthogonal neighbours if neighbour burn > cell resistance;
 //     fuel regrowth from terrain material on burnt cells (RW 0x6886E0).
 //   * Area operations: ChangeBurnRateInArea RW 0x6878D1 / 0x687A7D, ChangeFuelInArea RW 0x686C13, ChangeBurnRateAll RW 0x687C4C.
