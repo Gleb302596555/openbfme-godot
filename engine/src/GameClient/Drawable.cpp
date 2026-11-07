@@ -701,3 +701,363 @@ Drawable::PresentedLook Drawable::presentedLook(const LogicSnapshot *presented, 
 	look.fogLook = look.fogLook && !look.hidden;
 	return look;
 }
+
+// ---- LOCAL-3: TintEnvelope & Drawable tint envelope (RW 0x671A73 .. 0x675F8A / BFME2 0x671753 .. 0x675C5F, both editions identical) ----
+
+void TintEnvelope::setAttackFrames(UnsignedInt frames)
+{
+	// RW 0x671C25 / BFME2 0x671905: frames = max(frames, 1u); recip = 1.0f / (float)frames (fild, fdivr 1.0f at RW 0xBD1908);
+	// m_attackRate = (m_peakColor - m_currentColor) * recip
+	if (frames < 1u)
+	{
+		frames = 1u;
+	}
+	const double recip = SimMath::pc24DivW(1.0, SimMath::fildU32(frames));
+	m_attackRate.red = SimMath::pc24MulD((double)SimMath::sseSub(m_peakColor.red, m_currentColor.red), recip);
+	m_attackRate.green = SimMath::pc24MulD((double)SimMath::sseSub(m_peakColor.green, m_currentColor.green), recip);
+	m_attackRate.blue = SimMath::pc24MulD((double)SimMath::sseSub(m_peakColor.blue, m_currentColor.blue), recip);
+}
+
+void TintEnvelope::setDecayFrames(UnsignedInt frames)
+{
+	// RW 0x671CBA / BFME2 0x67199A: frames = max(frames, 1u); recip = -1.0f / (float)frames (fild, fdivr -1.0f at RW 0xBD19DC);
+	// m_decayRate = m_peakColor * recip
+	if (frames < 1u)
+	{
+		frames = 1u;
+	}
+	const double recip = SimMath::pc24DivW(-1.0, SimMath::fildU32(frames));
+	m_decayRate.red = SimMath::pc24MulD((double)m_peakColor.red, recip);
+	m_decayRate.green = SimMath::pc24MulD((double)m_peakColor.green, recip);
+	m_decayRate.blue = SimMath::pc24MulD((double)m_peakColor.blue, recip);
+}
+
+void TintEnvelope::play(const RGBColor *peak, UnsignedInt attackFrames, UnsignedInt decayFrames, UnsignedInt sustainAtPeak)
+{
+	// RW 0x674818 / BFME2 0x6744F2
+	if (!peak)
+	{
+		return;
+	}
+	m_peakColor = *peak;
+	setAttackFrames(attackFrames);
+	setDecayFrames(decayFrames);
+	m_envState = ENV_STATE_ATTACK;
+	m_sustainCounter = sustainAtPeak;
+	m_affect = true;
+	const float dr = SimMath::sseSub(m_currentColor.red, m_peakColor.red);
+	const float dg = SimMath::sseSub(m_currentColor.green, m_peakColor.green);
+	const float db = SimMath::sseSub(m_currentColor.blue, m_peakColor.blue);
+	const float diffLen = (float)SimMath::length3d(db, dg, dr);
+	if (0.001f >= diffLen) // RW 0x6748AA: comiss xmm0 [0.001f at RW 0xC10D24], xmm1; jna
+	{
+		m_envState = ENV_STATE_SUSTAIN;
+	}
+}
+
+void TintEnvelope::update()
+{
+	// RW 0x6748B7 / BFME2 0x674591
+	switch (m_envState)
+	{
+	case ENV_STATE_REST:
+		// RW 0x674AC7
+		m_currentColor.red = 0.0f;
+		m_currentColor.green = 0.0f;
+		m_currentColor.blue = 0.0f;
+		m_affect = false;
+		break;
+	case ENV_STATE_ATTACK:
+	{
+		// RW 0x6749E3
+		const float dr = SimMath::sseSub(m_currentColor.red, m_peakColor.red);
+		const float dg = SimMath::sseSub(m_currentColor.green, m_peakColor.green);
+		const float db = SimMath::sseSub(m_currentColor.blue, m_peakColor.blue);
+		const float deltaLen = (float)SimMath::length3d(db, dg, dr);
+		const float attackLen = (float)SimMath::length3d(m_attackRate.blue, m_attackRate.green, m_attackRate.red);
+		if (attackLen > deltaLen || 0.001f >= deltaLen)
+		{
+			m_envState = (m_sustainCounter != 0u) ? ENV_STATE_SUSTAIN : ENV_STATE_DECAY;
+		}
+		else
+		{
+			m_currentColor.red = SimMath::sseAdd(m_currentColor.red, m_attackRate.red);
+			m_currentColor.green = SimMath::sseAdd(m_currentColor.green, m_attackRate.green);
+			m_currentColor.blue = SimMath::sseAdd(m_currentColor.blue, m_attackRate.blue);
+			m_affect = true;
+		}
+		break;
+	}
+	case ENV_STATE_DECAY:
+	{
+		// RW 0x6748EF
+		const float curLen = (float)SimMath::length3d(m_currentColor.blue, m_currentColor.green, m_currentColor.red);
+		const float decayLen = (float)SimMath::length3d(m_decayRate.blue, m_decayRate.green, m_decayRate.red);
+		if (decayLen > curLen || 0.001f >= curLen)
+		{
+			m_envState = ENV_STATE_REST;
+			m_affect = false;
+		}
+		else
+		{
+			m_currentColor.red = SimMath::sseAdd(m_currentColor.red, m_decayRate.red);
+			m_currentColor.green = SimMath::sseAdd(m_currentColor.green, m_decayRate.green);
+			m_currentColor.blue = SimMath::sseAdd(m_currentColor.blue, m_decayRate.blue);
+			m_affect = true;
+		}
+		break;
+	}
+	case ENV_STATE_SUSTAIN:
+		// RW 0x6748DC
+		if (m_sustainCounter != 0u)
+		{
+			--m_sustainCounter;
+		}
+		else
+		{
+			m_envState = ENV_STATE_DECAY;
+		}
+		break;
+	}
+}
+
+const RGBColor *TintEnvelope::getColor(UnsignedInt logicFrame) const
+{
+	// RW 0x671B92 / BFME2 0x671872: when m_frequency != 0 and m_amplitude != 0, scales m_currentColor by
+	// sin((double)logicFrame * m_frequency) * m_amplitude * 0.5 + 0.5
+	if (m_frequency != 0.0f && m_amplitude != 0.0f)
+	{
+		m_modulatedColor = m_currentColor;
+		const double arg = SimMath::pc24MulD(SimMath::fildU32(logicFrame), (double)m_frequency);
+		const double s = SimMath::sind(arg);
+		const double factor = SimMath::pc24AddW(SimMath::pc24MulW(SimMath::pc24MulW(s, (double)m_amplitude), 0.5), 0.5);
+		m_modulatedColor.red = SimMath::pc24MulD((double)m_modulatedColor.red, factor);
+		m_modulatedColor.green = SimMath::pc24MulD((double)m_modulatedColor.green, factor);
+		m_modulatedColor.blue = SimMath::pc24MulD((double)m_modulatedColor.blue, factor);
+		return &m_modulatedColor;
+	}
+	return &m_currentColor;
+}
+
+void Drawable::setCustomTintEnvelope(const RGBColor &color, UnsignedInt attackFrames, UnsignedInt decayFrames, UnsignedInt sustainFrames, float frequency, float amplitude)
+{
+	// RW 0x671A73 / BFME2 0x671753: stores the raw integer frame counts into +0x78..+0x80 and the pulse parameters into +0x84..+0x88;
+	// all three retail callers (TintDrawableFXNugget::doFXObj RW 0x5E0127, W3DTankDraw::doDrawModule RW 0x4D1241, Object::update RW 0x6ED185)
+	// also set bit 0x20 of m_tintStatus (+0x118).
+	m_customTintColor = color;
+	m_customTintAttackFrames = attackFrames;
+	m_customTintDecayFrames = decayFrames;
+	m_customTintSustainFrames = sustainFrames;
+	m_customTintAmplitude = amplitude;
+	m_customTintFrequency = frequency;
+	m_tintStatus |= TINT_STATUS_CUSTOM;
+}
+
+void Drawable::colorFlash(const RGBColor *color, UnsignedInt decayFrames, UnsignedInt attackFrames, UnsignedInt sustainAtPeak)
+{
+	// RW 0x675749 / BFME2 0x67541E: argument order in game.dat is (color, decayFrames, attackFrames, sustainAtPeak), forwarding
+	// (color, attackFrames, decayFrames, sustainAtPeak) to m_colorTintEnvelope.play; null color flashes white (1, 1, 1)
+	if (color)
+	{
+		m_colorTintEnvelope.play(color, attackFrames, decayFrames, sustainAtPeak);
+	}
+	else
+	{
+		const RGBColor white{ 1.0f, 1.0f, 1.0f };
+		m_colorTintEnvelope.play(&white, attackFrames, decayFrames, sustainAtPeak);
+	}
+	m_colorTintEnvelope.setEffective(true);
+}
+
+void Drawable::colorTint(const RGBColor *color)
+{
+	// RW 0x6757BB / BFME2 0x675490
+	if (color)
+	{
+		colorFlash(color, 0u, 0u, 1u);
+	}
+	else
+	{
+		m_colorTintEnvelope.setEffective(false);
+	}
+}
+
+void Drawable::flashAsSelected(const RGBColor *color)
+{
+	// RW 0x678FA7 / BFME2 0x678C4F: plays on m_selectionFlashEnvelope (+0x64) with attack=0, decay=4, sustain=0
+	if (color)
+	{
+		m_selectionFlashEnvelope.play(color, 0u, 4u, 0u);
+	}
+	else
+	{
+		const RGBColor white{ 1.0f, 1.0f, 1.0f };
+		m_selectionFlashEnvelope.play(&white, 0u, 4u, 0u);
+	}
+}
+
+const RGBColor *Drawable::getTintColor(UnsignedInt logicFrame) const
+{
+	// RW 0x672F9A / BFME2 0x672C74
+	return m_colorTintEnvelope.isEffective() ? m_colorTintEnvelope.getColor(logicFrame) : nullptr;
+}
+
+const RGBColor *Drawable::getSelectionColor(UnsignedInt logicFrame) const
+{
+	// RW 0x672FAF / BFME2 0x672C89
+	return m_selectionFlashEnvelope.isEffective() ? m_selectionFlashEnvelope.getColor(logicFrame) : nullptr;
+}
+
+bool Drawable::evaluateRenderTint(UnsignedInt logicFrame, RGBColor &out) const
+{
+	// RW 0x46F4E7 .. 0x46F5A0 / BFME2 0x46F1F1 .. 0x46F2AA (RTS3DScene::Customized_Render / renderOneObject):
+	// sums getTintColor (+0x68) and getSelectionColor (+0x64) into the render tint passed to the shader
+	out = RGBColor{ 0.0f, 0.0f, 0.0f };
+	const RGBColor *tint = getTintColor(logicFrame);
+	const RGBColor *sel = getSelectionColor(logicFrame);
+	if (!tint && !sel)
+	{
+		return false;
+	}
+	if (tint)
+	{
+		out = *tint;
+	}
+	if (sel)
+	{
+		out.red = SimMath::sseAdd(out.red, sel->red);
+		out.green = SimMath::sseAdd(out.green, sel->green);
+		out.blue = SimMath::sseAdd(out.blue, sel->blue);
+	}
+	return true;
+}
+
+void Drawable::updateTint()
+{
+	// RW 0x675D8B .. 0x675F8A / BFME2 0x675A60 .. 0x675C5F (inside Drawable::updateDrawable RW 0x675996):
+	// 1. Step both envelopes once per client frame.
+	m_colorTintEnvelope.update();
+	m_selectionFlashEnvelope.update();
+
+	// 2. Priority chain over m_tintStatus (+0x118) vs m_prevTintStatus (+0x11C).
+	static const RGBColor kDazedTint{ -0.5f, -0.5f, -0.5f };  // RW 0xDA06E8
+	static const RGBColor kFrenzyTint{ 0.5f, -0.5f, -0.5f };  // RW 0xDA0700
+	if ((m_tintStatus & TINT_STATUS_DISABLED) != 0u)
+	{
+		// RW 0x675DAD: disabled / dazed dark tint
+		if ((m_prevTintStatus & TINT_STATUS_DISABLED) != 0u)
+		{
+			m_colorTintEnvelope.setSustainCounter(2u);
+		}
+		else
+		{
+			m_colorTintEnvelope.setPulse(0.0f, 0.0f);
+			m_colorTintEnvelope.play(&kDazedTint, 30u, 30u, 2u);
+		}
+	}
+	else if ((m_tintStatus & TINT_STATUS_POISONED) != 0u)
+	{
+		// RW 0x675DD0: poisoned tint (0.5, 1, 0)
+		if ((m_prevTintStatus & TINT_STATUS_POISONED) != 0u)
+		{
+			m_colorTintEnvelope.setSustainCounter(2u);
+		}
+		else
+		{
+			const RGBColor poisonTint{ 0.5f, 1.0f, 0.0f };
+			m_colorTintEnvelope.setPulse(0.0f, 0.0f);
+			m_colorTintEnvelope.play(&poisonTint, 10u, 10u, 2u);
+		}
+	}
+	else if ((m_tintStatus & TINT_STATUS_IRRADIATED) != 0u)
+	{
+		// RW 0x675DF3: irradiated tint (0, 1, 0)
+		if ((m_prevTintStatus & TINT_STATUS_IRRADIATED) != 0u)
+		{
+			m_colorTintEnvelope.setSustainCounter(2u);
+		}
+		else
+		{
+			const RGBColor radTint{ 0.0f, 1.0f, 0.0f };
+			m_colorTintEnvelope.setPulse(0.0f, 0.0f);
+			m_colorTintEnvelope.play(&radTint, 30u, 30u, 2u);
+		}
+	}
+	else if ((m_tintStatus & TINT_STATUS_GAINING_SUBDUAL_DAMAGE) != 0u)
+	{
+		// RW 0x675E1E: frenzy pulsing red tint (amp=0.5, freq=0.7, attack=3, decay=3, sustain=300)
+		if ((m_prevTintStatus & TINT_STATUS_GAINING_SUBDUAL_DAMAGE) != 0u)
+		{
+			if (m_colorTintEnvelope.isResting())
+			{
+				m_tintStatus &= ~TINT_STATUS_GAINING_SUBDUAL_DAMAGE;
+			}
+		}
+		else
+		{
+			m_colorTintEnvelope.setPulse(0.5f, 0.7f);
+			m_colorTintEnvelope.play(&kFrenzyTint, 3u, 3u, 300u);
+		}
+	}
+	else if ((m_tintStatus & TINT_STATUS_FRENZY) != 0u)
+	{
+		// RW 0x675E5E: locked red tint (attack=3, decay=3, sustain=9999)
+		if ((m_prevTintStatus & TINT_STATUS_FRENZY) != 0u)
+		{
+			if (m_colorTintEnvelope.isResting())
+			{
+				m_tintStatus &= ~TINT_STATUS_FRENZY;
+			}
+		}
+		else
+		{
+			m_colorTintEnvelope.setPulse(0.0f, 0.0f);
+			m_colorTintEnvelope.play(&kFrenzyTint, 3u, 3u, 9999u);
+		}
+	}
+	else if ((m_tintStatus & TINT_STATUS_CUSTOM) != 0u)
+	{
+		// RW 0x675E9A: custom tint envelope (+0x6C..+0x88)
+		if ((m_prevTintStatus & TINT_STATUS_CUSTOM) != 0u)
+		{
+			if (m_colorTintEnvelope.isResting())
+			{
+				m_tintStatus &= ~TINT_STATUS_CUSTOM;
+			}
+		}
+		else
+		{
+			m_colorTintEnvelope.setPulse(m_customTintAmplitude, m_customTintFrequency);
+			m_colorTintEnvelope.play(&m_customTintColor, m_customTintAttackFrames, m_customTintDecayFrames, m_customTintSustainFrames);
+		}
+	}
+	else
+	{
+		// RW 0x675EDD..0x675F84: clear sustain on transition out of a sustained status bit
+		if ((m_prevTintStatus & TINT_STATUS_DISABLED) != 0u && (m_tintStatus & TINT_STATUS_DISABLED) == 0u)
+		{
+			m_colorTintEnvelope.setSustainCounter(0u);
+		}
+		if ((m_prevTintStatus & TINT_STATUS_POISONED) != 0u && (m_tintStatus & TINT_STATUS_POISONED) == 0u)
+		{
+			m_colorTintEnvelope.setSustainCounter(0u);
+		}
+		if ((m_prevTintStatus & TINT_STATUS_IRRADIATED) != 0u && (m_tintStatus & TINT_STATUS_IRRADIATED) == 0u)
+		{
+			m_colorTintEnvelope.setSustainCounter(0u);
+		}
+		if ((m_prevTintStatus & TINT_STATUS_GAINING_SUBDUAL_DAMAGE) != 0u && (m_tintStatus & TINT_STATUS_GAINING_SUBDUAL_DAMAGE) == 0u)
+		{
+			m_colorTintEnvelope.setSustainCounter(0u);
+		}
+		if ((m_prevTintStatus & TINT_STATUS_FRENZY) != 0u && (m_tintStatus & TINT_STATUS_FRENZY) == 0u)
+		{
+			m_colorTintEnvelope.setSustainCounter(0u);
+		}
+		if ((m_prevTintStatus & TINT_STATUS_CUSTOM) != 0u && (m_tintStatus & TINT_STATUS_CUSTOM) == 0u)
+		{
+			m_colorTintEnvelope.setSustainCounter(0u);
+		}
+	}
+	m_prevTintStatus = m_tintStatus;
+}

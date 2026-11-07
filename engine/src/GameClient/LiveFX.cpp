@@ -362,6 +362,20 @@ bool LiveFX::turnOffBuff(const FXObject &obj, int type)
 	return true;
 }
 
+bool LiveFX::tintDrawable(const FXObject &obj, const RGBColor &color, unsigned attackFrames, unsigned decayFrames, unsigned sustainFrames, float frequency,
+	float amplitude)
+{
+	// LOCAL-3: TintDrawableFXNugget::doFXObj (RW 0x5E0108 / BFME2 0x5DFE1E): when primary has a drawable, sets its custom tint envelope (RW 0x671A73) and
+	// bit 0x20 of m_tintStatus (+0x118, RW 0x5E0127)
+	Drawable *d = m_game.drawables().findByObject(obj.objectId());
+	if (!d)
+	{
+		return false;
+	}
+	d->setCustomTintEnvelope(color, attackFrames, decayFrames, sustainFrames, frequency, amplitude);
+	return true;
+}
+
 Object *LiveFX::object(ObjectID id) const
 {
 	return id != INVALID_ID ? m_game.logic().findObjectByID(id) : nullptr;

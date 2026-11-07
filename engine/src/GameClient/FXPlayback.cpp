@@ -92,7 +92,13 @@ public:
 	{
 		return m_owner.m_world ? m_owner.m_world->boneWorldTransforms(o, bone, start, max) : std::vector<FXBoneTransform>();
 	}
-	void tintDrawable(const FXObject &, const RGBColor &, unsigned, unsigned, unsigned, float, float) override { note("tint", "", nullptr); }
+	void tintDrawable(const FXObject &o, const RGBColor &c, unsigned attack, unsigned decay, unsigned sustain, float freq, float amp) override
+	{
+		if (!m_owner.m_world || !m_owner.m_world->tintDrawable(o, c, attack, decay, sustain, freq, amp))
+		{
+			note("tint", "", nullptr);
+		}
+	}
 	void attachModel(const FXObject &, const std::string &model, bool, int) override { note("attachModel", model, nullptr); }
 	void addBuff(const FXObject &o, int type, const std::string *tmpl, int life, const RGBColor &, float) override
 	{

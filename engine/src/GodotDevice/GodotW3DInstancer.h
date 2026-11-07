@@ -148,6 +148,9 @@ public:
 	// are in pass mode 3 (RW 0x46FE84): every instance of this model glows, so the caller keys glowing and plain draws of one W3D model apart. With
 	// emissive_only (GlowEmissive, RW 0xDD1E18) a mesh glows only when its first vertex material's emissive is above 0.01 (MeshClass::Render).
 	void set_model_glow(int64_t model, bool emissive_only);
+	// LOCAL-3 (RW 0x46F4E7 .. 0x46F5A0 / BFME2 0x46F1F1 .. 0x46F2AA): sets the per-MultiMesh instance shader uniform `w3d_tint` on every DrawItem of `model`
+	// (additive RGB tint before clamp, W3DMaterialFactory.cpp). A tinted drawable keys its own model variant so only its instance takes the uniform.
+	void set_model_tint(int64_t model, const Vector3 &tint);
 	// lane VISUAL-2: the tree's vegetation sway type (0 none, 1 .. 10: W3DVegetationSway, RW 0x4EC93A), written to INSTANCE_CUSTOM.w as bone + 1024 * type
 	void set_instance_sway(int64_t instance, int type);
 	// lane VISUAL-2: the instance is lit by the fogged light (a last-seen object in the fog: lights and ambient times w3d_fogged_frac), INSTANCE_CUSTOM.w += 16384
