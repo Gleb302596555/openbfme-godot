@@ -544,6 +544,7 @@ bool RetailObjectWorld::loadState(std::string *error)
 		m_s->m_report.errors.push_back(fe);
 	}
 	m_s->m_upgrades.resolveTemplates(*m_s->m_things);
+	m_s->m_things->resolveBuildFacilities(); // RW 0x6D0289 ThingFactory::postProcessLoad -> RW 0x73D4EE ThingTemplate::resolveNames (+0x5F6)
 	m_s->m_upgradeTypes.assign(m_s->m_upgrades);
 	refreshSetup(); // lane MAPRESET-1: game setup's copies
 	m_s->m_seconds = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();

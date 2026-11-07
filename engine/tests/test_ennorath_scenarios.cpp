@@ -38,6 +38,8 @@
 #include "GameLogic/Map/FireLogicSystem.h"
 #include "GameLogic/Combat/WeaponDelivery.h"
 #include "GameLogic/WeaponStores.h"
+#include "GameLogic/SkirmishAI/AITacticalAI.h"
+#include "GameLogic/SkirmishAI/SkirmishAIManager.h"
 
 using ennorathscenario::World;
 
@@ -619,3 +621,229 @@ TEST_CASE("ENNORATH scenario AIBurningDeathState: a GondorFighter hit by a fatal
 	}
 	CHECK(burningAlive > 0); // tolerance: how many of the horde the breath reaches depends on the members' places; one burning survivor proves the path
 }
+
+// Local 2 (TOP20 #7): Object/ThingClass (ThingTemplate + 0x606, RW 0xDA4128 / 0xDA3DB0 / 0x912714) and Team::hasAnyBuildFacility (RW 0x7A1129 ->
+// ThingTemplate + 0x5F6, set by ThingTemplate::resolveNames RW 0x73D4EE .. 0x73D5AD and ProductionPrerequisite::getAllPossibleBuildFacilityTemplates RW 0x8F9A1A).
+TEST_CASE("LOCAL-2: Object/ThingClass (RW 0xDA4128 / 0xDA3DB0 / 0x912714) and Team::hasAnyBuildFacility (RW 0x7A1129 -> +0x5F6, RW 0x73D4EE) on Ennorath data")
+{
+	World world;
+	if (!world.load("LOCAL-2 Object/ThingClass and Team::hasAnyBuildFacility")) return;
+	ThingFactory &things = world.shared.world->things();
+
+	// 1. Object/ThingClass (+0x606, RW 0xDA3DB0 0..15, getter RW 0x912714) on Ennorath templates:
+	//   data\ini\object\evilfaction\units\angmar\angmarbanner.ini: AngmarInfantryBanner -> ThingClass = HORDE_UNIT (1)
+	//   data\ini\object\evilfaction\units\angmar\angmarbestienmeister.ini: AngmarDrauglin -> ThingClass = CHARACTER_UNIT (2)
+	//   data\ini\object\evilfaction\structures\isengard\wargsentry.ini: WargSentry -> ThingClass = CAVALRY_UNIT (3)
+	//   data\ini\object\evilfaction\units\mordor\witchking.ini: MordorWitchKing -> ThingClass = MEDIUM_MONSTER (4)
+	//   data\ini\object\evilfaction\units\evilmen\mumakil.ini: MordorMumakil -> ThingClass = LARGE_MONSTER (5)
+	//   data\ini\object\evilfaction\units\angmar\angmartrollsling.ini: AngmarTrollSling -> ThingClass = MACHINE (14)
+	//   data\ini\object\goodfaction\structures\men\barracks.ini: GondorBarracks -> no ThingClass (0 = UNSPECIFIED, RW 0x73FFB6)
+	const ThingTemplate *infantryBanner = things.findTemplate("AngmarInfantryBanner");
+	const ThingTemplate *drauglin = things.findTemplate("AngmarDrauglin");
+	const ThingTemplate *wargSentry = things.findTemplate("WargSentry");
+	const ThingTemplate *witchKing = things.findTemplate("MordorWitchKing");
+	const ThingTemplate *mumakil = things.findTemplate("MordorMumakil");
+	const ThingTemplate *trollSling = things.findTemplate("AngmarTrollSling");
+	const ThingTemplate *barracks = things.findTemplate("GondorBarracks");
+	REQUIRE(infantryBanner != nullptr);
+	REQUIRE(drauglin != nullptr);
+	REQUIRE(wargSentry != nullptr);
+	REQUIRE(witchKing != nullptr);
+	REQUIRE(mumakil != nullptr);
+	REQUIRE(trollSling != nullptr);
+	REQUIRE(barracks != nullptr);
+
+	CHECK(infantryBanner->thingClass() == ThingClassType::HORDE_UNIT);
+	CHECK(drauglin->thingClass() == ThingClassType::CHARACTER_UNIT);
+	CHECK(wargSentry->thingClass() == ThingClassType::CAVALRY_UNIT);
+	CHECK(witchKing->thingClass() == ThingClassType::MEDIUM_MONSTER);
+	CHECK(mumakil->thingClass() == ThingClassType::LARGE_MONSTER);
+	CHECK(trollSling->thingClass() == ThingClassType::MACHINE);
+	CHECK(barracks->thingClass() == ThingClassType::UNSPECIFIED);
+
+	// An unknown token in Object/ThingClass fails INI::parseByteSizedIndexList (RW 0x42E976), never silently defaulting:
+	{
+		NameKeyGenerator keys;
+		keys.init();
+		RwGrammar grammar(RwBinaryData::embedded());
+		ModuleFactory modules(keys, grammar);
+		ThingFactory localThings(keys, modules, grammar);
+		INIEnvironment env;
+		localThings.registerBlocks(env.blocks);
+		INI reader(env);
+		const char *badIni = "Object TestBadThingClass\n  ThingClass = NOT_A_REAL_THING_CLASS\nEnd\n";
+		CHECK_THROWS_AS(
+			reader.loadMemory("test_bad_thing_class.ini", std::vector<std::uint8_t>(badIni, badIni + std::strlen(badIni)), INI_LOAD_OVERWRITE),
+			INIException);
+	}
+
+	// 2. ThingTemplate + 0x5F6 (m_isBuildFacility, RW 0x73D4EE / 0x8F9A1A / 0x73D59F):
+	// In RotWK and Ennorath, KindOf bit 17 is COMMANDCENTER (RW 0xDA0E68[17], tested by `test byte ptr [esi + 0x10A], 2` at RW 0x73D59F):
+	// faction fortresses / citadels (MenFortressCitadel, MordorFortressCitadel) have +0x5F6 == 1, whereas regular structures and units
+	// (including those with non-zero ThingClass at +0x606 like WargSentry and FS_FACTORY structures like GondorBarracks) have +0x5F6 == 0.
+	const ThingTemplate *menFortress = things.findTemplate("MenFortressCitadel");
+	const ThingTemplate *mordorFortress = things.findTemplate("MordorFortressCitadel");
+	REQUIRE(menFortress != nullptr);
+	REQUIRE(mordorFortress != nullptr);
+	CHECK(menFortress->isBuildFacility());
+	CHECK(mordorFortress->isBuildFacility());
+	CHECK_FALSE(barracks->isBuildFacility());
+	CHECK_FALSE(wargSentry->isBuildFacility());
+	CHECK_FALSE(witchKing->isBuildFacility());
+	CHECK_FALSE(trollSling->isBuildFacility());
+
+	// 3. AIPlayer::acquireEnemy (RW 0x8F457D -> Player::hasAnyBuildFacility RW 0x6ABE2C -> Team::hasAnyBuildFacility RW 0x7A1129):
+	// Nearer enemy (NearNoFortress at x=200) has a live unit (MordorWitchKing) + WargSentry (STRUCTURE + ThingClass CAVALRY_UNIT) + GondorBarracks,
+	// but no COMMANDCENTER (+0x5F6 == 0).
+	// Farther enemy (FarWithFortress at x=600) has a live unit (MordorWitchKing) + MenFortressCitadel (COMMANDCENTER, +0x5F6 == 1).
+	// Without the fix, hasAnyClassified returned true for any object, so NearNoFortress's 2D squared distance (100^2 = 10000) beat FarWithFortress's (500^2 = 250000).
+	// With RW 0x7A1129 (+0x5F6), NearNoFortress is unreachable (499999997952.0f, RW 0xC798D4) and the AI acquires FarWithFortress.
+	auto context = world.shared.world->enterContext();
+	TeamFactory teams;
+	PlayerList players(world.shared.world->nameKeys(), world.shared.world->playerTemplates(), teams);
+	GameLogic logic(things, world.shared.world->modules(), players, RandomAlgorithm::ZH_CarryChain);
+	std::string err;
+	REQUIRE_MESSAGE(GameLogicSettingsLoader::load(*world.merged.fs, logic.settings(), &err), err);
+	SkirmishSetup setup;
+	setup.startingMoney = 0;
+	setup.players.push_back({ "AI", "FactionMordor", false, 0, 0, 1 });
+	setup.players.push_back({ "NearNoFortress", "FactionMen", true, 1, 0, 2 });
+	setup.players.push_back({ "FarWithFortress", "FactionMen", true, 2, 0, 3 });
+	const std::vector<std::string> errors = players.setupSkirmish(setup);
+	REQUIRE_MESSAGE(errors.empty(), (errors.empty() ? "" : errors[0]));
+
+	Player *pAI = players.findPlayerWithName("AI");
+	Player *pNear = players.findPlayerWithName("NearNoFortress");
+	Player *pFar = players.findPlayerWithName("FarWithFortress");
+	REQUIRE(pAI != nullptr);
+	REQUIRE(pNear != nullptr);
+	REQUIRE(pFar != nullptr);
+
+	auto placeFor = [&](const ThingTemplate *tmpl, Player *owner, float x, float y) -> Object * {
+		Object *o = logic.newObject(tmpl, owner->getDefaultTeam(), ObjectStatusMaskType{});
+		REQUIRE(o != nullptr);
+		const Coord3D pos{ x, y, 0.0f };
+		o->setPosition(&pos);
+		return o;
+	};
+
+	placeFor(witchKing, pNear, 200.0f, 100.0f);
+	placeFor(wargSentry, pNear, 200.0f, 100.0f);
+	placeFor(barracks, pNear, 200.0f, 100.0f);
+	placeFor(witchKing, pFar, 600.0f, 100.0f);
+	placeFor(menFortress, pFar, 600.0f, 100.0f);
+
+	AISkirmishPlayer ai;
+	ai.playerIndex = pAI->getPlayerIndex();
+	ai.build.startPosition = Coord3D{ 100.0f, 100.0f, 0.0f };
+	ai.enemyRefreshFrame = 0;
+
+	const Player *acquired = AITacticalAI::enemyPlayer(logic, ai);
+	CHECK(acquired == pFar);
+	logic.reset();
+}
+
+TEST_CASE("LOCAL-2 neighbor: AIPlayer::acquireEnemy keeps a cached enemy while its COMMANDCENTER stands and switches when it is destroyed (RW 0x8F45A8 .. 0x8F45C0), and ThingTemplate::resolveNames marks Prerequisite Object chains (RW 0x8F9A1A)")
+{
+	World world;
+	if (!world.load("LOCAL-2 neighbor acquireEnemy cache invalidation")) return;
+	ThingFactory &things = world.shared.world->things();
+	const ThingTemplate *witchKing = things.findTemplate("MordorWitchKing");
+	const ThingTemplate *barracks = things.findTemplate("GondorBarracks");
+	const ThingTemplate *menFortress = things.findTemplate("MenFortressCitadel");
+	const ThingTemplate *mordorFortress = things.findTemplate("MordorFortressCitadel");
+	REQUIRE(witchKing != nullptr);
+	REQUIRE(barracks != nullptr);
+	REQUIRE(menFortress != nullptr);
+	REQUIRE(mordorFortress != nullptr);
+
+	auto context = world.shared.world->enterContext();
+	TeamFactory teams;
+	PlayerList players(world.shared.world->nameKeys(), world.shared.world->playerTemplates(), teams);
+	GameLogic logic(things, world.shared.world->modules(), players, RandomAlgorithm::ZH_CarryChain);
+	std::string err;
+	REQUIRE_MESSAGE(GameLogicSettingsLoader::load(*world.merged.fs, logic.settings(), &err), err);
+	SkirmishSetup setup;
+	setup.startingMoney = 0;
+	setup.players.push_back({ "AI", "FactionMordor", false, 0, 0, 1 });
+	setup.players.push_back({ "EnemyB", "FactionMen", true, 1, 0, 2 });
+	setup.players.push_back({ "EnemyC", "FactionMordor", true, 2, 0, 3 });
+	const std::vector<std::string> errors = players.setupSkirmish(setup);
+	REQUIRE_MESSAGE(errors.empty(), (errors.empty() ? "" : errors[0]));
+
+	Player *pAI = players.findPlayerWithName("AI");
+	Player *pB = players.findPlayerWithName("EnemyB");
+	Player *pC = players.findPlayerWithName("EnemyC");
+	REQUIRE(pAI != nullptr);
+	REQUIRE(pB != nullptr);
+	REQUIRE(pC != nullptr);
+
+	auto placeFor = [&](const ThingTemplate *tmpl, Player *owner, float x, float y) -> Object * {
+		Object *o = logic.newObject(tmpl, owner->getDefaultTeam(), ObjectStatusMaskType{});
+		REQUIRE(o != nullptr);
+		const Coord3D pos{ x, y, 0.0f };
+		o->setPosition(&pos);
+		return o;
+	};
+
+	// EnemyB is farther (x=700) than EnemyC (x=300), but already cached in ai.enemyIndex:
+	// RW 0x8F45A8 .. 0x8F45C0 keeps the cached enemy while it has units and a +0x5F6 build facility (MenFortressCitadel).
+	placeFor(witchKing, pB, 700.0f, 100.0f);
+	placeFor(barracks, pB, 700.0f, 100.0f);
+	Object *bFortress = placeFor(menFortress, pB, 700.0f, 100.0f);
+	placeFor(witchKing, pC, 300.0f, 100.0f);
+	placeFor(mordorFortress, pC, 300.0f, 100.0f);
+
+	AISkirmishPlayer ai;
+	ai.playerIndex = pAI->getPlayerIndex();
+	ai.build.startPosition = Coord3D{ 100.0f, 100.0f, 0.0f };
+	ai.enemyIndex = pB->getPlayerIndex();
+	ai.enemyRefreshFrame = 0;
+
+	CHECK(AITacticalAI::enemyPlayer(logic, ai) == pB);
+
+	// Destroy EnemyB's fortress (leaving its unit and GondorBarracks): on the next refresh, RW 0x8F45B9 returns 0 and the AI switches to EnemyC.
+	logic.destroyObject(bFortress);
+	logic.runLogicFrame();
+	ai.enemyRefreshFrame = 0;
+	CHECK(AITacticalAI::enemyPlayer(logic, ai) == pC);
+	logic.reset();
+
+	// Also verify RW 0x73D557 .. 0x73D583 -> RW 0x8F9A1A (ProductionPrerequisite::getAllPossibleBuildFacilityTemplates) and RW 0x73D59F (KindOf bit 17):
+	NameKeyGenerator keys;
+	keys.init();
+	RwGrammar grammar(RwBinaryData::embedded());
+	ModuleFactory modules(keys, grammar);
+	modules.init();
+	ThingFactory localThings(keys, modules, grammar);
+	INIEnvironment env;
+	localThings.registerBlocks(env.blocks);
+	INI reader(env);
+	const char *iniText =
+		"Object FacilityPrimary\n"
+		"  KindOf = STRUCTURE\n"
+		"End\n"
+		"Object FacilityAlt\n"
+		"  KindOf = STRUCTURE\n"
+		"End\n"
+		"Object CitadelKeep\n"
+		"  KindOf = STRUCTURE COMMANDCENTER\n"
+		"End\n"
+		"Object PlainTower\n"
+		"  KindOf = STRUCTURE\n"
+		"  ThingClass = FACTION_BUILDING\n"
+		"End\n"
+		"Object TrainedUnit\n"
+		"  Prerequisites\n"
+		"    Object = FacilityPrimary FacilityAlt\n"
+		"  End\n"
+		"End\n";
+	reader.loadMemory("test_build_facility.ini", std::vector<std::uint8_t>(iniText, iniText + std::strlen(iniText)), INI_LOAD_OVERWRITE);
+
+	CHECK(localThings.findTemplate("FacilityPrimary")->isBuildFacility());
+	CHECK(localThings.findTemplate("FacilityAlt")->isBuildFacility());
+	CHECK(localThings.findTemplate("CitadelKeep")->isBuildFacility());
+	CHECK_FALSE(localThings.findTemplate("PlainTower")->isBuildFacility());
+	CHECK(localThings.findTemplate("PlainTower")->thingClass() == ThingClassType::FACTION_BUILDING);
+}
+

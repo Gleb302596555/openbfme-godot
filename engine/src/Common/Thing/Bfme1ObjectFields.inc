@@ -159,7 +159,7 @@
 {"StructureRubbleHeight", S_Raw},
 {"SupplyOverride", S_Int},
 {"SwoopContactPoint", S_Raw},
-{"ThingClass", S_Raw},
+{"ThingClass", S_ByteSizedIndexList},
 {"ThreatLevel", S_Real},
 {"ThreatRadius", S_Real},
 {"ThreatValue", S_Raw},
