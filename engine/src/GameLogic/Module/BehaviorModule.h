@@ -79,12 +79,20 @@ public:
 	// TOP20 rampage: RW vt[0x98], called by Lua ObjectEnterRampageState (RW 0x738A7A, with 1) and ObjectSetDelayedDeath: ActiveBody and every body of 2.01 but
 	// DelayedDeathBody answer `ret 4` (RW 0x9F3A3C); DelayedDeathBody (vtable RW 0xC72678) sets its `checked` byte + 0xF1 (RW 0x8C57A1)
 	virtual void setDelayedDeathChecked(bool on) { (void)on; }
-	// lane FX-4: RW vt[0x40], the last damage record (ActiveBody RW 0x715914: + 0x40); false = null (a body without one). `type` = the record's damage type
+	// RW body vslot 0x40: a null record answers false; ActiveBody's record is never null (RW 0x715914), SymbioticStructuresBody forwards it (RW 0x8C4FD7).
 	virtual bool lastDamageRecordType(int &type) const
 	{
 		(void)type;
 		return false;
 	}
+	// PORT-16: record +0x78 (RW 0x8F5B79); no value when the body returns a null record.
+	virtual bool lastDamageRecordNoEffect(bool &noEffect) const
+	{
+		(void)noEffect;
+		return false;
+	}
+	// RW body vslot 0x44; a body without a damage frame answers -1 (RW 0x8C511E).
+	virtual std::uint32_t lastDamageFrame() const { return 0xFFFFFFFFu; }
 	// lane BACKLOG-1: RW vt[0x74], the body's GrabObject template name (ActiveBody RW 0x8C281E: the data's + 0x2C; InactiveBody RW 0x8C1B14: the empty string
 	// RW 0xBD0C3F). OpenContain's CHUNK_VENDOR / ROCK_VENDOR entry test reads it (RW 0x8660FC)
 	virtual std::string getGrabObjectName() const { return std::string(); }

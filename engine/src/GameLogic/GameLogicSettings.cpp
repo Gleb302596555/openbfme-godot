@@ -304,6 +304,7 @@ const FieldParse kGameDataFields[] = {
 };
 const FieldParse kAIDataFields[] = {
 	{ "EnableRepulsors", parseNoting<INI::parseBool>, SEEN_DATA(SEEN_REPULSORS), (int)offsetof(BlockState, values.enableRepulsors) },
+	{ "ForceSkirmishAI", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.forceSkirmishAI) }, // RW row 0xC1CC80
 	// lane MODULES-3: RepulsedDistance (row RW 0x81CC40, parseReal RW 0x42ED00, AIData + 0x60): the safe path's distance beyond the vision range (RW 0x668E94)
 	{ "RepulsedDistance", parseNoting<INI::parseReal>, SEEN_DATA(SEEN_REPULSED), (int)offsetof(BlockState, values.repulsedDistance) },
 	// lane PLAY-4: the guard rows (RW 0xC1CC00 / 0xC1CC10 / 0xC1CC20 parseDurationUnsignedInt RW 0x73A429; RW 0xC1CC60 / 0xC1CC70 parseReal RW 0x42ED00)
