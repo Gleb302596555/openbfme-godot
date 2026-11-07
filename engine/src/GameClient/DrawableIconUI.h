@@ -126,6 +126,10 @@ struct IconUISettings
 	// shroud test (the unit tests' rigs, a map viewer without a shroud)
 	const LogicSnapshot *snapshot = nullptr;
 	bool shroudDrawn = false;
+	// lane HUD-5 (TOP20 #17, Local 4): container pips (RW 0x677994)
+	Coord3D containerPipWorldOffset{ 0.0f, 0.0f, 8.0f };
+	Coord2D containerPipScreenOffset{ 1.0f, 0.0f };
+	float containerPipScaleFactor = 1.5f;
 };
 
 // RW 0x676346 (BFME2 0x67601B): whether the drawable's object gets a health bar

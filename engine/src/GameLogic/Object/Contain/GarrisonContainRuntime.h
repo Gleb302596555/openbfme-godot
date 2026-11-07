@@ -207,6 +207,14 @@ public:
 	bool isValidContainerFor(const Object &obj, bool checkCapacity, bool checkPath) const override;
 	bool addToContain(Object *obj) override;
 	bool isSlaughterContain() const override { return true; } // TOP20 #9: contain table RW 0xC5F2E8 + 0x30 = RW 0x8BD372
+	// slot 0x150 (RW 0x883613 in contain table RW 0xC5F2E8): returns false
+	bool getContainerPipCounts(int &outContainMax, int &outOccupantCount, int &outHeroCount) const override
+	{
+		outContainMax = 0;
+		outOccupantCount = 0;
+		outHeroCount = 0;
+		return false;
+	}
 	UpdateSleepTime update() override;
 	void crc(StateHasher &h) const override;
 	static const char *stopLine();

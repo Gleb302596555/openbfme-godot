@@ -99,6 +99,10 @@ public:
 	const OpenContainModuleData &openData() const { return *m_open; }
 	// RW module + 0xDE (interface + 0xBE): the data's Enabled, read by the control bar's transport inventory (RW 0x94251F, lane UI-1)
 	bool isEnabled() const { return m_enabled; }
+	// contain slot 0x150 getContainerPipCounts (RW 0x866411)
+	bool getContainerPipCounts(int &outContainMax, int &outOccupantCount, int &outHeroCount) const override;
+	// contain slot 0xCC (OpenContain RW 0x851E97: 0; SiegeEngineContain RW 0x86B050: m_crewCount)
+	virtual int getCrewCount() const { return 0; }
 	// contain slot 0x70 (OpenContain RW 0x86584C: the data's ContainMax; TransportContain RW 0x869F86: Slots)
 	virtual int getContainMax() const;
 	// lane MODCOMPAT-MOD1: contain slot 0x170 (RW 0x865A5C): the data's ManualPickUpFilter (+ 0x44, RW 0x7640C1) allows `obj` for the container's player

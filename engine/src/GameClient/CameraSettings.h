@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "Common/INIDataTypes.h"
 #include "GameLogic/ObjectFilter.h"
 
 #include <string>
@@ -58,6 +59,13 @@ struct CameraSettings
 	bool showSelectedUnitMarker = false, useSimpleHordeDecals = false, useSimpleMergeDecals = false;
 	float opacityOfSimpleMergeDecals = 0.0f;
 	bool haveVeterancyPipFilter = false;
+	// lane HUD-5 (TOP20 #17, Local 4): container pips (RW 0x677994):
+	// ContainerPipWorldOffset (GlobalData + 0xE8, parseCoord3D RW 0x42F247, row RW 0xBFFA40, default 0,0,8)
+	// ContainerPipScreenOffset (GlobalData + 0xFC, parseCoord2D RW 0x42F298, row RW 0xBFFA60, default 1,0)
+	// ContainerPipScaleFactor (GlobalData + 0x108, parseReal RW 0x42ED00, row RW 0xBFFA20, default 1.5)
+	Coord3D containerPipWorldOffset{ 0.0f, 0.0f, 8.0f };
+	Coord2D containerPipScreenOffset{ 1.0f, 0.0f };
+	float containerPipScaleFactor = 1.5f;
 	// lane FX-4: the camera shake (W3DView::shake RW 0x486D86): Shake{Subtle,Normal,Strong,Severe,CineExtreme,CineInsane}Intensity (GlobalData + 0xB74 ..
 	// + 0xB88, by CameraShakeType 0 .. 5), MaxShakeIntensity (+ 0xB8C), MaxShakeRange (+ 0xB90), parseReal RW 0x42ED00 (rows RW 0xC00610 ..). Optional (a test
 	// GameData may lack them; the constructor's values were not read): without all eight the camera does not shake and reports it (S-450)

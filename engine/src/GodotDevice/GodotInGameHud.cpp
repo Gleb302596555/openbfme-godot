@@ -297,6 +297,9 @@ struct HudDevice : public AptNativeHook
 	RID iconItem;
 	ObjectFilter veterancyFilter;
 	bool haveVeterancyFilter = false;
+	Coord3D containerPipWorldOffset{ 0.0f, 0.0f, 8.0f };
+	Coord2D containerPipScreenOffset{ 1.0f, 0.0f };
+	float containerPipScaleFactor = 1.5f;
 	unsigned iconOpsDrawn = 0;
 	bool iconsCovered = false; ///< lane SAVE-UI1: set_icons_covered
 	// lane PLAY-3: the drag selection box drawn in the last frame, the box, the frames it was drawn in
@@ -2197,6 +2200,9 @@ Dictionary InGameHudNode::attach(const Ref<RetailFileSystem> &fs, GameWorld *wor
 		// lane HUD-5: GameData's ShowObjectHealth / VeterancyPipDrawObjectFilter for the drawable decorations
 		d->veterancyFilter = gd.veterancyPipFilter;
 		d->haveVeterancyFilter = gd.haveVeterancyPipFilter;
+		d->containerPipWorldOffset = gd.containerPipWorldOffset;
+		d->containerPipScreenOffset = gd.containerPipScreenOffset;
+		d->containerPipScaleFactor = gd.containerPipScaleFactor;
 		showObjectHealth = gd.showObjectHealth;
 		// lane UI-4: the selection marker's GameData fields (SelectionDecals.h)
 		decalSettings.showSelectedUnitMarker = gd.showSelectedUnitMarker;
@@ -2354,6 +2360,9 @@ Dictionary InGameHudNode::attach(const Ref<RetailFileSystem> &fs, GameWorld *wor
 		is.images = &d->images;
 		is.text = gameText;
 		is.zoom = d->cam ? d->cam->getZoom() : 1.0f;
+		is.containerPipWorldOffset = d->containerPipWorldOffset;
+		is.containerPipScreenOffset = d->containerPipScreenOffset;
+		is.containerPipScaleFactor = d->containerPipScaleFactor;
 		d->hud->setIconUISettings(is);
 	}
 	d->hud->setSelectionDecalSettings(decalSettings); // lane UI-4
