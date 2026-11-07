@@ -578,3 +578,63 @@ End
  ability->update();
  CHECK(ability->isActive());
 }
+
+TEST_CASE("PORT-5: charge speed affects movement and clears after the issued move ends")
+{
+ combattest::CombatWorld w;
+ SpecialPowerStore powers;
+ SpecialPowerStore *old = TheSpecialPowerStore;
+ struct Restore { SpecialPowerStore *p; ~Restore() { TheSpecialPowerStore = p; } } restore{old};
+ TheSpecialPowerStore = &powers;
+ w.w.fx.env.blocks.registerBlock("SpecialPower", [](INI *ini) { SpecialPowerStore::parseSpecialPowerDefinitionGlobal(ini); });
+ std::string error = w.w.load(kChargeFixture, INI_LOAD_OVERWRITE, "port5-movement.ini");
+ REQUIRE_MESSAGE(error.empty(), error);
+ error = w.w.load(kBirdAndTarget, INI_LOAD_OVERWRITE, "port5-movement-target.ini");
+ REQUIRE_MESSAGE(error.empty(), error);
+ Object *boost = w.unit("Port5Charger", 'A', 200.0f, 200.0f);
+ Object *normal = w.unit("Port5NoBoost", 'A', 200.0f, 600.0f);
+ Object *targetBoost = w.unit("Port5Target", 'B', 800.0f, 200.0f);
+ Object *targetNormal = w.unit("Port5Target", 'B', 800.0f, 600.0f);
+ REQUIRE(boost);
+ REQUIRE(normal);
+ REQUIRE(targetBoost);
+ REQUIRE(targetNormal);
+ auto getAbility = [](Object *o) -> SpecialAbilityUpdate * {
+  for (const auto &module : o->modules())
+   if (auto *a = dynamic_cast<SpecialAbilityUpdate *>(module.get())) return a;
+  return nullptr;
+ };
+ SpecialAbilityUpdate *boostAbility = getAbility(boost);
+ SpecialAbilityUpdate *normalAbility = getAbility(normal);
+ REQUIRE(boostAbility);
+ REQUIRE(normalAbility);
+ w.combat().setAutoAcquireEnabled(false);
+ w.frames(2);
+ boostAbility->initiateIntentToDoSpecialPower(boostAbility->abilityData()->m_specialPowerTemplate, targetBoost, nullptr, 0, 0);
+ normalAbility->initiateIntentToDoSpecialPower(normalAbility->abilityData()->m_specialPowerTemplate, targetNormal, nullptr, 0, 0);
+ for (int i = 0; i < 10 && (boostAbility->abilitiesTriggered() == 0 || normalAbility->abilitiesTriggered() == 0); ++i) w.frames(1);
+ REQUIRE(boostAbility->abilitiesTriggered() == 1);
+ REQUIRE(normalAbility->abilitiesTriggered() == 1);
+ CHECK(boost->testModelCondition(0x84));
+ CHECK_FALSE(normal->testModelCondition(0x84));
+ REQUIRE(boost->getAIUpdateInterface()->aiStateType() == AI_ABILITY_APPROACH);
+ REQUIRE(normal->getAIUpdateInterface()->aiStateType() == AI_ABILITY_APPROACH);
+ const float boostStart = boost->getPosition()->x;
+ const float normalStart = normal->getPosition()->x;
+ w.frames(4);
+ const float boostDistance = boost->getPosition()->x - boostStart;
+ const float normalDistance = normal->getPosition()->x - normalStart;
+ CHECK(boostDistance == 36.0f); // first frame requests the path, then three frames at 12 units/frame
+ CHECK(normalDistance == 18.0f); // the same path timing at 6 units/frame
+ CHECK(boostAbility->isActive());
+ CHECK(normalAbility->isActive());
+ CHECK(boostAbility->packingState() == 1);
+ CHECK(normalAbility->packingState() == 1);
+ boost->getAIUpdateInterface()->aiIdle(CMD_FROM_AI);
+ normal->getAIUpdateInterface()->aiIdle(CMD_FROM_AI);
+ w.frames(1); // RW 0x854F20: idle after a charge move ends it even while packing
+ CHECK_FALSE(boostAbility->isActive());
+ CHECK_FALSE(normalAbility->isActive());
+ CHECK_FALSE(boost->testModelCondition(0x84));
+ CHECK(boost->getAIUpdateInterface()->locomotor()->getMaxSpeedForCondition(boost->getAIUpdateInterface()->locomotorHost()) == doctest::Approx(6.0)); // tolerance: float32 speed conversion
+}
