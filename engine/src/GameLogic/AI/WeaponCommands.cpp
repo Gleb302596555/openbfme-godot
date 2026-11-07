@@ -207,7 +207,16 @@ bool toggleNoAutoAcquire(GameLogic &logic, const GameMessage &m)
 		{
 			continue;
 		}
-		setNoAutoAcquire(*o, value);
+		// RW 0x77B789 / 0x77B7B3: only a selected HORDE takes the group status path;
+		// an individually selected member is set directly even when it belongs to a horde.
+		if (o->isKindOf((unsigned)CombatNames::kinds().horde))
+		{
+			setNoAutoAcquire(*o, value);
+		}
+		else
+		{
+			o->setStatus((unsigned)noAuto, value);
+		}
 		if (value)
 		{
 			AIUpdateInterface *ai = o->getAIUpdateInterface();
