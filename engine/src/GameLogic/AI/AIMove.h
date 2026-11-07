@@ -338,6 +338,15 @@ private:
 	unsigned m_notedBits = 0; // note: the known stops already in m_stops
 };
 
+class AIMoveToState;
+// RW 0x74DFC3 / 0x7491E0: virtual computePath in derived move states; the owning state restores this link after xfer.
+class AIMoveComputePathHook
+{
+public:
+	virtual ~AIMoveComputePathHook() = default;
+	virtual bool computeSpecialPath(AIMoveToState &move) = 0;
+};
+
 // AIInternalMoveToState (RW vtable 0xC27448): move to a position, then optionally turn to a final angle.
 class AIMoveToState
 {
@@ -347,7 +356,9 @@ public:
 	StateReturnType onEnter();                 // RW 0x74DADA
 	StateReturnType update();                  // RW 0x748E46
 	void onExit();                             // RW 0x748D8A
-	bool computePath();                        // RW 0x745BFE
+	bool computePath();                        // virtual dispatch at RW 0x74DFC3 / 0x7491E0
+	bool computeBasePath();                    // RW 0x745BFE (a derived hook may tail-call it)
+	void setComputePathHook(AIMoveComputePathHook *hook) { m_pathHook = hook; } // non-state owner link
 	bool waitingForPath() const { return m_waitingForPath; }
 	// lane MODULES-3 r2: RW 0x740C97 clears + 0x49 when a temporary state ended (the next update re-requests the path)
 	void clearWaitingForPath() { m_waitingForPath = false; }
@@ -390,6 +401,7 @@ private:
 	bool m_external = false;
 	PathfindObjectID m_attackVictim = PATHFIND_INVALID_ID;
 	int *m_pathBudget = nullptr; // lane MODULES-3: the owning state's budget (hashed by the state)
+	AIMoveComputePathHook *m_pathHook = nullptr; // derived state restores the link after load; not simulation state
 };
 
 // lane SAVE-4c: a state's embedded move (null when the state holds none): whether it exists, then its xfer; a load makes the move again first

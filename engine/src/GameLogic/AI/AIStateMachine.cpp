@@ -13,6 +13,7 @@
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/Module/StancesBehavior.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/SimMath.h"
 
 #include <algorithm>
@@ -699,6 +700,156 @@ StateReturnType AIMoveToMachineState::update()
 		m_move->setGoal(m_goalPosition);
 	}
 	return m_move->update();
+}
+
+StateReturnType AIAbilityApproachState::onEnter()
+{
+	// RW 0x74E27D..0x74E2FB: same setup as the internal move, but its slot 0x44 is RW 0x749344.
+	AIUpdateInterface &a = ai();
+	Object *target = machine().goalObject();
+	m_adjustsDestination = !(target && target->getID() == a.mover().ignoredObstacleID());
+	m_goalPosition = target ? *target->getPosition() : machine().goalPosition();
+	m_move = std::make_unique<AIMoveToState>(a.mover(), m_goalPosition, m_adjustsDestination);
+	m_move->setComputePathHook(this);
+	const StateReturnType result = m_move->onEnter();
+	if (m_waiting && a.isMoving())
+	{
+		a.setLocomotorGoalNone(); // RW 0x74E300..0x74E31C
+	}
+	return result;
+}
+
+StateReturnType AIAbilityApproachState::update()
+{
+	// RW 0x74943C: while waiting, do not follow or recalculate the target.
+	if (m_waiting)
+	{
+		if (ai().frame() > m_waitUntil)
+		{
+			return STATE_FAILURE;
+		}
+		owner().setModelConditionState(0x3D, false); // RW 0x749457..0x74946D, MOVING
+		return STATE_CONTINUE;
+	}
+	return AIMoveToMachineState::update(); // RW 0x749476..0x749492 -> 0x748E46
+}
+
+bool AIAbilityApproachState::backOff(Coord3D &goal)
+{
+	AIUpdateInterface &a = ai();
+	PathfindObject &obj = a.adapter();
+	if ((int)obj.getLayer() > 1) // RW 0x745C73..0x745C84
+	{
+		return true;
+	}
+	Pathfinder &pf = a.world().pathfinder();
+	const Coord3D pos = obj.getPosition();
+	float dx = SimMath::subf32(goal.x, pos.x), dy = SimMath::subf32(goal.y, pos.y);
+	// RW 0x4054F5 uses x87 (y² + x² with PC24), unlike 0x403111's SSE sum for the step count.
+	const double x87Square = SimMath::pc24AddW(SimMath::pc24MulW((double)dy, (double)dy), SimMath::pc24MulW((double)dx, (double)dx));
+	const float distance = SimMath::fstpDword(SimMath::sqrtPC24(x87Square));
+	const double stepDistance = SimMath::length3d(dx, dy, 0.0f); // RW 0x745D27 -> 0x403111
+	const int steps = (int)(0xFFFFFFFFu - SimMath::ftol2Low32(SimMath::pc24MulW(stepDistance, (double)-0.05f))); // RW 0x745D2C..0x745D3D
+	if (distance != 0.0f)
+	{
+		const float inv = SimMath::divf32(1.0f, distance);
+		dx = SimMath::mulf32(dx, inv);
+		dy = SimMath::mulf32(dy, inv);
+	}
+	const float stepX = SimMath::mulf32(dx, 20.0f), stepY = SimMath::mulf32(dy, 20.0f);
+	Coord3D point = goal;
+	bool reached = false;
+	for (int i = 0; i < steps; ++i)
+	{
+		point.x = SimMath::subf32(point.x, stepX);
+		point.y = SimMath::subf32(point.y, stepY);
+		if (pf.quickDoesPathExist(obj, &pos, &point, nullptr)) // RW 0x745DD1
+		{
+			reached = true;
+			break;
+		}
+	}
+	if (!reached)
+	{
+		return false;
+	}
+	// RW 0x745DE7..0x745E96: back off by CastleSiegeStandBackDistance + the owner's bounding radius.
+	const float margin = SimMath::addf32(pf.config().castleSiegeStandBackDistance, obj.getGeometry().boundingCircleRadius());
+	// RW 0x745E0A normalises the *rounded 20-unit step again* using 0x403175 (SSE sum, stored length).
+	const float stepLength = SimMath::fstpDword(SimMath::length3d(stepX, stepY, 0.0f));
+	const float stepInv = stepLength != 0.0f ? SimMath::divf32(1.0f, stepLength) : 1.0f;
+	point.x = SimMath::subf32(point.x, SimMath::mulf32(SimMath::mulf32(stepX, stepInv), margin));
+	point.y = SimMath::subf32(point.y, SimMath::mulf32(SimMath::mulf32(stepY, stepInv), margin));
+	const float mx = SimMath::subf32(goal.x, point.x), my = SimMath::subf32(goal.y, point.y);
+	const double moved = SimMath::sqrtPC24(SimMath::pc24AddW(SimMath::pc24MulW((double)my, (double)my), SimMath::pc24MulW((double)mx, (double)mx)));
+	if (SimMath::pc24AddW(moved, 20.0) > (double)distance) // RW 0x745E91..0x745EA5
+	{
+		return false;
+	}
+	const PathfindLocomotorInfo loco = a.locomotorInfo();
+	pf.adjustToPossibleDestination(obj, loco, &point); // RW 0x745EC4
+	pf.adjustDestination(obj, loco, &point);           // RW 0x745EDB
+	goal = point;
+	return true;
+}
+
+bool AIAbilityApproachState::computeSpecialPath(AIMoveToState &move)
+{
+	if (move.waitingForPath())
+	{
+		return true; // RW 0x749347..0x749350
+	}
+	AIUpdateInterface &a = ai();
+	Pathfinder &pf = a.world().pathfinder();
+	PathfindObject &obj = a.adapter();
+	const PathfindLocomotorInfo loco = a.locomotorInfo();
+	Object *target = machine().goalObject();
+	Coord3D goal = target ? *target->getPosition() : machine().goalPosition();
+	if (target && !a.world().adapterFor(*target).getGeometry().isSmall)
+	{
+		// RW 0x68C9AC: non-small geometry's local box centre transformed by the object's basis, in SSE order.
+		const Coord3D c = ObjectGeometry::boxCentre(target->geometryShapes());
+		const float *b = target->getBasis();
+		const Coord3D &p = *target->getPosition();
+		goal.x = SimMath::addf32(SimMath::addf32(SimMath::addf32(SimMath::mulf32(b[1], c.y), SimMath::mulf32(b[2], c.z)), SimMath::mulf32(b[0], c.x)), p.x);
+		goal.y = SimMath::addf32(SimMath::addf32(SimMath::addf32(SimMath::mulf32(b[3], c.x), SimMath::mulf32(b[4], c.y)), SimMath::mulf32(b[5], c.z)), p.y);
+		goal.z = SimMath::addf32(SimMath::addf32(SimMath::addf32(SimMath::mulf32(b[6], c.x), SimMath::mulf32(b[7], c.y)), SimMath::mulf32(b[8], c.z)), p.z);
+	}
+	const bool open = pf.canApproachToTarget(obj, loco, goal, 0.0f, false, false); // RW 0x74939F -> 0x6FB754(owner, goal, null, 0)
+	if (!open && !backOff(goal))
+	{
+		m_waiting = true;
+		m_waitUntil = a.frame() + 10u * (unsigned)LOGICFRAMES_PER_SECOND; // RW 0x7493B5..0x7493CA
+		if (a.isMoving())
+		{
+			a.setLocomotorGoalNone(); // RW 0x7493CD..0x7493E6
+		}
+		return true;
+	}
+	if (open && target)
+	{
+		pf.adjustToPossibleDestination(obj, loco, &goal); // RW 0x749419
+		pf.adjustDestination(obj, loco, &goal);           // RW 0x74942C
+	}
+	move.setGoal(goal);
+	return move.computeBasePath(); // RW 0x749437 -> 0x745BFE
+}
+
+void AIAbilityApproachState::crc(StateHasher &h) const
+{
+	AIMoveToMachineState::crc(h);
+	h.addU32(m_waitUntil);
+	h.addBool(m_waiting);
+}
+
+void AIAbilityApproachState::crcPersistent(StateHasher &h) const
+{
+	if (m_waitUntil || m_waiting)
+	{
+		h.addU32(0x50350000u);
+		h.addU32(m_waitUntil);
+		h.addBool(m_waiting);
+	}
 }
 
 // RW 0x740C97 (slot 0x1C): the internal move's "waiting for a path" (+ 0x49) is cleared when a temporary state ends: the next update asks for a new path

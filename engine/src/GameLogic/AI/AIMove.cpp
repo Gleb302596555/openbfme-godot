@@ -1584,6 +1584,11 @@ AIMoveToState::AIMoveToState(AIMover &ai, const Coord3D &goal, bool adjustsDesti
 
 bool AIMoveToState::computePath()
 {
+	return m_pathHook ? m_pathHook->computeSpecialPath(*this) : computeBasePath(); // RW 0x74DFC3 / 0x7491E0: virtual slot 0x44
+}
+
+bool AIMoveToState::computeBasePath()
+{
 	if (m_pathBudget)
 	{
 		// lane MODULES-3: the run-away-panic states' computePath (vslot 0x44, RW 0x741B27 / 0x741C48): no request of its own (the state made it), true while the

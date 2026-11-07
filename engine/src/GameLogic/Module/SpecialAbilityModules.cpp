@@ -69,6 +69,7 @@ constexpr int kMcUnpacking = 0x60;
 constexpr int kMcPackingType1 = 0x61, kMcPackingType2 = 0x62, kMcPackingType3 = 0x63;
 constexpr int kMcPackingType4 = 0x249, kMcPackingType5 = 0x24A, kMcPackingType6 = 0x24B;
 constexpr int kMcRaisingFlag = 0x76;
+constexpr int kMcCharging = 0x84; // RW 0x8547FC: Object + 0x11C bit 4
 constexpr int kMcStartCapture = 0x6E;  // lane HERO-2: START_CAPTURE (+ 0x119 bit 6)
 constexpr int kMcCancelCapture = 0x6F; // CANCEL_CAPTURE
 constexpr int kMcCapturing = 0x70;     // CAPTURING
@@ -487,6 +488,17 @@ void SpecialAbilityUpdate::aiIdleFromAI()
 }
 
 // RW 0x852E8F
+void SpecialAbilityUpdate::clearAbilityModelConditions()
+{
+	// RW 0x851BD7..0x851C11 clears all 14 as a single mask; 0x851C16..0x851C3D clears an untimed custom animation and its trigger frame.
+	ModelConditionBitsHelper::clearAndSet(*getObject(), { 0x60, 0x5E, 0x29, 0x76, 0x5F, 0x84, 0x61, 0x62, 0x63, 0x249, 0x24A, 0x24B, 0x6E, 0x6F }, {});
+	if (m_data->m_customAnimCondition >= 0 && m_data->m_customAnimFrames == 0)
+	{
+		setCondition(*getObject(), m_data->m_customAnimCondition, false);
+		m_customAnimFrame = 0;
+	}
+}
+
 void SpecialAbilityUpdate::initiateIntentToDoSpecialPower(const SpecialPowerTemplate *t, Object *targetObj, const Coord3D *loc, unsigned options, int extra)
 {
 	if (t != m_data->m_specialPowerTemplate)
@@ -508,7 +520,7 @@ void SpecialAbilityUpdate::initiateIntentToDoSpecialPower(const SpecialPowerTemp
 	{
 		m_persistentLeft -= 1;
 	}
-	// RW 0x851BCF: the special objects are validated (none are made: S-860)
+	clearAbilityModelConditions(); // RW 0x852F04 -> 0x851BCF, after the ability fields are reset
 	if (!targetObj)
 	{
 		if (!loc)
@@ -865,16 +877,18 @@ UpdateSleepTime SpecialAbilityUpdate::update()
 		finishAbility(false, true);
 		return calcSleep();
 	}
-	// RW 0x854EE0 .. 0x854F2F: the enum 0x2A (charge) branch: S-860
-	if (handlePackingProcessing())
+	const int updType = m_data->m_specialPowerTemplate ? m_data->m_specialPowerTemplate->getFinalOverride()->m_type : 0;
+	const Object *t = m_targetID != INVALID_ID ? target() : nullptr;
+	// RW 0x854F20..0x854F75: for a charge, idle plus a dead target or the issued-move byte overrides packing's early return.
+	const bool chargeDone = updType == 0x2A && ai->isIdle() && ((t && t->isEffectivelyDead()) || m_chargeMove);
+	if (handlePackingProcessing() && !chargeDone)
 	{
 		return calcSleep();
 	}
-	const Object *t = m_targetID != INVALID_ID ? target() : nullptr;
+	t = m_targetID != INVALID_ID ? target() : nullptr; // a packing callback can change the target
 	// RW 0x854FB8 .. 0x855005 (the capture enums, lane HERO-2): a target of the object's team is captured: done; a dead one too unless it is a CAPTURABLE
 	// in POST_COLLAPSE (ruins stay capturable); the other abilities end at a dead target. INFERENCE (S-1225): a target that is gone ends it too (HERO-1)
-	const int updType = m_data->m_specialPowerTemplate ? m_data->m_specialPowerTemplate->m_type : 0;
-	bool targetDone = m_targetID != INVALID_ID && !t;
+	bool targetDone = chargeDone || (updType != 0x2A && m_targetID != INVALID_ID && !t); // RW 0x854FA3..0x85500F: a missing charge target alone is not done
 	if (t)
 	{
 		if (updType == 0x1D || updType == 0x1A)
@@ -885,7 +899,7 @@ UpdateSleepTime SpecialAbilityUpdate::update()
 		}
 		else
 		{
-			targetDone = t->isEffectivelyDead();
+			targetDone = targetDone || t->isEffectivelyDead();
 		}
 	}
 	if (targetDone && !m_data->m_mustFinishAbility)
@@ -1092,12 +1106,11 @@ void SpecialAbilityUpdate::approachTarget()
 		{
 			obj->setStatus((unsigned)CombatNames::status("MOVING_TO_DISMOUNT"), true);
 		}
-		if (bird)
+		ai->aiAbilityApproachPosition(m_targetPos, CMD_FROM_AI); // RW 0x853BD4 -> 0x852D59, command 0x47
+		if (m_data->m_specialPowerTemplate && m_data->m_specialPowerTemplate->getFinalOverride()->m_type == 0x2A)
 		{
-			bird->aiAbilityMoveTo(m_targetPos, CMD_FROM_AI);
-			return;
+			m_chargeMove = true; // RW 0x853BD9..0x853BDE, independent of command acceptance
 		}
-		ai->aiMoveToPosition(m_targetPos, CMD_FROM_AI); // RW 0x852D59(pos, 2): AI command 0x47
 		return;
 	}
 	Object *t = target();
@@ -1106,14 +1119,9 @@ void SpecialAbilityUpdate::approachTarget()
 		return;
 	}
 	m_lastTargetPos = *t->getPosition();
-	if (bird)
-	{
-		bird->aiAbilityMoveToObject(t, CMD_FROM_AI); // RW 0x852DC5(target, 2): command 0x48 keeps the ID until RW 0x76DAEE executes it
-		return;
-	}
-	// RW 0x853AEE: a structure target, a target on another layer or StartAbilityRange <= 50 (RW 0xBD88C4) moves to the object (AI command 0x48);
-	// otherwise the approach point at StartAbilityRange (RW 0x851607, a pathfinder cell walk: S-859) is also the object here
-	ai->aiMoveToObject(t, CMD_FROM_AI);
+	ai->mover().ignoreObstacle(t->getID()); // RW 0x853AEE -> 0x66831A before the object / ranged approach
+	// RW 0x853B53: command 0x48 retains the target ID through GiantBird deferral. The non-object approach point RW 0x851607 remains S-859.
+	ai->aiAbilityApproachObject(t, CMD_FROM_AI);
 }
 
 // RW 0x85241F (lane MODCOMPAT-MOD1): SPECIAL_GRAB_PASSENGER (0x27) with a target that is neither SHRUBBERY (template + 0x108 bit 6) nor GRAB_AND_KILL
@@ -1255,7 +1263,7 @@ void SpecialAbilityUpdate::triggerAbilityEffect()
 		AudioApi::playSoundForObject(m_data->m_triggerSound, obj->getID(), p ? p->getPlayerIndex() : -1);
 	}
 	const SpecialPowerTemplate *t = m_data->m_specialPowerTemplate;
-	const int type = t ? t->m_type : 0;
+	const int type = t ? t->getFinalOverride()->m_type : 0; // RW 0x854060 -> 0x688D3C
 	if (type == 0x80 || type == 0x8F)
 	{
 		// RW 0x854841: the object's AutoHealBehavior is triggered by the button (Aragorn's Athelas, RW 0x855431)
@@ -1306,9 +1314,25 @@ void SpecialAbilityUpdate::triggerAbilityEffect()
 	{
 		grabTrigger(type);
 	}
-	else if (type == 0x15 || type == 0x2A)
+	else if (type == 0x2A)
 	{
-		++m_unported; // the laser-guided missiles / charge enums of the switch: S-860
+		if (AIUpdateInterface *ai = obj->getAIUpdateInterface()) // RW 0x8547C5..0x8547D3
+		{
+			if (m_data->m_chargeAttackSpeedBoost && !m_chargeSpeed)
+			{
+				m_chargeSpeed = true; // RW 0x8547F0
+				setCondition(*obj, kMcCharging, true); // RW 0x8547F3..0x854803
+			}
+			if (Object *victim = target())
+			{
+				ai->aiAbilityApproachObject(victim, CMD_FROM_AI); // RW 0x854815 -> command 0x48
+				m_chargeMove = true; // RW 0x85481A, regardless of acceptance
+			}
+		}
+	}
+	else if (type == 0x15)
+	{
+		++m_unported; // the laser-guided missiles enum: S-860
 	}
 	if (m_data->m_loseStealthOnTrigger)
 	{
@@ -1706,6 +1730,7 @@ void SpecialAbilityUpdate::grabFinish()
 void SpecialAbilityUpdate::finishAbility(bool ownerDying, bool aborted)
 {
 	Object *obj = getObject();
+	clearAbilityModelConditions(); // RW 0x8530D5 -> 0x851BCF, before the idle at 0x8533B2
 	obj->setStatus(kStatusUsingAbility, false); // RW 0x68D440(USING_ABILITY | SPECIAL_ABILITY_PACKING_UNPACKING_OR_USING | NO_AUTO_ACQUIRE, 0)
 	obj->setStatus(kStatusPackingUsing, false);
 	obj->setStatus(kStatusNoAutoAcquire, false);
@@ -1789,6 +1814,10 @@ void SpecialAbilityUpdate::crc(StateHasher &h) const
 	h.addBool(m_facingIssued);
 	h.addBool(m_facingDone);
 	h.addBool(m_withinRange);
+	if (m_chargeSpeed || m_chargeMove)
+	{
+		h.addU32(0x50350000u | (m_chargeSpeed ? 1u : 0u) | (m_chargeMove ? 2u : 0u)); // RW 0x85288D..0x8528A7 xfers both flags
+	}
 	h.addU32(m_customAnimFrame);
 	h.addU32(m_abilitiesTriggered);
 	h.addU32(m_captures); // lane HERO-2
@@ -2757,7 +2786,7 @@ std::vector<std::string> SpecialAbilityModules::stopLines()
 		"module's finish notice (vslot 0x4C), sounds and voices (client): each counted (unported())",
 		"[S-860] SpecialAbilityUpdate ability enums not ported: SPECIAL_MISSILE_DEFENDER_LASER_GUIDED_MISSILES (0x15), the black lotus capture's special objects "
 		"(0x1A; SPECIAL_INFANTRY_CAPTURE_BUILDING 0x1D runs: lane HERO-2, S-1225), "
-		"SPECIAL_CHARGE_ATTACK (0x2A) in the trigger / preparation / packing (the 0x20 disguise trigger RW 0x8544CD runs: lane STEALTH-2; SPECIAL_SCREECH 0x89, the "
+		"(SPECIAL_CHARGE_ATTACK 0x2A trigger / packing runs since PORT-5; the 0x20 disguise trigger RW 0x8544CD runs: lane STEALTH-2; SPECIAL_SCREECH 0x89, the "
 		"disguise cancels 0x84 / 0x85: lane HERO-2; the grab enums SPECIAL_GRAB_PASSENGER / SPECIAL_GRAB_CHUNK 0x27 / 0x28 run since lane MODCOMPAT-MOD1: the "
 		"object grab, its hold, release and eat), the grab of a tree (RW 0x68449B makes it an object) and of a ROCK_VENDOR / CHUNK_VENDOR (its GrabObject, RW "
 		"0x85415C), the 0x28 unpack model condition (RW 0x85384C), the special objects (SpecialObject: no retail use), ContactPointOverride: counted (the "

@@ -113,6 +113,8 @@ public:
 	unsigned evenIfSleepingOrders() const { return m_evenIfSleepingOrders; }
 	const Coord3D &lastEvenIfSleepingGoal() const { return m_lastEvenIfSleepingGoal; }
 	void aiMoveToObject(Object *obj, CommandSourceType source);
+	bool aiAbilityApproachPosition(const Coord3D &pos, CommandSourceType source); // RW 0x852D59, command 0x47
+	bool aiAbilityApproachObject(Object *obj, CommandSourceType source);          // RW 0x852DC5, command 0x48
 	// RW 0x770C2C (MSG_DO_MOVE_AND_ORIENTATE_OBJECTTO): a move that ends facing `angle`. False when the gate or the mobility test refuses it (nothing
 	// changed); true when the base installed the move (`takenGoal`: its clipped goal) or a subclass took it (`takenGoal`: `pos`)
 	bool aiMoveToPositionAndOrientate(const Coord3D &pos, float angle, CommandSourceType source, Coord3D *takenGoal = nullptr);
