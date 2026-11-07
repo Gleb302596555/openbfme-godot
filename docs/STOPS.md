@@ -2,22 +2,21 @@
 
 ## PORT-5 research stop (issue #57)
 
-`ChargeAttackSpeedBoost` is not yet ported. RW clears `CHARGING` in the
-common ability helper at `0x851BCF`, called at start and finish; the speed
-predicate at `0x5E3EF7` also depends on Object `+0x251`. The existing S-860
-and S-222 code stops remain applicable. The remaining blocking evidence is the
-the remaining branches of common movement `0x74DADA` / `0x748E46`, the
-reachability of a deferred GiantBird `0x48` from the ability after its target
-is deleted: ability initiation clears the bird's attack gate and later ability
-updates can issue idle, so both the gate's re-entry and command survival must be
-traced along with indirect deletion callbacks (phase order alone is not enough);
-and any indirect writes or module-replacement effects on Object `+0x251`.
-The owner prescribed cancellation with a diagnostic counter if the RW crash is
-reachable, otherwise an error report for a violated invariant (2026-11-06,
-issue #57). The GiantBird dispatch and state `0x3F` wait setup have now been traced, but none of
-the missing gameplay code or its tests has been implemented. Until then, no
-PORT-5 acceptance or gameplay fix is claimed. See
-`docs/ennorath/PORT5_RW_ANALYSIS.md` for checked addresses and open branches.
+PORT-5 remains in progress. RW clears `CHARGING` in the common ability helper
+at `0x851BCF`, called at start and finish; the speed predicate at `0x5E3EF7`
+also depends on Object `+0x251`. A candidate implementation and synthetic tests
+are in progress; no complete port or PR is claimed until the full verification
+is complete. Existing S-859 and S-860 limitations in the shared ability paths
+remain relevant, as do indirect writes or module replacement effects on
+Object `+0x251`.
+
+The owner approved cancellation with a diagnostic counter (option B) even
+without a proof of retail reachability. **INFERENCE: reachability is not
+proven** in RW or Ennorath. A synthetic OpenBFME experiment exercised the
+ported `SlaveAttackNugget` handler, the bird's real attack state and a deferred
+charge whose target was removed; it produced one cancellation hit. This does
+not establish the original's timing, callbacks or a real mod setup. See
+`docs/ennorath/PORT5_RW_ANALYSIS.md` for the checked addresses and open branches.
 
 ## SOCIAL-1 launcher integration gate
 
