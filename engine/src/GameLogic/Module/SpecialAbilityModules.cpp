@@ -9,6 +9,7 @@
 #include "GameLogic/Module/SpecialAbilityModules.h"
 #include "Common/Audio/AudioRequests.h"
 #include "GameLogic/Combat/CombatLineOfSight.h"
+#include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/Module/GiantBirdAIUpdate.h"
 #include "GameLogic/Module/EmotionModules.h"
@@ -1068,6 +1069,44 @@ bool SpecialAbilityUpdate::payUnitCost()
 	return true;
 }
 
+// RW 0x851607: search from the target towards the caster in 10-unit steps. On failure the caller still issues the original position.
+static bool abilityApproachPoint(Object &caster, AIUpdateInterface &ai, Coord3D &point, float range)
+{
+	ObjectPathfindAdapter &owner = ai.adapter();
+	if ((int)owner.getLayer() > (int)LAYER_GROUND) // RW 0x851616: already on a raised layer, keep the point
+	{
+		return true;
+	}
+	const Coord3D &from = *caster.getPosition();
+	const float dx = SimMath::subf32(point.x, from.x), dy = SimMath::subf32(point.y, from.y);
+	// INFERENCE / S-859: RW normalizes even a zero vector; keep the original point instead of passing NaNs to the pathfinder.
+	if (dx == 0.0f && dy == 0.0f)
+	{
+		caster.logic().noteStop("[S-859] SpecialAbilityUpdate: zero horizontal approach vector; RW 0x405553 normalizes it without a zero check (INFERENCE)");
+		return false;
+	}
+	// RW 0x405553 -> 0x4054F5: PC24 (z² + y²) + x², CRT sqrt, stored float; SSE divide and multiply.
+	const double sum = SimMath::pc24AddW(SimMath::pc24MulW((double)dy, (double)dy), SimMath::pc24MulW((double)dx, (double)dx));
+	const float length = SimMath::fstpDword(SimMath::sqrtPC24(sum));
+	const float inv = SimMath::divf32(1.0f, length);
+	const float stepX = SimMath::mulf32(SimMath::mulf32(dx, inv), 10.0f);
+	const float stepY = SimMath::mulf32(SimMath::mulf32(dy, inv), 10.0f);
+	const std::int64_t steps = -1 - (std::int64_t)SimMath::cvttss2si(SimMath::mulf32(range, -0.1f)); // RW 0x85168C..0x8516A3
+	Coord3D candidate = point;
+	Pathfinder &pf = ai.world().pathfinder();
+	for (std::int64_t i = 0; i < steps; ++i)
+	{
+		candidate.x = SimMath::subf32(candidate.x, stepX);
+		candidate.y = SimMath::subf32(candidate.y, stepY);
+		if (pf.getLayerAt(owner, candidate) == LAYER_GROUND && pf.quickDoesPathExist(owner, &from, &candidate, nullptr)) // RW 0x85172E / 0x85174A
+		{
+			point = candidate;
+			return true;
+		}
+	}
+	return false;
+}
+
 // RW 0x85393B
 void SpecialAbilityUpdate::approachTarget()
 {
@@ -1120,8 +1159,20 @@ void SpecialAbilityUpdate::approachTarget()
 	}
 	m_lastTargetPos = *t->getPosition();
 	ai->mover().ignoreObstacle(t->getID()); // RW 0x853AEE -> 0x66831A before the object / ranged approach
-	// RW 0x853B53: command 0x48 retains the target ID through GiantBird deferral. The non-object approach point RW 0x851607 remains S-859.
-	ai->aiAbilityApproachObject(t, CMD_FROM_AI);
+	static const int kStructure = ObjectTemplateInfoBuilder::kindOfIndex("STRUCTURE");
+	const bool structure = kStructure >= 0 && t->isKindOf((unsigned)kStructure);
+	// RW 0x68BBE0 reads Object +0x428 unless +0x4AC is set. INFERENCE: use the pathfinder adapter layer; +0x4AC is not modelled (S-4840).
+	const PathfindLayerEnum targetLayer = ai->world().adapterFor(*t).getLayer();
+	if (!structure && targetLayer != LAYER_GROUND && m_data->m_startAbilityRange > 50.0f)
+	{
+		Coord3D point = *t->getPosition();
+		abilityApproachPoint(*obj, *ai, point, m_data->m_startAbilityRange); // RW ignores the return, including when no point is found
+		ai->aiAbilityApproachPosition(point, CMD_FROM_AI); // RW 0x853B49 -> 0x853ADB: 0x47, without setting the charge-move byte
+	}
+	else
+	{
+		ai->aiAbilityApproachObject(t, CMD_FROM_AI); // RW 0x853B53: 0x48 retains the ID through GiantBird deferral
+	}
 }
 
 // RW 0x85241F (lane MODCOMPAT-MOD1): SPECIAL_GRAB_PASSENGER (0x27) with a target that is neither SHRUBBERY (template + 0x108 bit 6) nor GRAB_AND_KILL
@@ -2780,7 +2831,8 @@ void SpecialAbilityModules::registerAll(ModuleFactory &modules)
 std::vector<std::string> SpecialAbilityModules::stopLines()
 {
 	return {
-		"[S-859] SpecialAbilityUpdate details not ported: the approach point RW 0x851607 (the move goes to the object), "
+		"[S-859] SpecialAbilityUpdate details not ported: ContactPointOverride and the zero-vector approach point RW 0x851607 (INFERENCE), "
+		"the layer's Object +0x4AC override (S-4840), "
 		"Object + 0xA0 bit 6 in the command source test, PreTriggerUnstealthTime (DisableWhenWearingTheRing and LoseStealthOnTrigger: lane STEALTH-2), the paralysis "
 		"commands, FlipOwnerAfterPacking / Unpacking, FleeRangeAfterCompletion, ChainedButton, a horde's SPECIAL_WEAPON condition to its members, the power "
 		"module's finish notice (vslot 0x4C), sounds and voices (client): each counted (unported())",

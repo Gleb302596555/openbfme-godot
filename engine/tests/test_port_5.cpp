@@ -438,3 +438,143 @@ TEST_CASE("PORT-5: blocked ability approach backs off to a reachable path")
  CHECK(end->y == 500.5f);
  CHECK(ai->currentStateId() == (unsigned)AI_ABILITY_APPROACH);
 }
+
+TEST_CASE("PORT-5: ability approach selects object or ranged position for raised targets")
+{
+ combattest::CombatWorld w;
+ SpecialPowerStore powers;
+ SpecialPowerStore *old = TheSpecialPowerStore;
+ struct Restore { SpecialPowerStore *p; ~Restore() { TheSpecialPowerStore = p; } } restore{old};
+ TheSpecialPowerStore = &powers;
+ w.w.fx.env.blocks.registerBlock("SpecialPower", [](INI *ini) { SpecialPowerStore::parseSpecialPowerDefinitionGlobal(ini); });
+ const char fixture[] = R"ini(
+SpecialPower Port5ApproachPower
+ Enum = SPECIAL_CHARGE_ATTACK
+ ReloadTime = 0
+End
+SpecialPower Port5ApproachKnife
+ Enum = SPECIAL_KNIFE_ATTACK
+ ReloadTime = 0
+End
+Object Port5ApproachCaster
+ KindOf = MONSTER SELECTABLE CAN_ATTACK
+ Geometry = CYLINDER
+ GeometryMajorRadius = 10
+ GeometryHeight = 30
+ Body = ActiveBody ModuleTag_Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface ModuleTag_AI
+ End
+ LocomotorSet
+  Locomotor = WalkerLoco
+  Condition = SET_NORMAL
+  Speed = 30
+ End
+ Behavior = SpecialAbilityUpdate ModuleTag_Ability
+  SpecialPowerTemplate = Port5ApproachPower
+  StartAbilityRange = 100
+  AbilityAbortRange = 1000
+ End
+End
+Object Port5ApproachShort
+ KindOf = MONSTER SELECTABLE CAN_ATTACK
+ Geometry = CYLINDER
+ GeometryMajorRadius = 10
+ GeometryHeight = 30
+ Body = ActiveBody ModuleTag_Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface ModuleTag_AI
+ End
+ LocomotorSet
+  Locomotor = WalkerLoco
+  Condition = SET_NORMAL
+  Speed = 30
+ End
+ Behavior = SpecialAbilityUpdate ModuleTag_Ability
+  SpecialPowerTemplate = Port5ApproachPower
+  StartAbilityRange = 50
+  AbilityAbortRange = 1000
+ End
+End
+Object Port5ApproachOther
+ KindOf = MONSTER SELECTABLE CAN_ATTACK
+ Geometry = CYLINDER
+ GeometryMajorRadius = 10
+ GeometryHeight = 30
+ Body = ActiveBody ModuleTag_Body
+  MaxHealth = 500
+ End
+ Behavior = AIUpdateInterface ModuleTag_AI
+ End
+ LocomotorSet
+  Locomotor = WalkerLoco
+  Condition = SET_NORMAL
+  Speed = 30
+ End
+ Behavior = SpecialAbilityUpdate ModuleTag_Ability
+  SpecialPowerTemplate = Port5ApproachKnife
+  StartAbilityRange = 100
+  AbilityAbortRange = 1000
+ End
+End
+Object Port5ApproachStructure
+ KindOf = STRUCTURE IMMOBILE
+ Geometry = BOX
+ GeometryMajorRadius = 10
+ GeometryMinorRadius = 10
+ GeometryHeight = 30
+ Body = ActiveBody ModuleTag_Body
+  MaxHealth = 500
+ End
+End
+)ini";
+ const std::string error = w.w.load(fixture, INI_LOAD_OVERWRITE, "port5-approach.ini");
+ REQUIRE_MESSAGE(error.empty(), error);
+ bool shortRange = false, structure = false, raisedTarget = true, raisedCaster = false, blockPath = false, partialBlock = false, limitBlock = false, otherPower = false;
+ SUBCASE("raised target takes the first reachable 10-unit step") {}
+ SUBCASE("another ability uses the same ranged approach") { otherPower = true; }
+ SUBCASE("a blocked first probe tries the next 10-unit step") { partialBlock = true; }
+ SUBCASE("a clear cell beyond the probe limit is not used") { limitBlock = true; }
+ SUBCASE("ground target keeps the object command") { raisedTarget = false; }
+ SUBCASE("the 50-unit threshold keeps the object command") { shortRange = true; }
+ SUBCASE("a structure keeps the object command") { structure = true; }
+ SUBCASE("a raised caster keeps the target position") { raisedCaster = true; }
+ SUBCASE("failed path search keeps the target position") { blockPath = true; }
+ Object *caster = w.unit(shortRange ? "Port5ApproachShort" : (otherPower ? "Port5ApproachOther" : "Port5ApproachCaster"), 'A', 200.0f, 200.0f);
+ Object *target = w.unit(structure ? "Port5ApproachStructure" : "Swordsman", 'B', 500.0f, 200.0f);
+ REQUIRE(caster);
+ REQUIRE(target);
+ w.frames(2);
+ AIUpdateInterface *ai = caster->getAIUpdateInterface();
+ REQUIRE(ai);
+ if (raisedTarget) w.ai->adapterFor(*target).setLayer(LAYER_TOP);
+ if (raisedCaster) ai->adapter().setLayer(LAYER_TOP);
+ if (blockPath || partialBlock || limitBlock)
+  for (int x = 0; x < 100; ++x)
+   for (int y = 0; y < 100; ++y)
+    if (blockPath || (partialBlock && x == 49) || (limitBlock && x >= 41))
+     if (PathfindCell *cell = w.ai->pathfinder().getCell(LAYER_GROUND, x, y)) cell->setType(PathfindCell::CELL_IMPASSABLE);
+ SpecialAbilityUpdate *ability = nullptr;
+ for (const auto &module : caster->modules())
+  if (auto *a = dynamic_cast<SpecialAbilityUpdate *>(module.get())) ability = a;
+ REQUIRE(ability);
+ ability->initiateIntentToDoSpecialPower(ability->abilityData()->m_specialPowerTemplate, target, nullptr, 0, 0);
+ ability->update();
+ CHECK(ai->currentStateId() == (unsigned)AI_ABILITY_APPROACH);
+ if (!raisedTarget || shortRange || structure)
+ {
+  CHECK(ai->stateMachine().goalObjectID() == target->getID()); // RW 0x853B53: 0x48
+ }
+ else
+ {
+  CHECK(ai->stateMachine().goalObjectID() == INVALID_ID); // RW 0x853ADB: 0x47
+  CHECK(ai->stateMachine().goalPosition().x == (raisedCaster || blockPath || limitBlock ? 500.0f : (partialBlock ? 480.0f : 490.0f)));
+  CHECK(ai->stateMachine().goalPosition().y == 200.0f);
+ }
+ // RW 0x853ADB / 0x853B53 do not set the charge-move byte for an object target, even when 0x47 was chosen.
+ ai->aiIdle(CMD_FROM_AI);
+ ability->update();
+ CHECK(ability->isActive());
+}
