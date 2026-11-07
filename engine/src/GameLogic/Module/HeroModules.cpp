@@ -529,9 +529,9 @@ void RespawnUpdate::onRevived(const Object *producer)
 {
 	if (producer)
 	{
+		Coord3D naturalRallyPoint = *producer->getPosition(); // RW 0x8B38B0 .. 0x8B38CF
 		if (ExitInterface *exit = producer->getObjectExitInterface()) // RW 0x68BB14
 		{
-			Coord3D naturalRallyPoint = *producer->getPosition(); // RW 0x8B38B0 .. 0x8B38CF
 			(void)exit->getNaturalRallyPoint(&naturalRallyPoint, true); // RW 0x8B38D8, slot 9; return and output are unused
 		}
 	}
