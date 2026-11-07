@@ -91,11 +91,12 @@ call 0x6EA0EC
 два крайних случая) — одна функция `Pathfinder::adjustMeleeOffset`, её зовут обе ветки RW: меле-поиск (как раньше) и точка подхода
 `SiegeDeploySpecialPower::computeApproachPoint`.
 
+Ветка контактной точки (RW 0x6EA10B .. RW 0x6EA125, `AI + 0x260` и RW 0x667C76) перенесена основной веткой раньше (TOP20 #26) и с этой правкой живёт
+внутри той же функции: её зовут оба вызова RW. В данных мода `SpecialContactPoints` есть только у `WorkerAIUpdate` / `HordeWorkerAIUpdate` (Repair),
+`GiantBirdAIUpdate` (Swoop) и мины (`Bomb`), у доков и стен — нет, поэтому осадная точка вызова RW этой ветки в Эннорате не достигает.
+
 Не перенесено и остаётся стопом S-787:
 
-- RW 0x6EA10B .. RW 0x6EA125 — ветка контактной точки (`AI + 0x260` и RW 0x667C76). В данных мода `SpecialContactPoints` есть только у
-  `WorkerAIUpdate` / `HordeWorkerAIUpdate` (Repair), `GiantBirdAIUpdate` (Swoop) и мины (`Bomb`), у доков и стен — нет, поэтому ни одна из
-  двух точек вызова RW этой ветки в Эннорате не достигает;
 - RW 0x6E82B3 (слой ячейки 0x11 .. 0x40) применяется только к цели `WALK_ON_TOP_OF_WALL`; в порте этот тест читается как тест типа 4
   (OBSTACLE). В порте поверхность стены лежит в флаге препятствия наземной сетки, а поле слоя занято самими кусками стен (WALL-1 / WALL-2).
 
