@@ -196,6 +196,7 @@ include(cmake/FactB.cmake)      # OPENBFME_FACTB_TESTS (lane FACT-B: Isengard an
 include(cmake/Port4.cmake) # OPENBFME_PORT4_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
 include(cmake/Port5.cmake) # OPENBFME_PORT5_TESTS (lane PORT-5)
+include(cmake/Port16.cmake) # PORT-16: supply conditions (issue #72)
 include(cmake/Port1.cmake) # PORT-1: Weapon/FinishAttackOnceStarted (issue #53; OPENBFME_PORT1_TESTS)
 include(cmake/Port2.cmake) # PORT-2: ActiveBody/RecoveryTime (issue #54; OPENBFME_PORT2_TESTS)
 include(cmake/Port6.cmake) # PORT-6: StealthDetectorUpdate/CanDetectWhileGarrisoned (issue #59; OPENBFME_PORT6_TESTS)
@@ -756,6 +757,7 @@ add_executable(openbfme_tests
     ${OPENBFME_FACTB_TESTS}
     ${OPENBFME_PLAY2_TESTS}
     ${OPENBFME_PORT5_TESTS}
+    ${OPENBFME_PORT16_TESTS}
     ${OPENBFME_PORT1_TESTS}
     ${OPENBFME_PORT2_TESTS}
     ${OPENBFME_PORT6_TESTS}
