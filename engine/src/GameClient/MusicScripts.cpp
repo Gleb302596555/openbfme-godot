@@ -768,6 +768,6 @@ std::vector<std::string> MusicScripts::acceptanceStops()
 		"ScriptEngine::setTimer); here the music runs on the client with the audio random stream, so the logic random sequence of a retail game that "
 		"evaluates the music scripts may contain draws this port does not make (which generator RotWK's music timer uses is not decoded); likewise "
 		"PLAYER_ACQUIRED_SCIENCE consumes the music's own copy of the acquired-science queue (RW 0x759646), where retail's music and map scripts "
-		"take from one queue (ScriptEngine + 0x1A3A8)",
+		"take from one queue (ScriptEngine + 0x1A4A8)",
 	};
 }

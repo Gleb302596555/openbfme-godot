@@ -507,8 +507,9 @@ void AcquiredScienceQueue::crc(StateHasher &h) const
 	}
 }
 
-// lane SAVE-4d: OpenBFME native layout (S-4256): retail's queues are ScriptEngine + 0x1A3A8 vectors (their save is part of the unidentified ScriptEngine::xfer
-// RW 0x60A45B); the port's queue is the vector plus the replay position in the player's notice history (obfme:Players saves that history)
+// lane SAVE-4d: OpenBFME native layout (S-4256): retail's queues are ScriptEngine + 0x1A4A8 vectors, saved by ScriptEngine::xfer (RW 0x60A45B, through the
+// secondary vtable at this + 0xC, passes esi + 0x1A49C to RW 0x607AAA: count 20 checked, each vector through RW 0x5EC166, the science by name RW 0x707A3C;
+// issue #79); the port's queue is the vector plus the replay position in the player's notice history (obfme:Players saves that history)
 void AcquiredScienceQueue::xfer(Xfer &x, const PlayerScience *player)
 {
 	const bool loading = x.isLoading();

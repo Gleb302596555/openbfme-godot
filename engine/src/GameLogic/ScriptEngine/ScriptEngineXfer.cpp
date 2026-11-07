@@ -359,7 +359,7 @@ void ScriptEngine::xfer(Xfer &x)
 		}
 	}
 
-	// the acquired-science queues (+ 0x1A3A8), each checked against the player at its index, and HAS_FINISHED_AUDIO's timers (+ 0x1A35C)
+	// the acquired-science queues (+ 0x1A4A8), each checked against the player at its index, and HAS_FINISHED_AUDIO's timers (+ 0x1A35C)
 	std::array<AcquiredScienceQueue, 20> loadedQueues;
 	auto &queues = loading ? loadedQueues : m_acquiredSciences;
 	for (size_t i = 0; i < queues.size(); ++i)
