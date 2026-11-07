@@ -735,14 +735,8 @@ void GameLogicSettings::crc(StateHasher &h) const
 	h.addFloat(builderMoveFromNewStructureDistance);
 	h.addBool(sellPercentageLoaded); // lane FACT-A
 	h.addFloat(sellPercentage);
-	if (attributeModifierArmorMaxBonus != 0.75f)
-	{
-		h.addFloat(attributeModifierArmorMaxBonus); // lane LOCAL-1: only data that sets another value (retail pins unchanged)
-	}
-	if (damageRadiusMinimumForSplash != 4.0f)
-	{
-		h.addFloat(damageRadiusMinimumForSplash); // lane LOCAL-1: only data that sets another value (retail pins unchanged)
-	}
+	h.addFloat(attributeModifierArmorMaxBonus); // lane LOCAL-1 (S-322)
+	h.addFloat(damageRadiusMinimumForSplash); // lane LOCAL-1 (S-321)
 	h.addBool(structureRulesLoaded);
 	h.addFloat(gravity);
 	h.addFloat(defaultStructureRubbleHeight);

@@ -683,6 +683,7 @@ TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after a
 // rewrites the vector, as above. Merge queue q33 measured it on the archive's tree at #164's merge point (where every other PERF-1 / UBER-1 vector is the
 // archive's, byte for byte), then once on the merged tree: MODCOMPAT-MOD1 and #133 each move it, #166 keeps it. TOP20 S-560 re-measured it: the shroud's
 // channels (RW 0x68EC3B -> 0xB51030) move it from frame 0 (with their fill switched off it matches the previous vector).
+// pin: issue #88 (S-322, S-321): unconditional GameLogicSettings::crc of attributeModifierArmorMaxBonus and damageRadiusMinimumForSplash moves the vector from frame 0 (with the two fields unhashed it matches the previous vector).
 TEST_CASE("perf1: the allied blob (300 frames) hashes as the build before the collision module caches did in every frame")
 {
 	const std::vector<std::uint32_t> blobRef = perf1::readHashes("allied_blob_300.hashes");

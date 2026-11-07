@@ -271,6 +271,8 @@ TEST_CASE("state hash: every mutable simulation setting is hashed")
 	CHECK(hashWith([](GameLogicSettings &s) { s.initialCredits[3] = 5; }) != base);
 	CHECK(hashWith([](GameLogicSettings &s) { s.night = true; }) != base);
 	CHECK(hashWith([](GameLogicSettings &s) { s.snowy = true; }) != base);
+	CHECK(hashWith([](GameLogicSettings &s) { s.attributeModifierArmorMaxBonus = 0.5f; }) != base);
+	CHECK(hashWith([](GameLogicSettings &s) { s.damageRadiusMinimumForSplash = 15.0f; }) != base);
 	// the diagnostics (what the loader left unread, the files it read) are not simulation state
 	CHECK(hashWith([](GameLogicSettings &s) { s.unappliedFields.insert("GameData.X"); s.filesLoaded.push_back("f"); }) == base);
 }
