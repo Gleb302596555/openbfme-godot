@@ -626,11 +626,10 @@ bool AIAttackSquadState::canChase(Object &owner)
 		}
 	}
 	// RW 0x745A18 .. 0x745A5C: a human player's unit with an AI whose machine is not in state 0x3E (not defined in the port), whose last command came from
-	// the AI (vslot 0x23C), without the AI byte + 0x3C1 and not charge-ordered (Object + 0x251) cannot chase (S-1186: the byte and the charge order are
-	// written by no ported code)
+	// the AI (vslot 0x23C), without the AI byte + 0x3C1 and without a charge ability (Object + 0x251) cannot chase. AI + 0x3C1 remains S-1186.
 	const Player *p = owner.getControllingPlayer();
 	const AIUpdateInterface *ai = owner.getAIUpdateInterface();
-	if (p && p->getPlayerType() == PLAYER_HUMAN && ai && ai->lastCommandSource() == CMD_FROM_AI)
+	if (p && p->getPlayerType() == PLAYER_HUMAN && ai && ai->lastCommandSource() == CMD_FROM_AI && !owner.hasChargeAttackAbility())
 	{
 		return false;
 	}

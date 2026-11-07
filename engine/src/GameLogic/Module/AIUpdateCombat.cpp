@@ -689,8 +689,8 @@ public:
 		{
 			return true;
 		}
-		// the AI's + 0x3C1 byte (written by no ported code) and the charge order (Locomotor + 0x251 for the object) are not modelled here: false (S-326)
-		return !m_me.getAIUpdateInterface();
+		// RW 0x662E88..0x662E9C: the constructor-derived charge ability byte permits this target even without range; AI +0x3C1 remains S-326.
+		return !m_me.getAIUpdateInterface() || m_me.hasChargeAttackAbility();
 	}
 
 private:

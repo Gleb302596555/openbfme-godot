@@ -225,7 +225,7 @@ TEST_CASE("hero facing: an out-of-range target is approached before the face com
 	REQUIRE(ability);
 	world.cast(*hero, *victim, false);
 	world.frames(3);
-	CHECK(hero->getAIUpdateInterface()->currentStateId() == (unsigned)AI_MOVE_TO);
+	CHECK(hero->getAIUpdateInterface()->currentStateId() == (unsigned)AI_ABILITY_APPROACH); // RW 0x853B53 -> 0x66434E: command 0x48 enters state 0x3F
 	CHECK(ability->shotsFired() == 0);
 	world.frames(60);
 	CHECK(ability->shotsFired() == 1);

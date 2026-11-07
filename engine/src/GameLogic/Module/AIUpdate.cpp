@@ -64,8 +64,8 @@ const char *const kStopStates =
 	"0x47 = a state RotWK added); AIIdleState::onEnter draws its random sleep offset as ZH does (GetGameLogicRandomValue(0, 10, \"AIStates.cpp\", 0x520)): the RW draw was not read, "
 	"so a retail replay's RNG sequence can differ at the first idle of every unit";
 const char *const kStopHost =
-	"S-222 the movement host reports no river (RiverModifier), no crew power, no charge order, no physics suppression and no turn limiting "
-	"(the modules behind RW 0x68BF11, 0x5E3A1B and the terrain river query are other lanes'); the pending position of the movers lives in the AI";
+	"S-222 the movement host reports no river (RiverModifier) and no Z-motion suppression (the terrain river query and other modules are other lanes'); "
+	"the pending position of the movers lives in the AI";
 
 // the registry bits, resolved once by name (a mod's own order cannot break them)
 int modelConditionIndex(const char *name)
@@ -234,7 +234,7 @@ public:
 	}
 	bool isInRiver(float, float) const override { return false; }
 	bool isTurnLimited() const override { return !stationary(); }
-	bool isChargeOrdered() const override { return false; }
+	bool isChargeOrdered() const override { return obj().hasChargeAttackAbility(); } // RW 0x5E3F26: Object + 0x251, set by RW 0x69A549
 	// RW 0x5E3A1B: Object + 0x264 (the PhysicsBehavior) byte + 0x5C, the shock stun (lane COMBAT-3)
 	bool physicsMotionDisabled() const override
 	{
@@ -438,6 +438,7 @@ std::unique_ptr<AIStateMachine> AIUpdateInterface::makeStateMachine()
 	m->defineState(AI_IDLE, std::make_unique<AIIdleState>(*m), AI_IDLE, AI_IDLE);
 	// lane PLAY-4: RotWK's move states 1 and 0x1A end in AIGoingIdleState 0x4E (RW 0x753755), which tells the stances the move ended, then goes idle
 	m->defineState(AI_MOVE_TO, std::make_unique<AIMoveToMachineState>(*m), AI_GOING_IDLE, AI_GOING_IDLE);
+	m->defineState(AI_ABILITY_APPROACH, std::make_unique<AIAbilityApproachState>(*m), AI_GOING_IDLE, AI_GOING_IDLE); // RW 0x753823..0x75384E
 	m->defineState(AI_FOLLOW_PATH, std::make_unique<AIFollowPathState>(*m, false), AI_IDLE, AI_IDLE);
 	m->defineState(AI_FOLLOW_EXITPRODUCTION_PATH, std::make_unique<AIFollowPathState>(*m, true), AI_IDLE, AI_IDLE);
 	m->defineState(AI_FOLLOW_PATH_AS_TEAM, std::make_unique<AIFollowPathAsTeamState>(*m), AI_IDLE, AI_IDLE); // lane BACKLOG-8 r2: RW state 54
@@ -938,6 +939,73 @@ bool AIUpdateInterface::aiMoveToPositionAndOrientate(const Coord3D &pos, float a
 	m_machine->setGoalAngle(angle);
 	setLastCommandSource(source);
 	m_machine->setState(AI_MOVE_TO);
+	wakeUpNow();
+	return true;
+}
+
+bool AIUpdateInterface::aiAbilityApproachPosition(const Coord3D &pos, CommandSourceType source)
+{
+	if (!acceptCommand(source, 0x47))
+	{
+		return false;
+	}
+	RoutedCommand c;
+	c.type = 0x47;
+	c.position = pos;
+	c.source = source;
+	if (routeCommand(c))
+	{
+		return true;
+	}
+	Object *obj = getObject();
+	// RW 0x66721E: the weapon set's bit 8 and isMobile are the position form's gates.
+	if (!GarrisonRules::isMobile(*obj) || (obj->getWeaponSetFlags()[0] & (1u << 8)))
+	{
+		return false;
+	}
+	if (m_curLocomotor)
+	{
+		m_curLocomotor->setPreferredPoint(*obj->getPosition()); // RW 0x667250 -> 0x5E39CE
+	}
+	Coord3D clipped;
+	goalPositionClipped(pos, source, clipped); // RW 0x6654AD
+	m_machine->clear();
+	m_machine->setGoalPosition(clipped);
+	m_mover->clearBlocked();
+	setLastCommandSource(source);
+	m_machine->setState(AI_ABILITY_APPROACH); // RW 0x667284
+	wakeUpNow();
+	return true;
+}
+
+bool AIUpdateInterface::aiAbilityApproachObject(Object *target, CommandSourceType source)
+{
+	if (!acceptCommand(source, 0x48, target))
+	{
+		return false;
+	}
+	RoutedCommand c;
+	c.type = 0x48;
+	c.target = target;
+	c.source = source;
+	if (routeCommand(c))
+	{
+		return true;
+	}
+	Object *obj = getObject();
+	if (m_mover->isAiDead() || !GarrisonRules::isMobile(*obj)) // RW 0x66434E..0x664366
+	{
+		return false;
+	}
+	if (m_curLocomotor)
+	{
+		m_curLocomotor->setPreferredPoint(*obj->getPosition()); // RW 0x664378 -> 0x5E39CE
+	}
+	m_machine->clear();
+	m_machine->setGoalObject(target ? target->getID() : INVALID_ID); // RW 0x66438E
+	m_mover->clearBlocked();
+	setLastCommandSource(source);
+	m_machine->setState(AI_ABILITY_APPROACH); // RW 0x6643AB
 	wakeUpNow();
 	return true;
 }

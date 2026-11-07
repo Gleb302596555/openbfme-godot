@@ -2,6 +2,7 @@
 // See GameLogic/Object/Object.h for the creation order and its sources.
 
 #include "Common/Upgrade.h"
+#include "Common/SpecialPower.h"
 #include "Common/ModEngineFeatures.h"
 #include "GameClient/ControlBarCommands.h"
 #include "GameLogic/Object/Object.h"
@@ -424,6 +425,17 @@ void Object::buildModules()
 		if (AIUpdateInterface *a = bm->getAIUpdateInterface())
 		{
 			m_ai = a;
+		}
+	}
+	// RW 0x69A536 -> 0x68C461: look for an actual SpecialAbilityUpdate interface of type 0x2A after the modules exist.
+	for (const auto &module : m_modules)
+	{
+		const auto *ability = dynamic_cast<const SpecialAbilityUpdate *>(module.get());
+		const SpecialPowerTemplate *power = ability ? ability->abilityData()->m_specialPowerTemplate : nullptr;
+		if (power && power->getFinalOverride()->m_type == 0x2A) // RW 0x851D10 -> 0x688D3C
+		{
+			m_hasChargeAttackAbility = true;
+			break;
 		}
 	}
 	rebuildCollideModules();
@@ -2553,6 +2565,10 @@ void Object::crcOmittingModules(StateHasher &h, const std::function<bool(const B
 	{
 		h.addI32(m_legendaryFactor); // lane RULES-1: only a legendary hero adds it (every other object keeps its hash)
 	}
+	if (m_hasChargeAttackAbility)
+	{
+		h.addU32(0x5C500001u); // PORT-5: Object + 0x251 affects locomotion (RW 0x5E3F26)
+	}
 	h.addU32(m_capturerID);                                   // lane HERO-2
 	h.addU32(m_undeadKillFrame);                              // lane HERO-2
 	for (std::uint32_t w : m_status)
@@ -2796,7 +2812,7 @@ void Object::setScriptStatus(std::uint8_t bits, bool set)
 // (the Objects block's order) and the team links (the TeamFactory's post-process).
 void Object::xfer(Xfer &x)
 {
-	XferVersion version{ 1, 3 }; // version 2 adds campaignCarryover; version 3 adds m_fireWeaponDeadline (BFME2 ObjectDoXfer.cpp:668, RW +0x478)
+	XferVersion version{ 1, 4 }; // v2 campaignCarryover, v3 fireWeaponDeadline, v4 PORT-5 Object + 0x251
 	x.xferVersion(version);
 	// a load never reads its destination: the save-side values are built from the members only when saving (SAVES.md, rules for xfer authors)
 	const bool saving = !x.isLoading();
@@ -2904,6 +2920,10 @@ void Object::xfer(Xfer &x)
 	{
 		m_fireWeaponDeadline = 0;
 	}
+	if (version.current >= 4)
+	{
+		x.xferBool(&m_hasChargeAttackAbility); // RW 0x630CCD loads into an object whose constructor has set + 0x251
+	} // older snapshots retain the value derived by the constructor
 	x.xferBool(&m_scriptSelectable);
 	x.xferBool(&m_masked); // lane MODCOMPAT-MOD1: RW + 0x459 bit 1
 	x.xferInt(&m_triggerCount);
