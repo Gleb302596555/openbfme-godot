@@ -375,3 +375,39 @@ End
  CHECK(report.stopHits.at(kMissingTarget) == 1);
  // This is an OpenBFME synthetic path, not proof of retail or Ennorath reachability.
 }
+
+TEST_CASE("PORT-5: blocked ability approach waits through its deadline after an AI snapshot")
+{
+ combattest::CombatWorld w;
+ Object *unit = w.unit("Swordsman", 'A', 200.0f, 200.0f);
+ REQUIRE(unit);
+ w.frames(2);
+ AIUpdateInterface *ai = unit->getAIUpdateInterface();
+ REQUIRE(ai);
+ // Make the entire synthetic ground grid impassable: both canApproachToTarget and the 20-unit backoff probes fail.
+ Pathfinder &pf = w.ai->pathfinder();
+ for (int x = 0; x < 100; ++x)
+  for (int y = 0; y < 100; ++y)
+   if (PathfindCell *cell = pf.getCell(LAYER_GROUND, x, y)) cell->setType(PathfindCell::CELL_IMPASSABLE);
+ const Coord3D goal{ 500.0f, 500.0f, 0.0f };
+ REQUIRE(ai->aiAbilityApproachPosition(goal, CMD_FROM_AI));
+ CHECK(ai->currentStateId() == (unsigned)AI_ABILITY_APPROACH);
+ w.frames(25);
+ CHECK_FALSE(unit->testModelCondition(0x3D)); // MOVING
+ CHECK(unit->getPosition()->x == 200.0f);
+ CHECK(unit->getPosition()->y == 200.0f);
+ XferSave saved;
+ ai->xferAIState(saved);
+ ai->aiIdle(CMD_FROM_AI);
+ XferLoad load(saved.data());
+ ai->xferAIState(load);
+ CHECK(load.atEnd());
+ CHECK(ai->currentStateId() == (unsigned)AI_ABILITY_APPROACH);
+ // Entered at frame 2; RW 0x7493B5 uses 10 * 5 frames, and 0x749442 fails only when frame > deadline.
+ w.frames(25);
+ CHECK(w.logic->getFrame() == 52);
+ CHECK(ai->currentStateId() == (unsigned)AI_ABILITY_APPROACH);
+ w.frames(1);
+ CHECK(w.logic->getFrame() == 53);
+ CHECK(ai->currentStateId() == (unsigned)AI_IDLE);
+}
