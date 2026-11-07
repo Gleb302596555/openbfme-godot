@@ -142,6 +142,7 @@ private:
 	std::vector<std::uint8_t> m_advancedScratch;   ///< lane PERF-HD: per slot, its animations advanced on the job pool (advance)
 	std::vector<std::uint8_t> m_containedScratch;  ///< lane PERF-HD: per slot, its record has a container (found on the job pool before the dependency flags)
 	AnimationSoundModuleManager m_animationSounds; ///< lane AUDIO-4 (before the drawables: their modules leave its lists when they go)
+	GameLogic &m_logic;
 	DrawServices m_services;
 	// lane PERF-CLIENT: object id -> drawable id (0: none), indexed by the object id (ids are small and dense: GameLogic hands them out in order); was a
 	// std::map searched per lookup (the audio, the HUD's horde anchors, the dependency flags: tens of thousands a frame in a battle)

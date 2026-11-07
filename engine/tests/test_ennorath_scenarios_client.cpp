@@ -664,6 +664,9 @@ TEST_CASE("LOCAL-3: Selection flash wires through InGameUI with player house col
 	const float expectedB = baseB * sat - sat * 0.5f;
 
 	// 1. Single Unit Selection Flash via InGameUI::selectObject (RW 0x81E0A7)
+	// In Ennorath EnableHouseColor = No: unit has no model house color, but indicator color (+0x454) is set
+	CHECK(dSoldier->getHouseColor() == 0u);
+	CHECK(dSoldier->indicatorColor() == houseColor);
 	CHECK(dSoldier->selectionFlashEnvelope().isEffective() == false);
 	game.input->ui().selectObject(soldier->getID());
 	CHECK(dSoldier->selectionFlashEnvelope().isEffective() == true);
@@ -677,6 +680,7 @@ TEST_CASE("LOCAL-3: Selection flash wires through InGameUI with player house col
 	CHECK(selColor->blue == doctest::Approx(expectedB)); // tolerance: float color multiplication and subtraction
 
 	// 2. Building / Structure Selection Flash (RW 0x81DC79 / 0x678FA7)
+	CHECK(dBarracks->indicatorColor() == houseColor);
 	CHECK(dBarracks->selectionFlashEnvelope().isEffective() == false);
 	game.input->ui().selectObject(barracks->getID());
 	CHECK(dBarracks->selectionFlashEnvelope().isEffective() == true);
@@ -687,20 +691,30 @@ TEST_CASE("LOCAL-3: Selection flash wires through InGameUI with player house col
 	CHECK(bldColor->green == doctest::Approx(expectedG)); // tolerance: float color multiplication and subtraction
 	CHECK(bldColor->blue == doctest::Approx(expectedB)); // tolerance: float color multiplication and subtraction
 
-	// 3. Horde Selection Flash (RW 0x679032: recurses to all horde members)
+	// 3. Horde Selection Flash (RW 0x678FDF..0x679032: contain vslot 0x7C / 0x10C member list iteration)
+	const ContainModuleInterface *hordeContain = horde->getContain();
+	REQUIRE(hordeContain != nullptr);
+	const auto *hordeMembers = hordeContain->getContainedItemsList();
+	REQUIRE(hordeMembers != nullptr);
+	REQUIRE(!hordeMembers->empty());
+
 	game.input->ui().selectObject(horde->getID());
-	// Find member drawables belonging to this horde
+	// Horde container itself does not play selection flash (RW 0x679049 -> 0x679113)
+	CHECK(dHorde->selectionFlashEnvelope().isEffective() == false);
+
+	// All contained horde member drawables flash in player house color
 	size_t memberFlashCount = 0;
-	for (size_t i = 1; i < game.game->drawables().slotCount(); ++i)
+	for (const Object *mObj : *hordeMembers)
 	{
-		if (Drawable *m = game.game->drawables().find((DrawableID)i))
+		if (mObj)
 		{
-			if (m->stealthParentId() == horde->getID())
-			{
-				CHECK(m->selectionFlashEnvelope().isEffective() == true);
-				++memberFlashCount;
-			}
+			Drawable *m = game.game->drawables().findByObject(mObj->getID());
+			REQUIRE(m != nullptr);
+			CHECK(m->selectionFlashEnvelope().isEffective() == true);
+			CHECK(m->indicatorColor() == houseColor);
+			CHECK(m->getHouseColor() == 0u);
+			++memberFlashCount;
 		}
 	}
-	CHECK(memberFlashCount > 0); // tolerance: GondorFighterHorde member count varies by mod data
+	CHECK(memberFlashCount == hordeMembers->size());
 }

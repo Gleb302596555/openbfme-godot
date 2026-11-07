@@ -14,11 +14,14 @@
 #include "Common/Team.h"
 #include "GameClient/MapObjectRuntime.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/Module/BehaviorModule.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 
 #include <algorithm>
 
 DrawableManager::DrawableManager(WW3DAssetManager &assets, GameLogic &logic)
-	: m_services(assets, logic.modules(), hostOptions(m_scriptFrame))
+	: m_logic(logic)
+	, m_services(assets, logic.modules(), hostOptions(m_scriptFrame))
 {
 	m_slots.resize(1); // slot 0 unused
 	m_services.animationSounds = &m_animationSounds; // lane AUDIO-4
@@ -209,6 +212,10 @@ void DrawableManager::created(const ClientEvent &ev)
 	{
 		d->setModelConditionFlags(ev.flags);
 	}
+	if (ev.hasIndicatorColor)
+	{
+		d->setIndicatorColor(ev.indicatorColor);
+	}
 	if (ev.hasHouseColor)
 	{
 		d->setHouseColor(ev.houseColor);
@@ -294,6 +301,7 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 		case ClientEvent::MODEL_FLUSH:
 			if (Drawable *d = findByObject(ev.object))
 			{
+				if (ev.hasIndicatorColor) d->setIndicatorColor(ev.indicatorColor);
 				if (ev.hasHouseColor) d->setHouseColor(ev.houseColor);
 				d->setScriptTarget(ev.scriptTarget); // lane FX-3: before the flush runs the state scripts
 				d->flushModelConditions(ev.hasWeaponTiming, ev.weaponTimingFrames);
@@ -499,48 +507,32 @@ void DrawableManager::flashAsSelected(ObjectID id, const RGBColor *color)
 	{
 		return;
 	}
-	if (d->isKindOfName("HORDE"))
+	const Object *obj = m_logic.findObjectByID(id);
+	if (obj && obj->isKindOfName("HORDE"))
 	{
-		// RW 0x679032: Horde container recurses to all member drawables
-		for (size_t i = 1; i < m_slots.size(); ++i)
+		// RW 0x678FDF..0x679032: contain (+0x258) -> getHordeContainInterface (vslot 0x7C) -> member list (vslot 0x10C)
+		if (ContainModuleInterface *contain = obj->getContain())
 		{
-			if (Drawable *m = m_slots[i].get())
+			if (contain->getHordeContainInterface())
 			{
-				if (m->stealthParentId() == id)
+				if (const auto *items = contain->getContainedItemsList())
 				{
-					m->flashAsSelected(color);
-				}
-			}
-		}
-	}
-	else if (d->stealthParentId() != INVALID_ID)
-	{
-		// Member selected directly: resolve horde parent if any and flash all horde members
-		const ObjectID parentId = d->stealthParentId();
-		const Drawable *parent = findByObject(parentId);
-		if (parent && parent->isKindOfName("HORDE"))
-		{
-			for (size_t i = 1; i < m_slots.size(); ++i)
-			{
-				if (Drawable *m = m_slots[i].get())
-				{
-					if (m->stealthParentId() == parentId)
+					for (const Object *member : *items)
 					{
-						m->flashAsSelected(color);
+						if (member)
+						{
+							if (Drawable *m = findByObject(member->getID()))
+							{
+								m->flashAsSelected(color); // RW 0x679032
+							}
+						}
 					}
 				}
 			}
 		}
-		else
-		{
-			d->flashAsSelected(color);
-		}
+		return; // RW 0x679049 -> 0x679113: horde container returns without playing envelope on itself
 	}
-	else
-	{
-		// Single unit (hero, monster, porter) or building / structure
-		d->flashAsSelected(color);
-	}
+	d->flashAsSelected(color);
 }
 
 void DrawableManager::updateEvaAnnounces(const LogicSnapshot &snapshot)

@@ -65,12 +65,17 @@ void ClientEventRecorder::objectCreated(Object &obj)
 	}
 	if (const Player *p = obj.getControllingPlayer())
 	{
-		if (p->hasTeamColor()) // RW 0x674504 / 0x674566: indicator color is always set on drawable (RW 0x674510 [esi + 0x454] = eax)
+		if (p->hasTeamColor()) // RW 0x674504 / 0x674566: indicator color (+0x454) is always set on drawable (RW 0x674510)
 		{
-			e.hasHouseColor = true;
+			e.hasIndicatorColor = true;
 			// lane WEATHER-1: Drawable::friend_bindToObject (RW 0x674566) colours the drawable with Object::getNightIndicatorColor (RW 0x68B71F: the
 			// player's + 0x2A4) when TheGlobalData's time of day is NIGHT (+ 0x134 == 4), else getIndicatorColor (RW 0x68B6F5, + 0x2A0)
-			e.houseColor = settings.night ? p->getPlayerNightColor() : p->getPlayerColor();
+			e.indicatorColor = settings.night ? p->getPlayerNightColor() : p->getPlayerColor();
+			if (settings.showsHouseColor(obj)) // RW 0x674516 / 0x6712A6: [drawable + 0x3AA] = 1, model receives indicator color
+			{
+				e.hasHouseColor = true;
+				e.houseColor = e.indicatorColor;
+			}
 		}
 	}
 	// the client modules of the drawable, resolved here on the logic owner in the drawable's creation order (review r2: the render side must not
@@ -205,8 +210,10 @@ void ClientEventRecorder::replaceDrawable(Object &obj, const ThingTemplate *tmpl
 			e.flags.set(bit);
 		}
 	}
-	e.hasHouseColor = hasColor; // RW 0x674504 / 0x674566: indicator color is always set on drawable
-	e.houseColor = color;
+	e.hasIndicatorColor = hasColor; // RW 0x674504 / 0x674566: indicator color (+0x454)
+	e.indicatorColor = color;
+	e.hasHouseColor = hasColor && m_logic.settings().showsHouseColor(obj); // RW 0x674516 / 0x6712A6
+	e.houseColor = e.hasHouseColor ? color : 0;
 	for (ModuleType type : { MODULETYPE_CLIENT_UPDATE, MODULETYPE_CLIENT_BEHAVIOR })
 	{
 		for (const ThingTemplate::Nugget &n : tmpl->moduleList(type).nuggets())
@@ -294,8 +301,13 @@ void ClientEventRecorder::pushFlush(Object &obj)
 		// capturer before ownership transfers. Cancel returns to the current owner.
 		const Object *capturer = m_logic.findObjectByID(obj.getCapturerID());
 		const Player *player = capturer ? capturer->getControllingPlayer() : obj.getControllingPlayer();
-		e.hasHouseColor = true;
-		e.houseColor = player ? player->getPlayerColor() : 0; // RW 0x674504 / 0x674566
+		if (player && player->hasTeamColor())
+		{
+			e.hasIndicatorColor = true;
+			e.indicatorColor = player->getPlayerColor();
+			e.hasHouseColor = m_logic.settings().showsHouseColor(obj); // RW 0x674516 / 0x6712A6
+			e.houseColor = e.hasHouseColor ? player->getPlayerColor() : 0;
+		}
 	}
 	e.scriptTarget = DrawableScriptTarget::capture(m_logic, obj); // lane FX-3: what the state scripts this flush starts ask about (RW 0x73667D / 0x734A75)
 	if (const ObjectWeapons *w = obj.getWeapons())
