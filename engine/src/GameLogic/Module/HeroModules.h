@@ -29,7 +29,8 @@
 //     controlling player a revive record joins its hero list (RW 0x781792, AutoSpawn: cost 0) and gets the tracker's level cap (+0xD8);
 //   * permanently killed (RW 0x8B3349), in a state other than 0 (so never for the alive state RespawnBody calls it in): DeathAnim and RespawnAnim cleared,
 //     DISABLED_PARALYZED cleared, sleep forever, +0x30 = 0, state 2;
-//   * revived (RW 0x8B38A2, called by ProductionUpdate on the new object of a revive entry): the initial spawn (+0x41) sets InitialSpawnAnim and plays
+//   * revived (RW 0x8B38A2, called by ProductionUpdate on the new object of a revive entry): copies the producer's position and, if it has an exit interface,
+//     calls slot 9 getNaturalRallyPoint(out, true) (RW 0x68BB14 / 0x8B38D8); that result is unused. The initial spawn (+0x41) sets InitialSpawnAnim and plays
 //     InitialSpawnFX for InitialSpawnAnimationTime, else RespawnAnim / RespawnFX / RespawnAnimationTime; state 4; with a rule: +0x20 = health, the body's
 //     health set to that share (body vslot 0x58 RW 0x8C47DE(health * 100, false): internalChangeHealth(fraction * body + 0x2C - health)), +0x34 = +0x38 = -1,
 //     wake after the animation time; without a rule sleep forever;
