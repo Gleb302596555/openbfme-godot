@@ -136,17 +136,14 @@ bool AICommands::move(GameLogic &logic, const GameMessage &m)
 			group.planningMoveToPosition(dest->location, type == MSG_DO_ATTACKMOVETO, logic.players().getNthPlayer(m.getPlayerIndex())->orderMode());
 			return true;
 		}
-		group.groupMoveToPosition(dest->location, false, CMD_FROM_PLAYER, false, 0.0f, type == MSG_DO_ATTACKMOVETO);
 		if (type == MSG_DO_ATTACKMOVETO)
 		{
-			// ZH groupAttackMoveToPosition (lane COMBAT-1, stop S-328): every unit marches to its own goal and attacks what it meets on the way
-			for (Object *o : group.members())
-			{
-				if (AIUpdateInterface *ai = o->getAIUpdateInterface())
-				{
-					ai->armAttackMove(ai->stateMachine().goalPosition());
-				}
-			}
+			// lane PORT-13: RW 0x77AAE6 -> AIGroup::groupAttackMoveToPosition (RW 0x774E2F) when PlanningModeEnabled (+ 0x11CA) is false
+			group.groupAttackMoveToPosition(dest->location, 0x7FFFFFFF, CMD_FROM_PLAYER);
+		}
+		else
+		{
+			group.groupMoveToPosition(dest->location, false, CMD_FROM_PLAYER);
 		}
 	}
 	return true;
