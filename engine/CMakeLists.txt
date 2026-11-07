@@ -195,6 +195,7 @@ include(cmake/Experience.cmake) # OPENBFME_XP_SOURCES / OPENBFME_XP_TESTS (lane 
 include(cmake/FactB.cmake)      # OPENBFME_FACTB_TESTS (lane FACT-B: Isengard and Mordor)
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
 include(cmake/Port1.cmake) # PORT-1: Weapon/FinishAttackOnceStarted (issue #53; OPENBFME_PORT1_TESTS)
+include(cmake/Port2.cmake) # PORT-2: ActiveBody/RecoveryTime (issue #54; OPENBFME_PORT2_TESTS)
 include(cmake/Port6.cmake) # PORT-6: StealthDetectorUpdate/CanDetectWhileGarrisoned (issue #59; OPENBFME_PORT6_TESTS)
 include(cmake/Port8.cmake) # PORT-8: PhysicsBehavior/OrientToFlightPath (issue #61; OPENBFME_PORT8_TESTS)
 include(cmake/Port7.cmake) # PORT-7: AnimalAIUpdate/UpdateTimer (issue #60; OPENBFME_PORT7_TESTS)
@@ -743,6 +744,7 @@ add_executable(openbfme_tests
     ${OPENBFME_FACTB_TESTS}
     ${OPENBFME_PLAY2_TESTS}
     ${OPENBFME_PORT1_TESTS}
+    ${OPENBFME_PORT2_TESTS}
     ${OPENBFME_PORT6_TESTS}
     ${OPENBFME_PORT8_TESTS}
     ${OPENBFME_PORT7_TESTS}
