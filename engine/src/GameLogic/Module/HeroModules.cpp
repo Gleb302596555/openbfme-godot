@@ -524,10 +524,17 @@ void RespawnUpdate::onPermanentDeath()
 	m_state = STATE_PERMANENTLY_DEAD;
 }
 
-// RW 0x8B38A2. RW first asks the producer's exit interface (slot 9, with a position copy and true); the answer is not used afterwards (not ported: S-854)
+// RW 0x8B38A2: first asks the producer's exit interface for its natural rally point (slot 9, producer position copy, offset=true); the result is unused.
 void RespawnUpdate::onRevived(const Object *producer)
 {
-	(void)producer;
+	if (producer)
+	{
+		if (ExitInterface *exit = producer->getObjectExitInterface()) // RW 0x68BB14
+		{
+			Coord3D naturalRallyPoint = *producer->getPosition(); // RW 0x8B38B0 .. 0x8B38CF
+			(void)exit->getNaturalRallyPoint(&naturalRallyPoint, true); // RW 0x8B38D8, slot 9; return and output are unused
+		}
+	}
 	Object *obj = getObject();
 	GameLogic &logic = obj->logic();
 	const Object::ModelConditionBits none{};
