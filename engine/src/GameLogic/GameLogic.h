@@ -287,6 +287,8 @@ struct GameLogicSettings
 	float sellPercentage = 0.0f;
 	// lane LOCAL-1 (GameData AttributeModifierArmorMaxBonus, row RW 0xC00490, parsePercentToReal RW 0x42EEFA, GlobalData + 0xAE8): cap on active ARMOR modifiers in AdjustDamage (RW 0x5D893C, asm RW 0x5D8B02..0x5D8B3D); retail 2.01 gamedata.ini sets 75%
 	float attributeModifierArmorMaxBonus = 0.75f;
+	// lane LOCAL-1 (GameData DamageRadiusMinimumForSplash, row RW 0xC00580, parseReal RW 0x42ED00, GlobalData + 0xB40): minimum radius for splash in WeaponDelivery::radiusDamage (RW 0x90DEF0, asm RW 0x90E24F); radius <= threshold hurts only first victim; retail 2.01 sets 4.0
+	float damageRadiusMinimumForSplash = 4.0f;
 	// lane COMBAT-2 (GameData): Gravity (per frame^2, negative) for the structure collapse and DefaultStructureRubbleHeight for a structure that reaches the rubble state; structureRulesLoaded is true
 	// when the loader read both (a collapse or a rubble state without them is reported)
 	bool structureRulesLoaded = false;

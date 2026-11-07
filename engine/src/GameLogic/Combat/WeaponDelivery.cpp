@@ -399,7 +399,7 @@ void radiusDamage(GameLogic &logic, ObjectID sourceId, const DamageNugget &nugge
 			continue;
 		}
 		const bool took = applyToVictim(logic, sourceId, nugget, weapon, *o, &center);
-		if (took && 4.0f >= radius) // GameData DamageRadiusMinimumForSplash (RW +0xB40, retail 4.0): a small radius hurts one object
+		if (took && logic.settings().damageRadiusMinimumForSplash >= radius) // GameData DamageRadiusMinimumForSplash (RW +0xB40, row RW 0xC00580, retail 4.0, RW 0x90E24F)
 		{
 			break;
 		}

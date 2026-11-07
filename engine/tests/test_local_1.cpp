@@ -23,6 +23,10 @@
 #include "GameLogic/Module/LogicModules.h"
 #include "GameLogic/Object/Object.h"
 #include "LogicTestUtil.h"
+#include "CombatTestUtil.h"
+#include "GameLogic/Combat/WeaponDelivery.h"
+#include "GameLogic/Weapon.h"
+#include "GameLogic/WeaponStores.h"
 
 #include <cstdlib>
 
@@ -153,4 +157,68 @@ TEST_CASE("LOCAL-1 armor max bonus: AdjustDamage caps ARMOR modifiers at setting
 	CHECK(hit.m_output.m_actualDamageDealt == 25.0f);
 
 	TheAttributeModifierStore = prevModStore;
+}
+
+TEST_CASE("LOCAL-1 splash minimum: scanGameData parses DamageRadiusMinimumForSplash into settings and clears from unapplied (S-152)")
+{
+	GameLogicSettings defSettings;
+	std::string err;
+	REQUIRE_MESSAGE(L::scanGameData(kBaseGameData, defSettings, &err), err);
+	CHECK(defSettings.damageRadiusMinimumForSplash == 4.0f);
+	CHECK(defSettings.unappliedFields.count("GameData.DamageRadiusMinimumForSplash") == 0);
+
+	GameLogicSettings s15;
+	const std::string ini15 = std::string(kBaseGameData) +
+		"GameData\n"
+		"  DamageRadiusMinimumForSplash = 15.0\n"
+		"End\n";
+	REQUIRE_MESSAGE(L::scanGameData(ini15, s15, &err), err);
+	CHECK(s15.damageRadiusMinimumForSplash == 15.0f);
+	CHECK(s15.unappliedFields.count("GameData.DamageRadiusMinimumForSplash") == 0);
+}
+
+TEST_CASE("LOCAL-1 splash minimum: WeaponDelivery radiusDamage respects damageRadiusMinimumForSplash (RW 0x90E24F)")
+{
+	const char kSplashWeapon[] =
+		"Weapon Splash10\n"
+		"  AttackRange = 50.0\n"
+		"  DamageNugget\n"
+		"    Damage = 20\n"
+		"    Radius = 10.0\n"
+		"    DamageType = SLASH\n"
+		"    DeathType = NORMAL\n"
+		"  End\n"
+		"End\n";
+
+	// Case 1: Default threshold 4.0 < radius 10.0 -> splash is active, both victims take damage
+	{
+		combattest::CombatWorld w(kSplashWeapon);
+		Object *attacker = w.unit("Swordsman", 'A', 280.0f, 300.0f);
+		Object *v1 = w.unit("Dummy", 'B', 300.0f, 300.0f);
+		Object *v2 = w.unit("Dummy", 'B', 305.0f, 300.0f);
+		w.frames(1);
+		const WeaponTemplate *splash = TheWeaponStore->findWeaponTemplate("Splash10");
+		REQUIRE(splash != nullptr);
+
+		w.logic->settings().damageRadiusMinimumForSplash = 4.0f;
+		DeliverNuggets(*w.logic, attacker->getID(), *splash, WeaponBonus{}, v1, v1->getPosition(), false, nullptr);
+		CHECK(w.health(v1) == 90.0f);
+		CHECK(w.health(v2) == 90.0f);
+	}
+
+	// Case 2: Threshold 15.0 >= radius 10.0 -> splash is suppressed after first victim (RW 0x90E24F breaks)
+	{
+		combattest::CombatWorld w(kSplashWeapon);
+		Object *attacker = w.unit("Swordsman", 'A', 280.0f, 300.0f);
+		Object *v1 = w.unit("Dummy", 'B', 300.0f, 300.0f);
+		Object *v2 = w.unit("Dummy", 'B', 305.0f, 300.0f);
+		w.frames(1);
+		const WeaponTemplate *splash = TheWeaponStore->findWeaponTemplate("Splash10");
+		REQUIRE(splash != nullptr);
+
+		w.logic->settings().damageRadiusMinimumForSplash = 15.0f;
+		DeliverNuggets(*w.logic, attacker->getID(), *splash, WeaponBonus{}, v1, v1->getPosition(), false, nullptr);
+		CHECK(w.health(v1) == 90.0f);
+		CHECK(w.health(v2) == 100.0f);
+	}
 }

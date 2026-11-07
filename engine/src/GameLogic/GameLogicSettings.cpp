@@ -243,6 +243,8 @@ const FieldParse kGameDataFields[] = {
 	{ "EnableHouseColor", INI::parseBool, nullptr, (int)offsetof(BlockState, values.enableHouseColor) }, // row RW 0xC00A30, + 0xDDC
 	// lane LOCAL-1: AttributeModifierArmorMaxBonus (row RW 0xC00490, parsePercentToReal RW 0x42EEFA, GlobalData + 0xAE8): cap on active ARMOR modifiers in AdjustDamage (RW 0x5D893C, asm RW 0x5D8B02..0x5D8B3D)
 	{ "AttributeModifierArmorMaxBonus", parseNoting<INI::parsePercentToReal>, 0, (int)offsetof(BlockState, values.attributeModifierArmorMaxBonus) },
+	// lane LOCAL-1: DamageRadiusMinimumForSplash (row RW 0xC00580, parseReal RW 0x42ED00, GlobalData + 0xB40): small radius only hurts first victim (WeaponDelivery RW 0x90E24F)
+	{ "DamageRadiusMinimumForSplash", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.damageRadiusMinimumForSplash) },
 	// lane COMBAT-2: Gravity (RW GlobalData + 0xC4, row RW 0xBFF9C0, parseAccelerationReal RW 0x73A4DC: value * k * k per frame^2) and DefaultStructureRubbleHeight (RW + 0xAE4,
 	// row RW 0xC004E0, parseReal): the structure collapse (StructureCollapseUpdate) and the rubble state of a structure body read them
 	{ "Gravity", parseNoting<INI::parseAccelerationReal>, SEEN_DATA(SEEN_GRAVITY), (int)offsetof(BlockState, values.gravity) },
@@ -736,6 +738,10 @@ void GameLogicSettings::crc(StateHasher &h) const
 	if (attributeModifierArmorMaxBonus != 0.75f)
 	{
 		h.addFloat(attributeModifierArmorMaxBonus); // lane LOCAL-1: only data that sets another value (retail pins unchanged)
+	}
+	if (damageRadiusMinimumForSplash != 4.0f)
+	{
+		h.addFloat(damageRadiusMinimumForSplash); // lane LOCAL-1: only data that sets another value (retail pins unchanged)
 	}
 	h.addBool(structureRulesLoaded);
 	h.addFloat(gravity);
