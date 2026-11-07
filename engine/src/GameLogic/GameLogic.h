@@ -285,6 +285,8 @@ struct GameLogicSettings
 	// lane FACT-A (GameData SellPercentage, RW GlobalData + 0xB94): a sold structure's refund share (BuildAssistant::update RW 0x79468B); loaded when a block read it
 	bool sellPercentageLoaded = false;
 	float sellPercentage = 0.0f;
+	// lane LOCAL-1 (GameData AttributeModifierArmorMaxBonus, row RW 0xC00490, parsePercentToReal RW 0x42EEFA, GlobalData + 0xAE8): cap on active ARMOR modifiers in AdjustDamage (RW 0x5D893C, asm RW 0x5D8B02..0x5D8B3D); retail 2.01 gamedata.ini sets 75%
+	float attributeModifierArmorMaxBonus = 0.75f;
 	// lane COMBAT-2 (GameData): Gravity (per frame^2, negative) for the structure collapse and DefaultStructureRubbleHeight for a structure that reaches the rubble state; structureRulesLoaded is true
 	// when the loader read both (a collapse or a rubble state without them is reported)
 	bool structureRulesLoaded = false;
