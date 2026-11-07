@@ -25,6 +25,7 @@
 #pragma once
 
 #include "Common/INIDataTypes.h"
+#include "GameLogic/Module/CollideModule.h"
 #include "GameLogic/Module/DieModule.h"
 #include "GameLogic/Module/UpdateModule.h"
 
@@ -37,7 +38,7 @@ class AIUpdateInterface;
 struct DieMuxData;
 struct OpenContainModuleData;
 
-class OpenContain : public UpdateModule, public ContainModuleInterface, public DieModuleInterface
+class OpenContain : public UpdateModule, public ContainModuleInterface, public DieModuleInterface, public CollideModuleInterface
 {
 public:
 	OBFME_MODULE_XFER(OpenContain) // lane SAVE-4b
@@ -47,7 +48,13 @@ public:
 	// ---- BehaviorModule ----
 	ContainModuleInterface *getContain() override { return this; }
 	DieModuleInterface *getDie() override { return this; }
+	CollideModuleInterface *getCollide() override { return this; }
 	void onDelete() override; // main slot 0x20 RW 0x86708F
+	// ---- CollideModuleInterface (RW 0xC5D650, module + 0x24, slot +0x04 getCollide RW 0x64F3EA) ----
+	void onCollide(Object *other, const Coord3D *loc, const Coord3D *normal) override; // RW 0x8659D8
+	bool wouldLikeToCollideWith(const Object &other) const override { (void)other; return false; } // RW 0x7FEAC1
+	// RW 0x867C40 (module vslot 0x4C, INFERENCE on C++ name): the entering units collision reveals and evacuates enemy STEALTH_GARRISON riders
+	bool tryToEvacuate(Object *entering); // virtual so a derived class could override (none does, but the vtable keeps slot 0x4C)
 	Object *passengerToHit(const Coord3D &pos) const override; // slot 0xF4 RW 0x8663B6 (TOP20 S-321)
 	// RW 0x990D14: the member nearest to `pos` (2D, strictly nearer than FLT_MAX) of the hordes in `contained` whose drawable is not hidden (RW 0x67055A)
 	static Object *nearestShownHordeMember(const ContainedItemsList &contained, const Coord3D &pos);
