@@ -211,7 +211,7 @@ bool toggleNoAutoAcquire(GameLogic &logic, const GameMessage &m)
 		// an individually selected member is set directly even when it belongs to a horde.
 		if (o->isKindOf((unsigned)CombatNames::kinds().horde))
 		{
-			setNoAutoAcquire(*o, value);
+			o->setStatusAcrossHorde((unsigned)noAuto, value); // RW 0x748650 -> 0x694569
 		}
 		else
 		{
