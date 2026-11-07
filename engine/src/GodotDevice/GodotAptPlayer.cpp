@@ -4542,7 +4542,11 @@ void AptMenuPlayer::drawCanvas(const AptCanvasList &list)
 			const Ref<ImageTexture> texture = m->imageTexture(sm, img, name);
 			if (texture.is_valid())
 			{
-				const AptStageMapping backdrop = m->mapping.fitImage((float)img->imageSize.x, (float)img->imageSize.y);
+				// the backdrop follows the menu's own mapping: Stretch (retail, AptCanvas.h) fills the window like the Apt level above it; only the viewer's
+				// Fit option keeps the image's aspect (owner 2026-11-08: the 4:3 backdrop centred left black bars at the sides of a wide window)
+				AptStageMapping backdrop = m->mapping;
+				backdrop.stageW = (float)img->imageSize.x;
+				backdrop.stageH = (float)img->imageSize.y;
 				float x0, y0, x1, y1;
 				backdrop.stageToWindow(0.0f, 0.0f, x0, y0);
 				backdrop.stageToWindow(backdrop.stageW, backdrop.stageH, x1, y1);
