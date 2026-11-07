@@ -20,7 +20,8 @@ std::vector<std::string> SpellStops::lines()
 		"(RW 0x602E64) is false, so the max rank is min(rank count, MaxLevelMP) and the skill points are not scaled; the Living World branch (RW 0x7827D9, RW 0x6B34EE "
 		"InitialMaxRingLevel / GameLogic + 0x118) is not ported",
 		"[S-526] science side effects: a new science tells the special power modules of the player's objects (RW 0x6AE1C9 .. 0x6AE2E6) through PlayerScience's hook (counted "
-		"when none is installed); the script engine notices (RW 0x759A4E, 0x75950A), the control bar refresh and the local player's rank-up EVA (RW 0x6AA9C2) are not ported",
+		"when none is installed); the script engine notices (RW 0x759A4E, 0x75950A) are ported (AcquiredScienceQueue, lane AUDIO-4; the music scripts' own copy is S-711); "
+		"the control bar refresh and the local player's rank-up EVA (RW 0x6AA9C2) are not ported",
 		"[S-528] game start rank points: RW 0x6311ED (0x6313B6 .. 0x631407) gives the human players GameLogic + 0x94 skill points in the game kind RW 0x6253BF selects; not ported",
 		"[S-529] special power runtime: ported: SpecialPowerModule's recharge / ready frame / pause / percent / requirements (RW 0x8973EE, 0x896E31, 0x896C72, 0x896CF2, "
 		"0x896756, 0x8969E5), the shared timers (Player RW 0x6AD1B0 / 0x6AD22B / 0x6AD26F), the science notice (RW 0x896B56), PlayerHealSpecialPower's heal (RW 0x8CC4B4), "
