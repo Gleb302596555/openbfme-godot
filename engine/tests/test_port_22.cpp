@@ -24,6 +24,7 @@
 #include "PathfindTestUtil.h"
 
 #include "GameLogic/AI/AIPathfind.h"
+#include "GameLogic/Combat/CombatState.h"
 #include "GameLogic/Combat/WeaponDelivery.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/AIUpdate.h"
@@ -31,10 +32,15 @@
 #include "GameLogic/Module/SiegeModules.h"
 #include "GameLogic/Object/Object.h"
 
+#include <array>
 #include <cmath>
+#include <cstdint>
+#include <memory>
 #include <string>
+#include <vector>
 
 using namespace pathtest;
+using namespace movetest;
 
 namespace
 {
@@ -84,7 +90,7 @@ TestObject *addStructure(TestWorld &world, std::vector<std::unique_ptr<TestObjec
 // ---------------------------------------------------------------------------------------------------------------------------------------------------
 TEST_CASE("PORT-22 pathfind: adjustMeleeOffset scales the offset by the first of i = 0 .. 19 steps whose cell is not an obstacle (RW 0x6EA12B .. 0x6EA1F0)")
 {
-	SyntheticTerrain terrain(40, 40);
+	SyntheticTerrain terrain(60, 60); // the walls of this case reach cell 43
 	TestWorld world;
 	TestObject unit;
 	unit.id = 3;
@@ -110,11 +116,12 @@ TEST_CASE("PORT-22 pathfind: adjustMeleeOffset scales the offset by the first of
 	CHECK(v.z == 0.0f);
 
 	// a box 240 x 30 at (300, 305): the box rasteriser writes x cells 18 .. 41 and y cells 29 .. 32 (RW 0x936EE8: ceil(radius * 0.4) steps of 5 from the
-	// top-left corner, (x + 0.5) / 10 floored). Twenty steps of 1 along +x from the target's position stay inside it, so `v` is unchanged (RW 0x6EA1E7)
+	// top-left corner, (x + 0.5) / 10 floored), so the map has to be wider than 42 cells. Twenty steps of 1 along +x from the target's position stay inside
+	// it, so `v` is unchanged (RW 0x6EA1E7)
 	TestObject *longWall = addStructure(world, owned, pf, 7, 300.0f, 305.0f, 120.0f, 15.0f);
 	REQUIRE(pf.getCell(LAYER_GROUND, 30, 30)->getType() == PathfindCell::CELL_OBSTACLE);
 	REQUIRE(pf.getCell(LAYER_GROUND, 31, 30)->getType() == PathfindCell::CELL_OBSTACLE);
-	REQUIRE(pf.getCell(LAYER_GROUND, 41, 30)->getType() == PathfindCell::CELL_OBSTACLE);
+	REQUIRE(pf.getCell(LAYER_GROUND, 35, 30)->getType() == PathfindCell::CELL_OBSTACLE);
 	REQUIRE(pf.getCell(LAYER_GROUND, 42, 30)->getType() != PathfindCell::CELL_OBSTACLE);
 	Coord3D inside{ 1.0f, 0.0f, 0.0f };
 	pf.adjustMeleeOffset(unit, *longWall, inside);
@@ -122,17 +129,17 @@ TEST_CASE("PORT-22 pathfind: adjustMeleeOffset scales the offset by the first of
 	CHECK(inside.y == 0.0f);
 	CHECK(inside.z == 0.0f);
 
-	// the same wall from its right end: the walk leaves the obstacle at i = 1 (cell 42 at x = 430), so the offset is scaled by 1 and stays as it is
-	longWall->pos = Coord3D{ 425.0f, 305.0f, 0.0f };
-	pf.removeObjectFromPathfindMap(*longWall);
-	pf.addObjectToPathfindMap(*longWall);
-	REQUIRE(pf.getCell(LAYER_GROUND, 41, 30)->getType() == PathfindCell::CELL_OBSTACLE);
+	// a second box 30 x 30 at (425, 305): its cells are x 41 .. 43 x y 29 .. 32. From the target's cell 42 the steps of 10 land on 43 (i = 1) and 44
+	// (i = 2), so the walk leaves the obstacle at i = 2 and the offset is scaled by 2 (RW 0x6EA1B1)
+	TestObject *shortWall = addStructure(world, owned, pf, 8, 425.0f, 305.0f, 15.0f, 15.0f);
 	REQUIRE(pf.getCell(LAYER_GROUND, 42, 30)->getType() == PathfindCell::CELL_OBSTACLE);
-	REQUIRE(pf.getCell(LAYER_GROUND, 43, 30)->getType() != PathfindCell::CELL_OBSTACLE);
-	Coord3D two{ 10.0f, 0.0f, 0.0f }; // i = 2 lands on x = 445, cell 44: free
-	pf.adjustMeleeOffset(unit, *longWall, two);
+	REQUIRE(pf.getCell(LAYER_GROUND, 43, 30)->getType() == PathfindCell::CELL_OBSTACLE);
+	REQUIRE(pf.getCell(LAYER_GROUND, 44, 30)->getType() != PathfindCell::CELL_OBSTACLE);
+	Coord3D two{ 10.0f, 0.0f, 0.0f };
+	pf.adjustMeleeOffset(unit, *shortWall, two);
 	CHECK(two.x == 20.0f);
 	CHECK(two.y == 0.0f);
+	CHECK(two.z == 0.0f);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------------
@@ -226,6 +233,7 @@ const char kPort22Objects[] =
 class WallBones : public ProjectileLaunchOffsets
 {
 public:
+	bool launchOffset(const Object &, int, int, float[12]) override { return false; } // no weapon launch bone is asked here
 	int multiLogicalBones(const Object &, const std::string &prefix, const std::array<std::uint32_t, 19> &, int maxBones, float (*out)[12]) override
 	{
 		if (prefix != "SIEGELADDER" || maxBones < 1)
