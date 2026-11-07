@@ -84,6 +84,9 @@ public:
 
 	// render side: animations by elapsed render milliseconds, then the interpolated poses (alpha in [0, 1))
 	void advance(double elapsedMs);
+	// lane LOCAL-3: RotWK 30 Hz shared client clock & frame counter (RW 0x6487D6 TheGameClient->getFrame)
+	unsigned clientFrame() const { return m_clientFrame; }
+	void flashAsSelected(ObjectID id, const RGBColor *color = nullptr);
 	void syncTransforms(const LogicSnapshot &snapshot, double alpha, bool interpolate);
 	void updateEvaAnnounces(const LogicSnapshot &snapshot);
 
@@ -153,6 +156,8 @@ private:
 	size_t m_dependencyUpdates = 0; ///< lane COMBAT-4: dependent drawables whose shared flags changed (RW 0x4BF2D8)
 	std::uint32_t m_nextSeq = 0;
 	size_t m_eventsApplied = 0;
+	double m_clientClockMs = 0.0;
+	unsigned m_clientFrame = 0;
 	std::vector<std::unique_ptr<Drawable>> m_slots; ///< index = drawable id
 	size_t m_live = 0;
 	size_t m_created = 0, m_destroyed = 0;

@@ -142,6 +142,7 @@ struct Rig
 		game->players().setLocalPlayer(local);
 		view = PinholeView({ 0, -400, 500 }, { 0, 0, 0 }, 1024, 768, 0.7f);
 		input = std::make_unique<HudInput>(game->logic(), &game->ai(), view, game->commands(), s.mouse, s.meta);
+		input->ui().setSelectHandler([this](ObjectID id) { game->drawables().flashAsSelected(id); }); // LOCAL-3
 	}
 	~Rig()
 	{

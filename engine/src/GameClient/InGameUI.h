@@ -90,6 +90,7 @@ public:
 	void setLogic(const GameLogic *logic) { m_logic = logic; }
 	int getMaxSelectCount() const { return m_maxSelect; }
 	void setMaxSelectCount(int n) { m_maxSelect = n; }
+	void setSelectHandler(std::function<void(ObjectID)> handler) { m_selectHandler = std::move(handler); } // LOCAL-3: RW 0x81DC79 / 0x81E0A7
 	int selectMatching(HudContext &ctx, bool acrossMap);
 
 	// ---- the GUI command (ZH setGUICommand / getGUICommand: the command button waiting for a target) ----
@@ -378,4 +379,5 @@ private:
 	std::vector<std::string> m_miscSounds;
 	unsigned m_attackFlashes = 0;
 	int m_maxSelect = 0;
+	std::function<void(ObjectID)> m_selectHandler; // LOCAL-3: called on selectObject
 };

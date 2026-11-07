@@ -22,6 +22,8 @@ DrawableManager::DrawableManager(WW3DAssetManager &assets, GameLogic &logic)
 {
 	m_slots.resize(1); // slot 0 unused
 	m_services.animationSounds = &m_animationSounds; // lane AUDIO-4
+	m_services.selectionFlashHouseColor = logic.settings().selectionFlashHouseColor; // LOCAL-3: RW 0xC005E0
+	m_services.selectionFlashSaturationFactor = logic.settings().selectionFlashSaturationFactor; // LOCAL-3: RW 0xC005D0
 }
 
 DrawableManager::~DrawableManager() = default;
@@ -454,10 +456,90 @@ void DrawableManager::advance(double elapsedMs)
 				d->advanceAnimation(elapsedMs);
 			}
 			d->updateFade(elapsedMs); // lane PROJ-2: RW 0x675AB7 (DrawableFade.cpp)
-			d->updateTint();          // LOCAL-3: RW 0x675D8B .. 0x675F8A (Drawable.cpp)
-			// lane STEALTHLOOK-1: RW 0x673114 (GameClient/StealthLook.cpp, updateDrawable RW 0x675996): the horde parent's drawable or the step
-			d->updateStealthLook(d->stealthParentId() != INVALID_ID ? findByObject(d->stealthParentId()) : nullptr);
 		}
+	}
+
+	// lane LOCAL-3: RotWK 30 Hz shared client clock (RW 0x6487D6 via GameClient::update RW 0x64849E)
+	m_clientClockMs += elapsedMs;
+	int clientTicks = 0;
+	static constexpr double kClientTickMs = 1000.0 / 30.0;
+	while (m_clientClockMs >= kClientTickMs - 1e-6 && clientTicks < 8)
+	{
+		m_clientClockMs -= kClientTickMs;
+		++clientTicks;
+	}
+	if (clientTicks >= 8)
+	{
+		m_clientClockMs = 0.0; // clamp stall
+	}
+	if (m_clientClockMs < 0.0)
+	{
+		m_clientClockMs = 0.0;
+	}
+	for (int t = 0; t < clientTicks; ++t)
+	{
+		++m_clientFrame;
+		for (size_t i = 1; i < slots; ++i)
+		{
+			if (Drawable *d = m_slots[i].get())
+			{
+				d->updateTint(); // LOCAL-3: RW 0x675D8B .. 0x675F8A (Drawable.cpp)
+				// lane STEALTHLOOK-1: RW 0x673114 (GameClient/StealthLook.cpp, updateDrawable RW 0x675996)
+				d->updateStealthLook(d->stealthParentId() != INVALID_ID ? findByObject(d->stealthParentId()) : nullptr);
+			}
+		}
+	}
+}
+
+void DrawableManager::flashAsSelected(ObjectID id, const RGBColor *color)
+{
+	// RW 0x678FA7 / 0x81DC79 / 0x81E0A7: Selection flash for units, buildings, and hordes
+	Drawable *d = findByObject(id);
+	if (!d)
+	{
+		return;
+	}
+	if (d->isKindOfName("HORDE"))
+	{
+		// RW 0x679032: Horde container recurses to all member drawables
+		for (size_t i = 1; i < m_slots.size(); ++i)
+		{
+			if (Drawable *m = m_slots[i].get())
+			{
+				if (m->stealthParentId() == id)
+				{
+					m->flashAsSelected(color);
+				}
+			}
+		}
+	}
+	else if (d->stealthParentId() != INVALID_ID)
+	{
+		// Member selected directly: resolve horde parent if any and flash all horde members
+		const ObjectID parentId = d->stealthParentId();
+		const Drawable *parent = findByObject(parentId);
+		if (parent && parent->isKindOfName("HORDE"))
+		{
+			for (size_t i = 1; i < m_slots.size(); ++i)
+			{
+				if (Drawable *m = m_slots[i].get())
+				{
+					if (m->stealthParentId() == parentId)
+					{
+						m->flashAsSelected(color);
+					}
+				}
+			}
+		}
+		else
+		{
+			d->flashAsSelected(color);
+		}
+	}
+	else
+	{
+		// Single unit (hero, monster, porter) or building / structure
+		d->flashAsSelected(color);
 	}
 }
 

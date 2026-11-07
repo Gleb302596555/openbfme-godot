@@ -300,6 +300,9 @@ const FieldParse kGameDataFields[] = {
 	{ "UseBehindBuildingMarker", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.useBehindBuildingMarker) },
 	{ "DefaultOcclusionDelay", parseNoting<INI::parseDurationUnsignedInt>, 0, (int)offsetof(BlockState, values.defaultOcclusionDelay) },
 	{ "OccludedColorLuminanceScale", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.occludedColorLuminanceScale) },
+	// lane LOCAL-3: selection flash (rows RW 0xC005E0 / 0xC005D0, GlobalData +0xB58 / +0xB54)
+	{ "SelectionFlashHouseColor", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.selectionFlashHouseColor) },
+	{ "SelectionFlashSaturationFactor", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.selectionFlashSaturationFactor) },
 	{ nullptr, noteUnapplied, nullptr, 0 }
 };
 const FieldParse kAIDataFields[] = {

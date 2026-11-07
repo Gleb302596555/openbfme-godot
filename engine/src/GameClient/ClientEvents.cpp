@@ -65,7 +65,7 @@ void ClientEventRecorder::objectCreated(Object &obj)
 	}
 	if (const Player *p = obj.getControllingPlayer())
 	{
-		if (p->hasTeamColor() && settings.showsHouseColor(obj)) // RW 0x674516: GameData EnableHouseColor, else BASE_SITE / ALWAYS_SHOW_HOUSE_COLOR
+		if (p->hasTeamColor()) // RW 0x674504 / 0x674566: indicator color is always set on drawable (RW 0x674510 [esi + 0x454] = eax)
 		{
 			e.hasHouseColor = true;
 			// lane WEATHER-1: Drawable::friend_bindToObject (RW 0x674566) colours the drawable with Object::getNightIndicatorColor (RW 0x68B71F: the
@@ -205,7 +205,7 @@ void ClientEventRecorder::replaceDrawable(Object &obj, const ThingTemplate *tmpl
 			e.flags.set(bit);
 		}
 	}
-	e.hasHouseColor = hasColor && m_logic.settings().showsHouseColor(obj); // RW 0x674516
+	e.hasHouseColor = hasColor; // RW 0x674504 / 0x674566: indicator color is always set on drawable
 	e.houseColor = color;
 	for (ModuleType type : { MODULETYPE_CLIENT_UPDATE, MODULETYPE_CLIENT_BEHAVIOR })
 	{
@@ -295,7 +295,7 @@ void ClientEventRecorder::pushFlush(Object &obj)
 		const Object *capturer = m_logic.findObjectByID(obj.getCapturerID());
 		const Player *player = capturer ? capturer->getControllingPlayer() : obj.getControllingPlayer();
 		e.hasHouseColor = true;
-		e.houseColor = player && m_logic.settings().showsHouseColor(obj) ? player->getPlayerColor() : 0; // RW 0x674516
+		e.houseColor = player ? player->getPlayerColor() : 0; // RW 0x674504 / 0x674566
 	}
 	e.scriptTarget = DrawableScriptTarget::capture(m_logic, obj); // lane FX-3: what the state scripts this flush starts ask about (RW 0x73667D / 0x734A75)
 	if (const ObjectWeapons *w = obj.getWeapons())
