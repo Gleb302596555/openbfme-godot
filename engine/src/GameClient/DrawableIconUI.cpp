@@ -578,6 +578,106 @@ void DrawableIconUI::build(GameLogic &logic, const DrawableManager &drawables, c
 			}
 		}
 	}
+	// list 1: container occupant pips (RW 0x677994 Drawable::drawContainerPips called from W3DDisplay::renderExtras RW 0x679A4F)
+	// Gates (RW 0x677994..0x677A4F):
+	// 1. Must have contain module (obj->getContain() != nullptr)
+	// 2. GlobalData ShowObjectHealth must be true (s.showObjectHealth)
+	// 3. Must be selected (selected.count(obj->getID()) > 0) OR hovered (mousedOver == obj->getID())
+	// 4. Must belong to local player (localPlayer && obj->getControllingPlayer() == localPlayer)
+	// 5. contain->getContainerPipCounts(...) returns true and totalPips > 0
+	// 6. World position (worldPos = pos + worldOffset, z += maxHeight) projects on screen
+	if (s.showObjectHealth)
+	{
+		const Player *localPlayer = logic.players().getLocalPlayer();
+		for (const Queued &q : queued)
+		{
+			Object &obj = *q.obj;
+			ContainModuleInterface *contain = obj.getContain();
+			if (!contain)
+			{
+				continue;
+			}
+			const bool isSelected = selected.count(obj.getID()) != 0 ||
+			                        (obj.getContainedBy() && selected.count(obj.getContainedBy()->getID()) != 0);
+			const bool isHovered = (mousedOver == obj.getID());
+			if (!isSelected && !isHovered)
+			{
+				continue;
+			}
+			if (localPlayer && obj.getControllingPlayer() != localPlayer)
+			{
+				continue;
+			}
+			int totalPips = 0, filledPips = 0, heroCount = 0;
+			if (!contain->getContainerPipCounts(totalPips, filledPips, heroCount) || totalPips <= 0)
+			{
+				continue;
+			}
+			const Image *pipImg = s.images ? s.images->findImageByName("ContainPip") : nullptr;
+			const Image *frameImg = s.images ? s.images->findImageByName("ContainPipFrame") : nullptr;
+			if (!pipImg || !frameImg)
+			{
+				m_notes.insert("the container pip images ContainPip / ContainPipFrame are unknown");
+				continue;
+			}
+			// Projection (RW 0x677A71..0x677AE8):
+			// worldPos = pos + ContainerPipWorldOffset
+			// worldPos.z += maxHeight + ContainerPipWorldOffset.z
+			const TemplateBox &box = boxOf(*obj.getTemplate());
+			Coord3D worldPos = *q.d->getPosition();
+			worldPos.x += s.containerPipWorldOffset.x;
+			worldPos.y += s.containerPipWorldOffset.y;
+			worldPos.z += box.maxHeight + s.containerPipWorldOffset.z;
+			ICoord2D sp;
+			if (!onScreen(view, worldPos, sp))
+			{
+				continue;
+			}
+			// Screen position (RW 0x677AF0..0x677B12):
+			// startX = healthBox.x0 (q.x0)
+			// startY = screenPos.y + int(box.radius * ContainerPipScreenOffset.y)
+			float curX = q.x0;
+			float curY = (float)(sp.y + (int)(box.radius * s.containerPipScreenOffset.y));
+			const float pipW = (float)pipImg->getImageWidth();
+			const float pipH = (float)pipImg->getImageHeight();
+			const float frameW = (float)frameImg->getImageWidth();
+			const float frameH = (float)frameImg->getImageHeight();
+			const float stride = pipW + 1.0f; // RW 0x677B6B: lea edi, [ebx + 1] where ebx is pipWidth
+
+			const Player *owner = obj.getControllingPlayer();
+			const std::uint32_t playerColor = owner ? owner->getPlayerColor() : 0xFFFFFFFFu;
+			const std::uint32_t emptyColor = 0xFF7F7F7Fu; // RW 0x677B25
+
+			for (int i = 0; i < totalPips; ++i)
+			{
+				// Pip fill (RW 0x677B6E..0x677BBE)
+				IconUIOp pipOp;
+				pipOp.kind = IconUIOp::IMAGE;
+				pipOp.object = obj.getID();
+				pipOp.image = "ContainPip";
+				pipOp.x = curX;
+				pipOp.y = curY;
+				pipOp.w = pipW;
+				pipOp.h = pipH;
+				pipOp.color = (i < filledPips) ? playerColor : emptyColor;
+				out.push_back(pipOp);
+
+				// Pip frame (RW 0x677BC4..0x677BF4)
+				IconUIOp frameOp;
+				frameOp.kind = IconUIOp::IMAGE;
+				frameOp.object = obj.getID();
+				frameOp.image = "ContainPipFrame";
+				frameOp.x = curX;
+				frameOp.y = curY;
+				frameOp.w = frameW;
+				frameOp.h = frameH;
+				frameOp.color = 0xFFFFFFFFu;
+				out.push_back(frameOp);
+
+				curX += stride;
+			}
+		}
+	}
 	// list 2: the veterancy marks
 	for (const Queued &q : queued)
 	{
@@ -821,9 +921,10 @@ std::vector<std::string> DrawableIconUI::acceptanceStops()
 {
 	return {
 		"[S-1950] the drawable decorations (HUD-5): the health bar (unit, structure and construction looks RW 0x6723C3 / 0x6721CC / 0x671FD5), the construction text, "
-		"the veterancy marks (a horde's on its banner carrier or first member, RW 0x67939F) and the group number (list 3, RW 0x673F6D / BFME2 0x00273C47, "
-		"TheDrawGroupInfo parsed from data/ini/drawgroupinfo.ini) run as RW 0x679129 / 0x676346 / 0x677CF9 / 0x6780DF / 0x673F6D, with the stealth tests "
-		"(RW 0x4853EB, 0x6763DA); not ported: the wall upgrade's \"upgrade active\" test, the caption, lists 1, 5",
+		"the container occupant pips (list 1, RW 0x677994 / 0x866411), the veterancy marks (a horde's on its banner carrier or first member, RW 0x67939F) and "
+		"the group number (list 3, RW 0x673F6D / BFME2 0x00273C47, TheDrawGroupInfo parsed from data/ini/drawgroupinfo.ini) run as "
+		"RW 0x679129 / 0x676346 / 0x677CF9 / 0x677994 / 0x6780DF / 0x673F6D, with the stealth tests (RW 0x4853EB, 0x6763DA); "
+		"not ported: the wall upgrade's \"upgrade active\" test, the caption, list 5",
 		"[S-1951] the drawable decorations' inference: the in-game UI's drawable caption font of the construction text (InGameUI + 0x7A0 / + 0x7A4), the icon toggle "
 		"(TheGameLogic + 0x9A) and the script letterbox (TheScriptEngine + 0x1A238) of the queue, the queue's fog / shroud test (RW 0x68D8F7 <= 2) read from the presented snapshot (one client frame behind the live logic the icons read), the "
 		"horde anchor's H+0x170 set taken as HordeContainCore's registered members (the members on their way into a garrison are kept apart)",

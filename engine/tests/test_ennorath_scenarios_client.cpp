@@ -18,6 +18,10 @@
 #include "Common/SpecialPower.h"
 #include "GameClient/Drawable.h"
 #include "GameClient/DrawableManager.h"
+#include "GameClient/CameraSettings.h"
+#include "GameClient/DrawableIconUI.h"
+#include "GameClient/GUI/Image.h"
+#include "GameLogic/Module/BehaviorModule.h"
 
 #include <chrono>
 #include <iostream>
@@ -542,5 +546,90 @@ TEST_CASE("LOCAL-3: Ennorath TintDrawable FXList drives drawable custom tint env
 
 		CHECK(d->evaluateRenderTint(0u, renderTint) == true);
 		CHECK(renderTint.red == tintColor->red);
+	}
+}
+
+TEST_CASE("ENNORATH scenario LOCAL-4: Container occupant pips show for Ennorath siege engines and transports in both editions (TOP20 #17)")
+{
+	World world;
+	if (!world.load("Ennorath scenario LOCAL-4 container occupant pips"))
+	{
+		return;
+	}
+
+	MappedImageCollection images;
+	INIEnvironment imageEnv;
+	imageEnv.fileSystem = world.merged.fs.get();
+	images.registerBlocks(imageEnv.blocks);
+	INI ini(imageEnv);
+	ini.loadDirectory("Data\\INI\\MappedImages", true, INI_LOAD_OVERWRITE);
+
+	for (GameEdition edition : { GameEdition::RotWK201, GameEdition::BFME2_106 })
+	{
+		CAPTURE(gameEditionName(edition));
+		hudtest::Rig game(world.shared);
+		game.logic().setEdition(edition);
+		game.game->shroud().revealMapForPlayerPermanently(game.index());
+
+		std::string createErr;
+		// 1. IsengardBatteringRam: ShowPips = No in INI -> getContainerPipCounts returns false
+		Object *ram = game.game->createObject("IsengardBatteringRam", game.index(), Coord3D{ 500.0f, 500.0f, 0.0f }, 0.0f, &createErr);
+		REQUIRE_MESSAGE(ram != nullptr, createErr);
+
+		ContainModuleInterface *ramContain = ram->getContain();
+		REQUIRE(ramContain != nullptr);
+		int ramMax = 0, ramFilled = 0, ramHero = 0;
+		CHECK(ramContain->getContainerPipCounts(ramMax, ramFilled, ramHero) == false);
+
+		// 2. EvilMenTransportShip: ShowPips = Yes in INI, Slots = 2 -> getContainerPipCounts returns true
+		Object *ship = game.game->createObject("EvilMenTransportShip", game.index(), Coord3D{ 600.0f, 600.0f, 0.0f }, 0.0f, &createErr);
+		REQUIRE_MESSAGE(ship != nullptr, createErr);
+		game.game->advance(0.2);
+
+		ContainModuleInterface *contain = ship->getContain();
+		REQUIRE(contain != nullptr);
+		int maxPips = 0, filledPips = 0, heroCount = 0;
+		CHECK(contain->getContainerPipCounts(maxPips, filledPips, heroCount) == true);
+		// In Ennorath mod data, transport ship has 5 slots (Vanilla has 2)
+		CHECK(maxPips == 5);
+
+		// Look at the ship so it is on screen
+		const Coord3D &p = *ship->getPosition();
+		game.view.set(Coord3D{ p.x, p.y - 300.0f, p.z + 400.0f }, p);
+
+		// Test DrawableIconUI queueing
+		DrawableIconUI iconUI;
+		IconUISettings s;
+		s.showObjectHealth = true;
+		s.images = &images;
+		s.zoom = 1.0f;
+
+		// Unselected: 0 pips
+		std::vector<IconUIOp> ops;
+		iconUI.build(game.game->logic(), game.game->drawables(), game.view, s, {}, 0, ops);
+		size_t pipOps = 0;
+		for (const auto &op : ops)
+		{
+			if (op.object == ship->getID() && (op.image == "ContainPip" || op.image == "ContainPipFrame"))
+			{
+				++pipOps;
+			}
+		}
+		CHECK(pipOps == 0);
+
+		// Selected: queues ContainPip and ContainPipFrame ops for the slots (RW 0x677994)
+		ops.clear();
+		iconUI.build(game.game->logic(), game.game->drawables(), game.view, s, { ship->getID() }, 0, ops);
+		size_t containPipCount = 0, frameCount = 0;
+		for (const auto &op : ops)
+		{
+			if (op.object == ship->getID())
+			{
+				if (op.image == "ContainPip") ++containPipCount;
+				if (op.image == "ContainPipFrame") ++frameCount;
+			}
+		}
+		CHECK(containPipCount == 5); // 5 empty pips (0xFF7F7F7F)
+		CHECK(frameCount == 5);      // 5 slot frames
 	}
 }

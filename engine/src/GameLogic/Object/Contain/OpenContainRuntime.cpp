@@ -450,6 +450,34 @@ int OpenContain::getContainMax() const
 	return openData().m_containMax; // RW 0x86584C: data + 0x70
 }
 
+bool OpenContain::getContainerPipCounts(int &outContainMax, int &outOccupantCount, int &outHeroCount) const
+{
+	// RW 0x866411 OpenContain::getPipCounts (contain vtable slot 0x150, table RW 0xC59AF0)
+	// RW 0x86642E: checks m_open->m_showPips (data + 0x80)
+	if (!m_open || !m_open->m_showPips)
+	{
+		outContainMax = 0;
+		outOccupantCount = 0;
+		outHeroCount = 0;
+		return false;
+	}
+	// RW 0x866439: call vslot 0x70 (containMax / slots)
+	outContainMax = getContainMax();
+	// RW 0x866446: call vslot 0x114 (occupant count) + RW 0x866452: call vslot 0xCC (crew count)
+	outOccupantCount = (int)m_contained.size() + getCrewCount();
+	// RW 0x86646B..0x866491: count contained items with KindOf HERO
+	static const int heroKind = CombatNames::kindOf("HERO");
+	outHeroCount = 0;
+	for (const Object *obj : m_contained)
+	{
+		if (obj && obj->isKindOf((unsigned)heroKind))
+		{
+			outHeroCount++;
+		}
+	}
+	return true;
+}
+
 std::string OpenContain::riderBone(ObjectID id) const
 {
 	auto it = m_riderBoneName.find(id);

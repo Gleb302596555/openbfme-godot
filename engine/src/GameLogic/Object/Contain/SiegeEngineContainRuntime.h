@@ -49,6 +49,7 @@ public:
 	bool moodScanWhileContained() const override; // RW 0x87EDA9 (contain vslot 0xB8): CrewAllowedToFire
 	void removeAllContained() override;
 	const ContainModuleInterface::ContainedItemsList *crewList() const override { return &m_crew; }
+	int getCrewCount() const override { return m_crewCount; } // RW 0x86B050 (contain slot 0xCC)
 	bool isSpecificRiderFreeToExit(const Object &rider) const override;
 	void createPayload() override;
 

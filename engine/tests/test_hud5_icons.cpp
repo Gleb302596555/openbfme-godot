@@ -762,3 +762,192 @@ TEST_CASE("hud5 icons: DrawGroupInfo engine INI parser and error handling (Rule 
 	CHECK_FALSE(DrawGroupInfo::parse("DrawGroupInfo\n UnknownKey = 123\nEnd\n", dgiUnknown, &errUnknown));
 	CHECK_FALSE(errUnknown.empty());
 }
+
+TEST_CASE("LOCAL-4: GameData.ini reads ContainerPipWorldOffset, ContainerPipScreenOffset, ContainerPipScaleFactor (RW 0xBFFA40 / 0xBFFA60 / 0xBFFA20)")
+{
+	CameraSettings cs;
+	std::string err;
+	const char *iniText = R"(GameData
+  DefaultCameraMinHeight = 120.0
+  DefaultCameraMaxHeight = 300.0
+  DefaultCameraPitchAngle = 37.5
+  DefaultCameraYawAngle = 0.0
+  DefaultCameraScrollSpeedScalar = 1.0
+  CameraLockHeightDelta = 150.0
+  CameraTerrainSampleRadiusForHeight = 1.0
+  UseCameraInReplay = No
+  CameraAdjustSpeed = 0.3
+  ScrollAmountCutoff = 50.0
+  EnforceMaxCameraHeight = No
+  HorizontalScrollSpeedFactor = 0.4
+  VerticalScrollSpeedFactor = 0.5
+  ScreenEdgeScrollSpeedFactor = 1.0
+  ScreenEdgeScrollRampTime = 0.25
+  KeyboardScrollSpeedFactor = 1.0
+  KeyboardCameraRotateSpeed = 0.1
+  PartitionCellSize = 40.0
+  ContainerPipWorldOffset = X:1.0 Y:2.0 Z:12.0
+  ContainerPipScreenOffset = X:1.5 Y:0.5
+  ContainerPipScaleFactor = 2.0
+End
+)";
+	REQUIRE_MESSAGE(CameraSettings::scan(iniText, cs, &err), err);
+	CHECK(cs.containerPipWorldOffset.x == 1.0f);
+	CHECK(cs.containerPipWorldOffset.y == 2.0f);
+	CHECK(cs.containerPipWorldOffset.z == 12.0f);
+	CHECK(cs.containerPipScreenOffset.x == 1.5f);
+	CHECK(cs.containerPipScreenOffset.y == 0.5f);
+	CHECK(cs.containerPipScaleFactor == 2.0f);
+}
+
+TEST_CASE("LOCAL-4: contain slot 0x150 returns pip counts for siege engine, garrison and transports, gated by ShowPips (RW 0x866411)")
+{
+	if (!haveWorld("local4 contain pips logic"))
+	{
+		return;
+	}
+	IconRig r(shared());
+	// 1. IsengardBatteringRam (SiegeEngineContain, ShowPips = No in INI)
+	Object *ram = r.place("IsengardBatteringRam", r.rig.local, 600.0f, 600.0f);
+	ContainModuleInterface *ramContain = ram->getContain();
+	REQUIRE(ramContain != nullptr);
+	int maxPips = 0, filled = 0, heroes = 0;
+	// ShowPips = No in INI: returns false
+	CHECK(ramContain->getContainerPipCounts(maxPips, filled, heroes) == false);
+	CHECK(maxPips == 0);
+	CHECK(filled == 0);
+
+	// 2. EvilMenTransportShip (HordeTransportContain, ShowPips = Yes in INI, Slots = 2)
+	Object *ship = r.place("EvilMenTransportShip", r.rig.local, 550.0f, 600.0f);
+	ContainModuleInterface *shipContain = ship->getContain();
+	REQUIRE(shipContain != nullptr);
+	maxPips = 0; filled = 0; heroes = 0;
+	CHECK(shipContain->getContainerPipCounts(maxPips, filled, heroes) == true);
+	CHECK(maxPips == 2);
+	CHECK(filled == 0);
+
+	// 3. GondorCastleKeep (GarrisonContain, default ShowPips = true, ContainMax = 10)
+	Object *keep = r.place("GondorCastleKeep", r.rig.local, 650.0f, 600.0f);
+	ContainModuleInterface *keepContain = keep->getContain();
+	REQUIRE(keepContain != nullptr);
+	maxPips = 0; filled = 0; heroes = 0;
+	CHECK(keepContain->getContainerPipCounts(maxPips, filled, heroes) == true);
+	CHECK(maxPips == 10);
+	CHECK(filled == 0);
+
+	// Put a unit inside keep
+	Object *soldier = r.place("GondorFighter", r.rig.local, 650.0f, 600.0f);
+	keepContain->addToContain(soldier);
+	maxPips = 0; filled = 0; heroes = 0;
+	CHECK(keepContain->getContainerPipCounts(maxPips, filled, heroes) == true);
+	CHECK(filled == 1);
+	CHECK(heroes == 0);
+
+	// Put a hero inside keep
+	Object *boromir = r.place("GondorBoromir", r.rig.local, 650.0f, 600.0f);
+	keepContain->addToContain(boromir);
+	maxPips = 0; filled = 0; heroes = 0;
+	CHECK(keepContain->getContainerPipCounts(maxPips, filled, heroes) == true);
+	CHECK(filled == 2);
+	CHECK(heroes == 1);
+
+	// 4. HordeContain (ShowPips = No)
+	Object *horde = r.place("GondorFighterHorde", r.rig.local, 700.0f, 600.0f);
+	ContainModuleInterface *hordeContain = horde->getContain();
+	if (hordeContain)
+	{
+		maxPips = 0; filled = 0; heroes = 0;
+		// Horde in RotWK has ShowPips = No
+		CHECK(hordeContain->getContainerPipCounts(maxPips, filled, heroes) == false);
+		CHECK(maxPips == 0);
+		CHECK(filled == 0);
+	}
+}
+
+TEST_CASE("LOCAL-4: DrawableIconUI queues ContainPip and ContainPipFrame ops when selected or hovered (RW 0x677994)")
+{
+	if (!haveWorld("local4 contain pips ui"))
+	{
+		return;
+	}
+	IconRig r(shared());
+	// EvilMenTransportShip has ShowPips = Yes and Slots = 2
+	Object *ship = r.place("EvilMenTransportShip", r.rig.local, 600.0f, 600.0f);
+	r.rig.game->advance(0.2);
+	r.look(*ship);
+
+	// 1. Not selected, not hovered: no pip ops queued
+	std::vector<IconUIOp> ops = IconRig::of(r.build({}, 0), ship->getID());
+	size_t pipOpsCount = 0;
+	for (const auto &op : ops)
+	{
+		if (op.image == "ContainPip" || op.image == "ContainPipFrame")
+		{
+			++pipOpsCount;
+		}
+	}
+	CHECK(pipOpsCount == 0);
+
+	// 2. Selected by local player: ContainPipFrame ops are queued (2 slots)
+	ops = IconRig::of(r.build({ ship->getID() }, 0), ship->getID());
+	std::vector<IconUIOp> pips, frames;
+	for (const auto &op : ops)
+	{
+		if (op.image == "ContainPip")
+		{
+			pips.push_back(op);
+		}
+		else if (op.image == "ContainPipFrame")
+		{
+			frames.push_back(op);
+		}
+	}
+	// Empty ship: 2 empty pips (0xFF7F7F7F), 2 frames (0xFFFFFFFF) (RW 0x677994)
+	CHECK(pips.size() == 2);
+	CHECK(frames.size() == 2);
+	for (size_t i = 0; i < pips.size(); ++i)
+	{
+		CHECK(pips[i].color == 0xFF7F7F7Fu);
+	}
+	for (size_t i = 0; i < frames.size(); ++i)
+	{
+		CHECK(frames[i].w == 18.0f);
+		CHECK(frames[i].h == 18.0f);
+		CHECK(frames[i].color == 0xFFFFFFFFu);
+		if (i > 0)
+		{
+			// 19.0f horizontal stride
+			CHECK(frames[i].x - frames[i - 1].x == 19.0f);
+		}
+	}
+
+	// 3. Hovered by local player (not selected): also queued
+	ops = IconRig::of(r.build({}, ship->getID()), ship->getID());
+	size_t hoverFrames = 0;
+	for (const auto &op : ops)
+	{
+		if (op.image == "ContainPipFrame")
+		{
+			++hoverFrames;
+		}
+	}
+	CHECK(hoverFrames == frames.size());
+
+	// 4. Enemy container: no pips queued (RW 0x6779F6..0x677A25)
+	Player *enemy = r.rig.game->players().findPlayerWithName("Player_2");
+	if (enemy)
+	{
+		Object *enemyShip = r.place("EvilMenTransportShip", enemy, 620.0f, 600.0f);
+		r.rig.game->advance(0.2);
+		std::vector<IconUIOp> enemyOps = IconRig::of(r.build({ enemyShip->getID() }, 0), enemyShip->getID());
+		size_t enemyPips = 0;
+		for (const auto &op : enemyOps)
+		{
+			if (op.image == "ContainPip" || op.image == "ContainPipFrame")
+			{
+				++enemyPips;
+			}
+		}
+		CHECK(enemyPips == 0);
+	}
+}

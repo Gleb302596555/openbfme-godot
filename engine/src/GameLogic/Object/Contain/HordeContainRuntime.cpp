@@ -524,6 +524,30 @@ int HordeContain::getSlotCapacity() const
 	return m_data->horde.m_transport.m_slotCapacity;
 }
 
+bool HordeContain::getContainerPipCounts(int &outContainMax, int &outOccupantCount, int &outHeroCount) const
+{
+	// RW 0x866411 in HordeContain contain table RW 0xC5B480
+	if (!m_data || !m_data->horde.m_transport.m_open.m_showPips)
+	{
+		outContainMax = 0;
+		outOccupantCount = 0;
+		outHeroCount = 0;
+		return false;
+	}
+	outContainMax = getSlotCapacity();
+	outOccupantCount = (int)m_members.size();
+	static const int heroKind = CombatNames::kindOf("HERO");
+	outHeroCount = 0;
+	for (const Object *obj : m_members)
+	{
+		if (obj && obj->isKindOf((unsigned)heroKind))
+		{
+			outHeroCount++;
+		}
+	}
+	return true;
+}
+
 namespace
 {
 // body slot 0x14 (RW 0x8C1D75): health / max health in the FPU (PC24), 0 without a positive max health

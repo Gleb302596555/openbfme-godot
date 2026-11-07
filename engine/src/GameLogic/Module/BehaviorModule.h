@@ -200,6 +200,17 @@ public:
 	// TOP20 rampage: slot 0xF8, called by AIRampageState::update (RW 0x7518AF) once TimeToEjectPassengersOnRampage ran out: `ret` (RW 0x63F3BF) in every
 	// contain table of 2.01 but HordeTransportContain's two (RW 0xC5C370 / 0xC5DA10: RW 0x87A321, the riders start to fall off)
 	virtual void startRidersFalling() {}
+	// slot 0x150 (OpenContain RW 0x866411 in contain table RW 0xC59AF0; asked by Drawable::drawContainerPips RW 0x677994):
+	// returns false if !m_showPips (RW 0x86642E) or on Slaughter/Citadel/ProductionQueue contains (RW 0x883613).
+	// When true: outContainMax = slot 0x70 (contain max / slot capacity), outOccupantCount = slot 0x114 + slot 0xCC (occupants + crew),
+	// outHeroCount = count of contained items with KindOf HERO.
+	virtual bool getContainerPipCounts(int &outContainMax, int &outOccupantCount, int &outHeroCount) const
+	{
+		(void)outContainMax;
+		(void)outOccupantCount;
+		(void)outHeroCount;
+		return false;
+	}
 };
 
 // ZH CreateModuleInterface: onCreate runs for every create module, in list order, after the object's constructor (spec 5.3 step 3;

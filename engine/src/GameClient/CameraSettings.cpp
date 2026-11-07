@@ -207,6 +207,9 @@ FieldParse kFields[] = {
 	{ "UseSimpleMergeDecals", parseUseSimpleMergeDecals, nullptr, 0 },             // RW + 0x9A7
 	{ "OpacityOfSimpleMergeDecals", parseOpacityOfSimpleMergeDecals, nullptr, 0 }, // RW + 0x9A8
 	{ "VeterancyPipDrawObjectFilter", parseVeterancyPipFilter, nullptr, 0 },
+	{ "ContainerPipWorldOffset", INI::parseCoord3D, nullptr, CS_OFF(containerPipWorldOffset) },   // RW + 0xE8 (row RW 0xBFFA40)
+	{ "ContainerPipScreenOffset", INI::parseCoord2D, nullptr, CS_OFF(containerPipScreenOffset) }, // RW + 0xFC (row RW 0xBFFA60)
+	{ "ContainerPipScaleFactor", INI::parseReal, nullptr, CS_OFF(containerPipScaleFactor) },       // RW + 0x108 (row RW 0xBFFA20)
 	{ "ShakeSubtleIntensity", parseShake, (const void *)0, 0 },      // RW + 0xB74 (row RW 0xC00610)
 	{ "ShakeNormalIntensity", parseShake, (const void *)1, 0 },      // RW + 0xB78
 	{ "ShakeStrongIntensity", parseShake, (const void *)2, 0 },      // RW + 0xB7C
