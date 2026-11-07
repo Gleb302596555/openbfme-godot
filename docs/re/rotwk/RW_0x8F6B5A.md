@@ -28,9 +28,9 @@ unported.
   if the caller's flag or this byte is nonzero, otherwise the base constructor.
   In the port `Player::setPlayerType` stores only type and the caller's flag,
   and `ForceSkirmishAI` is not parsed. A reconstruction from `isSkirmishAI()`
-  alone misses the byte's branch. Parsing that additional row conflicts with
-  the issue's one-line-only limit on `GameLogicSettings.cpp`; this needs a
-  scope decision or a separately owned prerequisite, not a hard-coded value.
+  alone misses the byte's branch. The owner has since allowed the additional
+  parsing change; it is still a prerequisite, not yet implemented here. It
+  must not be replaced by a hard-coded value.
 
 ## SAFE: selection and scan
 
@@ -55,6 +55,9 @@ unported.
   computes the midpoint of the resulting bounds. RW 0x8F6511 walks the
   enemy's team prototypes and teams and bounds STRUCTURE member positions;
   its initial bounds are zero (RW 0x8F6517–0x8F655D, 0x8F6585–0x8F660A).
+  The existing `AITacticalAI.cpp` helper walks the world and filters by
+  controlling player instead; those are different traversal criteria, so its
+  equivalence for this call is not established.
 * RW 0x8F6BD2–0x8F6C73 walks the world object list and rejects candidates
   unless their template has STRUCTURE and SUPPLY_SOURCE, their
   `SupplyWarehouseDockUpdate` exists, its +0x88 multiplied by GlobalData
@@ -62,8 +65,9 @@ unported.
   team returns nonzero. The module constructor RW 0x8AB4C0–0x8AB4F1 sets
   +0x88 from the module data's StartingBoxes; RW 0x8AB64E–0x8AB675 can set
   it again from a value divided by GlobalData +0xA5C. The port exposes
-  `boxesStored()` and `valuePerSupplyBox`; signed multiplication/overflow
-  and subsequent source updates still need checking.
+  `boxesStored()` and `valuePerSupplyBox`; RW 0x8F6C57 uses the low 32 bits
+  of `imul`, and RW 0x8F6C5A–0x8F6C5D compares them as signed integers.
+  Subsequent source updates still need checking.
 * RW 0x8F6C97–0x8F6D36 queries within the candidate's bounding-circle radius
   plus the 200.0 constant at 0xBE4170. The query uses distance type 1 and a
   chain whose vtables 0xBD88B0, 0xC10E38 and 0xC10E2C resolve to RW
@@ -119,17 +123,25 @@ unported.
   has not been proved. RW 0x8C403F–0x8C4044 clears output floats +0x70 and
   +0x74 but does not clear +0x78 at those instructions; on the recording
   branch the copy includes it. This is not by itself proof of a reachable
-  true byte. InactiveBody in the port can set it, but whether its record is
-  exposed to this caller is not established. ActiveBody is explicitly out of
+  true byte. InactiveBody is not evidence that the scan sees a true record:
+  create RW 0x651113 calls constructor RW 0x8C1A06, which installs body table
+  0xC718C8 at RW 0x8C1A38; its slot +0x40 (0xC71908) is RW 0x851E97,
+  which returns null, although its damage slot RW 0x8C1A75 can set the input
+  output byte. SymbioticStructuresBody's body table 0xC72200 instead has
+  slot +0x40 RW 0x8C4FD7 and +0x44 RW 0x8C5100, which forward to the
+  resolved symbiote's body or return null / -1 when it is absent. The port's
+  `SymbioticStructuresBody` inherits ActiveBody's last-record accessor rather
+  than forwarding it; this is a second body-interface dependency, not proof
+  that the byte is always false. ActiveBody and these body modules are out of
   scope for #72; do not silently treat the missing field as false or modify
-  that module.
+  those modules.
 
 ## Outstanding before code
 
-Resolve the two +0x2FC AI variants and their lifetime in the port, the
-`ForceSkirmishAI` parsing restriction, exact x87 behavior, record-byte
-possibilities across body implementations, and a design for the condition
-cache and player AI timer/ID with hash and xfer. Confirm all relevant callers
-and tests before claiming parity. Existing manager AI state is not proof of
-the separate player AI's presence or behavior. No PORT-16 test or behavioral
-change is claimed by this note.
+Resolve the two +0x2FC AI variants and their lifetime in the port, implement
+and use the now-authorized `ForceSkirmishAI` parser, confirm exact x87
+behavior and record-byte possibilities across body implementations, and design
+the condition cache and player AI timer/ID with hash and xfer. Confirm all
+relevant callers and tests before claiming parity. Existing manager AI state
+is not proof of the separate player AI's presence or behavior. No PORT-16
+test or behavioral change is claimed by this note.
