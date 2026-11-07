@@ -116,6 +116,25 @@ void ProductionPrerequisite::parseBlock(INI *ini, std::vector<ProductionPrerequi
 	ini->initFromINI(&state, kPrerequisiteFields);
 }
 
+void ProductionPrerequisite::resolveBuildFacilities(ThingFactory &factory) const
+{
+	// RW 0x8F9965 resolves each unit name via TheThingFactory->findTemplate (RW 0x6D1305); RW 0x8F9A1A (getAllPossibleBuildFacilityTemplates,
+	// called from ThingTemplate::resolveNames RW 0x73D566) collects up to 32 resolved templates starting at index 0 while orWithPrevious
+	// (entry + 4 bit 0, RW 0x8F9A40) holds, and RW 0x73D579 sets template + 0x5F6 = 1 on each non-null template
+	const int count = std::min<int>((int)m_units.size(), 32);
+	for (int i = 0; i < count; ++i)
+	{
+		if (i > 0 && !m_units[(size_t)i].orWithPrevious)
+		{
+			break;
+		}
+		if (ThingTemplate *u = const_cast<ThingTemplate *>(factory.findTemplate(m_units[(size_t)i].name)))
+		{
+			u->friend_setIsBuildFacility(true);
+		}
+	}
+}
+
 const ThingTemplate *ProductionPrerequisite::resolveUnit(const std::string &name, const GameLogic &logic) const
 {
 	const ThingTemplate *unit = logic.things().findTemplate(name);

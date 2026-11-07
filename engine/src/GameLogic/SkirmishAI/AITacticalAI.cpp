@@ -3440,13 +3440,13 @@ bool hasAnyLiveObject(GameLogic &logic, const Player &player)
 	return false;
 }
 
-// RW 0x7A1129 (Team::hasAnyObjectOfClass): a member whose template ThingClass (RW + 0x5F6) is not 0. INFERENCE: the port has no ThingClass parser, so
-// every object is taken as classified and any object of the player answers yes (a mod with classless objects differs)
-bool hasAnyClassified(GameLogic &logic, const Player &player)
+// RW 0x6ABE2C -> 0x7A1B02 -> 0x7A1129 (Player / Team::hasAnyBuildFacility): a member whose template (Object + 4, RW 0x7A113E) has
+// m_isBuildFacility (ThingTemplate + 0x5F6, RW 0x7A1141) != 0 (set by ThingTemplate::resolveNames RW 0x73D4EE .. 0x73D5AD, not ThingClass + 0x606)
+bool hasAnyBuildFacility(GameLogic &logic, const Player &player)
 {
 	for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
 	{
-		if (o->getControllingPlayer() == &player)
+		if (o->getControllingPlayer() == &player && o->getTemplate() && o->getTemplate()->isBuildFacility())
 		{
 			return true;
 		}
@@ -3484,7 +3484,7 @@ void baseBounds(GameLogic &logic, const Player &player, Coord3D &min, Coord3D &m
 }
 
 // RW 0x8F457D (AIPlayer::acquireEnemy): the enemy player is the nearest candidate base whose player is an ENEMY with live objects, is not PlyrCreeps,
-// has units and classified objects (else it counts as unreachable), adjusted by the other AIs' current enemies: +250000 for each AI that already targets it,
+// has units and build facilities (else it counts as unreachable), adjusted by the other AIs' current enemies: +250000 for each AI that already targets it,
 // -625 for each AI that targets this AI's player (never below 0). Ties keep the earlier player index
 void acquireEnemy(GameLogic &logic, AISkirmishPlayer &ai)
 {
@@ -3498,7 +3498,7 @@ void acquireEnemy(GameLogic &logic, AISkirmishPlayer &ai)
 		return;
 	}
 	const Player *current = ai.enemyIndex >= 0 ? logic.players().getNthPlayer(ai.enemyIndex) : nullptr;
-	if (current && hasAnyUnits(logic, *current) && hasAnyClassified(logic, *current))
+	if (current && hasAnyUnits(logic, *current) && hasAnyBuildFacility(logic, *current))
 	{
 		return; // RW 0x8F45A8 .. 0x8F45C0: the cached enemy is still valid (RW 0x6ABD44 -> 0x7A07D8, RW 0x6ABE2C -> 0x7A1129)
 	}
@@ -3515,7 +3515,7 @@ void acquireEnemy(GameLogic &logic, AISkirmishPlayer &ai)
 		{
 			continue;
 		}
-		const bool reachable = hasAnyUnits(logic, *candidate) && hasAnyClassified(logic, *candidate);
+		const bool reachable = hasAnyUnits(logic, *candidate) && hasAnyBuildFacility(logic, *candidate);
 		Coord3D min{}, max{};
 		baseBounds(logic, *candidate, min, max);
 		const float cx = SimMath::addf32(SimMath::mulf32(SimMath::subf32(max.x, min.x), 0.5f), min.x);

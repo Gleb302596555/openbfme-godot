@@ -79,6 +79,28 @@ enum ModuleParseMode
 	MODULEPARSE_INHERITABLE = 2
 };
 
+// RW 0xDA3DB0 (row RW 0xDA4128, INI::parseByteSizedIndexList RW 0x42E976 -> ThingTemplate + 0x606; constructor default 0 at RW 0x73FFB6;
+// getter RW 0x912714; formatted by AssetUsage RW 0x912BDA)
+enum class ThingClassType : std::uint8_t
+{
+	UNSPECIFIED = 0,
+	HORDE_UNIT = 1,
+	CHARACTER_UNIT = 2,
+	CAVALRY_UNIT = 3,
+	MEDIUM_MONSTER = 4,
+	LARGE_MONSTER = 5,
+	PROP = 6,
+	CIV_BUILDING = 7,
+	WALL_PIECE = 8,
+	FACTION_BUILDING = 9,
+	LANDMARK_BUILDING = 10,
+	GROUND_COVER = 11,
+	BUSH = 12,
+	TREE = 13,
+	MACHINE = 14,
+	BUFF = 15,
+};
+
 // WEAPON-1: the typed WeaponSet / ArmorSet blocks (GameLogic/WeaponSet.h, ArmorSet.h). Forward declared: those headers pull in the bit
 // flag registries, which must not reach every translation unit that includes the template.
 class WeaponTemplateSet;
@@ -253,16 +275,25 @@ public:
 	const FlammabilityData &flammability() const { return m_flammability; }
 	void setFlammability(const FlammabilityData &f) { m_flammability = f; }
 	ModuleParseMode moduleParsingMode() const { return m_moduleParsingMode; }
+	// RW 0x912714: ThingTemplate + 0x606 (parsed by INI::parseByteSizedIndexList RW 0x42E976 against RW 0xDA3DB0; default 0 UNSPECIFIED at RW 0x73FFB6)
+	ThingClassType thingClass() const;
+	// RW 0x79FACC: ThingTemplate + 0x5F6 (m_isBuildFacility, default 0 at RW 0x74009B, copied at RW 0x6D2523, set by ThingTemplate::resolveNames
+	// RW 0x73D4EE .. 0x73D5AD when any template's Prerequisites Object chain names this template via RW 0x8F9A1A or when this template has KindOf
+	// COMMANDCENTER bit 17 at RW 0x73D59F; read by Team::hasAnyBuildFacility RW 0x7A1140)
+	bool isBuildFacility() const;
+	void friend_setIsBuildFacility(bool v) { m_isBuildFacility = v; }
 
 private:
 	friend class ThingFactory;
 
+	ThingFactory *m_factory = nullptr;
 	std::string m_nameString;
 	unsigned short m_templateID = 0;
 
 	// Overridable
 	ThingTemplate *m_nextOverride = nullptr;
 	bool m_isOverride = false;
+	bool m_isBuildFacility = false; ///< RW +0x5F6
 
 	ModuleInfo m_behavior;
 	ModuleInfo m_draw;

@@ -13,6 +13,7 @@ class GameLogic;
 class GameTextSource;
 class INI;
 class Player;
+class ThingFactory;
 class ThingTemplate;
 class UpgradeTemplate;
 
@@ -28,6 +29,10 @@ public:
 
 	static ProductionPrerequisite parse(INI *ini, RowKind kind);
 	static void parseBlock(INI *ini, std::vector<ProductionPrerequisite> &out);
+
+	// RW 0x8F9965 (resolveNames) + RW 0x8F9A1A (getAllPossibleBuildFacilityTemplates, called from ThingTemplate::resolveNames RW 0x73D566 .. 0x73D583):
+	// marks up to 32 templates in the Object chain (index 0, then while orWithPrevious holds) with ThingTemplate + 0x5F6 = 1
+	void resolveBuildFacilities(ThingFactory &factory) const;
 
 	bool isSatisfied(const Player *player, const GameLogic &logic) const;
 	std::u16string getRequiresList(const Player *player, const GameLogic &logic, const GameTextSource *text) const;

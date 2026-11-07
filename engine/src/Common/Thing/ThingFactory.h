@@ -77,6 +77,8 @@ public:
 	Object *newObject(GameLogic &logic, const ThingTemplate *tt, Team *team, const ObjectStatusMaskType &status, ObjectID id = INVALID_ID);
 	// ZH ThingFactory::reset: deletes override chains and the templates created only for a map
 	void reset();
+	// RW 0x6D0289 (ThingFactory::postProcessLoad) -> RW 0x73D4EE (ThingTemplate::resolveNames): populates ThingTemplate + 0x5F6 (m_isBuildFacility)
+	void resolveBuildFacilities();
 
 	// Bookkeeping that retail does not keep: every Object / ChildObject / ObjectReskin block parsed, in order
 	// (the retail golden counts templates by header kind and reports errors by file and line).
@@ -144,4 +146,5 @@ private:
 	std::vector<FieldParse> m_audioRows;
 	std::map<std::string, size_t> m_rawFieldCounts;
 	std::vector<DefinitionRecord> m_definitions;
+	bool m_buildFacilitiesResolved = false;
 };

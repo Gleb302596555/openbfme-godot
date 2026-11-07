@@ -170,11 +170,13 @@ void ThingTemplate::copyFrom(const ThingTemplate *that)
 	// copy both from `that`).
 	const std::string name = m_nameString;
 	const unsigned short id = m_templateID;
+	ThingFactory *factory = m_factory;
 	ThingTemplate *nextOverride = m_nextOverride;
 	const bool isOverride = m_isOverride;
 	*this = *that;
 	m_nameString = name;
 	m_templateID = id;
+	m_factory = factory;
 	m_nextOverride = nextOverride;
 	m_isOverride = isOverride;
 }
@@ -541,4 +543,27 @@ std::vector<std::string> ThingTemplate::fieldNames() const
 		}
 	}
 	return out;
+}
+
+ThingClassType ThingTemplate::thingClass() const
+{
+	// RW 0x912714: mov al, [ecx + 0x606]; ret (constructor RW 0x73FFB6 initializes +0x606 to 0 = UNSPECIFIED)
+	if (const FieldValue *v = getFinalOverride()->findField("ThingClass"))
+	{
+		if (const long long *n = std::get_if<long long>(v))
+		{
+			return static_cast<ThingClassType>(static_cast<std::uint8_t>(*n));
+		}
+	}
+	return ThingClassType::UNSPECIFIED;
+}
+
+bool ThingTemplate::isBuildFacility() const
+{
+	// RW 0x79FACC: mov al, [ecx + 0x5F6]; ret (populated by ThingFactory::postProcessLoad RW 0x6D0289 -> ThingTemplate::resolveNames RW 0x73D4EE)
+	if (m_factory && !m_factory->m_buildFacilitiesResolved)
+	{
+		m_factory->resolveBuildFacilities();
+	}
+	return m_isBuildFacility;
 }

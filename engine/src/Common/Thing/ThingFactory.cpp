@@ -3,6 +3,7 @@
 
 #include "Common/Thing/ThingFactory.h"
 #include "Common/AsciiString.h"
+#include "Common/Thing/KindOfTokens.h"
 
 #include "GameLogic/ThingCombatSets.h"
 
@@ -217,6 +218,7 @@ ThingTemplate *ThingFactory::newTemplate(const std::string &name)
 	auto owned = std::make_unique<ThingTemplate>();
 	ThingTemplate *tt = owned.get();
 	m_arena.push_back(std::move(owned));
+	tt->m_factory = this;
 	tt->m_fieldNames = &m_slotNames;
 	tt->m_bfme1 = m_bfme1; // community PR #36
 	tt->m_fieldIndex = &m_slotIndex;
@@ -240,10 +242,15 @@ ThingTemplate *ThingFactory::newOverride(ThingTemplate *thingTemplate)
 	// ZH ThingFactory.cpp:169-196; spec 4.8
 	// RW 0x6D2733: new template, member-wise copy of the FINAL override (RW 0x6D1D80, which leaves the new
 	// template's own override fields untouched), setCopiedFromDefault, markAsOverride, link behind the final one
+	if (!m_buildFacilitiesResolved)
+	{
+		resolveBuildFacilities();
+	}
 	ThingTemplate *child = thingTemplate->friend_getFinalOverride();
 	auto owned = std::make_unique<ThingTemplate>();
 	ThingTemplate *tt = owned.get();
 	m_arena.push_back(std::move(owned));
+	tt->m_factory = this;
 	tt->m_fieldNames = &m_slotNames;
 	tt->m_bfme1 = m_bfme1; // community PR #36
 	tt->m_fieldIndex = &m_slotIndex;
@@ -283,6 +290,46 @@ void ThingFactory::reset()
 		}
 	}
 	m_arena = std::move(arena);
+}
+
+void ThingFactory::resolveBuildFacilities()
+{
+	// RW 0x6D0289 (ThingFactory::postProcessLoad) -> RW 0x73D4EE (ThingTemplate::resolveNames):
+	//   1) for each ProductionPrerequisite at +0x324, resolve unit names (RW 0x8F9965) and mark every template returned by
+	//      getAllPossibleBuildFacilityTemplates (RW 0x8F9A1A, up to 32) with +0x5F6 = 1 (RW 0x73D579);
+	//   2) if the template's KindOf (+0x108) has bit 17 (COMMANDCENTER in TheKindOfNames RW 0xDA0E68: test byte ptr [esi + 0x10A], 2 at
+	//      RW 0x73D59F), set +0x5F6 = 1 (RW 0x73D5A8).
+	m_buildFacilitiesResolved = true;
+	for (ThingTemplate *tt : m_list)
+	{
+		tt->friend_setIsBuildFacility(false);
+	}
+	const int commandCenterBit = KindOfTokens::indexOf("COMMANDCENTER");
+	for (ThingTemplate *tt : m_list)
+	{
+		for (const ProductionPrerequisite &prereq : tt->productionPrerequisites())
+		{
+			prereq.resolveBuildFacilities(*this);
+		}
+		if (commandCenterBit >= 0)
+		{
+			std::array<std::uint32_t, 7> mask{};
+			std::string error;
+			KindOfTokens::parseTemplate(*tt, mask, error);
+			if ((mask[(size_t)commandCenterBit >> 5] & (1u << (commandCenterBit & 31))) != 0)
+			{
+				tt->friend_setIsBuildFacility(true);
+			}
+		}
+	}
+	for (ThingTemplate *tt : m_list)
+	{
+		const bool facility = tt->m_isBuildFacility;
+		for (ThingTemplate *ov = tt->friend_getNextOverride(); ov; ov = ov->friend_getNextOverride())
+		{
+			ov->friend_setIsBuildFacility(facility);
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -357,6 +404,10 @@ void ThingFactory::parseObjectDefinition(INI *ini, const std::string &name, cons
 		ini->initFromINIMulti(tt, p);
 	}
 	// RW 0x6D2A7B validate (0x73CE7E): not ported, stop S-077
+	if (ini->getLoadType() != INI_LOAD_CREATE_OVERRIDES)
+	{
+		m_buildFacilitiesResolved = false;
+	}
 	m_definitions[definitionIndex].endModuleData = m_modules.moduleDataCount();
 }
 
