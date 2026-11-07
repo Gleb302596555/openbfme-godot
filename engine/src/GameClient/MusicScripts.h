@@ -123,7 +123,7 @@ private:
 	std::map<std::string, bool> m_flags;
 	std::map<std::string, ObjectID> m_named;
 	std::vector<Track> m_stack;
-	// lane AUDIO-4 (U20): the music's own copy of ScriptEngine + 0x1A3A8 (PLAYER_ACQUIRED_SCIENCE consumes from it): replayed from the players'
+	// lane AUDIO-4 (U20): the music's own copy of ScriptEngine + 0x1A4A8 (PLAYER_ACQUIRED_SCIENCE consumes from it): replayed from the players'
 	// notices, never the logic engine's queues (the music is client side and must not change them)
 	std::array<AcquiredScienceQueue, 20> m_acquiredSciences;
 	std::string m_lastTrack;

@@ -124,7 +124,7 @@ public:
 	unsigned long long droppedScienceNotifications() const { return m_droppedNotifications; }
 
 	// lane AUDIO-4 (QA-1 U20): what the player tells the script engine about its sciences, in call order. TARGET FACTS: addScience (RW 0x6AE186)
-	// calls ScriptEngine::notifyOfAcquiredScience (RW 0x759A4E: push_back on the engine's vector for the player index, + 0x1A3A8 + 0xC * index);
+	// calls ScriptEngine::notifyOfAcquiredScience (RW 0x759A4E: push_back on the engine's vector for the player index, + 0x1A4A8 + 0xC * index);
 	// resetSciences (RW 0x6AED4B) first reports every owned science as removed (RW 0x6AD142 -> RW 0x75950A: the first equal entry of that vector
 	// is erased) and, after rebuilding the list (whose addScience calls notify too), notifies every science of the new list once more (RW 0x6AEDBF
 	// loop). The log keeps those calls so each reader (the logic ScriptEngine, the client's music scripts) replays them into its own queue
@@ -181,7 +181,7 @@ private:
 	std::vector<std::pair<unsigned, unsigned>> m_sharedReadyFrames;    // Player + 0x724
 };
 
-// Lane AUDIO-4 (QA-1 U20): one player's queue of ScriptEngine + 0x1A3A8 + 0xC * index (20 vectors, cleared by ScriptEngine::reset: donor Open-BFME-2
+// Lane AUDIO-4 (QA-1 U20): one player's queue of ScriptEngine + 0x1A4A8 + 0xC * index (20 vectors, cleared by ScriptEngine::reset: donor Open-BFME-2
 // ScriptEngine::reset 0x00209ABE). It is filled by replaying the player's script notices (PlayerScience::scriptNotices) in order before each read, which
 // gives the queue retail's eager pushes and erases would have given at that moment: notices only come from the logic, reads only from conditions.
 class AcquiredScienceQueue

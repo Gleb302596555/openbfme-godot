@@ -261,7 +261,7 @@ public:
 
 	// ---- the acquired sciences (lane AUDIO-4, QA-1 U20) -------------------------------------------------------------------------------------------
 	// RW 0x759646 (this, the player index, the science, consume = 1 from PLAYER_ACQUIRED_SCIENCE RW 0x7E4FE0): the player's queue (ScriptEngine +
-	// 0x1A3A8 + 0xC * index, filled by RW 0x759A4E, see PlayerScience::ScriptNotice) holds the science: true, the entry erased. Index outside 0 .. 19: false
+	// 0x1A4A8 + 0xC * index, filled by RW 0x759A4E, see PlayerScience::ScriptNotice) holds the science: true, the entry erased. Index outside 0 .. 19: false
 	bool didPlayerAcquireScience(const Player &p, ScienceType st, bool consume);
 
 	// ---- seconds -> frames (RW 0x60911C) -----------------------------------------------------------------------------------------------------
@@ -518,7 +518,7 @@ private:
 	std::vector<EndRequest> m_endRequests;
 	bool m_updatingSequential = false; ///< updateSequentialScripts is running: removals empty slots instead of erasing them (not state)
 	std::vector<std::vector<SequentialScript>> m_sequential; ///< lane SCRIPT-2: RW + 0x10 (a chain per slot; an empty chain is retail's null slot)
-	std::array<AcquiredScienceQueue, 20> m_acquiredSciences; ///< lane AUDIO-4: + 0x1A3A8, one per player index (RW 0x759646 bound 0x14)
+	std::array<AcquiredScienceQueue, 20> m_acquiredSciences; ///< lane AUDIO-4: + 0x1A4A8, one per player index (RW 0x759646 bound 0x14)
 	std::vector<AudioTimer> m_audioTimers;                  ///< lane SCRIPT-3: RW + 0x1A35C
 	std::array<std::vector<TriggeredSpecialPower>, kSpecialPowerListPlayers> m_triggeredSpecialPowers; ///< lane BACKLOG4: RW + 0x1A368
 	std::array<std::vector<TriggeredSpecialPower>, kSpecialPowerListPlayers> m_completedUpgrades;      ///< lane MODCOMPAT-AI: RW + 0x1A458
