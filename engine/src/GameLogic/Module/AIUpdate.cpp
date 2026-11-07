@@ -1733,16 +1733,24 @@ PathfindObjectID AIUpdateInterface::enterTargetOf(const PathfindObject &o) const
 {
 	Object *obj = getObject()->logic().findObjectByID((ObjectID)o.getID());
 	const AIUpdateInterface *ai = obj ? obj->getAIUpdateInterface() : nullptr;
-	const AIStateMachine *m = ai ? ai->stateMachineOrNull() : nullptr;
+	const Object *target = ai ? ai->enterTarget() : nullptr;
+	return target ? (PathfindObjectID)target->getID() : PATHFIND_INVALID_ID;
+}
+
+const Object *AIUpdateInterface::enterTarget() const
+{
+	// RW 0x664D16 the state type (RW 0x662D70), RW 0x664D20 the machine's goal object (RW 0x8DBACE); RW 0x664D29 .. 0x664D45 the entering states;
+	// RW 0x664D47 .. 0x664D56: any other state counts only as 0x38 with a SHIP goal (template + 0x11F bit 0x80)
+	const AIStateMachine *m = stateMachineOrNull();
 	const Object *goal = m ? m->goalObject() : nullptr;
 	if (goal == nullptr)
 	{
-		return PATHFIND_INVALID_ID;
+		return nullptr;
 	}
 	static const int kShip = ObjectTemplateInfoBuilder::kindOfIndex("SHIP");
-	const unsigned t = ai->aiStateType();
+	const unsigned t = aiStateType();
 	const bool entering = t == 15 || t == 0x31 || t == 0x18 || t == 0x2B || t == 0x19 || t == 52 || (t == 56 && hasKind(*goal, kShip));
-	return entering ? (PathfindObjectID)goal->getID() : PATHFIND_INVALID_ID;
+	return entering ? goal : nullptr;
 }
 
 bool AIUpdateInterface::crushOrSquishPolicy(const PathfindObject &other) const

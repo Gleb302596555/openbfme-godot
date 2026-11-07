@@ -54,7 +54,7 @@ public:
 	void onCollide(Object *other, const Coord3D *loc, const Coord3D *normal) override; // RW 0x8659D8
 	bool wouldLikeToCollideWith(const Object &other) const override { (void)other; return false; } // RW 0x7FEAC1
 	// RW 0x867C40 (module vslot 0x4C, INFERENCE on C++ name): the entering units collision reveals and evacuates enemy STEALTH_GARRISON riders
-	bool tryToEvacuate(Object *entering); // virtual so a derived class could override (none does, but the vtable keeps slot 0x4C)
+	bool tryToEvacuate(Object *entering); // RW keeps it in module vslot 0x4C; no RotWK contain class replaces it, so it is not virtual here
 	Object *passengerToHit(const Coord3D &pos) const override; // slot 0xF4 RW 0x8663B6 (TOP20 S-321)
 	// RW 0x990D14: the member nearest to `pos` (2D, strictly nearer than FLT_MAX) of the hordes in `contained` whose drawable is not hidden (RW 0x67055A)
 	static Object *nearestShownHordeMember(const ContainedItemsList &contained, const Coord3D &pos);

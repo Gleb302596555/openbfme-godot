@@ -64,7 +64,7 @@ void setStatusMask(Object &obj, const ObjectStatusMaskType &mask, bool on)
 
 } // namespace
 
-// RW 0x867C40 OpenContain::tryToEvacuate(Object *entering) — module vslot 0x4C (INFERENCE on C++ name)
+// RW 0x867C40 OpenContain::tryToEvacuate(Object *entering): module vslot 0x4C (the C++ name is INFERENCE)
 // Copies m_contained (RW 0x867C58..0x867C65) and walks each rider (esi) to reveal and evacuate enemy STEALTH_GARRISON occupants.
 // Every subclass keeps RW 0x867C40 in main vtable slot +0x4C (OpenContain 0xC599D8, TransportContain 0xC5A588, HordeTransportContain 0xC5C240,
 // SiegeEngineContain 0xC5D520, HordeSiegeEngineContain 0xC5D8C0, GarrisonContain 0xC5C570, etc.).
@@ -123,89 +123,46 @@ bool OpenContain::tryToEvacuate(Object *entering)
 	return true; // RW 0x867D0F
 }
 
-// RW 0x8659D8 OpenContain::onCollide(Object *other, const Coord3D *loc, const Coord3D *normal) — CollideModuleInterface slot +0x00, vtable RW 0xC5D650
-// Installed in OpenContain (RW 0x867FC1), TransportContain (RW 0x86B6CF), HordeTransportContain (RW 0x87A2CF), SiegeEngineContain (RW 0x87F525),
-// HordeSiegeEngineContain (RW 0x88051C), GarrisonContain (RW 0x87B1FA), HordeGarrisonContain (RW 0x87D30F), TunnelContain (RW 0x880EBB), etc.
-// HordeContain (RW 0x872800) overwrites it with RW 0xC5D250 (no-op RW 0x46E918), so a HordeContain never runs this.
+// RW 0x8659D8 OpenContain::onCollide(other, loc, normal): CollideModuleInterface slot + 0x00, vtable RW 0xC5D650 (module + 0x24). Installed by OpenContain
+// (RW 0x867FC1), TransportContain (RW 0x86B6CF), HordeTransportContain (RW 0x87A2CF), SiegeEngineContain (RW 0x87F525), HordeSiegeEngineContain (RW 0x88051C),
+// GarrisonContain (RW 0x87B1FA), HordeGarrisonContain (RW 0x87D30F), TunnelContain (RW 0x880EBB); HordeContain (RW 0x872800) installs RW 0xC5D250 instead
+// (the empty RW 0x46E918), so a HordeContain never runs this.
 void OpenContain::onCollide(Object *other, const Coord3D *, const Coord3D *)
 {
-	// RW 0x8659D8: push ebx; mov ebx, [esp+8] (other); push esi; mov esi, ecx (this = module + 0x24)
-	// DEBUG
-	// RW 0x8659E0: test ebx, ebx; je 0x865A4F — Gate 1: !other -> return
-	if (!other) // RW 0x8659E0..0x8659E2
+	if (!other) // RW 0x8659DD .. 0x8659E2
 	{
-			return; // RW 0x865A4F
+		return;
 	}
-	// RW 0x8659E5: mov edi, [esi-0x1C] — edi = getObject() (container Object*, module + 0x08)
-	Object *container = getObject(); // RW 0x8659E5
-	// RW 0x8659EB: test byte ptr [eax+0x11F], 0x80 — KindOf SHIP (template + 0x11F bit 0x80, KindOf bit 191)
-	static const int kShip = CombatNames::kindOf("SHIP"); // RW 0x8659EB: TheKindOfNames[191] = "SHIP", template + 0x11F & 0x80
-	// RW 0x8659F2: jne 0x865A4E — Gate 2: container is SHIP -> return (ships use shore-spot boarding)
-	if (container->isKindOf((unsigned)kShip)) // RW 0x8659EB..0x8659F2
+	Object *container = getObject(); // RW 0x8659E5: module + 0x08
+	static const int kShip = CombatNames::kindOf("SHIP");
+	if (container->isKindOf((unsigned)kShip)) // RW 0x8659EB: template + 0x11F bit 0x80
 	{
-			return; // RW 0x865A4E
+		return;
 	}
-	// RW 0x8659F4: mov ecx, [ebx+0x260] — ecx = other->getAIUpdateInterface() (Object + 0x260)
-	AIUpdateInterface *otherAI = other->getAIUpdateInterface(); // RW 0x8659F4
-	// RW 0x8659FC: je 0x865A4E — Gate 3a: other has no AI -> return
-	if (!otherAI) // RW 0x8659FA..0x8659FC
+	const AIUpdateInterface *otherAI = other->getAIUpdateInterface(); // RW 0x8659F4: Object + 0x260
+	if (!otherAI || otherAI->enterTarget() != container) // RW 0x8659FA .. 0x865A08: AI vslot 0x1FC (RW 0x664D12) must name this container
 	{
-			return; // RW 0x865A4E
+		return;
 	}
-	// RW 0x865A00: call [eax+0x1FC] — AI vslot 0x1FC = RW 0x664D12 (enterTargetOf)
-	// RW 0x664D12 checks the machine's currentStateID and goalObject:
-	//   if (state == 15 AI_ENTER || 0x31 || 0x18 AI_DOCK || 0x2B || 0x19 || 0x34 AI_HORDE_ENTER) return goalObject;
-	//   if (state == 0x38 AI_MOVE_TO_POSITION_AND_ENTER && goal is SHIP) return goal;
-	//   else return nullptr;
-	// The port's AIUpdateInterface::enterTargetOf is the same logic (AIUpdate.cpp:1732).
-	// We replicate it here without needing a PathfindObject wrapper, using the port's stateMachine.
+	if (!tryToEvacuate(other)) // RW 0x865A0A .. 0x865A15: module vslot 0x4C (RW 0x867C40)
 	{
-		const AIStateMachine *m = otherAI->stateMachineOrNull(); // RW 0x664D15: [ai+0x30]
-		const Object *goal = m ? m->goalObject() : nullptr; // RW 0x664D3E / 0x664D63: [ecx+0x1C]
-		if (!goal) // RW 0x664D39..0x664D45: no goal -> return nullptr
-		{
-					return; // RW 0x865A4E via 0x865A06
-		}
-		const unsigned t = otherAI->aiStateType(); // RW 0x664D18: [ecx+0x0C] currentStateID (RW 0x662D70)
-		const bool entering = t == 15 || t == 0x31 || t == 0x18 || t == 0x2B || t == 0x19 || t == 52 || t == 56; // RW 0x664D1B..0x664D45 (for SHIP the check is goal->isKindOf(SHIP), but the port's AIMoveToPositionAndEnterState (56) must also count for non-SHIP transports — otherwise a unit ordered via aiEnter would not be picked up on the contact frame; lane SHIP-1 keeps the container Gate 2 SHIP block)
-		Object *enterTarget = entering ? const_cast<Object *>(goal) : nullptr; // RW 0x664D63
-		// RW 0x865A06: cmp eax, edi; jne 0x865A4E — Gate 3b: other's enter target != container -> return
-		if (enterTarget != container) // RW 0x865A06..0x865A08
-		{
-					return; // RW 0x865A4E
-		}
-		}
-	// RW 0x865A0A..0x865A11: mov eax, [esi-0x24]; push ebx; lea ecx, [esi-0x24]; call [eax+0x4C] — module vslot 0x4C = RW 0x867C40 (tryToEvacuate)
-	// RW 0x865A14: test al, al; je 0x865A4E — Gate 4: tryToEvacuate returned false -> return (RW 0x867C40 always returns 1, but the slot is virtual)
-	if (!tryToEvacuate(other)) // RW 0x865A0A..0x865A16
-	{
-			return; // RW 0x865A4E
+		return;
 	}
-	// RW 0x865A18..0x865A23: mov eax, [esi-4]; push 0 (checkPath false); push 1 (checkCapacity true); push ebx (other); lea ecx, [esi-4]; call [eax+0x98] — contain vslot 0x98 = isValidContainerFor
-	// RW 0x865A29: test al, al; je 0x865A4E — Gate 5: !isValidContainerFor(other, true, false) -> return
-	if (!isValidContainerFor(*other, true, false)) // RW 0x865A18..0x865A2B
+	if (!isValidContainerFor(*other, true, false)) // RW 0x865A17 .. 0x865A2B: contain vslot 0x98 (other, 1, 0)
 	{
-			return; // RW 0x865A4E
+		return;
 	}
-	// RW 0x865A2D: cmp [ebx+0x27C], edi — other->getContainedBy() (Object + 0x27C, RW 0x865A2D)
-	// RW 0x865A33: je 0x865A4E — Gate 6: already in this container -> return
-	if (other->getContainedBy() == container) // RW 0x865A2D..0x865A33
+	if (other->getContainedBy() == container) // RW 0x865A2D .. 0x865A33: Object + 0x27C
 	{
-			return; // RW 0x865A4E
+		return;
 	}
-	// RW 0x865A35: mov eax, [esi-0x20] — eax = m_moduleData (OpenContainModuleData*, module + 0x04)
-	// RW 0x865A38: cmp byte ptr [eax+0x81], 0 — m_collidePickup (+0x81, RW 0x865A3B, default 1 at RW 0x867ECF)
-	// RW 0x865A3F: je 0x865A4E — Gate 7 (No): CollidePickup == 0 -> return without adding
-	if (!m_open->m_collidePickup) // RW 0x865A38..0x865A3F
+	if (!m_open->m_collidePickup) // RW 0x865A38 .. 0x865A3F: module data + 0x81 (default 1, RW 0x867ECF)
 	{
-			return; // RW 0x865A4E
+		return;
 	}
-	// RW 0x865A41..0x865A48: mov eax, [esi-4]; push ebx; lea ecx, [esi-4]; call [eax+0x9C] — Gate 7 (Yes): contain vslot 0x9C = addToContain(other)
-	addToContain(other); // RW 0x865A48: contain vslot 0x9C
-	// RW 0x865A4E..0x865A51: pop edi; pop esi; pop ebx; ret 0xC
+	addToContain(other); // RW 0x865A41 .. 0x865A48: contain vslot 0x9C
 }
 
-// RW 0x68C5AF Object::getSingleLogicalBonePosition} // namespace
 
 // RW 0x68C5AF Object::getSingleLogicalBonePosition through the launch bone provider, then RW 0x70BCE7 (the object's transform, retail's SSE order); false
 // without a provider or without exactly one such bone (the caller keeps the object's own position)
