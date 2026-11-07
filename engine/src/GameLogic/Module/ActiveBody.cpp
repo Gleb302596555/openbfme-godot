@@ -346,7 +346,7 @@ public:
 		}
 		return v;
 	}
-	float armorMaxBonus() override { return 0.75f; } // GlobalData AttributeModifierArmorMaxBonus (RW +0xAE8, retail 75%): the table is GameData's, not loaded (S-322)
+	float armorMaxBonus() override { return m_logic.settings().attributeModifierArmorMaxBonus; } // GlobalData AttributeModifierArmorMaxBonus (RW +0xAE8, row RW 0xC00490, AdjustDamage RW 0x5D8B02..0x5D8B3D)
 
 private:
 	GameLogic &m_logic;
