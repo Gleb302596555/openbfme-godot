@@ -638,3 +638,57 @@ TEST_CASE("PORT-5: charge speed affects movement and clears after the issued mov
  CHECK_FALSE(boost->testModelCondition(0x84));
  CHECK(boost->getAIUpdateInterface()->locomotor()->getMaxSpeedForCondition(boost->getAIUpdateInterface()->locomotorHost()) == doctest::Approx(6.0)); // tolerance: float32 speed conversion
 }
+
+TEST_CASE("PORT-5: charge distinguishes a dead target from a missing target during preparation")
+{
+ bool missing = false, mustFinish = false;
+ SUBCASE("dead target ends the charge") {}
+ SUBCASE("missing target alone does not end the charge") { missing = true; }
+ SUBCASE("MustFinishAbility prevents cancellation for a dead target") { mustFinish = true; }
+ combattest::CombatWorld w;
+ SpecialPowerStore powers;
+ SpecialPowerStore *old = TheSpecialPowerStore;
+ struct Restore { SpecialPowerStore *p; ~Restore() { TheSpecialPowerStore = p; } } restore{old};
+ TheSpecialPowerStore = &powers;
+ w.w.fx.env.blocks.registerBlock("SpecialPower", [](INI *ini) { SpecialPowerStore::parseSpecialPowerDefinitionGlobal(ini); });
+ std::string fixture(kChargeFixture);
+ const size_t insertion = fixture.find("  ChargeAttackSpeedBoost = Yes");
+ REQUIRE(insertion != std::string::npos);
+ fixture.insert(insertion, std::string("  PreparationTime = 2000\n  MustFinishAbility = ") + (mustFinish ? "Yes\n" : "No\n"));
+ std::string error = w.w.load(fixture, INI_LOAD_OVERWRITE, "port5-target-death.ini");
+ REQUIRE_MESSAGE(error.empty(), error);
+ error = w.w.load(kBirdAndTarget, INI_LOAD_OVERWRITE, "port5-target-death-target.ini");
+ REQUIRE_MESSAGE(error.empty(), error);
+ Object *caster = w.unit("Port5Charger", 'A', 200.0f, 200.0f);
+ Object *target = w.unit("Port5Target", 'B', 300.0f, 200.0f);
+ REQUIRE(caster);
+ REQUIRE(target);
+ SpecialAbilityUpdate *ability = nullptr;
+ for (const auto &module : caster->modules())
+  if (auto *a = dynamic_cast<SpecialAbilityUpdate *>(module.get())) ability = a;
+ REQUIRE(ability);
+ w.combat().setAutoAcquireEnabled(false);
+ w.frames(2);
+ ability->initiateIntentToDoSpecialPower(ability->abilityData()->m_specialPowerTemplate, target, nullptr, 0, 0);
+ ability->update();
+ REQUIRE(ability->prepFrames() == 10); // 2000 ms at 200 ms per frame
+ REQUIRE(caster->getAIUpdateInterface()->isIdle());
+ REQUIRE(ability->abilitiesTriggered() == 0);
+ if (missing)
+ {
+  const ObjectID id = target->getID();
+  w.logic->destroyObject(target);
+  w.logic->processDestroyList();
+  REQUIRE(w.logic->findObjectByID(id) == nullptr);
+ }
+ else
+ {
+  target->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL);
+  REQUIRE(target->isEffectivelyDead());
+ }
+ ability->update(); // RW 0x854F20..0x855011: idle/dead and MustFinishAbility; null is not a dead object
+ CHECK(ability->isActive() == (missing || mustFinish));
+ if (missing || mustFinish) CHECK(ability->prepFrames() == 9);
+ CHECK(ability->abilitiesTriggered() == 0);
+ CHECK_FALSE(caster->testModelCondition(0x84));
+}
