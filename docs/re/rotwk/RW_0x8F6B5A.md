@@ -22,14 +22,25 @@ unported.
   A test for the existence of a manager `AISkirmishPlayer` alone therefore
   does not establish whether this player has the AI queried here. How this
   identity is represented in the port remains to be resolved.
+* The class selection also depends on AIData: field row 0xC1CC80 names
+  `ForceSkirmishAI`, parser RW 0x42E558, offset +0x65; the constructor clears
+  it at RW 0x6FFD49. RW 0x6AA49A–0x6AA4AA selects the derived constructor
+  if the caller's flag or this byte is nonzero, otherwise the base constructor.
+  In the port `Player::setPlayerType` stores only type and the caller's flag,
+  and `ForceSkirmishAI` is not parsed. A reconstruction from `isSkirmishAI()`
+  alone misses the byte's branch. Parsing that additional row conflicts with
+  the issue's one-line-only limit on `GameLogicSettings.cpp`; this needs a
+  scope decision or a separately owned prerequisite, not a hard-coded value.
 
 ## SAFE: selection and scan
 
 * RW 0x7E564F–0x7E566C reuses condition +0x44 when the frame is at most
   +0x48 and the cached value is -1 or 1; otherwise it stores the current
   frame plus `[0xD9F608]` at +0x48 and reevaluates. It stores -1 for false
-  and 1 for true (RW 0x7E56AB / 0x7E56B6). This per-condition simulation
-  state is not present in the port's `ScriptCondition`.
+  and 1 for true (RW 0x7E56AB / 0x7E56B6). The condition constructor clears
+  both fields at RW 0x7B3216–0x7B3219, so the first evaluation is not a cache
+  hit even at frame zero. This per-condition simulation state is not present
+  in the port's `ScriptCondition`.
 * RW 0x8F757A asks RW 0x8F6B5A for a source. No candidate returns true
   (RW 0x8F7581–0x8F7585); a candidate supplies its position and template to
   RW 0x8F5220 (RW 0x8F7587–0x8F7590).
@@ -58,8 +69,14 @@ unported.
   chain whose vtables 0xBD88B0, 0xC10E38 and 0xC10E2C resolve to RW
   0x660DB2, 0x66107F and 0x660EB1 respectively. They test KindOf
   SUPPLY_GATHERING_CENTER, equality of controlling player, and Object
-  +0x458 bit 3 clear. A found object rejects this source. The exact boundary
-  and partition iteration need to be verified before implementation.
+  +0x458 bit 3 clear. A found object rejects this source. Both this query
+  and the safety query below call closest-object RW 0xA39090 → 0xA3BDB0.
+  RW 0xA3C0D2–0xA3C0E6 rejects a distance greater than the current squared
+  bound, not an equal distance. Type 1 is 3D center distance (RW 0xA3A7D0);
+  type 3 uses the other object's 3D bounding sphere and geometry center
+  height (RW 0xA3AEB0–0xA3AF3D). The result also depends on the spatial
+  index and the query's maximum-distance guard (RW 0xA3BF21–0xA3BF2B), so
+  it must not be replaced with a simple unbounded object loop.
 * RW 0x8F6D38–0x8F6DA9 compares squared 2D distance from the AI's +0x38
   position, and when an enemy exists rejects a candidate if
   `0.4 * ownDistanceSquared > 0.6 * enemyBoundsMidpointDistanceSquared`.
@@ -98,16 +115,21 @@ unported.
   0x66365E clears it and copy RW 0x744200–0x744203 copies it. ActiveBody
   uses that copy at RW 0x8C42F1–0x8C42F5. The port's `ActiveBody` stores
   only selected fields of the last damage record, not `m_noEffect`.
-  Whether this byte can be true on every body path that the condition can
-  scan has not been proved. ActiveBody is explicitly out of scope for #72;
-  do not silently treat the missing field as false or modify that module.
+  Whether this byte can be true on any body path that the condition can scan
+  has not been proved. RW 0x8C403F–0x8C4044 clears output floats +0x70 and
+  +0x74 but does not clear +0x78 at those instructions; on the recording
+  branch the copy includes it. This is not by itself proof of a reachable
+  true byte. InactiveBody in the port can set it, but whether its record is
+  exposed to this caller is not established. ActiveBody is explicitly out of
+  scope for #72; do not silently treat the missing field as false or modify
+  that module.
 
 ## Outstanding before code
 
-Resolve the two +0x2FC AI variants and their lifetime in the port, exact
-partition distance boundaries and x87 behavior, record-byte possibilities
-across body implementations, and a design for the condition cache and player
-AI timer/ID with hash and xfer. Confirm all relevant callers and tests before
-claiming parity. Existing manager AI state is not proof of the separate
-player AI's presence or behavior. No PORT-16 test or behavioral change is
-claimed by this note.
+Resolve the two +0x2FC AI variants and their lifetime in the port, the
+`ForceSkirmishAI` parsing restriction, exact x87 behavior, record-byte
+possibilities across body implementations, and a design for the condition
+cache and player AI timer/ID with hash and xfer. Confirm all relevant callers
+and tests before claiming parity. Existing manager AI state is not proof of
+the separate player AI's presence or behavior. No PORT-16 test or behavioral
+change is claimed by this note.
