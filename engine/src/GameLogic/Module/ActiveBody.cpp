@@ -220,6 +220,10 @@ void ActiveBody::crc(StateHasher &h) const
 	{
 		h.addU32((std::uint32_t)m_lastDamageType ^ 0xFA40u); // lane FX-4: hashed only when a hit set it (a game without hits keeps its hash)
 	}
+	if (m_lastDamageNoEffect)
+	{
+		h.addU32(0xD178u); // PORT-16: the record's +0x78 affects ATTACKED; false leaves the old hash unchanged
+	}
 }
 
 void ActiveBody::evaluateVisualCondition()
@@ -537,19 +541,37 @@ void ActiveBody::attemptDamage(DamageInfo &info)
 		m_currentInfo = &info;
 		internalChangeHealth(SimMath::subf32(0.0f, amount));
 		m_currentInfo = nullptr;
+		scheduleRecovery(); // RW 0x8C425D .. 0x8C4276, before the record selection
 		// (15)
 		info.m_output.m_actualDamageDealt = amount;
 		info.m_output.m_actualDamageClipped = SimMath::subf32(m_previousHealth, m_currentHealth);
-		// (16)
-		scheduleRecovery();
-		m_lastDamageFrame = logic.getFrame();
-		m_lastDamager = info.m_input.m_sourceID;
-		m_lastDamagerPlayerMask = info.m_input.m_sourcePlayerMask; // lane CAMP-1
-		m_lastDamageType = info.m_input.m_damageType;               // lane FX-4: the record's + 0x10 (RW 0x7441E0 copies the whole input)
-		m_lastAttackerTaken = false; // lane PLAY-4: RW 0x8C42FA (+ 0xB6 cleared with the record)
-		// lane CAMP-1, RW 0x8C430F .. 0x8C4341: the last damage record's source object, when it exists, marks its controlling player as an attacker of the
-		// victim's controlling player (RW 0x6AAC05). INFERENCE: retail runs this after the record block whether or not the record changed this hit; here only
-		// when it did
+		// PORT-16, RW 0x8C4294 .. 0x8C42F5: a record from this or the previous frame is retained unless the incoming source exists and either the
+		// previous source is gone or the incoming source is INFANTRY, CAVALRY, or one of RW 0x68DAE6's five significant-building kinds. The subtraction
+		// is unsigned, including frame zero. All parts of the record must be replaced together.
+		const UnsignedInt now = logic.getFrame();
+		bool replaceRecord = m_lastDamageFrame != now && m_lastDamageFrame != now - 1u;
+		if (!replaceRecord)
+		{
+			const Object *previousSource = logic.findObjectByID(m_lastDamager);
+			const Object *incomingSource = logic.findObjectByID(info.m_input.m_sourceID);
+			if (incomingSource)
+			{
+				replaceRecord = !previousSource || incomingSource->isKindOfName("INFANTRY") || incomingSource->isKindOfName("CAVALRY") ||
+				                incomingSource->isKindOfName("FS_POWER") || incomingSource->isKindOfName("FS_FACTORY") ||
+				                incomingSource->isKindOfName("FS_BASE_DEFENSE") || incomingSource->isKindOfName("FS_TECHNOLOGY") ||
+				                incomingSource->isKindOfName("FS_CASH_PRODUCER");
+			}
+		}
+		if (replaceRecord)
+		{
+			m_lastDamageFrame = now;
+			m_lastDamager = info.m_input.m_sourceID;
+			m_lastDamagerPlayerMask = info.m_input.m_sourcePlayerMask;
+			m_lastDamageType = info.m_input.m_damageType;
+			m_lastDamageNoEffect = info.m_output.m_noEffect; // RW 0x744203
+			m_lastAttackerTaken = false; // RW 0x8C42FA
+		}
+		// RW 0x8C430F .. 0x8C4341 reads the saved source even when the current hit did not replace the record.
 		if (const Object *source = logic.findObjectByID(m_lastDamager))
 		{
 			Player *victimPlayer = obj.getControllingPlayer();
@@ -943,7 +965,7 @@ void ActiveBody::attemptHealing(DamageInfo &info)
 // current DamageInfo pointer is null outside a hit (a snapshot is taken between frames); the armour report flag is the report's.
 void ActiveBody::xfer(Xfer &x)
 {
-	XferVersion v{ 1, 2 }; // 2: lane FX-4's last damage type
+	XferVersion v{ 3, 3 }; // PORT-16: older snapshots omitted the last record's noEffect byte and cannot reconstruct it
 	x.xferVersion(v);
 	xferBehaviorModule(x);
 	x.xferReal(&m_currentHealth);
@@ -963,10 +985,8 @@ void ActiveBody::xfer(Xfer &x)
 	SnapshotXfer::enumIn(x, m_curDamageState, BODY_PRISTINE, BODY_RUBBLE, "a body's damage state");
 	SnapshotXfer::enumIn(x, m_lastDamageFXType, 0, SnapshotXfer::nameCount(TheDamageFXTypeNames) - 1, "a body's last damage FX type");
 	x.xferUnsignedInt(&m_damageFXThrottleUntil);
-	if (v.current >= 2)
-	{
-		SnapshotXfer::enumIn(x, m_lastDamageType, 0, SnapshotXfer::nameCount(TheDamageNames) - 1, "a body's last damage type");
-	}
+	SnapshotXfer::enumIn(x, m_lastDamageType, 0, SnapshotXfer::nameCount(TheDamageNames) - 1, "a body's last damage type");
+	x.xferBool(&m_lastDamageNoEffect); // PORT-16: the record byte tested at RW 0x8F5B79
 }
 
 void ImmortalBody::xfer(Xfer &x)

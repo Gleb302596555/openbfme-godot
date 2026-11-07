@@ -1423,7 +1423,13 @@ std::uint32_t GameLogic::hashState(std::vector<StateHashSection> *sections, std:
 		section(name, [this, i](StateHasher &x) { m_hashContributors[i].fn(x); });
 	}
 	section("players and teams", [&](StateHasher &x) { m_players.crc(x); });
-	section("settings", [&](StateHasher &x) { m_settings.crc(x); });
+	section("settings", [&](StateHasher &x) {
+		m_settings.crc(x);
+		if (m_settings.forceSkirmishAI)
+		{
+			x.addU32(0xF5A1u); // PORT-16: AIData +0x65 selects the Player AI class (RW 0x6AA4A7)
+		}
+	});
 	section("economy", [&](StateHasher &x) { m_economy->crc(x); });
 	section("combat", [&](StateHasher &x) { m_combat->crc(x); });
 	section("victory", [&](StateHasher &x) { m_victory->crc(x); });
