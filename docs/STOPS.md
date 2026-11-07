@@ -2,13 +2,12 @@
 
 ## PORT-5 research stop (issue #57)
 
-PORT-5 remains in progress. RW clears `CHARGING` in the common ability helper
-at `0x851BCF`, called at start and finish; the speed predicate at `0x5E3EF7`
-also depends on Object `+0x251`. A partial implementation and synthetic tests
-are in progress; no complete port or PR is claimed until the full verification
-is complete. Existing S-859 and S-860 limitations in the shared ability paths
-remain relevant, as do indirect writes or module replacement effects on
-Object `+0x251`.
+PORT-5 implements the charge trigger, speed predicate, reset and associated AI
+approach, with synthetic coverage. RW clears `CHARGING` in the common ability
+helper `0x851BCF`, called at start and finish; the speed predicate at `0x5E3EF7`
+also depends on Object `+0x251`. Existing S-859 and S-860 limitations in the
+shared ability paths remain relevant, as do indirect writes or module
+replacement effects on Object `+0x251`; the PR does not resolve those stops.
 
 The owner approved cancellation with a diagnostic counter (option B) even
 without a proof of retail reachability. **INFERENCE: reachability is not

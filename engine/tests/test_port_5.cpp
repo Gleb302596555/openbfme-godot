@@ -760,3 +760,51 @@ TEST_CASE("PORT-5: full world snapshot resumes an active charge deterministicall
  CHECK_FALSE(caster->testModelCondition(0x84)); // packing completed on both the saved and uninterrupted timelines
  CHECK(caster->getAIUpdateInterface()->locomotor()->getMaxSpeedForCondition(caster->getAIUpdateInterface()->locomotorHost()) == doctest::Approx(6.0)); // tolerance: float32 speed conversion
 }
+
+TEST_CASE("PORT-5: ChargeAttackSpeedBoost does not activate for ATTRIBUTEMOD_CANCELDISGUISE")
+{
+ bool chargeType = false;
+ SUBCASE("SPECIAL_ATTRIBUTEMOD_CANCELDISGUISE ignores the flag") {}
+ SUBCASE("SPECIAL_CHARGE_ATTACK uses the flag") { chargeType = true; }
+ combattest::CombatWorld w;
+ SpecialPowerStore powers;
+ SpecialPowerStore *old = TheSpecialPowerStore;
+ struct Restore { SpecialPowerStore *p; ~Restore() { TheSpecialPowerStore = p; } } restore{old};
+ TheSpecialPowerStore = &powers;
+ w.w.fx.env.blocks.registerBlock("SpecialPower", [](INI *ini) { SpecialPowerStore::parseSpecialPowerDefinitionGlobal(ini); });
+ std::string fixture(kChargeFixture);
+ if (!chargeType)
+ {
+  const std::string charge = "Enum = SPECIAL_CHARGE_ATTACK";
+  const size_t offset = fixture.find(charge);
+  REQUIRE(offset != std::string::npos);
+  fixture.replace(offset, charge.size(), "Enum = SPECIAL_ATTRIBUTEMOD_CANCELDISGUISE");
+ }
+ const std::string error = w.w.load(fixture, INI_LOAD_OVERWRITE, "port5-enum-gate.ini");
+ REQUIRE_MESSAGE(error.empty(), error);
+ Object *caster = w.unit("Port5Charger", 'A', 200.0f, 200.0f);
+ REQUIRE(caster);
+ w.frames(1);
+ auto *ai = caster->getAIUpdateInterface();
+ REQUIRE(ai);
+ REQUIRE(ai->locomotor());
+ SpecialAbilityUpdate *ability = nullptr;
+ for (const auto &module : caster->modules())
+  if (auto *a = dynamic_cast<SpecialAbilityUpdate *>(module.get())) ability = a;
+ REQUIRE(ability);
+ REQUIRE(ability->abilityData()->m_chargeAttackSpeedBoost);
+ REQUIRE(ability->abilityData()->m_specialPowerTemplate);
+ CHECK(ability->abilityData()->m_specialPowerTemplate->getFinalOverride()->m_type == (chargeType ? 0x2A : 0x85));
+ // RW 0x69A536..0x69A549 asks specifically for the 0x2A ability, not merely the configuration flag.
+ CHECK(caster->hasChargeAttackAbility() == chargeType);
+ CHECK(ai->locomotor()->getMaxSpeedForCondition(ai->locomotorHost()) == doctest::Approx(6.0)); // tolerance: float32 speed conversion
+ ability->initiateIntentToDoSpecialPower(ability->abilityData()->m_specialPowerTemplate, nullptr, nullptr, 0, 0);
+ ability->update();
+ REQUIRE(ability->abilitiesTriggered() == 1);
+ // RW 0x85406B..0x854074 selects the 0x2A branch; 0x85 branches to 0x854981, bypassing the flag reader 0x8547D9.
+ CHECK(caster->testModelCondition(0x84) == chargeType);
+ CHECK(ai->locomotor()->getMaxSpeedForCondition(ai->locomotorHost()) == doctest::Approx(chargeType ? 12.0 : 6.0)); // tolerance: float32 speed conversion
+ ability->finishAbility(false, true);
+ CHECK_FALSE(caster->testModelCondition(0x84));
+ CHECK(ai->locomotor()->getMaxSpeedForCondition(ai->locomotorHost()) == doctest::Approx(6.0)); // tolerance: float32 speed conversion
+}
