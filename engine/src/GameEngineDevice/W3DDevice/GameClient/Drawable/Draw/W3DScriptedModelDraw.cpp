@@ -225,7 +225,10 @@ std::string W3DScriptedModelDraw::resolveLodAndStandardModelNames(const std::str
 	}
 	std::string candidate = baseName;
 
-	// RW 0x4C2576: StaticModelLODMode (+0x135)
+	// RW 0x4C2576: StaticModelLODMode (+0x135); the suffix number is RW 0x4B24C4 (the static LOD GlobalData + 0x1774: m_options.animationLodNumber,
+	// the same number for the horde draw, whose RW 0x47A20C calls this function too). Not ported: SwitchModelLODMode (+0x134, RW 0x4C2587 .. 0x4C25A4:
+	// the number from RW 0x4B2506 with the draw's own + 0xBC) and the template flag + 0x114 & 0x20 that forces the "L" model with a warning
+	// (RW 0x4B24DC, RW 0x4C25EA .. 0x4C27C3); Ennorath sets no SwitchModelLODMode
 	if (m_data.m_staticModelLODMode)
 	{
 		const int detail = modelDetailLod(); // RW 0x4C256C / RW 0x4B24C4: 0 High, 1 Medium, 2 Low

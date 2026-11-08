@@ -395,7 +395,6 @@ protected:
 	int randomStartFrame(int frames) override;
 	// RW 0x4789D6 / RW 0x47A1BE: picks variation if allowMultipleModels, else model 0
 	const std::string &resolveBaseModelName(const ModelConditionInfo *state) const override;
-	int modelDetailLod() const override { return 2 - m_lodLevel; }
 
 private:
 	static int checkedLevel(int lodLevel);

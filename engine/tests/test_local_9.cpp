@@ -190,27 +190,30 @@ TEST_CASE("LOCAL-9 static model LOD mode: StaticModelLODMode appends M and L suf
 	auto *hordeData = dynamic_cast<W3DHordeModelDrawModuleData *>(data);
 	REQUIRE(hordeData != nullptr);
 
-	// HIGH detail (lodLevel 2 -> modelDetailLod 0): no suffix -> TOWER
+	// static LOD number 0 (RW 0x4B24C4: high model detail): no suffix -> TOWER; the horde's dynamic LOD row (RW 0x4789BC) stays HIGH
 	{
 		W3DScriptedModelDraw::Options opt;
 		opt.buildBones = false;
+		opt.animationLodNumber = 0; // the static model LOD (RW 0x4B24C4 via GlobalData + 0x1774)
 		W3DHordeModelDraw draw(*hordeData, 2, drawAssets, random, nullptr, opt);
 		CHECK(draw.frame().modelName == "TOWER");
 	}
 
-	// MEDIUM detail (lodLevel 1 -> modelDetailLod 1): appends 'M' -> TOWERM
+	// static LOD number 1: appends 'M' -> TOWERM
 	{
 		W3DScriptedModelDraw::Options opt;
 		opt.buildBones = false;
-		W3DHordeModelDraw draw(*hordeData, 1, drawAssets, random, nullptr, opt);
+		opt.animationLodNumber = 1; // the static model LOD (RW 0x4B24C4 via GlobalData + 0x1774)
+		W3DHordeModelDraw draw(*hordeData, 2, drawAssets, random, nullptr, opt);
 		CHECK(draw.frame().modelName == "TOWERM");
 	}
 
-	// LOW detail (lodLevel 0 -> modelDetailLod 2): appends 'L' -> TOWERL
+	// static LOD number 2: appends 'L' -> TOWERL
 	{
 		W3DScriptedModelDraw::Options opt;
 		opt.buildBones = false;
-		W3DHordeModelDraw draw(*hordeData, 0, drawAssets, random, nullptr, opt);
+		opt.animationLodNumber = 2; // the static model LOD (RW 0x4B24C4 via GlobalData + 0x1774)
+		W3DHordeModelDraw draw(*hordeData, 2, drawAssets, random, nullptr, opt);
 		CHECK(draw.frame().modelName == "TOWERL");
 	}
 
@@ -233,7 +236,8 @@ TEST_CASE("LOCAL-9 static model LOD mode: StaticModelLODMode appends M and L suf
 	{
 		W3DScriptedModelDraw::Options opt;
 		opt.buildBones = false;
-		W3DHordeModelDraw draw(*gateHordeData, 0, drawAssets, random, nullptr, opt);
+		opt.animationLodNumber = 2; // the static model LOD (RW 0x4B24C4 via GlobalData + 0x1774)
+		W3DHordeModelDraw draw(*gateHordeData, 2, drawAssets, random, nullptr, opt);
 		CHECK(draw.frame().modelName == "GATE");
 	}
 }
