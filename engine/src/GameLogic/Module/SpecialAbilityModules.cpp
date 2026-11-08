@@ -1326,10 +1326,10 @@ bool SpecialAbilityUpdate::continuePreparation()
 					});
 					Object *flag = obj->logic().partition().getClosestObject(
 						*obj->getPosition(), 150.0f, FROM_CENTER_3D, { &flagFilter });
-					if (flag)
+					// RW 0x852C2C: the flag's drawable; none -> no flash (review r2: not the caster's target hooks)
+					if (flag && flag->clientHooks())
 					{
-						ObjectClientHooks *flagClient = flag->clientHooks() ? flag->clientHooks() : client;
-						flagClient->flashAsSelected(*flag, &c);
+						flag->clientHooks()->flashAsSelected(*flag, &c);
 					}
 				}
 
