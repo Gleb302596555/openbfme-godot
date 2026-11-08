@@ -64,6 +64,7 @@ struct ClientEvent
 		FADE_OUT,        ///< lane PORTERFOG-1 (RW 0x670A50): fadeFrames client frames
 		SET_SHADOWS,     ///< TOP20 #24 (RW 0x672D28): shadowsOn
 		SET_OPACITY,     ///< RW 0x8BCD38: the simulation's exact opacity for this frame
+		AUDIBLE,         ///< lane PORT-21 (RW 0x674727 / 0x67896F): the drawable's audible flag, `on` = audible again
 		CUSTOM_COLORS,   ///< lane CAH-2 (RW 0x80AF0B -> 0x6727B0): customKind and customColors, the drawable's house colour set
 		HERO_ATTACKED,   ///< RW 0x67B78C: the local hero-select bar's attacked effect
 		DESELECTED,      ///< TOP20 rampage, RW 0x625759 -> 0x6257E5: the drawable leaves the client's selection (TheInGameUI deselectDrawable)
@@ -111,6 +112,7 @@ struct ClientEvent
 	float opacity = 1.0f;
 	UnsignedInt fadeFrames = 0;
 	bool shadowsOn = true; ///< SET_SHADOWS
+	bool audible = true;   ///< AUDIBLE (lane PORT-21): the drawable's audible flag
 	int flashFrames = 0;
 	int customKind = 0;                             ///< CUSTOM_COLORS (lane CAH-2)
 	std::uint32_t customColors[3] = { 0u, 0u, 0u }; ///< CUSTOM_COLORS: ARGB
@@ -143,6 +145,7 @@ public:
 	void fadeOut(Object &obj, UnsignedInt frames) override;
 	void setShadowsEnabled(Object &obj, bool enabled) override;
 	void setDrawableOpacity(Object &obj, float opacity) override;
+	void setDrawableAudible(Object &obj, bool audible) override; // lane PORT-21
 	void setCustomColors(Object &obj, int kind, std::uint32_t c0, std::uint32_t c1, std::uint32_t c2) override; // lane CAH-2
 	void createAHeroKill(Object &killer, Object &victim) override;
 	void heroAttacked(Object &obj) override;

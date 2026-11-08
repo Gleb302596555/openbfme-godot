@@ -31,6 +31,7 @@
 #include "GameLogic/Module/HeroModules.h"
 #include "GameLogic/Module/MoneyEventModules.h"
 #include "GameLogic/ObjectTemplateInfo.h"
+#include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/AI/AIStateMachine.h"
@@ -249,10 +250,10 @@ void ActiveBody::evaluateVisualCondition()
 //   tier B offsets-only): the object's ExperienceTracker (+ 0x26C) is reset (RW 0x79DA66), the upgrades go when RemoveUpgradesOnDeath
 //   (data + 0x50 -> rva0028DA28), the command points are released (0x68E114 = removeFromPlayerCommandPoints) and the attribute modifier pool's
 //   entries are cleared (rva00298E6A);
-//   leaving it (new < 3, old == 3): the template geometry returns, the footprint is re-entered, NO_COLLISIONS is cleared (RW 0x8C2D87..0x8C2DCC).
+//   leaving it (new < 3, old == 3): the template geometry height returns (RW 0x8C2D87..0x8C2DAE -> 0xAD1920 + 0x68B2CB), the footprint is re-entered, NO_COLLISIONS is cleared (RW 0x8C2DB3..0x8C2DCC).
 // A WALK_ON_TOP_OF_WALL template (KindOf 60, byte 0x10F bit 0x10) runs a "Bookend" variant (BOOKENDING status 0x53, CAN_NOT_WALK_ON 0x4D) that is a wall's (S-342).
-// NOT PORTED (S-342): the geometry height (the geometry is the template's, an Object has none of its own), the upgrade removal, the attribute modifier
-// pool clear and the Damaged / ReallyDamaged attribute modifiers, the damage FX transitions of the tail (RW 0x8C2C64..0x8C2EF1) and the Bookend of walls.
+// NOT PORTED (S-342): the upgrade removal, the attribute modifier pool clear and the Damaged / ReallyDamaged attribute modifiers, the damage FX transitions
+// of the tail (RW 0x8C2C64..0x8C2EF1) and the Bookend variant of walls (RW 0x8C2A8C..0x8C2C63).
 // The model conditions DAMAGED / REALLYDAMAGED / RUBBLE: internalChangeHealth calls the visual update (vslot 0x94, RW 0x8C32A8) after the state changed, not while the
 // object is UNDER_CONSTRUCTION (unless dead). RW 0x8C1D53 -> Object RW 0x6903B6 sets the state's flag and clears the other two.
 void ActiveBody::updateDamageState(bool initial)
@@ -277,10 +278,20 @@ void ActiveBody::updateDamageState(bool initial)
 	{
 		return;
 	}
+	static const int kWalkOnTopOfWall = CombatNames::kindOf("WALK_ON_TOP_OF_WALL");
+	const bool nonWallStructure = !obj.isKindOf((unsigned)kWalkOnTopOfWall);
 	AIWorld *world = obj.logic().aiWorld();
 	const bool mapReady = world && world->mapReady() && !initial;
 	if (now == BODY_RUBBLE && old != BODY_RUBBLE)
 	{
+		if (nonWallStructure)
+		{
+			// Port 34, RW 0x8C2DD4..0x8C2E13: movsx byte [tt + 0x607] (StructureRubbleHeight); > 0 uses it, else GlobalData + 0xAE4 (DefaultStructureRubbleHeight)
+			const ThingTemplate *tt = obj.getTemplate();
+			const std::int8_t tplRubble = tt ? tt->structureRubbleHeight() : 0;
+			const float rubbleHeight = tplRubble > 0 ? static_cast<float>(tplRubble) : obj.logic().settings().defaultStructureRubbleHeight;
+			obj.setGeometryMaxHeight(rubbleHeight);
+		}
 		if (mapReady)
 		{
 			world->removeObjectFromPathfindMap(obj);
@@ -297,6 +308,15 @@ void ActiveBody::updateDamageState(bool initial)
 	}
 	else if (old == BODY_RUBBLE && now != BODY_RUBBLE)
 	{
+		if (nonWallStructure)
+		{
+			// Port 34, RW 0x8C2D87..0x8C2DAE: (&tt->geometryInfo)->getMaxHeightAbovePosition() (RW 0xAD1920 on tt + 0xA0) -> obj->setGeometryMaxHeight (RW 0x68B2CB)
+			if (const ThingTemplate *tt = obj.getTemplate())
+			{
+				const float restoredHeight = ObjectGeometry::maxHeightAbovePosition(ObjectGeometry::cachedShapesOf(*tt->getFinalOverride()));
+				obj.setGeometryMaxHeight(restoredHeight);
+			}
+		}
 		if (mapReady)
 		{
 			world->removeObjectFromPathfindMap(obj);

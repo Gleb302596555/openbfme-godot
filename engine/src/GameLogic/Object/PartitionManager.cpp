@@ -160,7 +160,7 @@ const ThingTemplate *geometrySourceOf(const Object &obj)
 
 bool PartitionManager::entryGeometryCurrent(const Entry &e) const
 {
-	if (!e.object->geometryActive().empty())
+	if (e.object->hasOwnGeometryShapes())
 	{
 		return e.ownValid && e.ownVersion == e.object->geometryVersion();
 	}
@@ -170,9 +170,10 @@ bool PartitionManager::entryGeometryCurrent(const Entry &e) const
 const PartitionManager::Geometry &PartitionManager::entryGeometry(const Entry &e) const
 {
 	const bool current = entryGeometryCurrent(e);
-	if (!e.object->geometryActive().empty())
+	if (e.object->hasOwnGeometryShapes())
 	{
-		// lane MODCOMPAT-MOD1: RW reads the object's own GeometryInfo (Object + 0xB8 / + 0xBC / + 0xC8); a change marks the entry dirty (RW 0x68B244 -> 0xA39570)
+		// lane MODCOMPAT-MOD1 / Port 34: RW reads the object's own GeometryInfo (Object + 0xB8 / + 0xBC / + 0xC8); a flag change marks the entry dirty (RW 0x68B244 -> 0xA39570),
+		// and setGeometryMaxHeight (RW 0x68B2CB -> 0xAD2860) updates those bounds in place
 		if (!current)
 		{
 			PathfindGeometry pg;
@@ -234,9 +235,9 @@ std::uint32_t PartitionManager::cellY(float y) const
 
 const PartitionManager::Geometry &PartitionManager::geometryOf(const Object &obj) const
 {
-	if (!obj.geometryActive().empty())
+	if (obj.hasOwnGeometryShapes())
 	{
-		// lane MODCOMPAT-MOD1: the object's own GeometryInfo (Object::geometryShapes)
+		// lane MODCOMPAT-MOD1 / Port 34: the object's own GeometryInfo (Object::geometryShapes)
 		const ObjectID id = obj.getID();
 		if (id < m_byId.size() && m_byId[id] && m_byId[id]->object == &obj)
 		{
@@ -254,6 +255,15 @@ const PartitionManager::Geometry &PartitionManager::geometryOf(const Object &obj
 		return o.g;
 	}
 	return templateGeometryOf(geometrySourceOf(obj)); // the geometry's source (entryGeometry)
+}
+
+void PartitionManager::refreshOwnGeometry(const Object &obj) const
+{
+	const ObjectID id = obj.getID();
+	if (id < m_byId.size() && m_byId[id] && m_byId[id]->object == &obj)
+	{
+		(void)entryGeometry(*m_byId[id]);
+	}
 }
 
 const PartitionManager::Geometry &PartitionManager::templateGeometryOf(const ThingTemplate *key) const

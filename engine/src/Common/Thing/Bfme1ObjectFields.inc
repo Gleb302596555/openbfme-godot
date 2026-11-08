@@ -156,7 +156,7 @@
 {"SoundPromotedVeteran", S_Raw},
 {"SoundStealthOff", S_Raw},
 {"SoundStealthOn", S_Raw},
-{"StructureRubbleHeight", S_Raw},
+{"StructureRubbleHeight", S_UnsignedByte},
 {"SupplyOverride", S_Int},
 {"SwoopContactPoint", S_Raw},
 {"ThingClass", S_ByteSizedIndexList},

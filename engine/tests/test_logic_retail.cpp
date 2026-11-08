@@ -529,6 +529,31 @@ TEST_CASE("logic retail: live drawables show the same models as MAPOBJ-1's stati
 	CHECK(loop.errors.empty());
 	CHECK(logic.getObjectCount() == staticFullDrawables);
 
+	// Local 9 (RW 0x4C46BE -> RW 0x4B430B): a state with several models shows the one the drawable's variation (drawable + 0x364, the creation draw
+	// RW 0x6288A5) picks. The static runtime has no logic draw: it is rebuilt with each live object's variation, in placement order, before comparing.
+	{
+		size_t i = 0;
+		for (Object *o = logic.getFirstObject(); o && i < sub.drawables.size(); o = o->getNextObject(), ++i)
+		{
+			if (const Drawable *d = drawableOf(o))
+			{
+				sub.drawables[i].variation = d->variation();
+			}
+		}
+		runtime = std::make_unique<MapObjectRuntime>(assets);
+		runtime->build(sub);
+		expectedPristine.assign(sub.drawables.size(), {});
+		staticModels.clear();
+		for (const MapPlacedModel &p : runtime->models())
+		{
+			if (p.kind == W3D_DRAWKIND_MODEL && p.draw && !p.draw->frame().modelName.empty())
+			{
+				staticModels.insert(lowered(p.draw->frame().modelName));
+				expectedPristine[p.drawable].push_back(lowered(p.draw->frame().modelName));
+			}
+		}
+	}
+
 	// every live object has a drawable (the retail objects of this map all have draw modules); the drawable ids count in creation order.
 	// COMBAT-2: a map object placed with a low initial health has the model conditions of its damage state (DAMAGED / REALLYDAMAGED / RUBBLE) and is drawn with its damaged model
 	// (lbhouses_01 -> lbhouses_01_d); MAPOBJ-1's static runtime draws every object pristine. The comparison is exact PER OBJECT: a damaged object must carry exactly the model

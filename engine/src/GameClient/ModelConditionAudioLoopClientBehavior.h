@@ -22,7 +22,8 @@
 //   * the clear (RW 0x8D03F8): with TheAudio and a handle >= 5: removed (TheAudio vslot 0x6C), handle = 1, the held sound dropped (RW 0x4A86CB). A lower handle
 //     keeps the held sound. The destructor runs it (RW 0x8D055C).
 //   * the second interface + 0xC (vtable RW 0xC76080, given by vslot 0x30 RW 0x4C9323): slot 0 (RW 0x8D04D9) the change with the drawable's flags (+ 0x258), slot 1
-//     (RW 0x8D04EB) the clear. These are the audible flag's changes (+ 0x44A: RW 0x674727 / 0x67896F, S-1463: never here), as AnimationSoundClientBehavior's.
+//     (RW 0x8D04EB) the clear. These are the audible flag's changes (+ 0x44A: RW 0x674727 / 0x67896F, lane PORT-21 through Drawable::setAudible),
+//     as AnimationSoundClientBehavior's.
 //   * the third interface + 0x10 (vtable RW 0xC7607C, given by vslots 0x24 / 0x28 RW 0x4CE965): slot 0 (RW 0x8D04CA) the change with the flags it is handed. The
 //     drawable's flush (RW 0x67449C) calls it for every entry of its list + 0x158, after the dependency flags (RW 0x671F84).
 // WHAT IS INFERENCE (OpenBFME, stop S-6024):
@@ -70,8 +71,8 @@ public:
 	~ModelConditionAudioLoopClientBehavior() override;                                                                 // RW 0x8D055C
 
 	void modelConditionFlagsChanged(const ModelConditionFlags &flags); // the third interface's slot 0 (RW 0x8D04CA -> 0x8D0425)
-	void becameAudible();                                              // the second interface's slot 0 (RW 0x8D04D9)
-	void becameInaudible();                                            // its slot 1 (RW 0x8D04EB -> 0x8D03F8)
+	void becameAudible() override;                                     // the second interface's slot 0 (RW 0x8D04D9), asked by Drawable::setAudible
+	void becameInaudible() override;                                   // its slot 1 (RW 0x8D04EB -> 0x8D03F8), asked by Drawable::setInaudible
 
 	// the audio the manager plays on changed (stop S-6024); `audioGone`: the attachment is going and stops its own sounds
 	void audioAttached();

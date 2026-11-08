@@ -61,7 +61,7 @@ int targetSize(const Object &obj)
 }
 }
 void AODCrushCollideModuleData::buildFieldParse(MultiIniFieldParse &p) { p.add(kFields); }
-const char *AODCrushCollide::hordeStop() { return "[S-6007] AODCrushCollide: the containing horde's collision callback RW 0x87E894 / BFME2 0x87B628 is not ported"; }
+const char *AODCrushCollide::hordeStop() { return "[S-6007] AODCrushCollide: the containing horde's collision callback RW 0x87E894 is ported from RotWK; BFME2 0x87B628 parity is not verified"; }
 const char *AODCrushCollide::oclStop() { return "[S-6008] AODCrushCollide: the two-object OCL call RW 0x8C0418 / BFME2 0x8BC2CF is represented by the position form; object-pair context is unverified (S-980)"; }
 AODCrushCollide::AODCrushCollide(Thing *thing, const Data *data) : UpdateModule(thing, data), m_data(data) {}
 
@@ -78,8 +78,12 @@ void AODCrushCollide::onCollide(Object *other, const Coord3D *, const Coord3D *)
 	if (other->getRelationship(*self) == ALLIES) return; // RW 0x8C0268: the candidate's relationship
 	GameLogic &logic = self->logic();
 	Object *horde = self->getContainedBy(); // RW Object +0x27C; BFME2 +0x274
-	if (horde && dynamic_cast<AODHordeContain *>(horde->getContain()) && !other->isEffectivelyDead() && targetSize(*other) == 2)
-		logic.noteStop(hordeStop()); // RW 0x87E894 / BFME2 0x87B628: the large-object tracker
+	if (AODHordeContain *aod = horde ? dynamic_cast<AODHordeContain *>(horde->getContain()) : nullptr)
+	{
+		aod->onLargeObjectCollide(self, other); // RW 0x87E894
+		if (!other->isEffectivelyDead() && targetSize(*other) == 2)
+			logic.noteStop(hordeStop()); // BFME2 0x87B628 parity unverified (S-6007)
+	}
 	if (other->isEffectivelyDead()) return;
 	physics = PhysicsBehavior::find(*other);
 	if (!physics || physics->isStunned()) return;

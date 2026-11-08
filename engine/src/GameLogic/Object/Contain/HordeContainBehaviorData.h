@@ -31,8 +31,8 @@ public:
 };
 
 // AODHordeContain's data: HordeContain's chain, then the table RW 0xC5CE50 (20 rows, FrequencyRandomness and FrequencyRandomnessZ twice as in the binary; offsets RW
-// + 0x284 ..). The defaults are the BFME2 constructor's (decomp AODHordeContain.cpp 0x0047A2E1), the RotWK one (createData RW 0x64B845) is not read. The fields are
-// stored for the member sway and the large unit lift, which are not ported (S-5310).
+// + 0x284 .. + 0x2C8). Defaults verified against both RotWK 2.01 (createData RW 0x64B845 -> 0x87D55F, buildFieldParse RW 0x87D62E) and BFME2 1.06 (0x0047A2E1).
+// Consumed by AODHordeContain (AODHordeContain.cpp: member sway, rank path history, large-unit height lift, and oath-fulfilled scatter).
 class AODHordeContainBehaviorData : public HordeContainBehaviorData
 {
 public:
