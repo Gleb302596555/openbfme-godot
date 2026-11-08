@@ -81,16 +81,22 @@ class W3DDrawAssets
 public:
 	virtual ~W3DDrawAssets() = default;
 	// Create_Render_Obj by (case-insensitive) name. nullptr + *error when it is not registered.
-	virtual const RenderObjPrototype *model(const std::string &modelName, std::string *error) = 0;
+	virtual const RenderObjPrototype *model(const std::string &modelName, std::string *error = nullptr) = 0;
 	// The first resolvable animation of the lookup; *resolvedName the registry name used. nullptr + *error when none exists.
 	virtual const HAnimClass *animation(const W3DAnimationLookup &lookup, std::string *resolvedName, std::string *error) = 0;
+	// RotWK RW 0xA32D80: doesModelExist
+	virtual bool doesModelExist(const std::string &modelName)
+	{
+		std::string err;
+		return model(modelName, &err) != nullptr;
+	}
 };
 
 class WW3DDrawAssets : public W3DDrawAssets
 {
 public:
 	explicit WW3DDrawAssets(WW3DAssetManager &assets) : m_assets(assets) {}
-	const RenderObjPrototype *model(const std::string &modelName, std::string *error) override { return m_assets.Create_Render_Obj(modelName, error); }
+	const RenderObjPrototype *model(const std::string &modelName, std::string *error = nullptr) override { return m_assets.Create_Render_Obj(modelName, error); }
 	const HAnimClass *animation(const W3DAnimationLookup &lookup, std::string *resolvedName, std::string *error) override;
 
 private:

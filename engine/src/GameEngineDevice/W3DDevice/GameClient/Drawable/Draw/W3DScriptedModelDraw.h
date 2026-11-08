@@ -277,6 +277,11 @@ protected:
 	virtual int maxRandomTextures() const { return 0xFF; }
 	// vtable slot 0x10C (RW 0x4B3766: GameClientRandomValue(0, frames - 1); the horde draw scales it, RW 0x478A74)
 	virtual int randomStartFrame(int frames);
+	// RW 0x4C46C4 (W3DScriptedModelDraw::setModelState): selects base model from variation
+	virtual const std::string &resolveBaseModelName(const ModelConditionInfo *state) const;
+	// Detail LOD level for model geometry: 0 HIGH, 1 MEDIUM, 2 LOW (RW 0x4B24C4)
+	virtual int modelDetailLod() const { return m_options.animationLodNumber; }
+	int variation() const { return m_options.variation; }
 
 private:
 	// The script context the Lua bindings read and write (the structure at [ebp-0x44] of RW 0x4BE587).
@@ -290,6 +295,7 @@ private:
 	};
 
 	void applyModelState(const ModelConditionInfo *state);
+	std::string resolveLodAndStandardModelNames(const std::string &baseName) const;
 	bool select(const AnimationStateInfo *state, bool force);
 	void apply(const AnimationStateInfo *prevState, float fraction, bool restart);
 	int pickAnimation(const AnimationStateInfo &state, int avoidIndex, int limit);
@@ -339,6 +345,7 @@ private:
 
 	const RenderObjPrototype *m_model = nullptr;
 	std::string m_modelName; // lower case, the render object identity
+	std::string m_resolvedModelName; // resolved model name (with LOD and standard suffixes)
 	int m_renderObjectsCreated = 0;
 	W3DModelBones m_bones;
 	std::set<int> m_hiddenSubObjects;
@@ -386,6 +393,8 @@ protected:
 	int maxRandomAnimations() const override { return m_lod.maxRandomAnimations; }
 	int maxRandomTextures() const override { return m_lod.maxRandomTextures; }
 	int randomStartFrame(int frames) override;
+	// RW 0x4789D6 / RW 0x47A1BE: picks variation if allowMultipleModels, else model 0
+	const std::string &resolveBaseModelName(const ModelConditionInfo *state) const override;
 
 private:
 	static int checkedLevel(int lodLevel);

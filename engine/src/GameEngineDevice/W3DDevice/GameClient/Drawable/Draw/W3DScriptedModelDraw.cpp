@@ -205,34 +205,166 @@ void W3DScriptedModelDraw::setModelConditionFlags(const ModelConditionFlags &fla
 	}
 }
 
+const std::string &W3DScriptedModelDraw::resolveBaseModelName(const ModelConditionInfo *state) const
+{
+	if (!state)
+	{
+		static const std::string none;
+		return none;
+	}
+	// RW 0x4C46C4: calls RW 0x4B430B with drawable->m_variation
+	return state->modelName(m_options.variation);
+}
+
+// RW 0x4C2505 .. 0x4C2973: static model LOD mode and standard model names resolution
+std::string W3DScriptedModelDraw::resolveLodAndStandardModelNames(const std::string &baseName) const
+{
+	if (baseName.empty())
+	{
+		return "";
+	}
+	std::string candidate = baseName;
+
+	// RW 0x4C2576: StaticModelLODMode (+0x135); the suffix number is RW 0x4B24C4 (the static LOD GlobalData + 0x1774: m_options.animationLodNumber,
+	// the same number for the horde draw, whose RW 0x47A20C calls this function too). Not ported: SwitchModelLODMode (+0x134, RW 0x4C2587 .. 0x4C25A4:
+	// the number from RW 0x4B2506 with the draw's own + 0xBC) and the template flag + 0x114 & 0x20 that forces the "L" model with a warning
+	// (RW 0x4B24DC, RW 0x4C25EA .. 0x4C27C3); Ennorath sets no SwitchModelLODMode
+	if (m_data.m_staticModelLODMode)
+	{
+		const int detail = modelDetailLod(); // RW 0x4C256C / RW 0x4B24C4: 0 High, 1 Medium, 2 Low
+		std::string lodCandidate = baseName;
+		if (detail == 1)
+		{
+			lodCandidate += "M"; // RW 0x4B61C4 / RW 0xBD17D0 ("M")
+		}
+		else if (detail == 2)
+		{
+			lodCandidate += "L"; // RW 0x4B61BD / RW 0xBD89FC ("L")
+		}
+		// RW 0x4C26BD: doesModelExist(lodCandidate)
+		if (lodCandidate != baseName && m_assets.doesModelExist(lodCandidate))
+		{
+			candidate = lodCandidate;
+		}
+		// Note: RW 0x4C27C6: if missing, falls back to baseName (candidate)
+	}
+
+	// RW 0x4C27D4: UseStandardModelNames (+0x137)
+	if (m_data.m_useStandardModelNames)
+	{
+		// RW 0x4C27E1 .. 0x4C281C: check pending flags (+0x17C)
+		// Bit 3 = DAMAGED, Bit 4 = REALLYDAMAGED, Bit 5 = RUBBLE, Bit 7 = NIGHT, Bit 8 = SNOW
+		const bool isDamaged = m_pendingFlags.test(3);
+		const bool isReallyDamaged = m_pendingFlags.test(4);
+		const bool isRubble = m_pendingFlags.test(5);
+		const bool isNight = m_pendingFlags.test(7);
+		const bool isSnow = m_pendingFlags.test(8);
+
+		if (isDamaged || isReallyDamaged || isRubble || isNight || isSnow)
+		{
+			bool found = false;
+			// Outer loop: damage_level 3..0 (RW 0x4C2822 .. 0x4C2867)
+			for (int damageLevel = 3; damageLevel >= 0 && !found; --damageLevel)
+			{
+				if (damageLevel == 3 && !isRubble)
+				{
+					continue;
+				}
+				if (damageLevel == 2 && !isRubble && !isReallyDamaged)
+				{
+					continue;
+				}
+				if (damageLevel == 1 && !isRubble && !isReallyDamaged && !isDamaged)
+				{
+					continue;
+				}
+
+				// Middle loop: night_level 1..0 (RW 0x4C286D .. 0x4C287A)
+				for (int nightLevel = 1; nightLevel >= 0 && !found; --nightLevel)
+				{
+					if (nightLevel == 1 && !isNight)
+					{
+						continue;
+					}
+
+					// Inner loop: snow_level 1..0 (RW 0x4C2880 .. 0x4C2888)
+					for (int snowLevel = 1; snowLevel >= 0 && !found; --snowLevel)
+					{
+						if (snowLevel == 1 && !isSnow)
+						{
+							continue;
+						}
+
+						// RW 0x4C288E .. 0x4C2904: build candidate "<base>_<n><d|e|r><s>"
+						std::string testName = candidate + "_";
+						if (nightLevel == 1)
+						{
+							testName += 'n';
+						}
+						if (damageLevel == 3)
+						{
+							testName += 'r';
+						}
+						else if (damageLevel == 2)
+						{
+							testName += 'e';
+						}
+						else if (damageLevel == 1)
+						{
+							testName += 'd';
+						}
+						if (snowLevel == 1)
+						{
+							testName += 's';
+						}
+
+						if (testName.size() > candidate.size() + 1 && m_assets.doesModelExist(testName))
+						{
+							candidate = testName; // RW 0x4C2976
+							found = true;
+							break;
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return candidate;
+}
+
 // ZH W3DModelDraw::setModelState (W3DModelDraw.cpp:2911-3181), the render object part (the RotWK virtual is RW 0x4C451D, not
 // transcribed: S-090): recreate the render object when the model or the turret bones differ, validate the bones either way.
 void W3DScriptedModelDraw::applyModelState(const ModelConditionInfo *state)
 {
-	if (state == m_curModelInfo)
+	const std::string baseName = resolveBaseModelName(state);
+	const std::string resolvedName = resolveLodAndStandardModelNames(baseName);
+	const std::string newLowered = AsciiStringUtil::lowered(resolvedName);
+
+	if (state == m_curModelInfo && newLowered == m_modelName)
 	{
 		return; // ZH: "if the requested state is the current state ... just punt"
 	}
-	const std::string newName = AsciiStringUtil::lowered(state->modelName());
-	const bool recreate = m_curModelInfo == nullptr || newName != m_modelName || turretNamesDiffer(state, m_curModelInfo);
+	const bool recreate = m_curModelInfo == nullptr || newLowered != m_modelName || turretNamesDiffer(state, m_curModelInfo);
 	m_curModelInfo = state;
+	m_resolvedModelName = resolvedName;
 	rebuildTextureSwaps();
-	if (!state->particleSysBones.empty() || !state->fxEvents.empty())
+	if (state && (!state->particleSysBones.empty() || !state->fxEvents.empty()))
 	{
 		stop("S-095", "model state " + ModelCondition::describe(state->conditions) + " has ParticleSysBone / FXEvent entries, which are stored but not played");
 	}
 	if (recreate)
 	{
 		++m_renderObjectsCreated;
-		m_modelName = newName;
+		m_modelName = newLowered;
 		m_model = nullptr;
-		if (!newName.empty())
+		if (!resolvedName.empty())
 		{
 			std::string err;
-			m_model = m_assets.model(state->modelName(), &err);
+			m_model = m_assets.model(resolvedName, &err);
 			if (!m_model)
 			{
-				error("model " + state->modelName() + " is not available: " + err);
+				error("model " + resolvedName + " is not available: " + err);
 			}
 		}
 		// hidden sub objects: a new render object starts with its meshes' own HIDDEN flags; RetainSubObjects keeps what scripts hid
@@ -1103,14 +1235,7 @@ W3DDrawFrame W3DScriptedModelDraw::frame() const
 
 void W3DScriptedModelDraw::frame(W3DDrawFrame &f) const
 {
-	if (m_curModelInfo)
-	{
-		f.modelName = m_curModelInfo->modelName();
-	}
-	else
-	{
-		f.modelName.clear();
-	}
+	f.modelName = m_resolvedModelName;
 	f.model = m_model;
 	f.modelState = m_curModelInfo;
 	f.animationState = m_curAnimState;
@@ -1168,7 +1293,7 @@ void W3DScriptedModelDraw::poseView(W3DDrawPoseView &v) const
 {
 	static const std::string none;
 	static const std::set<int> noHidden;
-	v.modelName = m_curModelInfo ? &m_curModelInfo->modelName() : &none;
+	v.modelName = &m_resolvedModelName;
 	v.model = m_model;
 	int n = 0;
 	for (int i = 0; i < 3; ++i)
@@ -1399,4 +1524,20 @@ int W3DHordeModelDraw::randomStartFrame(int frames)
 {
 	const int v = W3DScriptedModelDraw::randomStartFrame(frames);
 	return (v * m_lod.randomStartFramePercent) / 100;
+}
+
+// RW 0x4789D6 / RW 0x47A1BE: calls isAllowMultipleModels() for current LOD level.
+// If true, calls RW 0x4B430B with variation. If false, calls RW 0x4B42F5 with 0.
+const std::string &W3DHordeModelDraw::resolveBaseModelName(const ModelConditionInfo *state) const
+{
+	if (!state)
+	{
+		static const std::string none;
+		return none;
+	}
+	if (m_lod.allowMultipleModels)
+	{
+		return state->modelName(variation());
+	}
+	return state->modelName(0);
 }
