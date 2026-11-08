@@ -15,6 +15,7 @@
 
 #include "doctest.h"
 
+#include "EnnorathScenario.h"
 #include "ProdTestUtil.h"
 
 #include "Common/PlayerHeroList.h"
@@ -34,6 +35,7 @@
 #include "GameLogic/HeroSystem.h"
 #include "GameLogic/Module/ActiveBody.h"
 #include "GameLogic/Module/HeroModules.h"
+#include "GameLogic/Object/PartitionManager.h"
 
 namespace
 {
@@ -237,4 +239,260 @@ TEST_CASE("LOCAL-8 respawn ButtonImage: Living World dead hero record populates 
 	CHECK(alice->heroes().at(0)->deadImage == "HIHeroRecall");
 	CHECK(alice->heroes().at(1)->dead);
 	CHECK(alice->heroes().at(1)->deadImage == "HIWormtongueOnly");
+}
+
+namespace
+{
+const char kLocal8AutoRespawnObjects[] =
+	"Object Local8KeepHero\n"
+	"  BuildCost = 1500\n"
+	"  BuildTime = 25.0\n"
+	"  KindOf = SELECTABLE INFANTRY HERO\n"
+	"  Body = RespawnBody ModuleTag_Body\n"
+	"    MaxHealth = 600\n"
+	"  End\n"
+	"  Behavior = RespawnUpdate ModuleTag_Respawn\n"
+	"    DeathAnim = DYING\n"
+	"    DeathFX = None\n"
+	"    RespawnAnim = LEVELED\n"
+	"    RespawnFX = None\n"
+	"    RespawnAnimationTime = 2000\n"
+	"    AutoRespawnAtObjectFilter = NONE +CASTLE_KEEP\n"
+	"    ButtonImage = HIKeepHeroDead\n"
+	"    RespawnRules = AutoSpawn:Yes Cost:0 Time:10000 Health:75%\n"
+	"  End\n"
+	"  Behavior = AIUpdateInterface ModuleTag_AI\n"
+	"  End\n"
+	"End\n"
+	"Object Local8NoneFilterHero\n"
+	"  KindOf = SELECTABLE INFANTRY HERO\n"
+	"  Body = RespawnBody ModuleTag_Body\n"
+	"    MaxHealth = 400\n"
+	"  End\n"
+	"  Behavior = RespawnUpdate ModuleTag_Respawn\n"
+	"    DeathAnim = DYING\n"
+	"    RespawnAnim = LEVELED\n"
+	"    RespawnAnimationTime = 1000\n"
+	"    AutoRespawnAtObjectFilter = NONE\n"
+	"    RespawnRules = AutoSpawn:Yes Cost:0 Time:5000 Health:50%\n"
+	"  End\n"
+	"  Behavior = AIUpdateInterface ModuleTag_AI\n"
+	"  End\n"
+	"End\n"
+	"Object Local8Barracks\n"
+	"  KindOf = STRUCTURE SELECTABLE FS_FACTORY\n"
+	"End\n"
+	"Object Local8Keep\n"
+	"  KindOf = STRUCTURE SELECTABLE CASTLE_KEEP\n"
+	"  Behavior = QueueProductionExitUpdate ModuleTag_Exit\n"
+	"    UnitCreatePoint = X:5.0 Y:10.0 Z:0.0\n"
+	"    NaturalRallyPoint = X:25.0 Y:40.0 Z:0.0\n"
+	"  End\n"
+	"End\n";
+
+int local8McBit(const char *name)
+{
+	for (int i = 0; TheModelConditionNames[i]; ++i)
+	{
+		if (std::string(TheModelConditionNames[i]) == name)
+		{
+			return i;
+		}
+	}
+	return -1;
+}
+} // namespace
+
+TEST_CASE("LOCAL-8 respawn AutoRespawnAtObjectFilter: state 3 searches closest player object matching AutoRespawnAtObjectFilter, queries natural rally point, moves hero, restores health, enters spawn animation and completes (RW 0x8B307E / 0x8B3B08 / 0x8B310D)")
+{
+	prodtest::ProdWorld f;
+	f.logic->settings().bodyThresholdsLoaded = true;
+	f.logic->settings().unitDamagedThreshold = 0.7f;
+	f.logic->settings().unitReallyDamagedThreshold = 0.35f;
+	f.load(kLocal8AutoRespawnObjects);
+	f.logic->partition().setRegion(0.0f, 0.0f, 2000.0f, 2000.0f);
+
+	Object *hero = f.make("Local8KeepHero", f.teamOf("Alice"));
+	Object *nearBarracks = f.make("Local8Barracks", f.teamOf("Alice"));
+	Object *enemyKeep = f.make("Local8Keep", f.teamOf("Bob"));
+	Object *aliceKeepFar = f.make("Local8Keep", f.teamOf("Alice"));
+	Object *aliceKeepNear = f.make("Local8Keep", f.teamOf("Alice"));
+	REQUIRE(hero != nullptr);
+	REQUIRE(nearBarracks != nullptr);
+	REQUIRE(enemyKeep != nullptr);
+	REQUIRE(aliceKeepFar != nullptr);
+	REQUIRE(aliceKeepNear != nullptr);
+
+	const Coord3D heroPos{ 100.0f, 100.0f, 0.0f };
+	const Coord3D barracksPos{ 120.0f, 100.0f, 0.0f }; // closer (dist 20), but not CASTLE_KEEP
+	const Coord3D enemyKeepPos{ 110.0f, 100.0f, 0.0f }; // closer (dist 10), but wrong player (Bob)
+	const Coord3D keepFarPos{ 800.0f, 100.0f, 0.0f };   // Alice's CASTLE_KEEP (dist 700)
+	const Coord3D keepNearPos{ 300.0f, 200.0f, 0.0f };  // Alice's closest CASTLE_KEEP (dist ~223.6)
+	hero->setPosition(&heroPos);
+	nearBarracks->setPosition(&barracksPos);
+	enemyKeep->setPosition(&enemyKeepPos);
+	aliceKeepFar->setPosition(&keepFarPos);
+	aliceKeepNear->setPosition(&keepNearPos);
+	f.logic->partition().update();
+
+	RespawnUpdate *ru = dynamic_cast<RespawnUpdate *>(hero->findModule("RespawnUpdate"));
+	REQUIRE(ru != nullptr);
+
+	// 1. searchForSuitableSpawnAtObject (RW 0x8B307E) picks Alice's closest CASTLE_KEEP
+	CHECK(ru->searchForSuitableSpawnAtObject() == aliceKeepNear);
+
+	// 2. AutoRespawnAtObjectFilter = NONE (e.g. TomBombadil) matches nothing and falls back to self (RW 0x8B30FD cmove)
+	Object *noneHero = f.make("Local8NoneFilterHero", f.teamOf("Alice"));
+	REQUIRE(noneHero != nullptr);
+	noneHero->setPosition(&heroPos);
+	f.logic->partition().update();
+	RespawnUpdate *noneRu = dynamic_cast<RespawnUpdate *>(noneHero->findModule("RespawnUpdate"));
+	REQUIRE(noneRu != nullptr);
+	CHECK(noneRu->searchForSuitableSpawnAtObject() == noneHero);
+
+	// 3. Kill hero (onDeath RW 0x8B3744 sets m_health = 0.75, DISABLED_PARALYZED, UNSELECTABLE), then enter STATE_AUTO_RESPAWN (3)
+	killHero(hero);
+	CHECK(hero->isEffectivelyDead());
+	CHECK((hero->getDisabledMask() & (1u << 4)) == (1u << 4));
+	CHECK(ru->healthFraction() == 0.75f);
+
+	f.frames(2);
+	const UnsignedInt startFrame = f.logic->getFrame();
+	ru->setState(RespawnUpdate::STATE_AUTO_RESPAWN);
+	ru->setRespawnAt(INVALID_ID);
+	ru->setAutoRespawnTimer((std::int32_t)startFrame, 50);
+
+	// getRespawnProgress (RW 0x8B310D): in state 3 returns (frame - m_34) / m_time and writes m_cost
+	int outCost = -1;
+	CHECK(ru->getRespawnProgress(&outCost) == 0.0f);
+	CHECK(outCost == 0);
+
+	// Xfer round-trip of RespawnUpdate in STATE_AUTO_RESPAWN
+	{
+		XferSave saver;
+		ru->xfer(saver);
+		XferLoad loader(saver.data());
+		ru->xfer(loader);
+		CHECK(ru->state() == RespawnUpdate::STATE_AUTO_RESPAWN);
+		CHECK(ru->autoRespawnStartFrame() == (std::int32_t)startFrame);
+		CHECK(ru->autoRespawnDuration() == 50);
+	}
+
+	// Wake RespawnUpdate on the next frame (getDisabledTypesToProcess RW 0x8B3313 = 0xFFFFFFFF lets it run while DISABLED_PARALYZED)
+	ru->wakeFromInterface(UPDATE_SLEEP_NONE);
+	f.frames(1);
+
+	// RW 0x8B3B08 .. 0x8B3C05:
+	// - spawnAt = searchForSuitableSpawnAtObject() -> aliceKeepNear (300, 200, 0)
+	// - exit->getNaturalRallyPoint(&pos, true) -> (300 + 25, 200 + 40, 0) plus 2-cell exit offset along (20, 30) = (335.6, 256.96, 0)
+	// - hero moved to pos, RespawnAnim (LEVELED) set, state = STATE_SPAWN_ANIMATION (4),
+	//   health restored to 75% of 600 = 450, m_34 = -1, m_time = -1, wakes after RespawnAnimationTime (2000 ms = 10 frames)
+	Coord3D nearRally{};
+	REQUIRE(aliceKeepNear->getObjectExitInterface() != nullptr);
+	REQUIRE(aliceKeepNear->getObjectExitInterface()->getNaturalRallyPoint(&nearRally, true));
+	CHECK(ru->state() == RespawnUpdate::STATE_SPAWN_ANIMATION);
+	CHECK(hero->getPosition()->x == nearRally.x);
+	CHECK(hero->getPosition()->y == nearRally.y);
+	CHECK(hero->getPosition()->x == 335.6f);
+	CHECK(hero->getPosition()->y == 256.96f);
+	CHECK(hero->testModelCondition(local8McBit("LEVELED")));
+	CHECK(hero->getBodyModule()->getHealth() == 450.0f);
+	CHECK(ru->autoRespawnStartFrame() == -1);
+	CHECK(ru->autoRespawnDuration() == -1);
+	CHECK(ru->getRespawnProgress() == 0.0f);
+
+	// After RespawnAnimationTime (10 frames), STATE_SPAWN_ANIMATION (RW 0x8B3A5B) clears LEVELED, UNSELECTABLE and DISABLED_PARALYZED and enters STATE_ALIVE
+	f.frames(10);
+	CHECK(ru->state() == RespawnUpdate::STATE_ALIVE);
+	CHECK_FALSE(hero->testModelCondition(local8McBit("LEVELED")));
+	CHECK_FALSE(hero->testStatus(3));
+	CHECK((hero->getDisabledMask() & (1u << 4)) == 0);
+
+	// Explicit m_respawnAt (+0x30, RW 0x8B3B12..0x8B3B22) takes precedence over searchForSuitableSpawnAtObject
+	Coord3D farRally{};
+	REQUIRE(aliceKeepFar->getObjectExitInterface() != nullptr);
+	REQUIRE(aliceKeepFar->getObjectExitInterface()->getNaturalRallyPoint(&farRally, true));
+	ru->setState(RespawnUpdate::STATE_AUTO_RESPAWN);
+	ru->setRespawnAt(aliceKeepFar->getID());
+	ru->wakeFromInterface(UPDATE_SLEEP_NONE);
+	f.frames(1);
+	CHECK(ru->state() == RespawnUpdate::STATE_SPAWN_ANIMATION);
+	CHECK(hero->getPosition()->x == farRally.x);
+	CHECK(hero->getPosition()->y == farRally.y);
+	CHECK(hero->getPosition()->x == 835.6f);
+	CHECK(hero->getPosition()->y == 156.96f);
+
+	// STATE_REFUNDED (1) returns progress 1.0f (RW 0x8B3123..0x8B312A)
+	ru->setState(RespawnUpdate::STATE_REFUNDED);
+	CHECK(ru->getRespawnProgress() == 1.0f);
+}
+
+TEST_CASE("ENNORATH scenario RespawnUpdate: Ennorath heroes use RespawnUpdate ButtonImage and AutoRespawnAtObjectFilter (TOP20 #25)")
+{
+	ennorathscenario::World world;
+	if (!world.load("Ennorath scenario RespawnUpdate"))
+	{
+		return;
+	}
+	structtest::Arena arena(world.shared, "FactionWild", "FactionIsengard");
+	arena.logic.partition().setRegion(0.0f, 0.0f, 2000.0f, 2000.0f);
+
+	// 1. data\ini\object\evilfaction\units\wild\drogoth.ini:
+	//    Object/ButtonImage = HIDrogoth, RespawnUpdate/ButtonImage = HIDrogoth_res (in data\ini\mappedimages\handcreated\unsorted.ini),
+	//    AutoRespawnAtObjectFilter = NONE +CASTLE_KEEP, DeathAnimationTime omitted (0 frames)
+	Object *drogoth = world.place(arena, "Drogoth", 0, 200.0f, 200.0f);
+	Object *wildMine = world.place(arena, "WildMineShaft", 0, 220.0f, 200.0f);
+	Object *enemyKeep = world.place(arena, "WildFortressCitadel", 1, 210.0f, 200.0f);
+	Object *wildKeep = world.place(arena, "WildFortressCitadel", 0, 500.0f, 200.0f);
+	arena.logic.partition().update();
+
+	RespawnUpdate *drogothRu = dynamic_cast<RespawnUpdate *>(drogoth->findModule("RespawnUpdate"));
+	REQUIRE(drogothRu != nullptr);
+	CHECK(drogothRu->data()->m_buttonImage == "HIDrogoth_res");
+	CHECK(drogothRu->data()->m_deathAnimationTime == 0u);
+	REQUIRE(drogothRu->data()->m_autoRespawnAtObjectFilter != nullptr);
+	CHECK(drogothRu->deadImage() == "HIDrogoth_res");
+	CHECK(drogothRu->searchForSuitableSpawnAtObject() == wildKeep);
+	(void)wildMine;
+	(void)enemyKeep;
+
+	killHero(drogoth);
+	REQUIRE(arena.player(0)->heroes().size() == 1u);
+	CHECK(arena.player(0)->heroes().at(0)->dead);
+	CHECK(arena.player(0)->heroes().at(0)->deadImage == "HIDrogoth_res");
+
+	// 2. data\ini\object\evilfaction\units\isengard\wormtongue.ini (IsengardWormTongue_Mod_AoW):
+	//    RespawnUpdate/ButtonImage = HIGrimaHD, DeathAnimationTime = 5666 (28 frames)
+	Object *wormtongue = world.place(arena, "IsengardWormTongue_Mod_AoW", 1, 300.0f, 300.0f);
+	RespawnUpdate *wormRu = dynamic_cast<RespawnUpdate *>(wormtongue->findModule("RespawnUpdate"));
+	REQUIRE(wormRu != nullptr);
+	CHECK(wormRu->data()->m_buttonImage == "HIGrimaHD");
+	CHECK(wormRu->data()->m_deathAnimationTime == 28u);
+	CHECK(wormRu->deadImage() == "HIGrimaHD");
+	killHero(wormtongue);
+	REQUIRE(arena.player(1)->heroes().size() == 1u);
+	CHECK(arena.player(1)->heroes().at(0)->deadImage == "HIGrimaHD");
+
+	// 3. data\ini\object\evilfaction\units\mordor\blackrider.ini (EvilMenBlackRider):
+	//    Object/ButtonImage = HIBlackRider, RespawnUpdate/ButtonImage = HIBlackRider_res
+	Object *blackRider = world.place(arena, "EvilMenBlackRider", 0, 250.0f, 250.0f);
+	RespawnUpdate *riderRu = dynamic_cast<RespawnUpdate *>(blackRider->findModule("RespawnUpdate"));
+	REQUIRE(riderRu != nullptr);
+	CHECK(riderRu->data()->m_buttonImage == "HIBlackRider_res");
+	CHECK(riderRu->deadImage() == "HIBlackRider_res");
+	killHero(blackRider);
+	REQUIRE(arena.player(0)->heroes().size() == 2u);
+	CHECK(arena.player(0)->heroes().at(1)->deadImage == "HIBlackRider_res");
+
+	ArchiveFileSystem &fs = world.shared.world->fileSystem();
+	MappedImageCollection images;
+	INIEnvironment imgEnv;
+	imgEnv.fileSystem = &fs;
+	images.registerBlocks(imgEnv.blocks);
+	INI imgIni(imgEnv);
+	imgIni.loadDirectory("Data\\INI\\MappedImages", true, INI_LOAD_OVERWRITE);
+	CHECK(images.findImageByName("HIDrogoth_res") != nullptr);
+	CHECK(images.findImageByName("HIGrimaHD") != nullptr);
+	CHECK(images.findImageByName("HIBlackRider_res") != nullptr);
+	CHECK(images.findImageByName("HIBlackRider") != nullptr);
 }

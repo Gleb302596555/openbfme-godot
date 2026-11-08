@@ -153,12 +153,20 @@ public:
 	RespawnUpdate(Thing *thing, const RespawnUpdateModuleData *data); ///< RW 0x8B3244
 	const RespawnUpdateModuleData *data() const { return m_data; }
 	UpdateSleepTime update() override; ///< RW 0x8B3A35
+	DisabledMaskType getDisabledTypesToProcess() const override { return (DisabledMaskType)0xFFFFFFFFu; } ///< RW 0x8B3313 (vtable 0xC6C354 slot 1)
 
 	void onDeath();             ///< RW 0x8B3744
 	void onPermanentDeath();    ///< RW 0x8B3349
 	void onRevived(const Object *producer); ///< RW 0x8B38A2
+	Object *searchForSuitableSpawnAtObject() const; ///< RW 0x8B307E (BFME2 0x8AEF78): AutoRespawnAtObjectFilter (+0x08), else self
+	float getRespawnProgress(int *outCost = nullptr) const; ///< RW 0x8B310D (BFME2 0x8AF007, vslot 0x34)
 	void setState(int s) { m_state = s; }  ///< RespawnBody's `state = 0` after RW 0x8B3349 (RW 0x8C5657)
 	void setInitialSpawn(bool initial) { m_initialSpawn = initial; } ///< RW 0x78142F: + 0x41 = the record is not a revive
+	void setRespawnAt(ObjectID id) { m_respawnAt = id; }
+	ObjectID respawnAt() const { return m_respawnAt; }
+	void setAutoRespawnTimer(std::int32_t startFrame, std::int32_t durationFrames) { m_34 = startFrame; m_time = durationFrames; }
+	std::int32_t autoRespawnStartFrame() const { return m_34; }
+	std::int32_t autoRespawnDuration() const { return m_time; }
 
 	int state() const { return m_state; }
 	bool isInitialSpawn() const { return m_initialSpawn; } ///< RW 0x8B330F
