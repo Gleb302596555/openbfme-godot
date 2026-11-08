@@ -9,6 +9,8 @@
 
 #include "CombatTestUtil.h"
 #include "Common/StateHash.h"
+#include "Common/XferLoad.h"
+#include "Common/XferSave.h"
 #include "GameLogic/Module/InvisibilityModules.h"
 #include "GameLogic/Module/OneRingPenaltyUpdate.h"
 #include "GameLogic/Object/Object.h"
@@ -42,9 +44,9 @@ std::string unitWithFrodo(const char *name, int radius, float frozenMs)
 	s += "  End\n";
 	s += "  Behavior = OneRingPenaltyUpdate ModuleTag_Ring\n";
 	s += "    SpecialObjectName = TheEye\n";
-	s += "    RingTimeBeforeSpawning = 400\n"; // 2 frames
-	s += "    TimeSpentRoamingAround = 400\n"; // 2 frames
-	s += "    TimeRingPowerSuppressed = 2000\n"; // 10 frames
+	s += "    RingTimeBeforeSpawning = 400\n"; // 12 frames
+	s += "    TimeSpentRoamingAround = 400\n"; // 12 frames
+	s += "    TimeRingPowerSuppressed = 2000\n"; // 60 frames
 	s += "    StartingDistanceFromMe = 100\n";
 	s += "    TimeFrozenFromPenalty = " + std::to_string((int)frozenMs) + "\n";
 	s += "  End\n";
@@ -81,7 +83,8 @@ TEST_CASE("PORT-30 OneRingPenaltyUpdate TimeFrozenFromPenalty is parsed but neve
 		REQUIRE(frodo != nullptr);
 		StealthUpdate *stealth = StealthUpdate::of(*frodo);
 		OneRingPenaltyUpdate *ring = ringOf(frodo);
-		REQUIRE(stealth && ring);
+		REQUIRE(stealth != nullptr);
+		REQUIRE(ring != nullptr);
 		REQUIRE(ring->penaltyFrame() == 0);
 		REQUIRE_FALSE(frodo->isDisabledByType(DISABLED_TEMPORARILY_BUSY));
 		stealth->toggleRing();
@@ -98,30 +101,53 @@ TEST_CASE("PORT-30 OneRingPenaltyUpdate TimeFrozenFromPenalty is parsed but neve
 	}
 }
 
-TEST_CASE("PORT-30 OneRingPenaltyUpdate TimeFrozenFromPenalty zero and non-zero both leave other penalty effects unchanged (RW 0x89D41B)")
+TEST_CASE("PORT-30 OneRingPenaltyUpdate TimeFrozenFromPenalty zero and non-zero give the same penalty frame by frame (RW 0x89D41B, 0x89D3E4)")
 {
-	for (float frozen : {0.0f, 5000.0f})
+	// review (Claude): the PR's version waited 12 frames for TimeRingPowerSuppressed = 2000 ms, which is 60 logic frames at 30 Hz, and was never run. The
+	// verdict's claim is that + 0x1C changes nothing: two worlds that differ only in the field must agree on every frame through the penalty and its end.
+	struct Run
 	{
-		CAPTURE(frozen);
-		const std::string objects = unitWithFrodo("Frodo", 8, frozen) + eyeObject();
-		CombatWorld w(objects.c_str());
-		Object *frodo = w.unit("Frodo", 'A', 400, 400);
-		StealthUpdate *stealth = StealthUpdate::of(*frodo);
-		OneRingPenaltyUpdate *ring = ringOf(frodo);
-		stealth->toggleRing();
-		for (int i = 0; i < 60 && ring->penaltyFrame() == 0; ++i) w.frames(1);
-		REQUIRE(ring->penaltyFrame() != 0);
-		UnsignedInt penalty = ring->penaltyFrame();
-		CHECK_FALSE(stealth->ringWorn());
-		CHECK_FALSE(frodo->testStatus(kStatusCanStealth));
-		CHECK(ring->eye() == INVALID_ID);
-		CHECK(ring->ringFrame() == 0);
-		CHECK_FALSE(frodo->isDisabledByType(DISABLED_TEMPORARILY_BUSY));
-		for (int i = 0; i < 12 && ring->penaltyFrame() != 0; ++i) w.frames(1);
-		CHECK(ring->penaltyFrame() == 0);
-		CHECK(frodo->testStatus(kStatusCanStealth));
-		(void)penalty;
+		CombatWorld w;
+		Object *frodo;
+		StealthUpdate *stealth;
+		OneRingPenaltyUpdate *ring;
+		explicit Run(float frozen) : w((unitWithFrodo("Frodo", 8, frozen) + eyeObject()).c_str())
+		{
+			frodo = w.unit("Frodo", 'A', 400, 400);
+			REQUIRE(frodo != nullptr);
+			stealth = StealthUpdate::of(*frodo);
+			ring = ringOf(frodo);
+			REQUIRE(stealth != nullptr);
+			REQUIRE(ring != nullptr);
+			stealth->toggleRing();
+		}
+	};
+	Run a(0.0f);
+	Run b(5000.0f);
+	bool penaltySeen = false;
+	bool penaltyEnded = false;
+	for (int f = 0; f < 150; ++f)
+	{
+		a.w.frames(1);
+		b.w.frames(1);
+		CAPTURE(f);
+		REQUIRE(a.ring->penaltyFrame() == b.ring->penaltyFrame());
+		REQUIRE(a.ring->ringFrame() == b.ring->ringFrame());
+		REQUIRE((a.ring->eye() == INVALID_ID) == (b.ring->eye() == INVALID_ID));
+		REQUIRE(a.stealth->ringWorn() == b.stealth->ringWorn());
+		REQUIRE(a.frodo->testStatus(kStatusCanStealth) == b.frodo->testStatus(kStatusCanStealth));
+		REQUIRE(a.frodo->isDisabledByType(DISABLED_TEMPORARILY_BUSY) == b.frodo->isDisabledByType(DISABLED_TEMPORARILY_BUSY));
+		if (a.ring->penaltyFrame() != 0)
+		{
+			penaltySeen = true;
+		}
+		else if (penaltySeen)
+		{
+			penaltyEnded = true;
+		}
 	}
+	CHECK(penaltySeen);
+	CHECK(penaltyEnded); // RW 0x89D3E4 after TimeRingPowerSuppressed (60 frames)
 }
 
 TEST_CASE("PORT-30 OneRingPenaltyUpdate TimeFrozenFromPenalty does not enter xfer/crc (S-5604, OpenBFME native)")
