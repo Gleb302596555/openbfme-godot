@@ -4,22 +4,18 @@
 // Sauron, which roams around the wearer; when it finishes the ring comes off and cannot be used for a while. Ported from the RotWK binary (caveat S-001); the BFME2 decompile
 // Object/Update/OneRingPenaltyUpdate.cpp and OneRingPenaltyModuleDataView.h name the fields.
 //
-// TARGET FACTS (RotWK game.dat):
-//   create RW 0x64E0DC, 0x34 bytes, constructor RW 0x89D21F (zeroes, wake next frame RW 0x850C32(1)); table RW 0xC66B18: SpecialObjectName + 0x08, RingTimeBeforeSpawning + 0x0C,
-//   TimeSpentRoamingAround + 0x10, TimeRingPowerSuppressed + 0x14, StartingDistanceFromMe + 0x18, TimeFrozenFromPenalty + 0x1C, DiscoveredSound + 0x20 (RW 0x73B217). Module:
-//   + 0x24 the eye's id, + 0x28 the frame the ring was seen on, + 0x2C the eye's angle, + 0x30 the frame of the penalty. Mask 3: update and die.
-//   * update RW 0x89D647 (answers 5 frames, RW 0xD9F608): worn = (invisible RW 0x68FC2F or STEALTHED) and the StealthUpdate's ring is on (+ 0x31). A penalty older than
-//     TimeRingPowerSuppressed (frame > penalty + time, unsigned) ends (RW 0x89D3E4: + 0x30 = 0, CAN_STEALTH on). Else no ring frame: worn keeps the frame. Else not worn: the
-//     frame clears and the eye (if any) dies. Else with an eye it moves (RW 0x89D4D2), without one a frame past ring + RingTimeBeforeSpawning spawns it (RW 0x89D2AC);
-//   * spawn RW 0x89D2AC: the template by name (none: nothing), made on the neutral player's default team (the object's team without one), empty mask (RW 0x6D165E); the angle
-//     draws GameLogicRandomValueReal(-PI, PI) (line 0xDA) and is kept; the position is the object's + (cos, sin) * StartingDistanceFromMe at the terrain's height;
-//   * move RW 0x89D4D2: with start = ring + RingTimeBeforeSpawning and end = start + TimeSpentRoamingAround: a frame >= end puts the eye on the object and pays the penalty.
-//     Else an eye whose AI is idle (slot 0x1B8) adds a draw of (-PI / 2, PI / 2) to the angle (line 0xB8) and walks (aiMoveToPosition, CMD_FROM_AI) to the object's position
-//     + (cos, sin) * radius on the terrain; radius = StartingDistance, or at frame != start: distance + (frame - start) / (end - start) * (distance * 0.5 - distance);
-//   * penalty RW 0x89D41B: the ring frame clears, + 0x30 = frame, a worn ring toggles off (RW 0x776B50), CAN_STEALTH off (RW 0x62684D(0x12, 0)), the emotion request (5, none, 1)
-//     (RW 0x68F37F), DiscoveredSound on the object, then the eye is killed (RW 0x89D3F5: UNRESISTABLE, death 0);
-//   * die RW 0x89D4C7 kills the eye the same way.
-// TimeFrozenFromPenalty (+ 0x1C) is read by none of these functions (INFERENCE: the emotion's own time rules; stop S-5604). The snapshot is OpenBFME native (S-4190).
+// TARGET FACTS (RotWK game.dat, 2026-11-08 correction):
+//   create RW 0x64E0DC, 0x34 bytes, constructor RW 0x89D21F (zeroes, wake next frame RW 0x850C32(1)); table RW 0xC66B18 (16-byte rows): SpecialObjectName + 0x08,
+//   RingTimeBeforeSpawning + 0x0C, TimeSpentRoamingAround + 0x10, TimeRingPowerSuppressed + 0x14, StartingDistanceFromMe + 0x18, TimeFrozenFromPenalty + 0x1C (row RW 0xC66B68)
+//   (parser RW 0x73A429 duration), DiscoveredSound + 0x20 (RW 0x73B217); defaults RW 0x89D1C1 zeroes + 0x1C. Module: + 0x24 eye id, + 0x28 ring frame, + 0x2C angle, + 0x30 penalty frame. Mask 3: update and die.
+//   * update RW 0x89D647 (answers 5 frames, RW 0xD9F608): worn = (invisible RW 0x68FC2F or STEALTHED) and StealthUpdate ring on (+0x31). Penalty older than TimeRingPowerSuppressed
+//     (frame > penalty + time) ends RW 0x89D3E4 (+0x30=0, CAN_STEALTH on). Else no ring frame: worn keeps frame. Else not worn: frame clears and eye dies. Else with eye moves (RW 0x89D4D2),
+//     without eye a frame past ring+RingTimeBeforeSpawning spawns it (RW 0x89D2AC);
+//   * spawn RW 0x89D2AC: template by name (none: nothing), made on neutral default team, empty mask; angle draws GameLogicRandomValueReal(-PI,PI) (line 0xDA); pos = obj + (cos,sin)*StartingDistance;
+//   * move RW 0x89D4D2: start=ring+RingTimeBeforeSpawning, end=start+TimeSpentRoamingAround: frame>=end puts eye on object and pays penalty. Else idle eye adds (-PI/2,PI/2) draw (line 0xB8) and walks to obj+(cos,sin)*radius;
+//   * penalty RW 0x89D41B: ring frame clears, +0x30=frame, worn ring toggles off (RW 0x776B50), CAN_STEALTH off (RW 0x62684D(0x12,0)), emotion request (5,none,1) RW 0x68F37F, DiscoveredSound, then eye killed RW 0x89D3F5;
+//   * die RW 0x89D4C7 kills eye.
+//   TimeFrozenFromPenalty (+0x1C) is read by none of these functions: ctor RW 0x89D21F, vtables RW 0xC669C8/C669B8, update RW 0x89D647 and helpers RW 0x89D0E3..0x89D712 read +0xC,+0x10,+0x14,+0x18 and never +0x1C (checked 2026-11-08). RW 0x8CA12A in RW 0x8CA072 is not this field: that function belongs to a deploy module (ctor RW 0x8C9B5C, vtable RW 0xC74910, table RW 0xC747E8 LowerDelay +0x18 / RaiseDelay +0x1C) reading RaiseDelay. No other code looks up OneRingPenaltyUpdate module data by name or by interface to read +0x1C (searched .text refs to its table/maker and to +0x1C loads via module lookup; none). Verdict: RotWK does not read TimeFrozenFromPenalty. Stop S-5604 updated. Snapshot OpenBFME native (S-4190).
 
 #pragma once
 
