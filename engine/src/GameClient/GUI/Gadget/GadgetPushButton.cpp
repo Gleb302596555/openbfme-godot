@@ -218,7 +218,8 @@ WindowMsgHandledType GadgetPushButtonSystem(GameWindow *window, std::uint32_t ms
 		case GWM_CREATE:
 			break;
 		case GWM_DESTROY:
-			window->winSetUserData(nullptr); // ZH deletes its PushButtonData; none is created here
+			delete static_cast<PushButtonData *>(window->winGetUserData());
+			window->winSetUserData(nullptr);
 			break;
 		case GWM_INPUT_FOCUS:
 			if (mData1 == 0)
@@ -246,6 +247,23 @@ void GadgetButtonSetText(GameWindow *g, const UnicodeString &text)
 	}
 	UnicodeString copy = text;
 	g->manager().winSendSystemMsg(g, GGM_SET_LABEL, msgData(&copy), 0);
+}
+
+// RW 0x729EA7 GadgetButtonSetBorder
+void GadgetButtonSetBorder(GameWindow *g, Color color, bool draw)
+{
+	if (g == nullptr)
+	{
+		return;
+	}
+	auto *data = static_cast<PushButtonData *>(g->winGetUserData());
+	if (!data)
+	{
+		data = new PushButtonData();
+		g->winSetUserData(data);
+	}
+	data->drawBorder = draw;
+	data->borderColor = color;
 }
 
 // W3DPushButton.cpp drawButtonText
@@ -357,6 +375,20 @@ void W3DGadgetPushButtonImageDraw(GameWindow *window, WinInstanceData *instData)
 		start.x += instData->m_imageOffset.x;
 		start.y += instData->m_imageOffset.y;
 		mgr.winDrawImage(*image, start.x, start.y, start.x + size.x, start.y + size.y);
+	}
+	// RW 0x4A579C: radial buttons (WIN_STATUS_CIRCULAR) NEVER draw border.
+	// Non-radial buttons draw a 1-pixel rectangle outline if drawBorder is set and borderColor != 0x00FFFFFF.
+	const std::uint32_t winStatus = window->winGetStatus() | (instData ? instData->m_status : 0);
+	if (!BitTest(winStatus, WIN_STATUS_CIRCULAR))
+	{
+		const auto *data = static_cast<const PushButtonData *>(window->winGetUserData());
+		if (data && data->drawBorder && (data->borderColor & 0x00FFFFFFu) != 0x00FFFFFFu)
+		{
+			ICoord2D start, size;
+			window->winGetScreenPosition(&start.x, &start.y);
+			window->winGetSize(&size.x, &size.y);
+			mgr.winOpenRect(data->borderColor, 1.0f, start.x - 1, start.y - 1, start.x + size.x + 1, start.y + size.y + 1);
+		}
 	}
 	if (instData->getTextLength())
 	{
