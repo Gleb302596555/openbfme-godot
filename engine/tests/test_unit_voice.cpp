@@ -9,6 +9,7 @@
 
 #include "Common/Audio/AudioIni.h"
 #include "Common/Audio/AudioEntryPoints.h"
+#include "Common/SpecialPower.h"
 #include "GameClient/LiveGameAudio.h"
 #include "GameClient/UnitVoiceResponse.h"
 #include "GameLogic/ActionManager.h"
@@ -261,7 +262,7 @@ TEST_CASE("unit voice: the acceptance stops S-700 .. S-705 are reported, and key
 	CHECK(r.voice->pickAndPlay({ a, b }, MSG_CREATE_SELECTED_GROUP));
 	CHECK(r.voice->stats().crowdResponseSkipped == 2); // no CrowdResponse.ini loaded: the key names nothing
 	// a voice message type this port does not answer is counted, not guessed (S-703)
-	CHECK_FALSE(r.voice->pickAndPlay({ a }, MSG_DO_SPECIAL_POWER));
+	CHECK_FALSE(r.voice->pickAndPlay({ a }, MSG_COMBINE_HORDES_WITH_OBJECT));
 	CHECK(r.voice->stats().unportedMessages == 1);
 }
 
@@ -606,4 +607,169 @@ TEST_CASE("TOP20-560 camp voice: a move into the owner's camp says VoiceMoveToCa
 	r.voice->setMoveToCampThresholds(5, 11);
 	CHECK(r.voice->pickAndPlay({ camper->getID() }, MSG_DO_MOVETO, &intoCamp));
 	CHECK(r.sink.sounds.back() == "CamperMove");
+}
+
+// LOCAL-6 (TOP20 #11): SpecialPower UnitSpecificSoundToUse* looks up in UnitSpecificSounds (RW 0x8DF7FE, 0x8DFCE1, 0x898069)
+TEST_CASE("LOCAL-6 unit voice: special powers look up UnitSpecificSoundToUse* in UnitSpecificSounds (RW 0x8DF7FE, 0x8DFCE1, 0x898069)")
+{
+	VoiceRig r;
+	SpecialPowerStore powers;
+	SpecialPowerStore *savedPowers = TheSpecialPowerStore;
+	struct Restore { SpecialPowerStore *p; ~Restore() { TheSpecialPowerStore = p; } } restore{savedPowers};
+	TheSpecialPowerStore = &powers;
+	r.f.w.fx.env.blocks.registerBlock("SpecialPower", [](INI *ini) { SpecialPowerStore::parseSpecialPowerDefinitionGlobal(ini); });
+
+	const char *kCaptureData =
+		"SpecialPower SpecialAbilityCaptureBuilding\n"
+		"  Enum = SPECIAL_INFANTRY_CAPTURE_BUILDING\n"
+		"  UnitSpecificSoundToUseAsInitiateIntendToDoVoice = VoiceInitiateCaptureBuilding\n"
+		"  UnitSpecificSoundToUseAsEnterStateInitiateIntendToDoVoice = VoiceEnterStateInitiateCaptureBuilding\n"
+		"End\n"
+		"SpecialPower SpecialAbilityEmpty\n"
+		"  Enum = SPECIAL_INFANTRY_CAPTURE_BUILDING\n"
+		"End\n"
+		"Object Capturer\n"
+		"  KindOf = INFANTRY SELECTABLE\n"
+		"  VoicePriority = 10\n"
+		"  UnitSpecificSounds\n"
+		"    VoiceInitiateCaptureBuilding = CapturerCapture\n"
+		"    VoiceEnterStateInitiateCaptureBuilding = CapturerEnterCapture\n"
+		"  End\n"
+		"End\n"
+		"Object SilentCapturer\n"
+		"  KindOf = INFANTRY SELECTABLE\n"
+		"  VoicePriority = 10\n"
+		"End\n";
+
+	const std::string err = r.f.w.load(kCaptureData, INI_LOAD_OVERWRITE, "capture_voice.ini");
+	REQUIRE_MESSAGE(err.empty(), err);
+
+	r.sink.known.insert("CapturerCapture");
+	r.sink.known.insert("CapturerEnterCapture");
+
+	const SpecialPowerTemplate *spt = TheSpecialPowerStore->findSpecialPowerTemplate("SpecialAbilityCaptureBuilding");
+	REQUIRE(spt);
+	CHECK(spt->getUnitSpecificSoundToUseAsInitiateIntendToDoVoice() == "VoiceInitiateCaptureBuilding");
+	CHECK(spt->getUnitSpecificSoundToUseAsEnterStateInitiateIntendToDoVoice() == "VoiceEnterStateInitiateCaptureBuilding");
+
+	const SpecialPowerTemplate *emptySpt = TheSpecialPowerStore->findSpecialPowerTemplate("SpecialAbilityEmpty");
+	REQUIRE(emptySpt);
+	CHECK(emptySpt->getUnitSpecificSoundToUseAsInitiateIntendToDoVoice().empty());
+	CHECK(emptySpt->getUnitSpecificSoundToUseAsEnterStateInitiateIntendToDoVoice().empty());
+
+	// Message layout and dispatch rules
+	CHECK(UnitVoiceResponse::voiceTargetArgument(MSG_DO_SPECIAL_POWER_AT_OBJECT) == 1);
+	CHECK(UnitVoiceResponse::handles(MSG_DO_SPECIAL_POWER));
+	CHECK(UnitVoiceResponse::handles(MSG_DO_SPECIAL_POWER_AT_LOCATION));
+	CHECK(UnitVoiceResponse::handles(MSG_DO_SPECIAL_POWER_AT_OBJECT));
+	CHECK(UnitVoiceResponse::handles(MSG_DO_SPELLBOOK_SPECIAL_POWER));
+	CHECK(UnitVoiceResponse::handles(UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_SPECIAL_POWER));
+
+	Object *capturer = r.f.make("Capturer", r.f.teamOf("Alice"));
+	Object *target = r.f.make("Tower", r.f.teamOf("Bob"));
+	Object *silent = r.f.make("SilentCapturer", r.f.teamOf("Alice"));
+
+	// Initiate voice via order messages (MSG_DO_SPECIAL_POWER_AT_OBJECT, etc.)
+	{
+		r.sink.clear();
+		UnitVoiceResponse::Info info;
+		info.target = target->getID();
+		info.powerTemplate = spt;
+		CHECK(r.voice->pickAndPlay({ capturer->getID() }, MSG_DO_SPECIAL_POWER_AT_OBJECT, &info));
+		REQUIRE(r.sink.sounds.size() == 1);
+		CHECK(r.sink.sounds[0] == "CapturerCapture");
+		CHECK(r.sink.owners[0] == capturer->getID());
+
+		// MSG_DO_SPECIAL_POWER
+		r.sink.clear();
+		CHECK(r.voice->pickAndPlay({ capturer->getID() }, MSG_DO_SPECIAL_POWER, &info));
+		CHECK(r.sink.sounds == std::vector<std::string>{ "CapturerCapture" });
+
+		// MSG_DO_SPECIAL_POWER_AT_LOCATION
+		r.sink.clear();
+		info.hasPosition = true;
+		info.position = Coord3D{ 50.0f, 50.0f, 0.0f };
+		CHECK(r.voice->pickAndPlay({ capturer->getID() }, MSG_DO_SPECIAL_POWER_AT_LOCATION, &info));
+		CHECK(r.sink.sounds == std::vector<std::string>{ "CapturerCapture" });
+
+		// MSG_DO_SPELLBOOK_SPECIAL_POWER
+		r.sink.clear();
+		CHECK(r.voice->pickAndPlay({ capturer->getID() }, MSG_DO_SPELLBOOK_SPECIAL_POWER, &info));
+		CHECK(r.sink.sounds == std::vector<std::string>{ "CapturerCapture" });
+
+		// Template lookup by producer ID when powerTemplate is null
+		r.sink.clear();
+		UnitVoiceResponse::Info infoByProducer;
+		infoByProducer.producer = (ObjectID)spt->getID();
+		CHECK(r.voice->pickAndPlay({ capturer->getID() }, MSG_DO_SPECIAL_POWER_AT_OBJECT, &infoByProducer));
+		CHECK(r.sink.sounds == std::vector<std::string>{ "CapturerCapture" });
+	}
+
+	// PlayUnitVoiceForMessage parses argument 0 as special power ID and argument 1 as target
+	{
+		r.sink.clear();
+		GameMessage msg(MSG_DO_SPECIAL_POWER_AT_OBJECT, 0);
+		msg.appendIntegerArgument((int)spt->getID());
+		msg.appendObjectIDArgument(target->getID());
+		PlayUnitVoiceForMessage(*r.voice, { capturer->getID() }, msg);
+		REQUIRE(r.sink.sounds.size() == 1);
+		CHECK(r.sink.sounds[0] == "CapturerCapture");
+	}
+
+	// Enter-state voice: VOICE_EVENT_ENTER_STATE_SPECIAL_POWER (0x7EC)
+	{
+		r.sink.clear();
+		UnitVoiceResponse::Info info;
+		info.producer = (ObjectID)spt->getID();
+		CHECK(r.voice->pickAndPlay({ capturer->getID() }, UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_SPECIAL_POWER, &info));
+		REQUIRE(r.sink.sounds.size() == 1);
+		CHECK(r.sink.sounds[0] == "CapturerEnterCapture");
+		CHECK(r.sink.owners[0] == capturer->getID());
+
+		// enter-state voice obeys MinDelayBetweenEnterStateVoiceMS (RW 0x6769D9 / 0x676A23)
+		r.sink.clear();
+		CHECK_FALSE(r.voice->pickAndPlay({ capturer->getID() }, UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_SPECIAL_POWER, &info));
+		CHECK(r.sink.sounds.empty());
+	}
+
+	// Unit without the slot in UnitSpecificSounds says nothing (RotWK behavior, silence)
+	{
+		r.sink.clear();
+		UnitVoiceResponse::Info info;
+		info.powerTemplate = spt;
+		info.producer = (ObjectID)spt->getID();
+		CHECK_FALSE(r.voice->pickAndPlay({ silent->getID() }, MSG_DO_SPECIAL_POWER_AT_OBJECT, &info));
+		CHECK(r.sink.sounds.empty());
+		CHECK_FALSE(r.voice->pickAndPlay({ silent->getID() }, UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_SPECIAL_POWER, &info));
+		CHECK(r.sink.sounds.empty());
+	}
+
+	// SpecialPower without the slot fields says nothing
+	{
+		r.sink.clear();
+		UnitVoiceResponse::Info info;
+		info.powerTemplate = emptySpt;
+		info.producer = (ObjectID)emptySpt->getID();
+		CHECK_FALSE(r.voice->pickAndPlay({ capturer->getID() }, MSG_DO_SPECIAL_POWER_AT_OBJECT, &info));
+		CHECK(r.sink.sounds.empty());
+		CHECK_FALSE(r.voice->pickAndPlay({ capturer->getID() }, UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_SPECIAL_POWER, &info));
+		CHECK(r.sink.sounds.empty());
+	}
+
+	// Logic trigger: AudioApi::postUnitVoice(0x7EC, ...) dispatches to installed voice handler
+	{
+		int receivedEvent = 0;
+		uint32_t receivedObj = 0;
+		uint32_t receivedProducer = 0;
+		AudioApi::installUnitVoiceHandler([&](int ev, uint32_t objId, uint32_t prodId) {
+			receivedEvent = ev;
+			receivedObj = objId;
+			receivedProducer = prodId;
+		}, &powers);
+		AudioApi::postUnitVoice(0x7EC, capturer->getID(), spt->getID());
+		CHECK(receivedEvent == 0x7EC);
+		CHECK(receivedObj == capturer->getID());
+		CHECK(receivedProducer == spt->getID());
+		AudioApi::uninstallUnitVoiceHandler(&powers);
+	}
 }

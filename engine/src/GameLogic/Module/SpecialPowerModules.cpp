@@ -1055,12 +1055,16 @@ bool SpecialPowerModule::initiate(Object *target, const Coord3D *loc, unsigned o
 	}
 	// RW 0x897F9C / 0x897FEF .. 0x898009: only when an update module drives the power: InitiateFX (data + 0x44) on the object with the target as the second object.
 	// Still open (S-529): the enum switch before the update call (RW 0x897EAB: types 0x33 / 0x88 end each other's module RW 0x8A007F; lane LUMBER1 ported
-	// type 0x8D, the harvester sent back, above), the target id kept at + 0x2C, the + 0x28 flag (options bit 0x40000 with the update's slot 2), the radar window
-	// override (RW 0x897FB2 .. 0x897FD4) and the unit's voice response (RW 0x898009 .. 0x89809A)
+	// type 0x8D, the harvester sent back, above), the target id kept at + 0x2C, the + 0x28 flag (options bit 0x40000 with the update's slot 2), and the radar window
+	// override (RW 0x897FB2 .. 0x897FD4)
 	if (driven)
 	{
 		// RW 0x897FFA .. 0x898001: doFXObj(InitiateFX, the caster, the target object): the target is the FX's second object (its rays, filters, particles)
 		emitPowerFXWith(obj->logic(), "SpecialPower InitiateFX", m_spData->m_initiateFX, *obj, target);
+
+		// RW 0x898069 .. 0x89807B, BFME2 decomp SpecialAbilityUpdate::initiateIntentToDoSpecialPower:
+		// calls RW 0x8DEDBB with 0x7EC (VOICE_EVENT_ENTER_STATE_SPECIAL_POWER), the caster and the power template
+		AudioApi::postUnitVoice(0x7EC, obj->getID(), getSpecialPowerTemplate() ? getSpecialPowerTemplate()->getID() : 0);
 	}
 	return !m_spData->m_updateModuleStartsAttack;
 }

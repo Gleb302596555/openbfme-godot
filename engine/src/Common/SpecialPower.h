@@ -67,6 +67,16 @@ public:
 	bool hasPublicTimer() const { return m_publicTimer; }
 	std::uint32_t getFlags() const { return m_flags; }
 	float getRadiusCursorRadius() const { return m_radiusCursorRadius; }
+	const std::string &getUnitSpecificSoundToUseAsInitiateIntendToDoVoice() const
+	{
+		// RW 0x008DD9F4, BFME2 0x004D973E (Rva004D973EOverridable::rva004D973E)
+		return getFinalOverride()->m_unitSpecificInitiateVoice;
+	}
+	const std::string &getUnitSpecificSoundToUseAsEnterStateInitiateIntendToDoVoice() const
+	{
+		// RW 0x008DD9FD, BFME2 0x004D9747 (Rva004D973EOverridable::rva004D9747)
+		return getFinalOverride()->m_unitSpecificEnterStateVoice;
+	}
 
 	SpecialPowerTemplate *m_nextOverride = nullptr;  // +0x04
 	bool m_isOverride = false;                       // +0x08
