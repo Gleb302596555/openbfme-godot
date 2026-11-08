@@ -61,6 +61,10 @@ struct SidesList
 	bool hasLeadByte = false;   // v>=6
 	std::uint8_t leadByte = 0;  // UNKNOWN meaning (retail +0x668); 173 maps =1, 5 maps =0
 	std::vector<SidesInfo> sides;
+	// RW 0x7319EC .. 0x731A25 / 0x731D72: faction names of the original
+	// non-neutral sides removed when preparing a skirmish. These are not live
+	// player slots. Other saved-side data, scripts and build lists remain S-271.
+	std::vector<std::string> skirmishOriginalFactions;
 
 	bool hasTeams = false;
 	std::vector<Dict> teams; // Teams chunk

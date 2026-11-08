@@ -52,11 +52,11 @@ unported.
   0x6B0A0E; no match sets a separate byte at 0x6B0997, which affects the
   chosen player type at 0x6B09F5–0x6B0A26. The argument can be passed for
   human players as well. `PlayerList::newGame` currently stores
-  `!human && skirmish`, and `SkirmishSides::build` drops these map sides
-  instead of preserving this separate list (S-271); replacing that expression
-  with the raw dictionary value would miss the observer and Side matching.
-  The saved side list and setter call's exact lifecycle must be integrated
-  before using either flag.
+  `!human && skirmish`, and `SkirmishSides::build` now retains the removed
+  records' faction names in a separate list; other saved-side data remains
+  S-271. Replacing that expression with the raw dictionary value would miss
+  the observer and Side matching. The saved faction list is not consumed yet;
+  the setter call's exact lifecycle must be integrated before using either flag.
 
 ## SAFE: selection and scan
 
@@ -163,8 +163,9 @@ unported.
   the member's ID in AI +0x74 and returns true; otherwise it returns false.
   Base Player AI xfer RW 0x8F5756 serializes position +0x38 at RW 0x8F599C–
   0x8F59A2 and, for snapshot version at least 2, timer +0x70 at RW 0x8F5A22–
-  0x8F5A31. It does not serialize +0x74 in this routine; port hash/xfer must
-  nevertheless obey the project's rules for introduced simulation state.
+  0x8F5A31. Correction: RW 0x8F5786–0x8F578B also transfers object ID +0x74
+  via RW 0x707887. The routine's RW 0x8F5767–0x8F576C returns early for CRC;
+  the port must nevertheless hash state that can affect its simulation.
 * The same helper has another caller: RW 0x8F744B clears AI +0x70, RW
   0x8F744F calls RW 0x8F5ABD, and RW 0x8F7458–0x8F746A resolves AI +0x74
   if it returned true. On failure it calls the source chooser RW 0x8F6B5A
