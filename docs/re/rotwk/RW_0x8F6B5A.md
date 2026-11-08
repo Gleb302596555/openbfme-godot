@@ -42,15 +42,21 @@ unported.
   analysis: the second argument at RW 0x6B09FA / 0x6B0A20 is NOT simply the
   side's `playerIsSkirmish` value. RW 0x6B08D6–0x6B0905 initializes it to
   zero and skips the check for an observer or an unset/false skirmish key.
-  Otherwise RW 0x6B090B–0x6B0971 iterates game slots, resolves each slot's
+  Otherwise RW 0x6B090B–0x6B0971 iterates the saved side records of the
+  SidesList at +0x7C0/+0x7C4 (RW 0x6AA31E), resolves each saved record's
   faction template and compares its Side (+0x18) with the initialized player
-  Side (+0x58, copied at RW 0x6B051E–0x6B052D). A match sets the argument
-  to 1 at RW 0x6B0A0E; no match sets a separate byte at 0x6B0997, which
-  affects the chosen player type at 0x6B09F5–0x6B0A26. The argument can be
-  passed for human players as well. `PlayerList::newGame` currently stores
-  `!human && skirmish`; replacing that expression with the raw dictionary
-  value would still miss the observer and faction-matching branches. The
-  setter call's exact lifecycle must be integrated before using either flag.
+  Side (+0x58, copied at RW 0x6B051E–0x6B052D). Correction: these are NOT
+  the lobby slots. RW 0x7319EC–0x731A25 copies the map sides it removes into
+  a temporary array and RW 0x731D72–0x731D94 stores that array and count at
+  SidesList +0x7C0/+0x7C4. A Side match sets the argument to 1 at RW
+  0x6B0A0E; no match sets a separate byte at 0x6B0997, which affects the
+  chosen player type at 0x6B09F5–0x6B0A26. The argument can be passed for
+  human players as well. `PlayerList::newGame` currently stores
+  `!human && skirmish`, and `SkirmishSides::build` drops these map sides
+  instead of preserving this separate list (S-271); replacing that expression
+  with the raw dictionary value would miss the observer and Side matching.
+  The saved side list and setter call's exact lifecycle must be integrated
+  before using either flag.
 
 ## SAFE: selection and scan
 
