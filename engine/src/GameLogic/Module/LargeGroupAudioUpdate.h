@@ -26,8 +26,9 @@
 //     equals the stored byte and the stored frame is after TheLargeGroupAudio + 0x3C (signed `jg`): TheLargeGroupAudio update (RW 0x60D5CB) with the
 //     stored values still in place, then the stored position, flags, status, stealthed and frame take the object's. Return the sleep time.
 //   * the listener interface (RW 0x690728 sets INAUDIBLE and calls slot 0 of every module's interface 36 (module + 0x20), RW 0x690772 clears it and
-//     calls slot 1; RW 0x692313, the object leaving the world, is the caller of RW 0x690728): objectBecameInaudible / objectBecameAudible below. The port
-//     never sets INAUDIBLE (RW 0x692313 / 0x690772 are not ported, stop S-1463): they have no caller yet.
+//     calls slot 1): objectBecameInaudible / objectBecameAudible below, through LargeGroupAudioListenerInterface (BehaviorModule.h). The callers are
+//     Object::setInaudible / setAudible (RW 0x690728 / 0x690772), which GameLogic::friend_containLeaveWorld / friend_containEnterWorld run at the
+//     world transition of a contained object (RW 0x692313 / 0x6923B7, lane PORT-21).
 //   * xfer (RW 0x8AF0E5, version 2): + 0x28 / + 0x2C, + 0x30, + 0x7C, + 0x8C, + 0x90 (version 2), + 0x8D.
 // The module draws logic random numbers at every wake: it is simulation, hashed (crc).
 
@@ -56,7 +57,7 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
-class LargeGroupAudioUpdate : public UpdateModule
+class LargeGroupAudioUpdate : public UpdateModule, public LargeGroupAudioListenerInterface
 {
 public:
 	OBFME_MODULE_XFER(LargeGroupAudioUpdate) // lane SAVE-4b
@@ -67,8 +68,9 @@ public:
 	UpdateSleepTime update() override; // RW 0x8AF246
 
 	// the listener interface (module + 0x20, RW 0xC6B400): slot 0 (RW 0x8AF16C -> 0x8AF09D) and slot 1 (RW 0x8AF174 -> 0x8AF005)
-	void objectBecameInaudible() { leave(); }
-	void objectBecameAudible() { join(); }
+	void objectBecameInaudible() override { leave(); }
+	void objectBecameAudible() override { join(); }
+	LargeGroupAudioListenerInterface *getLargeGroupAudioListener() override { return this; }
 
 	const LargeGroupAudioUpdateModuleData *data() const { return m_data; }
 	bool registered() const { return m_registered; }

@@ -1395,6 +1395,46 @@ void Object::pauseAllSpecialPowers(bool pause)
 	}
 }
 
+// Lane PORT-21 (stop S-1463), RW 0x690728. The status bit is ORed in place (RW 0x69072B, no status setter and no construction-status hook), the
+// drawable's audible flag is cleared (RW 0x690732: the drawable at Object + 0x84, `test` + 0x69073A, `call 0x674727`) and every behaviour module of
+// the list at Object + 0x24C is asked for interface 36 (RW 0x690741 `cmp byte ptr [esi + 0x455], 0` is the list's own guard), slot 0 of it when
+// non-null (RW 0x690765 `call [edx]`). Function at RW 0x690728.
+void Object::setInaudible()
+{
+	static const int kInaudible = CombatNames::status("INAUDIBLE"); // 52: bit 4 of Object + 0x9A (Object + 0x98 bit 20)
+	MaskSet(m_status, (unsigned)kInaudible, true); // RW 0x69072B
+	if (ObjectClientHooks *client = m_logic.clientHooks())
+	{
+		client->setDrawableAudible(*this, false); // RW 0x69073C -> RW 0x674727
+	}
+	for (const std::unique_ptr<BehaviorModule> &m : m_modules) // RW 0x69074A the list head, 0x690767 the next slot
+	{
+		if (LargeGroupAudioListenerInterface *listener = m->getLargeGroupAudioListener())
+		{
+			listener->objectBecameInaudible(); // RW 0x690765: interface 36 slot 0
+		}
+	}
+}
+
+// Lane PORT-21 (stop S-1463), RW 0x690772: the same with the bit cleared (RW 0x690775 `and 0xef`), the drawable audible again (RW 0x690786 ->
+// RW 0x67896F) and interface 36's slot 1 (RW 0x6907AF `call [edx + 4]`). Function at RW 0x690772.
+void Object::setAudible()
+{
+	static const int kInaudible = CombatNames::status("INAUDIBLE");
+	MaskSet(m_status, (unsigned)kInaudible, false); // RW 0x690775
+	if (ObjectClientHooks *client = m_logic.clientHooks())
+	{
+		client->setDrawableAudible(*this, true); // RW 0x690786 -> RW 0x67896F
+	}
+	for (const std::unique_ptr<BehaviorModule> &m : m_modules) // RW 0x690794 / 0x6907B2
+	{
+		if (LargeGroupAudioListenerInterface *listener = m->getLargeGroupAudioListener())
+		{
+			listener->objectBecameAudible(); // RW 0x6907AF: interface 36 slot 1
+		}
+	}
+}
+
 // RW 0x6907F1 (see Object.h)
 void Object::setDisabled(unsigned type, UnsignedInt untilFrame)
 {

@@ -161,6 +161,10 @@ public:
 	virtual void setShadowsEnabled(Object &obj, bool enabled) { (void)obj; (void)enabled; }
 	// RW 0x8BCD38: OathbreakersFadeAwayBehavior writes the drawable's opacity directly.
 	virtual void setDrawableOpacity(Object &obj, float opacity) { (void)obj; (void)opacity; }
+	// lane PORT-21: the object became INAUDIBLE / audible again (Object::setInaudible / setAudible, RW 0x690728 / 0x690772): RW 0x69073C calls the
+	// drawable's RW 0x674727 and RW 0x690786 its RW 0x67896F, which clear / set the drawable's audible flag (+ 0x44A) and tell every client behaviour
+	// module's second interface (slot 1 RW 0x8CE25E / 0x8D04EB, slot 0 RW 0x8CE249 / 0x8D04D9)
+	virtual void setDrawableAudible(Object &obj, bool audible) { (void)obj; (void)audible; }
 	// RW 0x67B78C -> 0x6D4789: a qualifying hit on a local hero, independently of the EVA gate.
 	// RW 0x69560B: profile statistics are recorded before the normal kill-score gates.
 	virtual void createAHeroKill(Object &, Object &) {}

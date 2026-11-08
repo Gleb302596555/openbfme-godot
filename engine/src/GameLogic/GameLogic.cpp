@@ -14,6 +14,7 @@
 #include "GameLogic/Module/NotifyCrushModules.h"
 #include "GameLogic/Module/UpgradeModuleClasses.h"
 #include "GameLogic/Combat/CombatState.h"
+#include "GameLogic/Combat/CombatNames.h" // lane PORT-21: the NOT_IN_WORLD status index
 #include "GameLogic/SimMath.h"
 #include "GameLogic/BuildStops.h"
 #include "GameLogic/StructureStops.h"
@@ -175,6 +176,10 @@ void GameLogic::friend_containEnterWorld(Object &obj)
 		}
 	}
 	obj.friend_setInWorld(true);
+	// lane PORT-21 (RW 0x6923B7, the object back in the world): after the world entry (RW 0x68E31F, Object + 0x474 = 1) the object is audible again
+	// (RW 0x692409 -> RW 0x690772) and NOT_IN_WORLD (status 51) goes (RW 0x692414: setStatus(0x33, 0))
+	obj.setAudible();
+	obj.setStatus((unsigned)CombatNames::status("NOT_IN_WORLD"), false); // 51 = RW 0x33
 	++m_containWorldTransitions;
 }
 
@@ -207,6 +212,11 @@ void GameLogic::friend_containLeaveWorld(Object &obj)
 		}
 	}
 	obj.friend_setInWorld(false);
+	// lane PORT-21 (RW 0x692313, the object out of the world): after the world exit (RW 0x68C18F, which ends with Object + 0x474 = 0) the object is
+	// INAUDIBLE (RW 0x6923A5 -> RW 0x690728) and gets NOT_IN_WORLD (RW 0x6923B0: setStatus(0x33, 1)). RW 0x692313 tests the same status first and
+	// returns (RW 0x692318) — the `!obj.isInWorld()` guard above is the port's, because a contain's exit and a second one are the same transition
+	obj.setInaudible();
+	obj.setStatus((unsigned)CombatNames::status("NOT_IN_WORLD"), true); // 51 = RW 0x33
 	++m_containWorldTransitions;
 }
 
