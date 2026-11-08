@@ -1617,6 +1617,94 @@ void CastleMemberBehavior::onBodyDamageStateChange(const DamageInfo *, BodyDamag
 	}
 }
 
+void CastleBehavior::forEachMemberId(const std::function<void(ObjectID)> &fn) const
+{
+	if (m_keepId != INVALID_ID)
+	{
+		fn(m_keepId);
+	}
+	for (ObjectID id : m_foundations)
+	{
+		if (id != INVALID_ID)
+		{
+			fn(id);
+		}
+	}
+	for (ObjectID id : m_members)
+	{
+		if (id != INVALID_ID)
+		{
+			fn(id);
+		}
+	}
+	for (ObjectID id : m_crew)
+	{
+		if (id != INVALID_ID)
+		{
+			fn(id);
+		}
+	}
+	for (ObjectID id : m_defenseFoundations)
+	{
+		if (id != INVALID_ID)
+		{
+			fn(id);
+		}
+	}
+	if (getObject())
+	{
+		fn(getObject()->getID());
+	}
+}
+
+CastleBehavior *CastleBehavior::of(Object &obj)
+{
+	for (const auto &m : obj.modules())
+	{
+		if (auto *c = dynamic_cast<CastleBehavior *>(m.get()))
+		{
+			return c;
+		}
+	}
+	return nullptr;
+}
+
+const CastleBehavior *CastleBehavior::of(const Object &obj)
+{
+	for (const auto &m : obj.modules())
+	{
+		if (const auto *c = dynamic_cast<const CastleBehavior *>(m.get()))
+		{
+			return c;
+		}
+	}
+	return nullptr;
+}
+
+CastleMemberBehavior *CastleMemberBehavior::of(Object &obj)
+{
+	for (const auto &m : obj.modules())
+	{
+		if (auto *c = dynamic_cast<CastleMemberBehavior *>(m.get()))
+		{
+			return c;
+		}
+	}
+	return nullptr;
+}
+
+const CastleMemberBehavior *CastleMemberBehavior::of(const Object &obj)
+{
+	for (const auto &m : obj.modules())
+	{
+		if (const auto *c = dynamic_cast<const CastleMemberBehavior *>(m.get()))
+		{
+			return c;
+		}
+	}
+	return nullptr;
+}
+
 void CastleModules::registerAll(ModuleFactory &modules)
 {
 	CastleUpgrade::registerClass(modules); // lane FACT-B: the fortress improvements' upgrade module

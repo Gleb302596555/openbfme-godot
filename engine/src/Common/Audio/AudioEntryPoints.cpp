@@ -386,6 +386,24 @@ bool reportEva(int event, const Coord3D *position, const Coord3D *position2)
 	return eva->reportEvent(event, position, mgr->nowMs(), position2);
 }
 
+float enemySightedMaxVoicePositionScanRange()
+{
+	Eva *eva = nullptr;
+	{
+		std::lock_guard<std::mutex> lock(g_bindMutex);
+		eva = g_eva;
+	}
+	if (eva)
+	{
+		float r = eva->enemySightedMaxVoicePositionScanRange();
+		if (r > 0.0f)
+		{
+			return r;
+		}
+	}
+	return 1100.0f;
+}
+
 std::string reportEvaDamage(const std::string &event, const std::string &second, bool farFrameDue, const Coord3D &position)
 {
 	// lane EVADAMAGE-1: the TheEva half of RW 0x67B644 .. 0x67B6A4 on the Eva's thread (a report made elsewhere waits like reportEva's, S-814)

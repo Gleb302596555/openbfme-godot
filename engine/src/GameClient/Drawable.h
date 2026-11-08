@@ -286,10 +286,15 @@ public:
 		m_syncSnapshot = snapshot;
 		m_syncFrame = snapshot ? snapshot->frame : 0;
 		m_syncRec = rec;
+		bool wasObscured = m_shroudLook.fullyObscured;
 		// lane VISUAL-2: RW 0x64849E's per-frame shroud look (GameClient/DrawableShroud.h) from the presented record
 		const ShroudView *view = snapshot ? snapshot->shroud.get() : nullptr;
 		m_shroudLook.update(rec ? rec->objectShroud : 0, rec && rec->effectivelyDead, m_syncFrame,
 			view ? DrawableShroudLook::viewerKeyOf(view->localPlayer, view->visionPlayers) : 0);
+		if (wasObscured && !m_shroudLook.fullyObscured)
+		{
+			m_shroudRevealed = true;
+		}
 	}
 	// lane VISUAL-2: the shroud look of the last sync: fullyObscured is RW Drawable +0x440 (attached particle systems do not emit), hidden: not drawn
 	const DrawableShroudLook &shroudLook() const { return m_shroudLook; }
@@ -313,6 +318,28 @@ public:
 	bool clientHidden() const { return m_clientHidden; }
 	void markEvaFirstSighted() { m_evaFirstSighted = true; }
 	bool evaFirstSighted() const { return m_evaFirstSighted; }
+	void setEvaEnemySighted(bool on) { m_evaEnemySighted = on; }
+	bool evaEnemySighted() const { return m_evaEnemySighted; }
+	void setEvaEnemySightedAfterRespawn(bool on) { m_evaEnemySightedAfterRespawn = on; }
+	bool evaEnemySightedAfterRespawn() const { return m_evaEnemySightedAfterRespawn; }
+	void setEvaCastleMemberSighted(bool on) { m_evaCastleMemberSighted = on; }
+	bool evaCastleMemberSighted() const { return m_evaCastleMemberSighted; }
+	bool takeShroudRevealed()
+	{
+		bool r = m_shroudRevealed;
+		m_shroudRevealed = false;
+		return r;
+	}
+	// RW 0x67561E Drawable::notifyDead (called on Object death at RW 0x699077):
+	// if m_evaEnemySighted (+0x445) is set, clears it to 0 and sets m_evaEnemySightedAfterRespawn = 1 (+0x446)
+	void notifyDead()
+	{
+		if (m_evaEnemySighted)
+		{
+			m_evaEnemySighted = false;
+			m_evaEnemySightedAfterRespawn = true;
+		}
+	}
 	// TOP20 #24, RW 0x672D28 setShadowsEnabled: status bit 2 (+ 0x114) set when on, cleared when off; every draw module's vslot 0x30 takes the same answer (the
 	// port's renderer reads shadowsEnabled() for each module's instance)
 	void setShadowsEnabled(bool on) { m_shadowsEnabled = on; }
@@ -435,7 +462,11 @@ private:
 	std::vector<DrawEntry> m_entries;
 	std::vector<std::unique_ptr<DrawableModule>> m_clientModules;
 	std::vector<ModelConditionAudioLoopClientBehavior *> m_audioLoops; ///< those of m_clientModules the flush tells (RW 0x67449C)
-	bool m_evaFirstSighted = false; // RW Drawable +0x114 bit 0x80; sighting consumer remains S-709
+	bool m_evaFirstSighted = false; // RW Drawable +0x114 bit 0x80; sighting consumer S-709 / Local 13
+	bool m_evaEnemySighted = false; // RW Drawable +0x445
+	bool m_evaEnemySightedAfterRespawn = false; // RW Drawable +0x446
+	bool m_evaCastleMemberSighted = false; // RW Drawable +0x114 bit 0x40
+	bool m_shroudRevealed = false; // transitioned from fullyObscured == true to false
 	bool m_shadowsEnabled = true;   // RW Drawable +0x114 bit 2 (TOP20 #24)
 	bool m_audible = true;          ///< lane PORT-21: Drawable + 0x44A, 1 until the object becomes INAUDIBLE (RW 0x674727 / 0x67896F)
 	bool m_clientHidden = false; ///< lane CHAT-1

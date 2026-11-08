@@ -440,3 +440,8 @@ void ClientEventRecorder::createAHeroKill(Object &killer, Object &victim)
 	event.heroUniqueID = hero->uniqueID;
 	event.heroStatistics = std::move(names);
 }
+
+void ClientEventRecorder::objectDied(Object &obj)
+{
+	push(ClientEvent::DIED, obj);
+}

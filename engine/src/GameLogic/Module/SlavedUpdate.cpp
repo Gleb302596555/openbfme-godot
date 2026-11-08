@@ -151,6 +151,22 @@ SlavedUpdateInterface *SlavedUpdateInterface::of(Object &obj)
 	return nullptr;
 }
 
+const SlavedUpdateInterface *SlavedUpdateInterface::of(const Object &obj)
+{
+	if (obj.moduleLookupsCached())
+	{
+		return obj.slavedModule();
+	}
+	for (const std::unique_ptr<BehaviorModule> &m : obj.modules())
+	{
+		if (const SlavedUpdateInterface *s = dynamic_cast<const SlavedUpdateInterface *>(m.get()))
+		{
+			return s;
+		}
+	}
+	return nullptr;
+}
+
 SlavedUpdate::Stats &SlavedUpdate::stats()
 {
 	static thread_local Stats s;

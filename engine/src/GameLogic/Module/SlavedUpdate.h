@@ -94,9 +94,11 @@ public:
 	virtual void onSlaverDie(const DieModuleInterface::Event *info) = 0;   // slot 2
 	virtual void onSlaverDamage(const DamageInfo &info) = 0;               // slot 3
 	virtual bool isSelfTasking() const { return false; }                  // slot 4 (RW 0x9188EB)
+	virtual bool useSlaverAsControlForEvaObjectSightedEvents() const { return false; } // slot 5 (+ 0x6D, RW 0xC68820 vtable +0x14)
 	virtual bool dieOnMastersDeath() const = 0;                             // slot 8 (+ 0x55)
 	// the slaved interface of `obj`'s first module that has one (the loop of RW 0x862865 / 0x862B07 over the behaviour interface's slot 0x68)
 	static SlavedUpdateInterface *of(Object &obj);
+	static const SlavedUpdateInterface *of(const Object &obj);
 };
 
 class SlavedUpdateModuleData : public ModuleData
@@ -140,6 +142,7 @@ public:
 	void onEnslave(const Object *slaver) override;                  // RW 0x8A510B
 	void onSlaverDie(const DieModuleInterface::Event *info) override; // RW 0x8A51B9
 	void onSlaverDamage(const DamageInfo &info) override;           // RW 0x8A52FB
+	bool useSlaverAsControlForEvaObjectSightedEvents() const override { return m_data->m_useSlaverAsControlForEvaObjectSightedEvents; } // slot 5
 	bool dieOnMastersDeath() const override { return m_data->m_dieOnMastersDeath; }
 
 	const SlavedUpdateModuleData *data() const { return m_data; }

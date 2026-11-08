@@ -50,6 +50,8 @@ Eva *currentEva();
 bool reportEva(const std::string &eventName, const Coord3D *position, const Coord3D *position2);
 bool reportEva(int eventIndex, const Coord3D *position, const Coord3D *position2);
 std::uint64_t callsWithoutEva();
+// lane LOCAL-13: EnemySightedMaxVoicePositionScanRange from MiscEvaData (RW 0x672DFB / TheEva +0x80)
+float enemySightedMaxVoicePositionScanRange();
 // lane EVADAMAGE-1 (RW 0x67B644 .. 0x67B6A4, the end of the drawable's damage notice): `second` (when not "") instead of `event` when `farFrameDue` (the
 // drawable's far frame, RW + 0x388, is not ahead of the logic frame) and TheEva calls `event` blocked by its timeout (RW 0x5DCC88) or about to play
 // (RW 0x5DCCEB); the one chosen is reported at `position` (RW 0x5DD9EE). Returns its name ("" when there is no Eva, or the call was queued for the Eva's thread)
