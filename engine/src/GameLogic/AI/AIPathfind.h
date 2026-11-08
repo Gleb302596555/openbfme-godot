@@ -929,6 +929,11 @@ public:
 	bool meleeFootprintFree(const PathfindObject &obj, int x, int y, PathfindLayerEnum layer, int radius, bool center) const;
 	// lane PHYS-1: RW 0x6EE6DD: the footprint around the unit's own cell holds no blocking cell and no other unit's goal (a LARGE_RECTANGLE_PATHFIND unit: no other such unit's)
 	bool meleeOwnFootprintFree(const PathfindObject &obj);
+	// RW 0x6EA0EC Pathfinder::adjustMeleeOffset (`this` in ECX, three stack arguments, `ret 0xc`): `v`, the offset from `target`'s position, is scaled by the
+	// first of 20 steps along it that leaves the obstacle (AIPathfindMelee.cpp has the body's addresses). Two callers, both RW's own: the melee engagement of a
+	// STRUCTURE / WALK_ON_TOP_OF_WALL target (RW 0x6F3905) and the siege deploy's approach point (RW 0x8C9E7A, unless SkipAdjustPosition, issue #78).
+	// `unit` feeds RW's contact-point branch (RW 0x6EA108 .. 0x6EA125, RW 0x667C76, ported by TOP20 #26).
+	void adjustMeleeOffset(const PathfindObject &unit, const PathfindObject &target, Coord3D &v);
 	// lane PHYS-1: RW 0x6F37B3 (AIPathfindMelee.cpp), the member engagement destination of the melee engage state (0xE2): true with `dest` = the unit's position when
 	// `range` reaches the target from there and RW 0x6EE6DD passes; else the circular search RW 0x6EFE9F (budget MaxCellsFindMeleeEngagementLocation) around the
 	// target's cell moved 10 toward the point 10 ahead of the unit, then around the target's own cell: the cell nearest the unit, in its zone, from which `range`
