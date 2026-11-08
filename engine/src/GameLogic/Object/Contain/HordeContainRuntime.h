@@ -41,6 +41,7 @@
 
 class HordeContainCore;
 class ThingTemplate;
+struct ComboHordeEntry;
 struct HordeContainModuleData;
 struct MeleeBehaviorModuleData;
 class HordeContainBehaviorData;
@@ -74,6 +75,14 @@ public:
 	// slot 0xC8 (RW 0x86EF13, lane MOVE-3): called by the pathfinder's updateGoal (RW 0x8E24D3) once the horde's goal changed: unless the horde melees (+ 0x184),
 	// every living member's goal is reserved at its slot turned by the goal's angle around the goal's position
 	virtual void reserveMemberGoals() = 0;
+	// ---- lane PORT-35 (HordeContain/ComboHorde: two hordes combining into one, GameLogic/Object/Contain/HordeContainRuntime.cpp) ----
+	// slot 0x70 (RW 0x871D41): `other` is not this horde's object, this horde's ComboHorde list (module data + 0x198, RW 0x87043B) has an entry for
+	// `other`'s template, neither object is UNDER_CONSTRUCTION (2) or UNSELECTABLE (3) (RW 0x871ECE .. 0x871F02, RW 0x44DDEC), this horde's object is
+	// not DEPLOYED (0x3b) or TEMPORARILY_DEFECTED (0x3e) and `other` is not TEMPORARILY_DEFECTED. The gate's other tests are S-6027.
+	virtual bool canCombineWith(const Object &other) const = 0;
+	// slot 0x74 (RW 0x876481, its combine branch RW 0x8765B4 .. 0x8769F7): both hordes' members move into a new horde of the entry's Result template,
+	// both old hordes are destroyed; the new horde's object, or null when the entry, the template or the new horde is missing
+	virtual Object *combineWith(Object *target) = 0;
 	// ---- MOVE-1 (the member pass, HordeMemberPass.cpp; horde spec 2.2 / 2.3 / 2.5) ----
 	// the horde's own locomotor is writing its transform: the members are not teleported with it (they walk to their slots)
 	virtual void setLocomoting(bool on) = 0;
@@ -415,6 +424,17 @@ public:
 	// 1000% reaches the pikemen this way.
 	void applyFormationModifiers();
 	void removeFormationModifiers();
+	// ---- lane PORT-35: two hordes combining into one (ComboHorde), see the interface's canCombineWith / combineWith ----
+	// RW 0x87043B: the ComboHorde entry of the module data's vector (+0x198) whose Target (entry + 0) names `tmpl`, walked in list order (RW 0x870451 ..
+	// 0x870469, the compare RW 0x4065AA); null when the list has none
+	const ComboHordeEntry *comboHordeEntryFor(const ThingTemplate &tmpl) const;
+	bool canCombineWith(const Object &other) const override;
+	Object *combineWith(Object *target) override;
+	static const char *combineStopLine();
+	// RW 0x876481's banner tie-break (0x8768A0 .. 0x8768FC) is S-6028: the members of `from` leave it without its "last member gone" destruction
+	// (the formation swap's rule) and are handed to `to` (interface slot 0x2C, RW 0x873F30) unplaced, erased from `to`'s produced list so the member
+	// pass walks them to their slots
+	void takeMembersFrom(HordeContain &from, HordeContain &to);
 	// the stop line S-589
 	static const char *formationStopLine();
 	// ---- lane HORDE-2: the banner carrier (HordeBanner.cpp; RW 0x8719E4 / 0x870204) ----
