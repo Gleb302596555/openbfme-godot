@@ -4,8 +4,6 @@
 //   GeometryInfo::getBestContactPoint RW 0xAD30E0
 //   Object::getWorldspaceBestContactPoint RW 0x690BD2
 //   Pathfinder::adjustMeleeOffset RW 0x6EA0EC / 0x6EA11E
-//   AIAttackFireDuringApproachState::update RW 0x75232F / 0x75253D
-//   AIAttackFireWeaponState::onEnter RW 0x74C258 / 0x74C5FF
 
 #include "doctest.h"
 
@@ -181,6 +179,8 @@ TEST_CASE("LOCAL-7 attack contact point: attackers choose contact points matchin
 	REQUIRE(contactWall != nullptr);
 	Object *plainWall = w.unit("PlainWall", 'B', 200.0f, 200.0f);
 	REQUIRE(plainWall != nullptr);
+	Object *nearWall = w.unit("ContactWall", 'B', 60.0f, 60.0f);
+	REQUIRE(nearWall != nullptr);
 	Object *targetUnit = w.unit("SwordsmanUnit", 'B', 200.0f, 200.0f);
 	REQUIRE(targetUnit != nullptr);
 
@@ -200,20 +200,34 @@ TEST_CASE("LOCAL-7 attack contact point: attackers choose contact points matchin
 	const PathfindObject *unitPf = w.ai->findObjectByID(targetUnit->getID());
 	REQUIRE(unitPf != nullptr);
 
-	SUBCASE("unit WITH SpecialContactPoints = Ram attacks building with matching Ram AttackContactPoint -> engagement destination goes to Ram contact point (170)")
+	SUBCASE("unit WITH SpecialContactPoints = Ram attacks building with matching Ram AttackContactPoint -> RW adds the WORLD contact point to the centre")
 	{
 		Coord3D ramDest = *contactWall->getPosition();
 		const FixedRange reachWall(*contactWall->getPosition(), 50.0f);
 		const PathfindLocomotorInfo locoRam = atkRam->getAIUpdateInterface()->locomotorInfo();
 
-		// RW 0x6F37B3 (Pathfinder::findMeleeEngagementLocation):
-		// Target is STRUCTURE / WALK_ON_TOP_OF_WALL -> calls adjustMeleeOffset (RW 0x6EA0EC).
-		// adjustMeleeOffset RW 0x6EA11E -> RW 0x667C76 finds the "Ram" contact point on ContactWall at (-30, 0, 0) relative to (200, 200, 0) -> (170, 200, 0).
-		// Function exits immediately (RW 0x6EA1D9) without 20 obstacle steps.
-		// Engagement destination is placed at the contact point's cell (170.5, 200.5).
+		// RW 0x6F37B3 (Pathfinder::findMeleeEngagementLocation): the target is STRUCTURE / WALK_ON_TOP_OF_WALL -> adjustMeleeOffset (RW 0x6EA0EC).
+		// RW 0x6EA11E -> RW 0x667C76 finds the "Ram" point: RW 0x690BD2 writes the WORLD point (170, 200, 0) into v and RW 0x6EA0EC exits at RW 0x6EA1D9.
+		// PROCESS 14 expectation change (review r3, Claude): r3 expected the contact point itself (170.5, 200.5), which needs v = point - centre; RW
+		// 0x6F3927 .. 0x6F3974 adds v to the centre (RW 0x68C9AC) as is: (200, 200) + (170, 200) + 5 = (375, 405), out of reach; the RW 0x6EFE9F ring
+		// search then gives the cell (180.5, 200.5), not the contact point.
 		REQUIRE(pf.findMeleeEngagementLocation(*ramPf, locoRam, *wallPf, reachWall, &ramDest));
-		CHECK(ramDest.x == 170.5f);
+		CHECK(ramDest.x == 180.5f);
 		CHECK(ramDest.y == 200.5f);
+
+		const PathfindObject *nearPf = w.ai->findObjectByID(nearWall->getID());
+		REQUIRE(nearPf != nullptr);
+		Coord3D ramNear = *nearWall->getPosition();
+		Coord3D swordNear = *nearWall->getPosition();
+		const FixedRange reachNear(*nearWall->getPosition(), 50.0f);
+		// the same wall at (60, 60): centre + world point + 5 = (60, 60) + (30, 60) + 5 = (95, 125), in the search's reach, so the ram's cell (70.5, 100.5)
+		// differs from the swordsman's (no labels, RW 0x6EA12B steps: (60.5, 60.5)); with v = point - centre it would be the contact point's cell (30.5, 60.5)
+		REQUIRE(pf.findMeleeEngagementLocation(*ramPf, locoRam, *nearPf, reachNear, &ramNear));
+		REQUIRE(pf.findMeleeEngagementLocation(*swordsmanPf, atkPlain->getAIUpdateInterface()->locomotorInfo(), *nearPf, reachNear, &swordNear));
+		CHECK(ramNear.x == 70.5f);
+		CHECK(ramNear.y == 100.5f);
+		CHECK(swordNear.x == 60.5f);
+		CHECK(swordNear.y == 60.5f);
 	}
 
 	SUBCASE("unit WITHOUT SpecialContactPoints (Swordsman) attacks building with AttackContactPoint -> regular approach path (not contact point)")

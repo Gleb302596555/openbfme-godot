@@ -235,7 +235,8 @@ bool Pathfinder::adjustToMeleeDestination(const PathfindObject &obj, const Pathf
 //   * RW 0x6EFE9F: the centre cell first (score kept), then rings of legs +x n, +y n, -x n + 1, -y n + 1 (n = 1, 3, 5, ...), the budget less the ring's cell count
 //     after each ring; a cell is tried only when nothing was found yet or its score is strictly below the best; the search returns at the start of the ring after
 //     the one in which the best was last improved (the patience counter is reset to 1 by every improvement);
-//   * RW 0x6EA0EC(unit, target, v): if unit has AI (Object +0x260), RW 0x667C76 (findNearestLabeledContactPointOnTarget); if found, returns immediately; else from
+//   * RW 0x6EA0EC(unit, target, v): if unit has AI (Object +0x260), RW 0x667C76 (findNearestLabeledContactPointOnTarget); if found, returns immediately with v = the world contact point (RW 0x690BD2, so
+//     the caller's dest is the target's centre + that point); else from
 //     the target's position along v the first of 20 steps whose cell is not an obstacle (type 4) scales v by the step count;
 //   * RW 0x7463E8(dest, unit, other = 0): the distance d0 from the unit to dest; RW 0x6FB754(unit, dest, weapon, 0) (lines from dest to the 8 points at
 //     max(150 (RW 0xC041F8), the weapon's range) around it, RW 0x6FA9EF / 0x6F807D) and RW 0x6F5BB0 (quick path test, unit -> dest) -> true, dest unchanged; else
@@ -346,13 +347,13 @@ bool Pathfinder::findMeleeEngagementLocation(const PathfindObject &obj, const Pa
 			Coord3D pt;
 			if (targetObj && ai->findNearestLabeledContactPointOnTarget(*targetObj, pt, self, false))
 			{
-				// RW 0x6EA125 jne 0x6ea1d9: immediate exit without 20 obstacle steps.
-				// In RW 0x6F37B3 (0x6F395C..0x6F3974), dest is built as target.pos + v.
-				// To place the destination at the contact point pt, v is the offset (pt - target.pos).
-				const Coord3D &t = target.getPosition();
-				vx = SimMath::subf32(pt.x, t.x);
-				vy = SimMath::subf32(pt.y, t.y);
-				vz = SimMath::subf32(pt.z, t.z);
+				// RW 0x6EA125 jne 0x6ea1d9: immediate exit without 20 obstacle steps; v keeps what RW 0x690BD2 wrote into it.
+				// review r3 (Claude): RW 0x690BD2 .. 0x690DFA writes the WORLD point (the target's matrix at Object +8 with its translation +0xC / +0x1C / +0x2C),
+				// not an offset, and RW 0x6F3927 .. 0x6F3974 adds v to the target's centre (RW 0x68C9AC) as for the step vector: dest = centre + world point.
+				// That is what RotWK does; v is the world point as is (no subtraction).
+				vx = pt.x;
+				vy = pt.y;
+				vz = pt.z;
 				foundContact = true;
 			}
 		}
