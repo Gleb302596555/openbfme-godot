@@ -208,6 +208,21 @@ WindowMsgHandledType GadgetPushButtonInput(GameWindow *window, std::uint32_t msg
 	return MSG_HANDLED;
 }
 
+// lane LOCAL-12 review: the port's push buttons get no PushButtonData at creation (ZH's gogoGadgetPushButton makes one), and other code keeps its
+// own pointer in a window's user data (AptSkirmish: the map preview's MapCacheEntry), so the border data GadgetButtonSetBorder makes is tracked and
+// only that is deleted on GWM_DESTROY
+static thread_local std::unordered_set<const PushButtonData *> s_borderData;
+
+static void releaseBorderData(GameWindow *window)
+{
+	auto *data = static_cast<PushButtonData *>(window->winGetUserData());
+	if (data && s_borderData.erase(data) != 0)
+	{
+		delete data;
+		window->winSetUserData(nullptr);
+	}
+}
+
 WindowMsgHandledType GadgetPushButtonSystem(GameWindow *window, std::uint32_t msg, WindowMsgData mData1, WindowMsgData mData2)
 {
 	WinInstanceData *instData = window->winGetInstanceData();
@@ -248,21 +263,6 @@ void GadgetButtonSetText(GameWindow *g, const UnicodeString &text)
 	}
 	UnicodeString copy = text;
 	g->manager().winSendSystemMsg(g, GGM_SET_LABEL, msgData(&copy), 0);
-}
-
-// lane LOCAL-12 review: the port's push buttons get no PushButtonData at creation (ZH's gogoGadgetPushButton makes one), and other code keeps its
-// own pointer in a window's user data (AptSkirmish: the map preview's MapCacheEntry), so the border data GadgetButtonSetBorder makes is tracked and
-// only that is deleted on GWM_DESTROY
-static thread_local std::unordered_set<const PushButtonData *> s_borderData;
-
-static void releaseBorderData(GameWindow *window)
-{
-	auto *data = static_cast<PushButtonData *>(window->winGetUserData());
-	if (data && s_borderData.erase(data) != 0)
-	{
-		delete data;
-		window->winSetUserData(nullptr);
-	}
 }
 
 // RW 0x729EA7 GadgetButtonSetBorder
