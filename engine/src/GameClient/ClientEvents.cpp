@@ -177,6 +177,20 @@ void ClientEventRecorder::deselectDrawable(Object &obj)
 }
 
 // lane EVADAMAGE-1: RW 0x67B4B7's Eva half, the logic's part (EvaDamageNotice.h); the report goes to TheEva at the object's position (+ 0x38)
+void ClientEventRecorder::flashAsSelected(Object &obj, const RGBColor *color)
+{
+	ClientEvent &e = push(ClientEvent::FLASH_AS_SELECTED, obj);
+	if (color)
+	{
+		e.hasFlashColor = true;
+		e.flashColor = *color;
+	}
+	else
+	{
+		e.hasFlashColor = false;
+	}
+}
+
 void ClientEventRecorder::evaDamaged(Object &obj, const EvaDamageNotice &notice)
 {
 	ClientEvent &e = push(ClientEvent::EVA_DAMAGED, obj);

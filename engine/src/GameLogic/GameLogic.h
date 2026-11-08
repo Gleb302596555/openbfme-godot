@@ -88,6 +88,7 @@ class ThingFactory;
 class ThingTemplate;
 class UpdateModule;
 class ObjectWeapons; // lane PERF-WS
+struct RGBColor;
 class TerrainLogic;
 class UpgradeTypeTable;
 class AIWorld;
@@ -167,6 +168,8 @@ public:
 	// TOP20 rampage, RW 0x625759 GameLogic::deselectObject with affectClient: the object's drawable leaves the client's selection (TheInGameUI vslot 0x10C,
 	// deselectDrawable, RW 0x6257E5)
 	virtual void deselectDrawable(Object &obj) { (void)obj; }
+	// RW 0x852BE1 / 0x678FA7: flash an object's drawable as selected in the given colour (SpecialAbilityUpdate DoCaptureFX)
+	virtual void flashAsSelected(Object &obj, const RGBColor *color) { (void)obj; (void)color; }
 	// lane EVADAMAGE-1, RW 0x67B4B7's Eva half: a qualifying hit (ShouldPlayUnderAttackEva) on a local object, with the logic's part of the choice
 	// (GameLogic/Object/EvaDamageNotice.h); the client picks the event, keeps the drawable's far frame and reports it to TheEva
 	virtual void evaDamaged(Object &obj, const EvaDamageNotice &notice) { (void)obj; (void)notice; }
