@@ -13,6 +13,7 @@
 #include "Common/Player.h"
 #include "Common/StateHash.h"
 #include "Common/Thing/ModuleFactory.h"
+#include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/AI/AIPathfindHost.h"
 #include "GameLogic/BitFlags.h"
 #include "GameLogic/Combat/CombatNames.h"
@@ -272,14 +273,16 @@ StructureCollapseUpdate::StructureCollapseUpdate(Thing *thing, const StructureCo
 	setWakeFrame(getObject(), UPDATE_SLEEP_FOREVER);
 }
 
-// RW 0x8A7A04: the geometry's maximum height above the position (RW 0xAD1920 over every active shape: GameLogic/Object/ObjectGeometry.h).
+// RW 0x8A7A04: the template geometry's maximum height above the position (RW 0x8A7A16: mov eax, [eax + 4]; lea ecx, [eax + 0xA0]; call 0xAD1920, so entering
+// RUBBLE beforehand does not lower the collapse sink distance).
 float StructureCollapseUpdate::getCollapseHeight() const
 {
 	if (!m_data->m_destroyObjectWhenDone)
 	{
 		return m_data->m_collapseHeight;
 	}
-	const float geometryHeight = ObjectGeometry::maxHeightAbovePosition(getObject()->geometryShapes()); // the object's own GeometryInfo (lane MODCOMPAT-MOD1)
+	const ThingTemplate *tt = getObject()->getTemplate();
+	const float geometryHeight = tt ? ObjectGeometry::maxHeightAbovePosition(ObjectGeometry::cachedShapesOf(*tt->getFinalOverride())) : 0.0f;
 	return m_data->m_collapseHeight <= geometryHeight ? geometryHeight : m_data->m_collapseHeight;
 }
 

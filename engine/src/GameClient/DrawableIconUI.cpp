@@ -121,7 +121,7 @@ Coord3D iconAnchor(GameLogic &logic, const DrawableManager &drawables, const Dra
 	}
 	Coord3D p = *d.getPosition();
 	p.z += heightOffset;
-	p.z += maxHeight;
+	p.z += obj.keepsOwnGeometry() ? ObjectGeometry::maxHeightAbovePosition(obj.geometryShapes()) : maxHeight; // RW 0x67797F (Object + 0xA8)
 	return p;
 }
 
@@ -624,10 +624,11 @@ void DrawableIconUI::build(GameLogic &logic, const DrawableManager &drawables, c
 			// worldPos = pos + ContainerPipWorldOffset
 			// worldPos.z += maxHeight + ContainerPipWorldOffset.z
 			const TemplateBox &box = boxOf(*obj.getTemplate());
+			const float maxHeight = obj.keepsOwnGeometry() ? ObjectGeometry::maxHeightAbovePosition(obj.geometryShapes()) : box.maxHeight; // RW 0x677AB1 (Object + 0xA8)
 			Coord3D worldPos = *q.d->getPosition();
 			worldPos.x += s.containerPipWorldOffset.x;
 			worldPos.y += s.containerPipWorldOffset.y;
-			worldPos.z += box.maxHeight + s.containerPipWorldOffset.z;
+			worldPos.z += maxHeight + s.containerPipWorldOffset.z;
 			ICoord2D sp;
 			if (!onScreen(view, worldPos, sp))
 			{
