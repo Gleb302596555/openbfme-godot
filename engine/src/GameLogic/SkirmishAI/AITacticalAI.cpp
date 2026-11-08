@@ -2894,7 +2894,8 @@ void updateForfeit(GameLogic &logic, AISkirmishPlayer &ai, AIBrainState &b, AITa
 	b.namedCounters[kForfeitNextRun] = next; // RW 0x9B74BD
 	if (frame.warned)
 	{
-		// RW 0x9B7DC3 .. 0x9B7E5A: the client message "GUI:AIForfeitsInWOTRSkirmishNow" (string 0xC132DC) for 10000 ms through TheInGameUI. Not ported:
+		// RW 0x9B7DC3 .. 0x9B7E5A: the client message "GUI:AIForfeitsInWOTRSkirmishNow" (text 0xC89BC0, style 0xC132DC = "Generic") for 10000 ms
+		// through TheInGameUI. Not ported:
 		// the logic has no interface (docs/STOPS.md)
 	}
 	if (frame.forfeit)

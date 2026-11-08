@@ -131,8 +131,9 @@ goto 0x9B7E5F
 if (this->+0x5C >= 70) goto 0x9B7E5F;      ; 0x9B7DAF `cmp [ebx+0x5C], 0x46`
 if (this->+0x60 != 0) goto 0x9B7E5F;       ; 0x9B7DB9: сообщение уже было
 this->+0x60 = 1;                           ; 0x9B7DCB
-<сообщение клиента: строка 0xC132DC = "GUI:AIForfeitsInWOTRSkirmishNow", длительность 0x2710 мс
- (RW 0x9B7DC3 .. 0x9B7E5A: 0x621E3A, 0x7FF5E0, аргумент 10000)>; esi == 0 → сразу 0x9B7E5F
+<сообщение клиента: текст 0xC89BC0 = "GUI:AIForfeitsInWOTRSkirmishNow", вид 0xC132DC = "Generic",
+ длительность 0x2710 мс (RW 0x9B7DC3 .. 0x9B7E5A: 0x621E3A по виду, 0x7FF5E0 по тексту, аргумент 10000)>;
+ esi == 0 → сразу 0x9B7E5F
 ```
 
 Хвост (0x9B7E5F .. 0x9B7EB1), общий для всех веток:
@@ -142,7 +143,7 @@ if (this->+0x5C > 0) return;               ; 0x9B7E64 `cmp [esi+0x5C], 0; jg`
 if (0x441E4A(TheLivingWorldLogic)) return; ; 0x9B7E69..0x9B7E76 (игра кончилась)
 0x448 (MSG_SELF_DESTRUCT) в [0xDE6398] (+vslot 0x48): сообщение с игроком this->+0x24 (+0x54)
     и аргументом-байтом 0 (RW 0x9B7E78 .. 0x9B7E94); 0x711104 = appendBooleanArgument
-0x8F2006(this, 0, 1)                       ; 0x9B7E99..0x9B7E9E — конец тактики
+0x8F2006(this, 1, 0)                       ; 0x9B7E99..0x9B7E9E — конец тактики
 ```
 
 Вывод: `LogicFramesTillAISelfDestructs` — сколько кадров тактика ждёт после решения о сдаче,
@@ -157,7 +158,7 @@ RW 0x90CB98 зовёт этот перебор; RW 0x90B8DC зовёт RW 0x8F11
 ### 5.1 Как нуль-командная тактика становится «готовой» (RW 0x8F11DA)
 
 RW 0x8F11DA требует `+0x51` (готовность). Для тактики без команд её ставит старт RW 0x8F232F:
-RW 0x8F234B `call [eax+0x10]` (vslot +0x10 = число команд) и **`test eax,eax; jbe 0x8F2424`**, а
+RW 0x8F2348 `call [eax+0x10]` (vslot +0x10 = число команд), **0x8F234B `test eax,eax; jbe 0x8F2424`**, а
 0x8F2424 — `mov byte ptr [esi+0x51], 1; al = 1`. Дальше RW 0x8F11DA: `+0x54` = кадр готовности, по
 истечении RW 0xDE9F08 кадров (в образе 0) `+0x10 = 1` и `jmp [eax+0x18]` (запуск RW 0x9B7260);
 со следующего кадра `+0x10 != 0` → `jmp [eax+0x1C]` (обновление RW 0x9B7458).
