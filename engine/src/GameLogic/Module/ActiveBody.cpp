@@ -823,6 +823,10 @@ void ActiveBody::doDamageFX(const DamageInfo &info)
 	// RW 0x8C2F75: the damage-creation loop below is reached from every path of the FX block (it starts after the `je` the missing
 	// DamageFX / throttled hit takes), so it runs for every hit doDamageFX is called with
 	const auto createDamageCreations = [&]() {
+		if (!TheObjectCreationListStore || m_data->m_damageCreationList.empty())
+		{
+			return; // the names were resolved against the store at parse time (RW 0x73A368); no store, no list
+		}
 		for (const ActiveBodyModuleData::DamageCreation &entry : m_data->m_damageCreationList) // RW 0x8C2F7D .. 0x8C2FB8
 		{
 			if (entry.m_fxTrigger != (unsigned)info.m_input.m_fxTrigger) // RW 0x8C2F88 cmp [record+4], [DamageInfo+0x2C]
