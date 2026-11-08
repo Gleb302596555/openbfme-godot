@@ -1019,6 +1019,8 @@ add_executable(openbfme_tests
     tests/test_local_7.cpp
     # lane LOCAL-5 (capture flash and audio tick)
     tests/test_local_5.cpp
+    # lane LOCAL-8 (RespawnUpdate ButtonImage, AutoRespawnAtObjectFilter, DeathAnimationTime)
+    tests/test_local_8.cpp
     # shared numeric facade (WEAPON-1 e75dd8c, imported unchanged: wide PC24 results, SSE binary32 ops, retail integer conversions)
     tests/test_numeric_facade.cpp
     # lane ECON-1: the economy
