@@ -1386,7 +1386,8 @@ bool targetlessApplies(GameLogic &logic, AISkirmishPlayer &ai, int index)
 	return false;
 }
 
-// vslot 2 of the prototype, called by the end RW 0x8F2006 unless its third argument is set
+// vslot 2 of the prototype, called by the end RW 0x8F2006 unless its third argument is set. AIWoTRForfeitTactic's slot is the shared stub RW 0x63F3BF
+// (vtable RW 0xC89B7C), so a surrender keeps the record's counters: one per AI (docs/ennorath/ports/port33-forfeit.md)
 void targetlessCleanup(GameLogic &logic, AISkirmishPlayer &ai, const AITactic &tac)
 {
 	if (tac.kindIndex == kTargetlessBase + TL_FLAG_CAPTURE)
