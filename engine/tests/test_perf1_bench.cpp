@@ -627,6 +627,9 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // frame 2; the Brutal discount and the garrison weapon set leave all three as they were.
 // pin: the fork's merge of upstream 69dcd7ff (2026-11-06) re-measured all three once on the merged tree (OPENBFME_PERF1_REGEN=1, Windows MSVC, station-1);
 // they differ from both parents
+// pin: PORT-12 (8ca4fd8e) hashes MinDistFromEdgeOfMapForBuild in GameLogicSettings::crc (RotWK GlobalData +0xA68) and refuses sites near the map edge
+// (RW 0x794BF2): all three vectors move from frame 0. Bisected (station-0, Windows MSVC): 47067c3b passes on the previous vectors, 76243901 (PORT-12 and
+// PORT-20) fails; re-measured once (OPENBFME_PERF1_REGEN=1) on main with the open PRs #129 #130 #131 #132 #139 #140 #141 merged on top
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,
