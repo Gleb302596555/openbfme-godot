@@ -72,6 +72,7 @@ struct ClientEvent
 		MODEL_CONDITIONS, ///< lane SAVE-4e: flags, the object's whole set stored (Drawable::replaceModelConditionFlags RW 0x679512 takes a whole set)
 		BUILD_COMPLETE,   ///< RW 0x68D27A: client create interfaces, after object interfaces
 		EVA_DAMAGED,      ///< lane EVADAMAGE-1 (RW 0x67B4B7's Eva half): position (the object's, + 0x38), eva (the logic's part of the choice)
+		FLASH_AS_SELECTED, ///< RW 0x852BE1 / 0x678FA7: flashAsSelected on object with flashColor
 	};
 	std::string heroUniqueID;
 	std::vector<std::string> heroStatistics;
@@ -114,6 +115,8 @@ struct ClientEvent
 	int customKind = 0;                             ///< CUSTOM_COLORS (lane CAH-2)
 	std::uint32_t customColors[3] = { 0u, 0u, 0u }; ///< CUSTOM_COLORS: ARGB
 	EvaDamageNotice eva;                            ///< EVA_DAMAGED (lane EVADAMAGE-1)
+	bool hasFlashColor = false;                     ///< FLASH_AS_SELECTED
+	RGBColor flashColor{};                          ///< FLASH_AS_SELECTED
 };
 
 class ClientEventRecorder : public ObjectClientHooks
@@ -144,6 +147,7 @@ public:
 	void createAHeroKill(Object &killer, Object &victim) override;
 	void heroAttacked(Object &obj) override;
 	void deselectDrawable(Object &obj) override;
+	void flashAsSelected(Object &obj, const RGBColor *color) override;
 	void evaDamaged(Object &obj, const EvaDamageNotice &notice) override; // lane EVADAMAGE-1
 	void flashHeroButton(const std::string &templateName, int frames) override;
 	// MapObjectLoop's afterCreate for a map object (DrawableManager::applyPlacement): the client part of the placement

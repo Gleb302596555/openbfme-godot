@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 // See GodotInGameHud.h.
 
+#include "GameClient/SegLineGeometry.h"
 #include "Common/BfmeGame.h"
 #include "Common/Audio/AudioEntryPoints.h"
 #include "Common/Audio/AudioLog.h"
@@ -1311,6 +1312,8 @@ void InGameHudNode::_bind_methods()
 	ClassDB::bind_method(D_METHOD("get_placement_ghost_state"), &InGameHudNode::get_placement_ghost_state);
 	ClassDB::bind_static_method("InGameHudNode", D_METHOD("image_mode_shader", "mode"), &InGameHudNode::image_mode_shader); // community PR #37
 	ClassDB::bind_method(D_METHOD("get_move_hints"), &InGameHudNode::get_move_hints);
+	ClassDB::bind_method(D_METHOD("get_order_lines"), &InGameHudNode::get_order_lines);
+	ClassDB::bind_method(D_METHOD("build_order_line_mesh", "camera"), &InGameHudNode::build_order_line_mesh);
 	ClassDB::bind_method(D_METHOD("press_command_button", "template_name"), &InGameHudNode::press_command_button);
 	ClassDB::bind_method(D_METHOD("get_command_buttons"), &InGameHudNode::get_command_buttons);
 	ClassDB::bind_method(D_METHOD("inject_mouse_move", "position"), &InGameHudNode::inject_mouse_move);
@@ -3572,6 +3575,126 @@ Dictionary InGameHudNode::get_move_hints() const
 		e["y"] = h.pos.y;
 		e["z"] = h.pos.z;
 		hints.push_back(e);
+	}
+	return out;
+}
+
+Dictionary InGameHudNode::get_order_lines() const
+{
+	// the HUD's copy, made in InGameHud::update on the main thread (as get_move_hints: no wait for the logic worker; game.gd asks every render frame)
+	Dictionary out;
+	Array strips, markers;
+	out["mode"] = 0;
+	out["running_v"] = 0.0;
+	out["strips"] = strips;
+	out["markers"] = markers;
+	if (!d->hud)
+	{
+		return out;
+	}
+	const OrderLinesFrame &f = d->hud->orderLines();
+	out["mode"] = f.mode;
+	out["running_v"] = f.runningV;
+	for (const OrderLineStrip &s : f.strips)
+	{
+		Dictionary e;
+		e["style"] = s.style;
+		e["width"] = s.width;
+		e["opacity"] = s.opacity;
+		e["tile"] = s.tileFactor;
+		PackedVector3Array pts;
+		for (const Coord3D &p : s.points)
+		{
+			pts.push_back(toGodotAxes(p));
+		}
+		e["points"] = pts;
+		strips.push_back(e);
+	}
+	for (const OrderLineMarker &m : f.markers)
+	{
+		Dictionary e;
+		e["position"] = toGodotAxes(m.pos);
+		e["opacity"] = m.opacity;
+		markers.push_back(e);
+	}
+	return out;
+}
+
+Dictionary InGameHudNode::build_order_line_mesh(const Transform3D &camera) const
+{
+	// RW 0x4E03C7's lines: style 0 / 1 EXLaser (+ 0x14), 2 / 3 EXLaser2 (+ 0x18); colour A (0.96, 0.77, 0.47, RW 0xD9A524) for 0 / 2, B (0.98, 0.51, 0.58,
+	// RW 0xD9A530) for 1 / 3; TILED; the running lines' UV offset (styles 2 / 3, RW 0x4E01B5 / 0x4E01CF); merge on, abort factor 1.5 (constructor defaults)
+	Dictionary out;
+	Array meshes, markers;
+	out["meshes"] = meshes;
+	out["markers"] = markers;
+	if (!d->hud)
+	{
+		return out;
+	}
+	const OrderLinesFrame &f = d->hud->orderLines();
+	static const float kColour[2][3] = { { 0.96f, 0.77f, 0.47f }, { 0.98f, 0.51f, 0.58f } };
+	SegLineMesh mesh[2];
+	const Transform3D toView = camera.affine_inverse();
+	for (const OrderLineStrip &s : f.strips)
+	{
+		SegLineSettings st;
+		st.width = s.width;
+		const int c = s.style & 1;
+		st.color[0] = kColour[c][0];
+		st.color[1] = kColour[c][1];
+		st.color[2] = kColour[c][2];
+		st.opacity = s.opacity;
+		st.tileFactor = s.tileFactor;
+		st.mapMode = SegLineSettings::TILED;
+		if (s.style >= 2)
+		{
+			st.uvOffset[0] = f.runningU;
+			st.uvOffset[1] = f.runningV;
+		}
+		std::vector<SegLineVec3> pts;
+		for (const Coord3D &p : s.points)
+		{
+			const Vector3 v = toView.xform(toGodotAxes(p));
+			pts.push_back({ v.x, v.y, v.z });
+		}
+		SegLineGeometry::build(pts, st, mesh[s.style >= 2 ? 1 : 0]);
+	}
+	for (int t = 0; t < 2; ++t)
+	{
+		const SegLineMesh &m = mesh[t];
+		if (m.indices.empty())
+		{
+			continue;
+		}
+		PackedVector3Array vs;
+		PackedVector2Array uvs;
+		PackedColorArray cs;
+		PackedInt32Array is;
+		for (size_t i = 0; i < m.vertices.size(); ++i)
+		{
+			vs.push_back(camera.xform(Vector3(m.vertices[i].x, m.vertices[i].y, m.vertices[i].z)));
+			uvs.push_back(Vector2(m.u[i], m.v[i]));
+			cs.push_back(Color(m.rgba[i * 4], m.rgba[i * 4 + 1], m.rgba[i * 4 + 2], m.rgba[i * 4 + 3]));
+		}
+		for (std::uint16_t i : m.indices)
+		{
+			is.push_back(i);
+		}
+		Dictionary e;
+		e["texture"] = t;
+		e["vertices"] = vs;
+		e["uvs"] = uvs;
+		e["colors"] = cs;
+		e["indices"] = is;
+		meshes.push_back(e);
+	}
+	for (const OrderLineMarker &m : f.markers)
+	{
+		Dictionary e;
+		e["position"] = toGodotAxes(m.pos);
+		e["opacity"] = m.opacity;
+		markers.push_back(e);
 	}
 	return out;
 }

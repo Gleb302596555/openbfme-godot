@@ -392,6 +392,7 @@ var _hud: Node
 ## lane PLAY-1: the mouse setup forced on the command line ("alternate": the right click orders, "classic": the left click orders, "": the player's setting)
 var _mouse_override := ""
 var _move_hints: Node3D
+var _order_lines: Node3D # P-9 lines: the order lines while Alt is held (order_lines.gd)
 var _pings: Node3D      # the ping wheel (not retail): scripts/ping_board.gd, the pings shown
 var _cheats: Node       # lane CHEAT-1: the open Cheat Mode (scripts/cheat_panel.gd): the lines, the marker and the host's panel
 var _weather_fx: Node3D # lane WEATHERFX-1: scripts/weather_fx.gd, the Enhanced look's weather of the game being played
@@ -2909,6 +2910,13 @@ func _install_hud(rep: Dictionary) -> void:
 	print("GAME move hints: ", JSON.stringify(mh))
 	if not mh.ok:
 		printerr("GAME move hints: ", mh.errors)
+	# P-9 lines: the queued orders of the selection drawn as lines while Alt is held (RotWK's order line renderer, RW 0x4E013B)
+	_order_lines = load("res://scripts/order_lines.gd").new()
+	add_child(_order_lines)
+	_game_nodes.append(_order_lines)
+	var ol: Dictionary = _order_lines.setup(hud, _fs)
+	if not ol.ok:
+		printerr("GAME order lines: ", ol.errors)
 	_install_pings(hud)
 	_install_cheats(hud)
 	_give_rich()

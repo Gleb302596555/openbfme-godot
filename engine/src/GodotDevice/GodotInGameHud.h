@@ -94,6 +94,12 @@ public:
 	// lane PLAY-1: the move hints to draw now (InGameUI::createMoveHint): { model (GameData MoveHintName), frame (client frame), made, hints: [{ slot, frame,
 	// age (client frames, <= 40), position (Godot axes), x, y, z (SAGE) }] }
 	Dictionary get_move_hints() const;
+	// P-9 lines: the order lines of this frame (GameClient/OrderLines.h, RotWK RW 0x4E013B): { mode, running_v, strips: [{ style 0..3, width, opacity,
+	// tile, points: [Godot axes] }], markers: [{ position (Godot axes), opacity }] }; built by the HUD's update from the live game (no wait here)
+	Dictionary get_order_lines() const;
+	// P-9 lines: this frame's order lines as WW3D's SegmentedLineClass builds them (GameClient/SegLineGeometry.h) for the camera `camera` (its global
+	// transform): { meshes: [{ texture 0 (EXLaser) / 1 (EXLaser2), vertices (world), uvs, colors, indices }], markers: [{ position, opacity }] }
+	Dictionary build_order_line_mesh(const Transform3D &camera) const;
 	// presses the command bar button that builds / constructs `template_name` (opening the pages of the set when it is on a later one): what a click on the Palantir does
 	bool press_command_button(const String &template_name);
 	// lane QA-1: the command bar of the current selection, one entry per shown button: { slot, in_palantir, position (the Palantir position that shows it), name,

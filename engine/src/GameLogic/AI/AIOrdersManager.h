@@ -84,6 +84,9 @@ public:
 		if (it != m_queues.end()) it->second.setPatrolStart(orderId, flags, *this);
 	}
 	void setPatrolStartIfLoop(GameLogic &logic, const std::vector<ObjectId> &objects, const Coord3D &dest, unsigned flags);
+	// P-9 lines: RW 0x756E90, the question the move hint asks before it shows the Patrol cursor (InGameUI::createCommandHint RW 0x6A3F0C): would a move
+	// to `pos` in order mode `mode` close a loop of `objects`' queues? The order it would loop to, or null. Reads only.
+	const GroupOrder *loopHintOrder(const GameLogic &logic, const Coord3D &pos, int mode, const std::vector<ObjectId> &objects) const;
 	void discardLastPlanned(ObjectId object)
 	{
 		auto it = m_queues.find(object);

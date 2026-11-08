@@ -241,6 +241,7 @@ public:
 	unsigned abilitiesTriggered() const { return m_abilitiesTriggered; } // effects run (a test counter, hashed)
 	unsigned long long unported() const { return m_unported; }
 	unsigned captures() const { return m_captures; } // lane HERO-2: buildings captured (hashed)
+	float captureAccumulator() const { return m_captureAccumulator; } // + 0x70
 	// lane STARTRANGE-1: tests only
 	bool withinStartAbilityRangeForTest() { return withinStartAbilityRange(); }
 	bool withinAbortRangeForTest() const { return withinAbortRange(); }
