@@ -1,4 +1,5 @@
 # PORT-16 (issue #72): synthetic supply condition and prerequisite tests.
-# Engine sources already belong to existing lanes.
+list(APPEND OPENBFME_SIM_SOURCES
+    src/GameLogic/AI/PlayerSupplyAttack.cpp)
 set(OPENBFME_PORT16_TESTS
     tests/test_port_16.cpp)

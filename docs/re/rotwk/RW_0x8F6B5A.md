@@ -171,7 +171,12 @@ unported.
   if it returned true. On failure it calls the source chooser RW 0x8F6B5A
   (RW 0x8F746C–0x8F7476). The caller belongs to an action outside this
   issue; a correct implementation must share the helper and its state, not
-  add a separate condition-only copy.
+  add a separate condition-only copy. The port now has an isolated
+  `PlayerSupplyAttack` helper with the timer, selected ID, team/member scan,
+  hash and xfer; it is not attached to Player AI or called by either path yet.
+  Its synthetic tests cover the frame-zero branch, throttling, recent damage,
+  no-effect and null records, newest member first, the strict ten-frame
+  boundary, and a snapshot round-trip; these are not condition acceptance tests.
 * Record +0x78 is `DamageInfoOutput::m_noEffect`: constructor RW
   0x66365E clears it and copy RW 0x744200–0x744203 copies it. ActiveBody
   uses that copy at RW 0x8C42F1–0x8C42F5. The port now stores `m_noEffect`

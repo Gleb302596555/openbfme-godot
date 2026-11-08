@@ -5,6 +5,8 @@
 
 #include "Common/XferLoad.h"
 #include "Common/XferSave.h"
+#include "Common/StateHash.h"
+#include "GameLogic/AI/PlayerSupplyAttack.h"
 
 using namespace combattest;
 
@@ -12,8 +14,14 @@ namespace
 {
 const char kPort16Objects[] =
     "Object Port16Proxy\n"
-    "  KindOf = STRUCTURE\n"
+    "  KindOf = STRUCTURE DOZER\n"
     "  Body = SymbioticStructuresBody ModuleTag_Body\n"
+    "    MaxHealth = 100\n"
+    "  End\n"
+    "End\n"
+    "Object Port16Worker\n"
+    "  KindOf = DOZER\n"
+    "  Body = ActiveBody ModuleTag_Body\n"
     "    MaxHealth = 100\n"
     "  End\n"
     "End\n";
@@ -162,4 +170,77 @@ TEST_CASE("PORT-16 damage record: noEffect survives the native snapshot")
     old[0] = 2;
     XferLoad oldLoad(old);
     CHECK_THROWS_AS(body->xfer(oldLoad), XferException);
+}
+
+TEST_CASE("PORT-16 attacked helper: timer, team order, noEffect and snapshot")
+{
+    CombatWorld w(kPort16Objects);
+    Object *attacker = w.unit("Swordsman", 'B', 300, 300);
+    Object *first = w.unit("Port16Worker", 'A', 400, 300);
+    Object *second = w.unit("Port16Worker", 'A', 450, 300);
+    w.frames(10);
+    DamageInfo hit = port16Hit(attacker, DAMAGE_UNRESISTABLE, false);
+    first->attemptDamage(hit);
+    hit = port16Hit(attacker, DAMAGE_UNRESISTABLE, false);
+    second->attemptDamage(hit);
+    Player *p = w.playerOf('A');
+    p->setAttackedBy(w.playerOf('B')->getPlayerIndex(), 10);
+
+    PlayerSupplyAttack state;
+    CHECK_FALSE(state.check(*p, w.teams, 0));
+    CHECK(state.nextFrame() == 10);
+    CHECK_FALSE(state.check(*p, w.teams, 9));
+    REQUIRE(state.check(*p, w.teams, 10));
+    CHECK(state.nextFrame() == 20);
+    CHECK(state.objectID() == second->getID()); // newest team member first
+    StateHasher before;
+    state.crc(before);
+    XferSave saved;
+    state.xfer(saved);
+    // A throttled condition clears the previously selected ID, but not its timer.
+    CHECK_FALSE(state.check(*p, w.teams, 11));
+    CHECK(state.objectID() == INVALID_ID);
+    CHECK(state.nextFrame() == 20);
+    StateHasher changed;
+    state.crc(changed);
+    CHECK(changed.value() != before.value());
+    XferLoad load(saved.data());
+    state.xfer(load);
+    CHECK(load.atEnd());
+    CHECK(state.nextFrame() == 20);
+    CHECK(state.objectID() == second->getID());
+    StateHasher restored;
+    state.crc(restored);
+    CHECK(restored.value() == before.value());
+    // Frame zero resets the timer, but unusually does not clear the selected ID.
+    CHECK_FALSE(state.check(*p, w.teams, 0));
+    CHECK(state.nextFrame() == 10);
+    CHECK(state.objectID() == second->getID());
+    // RW 0x8F744B: the other caller clears the timer. At the exact
+    // ten-frame boundary the player's gate passes but a body hit is too old.
+    state.clearTimer();
+    CHECK_FALSE(state.check(*p, w.teams, 20));
+    CHECK(state.nextFrame() == 30);
+    CHECK(state.objectID() == INVALID_ID);
+}
+
+TEST_CASE("PORT-16 attacked helper: no-effect records and a null body do not count")
+{
+    CombatWorld w(kPort16Objects);
+    Object *attacker = w.unit("Swordsman", 'B', 300, 300);
+    Object *worker = w.unit("Port16Worker", 'A', 400, 300);
+    w.unit("Port16Proxy", 'A', 450, 300); // Symbiotic body with no symbiote: null record
+    w.frames(10);
+    DamageInfo hit = port16Hit(attacker, DAMAGE_UNRESISTABLE, true);
+    worker->attemptDamage(hit);
+    Player *p = w.playerOf('A');
+    p->setAttackedBy(w.playerOf('B')->getPlayerIndex(), 10);
+    PlayerSupplyAttack state;
+    CHECK_FALSE(state.check(*p, w.teams, 10));
+    CHECK(state.nextFrame() == 20);
+    CHECK(state.objectID() == INVALID_ID);
+    // The stale player attack prevents a scan and does not advance the timer.
+    state.clearTimer();
+    CHECK_FALSE(state.check(*p, w.teams, 21));
+    CHECK(state.nextFrame() == 0);
 }
