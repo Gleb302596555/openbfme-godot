@@ -356,6 +356,12 @@ bool InGameHud::boot(std::string *error)
 	m_config.game.drawables().setHeroAttackedHandler([this](ObjectID id) { m_heroSelect->onHeroAttacked(id); });
 	m_config.game.drawables().setDeselectHandler([this](ObjectID id) { m_input->ui().deselectObject(id); }); // TOP20 rampage (RW 0x6257E5)
 	m_input->ui().setSelectHandler([this](ObjectID id) { m_config.game.drawables().flashAsSelected(id); }); // LOCAL-3: RW 0x81DC79 / 0x81E0A7
+	m_input->ui().setTargetFlashHandler([this](ObjectID id) {
+		if (Drawable *d = m_config.game.drawables().findByObject(id))
+		{
+			d->colorFlash(nullptr, 8, 0, 0); // RW 0x81E22B .. 0x81E234: colorFlash(null, 8, 0, 0)
+		}
+	});
 	m_config.game.drawables().setHeroFlashHandler([this](const std::string &name, int frames) { m_heroSelect->flashHeroButton(name, frames); });
 	m_palantirRef->setHeroSelectHandler([this](const std::string &clipPath, bool loaded) {
 		if (!loaded)
@@ -1783,8 +1789,11 @@ void InGameHud::presentGlobalRally()
 		if (!local || local->getPlayerIndex() != n.playerIndex) continue;
 		// RW 0x7798D5; BFME2 Rva 0x3774AB: message-line label and MiscAudio
 		// RallyPointSet once per successful global command, only for its owner.
-		showMessageLabel("GUI:GlobalRallyPointSet", nullptr);
-		m_input->ui().requestMiscSound("RallyPointSet");
+		if (n.global)
+		{
+			showMessageLabel("GUI:GlobalRallyPointSet", nullptr);
+		}
+		m_input->ui().requestMiscSound("RallyPointSet"); // one structure: RW 0x779822
 	}
 }
 

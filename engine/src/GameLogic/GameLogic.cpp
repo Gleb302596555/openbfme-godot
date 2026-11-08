@@ -1031,10 +1031,10 @@ void GameLogic::noteBeacon(BeaconNotice::Kind kind, int playerIndex, ObjectID ob
 	m_beaconNotices.push_back(n);
 }
 
-void GameLogic::noteGlobalRally(int playerIndex, const Coord3D &position)
+void GameLogic::noteGlobalRally(int playerIndex, const Coord3D &position, bool global)
 {
 	if (m_globalRallyNotices.size() >= kBeaconNotices) m_globalRallyNotices.erase(m_globalRallyNotices.begin());
-	m_globalRallyNotices.push_back(GlobalRallyNotice{ ++m_globalRallySeq, playerIndex, position });
+	m_globalRallyNotices.push_back(GlobalRallyNotice{ ++m_globalRallySeq, playerIndex, position, global });
 }
 
 void GameLogic::noteRadarEvent(int type, const Coord3D &position, RadarEventNotice::Source source, int playerIndex)

@@ -863,8 +863,9 @@ void Drawable::colorFlash(const RGBColor *color, UnsignedInt decayFrames, Unsign
 	}
 	else
 	{
+		// RW 0x675789 .. 0x6757AA: no colour ignores the frame arguments: white with attack 1, decay 4, sustain 1
 		const RGBColor white{ 1.0f, 1.0f, 1.0f };
-		m_colorTintEnvelope.play(&white, attackFrames, decayFrames, sustainAtPeak);
+		m_colorTintEnvelope.play(&white, 1u, 4u, 1u);
 	}
 	m_colorTintEnvelope.setEffective(true);
 }

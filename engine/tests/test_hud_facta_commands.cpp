@@ -2431,3 +2431,46 @@ TEST_CASE("FACT-A spell book: every power of the faction's book bought in the st
 		(void)withEffect;
 	}
 }
+
+TEST_CASE("TOP20 #11 capture click sound: a special power ordered at an object flashes the target and plays TargetObjectWithSpecialPowerSound (RW 0x81E22B .. 0x81E26D); a structure's rally point plays RallyPointSet (RW 0x7797FE .. 0x77986E)")
+{
+	if (!hudtest::haveWorld("capture click sound"))
+	{
+		return;
+	}
+	SharedWorld &s = hudtest::shared();
+	FactRig r(s, "FactionMen");
+	Player *neutral = r.rig.game->players().getNeutralPlayer();
+	Object *horde = r.make("GondorFighterHorde", Coord3D{ 900.0f, 900.0f, 0.0f });
+	r.make("Outpost", Coord3D{ 1100.0f, 760.0f, 0.0f }, neutral);
+	Object *flag = r.make("CaptureFlag", Coord3D{ 980.0f, 760.0f, 0.0f }, neutral);
+	REQUIRE(horde);
+	REQUIRE(flag);
+	r.frames(2);
+	std::vector<ObjectID> flashed;
+	r.rig.input->ui().setTargetFlashHandler([&](ObjectID id) { flashed.push_back(id); });
+	r.rig.input->ui().selectObject(horde->getID());
+	(void)r.rig.input->ui().takeMiscSounds();
+	const Coord3D at = *flag->getPosition();
+	CHECK(r.rig.input->commandTranslator().evaluateContextCommand(flag, &at, EvaluateType::DoCommand) == MSG_DO_SPECIAL_POWER_AT_OBJECT);
+	const std::vector<std::string> sounds = r.rig.input->ui().takeMiscSounds();
+	CHECK(std::count(sounds.begin(), sounds.end(), std::string("TargetObjectWithSpecialPowerSound")) == 1);
+	REQUIRE(flashed.size() == 1);
+	CHECK(flashed[0] == flag->getID());
+
+	// a rally point on one structure: a notice that is not global (RallyPointSet only, no message line)
+	Object *barracks = r.make("GondorBarracks", Coord3D{ 600.0f, 600.0f, 0.0f });
+	REQUIRE(barracks);
+	r.frames(2);
+	const size_t before = r.logic().globalRallyNotices().size();
+	GameMessage m(MSG_SET_RALLY_POINT, r.local()->getPlayerIndex());
+	m.appendObjectIDArgument(barracks->getID());
+	m.appendLocationArgument(Coord3D{ 700.0f, 650.0f, 0.0f });
+	m.appendBooleanArgument(false);
+	m.appendObjectIDArgument(INVALID_ID);
+	r.rig.game->commands().append(m);
+	r.frames(2);
+	REQUIRE(r.logic().globalRallyNotices().size() == before + 1);
+	CHECK_FALSE(r.logic().globalRallyNotices().back().global);
+	CHECK(r.logic().globalRallyNotices().back().playerIndex == r.local()->getPlayerIndex());
+}

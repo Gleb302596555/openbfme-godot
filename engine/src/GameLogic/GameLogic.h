@@ -615,8 +615,9 @@ public:
 		std::uint32_t seq = 0;
 		int playerIndex = -1;
 		Coord3D position{ 0.0f, 0.0f, 0.0f };
+		bool global = true; ///< false: one structure's rally point (RW 0x779544: the sound only, no message line)
 	};
-	void noteGlobalRally(int playerIndex, const Coord3D &position);
+	void noteGlobalRally(int playerIndex, const Coord3D &position, bool global = true);
 	const std::vector<GlobalRallyNotice> &globalRallyNotices() const { return m_globalRallyNotices; }
 	void noteRadarEvent(int type, const Coord3D &position, RadarEventNotice::Source source, int playerIndex);
 	const std::vector<RadarEventNotice> &radarEventNotices() const { return m_radarEventNotices; }
