@@ -209,6 +209,7 @@ include(cmake/Port12.cmake) # PORT-12: BuildAssistant edge margin / SupplyBuildB
 include(cmake/Port20.cmake) # PORT-20: GarrisonContain/onSelling (issue #76; OPENBFME_PORT20_TESTS)
 include(cmake/Port14.cmake) # PORT-14: AIAttackState/victim block (issue #70; OPENBFME_PORT14_TESTS)
 include(cmake/Port13.cmake) # PORT-13: AIData/AttackMoveUsesFormations (issue #68; OPENBFME_PORT13_TESTS)
+include(cmake/Port30.cmake) # PORT-30: OneRingPenaltyUpdate/TimeFrozenFromPenalty (issue #102; OPENBFME_PORT30_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
@@ -767,6 +768,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT20_TESTS}
     ${OPENBFME_PORT14_TESTS}
     ${OPENBFME_PORT13_TESTS}
+    ${OPENBFME_PORT30_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}

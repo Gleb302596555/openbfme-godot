@@ -39,15 +39,15 @@ const float kHalfPi = 1.57079637f; // RW 0xBD89D0
 const char kFile[] = "OneRingPenaltyUpdate.cpp";
 
 const char kStop[] =
-	"[S-5604] OneRingPenaltyUpdate (RW 0x89D647, 0x89D2AC, 0x89D4D2, 0x89D41B) calls and moves the Eye and pays the penalty; TimeFrozenFromPenalty is read by none of the module's "
-	"functions (INFERENCE: the penalty's freeze is the emotion request's)";
+	"[S-5604] OneRingPenaltyUpdate (RW 0x89D647, 0x89D2AC, 0x89D4D2, 0x89D41B, 0x89D3E4) calls and moves the Eye and pays the penalty; TimeFrozenFromPenalty +0x1C (table RW 0xC66B68, parser "
+	"RW 0x73A429, defaults RW 0x89D1C1) is never read: ctor RW 0x89D21F, vtables RW 0xC669C8/C669B8, update RW 0x89D647 and helpers RW 0x89D0E3..0x89D712 read +0xC,+0x10,+0x14,+0x18 never +0x1C; RW 0x8CA072/RW 0x8CA12A belongs to a deploy module (table RW 0xC747E8 LowerDelay +0x18/RaiseDelay +0x1C, ctor RW 0x8C9B5C) and no other code looks up this module's data to read +0x1C (RotWK does not read TimeFrozenFromPenalty)";
 
 void parseSound(INI *ini, void *instance, void *store, const void *userData)
 {
 	OpenContainModuleData::parseAudioEvent(ini, instance, store, userData); // RW 0x73B217
 }
 
-const FieldParse kFields[] = { // RW 0xC66B18, in the binary's row order
+const FieldParse kFields[] = { // RW 0xC66B68, in the binary's row order (correction 2026-11-08: 0xC66B18 is previous module)
 	{ "SpecialObjectName", INI::parseAsciiString, nullptr, (int)offsetof(Data, m_specialObjectName) },
 	{ "RingTimeBeforeSpawning", INI::parseDurationUnsignedInt, nullptr, (int)offsetof(Data, m_ringTimeBeforeSpawning) },
 	{ "TimeSpentRoamingAround", INI::parseDurationUnsignedInt, nullptr, (int)offsetof(Data, m_timeSpentRoamingAround) },
