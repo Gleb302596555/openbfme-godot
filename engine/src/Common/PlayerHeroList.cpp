@@ -304,7 +304,9 @@ void PlayerHeroList::crc(StateHasher &h) const
 // field by field): every field of every record, in list order
 void PlayerHeroList::xfer(Xfer &x)
 {
-	XferVersion v{ 1, 1 };
+	// version 2 (Local 8, #113): every record carries the dead hero's image name, as retail transfers + 0x00 for every record (RW 0x780A29 .. 0x780A79);
+	// a version 1 save loads with no stored image (the button falls back to the template's image)
+	XferVersion v{ 1, 2 };
 	x.xferVersion(v);
 	// a record's fixed bytes: experience, rank, base rank, the upgrade mask (0x24 words), cost, start frame, seconds, two flags, production id, level
 	// cap, UI factor, two empty names
@@ -332,9 +334,9 @@ void PlayerHeroList::xfer(Xfer &x)
 		x.xferReal(&r.uiFactor);
 		x.xferAsciiString(&r.objectName);
 		x.xferAsciiString(&r.templateName);
-		if (r.dead)
+		if (v.current >= 2)
 		{
-			x.xferAsciiString(&r.deadImage); // RW 0x780A29 .. 0x780A79: + 0x00 (dead hero's image name)
+			x.xferAsciiString(&r.deadImage); // RW 0x780A29 .. 0x780A79: + 0x00 (the image name, every record)
 		}
 		else if (x.isLoading())
 		{

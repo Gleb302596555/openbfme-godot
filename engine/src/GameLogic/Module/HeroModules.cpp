@@ -477,7 +477,9 @@ std::string RespawnUpdate::deadImage() const
 		{
 			return sub->buttonImage;
 		}
-		if (!m_data->m_buttonImage.empty() || hero)
+		// RW 0x8B341D .. 0x8B3486: the subclass branch runs only with a non-empty ButtonImage; a found hero whose image is missing gives "BuildingNoArt"
+		// (RW 0x8B3457); no hero (RW 0x8B3436) or an empty ButtonImage goes to RW 0x73D0BA, which without a hero image returns the template's image (RW 0x73CFEF)
+		if (!m_data->m_buttonImage.empty() && hero)
 		{
 			return "BuildingNoArt";
 		}

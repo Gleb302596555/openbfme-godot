@@ -393,8 +393,8 @@ TEST_CASE("LOCAL-8 respawn AutoRespawnAtObjectFilter: state 3 searches closest p
 	CHECK(ru->state() == RespawnUpdate::STATE_SPAWN_ANIMATION);
 	CHECK(hero->getPosition()->x == nearRally.x);
 	CHECK(hero->getPosition()->y == nearRally.y);
-	CHECK(hero->getPosition()->x == 335.6f);
-	CHECK(hero->getPosition()->y == 256.96f);
+	CHECK(hero->getPosition()->x == 335.599976f); // one ulp below the decimal literal: rally point + exit offset in float
+	CHECK(hero->getPosition()->y == 256.959961f); // one ulp below the decimal literal: rally point + exit offset in float
 	CHECK(hero->testModelCondition(local8McBit("LEVELED")));
 	CHECK(hero->getBodyModule()->getHealth() == 450.0f);
 	CHECK(ru->autoRespawnStartFrame() == -1);
@@ -419,8 +419,8 @@ TEST_CASE("LOCAL-8 respawn AutoRespawnAtObjectFilter: state 3 searches closest p
 	CHECK(ru->state() == RespawnUpdate::STATE_SPAWN_ANIMATION);
 	CHECK(hero->getPosition()->x == farRally.x);
 	CHECK(hero->getPosition()->y == farRally.y);
-	CHECK(hero->getPosition()->x == 835.6f);
-	CHECK(hero->getPosition()->y == 156.96f);
+	CHECK(hero->getPosition()->x == 835.599976f); // one ulp below the decimal literal: rally point + exit offset in float
+	CHECK(hero->getPosition()->y == 156.959961f); // one ulp below the decimal literal: rally point + exit offset in float
 
 	// STATE_REFUNDED (1) returns progress 1.0f (RW 0x8B3123..0x8B312A)
 	ru->setState(RespawnUpdate::STATE_REFUNDED);
