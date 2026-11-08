@@ -43,7 +43,7 @@
 | 23 | `W3DHordeModelDraw/LodOptions/AllowMultipleModels` | 264 | parsed-unused | только объявлено (`W3DModelDraw.h:242`); значения `ALLOW_MULTIPLE_MODELS_LOW / MED / HIGH` | разные модели бойцов отряда по детализации: отрисовка | открыто |
 | 24 | `SlowDeathBehavior/ShadowWhenDead` (+ `ClearanceTestingSlowDeathBehavior` 4) | 257 | parsed-unused | разобрано (`CombatModules.cpp:149`), чтения нет | тень трупа | проверено (владелец 2026-11-07: убитый юнит лежит без тени), ждёт ночи — RW 0x860F44 .. 0x860F58 (`beginSlowDeath` RW 0x860E93): при ShadowWhenDead No (по умолчанию) у рисунка выключаются тени (RW 0x672D28 `setShadowsEnabled(false)`); узкий тест `TOP20-24 slow death*` (`test_fx2_events.cpp`); подкласс ClearanceTesting наследует; затухание декали земли RW 0x67093E(0, -0.2) не перенесено (S-3304) |
 | 25 | `RespawnUpdate/AutoRespawnAtObjectFilter`, `ButtonImage`, `DeathAnimationTime` | 238 / 238 / 232 | parsed-unused | разобраны (`HeroModules.cpp:90-100`), чтения нет; остальные поля RespawnUpdate `used`; значения `NONE +CASTLE_KEEP`, `HIBlackRider`, `5500` | возрождение героев: автовозрождение у крепости, картинка кнопки, длительность анимации смерти | открыто |
-| 26 | `Object/AttackContactPoint` | 217 | used | `ThingFactory.cpp` / `ObjectGeometry.cpp` разбирают `AttackContactPoint` (RW 0xDA44C8) и `SwoopContactPoint` (RW 0xDA44D8) в контактные точки шаблона; `Pathfinder::adjustMeleeOffset` (RW 0x6EA0EC / 0x6EA11E -> RW 0x667C76 `findNearestLabeledContactPointOnTarget` -> RW 0x690BD2) направляет юнитов со `SpecialContactPoints` (тараны, мины, летуны) к контактным точкам со своими метками | точка, в которую бьют атакующие (у стен, ворот, больших объектов) | исправлено: перенесены разбор `AttackContactPoint`/`SwoopContactPoint` и выбор контактной точки в `AIAttackMelee` по `SpecialContactPoints` (RW 0x6EA11E -> 0x667C76); узкие тесты `LOCAL-7*` (2 теста, 98 проверок); ждёт ночи |
+| 26 | `Object/AttackContactPoint` | 217 | used | `ThingFactory.cpp` / `ObjectGeometry.cpp` разбирают `AttackContactPoint` (RW 0xDA44C8) и `SwoopContactPoint` (RW 0xDA44D8) в контактные точки шаблона; `Pathfinder::adjustMeleeOffset` (RW 0x6EA0EC / 0x6EA11E -> RW 0x667C76 `findNearestLabeledContactPointOnTarget` -> RW 0x690BD2) у юнита со `SpecialContactPoints` (тараны, мины, летуны) при атаке здания или стены берёт контактную точку со своей меткой; RW 0x690BD2 пишет мировую точку, а RW 0x6F3927 .. 0x6F3974 прибавляет её к центру цели, поэтому в RotWK юнит встаёт не в точку, а в клетку поиска RW 0x6EFE9F около `центр + точка` (так и перенесено) | точка, в которую бьют атакующие (у стен, ворот, больших объектов) | исправлено: перенесены разбор `AttackContactPoint`/`SwoopContactPoint` и вызов RW 0x667C76 в `Pathfinder::adjustMeleeOffset` (`AIPathfindMelee.cpp`, RW 0x6EA108 .. 0x6EA125); узкие тесты `LOCAL-7*`; перенесено в main 2026-11-08 — проверить в игре (раздел «Проверить в игре (перенос 2026-11-08, вечер)»); ждёт ночи |
 
 Просмотрено 2026-11-04 (станция claude/station-2), не взято как большое — по правилу 2а раздела 7а [PROCESS.md](PROCESS.md) так больше не делать, эти пункты брать по порядку; адреса для того, кто возьмётся:
 
@@ -101,6 +101,15 @@
 3. **Port 13 (#68, PR #107)**: скирмиш против ИИ — волна ИИ из двух и больше отрядов идёт к цели общим строем (состояние 61), дерётся со встречными по пути и после боя продолжает марш.
 
 В игре не видно, держат тесты: Port 14 (#70, PR #106, `PORT-14*`), Port 20 (#76, PR #109, `PORT-20*`: у построек Эннората `KillPassengersOnDeath = No`). Local 4 (#91, TOP20 #17) владелец проверил 2026-11-08.
+
+## Проверить в игре (перенос 2026-11-08, вечер)
+
+Перенесено в `main` по слову владельца без проверки в игре; узкие тесты на каждой станции зелёные (`LOCAL-5*`, `LOCAL-6*`, `ENNORATH scenario SpecialPowerAudio*`, `LOCAL-7*` с `*phys1*melee*`, `*AIMAIM*`, `*siege*`, `castlearea1*`, `*P-9 lines*`); `perf1` после объединения не перемерялся. Проверка владельца на Ennorath:
+
+1. **P-9, линии приказов**: выделить юнитов, отдать несколько приказов с Shift и зажать Alt — видны линии очереди, по яркости как на скриншоте RotWK; с Alt над точкой очереди или над юнитом курсор зацикливания (Patrol), клик замыкает очередь в круг.
+2. **TOP20 #12, Local 5 (#110)**: захват здания (`DoCaptureFX = Yes`) — здание и ближний флаг вспыхивают цветом игрока, тикает звук таймера; флаг без модели не вспыхивает.
+3. **TOP20 #11, Local 6 (#111)**: Эомер, способность с ударом копьём — одна фраза `EomerVoiceAttackSpear` на одно применение, не две; у юнитов с отрядом голос тоже один.
+4. **TOP20 #26, Local 7 (#112)**: таран с `SpecialContactPoints` атакует ворота или стену. По RotWK цель подхода — клетка около «центр + мировая контактная точка», не сама точка (RW 0x690BD2 / 0x6F395C); если в оригинале таран встаёт ровно в отмеченную точку, это другой механизм — записать в PROBLEMS.
 
 ## Разбор полей за двадцаткой (2026-11-06)
 
