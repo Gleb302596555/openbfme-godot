@@ -1143,8 +1143,11 @@ std::vector<std::string> LiveGameAudio::acceptanceStops()
 		"33.33 ms) and re-check (RW 0x461A83) are ported; not ported: canPlayNow's refusal of an event whose position cannot be resolved (RW 0x45CB92: the port skips "
 		"the distance gate instead), the processing pass's early check and preload of a soon-due request (RW 0x461AA1 .. 0x461B07, FUN 0x4A7C71); a requeued loop "
 		"whose owner is gone is dropped (port)",
-		"[S-1463] large group audio: RotWK drops a member that leaves the world (RW 0x692313 -> 0x690728 sets INAUDIBLE and calls the module's leave, "
-		"RW 0x8AF09D); the port never sets INAUDIBLE, so a garrisoned or transported member keeps counting (lane AUDIO-4)",
+		"[S-1463] large group audio: the INAUDIBLE half is ported (lane PORT-21: RW 0x692313 / 0x6923B7 set and clear status 52 through RW 0x690728 / "
+		"0x690772, which ask every behaviour module's interface 36 — the module's leave RW 0x8AF09D / join RW 0x8AF005 — and the drawable's audible flag "
+		"RW 0x674727 / 0x67896F; Object::setInaudible / setAudible); not ported: the two held sounds RW 0x674727 drops (RW 0x674738 -> RW 0x6717C4, "
+		"RW 0x67473F -> RW 0x6746FD, the handles at drawable + 0x148 / + 0x144; the port keeps held sounds on the audio side, S-1240) and the ambient "
+		"start RW 0x67896F repeats (RW 0x678980 -> RW 0x678816, RW 0x678989 -> RW 0x678721)",
 		"[S-1464] footsteps (lane AUDIO-4: AnimationSoundClientBehavior and TheAnimationSoundModuleManager, RW 0x8CE75B / 0x83F321): the module's slot 11 is read as "
 		"reactToTransformChange (every re-posed drawable is dirty each render frame), the manager runs once per render frame after the animations advanced "
 		"(retail: per client frame with the lazy advance RW 0x4BFAF4), animations are matched by upper-cased name (retail: name keys)",
