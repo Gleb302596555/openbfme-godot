@@ -114,6 +114,13 @@ unported.
   height (RW 0xA3AEB0–0xA3AF3D). The result also depends on the spatial
   index and the query's maximum-distance guard (RW 0xA3BF21–0xA3BF2B), so
   it must not be replaced with a simple unbounded object loop.
+* Player getter RW 0x6AA64F–0x6AA66E reads the separate Player AI pointer
+  at +0x2FC, copies its three position floats from +0x38 to the caller's
+  output, and returns its +0x44 byte; with no AI it returns false without
+  copying. This getter does not explain when the position is updated. The
+  adjacent Player wrapper RW 0x6AA671 dispatches AI vslot +0x38 (both Player
+  AI vtables point to RW 0x8F78EB), which handles object IDs and does not set
+  that position; it must not be mistaken for a position setter.
 * RW 0x8F6D38–0x8F6DA9 compares squared 2D distance from the AI's +0x38
   position, and when an enemy exists rejects a candidate if
   `0.4 * ownDistanceSquared > 0.6 * enemyBoundsMidpointDistanceSquared`.
