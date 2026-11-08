@@ -92,56 +92,10 @@ void HordeContain::registerClasses(ModuleFactory &modules)
 			return std::make_unique<HordeContain>(thing, dynamic_cast<const HordeContainBehaviorData *>(data));
 		});
 	}
-	// The Army of the Dead's contain (create RW 0x64B80A): a HordeContain whose onContaining fades the member in, see AODHordeContain
+	// The Army of the Dead's contain (create RW 0x64B80A): implemented in AODHordeContain.cpp (Port 26)
 	modules.bindModuleProc("AODHordeContain", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
 		return std::make_unique<AODHordeContain>(thing, dynamic_cast<const HordeContainBehaviorData *>(data));
 	});
-}
-
-// RW 0x87D650 .. 0x87D68E, BFME2 decomp AODHordeContainOnContaining.cpp 0x0047A3CB: Drawable::fadeIn(5 seconds of logic frames), then HordeContain::onContaining (RW 0x872D0A).
-// Not ported: the call on the member's experience tracker with 1 (RW 0x79D7AD, Object + 0x26C).
-bool AODHordeContain::addToContain(Object *obj)
-{
-	if (ObjectClientHooks *client = getObject()->logic().clientHooks())
-	{
-		client->fadeIn(*obj, LOGICFRAMES_PER_SECOND * 5);
-	}
-	return HordeContain::addToContain(obj);
-}
-
-void AODHordeContain::xfer(Xfer &x)
-{
-	HordeContain::xfer(x);
-}
-
-// RW 0x87DC7E .. 0x87DCA6 / BFME2 0x87AD8E .. 0x87ADB6:
-// Propagate OATH_FULLFILLED (model condition bit 215) from horde object to all contained members.
-UpdateSleepTime AODHordeContain::update()
-{
-	UpdateSleepTime res = HordeContain::update();
-	const int oath = CombatNames::modelCondition("OATH_FULLFILLED");
-	if (oath >= 0)
-	{
-		const bool fulfilled = getObject()->testModelCondition(oath);
-		if (const ContainedItemsList *items = getContainedItemsList())
-		{
-			for (Object *member : *items)
-			{
-				if (member && !member->isDestroyed())
-				{
-					if (fulfilled && !member->testModelCondition(oath))
-					{
-						member->setModelConditionState(oath, true);
-					}
-					else if (!fulfilled && member->testModelCondition(oath))
-					{
-						member->setModelConditionState(oath, false);
-					}
-				}
-			}
-		}
-	}
-	return res;
 }
 
 // the slot table is built when the module exists and its object is complete (RW 0x877751, from the contain's creation)
