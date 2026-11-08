@@ -177,16 +177,17 @@ TEST_CASE("PORT-35 canCombineWith: the entry, the object itself and the two excl
 	ComboWorld w;
 	Object *sword = w.unit("TestComboSwordHorde", 'A', 300, 300);
 	Object *archer = w.unit("TestComboArcherHorde", 'A', 340, 300);
-	Object *lone = w.unit("TestComboLoneHorde", 'A', 380, 300);
+	// the caster's list names the archer and the lone horde, not this one: RW 0x871EC1 finds no entry for its template
+	Object *bad = w.unit("TestComboBadResultHorde", 'A', 380, 300);
 	REQUIRE(sword);
 	REQUIRE(archer);
-	REQUIRE(lone);
+	REQUIRE(bad);
 	w.frames(2);
 	HordeContain *caster = w.hordeOf(sword);
 	REQUIRE(caster);
 	CHECK(caster->canCombineWith(*archer));
 	CHECK_FALSE(caster->canCombineWith(*sword)); // the horde itself
-	CHECK_FALSE(caster->canCombineWith(*lone));  // no entry for that template
+	CHECK_FALSE(caster->canCombineWith(*bad));   // no entry for that template
 	// RW 0x871ECE .. 0x871F02: RW 0x44DDEC with 2 (UNDER_CONSTRUCTION) and 3 (UNSELECTABLE), on both objects
 	const unsigned underConstruction = (unsigned)CombatNames::status("UNDER_CONSTRUCTION");
 	const unsigned unselectable = (unsigned)CombatNames::status("UNSELECTABLE");
