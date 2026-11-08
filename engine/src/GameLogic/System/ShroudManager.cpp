@@ -1826,13 +1826,13 @@ ShroudManager::ObjectSource ShroudManager::retailObjectSource()
 		// The factors then multiply the range at RW 0x694BBD / 0x694BCA (`mulss` with the range, stored into the out radii).
 		float sideFactor = tv.visionSide;
 		float rearFactor = tv.visionRear;
-		// getHordeContainInterface is not const in retail's interface either (the null test is the whole read); the object is only read
+		// getHordeContainInterface is not const in this port's interface either (the null test is the whole read); the object is only read
 		if (ContainModuleInterface *contain = const_cast<Object &>(obj).getContain())
 		{
-		if (HordeContainInterface *horde = contain->getHordeContainInterface())
-		{
-			const float rearOverride = horde->getVisionRearOverride();
+			if (HordeContainInterface *horde = contain->getHordeContainInterface())
+			{
 				const float sideOverride = horde->getVisionSideOverride();
+				const float rearOverride = horde->getVisionRearOverride();
 				if (sideOverride > 0.0f)
 				{
 					sideFactor = sideOverride;

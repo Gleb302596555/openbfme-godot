@@ -22,15 +22,21 @@
 // alternate formation AngmarDunedainPikemanHordePorcupine, whose HordeContain block sets VisionRearOverride = 100% and VisionSideOverride = 100%
 // (all 55 Ennorath definitions of both rows are 100%, see the PR note). No game or mod file is read here.
 //
+// The fixture binds the ported runtimes the way RetailObjectWorld does (MapHordeSpawn::bindHordeContainData + LogicModules::registerAll)
+// BEFORE its templates are parsed: without that the HordeContain class is an UnportedModule and the object has no contain at all.
+//
 // TEST_CASE names start with PORT-25 (the run filter -tc="PORT-25*").
 #include "doctest.h"
 #include "LogicTestUtil.h"
 
 #include "Common/Player.h"
 #include "Common/Thing/ThingTemplate.h"
+#include "GameClient/MapHordeSpawn.h"
 #include "GameLogic/Module/HordeContain.h"
+#include "GameLogic/Module/LogicModules.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/SimMath.h"
 #include "GameLogic/System/ShroudManager.h"
 
 #include <cmath>
@@ -135,10 +141,15 @@ struct Port25World : LogicWorld
 {
 	ShroudManager shroud;
 	Port25World()
-		: LogicWorld(RandomAlgorithm::ZH_CarryChain, kPort25Objects)
+		: LogicWorld(RandomAlgorithm::ZH_CarryChain)
 		, shroud(*logic)
 	{
-		REQUIRE_MESSAGE(loadError.empty(), loadError);
+		// the ported contain runtimes, bound as RetailObjectWorld binds them (LogicModules::registerAll) BEFORE the templates are parsed: the
+		// HordeContain module data is typed only then (MapHordeSpawn::bindHordeContainData) and the class is the runtime, not an UnportedModule
+		MapHordeSpawn::bindHordeContainData(w.modules);
+		LogicModules::registerAll(w.modules);
+		const std::string err = w.load(kPort25Objects);
+		REQUIRE_MESSAGE(err.empty(), err);
 		shroud.init(kCellSize, 1);
 		shroud.setExtent(0.0f, 0.0f, 4000.0f, 3200.0f);
 		shroud.attach();
@@ -159,9 +170,11 @@ struct Port25World : LogicWorld
 	}
 };
 
-float f32(float v)
+// RW 0x42EEFA parsePercentToReal -> RW 0x42EB18 `call 0x42EAAD; fmul dword ptr [0xBE5600]` (0.01f): the stored float is the x87 24-bit
+// product of the number and 0.01f, NOT the decimal literal (80% is 0.79999998, not 0.80000001)
+float percent(float number)
 {
-	return v;
+	return SimMath::pc24Mul(number, 0.01f);
 }
 } // namespace
 
@@ -171,7 +184,7 @@ TEST_CASE("PORT-25 a horde's VisionSideOverride / VisionRearOverride of 100% rep
 	// the horde's range is its ShroudClearingRange (325, no attribute modifier, no height bonus): RW 0x68E4E2
 	const float range = 325.0f;
 	// static_cast<float> of the percent literals (RW 0x42EEFA's parse: 100% -> 1.0f, 50% -> 0.5f, 25% -> 0.25f)
-	const float hundred = f32(1.0f), fifty = f32(0.5f), quarter = f32(0.25f);
+	const float hundred = percent(100.0f), fifty = percent(50.0f), quarter = percent(25.0f);
 
 	Object *plain = w.place("P25PikeHorde", 1000.0f, 1000.0f);
 	Object *over = w.place("P25PikeHordePorcupine", 1000.0f, 1600.0f);
@@ -205,13 +218,13 @@ TEST_CASE("PORT-25 the rear override is tested on its own: 80% replaces the rear
 	Object *o = w.place("P25RearOnly", 1000.0f, 1000.0f);
 	REQUIRE(o->getContain() != nullptr);
 	REQUIRE(o->getContain()->getHordeContainInterface() != nullptr);
-	CHECK(o->getContain()->getHordeContainInterface()->getVisionRearOverride() == f32(0.8f));
+	CHECK(o->getContain()->getHordeContainInterface()->getVisionRearOverride() == percent(80.0f));
 	CHECK(o->getContain()->getHordeContainInterface()->getVisionSideOverride() == 0.0f);
 
 	const ShroudManager::LookInputs in = w.lookOf(*o);
 	CHECK(in.forward == range);
-	CHECK(in.side == range * f32(0.5f));  // VisionSide, no side override
-	CHECK(in.rear == range * f32(0.8f));  // VisionRearOverride
+	CHECK(in.side == range * percent(50.0f));  // VisionSide, no side override
+	CHECK(in.rear == range * percent(80.0f));  // VisionRearOverride
 }
 
 TEST_CASE("PORT-25 an override of exactly 0 keeps the template's factor (RW 0x694B82 fldz/fcompi: the branch needs the value strictly above 0)")
@@ -225,8 +238,8 @@ TEST_CASE("PORT-25 an override of exactly 0 keeps the template's factor (RW 0x69
 	CHECK(o->getContain()->getHordeContainInterface()->getVisionSideOverride() == 0.0f);
 
 	const ShroudManager::LookInputs in = w.lookOf(*o);
-	CHECK(in.side == range * f32(0.5f));
-	CHECK(in.rear == range * f32(0.25f));
+	CHECK(in.side == range * percent(50.0f));
+	CHECK(in.rear == range * percent(25.0f));
 }
 
 TEST_CASE("PORT-25 an object without a contain, or with a contain that is not a horde, keeps the template's factors (RW 0x694B71, RW 0x68C866)")
@@ -237,19 +250,19 @@ TEST_CASE("PORT-25 an object without a contain, or with a contain that is not a 
 	CHECK(scout->getContain() == nullptr);
 	const ShroudManager::LookInputs a = w.lookOf(*scout);
 	CHECK(a.forward == range);
-	CHECK(a.side == range * f32(0.5f));
-	CHECK(a.rear == range * f32(0.25f));
+	CHECK(a.side == range * percent(50.0f));
+	CHECK(a.rear == range * percent(25.0f));
 
 	Object *tower = w.place("P25Tower", 1400.0f, 1000.0f);
 	REQUIRE(tower->getContain() != nullptr);
 	CHECK(tower->getContain()->getHordeContainInterface() == nullptr); // RW 0x68C866 answers 0 for a garrison
 	const ShroudManager::LookInputs b = w.lookOf(*tower);
 	CHECK(b.forward == 200.0f);
-	CHECK(b.side == 200.0f * f32(0.5f));
-	CHECK(b.rear == 200.0f * f32(0.25f));
+	CHECK(b.side == 200.0f * percent(50.0f));
+	CHECK(b.rear == 200.0f * percent(25.0f));
 }
 
-TEST_CASE("PORT-25 the override reaches the shroud grid: the horde's rear look behind it is the full radius, the plain horde's is a quarter (RW 0x694BCA)")
+TEST_CASE("PORT-25 the override reaches the shroud grid: the horde's rear look behind it is the full radius, the plain horde's is a quarter (RW 0x694BCA; expected cells from the look radii of RW 0x694BB4 / 0x694BBD)")
 {
 	Port25World w;
 	const int alice = w.players.findPlayerWithName("Alice")->getPlayerIndex();
@@ -263,15 +276,13 @@ TEST_CASE("PORT-25 the override reaches the shroud grid: the horde's rear look b
 	REQUIRE(w.shroud.isRegistered(*over));
 	CHECK(w.shroud.lookRadius(*plain) == 9);
 	CHECK(w.shroud.lookRadius(*over) == 9);
-	// behind the plain horde the rear radius is ceil(325 * 0.25 / 40) = 3 cells: two cells back are clear, four are not
-	CHECK(w.shroud.getCellStatus(alice, 23, 20) == CELLSHROUD_CLEAR);
-	CHECK(w.shroud.getCellStatus(alice, 21, 20) == CELLSHROUD_FOGGED);
-	// behind the overridden horde the rear radius is the full ceil(325 / 40) = 9: eight cells back are clear (on the plain one's side edge at
-	// eight cells the polygon is narrower than the facing axis), ten are not
+	// the look cell is the horde's own cell (25, 20) / (25, 40) and the facing is +x, so the facing axis behind it runs along x.
+	// behind the plain horde the rear radius is ceil(325 * 0.25 / 40) = 3 cells: (25 - 3) is clear and (25 - 4) was never looked at
+	CHECK(w.shroud.getCellStatus(alice, 22, 20) == CELLSHROUD_CLEAR);
+	CHECK(w.shroud.getCellStatus(alice, 21, 20) == CELLSHROUD_SHROUDED);
+	// behind the overridden horde the rear radius is the full ceil(325 / 40) = 9 cells: (25 - 8) is clear and (25 - 10) was never looked at
 	CHECK(w.shroud.getCellStatus(alice, 17, 40) == CELLSHROUD_CLEAR);
-	CHECK(w.shroud.getCellStatus(alice, 15, 40) == CELLSHROUD_FOGGED);
-	// the same cell is fogged for the plain horde, four... eight cells back: its rear stops at three
-	CHECK(w.shroud.getCellStatus(alice, 21, 20) == CELLSHROUD_FOGGED);
+	CHECK(w.shroud.getCellStatus(alice, 15, 40) == CELLSHROUD_SHROUDED);
 }
 
 TEST_CASE("PORT-25 the module data keeps the constructor's 0.0 for an omitted row and the parsed float for a set one (RW 0x8790C0 / 0x8790C8, RW 0x42EEFA)")

@@ -66,14 +66,6 @@ public:
 	virtual int getSlotCapacity() const = 0;
 	// slot 11 (RW 0x873F30): a member made by a factory joins without being placed on its slot; false when it already is a member
 	virtual bool acceptCreatedMember(Object *member) = 0;
-	// ---- lane PORT-25 (issue #97): the horde's vision overrides, HordeContainInterface vslots 0x258 / 0x25C ----
-	// RW 0x872B9E: `mov eax, [ecx-0x118]; fld [eax+0x274]` returns module data + 0x274 (the module data sits at interface - 0x118: the
-	// HordeContain's interface tables start at module + 0x11C, RW 0x8798A1, and its data pointer is read back through that negative
-	// displacement). RW 0x872BAB is the same for + 0x278. Both returned on ST0 as f32.
-	// The ONLY reader is the object's look, RW 0x694B9B / 0x694BB2 (see ShroudManager::retailObjectSource): the override replaces the
-	// template's factor only when it is above 0, the template otherwise (0.0 is what an omitted INI row leaves).
-	virtual float getVisionRearOverride() const = 0;
-	virtual float getVisionSideOverride() const = 0;
 	// lane MODS-3: edain-unchained.horde-exit-absorption (its 0xEE1000): the slot table is built when it is not yet (H + 0x198 == 0: the slot 0x84 call),
 	// then true when a free slot's rank has a UnitType the template matches (RW 0x873F30's search, nothing taken)
 	virtual bool hasFreeSlotFor(const Object &member) = 0;
@@ -134,6 +126,14 @@ public:
 	virtual void exitContainer(Object *container, int source) = 0;
 	// the members on the way, in the map's (id) order
 	virtual std::vector<ObjectID> membersEntering() const = 0;
+	// ---- lane PORT-25 (issue #97): the horde's vision overrides, interface vslots 0x258 / 0x25C; declared LAST so no earlier slot moves ----
+	// RW 0x872B9E: `mov eax, [ecx-0x118]; fld [eax+0x274]` returns module data + 0x274 (the module data sits at interface - 0x118: the
+	// HordeContain's interface tables start at module + 0x11C, RW 0x8798A1, and its data pointer is read back through that negative
+	// displacement). RW 0x872BAB is the same for + 0x278. Both returned on ST0 as f32.
+	// The ONLY reader is the object's look, RW 0x694B9B / 0x694BB2 (see ShroudManager::retailObjectSource): the override replaces the
+	// template's factor only when it is above 0, the template otherwise (0.0 is what an omitted INI row leaves).
+	virtual float getVisionRearOverride() const = 0;
+	virtual float getVisionSideOverride() const = 0;
 	// slot 0x170 (RW 0x870667), called by Object::setTeam (RW 0x69954A) with its non-null team: every contained member (the list contain slot 0x118 fills),
 	// then every member on the way into a garrison (the map at interface + 0x54, by id) gets Object::setTeam(team)
 	virtual void setMembersTeam(Team *team) = 0;
