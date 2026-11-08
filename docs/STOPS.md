@@ -35,7 +35,7 @@ what depends on it.
 PORT-16 / issue #72 is still covered by S-1180: `SUPPLY_SOURCE_SAFE` and
 `SUPPLY_SOURCE_ATTACKED` are not implemented. The body-record prerequisites,
 AIData parsing, original map faction retention and the standalone attacked-supply
-helper pass their synthetic tests in an isolated runner (9 tests, 144 assertions);
+helper pass their synthetic tests in an isolated runner (10 tests, 164 assertions);
 the helper is not yet attached to a Player AI or called by scripts, and condition
 acceptance tests remain unwritten. The parsed `ForceSkirmishAI` is not yet used
 for Player AI selection.

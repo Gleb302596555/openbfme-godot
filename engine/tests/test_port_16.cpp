@@ -24,6 +24,18 @@ const char kPort16Objects[] =
     "  Body = ActiveBody ModuleTag_Body\n"
     "    MaxHealth = 100\n"
     "  End\n"
+    "End\n"
+    "Object Port16Harvester\n"
+    "  KindOf = HARVESTER\n"
+    "  Body = ActiveBody ModuleTag_Body\n"
+    "    MaxHealth = 100\n"
+    "  End\n"
+    "End\n"
+    "Object Port16Center\n"
+    "  KindOf = SUPPLY_GATHERING_CENTER\n"
+    "  Body = ActiveBody ModuleTag_Body\n"
+    "    MaxHealth = 100\n"
+    "  End\n"
     "End\n";
 
 DamageInfo port16Hit(const Object *source, int type, bool noEffect)
@@ -243,4 +255,39 @@ TEST_CASE("PORT-16 attacked helper: no-effect records and a null body do not cou
     state.clearTimer();
     CHECK_FALSE(state.check(*p, w.teams, 21));
     CHECK(state.nextFrame() == 0);
+}
+
+TEST_CASE("PORT-16 attacked helper: every eligible kind and the unsigned never-hit boundary")
+{
+    CombatWorld w(kPort16Objects);
+    Object *attacker = w.unit("Swordsman", 'B', 100, 100);
+    Object *worker = w.unit("Port16Worker", 'A', 200, 100);
+    Player *p = w.playerOf('A');
+    // RW adds 10 to unsigned 0xffffffff: without the usual frame-zero call,
+    // a never-hit ActiveBody passes the frame check at frame 1, not at 9.
+    PlayerSupplyAttack state;
+    REQUIRE(state.check(*p, w.teams, 1));
+    CHECK(state.objectID() == worker->getID());
+    state.clearTimer();
+    CHECK_FALSE(state.check(*p, w.teams, 9));
+    w.frames(10);
+    Object *center = w.unit("Port16Center", 'A', 300, 100);
+    Object *harvester = w.unit("Port16Harvester", 'A', 400, 100);
+    Object *ordinary = w.unit("Dummy", 'A', 500, 100);
+    DamageInfo hit = port16Hit(attacker, DAMAGE_UNRESISTABLE, false);
+    center->attemptDamage(hit);
+    hit = port16Hit(attacker, DAMAGE_UNRESISTABLE, false);
+    harvester->attemptDamage(hit);
+    hit = port16Hit(attacker, DAMAGE_UNRESISTABLE, false);
+    ordinary->attemptDamage(hit);
+    p->setAttackedBy(w.playerOf('B')->getPlayerIndex(), 10);
+    state.clearTimer();
+    REQUIRE(state.check(*p, w.teams, 10));
+    CHECK(state.objectID() == harvester->getID()); // ordinary is newer but not an eligible kind
+    // Suppress the harvester's record; the center is the next eligible member.
+    hit = port16Hit(attacker, DAMAGE_SLASH, true);
+    harvester->attemptDamage(hit);
+    state.clearTimer();
+    REQUIRE(state.check(*p, w.teams, 10));
+    CHECK(state.objectID() == center->getID());
 }

@@ -142,7 +142,8 @@ unported.
 * RW 0x8F524C–0x8F526D adds template +0xB0 and AIData +0x84. The query
   uses distance type 3 and exclusion filters for DOZER and HARVESTER,
   the insignificant-building predicate RW 0x660F1A, visibility predicate
-  RW 0x660D71, not-DESTROYED predicate RW 0x660E71 and relationship-to-team
+  RW 0x660D71, effectively-alive predicate RW 0x660E71 (Object +0x458 bit 0,
+  not the separate DESTROYED status) and relationship-to-team
   predicate RW 0x66110A. The query result is inverted at RW 0x8F5330–0x8F5334.
   The visibility predicate has a special branch for a COMPUTER player and
   a firing object (RW 0x660D89–0x660DA3); simply rejecting every stealthed
