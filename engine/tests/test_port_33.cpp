@@ -28,6 +28,15 @@ SkirmishAIData data(int farmingThreshold, int framesTillSelfDestructs = 900, int
 	return d;
 }
 
+// the state the constructor leaves (RW 0x9B7316 / 0x9B735D): + 0x58 / + 0x60 / + 0x64 clear and + 0x5C = LogicFramesTillAISelfDestructs. Without that the
+// tail RW 0x9B7E64 would fire on the first frame, as it does in RW for a data value of 0
+ForfeitState fresh(const SkirmishAIData &d)
+{
+	ForfeitState s;
+	s.counter = d.logicFramesTillAISelfDestructs;
+	return s;
+}
+
 // one frame whose score is `score`, whatever the frame asks for
 ForfeitFrame step(ForfeitState &s, int &next, unsigned frame, int score, const SkirmishAIData &d, int *asked = nullptr)
 {
@@ -44,7 +53,7 @@ ForfeitFrame step(ForfeitState &s, int &next, unsigned frame, int score, const S
 TEST_CASE("PORT-33 AIWoTRForfeitTactic: the throttle of the score check (RW 0x9B74A4 .. 0x9B74C2)")
 {
 	const SkirmishAIData d = data(10);
-	ForfeitState s;
+	ForfeitState s = fresh(d);
 	int next = 0;
 	int asked = 0;
 	// the launch puts the current frame there (RW 0x9B7260), so the first check runs on that very frame
@@ -67,7 +76,7 @@ TEST_CASE("PORT-33 AIWoTRForfeitTactic: the throttle of the score check (RW 0x9B
 TEST_CASE("PORT-33 AIWoTRForfeitTactic: FarmingThreshold resets the streak (RW 0x9B7D74 / 0x9B7DA3)")
 {
 	const SkirmishAIData d = data(10);
-	ForfeitState s;
+	ForfeitState s = fresh(d);
 	int next = 0;
 	CHECK_FALSE(step(s, next, 0, 9, d).forfeit);
 	CHECK(s.badChecks == 1);
@@ -86,7 +95,7 @@ TEST_CASE("PORT-33 AIWoTRForfeitTactic: FarmingThreshold resets the streak (RW 0
 TEST_CASE("PORT-33 AIWoTRForfeitTactic: three checks below the threshold start the countdown (RW 0x9B7D7C .. 0x9B7D9B)")
 {
 	const SkirmishAIData d = data(10, 900);
-	ForfeitState s;
+	ForfeitState s = fresh(d);
 	int next = 0;
 	CHECK_FALSE(step(s, next, 0, 9, d).forfeit);
 	CHECK_FALSE(step(s, next, 300, 9, d).forfeit);
@@ -111,7 +120,7 @@ TEST_CASE("PORT-33 AIWoTRForfeitTactic: the countdown, its warning frame and the
 	int warnCounter = -1;
 	int fired = 0;
 	int firedFrame = -1;
-	for (int frame = 0; frame < 901; ++frame)
+	for (int frame = 0; frame < 900; ++frame)
 	{
 		const ForfeitFrame f = step(s, next, (unsigned)frame, 0, d, &asked);
 		CHECK(f.checked == false); // the triggered branch jumps over the throttle (RW 0x9B7495 `jne 0x9B7DAC`)
@@ -125,6 +134,7 @@ TEST_CASE("PORT-33 AIWoTRForfeitTactic: the countdown, its warning frame and the
 		{
 			++fired;
 			firedFrame = frame;
+			break; // RW ends the tactic here (RW 0x9B7E99), so the port never sees a second frame
 		}
 	}
 	CHECK(asked == 0);    // the score is not computed while the surrender runs
@@ -139,17 +149,22 @@ TEST_CASE("PORT-33 AIWoTRForfeitTactic: the countdown, its warning frame and the
 
 TEST_CASE("PORT-33 AIWoTRForfeitTactic: a counter without frames fires at once (RW 0x9B7E64)")
 {
-	// LogicFramesTillAISelfDestructs = 0: the constructor's 0 counter makes the tail fire on the first update, as RW's does
+	// LogicFramesTillAISelfDestructs = 0: the constructor's counter is 0, so the tail fires on the first update even though no surrender was decided
 	const SkirmishAIData d = data(10, 0);
-	ForfeitState s;
+	ForfeitState s = fresh(d);
 	int next = 0;
-	const ForfeitFrame f = step(s, next, 0, 9, d);
-	CHECK(f.forfeit);
-	// a positive score keeps it shut (the threshold is met, so the surrender is never decided)
-	ForfeitState open;
+	CHECK(step(s, next, 0, 9, d).forfeit);
+	CHECK_FALSE(s.triggered);
+	// a positive counter with a score at the threshold never fires: nothing runs it down unless the surrender is decided
+	const SkirmishAIData high = data(10, 900);
+	ForfeitState open = fresh(high);
 	int nextOpen = 0;
-	CHECK_FALSE(step(open, nextOpen, 0, 10, d).forfeit);
+	for (int frame = 0; frame < 900; frame += 300)
+	{
+		CHECK_FALSE(step(open, nextOpen, (unsigned)frame, 10, high).forfeit);
+	}
 	CHECK_FALSE(open.triggered);
+	CHECK(open.counter == 900);
 }
 
 TEST_CASE("PORT-33 AIWoTRForfeitTactic: the six bias terms (RW 0x9B7C41 .. 0x9B7D70)")
