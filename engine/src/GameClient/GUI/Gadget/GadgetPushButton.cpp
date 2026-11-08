@@ -7,6 +7,7 @@
 // buffer draws and the three-slice image button (W3DGadgetPushButtonImageDrawThree: a button with a middle image reports a note and is
 // drawn with its single image).
 
+#include <unordered_set>
 #include "GameClient/GUI/Gadgets.h"
 
 WindowMsgHandledType GadgetPushButtonInput(GameWindow *window, std::uint32_t msg, WindowMsgData mData1, WindowMsgData mData2)
@@ -218,7 +219,7 @@ WindowMsgHandledType GadgetPushButtonSystem(GameWindow *window, std::uint32_t ms
 		case GWM_CREATE:
 			break;
 		case GWM_DESTROY:
-			delete static_cast<PushButtonData *>(window->winGetUserData());
+			releaseBorderData(window); // only the PushButtonData GadgetButtonSetBorder made; another user data stays its owner's
 			window->winSetUserData(nullptr);
 			break;
 		case GWM_INPUT_FOCUS:
@@ -249,6 +250,21 @@ void GadgetButtonSetText(GameWindow *g, const UnicodeString &text)
 	g->manager().winSendSystemMsg(g, GGM_SET_LABEL, msgData(&copy), 0);
 }
 
+// lane LOCAL-12 review: the port's push buttons get no PushButtonData at creation (ZH's gogoGadgetPushButton makes one), and other code keeps its
+// own pointer in a window's user data (AptSkirmish: the map preview's MapCacheEntry), so the border data GadgetButtonSetBorder makes is tracked and
+// only that is deleted on GWM_DESTROY
+static thread_local std::unordered_set<const PushButtonData *> s_borderData;
+
+static void releaseBorderData(GameWindow *window)
+{
+	auto *data = static_cast<PushButtonData *>(window->winGetUserData());
+	if (data && s_borderData.erase(data) != 0)
+	{
+		delete data;
+		window->winSetUserData(nullptr);
+	}
+}
+
 // RW 0x729EA7 GadgetButtonSetBorder
 void GadgetButtonSetBorder(GameWindow *g, Color color, bool draw)
 {
@@ -257,9 +273,14 @@ void GadgetButtonSetBorder(GameWindow *g, Color color, bool draw)
 		return;
 	}
 	auto *data = static_cast<PushButtonData *>(g->winGetUserData());
+	if (data && s_borderData.count(data) == 0)
+	{
+		return; // the user data is another owner's (not a PushButtonData): no border on this window
+	}
 	if (!data)
 	{
 		data = new PushButtonData();
+		s_borderData.insert(data);
 		g->winSetUserData(data);
 	}
 	data->drawBorder = draw;
@@ -382,7 +403,7 @@ void W3DGadgetPushButtonImageDraw(GameWindow *window, WinInstanceData *instData)
 	if (!BitTest(winStatus, WIN_STATUS_CIRCULAR))
 	{
 		const auto *data = static_cast<const PushButtonData *>(window->winGetUserData());
-		if (data && data->drawBorder && (data->borderColor & 0x00FFFFFFu) != 0x00FFFFFFu)
+		if (data && s_borderData.count(data) != 0 && data->drawBorder && (data->borderColor & 0x00FFFFFFu) != 0x00FFFFFFu)
 		{
 			ICoord2D start, size;
 			window->winGetScreenPosition(&start.x, &start.y);
