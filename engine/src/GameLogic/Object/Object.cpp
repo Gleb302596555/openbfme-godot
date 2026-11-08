@@ -1498,6 +1498,25 @@ BehaviorModule *Object::findModuleByTag(NameKeyType tagKey) const
 	return nullptr;
 }
 
+const SpecialPowerModuleInterface *Object::findSpecialPowerModuleInterface(int powerType) const
+{
+	// RW 0x691526: iterates modules, finds first with SpecialPowerModuleInterface whose template has powerType
+	for (const std::unique_ptr<BehaviorModule> &m : m_modules)
+	{
+		const SpecialPowerModuleInterface *sp = m->getSpecialPower();
+		if (!sp)
+		{
+			continue;
+		}
+		const SpecialPowerTemplate *spt = sp->getSpecialPowerTemplate();
+		if (spt && spt->getSpecialPowerType() == powerType)
+		{
+			return sp;
+		}
+	}
+	return nullptr;
+}
+
 void Object::friend_bindToClient(ObjectClientHooks *client)
 {
 	m_client = client;

@@ -13,6 +13,7 @@
 #include "GameLogic/GameMessage.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/BloodthirstyUpdate.h"
+#include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/System/ShroudManager.h"
@@ -1105,26 +1106,41 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 			case MSG_DO_SPECIAL_POWER_AT_OBJECT:
 			case MSG_DO_SPELLBOOK_SPECIAL_POWER:
 			{
-				// RW 0x8DF7FE, BFME2 0x4D973E: special power initiate voice (SpecialPowerTemplate + 0x3C)
+				// RW 0x8DF7FE .. 0x8DF887: special power initiate voice
 				const SpecialPowerTemplate *spt = info ? info->powerTemplate : nullptr;
-				if (!spt && info && info->producer != INVALID_ID && TheSpecialPowerStore)
-				{
-					spt = TheSpecialPowerStore->findSpecialPowerTemplateByID((unsigned)info->producer);
-				}
 				if (spt)
 				{
-					fillName(c, obj, spt->getUnitSpecificSoundToUseAsInitiateIntendToDoVoice());
+					// RW 0x8DF819: find special power module interface of this type on the unit (RW 0x691526)
+					const SpecialPowerModuleInterface *spm = obj.findSpecialPowerModuleInterface(spt->getSpecialPowerType());
+					if (spm)
+					{
+						// RW 0x8DF846: vslot 0x40 returns copy of module data + 0x10 (InitiateSound, RW 0x8969AC)
+						const std::string &initiateSound = spm->getInitiateSound();
+						if (!initiateSound.empty())
+						{
+							// RW 0x8DDA33: fill candidate voice and crowd slots only if empty
+							if (!c.voice.any())
+							{
+								c.voice.sound = initiateSound;
+							}
+							if (c.crowdEntry && !c.crowd.any())
+							{
+								c.crowd.sound = initiateSound;
+							}
+						}
+					}
+					// RW 0x8DD876 -> 0x8DF890: if slot remains empty, fallback to UnitSpecificSoundToUseAsInitiateIntendToDoVoice
+					if (!done(c))
+					{
+						fillName(c, obj, spt->getUnitSpecificSoundToUseAsInitiateIntendToDoVoice());
+					}
 				}
 				break;
 			}
 			case VOICE_EVENT_ENTER_STATE_SPECIAL_POWER:
 			{
-				// RW 0x8DFCE1, BFME2 0x4D9747: enter-state special power voice (SpecialPowerTemplate + 0x40)
+				// RW 0x8DFCE1: enter-state special power voice (SpecialPowerTemplate + 0x40)
 				const SpecialPowerTemplate *spt = info ? info->powerTemplate : nullptr;
-				if (!spt && info && info->producer != INVALID_ID && TheSpecialPowerStore)
-				{
-					spt = TheSpecialPowerStore->findSpecialPowerTemplateByID((unsigned)info->producer);
-				}
 				if (spt)
 				{
 					fillName(c, obj, spt->getUnitSpecificSoundToUseAsEnterStateInitiateIntendToDoVoice());

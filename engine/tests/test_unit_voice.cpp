@@ -14,6 +14,8 @@
 #include "GameClient/UnitVoiceResponse.h"
 #include "GameLogic/ActionManager.h"
 #include "GameLogic/GameMessage.h"
+#include "GameLogic/Module/SpecialAbilityModules.h"
+#include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/System/ShroudManager.h"
 
@@ -617,6 +619,8 @@ TEST_CASE("LOCAL-6 unit voice: special powers look up UnitSpecificSoundToUse* in
 	SpecialPowerStore *savedPowers = TheSpecialPowerStore;
 	struct Restore { SpecialPowerStore *p; ~Restore() { TheSpecialPowerStore = p; } } restore{savedPowers};
 	TheSpecialPowerStore = &powers;
+	SpecialPowerModules::registerAll(r.f.w.modules);
+	SpecialAbilityModules::registerAll(r.f.w.modules);
 	r.f.w.fx.env.blocks.registerBlock("SpecialPower", [](INI *ini) { SpecialPowerStore::parseSpecialPowerDefinitionGlobal(ini); });
 
 	const char *kCaptureData =
@@ -625,15 +629,36 @@ TEST_CASE("LOCAL-6 unit voice: special powers look up UnitSpecificSoundToUse* in
 		"  UnitSpecificSoundToUseAsInitiateIntendToDoVoice = VoiceInitiateCaptureBuilding\n"
 		"  UnitSpecificSoundToUseAsEnterStateInitiateIntendToDoVoice = VoiceEnterStateInitiateCaptureBuilding\n"
 		"End\n"
+		"SpecialPower SpecialAbilitySmite\n"
+		"  Enum = SPECIAL_SMITE_CANCELDISGUISE\n"
+		"  UnitSpecificSoundToUseAsInitiateIntendToDoVoice = VoiceInitiateCaptureBuilding\n"
+		"End\n"
 		"SpecialPower SpecialAbilityEmpty\n"
 		"  Enum = SPECIAL_INFANTRY_CAPTURE_BUILDING\n"
 		"End\n"
 		"Object Capturer\n"
 		"  KindOf = INFANTRY SELECTABLE\n"
 		"  VoicePriority = 10\n"
+		"  Behavior = SpecialPowerModule ModuleTag_Capture\n"
+		"    SpecialPowerTemplate = SpecialAbilityCaptureBuilding\n"
+		"  End\n"
+		"  Behavior = SpecialAbilityUpdate ModuleTag_CaptureUpdate\n"
+		"    SpecialPowerTemplate = SpecialAbilityCaptureBuilding\n"
+		"  End\n"
 		"  UnitSpecificSounds\n"
 		"    VoiceInitiateCaptureBuilding = CapturerCapture\n"
 		"    VoiceEnterStateInitiateCaptureBuilding = CapturerEnterCapture\n"
+		"  End\n"
+		"End\n"
+		"Object SmiteHero\n"
+		"  KindOf = INFANTRY SELECTABLE\n"
+		"  VoicePriority = 10\n"
+		"  Behavior = SpecialPowerModule ModuleTag_Smite\n"
+		"    SpecialPowerTemplate = SpecialAbilitySmite\n"
+		"    InitiateSound = ModuleSmiteSound\n"
+		"  End\n"
+		"  UnitSpecificSounds\n"
+		"    VoiceInitiateCaptureBuilding = CapturerCapture\n"
 		"  End\n"
 		"End\n"
 		"Object SilentCapturer\n"
@@ -646,11 +671,15 @@ TEST_CASE("LOCAL-6 unit voice: special powers look up UnitSpecificSoundToUse* in
 
 	r.sink.known.insert("CapturerCapture");
 	r.sink.known.insert("CapturerEnterCapture");
+	r.sink.known.insert("ModuleSmiteSound");
 
 	const SpecialPowerTemplate *spt = TheSpecialPowerStore->findSpecialPowerTemplate("SpecialAbilityCaptureBuilding");
 	REQUIRE(spt);
 	CHECK(spt->getUnitSpecificSoundToUseAsInitiateIntendToDoVoice() == "VoiceInitiateCaptureBuilding");
 	CHECK(spt->getUnitSpecificSoundToUseAsEnterStateInitiateIntendToDoVoice() == "VoiceEnterStateInitiateCaptureBuilding");
+
+	const SpecialPowerTemplate *smiteSpt = TheSpecialPowerStore->findSpecialPowerTemplate("SpecialAbilitySmite");
+	REQUIRE(smiteSpt);
 
 	const SpecialPowerTemplate *emptySpt = TheSpecialPowerStore->findSpecialPowerTemplate("SpecialAbilityEmpty");
 	REQUIRE(emptySpt);
@@ -666,10 +695,25 @@ TEST_CASE("LOCAL-6 unit voice: special powers look up UnitSpecificSoundToUse* in
 	CHECK(UnitVoiceResponse::handles(UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_SPECIAL_POWER));
 
 	Object *capturer = r.f.make("Capturer", r.f.teamOf("Alice"));
+	Object *smiteHero = r.f.make("SmiteHero", r.f.teamOf("Alice"));
 	Object *target = r.f.make("Tower", r.f.teamOf("Bob"));
 	Object *silent = r.f.make("SilentCapturer", r.f.teamOf("Alice"));
 
-	// Initiate voice via order messages (MSG_DO_SPECIAL_POWER_AT_OBJECT, etc.)
+	// 1. RW 0x8DF819 .. 0x8DF887: special power with non-empty InitiateSound on module plays InitiateSound;
+	// template voice is NOT played. Exactly one sound is played.
+	{
+		r.sink.clear();
+		UnitVoiceResponse::Info info;
+		info.target = target->getID();
+		info.powerTemplate = smiteSpt;
+		CHECK(r.voice->pickAndPlay({ smiteHero->getID() }, MSG_DO_SPECIAL_POWER_AT_OBJECT, &info));
+		REQUIRE(r.sink.sounds.size() == 1);
+		CHECK(r.sink.sounds[0] == "ModuleSmiteSound");
+		CHECK(r.sink.owners[0] == smiteHero->getID());
+	}
+
+	// 2. RW 0x8DD876 -> 0x8DF890: special power with empty InitiateSound on module plays template voice.
+	// Exactly one sound is played.
 	{
 		r.sink.clear();
 		UnitVoiceResponse::Info info;
@@ -683,29 +727,25 @@ TEST_CASE("LOCAL-6 unit voice: special powers look up UnitSpecificSoundToUse* in
 		// MSG_DO_SPECIAL_POWER
 		r.sink.clear();
 		CHECK(r.voice->pickAndPlay({ capturer->getID() }, MSG_DO_SPECIAL_POWER, &info));
-		CHECK(r.sink.sounds == std::vector<std::string>{ "CapturerCapture" });
+		CHECK(r.sink.sounds.size() == 1);
+		CHECK(r.sink.sounds[0] == "CapturerCapture");
 
 		// MSG_DO_SPECIAL_POWER_AT_LOCATION
 		r.sink.clear();
 		info.hasPosition = true;
 		info.position = Coord3D{ 50.0f, 50.0f, 0.0f };
 		CHECK(r.voice->pickAndPlay({ capturer->getID() }, MSG_DO_SPECIAL_POWER_AT_LOCATION, &info));
-		CHECK(r.sink.sounds == std::vector<std::string>{ "CapturerCapture" });
+		CHECK(r.sink.sounds.size() == 1);
+		CHECK(r.sink.sounds[0] == "CapturerCapture");
 
 		// MSG_DO_SPELLBOOK_SPECIAL_POWER
 		r.sink.clear();
 		CHECK(r.voice->pickAndPlay({ capturer->getID() }, MSG_DO_SPELLBOOK_SPECIAL_POWER, &info));
-		CHECK(r.sink.sounds == std::vector<std::string>{ "CapturerCapture" });
-
-		// Template lookup by producer ID when powerTemplate is null
-		r.sink.clear();
-		UnitVoiceResponse::Info infoByProducer;
-		infoByProducer.producer = (ObjectID)spt->getID();
-		CHECK(r.voice->pickAndPlay({ capturer->getID() }, MSG_DO_SPECIAL_POWER_AT_OBJECT, &infoByProducer));
-		CHECK(r.sink.sounds == std::vector<std::string>{ "CapturerCapture" });
+		CHECK(r.sink.sounds.size() == 1);
+		CHECK(r.sink.sounds[0] == "CapturerCapture");
 	}
 
-	// PlayUnitVoiceForMessage parses argument 0 as special power ID and argument 1 as target
+	// 3. PlayUnitVoiceForMessage parses argument 0 as special power ID and argument 1 as target
 	{
 		r.sink.clear();
 		GameMessage msg(MSG_DO_SPECIAL_POWER_AT_OBJECT, 0);
@@ -716,11 +756,11 @@ TEST_CASE("LOCAL-6 unit voice: special powers look up UnitSpecificSoundToUse* in
 		CHECK(r.sink.sounds[0] == "CapturerCapture");
 	}
 
-	// Enter-state voice: VOICE_EVENT_ENTER_STATE_SPECIAL_POWER (0x7EC)
+	// 4. Enter-state voice: VOICE_EVENT_ENTER_STATE_SPECIAL_POWER (0x7EC, RW 0x8DFCE1)
 	{
 		r.sink.clear();
 		UnitVoiceResponse::Info info;
-		info.producer = (ObjectID)spt->getID();
+		info.powerTemplate = spt;
 		CHECK(r.voice->pickAndPlay({ capturer->getID() }, UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_SPECIAL_POWER, &info));
 		REQUIRE(r.sink.sounds.size() == 1);
 		CHECK(r.sink.sounds[0] == "CapturerEnterCapture");
@@ -732,44 +772,86 @@ TEST_CASE("LOCAL-6 unit voice: special powers look up UnitSpecificSoundToUse* in
 		CHECK(r.sink.sounds.empty());
 	}
 
-	// Unit without the slot in UnitSpecificSounds says nothing (RotWK behavior, silence)
+	// 5. Unit without the slot in UnitSpecificSounds says nothing (RotWK behavior, silence)
 	{
 		r.sink.clear();
 		UnitVoiceResponse::Info info;
 		info.powerTemplate = spt;
-		info.producer = (ObjectID)spt->getID();
 		CHECK_FALSE(r.voice->pickAndPlay({ silent->getID() }, MSG_DO_SPECIAL_POWER_AT_OBJECT, &info));
 		CHECK(r.sink.sounds.empty());
 		CHECK_FALSE(r.voice->pickAndPlay({ silent->getID() }, UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_SPECIAL_POWER, &info));
 		CHECK(r.sink.sounds.empty());
 	}
 
-	// SpecialPower without the slot fields says nothing
+	// 6. SpecialPower without the slot fields says nothing
 	{
 		r.sink.clear();
 		UnitVoiceResponse::Info info;
 		info.powerTemplate = emptySpt;
-		info.producer = (ObjectID)emptySpt->getID();
 		CHECK_FALSE(r.voice->pickAndPlay({ capturer->getID() }, MSG_DO_SPECIAL_POWER_AT_OBJECT, &info));
 		CHECK(r.sink.sounds.empty());
 		CHECK_FALSE(r.voice->pickAndPlay({ capturer->getID() }, UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_SPECIAL_POWER, &info));
 		CHECK(r.sink.sounds.empty());
 	}
 
-	// Logic trigger: AudioApi::postUnitVoice(0x7EC, ...) dispatches to installed voice handler
+	// 7. Logic trigger: AudioApi::postUnitVoice(0x7EC, ...) dispatches to installed voice handler with separate powerTemplate
 	{
 		int receivedEvent = 0;
 		uint32_t receivedObj = 0;
-		uint32_t receivedProducer = 0;
-		AudioApi::installUnitVoiceHandler([&](int ev, uint32_t objId, uint32_t prodId) {
-			receivedEvent = ev;
-			receivedObj = objId;
-			receivedProducer = prodId;
+		uint32_t receivedProducer = 999;
+		const SpecialPowerTemplate *receivedTemplate = nullptr;
+		uint32_t receivedTarget = 0;
+		bool receivedHasPos = false;
+		float receivedX = 0.0f;
+
+		AudioApi::installUnitVoiceHandler([&](const AudioApi::UnitVoiceParams &p) {
+			receivedEvent = p.voiceEvent;
+			receivedObj = p.objectId;
+			receivedProducer = p.producerId;
+			receivedTemplate = p.powerTemplate;
+			receivedTarget = p.targetId;
+			receivedHasPos = p.hasPosition;
+			receivedX = p.posX;
 		}, &powers);
-		AudioApi::postUnitVoice(0x7EC, capturer->getID(), spt->getID());
+
+		Coord3D testPos{ 123.0f, 456.0f, 789.0f };
+		AudioApi::postUnitVoice(0x7EC, capturer->getID(), spt, target->getID(), &testPos);
 		CHECK(receivedEvent == 0x7EC);
 		CHECK(receivedObj == capturer->getID());
-		CHECK(receivedProducer == spt->getID());
+		CHECK(receivedProducer == 0); // producer is untouched, separate field
+		CHECK(receivedTemplate == spt);
+		CHECK(receivedTarget == target->getID());
+		CHECK(receivedHasPos == true);
+		CHECK(receivedX == 123.0f);
+		AudioApi::uninstallUnitVoiceHandler(&powers);
+	}
+
+	// 8. RW 0x89800E / 0x898018: SpecialPowerModule::initiate calls voice only when caster has a drawable (clientHooks)
+	{
+		int callCount = 0;
+		AudioApi::installUnitVoiceHandler([&](const AudioApi::UnitVoiceParams &) {
+			++callCount;
+		}, &powers);
+
+		// Without clientHooks (no drawable): voice is skipped (RW 0x898018)
+		capturer->friend_bindToClient(nullptr);
+		BehaviorModule *bm = capturer->findModuleByTag(r.f.w.keys.nameToKey("ModuleTag_Capture"));
+		REQUIRE(bm);
+		SpecialPowerModule *spm = dynamic_cast<SpecialPowerModule *>(bm);
+		REQUIRE(spm);
+		spm->doSpecialPowerAtObject(target, 0x40000u);
+		CHECK(callCount == 0);
+
+		// With clientHooks (drawable present): voice is posted (RW 0x898069)
+		struct TestClientHooks : public ObjectClientHooks {
+			void objectCreated(Object &) override {}
+			void objectDestroyed(Object &) override {}
+		} hooks;
+		capturer->friend_bindToClient(&hooks);
+		spm->doSpecialPowerAtObject(target, 0x40000u);
+		CHECK(callCount == 1);
+		capturer->friend_bindToClient(nullptr);
+
 		AudioApi::uninstallUnitVoiceHandler(&powers);
 	}
 }

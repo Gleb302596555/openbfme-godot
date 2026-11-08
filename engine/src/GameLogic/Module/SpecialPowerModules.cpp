@@ -1062,9 +1062,12 @@ bool SpecialPowerModule::initiate(Object *target, const Coord3D *loc, unsigned o
 		// RW 0x897FFA .. 0x898001: doFXObj(InitiateFX, the caster, the target object): the target is the FX's second object (its rays, filters, particles)
 		emitPowerFXWith(obj->logic(), "SpecialPower InitiateFX", m_spData->m_initiateFX, *obj, target);
 
-		// RW 0x898069 .. 0x89807B, BFME2 decomp SpecialAbilityUpdate::initiateIntentToDoSpecialPower:
-		// calls RW 0x8DEDBB with 0x7EC (VOICE_EVENT_ENTER_STATE_SPECIAL_POWER), the caster and the power template
-		AudioApi::postUnitVoice(0x7EC, obj->getID(), getSpecialPowerTemplate() ? getSpecialPowerTemplate()->getID() : 0);
+		// RW 0x89800E .. 0x89807B: voice is called only if the caster has a drawable (RW 0x89800E / 0x898018)
+		// Info carries target (RW 0x898054), position (RW 0x898063) and power template (RW 0x89804F)
+		if (obj->clientHooks())
+		{
+			AudioApi::postUnitVoice(0x7EC, obj->getID(), getSpecialPowerTemplate(), target ? target->getID() : 0, loc);
+		}
 	}
 	return !m_spData->m_updateModuleStartsAttack;
 }
