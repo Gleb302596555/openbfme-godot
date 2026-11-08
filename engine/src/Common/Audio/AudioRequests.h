@@ -20,7 +20,7 @@ bool reportEva(const std::string &eventName, const Coord3D *position, const Coor
 // Parsed EvaEventStore index (RW 0x5DD9EE); -1 is None. Uses the same audio-owner queue as named reports.
 bool reportEva(int eventIndex, const Coord3D *position, const Coord3D *position2 = nullptr);
 std::uint32_t playSoundForObject(const std::string &eventName, std::uint32_t objectId, int owningPlayerIndex = -1);
-// play a MiscAudio slot's sound for an object (e.g. DefectorTimerTickSound RW 0x852B5B for capture tick)
+// play a MiscAudio slot's sound for an object (e.g. DefectorTimerTickSound RW 0x852C40 .. 0x852C7F for capture tick)
 std::uint32_t playMiscAudioForObject(const std::string &slotName, std::uint32_t objectId, int owningPlayerIndex = -1);
 std::uint32_t playSoundForDrawable(const std::string &eventName, std::uint32_t drawableId, int owningPlayerIndex = -1);
 // lane SPELL-3: an event at a world position with the player it belongs to (SpecialPowerModule::aboutToDoSpecialPower RW 0x89713F: the

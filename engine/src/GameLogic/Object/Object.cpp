@@ -1376,7 +1376,7 @@ Player *Object::getControllingPlayer() const
 	return m_team ? m_team->getControllingPlayer() : nullptr;
 }
 
-// RW 0x68B6F5: indicator colour of the object: custom indicator if set, else team controlling player's colour, else 0xFF000000
+// RW 0x68B6F5 Object::getIndicatorColor: the team's controlling player's colour (the custom indicator and the disguise colour are S-2522 / S-2456's)
 std::uint32_t Object::getIndicatorColor() const
 {
 	const Player *owner = getControllingPlayer();

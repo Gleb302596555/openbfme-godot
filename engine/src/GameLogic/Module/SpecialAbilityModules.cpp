@@ -1282,6 +1282,16 @@ bool SpecialAbilityUpdate::continuePreparation()
 		// RW 0x852B14 .. 0x852C88: DoCaptureFX flash and DefectorTimerTickSound
 		if (m_data->m_doCaptureFX)
 		{
+			// RW 0x852B21 .. 0x852B2D: if target has no drawable (Object::getDrawable RW 0x70E013),
+			// skip the entire DoCaptureFX block, including accumulator update.
+			// INFERENCE: in the port, a logic object's drawable is bound to clientHooks() (lane SMOOTH-1).
+			// If target has no client/drawable bound, skip DoCaptureFX (RW 0x852B2D).
+			ObjectClientHooks *client = t->clientHooks();
+			if (!client)
+			{
+				return true;
+			}
+
 			const int oldBit = static_cast<int>(m_captureAccumulator) & 1;
 			const unsigned prepTotal = std::max(1u, m_data->m_preparationFrames);
 			const float progress = 1.0f - (static_cast<float>(m_prepFrames) / static_cast<float>(prepTotal));
@@ -1304,33 +1314,26 @@ bool SpecialAbilityUpdate::continuePreparation()
 				c.green = c.green * sat - halfSat;
 				c.blue = c.blue * sat - halfSat;
 
-				ObjectClientHooks *client = obj->clientHooks();
-				if (!client)
-				{
-					client = obj->logic().clientHooks();
-				}
-				if (client)
-				{
-					// Flash target object (RW 0x852BDD)
-					client->flashAsSelected(*t, &c);
+				// Flash target object (RW 0x852BDD)
+				client->flashAsSelected(*t, &c);
 
-					// Partition query for LINKED_TO_FLAG within 150.0f of caster (RW 0x852BE6 .. 0x852C3B)
-					const int linkedToFlag = KindOfTokens::indexOf("LINKED_TO_FLAG");
-					if (linkedToFlag >= 0)
+				// RW 0x852BE6 .. 0x852C3B: closest LINKED_TO_FLAG within 150.0f of caster (FROM_CENTER_3D, RW 0xA39090)
+				const int linkedToFlag = KindOfTokens::indexOf("LINKED_TO_FLAG");
+				if (linkedToFlag >= 0)
+				{
+					PartitionFilterFn flagFilter([linkedToFlag](Object &o) {
+						return o.isKindOf(static_cast<unsigned>(linkedToFlag));
+					});
+					Object *flag = obj->logic().partition().getClosestObject(
+						*obj->getPosition(), 150.0f, FROM_CENTER_3D, { &flagFilter });
+					if (flag)
 					{
-						PartitionFilterFn flagFilter([linkedToFlag](Object &o) {
-							return o.isKindOf(static_cast<unsigned>(linkedToFlag));
-						});
-						const auto hits = obj->logic().partition().iterateObjectsInRange(
-							*obj->getPosition(), 150.0f, FROM_CENTER_2D, { &flagFilter }, ITER_FASTEST);
-						if (!hits.empty() && hits[0].object)
-						{
-							client->flashAsSelected(*hits[0].object, &c);
-						}
+						ObjectClientHooks *flagClient = flag->clientHooks() ? flag->clientHooks() : client;
+						flagClient->flashAsSelected(*flag, &c);
 					}
 				}
 
-				// Play DefectorTimerTickSound on target object (RW 0x852C40 .. 0x852C69)
+				// Play DefectorTimerTickSound on target object (RW 0x852C40 .. 0x852C7F)
 				AudioApi::playMiscAudioForObject("DefectorTimerTickSound", m_targetID);
 			}
 		}

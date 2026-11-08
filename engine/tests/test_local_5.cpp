@@ -21,6 +21,7 @@
 #include "Common/Thing/KindOfTokens.h"
 #include "GameClient/ClientEvents.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/Module/SpecialAbilityModules.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/Object.h"
@@ -43,6 +44,7 @@ struct Local5World : combattest::CombatWorld
 		SpecialPowerModules::registerAll(w.modules);
 		const std::string err = w.load(objects);
 		REQUIRE_MESSAGE(err.empty(), err);
+		logic->partition().setRegion(0.0f, 0.0f, 1000.0f, 1000.0f); // the map's extent (RW 0x62FCCD)
 	}
 
 	~Local5World()
@@ -280,4 +282,96 @@ TEST_CASE("LOCAL-5 capture aborts when target is allied (RW 0x852A7E)")
 	f.frames(1);
 	// In continuePreparation, target relationship is ALLIES, so it returns false and does not stay in preparation
 	CHECK_FALSE(caster->testStatus(kStatusUsingAbility));
+}
+
+TEST_CASE("LOCAL-5 capture flash selects closest flag: closest of two LINKED_TO_FLAG objects flashes (RW 0x852C01 .. 0x852C21)")
+{
+	Local5World f(kCaptureWorld);
+	ClientEventRecorder events(*f.logic);
+	f.logic->setClientHooks(&events);
+	struct Detach { GameLogic &logic; ~Detach() { logic.setClientHooks(nullptr); } } detach{ *f.logic };
+
+	Object *caster = f.unit("CapturerUnit", 'A', 300, 300);
+	Object *target = f.unit("TargetStructure", 'B', 310, 300);
+	// Create farFlag first so iteration-order / bucket-order would encounter it first if not distance-sorted
+	Object *farFlag = f.unit("FlagStructure", 'B', 380, 300); // 80 units from caster
+	Object *nearFlag = f.unit("FlagStructure", 'B', 320, 300); // 20 units from caster
+
+	events.objectCreated(*caster);
+	events.objectCreated(*target);
+	events.objectCreated(*farFlag);
+	events.objectCreated(*nearFlag);
+
+	SpecialAbilityUpdate *u = abilityOf(caster);
+	u->initiateIntentToDoSpecialPower(u->abilityData()->m_specialPowerTemplate, target, nullptr, 0, 0);
+
+	f.frames(1);
+	events.take();
+
+	int flashedNearFlagCount = 0;
+	int flashedFarFlagCount = 0;
+
+	for (int prepFrame = 1; prepFrame <= 200; ++prepFrame)
+	{
+		f.frames(1);
+		for (const auto &ev : events.take())
+		{
+			if (ev.kind == ClientEvent::FLASH_AS_SELECTED)
+			{
+				if (ev.object == nearFlag->getID())
+				{
+					++flashedNearFlagCount;
+				}
+				else if (ev.object == farFlag->getID())
+				{
+					++flashedFarFlagCount;
+				}
+			}
+		}
+	}
+
+	// RW 0x852C01 .. 0x852C21: ThePartitionManager->getClosestObject (FROM_CENTER_3D)
+	// Only the closest flag within 150.0f must flash; the further flag must never flash.
+	CHECK(flashedNearFlagCount == 16);
+	CHECK(flashedFarFlagCount == 0);
+}
+
+TEST_CASE("LOCAL-5 capture target without drawable: accumulator does not change (RW 0x852B21 .. 0x852B2D)")
+{
+	Local5World f(kCaptureWorld);
+	ClientEventRecorder events(*f.logic);
+	f.logic->setClientHooks(&events);
+	struct Detach { GameLogic &logic; ~Detach() { logic.setClientHooks(nullptr); } } detach{ *f.logic };
+
+	Object *caster = f.unit("CapturerUnit", 'A', 300, 300);
+	Object *target = f.unit("TargetStructure", 'B', 310, 300);
+	Object *flag = f.unit("FlagStructure", 'B', 320, 300);
+
+	events.objectCreated(*caster);
+	events.objectCreated(*flag);
+	// target has no client / drawable bound
+	target->friend_bindToClient(nullptr);
+
+	SpecialAbilityUpdate *u = abilityOf(caster);
+	u->initiateIntentToDoSpecialPower(u->abilityData()->m_specialPowerTemplate, target, nullptr, 0, 0);
+
+	f.frames(1);
+	events.take();
+
+	for (int prepFrame = 1; prepFrame <= 50; ++prepFrame)
+	{
+		f.frames(1);
+	}
+
+	// RW 0x852B21 .. 0x852B2D: if target has no drawable, skip DoCaptureFX block and accumulator update
+	CHECK(u->captureAccumulator() == 0.0f);
+	int flashes = 0;
+	for (const auto &ev : events.take())
+	{
+		if (ev.kind == ClientEvent::FLASH_AS_SELECTED)
+		{
+			++flashes;
+		}
+	}
+	CHECK(flashes == 0);
 }

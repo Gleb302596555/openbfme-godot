@@ -109,7 +109,7 @@ public:
 	void applyTeamAttitude();
 	void applyTeamAttackPriority(); // lane BFME2CAMP1: the team prototype's attack priority set (RW 0x697D32 / 0x69A575)
 	Player *getControllingPlayer() const;
-	// RW 0x68B6F5: indicator colour of the object: custom indicator if set, else team controlling player's colour, else 0xFF000000
+	// RW 0x68B6F5 Object::getIndicatorColor: the team's controlling player's colour (the custom indicator and the disguise colour are S-2522 / S-2456's)
 	std::uint32_t getIndicatorColor() const;
 	// ---- lane HERO-2: defection (Wormtongue / Saruman / Sharku / Rogash's Dominate, a TemporarilyDefectUpdate) ----------------------------------------
 	// RW 0x699368 Object::defect(newOwner, permanent): see Object.cpp
