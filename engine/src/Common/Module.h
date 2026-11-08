@@ -207,6 +207,11 @@ public:
 	// Drawable::createSelectionFeedback (RW 0x672ED1 / BFME2 0x672BAB) and Drawable::removeSelectionFeedback (RW 0x672F0D / BFME2 0x672BE7)
 	virtual void createSelectionFeedback() {}
 	virtual void removeSelectionFeedback() {}
+	// lane PORT-21: the drawable's audible flag (+ 0x44A) changed. RW 0x674727 clears it and asks every client behaviour module's second interface for
+	// slot 1 (AnimationSoundClientBehavior RW 0x8CE25E, ModelConditionAudioLoopClientBehavior RW 0x8D04EB -> 0x8D03F8); RW 0x67896F sets it again and
+	// asks slot 0 (RW 0x8CE249 / RW 0x8D04D9). The interface sits at the module's + 0x30 table slot, absent for a module without it: a no-op here.
+	virtual void becameAudible() {}
+	virtual void becameInaudible() {}
 
 private:
 	Drawable *m_drawable;

@@ -276,6 +276,13 @@ public:
 			onConstructionStatusChanged();
 		}
 	}
+	// Lane PORT-21 (stop S-1463), RW 0x690728 / RW 0x690772: the object became INAUDIBLE (status 52) / audible again. The bit is written directly, not
+	// through the status setter (RW 0x69072B `or byte ptr [esi + 0x9a], 0x10` / RW 0x690775 `and byte ptr [esi + 0x9a], 0xef`), then the drawable's
+	// audible flag follows (RW 0x69073C -> RW 0x674727 / RW 0x690786 -> RW 0x67896F through ObjectClientHooks), then every behaviour module's
+	// interface 36 is asked, slot 0 / slot 1, in array order (RW 0x690741 .. 0x690770 / 0x69078B .. 0x6907B9). Neither function tests anything: the
+	// caller's status guard is RW 0x692318's (`testStatus(0x33)` at the head of RW 0x692313), the port's is friend_containLeaveWorld's `isInWorld`.
+	void setInaudible();
+	void setAudible();
 	// lane DECOMP-1: RW 0x694569 (BFME2 decomp ObjectConditionAndPassengerWeaponSet.cpp Object::rva00293D3B, tier B same-shape; RW 0x748650 wraps it for one
 	// bit): the object's horde (RW 0x693A1A(0)) changes the bit on every member of its horde interface's list (RW 0x68C866 slot 0x108, list order), then on
 	// itself; a horde without that interface changes nothing; an object outside a horde changes its own. Object + 0x475 (set by the destructor, RW 0x69A7B6)

@@ -334,6 +334,12 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 		case ClientEvent::SET_OPACITY: // RW 0x8BCD38
 			if (Drawable *d = findByObject(ev.object)) d->setDrawableOpacity(ev.opacity);
 			break;
+		case ClientEvent::AUDIBLE: // lane PORT-21 (RW 0x674727 / 0x67896F)
+			if (Drawable *d = findByObject(ev.object))
+			{
+				d->setAudible(ev.audible);
+			}
+			break;
 		case ClientEvent::SHOW_MODULE:
 			if (Drawable *d = findByObject(ev.object))
 			{

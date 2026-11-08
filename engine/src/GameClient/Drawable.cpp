@@ -398,6 +398,31 @@ void Drawable::storeModelConditions(const ModelConditionFlags &flags)
 	m_flagsDirty = true; // RW 0x67961F
 }
 
+// Lane PORT-21 (stop S-1463), RW 0x674727 Drawable::setInaudible / RW 0x67896F Drawable::setAudible. RW 0x67472A takes the flag's address (+ 0x44A)
+// and returns when it already holds the value asked for (RW 0x674733 `je` / RW 0x67897B `jne`), so the modules hear one change per transition. The
+// modules of the drawable's client behaviour list (+ 0x154) are asked in list order through their + 0x30 interface table: slot 1 (offset 4) for
+// inaudible (RW 0x674761 `call [edx + 4]`), slot 0 for audible (RW 0x6789AB `call [edx]`); a module without the interface is skipped (RW 0x674752 /
+// RW 0x6789A5).
+void Drawable::setAudible(bool audible)
+{
+	if (m_audible == audible)
+	{
+		return;
+	}
+	m_audible = audible;
+	for (const std::unique_ptr<DrawableModule> &m : m_clientModules)
+	{
+		if (audible)
+		{
+			m->becameAudible();
+		}
+		else
+		{
+			m->becameInaudible();
+		}
+	}
+}
+
 void Drawable::flushModelConditions(bool hasWeaponTiming, int weaponTimingFrames)
 {
 	m_hasWeaponTiming = hasWeaponTiming;
