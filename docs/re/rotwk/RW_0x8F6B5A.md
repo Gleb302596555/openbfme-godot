@@ -38,9 +38,19 @@ unported.
   data offset +0x95C. This field is already parsed by the port's
   `SkirmishAIStore`. The type argument and the data flag must be read at the
   setter's time, not inferred later from manager `findAI()`; its object can
-  be absent even while Player +0x2FC exists. The map-side setup passes the
-  skirmish argument for human players too (RW 0x6B09FA–0x6B0A26), while
-  `PlayerList::newGame` currently stores `!human && skirmish`, discarding it.
+  be absent even while Player +0x2FC exists. Correction to the earlier
+  analysis: the second argument at RW 0x6B09FA / 0x6B0A20 is NOT simply the
+  side's `playerIsSkirmish` value. RW 0x6B08D6–0x6B0905 initializes it to
+  zero and skips the check for an observer or an unset/false skirmish key.
+  Otherwise RW 0x6B090B–0x6B0971 iterates game slots, resolves each slot's
+  faction template and compares its Side (+0x18) with the initialized player
+  Side (+0x58, copied at RW 0x6B051E–0x6B052D). A match sets the argument
+  to 1 at RW 0x6B0A0E; no match sets a separate byte at 0x6B0997, which
+  affects the chosen player type at 0x6B09F5–0x6B0A26. The argument can be
+  passed for human players as well. `PlayerList::newGame` currently stores
+  `!human && skirmish`; replacing that expression with the raw dictionary
+  value would still miss the observer and faction-matching branches. The
+  setter call's exact lifecycle must be integrated before using either flag.
 
 ## SAFE: selection and scan
 
