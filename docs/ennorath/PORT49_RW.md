@@ -4,7 +4,7 @@ Issue #153. Target: the community-modified RotWK 2.01 image used by the Ennorath
 
 ## 1. Parse and defaults
 
-The registered module name is `W3DScriptedModelDraw` (string RW `0xBDBBB0`). The module create RW `0x464092` allocates `0x2E8` and calls the constructor RW `0x4C04A3`; the data create RW `0x4640CD` allocates `0x188` and calls RW `0x4C85E9`. The data constructor stores the data vtable RW `0xBE0D40` (`0x4C860F`) and the parser RW `0x4C8941` pushes the shared field table RW `0xBE1320`.
+The registered module name is `W3DScriptedModelDraw` (string RW `0xBDBBB0`). The module create RW `0x464092` allocates `0x2E8` and calls the constructor RW `0x4C04A3`; the data create RW `0x4640CD` allocates `0x188` and calls RW `0x4C85E9`. The data constructor stores the data vtable RW `0xBE0D40` (`0x4C860D`) and the parser RW `0x4C893A` pushes the shared field table RW `0xBE1320` (`0x4C8940`).
 
 | field | field-table row | parser | data offset | constructor default |
 |---|---:|---:|---:|---|
