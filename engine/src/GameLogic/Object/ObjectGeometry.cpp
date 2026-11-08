@@ -273,7 +273,8 @@ std::vector<ObjectGeometry::ContactPoint> ObjectGeometry::contactPointsOf(const 
 	std::vector<ContactPoint> points;
 	for (const ThingTemplate::GeometryEvent &e : tt.geometryEvents())
 	{
-		if (e.row != "GeometryContactPoint")
+		// RW 0xAD3D30: GeometryContactPoint (RW 0xDA44A8), AttackContactPoint (RW 0xDA44C8) and SwoopContactPoint (RW 0xDA44E8) share the same parser
+		if (e.row != "GeometryContactPoint" && e.row != "AttackContactPoint" && e.row != "SwoopContactPoint")
 		{
 			continue;
 		}

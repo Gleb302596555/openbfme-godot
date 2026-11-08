@@ -54,6 +54,7 @@
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/SquishCollide.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/SimMath.h"
 #include "GameLogic/Weapon.h"
@@ -153,6 +154,26 @@ void hashCoord(StateHasher &h, const Coord3D &c)
 	h.addFloat(c.y);
 	h.addFloat(c.z);
 }
+
+// RW 0x6EA0EC .. 0x6EA1D9 (Pathfinder::adjustMeleeOffset / RW 0x667C76 -> RW 0x667D96 -> Object::getWorldspaceBestContactPoint):
+// A melee weapon at a WALK_ON_TOP_OF_WALL or BLOCKING_GATE approaches and engages at the "Ram" contact point (RW 0xC2A1C0);
+// other attackers approach and engage at the nearest unlabelled AttackContactPoint / GeometryContactPoint (label "").
+bool getMeleeContactPoint(const Object &self, const Object &victim, Coord3D &out)
+{
+	const ObjectWeapons *w = const_cast<Object &>(self).getWeapons();
+	const Weapon *cur = w ? w->currentWeapon() : nullptr;
+	const WeaponTemplate *wt = cur ? cur->getTemplate() : nullptr;
+	static const int kWallTop = CombatNames::kindOf("WALK_ON_TOP_OF_WALL");
+	static const int kBlockingGate = CombatNames::kindOf("BLOCKING_GATE");
+	if (wt && (victim.isKindOf((unsigned)kWallTop) || victim.isKindOf((unsigned)kBlockingGate)) && wt->m_meleeWeapon)
+	{
+		if (ObjectGeometry::worldspaceBestContactPoint(victim, *self.getPosition(), "Ram", false, out))
+		{
+			return true;
+		}
+	}
+	return ObjectGeometry::worldspaceBestContactPoint(victim, *self.getPosition(), "", false, out);
+}
 } // namespace
 
 bool AttackUsesMeleeMachine(const Object &source, const Object *victim, bool attackingObject)
@@ -232,17 +253,27 @@ bool AIAttackMeleeApproachState::computePath()
 		m_pending = mv.isWaitingForPath();
 		return m_pending;
 	}
-	float dx = SimMath::subf32(self.getPosition()->x, m_victimPos.x), dy = SimMath::subf32(self.getPosition()->y, m_victimPos.y);
-	const float len = SimMath::fstpDword(SimMath::sqrtPC24((double)SimMath::sumSquares3(dx, dy, 0.0f)));
-	if (len != 0.0f)
+	Coord3D contactPt;
+	const bool hasContact = getMeleeContactPoint(self, *victim, contactPt);
+	if (hasContact)
 	{
-		const float inv = SimMath::divf32(1.0f, len);
-		dx = SimMath::mulf32(dx, inv);
-		dy = SimMath::mulf32(dy, inv);
+		m_victimPos = contactPt;
+		m_dest = contactPt;
 	}
-	const float r = CombatQueries::boundingCircleRadius(*victim);
-	m_dest = Coord3D{ SimMath::addf32(m_victimPos.x, SimMath::mulf32(r, dx)), SimMath::addf32(m_victimPos.y, SimMath::mulf32(dy, r)), m_victimPos.z };
-	if (!mv.requestMeleeApproachPath(m_dest, false))
+	else
+	{
+		float dx = SimMath::subf32(self.getPosition()->x, m_victimPos.x), dy = SimMath::subf32(self.getPosition()->y, m_victimPos.y);
+		const float len = SimMath::fstpDword(SimMath::sqrtPC24((double)SimMath::sumSquares3(dx, dy, 0.0f)));
+		if (len != 0.0f)
+		{
+			const float inv = SimMath::divf32(1.0f, len);
+			dx = SimMath::mulf32(dx, inv);
+			dy = SimMath::mulf32(dy, inv);
+		}
+		const float r = CombatQueries::boundingCircleRadius(*victim);
+		m_dest = Coord3D{ SimMath::addf32(m_victimPos.x, SimMath::mulf32(r, dx)), SimMath::addf32(m_victimPos.y, SimMath::mulf32(dy, r)), m_victimPos.z };
+	}
+	if (!mv.requestMeleeApproachPath(m_dest, hasContact))
 	{
 		return false;
 	}
@@ -285,7 +316,8 @@ StateReturnType AIAttackMeleeApproachState::onEnter()
 	{
 		return STATE_SUCCESS;
 	}
-	m_victimPos = *victim->getPosition();
+	Coord3D enterContactPt;
+	m_victimPos = getMeleeContactPoint(self, *victim, enterContactPt) ? enterContactPt : *victim->getPosition();
 	if (!AttackCrushPolicy(self, *victim) && nearerThanGate(a, self, m_victimPos))
 	{
 		return STATE_SUCCESS;
@@ -332,7 +364,8 @@ StateReturnType AIAttackMeleeApproachState::update()
 	a.setCurrentVictim(victim);
 	if (noPath)
 	{
-		m_victimPos = *victim->getPosition();
+		Coord3D updateContactPt;
+		m_victimPos = getMeleeContactPoint(self, *victim, updateContactPt) ? updateContactPt : *victim->getPosition();
 		if (nearerThanGate(a, self, m_victimPos))
 		{
 			return STATE_SUCCESS;
@@ -430,7 +463,8 @@ bool AIAttackMeleeEngageState::computePath()
 	{
 		return false;
 	}
-	m_victimPos = *victim->getPosition();
+	Coord3D engageContactPt;
+	m_victimPos = getMeleeContactPoint(self, *victim, engageContactPt) ? engageContactPt : *victim->getPosition();
 	Pathfinder &pf = a.world().pathfinder();
 	PathfindObject &obj = a.adapter();
 	const PathfindLocomotorInfo info = a.locomotorInfo();
@@ -494,7 +528,8 @@ StateReturnType AIAttackMeleeEngageState::onEnter()
 		reserveOwnPosition();
 		return STATE_SUCCESS;
 	}
-	m_victimPos = *victim->getPosition();
+	Coord3D engageEnterPt;
+	m_victimPos = getMeleeContactPoint(self, *victim, engageEnterPt) ? engageEnterPt : *victim->getPosition();
 	if (memberInHorde(self))
 	{
 		setMeleeFlag(self, false);
