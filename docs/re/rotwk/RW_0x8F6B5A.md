@@ -101,9 +101,17 @@ unported.
 * RW 0x8F6D38–0x8F6DA9 compares squared 2D distance from the AI's +0x38
   position, and when an enemy exists rejects a candidate if
   `0.4 * ownDistanceSquared > 0.6 * enemyBoundsMidpointDistanceSquared`.
+  This shorthand is not enough for bit-exact reproduction: RW 0x8F6D3B–
+  0x8F6D5E computes the own distance with scalar SSE float operations
+  (subtract, square each, then add y² + x²). RW 0x8F6D65–0x8F6D94 computes
+  the enemy difference, squares, sum and comparison in x87; its 0.4 operand
+  at 0xC79A80 is a binary64 constant, but its 0.6 operand at 0xBDAD70 is
+  binary32 (approximately 0.6000000238418579). No intermediate `fstp` to
+  float occurs in that comparison. `ja` also does not reject unordered
+  comparisons. Runtime x87 control-word assumptions remain to be checked.
   The first candidate survives an equal-distance tie. RW 0x8F6DC1–0x8F6DCF
   halves the signed threshold toward zero and repeats only while the new
-  value exceeds 100. Exact x87 rounding remains to be checked.
+  value exceeds 100.
 * RW 0x8F524C–0x8F526D adds template +0xB0 and AIData +0x84. The query
   uses distance type 3 and exclusion filters for DOZER and HARVESTER,
   the insignificant-building predicate RW 0x660F1A, visibility predicate
@@ -126,6 +134,10 @@ unported.
   byte +0x78 clear, and whose slot +0x44 plus 10 is strictly greater than
   the frame (RW 0x8F5B6B–0x8F5B93). On success RW 0x8F5BCE–0x8F5BD7 stores
   the member's ID in AI +0x74 and returns true; otherwise it returns false.
+  Base Player AI xfer RW 0x8F5756 serializes position +0x38 at RW 0x8F599C–
+  0x8F59A2 and, for snapshot version at least 2, timer +0x70 at RW 0x8F5A22–
+  0x8F5A31. It does not serialize +0x74 in this routine; port hash/xfer must
+  nevertheless obey the project's rules for introduced simulation state.
 * The same helper has another caller: RW 0x8F744B clears AI +0x70, RW
   0x8F744F calls RW 0x8F5ABD, and RW 0x8F7458–0x8F746A resolves AI +0x74
   if it returned true. On failure it calls the source chooser RW 0x8F6B5A
@@ -147,8 +159,8 @@ unported.
   which returns null, although its damage slot RW 0x8C1A75 can set the input
   output byte. SymbioticStructuresBody's body table 0xC72200 instead has
   slot +0x40 RW 0x8C4FD7 and +0x44 RW 0x8C5100, which forward to the
-  resolved symbiote's body or return null / -1 when it is absent. The port's
-  The port now forwards both last-record accessors and the damage-frame slot
+  resolved symbiote's body or return null / -1 when it is absent. The port
+  now forwards both last-record accessors and the damage-frame slot
   from `SymbioticStructuresBody` to the linked body's interface. The owner
   permitted changes to ActiveBody and SymbioticStructuresBody for this
   mechanism; these changes have not yet been run in tests.
