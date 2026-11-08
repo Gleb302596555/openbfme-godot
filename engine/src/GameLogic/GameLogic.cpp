@@ -1058,6 +1058,12 @@ void GameLogic::reset()
 	m_missionObjectives.reset(); // lane CAMPUI-1: TheMissionObjectiveTracker's reset (RW 0x835E03): a new game has no list until its map.ini's
 	m_radarEventNotices.clear(); // lane BACKLOG3: a new game's radar starts empty (the sequence goes on: a client's cursor stays behind it)
 	m_globalRallyNotices.clear(); // the sequence stays monotonic for a surviving client
+	// The skirmish AI stops listening before the objects go (owner's crash 2026-11-08: leaving an Ennorath skirmish terminated). Each deleted object
+	// told the AI it left (world hook -> SkirmishAIManager::objectRemoved -> AIStatCollector::unRegisterObject); the position sampler then re-sorts its
+	// survivors by their positions (RW 0x8E4475 -> 0x8E41EB), and a survivor already deleted earlier in this loop threw std::logic_error inside
+	// ~Object, i.e. std::terminate. INFERENCE: RotWK's GameLogic::reset (RW 0x62D1F0 ..) does not reset TheSkirmishAIManager (RW 0xDE4938) itself;
+	// its order against the object purge was not read. The AI is reset below anyway, so no AI state is lost by resetting it first.
+	m_skirmishAI->reset();
 	// ZH GameLogic::reset: every object goes; the scheduler vectors are cleared with their modules' indices
 	m_current = nullptr;
 	while (m_objectHead)

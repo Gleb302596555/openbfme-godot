@@ -590,6 +590,14 @@ void GameWorld::_notification(int what)
 		get_tree()->connect("process_frame", callable_mp(this, &GameWorld::beginClientWindow));
 		RenderingServer::get_singleton()->connect("frame_pre_draw", callable_mp(this, &GameWorld::endClientWindow));
 	}
+	if (what == NOTIFICATION_PREDELETE)
+	{
+		// the effect player (m_fxPlayer) is a child node: Node's own PREDELETE (after this class's, the notification runs reversed) deletes the children
+		// before ~GameWorld, so LiveFX and the weather, which reach into its playback (LiveFX::~LiveFX destroys its terrain fire / smoke systems), go now.
+		// Without this, closing the program with a game loaded crashed in ParticleSystemManager::findParticleSystemByID (2026-11-08).
+		m_weather.reset();
+		m_liveFX.reset();
+	}
 	if (what == NOTIFICATION_EXIT_TREE)
 	{
 		endClientWindow();
