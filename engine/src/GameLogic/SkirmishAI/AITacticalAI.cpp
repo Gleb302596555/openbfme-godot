@@ -3,11 +3,13 @@
 
 #include "GameLogic/SkirmishAI/AITacticalAI.h"
 
+#include "Common/BuildAssistant.h"
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
 #include "Common/PlayerTemplate.h"
 #include "Common/StateHash.h"
 #include "Common/SpecialPower.h"
+#include "Common/Upgrade.h"
 #include "GameClient/ControlBarCommands.h"
 #include "Common/Thing/KindOfTokens.h"
 #include "GameLogic/AI/AICommandSink.h"
@@ -17,15 +19,18 @@
 #include "GameLogic/AttributeModifiers.h"
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Module/GateModules.h"
+#include "GameLogic/Economy.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/SkirmishAI/AIStatCollector.h"
 #include "GameLogic/SkirmishAI/SkirmishAIEditionRules.h"
 #include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
+#include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/SimMath.h"
+#include "GameLogic/VictoryConditions.h"
 #include "GameLogic/SkirmishAI/AIBaseBuilder.h"
 #include "GameLogic/SkirmishAI/AIThreatFinder.h"
 #include "GameLogic/SkirmishAI/SkirmishAIData.h"
@@ -1228,6 +1233,7 @@ constexpr bool kTargetlessAlways[] = { false, false, false, false, false, true, 
 constexpr int kTargetlessCount = 11;
 constexpr int TL_FLAG_CAPTURE = 0;
 constexpr int TL_FARM_KILL = 1;
+constexpr int TL_FORFEIT = 8; // lane PORT-33: AIWoTRForfeitTactic, the list order of RW 0x90C0EE
 const char *const kFlagCaptureFile = "AIFlagCaptureSquad.cpp";
 const char *const kFlagCaptureRunning = "AIFlagCaptureSquad_IsRunning";
 const char *const kFlagCaptureNextFrame = "AIFlagCaptureSquad_FrameNextRun";
@@ -1253,6 +1259,85 @@ int namedCounter(AIBrainState &b, const char *name)
 int enemyOfGroup(const AISkirmishPlayer &ai)
 {
 	return AITacticalAI::enemyOfGroup(ai); // RW 0x6C7807
+}
+
+// ---- lane PORT-33: AIWoTRForfeitTactic (the targetless prototype 8; ctor RW 0x9B7316, vtable RW 0xC89B74, docs/ennorath/ports/port33-forfeit.md) -----------
+// The record's named counters (RW 0xDEBEA4 / 0xDEBEA8 / 0xDEBEAC: the AsciiStrings its initialiser RW 0xBC9A7C .. 0xBC9ACB fills from the literals
+// 0xC89C8C / 0xC89CA8 / 0xC89CC4)
+const char *const kForfeitHasRun = "AIWoTRForfeitTacticHasRun";
+const char *const kForfeitWillRun = "AIWoTRForfeitTacticWillRun";
+const char *const kForfeitNextRun = "AIWoTRForfeitTactic_FrameNextRun";
+constexpr int kForfeitBadChecks = 3;    // RW 0x9B7D7F `cmp dword ptr [edi + 0x64], 3` / 0x9B7D83 `jl`
+constexpr int kForfeitWarnCounter = 70; // RW 0x9B7DAF `cmp dword ptr [ebx + 0x5C], 0x46` / 0x9B7DB3 `jge`
+// the score's constants: the floats RW 0x9B7458 loads (checked against the bytes of the image)
+constexpr float kScoreArmyQualityEdge = 2.0f;  // RW 0xBD889C (RW 0x9B7C46)
+constexpr float kScoreArmyQuantityEdge = 1.5f; // RW 0xBDE8C8 (RW 0x9B7C7D)
+constexpr float kScoreHeroEdge = 3.0f;         // RW 0xBDD42C (RW 0x9B7CB4)
+constexpr float kScoreMapControlFloor = 9.0f;  // RW 0xC10438 (RW 0x9B7CF0)
+constexpr float kScoreRankStep = 0.25f;        // RW 0xBD1904
+constexpr float kScoreOne = 1.0f;              // RW 0xBD1908
+// RW 0x9B7A96 .. 0x9B7AC7: the fortress bonus is 2.0 for a DOZER_FACTORY that is not one of the seven citadels while it is below 2.0 and the player is an
+// ALLY, else 1.0; RW 0x9B7578 starts it at 0 (xmm0 = xorps, RW 0x9B74CD)
+const char *const kCitadelNames[] = { "MenFortressCitadel", "ElvenCitadel", "DwarvenFortressCitadel", "WildFortressCitadel", "MordorFortressCitadel",
+	"AngmarFortressCitadel", "IsengardFortressCitadel" };    // RW 0xC89BE0 / 0xC89BF4 / 0xC89C04 / 0xC89C1C / 0xC89C30 / 0xC89C48 / 0xC89C60
+const char *const kThrallMasterName = "AngmarThrallMaster"; // RW 0xC89C78: the horde whose upgrades RW 0x9B77B0 does not add
+const char *const kRingHeroUpgrade = "Upgrade_RingHero";    // RW 0xC795B0, the upgrade RW 0x9B737F asks every ally for
+
+// RW 0x9B71B7 (vslot 1; its argument, the target, is not read): the surrender applies in a WotR battle only (game kind 0), once per AI record, after
+// LogicFramesTillRetreatChecksStart frames, to an AI above EASY that is the local player's ENEMY and that has not run it yet
+bool forfeitApplies(GameLogic &logic, AISkirmishPlayer &ai)
+{
+	const Player *me = playerOf(logic, ai.playerIndex);
+	if (!me)
+	{
+		return false;
+	}
+	if (logic.economy().context().gameKind != 0) // RW 0x9B71BC: `cmp dword ptr [eax + 0x114], 0` (not a WotR battle)
+	{
+		return false;
+	}
+	AIBrainState &b = ai.brain;
+	if (namedCounter(b, kForfeitWillRun) != 0) // RW 0x9B71FD
+	{
+		return false;
+	}
+	if (logic.getFrame() <= (unsigned)ai.store->data().logicFramesTillRetreatChecksStart) // RW 0x9B7201 `cmp ecx, [manager + 0x9B0]` / 0x9B7215 `jbe`
+	{
+		return false;
+	}
+	const int hasRun = namedCounter(b, kForfeitHasRun);
+	if (hasRun != 0) // RW 0x9B7217
+	{
+		return false;
+	}
+	// RW 0x9B721B: the same test as 0x9B71BC again, unreachable after it (the binary keeps it)
+	const Player *local = logic.players().getLocalPlayer(); // RW 0x9B7230: ThePlayerList + 0x10
+	if (!local || me == local)                             // (a game without a local player: the port's guard, RW's list always has one)
+	{
+		return false;
+	}
+	if (me->getSkirmishDifficulty() <= 0) // RW 0x9B7224 `call 0x6AA61B; jle` (EASY)
+	{
+		return false;
+	}
+	if (me->getRelationship(local) != ENEMIES) // RW 0x9B723F `call 0x6ACEAF; jne`
+	{
+		return false;
+	}
+	b.namedCounters[kForfeitWillRun] = hasRun + 1; // RW 0x9B7249 `inc ebx` / 0x9B7255 `mov al, bl`: the value the generator draws from
+	return true;
+}
+
+// RW 0x9B7260 (vslot 0x18, the launch): the first launch only arms the record; the frame of the next check is the current frame, so the score is checked in
+// this very frame's update (RW 0x9B74A4 `ja` passes on the equal frame)
+void forfeitStart(GameLogic &logic, AISkirmishPlayer &ai)
+{
+	AIBrainState &b = ai.brain;
+	if (namedCounter(b, kForfeitHasRun) == 0)
+	{
+		b.namedCounters[kForfeitHasRun] = 1;
+		b.namedCounters[kForfeitNextRun] = (int)logic.getFrame();
+	}
 }
 
 // vslot 1 (applies) of targetless prototype `index` (the prototype's + 0x24 player is the AI's: RW 0x90C623)
@@ -1290,8 +1375,12 @@ bool targetlessApplies(GameLogic &logic, AISkirmishPlayer &ai, int index)
 		const unsigned next = (unsigned)namedCounter(b, kFarmKillNextFrame);
 		return running == 0 && next <= logic.getFrame() && enemyOfGroup(ai) >= 0;
 	}
-	// the other 9 prototypes' vslot 1 (AIRingHeroTactic RW 0x9BAF6C, StructureCreep RW 0x9BA3C2, LumberMillBuild RW 0x9B9E06,
-	// ReturnTheRing RW 0x9B89CF, AIStartWoTRBattleTactic RW 0x9B8451, AIRoamingDefenseTactic RW 0x9B7F56, AIWoTRForfeitTactic RW 0x9B71B7, WallTactic RW 0x9B6F70,
+	if (index == TL_FORFEIT)
+	{
+		return forfeitApplies(logic, ai); // RW 0x9B71B7 (lane PORT-33)
+	}
+	// the other 8 prototypes' vslot 1 (AIRingHeroTactic RW 0x9BAF6C, StructureCreep RW 0x9BA3C2, LumberMillBuild RW 0x9B9E06,
+	// ReturnTheRing RW 0x9B89CF, AIStartWoTRBattleTactic RW 0x9B8451, AIRoamingDefenseTactic RW 0x9B7F56, WallTactic RW 0x9B6F70,
 	// FarmBuilder RW 0x9B53C6) are not ported: taken as "does not apply" and counted (S-893)
 	++b.targetlessUnported;
 	return false;
@@ -2640,6 +2729,186 @@ void updateFarmKill(GameLogic &logic, AISkirmishPlayer &ai, AIBrainState &b, AIT
 	teamAttackObject(logic, tac.teams[0], *target);
 }
 
+// ---- lane PORT-33: AIWoTRForfeitTactic's score, RW 0x9B74C2 .. 0x9B7D70 ----------------------------------------------------------------------------------
+// RW 0x9B7788 .. 0x9B77DD (army) and RW 0x9B79AC .. 0x9B79EA (structures): the object's command set's 33 slots (RW 0xC4F3D8), a slot whose button names an
+// upgrade the object has (RW 0x691421) adds that upgrade's BuildCost (upgrade + 0x34)
+int ownedUpgradeCost(const Object &obj)
+{
+	const CommandSet *set = TheCommandStore ? TheCommandStore->findCommandSet(obj.getCommandSetName()) : nullptr; // RW 0x69156B -> 0x71EFA2
+	if (!set)
+	{
+		return 0; // no command data: the AI has no objects to score (a game without data)
+	}
+	int sum = 0;
+	for (int i = 0; i < (int)CommandSet::MAX_BUTTONS; ++i)
+	{
+		const CommandButton *button = set->getCommandButton(i); // RW 0x80C837
+		if (!button || button->m_upgradeName.empty())
+		{
+			continue;
+		}
+		const UpgradeTemplate *up = Player::resolveUpgrade(button->m_upgradeName, false); // the button's + 0x24
+		if (up && obj.hasUpgrade(up))                                                    // RW 0x691421
+		{
+			sum += up->getBuildCost(); // the upgrade's + 0x34
+		}
+	}
+	return sum;
+}
+
+// RW 0x9B737F: the AI's player is ALLIES with a player that holds Upgrade_RingHero (0x6ACEAF == 2 and 0x6AC2AF); the first such player answers
+bool ringHeld(GameLogic &logic, const Player &me)
+{
+	const UpgradeTemplate *ring = TheUpgradeCenter ? TheUpgradeCenter->findUpgrade(kRingHeroUpgrade) : nullptr; // RW 0x66F5E5([0xDE45A0], 0xC795B0)
+	if (!ring)
+	{
+		return false; // no upgrade data: no player can hold the ring
+	}
+	for (int i = 0; i < logic.players().getPlayerCount(); ++i)
+	{
+		const Player *p = logic.players().getNthPlayer(i);
+		if (p && me.getRelationship(p) == ALLIES && p->hasUpgradeComplete(ring))
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+// RW 0x9B74C2 .. 0x9B7D70: for every skirmish AI player its army, its map control and its structures (RW 0x9B758E .. 0x9B7BA9; the AI's own
+// side at [ebp - 0x54 .. - 0x78], the enemies at [ebp - 0x3C .. - 0x88]), then the six bias terms. Single precision SSE in RW's order.
+int forfeitScore(GameLogic &logic, AISkirmishPlayer &ai)
+{
+	const SkirmishAIData &data = ai.store->data();
+	const Kinds &k = kinds();
+	const int hero = k.hero;
+	static const int horde = KindOfTokens::indexOf("HORDE");                     // RW 0x9B76F8 `call 0x68C866`, KindOf 109
+	static const int summoned = KindOfTokens::indexOf("SUMMONED");               // template + 0x11E & 8
+	static const int supplyCenter = KindOfTokens::indexOf("SUPPLY_GATHERING_CENTER"); // template + 0x10C & 4
+	static const int fsFactory = KindOfTokens::indexOf("FS_FACTORY");             // template + 0x10F & 0x80
+	ForfeitTerms own, enemy;
+	own.fortressBonus = 0.0f; // RW 0x9B7578: one value for the whole score (xmm0 = 0, `xorps` RW 0x9B74CD), never one per side
+	const Player *me = playerOf(logic, ai.playerIndex);
+	for (int i = 0; i < logic.players().getPlayerCount(); ++i)
+	{
+		const Player *p = logic.players().getNthPlayer(i);
+		if (!p || !p->isSkirmishAI()) // RW 0x9B759B / 0x9B75AA: 0x6AAC66 asks Player + 0x34 -> + 0x151 (INFERENCE: the port's SkirmishAI flag)
+		{
+			continue;
+		}
+		// RW 0x9B7AEE .. 0x9B7BA9: the AI's own player or one that is not an ENEMY goes to its accumulators, every other to the enemies'
+		const bool mine = p->getPlayerIndex() == ai.playerIndex || (me && me->getRelationship(p) != ENEMIES);
+		ForfeitTerms &side = mine ? own : enemy;
+		side.armyQuantity = side.armyQuantity + (float)p->commandPoints().getUsage(); // RW 0x9B74FA / 0x9B7B1C: 0x6A7AC7(player + 0x60, 0)
+		const AIStatCollector &rec = AITacticalAI::recordOf(logic, p->getPlayerIndex());           // RW 0x9B7661 / 0x9B78FB: 0x6A9999
+		for (ObjectID id : rec.army())                                              // record + 0
+		{
+			const Object *o = logic.findObjectByID(id); // RW 0x9B768F: 0x449681
+			if (!o || !o->getTemplate())
+			{
+				continue;
+			}
+			if (is(*o, hero)) // template + 0x113 & 4
+			{
+				const ExperienceTracker *xp = o->getExperienceTracker(); // the object's + 0x26C
+				if (xp && (float)xp->getRank() > side.heroQuality)       // + 0x24, the maximum
+				{
+					side.heroQuality = (float)xp->getRank();
+				}
+				continue;
+			}
+			float value = (float)BuildAssistant::calcCostToBuild(*o->getTemplate(), p, nullptr, -1); // RW 0x73C25F (0x9B76E8 / 0x9B77DF)
+			// RW 0x9B7703 .. 0x9B7782: a horde whose object name is AngmarThrallMaster (0xC89C78) skips the upgrades, every other object adds them
+			// (INFERENCE: RW asks the horde interface 0x68C866 for it, the port the HORDE KindOf bit and the object's name)
+			if (!(is(*o, horde) && o->getName() == kThrallMasterName))
+			{
+				value = value + (float)ownedUpgradeCost(*o); // RW 0x9B77C8 / 0x9B782B
+			}
+			const ExperienceTracker *xp = o->getExperienceTracker();
+			const float rank = xp ? (float)xp->getRank() : 0.0f;
+			// RW 0x9B7843 .. 0x9B7870: ((rank - 1) * 0.25 + 1) * value added to the army's quality
+			side.armyQuality = side.armyQuality + (((rank - kScoreOne) * kScoreRankStep) + kScoreOne) * value;
+		}
+		// RW 0x9B788B: the record's economy list (+ 0xC) seeds the map control, then every capture flag of the manager's + 0xA68 list the player is
+		// ALLIES with adds one (RW 0x9B78E5 `call 0x6ADC43` / 0x9B78EA `cmp eax, 2`)
+		int control = (int)rec.economy().size();
+		for (ObjectID id : logic.skirmishAI().captureFlags())
+		{
+			const Object *flag = logic.findObjectByID(id);
+			if (flag && p->getRelationship(flag->getTeam()) == ALLIES)
+			{
+				++control;
+			}
+		}
+		side.mapControl = side.mapControl + (float)control;
+		for (ObjectID id : rec.structures()) // record + 8 (RW 0x9B78FB)
+		{
+			const Object *o = logic.findObjectByID(id);
+			if (!o || !o->getTemplate())
+			{
+				continue;
+			}
+			// RW 0x9B793E .. 0x9B7979, the five kinds a structure the enemy cannot take is skipped on
+			if (is(*o, k.linkedToFlag) || is(*o, k.unattackable) || is(*o, k.economyStructure) || is(*o, supplyCenter) || is(*o, summoned))
+			{
+				continue;
+			}
+			int cost = BuildAssistant::calcCostToBuild(*o->getTemplate(), p, nullptr, -1); // RW 0x9B7986
+			cost += ownedUpgradeCost(*o);                                  // RW 0x9B79CE .. 0x9B79E0: an int that rounds each sum down (cvttss2si)
+			const bool dozerFactory = is(*o, k.dozerFactory);          // template + 0x120 & 4
+			if (is(*o, fsFactory) && !dozerFactory)                    // RW 0x9B79EF / 0x9B79F8
+			{
+				cost += cost; // RW 0x9B7A01 `add eax, eax`
+			}
+			else if (dozerFactory) // RW 0x9B7A1B .. 0x9B7AC7: a citadel keeps the bonus, another fortress sets 2.0 / 1.0
+			{
+				bool citadel = false;
+				for (const char *name : kCitadelNames)
+				{
+					if (o->getTemplate()->getName() == name) // the template's + 0x64 with 0x406585
+					{
+						citadel = true;
+						break;
+					}
+				}
+				if (!citadel)
+				{
+					own.fortressBonus = own.fortressBonus < kScoreArmyQualityEdge && me && me->getRelationship(p) == ALLIES ? kScoreArmyQualityEdge : kScoreOne;
+				}
+			}
+			side.baseStrength = side.baseStrength + (float)cost; // RW 0x9B7ACC / 0x9B7B4A / 0x9B7B95
+		}
+	}
+	return AITacticalAI::forfeitScoreFrom(own, enemy, me && ringHeld(logic, *me), data);
+}
+
+// RW 0x9B7458 (vslot 0x1C of AIWoTRForfeitTactic): the throttle, the score against FarmingThreshold, the three bad checks, then the countdown to
+// MSG_SELF_DESTRUCT and the tactic's end
+void updateForfeit(GameLogic &logic, AISkirmishPlayer &ai, AIBrainState &b, AITactic &tac, AIBrainState &owner)
+{
+	const SkirmishAIData &data = ai.store->data();
+	int next = namedCounter(b, kForfeitNextRun); // RW 0x9B748C
+	const AITacticalAI::ForfeitFrame frame =
+		AITacticalAI::forfeitFrame(tac.forfeit, next, logic.getFrame(), [&] { return forfeitScore(logic, ai); }, data);
+	b.namedCounters[kForfeitNextRun] = next; // RW 0x9B74BD
+	if (frame.warned)
+	{
+		// RW 0x9B7DC3 .. 0x9B7E5A: the client message "GUI:AIForfeitsInWOTRSkirmishNow" (string 0xC132DC) for 10000 ms through TheInGameUI. Not ported:
+		// the logic has no interface (docs/STOPS.md)
+	}
+	if (frame.forfeit)
+	{
+		// RW 0x9B7E78 .. 0x9B7E94: MSG_SELF_DESTRUCT (0x448) to TheGameLogic's message list [0xDE6398] (vslot 0x48, player the tactic's + 0x24, argument
+		// boolean 0 = 0x711104). RW 0x77CA3D executes it: VictoryConditions::selfDestruct(player, false) (lane END-2). The port's dispatcher is fed by the
+		// client (there is no logic side message queue), so the logic calls the handler's own call
+		if (const Player *player = playerOf(logic, ai.playerIndex))
+		{
+			logic.victory().selfDestruct(const_cast<Player *>(player), false);
+		}
+		endAnyTactic(logic, ai, b, tac, owner, true); // RW 0x9B7E99 `0x8F2006(this, 1, 0)`
+	}
+}
+
 // vslot 0x18 (the launch) of the offensive prototypes
 void launchOffensive(GameLogic &logic, AISkirmishPlayer &ai, AIBrainState &b, AITactic &tac, AIBrainState &owner, AITarget *t)
 {
@@ -3082,7 +3351,10 @@ void updateTactic(GameLogic &logic, AISkirmishPlayer &ai, AIBrainState &b, AITac
 		}
 	}
 	// RW 0x8F11DA
-	tac.ready = !tac.teams.empty() && std::all_of(tac.teams.begin(), tac.teams.end(), [](const AITacticTeam &team) { return team.handedOver; });
+	// RW 0x8F234B (lane PORT-33): the ready check is `call [eax + 0x10]` (the number of teams) and `test eax, eax; jbe 0x8F2424`, and 0x8F2424 sets + 0x51 = 1:
+	// a tactic without teams (AIWoTRForfeitTactic) is ready at once, the tactics with teams keep the hand-over test
+	tac.ready = tacticTeamCount(tac) == 0 ? tac.targetless
+										 : (!tac.teams.empty() && std::all_of(tac.teams.begin(), tac.teams.end(), [](const AITacticTeam &team) { return team.handedOver; }));
 	if (!tac.ready || tac.ended)
 	{
 		return;
@@ -3092,6 +3364,7 @@ void updateTactic(GameLogic &logic, AISkirmishPlayer &ai, AIBrainState &b, AITac
 		if (tac.targetless)
 		{
 			if (tac.kindIndex == kTargetlessBase + TL_FLAG_CAPTURE) { updateFlagCapture(logic, ai, b, tac, owner); }
+			else if (tac.kindIndex == kTargetlessBase + TL_FORFEIT) { updateForfeit(logic, ai, b, tac, owner); } // RW 0x9B7458
 			else { updateFarmKill(logic, ai, b, tac, owner); }
 			return;
 		}
@@ -3107,6 +3380,10 @@ void updateTactic(GameLogic &logic, AISkirmishPlayer &ai, AIBrainState &b, AITac
 	tac.started = true;
 	if (tac.targetless)
 	{
+		if (tac.kindIndex == kTargetlessBase + TL_FORFEIT)
+		{
+			forfeitStart(logic, ai); // vslot 0x18 RW 0x9B7260
+		}
 		return; // FarmKillSquad / FlagCaptureSquad vslot 0x18 is RW 0x63F3BF (nothing)
 	}
 	launchOffensive(logic, ai, b, tac, owner, t); // vslot 0x18
@@ -3177,6 +3454,12 @@ void pickTargetless(GameLogic &logic, AISkirmishPlayer &ai)
 		if (index == TL_FARM_KILL)
 		{
 			(void)logic.random().getValue(1, 100, kFarmKillFile, 0x39);
+		}
+		if (index == TL_FORFEIT)
+		{
+			// RW 0x9B7316 (the constructor the clone RW 0x9B7416 calls): + 0x5C = SkirmishAIData + 0x9B8 (LogicFramesTillAISelfDestructs, RW 0x9B735D);
+			// + 0x58 / + 0x60 / + 0x64 stay 0
+			tac.forfeit.counter = ai.store->data().logicFramesTillAISelfDestructs;
 		}
 		startTargetless(logic, ai, tac);
 		++b.tacticsByKind[tac.kind];
@@ -3305,6 +3588,96 @@ bool teamMeetsThreat(GameLogic &logic, const AITactic &tac, const AITacticTeam &
 	return sum >= enemy.v[0];
 }
 } // namespace
+
+// lane PORT-33: RW 0x9B7458's frame, the throttle (RW 0x9B74A4) and the countdown (RW 0x9B7DAC .. 0x9B7E5A) without the game state the score reads
+AITacticalAI::ForfeitFrame AITacticalAI::forfeitFrame(ForfeitState &s, int &next, unsigned frame, const std::function<int()> &score, const SkirmishAIData &data)
+{
+	ForfeitFrame out;
+	if (s.triggered) // RW 0x9B7491 `cmp byte ptr [ebx + 0x58], 0; jne 0x9B7DAC`
+	{
+		--s.counter; // RW 0x9B7DAC
+		if (s.counter < kForfeitWarnCounter && !s.warned) // RW 0x9B7DAF `jge` / 0x9B7DB9 `jne`
+		{
+			s.warned = true; // RW 0x9B7DCB
+			out.warned = true;
+		}
+	}
+	else if ((unsigned)next <= frame) // RW 0x9B74A4 `ja 0x9B7E5F`: the check is due on the recorded frame itself
+	{
+		out.checked = true;
+		next = (int)(frame + (unsigned)data.logicFrameBetweenRetreatChecks); // RW 0x9B74AC / 0x9B74B7 / 0x9B74BD (+ 0x9B4 = table + 0x9A4)
+		const int value = score();                                          // RW 0x9B74C2 .. 0x9B7D70
+		if (value >= data.farmingThreshold)                                 // RW 0x9B7D74 `jge 0x9B7DA3`
+		{
+			s.badChecks = 0; // RW 0x9B7DA3 `and dword ptr [edi + 0x64], 0`
+		}
+		else
+		{
+			++s.badChecks; // RW 0x9B7D7C
+			if (s.badChecks >= kForfeitBadChecks) // RW 0x9B7D7F `cmp ..., 3` / 0x9B7D83 `jl 0x9B7E5F`
+			{
+				s.triggered = true;                                       // RW 0x9B7D8B
+				s.counter = data.logicFramesTillAISelfDestructs;          // RW 0x9B7D8F .. 0x9B7D9B (+ 0x9B8 = table + 0x9A8)
+			}
+		}
+	}
+	// RW 0x9B7E5F .. 0x9B7E67: the tail every branch reaches — a counter of 0 or less fires the self-destruct; its Living World veto RW 0x441E4A is not
+	// ported (docs/STOPS.md)
+	out.forfeit = s.counter <= 0;
+	return out;
+}
+
+// lane PORT-33: RW 0x9B7C41 .. 0x9B7D70, the six bias terms and the fortress bonus
+int AITacticalAI::forfeitScoreFrom(const ForfeitTerms &own, const ForfeitTerms &enemy, bool ringHeld, const SkirmishAIData &data)
+{
+	int sum = 0;
+	if (own.armyQuality > kScoreArmyQualityEdge * enemy.armyQuality) // RW 0x9B7C41 .. 0x9B7C75 (`comiss` / `jbe`: strictly greater)
+	{
+		sum += data.armyQualityBias;
+	}
+	else if (enemy.armyQuality > kScoreArmyQualityEdge * own.armyQuality)
+	{
+		sum -= data.armyQualityBias;
+	}
+	if (own.armyQuantity > kScoreArmyQuantityEdge * enemy.armyQuantity) // RW 0x9B7C78 .. 0x9B7CAC
+	{
+		sum += data.armyQuantityBias;
+	}
+	else if (enemy.armyQuantity > kScoreArmyQuantityEdge * own.armyQuantity)
+	{
+		sum -= data.armyQuantityBias;
+	}
+	if (own.heroQuality > enemy.heroQuality + kScoreHeroEdge) // RW 0x9B7CAF .. 0x9B7CE3
+	{
+		sum += data.heroQualityBias;
+	}
+	else if (enemy.heroQuality > own.heroQuality + kScoreHeroEdge)
+	{
+		sum -= data.heroQualityBias;
+	}
+	// RW 0x9B7CE6 .. 0x9B7D17: both a share of twice the other side's and an absolute 9.0
+	if (own.mapControl > kScoreArmyQualityEdge * enemy.mapControl && own.mapControl > kScoreMapControlFloor)
+	{
+		sum += data.mapControlBias;
+	}
+	else if (enemy.mapControl > kScoreArmyQualityEdge * own.mapControl && enemy.mapControl > kScoreMapControlFloor)
+	{
+		sum -= data.mapControlBias;
+	}
+	if (own.baseStrength > kScoreArmyQuantityEdge * enemy.baseStrength) // RW 0x9B7D1A .. 0x9B7D3E
+	{
+		sum += data.baseStrengthBias;
+	}
+	else if (enemy.baseStrength > kScoreArmyQuantityEdge * own.baseStrength)
+	{
+		sum -= data.baseStrengthBias;
+	}
+	if (ringHeld) // RW 0x9B7D41 `call 0x9B737F; cmovne`: only ever added
+	{
+		sum += data.ringOwnershipBias;
+	}
+	return (int)((float)sum + own.fortressBonus); // RW 0x9B7D67 / 0x9B7D6B / 0x9B7D70 (`cvttss2si`: towards zero)
+}
 
 void AITacticalAI::flankWaypointsForTest(GameLogic &logic, AITactic &tac, const AITarget &t, const Coord3D &start)
 {
@@ -3950,6 +4323,13 @@ void AITacticalAI::crc(const AIBrainState &b, StateHasher &h)
 			{
 				AIBaseBuilder::crcRequest(*tac.request, h);
 			}
+		}
+		if (tac.targetless && tac.kindIndex == kTargetlessBase + TL_FORFEIT)
+		{
+			// lane PORT-33: the three fields RW 0x9B72A4 saves (+ 0x58 / + 0x5C / + 0x64); + 0x60 is the message flag nobody decides from
+			h.addBool(tac.forfeit.triggered);
+			h.addI32(tac.forfeit.counter);
+			h.addI32(tac.forfeit.badChecks);
 		}
 		h.addU32((std::uint32_t)tac.teams.size());
 		for (const AITacticTeam &team : tac.teams)

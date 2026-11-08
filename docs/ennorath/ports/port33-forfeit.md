@@ -184,8 +184,10 @@ RW 0x8F234B `call [eax+0x10]` (vslot +0x10 = число команд) и **`test
     (UpgradeTemplate); если `0x691421(obj, up)` (улучшение есть у объекта) → `value += up+0x34`
     (`BuildCost`);
   - `armyQuality += ((rank - 1) * 0.25f + 1.0f) * value` (0x9B7843 .. 0x9B7870).
-* Контроль карты (0x9B788B .. 0x9B78F9): `edi` = размер списка `[0xDE4938] + 0xA68` (список флагов
-  захвата); для каждого id: `obj = 0x449681(id)`; `0x6ADC43(p, obj) == 2` (ALLIES) → `++edi`.
+* Контроль карты (0x9B788B .. 0x9B78F9): `edi` = размер списка **записи + 0xC** (RW 0x9B788B `mov ecx, [ebx + 0xC]`
+  → 0x72B229, экономические строения; 0x9B78A4 / 0x9B78AA `sub` / 0x9B78C0 `sar 2`), затем по списку
+  `[0xDE4938] + 0xA68` (флаги захвата): для каждого id: `obj = 0x449681(id)`; `0x6ADC43(p, obj) == 2` (ALLIES)
+  → `++edi`; итог прибавляется к контролю карты (0x9B7B36 `cvtsi2ss`).
 * Строения `rec + 8` (0x9B78FB .. 0x9B7AE8), для каждого id: `obj`; шаблон `t`; пропуск, если
   `t+0x10E & 4` (LINKED_TO_FLAG, 50), `t+0x10E & 0x40` (UNATTACKABLE, 54), `t+0x120 & 0x10`
   (ECONOMY_STRUCTURE, 196), `t+0x10C & 4` (SUPPLY_GATHERING_CENTER, 34), `t+0x11E & 8` (SUMMONED, 179);

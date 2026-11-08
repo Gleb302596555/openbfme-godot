@@ -340,6 +340,7 @@ include(cmake/Bridge1.cmake)    # BRIDGE-1: retail bridges crossed and destroyed
 include(cmake/Siege1.cmake)     # SIEGE-1: the siege units (appends to OPENBFME_SIM_SOURCES; OPENBFME_SIEGE1_TESTS)
 include(cmake/Castlearea1.cmake) # CASTLEAREA-1: the castle area triggers (OPENBFME_CASTLEAREA1_TESTS)
 include(cmake/Weather1.cmake)   # WEATHER-1: snow, rain, darkness, lightning, the weather sound (client sources; OPENBFME_WEATHER1_TESTS)
+include(cmake/Port33.cmake)     # PORT-33: the AIWoTRForfeitTactic port of FarmingThreshold / LogicFramesTillAISelfDestructs (OPENBFME_PORT33_TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
     ${OPENBFME_APT_SOURCES}
@@ -754,6 +755,7 @@ add_executable(openbfme_tests
     ${OPENBFME_XP_TESTS}
     ${OPENBFME_FACTB_TESTS}
     ${OPENBFME_PLAY2_TESTS}
+    ${OPENBFME_PORT33_TESTS}
     ${OPENBFME_PORT5_TESTS}
     ${OPENBFME_PORT1_TESTS}
     ${OPENBFME_PORT2_TESTS}
