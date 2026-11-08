@@ -687,10 +687,8 @@ std::vector<std::string> CommandStore::acceptanceStops()
 	return { "[S-200] CommandButton: Upgrade, NeededUpgrade, SpecialPower, Science, RadiusCursorType, the sound lists and CreateAHeroUIAllowableUpgrades are kept as names and not validated or resolved "
 			 "(retail resolves them at parse time against the UpgradeCenter, SpecialPowerStore, ScienceStore, InGameUI and Audio / Eva, which are not ported: an unknown Science, sound or upgrade mask name is "
 			 "an INI error in retail); the control bar's per-object CommandSet overrides (Object + 0x438 / 0x43C / 0x440) and its availability rules (RW 0x942733) are UI / upgrade lanes",
-		"[S-7176] CommandButton ButtonBorderType (TOP20 #1): parsed (+ 0xB0) and not drawn. Retail: setControlCommand (RW 0x71CF3E) passes the type (RW 0x75CBA5: "
-		"ALTERED when the button's + 0x103 is set) to setCommandBarBorder (RW 0x71C4F4), which sets the button's border (RW 0x729EA7: draw flag + 0xC, colour + 0x10) to "
-		"the control bar's colour for the type (+ 0x220 .. + 0x230, set by RW 0x71C62F from the ControlBarScheme's ButtonBorder*Color, RW 0x7206D5; the port skips the "
-		"ControlBarScheme block); W3DGadgetPushButtonImageDrawOne (RW 0x4A579C) draws a 1 pixel rectangle around a non-RADIAL command window only. The ring's "
-		"windows are RADIAL or parked off screen at 1 x 1 (RW 0x9459D1), so the border shows on other command windows only (ControlBar.wnd:OCLTimerSellButton, "
-		"RW 0x944D9D, not ported); the NonCommand_* buttons have no border type" };
+		"[S-7176] CommandButton ButtonBorderType (TOP20 #1): ported (LOCAL-12, RW 0x75CBA5, 0x71CF3E, 0x71C4F4, 0x729EA7, 0x7206D5, 0x4A579C): "
+		"ButtonBorderType (+ 0xB0, ALTERED with + 0x103), ControlBarScheme border colours (+ 0x220 .. + 0x230), GadgetButtonSetBorder (draw flag + 0xC, colour + 0x10) "
+		"and non-radial button borders (W3DGadgetPushButtonImageDrawOne, RW 0x4A579C: 1-pixel rectangle for non-circular windows) are ported; radial command windows "
+		"(ring bubbles) never draw the border as in RotWK" };
 }

@@ -19,6 +19,7 @@ set(OPENBFME_HUD_SOURCES
     src/GameClient/HudInput.cpp
     src/GameClient/InGameHud.cpp
     src/GameClient/ControlBar.cpp
+    src/GameClient/ControlBarScheme.cpp
     src/GameClient/Radar.cpp
     src/GameClient/ProjectedShadowManager.cpp
     src/GameClient/ControlBarCommandProcessing.cpp
