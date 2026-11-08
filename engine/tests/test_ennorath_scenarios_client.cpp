@@ -10,8 +10,10 @@
 #include "GameClient/LiveFX.h"
 #include "GameClient/ParticleDraw.h"
 #include "Libraries/WWVegas/WW3D2/assetmgr.h"
+#include "Common/Audio/AudioEntryPoints.h"
 #include "Common/NameKeyGenerator.h"
 #include "GameClient/LiveGameAudio.h"
+#include "GameClient/UnitVoiceResponse.h"
 #include "GameLogic/Module/SpecialAbilityModules.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "HudAudioTestUtil.h"
@@ -183,7 +185,7 @@ struct ExposedSpecialAbilityUpdate : public SpecialAbilityUpdate
 	using SpecialAbilityUpdate::triggerAbilityEffect;
 };
 
-TEST_CASE("ENNORATH scenario SpecialPowerAudio: initiate sound, fortress trigger sound, Draft delayed horn and Theoden tax treasure pickup player filter (P-23, P-24, RW 0x897183 / BFME2 0x008939AB, RW 0x853FC0 / BFME2 0x85116E, RW 0x4533A9 / BFME2 0x004533A9)")
+TEST_CASE("ENNORATH scenario SpecialPowerAudio: initiate sound, fortress trigger sound, Draft delayed horn and Theoden tax treasure pickup player filter (P-23, P-24, RW 0x897183, RW 0x8DF819, RW 0x853FC0 / BFME2 0x85116E, RW 0x4533A9 / BFME2 0x004533A9)")
 {
 	World world;
 	if (!world.load("Ennorath scenario SpecialPowerAudio (P-23, P-24, Eomer, Hornburg)"))
@@ -220,7 +222,10 @@ TEST_CASE("ENNORATH scenario SpecialPowerAudio: initiate sound, fortress trigger
 		};
 		stepAudio(0.0); // start clock at initial audioTimeMs
 
-		// 1. Eomer (InitiateSound on SpecialPowerModule: RW 0x897183 / BFME2 0x008939AB)
+		// 1. Eomer (InitiateSound on SpecialPowerModule: RW 0x8DF819, RW 0x897183)
+		// PROCESS 14 expectation update: InitiateSound on SpecialPowerModule sounds through unit voice (RW 0x8DF819)
+		// on special power order (MSG_DO_SPECIAL_POWER_AT_OBJECT), not logic triggerSpecialPower (RW 0x897183).
+		// Logic trigger plays only template InitiateSound (+0x34); exactly one sound per command (PROCESS 15.2).
 		std::string createErr;
 		Object *eomer = game.game->createObject("RohanEomer", game.index(), Coord3D{ 500.0f, 500.0f, 0.0f }, 0.0f, &createErr);
 		REQUIRE_MESSAGE(eomer != nullptr, createErr);
@@ -232,34 +237,62 @@ TEST_CASE("ENNORATH scenario SpecialPowerAudio: initiate sound, fortress trigger
 		REQUIRE(spm->spData() != nullptr);
 		CHECK(spm->spData()->m_initiateSound == "EomerVoiceAttackSpear");
 
+		// Attach unit voice picker to audio manager (as InGameHud does)
+		AudioApiVoiceSink voiceSink;
+		UnitVoiceResponse voice(game.logic(), voiceSink);
+		AudioApi::installUnitVoiceHandler([&](const AudioApi::UnitVoiceParams &p) {
+			UnitVoiceResponse::Info info;
+			info.producer = (ObjectID)p.producerId;
+			info.powerTemplate = p.powerTemplate;
+			info.target = (ObjectID)p.targetId;
+			info.hasPosition = p.hasPosition;
+			info.position = Coord3D{ p.posX, p.posY, p.posZ };
+			voice.pickAndPlay({ (ObjectID)p.objectId }, p.voiceEvent, &info);
+		}, &voice);
+
+		// Order voice (RW 0x8DF819): plays EomerVoiceAttackSpear
+		UnitVoiceResponse::Info orderInfo;
+		orderInfo.powerTemplate = spm->getSpecialPowerTemplate();
+		orderInfo.target = eomer->getID();
+		CHECK(voice.pickAndPlay({ eomer->getID() }, MSG_DO_SPECIAL_POWER_AT_OBJECT, &orderInfo));
+
+		// Logic trigger (RW 0x897183): template sound is empty, so no second sound is queued
 		spm->triggerFromUpdate();
 		stepAudio(100.0 / 3.0);
 
-		bool eomerFound = false;
+		// Exactly one sound on one click (PROCESS 15.2): 1 queued request and 1 started play line
+		int eomerQueued = 0;
+		int eomerStarted = 0;
 		for (const AudioLogEntry &e : audio.manager->takeEventLog())
 		{
 			if (e.event == "EomerVoiceAttackSpear")
 			{
-				eomerFound = true;
-
+				if (e.outcome == "queued")
+				{
+					++eomerQueued;
+				}
+				if (e.play)
+				{
+					++eomerStarted;
+				}
 				CHECK(e.outcome.find("refused") == std::string::npos);
 			}
 		}
-		CHECK(eomerFound == true);
+		CHECK(eomerQueued == 1);
+		CHECK(eomerStarted == 1);
 
-
-		bool eomerPlayed = false;
+		int deviceStarts = 0;
 		for (const auto &devEntry : audio.device->log())
 		{
 			if (devEntry.kind == SimulatedAudioDevice::LogEntry::Start &&
 				(devEntry.file.find("GUEomer_voiatcc") != std::string::npos ||
 				 devEntry.file.find("GUEomer_voisebf") != std::string::npos))
 			{
-				eomerPlayed = true;
-				break;
+				++deviceStarts;
 			}
 		}
-		CHECK(eomerPlayed == true);
+		CHECK(deviceStarts == 1);
+		AudioApi::uninstallUnitVoiceHandler(&voice);
 
 		// 2. Hornburg (TriggerSound on ModelConditionSpecialAbilityUpdate: RW 0x853FC0 / BFME2 0x85116E)
 		Object *tower = game.game->createObject("HelmsDeepTowerEdain", game.index(), Coord3D{ 600.0f, 600.0f, 0.0f }, 0.0f, &createErr);
