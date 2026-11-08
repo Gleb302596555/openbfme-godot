@@ -209,6 +209,7 @@ void MapObjectRuntime::createDrawModules(const MapObjectDrawables &drawables, si
 			{
 				W3DScriptedModelDraw::Options o;
 				o.scale = d.scale;
+				o.variation = d.variation; // RW 0x4C46BE: the model of a state with several is picked by the drawable's variation (RW 0x4B430B)
 				o.buildBones = false; // turrets, barrels and particle bones are not drawn (S-095 / S-097)
 				if (const W3DHordeModelDrawModuleData *hd = dynamic_cast<const W3DHordeModelDrawModuleData *>(m.data))
 				{

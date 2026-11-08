@@ -417,6 +417,9 @@ private:
 	ModelConditionFlags m_flags;
 	float m_scale = 1.0f;
 	int m_variation = -1; ///< + 0x364
+public:
+	int variation() const { return m_variation; } ///< + 0x364 (RW 0x679FEA)
+private:
 	std::uint32_t m_houseColor = 0;
 	std::uint32_t m_indicatorColor = 0; ///< RW +0x454 (Drawable::setIndicatorColor RW 0x674510: indicator color)
 	int m_customKind = 0;                              // lane CAH-2

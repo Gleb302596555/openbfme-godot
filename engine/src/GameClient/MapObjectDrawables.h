@@ -152,6 +152,7 @@ struct MapObjectDrawable
 	Coord3D normal = { 0.0f, 0.0f, 1.0f };
 	float basis[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 }; ///< columns X, Y, Z of the orientation (row major 3x3: [col0 row0, col1 row0, col2 row0, ...])
 	float scale = 1.0f;              ///< instance scale
+	int variation = -1;              ///< the drawable's model variation (drawable + 0x364, RW 0x679FEA); -1: none known (the static viewer: the first model, RW 0x4B42F5)
 	ModelConditionFlags flags;       ///< initial model condition flags
 	bool drawsInMirror = false;
 	bool hordeMember = false;        ///< a member of a horde object (objectIndex is the horde's index in the ObjectsList)
