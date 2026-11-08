@@ -8,8 +8,8 @@
 //     this object (RW 0x5F0126). The loop is reached from every FX-block return (RW 0x8C2F75 after the `je`s).
 // Data are synthetic; the object names are the port's test objects, the OCL / trigger / side names are the binary's.
 // GPL-3.0.
-#include "CombatTestUtil.h"
 #include "doctest.h"
+#include "CombatTestUtil.h"
 
 #include "GameLogic/Damage.h"
 #include "GameLogic/GameLogic.h"
@@ -81,13 +81,13 @@ struct Port45World : CombatWorld
 		const std::string err = w.load(kPort45Objects, INI_LOAD_OVERWRITE, "port45.ini");
 		REQUIRE_MESSAGE(err.empty(), err);
 	}
-	~Port45World() override { TheObjectCreationListStore = savedStore; }
+	~Port45World() { TheObjectCreationListStore = savedStore; }
 
 	// the objects of a template the world holds now (the OCL's creations of this frame included)
 	int countOf(const std::string &templateName) const
 	{
 		int n = 0;
-		for (const Object *o : logic->allObjects())
+		for (const Object *o = logic->getFirstObject(); o; o = o->getNextObject())
 		{
 			if (o->getTemplate() && o->getTemplate()->getName() == templateName)
 			{
@@ -144,15 +144,19 @@ TEST_CASE("PORT-45 runtime: a hit carrying CATAPULT_ROCK makes the body's Damage
 	// RW 0x8C2F88: the record's +0x04 against the hit's +0x2C. The stone thrower's trigger (1) creates Port45Chunk's 2 arrows on the
 	// wall and Port45Other's 1 on the target; Port45Other's own line on the wall carries trigger 0 (NONE) and is not taken; the line
 	// whose trigger is TREBUCHET_ROCK (2) is not taken either
-	wall->attemptDamage(port45Hit(attacker, 10.0f, 1));
+	DamageInfo stone = port45Hit(attacker, 10.0f, 1);
+	wall->attemptDamage(stone);
 	CHECK(w.countOf("Arrow") == arrows + 2);
-	target->attemptDamage(port45Hit(attacker, 10.0f, 1));
+	DamageInfo stoneOnTarget = port45Hit(attacker, 10.0f, 1);
+	target->attemptDamage(stoneOnTarget);
 	CHECK(w.countOf("Arrow") == arrows + 3);
 	// RW 0x8C2F8B: a different trigger matches no record (Port45Other's NONE line is the target's only one)
-	wall->attemptDamage(port45Hit(attacker, 10.0f, 0));
+	DamageInfo none = port45Hit(attacker, 10.0f, 0);
+	wall->attemptDamage(none);
 	CHECK(w.countOf("Arrow") == arrows + 3);
 	// RW 0x8C2F92: the record whose death side is 1 (FRONT_DESTROYED, the wall's TREBUCHET_ROCK line) is not created here
-	wall->attemptDamage(port45Hit(attacker, 10.0f, 2));
+	DamageInfo trebuchet = port45Hit(attacker, 10.0f, 2);
+	wall->attemptDamage(trebuchet);
 	CHECK(w.countOf("Arrow") == arrows + 3);
 }
 
@@ -163,7 +167,8 @@ TEST_CASE("PORT-45 runtime: the loop is not part of the FX block - a body withou
 	Object *target = w.unit("Port45Target", 'B', 340, 300); // CYLINDER geometry, no ArmorSet: doDamageFX's FX branch has no DamageFX
 	w.frames(2);
 	const int arrows = w.countOf("Arrow");
-	target->attemptDamage(port45Hit(attacker, 10.0f, 1));
+	DamageInfo stone = port45Hit(attacker, 10.0f, 1);
+	target->attemptDamage(stone);
 	CHECK(w.countOf("Arrow") == arrows + 1); // Port45Other's single Arrow
 	// the hit still went through the damage pipeline: the health moved by the full amount
 	CHECK(target->getBodyModule()->getHealth() == 990.0f);
