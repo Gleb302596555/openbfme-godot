@@ -35,8 +35,10 @@ what depends on it.
 PORT-16 / issue #72 is still covered by S-1180: `SUPPLY_SOURCE_SAFE` and
 `SUPPLY_SOURCE_ATTACKED` are not implemented. The body-record prerequisites
 are work in progress and have not passed their synthetic tests yet; the parsed
-`ForceSkirmishAI` is not yet used for Player AI selection. `ActiveBody` native
-snapshots before version 3 omit the no-effect bit and are refused rather than
+`ForceSkirmishAI` is not yet used for Player AI selection. `SupplyCenterSafeRadius`
+is parsed and contributes to the game hash, but its safety query is not yet
+implemented; its synthetic tests have not run. `ActiveBody` native snapshots
+before version 3 omit the no-effect bit and are refused rather than
 silently reconstructed. See `docs/re/rotwk/RW_0x8F6B5A.md` for the remaining
 binary analysis and shared Player AI state.
 
