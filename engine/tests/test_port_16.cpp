@@ -40,6 +40,34 @@ TEST_CASE("PORT-16 AIData: ForceSkirmishAI has the retail default and parses a b
     CHECK_FALSE(settings.forceSkirmishAI);
 }
 
+TEST_CASE("PORT-16 AIData: supply safety radius has the retail default and uses the real parser")
+{
+    // RW 0x6FFC04 / 0x6FFC7D load the float at 0xBDD764 (250.0).
+    GameLogicSettings settings;
+    CHECK(settings.supplyCenterSafeRadius == 250.0f);
+    std::string error;
+    REQUIRE_MESSAGE(GameLogicSettingsLoader::scanAIData("AIData\n  SupplyCenterSafeRadius = 123.75\n  RepulsedDistance = 17.5\nEnd\n", settings, &error), error);
+    CHECK(settings.supplyCenterSafeRadius == 123.75f); // row 0xC1CD80 -> parseReal RW 0x42ED00
+    CHECK(settings.repulsedDistance == 17.5f); // adjacent AIData row remains independent
+    CHECK(settings.unappliedFields.count("AIData.SupplyCenterSafeRadius") == 0);
+    REQUIRE_MESSAGE(GameLogicSettingsLoader::scanAIData("AIData\n  ForceSkirmishAI = Yes\nEnd\n", settings, &error), error);
+    CHECK(settings.supplyCenterSafeRadius == 123.75f); // omitted fields survive a later block
+    CHECK(settings.forceSkirmishAI);
+    GameLogicSettings invalid;
+    CHECK_FALSE(GameLogicSettingsLoader::scanAIData("AIData\n  SupplyCenterSafeRadius = far\nEnd\n", invalid, &error));
+    CHECK(error.find("SupplyCenterSafeRadius") != std::string::npos);
+}
+
+TEST_CASE("PORT-16 AIData: supply safety radius contributes to the game hash")
+{
+    CombatWorld w;
+    const auto initial = w.logic->computeStateHash();
+    w.logic->settings().supplyCenterSafeRadius = 123.75f;
+    CHECK(w.logic->computeStateHash() != initial);
+    w.logic->settings().supplyCenterSafeRadius = 250.0f;
+    CHECK(w.logic->computeStateHash() == initial);
+}
+
 TEST_CASE("PORT-16 damage record: a recent record survives a hit without a source")
 {
     CombatWorld w;
