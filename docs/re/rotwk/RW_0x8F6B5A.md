@@ -31,6 +31,16 @@ unported.
   alone misses the byte's branch. The owner allowed the additional parsing
   change; the parser and setting are now present, but the Player AI class
   selection still does not consume the setting.
+* Player type setter RW 0x6AA47D–0x6AA498 creates an AI when type is 1, or
+  when its skirmish argument is true and `[0xDE4938]+0x96C` is true. RW
+  0x6A9456–0x6A9467 parses SkirmishAIData into that object at +0x10; table
+  row 0xC13CC8 is `MakeAllSkirmishSidesAIControlled`, parser RW 0x42E558,
+  data offset +0x95C. This field is already parsed by the port's
+  `SkirmishAIStore`. The type argument and the data flag must be read at the
+  setter's time, not inferred later from manager `findAI()`; its object can
+  be absent even while Player +0x2FC exists. The map-side setup passes the
+  skirmish argument for human players too (RW 0x6B09FA–0x6B0A26), while
+  `PlayerList::newGame` currently stores `!human && skirmish`, discarding it.
 
 ## SAFE: selection and scan
 
@@ -39,8 +49,15 @@ unported.
   frame plus `[0xD9F608]` at +0x48 and reevaluates. It stores -1 for false
   and 1 for true (RW 0x7E56AB / 0x7E56B6). The condition constructor clears
   both fields at RW 0x7B3216–0x7B3219, so the first evaluation is not a cache
-  hit even at frame zero. This per-condition simulation state is not present
-  in the port's `ScriptCondition`.
+  hit even at frame zero. The generic team-script copy is distinct: RW
+  0x7A1759 calls script duplicate RW 0x7B7F2B → 0x7B7E23; RW 0x7B7EBA–
+  0x7B7ECA duplicates the condition list via RW 0x7B76E1 → 0x7B655B, whose
+  constructor RW 0x7B651B clears the new condition's +0x44 and +0x48. Thus
+  a copy's cache starts empty, not shared with or copied from the source.
+  The port's `GenericCopy` instead references the source `Script` and its
+  `ScriptCondition`, so a mutable cache on the definition alone would be
+  incorrect. Any runtime cache design must distinguish each copy and retain
+  its identity through hash and xfer.
 * RW 0x8F757A asks RW 0x8F6B5A for a source. No candidate returns true
   (RW 0x8F7581–0x8F7585); a candidate supplies its position and template to
   RW 0x8F5220 (RW 0x8F7587–0x8F7590).
