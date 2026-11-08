@@ -1730,8 +1730,10 @@ func _process(delta: float) -> void:
 	if _state == State.MENU and _online_http != null and _frames % 30 == 0:
 		_online_resume_tick()
 	if _state == State.MENU:
+		if _menu_style == "bfme2" and _frames % 5 == 0 and _shell.shell_stack().size() > 0 and _shell.shell_stack()[-1] == "MainMenu.apt":
+			_hide_bfme2_campaign_buttons() # lane DEVPORT-8: only while BFME2_CAMPAIGNS is off (lane BFME2CAMP1 turned it on)
 		if _frames % 5 == 0 and _shell.shell_stack().size() > 0 and _shell.shell_stack()[-1] == "MainMenu.apt":
-			_hide_bfme2_campaign_buttons() # lane DEVPORT-8: only while BFME2_CAMPAIGNS is off (fork scope, every menu style)
+			_keep_solo_list_open()
 		if _pending_menu_style != _menu_style and not _switching_menu_style and _clean_main_menu():
 			_switching_menu_style = true
 			call_deferred("_apply_pending_menu_style")
@@ -2110,14 +2112,13 @@ func _apply_pending_menu_style() -> void:
 ## MainMenu.apt GoodCampaign / EvilCampaign buttons show in the BFME2 menu style and start GOOD_CAMPAIGN / EVIL_CAMPAIGN (BFME2's legend's
 ## LinearCampaign.ini, loaded after RotWK's campaigns: Common/SubsystemLegend.h LoadBfme2CampaignsFromLegend, an OpenBFME addition). Off, the buttons
 ## are hidden (below) and a request is refused by name. Lane CAMPMENU-1 moved it here from the OpenBFME campaign panel (scripts/menu_campaigns.gd,
-## removed: the campaigns start from retail's own Solo Play buttons). Fork scope (owner 2026-11-08, PROCESS 16): RotWK + Ennorath + online, so the
-## BFME1 / BFME2 campaigns are off in this fork and their buttons hidden in every menu style.
-const BFME2_CAMPAIGNS := false
+## removed: the campaigns start from retail's own Solo Play buttons)
+const BFME2_CAMPAIGNS := true
 
-## lane DEVPORT-8: the Solo Play list's campaign buttons this fork hides (owner 2026-11-08): BFME2's GoodCampaign / EvilCampaign and
-## Expansion1Campaign (Ennorath labels it "Not supported"). While BFME2_CAMPAIGNS is off they are hidden (_visible, and moved off the screen);
-## { found: [clip paths], visible: [the clips still visible], hittable: [their buttons the pointer would take] }
-const BFME2_CAMPAIGN_CLIPS := ["GoodCampaign", "EvilCampaign", "Expansion1Campaign"]
+## lane DEVPORT-8: BFME2's own MainMenu.apt has GoodCampaign / EvilCampaign buttons (its Solo Play list: Skirmish, WarOfTheRing, EvilCampaign,
+## GoodCampaign, LoadGame). While BFME2_CAMPAIGNS is off they are hidden (their clip's _visible); { found: [clip paths], visible: [the
+## clips still visible], hittable: [their buttons the pointer would take] }
+const BFME2_CAMPAIGN_CLIPS := ["GoodCampaign", "EvilCampaign"]
 func bfme2_campaign_buttons() -> Dictionary:
 	var out := {"found": [], "visible": [], "hittable": []}
 	var top: int = _shell.shell_top_level()
@@ -2146,20 +2147,34 @@ func bfme2_campaign_buttons() -> Dictionary:
 	return out
 
 
+## owner 2026-11-08: Ennorath's Solo Play list closed when the pointer moved from War of the Ring onto Skirmish. Between those two rows the
+## row buttons' hit meshes leave a seam (about one stage pixel, nav y -273) where the only button under the pointer is the list's outer
+## catcher SoloPlayNav.instance1 (a 1030 x 775 hit area around the list): its roll-over closes the list. Not decoded why retail does not
+## close there; the catcher is switched off (enabled = false, AptInput::hitTestButtons skips it), the list still closes when the pointer
+## leaves it (owner checked both in game)
+func _keep_solo_list_open() -> void:
+	var top: int = _shell.shell_top_level()
+	if top < 0 or not _shell.get_member(top, "SoloPlayNav.instance1", "_x").get("found", false):
+		return
+	if str(_shell.get_member(top, "SoloPlayNav.instance1", "enabled").get("value", "true")) != "false":
+		_shell.set_clip_property(top, "SoloPlayNav.instance1", "enabled", 0.0)
+
+
 func _hide_bfme2_campaign_buttons() -> void:
 	if BFME2_CAMPAIGNS:
 		return
 	var top: int = _shell.shell_top_level()
 	var buttons := bfme2_campaign_buttons()
-	for clip in buttons.found:
-		# _visible alone does not hide Ennorath's nav rows (the row still draws): the row also leaves the screen
-		var x: Dictionary = _shell.get_member(top, clip, "_x")
-		if str(_shell.get_member(top, clip, "_visible").get("value", "")) in ["true", "1"] and not _shell.set_clip_property(top, clip, "_visible", 0.0):
-			print("GAME stop: the campaign button ", clip, " could not be hidden")
-		if x.get("found", false) and float(x.value) > -5000.0:
-			_shell.set_clip_property(top, clip, "_x", -10000.0)
-	# the rows below are not moved up: a row whose _y is written here ends on the top rows' places every frame (Ennorath's MainMenu.apt, not
-	# decoded), so the list keeps the hidden rows' places empty
+	for clip in buttons.visible:
+		if not _shell.set_clip_property(top, clip, "_visible", 0.0):
+			print("GAME stop: the BFME2 campaign button ", clip, " could not be hidden")
+	# the list without its two rows: Load Game moves up into the first hidden row (EvilCampaign's), so the list has no hole
+	# (Skirmish, War of the Ring, Load Game; the nav's frame keeps its five-row size)
+	if "SoloPlayNav.EvilCampaign" in buttons.found:
+		var evil_y: Dictionary = _shell.get_member(top, "SoloPlayNav.EvilCampaign", "_y")
+		var load_y: Dictionary = _shell.get_member(top, "SoloPlayNav.LoadGame", "_y")
+		if evil_y.get("found", false) and load_y.get("found", false) and str(load_y.value) != str(evil_y.value):
+			_shell.set_clip_property(top, "SoloPlayNav.LoadGame", "_y", float(evil_y.value))
 
 
 ## lane BFME2CAMP1: BFME2 MainMenu.apt's GoodCampaign / EvilCampaign (AptMainMenu.cpp: the request "bfme2:good:<difficulty>"). TARGET FACTS (RotWK
