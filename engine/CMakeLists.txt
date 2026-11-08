@@ -209,6 +209,7 @@ include(cmake/Port24.cmake) # PORT-24: Object/ForceLuaRegistration (issue #96; O
 include(cmake/Port21.cmake) # PORT-21: INAUDIBLE when an object leaves the world (issue #77; OPENBFME_PORT21_TESTS)
 include(cmake/Port34.cmake) # PORT-34: GameData/DefaultStructureRubbleHeight + Object/StructureRubbleHeight (issue #119; OPENBFME_PORT34_TESTS)
 include(cmake/Port26.cmake) # PORT-26: AODHordeContain member jitter and scatter (issue #98; appends to OPENBFME_SIM_SOURCES; OPENBFME_PORT26_TESTS)
+include(cmake/Port35.cmake) # PORT-35: HordeContain/ComboHorde, two hordes combining into one (issue #120; OPENBFME_PORT35_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
@@ -775,6 +776,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT21_TESTS}
     ${OPENBFME_PORT34_TESTS}
     ${OPENBFME_PORT26_TESTS}
+    ${OPENBFME_PORT35_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}
