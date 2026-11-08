@@ -332,7 +332,13 @@ void AnimationSoundClientBehavior::update(AnimationSoundModuleManager &manager, 
 	{
 		return;
 	}
-	// the drawable's audible flag (+ 0x44A) is cleared only by INAUDIBLE objects (RW 0x674727), never in the port (S-1463)
+	// RW 0x8CE75B's first test: the drawable not audible (+ 0x44A, lane PORT-21: cleared by RW 0x674727 through Object::setInaudible) goes to the clean
+	// list, where the dirty list picks it up again when the drawable becomes audible (RW 0x8CE249)
+	if (!d->audible())
+	{
+		manager.toClean(this);
+		return;
+	}
 	if (!audio)
 	{
 		return;

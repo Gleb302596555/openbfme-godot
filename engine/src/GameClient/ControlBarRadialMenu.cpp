@@ -158,7 +158,7 @@ void ControlBarRadialMenu::centerOf(GameLogic &logic, DrawableManager *drawables
 		float height = 0.0f;
 		try
 		{
-			height = ObjectGeometry::maxHeightAbovePosition(ObjectGeometry::shapesOf(*obj->getTemplate())); // RW 0x9458CD (GeometryInfo at + 0xA8)
+			height = ObjectGeometry::maxHeightAbovePosition(obj->geometryShapes()); // RW 0x9458CD (GeometryInfo at + 0xA8)
 		}
 		catch (const std::logic_error &)
 		{

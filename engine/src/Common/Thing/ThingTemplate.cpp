@@ -567,3 +567,17 @@ bool ThingTemplate::isBuildFacility() const
 	}
 	return m_isBuildFacility;
 }
+
+std::int8_t ThingTemplate::structureRubbleHeight() const
+{
+	// Port 34, RW 0x8C1B42 / RW 0x8C2DE0: movsx eax, byte ptr [ecx + 0x607]; ret (row RW 0xC83380, INI::parseUnsignedByte RW 0x42EB75,
+	// constructor RW 0x74018A initializes +0x607 to 0, copied by ThingTemplate::copyFrom RW 0x6D25EF)
+	if (const FieldValue *v = getFinalOverride()->findField("StructureRubbleHeight"))
+	{
+		if (const long long *n = std::get_if<long long>(v))
+		{
+			return static_cast<std::int8_t>(static_cast<std::uint8_t>(*n));
+		}
+	}
+	return 0;
+}

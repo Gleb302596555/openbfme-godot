@@ -237,13 +237,16 @@ bool Pathfinder::adjustToMeleeDestination(const PathfindObject &obj, const Pathf
 //     the one in which the best was last improved (the patience counter is reset to 1 by every improvement);
 //   * RW 0x6EA0EC(unit, target, v): if unit has AI (Object +0x260), RW 0x667C76 (findNearestLabeledContactPointOnTarget); if found, returns immediately with v = the world contact point (RW 0x690BD2, so
 //     the caller's dest is the target's centre + that point); else from
-//     the target's position along v the first of 20 steps whose cell is not an obstacle (type 4) scales v by the step count;
+//     the target's position along v the first of 20 steps whose cell is not an obstacle (type 4) scales v by the step count. It is a pathfinder function of its own
+//     (adjustMeleeOffset, issue #78), RW's only other caller being the siege deploy's approach point RW 0x8C9E7A (SiegeModules.cpp);
 //   * RW 0x7463E8(dest, unit, other = 0): the distance d0 from the unit to dest; RW 0x6FB754(unit, dest, weapon, 0) (lines from dest to the 8 points at
 //     max(150 (RW 0xC041F8), the weapon's range) around it, RW 0x6FA9EF / 0x6F807D) and RW 0x6F5BB0 (quick path test, unit -> dest) -> true, dest unchanged; else
 //     steps = -1 - (int)(d * -0.05) (RW 0xC29938) back from dest by 20 (RW 0xBDBC6C) toward the unit until RW 0x6F5BB0 passes (a step on layer > 1 or RW 0x6EAD32 marks
 //     it), none -> false; a marked walk with RW 0x6FB754 false moves the point back by CastleSiegeStandBackDistance (AIData + 0xD4) + the unit's bounding radius;
 //     accepted when marked or |dest - point| + 20 <= d0: RW 0x6F3C87 (adjustToPossibleDestination) on the point, dest = point, true; else false.
-// INFERENCE (stop S-787): RW 0x68C9AC is the target's position; RW 0x667C76 (findNearestLabeledContactPointOnTarget via Object::getWorldspaceBestContactPoint RW 0x690BD2) is ported (TOP20 #26); RW 0x6EA0EC's WALK_ON_TOP_OF_WALL cell test (RW 0x6E82B3) is the obstacle test;
+// INFERENCE (stop S-787): RW 0x68C9AC is the target's position; RW 0x667C76 (findNearestLabeledContactPointOnTarget via Object::getWorldspaceBestContactPoint RW 0x690BD2) is ported (TOP20 #26);
+// RW 0x6EA0EC's WALK_ON_TOP_OF_WALL cell test (RW 0x6E82B3) is the obstacle test (both of RW 0x6EA0EC's own inferences are stated at its body below, which the
+// siege deploy shares);
 // RW 0x6F3082 is checkDestination with no other unit's goal in it; RW 0x938939's obstacle-zone mapping and the siege-deploy branches (RW 0x863983 / 0x8C9C01) are
 // not ported; RW 0x6FB754 is canApproachToTarget (lane PLAY-4, its callback RW 0x6F61BD in AIPathfindSearch.cpp); RW 0x6F5BB0 is quickDoesPathExist (lane QPATH-1). Lane
 // WALL-2 ported the mark (RW 0x74661A: the step's layer above the ground, or RW 0x6EAD32: its ground cell an obstacle with bit 17).
@@ -311,6 +314,55 @@ float lengthOf(float x, float y, float z)
 }
 } // namespace
 
+void Pathfinder::adjustMeleeOffset(const PathfindObject &unit, const PathfindObject &target, Coord3D &v)
+{
+	// TARGET RW 0x6EA0EC (Pathfinder::adjustMeleeOffset: `this` in ECX, three stack arguments, `ret 0xc`). RW's two callers are the melee engagement's structure
+	// branch (RW 0x6F3905: the unit, the target and the step toward the point 10 ahead of the unit) and the siege deploy's approach point (RW 0x8C9E7A: the deploying
+	// object from module + 0x08, the dock object and (dock point - dock position) * 0.1, skipped by SkipAdjustPosition + 0x22 at RW 0x8C9E5F).
+	//   * RW 0x6EA10B .. 0x6EA125: with the unit's AI (object + 0x260) RW 0x667C76 asks the target for a labelled contact point with the unit's position (object
+	//     + 0x38) and, found, writes it into v and returns (RW 0x690BD2's WORLD point: RW 0x6F3927 adds it to the target's centre as it adds the step vector).
+	//     Ported by TOP20 #26 (findNearestLabeledContactPointOnTarget); the mod's SpecialContactPoints are a mine's Bomb, the porters' Repair and the phoenix's
+	//     Swoop (field audit), never a dock, a wall or a melee structure, and RW's siege caller passes the deploying object whose contact points are none;
+	//   * RW 0x6EA12B .. 0x6EA1F0: i = 0, 1, .. 19 (RW 0x6EA1E7 compares with 0x14): p = the target's position (RW 0x68C9AC) + v * i (RW 0x6EA147 .. 0x6EA183,
+	//     cvtsi2ss then three mulss and three addss) and the cell under it (RW 0x5E2EF2 with the target's layer, RW 0x68BBE0). No cell (off the grid): v
+	//     unchanged. A WALK_ON_TOP_OF_WALL target (template + 0x10F bit 0x10, RW 0x6EA194) steps on while the cell's layer field (RW 0x6EA1A0: the word at
+	//     cell + 0x0C shifted right 4, masked 0x3F) is a wall layer (RW 0x6E82B3); any other target while the cell's type (the low nibble of cell + 0x0C, RW
+	//     0x6EA1E0) is 4 (CELL_OBSTACLE). The step that leaves it scales v by i (RW 0x6EA1B1 .. 0x6EA1D4, three mulss) and returns — i = 0 included, so an offset
+	//     from a target whose own cell is free becomes 0; twenty steps that all stay inside keep v as it was.
+	// INFERENCE (stop S-787): the WALK_ON_TOP_OF_WALL wall-layer test is read as the type-4 test — the port's ground grid carries a wall top's surface in the
+	// obstacle flag, so the wall pieces' layer field is not asked here. The target's layer replaces the caller's LAYER_GROUND cell lookup: a structure's and a wall
+	// piece's layer is the ground, so the two callers read the same cells they read before.
+	if (const AIUpdateInterface *ai = unit.ai()) // RW 0x6EA108: [unit + 0x260]
+	{
+		const Object *targetObj = target.asObject();
+		Coord3D pt;
+		if (targetObj && ai->findNearestLabeledContactPointOnTarget(*targetObj, pt, unit.getPosition(), false)) // RW 0x667C76, RW 0x6EA125
+		{
+			v = pt;
+			return;
+		}
+	}
+	const Coord3D t = target.getPosition();
+	const PathfindLayerEnum layer = target.getLayer();
+	for (int i = 0; i < 20; ++i)
+	{
+		const float fi = SimMath::sseFromInt32(i);
+		const Coord3D p{ SimMath::addf32(t.x, SimMath::mulf32(v.x, fi)), SimMath::addf32(t.y, SimMath::mulf32(v.y, fi)), SimMath::addf32(t.z, SimMath::mulf32(v.z, fi)) };
+		const PathfindCell *c = getCell(layer, &p);
+		if (c == nullptr)
+		{
+			return;
+		}
+		if (c->getType() != PathfindCell::CELL_OBSTACLE)
+		{
+			v.x = SimMath::mulf32(v.x, fi);
+			v.y = SimMath::mulf32(v.y, fi);
+			v.z = SimMath::mulf32(v.z, fi);
+			return;
+		}
+	}
+}
+
 bool Pathfinder::findMeleeEngagementLocation(const PathfindObject &obj, const PathfindLocomotorInfo &loco, const PathfindObject &target, const PathfindAttackRange &range,
 	Coord3D *dest)
 {
@@ -338,46 +390,13 @@ bool Pathfinder::findMeleeEngagementLocation(const PathfindObject &obj, const Pa
 	const bool wallUpgrade = target.isKindOf(PK_WALL_UPGRADE);
 	if ((target.isKindOf(PK_STRUCTURE) || target.isKindOf(PK_WALK_ON_TOP_OF_WALL)) && !wallUpgrade)
 	{
-		// RW 0x6EA0EC: adjustMeleeOffset
-		// RW 0x6EA108 .. 0x6EA125: if attacker has AI (Object +0x260), call findNearestLabeledContactPointOnTarget (RW 0x667C76 -> RW 0x690BD2)
-		bool foundContact = false;
-		if (const AIUpdateInterface *ai = obj.ai())
-		{
-			const Object *targetObj = target.asObject();
-			Coord3D pt;
-			if (targetObj && ai->findNearestLabeledContactPointOnTarget(*targetObj, pt, self, false))
-			{
-				// RW 0x6EA125 jne 0x6ea1d9: immediate exit without 20 obstacle steps; v keeps what RW 0x690BD2 wrote into it.
-				// review r3 (Claude): RW 0x690BD2 .. 0x690DFA writes the WORLD point (the target's matrix at Object +8 with its translation +0xC / +0x1C / +0x2C),
-				// not an offset, and RW 0x6F3927 .. 0x6F3974 adds v to the target's centre (RW 0x68C9AC) as for the step vector: dest = centre + world point.
-				// That is what RotWK does; v is the world point as is (no subtraction).
-				vx = pt.x;
-				vy = pt.y;
-				vz = pt.z;
-				foundContact = true;
-			}
-		}
-		if (!foundContact)
-		{
-			// RW 0x6EA12B .. 0x6EA1EB: the first of 20 steps from the target along v that leaves the obstacle
-			const Coord3D t = target.getPosition();
-			for (int i = 0; i < 20; ++i)
-			{
-				const float fi = SimMath::sseFromInt32(i);
-				const Coord3D p{ SimMath::addf32(t.x, SimMath::mulf32(vx, fi)), SimMath::addf32(t.y, SimMath::mulf32(vy, fi)), t.z };
-				const PathfindCell *c = getCell(LAYER_GROUND, &p);
-				if (c == nullptr)
-				{
-					break;
-				}
-				if (c->getType() != PathfindCell::CELL_OBSTACLE)
-				{
-					vx = SimMath::mulf32(vx, fi);
-					vy = SimMath::mulf32(vy, fi);
-					break;
-				}
-			}
-		}
+		// RW 0x6EA0EC: the contact point or the first of 20 steps from the target along v that leaves the obstacle — one pathfinder function, shared with the
+		// siege deploy's approach point (RW 0x8C9E7A); the class comment above has the body
+		Coord3D v{ vx, vy, 0.0f };
+		adjustMeleeOffset(obj, target, v);
+		vx = v.x;
+		vy = v.y;
+		vz = v.z;
 	}
 	int radius = 0;
 	bool center = false;
