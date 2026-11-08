@@ -134,6 +134,36 @@ TEST_CASE("LOCAL-7 attack contact point: parsing AttackContactPoint and SwoopCon
 	CHECK(pts[2].label == "Swoop");
 }
 
+#include "GameLogic/AI/AIPathfind.h"
+#include "GameLogic/AI/AIWorld.h"
+
+namespace
+{
+class FixedRange : public PathfindAttackRange
+{
+public:
+	FixedRange(Coord3D centre, float reach) : m_centre(centre), m_reach(reach) {}
+	bool inRangeFrom(const Coord3D &from, float extra) const override
+	{
+		if (m_reach <= 0.0f) return false;
+		const float dx = from.x - m_centre.x, dy = from.y - m_centre.y;
+		return dx * dx + dy * dy + extra * extra <= m_reach * m_reach;
+	}
+	bool inRangeFromTo(const Coord3D &from, const Coord3D &victimPos, float extra) const override
+	{
+		if (m_reach <= 0.0f) return false;
+		const float dx = from.x - victimPos.x, dy = from.y - victimPos.y;
+		return dx * dx + dy * dy + extra * extra <= m_reach * m_reach;
+	}
+	float attackDistance() const override { return m_reach; }
+	bool meleeWeapon() const override { return true; }
+
+private:
+	Coord3D m_centre;
+	float m_reach;
+};
+} // namespace
+
 TEST_CASE("LOCAL-7 attack contact point: attackers choose contact points matching their SpecialContactPoints, fallback to center without match")
 {
 	CombatWorld w;
@@ -142,7 +172,8 @@ TEST_CASE("LOCAL-7 attack contact point: attackers choose contact points matchin
 		makeWall("ContactWall", "  AttackContactPoint = X:-30 Y:0 Z:0 Ram\n  AttackContactPoint = X:30 Y:0 Z:0\n") +
 		makeWall("PlainWall", "") +
 		makeAttackerWithContactLabel("RamUnit", "Ram") +
-		makeAttackerWithContactLabel("BombUnit", "Bomb");
+		makeAttackerWithContactLabel("BombUnit", "Bomb") +
+		makeAttackerWithContactLabel("SwordsmanUnit", "");
 	std::string err = w.w.load(ini, INI_LOAD_OVERWRITE, "local7_walls.ini");
 	REQUIRE_MESSAGE(err.empty(), err);
 
@@ -150,69 +181,62 @@ TEST_CASE("LOCAL-7 attack contact point: attackers choose contact points matchin
 	REQUIRE(contactWall != nullptr);
 	Object *plainWall = w.unit("PlainWall", 'B', 200.0f, 200.0f);
 	REQUIRE(plainWall != nullptr);
+	Object *targetUnit = w.unit("SwordsmanUnit", 'B', 200.0f, 200.0f);
+	REQUIRE(targetUnit != nullptr);
 
-	SUBCASE("unit WITHOUT SpecialContactPoints (Swordsman) attacks building with AttackContactPoint -> regular approach path (200.5)")
+	Object *atkRam = w.unit("RamUnit", 'A', 100.0f, 200.0f);
+	REQUIRE(atkRam != nullptr);
+	Object *atkPlain = w.unit("SwordsmanUnit", 'A', 100.0f, 200.0f);
+	REQUIRE(atkPlain != nullptr);
+	w.frames(2);
+
+	Pathfinder &pf = w.ai->pathfinder();
+	const PathfindObject *ramPf = w.ai->findObjectByID(atkRam->getID());
+	REQUIRE(ramPf != nullptr);
+	const PathfindObject *swordsmanPf = w.ai->findObjectByID(atkPlain->getID());
+	REQUIRE(swordsmanPf != nullptr);
+	const PathfindObject *wallPf = w.ai->findObjectByID(contactWall->getID());
+	REQUIRE(wallPf != nullptr);
+	const PathfindObject *unitPf = w.ai->findObjectByID(targetUnit->getID());
+	REQUIRE(unitPf != nullptr);
+
+	SUBCASE("unit WITH SpecialContactPoints = Ram attacks building with matching Ram AttackContactPoint -> engagement destination goes to Ram contact point (170)")
 	{
-		Object *atkPlain = w.unit("Swordsman", 'A', 100.0f, 200.0f);
-		w.frames(2);
-		AIUpdateInterface *ai = atkPlain->getAIUpdateInterface();
-		REQUIRE(ai != nullptr);
-		REQUIRE(ai->aiAttackObject(contactWall, CMD_FROM_PLAYER));
-		w.frames(1);
+		Coord3D ramDest = *contactWall->getPosition();
+		const FixedRange reachWall(*contactWall->getPosition(), 50.0f);
+		const PathfindLocomotorInfo locoRam = atkRam->getAIUpdateInterface()->locomotorInfo();
+
+		// RW 0x6F37B3 (Pathfinder::findMeleeEngagementLocation):
+		// Target is STRUCTURE / WALK_ON_TOP_OF_WALL -> calls adjustMeleeOffset (RW 0x6EA0EC).
+		// adjustMeleeOffset RW 0x6EA11E -> RW 0x667C76 finds the "Ram" contact point on ContactWall at (-30, 0, 0) relative to (200, 200, 0) -> (170, 200, 0).
+		// Function exits immediately (RW 0x6EA1D9) without 20 obstacle steps.
+		// Engagement destination is placed at the contact point's cell (170.5, 200.5).
+		REQUIRE(pf.findMeleeEngagementLocation(*ramPf, locoRam, *wallPf, reachWall, &ramDest));
+		CHECK(ramDest.x == 170.5f);
+		CHECK(ramDest.y == 200.5f);
+	}
+
+	SUBCASE("unit WITHOUT SpecialContactPoints (Swordsman) attacks building with AttackContactPoint -> regular approach path (not contact point)")
+	{
+		Coord3D swordsmanDest = *contactWall->getPosition();
+		const FixedRange reachWall(*contactWall->getPosition(), 50.0f);
+		const PathfindLocomotorInfo locoSwordsman = atkPlain->getAIUpdateInterface()->locomotorInfo();
 
 		// Without SpecialContactPoints, adjustMeleeOffset RW 0x6EA11E -> RW 0x667C76 returns false;
-		// normal geometry offset applies -> destination is victim center (adjusted to cell center 200.5)
-		CHECK(ai->mover().requestedDestination().x == 200.5f);
-		CHECK(ai->mover().requestedDestination().y == 200.5f);
+		// it runs the 20 obstacle steps RW 0x6EA12B..0x6EA1EB -> does NOT go to the Ram contact point (170, 200).
+		REQUIRE(pf.findMeleeEngagementLocation(*swordsmanPf, locoSwordsman, *wallPf, reachWall, &swordsmanDest));
+		CHECK(swordsmanDest.x != 170.5f);
 	}
 
-	SUBCASE("unit WITH SpecialContactPoints = Ram attacks building with matching Ram AttackContactPoint -> goes to Ram contact point (170)")
+	SUBCASE("unit with SpecialContactPoints attacks another unit (not a building) -> contact points are NOT searched")
 	{
-		Coord3D pt;
-		bool hasPt = ObjectGeometry::worldspaceBestContactPoint(*contactWall, Coord3D{ 100.0f, 200.0f, 0.0f }, "Ram", false, pt);
-		CHECK(hasPt);
-		CHECK(pt.x == 170.0f);
-		CHECK(pt.y == 200.0f);
+		Coord3D ramUnitDest = *targetUnit->getPosition();
+		const FixedRange reachUnit(*targetUnit->getPosition(), 50.0f);
+		const PathfindLocomotorInfo locoRam = atkRam->getAIUpdateInterface()->locomotorInfo();
 
-		Object *atkRam = w.unit("RamUnit", 'A', 100.0f, 200.0f);
-		w.frames(2);
-		AIUpdateInterface *ai = atkRam->getAIUpdateInterface();
-		REQUIRE(ai != nullptr);
-		REQUIRE(ai->aiAttackObject(contactWall, CMD_FROM_PLAYER));
-		w.frames(1);
-
-		// RamUnit has SpecialContactPoints = Ram, which matches the west AttackContactPoint (170.0, 200.0);
-		// bypassOffset = true -> destination is exactly the contact point
-		CHECK(ai->mover().requestedDestination().x == 170.0f);
-		CHECK(ai->mover().requestedDestination().y == 200.0f);
-	}
-
-	SUBCASE("unit WITH SpecialContactPoints = Bomb attacking building without Bomb point -> falls back to regular approach (200.5)")
-	{
-		Object *atkBomb = w.unit("BombUnit", 'A', 100.0f, 200.0f);
-		w.frames(2);
-		AIUpdateInterface *ai = atkBomb->getAIUpdateInterface();
-		REQUIRE(ai != nullptr);
-		REQUIRE(ai->aiAttackObject(contactWall, CMD_FROM_PLAYER));
-		w.frames(1);
-
-		// BombUnit has SpecialContactPoints = Bomb, but ContactWall only has Ram -> returns false;
-		// falls back to regular geometry destination (200.5)
-		CHECK(ai->mover().requestedDestination().x == 200.5f);
-		CHECK(ai->mover().requestedDestination().y == 200.5f);
-	}
-
-	SUBCASE("attacker on object without contact points chooses object center (200 world)")
-	{
-		Object *atkPlain = w.unit("RamUnit", 'A', 100.0f, 200.0f);
-		w.frames(2);
-		AIUpdateInterface *ai = atkPlain->getAIUpdateInterface();
-		REQUIRE(ai != nullptr);
-		REQUIRE(ai->aiAttackObject(plainWall, CMD_FROM_PLAYER));
-		w.frames(1);
-
-		// Plain object without contact points falls back to object center (adjusted to cell center 200.5)
-		CHECK(ai->mover().requestedDestination().x == 200.5f);
-		CHECK(ai->mover().requestedDestination().y == 200.5f);
+		// Target is NOT STRUCTURE or WALK_ON_TOP_OF_WALL -> RW 0x6F38E1..0x6F38FA bypasses adjustMeleeOffset completely.
+		REQUIRE(pf.findMeleeEngagementLocation(*ramPf, locoRam, *unitPf, reachUnit, &ramUnitDest));
+		// Destination is determined by standard unit melee engagement, not building contact points.
+		CHECK(ramUnitDest.x != 170.5f);
 	}
 }

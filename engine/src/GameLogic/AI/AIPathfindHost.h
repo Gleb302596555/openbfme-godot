@@ -199,6 +199,8 @@ enum PathfindRelationship
 
 // One object as the pathfinder sees it.
 struct PathfindLocomotorInfo;
+class AIUpdateInterface;
+class Object;
 
 class PathfindObject
 {
@@ -240,6 +242,8 @@ public:
 	virtual bool isParked() const { return false; }
 	// AIUpdateInterface
 	virtual bool hasAI() const { return false; }
+	virtual AIUpdateInterface *ai() const { return nullptr; }
+	virtual const Object *asObject() const { return nullptr; }
 	virtual PathfindObjectID getIgnoredObstacleID() const = 0;
 	virtual bool canPathThroughUnits() const = 0;
 	virtual bool isAircraftThatAdjustsDestination() const = 0;

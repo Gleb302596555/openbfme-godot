@@ -86,7 +86,8 @@ class ObjectPathfindAdapter : public PathfindObject
 public:
 	ObjectPathfindAdapter(class AIWorld &world, Object &object);
 	Object &object() const { return *m_object; }
-	AIUpdateInterface *ai() const;
+	const Object *asObject() const override { return m_object; }
+	AIUpdateInterface *ai() const override;
 
 	// ---- PathfindObject ----
 	PathfindObjectID getID() const override;
