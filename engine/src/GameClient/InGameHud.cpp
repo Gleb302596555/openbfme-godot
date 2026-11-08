@@ -768,6 +768,10 @@ void InGameHud::update(double seconds)
 	presentBeacons(); // lane CHAT-1
 	presentGlobalRally(); // RW 0x7798D5: the issuing player's feedback after application
 	m_iconUI.build(m_config.game.logic(), m_config.game.drawables(), m_config.view, m_iconSettings, selectedSet, m_input->ui().mouseoverObject(), m_iconOps);
+	// the order lines (RW 0x4E013B, GameClient/OrderLines.h): from the live game, as the icons; the mode follows the local player's order mode (RW 0x69B1C3)
+	m_orderLinesClock += seconds;
+	m_orderLines.build(m_config.game.logic(), selected, m_input->ui().mouseoverObject(), (std::uint32_t)(m_orderLinesClock * 1000.0), m_orderLinesFrame,
+		(std::uint32_t)(seconds * 1000.0));
 	updateFloatingText(m_config.view, m_iconSettings.shroudDrawn);
 	m_iconSettings.snapshot = nullptr; // the frame's snapshot goes with this frame
 	part(m_updateParts.icons);

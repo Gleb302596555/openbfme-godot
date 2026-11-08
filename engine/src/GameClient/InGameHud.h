@@ -29,6 +29,7 @@
 #include "GameClient/GUI/GameWindowManager.h"
 #include "GameClient/GUI/Image.h"
 #include "GameClient/DrawableIconUI.h"
+#include "GameClient/OrderLines.h"
 #include "GameClient/HudInput.h"
 #include "GameClient/InGameHeroSelect.h"
 #include "GameClient/InGameChat.h"
@@ -204,6 +205,8 @@ public:
 	void setIconUISettings(const IconUISettings &s) { m_iconSettings = s; }
 	const IconUISettings &iconSettings() const { return m_iconSettings; }
 	const std::vector<IconUIOp> &iconOps() const { return m_iconOps; }
+	// the order lines of this frame (GameClient/OrderLines.h, RW 0x4E013B): built in update() from the live game while Alt is held
+	const OrderLinesFrame &orderLines() const { return m_orderLinesFrame; }
 	const FloatingTextList &floatingText() const { return m_floatingText; }
 	// lane PLAY-3: the drag selection box of this render frame (W3DInGameUI::drawSelectionRegion, RW 0x48ECF4): an OPEN_RECT over the region the
 	// SelectionTranslator's drag holds (InGameUI's area select hint), drawn while the drag lasts; false when there is none. Computed from the client
@@ -340,6 +343,9 @@ private:
 	DrawableIconUI m_iconUI;                  // lane HUD-5
 	IconUISettings m_iconSettings;
 	std::vector<IconUIOp> m_iconOps;
+	OrderLines m_orderLines;            // RW 0x4E03C7's renderer state (the target cache)
+	OrderLinesFrame m_orderLinesFrame;
+	double m_orderLinesClock = 0.0;     // seconds of render time: stands in for timeGetTime (RW 0x4E0175 uses only its phase in a second)
 	// the money texts of the paying buildings (GameClient/FloatingText.h), fed from the economy's income log
 	void updateFloatingText(const TacticalView &view, bool shroudDrawn);
 	FloatingTextList m_floatingText;

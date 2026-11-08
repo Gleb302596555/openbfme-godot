@@ -245,7 +245,7 @@ bool CommandTranslator::selectionCanAttack()
 	return false;
 }
 
-void CommandTranslator::hint(const char *cursor)
+void CommandTranslator::hint(const char *cursor, bool moveHint)
 {
 	// lane BUILD-5: RotWK's createCommandHint (RW 0x6A3B77). In the default mouse mode the hint's cursor goes through RW 0x69BD53 (no change while selecting
 	// or scrolling); while a building waits for its site (mode 1, RW 0x6A3E0F) only the move hints (types 0xBD / 0xBE / 0x432: Move, AttackMove) show Build
@@ -277,6 +277,30 @@ void CommandTranslator::hint(const char *cursor)
 		if (!contextBranch && pending->m_radiusCursor.empty())
 		{
 			m_ctx.ui.hintCursor(pending->m_cursorName.empty() ? std::string(MouseCursorName::Target) : pending->m_cursorName);
+			return;
+		}
+	}
+	// P-9 lines: RW 0x6A3E4B .. 0x6A3F26, before the hint's own cursor (jump table RW 0x6A4099): for the move / attack move hints 0xBD / 0xBE, the selected
+	// drawables' objects (InGameUI vslot 0x124, Drawable + 0xFC -> Object + 0x74), the terrain point under the pointer (TheTacticalView vslot 0x168 at
+	// TheMouse + 0x4F0C) and the local player's order mode (+ 0x770) go to TheAiOrdersManager's loop question (RW 0x756E90); an order there gives the
+	// Patrol cursor (55). INFERENCE: the port skips the question when the pointer is off the terrain (retail reads the point the call leaves)
+	if (moveHint && m_ctx.ui.mouseMode() == 0)
+	{
+		std::vector<ObjectID> ids;
+		for (ObjectID id : m_ctx.ui.selected())
+		{
+			if (m_ctx.logic.findObjectByID(id))
+			{
+				ids.push_back(id);
+			}
+		}
+		const Player *local = m_ctx.localPlayer();
+		const AIWorld *world = m_ctx.logic.aiWorld();
+		Coord3D ground{};
+		if (!ids.empty() && local && world && m_ctx.view.screenToTerrain(m_mousePixel, m_ctx.logic, ground)
+			&& world->ordersManager().loopHintOrder(m_ctx.logic, ground, local->orderMode(), ids))
+		{
+			m_ctx.ui.hintCursor(MouseCursorName::Patrol); // RW 0x6A3F15 -> RW 0x69BD53
 			return;
 		}
 	}
@@ -621,7 +645,7 @@ int CommandTranslator::evaluateContextCommand(Object *obj, const Coord3D *pos, E
 			msgType = m_teamExists ? (m_ctx.ui.isInAttackMoveToMode() ? MSG_DO_ATTACKMOVETO : MSG_DO_MOVETO) : 0;
 			if (msgType != 0)
 			{
-				hint(msgType == MSG_DO_ATTACKMOVETO ? MouseCursorName::AttackMove : MouseCursorName::Move);
+				hint(msgType == MSG_DO_ATTACKMOVETO ? MouseCursorName::AttackMove : MouseCursorName::Move, true);
 			}
 		}
 		else
@@ -1043,6 +1067,7 @@ MessageDisposition CommandTranslator::translate(const ClientMessage &msg)
 			m_rightDragged = false;
 			break;
 		case CMSG_RAW_MOUSE_POSITION:
+			m_mousePixel = msg.arg(0).pixel;
 			if (m_ctx.mouse.isDragging(m_rightAnchor, msg.arg(0).pixel))
 			{
 				m_rightDragged = true;

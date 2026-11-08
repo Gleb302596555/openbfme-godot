@@ -18,6 +18,8 @@
 #include "GameClient/TacticalCamera.h"
 #include "GameLogic/GameLogicDispatch.h"
 #include "GameLogic/GameMessage.h"
+#include "GameClient/OrderLines.h"
+#include "GameClient/SegLineGeometry.h"
 #include "GameLogic/AI/AIGroup.h"
 #include "GameLogic/AI/AIGroupOrders.h"
 #include "GameLogic/AI/AIOrdersManager.h"
@@ -30,6 +32,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
+#include <list>
 
 using namespace hudtest;
 
@@ -1353,4 +1357,280 @@ TEST_CASE("backlog3 binary facts: no code sets InGameUI's force-attack mode (+ 0
 	// + 0x8C4 (S-454): the constructor's clear only; the LookAt tick's clamp tests it (RW 0x83B75E: cmp byte ptr [eax + 0x8C4], 0)
 	CHECK(stores(0x8C4) == Stores{ { 0x6A7234, 0x88 } });
 	CHECK(pe->hex(0x83B75E, 7) == "80b8c408000000");
+}
+
+// ---- P-9 lines: the order lines (GameClient/OrderLines.h, RotWK RW 0x4E013B / 0x4DFE69 / 0x4DFDB3 / 0x69B1C3) --------------------------------------
+namespace
+{
+bool samePoint(const Coord3D &a, const Coord3D &b)
+{
+	return a.x == b.x && a.y == b.y && a.z == b.z;
+}
+} // namespace
+
+TEST_CASE("P-9 lines: Alt shows the selected unit's queue as one line from the unit through every destination with a marker at each; no Alt, no line "
+	"(RW 0x69B1C3, 0x4DFE69, 0x4DFDB3)")
+{
+	if (!haveWorld("P-9 lines queue")) return;
+	SharedWorld &s = shared();
+	Rig r(s);
+	const Coord3D c = r.freeSpot(mapCenter(r).x, mapCenter(r).y, 260.0f);
+	Object *unit = r.make(templates(s).infantry.front(), c.x, c.y);
+	REQUIRE(unit->getAIUpdateInterface() != nullptr);
+	AIOrdersManager &manager = r.logic().aiWorld()->ordersManager();
+	const ObjectID id = unit->getID();
+	const Coord3D wp1{ c.x + 80.0f, c.y, 0.0f }, wp2{ c.x + 160.0f, c.y + 60.0f, 0.0f }, wp3{ c.x + 200.0f, c.y - 40.0f, 0.0f };
+	manager.submit(0, std::make_unique<MoveToGroupOrder>(r.logic(), std::vector<ObjectID>{ id }, wp1, false));
+	manager.submit(1, std::make_unique<MoveToGroupOrder>(r.logic(), std::vector<ObjectID>{ id }, wp2, false));
+	manager.submit(1, std::make_unique<MoveToGroupOrder>(r.logic(), std::vector<ObjectID>{ id }, wp3, false));
+	REQUIRE(manager.queue(id)->orders().size() == 3);
+
+	OrderLines lines;
+	OrderLinesFrame f;
+	// without Alt the local player's order mode is 0 (RW 0x69B1F7): nothing is drawn (RW 0x4E015B)
+	REQUIRE(r.local->orderMode() == 0);
+	lines.build(r.logic(), { id }, INVALID_ID, 250, f);
+	CHECK(f.mode == 0);
+	CHECK(f.strips.empty());
+	CHECK(f.markers.empty());
+
+	// Alt held: CommandMap's ORDERMODE_WAYPOINT sets the order mode 1 (RW 0x6AAC78), the lines' mode follows (RW 0x69B1EC)
+	r.setModifier(KEY_LALT, KEY_STATE_LALT, true);
+	r.frame(1);
+	REQUIRE(r.local->orderMode() == 1);
+	const Coord3D start = *unit->getPosition();
+	lines.build(r.logic(), { id }, INVALID_ID, 250, f);
+	CHECK(f.mode == 1);
+	REQUIRE(f.strips.size() == 1);
+	const OrderLineStrip &st = f.strips.front();
+	CHECK(st.style == 0);         // the line + 4: EXLaser, colour A
+	CHECK(st.width == 1.5f);      // RW 0xBDE8C8
+	CHECK(st.opacity == 1.0f);
+	CHECK(st.tileFactor == 4.0f); // RW 0xBD88C0
+	REQUIRE(st.points.size() == 4);
+	CHECK(samePoint(st.points[0], start)); // the object's position (+ 0x38), RW 0x4DFEAC
+	CHECK(samePoint(st.points[1], wp1));   // MoveToGroupOrder vslot 0x20: the destination (RW 0x94DA6C)
+	CHECK(samePoint(st.points[2], wp2));
+	CHECK(samePoint(st.points[3], wp3));
+	REQUIRE(f.markers.size() == 3); // SCMoveHintSml at every order's point (RW 0x4E007E)
+	CHECK(samePoint(f.markers[2].pos, wp3));
+	const float v250 = 1.0f - 250.0f * 0.001f; // 1 - (250 % 1000) * 0.001 (RW 0x4E0175 .. 0x4E01A4), in float as the renderer
+	CHECK(f.runningV == v250 - std::floor(v250));
+	CHECK(f.runningU == 0.0f);
+	// with the renderer's advance: 1000 ms at 0.001 * 0.001 per ms (RW 0x55E0F0) adds 0.001 to both
+	lines.build(r.logic(), { id }, INVALID_ID, 250, f, 1000);
+	const float adv = 0.001f * 0.001f * 1000.0f; // RW 0xBD88A0 * RW 0x55E105 per ms, 1000 ms
+	CHECK(f.runningU == adv);
+	CHECK(f.runningV == (v250 + adv) - std::floor(v250 + adv));
+
+	// Alt released: the mode is 0 again and nothing is drawn
+	r.setModifier(KEY_LALT, KEY_STATE_LALT, false);
+	r.frame(1);
+	lines.build(r.logic(), { id }, INVALID_ID, 250, f);
+	CHECK(f.mode == 0);
+	CHECK(f.strips.empty());
+}
+
+TEST_CASE("P-9 lines: a group's shared segments are drawn once, the hovered own unit's line is 3 wide, an attack's point follows its target and keeps the "
+	"last one seen (RW 0x4E0016, 0x4E02CD, 0x94D93F)")
+{
+	if (!haveWorld("P-9 lines group")) return;
+	SharedWorld &s = shared();
+	Rig r(s);
+	const Coord3D c = r.freeSpot(mapCenter(r).x, mapCenter(r).y, 260.0f);
+	Object *a = r.make(templates(s).infantry.front(), c.x, c.y);
+	Object *b = r.make(templates(s).infantry.front(), c.x - 40.0f, c.y);
+	REQUIRE(a->getAIUpdateInterface() != nullptr);
+	REQUIRE(b->getAIUpdateInterface() != nullptr);
+	AIOrdersManager &manager = r.logic().aiWorld()->ordersManager();
+	r.local->setOrderMode(1); // the Alt key's effect (the previous case drives the key itself)
+	const std::vector<ObjectID> both{ a->getID(), b->getID() };
+	const Coord3D wp1{ c.x + 80.0f, c.y, 0.0f }, wp2{ c.x + 160.0f, c.y + 60.0f, 0.0f };
+	manager.submit(0, std::make_unique<MoveToGroupOrder>(r.logic(), both, wp1, false));
+	manager.submit(1, std::make_unique<MoveToGroupOrder>(r.logic(), both, wp2, false));
+
+	OrderLines lines;
+	OrderLinesFrame f;
+	// both selected: a draws a -> wp1 -> wp2; b only b -> wp1, the pair (order 1, order 2) was met in this frame (RW 0x4E0016 -> flush, RW 0x4E0045 clear)
+	lines.build(r.logic(), both, INVALID_ID, 0, f);
+	REQUIRE(f.strips.size() == 2);
+	CHECK(f.strips[0].points.size() == 3);
+	REQUIRE(f.strips[1].points.size() == 2);
+	CHECK(samePoint(f.strips[1].points[0], *b->getPosition()));
+	CHECK(samePoint(f.strips[1].points[1], wp1));
+	CHECK(f.runningV == 0.0f); // 1 - 0 is kept to its fraction
+
+	// the hovered own unit (InGameUI vslot 0x174) at width 3 (RW 0xBDD42C), nothing selected
+	lines.build(r.logic(), {}, a->getID(), 0, f);
+	REQUIRE(f.strips.size() == 1);
+	CHECK(f.strips[0].width == 3.0f);
+
+	// an attack queued after the moves: its point is the target's position (RW 0x94D945 .. 0x94D95E); the enemy under the cursor adds no line
+	// (RW 0x4E02AE: the local player must control the hovered object)
+	Object *enemy = r.make(templates(s).infantry.front(), c.x + 220.0f, c.y + 20.0f, r.game->players().findPlayerWithName("Player_2"));
+	REQUIRE(enemy != nullptr);
+	REQUIRE(enemy->getControllingPlayer() != r.local);
+	const ObjectID enemyId = enemy->getID();
+	manager.submit(1, std::make_unique<AttackObjectGroupOrder>(r.logic(), std::vector<ObjectID>{ a->getID() }, enemyId));
+	lines.build(r.logic(), { a->getID() }, enemyId, 0, f);
+	REQUIRE(f.strips.size() == 1);
+	REQUIRE(f.strips[0].points.size() == 4);
+	const Coord3D seen = *enemy->getPosition();
+	CHECK(samePoint(f.strips[0].points[3], seen));
+	// the target gone: the point stays where the target was last seen (the order's cache, RW 0x94D961), not the constructor's zero (RW 0x94D7BD)
+	r.logic().destroyObject(enemy);
+	r.frame(1);
+	REQUIRE(r.logic().findObjectByID(enemyId) == nullptr);
+	lines.build(r.logic(), { a->getID() }, INVALID_ID, 0, f);
+	REQUIRE(f.strips.size() == 1);
+	CHECK(samePoint(f.strips[0].points.back(), seen));
+}
+
+TEST_CASE("P-9 lines: a patrol loop switches to the running line at the patrol start (RW 0x4DFF9E .. 0x4DFFB3)")
+{
+	if (!haveWorld("P-9 lines patrol")) return;
+	SharedWorld &s = shared();
+	Rig r(s);
+	const Coord3D c = r.freeSpot(mapCenter(r).x, mapCenter(r).y, 260.0f);
+	Object *unit = r.make(templates(s).infantry.front(), c.x, c.y);
+	REQUIRE(unit->getAIUpdateInterface() != nullptr);
+	AIOrdersManager &manager = r.logic().aiWorld()->ordersManager();
+	const ObjectID id = unit->getID();
+	r.local->setOrderMode(1);
+	const Coord3D wp1{ c.x + 80.0f, c.y, 0.0f }, wp2{ c.x + 160.0f, c.y + 60.0f, 0.0f };
+	AIGroup g1(r.logic(), { id });
+	g1.planningMoveToPosition(wp1, false, 0);
+	AIGroup g2(r.logic(), { id });
+	g2.planningMoveToPosition(wp2, false, 1);
+	AIGroup g3(r.logic(), { id });
+	g3.planningMoveToPosition(wp1, false, 1); // back to the first: setPatrolStartIfLoop (RW 0x7571A7)
+	REQUIRE(manager.queue(id)->patrolStart() == manager.queue(id)->orders().front());
+
+	OrderLines lines;
+	OrderLinesFrame f;
+	lines.build(r.logic(), { id }, INVALID_ID, 0, f);
+	// the first order is the patrol start: the line so far (the unit alone) is not drawn, the rest is style 2 (the line + 0xC: EXLaser2, running)
+	REQUIRE(f.strips.size() == 1);
+	CHECK(f.strips[0].style == 2);
+	REQUIRE(f.strips[0].points.size() == 4);
+	CHECK(samePoint(f.strips[0].points[0], *unit->getPosition()));
+	CHECK(samePoint(f.strips[0].points[1], wp1));
+	CHECK(samePoint(f.strips[0].points[2], wp2));
+	CHECK(samePoint(f.strips[0].points[3], wp1));
+}
+
+TEST_CASE("P-9 lines segline: WW3D's SegmentedLine geometry: a straight line is one quad of the width turned to the camera, TILED V by point index, "
+	"the UV offset added; a bend joins its edges at one shared pair of vertices (seglinerenderer Render)")
+{
+	SegLineSettings s;
+	s.width = 1.5f;
+	s.color[0] = 0.96f;
+	s.color[1] = 0.77f;
+	s.color[2] = 0.47f;
+	s.opacity = 1.0f;
+	s.tileFactor = 4.0f;
+	s.mapMode = SegLineSettings::TILED;
+	s.uvOffset[1] = 0.25f;
+	// a horizontal line 10 in front of the camera (camera space, -Z ahead)
+	SegLineMesh m;
+	SegLineGeometry::build({ { 0, 0, -10 }, { 10, 0, -10 } }, s, m);
+	REQUIRE(m.vertices.size() == 4);
+	REQUIRE(m.indices.size() == 6);
+	// top / bottom are the width apart, across the line and the view (the ribbon faces the camera)
+	CHECK(std::fabs(m.vertices[0].y - m.vertices[1].y) == doctest::Approx(1.5f).epsilon(0.01)); // tolerance: the edges come from float plane intersections (x87 in retail), not one exact sum
+	CHECK(m.vertices[0].x == doctest::Approx(0.0f).epsilon(0.001)); // tolerance: float plane intersection
+	CHECK(m.vertices[2].x == doctest::Approx(10.0f).epsilon(0.001)); // tolerance: float plane intersection
+	CHECK(m.vertices[0].z == doctest::Approx(-10.0f).epsilon(0.01)); // tolerance: float plane intersection
+	// U 0 / 1 across, V = point index * 4 + the offset
+	CHECK(m.u[0] == 0.0f);
+	CHECK(m.u[1] == 1.0f);
+	CHECK(m.v[0] == 0.25f);
+	CHECK(m.v[2] == 4.25f);
+	// the vertex colour is (Color, Opacity) (subdivision_util without per-point colours)
+	CHECK(m.rgba[0] == 0.96f);
+	CHECK(m.rgba[3] == 1.0f);
+
+	// a right-angle bend: the middle point is one pair of vertices where both segments' edges meet (no gap, no overlap): 6 vertices, 4 triangles
+	SegLineMesh b;
+	SegLineGeometry::build({ { 0, 0, -10 }, { 10, 0, -10 }, { 10, 10, -10 } }, s, b);
+	CHECK(b.vertices.size() == 6);
+	CHECK(b.indices.size() == 12);
+	// the outer corner's vertex lies beyond both segments' edges (the miter), the inner one inside
+	float maxX = -1e9f, minY = 1e9f;
+	for (const SegLineVec3 &v : b.vertices)
+	{
+		maxX = std::max(maxX, v.x);
+		minY = std::min(minY, v.y);
+	}
+	CHECK(maxX > 10.5f); // tolerance: the miter corner lies beyond the half width (0.75) past the bend; its exact place is a float intersection
+	CHECK(minY < -0.5f); // tolerance: the outer edge lies below the line by about the half width (0.75)
+}
+
+TEST_CASE("P-9 lines patrol cursor: with Alt, the pointer on a queued destination whose next order holds the whole selection, or on the unit itself, "
+	"shows Patrol; elsewhere, on the last destination or without Alt the move hint keeps Move (RW 0x6A3E4B .. 0x6A3F26, RW 0x756E90)")
+{
+	if (!haveWorld("P-9 lines patrol cursor")) return;
+	SharedWorld &s = shared();
+	Rig r(s);
+	const Coord3D c = r.freeSpot(mapCenter(r).x, mapCenter(r).y, 300.0f);
+	Object *unit = r.make(templates(s).infantry.front(), c.x, c.y);
+	REQUIRE(unit->getAIUpdateInterface() != nullptr);
+	const ObjectID id = unit->getID();
+	r.lookAt({ c.x + 60.0f, c.y, 0.0f }, 420.0f, 520.0f);
+	r.frame(2);
+	const ICoord2D pu = r.screenOf({ unit->getPosition()->x, unit->getPosition()->y, unit->getPosition()->z + 6.0f });
+	r.leftDrag(pu.x - 30, pu.y - 30, pu.x + 30, pu.y + 30);
+	r.frame(1);
+	REQUIRE(r.local->selection() == std::vector<ObjectID>{ id });
+
+	// the destinations are the terrain points under three pixels, so the pointer on a pixel is on its destination exactly
+	auto groundAt = [&](const ICoord2D &px) {
+		Coord3D g{};
+		REQUIRE(r.view.screenToTerrain(px, r.logic(), g));
+		return g;
+	};
+	const Coord3D at = *unit->getPosition();
+	const ICoord2D p1 = r.screenOf({ at.x + 90.0f, at.y, at.z }), p2 = r.screenOf({ at.x + 160.0f, at.y + 60.0f, at.z }),
+				   p3 = r.screenOf({ at.x + 200.0f, at.y - 50.0f, at.z }), pFar = r.screenOf({ at.x + 120.0f, at.y - 140.0f, at.z });
+	const Coord3D wp1 = groundAt(p1), wp2 = groundAt(p2), wp3 = groundAt(p3), far = groundAt(pFar);
+	AIOrdersManager &manager = r.logic().aiWorld()->ordersManager();
+	manager.submit(0, std::make_unique<MoveToGroupOrder>(r.logic(), std::vector<ObjectID>{ id }, wp1, false));
+	manager.submit(1, std::make_unique<MoveToGroupOrder>(r.logic(), std::vector<ObjectID>{ id }, wp2, false));
+	manager.submit(1, std::make_unique<MoveToGroupOrder>(r.logic(), std::vector<ObjectID>{ id }, wp3, false));
+	const std::list<AIOrdersManager::OrderId> ids(manager.queue(id)->orders().begin(), manager.queue(id)->orders().end());
+	REQUIRE(ids.size() == 3);
+	const AIOrdersManager::GroupOrder *o1 = manager.order(ids.front()), *o2 = manager.order(*std::next(ids.begin())),
+									  *o3 = manager.order(ids.back());
+
+	// the question itself (RW 0x756E90)
+	const Coord3D here = *unit->getPosition();
+	CHECK(manager.loopHintOrder(r.logic(), wp1, 0, { id }) == nullptr); // order mode 0: never (RW 0x756E95)
+	CHECK(manager.loopHintOrder(r.logic(), here, 1, { id }) == o1);     // on the unit (within 200 squared, RW 0x7569BD): its first order
+	CHECK(manager.loopHintOrder(r.logic(), wp1, 1, { id }) == o2);      // on a destination: the order after it (RW 0x94E9E8)
+	CHECK(manager.loopHintOrder(r.logic(), wp2, 1, { id }) == o3);
+	CHECK(manager.loopHintOrder(r.logic(), wp3, 1, { id }) == nullptr); // the last order has none after it (RW 0x94EA19)
+	CHECK(manager.loopHintOrder(r.logic(), far, 1, { id }) == nullptr);
+	// a selection the next order does not hold entirely: no loop (RW 0x94F0A4)
+	Object *other = r.make(templates(s).infantry.front(), c.x - 60.0f, c.y - 60.0f);
+	CHECK(manager.loopHintOrder(r.logic(), wp1, 1, { id, other->getID() }) == nullptr);
+
+	// the cursor: Alt held is order mode 1 (RW 0x6AAC78)
+	r.setModifier(KEY_LALT, KEY_STATE_LALT, true);
+	r.frame(1);
+	REQUIRE(r.local->orderMode() == 1);
+	REQUIRE(manager.queue(id)->orders().size() == 3);
+	r.move(p1.x, p1.y);
+	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Patrol)); // RW 0x6A3F15
+	r.move(p2.x, p2.y);
+	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Patrol));
+	r.move(p3.x, p3.y);
+	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Move)); // the last destination: the move hint's own cursor (RW 0x6A3F63)
+	r.move(pFar.x, pFar.y);
+	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Move));
+	// Alt released: order mode 0, the same pixel is a plain move
+	r.setModifier(KEY_LALT, KEY_STATE_LALT, false);
+	r.frame(1);
+	REQUIRE(r.local->orderMode() == 0);
+	r.move(p1.x, p1.y);
+	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Move));
 }
