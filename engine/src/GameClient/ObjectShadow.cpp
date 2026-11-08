@@ -141,7 +141,7 @@ bool resolveDecalShadow(const ThingTemplate *tt, const W3DModelDrawModuleData *m
 	return true;
 }
 
-bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, const std::function<void(float &, float &)> &fallbackSize)
+bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, bool useShadowDecals, const std::function<void(float &, float &)> &fallbackSize)
 {
 	// TOP20 #24, RW 0x672D28: shadowsEnabled false when dead with SlowDeathBehavior/ShadowWhenDead = No
 	if (!drawable.shadowsEnabled())
@@ -169,6 +169,12 @@ bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, con
 
 	DecalShadowDescriptor desc;
 	if (!resolveDecalShadow(drawable.getTemplate(), moduleData, state, desc))
+	{
+		return false;
+	}
+	// RW 0x50BF7B .. 0x50BF8E: addShadow makes no decal shadow unless [RW 0xDE4364] + 0x61 (UseShadowDecals) or the shadow's + 0x24
+	// (ShadowOverrideLODVisibility, template + 0x5FD, RW 0x4C5050)
+	if (!useShadowDecals && !desc.overrideLODVisibility)
 	{
 		return false;
 	}

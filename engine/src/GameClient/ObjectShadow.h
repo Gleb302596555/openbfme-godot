@@ -82,7 +82,9 @@ inline bool castsMap(const ThingTemplate *object, const W3DModelDrawModuleData *
 // Resolves decal shadow descriptor from template, module data, and condition state (RW 0x4C4EE0..0x4C5175)
 bool resolveDecalShadow(const ThingTemplate *tt, const W3DModelDrawModuleData *module, const ModelConditionInfo *state, DecalShadowDescriptor &out);
 
-// Builds SelectionDecal for a live Drawable (respecting TOP20 #24 shadowsEnabled, shroud/stealth, rotation, house color)
-bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, const std::function<void(float &, float &)> &fallbackSize = nullptr);
+// Builds SelectionDecal for a live Drawable (respecting TOP20 #24 shadowsEnabled, shroud/stealth, rotation, house color). useShadowDecals is
+// TheGlobalData + 0x61 (UseShadowDecals after the static LOD apply, RW 0x601C62: cleared when UseShadowMapping is set): addShadow's gate RW 0x50BF7B
+bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, bool useShadowDecals,
+	const std::function<void(float &, float &)> &fallbackSize = nullptr);
 
 } // namespace ObjectShadow

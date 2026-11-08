@@ -248,7 +248,7 @@ TEST_CASE("LOCAL-14 dead unit shadow switch-off (RW 0x672D28, TOP20 #24)")
 	SelectionDecal sd;
 	// 1. Alive: shadowsEnabled == true -> decal shadow built
 	CHECK(d.shadowsEnabled());
-	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd));
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true));
 	CHECK(sd.object == (ObjectID)10);
 	CHECK(sd.drawable == 1u);
 	CHECK(sd.position.x == 100.0f);
@@ -264,13 +264,46 @@ TEST_CASE("LOCAL-14 dead unit shadow switch-off (RW 0x672D28, TOP20 #24)")
 	d.setShadowsEnabled(false);
 	CHECK_FALSE(d.shadowsEnabled());
 	SelectionDecal sdDead;
-	CHECK_FALSE(ObjectShadow::buildDrawableDecalShadow(d, sdDead));
+	CHECK_FALSE(ObjectShadow::buildDrawableDecalShadow(d, sdDead, true));
 
 	// 3. Client hidden: clientHidden == true -> no shadow
 	d.setShadowsEnabled(true);
 	d.setClientHidden(true);
 	SelectionDecal sdHidden;
-	CHECK_FALSE(ObjectShadow::buildDrawableDecalShadow(d, sdHidden));
+	CHECK_FALSE(ObjectShadow::buildDrawableDecalShadow(d, sdHidden, true));
+
+	// 4. Review of Local 14: addShadow's gate (RW 0x50BF7B .. 0x50BF8E): with UseShadowDecals off (GlobalData + 0x61, cleared by UseShadowMapping at
+	// High / UltraHigh, RW 0x601C62) a shadow without ShadowOverrideLODVisibility is not made
+	d.setClientHidden(false);
+	SelectionDecal sdOff;
+	CHECK_FALSE(ObjectShadow::buildDrawableDecalShadow(d, sdOff, false));
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sdOff, true));
+}
+
+TEST_CASE("LOCAL-14 review: ShadowOverrideLODVisibility keeps a decal shadow with UseShadowDecals off (RW 0x50BF86, template + 0x5FD)")
+{
+	objtest::World w;
+	const std::string ini =
+		"Object ShadowOverride\n"
+		"  Shadow = SHADOW_DECAL\n"
+		"  ShadowTexture = shadowi\n"
+		"  ShadowSizeX = 20\n"
+		"  ShadowSizeY = 20\n"
+		"  ShadowOverrideLODVisibility = Yes\n"
+		"End\n";
+	REQUIRE(w.load(ini).empty());
+	const ThingTemplate *tt = w.get("ShadowOverride");
+	REQUIRE(tt != nullptr);
+	w3dsynth::MemoryFileSource fs;
+	WW3DAssetManager assets(fs);
+	W3DLuaDrawScriptHost::Options hostOpt;
+	DrawServices services(assets, w.modules, hostOpt);
+	std::vector<std::string> problems;
+	Drawable d(services, tt, (DrawableID)1, (ObjectID)10, {}, problems);
+	const Coord3D pos{ 100.0f, 200.0f, 10.0f };
+	d.setPosition(&pos);
+	SelectionDecal sd;
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, false));
 }
 
 TEST_CASE("LOCAL-14 multiplicative decal blend arithmetic (RW 0x509A70)")
