@@ -464,5 +464,25 @@ std::vector<std::string> ExperienceLevelSystem::stopLines() const
 		" scalar tables; load type 5 (RW 0x68AA8F) is not ported; " + std::to_string(m_duplicates) +
 		" duplicate level names, " + std::to_string(m_ambiguous) + " of them with a different RequiredExperience (RW 0x689BB3 answers those in hash map order; the store uses the first definition); " + std::to_string(skipped) +
 		" Upgrades names that are not upgrades (skipped like RW 0x6897B9)");
+	// lane PORT-44 (issue #148): the level-up tint is parsed and copied, and read by nobody. Its seven fields lie at +0xD8 (ShowLevelUpTint), +0xDC
+	// (LevelUpTintColor, three floats) and +0xE8 / +0xEC / +0xF0 / +0xF4 / +0xF8 (the three times, Frequency, Amplitude); the only code in game.dat that
+	// touches them on one ExperienceLevelTemplate is the constructor RW 0x689AE1 (zeroing) and the copy RW 0x689FEA (the map.ini override's copy of the final
+	// template), which reads +0xD8 / +0xE8 / +0xEC / +0xF0 / +0xF4 / +0xF8 only to write them back. A level gained goes through checkLevels RW 0x79D141 ->
+	// onLevelReached RW 0x79DA9D (the delayed grant, the selection decal RW 0x79DACD, the name, setRank RW 0x79D72A) and the grant RW 0x821319 (attribute
+	// modifiers, upgrades, LevelUpFx / LevelUpOCL RW 0x8211EC, the LEVELED model condition RW 0x8213DB, the level's own model conditions, InformUpdateModule,
+	// the emotion RW 0x68F37F) - none of them reads a tint field, so no colour flash is started (the port reports that rather than inventing one).
+	unsigned tinted = 0;
+	for (const std::unique_ptr<ExperienceLevelTemplate> &l : m_levels)
+	{
+		if (l->m_showLevelUpTint)
+		{
+			++tinted;
+		}
+	}
+	out.push_back("[S-7186] ExperienceLevel level-up tint: " + std::to_string(tinted) + " of " + std::to_string(m_levels.size()) +
+		" levels say ShowLevelUpTint = Yes; ShowLevelUpTint (+0xD8), LevelUpTintColor (+0xDC), LevelUpTintPreColorTime (+0xE8), LevelUpTintPostColorTime "
+		"(+0xEC), LevelUpTintSustainColorTime (+0xF0), LevelUpTintFrequency (+0xF4) and LevelUpTintAmplitude (+0xF8) are parsed and copied (constructor "
+		"RW 0x689AE1, copy RW 0x689FEA) and read by no code of game.dat, so a level gained starts no colour tint (RW shows LEVELED for 3 s, RW 0x8213DB, and "
+		"the level's selection decal, RW 0x79DACD)");
 	return out;
 }
