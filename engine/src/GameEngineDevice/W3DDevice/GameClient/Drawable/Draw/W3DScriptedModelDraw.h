@@ -41,8 +41,9 @@
 //          default; the initial client seed; the horde draw level global at RW 0xDE3B84+0x1788.
 //   S-095  FXEvent / ParticleSysBone playback, EnteringStateFX (logged), the distance sync for objects whose speed comes from a
 //          container (RW 0x693A1A), the weapon timing source (a callback in the options).
-//   S-096  the camera distance fade (AlphaCameraFade*), BirthFadeTime and StaticSortLevelWhileFading are not applied; the per
-//          animation FadeBeginFrame/FadeEndFrame opacity is.
+//   S-096  BirthFadeTime and StaticSortLevelWhileFading are not applied; the camera distance fade (AlphaCameraFade*, PORT-49,
+//          RW 0x4B52C8) and the per animation FadeBeginFrame/FadeEndFrame opacity are. A camera fade without a device camera
+//          source (Options::cameraFadeAvailable false) is still reported.
 //   S-097  the pose that supplies the pristine bone positions (see W3DModelDrawBones.h).
 //   S-098  how hidden sub objects carry over when the render object is recreated (RetainSubObjects), and the sub object name match.
 
@@ -153,6 +154,9 @@ struct W3DScriptedModelDrawOptions
 	// The drawable's model variation (drawable + 0x364, RW 0x679FEA): an object's drawable gets its creation draw GetGameLogicRandomValue(1, 999)
 	// (RW 0x6288A5 -> 0x6288D3), the other drawables -1 (placement ghosts RW 0x69C6A6). It picks the RandomTexture swaps (RW 0x4C238A).
 	int variation = -1;
+	// PORT-49: true when the device layer installed DrawServices::cameraPosition before this draw was made. The camera distance
+	// fade (RW 0x4B52C8) needs that source; without it the core reports S-096 instead of silently leaving the fields unused.
+	bool cameraFadeAvailable = false;
 };
 
 class W3DScriptedModelDraw : public W3DDrawScriptApi
@@ -177,6 +181,13 @@ public:
 	// Advances the animations by `elapsedMs` of render time (RW 0x4BF560). Call it once per render frame; logic frames (5 per second)
 	// only change the flags.
 	void advance(double elapsedMs);
+	// PORT-49: the camera distance fade of the draw path (RW 0x4B52C8..0x4B5494, called by RW 0x4BF586 before the tracks step).
+	// `camera` is the tactical view eye (RW 0xDE447C vslot 0x11C -> 0x487668 -> 0x53B370), `drawable` the drawn position
+	// (RW 0x676711); only XY is read. `effectsLOD` is TheGameLODManager +0x1778 (RW 0xDE3B84, consumer 0x4B5405..0x4B5433);
+	// -1 models the global-null branch. Writes the same opacity / hidden state frame() reports; the animation fade may overwrite it.
+	void updateCameraFade(const Coord3D &camera, const Coord3D &drawable, int effectsLOD);
+	float opacity() const { return m_opacity; }
+	bool hiddenByFade() const { return m_hiddenByFade; }
 	// lane PERF-HD: advance() will only step this draw's own tracks, fade and speed (no state selection, no script): a looping track 0 alone, nothing
 	// pending. Such a draw may advance on the client job pool
 	// lane PERF-HD: how far (in frames) this draw's pose may stray from its horde group's to be drawn with it (W3DHordeModelDraw: its LodOptions

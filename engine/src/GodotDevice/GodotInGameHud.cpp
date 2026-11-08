@@ -1233,6 +1233,10 @@ void HudDevice::applyCamera(const Vector2 &window, double alpha)
 	shown.cam = cam.get();
 	shown.present((int)window.x, (int)window.y, alpha);
 	const Coord3D eyeS = shown.eye(), targetS = shown.PinholeView::position();
+	if (world)
+	{
+		world->setCameraFadeEye(eyeS); // PORT-49: the model draws' camera distance fade reads the displayed eye (RW 0x4B5301)
+	}
 	const Vector3 eye = toGodotAxes(eyeS);
 	const Vector3 target = toGodotAxes(targetS);
 	// retail: horizontal field of view 50 degrees (View + 0x6C), near 10, far 1800 (RW 0x48B7B1); the view plane's height follows the viewport aspect.

@@ -92,9 +92,14 @@ void W3DScriptedModelDraw::initializeState()
 	{
 		m_randomTextureSwaps = m_data.pickRandomTextures(m_options.variation, maxRandomTextures());
 	}
-	if (m_data.m_alphaCameraFadeOuterRadius > 0.0f || m_data.m_birthFadeTime != 0 || m_data.m_staticSortLevelWhileFading != -1)
+	const bool cameraFadeSet = m_data.m_alphaCameraFadeOuterRadius > 0.0f || m_data.m_alphaCameraFadeInnerRadius > 0.0f || m_data.m_alphaCameraAtInnerRadius < 1.0f;
+	if (m_data.m_birthFadeTime != 0 || m_data.m_staticSortLevelWhileFading != -1)
 	{
-		stop("S-096", "the module sets AlphaCameraFade* / BirthFadeTime / StaticSortLevelWhileFading; the camera distance fade and the birth fade are not applied");
+		stop("S-096", "the module sets BirthFadeTime / StaticSortLevelWhileFading; the birth fade and the static-sort write of the camera fade (RW 0x4B5474..0x4B548B) are not applied");
+	}
+	else if (cameraFadeSet && !m_options.cameraFadeAvailable)
+	{
+		stop("S-096", "the module sets AlphaCameraFade* but the core has no camera source; the device layer installs DrawServices::cameraPosition (PORT-49, RW 0x4B52C8)");
 	}
 	if (m_data.m_dependencySharedModelFlags.any())
 	{
@@ -1114,6 +1119,57 @@ void W3DScriptedModelDraw::syncSpeedToMovement()
 	{
 		m_speedSync = naturalMs / desiredMs;
 	}
+}
+
+// PORT-49, TARGET RW 0x4B52C8..0x4B5494 (docs/ennorath/PORT49_RW.md). The consumer runs from the draw path for a model draw
+// with a render object and a current animation state (RW 0x4BF56C / 0x4BF575); the constructor's empty idle state gives a static
+// prop that state. The enable gate draw +0x28D is the constructor's 1 (RW 0x4C0708; setter 0x4783D1 has no caller found in the
+// read path, INFERENCE). The render visible byte / hidden toggle / opacity setter (0x670AF4, vslots 0x194 / 0x5C) become the
+// port's m_hiddenByFade / m_opacity; StaticSortLevelWhileFading's render +0x98 write stays S-096.
+void W3DScriptedModelDraw::updateCameraFade(const Coord3D &camera, const Coord3D &drawable, int effectsLOD)
+{
+	if (!m_model || !m_curAnimState)
+	{
+		return; // RW 0x4BF56C / 0x4BF575
+	}
+	const float atInner = m_data.m_alphaCameraAtInnerRadius;
+	if (1.0f <= atInner)
+	{
+		return; // RW 0x4B52E8..0x4B52FB: the gate is the at-inner alpha, and it writes no opacity
+	}
+	const float dx = camera.x - drawable.x;
+	const float dy = camera.y - drawable.y;
+	const float dist2 = dx * dx + dy * dy; // RW 0x4B532A..0x4B5353: XY only
+	const float outer = m_data.m_alphaCameraFadeOuterRadius;
+	if (dist2 >= outer * outer)
+	{
+		// RW 0x4B5366 falls through to the outer tail: visible, opacity 1 (0x4B5368..0x4B538F)
+		m_opacity = 1.0f;
+		m_hiddenByFade = false;
+		return;
+	}
+	const float inner = m_data.m_alphaCameraFadeInnerRadius;
+	float alpha;
+	if (inner * inner >= dist2)
+	{
+		alpha = atInner; // RW 0x4B53AB..0x4B53C7
+	}
+	else
+	{
+		const float dist = std::sqrt(dist2); // RW 0x4B53CC fsqrt
+		const float span = outer - inner;
+		const float t = dist - inner;
+		alpha = ((span - t) * atInner + t) / span; // RW 0x4B53D1..0x4B5401, no clamp
+	}
+	if (effectsLOD >= 0 && effectsLOD <= 1)
+	{
+		// RW 0x4B5405..0x4B5433: TheGameLODManager +0x1778 <= 1 takes the hidden toggle and the outer tail's opacity 1
+		m_opacity = 1.0f;
+		m_hiddenByFade = true;
+		return;
+	}
+	m_opacity = alpha;
+	m_hiddenByFade = !(alpha > 0.0f); // RW 0x4B5438..0x4B5456 compares with 0.0 (0xC1B594)
 }
 
 void W3DScriptedModelDraw::advance(double elapsedMsD)

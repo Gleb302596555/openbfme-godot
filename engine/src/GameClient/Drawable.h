@@ -38,6 +38,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.h"
 #include "Libraries/WWVegas/WW3D2/assetmgr.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -124,6 +125,11 @@ struct DrawServices
 	W3DLuaDrawScriptHost host; ///< the real Lua of the drawable state (lane LUA-1): BeginScript bodies of every draw module
 	DrawableFXHost *fx = nullptr; ///< lane FX-2 (null: EnteringStateFX and ParticleSysBone stay S-095)
 	AnimationSoundModuleManager *animationSounds = nullptr; ///< lane AUDIO-4: TheAnimationSoundModuleManager of the game's drawables
+	// PORT-49: the tactical view eye for the model draws' camera distance fade (RW 0xDE447C vslot 0x11C -> 0x487668 -> 0x53B370).
+	// The device layer installs it before the map's drawables are made; false / unset: no camera pose yet, the fade does not run.
+	std::function<bool(Coord3D &)> cameraPosition;
+	// PORT-49: TheGameLODManager's EffectsLOD (+0x1778, RW 0xDE3B84; consumer 0x4B5405..0x4B5433). Unset models the global-null branch.
+	std::function<int()> effectsLOD;
 	bool selectionFlashHouseColor = true; ///< lane LOCAL-3: GameData SelectionFlashHouseColor (RW 0xC005E0, GlobalData +0xB58)
 	float selectionFlashSaturationFactor = 0.6f; ///< lane LOCAL-3: GameData SelectionFlashSaturationFactor (RW 0xC005D0, GlobalData +0xB54)
 };
@@ -243,6 +249,8 @@ public:
 	bool hasAnimatedEntry() const;
 	// steps every model draw's animations by `elapsedMs` of render time
 	void advanceAnimation(double elapsedMs);
+	// PORT-49: RW 0x4BF586 runs the camera distance fade for every model draw of the drawable (animated or not) before the tracks step
+	void advanceCameraFade();
 	// lane PERF-HD: every animated draw's advance is advanceIsLocal (and the tires are this drawable's): advanceAnimation touches only this drawable
 	bool advanceIsLocal() const;
 	void advanceAnimationLocal(double elapsedMs); ///< advanceAnimation without the host's chunk name (nothing it runs reports through the host)

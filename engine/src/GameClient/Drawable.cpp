@@ -153,6 +153,7 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 				o.scale = m_scale;
 				o.variation = m_variation; // RandomTexture (RW 0x4C238A)
 				o.buildBones = false; // turrets, barrels and particle bones are not drawn (S-095 / S-097)
+				o.cameraFadeAvailable = static_cast<bool>(services.cameraPosition); // PORT-49: the device camera source is installed before the load
 				// AUDIO-2: Lua CurDrawablePlaySound (RW 0x73529F) plays for this drawable through the installed audio manager
 				const DrawableID drawableId = m_id;
 				o.playSound = [drawableId](const std::string &name) { AudioApi::playSoundForDrawable(name, (std::uint32_t)drawableId); };
@@ -445,8 +446,35 @@ bool Drawable::advanceIsLocal() const
 	return true;
 }
 
+// PORT-49, TARGET RW 0x4B52C8 (called by 0x4BF586 from the draw path): the camera distance fade is not an animation. It runs for
+// every model draw, including a static prop whose only state is the constructor's empty idle, and writes the draw's own opacity /
+// hidden state. The position is the drawable's synced drawn position (RW 0x676711); the port advances before syncTransforms, so it
+// is the pose the previous render frame synced (client presentation only, no simulation state).
+void Drawable::advanceCameraFade()
+{
+	if (!m_services.cameraPosition)
+	{
+		return;
+	}
+	Coord3D camera;
+	if (!m_services.cameraPosition(camera))
+	{
+		return;
+	}
+	const int effectsLOD = m_services.effectsLOD ? m_services.effectsLOD() : -1;
+	const Coord3D &pos = *getPosition();
+	for (DrawEntry &e : m_entries)
+	{
+		if (e.draw)
+		{
+			e.draw->updateCameraFade(camera, pos, effectsLOD);
+		}
+	}
+}
+
 void Drawable::advanceAnimationLocal(double elapsedMs)
 {
+	advanceCameraFade(); // PORT-49: before the tracks, as RW 0x4BF586 precedes the track step
 	for (DrawEntry &e : m_entries)
 	{
 		if (e.draw && e.animated)
@@ -463,6 +491,7 @@ void Drawable::advanceAnimationLocal(double elapsedMs)
 void Drawable::advanceAnimation(double elapsedMs)
 {
 	m_services.host.setChunkName(m_template->getName());
+	advanceCameraFade(); // PORT-49: before the tracks, as RW 0x4BF586 precedes the track step
 	for (DrawEntry &e : m_entries)
 	{
 		if (e.draw && e.animated)
