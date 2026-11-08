@@ -769,7 +769,12 @@ TEST_CASE("LOCAL-6 unit voice: special powers look up UnitSpecificSoundToUse* in
 		REQUIRE(bm);
 		SpecialPowerModule *spmSmite = dynamic_cast<SpecialPowerModule *>(bm);
 		REQUIRE(spmSmite);
+		// the logic's sound requests do not reach r.sink: with no AudioManager installed each one is counted in callsWithoutAudio (review r3: on
+		// f99cd499 the P-23 surrogate requested ModuleSmiteSound here, +1)
+		REQUIRE(AudioApi::current() == nullptr);
+		const std::uint64_t logicSoundsBefore = AudioApi::callsWithoutAudio();
 		spmSmite->triggerFromUpdate(); // RW 0x897183: template initiate sound is empty
+		CHECK(AudioApi::callsWithoutAudio() == logicSoundsBefore);
 
 		// Total sounds played in sink: exactly 1 (from voice), 0 from logic
 		CHECK(r.sink.sounds.size() == 1);
