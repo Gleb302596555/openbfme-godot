@@ -1037,6 +1037,15 @@ void GameLogic::noteGlobalRally(int playerIndex, const Coord3D &position, bool g
 	m_globalRallyNotices.push_back(GlobalRallyNotice{ ++m_globalRallySeq, playerIndex, position, global });
 }
 
+void GameLogic::noteUpgradeComplete(int playerIndex, ObjectID producerID, const UpgradeTemplate *upgrade, const Coord3D &position)
+{
+	if (m_upgradeCompleteNotices.size() >= kUpgradeCompleteNotices)
+	{
+		m_upgradeCompleteNotices.erase(m_upgradeCompleteNotices.begin());
+	}
+	m_upgradeCompleteNotices.push_back(UpgradeCompleteNotice{ ++m_upgradeCompleteSeq, playerIndex, producerID, upgrade, position });
+}
+
 void GameLogic::noteRadarEvent(int type, const Coord3D &position, RadarEventNotice::Source source, int playerIndex)
 {
 	if (m_radarEventNotices.size() >= kRadarEventNotices)
@@ -1064,6 +1073,7 @@ void GameLogic::reset()
 	// ~Object, i.e. std::terminate. INFERENCE: RotWK's GameLogic::reset (RW 0x62D1F0 ..) does not reset TheSkirmishAIManager (RW 0xDE4938) itself;
 	// its order against the object purge was not read. The AI is reset below anyway, so no AI state is lost by resetting it first.
 	m_skirmishAI->reset();
+	m_upgradeCompleteNotices.clear();
 	// ZH GameLogic::reset: every object goes; the scheduler vectors are cleared with their modules' indices
 	m_current = nullptr;
 	while (m_objectHead)

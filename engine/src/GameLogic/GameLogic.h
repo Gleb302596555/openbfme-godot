@@ -91,6 +91,7 @@ class ObjectWeapons; // lane PERF-WS
 struct RGBColor;
 class TerrainLogic;
 class UpgradeTypeTable;
+class UpgradeTemplate;
 class AIWorld;
 class Economy;
 class CombatState;
@@ -619,6 +620,19 @@ public:
 	};
 	void noteGlobalRally(int playerIndex, const Coord3D &position, bool global = true);
 	const std::vector<GlobalRallyNotice> &globalRallyNotices() const { return m_globalRallyNotices; }
+	// Presentation only: an upgrade completed in ProductionUpdate (RW 0x8A2080 .. 0x8A223B).
+	// Consumed by the issuing player's HUD to display the completion message, play sounds, and emit radar event.
+	struct UpgradeCompleteNotice
+	{
+		std::uint32_t seq = 0;
+		int playerIndex = -1;
+		ObjectID producerID = INVALID_ID;
+		const UpgradeTemplate *upgrade = nullptr;
+		Coord3D position{ 0.0f, 0.0f, 0.0f };
+	};
+	static constexpr size_t kUpgradeCompleteNotices = 64;
+	void noteUpgradeComplete(int playerIndex, ObjectID producerID, const UpgradeTemplate *upgrade, const Coord3D &position);
+	const std::vector<UpgradeCompleteNotice> &upgradeCompleteNotices() const { return m_upgradeCompleteNotices; }
 	void noteRadarEvent(int type, const Coord3D &position, RadarEventNotice::Source source, int playerIndex);
 	const std::vector<RadarEventNotice> &radarEventNotices() const { return m_radarEventNotices; }
 
@@ -1066,6 +1080,8 @@ private:
 	std::uint32_t m_beaconSeq = 0;
 	std::vector<GlobalRallyNotice> m_globalRallyNotices;
 	std::uint32_t m_globalRallySeq = 0;
+	std::vector<UpgradeCompleteNotice> m_upgradeCompleteNotices;
+	std::uint32_t m_upgradeCompleteSeq = 0;
 	std::uint32_t m_radarEventSeq = 0;
 	ObjectClientHooks *m_clientHooks = nullptr;
 	ObjectCreatedProc m_objectCreatedProc;
