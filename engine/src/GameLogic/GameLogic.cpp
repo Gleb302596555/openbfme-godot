@@ -1429,6 +1429,11 @@ std::uint32_t GameLogic::hashState(std::vector<StateHashSection> *sections, std:
 		{
 			x.addU32(0xF5A1u); // PORT-16: AIData +0x65 selects the Player AI class (RW 0x6AA4A7)
 		}
+		if (m_settings.supplyCenterSafeRadius != 250.0f)
+		{
+			x.addU32(0x50543136u); // PORT-16: AIData +0x84 changes the safety query (RW 0x8F5254)
+			x.addFloat(m_settings.supplyCenterSafeRadius);
+		}
 	});
 	section("economy", [&](StateHasher &x) { m_economy->crc(x); });
 	section("combat", [&](StateHasher &x) { m_combat->crc(x); });
