@@ -32,6 +32,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <iterator>
+#include <list>
 
 using namespace hudtest;
 
@@ -1562,4 +1564,73 @@ TEST_CASE("P-9 lines segline: WW3D's SegmentedLine geometry: a straight line is 
 	}
 	CHECK(maxX > 10.5f); // tolerance: the miter corner lies beyond the half width (0.75) past the bend; its exact place is a float intersection
 	CHECK(minY < -0.5f); // tolerance: the outer edge lies below the line by about the half width (0.75)
+}
+
+TEST_CASE("P-9 lines patrol cursor: with Alt, the pointer on a queued destination whose next order holds the whole selection, or on the unit itself, "
+	"shows Patrol; elsewhere, on the last destination or without Alt the move hint keeps Move (RW 0x6A3E4B .. 0x6A3F26, RW 0x756E90)")
+{
+	if (!haveWorld("P-9 lines patrol cursor")) return;
+	SharedWorld &s = shared();
+	Rig r(s);
+	const Coord3D c = r.freeSpot(mapCenter(r).x, mapCenter(r).y, 300.0f);
+	Object *unit = r.make(templates(s).infantry.front(), c.x, c.y);
+	REQUIRE(unit->getAIUpdateInterface() != nullptr);
+	const ObjectID id = unit->getID();
+	r.lookAt({ c.x + 60.0f, c.y, 0.0f }, 420.0f, 520.0f);
+	r.frame(2);
+	const ICoord2D pu = r.screenOf({ unit->getPosition()->x, unit->getPosition()->y, unit->getPosition()->z + 6.0f });
+	r.leftDrag(pu.x - 30, pu.y - 30, pu.x + 30, pu.y + 30);
+	r.frame(1);
+	REQUIRE(r.local->selection() == std::vector<ObjectID>{ id });
+
+	// the destinations are the terrain points under three pixels, so the pointer on a pixel is on its destination exactly
+	auto groundAt = [&](const ICoord2D &px) {
+		Coord3D g{};
+		REQUIRE(r.view.screenToTerrain(px, r.logic(), g));
+		return g;
+	};
+	const Coord3D at = *unit->getPosition();
+	const ICoord2D p1 = r.screenOf({ at.x + 90.0f, at.y, at.z }), p2 = r.screenOf({ at.x + 160.0f, at.y + 60.0f, at.z }),
+				   p3 = r.screenOf({ at.x + 200.0f, at.y - 50.0f, at.z }), pFar = r.screenOf({ at.x + 120.0f, at.y - 140.0f, at.z });
+	const Coord3D wp1 = groundAt(p1), wp2 = groundAt(p2), wp3 = groundAt(p3), far = groundAt(pFar);
+	AIOrdersManager &manager = r.logic().aiWorld()->ordersManager();
+	manager.submit(0, std::make_unique<MoveToGroupOrder>(r.logic(), std::vector<ObjectID>{ id }, wp1, false));
+	manager.submit(1, std::make_unique<MoveToGroupOrder>(r.logic(), std::vector<ObjectID>{ id }, wp2, false));
+	manager.submit(1, std::make_unique<MoveToGroupOrder>(r.logic(), std::vector<ObjectID>{ id }, wp3, false));
+	const std::list<AIOrdersManager::OrderId> ids(manager.queue(id)->orders().begin(), manager.queue(id)->orders().end());
+	REQUIRE(ids.size() == 3);
+	const AIOrdersManager::GroupOrder *o1 = manager.order(ids.front()), *o2 = manager.order(*std::next(ids.begin())),
+									  *o3 = manager.order(ids.back());
+
+	// the question itself (RW 0x756E90)
+	const Coord3D here = *unit->getPosition();
+	CHECK(manager.loopHintOrder(r.logic(), wp1, 0, { id }) == nullptr); // order mode 0: never (RW 0x756E95)
+	CHECK(manager.loopHintOrder(r.logic(), here, 1, { id }) == o1);     // on the unit (within 200 squared, RW 0x7569BD): its first order
+	CHECK(manager.loopHintOrder(r.logic(), wp1, 1, { id }) == o2);      // on a destination: the order after it (RW 0x94E9E8)
+	CHECK(manager.loopHintOrder(r.logic(), wp2, 1, { id }) == o3);
+	CHECK(manager.loopHintOrder(r.logic(), wp3, 1, { id }) == nullptr); // the last order has none after it (RW 0x94EA19)
+	CHECK(manager.loopHintOrder(r.logic(), far, 1, { id }) == nullptr);
+	// a selection the next order does not hold entirely: no loop (RW 0x94F0A4)
+	Object *other = r.make(templates(s).infantry.front(), c.x - 60.0f, c.y - 60.0f);
+	CHECK(manager.loopHintOrder(r.logic(), wp1, 1, { id, other->getID() }) == nullptr);
+
+	// the cursor: Alt held is order mode 1 (RW 0x6AAC78)
+	r.setModifier(KEY_LALT, KEY_STATE_LALT, true);
+	r.frame(1);
+	REQUIRE(r.local->orderMode() == 1);
+	REQUIRE(manager.queue(id)->orders().size() == 3);
+	r.move(p1.x, p1.y);
+	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Patrol)); // RW 0x6A3F15
+	r.move(p2.x, p2.y);
+	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Patrol));
+	r.move(p3.x, p3.y);
+	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Move)); // the last destination: the move hint's own cursor (RW 0x6A3F63)
+	r.move(pFar.x, pFar.y);
+	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Move));
+	// Alt released: order mode 0, the same pixel is a plain move
+	r.setModifier(KEY_LALT, KEY_STATE_LALT, false);
+	r.frame(1);
+	REQUIRE(r.local->orderMode() == 0);
+	r.move(p1.x, p1.y);
+	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Move));
 }

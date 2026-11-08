@@ -30,16 +30,9 @@ func setup(p_hud: Node, fs: RefCounted) -> Dictionary:
 		var tex: Texture2D = builder.load_texture(fs, tex_name)
 		if tex == null:
 			errors.append("order line texture %s did not load" % tex_name)
-		var m := StandardMaterial3D.new()
-		m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		m.blend_mode = BaseMaterial3D.BLEND_MODE_MIX
-		m.no_depth_test = true
-		m.depth_draw_mode = BaseMaterial3D.DEPTH_DRAW_DISABLED
-		m.cull_mode = BaseMaterial3D.CULL_DISABLED
-		m.vertex_color_use_as_albedo = true
-		m.texture_repeat = true
-		m.albedo_texture = tex
+		var m := ShaderMaterial.new()
+		m.shader = _shader()
+		m.set_shader_parameter("tex", tex)
 		_materials.append(m)
 	_mesh_node.mesh = _mesh
 	_mesh_node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
@@ -54,6 +47,27 @@ func setup(p_hud: Node, fs: RefCounted) -> Dictionary:
 		if _model < 0:
 			errors.append("order line node model %s: %s" % [NODE_MODEL, _inst.get_model_report(_model)])
 	return {"ok": errors.is_empty(), "errors": errors}
+
+
+## The preset 0x1198B3 | 7 as the port draws W3D's alpha preset elsewhere (the streaks' DAT 0xD9B2F0 material, GodotGameWorld): the gamma-space
+## transparent pass takes the texel and the vertex colour as they are (RENDER-3, S-831; a source_color sampler would linearise EXLaser's greys and
+## darken the line), texture times colour (primary gradient 6 = GRADIENT_MODULATE without the overbright, BFME2 Apply RVA 0x137590 default case),
+## SRC_ALPHA / INV_SRC_ALPHA, depth compare always (| 7), no depth write, no culling; V repeats (TILED, the point index * 4).
+static var _shared_shader: Shader
+
+static func _shader() -> Shader:
+	if _shared_shader == null:
+		_shared_shader = Shader.new()
+		_shared_shader.code = """shader_type spatial;
+render_mode unshaded, cull_disabled, depth_draw_never, depth_test_disabled, shadows_disabled, blend_mix;
+uniform sampler2D tex : hint_default_white, filter_linear_mipmap, repeat_enable;
+void fragment() {
+	vec4 t = texture(tex, UV) * COLOR;
+	ALBEDO = clamp(t.rgb, 0.0, 1.0);
+	ALPHA = t.a;
+}
+"""
+	return _shared_shader
 
 
 func _process(_delta: float) -> void:

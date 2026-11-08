@@ -21,6 +21,7 @@
 #include "GameLogic/Object/RetailObjectWorld.h"
 
 #include <algorithm>
+#include <iterator>
 #include <stdexcept>
 #include <string>
 
@@ -452,6 +453,89 @@ void MoveToFormationGroupOrder::setState(const State &state)
 	m_positions = state.positions;
 	m_completed = state.completed;
 	m_stuck = state.stuck;
+}
+
+namespace
+{
+// RW 0x94F0A4: every object of the list is a member of the order (the order's objects + 4 .. + 8, std::find RW 0x6B4E3C)
+bool coversAll(const AIOrdersManager::GroupOrder &order, const std::vector<AIOrdersManager::ObjectId> &objects)
+{
+	for (AIOrdersManager::ObjectId id : objects)
+	{
+		if (std::find(order.objects().begin(), order.objects().end(), id) == order.objects().end())
+		{
+			return false; // RW 0x94F0DB
+		}
+	}
+	return true;
+}
+} // namespace
+
+const AIOrdersManager::GroupOrder *AIOrdersManager::loopHintOrder(const GameLogic &logic, const Coord3D &pos, int mode, const std::vector<ObjectId> &objects) const
+{
+	if (mode == 0) // RW 0x756E95: no loop outside the order modes
+	{
+		return nullptr;
+	}
+	ObjectId first = 0; // RW 0x756EA8: [ebp + 0xC] reused, the first found object's ID (Object + 0x74)
+	for (ObjectId id : objects)
+	{
+		const Object *obj = logic.findObjectByID(id); // RW 0x756EC5
+		if (!obj)
+		{
+			continue; // RW 0x756ECF
+		}
+		const Coord3D *at = obj->getPosition();
+		// RW 0x7569BD: the pointer within 200 (squared, RW 0xBE4170) of the object (+ 0x38) in x / y
+		const float dy = at->y - pos.y, dx = at->x - pos.x;
+		if (200.0f > dy * dy + dx * dx)
+		{
+			const ObjectOrderQueue *q = queue(id); // RW 0x756C70: the queues map (manager + 0x24)
+			if (q && !q->orders().empty())         // RW 0x756EF0 .. 0x756F04: the list's count
+			{
+				const GroupOrder *o = order(q->orders().front()); // RW 0x756F11: the orders map (manager + 0x10)
+				if (o && coversAll(*o, objects))                   // RW 0x756F21
+				{
+					return o; // RW 0x756F72
+				}
+			}
+		}
+		if (first == 0) // RW 0x756F2A
+		{
+			first = id;
+		}
+	}
+	if (first == 0)
+	{
+		return nullptr;
+	}
+	const ObjectOrderQueue *q = queue(first); // RW 0x756F4F
+	if (!q)
+	{
+		return nullptr;
+	}
+	// RW 0x94E9E8 (the first object's queue): an order whose destination is near the pointer (vslot 0x24) and that is not the last one; the order after
+	// it, when it covers every object, is the loop's
+	const auto &ids = q->orders();
+	for (auto it = ids.begin(); it != ids.end(); ++it)
+	{
+		const GroupOrder *o = order(*it); // RW 0x94E9FF
+		if (!o || !o->isNearDestination(pos))
+		{
+			continue;
+		}
+		auto next = std::next(it);
+		if (next == ids.end()) // RW 0x94EA19
+		{
+			continue;
+		}
+		const GroupOrder *n = order(*next); // RW 0x94EA27
+		if (n && coversAll(*n, objects))   // RW 0x94EA38
+		{
+			return n; // RW 0x94EA50
+		}
+	}
+	return nullptr;
 }
 
 void AIOrdersManager::setPatrolStartIfLoop(GameLogic &logic, const std::vector<ObjectId> &objects, const Coord3D &dest, unsigned flags)
