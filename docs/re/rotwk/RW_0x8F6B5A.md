@@ -108,7 +108,11 @@ unported.
   at 0xC79A80 is a binary64 constant, but its 0.6 operand at 0xBDAD70 is
   binary32 (approximately 0.6000000238418579). No intermediate `fstp` to
   float occurs in that comparison. `ja` also does not reject unordered
-  comparisons. Runtime x87 control-word assumptions remain to be checked.
+  comparisons. The game's FP setup RW 0x440809–0x440825 calls MSVCR71
+  `_fpreset`, `_statusfp`, `_controlfp` with mask 0x30300 and value bits
+  0x20000: the project models this as x87 precision control 24. Each x87
+  arithmetic operation therefore rounds at PC24 while retaining the wide
+  exponent; plain host long-double arithmetic would not reproduce it.
   The first candidate survives an equal-distance tie. RW 0x8F6DC1–0x8F6DCF
   halves the signed threshold toward zero and repeats only while the new
   value exceeds 100.
@@ -181,8 +185,8 @@ unported.
 ## Outstanding before code
 
 Resolve the two +0x2FC AI variants and their lifetime in the port, use the
-now-parsed `ForceSkirmishAI`, confirm exact x87 behavior and record-byte
-possibilities across body implementations, and design the condition cache
+now-parsed `ForceSkirmishAI`, implement and test the PC24 comparison and
+confirm record-byte possibilities across body implementations, and design the condition cache
 and player AI timer/ID with hash and xfer. Confirm all relevant callers and
 tests before claiming parity. Existing manager AI state is not proof of the
 separate player AI's presence or behavior. `PORT-16` prerequisite tests exist
