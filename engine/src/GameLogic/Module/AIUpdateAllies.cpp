@@ -170,7 +170,7 @@ bool AIUpdateInterface::attackRangeFrom(const Coord3D &from, PathfindObjectID vi
 		return false;
 	}
 	const Object *v = victim != PATHFIND_INVALID_ID ? getObject()->logic().findObjectByID((ObjectID)victim) : nullptr;
-	return v ? w->isWithinAttackRangeFromTo(from, *v, victimPos, extra, true) : w->isWithinAttackRangeFrom(from, nullptr, victimPos, extra, true);
+	return w->isWithinAttackRangeFrom(from, v, v ? *v->getPosition() : victimPos, extra, true);
 }
 
 bool AIUpdateInterface::attackRangeFromTo(const Coord3D &from, PathfindObjectID victim, const Coord3D &victimPos, float extra)

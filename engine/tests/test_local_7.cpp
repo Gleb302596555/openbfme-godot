@@ -47,6 +47,41 @@ std::string makeWall(const std::string &name, const std::string &contactRows)
 		"  End\n"
 		"End\n";
 }
+
+std::string makeAttackerWithContactLabel(const std::string &name, const std::string &label)
+{
+	return "Object " + name + "\n"
+		"  KindOf = INFANTRY SELECTABLE CAN_ATTACK SCORE\n"
+		"  VisionRange = 150\n"
+		"  Geometry = CYLINDER\n"
+		"  GeometryMajorRadius = 8\n"
+		"  GeometryMinorRadius = 8\n"
+		"  GeometryHeight = 20\n"
+		"  ArmorSet\n"
+		"    Conditions = None\n"
+		"    Armor = PlainArmor\n"
+		"  End\n"
+		"  WeaponSet\n"
+		"    Conditions = None\n"
+		"    Weapon = PRIMARY SwordWeapon\n"
+		"  End\n"
+		"  Body = ActiveBody ModuleTag_Body\n"
+		"    MaxHealth = 100\n"
+		"  End\n"
+		"  Behavior = AIUpdateInterface ModuleTag_AI\n"
+		"    AutoAcquireEnemiesWhenIdle = Yes\n"
+		"    MoodAttackCheckRate = 400\n"
+		"    SpecialContactPoints = " + label + "\n"
+		"  End\n"
+		"  Behavior = PhysicsBehavior ModuleTag_Physics\n"
+		"  End\n"
+		"  LocomotorSet\n"
+		"    Locomotor = WalkerLoco\n"
+		"    Condition = SET_NORMAL\n"
+		"    Speed = 55\n"
+		"  End\n"
+		"End\n";
+}
 } // namespace
 
 TEST_CASE("LOCAL-7 attack contact point: parsing AttackContactPoint and SwoopContactPoint into template contact points")
@@ -99,13 +134,15 @@ TEST_CASE("LOCAL-7 attack contact point: parsing AttackContactPoint and SwoopCon
 	CHECK(pts[2].label == "Swoop");
 }
 
-TEST_CASE("LOCAL-7 attack contact point: attackers choose closest contact point on an object, fallback to center without points")
+TEST_CASE("LOCAL-7 attack contact point: attackers choose contact points matching their SpecialContactPoints, fallback to center without match")
 {
 	CombatWorld w;
 	w.combat().setAutoAcquireEnabled(false);
 	const std::string ini =
-		makeWall("ContactWall", "  AttackContactPoint = X:-30 Y:0 Z:0\n  AttackContactPoint = X:30 Y:0 Z:0\n") +
-		makeWall("PlainWall", "");
+		makeWall("ContactWall", "  AttackContactPoint = X:-30 Y:0 Z:0 Ram\n  AttackContactPoint = X:30 Y:0 Z:0\n") +
+		makeWall("PlainWall", "") +
+		makeAttackerWithContactLabel("RamUnit", "Ram") +
+		makeAttackerWithContactLabel("BombUnit", "Bomb");
 	std::string err = w.w.load(ini, INI_LOAD_OVERWRITE, "local7_walls.ini");
 	REQUIRE_MESSAGE(err.empty(), err);
 
@@ -114,43 +151,60 @@ TEST_CASE("LOCAL-7 attack contact point: attackers choose closest contact point 
 	Object *plainWall = w.unit("PlainWall", 'B', 200.0f, 200.0f);
 	REQUIRE(plainWall != nullptr);
 
-	SUBCASE("west attacker chooses west contact point (-30 relative -> 170 world)")
+	SUBCASE("unit WITHOUT SpecialContactPoints (Swordsman) attacks building with AttackContactPoint -> regular approach path (200.5)")
+	{
+		Object *atkPlain = w.unit("Swordsman", 'A', 100.0f, 200.0f);
+		w.frames(2);
+		AIUpdateInterface *ai = atkPlain->getAIUpdateInterface();
+		REQUIRE(ai != nullptr);
+		REQUIRE(ai->aiAttackObject(contactWall, CMD_FROM_PLAYER));
+		w.frames(1);
+
+		// Without SpecialContactPoints, adjustMeleeOffset RW 0x6EA11E -> RW 0x667C76 returns false;
+		// normal geometry offset applies -> destination is victim center (adjusted to cell center 200.5)
+		CHECK(ai->mover().requestedDestination().x == 200.5f);
+		CHECK(ai->mover().requestedDestination().y == 200.5f);
+	}
+
+	SUBCASE("unit WITH SpecialContactPoints = Ram attacks building with matching Ram AttackContactPoint -> goes to Ram contact point (170)")
 	{
 		Coord3D pt;
-		bool hasPt = ObjectGeometry::worldspaceBestContactPoint(*contactWall, Coord3D{ 100.0f, 200.0f, 0.0f }, "", false, pt);
+		bool hasPt = ObjectGeometry::worldspaceBestContactPoint(*contactWall, Coord3D{ 100.0f, 200.0f, 0.0f }, "Ram", false, pt);
 		CHECK(hasPt);
 		CHECK(pt.x == 170.0f);
 		CHECK(pt.y == 200.0f);
 
-		Object *atkWest = w.unit("Swordsman", 'A', 100.0f, 200.0f);
+		Object *atkRam = w.unit("RamUnit", 'A', 100.0f, 200.0f);
 		w.frames(2);
-		AIUpdateInterface *ai = atkWest->getAIUpdateInterface();
+		AIUpdateInterface *ai = atkRam->getAIUpdateInterface();
 		REQUIRE(ai != nullptr);
 		REQUIRE(ai->aiAttackObject(contactWall, CMD_FROM_PLAYER));
 		w.frames(1);
 
-		// Check the approach destination
+		// RamUnit has SpecialContactPoints = Ram, which matches the west AttackContactPoint (170.0, 200.0);
+		// bypassOffset = true -> destination is exactly the contact point
 		CHECK(ai->mover().requestedDestination().x == 170.0f);
 		CHECK(ai->mover().requestedDestination().y == 200.0f);
 	}
 
-	SUBCASE("east attacker chooses east contact point (+30 relative -> 230 world)")
+	SUBCASE("unit WITH SpecialContactPoints = Bomb attacking building without Bomb point -> falls back to regular approach (200.5)")
 	{
-		Object *atkEast = w.unit("Swordsman", 'A', 300.0f, 200.0f);
+		Object *atkBomb = w.unit("BombUnit", 'A', 100.0f, 200.0f);
 		w.frames(2);
-		AIUpdateInterface *ai = atkEast->getAIUpdateInterface();
+		AIUpdateInterface *ai = atkBomb->getAIUpdateInterface();
 		REQUIRE(ai != nullptr);
 		REQUIRE(ai->aiAttackObject(contactWall, CMD_FROM_PLAYER));
 		w.frames(1);
 
-		// Check the approach destination
-		CHECK(ai->mover().requestedDestination().x == 230.0f);
-		CHECK(ai->mover().requestedDestination().y == 200.0f);
+		// BombUnit has SpecialContactPoints = Bomb, but ContactWall only has Ram -> returns false;
+		// falls back to regular geometry destination (200.5)
+		CHECK(ai->mover().requestedDestination().x == 200.5f);
+		CHECK(ai->mover().requestedDestination().y == 200.5f);
 	}
 
 	SUBCASE("attacker on object without contact points chooses object center (200 world)")
 	{
-		Object *atkPlain = w.unit("Swordsman", 'A', 100.0f, 200.0f);
+		Object *atkPlain = w.unit("RamUnit", 'A', 100.0f, 200.0f);
 		w.frames(2);
 		AIUpdateInterface *ai = atkPlain->getAIUpdateInterface();
 		REQUIRE(ai != nullptr);

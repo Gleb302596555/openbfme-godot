@@ -155,24 +155,18 @@ void hashCoord(StateHasher &h, const Coord3D &c)
 	h.addFloat(c.z);
 }
 
-// RW 0x6EA0EC .. 0x6EA1D9 (Pathfinder::adjustMeleeOffset / RW 0x667C76 -> RW 0x667D96 -> Object::getWorldspaceBestContactPoint):
-// A melee weapon at a WALK_ON_TOP_OF_WALL or BLOCKING_GATE approaches and engages at the "Ram" contact point (RW 0xC2A1C0);
-// other attackers approach and engage at the nearest unlabelled AttackContactPoint / GeometryContactPoint (label "").
+// RW 0x6EA0EC .. 0x6EA1D9 (Pathfinder::adjustMeleeOffset: RW 0x6EA10B .. 0x6EA125 -> RW 0x667C76 -> RW 0x667D96 -> Object::getWorldspaceBestContactPoint):
+// If the attacker has an AIUpdateInterface, it searches for a contact point on the victim matching its SpecialContactPoints
+// (RW 0x667C76 -> RW 0x690BD2). If found, it bypasses the melee bounding radius offset. Units without SpecialContactPoints
+// do not look for contact points (RW 0x667DFB returns false).
 bool getMeleeContactPoint(const Object &self, const Object &victim, Coord3D &out)
 {
-	const ObjectWeapons *w = const_cast<Object &>(self).getWeapons();
-	const Weapon *cur = w ? w->currentWeapon() : nullptr;
-	const WeaponTemplate *wt = cur ? cur->getTemplate() : nullptr;
-	static const int kWallTop = CombatNames::kindOf("WALK_ON_TOP_OF_WALL");
-	static const int kBlockingGate = CombatNames::kindOf("BLOCKING_GATE");
-	if (wt && (victim.isKindOf((unsigned)kWallTop) || victim.isKindOf((unsigned)kBlockingGate)) && wt->m_meleeWeapon)
+	const AIUpdateInterface *ai = self.getAIUpdateInterface();
+	if (!ai)
 	{
-		if (ObjectGeometry::worldspaceBestContactPoint(victim, *self.getPosition(), "Ram", false, out))
-		{
-			return true;
-		}
+		return false;
 	}
-	return ObjectGeometry::worldspaceBestContactPoint(victim, *self.getPosition(), "", false, out);
+	return ai->findNearestLabeledContactPointOnTarget(victim, out, *self.getPosition(), false);
 }
 } // namespace
 

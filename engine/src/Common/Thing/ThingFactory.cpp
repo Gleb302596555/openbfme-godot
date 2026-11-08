@@ -637,7 +637,7 @@ void ThingFactory::parseField(INI *ini, void *instance, void *, const void *user
 		// COMBAT-2: the geometry rows are replayed in order into the template's shape list (the slot keeps only the last value of each row)
 		if (b->name == "Geometry" || b->name == "AdditionalGeometry" || b->name == "GeometryMajorRadius" || b->name == "GeometryMinorRadius" || b->name == "GeometryHeight" ||
 			b->name == "GeometryOffset" || b->name == "GeometryActive" || b->name == "GeometryIsSmall" || b->name == "GeometryName" ||
-			b->name == "GeometryContactPoint" || b->name == "AttackContactPoint" || b->name == "SwoopContactPoint") // lane BUILD-3 / Local 7: the contact points (RW 0xAD3D30)
+			b->name == "GeometryContactPoint" || b->name == "AttackContactPoint" || b->name == "SwoopContactPoint") // lane BUILD-3 / Local 7: contact points (RW 0xDA4498 / 0xDA44C8 / 0xDA44D8, parser RW 0xAD3D30, +0xA0)
 		{
 			std::vector<std::string> expanded;
 			for (size_t i = 0; i < raw.tokens.size(); ++i)

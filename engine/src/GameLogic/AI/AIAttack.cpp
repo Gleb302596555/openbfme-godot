@@ -59,35 +59,6 @@ bool victimGone(const Object *victim)
 	return !victim || !CombatQueries::isAlive(*victim);
 }
 
-// RW 0x7524C6 .. 0x752561, RW 0x6EA0EC .. 0x6EA125: on an object, a melee weapon (RW 0x441B59) at a WALK_ON_TOP_OF_WALL or BLOCKING_GATE
-// aims and approaches at the "Ram" contact point (RW 0xC2A1C0; RW 0x690BD2); other attackers aim and approach at the nearest unlabelled
-// AttackContactPoint / GeometryContactPoint (label ""); without one, a victim that is not a WALL_UPGRADE is targeted at its position
-Coord3D targetVictimPosition(const Object &attacker, const Object &victim, const WeaponTemplate *wt, const Coord3D &fallback)
-{
-	static const int kWallTop = CombatNames::kindOf("WALK_ON_TOP_OF_WALL");
-	static const int kBlockingGate = CombatNames::kindOf("BLOCKING_GATE");
-	static const int kWallUpgrade = CombatNames::kindOf("WALL_UPGRADE");
-	Coord3D target;
-	bool contact = false;
-	if (wt && (victim.isKindOf((unsigned)kWallTop) || victim.isKindOf((unsigned)kBlockingGate)) && wt->m_meleeWeapon)
-	{
-		contact = ObjectGeometry::worldspaceBestContactPoint(victim, *attacker.getPosition(), "Ram", false, target);
-	}
-	if (!contact)
-	{
-		contact = ObjectGeometry::worldspaceBestContactPoint(victim, *attacker.getPosition(), "", false, target);
-	}
-	if (contact)
-	{
-		return target;
-	}
-	if (victim.isKindOf((unsigned)kWallUpgrade))
-	{
-		return fallback;
-	}
-	return *victim.getPosition();
-}
-
 // PORT-14 / RW 0x75126D .. 0x75128E: the victim block's own "no victim" test. It is not victimGone(): RW checks the dead flag
 // (+ 0x458 bit 0, port Object::isEffectivelyDead) and status 0x32 FLEE_OFF_MAP, but does not call CombatQueries::isAlive.
 bool rwVictimGone(const Object *victim)
@@ -631,8 +602,7 @@ StateReturnType AIAttackApproachState::onEnter()
 	{
 		return STATE_FAILURE; // a structure cannot walk to its target
 	}
-	const WeaponTemplate *wt = (w && w->currentWeapon()) ? w->currentWeapon()->getTemplate() : nullptr;
-	const Coord3D goal = victim ? targetVictimPosition(source, *victim, wt, machine().goalPosition()) : machine().goalPosition();
+	const Coord3D goal = victim ? *victim->getPosition() : machine().goalPosition();
 	m_prevVictimPos = goal;
 	aimTurret(a, *m_att, victim, machine().goalPosition()); // lane GARRISON-2: RW 0x74E6CE before the path
 	// lane PHYS-1: the approach's computePath RW 0x749A3E asks for an attack path (RW 0x663802 -> computeAttackPath 0x6668CA -> findAttackPath 0x6FC18E): a free cell in
@@ -673,10 +643,7 @@ StateReturnType AIAttackApproachState::update()
 	{
 		return STATE_FAILURE;
 	}
-	Object &source = owner();
-	ObjectWeapons *w = source.getWeapons();
-	const WeaponTemplate *wt = (w && w->currentWeapon()) ? w->currentWeapon()->getTemplate() : nullptr;
-	const Coord3D goal = victim ? targetVictimPosition(source, *victim, wt, machine().goalPosition()) : machine().goalPosition();
+	const Coord3D goal = victim ? *victim->getPosition() : machine().goalPosition();
 	if (victim && a.frame() - m_approachFrame >= kMinRecomputeFrames)
 	{
 		// ZH computePath: a victim that moved gets a new path at most every MIN_RECOMPUTE_TIME frames
@@ -833,12 +800,24 @@ StateReturnType AIAttackAimState::aim(bool firstCall)
 	{
 		return STATE_SUCCESS;
 	}
-	// RW 0x7524C6 .. 0x752561: the point aimed at is the machine's goal position (machine + 0x24); on an object, targetVictimPosition resolves
-	// the "Ram" or unlabelled contact point, or the victim position
+	// RW 0x7524C6 .. 0x752561: the point aimed at is the machine's goal position (machine + 0x24); on an object, a melee weapon (RW 0x441B59; RW 0x9188EB, the
+	// other test, answers false) at a WALK_ON_TOP_OF_WALL (60) or BLOCKING_GATE (137) victim aims at the victim's "Ram" contact point (RW 0xC2A1C0; RW
+	// 0x690BD2(caller position, mode 0, not preferred)); without one, a victim that is not a WALL_UPGRADE (150) is aimed at its position
 	Coord3D target = machine().goalPosition();
-	if (m_att->isAttackingObject() && victim)
+	if (m_att->isAttackingObject())
 	{
-		target = targetVictimPosition(self, *victim, wt, machine().goalPosition());
+		static const int kWallTop = CombatNames::kindOf("WALK_ON_TOP_OF_WALL");
+		static const int kBlockingGate = CombatNames::kindOf("BLOCKING_GATE");
+		static const int kWallUpgrade = CombatNames::kindOf("WALL_UPGRADE");
+		bool contact = false;
+		if (wt && (victim->isKindOf((unsigned)kWallTop) || victim->isKindOf((unsigned)kBlockingGate)) && wt->m_meleeWeapon)
+		{
+			contact = ObjectGeometry::worldspaceBestContactPoint(*victim, *self.getPosition(), "Ram", false, target);
+		}
+		if (!victim->isKindOf((unsigned)kWallUpgrade) && !contact)
+		{
+			target = *victim->getPosition();
+		}
 	}
 	float relAngle = emotionRelAngle(self, target); // RW 0x4B3D8D
 	// RW 0x7525D9 .. 0x752602: a weapon with an AimDirection (+ 0x30) above 0 aims that much off: normalizeAngle(rel - AimDirection) (RW 0x644FD0)

@@ -425,8 +425,8 @@ bool AIMover::computeAttackPath()
 	bool inReach;
 	if (victim)
 	{
-		inReach = m_host.attackRangeFrom(pos, victimId, m_attackPos, 0.0f) &&
-			!(isDoingGroundMovement() && !victim->isSignificantlyAboveTerrain() && m_pf.isAttackViewBlockedByObstacle(obj, pos, victim, m_attackPos));
+		inReach = m_host.attackRangeFrom(pos, victimId, victim->getPosition(), 0.0f) &&
+			!(isDoingGroundMovement() && !victim->isSignificantlyAboveTerrain() && m_pf.isAttackViewBlockedByObstacle(obj, pos, victim, victim->getPosition()));
 	}
 	else
 	{
@@ -438,9 +438,9 @@ bool AIMover::computeAttackPath()
 		m_pathTimestamp = m_host.frame();
 		return true;
 	}
-	// RW 0x6669FE .. 0x666A55: the target position (m_attackPos: either contact point or victim position), its z the terrain height there (TerrainLogic vslot 0x1C on the
+	// RW 0x6669FE .. 0x666A55: the victim's position (a position target: the request's), its z the terrain height there (TerrainLogic vslot 0x1C on the
 	// victim's layer: the ground, S-161)
-	Coord3D target = m_attackPos;
+	Coord3D target = victim ? victim->getPosition() : m_attackPos;
 	target.z = m_host.groundHeightAt(target.x, target.y);
 	destroyPath();
 	m_pf.removeGoal(obj); // RW 0x68B401
@@ -534,6 +534,7 @@ void AIMover::doPathfind()
 		// refused adjustment sets the approach flag (+ 0x3B4): the path then comes from the approach branch (pathfinder slot + 4) to that position
 		if (victim)
 		{
+			m_attackPos = victim->getPosition();
 			const bool adjusted = m_pf.adjustToPossibleDestination(m_host.pathfindObject(), m_host.locomotorInfo(), &m_attackPos);
 			m_ignoreObstacleId = victimId;
 			if (!adjusted)
