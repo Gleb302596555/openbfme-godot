@@ -258,6 +258,7 @@ include(cmake/Modgap2.cmake)    # MODGAP-2: agent B's Ennorath modules
 include(cmake/Aipow1.cmake)     # AIPOW-1: the AISpecialPowerUpdate decisions and the ActionManager tests (appends to OPENBFME_SIM_SOURCES; OPENBFME_AIPOW1_TESTS)
 include(cmake/Ui2.cmake)        # UI-2: owner menu feedback (client only; OPENBFME_UI2_CLIENT_SOURCES / OPENBFME_UI2_TESTS)
 include(cmake/Ui4.cmake)        # UI-4: owner menu / HUD findings on v0.3.0-preview.1 (client only)
+include(cmake/OrderLines.cmake) # P-9 lines: the order lines while Alt is held (client only)
 include(cmake/Ui6.cmake)        # UI-6: a tester's menu findings on v0.3.0-preview.6, widescreen view (client only)
 include(cmake/Ownerfix3.cmake)  # OWNERFIX-3: the map list's battle honors (client only; OPENBFME_OWNERFIX3_CLIENT_SOURCES / _TESTS)
 include(cmake/Anticheat.cmake)  # ANTICHEAT-1: detector D1 over a re-simulated replay (reads the logic only; OPENBFME_ANTICHEAT_SOURCES / _TESTS)
@@ -376,6 +377,7 @@ add_library(openbfme_core STATIC
     ${OPENBFME_RELEASE1_SOURCES}
     ${OPENBFME_UI2_CLIENT_SOURCES}
     ${OPENBFME_UI4_CLIENT_SOURCES}
+    ${OPENBFME_ORDERLINES_CLIENT_SOURCES}
     ${OPENBFME_OWNERFIX2_CLIENT_SOURCES}
     ${OPENBFME_CHAT1_CLIENT_SOURCES}
     ${OPENBFME_UI6_CLIENT_SOURCES}
@@ -1011,6 +1013,8 @@ add_executable(openbfme_tests
     tests/test_logic_retail.cpp
     # lane LOCAL-1 (GameData logic fields)
     tests/test_local_1.cpp
+    # lane LOCAL-5 (capture flash and audio tick)
+    tests/test_local_5.cpp
     # shared numeric facade (WEAPON-1 e75dd8c, imported unchanged: wide PC24 results, SSE binary32 ops, retail integer conversions)
     tests/test_numeric_facade.cpp
     # lane ECON-1: the economy

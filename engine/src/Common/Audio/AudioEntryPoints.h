@@ -25,7 +25,7 @@ class Eva;
 
 namespace AudioApi
 {
-// playSoundForObject, playSoundForDrawable, isValidEvent and postUnitVoice are declared in AudioRequests.h (the simulation side)
+// playSoundForObject, playMiscAudioForObject, playSoundForDrawable, isValidEvent and postUnitVoice are declared in AudioRequests.h (the simulation side)
 void install(AudioManager *manager); // nullptr uninstalls; the installing thread owns the manager (SMOOTH-1)
 // SMOOTH-1 (S-814): the logic's audio calls made on another thread than the owner's (the logic worker: playSoundForObject / ForDrawable, postUnitVoice,
 // postWeaponFireSound) are queued in call order; the owner runs them here, at a point where the logic is idle (they read the live game)

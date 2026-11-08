@@ -52,6 +52,7 @@ inline constexpr const char *ResumeConstruction = "ResumeConstruction"; // lane 
 inline constexpr const char *DoRepair = "DoRepair";                     // lane QA-1 (Mouse.ini MouseCursor DoRepair)
 inline constexpr const char *Dock = "Dock";                             // S-286 (Mouse.ini MouseCursor Dock): a worker's dock order
 inline constexpr const char *Scroll = "Scroll";
+inline constexpr const char *Patrol = "Patrol"; // 55 (RW 0xD9E1E4): a move hint that would close an order loop (createCommandHint RW 0x6A3F15)
 } // namespace MouseCursorName
 
 class InGameUI

@@ -80,9 +80,7 @@ void forEachInDisc(const TerrainResourceManager &grid, float x, float y, float r
 // Object::getIndicatorColor (RW 0x68B6F5): the team's controlling player's colour (the custom indicator and the disguise colour are S-2522 / S-2456's)
 std::uint32_t indicatorColorOf(const Object &obj)
 {
-	const Team *team = obj.getTeam();
-	const Player *owner = team ? team->getControllingPlayer() : nullptr;
-	return owner ? (0xFF000000u | (owner->getPlayerColor() & 0x00FFFFFFu)) : 0xFF000000u;
+	return obj.getIndicatorColor();
 }
 
 bool alliedOrSelf(const GameLogic &logic, const Player *owner, int localPlayer)

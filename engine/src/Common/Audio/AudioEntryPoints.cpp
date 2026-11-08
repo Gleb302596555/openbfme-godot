@@ -212,6 +212,29 @@ AudioHandle playSoundForObject(const std::string &n, std::uint32_t id, int playe
 	return AHSV_Error;
 }
 
+AudioHandle playMiscAudioForObject(const std::string &slotName, std::uint32_t id, int player)
+{
+	AudioManager *mgr = nullptr;
+	switch (route(Binding::Manager, [slotName, id, player]() { playMiscAudioForObject(slotName, id, player); }, &mgr))
+	{
+	case Route::Run:
+	{
+		const std::string &eventName = mgr->miscAudio(slotName);
+		if (!eventName.empty())
+		{
+			return mgr->playSoundForObject(eventName, id, player);
+		}
+		return AHSV_Error;
+	}
+	case Route::Deferred:
+		return AHSV_Error; // S-814: played on the audio owner at the next idle point; no handle comes back to a logic-thread caller
+	case Route::Unbound:
+		break;
+	}
+	g_without.fetch_add(1, std::memory_order_relaxed);
+	return AHSV_Error;
+}
+
 AudioHandle playSoundAtPositionForPlayer(const std::string &n, const Coord3D &p, int player)
 {
 	AudioManager *mgr = nullptr;

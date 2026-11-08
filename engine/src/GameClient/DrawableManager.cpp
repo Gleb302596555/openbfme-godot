@@ -389,6 +389,9 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 		case ClientEvent::EVA_DAMAGED: // lane EVADAMAGE-1 (RW 0x67B4B7's Eva half)
 			EvaDamage::apply(ev, *this, m_evaDamage);
 			break;
+		case ClientEvent::FLASH_AS_SELECTED: // RW 0x852BE1 / 0x678FA7
+			flashAsSelected(ev.object, ev.hasFlashColor ? &ev.flashColor : nullptr);
+			break;
 		}
 	}
 }

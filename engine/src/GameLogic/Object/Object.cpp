@@ -1376,6 +1376,13 @@ Player *Object::getControllingPlayer() const
 	return m_team ? m_team->getControllingPlayer() : nullptr;
 }
 
+// RW 0x68B6F5 Object::getIndicatorColor: the team's controlling player's colour (the custom indicator and the disguise colour are S-2522 / S-2456's)
+std::uint32_t Object::getIndicatorColor() const
+{
+	const Player *owner = getControllingPlayer();
+	return owner ? (0xFF000000u | (owner->getPlayerColor() & 0x00FFFFFFu)) : 0xFF000000u;
+}
+
 // RW 0x68B961 (see Object.h)
 void Object::pauseAllSpecialPowers(bool pause)
 {

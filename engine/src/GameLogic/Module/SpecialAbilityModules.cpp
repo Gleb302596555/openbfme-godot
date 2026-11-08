@@ -25,6 +25,7 @@
 #include "Common/StateHash.h"
 #include "Common/Thing/ModuleFactory.h"
 #include "Common/Thing/ThingFactory.h"
+#include "Common/Thing/KindOfTokens.h"
 #include "GameClient/FXList.h"
 #include "GameLogic/BitFlags.h"
 #include "GameLogic/Combat/CombatNames.h"
@@ -1257,7 +1258,7 @@ bool SpecialAbilityUpdate::withinAbortRange() const
 }
 
 // RW 0x852A3E: out of AbilityAbortRange ends it; the capture enums (lane HERO-2: 0x1D / 0x1A) end it without a target or with an ALLIED one (RW 0x68D7AB
-// == 2); DoCaptureFX's flash of the target's drawable (the + 0x70 accumulator, RW 0x852B21 ..) is the client's; SPECIAL_MISSILE_DEFENDER 0x15: S-860
+// == 2); DoCaptureFX's flash of the target's drawable (the + 0x70 accumulator, RW 0x852B21 ..) and DefectorTimerTickSound (RW 0x852C40)
 bool SpecialAbilityUpdate::continuePreparation()
 {
 	if (m_data->m_abilityAbortRange < 10000000.0f && !withinAbortRange()) // RW 0x852A5E: comiss 1e7, AbilityAbortRange
@@ -1271,10 +1272,70 @@ bool SpecialAbilityUpdate::continuePreparation()
 	}
 	else if (type == 0x1D || type == 0x1A)
 	{
-		const Object *t = target();
-		if (!t || getObject()->getRelationship(*t) == ALLIES)
+		Object *t = target();
+		Object *obj = getObject();
+		if (!t || obj->getRelationship(*t) == ALLIES)
 		{
 			return false;
+		}
+
+		// RW 0x852B14 .. 0x852C88: DoCaptureFX flash and DefectorTimerTickSound
+		if (m_data->m_doCaptureFX)
+		{
+			// RW 0x852B21 .. 0x852B2D: if target has no drawable (Object::getDrawable RW 0x70E013),
+			// skip the entire DoCaptureFX block, including accumulator update.
+			// INFERENCE: in the port, a logic object's drawable is bound to clientHooks() (lane SMOOTH-1).
+			// If target has no client/drawable bound, skip DoCaptureFX (RW 0x852B2D).
+			ObjectClientHooks *client = t->clientHooks();
+			if (!client)
+			{
+				return true;
+			}
+
+			const int oldBit = static_cast<int>(m_captureAccumulator) & 1;
+			const unsigned prepTotal = std::max(1u, m_data->m_preparationFrames);
+			const float progress = 1.0f - (static_cast<float>(m_prepFrames) / static_cast<float>(prepTotal));
+			const float step = progress * (1.0f / 3.0f); // RW 0xBDBC78 = 0.33333334f
+			m_captureAccumulator += step;
+			const int newBit = static_cast<int>(m_captureAccumulator) & 1;
+
+			if (oldBit != 0 && newBit == 0) // RW 0x852B9E, 0x852BA6: transition from odd to even
+			{
+				const std::uint32_t packed = obj->getIndicatorColor(); // RW 0x852BB1 (RW 0x68B6F5)
+				constexpr float kInv255 = 1.0f / 255.0f; // RW 0x4049FB
+				RGBColor c = {
+					((packed >> 16) & 0xFF) * kInv255,
+					((packed >> 8) & 0xFF) * kInv255,
+					(packed & 0xFF) * kInv255
+				};
+				const float sat = obj->logic().settings().selectionFlashSaturationFactor; // RW 0x852BC4 (GlobalData + 0xB54)
+				const float halfSat = sat * 0.5f; // RW 0x6704A2
+				c.red = c.red * sat - halfSat;
+				c.green = c.green * sat - halfSat;
+				c.blue = c.blue * sat - halfSat;
+
+				// Flash target object (RW 0x852BDD)
+				client->flashAsSelected(*t, &c);
+
+				// RW 0x852BE6 .. 0x852C3B: closest LINKED_TO_FLAG within 150.0f of caster (FROM_CENTER_3D, RW 0xA39090)
+				const int linkedToFlag = KindOfTokens::indexOf("LINKED_TO_FLAG");
+				if (linkedToFlag >= 0)
+				{
+					PartitionFilterFn flagFilter([linkedToFlag](Object &o) {
+						return o.isKindOf(static_cast<unsigned>(linkedToFlag));
+					});
+					Object *flag = obj->logic().partition().getClosestObject(
+						*obj->getPosition(), 150.0f, FROM_CENTER_3D, { &flagFilter });
+					// RW 0x852C2C: the flag's drawable; none -> no flash (review r2: not the caster's target hooks)
+					if (flag && flag->clientHooks())
+					{
+						flag->clientHooks()->flashAsSelected(*flag, &c);
+					}
+				}
+
+				// Play DefectorTimerTickSound on target object (RW 0x852C40 .. 0x852C7F)
+				AudioApi::playMiscAudioForObject("DefectorTimerTickSound", m_targetID);
+			}
 		}
 	}
 	return true;
