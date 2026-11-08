@@ -26,11 +26,11 @@ unported.
   `ForceSkirmishAI`, parser RW 0x42E558, offset +0x65; the constructor clears
   it at RW 0x6FFD49. RW 0x6AA49A–0x6AA4AA selects the derived constructor
   if the caller's flag or this byte is nonzero, otherwise the base constructor.
-  In the port `Player::setPlayerType` stores only type and the caller's flag,
-  and `ForceSkirmishAI` is not parsed. A reconstruction from `isSkirmishAI()`
-  alone misses the byte's branch. The owner allowed the additional parsing
-  change; the parser and setting are now present, but the Player AI class
-  selection still does not consume the setting.
+  In the port `Player::setPlayerType` stores only type and a flag. A
+  reconstruction from `isSkirmishAI()` alone misses the AIData byte's branch.
+  The owner allowed the additional parsing change; the parser and setting
+  are now present, but the Player AI class selection still does not consume
+  the setting.
 * Player type setter RW 0x6AA47D–0x6AA498 creates an AI when type is 1, or
   when its skirmish argument is true and `[0xDE4938]+0x96C` is true. RW
   0x6A9456–0x6A9467 parses SkirmishAIData into that object at +0x10; table
