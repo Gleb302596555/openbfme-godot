@@ -95,6 +95,40 @@ void HeroSystem::initLivingWorldPlayer(GameLogic &logic, Player &player, const s
 				r.cost = rule ? rule->cost : 1000u;
 				r.seconds = rule ? rule->timeMs / 1000 : SimMath::truncToInt32(SimMath::mulf32(0.005f, 30000.0f));
 			}
+			// RW 0x6E2F59 .. 0x6E2FB3: a dead Living World record stores the hero's dead button image in HeroRecord + 0x00 (CREATE_A_HERO subclass buttonImage,
+			// else RespawnUpdateModuleData + 0x118 ButtonImage when non-empty, else ThingTemplate::getButtonImage RW 0x73CFEF)
+			static const int kCreateAHero = ObjectTemplateInfoBuilder::kindOfIndex("CREATE_A_HERO");
+			if (kCreateAHero >= 0 && MaskTest(ObjectTemplateInfoBuilder::build(*tt).kindOf, (unsigned)kCreateAHero))
+			{
+				const CreateAHeroHero *hero = logic.createAHeroes().heroOf(player);
+				const CreateAHeroSubClass *sub = hero && TheCreateAHeroSystem
+					? TheCreateAHeroSystem->subClass(hero->classIndex, hero->subClassIndex) : nullptr;
+				if (sub && !sub->buttonImage.empty())
+				{
+					r.deadImage = sub->buttonImage;
+				}
+			}
+			else if (data && !data->m_buttonImage.empty())
+			{
+				r.deadImage = data->m_buttonImage;
+			}
+			else
+			{
+				for (const char *field : { "ButtonImage", "SelectPortrait" })
+				{
+					if (const FieldValue *v = tt->getFinalOverride()->findField(field))
+					{
+						if (const std::string *s = std::get_if<std::string>(v))
+						{
+							if (!s->empty())
+							{
+								r.deadImage = *s;
+								break;
+							}
+						}
+					}
+				}
+			}
 		}
 		player.heroes().addRecord(r);
 		LivingWorldBattleTags::Tag tag;
@@ -122,6 +156,7 @@ int HeroSystem::addDeadHero(Player &player, Object &obj, const RespawnUpdate &re
 	r.objectName = obj.getName();          // + 0xE0 from Object + 0x88
 	r.cost = respawn.ruleCost();           // RW 0x780E99
 	r.seconds = respawn.ruleSeconds();     // RW 0x780EA4
+	r.deadImage = respawn.deadImage();     // RW 0x780F00 .. 0x780F06: + 0x00 = RespawnUpdate vslot 0x38 (RW 0x8B33E4)
 	static const int kCreateAHero = ObjectTemplateInfoBuilder::kindOfIndex("CREATE_A_HERO");
 	if (kCreateAHero >= 0 && obj.isKindOf((unsigned)kCreateAHero) && TheCreateAHeroSystem)
 	{

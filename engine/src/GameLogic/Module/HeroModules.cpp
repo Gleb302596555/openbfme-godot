@@ -28,6 +28,7 @@
 #include "GameLogic/ObjectFilterMatch.h"
 #include "Common/PlayerTemplate.h"
 #include "GameLogic/FXEvents.h"
+#include "GameLogic/CreateAHeroSystem.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/HeroSystem.h"
 #include "GameLogic/Module/ActiveBody.h"
@@ -457,6 +458,51 @@ int RespawnUpdate::ruleSeconds() const
 		return SimMath::truncToInt32(SimMath::mulf32(0.005f, 30000.0f)); // [0xD9F610] * [0xC6C3A0], _ftol
 	}
 	return r->timeMs / 1000;
+}
+
+// RW 0x8B33E4 (BFME2 0x8AF2DE, primary vtable 0xC6C360 slot 14 / +0x38): the dead hero's button image name (stored in HeroRecord + 0x00 by RW 0x780F06).
+// With a non-empty m_buttonImage (+0x118) or in the fallback RW 0x73D0BA(template, obj): a CREATE_A_HERO (template + 0x11F & 0x40) uses its object's
+// Create-a-Hero subclass buttonImage (RW 0x619562 -> 0x61B379, else "BuildingNoArt" RW 0xC2F4C0); otherwise m_buttonImage (+0x118, RW 0x8B348F) when non-empty,
+// else ThingTemplate::getButtonImage (RW 0x73CFEF: ButtonImage, else SelectPortrait).
+std::string RespawnUpdate::deadImage() const
+{
+	const Object *obj = getObject();
+	static const int kCreateAHero = ObjectTemplateInfoBuilder::kindOfIndex("CREATE_A_HERO");
+	if (kCreateAHero >= 0 && obj->isKindOf((unsigned)kCreateAHero))
+	{
+		const CreateAHeroHero *hero = obj->logic().createAHeroes().heroOfObject(obj->getID());
+		const CreateAHeroSubClass *sub = hero && TheCreateAHeroSystem
+			? TheCreateAHeroSystem->subClass(hero->classIndex, hero->subClassIndex) : nullptr;
+		if (sub && !sub->buttonImage.empty())
+		{
+			return sub->buttonImage;
+		}
+		if (!m_data->m_buttonImage.empty() || hero)
+		{
+			return "BuildingNoArt";
+		}
+	}
+	if (!m_data->m_buttonImage.empty())
+	{
+		return m_data->m_buttonImage;
+	}
+	if (const ThingTemplate *tt = obj->getTemplate())
+	{
+		for (const char *field : { "ButtonImage", "SelectPortrait" })
+		{
+			if (const FieldValue *v = tt->getFinalOverride()->findField(field))
+			{
+				if (const std::string *s = std::get_if<std::string>(v))
+				{
+					if (!s->empty())
+					{
+						return *s;
+					}
+				}
+			}
+		}
+	}
+	return std::string();
 }
 
 // RW 0x8B316B

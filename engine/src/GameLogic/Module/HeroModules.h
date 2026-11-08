@@ -165,6 +165,7 @@ public:
 	float healthFraction() const { return m_health; }
 	unsigned ruleCost() const;                 ///< RW 0x8B3C07 -> 0x8B3637 (the tracker's rank)
 	int ruleSeconds() const;                   ///< RW 0x8B3C1C -> 0x8B36B2
+	std::string deadImage() const;             ///< RW 0x8B33E4 (BFME2 0x8AF2DE, vslot 0x38): ButtonImage (+0x118), else the template's ButtonImage
 	const ThingTemplate *respawnTemplate() const; ///< RW 0x8B316B: RespawnAsTemplate, else the object's template
 	void crc(StateHasher &h) const override;
 

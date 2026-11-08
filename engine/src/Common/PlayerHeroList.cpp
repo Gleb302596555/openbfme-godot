@@ -293,6 +293,10 @@ void PlayerHeroList::crc(StateHasher &h) const
 		h.addFloat(r.uiFactor);
 		h.addString(r.objectName);
 		h.addString(r.templateName);
+		if (!r.deadImage.empty())
+		{
+			h.addString(r.deadImage);
+		}
 	}
 }
 
@@ -328,5 +332,13 @@ void PlayerHeroList::xfer(Xfer &x)
 		x.xferReal(&r.uiFactor);
 		x.xferAsciiString(&r.objectName);
 		x.xferAsciiString(&r.templateName);
+		if (r.dead)
+		{
+			x.xferAsciiString(&r.deadImage); // RW 0x780A29 .. 0x780A79: + 0x00 (dead hero's image name)
+		}
+		else if (x.isLoading())
+		{
+			r.deadImage.clear();
+		}
 	}
 }
