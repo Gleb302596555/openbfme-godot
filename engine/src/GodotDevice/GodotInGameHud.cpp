@@ -46,6 +46,7 @@
 #include "GameClient/CameraAnimation.h"
 #include "GameClient/LiveFX.h"
 #include "GameClient/ProjectedShadowManager.h"
+#include "GameClient/ObjectShadow.h"
 #include "GameClient/TacticalView.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/RetailObjectWorld.h"
@@ -1676,6 +1677,22 @@ void HudDevice::drawSelectionDecals()
 	if (ghost && world && world->hud_game())
 	{
 		ghost->appendShadowDecals(selExtras);
+	}
+	if (world && world->hud_game())
+	{
+		// lane LOCAL-14: live drawable decal shadows (RW 0x50DE6C / 0x50D92C: renderShadows m_decalList + 4)
+		const DrawableManager &dm = world->hud_game()->drawables();
+		for (size_t id = 1; id < dm.slotCount(); ++id)
+		{
+			if (const Drawable *d = dm.find((DrawableID)id))
+			{
+				SelectionDecal sd;
+				if (ObjectShadow::buildDrawableDecalShadow(*d, sd))
+				{
+					selExtras.push_back(std::move(sd));
+				}
+			}
+		}
 	}
 	const size_t shadows = selExtras.size();
 	const TerrainResourceUiSettings &resourceUi = hud->radiusCursorTemplates().resourceUi();
