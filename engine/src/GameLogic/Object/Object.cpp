@@ -87,9 +87,10 @@ bool kindOfByName(const Object &o, const char *name)
 }
 } // namespace
 
-// lane MODCOMPAT-MOD1: the copies geometryShapes / ownPathfindGeometry answer for an object with its own shape flags (see Object.h)
+// lane MODCOMPAT-MOD1 / Port 34: the copies geometryShapes / ownPathfindGeometry answer for an object with its own shape flags or heights (see Object.h)
 struct Object::OwnGeometryCache
 {
+	std::vector<float> heights; ///< Port 34: per-shape extent (SPHERE majorRadius, CYLINDER / BOX height) once setGeometryMaxHeight ran
 	std::uint32_t shapesVersion = 0xFFFFFFFFu;
 	std::vector<ObjectGeometry::Shape> shapes;
 	std::uint32_t pathfindVersion = 0xFFFFFFFFu;
@@ -647,6 +648,49 @@ void Object::setGeometryActive(const std::string &name, bool on)
 	}
 }
 
+const std::vector<float> &Object::geometryHeights() const
+{
+	static const std::vector<float> none;
+	return m_hasGeometryHeights && m_ownGeometry ? m_ownGeometry->heights : none;
+}
+
+// Port 34, RW 0x68B2CB -> GeometryInfo::setMaxHeightAbovePosition RW 0xAD2C60 + calcBoundingStuff RW 0xAD2860
+void Object::setGeometryMaxHeight(float height)
+{
+	const std::vector<ObjectGeometry::Shape> &shapes = ObjectGeometry::cachedShapesOf(geometryTemplate());
+	if (shapes.empty())
+	{
+		return; // RW 0xAD2C6A: [edi + 0x2C] == [edi + 0x30] skips the shape loop
+	}
+	if (!m_ownGeometry)
+	{
+		m_ownGeometry = std::make_unique<OwnGeometryCache>();
+	}
+	std::vector<float> &heights = m_ownGeometry->heights;
+	if (!m_hasGeometryHeights || heights.size() != shapes.size())
+	{
+		heights.clear();
+		heights.reserve(shapes.size());
+		for (const ObjectGeometry::Shape &sh : shapes)
+		{
+			heights.push_back(sh.type == ObjectGeometry::SHAPE_SPHERE ? sh.majorRadius : sh.height);
+		}
+		m_hasGeometryHeights = true;
+	}
+	for (size_t i = 0; i < shapes.size(); ++i)
+	{
+		const bool active = i < m_geometryActive.size() ? (m_geometryActive[i] != 0) : shapes[i].active;
+		if (!active)
+		{
+			continue; // RW 0xAD2C75..0xAD2C79: cmp byte ptr [esi + 0x20], 0; je 0xAD2C8D
+		}
+		heights[i] = height; // RW 0xAD2C7D..0xAD2C8A: type 0 (SPHERE) -> +0x08 majorRadius, else +0x04 height
+	}
+	++m_geometryVersion;
+	(void)geometryShapes();
+	m_logic.partition().refreshOwnGeometry(*this);
+}
+
 const ThingTemplate &Object::geometryTemplate() const
 {
 	return m_geometrySource ? *m_geometrySource : *static_cast<const ThingTemplate *>(getTemplate());
@@ -655,25 +699,38 @@ const ThingTemplate &Object::geometryTemplate() const
 // lane MODCOMPAT-MOD1: RW 0x699349 (see Object.h)
 void Object::setGeometryInfoFrom(const Object &from)
 {
-	const ThingTemplate *source = &from.geometryTemplate(); // RW 0x463DFC: the shape list (and flags below)
+	const ThingTemplate *source = &from.geometryTemplate(); // RW 0x463DFC: the shape list (and flags / heights below)
 	m_geometrySource = source == getTemplate() ? nullptr : source;
 	m_geometryActive = from.m_geometryActive;
-	++m_geometryVersion;
+	const std::vector<float> copiedHeights = from.geometryHeights();
+	m_hasGeometryHeights = !copiedHeights.empty();
 	m_ownGeometry.reset();
+	if (m_hasGeometryHeights)
+	{
+		m_ownGeometry = std::make_unique<OwnGeometryCache>();
+		m_ownGeometry->heights = copiedHeights;
+	}
+	++m_geometryVersion;
 	geometryChanged(false); // RW 0x68B244(0)
 }
 
 const std::vector<ObjectGeometry::Shape> &Object::geometryShapes() const
 {
 	const std::vector<ObjectGeometry::Shape> &shapes = ObjectGeometry::cachedShapesOf(geometryTemplate());
-	if (m_geometryActive.empty())
+	if (m_geometryActive.empty() && !m_hasGeometryHeights)
 	{
 		return shapes; // the copy the constructor made, unchanged
 	}
-	if (m_geometryActive.size() != shapes.size())
+	if (!m_geometryActive.empty() && m_geometryActive.size() != shapes.size())
 	{
 		throw std::logic_error("Object::geometryShapes: object " + std::to_string(m_id) + " keeps " + std::to_string(m_geometryActive.size()) +
 			" shape flags, its template " + std::to_string(shapes.size()) + " shapes");
+	}
+	const std::vector<float> &heights = geometryHeights();
+	if (m_hasGeometryHeights && heights.size() != shapes.size())
+	{
+		throw std::logic_error("Object::geometryShapes: object " + std::to_string(m_id) + " keeps " + std::to_string(heights.size()) +
+			" shape heights, its template " + std::to_string(shapes.size()) + " shapes");
 	}
 	if (!m_ownGeometry)
 	{
@@ -685,7 +742,21 @@ const std::vector<ObjectGeometry::Shape> &Object::geometryShapes() const
 		c.shapes = shapes;
 		for (size_t i = 0; i < c.shapes.size(); ++i)
 		{
-			c.shapes[i].active = m_geometryActive[i] != 0;
+			if (i < m_geometryActive.size())
+			{
+				c.shapes[i].active = m_geometryActive[i] != 0;
+			}
+			if (i < c.heights.size())
+			{
+				if (c.shapes[i].type == ObjectGeometry::SHAPE_SPHERE)
+				{
+					c.shapes[i].majorRadius = c.heights[i];
+				}
+				else
+				{
+					c.shapes[i].height = c.heights[i];
+				}
+			}
 		}
 		c.shapesVersion = m_geometryVersion;
 	}
@@ -694,7 +765,7 @@ const std::vector<ObjectGeometry::Shape> &Object::geometryShapes() const
 
 const PathfindGeometry &Object::ownPathfindGeometry(const PathfindGeometry &templateGeometry) const
 {
-	if (m_geometryActive.empty() && !m_geometrySource)
+	if (m_geometryActive.empty() && !m_hasGeometryHeights && !m_geometrySource)
 	{
 		return templateGeometry;
 	}
@@ -722,7 +793,23 @@ const PathfindGeometry &Object::ownPathfindGeometry(const PathfindGeometry &temp
 		{
 			c.pathfind.shapes[i].active = m_geometryActive[i] != 0;
 		}
-		c.pathfind.cacheRadii(); // RW 0xAD2860 over the flags just set (lane UBER-2B: see PathfindGeometry::cacheRadii)
+		for (size_t i = 0; i < c.pathfind.shapes.size() && i < c.heights.size(); ++i)
+		{
+			if (c.pathfind.shapes[i].type == PATHFIND_GEOMETRY_SPHERE)
+			{
+				c.pathfind.shapes[i].majorRadius = c.heights[i];
+			}
+			else
+			{
+				c.pathfind.shapes[i].height = c.heights[i];
+			}
+		}
+		if (!c.pathfind.shapes.empty() && !c.heights.empty())
+		{
+			c.pathfind.majorRadius = c.pathfind.shapes[0].majorRadius;
+			c.pathfind.height = c.pathfind.shapes[0].height;
+		}
+		c.pathfind.cacheRadii(); // RW 0xAD2860 over the flags and extents just set (lane UBER-2B: see PathfindGeometry::cacheRadii)
 		c.pathfindVersion = m_geometryVersion;
 		c.pathfindFrom = &templateGeometry;
 	}
@@ -2636,6 +2723,15 @@ void Object::crcOmittingModules(StateHasher &h, const std::function<bool(const B
 			h.addU32(a);
 		}
 	}
+	if (m_hasGeometryHeights) // Port 34: per-shape extents mutated by setGeometryMaxHeight (RW 0x68B2CB / 0xAD2C60); untouched objects add nothing
+	{
+		const std::vector<float> &heights = geometryHeights();
+		h.addU32(0x6E200000u | (std::uint32_t)heights.size());
+		for (float v : heights)
+		{
+			h.addFloat(v);
+		}
+	}
 	if (m_triggerCount != 0 || m_enteredOrExitedFrame != 0) // lane SCRIPT-2: the trigger tracking, once the object met a trigger
 	{
 		h.addU32(0x7A000000u | (std::uint32_t)m_triggerCount);
@@ -2838,7 +2934,7 @@ void Object::setScriptStatus(std::uint8_t bits, bool set)
 // (the Objects block's order) and the team links (the TeamFactory's post-process).
 void Object::xfer(Xfer &x)
 {
-	XferVersion version{ 1, 4 }; // v2 campaignCarryover, v3 fireWeaponDeadline, v4 PORT-5 Object + 0x251
+	XferVersion version{ 1, 5 }; // v2 campaignCarryover, v3 fireWeaponDeadline, v4 PORT-5 Object + 0x251, v5 PORT-34 geometryHeights
 	x.xferVersion(version);
 	// a load never reads its destination: the save-side values are built from the members only when saving (SAVES.md, rules for xfer authors)
 	const bool saving = !x.isLoading();
@@ -2988,10 +3084,33 @@ void Object::xfer(Xfer &x)
 		}
 	}
 	m_geometryActive = active;
+	std::vector<float> heights = saving ? geometryHeights() : std::vector<float>();
+	if (version.current >= 5)
+	{
+		// Port 34: per-shape extents mutated by setGeometryMaxHeight (RW 0x698323 -> GeometryInfo::xfer; none: the template's)
+		x.xferVectorSize(heights, 4);
+		const size_t shapeCount = x.isLoading() ? ObjectGeometry::shapesOf(geometryTemplate()).size() : heights.size();
+		if (!heights.empty() && heights.size() != shapeCount)
+		{
+			throw XferException("the snapshot's object " + std::to_string(m_id) + " has " + std::to_string(heights.size())
+				+ " shape heights, its template " + std::to_string(shapeCount) + " shapes");
+		}
+		for (float &v : heights)
+		{
+			x.xferReal(&v);
+		}
+	}
 	x.xferUnsignedInt(&m_geometryVersion);
 	if (x.isLoading())
 	{
-		m_ownGeometry.reset(); // lane MODCOMPAT-MOD1: the copies are rebuilt from the loaded flags
+		m_hasGeometryHeights = !heights.empty();
+		m_ownGeometry.reset(); // lane MODCOMPAT-MOD1 / Port 34: the copies are rebuilt from the loaded flags and heights
+		if (m_hasGeometryHeights)
+		{
+			m_ownGeometry = std::make_unique<OwnGeometryCache>();
+			m_ownGeometry->heights = std::move(heights);
+		}
+		m_logic.partition().refreshOwnGeometry(*this);
 	}
 	xferUpgradeMask(x, m_upgradeMask, "an object's upgrades"); // lane MODS-3: the count + words layout of SnapshotXfer::maskWords, activeWords
 	x.xferReal(&m_upgradeCostPaid);

@@ -277,8 +277,10 @@ public:
 		float sphere = 0.0f;  ///< + 0x14
 		float centerZ = 0.0f; ///< + 0x20
 	};
-	// the object's GeometryInfo + 0x10 / + 0x14 / + 0x20: its template's, or (lane MODCOMPAT-MOD1) its own once it changed a shape flag (Object::geometryShapes)
+	// the object's GeometryInfo + 0x10 / + 0x14 / + 0x20: its template's, or (lane MODCOMPAT-MOD1 / Port 34) its own once a shape flag or height changed (Object::geometryShapes)
 	const Geometry &geometryOf(const Object &obj) const;
+	// Port 34: refreshes a registered entry's cached own GeometryInfo bounds (RW 0x68B2CB -> RW 0xAD2860 updates Object + 0xA8 in place without marking cells dirty)
+	void refreshOwnGeometry(const Object &obj) const;
 
 private:
 	struct Entry;
