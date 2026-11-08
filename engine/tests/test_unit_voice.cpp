@@ -756,6 +756,26 @@ TEST_CASE("LOCAL-6 unit voice: special powers look up UnitSpecificSoundToUse* in
 		CHECK(r.sink.sounds[0] == "CapturerCapture");
 	}
 
+	// 3b. One click - one sound (PROCESS 15.2): special power order voice (RW 0x8DF819) + logic trigger (RW 0x897183)
+	// Only the voice plays the module's InitiateSound; logic triggerSpecialPower plays only template InitiateSound (+0x34).
+	{
+		r.sink.clear();
+		UnitVoiceResponse::Info info;
+		info.target = target->getID();
+		info.powerTemplate = smiteSpt;
+		CHECK(r.voice->pickAndPlay({ smiteHero->getID() }, MSG_DO_SPECIAL_POWER_AT_OBJECT, &info));
+
+		BehaviorModule *bm = smiteHero->findModuleByTag(r.f.w.keys.nameToKey("ModuleTag_Smite"));
+		REQUIRE(bm);
+		SpecialPowerModule *spmSmite = dynamic_cast<SpecialPowerModule *>(bm);
+		REQUIRE(spmSmite);
+		spmSmite->triggerFromUpdate(); // RW 0x897183: template initiate sound is empty
+
+		// Total sounds played in sink: exactly 1 (from voice), 0 from logic
+		CHECK(r.sink.sounds.size() == 1);
+		CHECK(r.sink.sounds[0] == "ModuleSmiteSound");
+	}
+
 	// 4. Enter-state voice: VOICE_EVENT_ENTER_STATE_SPECIAL_POWER (0x7EC, RW 0x8DFCE1)
 	{
 		r.sink.clear();

@@ -674,13 +674,13 @@ void SpecialPowerModule::triggerSpecialPower(const Coord3D *loc, const Object *)
 	{
 		++m_unported;
 	}
-	// lane SPELL-3: RW 0x897183 .. 0x897226 (aboutToDoSpecialPower; BFME2 decomp SpecialPowerModuleTrigger.cpp, tier A): the template's InitiateSound on the
-	// caster (an event with its object id), then, with a location, InitiateAtLocationSound there with the caster's player index; fire-and-forget requests
-	// to TheAudio (the logic reads nothing back)
+	// lane SPELL-3: RW 0x897183 .. 0x897226: the template's InitiateSound on the caster (an event with its object id), then,
+	// with a location, InitiateAtLocationSound there with the caster's player index (the module's InitiateSound plays through unit voice, RW 0x8DF819);
+	// fire-and-forget requests to TheAudio (the logic reads nothing back)
 	{
 		const Player *owner = obj->getControllingPlayer();
 		const int playerIndex = owner ? owner->getPlayerIndex() : -1;
-		const std::string &sound = (d && !d->m_initiateSound.empty()) ? d->m_initiateSound : (t ? t->m_initiateSound : std::string());
+		const std::string &sound = t ? t->m_initiateSound : std::string();
 		if (!sound.empty())
 		{
 			AudioApi::playSoundForObject(sound, obj->getID(), playerIndex);

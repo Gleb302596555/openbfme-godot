@@ -1118,14 +1118,10 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 						const std::string &initiateSound = spm->getInitiateSound();
 						if (!initiateSound.empty())
 						{
-							// RW 0x8DDA33: fill candidate voice and crowd slots only if empty
+							// RW 0x8DDA33: fill candidate voice slot if empty (crowd slot arg at RW 0x8DF849 is empty voice from RW 0x8C72DF)
 							if (!c.voice.any())
 							{
 								c.voice.sound = initiateSound;
-							}
-							if (c.crowdEntry && !c.crowd.any())
-							{
-								c.crowd.sound = initiateSound;
 							}
 						}
 					}
