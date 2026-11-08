@@ -74,6 +74,7 @@ struct ClientEvent
 		BUILD_COMPLETE,   ///< RW 0x68D27A: client create interfaces, after object interfaces
 		EVA_DAMAGED,      ///< lane EVADAMAGE-1 (RW 0x67B4B7's Eva half): position (the object's, + 0x38), eva (the logic's part of the choice)
 		FLASH_AS_SELECTED, ///< RW 0x852BE1 / 0x678FA7: flashAsSelected on object with flashColor
+		DIED,              ///< RW 0x699077 -> RW 0x67561E: notifyDead on object death
 	};
 	std::string heroUniqueID;
 	std::vector<std::string> heroStatistics;
@@ -153,6 +154,7 @@ public:
 	void flashAsSelected(Object &obj, const RGBColor *color) override;
 	void evaDamaged(Object &obj, const EvaDamageNotice &notice) override; // lane EVADAMAGE-1
 	void flashHeroButton(const std::string &templateName, int frames) override;
+	void objectDied(Object &obj) override;
 	// MapObjectLoop's afterCreate for a map object (DrawableManager::applyPlacement): the client part of the placement
 	void placement(Object &obj, const MapObjectDrawable &placement);
 	// lane SAVE-4e: a snapshot load set the object's model conditions without the hooks (Object::xfer): its whole set goes to the drawable

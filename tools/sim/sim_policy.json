@@ -579,6 +579,10 @@
    "reason": "EVADAMAGE-1, the client half of the drawable damage notice's Eva part (RW 0x67B4B7): picks the Eva event from the drawable's template and the attacker drawable's shroud look, keeps the drawable's far frame and reports to the Eva; applies recorded client events, never read by the logic"
   },
   {
+   "glob": "src/GameClient/EvaSighting.cpp",
+   "reason": "LOCAL-13 / Issue #134, the client half of Eva sighting announcements (RW 0x678C69): checks shroud reveal transitions, queries visibility and nearby friendly positions, and reports Eva sighting events; client presentation, never read by the logic"
+  },
+  {
    "glob": "src/GameClient/SoundSelectorClientBehavior.cpp",
    "reason": "DECOMP-2, the sound selector ClientBehavior modules (S-701): their module data and the voice picker's lookups; client presentation, reads the logic objects' model conditions and upgrades, writes no logic state, rolls only the voice picker's client random"
   },

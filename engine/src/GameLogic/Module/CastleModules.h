@@ -236,6 +236,11 @@ public:
 	void abandonByPlayer() { abandon(); }
 	// RW + 0x4C: the price the last player's unpack paid (0 for the starting fortress and a summoned castle)
 	float storedPrice() const { return m_storedPrice; }
+	const std::string &evaEnemyCastleSightedEvent() const { return m_data->m_evaEnemyCastleSightedEvent; }
+	// RW 0x678EB6 / 0x6709EA: iterate all member IDs and castle itself for Eva sighting
+	void forEachMemberId(const std::function<void(ObjectID)> &fn) const;
+	static CastleBehavior *of(Object &obj);
+	static const CastleBehavior *of(const Object &obj);
 	const std::string &explicitTemplateName() const { return m_explicitTemplate; }
 	// RW 0x79AC19
 	void registerOwnedObject(Object &obj);
@@ -363,6 +368,8 @@ public:
 	void onDamage(const DamageInfo &info) override;
 	void onBodyDamageStateChange(const DamageInfo *info, BodyDamageType oldState, BodyDamageType newState) override;
 	bool breached() const { return m_breached; }
+	static CastleMemberBehavior *of(Object &obj);
+	static const CastleMemberBehavior *of(const Object &obj);
 
 private:
 	bool m_breached = false; // RW + 0x15

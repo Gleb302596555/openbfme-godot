@@ -1330,6 +1330,7 @@ void Object::friend_onDie(const DieModuleInterface::Event &event)
 	if (m_client)
 	{
 		m_client->observerEvent(*this, ObserverEvent::Death);
+		m_client->objectDied(*this);
 	}
 	for (size_t i = 0; i < m_modules.size(); ++i)
 	{

@@ -17,6 +17,7 @@
 #include "GameClient/AnimationSoundClientBehavior.h"
 #include "GameClient/Drawable.h"
 #include "GameClient/EvaDamage.h"
+#include "GameClient/EvaSighting.h"
 #include "GameClient/LogicSnapshot.h"
 #include "GameClient/MapObjectDrawables.h"
 #include "GameLogic/GameLogic.h"
@@ -46,6 +47,8 @@ public:
 	void setDeselectHandler(std::function<void(ObjectID)> handler) { m_deselectHandler = std::move(handler); }
 	// lane EVADAMAGE-1: what the EVA_DAMAGED events did (EvaDamage::apply)
 	const EvaDamage::Stats &evaDamageStats() const { return m_evaDamage; }
+	// lane LOCAL-13: Eva sighting announcements (RW 0x678C69)
+	const EvaSighting::Stats &evaSightingStats() const { return m_evaSighting; }
 	void setHeroFlashHandler(std::function<void(const std::string &, int)> handler) { m_heroFlashHandler = std::move(handler); }
 	size_t eventsApplied() const { return m_eventsApplied; }
 
@@ -153,6 +156,7 @@ private:
 	std::function<void(ObjectID)> m_heroAttackedHandler;
 	std::function<void(ObjectID)> m_deselectHandler;
 	EvaDamage::Stats m_evaDamage; ///< lane EVADAMAGE-1
+	EvaSighting::Stats m_evaSighting; ///< lane LOCAL-13
 	std::function<void(const std::string &, int)> m_heroFlashHandler;
 	size_t m_dependencyUpdates = 0; ///< lane COMBAT-4: dependent drawables whose shared flags changed (RW 0x4BF2D8)
 	std::uint32_t m_nextSeq = 0;

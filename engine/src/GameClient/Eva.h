@@ -61,6 +61,7 @@ public:
 	bool isEventAboutToPlay(int index) const;
 	// the space bar: the next jump-to-location (false: none)
 	bool nextJumpToLocation(double nowMs, Coord3D *position);
+	float enemySightedMaxVoicePositionScanRange() const { return m_ini.eva.miscEvaData().enemySightedMaxVoicePositionScanRange; }
 
 	struct Counters
 	{

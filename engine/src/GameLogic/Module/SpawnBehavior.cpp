@@ -130,6 +130,10 @@ public:
 	void stopSpawning() override { each([](SpawnBehaviorInterface &s) { s.stopSpawning(); return false; }); }                 // slot 9 (0xEDC316)
 	bool isSpawnerActive() const override { return each([](SpawnBehaviorInterface &s) { return s.isSpawnerActive(); }); }     // slot 11 (0xEDC384)
 	void reclaimDueOrphans() override { each([](SpawnBehaviorInterface &s) { s.reclaimDueOrphans(); return false; }); }       // slot 12 (0xEDC3CC)
+	void forEachSpawnID(const std::function<void(ObjectID)> &fn) const override
+	{
+		each([&](SpawnBehaviorInterface &s) { s.forEachSpawnID(fn); return false; });
+	}
 };
 } // namespace
 
@@ -159,6 +163,40 @@ SpawnBehaviorInterface *SpawnBehaviorInterface::of(Object &obj)
 		}
 	}
 	return first;
+}
+
+const SpawnBehaviorInterface *SpawnBehaviorInterface::of(const Object &obj)
+{
+	const SpawnBehaviorInterface *first = nullptr;
+	for (const std::unique_ptr<BehaviorModule> &m : obj.modules())
+	{
+		if (const SpawnBehaviorInterface *s = dynamic_cast<const SpawnBehaviorInterface *>(m.get()))
+		{
+			if (!first)
+			{
+				first = s;
+				if (!ModEngineFeatures::has(ModEngineFeature::EdainUnchainedSpawnUnion))
+				{
+					return s;
+				}
+				continue;
+			}
+			static thread_local SpawnBehaviorUnion ring[8];
+			static thread_local unsigned at = 0;
+			at = (at + 1) & 7;
+			ring[at].m_obj = const_cast<Object *>(&obj);
+			return &ring[at];
+		}
+	}
+	return first;
+}
+
+void SpawnBehavior::forEachSpawnID(const std::function<void(ObjectID)> &fn) const
+{
+	for (ObjectID id : m_spawnIDs)
+	{
+		fn(id);
+	}
 }
 
 // RW 0x862A4E (BFME2 decomp SpawnBehavior_canAnySlavesAttack.cpp, tier A; lane DECOMP-3): the first spawn, in list order, that resolves and is able to attack

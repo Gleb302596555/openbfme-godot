@@ -80,7 +80,10 @@ public:
 	// slot 12 (RW 0x86327C; lane BACKLOG4, Object::defect RW 0x699401): every replacement that is due (its frame is before now) takes an orphan when one can
 	// be reclaimed (RW 0x862A88) and leaves the list
 	virtual void reclaimDueOrphans() = 0;
+	// RW 0x670983: iterate all spawned slave IDs (for marking Eva sighting)
+	virtual void forEachSpawnID(const std::function<void(ObjectID)> &fn) const { (void)fn; }
 	static SpawnBehaviorInterface *of(Object &obj);                                        // RW 0x68C3A3
+	static const SpawnBehaviorInterface *of(const Object &obj);
 	// RW 0x6938BD (Object::onDie at RW 0x699082): the producer's spawn interface hears of the death
 	static void notifyProducerOfDeath(Object &dead, const DieModuleInterface::Event &info);
 };
@@ -126,6 +129,7 @@ public:
 	bool isSpawnerActive() const override { return m_active; }           // RW 0x86277F
 	bool canAnySlavesAttack() const override;                            // RW 0x862A4E
 	void orderSlavesToGoIdle(CommandSourceType source) override;         // RW 0x863850 (lane SCRIPT-4)
+	void forEachSpawnID(const std::function<void(ObjectID)> &fn) const override;
 	void crc(StateHasher &h) const override;
 	static void registerClass(ModuleFactory &modules);
 	static std::vector<std::string> stopLines();

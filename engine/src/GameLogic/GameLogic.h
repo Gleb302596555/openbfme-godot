@@ -182,6 +182,8 @@ public:
 	// lane CAH-2, RW 0x80AF0B (a Create-a-Hero record's flag 8): the drawable's house colour set (RW 0x80959A: kind 3 and the record's three colours,
 	// RW 0x6727B0 -> every draw module's vslot 0x7C); client only (HouseColor.h)
 	virtual void setCustomColors(Object &obj, int kind, std::uint32_t c0, std::uint32_t c1, std::uint32_t c2) { (void)obj; (void)kind; (void)c0; (void)c1; (void)c2; }
+	// RW 0x699077 -> RW 0x67561E: notify drawable on object death (m_evaEnemySightedAfterRespawn = 1)
+	virtual void objectDied(Object &obj) { (void)obj; }
 };
 
 class StateHasher;
