@@ -40,11 +40,6 @@ jobs:
           cmake --build engine/build -j2 --target openbfme_tests > /tmp/out/build.log 2>&1 || echo build-failed
           if [ -x engine/build/openbfme_tests ]; then engine/build/openbfme_tests -tc="PORT-70*" > /tmp/out/tests.log 2>&1 || true; fi
           tail -25 /tmp/out/tests.log 2>/dev/null || tail -30 /tmp/out/build.log 2>/dev/null || true
-      - name: spool logs
-        if: always()
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.head_ref }}
       - name: spool
         if: always()
         run: |
