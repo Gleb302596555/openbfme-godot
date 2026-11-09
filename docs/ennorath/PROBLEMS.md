@@ -702,3 +702,19 @@
 - Взял: —
 - Причина и исправление: —
 - Проверка: —
+
+### P-67. `ownerfix1 campaign powers played` красный на main: Chill Wind не применяется
+- Статус: [ ] открыто
+- Добавлено: 2026-11-09, Claude (приёмка партии PR арены в station-0)
+- Тест: `ownerfix1 campaign powers played: the first Angmar mission's intro ends ...`, `engine/tests/test_ownerfix1_input.cpp:1122..1124`: `CHECK_FALSE( c.hud->spellBar().targeting() )`, `countTemplate(..., "SpellBookChillWind") == winds0 + 1`, `spellStateName(p->spellSlotState(0)) == "_notReady"` — после прицеливания и клика заклинание не применено, прицел остаётся.
+- Сборка: `main` `c54fb932` (сборка станции 1, 16:16) — падает; так же на сборке партии PR #174 .. #197 в station-0 (до и после #198). Значит, не от партии. В `TEST_BASELINE.md` нет.
+- Проверено: только этот тест отдельно (`-tc`). Коммит, с которого падает, не искали.
+- Причина и исправление: —
+
+### P-68. `save4c retail T5` красный на main: блок `obfme:SkirmishAI` версии 7 разбирается вместо отказа
+- Статус: [x] **ВЫПОЛНЕНО — Claude, 2026-11-09**
+- Добавлено: 2026-11-09, Claude (приёмка партии PR арены в station-0)
+- Тест: `save4c retail T5: each block's version window ...`, `engine/tests/test_save4c_retail.cpp:467`. Ожидается «Don't know how to load version 7 (most recent is 6)», получено «skirmish ai: the cached enemy player of an AI -51183360 is outside -1 .. 7»: загрузчик принимает версию 7 и читает дальше мусор. 
+- Сборка: `main` `c54fb932` (сборка станции 1) — падает; так же на сборке партии PR в station-0. Не от партии. В `TEST_BASELINE.md` нет.
+- Проверено: только этот тест отдельно. Коммит, с которого падает, не искали.
+- Причина и исправление: тест устарел, а не загрузчик. PORT-33 (`345378fd`, в `main` с 252654b3) поднял блок до версии 7 (`SkirmishAISnapshot.cpp:504`, поля AIWoTRForfeitTactic), а `test_save4c_retail.cpp` ждал последней 6: версия 7 для загрузчика законна, и он читал «выше окна» как данные. Окно теста поднято до 7 (комментарий `pin:` рядом), теперь тест подаёт версию 8.

@@ -28,7 +28,9 @@
 //   * The object's look (RW 0x694A45): no controlling player, a non-positive ShroudClearingRange or a contained object (status 38 with a container whose
 //     RW 0x66352C value is below 400) -> radii -1; mask = every player for REVEAL_TO_ALL, else the allies of the owner and the owner (RW 0x6A8695(index,
 //     3, 0)) | the owner's spied mask (player + 0x3C8); object + 0x30 bit 0 or + 0x3F4 bit 0 -> radii 0.1; else forward = side = rear =
-//     getShroudClearingRange (RW 0x68E4E2), side *= VisionSide, rear *= VisionRear (a HordeContain's VisionSideOverride / VisionRearOverride when > 0).
+//     getShroudClearingRange (RW 0x68E4E2), side *= VisionSide, rear *= VisionRear; a contain whose interface answers the horde interface (RW 0x68C866)
+//     replaces the side / rear factor with its side (RW 0x694B79 -> interface slot 0x25C, RW 0x872BAB, module data + 0x278) / rear (RW 0x694B9B ->
+//     slot 0x258, RW 0x872B9E, module data + 0x274) override when that value is above 0 (RW 0x694B82 .. 0x694B8B / 0x694BB2), lane PORT-25.
 //   * getShroudClearingRange RW 0x68E4E2: ShroudClearingRange (object + 0x1B4) * (1 + the vision attribute modifier 0x14), the geometry's bounding radius
 //     (+ 0xB8) while UNDER_CONSTRUCTION, then times 1 + clamp((z - groundRef) * VisionBonusPercentPerFoot, MinVisionBonusPercent, MaxVisionBonusPercent)
 //     when VisionBonusPercentPerFoot > 0; groundRef (object + 0x1C4, RW 0x69264D) is the mean ground height of VisionBonusTestSegments points on a circle of

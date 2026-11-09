@@ -181,6 +181,8 @@ include(cmake/Combat.cmake)     # OPENBFME_COMBAT_SOURCES / OPENBFME_COMBAT_TEST
 include(cmake/Structure.cmake)  # OPENBFME_STRUCTURE_SOURCES / OPENBFME_STRUCTURE_TESTS (lane COMBAT-2)
 include(cmake/Spell.cmake)      # OPENBFME_SPELL_SOURCES / OPENBFME_SPELL_TESTS (lane SPELL-1)
 include(cmake/Port43.cmake)     # PORT-43: GameData/PowerLimit -> GameLogic + 0x118 (issue #128; OPENBFME_PORT43_TESTS)
+include(cmake/Port51.cmake)     # PORT-51: Object/InstanceScaleFuzziness, parsed and never read by RotWK (issue #155; OPENBFME_PORT51_TESTS)
+include(cmake/Port50.cmake)     # PORT-50: W3DModelDraw/ParticlesAttachedToAnimatedBones, particles on the animated bones (issue #154; OPENBFME_PORT50_TESTS)
 include(cmake/Render.cmake)     # OPENBFME_RENDER_SOURCES / OPENBFME_RENDER_TESTS (lane RENDER-1, client / draw only)
 include(cmake/SkirmishAI.cmake) # OPENBFME_SKIRMISH_AI_SOURCES / OPENBFME_SKIRMISH_AI_TESTS (lane AI-1)
 include(cmake/Vis.cmake)        # OPENBFME_VIS_SOURCES / OPENBFME_VIS_TESTS (lane VIS-1)
@@ -196,6 +198,7 @@ include(cmake/Experience.cmake) # OPENBFME_XP_SOURCES / OPENBFME_XP_TESTS (lane 
 include(cmake/FactB.cmake)      # OPENBFME_FACTB_TESTS (lane FACT-B: Isengard and Mordor)
 include(cmake/Port4.cmake) # OPENBFME_PORT4_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
+include(cmake/Port54.cmake) # OPENBFME_PORT54_TESTS (lane PORT-54)
 include(cmake/Port5.cmake) # OPENBFME_PORT5_TESTS (lane PORT-5)
 include(cmake/Port18.cmake) # PORT-18: hold fire (issue #74)
 include(cmake/Port1.cmake) # PORT-1: Weapon/FinishAttackOnceStarted (issue #53; OPENBFME_PORT1_TESTS)
@@ -206,6 +209,7 @@ include(cmake/Port7.cmake) # PORT-7: AnimalAIUpdate/UpdateTimer (issue #60; OPEN
 include(cmake/Port11.cmake) # PORT-11: SlavedUpdate/StayOnSameLayerAsMaster (issue #66; OPENBFME_PORT11_TESTS)
 include(cmake/Port13.cmake) # PORT-13: AIData/AttackMoveUsesFormations (issue #68; OPENBFME_PORT13_TESTS)
 include(cmake/Port30.cmake) # PORT-30: OneRingPenaltyUpdate/TimeFrozenFromPenalty (issue #102; OPENBFME_PORT30_TESTS)
+include(cmake/Port48.cmake) # PORT-48: W3DModelDraw/WadingParticleSys (issue #152)
 include(cmake/Port24.cmake) # PORT-24: Object/ForceLuaRegistration (issue #96; OPENBFME_PORT24_TESTS)
 include(cmake/Port21.cmake) # PORT-21: INAUDIBLE when an object leaves the world (issue #77; OPENBFME_PORT21_TESTS)
 include(cmake/Port34.cmake) # PORT-34: GameData/DefaultStructureRubbleHeight + Object/StructureRubbleHeight (issue #119; OPENBFME_PORT34_TESTS)
@@ -215,8 +219,13 @@ include(cmake/Port22.cmake) # PORT-22: SiegeDeploy/adjustMeleeOffset (issue #78;
 include(cmake/Port37.cmake) # PORT-37: DamageNugget/CylinderAOE, the area shape (issue #122; OPENBFME_PORT37_TESTS)
 include(cmake/Port10.cmake) # PORT-10: FlammableUpdate/RunToWater (issue #65; OPENBFME_PORT10_TESTS)
 include(cmake/Port38.cmake) # PORT-38: the AIData team build tempo (issue #123; OPENBFME_PORT38_TESTS)
+include(cmake/Port57.cmake) # PORT-57: RadiateFearUpdate/WhichSpecialPower parsed-unused (issue #167; OPENBFME_PORT57_TESTS)
 include(cmake/Port17.cmake) # PORT-17: ThreatFinderUpdate + the threat-finder script action (issue #73; appends to OPENBFME_SIM_SOURCES; OPENBFME_PORT17_TESTS)
 include(cmake/Port46.cmake) # PORT-46: ToggleMountedSpecialAbilityUpdate/OpacityTarget (issue #150; OPENBFME_PORT46_TESTS)
+include(cmake/Port58.cmake) # PORT-58: SpecialAbilityUpdate/ApproachUntilMembersInRange (issue #168; OPENBFME_PORT58_TESTS)
+include(cmake/Port45.cmake) # PORT-45: ActiveBody/DamageCreationList (issue #149; OPENBFME_PORT45_TESTS)
+include(cmake/Port44.cmake) # PORT-44: ExperienceLevel/ShowLevelUpTint (issue #148; OPENBFME_PORT44_TESTS)
+include(cmake/Port25.cmake) # PORT-25: HordeContain/VisionRearOverride (issue #97; OPENBFME_PORT25_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
@@ -767,6 +776,7 @@ add_executable(openbfme_tests
     ${OPENBFME_XP_TESTS}
     ${OPENBFME_FACTB_TESTS}
     ${OPENBFME_PLAY2_TESTS}
+    ${OPENBFME_PORT54_TESTS}
     ${OPENBFME_PORT33_TESTS}
     ${OPENBFME_PORT5_TESTS}
     ${OPENBFME_PORT18_TESTS}
@@ -784,7 +794,9 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT20_TESTS}
     ${OPENBFME_PORT14_TESTS}
     ${OPENBFME_PORT13_TESTS}
+    ${OPENBFME_PORT45_TESTS}
     ${OPENBFME_PORT30_TESTS}
+    ${OPENBFME_PORT48_TESTS}
     ${OPENBFME_PORT24_TESTS}
     ${OPENBFME_PORT21_TESTS}
     ${OPENBFME_PORT34_TESTS}
@@ -794,8 +806,12 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT37_TESTS}
     ${OPENBFME_PORT10_TESTS}
     ${OPENBFME_PORT38_TESTS}
+    ${OPENBFME_PORT57_TESTS}
     ${OPENBFME_PORT17_TESTS}
     ${OPENBFME_PORT46_TESTS}
+    ${OPENBFME_PORT58_TESTS}
+    ${OPENBFME_PORT44_TESTS}
+    ${OPENBFME_PORT25_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}
@@ -812,6 +828,8 @@ add_executable(openbfme_tests
     ${OPENBFME_STRUCTURE_TESTS}
     ${OPENBFME_SPELL_TESTS}
     ${OPENBFME_PORT43_TESTS}
+    ${OPENBFME_PORT51_TESTS}
+    ${OPENBFME_PORT50_TESTS}
     ${OPENBFME_RENDER_TESTS}
     ${OPENBFME_SKIRMISH_AI_TESTS}
     ${OPENBFME_VIS_TESTS}

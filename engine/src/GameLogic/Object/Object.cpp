@@ -696,11 +696,11 @@ const ThingTemplate &Object::geometryTemplate() const
 	return m_geometrySource ? *m_geometrySource : *static_cast<const ThingTemplate *>(getTemplate());
 }
 
-// lane MODCOMPAT-MOD1: RW 0x699349 (see Object.h)
+// lane MODCOMPAT-MOD1 (GeometryUpgrade) / Port 34 r2: RW 0x699349 (see Object.h)
 void Object::setGeometryInfoFrom(const Object &from)
 {
 	const ThingTemplate *source = &from.geometryTemplate(); // RW 0x463DFC: the shape list (and flags / heights below)
-	m_geometrySource = source == getTemplate() ? nullptr : source;
+	setGeometryInfoFrom(*source);
 	m_geometryActive = from.m_geometryActive;
 	const std::vector<float> copiedHeights = from.geometryHeights();
 	m_hasGeometryHeights = !copiedHeights.empty();
@@ -710,6 +710,17 @@ void Object::setGeometryInfoFrom(const Object &from)
 		m_ownGeometry = std::make_unique<OwnGeometryCache>();
 		m_ownGeometry->heights = copiedHeights;
 	}
+	++m_geometryVersion;
+}
+
+// Port 34 r2: the template's GeometryInfo (RW 0x8C2AA4, `lea eax, [tt + 0xA0]`): no flags or heights of the object's own left, so it reads the template's
+// shapes exactly as an untouched object does
+void Object::setGeometryInfoFrom(const ThingTemplate &from)
+{
+	m_geometrySource = &from == getTemplate() ? nullptr : &from;
+	m_geometryActive.clear();
+	m_hasGeometryHeights = false;
+	m_ownGeometry.reset();
 	++m_geometryVersion;
 	geometryChanged(false); // RW 0x68B244(0)
 }

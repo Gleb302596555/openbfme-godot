@@ -152,7 +152,13 @@ TEST_CASE("ActiveBody: every field of the binary's table parses (RW 0xC71D68), t
 	CHECK(d->m_grabOffset.y == 2.0f);
 	CHECK_FALSE(d->m_useDefaultDamageSettings);
 	REQUIRE(d->m_damageCreationList.size() == 2);
-	CHECK(d->m_damageCreationList[0] == std::vector<std::string>{ "OCL_Chunk1", "CATAPULT_ROCK", "FRONT_DESTROYED" });
+	// PORT-45: the records are typed (RW 0x8C3F1F): OCL name, FXTrigger index (RW 0xDB2AF4), death-side index (RW 0xDB2B04). No
+	// ObjectCreationList store is installed here, so the OCL names resolve to NULL exactly as RW 0x5EFFE7 answers for an unknown name
+	CHECK(d->m_damageCreationList[0].m_oclName.empty());
+	CHECK(d->m_damageCreationList[0].m_fxTrigger == 1);  // CATAPULT_ROCK
+	CHECK(d->m_damageCreationList[0].m_deathSide == 1);  // FRONT_DESTROYED
+	CHECK(d->m_damageCreationList[1].m_fxTrigger == 1);  // CATAPULT_ROCK
+	CHECK(d->m_damageCreationList[1].m_deathSide == 0);  // the token absent
 	CHECK(d->m_cheerRadius == 80.0f);
 	CHECK(d->m_removeUpgradesOnDeath);
 	CHECK(d->m_burningDeathBehavior);
