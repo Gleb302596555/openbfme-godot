@@ -173,7 +173,147 @@ LiveFXObject eventPrimary(GameLogic &logic, Object *obj, const FXEvent &e)
 }
 } // namespace
 
-LiveFX::LiveFX(LiveGame &game, FXPlayback &playback, int effectsLod) : m_game(game), m_effectsLod(effectsLod), m_mapWeather(game.logic().settings().snowy ? 1 : 0), m_playback(playback)
+WadingParticleSysUpdater::WadingParticleSysUpdater(FXParticleSystem::ParticleSystemManager &particles) : m_particles(particles) {}
+
+WadingParticleSysUpdater::~WadingParticleSysUpdater()
+{
+	clear();
+}
+
+void WadingParticleSysUpdater::update(Drawable &drawable, const TerrainPathfindSource &terrain, std::set<std::string> &unresolved)
+{
+	const DrawableID id = drawable.getID();
+	if (!drawable.getModelConditionFlags().test(kWadingConditionBit))
+	{
+		removeDrawable(id);
+		return;
+	}
+
+	const Coord3D position = *drawable.getPosition();
+	const std::string noSystem;
+	const std::vector<DrawEntry> &entries = drawable.entries();
+	for (size_t i = 0; i < entries.size(); ++i)
+	{
+		const W3DModelDrawModuleData *data = dynamic_cast<const W3DModelDrawModuleData *>(entries[i].data);
+		updateEntry(Key{ id, i }, data ? data->m_wadingParticleSys : noSystem, position, terrain, unresolved);
+	}
+	// Entries are fixed for a live Drawable, but retire any stale key if a synthetic/rebuilt Drawable has fewer entries.
+	for (auto it = m_systems.lower_bound(Key{ id, entries.size() }); it != m_systems.end() && it->first.first == id;)
+	{
+		const Key stale = it->first;
+		++it;
+		stop(stale);
+	}
+}
+
+void WadingParticleSysUpdater::updateEntry(const Key &key, const std::string &templateName, const Coord3D &position, const TerrainPathfindSource &terrain,
+	std::set<std::string> &unresolved)
+{
+	if (templateName.empty() || AsciiStringUtil::compareNoCase(templateName, "None") == 0)
+	{
+		stop(key);
+		return;
+	}
+
+	// W3DModelDraw reads the water height through W3DTerrainLogic's slot +0x4C (RW 0x67DAE6), starting with the drawable's Z.
+	// A false result must not use the returned ground height: a dry-land WADING flag produces no water effect.
+	float waterZ = position.z;
+	if (!terrain.isUnderwater(position.x, position.y, &waterZ, nullptr))
+	{
+		stop(key);
+		return;
+	}
+
+	FXParticleSystem::ParticleSystem *system = nullptr;
+	auto existing = m_systems.find(key);
+	if (existing != m_systems.end())
+	{
+		system = m_particles.findParticleSystemByID(existing->second.id);
+		if (existing->second.templateName != templateName || !system || system->isDestroyed())
+		{
+			stop(key);
+			system = nullptr;
+		}
+	}
+	if (system)
+	{
+		system->setPosition(Coord3D{ position.x, position.y, waterZ });
+		return;
+	}
+
+	const FXParticleSystem::ParticleSystemTemplate *particleTemplate = m_particles.templates().findTemplate(templateName);
+	if (!particleTemplate)
+	{
+		unresolved.insert(templateName);
+		return;
+	}
+	const FXParticleSystem::ParticleSystemID id = m_particles.createParticleSystem(particleTemplate, true);
+	system = m_particles.findParticleSystemByID(id);
+	if (!system)
+	{
+		return;
+	}
+	system->setPosition(Coord3D{ position.x, position.y, waterZ });
+	m_systems.emplace(key, Instance{ id, templateName });
+}
+
+void WadingParticleSysUpdater::removeDrawable(DrawableID id)
+{
+	auto it = m_systems.lower_bound(Key{ id, 0 });
+	while (it != m_systems.end() && it->first.first == id)
+	{
+		m_particles.destroyParticleSystemByID(it->second.id);
+		it = m_systems.erase(it);
+	}
+}
+
+void WadingParticleSysUpdater::prune(const std::function<bool(DrawableID)> &drawableExists)
+{
+	for (auto it = m_systems.begin(); it != m_systems.end();)
+	{
+		if (!drawableExists(it->first.first))
+		{
+			m_particles.destroyParticleSystemByID(it->second.id);
+			it = m_systems.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
+}
+
+void WadingParticleSysUpdater::clear()
+{
+	for (const auto &entry : m_systems)
+	{
+		m_particles.destroyParticleSystemByID(entry.second.id);
+	}
+	m_systems.clear();
+}
+
+FXParticleSystem::ParticleSystemID WadingParticleSysUpdater::systemId(DrawableID id, size_t entry) const
+{
+	const auto it = m_systems.find(Key{ id, entry });
+	return it == m_systems.end() ? FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID : it->second.id;
+}
+
+void WadingParticleSysUpdater::stop(const Key &key)
+{
+	const auto it = m_systems.find(key);
+	if (it != m_systems.end())
+	{
+		m_particles.destroyParticleSystemByID(it->second.id);
+		m_systems.erase(it);
+	}
+}
+
+LiveFX::LiveFX(LiveGame &game, FXPlayback &playback, int effectsLod)
+	: m_game(game)
+	, m_effectsLod(effectsLod)
+	, m_mapWeather(game.logic().settings().snowy ? 1 : 0)
+	, m_playback(playback)
+	, m_wadingParticleSystems(m_playback.particles())
 {
 	m_playback.setWorld(this);
 	m_game.logic().fxEvents().setSink(this);
@@ -264,8 +404,9 @@ std::vector<std::string> LiveFX::stops()
 {
 	std::vector<std::string> out = FXEventLog::stops();
 	out.push_back("[S-682] live FX: bone positions of ParticleSysBone systems and fire FX come from the model's bind pose (FollowBone systems do not follow the "
-			 "animation); ParticleSysBone FXTrigger / Persist / PersistID / HouseColor are ignored and OnlyIfOnWater systems are not created; the shooter's "
-			 "stealth (RW 0x694C0D, NULL viewer) is read when the effect plays, not at the shot (lane STEALTH-1); muzzle flashes and recoil are not drawn; isWater is false (the shroud: S-4971)");
+			 "animation); ParticleSysBone FXTrigger / Persist / PersistID / HouseColor are ignored and ParticleSysBone OnlyIfOnWater systems are not created; "
+			 "WadingParticleSys uses the PATH-1 water-surface query (PORT-48); the shooter's stealth (RW 0x694C0D, NULL viewer) is read when the effect plays, "
+			 "not at the shot (lane STEALTH-1); muzzle flashes and recoil are not drawn; FXPlaybackWorld::isWater is false for generic filters (the shroud: S-4971)");
 	out.push_back("[S-686] TransitionDamageFX: runs in the logic since lane FX-4 (RW 0x8BE077: the FXLists, OCLs and attached particle systems of a worse damage "
 				  "state, the sub objects of every state); not ported: the rubble neighbours (RW 0x8BDF08, S-342), the OCL's secondary position (S-530), an OCL "
 				  "call without a damage source (retail reads an invalid pointer); the drawable of RW 0x8BDDAC is taken as present; FXList and particle system "
@@ -1336,6 +1477,8 @@ void LiveFX::updateAttachedSystems()
 	{
 		it = dm.find(it->first.first) ? std::next(it) : m_frameEvents.erase(it);
 	}
+	const TerrainPathfindSource *pathTerrain = m_game.pathTerrain();
+	m_wadingParticleSystems.prune([&dm](DrawableID id) { return dm.find(id) != nullptr; });
 	// lane FX-4: the transition systems that are gone (their object died, or they ran out)
 	for (auto it = m_transitionSystems.begin(); it != m_transitionSystems.end();)
 	{
@@ -1355,6 +1498,14 @@ void LiveFX::updateAttachedSystems()
 		if (!d)
 		{
 			continue;
+		}
+		if (pathTerrain)
+		{
+			m_wadingParticleSystems.update(*d, *pathTerrain, m_stats.unresolvedParticleSystems);
+		}
+		else
+		{
+			m_wadingParticleSystems.removeDrawable(id);
 		}
 		states.clear();
 		for (const DrawEntry &e : d->entries())

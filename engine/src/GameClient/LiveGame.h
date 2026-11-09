@@ -182,6 +182,8 @@ public:
 	// RENDER-2: the launch bone provider the logic's projectile launches ask (CombatState::setLaunchOffsets)
 	DrawableLaunchBones &launchBones(const char *file = __builtin_FILE(), int line = __builtin_LINE()) { holdLogic(file, line); return *m_launchBones; }
 	const LoadedMap &map() const { return m_map; }
+	// The existing PATH-1 terrain query source (RW 0x67DAE6 for the water-surface query); client effects use the same read-only source.
+	const TerrainPathfindSource *pathTerrain() const { return m_pathTerrain.get(); }
 	const MapObjectDrawables &classified() const { return m_classified; }
 	// the trees, shrubs and props of the map (not objects)
 	const MapObjectDrawables &clientOnly() const { return m_clientOnly; }
