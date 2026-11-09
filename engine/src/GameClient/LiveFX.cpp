@@ -1060,6 +1060,11 @@ void LiveFX::play(const Pending &pending)
 		playTransitionSystem(e);
 		return;
 	}
+	if (e.kind == FXEvent::OBJECT_PARTICLE_SYSTEM)
+	{
+		playCreatedSystem(e);
+		return;
+	}
 	const FXList *fx = m_playback.fxLists().findFXList(*name);
 	if (!fx)
 	{
@@ -1280,6 +1285,32 @@ void LiveFX::playBodyParticleSystems(const FXEvent &e)
 		}
 	}
 	m_bodyParticleSystems[e.primary] = std::move(created);
+	++m_stats.played[e.site];
+}
+
+// lane PORT-79, the ObjectCreationList's CreateObject nugget (RW 0x5F1DC5): createParticleSystem(template, true) (RW 0x5F526A; an unknown name is NULL in
+// the store, nothing is made) and the handle's attachToObject (RW 0x5F32D7) with the object the nugget made. No setPosition: retail places the system
+// only through the attachment (the object's drawable). The nugget drops its handle, so no slot keeps it: the system ends with its own lifetime.
+FXParticleSystem::ParticleSystemID attachCreatedSystem(FXParticleSystem::ParticleSystemManager &particles,
+	const FXParticleSystem::FXParticleSystemTemplateStore &templates, const FXEvent &event)
+{
+	const FXParticleSystem::ParticleSystemTemplate *t = templates.findTemplate(*event.fxList);
+	if (!t)
+	{
+		return FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID; // RW 0x73AECB: an unknown name is NULL, nothing is made
+	}
+	return particles.createAttachedParticleSystemID(t, event.primary, true); // RW 0x5F526A + RW 0x5F32D7
+}
+
+void LiveFX::playCreatedSystem(const FXEvent &e)
+{
+	const FXParticleSystem::ParticleSystemID id = attachCreatedSystem(m_playback.particles(), m_playback.particleTemplates(), e);
+	if (id == FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID)
+	{
+		m_stats.unresolvedParticleSystems.insert(*e.fxList);
+		return;
+	}
+	++m_stats.createdSystems;
 	++m_stats.played[e.site];
 }
 

@@ -49,7 +49,13 @@ struct FXEvent
 		// entry makes nothing). The client makes the systems on the bones with the CLIENT random, in the retail order (RW 0x8C1E4E): every entry
 		// deletes all of its systems first (RW 0x8C258F), then its createParticleSystems (RW 0x8C23EA) picks `maxSystems` bones. The body keeps no
 		// state; a system's ID is the client's (as FX-4's). The body's object is the primary
-		BODY_PARTICLE_SYSTEMS
+		BODY_PARTICLE_SYSTEMS,
+		// lane PORT-79, the ObjectCreationList's CreateObject nugget (RW 0x5F1DC5, inside the per-object part RW 0x5F1B5A): `fxList` holds the nugget's
+		// ParticleSystem (+ 0x24) template name. createParticleSystem(template, true) (RW 0x5F526A), the system attached to the made object (RW 0x5F32D7,
+		// the object the nugget just made; no setPosition: the attachment's own position comes from the object's drawable). NOT kept: the nugget drops the
+		// system's handle (BFME2 1.06 GenericObjectCreationNugget::doStuffToObj discards the returned pointer), so nothing here keeps its ID either.
+		// Its position is the read-only copy the capture carries (the event record is not the simulation's state)
+		OBJECT_PARTICLE_SYSTEM
 	};
 	Kind kind = OBJECT_FX;
 	const char *site = "";          ///< the call site ("FireFX", "FXListDie", "SlowDeath INITIAL", ...)

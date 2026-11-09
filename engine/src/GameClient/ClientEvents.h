@@ -108,6 +108,7 @@ struct ClientEvent
 	DrawableScriptTarget scriptTarget; ///< MODEL_FLUSH (lane FX-3 / ANIM-1): the object's target record when the flags reach the draw, for the state scripts they start
 	bool hasWeaponTiming = false;      ///< MODEL_FLUSH (lane ANIM-1): the object has a current weapon (RW 0x68B58C(0)); weaponTimingFrames is its cycle
 	int weaponTimingFrames = 0;        ///< ObjectWeapons::drawWeaponTimingFrames (RW 0x4BEE31 .. 0x4BEE91), what UseWeaponTiming animations divide by
+	bool immediate = false;            ///< MODEL_FLUSH: RW 0x67449C's argument (true from the OCL's CreateObject RW 0x5F13C8, lane PORT-79)
 	std::string name;
 	bool visible = false, permanent = false;
 	bool setFlags = false, setScale = false, mirror = false;
@@ -139,7 +140,7 @@ public:
 	void objectVariation(Object &obj, int variation) override;
 	void objectDestroyed(Object &obj) override;
 	void modelConditionChanged(Object &obj, int bit, bool on) override;
-	void flushModelConditions(Object &obj) override;
+	void flushModelConditions(Object &obj, bool immediate = false) override;
 	bool showModule(Object &obj, const std::string &tag, bool visible, bool permanent) override;
 	void showSubObject(Object &obj, const std::string &name, bool visible, bool permanent) override;
 	void upgradeTextures(Object &obj, const std::vector<std::pair<std::string, std::string>> &swaps) override;
@@ -182,7 +183,7 @@ public:
 
 private:
 	ClientEvent &push(ClientEvent::Kind kind, const Object &obj);
-	void pushFlush(Object &obj);
+	ClientEvent &pushFlush(Object &obj);
 	// S-090: last flushed capture-flag conditions, separate from the AI snapshot.
 	std::map<ObjectID, std::array<std::uint32_t, 19>> m_animationConditions;
 

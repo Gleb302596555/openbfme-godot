@@ -202,6 +202,7 @@ include(cmake/FactB.cmake)      # OPENBFME_FACTB_TESTS (lane FACT-B: Isengard an
 include(cmake/Port4.cmake) # OPENBFME_PORT4_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
 include(cmake/Port75.cmake) # PORT-75: BannerCarrierUpdate MorphCondition / BannerMorphFX (issue #207; OPENBFME_PORT75_TESTS)
+include(cmake/Port79.cmake) # OPENBFME_PORT79_TESTS (lane PORT-79)
 include(cmake/Port54.cmake) # OPENBFME_PORT54_TESTS (lane PORT-54)
 include(cmake/Port5.cmake) # OPENBFME_PORT5_TESTS (lane PORT-5)
 include(cmake/Port18.cmake) # PORT-18: hold fire (issue #74)
@@ -794,6 +795,7 @@ add_executable(openbfme_tests
     ${OPENBFME_FACTB_TESTS}
     ${OPENBFME_PLAY2_TESTS}
     ${OPENBFME_PORT75_TESTS}
+    ${OPENBFME_PORT79_TESTS}
     ${OPENBFME_PORT54_TESTS}
     ${OPENBFME_PORT33_TESTS}
     ${OPENBFME_PORT64_TESTS}
