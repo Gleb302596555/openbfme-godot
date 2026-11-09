@@ -317,6 +317,9 @@ const FieldParse kGameDataFields[] = {
 	// lane LOCAL-3: selection flash (rows RW 0xC005E0 / 0xC005D0, GlobalData +0xB58 / +0xB54)
 	{ "SelectionFlashHouseColor", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.selectionFlashHouseColor) },
 	{ "SelectionFlashSaturationFactor", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.selectionFlashSaturationFactor) },
+	// lane PORT-69 (issue #183): terrain track marks (rows RW 0xBFFAA0 / 0xBFFA70, GlobalData +0x13C / +0x10C; client-only, not hashed)
+	{ "MakeTrackMarks", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.makeTrackMarks) },
+	{ "MaxTerrainTracks", parseNoting<INI::parseInt>, 0, (int)offsetof(BlockState, values.maxTerrainTracks) },
 	{ nullptr, noteUnapplied, nullptr, 0 }
 };
 const FieldParse kAIDataFields[] = {

@@ -155,6 +155,9 @@ struct DrawEntry
 	const ModuleData *truckData = nullptr;
 	bool truckChecked = false;
 	bool isTruck = false;
+	// lane PORT-69 (issue #183): W3DModelDraw TrackMarks (RW W3DScriptedModelDraw + 0x60)
+	bool hasTrackMarks = false;
+	int trackId = -1;
 };
 
 class Drawable : public Thing
@@ -227,6 +230,7 @@ public:
 
 	std::vector<DrawEntry> &entries() { return m_entries; }
 	const std::vector<DrawEntry> &entries() const { return m_entries; }
+	bool hasTrackMarks() const { return m_hasTrackMarks; } ///< lane PORT-69 (issue #183): at least one entry specifies TrackMarks
 	// The ClientUpdate and ClientBehavior modules of the template, in list order (ZH Drawable.cpp:349-505: ClientUpdate modules follow the draw
 	// modules; RotWK's ClientBehavior list is the fourth module list). A class that is not ported is an UnportedDrawableModule (stop S-140).
 	const std::vector<std::unique_ptr<DrawableModule>> &clientModules() const { return m_clientModules; }
@@ -535,5 +539,6 @@ private:
 	float m_customTintFrequency = 0.0f;                ///< +0x88
 	UnsignedInt m_tintStatus = 0;                      ///< +0x118
 	UnsignedInt m_prevTintStatus = 0;                  ///< +0x11C
+	bool m_hasTrackMarks = false;                      ///< lane PORT-69: any entry has non-empty TrackMarks
 	void setFadeHidden(bool hidden); ///< RW 0x6718FB (bumps the change count when it changes)
 };
