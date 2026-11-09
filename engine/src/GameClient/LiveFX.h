@@ -16,6 +16,9 @@
 //     recalcBonesForClientParticleSystems / stopClientParticleSystems: on a state change the old systems are destroyed, each entry's system is created at the
 //     bone's model-space position (drawable scale applied) turned by the bone's Z rotation and attached to the drawable). Construction dust, fires and smoke
 //     of damaged buildings and projectile trails are this path.
+//   * WadingParticleSys (PORT-48): the W3DModelDraw reader at RW 0x4C72BE (vtable slot +0x2C) tests WADING (bit 239), reads base data +0x14, and updates a
+//     per-(drawable, draw entry) FXParticleSystem at the queried water surface (RW 0x67DAE6) each client frame; it stops on dry terrain or when WADING clears.
+//     It consumes the condition only: the terrain-driven WADING/cliff producer remains S-084; no water rendering or locomotor behavior is changed.
 //   * sounds of Sound nuggets through AudioApi::playSoundAtPosition.
 //   * TransitionDamageFX's attached particle systems (lane FX-4: ATTACH / DESTROY_PARTICLE_SYSTEM events, kept per (object, slot) as the module keeps them).
 //   * the FXEvent entries of the current ANIMATION state of every model draw (RW 0x4BCE68, called from W3DModelDraw::doDrawModule RW 0x4C72BE): per entry
@@ -27,10 +30,11 @@
 //
 // INFERENCE / not ported (stop S-682, reported by stops()):
 //   * bone positions come from the model's bind pose (ZH asks the live render object's current pose; FollowBone systems are not moved with the animation);
-//   * ParticleSysBone FXTrigger / Persist / PersistID / HouseColor are ignored; OnlyIfOnWater systems are not created (no water query), OnlyIfOnLand ones are;
+//   * ParticleSysBone FXTrigger / Persist / PersistID / HouseColor are ignored; ParticleSysBone OnlyIfOnWater systems are still not created (that path has no water
+//     query), OnlyIfOnLand ones are; WadingParticleSys has its own terrain query (PORT-48);
 //   * the shooter's stealth (RW 0x694C0D with a NULL viewer, RW 0x6CCB91; lane STEALTH-1) is read when the effect plays, not at the shot;
 //   * the muzzle flash and recoil of handleWeaponFireFX are not drawn;
-//   * isWater is false everywhere; the shroud is clear (VIS-1 owns it).
+//   * FXPlaybackWorld::isWater is false for generic FX filters (WadingParticleSys queries PATH-1 directly); the shroud is clear (VIS-1 owns it).
 // Data\INI\ParticleSystem.ini (329 ZH-format `ParticleSystem` blocks) is not loaded, as in retail (lane FX-3, retires stop S-684). TARGET FACTS (RotWK
 // game.dat, S-001 caveat): GameEngine::init never names TheParticleSystemManager (the string is not in the image; the legend entry is never requested,
 // spec ini-and-object-model 3.5); no INI block registration names `ParticleSystem` (the only particle block is `FXParticleSystem` -> RW 0x5FC7DB, record
@@ -55,7 +59,47 @@
 
 class LiveGame;
 class Object;
+class TerrainPathfindSource;
 struct FireSetting;
+
+// PORT-48: the W3DModelDraw::doDrawModule reader (RW 0x4C72BE) for the base data's
+// WadingParticleSys field. Kept separate from ParticleSysBone's state/animation map.
+class WadingParticleSysUpdater
+{
+public:
+	// ModelConditionNames.inc: WADING is bit 239; RW tests bit 15 of [this + 0x198].
+	static constexpr int kWadingConditionBit = 239;
+
+	explicit WadingParticleSysUpdater(FXParticleSystem::ParticleSystemManager &particles);
+	~WadingParticleSysUpdater();
+	WadingParticleSysUpdater(const WadingParticleSysUpdater &) = delete;
+	WadingParticleSysUpdater &operator=(const WadingParticleSysUpdater &) = delete;
+
+	// One client-frame pass over every draw module of this drawable. `unresolved` records configured names absent from the FXParticleSystem store.
+	void update(Drawable &drawable, const TerrainPathfindSource &terrain, std::set<std::string> &unresolved);
+	void removeDrawable(DrawableID id);
+	void prune(const std::function<bool(DrawableID)> &drawableExists);
+	void clear();
+
+	// Test/diagnostic access to the one live system for a (drawable, draw-entry) pair; 0 when inactive.
+	FXParticleSystem::ParticleSystemID systemId(DrawableID id, size_t entry) const;
+	size_t liveCount() const { return m_systems.size(); }
+
+private:
+	struct Instance
+	{
+		FXParticleSystem::ParticleSystemID id = FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID;
+		std::string templateName;
+	};
+	using Key = std::pair<DrawableID, size_t>;
+
+	void updateEntry(const Key &key, const std::string &templateName, const Coord3D &position, const TerrainPathfindSource &terrain,
+		std::set<std::string> &unresolved);
+	void stop(const Key &key);
+
+	FXParticleSystem::ParticleSystemManager &m_particles;
+	std::map<Key, Instance> m_systems;
+};
 
 class LiveFX : public FXEventSink, public FXPlaybackWorld, public DrawableFXHost
 {
@@ -88,8 +132,8 @@ public:
 	// DrawableFXHost
 	bool enteringStateFX(DrawableID id, const std::string &fx) override;
 
-	// once per client frame, after the drawables' poses were synced: the ParticleSysBone systems follow every model draw's current states; the systems of
-	// drawables that are gone are destroyed
+	// once per client frame, after the drawables' poses were synced: WadingParticleSys is updated against PATH-1 water and the ParticleSysBone systems follow
+	// every model draw's current states; the systems of drawables that are gone are destroyed
 	void updateAttachedSystems();
 
 	// FXPlaybackWorld
@@ -174,7 +218,7 @@ public:
 		std::map<std::string, unsigned long long> played;   ///< FXLists played, per site (logic sites, "EnteringStateFX")
 		std::map<std::string, unsigned long long> skipped;  ///< calls not played, per reason ("no drawable", "suspended", ...)
 		std::set<std::string> missingFXLists;               ///< names the FXList store does not hold (retail rejects them at parse time)
-		std::set<std::string> unresolvedParticleSystems;    ///< ParticleSysBone systems the FXParticleSystem store does not hold (RW 0x73AECB: NULL, not played)
+		std::set<std::string> unresolvedParticleSystems;    ///< configured ParticleSysBone / WadingParticleSys names absent from the FXParticleSystem store (RW 0x73AECB: NULL, not played)
 		unsigned long long fireFXAtBone = 0;                ///< fire FX played at a barrel's fire FX bone
 		unsigned long long fireFXOnObject = 0;              ///< fire FX played through doFXObj (no draw module took it)
 		unsigned long long attachedCreated = 0, attachedDestroyed = 0, attachedLive = 0;
@@ -235,6 +279,7 @@ private:
 	int m_effectsLod = 4;
 	int m_mapWeather = 0; ///< lane WEATHER-1: the map's WorldInfo weather (GameLogicSettings::snowy), read at construction (the logic is idle then)
 	FXPlayback &m_playback;
+	WadingParticleSysUpdater m_wadingParticleSystems;
 	ClientBuffs m_buffs;                 // lane SPELL-4
 	std::vector<ViewShake> m_viewShakes; // lane FX-4
 	std::vector<LiveDecal> m_decals;     // S-5205
