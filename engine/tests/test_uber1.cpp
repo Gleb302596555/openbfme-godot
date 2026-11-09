@@ -161,6 +161,8 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // pin: PORT-12 (8ca4fd8e) hashes MinDistFromEdgeOfMapForBuild in GameLogicSettings::crc (RotWK GlobalData +0xA68): the vector moves from frame 0, as
 // perf1's did (bisected to PORT-12, see test_perf1_bench.cpp; this vector was not bisected on its own). Re-measured once (OPENBFME_UBER1_REGEN=1,
 // Windows MSVC, station-0) on main with the open PRs #129 #130 #131 #132 #139 #140 #141 merged on top
+// pin: PORT-37 (#159, DamageNugget's area shape, RW 0x90DEF0) re-measured once (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-0, 2026-11-09) on main 29814b9d
+// with the arena PRs #159 #160 #142 #144 #145 #158 merged: with PORT-37's WeaponDelivery.cpp switched off the old vector passed
 TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1, 4 and 16 logic threads and in a repeated run; the hash's own jobs run on "
 		  "workers; Faithful hashes differently and serially")
 {
