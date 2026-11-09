@@ -2286,6 +2286,9 @@ ToggleMountedSpecialAbilityUpdate::ToggleMountedSpecialAbilityUpdate(Thing *thin
 // base handler RW 0x851E9F still has packing frames, the drawable + 0xB0 is set to the PC24 interpolation
 // between 1.0 and OpacityTarget (data + 0xD0). RW 0x8B1155: on the last unpacking frame the base returns false
 // and there is no opacity write. RW 0x8B11E3 / 0x8B11F0: the value goes straight to the object's drawable.
+// INFERENCE (PROCESS.md 15.1): RW 0x8B11F0 / 0x8B1238 / 0x8B1287 write drawable + 0xB0 directly; the port's
+// simulation side has no drawable, so the existing ObjectClientHooks::setDrawableOpacity path delivers all
+// three writes (ClientEvent::SET_OPACITY -> Drawable::setDrawableOpacity). The owner checks this in game.
 bool ToggleMountedSpecialAbilityUpdate::handlePackingProcessing()
 {
 	const bool busy = SpecialAbilityUpdate::handlePackingProcessing();
