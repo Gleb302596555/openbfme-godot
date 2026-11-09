@@ -235,6 +235,7 @@ include(cmake/Port62.cmake) # PORT-62: TransportContain/FireGrabWeaponOnVictim, 
 include(cmake/Port72.cmake) # PORT-72: FactionVictoryData, stop verdict S-7197 (issue #186; OPENBFME_PORT72_TESTS)
 include(cmake/Port67.cmake) # PORT-67: Weapon/CanSwoop and the Locomotor Swoop rows (issue #181; OPENBFME_PORT67_TESTS)
 include(cmake/Port40.cmake) # PORT-40: AIData/MaxRecruitRadius (issue #125; OPENBFME_PORT40_TESTS)
+include(cmake/Port65.cmake) # PORT-65: SpellRechargeModifierUpgrade (issue #177; OPENBFME_PORT65_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
@@ -831,6 +832,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT72_TESTS}
     ${OPENBFME_PORT67_TESTS}
     ${OPENBFME_PORT40_TESTS}
+    ${OPENBFME_PORT65_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}
