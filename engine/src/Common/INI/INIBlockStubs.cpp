@@ -7,6 +7,7 @@
 #include "Common/AsciiString.h"
 #include "GameClient/FXList.h"           // FX-1: the FXList block is parsed for real
 #include "GameClient/FXParticleSystem.h" // FX-1: the FXParticleSystem block is parsed for real
+#include "GameClient/MapWeather.h"       // LOCAL-26: WaterSet is parsed for real
 #include "GameLogic/Locomotor.h" // HORDE-1: the Locomotor block is parsed for real
 #include "GameLogic/Armor.h"     // WEAPON-1: the Weapon, Armor and DamageFX blocks are parsed for real
 #include "GameLogic/DamageFX.h"
@@ -210,6 +211,13 @@ void RegisterRecordingBlockStubs(INIBlockRegistry &registry, INIBlockRecorder &r
 		else if (keyword == "DamageFX")
 		{
 			registry.registerBlock(keyword, [](INI *ini) { DamageFXStore::parseDamageFXDefinitionGlobal(ini); }); // RW 0x762799
+			continue;
+		}
+		else if (keyword == "WaterSet")
+		{
+			// LOCAL-26: RW 0x600564: INI::parseWaterSettingDefinition (INIWater.cpp).
+			// WaterSettings[6] (RW 0xDE4BE8); parsed into the global WaterSettings array.
+			registry.registerBlock(keyword, [](INI *ini) { WaterSetScan::parseWaterSettingDefinitionGlobal(ini); });
 			continue;
 		}
 		registry.registerBlock(keyword, [&recorder, keyword, mode](INI *ini) {

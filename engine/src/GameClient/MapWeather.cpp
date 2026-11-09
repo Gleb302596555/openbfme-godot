@@ -37,7 +37,18 @@ public:
 	{
 		m_env.fileSystem = fs;
 		RegisterRecordingBlockStubs(m_env.blocks, m_recorder, { block }, StubExtent::LenientAfterEnd, false);
-		m_env.blocks.registerBlock(block, std::move(parse));
+		if (equalsNoCase(block, "WaterSet"))
+		{
+			m_env.blocks.registerBlock("WaterSet", std::move(parse));
+		}
+		else if (equalsNoCase(block, "Weather"))
+		{
+			m_env.blocks.registerBlock("Weather", std::move(parse));
+		}
+		else
+		{
+			m_env.blocks.registerBlock(block, std::move(parse));
+		}
 	}
 	bool run(const std::string &name, const std::string &text, INILoadType type, std::string *error)
 	{
@@ -265,7 +276,19 @@ bool WaterSetScan::diffuseOf(const Settings &settings, int timeOfDay, float diff
 	return true;
 }
 
-bool WaterSetScan::load(ArchiveFileSystem &fs, const std::string &mapDir, int timeOfDay, float diffuse[4], std::string *error)
+static WaterSetScan::Settings s_globalWaterSettings;
+
+const WaterSetScan::Settings &WaterSetScan::globalSettings()
+{
+	return s_globalWaterSettings;
+}
+
+void WaterSetScan::parseWaterSettingDefinitionGlobal(INI *ini)
+{
+	waterSetBlock(s_globalWaterSettings)(ini);
+}
+
+bool WaterSetScan::loadSettings(ArchiveFileSystem &fs, const std::string &mapDir, Settings &out, std::string *error)
 {
 	Settings settings;
 	MapIniLoad load(&fs, "WaterSet", waterSetBlock(settings));
@@ -275,6 +298,17 @@ bool WaterSetScan::load(ArchiveFileSystem &fs, const std::string &mapDir, int ti
 	}
 	const std::string mapIni = mapDir + "\\map.ini";
 	if (fs.doesFileExist(mapIni) && !load.runFile(mapIni, INI_LOAD_CREATE_OVERRIDES, error))
+	{
+		return false;
+	}
+	out = settings;
+	return true;
+}
+
+bool WaterSetScan::load(ArchiveFileSystem &fs, const std::string &mapDir, int timeOfDay, float diffuse[4], std::string *error)
+{
+	Settings settings;
+	if (!loadSettings(fs, mapDir, settings, error))
 	{
 		return false;
 	}

@@ -39,11 +39,18 @@ struct Settings
 {
 	WaterSetting waterSettings[kTimeOfDayCount]; // WaterSettings[6] (RW 0xDE4BE8): each element as the WaterSetting constructor leaves it until a block reads it
 };
+// RW 0x600564: INI::parseWaterSettingDefinition (INIWater.cpp), parses into the global WaterSettings array.
+void parseWaterSettingDefinitionGlobal(INI *ini);
+// Access to the global WaterSettings[6] (RW 0xDE4BE8) populated by parseWaterSettingDefinitionGlobal.
+const Settings &globalSettings();
 // Reads the WaterSet blocks of one file on top of `settings`. `mapOverride`: the text is a map.ini (INI_LOAD_CREATE_OVERRIDES); WaterSet takes no part in the
 // override chain, so only the load type of the nested INI differs. On failure `settings` is unchanged and `error` holds the INIException's text.
 bool applyText(const std::string &text, Settings &settings, std::string *error, bool mapOverride = false);
 // The RGBA of time of day 0 (NONE) .. 5 (INTERPOLATE) as 0..1; false for any other index.
 bool diffuseOf(const Settings &settings, int timeOfDay, float diffuse[4], std::string *error);
+// mapDir as MapWeatherScan::load takes it: the map's folder (MapClassification::mapDirectory, "maps\map mp evendim" or a user map's folder).
+// Reads data\ini\water.ini and then any <mapDir>\map.ini overrides into `out`.
+bool loadSettings(ArchiveFileSystem &fs, const std::string &mapDir, Settings &out, std::string *error);
 // mapDir as MapWeatherScan::load takes it: the map's folder (MapClassification::mapDirectory, "maps\map mp evendim" or a user map's folder). timeOfDay 1 Morning
 // .. 4 Night (MapChunks.h). Missing map.ini is fine; a missing water.ini is an error. `diffuse` is written only when
 // the files were read and the time of day is a WaterSetting; on failure it is untouched and `error` says why (no colour stands in for one that was not read).
