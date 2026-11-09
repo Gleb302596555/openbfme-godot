@@ -306,7 +306,7 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 				if (ev.hasIndicatorColor) d->setIndicatorColor(ev.indicatorColor);
 				if (ev.hasHouseColor) d->setHouseColor(ev.houseColor);
 				d->setScriptTarget(ev.scriptTarget); // lane FX-3: before the flush runs the state scripts
-				d->flushModelConditions(ev.hasWeaponTiming, ev.weaponTimingFrames);
+				d->flushModelConditions(ev.hasWeaponTiming, ev.weaponTimingFrames, ev.immediate);
 			}
 			break;
 		case ClientEvent::CUSTOM_COLORS: // lane CAH-2 (RW 0x80AF0B -> 0x6727B0)

@@ -446,13 +446,13 @@ void Drawable::setAudible(bool audible)
 	}
 }
 
-void Drawable::flushModelConditions(bool hasWeaponTiming, int weaponTimingFrames)
+void Drawable::flushModelConditions(bool hasWeaponTiming, int weaponTimingFrames, bool immediate)
 {
 	m_hasWeaponTiming = hasWeaponTiming;
 	m_weaponTimingFrames = weaponTimingFrames;
-	if (!m_flagsDirty)
+	if (!m_flagsDirty && !immediate)
 	{
-		return; // RW 0x6744A3: a drawable that is not dirty is not flushed
+		return; // RW 0x6744A3: a drawable that is not dirty is not flushed without the immediate flag
 	}
 	m_flagsDirty = false;
 	setModelConditionFlags(m_flags);

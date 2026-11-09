@@ -102,6 +102,14 @@ private:
 	std::map<Key, Instance> m_systems;
 };
 
+// lane PORT-79: the ObjectCreationList's CreateObject ParticleSystem (RW 0x5F1DC5) as the client plays it: the FXParticleSystem template named by the
+// event (an unknown name is NULL in the store, as RW 0x73AECB stores it: nothing is made), createParticleSystem(template, createSlaves = 1)
+// (RW 0x5F526A) and attachToObject(the object the nugget made) (RW 0x5F32D7). No position is set: retail moves the system only with the attachment's
+// drawable. The nugget drops its handle (BFME2 1.06 GenericObjectCreationNugget::doStuffToObj discards the pointer), so the system lives until its own
+// lifetime ends. INVALID_PARTICLE_SYSTEM_ID when nothing was made.
+FXParticleSystem::ParticleSystemID attachCreatedSystem(FXParticleSystem::ParticleSystemManager &particles,
+	const FXParticleSystem::FXParticleSystemTemplateStore &templates, const FXEvent &event);
+
 class LiveFX : public FXEventSink, public FXPlaybackWorld, public DrawableFXHost
 {
 public:
@@ -232,6 +240,7 @@ public:
 		unsigned long long frameEventsFired = 0;           ///< animation state FXEvent entries fired (RW 0x4BCE68)
 		unsigned long long uncapturedFilters = 0;          ///< SMOOTH-1: an object filter asked at play time that the capture at the call did not evaluate (fails)
 		unsigned long long transitionSystemsCreated = 0, transitionSystemsDestroyed = 0; ///< lane FX-4: TransitionDamageFX's attached systems
+		unsigned long long createdSystems = 0; ///< lane PORT-79: the OCL's CreateObject ParticleSystem systems made and attached
 		unsigned long long viewShakes = 0, viewShakesDropped = 0; ///< lane FX-4: ViewShake calls queued for the view / dropped (no view took them)
 		unsigned long long decals = 0, decalsDropped = 0;         ///< DynamicDecal calls kept for the view / dropped past the bound
 		unsigned long long scorchesFX = 0, scorchesMap = 0, scorchesFire = 0; ///< addScorch calls per source (TerrainScorchBuffer)
@@ -260,7 +269,9 @@ private:
 		std::shared_ptr<Captured> primary, secondary;
 	};
 	void play(const Pending &p);
-	void playTransitionSystem(const FXEvent &e); // lane FX-4
+	void playTransitionSystem(const FXEvent &e);
+	// lane PORT-79: an OBJECT_PARTICLE_SYSTEM event (the OCL's CreateObject ParticleSystem, RW 0x5F1DC5)
+	void playCreatedSystem(const FXEvent &e);
 	bool playEnteringStateFX(DrawableID id, const std::string &fx);
 	std::vector<Pending> m_pending;                                     ///< filled on the simulation owner, drained at idle points
 	std::vector<std::pair<DrawableID, std::string>> m_pendingStates;    ///< EnteringStateFX of drawables (render side), played at idle points

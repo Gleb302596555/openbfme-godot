@@ -193,7 +193,9 @@ public:
 	// stored flags to the draw modules (setModelConditionFlags) when dirty, with the object's weapon cycle for UseWeaponTiming as the flush event carried it
 	void storeModelCondition(int bit, bool on);
 	void storeModelConditions(const ModelConditionFlags &flags); ///< lane SAVE-4e: the whole set (RW 0x679512's argument), dirty when it differs
-	void flushModelConditions(bool hasWeaponTiming, int weaponTimingFrames);
+	// `immediate` is RW 0x67449C's argument: true reaches the draw modules even when nothing changed since the last flush (the OCL's CreateObject with
+	// InheritAttributesFromSource, RW 0x5F13C8, lane PORT-79); false is the dirty-only flush of the end-of-frame path
+	void flushModelConditions(bool hasWeaponTiming, int weaponTimingFrames, bool immediate = false);
 	bool modelConditionsDirty() const { return m_flagsDirty; }
 	// the weapon cycle the last flush carried (-1: the object had no current weapon), what UseWeaponTiming animations divide by
 	int weaponTimingFrames() const { return m_hasWeaponTiming ? m_weaponTimingFrames : -1; }
