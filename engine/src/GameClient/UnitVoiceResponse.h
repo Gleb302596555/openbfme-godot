@@ -244,6 +244,12 @@ private:
 	const CrowdThreshold *pickCrowd(const std::vector<std::pair<Object *, int>> &candidates) const;
 	void selectVoices(Object &obj, int msgType, const Info *info, Choice &c, Rank &rank) const;
 	void moveVoices(Object &obj, int msgType, const Info *info, Choice &c, Rank &rank) const;
+	// RW 0x8DDBC4 (donor BFME2 0x004D990E): the movement-sensitive module scan of the move order. Scans the object's behavior modules (then, when the
+	// record is still empty, its horde's) for a movement-sensitive interface (module vtable slot 11); in RotWK 2.01 only InvisibilityUpdate implements it
+	// (RW 0x8A6EF0 -> the trailing interface at module + 0x20, whose slot 3 returns the nugget at data + 0x08 (RW 0x8A6F7D) and whose slots 1/2 return the
+	// two redirect names at data + 0x204 / + 0x208 (RW 0x8A7037 / 0x8A7040)). When the destination counts as stealthy for the nugget but the start does
+	// not (RW 0x81ACAA over RW 0x81ABDF), the order says the redirected row instead of the plain move row
+	void stealthyAreaMoveVoice(Object &obj, int msgType, const Coord3D &position, Choice &c) const;
 	void attackVoices(Object &obj, int msgType, const Info *info, Choice &c) const;
 	bool inBattle(const Object &obj) const;
 	bool recentlySaid(ObjectID id, const std::string &key) const;

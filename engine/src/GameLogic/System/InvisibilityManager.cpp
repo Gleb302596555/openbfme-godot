@@ -727,11 +727,29 @@ bool InvisibilityManager::firingForbidden(const Object &obj, unsigned forbidden)
 // RW 0x81ABDF
 bool InvisibilityManager::nearTrees(const Object &obj, const InvisibilityNugget &n) const
 {
+	return nearTreesAt(obj, *obj.getPosition(), n);
+}
+
+// RW 0x81ABDF(pos, obj, nugget): an IgnoreTreeCheckUpgrades bit on the object (RW 0x8097D6 against obj + 0x28C, the upgrade mask), a TREE object
+// within 50.0 of `pos`, then the terrain trees
+bool InvisibilityManager::nearTreesAt(const Object &obj, const Coord3D &pos, const InvisibilityNugget &n) const
+{
 	if (obj.getUpgradeMask().testForAny(n.ignoreTreeCheckUpgrades)) // RW 0x8097D6
 	{
 		return true;
 	}
-	return treesNear(*obj.getPosition(), &obj);
+	return treesNear(pos, &obj);
+}
+
+// RW 0x81ACAA: the nugget's AWAY_FROM_TREES forbidden condition (+0x00 bit 0) or its ALLOW_NEAR_TREES option (+0xAC bit 0) routes to the tree test;
+// a nugget with neither answers false without one (read through the binary: the two tests and the 0x81ABDF call are the whole function)
+bool InvisibilityManager::stealthyAt(const Object &obj, const Coord3D &pos, const InvisibilityNugget &n) const
+{
+	if ((n.options & InvisibilityNugget::ALLOW_NEAR_TREES) == 0 && (n.forbiddenConditions & InvisibilityNugget::AWAY_FROM_TREES) == 0)
+	{
+		return false;
+	}
+	return nearTreesAt(obj, pos, n);
 }
 
 bool InvisibilityManager::treesNear(const Coord3D &p, const Object *self) const
