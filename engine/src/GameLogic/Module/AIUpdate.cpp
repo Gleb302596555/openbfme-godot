@@ -2241,10 +2241,6 @@ void AIUpdateInterface::crc(StateHasher &h) const
 	{
 		h.addI32(0x3C6);
 	}
-	if (m_portalFaded) // Local 16: FadeOnPortals (+ 0x3CB)
-	{
-		h.addI32(0x3CB);
-	}
 	if (m_stopRetaliationArmed) // Local 20: stop retaliation flag (+ 0x3CC)
 	{
 		h.addI32(0x3CC);

@@ -22,7 +22,6 @@
 #include "GameLogic/SimMath.h"
 #include "GameLogic/WeaponState.h"
 #include "GameLogic/AI/AIXfer.h"
-#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameClient/MapChunks.h"
 #include "GameLogic/ScriptEngine/ScriptConditions.h"
 #include "GameLogic/ScriptEngine/ScriptEngine.h"
@@ -78,7 +77,7 @@ unsigned guardQualifiers(const Object &obj, const AIUpdateInterface &ai)
 		q |= AI::UNFOGGED;
 	}
 	q |= AI::AUTO_ACQUIRE;
-	if (obj.testStatus((unsigned)kStandGround) || ai.guardMode() == GUARDMODE_GUARD_WITHOUT_PURSUIT)
+	if (obj.testStatus((unsigned)kStandGround))
 	{
 		q |= AI::WITHIN_ATTACK_RANGE;
 	}
@@ -93,8 +92,7 @@ unsigned guardQualifiers(const Object &obj, const AIUpdateInterface &ai)
 bool ableToAttack(const Object &o)
 {
 	static const int sold = CombatNames::status("SOLD");
-	const bool canHaveWeapons = o.getWeapons() != nullptr || o.isKindOf((unsigned)CombatNames::kinds().horde);
-	return canHaveWeapons && !o.testStatus((unsigned)CombatNames::statuses().noAttack) && !o.isUnderConstruction() && !(sold >= 0 && o.testStatus((unsigned)sold));
+	return o.getWeapons() && !o.testStatus((unsigned)CombatNames::statuses().noAttack) && !o.isUnderConstruction() && !(sold >= 0 && o.testStatus((unsigned)sold));
 }
 
 AIGuardMachine &guardOf(AIState &s)
@@ -105,19 +103,12 @@ AIGuardMachine &guardOf(AIState &s)
 // RW 0x949994 (the condition of the return and idle states, -> AIGuardAttackAggressorState)
 bool hasAttackedMeAndICanReturnFire(Object &obj)
 {
-	ObjectID id = INVALID_ID;
-	if (ActiveBody *body = dynamic_cast<ActiveBody *>(obj.getBodyModule()))
+	ActiveBody *body = dynamic_cast<ActiveBody *>(obj.getBodyModule());
+	if (!body)
 	{
-		id = body->takeLastAttacker(); // body vslot 0x4C (RW 0x8C3A33)
+		return false;
 	}
-	if (id == INVALID_ID && obj.getContain())
-	{
-		if (HordeContainInterface *hc = const_cast<ContainModuleInterface *>(obj.getContain())->getHordeContainInterface())
-		{
-			// RW 0x86EE52: check members attacked within 4 seconds
-			hc->attackedWithin(4 * LOGICFRAMES_PER_SECOND, id);
-		}
-	}
+	const ObjectID id = body->takeLastAttacker(); // body vslot 0x4C (RW 0x8C3A33)
 	if (id == INVALID_ID)
 	{
 		return false;
@@ -127,30 +118,8 @@ bool hasAttackedMeAndICanReturnFire(Object &obj)
 	{
 		return false;
 	}
-	if (AIUpdateInterface *ai = obj.getAIUpdateInterface())
-	{
-		static const int kStandGround = CombatNames::status("STAND_GROUND");
-		const bool standGround = (kStandGround >= 0 && obj.testStatus((unsigned)kStandGround)) || ai->guardMode() == GUARDMODE_GUARD_WITHOUT_PURSUIT;
-		if (standGround && !AI::canAttackFromHere(obj, *target))
-		{
-			return false;
-		}
-	}
-	// Leash check: do not trigger retaliation if attacker is already beyond retaliate range (keeps from chasing artillery)
-	const float retaliateRange = AIGuardMachine::getRetaliateRange(obj);
-	const Coord3D *pos = obj.getPosition();
-	const Coord3D *targetPos = target->getPosition();
-	if (pos && targetPos)
-	{
-		const float dx = pos->x - targetPos->x;
-		const float dy = pos->y - targetPos->y;
-		if (dx * dx + dy * dy > retaliateRange * retaliateRange)
-		{
-			return false; // Beyond MaxRetaliateDistance: won't chase
-		}
-	}
 	ObjectWeapons *w = obj.getWeapons();
-	return ableToAttack(obj) && (!w || w->canAttackObject(*target, CMD_FROM_AI, false)); // RW 0x691269 / 0x68D6A6
+	return ableToAttack(obj) && w && w->canAttackObject(*target, CMD_FROM_AI, false); // RW 0x691269 / 0x68D6A6 (ObjectWeapons::canAttackObject stands in, as for the turret)
 }
 
 // ---- the guard machine's states ----------------------------------------------------------------------------------------------------------------
@@ -497,7 +466,7 @@ public:
 	void xfer(Xfer &x) override { xferNoFields(x); }
 };
 
-// AIGuardAttackAggressorState (RW 0x94A805 onEnter, 0x94A8E8 update)
+// AIGuardAttackAggressorState (RW 0x94C144 onEnter, 0x94A8E8 update)
 class GuardAttackAggressorState : public AIState, private GuardAttackHolder
 {
 public:
@@ -519,59 +488,41 @@ public:
 				}
 			}
 		}
-		if (nemesisId == INVALID_ID && obj.getContain())
-		{
-			if (HordeContainInterface *hc = const_cast<ContainModuleInterface *>(obj.getContain())->getHordeContainInterface())
-			{
-				hc->attackedWithin(4 * LOGICFRAMES_PER_SECOND, nemesisId);
-				if (nemesisId != INVALID_ID)
-				{
-					g.setNemesis(nemesisId);
-				}
-			}
-		}
 		Object *nemesis = logic.findObjectByID(g.nemesis());
 		if (!nemesis || obj.getRelationship(*nemesis) != ENEMIES || nemesis->isEffectivelyDead())
 		{
 			return STATE_SUCCESS;
 		}
-		if (g.guardMode() == GUARDMODE_GUARD_WITHOUT_PURSUIT)
+		// RW 0x94C1D6 .. 0x94C21B: a lone unit's HORDE target becomes one of its members
+		static const int kHorde = CombatNames::kindOf("HORDE");
+		if (!obj.isKindOf((unsigned)kHorde) && nemesis->isKindOf((unsigned)kHorde))
 		{
-			if (!AI::canAttackFromHere(obj, *nemesis))
+			nemesis = AI::adjustVictim(*nemesis, &obj, false, 0); // RW 0x68D30E
+			if (nemesis)
 			{
-				g.setNemesis(INVALID_ID);
-				return STATE_SUCCESS; // Hold Ground: do not pursue
+				g.setNemesis(nemesis->getID());
+			}
+			else
+			{
+				return STATE_SUCCESS;
 			}
 		}
-		const float retaliateRange = AIGuardMachine::getRetaliateRange(obj);
+		// RW 0x94C21E .. 0x94C2B5: exit conditions
 		const Coord3D center = g.guardPosition();
-		if (nemesis->getPosition())
-		{
-			const float dx = nemesis->getPosition()->x - center.x;
-			const float dy = nemesis->getPosition()->y - center.y;
-			if (dx * dx + dy * dy > retaliateRange * retaliateRange)
-			{
-				return STATE_SUCCESS; // Leash check: beyond MaxRetaliateDistance
-			}
-		}
-		const float visionRange = AIGuardMachine::getAdjustedVisionRange(obj);
+		const float visionRange = AIGuardMachine::getAdjustedVisionRange(obj); // RW 0x6FF412(obj, 3)
+		const float retaliateRange = AIGuardMachine::getRetaliateRange(obj);    // RW 0x94BA8C
 		m_exit.center = center;
 		const float totalRadius = visionRange + retaliateRange;
-		m_exit.radiusSqr = SimMath::mulf32(totalRadius, totalRadius);
-		unsigned chaseFrames = settingsOf(obj).guardChaseUnitsFrames;
+		m_exit.radiusSqr = SimMath::mulf32(totalRadius, totalRadius); // (visionRange + retaliateRange)^2
+		unsigned chaseFrames = settingsOf(obj).guardChaseUnitsFrames; // AIData + 0x3C
 		const ObjectWeapons *w = obj.getWeapons();
 		const Weapon *cur = w ? w->currentWeapon() : nullptr;
-		bool isMelee = cur && cur->getTemplate() && cur->getTemplate()->m_meleeWeapon;
-		if (!isMelee && obj.isKindOf((unsigned)CombatNames::kinds().meleeHorde))
+		if (cur && cur->getTemplate() && cur->getTemplate()->m_meleeWeapon)
 		{
-			isMelee = true;
-		}
-		if (isMelee)
-		{
-			chaseFrames += chaseFrames / 2; // RW 0x94C1FD: +50% chase duration for melee
+			chaseFrames += chaseFrames / 2; // RW 0x94C1FD: +50% chase duration for melee weapon
 		}
 		m_exit.attackGiveUpFrame = logic.getFrame() + chaseFrames;
-		m_exit.conditions = GuardExitConditions::ATTACK_ExitIfExpiredDuration | GuardExitConditions::ATTACK_ExitIfOutsideRadius | GuardExitConditions::ATTACK_ExitIfNoUnitFound;
+		m_exit.conditions = GuardExitConditions::ATTACK_ExitIfOutsideRadius | GuardExitConditions::ATTACK_ExitIfExpiredDuration | GuardExitConditions::ATTACK_ExitIfNoUnitFound; // 7 (RW 0x94C2AA)
 		startAttack(machine(), true, *nemesis);
 		const StateReturnType r = m_attack->onEnter();
 		return r == STATE_CONTINUE ? STATE_CONTINUE : STATE_SUCCESS;
@@ -628,7 +579,7 @@ bool GuardExitConditions::shouldExit(const AIStateMachine &machine) const
 		{
 			return true;
 		}
-		// RW 0x94BD3D .. 0x94BD65: defender strayed further than retaliateRange from center
+		// RW 0x94BD19 .. 0x94BD71: defender strayed further than retaliateRange from center
 		if (const Object *owner = machine.owner().getObject())
 		{
 			const float retaliateRange = AIGuardMachine::getRetaliateRange(*owner);
@@ -671,24 +622,7 @@ float AIGuardMachine::getRetaliateRange(const Object &obj)
 	float range = settingsOf(obj).maxRetaliateDistance;
 	const ObjectWeapons *w = obj.getWeapons();
 	const Weapon *cur = w ? w->currentWeapon() : nullptr;
-	bool isMelee = cur && cur->getTemplate() && cur->getTemplate()->m_meleeWeapon;
-	if (!isMelee && obj.isKindOf((unsigned)CombatNames::kinds().meleeHorde))
-	{
-		isMelee = true;
-	}
-	if (!isMelee && obj.getContain())
-	{
-		const auto *items = obj.getContain()->getContainedItemsList();
-		if (items && !items->empty())
-		{
-			const Object *m = items->front();
-			if (m && m->getWeapons() && m->getWeapons()->currentWeapon() && m->getWeapons()->currentWeapon()->getTemplate() && m->getWeapons()->currentWeapon()->getTemplate()->m_meleeWeapon)
-			{
-				isMelee = true;
-			}
-		}
-	}
-	if (isMelee)
+	if (cur && cur->getTemplate() && cur->getTemplate()->m_meleeWeapon)
 	{
 		range = SimMath::mulf32(range, 1.15f); // RW 0xC12234 at RW 0x94BACE
 	}

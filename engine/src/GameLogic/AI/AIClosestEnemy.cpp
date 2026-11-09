@@ -468,7 +468,7 @@ bool canAttackFromHere(Object &source, Object &victim)
 		return false;
 	}
 	const Names &n = names();
-	const bool standing = status(source, n.standGround) || ai->isStopRetaliationArmed() || ai->guardMode() == GUARDMODE_GUARD_WITHOUT_PURSUIT; // RW 0x6FF7FA: status 0x44 or AI + 0x3CC
+	const bool standing = status(source, n.standGround) || ai->isStopRetaliationArmed(); // RW 0x6FF7FA: status 0x44 or AI + 0x3CC
 	if (kind(source, n.horde) && !source.getContain())
 	{
 		return false; // RW 0x6FF8A7: a HORDE without its contain

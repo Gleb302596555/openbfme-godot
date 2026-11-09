@@ -905,84 +905,36 @@ Object *AIUpdateInterface::getNextMoodTarget(bool calledByAI, bool calledDuringI
 	{
 		q |= AI::COMPUTER_CREEPS;
 	}
-	// RW 0x668843 .. 0x6688EA (AI + 0x3CC, the player's stop order RW 0x771F49, and the body's last attacker)
+	// RW 0x668848 .. 0x6688E6: stop order retaliation flag (AI + 0x3CC, RW 0x771F97)
 	Object *target = nullptr;
-	bool isRetaliationTarget = false;
-	if (m_stopRetaliationArmed)
+	if (m_stopRetaliationArmed && calledByAI && calledDuringIdle)
 	{
-		if (calledByAI && calledDuringIdle)
+		const ActiveBody *body = dynamic_cast<const ActiveBody *>(obj.getBodyModule());
+		if (body)
 		{
-			ObjectID attackerId = INVALID_ID;
-			if (const ActiveBody *body = dynamic_cast<const ActiveBody *>(obj.getBodyModule()))
-			{
-				attackerId = body->lastDamager();
-			}
-			if (attackerId == INVALID_ID && obj.getContain())
-			{
-				if (HordeContainInterface *hc = const_cast<ContainModuleInterface *>(obj.getContain())->getHordeContainInterface())
-				{
-					hc->attackedWithin(4 * LOGICFRAMES_PER_SECOND, attackerId);
-				}
-			}
+			const ObjectID attackerId = body->lastDamager(); // body vslot 0x40 + 8
 			if (attackerId != INVALID_ID)
 			{
+				ObjectWeapons *w = obj.getWeapons();
+				Weapon *weapon = w ? w->currentWeapon() : nullptr; // RW 0x68B58C(0)
 				Object *attacker = logic.findObjectByID(attackerId);
-				if (attacker && obj.getRelationship(*attacker) == ENEMIES && !attacker->isEffectivelyDead())
+				if (attacker && weapon && obj.getPosition() && attacker->getPosition() && w->canAttackObject(*attacker, CMD_FROM_AI, false)) // RW 0x68D6A6
 				{
-					if (AI::canAttackFromHere(obj, *attacker))
+					const float edgeDistSq = CombatQueries::edgeDistanceSquared2D(obj, *obj.getPosition(), *attacker, *attacker->getPosition()); // RW 0x66352C
+					if (edgeDistSq < 1.0f) // RW 0x6688B9: fld1; fcompi; jbe (1.0 > edgeDistSq)
 					{
 						m_stopRetaliationArmed = false; // RW 0x6688C4
 						target = attacker;
-						isRetaliationTarget = true;
 					}
-				}
-			}
-		}
-		if (!target)
-		{
-			return nullptr;
-		}
-	}
-	else if (calledByAI && calledDuringIdle)
-	{
-		// RW 0x6688EC: Retaliation against last attacker within MaxRetaliateDistance (RW 0x94BA8C / RW 0x94C144)
-		ObjectID attackerId = INVALID_ID;
-		if (const ActiveBody *body = dynamic_cast<const ActiveBody *>(obj.getBodyModule()))
-		{
-			attackerId = body->lastDamager();
-		}
-		if (attackerId == INVALID_ID && obj.getContain())
-		{
-			if (HordeContainInterface *hc = const_cast<ContainModuleInterface *>(obj.getContain())->getHordeContainInterface())
-			{
-				hc->attackedWithin(4 * LOGICFRAMES_PER_SECOND, attackerId);
-			}
-		}
-		if (attackerId != INVALID_ID)
-		{
-			Object *attacker = logic.findObjectByID(attackerId);
-			if (attacker && obj.getRelationship(*attacker) == ENEMIES && !attacker->isEffectivelyDead())
-			{
-				const float retaliateRange = AIGuardMachine::getRetaliateRange(obj);
-				const Coord3D *myPos = obj.getPosition();
-				const Coord3D *attPos = attacker->getPosition();
-				if (myPos && attPos)
-				{
-					const float dx = myPos->x - attPos->x;
-					const float dy = myPos->y - attPos->y;
-					if (dx * dx + dy * dy <= retaliateRange * retaliateRange)
+					if (w->isWithinAttackRange(*attacker, 0.0f, true)) // RW 0x6CC653
 					{
-						const bool standGround = obj.testStatus((unsigned)kStandGround) || guardMode() == GUARDMODE_GUARD_WITHOUT_PURSUIT;
-						if (!standGround || AI::canAttackFromHere(obj, *attacker))
-						{
-							target = attacker;
-							isRetaliationTarget = true;
-						}
+						target = attacker;
 					}
 				}
 			}
 		}
 	}
+	// RW 0x6688EC: firing tracker (not ported; if target not set above, proceed to findClosestEnemy)
 	if (!target)
 	{
 		MoodTargetFilter moodFilter(obj);
@@ -994,7 +946,7 @@ Object *AIUpdateInterface::getNextMoodTarget(bool calledByAI, bool calledDuringI
 		target = AI::adjustVictim(*target, &obj, false, 0);
 	}
 	// RW 0x668A26 .. 0x668A4A: a unit that needs its target in reach and cannot reach it, or that cannot attack at all (RW 0x691269), answers nothing
-	if ((!isRetaliationTarget && calledByAI && needsReach && target && !AI::canAttackFromHere(obj, *target)) || !obj.isAbleToAttack())
+	if ((calledByAI && needsReach && target && !AI::canAttackFromHere(obj, *target)) || !obj.isAbleToAttack())
 	{
 		return nullptr;
 	}
