@@ -150,11 +150,12 @@ TEST_CASE("module coverage: every registry class is ported, base AI, parsed only
 	// MODGAP-2: RainOfFireUpdate, WallUpgradeUpdate, RunOffMapBehavior: 219 -> 222, missing 93 -> 90.
 	// the merge with upstream 7e98ac2f: TOPPLE-1 (StructureToppleUpdate) and VeterancyCrateCollide's runtime (#172) missing -> ported: 222 -> 224, missing 90 -> 88
 	// PORT 17 (#73): ThreatFinderUpdate missing -> ported: 224 -> 225, missing 88 -> 87
-	CHECK(c.ported == 225);
+	// Local 18 (#143): CombineHordeSpecialPower missing -> ported: 225 -> 226, missing 87 -> 86
+	CHECK(c.ported == 226);
 	CHECK(c.baseAi == 4);
 	// S-207: SpawnUnitBehavior data is parsed-only; its runtime remains unported (S-140).
 	CHECK(c.parsedOnly == 13); // W3DBuffDraw 13 -> 14 (drawn via ClientBuffs, S-4642).
-	CHECK(c.missing == 87);
+	CHECK(c.missing == 86);
 
 	if (const char *out = std::getenv("OPENBFME_MODULE_COVERAGE_OUT"))
 	{
