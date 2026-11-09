@@ -33,19 +33,25 @@ Open evidence gaps (see `docs/PLAN.md`, "Acceptance stops"). A stop blocks only
 what depends on it.
 
 PORT-16 / issue #72 is still covered by S-1180: `SUPPLY_SOURCE_SAFE` and
-`SUPPLY_SOURCE_ATTACKED` are not implemented. The body-record prerequisites,
-AIData parsing, original map faction retention and the standalone attacked-supply
-helper passed their synthetic tests in an isolated runner (10 tests, 164 assertions).
-An additional isolated `PlayerSupplyDistance` implements the SSE/x87 PC24
-comparison only, with no runtime caller; its synthetic tests include a hardware
-x87 oracle. The attacked helper is not yet attached to a Player AI or called by scripts, and condition
-acceptance tests remain unwritten. The parsed `ForceSkirmishAI` is not yet used
-for Player AI selection.
-`SupplyCenterSafeRadius` is parsed and contributes to the game hash, but its
-safety query is not yet implemented. `ActiveBody` native snapshots
-before version 3 omit the no-effect bit and are refused rather than
-silently reconstructed. See `docs/re/rotwk/RW_0x8F6B5A.md` for the remaining
-binary analysis and shared Player AI state.
+`SUPPLY_SOURCE_ATTACKED` are not implemented, and work is paused under owner
+rule 6712470885 pending owner decision on three shared mechanisms: (1) shared
+`Player +0x2FC` enemy cache (`AISkirmishPlayer::getAiEnemy` RW 0x8F47EB /
+`acquireEnemy` RW 0x8F457D) vs `SkirmishAI/AITacticalAI.cpp:3395–3555` (#68,
+Do not touch); (2) `Player::initFromDict` side-match / `noMatch`
+(RW 0x6B08D6–0x6B0A26) and `Player::setPlayerType` (RW 0x6AA450) across
+`PlayerList::newGame`, synthetic skirmish fixtures (`P16TestUtil.h`,
+`test_start_random.cpp`, `test_logic_players.cpp`) and `*.hashes` (Do not
+touch); (3) shared `PartitionFilterIsVisible` /
+`Object::getShroudVisibilityStatusForPlayer` (RW 0x660D71 → 0x694CCC) and
+`GarrisonContain +0x9BD` (`S-1100`) adjacent to `HordeContain` (#55) and
+`OpenContain` / `TransportContain` (#62) as well as `EvaDamageNotice` (`S-7090`),
+`AIClosestEnemy` (`S-1022`) and `EmotionModules` (`S-326`). The body-record
+prerequisites, AIData parsing, original map faction retention, standalone
+`PlayerSupplyAttack`, `PlayerSupplyDistance` (with hardware x87 oracle) and
+`PlayerSupplySource` (RW 0x8F6BD2–0x8F6DE6) pass 17 `PORT-16*` synthetic tests
+(303 assertions) with semantic-mutant verification, and have no runtime caller
+yet. `ActiveBody` native snapshots before version 3 omit the no-effect bit and
+are refused rather than silently reconstructed. See `docs/re/rotwk/RW_0x8F6B5A.md`.
 
 `Kind` says how the stop is enforced:
 

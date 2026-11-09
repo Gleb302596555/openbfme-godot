@@ -6,8 +6,13 @@
 #include "Common/XferLoad.h"
 #include "Common/XferSave.h"
 #include "Common/StateHash.h"
+#include "GameEngineDevice/W3DDevice/GameClient/WorldHeightMap.h"
 #include "GameLogic/AI/PlayerSupplyAttack.h"
 #include "GameLogic/AI/PlayerSupplyDistance.h"
+#include "GameLogic/AI/PlayerSupplySource.h"
+#include "GameLogic/Map/TerrainLogic.h"
+#include "GameLogic/Module/DockUpdate.h"
+#include "GameLogic/Object/PartitionManager.h"
 
 #include <cfenv>
 #include <cmath>
@@ -393,3 +398,349 @@ TEST_CASE("PORT-16 supply distance: compare PC24 with the x87 instruction sequen
     MESSAGE("SKIP: the PORT-16 x87 instruction oracle requires GCC/Clang on x86-64");
 #endif
 }
+
+namespace
+{
+const char kPort16SupplyObjects[] =
+    "Object Port16Warehouse\n"
+    "  KindOf = STRUCTURE SUPPLY_SOURCE\n"
+    "  Geometry = CYLINDER\n"
+    "  GeometryMajorRadius = 30\n"
+    "  GeometryHeight = 20\n"
+    "  Body = ActiveBody ModuleTag_Body\n"
+    "    MaxHealth = 100\n"
+    "  End\n"
+    "  Behavior = SupplyWarehouseDockUpdate ModuleTag_CustomTag\n"
+    "    StartingBoxes = 6\n"
+    "  End\n"
+    "End\n"
+    "Object Port16SmallWarehouse\n"
+    "  KindOf = STRUCTURE SUPPLY_SOURCE\n"
+    "  Geometry = CYLINDER\n"
+    "  GeometryMajorRadius = 10\n"
+    "  GeometryHeight = 20\n"
+    "  Body = ActiveBody ModuleTag_Body\n"
+    "    MaxHealth = 100\n"
+    "  End\n"
+    "  Behavior = SupplyWarehouseDockUpdate ModuleTag_Small\n"
+    "    StartingBoxes = 3\n"
+    "  End\n"
+    "End\n"
+    "Object Port16OneBoxWarehouse\n"
+    "  KindOf = STRUCTURE SUPPLY_SOURCE\n"
+    "  Geometry = CYLINDER\n"
+    "  GeometryMajorRadius = 10\n"
+    "  GeometryHeight = 20\n"
+    "  Body = ActiveBody ModuleTag_Body\n"
+    "    MaxHealth = 100\n"
+    "  End\n"
+    "  Behavior = SupplyWarehouseDockUpdate ModuleTag_One\n"
+    "    StartingBoxes = 1\n"
+    "  End\n"
+    "End\n"
+    "Object Port16ZeroBoxWarehouse\n"
+    "  KindOf = STRUCTURE SUPPLY_SOURCE\n"
+    "  Geometry = CYLINDER\n"
+    "  GeometryMajorRadius = 10\n"
+    "  GeometryHeight = 20\n"
+    "  Body = ActiveBody ModuleTag_Body\n"
+    "    MaxHealth = 100\n"
+    "  End\n"
+    "  Behavior = SupplyWarehouseDockUpdate ModuleTag_Zero\n"
+    "    StartingBoxes = 0\n"
+    "  End\n"
+    "End\n"
+    "Object Port16OverflowNegWarehouse\n"
+    "  KindOf = STRUCTURE SUPPLY_SOURCE\n"
+    "  Geometry = CYLINDER\n"
+    "  GeometryMajorRadius = 10\n"
+    "  GeometryHeight = 20\n"
+    "  Body = ActiveBody ModuleTag_Body\n"
+    "    MaxHealth = 100\n"
+    "  End\n"
+    "  Behavior = SupplyWarehouseDockUpdate ModuleTag_Neg\n"
+    "    StartingBoxes = 50000\n"
+    "  End\n"
+    "End\n"
+    "Object Port16OverflowPosWarehouse\n"
+    "  KindOf = STRUCTURE SUPPLY_SOURCE\n"
+    "  Geometry = CYLINDER\n"
+    "  GeometryMajorRadius = 10\n"
+    "  GeometryHeight = 20\n"
+    "  Body = ActiveBody ModuleTag_Body\n"
+    "    MaxHealth = 100\n"
+    "  End\n"
+    "  Behavior = SupplyWarehouseDockUpdate ModuleTag_Pos\n"
+    "    StartingBoxes = 65536\n"
+    "  End\n"
+    "End\n"
+    "Object Port16UnitWarehouse\n"
+    "  KindOf = INFANTRY SUPPLY_SOURCE\n"
+    "  Body = ActiveBody ModuleTag_Body\n"
+    "    MaxHealth = 100\n"
+    "  End\n"
+    "  Behavior = SupplyWarehouseDockUpdate ModuleTag_Dock\n"
+    "    StartingBoxes = 10\n"
+    "  End\n"
+    "End\n"
+    "Object Port16StructureDockOnly\n"
+    "  KindOf = STRUCTURE\n"
+    "  Body = ActiveBody ModuleTag_Body\n"
+    "    MaxHealth = 100\n"
+    "  End\n"
+    "  Behavior = SupplyWarehouseDockUpdate ModuleTag_Dock\n"
+    "    StartingBoxes = 10\n"
+    "  End\n"
+    "End\n"
+    "Object Port16SourceWithoutWarehouseDock\n"
+    "  KindOf = STRUCTURE SUPPLY_SOURCE\n"
+    "  Body = ActiveBody ModuleTag_Body\n"
+    "    MaxHealth = 100\n"
+    "  End\n"
+    "  Behavior = SupplyCenterDockUpdate ModuleTag_CenterDock\n"
+    "  End\n"
+    "End\n"
+    "Object Port16GatherCenter\n"
+    "  KindOf = STRUCTURE SUPPLY_GATHERING_CENTER\n"
+    "  Geometry = CYLINDER\n"
+    "  GeometryMajorRadius = 20\n"
+    "  GeometryHeight = 20\n"
+    "  Body = ActiveBody ModuleTag_Body\n"
+    "    MaxHealth = 100\n"
+    "  End\n"
+    "End\n";
+
+struct Port16SupplyWorld : CombatWorld
+{
+    WorldHeightMap heightMap;
+    MapChunks chunks;
+    TerrainLogic boundaryTerrain;
+
+    Port16SupplyWorld() : CombatWorld(kPort16SupplyObjects, 200)
+    {
+        heightMap.m_width = 200;
+        heightMap.m_height = 200;
+        heightMap.m_data.assign(200u * 200u, 0);
+        heightMap.m_boundaries = { ICoord2D{ 100, 100 }, ICoord2D{ 200, 200 } };
+        boundaryTerrain.init(heightMap, chunks);
+        logic->setTerrain(&boundaryTerrain);
+        logic->partition().setRegion(0.0f, 0.0f, 2000.0f, 2000.0f);
+        logic->economy().settings().valuePerSupplyBox = 100;
+    }
+
+    ~Port16SupplyWorld()
+    {
+        logic->reset();
+        ai.reset();
+        logic->setTerrain(nullptr);
+    }
+
+    Object *place(const char *name, Team *team, float x, float y, float z = 0.0f)
+    {
+        Object *obj = make(name, team, INVALID_ID, false);
+        const Coord3D pos{ x, y, z };
+        obj->setPosition(&pos);
+        completeHorde(obj);
+        logic->partition().update();
+        return obj;
+    }
+};
+} // namespace
+
+TEST_CASE("PORT-16 supply source: template kinds, dock class, team relations, 2D distance and tie order")
+{
+    Port16SupplyWorld w;
+    Player *alice = w.playerOf('A');
+    Team *neutral = w.players.getNeutralPlayer()->getDefaultTeam();
+    const Coord3D own{ 500.0f, 500.0f, 50.0f };
+
+    // Missing STRUCTURE, missing SUPPLY_SOURCE, or missing SupplyWarehouseDockUpdate class are rejected.
+    w.place("Port16UnitWarehouse", neutral, 500.0f, 500.0f);
+    w.place("Port16StructureDockOnly", neutral, 500.0f, 500.0f);
+    w.place("Port16SourceWithoutWarehouseDock", neutral, 500.0f, 500.0f);
+    CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == nullptr);
+
+    // RW 0x8F6C63 .. 0x8F6C73 asks Player::getRelationship(team): ENEMIES rejected, team override to NEUTRAL accepted.
+    Object *enemySource = w.place("Port16Warehouse", w.teamB(), 510.0f, 500.0f);
+    CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == nullptr);
+    alice->setTeamRelationship(w.teamB(), NEUTRAL);
+    CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == enemySource);
+    alice->removeTeamRelationship(w.teamB());
+    CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == nullptr);
+
+    // Own distance is 2D SSE (Z ignored); COMISS/JBE keeps the earlier world-list object on an equal-distance tie.
+    Object *first = w.place("Port16Warehouse", neutral, 600.0f, 500.0f, 900.0f);
+    Object *second = w.place("Port16Warehouse", neutral, 500.0f, 600.0f, -400.0f);
+    Object *thirdTie = w.place("Port16Warehouse", w.teamA(), 560.0f, 580.0f, 0.0f);
+    CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == first);
+    (void)second;
+
+    const Coord3D closerPos{ 559.0f, 580.0f, 0.0f };
+    thirdTie->setPosition(&closerPos);
+    w.logic->partition().update();
+    CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == thirdTie);
+
+    // Overriding neutral team to ENEMIES rejects neutral sources while keeping the allied one.
+    const Coord3D farPos{ 900.0f, 900.0f, 0.0f };
+    thirdTie->setPosition(&farPos);
+    w.logic->partition().update();
+    alice->setTeamRelationship(neutral, ENEMIES);
+    CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == thirdTie);
+}
+
+TEST_CASE("PORT-16 supply source: threshold halving, exact 100 stop and signed 32-bit multiplication")
+{
+    {
+        Port16SupplyWorld w;
+        Player *alice = w.playerOf('A');
+        Team *neutral = w.players.getNeutralPlayer()->getDefaultTeam();
+        const Coord3D own{ 500.0f, 500.0f, 0.0f };
+        Object *farRich = w.place("Port16Warehouse", neutral, 900.0f, 500.0f);       // 6 * 100 = 600
+        Object *nearPoor = w.place("Port16SmallWarehouse", neutral, 550.0f, 500.0f); // 3 * 100 = 300
+
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 500) == farRich);
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 700) == farRich); // 700 -> 350: 600 passes, 300 fails
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 602) == farRich); // 602 -> 301: 600 passes, 300 fails
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 600) == farRich);
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 300) == nearPoor);
+    }
+    {
+        // RW 0x8F6DC4 .. 0x8F6DCF: signed division by 2 toward zero, loop repeats only while minValue > 100.
+        Port16SupplyWorld w;
+        Player *alice = w.playerOf('A');
+        Team *neutral = w.players.getNeutralPlayer()->getDefaultTeam();
+        const Coord3D own{ 500.0f, 500.0f, 0.0f };
+        Object *oneBox = w.place("Port16OneBoxWarehouse", neutral, 550.0f, 500.0f);
+        w.logic->economy().settings().valuePerSupplyBox = 101;
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 101) == oneBox);
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 201) == nullptr); // 201 / 2 == 100: stops
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 202) == oneBox);  // 202 / 2 == 101: repeats and matches
+
+        w.logic->economy().settings().valuePerSupplyBox = 100;
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == oneBox);  // first pass runs before > 100 check
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 202) == nullptr); // 202 -> 101 -> 50: never reaches 100
+    }
+    {
+        // RW 0x8F6C57 .. 0x8F6C5D: low 32 bits of IMUL interpreted as signed int32.
+        Port16SupplyWorld w;
+        Player *alice = w.playerOf('A');
+        Team *neutral = w.players.getNeutralPlayer()->getDefaultTeam();
+        const Coord3D own{ 500.0f, 500.0f, 0.0f };
+        w.place("Port16OverflowNegWarehouse", neutral, 520.0f, 500.0f); // 50000 * 50000 = 0x9502F900 (-1794967296)
+        w.logic->economy().settings().valuePerSupplyBox = 50000;
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 200) == nullptr);
+
+        Object *wrappedPos = w.place("Port16OverflowPosWarehouse", neutral, 600.0f, 500.0f); // 65536 * 65537 low32 = 65536
+        w.logic->economy().settings().valuePerSupplyBox = 65537;
+        // 50000 * 65537 = 3276850000 = 0xC350C350 (-1018117296), so only wrappedPos qualifies.
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 500) == wrappedPos);
+    }
+    {
+        // Negative thresholds run one pass and stop cleanly (including INT32_MIN).
+        Port16SupplyWorld w;
+        Player *alice = w.playerOf('A');
+        Team *neutral = w.players.getNeutralPlayer()->getDefaultTeam();
+        const Coord3D own{ 500.0f, 500.0f, 0.0f };
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, std::numeric_limits<std::int32_t>::min()) == nullptr);
+        Object *zeroBox = w.place("Port16ZeroBoxWarehouse", neutral, 550.0f, 500.0f);
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, -5) == zeroBox);
+        w.logic->destroyObject(zeroBox);
+        w.frames(1);
+        Object *negValue = w.place("Port16OneBoxWarehouse", neutral, 550.0f, 500.0f);
+        w.logic->economy().settings().valuePerSupplyBox = -200;
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, -150) == nullptr);
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, std::numeric_limits<std::int32_t>::min()) == negValue);
+    }
+}
+
+TEST_CASE("PORT-16 supply source: own gathering center filter, 3D radius, layer -1, off-map and partition update")
+{
+    Port16SupplyWorld w;
+    Player *alice = w.playerOf('A');
+    Team *neutral = w.players.getNeutralPlayer()->getDefaultTeam();
+    const Coord3D own{ 300.0f, 500.0f, 0.0f };
+
+    // Port16Warehouse has boundingCircleRadius 30, so the center scan radius is 230 (230^2 = 52900).
+    Object *warehouse = w.place("Port16Warehouse", neutral, 500.0f, 500.0f, 0.0f);
+    w.place("Port16GatherCenter", w.teamB(), 510.0f, 500.0f, 0.0f); // enemy center ignored
+    w.place("Dummy", w.teamA(), 505.0f, 500.0f, 0.0f);              // own non-center ignored
+    CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == warehouse);
+
+    // Partition dirty-list dependence: moving an own center from a far cell does not reject until PartitionManager::update().
+    Object *center = w.place("Port16GatherCenter", w.teamA(), 950.0f, 950.0f, 0.0f);
+    CHECK_FALSE(center->isOffMap());
+    CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == warehouse);
+
+    const Coord3D nearCenter{ 520.0f, 500.0f, 0.0f };
+    center->setPosition(&nearCenter);
+    CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == warehouse); // still in far cell before update()
+    w.logic->partition().update();
+    CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == nullptr);
+
+    // FROM_CENTER_3D (type 1): dx=180, dz=145 gives 32400 + 21025 = 53425 > 52900 (passes); dz=140 gives 52000 <= 52900 (rejects).
+    const Coord3D highOutside3D{ 680.0f, 500.0f, 145.0f };
+    center->setPosition(&highOutside3D);
+    w.logic->partition().update();
+    CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == warehouse);
+
+    const Coord3D highInside3D{ 680.0f, 500.0f, 140.0f };
+    center->setPosition(&highInside3D);
+    w.logic->partition().update();
+    CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == nullptr);
+
+    // Layer -1 (team with relationship overrides) is still walked alongside playerLayerMask().
+    w.teamA()->setTeamRelationship(w.teamB(), ENEMIES);
+    w.logic->partition().markDirty(*center);
+    w.logic->partition().update();
+    CHECK(w.logic->partition().layerOf(*center) == -1);
+    CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == nullptr);
+    w.teamA()->removeAllRelationshipOverrides();
+    w.logic->partition().markDirty(*center);
+    w.logic->partition().update();
+
+    // RW 0x660EB1 (0xC10E2C): an off-map own center (outside active boundary 0..1000 x 0..1000) does not block a source.
+    const Coord3D edgeWarehousePos{ 900.0f, 500.0f, 0.0f };
+    warehouse->setPosition(&edgeWarehousePos);
+    const Coord3D offMapCenter{ 1050.0f, 500.0f, 0.0f };
+    center->setPosition(&offMapCenter);
+    w.logic->partition().update();
+    CHECK_FALSE(warehouse->isOffMap());
+    CHECK(center->isOffMap());
+    CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == warehouse);
+
+    const Coord3D onMapCenter{ 990.0f, 500.0f, 0.0f };
+    center->setPosition(&onMapCenter);
+    w.logic->partition().update();
+    CHECK_FALSE(center->isOffMap());
+    CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == nullptr);
+}
+
+TEST_CASE("PORT-16 supply source: enemy midpoint rejection and x87 PC24 boundary")
+{
+    {
+        Port16SupplyWorld w;
+        Player *alice = w.playerOf('A');
+        Team *neutral = w.players.getNeutralPlayer()->getDefaultTeam();
+        const Coord3D own{ 100.0f, 100.0f, 0.0f };
+        const Coord3D enemyMid{ 450.0f, 100.0f, 0.0f };
+        Object *nearEnemy = w.place("Port16Warehouse", neutral, 400.0f, 100.0f);   // ownSq=90000, enemySq=2500 -> rejected
+        Object *safeFarther = w.place("Port16Warehouse", neutral, 100.0f, 450.0f); // ownSq=122500, enemySq=245000 -> kept
+
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, nullptr, 100) == nearEnemy);
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, own, &enemyMid, 100) == safeFarther);
+    }
+    {
+        // Exact PC24 / binary64-0.4 boundary through PlayerSupplySource::choose at the origin (exact subss).
+        Port16SupplyWorld w;
+        Player *alice = w.playerOf('A');
+        Team *neutral = w.players.getNeutralPlayer()->getDefaultTeam();
+        Object *originSource = w.place("Port16Warehouse", neutral, 0.0f, 0.0f);
+        const Coord3D enemyMid{ 0x1.8af9p+8f, 0.0f, 0.0f };
+        const Coord3D ownKeep{ 0x1.e3bc24p+8f, 0x1.3p+1f, 0.0f };  // ownSquared == 0x1.c90a9p+17f (naive float32 rejects, PC24 keeps)
+        const Coord3D ownReject{ 0x1.e3bc24p+8f, 0x1.38p+1f, 0.0f }; // ownSquared == 0x1.c90ab6p+17f (PC24 rejects)
+
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, ownKeep, &enemyMid, 100) == originSource);
+        CHECK(PlayerSupplySource::choose(*w.logic, *alice, ownReject, &enemyMid, 100) == nullptr);
+    }
+}
+

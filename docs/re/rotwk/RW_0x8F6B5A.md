@@ -77,20 +77,31 @@ unported.
 * RW 0x8F757A asks RW 0x8F6B5A for a source. No candidate returns true
   (RW 0x8F7581–0x8F7585); a candidate supplies its position and template to
   RW 0x8F5220 (RW 0x8F7587–0x8F7590).
-* The virtual call at RW 0x8F6B87 is on the AI itself, not on Player. The
-  base vtable slot +0x30 at 0xC79DC8 points to RW 0x851E97, which returns
-  null; the derived vtable slot at 0xC797B8 points to RW 0x8F47EB, the
-  cached enemy player. RW 0x8F47F3–0x8F4814 refreshes at frame +
-  `[0xD9F608] * 5` before returning its cached value. The port has an enemy
-  helper in `AITacticalAI`, but its state is attached to the separate
-  manager AI; equivalence for both +0x2FC implementations is not established.
+* The virtual call at RW 0x8F6B87 is on the AI itself, not on Player. Full
+  vtables `AIPlayer` (0xC79D98) and `AISkirmishPlayer` (0xC79788) end at slot
+  +0x68 (0x8F994F; RTTI/type strings start at +0x6C). Base slot +0x30 at
+  0xC79DC8 points to RW 0x851E97 (return null); derived slot +0x30 at
+  0xC797B8 points to RW 0x8F47EB (`AISkirmishPlayer::getAiEnemy`), the same
+  method `Player::getCurrentEnemy` (RW 0x6AA5F5) calls. RW 0x8F47F3–0x8F4814
+  checks `frame >= +0x9C`, writes `frame + [0xD9F608] * 5` to `+0x9C` first,
+  calls `acquireEnemy` (RW 0x8F457D–0x8F47EA), and returns `+0xA0`.
+  `acquireEnemy` walks `Player +0x34C` team prototypes / teams / members for
+  `hasAnyUnits` (RW 0x6ABD44 → 0x7A07D8), `hasAnyBuildFacility` (RW 0x6ABE2C →
+  0x7A1129, `ThingTemplate +0x5F6`), `hasAnyObjects(0)` (RW 0x6ABDF7 →
+  0x7A0956) and `getPlayerStructureBounds` (RW 0x8F6511), measures 2D SSE
+  squared distance from `AIPlayer +0x38` (`m_baseCenter`), and adjusts by
+  other skirmish AIs' `Player::getCurrentEnemy` (+250000.0f / -625.0f clamped
+  at 0.0f). In the port `engine/src/GameLogic/SkirmishAI/AITacticalAI.cpp`
+  (3395–3555, on the #68 Do-not-touch list) already implements this enemy
+  acquisition on the separate manager `AISkirmishPlayer` using
+  `ai.build.startPosition`, world-object scans and `skirmishAI().findAI(j)`:
+  duplicating a second `+0x9C/+0xA0` cache solely for PORT-16 would split a
+  single shared RW state.
 * When an enemy is returned, RW 0x8F6B91–0x8F6BC8 calls RW 0x8F6511 and
-  computes the midpoint of the resulting bounds. RW 0x8F6511 walks the
-  enemy's team prototypes and teams and bounds STRUCTURE member positions;
-  its initial bounds are zero (RW 0x8F6517–0x8F655D, 0x8F6585–0x8F660A).
-  The existing `AITacticalAI.cpp` helper walks the world and filters by
-  controlling player instead; those are different traversal criteria, so its
-  equivalence for this call is not established.
+  computes `(hi + lo) * 0.5f` in scalar SSE. RW 0x8F6511 walks the enemy's
+  team prototypes and teams and bounds `STRUCTURE` member positions (template
+  +0x108 bit 7, regardless of dead/destroyed/construction status); its initial
+  bounds are zero (RW 0x8F6517–0x8F655D, 0x8F6585–0x8F660A).
 * RW 0x8F6BD2–0x8F6C73 walks the world object list and rejects candidates
   unless their template has STRUCTURE and SUPPLY_SOURCE, their
   `SupplyWarehouseDockUpdate` exists, its +0x88 multiplied by GlobalData
@@ -100,7 +111,10 @@ unported.
   it again from a value divided by GlobalData +0xA5C. The port exposes
   `boxesStored()` and `valuePerSupplyBox`; RW 0x8F6C57 uses the low 32 bits
   of `imul`, and RW 0x8F6C5A–0x8F6C5D compares them as signed integers.
-  Subsequent source updates still need checking.
+  `PlayerSupplySource::choose` (`engine/src/GameLogic/AI/PlayerSupplySource.cpp`)
+  now implements RW 0x8F6BD2–0x8F6DE6 given `(logic, player, ownPosition,
+  enemyMidpoint, minValue)` and is covered by synthetic + mutant-verified
+  tests in `engine/tests/test_port_16.cpp`, with no runtime caller yet.
 * RW 0x8F6C97–0x8F6D36 queries within the candidate's bounding-circle radius
   plus the 200.0 constant at 0xBE4170. The query uses distance type 1 and a
   chain whose vtables 0xBD88B0, 0xC10E38 and 0xC10E2C resolve to RW
@@ -117,10 +131,16 @@ unported.
 * Player getter RW 0x6AA64F–0x6AA66E reads the separate Player AI pointer
   at +0x2FC, copies its three position floats from +0x38 to the caller's
   output, and returns its +0x44 byte; with no AI it returns false without
-  copying. This getter does not explain when the position is updated. The
-  adjacent Player wrapper RW 0x6AA671 dispatches AI vslot +0x38 (both Player
-  AI vtables point to RW 0x8F78EB), which handles object IDs and does not set
-  that position; it must not be mistaken for a position setter.
+  copying. `AIPlayer` constructor RW 0x8F7F2B zeroes +0x38..+0x40 and clears
+  +0x44; vslot +0x18 (`newMap`, called from RW 0x6B191B) is RW 0x63F3BF
+  (`ret`) in both vtables, and `computeCenterAndRadiusOfBase` (RW 0x8F6186,
+  which writes +0x38..+0x44) has zero direct (`E8`/`E9`) or 32-bit pointer
+  references across all PE sections of RotWK 2.01 `game.dat`. Consequently,
+  in a new game `+0x38..+0x40` always remains `{0, 0, 0}` (`+0x44 = false`),
+  and can become non-zero only when loaded via base `AIPlayer::xfer`
+  (RW 0x8F599C–0x8F59A2). The adjacent Player wrapper RW 0x6AA671 dispatches
+  AI vslot +0x38 (both Player AI vtables point to RW 0x8F78EB), which handles
+  object IDs and does not set that position.
 * RW 0x8F6D38–0x8F6DA9 compares squared 2D distance from the AI's +0x38
   position, and when an enemy exists rejects a candidate if
   `0.4 * ownDistanceSquared > 0.6 * enemyBoundsMidpointDistanceSquared`.
@@ -154,23 +174,24 @@ unported.
   The visibility predicate has a special branch for a COMPUTER player and
   a firing object (RW 0x660D89–0x660DA3); simply rejecting every stealthed
   object would not reproduce that branch.
-* Visibility dependency RW 0x694CCC has been narrowed, but is not yet exact
-  in `EvaDamage::isVisibleTo` (S-7090). HordeContain constructor RW 0x87283F
-  installs contain vtable 0xC5B480; its slots +0x78 and +0x7C both point to
-  RW 0x872A6F, which returns the same HordeContainInterface at module +0x11C.
-  The plain horde's use of the port's horde-interface accessor is therefore
-  supported, though not every contain variant has been audited. In contrast,
-  OpenContain's table 0xC59AF0 slot +0x4C points to RW 0x46C6BE (return null),
-  not the container's controller. GarrisonContain and HordeGarrisonContain
-  tables 0xC5C698 / 0xC5C9F0 use RW 0x87B392: it normally returns the
-  controlling player, but when contain +0x9BD is set, the observer is non-null
-  and is not allied to that controller, it resolves the original TeamID at
-  contain +0xDC (RW 0x7A1EEE) and returns that team's player if found.
-  The hidden byte's set path is still not implemented (S-1100), and current
-  `EvaDamage::isVisibleTo` uses the owner even for OpenContain; this is a
-  concrete discrepancy, not merely an unverified naming assumption. Do not
-  reuse it as an exact SAFE filter until these cases and other contain tables
-  have been accounted for.
+* Visibility dependency RW 0x694CCC has been audited across all 16 `Contain`
+  vtables in `game.dat`: the 6 `GarrisonContain` subclasses (`GarrisonContain`,
+  `HordeGarrisonContain`, `AODGarrisonContain`, `SlaughterHordeContain`,
+  `CitadelSlaughterHordeContain`, `TransportHordeGarrisonContain`) put
+  RW 0x87B392 in slot +0x4C, while all 10 `OpenContain` / `TransportContain` /
+  `HordeContain` / `TunnelContain` / `RubbleRiseContain` classes put `return
+  nullptr` (RW 0x46C6BE / 0x851E97); in slot +0x78 / +0x7C only `HordeContain`
+  (0xC5B480 → RW 0x872A6F) returns non-null. In RW 0x694DE8–0x694E82, an
+  all-stealth garrison whose first rider is neither detected by detector
+  (RW 0x693BF2) nor `DETECTED` (status 0x11) hides the container iff
+  `observingPlayer->getRelationship(apparentPlayer->defaultTeam) == ENEMIES`;
+  RW 0x87B392 returns `originalTeam->controllingPlayer` (+0xDC) when
+  `+0x9BD` (`m_hideGarrisonedStateFromNonallies`) is set and the observer is
+  not allied to the garrisoning controller. In the port `+0x9BD` is still
+  unported (`S-1100`), `HordeContain` (#55) and `TransportContain` /
+  `OpenContain` (#62) are on the Do-not-touch list, and `EvaDamageNotice.cpp`
+  (`S-7090`), `AIClosestEnemy.cpp` (`S-1022`) and `EmotionModules.cpp`
+  (`S-326`) hold separate partial copies of RW 0x660D71 / 0x694CCC.
 
 ## ATTACKED: separate state and recorded damage
 
@@ -235,12 +256,33 @@ unported.
   full game verification is pending. The native ActiveBody snapshot was bumped to version 3 and rejects older
   versions, which did not record `m_noEffect` and cannot reconstruct it.
 
-## Outstanding before code
+## Shared blockers escalated under owner rule 6712470885
 
-Resolve the two +0x2FC AI variants and their lifetime in the port, use the
-now-parsed `ForceSkirmishAI`, integrate the tested PC24 comparison in the
-source selection and confirm record-byte possibilities across body implementations,
-and design the condition cache and player AI timer/ID ownership with hash and
-xfer. Confirm all relevant callers and tests before claiming parity. Existing
-manager AI state is not proof of the separate player AI's presence or behavior.
-The prerequisite tests have run; no implementation of the two conditions is claimed.
+Completion of `SUPPLY_SOURCE_SAFE` and `SUPPLY_SOURCE_ATTACKED` is paused
+pending owner decision on three shared mechanisms that cross task boundaries
+or touch files on the Do-not-touch list:
+
+1. **Shared `Player +0x2FC` enemy cache vs `AITacticalAI.cpp` (#68, Do not
+   touch):** RW 0x8F6B87 (`SAFE`) and `Player::getCurrentEnemy` (RW 0x6AA5F5)
+   both call `AISkirmishPlayer::getAiEnemy` (RW 0x8F47EB → `acquireEnemy`
+   RW 0x8F457D, `+0x9C/+0xA0`, base `{0,0,0}`, team-prototype walks). The port
+   currently keeps its enemy cache and `acquireEnemy` in
+   `SkirmishAI/AITacticalAI.cpp:3395–3555` (`SkirmishAI.h`).
+2. **`Player::initFromDict` side-match / `noMatch` (RW 0x6B08D6–0x6B0A26) and
+   `Player::setPlayerType` (RW 0x6AA450):** when `playerIsSkirmish` is true on
+   a non-observer and no saved side in `SidesList +0x7C0/+0x7C4` matches
+   `Player::m_side`, RW 0x6B0997 / 0x6B09F5–0x6B0A26 forces
+   `setPlayerType(PLAYER_HUMAN, false)`. Applying that rule in
+   `PlayerList::newGame` changes player types in existing synthetic fixtures
+   without WorldBuilder `Skirmish<Side>` records (`P16TestUtil.h`,
+   `test_start_random.cpp`, `test_logic_players.cpp`) and touches `Player`
+   state hashed by `*.hashes` (Do not touch).
+3. **Shared `PartitionFilterIsVisible` / `Object::getShroudVisibilityStatusForPlayer`
+   (RW 0x660D71 → 0x694CCC) and `GarrisonContain +0x9BD` (`S-1100`):** touches
+   `GarrisonContain`, `EvaDamageNotice` (`S-7090`), `AIClosestEnemy`
+   (`S-1022`), `EmotionModules` (`S-326`), and interfaces adjacent to
+   `HordeContain` (#55) and `OpenContain` / `TransportContain` (#62).
+
+Prerequisite helpers (`PlayerSupplyAttack`, `PlayerSupplyDistance`,
+`PlayerSupplySource`) and their synthetic + mutant-verified tests pass; no
+implementation of the two script conditions is claimed.
