@@ -1,4 +1,4 @@
-// PORT-16, issue #72: prerequisite tests for the body damage record used by SUPPLY_SOURCE_ATTACKED.
+// PORT-16, issue #72: prerequisite tests for the supply conditions; these are not condition acceptance tests.
 // All objects and damage records are synthetic; expected behavior comes from the cited RotWK instructions.
 #include "doctest.h"
 #include "CombatTestUtil.h"
@@ -7,11 +7,44 @@
 #include "Common/XferSave.h"
 #include "Common/StateHash.h"
 #include "GameLogic/AI/PlayerSupplyAttack.h"
+#include "GameLogic/AI/PlayerSupplyDistance.h"
+
+#include <cfenv>
+#include <cmath>
+#include <cstring>
+#include <limits>
 
 using namespace combattest;
 
 namespace
 {
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+// Linux/macOS x86-64 oracle: the exact x87 instruction sequence at RW
+// 0x8F6D65 .. 0x8F6D94, not the implementation under test. Save and restore
+// the whole FP environment, including exception status and control word.
+bool port16HardwareReject(const Coord3D &source, const Coord3D &enemy, float own)
+{
+    std::fenv_t saved;
+    std::fegetenv(&saved);
+    const unsigned short pc24 = 0x007f; // masked exceptions, round-to-nearest, 24-bit precision
+    asm volatile("fldcw %0" : : "m"(pc24));
+    const double fourTenths = 0.4;
+    const float sixTenths = 0.6f;
+    unsigned char result;
+    asm volatile("flds %[x]\n\tfsubs %[ex]\n\tflds %[y]\n\tfsubs %[ey]\n\t"
+                 "flds %[own]\n\tfmull %[a]\n\tfld %%st(1)\n\tfmul %%st(2), %%st\n\t"
+                 "fld %%st(3)\n\tfmul %%st(4), %%st\n\tfaddp\n\tfmuls %[b]\n\t"
+                 "fxch %%st(1)\n\tfcomip %%st(1), %%st\n\tseta %[r]\n\t"
+                 "fstp %%st(2)\n\tfstp %%st(0)\n\tfstp %%st(0)"
+                 : [r] "=qm"(result)
+                 : [x] "m"(source.x), [ex] "m"(enemy.x), [y] "m"(source.y), [ey] "m"(enemy.y),
+                   [own] "m"(own), [a] "m"(fourTenths), [b] "m"(sixTenths)
+                 : "cc", "st");
+    std::fesetenv(&saved);
+    return result != 0;
+}
+#endif
+
 const char kPort16Objects[] =
     "Object Port16Proxy\n"
     "  KindOf = STRUCTURE DOZER\n"
@@ -290,4 +323,73 @@ TEST_CASE("PORT-16 attacked helper: every eligible kind and the unsigned never-h
     state.clearTimer();
     REQUIRE(state.check(*p, w.teams, 10));
     CHECK(state.objectID() == center->getID());
+}
+
+TEST_CASE("PORT-16 supply distance: SSE own distance, tie order and unordered comparison")
+{
+    const Coord3D source{ 3.0f, 4.0f, 99.0f };
+    const Coord3D own{ 0.0f, 0.0f, -99.0f };
+    CHECK(PlayerSupplyDistance::ownSquared(source, own) == 25.0f); // 2D, z ignored
+    CHECK(PlayerSupplyDistance::closerThan(24.0f, 25.0f));
+    CHECK_FALSE(PlayerSupplyDistance::closerThan(25.0f, 25.0f)); // first candidate wins
+    CHECK_FALSE(PlayerSupplyDistance::closerThan(26.0f, 25.0f));
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    CHECK_FALSE(PlayerSupplyDistance::closerThan(nan, 25.0f)); // COMISS/JBE unordered
+    CHECK_FALSE(PlayerSupplyDistance::closerThan(25.0f, nan));
+    CHECK_FALSE(PlayerSupplyDistance::rejectByEnemy(source, Coord3D{ nan, 0.0f, 0.0f }, 25.0f)); // FCOMPI/JA unordered
+}
+
+TEST_CASE("PORT-16 supply distance: x87 PC24 enemy boundary uses binary64 0.4 and wide intermediates")
+{
+    const Coord3D source{ 0.0f, 0.0f, 0.0f };
+    const Coord3D enemy{ 0x1.8af9p+8f, 0.0f, 0.0f };
+    // Captured with the RW instruction sequence on x87, PC24 / round-to-nearest.
+    // An all-float calculation incorrectly rejects the first of these two inputs.
+    CHECK_FALSE(PlayerSupplyDistance::rejectByEnemy(source, enemy, 0x1.c90a9p+17f));
+    CHECK(PlayerSupplyDistance::rejectByEnemy(source, enemy, 0x1.c90a92p+17f));
+    const float max = std::numeric_limits<float>::max();
+    CHECK_FALSE(PlayerSupplyDistance::rejectByEnemy(Coord3D{ max, 0.0f, 0.0f }, Coord3D{ -max, 0.0f, 0.0f }, max));
+    CHECK(PlayerSupplyDistance::rejectByEnemy(source, source, 1.0f));
+    CHECK_FALSE(PlayerSupplyDistance::rejectByEnemy(source, source, 0.0f));
+}
+
+TEST_CASE("PORT-16 supply distance: compare PC24 with the x87 instruction sequence")
+{
+#if defined(__x86_64__) && (defined(__GNUC__) || defined(__clang__))
+    std::uint32_t state = 0x689d253a;
+    const auto next = [&state]() {
+        state ^= state << 13;
+        state ^= state >> 17;
+        state ^= state << 5;
+        return state;
+    };
+    const auto floatFromBits = [](std::uint32_t bits) {
+        float value;
+        std::memcpy(&value, &bits, sizeof(value));
+        return value;
+    };
+    int mismatches = 0;
+    for (int i = 0; i < 4096; ++i)
+    {
+        const Coord3D candidate{ floatFromBits(next()), floatFromBits(next()), 0.0f };
+        const Coord3D enemy{ floatFromBits(next()), floatFromBits(next()), 0.0f };
+        const float own = floatFromBits(next());
+        mismatches += PlayerSupplyDistance::rejectByEnemy(candidate, enemy, own) != port16HardwareReject(candidate, enemy, own);
+    }
+    for (int i = 0; i < 4096; ++i)
+    {
+        const float distance = (float)((next() % 200000u) + 1u) / 256.0f;
+        const Coord3D source{};
+        const Coord3D enemy{ distance, 0.0f, 0.0f };
+        float own = distance * distance * 1.5f;
+        if (i % 3 == 0)
+            own = std::nextafter(own, 0.0f);
+        if (i % 3 == 1)
+            own = std::nextafter(own, std::numeric_limits<float>::infinity());
+        mismatches += PlayerSupplyDistance::rejectByEnemy(source, enemy, own) != port16HardwareReject(source, enemy, own);
+    }
+    CHECK(mismatches == 0);
+#else
+    MESSAGE("SKIP: the PORT-16 x87 instruction oracle requires GCC/Clang on x86-64");
+#endif
 }

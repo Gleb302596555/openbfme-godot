@@ -136,6 +136,12 @@ unported.
   0x20000: the project models this as x87 precision control 24. Each x87
   arithmetic operation therefore rounds at PC24 while retaining the wide
   exponent; plain host long-double arithmetic would not reproduce it.
+  `PlayerSupplyDistance.h` implements only this numeric fragment (it is not
+  yet used by selection): its 0.4 operand is binary64, 0.6 binary32; its
+  x87 chain uses PC24 wide carriers and its SSE own distance is binary32.
+  Tests compare 8,192 arbitrary and boundary inputs to the RW x87 sequence
+  on GCC/Clang x86-64 and include fixed boundary results on other targets;
+  these do not prove the rest of the selection or player AI lifecycle.
   The first candidate survives an equal-distance tie. RW 0x8F6DC1–0x8F6DCF
   halves the signed threshold toward zero and repeats only while the new
   value exceeds 100.
@@ -148,6 +154,23 @@ unported.
   The visibility predicate has a special branch for a COMPUTER player and
   a firing object (RW 0x660D89–0x660DA3); simply rejecting every stealthed
   object would not reproduce that branch.
+* Visibility dependency RW 0x694CCC has been narrowed, but is not yet exact
+  in `EvaDamage::isVisibleTo` (S-7090). HordeContain constructor RW 0x87283F
+  installs contain vtable 0xC5B480; its slots +0x78 and +0x7C both point to
+  RW 0x872A6F, which returns the same HordeContainInterface at module +0x11C.
+  The plain horde's use of the port's horde-interface accessor is therefore
+  supported, though not every contain variant has been audited. In contrast,
+  OpenContain's table 0xC59AF0 slot +0x4C points to RW 0x46C6BE (return null),
+  not the container's controller. GarrisonContain and HordeGarrisonContain
+  tables 0xC5C698 / 0xC5C9F0 use RW 0x87B392: it normally returns the
+  controlling player, but when contain +0x9BD is set, the observer is non-null
+  and is not allied to that controller, it resolves the original TeamID at
+  contain +0xDC (RW 0x7A1EEE) and returns that team's player if found.
+  The hidden byte's set path is still not implemented (S-1100), and current
+  `EvaDamage::isVisibleTo` uses the owner even for OpenContain; this is a
+  concrete discrepancy, not merely an unverified naming assumption. Do not
+  reuse it as an exact SAFE filter until these cases and other contain tables
+  have been accounted for.
 
 ## ATTACKED: separate state and recorded damage
 
@@ -181,8 +204,8 @@ unported.
 * Record +0x78 is `DamageInfoOutput::m_noEffect`: constructor RW
   0x66365E clears it and copy RW 0x744200–0x744203 copies it. ActiveBody
   uses that copy at RW 0x8C42F1–0x8C42F5. The port now stores `m_noEffect`
-  with the selected fields of the last damage record; synthetic tests are
-  written but have not yet been run.
+  with the selected fields of the last damage record; synthetic prerequisite
+  and regression tests have run (see `docs/ennorath/NIGHT_WATCH.md`).
   Whether this byte can be true on any body path that the condition can scan
   has not been proved. RW 0x8C403F–0x8C4044 clears output floats +0x70 and
   +0x74 but does not clear +0x78 at those instructions; on the recording
@@ -197,7 +220,7 @@ unported.
   now forwards both last-record accessors and the damage-frame slot
   from `SymbioticStructuresBody` to the linked body's interface. The owner
   permitted changes to ActiveBody and SymbioticStructuresBody for this
-  mechanism; these changes have not yet been run in tests.
+  mechanism; synthetic prerequisite and regression tests have run.
 * The record is not overwritten for every hit: RW 0x8C4294–0x8C42F5 writes
   immediately if the saved frame is neither the current frame nor the previous
   frame (unsigned wrap matters at frame 0). Otherwise it resolves the previous
@@ -208,16 +231,16 @@ unported.
   0x8C42F5 copies the entire DamageInfo, resets the clearable-attacker flag,
   and stores the current frame. The port formerly overwrote its partial
   record on every damaging hit; its existing fields and the new byte now
-  follow the same replacement decision. Runtime verification is pending.
-  The native ActiveBody snapshot was bumped to version 3 and rejects older
+  follow the same replacement decision. Synthetic runtime tests cover it;
+  full game verification is pending. The native ActiveBody snapshot was bumped to version 3 and rejects older
   versions, which did not record `m_noEffect` and cannot reconstruct it.
 
 ## Outstanding before code
 
 Resolve the two +0x2FC AI variants and their lifetime in the port, use the
-now-parsed `ForceSkirmishAI`, implement and test the PC24 comparison and
-confirm record-byte possibilities across body implementations, and design the condition cache
-and player AI timer/ID with hash and xfer. Confirm all relevant callers and
-tests before claiming parity. Existing manager AI state is not proof of the
-separate player AI's presence or behavior. `PORT-16` prerequisite tests exist
-but have not yet run; no implementation of the two conditions is claimed.
+now-parsed `ForceSkirmishAI`, integrate the tested PC24 comparison in the
+source selection and confirm record-byte possibilities across body implementations,
+and design the condition cache and player AI timer/ID ownership with hash and
+xfer. Confirm all relevant callers and tests before claiming parity. Existing
+manager AI state is not proof of the separate player AI's presence or behavior.
+The prerequisite tests have run; no implementation of the two conditions is claimed.
