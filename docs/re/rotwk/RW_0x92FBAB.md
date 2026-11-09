@@ -48,3 +48,18 @@ suggested the callers; the addresses below are RotWK instructions.
   selected module's data, not a player's modifier record. An unexecuted
   module still passes the UI's module-presence gate; its amount follows the
   player records. A missing module fails the gate.
+
+## Shared formatter scope gate (Port 54, issue #164)
+
+RW `0x92FCE1` calls `0xADF7E0` with the fetched Unicode format and one
+integer; `0xADF7F7` calls `0x437120`, which invokes the import at `0xBD05BC`
+(`msvcr71.dll` `vswprintf`) at `0x437147`, with a buffer of 0x2000 wide
+characters. The existing `LocalizedText::format` is a shared, deliberately
+restricted typed formatter: for example it leaves `%+d` literal, whereas the
+MSVCRT formatter applies the sign flag to a signed integer. The synthetic
+tests use `%d%%`, which is supported; they do not establish general format
+parity or the format of the mod's localized string. `AptPalantir.cpp` currently
+uses that shared formatter. Exact general formatting would change an existing
+shared mechanism with explicit security-departure tests; it is outside the
+approved section-only scope and awaits the owner's decision. No formatter
+patch or local workaround was made.
