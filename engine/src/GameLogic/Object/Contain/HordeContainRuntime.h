@@ -457,6 +457,9 @@ public:
 	// RW 0x871915 (lane BANNER-1): the removed member was the banner carrier: the id goes and the countdown becomes its BannerCarrierUpdate's DiedRespawnTime. Only the
 	// removals RW 0x87370B / 0x87393E call it; a member released toward a garrison (RW 0x86EBF4, keepSlot) stays the carrier
 	void bannerCarrierRemoved(const Object &member);
+	// lane PORT-75: RW 0x89A5C5 through the contain's accept path (DONOR BFME2 0x00473212 -> 0x00473197): a banner carrier that joins takes the
+	// look of the horde it leads (its MorphCondition entry for the horde's member template) and BannerMorphFX plays
+	void bannerCarrierMorph(Object &member);
 	void expediteBannerRespawn() { if (m_bannerCountdown > 1) { m_bannerCountdown = 1; } } // RW 0x89ACC1
 	unsigned payloadCount() const; ///< RW interface slot 0x188: members, including those entering a garrison, without the banner.
 	// lane NECRODIE-1: RW 0x8705A6 (interface slot 0x114): the first contained member whose template lacks KindOf `kindOfBit`, else the first contained member;
