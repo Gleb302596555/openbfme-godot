@@ -5,6 +5,8 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,17 +23,15 @@ jobs:
           dl 1j7ahtZKstGedIoKdJW3sy3mqG2oxiQ_2 /tmp/in/game2.dat
           dl 1oUjqDsG_I8Eyft0Z7gHTPLDsuVXtYIW0 /tmp/in/ennorath-ini.zip
           dl 1sE4RaoHmdU4TxlETruYmkkmR5qJvl9Yc /tmp/in/audit.zip
-          ls -la /tmp/in
           md5sum /tmp/in/* || true
-          head -c 64 /tmp/in/game1.dat | od -c | head -2
+          head -c 64 /tmp/in/game1.dat | od -c | head -2 || true
       - name: analyse
         run: |
           python -m pip install -q capstone pefile
           mkdir -p /tmp/out
-          cp /tmp/in/* /tmp/out/ 2>/dev/null || true
-          ls -la /tmp/in > /tmp/out/inputs.txt 2>&1
-          md5sum /tmp/in/* >> /tmp/out/inputs.txt 2>&1 || true
-          python tools/mod/gamedata_rows.py --game /tmp/in/game1.dat --ini /tmp/in/ennorath-ini.zip --port engine/src/GameLogic/GameLogicSettings.cpp --out /tmp/out 2>&1 | tee /tmp/out/run.log || true
+          { md5sum /tmp/in/*; } > /tmp/out/inputs.txt 2>&1 || true
+          python tools/mod/gamedata_rows.py --game /tmp/in/game1.dat --ini /tmp/in/ennorath-ini.zip --port engine/src/GameLogic/GameLogicSettings.cpp --out /tmp/out > /tmp/out/run.log 2>&1 || true
+          tail -5 /tmp/out/run.log
           ls -la /tmp/out
       - name: spool results
         run: |
@@ -41,4 +41,4 @@ jobs:
           git checkout -B spool/port70-data
           git add -f .spool
           git commit -m "port70 spool: raw analysis output (scratch, never merged)" || true
-          git push -f origin spool/port70-data
+          git push -f origin HEAD:refs/heads/spool/port70-data
