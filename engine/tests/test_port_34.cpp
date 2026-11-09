@@ -1,6 +1,6 @@
 // OpenBFME unit tests. GPL-3.0.
-// Port 34 (issue #119): GameData/DefaultStructureRubbleHeight (+0xAE4, row RW 0xBFF348) and Object/StructureRubbleHeight
-// (ThingTemplate +0x607, row RW 0xC83380, INI::parseUnsignedByte RW 0x42EB75, getter RW 0x8C1B42).
+// Port 34 (issue #119): GameData/DefaultStructureRubbleHeight (+0xAE4, row RW 0xC004E0) and Object/StructureRubbleHeight
+// (ThingTemplate +0x607, row RW 0xDA4688, INI::parseUnsignedByte RW 0x42EB75, getter RW 0x8C1B42).
 // ActiveBody::setCorrectDamageState (RW 0x8C2A5D) for non-WALK_ON_TOP_OF_WALL STRUCTURE templates:
 // - entering BODY_RUBBLE (RW 0x8C2DD4..0x8C2E13): movsx eax, byte [tt + 0x607]; > 0 uses (float)eax, else DefaultStructureRubbleHeight,
 //   passed to Object::setGeometryMaxHeight (RW 0x68B2CB -> RW 0xAD2C60 + RW 0xAD2860);
