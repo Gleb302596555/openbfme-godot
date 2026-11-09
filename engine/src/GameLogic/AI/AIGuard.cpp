@@ -18,6 +18,7 @@
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/ActiveBody.h"
 #include "GameLogic/Module/StancesBehavior.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SimMath.h"
 #include "GameLogic/WeaponState.h"
@@ -466,6 +467,38 @@ public:
 	void xfer(Xfer &x) override { xferNoFields(x); }
 };
 
+// RW 0x94C0F4: selects member of enemy horde closest to self (called by GuardAttackAggressorState)
+static Object *lookForHordeMember(AIGuardMachine &machine, Object &self)
+{
+	ObjectID nemesisId = machine.nemesis(); // +0x40
+	if (nemesisId == INVALID_ID || nemesisId == 0)
+	{
+		return nullptr;
+	}
+	Object *victim = self.logic().findObjectByID(nemesisId); // call 0x449681
+	if (!victim)
+	{
+		return nullptr;
+	}
+	ContainModuleInterface *contain = victim->getContain(); // victim + 0x258
+	if (!contain)
+	{
+		return nullptr;
+	}
+	HordeContainInterface *hordeContain = contain->getHordeContainInterface(); // contain vslot 0x7C
+	if (!hordeContain)
+	{
+		return nullptr;
+	}
+	HordeContain *hc = dynamic_cast<HordeContain *>(hordeContain);
+	if (!hc)
+	{
+		return nullptr;
+	}
+	// HordeContainInterface vslot 0x48 (RW 0x86FA87): pickMemberNear(false, *self.getPosition(), 0.0f, nullptr)
+	return hc->pickMemberNear(false, *self.getPosition(), 0.0f, nullptr);
+}
+
 // AIGuardAttackAggressorState (RW 0x94C144 onEnter, 0x94A8E8 update)
 class GuardAttackAggressorState : public AIState, private GuardAttackHolder
 {
@@ -493,18 +526,22 @@ public:
 		{
 			return STATE_SUCCESS;
 		}
-		// RW 0x94C1D6 .. 0x94C21B: a lone unit's HORDE target becomes one of its members
+		// RW 0x94C1D6 .. 0x94C21B: a lone unit's HORDE target becomes one of its members via RW 0x94C0F4
+		// Condition RW 0x94C1D9 .. 0x94C1EF: test [template + 0x114], 0x2000 (KINDOF_HORDE).
+		// Enemy must be HORDE, and self (obj) must NOT be HORDE.
 		static const int kHorde = CombatNames::kindOf("HORDE");
 		if (!obj.isKindOf((unsigned)kHorde) && nemesis->isKindOf((unsigned)kHorde))
 		{
-			nemesis = AI::adjustVictim(*nemesis, &obj, false, 0); // RW 0x68D30E
-			if (nemesis)
+			g.setNemesis(nemesis->getID()); // RW 0x94C1F6
+			Object *member = lookForHordeMember(g, obj); // RW 0x94C0F4
+			if (member)
 			{
-				g.setNemesis(nemesis->getID());
+				nemesis = member; // RW 0x94C200
+				g.setNemesis(member->getID()); // RW 0x94C215 .. 0x94C21B
 			}
 			else
 			{
-				return STATE_SUCCESS;
+				return STATE_FAILURE; // RW 0x94C205: push -2; pop eax; ret (STATE_FAILURE)
 			}
 		}
 		// RW 0x94C21E .. 0x94C2B5: exit conditions
@@ -519,7 +556,7 @@ public:
 		const Weapon *cur = w ? w->currentWeapon() : nullptr;
 		if (cur && cur->getTemplate() && cur->getTemplate()->m_meleeWeapon)
 		{
-			chaseFrames += chaseFrames / 2; // RW 0x94C1FD: +50% chase duration for melee weapon
+			chaseFrames += chaseFrames / 2; // RW 0x94C27C .. 0x94C281: +50% chase duration for melee weapon (shr 1; add)
 		}
 		m_exit.attackGiveUpFrame = logic.getFrame() + chaseFrames;
 		m_exit.conditions = GuardExitConditions::ATTACK_ExitIfOutsideRadius | GuardExitConditions::ATTACK_ExitIfExpiredDuration | GuardExitConditions::ATTACK_ExitIfNoUnitFound; // 7 (RW 0x94C2AA)

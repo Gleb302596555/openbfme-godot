@@ -9,7 +9,7 @@
 //   - AIGuardMachine::hasAttackedMeAndICanReturnFire (RW 0x949994):
 //     resolves damager from takeLastAttacker() (body vslot 0x4C, RW 0x8C3A33), checks ableToAttack and canAttackObject.
 //   - GuardAttackAggressorState::onEnter (RW 0x94C144):
-//     outer radius = (visionRange + retaliateRange)^2 (RW 0x94C2B1), melee chase duration +50% (RW 0x94C1FD), conditions = 7 (RW 0x94C2AA).
+//     outer radius = (visionRange + retaliateRange)^2 (RW 0x94C2B1), melee chase duration +50% (RW 0x94C27C..0x94C281), conditions = 7 (RW 0x94C2AA).
 //   - GuardExitConditions::shouldExit (RW 0x94BCAC):
 //     exits if currentFrame >= attackGiveUpFrame (RW 0x94BCC8),
 //     or if target distSqr > radiusSqr (RW 0x94BD4C),
@@ -110,7 +110,7 @@ TEST_CASE("LOCAL-20 guard leashing: defender distance beyond retaliateRange exit
 	GuardExitConditions exitCond;
 	exitCond.center = Coord3D{ 0.0f, 0.0f, 0.0f };
 	exitCond.conditions = GuardExitConditions::ATTACK_ExitIfOutsideRadius | GuardExitConditions::ATTACK_ExitIfExpiredDuration | GuardExitConditions::ATTACK_ExitIfNoUnitFound;
-	exitCond.attackGiveUpFrame = w.logic->getFrame() + 150; // melee +50% duration: 100 + 50 = 150 (RW 0x94C1FD)
+	exitCond.attackGiveUpFrame = w.logic->getFrame() + 150; // melee +50% duration: 100 + 50 = 150 (RW 0x94C27C..0x94C281)
 	const float totalRadius = 100.0f + 287.5f; // vision + retaliateRange
 	exitCond.radiusSqr = totalRadius * totalRadius;
 
@@ -224,6 +224,62 @@ TEST_CASE("LOCAL-20 order: ordered move preserves its destination and does not d
 	}
 	CHECK(swordsman->getPosition()->y > 110.0f); // tolerance: unit continued pathing towards y=500 despite stray hit
 	CHECK(std::abs(swordsman->getPosition()->x - 100.0f) < 1.0f); // tolerance: unit stays on course with minor sub-cell steering variance
+}
+
+TEST_CASE("LOCAL-20 horde victim: single unit attacked by horde selects closest member via RW 0x94C0F4 (RW 0x94C1D6..0x94C21B)")
+{
+	combattest::CombatWorld w;
+	w.logic->settings().maxRetaliateDistance = 250.0f;
+	w.logic->settings().guardChaseUnitsFrames = 100;
+	Object *swordsman = w.unit("Swordsman", 'A', 0.0f, 0.0f);
+	Object *archerHorde = w.unit("ArcherHorde", 'B', 100.0f, 0.0f);
+	REQUIRE(swordsman);
+	REQUIRE(archerHorde);
+
+	const std::vector<Object *> members = w.membersOf(archerHorde);
+	REQUIRE_FALSE(members.empty());
+
+	// Identify member closest to swordsman at (0, 0, 0)
+	Object *expectedMember = nullptr;
+	float bestDist = 1e9f;
+	for (Object *m : members)
+	{
+		const float d = SimMath::length3d(m->getPosition()->x, m->getPosition()->y, m->getPosition()->z);
+		if (!expectedMember || d < bestDist)
+		{
+			bestDist = d;
+			expectedMember = m;
+		}
+	}
+	REQUIRE(expectedMember != nullptr);
+
+	AIUpdateInterface *ai = swordsman->getAIUpdateInterface();
+	REQUIRE(ai);
+	ai->guardHere(GUARDMODE_NORMAL);
+	auto *gs = dynamic_cast<AIGuardState *>(ai->stateMachine().currentState());
+	REQUIRE(gs != nullptr);
+	AIGuardMachine *gm = gs->guardMachine();
+	REQUIRE(gm != nullptr);
+
+	// 1. Horde enemy: GuardAttackAggressorState onEnter (RW 0x94C1D6..0x94C21B) selects closest member via RW 0x94C0F4
+	gm->setNemesis(archerHorde->getID());
+	gm->setState(AI_GUARD_ATTACK_AGGRESSOR);
+	CHECK(gm->currentStateId() == AI_GUARD_ATTACK_AGGRESSOR);
+	CHECK(gm->goalObject() == expectedMember);
+	CHECK(gm->nemesis() == expectedMember->getID());
+
+	// 2. Null member: when all members are dead, member lookup yields nullptr,
+	// so onEnter returns STATE_FAILURE (RW 0x94C205), exiting state
+	for (Object *m : members)
+	{
+		DamageInfo kill;
+		kill.m_input.m_kill = true;
+		kill.m_input.m_damageType = DAMAGE_UNRESISTABLE;
+		m->getBodyModule()->attemptDamage(kill);
+	}
+	gm->setNemesis(archerHorde->getID());
+	gm->setState(AI_GUARD_ATTACK_AGGRESSOR);
+	CHECK(gm->currentStateId() != AI_GUARD_ATTACK_AGGRESSOR);
 }
 
 TEST_CASE("LOCAL-20 ennorath: Ennorath scenario retaliation with real GondorFighterHorde (MaxRetaliateDistance 250, default/aidata.ini)")
