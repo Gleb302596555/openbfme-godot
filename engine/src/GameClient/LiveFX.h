@@ -47,6 +47,7 @@
 #include "GameClient/BuffDraw.h"
 #include "GameClient/Drawable.h"
 #include "GameClient/FXPlayback.h"
+#include "GameClient/ParticleBoneFollow.h"
 #include "GameEngineDevice/W3DDevice/GameClient/TerrainScorches.h"
 #include "GameLogic/FXEvents.h"
 
@@ -222,6 +223,9 @@ public:
 		unsigned long long fireFXAtBone = 0;                ///< fire FX played at a barrel's fire FX bone
 		unsigned long long fireFXOnObject = 0;              ///< fire FX played through doFXObj (no draw module took it)
 		unsigned long long attachedCreated = 0, attachedDestroyed = 0, attachedLive = 0;
+		// lane PORT-50 (RW 0x4B6D5F): the follow's per-frame calls - transforms applied (RW 0x5F2F55 + 0x5F32A7), records whose
+		// system or bone was gone, and the by-index branch's starts / stops (RW 0x5F2EE6 / 0x5F2EDE)
+		unsigned long long bonesFollowed = 0, bonesMissed = 0, bonesStarted = 0, bonesStopped = 0;
 		unsigned long long boneMisses = 0;                  ///< ParticleSysBone bones the model lacks (RW 0x4C6514: the system plays at the drawable's origin)
 		std::set<std::string> missingBones;                 ///< "MODEL:bone" of the bone misses of every path (at most 200): retail data, played as retail does
 		unsigned long long sounds = 0;
@@ -244,6 +248,9 @@ private:
 	{
 		std::vector<const void *> states;                     ///< per draw entry: model state, animation state (compared, never ordered)
 		std::vector<FXParticleSystem::ParticleSystemID> systems;
+		// lane PORT-50: retail's tracker list (the draw module's +0x58, node +0xC -> the record RW 0x4B6CDD copies), one node
+		// per created system, walked once per client frame by ParticleBoneFollow::followFrame (RW 0x4B6D5F)
+		std::vector<ParticleBoneFollow::Record> records;
 	};
 	Object *object(ObjectID id) const;
 	struct Captured; // the captured view of an event's object (LiveFX.cpp)
@@ -261,6 +268,9 @@ private:
 	bool handleWeaponFireFX(const Drawable &shooter, const FXEvent &e, const FXList *fx);
 	void destroySystems(Attached &a);
 	void createSystems(Drawable &d, Attached &a);
+	// lane PORT-50: RW 0x4C7795's gated call (RW 0x4B6D5F with 0) for one drawable: every ParticleSysBone system it created
+	// follows the animated bone of the pose it was created for
+	void followAnimatedBones(Drawable &d, Attached &a);
 	struct FrameEventState
 	{
 		const void *animState = nullptr; ///< the animation state the frames belong to
@@ -298,5 +308,7 @@ private:
 	FrameEventMap m_frameEvents; // looked up only (and pruned), never ordered by pointer
 	W3DDrawFrame m_eventFrame;   // lane PERF-3: frameEvents' frame of the entry (its storage reused)
 	std::vector<const void *> m_states; // lane PERF-3: updateAttachedSystems' states of the drawable (its storage reused)
+	std::vector<ParticleBoneFollow::Pose> m_bonePoses; // lane PORT-50: followAnimatedBones' poses of the drawable (reused)
+	ParticleBoneFollow::Counters m_boneCounters;       // lane PORT-50: one frame's follow counters (reused)
 	std::map<std::pair<const RenderObjPrototype *, std::string>, std::pair<bool, Matrix3D>> m_boneCache; // looked up only, never iterated
 };
