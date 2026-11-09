@@ -282,7 +282,7 @@ public:
 	// COMMANDCENTER bit 17 at RW 0x73D59F; read by Team::hasAnyBuildFacility RW 0x7A1140)
 	bool isBuildFacility() const;
 	void friend_setIsBuildFacility(bool v) { m_isBuildFacility = v; }
-	// Port 34, RW 0x8C1B42 / RW 0x8C2DE0: ThingTemplate + 0x607 (StructureRubbleHeight, row RW 0xC83380, INI::parseUnsignedByte RW 0x42EB75,
+	// Port 34, RW 0x8C1B42 / RW 0x8C2DE0: ThingTemplate + 0x607 (StructureRubbleHeight, row RW 0xDA4688, INI::parseUnsignedByte RW 0x42EB75,
 	// initialized to 0 at RW 0x74018A, copied at RW 0x6D25EF, read with movsx byte [tt + 0x607])
 	std::int8_t structureRubbleHeight() const;
 	// Local 15 (issue #136): ThingTemplate label rows (RW 0xDA3DF8, parser RW 0x73D3E0)

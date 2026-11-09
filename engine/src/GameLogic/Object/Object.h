@@ -377,6 +377,11 @@ public:
 	// (RW 0x68B244(0)); RebuildHoleExposeDie gives the dead structure's to its hole. The object then carries another template's shapes: geometryTemplate()
 	// names it (its own template otherwise)
 	void setGeometryInfoFrom(const Object &from);
+	// Port 34 r2, the wall branch of RW 0x8C2A5D: RW 0x699349 is Object::setGeometryInfo(const GeometryInfo&) — RW 0x463DFC copies that GeometryInfo into
+	// Object + 0xA8, then RW 0x68B244(0). The ActiveBody caller RW 0x8C2AA4 passes the TEMPLATE's GeometryInfo (template + 0xA0), i.e. the object's own copy
+	// becomes the template's again — shape flags, extents, heights and all — which is how a WALK_ON_TOP_OF_WALL structure leaves RUBBLE. `from` is that
+	// template here, not an object
+	void setGeometryInfoFrom(const ThingTemplate &from);
 	const ThingTemplate &geometryTemplate() const;
 	int triggerCount() const { return m_triggerCount; }
 	const TriggerEntry &triggerEntry(int i) const { return m_triggers[i]; }
