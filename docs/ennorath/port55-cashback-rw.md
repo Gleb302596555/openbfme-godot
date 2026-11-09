@@ -154,9 +154,9 @@ CanAlwaysEnter проверяет свой flag через RW 0x762977; треб
 с входящим объектом относительно игрока контейнера. Неуспех — базовый
 HordeGarrisonContain::isValidContainerFor, не безусловный отказ.
 
-## Реализация общего пути (ветка, ещё не проверено прогоном)
+## Реализация общего пути (узкий фильтр зелёный)
 
-После rebase коммиты `fdf7dadf`, `655ede8f` добавили typed-data/factory/runtime
+После последнего rebase коммиты `e58304a2`, `03ecf5bf` добавили typed-data/factory/runtime
 SlaughterHordeContain на существующем GarrisonContain и наследование Citadel.
 Отдельного citadel-only депозита нет. Никакие AI/command функции не изменены.
 
@@ -178,6 +178,7 @@ SlaughterHordeContain на существующем GarrisonContain и насл�
 | Нет верхнего clamp процента, нулевая BountyValue не мешает убою | 0x883BA7..0x883BCD | `PORT-55 CashBackPercent above one*` |
 | Entry wrapper не повторяет admission; уже contained объект не добавляется снова | 0x8836D3..0x88373C | `PORT-55 entry wrapper*` |
 | Hero value по rank/lastRank, опыт от конечной суммы и accepting gate | 0x68DE33..0x68DE49, 0x883DB7..0x883DFA | `PORT-55 hero value*` |
+| Ring producer predicate орды, callback только после последнего члена, выход всех живых членов без выплаты | 0x883A29, 0x8840FC | `PORT-55 ring horde*` |
 
 В shared entry убрана лишняя повторная isValidContainerFor: RW проверяет
 только Object+0x27C, а admission выполняет вызывающий command/AI.
@@ -192,37 +193,43 @@ ScoreKeeper получил только две узкие callback-функци�
 0x79F60E без enabled/counting gate, 0x79F430 только с counting gate;
 существующие score-пути не изменены.
 
-**Проверка сейчас (2026-11-09, продолжение):** выполнен rebase на
-`origin/main` = `54846632`. Полная tests-only Release сборка
-`cmake --build engine/build -j1 --target openbfme_tests` ещё идёт.
-Для ранней отладки из тех же Release-объектов `test_main.cpp.o`,
-`test_port_55.cpp.o` и core/lua/float_chars/luau/detlibm библиотек собран
-временный runner вне Git. Это не подмена обязательного итогового executable.
-Он запускает `-tc="PORT-55*"` без игровых файлов:
+**Итоговая проверка (2026-11-09):** rebase на `origin/main` =
+`2d778161b8d2300df06d7221786992a937a21dc8`, HEAD реализации `9f0c1330`.
+Полная tests-only CMake/Ninja Release сборка с
+`-DOPENBFME_BUILD_GODOT=OFF` завершилась успешно:
+
+```sh
+cmake --build engine/build -j1 --target openbfme_tests
+engine/build/openbfme_tests -tc='PORT-55*' --no-colors
+```
+
+Это итоговый общий executable, не вспомогательный runner; игровые файлы
+фильтру не нужны. Широкие фильтры здесь не запускались.
 
 ```text
-[doctest] test cases:  12 |  12 passed | 0 failed | 0 skipped
-[doctest] assertions: 266 | 266 passed | 0 failed |
+[doctest] test cases:  13 |  13 passed | 0 failed | 5923 skipped
+[doctest] assertions: 303 | 303 passed | 0 failed |
 [doctest] Status: SUCCESS!
 ```
 
-Red-without-fix: отдельная копия GarrisonContain.cpp вне дерева собрана с
-единственным отключённым вызовом `payFor(obj, *player)`. Те же тестовые
-объекты и остальные библиотеки, фильтр `PORT-55 ordinary citadel entry*`:
+Red-without-fix повторён на свежих Release-объектах этой базы: отдельная копия
+GarrisonContain.cpp вне дерева с единственным отключённым вызовом
+`payFor(obj, *player)`, те же `test_main.cpp.o`, `test_port_55.cpp.o` и
+core/lua/float_chars/luau/detlibm библиотеки. Фильтр
+`PORT-55 ordinary citadel entry*`:
 
 ```text
 CHECK( w.cash('A') - before == 5 ): 0 == 5
 REQUIRE( incomeLog().size() == 1 ): 0 == 1
-[doctest] test cases:  1 |  0 passed | 1 failed | 11 skipped
+[doctest] test cases:  1 |  0 passed | 1 failed | 12 skipped
 [doctest] assertions: 23 | 21 passed | 2 failed |
 [doctest] Status: FAILURE!
 ```
 
-После возврата обычного runtime runner снова зелёный: 12/266. Источники в
-дереве при красном контроле не менялись. Guard перед `.back()` в новом
-тесте сделан REQUIRE, чтобы отсутствие выплаты давало проверяемое падение,
-а не обращение к пустому income log. Вспомогательные логи в /tmp; PR ещё нет,
-итоговый `openbfme_tests -tc="PORT-55*"` пока не запускался.
+Оригинальный runtime и итоговый executable не менялись для mutation control.
+Guard перед `.back()` в новом тесте сделан REQUIRE: отсутствие выплаты
+даёт два ожидаемых падения assertions, а не crash. Логи/копии в /tmp,
+в Git не входят.
 
 Ранний диагностический прогон также выявил ошибки самого fixture:
 MoveWorld не регистрирует GarrisonCommands, а partition требует setRegion и
@@ -230,8 +237,9 @@ MoveWorld не регистрирует GarrisonCommands, а partition треб�
 добавлена только в новые тесты. После этого оба MSG_ENTER сценария проходят;
 AI/command код не менялся, scope-блокер за пределами contain не обнаружен.
 
-На Linux базовый CameraShaker.h не включает cstddef для size_t: обход только
-локальный CMake `-DCMAKE_CXX_FLAGS='-include cstddef'`, изменения чужого
+Первоначальный Linux build требовал обхода отсутствующего cstddef в
+CameraShaker.h. Upstream исправил header в `c9737197`, исправление сохранено
+после rebase. В локальном кэше остался безвредный CMake `-DCMAKE_CXX_FLAGS='-include cstddef'`, изменения чужого
 клиентского header в итоговом diff нет. Хэши/старые тесты не менялись.
 
 ### Сохраняемые ограничения и ночной риск
@@ -241,17 +249,15 @@ Economy::noteIncome. Точная RW 0x883CDB..0x883DB1 позиция/ранд�
 цвет и масштаб не перенесены; S-283/S-1100 не закрыты. Визуальное сходство
 и соответствие в запущенном Эннорате **не проверены**.
 S-1995 теперь не означает отсутствие runtime SlaughterHordeContain, S-6010
-больше не является запретом обычных войск, но завершение задачи ещё требует
-прогона. Общие риски: admission гарнизонов, денежные/опытные модификаторы,
+больше не является запретом обычных войск. Узкий фильтр зелёный. Общие риски: admission гарнизонов, денежные/опытные модификаторы,
 score, смерть последнего члена, ownership/upgrades, старые save4 и crc.
 
 Старые `ring delivery retail*` сохранены без изменений. В частности, тест
 `fortress refuses ordinary troops*` содержит буквальный старый stopLine и
 предположение об отказе обычному солдату: ожидание необходимо обсудить в PR,
 не подгонять код под него. FACT-B inventory/hash pins этой веткой не обновляются.
-Осталось: закончить сборку и подтвердить 12/266 на итоговом openbfme_tests,
-повторить проверку актуальности origin/main перед PR,
-PR и финальный dashboard-комментарий `review` только при зелёном фильтре.
+Осталось вне узкой проверки: приёмка PR, оконная проверка владельцем и
+широкий ночной прогон; пины не переснимать без разбора причин.
 
 ### Рецепт проверки владельцем (данные Эннората 1.9.8.2)
 
