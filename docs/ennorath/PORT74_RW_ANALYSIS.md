@@ -83,10 +83,38 @@ them (no `MaxIntensityLifetime`, `FadeLifetime`, `ArcHeight`).
    the colour interpolation, `Set_Texture_Tile_Factor`, `Set_Color`, `Set_Texture`, and the envelope update) —
    RW 0x4C8DB3 onwards.
 
-## 5. Open (to read before the port)
+## 5. The beam loop (RW 0x4C8DB3 .. 0x4C9102), the draw module object and what is not in the image
 
-- RW 0x4C8DB3 .. 0x4C90F0: the beam loop proper (colours, tiling, texture advance) and the envelope call.
-- RW 0x4C8A6C's tail: the textures are loaded in `loadPostProcess`/`doDrawModule` when `m_textures` is empty
-  (the vector at +0x10) and the aspect ratio is taken from the first texture.
-- The LaserUpdate object itself (start / end / width scale) is a separate module (audit `missing-module`), out of
-  this issue's port: the port takes start / end / width scale as the arguments of the geometry, as the issue says.
+Per segment (RW 0x4C8AF5), after the arc / no-arc point pair of section 4:
+
+1. RW 0x4C8E7F / 0x4C8E9F: `data+0x08` (InnerColor) and `data+0x0C` (OuterColor), one packed `GameMakeColor` word each, are unpacked
+   by RW 0x6D3AD5 into red / green / blue / alpha floats.
+2. RW 0x4C8EB1: `i` runs from `NumBeams - 1` down to 0; `index = segment * NumBeams + i` (RW 0x4C8EBF).
+3. Width (RW 0x4C8EC7 / 0x4C8EE0): one beam takes `InnerBeamWidth * widthScale` (the update's `+0x3C`); more beams take
+   `InnerBeamWidth + i / (NumBeams - 1) * (OuterBeamWidth - InnerBeamWidth)`, times the width scale.
+4. Tiling (RW 0x4C8F14): only when `m_textures[0]` exists and `Tile` is set; `tileFactor = TilingScalar / width * m_textureAspectRatio * length`
+   (RW 0x4C8F73 .. 0x4C8F84), handed to the line at RW 0x4C8F95 (RW 0x55DCE0).
+5. RW 0x4C8F9A: `Set_Width(width, m_at30)` (RW 0x55DBE0) — `m_at30` is the draw module's copy of the module data's `FanWidth`
+   (RW 0x4C94B4 / 0x4C94C0). RW 0x4C8FBB: `Set_Points(2, laserPoints)` (RW 0x55E9F0).
+6. Colour (RW 0x4C8FC8 / 0x4C9002): one beam takes `Inner * innerAlpha`; more take
+   `Inner + i / (NumBeams - 1) * (Outer - Inner) * innerAlpha` per component (the inner alpha scales the whole mix).
+7. RW 0x4C9055: the envelope update RW 0x740659 runs **once per beam**, with `&m_at2C` as both the input and the output; the colour is
+   then multiplied by `m_at2C` (RW 0x4C9062 .. 0x4C9093) and set at RW 0x4C90A8 (RW 0x55DC20).
+8. RW 0x4C90AD: `Set_Texture(&m_textures[m_at28])` (RW 0x55DB80) — the texture of this whole draw.
+9. RW 0x4C90DD .. 0x4C90F0: after the segments, `m_at28` advances by one and wraps at the texture count (the `(finish - start) / 4` of the
+   vector at `+0x14`). `Segments == 0` skips the drawing but still advances it (RW 0x4C8AEF -> 0x4C90DD).
+
+The envelope itself is an OrnamentData at module data `+0x4C` (0x28 bytes): `InitialOpacity` +0x00, `PeakOpacity` +0x04,
+`SustainOpacity` +0x08, the counter +0x0C, `InitialDelay` +0x10, `AttackTime` +0x14, `DecayTime` +0x18, `SustainTime` +0x1C,
+`ReleaseTime` +0x20, the state +0x24 (RW 0x73A74B; the times are milliseconds stored as `floor(value * 0.005)` with RW 0xD9F610,
+i.e. 5 frames per second of INI time). RW 0x740659 is the five-state machine; RW 0x4C894B is the initialiser the module data constructor
+calls. `MaxIntensityLifetime` / `FadeLifetime` (RW 0x73A429, same millisecond scale) are parsed and — like the rest of the class — read
+nowhere in doDrawModule.
+
+The draw module object (constructor RW 0x4C9483, vtable RW 0xBE1938): `+0x10` the line array, `+0x14` the texture vector, `+0x20` the
+aspect ratio (1.0), `+0x24` the "self dirty" byte (1, set again by `loadPostProcess` RW 0x4C89E2), `+0x28` the texture index,
+`+0x2C` the envelope opacity (1.0), `+0x30` the fan width (module data `+0x48`), `+0x34` the envelope copy.
+
+NOT IN THE PORT, therefore not in this issue: the SegmentedLineClass render objects (created at RW 0x4C94D3 .. 0x4C958E with the
+additive shader, `Set_UV_Offset_Rate(0, ScrollRate)`, `TILED_TEXTURE_MAP` and `Add_Render_Object` on `W3DDisplay::m_3DScene`
+RW 0xDE1B34) and the `LaserUpdate` client update that supplies the endpoints. See `docs/STOPS.md` S-7197.

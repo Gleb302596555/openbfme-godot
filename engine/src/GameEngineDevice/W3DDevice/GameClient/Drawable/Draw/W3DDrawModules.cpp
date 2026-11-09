@@ -11,6 +11,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTornadoDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DProjectileStreamDraw.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLaserDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLightDraw.h"
 
 namespace
@@ -75,6 +76,7 @@ void W3DDrawModules::registerTypedDrawModuleData(ModuleFactory &modules)
 	modules.bindTypedData<W3DTornadoDrawModuleData>("W3DTornadoDraw", MODULETYPE_DRAW); // both editions: RW 0x464968 / 0xBE4130, BFME2 0x465171 / 0xBCE150
 	modules.bindTypedData<W3DProjectileStreamDrawModuleData>("W3DProjectileStreamDraw", MODULETYPE_DRAW); // both editions: RW 0x4648DF / 0x00BDBAA8, BFME2 0x46509A / 0x00BCDFB0
 	modules.bindTypedData<W3DLightDrawModuleData>("W3DLightDraw", MODULETYPE_DRAW); // both editions: RW 0x464626 / 0x00BDBB08, BFME2 0x464E2F / 0x00BCD918
+	modules.bindTypedData<W3DLaserDrawModuleData>("W3DLaserDraw", MODULETYPE_DRAW); // RW 0x464BC3 (name in the factory table) / RW 0x464159 module data / RW 0xBE1798 fields
 }
 
 std::vector<std::string> W3DDrawModules::notDrawnClasses()
@@ -92,6 +94,11 @@ std::vector<std::string> W3DDrawModules::notDrawnClasses()
 			if (std::string(c.name) == "W3DBuffDraw")
 			{
 				out.push_back("W3DBuffDraw: no model on the buff template itself (RW 0xBE3010 / BFME2 0xBCD178 doDrawModule is a no-op); its ModelName is drawn on buffed units by ClientBuffs (S-4642)");
+				continue;
+			}
+			if (std::string(c.name) == "W3DLaserDraw")
+			{
+				out.push_back("W3DLaserDraw: no model; its beam geometry is computed (S-7197), the SegmentedLine render object and the LaserUpdate that places it are not ported");
 				continue;
 			}
 			if (std::string(c.name) == "W3DTornadoDraw")
