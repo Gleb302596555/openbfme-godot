@@ -212,16 +212,20 @@ TEST_CASE("LOCAL-19 decal opacity fade curve for dynamic shadow decals (RW 0x4B1
 	// 2. Dynamic decal: frame 0 starts at opacityStart (50)
 	CHECK(ObjectShadow::evaluateDecalOpacity(dynamicDesc, 0, 0) == 50u);
 
-	// 3. Frame 15 (halfway through 30 frames fade-in): 50 + 0.5 * (250 - 50) = 150
+	// 3. Frame 2: ceil rounding (RW 0x50B964 calls msvcr71 ceil):
+	// 50 + (2 / 30) * 200 = 50 + 13.3333 = 63.3333 -> ceil = 64 (whereas std::round would give 63)
+	CHECK(ObjectShadow::evaluateDecalOpacity(dynamicDesc, 2, 0) == 64u);
+
+	// 4. Frame 15 (halfway through 30 frames fade-in): 50 + 0.5 * (250 - 50) = 150
 	CHECK(ObjectShadow::evaluateDecalOpacity(dynamicDesc, 15, 0) == 150u);
 
-	// 4. Frame 30 (end of fade-in): peak opacity (250)
+	// 5. Frame 30 (end of fade-in): peak opacity (250)
 	CHECK(ObjectShadow::evaluateDecalOpacity(dynamicDesc, 30, 0) == 250u);
 
-	// 5. Frame 100: holds at peak indefinitely (peakHold == -1, RW 0x7323CE)
+	// 6. Frame 100: holds at peak indefinitely (peakHold == -1, RW 0x7323CE)
 	CHECK(ObjectShadow::evaluateDecalOpacity(dynamicDesc, 100, 0) == 250u);
 
-	// 6. Fade-out triggered at frame 100: fades from peak (250) to end (10) over 15 frames
+	// 7. Fade-out triggered at frame 100: fades from peak (250) to end (10) over 15 frames
 	CHECK(ObjectShadow::evaluateDecalOpacity(dynamicDesc, 100, 0, 100) == 250u);
 	// Frame 107 (approx half of 15 frames): 250 + (7/15) * (10 - 250) = 250 - 112 = 138
 	CHECK(ObjectShadow::evaluateDecalOpacity(dynamicDesc, 107, 0, 100) == 138u);
@@ -229,6 +233,94 @@ TEST_CASE("LOCAL-19 decal opacity fade curve for dynamic shadow decals (RW 0x4B1
 	CHECK(ObjectShadow::evaluateDecalOpacity(dynamicDesc, 115, 0, 100) == 10u);
 	// Frame 200: remains at end opacity
 	CHECK(ObjectShadow::evaluateDecalOpacity(dynamicDesc, 200, 0, 100) == 10u);
+
+	// 8. _ftol conversion truncation (RW 0xA3CFA4 ftol towards zero, not std::round):
+	// 1017 ms * 0.03 = 30.51 frames -> truncated to 30 frames (std::round would produce 31 frames)
+	ObjectShadow::DecalShadowDescriptor ftolDesc = dynamicDesc;
+	ftolDesc.opacityFadeInTime = 1017.0f;
+	// At frame 30, with 30 frames fade-in, it reaches peak opacity 250 (with round=31 it would be 244)
+	CHECK(ObjectShadow::evaluateDecalOpacity(ftolDesc, 30, 0) == 250u);
+}
+
+TEST_CASE("LOCAL-19 dynamic decal shadow on object created at frame 600 (RW 0x4C4FBC, RW 0x7323CE)")
+{
+	objtest::World w;
+	const std::string ini =
+		"Object SpellMarkerMock\n"
+		"  Shadow = SHADOW_ALPHA_DECAL_DYNAMIC\n"
+		"  ShadowSizeX = 60.0\n"
+		"  ShadowSizeY = 60.0\n"
+		"  ShadowOpacityStart = 50\n"
+		"  ShadowOpacityPeak = 250\n"
+		"  ShadowOpacityEnd = 10\n"
+		"  ShadowOpacityFadeInTime = 1000\n"
+		"  ShadowOpacityFadeOutTime = 500\n"
+		"End\n";
+
+	REQUIRE(w.load(ini).empty());
+
+	w3dsynth::MemoryFileSource fs;
+	WW3DAssetManager assets(fs);
+	W3DLuaDrawScriptHost::Options hostOpt;
+	DrawServices services(assets, w.modules, hostOpt);
+	std::vector<std::string> problems;
+
+	const ThingTemplate *tpl = w.get("SpellMarkerMock");
+	REQUIRE(tpl != nullptr);
+
+	Drawable d(services, tpl, (DrawableID)10, (ObjectID)100, {}, problems);
+	const Coord3D pos{ 50.0f, 50.0f, 0.0f };
+	d.setPosition(&pos);
+
+	// Object created at frame 600 (RW 0x7323CE: [0xDE4388]+0x7C TheGameClient::getFrame())
+	d.setShadowStartFrame(600);
+
+	SelectionDecal sd;
+	// 1. At frame 600 (creation frame), opacity is start opacity (50)
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 600));
+	CHECK(((sd.color >> 24) & 0xFFu) == 50u);
+
+	// 2. At frame 602, ceil rounding gives 64
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 602));
+	CHECK(((sd.color >> 24) & 0xFFu) == 64u);
+
+	// 3. At frame 615 (15 frames after creation, midpoint): 150
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 615));
+	CHECK(((sd.color >> 24) & 0xFFu) == 150u);
+
+	// 4. At frame 630 (30 frames after creation, end of fade-in): peak (250)
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 630));
+	CHECK(((sd.color >> 24) & 0xFFu) == 250u);
+
+	// 5. At frame 700: holds at peak indefinitely until removed / destroyed
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 700));
+	CHECK(((sd.color >> 24) & 0xFFu) == 250u);
+
+	// 5b. Model state change at frame 700 resets curve (RW 0x4C4EE0..0x4C4FBC)
+	ModelConditionInfo dummyState;
+	d.setLastShadowState(&dummyState); // simulate transition from dummyState to nullptr
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 700));
+	CHECK(d.shadowStartFrame() == 700u);
+	CHECK(((sd.color >> 24) & 0xFFu) == 50u); // restarted at start opacity
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 715));
+	CHECK(((sd.color >> 24) & 0xFFu) == 150u);
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 730));
+	CHECK(((sd.color >> 24) & 0xFFu) == 250u);
+
+	// 6. Object destroyed / removed at frame 750 (RW 0x508B2D removeShadow):
+	d.setShadowFadeOutStartFrame(750);
+
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 750));
+	CHECK(((sd.color >> 24) & 0xFFu) == 250u);
+
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 757));
+	CHECK(((sd.color >> 24) & 0xFFu) == 138u);
+
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 765));
+	CHECK(((sd.color >> 24) & 0xFFu) == 10u);
+
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 800));
+	CHECK(((sd.color >> 24) & 0xFFu) == 10u);
 }
 
 TEST_CASE("LOCAL-19 shadow-map casters at High vs Medium (RW 0x46FE84..0x47009F, TOP20 #5)")
@@ -278,6 +370,16 @@ TEST_CASE("LOCAL-19 shadow-map casters at High vs Medium (RW 0x46FE84..0x47009F,
 	disabledModule.m_shadowForceDisable = true;
 	CHECK_FALSE(ObjectShadow::castsMap(infantry, &disabledModule, nullptr, true));
 	CHECK_FALSE(ObjectShadow::castsMap(volume, &disabledModule, nullptr, true));
+
+	// 4. Mid-game shadow toggle (RW 0x601D4C, S-3304):
+	// When options change between Medium (useShadowMapping = false) and High (useShadowMapping = true),
+	// castsMap flips for decal-shadow units without requiring instance destruction.
+	bool mappingSetting = false; // Medium
+	CHECK_FALSE(ObjectShadow::castsMap(infantry, nullptr, nullptr, mappingSetting));
+	mappingSetting = true; // User switches to High in Options
+	CHECK(ObjectShadow::castsMap(infantry, nullptr, nullptr, mappingSetting));
+	mappingSetting = false; // User switches back to Medium
+	CHECK_FALSE(ObjectShadow::castsMap(infantry, nullptr, nullptr, mappingSetting));
 }
 
 TEST_CASE("LOCAL-19 Ennorath scenario: infantry casts shadow map at High, draws decal at Medium")
