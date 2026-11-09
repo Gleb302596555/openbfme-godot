@@ -181,7 +181,7 @@ void DetachableRiderUpdate::killRider()
 		return;
 	}
 	Object *obj = getObject();
-	const int r = obj->logic().random().getValue(0, (int)m_data->m_deathEntries.size() - 1, "DetachableRiderUpdate.cpp", 0x99); // RW 0x8B2A6D -> RW 0x5EE573
+	const int r = obj->logic().random().getValue(0, (int)m_data->m_deathEntries.size() - 1, "DetachableRiderUpdate.cpp", 0x114); // RW 0x8B2A62 .. 0x8B2A70 -> RW 0x6D328E (line 0x114)
 	m_whichDeathEntry = (r != 0); // RW 0x8B2A78: test eax, eax; setne al; mov [esi+0x21], al
 	const size_t idx = m_whichDeathEntry ? 1u : 0u;
 	const DetachableRiderUpdateModuleData::DeathEntry &entry = m_data->m_deathEntries[idx];
@@ -364,7 +364,7 @@ void DetachableRiderBody::attemptDamage(DamageInfo &info)
 	Object &obj = *getObject();
 	GameLogic &logic = obj.logic();
 	const bool active = isAlreadyUpgraded(); // RW 0x8C5F12 (mux slot 0)
-	const float roll = logic.random().getValueReal(0.0f, 1.0f, "DetachableRiderBody.cpp", 0xBF); // RW 0x8C5F2E -> RW 0x6D332C
+	const float roll = logic.random().getValueReal(0.0f, 1.0f, "DetachableRiderBody.cpp", 0x5E); // RW 0x8C5F1A .. 0x8C5F2F -> RW 0x6D332C (line 0x5E), drawn on every hit, before the gates
 	bool keepRider = roll < m_riderData->m_riderlessDeathChance; // RW 0x8C5F34 .. 0x8C5F47
 	if (obj.testModelCondition(kModelConditionFreefall)) // RW 0x8C5F4F
 	{
