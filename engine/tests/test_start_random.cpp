@@ -314,26 +314,6 @@ std::vector<GameLogicSettings::MultiplayerColorDef> colours()
 }
 } // namespace
 
-TEST_CASE("PORT-16 skirmish sides: original map factions survive separately from the live slots")
-{
-	Store st;
-	SidesList original = mapSides();
-	original.sides[4].dict.setAsciiString("playerFaction", "FactionElves");
-	SkirmishGameInfo g = makeInfo({ { 0, false, 3, 4, 2, 0 }, { 1, false, 5, 1, 0, 1 } });
-	SkirmishSides::Built built;
-	std::string error;
-	REQUIRE_MESSAGE(SkirmishSides::build(original, g, 0, colours(), st.store, built, &error), error);
-	const auto &saved = built.sides.skirmishOriginalFactions;
-	REQUIRE(saved == std::vector<std::string>{ "FactionMen", "FactionElves" });
-	// Saved map records are independent of both the map and newly constructed lobby sides.
-	original.sides[3].dict.setAsciiString("playerFaction", "FactionWild");
-	CHECK(saved[0] == "FactionMen");
-	// Building again with only the retained neutral sides must not reuse old records.
-	original.sides.resize(3);
-	REQUIRE_MESSAGE(SkirmishSides::build(original, g, 0, colours(), st.store, built, &error), error);
-	CHECK(built.sides.skirmishOriginalFactions.empty());
-}
-
 TEST_CASE("skirmish sides: the map's own players go, the civilian and creeps sides stay, slots become Player_<start+1>, observers Observer_<slot+1>, ReplayObserver is last")
 {
 	Store st;

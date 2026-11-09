@@ -58,12 +58,6 @@ bool SkirmishSides::build(const SidesList &mapSides, const SkirmishGameInfo &inf
 			keptOwners.push_back(name);
 			hasCreeps = hasCreeps || name == "PlyrCreeps";
 		}
-		else
-		{
-			// The removed side's faction is later consulted by Player::initFromDict
-			// (RW 0x6B090B .. 0x6B0971); it is not a live skirmish player.
-			sides.skirmishOriginalFactions.push_back(side.dict.getAsciiString("playerFaction"));
-		}
 	}
 	for (const Dict &team : mapSides.teams)
 	{

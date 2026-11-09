@@ -353,9 +353,6 @@ public:
 	void attemptDamage(DamageInfo &info) override;
 	void attemptHealing(DamageInfo &info) override;
 	float estimateDamage(const DamageInfoInput &input) const override;
-	bool lastDamageRecordType(int &type) const override;
-	bool lastDamageRecordNoEffect(bool &noEffect) const override;
-	std::uint32_t lastDamageFrame() const override;
 	void crc(StateHasher &hasher) const override;
 
 private:
