@@ -1087,9 +1087,9 @@ void LiveFX::play(const Pending &pending)
 	{
 	case FXEvent::POSITION_FX:
 	{
-		// Local 22 (#163): RW 0x6CEA20 .. 0x6CEA27 (Weapon::preFireWeapon), RW 0x895FE5 .. 0x895FF8 (WeaponFireSpecialAbilityUpdate::startUnpacking),
-		// RW 0x76B856 .. 0x76B85D (AIGiantBirdAttackState::onEnter): when a position FX call reads the primary's drawable pose (RW 0x70E013
-		// Object::getDrawable), no drawable on the primary skips the call.
+		// Local 22 (#163): the primary's drawable pose (RW 0x70E013 Object::getDrawable). AIGiantBirdAttackState::onEnter skips the call without a
+		// drawable (RW 0x76B85D). Weapon::preFireWeapon (RW 0x6CEA25) and WeaponFireSpecialAbilityUpdate::startUnpacking (RW 0x895FF3) do not test it
+		// (retail would dereference null); INFERENCE: the port skips there too, so a logic-only object without a drawable gets no call.
 		if (e.drawablePosition || e.drawableMatrix)
 		{
 			if (!pending.primary || !pending.primary->drawable || !primaryDrawable)
