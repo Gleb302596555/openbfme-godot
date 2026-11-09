@@ -5,6 +5,7 @@
 list(APPEND OPENBFME_SIM_SOURCES
     src/GameLogic/Object/Contain/GarrisonContainData.cpp
     src/GameLogic/Object/Contain/GarrisonContain.cpp
+    src/GameLogic/Object/Contain/ProductionQueueHordeContain.cpp
     src/GameLogic/Object/Contain/HordeGarrisonLink.cpp
     src/GameLogic/AI/AIGarrisonStates.cpp
     src/GameLogic/AI/GarrisonCommands.cpp
