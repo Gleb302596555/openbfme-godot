@@ -1590,7 +1590,7 @@ void SlaughterHordeContain::addHordeMember(Object &obj)
 	// The other branches use GarrisonContain's wrapper, which already does
 	// this redeploy. A consumed ordinary object never calls that wrapper.
 	if (consume && !obj.testStatus((unsigned)CombatNames::statuses().hordeMember))
-		containReactToTransformChange(); // RW 0x883732..0x883736: virtual main +0x48
+		OpenContain::containReactToTransformChange(); // RW 0x883732..0x883736: dispatch virtual redeploy (+0x48), not Garrison's transform no-op
 }
 
 void SlaughterHordeContain::onRemoving(Object *obj)
