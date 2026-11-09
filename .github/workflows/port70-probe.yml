@@ -1,7 +1,5 @@
 name: port70 probe
-on:
-  pull_request:
-    branches: [main]
+on: [push]
 jobs:
   probe:
     runs-on: ubuntu-latest
@@ -17,7 +15,6 @@ jobs:
           python -m pip install -q pefile
           python -c "import ast;ast.parse(open('tools/mod/gamedata_rows.py').read());print('gamedata_rows.py parses')"
           python - <<'PY'
-          import re,sys
           page=open('docs/ennorath/gamedata-rows.md').read()
           rows=[l for l in page.splitlines() if l.startswith('| `') and l.count('|')>=8]
           fx=[l.split('\t') for l in open('engine/tests/data/port70/gamedata-rows.txt').read().splitlines() if l and not l.startswith('#')]
