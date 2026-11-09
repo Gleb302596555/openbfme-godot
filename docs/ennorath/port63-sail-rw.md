@@ -1,4 +1,4 @@
-# Port 63 / issue #173 — RotWK W3DSailModelDraw: transform hook blocked
+# Port 63 / issue #173 — RotWK W3DSailModelDraw: transform vtable and callback
 
 Source: RotWK 2.01 `game.dat` (md5 daed3668006cd90f01c34e5a7da1901f; caveat S-001), inspected with `tools/mod/rw.py ... dis` and PE vtable/offset scans. The BFME2 1.06 decomp is a **donor**, not the source of RotWK behaviour. No game/mod bytes or INI excerpts are included here.
 
@@ -7,6 +7,21 @@ Source: RotWK 2.01 `game.dat` (md5 daed3668006cd90f01c34e5a7da1901f; caveat S-00
 * Data factory **RW 0x4647CA** allocates `0x194` bytes and calls data ctor **RW 0x4CFF2A**; its `+0x188`, `+0x18C`, `+0x190` are initialized at **RW 0x4CFF35–0x4CFF5B**. The parse table **RW 0xBE3B30** maps `MaxRotationDegrees`, `BlowingThresholdDegrees`, `AboutDamping` to those offsets (the first two through angle parsing). Already parsed by `W3DModelDrawVariants.cpp`.
 * Instance factory **RW 0x46478F** allocates `0x2F0` bytes and calls ctor **RW 0x4CFF82**. The ctor writes primary vtable `0xBE3C40` at **RW 0x4CFF95**, sets `+0x2E8 = 0` and clears the valid flag `+0x2EC` (**RW 0x4CFFA9–0x4CFFB1**). Primary vtable slot `+0x104` at `0xBE3D44` contains **RW 0x4D00CD** (checked in the PE, not assigned by code proximity).
 * The *shared* scripted-model transform path **RW 0x4B686D**, after copying/attaching the input matrix into `esi`, invokes `call [vtable+0x104]` at **RW 0x4B6B21–0x4B6B26** with that matrix. Only then does it do the shared interpolation/construction-height work (**RW 0x4B6B2C–0x4B6C8D**). DONOR BFME2 **0x000B710D** (`Code/GameEngineDevice/Source/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDrawAdjustTransformMtx.cpp`) describes the same shared hook. It is *not* a per-object sail special case in the renderer.
+
+## Every primary vtable slot (owner's follow-up)
+
+Read the 68 entries `0xBE3C40..0xBE3D4C` from the PE and compared **each** to the shared scripted-model primary vtable `0xBDFFE8` installed at **RW 0x4C04D1**. Exactly six slots differ; the other **62 slots**, including `+0x014..+0x100` and `+0x108..+0x10C`, point to **identical inherited functions** (not merely code in the same address range):
+
+| slot | base | sail | instruction/role |
+|---|---|---|---|
+| `+0x000` | `0x4C7D11` | **RW 0x4D00AC** | deleting destructor; tail jumps at **RW 0x4D00C8** |
+| `+0x004` | `0x4B32FD` | **RW 0x4CA6F0** | jump to same inherited name-key function, no data read |
+| `+0x008` | `0x4C0911` | **RW 0x4D0003** | class-name literal getter |
+| `+0x00C` | `0x4C52FE` | **RW 0x4D0009** | base xfer then last angle and valid flag, not module data |
+| `+0x010` | `0x4C08CC` | **RW 0x4CFFBE** | module-name key cache |
+| `+0x104` | `0x9F3A3C` | **RW 0x4D00CD** | base `ret 4` at **RW 0x9F3A3C**; sail matrix turn below |
+
+The derived implementations above contain **no read of Sail data `+0x18C`**. Inherited slots address the base scripted-model fields (the base module data ends before the sail-only offsets), and are byte-for-byte the same targets as for a non-sail draw. A displacement scan of the surrounding `.text` also distinguishes two misleading `+0x18C` hits: **RW 0x4B1BA7** is a one-byte getter on a *draw object*, not on its module data; **RW 0x4B4AA5** explicitly loads `ecx` from global `0xDE3D84` before reading that byte (global game data). Other hits near the sail class belong to other variant data constructors; the sail data ctor **RW 0x4CFF45** *writes*, not reads, `+0x18C`. DONOR BFME2 **0x000D08C3** (`Code/GameEngineDevice/Source/W3DDevice/GameClient/Drawable/Draw/W3DSailModelDrawCtor.cpp`) and the `W3DSailModelDraw.cpp` parse/ctor provide no other reader. Thus, after the full slot audit, `BlowingThresholdDegrees` is **parsed-unused** in RotWK 2.01. This is a negative conclusion about this reachable class and its inherited slots, not about a missing string search.
 
 ## Callback branches, RW 0x4D00CD–0x4D033B
 
@@ -18,8 +33,8 @@ Source: RotWK 2.01 `game.dat` (md5 daed3668006cd90f01c34e5a7da1901f; caveat S-00
 
 `BlowingThresholdDegrees` is parsed and initialized at data `+0x18C`, but **the entire derived callback and the other SailModelDraw instance routines (RW 0x4CFF82–0x4D033B) have no read from data `+0x18C`**. In particular, **RW 0x4D0228 reads `+0x190` (`AboutDamping`)**, not `+0x18C`; the earlier triage's description of a sine/threshold comparison is not supported by the instructions. A disassembly scan (including one-byte displacements) and DONOR BFME2 **0x000D08C3** find no threshold gate in the sail callback. Therefore a test saying “below BlowingThresholdDegrees the sail does not turn” would contradict the demonstrated RotWK callback; do not invent it.
 
-## Port scope blocker (no implementation yet)
+## Port integration (owner authorization)
 
-`W3DScriptedModelDraw` in `engine/src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.h` has animation frames and `constructionHeightOffset`, but **no matrix-transform virtual hook** corresponding to RW `0x4B6B26`. The renderer constructs matrices independently for the live `Drawable` in `engine/src/GodotDevice/GodotGameWorld.cpp` (`GameWorld::refresh_view`) and for map objects in `GodotMapObjectBuilder.cpp`; construction offsets are applied via `GameClient/DrawableConstruction.cpp`. Factories in `GameClient/Drawable.cpp` and `GameClient/MapObjectRuntime.cpp` currently instantiate the generic scripted draw for sails. A sail-only helper with tests but no shared hook would not be visible in-game; a device-side sail-only branch would bypass the common transform lifecycle and leave other render paths inconsistent. Adding the missing shared hook would change a common mechanism outside the allowed local draw-class scope, and the issue expressly directs us to stop in that case. This also prevents the requested runtime state/xfer and meaningful full-engine `PORT-63*` tests from being delivered without a scope decision. Existing stop S-112 remains in force.
+The port's `W3DModelDraw.cpp/.h` hold *module data*, while `W3DScriptedModelDraw` is the runtime base for those models. The latter has animation frames and `constructionHeightOffset` but no matrix hook yet. The renderer constructs matrices separately for live draw entries (`GodotGameWorld.cpp`), map objects (`GodotMapObjectBuilder.cpp`) and placement ghosts (`GodotPlacementGhost.cpp`). `GameClient/Drawable.cpp` and `GameClient/MapObjectRuntime.cpp` construct a generic scripted runtime for a sail. On 2026-11-09 the owner authorized one base-runtime change: dispatch `+0x104` at the RW `0x4B6B26` point, no-op by default, overridden only for sails. The owner replaced the threshold test with tests for the fixed direction, max angle and the first/next frame damping. Work on those tests and integration follows this analysis commit.
 
-**Owner decision needed:** authorize and assign the shared `W3DScriptedModelDraw`/renderer matrix-transform hook (and relevant save path) and correct the threshold test expectation to the behaviour actually seen at RW 0x4D00CD, or keep Port 63 stopped. No port logic, nightly expectation or tests have been changed.
+`AttachToBoneInAnotherModule` is parsed on the base data but its only current consumer in the port is `DrawableLaunchBones.cpp` (weapon launch, not model placement); RW's shared adjustment preceding `+0x104` also handles cross-module bone attachments. That pre-existing missing attachment is a **separate remaining stop**, not a license to add a sail-only placement workaround in this issue. If it prevents the intended in-game observation, explicitly report it rather than claim full parity.
