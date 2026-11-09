@@ -495,7 +495,12 @@ UpdateSleepTime StructureToppleUpdate::update()
 			setBit(clear, CombatNames::modelCondition("RUBBLE"));
 			setBit(set, CombatNames::modelCondition("POST_COLLAPSE"));
 			building->clearAndSetModelConditionFlags(clear, set);
-			// body vslot updateBodyParticleSystems: the body's particle systems are the client's (S-340)
+			// PORT-66: RW 0x8A9AA0 .. 0x8A9AA8, the body interface (object + 0x25C) slot 0x2C: the object's auto particle systems are made again now
+			// that it lies as rubble (the systems themselves are the client's, ActiveBody::updateBodyParticleSystems)
+			if (BodyModuleInterface *body = building->getBodyModule())
+			{
+				body->updateBodyParticleSystems();
+			}
 			doToppleDoneStuff();
 			m_toppleState = TOPPLESTATE_DONE;
 			return UPDATE_SLEEP_FOREVER;

@@ -43,7 +43,13 @@ struct FXEvent
 		// system at `position` in the primary's model space (RW 0x5F2F2D) attached to the primary object (RW 0x5F32D7), kept under (primary, slot).
 		// DESTROY: the system kept under (primary, slot), if any, is destroyed (RW 0x5F5379) and forgotten
 		ATTACH_PARTICLE_SYSTEM,
-		DESTROY_PARTICLE_SYSTEM
+		DESTROY_PARTICLE_SYSTEM,
+		// PORT-66 (issue #180), ActiveBody's auto particle systems (RW 0x8C1E4E, the body interface's slot 0x2C): the bones the body named (the bone
+		// positions it read, model space, `bones`) and the template names of the kind's seven entries (`particleSystems`, one name per entry, empty = that
+		// entry makes nothing). The client makes the systems on the bones with the CLIENT random, in the retail order (RW 0x8C1E4E): every entry
+		// deletes all of its systems first (RW 0x8C258F), then its createParticleSystems (RW 0x8C23EA) picks `maxSystems` bones. The body keeps no
+		// state; a system's ID is the client's (as FX-4's). The body's object is the primary
+		BODY_PARTICLE_SYSTEMS
 	};
 	Kind kind = OBJECT_FX;
 	const char *site = "";          ///< the call site ("FireFX", "FXListDie", "SlowDeath INITIAL", ...)
@@ -64,6 +70,19 @@ struct FXEvent
 	bool playWhenStealthed = false; ///< WEAPON_FIRE_FX: WeaponTemplate + 0x135
 	const std::string *bone = nullptr; ///< OBJECT_FX of a LevelUpFx entry with a bone (lane INTEG-1, RW 0x8211EC): doFXPos at the bone; template data
 	std::uint32_t slot = 0;         ///< ATTACH / DESTROY_PARTICLE_SYSTEM: the key of the system among the primary's (lane FX-4)
+	// BODY_PARTICLE_SYSTEMS (PORT-66), the seven entries in the binary's call order: fire small / medium / large, smoke small / medium / large, aflame
+	struct BodyParticleBone
+	{
+		std::string name;                 ///< the bone's name (the prefix and its number, RW 0x672A73: `prefix01`, `prefix02`, ...)
+		Coord3D position{ 0.0f, 0.0f, 0.0f }; ///< its model-space translation (RW 0x68C650), what the system's position is set to
+	};
+	struct BodyParticleEntry
+	{
+		std::vector<BodyParticleBone> bones; ///< the bones RW 0x68C650 found for the entry's prefix, in the numbered order
+		std::string system;             ///< the entry's FXParticleSystem template name ("" = the body has none: nothing is made)
+		int maxSystems = 0;             ///< the cap the body handed to createParticleSystems (Auto*Max * the aflame count modifier)
+	};
+	std::vector<BodyParticleEntry> particleSystems; ///< BODY_PARTICLE_SYSTEMS: seven entries, in the binary's order
 };
 
 class FXEventSink

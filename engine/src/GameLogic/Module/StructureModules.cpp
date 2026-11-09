@@ -495,6 +495,12 @@ UpdateSleepTime StructureCollapseUpdate::update()
 		{
 			m_state = COLLAPSESTATE_DONE;
 			doPhase(SCPHASE_FINAL);
+			// PORT-66: RW 0x8A8029 .. 0x8A8031, the body interface (object + 0x25C) slot 0x2C just after the POST_RUBBLE flags: the object's auto
+			// particle systems are made again for the rubble state
+			if (BodyModuleInterface *body = obj->getBodyModule())
+			{
+				body->updateBodyParticleSystems();
+			}
 			// RW 0x8A7B2A: the bone FX stop (not ported), then DestroyObjectWhenDone queues the object for destruction
 			if (d->m_destroyObjectWhenDone)
 			{
@@ -515,6 +521,11 @@ UpdateSleepTime StructureCollapseUpdate::update()
 		if (!(0.0f < SimMath::addf32(SimMath::mulf32(h, 0.7f), m_currentHeight)))
 		{
 			doPhase(SCPHASE_ALMOST_FINAL);
+			// PORT-66: RW 0x8A80FD .. 0x8A8105, the body interface (object + 0x25C) slot 0x2C in the last 30 percent of the fall
+			if (BodyModuleInterface *body = obj->getBodyModule())
+			{
+				body->updateBodyParticleSystems();
+			}
 		}
 	}
 	return UPDATE_SLEEP_NONE;

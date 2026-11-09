@@ -371,6 +371,24 @@ struct GameLogicSettings
 	// lane RENDER-2 (GameData StandardPublicBone, row RW 0xC006D0, parser RW 0x42E59E = parseAsciiStringVectorAppend, GlobalData + 0xBA8): the bones every model's pristine bone
 	// set looks for first (RW 0x4BD9A7 walks [0xDE4364] + 0xBA8); an empty list when gamedata.ini names none
 	std::vector<std::string> standardPublicBones;
+	// PORT-66 (issue #180; GameData rows RW 0xC00150 .. 0xC00290, GlobalData +0x9F0 .. +0xA40): the fire and smoke a body puts on the bones of a
+	// damaged or burning object. Per size the Prefix names the bones (Prefix01, Prefix02, ... RW 0x68C650) and Max caps them; System is the
+	// FXParticleSystem template (RW 0x5F889B findTemplate). Read by ActiveBody::updateBodyParticleSystems (RW 0x8C1E4E). The GlobalData constructor
+	// zeroes both kinds of field (BFME2 decomp GlobalData.cpp:1558-1564: m_autoFireParticleSmallMax(0) .. m_autoAflameParticleMax(0),
+	// m_autoFireParticleSmallSystem("") ..), so an INI that leaves a row out gets no bones and no template
+	struct AutoBodyParticles
+	{
+		std::string prefix; ///< the bone prefix (RW +0x9F0 / +0x9FC / +0xA08 / +0xA14 / +0xA20 / +0xA2C / +0xA38)
+		std::string system; ///< the FXParticleSystem name (RW +0x9F4 / +0xA00 / +0xA0C / +0xA18 / +0xA24 / +0xA30 / +0xA3C)
+		int maxSystems = 0; ///< the cap (RW +0x9F8 / +0xA04 / +0xA10 / +0xA1C / +0xA28 / +0xA34 / +0xA40)
+	};
+	AutoBodyParticles autoFireSmall;    ///< RW +0x9F0
+	AutoBodyParticles autoFireMedium;   ///< RW +0x9FC
+	AutoBodyParticles autoFireLarge;    ///< RW +0xA08
+	AutoBodyParticles autoSmokeSmall;   ///< RW +0xA14
+	AutoBodyParticles autoSmokeMedium;  ///< RW +0xA20
+	AutoBodyParticles autoSmokeLarge;   ///< RW +0xA2C
+	AutoBodyParticles autoAflame;       ///< RW +0xA38
 	// lane SPELL-2 (GameData SpecialPowerViewObject, row RW 0xC006C0, parseAsciiString, GlobalData + 0xBA4): the object a special power with a ViewObjectDuration /
 	// ViewObjectRange leaves at its target (RW 0x896FD9); empty when gamedata.ini names none
 	std::string specialPowerViewObject;

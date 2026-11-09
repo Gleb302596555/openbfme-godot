@@ -317,6 +317,31 @@ const FieldParse kGameDataFields[] = {
 	// lane LOCAL-3: selection flash (rows RW 0xC005E0 / 0xC005D0, GlobalData +0xB58 / +0xB54)
 	{ "SelectionFlashHouseColor", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.selectionFlashHouseColor) },
 	{ "SelectionFlashSaturationFactor", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.selectionFlashSaturationFactor) },
+	// PORT-66 (issue #180): the seven AutoFire / AutoSmoke / AutoAflame particle rows, RW 0xC00150 .. 0xC00290 in the table's own order: per size the
+	// Prefix (parseAsciiString RW 0x42EE5E, GlobalData +0x9F0 / +0x9FC / +0x9F0+0x18 / +0x9F0+0x24 / +0x9F0+0x30 / +0x9F0+0x3C / +0x9F0+0x48), the System
+	// (the same parser, +4 from the Prefix) and the Max (parseInt RW 0x42EC5E, +8). Optional rows like every other GlobalData row of this table: the
+	// constructor zeroes them (BFME2 decomp GlobalData.cpp:1558-1564)
+	{ "AutoFireParticleSmallPrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireSmall.prefix) },
+	{ "AutoFireParticleSmallSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireSmall.system) },
+	{ "AutoFireParticleSmallMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoFireSmall.maxSystems) },
+	{ "AutoFireParticleMediumPrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireMedium.prefix) },
+	{ "AutoFireParticleMediumSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireMedium.system) },
+	{ "AutoFireParticleMediumMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoFireMedium.maxSystems) },
+	{ "AutoFireParticleLargePrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireLarge.prefix) },
+	{ "AutoFireParticleLargeSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireLarge.system) },
+	{ "AutoFireParticleLargeMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoFireLarge.maxSystems) },
+	{ "AutoSmokeParticleSmallPrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeSmall.prefix) },
+	{ "AutoSmokeParticleSmallSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeSmall.system) },
+	{ "AutoSmokeParticleSmallMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoSmokeSmall.maxSystems) },
+	{ "AutoSmokeParticleMediumPrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeMedium.prefix) },
+	{ "AutoSmokeParticleMediumSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeMedium.system) },
+	{ "AutoSmokeParticleMediumMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoSmokeMedium.maxSystems) },
+	{ "AutoSmokeParticleLargePrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeLarge.prefix) },
+	{ "AutoSmokeParticleLargeSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeLarge.system) },
+	{ "AutoSmokeParticleLargeMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoSmokeLarge.maxSystems) },
+	{ "AutoAflameParticlePrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoAflame.prefix) },
+	{ "AutoAflameParticleSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoAflame.system) },
+	{ "AutoAflameParticleMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoAflame.maxSystems) },
 	{ nullptr, noteUnapplied, nullptr, 0 }
 };
 const FieldParse kAIDataFields[] = {

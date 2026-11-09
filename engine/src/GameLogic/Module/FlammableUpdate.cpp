@@ -425,6 +425,12 @@ void FlammableUpdate::tryToIgnite()
 	Object *obj = getObject();
 	GameLogic &logic = obj->logic();
 	obj->setStatus(kStatusAflame, true);
+	// PORT-66: RW 0x8901DA .. 0x8901E2, the body interface (object + 0x25C) slot 0x2C right after the status is set: the burning object's auto
+	// particle systems are made again (the aflame branch of RW 0x8C1E4E doubles them and adds the aflame template)
+	if (BodyModuleInterface *body = obj->getBodyModule())
+	{
+		body->updateBodyParticleSystems();
+	}
 	static const int kAflame = CombatNames::modelCondition("AFLAME"); // bit 78 (Object + 0x114 bit 14)
 	obj->setModelConditionState(kAflame, true);
 	if (FireSpreadUpdate *spread = findModule<FireSpreadUpdate>(*obj)) // RW 0x89023B: the module named FireSpreadUpdate
@@ -515,6 +521,12 @@ void FlammableUpdate::stopBurning()
 		ent->setSuppressed(false);    // RW 0x890044
 	}
 	obj->setStatus(kStatusAflame, false);
+	// PORT-66: RW 0x89011C .. 0x890124, the body interface (object + 0x25C) slot 0x2C right after the status is cleared: the quenched object's auto
+	// particle systems are made again (the plain templates, the aflame entry gone)
+	if (BodyModuleInterface *body = obj->getBodyModule())
+	{
+		body->updateBodyParticleSystems();
+	}
 	static const int kAflame = CombatNames::modelCondition("AFLAME");
 	obj->setModelConditionState(kAflame, false);
 	// RW 0x8900F0 .. 0x890119: the panic locomotor ends (only the one started while aflame, only with PanicLocomotorWhileAflame and an AI)
