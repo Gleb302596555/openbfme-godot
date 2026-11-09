@@ -25,11 +25,12 @@ using namespace combattest;
 
 namespace
 {
-// an OCL the store holds: one object of the port's Arrow template, which has an ActiveBody and a DestroyDie only (no AI, no weapon)
-const char kPort45Objects[] =
+// PORT-45 data. The OCLs are loaded after the store's block is registered (Port45World), the victims right after them, because a victim's
+// line resolves its ObjectCreationList when it is parsed (RW 0x8C3F37 -> RW 0x73A368)
+const char kPort45Ocls[] =
 	"ObjectCreationList Port45Chunk\n"
 	"  CreateObject\n"
-	"    ObjectNames = Arrow\n"
+	"    ObjectNames = Arrow\n" // the port's Arrow: an ActiveBody and a DestroyDie, no AI, no weapon
 	"    Count = 2\n"
 	"  End\n"
 	"End\n"
@@ -38,9 +39,11 @@ const char kPort45Objects[] =
 	"    ObjectNames = Arrow\n"
 	"    Count = 1\n"
 	"  End\n"
-	"End\n"
-	// the victim: one line per trigger and side. A stone-thrower hit (FXTrigger CATAPULT_ROCK, index 1) makes the first two;
-	// the trebuchet's (index 2) makes the third; a line whose trigger is never fired (no Weapon sets it) makes nothing.
+	"End\n";
+
+// one line per trigger and side. A stone-thrower hit (FXTrigger CATAPULT_ROCK, index 1) makes the wall's first two; the trebuchet's
+// (index 2) makes the third, whose death side is not 0 and which this reader leaves alone; the line whose OCL the store lacks makes nothing
+const char kPort45Objects[] =
 	"Object Port45Wall\n"
 	"  KindOf = STRUCTURE SELECTABLE IMMOBILE\n"
 	"  Geometry = BOX\n"
@@ -67,21 +70,33 @@ const char kPort45Objects[] =
 	"  End\n"
 	"End\n";
 
-// the world with an ObjectCreationList store (test_summon1's OCLWorld shape) and the store's blocks registered before the objects load
-struct Port45World : CombatWorld
+// the world with an ObjectCreationList store. CombatWorld's constructor loads its objects before this one runs, so the store's block is
+// registered for that load as well (the victim's lines resolve their OCLs at parse time, RW 0x8C3F37 -> RW 0x73A368)
+struct Port45StoreBeforeLoad
 {
-	ObjectCreationListStore store{ w.keys };
 	ObjectCreationListStore *savedStore = TheObjectCreationListStore;
-
-	explicit Port45World(const char *objects = kPort45Objects)
-		: CombatWorld(objects)
+	explicit Port45StoreBeforeLoad(ObjectCreationListStore &store, objtest::World &w)
 	{
 		TheObjectCreationListStore = &store;
 		w.fx.env.blocks.registerBlock("ObjectCreationList", [](INI *ini) { ObjectCreationListStore::parseObjectCreationListDefinitionGlobal(ini); });
-		const std::string err = w.load(kPort45Objects, INI_LOAD_OVERWRITE, "port45.ini");
+	}
+	~Port45StoreBeforeLoad() { TheObjectCreationListStore = savedStore; }
+};
+
+struct Port45World : CombatWorld
+{
+	ObjectCreationListStore store{ w.keys };
+	Port45StoreBeforeLoad storeScope{ store, w };
+
+	// CombatWorld loads its own objects/weapons/armour; the victims are loaded here, after the store's block is registered and after
+	// the OCLs, because a victim's line resolves its ObjectCreationList at the moment it is parsed (RW 0x8C3F37 -> RW 0x73A368)
+	explicit Port45World() : CombatWorld()
+	{
+		std::string err = w.load(kPort45Ocls, INI_LOAD_OVERWRITE, "port45-ocl.ini");
+		REQUIRE_MESSAGE(err.empty(), err);
+		err = w.load(kPort45Objects, INI_LOAD_OVERWRITE, "port45.ini");
 		REQUIRE_MESSAGE(err.empty(), err);
 	}
-	~Port45World() { TheObjectCreationListStore = savedStore; }
 
 	// the objects of a template the world holds now (the OCL's creations of this frame included)
 	int countOf(const std::string &templateName) const
@@ -141,23 +156,25 @@ TEST_CASE("PORT-45 runtime: a hit carrying CATAPULT_ROCK makes the body's Damage
 	Object *target = w.unit("Port45Target", 'B', 340, 340);
 	w.frames(2);
 	const int arrows = w.countOf("Arrow");
-	// RW 0x8C2F88: the record's +0x04 against the hit's +0x2C. The stone thrower's trigger (1) creates Port45Chunk's 2 arrows on the
-	// wall and Port45Other's 1 on the target; Port45Other's own line on the wall carries trigger 0 (NONE) and is not taken; the line
-	// whose trigger is TREBUCHET_ROCK (2) is not taken either
+	// RW 0x8C2F88: the record's +0x04 against the hit's +0x2C. The stone thrower's trigger (1) matches the wall's CATAPULT_ROCK line
+	// (Port45Chunk, 2 objects) and its Port45Missing line (whose OCL the store lacks: NULL, RW 0x8C2F97), and nothing else: the wall's
+	// NONE line (trigger 0) and its TREBUCHET_ROCK line (trigger 2) do not match
 	DamageInfo stone = port45Hit(attacker, 10.0f, 1);
 	wall->attemptDamage(stone);
 	CHECK(w.countOf("Arrow") == arrows + 2);
+	// the same trigger on the plain ActiveBody: Port45Other's single object
 	DamageInfo stoneOnTarget = port45Hit(attacker, 10.0f, 1);
 	target->attemptDamage(stoneOnTarget);
 	CHECK(w.countOf("Arrow") == arrows + 3);
-	// RW 0x8C2F8B: a different trigger matches no record (Port45Other's NONE line is the target's only one)
+	// RW 0x8C2F8B: a different trigger matches different records. Trigger 0 (a weapon with no FXTrigger) matches the wall's NONE line only:
+	// one object, not the two of the CATAPULT_ROCK line
 	DamageInfo none = port45Hit(attacker, 10.0f, 0);
 	wall->attemptDamage(none);
-	CHECK(w.countOf("Arrow") == arrows + 3);
+	CHECK(w.countOf("Arrow") == arrows + 4);
 	// RW 0x8C2F92: the record whose death side is 1 (FRONT_DESTROYED, the wall's TREBUCHET_ROCK line) is not created here
 	DamageInfo trebuchet = port45Hit(attacker, 10.0f, 2);
 	wall->attemptDamage(trebuchet);
-	CHECK(w.countOf("Arrow") == arrows + 3);
+	CHECK(w.countOf("Arrow") == arrows + 4);
 }
 
 TEST_CASE("PORT-45 runtime: the loop is not part of the FX block - a body without an armour set still creates its objects (RW 0x8C2F75)")
