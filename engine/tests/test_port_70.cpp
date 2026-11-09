@@ -157,9 +157,18 @@ const std::set<std::string> &portRows()
 // parsed into the settings and never reaches the catch-all; a field only the catch-all takes is recorded as
 // `GameData.<name>` in unappliedFields and applies nothing. The block's table also refuses a value the field's own
 // parser cannot read, which is the second signal used where a row's parser is picky (a filter list, a duration).
+// The block's required rows (kGameDataNeeds, RW: gamedata.ini must define them or the load fails, which would look like
+// a refusal of the probed field): every probe carries them so that a `false` from the loader is the probed field's own row.
+const char *const kRequiredGameDataRows =
+	"  ForceModelsToFollowTimeOfDay = Yes\n"
+	"  ForceModelsToFollowWeather = Yes\n"
+	"  UnitDamagedThreshold = 0.5\n"
+	"  UnitReallyDamagedThreshold = 0.25\n"
+	"  DefaultStartingCash = 1000\n";
+
 bool loaderHasRow(const std::string &field)
 {
-	const std::string text = "GameData\n  " + field + " = 1\nEnd\n";
+	const std::string text = "GameData\n" + std::string(kRequiredGameDataRows) + "  " + field + " = 1\nEnd\n";
 	GameLogicSettings g;
 	std::string err;
 	if (!L::scanGameData(text, g, &err))
@@ -229,7 +238,7 @@ TEST_CASE("PORT-70 none of the page's rows has a kGameDataFields row: the S-152 
 	const std::vector<Row> rows = readPage(fixture);
 	GameLogicSettings g;
 	std::string err;
-	std::string text = "GameData\n";
+	std::string text = "GameData\n" + std::string(kRequiredGameDataRows);
 	for (const Row &r : rows)
 	{
 		text += "  " + r.field + " = 1\n";
@@ -319,8 +328,13 @@ TEST_CASE("PORT-70 the page and its fixture are the same table")
 			const std::size_t e = cell.find_last_not_of(' ');
 			cells.push_back(b == std::string::npos ? std::string() : cell.substr(b, e - b + 1));
 		}
-		// cells[0] is empty (the line starts with '|'), so the row's cells start at 1
-		REQUIRE(cells.size() == 10); // the table's eight columns: field, row, off, verdict, class, port, evidence, batch
+		// the line starts with '|', so cells[0] is empty and the row's cells start at 1; the summary table's own lines
+		// (`| \`gameplay\` | 23 | ...`) also start with "| \`" and are skipped by the address cell below
+		if (cells.size() != 9 || cells[2].size() < 3 || cells[2].compare(0, 2, "0x") != 0)
+		{
+			continue;
+		}
+		REQUIRE(cells.size() == 9); // the table's eight columns: field, row, off, verdict, class, port, evidence, batch
 		Row r;
 		r.field = cells[1].size() > 2 ? cells[1].substr(1, cells[1].size() - 2) : std::string();
 		r.row = parseHex(cells[2]);
