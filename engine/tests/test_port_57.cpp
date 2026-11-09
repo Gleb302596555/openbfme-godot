@@ -169,7 +169,7 @@ TEST_CASE("PORT-57 WhichSpecialPower: the field is parsed (RW 0xC67A00, parseInt
 	CHECK(d1->m_initiallyActive == true);
 	CHECK(d1->m_generateFear == true);
 	CHECK(d1->m_emotionPulseRadius == 150.0f);
-	CHECK(d1->m_emotionPulseInterval == 1000u);
+	CHECK(d1->m_emotionPulseInterval == 5u); // 1000ms = 5 frames (at 200ms/frame)
 
 	const RadiateFearUpdateModuleData *d2 = getFearData(def);
 	REQUIRE(d2);
