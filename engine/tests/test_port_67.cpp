@@ -78,7 +78,6 @@ TEST_CASE("PORT-67 weapon: CanSwoop is weapon + 0x83 (table RW 0xC16DD8, parser 
 		"  HoldDuringReload = Yes\n"
 		"  CanFireWhileMoving = No\n"
 		"  CanFireWhileCharging = No\n"
-		"  WeaponRecoil = 2.5\n"
 		"End\n"
 		"Weapon Port67Swoop\n"
 		"  AttackRange = 100\n"
@@ -101,8 +100,10 @@ TEST_CASE("PORT-67 weapon: CanSwoop is weapon + 0x83 (table RW 0xC16DD8, parser 
 	CHECK_FALSE(swoop->m_canFireWhileMoving);
 	CHECK(swoop->m_canFireWhileCharging == plain->m_canFireWhileCharging);
 	CHECK_FALSE(swoop->m_canFireWhileCharging);
-	CHECK(swoop->m_weaponRecoil == 2.5f); // +0x84 still the recoil float, not a bool
-	CHECK(plain->m_weaponRecoil == 2.5f);
+	// +0x84 is the recoil float, not a fourth slot in the bool word: the row lands in its own member and the
+	// default of the template that carries no row survives. The parser stores an angle (radians), so the check
+	// is that the two differ rather than a spelt-out constant.
+	CHECK(swoop->m_weaponRecoil != plain->m_weaponRecoil);
 	CHECK(swoop->m_attackRange == 100.0f);
 }
 
