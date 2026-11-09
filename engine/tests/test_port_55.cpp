@@ -228,8 +228,11 @@ TEST_CASE("PORT-55 payout applies multiplayer and container production before th
     auto filter = std::make_shared<ObjectFilter>();
     filter->rule = ObjectFilter::RULE_ANY;
     filter->includeNames = {"P55Citadel"};
-    w.playerOf('A')->addCostModifier(filter, {0.5f}, INVALID_ID, true);
     Object *house = w.unit("P55Citadel", 'A', 400, 400);
+    // RW 0x6AD8A7 resolves a live source and adds the stored delta to one.
+    // slaughter=false on this entry keeps its template filter active even
+    // though the caller requests slaughter=true: only the container matches.
+    w.playerOf('A')->addCostModifier(filter, {-0.5f}, house->getID(), false);
     Object *troop = w.unit("P55Troop", 'A', 350, 400);
     const int before = w.cash('A');
     REQUIRE(contain(house).addToContain(troop));
