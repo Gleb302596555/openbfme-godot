@@ -1002,3 +1002,17 @@ reads the two delays (if anywhere) is not established: no reader was found, this
 **The drawable gate:** RW's update requires `Object::getDrawable` (RW 0x70E013) before it starts the rise and before it moves. The port's stand-in for a
 drawable is `Object::clientHooks()` (lane SMOOTH-1, INFERENCE), so a headless run without client hooks leaves the module waiting — as retail does without
 a drawable — and the Godot client, which binds a hook to every object, sees the rise.
+## PORT-40: AI-side recruit readers stay unported (lane S-412 / S-427)
+
+`AIData/MaxRecruitRadius` (+0x5C) is parsed and hashed (PORT-40), and the script action
+`TEAM_RECRUIT_UNITS` (RW 0x7C2BFB -> Team::recruit RW 0x7A491C) now consumes it. The AI player's
+own recruit path is NOT ported in this lane: the readers RW 0x8F8E24..0x8F8E2C (in RW 0x8F8B8F,
+slot 0x5C of the AIPlayer vtable RW 0xC79788) and RW 0x8F9528..0x8F9530 (in RW 0x8F9487, called
+from RW 0x8F3F3F), both calling the recruit pool candidate worker RW 0x7A41D4 (plus RW 0x8F4BB0
+and RW 0x8F92B3). Those functions belong to the AIPlayer team-reinforcement bodies that lane
+S-412 lists as unported (the brain and the tactic team builder that ARE ported cite RW 0x9A2* /
+RW 0x9A33xx/0x9A34xx, never 0x8F8B8F/0x8F9487/0x7A41D4 — verified by grep across `engine/src`).
+When that lane lands it MUST pass `logic.settings().maxRecruitRadius` the same way the script
+path does (gate shape: centre of live members, priority / recruitable / DISABLED_HELD gates,
+nearest-by-2D-distance, repeat) or AI recruiting will diverge from retail. Swimlane STOPS row
+added; do not split the AI side out of S-412/S-427 without the owner.
