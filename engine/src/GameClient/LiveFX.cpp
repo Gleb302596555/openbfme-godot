@@ -1092,7 +1092,10 @@ void LiveFX::play(const Pending &pending)
 		{
 			m = primaryView.transform();
 		}
-		FXList::doFXPos(fx, m_playback.services(), m_playback.fxLists(), &e.position, e.hasTransform ? &m : nullptr, 0.0f, nullptr);
+		// Local 22 (#163), RW 0x494615 -> RW 0x5E21D8 (DONOR BFME2 0x00094C29 -> 0x001E296E): FXList::doFXPos forwards primarySpeed and secondary
+		// to each nugget's doFXPos (RW 0x5E2257 .. 0x5E2268).
+		FXList::doFXPos(fx, m_playback.services(), m_playback.fxLists(), &e.position, e.hasTransform ? &m : nullptr, e.weaponSpeed,
+			e.hasSecondaryPosition ? &e.secondaryPosition : nullptr);
 		break;
 	}
 	case FXEvent::OBJECT_FX:

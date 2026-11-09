@@ -1033,3 +1033,124 @@ TEST_CASE("TOP20-24 slow death: ShadowWhenDead No switches the corpse's shadows 
 	CHECK(shadows[0].second == false);
 	CHECK(onId != offId);
 }
+
+namespace
+{
+struct PosCallProbeNugget : FXNugget
+{
+	struct Call
+	{
+		bool hasPos = false;
+		Coord3D pos{};
+		bool hasMtx = false;
+		Matrix3D mtx{};
+		float speed = 0.0f;
+		bool hasSecondary = false;
+		Coord3D secondary{};
+	};
+	mutable std::vector<Call> calls;
+	PosCallProbeNugget() : FXNugget(FX_NUGGET_SOUND) {}
+	const FieldParse *fieldParse() const override { return nullptr; }
+	void doFXPos(FXServices &, const Coord3D *pos, const Matrix3D *mtx, float speed, const Coord3D *secondary) const override
+	{
+		Call c;
+		if (pos)
+		{
+			c.hasPos = true;
+			c.pos = *pos;
+		}
+		if (mtx)
+		{
+			c.hasMtx = true;
+			c.mtx = *mtx;
+		}
+		c.speed = speed;
+		if (secondary)
+		{
+			c.hasSecondary = true;
+			c.secondary = *secondary;
+		}
+		calls.push_back(c);
+	}
+};
+} // namespace
+
+// Local 22 (#163) step 1: RW 0x494615 (FXList::doFXPos static wrapper, DONOR BFME2 0x00094C29) forwards (primary, primaryMtx, primarySpeed, secondary) to
+// RW 0x5E21D8 (FXList::doFXPos member, DONOR BFME2 0x001E296E), which passes all four to each nugget's vtable +0x04 doFXPos (RW 0x5E2257 .. 0x5E2268).
+// RayEffectFXNugget::doFXPos (RW 0x5DF95D) requires both primary != nullptr (0x5DF978) and secondary != nullptr (0x5DF983); LaserFXNugget::doFXPos
+// (RW 0x5DFC2E) uses secondary when non-null (0x5DFCB9) instead of TargetPositionOffset.
+TEST_CASE("LOCAL-22 step 1: POSITION_FX forwards weaponSpeed and secondaryPosition through LiveFX::play to FXList::doFXPos (RW 0x494615 -> 0x5E21D8)")
+{
+	if (!hudtest::haveWorld("LOCAL-22 step 1"))
+	{
+		return;
+	}
+	hudtest::SharedWorld &s = hudtest::shared();
+	hudtest::Rig rig(s);
+	FXPlayback playback(*s.mount->fs, RandomAlgorithm::RotWK_GameDat_LCG);
+	static const char kIni[] =
+		"FXList FX_Local22Step1\n"
+		"  RayEffect\n"
+		"    Name = Local22RayTemplate\n"
+		"    PrimaryOffset = X:1 Y:2 Z:3\n"
+		"    SecondaryOffset = X:4 Y:5 Z:6\n"
+		"  End\n"
+		"End\n";
+	REQUIRE(playback.loadIniText("local22_step1.ini", kIni).empty());
+	const FXList *fxList = playback.fxLists().findFXList("FX_Local22Step1");
+	REQUIRE(fxList != nullptr);
+	auto probePtr = std::make_unique<PosCallProbeNugget>();
+	const PosCallProbeNugget *probe = probePtr.get();
+	const_cast<FXList *>(fxList)->addNugget(std::move(probePtr));
+
+	LiveFX fx(*rig.game, playback);
+	static const std::string fxName = "FX_Local22Step1";
+
+	// 1. POSITION_FX with weaponSpeed and hasSecondaryPosition = true (RW 0x6CEA17 .. 0x6CEA58 / RW 0x76B867 .. 0x76B894)
+	FXEvent withSec;
+	withSec.kind = FXEvent::POSITION_FX;
+	withSec.site = "Local22Step1WithSec";
+	withSec.frame = rig.logic().getFrame();
+	withSec.fxList = &fxName;
+	withSec.position = Coord3D{ 100.0f, 200.0f, 10.0f };
+	withSec.weaponSpeed = 175.5f;
+	withSec.secondaryPosition = Coord3D{ 300.0f, 400.0f, 25.0f };
+	withSec.hasSecondaryPosition = true;
+	rig.logic().fxEvents().emit(withSec);
+	fx.flushPending();
+
+	REQUIRE(probe->calls.size() == 1u);
+	CHECK(probe->calls[0].hasPos);
+	CHECK(probe->calls[0].pos.x == 100.0f);
+	CHECK(probe->calls[0].pos.y == 200.0f);
+	CHECK(probe->calls[0].pos.z == 10.0f);
+	CHECK_FALSE(probe->calls[0].hasMtx);
+	CHECK(probe->calls[0].speed == 175.5f);
+	REQUIRE(probe->calls[0].hasSecondary);
+	CHECK(probe->calls[0].secondary.x == 300.0f);
+	CHECK(probe->calls[0].secondary.y == 400.0f);
+	CHECK(probe->calls[0].secondary.z == 25.0f);
+	// RayEffectFXNugget::doFXPos (RW 0x5DF95D) fired because secondary != nullptr
+	REQUIRE(playback.events().size() == 1u);
+	CHECK(playback.events()[0].kind == "rayEffect");
+	CHECK(playback.events()[0].detail == "Local22RayTemplate");
+	CHECK(playback.events()[0].pos.x == 101.0f);
+	CHECK(playback.events()[0].pos.y == 202.0f);
+	CHECK(playback.events()[0].pos.z == 13.0f);
+
+	// 2. POSITION_FX with hasSecondaryPosition = false (default): secondary is nullptr and RayEffect does not fire (RW 0x5DF983)
+	playback.clearEvents();
+	FXEvent noSec;
+	noSec.kind = FXEvent::POSITION_FX;
+	noSec.site = "Local22Step1NoSec";
+	noSec.frame = rig.logic().getFrame();
+	noSec.fxList = &fxName;
+	noSec.position = Coord3D{ 50.0f, 60.0f, 5.0f };
+	rig.logic().fxEvents().emit(noSec);
+	fx.flushPending();
+
+	REQUIRE(probe->calls.size() == 2u);
+	CHECK(probe->calls[1].speed == 0.0f);
+	CHECK_FALSE(probe->calls[1].hasSecondary);
+	CHECK(playback.events().empty());
+}
