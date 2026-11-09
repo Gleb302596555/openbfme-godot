@@ -299,6 +299,9 @@ public:
 	// lane VISUAL-2: the shroud look of the last sync: fullyObscured is RW Drawable +0x440 (attached particle systems do not emit), hidden: not drawn
 	const DrawableShroudLook &shroudLook() const { return m_shroudLook; }
 	UnsignedInt syncFrame() const { return m_syncFrame; }
+	void setSyncFrame(UnsignedInt f) { m_syncFrame = f; }
+	const ModelConditionInfo *testModelState() const { return m_testModelState; }
+	void setTestModelState(const ModelConditionInfo *s) { m_testModelState = s; }
 	// lane EVADAMAGE-1: RW Drawable +0x388 (0 at creation), the logic frame until which a damage Eva event here is "near the first" (EvaDamage.h); RW 0x671DFD
 	// raises it, never lowers it
 	UnsignedInt evaDamageFarFrame() const { return m_evaDamageFarFrame; }
@@ -353,6 +356,12 @@ public:
 	void setShadowStateInitialized(bool init) const { m_shadowStateInitialized = init; }
 	const ModelConditionInfo *lastShadowState() const { return m_lastShadowState; }
 	void setLastShadowState(const ModelConditionInfo *s) const { m_lastShadowState = s; }
+	const RenderObjPrototype *lastShadowModel() const { return m_lastShadowModel; }
+	void setLastShadowModel(const RenderObjPrototype *m) const { m_lastShadowModel = m; }
+	const std::string &lastShadowModelName() const { return m_lastShadowModelName; }
+	void setLastShadowModelName(const std::string &name) const { m_lastShadowModelName = name; }
+	bool lastShadowStateHasShadow() const { return m_lastShadowStateHasShadow; }
+	void setLastShadowStateHasShadow(bool has) const { m_lastShadowStateHasShadow = has; }
 	// lane PORT-21 (stop S-1463): the audible flag at Drawable + 0x44A (1 at construction). RW 0x674727 Drawable::setInaudible clears it and asks every
 	// client behaviour module's second interface for slot 1 (RW 0x674756: module + 0x30 table, `call [edx + 4]`), RW 0x67896F Drawable::setAudible sets
 	// it again and asks slot 0 (RW 0x6789A0 `call [edx]`). Both return at once when the flag already has that value (RW 0x674733 / 0x67897B), so a
@@ -484,6 +493,9 @@ private:
 	mutable UnsignedInt m_shadowFadeOutStartFrame = ~0u; ///< RW 0x508B2D (+0x4C: fadeOutStartFrame = currentFrame)
 	mutable bool m_shadowStateInitialized = false; ///< RW 0x4C4EE0..0x4C4FBC
 	mutable const ModelConditionInfo *m_lastShadowState = nullptr; ///< RW 0x4C4EE0..0x4C4FBC
+	mutable const RenderObjPrototype *m_lastShadowModel = nullptr; ///< RW 0x4C4610..0x4C4679 (render object prototype)
+	mutable std::string m_lastShadowModelName;                     ///< RW 0x4B42F5 (model name 0)
+	mutable bool m_lastShadowStateHasShadow = false;               ///< RW 0x4C4EE8 (state shadow override)
 	bool m_audible = true;          ///< lane PORT-21: Drawable + 0x44A, 1 until the object becomes INAUDIBLE (RW 0x674727 / 0x67896F)
 	bool m_clientHidden = false; ///< lane CHAT-1
 	bool m_phantomLook = false;  ///< lane FBSIM-1: drawn as a dozer's phantom structure (0.4 opacity)
@@ -499,6 +511,7 @@ private:
 	// basis skips setOrientation's trigonometry (its result would be these same values)
 	const LogicSnapshot *m_syncSnapshot = nullptr; ///< lane PERF-3: setSyncedRecord
 	UnsignedInt m_syncFrame = 0;
+	const ModelConditionInfo *m_testModelState = nullptr;
 	const ObjectSnapshot *m_syncRec = nullptr;
 	DrawableShroudLook m_shroudLook; ///< lane VISUAL-2
 	UnsignedInt m_evaDamageFarFrame = 0; ///< lane EVADAMAGE-1: RW + 0x388

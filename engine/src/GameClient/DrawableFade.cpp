@@ -98,10 +98,6 @@ void Drawable::fadeOut(double frames)
 	}
 	m_fade.counter = 0.0;
 	m_fade.target = frames;
-	if (m_shadowFadeOutStartFrame == ~0u)
-	{
-		m_shadowFadeOutStartFrame = m_syncFrame;
-	}
 }
 
 // RW 0x85EE00 .. 0x85EF31

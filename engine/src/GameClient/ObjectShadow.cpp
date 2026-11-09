@@ -281,14 +281,20 @@ bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, boo
 
 	const W3DModelDrawModuleData *moduleData = nullptr;
 	const ModelConditionInfo *state = nullptr;
+	const RenderObjPrototype *proto = nullptr;
 	for (const DrawEntry &e : drawable.entries())
 	{
 		if (e.kind == W3D_DRAWKIND_MODEL && e.draw && !e.moduleHidden)
 		{
 			moduleData = dynamic_cast<const W3DModelDrawModuleData *>(e.data);
 			state = e.draw->currentModelState();
+			proto = e.draw->currentModel();
 			break;
 		}
+	}
+	if (!state && drawable.testModelState())
+	{
+		state = drawable.testModelState();
 	}
 
 	DecalShadowDescriptor desc;
@@ -335,24 +341,47 @@ bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, boo
 		}
 	}
 
-	// Model state change resets shadow curve (RW 0x4C4EE0..0x4C4FBC)
+	const unsigned frame = currentFrame != 0 ? currentFrame : drawable.syncFrame();
+
+	const std::string modelName = state && !state->modelNames.empty() ? state->modelName(0) : "";
+	const bool stateHasShadow = state != nullptr && state->hasShadow;
+
+	// Model change or state shadow override change resets shadow curve (RW 0x4C4610..0x4C4679, RW 0x4C4EE0..0x4C4FBC)
 	if (!drawable.shadowStateInitialized())
 	{
 		drawable.setShadowStateInitialized(true);
 		drawable.setLastShadowState(state);
+		drawable.setLastShadowModel(proto);
+		drawable.setLastShadowModelName(modelName);
+		drawable.setLastShadowStateHasShadow(stateHasShadow);
 	}
-	else if (state != drawable.lastShadowState())
+	else
 	{
-		drawable.setShadowStartFrame(currentFrame);
-		drawable.setLastShadowState(state);
-		drawable.setShadowFadeOutStartFrame(~0u);
+		const bool modelChanged = (proto != nullptr && drawable.lastShadowModel() != nullptr)
+			? (proto != drawable.lastShadowModel())
+			: (modelName != drawable.lastShadowModelName());
+		const bool shadowOverrideChanged = (stateHasShadow != drawable.lastShadowStateHasShadow()) ||
+			(stateHasShadow && state != drawable.lastShadowState());
+
+		if (modelChanged || shadowOverrideChanged)
+		{
+			drawable.setShadowStartFrame(frame);
+			drawable.setLastShadowState(state);
+			drawable.setLastShadowModel(proto);
+			drawable.setLastShadowModelName(modelName);
+			drawable.setLastShadowStateHasShadow(stateHasShadow);
+			drawable.setShadowFadeOutStartFrame(~0u);
+		}
+		else if (state != drawable.lastShadowState())
+		{
+			drawable.setLastShadowState(state);
+		}
 	}
 
 	// Opacity resolution: static peak opacity vs dynamic curve (RW 0x4B1BC6, RW 0x7323CE, RW 0x50B860)
 	unsigned opacity = desc.opacityPeak;
 	if (desc.style == 0x0400u || desc.style == 0x0800u || desc.style == 0x10000u)
 	{
-		const unsigned frame = currentFrame != 0 ? currentFrame : drawable.syncFrame();
 		opacity = evaluateDecalOpacity(desc, frame, drawable.shadowStartFrame(), drawable.shadowFadeOutStartFrame());
 	}
 

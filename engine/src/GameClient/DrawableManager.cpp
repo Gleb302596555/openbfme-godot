@@ -325,7 +325,6 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 			if (Drawable *d = findByObject(ev.object))
 			{
 				d->fadeOut((double)ev.fadeFrames);
-				d->setShadowFadeOutStartFrame(ev.frame);
 			}
 			break;
 		case ClientEvent::SET_SHADOWS: // TOP20 #24 (RW 0x672D28)

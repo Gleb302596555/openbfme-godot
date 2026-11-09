@@ -273,6 +273,9 @@ TEST_CASE("LOCAL-19 dynamic decal shadow on object created at frame 600 (RW 0x4C
 	d.setPosition(&pos);
 
 	// Object created at frame 600 (RW 0x7323CE: [0xDE4388]+0x7C TheGameClient::getFrame())
+	ModelConditionInfo stateIdle;
+	stateIdle.modelNames = { "SpellMarker" };
+	d.setTestModelState(&stateIdle);
 	d.setShadowStartFrame(600);
 
 	SelectionDecal sd;
@@ -288,6 +291,22 @@ TEST_CASE("LOCAL-19 dynamic decal shadow on object created at frame 600 (RW 0x4C
 	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 615));
 	CHECK(((sd.color >> 24) & 0xFFu) == 150u);
 
+	// 3b. Two state changes with SAME model and same shadow do NOT reset curve (RW 0x4C4610..0x4C4674)
+	ModelConditionInfo stateMoving;
+	stateMoving.modelNames = { "SpellMarker" };
+	d.setTestModelState(&stateMoving);
+	// State 1: transition to moving at frame 615 (same model name) -> does not reset
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 615));
+	CHECK(d.shadowStartFrame() == 600u); // preserved from creation
+	CHECK(((sd.color >> 24) & 0xFFu) == 150u); // continues fading in
+
+	// State 2: transition to attacking at frame 620 (same model name) -> does not reset
+	ModelConditionInfo stateAttacking;
+	stateAttacking.modelNames = { "SpellMarker" };
+	d.setTestModelState(&stateAttacking);
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 620));
+	CHECK(d.shadowStartFrame() == 600u); // preserved
+
 	// 4. At frame 630 (30 frames after creation, end of fade-in): peak (250)
 	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 630));
 	CHECK(((sd.color >> 24) & 0xFFu) == 250u);
@@ -296,30 +315,40 @@ TEST_CASE("LOCAL-19 dynamic decal shadow on object created at frame 600 (RW 0x4C
 	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 700));
 	CHECK(((sd.color >> 24) & 0xFFu) == 250u);
 
-	// 5b. Model state change at frame 700 resets curve (RW 0x4C4EE0..0x4C4FBC)
-	ModelConditionInfo dummyState;
-	d.setLastShadowState(&dummyState); // simulate transition from dummyState to nullptr
+	// 5b. State change to a DIFFERENT model name resets curve (RW 0x4C4629 -> 0x4C4679 -> 0x4C4FBC)
+	ModelConditionInfo stateDamaged;
+	stateDamaged.modelNames = { "SpellMarkerDamaged" };
+	d.setTestModelState(&stateDamaged);
 	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 700));
-	CHECK(d.shadowStartFrame() == 700u);
+	CHECK(d.shadowStartFrame() == 700u); // reset to frame 700
 	CHECK(((sd.color >> 24) & 0xFFu) == 50u); // restarted at start opacity
 	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 715));
 	CHECK(((sd.color >> 24) & 0xFFu) == 150u);
 	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 730));
 	CHECK(((sd.color >> 24) & 0xFFu) == 250u);
 
-	// 6. Object destroyed / removed at frame 750 (RW 0x508B2D removeShadow):
-	d.setShadowFadeOutStartFrame(750);
+	// 5c. Frame 0 passed with active syncFrame: uses syncFrame consistently (both for reset and eval)
+	d.setSyncFrame(800);
+	ModelConditionInfo stateNew;
+	stateNew.modelNames = { "SpellMarkerNew" };
+	d.setTestModelState(&stateNew);
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 0));
+	CHECK(d.shadowStartFrame() == 800u); // reset to syncFrame 800, NOT 0
+	CHECK(((sd.color >> 24) & 0xFFu) == 50u);
 
-	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 750));
+	// 6. Object destroyed / removed at frame 850 (RW 0x508B2D removeShadow):
+	d.setShadowFadeOutStartFrame(850);
+
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 850));
 	CHECK(((sd.color >> 24) & 0xFFu) == 250u);
 
-	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 757));
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 857));
 	CHECK(((sd.color >> 24) & 0xFFu) == 138u);
 
-	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 765));
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 865));
 	CHECK(((sd.color >> 24) & 0xFFu) == 10u);
 
-	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 800));
+	CHECK(ObjectShadow::buildDrawableDecalShadow(d, sd, true, nullptr, 900));
 	CHECK(((sd.color >> 24) & 0xFFu) == 10u);
 }
 
