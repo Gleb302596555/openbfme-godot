@@ -1985,6 +1985,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			const bool keySame = ev.animKeyValid && ev.animKeyShown == shown && ev.animKeyHouse == m_houseColors && ev.animKeyName == f.modelName
 				&& ev.animKeySwaps == (const void *)f.textureSwaps && ev.animKeySwapsGeneration == f.textureSwapsGeneration && ev.animKeyKind == palette.kind && ev.animKeyGlow == f.glow
 				&& ev.animKeyTinted == tinted
+				&& ev.animKeyMaterialGen == f.materialStateGeneration && ev.animKeyRenderGen == f.renderObjectGeneration
 				&& ev.animKeyColors[0] == (std::uint32_t)palette.colors[0] && ev.animKeyColors[1] == (std::uint32_t)palette.colors[1]
 				&& ev.animKeyColors[2] == (std::uint32_t)palette.colors[2];
 			if (!keySame)
@@ -1996,11 +1997,24 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			}
 			static const std::string kNoModel;
 			std::string coloredModel;
-			if (shown && m_houseColors && palette.kind > 0)
+			if (shown && m_houseColors)
 			{
-				char opt[96];
-				std::snprintf(opt, sizeof(opt), "#%d&%d&%d&%d", palette.kind, (int)palette.colors[0], (int)palette.colors[1], (int)palette.colors[2]);
-				coloredModel = "#" + ev.rawLowered + opt;
+				if (f.meshHouseColors && !f.meshHouseColors->empty())
+				{
+					coloredModel = "#" + ev.rawLowered;
+					for (const auto &pair : *f.meshHouseColors)
+					{
+						char opt[128];
+						std::snprintf(opt, sizeof(opt), "#m:%s=%d&%d&%d&%d", pair.first.c_str(), pair.second.kind, (int)pair.second.colors[0], (int)pair.second.colors[1], (int)pair.second.colors[2]);
+						coloredModel += opt;
+					}
+				}
+				else if (palette.kind > 0)
+				{
+					char opt[96];
+					std::snprintf(opt, sizeof(opt), "#%d&%d&%d&%d", palette.kind, (int)palette.colors[0], (int)palette.colors[1], (int)palette.colors[2]);
+					coloredModel = "#" + ev.rawLowered + opt;
+				}
 			}
 			// stop S-5015: the state's `Texture = A B` swaps (a building's SNOW state on a snowy map) make another model variant, "<model>#tex&a=b"
 			std::string swappedModel;
@@ -2066,6 +2080,10 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 						{
 							dyn->Set_Build_Selection_Decals(true); // lane SELWALL-1: taken by the add below
 						}
+						if (f.meshHouseColors && !f.meshHouseColors->empty())
+						{
+							dyn->Set_Build_Mesh_House_Colors(f.meshHouseColors);
+						}
 						if (!coloredModel.empty())
 						{
 							PackedInt64Array colors;
@@ -2079,6 +2097,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 						{
 							mid = dyn->add_model(toGodot(*f.modelName));
 						}
+						dyn->Set_Build_Mesh_House_Colors(nullptr);
 						if (mid >= 0 && f.glow != 0)
 						{
 							dyn->set_model_glow(mid, f.glow == 2);
@@ -2114,6 +2133,8 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			ev.animKeySwapsGeneration = f.textureSwapsGeneration; // an upgrade's texture list keeps the same vector (RW 0x8B911E)
 			ev.animKeyKind = palette.kind;
 			ev.animKeyGlow = f.glow;
+			ev.animKeyMaterialGen = f.materialStateGeneration;
+			ev.animKeyRenderGen = f.renderObjectGeneration;
 			ev.animKeyTinted = tinted;
 			for (int i = 0; i < 3; ++i)
 			{

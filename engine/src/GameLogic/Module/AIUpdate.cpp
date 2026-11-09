@@ -1101,6 +1101,10 @@ void AIUpdateInterface::aiIdle(CommandSourceType source)
 	{
 		m_attackMoveActive = false;
 	}
+	if (source == CMD_FROM_PLAYER)
+	{
+		m_stopRetaliationArmed = true; // Local 20: RW 0x771F97 (AI + 0x3CC = 1)
+	}
 	setLastCommandSource(source);
 	m_machine->clear();
 	m_machine->setGoalObject(INVALID_ID);
@@ -2236,6 +2240,10 @@ void AIUpdateInterface::crc(StateHasher &h) const
 	if (m_scriptLock) // TOP20 rampage (+ 0x3C6): hashed while set, so the hashes of every AI that never rampages stay as they were
 	{
 		h.addI32(0x3C6);
+	}
+	if (m_stopRetaliationArmed) // Local 20: stop retaliation flag (+ 0x3CC)
+	{
+		h.addI32(0x3CC);
 	}
 	h.addBool(m_fastCower);
 	h.addU32(m_minCowerTime);

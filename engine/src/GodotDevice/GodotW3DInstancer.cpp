@@ -782,7 +782,58 @@ Dictionary W3DInstancer::setup(const Ref<RetailFileSystem> &fs)
 
 std::shared_ptr<W3DInstancer::MeshGpu> W3DInstancer::build_mesh(const MeshModelClass &mesh, std::vector<std::string> &errors)
 {
-	const std::string key = AsciiStringUtil::lowered(mesh.Get_Name()) + BuildSuffix; // lane CAH-2: a colour set's meshes have their own materials
+	std::string meshKey = AsciiStringUtil::lowered(mesh.Get_Name());
+	if (PendingMeshColors)
+	{
+		HouseColorParams p;
+		bool found = false;
+		auto it = PendingMeshColors->find(mesh.Get_Name());
+		if (it != PendingMeshColors->end())
+		{
+			p = it->second;
+			found = true;
+		}
+		else
+		{
+			for (const auto &pair : *PendingMeshColors)
+			{
+				if (AsciiStringUtil::compareNoCase(pair.first, mesh.Get_Name()) == 0)
+				{
+					p = pair.second;
+					found = true;
+					break;
+				}
+			}
+		}
+		if (found)
+		{
+			char opt[96];
+			std::snprintf(opt, sizeof(opt), "#%d&%d&%d&%d", p.kind, (int)p.colors[0], (int)p.colors[1], (int)p.colors[2]);
+			std::string extra;
+			if (!BuildSuffix.empty())
+			{
+				size_t pos = 0;
+				if (BuildSuffix[0] == '#' && BuildSuffix.find('&') != std::string::npos)
+				{
+					pos = BuildSuffix.find('#', 1);
+				}
+				if (pos != std::string::npos)
+				{
+					extra = BuildSuffix.substr(pos);
+				}
+			}
+			meshKey += opt + extra;
+		}
+		else
+		{
+			meshKey += BuildSuffix;
+		}
+	}
+	else
+	{
+		meshKey += BuildSuffix;
+	}
+	const std::string key = meshKey; // lane CAH-2: a colour set's meshes have their own materials
 	auto cached = MeshCache.find(key);
 	if (cached != MeshCache.end())
 	{
@@ -1057,6 +1108,10 @@ int64_t W3DInstancer::build_model(const String &model_name)
 		UtilityFunctions::push_error("W3DInstancer: ", toGodot(error));
 		return -1;
 	}
+	if (Materials && PendingMeshColors)
+	{
+		Materials->Set_Per_Mesh_House_Params(PendingMeshColors);
+	}
 	std::unique_ptr<Model> model(new Model());
 	model->Name = name;
 	model->Proto = proto;
@@ -1188,6 +1243,10 @@ int64_t W3DInstancer::build_model(const String &model_name)
 	}
 	model->Report = report;
 	Models.push_back(std::move(model));
+	if (Materials)
+	{
+		Materials->Set_Per_Mesh_House_Params(nullptr);
+	}
 	LayoutDirty = true;
 	return (int64_t)Models.size() - 1;
 }
