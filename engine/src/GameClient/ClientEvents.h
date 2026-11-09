@@ -64,6 +64,7 @@ struct ClientEvent
 		FADE_OUT,        ///< lane PORTERFOG-1 (RW 0x670A50): fadeFrames client frames
 		SET_SHADOWS,     ///< TOP20 #24 (RW 0x672D28): shadowsOn
 		SET_OPACITY,     ///< RW 0x8BCD38: the simulation's exact opacity for this frame
+		AUDIBLE,         ///< lane PORT-21 (RW 0x674727 / 0x67896F): the drawable's audible flag, `on` = audible again
 		CUSTOM_COLORS,   ///< lane CAH-2 (RW 0x80AF0B -> 0x6727B0): customKind and customColors, the drawable's house colour set
 		HERO_ATTACKED,   ///< RW 0x67B78C: the local hero-select bar's attacked effect
 		DESELECTED,      ///< TOP20 rampage, RW 0x625759 -> 0x6257E5: the drawable leaves the client's selection (TheInGameUI deselectDrawable)
@@ -73,6 +74,7 @@ struct ClientEvent
 		BUILD_COMPLETE,   ///< RW 0x68D27A: client create interfaces, after object interfaces
 		EVA_DAMAGED,      ///< lane EVADAMAGE-1 (RW 0x67B4B7's Eva half): position (the object's, + 0x38), eva (the logic's part of the choice)
 		FLASH_AS_SELECTED, ///< RW 0x852BE1 / 0x678FA7: flashAsSelected on object with flashColor
+		DIED,              ///< RW 0x699077 -> RW 0x67561E: notifyDead on object death
 	};
 	std::string heroUniqueID;
 	std::vector<std::string> heroStatistics;
@@ -111,6 +113,7 @@ struct ClientEvent
 	float opacity = 1.0f;
 	UnsignedInt fadeFrames = 0;
 	bool shadowsOn = true; ///< SET_SHADOWS
+	bool audible = true;   ///< AUDIBLE (lane PORT-21): the drawable's audible flag
 	int flashFrames = 0;
 	int customKind = 0;                             ///< CUSTOM_COLORS (lane CAH-2)
 	std::uint32_t customColors[3] = { 0u, 0u, 0u }; ///< CUSTOM_COLORS: ARGB
@@ -143,6 +146,7 @@ public:
 	void fadeOut(Object &obj, UnsignedInt frames) override;
 	void setShadowsEnabled(Object &obj, bool enabled) override;
 	void setDrawableOpacity(Object &obj, float opacity) override;
+	void setDrawableAudible(Object &obj, bool audible) override; // lane PORT-21
 	void setCustomColors(Object &obj, int kind, std::uint32_t c0, std::uint32_t c1, std::uint32_t c2) override; // lane CAH-2
 	void createAHeroKill(Object &killer, Object &victim) override;
 	void heroAttacked(Object &obj) override;
@@ -150,6 +154,7 @@ public:
 	void flashAsSelected(Object &obj, const RGBColor *color) override;
 	void evaDamaged(Object &obj, const EvaDamageNotice &notice) override; // lane EVADAMAGE-1
 	void flashHeroButton(const std::string &templateName, int frames) override;
+	void objectDied(Object &obj) override;
 	// MapObjectLoop's afterCreate for a map object (DrawableManager::applyPlacement): the client part of the placement
 	void placement(Object &obj, const MapObjectDrawable &placement);
 	// lane SAVE-4e: a snapshot load set the object's model conditions without the hooks (Object::xfer): its whole set goes to the drawable

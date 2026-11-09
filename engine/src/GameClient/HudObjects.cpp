@@ -47,8 +47,9 @@ Shape shapeOf(const HudContext &ctx, const Object &obj)
 		const ObjectMovementInfo &info = ctx.ai->movementInfo(*obj.getTemplate());
 		if (info.hasGeometry)
 		{
-			s.radius = std::max(info.geometry.boundingCircleRadius(), 1.0f);
-			s.height = std::max(info.geometry.height, s.radius);
+			const PathfindGeometry &geom = obj.ownPathfindGeometry(info.geometry);
+			s.radius = std::max(geom.boundingCircleRadius(), 1.0f);
+			s.height = std::max(geom.height, s.radius);
 		}
 	}
 	return s;

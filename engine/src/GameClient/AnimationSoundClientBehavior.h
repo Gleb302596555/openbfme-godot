@@ -19,7 +19,7 @@
 //     dirty list (RW 0x83F279); the destructor takes it out of its list (RW 0x83F21F). Slot 11 (RW 0x8CE235: three arguments, read here as
 //     ZH's reactToTransformChange, INFERENCE) and the second interface's slot 0 (RW 0x8CE249) move it to the dirty list (RW 0x83F159); the second
 //     interface's slot 1 (RW 0x8CE25E) to the clean list (RW 0x83F1BC). The second interface's slots are the drawable's audible flag changes
-//     (+ 0x44A: RW 0x674727 / 0x67896F, called when the object becomes INAUDIBLE / audible: S-1463, never here).
+//     (+ 0x44A: RW 0x674727 / 0x67896F, lane PORT-21: Object::setInaudible / setAudible reach them through Drawable::setAudible).
 //   * the manager's client update (vtable slot 10, RW 0x83F321): when the microphone (TheAudio vslot 0x120) is farther than
 //     MinMicrophoneDistanceToDirty (AnimationSoundClientBehaviorGlobalSetting, RW 0xDADE88) from the position the manager stored (+ 0x20, FLT_MAX at
 //     first) and the clean list is not empty, the clean list is put in front of the dirty list; when the clean list is empty the microphone position is
@@ -83,8 +83,8 @@ public:
 	~AnimationSoundClientBehavior() override;
 
 	void reactToTransformChange(const Coord3D *oldPos, float oldAngle) override; // slot 11 (RW 0x8CE235), INFERENCE
-	void becameAudible();   // the second interface's slot 0 (RW 0x8CE249)
-	void becameInaudible(); // slot 1 (RW 0x8CE25E)
+	void becameAudible() override;   // the second interface's slot 0 (RW 0x8CE249), asked by Drawable::setAudible (RW 0x67896F)
+	void becameInaudible() override; // slot 1 (RW 0x8CE25E), asked by Drawable::setInaudible (RW 0x674727)
 
 	const AnimationSoundClientBehaviorModuleData *data() const { return m_data; }
 	float rangeSquared() const { return m_rangeSq; }

@@ -1158,7 +1158,8 @@ MessageDisposition CommandTranslator::translate(const ClientMessage &msg)
 // logic casts with the issuer's selection.
 // Location action checks use ActionManager's ported rules, matching the radius cursor; explicitly unported type tests retain its reported pass.
 // NOT PORTED (stop S-2000): object action checks (KindOf / module target filters) and the kind-of / option 0x10 / 0x200000 target drops before them.
-// An object of an allowed relationship passes those unported checks. The unit voice and selection flash are not ported here.
+// An object of an allowed relationship passes those unported checks. The at-object branch flashes the target and plays TargetObjectWithSpecialPowerSound
+// (RW 0x81E22B .. 0x81E26D); the unit voice is the HUD's observer (PlayUnitVoiceForMessage).
 int CommandTranslator::issueSpecialPower(const CommandButton &command, Object *target, const Coord3D *pos, EvaluateType type)
 {
 	const SpecialPowerTemplate *t = TheSpecialPowerStore && !command.m_specialPowerName.empty() ? TheSpecialPowerStore->findSpecialPowerTemplate(command.m_specialPowerName) : nullptr;
@@ -1178,6 +1179,10 @@ int CommandTranslator::issueSpecialPower(const CommandButton &command, Object *t
 			m.appendInteger((int)command.m_options);
 			m.appendObjectID(INVALID_ID);
 			m.appendLocation(pos ? *pos : *target->getPosition());
+			// RW 0x81E22B .. 0x81E26D: the target's drawable flashes white (Drawable::colorFlash RW 0x675749, no colour) and MiscAudio
+			// TargetObjectWithSpecialPowerSound (+ 0xF0, TheAudio vslot 0x138) is added (vslot 0x64); the unit voice follows (RW 0x81E29E, the HUD's observer)
+			m_ctx.ui.flashSpecialPowerTarget(target->getID());
+			m_ctx.ui.requestMiscSound("TargetObjectWithSpecialPowerSound");
 		}
 	}
 	else if ((command.m_options & COMMAND_OPTION_NEED_TARGET_POS) && pos)

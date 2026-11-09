@@ -183,8 +183,7 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 					e.draw.reset(new W3DScriptedModelDraw(*data, services.drawAssets, services.random, &services.host, o));
 				}
 				e.noRotate = data->m_noRotate;
-				const W3DDrawFrame f = e.draw->frame();
-				e.animated = f.trackCount > 0 && f.tracks[0].anim && f.tracks[0].anim->Get_Num_Frames() > 1 && f.tracks[0].mode != W3D_ANIM_MODE_MANUAL;
+				e.animated = e.draw->needsAdvance(); // W3DScriptedModelDraw::needsAdvance: a blend runs whatever track 0's mode (S-090)
 				// the draw runtime's errors and stops are collected by DrawableManager (DrawEntry::draw->errors() / stops()), after the script hooks ran
 			}
 			catch (const std::exception &ex)
@@ -253,8 +252,7 @@ void Drawable::setModelConditionFlags(const ModelConditionFlags &flags)
 		if (e.draw)
 		{
 			e.draw->setModelConditionFlags(flags);
-			const W3DDrawFrame f = e.draw->frame();
-			e.animated = f.trackCount > 0 && f.tracks[0].anim && f.tracks[0].anim->Get_Num_Frames() > 1 && f.tracks[0].mode != W3D_ANIM_MODE_MANUAL;
+			e.animated = e.draw->needsAdvance();
 		}
 	}
 	for (ModelConditionAudioLoopClientBehavior *loop : m_audioLoops)
@@ -396,6 +394,31 @@ void Drawable::storeModelConditions(const ModelConditionFlags &flags)
 	}
 	m_flags = flags;
 	m_flagsDirty = true; // RW 0x67961F
+}
+
+// Lane PORT-21 (stop S-1463), RW 0x674727 Drawable::setInaudible / RW 0x67896F Drawable::setAudible. RW 0x67472A takes the flag's address (+ 0x44A)
+// and returns when it already holds the value asked for (RW 0x674733 `je` / RW 0x67897B `jne`), so the modules hear one change per transition. The
+// modules of the drawable's client behaviour list (+ 0x154) are asked in list order through their + 0x30 interface table: slot 1 (offset 4) for
+// inaudible (RW 0x674761 `call [edx + 4]`), slot 0 for audible (RW 0x6789AB `call [edx]`); a module without the interface is skipped (RW 0x674752 /
+// RW 0x6789A5).
+void Drawable::setAudible(bool audible)
+{
+	if (m_audible == audible)
+	{
+		return;
+	}
+	m_audible = audible;
+	for (const std::unique_ptr<DrawableModule> &m : m_clientModules)
+	{
+		if (audible)
+		{
+			m->becameAudible();
+		}
+		else
+		{
+			m->becameInaudible();
+		}
+	}
 }
 
 void Drawable::flushModelConditions(bool hasWeaponTiming, int weaponTimingFrames)
@@ -863,8 +886,9 @@ void Drawable::colorFlash(const RGBColor *color, UnsignedInt decayFrames, Unsign
 	}
 	else
 	{
+		// RW 0x675789 .. 0x6757AA: no colour ignores the frame arguments: white with attack 1, decay 4, sustain 1
 		const RGBColor white{ 1.0f, 1.0f, 1.0f };
-		m_colorTintEnvelope.play(&white, attackFrames, decayFrames, sustainAtPeak);
+		m_colorTintEnvelope.play(&white, 1u, 4u, 1u);
 	}
 	m_colorTintEnvelope.setEffective(true);
 }

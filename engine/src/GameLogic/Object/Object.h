@@ -276,6 +276,13 @@ public:
 			onConstructionStatusChanged();
 		}
 	}
+	// Lane PORT-21 (stop S-1463), RW 0x690728 / RW 0x690772: the object became INAUDIBLE (status 52) / audible again. The bit is written directly, not
+	// through the status setter (RW 0x69072B `or byte ptr [esi + 0x9a], 0x10` / RW 0x690775 `and byte ptr [esi + 0x9a], 0xef`), then the drawable's
+	// audible flag follows (RW 0x69073C -> RW 0x674727 / RW 0x690786 -> RW 0x67896F through ObjectClientHooks), then every behaviour module's
+	// interface 36 is asked, slot 0 / slot 1, in array order (RW 0x690741 .. 0x690770 / 0x69078B .. 0x6907B9). Neither function tests anything: the
+	// caller's status guard is RW 0x692318's (`testStatus(0x33)` at the head of RW 0x692313), the port's is friend_containLeaveWorld's `isInWorld`.
+	void setInaudible();
+	void setAudible();
 	// lane DECOMP-1: RW 0x694569 (BFME2 decomp ObjectConditionAndPassengerWeaponSet.cpp Object::rva00293D3B, tier B same-shape; RW 0x748650 wraps it for one
 	// bit): the object's horde (RW 0x693A1A(0)) changes the bit on every member of its horde interface's list (RW 0x68C866 slot 0x108, list order), then on
 	// itself; a horde without that interface changes nothing; an object outside a horde changes its own. Object + 0x475 (set by the destructor, RW 0x69A7B6)
@@ -338,19 +345,26 @@ public:
 	// then on. geometryActive() is empty until the first call; geometryVersion() counts the calls that changed a flag.
 	void setGeometryActive(const std::string &name, bool on);
 	const std::vector<std::uint8_t> &geometryActive() const { return m_geometryActive; }
+	const std::vector<float> &geometryHeights() const;
+	bool hasGeometryHeights() const { return m_hasGeometryHeights; }
+	bool hasOwnGeometryShapes() const { return !m_geometryActive.empty() || m_hasGeometryHeights; }
+	// Port 34, RW 0x68B2CB -> GeometryInfo::setMaxHeightAbovePosition RW 0xAD2C60 + calcBoundingStuff RW 0xAD2860:
+	// for every ACTIVE shape of Object + 0xA8, sets majorRadius (SPHERE, type 0) or height (CYLINDER / BOX, types 1 / 2) to `height` and refreshes the cached
+	// bounds in place (without dirtying the shroud or re-registering partition cells, unlike RW 0x68B244)
+	void setGeometryMaxHeight(float height);
 	std::uint32_t geometryVersion() const { return m_geometryVersion; }
-	// lane MODCOMPAT-MOD1 (GeometryUpgrade): the object's own GeometryInfo (Object + 0xA8, the template's copied by the Object constructor; only its shapes'
-	// active flags change at run time, through setGeometryActive / RW 0xAD3520). The readers retail points at the object's GeometryInfo (the pathfinder's
-	// footprint, the combat bounding circle / sphere Object + 0xB8 / + 0xBC, the partition cells, the overlap tests RW 0xAD2CE0 with ECX = object + 0xA8,
-	// getMaxHeightAbovePosition RW 0xAD1920) ask these. While no flag was ever set they ARE the template's (no copy is kept: the same values, and an object
-	// without a geometry change hashes as before); after that, a copy with the object's flags, rebuilt when geometryVersion moves.
+	// lane MODCOMPAT-MOD1 (GeometryUpgrade) / Port 34: the object's own GeometryInfo (Object + 0xA8, the template's copied by the Object constructor; its shapes'
+	// active flags change through setGeometryActive / RW 0xAD3520, and active shape extents through setGeometryMaxHeight / RW 0xAD2C60). The readers retail
+	// points at the object's GeometryInfo (the pathfinder's footprint, the combat bounding circle / sphere Object + 0xB8 / + 0xBC, the partition bounds, the
+	// overlap tests RW 0xAD2CE0 with ECX = object + 0xA8, getMaxHeightAbovePosition RW 0xAD1920) ask these. While neither flags nor heights changed they ARE
+	// the template's (no copy is kept: the same values, and an untouched object hashes as before); after that, a copy rebuilt when geometryVersion moves.
 	const std::vector<ObjectGeometry::Shape> &geometryShapes() const;
 	bool hasChargeAttackAbility() const { return m_hasChargeAttackAbility; } // RW 0x69A549, Object + 0x251
-	// the same for the pathfinder's form: `templateGeometry` (the template's, AIWorld::movementInfo) itself while no flag changed, else its copy with the
-	// object's flags and their radii (RW 0xAD3520 ends with RW 0xAD2860: GeometryInfo + 0x10 / + 0x14 recomputed over the active shapes)
+	// the same for the pathfinder's form: `templateGeometry` (the template's, AIWorld::movementInfo) itself while untouched, else its copy with the object's
+	// flags, heights and recomputed radii (RW 0xAD3520 and RW 0xAD2C60 both end with RW 0xAD2860: GeometryInfo + 0x10 / + 0x14 recomputed over the active shapes)
 	const PathfindGeometry &ownPathfindGeometry(const PathfindGeometry &templateGeometry) const;
-	// whether ownPathfindGeometry answers with the object's own copy (its own shape flags, or another template's GeometryInfo) rather than the template's
-	bool keepsOwnGeometry() const { return !m_geometryActive.empty() || m_geometrySource != nullptr; }
+	// whether ownPathfindGeometry answers with the object's own copy (its own shape flags, heights, or another template's GeometryInfo) rather than the template's
+	bool keepsOwnGeometry() const { return hasOwnGeometryShapes() || m_geometrySource != nullptr; }
 	// RW 0x68B244 (the object's geometry changed): its shroud record marked dirty, forced (Object + 0x4E4 -> RW 0xB4E2A0); its collision manager entry
 	// (+ 0x4EC -> RW 0xB6C700: no collision manager here, S-363 / S-780); its partition entry marked dirty (+ 0x4E8 -> RW 0xA39570); its drawable's draw
 	// modules (+ 0x84 -> RW 0x6713E6, vslot 0x9C: client); with `pathfind`, out of and into the pathfinder's map (RW 0x6E85FB, 0x6E85E9); then, with
@@ -631,6 +645,7 @@ private:
 	std::int32_t m_triggerCellX = 0, m_triggerCellY = 0; ///< RW + 0x418 / + 0x41C (the integer position of the last check)
 
 	bool m_hasChargeAttackAbility = false; ///< RW 0x699AC6 / 0x69A549: computed once after the initial modules (Object + 0x251)
+	bool m_hasGeometryHeights = false;     ///< Port 34: m_ownGeometry->heights holds per-shape extents from setGeometryMaxHeight (in padding: sizeof(Object) unchanged)
 	std::vector<std::unique_ptr<BehaviorModule>> m_modules; ///< helpers first, then the template's behaviors
 	std::vector<CollideModuleInterface *> m_collideModules; ///< lane UBER-2B: m_modules' collide interfaces, in order (rebuilt by buildModules / friend_replaceModule)
 	bool m_collideModulesKnown = true;

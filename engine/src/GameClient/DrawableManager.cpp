@@ -5,6 +5,7 @@
 #include "GameClient/RenderInterpolation.h"
 #include "GameClient/ClientEvents.h"
 #include "GameClient/EvaAnnounceClientCreate.h"
+#include "GameClient/EvaSighting.h"
 #include "Common/Audio/AudioRequests.h"
 
 #include "Common/AsciiString.h"
@@ -334,6 +335,12 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 		case ClientEvent::SET_OPACITY: // RW 0x8BCD38
 			if (Drawable *d = findByObject(ev.object)) d->setDrawableOpacity(ev.opacity);
 			break;
+		case ClientEvent::AUDIBLE: // lane PORT-21 (RW 0x674727 / 0x67896F)
+			if (Drawable *d = findByObject(ev.object))
+			{
+				d->setAudible(ev.audible);
+			}
+			break;
 		case ClientEvent::SHOW_MODULE:
 			if (Drawable *d = findByObject(ev.object))
 			{
@@ -391,6 +398,12 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 			break;
 		case ClientEvent::FLASH_AS_SELECTED: // RW 0x852BE1 / 0x678FA7
 			flashAsSelected(ev.object, ev.hasFlashColor ? &ev.flashColor : nullptr);
+			break;
+		case ClientEvent::DIED: // RW 0x699077 -> RW 0x67561E
+			if (Drawable *d = findByObject(ev.object))
+			{
+				d->notifyDead();
+			}
 			break;
 		}
 	}
@@ -663,6 +676,7 @@ void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha
 		}
 		m_animationSounds.update();
 		updateEvaAnnounces(snapshot);
+		EvaSighting::update(*this, snapshot, m_logic, m_evaSighting);
 		return;
 	}
 	if (m_syncScratch.size() < slots)
@@ -723,6 +737,7 @@ void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha
 	// lane AUDIO-4: TheAnimationSoundModuleManager's client update (RW 0x83F321), after the animations advanced and the drawables moved
 	m_animationSounds.update();
 	updateEvaAnnounces(snapshot);
+	EvaSighting::update(*this, snapshot, m_logic, m_evaSighting);
 }
 
 void DrawableManager::applyPlacement(Object &obj, const MapObjectDrawable &placement)

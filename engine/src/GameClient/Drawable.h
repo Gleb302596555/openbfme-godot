@@ -138,7 +138,7 @@ struct DrawEntry
 	std::string staticModel;          ///< tree / prop / floor kinds: the model the module shows ("" when none)
 	std::string notDrawnReason;       ///< why a non-model entry draws nothing
 	std::unique_ptr<W3DScriptedModelDraw> draw; ///< MODEL kind
-	bool animated = false;            ///< the idle animation moves: advance() each render frame
+	bool animated = false;            ///< advance() would change the draw (W3DScriptedModelDraw::needsAdvance, set at creation and on every flag change, never lowered by an advance: the pose after a blend's promotion is still pushed): advance() each render frame
 	bool missingModel = false;        ///< the model is not in the mounted archives (a retail data defect): not drawn
 	std::string lastModel;            ///< the model last handed to the device layer (the device layer keeps its own handle)
 	bool moduleHidden = false;        ///< a CurDrawableHideModule / ObjectHideModule request of a script hid this module (Drawable::showModule, RW 0x6789B4): not drawn
@@ -286,10 +286,15 @@ public:
 		m_syncSnapshot = snapshot;
 		m_syncFrame = snapshot ? snapshot->frame : 0;
 		m_syncRec = rec;
+		bool wasObscured = m_shroudLook.fullyObscured;
 		// lane VISUAL-2: RW 0x64849E's per-frame shroud look (GameClient/DrawableShroud.h) from the presented record
 		const ShroudView *view = snapshot ? snapshot->shroud.get() : nullptr;
 		m_shroudLook.update(rec ? rec->objectShroud : 0, rec && rec->effectivelyDead, m_syncFrame,
 			view ? DrawableShroudLook::viewerKeyOf(view->localPlayer, view->visionPlayers) : 0);
+		if (wasObscured && !m_shroudLook.fullyObscured)
+		{
+			m_shroudRevealed = true;
+		}
 	}
 	// lane VISUAL-2: the shroud look of the last sync: fullyObscured is RW Drawable +0x440 (attached particle systems do not emit), hidden: not drawn
 	const DrawableShroudLook &shroudLook() const { return m_shroudLook; }
@@ -313,10 +318,38 @@ public:
 	bool clientHidden() const { return m_clientHidden; }
 	void markEvaFirstSighted() { m_evaFirstSighted = true; }
 	bool evaFirstSighted() const { return m_evaFirstSighted; }
+	void setEvaEnemySighted(bool on) { m_evaEnemySighted = on; }
+	bool evaEnemySighted() const { return m_evaEnemySighted; }
+	void setEvaEnemySightedAfterRespawn(bool on) { m_evaEnemySightedAfterRespawn = on; }
+	bool evaEnemySightedAfterRespawn() const { return m_evaEnemySightedAfterRespawn; }
+	void setEvaCastleMemberSighted(bool on) { m_evaCastleMemberSighted = on; }
+	bool evaCastleMemberSighted() const { return m_evaCastleMemberSighted; }
+	bool takeShroudRevealed()
+	{
+		bool r = m_shroudRevealed;
+		m_shroudRevealed = false;
+		return r;
+	}
+	// RW 0x67561E Drawable::notifyDead (called on Object death at RW 0x699077):
+	// if m_evaEnemySighted (+0x445) is set, clears it to 0 and sets m_evaEnemySightedAfterRespawn = 1 (+0x446)
+	void notifyDead()
+	{
+		if (m_evaEnemySighted)
+		{
+			m_evaEnemySighted = false;
+			m_evaEnemySightedAfterRespawn = true;
+		}
+	}
 	// TOP20 #24, RW 0x672D28 setShadowsEnabled: status bit 2 (+ 0x114) set when on, cleared when off; every draw module's vslot 0x30 takes the same answer (the
 	// port's renderer reads shadowsEnabled() for each module's instance)
 	void setShadowsEnabled(bool on) { m_shadowsEnabled = on; }
 	bool shadowsEnabled() const { return m_shadowsEnabled; }
+	// lane PORT-21 (stop S-1463): the audible flag at Drawable + 0x44A (1 at construction). RW 0x674727 Drawable::setInaudible clears it and asks every
+	// client behaviour module's second interface for slot 1 (RW 0x674756: module + 0x30 table, `call [edx + 4]`), RW 0x67896F Drawable::setAudible sets
+	// it again and asks slot 0 (RW 0x6789A0 `call [edx]`). Both return at once when the flag already has that value (RW 0x674733 / 0x67897B), so a
+	// repeated request tells no module anything twice.
+	void setAudible(bool audible);
+	bool audible() const { return m_audible; }
 	const ObjectSnapshot *syncedRecord(const LogicSnapshot &snapshot, bool &found) const
 	{
 		found = m_syncSnapshot == &snapshot && m_syncFrame == snapshot.frame;
@@ -417,6 +450,9 @@ private:
 	ModelConditionFlags m_flags;
 	float m_scale = 1.0f;
 	int m_variation = -1; ///< + 0x364
+public:
+	int variation() const { return m_variation; } ///< + 0x364 (RW 0x679FEA)
+private:
 	std::uint32_t m_houseColor = 0;
 	std::uint32_t m_indicatorColor = 0; ///< RW +0x454 (Drawable::setIndicatorColor RW 0x674510: indicator color)
 	int m_customKind = 0;                              // lane CAH-2
@@ -429,8 +465,13 @@ private:
 	std::vector<DrawEntry> m_entries;
 	std::vector<std::unique_ptr<DrawableModule>> m_clientModules;
 	std::vector<ModelConditionAudioLoopClientBehavior *> m_audioLoops; ///< those of m_clientModules the flush tells (RW 0x67449C)
-	bool m_evaFirstSighted = false; // RW Drawable +0x114 bit 0x80; sighting consumer remains S-709
+	bool m_evaFirstSighted = false; // RW Drawable +0x114 bit 0x80; sighting consumer S-709 / Local 13
+	bool m_evaEnemySighted = false; // RW Drawable +0x445
+	bool m_evaEnemySightedAfterRespawn = false; // RW Drawable +0x446
+	bool m_evaCastleMemberSighted = false; // RW Drawable +0x114 bit 0x40
+	bool m_shroudRevealed = false; // transitioned from fullyObscured == true to false
 	bool m_shadowsEnabled = true;   // RW Drawable +0x114 bit 2 (TOP20 #24)
+	bool m_audible = true;          ///< lane PORT-21: Drawable + 0x44A, 1 until the object becomes INAUDIBLE (RW 0x674727 / 0x67896F)
 	bool m_clientHidden = false; ///< lane CHAT-1
 	bool m_phantomLook = false;  ///< lane FBSIM-1: drawn as a dozer's phantom structure (0.4 opacity)
 	Fade m_fade; ///< lane PROJ-2

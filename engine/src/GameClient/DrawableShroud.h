@@ -35,7 +35,7 @@ struct DrawableShroudLook
 	}
 
 	UnsignedInt clearFrame = 0;  ///< Drawable +0x138
-	bool fullyObscured = false;  ///< Drawable +0x440
+	bool fullyObscured = true;   ///< Drawable +0x440 (starts 1 at construction, RW 0x462BAA)
 	bool hidden = false;         ///< the device layer does not draw it (grace-adjusted OBJECTSHROUD_SHROUDED)
 	unsigned long long viewer = 0; ///< whose shroud the statuses are (ShroudView: the local player and the players whose vision it shares)
 

@@ -92,6 +92,9 @@ public:
 	int getMaxSelectCount() const { return m_maxSelect; }
 	void setMaxSelectCount(int n) { m_maxSelect = n; }
 	void setSelectHandler(std::function<void(ObjectID)> handler) { m_selectHandler = std::move(handler); } // LOCAL-3: RW 0x81DC79 / 0x81E0A7
+	// RW 0x81E234: a special power ordered at an object flashes the target's drawable (Drawable::colorFlash RW 0x675749 with no colour)
+	void setTargetFlashHandler(std::function<void(ObjectID)> handler) { m_targetFlashHandler = std::move(handler); }
+	void flashSpecialPowerTarget(ObjectID id) { if (m_targetFlashHandler) m_targetFlashHandler(id); }
 	int selectMatching(HudContext &ctx, bool acrossMap);
 
 	// ---- the GUI command (ZH setGUICommand / getGUICommand: the command button waiting for a target) ----
@@ -381,4 +384,5 @@ private:
 	unsigned m_attackFlashes = 0;
 	int m_maxSelect = 0;
 	std::function<void(ObjectID)> m_selectHandler; // LOCAL-3: called on selectObject
+	std::function<void(ObjectID)> m_targetFlashHandler; // RW 0x81E234: the special power target's flash
 };

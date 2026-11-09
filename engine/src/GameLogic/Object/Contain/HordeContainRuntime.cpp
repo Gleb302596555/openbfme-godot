@@ -92,56 +92,10 @@ void HordeContain::registerClasses(ModuleFactory &modules)
 			return std::make_unique<HordeContain>(thing, dynamic_cast<const HordeContainBehaviorData *>(data));
 		});
 	}
-	// The Army of the Dead's contain (create RW 0x64B80A): a HordeContain whose onContaining fades the member in, see AODHordeContain
+	// The Army of the Dead's contain (create RW 0x64B80A): implemented in AODHordeContain.cpp (Port 26)
 	modules.bindModuleProc("AODHordeContain", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
 		return std::make_unique<AODHordeContain>(thing, dynamic_cast<const HordeContainBehaviorData *>(data));
 	});
-}
-
-// RW 0x87D650 .. 0x87D68E, BFME2 decomp AODHordeContainOnContaining.cpp 0x0047A3CB: Drawable::fadeIn(5 seconds of logic frames), then HordeContain::onContaining (RW 0x872D0A).
-// Not ported: the call on the member's experience tracker with 1 (RW 0x79D7AD, Object + 0x26C).
-bool AODHordeContain::addToContain(Object *obj)
-{
-	if (ObjectClientHooks *client = getObject()->logic().clientHooks())
-	{
-		client->fadeIn(*obj, LOGICFRAMES_PER_SECOND * 5);
-	}
-	return HordeContain::addToContain(obj);
-}
-
-void AODHordeContain::xfer(Xfer &x)
-{
-	HordeContain::xfer(x);
-}
-
-// RW 0x87DC7E .. 0x87DCA6 / BFME2 0x87AD8E .. 0x87ADB6:
-// Propagate OATH_FULLFILLED (model condition bit 215) from horde object to all contained members.
-UpdateSleepTime AODHordeContain::update()
-{
-	UpdateSleepTime res = HordeContain::update();
-	const int oath = CombatNames::modelCondition("OATH_FULLFILLED");
-	if (oath >= 0)
-	{
-		const bool fulfilled = getObject()->testModelCondition(oath);
-		if (const ContainedItemsList *items = getContainedItemsList())
-		{
-			for (Object *member : *items)
-			{
-				if (member && !member->isDestroyed())
-				{
-					if (fulfilled && !member->testModelCondition(oath))
-					{
-						member->setModelConditionState(oath, true);
-					}
-					else if (!fulfilled && member->testModelCondition(oath))
-					{
-						member->setModelConditionState(oath, false);
-					}
-				}
-			}
-		}
-	}
-	return res;
 }
 
 // the slot table is built when the module exists and its object is complete (RW 0x877751, from the contain's creation)
@@ -824,6 +778,198 @@ void HordeContain::splitHorde()
 const char *HordeContain::splitStopLine()
 {
 	return "[S-6004] HordeContain::splitHorde (RW 0x8791C5): NOT ported: the attribute modifiers' removal of RW 0x86C962 (slot 0x1E8), a defected horde's hand-over RW 0x6930C9, the weapon set flag 0x18 of the first member; INFERENCE: the held member destroyed is the banner carrier";
+}
+
+// ---- lane PORT-35: HordeContain/ComboHorde, two hordes combining into one ----
+
+// RW 0x87043B (called by RW 0x871EC1, RW 0x871F67 and RW 0x8765CC): `[ecx + 4]` is the module data, its ComboHorde vector is at +0x198 (RW 0x87044B); the
+// entries are walked in list order (RW 0x870451 .. 0x870469) and each entry's Target (entry + 0) compared with the template's name (RW 0x4065AA)
+const ComboHordeEntry *HordeContain::comboHordeEntryFor(const ThingTemplate &tmpl) const
+{
+	for (const ComboHordeEntry &entry : m_data->horde.m_comboHorde)
+	{
+		if (entry.target == tmpl.getName())
+		{
+			return &entry;
+		}
+	}
+	return nullptr;
+}
+
+// Interface slot 0x70 (RW 0x871D41): its prologue's status tests and then its combine arm (RW 0x871E89 .. 0x871F12, the function's return).
+//   RW 0x871E89 / 0x871E92: a null object and this horde's own object are refused (RW 0x871F16 returns false);
+//   RW 0x871EC1: the entry lookup RW 0x87043B with the object's template, no entry -> false (RW 0x871ECA);
+//   RW 0x871ECE .. 0x871F02: RW 0x44DDEC with 2 and with 3 on BOTH objects (the statuses' names, RW 0xD8AFF0's table: 2 UNDER_CONSTRUCTION, 3
+//     UNSELECTABLE), any set -> false. RW 0x44DDEC is the bit test `[obj + 0x94 + (id >> 5) * 4] & (1 << (id & 31))`;
+//   the prologue's own status tests: 0x3b (DEPLOYED) and 0x3e (TEMPORARILY_DEFECTED) on this horde's object, 0x3e on the other's (RW 0x871Dxx).
+// The prologue's remaining tests (RW 0x9325B4(module + 0x1c8), RW 0x46E918(0xda), RW 0x693A1A(0), RW 0x68B678 and the member count arm of RW 0x871E4C)
+// are S-6027: their callees are not identified; INFERENCE: the lookup's direction is the one RW 0x8765CC reads (this horde's list, the other object's
+// template as the key) - slot 0x70's register roles leave it open, and both must agree for a combine to happen
+bool HordeContain::canCombineWith(const Object &other) const
+{
+	Object *self = getObject();
+	if (&other == self || !other.getTemplate())
+	{
+		return false;
+	}
+	if (!comboHordeEntryFor(*other.getTemplate()))
+	{
+		return false;
+	}
+	static const int underConstruction = CombatNames::status("UNDER_CONSTRUCTION"); // 2
+	static const int unselectable = CombatNames::status("UNSELECTABLE");             // 3
+	static const int deployed = CombatNames::status("DEPLOYED");                     // 0x3b
+	static const int temporarilyDefected = CombatNames::status("TEMPORARILY_DEFECTED"); // 0x3e
+	return !self->testStatus((unsigned)underConstruction) && !self->testStatus((unsigned)unselectable) &&
+		!other.testStatus((unsigned)underConstruction) && !other.testStatus((unsigned)unselectable) && !self->testStatus((unsigned)deployed) &&
+		!self->testStatus((unsigned)temporarilyDefected) && !other.testStatus((unsigned)temporarilyDefected);
+}
+
+// RW 0x876481 (interface slot 0x74), its combine branch RW 0x8765B4 .. 0x8769F7. The target may be a member of the horde it names: RW 0x8764AA takes
+// its container then. The new horde is made from the entry's Result (template lookup RW 0x6D1305, creation RW 0x6D165E with the caster's player's default
+// team), takes the target horde's transform (RW 0x70BA76) and this horde's team (RW 0x68C17D) and the upgrades of both (RW 0x87680A .. 0x876840, the
+// `+ 0x28c` copy RW 0x68CC6C), then HUNT_WHEN_IDLE (RW 0x44DDEC(this, 0x49) at RW 0x8769D0, set by RW 0x62684D), then both hordes' members (the target's
+// through interface slot 0x44 RW 0x87317A after its formation modifiers leave, RW 0x86C962); the members join the new horde (slot 0x2C RW 0x873F30) and walk
+// to its slots; both old hordes are destroyed (RW 0x62BBAB at RW 0x8769A1 / RW 0x8769B9). INFERENCE: that this horde's members come along too (the only
+// reading of the `[edi + 0x26C]` survivor test at RW 0x8768AE under which no member is lost)
+Object *HordeContain::combineWith(Object *target)
+{
+	Object *self = getObject();
+	if (!target)
+	{
+		return nullptr;
+	}
+	GameLogic &logic = self->logic();
+	Object *other = target->getContainedBy() ? target->getContainedBy() : target; // RW 0x8764AA
+	if (other == self)
+	{
+		return nullptr;
+	}
+	// RW 0x8764E4: the object's template KindOf HORDE bit (template + 0x115, bit 0x20 = KindOf 109)
+	static const int kHorde = CombatNames::kindOf("HORDE");
+	if (!other->getTemplate() || !other->isKindOf((unsigned)kHorde))
+	{
+		return nullptr;
+	}
+	HordeContain *otherHorde = dynamic_cast<HordeContain *>(other->getContain());
+	if (!otherHorde)
+	{
+		return nullptr;
+	}
+	const ComboHordeEntry *entry = comboHordeEntryFor(*other->getTemplate()); // RW 0x8765CC
+	if (!entry)
+	{
+		return nullptr;
+	}
+	const ThingTemplate *result = logic.things().findTemplate(entry->result); // RW 0x6D1305
+	if (!result)
+	{
+		return nullptr; // RW 0x876601
+	}
+	const Player *player = self->getControllingPlayer();
+	Object *made = player ? logic.newObject(result, player->getDefaultTeam(), ObjectStatusMaskType{}) : nullptr; // RW 0x6D165E
+	if (!made)
+	{
+		return nullptr;
+	}
+	HordeContain *fresh = dynamic_cast<HordeContain *>(made->getContain());
+	if (!fresh)
+	{
+		logic.destroyObject(made);
+		return nullptr;
+	}
+	fresh->m_payloadCreated = true;
+	// RW 0x70BA76: the new horde takes the target horde's transform (position and, INFERENCE, its facing)
+	made->setPosition(other->getPosition());
+	made->setOrientation(other->getOrientation());
+	if (Team *team = self->getTeam()) // RW 0x68C17D: this horde's team (+0x47C)
+	{
+		made->setTeam(team);
+	}
+	// RW 0x87680A .. 0x876840: the upgrades of both hordes join the new horde's mask
+	made->friend_orUpgradeMask(self->getUpgradeMask());
+	made->friend_orUpgradeMask(other->getUpgradeMask());
+	static const int huntWhenIdle = CombatNames::status("HUNT_WHEN_IDLE"); // 0x49
+	if (self->testStatus((unsigned)huntWhenIdle))
+	{
+		made->setStatus((unsigned)huntWhenIdle, true); // RW 0x62684D at RW 0x8769D0
+	}
+	// RW 0x86C962 (interface slot 0x1E8): the target horde's formation modifiers leave its members before they move (lane COMBAT-3's rule)
+	otherHorde->removeFormationModifiers();
+	takeMembersFrom(*otherHorde, *fresh);
+	takeMembersFrom(*this, *fresh);
+	// RW 0x876A08: the adoption's end (banner check RW 0x8719E4, the member pass walks the members to their slots) and RW 0x876B10 (slot 0x1E4)
+	fresh->bannerCheck(false);
+	fresh->m_dirty = true;
+	fresh->updateFormation();
+	fresh->applyFormationModifiers();
+	// RW 0x87566B (slot 0x174) at RW 0x8769D4: the new horde's upgrades reach its members
+	for (Object *m : fresh->m_members)
+	{
+		m->friend_orUpgradeMask(made->getUpgradeMask());
+		m->updateUpgradeModules();
+	}
+	// RW 0x62BBAB at RW 0x8769A1 (the target horde) and RW 0x8769B9 (this horde)
+	if (!other->isDestroyed())
+	{
+		logic.destroyObject(other);
+	}
+	logic.destroyObject(self);
+	logic.noteStop(combineStopLine());
+	return made;
+}
+
+// the member hand-over of the combine (RW 0x87317A walks the horde's members, RW 0x876A08 takes each in: slot 0x2C RW 0x873F30, the forced locomotor and
+// the banner). `from` is emptied without its "last member gone" destruction (the formation swap's rule, lane HORDE-2); the members are unplaced in `to` so
+// its member pass walks them to their slots. INFERENCE: which banner carrier survives is RW 0x8768A0 .. 0x8768FC, not decoded (S-6028): the first one to
+// arrive stays the carrier, the second is destroyed
+void HordeContain::takeMembersFrom(HordeContain &from, HordeContain &to)
+{
+	std::vector<Object *> members(from.m_members.begin(), from.m_members.end());
+	const ObjectID banner = from.m_bannerCarrier;
+	from.m_members.clear();
+	from.m_producedMembers.clear();
+	from.m_bannerCarrier = 0;
+	GameLogic &logic = to.getObject()->logic();
+	Object *bannerObject = banner ? logic.findObjectByID(banner) : nullptr;
+	const int forced = to.m_data->horde.m_forcedLocomotorSet;
+	for (Object *m : members)
+	{
+		from.m_core->removeMember(m->getID(), false);
+		m->friend_setContainedBy(nullptr);
+		if (m == bannerObject)
+		{
+			continue; // the banner carrier joins below (RW 0x876529's arm)
+		}
+		to.acceptCreatedMember(m); // RW 0x873F30
+		to.m_producedMembers.erase(std::remove(to.m_producedMembers.begin(), to.m_producedMembers.end(), m->getID()), to.m_producedMembers.end());
+		if (forced != -1)
+		{
+			if (AIUpdateInterface *ai = m->getAIUpdateInterface())
+			{
+				ai->chooseLocomotorSet(forced);
+			}
+		}
+	}
+	if (bannerObject)
+	{
+		if (to.m_bannerCarrier == 0 && to.acceptCreatedMember(bannerObject))
+		{
+			to.m_producedMembers.erase(std::remove(to.m_producedMembers.begin(), to.m_producedMembers.end(), banner), to.m_producedMembers.end());
+			to.m_bannerCarrier = banner;
+		}
+		else
+		{
+			logic.destroyObject(bannerObject); // S-6028
+		}
+	}
+}
+
+const char *HordeContain::combineStopLine()
+{
+	return "[S-6028] HordeContain::combineWith (RW 0x876481): NOT ported: the banner tie-break RW 0x8768A0 .. 0x8768FC (INFERENCE: the first carrier stays, "
+		   "the second is destroyed), the machine/leader arms of the entry RW 0x87657F, the InitiateVoice (entry + 0x10, RW 0x73AB45) and the banner "
+		   "carrier's own hand-over RW 0x876406";
 }
 
 void HordeContain::removeFromContain(Object *obj)

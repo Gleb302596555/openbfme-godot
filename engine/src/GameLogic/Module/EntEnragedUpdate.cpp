@@ -38,8 +38,8 @@ const int kConditionInitialEnraged = 0x13B;  // RW 0x8B6A04
 const unsigned kDisabledTransition = 4;      // RW 0x8B6A1C
 
 const char kStop[] =
-	"[S-5605] EntEnragedUpdate (RW 0x8B6866) rages and calms; RunToWater's water search (RW 0x890782) is not ported, so a burning RunToWater object always takes RW 0x890A15's no-water "
-	"branch (forced rage) and never RW 0x890A04's suppression";
+	"[S-5605] EntEnragedUpdate (RW 0x8B6866) rages and calms; a burning RunToWater object takes RW 0x890A04's suppression when water is found (FlammableUpdate's search, "
+	"RW 0x890782) or RW 0x890A15's forced rage when it is not (none within RunToWaterSearchRadius, none above RunToWaterDepth or none the object can reach)";
 
 void parseFilter(INI *ini, void *instance, void *store, const void *)
 {

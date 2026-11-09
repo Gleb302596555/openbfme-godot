@@ -150,9 +150,10 @@ vec4 sel_alpha_at(vec3 w, bool wall) {
 		}
 		int di = int(e.w < 0.0 ? -e.w - 1.0 : e.w) * 4;
 		vec4 rec1 = sel_texel(di + 1); // r, g, b, z
-		vec4 rec3 = sel_texel(di + 3); // the turn's cosine and sine, the y size, -1 terrain only / -2 terrain-only additive / -3 additive, wall too / the vertex mask's texel (lane PLACEDECAL-1)
+		vec4 rec3 = sel_texel(di + 3); // the turn's cosine and sine, the y size, -1 terrain only / -2 terrain-only additive / -3 additive, wall too / -4 terrain-only multiplicative / -5 multiplicative, wall too / the vertex mask's texel (lane PLACEDECAL-1, LOCAL-14)
 		bool additive = rec3.w == -2.0 || rec3.w == -3.0;
-		if (wall && ((rec3.w != 0.0 && rec3.w != -3.0) || !(abs(w.z - rec1.w) <= SEL_MAX_HEIGHT))) {
+		bool multiplicative = rec3.w == -4.0 || rec3.w == -5.0;
+		if (wall && ((rec3.w != 0.0 && rec3.w != -3.0 && rec3.w != -5.0) || !(abs(w.z - rec1.w) <= SEL_MAX_HEIGHT))) {
 			continue;
 		}
 		vec4 rec0 = sel_texel(di); // x, y, size, opacity
@@ -163,13 +164,22 @@ vec4 sel_alpha_at(vec3 w, bool wall) {
 			continue;
 		}
 		vec4 s = sel_bilinear(sel_texel(di + 2), uv);
-		// an additive decal adds texel x colour x opacity, its texel alpha unused (RW 0x73228B: no diffuse alpha; SC_ADDITIVE ONE / ONE)
+		// an additive decal adds texel x colour x opacity, its texel alpha unused (RW 0x73228B: no diffuse alpha; SC_ADDITIVE ONE / ONE).
+		// lane LOCAL-14: a multiplicative decal multiplies texel x colour, modulated by opacity (RW 0x509A70: ZERO / SRC_COLOR)
 		float a = additive ? rec0.w / 255.0 : s.a * rec0.w / 255.0;
 		if (rec3.w > 0.0) {
 			a *= sel_mask_at(int(rec3.w), w.xy) / 255.0;
 		}
 		vec3 src = s.rgb * rec1.rgb / 255.0;
-		if (additive) {
+		if (multiplicative) {
+			float op = rec0.w / 255.0;
+			if (rec3.w > 0.0) {
+				op *= sel_mask_at(int(rec3.w), w.xy) / 255.0;
+			}
+			vec3 m = mix(vec3(1.0), src, op);
+			cd *= m;
+			keep *= dot(m, vec3(1.0 / 3.0));
+		} else if (additive) {
 			cd += src * a; // ONE / ONE: the surface keeps its colour
 		} else {
 			cd = cd * (1.0 - a) + src * a;
