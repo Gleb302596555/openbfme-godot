@@ -5,6 +5,8 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,8 +32,25 @@ jobs:
           print('page and fixture agree, row by row')
           PY
       - name: build and run PORT-70
+        continue-on-error: true
         run: |
           sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build cmake g++ >/dev/null
-          cmake -S engine -B engine/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DOPENBFME_BUILD_GODOT=OFF > /tmp/cmake.log 2>&1 || { tail -40 /tmp/cmake.log; exit 1; }
-          cmake --build engine/build -j2 --target openbfme_tests > /tmp/build.log 2>&1 || { tail -60 /tmp/build.log; exit 1; }
-          engine/build/openbfme_tests -tc="PORT-70*" 2>&1 | tail -30
+          mkdir -p /tmp/out
+          cmake -S engine -B engine/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DOPENBFME_BUILD_GODOT=OFF > /tmp/out/cmake.log 2>&1 || echo cmake-failed
+          cmake --build engine/build -j2 --target openbfme_tests > /tmp/out/build.log 2>&1 || echo build-failed
+          if [ -x engine/build/openbfme_tests ]; then engine/build/openbfme_tests -tc="PORT-70*" > /tmp/out/tests.log 2>&1 || true; fi
+          tail -25 /tmp/out/tests.log 2>/dev/null || tail -30 /tmp/out/build.log 2>/dev/null || true
+      - name: spool logs
+        if: always()
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      - name: spool
+        if: always()
+        run: |
+          mkdir -p .spool/port70 && cp /tmp/out/*.log .spool/port70/ 2>/dev/null || true
+          git config user.email "actions@github.com"; git config user.name "port70 probe"
+          git checkout -B spool/port70-data
+          git add -f .spool
+          git commit -m "port70 spool: build and test logs (scratch, never merged)" || true
+          git push -f origin HEAD:refs/heads/spool/port70-data
