@@ -182,6 +182,7 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 				{
 					e.draw.reset(new W3DScriptedModelDraw(*data, services.drawAssets, services.random, &services.host, o));
 				}
+				e.draw->setBaseHouseColor(Render_House_Color_Params(m_houseColor, m_customKind, m_customColors));
 				e.noRotate = data->m_noRotate;
 				e.animated = e.draw->needsAdvance(); // W3DScriptedModelDraw::needsAdvance: a blend runs whatever track 0's mode (S-090)
 				// the draw runtime's errors and stops are collected by DrawableManager (DrawEntry::draw->errors() / stops()), after the script hooks ran
@@ -326,6 +327,30 @@ void Drawable::setUpgradeTextures(const std::vector<std::pair<std::string, std::
 		if (e.draw)
 		{
 			e.draw->setUpgradeTextureSwaps(swaps);
+		}
+	}
+}
+
+void Drawable::setHouseColor(std::uint32_t argb)
+{
+	m_houseColor = argb;
+	const auto params = Render_House_Color_Params(argb, m_customKind, m_customColors);
+	for (DrawEntry &e : m_entries)
+	{
+		if (e.draw)
+		{
+			e.draw->setBaseHouseColor(params);
+		}
+	}
+}
+
+void Drawable::recolorRenderObject(const std::string &excludeSubobject, const HouseColorParams &params)
+{
+	for (DrawEntry &e : m_entries)
+	{
+		if (e.draw)
+		{
+			e.draw->recolorRenderObject(excludeSubobject, params);
 		}
 	}
 }

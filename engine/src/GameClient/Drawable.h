@@ -204,7 +204,7 @@ public:
 	void setInstanceScale(float scale) { m_scale = scale; }
 	// 0xAARRGGBB of the owner's colour for model recolour (RW 0x6712A6: [drawable + 0x3AA] flag, 0 when showsHouseColor is false)
 	std::uint32_t getHouseColor() const { return m_houseColor; }
-	void setHouseColor(std::uint32_t argb) { m_houseColor = argb; }
+	void setHouseColor(std::uint32_t argb);
 	// 0xAARRGGBB of the owner's indicator colour (RW 0x674510: [drawable + 0x454] set always; read by flashAsSelected RW 0x679097)
 	std::uint32_t indicatorColor() const { return m_indicatorColor; }
 	void setIndicatorColor(std::uint32_t argb) { m_indicatorColor = argb; }
@@ -259,6 +259,8 @@ public:
 	void showSubObject(const std::string &name, bool visible, bool permanent);
 	// RW 0x8B911E: every model draw module takes `swaps` as its upgrade textures (draw module vslot 0x84)
 	void setUpgradeTextures(const std::vector<std::pair<std::string, std::string>> &swaps);
+	// RW 0x4B8701 -> slot +0x1F8 (RW 0x54BDE0): recolours current render object meshes except those matching excludeSubobject
+	void recolorRenderObject(const std::string &excludeSubobject, const HouseColorParams &params);
 
 	// The render transform from the object's record in a completed logic frame's snapshot (SMOOTH-1: RenderInterpolation::retailPose, RW 0x6765B9;
 	// `interpolate` false: the record's current transform, the stepped look). Then the construction look (updateConstruction).
