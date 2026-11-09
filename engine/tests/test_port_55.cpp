@@ -273,9 +273,20 @@ TEST_CASE("PORT-55 zero-percent capture keeps transfer accounting through save4 
     newScore.setCounting(true);
     const int lostBefore = oldScore.unitsLost();
     const int destroyedBefore = newScore.unitsDestroyed(w.playerOf('A')->getPlayerIndex());
+    REQUIRE(w.w.load("Upgrade P55CapturedUpgrade\n Type = OBJECT\nEnd\n").empty());
+    house->giveUpgrade("Upgrade_Barracks2");
     Object *next = w.unit("P55Troop", 'B', 350, 400);
+    next->giveUpgrade("P55CapturedUpgrade");
+    Object *builder = w.unit("P55Troop", 'A', 450, 450);
+    house->setBuilder(builder);
     REQUIRE(contain(house).addToContain(next));
     CHECK(house->getControllingPlayer() == w.playerOf('B'));
+    // RW 0x883E4B..0x883EB7 resets the old upgrades on team change and
+    // copies the entrant's mask; RW 0x883F96..0x883FBE kills/unlinks a builder.
+    CHECK_FALSE(house->hasUpgrade("Upgrade_Barracks2"));
+    CHECK(house->hasUpgrade("P55CapturedUpgrade"));
+    CHECK(builder->isEffectivelyDead());
+    CHECK(house->getBuilderID() == INVALID_ID);
     CHECK(oldScore.unitsLost() - lostBefore == 2);
     CHECK(newScore.unitsDestroyed(w.playerOf('A')->getPlayerIndex()) - destroyedBefore == 2);
     Object *again = w.unit("P55Troop", 'B', 350, 400);
