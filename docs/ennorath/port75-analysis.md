@@ -66,3 +66,15 @@ MorphCondition = UnitType:<template> [Locomotor:<LocomotorSetName>] ModelState:"
 `UnitType` is mandatory, `Locomotor` optional and before `ModelState`;
 `ModelState` is mandatory and its quoted token is parsed as a model-condition
 bit set (the quoted form is why the port kept it as a raw line).
+
+## INFERENCE in the port
+
+Retail keys the lookup by `getBannerCarrierIndexToUse(source, &type)` — the first
+entry of the contain's banner index list when `source`'s template is not one of
+them — which for every Ennorath horde is its main unit type. The port takes that
+name directly from `HordeContain::getPayloadMemberTemplateName()` (single-entry
+`InitialPayload`), the same accessor its `bannerMemberSlot` already resolves
+`BannerCarrierPosition` with. A horde with several payload types keeps the
+morph (the name is empty, nothing matches, the retail all-zero set applies), but
+the looked-up type may differ from retail's when `source` is not the payload
+template; that case is not in the mod's data.

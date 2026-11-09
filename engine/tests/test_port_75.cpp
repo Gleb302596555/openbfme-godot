@@ -204,30 +204,23 @@ TEST_CASE("PORT-75 morph: type B replaces type A's state, and a type with no lin
 	CHECK(carrier.testModelCondition(keep));
 }
 
-TEST_CASE("PORT-75 keep: an ordinary member joining a horde is not morphed, and a horde with no matching line leaves the carrier's look alone")
+TEST_CASE("PORT-75 keep: a horde without BannerMorphFX plays no effect, and a line that names no type leaves no morph bit (DONOR 0x00496D43's all-zero miss)")
 {
-	CombatWorld w(kBannerObjects); // the HORDE-2 fixture: one line, UnitType:Swordsman -> USER_2, no BannerMorphFX
+	const std::string objects = kBannerObjects; // the HORDE-2 fixture: one line, UnitType:Swordsman -> USER_2, no BannerMorphFX
+	CombatWorld w(objects.c_str());
 	w.combat().setAutoAcquireEnabled(false);
 	Object *horde = w.unit("BannerHorde", 'A', 300, 300);
 	w.frames(10);
 	REQUIRE(hc(horde) != nullptr);
-	// the payload members are Swordsmen, i.e. not in BannerCarriersAllowed ("Bannerman"): the join leaves them alone (they carry no
-	// BannerCarrierUpdate at all), and only the carrier is morphed
-	Object *carrier = nullptr;
-	for (int i = 0; i < 4 && !carrier; ++i)
-	{
-		w.frames(1);
-		if (hc(horde)->bannerCarrier() != 0)
-		{
-			carrier = w.byId(hc(horde)->bannerCarrier());
-		}
-	}
-	REQUIRE(carrier != nullptr);
-	// the carrier's own line names Swordsman, so a Pikeman morph matches nothing: the carrier keeps the state it has
-	BannerCarrierUpdate *update = dynamic_cast<BannerCarrierUpdate *>(carrier->findModule("BannerCarrierUpdate"));
+	Spawned spawned = spawnCarrier(w, horde);
+	REQUIRE(spawned.carrier != nullptr);
+	BannerCarrierUpdate *update = dynamic_cast<BannerCarrierUpdate *>(spawned.carrier->findModule("BannerCarrierUpdate"));
 	REQUIRE(update != nullptr);
-	const bool hadA = carrier->testModelCondition(bit("USER_2"));
-	update->morphForTemplate("Pikeman", false);
-	CHECK(carrier->testModelCondition(bit("USER_2")) == hadA);
-	CHECK_FALSE(carrier->testModelCondition(bit("USER_7")));
+	CHECK(update->data().m_bannerMorphFX.empty());
+	CHECK(spawned.morphEvents.empty()); // RW 0x89A5C5 asks for the FX; an empty name is not one (RW 0x73A302's None rule)
+	CHECK(spawned.carrier->testModelCondition(bit("USER_2"))); // the join still morphed it to the horde's Swordsmen
+
+	// the fixture has no lane for "Pikeman": retail fills the set with zeros and clears the morph bits all the same
+	update->morphForTemplate("Pikeman", true);
+	CHECK_FALSE(anyMorphBit(*spawned.carrier));
 }
