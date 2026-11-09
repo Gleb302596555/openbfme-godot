@@ -298,6 +298,7 @@ public:
 	}
 	// lane VISUAL-2: the shroud look of the last sync: fullyObscured is RW Drawable +0x440 (attached particle systems do not emit), hidden: not drawn
 	const DrawableShroudLook &shroudLook() const { return m_shroudLook; }
+	UnsignedInt syncFrame() const { return m_syncFrame; }
 	// lane EVADAMAGE-1: RW Drawable +0x388 (0 at creation), the logic frame until which a damage Eva event here is "near the first" (EvaDamage.h); RW 0x671DFD
 	// raises it, never lowers it
 	UnsignedInt evaDamageFarFrame() const { return m_evaDamageFarFrame; }

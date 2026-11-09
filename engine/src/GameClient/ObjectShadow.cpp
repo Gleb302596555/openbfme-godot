@@ -219,7 +219,50 @@ bool resolveDecalShadow(const ThingTemplate *tt, const W3DModelDrawModuleData *m
 	return true;
 }
 
-bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, bool useShadowDecals, const std::function<void(float &, float &)> &fallbackSize)
+unsigned evaluateDecalOpacity(const DecalShadowDescriptor &desc, unsigned currentFrame, unsigned startFrame, unsigned fadeOutStartFrame)
+{
+	// RW 0x4B1BC6: style 0x400 (SHADOW_ALPHA_DECAL_DYNAMIC), 0x800 (SHADOW_ADDITIVE_DECAL_DYNAMIC), 0x10000
+	const bool isDynamic = (desc.style & (0x0400u | 0x0800u | 0x10000u)) != 0;
+	if (!isDynamic)
+	{
+		return desc.opacityPeak; // static decals only use peak opacity (RW 0x73228B)
+	}
+
+	// Dynamic curve evaluation (RW 0x7323CE, RW 0x50B860)
+	// RW 0xD9F624: 0.03f ms to frames (30 logic fps / 1000 ms)
+	const unsigned fadeInFrames = (unsigned)std::max(0.0f, std::round(desc.opacityFadeInTime * 0.03f));
+	const unsigned fadeOutFrames = (unsigned)std::max(0.0f, std::round(desc.opacityFadeOutTime * 0.03f));
+
+	if (fadeOutStartFrame != ~0u && currentFrame >= fadeOutStartFrame)
+	{
+		if (fadeOutFrames == 0)
+		{
+			return desc.opacityEnd;
+		}
+		const unsigned dt = currentFrame - fadeOutStartFrame;
+		if (dt >= fadeOutFrames)
+		{
+			return desc.opacityEnd;
+		}
+		const float progress = (float)dt / (float)fadeOutFrames;
+		return (unsigned)std::round((float)desc.opacityPeak + progress * (float)((int)desc.opacityEnd - (int)desc.opacityPeak));
+	}
+
+	if (currentFrame < startFrame)
+	{
+		return 0; // RW 0x50B902: before startTime opacity is 0
+	}
+	const unsigned t = currentFrame - startFrame;
+	if (fadeInFrames == 0 || t >= fadeInFrames)
+	{
+		return desc.opacityPeak;
+	}
+	const float progress = (float)t / (float)fadeInFrames;
+	return (unsigned)std::round((float)desc.opacityStart + progress * (float)((int)desc.opacityPeak - (int)desc.opacityStart));
+}
+
+bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, bool useShadowDecals,
+	const std::function<void(float &, float &)> &fallbackSize, unsigned currentFrame)
 {
 	// TOP20 #24, RW 0x672D28: shadowsEnabled false when dead with SlowDeathBehavior/ShadowWhenDead = No
 	if (!drawable.shadowsEnabled())
@@ -289,6 +332,14 @@ bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, boo
 		}
 	}
 
+	// Opacity resolution: static peak opacity vs dynamic curve (RW 0x4B1BC6, RW 0x7323CE, RW 0x50B860)
+	unsigned opacity = desc.opacityPeak;
+	if ((desc.style & (0x0400u | 0x0800u | 0x10000u)) != 0)
+	{
+		const unsigned frame = currentFrame != 0 ? currentFrame : drawable.syncFrame();
+		opacity = evaluateDecalOpacity(desc, frame, 0);
+	}
+
 	out = SelectionDecal();
 	out.object = drawable.getObjectID();
 	out.drawable = (unsigned)drawable.getID();
@@ -299,7 +350,7 @@ bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, boo
 	out.angle = angle;
 	out.texture = file;
 	out.style = desc.style;
-	out.color = ((std::uint32_t)desc.opacityPeak << 24) | (rgb & 0xFFFFFFu);
+	out.color = ((std::uint32_t)opacity << 24) | (rgb & 0xFFFFFFu);
 	out.terrainOnly = false; // RW 0x50CDE4: projects on terrain and wall/bridge geometry
 	return true;
 }

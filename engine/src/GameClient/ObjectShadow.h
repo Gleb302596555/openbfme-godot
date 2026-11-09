@@ -87,9 +87,13 @@ bool getModelBoundingBox(const RenderObjPrototype *proto, float &extentX, float 
 // Resolves decal shadow descriptor from template, module data, and condition state (RW 0x4C4EE0..0x4C5175)
 bool resolveDecalShadow(const ThingTemplate *tt, const W3DModelDrawModuleData *module, const ModelConditionInfo *state, DecalShadowDescriptor &out);
 
+// Evaluates decal shadow opacity curve for dynamic decals (RW 0x4B1BC6, RW 0x7323CE, RW 0x50B860)
+unsigned evaluateDecalOpacity(const DecalShadowDescriptor &desc, unsigned currentFrame, unsigned startFrame = 0, unsigned fadeOutStartFrame = ~0u);
+
 // Builds SelectionDecal for a live Drawable (respecting TOP20 #24 shadowsEnabled, shroud/stealth, rotation, house color). useShadowDecals is
 // TheGlobalData + 0x61 (UseShadowDecals after the static LOD apply, RW 0x601C62: cleared when UseShadowMapping is set): addShadow's gate RW 0x50BF7B
 bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, bool useShadowDecals,
-	const std::function<void(float &, float &)> &fallbackSize = nullptr);
+	const std::function<void(float &, float &)> &fallbackSize = nullptr,
+	unsigned currentFrame = 0);
 
 } // namespace ObjectShadow

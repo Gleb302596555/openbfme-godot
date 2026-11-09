@@ -1725,7 +1725,8 @@ void HudDevice::drawSelectionDecals()
 						}
 					}
 				};
-				if (ObjectShadow::buildDrawableDecalShadow(*d, sd, useShadowDecals, fallbackSize))
+				const unsigned curFrame = world && world->hud_game() ? world->hud_game()->logic().getFrame() : 0u;
+				if (ObjectShadow::buildDrawableDecalShadow(*d, sd, useShadowDecals, fallbackSize, curFrame))
 				{
 					selExtras.push_back(std::move(sd));
 				}
