@@ -50,6 +50,10 @@ section); the rest is a record so that nobody re-opens them one by one.
 | `debug / editor` | 22 | a debug switch, a stats overlay, a firewall or network row, a shell-map or developer switch: nothing happens in a game. |
 | `not read` | 21 | nobody reads it — the `AnimationSharing*` block, the network metrics, the water position rows. Keep the rows, stop worrying. |
 
+Stop **S-7197** records the block: the `not read` rows are settled (RotWK's constructor write and its parser are the whole
+access set), the `gameplay` rows are **open, not refused** — their readers are not proved either, so a port of one of them
+starts by reading the instruction that loads it off `[0xDE4364]`.
+
 ## The rows
 
 `row` = the table row's address (`derived`, above), `off` = the member's offset in the
