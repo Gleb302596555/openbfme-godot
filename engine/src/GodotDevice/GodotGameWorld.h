@@ -158,6 +158,8 @@ public:
 	int64_t get_shroud_status_at(double x, double y) const;
 	int64_t get_object_shroud_status(int64_t objectId) const;
 	void set_shroud_drawn(bool on);
+	void set_track_lod(int maxEdges, int opaqueEdges, int fadeDelayMs);
+	Dictionary get_track_report() const;
 	void set_shroud_fade(bool on); // lane FOGFX-1: the shroud texture's fade (RW 0x472CF2); off: the texels land at once (a before / after proof)
 	PackedByteArray get_shroud_cells() const;
 	// lane PROJ-1: the projectile objects in flight (KindOf PROJECTILE with a BezierProjectileBehavior): id, template, position, the position of the previous logic frame, the unit
@@ -1009,6 +1011,7 @@ private:
 	std::vector<size_t> m_morphTrees, m_morphShrubs;
 	size_t m_treeEventsSeen = 0;
 	void heldClientWork(); // lane RENDERWAIT-1: the render side's reads of the live logic, where it is held
+	void presentTracks(); // PORT-69: draw the live track system
 	void presentScorches(); // TOP20 "Fire, scorches": the terrain's scorch layer draws the live effect player's buffer (drawScorches RW 0x468BCB)
 	void updateTreeTopple(double dt);
 	std::unique_ptr<W3DVegetationSway> m_vegSway; ///< lane VISUAL-2: the W3DTreeDraw trees' sway (null: the map has none)
@@ -1081,6 +1084,8 @@ private:
 	// lane FX-2
 	FXPlayer *m_fxPlayer = nullptr;            ///< child node, kept by clear_scene
 	ObjectID m_glowHost;                       ///< lane GLOW-1: the loaded game's glow pass host (a child, freed by clear_scene)
+	ObjectID m_trackLayer;
+	int m_trackEdges = 100, m_trackOpaqueEdges = 25, m_trackFadeDelay = 300000;
 	ObjectID m_scorchLayer;                    ///< the terrain's scorch layer (Terrain/Scorches, freed with the terrain), looked up per frame
 	int64_t m_effectsLod = 4;                  ///< lane GLOW-1: GameLODManager::kDetectedLevel until the options say otherwise
 	Coord3D m_cameraFadeEye{};                 ///< PORT-49: the last displayed eye the HUD gave (RW 0xDE447C vslot 0x11C)

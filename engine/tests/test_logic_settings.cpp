@@ -9,6 +9,7 @@
 #include "GameEngineDevice/Win32Device/Common/Win32BIGFileSystem.h"
 #include "GameLogic/AI/AIPathfindConfig.h"
 #include "GameLogic/GameLogic.h"
+#include "Common/StateHash.h"
 
 #include <chrono>
 #include <filesystem>
@@ -342,4 +343,24 @@ TEST_CASE("logic settings: an AIData block indented after a skipped block's End 
 	fs.setLocalFolder(std::string());
 	std::error_code ec;
 	stdfs::remove_all(dir, ec);
+}
+
+TEST_CASE("PORT-69: GameData track settings are client-only and parsed")
+{
+	GameLogicSettings g;
+	std::string err;
+	CHECK_FALSE(g.makeTrackMarks);
+	CHECK(g.maxTerrainTracks == 0);
+	REQUIRE_MESSAGE(L::scanGameData(std::string(kGameData) + "GameData\n MakeTrackMarks = Yes\n MaxTerrainTracks = 100\nEnd\n", g, &err), err);
+	CHECK(g.makeTrackMarks);
+	CHECK(g.maxTerrainTracks == 100);
+	CHECK(g.unappliedFields.count("GameData.MakeTrackMarks") == 0);
+	CHECK(g.unappliedFields.count("GameData.MaxTerrainTracks") == 0);
+	GameLogicSettings withoutTracks = g;
+	withoutTracks.makeTrackMarks = false;
+	withoutTracks.maxTerrainTracks = 0;
+	StateHasher a, b;
+	g.crc(a);
+	withoutTracks.crc(b);
+	CHECK(a.value() == b.value()); // RW settings are client-only; do not affect lockstep
 }

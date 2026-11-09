@@ -46,6 +46,7 @@
 #include "GodotDevice/GodotGlowEffect.h"
 #include "GodotDevice/GodotPostEffects.h"
 #include "GodotDevice/GodotTerrainScorches.h"
+#include "GodotDevice/GodotTerrainTracks.h"
 #include "Common/Audio/AudioRequests.h"
 #include "Common/JobSystem.h"
 #include "Common/WindowsCrashDump.h"
@@ -309,6 +310,8 @@ void GameWorld::_bind_methods()
 	ClassDB::bind_method(D_METHOD("get_shroud_status_at", "x", "y"), &GameWorld::get_shroud_status_at);
 	ClassDB::bind_method(D_METHOD("get_object_shroud_status", "object_id"), &GameWorld::get_object_shroud_status);
 	ClassDB::bind_method(D_METHOD("set_shroud_drawn", "on"), &GameWorld::set_shroud_drawn);
+	ClassDB::bind_method(D_METHOD("set_track_lod", "max_edges", "opaque_edges", "fade_delay_ms"), &GameWorld::set_track_lod);
+	ClassDB::bind_method(D_METHOD("get_track_report"), &GameWorld::get_track_report);
 	ClassDB::bind_method(D_METHOD("set_shroud_fade", "on"), &GameWorld::set_shroud_fade); // lane FOGFX-1: off = the texels snap (the proof's "before")
 	ClassDB::bind_method(D_METHOD("get_shroud_cells"), &GameWorld::get_shroud_cells);
 	ClassDB::bind_method(D_METHOD("get_projectiles"), &GameWorld::get_projectiles);
@@ -829,6 +832,8 @@ void GameWorld::clear_scene()
 	m_dynamicModels.clear();
 	m_staticModels.clear();
 	m_buffInstances.clear(); // lane SPELL-4: the buffs' instances went with the instancer
+	m_trackLayer = ObjectID();
+	m_scorchLayer = ObjectID();
 	m_staticId = m_dynamicId = 0;
 	m_textureClock = 0.0;
 	m_animatedDrawables = 0;
@@ -1359,6 +1364,8 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 	// VIS-1: the shroud is drawn for a game started from a game setup (a skirmish: RW 0x62F91A gave every player its explored map); a bare map load (the map and HUD
 	// viewers, the smoke test) has no explored cells and is drawn without it (set_shroud_drawn switches it)
 	m_shroudDrawn = m_game->shroud().displayed();
+	m_game->drawables().setShroudDrawn(m_shroudDrawn);
+	m_game->drawables().tracks().setDetail(m_trackEdges, m_trackOpaqueEdges, m_trackFadeDelay);
 	if (m_fxPlayer && m_fxPlayer->playback())
 	{
 		m_liveFX.reset(new LiveFX(*m_game, *m_fxPlayer->playback(), (int)m_effectsLod)); // lane FX-2: from here on the logic's effect calls play
@@ -1409,6 +1416,10 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 				scorches->setLive(true);
 				m_scorchLayer = scorches->get_instance_id();
 			}
+		}
+		if (TerrainTrackLayer *tracks = Object::cast_to<TerrainTrackLayer>(terrain->get_node_or_null(NodePath("Tracks"))))
+		{
+			m_trackLayer = tracks->get_instance_id();
 		}
 		report["terrain"] = trep;
 		timings["terrain_ms"] = timing::elapsedMs(t0);
@@ -2663,6 +2674,7 @@ void GameWorld::advance(double delta)
 	m_lastShroudMs = timing::spanMs(tv, t1);
 	refresh_views(dt * 1000.0);
 	presentScorches();
+	presentTracks();
 	if (m_weather)
 	{
 		// lane WEATHER-1: the weather follows the presented frame's TheGlobalWeatherSystem (never the live logic)
@@ -2799,6 +2811,41 @@ void GameWorld::syncBuffs(double dt)
 		}
 		it = m_buffInstances.erase(it);
 	}
+}
+
+void GameWorld::presentTracks()
+{
+	if (!m_game) return;
+	if (TerrainTrackLayer *layer = Object::cast_to<TerrainTrackLayer>(ObjectDB::get_instance(m_trackLayer)))
+		layer->present(m_game->drawables().tracks());
+}
+
+void GameWorld::set_track_lod(int maxEdges, int opaqueEdges, int fadeDelayMs)
+{
+	maxEdges = std::clamp(maxEdges, 0, 32500);
+	opaqueEdges = std::clamp(opaqueEdges, 0, maxEdges);
+	fadeDelayMs = std::max(0, fadeDelayMs);
+	if (m_trackEdges == maxEdges && m_trackOpaqueEdges == opaqueEdges && m_trackFadeDelay == fadeDelayMs) return;
+	m_trackEdges = maxEdges;
+	m_trackOpaqueEdges = opaqueEdges;
+	m_trackFadeDelay = fadeDelayMs;
+	if (m_game) m_game->drawables().tracks().setDetail(maxEdges, opaqueEdges, fadeDelayMs);
+}
+
+Dictionary GameWorld::get_track_report() const
+{
+	Dictionary d;
+	if (!m_game) return d;
+	const TerrainTracksSystem::Stats s = m_game->drawables().tracks().stats();
+	d["pool_size"] = s.poolSize;
+	d["used_tracks"] = s.usedTracks;
+	d["bound_tracks"] = s.boundTracks;
+	d["active_edges"] = s.activeEdges;
+	d["total_edges_added"] = (int64_t)s.totalEdgesAdded;
+	d["pool_exhausted"] = (int64_t)s.poolExhausted;
+	if (TerrainTrackLayer *layer = Object::cast_to<TerrainTrackLayer>(ObjectDB::get_instance(m_trackLayer)))
+		d["render"] = layer->get_track_report();
+	return d;
 }
 
 void GameWorld::presentScorches()
@@ -7415,6 +7462,7 @@ void GameWorld::set_shroud_drawn(bool on)
 	if (m_game)
 	{
 		m_game->shroud().setDisplayed(on);
+		m_game->drawables().setShroudDrawn(on);
 	}
 	refresh_shroud(true);
 	refresh_views(0.0);

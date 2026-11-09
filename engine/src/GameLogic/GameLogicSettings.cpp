@@ -342,6 +342,9 @@ const FieldParse kGameDataFields[] = {
 	{ "AutoAflameParticlePrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoAflame.prefix) },
 	{ "AutoAflameParticleSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoAflame.system) },
 	{ "AutoAflameParticleMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoAflame.maxSystems) },
+	// lane PORT-69 (issue #183): terrain track marks (rows RW 0xBFFAA0 / 0xBFFA70, GlobalData +0x13C / +0x10C; client-only, not hashed)
+	{ "MakeTrackMarks", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.makeTrackMarks) },
+	{ "MaxTerrainTracks", parseNoting<INI::parseInt>, 0, (int)offsetof(BlockState, values.maxTerrainTracks) },
 	{ nullptr, noteUnapplied, nullptr, 0 }
 };
 const FieldParse kAIDataFields[] = {

@@ -441,6 +441,10 @@ struct GameLogicSettings
 	// GlobalData +0xB58 / +0xB54; defaults: constructor RW 0x642DC4 Yes / 0.6f; used by Drawable::flashAsSelected RW 0x678FA7). Presentation only: not in the settings hash
 	bool selectionFlashHouseColor = true;
 	float selectionFlashSaturationFactor = 0.6f;
+	// lane PORT-69 (issue #183): terrain track marks (rows RW 0xBFFAA0 MakeTrackMarks parseBool RW 0x42E558 +0x13C, RW 0xBFFA70 MaxTerrainTracks parseInt RW 0x42EC5E +0x10C;
+	// ctor RW 0x642C51 / 0x642C07: false / 0; read by TerrainTracksSystem and W3DModelDraw track bind RW 0x4C4E51 / 0x47A7C6 / 0x48389F / 0x484673). Presentation only: not in the settings hash
+	bool makeTrackMarks = false;
+	int maxTerrainTracks = 0;
 	unsigned initialCredits[5] = { 0, 0, 0, 0, 0 };  ///< MultiplayerSettings InitialCreditsVeryLow .. VeryHigh: the lobby's money choices
 	// lane CHAT-1: MultiplayerSettings MaxBeaconsPerPlayer (+ 0x18): a player's beacons at most (retail multiplayer.ini: 3). INFERENCE: the default is ZH's
 	// MultiplayerSettings constructor value (RotWK's constructor was not read). Not hashed (crc below): data every peer of a game reads alike (the profile)

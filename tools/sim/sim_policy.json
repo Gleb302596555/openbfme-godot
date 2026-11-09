@@ -495,6 +495,10 @@
    "reason": "builds the terrain meshes and textures from the map: rendering (reads TerrainLogic, writes none)"
   },
   {
+   "glob": "src/GodotDevice/GodotTerrainTracks.cpp",
+   "reason": "PORT-69: uploads client-only terrain tracks to Godot meshes; never simulation state"
+  },
+  {
    "glob": "src/GodotDevice/GodotTerrainScorches.cpp",
    "reason": "uploads the terrain's scorch marks (TerrainScorchBuffer, a client-only list built in the core) as a mesh: rendering, never read by the logic"
   },

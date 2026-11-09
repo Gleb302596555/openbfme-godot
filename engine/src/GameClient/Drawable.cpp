@@ -185,6 +185,8 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 				}
 				e.draw->setBaseHouseColor(Render_House_Color_Params(m_houseColor, m_customKind, m_customColors));
 				e.noRotate = data->m_noRotate;
+				e.hasTrackMarks = !data->m_trackFile.empty(); // lane PORT-69: RW 0x4C4E69 / 0x47A7DE
+				m_hasTrackMarks = m_hasTrackMarks || e.hasTrackMarks;
 				e.animated = e.draw->needsAdvance(); // W3DScriptedModelDraw::needsAdvance: a blend runs whatever track 0's mode (S-090)
 				// the draw runtime's errors and stops are collected by DrawableManager (DrawEntry::draw->errors() / stops()), after the script hooks ran
 			}
