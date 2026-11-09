@@ -26,6 +26,7 @@
 #include "FxTestUtil.h"
 #include "LogicTestUtil.h"
 
+#include <cstdio>
 #include <memory>
 #include <string>
 #include <vector>
@@ -38,7 +39,7 @@ namespace
 const char kParticles[] =
 	"FXParticleSystem Port79Fog\n"
 	"  System\n"
-	"    Priority = WEAPON_EXPLOSION\n"
+	"    Priority = ALWAYS_RENDER\n"
 	"    IsOneShot = Yes\n"
 	"    Shader = ALPHA\n"
 	"    Type = PARTICLE\n"
@@ -99,15 +100,15 @@ struct Port79World : CombatWorld
 		return *l;
 	}
 	std::vector<FXEvent> events() const { return logic->fxEvents().frameEvents(); }
-	std::vector<const FXEvent *> byKind(FXEvent::Kind kind) const
+	// the events of one kind, copied (the log's own vector is rebuilt every frame)
+	std::vector<FXEvent> byKind(FXEvent::Kind kind) const
 	{
-		std::vector<FXEvent> all = events();
-		std::vector<const FXEvent *> out;
-		for (const FXEvent &e : all)
+		std::vector<FXEvent> out;
+		for (const FXEvent &e : events())
 		{
 			if (e.kind == kind)
 			{
-				out.push_back(&e);
+				out.push_back(e);
 			}
 		}
 		return out;
@@ -130,8 +131,9 @@ struct Port79World : CombatWorld
 struct FlushRecorder : ObjectClientHooks
 {
 	std::vector<bool> immediate;
-	void objectCreated(Object &) override {}
-	void objectDestroyed(Object &) override {}
+	// the recorder binds itself to every object it is told about (ClientEventRecorder::objectCreated, Object::friend_bindToClient)
+	void objectCreated(Object &obj) override { obj.friend_bindToClient(this); }
+	void objectDestroyed(Object &obj) override { obj.friend_bindToClient(nullptr); }
 	void flushModelConditions(Object &, bool forced) override { immediate.push_back(forced); }
 };
 
@@ -183,17 +185,17 @@ TEST_CASE("PORT-79 ParticleSystem: the nugget's system is created and attached t
 
 	const std::vector<Object *> made = w.list("Port79WithFog").create(*w.logic, source, *source->getPosition());
 	REQUIRE(made.size() == 1);
-	const std::vector<const FXEvent *> attached = w.byKind(FXEvent::OBJECT_PARTICLE_SYSTEM);
+	const std::vector<FXEvent> attached = w.byKind(FXEvent::OBJECT_PARTICLE_SYSTEM);
 	REQUIRE(attached.size() == 1);
-	CHECK(*attached[0]->fxList == "Port79Fog");
-	CHECK(attached[0]->primary == made[0]->getID());
-	CHECK(std::string(attached[0]->site) == "ObjectCreationList");
+	CHECK(*attached[0].fxList == "Port79Fog");
+	CHECK(attached[0].primary == made[0]->getID());
+	CHECK(std::string(attached[0].site) == "ObjectCreationList");
 	// no model-space position is handed over: the attachment places the system at the object's drawable (RW 0x5F32D7 alone)
-	CHECK_FALSE(attached[0]->hasTransform);
+	CHECK_FALSE(attached[0].hasTransform);
 
 	// the client: the store resolves the template, the system is made and attached to that object
 	FXParticleSystem::ParticleSystemManager manager(w.particles, w.fxEnv);
-	const FXParticleSystem::ParticleSystemID id = attachCreatedSystem(manager, w.particles, *attached[0]);
+	const FXParticleSystem::ParticleSystemID id = attachCreatedSystem(manager, w.particles, attached[0]);
 	REQUIRE(id != FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID);
 	const FXParticleSystem::ParticleSystem *sys = manager.findParticleSystemByID(id);
 	REQUIRE(sys != nullptr);
@@ -217,11 +219,11 @@ TEST_CASE("PORT-79 ParticleSystem: an unknown template makes the object and no s
 	w.logic->fxEvents().beginFrame();
 	const std::vector<Object *> made = w.list("Port79UnknownFog").create(*w.logic, source, *source->getPosition());
 	REQUIRE(made.size() == 1);
-	const std::vector<const FXEvent *> attached = w.byKind(FXEvent::OBJECT_PARTICLE_SYSTEM);
+	const std::vector<FXEvent> attached = w.byKind(FXEvent::OBJECT_PARTICLE_SYSTEM);
 	REQUIRE(attached.size() == 1);
-	CHECK(*attached[0]->fxList == "Port79NoSuchSystem");
+	CHECK(*attached[0].fxList == "Port79NoSuchSystem");
 	FXParticleSystem::ParticleSystemManager manager(w.particles, w.fxEnv);
-	CHECK(attachCreatedSystem(manager, w.particles, *attached[0]) == FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID);
+	CHECK(attachCreatedSystem(manager, w.particles, attached[0]) == FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID);
 	int systems = 0;
 	manager.forEachSystem([&](const FXParticleSystem::ParticleSystem &) { ++systems; });
 	CHECK(systems == 0);
@@ -257,8 +259,6 @@ TEST_CASE("PORT-79 InheritAttributesFromSource: the made object's flags reach th
 TEST_CASE("PORT-79 InheritAttributesFromSource: the recorder flushes a clean object only when the call is immediate")
 {
 	Port79World w(kLists);
-	Object *object = w.unit("Port79Made", 'A', 460, 400);
-	REQUIRE(object != nullptr);
 	ClientEventRecorder recorder(*w.logic);
 	w.logic->setClientHooks(&recorder);
 	struct Unhook
@@ -266,6 +266,8 @@ TEST_CASE("PORT-79 InheritAttributesFromSource: the recorder flushes a clean obj
 		GameLogic &logic;
 		~Unhook() { logic.setClientHooks(nullptr); }
 	} unhook{ *w.logic };
+	Object *object = w.unit("Port79Made", 'A', 460, 400); // created with the recorder bound (ClientEventRecorder::objectCreated)
+	REQUIRE(object != nullptr);
 	const ObjectID id = object->getID();
 	recorder.take();
 	// nothing changed on the object: the dirty-only flush is silent (RW 0x6744A3)
