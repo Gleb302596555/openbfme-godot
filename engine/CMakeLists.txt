@@ -1040,6 +1040,8 @@ add_executable(openbfme_tests
     tests/test_local_14.cpp
     # lane LOCAL-12 (command button border, ControlBarScheme, TOP20 #1)
     tests/test_local_12.cpp
+    # lane LOCAL-16 (EmotionRange unused in RotWK, FadeOnPortals RW 0x66E726 -> RW 0x664F93, TOP20 #19)
+    tests/test_local_16.cpp
     # shared numeric facade (WEAPON-1 e75dd8c, imported unchanged: wide PC24 results, SSE binary32 ops, retail integer conversions)
     tests/test_numeric_facade.cpp
     # lane ECON-1: the economy

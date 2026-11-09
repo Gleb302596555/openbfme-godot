@@ -194,6 +194,11 @@ void AIUpdateInterface::readCombatSettings(const ModuleData *data)
 		{
 			m_combat.standGround = ieq(tok[0], "Yes") || ieq(tok[0], "True") || tok[0] == "1";
 		}
+		else if (ieq(name, "FadeOnPortals"))
+		{
+			// Local 16: RW 0xC0F530 offset 0x54, parseBool RW 0x42E558 (as StandGround)
+			m_combat.fadeOnPortals = ieq(tok[0], "Yes") || ieq(tok[0], "True") || tok[0] == "1";
+		}
 		else if (m_animalInterface && ieq(name, "AfraidOfCastles"))
 		{
 			m_animalAfraidOfCastles = ieq(tok[0], "Yes") || ieq(tok[0], "True") || tok[0] == "1"; // lane CASTLEAREA-1: parseBool RW 0x42E558 (as StandGround)

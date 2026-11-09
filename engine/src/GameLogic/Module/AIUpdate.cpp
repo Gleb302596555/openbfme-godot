@@ -643,6 +643,10 @@ UpdateSleepTime AIUpdateInterface::update()
 	if (memberUpdate)
 	{
 		const unsigned memberSleep = hordeMemberUpdate();
+		if (m_combat.fadeOnPortals)
+		{
+			updatePortalFade(); // RW 0x66E726 -> RW 0x664F93
+		}
 		m_isInUpdate = false;
 		getObject()->setStatus((unsigned)CombatNames::statuses().updatingAI, false);
 		return (UpdateSleepTime)(memberSleep < 1u ? 1u : memberSleep);
@@ -699,6 +703,10 @@ UpdateSleepTime AIUpdateInterface::update()
 		m_machine->setState(AI_IDLE);
 		moverSleep = (unsigned)UPDATE_SLEEP_FOREVER;
 	}
+	if (m_combat.fadeOnPortals)
+	{
+		updatePortalFade(); // RW 0x66E726 -> RW 0x664F93
+	}
 	m_isInUpdate = false;
 	getObject()->setStatus((unsigned)CombatNames::statuses().updatingAI, false);
 	m_world->noteStop(kStopUpdate);
@@ -745,6 +753,45 @@ void AIUpdateInterface::wakeUpNow()
 	if (getWakeFrame() > (UnsignedInt)UPDATE_SLEEP_NONE && !m_isInUpdate)
 	{
 		setWakeFrame(getObject(), UPDATE_SLEEP_NONE);
+	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// updatePortalFade (RW 0x664F93, lane LOCAL-16)
+// ---------------------------------------------------------------------------------------------------------------------------------
+void AIUpdateInterface::updatePortalFade()
+{
+	Object *obj = getObject();
+	if (!obj)
+	{
+		return;
+	}
+	GameLogic &logic = obj->logic();
+	ObjectClientHooks *client = logic.clientHooks();
+	const bool onPortal = m_mover && m_mover->onPortal();
+	if (onPortal)
+	{
+		if (!m_portalFaded)
+		{
+			m_portalFaded = true; // RW 0x66500C
+			if (client)
+			{
+				client->fadeOut(*obj, 5); // RW 0x664FF2..0x664FFB (5 frames = RW 0xD9F608)
+				client->setShadowsEnabled(*obj, false); // RW 0x665004
+			}
+		}
+	}
+	else
+	{
+		if (m_portalFaded)
+		{
+			m_portalFaded = false; // RW 0x66504C
+			if (client)
+			{
+				client->fadeIn(*obj, 5); // RW 0x665031..0x66503A (5 frames = RW 0xD9F608)
+				client->setShadowsEnabled(*obj, true); // RW 0x665044
+			}
+		}
 	}
 }
 

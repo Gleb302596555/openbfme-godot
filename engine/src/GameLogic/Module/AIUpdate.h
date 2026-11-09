@@ -189,6 +189,7 @@ public:
 		unsigned rampageTime = 0;
 		bool rampageRequiresAflame = false;
 		unsigned timeToEjectPassengersOnRampage = 0;
+		bool fadeOnPortals = false; ///< RW field table 0xC0F530 offset 0x54, parseBool RW 0x42E558
 	};
 	const CombatSettings &combatSettings() const { return m_combat; }
 	// lane BUILD-3, RW 0x667C76 AIUpdateInterface::findNearestLabeledContactPointOnTarget(target, out, callerPos, preferred): the SpecialContactPoints labels in order;
@@ -258,6 +259,8 @@ public:
 	unsigned nextMoodCheckTime() const { return m_nextMoodCheck; }
 	bool randomlyOffsetMoodCheck() const { return m_randomlyOffsetMoodCheck; } ///< lane TARGET-1: AI + 0x3BC
 	ObjectID orderedMeleeTarget() const { return m_orderedMeleeTarget; }      ///< lane TARGET-1: AI + 0x1A4
+	bool isPortalFaded() const { return m_portalFaded; }                      ///< RW AI + 0x3CB
+	void updatePortalFade();                                                  ///< RW 0x66E726 -> RW 0x664F93
 	// lane SCRIPT-3: AI commands 6 / 7 / 0x32 / 0x33 (RW 0x770FA8 / 0x771072 / 0x77100D / 0x7710D7): the waypoint path states from `waypointId`
 	// (AIWaypointPath.cpp); false when nothing changed
 	bool aiFollowWaypointPath(int waypointId, CommandSourceType source, bool asTeam, bool exact);
@@ -711,6 +714,7 @@ private:
 	// lane MODULES-3
 	bool m_preventPlayerCommands = false; // RW + 0x3C5
 	bool m_scriptLock = false;            // RW + 0x3C6 (TOP20 rampage)
+	bool m_portalFaded = false;           // RW + 0x3CB (Local 16: FadeOnPortals, RW 0x66F03B, xfer RW 0x6679C8)
 	bool m_fastCower = false;             // RW + 0x3C4
 	unsigned m_minCowerTime = 0, m_maxCowerTime = 0;
 	bool m_animalInterface = false, m_animalAfraidOfCastles = true; ///< lane CASTLEAREA-1 (see hasAnimalInterface)
