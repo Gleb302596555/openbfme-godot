@@ -142,10 +142,10 @@ TEST_CASE("LOCAL-16: AIUpdateInterface/FadeOnPortals fades on portal and restore
 	ai->aiMoveToPosition(Coord3D{ 305.0f, 105.0f, 0.0f }, CMD_FROM_PLAYER);
 
 	int portalFadedFrames = 0;
-	bool sawFadeOut = false;
-	bool sawFadeIn = false;
-	bool sawShadowDisable = false;
-	bool sawShadowEnable = false;
+	int fadeOutCount = 0;
+	int fadeInCount = 0;
+	int shadowDisableCount = 0;
+	int shadowEnableCount = 0;
 
 	for (int f = 0; f < 600; ++f)
 	{
@@ -162,23 +162,23 @@ TEST_CASE("LOCAL-16: AIUpdateInterface/FadeOnPortals fades on portal and restore
 			{
 				if (ev.kind == ClientEvent::FADE_OUT)
 				{
-					sawFadeOut = true;
+					++fadeOutCount;
 					CHECK(ev.fadeFrames == 5); // RW 0x664FF2 (5 frames = RW 0xD9F608)
 				}
 				else if (ev.kind == ClientEvent::FADE_IN)
 				{
-					sawFadeIn = true;
+					++fadeInCount;
 					CHECK(ev.fadeFrames == 5); // RW 0x665031 (5 frames = RW 0xD9F608)
 				}
 				else if (ev.kind == ClientEvent::SET_SHADOWS)
 				{
 					if (!ev.shadowsOn)
 					{
-						sawShadowDisable = true; // RW 0x665004
+						++shadowDisableCount; // RW 0x665004
 					}
 					else
 					{
-						sawShadowEnable = true; // RW 0x665044
+						++shadowEnableCount; // RW 0x665044
 					}
 				}
 			}
@@ -192,10 +192,10 @@ TEST_CASE("LOCAL-16: AIUpdateInterface/FadeOnPortals fades on portal and restore
 	}
 
 	CHECK(portalFadedFrames > 0); // tolerance: unit spends several frames traversing the portal waypoint segment according to its speed
-	CHECK(sawFadeOut);
-	CHECK(sawShadowDisable);
-	CHECK(sawFadeIn);
-	CHECK(sawShadowEnable);
+	CHECK(fadeOutCount == 1); // exactly one fade out on portal entry (RW 0x66E726)
+	CHECK(fadeInCount == 1); // exactly one fade in on portal exit (RW 0x66E726)
+	CHECK(shadowDisableCount == 1);
+	CHECK(shadowEnableCount == 1);
 	CHECK_FALSE(ai->isPortalFaded());
 }
 
@@ -349,5 +349,313 @@ TEST_CASE("LOCAL-16: Object/EmotionRange retail unused check and visionRangeOf m
 	if (ShroudManager *sm = w.logic->shroud())
 	{
 		CHECK(sm->visionRange(*u) == vr);
+	}
+}
+
+TEST_CASE("LOCAL-16: horde member of local player removes selection feedback on portal entry and restores on exit (RW 0x665009..0x66506A)")
+{
+	movetest::MoveWorld w(40, 20, kFaderObject);
+	for (int y = 0; y < 20; ++y)
+	{
+		w.terrain.cliff.insert({ 19, y });
+		w.terrain.cliff.insert({ 20, y });
+	}
+	Object *horde = w.spawn("Horde", 55.0f, 105.0f);
+	Object *u = w.spawn("PortalFaderWalker", 55.0f, 105.0f);
+	REQUIRE(horde);
+	REQUIRE(u);
+	u->friend_setContainedBy(horde);
+	Object *owner = w.spawn("Block", 305.0f, 25.0f);
+	w.buildMap();
+
+	Pathfinder &pf = w.ai->pathfinder();
+	auto make = [&](float x) {
+		PathfindWaypoint wp;
+		wp.pos = { x, 105.0f, 0.0f };
+		wp.type = PWAYPOINT_WALK;
+		wp.owner = owner->getID();
+		return pf.createWaypoint(wp);
+	};
+	const int a = make(175.0f), b = make(235.0f), m = make(205.0f), n = make(195.0f);
+	pf.addWaypointLink(a, b);
+	pf.addPortal(a);
+	pf.setWaypointNext(a, m);
+	pf.addWaypointLink(b, a);
+	pf.addPortal(b);
+	pf.setWaypointNext(b, n);
+
+	ClientEventRecorder events(*w.logic);
+	w.logic->setClientHooks(&events);
+	struct Detach { GameLogic &logic; ~Detach() { logic.setClientHooks(nullptr); } } detach{ *w.logic };
+
+	// Mark parent horde drawable as selected in client
+	events.setDrawableSelected(horde->getID(), true);
+	REQUIRE(u->isLocallyControlled());
+	REQUIRE(u->getContainedBy() == horde);
+	REQUIRE(events.isParentDrawableSelected(*u));
+
+	AIUpdateInterface *ai = w.aiOf(u);
+	REQUIRE(ai);
+	ai->aiMoveToPosition(Coord3D{ 305.0f, 105.0f, 0.0f }, CMD_FROM_PLAYER);
+
+	int removeFeedbackCount = 0;
+	int createFeedbackCount = 0;
+	int fadeOutCount = 0;
+	int fadeInCount = 0;
+	std::uint32_t restoredColor = 0;
+
+	for (int f = 0; f < 600; ++f)
+	{
+		w.frames(1);
+		auto batch = events.take(true);
+		for (const auto &ev : batch)
+		{
+			if (ev.object == u->getID())
+			{
+				if (ev.kind == ClientEvent::FADE_OUT)
+				{
+					++fadeOutCount;
+				}
+				else if (ev.kind == ClientEvent::FADE_IN)
+				{
+					++fadeInCount;
+				}
+				else if (ev.kind == ClientEvent::REMOVE_SELECTION_FEEDBACK)
+				{
+					++removeFeedbackCount; // RW 0x672F0D (called via hook on portal fade out)
+				}
+				else if (ev.kind == ClientEvent::CREATE_SELECTION_FEEDBACK)
+				{
+					++createFeedbackCount; // RW 0x672ED1 (called via hook on portal fade in)
+					restoredColor = ev.indicatorColor; // RW 0x6916CD
+				}
+			}
+		}
+
+		const Coord3D p = *u->getPosition();
+		if (p.x > 300.0f && !ai->isMoving())
+		{
+			break;
+		}
+	}
+
+	CHECK(fadeOutCount == 1); // exactly one fade out per traversal
+	CHECK(fadeInCount == 1); // exactly one fade in per traversal
+	CHECK(removeFeedbackCount == 1); // narrow test: called exactly once on portal entry (RW 0x665020)
+	CHECK(createFeedbackCount == 1); // narrow test: called exactly once on portal exit (RW 0x66506A)
+	CHECK(restoredColor == u->getIndicatorColor()); // RW 0x6916CD
+}
+
+TEST_CASE("LOCAL-16: enemy horde member or unit without parent does not trigger selection feedback branch")
+{
+	movetest::MoveWorld w(40, 20, kFaderObject);
+	for (int y = 0; y < 20; ++y)
+	{
+		w.terrain.cliff.insert({ 19, y });
+		w.terrain.cliff.insert({ 20, y });
+	}
+
+	ClientEventRecorder events(*w.logic);
+	w.logic->setClientHooks(&events);
+	struct Detach { GameLogic &logic; ~Detach() { logic.setClientHooks(nullptr); } } detach{ *w.logic };
+
+	auto setupPortals = [&](Object *gateOwner) {
+		Pathfinder &pf = w.ai->pathfinder();
+		auto make = [&](float x) {
+			PathfindWaypoint wp;
+			wp.pos = { x, 105.0f, 0.0f };
+			wp.type = PWAYPOINT_WALK;
+			wp.owner = gateOwner->getID();
+			return pf.createWaypoint(wp);
+		};
+		const int a = make(175.0f), b = make(235.0f), m = make(205.0f), n = make(195.0f);
+		pf.addWaypointLink(a, b);
+		pf.addPortal(a);
+		pf.setWaypointNext(a, m);
+		pf.addWaypointLink(b, a);
+		pf.addPortal(b);
+		pf.setWaypointNext(b, n);
+	};
+
+	SUBCASE("enemy horde member does not call selection feedback hooks (not locally controlled)")
+	{
+		Team *bobTeam = w.teamOf("Bob");
+		REQUIRE(bobTeam);
+		Object *enemyOwner = w.spawn("Block", 305.0f, 25.0f, 0.0f, bobTeam);
+		w.buildMap();
+		setupPortals(enemyOwner);
+
+		Object *enemyHorde = w.spawn("Horde", 55.0f, 105.0f, 0.0f, bobTeam);
+		Object *enemyUnit = w.spawn("PortalFaderWalker", 55.0f, 105.0f, 0.0f, bobTeam);
+		enemyUnit->friend_setContainedBy(enemyHorde);
+		events.setDrawableSelected(enemyHorde->getID(), true);
+		REQUIRE_FALSE(enemyUnit->isLocallyControlled());
+
+		AIUpdateInterface *ai = w.aiOf(enemyUnit);
+		REQUIRE(ai);
+		ai->aiMoveToPosition(Coord3D{ 305.0f, 105.0f, 0.0f }, CMD_FROM_AI);
+
+		int removeFeedbackCount = 0;
+		int createFeedbackCount = 0;
+		int fadeOutCount = 0;
+		int fadeInCount = 0;
+
+		for (int f = 0; f < 600; ++f)
+		{
+			w.frames(1);
+			auto batch = events.take(true);
+			for (const auto &ev : batch)
+			{
+				if (ev.object == enemyUnit->getID())
+				{
+					if (ev.kind == ClientEvent::FADE_OUT)
+					{
+						++fadeOutCount;
+					}
+					else if (ev.kind == ClientEvent::FADE_IN)
+					{
+						++fadeInCount;
+					}
+					else if (ev.kind == ClientEvent::REMOVE_SELECTION_FEEDBACK)
+					{
+						++removeFeedbackCount;
+					}
+					else if (ev.kind == ClientEvent::CREATE_SELECTION_FEEDBACK)
+					{
+						++createFeedbackCount;
+					}
+				}
+			}
+
+			const Coord3D p = *enemyUnit->getPosition();
+			if (p.x > 300.0f && !ai->isMoving())
+			{
+				break;
+			}
+		}
+
+		CHECK(fadeOutCount == 1);
+		CHECK(fadeInCount == 1);
+		CHECK(removeFeedbackCount == 0); // companion test: enemy horde unit does not touch branch
+		CHECK(createFeedbackCount == 0);
+	}
+
+	SUBCASE("object without parent does not call selection feedback hooks")
+	{
+		Object *owner = w.spawn("Block", 305.0f, 25.0f);
+		w.buildMap();
+		setupPortals(owner);
+
+		Object *soloUnit = w.spawn("PortalFaderWalker", 55.0f, 105.0f);
+		REQUIRE(soloUnit->getContainedBy() == nullptr);
+		events.setDrawableSelected(soloUnit->getID(), true);
+
+		AIUpdateInterface *ai = w.aiOf(soloUnit);
+		REQUIRE(ai);
+		ai->aiMoveToPosition(Coord3D{ 305.0f, 105.0f, 0.0f }, CMD_FROM_PLAYER);
+
+		int removeFeedbackCount = 0;
+		int createFeedbackCount = 0;
+		int fadeOutCount = 0;
+		int fadeInCount = 0;
+
+		for (int f = 0; f < 600; ++f)
+		{
+			w.frames(1);
+			auto batch = events.take(true);
+			for (const auto &ev : batch)
+			{
+				if (ev.object == soloUnit->getID())
+				{
+					if (ev.kind == ClientEvent::FADE_OUT)
+					{
+						++fadeOutCount;
+					}
+					else if (ev.kind == ClientEvent::FADE_IN)
+					{
+						++fadeInCount;
+					}
+					else if (ev.kind == ClientEvent::REMOVE_SELECTION_FEEDBACK)
+					{
+						++removeFeedbackCount;
+					}
+					else if (ev.kind == ClientEvent::CREATE_SELECTION_FEEDBACK)
+					{
+						++createFeedbackCount;
+					}
+				}
+			}
+
+			const Coord3D p = *soloUnit->getPosition();
+			if (p.x > 300.0f && !ai->isMoving())
+			{
+				break;
+			}
+		}
+
+		CHECK(fadeOutCount == 1);
+		CHECK(fadeInCount == 1);
+		CHECK(removeFeedbackCount == 0); // companion test: object without parent does not touch branch
+		CHECK(createFeedbackCount == 0);
+	}
+
+	SUBCASE("local horde member with unselected parent horde does not call selection feedback hooks")
+	{
+		Object *owner = w.spawn("Block", 305.0f, 25.0f);
+		w.buildMap();
+		setupPortals(owner);
+
+		Object *horde = w.spawn("Horde", 55.0f, 105.0f);
+		Object *u = w.spawn("PortalFaderWalker", 55.0f, 105.0f);
+		u->friend_setContainedBy(horde);
+		events.setDrawableSelected(horde->getID(), false);
+
+		AIUpdateInterface *ai = w.aiOf(u);
+		REQUIRE(ai);
+		ai->aiMoveToPosition(Coord3D{ 305.0f, 105.0f, 0.0f }, CMD_FROM_PLAYER);
+
+		int removeFeedbackCount = 0;
+		int createFeedbackCount = 0;
+		int fadeOutCount = 0;
+		int fadeInCount = 0;
+
+		for (int f = 0; f < 600; ++f)
+		{
+			w.frames(1);
+			auto batch = events.take(true);
+			for (const auto &ev : batch)
+			{
+				if (ev.object == u->getID())
+				{
+					if (ev.kind == ClientEvent::FADE_OUT)
+					{
+						++fadeOutCount;
+					}
+					else if (ev.kind == ClientEvent::FADE_IN)
+					{
+						++fadeInCount;
+					}
+					else if (ev.kind == ClientEvent::REMOVE_SELECTION_FEEDBACK)
+					{
+						++removeFeedbackCount;
+					}
+					else if (ev.kind == ClientEvent::CREATE_SELECTION_FEEDBACK)
+					{
+						++createFeedbackCount;
+					}
+				}
+			}
+
+			const Coord3D p = *u->getPosition();
+			if (p.x > 300.0f && !ai->isMoving())
+			{
+				break;
+			}
+		}
+
+		CHECK(fadeOutCount == 1);
+		CHECK(fadeInCount == 1);
+		CHECK(removeFeedbackCount == 0); // parent not selected -> no selection feedback changes
+		CHECK(createFeedbackCount == 0);
 	}
 }
