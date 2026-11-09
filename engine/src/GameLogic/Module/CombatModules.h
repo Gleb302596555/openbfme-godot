@@ -102,19 +102,23 @@ private:
 	const FXListDieModuleData *m_data;
 };
 
-// PorcupineFormationBodyModule (RW create 0x65156D, data 0x6515A8, tables 0xC71D68 + 0xC72E18, vtable 0xC73028): ActiveBody plus the pikemen's reflected damage
+// PorcupineFormationBodyModule (RW create 0x65156D, data 0x6515A8, tables 0xC71D68 + 0xC72E18, data vtable 0xC73028,
+// runtime vtables 0xC72FC8 / 0xC72F08 / 0xC72E58). The three fields below are parsed and have no reachable reader in
+// RotWK 2.01 (stop S-7191, docs/ennorath/port56-porcupine-rw.md): both readers sit behind the gate RW 0x8C6244, which
+// returns false on every path (`xor al, al` at 0x8C6266). This class is therefore ActiveBody, as retail is.
 class PorcupineFormationBodyModuleData : public ActiveBodyModuleData
 {
 public:
-	std::string m_damageWeaponTemplate;      ///< RW +0x64 DamageWeaponTemplate (the weapon fired back at an attacker in reach while the horde holds the porcupine stance)
-	std::string m_crushDamageWeaponTemplate; ///< RW +0x68 CrushDamageWeaponTemplate
-	int m_crusherLevelResisted = 0;          ///< RW +0x6C CrusherLevelResisted
+	std::string m_damageWeaponTemplate;      ///< RW +0x64 DamageWeaponTemplate. Reader RW 0x8C6356 is unreachable (S-7191).
+	std::string m_crushDamageWeaponTemplate; ///< RW +0x68 CrushDamageWeaponTemplate. Reader RW 0x8C62FB is unreachable (S-7191).
+	int m_crusherLevelResisted = 0;          ///< RW +0x6C CrusherLevelResisted (parser RW 0x42EB2A stores a byte). Reader RW 0x8C62E4 is unreachable (S-7191).
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
-// RW vtable 0xC73028: attemptDamage RW (B1 PorcupineFormationBodyModuleAttemptDamage.cpp) asks the object's damage check whether the formation is up; if so the PorcupineDamageHelper
-// fires DamageWeaponTemplate at the attacker (status bit 0 clear, not KINDOF PORCUPINE_DAMAGE_EXCLUDED, in the weapon's unmodified range), then the ActiveBody damage runs either way.
-// The formation (HoldGround stance) is not ported (stop S-325), so this runs the ActiveBody damage only.
+// Body interface 0xC72E58 slot 0 is RW 0x8C63C4 and slot 0x9C is RW 0x8C62BB. Both call the gate and, because it returns
+// false, fall through to ActiveBody::attemptDamage (RW 0x8C3FA3) and to "allow crush" (al = 1, the same answer as
+// ActiveBody's slot RW 0x9B501B). No override is ported: a second path would fire weapons retail never fires. xfer is
+// ActiveBody's (RW 0x8C5524 -> 0x8C3388).
 class PorcupineFormationBody : public ActiveBody
 {
 public:
