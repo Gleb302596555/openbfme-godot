@@ -21,8 +21,13 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLaserDraw.h"
 
 #include <cmath>
+#include <cstddef>
 #include <cstring>
 #include <string>
+
+#if defined(__GNUC__)
+#pragma GCC diagnostic ignored "-Winvalid-offsetof" // ModuleData is polymorphic; the rows below are the module data's own members
+#endif
 
 using namespace combattest;
 
@@ -152,8 +157,20 @@ TEST_CASE("PORT-74 W3DLaserDraw: the field table is RW 0xBE1798, 16 rows in the 
 	static const char *const kNames[] = { "NumBeams", "InnerBeamWidth", "OuterBeamWidth", "InnerColor", "OuterColor",
 		"MaxIntensityLifetime", "FadeLifetime", "Texture", "ScrollRate", "Tile", "Segments", "ArcHeight", "SegmentOverlapRatio",
 		"TilingScalar", "FanWidth", "Envelope" };
-	// the offsets are the module data's own (docs/ennorath/PORT74_RW_ANALYSIS.md section 2)
-	static const int kOffsets[] = { 0x20, 0x10, 0x14, 0x08, 0x0C, 0x24, 0x28, 0x2C, 0x18, 0x1C, 0x38, 0x3C, 0x40, 0x44, 0x48, 0x4C };
+	// Each row must write the member of its name. The rows' offsets are the port's own (the ModuleData base of this engine is not the
+	// retail 0x188 bytes), so the check is member for member; RW's absolute offsets are +0x20 NumBeams, +0x10 InnerBeamWidth,
+	// +0x14 OuterBeamWidth, +0x08 InnerColor, +0x0C OuterColor, +0x24 / +0x28 the two lifetimes, +0x2C Texture, +0x18 ScrollRate,
+	// +0x1C Tile, +0x38 Segments, +0x3C ArcHeight, +0x40 SegmentOverlapRatio, +0x44 TilingScalar, +0x48 FanWidth, +0x4C Envelope.
+	const int kOffsets[] = {
+		(int)offsetof(W3DLaserDrawModuleData, m_numBeams), (int)offsetof(W3DLaserDrawModuleData, m_innerBeamWidth),
+		(int)offsetof(W3DLaserDrawModuleData, m_outerBeamWidth), (int)offsetof(W3DLaserDrawModuleData, m_innerColor),
+		(int)offsetof(W3DLaserDrawModuleData, m_outerColor), (int)offsetof(W3DLaserDrawModuleData, m_maxIntensityLifetime),
+		(int)offsetof(W3DLaserDrawModuleData, m_fadeLifetime), (int)offsetof(W3DLaserDrawModuleData, m_textures),
+		(int)offsetof(W3DLaserDrawModuleData, m_scrollRate), (int)offsetof(W3DLaserDrawModuleData, m_tile),
+		(int)offsetof(W3DLaserDrawModuleData, m_segments), (int)offsetof(W3DLaserDrawModuleData, m_arcHeight),
+		(int)offsetof(W3DLaserDrawModuleData, m_segmentOverlapRatio), (int)offsetof(W3DLaserDrawModuleData, m_tilingScalar),
+		(int)offsetof(W3DLaserDrawModuleData, m_fanWidth), (int)offsetof(W3DLaserDrawModuleData, m_envelope)
+	};
 	const FieldParse *t = W3DLaserDrawTables::laser();
 	for (int n = 0; n < 16; ++n)
 	{

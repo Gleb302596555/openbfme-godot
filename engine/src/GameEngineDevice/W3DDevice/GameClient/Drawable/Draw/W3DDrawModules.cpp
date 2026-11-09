@@ -96,11 +96,6 @@ std::vector<std::string> W3DDrawModules::notDrawnClasses()
 				out.push_back("W3DBuffDraw: no model on the buff template itself (RW 0xBE3010 / BFME2 0xBCD178 doDrawModule is a no-op); its ModelName is drawn on buffed units by ClientBuffs (S-4642)");
 				continue;
 			}
-			if (std::string(c.name) == "W3DLaserDraw")
-			{
-				out.push_back("W3DLaserDraw: no model; its beam geometry is computed (S-7197), the SegmentedLine render object and the LaserUpdate that places it are not ported");
-				continue;
-			}
 			if (std::string(c.name) == "W3DTornadoDraw")
 			{
 				out.push_back("W3DTornadoDraw: effect draw, tornado decals/particles not fully drawn (S-113)");
