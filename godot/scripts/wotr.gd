@@ -2131,8 +2131,9 @@ func _take_notices() -> void:
 			game._shell.strategic_hud({"kind": "sync", "notice_clear": true})
 
 
+## RW 0x71AF63: hero names in notices (LW:HeroKilledText RW 0x6BAD23, LW:AttackRepelledItemText RW 0x6BDC7E) read [template + 0x30] DisplayName
 func _hero_label(hero: String) -> String:
-	return "" if hero.is_empty() else str(lw.template_field(game._world, hero, "DisplayNameStrategic"))
+	return "" if hero.is_empty() else str(lw.template_field(game._world, hero, "DisplayName"))
 
 
 ## the notices' gate (RW 0x6B6ACC): nothing queued and nothing on screen; WOTR2 milestone 5: the battle statistics hold the resolver too
