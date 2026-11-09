@@ -124,7 +124,7 @@ draw-модулей клиента (RW `0x8C2C8F..0x8C2CCA`, S-142), модиф�
 Механизм Bookend (`0x53` / `0x4D`) в этой ветке не нужен: обе руинные ветки доходят до него (RW `0x8C2AC9`),
 но это отдельная тема S-342, и в r2 он не портируется.
 
-## 7. `0x8C4CF4` — класс и слот (только анализ, кода нет)
+## 7. `0x8C4CF4` — класс и слот (только анализ, кода нет; коммит `PORT-34.md` шага 3)
 
 Класс: **`SymbioticStructuresBody`** (порт: `engine/src/GameLogic/Module/StructureModules.h`, класс
 `SymbioticStructuresBody`, фильтр `structure bodies: SymbioticStructuresBody*`). Цепочка create → ctor →
