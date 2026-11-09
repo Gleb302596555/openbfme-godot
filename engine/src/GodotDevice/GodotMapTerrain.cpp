@@ -30,6 +30,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/W3DLookupTablePostEffect.h"
 #include "GodotDevice/GodotPostEffects.h"
 #include "GodotDevice/GodotTerrainScorches.h"
+#include "GodotDevice/GodotTerrainTracks.h"
 #include "GodotDevice/GodotW3DMaterial.h"
 
 #include <godot_cpp/classes/array_mesh.hpp>
@@ -194,6 +195,7 @@ const int TERRAIN_RENDER_PRIORITY = 0;
 const int WATER_RENDER_PRIORITY = 1;
 const int RIVER_RENDER_PRIORITY = 2;
 const int ROAD_RENDER_PRIORITY = 3;
+const int TRACK_RENDER_PRIORITY = 5; // RW 0x4E3108: tracks after scorches
 const int SCORCH_RENDER_PRIORITY = 4; // the terrain render's pass order (RW 0x4E2ECD RenderRoads, then RW 0x4E2FD0 RenderScorches)
 
 Ref<ImageTexture> makeRecordsTexture(const TerrainComposite::Records &records)
@@ -955,6 +957,18 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 				errors.push_back(toGodot(e));
 			}
 			root->add_child(scorchLayer);
+			// PORT-69: same alpha/fog shader as scorches, but retail does not apply their depth bias.
+			Ref<ShaderMaterial> trackMat;
+			if (scorchMat.is_valid())
+			{
+				trackMat = scorchMat->duplicate();
+				trackMat->set_render_priority(TRACK_RENDER_PRIORITY);
+				trackMat->set_shader_parameter("depth_bias_scale", 1.0f);
+			}
+			TerrainTrackLayer *trackLayer = memnew(TerrainTrackLayer);
+			trackLayer->set_name("Tracks");
+			trackLayer->setup(*arch, rfs.assetPacks().empty() ? nullptr : &rfs.assetPacks(), TerrainTracksSystem::shadeFrom(tod), trackMat);
+			root->add_child(trackLayer);
 			Dictionary sd;
 			sd["map_scorches"] = mapScorches;
 			sd["texture"] = scorchTex.is_valid();

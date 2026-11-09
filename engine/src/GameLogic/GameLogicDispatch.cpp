@@ -383,7 +383,13 @@ void GameLogicDispatch::setRallyPoint(const GameMessage &m)
 		if (changed) m_logic.noteGlobalRally(m.getPlayerIndex(), a1->location);
 		return;
 	}
-	apply(*obj, a1->location, target);
+	// RW 0x7797FE .. 0x77986E: a rally point set on one structure adds MiscAudio RallyPointSet (+ 0xD8) at the point for the structure's owner
+	// (the "no path" branch with UnableToSetRallyPoint, RW 0x779664 .. 0x7796FD, needs the path test of S-202 and is not ported)
+	if (apply(*obj, a1->location, target))
+	{
+		const Player *owner = obj->getControllingPlayer();
+		m_logic.noteGlobalRally(owner ? owner->getPlayerIndex() : m.getPlayerIndex(), target ? *target->getPosition() : a1->location, false);
+	}
 }
 
 std::vector<std::string> GameLogicDispatch::acceptanceStops() const

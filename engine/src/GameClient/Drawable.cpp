@@ -153,6 +153,7 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 				o.scale = m_scale;
 				o.variation = m_variation; // RandomTexture (RW 0x4C238A)
 				o.buildBones = false; // turrets, barrels and particle bones are not drawn (S-095 / S-097)
+				o.cameraFadeAvailable = static_cast<bool>(services.cameraPosition); // PORT-49: the device camera source is installed before the load
 				// AUDIO-2: Lua CurDrawablePlaySound (RW 0x73529F) plays for this drawable through the installed audio manager
 				const DrawableID drawableId = m_id;
 				o.playSound = [drawableId](const std::string &name) { AudioApi::playSoundForDrawable(name, (std::uint32_t)drawableId); };
@@ -182,9 +183,11 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 				{
 					e.draw.reset(new W3DScriptedModelDraw(*data, services.drawAssets, services.random, &services.host, o));
 				}
+				e.draw->setBaseHouseColor(Render_House_Color_Params(m_houseColor, m_customKind, m_customColors));
 				e.noRotate = data->m_noRotate;
-				const W3DDrawFrame f = e.draw->frame();
-				e.animated = f.trackCount > 0 && f.tracks[0].anim && f.tracks[0].anim->Get_Num_Frames() > 1 && f.tracks[0].mode != W3D_ANIM_MODE_MANUAL;
+				e.hasTrackMarks = !data->m_trackFile.empty(); // lane PORT-69: RW 0x4C4E69 / 0x47A7DE
+				m_hasTrackMarks = m_hasTrackMarks || e.hasTrackMarks;
+				e.animated = e.draw->needsAdvance(); // W3DScriptedModelDraw::needsAdvance: a blend runs whatever track 0's mode (S-090)
 				// the draw runtime's errors and stops are collected by DrawableManager (DrawEntry::draw->errors() / stops()), after the script hooks ran
 			}
 			catch (const std::exception &ex)
@@ -253,8 +256,7 @@ void Drawable::setModelConditionFlags(const ModelConditionFlags &flags)
 		if (e.draw)
 		{
 			e.draw->setModelConditionFlags(flags);
-			const W3DDrawFrame f = e.draw->frame();
-			e.animated = f.trackCount > 0 && f.tracks[0].anim && f.tracks[0].anim->Get_Num_Frames() > 1 && f.tracks[0].mode != W3D_ANIM_MODE_MANUAL;
+			e.animated = e.draw->needsAdvance();
 		}
 	}
 	for (ModelConditionAudioLoopClientBehavior *loop : m_audioLoops)
@@ -332,6 +334,30 @@ void Drawable::setUpgradeTextures(const std::vector<std::pair<std::string, std::
 	}
 }
 
+void Drawable::setHouseColor(std::uint32_t argb)
+{
+	m_houseColor = argb;
+	const auto params = Render_House_Color_Params(argb, m_customKind, m_customColors);
+	for (DrawEntry &e : m_entries)
+	{
+		if (e.draw)
+		{
+			e.draw->setBaseHouseColor(params);
+		}
+	}
+}
+
+void Drawable::recolorRenderObject(const std::string &excludeSubobject, const HouseColorParams &params)
+{
+	for (DrawEntry &e : m_entries)
+	{
+		if (e.draw)
+		{
+			e.draw->recolorRenderObject(excludeSubobject, params);
+		}
+	}
+}
+
 void Drawable::showSubObject(const std::string &name, bool visible, bool permanent)
 {
 	m_services.host.setChunkName(m_template->getName());
@@ -398,13 +424,38 @@ void Drawable::storeModelConditions(const ModelConditionFlags &flags)
 	m_flagsDirty = true; // RW 0x67961F
 }
 
-void Drawable::flushModelConditions(bool hasWeaponTiming, int weaponTimingFrames)
+// Lane PORT-21 (stop S-1463), RW 0x674727 Drawable::setInaudible / RW 0x67896F Drawable::setAudible. RW 0x67472A takes the flag's address (+ 0x44A)
+// and returns when it already holds the value asked for (RW 0x674733 `je` / RW 0x67897B `jne`), so the modules hear one change per transition. The
+// modules of the drawable's client behaviour list (+ 0x154) are asked in list order through their + 0x30 interface table: slot 1 (offset 4) for
+// inaudible (RW 0x674761 `call [edx + 4]`), slot 0 for audible (RW 0x6789AB `call [edx]`); a module without the interface is skipped (RW 0x674752 /
+// RW 0x6789A5).
+void Drawable::setAudible(bool audible)
+{
+	if (m_audible == audible)
+	{
+		return;
+	}
+	m_audible = audible;
+	for (const std::unique_ptr<DrawableModule> &m : m_clientModules)
+	{
+		if (audible)
+		{
+			m->becameAudible();
+		}
+		else
+		{
+			m->becameInaudible();
+		}
+	}
+}
+
+void Drawable::flushModelConditions(bool hasWeaponTiming, int weaponTimingFrames, bool immediate)
 {
 	m_hasWeaponTiming = hasWeaponTiming;
 	m_weaponTimingFrames = weaponTimingFrames;
-	if (!m_flagsDirty)
+	if (!m_flagsDirty && !immediate)
 	{
-		return; // RW 0x6744A3: a drawable that is not dirty is not flushed
+		return; // RW 0x6744A3: a drawable that is not dirty is not flushed without the immediate flag
 	}
 	m_flagsDirty = false;
 	setModelConditionFlags(m_flags);
@@ -422,8 +473,35 @@ bool Drawable::advanceIsLocal() const
 	return true;
 }
 
+// PORT-49, TARGET RW 0x4B52C8 (called by 0x4BF586 from the draw path): the camera distance fade is not an animation. It runs for
+// every model draw, including a static prop whose only state is the constructor's empty idle, and writes the draw's own opacity /
+// hidden state. The position is the drawable's synced drawn position (RW 0x676711); the port advances before syncTransforms, so it
+// is the pose the previous render frame synced (client presentation only, no simulation state).
+void Drawable::advanceCameraFade()
+{
+	if (!m_services.cameraPosition)
+	{
+		return;
+	}
+	Coord3D camera;
+	if (!m_services.cameraPosition(camera))
+	{
+		return;
+	}
+	const int effectsLOD = m_services.effectsLOD ? m_services.effectsLOD() : -1;
+	const Coord3D &pos = *getPosition();
+	for (DrawEntry &e : m_entries)
+	{
+		if (e.draw)
+		{
+			e.draw->updateCameraFade(camera, pos, effectsLOD);
+		}
+	}
+}
+
 void Drawable::advanceAnimationLocal(double elapsedMs)
 {
+	advanceCameraFade(); // PORT-49: before the tracks, as RW 0x4BF586 precedes the track step
 	for (DrawEntry &e : m_entries)
 	{
 		if (e.draw && e.animated)
@@ -440,6 +518,7 @@ void Drawable::advanceAnimationLocal(double elapsedMs)
 void Drawable::advanceAnimation(double elapsedMs)
 {
 	m_services.host.setChunkName(m_template->getName());
+	advanceCameraFade(); // PORT-49: before the tracks, as RW 0x4BF586 precedes the track step
 	for (DrawEntry &e : m_entries)
 	{
 		if (e.draw && e.animated)
@@ -863,8 +942,9 @@ void Drawable::colorFlash(const RGBColor *color, UnsignedInt decayFrames, Unsign
 	}
 	else
 	{
+		// RW 0x675789 .. 0x6757AA: no colour ignores the frame arguments: white with attack 1, decay 4, sustain 1
 		const RGBColor white{ 1.0f, 1.0f, 1.0f };
-		m_colorTintEnvelope.play(&white, attackFrames, decayFrames, sustainAtPeak);
+		m_colorTintEnvelope.play(&white, 1u, 4u, 1u);
 	}
 	m_colorTintEnvelope.setEffective(true);
 }

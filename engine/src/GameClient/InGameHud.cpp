@@ -32,6 +32,7 @@
 #include "Common/Player.h"
 #include "Common/PlayerTemplate.h"
 #include "Common/Science.h"
+#include "Common/Upgrade.h"
 #include "GameLogic/WeaponSetToggle.h"
 #include "GameClient/PalantirCommandUI.h"
 #include "GameClient/MapClassification.h"
@@ -90,6 +91,7 @@ InGameHud::InGameHud(Config config)
 	m_environment.gameText = m_config.gameText;
 	m_input = std::make_unique<HudInput>(m_config.game.logic(), &m_config.game.ai(), m_config.view, m_config.game.commands(), m_config.mouse, m_config.metaMap);
 	m_input->context().commands = &m_config.world.commands();
+	m_input->context().schemes = &m_config.world.schemes();
 	m_input->context().formations = &m_config.world.formations();
 	// lane SPELLRC-1: a right click (not a drag) ends the spell book power waiting for its target, in the GUI command translator as RotWK's does (RW 0x83D7AD);
 	// the right press itself is the world's (the camera's RMB scroll, RW 0x83DB83 is reached only by the click)
@@ -356,6 +358,12 @@ bool InGameHud::boot(std::string *error)
 	m_config.game.drawables().setHeroAttackedHandler([this](ObjectID id) { m_heroSelect->onHeroAttacked(id); });
 	m_config.game.drawables().setDeselectHandler([this](ObjectID id) { m_input->ui().deselectObject(id); }); // TOP20 rampage (RW 0x6257E5)
 	m_input->ui().setSelectHandler([this](ObjectID id) { m_config.game.drawables().flashAsSelected(id); }); // LOCAL-3: RW 0x81DC79 / 0x81E0A7
+	m_input->ui().setTargetFlashHandler([this](ObjectID id) {
+		if (Drawable *d = m_config.game.drawables().findByObject(id))
+		{
+			d->colorFlash(nullptr, 8, 0, 0); // RW 0x81E22B .. 0x81E234: colorFlash(null, 8, 0, 0)
+		}
+	});
 	m_config.game.drawables().setHeroFlashHandler([this](const std::string &name, int frames) { m_heroSelect->flashHeroButton(name, frames); });
 	m_palantirRef->setHeroSelectHandler([this](const std::string &clipPath, bool loaded) {
 		if (!loaded)
@@ -724,6 +732,15 @@ void InGameHud::update(double seconds)
 		local.rankLabelFormat = loadScreenU16ToUtf8(fetchOrMissing(m_config.gameText, "APT:RankLabel"));
 		local.timeRemainingText = loadScreenU16ToUtf8(fetchOrMissing(m_config.gameText, "APT:PalantirTimeRemaining"));
 	}
+	// RW 0x930970: feed the existing Palantir update the context object's cost section.
+	const auto cost = PalantirCommandUI::costModifierInfo(m_input->context(), local.contextObject);
+	local.costVisible = cost.visible;
+	local.costUpgradeDiscount = cost.upgradeDiscount;
+	local.costAmount = cost.amount;
+	if (cost.visible) // RW 0x92FCD9
+	{
+		local.costLabelFormat = loadScreenU16ToUtf8(fetchOrMissing(m_config.gameText, cost.label));
+	}
 	m_palantirRef->setLocalState(local);
 	updateHud6(local.contextObject, local.faction, seconds); // lane HUD-6: the side bar's gate, the radial bubbles, the help box (InGameHudHud6.cpp)
 	m_palantirRef->sync(*m_bar);
@@ -771,6 +788,7 @@ void InGameHud::update(double seconds)
 	m_iconSettings.shroudDrawn = iconSnap && iconSnap->shroud && iconSnap->shroud->displayed;
 	presentBeacons(); // lane CHAT-1
 	presentGlobalRally(); // RW 0x7798D5: the issuing player's feedback after application
+	presentUpgradeComplete(); // RW 0x8A2080 .. 0x8A223B: the issuing player's feedback after upgrade completion
 	m_iconUI.build(m_config.game.logic(), m_config.game.drawables(), m_config.view, m_iconSettings, selectedSet, m_input->ui().mouseoverObject(), m_iconOps);
 	// the order lines (RW 0x4E013B, GameClient/OrderLines.h): from the live game, as the icons; the mode follows the local player's order mode (RW 0x69B1C3)
 	m_orderLinesClock += seconds;
@@ -1783,8 +1801,59 @@ void InGameHud::presentGlobalRally()
 		if (!local || local->getPlayerIndex() != n.playerIndex) continue;
 		// RW 0x7798D5; BFME2 Rva 0x3774AB: message-line label and MiscAudio
 		// RallyPointSet once per successful global command, only for its owner.
-		showMessageLabel("GUI:GlobalRallyPointSet", nullptr);
-		m_input->ui().requestMiscSound("RallyPointSet");
+		if (n.global)
+		{
+			showMessageLabel("GUI:GlobalRallyPointSet", nullptr);
+		}
+		m_input->ui().requestMiscSound("RallyPointSet"); // one structure: RW 0x779822
+	}
+}
+
+void InGameHud::presentUpgradeComplete()
+{
+	// RW 0x8A2080 .. 0x8A223B: the issuing player's feedback after upgrade completion
+	const Player *local = m_config.game.players().getLocalPlayer();
+	for (const GameLogic::UpgradeCompleteNotice &n : m_config.game.logic().upgradeCompleteNotices())
+	{
+		if (n.seq <= m_upgradeCompleteNoticeSeen)
+		{
+			continue;
+		}
+		m_upgradeCompleteNoticeSeen = n.seq;
+		if (!local || local->getPlayerIndex() != n.playerIndex || !n.upgrade)
+		{
+			continue;
+		}
+
+		// RW 0x8A2094 .. 0x8A211C: format "UPGRADE:UpgradeComplete" with upgrade's DisplayName (+0x28)
+		// Missing label yields MISSING: '<label>' (RW 0x6E7AC0 / GameTextSource::fetchOrMissing)
+		const std::u16string formatStr = fetchOrMissing(m_config.gameText, "UPGRADE:UpgradeComplete");
+		const std::u16string nameStr = fetchOrMissing(m_config.gameText, n.upgrade->m_displayName);
+		const std::u16string messageText = InGameChat::formatLine(formatStr, nameStr);
+		m_messageLines.addMessageText(messageText, nullptr, m_messageFrame);
+		++m_guiMessagesShown;
+
+		// RW 0x8A213F .. 0x8A2212: audio / Eva feedback
+		bool feedbackPlayed = false;
+		if (n.upgrade->m_researchCompleteEvaEvent != -1)
+		{
+			AudioApi::reportEva(n.upgrade->m_researchCompleteEvaEvent, &n.position);
+			feedbackPlayed = true;
+		}
+		if (!n.upgrade->m_researchSound.empty())
+		{
+			AudioApi::playSoundForObject(n.upgrade->m_researchSound, n.producerID, n.playerIndex);
+			feedbackPlayed = true;
+		}
+		if (!feedbackPlayed)
+		{
+			// RW 0x8A21C9: default Eva event 4 (EVA_UPGRADE_COMPLETE, "UpgradeComplete")
+			AudioApi::reportEva(4, &n.position);
+		}
+		if (!n.upgrade->m_unitSpecificSound.empty())
+		{
+			AudioApi::playSoundForObject(n.upgrade->m_unitSpecificSound, n.producerID, n.playerIndex);
+		}
 	}
 }
 

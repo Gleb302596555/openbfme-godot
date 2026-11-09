@@ -19,7 +19,7 @@
 | 1 | `EvaAnnounceClientCreate` | 21 | partial | голос Эвы при появлении объекта (кольцо найдено, герой вышел) | Владелец 2026-11-02 слышал голос на кольцо и на Саурона в скриптовой партии (объекты созданы действием CREATE_OBJECT). Спавн через чит-меню голоса не давал: CheatMode не вызывал friend_onBuildComplete; исправлено, тест `cheat1`, ждёт проверки владельца. Сценарий вызывает модуль напрямую и путь до звука не проверяет. СДЕЛАНО В КОДЕ — Codex, 2026-11-01; RW 0x8CDED6 / 0x8CDF07, BFME2 0x4C9A51 / 0x4C9A82; S-7091; тесты и сценарий Ennorath прошли |
 | 2 | `RunOffMapBehavior` | 2 | partial (2026-11-02) | мумак убегает за край карты по точке | ЧАСТИЧНО: сам бег не перенесён (AI-команды 0x38 / 0x41, RW 0x865332 / 0x86539E, S-5308), юнит остаётся на месте. Падение `move retail*` из-за уничтожения объекта в конструкторе исправлено. В моде бездействует: все блоки RequiresSpecificTrigger = Yes |
 
-Отложены, ни один объект мода их не достигает: `CombineHordeSpecialPower`, `RubbleRiseUpdate`, `SpellRechargeModifierUpgrade`, `StructureToppleUpdate`, `SwayClientUpdate`, `ThreatFinderUpdate`, `ToppleUpdate`.
+Отложены, ни один объект мода их не достигает: `RubbleRiseUpdate`, `SpellRechargeModifierUpgrade`, `StructureToppleUpdate`, `SwayClientUpdate`, `ToppleUpdate` (`ThreatFinderUpdate` с 2026-11-07 портирован — PORT 17, issue #73; `CombineHordeSpecialPower` с 2026-11-09 портирован — Local 18, issue #143).
 <!-- ennorath_queue.py priority: end -->
 
 ## Что сняли
@@ -70,8 +70,8 @@
 | shared | `EvacuateDamage` | 6 | ported (2026-11-01) | 13 | 23 |  |
 | shared | `W3DStreakDraw` | 12 | parsed-only | 52 | 33 |  |
 | shared | `W3DLightDraw` | 12 | ported (2026-11-01) | 1 | 37 |  |
-| shared | `ThreatFinderUpdate` | 13 | missing | 0 | 40 |  |
-| ennorath-only | `CombineHordeSpecialPower` | 7 | missing | 0 | 0 |  |
+| shared | `ThreatFinderUpdate` | 13 | ported (PORT 17, issue #73) | 0 | 40 |  |
+| ennorath-only | `CombineHordeSpecialPower` | 7 | ported (Local 18, issue #143) | 0 | 0 |  |
 <!-- ennorath_unique.py: end -->
 
 ## Порядок работы (первые 10 групп)
@@ -116,7 +116,7 @@
 | 6 | `EvacuateDamage` | ported (2026-11-01) | 13 | Arnor, Dwarves, Evilmen, Imladris, Isengard, Men, Mordor, Rohan | 13 (22) | — | боевая башня при попадании указанного оружия (MordorCatapultHumanHeads) выгоняет гарнизон | S-1995, S-5602 | СДЕЛАНО В КОДЕ, тест (test_modgap1_evacuate.cpp), ждёт проверки владельцем: башню с гарнизоном бьёт катапульта Мордора с головами, гарнизон выходит. Паника при большом уроне за 6 кадров и команда 0x2E перенесены (RW 0x8BF076 -> 0x881FF3 / 0x66491A, BFME2 0x8BAF2D -> 0x87ED64 / 0x664B16) |
 | 6 | `ReflectDamage` | ported (2026-10-30) | 5 | Angmar, Arnor, Imladris, Men, Mordor, Rohan | 2 (1) | — | часть урона возвращается нападающему (Король-чародей Ангмара: 30% от входящего урона, по типам CRUSH/SLASH/HERO/URUK/SPECIALIST; Назгул 2: 50%) | — | ВЫПОЛНЕНО: владелец проверил в игре 2026-10-30, работает (test_modgap1_reflect.cpp) |
 | 7 | `SplitHordeSpecialPower` | ported (2026-10-31) | 10 | Isengard, Mordor | — | — | кнопка разделения составного отряда (Изенгард, Мордор) | S-6004 | СДЕЛАНО В КОДЕ, тест test_modgap2_split.cpp, ждёт проверки владельцем |
-| 7 | `CombineHordeSpecialPower` | missing | 0 | — | — | — | обратное слияние отрядов | S-140 | БЛОКИРОВАНО — Claude, 2026-10-30: нужна команда ИИ слияния отрядов и вместимость HordeContain (RW 0x8CCCB4, контейнер слот 0x70, RW 0x66-команда), в порте их нет; MSG_COMBINE_HORDES_WITH_OBJECT без обработчика. Объекты мода до класса не доходят (0 достижимых) |
+| 7 | `CombineHordeSpecialPower` | ported (2026-11-09) | 0 | HaradrimBanner, HaradbannerMod, LothlorienBanner | — | кнопка слияния со знаменем / доставка улучшений повозкой | S-6028 | СДЕЛАНО В КОДЕ (Local 18, issue #143), тест test_local_18.cpp, ждёт проверки владельцем |
 | 8 | `GiantBirdSlowDeathBehavior` | ported (2026-10-30) | 19 | все 11 | 2 (2) | — | падение орлов, назгулов на птицах, дракона: сейчас обычная смерть | S-5606 | СДЕЛАНО В КОДЕ, тест test_modgap1_unique.cpp, ждёт проверки владельцем |
 | 8 | `ClearanceTestingSlowDeathBehavior` | ported (2026-11-02) | 4 | Evilmen, Mordor | 1 (5) | — | выбор варианта смерти с проверкой свободного места и высоты местности | S-653, S-161 | ВЫПОЛНЕНО — владелец проверил в игре 2026-11-02 (башня Мордора, мумак Харада). ЗАНЯТО — агент, 2026-10-31. Обе редакции: RW 0x887191 / BFME2 0x883F19, выбор RW 0x861868; сэмплер RW 0x8E0354 / 0x8E047D (BFME2 0x8DC096 / 0x8DC1BF). Предыдущая версия: `modgap2 clearance*` 5 / 119 прошли, без привязки 4 теста класса падают. После чтения RW 0xAD2CE0 и 0x8E047D устранён ошибочный отказ при ненулевой оси: она не читается при проверке области. Новый тест оси и тест повёрнутой геометрии прошли в обеих редакциях; S-6005 закрыт, повторная сборка и тесты прошли; игровая проверка отложена по просьбе владельца |
 | 8 | `ShipSlowDeathBehavior` | ported (2026-10-31) | 0 | — | 4 (2) | — | тонущие корабли | S-140 | СДЕЛАНО В КОДЕ агентом B, тест test_modgap2_ship_death.cpp, ждёт проверки владельцем |
@@ -157,7 +157,7 @@
 | 13 | `PickupStuffUpdate` | ported (upstream, MODCOMPAT-MOD1) | 347 | все 11 | 21 (3) | 17 | только компьютерный игрок (SkirmishAIOnly=Yes): отряды ИИ подбирают сундуки; 692 объекта в данных, 17 живых в переписи | S-1422 | код upstream, не проверено на Ennorath в игре |
 | 13 | `CommandButtonHuntUpdate` | ported (upstream, MODCOMPAT-MOD1) | 84 | Angmar, Arnor, Dwarves, Elves, Evilmen, Imladris, Isengard, Men, Mordor, Rohan | 8 (3) | 4 | охота по кнопкам (скрипты/ИИ); блок в данных пустой; в переписи 4 живых | S-140 | код upstream, не проверено на Ennorath в игре |
 | 13 | `SpellRechargeModifierUpgrade` | missing | 0 | — | 1 (183) | 2 | улучшение ускоряет перезарядку сил; в переписи 2 живых | S-140 | НЕ НАЧАТО |
-| 13 | `ThreatFinderUpdate` | missing | 0 | — | 30 (47) | — | тактический маркер ИИ | S-140 | НЕ НАЧАТО |
+| 13 | `ThreatFinderUpdate` | ported (PORT 17, issue #73) | 0 | — | 30 (47) | — | тактический маркер ИИ: объект карты становится именованной зоной угрозы, скрипт читает её действием 556 (`SET_COUNTER_TO_THREAT_FINDER_THREAT`, RW 0x7C68AA); условие RW 0x608BCA не перенесено (S-7189) | S-1424 закрыт, S-7189 | СДЕЛАНО В КОДЕ, в игре не проверено |
 | 14 | `TerrainResourceClientBehavior` | ported (2026-11-01) | 26 | все 11 | 4 (113) | — | круги зон ферм и дуги контуров (S-5030); перенесён `TerrainResourceClientBehavior` (RW 0x6549B1 / 0x652B8C / 0x8D0A08 / 0x8D0A58 / 0x8D0A78, BFME2 0x654C56 / 0x652DEB / 0x8CC55A / 0x8CC5AA / 0x8CC5CA), слоты 17/18 `DrawableModule` (`createSelectionFeedback` / `removeSelectionFeedback`, RW 0x672ED1 / 0x672F0D, BFME2 0x672BAB / 0x672BE7) и счётчик пользователей `TerrainResourceFeedback::show` / `hide` (RW 0x8EC271 / 0x8EC449, BFME2 0x8E7B0C / 0x8E7D1D) | S-5030 | СДЕЛАНО В КОДЕ для обеих редакций, тесты в test_ownerfix2.cpp и test_logic_objects.cpp, ждёт проверки владельцем |
 | 14 | `AnimalAIUpdate` | base-ai | 11 | Elves, Imladris, Rohan | 18 (145) | — | животные на картах работают как базовый ИИ; различие не установлено | S-140 | НЕ НАЧАТО |
 | 14 | `HordeWorkerAIUpdate` | base-ai | 2 | Rohan | — | — | строители-отряды Рохана работают как базовый ИИ; различие не установлено | S-140 | НЕ НАЧАТО |

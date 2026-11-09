@@ -41,8 +41,9 @@
 //          default; the initial client seed; the horde draw level global at RW 0xDE3B84+0x1788.
 //   S-095  FXEvent / ParticleSysBone playback, EnteringStateFX (logged), the distance sync for objects whose speed comes from a
 //          container (RW 0x693A1A), the weapon timing source (a callback in the options).
-//   S-096  the camera distance fade (AlphaCameraFade*), BirthFadeTime and StaticSortLevelWhileFading are not applied; the per
-//          animation FadeBeginFrame/FadeEndFrame opacity is.
+//   S-096  BirthFadeTime and StaticSortLevelWhileFading are not applied; the camera distance fade (AlphaCameraFade*, PORT-49,
+//          RW 0x4B52C8) and the per animation FadeBeginFrame/FadeEndFrame opacity are. A camera fade without a device camera
+//          source (Options::cameraFadeAvailable false) is still reported.
 //   S-097  the pose that supplies the pristine bone positions (see W3DModelDrawBones.h).
 //   S-098  how hidden sub objects carry over when the render object is recreated (RetainSubObjects), and the sub object name match.
 
@@ -51,10 +52,12 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawServices.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawBones.h"
+#include "GameEngineDevice/W3DDevice/GameClient/HouseColor.h"
 #include "Libraries/WWVegas/WW3D2/w3dstops.h"
 
 #include <functional>
 #include <limits>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -95,8 +98,8 @@ struct W3DDrawFrame
 	float frame1 = 0.0f;
 	float blendPercentage = 0.0f;
 	bool blending = false;
-	float opacity = 1.0f;                     ///< from FadeBeginFrame / FadeEndFrame (S-096: no camera fade)
-	bool hidden = false;                      ///< FadeBegin/End ramp reached 0
+	float opacity = 1.0f;                     ///< PORT-49 camera fade (RW 0x4B52C8) or FadeBeginFrame / FadeEndFrame
+	bool hidden = false;                      ///< the camera fade or FadeBegin/End ramp reached 0 (PORT-49, RW 0x4B544F)
 	std::vector<std::string> hiddenSubObjects; ///< names hidden by scripts (and the sub objects under them), proto order
 };
 
@@ -119,6 +122,9 @@ struct W3DDrawPoseView
 	const std::vector<std::pair<std::string, std::string>> *textureSwaps = nullptr; ///< the state's `Texture = A B` pairs (stop S-5015); never null after poseView
 	std::uint32_t textureSwapsGeneration = 0; ///< changes whenever *textureSwaps may have changed (a new state, an upgrade texture list)
 	int glow = 0;                                    ///< lane GLOW-1: the module's GlowEnabled / GlowEmissive (module data + 0x128 / + 0x129): 0 none, 1 glows, 2 glows emissive only
+	std::uint32_t renderObjectGeneration = 0;       ///< LOCAL-21: incremented on every render object teardown/recreate (RW 0x4B2C18)
+	const std::map<std::string, HouseColorParams> *meshHouseColors = nullptr; ///< LOCAL-21: per-mesh house colour overrides (RW 0x54BDE0)
+	std::uint32_t materialStateGeneration = 0;     ///< LOCAL-21: incremented on per-mesh material changes or render object recreation
 };
 
 struct W3DScriptedModelDrawOptions
@@ -153,6 +159,9 @@ struct W3DScriptedModelDrawOptions
 	// The drawable's model variation (drawable + 0x364, RW 0x679FEA): an object's drawable gets its creation draw GetGameLogicRandomValue(1, 999)
 	// (RW 0x6288A5 -> 0x6288D3), the other drawables -1 (placement ghosts RW 0x69C6A6). It picks the RandomTexture swaps (RW 0x4C238A).
 	int variation = -1;
+	// PORT-49: true when the device layer installed DrawServices::cameraPosition before this draw was made. The camera distance
+	// fade (RW 0x4B52C8) needs that source; without it the core reports S-096 instead of silently leaving the fields unused.
+	bool cameraFadeAvailable = false;
 };
 
 class W3DScriptedModelDraw : public W3DDrawScriptApi
@@ -169,6 +178,8 @@ public:
 	// Drawable::setModelConditionState: the object's current model condition flags (RW 0x4BF2D8). Both lists are re-matched; see the
 	// header comment for the pending state rule.
 	void setModelConditionFlags(const ModelConditionFlags &flags);
+	// RW 0x4C451D (slot 0x100; BFME2 0x4C4E23): select model state; force bypasses render object reuse (force = 1)
+	bool setModelState(const ModelConditionInfo *state, bool force = false);
 	// RW 0x8B911E -> draw module vslot 0x84: SubObjectsUpgrade's UpgradeTexture list replaces the module's upgrade textures (empty: none)
 	void setUpgradeTextureSwaps(const std::vector<std::pair<std::string, std::string>> &swaps);
 	// lane COMBAT-4: the module data's DependencySharedModelFlags (+ 0xBC, RW table row 0xBE1420): the flags the module's dependents share (RW 0x4BF2D8)
@@ -177,6 +188,13 @@ public:
 	// Advances the animations by `elapsedMs` of render time (RW 0x4BF560). Call it once per render frame; logic frames (5 per second)
 	// only change the flags.
 	void advance(double elapsedMs);
+	// PORT-49: the camera distance fade of the draw path (RW 0x4B52C8..0x4B5494, called by RW 0x4BF586 before the tracks step).
+	// `camera` is the tactical view eye (RW 0xDE447C vslot 0x11C -> 0x487668 -> 0x53B370), `drawable` the drawn position
+	// (RW 0x676711); only XY is read. `effectsLOD` is TheGameLODManager +0x1778 (RW 0xDE3B84, consumer 0x4B5405..0x4B5433);
+	// -1 models the global-null branch. Writes the same opacity / hidden state frame() reports; the animation fade may overwrite it.
+	void updateCameraFade(const Coord3D &camera, const Coord3D &drawable, int effectsLOD);
+	float opacity() const { return m_opacity; }
+	bool hiddenByFade() const { return m_hiddenByFade; }
 	// lane PERF-HD: advance() will only step this draw's own tracks, fade and speed (no state selection, no script): a looping track 0 alone, nothing
 	// pending. Such a draw may advance on the client job pool
 	// lane PERF-HD: how far (in frames) this draw's pose may stray from its horde group's to be drawn with it (W3DHordeModelDraw: its LodOptions
@@ -193,6 +211,54 @@ public:
 		}
 		const int mode = m_tracks[0].mode;
 		return m_tracks[0].anim && !m_tracks[1].anim && !m_pending && (mode == 0 || mode == 1 || mode == 3 || mode == 5);
+	}
+	// lane DRAWADV-1: whether advance() (RW 0x4BF560) would change the track queue, the state or the fade. Retail advances every drawn draw once per
+	// client frame (doDrawModule RW 0x4C72BE, and six ObjectDrawInterface queries, through the lazy wrapper RW 0x4BFAF4; BFME2 0x4C7BC4 -> 0x4C0386)
+	// and has no such test; the port advances only the draws for which this is true (Drawable's entries, re-evaluated on every flag change, and
+	// MapObjectRuntime's map objects, evaluated once). True:
+	// - a blend or a waiting track, whatever track 0's mode: the countdown tests only that tracks 0 and 1 are there (RW 0x4BF8C0 .. 0x4BF8D4), then
+	//   the promotion (RW 0x4BF92D .. 0x4BF9D4); a waiting track moves into an empty track 0 (RW 0x4BF636 .. 0x4BF653);
+	// - a pending state with nothing playing (RW 0x4BF59B .. 0x4BF5D5);
+	// - a fade (FadeBeginFrame / FadeEndFrame): the opacity ramp RW 0x4B5497 (called at RW 0x4BFAE3) reads track 0's frame whatever its mode, and the
+	//   construction update RW 0x4B51B5 moves a MANUAL frame (the Troll Cage's fade-in, trollcage.ini; the opacity is not drawn yet, S-096);
+	// - a stepping track 0 (not MANUAL, more than one frame), or one completing into a pending state (RW 0x4BFA2D);
+	// - a one-frame track 0 that completes at once (ONCE, PLAY_TO_FRAME, ONCE_BACKWARDS: RW 0x4B271C) in a state that restarts (no conditions, or
+	//   RESTART_ANIM_WHEN_COMPLETE: RW 0x4BFA77 .. 0x4BFABC applies the state again, a new pick).
+	// A MANUAL track alone without a fade is not advanced: stepTrack leaves its frame and RW 0x4B271C never completes it. What a skipped advance
+	// still leaves out is registered in S-090 (the tracks' prevFrame / completed reset, the distance speed sync RW 0x4B67D4)
+	bool needsAdvance() const
+	{
+		if (!m_model || !m_curAnimState)
+		{
+			return false; // RW 0x4BF56C / 0x4BF575: advance returns at once
+		}
+		if (m_tracks[1].anim || m_tracks[2].anim)
+		{
+			return true;
+		}
+		const W3DDrawTrack &t = m_tracks[0];
+		if (!t.anim)
+		{
+			return m_pending;
+		}
+		if (m_whichAnim >= 0 && m_whichAnim < (int)m_curAnimState->animations.size())
+		{
+			const W3DAnimationInfo &info = m_curAnimState->animations[(size_t)m_whichAnim];
+			if (info.fadeBeginFrame > 0.0f && info.fadeEndFrame > info.fadeBeginFrame)
+			{
+				return true; // RW 0x4B54D0 .. 0x4B54EB: the ramp's test
+			}
+		}
+		if (t.mode == W3D_ANIM_MODE_MANUAL)
+		{
+			return false;
+		}
+		if (t.anim->Get_Num_Frames() > 1 || m_pending)
+		{
+			return true;
+		}
+		return trackComplete(t, false) && m_whichAnim != -1 &&
+			   (!m_curAnimState->conditions.any() || m_curAnimState->testFlag(W3D_ACF_RESTART_ANIM_WHEN_COMPLETE));
 	}
 
 	W3DDrawFrame frame() const;
@@ -233,6 +299,13 @@ public:
 	bool pendingStatePending() const { return m_pending; }
 	const AnimationStateInfo *pendingTarget() const { return m_pendingTarget; }
 	int renderObjectsCreated() const { return m_renderObjectsCreated; }
+	std::uint32_t renderObjectGeneration() const { return m_renderObjectGeneration; }
+	std::uint32_t materialStateGeneration() const { return m_materialStateGeneration; }
+	const HouseColorParams &baseHouseColor() const { return m_baseHouseColor; }
+	void setBaseHouseColor(const HouseColorParams &params);
+	const std::map<std::string, HouseColorParams> &meshHouseColors() const { return m_meshHouseColors; }
+	// RW 0x4B8701 -> slot +0x1F8 (RW 0x54BDE0): recolours current render object meshes except those matching excludeSubobject
+	void recolorRenderObject(const std::string &excludeSubobject, const HouseColorParams &params);
 	const W3DModelBones &bones() const { return m_bones; }
 	const std::vector<W3DStopHit> &stops() const { return m_stops; }
 	const std::vector<std::string> &errors() const { return m_errors; }
@@ -277,6 +350,11 @@ protected:
 	virtual int maxRandomTextures() const { return 0xFF; }
 	// vtable slot 0x10C (RW 0x4B3766: GameClientRandomValue(0, frames - 1); the horde draw scales it, RW 0x478A74)
 	virtual int randomStartFrame(int frames);
+	// RW 0x4C46C4 (W3DScriptedModelDraw::setModelState): selects base model from variation
+	virtual const std::string &resolveBaseModelName(const ModelConditionInfo *state) const;
+	// Detail LOD level for model geometry: 0 HIGH, 1 MEDIUM, 2 LOW (RW 0x4B24C4)
+	virtual int modelDetailLod() const { return m_options.animationLodNumber; }
+	int variation() const { return m_options.variation; }
 
 private:
 	// The script context the Lua bindings read and write (the structure at [ebp-0x44] of RW 0x4BE587).
@@ -290,6 +368,7 @@ private:
 	};
 
 	void applyModelState(const ModelConditionInfo *state);
+	std::string resolveLodAndStandardModelNames(const std::string &baseName) const;
 	bool select(const AnimationStateInfo *state, bool force);
 	void apply(const AnimationStateInfo *prevState, float fraction, bool restart);
 	int pickAnimation(const AnimationStateInfo &state, int avoidIndex, int limit);
@@ -339,7 +418,12 @@ private:
 
 	const RenderObjPrototype *m_model = nullptr;
 	std::string m_modelName; // lower case, the render object identity
+	std::string m_resolvedModelName; // resolved model name (with LOD and standard suffixes)
 	int m_renderObjectsCreated = 0;
+	std::uint32_t m_renderObjectGeneration = 0;
+	HouseColorParams m_baseHouseColor;
+	std::map<std::string, HouseColorParams> m_meshHouseColors;
+	std::uint32_t m_materialStateGeneration = 0;
 	W3DModelBones m_bones;
 	std::set<int> m_hiddenSubObjects;
 	std::uint32_t m_hiddenGeneration = 0; ///< lane PERF-3: incremented by every change of m_hiddenSubObjects (W3DDrawPoseView::hiddenGeneration)
@@ -380,12 +464,19 @@ public:
 	W3DHordeModelDraw(const W3DHordeModelDrawModuleData &data, int lodLevel, W3DDrawAssets &assets, W3DDrawRandom &random,
 		W3DDrawScriptHost *scripts = nullptr, const Options &options = Options());
 	int lodLevel() const { return m_lodLevel; }
-	float poseShareDelta() const override { return m_lod.maxAnimFrameDelta; } // lane PERF-HD
+	// lane PERF-HD: the instancer may draw members of a group with one member's pose. BFME2's W3DHordeModelDrawManager::ProcessGroup
+	// (RVA 0x00079FBC) keeps a group's leader across client frames and copies its frame and previous frame into every member's tracks, so a
+	// shared pose is the members' own. The instancer regroups every frame and copies nothing back: borrowing a pose up to MaxAnimFrameDelta
+	// frames away (4 for GondorFighter at HIGH) makes a soldier's animation jump whenever its group changes. Until that grouping is ported,
+	// only identical frames share; a negative delta still turns sharing off.
+	float poseShareDelta() const override { return m_lod.maxAnimFrameDelta < 0.0f ? m_lod.maxAnimFrameDelta : 0.0f; }
 
 protected:
 	int maxRandomAnimations() const override { return m_lod.maxRandomAnimations; }
 	int maxRandomTextures() const override { return m_lod.maxRandomTextures; }
 	int randomStartFrame(int frames) override;
+	// RW 0x4789D6 / RW 0x47A1BE: picks variation if allowMultipleModels, else model 0
+	const std::string &resolveBaseModelName(const ModelConditionInfo *state) const override;
 
 private:
 	static int checkedLevel(int lodLevel);

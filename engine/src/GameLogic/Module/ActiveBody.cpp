@@ -31,6 +31,7 @@
 #include "GameLogic/Module/HeroModules.h"
 #include "GameLogic/Module/MoneyEventModules.h"
 #include "GameLogic/ObjectTemplateInfo.h"
+#include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/AI/AIStateMachine.h"
@@ -41,8 +42,11 @@
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/System/EmotionSystem.h"
+#include "GameLogic/ObjectCreationList.h"
+#include "GameLogic/Weapon.h"
 
 #include <cstddef>
+#include <cstdio>
 #include <stdexcept>
 
 namespace
@@ -54,16 +58,26 @@ void parseFXName(INI *ini, void *, void *store, const void *)
 	*static_cast<std::string *>(store) = ini->getNextToken();
 }
 
-// RW 0x8C3F1F: one `DamageCreationList = OCL DamageType [BONE_STATE]` line per row (the tokens are kept; the OCL store is not loaded, S-149)
+// PORT-45, RW 0x8C3F1F: one `DamageCreationList = <OCL> <FXTrigger> [<death side>]` line per record. The ObjectCreationList is resolved
+// through the store at RW 0x8C3F37 -> RW 0x73A368 (RW 0x5EFFE7; a name the store lacks, NONE included, is NULL), the FXTrigger through
+// scanIndexList (RW 0x42B999) over RW 0xDB2AF4 (NONE, CATAPULT_ROCK, TREBUCHET_ROCK) and the optional death side over RW 0xDB2B04
+// (NONE, FRONT_DESTROYED, RIGHT_DESTROYED, BACK_DESTROYED, LEFT_DESTROYED), the last token 0 when absent (RW 0x8C3F68 / 0x8C3F7E).
+// The 12-byte record goes to the data's vector (RW 0x8C3F85 `lea ecx,[ebx+0x58]` + push_back RW 0x6E0A42).
 void parseDamageCreation(INI *ini, void *, void *store, const void *)
 {
-	std::vector<std::vector<std::string>> *list = static_cast<std::vector<std::vector<std::string>> *>(store);
-	std::vector<std::string> tokens;
-	for (const char *t = ini->getNextTokenOrNull(); t; t = ini->getNextTokenOrNull())
+	std::vector<ActiveBodyModuleData::DamageCreation> *list = static_cast<std::vector<ActiveBodyModuleData::DamageCreation> *>(store);
+	ActiveBodyModuleData::DamageCreation entry;
+	const char *token = ini->getNextTokenOrNull(); // RW 0x8C3F2E .. 0x8C3F37: the OCL
+	if (token)
 	{
-		tokens.push_back(t);
+		// RW 0x5EFFE7: the store's list, NULL when it has none of that name (no error)
+		entry.m_oclName = TheObjectCreationListStore && TheObjectCreationListStore->findObjectCreationList(token) ? token : std::string();
 	}
-	list->push_back(std::move(tokens));
+	token = ini->getNextTokenOrNull(); // RW 0x8C3F42 after scanIndexList, the FXTrigger token
+	entry.m_fxTrigger = token ? (unsigned)INI::scanIndexList(token, TheFXTriggerNames) : 0; // RW 0x8C3F47 .. 0x8C3F5B
+	token = ini->getNextTokenOrNull();
+	entry.m_deathSide = token ? (unsigned)INI::scanIndexList(token, TheDamageSideNames) : 0; // RW 0x8C3F63 .. 0x8C3F7C
+	list->push_back(std::move(entry));
 }
 
 // lane OWNERFIX-1: HealingBuffFx (RW 0x73A302, + 0x48) replaces the GameData default the constructor took (RW 0x8C373F); "None" stores none
@@ -253,10 +267,19 @@ void ActiveBody::evaluateVisualCondition()
 //   tier B offsets-only): the object's ExperienceTracker (+ 0x26C) is reset (RW 0x79DA66), the upgrades go when RemoveUpgradesOnDeath
 //   (data + 0x50 -> rva0028DA28), the command points are released (0x68E114 = removeFromPlayerCommandPoints) and the attribute modifier pool's
 //   entries are cleared (rva00298E6A);
-//   leaving it (new < 3, old == 3): the template geometry returns, the footprint is re-entered, NO_COLLISIONS is cleared (RW 0x8C2D87..0x8C2DCC).
-// A WALK_ON_TOP_OF_WALL template (KindOf 60, byte 0x10F bit 0x10) runs a "Bookend" variant (BOOKENDING status 0x53, CAN_NOT_WALK_ON 0x4D) that is a wall's (S-342).
-// NOT PORTED (S-342): the geometry height (the geometry is the template's, an Object has none of its own), the upgrade removal, the attribute modifier
-// pool clear and the Damaged / ReallyDamaged attribute modifiers, the damage FX transitions of the tail (RW 0x8C2C64..0x8C2EF1) and the Bookend of walls.
+//   leaving it (new < 3, old == 3): the template geometry height returns (RW 0x8C2D87..0x8C2DAE -> 0xAD1920 + 0x68B2CB), the footprint is re-entered, NO_COLLISIONS is cleared (RW 0x8C2DB3..0x8C2DCC).
+// Port 34 r2: the rubble heights of the two template classes are two branches of ONE block, as in RW. A WALK_ON_TOP_OF_WALL template (KindOf 60, byte 0x10F
+// bit 0x10, RW 0x8C2A8C) branches off at RW 0x8C2A93:
+//   entering RUBBLE (RW 0x8C2A99: [body + 0x30] == 3, the state just written) sets GlobalData DefaultStructureRubbleHeight (RW 0x8C2AB3..0x8C2AC4, 0x68B2CB)
+//   ALWAYS — the template's StructureRubbleHeight byte is never read, and the body's own damage state field (+ 0x30) is left alone;
+//   leaving it (RW 0x8C2A9F: edi, the old state, == 3) calls RW 0x699349 with the TEMPLATE's GeometryInfo (lea [tt + 0xA0]): the whole GeometryInfo becomes the
+//   template's again (shape flags and heights too, the shortest way out of rubble).
+// Only then does the common tail run (RW 0x8C2AC9: push the object into RW 0x6E85FB, the pathfind map; the two statuses) — not twice. Every other structure
+// (RW 0x8C2A93 -> 0x8C2CCF) still takes the template's byte when > 0, else GlobalData, on enter (RW 0x8C2DDA..0x8C2E13) and the template's max height on exit
+// (RW 0x8C2D87..0x8C2DAE).
+// NOT PORTED (S-342): the Bookend machinery of walls — status BOOKENDING 0x53 and CAN_NOT_WALK_ON 0x4D with the body state forced to 0, the BookendUpdate
+// module search at RW 0x8C2CEF..0x8C2D82, the StatusFX / StatusDamageFX blocks RW 0x8C2B07 / 0x8C2B28 / 0x8C2C04, the client draw-module search
+// RW 0x8C2C8F..0x8C2CCA (S-142) and the attribute modifiers at RW 0x8C2C64..0x8C2EF1 — and the upgrade removal / attribute pool clear of RW 0x8C1BB7.
 // The model conditions DAMAGED / REALLYDAMAGED / RUBBLE: internalChangeHealth calls the visual update (vslot 0x94, RW 0x8C32A8) after the state changed, not while the
 // object is UNDER_CONSTRUCTION (unless dead). RW 0x8C1D53 -> Object RW 0x6903B6 sets the state's flag and clears the other two.
 void ActiveBody::updateDamageState(bool initial)
@@ -281,10 +304,18 @@ void ActiveBody::updateDamageState(bool initial)
 	{
 		return;
 	}
+	static const int kWalkOnTopOfWall = CombatNames::kindOf("WALK_ON_TOP_OF_WALL");
+	const bool nonWallStructure = !obj.isKindOf((unsigned)kWalkOnTopOfWall);
 	AIWorld *world = obj.logic().aiWorld();
 	const bool mapReady = world && world->mapReady() && !initial;
 	if (now == BODY_RUBBLE && old != BODY_RUBBLE)
 	{
+		// Port 34 r2, RW 0x8C2A99 -> 0x8C2AB3: a wall's rubble is GameData's height — the template's StructureRubbleHeight byte is never read
+		const ThingTemplate *tt = obj.getTemplate();
+		const std::int8_t tplRubble = tt ? tt->structureRubbleHeight() : 0;
+		const float rubbleHeight = nonWallStructure && tplRubble > 0 ? static_cast<float>(tplRubble)
+			: obj.logic().settings().defaultStructureRubbleHeight; // non-wall: RW 0x8C2DDA..0x8C2E13, the byte when > 0 else GameData + 0xAE4
+		obj.setGeometryMaxHeight(rubbleHeight); // RW 0x68B2CB
 		if (mapReady)
 		{
 			world->removeObjectFromPathfindMap(obj);
@@ -301,6 +332,20 @@ void ActiveBody::updateDamageState(bool initial)
 	}
 	else if (old == BODY_RUBBLE && now != BODY_RUBBLE)
 	{
+		if (nonWallStructure)
+		{
+			// Port 34, RW 0x8C2D87..0x8C2DAE: (&tt->geometryInfo)->getMaxHeightAbovePosition() (RW 0xAD1920 on tt + 0xA0) -> obj->setGeometryMaxHeight (RW 0x68B2CB)
+			if (const ThingTemplate *tt = obj.getTemplate())
+			{
+				const float restoredHeight = ObjectGeometry::maxHeightAbovePosition(ObjectGeometry::cachedShapesOf(*tt->getFinalOverride()));
+				obj.setGeometryMaxHeight(restoredHeight);
+			}
+		}
+		else if (const ThingTemplate *tt = obj.getTemplate())
+		{
+			// Port 34 r2, RW 0x8C2A9F..0x8C2AAC: a wall comes out of rubble as the template's whole GeometryInfo (RW 0x699349 on tt + 0xA0)
+			obj.setGeometryInfoFrom(*tt->getFinalOverride());
+		}
 		if (mapReady)
 		{
 			world->removeObjectFromPathfindMap(obj);
@@ -785,6 +830,73 @@ void ActiveBody::cheer()
 	}
 }
 
+// PORT-66 (issue #180): RW 0x8C1E4E, the body interface's slot 0x2C. The branches of RW 0x8C1E4E, read linearly:
+//   * the seven templates are looked up once (static guards 0xDE9B04 bits 1, 2, 4, 8, 0x10, 0x20, 0x40; RW 0x5F889B findTemplate with the GlobalData
+//     pointers +0x9F4 fire small, +0xA00 fire medium, +0xA0C fire large, +0xA18 smoke small, +0xA24 smoke medium, +0xA30 smoke large, +0xA3C aflame;
+//     the cached pointers 0xDE9B00, 0xDE9AFC, 0xDE9AF8, 0xDE9AF4, 0xDE9AF0, 0xDE9AEC, 0xDE9AE8);
+//   * RW 0x8C1FD3: the object's status 0xA (RW 0x44DDEC, `OBJECT_STATUS_AFLAME`) picks the entry templates: aflame -> fire small = fire medium,
+//     fire medium = fire large, fire large = fire large, smoke small / medium / large = fire small, count modifier 2 (RW 0x8C1FEF .. 0x8C2000);
+//     else the plain templates and the modifier 1 (RW 0x8C2002 .. 0x8C202A);
+//   * RW 0x8C2036: deleteAllParticleSystems, the body's primary vslot 0x50 (RW 0x8C258F);
+//   * then, in this order, createParticleSystems (primary vslot 0x4C, RW 0x8C23EA) for the Prefix +0x9F0 / +0x9FC / +0xA08 / +0xA14 / +0xA20 / +0xA2C with
+//     the swapped template and the cap Auto*Max * the modifier (RW 0x8C203D .. 0x8C20F2, the imul at each);
+//   * RW 0x8C20F5: the status test again; aflame -> one more call for the Prefix +0xA38, the aflame template and AutoAflameParticleMax * 2 (RW 0x8C2107
+//     .. 0x8C2126).
+// createParticleSystems (RW 0x8C23EA) asks the object for the numbered bones of the prefix (RW 0x68C650 getMultiLogicalBonePosition with start index 1,
+// at most 16; a NULL template answers nothing at RW 0x8C2401), caps the count at the bones found, then per system draws a CLIENT random bone (RW 0x6D32E4,
+// an unused bone index each) and makes createParticleSystem (RW 0x5F526A), setPosition at the bone (RW 0x5F2F2D), attachToObject (RW 0x5F32D7) and keeps
+// the ID on the body's list (+0xC8). The bones and the systems are the client's, as FX-4's TransitionDamageFX systems are (S-340/S-345 called them the
+// client's): the logic reads the bones (template data and logic state, the launch bone provider) and emits one event the client plays.
+void ActiveBody::updateBodyParticleSystems()
+{
+	Object *obj = getObject();
+	const GameLogicSettings &set = obj->logic().settings();
+	// RW 0x8C1FD6: status 0xA of the object (TheObjectStatusNames[10] AFLAME, the same status FlammableUpdate sets on ignition)
+	const bool aflame = obj->testStatus(10);
+	const GameLogicSettings::AutoBodyParticles *fire[3] = { &set.autoFireSmall, &set.autoFireMedium, &set.autoFireLarge };
+	const GameLogicSettings::AutoBodyParticles *smoke[3] = { &set.autoSmokeSmall, &set.autoSmokeMedium, &set.autoSmokeLarge };
+	// the swapped template of each entry (RW 0x8C1FDD .. 0x8C202F), the aflame mapping above
+	const std::string *systems[7];
+	systems[0] = &(aflame ? set.autoFireMedium.system : set.autoFireSmall.system);
+	systems[1] = &(aflame ? set.autoFireLarge.system : set.autoFireMedium.system);
+	systems[2] = &set.autoFireLarge.system;
+	systems[3] = &(aflame ? set.autoFireSmall.system : set.autoSmokeSmall.system);
+	systems[4] = &(aflame ? set.autoFireSmall.system : set.autoSmokeMedium.system);
+	systems[5] = &(aflame ? set.autoFireSmall.system : set.autoSmokeLarge.system);
+	systems[6] = &set.autoAflame.system;
+	const GameLogicSettings::AutoBodyParticles *entries[7] = { fire[0], fire[1], fire[2], smoke[0], smoke[1], smoke[2], &set.autoAflame };
+	const int countModifier = aflame ? 2 : 1; // RW 0x8C1FF7 / 0x8C202F
+	static const std::string kNoName; // the event carries its template names in particleSystems, not an FXList name
+	FXEvent e = FXEventLog::objectEvent(FXEvent::BODY_PARTICLE_SYSTEMS, "BodyParticles", obj->logic().getFrame(), kNoName, *obj);
+	// the count of the calls: six, then the seventh only while aflame (RW 0x8C20F5)
+	const int calls = aflame ? 7 : 6;
+	ProjectileLaunchOffsets *provider = obj->logic().combat().launchOffsets();
+	e.particleSystems.clear();
+	for (int i = 0; i < calls; ++i)
+	{
+		FXEvent::BodyParticleEntry entry;
+		entry.system = *systems[i];
+		entry.maxSystems = entries[i]->maxSystems * countModifier;
+		// RW 0x8C23EA: no template (NULL in retail) -> nothing at all, not even the bone query
+		if (!entry.system.empty() && entry.maxSystems > 0)
+		{
+			float bones[16][12];
+			const int n = provider ? provider->multiLogicalBones(*obj, entries[i]->prefix, obj->getModelConditionBits(), 16, bones) : 0;
+			for (int b = 0; b < n; ++b)
+			{
+				FXEvent::BodyParticleBone bone;
+				char name[300];
+				std::snprintf(name, sizeof(name), "%s%02d", entries[i]->prefix.c_str(), b + 1); // RW 0x672A73: prefix + 01, 02, ...
+				bone.name = name;
+				bone.position = Coord3D{ bones[b][3], bones[b][7], bones[b][11] }; // the 3x4 bone matrix's translation, model space
+				entry.bones.push_back(std::move(bone));
+			}
+		}
+		e.particleSystems.push_back(std::move(entry));
+	}
+	obj->logic().fxEvents().emit(e);
+}
+
 // TOP20 #20, RW 0x8C1E18 (ActiveBody primary vslot 8, onDelete): an object deleted while not effectively dead (+ 0x458 bit 0) and neither PROJECTILE nor
 // INERT cheers its enemies (vslot 0x58), then the body's particle systems go (vslot 0x50; the port keeps none on the body)
 void ActiveBody::onDelete()
@@ -800,43 +912,66 @@ void ActiveBody::onDelete()
 // field, resolved by name in TheDamageFXStore; RW keeps the pointer of the set in use); none: no FX. A hit of the type played last (+0x3C) while the frame is
 // below +0x38 is throttled. Else RW 0x76256A: the FXList is getDamageFX(type, actual damage dealt, source) (RW 0x76226B: row 0, amount 0 gives none,
 // amount >= AmountForMajorFX the major list) and plays as doFXObj(fx, this object, the source) through RW 0x4B1B5A; when one played, +0x3C = the type and
-// +0x38 = now + ThrottleTime(type) (RW 0x76225D, row 0). NOT PORTED (stop S-681): the loop after it (body + 0xE0: per damage type ObjectCreationLists created
-// through RW 0x5F0126) - no OCL store exists yet.
+// +0x38 = now + ThrottleTime(type) (RW 0x76225D, row 0).
+// PORT-45: RW 0x8C2F75 .. 0x8C2FB8 after that block: the body's copy of the DamageCreationList (body + 0xE0, filled from module data + 0x58 by the
+// constructor RW 0x8C3841) is walked entry by entry (12 bytes); an entry whose +0x04 equals the hit's DamageInfo +0x2C (input + 0x28, the weapon's
+// FXTrigger), whose +0x08 is 0 and whose +0x00 is not NULL creates its ObjectCreationList on this object (RW 0x5F0126, primary = the object, secondary
+// position 0, lifetime 0). The block is not part of the FX branch: every return of it lands on RW 0x8C2F75, so a body without DamageFX, a throttled hit
+// and an empty FX row all still create their lists.
 void ActiveBody::doDamageFX(const DamageInfo &info)
 {
 	Object &obj = *getObject();
+	GameLogic &logic = obj.logic();
+	// RW 0x8C2F75: the damage-creation loop below is reached from every path of the FX block (it starts after the `je` the missing
+	// DamageFX / throttled hit takes), so it runs for every hit doDamageFX is called with
+	const auto createDamageCreations = [&]() {
+		if (!TheObjectCreationListStore || m_data->m_damageCreationList.empty())
+		{
+			return; // the names were resolved against the store at parse time (RW 0x73A368); no store, no list
+		}
+		for (const ActiveBodyModuleData::DamageCreation &entry : m_data->m_damageCreationList) // RW 0x8C2F7D .. 0x8C2FB8
+		{
+			if (entry.m_fxTrigger != (unsigned)info.m_input.m_fxTrigger) // RW 0x8C2F88 cmp [record+4], [DamageInfo+0x2C]
+			{
+				continue;
+			}
+			if (entry.m_deathSide != 0) // RW 0x8C2F92 / 0x8C2F95: only the NONE side here
+			{
+				continue;
+			}
+			const ObjectCreationList *ocl = entry.m_oclName.empty() ? nullptr : TheObjectCreationListStore->findObjectCreationList(entry.m_oclName); // RW 0x8C2F97
+			if (!ocl)
+			{
+				continue;
+			}
+			ocl->create(logic, &obj, *obj.getPosition(), nullptr, 0); // RW 0x8C2FA4 -> RW 0x5F0126 with the object as the primary
+		}
+	};
 	const ThingTemplate *tt = obj.getTemplate();
 	const ArmorTemplateSet *set = tt ? FindArmorTemplateSet(tt->armorTemplateSets(), obj.armorSetFlags()) : nullptr;
-	if (!set || !TheDamageFXStore || !FXEventLog::isFXName(set->m_damageFXName))
-	{
-		return;
-	}
-	const DamageFX *dfx = TheDamageFXStore->findDamageFX(set->m_damageFXName);
-	if (!dfx)
-	{
-		return; // RW 0x73AF3F: an unknown DamageFX name is NULL
-	}
-	GameLogic &logic = obj.logic();
+	const DamageFX *dfx = set && TheDamageFXStore && FXEventLog::isFXName(set->m_damageFXName) ? TheDamageFXStore->findDamageFX(set->m_damageFXName) : nullptr;
 	const int type = info.m_input.m_damageFXOverride;
-	if (type < 0 || type >= DAMAGEFX_TYPE_COUNT)
+	if (!dfx || type < 0 || type >= DAMAGEFX_TYPE_COUNT) // RW 0x8C2F1E / 0x8C2F3F: no DamageFX, an unknown name or type goes to the loop
 	{
+		createDamageCreations();
 		return;
 	}
 	const UnsignedInt now = logic.getFrame();
-	if (type == m_lastDamageFXType && now < m_damageFXThrottleUntil)
+	if (type == m_lastDamageFXType && now < m_damageFXThrottleUntil) // RW 0x8C2F20 .. 0x8C2F34: the throttled hit goes to the loop
 	{
+		createDamageCreations();
 		return;
 	}
 	const std::string &fx = dfx->getDamageFX(type, info.m_output.m_actualDamageDealt);
-	if (!FXEventLog::isFXName(fx))
+	if (FXEventLog::isFXName(fx)) // RW 0x8C2F53 / 0x8C2F59: a type whose row is empty still falls through to the loop
 	{
-		return;
+		FXEvent e = FXEventLog::objectEvent(FXEvent::OBJECT_FX, "DamageFX", now, fx, obj);
+		e.secondary = logic.findObjectByID(info.m_input.m_sourceID) ? info.m_input.m_sourceID : (ObjectID)INVALID_ID;
+		logic.fxEvents().emit(e);
+		m_lastDamageFXType = type;
+		m_damageFXThrottleUntil = now + dfx->getThrottleTime(type);
 	}
-	FXEvent e = FXEventLog::objectEvent(FXEvent::OBJECT_FX, "DamageFX", now, fx, obj);
-	e.secondary = logic.findObjectByID(info.m_input.m_sourceID) ? info.m_input.m_sourceID : (ObjectID)INVALID_ID;
-	logic.fxEvents().emit(e);
-	m_lastDamageFXType = type;
-	m_damageFXThrottleUntil = now + dfx->getThrottleTime(type);
+	createDamageCreations();
 }
 
 // lane XP-1: RW 0x8C1CD5 setMaxHealth: the maximum and the initial health become newMax; type 1 changes the health by (health / oldMax) * newMax - health,

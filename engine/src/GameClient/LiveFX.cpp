@@ -173,7 +173,147 @@ LiveFXObject eventPrimary(GameLogic &logic, Object *obj, const FXEvent &e)
 }
 } // namespace
 
-LiveFX::LiveFX(LiveGame &game, FXPlayback &playback, int effectsLod) : m_game(game), m_effectsLod(effectsLod), m_mapWeather(game.logic().settings().snowy ? 1 : 0), m_playback(playback)
+WadingParticleSysUpdater::WadingParticleSysUpdater(FXParticleSystem::ParticleSystemManager &particles) : m_particles(particles) {}
+
+WadingParticleSysUpdater::~WadingParticleSysUpdater()
+{
+	clear();
+}
+
+void WadingParticleSysUpdater::update(Drawable &drawable, const TerrainPathfindSource &terrain, std::set<std::string> &unresolved)
+{
+	const DrawableID id = drawable.getID();
+	if (!drawable.getModelConditionFlags().test(kWadingConditionBit))
+	{
+		removeDrawable(id);
+		return;
+	}
+
+	const Coord3D position = *drawable.getPosition();
+	const std::string noSystem;
+	const std::vector<DrawEntry> &entries = drawable.entries();
+	for (size_t i = 0; i < entries.size(); ++i)
+	{
+		const W3DModelDrawModuleData *data = dynamic_cast<const W3DModelDrawModuleData *>(entries[i].data);
+		updateEntry(Key{ id, i }, data ? data->m_wadingParticleSys : noSystem, position, terrain, unresolved);
+	}
+	// Entries are fixed for a live Drawable, but retire any stale key if a synthetic/rebuilt Drawable has fewer entries.
+	for (auto it = m_systems.lower_bound(Key{ id, entries.size() }); it != m_systems.end() && it->first.first == id;)
+	{
+		const Key stale = it->first;
+		++it;
+		stop(stale);
+	}
+}
+
+void WadingParticleSysUpdater::updateEntry(const Key &key, const std::string &templateName, const Coord3D &position, const TerrainPathfindSource &terrain,
+	std::set<std::string> &unresolved)
+{
+	if (templateName.empty() || AsciiStringUtil::compareNoCase(templateName, "None") == 0)
+	{
+		stop(key);
+		return;
+	}
+
+	// W3DModelDraw reads the water height through W3DTerrainLogic's slot +0x4C (RW 0x67DAE6), starting with the drawable's Z.
+	// A false result must not use the returned ground height: a dry-land WADING flag produces no water effect.
+	float waterZ = position.z;
+	if (!terrain.isUnderwater(position.x, position.y, &waterZ, nullptr))
+	{
+		stop(key);
+		return;
+	}
+
+	FXParticleSystem::ParticleSystem *system = nullptr;
+	auto existing = m_systems.find(key);
+	if (existing != m_systems.end())
+	{
+		system = m_particles.findParticleSystemByID(existing->second.id);
+		if (existing->second.templateName != templateName || !system || system->isDestroyed())
+		{
+			stop(key);
+			system = nullptr;
+		}
+	}
+	if (system)
+	{
+		system->setPosition(Coord3D{ position.x, position.y, waterZ });
+		return;
+	}
+
+	const FXParticleSystem::ParticleSystemTemplate *particleTemplate = m_particles.templates().findTemplate(templateName);
+	if (!particleTemplate)
+	{
+		unresolved.insert(templateName);
+		return;
+	}
+	const FXParticleSystem::ParticleSystemID id = m_particles.createParticleSystem(particleTemplate, true);
+	system = m_particles.findParticleSystemByID(id);
+	if (!system)
+	{
+		return;
+	}
+	system->setPosition(Coord3D{ position.x, position.y, waterZ });
+	m_systems.emplace(key, Instance{ id, templateName });
+}
+
+void WadingParticleSysUpdater::removeDrawable(DrawableID id)
+{
+	auto it = m_systems.lower_bound(Key{ id, 0 });
+	while (it != m_systems.end() && it->first.first == id)
+	{
+		m_particles.destroyParticleSystemByID(it->second.id);
+		it = m_systems.erase(it);
+	}
+}
+
+void WadingParticleSysUpdater::prune(const std::function<bool(DrawableID)> &drawableExists)
+{
+	for (auto it = m_systems.begin(); it != m_systems.end();)
+	{
+		if (!drawableExists(it->first.first))
+		{
+			m_particles.destroyParticleSystemByID(it->second.id);
+			it = m_systems.erase(it);
+		}
+		else
+		{
+			++it;
+		}
+	}
+}
+
+void WadingParticleSysUpdater::clear()
+{
+	for (const auto &entry : m_systems)
+	{
+		m_particles.destroyParticleSystemByID(entry.second.id);
+	}
+	m_systems.clear();
+}
+
+FXParticleSystem::ParticleSystemID WadingParticleSysUpdater::systemId(DrawableID id, size_t entry) const
+{
+	const auto it = m_systems.find(Key{ id, entry });
+	return it == m_systems.end() ? FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID : it->second.id;
+}
+
+void WadingParticleSysUpdater::stop(const Key &key)
+{
+	const auto it = m_systems.find(key);
+	if (it != m_systems.end())
+	{
+		m_particles.destroyParticleSystemByID(it->second.id);
+		m_systems.erase(it);
+	}
+}
+
+LiveFX::LiveFX(LiveGame &game, FXPlayback &playback, int effectsLod)
+	: m_game(game)
+	, m_effectsLod(effectsLod)
+	, m_mapWeather(game.logic().settings().snowy ? 1 : 0)
+	, m_playback(playback)
+	, m_wadingParticleSystems(m_playback.particles())
 {
 	m_playback.setWorld(this);
 	m_game.logic().fxEvents().setSink(this);
@@ -263,13 +403,26 @@ int LiveFX::maxCellsBurning() const
 std::vector<std::string> LiveFX::stops()
 {
 	std::vector<std::string> out = FXEventLog::stops();
-	out.push_back("[S-682] live FX: bone positions of ParticleSysBone systems and fire FX come from the model's bind pose (FollowBone systems do not follow the "
-			 "animation); ParticleSysBone FXTrigger / Persist / PersistID / HouseColor are ignored and OnlyIfOnWater systems are not created; the shooter's "
-			 "stealth (RW 0x694C0D, NULL viewer) is read when the effect plays, not at the shot (lane STEALTH-1); muzzle flashes and recoil are not drawn; isWater is false (the shroud: S-4971)");
+	// lane PORT-50 (issue #154): RW 0x4C7795 -> RW 0x4B6D5F moves a ParticleSysBone system with its bone, so the bind-pose only
+	// sentence of this stop is retired for the draws that ask for it; S-7194 lists the parts of that walk that stay INFERENCE.
+	out.push_back("[S-682] live FX: ParticleSysBone systems follow their animated bone only for a draw module whose ParticlesAttachedToAnimatedBones is on "
+					  "and only where the draw's pose defines the bone (lane PORT-50: RW 0x4C7795 -> RW 0x4B6D5F, S-7194). The fire FX of a weapon, the FXEvent"
+					  " bones and the pristine bones still come from the model's bind pose; ParticleSysBone FXTrigger / Persist / PersistID / HouseColor are"
+					  " ignored and OnlyIfOnWater systems are not created; WadingParticleSys uses the PATH-1 water-surface query (PORT-48); the shooter's stealth (RW 0x694C0D, NULL viewer) is read when the effect plays,"
+					  " not at the shot (lane STEALTH-1); muzzle flashes and recoil are not drawn; isWater is false (the shroud: S-4971)");
 	out.push_back("[S-686] TransitionDamageFX: runs in the logic since lane FX-4 (RW 0x8BE077: the FXLists, OCLs and attached particle systems of a worse damage "
 				  "state, the sub objects of every state); not ported: the rubble neighbours (RW 0x8BDF08, S-342), the OCL's secondary position (S-530), an OCL "
 				  "call without a damage source (retail reads an invalid pointer); the drawable of RW 0x8BDDAC is taken as present; FXList and particle system "
 				  "names are not checked at parse time (TransitionDamageFX::stops() counts the calls)");
+	out.push_back("[S-687] FXList nugget sinks (lane FEAT-BLDFX-1): TerrainScorch (RW 0x5E0045 -> donor BFME2 0x67EA3; the 500-entry buffer and the 3 x 3 atlas), DynamicDecal "
+				  "(RW 0x5E05AB -> donor BFME2 0x1E0E43 / 0x330A37 / 0x10C785), LightPulse (RW 0x5DFAA3 -> donor BFME2 0x4423C -> 0x6DF81 / 0x6DE3D) and "
+				  "CameraShakerVolume (RW 0x5DFE90 -> donor BFME2 0x65DAD -> 0x65B09) are presented by "
+				  "the client (GameClient/ClientEffects.h, the device's terrain decals, the object shaders' four dynamic lights); INFERENCE: the light pulse adds a "
+				  "linear-attenuation point light to the object shading (the D3D light's exact attenuation scale was not decoded), at most four pulses reach the "
+				  "shader at once, and the camera shaker's random fudge uses a private fixed-seed generator (WWMath::Random_Float's state is not reproduced). Not "
+				  "presented: TintDrawable (RW 0x5E0108), AttachedModel (RW 0x5DFFA8), RayEffect (RW 0x5DF95D), CursorParticleSystem (RW 0x5E0441) and Laser "
+				  "(RW 0x5DFC2E) are noted as events (no retail FXList uses Laser, RayEffect or CursorParticleSystem; two use AttachedModel, seven TintDrawable); "
+				  "EvaEvent plays through TheEva (RW 0x5DD9EE, AudioApi::reportEva) and is noted only when no Eva is installed; W3DLightDraw is still not drawn (S-113)");
 	// lane SPELL-4
 	out.push_back("[S-4642] BuffNugget buffs (GameClient/BuffDraw.h): BuffManager / BuffInstance / TBuff are ported (RW 0x671E56, 0x764483, 0x7641A2, 0x707FFF, "
 				  "0x4D3376, 0x4D12FA, 0x4D1417); INFERENCE: the expiry test and the TBuff following its drawable every frame come from the fields, the updater was "
@@ -793,7 +946,8 @@ void LiveFX::onFXEvent(const FXEvent &e)
 			lists.push_back(fx);
 		}
 	};
-	if (e.kind != FXEvent::OBJECT_SOUND && e.kind != FXEvent::ATTACH_PARTICLE_SYSTEM && e.kind != FXEvent::DESTROY_PARTICLE_SYSTEM)
+	if (e.kind != FXEvent::OBJECT_SOUND && e.kind != FXEvent::ATTACH_PARTICLE_SYSTEM && e.kind != FXEvent::DESTROY_PARTICLE_SYSTEM &&
+		e.kind != FXEvent::BODY_PARTICLE_SYSTEMS)
 	{
 		if (e.choices)
 		{
@@ -880,6 +1034,12 @@ void LiveFX::play(const Pending &pending)
 			return;
 		}
 	}
+	if (e.kind == FXEvent::BODY_PARTICLE_SYSTEMS)
+	{
+		// PORT-66: ActiveBody::updateBodyParticleSystems (RW 0x8C1E4E); the systems are the client's, the logic named the bones and the templates
+		playBodyParticleSystems(e);
+		return;
+	}
 	// AUDIO-3: the request log names the FX call site, the list and the object it played on
 	AudioLog::Scope logScope([&] { return std::string("fx ") + e.site + " " + *name + " obj " + std::to_string((unsigned)e.primary); });
 	if (e.kind == FXEvent::OBJECT_SOUND)
@@ -898,6 +1058,11 @@ void LiveFX::play(const Pending &pending)
 	if (e.kind == FXEvent::ATTACH_PARTICLE_SYSTEM || e.kind == FXEvent::DESTROY_PARTICLE_SYSTEM)
 	{
 		playTransitionSystem(e);
+		return;
+	}
+	if (e.kind == FXEvent::OBJECT_PARTICLE_SYSTEM)
+	{
+		playCreatedSystem(e);
 		return;
 	}
 	const FXList *fx = m_playback.fxLists().findFXList(*name);
@@ -934,12 +1099,35 @@ void LiveFX::play(const Pending &pending)
 	{
 	case FXEvent::POSITION_FX:
 	{
+		// Local 22 (#163): the primary's drawable pose (RW 0x70E013 Object::getDrawable). AIGiantBirdAttackState::onEnter skips the call without a
+		// drawable (RW 0x76B85D). Weapon::preFireWeapon (RW 0x6CEA25) and WeaponFireSpecialAbilityUpdate::startUnpacking (RW 0x895FF3) do not test it
+		// (retail would dereference null); INFERENCE: the port skips there too, so a logic-only object without a drawable gets no call.
+		if (e.drawablePosition || e.drawableMatrix)
+		{
+			if (!pending.primary || !pending.primary->drawable || !primaryDrawable)
+			{
+				++m_stats.skipped["PositionFX without a drawable"];
+				return;
+			}
+		}
+		// RW 0x676711 .. 0x67679A (Drawable::getPosition, DONOR BFME2 0x002759A5 DrawableGetPosition.cpp): the drawable's interpolated position.
+		const Coord3D *pos = e.drawablePosition ? primaryDrawable->getPosition() : &e.position;
+		// RW 0x6765B9 .. 0x676706 (Drawable::getTransformMatrix, DONOR BFME2 0x002759A5 DrawableGetPosition.cpp): the drawable's interpolated matrix.
 		Matrix3D m;
-		if (e.hasTransform)
+		const bool hasMtx = e.drawableMatrix || e.hasTransform;
+		if (e.drawableMatrix)
+		{
+			m = thingMatrix(*primaryDrawable->getPosition(), primaryDrawable->getBasis());
+		}
+		else if (e.hasTransform)
 		{
 			m = primaryView.transform();
 		}
-		FXList::doFXPos(fx, m_playback.services(), m_playback.fxLists(), &e.position, e.hasTransform ? &m : nullptr, 0.0f, nullptr);
+		// RW 0x494615 -> RW 0x5E21D8 (DONOR BFME2 0x00094C29 -> 0x001E296E): FXList::doFXPos forwards (pos, mtx, primarySpeed, secondary) to each nugget's
+		// doFXPos (RW 0x5E2257 .. 0x5E2268). When drawablePosition && hasSecondaryPosition (RW 0x6CEA40 .. 0x6CEA50, RW 0x89600E .. 0x89601E), secondary is
+		// also d->getPosition().
+		const Coord3D *secondary = e.hasSecondaryPosition ? (e.drawablePosition ? primaryDrawable->getPosition() : &e.secondaryPosition) : nullptr;
+		FXList::doFXPos(fx, m_playback.services(), m_playback.fxLists(), pos, hasMtx ? &m : nullptr, e.weaponSpeed, secondary);
 		break;
 	}
 	case FXEvent::OBJECT_FX:
@@ -1038,6 +1226,94 @@ void LiveFX::playTransitionSystem(const FXEvent &e)
 	++m_stats.played[e.site];
 }
 
+// PORT-66 (issue #180): the body's auto particle systems, RW 0x8C1E4E's client half. deleteAllParticleSystems (RW 0x8C258F) destroys the systems the
+// body's list held; then createParticleSystems (RW 0x8C23EA) runs once per entry in the event: nothing when the entry has no template (RW 0x8C2401
+// answers before the bone query), else a cap of min(the bones found, the entry's cap), and per system a CLIENT random bone among the unused ones
+// (RW 0x6D32E4, `GameClientRandomValue(0, numBones - 1)` then the linear search for an unused index, RW 0x8C2484 .. 0x8C24B2), createParticleSystem
+// (RW 0x5F526A), setPosition at the bone (RW 0x5F2F2D), attachToObject (RW 0x5F32D7) and the ID kept (the body's list +0xC8)
+void LiveFX::playBodyParticleSystems(const FXEvent &e)
+{
+	for (const FXParticleSystem::ParticleSystemID id : m_bodyParticleSystems[e.primary])
+	{
+		if (FXParticleSystem::ParticleSystem *s = m_playback.particles().findParticleSystemByID(id))
+		{
+			s->destroy();
+			++m_stats.bodyParticlesDestroyed;
+		}
+	}
+	std::vector<FXParticleSystem::ParticleSystemID> created;
+	std::vector<char> used;
+	for (const FXEvent::BodyParticleEntry &entry : e.particleSystems)
+	{
+		if (entry.system.empty() || entry.bones.empty() || entry.maxSystems <= 0)
+		{
+			continue; // RW 0x8C2401 (no template) and RW 0x8C245F (no bone): no system
+		}
+		const FXParticleSystem::ParticleSystemTemplate *t = m_playback.particleTemplates().findTemplate(entry.system);
+		if (!t)
+		{
+			m_stats.unresolvedParticleSystems.insert(entry.system); // RW 0x5F889B found nothing: retail makes nothing
+			continue;
+		}
+		const std::uint32_t numBones = (std::uint32_t)entry.bones.size();
+		const std::uint32_t maxSystems = (std::uint32_t)entry.maxSystems < numBones ? (std::uint32_t)entry.maxSystems : numBones;
+		used.assign(numBones, 0);
+		for (std::uint32_t i = 0; i < maxSystems; ++i)
+		{
+			// RW 0x8C248E: GameClientRandomValue(0, numBones - 1), then the search forward for a bone not used yet (an index above the count wraps)
+			std::uint32_t index = (std::uint32_t)m_playback.clientRandom().value(0, (int)numBones - 1);
+			for (std::uint32_t j = 0; j < numBones && used[index]; ++j)
+			{
+				index = (index + 1) % numBones;
+			}
+			if (used[index])
+			{
+				break;
+			}
+			used[index] = 1;
+			const FXParticleSystem::ParticleSystemID id = m_playback.particles().createParticleSystem(t, true);
+			FXParticleSystem::ParticleSystem *sys = m_playback.particles().findParticleSystemByID(id);
+			if (!sys)
+			{
+				continue; // refused (cap / LOD)
+			}
+			// RW 0x5F2F2D: the position of the bone in the model's space; RW 0x5F32D7: the system follows the object
+			sys->setPosition(entry.bones[index].position);
+			sys->attachToObject(e.primary);
+			created.push_back(id);
+			++m_stats.bodyParticlesCreated;
+		}
+	}
+	m_bodyParticleSystems[e.primary] = std::move(created);
+	++m_stats.played[e.site];
+}
+
+// lane PORT-79, the ObjectCreationList's CreateObject nugget (RW 0x5F1DC5): createParticleSystem(template, true) (RW 0x5F526A; an unknown name is NULL in
+// the store, nothing is made) and the handle's attachToObject (RW 0x5F32D7) with the object the nugget made. No setPosition: retail places the system
+// only through the attachment (the object's drawable). The nugget drops its handle, so no slot keeps it: the system ends with its own lifetime.
+FXParticleSystem::ParticleSystemID attachCreatedSystem(FXParticleSystem::ParticleSystemManager &particles,
+	const FXParticleSystem::FXParticleSystemTemplateStore &templates, const FXEvent &event)
+{
+	const FXParticleSystem::ParticleSystemTemplate *t = templates.findTemplate(*event.fxList);
+	if (!t)
+	{
+		return FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID; // RW 0x73AECB: an unknown name is NULL, nothing is made
+	}
+	return particles.createAttachedParticleSystemID(t, event.primary, true); // RW 0x5F526A + RW 0x5F32D7
+}
+
+void LiveFX::playCreatedSystem(const FXEvent &e)
+{
+	const FXParticleSystem::ParticleSystemID id = attachCreatedSystem(m_playback.particles(), m_playback.particleTemplates(), e);
+	if (id == FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID)
+	{
+		m_stats.unresolvedParticleSystems.insert(*e.fxList);
+		return;
+	}
+	++m_stats.createdSystems;
+	++m_stats.played[e.site];
+}
+
 bool LiveFX::enteringStateFX(DrawableID id, const std::string &name)
 {
 	// SMOOTH-1: called while the render side applies the client events (the worker may be running): queued, played at the next idle point
@@ -1080,18 +1356,24 @@ void LiveFX::destroySystems(Attached &a)
 		}
 	}
 	a.systems.clear();
+	a.records.clear(); // lane PORT-50: the tracker nodes leave with the systems they name
 }
 
 void LiveFX::createSystems(Drawable &d, Attached &a)
 {
 	const float scale = d.getInstanceScale();
-	for (const DrawEntry &e : d.entries())
+	for (size_t entryIndex = 0; entryIndex < d.entries().size(); ++entryIndex)
 	{
+		const DrawEntry &e = d.entries()[entryIndex];
 		if (!e.draw)
 		{
 			continue;
 		}
 		const W3DDrawFrame f = e.draw->frame();
+		// lane PORT-50: RW 0x4C6733 takes the module data ([ebx + 4]) and reads its +0x12A (ParticleBonesCheckDrawable) per
+		// record; the record stores it (the per-frame walk's branch, RW 0x4B6DE2)
+		const W3DModelDrawModuleData *data = e.data ? dynamic_cast<const W3DModelDrawModuleData *>(e.data) : nullptr;
+		const bool checkDrawable = data && data->m_particleBonesCheckDrawable;
 		for (const std::vector<ParticleSysBoneInfo> *list : { f.modelState ? &f.modelState->particleSysBones : nullptr, f.animationState ? &f.animationState->particleSysBones : nullptr })
 		{
 			if (!list)
@@ -1124,6 +1406,9 @@ void LiveFX::createSystems(Drawable &d, Attached &a)
 				{
 					continue; // refused (cap / LOD)
 				}
+				// RW 0x4C671A .. 0x4C6728: the render object's slot +0xC8 (Get_Bone_Index) gives the bone index the record
+				// stores at +4, and 0 means "no such bone" (the by-index follow skips such a record, RW 0x4B6E57)
+				const int boneIndex = f.model && f.model->Tree && !info.boneName.empty() ? f.model->Tree->Get_Bone_Index(info.boneName) : 0;
 				Coord3D pos{ 0.0f, 0.0f, 0.0f };
 				float rotation = 0.0f;
 				Matrix3D bone;
@@ -1144,9 +1429,56 @@ void LiveFX::createSystems(Drawable &d, Attached &a)
 				sys->attachToDrawable(d.getID());
 				a.systems.push_back(id);
 				++m_stats.attachedCreated;
+				// lane PORT-50: retail's tracker node (RW 0x4C6BAD .. 0x4C6C39: the record copy RW 0x4B6CDD {bone +0, boneIndex
+				// +4, followBone +0x10} and the system's id, pushed to the draw module's list at +0x64). The per-frame walk
+				// (ParticleBoneFollow::followFrame, RW 0x4B6D5F) reads it
+				ParticleBoneFollow::Record record;
+				record.system = id;
+				record.entry = entryIndex;
+				record.boneName = info.boneName;
+				record.boneIndex = boneIndex;
+				record.followBone = info.followBone;
+				record.checkDrawable = checkDrawable;
+				a.records.push_back(record);
 			}
 		}
 	}
+}
+
+// RW 0x4C7795 -> RW 0x4B6D5F(0): the per-frame follow of a drawable's ParticleSysBone systems (lane PORT-50, issue #154).
+// Retail makes this call from W3DModelDraw::doDrawModule; the port makes it here, once per client frame for every drawable with
+// live systems, which is the same point of the frame (the drawables' poses were just synced). The gate
+// (ParticlesAttachedToAnimatedBones, +0x108) is read per draw entry inside ParticleBoneFollow::followFrame.
+void LiveFX::followAnimatedBones(Drawable &d, Attached &a)
+{
+	if (a.records.empty() || d.entries().empty())
+	{
+		return;
+	}
+	// one pose per draw entry: the entry's draw module (its pose request) and the drawable's own transform (the render object's)
+	std::vector<ParticleBoneFollow::Pose> &poses = m_bonePoses;
+	poses.assign(d.entries().size(), ParticleBoneFollow::Pose());
+	Matrix3D world = thingMatrix(*d.getPosition(), d.getBasis());
+	const float scale = d.getInstanceScale();
+	for (size_t i = 0; i < d.entries().size(); ++i)
+	{
+		const DrawEntry &e = d.entries()[i];
+		if (!e.draw)
+		{
+			continue;
+		}
+		poses[i].draw = e.draw.get();
+		poses[i].scale = scale;
+		poses[i].world = world;
+		const W3DModelDrawModuleData *data = e.data ? dynamic_cast<const W3DModelDrawModuleData *>(e.data) : nullptr;
+		poses[i].follow = data && ParticleBoneFollow::wantsFollow(*data);
+	}
+	m_boneCounters = ParticleBoneFollow::Counters();
+	ParticleBoneFollow::followFrame(a.records, m_playback.particles(), poses.data(), poses.size(), &m_boneCounters, 0);
+	m_stats.bonesFollowed += m_boneCounters.followed;
+	m_stats.bonesMissed += m_boneCounters.missed;
+	m_stats.bonesStarted += m_boneCounters.started;
+	m_stats.bonesStopped += m_boneCounters.stopped;
 }
 
 // RW 0x4B337B: did the animation pass `frame` between the previous and the current integer frame? It reads the track's mode (+0x10) and direction (+0x14):
@@ -1336,6 +1668,8 @@ void LiveFX::updateAttachedSystems()
 	{
 		it = dm.find(it->first.first) ? std::next(it) : m_frameEvents.erase(it);
 	}
+	const TerrainPathfindSource *pathTerrain = m_game.pathTerrain();
+	m_wadingParticleSystems.prune([&dm](DrawableID id) { return dm.find(id) != nullptr; });
 	// lane FX-4: the transition systems that are gone (their object died, or they ran out)
 	for (auto it = m_transitionSystems.begin(); it != m_transitionSystems.end();)
 	{
@@ -1355,6 +1689,14 @@ void LiveFX::updateAttachedSystems()
 		if (!d)
 		{
 			continue;
+		}
+		if (pathTerrain)
+		{
+			m_wadingParticleSystems.update(*d, *pathTerrain, m_stats.unresolvedParticleSystems);
+		}
+		else
+		{
+			m_wadingParticleSystems.removeDrawable(id);
 		}
 		states.clear();
 		for (const DrawEntry &e : d->entries())
@@ -1385,6 +1727,8 @@ void LiveFX::updateAttachedSystems()
 		auto it = attached;
 		if (it != m_attached.end() && it->first == id && it->second.states == states)
 		{
+			// lane PORT-50: the same states, so the systems stay; their bones still move (RW 0x4C7795 per draw)
+			followAnimatedBones(*d, it->second);
 			continue;
 		}
 		if (it == m_attached.end() || it->first != id)
@@ -1394,6 +1738,7 @@ void LiveFX::updateAttachedSystems()
 		destroySystems(it->second);
 		it->second.states = states;
 		createSystems(*d, it->second);
+		followAnimatedBones(*d, it->second); // lane PORT-50: the frame's pose right away, not one frame late
 	}
 	unsigned long long live = 0;
 	for (const auto &kv : m_attached)

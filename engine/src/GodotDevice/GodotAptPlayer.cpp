@@ -2930,6 +2930,8 @@ Dictionary AptMenuPlayer::get_detail_state() const
 	d["high_water"] = s.highWater;
 	d["show_soft_water_edge"] = s.showSoftWaterEdge;
 	d["max_tank_track_edges"] = s.maxTankTrackEdges;
+	d["max_tank_track_opaque_edges"] = s.maxTankTrackOpaqueEdges;
+	d["max_tank_track_fade_delay"] = s.maxTankTrackFadeDelay;
 	d["lowest_model_lod"] = s.lowestModelLOD;
 	d["show_props"] = s.showProps;
 	// RW 0x641E8B: the display gamma of Brightness; RW 0x6E59A9: the scroll factor (missing: the caller's GameData default, so only the text here)

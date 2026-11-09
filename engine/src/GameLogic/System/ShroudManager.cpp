@@ -15,6 +15,8 @@
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/ObjectGeometry.h"
+// lane PORT-25: the HordeContainInterface of the object's contain (the side / rear vision overrides, RW 0x872B9E / 0x872BAB)
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/SimMath.h"
 #include "Common/JobSystem.h"
 
@@ -1648,7 +1650,7 @@ std::vector<std::string> ShroudManager::stopLines()
 		"[S-563] shroud numerics: the look polygon's x87 extended-precision vertices are computed in binary64 with SimMath's sin / cos (RW fsin / fcos); "
 		"a horizontal first left edge (uninitialised slope in RW 0xB501A0) starts at the top vertex with slope 0",
 		"[S-564] object look: the SHROUD_CLEARING modifier (RW 0x804F39 type 0x14) and the object's own range (Object + 0x1B4) are read since lane DECOMP-1; the spied mask (player + 0x3C8), object + 0x30 / + 0x3F4 (radii "
-		"0.1), DynamicShroudClearingRangeUpdate and the HordeContain VisionSide / VisionRearOverride are not read; object + 0x480 (hide when fogged) is taken as set",
+		"0.1) and DynamicShroudClearingRangeUpdate are not read; object + 0x480 (hide when fogged) is taken as set; the HordeContain VisionSide / VisionRearOverride are read since lane PORT-25 (RW 0x694B79 / 0x694B9B through the interface vslots 0x25C / 0x258, RW 0x872BAB / 0x872B9E)",
 		"[S-565] fogged targets: a human player's units cannot attack an object FOGGED or SHROUDED for that player unless the order comes from a script (RW "
 		"0x82C167, the action helper: human and not script, as ZH ActionManager isObjectShroudedForAction); its other callers and the other action types were not read",
 		"[S-566] stealth and detection: RotWK's invisibility (InvisibilityUpdate, StealthDetectorUpdate, the InvisibilityManager, the INVISIBLE_STEALTH / CAMOUFLAGE "
@@ -1814,9 +1816,38 @@ ShroudManager::ObjectSource ShroudManager::retailObjectSource()
 			}
 		}
 		in.mask = obj.isKindOf((unsigned)revealToAll) ? kPlayerBits : ownerAndAllies(obj.logic().players(), *owner);
+		// lane PORT-25 (issue #97): the horde's overrides REPLACE the template's side / rear factors when they are above 0. RW 0x694B6A is the
+		// horde interface of the object's own contain (RW 0x68C866: Object + 0x258, contain vslot 0x7C -> HordeContainInterface), asked only when
+		// there is one (RW 0x694B71); no contain -> 0x694BB4 / the template's factors.
+		//   side: RW 0x694B79 `call [eax+0x25c]` (RW 0x872BAB, module data + 0x278), RW 0x694B82 `fldz; fcompi` over RW 0x694B8B `jbe` (ST0 > 0
+		//         takes RW 0x694B8D `movss [ebp+0x10], xmm0`), else template + 0x4C4 (0x694B4E);
+		//   rear: RW 0x694B9B `call [eax+0x258]` (RW 0x872B9E, module data + 0x274), RW 0x694BB2 `ja` (ST0 > 0 keeps RW 0x694BA4's xmm0), else
+		//         RW 0x694BB4 `movss xmm0, [ebp+0xc]` = template + 0x4C8 (0x694B5D).
+		// The factors then multiply the range at RW 0x694BBD / 0x694BCA (`mulss` with the range, stored into the out radii).
+		float sideFactor = tv.visionSide;
+		float rearFactor = tv.visionRear;
+		// getHordeContainInterface is not const in this port's interface either (the null test is the whole read); the object is only read
+		if (ContainModuleInterface *contain = const_cast<Object &>(obj).getContain())
+		{
+			if (HordeContainInterface *horde = contain->getHordeContainInterface())
+			{
+				const float sideOverride = horde->getVisionSideOverride();
+				const float rearOverride = horde->getVisionRearOverride();
+				if (sideOverride > 0.0f)
+				{
+					sideFactor = sideOverride;
+				}
+				if (rearOverride > 0.0f)
+				{
+					rearFactor = rearOverride;
+				}
+			}
+		}
 		in.forward = in.side = in.rear = range;
-		in.side = SimMath::pc24Mul(in.side, tv.visionSide);
-		in.rear = SimMath::pc24Mul(in.rear, tv.visionRear);
+		// RW 0x694BBD / 0x694BCA: `mulss` — an SSE binary32 product of the radius and the factor, not the x87 24-bit multiply (the port used
+		// pc24Mul here; the instruction is SSE and the rounding is the single one, changed in lane PORT-25)
+		in.side = SimMath::sseMul(in.side, sideFactor);
+		in.rear = SimMath::sseMul(in.rear, rearFactor);
 	};
 	s.channel = [](Object &obj, const TemplateVision &tv, int channel, int &amount, std::uint32_t &mask) -> float {
 		// RW 0x68EC3B (Object vtable 0xC123B0 slot 0x10)

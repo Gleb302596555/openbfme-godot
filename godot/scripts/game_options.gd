@@ -361,6 +361,8 @@ func apply_detail() -> Dictionary:
 	# lane GLOW-1 (S-5231): EffectsLOD VeryLow / Low draw neither the map's colour grade nor the glow (RW 0x48789F)
 	if _world != null and _world.has_method("set_effects_lod"):
 		_world.set_effects_lod(int(_detail.effects_lod))
+	if _world != null and _world.has_method("set_track_lod"):
+		_world.set_track_lod(int(_detail.max_tank_track_edges), int(_detail.max_tank_track_opaque_edges), int(_detail.max_tank_track_fade_delay))
 	return _detail
 
 

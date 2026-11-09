@@ -124,6 +124,7 @@ void ClientEventRecorder::objectVariation(Object &obj, int variation)
 void ClientEventRecorder::objectDestroyed(Object &obj)
 {
 	m_animationConditions.erase(obj.getID());
+	m_selectedObjects.erase(obj.getID());
 	if (obj.clientHooks() != this)
 	{
 		return; // never bound (the object died before it was announced)
@@ -157,6 +158,14 @@ void ClientEventRecorder::setDrawableOpacity(Object &obj, float opacity)
 	e.opacity = opacity;
 }
 
+// Lane PORT-21 (RW 0x674727 / 0x67896F from Object::setInaudible / setAudible, RW 0x69073C / 0x690786): the drawable's audible flag follows the
+// object's INAUDIBLE status
+void ClientEventRecorder::setDrawableAudible(Object &obj, bool audible)
+{
+	ClientEvent &e = push(ClientEvent::AUDIBLE, obj);
+	e.audible = audible;
+}
+
 void ClientEventRecorder::setCustomColors(Object &obj, int kind, std::uint32_t c0, std::uint32_t c1, std::uint32_t c2)
 {
 	ClientEvent &e = push(ClientEvent::CUSTOM_COLORS, obj);
@@ -173,7 +182,47 @@ void ClientEventRecorder::heroAttacked(Object &obj)
 
 void ClientEventRecorder::deselectDrawable(Object &obj)
 {
+	m_selectedObjects.erase(obj.getID());
 	push(ClientEvent::DESELECTED, obj); // TOP20 rampage: RW 0x6257E5
+}
+
+// lane LOCAL-16, RW 0x664FB4..0x664FD0: checks parent horde drawable's selection flag (+0x43C)
+bool ClientEventRecorder::isParentDrawableSelected(const Object &obj)
+{
+	const Object *parent = obj.getContainedBy();
+	if (!parent)
+	{
+		return false;
+	}
+	return m_selectedObjects.find(parent->getID()) != m_selectedObjects.end();
+}
+
+void ClientEventRecorder::setDrawableSelected(ObjectID id, bool selected)
+{
+	if (selected)
+	{
+		m_selectedObjects.insert(id);
+	}
+	else
+	{
+		m_selectedObjects.erase(id);
+	}
+}
+
+bool ClientEventRecorder::isDrawableSelected(ObjectID id) const
+{
+	return m_selectedObjects.find(id) != m_selectedObjects.end();
+}
+
+void ClientEventRecorder::removeSelectionFeedback(Object &obj)
+{
+	push(ClientEvent::REMOVE_SELECTION_FEEDBACK, obj); // RW 0x672F0D
+}
+
+void ClientEventRecorder::createSelectionFeedback(Object &obj, std::uint32_t color)
+{
+	ClientEvent &e = push(ClientEvent::CREATE_SELECTION_FEEDBACK, obj); // RW 0x672ED1
+	e.indicatorColor = color; // RW 0x6916CD
 }
 
 // lane EVADAMAGE-1: RW 0x67B4B7's Eva half, the logic's part (EvaDamageNotice.h); the report goes to TheEva at the object's position (+ 0x38)
@@ -266,14 +315,16 @@ bool ClientEventRecorder::undirty(ObjectID id)
 	return true;
 }
 
-// lane ANIM-1: the flush of one drawable (RW 0x67449C with force 0: nothing when it is not dirty)
-void ClientEventRecorder::flushModelConditions(Object &obj)
+// lane ANIM-1: the flush of one drawable (RW 0x67449C: with force 0 nothing when the drawable is not dirty; force 1 — the OCL's CreateObject with
+// InheritAttributesFromSource, RW 0x5F13C8 — always reaches the draw modules)
+void ClientEventRecorder::flushModelConditions(Object &obj, bool immediate)
 {
-	if (!undirty(obj.getID()))
+	const bool dirty = undirty(obj.getID());
+	if (!dirty && !immediate)
 	{
 		return;
 	}
-	pushFlush(obj);
+	pushFlush(obj).immediate = immediate;
 }
 
 void ClientEventRecorder::loadedObject(Object &obj)
@@ -297,7 +348,7 @@ void ClientEventRecorder::loadedObject(Object &obj)
 		if (fade->fadingStarted()) setDrawableOpacity(obj, fade->opacity());
 }
 
-void ClientEventRecorder::pushFlush(Object &obj)
+ClientEvent &ClientEventRecorder::pushFlush(Object &obj)
 {
 	static const int captureFlagKind = ObjectTemplateInfoBuilder::kindOfIndex("CAPTUREFLAG");
 	const bool captureFlag = captureFlagKind >= 0 && obj.isKindOf((unsigned)captureFlagKind);
@@ -328,6 +379,7 @@ void ClientEventRecorder::pushFlush(Object &obj)
 	{
 		e.hasWeaponTiming = w->drawWeaponTimingFrames(e.weaponTimingFrames); // lane ANIM-1: read when the draw applies the flags (RW 0x4BEE31)
 	}
+	return e;
 }
 
 bool ClientEventRecorder::templateHasDrawModuleTag(const ThingTemplate &tt, const std::string &tag)
@@ -431,4 +483,9 @@ void ClientEventRecorder::createAHeroKill(Object &killer, Object &victim)
 	auto &event = push(ClientEvent::CAH_STATISTICS, killer);
 	event.heroUniqueID = hero->uniqueID;
 	event.heroStatistics = std::move(names);
+}
+
+void ClientEventRecorder::objectDied(Object &obj)
+{
+	push(ClientEvent::DIED, obj);
 }

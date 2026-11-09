@@ -11,6 +11,7 @@
 #include "Common/Thing/RawModuleData.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/AI/AIClosestEnemy.h"
+#include "GameLogic/AI/AIGuard.h"
 #include "GameLogic/AI/AIHunt.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Module/DozerAIUpdate.h"
@@ -193,6 +194,11 @@ void AIUpdateInterface::readCombatSettings(const ModuleData *data)
 		else if (ieq(name, "StandGround"))
 		{
 			m_combat.standGround = ieq(tok[0], "Yes") || ieq(tok[0], "True") || tok[0] == "1";
+		}
+		else if (ieq(name, "FadeOnPortals"))
+		{
+			// Local 16: RW 0xC0F530 offset 0x54, parseBool RW 0x42E558 (as StandGround)
+			m_combat.fadeOnPortals = ieq(tok[0], "Yes") || ieq(tok[0], "True") || tok[0] == "1";
 		}
 		else if (m_animalInterface && ieq(name, "AfraidOfCastles"))
 		{
@@ -899,11 +905,41 @@ Object *AIUpdateInterface::getNextMoodTarget(bool calledByAI, bool calledDuringI
 	{
 		q |= AI::COMPUTER_CREEPS;
 	}
-	// RW 0x668843 .. 0x6688EA (AI + 0x3CC, the player's stop order RW 0x771F49, and the body's last attacker): the port never sets + 0x3CC (S-326).
-	// RW 0x6688EC .. 0x668919: the firing tracker's take-once object (Object + 0x248 -> + 0x38, RW 0x68B666 / 0x8E2E0A), its writer not identified and never
-	// set in the port (S-326).
-	MoodTargetFilter moodFilter(obj);
-	Object *target = AI::findClosestEnemy(obj, range, q, attackInfo(), player && player->getPlayerType() == PLAYER_HUMAN ? &moodFilter : nullptr, 0); // RW 0x701443
+	// RW 0x668848 .. 0x6688E6: stop order retaliation flag (AI + 0x3CC, RW 0x771F97)
+	Object *target = nullptr;
+	if (m_stopRetaliationArmed && calledByAI && calledDuringIdle)
+	{
+		const ActiveBody *body = dynamic_cast<const ActiveBody *>(obj.getBodyModule());
+		if (body)
+		{
+			const ObjectID attackerId = body->lastDamager(); // body vslot 0x40 + 8
+			if (attackerId != INVALID_ID)
+			{
+				ObjectWeapons *w = obj.getWeapons();
+				Weapon *weapon = w ? w->currentWeapon() : nullptr; // RW 0x68B58C(0)
+				Object *attacker = logic.findObjectByID(attackerId);
+				if (attacker && weapon && obj.getPosition() && attacker->getPosition() && w->canAttackObject(*attacker, CMD_FROM_AI, false)) // RW 0x68D6A6
+				{
+					const float edgeDistSq = CombatQueries::edgeDistanceSquared2D(obj, *obj.getPosition(), *attacker, *attacker->getPosition()); // RW 0x66352C
+					if (edgeDistSq < 1.0f) // RW 0x6688B9: fld1; fcompi; jbe (1.0 > edgeDistSq)
+					{
+						m_stopRetaliationArmed = false; // RW 0x6688C4
+						target = attacker;
+					}
+					if (w->isWithinAttackRange(*attacker, 0.0f, true)) // RW 0x6CC653
+					{
+						target = attacker;
+					}
+				}
+			}
+		}
+	}
+	// RW 0x6688EC: firing tracker (not ported; if target not set above, proceed to findClosestEnemy)
+	if (!target)
+	{
+		MoodTargetFilter moodFilter(obj);
+		target = AI::findClosestEnemy(obj, range, q, attackInfo(), player && player->getPlayerType() == PLAYER_HUMAN ? &moodFilter : nullptr, 0); // RW 0x701443
+	}
 	// RW 0x6689F0: a lone unit's HORDE target becomes one of its members (RW 0x68D30E(me, 0, 0))
 	if (target && !obj.isKindOf((unsigned)kHorde) && target->isKindOf((unsigned)kHorde))
 	{

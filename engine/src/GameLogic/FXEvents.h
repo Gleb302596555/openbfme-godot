@@ -36,14 +36,26 @@ struct FXEvent
 	enum Kind : std::uint8_t
 	{
 		OBJECT_FX,      ///< FXList::doFXObj(fx, primary, secondary) (RW 0x4B1B5A -> 0x5E2282)
-		POSITION_FX,    ///< FXList::doFXPos(fx, position, transform or null, 0, null) (RW 0x494615)
+		POSITION_FX,    ///< FXList::doFXPos(fx, position, transform or null, weaponSpeed, secondaryPosition or null) (RW 0x494615 -> 0x5E21D8)
 		WEAPON_FIRE_FX, ///< the fire FX block of RW 0x6CC915: the client applies the visibility tests, then handleWeaponFireFX / doFXObj
 		OBJECT_SOUND,   ///< an audio event played on the primary object (`fxList` holds the audio event name): SlowDeathBehavior's Sound (RW 0x8609A8)
 		// lane FX-4, TransitionDamageFX (RW 0x8BE077): `fxList` holds the FXParticleSystem template name. ATTACH: createParticleSystem (RW 0x5F526A), the
 		// system at `position` in the primary's model space (RW 0x5F2F2D) attached to the primary object (RW 0x5F32D7), kept under (primary, slot).
 		// DESTROY: the system kept under (primary, slot), if any, is destroyed (RW 0x5F5379) and forgotten
 		ATTACH_PARTICLE_SYSTEM,
-		DESTROY_PARTICLE_SYSTEM
+		DESTROY_PARTICLE_SYSTEM,
+		// PORT-66 (issue #180), ActiveBody's auto particle systems (RW 0x8C1E4E, the body interface's slot 0x2C): the bones the body named (the bone
+		// positions it read, model space, `bones`) and the template names of the kind's seven entries (`particleSystems`, one name per entry, empty = that
+		// entry makes nothing). The client makes the systems on the bones with the CLIENT random, in the retail order (RW 0x8C1E4E): every entry
+		// deletes all of its systems first (RW 0x8C258F), then its createParticleSystems (RW 0x8C23EA) picks `maxSystems` bones. The body keeps no
+		// state; a system's ID is the client's (as FX-4's). The body's object is the primary
+		BODY_PARTICLE_SYSTEMS,
+		// lane PORT-79, the ObjectCreationList's CreateObject nugget (RW 0x5F1DC5, inside the per-object part RW 0x5F1B5A): `fxList` holds the nugget's
+		// ParticleSystem (+ 0x24) template name. createParticleSystem(template, true) (RW 0x5F526A), the system attached to the made object (RW 0x5F32D7,
+		// the object the nugget just made; no setPosition: the attachment's own position comes from the object's drawable). NOT kept: the nugget drops the
+		// system's handle (BFME2 1.06 GenericObjectCreationNugget::doStuffToObj discards the returned pointer), so nothing here keeps its ID either.
+		// Its position is the read-only copy the capture carries (the event record is not the simulation's state)
+		OBJECT_PARTICLE_SYSTEM
 	};
 	Kind kind = OBJECT_FX;
 	const char *site = "";          ///< the call site ("FireFX", "FXListDie", "SlowDeath INITIAL", ...)
@@ -58,12 +70,28 @@ struct FXEvent
 	bool hasTransform = false;      ///< transform holds the primary's 3x4 matrix (rows: basis row r, then the translation) at the call
 	float transform[12] = { 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0 };
 	std::array<std::uint32_t, 19> conditions{}; ///< the primary's model condition bits at the call (Object + 0x10C)
-	Coord3D secondaryPosition{ 0.0f, 0.0f, 0.0f }; ///< WEAPON_FIRE_FX: the victim position handed to handleWeaponFireFX
+	Coord3D secondaryPosition{ 0.0f, 0.0f, 0.0f }; ///< WEAPON_FIRE_FX: the victim position handed to handleWeaponFireFX; POSITION_FX: secondary when hasSecondaryPosition (RW 0x494615 arg 5)
+	bool hasSecondaryPosition = false; ///< POSITION_FX: pass &secondaryPosition as the secondary position of FXList::doFXPos (RW 0x494615 -> 0x5E21D8)
+	bool drawablePosition = false;  ///< POSITION_FX: pass primary's Drawable::getPosition (RW 0x676711) as pos (and as secondary when hasSecondaryPosition)
+	bool drawableMatrix = false;    ///< POSITION_FX: pass primary's Drawable::getTransformMatrix (RW 0x6765B9) as primaryMtx
 	int weaponSlot = 0, barrel = 0; ///< WEAPON_FIRE_FX
-	float weaponSpeed = 0.0f;       ///< WEAPON_FIRE_FX: WeaponTemplate + 0x68
+	float weaponSpeed = 0.0f;       ///< WEAPON_FIRE_FX, POSITION_FX: WeaponTemplate + 0x68 (primarySpeed in FXList::doFXPos RW 0x494615 arg 4)
 	bool playWhenStealthed = false; ///< WEAPON_FIRE_FX: WeaponTemplate + 0x135
 	const std::string *bone = nullptr; ///< OBJECT_FX of a LevelUpFx entry with a bone (lane INTEG-1, RW 0x8211EC): doFXPos at the bone; template data
 	std::uint32_t slot = 0;         ///< ATTACH / DESTROY_PARTICLE_SYSTEM: the key of the system among the primary's (lane FX-4)
+	// BODY_PARTICLE_SYSTEMS (PORT-66), the seven entries in the binary's call order: fire small / medium / large, smoke small / medium / large, aflame
+	struct BodyParticleBone
+	{
+		std::string name;                 ///< the bone's name (the prefix and its number, RW 0x672A73: `prefix01`, `prefix02`, ...)
+		Coord3D position{ 0.0f, 0.0f, 0.0f }; ///< its model-space translation (RW 0x68C650), what the system's position is set to
+	};
+	struct BodyParticleEntry
+	{
+		std::vector<BodyParticleBone> bones; ///< the bones RW 0x68C650 found for the entry's prefix, in the numbered order
+		std::string system;             ///< the entry's FXParticleSystem template name ("" = the body has none: nothing is made)
+		int maxSystems = 0;             ///< the cap the body handed to createParticleSystems (Auto*Max * the aflame count modifier)
+	};
+	std::vector<BodyParticleEntry> particleSystems; ///< BODY_PARTICLE_SYSTEMS: seven entries, in the binary's order
 };
 
 class FXEventSink
@@ -86,6 +114,9 @@ public:
 
 	// fills an event for `obj` (position, transform, model conditions) at `frame`
 	static FXEvent objectEvent(FXEvent::Kind kind, const char *site, UnsignedInt frame, const std::string &fxList, const Object &obj);
+	// fills a POSITION_FX event whose primary position, transform matrix, weaponSpeed and secondary position come from `obj`'s drawable and `weaponSpeed`
+	// as retail's PreAttackFX calls do (Weapon::preFireWeapon RW 0x6CEA25 .. 0x6CEA58, WeaponFireSpecialAbilityUpdate::startUnpacking RW 0x895FC4 .. 0x896026)
+	static FXEvent drawablePositionEvent(const char *site, UnsignedInt frame, const std::string &fxList, const Object &obj, float weaponSpeed);
 	// records and forwards one event; an empty name or "None" (any case: RW parseFXList stores NULL for it) is not a call and is dropped
 	void emit(const FXEvent &event);
 

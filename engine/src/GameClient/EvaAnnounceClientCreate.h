@@ -3,6 +3,9 @@
 // BFME2 0x4C9A51 / 0x4C9A82, EvaAnnounceClientCreateSlots.cpp.
 // Client presentation only. See S-7091 for snapshot timing, first-sight, radar
 // and saves.
+// CreateFakeRadarEvent (field row RW 0xC75958, parser RW 0x42E558, data +0x1B) is parsed and never read
+// anywhere in RotWK 2.01 (verdict S-7212, PORT-60 / issue #170: clientUpdate RW 0x8CDF07, create slot
+// RW 0x8CDED6, xfer RW 0x8CDDD7; docs/ennorath/port60-evaannounce-rw.md). Kept parsed-only.
 #pragma once
 #include "Common/Module.h"
 #include <cstdint>

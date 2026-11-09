@@ -75,7 +75,9 @@ void AIUpdateInterface::xferAIStateBody(Xfer &x)
 	// version 5 (lane MODCOMPAT-MOD1): the machine kept while a temporary machine runs (RW AI + 0x34, beginTemporaryStateMachine), last, written only
 	// by an AI that keeps one
 	// version 6 (TOP20 rampage): the script lock (AI + 0x3C6), last, written only by an AI that has it set
-	XferVersion v{ 1, (std::uint8_t)(x.isLoading() || m_scriptLock ? 6 : (m_temporaryKeptMachine ? 5 : (m_guardTeam != 0 ? 4 : (m_areaToGuard != -1 || m_attackInfoOverride ? 3 : 2)))) };
+	// version 7 (Local 16): the portal faded flag (RW AI + 0x3CB, RW 0x6679C8), last, written only by an AI that has it set
+	// version 8 (Local 20): the stop retaliation flag (RW AI + 0x3CC, RW 0x771F97), last, written only by an AI that has it set
+	XferVersion v{ 1, (std::uint8_t)(x.isLoading() || m_stopRetaliationArmed ? 8 : (m_portalFaded ? 7 : (m_scriptLock ? 6 : (m_temporaryKeptMachine ? 5 : (m_guardTeam != 0 ? 4 : (m_areaToGuard != -1 || m_attackInfoOverride ? 3 : 2)))))) };
 	x.xferVersion(v);
 	const bool loading = x.isLoading();
 	for (std::uint32_t &w : m_luaConditionSnapshot)
@@ -337,6 +339,22 @@ void AIUpdateInterface::xferAIStateBody(Xfer &x)
 	else if (loading)
 	{
 		m_scriptLock = false; // a version 2 .. 5 snapshot predates the field
+	}
+	if (v.current >= 7)
+	{
+		x.xferBool(&m_portalFaded); // RW AI + 0x3CB (RW 0x6679C8)
+	}
+	else if (loading)
+	{
+		m_portalFaded = false;
+	}
+	if (v.current >= 8)
+	{
+		x.xferBool(&m_stopRetaliationArmed); // Local 20: RW AI + 0x3CC (RW 0x771F97)
+	}
+	else if (loading)
+	{
+		m_stopRetaliationArmed = false;
 	}
 }
 

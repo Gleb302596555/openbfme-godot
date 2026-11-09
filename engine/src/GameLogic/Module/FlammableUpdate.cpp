@@ -15,10 +15,13 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/AI/AIPathfind.h"
 #include "GameLogic/AI/AIWorld.h"
+#include "GameLogic/AI/AICommandSink.h"
+#include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/BitFlags.h"
 #include "GameLogic/ContainParseHooks.h"
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Damage.h"
+#include "GameLogic/FXEvents.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/EntEnragedUpdate.h"
 #include "GameLogic/ObjectCreationList.h"
@@ -58,15 +61,21 @@ void parseFireFXList(INI *ini, void *instance, void *, const void *)
 		}
 		TheFXListStore->parseFXListRef(entry); // unknown: INIException 3
 	}
-	const char *b = ini->getNextTokenOrNull(ini->getSepsColon());
-	if (b && AsciiStringUtil::compareNoCase(b, "BONE") == 0)
+	FlammableUpdateModuleData::FireFX fire;
+	fire.fxList = entry;
+	// RW 0x890D58: the optional keyword `BONE` compared with stricmp (RW 0xC11A5C, read at RW 0x890D5C), then RW 0x890D6A's string: the bone name read
+	// with the default separators (RW 0x890D76 builds the entry's AsciiString). No keyword stores no bone: the ignition's doFXObj on the object.
+	if (const char *b = ini->getNextTokenOrNull(ini->getSepsColon()))
 	{
-		if (const char *bone = ini->getNextTokenOrNull())
+		if (AsciiStringUtil::compareNoCase(b, "BONE") == 0)
 		{
-			entry += std::string(" ") + bone;
+			if (const char *bone = ini->getNextTokenOrNull())
+			{
+				fire.bone = bone;
+			}
 		}
 	}
-	d->m_fireFXList.push_back(entry);
+	d->m_fireFXList.push_back(fire); // RW 0x890D85: the 8-byte entry appended to the vector at data + 0x28
 }
 
 // RW 0x73B217 -> 0x73AA94 (parseAudioEventRTS): "NoSound" (any case) clears; otherwise TheAudio must know the event, else INIException 3
@@ -233,6 +242,122 @@ bool FlammableUpdate::isUnderwater() const
 	return terrain->isUnderwater(p->x, p->y, nullptr, nullptr);
 }
 
+// RW 0x890782: a RunToWater object whose burning anim ended looks for the water point nearest to it, above RunToWaterDepth and reachable, then runs there
+// (RW 0x8909BE; the module returns 1 either way, RW 0x890A1A: the burning goes on unchanged from here). Without water: the rage is forced (RW 0x890A15).
+void FlammableUpdate::runToWaterSearch()
+{
+	Object *obj = getObject();
+	// RW 0x890782 .. 0x8907A7: the object's AI is required; without one the search cannot run (RW 0x890A1A, return 1)
+	AIUpdateInterface *ai = obj->getAIUpdateInterface();
+	if (!ai)
+	{
+		return;
+	}
+	AIWorld *world = obj->logic().aiWorld();
+	const PathfindTerrain *terrain = world && world->mapReady() ? world->pathfinder().terrainView() : nullptr;
+	if (!terrain)
+	{
+		// without a map there is no water to find (the port cannot answer RW 0x89096A's slot 0x4C): today's behavior, RW 0x890A15's no-water branch, reported
+		noteStop(*obj, "FlammableUpdate: RunToWater's water search (RW 0x890782) needs a map; without one the burning object takes RW 0x890A15's no-water branch");
+		if (EntEnragedUpdate *ent = EntEnragedUpdate::of(*obj))
+		{
+			ent->setForced(true, false);
+		}
+		return;
+	}
+	const Coord3D *pos = obj->getPosition();
+	const float posX = pos->x;
+	const float posY = pos->y;
+	const float posZ = pos->z;
+	const float radius = m_data->m_runToWaterSearchRadius;        // RW data + 0x40
+	const float increment = m_data->m_runToWaterSearchIncrement; // RW data + 0x44
+	// RW 0x89078A .. 0x8907A4: best starts at (1e7f, 1e7f, 1e7f) (RW 0xBDE694 = 10000000.0f)
+	const float kBestStart = 10000000.0f;
+	float bestX = kBestStart;
+	float bestY = kBestStart;
+	float bestZ = kBestStart;
+	// RW 0x8907BA .. 0x8907E4: the current x starts at trunc(posX - radius); an empty column or row skips it
+	float xCur = SimMath::sseFromInt32(SimMath::truncToInt32(SimMath::subf32(posX, radius)));
+	const float xHi = SimMath::addf32(posX, radius);
+	if (xHi >= xCur) // RW 0x8907D7: comiss + jb
+	{
+		// the x loop is outer, the y loop inner (RW 0x8907EA .. 0x89092A)
+		for (;;)
+		{
+			float yCur = SimMath::sseFromInt32(SimMath::truncToInt32(SimMath::subf32(posY, radius)));
+			const float yHi = SimMath::addf32(posY, radius);
+			if (yHi >= yCur) // RW 0x890804: comiss + jb
+			{
+				for (;;)
+				{
+					// the depth test first (RW 0x890812): the point counts only above RunToWaterDepth (an x87 compare in RW; the port's subf32, as AIPathfind.cpp:457)
+					float waterZ = 0.0f;
+					float terrainZ = 0.0f;
+					const bool underwater = terrain->isUnderwater(xCur, yCur, &waterZ, &terrainZ);
+					const float depth = underwater ? SimMath::subf32(waterZ, terrainZ) : 0.0f;
+					if (depth > m_data->m_runToWaterDepth) // RW 0x89083A: jbe skips
+					{
+						// the candidate point (RW 0x89086A .. 0x890886): its y part is subtracted before its x part (RW 0x89089E .. 0x8908A6)
+						const float dy = SimMath::subf32(posY, yCur);
+						const float dx = SimMath::subf32(posX, xCur);
+						const float candDist2 = SimMath::sumSquares2(dy, dx);
+						const float bestDy = SimMath::subf32(posY, bestY);
+						const float bestDx = SimMath::subf32(posX, bestX);
+						const float bestDist2 = SimMath::sumSquares2(bestDy, bestDx);
+						if (candDist2 < bestDist2) // RW 0x8908AA: comiss + jbe skips (equal keeps the old best)
+						{
+							const Coord3D cand{ xCur, yCur, posZ }; // RW 0x89085D: the candidate's z is the object's z
+							// RW 0x8908AF .. 0x8908C6: the quick path test (RW 0x6F5BB0) with no set: the AI's own locomotor set; nullptr 4th arg (RW 0x8908B7)
+							if (world->pathfinder().quickDoesPathExist(ai->adapter(), pos, &cand, nullptr))
+							{
+								bestX = xCur; // RW 0x8908CE .. 0x8908D1: the three moves copy the point whole
+								bestY = yCur;
+								bestZ = posZ;
+							}
+						}
+					}
+					yCur = SimMath::sseFromInt32(SimMath::truncToInt32(SimMath::addf32(yCur, increment)));
+					if (!(yHi >= yCur)) // RW 0x8908F8: comiss + jae
+					{
+						break;
+					}
+				}
+			}
+			xCur = SimMath::sseFromInt32(SimMath::truncToInt32(SimMath::addf32(xCur, increment)));
+			if (!(xHi >= xCur)) // RW 0x890926: comiss + jae
+			{
+				break;
+			}
+		}
+	}
+	// the final test (RW 0x89096A .. 0x890989): the point found must be under water (TerrainLogic slot 0x4C)
+	if (!terrain->isUnderwater(bestX, bestY, nullptr, nullptr))
+	{
+		// RW 0x890A0B .. 0x890A1A: the no-water branch: the rage is forced (RW 0x890A15, once 0), the burning goes on unchanged
+		if (EntEnragedUpdate *ent = EntEnragedUpdate::of(*obj))
+		{
+			ent->setForced(true, false);
+		}
+		return;
+	}
+	// the RunToWater branch (RW 0x89098C .. 0x890A1A)
+	if (m_data->m_panicLocomotorWhileAflame) // RW 0x890993: data + 0x48
+	{
+		ai->chooseLocomotorSet(LOCOMOTORSET_PANIC); // RW 0x890A7: AI vslot 0x238(4)
+		m_panicLocomotorWhileAflameActive = true;  // RW 0x8909BA: module + 0x4C (the AI + 0x3C9 byte is write-only in RotWK 2.01, not carried)
+	}
+	const Coord3D best{ bestX, bestY, bestZ };
+	ai->aiMoveToPosition(best, CMD_FROM_SCRIPT); // RW 0x8909CA: RW 0x66C4CA, source 1
+	m_runningToWater = true;                    // RW 0x8909CF: module + 0x40
+	obj->logic().deselectObject(*obj, 0xFFFFFu, true); // RW 0x8909E3: RW 0x625759(TheGameLogic, obj, 0xFFFFF, 1)
+	obj->setStatus(3, true);                     // RW 0x8909ED: UNSELECTABLE (TheObjectStatusNames[3])
+	obj->setStatus(5, true);                     // RW 0x8909F7: NO_ATTACK (TheObjectStatusNames[5])
+	if (EntEnragedUpdate *ent = EntEnragedUpdate::of(*obj))
+	{
+		ent->setSuppressed(true);                 // RW 0x890A04: RW 0x8B64B8(1)
+	}
+}
+
 // RW 0x8904B8
 void FlammableUpdate::onDamage(const DamageInfo &info)
 {
@@ -300,6 +425,12 @@ void FlammableUpdate::tryToIgnite()
 	Object *obj = getObject();
 	GameLogic &logic = obj->logic();
 	obj->setStatus(kStatusAflame, true);
+	// PORT-66: RW 0x8901DA .. 0x8901E2, the body interface (object + 0x25C) slot 0x2C right after the status is set: the burning object's auto
+	// particle systems are made again (the aflame branch of RW 0x8C1E4E doubles them and adds the aflame template)
+	if (BodyModuleInterface *body = obj->getBodyModule())
+	{
+		body->updateBodyParticleSystems();
+	}
 	static const int kAflame = CombatNames::modelCondition("AFLAME"); // bit 78 (Object + 0x114 bit 14)
 	obj->setModelConditionState(kAflame, true);
 	if (FireSpreadUpdate *spread = findModule<FireSpreadUpdate>(*obj)) // RW 0x89023B: the module named FireSpreadUpdate
@@ -307,7 +438,7 @@ void FlammableUpdate::tryToIgnite()
 		spread->startFireSpreading(); // reads the object's AFLAME status, set above
 	}
 	m_status = FS_AFLAME; // RW 0x890251
-	noteStop(*obj, "FlammableUpdate: the ignition's client parts (burning sound, FireFXList), the body slot 0x2C and the script event 10 are not run");
+	noteStop(*obj, "FlammableUpdate: the ignition's client parts (burning sound) and the script event 10 are not run");
 	const unsigned now = logic.getFrame();
 	m_aflameEndFrame = m_data->m_aflameDuration > 0 ? now + m_data->m_aflameDuration : (unsigned)UPDATE_SLEEP_FOREVER;
 	m_burnedEndFrame = m_data->m_burnedDelay ? now + m_data->m_burnedDelay : 0;
@@ -322,6 +453,19 @@ void FlammableUpdate::tryToIgnite()
 	{
 		static const int kBurntTexture = CombatNames::modelCondition("BURNT_TEXTURE"); // bit 191
 		obj->setModelConditionState(kBurntTexture, true);
+	}
+	// RW 0x89031F .. 0x890434: the FireFXList (data + 0x28). Every entry is read into a local pair (the FXList RW 0x890337, the bone's AsciiString
+	// RW 0x89033C); the loop compares the two pointers (RW 0x890328 / 0x890431) and steps by the entry's 8 bytes (RW 0x89041E). An entry with a bone
+	// whose object has a drawable (RW 0x89034B tests the string's length, RW 0x890356 the drawable) plays at the bone: the drawable's bone transform
+	// (RW 0x672B5B, the result not tested; the local matrix at RW 0x890366 .. 0x8903B2 starts as the identity, RW 0xBd1908 = 1.0) and
+	// FXList::doFXPos(fx, its translation, the transform, 0 speed, no secondary) (RW 0x494615, its 5 arguments pushed at RW 0x8903DF .. 0x890403);
+	// any other entry: FXList::doFXObj(fx, the object, no secondary) (RW 0x4B1B5A, RW 0x89040D).
+	for (std::size_t i = 0; i < m_data->m_fireFXList.size(); ++i)
+	{
+		const FlammableUpdateModuleData::FireFX &fire = m_data->m_fireFXList[i];
+		FXEvent e = FXEventLog::objectEvent(FXEvent::OBJECT_FX, "FlammableUpdate FireFXList", logic.getFrame(), fire.fxList, *obj);
+		e.bone = fire.bone.empty() ? nullptr : &fire.bone; // RW 0x89034B: no bone takes the object path, as the client plays it
+		logic.fxEvents().emit(e);
 	}
 	if (m_data->m_customAnimFrames > 0)
 	{
@@ -377,9 +521,24 @@ void FlammableUpdate::stopBurning()
 		ent->setSuppressed(false);    // RW 0x890044
 	}
 	obj->setStatus(kStatusAflame, false);
+	// PORT-66: RW 0x89011C .. 0x890124, the body interface (object + 0x25C) slot 0x2C right after the status is cleared: the quenched object's auto
+	// particle systems are made again (the plain templates, the aflame entry gone)
+	if (BodyModuleInterface *body = obj->getBodyModule())
+	{
+		body->updateBodyParticleSystems();
+	}
 	static const int kAflame = CombatNames::modelCondition("AFLAME");
 	obj->setModelConditionState(kAflame, false);
-	noteStop(*obj, "FlammableUpdate: the quench's RW 0x68F2F1(0), script event 11, sound stop, panic locomotor end and body slot 0x2C are not run");
+	// RW 0x8900F0 .. 0x890119: the panic locomotor ends (only the one started while aflame, only with PanicLocomotorWhileAflame and an AI)
+	if (m_data->m_panicLocomotorWhileAflame && m_panicLocomotorWhileAflameActive)
+	{
+		if (AIUpdateInterface *ai = obj->getAIUpdateInterface())
+		{
+			ai->chooseLocomotorSet(LOCOMOTORSET_NORMAL); // RW 0x890113: RW vslot 0x238(0)
+			m_panicLocomotorWhileAflameActive = false;   // RW 0x890119 (the AI + 0x3C9 byte is write-only in RotWK 2.01, not carried)
+		}
+	}
+	noteStop(*obj, "FlammableUpdate: the quench's RW 0x68F2F1(0), script event 11 and the sound stop are not run");
 }
 
 // RW 0x88FB79
@@ -420,17 +579,25 @@ UpdateSleepTime FlammableUpdate::update()
 		m_customAnimEndFrame = 0;
 		if (m_data->m_runToWater)
 		{
-			noteStop(*obj, "FlammableUpdate: RunToWater's water search and move (RW 0x890782) is not ported");
-			if (EntEnragedUpdate *ent = EntEnragedUpdate::of(*obj))
-			{
-				ent->setForced(true, false); // RW 0x890A15: no water, the rage is forced (the search's other answer, RW 0x890A04, is S-5605)
-			}
+			runToWaterSearch(); // RW 0x890782
 		}
 		return UPDATE_SLEEP_NONE;
 	}
-	if (isUnderwater() && obj->getAIUpdateInterface())
+	// RW 0x890A22 .. 0x890A88: an object under water (not SHIP) with an AI that is not moving: the burning ends early and the run to water ends
+	if (isUnderwater())
 	{
-		noteStop(*obj, "FlammableUpdate: an object under water with an AI is not tested with RW 0x664485; its aflame end is not shortened");
+		if (AIUpdateInterface *ai = obj->getAIUpdateInterface())
+		{
+			if (!ai->isMoving()) // RW 0x890A59: RW 0x664485
+			{
+				const unsigned shorten = now + 3 * kLogicFramesPerSecond; // RW 0x890A62 .. 0x890A70: 3 * [0xD9F608] (5) frames from TheGameLogic + 0x40
+				if (m_aflameEndFrame > shorten)
+				{
+					m_aflameEndFrame = shorten; // RW 0x890A82 .. 0x890A84: unsigned min
+				}
+				m_runningToWater = false; // RW 0x890A86
+			}
+		}
 	}
 	if (m_damageEndFrame != 0 && now >= m_damageEndFrame)
 	{
@@ -463,6 +630,7 @@ void FlammableUpdate::crc(StateHasher &hasher) const
 	hasher.addU32(m_customAnimEndFrame);
 	hasher.addU32(m_lastFlameDamager);
 	hasher.addU32(m_aflameDamageTicks);
+	hasher.addBool(m_panicLocomotorWhileAflameActive);
 }
 
 // ---- FireSpreadUpdate ---------------------------------------------------------------------------------------------------------------
@@ -555,6 +723,7 @@ void FlammableUpdate::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_customAnimEndFrame);
 	x.xferObjectID(&m_lastFlameDamager);
 	x.xferUnsignedInt(&m_aflameDamageTicks);
+	x.xferBool(&m_panicLocomotorWhileAflameActive); // appended (the 2026-11-06 save layouts are sealed by the engine id)
 }
 
 void FireSpreadUpdate::xfer(Xfer &x)

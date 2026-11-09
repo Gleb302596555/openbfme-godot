@@ -114,6 +114,15 @@ public:
 	// lane SUMMON-1: RW vt[0x58] with its second argument 0 (ActiveBody RW 0x8C47DE; InactiveBody's slot is the empty RW 0x8851E4), the ObjectCreationList's
 	// initial health (RW 0x5F1E98): `percent` of the revive reference, a percent above 100 scaling the max health first
 	virtual void setInitialHealthPercent(float percent) { (void)percent; }
+	// PORT-66 (issue #180), RW vt[0x2C] (ActiveBody RW 0x8C1E4E, interface table RW 0xC71ED0): the body's "auto" particle systems, the fires and smoke of a
+	// damaged or burning object, put on the template's bones from GlobalData +0x9F0 .. +0xA40 (RW 0x8C1E4E). A body class without the override (the tables
+	// whose slot 0x2C is the empty RW 0x9F3A3C, as InactiveBody's RW 0xC6660C) counts the call and does nothing, like retail's stub
+	virtual void updateBodyParticleSystems() { ++bodyParticleCallsIgnored(); }
+	static unsigned long long &bodyParticleCallsIgnored()
+	{
+		static unsigned long long n = 0;
+		return n;
+	}
 };
 
 // ZH ContainModuleInterface (the membership part). The members are Objects; the list keeps insertion order.
@@ -251,6 +260,19 @@ public:
 	virtual const std::string &getUnitName() const = 0;
 };
 
+// Lane PORT-21 (stop S-1463): the listener interface a behaviour module exposes at module + 0x20 — interface 36 of the module's interface table,
+// vtable RW 0xC6B400 (slot 0 RW 0x8AF16C -> RW 0x8AF09D leave, slot 1 RW 0x8AF174 -> RW 0x8AF005 join). Only LargeGroupAudioUpdate installs it:
+// the vtable's address appears once in the binary, in that module's constructor (RW 0x8AEF44). The object asks every module of its list
+// (Object + 0x24C) in array order: the interface pointer through the module's table + 0xC, slot 0x90 / 4 = 36, then slot 0 or slot 1 of it
+// (RW 0x69075D / 0x6907A1 and the calls at RW 0x690765 / 0x6907AF).
+class LargeGroupAudioListenerInterface
+{
+public:
+	virtual ~LargeGroupAudioListenerInterface() = default;
+	virtual void objectBecameInaudible() = 0; ///< slot 0: RW 0x8AF16C -> leave, RW 0x8AF09D
+	virtual void objectBecameAudible() = 0;   ///< slot 1: RW 0x8AF174 -> join, RW 0x8AF005
+};
+
 class BehaviorModule : public ObjectModule
 {
 public:
@@ -281,6 +303,9 @@ public:
 	virtual AIUpdateInterface *getAIUpdateInterface() { return nullptr; }
 	// the scheduler works on UpdateModule objects (RW reads the interface at module + 0x10, the module itself): this is the same module
 	virtual UpdateModule *asUpdateModule() { return nullptr; }
+	// lane PORT-21: interface 36 (slot 0x90 / 4 of the module's + 0xC interface table), asked by Object::setInaudible / setAudible (RW 0x690728 /
+	// 0x690772) on every module of the object's list for its slot 0 / slot 1
+	virtual LargeGroupAudioListenerInterface *getLargeGroupAudioListener() { return nullptr; }
 	// lane UPGRADE-1: the UpgradeMux of an upgrade module (RW slot 0x28 / 4 = 10 of the +0xC interface; Object::updateUpgradeModules RW 0x6936FE asks every module)
 	virtual UpgradeMux *getUpgrade() { return nullptr; }
 	// ZH BehaviorModuleInterface::getProjectileUpdateInterface (lane PROJ-2: the client snapshot asks the projectile's look-ahead point and its launch)

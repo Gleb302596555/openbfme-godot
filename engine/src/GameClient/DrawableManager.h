@@ -17,8 +17,10 @@
 #include "GameClient/AnimationSoundClientBehavior.h"
 #include "GameClient/Drawable.h"
 #include "GameClient/EvaDamage.h"
+#include "GameClient/EvaSighting.h"
 #include "GameClient/LogicSnapshot.h"
 #include "GameClient/MapObjectDrawables.h"
+#include "GameEngineDevice/W3DDevice/GameClient/TerrainTracks.h"
 #include "GameLogic/GameLogic.h"
 
 #include <map>
@@ -46,6 +48,8 @@ public:
 	void setDeselectHandler(std::function<void(ObjectID)> handler) { m_deselectHandler = std::move(handler); }
 	// lane EVADAMAGE-1: what the EVA_DAMAGED events did (EvaDamage::apply)
 	const EvaDamage::Stats &evaDamageStats() const { return m_evaDamage; }
+	// lane LOCAL-13: Eva sighting announcements (RW 0x678C69)
+	const EvaSighting::Stats &evaSightingStats() const { return m_evaSighting; }
 	void setHeroFlashHandler(std::function<void(const std::string &, int)> handler) { m_heroFlashHandler = std::move(handler); }
 	size_t eventsApplied() const { return m_eventsApplied; }
 
@@ -65,6 +69,12 @@ public:
 	DrawServices &services() { return m_services; }
 	// lane AUDIO-4: TheAnimationSoundModuleManager of these drawables (run at the end of syncTransforms, after the animations advanced)
 	AnimationSoundModuleManager &animationSounds() { return m_animationSounds; }
+	// lane PORT-69 (issue #183): terrain track marks (RW 0xDC7A54 TerrainTracksRenderObjClassSystem)
+	TerrainTracksSystem &tracks() { return m_tracks; }
+	const TerrainTracksSystem &tracks() const { return m_tracks; }
+	void setTrackHeightSampler(TerrainTracksHeightSampler sampler) { m_trackSampler = std::move(sampler); }
+	void setShroudDrawn(bool drawn) { m_shroudDrawn = drawn; }
+	bool shroudDrawn() const { return m_shroudDrawn; }
 	// lane PERF-3: syncTransforms runs each drawable's prepareSync on the client job pool (default); false: the loop of syncFromSnapshot in slot order, the
 	// reference the determinism test compares with
 	void setParallelSync(bool on) { m_parallelSync = on; }
@@ -134,6 +144,8 @@ private:
 	static W3DLuaDrawScriptHost::Options hostOptions(const std::uint32_t &frame);
 	void created(const ClientEvent &ev);
 	void destroyed(const ClientEvent &ev);
+	void unbindTracks(Drawable &d);
+	void syncTracks(const LogicSnapshot &snapshot);
 
 	std::uint32_t m_scriptFrame = 0; ///< the frame the drawable Lua state reports (before m_services: its options point here)
 	bool m_parallelSync = true;
@@ -153,6 +165,7 @@ private:
 	std::function<void(ObjectID)> m_heroAttackedHandler;
 	std::function<void(ObjectID)> m_deselectHandler;
 	EvaDamage::Stats m_evaDamage; ///< lane EVADAMAGE-1
+	EvaSighting::Stats m_evaSighting; ///< lane LOCAL-13
 	std::function<void(const std::string &, int)> m_heroFlashHandler;
 	size_t m_dependencyUpdates = 0; ///< lane COMBAT-4: dependent drawables whose shared flags changed (RW 0x4BF2D8)
 	std::uint32_t m_nextSeq = 0;
@@ -160,6 +173,10 @@ private:
 	double m_clientClockMs = 0.0;
 	unsigned m_clientFrame = 0;
 	std::vector<std::unique_ptr<Drawable>> m_slots; ///< index = drawable id
+	std::vector<DrawableID> m_trackDrawables;       ///< lane PORT-69: slots whose template has TrackMarks
+	TerrainTracksSystem m_tracks;                   ///< lane PORT-69: RW 0xDC7A54
+	TerrainTracksHeightSampler m_trackSampler;
+	bool m_shroudDrawn = true;
 	size_t m_live = 0;
 	size_t m_created = 0, m_destroyed = 0;
 	std::vector<Event> m_events;

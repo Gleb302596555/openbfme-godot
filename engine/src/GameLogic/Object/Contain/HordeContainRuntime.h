@@ -41,6 +41,7 @@
 
 class HordeContainCore;
 class ThingTemplate;
+struct ComboHordeEntry;
 struct HordeContainModuleData;
 struct MeleeBehaviorModuleData;
 class HordeContainBehaviorData;
@@ -74,6 +75,14 @@ public:
 	// slot 0xC8 (RW 0x86EF13, lane MOVE-3): called by the pathfinder's updateGoal (RW 0x8E24D3) once the horde's goal changed: unless the horde melees (+ 0x184),
 	// every living member's goal is reserved at its slot turned by the goal's angle around the goal's position
 	virtual void reserveMemberGoals() = 0;
+	// ---- lane PORT-35 (HordeContain/ComboHorde: two hordes combining into one, GameLogic/Object/Contain/HordeContainRuntime.cpp) ----
+	// slot 0x70 (RW 0x871D41): `other` is not this horde's object, this horde's ComboHorde list (module data + 0x198, RW 0x87043B) has an entry for
+	// `other`'s template, neither object is UNDER_CONSTRUCTION (2) or UNSELECTABLE (3) (RW 0x871ECE .. 0x871F02, RW 0x44DDEC), this horde's object is
+	// not DEPLOYED (0x3b) or TEMPORARILY_DEFECTED (0x3e) and `other` is not TEMPORARILY_DEFECTED. The gate's other tests are S-6027.
+	virtual bool canCombineWith(const Object &other) const = 0;
+	// slot 0x74 (RW 0x876481, its combine branch RW 0x8765B4 .. 0x8769F7): both hordes' members move into a new horde of the entry's Result template,
+	// both old hordes are destroyed; the new horde's object, or null when the entry, the template or the new horde is missing
+	virtual Object *combineWith(Object *target) = 0;
 	// ---- MOVE-1 (the member pass, HordeMemberPass.cpp; horde spec 2.2 / 2.3 / 2.5) ----
 	// the horde's own locomotor is writing its transform: the members are not teleported with it (they walk to their slots)
 	virtual void setLocomoting(bool on) = 0;
@@ -126,6 +135,14 @@ public:
 	virtual void exitContainer(Object *container, int source) = 0;
 	// the members on the way, in the map's (id) order
 	virtual std::vector<ObjectID> membersEntering() const = 0;
+	// ---- lane PORT-25 (issue #97): the horde's vision overrides, interface vslots 0x258 / 0x25C; declared LAST so no earlier slot moves ----
+	// RW 0x872B9E: `mov eax, [ecx-0x118]; fld [eax+0x274]` returns module data + 0x274 (the module data sits at interface - 0x118: the
+	// HordeContain's interface tables start at module + 0x11C, RW 0x8798A1, and its data pointer is read back through that negative
+	// displacement). RW 0x872BAB is the same for + 0x278. Both returned on ST0 as f32.
+	// The ONLY reader is the object's look, RW 0x694B9B / 0x694BB2 (see ShroudManager::retailObjectSource): the override replaces the
+	// template's factor only when it is above 0, the template otherwise (0.0 is what an omitted INI row leaves).
+	virtual float getVisionRearOverride() const = 0;
+	virtual float getVisionSideOverride() const = 0;
 	// slot 0x170 (RW 0x870667), called by Object::setTeam (RW 0x69954A) with its non-null team: every contained member (the list contain slot 0x118 fills),
 	// then every member on the way into a garrison (the map at interface + 0x54, by id) gets Object::setTeam(team)
 	virtual void setMembersTeam(Team *team) = 0;
@@ -205,6 +222,9 @@ public:
 	// HordeContainInterface
 	int getMemberSlot(const Object *member) const override;
 	unsigned getSlotCount() const override;
+	// lane PORT-25 (RW 0x872B9E / 0x872BAB): module data + 0x274 / + 0x278 as parsed (an omitted row leaves 0.0)
+	float getVisionRearOverride() const override;
+	float getVisionSideOverride() const override;
 	void setLocomoting(bool on) override { m_locomoting = on; }
 	void beginReform() override;
 	void endReform() override;
@@ -415,6 +435,17 @@ public:
 	// 1000% reaches the pikemen this way.
 	void applyFormationModifiers();
 	void removeFormationModifiers();
+	// ---- lane PORT-35: two hordes combining into one (ComboHorde), see the interface's canCombineWith / combineWith ----
+	// RW 0x87043B: the ComboHorde entry of the module data's vector (+0x198) whose Target (entry + 0) names `tmpl`, walked in list order (RW 0x870451 ..
+	// 0x870469, the compare RW 0x4065AA); null when the list has none
+	const ComboHordeEntry *comboHordeEntryFor(const ThingTemplate &tmpl) const;
+	bool canCombineWith(const Object &other) const override;
+	Object *combineWith(Object *target) override;
+	static const char *combineStopLine();
+	// RW 0x876481's banner tie-break (0x8768A0 .. 0x8768FC) is S-6028: the members of `from` leave it without its "last member gone" destruction
+	// (the formation swap's rule) and are handed to `to` (interface slot 0x2C, RW 0x873F30) unplaced, erased from `to`'s produced list so the member
+	// pass walks them to their slots
+	void takeMembersFrom(HordeContain &from, HordeContain &to);
 	// the stop line S-589
 	static const char *formationStopLine();
 	// ---- lane HORDE-2: the banner carrier (HordeBanner.cpp; RW 0x8719E4 / 0x870204) ----
@@ -426,6 +457,9 @@ public:
 	// RW 0x871915 (lane BANNER-1): the removed member was the banner carrier: the id goes and the countdown becomes its BannerCarrierUpdate's DiedRespawnTime. Only the
 	// removals RW 0x87370B / 0x87393E call it; a member released toward a garrison (RW 0x86EBF4, keepSlot) stays the carrier
 	void bannerCarrierRemoved(const Object &member);
+	// lane PORT-75: RW 0x89A5C5 through the contain's accept path (DONOR BFME2 0x00473212 -> 0x00473197): a banner carrier that joins takes the
+	// look of the horde it leads (its MorphCondition entry for the horde's member template) and BannerMorphFX plays
+	void bannerCarrierMorph(Object &member);
 	void expediteBannerRespawn() { if (m_bannerCountdown > 1) { m_bannerCountdown = 1; } } // RW 0x89ACC1
 	unsigned payloadCount() const; ///< RW interface slot 0x188: members, including those entering a garrison, without the banner.
 	// lane NECRODIE-1: RW 0x8705A6 (interface slot 0x114): the first contained member whose template lacks KindOf `kindOfBit`, else the first contained member;
@@ -511,14 +545,94 @@ private:
 	std::map<ObjectID, int> m_quarrelDistance;         ///< + 0x24C (size + 0x250: the quarrel runs while it is not empty)
 };
 
-// AODHordeContain (vtable RW 0xC5CC70): the Army of the Dead's horde. Not ported (S-5310): the path history, the member sway, the large unit lift and the scatter.
+class AODHordeContainBehaviorData;
+
+// AODHordeContain (vtable RW 0xC5D3F0 / 0xC5CFA8, Port 26): the Army of the Dead's horde (AODHordeContain.cpp).
 class AODHordeContain : public HordeContain
 {
 public:
-	using HordeContain::HordeContain;
+	static constexpr int kMaxPathSamples = 60; // RW 0x3C (this + 0x338 .. + 0x6F7)
+	static constexpr int kMaxRanks = 20;       // RW 0x14 (this + 0x6FC .. + 0x8DB)
+
+	struct SwayRecord // RW 0x18 bytes per slot (iface + 0x1F0 / this + 0x30C)
+	{
+		float phaseXY = 0.0f;      // +0x00
+		float ampFactorXY = 0.0f;  // +0x04
+		float freqFactorXY = 0.0f; // +0x08
+		float phaseZ = 0.0f;       // +0x0C
+		float ampFactorZ = 0.0f;   // +0x10
+		float freqFactorZ = 0.0f;  // +0x14
+	};
+
+	struct PathSample // RW 0x10 bytes (this + 0x338)
+	{
+		Coord3D pos{ 0.0f, 0.0f, 0.0f };
+		float angle = 0.0f;
+	};
+
+	struct RankSpineNode // RW 0x18 bytes (ctor RW 0x87D97A, this + 0x6FC)
+	{
+		float slotX = 0.0f;              // +0x00
+		float angle = 0.0f;              // +0x04
+		Coord3D pos{ 0.0f, 0.0f, 0.0f }; // +0x08
+		bool valid = false;              // +0x14
+	};
+
 	OBFME_MODULE_XFER(AODHordeContain)
-	bool addToContain(Object *obj) override;
-	UpdateSleepTime update() override; // RW 0x87DC7E .. 0x87DCA6 / BFME2 0x87AD8E .. 0x87ADB6
+	AODHordeContain(Thing *thing, const HordeContainBehaviorData *data);
+	~AODHordeContain() override;
+
+	void onObjectCreated() override; // RW 0x63F3BF: no-op; slots build lazily on first addToContain (RW 0x872D98 -> 0x87E8FC)
+	void crc(StateHasher &hasher) const override;
+	UpdateSleepTime update() override; // RW 0x872EFC + 0x87D9F6 + 0x873FE8 + 0x87DB01
+	bool addToContain(Object *obj) override; // RW 0x87D650 -> 0x872D0A
+	void removeFromContain(Object *obj) override;
+	void removeDyingMember(Object *obj) override;
+	void markDirty() override;
+	void updateFormation() override;
+	Coord3D getMemberFormationPosition(const Object *member) const override; // RW 0x87DEFB
+
+	// RW 0x87E894 (HordeContainInterface slot +0x130): called by AODCrushCollide on colliding with an enemy.
+	void onLargeObjectCollide(Object *member, Object *other);
+
+	const AODHordeContainBehaviorData &aodData() const;
+	const std::vector<SwayRecord> &swayRecords() const { return m_swayRecords; }
+	int pathSampleCount() const { return m_pathSampleCount; }
+	const std::array<PathSample, kMaxPathSamples> &pathSamples() const { return m_pathSamples; }
+	int rankCount() const { return m_rankCount; }
+	const std::array<RankSpineNode, kMaxRanks> &rankSpine() const { return m_ranks; }
+	ObjectID largeUnitID() const { return m_largeUnitID; }
+	unsigned largeUnitStartFrame() const { return m_largeUnitStartFrame; }
+	const Coord3D &largeUnitPosition() const { return m_largeUnitPos; }
+	float largeUnitExtent() const { return m_largeUnitExtent; }
+	float largeUnitHeight() const { return m_largeUnitHeight; }
+	float scatterProgress() const { return m_scatterProgress; }
+
+private:
+	void buildAodSlots();
+	void pushPathSample(const Coord3D &pos);
+	void updateRankSpine();
+	void updateRankSpineNode(int rankIdx);
+	void stepSpineAndScatter();
+	bool runAodMemberPass();
+	bool orderAodMember(Object &member, const Coord3D &slotPos);
+	void syncOathToMembers(bool fulfilled);
+	int findRankForSlotX(float slotX) const;
+	float surfaceHeightAt(float x, float y) const;
+
+	const AODHordeContainBehaviorData *m_aodData = nullptr;
+	std::vector<SwayRecord> m_swayRecords;
+	ObjectID m_largeUnitID = INVALID_ID;
+	unsigned m_largeUnitStartFrame = 0;
+	Coord3D m_largeUnitPos{ 0.0f, 0.0f, 0.0f };
+	float m_largeUnitExtent = 0.0f;
+	float m_largeUnitHeight = 0.0f;
+	float m_scatterProgress = 0.0f;
+	std::array<PathSample, kMaxPathSamples> m_pathSamples{};
+	int m_pathSampleCount = 0;
+	std::array<RankSpineNode, kMaxRanks> m_ranks{};
+	int m_rankCount = 0;
+	bool m_aodDirty = true;
 };
 
 class GameLogicDispatch;

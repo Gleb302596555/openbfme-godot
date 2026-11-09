@@ -229,7 +229,7 @@ public:
 	const HelpBoxSettings &helpBoxSettings() const { return m_helpSettings; }
 	// the device's mapped images (the overlays' and icons' sizes) and font metrics (the help's text); without metrics the help measures with the
 	// headless stand-in (S-176)
-	void setMappedImages(const MappedImageCollection *images) { m_hud6Images = images; }
+	void setMappedImages(const MappedImageCollection *images) { m_hud6Images = images; m_input->context().images = images; }
 	void setFontMetrics(FontMetricsSource *metrics) { m_hud6Metrics = metrics; }
 	// the device draws the help box's content clip (its `_type` is helpBox().renderName()) at (x, y, w, h) window pixels: RW 0x92E2AC
 	void helpBoxRender(float x, float y, float w, float h, std::vector<HelpDrawOp> &out);
@@ -315,11 +315,13 @@ private:
 	std::vector<std::string> m_missingMessageLabels;
 	std::uint32_t m_beaconNoticeSeen = 0;
 	std::uint32_t m_globalRallyNoticeSeen = 0;
+	std::uint32_t m_upgradeCompleteNoticeSeen = 0;
 	std::set<ObjectID> m_beaconObjects;    ///< the beacons the notices made (live ones; pruned when gone)
 	std::uint32_t m_beaconPulseFrame = 0xFFFFFFFFu;
 	BeaconStats m_beaconStats;
 	void presentBeacons();              ///< lane CHAT-1: the notices and the pulses (logic held)
 	void presentGlobalRally();          ///< the local player's successfully applied global rally
+	void presentUpgradeComplete();      ///< RW 0x8A2080 .. 0x8A223B: the local player's completed upgrade feedback
 	void showMessageLabel(const std::string &label, const std::u16string *argument);
 
 	InGameSpellBookModel m_spellBar;          // lane SPELL-2

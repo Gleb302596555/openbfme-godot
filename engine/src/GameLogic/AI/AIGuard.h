@@ -105,6 +105,7 @@ public:
 	bool lookForInnerTarget();           // RW 0x949CA7
 	Coord3D guardPosition() const;        // RW 0x949BD3
 	static float getStdGuardRange(const Object &obj); // RW 0x949567 -> RW 0x6FF412
+	static float getRetaliateRange(const Object &obj); // Local 20: RW 0x94BA8C (MaxRetaliateDistance, scaled 1.15 if melee)
 	static float getAdjustedVisionRange(const Object &obj); // RW 0x6FF412 with OWNERTYPE | MOOD
 	void setPositionToGuard(const Coord3D &p, float angle) { m_positionToGuard = p; m_guardAngle = angle; }
 	const Coord3D &positionToGuard() const { return m_positionToGuard; }

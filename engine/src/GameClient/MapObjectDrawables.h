@@ -152,6 +152,7 @@ struct MapObjectDrawable
 	Coord3D normal = { 0.0f, 0.0f, 1.0f };
 	float basis[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 }; ///< columns X, Y, Z of the orientation (row major 3x3: [col0 row0, col1 row0, col2 row0, ...])
 	float scale = 1.0f;              ///< instance scale
+	int variation = -1;              ///< the drawable's model variation (drawable + 0x364, RW 0x679FEA); -1: none known (the static viewer: the first model, RW 0x4B42F5)
 	ModelConditionFlags flags;       ///< initial model condition flags
 	bool drawsInMirror = false;
 	bool hordeMember = false;        ///< a member of a horde object (objectIndex is the horde's index in the ObjectsList)
@@ -168,6 +169,15 @@ struct MapObjectRecord
 	MapObjectFate fate = MAPOBJ_OBJECT;
 	std::string templateName;
 	std::string detail;              ///< why (non-drawn fates), or the case-insensitive match for an unresolved name
+};
+
+// A map's Scorch object (S-117): the terrain visual adds it to the scorch buffer at load (BFME2 decomp W3DTerrainVisualLoad.cpp:526 /
+// W3DTerrainVisual.cpp:566), radius = the object's objectRadius dict field, type = its scorchType.
+struct MapScorch
+{
+	Coord3D position;
+	float radius = 0.0f;
+	int type = 0;
 };
 
 struct MapObjectOptions
@@ -229,6 +239,7 @@ struct MapObjectReport
 	std::map<std::string, size_t> creationHookShows;              ///< sub object (lower case) the handlers show permanently -> objects
 	std::vector<std::string> errors;                              ///< per-object problems that must reach a test (unresolved names, bad KindOf, ...)
 	std::vector<std::string> stops;                               ///< the stop lines that apply, "[S-1xx] ..."
+	std::vector<MapScorch> scorches;                              ///< the map's Scorch objects, in ObjectsList order (S-117)
 };
 
 struct MapObjectDrawables

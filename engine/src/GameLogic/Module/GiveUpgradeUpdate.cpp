@@ -48,6 +48,11 @@ void GiveUpgradeUpdate::onObjectCreated()
 {
 	if (m_giveData->m_deliver) { getObject()->logic().noteStop(stopLine()); m_searching = true; setWakeFrame(getObject(), UPDATE_SLEEP(1)); }
 }
+void GiveUpgradeUpdate::initiateIntentToDoSpecialPower(const SpecialPowerTemplate *, Object *, const Coord3D *, unsigned, int)
+{
+	// RW 0x8A006C: find delivery target and schedule delivery
+	findDeliveryTarget();
+}
 void GiveUpgradeUpdate::findDeliveryTarget()
 {
 	Object *owner = getObject();

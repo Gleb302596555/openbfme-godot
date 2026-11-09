@@ -224,6 +224,11 @@ void Team::crc(StateHasher &h) const
 			h.addU32(r.caster);
 		}
 	}
+	if (m_aiRecruitableOverrideSet) // lane PORT-40: + 0x110 / + 0x111, hashed once a script action set them (RW 0x7C199C / RW 0x7C0C3E)
+	{
+		h.addU32(0x110u);
+		h.addBool(m_aiRecruitableOverride);
+	}
 }
 
 // ---- TeamFactory ------------------------------------------------------------------------------------------------------
@@ -422,8 +427,9 @@ void TeamFactory::crc(StateHasher &h) const
 // relation maps are retail's sub-records (xferRelationMaps). Members are ids (ZH Team::xfer saves the member ids and Team::loadPostProcess finds them).
 void Team::xfer(Xfer &x)
 {
-	// version 2 (lane RAI-POW): the special-power registry (+ 0x140), written only when a power registered (every other snapshot is version 1's)
-	XferVersion v{ 1, (std::uint8_t)(x.isLoading() || !m_specialPowers.empty() ? 2 : 1) };
+	// version 2 (lane RAI-POW): the special-power registry (+ 0x140), written only when a power registered (every other snapshot is version 1's);
+	// version 3 (lane PORT-40): the AI-recruitable override (+ 0x110 / + 0x111), written only when a script action set it
+	XferVersion v{ 1, (std::uint8_t)(x.isLoading() || m_aiRecruitableOverrideSet ? 3 : (!m_specialPowers.empty() ? 2 : 1)) };
 	x.xferVersion(v);
 	xferRelationMaps(x, m_teamRelations, m_playerRelations);
 	x.xferAsciiString(&m_state);
@@ -507,6 +513,19 @@ void Team::xfer(Xfer &x)
 				m_specialPowers.push_back(r);
 			}
 		}
+	}
+	if (v.current < 3)
+	{
+		if (x.isLoading())
+		{
+			m_aiRecruitableOverrideSet = false; // a version 1 / 2 snapshot has no override
+			m_aiRecruitableOverride = false;
+		}
+	}
+	else
+	{
+		x.xferBool(&m_aiRecruitableOverrideSet);
+		x.xferBool(&m_aiRecruitableOverride);
 	}
 }
 

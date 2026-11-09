@@ -766,6 +766,12 @@ void MapObjectCreation::build(const LoadedMap &map, const std::string &mapName, 
 			{
 				fate = MAPOBJ_SCORCH;
 				why = "scorchType";
+				// S-117: the terrain visual adds it at load (BFME2 W3DTerrainVisualLoad.cpp:526): position, objectRadius, scorchType
+				MapScorch s;
+				s.position = Coord3D{ o.m_location.x, o.m_location.y, z };
+				s.radius = p.getReal("objectRadius");
+				s.type = p.getInt("scorchType");
+				out.report.scorches.push_back(s);
 			}
 			else if (p.getReal("lightHeightAboveTerrain", &ex), ex)
 			{

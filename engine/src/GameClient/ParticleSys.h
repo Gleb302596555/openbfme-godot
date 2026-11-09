@@ -219,6 +219,7 @@ public:
 	bool isLocalIdentity() const { return m_isLocalIdentity; }
 	const std::string &attachedBone() const { return m_attachedBone; }
 	std::uint32_t attachedDrawableID() const { return m_attachedDrawableID; } ///< lane FX-3 (tests)
+	std::uint32_t attachedObjectID() const { return m_attachedObjectID; }     ///< +0xb4: the object the system follows (RW 0x5F32D7); lane PORT-79 (tests)
 	// the first / next particle in this system's list, oldest first (-1 at the end)
 	int firstParticle() const { return m_firstParticle; }
 

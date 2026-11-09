@@ -180,6 +180,12 @@ include(cmake/Build.cmake)      # BUILD-1: construction, castles, dozers (append
 include(cmake/Combat.cmake)     # OPENBFME_COMBAT_SOURCES / OPENBFME_COMBAT_TESTS (lane COMBAT-1)
 include(cmake/Structure.cmake)  # OPENBFME_STRUCTURE_SOURCES / OPENBFME_STRUCTURE_TESTS (lane COMBAT-2)
 include(cmake/Spell.cmake)      # OPENBFME_SPELL_SOURCES / OPENBFME_SPELL_TESTS (lane SPELL-1)
+include(cmake/Port43.cmake)     # PORT-43: GameData/PowerLimit -> GameLogic + 0x118 (issue #128; OPENBFME_PORT43_TESTS)
+include(cmake/Port51.cmake)     # PORT-51: Object/InstanceScaleFuzziness, parsed and never read by RotWK (issue #155; OPENBFME_PORT51_TESTS)
+include(cmake/Port81.cmake)     # PORT-81: HordeContain/RanksToJustFreeWhenAttacking, parsed and never read by RotWK (issue #213; OPENBFME_PORT81_TESTS)
+include(cmake/Port73.cmake)     # PORT-73: W3DTreeDraw DoTopple / the shrub push aside (issue #205; OPENBFME_PORT73_TESTS)
+include(cmake/Port50.cmake)     # PORT-50: W3DModelDraw/ParticlesAttachedToAnimatedBones, particles on the animated bones (issue #154; OPENBFME_PORT50_TESTS)
+include(cmake/Port74.cmake)     # PORT-74: W3DLaserDraw, the lightning and beam draws (issue #206; OPENBFME_PORT74_SOURCES / _TESTS)
 include(cmake/Render.cmake)     # OPENBFME_RENDER_SOURCES / OPENBFME_RENDER_TESTS (lane RENDER-1, client / draw only)
 include(cmake/SkirmishAI.cmake) # OPENBFME_SKIRMISH_AI_SOURCES / OPENBFME_SKIRMISH_AI_TESTS (lane AI-1)
 include(cmake/Vis.cmake)        # OPENBFME_VIS_SOURCES / OPENBFME_VIS_TESTS (lane VIS-1)
@@ -195,28 +201,53 @@ include(cmake/Experience.cmake) # OPENBFME_XP_SOURCES / OPENBFME_XP_TESTS (lane 
 include(cmake/FactB.cmake)      # OPENBFME_FACTB_TESTS (lane FACT-B: Isengard and Mordor)
 include(cmake/Port4.cmake) # OPENBFME_PORT4_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
+include(cmake/Port75.cmake) # PORT-75: BannerCarrierUpdate MorphCondition / BannerMorphFX (issue #207; OPENBFME_PORT75_TESTS)
+include(cmake/Port79.cmake) # OPENBFME_PORT79_TESTS (lane PORT-79)
+include(cmake/Port54.cmake) # OPENBFME_PORT54_TESTS (lane PORT-54)
 include(cmake/Port5.cmake) # OPENBFME_PORT5_TESTS (lane PORT-5)
-include(cmake/Port16.cmake) # PORT-16: supply conditions (issue #72)
+include(cmake/Port18.cmake) # PORT-18: hold fire (issue #74)
 include(cmake/Port1.cmake) # PORT-1: Weapon/FinishAttackOnceStarted (issue #53; OPENBFME_PORT1_TESTS)
 include(cmake/Port2.cmake) # PORT-2: ActiveBody/RecoveryTime (issue #54; OPENBFME_PORT2_TESTS)
 include(cmake/Port6.cmake) # PORT-6: StealthDetectorUpdate/CanDetectWhileGarrisoned (issue #59; OPENBFME_PORT6_TESTS)
 include(cmake/Port8.cmake) # PORT-8: PhysicsBehavior/OrientToFlightPath (issue #61; OPENBFME_PORT8_TESTS)
 include(cmake/Port7.cmake) # PORT-7: AnimalAIUpdate/UpdateTimer (issue #60; OPENBFME_PORT7_TESTS)
 include(cmake/Port11.cmake) # PORT-11: SlavedUpdate/StayOnSameLayerAsMaster (issue #66; OPENBFME_PORT11_TESTS)
-include(cmake/Port19.cmake) # PORT-19: RespawnUpdate/producer exit query (issue #75; OPENBFME_PORT19_TESTS)
-include(cmake/Port15.cmake) # PORT-15: LockWeaponCreate/Object::setWeaponLock (issue #71; OPENBFME_PORT15_TESTS)
-include(cmake/Port9.cmake) # PORT-9: TransportContain/CollidePickup (issue #62; OPENBFME_PORT9_TESTS)
-include(cmake/Port12.cmake) # PORT-12: BuildAssistant edge margin / SupplyBuildBorder (issue #67; OPENBFME_PORT12_TESTS)
-include(cmake/Port20.cmake) # PORT-20: GarrisonContain/onSelling (issue #76; OPENBFME_PORT20_TESTS)
-include(cmake/Port14.cmake) # PORT-14: AIAttackState/victim block (issue #70; OPENBFME_PORT14_TESTS)
 include(cmake/Port13.cmake) # PORT-13: AIData/AttackMoveUsesFormations (issue #68; OPENBFME_PORT13_TESTS)
 include(cmake/Port30.cmake) # PORT-30: OneRingPenaltyUpdate/TimeFrozenFromPenalty (issue #102; OPENBFME_PORT30_TESTS)
+include(cmake/Port48.cmake) # PORT-48: W3DModelDraw/WadingParticleSys (issue #152)
+include(cmake/Port24.cmake) # PORT-24: Object/ForceLuaRegistration (issue #96; OPENBFME_PORT24_TESTS)
+include(cmake/Port21.cmake) # PORT-21: INAUDIBLE when an object leaves the world (issue #77; OPENBFME_PORT21_TESTS)
+include(cmake/Port34.cmake) # PORT-34: GameData/DefaultStructureRubbleHeight + Object/StructureRubbleHeight (issue #119; OPENBFME_PORT34_TESTS)
+include(cmake/Port26.cmake) # PORT-26: AODHordeContain member jitter and scatter (issue #98; appends to OPENBFME_SIM_SOURCES; OPENBFME_PORT26_TESTS)
+include(cmake/Port35.cmake) # PORT-35: HordeContain/ComboHorde, two hordes combining into one (issue #120; OPENBFME_PORT35_TESTS)
+include(cmake/Port22.cmake) # PORT-22: SiegeDeploy/adjustMeleeOffset (issue #78; OPENBFME_PORT22_TESTS)
+include(cmake/Port37.cmake) # PORT-37: DamageNugget/CylinderAOE, the area shape (issue #122; OPENBFME_PORT37_TESTS)
+include(cmake/Port10.cmake) # PORT-10: FlammableUpdate/RunToWater (issue #65; OPENBFME_PORT10_TESTS)
+include(cmake/Port55.cmake) # OPENBFME_PORT55_TESTS
+include(cmake/Port38.cmake) # PORT-38: the AIData team build tempo (issue #123; OPENBFME_PORT38_TESTS)
+include(cmake/Port57.cmake) # PORT-57: RadiateFearUpdate/WhichSpecialPower parsed-unused (issue #167; OPENBFME_PORT57_TESTS)
+include(cmake/Port17.cmake) # PORT-17: ThreatFinderUpdate + the threat-finder script action (issue #73; appends to OPENBFME_SIM_SOURCES; OPENBFME_PORT17_TESTS)
+include(cmake/Port46.cmake) # PORT-46: ToggleMountedSpecialAbilityUpdate/OpacityTarget (issue #150; OPENBFME_PORT46_TESTS)
+include(cmake/Port58.cmake) # PORT-58: SpecialAbilityUpdate/ApproachUntilMembersInRange (issue #168; OPENBFME_PORT58_TESTS)
+include(cmake/Port45.cmake) # PORT-45: ActiveBody/DamageCreationList (issue #149; OPENBFME_PORT45_TESTS)
+include(cmake/Port44.cmake) # PORT-44: ExperienceLevel/ShowLevelUpTint (issue #148; OPENBFME_PORT44_TESTS)
+include(cmake/Port70.cmake) # PORT-70: the GameData verdict table (issue #184; OPENBFME_PORT70_TESTS)
+include(cmake/Port25.cmake) # PORT-25: HordeContain/VisionRearOverride (issue #97; OPENBFME_PORT25_TESTS)
+include(cmake/Port60.cmake) # PORT-60: EvaAnnounceClientCreate/CreateFakeRadarEvent (issue #170; verdict, no engine change; OPENBFME_PORT60_TESTS)
+include(cmake/Port61.cmake) # PORT-61: FlammableUpdate/FireFXList, the effects at ignition (issue #171; OPENBFME_PORT61_TESTS)
+include(cmake/Port62.cmake) # PORT-62: TransportContain/FireGrabWeaponOnVictim, the GrabWeapon fire (issue #172; OPENBFME_PORT62_TESTS)
+include(cmake/Port72.cmake) # PORT-72: FactionVictoryData, stop verdict S-7216 (issue #186; OPENBFME_PORT72_TESTS)
+include(cmake/Port67.cmake) # PORT-67: Weapon/CanSwoop and the Locomotor Swoop rows (issue #181; OPENBFME_PORT67_TESTS)
+include(cmake/Port40.cmake) # PORT-40: AIData/MaxRecruitRadius (issue #125; OPENBFME_PORT40_TESTS)
+include(cmake/Port65.cmake) # PORT-65: SpellRechargeModifierUpgrade (issue #177; OPENBFME_PORT65_TESTS)
+include(cmake/Port49.cmake) # PORT-49: W3DModelDraw/AlphaCameraFadeInnerRadius (issue #153; OPENBFME_PORT49_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
 include(cmake/Fx3.cmake)        # FX-3: particle and draw gaps (OPENBFME_FX3_SOURCES / OPENBFME_FX3_TESTS)
 include(cmake/Fogfx1.cmake)     # FOGFX-1: the shroud's fade (OPENBFME_FOGFX1_SOURCES / OPENBFME_FOGFX1_TESTS)
 include(cmake/Fx4.cmake)        # FX-4: TransitionDamageFX, the camera shake (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX4_TESTS)
+include(cmake/Port66.cmake)     # PORT-66: GameData AutoFire / AutoSmoke / AutoAflame particles (issue #180; OPENBFME_PORT66_TESTS)
 include(cmake/Hero.cmake)       # HERO-1: heroes (appends to OPENBFME_SIM_SOURCES; OPENBFME_HERO_TESTS)
 include(cmake/Proj2.cmake)      # PROJ-2: siege projectiles (appends to OPENBFME_SIM_SOURCES; OPENBFME_PROJ2_TESTS)
 include(cmake/Castle1.cmake)    # OPENBFME_CASTLE1_TESTS (lane CASTLE-1: the castle after its unpack)
@@ -238,6 +269,7 @@ include(cmake/Perf3.cmake)      # PERF-3: client frame-time work (OPENBFME_PERF3
 include(cmake/Audio3.cmake)     # AUDIO-3: the sound request log, building sounds (appends to OPENBFME_SIM_SOURCES; OPENBFME_AUDIO3_TESTS)
 include(cmake/Audio4.cmake)     # AUDIO-4: QA-1's sound follow-ups (OPENBFME_AUDIO4_TESTS)
 include(cmake/EvaDamage1.cmake) # EVADAMAGE-1: the Eva half of the drawable damage notice (appends to OPENBFME_SIM_SOURCES; OPENBFME_EVADAMAGE1_CLIENT_SOURCES / _TESTS)
+include(cmake/Local13.cmake)      # LOCAL-13: Eva sighting announcements (RW 0x678C69)
 include(cmake/End1.cmake)       # END-1: the score keeper, the end sequence and the score screen (appends to OPENBFME_SIM_SOURCES; OPENBFME_END1_SOURCES / _TESTS)
 include(cmake/Qa1.cmake)       # OPENBFME_QA1_SOURCES / OPENBFME_QA1_TESTS (lane QA-1: the drawn-model pick)
 include(cmake/Mp2.cmake)        # MP-2: the disconnect path, a dropped player's assets (appends to OPENBFME_SIM_SOURCES; OPENBFME_MP2_TESTS)
@@ -342,13 +374,18 @@ include(cmake/Bridge1.cmake)    # BRIDGE-1: retail bridges crossed and destroyed
 include(cmake/Siege1.cmake)     # SIEGE-1: the siege units (appends to OPENBFME_SIM_SOURCES; OPENBFME_SIEGE1_TESTS)
 include(cmake/Castlearea1.cmake) # CASTLEAREA-1: the castle area triggers (OPENBFME_CASTLEAREA1_TESTS)
 include(cmake/Weather1.cmake)   # WEATHER-1: snow, rain, darkness, lightning, the weather sound (client sources; OPENBFME_WEATHER1_TESTS)
+include(cmake/Port33.cmake)     # PORT-33: the AIWoTRForfeitTactic port of FarmingThreshold / LogicFramesTillAISelfDestructs (OPENBFME_PORT33_TESTS)
+include(cmake/Port64.cmake)     # PORT-64: RubbleRiseUpdate, the rubble rise of a destroyed camp or castle piece (OPENBFME_PORT64_TESTS)
+include(cmake/Bldfx1.cmake)     # FEAT-BLDFX-1: the FXList nugget sinks, scorches, decals, light pulses, camera shakers (OPENBFME_BLDFX1_SOURCES / _TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
     ${OPENBFME_APT_SOURCES}
     ${OPENBFME_AUDIO4_CLIENT_SOURCES}
     ${OPENBFME_EVADAMAGE1_CLIENT_SOURCES}
+    ${OPENBFME_LOCAL13_CLIENT_SOURCES}
     ${OPENBFME_DECOMP2_CLIENT_SOURCES}
     ${OPENBFME_FX_SOURCES}
+    ${OPENBFME_BLDFX1_SOURCES}
     ${OPENBFME_PROD_SOURCES}
     ${OPENBFME_AUDIO_SOURCES}
     ${OPENBFME_START_SOURCES}
@@ -359,6 +396,7 @@ add_library(openbfme_core STATIC
     ${OPENBFME_COMBAT_SOURCES}
     ${OPENBFME_STRUCTURE_SOURCES}
     ${OPENBFME_RENDER_SOURCES}
+    ${OPENBFME_PORT74_SOURCES}
     ${OPENBFME_RENDER4_SOURCES}
     ${OPENBFME_GLOW1_SOURCES}
     ${OPENBFME_RENDER2_SOURCES}
@@ -662,6 +700,7 @@ add_library(openbfme SHARED
     src/GodotDevice/GodotW3DInstancer.cpp
     src/GodotDevice/GodotLogicClock.cpp
     src/GodotDevice/GodotMapTerrain.cpp
+    src/GodotDevice/GodotTerrainTracks.cpp # PORT-69
     src/GodotDevice/GodotTerrainScorches.cpp # TOP20 Fire, scorches
     src/GodotDevice/GodotMapObjectBuilder.cpp
     # APT-3: the retail menus on screen
@@ -756,8 +795,13 @@ add_executable(openbfme_tests
     ${OPENBFME_XP_TESTS}
     ${OPENBFME_FACTB_TESTS}
     ${OPENBFME_PLAY2_TESTS}
+    ${OPENBFME_PORT75_TESTS}
+    ${OPENBFME_PORT79_TESTS}
+    ${OPENBFME_PORT54_TESTS}
+    ${OPENBFME_PORT33_TESTS}
+    ${OPENBFME_PORT64_TESTS}
     ${OPENBFME_PORT5_TESTS}
-    ${OPENBFME_PORT16_TESTS}
+    ${OPENBFME_PORT18_TESTS}
     ${OPENBFME_PORT1_TESTS}
     ${OPENBFME_PORT2_TESTS}
     ${OPENBFME_PORT6_TESTS}
@@ -772,7 +816,34 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT20_TESTS}
     ${OPENBFME_PORT14_TESTS}
     ${OPENBFME_PORT13_TESTS}
+    ${OPENBFME_PORT45_TESTS}
     ${OPENBFME_PORT30_TESTS}
+    ${OPENBFME_PORT48_TESTS}
+    ${OPENBFME_PORT24_TESTS}
+    ${OPENBFME_PORT21_TESTS}
+    ${OPENBFME_PORT34_TESTS}
+    ${OPENBFME_PORT26_TESTS}
+    ${OPENBFME_PORT35_TESTS}
+    ${OPENBFME_PORT22_TESTS}
+    ${OPENBFME_PORT37_TESTS}
+    ${OPENBFME_PORT10_TESTS}
+    ${OPENBFME_PORT55_TESTS}
+    ${OPENBFME_PORT38_TESTS}
+    ${OPENBFME_PORT57_TESTS}
+    ${OPENBFME_PORT17_TESTS}
+    ${OPENBFME_PORT46_TESTS}
+    ${OPENBFME_PORT58_TESTS}
+    ${OPENBFME_PORT44_TESTS}
+    ${OPENBFME_PORT70_TESTS}
+    ${OPENBFME_PORT25_TESTS}
+    ${OPENBFME_PORT60_TESTS}
+    ${OPENBFME_PORT61_TESTS}
+    ${OPENBFME_PORT62_TESTS}
+    ${OPENBFME_PORT72_TESTS}
+    ${OPENBFME_PORT67_TESTS}
+    ${OPENBFME_PORT40_TESTS}
+    ${OPENBFME_PORT65_TESTS}
+    ${OPENBFME_PORT49_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}
@@ -788,6 +859,12 @@ add_executable(openbfme_tests
     ${OPENBFME_COMBAT_TESTS}
     ${OPENBFME_STRUCTURE_TESTS}
     ${OPENBFME_SPELL_TESTS}
+    ${OPENBFME_PORT43_TESTS}
+    ${OPENBFME_PORT51_TESTS}
+    ${OPENBFME_PORT81_TESTS}
+    ${OPENBFME_PORT73_TESTS}
+    ${OPENBFME_PORT50_TESTS}
+    ${OPENBFME_PORT74_TESTS}
     ${OPENBFME_RENDER_TESTS}
     ${OPENBFME_SKIRMISH_AI_TESTS}
     ${OPENBFME_VIS_TESTS}
@@ -801,6 +878,8 @@ add_executable(openbfme_tests
     ${OPENBFME_FX2_TESTS}
     ${OPENBFME_FX3_TESTS}
     ${OPENBFME_FX4_TESTS}
+    ${OPENBFME_PORT66_TESTS}
+    ${OPENBFME_BLDFX1_TESTS}
     ${OPENBFME_FOGFX1_TESTS}
     ${OPENBFME_HERO_TESTS}
     ${OPENBFME_MOD1_TESTS}
@@ -814,6 +893,7 @@ add_executable(openbfme_tests
     ${OPENBFME_AUDIO3_TESTS}
     ${OPENBFME_AUDIO4_TESTS}
     ${OPENBFME_EVADAMAGE1_TESTS}
+    ${OPENBFME_LOCAL13_TESTS}
     ${OPENBFME_PROJ2_TESTS}
     ${OPENBFME_STEALTH_TESTS}
     ${OPENBFME_OCCLUDE1_TESTS}
@@ -1021,6 +1101,30 @@ add_executable(openbfme_tests
     tests/test_local_7.cpp
     # lane LOCAL-5 (capture flash and audio tick)
     tests/test_local_5.cpp
+    # lane LOCAL-8 (RespawnUpdate ButtonImage, AutoRespawnAtObjectFilter, DeathAnimationTime)
+    tests/test_local_8.cpp
+    # lane LOCAL-9 (horde member models by detail level, TOP20 #23, #8)
+    tests/test_local_9.cpp
+    # lane LOCAL-10 (upgrade DisplayName in UI)
+    tests/test_local_10.cpp
+    # lane LOCAL-14 (object decal shadows, TOP20 #5)
+    tests/test_local_14.cpp
+    # lane LOCAL-12 (command button border, ControlBarScheme, TOP20 #1)
+    tests/test_local_12.cpp
+    # lane LOCAL-15 (War of the Ring texts: DisplayNameStrategic, DescriptionStrategic, TOP20 #16)
+    tests/test_local_15.cpp
+    # lane LOCAL-16 (EmotionRange unused in RotWK, FadeOnPortals RW 0x66E726 -> RW 0x664F93, TOP20 #19)
+    tests/test_local_16.cpp
+    # lane LOCAL-17 (tree and shrub textures: W3DTreeDraw/TextureName, TOP20 #22)
+    tests/test_local_17.cpp
+    # lane LOCAL-18 (CombineHordeSpecialPower, SPECIAL_GIVE_UPGRADE_NEAREST, issue #143)
+    tests/test_local_18.cpp
+    # lane LOCAL-19 (object shadows parity: decal box fallback, opacity curve, shadow map casters, issue #146, TOP20 #5)
+    tests/test_local_19.cpp
+    # lane LOCAL-20 (retaliation: MaxRetaliateDistance, S-325, S-326, issue #147)
+    tests/test_local_20.cpp
+    # lane LOCAL-21 (model state lifecycle, forced model replacement, teardown, per-mesh material state, issue #161)
+    tests/test_local_21.cpp
     # shared numeric facade (WEAPON-1 e75dd8c, imported unchanged: wide PC24 results, SSE binary32 ops, retail integer conversions)
     tests/test_numeric_facade.cpp
     # lane ECON-1: the economy

@@ -9,6 +9,7 @@
 #include "GameEngineDevice/Win32Device/Common/Win32BIGFileSystem.h"
 #include "GameLogic/AI/AIPathfindConfig.h"
 #include "GameLogic/GameLogic.h"
+#include "Common/StateHash.h"
 
 #include <chrono>
 #include <filesystem>
@@ -88,7 +89,7 @@ TEST_CASE("logic settings: fields no row reads and nested blocks are consumed an
 	std::string err;
 	const std::string text =
 		"AIData\n"
-		"  Wealthy = 7000 ; a comment with = in it\n"
+		"  StructureSeconds = 30.0 ; a comment with = in it\n"
 		"  EnableRepulsors = No\n"
 		"  SideInfo Rohan\n"
 		"    ResourceGatherersEasy = 0\n"
@@ -105,7 +106,8 @@ TEST_CASE("logic settings: fields no row reads and nested blocks are consumed an
 		"End\n";
 	REQUIRE_MESSAGE(L::scanAIData(text, g, &err), err);
 	CHECK_FALSE(g.enableRepulsors);
-	CHECK(g.unappliedFields.count("AIData.Wealthy") == 1);
+	CHECK(g.unappliedFields.count("AIData.StructureSeconds") == 1); // lane PORT-38: Wealthy is a read row now (RW 0xC1CB40, AITeamTempo.h),
+	                                                                   // StructureSeconds (+ 0x4) is not (triage batch-12 row 24: no read in the image)
 	CHECK(g.unappliedFields.count("AIData.SideInfo") == 1);
 	CHECK(g.unappliedFields.count("AIData.SkirmishBuildList") == 1);
 	// lane TARGET-1: the AttackPriority block has its own row (RW 0x70153B): read, not recorded
@@ -210,6 +212,7 @@ TEST_CASE("aidata1 settings: an AIData block that names no field loads and keeps
 	CHECK(g.meleeApproachTolerance == 20.0f);
 	CHECK(g.meleeApproachDist == 60.0f);
 	CHECK(g.castleSiegeStandBackDistance == 100.0f);
+	CHECK(g.maxRetaliateDistance == 200.0f); // Local 20: RW 0x6FFDC4 (retail aidata.ini sets 450.0, Ennorath 250.0)
 	CHECK(g.hordesWaitForHordes);
 	// no AIData block at all is still an error (the file is TheAI's InitFile)
 	GameLogicSettings h;
@@ -340,4 +343,24 @@ TEST_CASE("logic settings: an AIData block indented after a skipped block's End 
 	fs.setLocalFolder(std::string());
 	std::error_code ec;
 	stdfs::remove_all(dir, ec);
+}
+
+TEST_CASE("PORT-69: GameData track settings are client-only and parsed")
+{
+	GameLogicSettings g;
+	std::string err;
+	CHECK_FALSE(g.makeTrackMarks);
+	CHECK(g.maxTerrainTracks == 0);
+	REQUIRE_MESSAGE(L::scanGameData(std::string(kGameData) + "GameData\n MakeTrackMarks = Yes\n MaxTerrainTracks = 100\nEnd\n", g, &err), err);
+	CHECK(g.makeTrackMarks);
+	CHECK(g.maxTerrainTracks == 100);
+	CHECK(g.unappliedFields.count("GameData.MakeTrackMarks") == 0);
+	CHECK(g.unappliedFields.count("GameData.MaxTerrainTracks") == 0);
+	GameLogicSettings withoutTracks = g;
+	withoutTracks.makeTrackMarks = false;
+	withoutTracks.maxTerrainTracks = 0;
+	StateHasher a, b;
+	g.crc(a);
+	withoutTracks.crc(b);
+	CHECK(a.value() == b.value()); // RW settings are client-only; do not affect lockstep
 }

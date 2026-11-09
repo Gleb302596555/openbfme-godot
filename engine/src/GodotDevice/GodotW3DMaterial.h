@@ -86,6 +86,8 @@ public:
 	// lane CAH-2 (S-1408): the colour set of the model being built (W3DInstancer::add_model_colored; kind 0 = none): its house colour textures are
 	// recoloured texel by texel as RW 0x531C77 before any filtering, the mipmaps made from the recoloured level (Recolored_House_Texture)
 	void Set_House_Params(const HouseColorParams &params) { HouseParams = params; }
+	// LOCAL-21: per-mesh house colour overrides (RW 0x54BDE0)
+	void Set_Per_Mesh_House_Params(const std::map<std::string, HouseColorParams> *params) { PerMeshHouseParams = params; }
 	// stop S-5015: the texture swaps of the model being built (W3DInstancer::Set_Build_Texture_Swaps, a ModelConditionState's `Texture = A B` pairs):
 	// a surface texture named A (any case; A = "*": every texture) is loaded as B. Empty by default.
 	void Set_Texture_Swaps(const std::vector<std::pair<std::string, std::string>> &swaps) { TextureSwaps = swaps; }
@@ -143,6 +145,7 @@ private:
 	const HouseColorTable *HouseColors = nullptr;
 	const AssetPacks *Packs = nullptr; // lane SDK-0
 	HouseColorParams HouseParams;
+	const std::map<std::string, HouseColorParams> *PerMeshHouseParams = nullptr;
 	std::vector<std::pair<std::string, std::string>> TextureSwaps; // stop S-5015
 	bool AlphaOverride = false;
 	bool ParticleColor = false;

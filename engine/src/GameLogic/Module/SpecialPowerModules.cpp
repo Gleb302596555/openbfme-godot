@@ -52,6 +52,7 @@
 #include "Common/Upgrade.h"
 #include "Common/StateHash.h"
 #include "Common/Team.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 
 #include <algorithm>
 #include <limits>
@@ -1027,15 +1028,34 @@ bool SpecialPowerModule::initiate(Object *target, const Coord3D *loc, unsigned o
 	++m_initiates;
 	// lane LUMBER1: the enum switch's SPECIAL_HARVEST case (RW 0x897EC6 .. 0x897F07, enum 0x8D: the workers' Harvest button): the object's AI (+ 0x260) and its
 	// player's ResourceGatheringManager (+ 0x304) find a tree (RW 0x8FA834); found: aiHarvest(position, CMD_FROM_AI) (RW 0x771655) and the AI byte + 0x3CC
-	// cleared (not part of the port: S-583). The other cases (0x33 / 0x88) stay S-529's
-	if (const SpecialPowerTemplate *t = getSpecialPowerTemplate(); t && t->getSpecialPowerType() == kSpecialHarvest)
+	// cleared (not part of the port: S-583).
+	// RW 0x897EAB: SPECIAL_GIVE_UPGRADE (0x33) and SPECIAL_GIVE_UPGRADE_NEAREST (0x88) abort the other module's update
+	if (const SpecialPowerTemplate *t = getSpecialPowerTemplate())
 	{
-		AIUpdateInterface *ai = obj->getAIUpdateInterface();
-		Player *player = obj->getControllingPlayer();
-		Coord3D pos;
-		if (ai && player && player->resourceGatheringManager().findHarvestPosition(obj, pos))
+		const int type = t->getSpecialPowerType();
+		if (type == kSpecialHarvest)
 		{
-			ai->aiHarvest(pos, CMD_FROM_AI);
+			AIUpdateInterface *ai = obj->getAIUpdateInterface();
+			Player *player = obj->getControllingPlayer();
+			Coord3D pos;
+			if (ai && player && player->resourceGatheringManager().findHarvestPosition(obj, pos))
+			{
+				ai->aiHarvest(pos, CMD_FROM_AI);
+			}
+		}
+		else if (type == 0x33 || type == 0x88)
+		{
+			const int otherType = (type == 0x33) ? 0x88 : 0x33;
+			if (const SpecialPowerModuleInterface *otherModule = obj->findSpecialPowerModuleInterface(otherType))
+			{
+				if (SpecialPowerUpdateInterface *u = SpecialAbilityModules::findUpdate(*obj, otherModule->getSpecialPowerTemplate()))
+				{
+					if (auto *sau = dynamic_cast<SpecialAbilityUpdate *>(u))
+					{
+						sau->finishAbility(false, true);
+					}
+				}
+			}
 		}
 	}
 	bool driven = false;
@@ -1241,6 +1261,184 @@ void OCLSpecialPower::doSpecialPowerAtLocation(const Coord3D &loc, unsigned opti
 		break;
 	}
 	SpecialPowerModules::grantPlayerUpgrades(*obj, m_data->m_upgradeNames);
+}
+
+// LOCAL-18 (issue #143): CombineHordeSpecialPowerModuleData field table (RW 0xC75398, buildFieldParse RW 0x8CCBD0)
+#define CH_OFF(m) (int)offsetof(CombineHordeSpecialPowerModuleData, m)
+const FieldParse kCombineHordeSpecialPowerFieldParse[] = {
+	{ "ScanRange", INI::parseReal, nullptr, CH_OFF(m_scanRange) },
+	{ nullptr, nullptr, nullptr, 0 }
+};
+#undef CH_OFF
+
+void CombineHordeSpecialPowerModuleData::buildFieldParse(MultiIniFieldParse &p)
+{
+	SpecialPowerModuleData::buildFieldParse(p);
+	p.add(kCombineHordeSpecialPowerFieldParse);
+}
+
+// LOCAL-18 (issue #143): CombineHordeSpecialPower (constructor RW 0x8CCBF0)
+CombineHordeSpecialPower::CombineHordeSpecialPower(Thing *thing, const CombineHordeSpecialPowerModuleData *data)
+	: SpecialPowerModule(thing, data), m_data(data)
+{
+}
+
+void CombineHordeSpecialPower::crc(StateHasher &h) const
+{
+	SpecialPowerModule::crc(h);
+}
+
+void CombineHordeSpecialPower::xfer(Xfer &x)
+{
+	SnapshotXfer::version(x, 1, 1);
+	SpecialPowerModule::xfer(x);
+}
+
+// RW 0x8CCEC9: on horde, calls base then relays to each contained member
+void CombineHordeSpecialPower::doSpecialPowerAtLocation(const Coord3D &loc, unsigned options)
+{
+	Object *obj = getObject();
+	if (!obj || obj->isEffectivelyDead())
+	{
+		return;
+	}
+	baseDo(&loc, nullptr, options);
+	static const int kHorde = CombatNames::kindOf("HORDE");
+	if (obj->isKindOf((unsigned)kHorde) && obj->getContain())
+	{
+		ContainModuleInterface *contain = obj->getContain();
+		if (const auto *list = contain->getContainedItemsList())
+		{
+			for (Object *member : *list)
+			{
+				if (member && !member->isEffectivelyDead())
+				{
+					if (SpecialPowerModuleInterface *sp = SpecialPowerModules::findModule(*member, getSpecialPowerTemplate()))
+					{
+						sp->doSpecialPowerAtLocation(loc, options);
+					}
+				}
+			}
+		}
+	}
+}
+
+// RW 0x8CCF76: on horde, finds contained member closest to target, calls base with its position
+void CombineHordeSpecialPower::doSpecialPowerAtObject(Object *target, unsigned options)
+{
+	Object *obj = getObject();
+	if (!obj || obj->isEffectivelyDead() || !target)
+	{
+		return;
+	}
+	static const int kHorde = CombatNames::kindOf("HORDE");
+	if (obj->isKindOf((unsigned)kHorde) && obj->getContain())
+	{
+		ContainModuleInterface *contain = obj->getContain();
+		Object *closest = nullptr;
+		float bestDistSq = 1e30f;
+		const Coord3D &targetPos = *target->getPosition();
+		if (const auto *list = contain->getContainedItemsList())
+		{
+			for (Object *member : *list)
+			{
+				if (member && !member->isEffectivelyDead())
+				{
+					const Coord3D &mp = *member->getPosition();
+					const float dx = SimMath::subf32(targetPos.x, mp.x);
+					const float dy = SimMath::subf32(targetPos.y, mp.y);
+					const float d2 = SimMath::addf32(SimMath::mulf32(dx, dx), SimMath::mulf32(dy, dy));
+					if (!closest || d2 < bestDistSq)
+					{
+						closest = member;
+						bestDistSq = d2;
+					}
+				}
+			}
+		}
+		const Coord3D &pos = closest ? *closest->getPosition() : *obj->getPosition();
+		baseDo(&pos, target, options);
+	}
+	else
+	{
+		const Coord3D &pos = *target->getPosition();
+		baseDo(&pos, target, options);
+	}
+}
+
+// RW 0x8CD08C (horde) / RW 0x8CCCB4 (unit)
+void CombineHordeSpecialPower::doSpecialPower(unsigned options)
+{
+	Object *obj = getObject();
+	if (!obj || obj->isEffectivelyDead())
+	{
+		return;
+	}
+	baseDo(nullptr, nullptr, options);
+	static const int kHorde = CombatNames::kindOf("HORDE");
+	if (obj->isKindOf((unsigned)kHorde) && obj->getContain())
+	{
+		// RW 0x8CD08C: relay to contained members
+		ContainModuleInterface *contain = obj->getContain();
+		if (const auto *list = contain->getContainedItemsList())
+		{
+			for (Object *member : *list)
+			{
+				if (member && !member->isEffectivelyDead())
+				{
+					if (SpecialPowerModuleInterface *sp = SpecialPowerModules::findModule(*member, getSpecialPowerTemplate()))
+					{
+						sp->doSpecialPower(options);
+					}
+				}
+			}
+		}
+		return;
+	}
+
+	// RW 0x8CCCB4: unit scans for nearest valid horde within m_scanRange
+	GameLogic &logic = obj->logic();
+	const float range = scanRange();
+	const Coord3D &pos = *obj->getPosition();
+
+	Object *combiningObj = obj->getContainedBy() ? obj->getContainedBy() : obj;
+
+	PartitionFilterFn filter([&](Object &cand) {
+		if (&cand == obj || &cand == combiningObj || cand.isEffectivelyDead())
+		{
+			return false;
+		}
+		if (obj->getTeam() && cand.getTeam() != obj->getTeam())
+		{
+			return false;
+		}
+		ContainModuleInterface *candContain = cand.getContain();
+		if (!candContain)
+		{
+			return false;
+		}
+		HordeContainInterface *hci = candContain->getHordeContainInterface();
+		if (!hci)
+		{
+			return false;
+		}
+		return hci->canCombineWith(*combiningObj);
+	});
+
+	for (const PartitionHit &hit : logic.partition().iterateObjectsInRange(pos, range, FROM_CENTER_2D, { &filter }, ITER_SORTED_NEAR_TO_FAR))
+	{
+		if (Object *horde = hit.object)
+		{
+			if (ContainModuleInterface *contain = horde->getContain())
+			{
+				if (HordeContainInterface *hci = contain->getHordeContainInterface())
+				{
+					hci->combineWith(combiningObj);
+					break;
+				}
+			}
+		}
+	}
 }
 
 // RW 0x8C76A5 .. 0x8C770A (and PlayerUpgradeSpecialPower RW 0x8CC0E5 .. 0x8CC158): each name through TheUpgradeCenter (RW 0x66F5E5); an unknown name ends
@@ -1468,6 +1666,7 @@ void SpecialPowerModules::registerAll(ModuleFactory &modules)
 	modules.bindTypedData<SpecialPowerModuleData>("SpecialPowerModule", MODULETYPE_BEHAVIOR);
 	modules.bindTypedData<PlayerHealSpecialPowerModuleData>("PlayerHealSpecialPower", MODULETYPE_BEHAVIOR);
 	modules.bindTypedData<OCLSpecialPowerModuleData>("OCLSpecialPower", MODULETYPE_BEHAVIOR);
+	modules.bindTypedData<CombineHordeSpecialPowerModuleData>("CombineHordeSpecialPower", MODULETYPE_BEHAVIOR);
 	modules.bindModuleProc("SpecialPowerModule", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
 		const SpecialPowerModuleData *typed = dynamic_cast<const SpecialPowerModuleData *>(data);
 		if (!typed)
@@ -1491,6 +1690,14 @@ void SpecialPowerModules::registerAll(ModuleFactory &modules)
 			throw std::logic_error("OCLSpecialPower: the module data is not typed");
 		}
 		return std::make_unique<OCLSpecialPower>(thing, typed);
+	});
+	modules.bindModuleProc("CombineHordeSpecialPower", MODULETYPE_BEHAVIOR, [](Thing *thing, const ModuleData *data, const ModuleFactory::ModuleTemplate &) -> std::unique_ptr<Module> {
+		const auto *typed = dynamic_cast<const CombineHordeSpecialPowerModuleData *>(data);
+		if (!typed)
+		{
+			throw std::logic_error("CombineHordeSpecialPower: the module data is not typed");
+		}
+		return std::make_unique<CombineHordeSpecialPower>(thing, typed);
 	});
 	SpellBookPowers::registerAll(modules); // lane SPELL-2: the other spell book power classes
 	WeaponChangeSpecialPowerModule::registerClass(modules); // lane FACT-B: the Berserker's torch toggle

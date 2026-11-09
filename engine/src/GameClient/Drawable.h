@@ -38,6 +38,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.h"
 #include "Libraries/WWVegas/WW3D2/assetmgr.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -124,6 +125,11 @@ struct DrawServices
 	W3DLuaDrawScriptHost host; ///< the real Lua of the drawable state (lane LUA-1): BeginScript bodies of every draw module
 	DrawableFXHost *fx = nullptr; ///< lane FX-2 (null: EnteringStateFX and ParticleSysBone stay S-095)
 	AnimationSoundModuleManager *animationSounds = nullptr; ///< lane AUDIO-4: TheAnimationSoundModuleManager of the game's drawables
+	// PORT-49: the tactical view eye for the model draws' camera distance fade (RW 0xDE447C vslot 0x11C -> 0x487668 -> 0x53B370).
+	// The device layer installs it before the map's drawables are made; false / unset: no camera pose yet, the fade does not run.
+	std::function<bool(Coord3D &)> cameraPosition;
+	// PORT-49: TheGameLODManager's EffectsLOD (+0x1778, RW 0xDE3B84; consumer 0x4B5405..0x4B5433). Unset models the global-null branch.
+	std::function<int()> effectsLOD;
 	bool selectionFlashHouseColor = true; ///< lane LOCAL-3: GameData SelectionFlashHouseColor (RW 0xC005E0, GlobalData +0xB58)
 	float selectionFlashSaturationFactor = 0.6f; ///< lane LOCAL-3: GameData SelectionFlashSaturationFactor (RW 0xC005D0, GlobalData +0xB54)
 };
@@ -138,7 +144,7 @@ struct DrawEntry
 	std::string staticModel;          ///< tree / prop / floor kinds: the model the module shows ("" when none)
 	std::string notDrawnReason;       ///< why a non-model entry draws nothing
 	std::unique_ptr<W3DScriptedModelDraw> draw; ///< MODEL kind
-	bool animated = false;            ///< the idle animation moves: advance() each render frame
+	bool animated = false;            ///< advance() would change the draw (W3DScriptedModelDraw::needsAdvance, set at creation and on every flag change, never lowered by an advance: the pose after a blend's promotion is still pushed): advance() each render frame
 	bool missingModel = false;        ///< the model is not in the mounted archives (a retail data defect): not drawn
 	std::string lastModel;            ///< the model last handed to the device layer (the device layer keeps its own handle)
 	bool moduleHidden = false;        ///< a CurDrawableHideModule / ObjectHideModule request of a script hid this module (Drawable::showModule, RW 0x6789B4): not drawn
@@ -155,6 +161,9 @@ struct DrawEntry
 	const ModuleData *truckData = nullptr;
 	bool truckChecked = false;
 	bool isTruck = false;
+	// lane PORT-69 (issue #183): W3DModelDraw TrackMarks (RW W3DScriptedModelDraw + 0x60)
+	bool hasTrackMarks = false;
+	int trackId = -1;
 };
 
 class Drawable : public Thing
@@ -193,7 +202,9 @@ public:
 	// stored flags to the draw modules (setModelConditionFlags) when dirty, with the object's weapon cycle for UseWeaponTiming as the flush event carried it
 	void storeModelCondition(int bit, bool on);
 	void storeModelConditions(const ModelConditionFlags &flags); ///< lane SAVE-4e: the whole set (RW 0x679512's argument), dirty when it differs
-	void flushModelConditions(bool hasWeaponTiming, int weaponTimingFrames);
+	// `immediate` is RW 0x67449C's argument: true reaches the draw modules even when nothing changed since the last flush (the OCL's CreateObject with
+	// InheritAttributesFromSource, RW 0x5F13C8, lane PORT-79); false is the dirty-only flush of the end-of-frame path
+	void flushModelConditions(bool hasWeaponTiming, int weaponTimingFrames, bool immediate = false);
 	bool modelConditionsDirty() const { return m_flagsDirty; }
 	// the weapon cycle the last flush carried (-1: the object had no current weapon), what UseWeaponTiming animations divide by
 	int weaponTimingFrames() const { return m_hasWeaponTiming ? m_weaponTimingFrames : -1; }
@@ -204,7 +215,7 @@ public:
 	void setInstanceScale(float scale) { m_scale = scale; }
 	// 0xAARRGGBB of the owner's colour for model recolour (RW 0x6712A6: [drawable + 0x3AA] flag, 0 when showsHouseColor is false)
 	std::uint32_t getHouseColor() const { return m_houseColor; }
-	void setHouseColor(std::uint32_t argb) { m_houseColor = argb; }
+	void setHouseColor(std::uint32_t argb);
 	// 0xAARRGGBB of the owner's indicator colour (RW 0x674510: [drawable + 0x454] set always; read by flashAsSelected RW 0x679097)
 	std::uint32_t indicatorColor() const { return m_indicatorColor; }
 	void setIndicatorColor(std::uint32_t argb) { m_indicatorColor = argb; }
@@ -227,6 +238,7 @@ public:
 
 	std::vector<DrawEntry> &entries() { return m_entries; }
 	const std::vector<DrawEntry> &entries() const { return m_entries; }
+	bool hasTrackMarks() const { return m_hasTrackMarks; } ///< lane PORT-69 (issue #183): at least one entry specifies TrackMarks
 	// The ClientUpdate and ClientBehavior modules of the template, in list order (ZH Drawable.cpp:349-505: ClientUpdate modules follow the draw
 	// modules; RotWK's ClientBehavior list is the fourth module list). A class that is not ported is an UnportedDrawableModule (stop S-140).
 	const std::vector<std::unique_ptr<DrawableModule>> &clientModules() const { return m_clientModules; }
@@ -243,6 +255,8 @@ public:
 	bool hasAnimatedEntry() const;
 	// steps every model draw's animations by `elapsedMs` of render time
 	void advanceAnimation(double elapsedMs);
+	// PORT-49: RW 0x4BF586 runs the camera distance fade for every model draw of the drawable (animated or not) before the tracks step
+	void advanceCameraFade();
 	// lane PERF-HD: every animated draw's advance is advanceIsLocal (and the tires are this drawable's): advanceAnimation touches only this drawable
 	bool advanceIsLocal() const;
 	void advanceAnimationLocal(double elapsedMs); ///< advanceAnimation without the host's chunk name (nothing it runs reports through the host)
@@ -259,6 +273,8 @@ public:
 	void showSubObject(const std::string &name, bool visible, bool permanent);
 	// RW 0x8B911E: every model draw module takes `swaps` as its upgrade textures (draw module vslot 0x84)
 	void setUpgradeTextures(const std::vector<std::pair<std::string, std::string>> &swaps);
+	// RW 0x4B8701 -> slot +0x1F8 (RW 0x54BDE0): recolours current render object meshes except those matching excludeSubobject
+	void recolorRenderObject(const std::string &excludeSubobject, const HouseColorParams &params);
 
 	// The render transform from the object's record in a completed logic frame's snapshot (SMOOTH-1: RenderInterpolation::retailPose, RW 0x6765B9;
 	// `interpolate` false: the record's current transform, the stepped look). Then the construction look (updateConstruction).
@@ -286,13 +302,22 @@ public:
 		m_syncSnapshot = snapshot;
 		m_syncFrame = snapshot ? snapshot->frame : 0;
 		m_syncRec = rec;
+		bool wasObscured = m_shroudLook.fullyObscured;
 		// lane VISUAL-2: RW 0x64849E's per-frame shroud look (GameClient/DrawableShroud.h) from the presented record
 		const ShroudView *view = snapshot ? snapshot->shroud.get() : nullptr;
 		m_shroudLook.update(rec ? rec->objectShroud : 0, rec && rec->effectivelyDead, m_syncFrame,
 			view ? DrawableShroudLook::viewerKeyOf(view->localPlayer, view->visionPlayers) : 0);
+		if (wasObscured && !m_shroudLook.fullyObscured)
+		{
+			m_shroudRevealed = true;
+		}
 	}
 	// lane VISUAL-2: the shroud look of the last sync: fullyObscured is RW Drawable +0x440 (attached particle systems do not emit), hidden: not drawn
 	const DrawableShroudLook &shroudLook() const { return m_shroudLook; }
+	UnsignedInt syncFrame() const { return m_syncFrame; }
+	void setSyncFrame(UnsignedInt f) { m_syncFrame = f; }
+	const ModelConditionInfo *testModelState() const { return m_testModelState; }
+	void setTestModelState(const ModelConditionInfo *s) { m_testModelState = s; }
 	// lane EVADAMAGE-1: RW Drawable +0x388 (0 at creation), the logic frame until which a damage Eva event here is "near the first" (EvaDamage.h); RW 0x671DFD
 	// raises it, never lowers it
 	UnsignedInt evaDamageFarFrame() const { return m_evaDamageFarFrame; }
@@ -313,10 +338,52 @@ public:
 	bool clientHidden() const { return m_clientHidden; }
 	void markEvaFirstSighted() { m_evaFirstSighted = true; }
 	bool evaFirstSighted() const { return m_evaFirstSighted; }
+	void setEvaEnemySighted(bool on) { m_evaEnemySighted = on; }
+	bool evaEnemySighted() const { return m_evaEnemySighted; }
+	void setEvaEnemySightedAfterRespawn(bool on) { m_evaEnemySightedAfterRespawn = on; }
+	bool evaEnemySightedAfterRespawn() const { return m_evaEnemySightedAfterRespawn; }
+	void setEvaCastleMemberSighted(bool on) { m_evaCastleMemberSighted = on; }
+	bool evaCastleMemberSighted() const { return m_evaCastleMemberSighted; }
+	bool takeShroudRevealed()
+	{
+		bool r = m_shroudRevealed;
+		m_shroudRevealed = false;
+		return r;
+	}
+	// RW 0x67561E Drawable::notifyDead (called on Object death at RW 0x699077):
+	// if m_evaEnemySighted (+0x445) is set, clears it to 0 and sets m_evaEnemySightedAfterRespawn = 1 (+0x446)
+	void notifyDead()
+	{
+		if (m_evaEnemySighted)
+		{
+			m_evaEnemySighted = false;
+			m_evaEnemySightedAfterRespawn = true;
+		}
+	}
 	// TOP20 #24, RW 0x672D28 setShadowsEnabled: status bit 2 (+ 0x114) set when on, cleared when off; every draw module's vslot 0x30 takes the same answer (the
 	// port's renderer reads shadowsEnabled() for each module's instance)
 	void setShadowsEnabled(bool on) { m_shadowsEnabled = on; }
 	bool shadowsEnabled() const { return m_shadowsEnabled; }
+	UnsignedInt shadowStartFrame() const { return m_shadowStartFrame; }
+	void setShadowStartFrame(UnsignedInt frame) const { m_shadowStartFrame = frame; }
+	UnsignedInt shadowFadeOutStartFrame() const { return m_shadowFadeOutStartFrame; }
+	void setShadowFadeOutStartFrame(UnsignedInt frame) const { m_shadowFadeOutStartFrame = frame; }
+	bool shadowStateInitialized() const { return m_shadowStateInitialized; }
+	void setShadowStateInitialized(bool init) const { m_shadowStateInitialized = init; }
+	const ModelConditionInfo *lastShadowState() const { return m_lastShadowState; }
+	void setLastShadowState(const ModelConditionInfo *s) const { m_lastShadowState = s; }
+	const RenderObjPrototype *lastShadowModel() const { return m_lastShadowModel; }
+	void setLastShadowModel(const RenderObjPrototype *m) const { m_lastShadowModel = m; }
+	const std::string &lastShadowModelName() const { return m_lastShadowModelName; }
+	void setLastShadowModelName(const std::string &name) const { m_lastShadowModelName = name; }
+	bool lastShadowStateHasShadow() const { return m_lastShadowStateHasShadow; }
+	void setLastShadowStateHasShadow(bool has) const { m_lastShadowStateHasShadow = has; }
+	// lane PORT-21 (stop S-1463): the audible flag at Drawable + 0x44A (1 at construction). RW 0x674727 Drawable::setInaudible clears it and asks every
+	// client behaviour module's second interface for slot 1 (RW 0x674756: module + 0x30 table, `call [edx + 4]`), RW 0x67896F Drawable::setAudible sets
+	// it again and asks slot 0 (RW 0x6789A0 `call [edx]`). Both return at once when the flag already has that value (RW 0x674733 / 0x67897B), so a
+	// repeated request tells no module anything twice.
+	void setAudible(bool audible);
+	bool audible() const { return m_audible; }
 	const ObjectSnapshot *syncedRecord(const LogicSnapshot &snapshot, bool &found) const
 	{
 		found = m_syncSnapshot == &snapshot && m_syncFrame == snapshot.frame;
@@ -417,6 +484,9 @@ private:
 	ModelConditionFlags m_flags;
 	float m_scale = 1.0f;
 	int m_variation = -1; ///< + 0x364
+public:
+	int variation() const { return m_variation; } ///< + 0x364 (RW 0x679FEA)
+private:
 	std::uint32_t m_houseColor = 0;
 	std::uint32_t m_indicatorColor = 0; ///< RW +0x454 (Drawable::setIndicatorColor RW 0x674510: indicator color)
 	int m_customKind = 0;                              // lane CAH-2
@@ -429,8 +499,20 @@ private:
 	std::vector<DrawEntry> m_entries;
 	std::vector<std::unique_ptr<DrawableModule>> m_clientModules;
 	std::vector<ModelConditionAudioLoopClientBehavior *> m_audioLoops; ///< those of m_clientModules the flush tells (RW 0x67449C)
-	bool m_evaFirstSighted = false; // RW Drawable +0x114 bit 0x80; sighting consumer remains S-709
+	bool m_evaFirstSighted = false; // RW Drawable +0x114 bit 0x80; sighting consumer S-709 / Local 13
+	bool m_evaEnemySighted = false; // RW Drawable +0x445
+	bool m_evaEnemySightedAfterRespawn = false; // RW Drawable +0x446
+	bool m_evaCastleMemberSighted = false; // RW Drawable +0x114 bit 0x40
+	bool m_shroudRevealed = false; // transitioned from fullyObscured == true to false
 	bool m_shadowsEnabled = true;   // RW Drawable +0x114 bit 2 (TOP20 #24)
+	mutable UnsignedInt m_shadowStartFrame = 0; ///< RW 0x7323CE (+0x38: startFrame = currentFrame + 0)
+	mutable UnsignedInt m_shadowFadeOutStartFrame = ~0u; ///< RW 0x508B2D (+0x4C: fadeOutStartFrame = currentFrame)
+	mutable bool m_shadowStateInitialized = false; ///< RW 0x4C4EE0..0x4C4FBC
+	mutable const ModelConditionInfo *m_lastShadowState = nullptr; ///< RW 0x4C4EE0..0x4C4FBC
+	mutable const RenderObjPrototype *m_lastShadowModel = nullptr; ///< RW 0x4C4610..0x4C4679 (render object prototype)
+	mutable std::string m_lastShadowModelName;                     ///< RW 0x4B42F5 (model name 0)
+	mutable bool m_lastShadowStateHasShadow = false;               ///< RW 0x4C4EE8 (state shadow override)
+	bool m_audible = true;          ///< lane PORT-21: Drawable + 0x44A, 1 until the object becomes INAUDIBLE (RW 0x674727 / 0x67896F)
 	bool m_clientHidden = false; ///< lane CHAT-1
 	bool m_phantomLook = false;  ///< lane FBSIM-1: drawn as a dozer's phantom structure (0.4 opacity)
 	Fade m_fade; ///< lane PROJ-2
@@ -445,6 +527,7 @@ private:
 	// basis skips setOrientation's trigonometry (its result would be these same values)
 	const LogicSnapshot *m_syncSnapshot = nullptr; ///< lane PERF-3: setSyncedRecord
 	UnsignedInt m_syncFrame = 0;
+	const ModelConditionInfo *m_testModelState = nullptr;
 	const ObjectSnapshot *m_syncRec = nullptr;
 	DrawableShroudLook m_shroudLook; ///< lane VISUAL-2
 	UnsignedInt m_evaDamageFarFrame = 0; ///< lane EVADAMAGE-1: RW + 0x388
@@ -466,5 +549,6 @@ private:
 	float m_customTintFrequency = 0.0f;                ///< +0x88
 	UnsignedInt m_tintStatus = 0;                      ///< +0x118
 	UnsignedInt m_prevTintStatus = 0;                  ///< +0x11C
+	bool m_hasTrackMarks = false;                      ///< lane PORT-69: any entry has non-empty TrackMarks
 	void setFadeHidden(bool hidden); ///< RW 0x6718FB (bumps the change count when it changes)
 };

@@ -53,9 +53,24 @@ FXEvent FXEventLog::objectEvent(FXEvent::Kind kind, const char *site, UnsignedIn
 	return e;
 }
 
+// Local 22 (#163), RW 0x6CEA25 .. 0x6CEA58 (Weapon::preFireWeapon, DONOR BFME2 0x002CDC3D WeaponReloadWithBonus.cpp:170) and
+// RW 0x895FC4 .. 0x896026 (WeaponFireSpecialAbilityUpdate::startUnpacking, DONOR BFME2 0x0049283E WeaponFireSpecialAbilityUpdate.cpp:509):
+// FXList::doFXPos with obj.getDrawable() (RW 0x70E013, not tested for null in either place)(fx, d->getPosition(), d->getTransformMatrix(), weaponTemplate->m_weaponSpeed, d->getPosition()).
+FXEvent FXEventLog::drawablePositionEvent(const char *site, UnsignedInt frame, const std::string &fxList, const Object &obj, float weaponSpeed)
+{
+	FXEvent e = objectEvent(FXEvent::POSITION_FX, site, frame, fxList, obj);
+	e.drawablePosition = true;
+	e.drawableMatrix = true;
+	e.weaponSpeed = weaponSpeed;
+	e.secondaryPosition = e.position;
+	e.hasSecondaryPosition = true;
+	return e;
+}
+
 void FXEventLog::emit(const FXEvent &event)
 {
-	if (event.choices ? event.choices->empty() : (!event.fxList || !isFXName(*event.fxList)))
+	// PORT-66: the body's auto particle systems name no FXList (their template names travel in `particleSystems`); every other kind names one
+	if (event.kind != FXEvent::BODY_PARTICLE_SYSTEMS && (event.choices ? event.choices->empty() : (!event.fxList || !isFXName(*event.fxList))))
 	{
 		return;
 	}
@@ -75,8 +90,9 @@ std::vector<std::string> FXEventLog::stops()
 		"the seed of RW 0x690BD2) runs for every shot at a victim; the contact point is S-362's approximation (the geometry centre, the seed unused); the flank "
 		"test RW 0x68FB63 runs for every shot at a victim and chooses FireFlankFX (lane FLANK-1, S-582); a HitStoredTarget warhead runs RotWK's temporary weapon at its victim, fire FX block and aim draw included (lane DECOMP-1: RW 0x85F1F7 -> RW 0x6CF590); "
 		"a detonation through fireProjectileDetonation (RW 0x6CB7BD) delivers its nuggets without a fire FX block, as RotWK's does",
-		"[S-681] damage FX: ActiveBody::doDamageFX (RW 0x8C2F02) plays the armour set's DamageFX; the per damage type ObjectCreationLists of the loop after it "
-		"(body + 0xE0, RW 0x5F0126) are not created (no OCL store); the throttle fields (+0x38 / +0x3C) are not in the state hash",
+		"[S-681] damage FX: ActiveBody::doDamageFX (RW 0x8C2F02) plays the armour set's DamageFX; the ObjectCreationLists of the loop after it "
+		"(body + 0xE0, RW 0x5F0126) are created since PORT-45 for the records whose death side is 0 (RW 0x8C2F92); the structure's side records "
+		"(death sides 1-4, RW 0x8C2EC8) wait for the per-side damage split (S-149); the throttle fields (+0x38 / +0x3C) are not in the state hash",
 		"[S-683] effects not played: the FXEvent entries of MODEL CONDITION states and the FXEvents routed to the timed particle list (FXList byte +8, "
 		"the second loop of RW 0x4BCE68; the animation state entries play since FX-2), the research sound of a finished upgrade (S-486), "
 		"LevelUpFX (no experience logic merged), the OCLs of death / collapse phases, the FXList LOD / cull settings of the options",

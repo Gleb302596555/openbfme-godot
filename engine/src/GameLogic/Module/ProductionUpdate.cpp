@@ -590,15 +590,21 @@ void ProductionUpdate::cancelUpgrade(const UpgradeTemplate *upgrade)
 	}
 }
 
-// RW 0x8A2015 .. 0x8A22FD (the producer's experience RW 0x8A2015 .. 0x8A2057 is in update(), lane PRODUCTION1; the UI messages, the research sound and Eva event are not ported: S-486)
+// RW 0x8A2015 .. 0x8A22FD (the producer's experience RW 0x8A2015 .. 0x8A2057 is in update(), lane PRODUCTION1)
 void ProductionUpdate::completeUpgrade(ProductionEntry *entry, Player *player)
 {
 	const UpgradeTemplate *upgrade = entry->upgradeToResearch;
 	if (upgrade)
 	{
+		GameLogic &logic = getObject()->logic();
+		// RW 0x8A2080 .. 0x8A223B: locally controlled producer gives feedback: UI message (GameText UPGRADE:UpgradeComplete + upgrade DisplayName),
+		// radar event 2 (RW 0x8A213A), research sound / Eva events (RW 0x8A213F .. 0x8A2212)
+		const int playerIdx = player ? player->getPlayerIndex() : (getObject()->getControllingPlayer() ? getObject()->getControllingPlayer()->getPlayerIndex() : -1);
+		logic.noteUpgradeComplete(playerIdx, getObject()->getID(), upgrade, *getObject()->getPosition());
+		logic.noteRadarEvent(2, *getObject()->getPosition(), GameLogic::RadarEventNotice::CONSTRUCTION, playerIdx);
+
 		// lane FX-2: RW 0x8A223B .. 0x8A22B4: a non-empty UpgradeFX (+0x3C, RW 0x4DD1D9) is looked up in the FXList store (RW 0x5E20A2: an unknown name plays
 		// nothing) and played as doFXObj(fx, the producer, null) through RW 0x4B1B5A, before the upgrade is granted
-		GameLogic &logic = getObject()->logic();
 		logic.fxEvents().emit(FXEventLog::objectEvent(FXEvent::OBJECT_FX, "UpgradeFX", logic.getFrame(), upgrade->m_upgradeFX, *getObject()));
 		if (upgrade->getUpgradeType() == UPGRADE_TYPE_PLAYER)
 		{
@@ -655,6 +661,20 @@ void ProductionUpdate::cancelUnitCreate(ProductionID productionID)
 				p->heroes().cancelProduction(e->productionID); // lane HERO-1: RW 0x8A1460 -> 0x780C64
 			}
 			removeFromProductionQueue(e); // frees the entry
+			return;
+		}
+	}
+}
+
+// RW 0x8A03A0 (slot 14, DONOR BFME2 0x0049CC15): sets the +0x3C horde target field of the entry with this productionID
+void ProductionUpdate::setEntryHordeTarget(ProductionID productionID, ObjectID hordeTarget)
+{
+	for (const auto &up : m_queue)
+	{
+		ProductionEntry *e = up.get();
+		if (e->productionID == productionID)
+		{
+			e->hordeTarget = hordeTarget;
 			return;
 		}
 	}

@@ -46,6 +46,7 @@
 #include "GodotDevice/GodotGlowEffect.h"
 #include "GodotDevice/GodotPostEffects.h"
 #include "GodotDevice/GodotTerrainScorches.h"
+#include "GodotDevice/GodotTerrainTracks.h"
 #include "Common/Audio/AudioRequests.h"
 #include "Common/JobSystem.h"
 #include "Common/WindowsCrashDump.h"
@@ -309,6 +310,8 @@ void GameWorld::_bind_methods()
 	ClassDB::bind_method(D_METHOD("get_shroud_status_at", "x", "y"), &GameWorld::get_shroud_status_at);
 	ClassDB::bind_method(D_METHOD("get_object_shroud_status", "object_id"), &GameWorld::get_object_shroud_status);
 	ClassDB::bind_method(D_METHOD("set_shroud_drawn", "on"), &GameWorld::set_shroud_drawn);
+	ClassDB::bind_method(D_METHOD("set_track_lod", "max_edges", "opaque_edges", "fade_delay_ms"), &GameWorld::set_track_lod);
+	ClassDB::bind_method(D_METHOD("get_track_report"), &GameWorld::get_track_report);
 	ClassDB::bind_method(D_METHOD("set_shroud_fade", "on"), &GameWorld::set_shroud_fade); // lane FOGFX-1: off = the texels snap (the proof's "before")
 	ClassDB::bind_method(D_METHOD("get_shroud_cells"), &GameWorld::get_shroud_cells);
 	ClassDB::bind_method(D_METHOD("get_projectiles"), &GameWorld::get_projectiles);
@@ -590,6 +593,14 @@ void GameWorld::_notification(int what)
 		get_tree()->connect("process_frame", callable_mp(this, &GameWorld::beginClientWindow));
 		RenderingServer::get_singleton()->connect("frame_pre_draw", callable_mp(this, &GameWorld::endClientWindow));
 	}
+	if (what == NOTIFICATION_PREDELETE)
+	{
+		// the effect player (m_fxPlayer) is a child node: Node's own PREDELETE (after this class's, the notification runs reversed) deletes the children
+		// before ~GameWorld, so LiveFX and the weather, which reach into its playback (LiveFX::~LiveFX destroys its terrain fire / smoke systems), go now.
+		// Without this, closing the program with a game loaded crashed in ParticleSystemManager::findParticleSystemByID (2026-11-08).
+		m_weather.reset();
+		m_liveFX.reset();
+	}
 	if (what == NOTIFICATION_EXIT_TREE)
 	{
 		endClientWindow();
@@ -821,6 +832,8 @@ void GameWorld::clear_scene()
 	m_dynamicModels.clear();
 	m_staticModels.clear();
 	m_buffInstances.clear(); // lane SPELL-4: the buffs' instances went with the instancer
+	m_trackLayer = ObjectID();
+	m_scorchLayer = ObjectID();
 	m_staticId = m_dynamicId = 0;
 	m_textureClock = 0.0;
 	m_animatedDrawables = 0;
@@ -928,6 +941,11 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 		{
 			swaps = floorWeatherSwaps(d.draws[p.module].data, m_streakWeather); // a map-placed building's floor (bib) on a snowy map
 		}
+		else if (p.kind == W3D_DRAWKIND_TREE && !p.textureName.empty())
+		{
+			// RW 0x4E8C1B / RW 0x4EC9B5: W3DShrubBuffer / W3DTreeBuffer keys tree types by (ModelName, TextureName) and applies TextureName
+			swaps.emplace_back("*", p.textureName);
+		}
 		const std::string key = AsciiStringUtil::lowered(p.modelName) + W3DInstancer::Texture_Swap_Suffix(swaps) + (p.kind == W3D_DRAWKIND_FLOOR ? "#floor" : "");
 		auto it = m_staticModels.find(key);
 		int64_t model;
@@ -954,7 +972,8 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 		if (p.kind != W3D_DRAWKIND_FLOOR)
 		{
 			const auto *module = p.module < d.draws.size() ? dynamic_cast<const W3DModelDrawModuleData *>(d.draws[p.module].data) : nullptr;
-			castShadow = ObjectShadow::castsMap(d.info ? d.info->tmpl : nullptr, module, p.draw ? p.draw->currentModelState() : nullptr);
+			const bool useShadowMapping = W3DInstancer::shadow_maps_enabled();
+			castShadow = ObjectShadow::castsMap(d.info ? d.info->tmpl : nullptr, module, p.draw ? p.draw->currentModelState() : nullptr, useShadowMapping);
 			staticInst->set_instance_cast_shadow(instance, castShadow);
 		}
 		if (d.fate == MAPOBJ_CLIENT_SHRUB || d.fate == MAPOBJ_CLIENT_PROP)
@@ -967,6 +986,7 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 			std::copy(d.basis, d.basis + 9, f.basis); // S-921: a shrub's morph places its other model the same way
 			f.tmpl = f.drawTmpl = d.info ? d.info->tmpl : nullptr;
 			f.model = p.modelName;
+			f.texture = p.textureName; // RW 0x4E8C1B
 			f.castShadow = castShadow;
 			m_footprintViews.push_back(f);
 		}
@@ -991,6 +1011,7 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 				v.position = d.position;
 				v.scale = d.scale;
 				v.model = p.modelName; // S-921
+				v.texture = p.textureName; // RW 0x4EC9B5
 				v.swayType = swayType;
 				v.castShadow = castShadow;
 				m_treeViewOfId[(std::uint32_t)d.objectIndex + 1u] = m_treeViews.size();
@@ -1276,6 +1297,19 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 	// lane WORKERFAIL-1: game.gd stops the game with this text (logic_failure); printed at once, on the worker, so the session log has it whatever happens next
 	m_game->setLogicFailureHandler([](const std::string &text) { UtilityFunctions::printerr(toGodot("GAME logic worker stopped " + text)); });
 	m_game->setRenderInterpolation(m_renderInterpolation);
+	// PORT-49: the camera distance fade's sources are installed before the load makes the drawables (Options::cameraFadeAvailable).
+	// The eye is the HUD's displayed eye (RW 0xDE447C vslot 0x11C); EffectsLOD is the same state the glow / FX gates read (RW 0xDE3B84+0x1778).
+	m_cameraFadeEyeValid = false;
+	auto &drawServices = m_game->drawables().services();
+	drawServices.cameraPosition = [this](Coord3D &out) {
+		if (!m_cameraFadeEyeValid)
+		{
+			return false;
+		}
+		out = m_cameraFadeEye;
+		return true;
+	};
+	drawServices.effectsLOD = [this]() { return (int)m_effectsLod; };
 	// lane RENDERWAIT-1: a blocking wait on the logic worker names its script caller (the innermost GDScript frame: the C++ site of a bound query is
 	// the query itself, the script line says who asked)
 	m_game->setWaitSiteDetail([]() -> std::string {
@@ -1330,6 +1364,8 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 	// VIS-1: the shroud is drawn for a game started from a game setup (a skirmish: RW 0x62F91A gave every player its explored map); a bare map load (the map and HUD
 	// viewers, the smoke test) has no explored cells and is drawn without it (set_shroud_drawn switches it)
 	m_shroudDrawn = m_game->shroud().displayed();
+	m_game->drawables().setShroudDrawn(m_shroudDrawn);
+	m_game->drawables().tracks().setDetail(m_trackEdges, m_trackOpaqueEdges, m_trackFadeDelay);
 	if (m_fxPlayer && m_fxPlayer->playback())
 	{
 		m_liveFX.reset(new LiveFX(*m_game, *m_fxPlayer->playback(), (int)m_effectsLod)); // lane FX-2: from here on the logic's effect calls play
@@ -1380,6 +1416,10 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 				scorches->setLive(true);
 				m_scorchLayer = scorches->get_instance_id();
 			}
+		}
+		if (TerrainTrackLayer *tracks = Object::cast_to<TerrainTrackLayer>(terrain->get_node_or_null(NodePath("Tracks"))))
+		{
+			m_trackLayer = tracks->get_instance_id();
 		}
 		report["terrain"] = trep;
 		timings["terrain_ms"] = timing::elapsedMs(t0);
@@ -1781,12 +1821,12 @@ bool GameWorld::view_is_local(size_t id, const W3DInstancer &dyn, const LogicSna
 			}
 			const bool animatedNow = e.animated && m_animations;
 			const bool colorsChanged = d->customColorRevision() != ev.colorsRevision;
-			if (!flagsChanged && !animatedNow && !colorsChanged && ev.posed)
+			if (!flagsChanged && !animatedNow && !colorsChanged && ev.posed && e.draw->opacity() == 1.0f && !e.draw->hiddenByFade() && !ev.fadeHidden)
 			{
-				continue; // transform, opacity, fogged light
+				continue; // transform, opacity, fogged light (PORT-49: a draw fade, including leaving the hidden state, leaves this fast path)
 			}
 			e.draw->poseView(f);
-			const bool shown = f.model && !e.moduleHidden && !fogHidden;
+			const bool shown = f.model && !e.moduleHidden && !fogHidden && !e.draw->hiddenByFade(); // PORT-49: RW 0x4B544F / 0x4B542D hide the model
 			const auto palette = drawTakesHouseColor(e, *d) ? Render_House_Color_Params(d->getHouseColor(), d->customColorKind(), d->customColors()) : HouseColorParams(); // RW 0x4B4A30
 			const bool keySame = ev.animKeyValid && ev.animKeyShown == shown && ev.animKeyHouse == m_houseColors && ev.animKeyName == f.modelName
 				&& ev.animKeySwaps == (const void *)f.textureSwaps && ev.animKeySwapsGeneration == f.textureSwapsGeneration && ev.animKeyKind == palette.kind && ev.animKeyGlow == f.glow
@@ -1935,7 +1975,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			animated += animatedNow ? 1 : 0;
 			// lane CAH-2: a new colour set (Drawable::setCustomColors, RW 0x6727B0) chooses another model below
 			const bool colorsChanged = d->customColorRevision() != ev.colorsRevision;
-			if (!flagsChanged && !animatedNow && !colorsChanged && ev.posed && !tinted && !ev.animKeyTinted)
+			if (!flagsChanged && !animatedNow && !colorsChanged && ev.posed && !tinted && !ev.animKeyTinted && e.draw->opacity() == 1.0f && !e.draw->hiddenByFade() && !ev.fadeHidden)
 			{
 				if (entryXfChanged && ev.instance >= 0)
 				{
@@ -1956,7 +1996,8 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 				continue;
 			}
 			e.draw->poseView(f);
-			const bool shown = f.model && !e.moduleHidden && !fogHidden;
+			const bool shown = f.model && !e.moduleHidden && !fogHidden && !e.draw->hiddenByFade(); // PORT-49: RW 0x4B544F / 0x4B542D hide the model
+			ev.fadeHidden = e.draw->hiddenByFade(); // PORT-49: leaving this state must make the instance again (the hidden branch has none)
 			// Donor W3DModelDrawRva000B8FA1.cpp (BFME2 0x4B8FA1): ordinary
 			// owners use kind 1; hero custom palettes keep precedence. Bake before
 			// filtering, using the existing RW 0x531C77 texture recolour routine.
@@ -1969,6 +2010,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			const bool keySame = ev.animKeyValid && ev.animKeyShown == shown && ev.animKeyHouse == m_houseColors && ev.animKeyName == f.modelName
 				&& ev.animKeySwaps == (const void *)f.textureSwaps && ev.animKeySwapsGeneration == f.textureSwapsGeneration && ev.animKeyKind == palette.kind && ev.animKeyGlow == f.glow
 				&& ev.animKeyTinted == tinted
+				&& ev.animKeyMaterialGen == f.materialStateGeneration && ev.animKeyRenderGen == f.renderObjectGeneration
 				&& ev.animKeyColors[0] == (std::uint32_t)palette.colors[0] && ev.animKeyColors[1] == (std::uint32_t)palette.colors[1]
 				&& ev.animKeyColors[2] == (std::uint32_t)palette.colors[2];
 			if (!keySame)
@@ -1980,11 +2022,24 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			}
 			static const std::string kNoModel;
 			std::string coloredModel;
-			if (shown && m_houseColors && palette.kind > 0)
+			if (shown && m_houseColors)
 			{
-				char opt[96];
-				std::snprintf(opt, sizeof(opt), "#%d&%d&%d&%d", palette.kind, (int)palette.colors[0], (int)palette.colors[1], (int)palette.colors[2]);
-				coloredModel = "#" + ev.rawLowered + opt;
+				if (f.meshHouseColors && !f.meshHouseColors->empty())
+				{
+					coloredModel = "#" + ev.rawLowered;
+					for (const auto &pair : *f.meshHouseColors)
+					{
+						char opt[128];
+						std::snprintf(opt, sizeof(opt), "#m:%s=%d&%d&%d&%d", pair.first.c_str(), pair.second.kind, (int)pair.second.colors[0], (int)pair.second.colors[1], (int)pair.second.colors[2]);
+						coloredModel += opt;
+					}
+				}
+				else if (palette.kind > 0)
+				{
+					char opt[96];
+					std::snprintf(opt, sizeof(opt), "#%d&%d&%d&%d", palette.kind, (int)palette.colors[0], (int)palette.colors[1], (int)palette.colors[2]);
+					coloredModel = "#" + ev.rawLowered + opt;
+				}
 			}
 			// stop S-5015: the state's `Texture = A B` swaps (a building's SNOW state on a snowy map) make another model variant, "<model>#tex&a=b"
 			std::string swappedModel;
@@ -2050,6 +2105,10 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 						{
 							dyn->Set_Build_Selection_Decals(true); // lane SELWALL-1: taken by the add below
 						}
+						if (f.meshHouseColors && !f.meshHouseColors->empty())
+						{
+							dyn->Set_Build_Mesh_House_Colors(f.meshHouseColors);
+						}
 						if (!coloredModel.empty())
 						{
 							PackedInt64Array colors;
@@ -2063,6 +2122,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 						{
 							mid = dyn->add_model(toGodot(*f.modelName));
 						}
+						dyn->Set_Build_Mesh_House_Colors(nullptr);
 						if (mid >= 0 && f.glow != 0)
 						{
 							dyn->set_model_glow(mid, f.glow == 2);
@@ -2098,6 +2158,8 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			ev.animKeySwapsGeneration = f.textureSwapsGeneration; // an upgrade's texture list keeps the same vector (RW 0x8B911E)
 			ev.animKeyKind = palette.kind;
 			ev.animKeyGlow = f.glow;
+			ev.animKeyMaterialGen = f.materialStateGeneration;
+			ev.animKeyRenderGen = f.renderObjectGeneration;
 			ev.animKeyTinted = tinted;
 			for (int i = 0; i < 3; ++i)
 			{
@@ -2117,15 +2179,17 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 					dyn->set_instance_transform(ev.instance, entryXf);
 				}
 				const ModelConditionInfo *shadowState = e.draw->currentModelState();
-				if (ev.shadowInstance != ev.instance || ev.shadowState != shadowState || ev.shadowData != e.data || ev.shadowOn != d->shadowsEnabled()) // S-3304: not every frame
+				const bool useShadowMapping = W3DInstancer::shadow_maps_enabled();
+				if (ev.shadowInstance != ev.instance || ev.shadowState != shadowState || ev.shadowData != e.data || ev.shadowOn != d->shadowsEnabled() || ev.shadowUseMapping != useShadowMapping) // S-3304: not every frame, updates when settings change
 				{
 					// TOP20 #24: a drawable whose shadows were switched off (RW 0x672D28, ShadowWhenDead No) casts none
 					dyn->set_instance_cast_shadow(ev.instance, e.kind != W3D_DRAWKIND_FLOOR && d->shadowsEnabled() &&
-						ObjectShadow::castsMap(d->getTemplate(), dynamic_cast<const W3DModelDrawModuleData *>(e.data), shadowState));
+						ObjectShadow::castsMap(d->getTemplate(), dynamic_cast<const W3DModelDrawModuleData *>(e.data), shadowState, useShadowMapping));
 					ev.shadowOn = d->shadowsEnabled();
 					ev.shadowState = shadowState;
 					ev.shadowData = e.data;
 					ev.shadowInstance = ev.instance;
+					ev.shadowUseMapping = useShadowMapping;
 				}
 				if (!ev.posed || animatedNow || flagsChanged) // RENDER-2: a MANUAL track (the build-up) changes its frame without being "animated"
 				{
@@ -2156,7 +2220,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 				applyTires();
 				applyFogLook();
 				// PROJ-2: the drawable's fade (a launched stone hidden for its InvisibleFrames, then faded in: GameClient/DrawableFade)
-				const float opacity = StealthLook::drawOpacity(d->drawOpacity(), d->stealth()); // lane STEALTHLOOK-1: the friend's invisibility pulse (+0xB4)
+				const float opacity = StealthLook::drawOpacity(d->drawOpacity(), d->stealth()) * e.draw->opacity(); // PORT-49: the draw's camera / animation fade (RW 0x4B5471) times the stealth pulse (+0xB4)
 				if (opacity != ev.opacity)
 				{
 					dyn->set_instance_opacity(ev.instance, opacity);
@@ -2267,8 +2331,10 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 					ev.instance = dyn->add_instance(mid, entryXf, String(), 0.0, 1.0);
 					ev.model = model;
 					ev.opacity = 1.0f; // a new instance starts opaque
+					const bool useShadowMapping = W3DInstancer::shadow_maps_enabled();
 					dyn->set_instance_cast_shadow(ev.instance, e.kind != W3D_DRAWKIND_FLOOR && d->shadowsEnabled() &&
-						ObjectShadow::castsMap(d->getTemplate(), dynamic_cast<const W3DModelDrawModuleData *>(e.data), nullptr));
+						ObjectShadow::castsMap(d->getTemplate(), dynamic_cast<const W3DModelDrawModuleData *>(e.data), nullptr, useShadowMapping));
+					ev.shadowUseMapping = useShadowMapping;
 				}
 			}
 			else if (entryXfChanged && ev.instance >= 0)
@@ -2608,6 +2674,7 @@ void GameWorld::advance(double delta)
 	m_lastShroudMs = timing::spanMs(tv, t1);
 	refresh_views(dt * 1000.0);
 	presentScorches();
+	presentTracks();
 	if (m_weather)
 	{
 		// lane WEATHER-1: the weather follows the presented frame's TheGlobalWeatherSystem (never the live logic)
@@ -2746,6 +2813,41 @@ void GameWorld::syncBuffs(double dt)
 	}
 }
 
+void GameWorld::presentTracks()
+{
+	if (!m_game) return;
+	if (TerrainTrackLayer *layer = Object::cast_to<TerrainTrackLayer>(ObjectDB::get_instance(m_trackLayer)))
+		layer->present(m_game->drawables().tracks());
+}
+
+void GameWorld::set_track_lod(int maxEdges, int opaqueEdges, int fadeDelayMs)
+{
+	maxEdges = std::clamp(maxEdges, 0, 32500);
+	opaqueEdges = std::clamp(opaqueEdges, 0, maxEdges);
+	fadeDelayMs = std::max(0, fadeDelayMs);
+	if (m_trackEdges == maxEdges && m_trackOpaqueEdges == opaqueEdges && m_trackFadeDelay == fadeDelayMs) return;
+	m_trackEdges = maxEdges;
+	m_trackOpaqueEdges = opaqueEdges;
+	m_trackFadeDelay = fadeDelayMs;
+	if (m_game) m_game->drawables().tracks().setDetail(maxEdges, opaqueEdges, fadeDelayMs);
+}
+
+Dictionary GameWorld::get_track_report() const
+{
+	Dictionary d;
+	if (!m_game) return d;
+	const TerrainTracksSystem::Stats s = m_game->drawables().tracks().stats();
+	d["pool_size"] = s.poolSize;
+	d["used_tracks"] = s.usedTracks;
+	d["bound_tracks"] = s.boundTracks;
+	d["active_edges"] = s.activeEdges;
+	d["total_edges_added"] = (int64_t)s.totalEdgesAdded;
+	d["pool_exhausted"] = (int64_t)s.poolExhausted;
+	if (TerrainTrackLayer *layer = Object::cast_to<TerrainTrackLayer>(ObjectDB::get_instance(m_trackLayer)))
+		d["render"] = layer->get_track_report();
+	return d;
+}
+
 void GameWorld::presentScorches()
 {
 	if (!m_liveFX)
@@ -2826,6 +2928,10 @@ void GameWorld::heldClientWork()
 				break;
 			case TerrainTrees::Event::MORPH_END:
 				morphTreeEnd(e);
+				break;
+			case TerrainTrees::Event::PUSH_ASIDE:
+				// PORT-73: RW 0x4E70F5, the moving unit's shrub push aside (its id, position, heading and major radius; the bend follows RW 0x4E8519)
+				m_treeTopple->unitMoved(e.clientId, e.position, e.direction, e.radius, e.frame);
 				break;
 			case TerrainTrees::Event::HIDE_SCORCHES:
 			case TerrainTrees::Event::MORPH_AREA:
@@ -2908,26 +3014,38 @@ std::string treeModelOf(const ThingTemplate *tmpl)
 	return d ? d->m_modelName : std::string();
 }
 
+std::string treeTextureOf(const ThingTemplate *tmpl)
+{
+	const W3DTreeDrawModuleData *d = TerrainTrees::treeDrawOf(tmpl);
+	return d ? d->m_textureName : std::string();
+}
+
 bool sameModel(const std::string &a, const std::string &b)
 {
 	return AsciiStringUtil::lowered(a) == AsciiStringUtil::lowered(b);
 }
 } // namespace
 
-// the tree buffer's model of a type at the tree's placement (RW 0x4EC505 .. 0x4EC5F5: W3DAssetManager's render object of the type's ModelName)
-int64_t GameWorld::addTreeModelInstance(const std::string &model, const float basis[9], const Coord3D &pos, float scale, bool castShadow, int swayType)
+// the tree buffer's model of a type at the tree's placement (RW 0x4EC505 .. 0x4EC5F5: W3DAssetManager's render object of the type's ModelName and TextureName)
+int64_t GameWorld::addTreeModelInstance(const std::string &model, const std::string &texture, const float basis[9], const Coord3D &pos, float scale, bool castShadow, int swayType)
 {
 	W3DInstancer *st = instancerOf(m_staticId);
 	if (!st || model.empty())
 	{
 		return -1;
 	}
-	const std::string key = AsciiStringUtil::lowered(model) + W3DInstancer::Texture_Swap_Suffix({});
+	std::vector<std::pair<std::string, std::string>> swaps;
+	if (!texture.empty())
+	{
+		// RW 0x4E8C1B / RW 0x4EC9B5: W3DShrubBuffer / W3DTreeBuffer keys tree types by (ModelName, TextureName) and applies TextureName
+		swaps.emplace_back("*", texture);
+	}
+	const std::string key = AsciiStringUtil::lowered(model) + W3DInstancer::Texture_Swap_Suffix(swaps);
 	auto it = m_staticModels.find(key);
 	int64_t m;
 	if (it == m_staticModels.end())
 	{
-		st->Set_Build_Texture_Swaps({});
+		st->Set_Build_Texture_Swaps(swaps);
 		st->Set_Build_Floor(false);
 		m = st->add_model(toGodot(model));
 		m_staticModels[key] = m;
@@ -2972,9 +3090,10 @@ void GameWorld::morphTree(const TerrainTrees::Event &e)
 	}
 	v.morphInstance = -1;
 	v.morphModel = treeModelOf(e.to);
+	v.morphTexture = treeTextureOf(e.to);
 	if (!v.morphModel.empty())
 	{
-		v.morphInstance = addTreeModelInstance(v.morphModel, v.basis, v.position, v.scale, v.castShadow, v.swayType);
+		v.morphInstance = addTreeModelInstance(v.morphModel, v.morphTexture, v.basis, v.position, v.scale, v.castShadow, v.swayType);
 		if (v.morphInstance >= 0)
 		{
 			st->set_instance_opacity(v.morphInstance, 0.0); // RW 0x4EC74F
@@ -3002,9 +3121,11 @@ void GameWorld::morphTreeEnd(const TerrainTrees::Event &e)
 	}
 	ToppleTreeView &v = m_treeViews[it->second];
 	const std::string now = treeModelOf(e.to);
-	if (!now.empty() && !sameModel(now, v.model))
+	const std::string nowTexture = treeTextureOf(e.to);
+	const bool same = sameModel(now, v.model) && sameModel(nowTexture, v.texture);
+	if (!now.empty() && !same)
 	{
-		if (v.morphInstance >= 0 && sameModel(now, v.morphModel))
+		if (v.morphInstance >= 0 && sameModel(now, v.morphModel) && sameModel(nowTexture, v.morphTexture))
 		{
 			st->remove_instance(v.instance);
 			v.instance = v.morphInstance;
@@ -3012,7 +3133,7 @@ void GameWorld::morphTreeEnd(const TerrainTrees::Event &e)
 		}
 		else
 		{
-			const int64_t n = addTreeModelInstance(now, v.basis, v.position, v.scale, v.castShadow, v.swayType);
+			const int64_t n = addTreeModelInstance(now, nowTexture, v.basis, v.position, v.scale, v.castShadow, v.swayType);
 			if (n >= 0)
 			{
 				st->remove_instance(v.instance);
@@ -3020,6 +3141,7 @@ void GameWorld::morphTreeEnd(const TerrainTrees::Event &e)
 			}
 		}
 		v.model = now;
+		v.texture = nowTexture;
 	}
 	if (v.morphInstance >= 0)
 	{
@@ -3093,9 +3215,10 @@ void GameWorld::morphArea(const TerrainTrees::Event &e)
 		}
 		f.morphInstance = -1;
 		f.morphModel = f.morphTarget ? treeModelOf(target) : std::string();
+		f.morphTexture = f.morphTarget ? treeTextureOf(target) : std::string();
 		if (!f.morphModel.empty())
 		{
-			f.morphInstance = addTreeModelInstance(f.morphModel, f.basis, f.position, f.scale, f.castShadow, 0);
+			f.morphInstance = addTreeModelInstance(f.morphModel, f.morphTexture, f.basis, f.position, f.scale, f.castShadow, 0);
 			if (f.morphInstance >= 0)
 			{
 				st->set_instance_opacity(f.morphInstance, 0.0);
@@ -3140,9 +3263,11 @@ void GameWorld::endShrubMorph(FootprintView &f)
 	else
 	{
 		const std::string now = treeModelOf(f.drawTmpl);
-		if (!now.empty() && !sameModel(now, f.model))
+		const std::string nowTexture = treeTextureOf(f.drawTmpl);
+		const bool same = sameModel(now, f.model) && sameModel(nowTexture, f.texture);
+		if (!now.empty() && !same)
 		{
-			if (f.morphInstance >= 0 && sameModel(now, f.morphModel))
+			if (f.morphInstance >= 0 && sameModel(now, f.morphModel) && sameModel(nowTexture, f.morphTexture))
 			{
 				st->remove_instance(f.instance);
 				f.instance = f.morphInstance;
@@ -3150,7 +3275,7 @@ void GameWorld::endShrubMorph(FootprintView &f)
 			}
 			else
 			{
-				const int64_t n = addTreeModelInstance(now, f.basis, f.position, f.scale, f.castShadow, 0);
+				const int64_t n = addTreeModelInstance(now, nowTexture, f.basis, f.position, f.scale, f.castShadow, 0);
 				if (n >= 0)
 				{
 					st->remove_instance(f.instance);
@@ -3158,6 +3283,7 @@ void GameWorld::endShrubMorph(FootprintView &f)
 				}
 			}
 			f.model = now;
+			f.texture = nowTexture;
 		}
 		st->set_instance_opacity(f.instance, 1.0);
 	}
@@ -3270,7 +3396,7 @@ void GameWorld::updateTreeTopple(double dt)
 		const ToppleTreeView &v = m_treeViews[i];
 		float b[9];
 		Coord3D pos;
-		m_treeTopple->placement(i, v.basis, v.position, b, pos);
+		m_treeTopple->placement(i, v.basis, v.position, v.scale, b, pos); // PORT-73: the scale keeps the bend's shear equal to RW 0x4E7B25
 		if (m_treeTopple->trees()[i].state == TreeTopple::GONE)
 		{
 			st->set_instance_transform(v.instance, toTransform(b, pos, 0.0f)); // sunk away: drawn at scale 0
@@ -7336,6 +7462,7 @@ void GameWorld::set_shroud_drawn(bool on)
 	if (m_game)
 	{
 		m_game->shroud().setDisplayed(on);
+		m_game->drawables().setShroudDrawn(on);
 	}
 	refresh_shroud(true);
 	refresh_views(0.0);
@@ -7494,6 +7621,12 @@ void GameWorld::set_effects_lod(int64_t lod)
 	}
 }
 
+void GameWorld::setCameraFadeEye(const Coord3D &eye)
+{
+	m_cameraFadeEye = eye;
+	m_cameraFadeEyeValid = true;
+}
+
 Node3D *GameWorld::get_glow_host() const
 {
 	return Object::cast_to<GlowPostEffectHost>(ObjectDB::get_instance(m_glowHost));
@@ -7572,9 +7705,26 @@ Dictionary GameWorld::get_fx_report() const
 		}
 	}
 	d["stops"] = stops;
-	if (m_fxPlayer)
+	if (m_fxPlayer && m_fxPlayer->playback())
 	{
 		d["particles"] = m_fxPlayer->get_stats();
+		// lane FEAT-BLDFX-1: the client effect state (scorches RW 0x5E0045, dynamic decals RW 0x5E05AB, light pulses RW 0x5DFAA3, camera shakers RW 0x5DFE90; the bodies are DONOR BFME2 0x67EA3 / 0x10C785 / 0x6DE3D / 0x65DAD)
+		const FXPlayback &playback = *m_fxPlayer->playback();
+		Dictionary scorches;
+		scorches["count"] = (int64_t)playback.scorches().entries().size();
+		scorches["additions"] = (int64_t)playback.scorches().additions();
+		scorches["duplicates"] = (int64_t)playback.scorches().duplicates();
+		scorches["evictions"] = (int64_t)playback.scorches().evictions();
+		d["scorches"] = scorches;
+		Dictionary decals;
+		decals["count"] = (int64_t)playback.decals().size();
+		d["decals"] = decals;
+		Dictionary lights;
+		lights["active"] = (int64_t)playback.lightPulses().enabledCount();
+		lights["additions"] = (int64_t)playback.lightPulses().additions();
+		lights["refused_range"] = (int64_t)playback.lightPulses().refusedRange();
+		lights["overflow"] = (int64_t)playback.lightPulses().overflow();
+		d["light_pulses"] = lights;
 	}
 	return d;
 }

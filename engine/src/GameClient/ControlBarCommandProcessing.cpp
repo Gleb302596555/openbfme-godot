@@ -5,6 +5,7 @@
 // arguments only) or a GUI command mode. Kept apart from the view model (ControlBar.cpp) because it BUILDS GameMessages: this file is in the simulation audit manifest.
 
 #include "GameClient/ControlBar.h"
+#include "GameClient/ControlBarCommands.h"
 #include "GameLogic/Module/StancesBehavior.h"
 #include "GameLogic/Module/ProductionUpdate.h"
 #include "GameLogic/Module/CastleModules.h"
@@ -475,6 +476,20 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 			m.appendInteger((int)t->getID());
 			m.appendInteger((int)b.m_options);
 			m.appendObjectID(obj->getID());
+			// RW 0x94157D..0x9415FF: chained CommandTrigger buttons
+			for (const std::string &triggerName : b.m_commandTrigger)
+			{
+				const CommandButton *tb = TheCommandStore ? TheCommandStore->findCommandButton(triggerName) : nullptr;
+				const SpecialPowerTemplate *tt = tb && tb->m_command == GUI_COMMAND_SPECIAL_POWER && TheSpecialPowerStore && !tb->m_specialPowerName.empty()
+					? TheSpecialPowerStore->findSpecialPowerTemplate(tb->m_specialPowerName) : nullptr;
+				if (tt)
+				{
+					ClientMessage &tm = m_ctx.stream.append(MSG_DO_SPECIAL_POWER);
+					tm.appendInteger((int)tt->getID());
+					tm.appendInteger((int)tb->m_options);
+					tm.appendObjectID(obj->getID());
+				}
+			}
 			return true;
 		}
 		case GUI_COMMAND_CASTLE_UNPACK:

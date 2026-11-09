@@ -206,7 +206,20 @@ struct ModelConditionInfo
 
 	int getConditionsYesCount() const { return 1; }
 	const ModelConditionFlags &getNthConditionsYes(int) const { return conditions; }
-	const std::string &modelName() const { static const std::string none; return modelNames.empty() ? none : modelNames[0]; }
+	const std::string &modelName(int variation = 0) const
+	{
+		static const std::string none;
+		if (modelNames.empty())
+		{
+			return none;
+		}
+		if (variation <= 0)
+		{
+			return modelNames[0]; // RW 0x4B42F5: getModelName(0)
+		}
+		// RW 0x4B430B: getModelName(variation): unsigned modulo
+		return modelNames[static_cast<std::size_t>(static_cast<unsigned>(variation) % modelNames.size())];
+	}
 	void addPublicBone(const std::string &lowerBoneName);
 };
 

@@ -106,6 +106,8 @@ std::vector<std::uint8_t> bytesOf(const ObjectSnapshot &s)
 	put(b, s.projectileEnd.y);
 	put(b, s.projectileEnd.z);
 	put(b, s.projectileSegments);
+	put(b, s.layer);
+	put(b, s.aboveTerrain);
 	return b;
 }
 } // namespace

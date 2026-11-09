@@ -14,6 +14,7 @@
 #include "GameLogic/Module/NotifyCrushModules.h"
 #include "GameLogic/Module/UpgradeModuleClasses.h"
 #include "GameLogic/Combat/CombatState.h"
+#include "GameLogic/Combat/CombatNames.h" // lane PORT-21: the NOT_IN_WORLD status index
 #include "GameLogic/SimMath.h"
 #include "GameLogic/BuildStops.h"
 #include "GameLogic/StructureStops.h"
@@ -31,6 +32,7 @@
 #include "GameLogic/Map/FireLogicSystem.h"
 #include "GameLogic/Map/TerrainTrees.h" 
 #include "GameLogic/System/TaintManager.h"
+#include "GameLogic/System/ThreatFinder.h" // PORT 17
 #include "GameLogic/Module/ObjectHelper.h"
 #include "GameLogic/Module/SquishCollide.h"
 #include "GameLogic/Module/UnportedModule.h"
@@ -75,6 +77,7 @@ GameLogic::GameLogic(ThingFactory &things, ModuleFactory &modules, PlayerList &p
 	, m_dot(std::make_unique<DOTManager>(*this)) // lane DECOMP-1
 	, m_taint(std::make_unique<TaintManager>()) // RW 0x63BF6C .. 0x63BF81
 	, m_trees(std::make_unique<TerrainTrees>(*this)) // lane SPELL-3
+	, m_threatFinders(std::make_unique<ThreatFinderManager>()) // PORT 17: RW 0xDE8888
 	, m_scriptEngine(std::make_unique<ScriptEngine>(*this)) // lane SCRIPT-1
 {
 	buildPhaseWorkTable();
@@ -175,6 +178,10 @@ void GameLogic::friend_containEnterWorld(Object &obj)
 		}
 	}
 	obj.friend_setInWorld(true);
+	// lane PORT-21 (RW 0x6923B7, the object back in the world): after the world entry (RW 0x68E31F, Object + 0x474 = 1) the object is audible again
+	// (RW 0x692409 -> RW 0x690772) and NOT_IN_WORLD (status 51) goes (RW 0x692414: setStatus(0x33, 0))
+	obj.setAudible();
+	obj.setStatus((unsigned)CombatNames::status("NOT_IN_WORLD"), false); // 51 = RW 0x33
 	++m_containWorldTransitions;
 }
 
@@ -207,6 +214,11 @@ void GameLogic::friend_containLeaveWorld(Object &obj)
 		}
 	}
 	obj.friend_setInWorld(false);
+	// lane PORT-21 (RW 0x692313, the object out of the world): after the world exit (RW 0x68C18F, which ends with Object + 0x474 = 0) the object is
+	// INAUDIBLE (RW 0x6923A5 -> RW 0x690728) and gets NOT_IN_WORLD (RW 0x6923B0: setStatus(0x33, 1)). RW 0x692313 tests the same status first and
+	// returns (RW 0x692318) — the `!obj.isInWorld()` guard above is the port's, because a contain's exit and a second one are the same transition
+	obj.setInaudible();
+	obj.setStatus((unsigned)CombatNames::status("NOT_IN_WORLD"), true); // 51 = RW 0x33
 	++m_containWorldTransitions;
 }
 
@@ -1031,10 +1043,19 @@ void GameLogic::noteBeacon(BeaconNotice::Kind kind, int playerIndex, ObjectID ob
 	m_beaconNotices.push_back(n);
 }
 
-void GameLogic::noteGlobalRally(int playerIndex, const Coord3D &position)
+void GameLogic::noteGlobalRally(int playerIndex, const Coord3D &position, bool global)
 {
 	if (m_globalRallyNotices.size() >= kBeaconNotices) m_globalRallyNotices.erase(m_globalRallyNotices.begin());
-	m_globalRallyNotices.push_back(GlobalRallyNotice{ ++m_globalRallySeq, playerIndex, position });
+	m_globalRallyNotices.push_back(GlobalRallyNotice{ ++m_globalRallySeq, playerIndex, position, global });
+}
+
+void GameLogic::noteUpgradeComplete(int playerIndex, ObjectID producerID, const UpgradeTemplate *upgrade, const Coord3D &position)
+{
+	if (m_upgradeCompleteNotices.size() >= kUpgradeCompleteNotices)
+	{
+		m_upgradeCompleteNotices.erase(m_upgradeCompleteNotices.begin());
+	}
+	m_upgradeCompleteNotices.push_back(UpgradeCompleteNotice{ ++m_upgradeCompleteSeq, playerIndex, producerID, upgrade, position });
 }
 
 void GameLogic::noteRadarEvent(int type, const Coord3D &position, RadarEventNotice::Source source, int playerIndex)
@@ -1058,6 +1079,13 @@ void GameLogic::reset()
 	m_missionObjectives.reset(); // lane CAMPUI-1: TheMissionObjectiveTracker's reset (RW 0x835E03): a new game has no list until its map.ini's
 	m_radarEventNotices.clear(); // lane BACKLOG3: a new game's radar starts empty (the sequence goes on: a client's cursor stays behind it)
 	m_globalRallyNotices.clear(); // the sequence stays monotonic for a surviving client
+	// The skirmish AI stops listening before the objects go (owner's crash 2026-11-08: leaving an Ennorath skirmish terminated). Each deleted object
+	// told the AI it left (world hook -> SkirmishAIManager::objectRemoved -> AIStatCollector::unRegisterObject); the position sampler then re-sorts its
+	// survivors by their positions (RW 0x8E4475 -> 0x8E41EB), and a survivor already deleted earlier in this loop threw std::logic_error inside
+	// ~Object, i.e. std::terminate. INFERENCE: RotWK's GameLogic::reset (RW 0x62D1F0 ..) does not reset TheSkirmishAIManager (RW 0xDE4938) itself;
+	// its order against the object purge was not read. The AI is reset below anyway, so no AI state is lost by resetting it first.
+	m_skirmishAI->reset();
+	m_upgradeCompleteNotices.clear();
 	// ZH GameLogic::reset: every object goes; the scheduler vectors are cleared with their modules' indices
 	m_current = nullptr;
 	while (m_objectHead)
@@ -1095,6 +1123,8 @@ void GameLogic::reset()
 	m_buildableOverrides.clear(); // lane BFME2CAMP1 (review): a new game starts without the script's overrides (ZH GameLogic::reset clears its map; donor)
 	m_campaignCarryover.reset();  // lane BFME2CAMP1: the mission's start sets it again
 	m_showBehindBuildingMarkers = true; // lane OCCLUDE-1: GameLogic::reset RW 0x62D3D6 (+ 0x99 = 1)
+	m_rankLevelLimit = kDefaultRankLevelLimit; // PORT-43: RW 0x62A20D (startNewGame's init helper RW 0x62A11A; GameLogic::reset RW 0x62D232 leaves +0x118 untouched)
+	m_rankLevelLimitScripted = false;
 	m_nextObjectID = 1;
 	m_sharedProductionID = 0;
 	m_objectCount = 0;
@@ -1118,6 +1148,7 @@ void GameLogic::reset()
 	m_dot->reset(); // lane DECOMP-1
 	m_trees->reset(); // lane SPELL-3
 	m_taint->reset(); // RW 0x62D2FF: TheTaintManager's reset (slot 0x24 -> RW 0xAD4BB0)
+	m_threatFinders->reset(); // PORT 17: the map's named threat areas go with their objects
 	m_scriptEngine->reset(); // lane SCRIPT-1
 }
 
@@ -1361,6 +1392,12 @@ std::uint32_t GameLogic::hashState(std::vector<StateHashSection> *sections, std:
 		{
 			x.addU32(0xCA4401u);
 			m_campaignCarryover->crc(x);
+		}
+		// PORT-43: GameLogic + 0x118 (m_rankLevelLimit) when scripted by PLAYER_SET_RANKLEVELLIMIT (RW 0x7BB04E); an unscripted game derives +0x118 from
+		// EconomySettings::powerLimit / EconomyContext::gameMode (already hashed by Economy::crc) and keeps its existing hashes (retail's XferCRC skips +0x118 at RW 0x630ADF)
+		if (m_rankLevelLimitScripted)
+		{
+			x.addI32(m_rankLevelLimit);
 		}
 		x.addU32(m_nextObjectID);
 		if (ModEngineFeatures::has(ModEngineFeature::EdainUnchainedUniqueProductionId))
@@ -1907,3 +1944,33 @@ GameLogic::Report GameLogic::report() const
 	}
 	return r;
 }
+
+void GameLogic::initRankLevelLimit()
+{
+	// PORT-43: RW 0x62A20D (startNewGame's init helper RW 0x62A11A, called at RW 0x631555) sets GameLogic + 0x118 = 1000 (0x3E8);
+	// RW 0x631420 .. 0x631436 (startNewGame's tail helper RW 0x6311ED, called at RW 0x6315A7) tests RW 0x625456 (isInSkirmishOrMultiplayerGame,
+	// Economy::isMultiplayerGame) and on true copies GlobalData + 0xE94 (PowerLimit, row RW 0xC00C00, EconomySettings::powerLimit) into GameLogic + 0x118.
+	const EconomySettings &s = m_economy->settings();
+	if (!s.loaded)
+	{
+		throw std::logic_error("GameLogic::initRankLevelLimit: GameData's economy values are not loaded (EconomySettings::load)");
+	}
+	m_rankLevelLimit = m_economy->isMultiplayerGame() ? s.powerLimit : kDefaultRankLevelLimit;
+	m_rankLevelLimitScripted = false;
+}
+
+void GameLogic::setRankLevelLimit(int limit)
+{
+	// PORT-43: RW 0x7BB04E .. 0x7BB060 (called via RW 0x7BD1A8 from script action 279 PLAYER_SET_RANKLEVELLIMIT at RW 0x7CE020):
+	// cmp eax, 1; jge; mov eax, 1; mov [ecx + 0x118], eax.
+	m_rankLevelLimit = limit < 1 ? 1 : limit;
+	m_rankLevelLimitScripted = true;
+}
+
+void GameLogic::resetRankLevelLimitFromEconomy()
+{
+	const EconomySettings &s = m_economy->settings();
+	m_rankLevelLimit = (s.loaded && m_economy->isMultiplayerGame()) ? s.powerLimit : kDefaultRankLevelLimit;
+	m_rankLevelLimitScripted = false;
+}
+

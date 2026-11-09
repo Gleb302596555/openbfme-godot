@@ -198,6 +198,12 @@ void W3D_Ensure_Light_Globals()
 	rs->global_shader_parameter_add(StringName("w3d_fog_shift"), RenderingServer::GLOBAL_VAR_TYPE_FLOAT, 0.0f);
 	// lane VISUAL-2: the fogged light fraction (RW 0x46DFD0: GameData FogAlpha / ClearAlpha), set by the map's game
 	rs->global_shader_parameter_add(StringName("w3d_fogged_frac"), RenderingServer::GLOBAL_VAR_TYPE_FLOAT, 1.0f);
+	// lane FEAT-BLDFX-1: the dynamic light pulses (TARGET RW 0x5DFAA3 / DONOR BFME2 0x4423C / 0x6DE3D), view-space position and range in w, colour in the _col vec4; all off
+	for (int i = 0; i < 4; ++i)
+	{
+		rs->global_shader_parameter_add(StringName(String("w3d_pulse") + String::num_int64(i)), RenderingServer::GLOBAL_VAR_TYPE_VEC4, Vector4());
+		rs->global_shader_parameter_add(StringName(String("w3d_pulse") + String::num_int64(i) + "_col"), RenderingServer::GLOBAL_VAR_TYPE_VEC4, Vector4());
+	}
 	// lane OCCLUDE-1: the behind-building colours and their switch (W3D_Set_Occlusion), off until a game sets them
 	rs->global_shader_parameter_add(StringName("w3d_occl_on"), RenderingServer::GLOBAL_VAR_TYPE_FLOAT, 0.0f);
 	rs->global_shader_parameter_add(StringName("w3d_occl_colors"), RenderingServer::GLOBAL_VAR_TYPE_SAMPLER2D, Variant());
@@ -877,16 +883,36 @@ W3DMaterialResult W3DMaterialFactory::Create(const MeshRenderData &mesh, const M
 	}
 
 	// house colour (S-119): the stage 0 texture's housecolor.ini texture
+	HouseColorParams effectiveParams = HouseParams;
+	if (PerMeshHouseParams)
+	{
+		auto it = PerMeshHouseParams->find(mesh.Name);
+		if (it != PerMeshHouseParams->end())
+		{
+			effectiveParams = it->second;
+		}
+		else
+		{
+			for (const auto &pair : *PerMeshHouseParams)
+			{
+				if (AsciiStringUtil::compareNoCase(pair.first, mesh.Name) == 0)
+				{
+					effectiveParams = pair.second;
+					break;
+				}
+			}
+		}
+	}
 	Ref<Texture2D> hcTex;
 	if (HouseColors && surf.Kind == MATERIAL_CLASSIC && key.Tex[0])
 	{
 		if (const std::string *hc = HouseColors->Find(tex[0]))
 		{
 			std::vector<std::string> hcErrors; // 313 housecolor.ini textures, 204 shipped as files: a missing one only means no tint
-			if (loadTextures && HouseParams.kind > 0)
+			if (loadTextures && effectiveParams.kind > 0)
 			{
 				// lane CAH-2: a colour set (a Create-a-Hero's kind 3): the texture recoloured per texel before filtering
-				hcTex = Recolored_House_Texture(*hc, HouseParams, hcErrors, out.Notes);
+				hcTex = Recolored_House_Texture(*hc, effectiveParams, hcErrors, out.Notes);
 				key.HouseColorBaked = hcTex.is_valid();
 			}
 			else
@@ -943,9 +969,9 @@ W3DMaterialResult W3DMaterialFactory::Create(const MeshRenderData &mesh, const M
 	// Preserve opacity, emissive and specular. Channel unpacking follows the
 	// existing target ARGB convention in Recolor_House_Texel, not the donor's
 	// address-derived ABI cast expressions.
-	if (HouseColors && HouseParams.kind > 0 && Is_House_Color_Material(mesh.Name))
+	if (HouseColors && effectiveParams.kind > 0 && Is_House_Color_Material(mesh.Name))
 	{
-	 const auto color=HouseParams.colors[0];
+	 const auto color=effectiveParams.colors[0];
 	 const Color rgb(((color>>16)&255)/255.0f,((color>>8)&255)/255.0f,(color&255)/255.0f);
 	 diffuse.r=rgb.r;diffuse.g=rgb.g;diffuse.b=rgb.b;
 	 ambientMat=rgb;

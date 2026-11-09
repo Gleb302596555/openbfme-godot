@@ -158,6 +158,8 @@ public:
 	int64_t get_shroud_status_at(double x, double y) const;
 	int64_t get_object_shroud_status(int64_t objectId) const;
 	void set_shroud_drawn(bool on);
+	void set_track_lod(int maxEdges, int opaqueEdges, int fadeDelayMs);
+	Dictionary get_track_report() const;
 	void set_shroud_fade(bool on); // lane FOGFX-1: the shroud texture's fade (RW 0x472CF2); off: the texels land at once (a before / after proof)
 	PackedByteArray get_shroud_cells() const;
 	// lane PROJ-1: the projectile objects in flight (KindOf PROJECTILE with a BezierProjectileBehavior): id, template, position, the position of the previous logic frame, the unit
@@ -571,6 +573,9 @@ public:
 	// lane GLOW-1 (S-5231): the static detail level's EffectsLOD (GameLODManager::state().effectsLOD, 0 VeryLow .. 4 UltraHigh): VeryLow and Low draw neither the map's
 	// colour grade nor the glow (RW 0x48789F). Applied at once to the loaded game's glow host and to the ones loaded later.
 	void set_effects_lod(int64_t lod);
+	// PORT-49: the displayed tactical camera eye (SAGE axes) for the model draws' camera distance fade (RW 0x4B5301..0x4B5325).
+	// The HUD's applyCamera sets it every render frame; the drawables read the last displayed eye through DrawServices::cameraPosition.
+	void setCameraFadeEye(const Coord3D &eye);
 	// the glow pass host of the loaded game (null without one): get_glow_stats / get_choice
 	Node3D *get_glow_host() const;
 	// lane OPTS-2: the texture reduction of the static detail level for the W3D textures loaded from now on (W3DMaterialFactory::Set_Texture_Reduction)
@@ -758,7 +763,8 @@ private:
 		bool streakKnown = false;
 		bool posed = false;
 		float offsetZ = 0.0f;           ///< RENDER-2: the construction offset the instance's transform carries (DrawEntry::constructionOffsetZ)
-		float opacity = 1.0f;           ///< PROJ-2: the drawable's fade the instance shows (Drawable::drawOpacity)
+		float opacity = 1.0f;           ///< PROJ-2: the drawable's fade times the model draw's fade the instance shows
+		bool fadeHidden = false;        ///< PORT-49: the model draw's hidden-by-fade state the instance was made with; leaving it rebuilds the instance
 		unsigned tireChanges = 0xFFFFFFFFu; ///< lane COMBAT-4: DrawEntry::tireChanges the instance's bone spins show
 		int64_t tireInstance = -1;          ///< the instance they were handed to
 		bool fogLook = false;               ///< lane VISUAL-2: the instance is drawn with the fogged light (a last-seen object in the fog)
@@ -769,6 +775,7 @@ private:
 		const void *shadowData = nullptr;
 		int64_t shadowInstance = -1;        ///< the instance it was handed to
 		bool shadowOn = true;               ///< TOP20 #24: the drawable's shadowsEnabled() it was made with
+		bool shadowUseMapping = false;      ///< S-3304, Local 19: detail setting UseShadowMapping it was made with
 		std::uint32_t colorsRevision = 0;   ///< lane CAH-2: Drawable::customColorRevision the model choice saw
 		// lane HCKEY-1: a static entry's model key (lowered name + floor swap suffix + palette) and the inputs it was made from, rebuilt only
 		// when one of them changes (community PR #60 made it every frame for every coloured static drawable)
@@ -789,6 +796,8 @@ private:
 		std::uint32_t animKeySwapsGeneration = 0; ///< the poseView's textureSwapsGeneration
 		int animKeyKind = -1;
 		int animKeyGlow = 0;                      ///< lane GLOW-1: the poseView's glow flags (part of the key since the glow pass)
+		std::uint32_t animKeyMaterialGen = 0;     ///< LOCAL-21: poseView's materialStateGeneration
+		std::uint32_t animKeyRenderGen = 0;       ///< LOCAL-21: poseView's renderObjectGeneration
 		bool animKeyTinted = false;               ///< LOCAL-3: whether the posed model key carries "|tint:<id>" for this drawable's active tint envelope
 		bool staticKeyTinted = false;             ///< LOCAL-3: whether the static model key carries "|tint:<id>"
 		int64_t tintModelId = -1;                 ///< LOCAL-3: the instancer model id for set_model_tint
@@ -953,10 +962,12 @@ private:
 		float scale = 1.0f;
 		// S-921: the Taint / Elven Wood morph (TerrainTrees MORPH / MORPH_END): the model drawn now, the target's instance (model B) fading in
 		std::string model;           ///< the drawn model (W3DTreeDraw ModelName)
+		std::string texture;         ///< the drawn texture (W3DTreeDraw TextureName, RW 0x4EC9B5)
 		int swayType = 0;
 		bool castShadow = false;
 		int64_t morphInstance = -1;
 		std::string morphModel;
+		std::string morphTexture;
 		std::uint32_t morphStart = 0;
 		std::int32_t morphTime = 0;
 		bool morphing = false;
@@ -977,19 +988,21 @@ private:
 		const class ThingTemplate *tmpl = nullptr;     ///< the add-time type (+ 0x19E0)
 		const class ThingTemplate *drawTmpl = nullptr; ///< the type now (+ 0x1998)
 		std::string model;
+		std::string texture;                           ///< W3DTreeDraw TextureName (RW 0x4E8C1B)
 		bool castShadow = false;
 		int morph = 0;             ///< + 0x19DC
 		std::int32_t morphLeft = 0; ///< + 0x19E8
 		bool morphTarget = false;   ///< model B (+ 0x19F0) made
 		int64_t morphInstance = -1;
 		std::string morphModel;
+		std::string morphTexture;
 		std::uint32_t morphStart = 0;
 		std::int32_t morphTime = 0;
 	};
 	std::vector<FootprintView> m_footprintViews;
 	void clearFootprint(const Coord3D &pos, float angle, const std::vector<ObjectGeometry::Shape> &shapes, bool propsOnly);
 	// S-921: the tree and shrub morph of Taint / Elven Wood (TerrainTrees.h)
-	int64_t addTreeModelInstance(const std::string &model, const float basis[9], const Coord3D &pos, float scale, bool castShadow, int swayType);
+	int64_t addTreeModelInstance(const std::string &model, const std::string &texture, const float basis[9], const Coord3D &pos, float scale, bool castShadow, int swayType);
 	void morphTree(const TerrainTrees::Event &e);    ///< MORPH (slot 0x74)
 	void morphTreeEnd(const TerrainTrees::Event &e); ///< MORPH_END
 	void morphArea(const TerrainTrees::Event &e);    ///< MORPH_AREA (slot 0x40: the shrubs morph, the props go)
@@ -998,6 +1011,7 @@ private:
 	std::vector<size_t> m_morphTrees, m_morphShrubs;
 	size_t m_treeEventsSeen = 0;
 	void heldClientWork(); // lane RENDERWAIT-1: the render side's reads of the live logic, where it is held
+	void presentTracks(); // PORT-69: draw the live track system
 	void presentScorches(); // TOP20 "Fire, scorches": the terrain's scorch layer draws the live effect player's buffer (drawScorches RW 0x468BCB)
 	void updateTreeTopple(double dt);
 	std::unique_ptr<W3DVegetationSway> m_vegSway; ///< lane VISUAL-2: the W3DTreeDraw trees' sway (null: the map has none)
@@ -1070,8 +1084,12 @@ private:
 	// lane FX-2
 	FXPlayer *m_fxPlayer = nullptr;            ///< child node, kept by clear_scene
 	ObjectID m_glowHost;                       ///< lane GLOW-1: the loaded game's glow pass host (a child, freed by clear_scene)
+	ObjectID m_trackLayer;
+	int m_trackEdges = 100, m_trackOpaqueEdges = 25, m_trackFadeDelay = 300000;
 	ObjectID m_scorchLayer;                    ///< the terrain's scorch layer (Terrain/Scorches, freed with the terrain), looked up per frame
 	int64_t m_effectsLod = 4;                  ///< lane GLOW-1: GameLODManager::kDetectedLevel until the options say otherwise
+	Coord3D m_cameraFadeEye{};                 ///< PORT-49: the last displayed eye the HUD gave (RW 0xDE447C vslot 0x11C)
+	bool m_cameraFadeEyeValid = false;         ///< PORT-49: false until applyCamera runs; the fade does not guess a camera
 	std::unique_ptr<LiveFX> m_liveFX;          ///< destroyed before m_game (it is the logic's FX sink and the drawables' FX host)
 	std::unique_ptr<GodotWeather> m_weather;   ///< lane WEATHER-1: the map's weather (snow / rain, darkness, lightning, its sound); destroyed before m_game
 	// lane SPELL-4: the BuffNugget buffs (GameClient/BuffDraw.h) as instances of the live objects' instancer, by TBuff serial

@@ -18,6 +18,7 @@
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/ActiveBody.h"
 #include "GameLogic/Module/StancesBehavior.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SimMath.h"
 #include "GameLogic/WeaponState.h"
@@ -466,7 +467,39 @@ public:
 	void xfer(Xfer &x) override { xferNoFields(x); }
 };
 
-// AIGuardAttackAggressorState (RW 0x94A805 onEnter, 0x94A8E8 update)
+// RW 0x94C0F4: selects member of enemy horde closest to self (called by GuardAttackAggressorState)
+static Object *lookForHordeMember(AIGuardMachine &machine, Object &self)
+{
+	ObjectID nemesisId = machine.nemesis(); // +0x40
+	if (nemesisId == INVALID_ID || nemesisId == 0)
+	{
+		return nullptr;
+	}
+	Object *victim = self.logic().findObjectByID(nemesisId); // call 0x449681
+	if (!victim)
+	{
+		return nullptr;
+	}
+	ContainModuleInterface *contain = victim->getContain(); // victim + 0x258
+	if (!contain)
+	{
+		return nullptr;
+	}
+	HordeContainInterface *hordeContain = contain->getHordeContainInterface(); // contain vslot 0x7C
+	if (!hordeContain)
+	{
+		return nullptr;
+	}
+	HordeContain *hc = dynamic_cast<HordeContain *>(hordeContain);
+	if (!hc)
+	{
+		return nullptr;
+	}
+	// HordeContainInterface vslot 0x48 (RW 0x86FA87): pickMemberNear(false, *self.getPosition(), 0.0f, nullptr)
+	return hc->pickMemberNear(false, *self.getPosition(), 0.0f, nullptr);
+}
+
+// AIGuardAttackAggressorState (RW 0x94C144 onEnter, 0x94A8E8 update)
 class GuardAttackAggressorState : public AIState, private GuardAttackHolder
 {
 public:
@@ -476,20 +509,57 @@ public:
 		Object &obj = owner();
 		GameLogic &logic = obj.logic();
 		AIGuardMachine &g = guardOf(*this);
-		if (const ActiveBody *body = dynamic_cast<const ActiveBody *>(obj.getBodyModule()))
+		ObjectID nemesisId = g.nemesis();
+		if (nemesisId == INVALID_ID)
 		{
-			if (body->lastDamager() != INVALID_ID) // the body's last damage record's source (vslot 15 + 8)
+			if (const ActiveBody *body = dynamic_cast<const ActiveBody *>(obj.getBodyModule()))
 			{
-				g.setNemesis(body->lastDamager());
+				if (body->lastDamager() != INVALID_ID) // the body's last damage record's source (vslot 15 + 8)
+				{
+					nemesisId = body->lastDamager();
+					g.setNemesis(nemesisId);
+				}
 			}
 		}
 		Object *nemesis = logic.findObjectByID(g.nemesis());
-		if (!nemesis)
+		if (!nemesis || obj.getRelationship(*nemesis) != ENEMIES || nemesis->isEffectivelyDead())
 		{
 			return STATE_SUCCESS;
 		}
-		m_exit.attackGiveUpFrame = logic.getFrame() + settingsOf(obj).guardChaseUnitsFrames;
-		m_exit.conditions = GuardExitConditions::ATTACK_ExitIfExpiredDuration | GuardExitConditions::ATTACK_ExitIfNoUnitFound;
+		// RW 0x94C1D6 .. 0x94C21B: a lone unit's HORDE target becomes one of its members via RW 0x94C0F4
+		// Condition RW 0x94C1D9 .. 0x94C1EF: test [template + 0x114], 0x2000 (KINDOF_HORDE).
+		// Enemy must be HORDE, and self (obj) must NOT be HORDE.
+		static const int kHorde = CombatNames::kindOf("HORDE");
+		if (!obj.isKindOf((unsigned)kHorde) && nemesis->isKindOf((unsigned)kHorde))
+		{
+			g.setNemesis(nemesis->getID()); // RW 0x94C1F6
+			Object *member = lookForHordeMember(g, obj); // RW 0x94C0F4
+			if (member)
+			{
+				nemesis = member; // RW 0x94C200
+				g.setNemesis(member->getID()); // RW 0x94C215 .. 0x94C21B
+			}
+			else
+			{
+				return STATE_FAILURE; // RW 0x94C205: push -2; pop eax; ret (STATE_FAILURE)
+			}
+		}
+		// RW 0x94C21E .. 0x94C2B5: exit conditions
+		const Coord3D center = g.guardPosition();
+		const float visionRange = AIGuardMachine::getAdjustedVisionRange(obj); // RW 0x6FF412(obj, 3)
+		const float retaliateRange = AIGuardMachine::getRetaliateRange(obj);    // RW 0x94BA8C
+		m_exit.center = center;
+		const float totalRadius = visionRange + retaliateRange;
+		m_exit.radiusSqr = SimMath::mulf32(totalRadius, totalRadius); // (visionRange + retaliateRange)^2
+		unsigned chaseFrames = settingsOf(obj).guardChaseUnitsFrames; // AIData + 0x3C
+		const ObjectWeapons *w = obj.getWeapons();
+		const Weapon *cur = w ? w->currentWeapon() : nullptr;
+		if (cur && cur->getTemplate() && cur->getTemplate()->m_meleeWeapon)
+		{
+			chaseFrames += chaseFrames / 2; // RW 0x94C27C .. 0x94C281: +50% chase duration for melee weapon (shr 1; add)
+		}
+		m_exit.attackGiveUpFrame = logic.getFrame() + chaseFrames;
+		m_exit.conditions = GuardExitConditions::ATTACK_ExitIfOutsideRadius | GuardExitConditions::ATTACK_ExitIfExpiredDuration | GuardExitConditions::ATTACK_ExitIfNoUnitFound; // 7 (RW 0x94C2AA)
 		startAttack(machine(), true, *nemesis);
 		const StateReturnType r = m_attack->onEnter();
 		return r == STATE_CONTINUE ? STATE_CONTINUE : STATE_SUCCESS;
@@ -546,6 +616,15 @@ bool GuardExitConditions::shouldExit(const AIStateMachine &machine) const
 		{
 			return true;
 		}
+		// RW 0x94BD19 .. 0x94BD71: defender strayed further than retaliateRange from center
+		if (const Object *owner = machine.owner().getObject())
+		{
+			const float retaliateRange = AIGuardMachine::getRetaliateRange(*owner);
+			if (owner->getPosition() && distSqr2D(*owner->getPosition(), center) > retaliateRange * retaliateRange)
+			{
+				return true;
+			}
+		}
 	}
 	return false;
 }
@@ -572,6 +651,19 @@ float AIGuardMachine::getAdjustedVisionRange(const Object &obj)
 float AIGuardMachine::getStdGuardRange(const Object &obj)
 {
 	return getAdjustedVisionRange(obj); // RW 0x949567: OWNERTYPE | MOOD | GUARDINNER (the inner factor is not read by RW 0x6FF412)
+}
+
+// Local 20: RW 0x94BA8C (AIGuardRetaliateMachine::getStdGuardRange)
+float AIGuardMachine::getRetaliateRange(const Object &obj)
+{
+	float range = settingsOf(obj).maxRetaliateDistance;
+	const ObjectWeapons *w = obj.getWeapons();
+	const Weapon *cur = w ? w->currentWeapon() : nullptr;
+	if (cur && cur->getTemplate() && cur->getTemplate()->m_meleeWeapon)
+	{
+		range = SimMath::mulf32(range, 1.15f); // RW 0xC12234 at RW 0x94BACE
+	}
+	return range;
 }
 
 const TriggerArea *AIGuardMachine::areaToGuard() const

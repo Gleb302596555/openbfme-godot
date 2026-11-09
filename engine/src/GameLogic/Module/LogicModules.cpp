@@ -86,9 +86,11 @@
 #include "GameLogic/Module/EconomyModules.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Contain/GarrisonContainRuntime.h"
+#include "GameLogic/Module/ProductionQueueHordeContain.h"
 #include "GameLogic/Object/Contain/TransportContainRuntime.h"
 #include "GameLogic/Module/SiegeModules.h"
 #include "GameLogic/Module/PickupStuffUpdate.h"
+#include "GameLogic/Module/ThreatFinderUpdate.h" // PORT 17 (issue #73)
 #include "GameLogic/Module/AutoPickUpUpdate.h"
 #include "GameLogic/Module/RainOfFireUpdate.h"
 #include "GameLogic/Module/WallUpgradeUpdate.h"
@@ -168,6 +170,7 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	PhysicsBehavior::registerClass(modules); // lane PHYS-1: the fling flight
 	InvisibilityModules::registerAll(modules); // lane STEALTH-1: InvisibilityUpdate, StealthDetectorUpdate, StealthUpdate (data)
 	GarrisonContain::registerClasses(modules); // lane GARRISON-1: GarrisonContain, HordeGarrisonContain
+	ProductionQueueHordeContain::registerClass(modules); // issue #178: ProductionQueueHordeContain
 	TransportContain::registerClasses(modules); // lane GARRISON-2: TransportContain, HordeTransportContain, SiegeEngineContain, HordeSiegeEngineContain
 	AttachUpdate::registerClass(modules); // lane CAMP-1: the carried objects (MAP ANG Dark Eye's palantir shards)
 	AISpecialPowerUpdate::registerClass(modules); // lane MOD-4: the units' own use of their powers (computer players)
@@ -181,6 +184,8 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	RainOfFireUpdate::registerClass(modules); // MODGAP-2: both editions RW 0x8AF739 / BFME2 0x004AC0A8 (S-7092)
 	WallUpgradeUpdate::registerClass(modules); // MODGAP-2: both editions RW 0x8AEBD3 / BFME2 0x4AB4D8
 	RunOffMapBehavior::registerClass(modules); // MODGAP-2: both editions RW 0x8652BB / BFME2 0x46217B (S-1995)
+	// PORT 17 (issue #73): the map's named threat areas (RW 0x65A133); slot 45 RW 0x7EDECE, update RW 0x7EDDB6
+	ThreatFinderUpdate::registerModule(modules);
 	PickupStuffUpdate::registerModule(modules); // lane MODCOMPAT-MOD1: a skirmish AI's hordes walk to the crates near them (S-1422)
 	AutoPickUpUpdate::registerModule(modules); // lane MODCOMPAT-MOD1: the monsters' grab / eat scans and the WAKE_AUTO_PICKUP button (S-7160)
 	BoredUpdate::registerModule(modules); // lane MODCOMPAT-MOD1: an idle troll clubs a troll friend (S-7161)
