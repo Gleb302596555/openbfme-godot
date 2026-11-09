@@ -27,7 +27,8 @@
 // the PRODUCTION rate (RW 0x8A1EBC), the entry's upgrade bit and the upgrade modules of the new unit (RW 0x8A2922 .. 0x8A2946).
 // NOT PORTED (stop S-203): audio (speed bonus loop, voices), the EVA messages, the speed bonus model condition (a player bonus map), the entry name /
 // script naming (RW +0x40), the BuildFadeInOnCreateList extra objects' drawables, SecondaryQueue selection of the
-// dispatcher is ported but hero queues are not. Entry + 0x3C horde target setter (slot 14, RW 0x8A03A0) is ported (LOCAL-23).
+// dispatcher is ported but hero queues are not. Entry + 0x3C horde target: the setter (slot 14, RW 0x8A03A0) is ported (LOCAL-23); its reader
+// (the made unit joining that horde) is not ported and was not located in RW (Ennorath's EvilPort has no DestinationTemplate, so it never queues).
 
 #pragma once
 
