@@ -487,8 +487,10 @@ void SkirmishAIManager::xferState(Xfer &x, bool hooksInstalled)
 	// SimpleDefense team's recruit origin (+ 0x324 / + 0x328). A version 3 / 4 snapshot predates the DEFENSIVE heuristic, so no such target or tactic is in
 	// it: the fields load at 0 / none
 	// version 6 (lane RAI-POW-2, community #233): each AI's cached enemy player and its refresh frame, written only when some AI's cache holds a value, so
-	// a game that never asked for an enemy keeps version 5's bytes
+	// a game that never asked for an enemy keeps version 5's bytes. Version 7 (lane PORT-39): each AI's gatherer bookkeeping (AIPlayer + 0x46 / + 0x78 /
+	// + 0x7C), written only when some AI's side has a SideInfo entry (a game without one keeps version 6's bytes).
 	bool enemyCache = x.isLoading();
+	bool gatherers = x.isLoading();
 	for (const std::unique_ptr<AISkirmishGroup> &g : m_groups)
 	{
 		for (const auto &kv : g->players)
@@ -497,9 +499,13 @@ void SkirmishAIManager::xferState(Xfer &x, bool hooksInstalled)
 			{
 				enemyCache = true;
 			}
+			if (kv.second->needsResourceGatherers || kv.second->resourceGatherersWanted != 0 || kv.second->resourceGatherersHave != -1)
+			{
+				gatherers = true;
+			}
 		}
 	}
-	XferVersion v{ 3, (std::uint8_t)(enemyCache ? 6 : 5) };
+	XferVersion v{ 3, (std::uint8_t)(gatherers ? 7 : (enemyCache ? 6 : 5)) };
 	x.xferVersion(v);
 	const bool loading = x.isLoading();
 	bool started = loading ? false : m_started;
@@ -695,6 +701,17 @@ void SkirmishAIManager::xferState(Xfer &x, bool hooksInstalled)
 				if (x.isLoading())
 				{
 					AIXfer::inRange(ai->enemyIndex, -1, m_logic.players().getPlayerCount() - 1, "skirmish ai: the cached enemy player of an AI");
+				}
+			}
+			if (v.current >= 7)
+			{
+				// lane PORT-39: the gatherer bookkeeping of RW 0x8F736E / 0x8F858E (AIPlayer + 0x46 / + 0x78 / + 0x7C)
+				x.xferBool(&ai->needsResourceGatherers);
+				x.xferInt(&ai->resourceGatherersWanted);
+				x.xferInt(&ai->resourceGatherersHave);
+				if (x.isLoading())
+				{
+					ai->hasSideInfo = ai->needsResourceGatherers;
 				}
 			}
 			AIXfer::inRange(ai->playerIndex, 0, m_logic.players().getPlayerCount() - 1, "skirmish ai: the player of an AI");
