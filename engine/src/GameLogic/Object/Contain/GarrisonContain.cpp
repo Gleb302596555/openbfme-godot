@@ -1480,7 +1480,7 @@ void SlaughterHordeContain::payFor(Object &obj, Player &player)
 		amount = NumericState::fstpDword(NumericState::pc24MulW((double)econ.multiPlayMoneyMult(econ.livePlayableCount(false)), (double)amount));
 	// RW 0x883C44..0x883C92: PRODUCTION of the container; slaughter=true
 	// cost modifier also tests the CONTAINER template, not the victim template.
-	amount = SimMath::mulf32(amount, econ.productionMoneyProduct(*getObject()));
+	amount = SimMath::mulf32(amount, econ.attributeModifierProduct(*getObject(), Economy::ATTRIBUTE_MODIFIER_PRODUCTION));
 	const float costChange = player.getProductionCostChangeBasedOnKindOf(*getObject()->getTemplate(), true);
 	const int scaled = player.applyHandicapMoney(ceilInt(NumericState::pc24MulW((double)costChange, (double)amount)));
 	amount = SimMath::sseFromInt32(scaled);

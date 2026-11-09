@@ -153,3 +153,72 @@ CanAlwaysEnter проверяет свой flag через RW 0x762977; треб
 сравнивается со статусами **контейнера** (RW 0x8838ED..0x8838F7), затем фильтр
 с входящим объектом относительно игрока контейнера. Неуспех — базовый
 HordeGarrisonContain::isValidContainerFor, не безусловный отказ.
+
+## Реализация общего пути (ветка, ещё не проверено прогоном)
+
+Коммиты `5496bd5`, `f3fd805` добавили typed-data/factory/runtime
+SlaughterHordeContain на существующем GarrisonContain и наследование Citadel.
+Отдельного citadel-only депозита нет. Никакие AI/command функции не изменены.
+
+| Поведение | RW | Синтетический тест в `test_port_55.cpp` |
+|---|---|---|
+| Одиночный вход, BountyValue вместо BuildCost/оплаченной цены, первый ceil, однократные деньги/OnSlaughtered/deferred destroy | 0x883B4A, 0x68DDF1, 0x883BB2..0x883CB7, 0x883F22..0x883F50 | `PORT-55 ordinary citadel entry*` |
+| Тот же механизм соседней бойни, неположительный процент не даёт денег | 0x883B4A, 0x883BC2 | `PORT-55 SlaughterHordeContain uses*` |
+| CanAlwaysEnter: статус контейнера, bypass capacity/filter/владельца; платёж входящему игроку | 0x8838C3..0x883932, 0x883CB7 | `PORT-55 CanAlwaysEnter*` |
+| Настоящий MSG_ENTER без специальной ветки AI | 0x77AC26 → 0x774EDF → contain | `PORT-55 actual enter command*`, `PORT-55 enter command sends*` |
+| Убой каждого члена и завершение родителя только на последнем входе | 0x883EC9..0x88403F | `PORT-55 a slaughtered horde*` |
+| Multiplayer, PRODUCTION контейнера, slaughter-cost modifier контейнера, второй ceil | 0x883C02..0x883C92 | `PORT-55 payout applies*` |
+| Нулевой процент, передача команды/upgrades, счётчики прошлого отряда | 0x88373F, 0x883E2B..0x883FBE, 0x79F60E, 0x79F430 | `PORT-55 zero-percent capture*` |
+| Ring predicate/callback/отложенный выход, save/load | 0x883A29, 0x8840FC, 0x884244 | `PORT-55 ring callback*` |
+
+Новое состояние count/template включено в crc/xfer того же shared runtime.
+Citadel snapshot v2 включает shared xfer; v1 читает старую ring-only базу.
+ScoreKeeper получил только две узкие callback-функции для bulk transfer:
+0x79F60E без enabled/counting gate, 0x79F430 только с counting gate;
+существующие score-пути не изменены.
+
+**Проверка сейчас:** изменённые GarrisonContain/ScoreKeeper объекты компилировались;
+новый тестовый translation unit прошёл `g++ -fsyntax-only`. Это НЕ запуск тестов.
+Полная tests-only Release сборка `openbfme_tests -j1` ещё идёт; фильтр
+`PORT-55*`, red-without-fix и зелёные doctest totals пока отсутствуют. PR нет.
+На Linux базовый CameraShaker.h не включает cstddef для size_t: обход только
+локальный CMake `-DCMAKE_CXX_FLAGS='-include cstddef'`, изменения чужого
+клиентского header в итоговом diff нет. Хэши/старые тесты не менялись.
+
+### Сохраняемые ограничения и ночной риск
+
+INFERENCE/неполный presentation: деньги направлены через существующий
+Economy::noteIncome. Точная RW 0x883CDB..0x883DB1 позиция/рандомизация текста,
+цвет и масштаб не перенесены; S-283/S-1100 не закрыты. Визуальное сходство
+и соответствие в запущенном Эннорате **не проверены**.
+S-1995 теперь не означает отсутствие runtime SlaughterHordeContain, S-6010
+больше не является запретом обычных войск, но завершение задачи ещё требует
+прогона. Общие риски: admission гарнизонов, денежные/опытные модификаторы,
+score, смерть последнего члена, ownership/upgrades, старые save4 и crc.
+
+Старые `ring delivery retail*` сохранены без изменений. В частности, тест
+`fortress refuses ordinary troops*` содержит буквальный старый stopLine и
+предположение об отказе обычному солдату: ожидание необходимо обсудить в PR,
+не подгонять код под него. FACT-B inventory/hash pins этой веткой не обновляются.
+Осталось: закончить сборку/узкий прогон, исправить выявленные ошибки,
+доказать red-without-fix, проверить доставку Кольца, затем fetch/rebase main,
+PR и финальный dashboard-комментарий `review` только при зелёном фильтре.
+
+### Рецепт проверки владельцем (данные Эннората 1.9.8.2)
+
+По `docs/CHEAT_MODE.md`: skirmish с Cheat Mode и одним компьютерным игроком;
+в Esc → Cheats → Game приостановить AI соперника. Через Units / structures
+создать свой **MordorFortressCitadel**, через Units — своего **MordorFighter**
+(при наличии в списке только отряда — MordorFighterHorde и считать вошедших
+членов отдельно). Эти реальные имена и фильтр сверены с mod INI, не с ванилью.
+Не ставить уровни, production/cost upgrades или handicap. Исключить соседние
+источники дохода либо сравнить контрольный одинаковый промежуток времени.
+Записать кошелёк, дать обычный приказ входа в цитадель. Убедиться, что солдат
+исчез, деньги выросли однократно; базовая формула для этого солдата в
+неизменённом моде `ceil(1 * 1.5) = 2` до multiplayer/production/cost/handicap.
+Для полной орды сумма — по реально вошедшим членам, не от BuildCost орды.
+Повторить после save/load и с чужим солдатом (отказ при стандартных allow
+флагах). Не проверять доставку Кольца на MordorFortressCitadel Эннората:
+его ring-поля закомментированы. Ring regression проверяется отдельно
+синтетическим fixture и существующими retail тестами, не выдуманным рецептом
+для этого мод-объекта. Проверка владельцем пока не проведена.

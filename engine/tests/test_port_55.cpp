@@ -277,3 +277,21 @@ TEST_CASE("PORT-55 zero-percent capture keeps transfer accounting through save4 
     CHECK(oldScore.unitsLost() - lostBefore == 2); // the stored count was cleared
     CHECK(newScore.unitsDestroyed(w.playerOf('A')->getPlayerIndex()) - destroyedBefore == 2);
 }
+
+TEST_CASE("PORT-55 enter command sends a whole horde through the shared member callback")
+{
+    CombatWorld w(kData.c_str());
+    Object *house = w.unit("P55Citadel", 'A', 400, 400);
+    Object *parent = w.unit("P55Horde", 'A', 300, 400);
+    const ObjectID parentID = parent->getID();
+    const int before = w.cash('A');
+    w.playerOf('A')->selection() = {parentID};
+    GameMessage enter(MSG_ENTER, w.playerOf('A')->getPlayerIndex());
+    enter.appendObjectIDArgument(parentID);
+    enter.appendObjectIDArgument(house->getID());
+    w.send(enter);
+    w.frames(150); // bounded pathfinding wait, not an asserted retail travel time
+    CHECK(w.byId(parentID) == nullptr);
+    CHECK(w.cash('A') - before == 10);
+    CHECK(w.logic->economy().incomeLog().size() == 2);
+}
