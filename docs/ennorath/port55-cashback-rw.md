@@ -132,3 +132,24 @@ INFERENCE: соответствие полных денежных/численн
 Осталось: решение владельца о переносе общего SlaughterHordeContain;
 после разрешения — завершить анализ зависимостей, общий runtime + xfer/crc,
 тесты PORT-55 (красный/зелёный и соседний Slaughter), данные мода и PR.
+
+## Продолжение после решения владельца (2026-11-09)
+
+Владелец расширил #165: разрешён общий SlaughterHordeContain в GarrisonContain*,
+его вход/убой/выплата/CanAlwaysEnter/callbacks и наследование цитадели.
+Предыдущий scope-стоп выше — история, не действующий запрет этой части.
+
+Проверена существующая цепочка MSG_ENTER: GarrisonCommands::enter →
+AIUpdateInterface::aiEnter → AIMoveToPositionAndEnterState → aiEnterObject →
+AIEnterState → contain->addToContain. Обычные войска не отсекаются отдельным
+slaughter-условием; в конце GarrisonRules::canEnterObject вызывается виртуальный
+isValidContainerFor. AI/command код менять не требуется по результатам чтения;
+достижимость будет проверена синтетическим тестом настоящей команды.
+
+Уточнение имени базы выплаты: +0x580 — **BountyValue**, не BuildCost.
+Это тот же RW 0x68DDF1, который вызывает Economy::awardBounty. Использование
+оплаченной цены не соответствовало бы RW. В тесте эти две величины различаются.
+CanAlwaysEnter проверяет свой flag через RW 0x762977; требуемая маска статусов
+сравнивается со статусами **контейнера** (RW 0x8838ED..0x8838F7), затем фильтр
+с входящим объектом относительно игрока контейнера. Неуспех — базовый
+HordeGarrisonContain::isValidContainerFor, не безусловный отказ.
