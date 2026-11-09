@@ -173,6 +173,7 @@ public:
 	void set_shadow_receiving(bool enabled) { ShadowReceiving = enabled; }
 	// Engine-wide, set with the w3d_shadow global (object_shadows.gd): while no shadow map is drawn, casters are pose-culled like any instance.
 	static void set_shadow_maps_enabled(bool enabled) { ShadowMapsEnabled = enabled; }
+	static bool shadow_maps_enabled() { return ShadowMapsEnabled; }
 	// lane PROJ-2: the drawable's opacity (RW Drawable +0xB0, the fade of DrawableFade): multiplies every pivot's fade of the instance; 0 draws nothing
 	void set_instance_opacity(int64_t instance, double opacity);
 	// A scene that needs no per-frame work (every instance static) turns the automatic update off and calls update_now() itself after

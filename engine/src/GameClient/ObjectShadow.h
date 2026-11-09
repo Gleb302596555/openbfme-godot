@@ -68,15 +68,16 @@ struct DecalShadowDescriptor
 	unsigned opacityEnd = 0;
 };
 
-// Returns whether the object/state casts a volume shadow map
-inline bool castsMap(const ThingTemplate *object, const W3DModelDrawModuleData *module, const ModelConditionInfo *state)
+// Returns whether the object/state casts a volume shadow map (or directional shadow map when useShadowMapping is true, RW 0x46FE84..0x47009F)
+inline bool castsMap(const ThingTemplate *object, const W3DModelDrawModuleData *module, const ModelConditionInfo *state, bool useShadowMapping = false)
 {
 	if (module && module->m_shadowForceDisable) return false;
-	if (state && state->hasShadow) return (state->shadow.type & MapMask) != 0;
+	const int mask = useShadowMapping ? (MapMask | (int)kDecalMask) : MapMask;
+	if (state && state->hasShadow) return (state->shadow.type & mask) != 0;
 	if (!object) return false;
 	const FieldValue *field = object->findField("Shadow");
 	const long long *bits = field ? std::get_if<long long>(field) : nullptr;
-	return bits && (*bits & MapMask) != 0;
+	return bits && (*bits & mask) != 0;
 }
 
 // Resolves decal shadow descriptor from template, module data, and condition state (RW 0x4C4EE0..0x4C5175)
