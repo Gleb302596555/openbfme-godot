@@ -113,6 +113,7 @@
 | PORT-75: `BannerCarrierUpdate` `MorphCondition` / `BannerMorphFX` — знаменосец принимает вид отряда, к которому вступил | 2026-11-10 | арена (issue #207) | PR #223 | `PORT-75*`, `banner1 retail*`, `horde2 banner*` | не предложено |
 | PORT-79: OCL `CreateObject` — `ParticleSystem` прикрепляется к созданному объекту (RW 0x5F1DC5, 0x5F526A, 0x5F32D7), `PreserveLayer`; S-7219 | 2026-11-10 | арена (issue #211) | PR #229 | `PORT-79*`, `anim1*`, `summon1*` | не предложено |
 | Local 23: `ProductionQueueHordeContain` — гарнизон орды, который заказывает юнит по `DestinationTemplate` и запоминает вошедший отряд в очереди (RW 0x88459B, 0x88460B, 0x884729, 0x884691; слот 14 `ProductionUpdate` RW 0x8A03A0); читатель цели не перенесён | 2026-11-10 | локальный агент (station-2) | `dcbb3b6e`, `287b19c2`, `b293653c` | `LOCAL-23*`, `garrison*`, `*production*`, `module coverage` 230/81; в игре ждёт (TOP20 п. 31) | не предложено |
+| Local 24: `DetachableRiderBody` / `DetachableRiderUpdate` — смертельный удар оставляет долю здоровья (`HealthPercentageWhenRiderDies`), всадник гибнет (`DeathEntry`), юнит получает RIDERLESS, блокирует слот оружия, выходит из орды или убегает с карты (RW 0x8C5EF3, 0x8B2A46, 0x8B2D59) | 2026-11-10 | локальный агент (station-1) | `2d6186cc`, `194c64c1` | `LOCAL-24*` 5/5, `*rampage*`, `horde*`, пины не сдвинулись; в игре ждёт (TOP20 п. 32) | не предложено |
 
 Правки до 2026-11-05 ещё не разобраны. Классы, которые есть только у нас, показывает `python tools/mod/upstream_sync.py candidates`.
 
