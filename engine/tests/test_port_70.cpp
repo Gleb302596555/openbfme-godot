@@ -68,7 +68,7 @@ unsigned parseHex(const std::string &s)
 std::vector<Row> readPage(const std::string &path)
 {
 	std::ifstream in(path);
-	REQUIRE_MESSAGE(in.good(), "cannot open " + path);
+	REQUIRE_MESSAGE(in.good(), ("cannot open " + path));
 	std::vector<Row> rows;
 	std::string line;
 	while (std::getline(in, line))
@@ -84,7 +84,7 @@ std::vector<Row> readPage(const std::string &path)
 		{
 			cells.push_back(cell);
 		}
-		REQUIRE_MESSAGE(cells.size() == 4, "a page line with " + std::to_string(cells.size()) + " cells: " + line);
+		REQUIRE_MESSAGE(cells.size() == 4, ("a page line with " + std::to_string(cells.size()) + " cells: " + line));
 		Row r;
 		r.cls = cells[0];
 		r.field = cells[1];
