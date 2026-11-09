@@ -1576,8 +1576,43 @@ void SpecialAbilityUpdate::grabTrigger(int type)
 		const bool vendor = (kind(*t, kChunkVendor) && type == 0x28) || (kind(*t, kRockVendor) && type == 0x27);
 		if (vendor)
 		{
-			++m_unported; // RW 0x85415C .. 0x854348: the vendor's GrabObject (S-860)
-			obj->logic().noteStop("[S-860] SpecialAbilityUpdate: the grab of a ROCK_VENDOR / CHUNK_VENDOR (its GrabObject made and held, the vendor hurt, RW 0x85415C) is not ported");
+			// RW 0x85415C: missing body ends the ability; an empty or unknown name skips only creation.
+			BodyModuleInterface *body = t->getBodyModule();
+			if (!body)
+			{
+				return;
+			}
+			GameLogic &logic = obj->logic();
+			const std::string name = body->getGrabObjectName();
+			if (!name.empty())
+			{
+				const ThingTemplate *tt = logic.things().findTemplate(name); // RW 0x8541A8
+				if (Object *created = logic.newObject(tt, nullptr, ObjectStatusMaskType{})) // RW 0x8541DC
+				{
+					created->setProducer(obj); // RW 0x8541EC
+					contain->addToContain(created); // RW 0x8541F7
+				}
+			}
+			DamageInfo hit; // RW 0x8541FD .. 0x854247
+			hit.m_input.m_sourceID = 0;
+			hit.m_input.m_damageType = DAMAGE_STRUCTURAL;
+			hit.m_input.m_damageFXOverride = 7;
+			hit.m_input.m_deathType = DEATH_NONE;
+			hit.m_input.m_amount = body->getGrabDamage();
+			t->doAttemptDamage(hit); // RW 0x697E50, not the delayed attemptDamage path
+			body = t->getBodyModule(); // RW 0x854254, 0x8542CE
+			const Coord2D offset = body->getGrabOffset();
+			const float a = obj->getOrientation();
+			const float sn = SimMath::sinf32(a), cs = SimMath::cosf32(a); // RW 0x8542A9, 0x8542B7; S-081
+			Coord3D pos = *obj->getPosition();
+			pos.x = SimMath::addf32(pos.x, SimMath::subf32(SimMath::mulf32(cs, offset.x), SimMath::mulf32(sn, offset.y)));
+			pos.y = SimMath::addf32(pos.y, SimMath::addf32(SimMath::mulf32(cs, offset.y), SimMath::mulf32(sn, offset.x)));
+			if (const std::string *fx = body->getGrabFXName())
+			{
+				FXEvent e = FXEventLog::objectEvent(FXEvent::POSITION_FX, "GrabFX", logic.getFrame(), *fx, *obj);
+				e.position = pos; // RW 0x8542BC .. 0x854346; secondary position and speed are not represented by POSITION_FX
+				logic.fxEvents().emit(e);
+			}
 			return;
 		}
 		if (!contain->isValidContainerFor(*t, true, false)) // slot 0x98(target, 1, 0)

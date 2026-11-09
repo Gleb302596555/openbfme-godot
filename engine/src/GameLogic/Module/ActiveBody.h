@@ -137,6 +137,9 @@ public:
 	float estimateDamage(const DamageInfoInput &input) const override;
 	float getDodgePercent() const override { return m_data->m_dodgePercent; }
 	std::string getGrabObjectName() const override { return m_data->m_grabObject; } // RW 0x8C281E (lane BACKLOG-1)
+	const std::string *getGrabFXName() const override { return &m_data->m_grabFX; } // RW 0x8C1DB4
+	float getGrabDamage() const override { return m_data->m_grabDamage; } // RW 0x8C1DBB
+	Coord2D getGrabOffset() const override { return m_data->m_grabOffset; } // RW 0x8C1DC2
 	// lane XP-1: RW 0x8C1CD5
 	void setMaxHealth(float newMax, int changeType) override;
 	// RW 0x8C31A5 internalChangeHealth (Immortal overrides it, RW 0x8C4AB4)
