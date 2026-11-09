@@ -156,7 +156,7 @@ HordeGarrisonContain::isValidContainerFor, не безусловный отка�
 
 ## Реализация общего пути (ветка, ещё не проверено прогоном)
 
-Коммиты `5496bd5`, `f3fd805` добавили typed-data/factory/runtime
+После rebase коммиты `fdf7dadf`, `655ede8f` добавили typed-data/factory/runtime
 SlaughterHordeContain на существующем GarrisonContain и наследование Citadel.
 Отдельного citadel-only депозита нет. Никакие AI/command функции не изменены.
 
@@ -171,16 +171,65 @@ SlaughterHordeContain на существующем GarrisonContain и насл�
 | Нулевой процент, передача команды/upgrades, счётчики прошлого отряда | 0x88373F, 0x883E2B..0x883FBE, 0x79F60E, 0x79F430 | `PORT-55 zero-percent capture*` |
 | Ring predicate/callback/отложенный выход, save/load | 0x883A29, 0x8840FC, 0x884244 | `PORT-55 ring callback*` |
 
+Дополнительные проверки в этом же фильтре:
+
+| Поведение | RW | Тест |
+|---|---|---|
+| Нет верхнего clamp процента, нулевая BountyValue не мешает убою | 0x883BA7..0x883BCD | `PORT-55 CashBackPercent above one*` |
+| Entry wrapper не повторяет admission; уже contained объект не добавляется снова | 0x8836D3..0x88373C | `PORT-55 entry wrapper*` |
+| Hero value по rank/lastRank, опыт от конечной суммы и accepting gate | 0x68DE33..0x68DE49, 0x883DB7..0x883DFA | `PORT-55 hero value*` |
+
+В shared entry убрана лишняя повторная isValidContainerFor: RW проверяет
+только Object+0x27C, а admission выполняет вызывающий command/AI.
+RW 0x883732..0x883736 вызывает redeploy (+0x48); для съеденного одиночного
+объекта это обеспечивается отдельно (остальные ветки уже проходят через
+GarrisonContain wrapper). Helper вызывается квалифицированно через
+OpenContain, так как GarrisonContain::containReactToTransformChange — no-op.
+
 Новое состояние count/template включено в crc/xfer того же shared runtime.
 Citadel snapshot v2 включает shared xfer; v1 читает старую ring-only базу.
 ScoreKeeper получил только две узкие callback-функции для bulk transfer:
 0x79F60E без enabled/counting gate, 0x79F430 только с counting gate;
 существующие score-пути не изменены.
 
-**Проверка сейчас:** изменённые GarrisonContain/ScoreKeeper объекты компилировались;
-новый тестовый translation unit прошёл `g++ -fsyntax-only`. Это НЕ запуск тестов.
-Полная tests-only Release сборка `openbfme_tests -j1` ещё идёт; фильтр
-`PORT-55*`, red-without-fix и зелёные doctest totals пока отсутствуют. PR нет.
+**Проверка сейчас (2026-11-09, продолжение):** выполнен rebase на
+`origin/main` = `54846632`. Полная tests-only Release сборка
+`cmake --build engine/build -j1 --target openbfme_tests` ещё идёт.
+Для ранней отладки из тех же Release-объектов `test_main.cpp.o`,
+`test_port_55.cpp.o` и core/lua/float_chars/luau/detlibm библиотек собран
+временный runner вне Git. Это не подмена обязательного итогового executable.
+Он запускает `-tc="PORT-55*"` без игровых файлов:
+
+```text
+[doctest] test cases:  12 |  12 passed | 0 failed | 0 skipped
+[doctest] assertions: 266 | 266 passed | 0 failed |
+[doctest] Status: SUCCESS!
+```
+
+Red-without-fix: отдельная копия GarrisonContain.cpp вне дерева собрана с
+единственным отключённым вызовом `payFor(obj, *player)`. Те же тестовые
+объекты и остальные библиотеки, фильтр `PORT-55 ordinary citadel entry*`:
+
+```text
+CHECK( w.cash('A') - before == 5 ): 0 == 5
+REQUIRE( incomeLog().size() == 1 ): 0 == 1
+[doctest] test cases:  1 |  0 passed | 1 failed | 11 skipped
+[doctest] assertions: 23 | 21 passed | 2 failed |
+[doctest] Status: FAILURE!
+```
+
+После возврата обычного runtime runner снова зелёный: 12/266. Источники в
+дереве при красном контроле не менялись. Guard перед `.back()` в новом
+тесте сделан REQUIRE, чтобы отсутствие выплаты давало проверяемое падение,
+а не обращение к пустому income log. Вспомогательные логи в /tmp; PR ещё нет,
+итоговый `openbfme_tests -tc="PORT-55*"` пока не запускался.
+
+Ранний диагностический прогон также выявил ошибки самого fixture:
+MoveWorld не регистрирует GarrisonCommands, а partition требует setRegion и
+кадра связывания dirty entries перед closest-object query. Инициализация
+добавлена только в новые тесты. После этого оба MSG_ENTER сценария проходят;
+AI/command код не менялся, scope-блокер за пределами contain не обнаружен.
+
 На Linux базовый CameraShaker.h не включает cstddef для size_t: обход только
 локальный CMake `-DCMAKE_CXX_FLAGS='-include cstddef'`, изменения чужого
 клиентского header в итоговом diff нет. Хэши/старые тесты не менялись.
@@ -200,8 +249,8 @@ score, смерть последнего члена, ownership/upgrades, ста�
 `fortress refuses ordinary troops*` содержит буквальный старый stopLine и
 предположение об отказе обычному солдату: ожидание необходимо обсудить в PR,
 не подгонять код под него. FACT-B inventory/hash pins этой веткой не обновляются.
-Осталось: закончить сборку/узкий прогон, исправить выявленные ошибки,
-доказать red-without-fix, проверить доставку Кольца, затем fetch/rebase main,
+Осталось: закончить сборку и подтвердить 12/266 на итоговом openbfme_tests,
+повторить проверку актуальности origin/main перед PR,
 PR и финальный dashboard-комментарий `review` только при зелёном фильтре.
 
 ### Рецепт проверки владельцем (данные Эннората 1.9.8.2)
