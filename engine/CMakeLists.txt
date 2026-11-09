@@ -217,6 +217,7 @@ include(cmake/Port10.cmake) # PORT-10: FlammableUpdate/RunToWater (issue #65; OP
 include(cmake/Port38.cmake) # PORT-38: the AIData team build tempo (issue #123; OPENBFME_PORT38_TESTS)
 include(cmake/Port17.cmake) # PORT-17: ThreatFinderUpdate + the threat-finder script action (issue #73; appends to OPENBFME_SIM_SOURCES; OPENBFME_PORT17_TESTS)
 include(cmake/Port46.cmake) # PORT-46: ToggleMountedSpecialAbilityUpdate/OpacityTarget (issue #150; OPENBFME_PORT46_TESTS)
+include(cmake/Port60.cmake) # PORT-60: EvaAnnounceClientCreate/CreateFakeRadarEvent (issue #170; verdict, no engine change; OPENBFME_PORT60_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
@@ -796,6 +797,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT38_TESTS}
     ${OPENBFME_PORT17_TESTS}
     ${OPENBFME_PORT46_TESTS}
+    ${OPENBFME_PORT60_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}
