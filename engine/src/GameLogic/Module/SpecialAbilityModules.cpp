@@ -1596,13 +1596,15 @@ void SpecialAbilityUpdate::grabTrigger(int type)
 			DamageInfo hit; // RW 0x8541FD .. 0x854247
 			hit.m_input.m_sourceID = 0;
 			hit.m_input.m_damageType = DAMAGE_STRUCTURAL;
-			hit.m_input.m_damageFXOverride = 7;
+			constexpr int kClubbingFX = 7; // RW 0x85423D, DamageFXTypeNames index CLUBBING
+			hit.m_input.m_damageFXOverride = kClubbingFX;
 			hit.m_input.m_deathType = DEATH_NONE;
 			hit.m_input.m_amount = body->getGrabDamage();
 			t->doAttemptDamage(hit); // RW 0x697E50, not the delayed attemptDamage path
 			body = t->getBodyModule(); // RW 0x854254, 0x8542CE
 			const Coord2D offset = body->getGrabOffset();
-			const float a = obj->getOrientation();
+			const float *basis = obj->getBasis();
+			const float a = (float)SimMath::atan2d(basis[3], basis[0]); // RW 0x854285 -> 0xB261F0: fpatan on the transform, then fstp float (S-081)
 			const float sn = SimMath::sinf32(a), cs = SimMath::cosf32(a); // RW 0x8542A9, 0x8542B7; S-081
 			Coord3D pos = *obj->getPosition();
 			pos.x = SimMath::addf32(pos.x, SimMath::subf32(SimMath::mulf32(cs, offset.x), SimMath::mulf32(sn, offset.y)));

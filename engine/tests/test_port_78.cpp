@@ -25,6 +25,7 @@ Object Port78Actor
  Behavior = TransportContain ModuleTag_Contain
   Slots = 1
   AllowEnemiesInside = Yes
+  PassengerFilter = ALL
   ObjectStatusOfContained = UNSELECTABLE
  End
  Behavior = SpecialAbilityUpdate ModuleTag_Ability
@@ -126,6 +127,9 @@ TEST_CASE("PORT-78 vendor creates contained object, structural damage and rotate
  CHECK(held->getTemplate() == f.logic->things().findTemplate("Port78Projectile"));
  CHECK(held->getProducerID() == actor->getID());
  CHECK(vendor->getBodyModule()->getHealth() == 875.0f); // RW 0x85422B structural hit
+ int damageType = -1;
+ CHECK(vendor->getBodyModule()->lastDamageRecordType(damageType));
+ CHECK(damageType == DAMAGE_STRUCTURAL); // RW 0x854215
  const auto &events = f.logic->fxEvents().frameEvents();
  REQUIRE(events.size() == 1);
  CHECK(events[0].kind == FXEvent::POSITION_FX);
