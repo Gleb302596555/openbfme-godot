@@ -345,6 +345,14 @@ public:
 	// port's renderer reads shadowsEnabled() for each module's instance)
 	void setShadowsEnabled(bool on) { m_shadowsEnabled = on; }
 	bool shadowsEnabled() const { return m_shadowsEnabled; }
+	UnsignedInt shadowStartFrame() const { return m_shadowStartFrame; }
+	void setShadowStartFrame(UnsignedInt frame) const { m_shadowStartFrame = frame; }
+	UnsignedInt shadowFadeOutStartFrame() const { return m_shadowFadeOutStartFrame; }
+	void setShadowFadeOutStartFrame(UnsignedInt frame) const { m_shadowFadeOutStartFrame = frame; }
+	bool shadowStateInitialized() const { return m_shadowStateInitialized; }
+	void setShadowStateInitialized(bool init) const { m_shadowStateInitialized = init; }
+	const ModelConditionInfo *lastShadowState() const { return m_lastShadowState; }
+	void setLastShadowState(const ModelConditionInfo *s) const { m_lastShadowState = s; }
 	// lane PORT-21 (stop S-1463): the audible flag at Drawable + 0x44A (1 at construction). RW 0x674727 Drawable::setInaudible clears it and asks every
 	// client behaviour module's second interface for slot 1 (RW 0x674756: module + 0x30 table, `call [edx + 4]`), RW 0x67896F Drawable::setAudible sets
 	// it again and asks slot 0 (RW 0x6789A0 `call [edx]`). Both return at once when the flag already has that value (RW 0x674733 / 0x67897B), so a
@@ -472,6 +480,10 @@ private:
 	bool m_evaCastleMemberSighted = false; // RW Drawable +0x114 bit 0x40
 	bool m_shroudRevealed = false; // transitioned from fullyObscured == true to false
 	bool m_shadowsEnabled = true;   // RW Drawable +0x114 bit 2 (TOP20 #24)
+	mutable UnsignedInt m_shadowStartFrame = 0; ///< RW 0x7323CE (+0x38: startFrame = currentFrame + 0)
+	mutable UnsignedInt m_shadowFadeOutStartFrame = ~0u; ///< RW 0x508B2D (+0x4C: fadeOutStartFrame = currentFrame)
+	mutable bool m_shadowStateInitialized = false; ///< RW 0x4C4EE0..0x4C4FBC
+	mutable const ModelConditionInfo *m_lastShadowState = nullptr; ///< RW 0x4C4EE0..0x4C4FBC
 	bool m_audible = true;          ///< lane PORT-21: Drawable + 0x44A, 1 until the object becomes INAUDIBLE (RW 0x674727 / 0x67896F)
 	bool m_clientHidden = false; ///< lane CHAT-1
 	bool m_phantomLook = false;  ///< lane FBSIM-1: drawn as a dozer's phantom structure (0.4 opacity)

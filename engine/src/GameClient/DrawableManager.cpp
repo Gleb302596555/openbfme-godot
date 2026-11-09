@@ -224,6 +224,7 @@ void DrawableManager::created(const ClientEvent &ev)
 	d->setOrientation(ev.angle);
 	d->setPosition(&ev.position);
 	d->setKindOf(ev.kindOf);
+	d->setShadowStartFrame(ev.frame);
 	m_slots.push_back(std::move(d));
 	bindObject(ev.object, id);
 	++m_live;
@@ -324,6 +325,7 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 			if (Drawable *d = findByObject(ev.object))
 			{
 				d->fadeOut((double)ev.fadeFrames);
+				d->setShadowFadeOutStartFrame(ev.frame);
 			}
 			break;
 		case ClientEvent::SET_SHADOWS: // TOP20 #24 (RW 0x672D28)

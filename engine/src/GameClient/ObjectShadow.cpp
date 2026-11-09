@@ -221,8 +221,8 @@ bool resolveDecalShadow(const ThingTemplate *tt, const W3DModelDrawModuleData *m
 
 unsigned evaluateDecalOpacity(const DecalShadowDescriptor &desc, unsigned currentFrame, unsigned startFrame, unsigned fadeOutStartFrame)
 {
-	// RW 0x4B1BC6: style 0x400 (SHADOW_ALPHA_DECAL_DYNAMIC), 0x800 (SHADOW_ADDITIVE_DECAL_DYNAMIC), 0x10000
-	const bool isDynamic = (desc.style & (0x0400u | 0x0800u | 0x10000u)) != 0;
+	// RW 0x4B1BC6 / RW 0x50B8AD: style == 0x400 (SHADOW_ALPHA_DECAL_DYNAMIC), == 0x800 (SHADOW_ADDITIVE_DECAL_DYNAMIC), == 0x10000
+	const bool isDynamic = (desc.style == 0x0400u || desc.style == 0x0800u || desc.style == 0x10000u);
 	if (!isDynamic)
 	{
 		return desc.opacityPeak; // static decals only use peak opacity (RW 0x73228B)
@@ -230,8 +230,9 @@ unsigned evaluateDecalOpacity(const DecalShadowDescriptor &desc, unsigned curren
 
 	// Dynamic curve evaluation (RW 0x7323CE, RW 0x50B860)
 	// RW 0xD9F624: 0.03f ms to frames (30 logic fps / 1000 ms)
-	const unsigned fadeInFrames = (unsigned)std::max(0.0f, std::round(desc.opacityFadeInTime * 0.03f));
-	const unsigned fadeOutFrames = (unsigned)std::max(0.0f, std::round(desc.opacityFadeOutTime * 0.03f));
+	// 0xA3CFA4: _ftol truncation towards zero (not round)
+	const unsigned fadeInFrames = (unsigned)std::max(0.0f, desc.opacityFadeInTime * 0.03f);
+	const unsigned fadeOutFrames = (unsigned)std::max(0.0f, desc.opacityFadeOutTime * 0.03f);
 
 	if (fadeOutStartFrame != ~0u && currentFrame >= fadeOutStartFrame)
 	{
@@ -245,12 +246,13 @@ unsigned evaluateDecalOpacity(const DecalShadowDescriptor &desc, unsigned curren
 			return desc.opacityEnd;
 		}
 		const float progress = (float)dt / (float)fadeOutFrames;
-		return (unsigned)std::round((float)desc.opacityPeak + progress * (float)((int)desc.opacityEnd - (int)desc.opacityPeak));
+		const float val = (float)desc.opacityPeak + progress * (float)((int)desc.opacityEnd - (int)desc.opacityPeak);
+		return (unsigned)std::ceil(val); // RW 0x50B9E0 call msvcr71 ceil
 	}
 
 	if (currentFrame < startFrame)
 	{
-		return 0; // RW 0x50B902: before startTime opacity is 0
+		return 0; // RW 0x50B902: before startFrame opacity is 0
 	}
 	const unsigned t = currentFrame - startFrame;
 	if (fadeInFrames == 0 || t >= fadeInFrames)
@@ -258,7 +260,8 @@ unsigned evaluateDecalOpacity(const DecalShadowDescriptor &desc, unsigned curren
 		return desc.opacityPeak;
 	}
 	const float progress = (float)t / (float)fadeInFrames;
-	return (unsigned)std::round((float)desc.opacityStart + progress * (float)((int)desc.opacityPeak - (int)desc.opacityStart));
+	const float val = (float)desc.opacityStart + progress * (float)((int)desc.opacityPeak - (int)desc.opacityStart);
+	return (unsigned)std::ceil(val); // RW 0x50B964 call msvcr71 ceil
 }
 
 bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, bool useShadowDecals,
@@ -332,12 +335,25 @@ bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, boo
 		}
 	}
 
+	// Model state change resets shadow curve (RW 0x4C4EE0..0x4C4FBC)
+	if (!drawable.shadowStateInitialized())
+	{
+		drawable.setShadowStateInitialized(true);
+		drawable.setLastShadowState(state);
+	}
+	else if (state != drawable.lastShadowState())
+	{
+		drawable.setShadowStartFrame(currentFrame);
+		drawable.setLastShadowState(state);
+		drawable.setShadowFadeOutStartFrame(~0u);
+	}
+
 	// Opacity resolution: static peak opacity vs dynamic curve (RW 0x4B1BC6, RW 0x7323CE, RW 0x50B860)
 	unsigned opacity = desc.opacityPeak;
-	if ((desc.style & (0x0400u | 0x0800u | 0x10000u)) != 0)
+	if (desc.style == 0x0400u || desc.style == 0x0800u || desc.style == 0x10000u)
 	{
 		const unsigned frame = currentFrame != 0 ? currentFrame : drawable.syncFrame();
-		opacity = evaluateDecalOpacity(desc, frame, 0);
+		opacity = evaluateDecalOpacity(desc, frame, drawable.shadowStartFrame(), drawable.shadowFadeOutStartFrame());
 	}
 
 	out = SelectionDecal();
