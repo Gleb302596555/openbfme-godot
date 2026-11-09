@@ -1810,9 +1810,9 @@ bool GameWorld::view_is_local(size_t id, const W3DInstancer &dyn, const LogicSna
 			}
 			const bool animatedNow = e.animated && m_animations;
 			const bool colorsChanged = d->customColorRevision() != ev.colorsRevision;
-			if (!flagsChanged && !animatedNow && !colorsChanged && ev.posed && e.draw->opacity() == 1.0f && !e.draw->hiddenByFade())
+			if (!flagsChanged && !animatedNow && !colorsChanged && ev.posed && e.draw->opacity() == 1.0f && !e.draw->hiddenByFade() && !ev.fadeHidden)
 			{
-				continue; // transform, opacity, fogged light (PORT-49: a draw fade leaves this fast path)
+				continue; // transform, opacity, fogged light (PORT-49: a draw fade, including leaving the hidden state, leaves this fast path)
 			}
 			e.draw->poseView(f);
 			const bool shown = f.model && !e.moduleHidden && !fogHidden && !e.draw->hiddenByFade(); // PORT-49: RW 0x4B544F / 0x4B542D hide the model
@@ -1964,7 +1964,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			animated += animatedNow ? 1 : 0;
 			// lane CAH-2: a new colour set (Drawable::setCustomColors, RW 0x6727B0) chooses another model below
 			const bool colorsChanged = d->customColorRevision() != ev.colorsRevision;
-			if (!flagsChanged && !animatedNow && !colorsChanged && ev.posed && !tinted && !ev.animKeyTinted && e.draw->opacity() == 1.0f && !e.draw->hiddenByFade())
+			if (!flagsChanged && !animatedNow && !colorsChanged && ev.posed && !tinted && !ev.animKeyTinted && e.draw->opacity() == 1.0f && !e.draw->hiddenByFade() && !ev.fadeHidden)
 			{
 				if (entryXfChanged && ev.instance >= 0)
 				{
@@ -1986,6 +1986,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			}
 			e.draw->poseView(f);
 			const bool shown = f.model && !e.moduleHidden && !fogHidden && !e.draw->hiddenByFade(); // PORT-49: RW 0x4B544F / 0x4B542D hide the model
+			ev.fadeHidden = e.draw->hiddenByFade(); // PORT-49: leaving this state must make the instance again (the hidden branch has none)
 			// Donor W3DModelDrawRva000B8FA1.cpp (BFME2 0x4B8FA1): ordinary
 			// owners use kind 1; hero custom palettes keep precedence. Bake before
 			// filtering, using the existing RW 0x531C77 texture recolour routine.

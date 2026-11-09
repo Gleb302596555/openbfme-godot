@@ -761,7 +761,8 @@ private:
 		bool streakKnown = false;
 		bool posed = false;
 		float offsetZ = 0.0f;           ///< RENDER-2: the construction offset the instance's transform carries (DrawEntry::constructionOffsetZ)
-		float opacity = 1.0f;           ///< PROJ-2: the drawable's fade the instance shows (Drawable::drawOpacity)
+		float opacity = 1.0f;           ///< PROJ-2: the drawable's fade times the model draw's fade the instance shows
+		bool fadeHidden = false;        ///< PORT-49: the model draw's hidden-by-fade state the instance was made with; leaving it rebuilds the instance
 		unsigned tireChanges = 0xFFFFFFFFu; ///< lane COMBAT-4: DrawEntry::tireChanges the instance's bone spins show
 		int64_t tireInstance = -1;          ///< the instance they were handed to
 		bool fogLook = false;               ///< lane VISUAL-2: the instance is drawn with the fogged light (a last-seen object in the fog)

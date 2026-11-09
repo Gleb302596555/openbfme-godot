@@ -96,8 +96,8 @@ struct W3DDrawFrame
 	float frame1 = 0.0f;
 	float blendPercentage = 0.0f;
 	bool blending = false;
-	float opacity = 1.0f;                     ///< from FadeBeginFrame / FadeEndFrame (S-096: no camera fade)
-	bool hidden = false;                      ///< FadeBegin/End ramp reached 0
+	float opacity = 1.0f;                     ///< PORT-49 camera fade (RW 0x4B52C8) or FadeBeginFrame / FadeEndFrame
+	bool hidden = false;                      ///< the camera fade or FadeBegin/End ramp reached 0 (PORT-49, RW 0x4B544F)
 	std::vector<std::string> hiddenSubObjects; ///< names hidden by scripts (and the sub objects under them), proto order
 };
 

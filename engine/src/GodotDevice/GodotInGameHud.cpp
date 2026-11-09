@@ -1233,10 +1233,6 @@ void HudDevice::applyCamera(const Vector2 &window, double alpha)
 	shown.cam = cam.get();
 	shown.present((int)window.x, (int)window.y, alpha);
 	const Coord3D eyeS = shown.eye(), targetS = shown.PinholeView::position();
-	if (world)
-	{
-		world->setCameraFadeEye(eyeS); // PORT-49: the model draws' camera distance fade reads the displayed eye (RW 0x4B5301)
-	}
 	const Vector3 eye = toGodotAxes(eyeS);
 	const Vector3 target = toGodotAxes(targetS);
 	// retail: horizontal field of view 50 degrees (View + 0x6C), near 10, far 1800 (RW 0x48B7B1); the view plane's height follows the viewport aspect.
@@ -1275,6 +1271,12 @@ void HudDevice::applyCamera(const Vector2 &window, double alpha)
 		camera->set_fov((real_t)(animFov * 180.0f / 3.14159265f));
 	}
 	camera->set_global_transform(t);
+	if (world)
+	{
+		// PORT-49: the fade reads the eye actually displayed, including the CAMANIM-1 mode-4 override above. RW 0x4B5301 reads the view transform
+		// through vslot 0x11C -> 0x487668 -> 0x53B370; convert the final Godot origin back to SAGE (x east, y north, z up).
+		world->setCameraFadeEye(Coord3D{ t.origin.x, -t.origin.z, t.origin.y });
+	}
 }
 
 static void waitLogic(const HudDevice *d, const char *file, int line)
