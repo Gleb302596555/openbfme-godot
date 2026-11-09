@@ -174,6 +174,12 @@ public:
 	// TOP20 rampage, RW 0x625759 GameLogic::deselectObject with affectClient: the object's drawable leaves the client's selection (TheInGameUI vslot 0x10C,
 	// deselectDrawable, RW 0x6257E5)
 	virtual void deselectDrawable(Object &obj) { (void)obj; }
+	// lane LOCAL-16, RW 0x664FB4..0x664FD0: whether the parent horde drawable's selection flag (+0x43C) is set
+	virtual bool isParentDrawableSelected(const Object &obj) { (void)obj; return false; }
+	// lane LOCAL-16, RW 0x672F0D Drawable::removeSelectionFeedback: remove selection marker decal from drawable
+	virtual void removeSelectionFeedback(Object &obj) { (void)obj; }
+	// lane LOCAL-16, RW 0x672ED1 Drawable::createSelectionFeedback: restore selection marker decal on drawable with indicator color (RW 0x6916CD)
+	virtual void createSelectionFeedback(Object &obj, std::uint32_t color) { (void)obj; (void)color; }
 	// RW 0x852BE1 / 0x678FA7: flash an object's drawable as selected in the given colour (SpecialAbilityUpdate DoCaptureFX)
 	virtual void flashAsSelected(Object &obj, const RGBColor *color) { (void)obj; (void)color; }
 	// lane EVADAMAGE-1, RW 0x67B4B7's Eva half: a qualifying hit (ShouldPlayUnderAttackEva) on a local object, with the logic's part of the choice

@@ -75,6 +75,8 @@ struct ClientEvent
 		EVA_DAMAGED,      ///< lane EVADAMAGE-1 (RW 0x67B4B7's Eva half): position (the object's, + 0x38), eva (the logic's part of the choice)
 		FLASH_AS_SELECTED, ///< RW 0x852BE1 / 0x678FA7: flashAsSelected on object with flashColor
 		DIED,              ///< RW 0x699077 -> RW 0x67561E: notifyDead on object death
+		REMOVE_SELECTION_FEEDBACK, ///< lane LOCAL-16, RW 0x672F0D: removeSelectionFeedback on drawable
+		CREATE_SELECTION_FEEDBACK, ///< lane LOCAL-16, RW 0x672ED1: createSelectionFeedback on drawable with indicatorColor
 	};
 	std::string heroUniqueID;
 	std::vector<std::string> heroStatistics;
@@ -151,6 +153,12 @@ public:
 	void createAHeroKill(Object &killer, Object &victim) override;
 	void heroAttacked(Object &obj) override;
 	void deselectDrawable(Object &obj) override;
+	// lane LOCAL-16, RW 0x664FB4..0x664FD0: parent horde drawable's selection flag (+0x43C)
+	bool isParentDrawableSelected(const Object &obj) override;
+	void removeSelectionFeedback(Object &obj) override; // RW 0x672F0D
+	void createSelectionFeedback(Object &obj, std::uint32_t color) override; // RW 0x672ED1
+	void setDrawableSelected(ObjectID id, bool selected);
+	bool isDrawableSelected(ObjectID id) const;
 	void flashAsSelected(Object &obj, const RGBColor *color) override;
 	void evaDamaged(Object &obj, const EvaDamageNotice &notice) override; // lane EVADAMAGE-1
 	void flashHeroButton(const std::string &templateName, int frames) override;
@@ -197,4 +205,5 @@ private:
 	ObserverMetrics m_metrics;
 	std::vector<ClientEvent> m_events;
 	std::uint32_t m_seq = 0;
+	std::set<ObjectID> m_selectedObjects;
 };

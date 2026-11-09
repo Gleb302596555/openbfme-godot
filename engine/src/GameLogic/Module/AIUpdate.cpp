@@ -640,69 +640,77 @@ UpdateSleepTime AIUpdateInterface::update()
 			}
 		}
 	}
+	unsigned finalSleep = 1;
 	if (memberUpdate)
 	{
-		const unsigned memberSleep = hordeMemberUpdate();
-		m_isInUpdate = false;
-		getObject()->setStatus((unsigned)CombatNames::statuses().updatingAI, false);
-		return (UpdateSleepTime)(memberSleep < 1u ? 1u : memberSleep);
-	}
-	unsigned sleep = (unsigned)UPDATE_SLEEP_FOREVER;
-	// lane MODCOMPAT-MOD1: RW 0x669725 .. 0x66974E: AI + 0x3E0 = a machine is kept (AI + 0x34) around the machine's update (endTemporaryStateMachine reads it)
-	m_updatingWithTemporaryMachine = m_temporaryKeptMachine != nullptr;
-	const StateReturnType st = m_machine->updateStateMachine();
-	m_updatingWithTemporaryMachine = false;
-	if (m_retiredMachine)
-	{
-		AIStateMachine::LoadGuard noExits; // the machine endTemporaryStateMachine dropped during its update: retail never deletes it, so no state exits
-		m_retiredMachine.reset();
-	}
-	if (IS_STATE_SLEEP(st))
-	{
-		const unsigned frames = GET_STATE_SLEEP_FRAMES(st);
-		if (frames < sleep)
-		{
-			sleep = frames;
-		}
+		// RW 0x66E6FF .. 0x66E707: horde member update returns sleep and jumps to 0x66E711
+		finalSleep = hordeMemberUpdate();
 	}
 	else
 	{
-		sleep = (unsigned)UPDATE_SLEEP_NONE; // CONTINUE / SUCCESS / FAILURE: the next frame
-	}
-	if (m_mover->movementComplete())
-	{
-		doMovementCompleteBookkeeping();
-	}
-	// lane GARRISON-2: RW 0x6658D3 after the machine (and RW's path timer, which the port runs inside AIMover::update below): the turret runs unless the object is
-	// dead or disabled by type 2 or 4 (mask 0x14); its sleep joins the AI's. The AI slot 0x1C4 test before it is taken as false (S-1106)
-	if (m_turret && !getObject()->isEffectivelyDead() && (getObject()->getDisabledMask() & 0x14u) == 0)
-	{
-		const unsigned ts = m_turret->updateTurretAI();
-		if (ts < sleep)
+		// RW 0x66E709 .. 0x66E711: normal mover/state machine update
+		unsigned sleep = (unsigned)UPDATE_SLEEP_FOREVER;
+		// lane MODCOMPAT-MOD1: RW 0x669725 .. 0x66974E: AI + 0x3E0 = a machine is kept (AI + 0x34) around the machine's update (endTemporaryStateMachine reads it)
+		m_updatingWithTemporaryMachine = m_temporaryKeptMachine != nullptr;
+		const StateReturnType st = m_machine->updateStateMachine();
+		m_updatingWithTemporaryMachine = false;
+		if (m_retiredMachine)
 		{
-			sleep = ts;
+			AIStateMachine::LoadGuard noExits; // the machine endTemporaryStateMachine dropped during its update: retail never deletes it, so no state exits
+			m_retiredMachine.reset();
 		}
+		if (IS_STATE_SLEEP(st))
+		{
+			const unsigned frames = GET_STATE_SLEEP_FRAMES(st);
+			if (frames < sleep)
+			{
+				sleep = frames;
+			}
+		}
+		else
+		{
+			sleep = (unsigned)UPDATE_SLEEP_NONE; // CONTINUE / SUCCESS / FAILURE: the next frame
+		}
+		if (m_mover->movementComplete())
+		{
+			doMovementCompleteBookkeeping();
+		}
+		// lane GARRISON-2: RW 0x6658D3 after the machine (and RW's path timer, which the port runs inside AIMover::update below): the turret runs unless the object is
+		// dead or disabled by type 2 or 4 (mask 0x14); its sleep joins the AI's. The AI slot 0x1C4 test before it is taken as false (S-1106)
+		if (m_turret && !getObject()->isEffectivelyDead() && (getObject()->getDisabledMask() & 0x14u) == 0)
+		{
+			const unsigned ts = m_turret->updateTurretAI();
+			if (ts < sleep)
+			{
+				sleep = ts;
+			}
+		}
+		// the movement-complete block, the due path-request timer and doLocomotor (AIMover::update)
+		unsigned moverSleep = 0;
+		try
+		{
+			moverSleep = m_mover->update(sleep);
+		}
+		catch (const std::logic_error &e)
+		{
+			// a locomotor case the port reports as unported (S-081 / S-084): the unit stops, the failure is kept in the world's report
+			m_world->reportMovementFailure(*getObject(), e.what());
+			m_mover->destroyPath();
+			m_mover->endingMove();
+			m_machine->clear();
+			m_machine->setState(AI_IDLE);
+			moverSleep = (unsigned)UPDATE_SLEEP_FOREVER;
+		}
+		finalSleep = moverSleep;
 	}
-	// the movement-complete block, the due path-request timer and doLocomotor (AIMover::update)
-	unsigned moverSleep = 0;
-	try
+	if (m_combat.fadeOnPortals)
 	{
-		moverSleep = m_mover->update(sleep);
-	}
-	catch (const std::logic_error &e)
-	{
-		// a locomotor case the port reports as unported (S-081 / S-084): the unit stops, the failure is kept in the world's report
-		m_world->reportMovementFailure(*getObject(), e.what());
-		m_mover->destroyPath();
-		m_mover->endingMove();
-		m_machine->clear();
-		m_machine->setState(AI_IDLE);
-		moverSleep = (unsigned)UPDATE_SLEEP_FOREVER;
+		updatePortalFade(); // RW 0x66E726 -> RW 0x664F93: single unified call for both member and normal units
 	}
 	m_isInUpdate = false;
 	getObject()->setStatus((unsigned)CombatNames::statuses().updatingAI, false);
 	m_world->noteStop(kStopUpdate);
-	return (UpdateSleepTime)(moverSleep < 1u ? 1u : moverSleep);
+	return (UpdateSleepTime)(finalSleep < 1u ? 1u : finalSleep);
 }
 
 // B1 AIUpdate.cpp:2574-2594: the model condition goes, and the pathfinder's goal for the unit is refreshed (a goal further than a cell from the unit is
@@ -745,6 +753,57 @@ void AIUpdateInterface::wakeUpNow()
 	if (getWakeFrame() > (UnsignedInt)UPDATE_SLEEP_NONE && !m_isInUpdate)
 	{
 		setWakeFrame(getObject(), UPDATE_SLEEP_NONE);
+	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// updatePortalFade (RW 0x664F93, lane LOCAL-16)
+// ---------------------------------------------------------------------------------------------------------------------------------
+void AIUpdateInterface::updatePortalFade()
+{
+	Object *obj = getObject();
+	if (!obj)
+	{
+		return;
+	}
+	GameLogic &logic = obj->logic();
+	ObjectClientHooks *client = logic.clientHooks();
+	const bool onPortal = m_mover && m_mover->onPortal();
+	if (onPortal)
+	{
+		if (!m_portalFaded)
+		{
+			m_portalFaded = true; // RW 0x66500C
+			if (client)
+			{
+				client->fadeOut(*obj, 5); // RW 0x664FF2..0x664FFB (5 frames = RW 0xD9F608)
+				client->setShadowsEnabled(*obj, false); // RW 0x665000..0x665004
+				// RW 0x664FB4..0x664FD0: if object has a parent horde (Object + 0x27C), check parent drawable's flag +0x43C ([ebp-1])
+				// RW 0x665009..0x665020: when [ebp-1] is set and object is controlled by local player (RW 0x68B749), call RW 0x672F0D
+				if (client->isParentDrawableSelected(*obj) && obj->isLocallyControlled())
+				{
+					client->removeSelectionFeedback(*obj); // RW 0x672F0D
+				}
+			}
+		}
+	}
+	else
+	{
+		if (m_portalFaded)
+		{
+			m_portalFaded = false; // RW 0x66504C
+			if (client)
+			{
+				client->fadeIn(*obj, 5); // RW 0x665031..0x66503A (5 frames = RW 0xD9F608)
+				client->setShadowsEnabled(*obj, true); // RW 0x66503F..0x665044
+				// RW 0x665049..0x66506A: when [ebp-1] is set and object is controlled by local player (RW 0x68B749), call RW 0x672ED1(1, RW 0x6916CD(obj))
+				if (client->isParentDrawableSelected(*obj) && obj->isLocallyControlled())
+				{
+					const std::uint32_t color = obj->getIndicatorColor(); // RW 0x6916CD
+					client->createSelectionFeedback(*obj, color); // RW 0x672ED1
+				}
+			}
+		}
 	}
 }
 

@@ -405,6 +405,18 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 				d->notifyDead();
 			}
 			break;
+		case ClientEvent::REMOVE_SELECTION_FEEDBACK: // RW 0x672F0D
+			if (Drawable *d = findByObject(ev.object))
+			{
+				d->removeSelectionFeedback();
+			}
+			break;
+		case ClientEvent::CREATE_SELECTION_FEEDBACK: // RW 0x672ED1
+			if (Drawable *d = findByObject(ev.object))
+			{
+				d->createSelectionFeedback();
+			}
+			break;
 		}
 	}
 }

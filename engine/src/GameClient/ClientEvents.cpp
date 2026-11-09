@@ -124,6 +124,7 @@ void ClientEventRecorder::objectVariation(Object &obj, int variation)
 void ClientEventRecorder::objectDestroyed(Object &obj)
 {
 	m_animationConditions.erase(obj.getID());
+	m_selectedObjects.erase(obj.getID());
 	if (obj.clientHooks() != this)
 	{
 		return; // never bound (the object died before it was announced)
@@ -181,7 +182,47 @@ void ClientEventRecorder::heroAttacked(Object &obj)
 
 void ClientEventRecorder::deselectDrawable(Object &obj)
 {
+	m_selectedObjects.erase(obj.getID());
 	push(ClientEvent::DESELECTED, obj); // TOP20 rampage: RW 0x6257E5
+}
+
+// lane LOCAL-16, RW 0x664FB4..0x664FD0: checks parent horde drawable's selection flag (+0x43C)
+bool ClientEventRecorder::isParentDrawableSelected(const Object &obj)
+{
+	const Object *parent = obj.getContainedBy();
+	if (!parent)
+	{
+		return false;
+	}
+	return m_selectedObjects.find(parent->getID()) != m_selectedObjects.end();
+}
+
+void ClientEventRecorder::setDrawableSelected(ObjectID id, bool selected)
+{
+	if (selected)
+	{
+		m_selectedObjects.insert(id);
+	}
+	else
+	{
+		m_selectedObjects.erase(id);
+	}
+}
+
+bool ClientEventRecorder::isDrawableSelected(ObjectID id) const
+{
+	return m_selectedObjects.find(id) != m_selectedObjects.end();
+}
+
+void ClientEventRecorder::removeSelectionFeedback(Object &obj)
+{
+	push(ClientEvent::REMOVE_SELECTION_FEEDBACK, obj); // RW 0x672F0D
+}
+
+void ClientEventRecorder::createSelectionFeedback(Object &obj, std::uint32_t color)
+{
+	ClientEvent &e = push(ClientEvent::CREATE_SELECTION_FEEDBACK, obj); // RW 0x672ED1
+	e.indicatorColor = color; // RW 0x6916CD
 }
 
 // lane EVADAMAGE-1: RW 0x67B4B7's Eva half, the logic's part (EvaDamageNotice.h); the report goes to TheEva at the object's position (+ 0x38)

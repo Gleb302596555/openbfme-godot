@@ -953,10 +953,12 @@ private:
 		float scale = 1.0f;
 		// S-921: the Taint / Elven Wood morph (TerrainTrees MORPH / MORPH_END): the model drawn now, the target's instance (model B) fading in
 		std::string model;           ///< the drawn model (W3DTreeDraw ModelName)
+		std::string texture;         ///< the drawn texture (W3DTreeDraw TextureName, RW 0x4EC9B5)
 		int swayType = 0;
 		bool castShadow = false;
 		int64_t morphInstance = -1;
 		std::string morphModel;
+		std::string morphTexture;
 		std::uint32_t morphStart = 0;
 		std::int32_t morphTime = 0;
 		bool morphing = false;
@@ -977,19 +979,21 @@ private:
 		const class ThingTemplate *tmpl = nullptr;     ///< the add-time type (+ 0x19E0)
 		const class ThingTemplate *drawTmpl = nullptr; ///< the type now (+ 0x1998)
 		std::string model;
+		std::string texture;                           ///< W3DTreeDraw TextureName (RW 0x4E8C1B)
 		bool castShadow = false;
 		int morph = 0;             ///< + 0x19DC
 		std::int32_t morphLeft = 0; ///< + 0x19E8
 		bool morphTarget = false;   ///< model B (+ 0x19F0) made
 		int64_t morphInstance = -1;
 		std::string morphModel;
+		std::string morphTexture;
 		std::uint32_t morphStart = 0;
 		std::int32_t morphTime = 0;
 	};
 	std::vector<FootprintView> m_footprintViews;
 	void clearFootprint(const Coord3D &pos, float angle, const std::vector<ObjectGeometry::Shape> &shapes, bool propsOnly);
 	// S-921: the tree and shrub morph of Taint / Elven Wood (TerrainTrees.h)
-	int64_t addTreeModelInstance(const std::string &model, const float basis[9], const Coord3D &pos, float scale, bool castShadow, int swayType);
+	int64_t addTreeModelInstance(const std::string &model, const std::string &texture, const float basis[9], const Coord3D &pos, float scale, bool castShadow, int swayType);
 	void morphTree(const TerrainTrees::Event &e);    ///< MORPH (slot 0x74)
 	void morphTreeEnd(const TerrainTrees::Event &e); ///< MORPH_END
 	void morphArea(const TerrainTrees::Event &e);    ///< MORPH_AREA (slot 0x40: the shrubs morph, the props go)

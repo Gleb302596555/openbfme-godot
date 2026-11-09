@@ -1464,6 +1464,14 @@ Player *Object::getControllingPlayer() const
 	return m_team ? m_team->getControllingPlayer() : nullptr;
 }
 
+// RW 0x68B749 Object::isLocallyControlled: true when this object's controlling player is the local player
+bool Object::isLocallyControlled() const
+{
+	const Player *ctrl = getControllingPlayer();
+	const Player *local = logic().players().getLocalPlayer();
+	return ctrl && ctrl == local;
+}
+
 // RW 0x68B6F5 Object::getIndicatorColor: the team's controlling player's colour (the custom indicator and the disguise colour are S-2522 / S-2456's)
 std::uint32_t Object::getIndicatorColor() const
 {
