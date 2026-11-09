@@ -80,17 +80,15 @@ public:
 	}
 };
 
-const float kBoneBasis[9] = { 0, -1, 0, 1, 0, 0, 0, 0, 1 }; // the provider's bone, unturned
-const float kTurnedBasis[9] = { -1, 0, 0, 0, -1, 0, 0, 0, 1 }; // Rz(90) * the bone: a half turn
-
 struct TurretRange
 {
 	CombatWorld w;
 	Object *a = nullptr, *b = nullptr;
 	std::unique_ptr<FixedBone> bone = std::make_unique<FixedBone>();
 
-	TurretRange(const std::string &weapon, const char *slots)
-		: w((turretBow(weapon.c_str(), true) + turretBow((weapon + "Off").c_str(), false) + turretShooter(weapon.c_str(), slots)).c_str())
+	TurretRange(bool rotatingTurret, const char *slots)
+		: w((turretBow("TurretBowOn", true) + turretBow("TurretBowOff", false)
+			+ turretShooter(rotatingTurret ? "TurretBowOn" : "TurretBowOff", slots)).c_str())
 	{
 		w.combat().setAutoAcquireEnabled(false);
 		w.combat().setLaunchOffsets(bone.get());
@@ -98,8 +96,9 @@ struct TurretRange
 		b = w.unit("Dummy", 'B', 300, 400);
 		w.frames(2);
 	}
-	// the arrow the shot creates (the stand-in projectile launcher of the fixture)
-	Object *fire()
+	// the arrow the shot creates (the stand-in projectile launcher of the fixture), and its flight module, which keeps the launch
+	// point in m_flightPathStart (ProjectileModules.cpp:483): the projectile's own orientation and position move on the same tick
+	Object *fire(BezierProjectileBehavior **flight = nullptr)
 	{
 		ObjectWeapons *ow = a->getWeapons();
 		REQUIRE(ow->chooseBestWeaponForTarget(b, PREFER_MOST_DAMAGE, CMD_FROM_PLAYER));
@@ -118,8 +117,12 @@ struct TurretRange
 		{
 			for (const std::unique_ptr<BehaviorModule> &m : o->modules())
 			{
-				if (dynamic_cast<BezierProjectileBehavior *>(m.get()))
+				if (BezierProjectileBehavior *bz = dynamic_cast<BezierProjectileBehavior *>(m.get()))
 				{
+					if (flight)
+					{
+						*flight = bz;
+					}
 					return o;
 				}
 			}
@@ -128,64 +131,81 @@ struct TurretRange
 	}
 };
 
-void checkBasis(const float *basis, const float expected[9])
+// The launch point RW 0x6CAB85 leaves at RW 0x6CB440 (Thing::convertBonePosToWorldPos): the launcher's basis times the bone's
+// translation, plus the launcher's position. `local` is that translation after the turret's turn.
+Coord3D launchPoint(const Object &launcher, const float local[3])
 {
-	for (int i = 0; i < 9; ++i)
-	{
-		CHECK(std::fabs((basis[i]) - (expected[i])) <= 1e-5); // tolerance: cos / sin of the float 90 degrees (RW 0xA3CF90 / RW 0xA3CF84) are not exactly 0 and 1
-	}
+	const float *t = launcher.getBasis();
+	const Coord3D &p = *launcher.getPosition();
+	Coord3D out;
+	out.x = p.x + t[0] * local[0] + t[1] * local[1] + t[2] * local[2];
+	out.y = p.y + t[3] * local[0] + t[4] * local[1] + t[5] * local[2];
+	out.z = p.z + t[6] * local[0] + t[7] * local[1] + t[8] * local[2];
+	return out;
+}
+
+// tolerance: the turret's quarter turn is the port's sinDet / cosDet of the float 90 degrees (the RW 0xA3CF90 / RW 0xA3CF84 sin and
+// cos are approximated in the port, S-167), and the same functions answer the basis products, so the point is not exact
+void checkPoint(const Coord3D &at, const Coord3D &want)
+{
+	CHECK(std::fabs(at.x - want.x) <= 1e-3); // tolerance: sinDet / cosDet of 90 degrees are approximations of RW 0xA3CF90 / RW 0xA3CF84
+	CHECK(std::fabs(at.y - want.y) <= 1e-3); // tolerance: sinDet / cosDet of 90 degrees are approximations of RW 0xA3CF90 / RW 0xA3CF84
+	CHECK(std::fabs(at.z - want.z) <= 1e-3); // tolerance: sinDet / cosDet of 90 degrees are approximations of RW 0xA3CF90 / RW 0xA3CF84
 }
 } // namespace
 
-// RW 0x6CAD3F .. 0x6CB43B with the flag set: the turret's angle turns the launch bone about the model origin. The bone's quarter turn
-// (x -> y) and the turret's quarter turn add up to a half turn, and the bone's translation (1, 2, 3) becomes (c*1 - s*2, s*1 + c*2, 3)
-// = (-2, 1, 3) with c = cos(90) and s = sin(90).
+// RW 0x6CAD3F .. 0x6CB43B with the flag set: the turret's angle turns the launch bone about the model origin. The turret stands still
+// at its natural quarter turn, so the bone's translation (1, 2, 3) becomes (c*1 - s*2, s*1 + c*2, 3) = (-2, 1, 3) with cos = 0,
+// sin = 1. The launch transform itself is set on the projectile at RW 0x6CB490 (RW 0x70BA76 setTransformMatrix) and the projectile's
+// flight orientation replaces it on the same tick, so the test reads the launch point, which the same rotation answers (RW 0x70C201).
 TEST_CASE("PORT-28 rotating turret: the launch transform of a projectile is turned by the turret's angle (RW 0x6CAD3F .. 0x6CB43B)")
 {
-	TurretRange r("TurretBow", "PRIMARY");
-	const Coord3D p0 = *r.a->getPosition();
-	Object *arrow = r.fire();
+	TurretRange r(true, "PRIMARY");
+	BezierProjectileBehavior *flight = nullptr;
+	Object *arrow = r.fire(&flight);
 	REQUIRE(arrow != nullptr);
+	REQUIRE(flight != nullptr);
 	CHECK(r.w.combat().counters().turretedLaunches == 1); // RW 0x6CAD58 and RW 0x6CAD65 let the block run
-	CHECK(std::fabs((arrow->getPosition()->x) - (p0.x - 2.0f)) <= 1e-4); // tolerance: cos / sin of the float 90 degrees (RW 0xA3CF90 / RW 0xA3CF84) are not exactly 0 and 1
-	CHECK(std::fabs((arrow->getPosition()->y) - (p0.y + 1.0f)) <= 1e-4); // tolerance: cos / sin of the float 90 degrees (RW 0xA3CF90 / RW 0xA3CF84) are not exactly 0 and 1
-	CHECK(std::fabs((arrow->getPosition()->z) - (p0.z + 3.0f)) <= 1e-4); // tolerance: cos / sin of the float 90 degrees (RW 0xA3CF90 / RW 0xA3CF84) are not exactly 0 and 1
-	checkBasis(arrow->getBasis(), kTurnedBasis);
+	const float turned[3] = { -2.0f, 1.0f, 3.0f };
+	checkPoint(flight->flightStart(), launchPoint(*r.a, turned));
+	// without the turn the point would be the bone's own translation: the two differ, which is what the flag changes
+	const float unturned[3] = { 1.0f, 2.0f, 3.0f };
+	const Coord3D wrong = launchPoint(*r.a, unturned);
+	CHECK(std::fabs(flight->flightStart().x - wrong.x) > 1.0f); // tolerance: the turn moves the point by 3 in x and 1 in y, far above rounding
+	CHECK(std::fabs(flight->flightStart().y - wrong.y) > 0.5f); // tolerance: the turn moves the point by 1 in y, far above rounding
 }
 
 // RW 0x6CAD58: the flag clear skips the block: the launch transform stays the launch bone's (the neighbouring behaviour).
 TEST_CASE("PORT-28 without the flag the launch transform stays the launch bone's (RW 0x6CAD58 -> RW 0x6CB440)")
 {
-	TurretRange r("TurretBowOff", "PRIMARY");
-	const Coord3D p0 = *r.a->getPosition();
-	Object *arrow = r.fire();
+	TurretRange r(false, "PRIMARY");
+	BezierProjectileBehavior *flight = nullptr;
+	Object *arrow = r.fire(&flight);
 	REQUIRE(arrow != nullptr);
+	REQUIRE(flight != nullptr);
 	CHECK(r.w.combat().counters().turretedLaunches == 0);
-	CHECK(std::fabs((arrow->getPosition()->x) - (p0.x + 1.0f)) <= 1e-4); // tolerance: cos / sin of the float 90 degrees (RW 0xA3CF90 / RW 0xA3CF84) are not exactly 0 and 1
-	CHECK(std::fabs((arrow->getPosition()->y) - (p0.y + 2.0f)) <= 1e-4); // tolerance: cos / sin of the float 90 degrees (RW 0xA3CF90 / RW 0xA3CF84) are not exactly 0 and 1
-	CHECK(std::fabs((arrow->getPosition()->z) - (p0.z + 3.0f)) <= 1e-4); // tolerance: cos / sin of the float 90 degrees (RW 0xA3CF90 / RW 0xA3CF84) are not exactly 0 and 1
-	checkBasis(arrow->getBasis(), kBoneBasis);
+	const float bone[3] = { 1.0f, 2.0f, 3.0f };
+	checkPoint(flight->flightStart(), launchPoint(*r.a, bone));
 }
 
 // RW 0x6CAD65: the flag set, but the turret of the AI controls another weapon slot (RW 0x66246B answers -1 for PRIMARY): skipped.
 TEST_CASE("PORT-28 with the flag but no turret for the slot the launch transform stays the launch bone's (RW 0x6CAD65)")
 {
-	TurretRange r("TurretBow", "SECONDARY");
-	const Coord3D p0 = *r.a->getPosition();
-	Object *arrow = r.fire();
+	TurretRange r(true, "SECONDARY");
+	BezierProjectileBehavior *flight = nullptr;
+	Object *arrow = r.fire(&flight);
 	REQUIRE(arrow != nullptr);
+	REQUIRE(flight != nullptr);
 	CHECK(r.w.combat().counters().turretedLaunches == 0);
-	CHECK(std::fabs((arrow->getPosition()->x) - (p0.x + 1.0f)) <= 1e-4); // tolerance: cos / sin of the float 90 degrees (RW 0xA3CF90 / RW 0xA3CF84) are not exactly 0 and 1
-	CHECK(std::fabs((arrow->getPosition()->y) - (p0.y + 2.0f)) <= 1e-4); // tolerance: cos / sin of the float 90 degrees (RW 0xA3CF90 / RW 0xA3CF84) are not exactly 0 and 1
-	CHECK(std::fabs((arrow->getPosition()->z) - (p0.z + 3.0f)) <= 1e-4); // tolerance: cos / sin of the float 90 degrees (RW 0xA3CF90 / RW 0xA3CF84) are not exactly 0 and 1
-	checkBasis(arrow->getBasis(), kBoneBasis);
+	const float bone[3] = { 1.0f, 2.0f, 3.0f };
+	checkPoint(flight->flightStart(), launchPoint(*r.a, bone));
 }
 
 // The two inputs of the block: the parsed template flag (RW 0x42E558 + 0x16C, the getter RW 0x6C9C50) and the AI's answer
 // (RW 0x66246B: the index of the turret whose ControlledWeaponSlots hold the slot, with its angle (+ 0x18) and pitch (+ 0x1C)).
 TEST_CASE("PORT-28 the template flag parses (RW 0x42E558 + 0x16C) and the AI names the turret of the slot (RW 0x66246B)")
 {
-	TurretRange r("TurretBow", "PRIMARY");
+	TurretRange r(true, "PRIMARY");
 	const Weapon *on = r.a->getWeapons()->weaponInSlot(0);
 	REQUIRE(on != nullptr);
 	CHECK(on->getTemplate()->rotatingTurret());
