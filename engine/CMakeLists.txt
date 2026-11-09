@@ -218,6 +218,7 @@ include(cmake/Port35.cmake) # PORT-35: HordeContain/ComboHorde, two hordes combi
 include(cmake/Port22.cmake) # PORT-22: SiegeDeploy/adjustMeleeOffset (issue #78; OPENBFME_PORT22_TESTS)
 include(cmake/Port37.cmake) # PORT-37: DamageNugget/CylinderAOE, the area shape (issue #122; OPENBFME_PORT37_TESTS)
 include(cmake/Port10.cmake) # PORT-10: FlammableUpdate/RunToWater (issue #65; OPENBFME_PORT10_TESTS)
+include(cmake/Port55.cmake) # OPENBFME_PORT55_TESTS
 include(cmake/Port38.cmake) # PORT-38: the AIData team build tempo (issue #123; OPENBFME_PORT38_TESTS)
 include(cmake/Port57.cmake) # PORT-57: RadiateFearUpdate/WhichSpecialPower parsed-unused (issue #167; OPENBFME_PORT57_TESTS)
 include(cmake/Port17.cmake) # PORT-17: ThreatFinderUpdate + the threat-finder script action (issue #73; appends to OPENBFME_SIM_SOURCES; OPENBFME_PORT17_TESTS)
@@ -225,7 +226,11 @@ include(cmake/Port46.cmake) # PORT-46: ToggleMountedSpecialAbilityUpdate/Opacity
 include(cmake/Port58.cmake) # PORT-58: SpecialAbilityUpdate/ApproachUntilMembersInRange (issue #168; OPENBFME_PORT58_TESTS)
 include(cmake/Port45.cmake) # PORT-45: ActiveBody/DamageCreationList (issue #149; OPENBFME_PORT45_TESTS)
 include(cmake/Port44.cmake) # PORT-44: ExperienceLevel/ShowLevelUpTint (issue #148; OPENBFME_PORT44_TESTS)
+include(cmake/Port70.cmake) # PORT-70: the GameData verdict table (issue #184; OPENBFME_PORT70_TESTS)
 include(cmake/Port25.cmake) # PORT-25: HordeContain/VisionRearOverride (issue #97; OPENBFME_PORT25_TESTS)
+include(cmake/Port60.cmake) # PORT-60: EvaAnnounceClientCreate/CreateFakeRadarEvent (issue #170; verdict, no engine change; OPENBFME_PORT60_TESTS)
+include(cmake/Port61.cmake) # PORT-61: FlammableUpdate/FireFXList, the effects at ignition (issue #171; OPENBFME_PORT61_TESTS)
+include(cmake/Port62.cmake) # PORT-62: TransportContain/FireGrabWeaponOnVictim, the GrabWeapon fire (issue #172; OPENBFME_PORT62_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
@@ -359,6 +364,7 @@ include(cmake/Siege1.cmake)     # SIEGE-1: the siege units (appends to OPENBFME_
 include(cmake/Castlearea1.cmake) # CASTLEAREA-1: the castle area triggers (OPENBFME_CASTLEAREA1_TESTS)
 include(cmake/Weather1.cmake)   # WEATHER-1: snow, rain, darkness, lightning, the weather sound (client sources; OPENBFME_WEATHER1_TESTS)
 include(cmake/Port33.cmake)     # PORT-33: the AIWoTRForfeitTactic port of FarmingThreshold / LogicFramesTillAISelfDestructs (OPENBFME_PORT33_TESTS)
+include(cmake/Port64.cmake)     # PORT-64: RubbleRiseUpdate, the rubble rise of a destroyed camp or castle piece (OPENBFME_PORT64_TESTS)
 include(cmake/Bldfx1.cmake)     # FEAT-BLDFX-1: the FXList nugget sinks, scorches, decals, light pulses, camera shakers (OPENBFME_BLDFX1_SOURCES / _TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
@@ -778,6 +784,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PLAY2_TESTS}
     ${OPENBFME_PORT54_TESTS}
     ${OPENBFME_PORT33_TESTS}
+    ${OPENBFME_PORT64_TESTS}
     ${OPENBFME_PORT5_TESTS}
     ${OPENBFME_PORT18_TESTS}
     ${OPENBFME_PORT1_TESTS}
@@ -805,13 +812,18 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT22_TESTS}
     ${OPENBFME_PORT37_TESTS}
     ${OPENBFME_PORT10_TESTS}
+    ${OPENBFME_PORT55_TESTS}
     ${OPENBFME_PORT38_TESTS}
     ${OPENBFME_PORT57_TESTS}
     ${OPENBFME_PORT17_TESTS}
     ${OPENBFME_PORT46_TESTS}
     ${OPENBFME_PORT58_TESTS}
     ${OPENBFME_PORT44_TESTS}
+    ${OPENBFME_PORT70_TESTS}
     ${OPENBFME_PORT25_TESTS}
+    ${OPENBFME_PORT60_TESTS}
+    ${OPENBFME_PORT61_TESTS}
+    ${OPENBFME_PORT62_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}
