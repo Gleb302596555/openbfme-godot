@@ -349,6 +349,7 @@ include(cmake/Siege1.cmake)     # SIEGE-1: the siege units (appends to OPENBFME_
 include(cmake/Castlearea1.cmake) # CASTLEAREA-1: the castle area triggers (OPENBFME_CASTLEAREA1_TESTS)
 include(cmake/Weather1.cmake)   # WEATHER-1: snow, rain, darkness, lightning, the weather sound (client sources; OPENBFME_WEATHER1_TESTS)
 include(cmake/Port33.cmake)     # PORT-33: the AIWoTRForfeitTactic port of FarmingThreshold / LogicFramesTillAISelfDestructs (OPENBFME_PORT33_TESTS)
+include(cmake/Bldfx1.cmake)     # FEAT-BLDFX-1: the FXList nugget sinks, scorches, decals, light pulses, camera shakers (OPENBFME_BLDFX1_SOURCES / _TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
     ${OPENBFME_APT_SOURCES}
@@ -357,6 +358,7 @@ add_library(openbfme_core STATIC
     ${OPENBFME_LOCAL13_CLIENT_SOURCES}
     ${OPENBFME_DECOMP2_CLIENT_SOURCES}
     ${OPENBFME_FX_SOURCES}
+    ${OPENBFME_BLDFX1_SOURCES}
     ${OPENBFME_PROD_SOURCES}
     ${OPENBFME_AUDIO_SOURCES}
     ${OPENBFME_START_SOURCES}
@@ -821,6 +823,7 @@ add_executable(openbfme_tests
     ${OPENBFME_FX2_TESTS}
     ${OPENBFME_FX3_TESTS}
     ${OPENBFME_FX4_TESTS}
+    ${OPENBFME_BLDFX1_TESTS}
     ${OPENBFME_FOGFX1_TESTS}
     ${OPENBFME_HERO_TESTS}
     ${OPENBFME_MOD1_TESTS}
