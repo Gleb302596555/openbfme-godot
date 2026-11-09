@@ -30,7 +30,7 @@
 
 #pragma once
 
-class GameLogicSettings;
+struct GameLogicSettings;
 
 namespace AITeamTempo
 {
