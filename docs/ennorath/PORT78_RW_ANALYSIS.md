@@ -10,3 +10,7 @@ Source: RotWK 2.01 `game.dat` (S-001); DONOR BFME2 0x45108D, `Code/GameEngine/So
 * ActiveBody data parse table RW 0xC71D68 holds GrabObject +0x2C, GrabFX +0x38, GrabDamage +0x3C and GrabOffset +0x40. Create data RW 0x651186 and create module RW 0x65114B lead to constructors RW 0x8C373F and 0x8C3841. Body interface vtable RW 0xC720F0 slots 0x74/0x78/0x7C/0x80 resolve to RW 0x8C281E/0x8C1DB4/0x8C1DBB/0x8C1DC2, reading those four fields. The caller is RW 0x854170/0x854342/0x85422B/0x854279, not merely the getters.
 
 Second trigger and tree behavior are existing separate paths and are not changed by this issue. No new simulation state is required by this branch: creation and containment use the existing object and contain state.
+
+## Ennorath check boundary
+
+In the supplied Ennorath 1.9.8.2 INI snapshot, a search for `SPECIAL_GRAB_CHUNK` found no occurrence; the examined `RohanEntBase` has no grab special-power module. Its grab animation names alone therefore do not establish the issue's proposed Ent/building playtest. A separate ROCK_VENDOR path exists in the data alongside a troll with `SPECIAL_GRAB_PASSENGER`, but accessibility of that exact pair in the game's cheat panel and the full action sequence have not yet been established. Do not claim an Ent/building in-game check without resolving this; synthetic tests exercise the RW branch independently.
