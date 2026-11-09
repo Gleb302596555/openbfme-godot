@@ -1271,6 +1271,12 @@ void HudDevice::applyCamera(const Vector2 &window, double alpha)
 		camera->set_fov((real_t)(animFov * 180.0f / 3.14159265f));
 	}
 	camera->set_global_transform(t);
+	if (world)
+	{
+		// PORT-49: the fade reads the eye actually displayed, including the CAMANIM-1 mode-4 override above. RW 0x4B5301 reads the view transform
+		// through vslot 0x11C -> 0x487668 -> 0x53B370; convert the final Godot origin back to SAGE (x east, y north, z up).
+		world->setCameraFadeEye(Coord3D{ t.origin.x, -t.origin.z, t.origin.y });
+	}
 }
 
 static void waitLogic(const HudDevice *d, const char *file, int line)

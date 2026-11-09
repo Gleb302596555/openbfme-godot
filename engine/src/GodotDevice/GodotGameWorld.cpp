@@ -1292,6 +1292,19 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 	// lane WORKERFAIL-1: game.gd stops the game with this text (logic_failure); printed at once, on the worker, so the session log has it whatever happens next
 	m_game->setLogicFailureHandler([](const std::string &text) { UtilityFunctions::printerr(toGodot("GAME logic worker stopped " + text)); });
 	m_game->setRenderInterpolation(m_renderInterpolation);
+	// PORT-49: the camera distance fade's sources are installed before the load makes the drawables (Options::cameraFadeAvailable).
+	// The eye is the HUD's displayed eye (RW 0xDE447C vslot 0x11C); EffectsLOD is the same state the glow / FX gates read (RW 0xDE3B84+0x1778).
+	m_cameraFadeEyeValid = false;
+	auto &drawServices = m_game->drawables().services();
+	drawServices.cameraPosition = [this](Coord3D &out) {
+		if (!m_cameraFadeEyeValid)
+		{
+			return false;
+		}
+		out = m_cameraFadeEye;
+		return true;
+	};
+	drawServices.effectsLOD = [this]() { return (int)m_effectsLod; };
 	// lane RENDERWAIT-1: a blocking wait on the logic worker names its script caller (the innermost GDScript frame: the C++ site of a bound query is
 	// the query itself, the script line says who asked)
 	m_game->setWaitSiteDetail([]() -> std::string {
@@ -1797,12 +1810,12 @@ bool GameWorld::view_is_local(size_t id, const W3DInstancer &dyn, const LogicSna
 			}
 			const bool animatedNow = e.animated && m_animations;
 			const bool colorsChanged = d->customColorRevision() != ev.colorsRevision;
-			if (!flagsChanged && !animatedNow && !colorsChanged && ev.posed)
+			if (!flagsChanged && !animatedNow && !colorsChanged && ev.posed && e.draw->opacity() == 1.0f && !e.draw->hiddenByFade() && !ev.fadeHidden)
 			{
-				continue; // transform, opacity, fogged light
+				continue; // transform, opacity, fogged light (PORT-49: a draw fade, including leaving the hidden state, leaves this fast path)
 			}
 			e.draw->poseView(f);
-			const bool shown = f.model && !e.moduleHidden && !fogHidden;
+			const bool shown = f.model && !e.moduleHidden && !fogHidden && !e.draw->hiddenByFade(); // PORT-49: RW 0x4B544F / 0x4B542D hide the model
 			const auto palette = drawTakesHouseColor(e, *d) ? Render_House_Color_Params(d->getHouseColor(), d->customColorKind(), d->customColors()) : HouseColorParams(); // RW 0x4B4A30
 			const bool keySame = ev.animKeyValid && ev.animKeyShown == shown && ev.animKeyHouse == m_houseColors && ev.animKeyName == f.modelName
 				&& ev.animKeySwaps == (const void *)f.textureSwaps && ev.animKeySwapsGeneration == f.textureSwapsGeneration && ev.animKeyKind == palette.kind && ev.animKeyGlow == f.glow
@@ -1951,7 +1964,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			animated += animatedNow ? 1 : 0;
 			// lane CAH-2: a new colour set (Drawable::setCustomColors, RW 0x6727B0) chooses another model below
 			const bool colorsChanged = d->customColorRevision() != ev.colorsRevision;
-			if (!flagsChanged && !animatedNow && !colorsChanged && ev.posed && !tinted && !ev.animKeyTinted)
+			if (!flagsChanged && !animatedNow && !colorsChanged && ev.posed && !tinted && !ev.animKeyTinted && e.draw->opacity() == 1.0f && !e.draw->hiddenByFade() && !ev.fadeHidden)
 			{
 				if (entryXfChanged && ev.instance >= 0)
 				{
@@ -1972,7 +1985,8 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 				continue;
 			}
 			e.draw->poseView(f);
-			const bool shown = f.model && !e.moduleHidden && !fogHidden;
+			const bool shown = f.model && !e.moduleHidden && !fogHidden && !e.draw->hiddenByFade(); // PORT-49: RW 0x4B544F / 0x4B542D hide the model
+			ev.fadeHidden = e.draw->hiddenByFade(); // PORT-49: leaving this state must make the instance again (the hidden branch has none)
 			// Donor W3DModelDrawRva000B8FA1.cpp (BFME2 0x4B8FA1): ordinary
 			// owners use kind 1; hero custom palettes keep precedence. Bake before
 			// filtering, using the existing RW 0x531C77 texture recolour routine.
@@ -2195,7 +2209,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 				applyTires();
 				applyFogLook();
 				// PROJ-2: the drawable's fade (a launched stone hidden for its InvisibleFrames, then faded in: GameClient/DrawableFade)
-				const float opacity = StealthLook::drawOpacity(d->drawOpacity(), d->stealth()); // lane STEALTHLOOK-1: the friend's invisibility pulse (+0xB4)
+				const float opacity = StealthLook::drawOpacity(d->drawOpacity(), d->stealth()) * e.draw->opacity(); // PORT-49: the draw's camera / animation fade (RW 0x4B5471) times the stealth pulse (+0xB4)
 				if (opacity != ev.opacity)
 				{
 					dyn->set_instance_opacity(ev.instance, opacity);
@@ -7557,6 +7571,12 @@ void GameWorld::set_effects_lod(int64_t lod)
 	{
 		host->set_effects_lod(lod);
 	}
+}
+
+void GameWorld::setCameraFadeEye(const Coord3D &eye)
+{
+	m_cameraFadeEye = eye;
+	m_cameraFadeEyeValid = true;
 }
 
 Node3D *GameWorld::get_glow_host() const

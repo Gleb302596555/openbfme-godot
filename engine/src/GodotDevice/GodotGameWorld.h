@@ -571,6 +571,9 @@ public:
 	// lane GLOW-1 (S-5231): the static detail level's EffectsLOD (GameLODManager::state().effectsLOD, 0 VeryLow .. 4 UltraHigh): VeryLow and Low draw neither the map's
 	// colour grade nor the glow (RW 0x48789F). Applied at once to the loaded game's glow host and to the ones loaded later.
 	void set_effects_lod(int64_t lod);
+	// PORT-49: the displayed tactical camera eye (SAGE axes) for the model draws' camera distance fade (RW 0x4B5301..0x4B5325).
+	// The HUD's applyCamera sets it every render frame; the drawables read the last displayed eye through DrawServices::cameraPosition.
+	void setCameraFadeEye(const Coord3D &eye);
 	// the glow pass host of the loaded game (null without one): get_glow_stats / get_choice
 	Node3D *get_glow_host() const;
 	// lane OPTS-2: the texture reduction of the static detail level for the W3D textures loaded from now on (W3DMaterialFactory::Set_Texture_Reduction)
@@ -758,7 +761,8 @@ private:
 		bool streakKnown = false;
 		bool posed = false;
 		float offsetZ = 0.0f;           ///< RENDER-2: the construction offset the instance's transform carries (DrawEntry::constructionOffsetZ)
-		float opacity = 1.0f;           ///< PROJ-2: the drawable's fade the instance shows (Drawable::drawOpacity)
+		float opacity = 1.0f;           ///< PROJ-2: the drawable's fade times the model draw's fade the instance shows
+		bool fadeHidden = false;        ///< PORT-49: the model draw's hidden-by-fade state the instance was made with; leaving it rebuilds the instance
 		unsigned tireChanges = 0xFFFFFFFFu; ///< lane COMBAT-4: DrawEntry::tireChanges the instance's bone spins show
 		int64_t tireInstance = -1;          ///< the instance they were handed to
 		bool fogLook = false;               ///< lane VISUAL-2: the instance is drawn with the fogged light (a last-seen object in the fog)
@@ -1079,6 +1083,8 @@ private:
 	ObjectID m_glowHost;                       ///< lane GLOW-1: the loaded game's glow pass host (a child, freed by clear_scene)
 	ObjectID m_scorchLayer;                    ///< the terrain's scorch layer (Terrain/Scorches, freed with the terrain), looked up per frame
 	int64_t m_effectsLod = 4;                  ///< lane GLOW-1: GameLODManager::kDetectedLevel until the options say otherwise
+	Coord3D m_cameraFadeEye{};                 ///< PORT-49: the last displayed eye the HUD gave (RW 0xDE447C vslot 0x11C)
+	bool m_cameraFadeEyeValid = false;         ///< PORT-49: false until applyCamera runs; the fade does not guess a camera
 	std::unique_ptr<LiveFX> m_liveFX;          ///< destroyed before m_game (it is the logic's FX sink and the drawables' FX host)
 	std::unique_ptr<GodotWeather> m_weather;   ///< lane WEATHER-1: the map's weather (snow / rain, darkness, lightning, its sound); destroyed before m_game
 	// lane SPELL-4: the BuffNugget buffs (GameClient/BuffDraw.h) as instances of the live objects' instancer, by TBuff serial
