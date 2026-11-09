@@ -9,6 +9,7 @@
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/ExperienceLevels.h"
 #include "GameLogic/Object/ExperienceTracker.h"
+#include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/Module/GarrisonContain.h"
 #include "GameLogic/Object/Contain/GarrisonContainRuntime.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
@@ -143,6 +144,8 @@ TEST_CASE("PORT-55 CanAlwaysEnter requires the container status and bypasses fil
 TEST_CASE("PORT-55 actual enter command reaches ordinary citadel slaughter without an AI or command special case")
 {
     CombatWorld w(kData.c_str());
+    GarrisonCommands::registerHandlers(w.dispatcher);
+    const auto enters = GarrisonCommands::stats().enters;
     Object *house = w.unit("P55Citadel", 'A', 400, 400);
     Object *troop = w.unit("P55Troop", 'A', 330, 400);
     const ObjectID id = troop->getID();
@@ -154,6 +157,7 @@ TEST_CASE("PORT-55 actual enter command reaches ordinary citadel slaughter witho
     w.send(message);
     w.frames(100); // enough travel frames for the synthetic 70-unit walk
     CHECK(w.byId(id) == nullptr);
+    CHECK(GarrisonCommands::stats().enters - enters == 1);
     CHECK(w.cash('A') - before == 5);
     CHECK(w.logic->economy().incomeLog().size() == 1);
 }
@@ -161,9 +165,11 @@ TEST_CASE("PORT-55 actual enter command reaches ordinary citadel slaughter witho
 TEST_CASE("PORT-55 ring callback survives shared base entry and a pending exit whole-game save4 round trip")
 {
     CombatWorld w(kData.c_str());
+    w.logic->partition().setRegion(0.0f, 0.0f, 1000.0f, 1000.0f);
     Object *house = w.unit("P55Citadel", 'A', 400, 400);
     Object *carrier = w.unit("P55Troop", 'A', 350, 400);
     Object *token = w.unit("P55Token", 'A', 350, 400);
+    w.frames(1); // partition dirty entries link at the frame update, before a closest-object query
     const ObjectID tokenID = token->getID(), carrierID = carrier->getID(), houseID = house->getID();
     carrier->setStatus((unsigned)CombatNames::status("HOLDING_THE_RING"), true);
     const int before = w.cash('A');
@@ -298,6 +304,8 @@ TEST_CASE("PORT-55 zero-percent capture keeps transfer accounting through save4 
 TEST_CASE("PORT-55 enter command sends a whole horde through the shared member callback")
 {
     CombatWorld w(kData.c_str());
+    GarrisonCommands::registerHandlers(w.dispatcher);
+    const auto enters = GarrisonCommands::stats().enters;
     Object *house = w.unit("P55Citadel", 'A', 400, 400);
     Object *parent = w.unit("P55Horde", 'A', 300, 400);
     const ObjectID parentID = parent->getID();
@@ -309,6 +317,7 @@ TEST_CASE("PORT-55 enter command sends a whole horde through the shared member c
     w.send(enter);
     w.frames(150); // bounded pathfinding wait, not an asserted retail travel time
     CHECK(w.byId(parentID) == nullptr);
+    CHECK(GarrisonCommands::stats().enters - enters == 1);
     CHECK(w.cash('A') - before == 10);
     CHECK(w.logic->economy().incomeLog().size() == 2);
 }
