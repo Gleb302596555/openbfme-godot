@@ -14,4 +14,5 @@ set(OPENBFME_GARRISON_TESTS
     tests/test_hud_garrison_retail.cpp
     tests/test_hud_garrison_input.cpp
     tests/test_garrisonweapon1.cpp # lane GARRISONWEAPON-1
+    tests/test_local_23.cpp # issue #178: ProductionQueueHordeContain
 )
