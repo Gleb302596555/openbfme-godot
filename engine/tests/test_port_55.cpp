@@ -92,7 +92,7 @@ TEST_CASE("PORT-55 ordinary citadel entry slaughters once and pays ceil of Bount
     CHECK(c.getContainCount() == 0);
     CHECK(w.cash('A') - before == 5); // RW: ceil(17 * .25) = 5, not 176 or 250
     CHECK(events == 1);
-    CHECK(w.logic->economy().incomeLog().size() == 1);
+    REQUIRE(w.logic->economy().incomeLog().size() == 1);
     CHECK(w.logic->economy().incomeLog().back().amount == 5);
     w.frames(3);
     CHECK(w.byId(id) == nullptr);
