@@ -40,6 +40,11 @@ BFME2-донор (`Code/GameEngine/Source/GameLogic/Object/Upgrade/SpellRecharge
 - `mov eax,[esi+0x13C]; sub eax,[esi+0x138]; sar eax,2; dec eax` — последний индекс вектора; `cmp ecx,eax; jl` (RW 0x8BA03A) — индекс не больше него.
 - `fld dword [ecx+eax*4]` из +0x138; `call RW 0x6AAAEE` — `movss [player+0x718], xmm0` (скидка на перезарядку).
 
+Читатели: RW 0x6AAAD2 вызывается только из RW 0x896EC7 (`SpecialPowerModule::startPowerRecharge`, `fld [player+0x718]; fadd 1.0`) и RW 0x99156C
+(способности героев / осадные). RW 0x896EBA проверяет бит 5 флага шаблона силы (`RESPECT_RECHARGE_TIME_DISCOUNT`), поэтому скидку берут только силы с
+этим флагом: в данных мода книга заклинаний орков (MordorSpellBook) его несёт, книга эльфов Арнора — нет; скидка видна на силах с флагом.
+INFERENCE (имя флага): имя бита взято из донора BFME2 (`SpecialPower.h`), в RW символы не сохранены.
+
 Тот же зажим дословно в RW 0x8BA05E (onCapture, у старого владельца RW 0x8BA073 .. 0x8BA0C4 с `dec RW 0x6AAAE7`, у нового RW 0x8BA0D2 .. 0x8BA123 с
 `inc RW 0x6AAAE0`), в RW 0x8BA1A2 (хвост RW 0x8B9F9A) и в RW 0x8BA139. Функция — единственный писатель Player + 0x718 во всём game.dat: xref RW 0x6AAAEE
 даёт RW 0x8BA055, 0x8BA0C4, 0x8BA123, 0x8BA1A2; читатель RW 0x6AAAD2 вызывается только из RW 0x896EC7 (`SpecialPowerModule::startPowerRecharge`,

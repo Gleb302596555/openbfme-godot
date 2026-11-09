@@ -111,72 +111,96 @@ TEST_CASE("PORT-65 recharge: an applied SpellRechargeModifierUpgrade shortens th
 	Port65World w;
 	Player *alice = w.players.findPlayerWithName("Alice");
 	Player *bob = w.players.findPlayerWithName("Bob");
-	Object *library = w.make("ElvenLibrary", w.teamOf("Alice"));
+	// one module per object: a mux that executed does not upgrade again (RW 0x8D26F3), so the count grows with the buildings, as the mod's (a library and a hero)
+	Object *library1 = w.make("ElvenLibrary", w.teamOf("Alice"));
 	Object *power = w.make("QuickPower", w.teamOf("Alice"));
-	REQUIRE(library->findModule("SpellRechargeModifierUpgrade") != nullptr);
-	CHECK(alice->science().rechargeDiscount() == 0.0f);           // RW 0x6B045B
-	CHECK(alice->science().spellRechargeModifierCount() == 0);    // RW 0x6B0463
+	REQUIRE(library1->findModule("SpellRechargeModifierUpgrade") != nullptr);
+	CHECK(alice->science().rechargeDiscount() == 0.0f);        // RW 0x6B045B
+	CHECK(alice->science().spellRechargeModifierCount() == 0); // RW 0x6B0463
+	// ReloadTime 10000 ms is 50 logic frames (RW parseDurationUnsignedInt); the discount adds 1.0 and the reload is scaled (RW 0x896EC7)
 	const unsigned plain = rechargeOf(w, power);
-	REQUIRE(plain == 10000u); // ReloadTime with a discount of 0
+	REQUIRE(plain == 50u);
 
 	// Upgrade_LibraryBook1 completes for Alice: Object::updateUpgradeModules -> the mux -> the implementation
 	alice->addCompletedUpgrade("Upgrade_LibraryBook1");
-	library->updateUpgradeModules();
+	library1->updateUpgradeModules();
 	CHECK(alice->science().spellRechargeModifierCount() == 1);
-	CHECK(alice->science().rechargeDiscount() == (float)(-25.0 * (double)0.01f));
-	CHECK(bob->science().rechargeDiscount() == 0.0f); // the player's, not the object's
-	CHECK(rechargeOf(w, power) == (unsigned)((double)plain * (1.0 + (double)(float)(-25.0 * (double)0.01f)))); // 7500
+	CHECK(alice->science().rechargeDiscount() == (float)(-25.0 * (double)0.01f)); // the vector at index 0
+	CHECK(bob->science().rechargeDiscount() == 0.0f);                              // the player's, not the object's
+	CHECK(rechargeOf(w, power) == 37u);                                            // 50 * 0.75 = 37.5, truncated (RW 0x896EFC)
 
-	alice->addCompletedUpgrade("Upgrade_LibraryBook2");
-	library->updateUpgradeModules();
+	// a second library's own module: the player's count picks the next percentage (RW 0x8BA018 .. 0x8BA03A)
+	Object *library2 = w.make("ElvenLibrary", w.teamOf("Alice"));
+	CHECK(library2->findModule("SpellRechargeModifierUpgrade") != nullptr);
+	library2->updateUpgradeModules();
 	CHECK(alice->science().spellRechargeModifierCount() == 2);
 	CHECK(alice->science().rechargeDiscount() == (float)(-50.0 * (double)0.01f));
-	CHECK(rechargeOf(w, power) == (unsigned)((double)plain * (1.0 + (double)(float)(-50.0 * (double)0.01f)))); // 5000
+	CHECK(rechargeOf(w, power) == 25u); // 50 * 0.5
 
-	library->removeUpgrade(TheUpgradeCenter->findUpgrade("Upgrade_LibraryBook2"));
+	// the module's removal (RW 0x8B9FE0): the count drops and the discount returns to the entry of the new count
+	auto *second = dynamic_cast<SpellRechargeModifierUpgrade *>(library2->findModule("SpellRechargeModifierUpgrade"));
+	REQUIRE(second != nullptr);
+	// the direct path of RW 0x8B9FE0 (as Economy's CostModifier tests take the removal): Object::removeUpgrade clears the mux first, and this
+	// removal, like RW's, only runs for an executed upgrade
+	second->takeUpgrade();
 	CHECK(alice->science().spellRechargeModifierCount() == 1);
 	CHECK(alice->science().rechargeDiscount() == (float)(-25.0 * (double)0.01f));
-	library->removeUpgrade(TheUpgradeCenter->findUpgrade("Upgrade_LibraryBook1"));
+	CHECK(rechargeOf(w, power) == 37u);
+	auto *first = dynamic_cast<SpellRechargeModifierUpgrade *>(library1->findModule("SpellRechargeModifierUpgrade"));
+	REQUIRE(first != nullptr);
+	first->takeUpgrade();
 	CHECK(alice->science().spellRechargeModifierCount() == 0);
-	CHECK(alice->science().rechargeDiscount() == (float)(-25.0 * (double)0.01f)); // the index stays 0 (RW 0x8BA018)
+	// RW 0x8BA018 keeps the index at 0 for a count of 0 as well: the first percentage stays applied (retail's clamp, not a reset)
+	CHECK(alice->science().rechargeDiscount() == (float)(-25.0 * (double)0.01f));
+	CHECK(rechargeOf(w, power) == 37u);
 }
 
-TEST_CASE("PORT-65 neighbour: StartsActive, a capture and an uncompleted upgrade (RW 0x8B9FB6, RW 0x8BA05E)")
+TEST_CASE("PORT-65 neighbour: StartsActive and a capture (RW 0x8B9FB6, RW 0x8BA05E)")
 {
 	Port65World w;
 	Player *alice = w.players.findPlayerWithName("Alice");
 	Player *bob = w.players.findPlayerWithName("Bob");
-	Object *erestor = w.make("Erestor", w.teamOf("Alice")); // StartsActive: onBuildComplete runs it
-	CHECK(alice->science().spellRechargeModifierCount() == 1);
-	CHECK(alice->science().rechargeDiscount() == (float)(-10.0 * (double)0.01f));
+	Object *erestor = w.make("Erestor", w.teamOf("Alice"), INVALID_ID, false); // not complete yet: StartsActive acts at the build's completion
 	auto *module = dynamic_cast<SpellRechargeModifierUpgrade *>(erestor->findModule("SpellRechargeModifierUpgrade"));
 	REQUIRE(module != nullptr);
-	CHECK(module->isAlreadyUpgraded());
-	CHECK(module->friend_flag20());
+	CHECK(alice->science().spellRechargeModifierCount() == 0);
+	erestor->friend_onBuildComplete(); // the create interface's slot 1 (RW 0x68D252)
+	CHECK(alice->science().spellRechargeModifierCount() == 1);
+	CHECK(alice->science().rechargeDiscount() == (float)(-10.0 * (double)0.01f)); // the index 0 of the count 1
+	CHECK(module->isAlreadyUpgraded());                                            // marked executed in the same function
+	CHECK(module->friend_flag20());                                                // RW 0x8B9FDA
+	// the capture (RW 0x8BA05E): no executed test, the old owner loses one, the new one gains one
 	erestor->setTeam(w.teamOf("Bob"));
 	CHECK(alice->science().spellRechargeModifierCount() == 0);
 	CHECK(bob->science().spellRechargeModifierCount() == 1);
 	CHECK(bob->science().rechargeDiscount() == (float)(-10.0 * (double)0.01f));
+	CHECK(module->isAlreadyUpgraded());
 }
 
 TEST_CASE("PORT-65 state: the counter is player state and travels in the snapshot (RW 0x8B9D39)")
 {
 	Port65World w;
 	Player *alice = w.players.findPlayerWithName("Alice");
-	Object *library = w.make("ElvenLibrary", w.teamOf("Alice"));
+	Object *library1 = w.make("ElvenLibrary", w.teamOf("Alice"));
 	const std::uint32_t before = w.logic->computeStateHash();
 	alice->addCompletedUpgrade("Upgrade_LibraryBook1");
-	library->updateUpgradeModules();
+	library1->updateUpgradeModules();
 	CHECK(w.logic->computeStateHash() != before);
 	std::string error;
 	std::vector<std::uint8_t> saved;
 	REQUIRE_MESSAGE(w.logic->saveSnapshot(saved, &error), error);
+	// the world drifts: a second library
 	alice->addCompletedUpgrade("Upgrade_LibraryBook2");
-	library->updateUpgradeModules();
+	Object *library2 = w.make("ElvenLibrary", w.teamOf("Alice"));
+	library2->updateUpgradeModules();
 	REQUIRE(alice->science().spellRechargeModifierCount() == 2);
 	REQUIRE_MESSAGE(w.logic->loadSnapshot(saved, &error), error);
 	alice = w.players.findPlayerWithName("Alice");
 	REQUIRE(alice != nullptr);
 	CHECK(alice->science().spellRechargeModifierCount() == 1);
 	CHECK(alice->science().rechargeDiscount() == (float)(-25.0 * (double)0.01f));
+	// a second save of the loaded game is byte-identical: nothing of the module hides outside its block
+	std::vector<std::uint8_t> again;
+	REQUIRE_MESSAGE(w.logic->saveSnapshot(again, &error), error);
+	CHECK(again == saved);
 }
