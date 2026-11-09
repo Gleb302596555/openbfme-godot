@@ -822,6 +822,26 @@ void GameLogicSettings::crc(StateHasher &h) const
 	h.addU32(maxNumMembersToForceToImmediatelyEnter);
 	h.addU32(waitToForceMemberToEnterDelay);
 	h.addI32(maxTunnelCapacity); // lane GARRISON-2
+	// PORT-66: the auto particle systems' seven entries are a simulation input (the bodies name their bones and templates by them, RW 0x8C1E4E); hashed as
+	// one block so a game with retail data keeps its hash while data that names them (Ennorath's gamedata.ini) does not
+	{
+		bool anyAutoParticle = false;
+		const AutoBodyParticles *autoParticles[7] = { &autoFireSmall, &autoFireMedium, &autoFireLarge, &autoSmokeSmall, &autoSmokeMedium, &autoSmokeLarge, &autoAflame };
+		for (const AutoBodyParticles *a : autoParticles)
+		{
+			anyAutoParticle = anyAutoParticle || !a->prefix.empty() || !a->system.empty() || a->maxSystems != 0;
+		}
+		h.addBool(anyAutoParticle);
+		if (anyAutoParticle)
+		{
+			for (const AutoBodyParticles *a : autoParticles)
+			{
+				h.addString(a->prefix);
+				h.addString(a->system);
+				h.addI32(a->maxSystems);
+			}
+		}
+	}
 	h.addU32((std::uint32_t)standardPublicBones.size()); // RENDER-2: the bones feed the launch bone answer (RW 0x4BD9A7)
 	for (const std::string &b : standardPublicBones)
 	{
