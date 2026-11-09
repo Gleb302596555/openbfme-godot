@@ -139,8 +139,9 @@ public:
 	// a model condition bit of the object changed (ZH Object::setModelConditionFlags -> Drawable::setModelConditionFlags)
 	virtual void modelConditionChanged(Object &obj, int bit, bool on) { (void)obj; (void)bit; (void)on; }
 	// lane ANIM-1, RW 0x67449C(0): the drawable's changed flags reach its draw modules now (see Object::flushDrawableModelConditions); without this call they
-	// reach them once at the end of the logic frame (RW 0x6759C4)
-	virtual void flushModelConditions(Object &obj) { (void)obj; }
+	// reach them once at the end of the logic frame (RW 0x6759C4). `immediate` is RW 0x67449C's argument: true flushes a drawable that is not dirty too
+	// (the OCL's CreateObject with InheritAttributesFromSource, RW 0x5F13C8, lane PORT-79)
+	virtual void flushModelConditions(Object &obj, bool immediate = false) { (void)obj; (void)immediate; }
 	// RW 0x6789B4 Drawable::showModule: true when one of the template's draw modules has the tag (the drawable makes every draw module of its
 	// template, S-114, so the template answers exactly what the drawable would); the visibility change goes to the client
 	virtual bool showModule(Object &obj, const std::string &tag, bool visible, bool permanent) { (void)obj; (void)tag; (void)visible; (void)permanent; return false; }

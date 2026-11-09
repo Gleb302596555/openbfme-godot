@@ -43,7 +43,13 @@ struct FXEvent
 		// system at `position` in the primary's model space (RW 0x5F2F2D) attached to the primary object (RW 0x5F32D7), kept under (primary, slot).
 		// DESTROY: the system kept under (primary, slot), if any, is destroyed (RW 0x5F5379) and forgotten
 		ATTACH_PARTICLE_SYSTEM,
-		DESTROY_PARTICLE_SYSTEM
+		DESTROY_PARTICLE_SYSTEM,
+		// lane PORT-79, the ObjectCreationList's CreateObject nugget (RW 0x5F1DC5, inside the per-object part RW 0x5F1B5A): `fxList` holds the nugget's
+		// ParticleSystem (+ 0x24) template name. createParticleSystem(template, true) (RW 0x5F526A), the system attached to the made object (RW 0x5F32D7,
+		// the object the nugget just made; no setPosition: the attachment's own position comes from the object's drawable). NOT kept: the nugget drops the
+		// system's handle (BFME2 1.06 GenericObjectCreationNugget::doStuffToObj discards the returned pointer), so nothing here keeps its ID either.
+		// Its position is the read-only copy the capture carries (the event record is not the simulation's state)
+		OBJECT_PARTICLE_SYSTEM
 	};
 	Kind kind = OBJECT_FX;
 	const char *site = "";          ///< the call site ("FireFX", "FXListDie", "SlowDeath INITIAL", ...)
