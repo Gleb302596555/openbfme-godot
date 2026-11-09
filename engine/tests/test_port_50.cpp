@@ -196,7 +196,7 @@ TEST_CASE("PORT-50 module data: ParticlesAttachedToAnimatedBones is the gate of 
 	Harness no;
 	W3DModelDrawModuleData *explicitNo = no.parse(moduleBody("ParticlesAttachedToAnimatedBones = No\n"));
 	REQUIRE(explicitNo);
-	CHECK_FALSE(ParticleBoneFollow::wantsFollow(*explicitNo)); // the mod's one `No` (Ennorath baseline: 143 objects on, 1 off)
+	CHECK_FALSE(ParticleBoneFollow::wantsFollow(*explicitNo)); // the mod's one `No` (Ennorath 1.9.8.2: 141 object blocks on, 142 lines - ArnorTrebuchetFortress sets it twice - 1 off)
 
 	// the second gate field of the same table row family: ParticleBonesCheckDrawable (+0x12A, RW 0x4B6DDF) is parse-only in the port
 	Harness check;
