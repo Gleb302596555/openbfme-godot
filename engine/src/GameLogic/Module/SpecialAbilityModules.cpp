@@ -57,6 +57,32 @@
 #include <initializer_list>
 #include <stdexcept>
 
+// RW 0x8B1142 (ToggleMountedSpecialAbilityUpdate vtable 0xC6BDA0 slot 0x50) and its twin RW 0x8B4455
+// (SpecialDisguiseUpdate vtable 0xC6CF88 slot 0x50): while the base handler RW 0x851E9F still has packing frames,
+// UNPACKING (state 2) goes 1.0 -> OpacityTarget over UnpackTime (data + 0x88), PACKING goes OpacityTarget -> 1.0
+// over PackTime (data + 0x84). The fraction is 1 - framesLeft / total under x87 PC24 (RW 0x8B119F .. 0x8B11D7
+// / RW 0x8B44B2 .. 0x8B44EA), then (to - from) * fraction + from, rounded by fstp dword. Only the drawable's
+// opacity is written (RW 0x8B11F0 / RW 0x8B4513: drawable + 0xB0); no module-side float state belongs to RW 0x8B1142.
+static float packingFadeOpacity(float opacityTarget, int packingState, unsigned framesLeft, unsigned unpackFrames, unsigned packFrames)
+{
+	float from, to;
+	unsigned total;
+	if (packingState == 2) // RW 0x8B115B / 0x8B4461: state 2 = UNPACKING
+	{
+		from = 1.0f;                 // RW 0x8B1164 / 0x8B4477: DAT 0xBD1908
+		to = opacityTarget;          // RW 0x8B1177 / 0x8B448A: data + 0xD0 / + 0xD4
+		total = unpackFrames;        // RW 0x8B116C / 0x8B447F: data + 0x88
+	}
+	else // RW 0x8B1181 / 0x8B4494: PACKING
+	{
+		from = opacityTarget;        // RW 0x8B1181 / 0x8B4494
+		to = 1.0f;                   // RW 0x8B1194 / 0x8B44A7
+		total = packFrames;          // RW 0x8B1189 / 0x8B449C: data + 0x84
+	}
+	const double q = SimMath::pc24SubW(1.0, SimMath::pc24DivW(SimMath::fildU32(framesLeft), SimMath::fildU32(total)));
+	return SimMath::fstpDword(SimMath::pc24AddW(SimMath::pc24MulW(SimMath::pc24SubW((double)to, (double)from), q), (double)from));
+}
+
 namespace
 {
 // the indices the binary pushes (names: GameLogic/BitFlagNames.cpp)
@@ -2256,6 +2282,28 @@ ToggleMountedSpecialAbilityUpdate::ToggleMountedSpecialAbilityUpdate(Thing *thin
 {
 }
 
+// RW 0x8B1142 (vtable 0xC6BDA0 slot 0x50, called by SpecialAbilityUpdate::update at RW 0x854F7E): while the
+// base handler RW 0x851E9F still has packing frames, the drawable + 0xB0 is set to the PC24 interpolation
+// between 1.0 and OpacityTarget (data + 0xD0). RW 0x8B1155: on the last unpacking frame the base returns false
+// and there is no opacity write. RW 0x8B11E3 / 0x8B11F0: the value goes straight to the object's drawable.
+// INFERENCE (PROCESS.md 15.1): RW 0x8B11F0 / 0x8B1238 / 0x8B1287 write drawable + 0xB0 directly; the port's
+// simulation side has no drawable, so the existing ObjectClientHooks::setDrawableOpacity path delivers all
+// three writes (ClientEvent::SET_OPACITY -> Drawable::setDrawableOpacity). The owner checks this in game.
+bool ToggleMountedSpecialAbilityUpdate::handlePackingProcessing()
+{
+	const bool busy = SpecialAbilityUpdate::handlePackingProcessing();
+	if (!busy)
+	{
+		return busy; // RW 0x8B1153 .. 0x8B1155
+	}
+	const float opacity = packingFadeOpacity(m_tm->m_opacityTarget, m_packingState, m_packFramesLeft, m_tm->m_unpackFrames, m_tm->m_packFrames);
+	if (ObjectClientHooks *client = getObject()->clientHooks())
+	{
+		client->setDrawableOpacity(*getObject(), opacity); // RW 0x8B11F0 (client event SET_OPACITY)
+	}
+	return busy; // RW 0x8B11F8: the base busy flag is returned unchanged
+}
+
 // RW 0x8B11FE
 void ToggleMountedSpecialAbilityUpdate::onBuildComplete()
 {
@@ -2324,8 +2372,11 @@ void ToggleMountedSpecialAbilityUpdate::initiateIntentToDoSpecialPower(const Spe
 // RW 0x8B125F
 void ToggleMountedSpecialAbilityUpdate::finishAfterPacking()
 {
-	SpecialAbilityUpdate::finishAfterPacking();
-	// RW 0x8B126B: the drawable's opacity back to 1.0 (client)
+	SpecialAbilityUpdate::finishAfterPacking(); // RW 0x8B1263: base 0x8549E7
+	if (ObjectClientHooks *client = getObject()->clientHooks())
+	{
+		client->setDrawableOpacity(*getObject(), 1.0f); // RW 0x8B126B .. 0x8B1287: drawable + 0xB0 = 1.0
+	}
 	getObject()->setStatus(kStatusIgnoreAI, false); // RW 0x62684D(0x4A, 0)
 	if (m_replaceAfterPacking && !m_tm->m_mountedTemplate.empty())
 	{
@@ -2339,9 +2390,12 @@ void ToggleMountedSpecialAbilityUpdate::finishAfterPacking()
 // RW 0x8B1219
 void ToggleMountedSpecialAbilityUpdate::finishAbility(bool ownerDying, bool aborted)
 {
-	// RW 0x8B121C: the drawable's opacity back to 1.0 (client)
+	if (ObjectClientHooks *client = getObject()->clientHooks())
+	{
+		client->setDrawableOpacity(*getObject(), 1.0f); // RW 0x8B121C .. 0x8B1238: drawable + 0xB0 = 1.0
+	}
 	getObject()->setStatus(kStatusIgnoreAI, false);
-	SpecialAbilityUpdate::finishAbility(ownerDying, aborted);
+	SpecialAbilityUpdate::finishAbility(ownerDying, aborted); // RW 0x8B1240: base 0x8530BA
 }
 
 void ToggleMountedSpecialAbilityUpdate::crc(StateHasher &h) const
@@ -2810,22 +2864,7 @@ bool SpecialDisguiseUpdate::handlePackingProcessing()
 	{
 		return busy;
 	}
-	float from, to;
-	unsigned total;
-	if (m_packingState == 2)
-	{
-		from = 1.0f;
-		to = m_sd->m_opacityTarget;
-		total = m_sd->m_unpackFrames; // data + 0x88
-	}
-	else
-	{
-		from = m_sd->m_opacityTarget;
-		to = 1.0f;
-		total = m_sd->m_packFrames; // data + 0x84
-	}
-	const double q = SimMath::pc24SubW(1.0, SimMath::pc24DivW(SimMath::fildU32(m_packFramesLeft), SimMath::fildU32(total)));
-	m_opacity = SimMath::fstpDword(SimMath::pc24AddW(SimMath::pc24MulW(SimMath::pc24SubW((double)to, (double)from), q), (double)from));
+	m_opacity = packingFadeOpacity(m_sd->m_opacityTarget, m_packingState, m_packFramesLeft, m_sd->m_unpackFrames, m_sd->m_packFrames);
 	// RW 0x8B44F0: the drawable's opacity (+ 0xB0) follows (client)
 	return busy;
 }
@@ -2908,8 +2947,8 @@ std::vector<std::string> SpecialAbilityModules::stopLines()
 		"buildObjectNow, name, experience, health, team, SynchronizeTimerOnSpecialPower; the old object destroyed after its packing, RW 0x8B1E9A) run (lane "
 		"HERO-2); lane SUMMON-1: the initiate RW 0x8B1FDA (a current locomotor of speed 0 refuses, else IGNORE_AI_COMMAND) and SummonReplacementSpecialAbilityUpdate "
 		"(the Thrall Master: RW 0x8B228C, the same replacement over its own data) run; not ported: the replacement's + 0x488 (RW 0x5EA74E), the AI group (RW "
-		"0x68B36F -> 0x6682B1), the script engine's name record (RW 0x60A1D5) and the last AI command given again (RW 0x66D7C9), the riders' eject on dismount, the "
-		"opacity fade (client): counted",
+		"0x68B36F -> 0x6682B1), the script engine's name record (RW 0x60A1D5) and the last AI command given again (RW 0x66D7C9), the riders' eject on dismount: "
+		"counted; the opacity fade (client) runs since PORT-46 (RW 0x8B1142 / 0x8B1219 / 0x8B125F)",
 		"[S-863] the retail ability run (test_hero_retail.cpp checkAbilities) reports, per faction, the abilities whose effect it cannot see; Screech, the fell beasts' landing and the Horn of Gondor are measured since lane HERO-2. Explained by the run's conditions: Train Archers (LevelGrantSpecialPower: none of its AcceptanceFilter's archers is near), Glorfindel's Wind Rider and the Goblin King's Poisoned Stinger (RequiredConditions MOUNTED: cast unmounted, refused as retail refuses them), Thranduil's Move Unseen (no ally in its radius), Gandalf's Part the Heavens (OCLSpecialPower: the OCL's objects are not measured), the passive / fake leadership buttons, the level attack (S-1223), ActivateModuleSpecialPower's dummy power, Sharku's Man-Eater Drop (FlingPassengerSpecialAbilityUpdate with TransportContain: lane GARRISON-2). Explained too: Faramir's mount toggle in the faction run (he is attacking at both triggers and the retail idle gate, RW 0x8B1690, the AI's isIdle, refuses the mount; alone and idle he mounts)",
 	};
 }
