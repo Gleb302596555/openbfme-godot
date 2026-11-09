@@ -22,9 +22,9 @@
 //     are not tied to the names): stop S-149.
 // RecoveryTime is read by attemptDamage exactly where RW 0x8C425D does and handed to the empty RW 0x9F3A3C (see scheduleRecovery below): retail keeps no
 // state from it, and neither does the port.
-// Not ported: the transition times' consumers, DodgePercent, the Grab* fields (rock throwing), the attribute modifiers, the
+// Not ported: the transition times' consumers, DodgePercent, the attribute modifiers, the
 // burning death behaviour, CheerRadius: the fields are parsed and kept (the FX names unresolved: the store is the client's, stop S-149);
-// nothing acts on them yet.
+// PORT-78 reads the Grab fields on the existing vendor grab path (RW 0x85415C).
 // DamageCreationList (PORT-45): the parser RW 0x8C3F1F keeps the three tokens as a 12-byte record {OCL, FXTrigger index, death-side index};
 // doDamageFX creates the record whose FXTrigger matched the hit's and whose death side is 0 (RW 0x8C2F75 .. 0x8C2FB8). The other reader,
 // the structure's damage-side branch (RW 0x8C2EBD .. 0x8C2EEF, death sides 1-4 for FRONT / RIGHT / BACK / LEFT destroyed), has no ported

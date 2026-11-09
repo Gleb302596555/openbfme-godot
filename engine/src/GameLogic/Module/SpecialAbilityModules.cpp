@@ -1546,7 +1546,7 @@ void SpecialAbilityUpdate::triggerAbilityEffect()
 // raised before). The first trigger, with the object's contain (+ 0x258; none: nothing): without a target object the tree at the target location within
 // 5.0 (RW 0xBDAE58, TheTerrainLogic RW 0x67F52B(loc, 5, 1, 1)) becomes a tree object (RW 0x68449B) that is the target: not ported (S-860, counted). A
 // CHUNK_VENDOR target of 0x28 or a ROCK_VENDOR target of 0x27 hands out its GrabObject (the body's slot 0x74, made by RW 0x6D165E, produced by the object
-// and contained) and is hurt (RW 0x697E50): not ported (S-860, counted). Any other target the contain accepts (slot 0x98(target, 1, 0)) leaves the horde
+// and contained) and is hurt (RW 0x697E50): ported in PORT-78. Any other target the contain accepts (slot 0x98(target, 1, 0)) leaves the horde
 // that holds it (the holder's horde interface slot 0x38) and is contained (slot 0x9C); a GRAB_AND_KILL target (template + 0x114 bit 3) shows PREPARING
 // (Object + 0x114 bit 31). The second trigger with a target: a SHRUBBERY target shows CLUB (+ 0x114 bit 27); a GRAB_AND_KILL one is let go (slot 0xA4(target,
 // 0)), PREPARING clears on the object and the target, the object shows the UnpackingVariation's PACKING_TYPE and the ability has no target (+ 0x7D)
@@ -3035,8 +3035,8 @@ std::vector<std::string> SpecialAbilityModules::stopLines()
 		"(0x1A; SPECIAL_INFANTRY_CAPTURE_BUILDING 0x1D runs: lane HERO-2, S-1225), "
 		"(SPECIAL_CHARGE_ATTACK 0x2A trigger / packing runs since PORT-5; the 0x20 disguise trigger RW 0x8544CD runs: lane STEALTH-2; SPECIAL_SCREECH 0x89, the "
 		"disguise cancels 0x84 / 0x85: lane HERO-2; the grab enums SPECIAL_GRAB_PASSENGER / SPECIAL_GRAB_CHUNK 0x27 / 0x28 run since lane MODCOMPAT-MOD1: the "
-		"object grab, its hold, release and eat), the grab of a tree (RW 0x68449B makes it an object) and of a ROCK_VENDOR / CHUNK_VENDOR (its GrabObject, RW "
-		"0x85415C), the 0x28 unpack model condition (RW 0x85384C), the special objects (SpecialObject: no retail use), ContactPointOverride: counted (the "
+		"object grab, its hold, release and eat; ROCK_VENDOR / CHUNK_VENDOR runs since PORT-78, RW 0x85415C), the grab of a tree (RW 0x68449B makes it an object), "
+		"the 0x28 unpack model condition (RW 0x85384C), the special objects (SpecialObject: no retail use), ContactPointOverride: counted (the "
 		"unit cost + 0x80 is paid since lane NECRODIE-1, RW 0x85521F; ApproachUntilMembersInRange + 0xC5 runs since PORT-58, RW 0x85213E .. 0x852171)",
 		"[S-861] ToggleMountedSpecialAbilityUpdate: the toggle, CancelDisguiseWhenDismounting and MountedTemplate (the replacement RW 0x8B140D: Construction::"
 		"buildObjectNow, name, experience, health, team, SynchronizeTimerOnSpecialPower; the old object destroyed after its packing, RW 0x8B1E9A) run (lane "
