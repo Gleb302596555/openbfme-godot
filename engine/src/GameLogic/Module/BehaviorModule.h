@@ -14,6 +14,7 @@
 #pragma once
 
 #include "Common/Module.h"
+#include "Common/INIDataTypes.h"
 #include "GameLogic/Module/EnvironmentActor.h"
 #include "GameLogic/ObjectTypes.h"
 
