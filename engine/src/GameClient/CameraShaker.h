@@ -22,6 +22,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstddef>
 #include <vector>
 
 struct CameraShakerFx

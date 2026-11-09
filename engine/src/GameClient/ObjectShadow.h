@@ -37,6 +37,7 @@
 #include <string>
 
 class Drawable;
+struct RenderObjPrototype;
 
 namespace ObjectShadow
 {
@@ -68,23 +69,31 @@ struct DecalShadowDescriptor
 	unsigned opacityEnd = 0;
 };
 
-// Returns whether the object/state casts a volume shadow map
-inline bool castsMap(const ThingTemplate *object, const W3DModelDrawModuleData *module, const ModelConditionInfo *state)
+// Returns whether the object/state casts a volume shadow map (or directional shadow map when useShadowMapping is true, RW 0x46FE84..0x47009F)
+inline bool castsMap(const ThingTemplate *object, const W3DModelDrawModuleData *module, const ModelConditionInfo *state, bool useShadowMapping = false)
 {
 	if (module && module->m_shadowForceDisable) return false;
-	if (state && state->hasShadow) return (state->shadow.type & MapMask) != 0;
+	const int mask = useShadowMapping ? (MapMask | (int)kDecalMask) : MapMask;
+	if (state && state->hasShadow) return (state->shadow.type & mask) != 0;
 	if (!object) return false;
 	const FieldValue *field = object->findField("Shadow");
 	const long long *bits = field ? std::get_if<long long>(field) : nullptr;
-	return bits && (*bits & MapMask) != 0;
+	return bits && (*bits & mask) != 0;
 }
+
+// Queries object-space bounding box extents (Extent.X, Extent.Y) of a model prototype (RW 0x50C01D)
+bool getModelBoundingBox(const RenderObjPrototype *proto, float &extentX, float &extentY);
 
 // Resolves decal shadow descriptor from template, module data, and condition state (RW 0x4C4EE0..0x4C5175)
 bool resolveDecalShadow(const ThingTemplate *tt, const W3DModelDrawModuleData *module, const ModelConditionInfo *state, DecalShadowDescriptor &out);
 
+// Evaluates decal shadow opacity curve for dynamic decals (RW 0x4B1BC6, RW 0x7323CE, RW 0x50B860)
+unsigned evaluateDecalOpacity(const DecalShadowDescriptor &desc, unsigned currentFrame, unsigned startFrame = 0, unsigned fadeOutStartFrame = ~0u);
+
 // Builds SelectionDecal for a live Drawable (respecting TOP20 #24 shadowsEnabled, shroud/stealth, rotation, house color). useShadowDecals is
 // TheGlobalData + 0x61 (UseShadowDecals after the static LOD apply, RW 0x601C62: cleared when UseShadowMapping is set): addShadow's gate RW 0x50BF7B
 bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, bool useShadowDecals,
-	const std::function<void(float &, float &)> &fallbackSize = nullptr);
+	const std::function<void(float &, float &)> &fallbackSize = nullptr,
+	unsigned currentFrame = 0);
 
 } // namespace ObjectShadow

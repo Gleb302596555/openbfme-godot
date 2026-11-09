@@ -22,6 +22,7 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/Drawable.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.h"
+#include "Libraries/WWVegas/WW3D2/assetmgr.h"
 
 #include <algorithm>
 #include <cmath>
@@ -71,6 +72,84 @@ std::string readString(const ThingTemplate *tt, const char *name, const std::str
 }
 } // namespace
 
+bool getModelBoundingBox(const RenderObjPrototype *proto, float &extentX, float &extentY)
+{
+	if (!proto || proto->SubObjects.empty())
+	{
+		return false;
+	}
+
+	const HTreeClass *tree = proto->Tree ? proto->Tree : &proto->DefaultTree;
+	HTreePose pose;
+	tree->Base_Pose(Matrix3D(), pose);
+	const int pivots = (int)pose.Transform.size();
+	auto pivot = [&](int i) -> const Matrix3D & {
+		static const Matrix3D identity;
+		return i >= 0 && i < pivots ? pose.Transform[(size_t)i] : identity;
+	};
+
+	float minX = 1e30f, maxX = -1e30f;
+	float minY = 1e30f, maxY = -1e30f;
+	bool found = false;
+
+	for (const RenderSubObject &sub : proto->SubObjects)
+	{
+		if (sub.Type != RenderSubObject::SUB_MESH || !sub.Mesh || sub.Mesh->Is_Hidden())
+		{
+			continue;
+		}
+		const MeshModelClass &mesh = *sub.Mesh;
+		const Matrix3D &piv = pivot(sub.BoneIndex);
+		if (!mesh.Vertices.empty())
+		{
+			for (const W3dVectorStruct &p : mesh.Vertices)
+			{
+				float w[3];
+				for (int r = 0; r < 3; ++r)
+				{
+					w[r] = piv.Row[r][0] * p.X + piv.Row[r][1] * p.Y + piv.Row[r][2] * p.Z + piv.Row[r][3];
+				}
+				minX = std::min(minX, w[0]);
+				maxX = std::max(maxX, w[0]);
+				minY = std::min(minY, w[1]);
+				maxY = std::max(maxY, w[1]);
+				found = true;
+			}
+		}
+		else
+		{
+			minX = std::min(minX, mesh.Header.Min.X);
+			maxX = std::max(maxX, mesh.Header.Max.X);
+			minY = std::min(minY, mesh.Header.Min.Y);
+			maxY = std::max(maxY, mesh.Header.Max.Y);
+			found = true;
+		}
+	}
+
+	if (!found)
+	{
+		for (const RenderSubObject &sub : proto->SubObjects)
+		{
+			if (sub.Type == RenderSubObject::SUB_BOX && sub.Box && !sub.Aggregate && (sub.Box->Attributes & 1u) != 0)
+			{
+				extentX = sub.Box->Extent.X;
+				extentY = sub.Box->Extent.Y;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	if (minX > maxX || minY > maxY)
+	{
+		return false;
+	}
+
+	extentX = (maxX - minX) * 0.5f;
+	extentY = (maxY - minY) * 0.5f;
+	return true;
+}
+
 bool resolveDecalShadow(const ThingTemplate *tt, const W3DModelDrawModuleData *module, const ModelConditionInfo *state, DecalShadowDescriptor &out)
 {
 	out = DecalShadowDescriptor();
@@ -88,7 +167,7 @@ bool resolveDecalShadow(const ThingTemplate *tt, const W3DModelDrawModuleData *m
 		// RW 0x50BF93: default texture "shadow" if empty or single char
 		out.texture = state->shadow.texture.size() <= 1 ? "shadow" : state->shadow.texture;
 		out.sizeX = state->shadow.sizeX;
-		out.sizeY = state->shadow.sizeY > 0.0f ? state->shadow.sizeY : state->shadow.sizeX;
+		out.sizeY = state->shadow.sizeY;
 		out.offsetX = state->shadow.offsetX;
 		out.offsetY = state->shadow.offsetY;
 		out.sunAngle = state->shadow.sunAngle;
@@ -124,8 +203,7 @@ bool resolveDecalShadow(const ThingTemplate *tt, const W3DModelDrawModuleData *m
 	out.texture = tex.size() <= 1 ? "shadow" : tex;
 
 	out.sizeX = readFloat(tt, "ShadowSizeX", 0.0f);
-	const float sy = readFloat(tt, "ShadowSizeY", 0.0f);
-	out.sizeY = sy > 0.0f ? sy : out.sizeX;
+	out.sizeY = readFloat(tt, "ShadowSizeY", 0.0f);
 	out.offsetX = readFloat(tt, "ShadowOffsetX", 0.0f);
 	out.offsetY = readFloat(tt, "ShadowOffsetY", 0.0f);
 	out.sunAngle = readFloat(tt, "ShadowSunAngle", 0.0f);
@@ -141,7 +219,53 @@ bool resolveDecalShadow(const ThingTemplate *tt, const W3DModelDrawModuleData *m
 	return true;
 }
 
-bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, bool useShadowDecals, const std::function<void(float &, float &)> &fallbackSize)
+unsigned evaluateDecalOpacity(const DecalShadowDescriptor &desc, unsigned currentFrame, unsigned startFrame, unsigned fadeOutStartFrame)
+{
+	// RW 0x4B1BC6 / RW 0x50B8AD: style == 0x400 (SHADOW_ALPHA_DECAL_DYNAMIC), == 0x800 (SHADOW_ADDITIVE_DECAL_DYNAMIC), == 0x10000
+	const bool isDynamic = (desc.style == 0x0400u || desc.style == 0x0800u || desc.style == 0x10000u);
+	if (!isDynamic)
+	{
+		return desc.opacityPeak; // static decals only use peak opacity (RW 0x73228B)
+	}
+
+	// Dynamic curve evaluation (RW 0x7323CE, RW 0x50B860)
+	// RW 0xD9F624: 0.03f ms to frames (30 logic fps / 1000 ms)
+	// 0xA3CFA4: _ftol truncation towards zero (not round)
+	const unsigned fadeInFrames = (unsigned)std::max(0.0f, desc.opacityFadeInTime * 0.03f);
+	const unsigned fadeOutFrames = (unsigned)std::max(0.0f, desc.opacityFadeOutTime * 0.03f);
+
+	if (fadeOutStartFrame != ~0u && currentFrame >= fadeOutStartFrame)
+	{
+		if (fadeOutFrames == 0)
+		{
+			return desc.opacityEnd;
+		}
+		const unsigned dt = currentFrame - fadeOutStartFrame;
+		if (dt >= fadeOutFrames)
+		{
+			return desc.opacityEnd;
+		}
+		const float progress = (float)dt / (float)fadeOutFrames;
+		const float val = (float)desc.opacityPeak + progress * (float)((int)desc.opacityEnd - (int)desc.opacityPeak);
+		return (unsigned)std::ceil(val); // RW 0x50B9E0 call msvcr71 ceil
+	}
+
+	if (currentFrame < startFrame)
+	{
+		return 0; // RW 0x50B902: before startFrame opacity is 0
+	}
+	const unsigned t = currentFrame - startFrame;
+	if (fadeInFrames == 0 || t >= fadeInFrames)
+	{
+		return desc.opacityPeak;
+	}
+	const float progress = (float)t / (float)fadeInFrames;
+	const float val = (float)desc.opacityStart + progress * (float)((int)desc.opacityPeak - (int)desc.opacityStart);
+	return (unsigned)std::ceil(val); // RW 0x50B964 call msvcr71 ceil
+}
+
+bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, bool useShadowDecals,
+	const std::function<void(float &, float &)> &fallbackSize, unsigned currentFrame)
 {
 	// TOP20 #24, RW 0x672D28: shadowsEnabled false when dead with SlowDeathBehavior/ShadowWhenDead = No
 	if (!drawable.shadowsEnabled())
@@ -157,14 +281,20 @@ bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, boo
 
 	const W3DModelDrawModuleData *moduleData = nullptr;
 	const ModelConditionInfo *state = nullptr;
+	const RenderObjPrototype *proto = nullptr;
 	for (const DrawEntry &e : drawable.entries())
 	{
 		if (e.kind == W3D_DRAWKIND_MODEL && e.draw && !e.moduleHidden)
 		{
 			moduleData = dynamic_cast<const W3DModelDrawModuleData *>(e.data);
 			state = e.draw->currentModelState();
+			proto = e.draw->currentModel();
 			break;
 		}
+	}
+	if (!state && drawable.testModelState())
+	{
+		state = drawable.testModelState();
 	}
 
 	DecalShadowDescriptor desc;
@@ -179,25 +309,17 @@ bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, boo
 		return false;
 	}
 
-	// Size resolution: if sizeX or sizeY is missing / <= 0, query fallback (RW 0x50BFF3..0x50C066)
-	if (desc.sizeX <= 0.0f || desc.sizeY <= 0.0f)
+	// Size resolution: if sizeX or sizeY is 0, query fallback from model box (RW 0x50BFF3..0x50C066)
+	if (desc.sizeX == 0.0f || desc.sizeY == 0.0f)
 	{
 		if (fallbackSize)
 		{
 			fallbackSize(desc.sizeX, desc.sizeY);
 		}
 	}
-	if (desc.sizeX <= 0.0f && desc.sizeY <= 0.0f)
+	if (desc.sizeX == 0.0f && desc.sizeY == 0.0f)
 	{
 		return false;
-	}
-	if (desc.sizeY <= 0.0f)
-	{
-		desc.sizeY = desc.sizeX;
-	}
-	else if (desc.sizeX <= 0.0f)
-	{
-		desc.sizeX = desc.sizeY;
 	}
 
 	// Texture file name (append .tga if no extension, RW 0x50BF6A)
@@ -219,6 +341,50 @@ bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, boo
 		}
 	}
 
+	const unsigned frame = currentFrame != 0 ? currentFrame : drawable.syncFrame();
+
+	const std::string modelName = state && !state->modelNames.empty() ? state->modelName(0) : "";
+	const bool stateHasShadow = state != nullptr && state->hasShadow;
+
+	// Model change or state shadow override change resets shadow curve (RW 0x4C4610..0x4C4679, RW 0x4C4EE0..0x4C4FBC)
+	if (!drawable.shadowStateInitialized())
+	{
+		drawable.setShadowStateInitialized(true);
+		drawable.setLastShadowState(state);
+		drawable.setLastShadowModel(proto);
+		drawable.setLastShadowModelName(modelName);
+		drawable.setLastShadowStateHasShadow(stateHasShadow);
+	}
+	else
+	{
+		const bool modelChanged = (proto != nullptr && drawable.lastShadowModel() != nullptr)
+			? (proto != drawable.lastShadowModel())
+			: (modelName != drawable.lastShadowModelName());
+		const bool shadowOverrideChanged = (stateHasShadow != drawable.lastShadowStateHasShadow()) ||
+			(stateHasShadow && state != drawable.lastShadowState());
+
+		if (modelChanged || shadowOverrideChanged)
+		{
+			drawable.setShadowStartFrame(frame);
+			drawable.setLastShadowState(state);
+			drawable.setLastShadowModel(proto);
+			drawable.setLastShadowModelName(modelName);
+			drawable.setLastShadowStateHasShadow(stateHasShadow);
+			drawable.setShadowFadeOutStartFrame(~0u);
+		}
+		else if (state != drawable.lastShadowState())
+		{
+			drawable.setLastShadowState(state);
+		}
+	}
+
+	// Opacity resolution: static peak opacity vs dynamic curve (RW 0x4B1BC6, RW 0x7323CE, RW 0x50B860)
+	unsigned opacity = desc.opacityPeak;
+	if (desc.style == 0x0400u || desc.style == 0x0800u || desc.style == 0x10000u)
+	{
+		opacity = evaluateDecalOpacity(desc, frame, drawable.shadowStartFrame(), drawable.shadowFadeOutStartFrame());
+	}
+
 	out = SelectionDecal();
 	out.object = drawable.getObjectID();
 	out.drawable = (unsigned)drawable.getID();
@@ -229,7 +395,7 @@ bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, boo
 	out.angle = angle;
 	out.texture = file;
 	out.style = desc.style;
-	out.color = ((std::uint32_t)desc.opacityPeak << 24) | (rgb & 0xFFFFFFu);
+	out.color = ((std::uint32_t)opacity << 24) | (rgb & 0xFFFFFFu);
 	out.terrainOnly = false; // RW 0x50CDE4: projects on terrain and wall/bridge geometry
 	return true;
 }

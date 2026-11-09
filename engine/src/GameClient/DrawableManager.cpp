@@ -224,6 +224,7 @@ void DrawableManager::created(const ClientEvent &ev)
 	d->setOrientation(ev.angle);
 	d->setPosition(&ev.position);
 	d->setKindOf(ev.kindOf);
+	d->setShadowStartFrame(ev.frame);
 	m_slots.push_back(std::move(d));
 	bindObject(ev.object, id);
 	++m_live;

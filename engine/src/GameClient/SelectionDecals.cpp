@@ -533,7 +533,7 @@ bool BuildMergeDecalGrid(const std::vector<SelectionDecal> &decals, const std::f
 			}
 			// lane HERORING-1: RotWK's flushDecals draws these with one blended shader (RW 0x509A1F: ShaderClass 0x1198B3, SRC_ALPHA / ONE_MINUS_SRC_ALPHA,
 			// no alpha test); only Texture is drawn (Texture2 of a non-merge decal is not used)
-			const float extent = std::max(d.size, d.sizeY > 0.0f ? d.sizeY : d.size); // lane PLACEDECAL-1: the longer side
+			const float extent = std::max(std::abs(d.size), d.sizeY != 0.0f ? std::abs(d.sizeY) : std::abs(d.size)); // lane PLACEDECAL-1, LOCAL-19: the longer side (sizeY may be negative)
 			Item it{ &d, {}, {}, true, extent * 0.5f * (d.angle != 0.0f ? 1.41421356f : 1.0f) };
 			if (!rect(d.texture, it.tex) || it.tex.w <= 0 || it.tex.h <= 0)
 			{
@@ -666,7 +666,7 @@ bool BuildMergeDecalGrid(const std::vector<SelectionDecal> &decals, const std::f
 			const bool multiplicative = (items[i].d->style & kMultiplicativeStyle) != 0;
 			p[12] = std::cos(d.angle);
 			p[13] = std::sin(d.angle);
-			p[14] = d.sizeY > 0.0f ? d.sizeY : d.size;
+			p[14] = d.sizeY != 0.0f ? d.sizeY : d.size;
 			if (multiplicative)
 			{
 				p[15] = d.terrainOnly || d.maskW > 0 ? -4.0f : -5.0f;
@@ -710,7 +710,7 @@ bool BuildMergeDecalGrid(const std::vector<SelectionDecal> &decals, const std::f
 				float *e = t + ((size_t)out.indexOffset + at) * 4;
 				e[0] = items[i].d->position.x;
 				e[1] = items[i].d->position.y;
-				e[2] = std::max(items[i].d->size, items[i].d->sizeY); // lane PLACEDECAL-1: the longer side (the circumcircle test)
+				e[2] = std::max(std::abs(items[i].d->size), items[i].d->sizeY != 0.0f ? std::abs(items[i].d->sizeY) : std::abs(items[i].d->size)); // lane PLACEDECAL-1, LOCAL-19: circumcircle test
 				e[3] = items[i].d->raised ? -(float)(i + 1) : (float)i; // lane SELWALL-1: the terrain skips a raised decal
 			}
 		}

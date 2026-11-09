@@ -1707,7 +1707,26 @@ void HudDevice::drawSelectionDecals()
 			if (const Drawable *d = dm.find((DrawableID)id))
 			{
 				SelectionDecal sd;
-				if (ObjectShadow::buildDrawableDecalShadow(*d, sd, useShadowDecals))
+				auto fallbackSize = [d](float &sx, float &sy) {
+					for (const DrawEntry &e : d->entries())
+					{
+						if (e.kind == W3D_DRAWKIND_MODEL && e.draw && !e.moduleHidden && !e.conditionHidden)
+						{
+							if (const RenderObjPrototype *proto = e.draw->currentModel())
+							{
+								float ex = 0.0f, ey = 0.0f;
+								if (ObjectShadow::getModelBoundingBox(proto, ex, ey))
+								{
+									if (sx == 0.0f) sx = ex * 2.0f;
+									if (sy == 0.0f) sy = ey * -2.0f;
+									return;
+								}
+							}
+						}
+					}
+				};
+				const unsigned curFrame = world && world->hud_game() ? world->hud_game()->logic().getFrame() : 0u;
+				if (ObjectShadow::buildDrawableDecalShadow(*d, sd, useShadowDecals, fallbackSize, curFrame))
 				{
 					selExtras.push_back(std::move(sd));
 				}
