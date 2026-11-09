@@ -24,12 +24,12 @@ jobs:
           dl 1oUjqDsG_I8Eyft0Z7gHTPLDsuVXtYIW0 /tmp/in/ennorath-ini.zip
           dl 1sE4RaoHmdU4TxlETruYmkkmR5qJvl9Yc /tmp/in/audit.zip
           md5sum /tmp/in/* || true
-          for f in /tmp/in/*; do echo "== $f"; head -c 200 "$f" | tr -d '\0' | head -3; echo; done
+          { for f in /tmp/in/*; do echo "== $f $(stat -c%s "$f")"; head -c 300 "$f" | tr -d '\0' | head -3; echo; done; } > /tmp/in/heads.txt 2>&1 || true
       - name: analyse
         run: |
           python -m pip install -q capstone pefile
           mkdir -p /tmp/out
-          { md5sum /tmp/in/*; } > /tmp/out/inputs.txt 2>&1 || true
+          { md5sum /tmp/in/*; stat -c '%n %s' /tmp/in/*; cat /tmp/in/heads.txt; ls /tmp/in; } > /tmp/out/inputs.txt 2>&1 || true
           python tools/mod/gamedata_rows.py --game /tmp/in/game1.dat --ini /tmp/in/ennorath-ini.zip --port engine/src/GameLogic/GameLogicSettings.cpp --out /tmp/out > /tmp/out/run.log 2>&1 || true
           tail -5 /tmp/out/run.log
           ls -la /tmp/out
