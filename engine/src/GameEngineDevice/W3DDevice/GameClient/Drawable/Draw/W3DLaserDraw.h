@@ -23,7 +23,7 @@
 //
 // What the port draws with this: the beam geometry RW 0x4C8A6C computes (the point pair, width, fan width, colour and texture
 // index of every line of the beam) is produced by W3DLaserDrawState as plain data. The render object of RW (SegmentedLineClass,
-// the +0x10 array) and the module that positions the beam (LaserUpdate) are NOT part of this issue: see docs/STOPS.md (S-7197).
+// the +0x10 array) and the module that positions the beam (LaserUpdate) are NOT part of this issue: see docs/STOPS.md (S-7218).
 
 #pragma once
 

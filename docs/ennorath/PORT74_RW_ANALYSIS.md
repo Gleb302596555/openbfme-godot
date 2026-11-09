@@ -117,4 +117,4 @@ aspect ratio (1.0), `+0x24` the "self dirty" byte (1, set again by `loadPostProc
 
 NOT IN THE PORT, therefore not in this issue: the SegmentedLineClass render objects (created at RW 0x4C94D3 .. 0x4C958E with the
 additive shader, `Set_UV_Offset_Rate(0, ScrollRate)`, `TILED_TEXTURE_MAP` and `Add_Render_Object` on `W3DDisplay::m_3DScene`
-RW 0xDE1B34) and the `LaserUpdate` client update that supplies the endpoints. See `docs/STOPS.md` S-7197.
+RW 0xDE1B34) and the `LaserUpdate` client update that supplies the endpoints. See `docs/STOPS.md` S-7218.

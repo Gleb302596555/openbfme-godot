@@ -1,7 +1,7 @@
 // OpenBFME unit tests. GPL-3.0.
 // PORT-72 (issue #186): FactionVictoryData — the per-faction scale factors of TheVictorySystem.
 //
-// Verdict (2026-11-09, docs/ennorath/PORT72_RW_ANALYSIS.md, stop S-7197 in docs/STOPS.md): RotWK 2.01 reads the
+// Verdict (2026-11-09, docs/ennorath/PORT72_RW_ANALYSIS.md, stop S-7216 in docs/STOPS.md): RotWK 2.01 reads the
 // factors only inside TheVictorySystem, the LoTR-RTS "large battle" subsystem (cell-grid victory; bonus XP for the
 // units that took part). Every reference to the global TheVictorySystem (RW 0x00DE897C) — parse RW 0x6159DC/0x615AAD,
 // init registration RW 0x63C301, vtable slot +0x28 at RW 0x62E6D3, vtable slot +0x38 at RW 0x631395, the snapshot
