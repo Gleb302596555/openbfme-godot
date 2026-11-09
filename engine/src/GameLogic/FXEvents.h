@@ -60,6 +60,8 @@ struct FXEvent
 	std::array<std::uint32_t, 19> conditions{}; ///< the primary's model condition bits at the call (Object + 0x10C)
 	Coord3D secondaryPosition{ 0.0f, 0.0f, 0.0f }; ///< WEAPON_FIRE_FX: the victim position handed to handleWeaponFireFX; POSITION_FX: secondary when hasSecondaryPosition (RW 0x494615 arg 5)
 	bool hasSecondaryPosition = false; ///< POSITION_FX: pass &secondaryPosition as the secondary position of FXList::doFXPos (RW 0x494615 -> 0x5E21D8)
+	bool drawablePosition = false;  ///< POSITION_FX: pass primary's Drawable::getPosition (RW 0x676711) as pos (and as secondary when hasSecondaryPosition)
+	bool drawableMatrix = false;    ///< POSITION_FX: pass primary's Drawable::getTransformMatrix (RW 0x6765B9) as primaryMtx
 	int weaponSlot = 0, barrel = 0; ///< WEAPON_FIRE_FX
 	float weaponSpeed = 0.0f;       ///< WEAPON_FIRE_FX, POSITION_FX: WeaponTemplate + 0x68 (primarySpeed in FXList::doFXPos RW 0x494615 arg 4)
 	bool playWhenStealthed = false; ///< WEAPON_FIRE_FX: WeaponTemplate + 0x135
@@ -87,6 +89,9 @@ public:
 
 	// fills an event for `obj` (position, transform, model conditions) at `frame`
 	static FXEvent objectEvent(FXEvent::Kind kind, const char *site, UnsignedInt frame, const std::string &fxList, const Object &obj);
+	// fills a POSITION_FX event whose primary position, transform matrix, weaponSpeed and secondary position come from `obj`'s drawable and `weaponSpeed`
+	// as retail's PreAttackFX calls do (Weapon::preFireWeapon RW 0x6CEA25 .. 0x6CEA58, WeaponFireSpecialAbilityUpdate::startUnpacking RW 0x895FC4 .. 0x896026)
+	static FXEvent drawablePositionEvent(const char *site, UnsignedInt frame, const std::string &fxList, const Object &obj, float weaponSpeed);
 	// records and forwards one event; an empty name or "None" (any case: RW parseFXList stores NULL for it) is not a call and is dropped
 	void emit(const FXEvent &event);
 
