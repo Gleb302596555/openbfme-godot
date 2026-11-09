@@ -310,6 +310,8 @@ bool UnitVoiceResponse::handles(int msgType)
 		case VOICE_EVENT_ENTER_STATE_MOVE:
 		case VOICE_EVENT_ENTER_STATE_ATTACKMOVE:
 		case VOICE_EVENT_BLOODTHIRSTY:
+		case VOICE_EVENT_START_CHARGING:
+		case VOICE_EVENT_NO_BUILD:
 		case VOICE_EVENT_ENTER_STATE_SPECIAL_POWER:
 			return true;
 		default:
@@ -1098,6 +1100,15 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 			case VOICE_EVENT_FEAR:
 				fillRow(c, obj, VOICE_FEAR);
 				break;
+			case VOICE_EVENT_START_CHARGING:
+				// RW 0x8DFD0D .. 0x8DFD2B: the literal VoiceStartCharging through the name lookup RW 0x8DDB2A (UnitSpecificSounds, tt + 0x388).
+				// The post of 0x7EA is not ported: stop S-7226 (docs/ennorath/PORT87_RW_ANALYSIS.md)
+				fillName(c, obj, "VoiceStartCharging");
+				break;
+			case VOICE_EVENT_NO_BUILD:
+				// RW 0x8DFE7B: the literal VoiceNoBuild through the same lookup; posted by the refused placement click, RW 0x83EAA0 (PlaceEventTranslator)
+				fillName(c, obj, "VoiceNoBuild");
+				break;
 			case VOICE_EVENT_ALERT:
 				fillRow(c, obj, VOICE_ALERT);
 				break;
@@ -1291,8 +1302,8 @@ std::vector<std::string> UnitVoiceResponse::acceptanceStops()
 		"[S-702] unit voice: the enemy-near query of the battle voices (RW 0x701443 -> 0x7006D7 with filter 0x6E and the object's vision range RW 0x68E43B, which "
 		"scales obj + 0x1B0 by a module bonus) is approximated by `a living object of an ENEMIES relationship within the template's VisionRange (2D)`",
 		"[S-703] unit voice: message types of RW 0x8DEDBB not answered here: combine hordes (0x423), weapon modes (0x43A), "
-		"the planned action queue (0x46A), VoiceDesperateAttack / RapidFire / CaptureBuildingComplete / StartCharging / NoBuild (0x7DB .. 0x7DD, 0x7EA .. 0x7EB), "
-		"the Ring voices (0x7E4, 0x7E5)",
+		"the planned action queue (0x46A), VoiceDesperateAttack / RapidFire / CaptureBuildingComplete (0x7DB .. 0x7DD), the Ring voices (0x7E4, 0x7E5); "
+		"StartCharging (0x7EA, RW 0x8DFD0D) and NoBuild (0x7EB, RW 0x8DFE7B) are answered (PORT-87), the post of 0x7EA is stop S-7226",
 		"[S-704] unit voice: rules of the move / attack / enter helpers not ported: the planning order mode (player + 0x770 == 2 -> MiscAudio PlanningModeOrderGiven), "
 		"VoiceCrush (GameData + 0x8B9, crushable target), the busy gate (GameData + 0x8B0), the castle rule (RW 0x8DDBC4), VoiceMoveOverWalls (RW 0x8DE628), the weapon's voice (RW 0x68B58C weapon "
 		"template + 0xD0 / + 0xD8), the charge voice's drawable gate (RW 0x671EE4: no drawable, no charge)",

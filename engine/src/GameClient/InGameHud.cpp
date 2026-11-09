@@ -166,6 +166,18 @@ InGameHud::InGameHud(Config config)
 			m_errors.push_back("unit voice: CrowdResponse.ini: " + error);
 		}
 	}
+	// PORT-87: the translators' own voice posts (RW 0x83EAA0: the refused placement click asks the picker for 0x7EB with the builder alone) play on the same
+	// route as every other voice; the click's world position is the pick info (RW 0x8DD5FF)
+	m_input->context().playObjectVoice = [this](int msgType, ObjectID object, const Coord3D &position) {
+		if (const Player *local = m_input->context().localPlayer())
+		{
+			m_voice->setLocalPlayerIndex(local->getPlayerIndex());
+		}
+		UnitVoiceResponse::Info info;
+		info.hasPosition = true;
+		info.position = position;
+		m_voice->pickAndPlay({ object }, msgType, &info);
+	};
 	m_input->setLogicMessageObserver([this](const GameMessage &msg) {
 		if (const Player *local = m_input->context().localPlayer())
 		{

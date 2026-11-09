@@ -58,6 +58,9 @@ struct HudContext
 	// lane QA-1: the pick ray against what the object's drawable shows (GameClient/DrawablePick: ZH W3DView::pickDrawable casts the ray at the scene's
 	// render objects). Set by the HUD from the live game's drawables; empty: every object picks by its geometry (S-284)
 	std::function<DrawablePick::Result(const Object &, const Coord3D &, const Coord3D &, float *)> pickRay;
+	// PORT-87: the unit voice a translator asks for one object (RW 0x83EAA0: RotWK's placement translator calls the voice picker RW 0x8DEDBB itself, with the
+	// builder alone and the click's world position, RW 0x8DD5FF). The HUD installs it (UnitVoiceResponse::pickAndPlay); empty: the post is counted, not dropped
+	std::function<void(int msgType, ObjectID object, const Coord3D &position)> playObjectVoice;
 
 	const ControlBarSchemeStore *schemes = nullptr; ///< the control bar schemes (RW 0x721BA1)
 	const FormationAssistant *formations = nullptr;

@@ -29,11 +29,13 @@
 //     start now (vslot 0xF4, TheTacticalView slot 0x168); the builder's canMakeUnit (BuildAssistant slot 0x64) refusals keep or end the mode (see below);
 //     isLocationLegalToBuild (slot 0x44) with the options 0x49F (the ghost's 0x48F plus 0x10, ZH's SHROUD_REVEALED); legal: MSG_DOZER_CONSTRUCT (0x41A)
 //     { template id, location, angle } and the mode ends (RW 0x83E6A4) - there is no shift key to keep placing; illegal: displayCantBuildMessage (RW 0x69CCEC,
-//     the label of the code), MiscAudio BadBuildingPlacementSound (+0xE8, RW 0x83EAC5), the anchor is dropped (setPlacementStart(null)) and the mode stays.
+//     the label of the code), then the unit voice for 0x7EB with the builder ALONE and the click's position (RW 0x83EAA0, PORT-87: the reply is
+//     UnitSpecificSounds/VoiceNoBuild, RW 0x8DFE7B), then MiscAudio BadBuildingPlacementSound (+0xE8, RW 0x83EAC5), the anchor is dropped
+//     (setPlacementStart(null)) and the mode stays.
 //   * the placement update (W3DInGameUI RW 0x6A2AE5, once per client frame): the ghost stands at the pointer (the live mouse position, Mouse + 0x4F0C) or, anchored,
 //     at the anchor's start, re-projected each frame (a scrolled view moves it with the screen); its legality (options 0x48F) is asked on odd client frames
 //     only (RW 0x6A3939: TheGameClient vslot 0x7C & 1).
-// Not ported (stop S-306): the options' bits 0x80 and 0x400 (not identified), the message 0x7EB an illegal click appends and the one RW 0x83EA10 appends
+// Not ported (stop S-306): the options' bits 0x80 and 0x400 (not identified) and the message RW 0x83EA10 appends
 // after the construct message, the PlacementProjection start point of getPlacementPoints, and the illegal site's code 8 (S-1770); the cursor is
 // InGameUI's (mode cursor Target, createCommandHint: Build / InvalidBuild while placing).
 //
@@ -96,6 +98,7 @@ public:
 	struct Stats
 	{
 		unsigned long long placed = 0, refused = 0, cancelled = 0, wallSpans = 0, rightDrags = 0;
+		unsigned long long voicesUnheard = 0; ///< PORT-87: refused-click voice posts no HUD picked up (HudContext::playObjectVoice empty)
 	};
 	const Stats &stats() const { return m_stats; }
 	// the right button as the translator tracks it (tests)
