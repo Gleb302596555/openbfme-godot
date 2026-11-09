@@ -215,6 +215,7 @@ include(cmake/Port22.cmake) # PORT-22: SiegeDeploy/adjustMeleeOffset (issue #78;
 include(cmake/Port37.cmake) # PORT-37: DamageNugget/CylinderAOE, the area shape (issue #122; OPENBFME_PORT37_TESTS)
 include(cmake/Port10.cmake) # PORT-10: FlammableUpdate/RunToWater (issue #65; OPENBFME_PORT10_TESTS)
 include(cmake/Port38.cmake) # PORT-38: the AIData team build tempo (issue #123; OPENBFME_PORT38_TESTS)
+include(cmake/Port57.cmake) # PORT-57: RadiateFearUpdate/WhichSpecialPower parsed-unused (issue #167; OPENBFME_PORT57_TESTS)
 include(cmake/Port17.cmake) # PORT-17: ThreatFinderUpdate + the threat-finder script action (issue #73; appends to OPENBFME_SIM_SOURCES; OPENBFME_PORT17_TESTS)
 include(cmake/Port46.cmake) # PORT-46: ToggleMountedSpecialAbilityUpdate/OpacityTarget (issue #150; OPENBFME_PORT46_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
@@ -794,6 +795,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT37_TESTS}
     ${OPENBFME_PORT10_TESTS}
     ${OPENBFME_PORT38_TESTS}
+    ${OPENBFME_PORT57_TESTS}
     ${OPENBFME_PORT17_TESTS}
     ${OPENBFME_PORT46_TESTS}
     ${OPENBFME_PLAY4_TESTS}
