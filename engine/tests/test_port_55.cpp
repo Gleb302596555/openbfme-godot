@@ -322,3 +322,26 @@ TEST_CASE("PORT-55 CashBackPercent above one is not clamped and a zero BountyVal
     CHECK(w.cash('A') - before == 34);
     CHECK(w.logic->economy().incomeLog().size() == payments);
 }
+
+
+TEST_CASE("PORT-55 entry wrapper does not recheck admission and never consumes an already contained object twice")
+{
+    // RW 0x8836D3..0x88373C: +0x27C is the only early return; the AI's
+    // admission check is separate. This is the contain API, not MSG_ENTER.
+    const std::string data = kData + building("P55Closed", "SlaughterHordeContain",
+        " PassengerFilter = NONE\n ContainMax = 0\n");
+    CombatWorld w(data.c_str());
+    Object *house = w.unit("P55Closed", 'A', 400, 400);
+    Object *troop = w.unit("P55Troop", 'A', 350, 400);
+    auto &c = contain(house);
+    CHECK_FALSE(c.isValidContainerFor(*troop, true, false));
+    const int before = w.cash('A');
+    REQUIRE(c.addToContain(troop));
+    CHECK(troop->isDestroyed());
+    CHECK(w.cash('A') - before == 5);
+    Object *parent = w.unit("P55Horde", 'A', 300, 400);
+    REQUIRE(c.addToContain(parent));
+    REQUIRE(parent->getContainedBy() == house);
+    CHECK_FALSE(c.addToContain(parent));
+    CHECK(w.cash('A') - before == 5);
+}

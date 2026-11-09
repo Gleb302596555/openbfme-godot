@@ -1492,8 +1492,10 @@ void SlaughterHordeContain::payFor(Object &obj, Player &player)
 
 bool SlaughterHordeContain::addToContain(Object *obj)
 {
-	// RW 0x8836D9: no second entry for an object that already has a container.
-	if (!obj || obj->getContainedBy() || !isValidContainerFor(*obj, true, false))
+	// RW 0x8836D9: only an existing container suppresses an entry here.
+	// Admission belongs to the command/AI caller (slot +0x98); this wrapper
+	// must not recheck capacity or filters after that caller admitted a unit.
+	if (!obj || obj->getContainedBy())
 		return false;
 	if (hordeOf(*obj))
 	{
@@ -1585,6 +1587,10 @@ void SlaughterHordeContain::addHordeMember(Object &obj)
 			else
 				onNonSlaughtered(*parent);
 		}
+	// The other branches use GarrisonContain's wrapper, which already does
+	// this redeploy. A consumed ordinary object never calls that wrapper.
+	if (consume && !obj.testStatus((unsigned)CombatNames::statuses().hordeMember))
+		containReactToTransformChange(); // RW 0x883732..0x883736: virtual main +0x48
 }
 
 void SlaughterHordeContain::onRemoving(Object *obj)
