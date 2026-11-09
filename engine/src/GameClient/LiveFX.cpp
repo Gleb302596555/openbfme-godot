@@ -263,9 +263,13 @@ int LiveFX::maxCellsBurning() const
 std::vector<std::string> LiveFX::stops()
 {
 	std::vector<std::string> out = FXEventLog::stops();
-	out.push_back("[S-682] live FX: bone positions of ParticleSysBone systems and fire FX come from the model's bind pose (FollowBone systems do not follow the "
-			 "animation); ParticleSysBone FXTrigger / Persist / PersistID / HouseColor are ignored and OnlyIfOnWater systems are not created; the shooter's "
-			 "stealth (RW 0x694C0D, NULL viewer) is read when the effect plays, not at the shot (lane STEALTH-1); muzzle flashes and recoil are not drawn; isWater is false (the shroud: S-4971)");
+	// lane PORT-50 (issue #154): RW 0x4C7795 -> RW 0x4B6D5F moves a ParticleSysBone system with its bone, so the bind-pose only
+	// sentence of this stop is retired for the draws that ask for it; S-7191 lists the parts of that walk that stay INFERENCE.
+	out.push_back("[S-682] live FX: ParticleSysBone systems follow their animated bone only for a draw module whose ParticlesAttachedToAnimatedBones is on "
+					  "and only where the draw's pose defines the bone (lane PORT-50: RW 0x4C7795 -> RW 0x4B6D5F, S-7191). The fire FX of a weapon, the FXEvent"
+					  " bones and the pristine bones still come from the model's bind pose; ParticleSysBone FXTrigger / Persist / PersistID / HouseColor are"
+					  " ignored and OnlyIfOnWater systems are not created; the shooter's stealth (RW 0x694C0D, NULL viewer) is read when the effect plays,"
+					  " not at the shot (lane STEALTH-1); muzzle flashes and recoil are not drawn; isWater is false (the shroud: S-4971)");
 	out.push_back("[S-686] TransitionDamageFX: runs in the logic since lane FX-4 (RW 0x8BE077: the FXLists, OCLs and attached particle systems of a worse damage "
 				  "state, the sub objects of every state); not ported: the rubble neighbours (RW 0x8BDF08, S-342), the OCL's secondary position (S-530), an OCL "
 				  "call without a damage source (retail reads an invalid pointer); the drawable of RW 0x8BDDAC is taken as present; FXList and particle system "
@@ -1080,18 +1084,24 @@ void LiveFX::destroySystems(Attached &a)
 		}
 	}
 	a.systems.clear();
+	a.records.clear(); // lane PORT-50: the tracker nodes leave with the systems they name
 }
 
 void LiveFX::createSystems(Drawable &d, Attached &a)
 {
 	const float scale = d.getInstanceScale();
-	for (const DrawEntry &e : d.entries())
+	for (size_t entryIndex = 0; entryIndex < d.entries().size(); ++entryIndex)
 	{
+		const DrawEntry &e = d.entries()[entryIndex];
 		if (!e.draw)
 		{
 			continue;
 		}
 		const W3DDrawFrame f = e.draw->frame();
+		// lane PORT-50: RW 0x4C6733 takes the module data ([ebx + 4]) and reads its +0x12A (ParticleBonesCheckDrawable) per
+		// record; the record stores it (the per-frame walk's branch, RW 0x4B6DE2)
+		const W3DModelDrawModuleData *data = e.data ? dynamic_cast<const W3DModelDrawModuleData *>(e.data) : nullptr;
+		const bool checkDrawable = data && data->m_particleBonesCheckDrawable;
 		for (const std::vector<ParticleSysBoneInfo> *list : { f.modelState ? &f.modelState->particleSysBones : nullptr, f.animationState ? &f.animationState->particleSysBones : nullptr })
 		{
 			if (!list)
@@ -1124,6 +1134,9 @@ void LiveFX::createSystems(Drawable &d, Attached &a)
 				{
 					continue; // refused (cap / LOD)
 				}
+				// RW 0x4C671A .. 0x4C6728: the render object's slot +0xC8 (Get_Bone_Index) gives the bone index the record
+				// stores at +4, and 0 means "no such bone" (the by-index follow skips such a record, RW 0x4B6E57)
+				const int boneIndex = f.model && f.model->Tree && !info.boneName.empty() ? f.model->Tree->Get_Bone_Index(info.boneName) : 0;
 				Coord3D pos{ 0.0f, 0.0f, 0.0f };
 				float rotation = 0.0f;
 				Matrix3D bone;
@@ -1144,9 +1157,56 @@ void LiveFX::createSystems(Drawable &d, Attached &a)
 				sys->attachToDrawable(d.getID());
 				a.systems.push_back(id);
 				++m_stats.attachedCreated;
+				// lane PORT-50: retail's tracker node (RW 0x4C6BAD .. 0x4C6C39: the record copy RW 0x4B6CDD {bone +0, boneIndex
+				// +4, followBone +0x10} and the system's id, pushed to the draw module's list at +0x64). The per-frame walk
+				// (ParticleBoneFollow::followFrame, RW 0x4B6D5F) reads it
+				ParticleBoneFollow::Record record;
+				record.system = id;
+				record.entry = entryIndex;
+				record.boneName = info.boneName;
+				record.boneIndex = boneIndex;
+				record.followBone = info.followBone;
+				record.checkDrawable = checkDrawable;
+				a.records.push_back(record);
 			}
 		}
 	}
+}
+
+// RW 0x4C7795 -> RW 0x4B6D5F(0): the per-frame follow of a drawable's ParticleSysBone systems (lane PORT-50, issue #154).
+// Retail makes this call from W3DModelDraw::doDrawModule; the port makes it here, once per client frame for every drawable with
+// live systems, which is the same point of the frame (the drawables' poses were just synced). The gate
+// (ParticlesAttachedToAnimatedBones, +0x108) is read per draw entry inside ParticleBoneFollow::followFrame.
+void LiveFX::followAnimatedBones(Drawable &d, Attached &a)
+{
+	if (a.records.empty() || d.entries().empty())
+	{
+		return;
+	}
+	// one pose per draw entry: the entry's draw module (its pose request) and the drawable's own transform (the render object's)
+	std::vector<ParticleBoneFollow::Pose> &poses = m_bonePoses;
+	poses.assign(d.entries().size(), ParticleBoneFollow::Pose());
+	Matrix3D world = thingMatrix(*d.getPosition(), d.getBasis());
+	const float scale = d.getInstanceScale();
+	for (size_t i = 0; i < d.entries().size(); ++i)
+	{
+		const DrawEntry &e = d.entries()[i];
+		if (!e.draw)
+		{
+			continue;
+		}
+		poses[i].draw = e.draw.get();
+		poses[i].scale = scale;
+		poses[i].world = world;
+		const W3DModelDrawModuleData *data = e.data ? dynamic_cast<const W3DModelDrawModuleData *>(e.data) : nullptr;
+		poses[i].follow = data && ParticleBoneFollow::wantsFollow(*data);
+	}
+	m_boneCounters = ParticleBoneFollow::Counters();
+	ParticleBoneFollow::followFrame(a.records, m_playback.particles(), poses.data(), poses.size(), &m_boneCounters, 0);
+	m_stats.bonesFollowed += m_boneCounters.followed;
+	m_stats.bonesMissed += m_boneCounters.missed;
+	m_stats.bonesStarted += m_boneCounters.started;
+	m_stats.bonesStopped += m_boneCounters.stopped;
 }
 
 // RW 0x4B337B: did the animation pass `frame` between the previous and the current integer frame? It reads the track's mode (+0x10) and direction (+0x14):
@@ -1385,6 +1445,8 @@ void LiveFX::updateAttachedSystems()
 		auto it = attached;
 		if (it != m_attached.end() && it->first == id && it->second.states == states)
 		{
+			// lane PORT-50: the same states, so the systems stay; their bones still move (RW 0x4C7795 per draw)
+			followAnimatedBones(*d, it->second);
 			continue;
 		}
 		if (it == m_attached.end() || it->first != id)
@@ -1394,6 +1456,7 @@ void LiveFX::updateAttachedSystems()
 		destroySystems(it->second);
 		it->second.states = states;
 		createSystems(*d, it->second);
+		followAnimatedBones(*d, it->second); // lane PORT-50: the frame's pose right away, not one frame late
 	}
 	unsigned long long live = 0;
 	for (const auto &kv : m_attached)

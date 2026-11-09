@@ -8,6 +8,7 @@ list(APPEND OPENBFME_SIM_SOURCES
 # client-only sources (excluded from the simulation audit in tools/sim/sim_policy.json): the live game's effect player
 set(OPENBFME_FX2_SOURCES
     src/GameClient/LiveFX.cpp
+    src/GameClient/ParticleBoneFollow.cpp # lane PORT-50: the per-frame ParticleSysBone bone follow (RW 0x4B6D5F)
 )
 set(OPENBFME_FX2_TESTS
     tests/test_fx2_events.cpp
