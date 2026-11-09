@@ -225,6 +225,7 @@ include(cmake/Port46.cmake) # PORT-46: ToggleMountedSpecialAbilityUpdate/Opacity
 include(cmake/Port58.cmake) # PORT-58: SpecialAbilityUpdate/ApproachUntilMembersInRange (issue #168; OPENBFME_PORT58_TESTS)
 include(cmake/Port45.cmake) # PORT-45: ActiveBody/DamageCreationList (issue #149; OPENBFME_PORT45_TESTS)
 include(cmake/Port44.cmake) # PORT-44: ExperienceLevel/ShowLevelUpTint (issue #148; OPENBFME_PORT44_TESTS)
+include(cmake/Port70.cmake) # PORT-70: the GameData verdict table (issue #184; OPENBFME_PORT70_TESTS)
 include(cmake/Port25.cmake) # PORT-25: HordeContain/VisionRearOverride (issue #97; OPENBFME_PORT25_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
@@ -811,6 +812,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT46_TESTS}
     ${OPENBFME_PORT58_TESTS}
     ${OPENBFME_PORT44_TESTS}
+    ${OPENBFME_PORT70_TESTS}
     ${OPENBFME_PORT25_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}

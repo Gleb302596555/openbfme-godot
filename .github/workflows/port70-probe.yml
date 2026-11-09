@@ -5,40 +5,33 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: fetch inputs
+      - name: tool imports and the page/fixture agree
         run: |
-          set -e
-          mkdir -p /tmp/in
-          dl() { id="$1"; dst="$2"; curl -sSL -o "$dst" -w "id=$id code=%{http_code} bytes=%{size_download}\n" "https://drive.usercontent.google.com/download?id=$id&export=download&confirm=t" -m 900 || echo "curl failed $id"; }
-          dl 1LJToGQ0mdLoC4QUy-_OzjXl0ZTfEmpZa /tmp/in/game1.dat
-          dl 1j7ahtZKstGedIoKdJW3sy3mqG2oxiQ_2 /tmp/in/game2.dat
-          dl 1oUjqDsG_I8Eyft0Z7gHTPLDsuVXtYIW0 /tmp/in/ennorath-ini.zip
-          dl 1sE4RaoHmdU4TxlETruYmkkmR5qJvl9Yc /tmp/in/audit.zip
-          md5sum /tmp/in/* || true
-          { for f in /tmp/in/*; do echo "== $f $(stat -c%s "$f")"; head -c 300 "$f" | tr -d '\0' | head -3; echo; done; } > /tmp/in/heads.txt 2>&1 || true
-      - name: analyse
+          python -m pip install -q pefile
+          python -c "import ast;ast.parse(open('tools/mod/gamedata_rows.py').read());print('gamedata_rows.py parses')"
+          python - <<'PY'
+          import re,sys
+          page=open('docs/ennorath/gamedata-rows.md').read()
+          rows=[l for l in page.splitlines() if l.startswith('| `') and l.count('|')>=8]
+          fx=[l.split('\t') for l in open('engine/tests/data/port70/gamedata-rows.txt').read().splitlines() if l and not l.startswith('#')]
+          print('page rows',len(rows),'fixture rows',len(fx))
+          names=[r[1] for r in fx]
+          assert len(names)==len(set(names)), 'duplicate field in the fixture'
+          assert len(rows)==len(fx), 'page and fixture disagree on the row count'
+          for line,cell in zip(rows,fx):
+              c=[x.strip() for x in line.strip().strip('|').split('|')]
+              assert c[0].strip('`')==cell[1], (c[0],cell[1])
+              assert c[1]==cell[2] and c[2]==cell[3], (c[1],c[2],cell)
+          print('page and fixture agree, row by row')
+          PY
+      - name: build and run PORT-70
         run: |
-          python -m pip install -q capstone pefile
-          mkdir -p /tmp/out
-          { md5sum /tmp/in/*; stat -c '%n %s' /tmp/in/*; cat /tmp/in/heads.txt; ls /tmp/in; } > /tmp/out/inputs.txt 2>&1 || true
-          python tools/mod/gamedata_rows.py --game /tmp/in/game1.dat --ini /tmp/in/ennorath-ini.zip --port engine/src/GameLogic/GameLogicSettings.cpp --out /tmp/out > /tmp/out/run.log 2>&1 || true
-          tail -5 /tmp/out/run.log
-          ls -la /tmp/out
-      - name: spool results
-        run: |
-          mkdir -p .spool/port70 && cp -r /tmp/out/. .spool/port70/ || true
-          rm -f .spool/port70/*.dat .spool/port70/*.zip
-          git config user.email "actions@github.com"; git config user.name "port70 probe"
-          git checkout -B spool/port70-data
-          git add -f .spool
-          git commit -m "port70 spool: raw analysis output (scratch, never merged)" || true
-          git push -f origin HEAD:refs/heads/spool/port70-data
+          sudo apt-get update -qq && sudo apt-get install -y -qq ninja-build cmake g++ >/dev/null
+          cmake -S engine -B engine/build -G Ninja -DCMAKE_BUILD_TYPE=Release -DOPENBFME_BUILD_GODOT=OFF > /tmp/cmake.log 2>&1 || { tail -40 /tmp/cmake.log; exit 1; }
+          cmake --build engine/build -j2 --target openbfme_tests > /tmp/build.log 2>&1 || { tail -60 /tmp/build.log; exit 1; }
+          engine/build/openbfme_tests -tc="PORT-70*" 2>&1 | tail -30
