@@ -936,6 +936,11 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 		{
 			swaps = floorWeatherSwaps(d.draws[p.module].data, m_streakWeather); // a map-placed building's floor (bib) on a snowy map
 		}
+		else if (p.kind == W3D_DRAWKIND_TREE && !p.textureName.empty())
+		{
+			// RW 0x4E8C1B / RW 0x4EC9B5: W3DShrubBuffer / W3DTreeBuffer keys tree types by (ModelName, TextureName) and applies TextureName
+			swaps.emplace_back("*", p.textureName);
+		}
 		const std::string key = AsciiStringUtil::lowered(p.modelName) + W3DInstancer::Texture_Swap_Suffix(swaps) + (p.kind == W3D_DRAWKIND_FLOOR ? "#floor" : "");
 		auto it = m_staticModels.find(key);
 		int64_t model;
@@ -975,6 +980,7 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 			std::copy(d.basis, d.basis + 9, f.basis); // S-921: a shrub's morph places its other model the same way
 			f.tmpl = f.drawTmpl = d.info ? d.info->tmpl : nullptr;
 			f.model = p.modelName;
+			f.texture = p.textureName; // RW 0x4E8C1B
 			f.castShadow = castShadow;
 			m_footprintViews.push_back(f);
 		}
@@ -999,6 +1005,7 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 				v.position = d.position;
 				v.scale = d.scale;
 				v.model = p.modelName; // S-921
+				v.texture = p.textureName; // RW 0x4EC9B5
 				v.swayType = swayType;
 				v.castShadow = castShadow;
 				m_treeViewOfId[(std::uint32_t)d.objectIndex + 1u] = m_treeViews.size();
@@ -2916,26 +2923,38 @@ std::string treeModelOf(const ThingTemplate *tmpl)
 	return d ? d->m_modelName : std::string();
 }
 
+std::string treeTextureOf(const ThingTemplate *tmpl)
+{
+	const W3DTreeDrawModuleData *d = TerrainTrees::treeDrawOf(tmpl);
+	return d ? d->m_textureName : std::string();
+}
+
 bool sameModel(const std::string &a, const std::string &b)
 {
 	return AsciiStringUtil::lowered(a) == AsciiStringUtil::lowered(b);
 }
 } // namespace
 
-// the tree buffer's model of a type at the tree's placement (RW 0x4EC505 .. 0x4EC5F5: W3DAssetManager's render object of the type's ModelName)
-int64_t GameWorld::addTreeModelInstance(const std::string &model, const float basis[9], const Coord3D &pos, float scale, bool castShadow, int swayType)
+// the tree buffer's model of a type at the tree's placement (RW 0x4EC505 .. 0x4EC5F5: W3DAssetManager's render object of the type's ModelName and TextureName)
+int64_t GameWorld::addTreeModelInstance(const std::string &model, const std::string &texture, const float basis[9], const Coord3D &pos, float scale, bool castShadow, int swayType)
 {
 	W3DInstancer *st = instancerOf(m_staticId);
 	if (!st || model.empty())
 	{
 		return -1;
 	}
-	const std::string key = AsciiStringUtil::lowered(model) + W3DInstancer::Texture_Swap_Suffix({});
+	std::vector<std::pair<std::string, std::string>> swaps;
+	if (!texture.empty())
+	{
+		// RW 0x4E8C1B / RW 0x4EC9B5: W3DShrubBuffer / W3DTreeBuffer keys tree types by (ModelName, TextureName) and applies TextureName
+		swaps.emplace_back("*", texture);
+	}
+	const std::string key = AsciiStringUtil::lowered(model) + W3DInstancer::Texture_Swap_Suffix(swaps);
 	auto it = m_staticModels.find(key);
 	int64_t m;
 	if (it == m_staticModels.end())
 	{
-		st->Set_Build_Texture_Swaps({});
+		st->Set_Build_Texture_Swaps(swaps);
 		st->Set_Build_Floor(false);
 		m = st->add_model(toGodot(model));
 		m_staticModels[key] = m;
@@ -2980,9 +2999,10 @@ void GameWorld::morphTree(const TerrainTrees::Event &e)
 	}
 	v.morphInstance = -1;
 	v.morphModel = treeModelOf(e.to);
+	v.morphTexture = treeTextureOf(e.to);
 	if (!v.morphModel.empty())
 	{
-		v.morphInstance = addTreeModelInstance(v.morphModel, v.basis, v.position, v.scale, v.castShadow, v.swayType);
+		v.morphInstance = addTreeModelInstance(v.morphModel, v.morphTexture, v.basis, v.position, v.scale, v.castShadow, v.swayType);
 		if (v.morphInstance >= 0)
 		{
 			st->set_instance_opacity(v.morphInstance, 0.0); // RW 0x4EC74F
@@ -3010,9 +3030,11 @@ void GameWorld::morphTreeEnd(const TerrainTrees::Event &e)
 	}
 	ToppleTreeView &v = m_treeViews[it->second];
 	const std::string now = treeModelOf(e.to);
-	if (!now.empty() && !sameModel(now, v.model))
+	const std::string nowTexture = treeTextureOf(e.to);
+	const bool same = sameModel(now, v.model) && sameModel(nowTexture, v.texture);
+	if (!now.empty() && !same)
 	{
-		if (v.morphInstance >= 0 && sameModel(now, v.morphModel))
+		if (v.morphInstance >= 0 && sameModel(now, v.morphModel) && sameModel(nowTexture, v.morphTexture))
 		{
 			st->remove_instance(v.instance);
 			v.instance = v.morphInstance;
@@ -3020,7 +3042,7 @@ void GameWorld::morphTreeEnd(const TerrainTrees::Event &e)
 		}
 		else
 		{
-			const int64_t n = addTreeModelInstance(now, v.basis, v.position, v.scale, v.castShadow, v.swayType);
+			const int64_t n = addTreeModelInstance(now, nowTexture, v.basis, v.position, v.scale, v.castShadow, v.swayType);
 			if (n >= 0)
 			{
 				st->remove_instance(v.instance);
@@ -3028,6 +3050,7 @@ void GameWorld::morphTreeEnd(const TerrainTrees::Event &e)
 			}
 		}
 		v.model = now;
+		v.texture = nowTexture;
 	}
 	if (v.morphInstance >= 0)
 	{
@@ -3101,9 +3124,10 @@ void GameWorld::morphArea(const TerrainTrees::Event &e)
 		}
 		f.morphInstance = -1;
 		f.morphModel = f.morphTarget ? treeModelOf(target) : std::string();
+		f.morphTexture = f.morphTarget ? treeTextureOf(target) : std::string();
 		if (!f.morphModel.empty())
 		{
-			f.morphInstance = addTreeModelInstance(f.morphModel, f.basis, f.position, f.scale, f.castShadow, 0);
+			f.morphInstance = addTreeModelInstance(f.morphModel, f.morphTexture, f.basis, f.position, f.scale, f.castShadow, 0);
 			if (f.morphInstance >= 0)
 			{
 				st->set_instance_opacity(f.morphInstance, 0.0);
@@ -3148,9 +3172,11 @@ void GameWorld::endShrubMorph(FootprintView &f)
 	else
 	{
 		const std::string now = treeModelOf(f.drawTmpl);
-		if (!now.empty() && !sameModel(now, f.model))
+		const std::string nowTexture = treeTextureOf(f.drawTmpl);
+		const bool same = sameModel(now, f.model) && sameModel(nowTexture, f.texture);
+		if (!now.empty() && !same)
 		{
-			if (f.morphInstance >= 0 && sameModel(now, f.morphModel))
+			if (f.morphInstance >= 0 && sameModel(now, f.morphModel) && sameModel(nowTexture, f.morphTexture))
 			{
 				st->remove_instance(f.instance);
 				f.instance = f.morphInstance;
@@ -3158,7 +3184,7 @@ void GameWorld::endShrubMorph(FootprintView &f)
 			}
 			else
 			{
-				const int64_t n = addTreeModelInstance(now, f.basis, f.position, f.scale, f.castShadow, 0);
+				const int64_t n = addTreeModelInstance(now, nowTexture, f.basis, f.position, f.scale, f.castShadow, 0);
 				if (n >= 0)
 				{
 					st->remove_instance(f.instance);
@@ -3166,6 +3192,7 @@ void GameWorld::endShrubMorph(FootprintView &f)
 				}
 			}
 			f.model = now;
+			f.texture = nowTexture;
 		}
 		st->set_instance_opacity(f.instance, 1.0);
 	}
