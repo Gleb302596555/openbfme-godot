@@ -2847,6 +2847,10 @@ void GameWorld::heldClientWork()
 			case TerrainTrees::Event::MORPH_END:
 				morphTreeEnd(e);
 				break;
+			case TerrainTrees::Event::PUSH_ASIDE:
+				// PORT-73: RW 0x4E70F5, the moving unit's shrub push aside (its id, position, heading and major radius; the bend follows RW 0x4E8519)
+				m_treeTopple->unitMoved(e.clientId, e.position, e.direction, e.radius, e.frame);
+				break;
 			case TerrainTrees::Event::HIDE_SCORCHES:
 			case TerrainTrees::Event::MORPH_AREA:
 				break;
@@ -3310,7 +3314,7 @@ void GameWorld::updateTreeTopple(double dt)
 		const ToppleTreeView &v = m_treeViews[i];
 		float b[9];
 		Coord3D pos;
-		m_treeTopple->placement(i, v.basis, v.position, b, pos);
+		m_treeTopple->placement(i, v.basis, v.position, v.scale, b, pos); // PORT-73: the scale keeps the bend's shear equal to RW 0x4E7B25
 		if (m_treeTopple->trees()[i].state == TreeTopple::GONE)
 		{
 			st->set_instance_transform(v.instance, toTransform(b, pos, 0.0f)); // sunk away: drawn at scale 0

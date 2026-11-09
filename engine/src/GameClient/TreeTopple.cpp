@@ -37,8 +37,98 @@ size_t TreeTopple::add(std::uint32_t clientId, const Coord3D &position, const W3
 	t.clientId = clientId;
 	t.position = position;
 	t.data = data;
+	// PORT-73, RW 0x4E8C66 / RW 0x4E8C6C (addShrub): the record joins the area partition when MoveOutwardTime is above 0 or DoTopple is set
+	t.pushable = data && (data->m_framesToMoveOutward > 0 || data->m_doTopple);
 	m_trees.push_back(t);
 	return m_trees.size() - 1;
+}
+
+// PORT-73, RW 0x4E70F5 (the shrub buffer's unitMoved, TheTerrainVisual slot 0x6C): every pushable record within the walker's radius plus 7.0 is pushed
+int TreeTopple::unitMoved(std::uint32_t pusherId, const Coord3D &position, const Coord3D &direction, float majorRadius, std::uint32_t frame)
+{
+	const float r = majorRadius + kPushAsideMargin; // RW 0x4E713C: addss xmm0, [0xBE4AD4]
+	const float r2 = r * r;                        // RW 0x4E7393: the radius squared against the 3D squared distance
+	int pushed = 0;
+	for (size_t i = 0; i < m_trees.size(); ++i)
+	{
+		Tree &t = m_trees[i];
+		// RW 0x4E7323 .. 0x4E7348: a record of a type (-1 goes) that the partition holds (that is, `pushable`), in the buffer (a gone record is cleared)
+		if (!t.pushable || !t.data || t.state == GONE)
+		{
+			continue;
+		}
+		// RW 0x4E73AE: the walker pushes only a type whose MoveOutwardTime is above 0 (the rate below would divide by zero)
+		if (t.data->m_framesToMoveOutward == 0)
+		{
+			continue;
+		}
+		const float dx = t.position.x - position.x;
+		const float dy = t.position.y - position.y;
+		const float dz = t.position.z - position.z;
+		// RW 0x4E734E .. 0x4E739E: (dz^2 + dy^2) + dx^2 below r^2 (SSE, 3D)
+		if (!(r2 > dz * dz + dy * dy + dx * dx))
+		{
+			continue;
+		}
+		pushed += pushOne(i, pusherId, position, direction, frame) ? 1 : 0;
+	}
+	return pushed;
+}
+
+// RW 0x4E6C74: the bend of one record
+bool TreeTopple::pushOne(size_t index, std::uint32_t pusherId, const Coord3D &position, const Coord3D &direction, std::uint32_t frame)
+{
+	Tree &t = m_trees[index];
+	const std::uint32_t last = t.pushAsideFrame;
+	t.pushAsideFrame = frame; // RW 0x4E6CC3: the record keeps this frame
+	if (t.pushAsideSource == pusherId && frame - last < kWalkRepeatFrames)
+	{
+		return false; // RW 0x4E6CC5 .. 0x4E6CCC: the same walker within three frames
+	}
+	if (t.pushAside != 0.0f)
+	{
+		return false; // RW 0x4E6CD7: a record already bent keeps its direction until it stands up
+	}
+	t.pushAsideSource = pusherId; // RW 0x4E6CF1
+	const float dx = t.position.x - position.x;
+	const float dy = t.position.y - position.y;
+	// RW 0x4E6CF4 .. 0x4E6D35: the cross product of the walker's heading and the vector to the record picks the perpendicular
+	if (direction.x * dy - direction.y * dx > 0.0f)
+	{
+		t.pushAsideCos = -direction.y; // RW 0x4E6D1A, [record + 0x68]
+		t.pushAsideSin = direction.x;  // RW 0x4E6D26, [record + 0x64]
+	}
+	else
+	{
+		t.pushAsideCos = direction.y;  // RW 0x4E6D2B
+		t.pushAsideSin = -direction.x; // RW 0x4E6D31
+	}
+	// RW 0x4E6D41 .. 0x4E6D6D: 1.0f / (MoveOutwardTime * the frames per logic frame)
+	const float frames = (float)t.data->m_framesToMoveOutward;
+	t.pushAsideDelta = 1.0f / (frames * kPushAsideFrameScale);
+	m_changed.push_back(index);
+	return true;
+}
+
+// RW 0x4E8519 .. 0x4E8584: one drawn frame of the bend
+void TreeTopple::advancePushAside(Tree &t)
+{
+	if (t.pushAsideDelta == 0.0f)
+	{
+		return;
+	}
+	t.pushAside += t.pushAsideDelta; // RW 0x4E852D
+	if (t.pushAside >= 1.0f)         // RW 0x4E8535: against 1.0f (RW 0xBD1908)
+	{
+		// RW 0x4E8546 .. 0x4E856F: -1.0 / (MoveInwardTime * the frames per logic frame), a double division (RW 0xBDFC10)
+		const double frames = (double)t.data->m_framesToMoveInward;
+		t.pushAsideDelta = (float)(-1.0 / (frames * (double)kPushAsideFrameScale));
+	}
+	else if (t.pushAside <= 0.0f) // RW 0x4E8577 .. 0x4E8584: back at rest
+	{
+		t.pushAsideDelta = 0.0f;
+		t.pushAside = 0.0f;
+	}
 }
 
 // RW 0x4E9E4E (TheTerrainVisual slot 0x70)
@@ -170,6 +260,13 @@ void TreeTopple::advance(double seconds)
 		for (size_t i = 0; i < m_trees.size(); ++i)
 		{
 			Tree &t = m_trees[i];
+			// PORT-73: the bend steps once per drawn frame, whatever the fall does (RW 0x4E8519 runs in the draw loop over every record)
+			const float bent = t.pushAside;
+			advancePushAside(t);
+			if (t.pushAside != bent)
+			{
+				m_changed.push_back(i);
+			}
 			if (t.state == FALLING || t.sinking)
 			{
 				update(t);
@@ -224,7 +321,7 @@ void TreeTopple::pose(size_t index, float r[9], Coord3D &offset) const
 	offset = Coord3D{ 0.0f, 0.0f, -sink };
 }
 
-void TreeTopple::placement(size_t index, const float base[9], const Coord3D &basePosition, float out[9], Coord3D &outPosition) const
+void TreeTopple::placement(size_t index, const float base[9], const Coord3D &basePosition, float scale, float out[9], Coord3D &outPosition) const
 {
 	float r[9];
 	Coord3D offset;
@@ -235,6 +332,16 @@ void TreeTopple::placement(size_t index, const float base[9], const Coord3D &bas
 		{
 			out[a * 3 + c] = r[a * 3 + 0] * base[0 * 3 + c] + r[a * 3 + 1] * base[1 * 3 + c] + r[a * 3 + 2] * base[2 * 3 + c];
 		}
+	}
+	// PORT-73, RW 0x4E7B25 / RW 0x4E7B4D: the vertex x moves by `vertex z * push aside * cos * MoveOutwardDistanceFactor` and y by the same with sin
+	// (the untransformed vertex z, so the shear adds to the column that maps the model's own z: `scale * column + (cos, sin) * k` keeps the drawn
+	// offset equal to k * vertex z; the draw scales the whole basis by `scale`)
+	const Tree &t = m_trees[index];
+	if (t.pushAside > 0.0f && t.data && scale != 0.0f)
+	{
+		const float k = t.pushAside * t.data->m_maxOutwardMovement / scale; // RW 0x4E7B2D / 0x4E7B4D: times the type's MoveOutwardDistanceFactor (+ 0x18)
+		out[0 * 3 + 2] += k * t.pushAsideCos;
+		out[1 * 3 + 2] += k * t.pushAsideSin;
 	}
 	outPosition = Coord3D{ basePosition.x + offset.x, basePosition.y + offset.y, basePosition.z + offset.z };
 }
