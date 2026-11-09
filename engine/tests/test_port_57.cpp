@@ -26,6 +26,7 @@
 
 #include "Common/StateHash.h"
 #include "GameLogic/Module/EmotionModules.h"
+#include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/System/EmotionSystem.h"
 
 #include <string>
@@ -129,25 +130,40 @@ struct Port57Fx : movetest::MoveWorld
 	}
 };
 
-const RadiateFearUpdateModuleData *fearData(const char *tmpl)
-{
-	auto *t = Glob::the().thingFactory()->findTemplate(tmpl);
-	REQUIRE(t);
-	for (const auto &n : t->modules())
+	// Helper to get module data from an object
+	const RadiateFearUpdateModuleData *getFearData(Object *obj)
 	{
-		if (auto *d = dynamic_cast<const RadiateFearUpdateModuleData *>(n.data.get()))
+		for (const auto &m : obj->modules())
 		{
-			return d;
+			if (auto *d = dynamic_cast<const RadiateFearUpdateModuleData *>(m->getModuleData()))
+			{
+				return d;
+			}
 		}
+		return nullptr;
 	}
-	FAIL("no RadiateFearUpdate data on ", tmpl);
-	return nullptr;
-}
+	
+	// Helper to get RadiateFearUpdate from an object
+	RadiateFearUpdate *getRadiateFearUpdate(Object *obj)
+	{
+		for (const auto &m : obj->modules())
+		{
+			if (auto *r = dynamic_cast<RadiateFearUpdate *>(m.get()))
+			{
+				return r;
+			}
+		}
+		return nullptr;
+	}
 } // namespace
 
 TEST_CASE("PORT-57 WhichSpecialPower: the field is parsed (RW 0xC67A00, parseInt RW 0x42EC5E, offset +0xC) and the default is -1 (RW 0x89F80C)")
 {
-	const RadiateFearUpdateModuleData *d1 = fearData("FearWSP1");
+	Port57Fx f;
+	Object *wsp1 = f.at("FearWSP1", "Bob", 500.0f, 500.0f);
+	Object *def = f.at("FearDefault", "Bob", 1000.0f, 500.0f);
+
+	const RadiateFearUpdateModuleData *d1 = getFearData(wsp1);
 	REQUIRE(d1);
 	CHECK(d1->m_whichSpecialPower == 1); // parsed from the INI row
 	CHECK(d1->m_initiallyActive == true);
@@ -155,7 +171,7 @@ TEST_CASE("PORT-57 WhichSpecialPower: the field is parsed (RW 0xC67A00, parseInt
 	CHECK(d1->m_emotionPulseRadius == 150.0f);
 	CHECK(d1->m_emotionPulseInterval == 1000u);
 
-	const RadiateFearUpdateModuleData *d2 = fearData("FearDefault");
+	const RadiateFearUpdateModuleData *d2 = getFearData(def);
 	REQUIRE(d2);
 	CHECK(d2->m_whichSpecialPower == -1); // the data constructor's default (RW 0x89F80C: or [esi + 0xC], -1)
 	CHECK(d2->m_initiallyActive == true);
@@ -171,16 +187,8 @@ TEST_CASE("PORT-57 WhichSpecialPower: the fear pulses run identically with Which
 	// the default source and a nearby enemy
 	Object *def = f.at("FearDefault", "Bob", 1000.0f, 500.0f);
 	Object *nearDef = f.at("Scared", "Alice", 1000.0f, 600.0f); // 100 from the source
-	RadiateFearUpdate *rWsp = nullptr;
-	RadiateFearUpdate *rDef = nullptr;
-	for (const auto &m : wsp1->modules())
-	{
-		rWsp = rWsp ? rWsp : dynamic_cast<RadiateFearUpdate *>(m.get());
-	}
-	for (const auto &m : def->modules())
-	{
-		rDef = rDef ? rDef : dynamic_cast<RadiateFearUpdate *>(m.get());
-	}
+	RadiateFearUpdate *rWsp = getRadiateFearUpdate(wsp1);
+	RadiateFearUpdate *rDef = getRadiateFearUpdate(def);
 	REQUIRE(rWsp);
 	REQUIRE(rDef);
 	CHECK(rWsp->isAlreadyUpgraded()); // InitiallyActive
