@@ -37,14 +37,31 @@ namespace
 {
 namespace L = GameLogicSettingsLoader;
 
-// The repository, when the tests are run from the source tree. The fixture path is relative to it; when the folder
-// cannot be found the file test says so instead of failing (a build directory moved out of the tree).
-std::string repoRootFromSourceFile()
+// The trees the build points the tests at: OPENBFME_TESTDATA_DIR (engine/tests/data) holds the page's fixture, and
+// OPENBFME_DOCS_DIR the page itself, so the two are compared where both exist. A build that does not define them falls
+// back to this file's own path; when neither is usable the file tests say so instead of failing.
+std::string fixturePath()
 {
+#ifdef OPENBFME_TESTDATA_DIR
+	return std::string(OPENBFME_TESTDATA_DIR) + "/port70/gamedata-rows.txt";
+#else
 	const std::string file = __FILE__; // <repo>/engine/tests/test_port_70.cpp, unless the build remapped the prefix
 	const std::string marker = "/engine/tests/test_port_70.cpp";
 	const std::size_t at = file.rfind(marker);
-	return at == std::string::npos ? std::string() : file.substr(0, at);
+	return at == std::string::npos ? std::string() : file.substr(0, at) + "/engine/tests/data/port70/gamedata-rows.txt";
+#endif
+}
+
+std::string pagePath()
+{
+#ifdef OPENBFME_DOCS_DIR
+	return std::string(OPENBFME_DOCS_DIR) + "/ennorath/gamedata-rows.md";
+#else
+	const std::string file = __FILE__;
+	const std::string marker = "/engine/tests/test_port_70.cpp";
+	const std::size_t at = file.rfind(marker);
+	return at == std::string::npos ? std::string() : file.substr(0, at) + "/docs/ennorath/gamedata-rows.md";
+#endif
 }
 
 struct Row
@@ -68,7 +85,8 @@ unsigned parseHex(const std::string &s)
 std::vector<Row> readPage(const std::string &path)
 {
 	std::ifstream in(path);
-	REQUIRE_MESSAGE(in.good(), "cannot open " + path);
+	const std::string cannot = "cannot open " + path;
+	REQUIRE_MESSAGE(in.good(), cannot.c_str());
 	std::vector<Row> rows;
 	std::string line;
 	while (std::getline(in, line))
@@ -84,7 +102,8 @@ std::vector<Row> readPage(const std::string &path)
 		{
 			cells.push_back(cell);
 		}
-		REQUIRE_MESSAGE(cells.size() == 4, "a page line with " + std::to_string(cells.size()) + " cells: " + line);
+		const std::string bad = "a page line with " + std::to_string(cells.size()) + " cells: " + line;
+		REQUIRE_MESSAGE(cells.size() == 4, bad.c_str());
 		Row r;
 		r.cls = cells[0];
 		r.field = cells[1];
@@ -153,13 +172,13 @@ bool loaderHasRow(const std::string &field)
 
 TEST_CASE("PORT-70 the page's rows are GameData rows of the RotWK table (RW 0xBFF580 + 16 * index)")
 {
-	const std::string root = repoRootFromSourceFile();
-	if (root.empty())
+	const std::string fixture = fixturePath();
+	if (fixture.empty())
 	{
-		MESSAGE("SKIP: the build remapped __FILE__, so the page's fixture cannot be located; run from the source tree");
+		MESSAGE("SKIP: neither OPENBFME_TESTDATA_DIR nor __FILE__ locate the page's fixture");
 		return;
 	}
-	const std::vector<Row> rows = readPage(root + "/engine/tests/data/port70/gamedata-rows.txt");
+	const std::vector<Row> rows = readPage(fixture);
 	REQUIRE(rows.size() == 82); // the page's table, one line per row (the summary's four class counts add up to it)
 
 	std::map<std::string, unsigned> classes;
@@ -201,13 +220,13 @@ TEST_CASE("PORT-70 the page's rows are GameData rows of the RotWK table (RW 0xBF
 
 TEST_CASE("PORT-70 none of the page's rows has a kGameDataFields row: the S-152 catch-all takes each one")
 {
-	const std::string root = repoRootFromSourceFile();
-	if (root.empty())
+	const std::string fixture = fixturePath();
+	if (fixture.empty())
 	{
-		MESSAGE("SKIP: the build remapped __FILE__; run from the source tree");
+		MESSAGE("SKIP: neither OPENBFME_TESTDATA_DIR nor __FILE__ locate the page's fixture");
 		return;
 	}
-	const std::vector<Row> rows = readPage(root + "/engine/tests/data/port70/gamedata-rows.txt");
+	const std::vector<Row> rows = readPage(fixture);
 	GameLogicSettings g;
 	std::string err;
 	std::string text = "GameData\n";
@@ -216,7 +235,7 @@ TEST_CASE("PORT-70 none of the page's rows has a kGameDataFields row: the S-152 
 		text += "  " + r.field + " = 1\n";
 	}
 	text += "End\n";
-	REQUIRE_MESSAGE(L::scanGameData(text, g, &err), err);
+	REQUIRE_MESSAGE(L::scanGameData(text, g, &err), err.c_str());
 	// every row the page lists reaches the catch-all, by its `GameData.<field>` name: the loader parses the field and
 	// applies nothing (the page's whole point), and no row of the block claims it
 	for (const Row &r : rows)
@@ -235,13 +254,13 @@ TEST_CASE("PORT-70 none of the page's rows has a kGameDataFields row: the S-152 
 
 TEST_CASE("PORT-70 the rows the port has keep their rows; a page row that gains one is reported")
 {
-	const std::string root = repoRootFromSourceFile();
-	if (root.empty())
+	const std::string fixture = fixturePath();
+	if (fixture.empty())
 	{
-		MESSAGE("SKIP: the build remapped __FILE__; run from the source tree");
+		MESSAGE("SKIP: neither OPENBFME_TESTDATA_DIR nor __FILE__ locate the page's fixture");
 		return;
 	}
-	const std::vector<Row> rows = readPage(root + "/engine/tests/data/port70/gamedata-rows.txt");
+	const std::vector<Row> rows = readPage(fixture);
 	std::set<std::string> listed;
 	for (const Row &r : rows)
 	{
@@ -260,5 +279,62 @@ TEST_CASE("PORT-70 the rows the port has keep their rows; a page row that gains 
 	{
 		INFO("page row " << r.field);
 		CHECK_MESSAGE(!loaderHasRow(r.field), r.field << " now has a kGameDataFields row: move it out of docs/ennorath/gamedata-rows.md");
+	}
+}
+
+TEST_CASE("PORT-70 the page and its fixture are the same table")
+{
+	// docs/ennorath/gamedata-rows.md is the deliverable and engine/tests/data/port70/gamedata-rows.txt its parsed form:
+	// every `| field | row | off | verdict | class | port | ... |` line of the page must equal the fixture's line, name
+	// for name, address for address, so the page cannot drift from what the other tests pin (and a row added to one file
+	// and not the other fails here).
+	const std::string fixture = fixturePath();
+	const std::string page = pagePath();
+	if (fixture.empty() || page.empty())
+	{
+		MESSAGE("SKIP: this build does not name the test data / docs folders");
+		return;
+	}
+	std::ifstream in(page);
+	if (!in.good())
+	{
+		MESSAGE("SKIP: the page is not in this build's tree (" << page << ")");
+		return;
+	}
+	std::vector<Row> pinned = readPage(fixture);
+	std::vector<Row> fromPage;
+	std::string line;
+	while (std::getline(in, line))
+	{
+		if (line.rfind("| `", 0) != 0)
+		{
+			continue;
+		}
+		std::vector<std::string> cells;
+		std::string cell;
+		std::istringstream ls(line);
+		while (std::getline(ls, cell, '|'))
+		{
+			const std::size_t b = cell.find_first_not_of(' ');
+			const std::size_t e = cell.find_last_not_of(' ');
+			cells.push_back(b == std::string::npos ? std::string() : cell.substr(b, e - b + 1));
+		}
+		// cells[0] is empty (the line starts with '|'), so the row's cells start at 1
+		REQUIRE(cells.size() == 10); // the table's eight columns: field, row, off, verdict, class, port, evidence, batch
+		Row r;
+		r.field = cells[1].size() > 2 ? cells[1].substr(1, cells[1].size() - 2) : std::string();
+		r.row = parseHex(cells[2]);
+		r.off = parseHex(cells[3]);
+		r.cls = cells[5];
+		fromPage.push_back(r);
+	}
+	REQUIRE(fromPage.size() == pinned.size());
+	for (std::size_t i = 0; i < pinned.size(); ++i)
+	{
+		INFO("row " << pinned[i].field);
+		CHECK(fromPage[i].field == pinned[i].field);
+		CHECK(fromPage[i].row == pinned[i].row);
+		CHECK(fromPage[i].off == pinned[i].off);
+		CHECK(fromPage[i].cls == pinned[i].cls);
 	}
 }
