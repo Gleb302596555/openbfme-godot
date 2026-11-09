@@ -636,6 +636,10 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // longer counts it in b.targetlessUnported, which AITacticalAI::crc hashes; with that count restored the skirmish matched to frame 3893, and the later
 // changes of this merge move it from frame 3894 (not bisected; PORT-37's area damage is the likely one, PROCESS 7 rule 3). Switching off PORT-10's crc
 // field, PORT-17's module binding or PORT-33's ready rule changed nothing.
+// pin: merge queue q46 re-measured the skirmish once on the merged tree (OPENBFME_PERF1_REGEN=1), compared at each merge point: #262 keeps it (the group
+// task adder has no caller); #270 (the team threat orders, Team + 0x13C) moves it from frame 774; #267, #269 and #271 each port a targetless tactic, so the
+// hashed unported-tactic counter moves it from frame 8; the review fix (the threat walk newest first, RW 0x66362D; a horde soldier counts nothing, RW 0x693A1A)
+// moves it from frame 868. The big battle and the allied blob do not move.
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,
