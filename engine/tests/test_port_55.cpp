@@ -7,6 +7,8 @@
 #include "CombatTestUtil.h"
 #include "GameLogic/AI/GarrisonCommands.h"
 #include "GameLogic/Combat/CombatNames.h"
+#include "GameLogic/ExperienceLevels.h"
+#include "GameLogic/Object/ExperienceTracker.h"
 #include "GameLogic/Module/GarrisonContain.h"
 #include "GameLogic/Object/Contain/GarrisonContainRuntime.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
@@ -344,4 +346,51 @@ TEST_CASE("PORT-55 entry wrapper does not recheck admission and never consumes a
     REQUIRE(parent->getContainedBy() == house);
     CHECK_FALSE(c.addToContain(parent));
     CHECK(w.cash('A') - before == 5);
+}
+
+
+TEST_CASE("PORT-55 hero value uses rank over last rank and final cash grants experience only to an accepting container")
+{
+    // RW 0x68DE33..0x68DE49: trunc(value + value * rank / lastRank).
+    // RW 0x883DB7..0x883DFA: isAcceptingExperiencePoints, then final cash
+    // passed to addExperiencePoints with both scaling flags and feedback.
+    struct LevelsScope
+    {
+        ExperienceLevelSystem levels;
+        ExperienceLevelSystem *saved = TheExperienceLevelSystem;
+        LevelsScope() { TheExperienceLevelSystem = &levels; }
+        ~LevelsScope() { TheExperienceLevelSystem = saved; }
+    } xp;
+    const std::string data = kData +
+        "Object P55Hero\n KindOf = INFANTRY HERO SELECTABLE\n"
+        " BountyValue = 17\n TransportSlotCount = 1\n"
+        " Body = ActiveBody Body\n MaxHealth = 100\n End\nEnd\n";
+    CombatWorld w(data.c_str());
+    xp.levels.registerBlocks(w.w.fx.env.blocks);
+    const std::string error = w.w.load(
+        "ExperienceLevel P55Hero1\n TargetNames = P55Hero\n"
+        " RequiredExperience = 1\n Rank = 1\nEnd\n"
+        "ExperienceLevel P55Hero4\n TargetNames = P55Hero\n"
+        " RequiredExperience = 100\n Rank = 4\nEnd\n");
+    REQUIRE_MESSAGE(error.empty(), error);
+    w.logic->economy().context().gameMode = EconomyContext::MODE_SINGLE_PLAYER;
+    Object *house = w.unit("P55Citadel", 'A', 400, 400);
+    const int before = w.cash('A');
+    const float experience = house->getExperienceTracker()->getExperience();
+    Object *rank1 = w.unit("P55Hero", 'A', 350, 400);
+    rank1->getExperienceTracker()->setExperienceAndLevel(1.0f, true);
+    REQUIRE(rank1->getExperienceTracker()->getRank() == 1);
+    REQUIRE(contain(house).addToContain(rank1));
+    CHECK(w.cash('A') - before == 6); // trunc(17 + 17/4) = 21; ceil(21*.25) = 6
+    Object *rank4 = w.unit("P55Hero", 'A', 350, 400);
+    rank4->getExperienceTracker()->setExperienceAndLevel(100.0f, true);
+    REQUIRE(rank4->getExperienceTracker()->getRank() == 4);
+    REQUIRE(contain(house).addToContain(rank4));
+    CHECK(w.cash('A') - before == 15); // ceil((17 + 17)*.25) = 9 more
+    CHECK(house->getExperienceTracker()->getExperience() - experience == 15.0f);
+    house->setStatus((unsigned)CombatNames::status("TEMPORARILY_DEFECTED"), true);
+    Object *troop = w.unit("P55Troop", 'A', 350, 400);
+    REQUIRE(contain(house).addToContain(troop));
+    CHECK(w.cash('A') - before == 20);
+    CHECK(house->getExperienceTracker()->getExperience() - experience == 15.0f);
 }
