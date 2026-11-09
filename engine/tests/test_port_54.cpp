@@ -108,6 +108,12 @@ struct Fixture
   shell.update();
  }
  AptPalantir *palantir() { return dynamic_cast<AptPalantir *>(shell.top()); }
+ Object *make(const char *name, float x)
+ {
+  Object *o = game.makeAt(name, "Alice", x, x);
+  o->friend_onBuildComplete(); // RW 0x8B9D0F: activate StartsActive modules
+  return o;
+ }
  PalantirCommandUI::CostModifierInfo info(Object *o) { return PalantirCommandUI::costModifierInfo(context, o->getID()); }
  void select(Object *o)
  {
@@ -135,16 +141,16 @@ TEST_CASE("PORT-54 selected upgrade discount is formatted into the Palantir sect
  Fixture f;
  REQUIRE(f.palantir());
  REQUIRE(f.palantir()->initialized());
- Object *plain = f.game.makeAt("SyntheticPlain", "Alice", 1, 1);
+ Object *plain = f.make("SyntheticPlain", 1);
  f.select(plain);
  CHECK(f.windows.aptText("APT:CostModifierUpgrade") == nullptr); // RW 0x92FC25: no module
  CHECK(f.shows == 0);
- Object *forge = f.game.makeAt("SyntheticForge", "Alice", 2, 2);
+ Object *forge = f.make("SyntheticForge", 2);
  f.select(forge);
  REQUIRE(f.windows.aptText("APT:CostModifierUpgrade"));
  CHECK(*f.windows.aptText("APT:CostModifierUpgrade") == "Discount -10%"); // RW 0x92F735, 0x92FCCD
  CHECK(f.shows == 1);
- f.game.makeAt("SyntheticForge", "Alice", 3, 3);
+ f.make("SyntheticForge", 3);
  f.select(forge);
  CHECK(*f.windows.aptText("APT:CostModifierUpgrade") == "Discount -20%"); // RW 0x6B2D20, 0x92F73A
  CHECK(f.shows == 1);
@@ -155,9 +161,9 @@ TEST_CASE("PORT-54 selected upgrade discount is formatted into the Palantir sect
 TEST_CASE("PORT-54 object filters, missing labels and the structure gate follow RW")
 {
  Fixture f;
- Object *hearth = f.game.makeAt("SyntheticHearth", "Alice", 1, 1);
- f.game.makeAt("SyntheticOtherFilter", "Alice", 2, 2);
- f.game.makeAt("SyntheticHearth", "Alice", 3, 3);
+ Object *hearth = f.make("SyntheticHearth", 1);
+ f.make("SyntheticOtherFilter", 2);
+ f.make("SyntheticHearth", 3);
  const auto cost = f.info(hearth);
  CHECK(cost.visible);
  CHECK_FALSE(cost.upgradeDiscount);
@@ -165,13 +171,13 @@ TEST_CASE("PORT-54 object filters, missing labels and the structure gate follow 
  f.select(hearth);
  REQUIRE(f.windows.aptText("APT:CostModifierUpgrade"));
  CHECK(*f.windows.aptText("APT:CostModifierUpgrade") == "Cost 8%");
- Object *noLabel = f.game.makeAt("SyntheticUnspecified", "Alice", 4, 4);
+ Object *noLabel = f.make("SyntheticUnspecified", 4);
  const auto unspecified = f.info(noLabel);
  CHECK(unspecified.visible); // RW 0x92FBAB tests module presence, not whether it executed
  CHECK(unspecified.label == ">UNSPECIFIED<"); // RW 0x8B9E0D
  f.select(noLabel);
  CHECK(*f.windows.aptText("APT:CostModifierUpgrade") == "MISSING: '>UNSPECIFIED<'");
- Object *unit = f.game.makeAt("SyntheticUnit", "Alice", 5, 5);
+ Object *unit = f.make("SyntheticUnit", 5);
  CHECK_FALSE(f.info(unit).visible); // RW 0x92FBC0: not STRUCTURE
  f.select(unit);
  CHECK(f.hides == 2);
