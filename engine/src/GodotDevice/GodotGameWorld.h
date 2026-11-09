@@ -769,6 +769,7 @@ private:
 		const void *shadowData = nullptr;
 		int64_t shadowInstance = -1;        ///< the instance it was handed to
 		bool shadowOn = true;               ///< TOP20 #24: the drawable's shadowsEnabled() it was made with
+		bool shadowUseMapping = false;      ///< S-3304, Local 19: detail setting UseShadowMapping it was made with
 		std::uint32_t colorsRevision = 0;   ///< lane CAH-2: Drawable::customColorRevision the model choice saw
 		// lane HCKEY-1: a static entry's model key (lowered name + floor swap suffix + palette) and the inputs it was made from, rebuilt only
 		// when one of them changes (community PR #60 made it every frame for every coloured static drawable)
