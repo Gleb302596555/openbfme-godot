@@ -49,7 +49,7 @@ suggested the callers; the addresses below are RotWK instructions.
   module still passes the UI's module-presence gate; its amount follows the
   player records. A missing module fails the gate.
 
-## Shared formatter scope gate (Port 54, issue #164)
+## Shared formatter boundary (Port 54, issue #164)
 
 RW `0x92FCE1` calls `0xADF7E0` with the fetched Unicode format and one
 integer; `0xADF7F7` calls `0x437120`, which invokes the import at `0xBD05BC`
@@ -58,8 +58,7 @@ characters. The existing `LocalizedText::format` is a shared, deliberately
 restricted typed formatter: for example it leaves `%+d` literal, whereas the
 MSVCRT formatter applies the sign flag to a signed integer. The synthetic
 tests use `%d%%`, which is supported; they do not establish general format
-parity or the format of the mod's localized string. `AptPalantir.cpp` currently
-uses that shared formatter. Exact general formatting would change an existing
-shared mechanism with explicit security-departure tests; it is outside the
-approved section-only scope and awaits the owner's decision. No formatter
-patch or local workaround was made.
+parity. The owner states that all 33 Ennorath strings named by this field use
+only `%d` and `%%`, and decided to keep the shared formatter unchanged.
+`AptPalantir.cpp` uses it; no formatter patch or local workaround was made.
+The general-format difference remains recorded in S-760.
