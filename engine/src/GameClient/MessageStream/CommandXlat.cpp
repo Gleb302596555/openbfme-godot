@@ -1217,11 +1217,24 @@ int CommandTranslator::issueSpecialPower(const CommandButton &command, Object *t
 		msgType = MSG_DO_SPECIAL_POWER;
 		if (type == EvaluateType::DoCommand)
 		{
-			ClientMessage &m = m_ctx.stream.append(msgType);
-			m.appendInteger((int)t->getID());
-			m.appendInteger((int)command.m_options);
-			m.appendObjectID(INVALID_ID);
-			m.appendObjectID(INVALID_ID);
+			auto emitTargetless = [&](const SpecialPowerTemplate &tt, std::uint32_t options) {
+				ClientMessage &m = m_ctx.stream.append(msgType);
+				m.appendInteger((int)tt.getID());
+				m.appendInteger((int)options);
+				m.appendObjectID(INVALID_ID);
+				m.appendObjectID(INVALID_ID);
+			};
+			emitTargetless(*t, command.m_options);
+			for (const std::string &name : command.m_commandTrigger)
+			{
+				const CommandButton *cb = TheCommandStore ? TheCommandStore->findCommandButton(name) : nullptr;
+				const SpecialPowerTemplate *ct = cb && cb->m_command == GUI_COMMAND_SPECIAL_POWER && TheSpecialPowerStore && !cb->m_specialPowerName.empty()
+					? TheSpecialPowerStore->findSpecialPowerTemplate(cb->m_specialPowerName) : nullptr;
+				if (ct)
+				{
+					emitTargetless(*ct, cb->m_options);
+				}
+			}
 		}
 	}
 	return msgType;

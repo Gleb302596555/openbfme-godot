@@ -294,6 +294,34 @@ private:
 	ObjectID m_secondaryUsed = INVALID_ID; // USE_SECONDARY_OBJECT_LOCATION: the object found by the last cast (tests)
 };
 
+// LOCAL-18 (issue #143): CombineHordeSpecialPower (constructor RW 0x8CCBF0, vtable RW 0xC75420 / 0xC753B8) and its data (RW 0x8CCC95)
+class CombineHordeSpecialPowerModuleData : public SpecialPowerModuleData
+{
+public:
+	float m_scanRange = 100.0f; // +0x7C (default RW 0xBD88D8)
+
+	static void buildFieldParse(MultiIniFieldParse &p); // RW 0x8CCBD0, table RW 0xC75398
+};
+
+class CombineHordeSpecialPower : public SpecialPowerModule
+{
+public:
+	OBFME_MODULE_XFER(CombineHordeSpecialPower)
+	CombineHordeSpecialPower(Thing *thing, const CombineHordeSpecialPowerModuleData *data);
+	const CombineHordeSpecialPowerModuleData *data() const { return m_data; }
+
+	void doSpecialPower(unsigned options) override;                          // RW 0x8CD08C (horde) / RW 0x8CCCB4 (unit)
+	void doSpecialPowerAtObject(Object *target, unsigned options) override;  // RW 0x8CCF76
+	void doSpecialPowerAtLocation(const Coord3D &loc, unsigned options) override; // RW 0x8CCEC9
+
+	float scanRange() const { return m_data ? m_data->m_scanRange : 100.0f; }
+
+	void crc(StateHasher &h) const override;
+
+private:
+	const CombineHordeSpecialPowerModuleData *m_data = nullptr;
+};
+
 class GameLogic;
 class Player;
 

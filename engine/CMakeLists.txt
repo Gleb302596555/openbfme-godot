@@ -1061,6 +1061,8 @@ add_executable(openbfme_tests
     tests/test_local_16.cpp
     # lane LOCAL-17 (tree and shrub textures: W3DTreeDraw/TextureName, TOP20 #22)
     tests/test_local_17.cpp
+    # lane LOCAL-18 (CombineHordeSpecialPower, SPECIAL_GIVE_UPGRADE_NEAREST, issue #143)
+    tests/test_local_18.cpp
     # shared numeric facade (WEAPON-1 e75dd8c, imported unchanged: wide PC24 results, SSE binary32 ops, retail integer conversions)
     tests/test_numeric_facade.cpp
     # lane ECON-1: the economy

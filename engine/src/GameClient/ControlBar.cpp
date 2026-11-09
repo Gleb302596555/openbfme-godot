@@ -402,6 +402,25 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 			SpecialPowerModuleInterface *sp = t ? SpecialPowerModules::findModule(obj, t) : nullptr;
 			if (!sp)
 			{
+				// RW 0x9434F7..0x943564: check CommandTrigger buttons for a matching special power module on obj
+				for (const std::string &triggerName : b.m_commandTrigger)
+				{
+					const CommandButton *tb = TheCommandStore ? TheCommandStore->findCommandButton(triggerName) : nullptr;
+					const SpecialPowerTemplate *tt = tb && TheSpecialPowerStore && !tb->m_specialPowerName.empty()
+						? TheSpecialPowerStore->findSpecialPowerTemplate(tb->m_specialPowerName) : nullptr;
+					if (tt)
+					{
+						sp = SpecialPowerModules::findModule(obj, tt);
+						if (sp)
+						{
+							t = tt;
+							break;
+						}
+					}
+				}
+			}
+			if (!sp)
+			{
 				return ButtonState::Enabled; // RW 0x9434F7..0x943564: missing module (including the CommandTrigger scan) falls through to availability 1
 			}
 			const SpecialPowerModule *m = dynamic_cast<const SpecialPowerModule *>(sp);

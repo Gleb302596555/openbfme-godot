@@ -20,6 +20,7 @@ public:
 	OBFME_MODULE_XFER(GiveUpgradeUpdate)
 	GiveUpgradeUpdate(Thing *thing, const GiveUpgradeUpdateModuleData *data);
 	void onObjectCreated() override;
+	void initiateIntentToDoSpecialPower(const SpecialPowerTemplate *t, Object *targetObj, const Coord3D *loc, unsigned options, int extra) override; // RW 0x8A006C
 	UpdateSleepTime update() override;
 	void finishAbility(bool ownerDying, bool aborted) override;
 	void crc(StateHasher &h) const override;
