@@ -69,7 +69,8 @@ FXEvent FXEventLog::drawablePositionEvent(const char *site, UnsignedInt frame, c
 
 void FXEventLog::emit(const FXEvent &event)
 {
-	if (event.choices ? event.choices->empty() : (!event.fxList || !isFXName(*event.fxList)))
+	// PORT-66: the body's auto particle systems name no FXList (their template names travel in `particleSystems`); every other kind names one
+	if (event.kind != FXEvent::BODY_PARTICLE_SYSTEMS && (event.choices ? event.choices->empty() : (!event.fxList || !isFXName(*event.fxList))))
 	{
 		return;
 	}

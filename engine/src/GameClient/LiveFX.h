@@ -232,6 +232,7 @@ public:
 		unsigned long long frameEventsFired = 0;           ///< animation state FXEvent entries fired (RW 0x4BCE68)
 		unsigned long long uncapturedFilters = 0;          ///< SMOOTH-1: an object filter asked at play time that the capture at the call did not evaluate (fails)
 		unsigned long long transitionSystemsCreated = 0, transitionSystemsDestroyed = 0; ///< lane FX-4: TransitionDamageFX's attached systems
+		unsigned long long bodyParticlesCreated = 0, bodyParticlesDestroyed = 0; ///< PORT-66: ActiveBody's auto particle systems (RW 0x8C1E4E)
 		unsigned long long viewShakes = 0, viewShakesDropped = 0; ///< lane FX-4: ViewShake calls queued for the view / dropped (no view took them)
 		unsigned long long decals = 0, decalsDropped = 0;         ///< DynamicDecal calls kept for the view / dropped past the bound
 		unsigned long long scorchesFX = 0, scorchesMap = 0, scorchesFire = 0; ///< addScorch calls per source (TerrainScorchBuffer)
@@ -261,6 +262,7 @@ private:
 	};
 	void play(const Pending &p);
 	void playTransitionSystem(const FXEvent &e); // lane FX-4
+	void playBodyParticleSystems(const FXEvent &e); // PORT-66: the body's auto particle systems (RW 0x8C1E4E)
 	bool playEnteringStateFX(DrawableID id, const std::string &fx);
 	std::vector<Pending> m_pending;                                     ///< filled on the simulation owner, drained at idle points
 	std::vector<std::pair<DrawableID, std::string>> m_pendingStates;    ///< EnteringStateFX of drawables (render side), played at idle points
@@ -305,6 +307,8 @@ private:
 	Stats m_stats;
 	std::map<DrawableID, Attached> m_attached;
 	std::map<std::pair<ObjectID, std::uint32_t>, FXParticleSystem::ParticleSystemID> m_transitionSystems; // lane FX-4: (object, slot) -> system; looked up only
+	// PORT-66: the systems the body's auto list holds (the body's +0xC8 list, RW 0x8C258F deletes them and RW 0x8C23EA adds them), looked up only
+	std::map<ObjectID, std::vector<FXParticleSystem::ParticleSystemID>> m_bodyParticleSystems;
 	FrameEventMap m_frameEvents; // looked up only (and pruned), never ordered by pointer
 	W3DDrawFrame m_eventFrame;   // lane PERF-3: frameEvents' frame of the entry (its storage reused)
 	std::vector<const void *> m_states; // lane PERF-3: updateAttachedSystems' states of the drawable (its storage reused)
