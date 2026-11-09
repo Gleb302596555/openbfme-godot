@@ -251,9 +251,18 @@ void ActiveBody::evaluateVisualCondition()
 //   (data + 0x50 -> rva0028DA28), the command points are released (0x68E114 = removeFromPlayerCommandPoints) and the attribute modifier pool's
 //   entries are cleared (rva00298E6A);
 //   leaving it (new < 3, old == 3): the template geometry height returns (RW 0x8C2D87..0x8C2DAE -> 0xAD1920 + 0x68B2CB), the footprint is re-entered, NO_COLLISIONS is cleared (RW 0x8C2DB3..0x8C2DCC).
-// A WALK_ON_TOP_OF_WALL template (KindOf 60, byte 0x10F bit 0x10) runs a "Bookend" variant (BOOKENDING status 0x53, CAN_NOT_WALK_ON 0x4D) that is a wall's (S-342).
-// NOT PORTED (S-342): the upgrade removal, the attribute modifier pool clear and the Damaged / ReallyDamaged attribute modifiers, the damage FX transitions
-// of the tail (RW 0x8C2C64..0x8C2EF1) and the Bookend variant of walls (RW 0x8C2A8C..0x8C2C63).
+// Port 34 r2: the rubble heights of the two template classes are two branches of ONE block, as in RW. A WALK_ON_TOP_OF_WALL template (KindOf 60, byte 0x10F
+// bit 0x10, RW 0x8C2A8C) branches off at RW 0x8C2A93:
+//   entering RUBBLE (RW 0x8C2A99: [body + 0x30] == 3, the state just written) sets GlobalData DefaultStructureRubbleHeight (RW 0x8C2AB3..0x8C2AC4, 0x68B2CB)
+//   ALWAYS — the template's StructureRubbleHeight byte is never read, and the body's own damage state field (+ 0x30) is left alone;
+//   leaving it (RW 0x8C2A9F: edi, the old state, == 3) calls RW 0x699349 with the TEMPLATE's GeometryInfo (lea [tt + 0xA0]): the whole GeometryInfo becomes the
+//   template's again (shape flags and heights too, the shortest way out of rubble).
+// Only then does the common tail run (RW 0x8C2AC9: push the object into RW 0x6E85FB, the pathfind map; the two statuses) — not twice. Every other structure
+// (RW 0x8C2A93 -> 0x8C2CCF) still takes the template's byte when > 0, else GlobalData, on enter (RW 0x8C2DDA..0x8C2E13) and the template's max height on exit
+// (RW 0x8C2D87..0x8C2DAE).
+// NOT PORTED (S-342): the Bookend machinery of walls — status BOOKENDING 0x53 and CAN_NOT_WALK_ON 0x4D with the body state forced to 0, the BookendUpdate
+// module search at RW 0x8C2CEF..0x8C2D82, the StatusFX / StatusDamageFX blocks RW 0x8C2B07 / 0x8C2B28 / 0x8C2C04, the client draw-module search
+// RW 0x8C2C8F..0x8C2CCA (S-142) and the attribute modifiers at RW 0x8C2C64..0x8C2EF1 — and the upgrade removal / attribute pool clear of RW 0x8C1BB7.
 // The model conditions DAMAGED / REALLYDAMAGED / RUBBLE: internalChangeHealth calls the visual update (vslot 0x94, RW 0x8C32A8) after the state changed, not while the
 // object is UNDER_CONSTRUCTION (unless dead). RW 0x8C1D53 -> Object RW 0x6903B6 sets the state's flag and clears the other two.
 void ActiveBody::updateDamageState(bool initial)
@@ -284,14 +293,12 @@ void ActiveBody::updateDamageState(bool initial)
 	const bool mapReady = world && world->mapReady() && !initial;
 	if (now == BODY_RUBBLE && old != BODY_RUBBLE)
 	{
-		if (nonWallStructure)
-		{
-			// Port 34, RW 0x8C2DD4..0x8C2E13: movsx byte [tt + 0x607] (StructureRubbleHeight); > 0 uses it, else GlobalData + 0xAE4 (DefaultStructureRubbleHeight)
-			const ThingTemplate *tt = obj.getTemplate();
-			const std::int8_t tplRubble = tt ? tt->structureRubbleHeight() : 0;
-			const float rubbleHeight = tplRubble > 0 ? static_cast<float>(tplRubble) : obj.logic().settings().defaultStructureRubbleHeight;
-			obj.setGeometryMaxHeight(rubbleHeight);
-		}
+		// Port 34 r2, RW 0x8C2A99 -> 0x8C2AB3: a wall's rubble is GameData's height — the template's StructureRubbleHeight byte is never read
+		const ThingTemplate *tt = obj.getTemplate();
+		const std::int8_t tplRubble = tt ? tt->structureRubbleHeight() : 0;
+		const float rubbleHeight = nonWallStructure && tplRubble > 0 ? static_cast<float>(tplRubble)
+			: obj.logic().settings().defaultStructureRubbleHeight; // non-wall: RW 0x8C2DDA..0x8C2E13, the byte when > 0 else GameData + 0xAE4
+		obj.setGeometryMaxHeight(rubbleHeight); // RW 0x68B2CB
 		if (mapReady)
 		{
 			world->removeObjectFromPathfindMap(obj);
@@ -316,6 +323,11 @@ void ActiveBody::updateDamageState(bool initial)
 				const float restoredHeight = ObjectGeometry::maxHeightAbovePosition(ObjectGeometry::cachedShapesOf(*tt->getFinalOverride()));
 				obj.setGeometryMaxHeight(restoredHeight);
 			}
+		}
+		else if (const ThingTemplate *tt = obj.getTemplate())
+		{
+			// Port 34 r2, RW 0x8C2A9F..0x8C2AAC: a wall comes out of rubble as the template's whole GeometryInfo (RW 0x699349 on tt + 0xA0)
+			obj.setGeometryInfoFrom(*tt->getFinalOverride());
 		}
 		if (mapReady)
 		{

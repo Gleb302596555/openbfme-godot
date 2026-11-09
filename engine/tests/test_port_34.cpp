@@ -12,6 +12,7 @@
 
 #include "CombatTestUtil.h"
 #include "Common/Thing/ThingTemplate.h"
+#include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Combat/CombatQueries.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/ObjectGeometry.h"
@@ -263,7 +264,7 @@ TEST_CASE("PORT-34: SPHERE mutates majorRadius while BOX and CYLINDER mutate hei
 	CHECK(ObjectGeometry::maxHeightAbovePosition(upgraded->geometryShapes()) == 60.0f);
 }
 
-TEST_CASE("PORT-34: initial RUBBLE spawn, StructureCollapseUpdate sink height, setGeometryInfoFrom, WALK_ON_TOP_OF_WALL exclusion, and snapshot xfer v5")
+TEST_CASE("PORT-34: initial RUBBLE spawn, StructureCollapseUpdate sink height, setGeometryInfoFrom, the WALK_ON_TOP_OF_WALL branch, and snapshot xfer v5")
 {
 	const std::string ini =
 		keepStructureIni("PreRuinedKeep", "  StructureRubbleHeight = 11\n") +
@@ -345,14 +346,15 @@ TEST_CASE("PORT-34: initial RUBBLE spawn, StructureCollapseUpdate sink height, s
 	CHECK(zero->getBodyModule()->getDamageState() == BODY_PRISTINE);
 	CHECK(ObjectGeometry::maxHeightAbovePosition(zero->geometryShapes()) == 90.0f);
 
-	// 2) WALK_ON_TOP_OF_WALL uses the wall Bookend branch (RW 0x8C2A8C, S-342) rather than RW 0x8C2D87..0x8C2E13.
+	// 2) WALK_ON_TOP_OF_WALL takes the wall branch (RW 0x8C2A8C .. 0x8C2AC9): its rubble is GameData's height (RW 0x8C2AC4),
+	//    not the template's 65 — the port dropped that branch until PORT-34 r2.
 	Object *wall = w.unit("WallSegmentLike", 'B', 300.0f, 200.0f);
 	REQUIRE(wall != nullptr);
 	DamageInfo wallHit = killHit(400.0f);
 	wall->attemptDamage(wallHit);
 	REQUIRE(wall->getBodyModule()->getDamageState() == BODY_RUBBLE);
-	CHECK_FALSE(wall->hasGeometryHeights());
-	CHECK(ObjectGeometry::maxHeightAbovePosition(wall->geometryShapes()) == 65.0f);
+	CHECK(wall->hasGeometryHeights());
+	CHECK(ObjectGeometry::maxHeightAbovePosition(wall->geometryShapes()) == 8.0f);
 
 	// 3) StructureCollapseUpdate reads template height (100.0f, RW 0x8A7A04 on tt + 0xA0) instead of stopping at rubble height (8.0f).
 	Object *tower = w.unit("CollapsingTower", 'B', 450.0f, 200.0f);
@@ -429,4 +431,148 @@ TEST_CASE("PORT-34: initial RUBBLE spawn, StructureCollapseUpdate sink height, s
 		w.frames(1);
 		CHECK(w.logic->computeStateHash() == expectedHashes[i]);
 	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Port 34 r2 (issue #119): the WALK_ON_TOP_OF_WALL branch of RW 0x8C2A5D (RW 0x8C2A8C .. 0x8C2AC9), the part main's Port 34 left out.
+// ---------------------------------------------------------------------------------------------------------------------------------
+namespace
+{
+// a wall: a STRUCTURE that is WALK_ON_TOP_OF_WALL with a template StructureRubbleHeight of its own
+std::string wallIni(const std::string &name, int rubbleHeight = 0)
+{
+	std::string ini = "Object " + name + "\n"
+		"  KindOf = STRUCTURE IMMOBILE SELECTABLE WALK_ON_TOP_OF_WALL\n"
+		"  Geometry = BOX\n"
+		"  GeometryMajorRadius = 10\n"
+		"  GeometryMinorRadius = 10\n"
+		"  GeometryHeight = 10\n"
+		"  GeometryIsSmall = No\n";
+	if (rubbleHeight > 0)
+	{
+		ini += "  StructureRubbleHeight = " + std::to_string(rubbleHeight) + "\n";
+	}
+	// an inactive second shape: the RW 0x699349 way out must restore the template's flag too, not just the height
+	ini +=
+		"  AdditionalGeometry = CYLINDER\n"
+		"  GeometryName = TowerTop\n"
+		"  GeometryActive = No\n"
+		"  GeometryMajorRadius = 7\n"
+		"  GeometryHeight = 30\n"
+		"  ArmorSet\n"
+		"    Conditions = None\n"
+		"    Armor = NoArmor\n"
+		"  End\n"
+		"  Body = StructureBody ModuleTag_Body\n"
+		"    MaxHealth = 1000\n"
+		"    MaxHealthDamaged = 500\n"
+		"    MaxHealthReallyDamaged = 200\n"
+		"  End\n"
+		"  Behavior = KeepObjectDie ModuleTag_Keep\n"
+		"  End\n"
+		"End\n";
+	return ini;
+}
+} // namespace
+
+TEST_CASE("PORT-34 r2: a destroyed WALK_ON_TOP_OF_WALL structure drops to DefaultStructureRubbleHeight even with a template StructureRubbleHeight (RW 0x8C2A99 -> 0x8C2AC4)")
+{
+	Port34World w(wallIni("WallWithRubble41", 41) + wallIni("WallNoRubble"));
+	w.logic->settings().defaultStructureRubbleHeight = 8.0f;
+
+	Object *wall = w.unit("WallWithRubble41", 'B', 500.0f, 500.0f);
+	Object *plainWall = w.unit("WallNoRubble", 'B', 700.0f, 500.0f);
+	REQUIRE(wall != nullptr);
+	REQUIRE(plainWall != nullptr);
+	CHECK(wall->isKindOf((unsigned)CombatNames::kindOf("WALK_ON_TOP_OF_WALL")));
+	CHECK(wall->isKindOf((unsigned)CombatNames::kinds().structure));
+	// the template's byte is there — it is just not what a wall's rubble uses
+	CHECK(wall->getTemplate()->structureRubbleHeight() == 41);
+	CHECK(ObjectGeometry::maxHeightAbovePosition(wall->geometryShapes()) == 10.0f);
+
+	DamageInfo wallHit = killHit(1000.0f);
+	wall->attemptDamage(wallHit);
+	DamageInfo plainWallHit = killHit(1000.0f);
+	plainWall->attemptDamage(plainWallHit);
+	REQUIRE(wall->getBodyModule()->getDamageState() == BODY_RUBBLE);
+	REQUIRE(plainWall->getBodyModule()->getDamageState() == BODY_RUBBLE);
+
+	// RW 0x8C2AC4 calls 0x68B2CB with GlobalData + 0xAE4: 8.0f, not the template's 41
+	CHECK(wall->hasGeometryHeights());
+	CHECK(ObjectGeometry::maxHeightAbovePosition(wall->geometryShapes()) == 8.0f);
+	CHECK(CombatQueries::geometry(*wall).height == 8.0f);
+	CHECK(ObjectGeometry::maxHeightAbovePosition(plainWall->geometryShapes()) == 8.0f);
+
+	// the wall branch sets no template byte: a second wall finds its template untouched at 41
+	Object *second = w.unit("WallWithRubble41", 'B', 900.0f, 500.0f);
+	REQUIRE(second != nullptr);
+	CHECK(second->getTemplate() == wall->getTemplate());
+	CHECK(second->getTemplate()->structureRubbleHeight() == 41);
+	CHECK(ObjectGeometry::maxHeightAbovePosition(second->geometryShapes()) == 10.0f);
+}
+
+TEST_CASE("PORT-34 r2: a WALK_ON_TOP_OF_WALL structure leaves RUBBLE through RW 0x699349 with the template GeometryInfo (RW 0x8C2A9F -> 0x8C2AAC)")
+{
+	Port34World w(wallIni("WallRepairable", 41));
+	w.logic->settings().defaultStructureRubbleHeight = 8.0f;
+
+	Object *wall = w.unit("WallRepairable", 'B', 500.0f, 500.0f);
+	REQUIRE(wall != nullptr);
+	REQUIRE(ObjectGeometry::cachedShapesOf(*wall->getTemplate()).size() == 2);
+	const float templateTop = ObjectGeometry::maxHeightAbovePosition(ObjectGeometry::cachedShapesOf(*wall->getTemplate()));
+	CHECK(templateTop == 10.0f);
+	CHECK_FALSE(wall->hasGeometryHeights());
+	CHECK(wall->geometryActive().empty());
+
+	// a wall's own flags and heights before it is destroyed: RW 0x699349 takes the template's whole GeometryInfo back, so these must go
+	wall->setGeometryMaxHeight(25.0f);
+	wall->setGeometryActive("TowerTop", true);
+	REQUIRE(wall->hasGeometryHeights());
+	REQUIRE(wall->geometryActive().size() == 2);
+	CHECK(wall->geometryActive()[1] == 1);
+	CHECK(wall->keepsOwnGeometry());
+	// RW 0xAD2C6A skips an inactive shape, so the newly active TowerTop keeps its template extent (30) and the base takes 25
+	CHECK(ObjectGeometry::maxHeightAbovePosition(wall->geometryShapes()) == 30.0f);
+
+	DamageInfo wallHit = killHit(1000.0f);
+	wall->attemptDamage(wallHit);
+	REQUIRE(wall->getBodyModule()->getDamageState() == BODY_RUBBLE);
+	CHECK(ObjectGeometry::maxHeightAbovePosition(wall->geometryShapes()) == 8.0f);
+
+	// repair out of RUBBLE: RW 0x699349 (the template's GeometryInfo inside the object), not 0xAD1920 + 0x68B2CB
+	wall->getBodyModule()->setInitialHealth(50);
+	REQUIRE(wall->getBodyModule()->getDamageState() == BODY_DAMAGED);
+	CHECK(ObjectGeometry::maxHeightAbovePosition(wall->geometryShapes()) == 10.0f);
+	CHECK(CombatQueries::geometry(*wall).height == 10.0f);
+	CHECK_FALSE(wall->hasGeometryHeights());
+	CHECK(wall->geometryActive().empty()); // the template's GeometryInfo carries no per-object flag overrides either
+	CHECK_FALSE(wall->keepsOwnGeometry());
+	CHECK(ObjectGeometry::cachedShapesOf(*wall->getTemplate()).size() == 2);
+}
+
+TEST_CASE("PORT-34 r2: a non-wall structure still takes its template StructureRubbleHeight when > 0, else DefaultStructureRubbleHeight (RW 0x8C2DDA)")
+{
+	Port34World w(keepStructureIni("KeepRubble33", "  StructureRubbleHeight = 33\n") + keepStructureIni("KeepRubble0"));
+	w.logic->settings().defaultStructureRubbleHeight = 8.0f;
+
+	Object *withByte = w.unit("KeepRubble33", 'B', 500.0f, 500.0f);
+	Object *withoutByte = w.unit("KeepRubble0", 'B', 700.0f, 500.0f);
+	REQUIRE(withByte != nullptr);
+	REQUIRE(withoutByte != nullptr);
+	CHECK_FALSE(withByte->isKindOf((unsigned)CombatNames::kindOf("WALK_ON_TOP_OF_WALL")));
+
+	DamageInfo withByteHit = killHit(1000.0f);
+	withByte->attemptDamage(withByteHit);
+	DamageInfo withoutByteHit = killHit(1000.0f);
+	withoutByte->attemptDamage(withoutByteHit);
+	REQUIRE(withByte->getBodyModule()->getDamageState() == BODY_RUBBLE);
+	REQUIRE(withoutByte->getBodyModule()->getDamageState() == BODY_RUBBLE);
+	CHECK(ObjectGeometry::maxHeightAbovePosition(withByte->geometryShapes()) == 33.0f);
+	CHECK(ObjectGeometry::maxHeightAbovePosition(withoutByte->geometryShapes()) == 8.0f);
+
+	// out of RUBBLE the non-wall takes the template's max height (RW 0x8C2D87 -> RW 0xAD1920), not 0x699349: its own extents stay its own
+	withByte->getBodyModule()->setInitialHealth(50);
+	REQUIRE(withByte->getBodyModule()->getDamageState() == BODY_DAMAGED);
+	CHECK(ObjectGeometry::maxHeightAbovePosition(withByte->geometryShapes()) == 105.0f);
+	CHECK(withByte->hasGeometryHeights());
 }
