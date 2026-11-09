@@ -157,8 +157,8 @@ TEST_CASE("module coverage: every registry class is ported, base AI, parsed only
 	CHECK(c.ported == 229);
 	CHECK(c.baseAi == 4);
 	// S-207: SpawnUnitBehavior data is parsed-only; its runtime remains unported (S-140).
-	CHECK(c.parsedOnly == 13); // W3DBuffDraw 13 -> 14 (drawn via ClientBuffs, S-4642).
-	CHECK(c.missing == 83);
+	CHECK(c.parsedOnly == 14); // W3DBuffDraw 13 -> 14 (drawn via ClientBuffs, S-4642). PORT-74 (#206): W3DLaserDraw missing -> parsed only (its data, no beam draw: S-7218): 13 -> 14, missing 83 -> 82.
+	CHECK(c.missing == 82);
 
 	if (const char *out = std::getenv("OPENBFME_MODULE_COVERAGE_OUT"))
 	{

@@ -188,7 +188,7 @@ TEST_CASE("PORT-70 the page's rows are GameData rows of the RotWK table (RW 0xBF
 		return;
 	}
 	const std::vector<Row> rows = readPage(fixture);
-	REQUIRE(rows.size() == 82); // the page's table, one line per row (the summary's four class counts add up to it)
+	REQUIRE(rows.size() == 78); // the page's table, one line per row (the summary's four class counts add up to it) // PORT-66 moved four presentation rows into kGameDataFields
 
 	std::map<std::string, unsigned> classes;
 	std::set<std::string> seen;
@@ -215,7 +215,7 @@ TEST_CASE("PORT-70 the page's rows are GameData rows of the RotWK table (RW 0xBF
 			CHECK(r.off == it->second.second);
 		}
 	}
-	const std::map<std::string, unsigned> expected = { { "gameplay", 23 }, { "presentation", 16 }, { "debug / editor", 22 }, { "not read", 21 } };
+	const std::map<std::string, unsigned> expected = { { "gameplay", 23 }, { "presentation", 12 }, { "debug / editor", 22 }, { "not read", 21 } };
 	CHECK(classes == expected);
 
 	// the oracle's own arithmetic: the donor's first row is `Windowed` at +0x2C, so the block starts at RW 0xBFF580 and a
