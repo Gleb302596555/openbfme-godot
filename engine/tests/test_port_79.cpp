@@ -13,7 +13,7 @@
 // Synthetic data only: no retail file is read, so the tests pass without the game and the mod.
 #include "doctest.h"
 
-#include "ClientEvents.h"
+#include "GameClient/ClientEvents.h"
 #include "CombatTestUtil.h"
 #include "Common/Thing/ThingFactory.h"
 #include "GameClient/FXPlayback.h"
