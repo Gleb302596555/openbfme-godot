@@ -20,6 +20,7 @@
 
 #include "Common/INIDataTypes.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <vector>
 
