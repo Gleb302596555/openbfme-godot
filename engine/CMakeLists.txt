@@ -214,6 +214,7 @@ include(cmake/Port35.cmake) # PORT-35: HordeContain/ComboHorde, two hordes combi
 include(cmake/Port22.cmake) # PORT-22: SiegeDeploy/adjustMeleeOffset (issue #78; OPENBFME_PORT22_TESTS)
 include(cmake/Port37.cmake) # PORT-37: DamageNugget/CylinderAOE, the area shape (issue #122; OPENBFME_PORT37_TESTS)
 include(cmake/Port10.cmake) # PORT-10: FlammableUpdate/RunToWater (issue #65; OPENBFME_PORT10_TESTS)
+include(cmake/Port38.cmake) # PORT-38: the AIData team build tempo (issue #123; OPENBFME_PORT38_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
@@ -788,6 +789,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT22_TESTS}
     ${OPENBFME_PORT37_TESTS}
     ${OPENBFME_PORT10_TESTS}
+    ${OPENBFME_PORT38_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}
