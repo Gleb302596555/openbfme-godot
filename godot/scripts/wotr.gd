@@ -817,7 +817,7 @@ func _sync_apt_hud() -> void:
 				if not hero_portraits.has(hero):
 					hero_portraits[hero] = str(lw.template_field(game._world, hero, "ButtonImage"))
 				portrait = hero_portraits[hero]
-				army_name = _text(str(lw.template_field(game._world, hero, "DisplayName")))
+				army_name = _text(str(lw.template_field(game._world, hero, "DisplayNameStrategic")))
 			else:
 				portrait = str(a.get("garrison_portrait", ""))
 				army_name = _text(str(a.get("garrison_name_tag", "")))
@@ -1350,7 +1350,7 @@ func _army_display_name(id: int) -> String:
 	var hero := str(a.get("hero", ""))
 	if hero == "":
 		return _text(str(a.get("garrison_name_tag", "")))
-	var hn := _text(str(lw.template_field(game._world, hero, "DisplayName")))
+	var hn := _text(str(lw.template_field(game._world, hero, "DisplayNameStrategic")))
 	var fmt: Dictionary = game._shell.fetch_text("STRATEGICHUD:HeroArmyName")
 	return str(fmt.text).replace("%s", hn) if fmt.get("found", false) else hn
 
@@ -2132,7 +2132,7 @@ func _take_notices() -> void:
 
 
 func _hero_label(hero: String) -> String:
-	return "" if hero.is_empty() else str(lw.template_field(game._world, hero, "DisplayName"))
+	return "" if hero.is_empty() else str(lw.template_field(game._world, hero, "DisplayNameStrategic"))
 
 
 ## the notices' gate (RW 0x6B6ACC): nothing queued and nothing on screen; WOTR2 milestone 5: the battle statistics hold the resolver too
