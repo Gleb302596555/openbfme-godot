@@ -479,7 +479,7 @@ std::vector<std::string> ExperienceLevelSystem::stopLines() const
 			++tinted;
 		}
 	}
-	out.push_back("[S-7186] ExperienceLevel level-up tint: " + std::to_string(tinted) + " of " + std::to_string(m_levels.size()) +
+	out.push_back("[S-7196] ExperienceLevel level-up tint: " + std::to_string(tinted) + " of " + std::to_string(m_levels.size()) +
 		" levels say ShowLevelUpTint = Yes; ShowLevelUpTint (+0xD8), LevelUpTintColor (+0xDC), LevelUpTintPreColorTime (+0xE8), LevelUpTintPostColorTime "
 		"(+0xEC), LevelUpTintSustainColorTime (+0xF0), LevelUpTintFrequency (+0xF4) and LevelUpTintAmplitude (+0xF8) are parsed and copied (constructor "
 		"RW 0x689AE1, copy RW 0x689FEA) and read by no code of game.dat, so a level gained starts no colour tint (RW shows LEVELED for 3 s, RW 0x8213DB, and "

@@ -404,9 +404,9 @@ std::vector<std::string> LiveFX::stops()
 {
 	std::vector<std::string> out = FXEventLog::stops();
 	// lane PORT-50 (issue #154): RW 0x4C7795 -> RW 0x4B6D5F moves a ParticleSysBone system with its bone, so the bind-pose only
-	// sentence of this stop is retired for the draws that ask for it; S-7191 lists the parts of that walk that stay INFERENCE.
+	// sentence of this stop is retired for the draws that ask for it; S-7194 lists the parts of that walk that stay INFERENCE.
 	out.push_back("[S-682] live FX: ParticleSysBone systems follow their animated bone only for a draw module whose ParticlesAttachedToAnimatedBones is on "
-					  "and only where the draw's pose defines the bone (lane PORT-50: RW 0x4C7795 -> RW 0x4B6D5F, S-7191). The fire FX of a weapon, the FXEvent"
+					  "and only where the draw's pose defines the bone (lane PORT-50: RW 0x4C7795 -> RW 0x4B6D5F, S-7194). The fire FX of a weapon, the FXEvent"
 					  " bones and the pristine bones still come from the model's bind pose; ParticleSysBone FXTrigger / Persist / PersistID / HouseColor are"
 					  " ignored and OnlyIfOnWater systems are not created; WadingParticleSys uses the PATH-1 water-surface query (PORT-48); the shooter's stealth (RW 0x694C0D, NULL viewer) is read when the effect plays,"
 					  " not at the shot (lane STEALTH-1); muzzle flashes and recoil are not drawn; isWater is false (the shroud: S-4971)");

@@ -116,7 +116,7 @@ emits).
 5. **A missing bone or an undefined frame keeps the last transform** (0x4B6E1B jumps past both
    calls). The port counts such a frame in `Counters::missed` and writes nothing.
 
-## INFERENCE (reported in the PR and in stop S-682 / S-7191)
+## INFERENCE (reported in the PR and in stop S-682 / S-7194)
 
 * the pose is the draw's track 0 at its frame, evaluated by `PristinePose` (the transcription of
   `HTreeClass::Anim_Pose`, RW 0x562BB0 / raw 0x563A80 - the evaluator the renderer and the pick path

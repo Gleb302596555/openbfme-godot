@@ -26,7 +26,7 @@
 //     for 8 frames, a module's RW 0x871B24 / 0x871B6B, RW 0x8A02A3's white flash), Drawable::setCustomTintEnvelope RW 0x671A73 has three (W3DTankDraw
 //     RW 0x4D1281, TintDrawableFXNugget RW 0x5E0160, the object tint setter RW 0x6ED1C2) and TintEnvelope::play RW 0x674818 is called only from Drawable's
 //     own code (RW 0x6757AA, 0x67597D, 0x675DD1, 0x675E1C, 0x675E86, 0x675ED4, 0x67910E). No caller receives an ExperienceLevelTemplate.
-// Verdict: the tint is data RotWK never applies; the port parses and copies it and must not start a tint of its own (stop S-7186). What a level gained does
+// Verdict: the tint is data RotWK never applies; the port parses and copies it and must not start a tint of its own (stop S-7196). What a level gained does
 // show in RotWK, and what these tests pin, is the rest of the grant above.
 #include "doctest.h"
 
@@ -266,7 +266,7 @@ TEST_CASE("PORT-44 verdict: a level gained starts no colour flash — ShowLevelU
 	CHECK(tinted->m_levelUpTintFrequency == 0.5f);
 }
 
-TEST_CASE("PORT-44: the level store reports the level-up tint as read by nobody (S-7186), with the number of levels that ask for it; S-632 keeps its line")
+TEST_CASE("PORT-44: the level store reports the level-up tint as read by nobody (S-7196), with the number of levels that ask for it; S-632 keeps its line")
 {
 	LevelStore s;
 	REQUIRE(s.load(kPort44FxList).empty());
@@ -277,7 +277,7 @@ TEST_CASE("PORT-44: the level store reports the level-up tint as read by nobody 
 	std::string tintStop, storeStop;
 	for (const std::string &line : stops)
 	{
-		if (line.rfind("[S-7186]", 0) == 0)
+		if (line.rfind("[S-7196]", 0) == 0)
 		{
 			tintStop = line;
 		}
