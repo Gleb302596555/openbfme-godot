@@ -115,6 +115,9 @@ struct ObjectSnapshot
 	ObjectID projectileLauncher = INVALID_ID;
 	Coord3D projectileEnd;
 	int projectileSegments = 0;
+	// lane PORT-69 (issue #183): W3DScriptedModelDraw::doDrawModule track emission gates (RW 0x4B79C9 .. 0x4B7A02: Object::getLayer RW 0x68BBE0, Object::isAboveTerrain RW 0x70C55D)
+	std::uint8_t layer = 1;
+	bool aboveTerrain = false;
 };
 
 // The local player's shroud as the client reads it (VIS-1's ShroudManager; merge with SMOOTH-1): the statuses of the local player's cells, the GameData

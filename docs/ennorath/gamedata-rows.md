@@ -36,7 +36,7 @@ section); the rest is a record so that nobody re-opens them one by one.
   `StateMachineDebug`, `FogOfWarOn` and the `Debug*Tile*` group do not occur in game.dat in
   any case (arena README correction 6): RotWK cannot parse them, there is no row, and the
   port's catch-all is right. They are not repeated here.
-* **The port's own rows.** Of the 82 rows below, none has a `kGameDataFields` row — that is
+* **The port's own rows.** Of the 78 rows below, none has a `kGameDataFields` row — that is
   what `not-read` means. The 63 rows the port *does* have are outside this page; the test
   `PORT-70` pins both sides (that every row of this page is a real GameData row of the donor
   table **and** has no port row, and that the rows the port has keep their rows).
@@ -46,9 +46,15 @@ section); the rest is a record so that nobody re-opens them one by one.
 | class | rows | what it means |
 |---|---|---|
 | `gameplay` | 23 | a rule: base regeneration, low-power economy, rank health bonuses, command-centre heal, the solo-player / AI health bonuses, the charge and engagement defaults, the build-speed and multi-factory factors. **Next ports.** |
-| `presentation` | 16 | RotWK reads it in client code (terrain, trees, water, ammo pips, audio, shell map): visible, no rule. |
+| `presentation` | 12 | RotWK reads it in client code (terrain, trees, water, ammo pips, audio, shell map): visible, no rule. |
 | `debug / editor` | 22 | a debug switch, a stats overlay, a firewall or network row, a shell-map or developer switch: nothing happens in a game. |
 | `not read` | 21 | nobody reads it — the `AnimationSharing*` block, the network metrics, the water position rows. Keep the rows, stop worrying. |
+
+PORT-66 (#180, 2026-11-10) gave `AutoFireParticle*`, `AutoSmokeParticle*` and `AutoAflameParticle*` their `kGameDataFields` rows; the four of them this page listed (`AutoAflameParticlePrefix` / `System` / `Max`, `AutoFireParticleSmallPrefix`) left the page.
+
+Stop **S-7197** records the block: the `not read` rows are settled (RotWK's constructor write and its parser are the whole
+access set), the `gameplay` rows are **open, not refused** — their readers are not proved either, so a port of one of them
+starts by reading the instruction that loads it off `[0xDE4364]`.
 
 ## The rows
 
@@ -87,10 +93,6 @@ report that read it.
 | `AmmoPipScreenOffset` | 0xBFFA50 | 0xF4 | reads (client) | presentation | catch-all | ammo pip screen offset; reader RW 0x673C63 (`mulss xmm1,[eax+0xf8]`) — batch-15#18 | — |
 | `AmmoPipWorldOffset` | 0xBFFA30 | 0xDC | reads (client) | presentation | catch-all | ammo pip world offset; reader RW 0x673BFA — batch-15#19 | — |
 | `AudioOn` | 0xC00050 | 0x99C | reads (client) | presentation | catch-all | master audio switch; readers RW 0x460DC1 / RW 0x461DC2 / RW 0x63065D / RW 0x63C849 — batch-15#26 | — |
-| `AutoAflameParticlePrefix` | 0xC00270 | 0xA38 | reads (client) | presentation | catch-all | auto-fire particle name prefix; reader RW 0x8C211E — batch-15#28 | — |
-| `AutoAflameParticleSystem` | 0xC00280 | 0xA3C | reads (client) | presentation | catch-all | the particle system; RW 0x8C1FB9 resolves it through the FX template manager — batch-15#29 | — |
-| `AutoAflameParticleMax` | 0xC00290 | 0xA40 | reads (client) | presentation | catch-all | its count; RW 0x8C210C — batch-15#27 | — |
-| `AutoFireParticleSmallPrefix` | 0xC00150 | 0x9F0 | reads (client) | presentation | catch-all | fire particles (small/medium/large x prefix/system/max), RW 0x8C2042 .. RW 0x8C20F2 — batch-16#1-#8 | batch-16#7 |
 | `ShowProps` | 0xBFF5F0 | 0x1C | reads (client) | presentation | catch-all | prop draw gate; six readers RW 0x4E6C80 .. RW 0x4EE5C3 — batch-20#23 | batch-20#23 |
 | `UseLightMap` | 0xBFF6A0 | 0x48 | reads (client) | presentation | catch-all | terrain material flag; RW 0x4E1BEC, written at RW 0x4E0C48 — batch-22#22 | batch-22#22 |
 | `UseShadowMapping` | 0xBFF7E0 | 0x62 | reads (client) | presentation | catch-all | shadow mode; readers RW 0x442E0C .. RW 0x91A402 — batch-22#24 | batch-22#24 |

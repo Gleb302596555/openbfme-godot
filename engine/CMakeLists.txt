@@ -182,7 +182,10 @@ include(cmake/Structure.cmake)  # OPENBFME_STRUCTURE_SOURCES / OPENBFME_STRUCTUR
 include(cmake/Spell.cmake)      # OPENBFME_SPELL_SOURCES / OPENBFME_SPELL_TESTS (lane SPELL-1)
 include(cmake/Port43.cmake)     # PORT-43: GameData/PowerLimit -> GameLogic + 0x118 (issue #128; OPENBFME_PORT43_TESTS)
 include(cmake/Port51.cmake)     # PORT-51: Object/InstanceScaleFuzziness, parsed and never read by RotWK (issue #155; OPENBFME_PORT51_TESTS)
+include(cmake/Port81.cmake)     # PORT-81: HordeContain/RanksToJustFreeWhenAttacking, parsed and never read by RotWK (issue #213; OPENBFME_PORT81_TESTS)
+include(cmake/Port73.cmake)     # PORT-73: W3DTreeDraw DoTopple / the shrub push aside (issue #205; OPENBFME_PORT73_TESTS)
 include(cmake/Port50.cmake)     # PORT-50: W3DModelDraw/ParticlesAttachedToAnimatedBones, particles on the animated bones (issue #154; OPENBFME_PORT50_TESTS)
+include(cmake/Port74.cmake)     # PORT-74: W3DLaserDraw, the lightning and beam draws (issue #206; OPENBFME_PORT74_SOURCES / _TESTS)
 include(cmake/Render.cmake)     # OPENBFME_RENDER_SOURCES / OPENBFME_RENDER_TESTS (lane RENDER-1, client / draw only)
 include(cmake/SkirmishAI.cmake) # OPENBFME_SKIRMISH_AI_SOURCES / OPENBFME_SKIRMISH_AI_TESTS (lane AI-1)
 include(cmake/Vis.cmake)        # OPENBFME_VIS_SOURCES / OPENBFME_VIS_TESTS (lane VIS-1)
@@ -198,6 +201,8 @@ include(cmake/Experience.cmake) # OPENBFME_XP_SOURCES / OPENBFME_XP_TESTS (lane 
 include(cmake/FactB.cmake)      # OPENBFME_FACTB_TESTS (lane FACT-B: Isengard and Mordor)
 include(cmake/Port4.cmake) # OPENBFME_PORT4_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
+include(cmake/Port75.cmake) # PORT-75: BannerCarrierUpdate MorphCondition / BannerMorphFX (issue #207; OPENBFME_PORT75_TESTS)
+include(cmake/Port79.cmake) # OPENBFME_PORT79_TESTS (lane PORT-79)
 include(cmake/Port54.cmake) # OPENBFME_PORT54_TESTS (lane PORT-54)
 include(cmake/Port5.cmake) # OPENBFME_PORT5_TESTS (lane PORT-5)
 include(cmake/Port18.cmake) # PORT-18: hold fire (issue #74)
@@ -231,12 +236,18 @@ include(cmake/Port25.cmake) # PORT-25: HordeContain/VisionRearOverride (issue #9
 include(cmake/Port60.cmake) # PORT-60: EvaAnnounceClientCreate/CreateFakeRadarEvent (issue #170; verdict, no engine change; OPENBFME_PORT60_TESTS)
 include(cmake/Port61.cmake) # PORT-61: FlammableUpdate/FireFXList, the effects at ignition (issue #171; OPENBFME_PORT61_TESTS)
 include(cmake/Port62.cmake) # PORT-62: TransportContain/FireGrabWeaponOnVictim, the GrabWeapon fire (issue #172; OPENBFME_PORT62_TESTS)
+include(cmake/Port72.cmake) # PORT-72: FactionVictoryData, stop verdict S-7216 (issue #186; OPENBFME_PORT72_TESTS)
+include(cmake/Port67.cmake) # PORT-67: Weapon/CanSwoop and the Locomotor Swoop rows (issue #181; OPENBFME_PORT67_TESTS)
+include(cmake/Port40.cmake) # PORT-40: AIData/MaxRecruitRadius (issue #125; OPENBFME_PORT40_TESTS)
+include(cmake/Port65.cmake) # PORT-65: SpellRechargeModifierUpgrade (issue #177; OPENBFME_PORT65_TESTS)
+include(cmake/Port49.cmake) # PORT-49: W3DModelDraw/AlphaCameraFadeInnerRadius (issue #153; OPENBFME_PORT49_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
 include(cmake/Fx3.cmake)        # FX-3: particle and draw gaps (OPENBFME_FX3_SOURCES / OPENBFME_FX3_TESTS)
 include(cmake/Fogfx1.cmake)     # FOGFX-1: the shroud's fade (OPENBFME_FOGFX1_SOURCES / OPENBFME_FOGFX1_TESTS)
 include(cmake/Fx4.cmake)        # FX-4: TransitionDamageFX, the camera shake (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX4_TESTS)
+include(cmake/Port66.cmake)     # PORT-66: GameData AutoFire / AutoSmoke / AutoAflame particles (issue #180; OPENBFME_PORT66_TESTS)
 include(cmake/Hero.cmake)       # HERO-1: heroes (appends to OPENBFME_SIM_SOURCES; OPENBFME_HERO_TESTS)
 include(cmake/Proj2.cmake)      # PROJ-2: siege projectiles (appends to OPENBFME_SIM_SOURCES; OPENBFME_PROJ2_TESTS)
 include(cmake/Castle1.cmake)    # OPENBFME_CASTLE1_TESTS (lane CASTLE-1: the castle after its unpack)
@@ -385,6 +396,7 @@ add_library(openbfme_core STATIC
     ${OPENBFME_COMBAT_SOURCES}
     ${OPENBFME_STRUCTURE_SOURCES}
     ${OPENBFME_RENDER_SOURCES}
+    ${OPENBFME_PORT74_SOURCES}
     ${OPENBFME_RENDER4_SOURCES}
     ${OPENBFME_GLOW1_SOURCES}
     ${OPENBFME_RENDER2_SOURCES}
@@ -688,6 +700,7 @@ add_library(openbfme SHARED
     src/GodotDevice/GodotW3DInstancer.cpp
     src/GodotDevice/GodotLogicClock.cpp
     src/GodotDevice/GodotMapTerrain.cpp
+    src/GodotDevice/GodotTerrainTracks.cpp # PORT-69
     src/GodotDevice/GodotTerrainScorches.cpp # TOP20 Fire, scorches
     src/GodotDevice/GodotMapObjectBuilder.cpp
     # APT-3: the retail menus on screen
@@ -782,6 +795,8 @@ add_executable(openbfme_tests
     ${OPENBFME_XP_TESTS}
     ${OPENBFME_FACTB_TESTS}
     ${OPENBFME_PLAY2_TESTS}
+    ${OPENBFME_PORT75_TESTS}
+    ${OPENBFME_PORT79_TESTS}
     ${OPENBFME_PORT54_TESTS}
     ${OPENBFME_PORT33_TESTS}
     ${OPENBFME_PORT64_TESTS}
@@ -824,6 +839,11 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT60_TESTS}
     ${OPENBFME_PORT61_TESTS}
     ${OPENBFME_PORT62_TESTS}
+    ${OPENBFME_PORT72_TESTS}
+    ${OPENBFME_PORT67_TESTS}
+    ${OPENBFME_PORT40_TESTS}
+    ${OPENBFME_PORT65_TESTS}
+    ${OPENBFME_PORT49_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}
@@ -841,7 +861,10 @@ add_executable(openbfme_tests
     ${OPENBFME_SPELL_TESTS}
     ${OPENBFME_PORT43_TESTS}
     ${OPENBFME_PORT51_TESTS}
+    ${OPENBFME_PORT81_TESTS}
+    ${OPENBFME_PORT73_TESTS}
     ${OPENBFME_PORT50_TESTS}
+    ${OPENBFME_PORT74_TESTS}
     ${OPENBFME_RENDER_TESTS}
     ${OPENBFME_SKIRMISH_AI_TESTS}
     ${OPENBFME_VIS_TESTS}
@@ -855,6 +878,7 @@ add_executable(openbfme_tests
     ${OPENBFME_FX2_TESTS}
     ${OPENBFME_FX3_TESTS}
     ${OPENBFME_FX4_TESTS}
+    ${OPENBFME_PORT66_TESTS}
     ${OPENBFME_BLDFX1_TESTS}
     ${OPENBFME_FOGFX1_TESTS}
     ${OPENBFME_HERO_TESTS}

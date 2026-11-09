@@ -399,7 +399,9 @@ public:
 	// lane ANIM-1, RW 0x67449C(0) on the object's drawable: Drawable::replaceModelConditionFlags (RW 0x679512) only stores the flags and marks the drawable
 	// dirty (+0x443); the draw modules see them when the dirty flags are flushed: once per logic frame in updateDrawable (RW 0x6759C4, on the first client
 	// frame of the frame, RW 0x63252F), or at once where the logic calls this (the pre-fire of RW 0x69213E). Client-only: nothing in the logic changes.
-	void flushDrawableModelConditions();
+	// `immediate` is retail's RW 0x67449C argument: false is the dirty-only flush (nothing when no bit changed), true forces the draw modules to take
+	// the object's flags now even when the drawable is not dirty (RW 0x67449C inside the OCL's CreateObject RW 0x5F13C8, lane PORT-79)
+	void flushDrawableModelConditions(bool immediate = false);
 	void setModelConditionState(int bit, bool on);
 	// SMCHelper (RW 0x8E2C0F, GameLogic/Module/SMCHelper.h): the bit is on for `frames` logic frames (a later expiry of the same bit wins)
 	void setSpecialModelConditionState(int bit, UnsignedInt frames);

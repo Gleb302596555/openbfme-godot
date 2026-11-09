@@ -38,6 +38,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.h"
 #include "Libraries/WWVegas/WW3D2/assetmgr.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -124,6 +125,11 @@ struct DrawServices
 	W3DLuaDrawScriptHost host; ///< the real Lua of the drawable state (lane LUA-1): BeginScript bodies of every draw module
 	DrawableFXHost *fx = nullptr; ///< lane FX-2 (null: EnteringStateFX and ParticleSysBone stay S-095)
 	AnimationSoundModuleManager *animationSounds = nullptr; ///< lane AUDIO-4: TheAnimationSoundModuleManager of the game's drawables
+	// PORT-49: the tactical view eye for the model draws' camera distance fade (RW 0xDE447C vslot 0x11C -> 0x487668 -> 0x53B370).
+	// The device layer installs it before the map's drawables are made; false / unset: no camera pose yet, the fade does not run.
+	std::function<bool(Coord3D &)> cameraPosition;
+	// PORT-49: TheGameLODManager's EffectsLOD (+0x1778, RW 0xDE3B84; consumer 0x4B5405..0x4B5433). Unset models the global-null branch.
+	std::function<int()> effectsLOD;
 	bool selectionFlashHouseColor = true; ///< lane LOCAL-3: GameData SelectionFlashHouseColor (RW 0xC005E0, GlobalData +0xB58)
 	float selectionFlashSaturationFactor = 0.6f; ///< lane LOCAL-3: GameData SelectionFlashSaturationFactor (RW 0xC005D0, GlobalData +0xB54)
 };
@@ -155,6 +161,9 @@ struct DrawEntry
 	const ModuleData *truckData = nullptr;
 	bool truckChecked = false;
 	bool isTruck = false;
+	// lane PORT-69 (issue #183): W3DModelDraw TrackMarks (RW W3DScriptedModelDraw + 0x60)
+	bool hasTrackMarks = false;
+	int trackId = -1;
 };
 
 class Drawable : public Thing
@@ -193,7 +202,9 @@ public:
 	// stored flags to the draw modules (setModelConditionFlags) when dirty, with the object's weapon cycle for UseWeaponTiming as the flush event carried it
 	void storeModelCondition(int bit, bool on);
 	void storeModelConditions(const ModelConditionFlags &flags); ///< lane SAVE-4e: the whole set (RW 0x679512's argument), dirty when it differs
-	void flushModelConditions(bool hasWeaponTiming, int weaponTimingFrames);
+	// `immediate` is RW 0x67449C's argument: true reaches the draw modules even when nothing changed since the last flush (the OCL's CreateObject with
+	// InheritAttributesFromSource, RW 0x5F13C8, lane PORT-79); false is the dirty-only flush of the end-of-frame path
+	void flushModelConditions(bool hasWeaponTiming, int weaponTimingFrames, bool immediate = false);
 	bool modelConditionsDirty() const { return m_flagsDirty; }
 	// the weapon cycle the last flush carried (-1: the object had no current weapon), what UseWeaponTiming animations divide by
 	int weaponTimingFrames() const { return m_hasWeaponTiming ? m_weaponTimingFrames : -1; }
@@ -227,6 +238,7 @@ public:
 
 	std::vector<DrawEntry> &entries() { return m_entries; }
 	const std::vector<DrawEntry> &entries() const { return m_entries; }
+	bool hasTrackMarks() const { return m_hasTrackMarks; } ///< lane PORT-69 (issue #183): at least one entry specifies TrackMarks
 	// The ClientUpdate and ClientBehavior modules of the template, in list order (ZH Drawable.cpp:349-505: ClientUpdate modules follow the draw
 	// modules; RotWK's ClientBehavior list is the fourth module list). A class that is not ported is an UnportedDrawableModule (stop S-140).
 	const std::vector<std::unique_ptr<DrawableModule>> &clientModules() const { return m_clientModules; }
@@ -243,6 +255,8 @@ public:
 	bool hasAnimatedEntry() const;
 	// steps every model draw's animations by `elapsedMs` of render time
 	void advanceAnimation(double elapsedMs);
+	// PORT-49: RW 0x4BF586 runs the camera distance fade for every model draw of the drawable (animated or not) before the tracks step
+	void advanceCameraFade();
 	// lane PERF-HD: every animated draw's advance is advanceIsLocal (and the tires are this drawable's): advanceAnimation touches only this drawable
 	bool advanceIsLocal() const;
 	void advanceAnimationLocal(double elapsedMs); ///< advanceAnimation without the host's chunk name (nothing it runs reports through the host)
@@ -535,5 +549,6 @@ private:
 	float m_customTintFrequency = 0.0f;                ///< +0x88
 	UnsignedInt m_tintStatus = 0;                      ///< +0x118
 	UnsignedInt m_prevTintStatus = 0;                  ///< +0x11C
+	bool m_hasTrackMarks = false;                      ///< lane PORT-69: any entry has non-empty TrackMarks
 	void setFadeHidden(bool hidden); ///< RW 0x6718FB (bumps the change count when it changes)
 };

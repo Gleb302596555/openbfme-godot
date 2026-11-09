@@ -315,14 +315,16 @@ bool ClientEventRecorder::undirty(ObjectID id)
 	return true;
 }
 
-// lane ANIM-1: the flush of one drawable (RW 0x67449C with force 0: nothing when it is not dirty)
-void ClientEventRecorder::flushModelConditions(Object &obj)
+// lane ANIM-1: the flush of one drawable (RW 0x67449C: with force 0 nothing when the drawable is not dirty; force 1 — the OCL's CreateObject with
+// InheritAttributesFromSource, RW 0x5F13C8 — always reaches the draw modules)
+void ClientEventRecorder::flushModelConditions(Object &obj, bool immediate)
 {
-	if (!undirty(obj.getID()))
+	const bool dirty = undirty(obj.getID());
+	if (!dirty && !immediate)
 	{
 		return;
 	}
-	pushFlush(obj);
+	pushFlush(obj).immediate = immediate;
 }
 
 void ClientEventRecorder::loadedObject(Object &obj)
@@ -346,7 +348,7 @@ void ClientEventRecorder::loadedObject(Object &obj)
 		if (fade->fadingStarted()) setDrawableOpacity(obj, fade->opacity());
 }
 
-void ClientEventRecorder::pushFlush(Object &obj)
+ClientEvent &ClientEventRecorder::pushFlush(Object &obj)
 {
 	static const int captureFlagKind = ObjectTemplateInfoBuilder::kindOfIndex("CAPTUREFLAG");
 	const bool captureFlag = captureFlagKind >= 0 && obj.isKindOf((unsigned)captureFlagKind);
@@ -377,6 +379,7 @@ void ClientEventRecorder::pushFlush(Object &obj)
 	{
 		e.hasWeaponTiming = w->drawWeaponTimingFrames(e.weaponTimingFrames); // lane ANIM-1: read when the draw applies the flags (RW 0x4BEE31)
 	}
+	return e;
 }
 
 bool ClientEventRecorder::templateHasDrawModuleTag(const ThingTemplate &tt, const std::string &tag)

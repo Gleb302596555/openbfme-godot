@@ -423,6 +423,7 @@ bool HordeContain::addToContain(Object *obj)
 			}
 		}
 	}
+	bannerCarrierMorph(*obj); // lane PORT-75: RW 0x89A5C5, last so the morph's LocomotorSet stands (DONOR 0x00473212 returns right after)
 	return true;
 }
 
@@ -455,6 +456,7 @@ bool HordeContain::acceptCreatedMember(Object *obj)
 	// lane AI-2: a produced horde has its members now (createPayload made none for it): the "dies with its last member" rule of removeFromContain applies to it
 	// too. Before, a produced horde whose members all died stayed alive with ImmortalBody's 1 hp, and every enemy kept it as its victim forever (AI vs AI stall)
 	m_payloadCreated = true;
+	bannerCarrierMorph(*obj); // lane PORT-75: RW 0x89A5C5
 	return true;
 }
 
