@@ -414,3 +414,53 @@ TEST_CASE("PORT-55 hero value uses rank over last rank and final cash grants exp
     CHECK(w.cash('A') - before == 20);
     CHECK(house->getExperienceTracker()->getExperience() - experience == 15.0f);
 }
+
+TEST_CASE("PORT-55 ring horde uses its producer predicate and delivers only when its last member enters")
+{
+    // RW 0x883A29..0x883A80 checks a member's producer for ring status;
+    // RW 0x883FC3..0x88403F calls the delivery callback only at completion.
+    CombatWorld w(kData.c_str());
+    w.logic->partition().setRegion(0.0f, 0.0f, 1000.0f, 1000.0f);
+    Object *house = w.unit("P55Citadel", 'A', 400, 400);
+    Object *parent = w.unit("P55Horde", 'A', 300, 400);
+    Object *token = w.unit("P55Token", 'A', 300, 400);
+    w.frames(1);
+    auto *h = dynamic_cast<HordeContain *>(parent->getContain());
+    auto *c = dynamic_cast<CitadelSlaughterHordeContain *>(house->getContain());
+    REQUIRE(h != nullptr);
+    REQUIRE(c != nullptr);
+    const auto members = *h->getContainedItemsList();
+    REQUIRE(members.size() == 2);
+    const unsigned ring = (unsigned)CombatNames::status("HOLDING_THE_RING");
+    parent->setStatus(ring, true);
+    for (Object *member : members)
+    {
+        member->setStatus(ring, false); // exercise the producer, not the member's own status
+        REQUIRE(member->getProducerID() == parent->getID());
+    }
+    const int before = w.cash('A');
+    h->enterContainer(house, CMD_FROM_PLAYER);
+    REQUIRE(parent->getContainedBy() == house);
+    REQUIRE(c->addToContain(members.front()));
+    CHECK(parent->testStatus(ring));
+    CHECK_FALSE(token->isDestroyed());
+    CHECK(c->pendingRingExit() == INVALID_ID);
+    CHECK_FALSE(w.playerOf('A')->hasUpgradeComplete("Upgrade_Basic"));
+    REQUIRE(c->addToContain(members.back()));
+    CHECK_FALSE(parent->testStatus(ring));
+    CHECK_FALSE(parent->isDestroyed());
+    CHECK(token->isDestroyed());
+    CHECK(c->pendingRingExit() == parent->getID());
+    CHECK(w.playerOf('A')->hasUpgradeComplete("Upgrade_Basic"));
+    CHECK(w.cash('A') == before);
+    CHECK(w.logic->economy().incomeLog().empty());
+    w.frames(100); // bounded wait for the existing horde exit path, not an exact duration claim
+    CHECK(parent->getContainedBy() == nullptr);
+    CHECK(c->pendingRingExit() == INVALID_ID);
+    for (Object *member : members)
+    {
+        CHECK_FALSE(member->isEffectivelyDead());
+        CHECK(member->getContainedBy() == parent);
+    }
+    CHECK(w.cash('A') == before);
+}
