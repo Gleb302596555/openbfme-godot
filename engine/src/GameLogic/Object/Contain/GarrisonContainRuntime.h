@@ -229,8 +229,6 @@ private:
 };
 
 // Existing ring delivery remains the non-slaughter callback of the shared path.
-// Ring-entry branch of the citadel contain. The unrelated troop-slaughter branch
-// remains an explicit stop; ordinary units must not become fortress garrisons.
 class CitadelSlaughterHordeContain : public SlaughterHordeContain
 {
 public:
