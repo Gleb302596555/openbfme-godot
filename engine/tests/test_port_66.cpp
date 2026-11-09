@@ -118,6 +118,7 @@ const char *kPort66Objects =
 	"  Behavior = FlammableUpdate ModuleTag_Flammable\n"
 	"    AflameDuration = 5000\n"
 	"    AflameDamageAmount = 0\n"
+	"    FlameDamageLimit = 100\n" // RW 0x89017E: only a limited flame damage is healed away before the quench
 	"  End\n"
 	"  Geometry = BOX\n"
 	"  GeometryMajorRadius = 5\n"
@@ -126,6 +127,7 @@ const char *kPort66Objects =
 	"Object P66Inert\n"
 	"  KindOf = STRUCTURE SELECTABLE\n"
 	"  Body = InactiveBody ModuleTag_Body\n"
+	"  End\n"
 	"  Geometry = BOX\n"
 	"  GeometryMajorRadius = 5\n"
 	"  GeometryHeight = 10\n"
@@ -193,7 +195,8 @@ struct P66World : CombatWorld
 	explicit P66World()
 	{
 		std::string err;
-		REQUIRE_MESSAGE(w.load(kPort66Objects, INI_LOAD_OVERWRITE, "port66.ini").empty(), "port66.ini");
+		const std::string objectsError = w.load(kPort66Objects, INI_LOAD_OVERWRITE, "port66.ini");
+		REQUIRE_MESSAGE(objectsError.empty(), objectsError);
 		REQUIRE_MESSAGE(GameLogicSettingsLoader::scanGameData(kAutoGameData, logic->settings(), &err), err);
 		combat().setLaunchOffsets(&bones);
 	}
@@ -347,8 +350,9 @@ TEST_CASE("PORT-66 events: a body names the seven entries in the binary's order 
 	tower->setStatus(10, true);
 	tower->getBodyModule()->updateBodyParticleSystems();
 	ev = w.bodyEvents(tower->getID());
-	REQUIRE(ev.size() == 1); // the frame's list: one event per call
-	REQUIRE(ev[0].particleSystems.size() == 7u);
+	REQUIRE(ev.size() == 2); // the frame's list keeps both calls of the frame
+	REQUIRE(ev.back().particleSystems.size() == 7u);
+	ev[0] = ev.back();
 	expectEntries(settingsOf(w), true, systems, caps);
 	for (int i = 0; i < 7; ++i)
 	{
@@ -361,7 +365,7 @@ TEST_CASE("PORT-66 events: a body names the seven entries in the binary's order 
 	CHECK(ev[0].particleSystems[kAflame].system == "AflameSys");
 	CHECK(ev[0].particleSystems[kAflame].maxSystems == 2); // AutoAflameParticleMax 1 * 2
 	// the systems a client makes: min(the bones found, the cap); an empty template or no bones makes nothing (RW 0x8C2401 / RW 0x8C2458)
-	CHECK(expectedSystems(ev[0], kFireSmall) == 2);  // 3 bones, the cap 2 * 2 = 4
+	CHECK(expectedSystems(ev[0], kFireSmall) == 3);  // 3 bones, the cap AutoFireParticleMediumMax 3 * 2 = 6
 	CHECK(expectedSystems(ev[0], kFireMedium) == 2); // 2 bones
 	CHECK(expectedSystems(ev[0], kFireLarge) == 0);  // FIRELARGE has no bones
 	CHECK(expectedSystems(ev[0], kSmokeSmall) == 0);
@@ -409,27 +413,31 @@ TEST_CASE("PORT-66 flammable: ignition and the quench call the body's slot 0x2C 
 	}
 	REQUIRE(flam != nullptr);
 	REQUIRE_FALSE(torch->testStatus(10));
-	flam->tryToIgnite();
-	// RW 0x8901D5 sets the status, RW 0x8901DA .. 0x8901E2 calls the body: the event is already the aflame one
-	CHECK(torch->testStatus(10));
+	// the real chain: the flame damage spends the FlameDamageLimit 100 (RW 0x89056B), the spent budget ignites the object (RW 0x8901AB), and the
+	// ignition calls the body's slot 0x2C right after the AFLAME status (RW 0x8901DA .. 0x8901E2)
+	DamageInfo burn;
+	burn.m_input.m_amount = 100.0f;
+	burn.m_input.m_damageType = DAMAGE_FLAME;
+	burn.m_output.m_actualDamageDealt = 100.0f;
+	burn.m_output.m_actualDamageClipped = 100.0f;
+	flam->onDamage(burn);
+	REQUIRE(torch->testStatus(10));
 	std::vector<FXEvent> ev = w.bodyEvents(torch->getID());
 	REQUIRE(ev.size() == 1);
 	CHECK(ev[0].particleSystems.size() == 7u);
 	CHECK(ev[0].particleSystems[kAflame].system == "AflameSys");
 	CHECK(ev[0].particleSystems[kFireSmall].system == "FireMedSys");
-	// the quench (onHealing with the FlameDamageLimit passed): the status clears first, then the body is called again with the plain set
-	const std::string limitField = "FlameDamageLimit";
-	(void)limitField;
+	// RW 0x89015F: the healing of an aflame object whose spent budget is below the data's limit fills it back and quenches at the limit (RW 0x890192)
 	DamageInfo heal;
 	heal.m_input.m_amount = 1000.0f;
 	heal.m_input.m_damageType = DAMAGE_HEALING;
 	flam->onHealing(heal);
 	CHECK_FALSE(torch->testStatus(10));
 	ev = w.bodyEvents(torch->getID());
-	REQUIRE(ev.size() == 1);
-	CHECK(ev[0].particleSystems.size() == 6u); // the aflame entry is gone (RW 0x8C20F5's test)
-	CHECK(ev[0].particleSystems[kFireSmall].system == "FireSmallSys");
-	CHECK(ev[0].particleSystems[kSmokeSmall].system == "SmokeSmallSys");
+	REQUIRE(ev.size() == 2); // the frame keeps both calls: the ignition's and the quench's
+	CHECK(ev.back().particleSystems.size() == 6u); // the aflame entry is gone (RW 0x8C20F5's test)
+	CHECK(ev.back().particleSystems[kFireSmall].system == "FireSmallSys");
+	CHECK(ev.back().particleSystems[kSmokeSmall].system == "SmokeSmallSys");
 }
 
 TEST_CASE("PORT-66 collapse: the collapse's final phase calls the body's slot 0x2C once the rubble flags are set (rw 0x8A8031)")
@@ -443,10 +451,7 @@ TEST_CASE("PORT-66 collapse: the collapse's final phase calls the body's slot 0x
 	std::vector<FXEvent> seen;
 	for (int i = 0; i < 40; ++i)
 	{
-		for (int phase = 1; phase <= 4; ++phase)
-		{
-			w.logic->update(phase); // one engine tick (RW 0x62E4E8, phases 1..6; 1..4 moves and collapses the object)
-		}
+		w.logic->runLogicFrame(); // one engine tick (RW 0x62E4E8): the update row wakes the collapse module
 		for (const FXEvent &e : w.bodyEvents(id))
 		{
 			seen.push_back(e);
@@ -456,7 +461,6 @@ TEST_CASE("PORT-66 collapse: the collapse's final phase calls the body's slot 0x
 			break;
 		}
 	}
-	// the rubble state was reached and the body named its fires for it; without the fix no such event exists (the collapse never called the slot)
 	REQUIRE_FALSE(seen.empty());
 	int aflameEntry = 0;
 	for (const FXEvent &e : seen)

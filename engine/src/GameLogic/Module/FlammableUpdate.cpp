@@ -438,7 +438,7 @@ void FlammableUpdate::tryToIgnite()
 		spread->startFireSpreading(); // reads the object's AFLAME status, set above
 	}
 	m_status = FS_AFLAME; // RW 0x890251
-	noteStop(*obj, "FlammableUpdate: the ignition's client parts (burning sound), the body slot 0x2C and the script event 10 are not run");
+	noteStop(*obj, "FlammableUpdate: the ignition's client parts (burning sound) and the script event 10 are not run");
 	const unsigned now = logic.getFrame();
 	m_aflameEndFrame = m_data->m_aflameDuration > 0 ? now + m_data->m_aflameDuration : (unsigned)UPDATE_SLEEP_FOREVER;
 	m_burnedEndFrame = m_data->m_burnedDelay ? now + m_data->m_burnedDelay : 0;
@@ -538,7 +538,7 @@ void FlammableUpdate::stopBurning()
 			m_panicLocomotorWhileAflameActive = false;   // RW 0x890119 (the AI + 0x3C9 byte is write-only in RotWK 2.01, not carried)
 		}
 	}
-	noteStop(*obj, "FlammableUpdate: the quench's RW 0x68F2F1(0), script event 11, sound stop and body slot 0x2C are not run");
+	noteStop(*obj, "FlammableUpdate: the quench's RW 0x68F2F1(0), script event 11 and the sound stop are not run");
 }
 
 // RW 0x88FB79
