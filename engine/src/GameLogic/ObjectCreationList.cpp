@@ -476,7 +476,17 @@ void ObjectCreationList::doStuffToObj(GameLogic &logic, const OCLNugget &n, Obje
 	}
 	// RW 0x5F1D9E (SSE): the spot; ON_GROUND_ALIGNED and SEND_IT_OUT write their height into it (ebp - 0x28), the later setPosition calls see it
 	Coord3D pos{ addf32(where.x, offset.x), addf32(where.y, offset.y), addf32(where.z, offset.z) };
-	// RW 0x5F1DC5: ParticleSystem (client)
+	if (!n.particleSystem.empty())
+	{
+		// lane PORT-79, RW 0x5F1DC5 (inside RW 0x5F1B5A, before the health draw at RW 0x5F1E70): the nugget's ParticleSystem (+ 0x24) made and attached to
+		// this object. RW 0x5F53xx createParticleSystem(template, createSlaves = 1) through TheParticleSystemManager, then the handle's attachToObject
+		// (RW 0x5F32D7) with the object just made; the lookup is the FXParticleSystem store's (an unknown name is NULL and makes nothing, as ParseFXList's
+		// RW 0x73AECB does for TransitionDamageFX). The handle is dropped, so the system lives on the object until its own lifetime ends (BFME2 1.06
+		// GenericObjectCreationNugget::doStuffToObj: createParticleSystem(template, true)->attachToObject(obj), the return value unused). Client side.
+		FXEvent ev = FXEventLog::objectEvent(FXEvent::OBJECT_PARTICLE_SYSTEM, "ObjectCreationList", logic.getFrame(), n.particleSystem, *obj);
+		ev.hasTransform = false;
+		logic.fxEvents().emit(ev);
+	}
 	const float health = random(logic, n.minHealth, n.maxHealth, 0x50A); // RW 0x5F1E70: drawn for every object
 	if (BodyModuleInterface *body = obj->getBodyModule())
 	{
@@ -756,12 +766,36 @@ std::vector<Object *> ObjectCreationList::createCore(GameLogic &logic, const OCL
 			continue;
 		}
 		made.push_back(o); // RW 0x5F13A0
-		// RW 0x5F13C8: InheritAttributesFromSource (the drawable, client)
+		// RW 0x5F13C8: InheritAttributesFromSource (+ 0x92), the drawable refresh of the made object: the object's drawable (RW 0x70E013) and
+		// RW 0x67449C(immediate = 1) — every draw module takes the object's model conditions now, whether or not the drawable is dirty (RW 0x6744A3's
+		// early return is skipped by the immediate flag). The client's (ObjectClientHooks::flushModelConditions).
+		if (n.inheritAttributesFromSource)
+		{
+			o->flushDrawableModelConditions(true);
+		}
 		if (n.inheritScriptingName && source && !source->getName().empty() && n.count == 1)
 		{
 			o->setName(source->getName()); // RW 0x5F140D: TheScriptEngine RW 0x759467
 		}
-		// RW 0x5F1412: PreserveLayer keeps the source's layer (RW 0x68BBE0: the ground, S-161); no container is made (PutInContainer counted)
+		if (n.preserveLayer && source && !n.containInsideSourceObject)
+		{
+			// lane PORT-79, RW 0x5F1412 (PreserveLayer + 0x9D, only with a source and without a container — PutInContainer's would be container + 0x?):
+			// the source's layer (RW 0x68BBE0, Object + 0x428 through its AI) when it is not the ground, put on the made object (BFME2 1.06
+			// `if (layer != LAYER_GROUND) debris->setLayer(layer)`). The made object's own layer is the ground from its creation.
+			const AIUpdateInterface *sourceAI = source->getAIUpdateInterface();
+			const PathfindLayerEnum layer = sourceAI ? sourceAI->adapter().getLayer() : LAYER_GROUND;
+			if (layer != LAYER_GROUND)
+			{
+				if (AIUpdateInterface *ownAI = o->getAIUpdateInterface())
+				{
+					ownAI->setLayer(layer);
+				}
+				else
+				{
+					unported(logic, m_unportedUses, "PreserveLayer on an object without an AI (no pathfind adapter to hold the layer, RW 0x68BBE0)");
+				}
+			}
+		}
 		Coord3D at = where;
 		if (!n.waypointSpawnPoints.empty())
 		{

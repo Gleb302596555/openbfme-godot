@@ -182,6 +182,11 @@ public:
 	// TOP20 #20: RW 0x8C3B89, primary vslot 0x58: the enemies within CheerRadius are asked to cheer (see ActiveBody.cpp)
 	void cheer();
 	static bool isCheerExempt(const Object &obj);
+	// PORT-66 (issue #180): RW 0x8C1E4E, the body interface's slot 0x2C (table RW 0xC71ED0). The auto particle systems of a damaged or burning object: the
+	// seven GameData entries (RW 0xC00150 .. 0xC00290 -> GlobalData +0x9F0 .. +0xA40) name a bone prefix and a template each; an AFLAME object (status 0xA)
+	// swaps the templates the way RW 0x8C1FDD .. 0x8C202F does and doubles the cap. The bones are the template's (RW 0x68C650, model space); the client
+	// makes and deletes the systems (FXEvent BODY_PARTICLE_SYSTEMS), as FX-4's TransitionDamageFX systems are the client's
+	void updateBodyParticleSystems() override;
 
 protected:
 	// the DamageInfo attemptDamage is processing (RW passes it down to internalChangeHealth, RW 0x8C553F / 0x8C5828 read and change it); null outside a hit

@@ -153,12 +153,13 @@ TEST_CASE("module coverage: every registry class is ported, base AI, parsed only
 	// Local 18 (#143): CombineHordeSpecialPower missing -> ported: 225 -> 226, missing 87 -> 86
 	// Port 64 (#176): RubbleRiseUpdate missing -> ported: 226 -> 227, missing 86 -> 85
 	// Port 55 (#165): SlaughterHordeContain missing -> ported (the shared base of CitadelSlaughterHordeContain): 227 -> 228, missing 85 -> 84
-	// Local 23 (#178): ProductionQueueHordeContain missing -> ported: 228 -> 229, missing 84 -> 83
-	CHECK(c.ported == 229);
+	// PORT 65 (#177): SpellRechargeModifierUpgrade missing -> ported: 228 -> 229, missing 84 -> 83
+	// Local 23 (#178): ProductionQueueHordeContain missing -> ported: 229 -> 230, missing 82 -> 81
+	CHECK(c.ported == 230);
 	CHECK(c.baseAi == 4);
 	// S-207: SpawnUnitBehavior data is parsed-only; its runtime remains unported (S-140).
-	CHECK(c.parsedOnly == 13); // W3DBuffDraw 13 -> 14 (drawn via ClientBuffs, S-4642).
-	CHECK(c.missing == 83);
+	CHECK(c.parsedOnly == 14); // W3DBuffDraw 13 -> 14 (drawn via ClientBuffs, S-4642). PORT-74 (#206): W3DLaserDraw missing -> parsed only (its data, no beam draw: S-7218): 13 -> 14, missing 83 -> 82.
+	CHECK(c.missing == 81);
 
 	if (const char *out = std::getenv("OPENBFME_MODULE_COVERAGE_OUT"))
 	{

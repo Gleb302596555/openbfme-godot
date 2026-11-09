@@ -317,6 +317,34 @@ const FieldParse kGameDataFields[] = {
 	// lane LOCAL-3: selection flash (rows RW 0xC005E0 / 0xC005D0, GlobalData +0xB58 / +0xB54)
 	{ "SelectionFlashHouseColor", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.selectionFlashHouseColor) },
 	{ "SelectionFlashSaturationFactor", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.selectionFlashSaturationFactor) },
+	// PORT-66 (issue #180): the seven AutoFire / AutoSmoke / AutoAflame particle rows, RW 0xC00150 .. 0xC00290 in the table's own order: per size the
+	// Prefix (parseAsciiString RW 0x42EE5E, GlobalData +0x9F0 / +0x9FC / +0x9F0+0x18 / +0x9F0+0x24 / +0x9F0+0x30 / +0x9F0+0x3C / +0x9F0+0x48), the System
+	// (the same parser, +4 from the Prefix) and the Max (parseInt RW 0x42EC5E, +8). Optional rows like every other GlobalData row of this table: the
+	// constructor zeroes them (BFME2 decomp GlobalData.cpp:1558-1564)
+	{ "AutoFireParticleSmallPrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireSmall.prefix) },
+	{ "AutoFireParticleSmallSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireSmall.system) },
+	{ "AutoFireParticleSmallMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoFireSmall.maxSystems) },
+	{ "AutoFireParticleMediumPrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireMedium.prefix) },
+	{ "AutoFireParticleMediumSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireMedium.system) },
+	{ "AutoFireParticleMediumMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoFireMedium.maxSystems) },
+	{ "AutoFireParticleLargePrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireLarge.prefix) },
+	{ "AutoFireParticleLargeSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireLarge.system) },
+	{ "AutoFireParticleLargeMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoFireLarge.maxSystems) },
+	{ "AutoSmokeParticleSmallPrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeSmall.prefix) },
+	{ "AutoSmokeParticleSmallSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeSmall.system) },
+	{ "AutoSmokeParticleSmallMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoSmokeSmall.maxSystems) },
+	{ "AutoSmokeParticleMediumPrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeMedium.prefix) },
+	{ "AutoSmokeParticleMediumSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeMedium.system) },
+	{ "AutoSmokeParticleMediumMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoSmokeMedium.maxSystems) },
+	{ "AutoSmokeParticleLargePrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeLarge.prefix) },
+	{ "AutoSmokeParticleLargeSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeLarge.system) },
+	{ "AutoSmokeParticleLargeMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoSmokeLarge.maxSystems) },
+	{ "AutoAflameParticlePrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoAflame.prefix) },
+	{ "AutoAflameParticleSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoAflame.system) },
+	{ "AutoAflameParticleMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoAflame.maxSystems) },
+	// lane PORT-69 (issue #183): terrain track marks (rows RW 0xBFFAA0 / 0xBFFA70, GlobalData +0x13C / +0x10C; client-only, not hashed)
+	{ "MakeTrackMarks", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.makeTrackMarks) },
+	{ "MaxTerrainTracks", parseNoting<INI::parseInt>, 0, (int)offsetof(BlockState, values.maxTerrainTracks) },
 	{ nullptr, noteUnapplied, nullptr, 0 }
 };
 const FieldParse kAIDataFields[] = {
@@ -353,9 +381,14 @@ const FieldParse kAIDataFields[] = {
 	{ "AttackIgnoreInsignificantBuildings", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.attackIgnoreInsignificantBuildings) },
 	{ "ArtilleryMaxFriendlyFire", parseNoting<INI::parsePercentToReal>, 0, (int)offsetof(BlockState, values.artilleryMaxFriendlyFire) },
 	{ "AttackPriority", parseAttackPriorityBlock, nullptr, 0 },
+	// Local 20 (issue #147): MaxRetaliateDistance (row RW 0xC1CED0, parseReal RW 0x42ED00, AIData + 0xC8): leash radius for retaliating against attackers (RW 0x94BA8C / RW 0x94C144)
+	{ "MaxRetaliateDistance", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.maxRetaliateDistance) },
 	// lane AIDATA-1: ChaseFromBehindLimit (row RW 0xC1CEF0, + 0xD0) and SkirmishGroupFudgeDistance (row RW 0xC1CC30, + 0x58), parseReal RW 0x42ED00
 	{ "ChaseFromBehindLimit", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.chaseFromBehindLimit) },
 	{ "SkirmishGroupFudgeDistance", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.skirmishGroupFudgeDistance) },
+	// lane PORT-40: MaxRecruitRadius (row RW 0xC1CCD0, parseReal RW 0x42ED00, AIData + 0x5C): the recruit radius of TEAM_RECRUIT_UNITS (RW 0x7C2BFB
+	// -> RW 0x7A491C) and of the AI player's own team building (RW 0x8F8E2C -> RW 0x7A41D4)
+	{ "MaxRecruitRadius", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.maxRecruitRadius) },
 	// lane AIDATA-1: the pathfinder's rows (were PathfindConfigLoader's text scan): RW 0xC1CDD0 WadeWaterDepth + 0x98, 0xC1CDE0 DeepWaterDepth + 0x9C,
 	// 0xC1CDB0 MeleeApproachTolerance + 0x90, 0xC1CDC0 MeleeApproachDist + 0x94, 0xC1CF00 CastleSiegeStandBackDistance + 0xD4 (parseReal RW 0x42ED00);
 	// 0xC1CE40 HordesWaitForHordes + 0xB9 (parseBool RW 0x42E558)
@@ -727,6 +760,10 @@ void GameLogicSettings::crc(StateHasher &h) const
 	{
 		h.addBool(attackMoveUsesFormations); // lane PORT-13: retail default\aidata.ini sets No (false), so every retail game's hash is unchanged
 	}
+	if (maxRetaliateDistance != 450.0f)
+	{
+		h.addFloat(maxRetaliateDistance); // Local 20 (issue #147): retail default\aidata.ini sets 450.0, so retail games keep their hash
+	}
 	h.addBool(useFormations);
 	if (minFlightHeight != FLT_MAX)
 	{
@@ -738,6 +775,11 @@ void GameLogicSettings::crc(StateHasher &h) const
 	h.addBool(attackUsesLineOfSight);
 	h.addBool(attackIgnoreInsignificantBuildings);
 	h.addFloat(artilleryMaxFriendlyFire);
+	if (maxRecruitRadius != 400.0f)
+	{
+		h.addFloat(maxRecruitRadius); // lane PORT-40: retail 2.01 and Ennorath set 400.0 (default\aidata.ini:32, the mod keeps it), so a game with
+		                            // that data is unchanged; a map.ini / mod AIData block with another value is hashed (as lane LOS-1 above)
+	}
 	h.addU32((std::uint32_t)attackPriorityDefs.size());
 	for (const AttackPriorityDef &d : attackPriorityDefs)
 	{
@@ -797,6 +839,26 @@ void GameLogicSettings::crc(StateHasher &h) const
 	h.addU32(maxNumMembersToForceToImmediatelyEnter);
 	h.addU32(waitToForceMemberToEnterDelay);
 	h.addI32(maxTunnelCapacity); // lane GARRISON-2
+	// PORT-66: the auto particle systems' seven entries are a simulation input (the bodies name their bones and templates by them, RW 0x8C1E4E); hashed as
+	// one block so a game with retail data keeps its hash while data that names them (Ennorath's gamedata.ini) does not
+	{
+		bool anyAutoParticle = false;
+		const AutoBodyParticles *autoParticles[7] = { &autoFireSmall, &autoFireMedium, &autoFireLarge, &autoSmokeSmall, &autoSmokeMedium, &autoSmokeLarge, &autoAflame };
+		for (const AutoBodyParticles *a : autoParticles)
+		{
+			anyAutoParticle = anyAutoParticle || !a->prefix.empty() || !a->system.empty() || a->maxSystems != 0;
+		}
+		h.addBool(anyAutoParticle);
+		if (anyAutoParticle)
+		{
+			for (const AutoBodyParticles *a : autoParticles)
+			{
+				h.addString(a->prefix);
+				h.addString(a->system);
+				h.addI32(a->maxSystems);
+			}
+		}
+	}
 	h.addU32((std::uint32_t)standardPublicBones.size()); // RENDER-2: the bones feed the launch bone answer (RW 0x4BD9A7)
 	for (const std::string &b : standardPublicBones)
 	{

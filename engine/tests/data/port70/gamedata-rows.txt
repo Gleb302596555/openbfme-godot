@@ -30,10 +30,6 @@ presentation	AmmoPipScaleFactor	0xBFFA10	0x104
 presentation	AmmoPipScreenOffset	0xBFFA50	0xF4
 presentation	AmmoPipWorldOffset	0xBFFA30	0xDC
 presentation	AudioOn	0xC00050	0x99C
-presentation	AutoAflameParticlePrefix	0xC00270	0xA38
-presentation	AutoAflameParticleSystem	0xC00280	0xA3C
-presentation	AutoAflameParticleMax	0xC00290	0xA40
-presentation	AutoFireParticleSmallPrefix	0xC00150	0x9F0
 presentation	ShowProps	0xBFF5F0	0x1C
 presentation	UseLightMap	0xBFF6A0	0x48
 presentation	UseShadowMapping	0xBFF7E0	0x62

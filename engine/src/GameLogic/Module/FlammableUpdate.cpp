@@ -425,6 +425,12 @@ void FlammableUpdate::tryToIgnite()
 	Object *obj = getObject();
 	GameLogic &logic = obj->logic();
 	obj->setStatus(kStatusAflame, true);
+	// PORT-66: RW 0x8901DA .. 0x8901E2, the body interface (object + 0x25C) slot 0x2C right after the status is set: the burning object's auto
+	// particle systems are made again (the aflame branch of RW 0x8C1E4E doubles them and adds the aflame template)
+	if (BodyModuleInterface *body = obj->getBodyModule())
+	{
+		body->updateBodyParticleSystems();
+	}
 	static const int kAflame = CombatNames::modelCondition("AFLAME"); // bit 78 (Object + 0x114 bit 14)
 	obj->setModelConditionState(kAflame, true);
 	if (FireSpreadUpdate *spread = findModule<FireSpreadUpdate>(*obj)) // RW 0x89023B: the module named FireSpreadUpdate
@@ -432,7 +438,7 @@ void FlammableUpdate::tryToIgnite()
 		spread->startFireSpreading(); // reads the object's AFLAME status, set above
 	}
 	m_status = FS_AFLAME; // RW 0x890251
-	noteStop(*obj, "FlammableUpdate: the ignition's client parts (burning sound), the body slot 0x2C and the script event 10 are not run");
+	noteStop(*obj, "FlammableUpdate: the ignition's client parts (burning sound) and the script event 10 are not run");
 	const unsigned now = logic.getFrame();
 	m_aflameEndFrame = m_data->m_aflameDuration > 0 ? now + m_data->m_aflameDuration : (unsigned)UPDATE_SLEEP_FOREVER;
 	m_burnedEndFrame = m_data->m_burnedDelay ? now + m_data->m_burnedDelay : 0;
@@ -515,6 +521,12 @@ void FlammableUpdate::stopBurning()
 		ent->setSuppressed(false);    // RW 0x890044
 	}
 	obj->setStatus(kStatusAflame, false);
+	// PORT-66: RW 0x89011C .. 0x890124, the body interface (object + 0x25C) slot 0x2C right after the status is cleared: the quenched object's auto
+	// particle systems are made again (the plain templates, the aflame entry gone)
+	if (BodyModuleInterface *body = obj->getBodyModule())
+	{
+		body->updateBodyParticleSystems();
+	}
 	static const int kAflame = CombatNames::modelCondition("AFLAME");
 	obj->setModelConditionState(kAflame, false);
 	// RW 0x8900F0 .. 0x890119: the panic locomotor ends (only the one started while aflame, only with PanicLocomotorWhileAflame and an AI)
@@ -526,7 +538,7 @@ void FlammableUpdate::stopBurning()
 			m_panicLocomotorWhileAflameActive = false;   // RW 0x890119 (the AI + 0x3C9 byte is write-only in RotWK 2.01, not carried)
 		}
 	}
-	noteStop(*obj, "FlammableUpdate: the quench's RW 0x68F2F1(0), script event 11, sound stop and body slot 0x2C are not run");
+	noteStop(*obj, "FlammableUpdate: the quench's RW 0x68F2F1(0), script event 11 and the sound stop are not run");
 }
 
 // RW 0x88FB79

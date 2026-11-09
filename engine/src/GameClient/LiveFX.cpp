@@ -946,7 +946,8 @@ void LiveFX::onFXEvent(const FXEvent &e)
 			lists.push_back(fx);
 		}
 	};
-	if (e.kind != FXEvent::OBJECT_SOUND && e.kind != FXEvent::ATTACH_PARTICLE_SYSTEM && e.kind != FXEvent::DESTROY_PARTICLE_SYSTEM)
+	if (e.kind != FXEvent::OBJECT_SOUND && e.kind != FXEvent::ATTACH_PARTICLE_SYSTEM && e.kind != FXEvent::DESTROY_PARTICLE_SYSTEM &&
+		e.kind != FXEvent::BODY_PARTICLE_SYSTEMS)
 	{
 		if (e.choices)
 		{
@@ -1033,6 +1034,12 @@ void LiveFX::play(const Pending &pending)
 			return;
 		}
 	}
+	if (e.kind == FXEvent::BODY_PARTICLE_SYSTEMS)
+	{
+		// PORT-66: ActiveBody::updateBodyParticleSystems (RW 0x8C1E4E); the systems are the client's, the logic named the bones and the templates
+		playBodyParticleSystems(e);
+		return;
+	}
 	// AUDIO-3: the request log names the FX call site, the list and the object it played on
 	AudioLog::Scope logScope([&] { return std::string("fx ") + e.site + " " + *name + " obj " + std::to_string((unsigned)e.primary); });
 	if (e.kind == FXEvent::OBJECT_SOUND)
@@ -1051,6 +1058,11 @@ void LiveFX::play(const Pending &pending)
 	if (e.kind == FXEvent::ATTACH_PARTICLE_SYSTEM || e.kind == FXEvent::DESTROY_PARTICLE_SYSTEM)
 	{
 		playTransitionSystem(e);
+		return;
+	}
+	if (e.kind == FXEvent::OBJECT_PARTICLE_SYSTEM)
+	{
+		playCreatedSystem(e);
 		return;
 	}
 	const FXList *fx = m_playback.fxLists().findFXList(*name);
@@ -1087,12 +1099,35 @@ void LiveFX::play(const Pending &pending)
 	{
 	case FXEvent::POSITION_FX:
 	{
+		// Local 22 (#163): the primary's drawable pose (RW 0x70E013 Object::getDrawable). AIGiantBirdAttackState::onEnter skips the call without a
+		// drawable (RW 0x76B85D). Weapon::preFireWeapon (RW 0x6CEA25) and WeaponFireSpecialAbilityUpdate::startUnpacking (RW 0x895FF3) do not test it
+		// (retail would dereference null); INFERENCE: the port skips there too, so a logic-only object without a drawable gets no call.
+		if (e.drawablePosition || e.drawableMatrix)
+		{
+			if (!pending.primary || !pending.primary->drawable || !primaryDrawable)
+			{
+				++m_stats.skipped["PositionFX without a drawable"];
+				return;
+			}
+		}
+		// RW 0x676711 .. 0x67679A (Drawable::getPosition, DONOR BFME2 0x002759A5 DrawableGetPosition.cpp): the drawable's interpolated position.
+		const Coord3D *pos = e.drawablePosition ? primaryDrawable->getPosition() : &e.position;
+		// RW 0x6765B9 .. 0x676706 (Drawable::getTransformMatrix, DONOR BFME2 0x002759A5 DrawableGetPosition.cpp): the drawable's interpolated matrix.
 		Matrix3D m;
-		if (e.hasTransform)
+		const bool hasMtx = e.drawableMatrix || e.hasTransform;
+		if (e.drawableMatrix)
+		{
+			m = thingMatrix(*primaryDrawable->getPosition(), primaryDrawable->getBasis());
+		}
+		else if (e.hasTransform)
 		{
 			m = primaryView.transform();
 		}
-		FXList::doFXPos(fx, m_playback.services(), m_playback.fxLists(), &e.position, e.hasTransform ? &m : nullptr, 0.0f, nullptr);
+		// RW 0x494615 -> RW 0x5E21D8 (DONOR BFME2 0x00094C29 -> 0x001E296E): FXList::doFXPos forwards (pos, mtx, primarySpeed, secondary) to each nugget's
+		// doFXPos (RW 0x5E2257 .. 0x5E2268). When drawablePosition && hasSecondaryPosition (RW 0x6CEA40 .. 0x6CEA50, RW 0x89600E .. 0x89601E), secondary is
+		// also d->getPosition().
+		const Coord3D *secondary = e.hasSecondaryPosition ? (e.drawablePosition ? primaryDrawable->getPosition() : &e.secondaryPosition) : nullptr;
+		FXList::doFXPos(fx, m_playback.services(), m_playback.fxLists(), pos, hasMtx ? &m : nullptr, e.weaponSpeed, secondary);
 		break;
 	}
 	case FXEvent::OBJECT_FX:
@@ -1188,6 +1223,94 @@ void LiveFX::playTransitionSystem(const FXEvent &e)
 	sys->attachToObject(e.primary);
 	m_transitionSystems[key] = id;
 	++m_stats.transitionSystemsCreated;
+	++m_stats.played[e.site];
+}
+
+// PORT-66 (issue #180): the body's auto particle systems, RW 0x8C1E4E's client half. deleteAllParticleSystems (RW 0x8C258F) destroys the systems the
+// body's list held; then createParticleSystems (RW 0x8C23EA) runs once per entry in the event: nothing when the entry has no template (RW 0x8C2401
+// answers before the bone query), else a cap of min(the bones found, the entry's cap), and per system a CLIENT random bone among the unused ones
+// (RW 0x6D32E4, `GameClientRandomValue(0, numBones - 1)` then the linear search for an unused index, RW 0x8C2484 .. 0x8C24B2), createParticleSystem
+// (RW 0x5F526A), setPosition at the bone (RW 0x5F2F2D), attachToObject (RW 0x5F32D7) and the ID kept (the body's list +0xC8)
+void LiveFX::playBodyParticleSystems(const FXEvent &e)
+{
+	for (const FXParticleSystem::ParticleSystemID id : m_bodyParticleSystems[e.primary])
+	{
+		if (FXParticleSystem::ParticleSystem *s = m_playback.particles().findParticleSystemByID(id))
+		{
+			s->destroy();
+			++m_stats.bodyParticlesDestroyed;
+		}
+	}
+	std::vector<FXParticleSystem::ParticleSystemID> created;
+	std::vector<char> used;
+	for (const FXEvent::BodyParticleEntry &entry : e.particleSystems)
+	{
+		if (entry.system.empty() || entry.bones.empty() || entry.maxSystems <= 0)
+		{
+			continue; // RW 0x8C2401 (no template) and RW 0x8C245F (no bone): no system
+		}
+		const FXParticleSystem::ParticleSystemTemplate *t = m_playback.particleTemplates().findTemplate(entry.system);
+		if (!t)
+		{
+			m_stats.unresolvedParticleSystems.insert(entry.system); // RW 0x5F889B found nothing: retail makes nothing
+			continue;
+		}
+		const std::uint32_t numBones = (std::uint32_t)entry.bones.size();
+		const std::uint32_t maxSystems = (std::uint32_t)entry.maxSystems < numBones ? (std::uint32_t)entry.maxSystems : numBones;
+		used.assign(numBones, 0);
+		for (std::uint32_t i = 0; i < maxSystems; ++i)
+		{
+			// RW 0x8C248E: GameClientRandomValue(0, numBones - 1), then the search forward for a bone not used yet (an index above the count wraps)
+			std::uint32_t index = (std::uint32_t)m_playback.clientRandom().value(0, (int)numBones - 1);
+			for (std::uint32_t j = 0; j < numBones && used[index]; ++j)
+			{
+				index = (index + 1) % numBones;
+			}
+			if (used[index])
+			{
+				break;
+			}
+			used[index] = 1;
+			const FXParticleSystem::ParticleSystemID id = m_playback.particles().createParticleSystem(t, true);
+			FXParticleSystem::ParticleSystem *sys = m_playback.particles().findParticleSystemByID(id);
+			if (!sys)
+			{
+				continue; // refused (cap / LOD)
+			}
+			// RW 0x5F2F2D: the position of the bone in the model's space; RW 0x5F32D7: the system follows the object
+			sys->setPosition(entry.bones[index].position);
+			sys->attachToObject(e.primary);
+			created.push_back(id);
+			++m_stats.bodyParticlesCreated;
+		}
+	}
+	m_bodyParticleSystems[e.primary] = std::move(created);
+	++m_stats.played[e.site];
+}
+
+// lane PORT-79, the ObjectCreationList's CreateObject nugget (RW 0x5F1DC5): createParticleSystem(template, true) (RW 0x5F526A; an unknown name is NULL in
+// the store, nothing is made) and the handle's attachToObject (RW 0x5F32D7) with the object the nugget made. No setPosition: retail places the system
+// only through the attachment (the object's drawable). The nugget drops its handle, so no slot keeps it: the system ends with its own lifetime.
+FXParticleSystem::ParticleSystemID attachCreatedSystem(FXParticleSystem::ParticleSystemManager &particles,
+	const FXParticleSystem::FXParticleSystemTemplateStore &templates, const FXEvent &event)
+{
+	const FXParticleSystem::ParticleSystemTemplate *t = templates.findTemplate(*event.fxList);
+	if (!t)
+	{
+		return FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID; // RW 0x73AECB: an unknown name is NULL, nothing is made
+	}
+	return particles.createAttachedParticleSystemID(t, event.primary, true); // RW 0x5F526A + RW 0x5F32D7
+}
+
+void LiveFX::playCreatedSystem(const FXEvent &e)
+{
+	const FXParticleSystem::ParticleSystemID id = attachCreatedSystem(m_playback.particles(), m_playback.particleTemplates(), e);
+	if (id == FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID)
+	{
+		m_stats.unresolvedParticleSystems.insert(*e.fxList);
+		return;
+	}
+	++m_stats.createdSystems;
 	++m_stats.played[e.site];
 }
 

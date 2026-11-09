@@ -231,11 +231,11 @@ void Object::clearAndSetModelConditionFlags(const ModelConditionBits &clear, con
 	}
 }
 
-void Object::flushDrawableModelConditions()
+void Object::flushDrawableModelConditions(bool immediate)
 {
 	if (m_client)
 	{
-		m_client->flushModelConditions(*this);
+		m_client->flushModelConditions(*this, immediate);
 	}
 }
 

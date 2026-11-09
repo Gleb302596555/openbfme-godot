@@ -14,6 +14,7 @@
 #include "Common/Player.h"
 #include "Common/Team.h"
 #include "GameClient/MapObjectRuntime.h"
+#include "GameLogic/Map/TerrainLogic.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
@@ -28,6 +29,23 @@ DrawableManager::DrawableManager(WW3DAssetManager &assets, GameLogic &logic)
 	m_services.animationSounds = &m_animationSounds; // lane AUDIO-4
 	m_services.selectionFlashHouseColor = logic.settings().selectionFlashHouseColor; // LOCAL-3: RW 0xC005E0
 	m_services.selectionFlashSaturationFactor = logic.settings().selectionFlashSaturationFactor; // LOCAL-3: RW 0xC005D0
+	// lane PORT-69 (issue #183): RW 0x484662 (TerrainTracksRenderObjClassSystem::init from W3DTerrainVisual::load)
+	TerrainTracksConfig trackCfg;
+	trackCfg.makeTrackMarks = logic.settings().makeTrackMarks;
+	trackCfg.maxTerrainTracks = logic.settings().maxTerrainTracks;
+	m_tracks.init(trackCfg);
+	const GameLogic *logicPtr = &m_logic;
+	m_trackSampler.groundHeight = [logicPtr](float x, float y, Coord3D *normal) -> float {
+		if (const TerrainLogic *terrain = logicPtr->terrain())
+		{
+			return terrain->getGroundHeight(x, y, normal);
+		}
+		if (normal)
+		{
+			*normal = Coord3D{ 0.0f, 0.0f, 1.0f };
+		}
+		return 0.0f;
+	};
 }
 
 DrawableManager::~DrawableManager() = default;
@@ -178,11 +196,33 @@ Drawable *DrawableManager::createClientDrawable(const ThingTemplate &tt)
 	{
 		m_sink.message(final->getName(), std::string(), p);
 	}
+	const bool trackMarks = d->hasTrackMarks();
 	m_slots.push_back(std::move(d));
+	if (trackMarks)
+	{
+		m_trackDrawables.push_back(id);
+	}
 	++m_live;
 	++m_created;
 	m_events.push_back({ true, id });
 	return m_slots[id].get();
+}
+
+void DrawableManager::unbindTracks(Drawable &d)
+{
+	for (DrawEntry &e : d.entries())
+	{
+		if (e.trackId >= 0)
+		{
+			m_tracks.unbindTrack(e.trackId); // RW 0x4C7126 (~W3DScriptedModelDraw)
+			e.trackId = -1;
+		}
+	}
+	auto it = std::find(m_trackDrawables.begin(), m_trackDrawables.end(), d.getID());
+	if (it != m_trackDrawables.end())
+	{
+		m_trackDrawables.erase(it);
+	}
 }
 
 void DrawableManager::destroyClientDrawable(DrawableID id)
@@ -192,6 +232,7 @@ void DrawableManager::destroyClientDrawable(DrawableID id)
 	{
 		return;
 	}
+	unbindTracks(*d);
 	collect(*d, m_sink);
 	m_slots[id].reset();
 	--m_live;
@@ -225,7 +266,12 @@ void DrawableManager::created(const ClientEvent &ev)
 	d->setPosition(&ev.position);
 	d->setKindOf(ev.kindOf);
 	d->setShadowStartFrame(ev.frame);
+	const bool trackMarks = d->hasTrackMarks();
 	m_slots.push_back(std::move(d));
+	if (trackMarks)
+	{
+		m_trackDrawables.push_back(id);
+	}
 	bindObject(ev.object, id);
 	++m_live;
 	++m_created;
@@ -252,6 +298,7 @@ void DrawableManager::destroyed(const ClientEvent &ev)
 	bindObject(ev.object, 0);
 	if (Drawable *d = find(id))
 	{
+		unbindTracks(*d);
 		collect(*d, m_sink);
 	}
 	m_slots[id].reset();
@@ -306,7 +353,7 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 				if (ev.hasIndicatorColor) d->setIndicatorColor(ev.indicatorColor);
 				if (ev.hasHouseColor) d->setHouseColor(ev.houseColor);
 				d->setScriptTarget(ev.scriptTarget); // lane FX-3: before the flush runs the state scripts
-				d->flushModelConditions(ev.hasWeaponTiming, ev.weaponTimingFrames);
+				d->flushModelConditions(ev.hasWeaponTiming, ev.weaponTimingFrames, ev.immediate);
 			}
 			break;
 		case ClientEvent::CUSTOM_COLORS: // lane CAH-2 (RW 0x80AF0B -> 0x6727B0)
@@ -464,6 +511,7 @@ void DrawableManager::prefetchAhead(size_t i) const
 
 void DrawableManager::advance(double elapsedMs)
 {
+	m_tracks.update(elapsedMs); // RW 0x44B90C: update track lifetimes before drawing
 	// lane PERF-HD: a drawable whose animations only step their own tracks (Drawable::advanceIsLocal: no state selection, no script) advances on the client
 	// job pool; the others, and every fade, follow on this thread in slot order as before. A drawable's fade still comes after its animations
 	const size_t slots = m_slots.size();
@@ -690,6 +738,7 @@ void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha
 		m_animationSounds.update();
 		updateEvaAnnounces(snapshot);
 		EvaSighting::update(*this, snapshot, m_logic, m_evaSighting);
+		syncTracks(snapshot);
 		return;
 	}
 	if (m_syncScratch.size() < slots)
@@ -751,6 +800,79 @@ void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha
 	m_animationSounds.update();
 	updateEvaAnnounces(snapshot);
 	EvaSighting::update(*this, snapshot, m_logic, m_evaSighting);
+	syncTracks(snapshot);
+}
+
+void DrawableManager::syncTracks(const LogicSnapshot &snapshot)
+{
+	if (m_trackDrawables.empty() || (m_tracks.config().maxTerrainTracks <= 0 && m_tracks.usedTrackIds().empty()))
+	{
+		return;
+	}
+	const bool makeTracks = m_tracks.makeTrackMarks();
+	for (DrawableID id : m_trackDrawables)
+	{
+		Drawable *d = find(id);
+		if (!d)
+		{
+			continue;
+		}
+		bool found = false;
+		const ObjectSnapshot *rec = d->syncedRecord(snapshot, found);
+		if (!found) rec = snapshot.find(d->getObjectID());
+		const bool lookHidden = d->presentedLook(&snapshot, m_shroudDrawn).hidden;
+		const bool obscured = m_shroudDrawn && d->shroudLook().fullyObscured; // RW 0x4B79C2
+		const int layer = rec ? (int)rec->layer : TerrainTrack::LAYER_GROUND;
+		const bool aboveTerrain = rec && rec->aboveTerrain;
+		const Coord3D *pos = d->getPosition();
+
+		TerrainTracksHeightSampler sampler = m_trackSampler;
+		if (!sampler.layerHeight && rec && layer != TerrainTrack::LAYER_GROUND)
+		{
+			const float layerZ = rec->position.z;
+			sampler.layerHeight = [layerZ](float, float, int, Coord3D *normal) -> float {
+				if (normal)
+				{
+					*normal = Coord3D{ 0.0f, 0.0f, 1.0f };
+				}
+				return layerZ;
+			};
+		}
+
+		for (DrawEntry &e : d->entries())
+		{
+			if (!e.hasTrackMarks || !e.draw)
+			{
+				continue;
+			}
+			if (e.trackId < 0 && makeTracks)
+			{
+				if (const RenderObjPrototype *proto = e.draw->currentModel())
+				{
+					const auto *md = static_cast<const W3DModelDrawModuleData *>(e.data);
+					e.trackId = m_tracks.bindTrack(proto, d->getInstanceScale(), TerrainTrack::DEFAULT_TRACK_SEGMENT_LENGTH, md->m_trackFile,
+						md->m_trackMarksLeftBone, md->m_trackMarksRightBone);
+				}
+			}
+			if (e.trackId < 0)
+			{
+				continue;
+			}
+			if (lookHidden || obscured || e.moduleHidden)
+			{
+				// RW 0x4B674D (setHidden) / RW 0x4B79E2 (m_fullyObscured)
+				m_tracks.addCapEdge(e.trackId, pos->x, pos->y, layer, sampler);
+			}
+			else if (makeTracks)
+			{
+				if (aboveTerrain)
+				{
+					m_tracks.setAirborne(e.trackId, true); // RW 0x4B79F8
+				}
+				m_tracks.addEdge(e.trackId, pos->x, pos->y, d->getBasis(), *pos, layer, sampler); // RW 0x4B7A16
+			}
+		}
+	}
 }
 
 void DrawableManager::applyPlacement(Object &obj, const MapObjectDrawable &placement)
@@ -802,6 +924,12 @@ DrawableManager::Report DrawableManager::report(const LogicSnapshot *presented) 
 	r.stops.push_back(flushStopLine()); // lane ANIM-1
 	r.stops.push_back(wallFadeStopLine()); // lane BUILD-4
 	r.stops.push_back(textureSwapStopLine()); // community PR #37
+	if (!m_trackDrawables.empty())
+	{
+		r.stops.push_back("[S-7202] terrain tracks: the drawables emit at snapshot sync rather than inside doDrawModule; non-ground cap height uses the "
+			"object position as an approximation, the Godot track colour uses the map's initial terrain light without weather relighting, and frustum "
+			"culling does not suppress track emission. In-game visual parity has not yet been checked");
+	}
 	for (const std::string &l : RenderInterpolation::stopLines())
 	{
 		r.stops.push_back(l); // SMOOTH-1
