@@ -51,10 +51,12 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawServices.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawBones.h"
+#include "GameEngineDevice/W3DDevice/GameClient/HouseColor.h"
 #include "Libraries/WWVegas/WW3D2/w3dstops.h"
 
 #include <functional>
 #include <limits>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -119,6 +121,9 @@ struct W3DDrawPoseView
 	const std::vector<std::pair<std::string, std::string>> *textureSwaps = nullptr; ///< the state's `Texture = A B` pairs (stop S-5015); never null after poseView
 	std::uint32_t textureSwapsGeneration = 0; ///< changes whenever *textureSwaps may have changed (a new state, an upgrade texture list)
 	int glow = 0;                                    ///< lane GLOW-1: the module's GlowEnabled / GlowEmissive (module data + 0x128 / + 0x129): 0 none, 1 glows, 2 glows emissive only
+	std::uint32_t renderObjectGeneration = 0;       ///< LOCAL-21: incremented on every render object teardown/recreate (RW 0x4B2C18)
+	const std::map<std::string, HouseColorParams> *meshHouseColors = nullptr; ///< LOCAL-21: per-mesh house colour overrides (RW 0x54BDE0)
+	std::uint32_t materialStateGeneration = 0;     ///< LOCAL-21: incremented on per-mesh material changes or render object recreation
 };
 
 struct W3DScriptedModelDrawOptions
@@ -169,6 +174,8 @@ public:
 	// Drawable::setModelConditionState: the object's current model condition flags (RW 0x4BF2D8). Both lists are re-matched; see the
 	// header comment for the pending state rule.
 	void setModelConditionFlags(const ModelConditionFlags &flags);
+	// RW 0x4C451D (slot 0x100; BFME2 0x4C4E23): select model state; force bypasses render object reuse (force = 1)
+	bool setModelState(const ModelConditionInfo *state, bool force = false);
 	// RW 0x8B911E -> draw module vslot 0x84: SubObjectsUpgrade's UpgradeTexture list replaces the module's upgrade textures (empty: none)
 	void setUpgradeTextureSwaps(const std::vector<std::pair<std::string, std::string>> &swaps);
 	// lane COMBAT-4: the module data's DependencySharedModelFlags (+ 0xBC, RW table row 0xBE1420): the flags the module's dependents share (RW 0x4BF2D8)
@@ -281,6 +288,13 @@ public:
 	bool pendingStatePending() const { return m_pending; }
 	const AnimationStateInfo *pendingTarget() const { return m_pendingTarget; }
 	int renderObjectsCreated() const { return m_renderObjectsCreated; }
+	std::uint32_t renderObjectGeneration() const { return m_renderObjectGeneration; }
+	std::uint32_t materialStateGeneration() const { return m_materialStateGeneration; }
+	const HouseColorParams &baseHouseColor() const { return m_baseHouseColor; }
+	void setBaseHouseColor(const HouseColorParams &params);
+	const std::map<std::string, HouseColorParams> &meshHouseColors() const { return m_meshHouseColors; }
+	// RW 0x4B8701 -> slot +0x1F8 (RW 0x54BDE0): recolours current render object meshes except those matching excludeSubobject
+	void recolorRenderObject(const std::string &excludeSubobject, const HouseColorParams &params);
 	const W3DModelBones &bones() const { return m_bones; }
 	const std::vector<W3DStopHit> &stops() const { return m_stops; }
 	const std::vector<std::string> &errors() const { return m_errors; }
@@ -395,6 +409,10 @@ private:
 	std::string m_modelName; // lower case, the render object identity
 	std::string m_resolvedModelName; // resolved model name (with LOD and standard suffixes)
 	int m_renderObjectsCreated = 0;
+	std::uint32_t m_renderObjectGeneration = 0;
+	HouseColorParams m_baseHouseColor;
+	std::map<std::string, HouseColorParams> m_meshHouseColors;
+	std::uint32_t m_materialStateGeneration = 0;
 	W3DModelBones m_bones;
 	std::set<int> m_hiddenSubObjects;
 	std::uint32_t m_hiddenGeneration = 0; ///< lane PERF-3: incremented by every change of m_hiddenSubObjects (W3DDrawPoseView::hiddenGeneration)

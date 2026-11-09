@@ -59,23 +59,47 @@ W3DScriptedModelDraw::W3DScriptedModelDraw(const W3DModelDrawModuleData &data, W
 	}
 }
 
-// INFERENCE: the upgrade textures first (the drawable's own choice), then the RandomTexture pairs, then the state's Texture pairs (the material takes
-// the first pair naming a texture); how retail's vslot 0x84 combines them with the state's textures was not read
+// RW 0x4C4BD7..0x4C4C6B and DONOR BFME2 0x4C4E23 (setModelStateRva000C4E23Farm.cpp:577-596):
+// The upgrade textures are added first (setUpgradeTextureSwaps), then state Texture pairs whose source texture is
+// not already present, then random texture pairs whose source is not already present.
 void W3DScriptedModelDraw::rebuildTextureSwaps()
 {
 	m_textureSwaps = m_upgradeTextureSwaps;
-	m_textureSwaps.insert(m_textureSwaps.end(), m_randomTextureSwaps.begin(), m_randomTextureSwaps.end());
+	auto hasOrig = [&](const std::string &orig) {
+		for (const auto &p : m_textureSwaps)
+		{
+			if (AsciiStringUtil::compareNoCase(p.first, orig) == 0)
+			{
+				return true;
+			}
+		}
+		return false;
+	};
 	if (m_curModelInfo)
 	{
-		m_textureSwaps.insert(m_textureSwaps.end(), m_curModelInfo->textures.begin(), m_curModelInfo->textures.end());
+		for (const auto &pair : m_curModelInfo->textures)
+		{
+			if (!hasOrig(pair.first))
+			{
+				m_textureSwaps.push_back(pair);
+			}
+		}
+	}
+	for (const auto &pair : m_randomTextureSwaps)
+	{
+		if (!hasOrig(pair.first))
+		{
+			m_textureSwaps.push_back(pair);
+		}
 	}
 	++m_textureSwapsGeneration;
 }
 
+// RW 0x4C1068 (slot 0x84): push 1; push [esi+0x14]; call [eax+0x100] (force = 1)
 void W3DScriptedModelDraw::setUpgradeTextureSwaps(const std::vector<std::pair<std::string, std::string>> &swaps)
 {
 	m_upgradeTextureSwaps = swaps;
-	rebuildTextureSwaps();
+	setModelState(m_curModelInfo, true);
 }
 
 void W3DScriptedModelDraw::initializeState()
@@ -172,6 +196,7 @@ int W3DScriptedModelDraw::randomStartFrame(int frames)
 // ---------------------------------------------------------------------------------------------------------------------
 void W3DScriptedModelDraw::setModelConditionFlags(const ModelConditionFlags &flags)
 {
+	const ModelConditionFlags prevFlags = m_pendingFlags;
 	m_pendingFlags = flags; // RW 0x4BF420: rep movsd 0x13 into +0x17C, every time
 	const ModelConditionInfo *modelInfo = m_data.findBestInfo(flags);
 	const AnimationStateInfo *next = m_data.findBestAnimationState(flags);
@@ -191,9 +216,25 @@ void W3DScriptedModelDraw::setModelConditionFlags(const ModelConditionFlags &fla
 	// re-resolve #(MODEL) even when their shared IdleAnimationState is unchanged.
 	const bool bindingChanged = modelInfo && m_curModelInfo &&
 		(modelInfo->skeleton != m_curModelInfo->skeleton || modelInfo->modelAnimationPrefix != m_curModelInfo->modelAnimationPrefix);
+
+	bool force = false;
+	if (m_data.m_useStandardModelNames)
+	{
+		// RW 0x4BF3AE..0x4BF416: flags 0, 3, 4, 5, 7, 8 (TOPPLED, DAMAGED, REALLYDAMAGED, RUBBLE, NIGHT, SNOW)
+		static const int checkBits[] = { 0, 3, 4, 5, 7, 8 };
+		for (int bit : checkBits)
+		{
+			if (prevFlags.test(bit) != flags.test(bit))
+			{
+				force = true;
+				break;
+			}
+		}
+	}
+
 	if (modelInfo)
 	{
-		applyModelState(modelInfo);
+		setModelState(modelInfo, force);
 	}
 	else
 	{
@@ -333,19 +374,40 @@ std::string W3DScriptedModelDraw::resolveLodAndStandardModelNames(const std::str
 	return candidate;
 }
 
-// ZH W3DModelDraw::setModelState (W3DModelDraw.cpp:2911-3181), the render object part (the RotWK virtual is RW 0x4C451D, not
-// transcribed: S-090): recreate the render object when the model or the turret bones differ, validate the bones either way.
-void W3DScriptedModelDraw::applyModelState(const ModelConditionInfo *state)
+// RW 0x4C451D (slot 0x100; BFME2 0x4C4E23): select model state; force bypasses render object reuse (force = 1)
+bool W3DScriptedModelDraw::setModelState(const ModelConditionInfo *state, bool force)
 {
+	if (!state)
+	{
+		return false;
+	}
+	// RW 0x4C45A7 .. 0x4C45B5: the current state again, no index change and no force: nothing happens (return 0 at RW 0x4C4554). Without this a
+	// state with `Texture` pairs (a SNOW building) would rebuild its render object on every flag update. INFERENCE (S-090): the index pair
+	// (+0xBC / +0xC0, RW 0x4C4585 .. 0x4C4598) has no port counterpart and is taken as unchanged.
+	if (state == m_curModelInfo && !force)
+	{
+		return false;
+	}
 	const std::string baseName = resolveBaseModelName(state);
 	const std::string resolvedName = resolveLodAndStandardModelNames(baseName);
 	const std::string newLowered = AsciiStringUtil::lowered(resolvedName);
 
-	if (state == m_curModelInfo && newLowered == m_modelName)
+	// RW 0x4C460C..0x4C4648: reuse render object only when force == 0, model matches, no textures on either state, and turrets match
+	const bool canReuse = (m_curModelInfo != nullptr) && !force && (newLowered == m_modelName) &&
+		state->textures.empty() && m_curModelInfo->textures.empty() && !turretNamesDiffer(state, m_curModelInfo);
+
+	if (canReuse)
 	{
-		return; // ZH: "if the requested state is the current state ... just punt"
+		m_curModelInfo = state;
+		m_resolvedModelName = resolvedName;
+		if (m_options.buildBones)
+		{
+			m_bones.build(*state, m_model, m_data.m_extraPublicBones, m_options.standardPublicBones, m_options.scale, nullptr, 0.0f);
+		}
+		return false;
 	}
-	const bool recreate = m_curModelInfo == nullptr || newLowered != m_modelName || turretNamesDiffer(state, m_curModelInfo);
+
+	// RW 0x4C4679: Rebuild path
 	m_curModelInfo = state;
 	m_resolvedModelName = resolvedName;
 	rebuildTextureSwaps();
@@ -353,46 +415,47 @@ void W3DScriptedModelDraw::applyModelState(const ModelConditionInfo *state)
 	{
 		stop("S-095", "model state " + ModelCondition::describe(state->conditions) + " has ParticleSysBone / FXEvent entries, which are stored but not played");
 	}
-	if (recreate)
+
+	// RW 0x4C467C: RetainSubObjects preserves non-permanent hide/show records
+	if (!state->retainSubObjects)
 	{
-		++m_renderObjectsCreated;
-		m_modelName = newLowered;
-		m_model = nullptr;
-		if (!resolvedName.empty())
+		m_subObjectOps.clear();
+	}
+
+	// RW 0x4B2C18: teardown old render object and increment generations
+	++m_renderObjectsCreated;
+	++m_renderObjectGeneration;
+	m_meshHouseColors.clear();
+	++m_materialStateGeneration;
+
+	m_modelName = newLowered;
+	m_model = nullptr;
+	if (!resolvedName.empty())
+	{
+		std::string err;
+		m_model = m_assets.model(resolvedName, &err);
+		if (!m_model)
 		{
-			std::string err;
-			m_model = m_assets.model(resolvedName, &err);
-			if (!m_model)
-			{
-				error("model " + resolvedName + " is not available: " + err);
-			}
-		}
-		// hidden sub objects: a new render object starts with its meshes' own HIDDEN flags; RetainSubObjects keeps what scripts hid
-		m_hiddenSubObjects.clear();
-		++m_hiddenGeneration; // lane PERF-3
-		if (m_model)
-		{
-			for (size_t i = 0; i < m_model->SubObjects.size(); ++i)
-			{
-				const RenderSubObject &s = m_model->SubObjects[i];
-				if (s.Type == RenderSubObject::SUB_MESH && s.Mesh && s.Mesh->Is_Hidden())
-				{
-					m_hiddenSubObjects.insert((int)i);
-				}
-			}
-		}
-		// lane RENDER-3: the permanent records (RW 0x4C3B25, draw + 0x68) apply by name to the new render object; a record whose sub object this model
-		// lacks stays recorded for the next one (e.g. the BeingConstructed BeginScript's HideSubObjectPermanently("V1") reaches the finished model)
-		m_subObjectOps.clear(); // a new render object drops the plain hide / show records (S-098: RetainSubObjects is not decoded)
-		for (const auto &op : m_permanentSubObjectOps)
-		{
-			applySubObjectHidden(op.first, op.second);
-		}
-		if (state->retainSubObjects)
-		{
-			stop("S-098", "RetainSubObjects is set on a state; what it keeps across a render object change is not decoded, hidden sub objects are reset");
+			error("model " + resolvedName + " is not available: " + err);
 		}
 	}
+	// hidden sub objects: a new render object starts with its meshes' own HIDDEN flags; RetainSubObjects keeps what scripts hid
+	m_hiddenSubObjects.clear();
+	++m_hiddenGeneration; // lane PERF-3
+	if (m_model)
+	{
+		for (size_t i = 0; i < m_model->SubObjects.size(); ++i)
+		{
+			const RenderSubObject &s = m_model->SubObjects[i];
+			if (s.Type == RenderSubObject::SUB_MESH && s.Mesh && s.Mesh->Is_Hidden())
+			{
+				m_hiddenSubObjects.insert((int)i);
+			}
+		}
+	}
+	// Apply non-permanent (if retained) then permanent subobject records (RW 0x4BA74F)
+	applySubObjectRecords();
+
 	if (m_options.buildBones)
 	{
 		stop("S-097", "pristine bone positions are taken from the bind pose, not from the animation retail poses the model with");
@@ -402,6 +465,65 @@ void W3DScriptedModelDraw::applyModelState(const ModelConditionInfo *state)
 			error("bone " + b + " not found in model " + m_modelName);
 		}
 	}
+	return true;
+}
+
+void W3DScriptedModelDraw::applyModelState(const ModelConditionInfo *state)
+{
+	setModelState(state, false);
+}
+
+void W3DScriptedModelDraw::setBaseHouseColor(const HouseColorParams &params)
+{
+	m_baseHouseColor = params;
+	++m_materialStateGeneration;
+}
+
+// RW 0x4B8701 -> slot +0x1F8 (RW 0x54BDE0)
+void W3DScriptedModelDraw::recolorRenderObject(const std::string &excludeSubobject, const HouseColorParams &params)
+{
+	m_meshHouseColors.clear();
+	if (!m_model)
+	{
+		return;
+	}
+	if (m_model->Type == RenderObjPrototype::PROTO_MESH)
+	{
+		const std::string &name = m_model->Name;
+		const size_t dot = name.find('.');
+		const std::string afterDot = (dot != std::string::npos) ? name.substr(dot + 1) : "";
+		if (!excludeSubobject.empty() && dot != std::string::npos && AsciiStringUtil::compareNoCase(afterDot, excludeSubobject) == 0)
+		{
+			m_meshHouseColors[name] = m_baseHouseColor;
+		}
+		else
+		{
+			m_meshHouseColors[name] = params;
+		}
+	}
+	else
+	{
+		for (const auto &sub : m_model->SubObjects)
+		{
+			if (sub.Type != RenderSubObject::SUB_MESH)
+			{
+				continue;
+			}
+			const std::string &name = sub.Name;
+			const size_t dot = name.find('.');
+			const std::string afterDot = (dot != std::string::npos) ? name.substr(dot + 1) : "";
+			// RW 0x54BE43: strchr(name, '.') -> _stricmp(afterDot, excludeSubobject) == 0 skips recolour
+			if (!excludeSubobject.empty() && dot != std::string::npos && AsciiStringUtil::compareNoCase(afterDot, excludeSubobject) == 0)
+			{
+				m_meshHouseColors[name] = m_baseHouseColor;
+			}
+			else
+			{
+				m_meshHouseColors[name] = params;
+			}
+		}
+	}
+	++m_materialStateGeneration;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -1320,6 +1442,9 @@ void W3DScriptedModelDraw::poseView(W3DDrawPoseView &v) const
 	v.textureSwaps = m_curModelInfo ? &m_textureSwaps : &noSwaps;
 	v.textureSwapsGeneration = m_textureSwapsGeneration;
 	v.glow = m_data.m_glowEnabled ? (m_data.m_glowEmissive ? 2 : 1) : 0; // RW 0x4C518B / 0x47A94F (BFME2 W3DHordeModelDrawSetModelState): the module data's GlowEnabled (+ 0x128) calls the render object's vslot 0x1CC(1) and GlowEmissive (+ 0x129) its vslot 0x1D4; GlowEmissive only counts with GlowEnabled
+	v.renderObjectGeneration = m_renderObjectGeneration;
+	v.meshHouseColors = &m_meshHouseColors;
+	v.materialStateGeneration = m_materialStateGeneration;
 }
 
 bool W3DScriptedModelDraw::modelCondition(const std::string &name)
