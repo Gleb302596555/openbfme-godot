@@ -1,5 +1,7 @@
 # Промт для следующей сессии: задача 1, проверка 323 полей и звуковой таблицы
 
+> **История (обновлено 2026-11-09).** Сессия по этому промту закончена. Инструмент `tools/mod/field_audit.py` (с `--manual`) и его тест на `main`; последний вывод — `workspace/ennorath-audit/field-audit-v5/` (2026-11-08), ручные вердикты — `manual-check.tsv` там же; следующие промты (`PROMPT-task1-field-check-3..5.md`) лежат в `workspace/ennorath-audit/` (вне Git). Как прогонять аудит после правки — раздел 7а [PROCESS.md](../PROCESS.md), шаг 5. Ветка `agent/claude/field-audit` и названные ниже коммиты и деревья устарели.
+
 Ты продолжаешь задачу 1 из `workspace/ennorath-audit/TASK-1-mod-data-audit.md`. Прочитай её и прошлый промт `PROMPT-task1-field-audit.md`. Обязательны правила `docs/ennorath/PROCESS.md`: разделы 5, 7, 14, 15 и 16. Отвечай владельцу по-русски, просто и коротко.
 
 ## Где работа

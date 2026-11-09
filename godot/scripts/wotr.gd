@@ -817,7 +817,7 @@ func _sync_apt_hud() -> void:
 				if not hero_portraits.has(hero):
 					hero_portraits[hero] = str(lw.template_field(game._world, hero, "ButtonImage"))
 				portrait = hero_portraits[hero]
-				army_name = _text(str(lw.template_field(game._world, hero, "DisplayName")))
+				army_name = _text(str(lw.template_field(game._world, hero, "DisplayNameStrategic")))
 			else:
 				portrait = str(a.get("garrison_portrait", ""))
 				army_name = _text(str(a.get("garrison_name_tag", "")))
@@ -1350,7 +1350,7 @@ func _army_display_name(id: int) -> String:
 	var hero := str(a.get("hero", ""))
 	if hero == "":
 		return _text(str(a.get("garrison_name_tag", "")))
-	var hn := _text(str(lw.template_field(game._world, hero, "DisplayName")))
+	var hn := _text(str(lw.template_field(game._world, hero, "DisplayNameStrategic")))
 	var fmt: Dictionary = game._shell.fetch_text("STRATEGICHUD:HeroArmyName")
 	return str(fmt.text).replace("%s", hn) if fmt.get("found", false) else hn
 
@@ -2131,6 +2131,7 @@ func _take_notices() -> void:
 			game._shell.strategic_hud({"kind": "sync", "notice_clear": true})
 
 
+## RW 0x71AF63: hero names in notices (LW:HeroKilledText RW 0x6BAD23, LW:AttackRepelledItemText RW 0x6BDC7E) read [template + 0x30] DisplayName
 func _hero_label(hero: String) -> String:
 	return "" if hero.is_empty() else str(lw.template_field(game._world, hero, "DisplayName"))
 

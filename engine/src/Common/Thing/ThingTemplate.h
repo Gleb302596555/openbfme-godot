@@ -285,6 +285,14 @@ public:
 	// Port 34, RW 0x8C1B42 / RW 0x8C2DE0: ThingTemplate + 0x607 (StructureRubbleHeight, row RW 0xC83380, INI::parseUnsignedByte RW 0x42EB75,
 	// initialized to 0 at RW 0x74018A, copied at RW 0x6D25EF, read with movsx byte [tt + 0x607])
 	std::int8_t structureRubbleHeight() const;
+	// Local 15 (issue #136): ThingTemplate label rows (RW 0xDA3DF8, parser RW 0x73D3E0)
+	// DisplayName (+0x2C label, +0x30 text) and Description (+0x34 label, +0x38 text)
+	std::string displayName() const;
+	std::string description() const;
+	// RW 0x80EFBD, 0x80EFD0: GetDisplayNameStrategic returns [tt + 0x58], falling back to DisplayName (+0x30) at RW 0x73CEB5
+	std::string displayNameStrategic() const;
+	// RW 0x9F989F, 0xA07D76, 0xA082C8: Strategic tooltips read [tt + 0x40], falling back to Description (+0x38) at RW 0x73CECE
+	std::string descriptionStrategic() const;
 
 private:
 	friend class ThingFactory;

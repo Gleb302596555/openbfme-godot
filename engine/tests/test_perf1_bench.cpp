@@ -630,6 +630,12 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // pin: PORT-12 (8ca4fd8e) hashes MinDistFromEdgeOfMapForBuild in GameLogicSettings::crc (RotWK GlobalData +0xA68) and refuses sites near the map edge
 // (RW 0x794BF2): all three vectors move from frame 0. Bisected (station-0, Windows MSVC): 47067c3b passes on the previous vectors, 76243901 (PORT-12 and
 // PORT-20) fails; re-measured once (OPENBFME_PERF1_REGEN=1) on main with the open PRs #129 #130 #131 #132 #139 #140 #141 merged on top
+// pin: acceptance of the arena PRs #159 #160 #142 #144 #145 #158 (2026-11-09, station-0, Windows MSVC; main 29814b9d passes the old files) re-measured both
+// (OPENBFME_PERF1_REGEN=1). Battle (first differing frame 42): PORT-37 (#159), DamageNugget's area shape (RW 0x90DEF0): with PORT-37's WeaponDelivery.cpp
+// switched off the battle matches the old file. Skirmish (from frame 8): PORT-33 (#142) — the targetless prototype 8 is ported, so targetlessApplies no
+// longer counts it in b.targetlessUnported, which AITacticalAI::crc hashes; with that count restored the skirmish matched to frame 3893, and the later
+// changes of this merge move it from frame 3894 (not bisected; PORT-37's area damage is the likely one, PROCESS 7 rule 3). Switching off PORT-10's crc
+// field, PORT-17's module binding or PORT-33's ready rule changed nothing.
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,
