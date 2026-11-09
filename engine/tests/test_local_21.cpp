@@ -139,6 +139,46 @@ TEST_CASE("LOCAL-21a: forced model replacement via setUpgradeTextureSwaps (RW 0x
 	CHECK((*v.textureSwaps)[0].second == "upg.tga");
 }
 
+TEST_CASE("LOCAL-21a: the same state with Texture pairs again is not rebuilt without force (RW 0x4C45A7 .. 0x4C45B5)")
+{
+	MemoryFileSource fs;
+	addBareMesh(fs, "SNOW_TEST");
+
+	WW3DAssetManager assets(fs);
+	WW3DDrawAssets drawAssets(assets);
+	TestRandom random;
+
+	// the state has `Texture` pairs, so the reuse test (RW 0x4C4630) would refuse reuse: only the early return keeps the render object
+	const std::string iniText =
+		"DefaultModelConditionState\n"
+		"  Model = SNOW_TEST\n"
+		"  Texture = base.tga base_snow.tga\n"
+		"End\n"
+		"IdleAnimationState\n"
+		"End\n"
+		"End\n";
+
+	Harness harness;
+	W3DModelDrawModuleData *data = harness.parse(iniText, W3D_DRAW_SCRIPTED_MODEL);
+	REQUIRE_MESSAGE(data != nullptr, harness.error);
+
+	W3DScriptedModelDraw::Options opt;
+	opt.buildBones = false;
+	W3DScriptedModelDraw draw(*data, drawAssets, random, nullptr, opt);
+	REQUIRE(draw.renderObjectsCreated() == 1);
+
+	for (int i = 0; i < 5; ++i)
+	{
+		draw.setModelConditionFlags(ModelConditionFlags()); // the same state, every flag update (RW 0x4BF420 runs every time)
+	}
+	CHECK(draw.renderObjectsCreated() == 1);
+	CHECK(draw.renderObjectGeneration() == 1);
+
+	// force still rebuilds it (RW 0x4C45B1: the early return needs force == 0)
+	draw.setUpgradeTextureSwaps({});
+	CHECK(draw.renderObjectsCreated() == 2);
+}
+
 TEST_CASE("LOCAL-21a: RetainSubObjects preserves script hide across forced recreation (RW 0x4C467C)")
 {
 	MemoryFileSource fs;

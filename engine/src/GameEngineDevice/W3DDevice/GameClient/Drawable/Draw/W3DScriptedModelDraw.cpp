@@ -381,6 +381,13 @@ bool W3DScriptedModelDraw::setModelState(const ModelConditionInfo *state, bool f
 	{
 		return false;
 	}
+	// RW 0x4C45A7 .. 0x4C45B5: the current state again, no index change and no force: nothing happens (return 0 at RW 0x4C4554). Without this a
+	// state with `Texture` pairs (a SNOW building) would rebuild its render object on every flag update. INFERENCE (S-090): the index pair
+	// (+0xBC / +0xC0, RW 0x4C4585 .. 0x4C4598) has no port counterpart and is taken as unchanged.
+	if (state == m_curModelInfo && !force)
+	{
+		return false;
+	}
 	const std::string baseName = resolveBaseModelName(state);
 	const std::string resolvedName = resolveLodAndStandardModelNames(baseName);
 	const std::string newLowered = AsciiStringUtil::lowered(resolvedName);
