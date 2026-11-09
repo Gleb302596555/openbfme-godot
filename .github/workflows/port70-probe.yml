@@ -1,0 +1,16 @@
+name: port70 probe
+on:
+  workflow_dispatch:
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: probe google drive ids
+        run: |
+          set -x
+          for id in 1LJToGQ0mdLoC4QUy-_OzjXl0ZTfEmpZa 1sE4RaoHmdU4TxlETruYmkkmR5qJvl9Yc 1oUjqDsG_I8Eyft0Z7gHTPLDsuVXtYIW0; do
+            curl -sSL -o "/tmp/$id.bin" -w "id=$id code=%{http_code} size=%{size_download} type=%{content_type}\n" "https://drive.google.com/uc?export=download&id=$id" -m 120 || true
+            md5sum "/tmp/$id.bin" 2>/dev/null || true
+            head -c 120 "/tmp/$id.bin" | tr -d '\0' | head -3 || true
+            echo "-----"
+          done
