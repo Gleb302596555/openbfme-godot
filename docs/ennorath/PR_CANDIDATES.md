@@ -112,6 +112,7 @@
 | PORT-74: `W3DLaserDraw` — данные модуля и геометрия лучей (RW 0x4C917B, 0x4C8A6C, 0x740659); что ставит концы луча (`LaserUpdate`) — S-7218 | 2026-11-10 | арена (issue #206) | PR #227 | `PORT-74*`, `*mapobj*` (ожидание 16 -> 17 с адресом) | не предложено |
 | PORT-75: `BannerCarrierUpdate` `MorphCondition` / `BannerMorphFX` — знаменосец принимает вид отряда, к которому вступил | 2026-11-10 | арена (issue #207) | PR #223 | `PORT-75*`, `banner1 retail*`, `horde2 banner*` | не предложено |
 | PORT-79: OCL `CreateObject` — `ParticleSystem` прикрепляется к созданному объекту (RW 0x5F1DC5, 0x5F526A, 0x5F32D7), `PreserveLayer`; S-7219 | 2026-11-10 | арена (issue #211) | PR #229 | `PORT-79*`, `anim1*`, `summon1*` | не предложено |
+| Local 23: `ProductionQueueHordeContain` — гарнизон орды, который заказывает юнит по `DestinationTemplate` и запоминает вошедший отряд в очереди (RW 0x88459B, 0x88460B, 0x884729, 0x884691; слот 14 `ProductionUpdate` RW 0x8A03A0); читатель цели не перенесён | 2026-11-10 | локальный агент (station-2) | `dcbb3b6e`, `287b19c2`, `b293653c` | `LOCAL-23*`, `garrison*`, `*production*`, `module coverage` 230/81; в игре ждёт (TOP20 п. 31) | не предложено |
 
 Правки до 2026-11-05 ещё не разобраны. Классы, которые есть только у нас, показывает `python tools/mod/upstream_sync.py candidates`.
 
