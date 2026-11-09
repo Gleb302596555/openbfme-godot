@@ -105,6 +105,7 @@ class InvisibilityManager;
 class DOTManager;
 class TerrainTrees;
 class TaintManager;
+class ThreatFinderManager; // PORT 17
 class SkirmishAIManager;
 class ShroudManager;
 class PartitionManager;
@@ -508,6 +509,11 @@ public:
 	// TheTaintManager (RW 0xDE435C): the Taint / Elven Wood ground grid (GameLogic/System/TaintManager.h)
 	TaintManager &taint() { return *m_taint; }
 	const TaintManager &taint() const { return *m_taint; }
+	// PORT 17 (issue #73): TheThreatFinderManager (RW 0xDE8888), the named threat areas of a map (GameLogic/System/ThreatFinder.h). Not a subsystem
+	// with an update: retail only adds and removes finders and looks them up by name (RW 0x7EE260); a finder scans when it is asked. Its state is
+	// the finders' and it travels with them (each finder's module xfers it, RW 0x7EDF70), so it is not a state-hash section of its own
+	ThreatFinderManager &threatFinders() { return *m_threatFinders; }
+	const ThreatFinderManager &threatFinders() const { return *m_threatFinders; }
 	const CombatState &combat() const { return *m_combat; }
 	const GameLogicSettings &settings() const { return m_settings; }
 	void setClientHooks(ObjectClientHooks *hooks) { m_clientHooks = hooks; }
@@ -1104,6 +1110,7 @@ private:
 	std::unique_ptr<DOTManager> m_dot;                   // lane DECOMP-1
 	std::unique_ptr<TaintManager> m_taint;               // RW 0xDE435C
 	std::unique_ptr<TerrainTrees> m_trees;               // lane SPELL-3
+	std::unique_ptr<ThreatFinderManager> m_threatFinders; // PORT 17: RW 0xDE8888
 	std::unique_ptr<ScriptEngine> m_scriptEngine;        // lane SCRIPT-1
 	CastleTemplateStore m_castleTemplates;
 	std::set<std::string, std::less<>> m_notedStops;
