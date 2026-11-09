@@ -407,8 +407,9 @@ std::vector<std::string> LiveFX::stops()
 	// sentence of this stop is retired for the draws that ask for it; S-7194 lists the parts of that walk that stay INFERENCE.
 	out.push_back("[S-682] live FX: ParticleSysBone systems follow their animated bone only for a draw module whose ParticlesAttachedToAnimatedBones is on "
 					  "and only where the draw's pose defines the bone (lane PORT-50: RW 0x4C7795 -> RW 0x4B6D5F, S-7194). The fire FX of a weapon, the FXEvent"
-					  " bones and the pristine bones still come from the model's bind pose; ParticleSysBone FXTrigger / Persist / PersistID / HouseColor are"
-					  " ignored and OnlyIfOnWater systems are not created; WadingParticleSys uses the PATH-1 water-surface query (PORT-48); the shooter's stealth (RW 0x694C0D, NULL viewer) is read when the effect plays,"
+					  " bones and the pristine bones still come from the model's bind pose; ParticleSysBone Persist / PersistID / HouseColor are"
+					  " ignored and OnlyIfOnWater systems are not created (FXTrigger is ported since PORT-68: RW 0x4C662D skips an entry whose trigger is"
+					  " neither NONE nor the drawable's own); WadingParticleSys uses the PATH-1 water-surface query (PORT-48); the shooter's stealth (RW 0x694C0D, NULL viewer) is read when the effect plays,"
 					  " not at the shot (lane STEALTH-1); muzzle flashes and recoil are not drawn; isWater is false (the shroud: S-4971)");
 	out.push_back("[S-686] TransitionDamageFX: runs in the logic since lane FX-4 (RW 0x8BE077: the FXLists, OCLs and attached particle systems of a worse damage "
 				  "state, the sub objects of every state); not ported: the rubble neighbours (RW 0x8BDF08, S-342), the OCL's secondary position (S-530), an OCL "
@@ -1386,6 +1387,10 @@ void LiveFX::createSystems(Drawable &d, Attached &a)
 				{
 					continue; // S-682: no water query
 				}
+				if (!allowsParticleSysBoneFXTrigger(d, info))
+				{
+					continue; // PORT-68, RW 0x4C662D .. 0x4C663E (INFERENCE: gated before createParticleSystem so non-matching entries emit nothing)
+				}
 				// RW 0x73AECB (the ParticleSysBone parser's template field): the name is looked up in TheFXParticleSystemManager alone (findTemplate
 				// RW 0x5F889B); "None" (any case, RW 0xBD3BF8) and an unknown name store NULL, and RW 0x4C6514 skips a NULL template (0x4C6603) without a
 				// word. Retail never loads Data\INI\ParticleSystem.ini (lane FX-3, see LiveFX.h), so a name defined only there plays nothing in retail
@@ -1479,6 +1484,12 @@ void LiveFX::followAnimatedBones(Drawable &d, Attached &a)
 	m_stats.bonesMissed += m_boneCounters.missed;
 	m_stats.bonesStarted += m_boneCounters.started;
 	m_stats.bonesStopped += m_boneCounters.stopped;
+}
+
+// PORT-68, RW 0x4C662D .. 0x4C663E: 0 (NONE) passes without a test, any other index must equal the drawable's + 0x360
+bool LiveFX::allowsParticleSysBoneFXTrigger(const Drawable &d, const ParticleSysBoneInfo &info)
+{
+	return info.fxTrigger == 0 || d.getFXTrigger() == info.fxTrigger;
 }
 
 // RW 0x4B337B: did the animation pass `frame` between the previous and the current integer frame? It reads the track's mode (+0x10) and direction (+0x14):

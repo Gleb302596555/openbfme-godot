@@ -77,6 +77,7 @@ struct ClientEvent
 		DIED,              ///< RW 0x699077 -> RW 0x67561E: notifyDead on object death
 		REMOVE_SELECTION_FEEDBACK, ///< lane LOCAL-16, RW 0x672F0D: removeSelectionFeedback on drawable
 		CREATE_SELECTION_FEEDBACK, ///< lane LOCAL-16, RW 0x672ED1: createSelectionFeedback on drawable with indicatorColor
+		FX_TRIGGER,                ///< PORT-68, RW 0x68B56A -> RW 0x44C465: Drawable + 0x360 FXTrigger index (TheFXTriggerNames)
 	};
 	std::string heroUniqueID;
 	std::vector<std::string> heroStatistics;
@@ -117,6 +118,7 @@ struct ClientEvent
 	UnsignedInt fadeFrames = 0;
 	bool shadowsOn = true; ///< SET_SHADOWS
 	bool audible = true;   ///< AUDIBLE (lane PORT-21): the drawable's audible flag
+	int fxTrigger = 0;     ///< FX_TRIGGER (PORT-68): Drawable + 0x360 index in TheFXTriggerNames
 	int flashFrames = 0;
 	int customKind = 0;                             ///< CUSTOM_COLORS (lane CAH-2)
 	std::uint32_t customColors[3] = { 0u, 0u, 0u }; ///< CUSTOM_COLORS: ARGB
@@ -150,6 +152,7 @@ public:
 	void setShadowsEnabled(Object &obj, bool enabled) override;
 	void setDrawableOpacity(Object &obj, float opacity) override;
 	void setDrawableAudible(Object &obj, bool audible) override; // lane PORT-21
+	void setDrawableFXTrigger(Object &obj, int fxTrigger) override; // PORT-68 (RW 0x68B56A)
 	void setCustomColors(Object &obj, int kind, std::uint32_t c0, std::uint32_t c1, std::uint32_t c2) override; // lane CAH-2
 	void createAHeroKill(Object &killer, Object &victim) override;
 	void heroAttacked(Object &obj) override;

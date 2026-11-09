@@ -9,6 +9,7 @@
 #include "Common/SpecialPower.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/ActionManager.h"
+#include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/GameMessage.h"
 #include "GameLogic/Module/BehaviorModule.h"
@@ -18,6 +19,7 @@
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/System/ShroudManager.h"
 #include "GameLogic/UnitSpecificSound.h"
+#include "GameLogic/Weapon.h"
 
 #include <cctype>
 #include <cstdlib>
@@ -739,7 +741,28 @@ void UnitVoiceResponse::attackVoices(Object &obj, int msgType, const Info *info,
 			}
 		}
 	}
-	// the current weapon's VoiceFire (weapon template + 0xD0 / + 0xD8, RW 0x68B58C) is not ported: stop S-704
+	// PORT-68, RW 0x8DE0F4 .. 0x8DE150: the current weapon's OverrideVoiceAttackSound (+0xD0) or OverrideVoiceEnterStateAttackSound (+0xD8),
+	// resolved through Object::getCurrentWeapon (RW 0x68B58C: no weapon set (+0x374) or no weapon in the slot -> nothing). The template's slot
+	// IS retail's {EVA event, audio event} pair, so it fills both halves at once (RW 0x8DE122 / 0x8DE132 add 0xD8 / 0xD0 and RW 0x8DE13C hands it
+	// to RW 0x8DDA33). The second argument of that call is the empty crowd slot built by RW 0x8DE114, so `done()` still wants the crowd's sound.
+	if (!done(c))
+	{
+		const ObjectWeapons *weapons = obj.getWeapons();
+		const Weapon *cur = weapons ? weapons->currentWeapon() : nullptr;
+		const WeaponTemplate *wt = cur ? cur->getTemplate() : nullptr;
+		if (wt)
+		{
+			const WeaponTemplate::VoiceOverride &ov = enterState ? wt->m_overrideVoiceEnterStateAttackSound : wt->m_overrideVoiceAttackSound;
+			Voice v;
+			v.eva = ov.eva;
+			v.sound = ov.sound;
+			// RW 0x8DDA33 tests slot 0 alone (audio +4 null AND EVA +0 unset), not the crowd slot: a rule that set a sound earlier keeps it
+			if (!c.voice.any() && v.any())
+			{
+				c.voice = std::move(v);
+			}
+		}
+	}
 	if (!done(c))
 	{
 		// RW 0x671ED8: the charge voice is allowed when neither the unit nor its horde is ATTACKING (RW 0x694154(0x25): the model condition bit 37 through
@@ -1294,8 +1317,8 @@ std::vector<std::string> UnitVoiceResponse::acceptanceStops()
 		"the planned action queue (0x46A), VoiceDesperateAttack / RapidFire / CaptureBuildingComplete / StartCharging / NoBuild (0x7DB .. 0x7DD, 0x7EA .. 0x7EB), "
 		"the Ring voices (0x7E4, 0x7E5)",
 		"[S-704] unit voice: rules of the move / attack / enter helpers not ported: the planning order mode (player + 0x770 == 2 -> MiscAudio PlanningModeOrderGiven), "
-		"VoiceCrush (GameData + 0x8B9, crushable target), the busy gate (GameData + 0x8B0), the castle rule (RW 0x8DDBC4), VoiceMoveOverWalls (RW 0x8DE628), the weapon's voice (RW 0x68B58C weapon "
-		"template + 0xD0 / + 0xD8), the charge voice's drawable gate (RW 0x671EE4: no drawable, no charge)",
+		"VoiceCrush (GameData + 0x8B9, crushable target), the busy gate (GameData + 0x8B0), the castle rule (RW 0x8DDBC4), VoiceMoveOverWalls (RW 0x8DE628), "
+		"the charge voice's drawable gate (RW 0x671EE4: no drawable, no charge)",
 		"[S-705] unit voice: the candidate order is selection then member order (retail iterates a hash map keyed by Object pointers), a count tie between "
 		"two sounds goes to the lower-case name order (retail: the lower audio info POINTER, RW 0x8DE522's unsigned compare), and a hero's level is the "
 		"minimum (the experience tracker RW 0x79D12A is lane XP-1's): which sound wins a tie and which object of a bucket speaks may differ from retail",

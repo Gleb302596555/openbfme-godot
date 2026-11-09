@@ -384,6 +384,10 @@ public:
 	// repeated request tells no module anything twice.
 	void setAudible(bool audible);
 	bool audible() const { return m_audible; }
+	// PORT-68 (RW 0x44C465 / 0x4B1CB0): Drawable + 0x360 FXTrigger index (TheFXTriggerNames: 0 NONE, 1 CATAPULT_ROCK, 2 TREBUCHET_ROCK),
+	// set by ObjectKnockback::shockWave (RW 0x6968D7 / 0x696E3E) and ObjectKnockback::apply (RW 0x692307) through RW 0x68B56A.
+	void setFXTrigger(int fxTrigger) { m_fxTrigger = fxTrigger; }
+	int getFXTrigger() const { return m_fxTrigger; }
 	const ObjectSnapshot *syncedRecord(const LogicSnapshot &snapshot, bool &found) const
 	{
 		found = m_syncSnapshot == &snapshot && m_syncFrame == snapshot.frame;
@@ -513,6 +517,7 @@ private:
 	mutable std::string m_lastShadowModelName;                     ///< RW 0x4B42F5 (model name 0)
 	mutable bool m_lastShadowStateHasShadow = false;               ///< RW 0x4C4EE8 (state shadow override)
 	bool m_audible = true;          ///< lane PORT-21: Drawable + 0x44A, 1 until the object becomes INAUDIBLE (RW 0x674727 / 0x67896F)
+	int m_fxTrigger = 0;            ///< PORT-68: Drawable + 0x360 FXTrigger index (RW 0x44C465 / 0x4B1CB0)
 	bool m_clientHidden = false; ///< lane CHAT-1
 	bool m_phantomLook = false;  ///< lane FBSIM-1: drawn as a dozer's phantom structure (0.4 opacity)
 	Fade m_fade; ///< lane PROJ-2
