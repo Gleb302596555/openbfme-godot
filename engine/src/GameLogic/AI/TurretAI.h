@@ -118,6 +118,7 @@ public:
 	// the target (RW + 0x2C: 0 none, 1 object, 2 position); a dead object target clears (RW 0x8DC507)
 	int getTurretTarget(Object *&obj, Coord3D &pos);
 	float getTurretAngle() const { return m_angle; }
+	int whichTurret() const { return m_whichTurret; } // + 0x0C (the index RW 0x66246B answers, RW 0x6624C5 `mov eax,ebx`)
 	float getTurretPitch() const { return m_pitch; }
 	const TurretAIData &data() const { return *m_data; }
 	AIUpdateInterface &ai() const { return *m_ai; }
