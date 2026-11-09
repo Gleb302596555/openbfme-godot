@@ -353,6 +353,8 @@ const FieldParse kAIDataFields[] = {
 	{ "AttackIgnoreInsignificantBuildings", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.attackIgnoreInsignificantBuildings) },
 	{ "ArtilleryMaxFriendlyFire", parseNoting<INI::parsePercentToReal>, 0, (int)offsetof(BlockState, values.artilleryMaxFriendlyFire) },
 	{ "AttackPriority", parseAttackPriorityBlock, nullptr, 0 },
+	// Local 20 (issue #147): MaxRetaliateDistance (row RW 0xC1CED0, parseReal RW 0x42ED00, AIData + 0xC8): leash radius for retaliating against attackers (RW 0x94BA8C / RW 0x94C144)
+	{ "MaxRetaliateDistance", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.maxRetaliateDistance) },
 	// lane AIDATA-1: ChaseFromBehindLimit (row RW 0xC1CEF0, + 0xD0) and SkirmishGroupFudgeDistance (row RW 0xC1CC30, + 0x58), parseReal RW 0x42ED00
 	{ "ChaseFromBehindLimit", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.chaseFromBehindLimit) },
 	{ "SkirmishGroupFudgeDistance", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.skirmishGroupFudgeDistance) },
@@ -726,6 +728,10 @@ void GameLogicSettings::crc(StateHasher &h) const
 	if (attackMoveUsesFormations)
 	{
 		h.addBool(attackMoveUsesFormations); // lane PORT-13: retail default\aidata.ini sets No (false), so every retail game's hash is unchanged
+	}
+	if (maxRetaliateDistance != 450.0f)
+	{
+		h.addFloat(maxRetaliateDistance); // Local 20 (issue #147): retail default\aidata.ini sets 450.0, so retail games keep their hash
 	}
 	h.addBool(useFormations);
 	if (minFlightHeight != FLT_MAX)

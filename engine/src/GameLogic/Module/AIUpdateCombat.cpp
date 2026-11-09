@@ -11,6 +11,7 @@
 #include "Common/Thing/RawModuleData.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/AI/AIClosestEnemy.h"
+#include "GameLogic/AI/AIGuard.h"
 #include "GameLogic/AI/AIHunt.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Module/DozerAIUpdate.h"
@@ -904,18 +905,96 @@ Object *AIUpdateInterface::getNextMoodTarget(bool calledByAI, bool calledDuringI
 	{
 		q |= AI::COMPUTER_CREEPS;
 	}
-	// RW 0x668843 .. 0x6688EA (AI + 0x3CC, the player's stop order RW 0x771F49, and the body's last attacker): the port never sets + 0x3CC (S-326).
-	// RW 0x6688EC .. 0x668919: the firing tracker's take-once object (Object + 0x248 -> + 0x38, RW 0x68B666 / 0x8E2E0A), its writer not identified and never
-	// set in the port (S-326).
-	MoodTargetFilter moodFilter(obj);
-	Object *target = AI::findClosestEnemy(obj, range, q, attackInfo(), player && player->getPlayerType() == PLAYER_HUMAN ? &moodFilter : nullptr, 0); // RW 0x701443
+	// RW 0x668843 .. 0x6688EA (AI + 0x3CC, the player's stop order RW 0x771F49, and the body's last attacker)
+	Object *target = nullptr;
+	bool isRetaliationTarget = false;
+	if (m_stopRetaliationArmed)
+	{
+		if (calledByAI && calledDuringIdle)
+		{
+			ObjectID attackerId = INVALID_ID;
+			if (const ActiveBody *body = dynamic_cast<const ActiveBody *>(obj.getBodyModule()))
+			{
+				attackerId = body->lastDamager();
+			}
+			if (attackerId == INVALID_ID && obj.getContain())
+			{
+				if (HordeContainInterface *hc = const_cast<ContainModuleInterface *>(obj.getContain())->getHordeContainInterface())
+				{
+					hc->attackedWithin(4 * LOGICFRAMES_PER_SECOND, attackerId);
+				}
+			}
+			if (attackerId != INVALID_ID)
+			{
+				Object *attacker = logic.findObjectByID(attackerId);
+				if (attacker && obj.getRelationship(*attacker) == ENEMIES && !attacker->isEffectivelyDead())
+				{
+					if (AI::canAttackFromHere(obj, *attacker))
+					{
+						m_stopRetaliationArmed = false; // RW 0x6688C4
+						target = attacker;
+						isRetaliationTarget = true;
+					}
+				}
+			}
+		}
+		if (!target)
+		{
+			return nullptr;
+		}
+	}
+	else if (calledByAI && calledDuringIdle)
+	{
+		// RW 0x6688EC: Retaliation against last attacker within MaxRetaliateDistance (RW 0x94BA8C / RW 0x94C144)
+		ObjectID attackerId = INVALID_ID;
+		if (const ActiveBody *body = dynamic_cast<const ActiveBody *>(obj.getBodyModule()))
+		{
+			attackerId = body->lastDamager();
+		}
+		if (attackerId == INVALID_ID && obj.getContain())
+		{
+			if (HordeContainInterface *hc = const_cast<ContainModuleInterface *>(obj.getContain())->getHordeContainInterface())
+			{
+				hc->attackedWithin(4 * LOGICFRAMES_PER_SECOND, attackerId);
+			}
+		}
+		if (attackerId != INVALID_ID)
+		{
+			Object *attacker = logic.findObjectByID(attackerId);
+			if (attacker && obj.getRelationship(*attacker) == ENEMIES && !attacker->isEffectivelyDead())
+			{
+				const float retaliateRange = AIGuardMachine::getRetaliateRange(obj);
+				const Coord3D *myPos = obj.getPosition();
+				const Coord3D *attPos = attacker->getPosition();
+				if (myPos && attPos)
+				{
+					const float dx = myPos->x - attPos->x;
+					const float dy = myPos->y - attPos->y;
+					if (dx * dx + dy * dy <= retaliateRange * retaliateRange)
+					{
+						const bool standGround = obj.testStatus((unsigned)kStandGround) || guardMode() == GUARDMODE_GUARD_WITHOUT_PURSUIT;
+						if (!standGround || AI::canAttackFromHere(obj, *attacker))
+						{
+							target = attacker;
+							isRetaliationTarget = true;
+						}
+					}
+				}
+			}
+		}
+	}
+	if (!target)
+	{
+		MoodTargetFilter moodFilter(obj);
+		target = AI::findClosestEnemy(obj, range, q, attackInfo(), player && player->getPlayerType() == PLAYER_HUMAN ? &moodFilter : nullptr, 0); // RW 0x701443
+	}
 	// RW 0x6689F0: a lone unit's HORDE target becomes one of its members (RW 0x68D30E(me, 0, 0))
 	if (target && !obj.isKindOf((unsigned)kHorde) && target->isKindOf((unsigned)kHorde))
 	{
 		target = AI::adjustVictim(*target, &obj, false, 0);
 	}
 	// RW 0x668A26 .. 0x668A4A: a unit that needs its target in reach and cannot reach it, or that cannot attack at all (RW 0x691269), answers nothing
-	if ((calledByAI && needsReach && target && !AI::canAttackFromHere(obj, *target)) || !obj.isAbleToAttack())
+	if ((!isRetaliationTarget && calledByAI && needsReach && target && !AI::canAttackFromHere(obj, *target)) || !obj.isAbleToAttack())
 	{
 		return nullptr;
 	}

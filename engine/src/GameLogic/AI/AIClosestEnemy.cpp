@@ -2,6 +2,7 @@
 // See GameLogic/AI/AIClosestEnemy.h.
 
 #include "GameLogic/AI/AIClosestEnemy.h"
+#include "GameLogic/AI/AIGuard.h"
 
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
@@ -467,7 +468,7 @@ bool canAttackFromHere(Object &source, Object &victim)
 		return false;
 	}
 	const Names &n = names();
-	const bool standing = status(source, n.standGround); // or the AI byte + 0x3CC, which the port never sets (S-326)
+	const bool standing = status(source, n.standGround) || ai->isStopRetaliationArmed() || ai->guardMode() == GUARDMODE_GUARD_WITHOUT_PURSUIT; // RW 0x6FF7FA: status 0x44 or AI + 0x3CC
 	if (kind(source, n.horde) && !source.getContain())
 	{
 		return false; // RW 0x6FF8A7: a HORDE without its contain

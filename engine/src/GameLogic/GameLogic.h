@@ -250,6 +250,9 @@ struct GameLogicSettings
 	// RUNNING_DOWN_FROM_BEHIND (status 0x4B) is in range of its victim within this distance (isWithinAttackRange RW 0x6CC07C). SkirmishGroupFudgeDistance
 	// + 0x58 (row RW 0xC1CC30, parseReal, ctor 0.0): a skirmish AI team on a waypoint path counts a waypoint reached when the team centre is within members x this of the goal
 	// (AIFollowWaypointPathState::update RW 0x755A20, asm RW 0x755B77 .. 0x755C08)
+	// Local 20 (issue #147): AIData MaxRetaliateDistance (+ 0xC8, row RW 0xC1CED0 parseReal RW 0x42ED00; the constructor RW 0x6FFDC4 stores 200.0f;
+	// retail aidata.ini sets 450.0, Ennorath 250.0): leash radius for retaliating against attackers (AIGuardRetaliateMachine RW 0x94BA8C / RW 0x94C144)
+	float maxRetaliateDistance = 200.0f;
 	float chaseFromBehindLimit = 50.0f;
 	float skirmishGroupFudgeDistance = 0.0f;
 	// lane AIDATA-1: the pathfinder's AIData rows (before: PathfindConfigLoader's own text scan; now the shared table, so a map.ini / solo.ini AIData block

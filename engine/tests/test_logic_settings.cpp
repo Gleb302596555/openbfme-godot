@@ -211,6 +211,7 @@ TEST_CASE("aidata1 settings: an AIData block that names no field loads and keeps
 	CHECK(g.meleeApproachTolerance == 20.0f);
 	CHECK(g.meleeApproachDist == 60.0f);
 	CHECK(g.castleSiegeStandBackDistance == 100.0f);
+	CHECK(g.maxRetaliateDistance == 200.0f); // Local 20: RW 0x6FFDC4 (retail aidata.ini sets 450.0, Ennorath 250.0)
 	CHECK(g.hordesWaitForHordes);
 	// no AIData block at all is still an error (the file is TheAI's InitFile)
 	GameLogicSettings h;
