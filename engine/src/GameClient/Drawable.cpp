@@ -14,6 +14,7 @@
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawVariants.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DSailModelDraw.h"
 #include "Common/ModelState.h"
 #include "GameLogic/SimMath.h"
 
@@ -177,6 +178,11 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 				if (const W3DHordeModelDrawModuleData *hd = dynamic_cast<const W3DHordeModelDrawModuleData *>(nugget.data.get()))
 				{
 					e.draw.reset(new W3DHordeModelDraw(*hd, 2, services.drawAssets, services.random, &services.host, o)); // LOD HIGH (S-114)
+				}
+				else if (const W3DSailModelDrawModuleData *sail = dynamic_cast<const W3DSailModelDrawModuleData *>(data))
+				{
+					e.draw.reset(new W3DSailModelDraw(*sail, services.drawAssets, services.random, &services.host, o)); // RW 0x46478F
+					e.matrixChangesEachFrame = true; // AboutDamping runs even while the drawable is stationary (RW 0x4B6B26)
 				}
 				else
 				{

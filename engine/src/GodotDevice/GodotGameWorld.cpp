@@ -99,6 +99,7 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/PlacementGhost.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawMatrix.h"
 #include "GameClient/PlacementGhost.h"
 #include "GameLogic/Map/CastleTemplates.h"
 #include "GameClient/GUI/Skirmish/IniSkirmishSetupSource.h"
@@ -1909,7 +1910,18 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			static const float kIdentity[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
 			entryXf = toTransform(kIdentity, d->entryPosition(e), d->getInstanceScale());
 		}
-		const bool entryXfChanged = xfChanged || e.constructionOffsetZ != ev.offsetZ;
+		if (e.kind == W3D_DRAWKIND_MODEL && e.draw)
+		{
+			// RW 0x4B6B26: the ONE shared matrix slot call, after the base / construction / NoRotate
+			// matrix has been assembled, before the instance receives its transform. For a non-sail
+			// draw the base implementation does nothing (RW 0x9F3A3C).
+			static const float kIdentity[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
+			const Coord3D pos = d->entryPosition(e);
+			const Matrix3D modelMatrix = W3DModelDrawMatrix(*e.draw, e.noRotate ? kIdentity : d->getBasis(), pos, d->getInstanceScale());
+			const auto modelBasis = W3DModelDrawBasis(modelMatrix);
+			entryXf = toTransform(modelBasis.data(), pos, 1.0f);
+		}
+		const bool entryXfChanged = xfChanged || e.constructionOffsetZ != ev.offsetZ || e.matrixChangesEachFrame;
 		ev.offsetZ = e.constructionOffsetZ;
 		if (e.kind == W3D_DRAWKIND_MODEL && e.draw)
 		{

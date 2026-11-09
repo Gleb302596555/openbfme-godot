@@ -22,6 +22,7 @@
 #include "GameClient/LiveGame.h"
 #include "GameClient/PlacementGhost.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawMatrix.h"
 #include "GameLogic/Map/CastleTemplates.h"
 #include "GodotDevice/GodotRetailFileSystem.h"
 #include "GodotDevice/GodotW3DInstancer.h"
@@ -247,7 +248,6 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 	}
 	std::vector<DrawEntry> &entries = d.entries();
 	view.entries.resize(entries.size());
-	const Transform3D xf = toTransform(d.getBasis(), *d.getPosition(), d.getInstanceScale());
 	int instances = 0;
 	for (size_t k = 0; k < entries.size(); ++k)
 	{
@@ -257,6 +257,9 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 		{
 			continue;
 		}
+		const Matrix3D modelMatrix = W3DModelDrawMatrix(*e.draw, d.getBasis(), *d.getPosition(), d.getInstanceScale());
+		const auto modelBasis = W3DModelDrawBasis(modelMatrix);
+		const Transform3D xf = toTransform(modelBasis.data(), *d.getPosition(), 1.0f); // RW 0x4B6B26: per-model, not a shared object rotation
 		W3DDrawPoseView f;
 		e.draw->poseView(f);
 		if (!f.model && f.modelName && !f.modelName->empty() && AsciiStringUtil::compareNoCase(*f.modelName, "None") != 0)

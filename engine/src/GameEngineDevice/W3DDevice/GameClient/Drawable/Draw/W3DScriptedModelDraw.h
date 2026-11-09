@@ -59,6 +59,8 @@
 #include <string>
 #include <vector>
 
+class Matrix3D;
+
 // One of the three animation tracks (RW 0x4B349F fills one: slot, anim, mustCompleteBlend (+0x19), mode (+0x10), blendTime (+0xC),
 // frame (+4), prevFrame (+8), completed (+0x18), direction (+0x14); stride 0x1C from the draw object's +0x110).
 struct W3DDrawTrack
@@ -165,6 +167,11 @@ public:
 	W3DScriptedModelDraw(const W3DModelDrawModuleData &data, W3DDrawAssets &assets, W3DDrawRandom &random, W3DDrawScriptHost *scripts = nullptr,
 		const Options &options = Options());
 	~W3DScriptedModelDraw() override = default;
+
+	// RW 0x4B6B26: the shared transform's vtable +0x104 call, after the bone matrix is found
+	// (the missing base-class bone placement / guard is S-112). RW 0x9F3A3C: base no-op;
+	// W3DSailModelDraw overrides it. This is the runtime base, NOT W3DModelDrawModuleData.
+	virtual void adjustModelMatrix(Matrix3D &) {}
 
 	// Drawable::setModelConditionState: the object's current model condition flags (RW 0x4BF2D8). Both lists are re-matched; see the
 	// header comment for the pending state rule.

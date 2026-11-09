@@ -19,7 +19,8 @@
 // (syncFromSnapshot). The drawable knows its object by id only and never reads or writes logic state; it consumes no simulation randomness (the draw
 // modules use their own client random, W3DClientRandom).
 // What the draw modules do not do yet: bones (turrets, barrels, particle bones are not built: S-095 / S-097), the Lua BeginScript bodies run
-// on LUA-1's real Lua (W3DLuaDrawScriptHost; what its api cannot answer is S-126), the draw variants' own motion (S-112), effect draws (S-113).
+// on LUA-1's real Lua (W3DLuaDrawScriptHost; what its api cannot answer is S-126), most variant motion (S-112: sail matrix and truck tires
+// are supported), effect draws (S-113).
 
 #pragma once
 
@@ -139,6 +140,7 @@ struct DrawEntry
 	std::string notDrawnReason;       ///< why a non-model entry draws nothing
 	std::unique_ptr<W3DScriptedModelDraw> draw; ///< MODEL kind
 	bool animated = false;            ///< advance() would change the draw (W3DScriptedModelDraw::needsAdvance, set at creation and on every flag change, never lowered by an advance: the pose after a blend's promotion is still pushed): advance() each render frame
+	bool matrixChangesEachFrame = false; ///< sail: its matrix hook may step AboutDamping without a change to the object's transform or pose (PORT-63)
 	bool missingModel = false;        ///< the model is not in the mounted archives (a retail data defect): not drawn
 	std::string lastModel;            ///< the model last handed to the device layer (the device layer keeps its own handle)
 	bool moduleHidden = false;        ///< a CurDrawableHideModule / ObjectHideModule request of a script hid this module (Drawable::showModule, RW 0x6789B4): not drawn
