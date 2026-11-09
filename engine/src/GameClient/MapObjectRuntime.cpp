@@ -159,6 +159,8 @@ void MapObjectRuntime::createDrawModules(const MapObjectDrawables &drawables, si
 			if (const W3DTreeDrawModuleData *t = dynamic_cast<const W3DTreeDrawModuleData *>(m.data))
 			{
 				p.textureName = t->m_textureName;
+				// RW 0x4E8BDC .. 0x4E8C1B (shrub buffer) and RW 0x4EC976 .. 0x4EC9B5 (tree buffer) key tree types by (ModelName, TextureName)
+				++m_report.distinctTreeTypes[{ AsciiStringUtil::lowered(m.model), AsciiStringUtil::lowered(t->m_textureName) }];
 			}
 			break;
 		case W3D_DRAWKIND_PROP:
@@ -228,7 +230,7 @@ void MapObjectRuntime::createDrawModules(const MapObjectDrawables &drawables, si
 				{
 					m_report.errors.push_back(d.info->name + " " + m.className + ": the draw runtime chose model '" + f.modelName + "' where the state match gave '" + m.model + "'");
 				}
-				if (f.trackCount > 0 && f.tracks[0].anim && f.tracks[0].anim->Get_Num_Frames() > 1 && f.tracks[0].mode != W3D_ANIM_MODE_MANUAL)
+				if (p.draw->needsAdvance()) // as Drawable's entries (S-090)
 				{
 					p.animated = true;
 				}
