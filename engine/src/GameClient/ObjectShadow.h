@@ -37,6 +37,7 @@
 #include <string>
 
 class Drawable;
+struct RenderObjPrototype;
 
 namespace ObjectShadow
 {
@@ -79,6 +80,9 @@ inline bool castsMap(const ThingTemplate *object, const W3DModelDrawModuleData *
 	const long long *bits = field ? std::get_if<long long>(field) : nullptr;
 	return bits && (*bits & mask) != 0;
 }
+
+// Queries object-space bounding box extents (Extent.X, Extent.Y) of a model prototype (RW 0x50C01D)
+bool getModelBoundingBox(const RenderObjPrototype *proto, float &extentX, float &extentY);
 
 // Resolves decal shadow descriptor from template, module data, and condition state (RW 0x4C4EE0..0x4C5175)
 bool resolveDecalShadow(const ThingTemplate *tt, const W3DModelDrawModuleData *module, const ModelConditionInfo *state, DecalShadowDescriptor &out);

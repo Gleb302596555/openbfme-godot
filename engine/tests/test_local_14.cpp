@@ -195,7 +195,7 @@ TEST_CASE("LOCAL-14 volume shadow exclusion and fallback defaults (RW 0x4C4FD6, 
 	CHECK_FALSE(ObjectShadow::resolveDecalShadow(vol, nullptr, nullptr, vDesc));
 	CHECK(ObjectShadow::castsMap(vol, nullptr, nullptr));
 
-	// 2. Default decal: missing ShadowSizeY defaults to ShadowSizeX (RW 0x50BFF3),
+	// 2. Default decal: missing ShadowSizeY is 0.0f (RW 0x4C502B..0x4C509D copies as is),
 	//    missing ShadowTexture defaults to "shadow" (RW 0x50BF93)
 	const ThingTemplate *def = w.get("DefaultDecal");
 	REQUIRE(def != nullptr);
@@ -204,7 +204,7 @@ TEST_CASE("LOCAL-14 volume shadow exclusion and fallback defaults (RW 0x4C4FD6, 
 	CHECK(dDesc.enabled);
 	CHECK(dDesc.texture == "shadow");
 	CHECK(dDesc.sizeX == 15.0f);
-	CHECK(dDesc.sizeY == 15.0f);
+	CHECK(dDesc.sizeY == 0.0f);
 	CHECK(dDesc.maxHeight == 20.0f); // RW 0x74015E default
 	CHECK(dDesc.opacityPeak == 255u); // RW 0x740136 default
 	CHECK(dDesc.isRotatingWithObject == false); // RW 0x740172 default

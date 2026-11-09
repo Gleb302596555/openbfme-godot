@@ -22,6 +22,7 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/Drawable.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.h"
+#include "Libraries/WWVegas/WW3D2/assetmgr.h"
 
 #include <algorithm>
 #include <cmath>
@@ -71,6 +72,84 @@ std::string readString(const ThingTemplate *tt, const char *name, const std::str
 }
 } // namespace
 
+bool getModelBoundingBox(const RenderObjPrototype *proto, float &extentX, float &extentY)
+{
+	if (!proto || proto->SubObjects.empty())
+	{
+		return false;
+	}
+
+	const HTreeClass *tree = proto->Tree ? proto->Tree : &proto->DefaultTree;
+	HTreePose pose;
+	tree->Base_Pose(Matrix3D(), pose);
+	const int pivots = (int)pose.Transform.size();
+	auto pivot = [&](int i) -> const Matrix3D & {
+		static const Matrix3D identity;
+		return i >= 0 && i < pivots ? pose.Transform[(size_t)i] : identity;
+	};
+
+	float minX = 1e30f, maxX = -1e30f;
+	float minY = 1e30f, maxY = -1e30f;
+	bool found = false;
+
+	for (const RenderSubObject &sub : proto->SubObjects)
+	{
+		if (sub.Type != RenderSubObject::SUB_MESH || !sub.Mesh || sub.Mesh->Is_Hidden())
+		{
+			continue;
+		}
+		const MeshModelClass &mesh = *sub.Mesh;
+		const Matrix3D &piv = pivot(sub.BoneIndex);
+		if (!mesh.Vertices.empty())
+		{
+			for (const W3dVectorStruct &p : mesh.Vertices)
+			{
+				float w[3];
+				for (int r = 0; r < 3; ++r)
+				{
+					w[r] = piv.Row[r][0] * p.X + piv.Row[r][1] * p.Y + piv.Row[r][2] * p.Z + piv.Row[r][3];
+				}
+				minX = std::min(minX, w[0]);
+				maxX = std::max(maxX, w[0]);
+				minY = std::min(minY, w[1]);
+				maxY = std::max(maxY, w[1]);
+				found = true;
+			}
+		}
+		else
+		{
+			minX = std::min(minX, mesh.Header.Min.X);
+			maxX = std::max(maxX, mesh.Header.Max.X);
+			minY = std::min(minY, mesh.Header.Min.Y);
+			maxY = std::max(maxY, mesh.Header.Max.Y);
+			found = true;
+		}
+	}
+
+	if (!found)
+	{
+		for (const RenderSubObject &sub : proto->SubObjects)
+		{
+			if (sub.Type == RenderSubObject::SUB_BOX && sub.Box && !sub.Aggregate && (sub.Box->Attributes & 1u) != 0)
+			{
+				extentX = sub.Box->Extent.X;
+				extentY = sub.Box->Extent.Y;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	if (minX > maxX || minY > maxY)
+	{
+		return false;
+	}
+
+	extentX = (maxX - minX) * 0.5f;
+	extentY = (maxY - minY) * 0.5f;
+	return true;
+}
+
 bool resolveDecalShadow(const ThingTemplate *tt, const W3DModelDrawModuleData *module, const ModelConditionInfo *state, DecalShadowDescriptor &out)
 {
 	out = DecalShadowDescriptor();
@@ -88,7 +167,7 @@ bool resolveDecalShadow(const ThingTemplate *tt, const W3DModelDrawModuleData *m
 		// RW 0x50BF93: default texture "shadow" if empty or single char
 		out.texture = state->shadow.texture.size() <= 1 ? "shadow" : state->shadow.texture;
 		out.sizeX = state->shadow.sizeX;
-		out.sizeY = state->shadow.sizeY > 0.0f ? state->shadow.sizeY : state->shadow.sizeX;
+		out.sizeY = state->shadow.sizeY;
 		out.offsetX = state->shadow.offsetX;
 		out.offsetY = state->shadow.offsetY;
 		out.sunAngle = state->shadow.sunAngle;
@@ -124,8 +203,7 @@ bool resolveDecalShadow(const ThingTemplate *tt, const W3DModelDrawModuleData *m
 	out.texture = tex.size() <= 1 ? "shadow" : tex;
 
 	out.sizeX = readFloat(tt, "ShadowSizeX", 0.0f);
-	const float sy = readFloat(tt, "ShadowSizeY", 0.0f);
-	out.sizeY = sy > 0.0f ? sy : out.sizeX;
+	out.sizeY = readFloat(tt, "ShadowSizeY", 0.0f);
 	out.offsetX = readFloat(tt, "ShadowOffsetX", 0.0f);
 	out.offsetY = readFloat(tt, "ShadowOffsetY", 0.0f);
 	out.sunAngle = readFloat(tt, "ShadowSunAngle", 0.0f);
@@ -179,25 +257,17 @@ bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, boo
 		return false;
 	}
 
-	// Size resolution: if sizeX or sizeY is missing / <= 0, query fallback (RW 0x50BFF3..0x50C066)
-	if (desc.sizeX <= 0.0f || desc.sizeY <= 0.0f)
+	// Size resolution: if sizeX or sizeY is 0, query fallback from model box (RW 0x50BFF3..0x50C066)
+	if (desc.sizeX == 0.0f || desc.sizeY == 0.0f)
 	{
 		if (fallbackSize)
 		{
 			fallbackSize(desc.sizeX, desc.sizeY);
 		}
 	}
-	if (desc.sizeX <= 0.0f && desc.sizeY <= 0.0f)
+	if (desc.sizeX == 0.0f && desc.sizeY == 0.0f)
 	{
 		return false;
-	}
-	if (desc.sizeY <= 0.0f)
-	{
-		desc.sizeY = desc.sizeX;
-	}
-	else if (desc.sizeX <= 0.0f)
-	{
-		desc.sizeX = desc.sizeY;
 	}
 
 	// Texture file name (append .tga if no extension, RW 0x50BF6A)
