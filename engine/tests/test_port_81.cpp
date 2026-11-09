@@ -29,6 +29,7 @@
 #include "HordeTestUtil.h"
 
 #include "GameLogic/AI/AIStateMachine.h"
+#include "GameLogic/Object/Contain/HordeContainCore.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 
 #include <set>
@@ -95,6 +96,9 @@ int rankOf(CombatWorld &w, Object *horde, Object *member)
 	return hc->core().slots()[(size_t)slot].rank;
 }
 
+// the containment line the plain comparison horde uses: the same ranks, only RanksToReleaseWhenAttacking
+const char *kReleaseOnly = "    RanksToReleaseWhenAttacking = 1 2\n";
+
 } // namespace
 
 // PORT-81: the field is a rank set of the HordeContain module data, parsed exactly like RanksToReleaseWhenAttacking
@@ -124,68 +128,60 @@ TEST_CASE("PORT-81: RanksToJustFreeWhenAttacking parses into its own rank set, l
 	CHECK(zero.m_ranksToReleaseWhenAttacking.empty());
 }
 
-// PORT-81 (the test that fails if a just-free release is invented): a four-rank horde with `RanksToJustFreeWhenAttacking = 1 2`
-// and `RanksToReleaseWhenAttacking = 1 2` takes exactly the goals of the horde without the just-free line. RW has no reader of
-// +0x1C4, so the two hordes cannot differ; ranks 3 and 4 stay in formation in both.
-TEST_CASE("PORT-81: a horde with RanksToJustFreeWhenAttacking = 1 2 attacks exactly like one without the line")
+// PORT-81 (the test that fails if a just-free release is invented): the mod data's three values of the field all leave the attack
+// path of a four-rank horde untouched. Ranks 1 and 2 are released by RanksToReleaseWhenAttacking and take their goals (RW 0x875221
+// -> RW 0x66C536), ranks 3 and 4 keep formation; the just-free line changes none of it, whether it repeats the released ranks (`1 2`,
+// the mod's front-rank value), names other ranks (`3 4`) or carries `0` (the mod's most frequent value: rank number 0, which no horde
+// has). RW reads +0x1C4 nowhere, so the four hordes cannot differ.
+TEST_CASE("PORT-81: RanksToJustFreeWhenAttacking = 1 2 / 3 4 / 0 changes nothing about which ranks attack")
 {
-	const std::string withFree = fourRankHorde("FreeHorde", "Archer",
-		"    RanksToReleaseWhenAttacking = 1 2\n"
-		"    RanksToJustFreeWhenAttacking = 1 2\n");
-	const std::string withoutFree = fourRankHorde("PlainHorde", "Archer", kReleaseOnly);
-
 	struct Case
 	{
-		const char *name;
-		const std::string *ini;
+		const char *horde;
+		const char *body;
+		const std::set<int> justFree;
 	};
-	const Case cases[] = { { "FreeHorde", &withFree }, { "PlainHorde", &withoutFree } };
-	int releasedPerCase[2] = { 0, 0 };
-	for (int c = 0; c < 2; ++c)
+	const Case cases[] = {
+		{ "FreeHorde", "    RanksToReleaseWhenAttacking = 1 2\n    RanksToJustFreeWhenAttacking = 1 2\n", { 1, 2 } },
+		{ "PlainHorde", kReleaseOnly, {} },
+		{ "OtherRanksHorde", "    RanksToReleaseWhenAttacking = 1 2\n    RanksToJustFreeWhenAttacking = 3 4\n", { 3, 4 } },
+		{ "ZeroHorde", "    RanksToReleaseWhenAttacking = 1 2\n    RanksToJustFreeWhenAttacking = 0\n", { 0 } },
+	};
+	for (const Case &c : cases)
 	{
-		CombatWorld w(cases[c].ini->c_str());
+		const std::string ini = fourRankHorde(c.horde, "Archer", c.body);
+		CombatWorld w(ini.c_str());
 		w.combat().setAutoAcquireEnabled(false);
-		Object *horde = w.unit(cases[c].name, 'A', 300, 300);
-		Object *target = w.unit("TargetHorde", 'B', 420, 300);
+		Object *horde = w.unit(c.horde, 'A', 300, 300);
+		Object *target = w.unit("ArcherHorde", 'B', 420, 300);
 		w.frames(4);
 		HordeContain *hc = w.hordeOf(horde);
 		REQUIRE(hc != nullptr);
 		REQUIRE(w.membersOf(horde).size() == 4);
 		// the module data really carries the set (this is what the engine parses, RW 0xC5BB90 -> +0x1C4)
-		if (c == 0)
-		{
-			CHECK(hc->hordeData().m_ranksToJustFreeWhenAttacking == std::set<int>{ 1, 2 });
-		}
-		else
-		{
-			CHECK(hc->hordeData().m_ranksToJustFreeWhenAttacking.empty());
-		}
+		CHECK_MESSAGE(hc->hordeData().m_ranksToJustFreeWhenAttacking == c.justFree, c.horde);
 		CHECK(hc->hordeData().m_ranksToReleaseWhenAttacking == std::set<int>{ 1, 2 });
 		REQUIRE(horde->getAIUpdateInterface()->aiAttackObject(target, CMD_FROM_PLAYER));
 		const int n = w.runUntil([&] { return hc->attackStats().fires > 0; }, 120);
 		CHECK(n < 120); // tolerance: the frame the first fire happens (attackTargetNow is reached within a few frames)
-		// every released rank got its own order (RW 0x875221 -> RW 0x66C536); ranks 3 and 4 were not released
-		CHECK(hc->attackStats().orders == 2);
-		int ordered = 0;
+		// exactly the released ranks got an order (RW 0x875221 -> RW 0x66C536); the just-free set adds none
+		CHECK_MESSAGE(hc->attackStats().orders == 2, c.horde);
+		int released = 0;
 		for (Object *m : w.membersOf(horde))
 		{
 			const int rank = rankOf(w, horde, m);
-			const bool released = rank == 1 || rank == 2;
-			if (released)
+			if (rank == 1 || rank == 2)
 			{
-				++ordered;
-				CHECK_MESSAGE(goalOf(m) != nullptr, "rank " << rank << " was released by RanksToReleaseWhenAttacking");
+				++released;
+				CHECK_MESSAGE(goalOf(m) != nullptr, c.horde << ": rank " << rank << " is in RanksToReleaseWhenAttacking");
 			}
 			else
 			{
-				CHECK_MESSAGE(goalOf(m) == nullptr, "rank " << rank << " is not in RanksToReleaseWhenAttacking: it keeps formation");
+				CHECK_MESSAGE(goalOf(m) == nullptr, c.horde << ": rank " << rank << " is in no release set, it keeps formation");
 			}
 		}
-		CHECK(ordered == 2);
-		releasedPerCase[c] = ordered;
+		CHECK(released == 2);
 	}
-	// the two hordes agree rank for rank: +0x1C4 changes nothing (no reader in RW)
-	CHECK(releasedPerCase[0] == releasedPerCase[1]);
 }
 
 // PORT-81: the neighbouring behaviour must keep holding — with no RanksToReleaseWhenAttacking at all the horde releases nobody,
@@ -201,7 +197,7 @@ TEST_CASE("PORT-81: RanksToJustFreeWhenAttacking alone releases no rank; every g
 		CombatWorld w(ini.c_str());
 		w.combat().setAutoAcquireEnabled(false);
 		Object *horde = w.unit(c == 0 ? "NoSetHorde" : "FreeOnlyHorde", 'A', 300, 300);
-		Object *target = w.unit("TargetHorde", 'B', 420, 300);
+		Object *target = w.unit("ArcherHorde", 'B', 420, 300);
 		w.frames(4);
 		HordeContain *hc = w.hordeOf(horde);
 		REQUIRE(hc != nullptr);
