@@ -53,7 +53,8 @@ const std::string kData =
         " ContainMax = 0\n PassengerFilter = NONE\n CanAlwaysEnter = ANY +P55Troop\n"
         " StatusRequiredForCanAlwaysEnter = HOLDING_THE_RING\n") +
     building("P55Zero", "SlaughterHordeContain", " CanAlwaysEnter = ANY +INFANTRY\n", "0%") +
-    building("P55Negative", "SlaughterHordeContain", "", "-25%");
+    building("P55Negative", "SlaughterHordeContain", "", "-25%") +
+    building("P55Double", "CitadelSlaughterHordeContain", "", "200%");
 
 SlaughterHordeContain &contain(Object *o)
 {
@@ -294,4 +295,27 @@ TEST_CASE("PORT-55 enter command sends a whole horde through the shared member c
     CHECK(w.byId(parentID) == nullptr);
     CHECK(w.cash('A') - before == 10);
     CHECK(w.logic->economy().incomeLog().size() == 2);
+}
+
+
+TEST_CASE("PORT-55 CashBackPercent above one is not clamped and a zero BountyValue still consumes without income")
+{
+    // RW 0x883BA7..0x883BCD only checks value > 0 and percent > 0;
+    // there is no upper bound. Ennorath's AmonSulKeep uses 200 percent.
+    const std::string data = kData +
+        "Object P55NoBounty\n KindOf = INFANTRY SELECTABLE\n"
+        " BuildCost = 701\n BountyValue = 0\n TransportSlotCount = 1\n"
+        " Body = ActiveBody Body\n MaxHealth = 100\n End\nEnd\n";
+    CombatWorld w(data.c_str());
+    Object *house = w.unit("P55Double", 'A', 400, 400);
+    Object *troop = w.unit("P55Troop", 'A', 350, 400);
+    const int before = w.cash('A');
+    REQUIRE(contain(house).addToContain(troop));
+    CHECK(w.cash('A') - before == 34); // ceil(17 * 2), no clamp to 17
+    const auto payments = w.logic->economy().incomeLog().size();
+    Object *free = w.unit("P55NoBounty", 'A', 350, 400);
+    REQUIRE(contain(house).addToContain(free));
+    CHECK(free->isDestroyed());
+    CHECK(w.cash('A') - before == 34);
+    CHECK(w.logic->economy().incomeLog().size() == payments);
 }
