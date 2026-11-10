@@ -1174,6 +1174,8 @@ void Drawable::updateTint()
 //   - calcPhysicsXformHugeFourLegs: RW 0x67B7AA (DONOR BFME2 0x0027B47F, DrawablePhysicsXformHugeFourLegs.cpp)
 //   - calcPhysicsXformShip: RW 0x6732DC (DONOR BFME2 0x00272FB6, DrawablePhysicsXformShip.cpp)
 //   - calcPhysicsXformGiantBird: RW 0x670E09 (DONOR BFME2 0x00270B0F)
+// Stop S-7222: the entry points, the dispatcher, the step gate and the wheels field loads are checked in RotWK game.dat; the arithmetic inside
+// the five bodies follows the BFME2 donor (INFERENCE that RotWK keeps it)
 // ------------------------------------------------------------------------------------------------
 
 bool Drawable::calcPitchRoll(const Coord3D &pos, const Coord3D &dir, const LocomotorTemplate *loco, float &pitch, float &roll)
