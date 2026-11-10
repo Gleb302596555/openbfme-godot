@@ -262,5 +262,5 @@ prerequisites land:
    `GarrisonContain +0x9BD` (`S-1100`), and consolidation of `S-7090`, `S-1022`,
    `S-326`.
 4. **Local 30 (#246)** — `ActiveBody::attemptDamage` last-damage record
-   retention/replacement (`RW 0x8C4294–0x8C42F5`). Resolved on `agent/claude/station-3`
+   retention/replacement (`RW 0x8C4294–0x8C42F5`). Ported by Local 30 (main)
    with full retail replacement rules, `m_lastDamageNoEffect` and `SymbioticStructuresBody` forwarding.
