@@ -70,40 +70,6 @@ bool mountTestBig(Win32BIGFileSystem &fsys, const std::vector<std::pair<std::str
 
 } // namespace
 
-TEST_CASE("LOCAL-26a: WaterSet global block registration in INIBlockStubs (RW 0x600564, RW 0xDE4BE8)")
-{
-	initest::Fixture fx;
-	INIBlockRecorder rec;
-	// When realParsers is enabled (default), WaterSet registers parseWaterSettingDefinitionGlobal
-	RegisterRecordingBlockStubs(fx.env.blocks, rec, {});
-
-	const char *kWaterSetIni =
-		"WaterSet MORNING\n"
-		"  DiffuseColor = R:120 G:130 B:140 A:255\n"
-		"  SkyTexture = morning_sky.tga\n"
-		"End\n";
-
-	REQUIRE(initest::loadError(fx.env, "test_water.ini", kWaterSetIni).empty());
-
-	// WaterSet is handled by the real parser, so it is NOT recorded as a recording stub
-	CHECK(rec.countByKeyword["WaterSet"] == 0);
-
-	const WaterSetting &m = WaterSetScan::globalSettings().waterSettings[1]; // MORNING (slot 1)
-	CHECK(isColorEqual(m.waterDiffuseColor, 120, 130, 140, 255));
-	CHECK(m.skyTextureFile == "morning_sky.tga");
-
-	// When realParsers is disabled, WaterSet is recorded as a stub like any other block
-	initest::Fixture fx2;
-	INIBlockRecorder rec2;
-	RegisterRecordingBlockStubs(fx2.env.blocks, rec2, {}, StubExtent::Strict, false);
-	REQUIRE(initest::loadError(fx2.env, "test_water2.ini", kWaterSetIni).empty());
-	CHECK(rec2.countByKeyword["WaterSet"] == 1);
-	REQUIRE(rec2.records.size() == 1);
-	CHECK(rec2.records[0].keyword == "WaterSet");
-	CHECK(rec2.records[0].name == "MORNING");
-	CHECK(rec2.records[0].endsWithEnd);
-}
-
 TEST_CASE("LOCAL-26b: WaterSet parses all 12 fields into WaterSetting (RW 0xC1E4A0)")
 {
 	const std::string text =

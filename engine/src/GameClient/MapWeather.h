@@ -39,10 +39,6 @@ struct Settings
 {
 	WaterSetting waterSettings[kTimeOfDayCount]; // WaterSettings[6] (RW 0xDE4BE8): each element as the WaterSetting constructor leaves it until a block reads it
 };
-// RW 0x600564: INI::parseWaterSettingDefinition (INIWater.cpp), parses into the global WaterSettings array.
-void parseWaterSettingDefinitionGlobal(INI *ini);
-// Access to the global WaterSettings[6] (RW 0xDE4BE8) populated by parseWaterSettingDefinitionGlobal.
-const Settings &globalSettings();
 // Reads the WaterSet blocks of one file on top of `settings`. `mapOverride`: the text is a map.ini (INI_LOAD_CREATE_OVERRIDES); WaterSet takes no part in the
 // override chain, so only the load type of the nested INI differs. On failure `settings` is unchanged and `error` holds the INIException's text.
 bool applyText(const std::string &text, Settings &settings, std::string *error, bool mapOverride = false);

@@ -37,18 +37,7 @@ public:
 	{
 		m_env.fileSystem = fs;
 		RegisterRecordingBlockStubs(m_env.blocks, m_recorder, { block }, StubExtent::LenientAfterEnd, false);
-		if (equalsNoCase(block, "WaterSet"))
-		{
-			m_env.blocks.registerBlock("WaterSet", std::move(parse));
-		}
-		else if (equalsNoCase(block, "Weather"))
-		{
-			m_env.blocks.registerBlock("Weather", std::move(parse));
-		}
-		else
-		{
-			m_env.blocks.registerBlock(block, std::move(parse));
-		}
+		m_env.blocks.registerBlock(block, std::move(parse));
 	}
 	bool run(const std::string &name, const std::string &text, INILoadType type, std::string *error)
 	{
@@ -274,18 +263,6 @@ bool WaterSetScan::diffuseOf(const Settings &settings, int timeOfDay, float diff
 	diffuse[2] = c.blue / 255.0f;
 	diffuse[3] = c.alpha / 255.0f;
 	return true;
-}
-
-static WaterSetScan::Settings s_globalWaterSettings;
-
-const WaterSetScan::Settings &WaterSetScan::globalSettings()
-{
-	return s_globalWaterSettings;
-}
-
-void WaterSetScan::parseWaterSettingDefinitionGlobal(INI *ini)
-{
-	waterSetBlock(s_globalWaterSettings)(ini);
 }
 
 bool WaterSetScan::loadSettings(ArchiveFileSystem &fs, const std::string &mapDir, Settings &out, std::string *error)
