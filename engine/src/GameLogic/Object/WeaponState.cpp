@@ -7,6 +7,7 @@
 // ceil / fabs / sqrt without libm. Frame arithmetic is unsigned 32 bit with defined wrapping.
 
 #include "GameLogic/WeaponState.h"
+#include "Common/Audio/AudioRequests.h"
 #include "Common/StateHash.h"
 #include "GameLogic/SnapshotXfer.h"
 
@@ -811,11 +812,21 @@ void FiringTracker::speedUp(FiringTrackerHost &host)
 	const std::uint32_t mean = 1u << CONDITION_CONTINUOUS_FIRE_MEAN;
 	const std::uint32_t fast = 1u << CONDITION_CONTINUOUS_FIRE_FAST;
 	const std::uint32_t mask = host.weaponBonusConditionMask();
+	if (mask & fast)
+	{
+		// RW 0x8E31AD .. 0x8E31B8: already in CONTINUOUS_FIRE_FAST
+		return;
+	}
 	if (mask & mean)
 	{
+		// RW 0x8E31C8 .. 0x8E3205: transition MEAN -> FAST posts 0x7DC (VoiceRapidFire) for { self->getDrawable() }
+		if (const std::uint32_t ownerId = host.ownerObjectID())
+		{
+			AudioApi::postUnitVoice(0x7DC, ownerId);
+		}
 		host.setWeaponBonusConditionMask((mask & ~mean) | fast);
 	}
-	else if (!(mask & fast))
+	else
 	{
 		host.setWeaponBonusConditionMask(mask | mean);
 	}

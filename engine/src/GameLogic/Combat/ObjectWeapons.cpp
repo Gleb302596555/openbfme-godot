@@ -282,6 +282,7 @@ public:
 		}
 	}
 	void reloadAllWeapons() override { m_w.reloadAllAmmo(false); }
+	std::uint32_t ownerObjectID() override { return m_w.owner().getID(); }
 
 private:
 	ObjectWeapons &m_w;

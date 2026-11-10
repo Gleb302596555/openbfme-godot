@@ -313,6 +313,7 @@ public:
 	virtual std::uint32_t weaponBonusConditionMask() = 0;
 	virtual void setWeaponBonusConditionMask(std::uint32_t mask) = 0;
 	virtual void reloadAllWeapons() = 0; ///< RW 0x68B491 -> WeaponSet reloadAmmo on every weapon
+	virtual std::uint32_t ownerObjectID() { return 0; }
 };
 
 class FiringTracker
