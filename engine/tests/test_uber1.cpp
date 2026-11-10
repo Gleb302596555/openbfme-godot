@@ -166,6 +166,8 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // pin: merge queue q46 re-measured it once on the merged tree (OPENBFME_UBER1_REGEN=1), compared at each merge point: #270 (the team threat orders,
 // Team + 0x13C) moves it from frame 12, and the review fix (the threat walk newest first, RW 0x66362D; a horde soldier counts nothing, RW 0x693A1A) from frame 13.
 // pin: the fork's merge of upstream efbdfad9 (2026-11-10) re-measured it once on the merged tree (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-0)
+// pin: PORT-39 (PR #201) re-measured it once on the arena batch tree of 2026-11-10 (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-3): retail's five
+// AIData SideInfo blocks (data\ini\default\aidata.ini) enter GameLogicSettings::crc from frame 0 (bisected with perf1's vectors to the #201 merge)
 TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1, 4 and 16 logic threads and in a repeated run; the hash's own jobs run on "
 		  "workers; Faithful hashes differently and serially")
 {
