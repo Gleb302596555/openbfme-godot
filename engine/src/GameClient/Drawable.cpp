@@ -211,6 +211,13 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 				problems.push_back(nugget.name + ": draw runtime failed: " + ex.what());
 				e.draw.reset();
 			}
+			if (e.draw)
+			{
+				if (const auto *supplyData = dynamic_cast<const W3DSupplyDrawModuleData *>(data))
+				{
+					e.supply.reset(new W3DSupplyDraw(*m_template, *supplyData, services.drawAssets));
+				}
+			}
 		}
 	}
 	else
@@ -283,6 +290,10 @@ void Drawable::setModelConditionFlags(const ModelConditionFlags &flags)
 		{
 			e.draw->setModelConditionFlags(flags);
 			e.animated = e.draw->needsAdvance();
+			if (e.supply)
+			{
+				e.supply->refresh(*e.draw, flags, m_scale); // model-state changes clear plain sub-object ops; reapply the live supply status
+			}
 		}
 	}
 	for (ModelConditionAudioLoopClientBehavior *loop : m_audioLoops)
@@ -410,6 +421,22 @@ void Drawable::showSubObject(const std::string &name, bool visible, bool permane
 		}
 	}
 	++m_changeCount;
+}
+
+void Drawable::setSupplyStatus(int currentBoxes, int startingBoxes)
+{
+	bool changed = false;
+	for (DrawEntry &e : m_entries)
+	{
+		if (e.supply && e.draw)
+		{
+			changed = e.supply->setSupplyStatus(*e.draw, m_flags, m_scale, currentBoxes, startingBoxes) || changed;
+		}
+	}
+	if (changed)
+	{
+		++m_changeCount;
+	}
 }
 
 void Drawable::setModelCondition(int bit, bool on)

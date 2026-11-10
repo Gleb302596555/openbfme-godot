@@ -36,6 +36,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawServices.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLuaDrawScriptHost.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DSupplyDraw.h"
 #include "Libraries/WWVegas/WW3D2/assetmgr.h"
 #include "Libraries/WWVegas/WWMath/matrix3d.h"
 
@@ -162,6 +163,7 @@ struct DrawEntry
 	std::string notDrawnReason;       ///< why a non-model entry draws nothing
 	std::unique_ptr<W3DScriptedModelDraw> draw; ///< MODEL kind
 	std::unique_ptr<W3DLightDraw> lightDraw;    ///< lane LOCAL-28: W3DLightDraw dynamic light module
+	std::unique_ptr<W3DSupplyDraw> supply;     ///< PORT-77: supply-pile variant status alongside the shared model runtime
 	bool animated = false;            ///< advance() would change the draw (W3DScriptedModelDraw::needsAdvance, set at creation and on every flag change, never lowered by an advance: the pose after a blend's promotion is still pushed): advance() each render frame
 	bool missingModel = false;        ///< the model is not in the mounted archives (a retail data defect): not drawn
 	std::string lastModel;            ///< the model last handed to the device layer (the device layer keeps its own handle)
@@ -335,6 +337,8 @@ public:
 	// request waits until all exist
 	void scriptModuleVisible(const std::string &name, bool visible);
 	void showSubObject(const std::string &name, bool visible, bool permanent);
+	// PORT-77: Drawable dispatcher RW 0x671948's supply-specific path; applied only to W3DSupplyDraw entries.
+	void setSupplyStatus(int currentBoxes, int startingBoxes);
 	// RW 0x8B911E: every model draw module takes `swaps` as its upgrade textures (draw module vslot 0x84)
 	void setUpgradeTextures(const std::vector<std::pair<std::string, std::string>> &swaps);
 	// RW 0x4B8701 -> slot +0x1F8 (RW 0x54BDE0): recolours current render object meshes except those matching excludeSubobject
