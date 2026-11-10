@@ -1,6 +1,6 @@
 // OpenBFME. GPL-3.0.
 //
-// DelayedLuaEventUpdate (issue #285, LOCAL-35; RotWK only: this binary's class, caveat S-001).
+// DelayedLuaEventUpdate (issue #285, LOCAL-35; both editions: BFME2 1.06 ctor 0x004A8E7B, xfer 0x004A8E0A, ModuleData ctor 0x004A8D06).
 // The damage warning (GenericDamageWarning in system.ini) fires one Lua event, once, on every object in a range, then
 // destroys itself. The event and the argument list are configured by the caller (the damage warning system, RW 0x90DC46)
 // through configure(); the dispatch goes through GameLogic::dispatchScriptEvent (RW 0x7379CB).

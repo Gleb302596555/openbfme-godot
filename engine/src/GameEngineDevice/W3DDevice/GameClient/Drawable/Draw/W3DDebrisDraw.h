@@ -1,6 +1,6 @@
 // OpenBFME. GPL-3.0.
 //
-// W3DDebrisDraw (issue #285, LOCAL-35; RotWK only: this binary's class, caveat S-001).
+// W3DDebrisDraw (issue #285, LOCAL-35; both editions).
 // The flying debris pieces of a destroyed object (GenericDebris in system.ini). The module data has no fields; the model
 // name / colour and the three animation names are set through the DebrisDrawInterface (setModelName / setAnimNames) by the
 // object that makes the debris (CreateDebris / OCL, not in this issue). doDrawModule advances the INITIAL -> FLYING -> FINAL

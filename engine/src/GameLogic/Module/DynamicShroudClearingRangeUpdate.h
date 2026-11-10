@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 //
-// DynamicShroudClearingRangeUpdate (issue #285, LOCAL-35; RotWK only: this binary's class, caveat S-001).
+// DynamicShroudClearingRangeUpdate (issue #285, LOCAL-35; both editions: BFME2 1.06 ctor 0x0048B067, xfer 0x0048B505,
+// animateGridDecals 0x0048B256).
 // The growing / shrinking shroud-clearing reveal of a map ping (MapRevealPing in system.ini): the update drives the
 // object's shroud clearing range through Object::setShroudClearingRange over the frames the module data gives, and the
 // grid decal visual (client RadiusDecal) that retail also animates is not drawn here (stop S-7100).
