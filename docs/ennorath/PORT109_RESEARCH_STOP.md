@@ -122,8 +122,10 @@ assertions; restoring and rebuilding produces 8/8, 198/198 PASS. The fixture
 uses CombatWorld to register real LogicModules and attach AIWorld.
 Neighbours modgap2 give upgrade* + PORT-92*: 8/8, 255/255 PASS.
 
-After the final rebase onto main 9377dba3 the full target is rebuilding;
-its new run is pending. PR #326 stays draft until that run passes.
+After the final rebase onto main 9377dba3 the full target completed all
+1020 steps: PORT-109* 8/8, 198/198 PASS (6254 excluded by filter).
+Combined PORT-109*, modgap2 give upgrade*, PORT-92*: 16/16 PASS.
+PR #326 is ready for review.
 No game/mod files or hash pins committed. No new simulation state: template
 lookup order derives from INI loading; xfer/CRC stay unchanged. This IS an
 engine change: special-power type 0x33 now admits ordinary valid targets and
@@ -142,4 +144,4 @@ place delivery carriers in missions/cinematics, not an ordinary skirmish
 OBJECT_UPGRADE button. A carrier must actually hold a source upgrade mask;
 spawning it alone is insufficient. See PR #326 for the conditional check.
 Contained providers remain explicitly deferred as authorized, not claimed
-ported. Remaining: finish latest-base full run and mark PR ready.
+ported. Remaining: owner review and optional in-game verification.
