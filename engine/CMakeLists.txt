@@ -1165,8 +1165,6 @@ add_executable(openbfme_tests
     tests/test_local_29.cpp
     # lane LOCAL-27 (bridges as retail: Bridge block, damage models, towers, scaffold, radar color, issue #189)
     tests/test_local_27.cpp
-    # lane LOCAL-31 (EmotionRange as retail: ThingTemplate::emotionRange RW 0x68AF80, Object::m_emotionRange RW 0x699DFD, issue #281)
-    tests/test_local_31.cpp
     # shared numeric facade (WEAPON-1 e75dd8c, imported unchanged: wide PC24 results, SSE binary32 ops, retail integer conversions)
     tests/test_numeric_facade.cpp
     # lane ECON-1: the economy

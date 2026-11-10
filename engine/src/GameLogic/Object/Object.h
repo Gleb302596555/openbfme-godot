@@ -221,8 +221,6 @@ public:
 	void updateShroudNow();
 	bool hasShroudClearingRange() const { return m_hasShroudClearingRange; }
 	float shroudClearingRangeOverride() const { return m_shroudClearingRange; }
-	// Local 31 (issue #281), RW 0x699DFD: Object + 0x1BC (copied from template->emotionRange() in Object::Object; 0 logic readers in retail)
-	float emotionRange() const { return m_emotionRange; }
 	// RW 0x697EB6 Object::updatePendingDamage: the pending hits' delays count down one per frame, a hit whose delay went below 0 applies (list order)
 	void updatePendingDamage();
 	size_t pendingDamageCount() const;
@@ -709,7 +707,6 @@ private:
 	UnsignedInt m_soleHealingBenefactorExpiry = 0;    ///< RW + 0x3D8 (BUILD-2)
 	bool m_hasShroudClearingRange = false;            ///< lane DECOMP-1: RW + 0x1B4 was set (else it holds the template's ShroudClearingRange)
 	float m_shroudClearingRange = 0.0f;               ///< RW + 0x1B4 once set
-	float m_emotionRange = 0.0f;                      ///< Local 31 (issue #281): RW + 0x1BC (EmotionRange, RW 0x699DFD)
 	UnsignedInt m_radarAttackFrame = 0xFFFFFFFFu;     ///< lane RADAR-1 (radarAttackFrame)
 	UnsignedInt m_fireWeaponDeadline = 0;             ///< lane LOGIC-BUTTONS: RW + 0x478 (RW 0x68C91B / BFME2 Object.cpp:2022 deadline +0x458)
 	ObjectClientHooks *m_client = nullptr; ///< SMOOTH-1: set by friend_bindToClient (no Drawable pointer in the simulation)
