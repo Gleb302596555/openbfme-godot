@@ -2,7 +2,6 @@
 // See GameClient/Drawable.h for the sources and the stops.
 
 #include "GameClient/Drawable.h"
-#include "GameClient/LaserUpdate.h"
 
 #include "Common/Audio/AudioRequests.h"
 
@@ -1318,19 +1317,6 @@ bool Drawable::boneWorldPosition(const std::string &boneName, Coord3D &outPos) c
 		return true;
 	}
 	return false;
-}
-
-// RW 0x6747C2 / BFME2 0x27449C: find LaserUpdate client update module on drawable
-LaserUpdate *Drawable::findLaserUpdate() const
-{
-	for (const auto &m : m_clientModules)
-	{
-		if (auto *lu = dynamic_cast<LaserUpdate *>(m.get()))
-		{
-			return lu;
-		}
-	}
-	return nullptr;
 }
 
 // RW 0xAD1920: maximum geometry height above position for the drawable's template

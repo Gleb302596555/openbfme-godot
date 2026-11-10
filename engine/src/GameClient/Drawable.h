@@ -56,7 +56,6 @@ class AnimationSoundModuleManager;
 class ModelConditionAudioLoopClientBehavior;
 class LightPulsePool;
 class W3DLightDraw;
-class LaserUpdate;
 
 // LOCAL-3: TintEnvelope (ZH Include/GameClient/TintEnvelope.h, RW 0x671B20 .. 0x674AD7 / BFME2 0x671800 .. 0x6747B1, both editions identical).
 // Steps a drawable's additive tint or selection flash through attack, sustain and decay at the client frame rate, with optional sine modulation by the
@@ -337,8 +336,6 @@ public:
 	// lane LOCAL-28 / LOCAL-29: queries bone world transform across draw module models (RW 0x00672B5B / DONOR BFME2 0x00272835)
 	bool boneTransform(const std::string &boneName, Matrix3D &outTransform) const;
 	bool boneWorldPosition(const std::string &boneName, Coord3D &outPos) const;
-	// Local 34 (issue #284): find the LaserUpdate client update module on this drawable (RW 0x6747C2 / BFME2 0x27449C)
-	LaserUpdate *findLaserUpdate() const;
 	// Local 34 (issue #284): maximum geometry height above position for this drawable's template (RW 0xAD1920)
 	float geometryHeight() const;
 	// lane LOCAL-29 (issue #218): computes world transform of entry e (RW 0x004B6A6F..0x004B6B26 / slot +0x104); returns true if attached
