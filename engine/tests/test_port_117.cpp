@@ -58,8 +58,8 @@ std::string summonerIni(const char *name, const char *mounted)
 		"End\n";
 }
 
-// an object with a HordeContain (the horde2 fixtures' shape) of `kindOf`, its contain's lines given by the caller
-std::string hordeIni(const char *name, const char *kindOf, const char *containLines)
+// an object with a horde contain (the horde2 fixtures' shape) of `kindOf`, its contain's lines given by the caller; `contain` is the module's class name
+std::string hordeIni(const char *name, const char *kindOf, const char *containLines, const char *contain = "HordeContain")
 {
 	return std::string("Object ") + name + "\n"
 		"  KindOf = " + kindOf + "\n"
@@ -68,7 +68,7 @@ std::string hordeIni(const char *name, const char *kindOf, const char *containLi
 		"  Geometry = BOX\n  GeometryMajorRadius = 30\n  GeometryMinorRadius = 45\n  GeometryHeight = 20\n"
 		"  Body = ImmortalBody ModuleTag_Body\n    MaxHealth = 1\n  End\n"
 		"  Behavior = HordeAIUpdate ModuleTag_AI\n  End\n"
-		"  Behavior = HordeContain ModuleTag_Contain\n" + containLines + "  End\n"
+		"  Behavior = " + contain + " ModuleTag_Contain\n" + containLines + "  End\n"
 		"  LocomotorSet\n    Locomotor = HordeLoco\n    Condition = SET_NORMAL\n    Speed = 50\n  End\n"
 		"End\n";
 }
@@ -127,6 +127,10 @@ std::string port117Objects()
 		hordeIni("Port117Horde", "HORDE MELEE_HORDE LARGE_RECTANGLE_PATHFIND SELECTABLE CAN_ATTACK", kFiveSoldiers) +
 		// the same contain on an object that is not KindOf HORDE: RotWK's test is the KindOf bit (RW 0x7979DC), not the module
 		hordeIni("Port117NotAHorde", "LARGE_RECTANGLE_PATHFIND SELECTABLE CAN_ATTACK", kFiveSoldiers) +
+		// the cavalry hordes' contain (the wolf rider hordes of the mod's summoners name it). RotWK's HorseHordeContain is a HordeContain: its constructor
+		// RW 0x879849 runs HordeContain's (RW 0x879854 -> RW 0x8727F9) and keeps the create interface (RW 0x879890 stores RW 0xC5B470, slot 1 = RW 0x8718ED);
+		// slot 0x70 of its vtable RW 0xC5C288 is the same RW 0x871B9B (RW 0xC5C2F8)
+		hordeIni("Port117RiderHorde", "HORDE MELEE_HORDE LARGE_RECTANGLE_PATHFIND SELECTABLE CAN_ATTACK", kFiveSoldiers, "HorseHordeContain") +
 		hordeIni("Port117BannerHorde", "HORDE MELEE_HORDE LARGE_RECTANGLE_PATHFIND SELECTABLE CAN_ATTACK", kThreeSoldiersAndBanner) +
 		hordeIni("Port117BannerAtOnceHorde", "HORDE MELEE_HORDE LARGE_RECTANGLE_PATHFIND SELECTABLE CAN_ATTACK", kThreeSoldiersAndBannerAtOnce) +
 		summonerIni("Port117Summoner", "Port117Horde") +
@@ -321,6 +325,13 @@ TEST_CASE("PORT-117 build: buildObjectNow completes a KindOf HORDE object withou
 	REQUIRE(horde);
 	CHECK(f.soldiers(horde).size() == 5u);                 // RW 0x7979E8: no producer while RW 0x8718ED ran
 	CHECK(horde->getProducerID() == builder->getID());     // RW 0x797A02
+
+	// the cavalry hordes' HorseHordeContain makes its payload in the same slot (RW 0xC5C2F8 = RW 0x871B9B, reached from RW 0x8718ED): whole at once too
+	Object *riders = Construction::buildObjectNow(*f.logic, builder, f.tmpl("Port117RiderHorde"), Coord3D{ 1100.0f, 500.0f, 0.0f }, 0.0f, *owner);
+	REQUIRE(riders);
+	CHECK(riders->findModule("HorseHordeContain") != nullptr);
+	CHECK(f.soldiers(riders).size() == 5u);
+	CHECK(riders->getProducerID() == builder->getID());
 
 	// the port's own case (no RotWK call has a NULL builder, RW 0x7977CC): the same before and after the fix
 	Object *unbuilt = Construction::buildObjectNow(*f.logic, nullptr, f.tmpl("Port117Horde"), Coord3D{ 800.0f, 500.0f, 0.0f }, 0.0f, *owner);
