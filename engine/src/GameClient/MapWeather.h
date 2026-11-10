@@ -44,6 +44,9 @@ struct Settings
 bool applyText(const std::string &text, Settings &settings, std::string *error, bool mapOverride = false);
 // The RGBA of time of day 0 (NONE) .. 5 (INTERPOLATE) as 0..1; false for any other index.
 bool diffuseOf(const Settings &settings, int timeOfDay, float diffuse[4], std::string *error);
+// mapDir as MapWeatherScan::load takes it: the map's folder (MapClassification::mapDirectory, "maps\map mp evendim" or a user map's folder).
+// Reads data\ini\water.ini and then any <mapDir>\map.ini overrides into `out`.
+bool loadSettings(ArchiveFileSystem &fs, const std::string &mapDir, Settings &out, std::string *error);
 // mapDir as MapWeatherScan::load takes it: the map's folder (MapClassification::mapDirectory, "maps\map mp evendim" or a user map's folder). timeOfDay 1 Morning
 // .. 4 Night (MapChunks.h). Missing map.ini is fine; a missing water.ini is an error. `diffuse` is written only when
 // the files were read and the time of day is a WaterSetting; on failure it is untouched and `error` says why (no colour stands in for one that was not read).

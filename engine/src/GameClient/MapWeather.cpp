@@ -265,7 +265,7 @@ bool WaterSetScan::diffuseOf(const Settings &settings, int timeOfDay, float diff
 	return true;
 }
 
-bool WaterSetScan::load(ArchiveFileSystem &fs, const std::string &mapDir, int timeOfDay, float diffuse[4], std::string *error)
+bool WaterSetScan::loadSettings(ArchiveFileSystem &fs, const std::string &mapDir, Settings &out, std::string *error)
 {
 	Settings settings;
 	MapIniLoad load(&fs, "WaterSet", waterSetBlock(settings));
@@ -275,6 +275,17 @@ bool WaterSetScan::load(ArchiveFileSystem &fs, const std::string &mapDir, int ti
 	}
 	const std::string mapIni = mapDir + "\\map.ini";
 	if (fs.doesFileExist(mapIni) && !load.runFile(mapIni, INI_LOAD_CREATE_OVERRIDES, error))
+	{
+		return false;
+	}
+	out = settings;
+	return true;
+}
+
+bool WaterSetScan::load(ArchiveFileSystem &fs, const std::string &mapDir, int timeOfDay, float diffuse[4], std::string *error)
+{
+	Settings settings;
+	if (!loadSettings(fs, mapDir, settings, error))
 	{
 		return false;
 	}
