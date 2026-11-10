@@ -135,27 +135,6 @@ public:
 	// the terrain picture, `size` x `size` RGBA8, row 0 on top (a height shaded field); cached per size
 	const std::vector<std::uint8_t> &terrainImage(int size);
 
-	// Retail W3DRadar::buildTerrainTexture / W3DRadarTerrainTexture::addBridge (RW 0x0044F781):
-	// A road bridge drawn on radar with its RadarColor (+0x28)
-	struct RadarBridge
-	{
-		Coord3D from;
-		Coord3D to;
-		float width = 34.0f;
-		float color[3] = { 1.0f, 1.0f, 1.0f };
-	};
-	void addBridge(const RadarBridge &b) { m_radarBridges.push_back(b); m_image.clear(); }
-	void clearBridges() { m_radarBridges.clear(); m_image.clear(); }
-	const std::vector<RadarBridge> &radarBridges() const { return m_radarBridges; }
-	void setBoundsForTest(float minX, float minY, float maxX, float maxY)
-	{
-		m_minX = minX;
-		m_minY = minY;
-		m_maxX = maxX;
-		m_maxY = maxY;
-		m_ready = true;
-	}
-
 	// lane HUD-2: the map's art image (RW 0x44F3AB). `mapFile` is the map's file name ("maps/x/x.map"): its "<stem>_art.tga" is read when the file system
 	// has it; false + *error when it exists and cannot be read or decoded (no fallback); true without art when there is none.
 	bool loadArt(ArchiveFileSystem &fs, const std::string &mapFile, std::string *error);
@@ -406,7 +385,6 @@ private:
 	float m_terrainAverageZ = 0.0f; ///< lane RADAR-1 (Radar + 0x1C)
 	int m_imageSize = 0;
 	std::vector<std::uint8_t> m_image;
-	std::vector<RadarBridge> m_radarBridges;
 	std::string m_artFile;
 	int m_artW = 0, m_artH = 0;
 	std::vector<std::uint8_t> m_art;

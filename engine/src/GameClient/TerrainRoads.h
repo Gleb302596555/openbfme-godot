@@ -161,6 +161,7 @@ struct RoadBuildReport
 	size_t triangles = 0;
 	int bridgePairs = 0;
 	int unknownBridgeTypes = 0;
+	int invalidBridgeWidth = 0;
 };
 
 namespace TerrainRoads

@@ -827,7 +827,19 @@ void TerrainRoads::buildBridges(const std::vector<MapObject> &objects, const Roa
 		V2 dir = len > 0.0f ? V2{ dx / len, dy / len } : V2{ 1.0f, 0.0f };
 		V2 norm = { -dir.y, dir.x };
 
-		const float width = (road->roadWidth > 0.0f ? road->roadWidth : 34.0f) * road->bridgeScale;
+		if (road->roadWidth <= 0.0f)
+		{
+			// Retail RotWK 2.01 computes bridgeWidth from model mesh Y-extents:
+			// bridgeWidth = (m_maxY - m_minY) * m_scale (RW 0x004DD43F, W3DBridge::getBridgeInfo;
+			// vertices scanned in RW 0x004DDEBD, W3DBridge::load from BridgeModelName).
+			// The Bridge INI parse table (RW 0x00C19DC0) does not include RoadWidth.
+			// Without loaded mesh vertex data, a bridge without positive roadWidth cannot be sized;
+			// this is reported as an error in report rather than silently defaulting to 34.0f.
+			++report.invalidBridgeWidth;
+			continue;
+		}
+
+		const float width = road->roadWidth * road->bridgeScale;
 		const float halfWidth = width * 0.5f;
 
 		seg.fromLeft = { seg.from.x + norm.x * halfWidth, seg.from.y + norm.y * halfWidth, seg.from.z };

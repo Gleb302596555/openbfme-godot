@@ -1624,6 +1624,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 		rd["bridges"] = (int64_t)bridges.size();
 		rd["bridge_pairs"] = rrep.bridgePairs;
 		rd["unknown_bridge_types"] = rrep.unknownBridgeTypes;
+		rd["invalid_bridge_width"] = rrep.invalidBridgeWidth;
 		rd["orphan_points"] = rrep.orphanPoints;
 		rd["duplicate_segments"] = rrep.duplicateSegments;
 		rd["unknown_road_types"] = rrep.unknownRoadTypes;

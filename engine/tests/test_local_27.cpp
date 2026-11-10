@@ -24,10 +24,10 @@
 //   - BridgeBehavior::createScaffolding: RW 0x0085A7EF / BFME2 0x00457737 (creates scaffold and scaffold support objects)
 //   - W3DRadarTerrainTexture::addBridge / W3DRadar::buildTerrainTexture: RW 0x0044F781 (reads RadarColor at +0x28)
 //   - W3DBridgeBuffer::loadBridges: RW 0x004DEFEB / BFME2 0x000DFB3C (pairs FLAG_BRIDGE_POINT1 and FLAG_BRIDGE_POINT2)
-//   - W3DBridgeBuffer::addBridge: RW 0x004DEE52 / BFME2 0x000DF612
+//   - W3DBridgeBuffer::addBridge: RW 0x004DEE87 / BFME2 0x000DF612 (calls init, load, getBridgeInfo)
+//   - W3DBridge::getBridgeInfo: RW 0x004DD43F / BFME2 0x000DDB94 (bridgeWidth = (m_maxY - m_minY) * m_scale)
 
 #include "doctest.h"
-#include "GameClient/Radar.h"
 #include "GameClient/TerrainRoads.h"
 #include "Common/MapObject.h"
 #include "GameEngineDevice/W3DDevice/GameClient/WorldHeightMap.h"
@@ -50,6 +50,7 @@ WorldHeightMap flatMap(int w, int h, int border, int raw)
 
 const char *kEnnorathBridgesIni =
 	"Bridge TEST_EuropeanBridgeWide\n"
+	"  RoadWidth                      = 34.0\n"
 	"  BridgeScale                    = 0.6\n"
 	"  RadarColor                     = R:192 G:192 B:192\n"
 	"  BridgeModelName                = CBWBrdgeArc\n"
@@ -73,6 +74,7 @@ const char *kEnnorathBridgesIni =
 	"End\n"
 	"\n"
 	"Bridge TEST_NewBridgeWide\n"
+	"  RoadWidth                      = 40.0\n"
 	"  BridgeScale                    = 0.75\n"
 	"  RadarColor                     = R:128 G:64 B:32\n"
 	"  BridgeModelName                = CBBrdge1\n"
@@ -327,6 +329,39 @@ TEST_CASE("LOCAL-27 bridge orphan and unknown handling: unmatched points and mis
 	CHECK(bridges.empty());
 }
 
+TEST_CASE("LOCAL-27 bridge width: missing roadWidth reports invalidBridgeWidth without silent 34.0 fallback (RW 0x004DD43F, RW 0x004DDEBD)")
+{
+	RoadTypeIndex index;
+	TerrainRoads::scanText(
+		"Bridge TEST_NoWidthBridge\n"
+		"  BridgeScale = 1.0\n"
+		"  BridgeModelName = TestBridge\n"
+		"End\n",
+		index);
+
+	WorldHeightMap heightMap = flatMap(10, 10, 0, 0);
+	std::vector<MapObject> objects;
+	MapObject pt1;
+	pt1.m_objectName = "TEST_NoWidthBridge";
+	pt1.m_location = { 0.0f, 0.0f, 0.0f };
+	pt1.m_flags = FLAG_BRIDGE_POINT1;
+	objects.push_back(pt1);
+
+	MapObject pt2;
+	pt2.m_objectName = "TEST_NoWidthBridge";
+	pt2.m_location = { 100.0f, 0.0f, 0.0f };
+	pt2.m_flags = FLAG_BRIDGE_POINT2;
+	objects.push_back(pt2);
+
+	std::vector<BridgeSegment> bridges;
+	RoadBuildReport report;
+	TerrainRoads::buildBridges(objects, index, heightMap, bridges, report);
+
+	CHECK(report.bridgePairs == 1);
+	CHECK(report.invalidBridgeWidth == 1);
+	CHECK(bridges.empty());
+}
+
 TEST_CASE("LOCAL-27 roads parity: roads continue building straight and curved strips unchanged")
 {
 	RoadTypeIndex index;
@@ -358,52 +393,6 @@ TEST_CASE("LOCAL-27 roads parity: roads continue building straight and curved st
 	CHECK(strips[0].roadName == "DirtRoad");
 	CHECK(strips[0].texture == "TRDirtRoad.tga");
 	CHECK(!strips[0].position.empty());
-}
-
-TEST_CASE("LOCAL-27 radar terrain bridge: Radar draws bridge with RadarColor (RW 0x0044F781)")
-{
-	Radar radar;
-	radar.setBoundsForTest(0.0f, 0.0f, 1000.0f, 1000.0f);
-	REQUIRE(radar.ready());
-
-	Radar::RadarBridge rb;
-	rb.from = { 200.0f, 500.0f, 0.0f };
-	rb.to = { 800.0f, 500.0f, 0.0f };
-	rb.width = 40.0f;
-	// RGB: 192, 64, 32
-	rb.color[0] = 192.0f / 255.0f;
-	rb.color[1] = 64.0f / 255.0f;
-	rb.color[2] = 32.0f / 255.0f;
-	radar.addBridge(rb);
-
-	CHECK(radar.radarBridges().size() == 1);
-
-	const int size = 128;
-	const auto &img = radar.terrainImage(size);
-	REQUIRE(img.size() == (size_t)size * size * 4);
-
-	// Pixel at world (500, 500) lies on the bridge center
-	float rx = 0, ry = 0;
-	radar.worldToRadar(500.0f, 500.0f, size, rx, ry);
-	int px = (int)rx, py = (int)ry;
-	const std::uint8_t *pBridge = &img[((size_t)py * size + px) * 4];
-	CHECK(pBridge[0] == 192);
-	CHECK(pBridge[1] == 64);
-	CHECK(pBridge[2] == 32);
-	CHECK(pBridge[3] == 255);
-
-	// Pixel at world (100, 100) is far away from the bridge
-	radar.worldToRadar(100.0f, 100.0f, size, rx, ry);
-	int ox = (int)rx, oy = (int)ry;
-	const std::uint8_t *pFar = &img[((size_t)oy * size + ox) * 4];
-	CHECK(pFar[0] != 192); // background terrain color, not bridge color
-
-	// Clearing bridges removes bridge pixels on re-render
-	radar.clearBridges();
-	CHECK(radar.radarBridges().empty());
-	const auto &imgCleared = radar.terrainImage(size);
-	const std::uint8_t *pCleared = &imgCleared[((size_t)py * size + px) * 4];
-	CHECK(pCleared[0] != 192);
 }
 
 TEST_CASE("LOCAL-27 pristine bridge model at load: buildBridges segment delivers pristine model and texture (RW 0x004DDEBD)")
