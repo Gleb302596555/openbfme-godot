@@ -1323,9 +1323,9 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 	m_game->setRenderInterpolation(m_renderInterpolation);
 	// PORT-49: the camera distance fade's sources are installed before the load makes the drawables (Options::cameraFadeAvailable).
 	// The eye is the HUD's displayed eye (RW 0xDE447C vslot 0x11C); EffectsLOD is the same state the glow / FX gates read (RW 0xDE3B84+0x1778).
+	// The DrawableManager does not exist until LiveGame::load makes it, so the sources travel in the load options (LiveGame::Options).
 	m_cameraFadeEyeValid = false;
-	auto &drawServices = m_game->drawables().services();
-	drawServices.cameraPosition = [this](Coord3D &out) {
+	lo.drawCameraPosition = [this](Coord3D &out) {
 		if (!m_cameraFadeEyeValid)
 		{
 			return false;
@@ -1333,7 +1333,7 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 		out = m_cameraFadeEye;
 		return true;
 	};
-	drawServices.effectsLOD = [this]() { return (int)m_effectsLod; };
+	lo.drawEffectsLOD = [this]() { return (int)m_effectsLod; };
 	// lane RENDERWAIT-1: a blocking wait on the logic worker names its script caller (the innermost GDScript frame: the C++ site of a bound query is
 	// the query itself, the script line says who asked)
 	m_game->setWaitSiteDetail([]() -> std::string {
