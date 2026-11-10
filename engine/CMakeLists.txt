@@ -1125,6 +1125,8 @@ add_executable(openbfme_tests
     tests/test_local_20.cpp
     # lane LOCAL-21 (model state lifecycle, forced model replacement, teardown, per-mesh material state, issue #161)
     tests/test_local_21.cpp
+    # lane LOCAL-25 (locomotor ground motion presentation and unread simulation stops S-7220, issue #187)
+    tests/test_local_25.cpp
     # shared numeric facade (WEAPON-1 e75dd8c, imported unchanged: wide PC24 results, SSE binary32 ops, retail integer conversions)
     tests/test_numeric_facade.cpp
     # lane ECON-1: the economy

@@ -46,6 +46,7 @@ DrawableManager::DrawableManager(WW3DAssetManager &assets, GameLogic &logic)
 		}
 		return 0.0f;
 	};
+	m_services.groundHeight = m_trackSampler.groundHeight; // LOCAL-25
 }
 
 DrawableManager::~DrawableManager() = default;
