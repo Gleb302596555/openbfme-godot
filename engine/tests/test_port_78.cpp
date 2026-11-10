@@ -120,6 +120,7 @@ TEST_CASE("PORT-78 vendor creates contained object, structural damage and rotate
  Object *vendor = f.unit("Port78Vendor", 'B', 300, 400);
  actor->setOrientation(1.57079632679f);
  REQUIRE(actor->getContain());
+ f.frames(1); // Local 30 RW 0x8C4294: at frame 0 a sourceless hit retains the initial last-damage record.
  fire(actor, vendor);
  REQUIRE(actor->getContain()->getContainCount() == 1);
  Object *held = actor->getContain()->getContainedItemsList()->front();
