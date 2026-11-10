@@ -164,9 +164,12 @@ struct World
 {
 	CombatWorld w;
 	explicit World()
-		: w(kPort114Objects)
+		: w(kPort114Weapons)
 	{
 		w.combat().setAutoAcquireEnabled(false); // driven by hand
+		// the objects of this file, after the weapon store holds their weapons (a WeaponSet row resolves at parse time)
+		const std::string err = w.w.load(kPort114Objects, INI_LOAD_OVERWRITE, "port114.ini");
+		REQUIRE_MESSAGE(err.empty(), err);
 	}
 	Object *unit(const char *name, char side, float x, float y) { return w.unit(name, side, x, y); }
 };
@@ -317,35 +320,12 @@ TEST_CASE("PORT-114 the neighbouring behaviour holds: without the row the set is
 		CHECK(d.ow->weaponInSlot(PRIMARY_WEAPON)->getTemplate()->getName() == "Port114Sword");
 		CHECK(d.shotDelay() == 5);
 	}
-	// the Weapon block's own WeaponBonus lines (RW 0x6CB5AB) still parse into the template's set and apply with the same mask
+	// the Weapon block's own WeaponBonus lines (RW 0x6CB5AB) still parse into the template's set and apply with the same mask:
+	// Port114GarrisonSword carries `WeaponBonus = GARRISONED RATE_OF_FIRE 200%` in this file's own Weapon text
 	{
 		World world;
-		CombatWorld &w = world.w;
-		const std::string err = w.w.load(std::string("Object BonusSwordsman\n"
-			"  KindOf = INFANTRY SELECTABLE CAN_ATTACK\n"
-			"  Geometry = CYLINDER\n"
-			"  GeometryMajorRadius = 8\n"
-			"  GeometryMinorRadius = 8\n"
-			"  GeometryHeight = 20\n"
-			"  WeaponSet\n"
-			"    Conditions = None\n"
-			"    Weapon = PRIMARY BonusSword\n"
-			"  End\n"
-			"  Body = ActiveBody ModuleTag_Body\n"
-			"    MaxHealth = 100\n"
-			"  End\n"
-			"  Behavior = AIUpdateInterface ModuleTag_AI\n"
-			"  End\n"
-			"  LocomotorSet\n"
-			"    Locomotor = WalkerLoco\n"
-			"    Condition = SET_NORMAL\n"
-			"    Speed = 55\n"
-			"  End\n"
-			"End\n"), INI_LOAD_OVERWRITE, "port114.ini");
-		REQUIRE_MESSAGE(err.empty(), err);
-		Object *u = w.unit("BonusSwordsman", 'A', 300, 300);
-		Object *v = w.unit("Port114Dummy", 'B', 312, 300);
-		w.frames(2);
+		Object *u = world.unit("Port114GarrisonSwordsman", 'A', 300, 300);
+		world.w.frames(2);
 		ObjectWeapons *ow = u->getWeapons();
 		REQUIRE(ow != nullptr);
 		WeaponBonus before;
@@ -354,8 +334,7 @@ TEST_CASE("PORT-114 the neighbouring behaviour holds: without the row the set is
 		u->setWeaponBonusCondition(kGarrisoned, true);
 		WeaponBonus after;
 		REQUIRE(ow->currentWeaponBonus(after));
-		CHECK(after.m_field[WEAPONBONUS_RATE_OF_FIRE] == kHordeAndNationalism);
-		(void)v;
+		CHECK(after.m_field[WEAPONBONUS_RATE_OF_FIRE] == 1.0f + (200.0f * 0.01f - 1.0f));
 	}
 	// the settings hash: a game whose GameData has no WeaponBonus row keeps the hash it had before this lane, a mod's row moves it
 	{
