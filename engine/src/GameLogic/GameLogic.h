@@ -302,6 +302,15 @@ struct GameLogicSettings
 		std::vector<std::pair<std::string, int>> targets;
 	};
 	std::vector<AttackPriorityDef> attackPriorityDefs; ///< the AIData list (+ 0xFC) head first
+	// lane PORT-39: an `SideInfo <side>` block of AIData (0x1C0 bytes, ctor RW 0x6FFF8C, vtable RW 0xC1D734; the list is AIData + 0xF4, each entry's
+	// + 0x1BC the next). The only fields the port reads are the three gatherer counts; the block's other rows (BaseDefenseStructure1 + 0x1B8 and the five
+	// SkillSet lists + 0x14 / + 0x68 / + 0xBC / + 0x110 / + 0x164) are not ported (stop S-4194). A later block of the same side re-parses the entry.
+	struct AISideInfo
+	{
+		std::string side;                ///< + 0x4 the block's name
+		int resourceGatherers[3] = { 0, 1, 2 }; ///< + 0x8 Easy, + 0xC Normal, + 0x10 Hard (RW 0x6FFFB2 .. 0x6FFFBC: 0, 1, 2)
+	};
+	std::vector<AISideInfo> sideInfos; ///< the AIData list, the newest block first (each new SideInfo is pushed at the head, RW 0x70011F)
 	bool forceModelsToFollowTimeOfDay = false;       ///< GameData ForceModelsToFollowTimeOfDay (a new drawable gets NIGHT)
 	bool forceModelsToFollowWeather = false;         ///< GameData ForceModelsToFollowWeather (SNOW)
 	// GameData EnableHouseColor (+ 0xDDC, row RW 0xC00A30; copied to TheGameLogic + 0x11C at a new game, RW 0x62A13A): off, a drawable shows its
