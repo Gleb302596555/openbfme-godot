@@ -52,6 +52,9 @@ struct SkirmishFaction
 	bool playableSide = false;
 	bool isObserver = false;
 	std::uint32_t preferredColor = 0; // 0xRRGGBB
+	// PORT-98: PlayerTemplate LoadScreenMusic (field table RW 0xBF8428, template + 0x14C, name RW 0xBF7EA8): the track the loading screen plays for this
+	// faction; empty when the block has no LoadScreenMusic line
+	std::string loadScreenMusic;
 };
 
 // MultiplayerColor (Multiplayer.ini): the lobby colour list, in file order (the index is GameSlot::m_color).

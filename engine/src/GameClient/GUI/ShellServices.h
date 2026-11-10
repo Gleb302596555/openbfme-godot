@@ -101,6 +101,11 @@ public:
 	// TheAudio->removeAudioEvent / isCurrentlyPlaying
 	virtual void removeAudioEvent(std::uint32_t handle) = 0;
 	virtual bool isCurrentlyPlaying(std::uint32_t handle) = 0;
+	// PORT-98: the loading screen's music (RotWK AptLoadScreen::init RW 0x81CB08, 0x81D1B8 .. 0x81D2B1): the local player's PlayerTemplate
+	// LoadScreenMusic (+ 0x14C). TheAudio looks the event up (vslot 0x12C, RW 0x81D225); when it exists, the music that plays is stopped with a fade
+	// (vslot 0x8C(2, 1, 1), RW 0x81D242), this event is added (view type 2, RW 0x6DA95E; shouldFade off, RW 0x6DA774; vslot 0x64, RW 0x81D278) and the
+	// manager is updated once (vslot 0x28 = SubsystemInterface::update, RW 0x81D283). A name TheAudio does not know requests nothing.
+	virtual void playLoadScreenMusic(const std::string &eventName) = 0;
 	// lane OPTS-5: TheDisplay vslot 0x64 setGamma(gamma, 0, 1, false): the Options screen's brightness slider while it moves (RW 0x91F90D), its Reset
 	// (RW 0x91F5F3) and Cancel (RW 0x91ECB8, the saved GlobalData + 0xBCC) set the display's gamma at once, before anything is saved
 	virtual void setDisplayGamma(float gamma) = 0;
@@ -143,6 +148,9 @@ public:
 		sounding.erase(handle);
 	}
 	bool isCurrentlyPlaying(std::uint32_t handle) override { return sounding.count(handle) != 0; }
+	// PORT-98: the loading screen music the screens asked for, in order
+	std::vector<std::string> loadScreenMusic;
+	void playLoadScreenMusic(const std::string &eventName) override { loadScreenMusic.push_back(eventName); }
 	std::vector<float> gammas; // lane OPTS-5: every display gamma set
 	void setDisplayGamma(float gamma) override { gammas.push_back(gamma); }
 
