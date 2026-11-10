@@ -9,8 +9,12 @@
 #include "Common/SpecialPower.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/ActionManager.h"
+#include "GameLogic/AI/AIPathfind.h"
+#include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/GameMessage.h"
+#include "GameLogic/Locomotor.h"
+#include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/BloodthirstyUpdate.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
@@ -631,7 +635,7 @@ void UnitVoiceResponse::moveVoices(Object &obj, int msgType, const Info *info, C
 	const int whileAttacking = enterState ? 32 : VOICE_MOVE_WHILE_ATTACKING;
 	const int higherGround = enterState ? 28 : VOICE_MOVE_TO_HIGHER_GROUND;
 	// the planning mode branch (player + 0x770 == 2: MiscAudio PlanningModeOrderGiven), VoiceCrush (GameData + 0x8B9 and a crushable target), the busy gate
-	// (GameData + 0x8B0), the castle rule (RW 0x8DDBC4) and VoiceMoveOverWalls (RW 0x8DE628) are not ported: stop S-704
+	// (GameData + 0x8B0) and the castle rule (RW 0x8DDBC4) are not ported: stop S-704
 	if (!enterState && msgType == MSG_DO_SALVAGE)
 	{
 		if (fillName(c, obj, "VoiceSalvage"))
@@ -683,10 +687,59 @@ void UnitVoiceResponse::moveVoices(Object &obj, int msgType, const Info *info, C
 			fillRow(c, obj, whileAttacking);
 		}
 	}
+	// VoiceMoveOverWalls (RW 0x8DECBB .. 0x8DED2D -> RW 0x8DE628): after VoiceMoveWhileAttacking, before VoiceMove
+	if (!done(c) && hasPosition)
+	{
+		const int overWalls = enterState ? 29 : VOICE_MOVE_OVER_WALLS;
+		if ((objectVoice(obj, overWalls).any() || crowdVoice(c.crowdEntry, rowName(overWalls)).any()) && moveRequiresClimbingWalls(obj, info->position))
+		{
+			fillRow(c, obj, overWalls);
+		}
+	}
 	if (!done(c))
 	{
 		fillRow(c, obj, base);
 	}
+}
+
+bool UnitVoiceResponse::moveRequiresClimbingWalls(const Object &obj, const Coord3D &destPos) const
+{
+	// RW 0x8DE628 (docs/re/rotwk/RW_0x8DE628.md):
+	//   1. the candidate's current locomotor (RW 0x68B31D) must exist and set ScalesWalls (+ 0x150, RW 0x8DE654);
+	//   2. test the candidate's horde (RW 0x693A1A(1) -> getHordeObject(true), RW 0x8DE662) when present, else the candidate itself (RW 0x8DE674),
+	//      requiring a current locomotor and AI (RW 0x8DE67B, 0x8DE6A7);
+	//   3. Pathfinder::quickDoesPathExist(horde, horde->getPosition(), &destPos, nullptr) (RW 0x8DE69A -> 0x6F5BB0) must hold;
+	//   4. rebuild the horde's current locomotor set with m_scalesWalls forced false (RW 0x5E6027 -> 0x5E80B0) and test quickDoesPathExist again
+	//      (RW 0x8DE7FC); return true iff that non-scaling query fails (RW 0x8DE801 .. 0x8DE809).
+	const AIUpdateInterface *objAi = obj.getAIUpdateInterface();
+	const Locomotor *objLoco = objAi ? objAi->curLocomotor() : nullptr;
+	if (!objLoco || !objLoco->getTemplate().m_scalesWalls)
+	{
+		return false;
+	}
+	const Object *horde = obj.getHordeObject(true);
+	if (!horde)
+	{
+		horde = &obj;
+	}
+	const AIUpdateInterface *hordeAi = horde->getAIUpdateInterface();
+	if (!hordeAi || !hordeAi->curLocomotor())
+	{
+		return false;
+	}
+	AIWorld *world = m_logic.aiWorld();
+	if (!world || !world->mapReady())
+	{
+		return false;
+	}
+	Pathfinder &pf = world->pathfinder();
+	if (!pf.quickDoesPathExist(hordeAi->adapter(), horde->getPosition(), &destPos, nullptr))
+	{
+		return false;
+	}
+	PathfindLocomotorInfo noScale = hordeAi->locomotorInfo();
+	noScale.crusher = false; // RW 0x5E6027 / 0x5E80F9: PathfindLocomotorInfo::crusher carries ScalesWalls (+0x15 in LocomotorSet)
+	return !pf.quickDoesPathExist(hordeAi->adapter(), horde->getPosition(), &destPos, &noScale);
 }
 
 bool UnitVoiceResponse::movesIntoCamp(std::uint32_t mask, const Coord3D &from, const Coord3D &to) const
@@ -1294,7 +1347,7 @@ std::vector<std::string> UnitVoiceResponse::acceptanceStops()
 		"the planned action queue (0x46A), VoiceDesperateAttack / RapidFire / CaptureBuildingComplete / StartCharging / NoBuild (0x7DB .. 0x7DD, 0x7EA .. 0x7EB), "
 		"the Ring voices (0x7E4, 0x7E5)",
 		"[S-704] unit voice: rules of the move / attack / enter helpers not ported: the planning order mode (player + 0x770 == 2 -> MiscAudio PlanningModeOrderGiven), "
-		"VoiceCrush (GameData + 0x8B9, crushable target), the busy gate (GameData + 0x8B0), the castle rule (RW 0x8DDBC4), VoiceMoveOverWalls (RW 0x8DE628), the weapon's voice (RW 0x68B58C weapon "
+		"VoiceCrush (GameData + 0x8B9, crushable target), the busy gate (GameData + 0x8B0), the castle rule (RW 0x8DDBC4), the weapon's voice (RW 0x68B58C weapon "
 		"template + 0xD0 / + 0xD8), the charge voice's drawable gate (RW 0x671EE4: no drawable, no charge)",
 		"[S-705] unit voice: the candidate order is selection then member order (retail iterates a hash map keyed by Object pointers), a count tie between "
 		"two sounds goes to the lower-case name order (retail: the lower audio info POINTER, RW 0x8DE522's unsigned compare), and a hero's level is the "
