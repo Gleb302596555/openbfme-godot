@@ -1,6 +1,6 @@
 // OpenBFME. PORT-94 (issue #242) verdict: RotWK 2.01 parses SalvageCrateCollide's LevelUpRadius, ResourceChance
 // and BannerChance and no reachable code reads them. Full proof with addresses in docs/ennorath/port94-salvage-crate-rw.md
-// (stop S-7221). These tests pin the RW 2.01 behaviour of a picked-up crate:
+// (stop S-7234). These tests pin the RW 2.01 behaviour of a picked-up crate:
 //   * the roll order: exactly one real roll per crate (RW 0x8C136C pickOutcome, line 0x45 of SalvageCrateCollide.cpp);
 //     roll < LevelUpChance -> outcome 2, else outcome 4 (Upgrade set) or 3 (money). Never 0, 1 or negative;
 //   * outcome 2 levels the PICKING unit only (Object+0x26C -> gainExpForLevel(1, true, false), RW 0x79DA0A);

@@ -308,7 +308,7 @@ void DestroyDie::onDie(const DieModuleInterface::Event &event)
 // lane PORT-95 (issue #243): RW 0x889FA7 KeepObjectDie::onDie, every branch:
 //   1. RW 0x889FAB .. 0x889FD8: the object's controlling player (RW 0x68B678) when there is one whose Player::isPlayerActive (RW 0x6AAC4B: + 0x754) is not 0 ->
 //      TheGameLogic's destroyObject (RW 0x62BBAB) and the onDie ends: a player's object is not kept (ThePlayerList + 0x4F8 the port's API, or that player takes
-//      the battlefield's objects when it leaves: INFERENCE, S-3xxx; no ported game destroys an object this way yet);
+//      the battlefield's objects when it leaves: INFERENCE, S-7233; no ported game destroys an object this way yet);
 //   2. RW 0x889FDA .. 0x889FE8: setSpecialModelConditionState (RW 0x68B581) with model condition 0x14F (COLLAPSING, TheModelConditionNames[335]) and
 //      data + 0x38 (CollapsingTime) frames: the building shows its collapse;
 //   3. RW 0x889FED .. 0x889FFB: isDieApplicable (RW 0x85FED5, the DieMux rows RW 0xC76BD8): a death the mux refuses ends here;

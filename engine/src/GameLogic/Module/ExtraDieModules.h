@@ -12,7 +12,7 @@
 //     unknown name is skipped): a PLAYER upgrade (+4 == 0) must be complete for the controlling player (RW 0x68B678 -> 0x6AC2AF), an OBJECT upgrade must be on
 //     the object (RW 0x691421), else nothing happens; then the list (when set) is created with the object as primary and the killer
 //     (TheGameLogic->findObjectByID(info source), RW 0x449681) as secondary (RW 0x5F0126: a retired list follows its replacement, then every nugget's slot 2).
-//     DebrisPortionOfSelf is not read by onDie. PORT-104 (issue #264, stop S-7223): it is read by nobody — DONOR BFME2 1.06
+//     DebrisPortionOfSelf is not read by onDie. PORT-104 (issue #264, stop S-7236): it is read by nobody — DONOR BFME2 1.06
 //     (byte-exact decomp) has it only in the field table 0xC4A928, the member at +0x3C and the constructor clear 0x485D88;
 //     its onDie 0x485C86 reads +0x38/+0x40 only, like RW 0x888F04. The debris of a destroyed trebuchet / troll sling is
 //     its CreationList's work alone; see docs/ennorath/PORT104_RW_ANALYSIS.md.

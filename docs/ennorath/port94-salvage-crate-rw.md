@@ -9,7 +9,7 @@ across, every step re-confirmed in RW.
 
 Verdict: **nothing to port — none of the three fields has a reachable reader in RotWK 2.01.**
 The port already behaves exactly like RW 2.01 (it parses the fields and reads none of them,
-`MoneyEventModules.cpp:96`); this lane adds the proof, the stop row S-7221 and the
+`MoneyEventModules.cpp:96`); this lane adds the proof, the stop row S-7234 and the
 `PORT-94*` tests. No engine behaviour changes.
 
 ## 1. The class chain (who creates it, which vtable, which slots)
@@ -240,7 +240,7 @@ What is not established / not claimed:
 
 ## 7. Stop
 
-- S-7221 (docs/STOPS.md) — the three fields are parsed and never read; no code change. Options for
+- S-7234 (docs/STOPS.md) — the three fields are parsed and never read; no code change. Options for
   the owner: close as unused (as Port 42 / 56 / 57 / 81), or say which RotWK behaviour the mod
   wants (it already gets it: the picker levels, otherwise the player is paid).
 - The audit's batch-4 row 19 ("reads-logic" for LevelUpRadius) should be re-read in context;
