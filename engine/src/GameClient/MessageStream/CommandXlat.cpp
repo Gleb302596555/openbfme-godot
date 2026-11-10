@@ -516,10 +516,21 @@ int CommandTranslator::evaluateContextCommand(Object *obj, const Coord3D *pos, E
 			}
 			else if (type == EvaluateType::DoHint)
 			{
-				// Retail Mouse.ini supplies the animated OneRing asset for this action.
-				hint(dynamic_cast<CitadelSlaughterHordeContain *>(obj->getContain()) &&
-					enterer->testStatus((unsigned)CombatNames::status("HOLDING_THE_RING"))
-					? MouseCursorName::DeliverRing : MouseCursorName::EnterFriendly);
+				// RW 0x81EEEC -> 0x82CEFB uses the entire selection to choose the
+				// enter hint; RW 0x6A4099 dispatches B9/BA/CB/CC to the cursor
+				// indices pushed at 0x6A4031/35/55/59, respectively.
+				std::vector<const Object *> selection;
+				for (ObjectID id : m_ctx.ui.selected())
+				{
+					if (const Object *selected = m_ctx.logic.findObjectByID(id)) selection.push_back(selected);
+				}
+				switch (ActionManager::getEnterMessage(*obj, selection))
+				{
+					case ActionManager::ENTER_MESSAGE_CONTEST: hint(MouseCursorName::EnterAggressive); break;
+					case ActionManager::ENTER_MESSAGE_SLAUGHTER: hint(MouseCursorName::SendToDeath); break;
+					case ActionManager::ENTER_MESSAGE_DELIVER_RING: hint(MouseCursorName::DeliverRing); break;
+					case ActionManager::ENTER_MESSAGE_ENTER: hint(MouseCursorName::EnterFriendly); break;
+				}
 			}
 			return msgType;
 		}
