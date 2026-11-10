@@ -1612,7 +1612,11 @@ void SpecialAbilityUpdate::grabTrigger(int type)
 			if (const std::string *fx = body->getGrabFXName())
 			{
 				FXEvent e = FXEventLog::objectEvent(FXEvent::POSITION_FX, "GrabFX", logic.getFrame(), *fx, *obj);
-				e.position = pos; // RW 0x8542BC .. 0x854346; secondary position and speed are not represented by POSITION_FX
+				e.position = pos; // RW 0x8542BC .. 0x854346
+				e.secondaryPosition = pos; // RW 0x85430B: same position as the fifth argument
+				e.hasSecondaryPosition = true;
+				e.weaponSpeed = 100.0f; // RW 0x8542DC: constant 0xBD88D8
+				e.drawableMatrix = true; // RW 0x85432D -> 0x6765B9: the grabber drawable's transform
 				logic.fxEvents().emit(e);
 			}
 			return;

@@ -133,6 +133,12 @@ TEST_CASE("PORT-78 vendor creates contained object, structural damage and rotate
  const auto &events = f.logic->fxEvents().frameEvents();
  REQUIRE(events.size() == 1);
  CHECK(events[0].kind == FXEvent::POSITION_FX);
+ CHECK(events[0].hasSecondaryPosition); // RW 0x85430B
+ CHECK(events[0].secondaryPosition.x == events[0].position.x);
+ CHECK(events[0].secondaryPosition.y == events[0].position.y);
+ CHECK(events[0].secondaryPosition.z == events[0].position.z);
+ CHECK(events[0].weaponSpeed == 100.0f); // RW 0x8542DC, 0xBD88D8
+ CHECK(events[0].drawableMatrix); // RW 0x85432D -> 0x6765B9
  REQUIRE(events[0].fxList);
  CHECK(*events[0].fxList == "FX_Port78");
  // RW 0x85424C..0x854313: actor position + rotate((7,3), pi/2) = (97,207), not vendor position.
