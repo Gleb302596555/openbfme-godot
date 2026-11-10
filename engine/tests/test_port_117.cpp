@@ -2,7 +2,8 @@
 //
 // What RotWK 2.01 does (addresses read with tools/mod/rw.py, see docs/ennorath/PORT117_RW_ANALYSIS.md):
 //   * the summon's trigger (RW 0x8B2584) replaces the summoner by its MountedTemplate (RW 0x8B228C), which the build assistant builds at once
-//     (RW 0x8B2302: slot 0x38 of the vtable RW 0xC307D8 = RW 0x797796, buildObjectNow);
+//     (RW 0x8B2302: slot 0x38 of the vtable RW 0xC307D8 = RW 0x797796, buildObjectNow); ToggleMountedSpecialAbilityUpdate's replacement (RW 0x8B140D)
+//     calls the same slot (RW 0x8B1483);
 //   * buildObjectNow gives the new object its producer (RW 0x7978B9 -> Object::setProducer RW 0x68B6A1) but completes a KindOf HORDE object WITHOUT
 //     it: RW 0x7979D4 .. 0x7979E8 setProducer(NULL) when the object's template has KindOf bit 109 (template + 0x114 & 0x2000), RW 0x7979EF
 //     Object::onBuildComplete (RW 0x68D252), RW 0x7979F4 .. 0x797A02 setProducer(builder) again;
@@ -58,8 +59,9 @@ std::string summonerIni(const char *name, const char *mounted)
 		"End\n";
 }
 
-// an object with a horde contain (the horde2 fixtures' shape) of `kindOf`, its contain's lines given by the caller; `contain` is the module's class name
-std::string hordeIni(const char *name, const char *kindOf, const char *containLines, const char *contain = "HordeContain")
+// an object with a horde contain (the horde2 fixtures' shape) of `kindOf`, its contain's lines given by the caller; `contain` is the module's class name,
+// `moreModules` the object's other modules
+std::string hordeIni(const char *name, const char *kindOf, const char *containLines, const char *contain = "HordeContain", const std::string &moreModules = std::string())
 {
 	return std::string("Object ") + name + "\n"
 		"  KindOf = " + kindOf + "\n"
@@ -68,9 +70,19 @@ std::string hordeIni(const char *name, const char *kindOf, const char *containLi
 		"  Geometry = BOX\n  GeometryMajorRadius = 30\n  GeometryMinorRadius = 45\n  GeometryHeight = 20\n"
 		"  Body = ImmortalBody ModuleTag_Body\n    MaxHealth = 1\n  End\n"
 		"  Behavior = HordeAIUpdate ModuleTag_AI\n  End\n"
-		"  Behavior = " + contain + " ModuleTag_Contain\n" + containLines + "  End\n"
+		"  Behavior = " + contain + " ModuleTag_Contain\n" + containLines + "  End\n" + moreModules +
 		"  LocomotorSet\n    Locomotor = HordeLoco\n    Condition = SET_NORMAL\n    Speed = 50\n  End\n"
 		"End\n";
+}
+
+// the modules of an object that replaces itself with `mounted` through ToggleMountedSpecialAbilityUpdate (the timings of HERO-2's synthetic module,
+// test_hero2_core.cpp: no unpack and no pack, a preparation of one millisecond)
+std::string toggleModules(const char *mounted)
+{
+	return std::string("  Behavior = SpecialPowerModule ModuleTag_ToggleStarter\n    SpecialPowerTemplate = SpecialAbilityPort117Toggle\n"
+		"    UpdateModuleStartsAttack = Yes\n    StartsPaused = No\n  End\n"
+		"  Behavior = ToggleMountedSpecialAbilityUpdate ModuleTag_Toggle\n    SpecialPowerTemplate = SpecialAbilityPort117Toggle\n"
+		"    UnpackTime = 0\n    PreparationTime = 1\n    PackTime = 0\n    MountedTemplate = ") + mounted + "\n    IgnoreFacingCheck = Yes\n  End\n";
 }
 
 // five soldiers in two ranks and no banner carrier: RotWK's carrier spawn (RW 0x870204) returns at once on an empty BannerCarriersAllowed (RW 0x870233)
@@ -123,6 +135,7 @@ const int kIdleSpawnFrames = 10; // IdleSpawnRate = 2000 above
 std::string port117Objects()
 {
 	return std::string("SpecialPower SpecialAbilityPort117Summon\n  Enum = SPECIAL_TOGGLE_MOUNTED\n  ReloadTime = 1000\nEnd\n") +
+		"SpecialPower SpecialAbilityPort117Toggle\n  Enum = SPECIAL_TOGGLE_MOUNTED\n  ReloadTime = 1000\nEnd\n" +
 		kBannerman +
 		hordeIni("Port117Horde", "HORDE MELEE_HORDE LARGE_RECTANGLE_PATHFIND SELECTABLE CAN_ATTACK", kFiveSoldiers) +
 		// the same contain on an object that is not KindOf HORDE: RotWK's test is the KindOf bit (RW 0x7979DC), not the module
@@ -133,6 +146,9 @@ std::string port117Objects()
 		hordeIni("Port117RiderHorde", "HORDE MELEE_HORDE LARGE_RECTANGLE_PATHFIND SELECTABLE CAN_ATTACK", kFiveSoldiers, "HorseHordeContain") +
 		hordeIni("Port117BannerHorde", "HORDE MELEE_HORDE LARGE_RECTANGLE_PATHFIND SELECTABLE CAN_ATTACK", kThreeSoldiersAndBanner) +
 		hordeIni("Port117BannerAtOnceHorde", "HORDE MELEE_HORDE LARGE_RECTANGLE_PATHFIND SELECTABLE CAN_ATTACK", kThreeSoldiersAndBannerAtOnce) +
+		// a horde that turns into another horde: a horde whose ToggleMountedSpecialAbilityUpdate names a KindOf HORDE MountedTemplate (hordes of the mod
+		// have this shape, docs/ennorath/PORT117_RW_ANALYSIS.md section 1)
+		hordeIni("Port117TogglingHorde", "HORDE MELEE_HORDE LARGE_RECTANGLE_PATHFIND SELECTABLE CAN_ATTACK", kFiveSoldiers, "HordeContain", toggleModules("Port117Horde")) +
 		summonerIni("Port117Summoner", "Port117Horde") +
 		summonerIni("Port117BannerSummoner", "Port117BannerHorde");
 }
@@ -197,14 +213,16 @@ struct Port117World : combattest::CombatWorld
 		}
 		return out;
 	}
-	// Starts the summon as SUMMON-1's tests do (the module's initiate, RW 0x8B1FDA) and runs the logic one frame at a time until an object of `mounted`
-	// that was not there before exists: the caller looks at it in the frame it appeared. `took` is how many frames that took; null after 40.
-	Object *summon(Object &summoner, const char *mounted, int &took)
+	// Starts the replacement of `owner` by its module of class Module (the module's initiate, RW 0x8B1FDA, as SUMMON-1's and HERO-2's tests start it) and
+	// runs the logic one frame at a time until an object of `mounted` that was not there before exists: the caller looks at it in the frame it
+	// appeared. `took` is how many frames that took; null after 40.
+	template <class Module>
+	Object *replaceThrough(Object &owner, const char *mounted, int &took)
 	{
-		SummonReplacementSpecialAbilityUpdate *u = nullptr;
-		for (const std::unique_ptr<BehaviorModule> &m : summoner.modules())
+		Module *u = nullptr;
+		for (const std::unique_ptr<BehaviorModule> &m : owner.modules())
 		{
-			if (auto *x = dynamic_cast<SummonReplacementSpecialAbilityUpdate *>(m.get()))
+			if (auto *x = dynamic_cast<Module *>(m.get()))
 			{
 				u = x;
 			}
@@ -225,6 +243,10 @@ struct Port117World : combattest::CombatWorld
 			}
 		}
 		return nullptr;
+	}
+	Object *summon(Object &summoner, const char *mounted, int &took)
+	{
+		return replaceThrough<SummonReplacementSpecialAbilityUpdate>(summoner, mounted, took);
 	}
 	// rank 2 for the horde: the fixture has no ExperienceLevel data, so the rank is set as the horde2 tests set it (Horde2TestUtil.h, RW 0x79D72A)
 	void rankTwo(Object *horde)
@@ -347,6 +369,36 @@ TEST_CASE("PORT-117 build: buildObjectNow completes a KindOf HORDE object withou
 	Object *soldier = Construction::buildObjectNow(*f.logic, builder, f.tmpl("Swordsman"), Coord3D{ 800.0f, 800.0f, 0.0f }, 0.0f, *owner);
 	REQUIRE(soldier);
 	CHECK(soldier->getProducerID() == builder->getID());   // RW 0x7978B9: any other object keeps the builder as its producer throughout
+}
+
+// The other caller that brings a horde in the mod's data: ToggleMountedSpecialAbilityUpdate's replacement (RW 0x8B140D) builds its MountedTemplate through the
+// same slot of the build assistant (RW 0x8B146C .. 0x8B1483: slot 0x38 of the vtable of RW 0xDE8200 = RW 0x797796). A horde that turns into another horde
+// this way has the new horde whole when the call returns (RW 0x7979E8 -> RW 0x86A1FA) and is its producer (RW 0x797A02). Without the fix the new horde came
+// empty, and one without BannerCarriersAllowed stayed empty: no carrier is made for it (RW 0x870233). What becomes of the old horde and its soldiers is not
+// this test's subject (RotWK destroys the old object after its packing, RW 0x8B1EE0; what its HordeContain then does was not read): it is printed only.
+TEST_CASE("PORT-117 toggle: the horde ToggleMountedSpecialAbilityUpdate's replacement builds stands whole too (RW 0x8B1483 -> RW 0x797796)")
+{
+	Port117World f;
+	Object *old = f.unit("Port117TogglingHorde", 'A', 300, 300);
+	REQUIRE(old);
+	f.frames(2);
+	REQUIRE(f.soldiers(old).size() == 5u); // the test's own horde: completed with no producer, so it has its payload (RW 0x871BBB)
+	const ObjectID oldId = old->getID();
+	const size_t soldiersBefore = f.allOf("Swordsman").size();
+	int frames = 0;
+	Object *horde = f.replaceThrough<ToggleMountedSpecialAbilityUpdate>(*old, "Port117Horde", frames);
+	REQUIRE(horde);
+	MESSAGE("PORT-117: the toggled horde appeared " << frames << " frame(s) after the initiate");
+	const ObjectID hordeId = horde->getID();
+	CHECK(f.soldiers(horde).size() == 5u);  // RW 0x7979E8: no producer while RW 0x8718ED ran
+	CHECK(horde->getProducerID() == oldId); // RW 0x797A02
+	// nothing arrives later: this horde has no BannerCarriersAllowed (RW 0x870233)
+	f.frames(30);
+	REQUIRE(f.byId(hordeId) == horde);
+	CHECK(f.soldiers(horde).size() == 5u);
+	const std::string oldHorde = f.byId(oldId) ? "is still in the world" : "is gone";
+	MESSAGE("PORT-117: 30 frames after the toggle the old horde " << oldHorde << "; soldiers in the world: " << f.allOf("Swordsman").size() << " ("
+	        << soldiersBefore << " before the toggle)");
 }
 
 // The neighbour the fix must not move: HordeContain's own guard. A horde that has a producer when it is completed (the order a factory's production
