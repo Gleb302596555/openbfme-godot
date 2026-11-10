@@ -38,12 +38,24 @@ GiveUpgradeUpdate::GiveUpgradeUpdate(Thing *thing, const Data *data) : SpecialAb
 const char *GiveUpgradeUpdate::stopLine() { return "[S-6011] GiveUpgradeUpdate: automatic search scheduling is unverified; contained-target providers, paired reservations and the deselect/flash of the recipient are not ported (RW 0x89FE64 / 0x8A01B2; BFME2 Rva 0x49C6E1 / 0x49CA2F); SpawnOutFX plays at the porter (RW 0x89FE01 / 0x89FE1C, FX call RW 0x494615; BFME2 Rva 0x49C67E)"; }
 const UpgradeTemplate *GiveUpgradeUpdate::upgrade() const
 {
-	if (!TheUpgradeCenter) return nullptr;
-	const UpgradeMaskType &mask = getObject()->getUpgradeMask();
-	for (unsigned bit = 0; bit < UpgradeMaskType::BITS; ++bit)
-		if (mask.test(bit)) if (const UpgradeTemplate *u = TheUpgradeCenter->findUpgradeByMaskBit((int)bit)) return u;
-	return nullptr;
+	return TheUpgradeCenter ? TheUpgradeCenter->findUpgrade(getObject()->getUpgradeMask()) : nullptr;
 }
+bool GiveUpgradeUpdate::canGiveUpgradeTo(Object &target) const
+{
+    // RW 0x89FE64..0x89FEB4, confirmed by owner in issue #269.
+    const UpgradeTemplate *u = upgrade();
+    if (!u) return false; // RW 0x89FE80
+    if (target.getContainedBy()) // RW 0x89FE86: Object +0x27C
+    {
+        // RW 0x89FD77: Object +0x78 is producer ID, then producer's contain
+        // slot 0x7C -> provider slot 0xAC(upgrade). That provider query is not
+        // exposed by the port's HordeContainInterface; do not substitute a member test.
+        getObject()->logic().noteStop("[S-6011] PORT-109 contained upgrade target: RW 0x89FD77 / 0x89FEA0 producer contain slot 0x7C and provider slot 0xAC are not ported");
+        return false;
+    }
+    return target.affectedByUpgrade(u); // RW 0x89FEA6 -> 0x694914
+}
+
 void GiveUpgradeUpdate::onObjectCreated()
 {
 	if (m_giveData->m_deliver) { getObject()->logic().noteStop(stopLine()); m_searching = true; setWakeFrame(getObject(), UPDATE_SLEEP(1)); }

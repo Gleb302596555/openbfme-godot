@@ -108,3 +108,16 @@ in RW 0x69D27E. With those, implement one shared predicate and reuse it
 in the existing ActionManager and context paths; no HUD-only approximation.
 No code or tests changed, and PORT-109* has not run. The three requested
 cursor tests plus priority/selection suppression remain to be implemented.
+
+## Predicate implementation in progress
+
+The owner's second confirmation in issue #269 resolves the previous shared
+predicate proof gap. RW 0x82D780 checks nulls, ALLIES, target AI (+0x260),
+not IMMOBILE, the named SpecialAbilityGiveUpgrade template, then source
+update type 0x33. RW 0x89FE64 uses mask lookup RW 0x66F468; no upgrade
+refuses, contained targets use producer (+0x78) contain slot 0x7C and
+provider slot 0xAC, all other targets call affectedByUpgrade RW 0x694914.
+Implemented the shared predicate and head-first template lookup. The owner
+explicitly allows a contained-target-only stop; that branch reports S-6011.
+The cursor integration and PORT-109 tests are still pending. No passing
+build or test claim yet. These paragraphs supersede the prior blocker.

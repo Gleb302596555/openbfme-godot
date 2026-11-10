@@ -209,6 +209,7 @@ public:
 	void resolveTemplates(const ThingFactory &things);
 
 	const UpgradeTemplate *findUpgrade(const std::string &name) const; ///< RW 0x66F5E5, case sensitive; null when unknown
+	const UpgradeTemplate *findUpgrade(const UpgradeMaskType &mask) const; // RW 0x66F468: first matching template in head-first list order
 	const UpgradeTemplate *findUpgradeByMaskBit(int bit) const;       ///< RW 0x66F218
 	const UpgradeTemplate *findVeterancyUpgrade(int level) const;     ///< "Upgrade_Veterancy_" + REGULAR / VETERAN / ELITE / HEROIC
 	size_t size() const { return m_byBit.size(); }
@@ -228,6 +229,7 @@ private:
 	std::vector<std::string> m_unknownSubUpgrades; // lane MODS-2
 	UpgradeTemplate *newUpgrade(const std::string &name, bool assignBit); // RW 0x66FC27
 	std::map<std::string, std::unique_ptr<UpgradeTemplate>> m_byName;
+	std::vector<UpgradeTemplate *> m_listOrder; // RW 0x66F248: newest template at the head, including developer reload
 	std::vector<UpgradeTemplate *> m_byBit;
 	std::vector<std::unique_ptr<UpgradeTemplate>> m_retired; ///< reloaded templates (RW frees them; kept so stale pointers stay valid)
 	int m_nextBit = 0;                                      ///< RW + 0x10

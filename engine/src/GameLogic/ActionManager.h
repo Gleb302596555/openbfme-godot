@@ -72,6 +72,8 @@ bool canDoSpecialPowerAtLocation(Object &obj, const Coord3D &loc, const SpecialP
 // RW 0x82D5DA(obj, power, 0, options, 0)
 bool canDoSpecialPower(Object &obj, const SpecialPowerTemplate *power);
 // RW 0x82D925 (see above); `unported` (when given) is set when the answer no came from a per-type test this file does not port (S-7140)
+// RW 0x82D780: shared action-0x12 / power-type-0x33 target predicate (PORT-109).
+bool canGiveUpgrade(Object *source, Object *target);
 bool canDoSpecialPowerAtObject(Object &obj, Object *target, CommandSourceType source, const SpecialPowerTemplate *power, unsigned options,
                                bool checkSourceRequirements, bool *unported = nullptr);
 
