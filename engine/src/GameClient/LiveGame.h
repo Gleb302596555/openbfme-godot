@@ -111,7 +111,11 @@ public:
 	{
 		std::string heroStatsProfile; // client profile only, supplied by the hero manager
 		std::function<void(const std::string &)> heroStatsMessage;
-		std::string mapName;               ///< "map mp evendim": the map's directory / file stem
+		// PORT-49: the device layer's camera eye and EffectsLOD for DrawServices (see Drawable.h); load() installs them as soon as it makes
+		// the DrawableManager, before the map's drawables exist (the manager does not exist before load, so the caller cannot set them itself)
+		std::function<bool(Coord3D &)> drawCameraPosition;
+		std::function<int()> drawEffectsLOD;
+		std::string mapName;              ///< "map mp evendim": the map's directory / file stem
 		SkirmishSetup slots;               ///< lobby slots taken over by the map's players (empty: the map's own players)
 		std::uint32_t seed = 1;            ///< the logic RNG seed
 		std::uint32_t defaultStartingCash = 0;    ///< a faction without StartMoney starts with this; 0 = the game's (GameData DefaultStartingCash)

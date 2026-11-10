@@ -512,6 +512,8 @@ bool LiveGame::load(const Options &options, std::string *error)
 	CheatMode::registerHandlers(*m_dispatch);       // CHEAT-1: MSG_OPENBFME_CHEAT (refused unless the game setup has Cheat Mode)
 	SpecialPowerModules::installScienceHooks(*m_logic);
 	m_drawables = std::make_unique<DrawableManager>(m_assets, *m_logic);
+	m_drawables->services().cameraPosition = options.drawCameraPosition; // PORT-49: before the map's drawables are made
+	m_drawables->services().effectsLOD = options.drawEffectsLOD;
 	// SMOOTH-1: the logic talks to its client through ordered events (ClientEvents.h); the render side applies them (DrawableManager::applyEvents)
 	m_recorder = std::make_unique<ClientEventRecorder>(*m_logic);
 	m_logic->setClientHooks(m_recorder.get());
