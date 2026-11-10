@@ -45,4 +45,6 @@ set(OPENBFME_COMBAT_TESTS
     tests/test_proj_flight.cpp
     tests/test_proj_hash.cpp
     tests/test_hud_proj_retail.cpp
-    tests/test_fire_logic.cpp)
+    tests/test_fire_logic.cpp
+    tests/test_local_30.cpp # Local 30, issue #246: last damage record replacement
+)
