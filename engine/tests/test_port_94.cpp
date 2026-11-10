@@ -184,7 +184,8 @@ const char kSalvageObjects[] =
 	"    AllowAIPickup = Yes\n"
 	"  End\n"
 	"End\n"
-	// LevelUpChance 0% with an Upgrade set: outcome 4 (never the LevelUpRadius branch of RW 0x8C168D)
+	// LevelUpChance 0% with a PLAYER upgrade set: outcome 4, never the LevelUpRadius branch (RW 0x136C returns only 2, 3 or 4);
+	// Upgrade_X is the player upgrade of the logic fixture (LogicTestUtil), so the branch grants it
 	"Object SalvChestUpgrade\n"
 	"  KindOf = CRATE\n"
 	"  Geometry = CYLINDER\n"
@@ -197,7 +198,7 @@ const char kSalvageObjects[] =
 	"    LevelUpChance = 0%\n"
 	"    LevelUpRadius = 100.0\n"
 	"    ResourceChance = 0%\n"
-	"    Upgrade = Upgrade_ObjectLevel2\n"
+	"    Upgrade = Upgrade_X\n"
 	"    MinResource = 250\n"
 	"    MaxResource = 250\n"
 	"    AllowAIPickup = Yes\n"
@@ -326,7 +327,7 @@ TEST_CASE("PORT-94: the outcome codes: LevelUpChance = 100% -> 2 (no money), Lev
 		CHECK(module->lastMoney() == 250);
 		CHECK(w.cash('A') == before + 250);
 	}
-	SUBCASE("LevelUpChance = 0% with an Upgrade set: outcome 4, never the LevelUpRadius branch (RW 0x136C returns only 2, 3 or 4)")
+	SUBCASE("LevelUpChance = 0% with a PLAYER upgrade set: outcome 4, never the LevelUpRadius branch (RW 0x136C returns only 2, 3 or 4)")
 	{
 		CombatWorld w(kSalvageObjects);
 		Object *chest = w.unit("SalvChestUpgrade", 'A', 300, 300);
@@ -334,10 +335,12 @@ TEST_CASE("PORT-94: the outcome codes: LevelUpChance = 100% -> 2 (no money), Lev
 		const int before = w.cash('A');
 		auto *module = moduleOf<SalvageCrateCollide>(chest);
 		REQUIRE(module != nullptr);
+		REQUIRE_FALSE(w.playerOf('A')->hasUpgradeComplete("Upgrade_X"));
 		CHECK(module->executeCrateBehavior(*picker) == true);
-		CHECK(module->lastOutcome() == SalvageCrateCollide::OUTCOME_UPGRADE); // RW returns 4 (the upgrade is unknown here, so nothing is granted)
+		CHECK(module->lastOutcome() == SalvageCrateCollide::OUTCOME_UPGRADE); // RW returns 4 (the player upgrade is granted)
 		CHECK(module->lastMoney() == 0);
 		CHECK(w.cash('A') == before);
+		CHECK(w.playerOf('A')->hasUpgradeComplete("Upgrade_X"));
 	}
 }
 
