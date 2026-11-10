@@ -29,6 +29,8 @@
 
 #include "doctest.h"
 #include "ObjectTestUtil.h"
+#include "W3DDrawTestUtil.h"
+#include "W3dSynth.h"
 
 #include "Common/GameEdition.h"
 #include "Common/Thing/ModuleFactory.h"
@@ -38,11 +40,19 @@
 #include "GameClient/Drawable.h"
 #include "GameClient/FXPlayback.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawModules.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawServices.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLightDraw.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLuaDrawScriptHost.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.h"
+#include "Libraries/WWVegas/WW3D2/assetmgr.h"
 
 #include <cmath>
 #include <memory>
 #include <string>
+#include <vector>
+
+using namespace drawtest;
+using namespace w3dsynth;
 
 namespace
 {
@@ -72,6 +82,73 @@ const char *const kAmbientOnlyObjectIni =
 	"    Intensity = 1.5\n"
 	"  End\n"
 	"End\n";
+
+// A fixed scripted random: the middle of every range (the synthetic torch bearer has no random draw of its own).
+class FixedRandom : public W3DDrawRandom
+{
+public:
+	int value(int lo, int hi) override { return lo == hi ? lo : (lo + hi) / 2; }
+	float real(float lo, float hi) override { return (lo + hi) * 0.5f; }
+};
+
+// A synthetic soldier whose skeleton carries a torch bone and whose walk animation moves that bone: the drawable-side
+// bone query (RW 0x672B5B) must answer from the animated pose, not from the pristine (base) one.
+struct SyntheticAnimatedTorchBearer
+{
+	MemoryFileSource fs;
+	std::unique_ptr<WW3DAssetManager> assets;
+	std::unique_ptr<WW3DDrawAssets> drawAssets;
+	Harness harness;
+	FixedRandom random;
+	std::unique_ptr<W3DScriptedModelDraw> draw;
+
+	SyntheticAnimatedTorchBearer()
+	{
+		// Skeleton: ROOTTRANSFORM (0) -> HIP (1, base (0,0,1)) -> TORCHBONE (2, base (0,2,0))
+		fs.Add("art\\w3d\\tb\\tbunit_skl.w3d",
+			hierarchyChunk("TBUNIT_SKL", { pivot("ROOTTRANSFORM", 0xFFFFFFFFu, 0, 0, 0), pivot("HIP", 0, 0, 0, 1), pivot("TORCHBONE", 1, 0, 2, 0) }));
+		std::vector<std::uint8_t> bytes;
+		SynthMesh body;
+		body.Vertices = { { 0, 0, 0 }, { 1, 0, 0 }, { 1, 1, 0 }, { 0, 1, 0 } };
+		body.Triangles = { 0, 1, 2, 0, 2, 3 };
+		body.Container = "TBUNIT_SKN";
+		body.Name = "BODY";
+		append(bytes, meshChunk(body));
+		append(bytes, hlodChunk("TBUNIT_SKN", "TBUNIT_SKL", { { "TBUNIT_SKN.BODY", 1 } }));
+		fs.Add("art\\w3d\\tb\\tbunit_skn.w3d", bytes);
+
+		// TBUNIT_WALK: 11 frames, 30 fps. TORCHBONE (pivot 2) moves along Z: frame 0 -> 0.0f, frame 5 -> 10.0f
+		std::vector<float> zVals(11, 0.0f);
+		for (int f = 0; f < 11; ++f)
+		{
+			zVals[(size_t)f] = (float)f * 2.0f;
+		}
+		std::vector<SynthChannel> channels;
+		channels.push_back(SynthChannel{ ANIM_CHANNEL_Z, 2, 0, 1, zVals });
+		std::vector<std::uint8_t> anim = rawAnimChunk("TBUNIT_WALK", "TBUNIT_SKL", 11, 30, channels);
+		fs.Add("art\\w3d\\tb\\tbunit_walk.w3d", anim);
+
+		assets.reset(new WW3DAssetManager(fs));
+		drawAssets.reset(new WW3DDrawAssets(*assets));
+
+		std::string ini =
+			"DefaultModelConditionState\n  Model = TBUNIT_SKN\n  Skeleton = TBUNIT_SKL\nEnd\n"
+			"IdleAnimationState\n"
+			"  StateName = STATE_Idle\n"
+			"  Animation = WALK\n"
+			"    AnimationName = TBUNIT_WALK\n"
+			"    AnimationMode = LOOP\n"
+			"  End\n"
+			"End\n"
+			"End\n";
+		W3DModelDrawModuleData *data = harness.parse(ini);
+		REQUIRE(data != nullptr);
+		W3DScriptedModelDraw::Options o;
+		o.buildBones = false;
+		draw.reset(new W3DScriptedModelDraw(*data, *drawAssets, random, nullptr, o));
+		REQUIRE(draw->errors().empty());
+	}
+};
 } // namespace
 
 TEST_CASE("LOCAL-28: W3DLightDrawModuleData field defaults and parsing (Radius, Ambient, Diffuse, AttachToBoneInAnotherModule)")
@@ -159,6 +236,35 @@ TEST_CASE("LOCAL-28: persistent dynamic lights in LightPulsePool (RW 0x004CF121 
 	CHECK(handle1 == handle0); // slot 0 reused
 	CHECK(pool.lights()[0].enabled);
 	CHECK(pool.lights()[0].range() == 50.0f);
+}
+
+TEST_CASE("LOCAL-28: slot isolation prevents aliasing between persistent lights and transient pulses")
+{
+	LightPulsePool pool;
+	int persistentHandle = pool.addPersistent(Coord3D{ 10.0f, 20.0f, 30.0f }, RGBColor{ 1.0f, 0.5f, 0.2f }, 40.0f);
+	REQUIRE(persistentHandle == 0);
+	CHECK(pool.lights()[0].enabled);
+	CHECK(pool.lights()[0].isPersistent);
+
+	// Disable persistent light: enabled becomes false, but isPersistent remains true
+	pool.updatePersistent(persistentHandle, Coord3D{ 10.0f, 20.0f, 30.0f }, RGBColor{ 1.0f, 0.5f, 0.2f }, 40.0f, false);
+	CHECK_FALSE(pool.lights()[0].enabled);
+	CHECK(pool.lights()[0].isPersistent);
+
+	// Add transient FX pulse: must NOT reuse slot 0 because isPersistent == true
+	REQUIRE(pool.add(Coord3D{ 50.0f, 60.0f, 70.0f }, RGBColor{ 0.1f, 0.2f, 0.9f }, 30.0f, 2, 4));
+	REQUIRE(pool.lights().size() == 2u);
+	CHECK(pool.lights()[1].enabled);
+	CHECK_FALSE(pool.lights()[1].isPersistent);
+	CHECK(pool.lights()[1].position.x == 50.0f);
+
+	// Re-enable persistent light: slot 1 (transient pulse) is untouched
+	pool.updatePersistent(persistentHandle, Coord3D{ 15.0f, 25.0f, 35.0f }, RGBColor{ 1.0f, 0.5f, 0.2f }, 40.0f, true);
+	CHECK(pool.lights()[0].enabled);
+	CHECK(pool.lights()[0].position.x == 15.0f);
+	CHECK(pool.lights()[1].enabled);
+	CHECK(pool.lights()[1].position.x == 50.0f);
+	CHECK(pool.lights()[1].color.blue == 0.9f);
 }
 
 TEST_CASE("LOCAL-28: W3DLightDraw registers, flickers, and updates dynamic light pool")
@@ -253,6 +359,57 @@ TEST_CASE("LOCAL-28: Ambient is kept apart from Diffuse, no fallback for a black
 	CHECK(pool.lights()[0].colorNow().red == 0.0f);
 	CHECK(pool.lights()[0].colorNow().green == 0.0f);
 	CHECK(pool.lights()[0].colorNow().blue == 0.0f);
+}
+
+TEST_CASE("LOCAL-28: W3DLightDraw with no module data creates no light (RW 0x004CF2EC)")
+{
+	LightPulsePool pool;
+	Thing thing(nullptr);
+
+	W3DLightDraw lightNoData(&thing, nullptr);
+	lightNoData.setLightPool(&pool);
+
+	CHECK(lightNoData.lightRadius() == 0.0f);
+	CHECK(lightNoData.lightHandle() == -1);
+	CHECK(pool.lights().empty());
+	CHECK(pool.enabledCount() == 0u);
+}
+
+TEST_CASE("LOCAL-28: animated bone tracking for AttachToBoneInAnotherModule (RW 0x004CF5EE -> RW 0x00672B5B -> RW 0x004B2F19)")
+{
+	SyntheticAnimatedTorchBearer soldier;
+
+	objtest::World w;
+	DrawServices services(*soldier.assets, w.modules, W3DLuaDrawScriptHost::Options{});
+	ThingTemplate tmpl;
+	tmpl.friend_setTemplateName("TorchBearerTemplate");
+	std::vector<std::string> problems;
+	auto d = std::make_unique<Drawable>(services, &tmpl, 1, 1, std::vector<ClientEvent::ClientModule>{}, problems);
+	Coord3D thingPos{ 100.0f, 200.0f, 50.0f };
+	d->setPosition(&thingPos);
+
+	DrawEntry entry;
+	entry.className = "W3DScriptedModelDraw";
+	entry.kind = W3D_DRAWKIND_MODEL;
+	entry.draw = std::move(soldier.draw);
+	d->entries().push_back(std::move(entry));
+
+	// Frame 0: TORCHBONE is at root(50) + HIP(1) + TORCHBONE base(0) + anim(0) = 51.0f
+	Coord3D bonePos0;
+	REQUIRE(d->boneWorldPosition("TORCHBONE", bonePos0));
+	CHECK(bonePos0.x == doctest::Approx(100.0f)); // tolerance: floating-point evaluation
+	CHECK(bonePos0.y == doctest::Approx(202.0f)); // tolerance: floating-point evaluation
+	CHECK(bonePos0.z == doctest::Approx(51.0f)); // tolerance: floating-point evaluation
+
+	// Advance animation by 5 frames (5 * 33.34 ms ~ 166.7 ms)
+	// TBUNIT_WALK moves TORCHBONE by +10.0f in Z at frame 5
+	d->entries()[0].draw->advance(166.7);
+
+	Coord3D bonePos5;
+	REQUIRE(d->boneWorldPosition("TORCHBONE", bonePos5));
+	CHECK(bonePos5.x == doctest::Approx(100.0f)); // tolerance: floating-point evaluation
+	CHECK(bonePos5.y == doctest::Approx(202.0f)); // tolerance: floating-point evaluation
+	CHECK(bonePos5.z == doctest::Approx(61.0f)); // tolerance: floating-point evaluation
 }
 
 TEST_CASE("LOCAL-28: neighbouring behaviour (transient pulses from bldfx1 and draw modules notDrawnClasses)")

@@ -152,10 +152,12 @@ bool LightPulsePool::add(const Coord3D &pos, const RGBColor &color, float radius
 	light.currentIncrease = increaseFrames;
 	light.currentDecrease = decreaseFrames;
 	light.enabled = true;
+	light.isPersistent = false;
 	// reuse a disabled pool slot first (DONOR BFME2 0x6F94A: the first light whose in-use byte is clear)
+	// Persistent light slots are never reused by transient pulses even when disabled (prevents slot aliasing)
 	for (LightPulseFx &l : m_lights)
 	{
-		if (!l.enabled)
+		if (!l.enabled && !l.isPersistent)
 		{
 			l = light;
 			return true;
@@ -185,10 +187,11 @@ int LightPulsePool::addPersistent(const Coord3D &pos, const RGBColor &color, flo
 	light.currentIncrease = 0;
 	light.currentDecrease = 0;
 	light.enabled = true;
+	light.isPersistent = true;
 	// reuse a disabled pool slot first (DONOR BFME2 0x6F94A: the first light whose in-use byte is clear)
 	for (size_t i = 0; i < m_lights.size(); ++i)
 	{
-		if (!m_lights[i].enabled)
+		if (!m_lights[i].enabled && !m_lights[i].isPersistent)
 		{
 			m_lights[i] = light;
 			return (int)i;
@@ -208,12 +211,15 @@ void LightPulsePool::updatePersistent(int handle, const Coord3D &pos, const RGBC
 	if (handle >= 0 && (size_t)handle < m_lights.size())
 	{
 		LightPulseFx &l = m_lights[(size_t)handle];
-		l.position = pos;
-		l.color = color;
-		l.targetColor = color;
-		l.farAttenEnd = radius;
-		l.targetEnd = radius;
-		l.enabled = enabled;
+		if (l.isPersistent)
+		{
+			l.position = pos;
+			l.color = color;
+			l.targetColor = color;
+			l.farAttenEnd = radius;
+			l.targetEnd = radius;
+			l.enabled = enabled;
+		}
 	}
 }
 
@@ -222,6 +228,7 @@ void LightPulsePool::removePersistent(int handle)
 	if (handle >= 0 && (size_t)handle < m_lights.size())
 	{
 		m_lights[(size_t)handle].enabled = false;
+		m_lights[(size_t)handle].isPersistent = false;
 	}
 }
 

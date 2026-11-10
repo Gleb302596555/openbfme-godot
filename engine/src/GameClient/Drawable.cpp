@@ -696,6 +696,8 @@ Drawable::PresentedLook Drawable::presentedLook(const LogicSnapshot *presented, 
 // the animation state it shows (RW 0x4B2F19: Blend_Pose of the two tracks, else Anim_Pose of track 0, else Base_Pose), takes the bone's translation,
 // scales it by the drawable's instance scale and rotates it by the drawable's orientation about Z. The scale is applied to the model-space
 // translation and the rotation to the result, the order INFERENCE (retail's matrix composition of the two was not decoded).
+// Retail iterates m_modules, calls slotA4() on each module, and if non-null calls slot14(boneName, &matrix) (RW 0x004B2F19),
+// which queries the current animated pose of m_renderObj via Get_Bone_Index and Get_Bone_Transform.
 bool Drawable::boneWorldPosition(const std::string &boneName, Coord3D &outPos) const
 {
 	if (boneName.empty() || AsciiStringUtil::compareNoCase(boneName, "None") == 0)

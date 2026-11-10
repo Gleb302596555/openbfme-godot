@@ -89,6 +89,7 @@ struct LightPulseFx
 	float targetEnd = 0.0f;
 	RGBColor targetColor{ 0.0f, 0.0f, 0.0f };
 	bool enabled = false;
+	bool isPersistent = false; ///< true for persistent dynamic lights (W3DLightDraw) so transient FX pulses never alias the slot
 	// DONOR BFME2 0x6DE3D On_Frame_Update: one client frame; returns false when the light expired on this frame
 	bool step();
 	// the scale On_Frame_Update last wrote (0 .. 1)
