@@ -213,6 +213,11 @@ public:
 	// returns false if !m_showPips (RW 0x86642E) or on Slaughter/Citadel/ProductionQueue contains (RW 0x883613).
 	// When true: outContainMax = slot 0x70 (contain max / slot capacity), outOccupantCount = slot 0x114 + slot 0xCC (occupants + crew),
 	// outHeroCount = count of contained items with KindOf HERO.
+	// lane PORT-91 (issue #239): vslot 0x2C, asked by the shadow gate (RW 0x4C7848, W3DModelDraw::doDrawModule): a contained object keeps its shadow only while
+	// its container's contain answers true. RW 0x9188EB (`xor al, al; ret`, false) in every contain table of 2.01 but three: HordeContain's RW 0xC5B480, its
+	// RotWK subclass's RW 0xC5C110 and AODHordeContain's RW 0xC5D268 carry RW 0x86C737 (the answer of the contain of the horde's container, true while the
+	// horde is not contained)
+	virtual bool shadowWhileContainedAllowed() const { return false; }
 	virtual bool getContainerPipCounts(int &outContainMax, int &outOccupantCount, int &outHeroCount) const
 	{
 		(void)outContainMax;

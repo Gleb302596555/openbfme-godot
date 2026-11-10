@@ -21,7 +21,9 @@
 
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/Drawable.h"
+#include "GameClient/LogicSnapshot.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.h"
+#include "GameLogic/Object/Object.h"
 #include "Libraries/WWVegas/WW3D2/assetmgr.h"
 
 #include <algorithm>
@@ -29,6 +31,45 @@
 
 namespace ObjectShadow
 {
+
+// lane PORT-91 (issue #239; RW 0x4C7848, W3DModelDraw::doDrawModule): a contained object's model draw keeps its shadow only while the contain of its
+// container answers true for vslot 0x2C. The module data's ShowShadowWhileContained wins over the contain's answer
+static bool containedShadowSuppressedCore(bool contained, bool containAllows, const W3DModelDrawModuleData *module)
+{
+	if (!contained)
+	{
+		return false; // RW 0x4C7848: not contained, the shadow stands
+	}
+	if (module && module->m_showShadowWhileContained)
+	{
+		return false; // the model draw module data says the shadow stays
+	}
+	return !containAllows; // RW 0x9188EB false in every contain table of 2.01 but the HordeContain family's RW 0x86C737
+}
+
+bool containedShadowSuppressed(const ::Object *object, const W3DModelDrawModuleData *module)
+{
+	if (!object)
+	{
+		return false; // unknown: nothing is suppressed (the caller could not resolve the logic object)
+	}
+	const Object *container = object->getContainedBy();
+	if (!container)
+	{
+		return containedShadowSuppressedCore(false, false, module);
+	}
+	const ContainModuleInterface *c = container->getContain();
+	return containedShadowSuppressedCore(true, c && c->shadowWhileContainedAllowed(), module);
+}
+
+bool containedShadowSuppressed(const ObjectSnapshot *record, const W3DModelDrawModuleData *module)
+{
+	if (!record)
+	{
+		return false; // no record (no snapshot): nothing is suppressed
+	}
+	return containedShadowSuppressedCore(record->containedBy != INVALID_ID, record->shadowWhileContainedAllowed, module);
+}
 
 namespace
 {
@@ -265,7 +306,7 @@ unsigned evaluateDecalOpacity(const DecalShadowDescriptor &desc, unsigned curren
 }
 
 bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, bool useShadowDecals,
-	const std::function<void(float &, float &)> &fallbackSize, unsigned currentFrame)
+	const std::function<void(float &, float &)> &fallbackSize, unsigned currentFrame, const ::Object *logicObject)
 {
 	// TOP20 #24, RW 0x672D28: shadowsEnabled false when dead with SlowDeathBehavior/ShadowWhenDead = No
 	if (!drawable.shadowsEnabled())
@@ -295,6 +336,11 @@ bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, boo
 	if (!state && drawable.testModelState())
 	{
 		state = drawable.testModelState();
+	}
+	// lane PORT-91 (issue #239; RW 0x4C7848): a contained object's decal shadow waits for the contain's slot 0x2C (or ShowShadowWhileContained)
+	if (containedShadowSuppressed(logicObject, moduleData))
+	{
+		return false;
 	}
 
 	DecalShadowDescriptor desc;

@@ -2180,16 +2180,19 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 				}
 				const ModelConditionInfo *shadowState = e.draw->currentModelState();
 				const bool useShadowMapping = W3DInstancer::shadow_maps_enabled();
-				if (ev.shadowInstance != ev.instance || ev.shadowState != shadowState || ev.shadowData != e.data || ev.shadowOn != d->shadowsEnabled() || ev.shadowUseMapping != useShadowMapping) // S-3304: not every frame, updates when settings change
+				// lane PORT-91 (issue #239): RW 0x4C7848 keeps a contained object's shadow only while its contain allows it (the record carries the answer)
+				const bool shadowSuppress = ObjectShadow::containedShadowSuppressed(stealthRec, dynamic_cast<const W3DModelDrawModuleData *>(e.data));
+				if (ev.shadowInstance != ev.instance || ev.shadowState != shadowState || ev.shadowData != e.data || ev.shadowOn != d->shadowsEnabled() || ev.shadowUseMapping != useShadowMapping || ev.shadowSuppress != shadowSuppress) // S-3304: not every frame, updates when settings change
 				{
 					// TOP20 #24: a drawable whose shadows were switched off (RW 0x672D28, ShadowWhenDead No) casts none
-					dyn->set_instance_cast_shadow(ev.instance, e.kind != W3D_DRAWKIND_FLOOR && d->shadowsEnabled() &&
+					dyn->set_instance_cast_shadow(ev.instance, e.kind != W3D_DRAWKIND_FLOOR && d->shadowsEnabled() && !shadowSuppress &&
 						ObjectShadow::castsMap(d->getTemplate(), dynamic_cast<const W3DModelDrawModuleData *>(e.data), shadowState, useShadowMapping));
 					ev.shadowOn = d->shadowsEnabled();
 					ev.shadowState = shadowState;
 					ev.shadowData = e.data;
 					ev.shadowInstance = ev.instance;
 					ev.shadowUseMapping = useShadowMapping;
+					ev.shadowSuppress = shadowSuppress;
 				}
 				if (!ev.posed || animatedNow || flagsChanged) // RENDER-2: a MANUAL track (the build-up) changes its frame without being "animated"
 				{
@@ -2332,14 +2335,32 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 					ev.model = model;
 					ev.opacity = 1.0f; // a new instance starts opaque
 					const bool useShadowMapping = W3DInstancer::shadow_maps_enabled();
-					dyn->set_instance_cast_shadow(ev.instance, e.kind != W3D_DRAWKIND_FLOOR && d->shadowsEnabled() &&
+					// lane PORT-91 (issue #239; RW 0x4C7848): a contained object's shadow waits for the contain's slot 0x2C
+					const bool shadowSuppress = ObjectShadow::containedShadowSuppressed(stealthRec, dynamic_cast<const W3DModelDrawModuleData *>(e.data));
+					dyn->set_instance_cast_shadow(ev.instance, e.kind != W3D_DRAWKIND_FLOOR && d->shadowsEnabled() && !shadowSuppress &&
 						ObjectShadow::castsMap(d->getTemplate(), dynamic_cast<const W3DModelDrawModuleData *>(e.data), nullptr, useShadowMapping));
+					ev.shadowSuppress = shadowSuppress; // the per-frame refresh below re-checks it
 					ev.shadowUseMapping = useShadowMapping;
 				}
 			}
 			else if (entryXfChanged && ev.instance >= 0)
 			{
 				dyn->set_instance_transform(ev.instance, entryXf);
+			}
+			// lane PORT-91 (issue #239): the contain gate re-checked per frame for the static instances, as the animated path's change detection does: a
+			// contained object's shadow waits for the contain's slot 0x2C (the record carries the answer)
+			if (ev.instance >= 0)
+			{
+				const bool useShadowMappingNow = W3DInstancer::shadow_maps_enabled();
+				const bool shadowSuppressNow = ObjectShadow::containedShadowSuppressed(stealthRec, dynamic_cast<const W3DModelDrawModuleData *>(e.data));
+				if (ev.shadowSuppress != shadowSuppressNow || ev.shadowOn != d->shadowsEnabled() || ev.shadowUseMapping != useShadowMappingNow)
+				{
+					dyn->set_instance_cast_shadow(ev.instance, e.kind != W3D_DRAWKIND_FLOOR && d->shadowsEnabled() && !shadowSuppressNow &&
+						ObjectShadow::castsMap(d->getTemplate(), dynamic_cast<const W3DModelDrawModuleData *>(e.data), nullptr, useShadowMappingNow));
+					ev.shadowSuppress = shadowSuppressNow;
+					ev.shadowOn = d->shadowsEnabled();
+					ev.shadowUseMapping = useShadowMappingNow;
+				}
 			}
 			if (ev.instance >= 0 && tinted && ev.tintModelId >= 0 &&
 				(ev.lastTint.red != renderTint.red || ev.lastTint.green != renderTint.green || ev.lastTint.blue != renderTint.blue))

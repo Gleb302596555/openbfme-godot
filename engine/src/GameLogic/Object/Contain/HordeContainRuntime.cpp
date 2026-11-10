@@ -384,6 +384,14 @@ bool HordeContain::isPassengerAllowedToFire() const
 	return c && c->isPassengerAllowedToFire();
 }
 
+// RW 0x86C737 (lane PORT-91): the horde's container (+ 0x27C) with a contain (+ 0x258) answers through its slot 0x2C, else true
+bool HordeContain::shadowWhileContainedAllowed() const
+{
+	const Object *outer = getObject()->getContainedBy();
+	const ContainModuleInterface *c = outer ? outer->getContain() : nullptr;
+	return c ? c->shadowWhileContainedAllowed() : true;
+}
+
 bool HordeContain::addToContain(Object *obj)
 {
 	if (std::find(m_members.begin(), m_members.end(), obj) != m_members.end())

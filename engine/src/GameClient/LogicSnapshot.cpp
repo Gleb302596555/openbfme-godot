@@ -414,6 +414,11 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 		s.effectivelyDead = o->isEffectivelyDead(); // lane VISUAL-2
 		s.occlusion = RTS3DSceneOcclusion::eligibility(RTS3DSceneOcclusion::factsOf(*o), occlusionFrame); // lane OCCLUDE-1 (RW 0x470DD2 .. 0x470EC5)
 		s.containedBy = o->getContainedBy() ? o->getContainedBy()->getID() : (ObjectID)INVALID_ID; // lane COMBAT-4
+		if (const Object *outer = o->getContainedBy()) // lane PORT-91 (issue #239): RW 0x4C7848's contain answer (RW 0x9188EB / 0x86C737)
+		{
+			const ContainModuleInterface *c = outer->getContain();
+			s.shadowWhileContainedAllowed = c && c->shadowWhileContainedAllowed();
+		}
 		s.stealthLook = InvisibilityManager::clientLook(*o, local); // lane STEALTH-1
 		if (teamVision && s.stealthLook == 5)
 		{

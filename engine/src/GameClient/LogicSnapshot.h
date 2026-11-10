@@ -103,6 +103,10 @@ struct ObjectSnapshot
 	// lane COMBAT-4: the object this one is contained in (Object + 0x27C; INVALID_ID when none): the drawable of a rider / crew member takes its container's
 	// DependencySharedModelFlags (RW 0x4BF2D8, DrawableManager::syncTransforms)
 	ObjectID containedBy = INVALID_ID;
+	// lane PORT-91 (issue #239): the answer of vslot 0x2C of the contain of that container (RW 0x4C7848 asks it for the shadow): false for a plain contain
+	// (RW 0x9188EB), the horde's container's answer for the HordeContain family (RW 0x86C737: true while the horde is not contained). Meaningful only while
+	// containedBy != INVALID_ID
+	bool shadowWhileContainedAllowed = false;
 	float stealthOpacityMin = 1.0f, stealthOpacityMax = 1.0f; ///< the friend's pulse range (InvisibilityManager::clientOpacityRange)
 	float stealthCycleSeconds = 1.0f;                      ///< the pulse / blend cycle in seconds (InvisibilityManager::clientOpacityRange)
 	// lane STEALTHLOOK-1: the object's stealth parent (Object::getHordeObject(false), RW 0x693A1A): a horde member's drawable imitates its
