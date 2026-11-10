@@ -1118,6 +1118,13 @@ void GettingBuiltBehavior::xfer(Xfer &x)
 	});
 }
 
+void BuildingBehavior::crc(StateHasher &h) const
+{
+	UpdateModule::crc(h);
+	h.addBool(m_aflame);
+	h.addBool(m_firstUpdate);
+}
+
 void BuildingBehavior::xfer(Xfer &x)
 {
 	// lane PORT-83: version 2 adds the two RW latches (module +0x20/+0x21, RW 0x859324: xferBool, RW slot 0x90); version 1 had no state of its own

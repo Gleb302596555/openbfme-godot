@@ -190,6 +190,7 @@ public:
 	OBFME_MODULE_XFER(BuildingBehavior) // lane PORT-83: UpdateModule's plus the two RW latches (module +0x20/+0x21, RW 0x859324, xferBool RW slot 0x90)
 	BuildingBehavior(Thing *thing, const BuildingBehaviorModuleData *data);
 	UpdateSleepTime update() override;
+	void crc(StateHasher &hasher) const override; // the two latches are logic state (xfer v2): hashed with UpdateModule's
 	const BuildingBehaviorModuleData *data() const { return m_data; }
 
 private:

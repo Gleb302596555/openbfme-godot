@@ -89,7 +89,8 @@ struct Port92World : combattest::CombatWorld
 	}
 	~Port92World() { TheSpecialPowerStore = previous; }
 	// the porter delivers, fades and is gone; the events are in the recorder
-	Recorder run(const char *porterName, Object **carriedOut = nullptr, Object **recipientOut = nullptr)
+	// the porter fades away during the frames (the delivery destroys it), so the caller gets its ID, taken before the frames, never the pointer
+	Recorder run(const char *porterName, ObjectID *carrierIdOut = nullptr, Object **recipientOut = nullptr)
 	{
 		Object *carrier = unit(porterName, 'A', 300, 300);
 		Object *recipient = unit("Port92Recipient", 'A', 305, 300);
@@ -98,15 +99,16 @@ struct Port92World : combattest::CombatWorld
 		const UpgradeTemplate *upgrade = TheUpgradeCenter->findUpgrade("Upgrade_Barracks2");
 		REQUIRE(upgrade);
 		requireAffected(recipient, upgrade);
+		const ObjectID carrierId = carrier->getID();
 		carrier->giveUpgrade(upgrade);
 		logic->partition().update();
 		Recorder rec;
 		logic->fxEvents().setSink(&rec);
 		frames(120);
 		logic->fxEvents().setSink(nullptr);
-		if (carriedOut)
+		if (carrierIdOut)
 		{
-			*carriedOut = carrier;
+			*carrierIdOut = carrierId;
 		}
 		if (recipientOut)
 		{
@@ -124,9 +126,9 @@ struct Port92World : combattest::CombatWorld
 TEST_CASE("PORT-92 GiveUpgradeUpdate SpawnOutFX: an automatically delivering porter requests it once, at the porter, with no matrix (RW 0x8A02BB -> 0x89FE01, FX call RW 0x89FE1C..RW 0x89FE35 / RW 0x494615)")
 {
 	Port92World w;
-	Object *carrier = nullptr;
+	ObjectID carrierId = INVALID_ID;
 	Object *recipient = nullptr;
-	const Recorder rec = w.run("Port92Porter", &carrier, &recipient);
+	const Recorder rec = w.run("Port92Porter", &carrierId, &recipient);
 	const std::vector<FXEvent> events = rec.site("GiveUpgradeUpdate SpawnOutFX");
 	CAPTURE(events.size());
 	// RW 0x89FE22 tests the FXList for 0 and calls it at most once per completed delivery; the porter fades once
@@ -134,7 +136,7 @@ TEST_CASE("PORT-92 GiveUpgradeUpdate SpawnOutFX: an automatically delivering por
 	const FXEvent &e = events[0];
 	CHECK(e.kind == FXEvent::POSITION_FX); // FXList::doFXPos (RW 0x494615), not doFXObj (RW 0x4B1B5A)
 	CHECK(*e.fxList == "FX_Port92PorterSpawn");
-	CHECK(e.primary == carrier->getID());
+	CHECK(e.primary == carrierId);
 	CHECK(e.position.x == 300.0f); // the porter's position (RW 0x89FE30: lea ecx,[edi+0x38], edi = owner), not the recipient's (305, 300)
 	CHECK(e.position.y == 300.0f);
 	CHECK_FALSE(e.hasTransform);           // RW 0x89FE2E: the matrix argument is 0
@@ -144,7 +146,7 @@ TEST_CASE("PORT-92 GiveUpgradeUpdate SpawnOutFX: an automatically delivering por
 	const UpgradeTemplate *upgrade = TheUpgradeCenter->findUpgrade("Upgrade_Barracks2");
 	REQUIRE(upgrade);
 	CHECK(recipient->hasUpgrade(upgrade));
-	CHECK(w.logic->findObjectByID(carrier->getID()) == nullptr);
+	CHECK(w.logic->findObjectByID(carrierId) == nullptr);
 }
 
 TEST_CASE("PORT-92 GiveUpgradeUpdate SpawnOutFX: the explicit special power call requests it on the same path")
@@ -163,12 +165,13 @@ TEST_CASE("PORT-92 GiveUpgradeUpdate SpawnOutFX: the explicit special power call
 	auto *ability = dynamic_cast<SpecialAbilityUpdate *>(carrier->findModule("GiveUpgradeUpdate"));
 	REQUIRE(ability);
 	ability->initiateIntentToDoSpecialPower(ability->abilityData()->m_specialPowerTemplate, recipient, nullptr, 0, 0);
+	const ObjectID carrierId = carrier->getID(); // the porter may fade during the frames
 	w.frames(20);
 	w.logic->fxEvents().setSink(nullptr);
 	const std::vector<FXEvent> events = rec.site("GiveUpgradeUpdate SpawnOutFX");
 	REQUIRE(events.size() == 1);
 	CHECK(events[0].kind == FXEvent::POSITION_FX);
-	CHECK(events[0].primary == carrier->getID());
+	CHECK(events[0].primary == carrierId);
 	CHECK(events[0].position.x == 300.0f);
 	CHECK(*events[0].fxList == "FX_Port92PorterSpawn");
 	CHECK(recipient->hasUpgrade(upgrade));
@@ -177,25 +180,25 @@ TEST_CASE("PORT-92 GiveUpgradeUpdate SpawnOutFX: the explicit special power call
 TEST_CASE("PORT-92 GiveUpgradeUpdate SpawnOutFX: no SpawnOutFX field, the delivery still completes and nothing is requested")
 {
 	Port92World w;
-	Object *carrier = nullptr;
+	ObjectID carrierId = INVALID_ID;
 	Object *recipient = nullptr;
-	const Recorder rec = w.run("Port92PorterNoField", &carrier, &recipient);
+	const Recorder rec = w.run("Port92PorterNoField", &carrierId, &recipient);
 	CHECK(rec.site("GiveUpgradeUpdate SpawnOutFX").empty()); // no field: no call (RW 0x89FE22 on a zero +0xE0)
 	const UpgradeTemplate *upgrade = TheUpgradeCenter->findUpgrade("Upgrade_Barracks2");
 	REQUIRE(upgrade);
 	CHECK(recipient->hasUpgrade(upgrade));                   // the delivery itself is unaffected
-	CHECK(w.logic->findObjectByID(carrier->getID()) == nullptr);
+	CHECK(w.logic->findObjectByID(carrierId) == nullptr);
 }
 
 TEST_CASE("PORT-92 GiveUpgradeUpdate SpawnOutFX: \"SpawnOutFX = None\" parses to nothing and nothing is requested")
 {
 	Port92World w;
-	Object *carrier = nullptr;
+	ObjectID carrierId = INVALID_ID;
 	Object *recipient = nullptr;
-	const Recorder rec = w.run("Port92PorterNoneFX", &carrier, &recipient);
+	const Recorder rec = w.run("Port92PorterNoneFX", &carrierId, &recipient);
 	CHECK(rec.site("GiveUpgradeUpdate SpawnOutFX").empty()); // "None" stores no FXList (RW 0x73A302; module data +0xE0 stays 0)
 	const UpgradeTemplate *upgrade = TheUpgradeCenter->findUpgrade("Upgrade_Barracks2");
 	REQUIRE(upgrade);
 	CHECK(recipient->hasUpgrade(upgrade));
-	CHECK(w.logic->findObjectByID(carrier->getID()) == nullptr);
+	CHECK(w.logic->findObjectByID(carrierId) == nullptr);
 }
