@@ -120,3 +120,4 @@ launcher/scripts/crash_client_key.gd
 # Online service compiler output and local runtime state.
 /services/online/.build/
 /services/online/.state/
+google_drive/
