@@ -4,7 +4,7 @@
 
 Target: RotWK 2.01, game.dat MD5 daed3668006cd90f01c34e5a7da1901f.
 All instruction addresses below were read with `tools/mod/rw.py ... dis`.
-This document contains analysis, not a claim of completed implementation/tests.
+Scope: the existing ignition/quench/destructor paths; no FXEvents or GodotFXPlayer changes.
 
 ### Identity and reachable reader
 
@@ -77,30 +77,41 @@ an installed synthetic AudioManager: one attached request per ignition,
 no repeated start, stop on aflame-end/healing/destruction, no sound for
 absent/NoSound; BURNED before aflame-end must not stop the sound.
 
-INFERENCE: none used to change behaviour yet.
-Осталось: реализация, PORT-103 tests on the full openbfme_tests target,
-NIGHT_WATCH, final rebase, PR and owner listening check.
+## Implementation and verification
 
-## Implementation checkpoint
+`AudioApi::HELD_FLAMMABLE_LOOP` is a separate slot (4; existing ability
+slot 3 is retained). The existing owner-thread/deferred held-sound queue
+keeps the handle, not the simulation. One start per successful ignition;
+quench and destruction release it. Empty/NoSound stays silent. AudioEvent
+controls looping, limits, priority, shroud and fades. No per-frame restarts
+or forced looping have been added. Both tag tables include the new slot;
+existing slots/functions are otherwise unchanged.
 
-- `c12d31e`: dedicated HELD_FLAMMABLE_LOOP in the existing AudioApi;
-  ignition, quench, destructor wired. No new simulation member/hash/layout.
-- `7e90cab`: six synthetic test cases in `engine/tests/test_port_103.cpp`,
-  via `engine/cmake/Port103.cmake` in the full openbfme_tests target.
-- RW xfer slot 3 at 0xC62C10 = 0x88FBEE; RW 0x88FC76..0x88FC7B
-  passes handle +0x34 to TheAudio slot 0x160. Native load currently
-  reconstructs from FS_AFLAME; this mapping still needs verification against
-  the audio handle xfer implementation before review (do not claim parity
-  from the caller alone).
-- Full build running; a follow-up process reconfigures and builds the same
-  full target, then runs exactly `-tc="PORT-103*"`, logging to
-  `/tmp/port103-build.log` and `/tmp/port103-tests.log`.
+`engine/tests/test_port_103.cpp` is included by `engine/cmake/Port103.cmake`
+in the full `openbfme_tests` target. Synthetic INI only, no game assets.
 
-Осталось: full build/test results, fix any compile/assertion failures,
-verify native audio xfer semantics (or remove unsupported inference),
-red/green run on full target, mod data check, final rebase and PR.
+| PORT-103 test suffix | Oracle / neighbour |
+|---|---|
+| ignition requests one object-attached sound; BURNED does not stop it before aflame ends | RW 0x890201, 0x88FE61..93, 0x890AB3..AED |
+| healing quenches the loop and a new NORMAL ignition starts only once | RW 0x890196 / 0x89019B; existing NORMAL gate |
+| absent or NoSound field is silent and keeps the burning lifecycle | RW 0x890BE6 / existing audio no-name policy; unchanged neighbouring burning |
+| destructor stops its loop without stopping another object's loop or another audio slot | RW 0x88FDDD / 0x88FBCA; slot/holder isolation |
+| logic worker orders start and stop on the audio owner queue | same RW start/stop, existing S-814 queue |
+| sound requests leave simulation hash and snapshot bytes unchanged | no new simulation fields; native crc/xfer unchanged |
 
-## Audio snapshot scope correction
+Full Release build, Godot OFF, `-j1`, at code tree 2d96c0b4 before final
+main synchronization: `openbfme_tests -tc="PORT-103*"` — 6 cases passed,
+93 assertions passed. Negative control uses the same full target with
+FlammableUpdate.cpp restored to origin/main and an empty destructor
+(the header declaration is retained only to avoid unrelated recompiles):
+4 cases fail / 6 assertions fail; absent/NoSound and hash/snapshot
+neighbours still pass. Restoring the fixed source and rebuilding the
+full target gives 6/6 cases and 93/93 assertions again. No separate runner.
+Final main synchronization to 79078403 requires a new full-target build;
+its final result is recorded in the PR and the issue (do not mistake the
+negative control's expected failures for an unresolved regression).
+
+## Native audio snapshot boundary (S-983)
 
 DONOR BFME2 0x000596E9
 (`Code/GameEngineDevice/Source/MilesAudioDevice/Rva00057378.cpp`) serializes
@@ -110,17 +121,20 @@ its slot 0x160 = 0x458DFF. Linear `rw.py dis 0x458DFF 170` shows
 save lookup at RW 0x458E5B and event transfer RW 0x458EF4 -> 0x455BE8;
 load removes an existing real handle at RW 0x458F0B..0x458F1C and restores
 an event at RW 0x458F6F -> 0x452ABF (or an alias group RW 0x458F33..64).
+The FlammableUpdate caller passes handle +0x34 at RW 0x88FC76..0x88FC7B.
 
-Therefore native-load restart derived from FS_AFLAME was removed: it was
-not proven equivalent, particularly for refused/finished events. The task's
-fix adds no simulation state; existing crc/xfer stay byte-for-byte unchanged.
+A tentative native-load restart derived from FS_AFLAME was removed: it was
+not proven equivalent, particularly for refused/finished events. The fix
+adds no simulation state; existing crc/xfer stay byte-for-byte unchanged.
 Native serialization of active client events is a shared audio limitation,
-not fixed in this port (S-983). No inference is used to change load behaviour.
-The sixth PORT-103 test instead verifies equal module hashes/snapshot bytes
-with and without the sound. Earlier checkpoint text describes superseded work.
+not fixed by this port (S-983), and not worked around with status heuristics.
+No new inference changes load behaviour or audible behaviour.
 
 Mod data checked locally (never committed): Ennorath 1.9.8.2 combined INI,
 `object/nature/naturetrees.ini`, including GenericInteractableOptimizedTree,
 GenericNONInteractableOptimizedTree, TreeLothlorien01; sound definition in
-`soundeffects.ini`. Event policy is retained from the loaded audio data; no
-force-loop override is added by the module.
+`soundeffects.ini`. The loaded event policy is retained unchanged.
+
+Осталось: owner listening check and shared native client-event audio
+snapshot limitation S-983; final post-rebase build/test result in PR/issue.
+Existing unrelated S-983 branches are not modified by this task.
