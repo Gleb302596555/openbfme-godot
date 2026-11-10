@@ -245,6 +245,7 @@ include(cmake/Port65.cmake) # PORT-65: SpellRechargeModifierUpgrade (issue #177;
 include(cmake/Port49.cmake) # PORT-49: W3DModelDraw/AlphaCameraFadeInnerRadius (issue #153; OPENBFME_PORT49_TESTS)
 include(cmake/Port88.cmake) # PORT-88: Unit voice VoiceMoveOverWalls (RW 0x8DE628, issue #236; OPENBFME_PORT88_TESTS)
 include(cmake/Port68.cmake) # PORT-68: Weapon/FXTrigger + OverrideVoiceAttackSound/OverrideVoiceEnterStateAttackSound (issue #182; OPENBFME_PORT68_TESTS)
+include(cmake/Port85.cmake) # PORT-85: UnitSpecificSounds VoicePrimaryWeaponMode / VoiceSecondaryWeaponMode verdict (issue #233; OPENBFME_PORT85_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
@@ -852,6 +853,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT49_TESTS}
     ${OPENBFME_PORT88_TESTS}
     ${OPENBFME_PORT68_TESTS}
+    ${OPENBFME_PORT85_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}
