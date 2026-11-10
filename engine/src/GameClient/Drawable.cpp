@@ -201,6 +201,7 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 				}
 				e.draw->setBaseHouseColor(Render_House_Color_Params(m_houseColor, m_customKind, m_customColors));
 				e.noRotate = data->m_noRotate;
+				e.attachToBone = data->m_attachToDrawableBone;
 				e.hasTrackMarks = !data->m_trackFile.empty(); // lane PORT-69: RW 0x4C4E69 / 0x47A7DE
 				m_hasTrackMarks = m_hasTrackMarks || e.hasTrackMarks;
 				e.animated = e.draw->needsAdvance(); // W3DScriptedModelDraw::needsAdvance: a blend runs whatever track 0's mode (S-090)
@@ -249,6 +250,7 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 			if (ld)
 			{
 				e.lightDraw = std::make_unique<W3DLightDraw>(this, ld);
+				e.attachToBone = ld->m_attachToBone;
 				e.animated = true;
 			}
 		}
@@ -1226,10 +1228,10 @@ void Drawable::updateTint()
 	m_prevTintStatus = m_tintStatus;
 }
 
-// RW 0x672B5B: bone world position query across draw module models (DONOR BFME2 0x00272835)
+// RW 0x672B5B: bone world transform query across draw module models (DONOR BFME2 0x00272835)
 // Retail iterates m_modules, calls slotA4() on each module, and if non-null calls slot14(boneName, &matrix)
 // (RW 0x004B2F19), which queries the current animated pose of m_renderObj via Get_Bone_Index and Get_Bone_Transform.
-bool Drawable::boneWorldPosition(const std::string &boneName, Coord3D &outPos) const
+bool Drawable::boneTransform(const std::string &boneName, Matrix3D &outTransform) const
 {
 	if (boneName.empty() || AsciiStringUtil::compareNoCase(boneName, "None") == 0)
 	{
@@ -1273,19 +1275,90 @@ bool Drawable::boneWorldPosition(const std::string &boneName, Coord3D &outPos) c
 			if ((size_t)boneIdx < pose.Transform.size())
 			{
 				const Matrix3D &m = pose.Transform[(size_t)boneIdx];
-				const float scale = getInstanceScale();
-				const float px = m.Row[0][3] * scale;
-				const float py = m.Row[1][3] * scale;
-				const float pz = m.Row[2][3] * scale;
-				const float c = SimMath::cosDet(getOrientation());
-				const float s = SimMath::sinDet(getOrientation());
-				const float wx = SimMath::sseSub(SimMath::sseMul(px, c), SimMath::sseMul(py, s));
-				const float wy = SimMath::sseAdd(SimMath::sseMul(py, c), SimMath::sseMul(px, s));
-				outPos = Coord3D{ getPosition()->x + wx, getPosition()->y + wy, getPosition()->z + pz };
+
+				// Build object world matrix: basis, scale, position (including presentation physics and construction offset)
+				float basis[9];
+				Coord3D pos;
+				getPresentationPose(basis, pos);
+				if (e.constructionOffsetZ != 0.0f)
+				{
+					const float k = e.constructionOffsetZ * m_scale;
+					pos.x += basis[2] * k;
+					pos.y += basis[5] * k;
+					pos.z += basis[8] * k;
+				}
+
+				Matrix3D objMtx;
+				for (int r = 0; r < 3; ++r)
+				{
+					for (int c = 0; c < 3; ++c)
+					{
+						objMtx.Row[r][c] = basis[r * 3 + c] * m_scale;
+					}
+				}
+				objMtx.Row[0][3] = pos.x;
+				objMtx.Row[1][3] = pos.y;
+				objMtx.Row[2][3] = pos.z;
+
+				Matrix3D::Multiply(objMtx, m, &outTransform);
 				return true;
 			}
 		}
 	}
+	return false;
+}
+
+bool Drawable::boneWorldPosition(const std::string &boneName, Coord3D &outPos) const
+{
+	Matrix3D mtx;
+	if (boneTransform(boneName, mtx))
+	{
+		outPos = Coord3D{ mtx.Row[0][3], mtx.Row[1][3], mtx.Row[2][3] };
+		return true;
+	}
+	return false;
+}
+
+// lane LOCAL-29 (issue #218): computes world transform of entry e (RW 0x004B6A6F..0x004B6B26 / slot +0x104); returns true if attached
+bool Drawable::entryTransform(const DrawEntry &e, Matrix3D &outMatrix) const
+{
+	if (!e.attachToBone.empty() && boneTransform(e.attachToBone, outMatrix))
+	{
+		// RW 0x004B6B26: slot +0x104 virtual callback to adjust attached transform
+		if (e.draw)
+		{
+			e.draw->adjustAttachedTransform(outMatrix);
+		}
+		return true;
+	}
+
+	// Default unattached transform: presentation pose (or basis), scale, construction offset Z, noRotate
+	float basis[9];
+	Coord3D pos;
+	getPresentationPose(basis, pos);
+	if (e.noRotate)
+	{
+		static const float kIdentityBasis[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
+		std::memcpy(basis, kIdentityBasis, sizeof(basis));
+	}
+	if (e.constructionOffsetZ != 0.0f)
+	{
+		const float k = e.constructionOffsetZ * getInstanceScale();
+		pos.x += basis[2] * k;
+		pos.y += basis[5] * k;
+		pos.z += basis[8] * k;
+	}
+	const float scale = getInstanceScale();
+	for (int r = 0; r < 3; ++r)
+	{
+		for (int c = 0; c < 3; ++c)
+		{
+			outMatrix.Row[r][c] = basis[r * 3 + c] * scale;
+		}
+	}
+	outMatrix.Row[0][3] = pos.x;
+	outMatrix.Row[1][3] = pos.y;
+	outMatrix.Row[2][3] = pos.z;
 	return false;
 }
 
