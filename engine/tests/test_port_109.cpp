@@ -159,3 +159,50 @@ TEST_CASE("PORT-109 mask lookup follows template head order not lowest bit")
     CHECK(r.hint(target) == 0x7D6);
     CHECK(r.input->ui().cursor() == "ArmorUpgrade");
 }
+
+TEST_CASE("PORT-109 object power type 0x33 uses the shared predicate rather than S-7140")
+{
+    // RW 0x82D925 switch 0x33 -> RW 0x82D780 -> RW 0x89FE64.
+    Rig r;
+    Object *source = r.carrier();
+    Object *target = r.place("Port109Recipient", 200, 200);
+    const auto *power = r.powers.findSpecialPowerTemplate("SpecialAbilityGiveUpgrade");
+    REQUIRE(power != nullptr);
+    bool unported = true;
+    CHECK(ActionManager::canDoSpecialPowerAtObject(*source, target, CMD_FROM_SCRIPT, power, 0, false, &unported));
+    CHECK_FALSE(unported);
+    target->giveUpgrade(r.upgrade("Port109Weapon"));
+    CHECK_FALSE(ActionManager::canGiveUpgrade(source, target));
+    CHECK_FALSE(ActionManager::canDoSpecialPowerAtObject(*source, target, CMD_FROM_SCRIPT, power, 0, false, &unported));
+    CHECK_FALSE(unported);
+}
+
+TEST_CASE("PORT-109 upgrade click issues exactly one existing special power command")
+{
+    // RW 0x81F2B4 -> 0x81DF04 -> shared issue RW 0x81F426.
+    Rig r;
+    struct StoreScope {
+        CommandStore store;
+        CommandStore *previous = TheCommandStore;
+        StoreScope() { TheCommandStore = &store; }
+        ~StoreScope() { TheCommandStore = previous; }
+    } commands;
+    r.w.fx.env.blocks.registerBlock("CommandButton", [](INI *ini) { CommandStore::parseCommandButtonDefinitionGlobal(ini); });
+    r.w.fx.env.blocks.registerBlock("CommandSet", [](INI *ini) { CommandStore::parseCommandSetDefinitionGlobal(ini); });
+    const std::string error = r.w.load(
+        "CommandButton Port109Give\n Command = SPECIAL_POWER\n SpecialPower = SpecialAbilityGiveUpgrade\n Options = NEED_TARGET_ALLY_OBJECT\nEnd\n"
+        "CommandSet Port109Set\n 1 = Port109Give\nEnd\n");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *source = r.carrier();
+    Object *target = r.place("Port109Recipient", 200, 200);
+    source->setCommandSetOverride("Port109Set");
+    r.input->ui().mirrorSelection({source->getID()});
+    r.input->ui().setCursor("Arrow");
+    CHECK(r.hint(target, EvaluateType::DoCommand) == MSG_DO_SPECIAL_POWER_AT_OBJECT);
+    CHECK(r.input->ui().cursor() == "Arrow"); // a command is not a hint
+    const auto messages = r.input->stream().propagate();
+    REQUIRE(messages.size() == 1);
+    CHECK(messages.front().type() == MSG_DO_SPECIAL_POWER_AT_OBJECT);
+    CHECK(messages.front().arg(0).integer == (int)r.powers.findSpecialPowerTemplate("SpecialAbilityGiveUpgrade")->getID());
+    CHECK(messages.front().arg(1).objectID == target->getID());
+}
