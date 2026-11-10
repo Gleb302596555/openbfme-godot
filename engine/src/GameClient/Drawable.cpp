@@ -2001,8 +2001,18 @@ void Drawable::calcPhysicsXformShip(const LocomotorTemplate *loco, const ObjectS
 	info.m_totalYaw = 0.0f;
 }
 
-void Drawable::applyPhysicsXform(const ObjectSnapshot &rec, const RenderInterpolation::Pose &pose)
+void Drawable::applyPhysicsXform(const ObjectSnapshot &rec, const RenderInterpolation::Pose &poseIn)
 {
+	// RW 0x67BE90 applies the physics to the drawable's own transform (its matrix after the interpolation). A pose that turns about Z carries only its
+	// angle (RenderInterpolation: `basis` stays the identity), and the drawable has already taken it (setOrientation / commitSync run first): the
+	// basis is the drawable's. Owner 2026-11-10: with the identity here every moving unit with presentation physics was drawn facing +x and turned
+	// only when it stopped (the stale pose is not interpolated, its record's basis is full)
+	RenderInterpolation::Pose pose = poseIn;
+	if (pose.zRotation)
+	{
+		std::memcpy(pose.basis, getBasis(), sizeof(pose.basis));
+		pose.angle = getOrientation();
+	}
 	if (!rec.locomotorTemplate)
 	{
 		m_hasPhysicsXform = false;

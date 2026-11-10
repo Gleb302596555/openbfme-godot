@@ -31,14 +31,15 @@ void startSink(TreeTopple::Tree &t)
 }
 } // namespace
 
-size_t TreeTopple::add(std::uint32_t clientId, const Coord3D &position, const W3DTreeDrawModuleData *data)
+size_t TreeTopple::add(std::uint32_t clientId, const Coord3D &position, const W3DTreeDrawModuleData *data, bool shrub)
 {
 	Tree t;
 	t.clientId = clientId;
 	t.position = position;
 	t.data = data;
-	// PORT-73, RW 0x4E8C66 / RW 0x4E8C6C (addShrub): the record joins the area partition when MoveOutwardTime is above 0 or DoTopple is set
-	t.pushable = data && (data->m_framesToMoveOutward > 0 || data->m_doTopple);
+	// PORT-73, RW 0x4E8C66 / RW 0x4E8C6C (addShrub): a shrub joins the shrub buffer's area partition when MoveOutwardTime is above 0 or DoTopple is set;
+	// a TREE is in the tree buffer, which has no push aside (owner 2026-11-10: trees bent like bushes when units walked through them)
+	t.pushable = shrub && data && (data->m_framesToMoveOutward > 0 || data->m_doTopple);
 	m_trees.push_back(t);
 	return m_trees.size() - 1;
 }

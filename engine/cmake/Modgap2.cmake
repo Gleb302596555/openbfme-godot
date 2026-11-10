@@ -47,6 +47,7 @@ set(OPENBFME_MODGAP2_TESTS
     tests/test_modgap2_store_teleport.cpp
     tests/test_modgap2_store_objects.cpp
     tests/test_modgap2_troll_animation.cpp
+    tests/test_modgap2_builder_heading.cpp
     tests/test_modgap2_env_heavens_radar.cpp
     tests/test_modgap2_oilspill.cpp
     tests/test_modgap2_tornado.cpp

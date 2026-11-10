@@ -66,7 +66,7 @@ TEST_CASE("PORT-73: a shrub the walker pushes bends out over MoveOutwardTime * 6
 	const W3DTreeDrawModuleData d = shrubData();
 	TreeTopple topple;
 	// a shrub one metre to the walker's left (+y) as it heads +x: dir.x * dy - dir.y * dx = 1 * 1 - 0 * 0 = 1 > 0, so cos = -dir.y = 0, sin = dir.x = 1
-	const size_t i = topple.add(7, Coord3D{ 0.0f, 1.0f, 0.0f }, &d);
+	const size_t i = topple.add(7, Coord3D{ 0.0f, 1.0f, 0.0f }, &d, true);
 	REQUIRE(topple.unitMoved(40, Coord3D{ 0.0f, 0.0f, 0.0f }, Coord3D{ 1.0f, 0.0f, 0.0f }, 1.0f, 100u) == 1);
 	CHECK(topple.pushAsideAt(i) == 0.0f); // the push starts the bend, the step comes from the draw loop
 
@@ -93,9 +93,9 @@ TEST_CASE("PORT-73: the bend follows the walker's heading (RW 0x4E6D0E) and stop
 {
 	const W3DTreeDrawModuleData d = shrubData();
 	TreeTopple topple;
-	const size_t left = topple.add(1, Coord3D{ 0.0f, 1.0f, 0.0f }, &d);   // the record to the walker's left
-	const size_t right = topple.add(2, Coord3D{ 0.0f, -1.0f, 0.0f }, &d); // to its right
-	const size_t far = topple.add(3, Coord3D{ 0.0f, 8.01f, 0.0f }, &d);   // 8.01 > 1.0 + 7.0 away
+	const size_t left = topple.add(1, Coord3D{ 0.0f, 1.0f, 0.0f }, &d, true);   // the record to the walker's left
+	const size_t right = topple.add(2, Coord3D{ 0.0f, -1.0f, 0.0f }, &d, true); // to its right
+	const size_t far = topple.add(3, Coord3D{ 0.0f, 8.01f, 0.0f }, &d, true);   // 8.01 > 1.0 + 7.0 away
 	CHECK(topple.unitMoved(40, Coord3D{ 0.0f, 0.0f, 0.0f }, Coord3D{ 1.0f, 0.0f, 0.0f }, 1.0f, 100u) == 2);
 	CHECK(topple.pushAsideAt(far) == 0.0f);
 
@@ -122,7 +122,7 @@ TEST_CASE("PORT-73: the same walker pushes at most every three logic frames and 
 {
 	const W3DTreeDrawModuleData d = shrubData();
 	TreeTopple topple;
-	const size_t i = topple.add(1, Coord3D{ 0.0f, 1.0f, 0.0f }, &d);
+	const size_t i = topple.add(1, Coord3D{ 0.0f, 1.0f, 0.0f }, &d, true);
 	REQUIRE(topple.unitMoved(40, Coord3D{ 0.0f, 0.0f, 0.0f }, Coord3D{ 1.0f, 0.0f, 0.0f }, 1.0f, 100u) == 1);
 	frames(topple, 3); // the record is bent now: a second push would need it upright again
 	// the same walker two frames later is inside the three-frame window (RW 0x4E6CC9 `cmp eax, 3; jb`)
@@ -146,7 +146,7 @@ TEST_CASE("PORT-73: MoveOutwardTime 0 pushes nothing even with DoTopple (RW 0x4E
 	d.m_framesToMoveOutward = 0;   // a tree of the mod's naturetrees.ini: DoTopple = Yes, MoveOutwardTime 0
 	d.m_doTopple = true;
 	TreeTopple topple;
-	topple.add(1, Coord3D{ 0.0f, 0.0f, 0.0f }, &d);
+	topple.add(1, Coord3D{ 0.0f, 0.0f, 0.0f }, &d, true);
 	CHECK(topple.unitMoved(40, Coord3D{ 0.0f, 0.0f, 0.0f }, Coord3D{ 1.0f, 0.0f, 0.0f }, 1.0f, 100u) == 0);
 	frames(topple, 12);
 	CHECK(topple.pushAsideAt(0) == 0.0f);
@@ -154,7 +154,7 @@ TEST_CASE("PORT-73: MoveOutwardTime 0 pushes nothing even with DoTopple (RW 0x4E
 	// and a shrub with MoveOutwardTime above 0 needs DoTopple neither: the partition takes it on its own (RW 0x4E8C66)
 	const W3DTreeDrawModuleData shrub = shrubData();
 	TreeTopple other;
-	other.add(1, Coord3D{ 0.0f, 0.0f, 0.0f }, &shrub);
+	other.add(1, Coord3D{ 0.0f, 0.0f, 0.0f }, &shrub, true);
 	CHECK(other.unitMoved(40, Coord3D{ 0.0f, 0.0f, 0.0f }, Coord3D{ 1.0f, 0.0f, 0.0f }, 1.0f, 100u) == 1);
 }
 
@@ -162,7 +162,7 @@ TEST_CASE("PORT-73: MoveOutwardDistanceFactor scales the bend; a scale of the in
 {
 	const W3DTreeDrawModuleData d = shrubData(0.5f); // the mod's other shrub value
 	TreeTopple topple;
-	const size_t i = topple.add(1, Coord3D{ 0.0f, 1.0f, 0.0f }, &d);
+	const size_t i = topple.add(1, Coord3D{ 0.0f, 1.0f, 0.0f }, &d, true);
 	REQUIRE(topple.unitMoved(40, Coord3D{ 0.0f, 0.0f, 0.0f }, Coord3D{ 1.0f, 0.0f, 0.0f }, 1.0f, 100u) == 1);
 	frames(topple, 12);
 	const float base[9] = { 2, 0, 0, 0, 2, 0, 0, 0, 2 }; // an instance drawn at scale 2
@@ -175,12 +175,12 @@ TEST_CASE("PORT-73: MoveOutwardDistanceFactor scales the bend; a scale of the in
 	CHECK(2.0f * basis[0 * 3 + 2] == doctest::Approx(0.0f));
 }
 
-TEST_CASE("PORT-73: the bend leaves the fall alone (a bent shrub still topples, an upright tree does not bend)")
+TEST_CASE("PORT-73: only a SHRUB bends; a TREE in reach with a MoveOutwardTime does not (tree buffer, RW 0x62E433); the bend leaves the fall alone")
 {
 	const W3DTreeDrawModuleData shrub = shrubData();
 	const W3DTreeDrawModuleData tree = [] {
 		W3DTreeDrawModuleData d;
-		d.m_framesToMoveOutward = 0; // a real tree: naturetrees.ini's DoTopple = Yes, no bend
+		d.m_framesToMoveOutward = 2; // a TREE with a MoveOutwardTime (Ennorath's trees have one): still not bent, it is in the tree buffer (RW 0x62E433 -> 0x683D89)
 		d.m_doTopple = true;
 		d.m_minimumToppleSpeed = 0.5f;
 		d.m_initialVelocityPercent = 0.2f;
@@ -188,8 +188,8 @@ TEST_CASE("PORT-73: the bend leaves the fall alone (a bent shrub still topples, 
 		return d;
 	}();
 	TreeTopple topple;
-	const size_t bent = topple.add(1, Coord3D{ 0.0f, 1.0f, 0.0f }, &shrub);
-	const size_t fell = topple.add(2, Coord3D{ 20.0f, 0.0f, 0.0f }, &tree);
+	const size_t bent = topple.add(1, Coord3D{ 0.0f, 1.0f, 0.0f }, &shrub, true);
+	const size_t fell = topple.add(2, Coord3D{ 0.0f, -1.0f, 0.0f }, &tree, false); // within the walker's reach: only the buffer keeps it upright
 	REQUIRE(topple.unitMoved(40, Coord3D{ 0.0f, 0.0f, 0.0f }, Coord3D{ 1.0f, 0.0f, 0.0f }, 1.0f, 100u) == 1);
 	REQUIRE(topple.topple(2, Coord3D{ 1.0f, 0.0f, 0.0f }, 0.0f)); // RW 0x4E9E4E, the existing topple path
 	CHECK(topple.trees()[fell].state == TreeTopple::FALLING);
@@ -205,7 +205,7 @@ TEST_CASE("PORT-73: DarkeningFactor is stored and applied by nothing (no reader 
 	const W3DTreeDrawModuleData d = shrubData();
 	CHECK(d.m_darkening == doctest::Approx(0.3f));
 	TreeTopple topple;
-	const size_t i = topple.add(1, Coord3D{ 0.0f, 1.0f, 0.0f }, &d);
+	const size_t i = topple.add(1, Coord3D{ 0.0f, 1.0f, 0.0f }, &d, true);
 	REQUIRE(topple.unitMoved(40, Coord3D{ 0.0f, 0.0f, 0.0f }, Coord3D{ 1.0f, 0.0f, 0.0f }, 1.0f, 100u) == 1);
 	frames(topple, 12);
 	// the only state a bend produces is the shear: the record keeps its model, its angle and its sink (nothing darkens the draw)

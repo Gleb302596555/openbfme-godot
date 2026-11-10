@@ -101,8 +101,10 @@ public:
 	static constexpr float kPushAsideFrameScale = 6.0f;  ///< the buffer's + 0x5BC: 30 drawn frames per 5 logic frames (RW 0x4E6D6D / RW 0x4E8563)
 	static constexpr std::uint32_t kWalkRepeatFrames = 3; ///< RW 0x4E6CC9: the same walker pushes at most every three logic frames
 
-	// a tree the map placed; its index is the handle
-	size_t add(std::uint32_t clientId, const Coord3D &position, const W3DTreeDrawModuleData *data);
+	// a tree the map placed; its index is the handle. `shrub`: the map object is a SHRUB, so RotWK keeps it in the shrub buffer (RW 0x62E456 .. 0x62E470 ->
+	// RW 0x6808ED -> addShrub RW 0x4E8B8F), the only buffer a walking unit bends (RW 0x4E70F5); a TREE goes to the tree buffer (RW 0x62E433 .. 0x62E44F ->
+	// RW 0x683D89), which a walker never pushes aside
+	size_t add(std::uint32_t clientId, const Coord3D &position, const W3DTreeDrawModuleData *data, bool shrub = false);
 	// PORT-73, RW 0x4E70F5 (TheTerrainVisual slot 0x6C for a moving unit): every pushable record within (radius + 7.0) is pushed by RW 0x4E6C74;
 	// returns how many it bent. `frame` is the logic frame (RW 0xDE412C + 0x40, the same clock as the three-frame rule)
 	int unitMoved(std::uint32_t pusherId, const Coord3D &position, const Coord3D &direction, float majorRadius, std::uint32_t frame);

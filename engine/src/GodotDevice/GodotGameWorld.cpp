@@ -1028,7 +1028,7 @@ void GameWorld::build_static_layer(const Ref<RetailFileSystem> &fs, Dictionary &
 				{
 					m_vegSway.reset(new W3DVegetationSway());
 				}
-				m_treeTopple->add((std::uint32_t)d.objectIndex + 1u, d.position, td);
+				m_treeTopple->add((std::uint32_t)d.objectIndex + 1u, d.position, td, d.fate == MAPOBJ_CLIENT_SHRUB); // PORT-73: only a SHRUB is pushed aside
 				ToppleTreeView v;
 				v.instance = instance;
 				std::copy(d.basis, d.basis + 9, v.basis);
