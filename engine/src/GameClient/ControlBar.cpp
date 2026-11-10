@@ -791,9 +791,45 @@ void ControlBar::populateOCLTimerSellButton(GameWindow *sellWindow, bool show)
 	setControlCommand(sellWindow, sell);
 }
 
+// PORT-107 (issue #267): RW 0x8A22D5 .. 0x8A2328, inside ProductionUpdate::completeUpgrade: the selected
+// object's template UpgradeCameo1..5 names each go through findUpgrade (RW 0x66F5E5) and the completed
+// upgrade among them marks TheControlBar dirty (RW 0xDE7744 + 0x28 = 1, the write at RW 0x8A2328). BFME2 1.06
+// is the same readable C++ (ProductionUpdateQueue.cpp:1943: selectedTemplate->m_upgradeCameoUpgradeNames[i]).
+// This is the only reader of the fields in RotWK 2.01: the UnitUpgrade1..5 windows (ControlBar + 0x8C .. +0x9C,
+// made RW 0x71E566 with WIN_STATUS_USE_OVERLAY_STATES) are never shown or given an image — their only reader,
+// ControlBar::setPortraitByImage RW 0x71C56A .. 0x71C60D (it hides them), has no caller at all in 2.01.
+void ControlBar::noteUpgradeCompleted(const UpgradeTemplate *upgrade)
+{
+	if (!upgrade)
+	{
+		return;
+	}
+	Object *selected = m_ctx.logic.findObjectByID(m_ctx.ui.firstSelected());
+	if (!selected || !selected->getTemplate())
+	{
+		return;
+	}
+	const ThingTemplate *tt = selected->getTemplate()->getFinalOverride();
+	for (int i = 1; i <= 5; ++i)
+	{
+		const FieldValue *v = tt->findField("UpgradeCameo" + std::to_string(i));
+		const std::string *name = v ? std::get_if<std::string>(v) : nullptr;
+		if (!name)
+		{
+			continue;
+		}
+		if (TheUpgradeCenter && TheUpgradeCenter->findUpgrade(*name) == upgrade) // RW 0x66F5E5
+		{
+			m_dirty = true; // RW 0x8A2328: TheControlBar + 0x28 = 1
+			break;
+		}
+	}
+}
+
 void ControlBar::update()
 {
 	(void)kPaletteSize;
+	m_dirty = false; // RW 0x71EBED: the refresh RW 0x71FD81 gates on +0x28 consumes the mark (evaluateContextUI clears it)
 	Player *local = m_ctx.localPlayer();
 	if (local)
 	{
