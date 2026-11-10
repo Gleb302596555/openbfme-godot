@@ -1404,6 +1404,19 @@ void CombineHordeSpecialPower::doSpecialPower(unsigned options)
 
 	Object *combiningObj = obj->getContainedBy() ? obj->getContainedBy() : obj;
 
+	// lane PORT-112 (issue #272): RW 0x751716 is slot 4 (onEnter) of AICombineState, the AI state whose constructor RW 0x7448DE pushes the name key
+	// 0xD2CCD3C (vtable RW 0xC29548). Its body: the ordered object's contain (RW 0x68C866), then RW 0x751738 answers slot 136 (RW 0x872B91, the module data's
+	// NotComboFormation byte at +0x25C); with the byte set RW 0x751746 calls slot 0x60 (RW 0x86C7F6), which changes the horde to its AlternateFormation. So a
+	// porcupine formation is left before the combine, instead of the order being refused. The port's combine order has no AI state (LOCAL-18 runs the scan
+	// and the combine here), so the swap happens at the order's start - the same moment on the same horde (the one the power's owner is contained by).
+	if (HordeContain *ordered = dynamic_cast<HordeContain *>(combiningObj->getContain()))
+	{
+		if (ordered->notComboFormation())
+		{
+			ordered->toggleFormation();
+		}
+	}
+
 	PartitionFilterFn filter([&](Object &cand) {
 		if (&cand == obj || &cand == combiningObj || cand.isEffectivelyDead())
 		{
