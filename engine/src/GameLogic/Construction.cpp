@@ -468,7 +468,24 @@ Object *Construction::buildObjectNow(GameLogic &logic, Object *builder, const Th
 		obj->setStatus(OBJECT_STATUS_UNDER_CONSTRUCTION, false);
 		onStructureConstructionComplete(owner, builder, *obj, false);
 	}
-	obj->friend_onBuildComplete();
+	// lane PORT-117 (issue #301, P-57): RW 0x7979D4 .. 0x797A02. A KindOf HORDE object is completed WITHOUT its producer. RotWK reads the new object's
+	// template (Object + 4) KindOf word + 0x114 for bit 0x2000 (RW 0x7979DC: KindOf bit 109 = HORDE in the name table RW 0xDA0E68) and, when it is set, calls
+	// Object::setProducer(NULL) (RW 0x7979E8 -> RW 0x68B6A1), then Object::onBuildComplete (RW 0x7979EF -> RW 0x68D252), then tests the bit again
+	// (RW 0x7979F7) and gives the producer back with the same builder argument (RW 0x797A02). HordeContain's create slot 1 (RW 0x8718ED) makes the
+	// InitialPayload only for an object that has no producer (RW 0x871BAB .. 0x871BB3, else RW 0x871BBB -> RW 0x86A1FA), so a horde built here stands with
+	// all its members when this function returns. The port kept the producer set, the horde started empty and its banner carrier (RW 0x89ACE4, one member
+	// per IdleSpawnRate) filled it one soldier at a time: the Thrall Master's summon (RW 0x8B2302 calls this function, BuildAssistant slot 0x38).
+	// DONOR BFME2 0x003952D8 (Open-BFME-2 Code/GameEngine/Source/Common/System/BuildAssistant.cpp, buildObjectNow) has no such step: it is RotWK's own.
+	const bool horde = templateKindOf(logic, *obj->getTemplate(), "HORDE");
+	if (horde)
+	{
+		obj->setProducer(nullptr); // RW 0x7979E4 .. 0x7979E8
+	}
+	obj->friend_onBuildComplete(); // RW 0x7979EF
+	if (horde)
+	{
+		obj->setProducer(builder); // RW 0x7979FF .. 0x797A02: the builder argument as it came in (NULL leaves no producer)
+	}
 	return obj;
 }
 
