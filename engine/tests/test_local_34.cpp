@@ -32,6 +32,22 @@ using namespace combattest;
 
 namespace
 {
+// the drawable's LaserUpdate client module (the test's own look-up; RW 0x6747C2 walks the client modules the same way)
+LaserUpdate *findLaserUpdate(const Drawable &d)
+{
+	for (const auto &m : d.clientModules())
+	{
+		if (auto *lu = dynamic_cast<LaserUpdate *>(m.get()))
+		{
+			return lu;
+		}
+	}
+	return nullptr;
+}
+} // namespace
+
+namespace
+{
 bool nearFloat(float a, float b, float eps = 1e-4f)
 {
 	return std::fabs(a - b) <= eps;
@@ -289,7 +305,7 @@ TEST_CASE("LOCAL-34: LaserUpdate initFromDrawables and geometry height tracking 
 	caster.setPosition(&casterPos);
 	target.setPosition(&targetPos);
 
-	LaserUpdate *lu = laser.findLaserUpdate();
+	LaserUpdate *lu = findLaserUpdate(laser);
 	REQUIRE(lu != nullptr);
 
 	// initFromDrawables
@@ -451,7 +467,7 @@ TEST_CASE("LOCAL-34: Drawable::findLaserUpdate module lookup on live drawable (R
 	Drawable dLaser(drawServices, ttLaser, 201, 1, laserModules, problems);
 	Drawable dPlain(drawServices, ttPlain, 202, 2, {}, problems);
 
-	CHECK(dLaser.findLaserUpdate() != nullptr);
-	CHECK(dPlain.findLaserUpdate() == nullptr);
+	CHECK(findLaserUpdate(dLaser) != nullptr);
+	CHECK(findLaserUpdate(dPlain) == nullptr);
 	CHECK(nearFloat(dLaser.geometryHeight(), 5.0f));
 }
