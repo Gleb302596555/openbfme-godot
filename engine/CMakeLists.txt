@@ -210,6 +210,7 @@ include(cmake/Port75.cmake) # PORT-75: BannerCarrierUpdate MorphCondition / Bann
 include(cmake/Port79.cmake) # OPENBFME_PORT79_TESTS (lane PORT-79)
 include(cmake/Port54.cmake) # OPENBFME_PORT54_TESTS (lane PORT-54)
 include(cmake/Port83.cmake) # OPENBFME_PORT83_TESTS (lane PORT-83: BuildingBehavior NightWindowName / GlowWindowName, issue #231)
+include(cmake/Port100.cmake) # PORT-100: LargeGroupAudio HandOffModeDuration (issue #260; OPENBFME_PORT100_TESTS)
 include(cmake/Port5.cmake) # OPENBFME_PORT5_TESTS (lane PORT-5)
 include(cmake/Port18.cmake) # PORT-18: hold fire (issue #74)
 include(cmake/Port1.cmake) # PORT-1: Weapon/FinishAttackOnceStarted (issue #53; OPENBFME_PORT1_TESTS)
@@ -817,6 +818,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT79_TESTS}
     ${OPENBFME_PORT54_TESTS}
     ${OPENBFME_PORT83_TESTS}
+    ${OPENBFME_PORT100_TESTS}
     ${OPENBFME_PORT33_TESTS}
     ${OPENBFME_PORT64_TESTS}
     ${OPENBFME_PORT82_TESTS}
