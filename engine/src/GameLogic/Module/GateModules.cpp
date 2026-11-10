@@ -579,6 +579,7 @@ void GateOpenAndCloseBehavior::crc(StateHasher &hasher) const
 	hasher.addU32(m_stateFrame);
 	hasher.addU32((std::uint32_t)m_request);
 	hasher.addBool(m_soundPlayed);
+	hasher.addU32((std::uint32_t)m_linkedObjectId); // Local 33: the proxy link is logic state
 }
 
 // ---- GateProxyBehavior --------------------------------------------------------------------------------------------------------------
@@ -860,7 +861,9 @@ std::vector<std::string> GateModules::acceptanceStops()
 // ---- lane SAVE-4b: the snapshots (OpenBFME native, S-4190; retail's AIGateUpdate::xfer RW 0x8B4A69 (1, 2) holds two more ints) ----------------------
 void GateOpenAndCloseBehavior::xfer(Xfer &x)
 {
-	SnapshotXfer::version(x, 1, 1);
+	// Local 33: version 2 adds the proxy link (+0x24); version 1 had none
+	XferVersion version{ 1, 2 };
+	x.xferVersion(version);
 	xferUpdateModule(x);
 	SnapshotXfer::enumIn(x, m_state, OPENING, CLOSED, "a gate's state");
 	SnapshotXfer::enumIn(x, m_geometryState, GEOMETRY_NONE, GEOMETRY_OPEN, "a gate's geometry state");
@@ -874,7 +877,14 @@ void GateOpenAndCloseBehavior::xfer(Xfer &x)
 	}
 	x.xferBool(&m_soundPlayed);
 	SnapshotXfer::strings(x, m_sounds);
-	x.xferObjectID(&m_linkedObjectId);
+	if (version.current >= 2)
+	{
+		x.xferObjectID(&m_linkedObjectId);
+	}
+	else if (x.isLoading())
+	{
+		m_linkedObjectId = 0;
+	}
 }
 
 void GateProxyBehavior::xfer(Xfer &x)
