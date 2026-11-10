@@ -117,7 +117,7 @@ Setup makeSetup()
 }
 
 // A game of two players: card 0 the local human of `localTemplate`, card 1 a medium AI of `aiTemplate`.
-SkirmishGameInfo makeGame(const Setup &setup, const std::string &localTemplate, int localState, const std::string &aiTemplate)
+SkirmishGameInfo makeGame(const Setup &setup, const std::string &localTemplate, SlotState localState, const std::string &aiTemplate)
 {
 	SkirmishGameInfo game;
 	game.mapStartCount = LEGACY_MAX_SLOTS;
