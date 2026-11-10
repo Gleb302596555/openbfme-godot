@@ -88,9 +88,10 @@ TEST_CASE("PORT-99 LightPointsUpSound: a template without the row stores nothing
 	REQUIRE(bob);
 
 	AudioApi::install(nullptr);
+	const int pointsBefore = bob->science().getSciencePurchasePoints();
 	const std::uint64_t soundsBefore = AudioApi::callsWithoutAudio();
 	bob->science().addSciencePurchasePoints(4);
-	CHECK(bob->science().getSciencePurchasePoints() == 4);
+	CHECK(bob->science().getSciencePurchasePoints() == pointsBefore + 4);
 	// RW 0x782764 clamps at 0; a negative amount changes no sound either (RW 0x6AB173 would skip the sound anyway)
 	bob->science().addSciencePurchasePoints(-10);
 	CHECK(bob->science().getSciencePurchasePoints() == 0);
