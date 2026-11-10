@@ -1,6 +1,6 @@
 # Port 16: supply-source conditions (deferred)
 
-Issue #72 (deferred; see `docs/STOPS.md` `S-7220`–`S-7223` and Local 30 / issue
+Issue #72 (deferred; see `docs/STOPS.md` `S-7227`–`S-7230` and Local 30 / issue
 #246). Static reads below are from RotWK 2.01 `game.dat` with
 `tools/mod/rw.py dis`. This is an analysis note, **not** an implementation on
 `main`: no engine or test changes from this task are merged into `main` (draft
@@ -26,7 +26,7 @@ or mod files are included, and the port continues to report both
   (`AISkirmishPlayer`, which calls RW 0x8F7F2B and replaces the vtable with
   0xC79788 at RW 0x8F3E1B). Checking `SkirmishAIManager::findAI()` alone
   therefore does not establish whether `Player +0x2FC` exists or which vtable
-  it carries (`S-7221`).
+  it carries (`S-7228`).
 * Class selection in `Player::setPlayerType` also reads `AIData`: field row
   0xC1CC80 names `ForceSkirmishAI`, parser RW 0x42E558, offset `+0x65`; the
   `AIData` constructor clears it at RW 0x6FFD49. RW 0x6AA47D–0x6AA498 creates a
@@ -62,7 +62,7 @@ or mod files are included, and the port continues to report both
     (`P16TestUtil.h`, `test_start_random.cpp`, `test_logic_players.cpp`) carry
     no `Skirmish<Side>` map sides, so enabling `noMatch -> PLAYER_HUMAN`
     without coordinated fixture and `Player` changes would flip AI slots to
-    `PLAYER_HUMAN` (`S-7221`).
+    `PLAYER_HUMAN` (`S-7228`).
 
 ## SAFE: source selection, enemy bounds, base center, and visibility
 
@@ -82,7 +82,7 @@ or mod files are included, and the port continues to report both
   0x8F6B5A returns null, SAFE returns `true` (RW 0x8F7581–0x8F7585); otherwise
   RW 0x8F7587–0x8F7590 passes the chosen object's position and `ThingTemplate`
   to `isSupplySourceSafe` (RW 0x8F5220).
-* **`acquireEnemy` / `getAiEnemy` (`RW 0x8F47EB` → `RW 0x8F457D`, `S-7220`):**
+* **`acquireEnemy` / `getAiEnemy` (`RW 0x8F47EB` → `RW 0x8F457D`, `S-7227`):**
   RW 0x8F6B87 invokes vslot `+0x30` on `this` (`Player +0x2FC`). Both Player AI
   vtables (`AIPlayer` 0xC79D98 and `AISkirmishPlayer` 0xC79788) end at slot
   `+0x68` (RW 0x8F994F; RTTI/type strings start at `+0x6C`). Base slot `+0x30`
@@ -101,7 +101,7 @@ or mod files are included, and the port continues to report both
   `main`, `engine/src/GameLogic/SkirmishAI/AITacticalAI.cpp:3395–3555` (#68 Do
   not touch) keeps a separate manager-side enemy cache (`enemyIndex` /
   `enemyRefreshFrame`) using `ai.build.startPosition`, world-object scans and
-  `skirmishAI().findAI(j)` (`S-7220`).
+  `skirmishAI().findAI(j)` (`S-7227`).
 * **`getPlayerStructureBounds` (`RW 0x8F6511`):** When an enemy player is
   returned, RW 0x8F6B91–0x8F6BC8 calls RW 0x8F6511 and computes the 2D midpoint
   `(hi + lo) * 0.5f` in scalar SSE. RW 0x8F6511 initializes its min/max output
@@ -159,7 +159,7 @@ or mod files are included, and the port continues to report both
   4. If a pass finds no candidate, RW 0x8F6DC1–0x8F6DCF halves the signed
      threshold toward zero (`cdq; sub eax, edx; sar eax, 1`) and repeats only
      while the new threshold is strictly greater than `100`.
-* **Safety scan (`RW 0x8F5220`) and the 16 `Contain` vtables (`S-7222`):**
+* **Safety scan (`RW 0x8F5220`) and the 16 `Contain` vtables (`S-7229`):**
   * RW 0x8F524C–0x8F526D queries radius `ThingTemplate +0xB0` (bounding circle)
     plus `AIData +0x84` (`SupplyCenterSafeRadius`, field row 0xC1CD80, default
     `250.0f` at RW 0x6FFC04 / 0x6FFC7D) using distance type 3
@@ -204,7 +204,7 @@ or mod files are included, and the port continues to report both
     * On `main`, `GarrisonContain +0x9BD` remains unported (`S-1100`), while
       `EvaDamageNotice.cpp` (`S-7090`), `AIClosestEnemy.cpp` (`S-1022`), and
       `EmotionModules.cpp` (`S-326`) each carry partial local copies of
-      `RW 0x660D71` / `0x694CCC` (`S-7222`).
+      `RW 0x660D71` / `0x694CCC` (`S-7229`).
 
 ## ATTACKED: shared helper state and last-damage record
 
@@ -229,7 +229,7 @@ or mod files are included, and the port continues to report both
     caller at RW 0x8F7441 clears `+0x70` (RW 0x8F744B), calls RW 0x8F5ABD,
     resolves `+0x74` on `true` (RW 0x8F7458–0x8F746A), and falls back to
     RW 0x8F6B5A on `false` (RW 0x8F746C–0x8F7476), so `+0x70` / `+0x74` belong
-    on the shared Player AI rather than a condition-private copy (`S-7223`).
+    on the shared Player AI rather than a condition-private copy (`S-7230`).
 * Body vtable audit for slots `+0x40` / `+0x44`: `InactiveBody` (create RW
   0x651113 → ctor RW 0x8C1A06 → vtable 0xC718C8) has slot `+0x40` = RW 0x851E97
   (`return nullptr`); `SymbioticStructuresBody` (vtable 0xC72200) forwards
@@ -251,14 +251,14 @@ or mod files are included, and the port continues to report both
 
 ## Deferred status
 
-Port 16 (#72) remains open and deferred (`S-7223`) until the shared
+Port 16 (#72) remains open and deferred (`S-7230`) until the shared
 prerequisites land:
 
-1. `S-7220` — unified `Player +0x2FC` enemy cache (`RW 0x8F47EB` / `0x8F457D`)
+1. `S-7227` — unified `Player +0x2FC` enemy cache (`RW 0x8F47EB` / `0x8F457D`)
    vs `SkirmishAI/AITacticalAI.cpp`.
-2. `S-7221` — `Player::initFromDict` saved-side matching (`RW 0x6B08D6–0x6B0A26`,
+2. `S-7228` — `Player::initFromDict` saved-side matching (`RW 0x6B08D6–0x6B0A26`,
    `S-271`) and `Player::setPlayerType` `Player +0x2FC` allocation (`RW 0x6AA450`).
-3. `S-7222` — shared `PartitionFilterIsVisible` (`RW 0x660D71` → `RW 0x694CCC`),
+3. `S-7229` — shared `PartitionFilterIsVisible` (`RW 0x660D71` → `RW 0x694CCC`),
    `GarrisonContain +0x9BD` (`S-1100`), and consolidation of `S-7090`, `S-1022`,
    `S-326`.
 4. **Local 30 (#246)** — `ActiveBody::attemptDamage` last-damage record

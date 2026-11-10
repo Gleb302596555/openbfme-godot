@@ -80,5 +80,5 @@ RW `0x8528C8` и RW `0x8528DB`: `xfer` `SpecialAbilityUpdate` переносит
 
 ## 7. Стопы
 
-S-7220 (`docs/STOPS.md`): `PrepSoundLoop` (+ 0x10, старт RW `0x853EAC .. 0x853EC8`, снятие RW `0x85261D .. 0x852628`), `PackSound` / `UnpackSound` и звук
+S-7224 (`docs/STOPS.md`): `PrepSoundLoop` (+ 0x10, старт RW `0x853EAC .. 0x853EC8`, снятие RW `0x85261D .. 0x852628`), `PackSound` / `UnpackSound` и звук
 `TriggerModelCondition` той же способности не переносились — в порте на их месте комментарии.
