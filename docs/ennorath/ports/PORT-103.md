@@ -99,3 +99,28 @@ NIGHT_WATCH, final rebase, PR and owner listening check.
 Осталось: full build/test results, fix any compile/assertion failures,
 verify native audio xfer semantics (or remove unsupported inference),
 red/green run on full target, mod data check, final rebase and PR.
+
+## Audio snapshot scope correction
+
+DONOR BFME2 0x000596E9
+(`Code/GameEngineDevice/Source/MilesAudioDevice/Rva00057378.cpp`) serializes
+an existing audio event/alias group, not a module status. Confirmed RW:
+Miles constructor RW 0x45C675 writes vtable 0xBDB550 at RW 0x45C69A;
+its slot 0x160 = 0x458DFF. Linear `rw.py dis 0x458DFF 170` shows
+save lookup at RW 0x458E5B and event transfer RW 0x458EF4 -> 0x455BE8;
+load removes an existing real handle at RW 0x458F0B..0x458F1C and restores
+an event at RW 0x458F6F -> 0x452ABF (or an alias group RW 0x458F33..64).
+
+Therefore native-load restart derived from FS_AFLAME was removed: it was
+not proven equivalent, particularly for refused/finished events. The task's
+fix adds no simulation state; existing crc/xfer stay byte-for-byte unchanged.
+Native serialization of active client events is a shared audio limitation,
+not fixed in this port (S-983). No inference is used to change load behaviour.
+The sixth PORT-103 test instead verifies equal module hashes/snapshot bytes
+with and without the sound. Earlier checkpoint text describes superseded work.
+
+Mod data checked locally (never committed): Ennorath 1.9.8.2 combined INI,
+`object/nature/naturetrees.ini`, including GenericInteractableOptimizedTree,
+GenericNONInteractableOptimizedTree, TreeLothlorien01; sound definition in
+`soundeffects.ini`. Event policy is retained from the loaded audio data; no
+force-loop override is added by the module.

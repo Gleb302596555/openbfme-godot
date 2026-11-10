@@ -7,7 +7,6 @@
 #include "LogicTestUtil.h"
 #include "Common/Audio/AudioEntryPoints.h"
 #include "Common/Audio/SimulatedAudioDevice.h"
-#include "Common/XferLoad.h"
 #include "Common/XferSave.h"
 #include "GameLogic/ContainParseHooks.h"
 #include "GameLogic/Damage.h"
@@ -194,27 +193,26 @@ TEST_CASE("PORT-103 logic worker orders start and stop on the audio owner queue"
 	CHECK(w.audio->pendingRequests() == 0u);
 }
 
-TEST_CASE("PORT-103 native snapshot restores burning audio without changing the saved simulation layout")
+// No audio result is allowed to enter lockstep state (AudioEventRTS uses
+// the separate audio RNG); native simulation snapshots keep their old bytes.
+TEST_CASE("PORT-103 sound requests leave simulation hash and snapshot bytes unchanged")
 {
-	BurningWorld w;
-	Object *o = w.make();
-	FlammableUpdate *f = w.fire(o);
-	XferSave normal;
-	f->xfer(normal);
-	f->tryToIgnite();
-	XferSave burning;
-	f->xfer(burning);
-	CHECK(normal.data().size() == burning.data().size());
-	w.frames(12);
-	CHECK(w.handle(o->getID()) == 0u);
-	w.audio->takeEventLog();
-	XferLoad load(burning.data());
-	f->xfer(load);
-	CHECK(f->status() == FlammableUpdate::FS_AFLAME);
-	CHECK(w.handle(o->getID()) >= AHSV_FirstHandle); // tolerance: device handles are opaque; values below AHSV_FirstHandle are failure/sentinel codes (RW 0x45C754).
-	CHECK(w.audio->takeEventLog().size() == 1u);
-	XferLoad loadNormal(normal.data());
-	f->xfer(loadNormal);
-	CHECK(w.handle(o->getID()) == 0u);
-	CHECK(w.audio->pendingRequests() == 0u);
+	std::vector<std::uint8_t> snapshots[2];
+	std::uint32_t hashes[2] = {};
+	for (int i = 0; i < 2; ++i)
+	{
+		BurningWorld w(i == 0 ? "    BurningSoundName = TestCrackle\n" : "");
+		Object *o = w.make();
+		FlammableUpdate *f = w.fire(o);
+		f->tryToIgnite();
+		w.frames(4);
+		StateHasher hash;
+		f->crc(hash);
+		hashes[i] = hash.value();
+		XferSave saved;
+		f->xfer(saved);
+		snapshots[i] = saved.data();
+	}
+	CHECK(hashes[0] == hashes[1]);
+	CHECK(snapshots[0] == snapshots[1]);
 }

@@ -562,7 +562,7 @@ void FlammableUpdate::stopBurning()
 			m_panicLocomotorWhileAflameActive = false;   // RW 0x890119 (the AI + 0x3C9 byte is write-only in RotWK 2.01, not carried)
 		}
 	}
-	noteStop(*obj, "FlammableUpdate: the quench's RW 0x68F2F1(0), and script event 11 are not run");
+	noteStop(*obj, "FlammableUpdate: the quench's RW 0x68F2F1(0) and script event 11 are not run");
 }
 
 // RW 0x88FB79
@@ -748,21 +748,6 @@ void FlammableUpdate::xfer(Xfer &x)
 	x.xferObjectID(&m_lastFlameDamager);
 	x.xferUnsignedInt(&m_aflameDamageTicks);
 	x.xferBool(&m_panicLocomotorWhileAflameActive); // appended (the 2026-11-06 save layouts are sealed by the engine id)
-	// PORT-103: RW 0x88FC76..0x88FC7B transfers the client audio handle at
-	// +0x34 through TheAudio slot 0x160. Native snapshots keep no device handle;
-	// reconstruct the existing AFLAME state on load using the held-sound queue.
-	// No new simulation field or snapshot layout/hash change is needed.
-	if (x.isLoading() && !m_data->m_burningSoundName.empty())
-	{
-		if (m_status == FS_AFLAME)
-		{
-			AudioApi::postHeldSound(AudioApi::HELD_FLAMMABLE_LOOP, m_data->m_burningSoundName, getObject()->getID(), getObject()->getID());
-		}
-		else
-		{
-			AudioApi::stopHeldSound(AudioApi::HELD_FLAMMABLE_LOOP, getObject()->getID());
-		}
-	}
 }
 
 void FireSpreadUpdate::xfer(Xfer &x)
