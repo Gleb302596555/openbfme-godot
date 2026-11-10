@@ -1161,6 +1161,8 @@ add_executable(openbfme_tests
     tests/test_local_28.cpp
     # lane LOCAL-25 (locomotor ground motion presentation and unread simulation stops S-7221, issue #187)
     tests/test_local_25.cpp
+    # lane LOCAL-29 (draw module placement on another module's bone, AttachToBoneInAnotherModule, issue #218)
+    tests/test_local_29.cpp
     # shared numeric facade (WEAPON-1 e75dd8c, imported unchanged: wide PC24 results, SSE binary32 ops, retail integer conversions)
     tests/test_numeric_facade.cpp
     # lane ECON-1: the economy

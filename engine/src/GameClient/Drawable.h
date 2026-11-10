@@ -184,6 +184,8 @@ struct DrawEntry
 	// lane PORT-69 (issue #183): W3DModelDraw TrackMarks (RW W3DScriptedModelDraw + 0x60)
 	bool hasTrackMarks = false;
 	int trackId = -1;
+	// lane LOCAL-29 (issue #218): AttachToBoneInAnotherModule (RW 0x4B6A6F..0x4B6B26 / RW 0x672B5B)
+	std::string attachToBone;
 };
 
 // LOCAL-25 (issue #187): client presentation physics state (retail Drawable + 0x13C, RW 0x67BDC0 / donor 0x00270098)
@@ -331,8 +333,11 @@ public:
 	// Both bump the change count so the device layer re-reads the draws.
 	bool showModule(const std::string &name, bool visible, bool permanent);
 
-	// lane LOCAL-28: queries bone world position across draw module models (RW 0x672B5B)
+	// lane LOCAL-28 / LOCAL-29: queries bone world transform across draw module models (RW 0x00672B5B / DONOR BFME2 0x00272835)
+	bool boneTransform(const std::string &boneName, Matrix3D &outTransform) const;
 	bool boneWorldPosition(const std::string &boneName, Coord3D &outPos) const;
+	// lane LOCAL-29 (issue #218): computes world transform of entry e (RW 0x004B6A6F..0x004B6B26 / slot +0x104); returns true if attached
+	bool entryTransform(const DrawEntry &e, Matrix3D &outMatrix) const;
 	// lane BUILD-4: a draw module's state script asked for a module's visibility (RW 0x734EF4 -> 0x6789B4); while the constructor still makes the modules the
 	// request waits until all exist
 	void scriptModuleVisible(const std::string &name, bool visible);

@@ -285,6 +285,10 @@ public:
 	float cachedConstructionPercent() const { return m_constructionPercent; }
 	bool adjustsHeightByConstruction() const { return m_curAnimState && m_curAnimState->testFlag(W3D_ACF_ADJUST_HEIGHT_BY_CONSTRUCTION_PERCENT); }
 
+	// vtable slot +0x104 (RW 0x9F3A3C -> ret 4; W3DSailModelDraw RW 0x4D00CD overrides it to adjust sail rotation to wind; called by RW 0x4B6B26 when placed on another module's bone)
+	virtual void adjustAttachedTransform(Matrix3D &) {}
+	virtual void adjustModelMatrix(Matrix3D &m) { adjustAttachedTransform(m); }
+
 	// Speed multiplier of every track (RW +0x9C: the movement speed sync, recomputed at the end of every advance). Exposed for tests.
 	void setSpeedMultiplier(float m) { m_speedSync = m; }
 	float speedMultiplier() const { return m_speedSync; } // lane SMOOTH-3: the Distance sync (RW +0x9C)
