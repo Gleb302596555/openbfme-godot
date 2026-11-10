@@ -240,6 +240,7 @@ include(cmake/Port44.cmake) # PORT-44: ExperienceLevel/ShowLevelUpTint (issue #1
 include(cmake/Port70.cmake) # PORT-70: the GameData verdict table (issue #184; OPENBFME_PORT70_TESTS)
 include(cmake/Port25.cmake) # PORT-25: HordeContain/VisionRearOverride (issue #97; OPENBFME_PORT25_TESTS)
 include(cmake/Port60.cmake) # PORT-60: EvaAnnounceClientCreate/CreateFakeRadarEvent (issue #170; verdict, no engine change; OPENBFME_PORT60_TESTS)
+include(cmake/Port103.cmake) # PORT-103: FlammableUpdate/BurningSoundName
 include(cmake/Port61.cmake) # PORT-61: FlammableUpdate/FireFXList, the effects at ignition (issue #171; OPENBFME_PORT61_TESTS)
 include(cmake/Port62.cmake) # PORT-62: TransportContain/FireGrabWeaponOnVictim, the GrabWeapon fire (issue #172; OPENBFME_PORT62_TESTS)
 include(cmake/Port72.cmake) # PORT-72: FactionVictoryData, stop verdict S-7216 (issue #186; OPENBFME_PORT72_TESTS)
@@ -855,6 +856,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT70_TESTS}
     ${OPENBFME_PORT25_TESTS}
     ${OPENBFME_PORT60_TESTS}
+    ${OPENBFME_PORT103_TESTS}
     ${OPENBFME_PORT61_TESTS}
     ${OPENBFME_PORT62_TESTS}
     ${OPENBFME_PORT72_TESTS}
