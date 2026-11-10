@@ -12,8 +12,10 @@
 //     TestFaction (bool +0x1C), SpawnTimer (parseReal +0x20), RebuildTimeSeconds (parseReal +0x24), RebuildWhenDead (bool +0x2C), HealWeapon (+0x28), SelfBuildingLoop /
 //     SelfRepairFromDamageLoop / SelfRepairFromRubbleLoop (audio, +8 / +0xC / +0x10), PercentOfBuildCostToRebuildPristine / Damaged / ReallyDamaged / Rubble (percent,
 //     +0x30 .. +0x3C), DisallowRebuildFilter (ObjectFilter +0x40), DisallowRebuildRange (real +0x44), UseSpawnTimerWithoutWorker (bool +0x48) (table RW 0xC56AC8).
-//   BuildingBehavior (create RW 0x64A864, data RW 0x64A89C, mask 1): NightWindowName (+8), FireWindowName (+0x14), GlowWindowName (+0x20), FireName (+0x2C) (lists of
-//     strings; table RW 0xC56F70; the window sub objects are drawn by the client).
+//   BuildingBehavior (create RW 0x64A864, data RW 0x64A89C, mask 1; ctor RW 0x85927B, update RW 0x85935C, xfer RW 0x859324): NightWindowName (+8), FireWindowName
+//     (+0x14), GlowWindowName (+0x20), FireName (+0x2C) (lists of strings; table RW 0xC56F70; the window sub objects are drawn by the client). Lane PORT-83 (#231):
+//     the NightWindowName and GlowWindowName lists are read by update (the night window list on a night map, the glow list while AFLAME); FireWindowName and
+//     FireName are lane Port 29 (issue #101)'s.
 // Lane BUILD-2 ported RotWK's GettingBuiltBehavior runtime (see the class comment and ConstructionModules.cpp); the audio loops are the client's.
 
 #pragma once
@@ -177,16 +179,26 @@ public:
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
 
+// lane PORT-83 (issue #231): RotWK's BuildingBehavior (module RW size 0x24, ctor RW 0x85927B, update RW 0x85935C, xfer RW 0x859324): the window sub objects are shown and
+// hidden on the object's drawable (RW 0x8592F0: each name goes through Drawable::showSubObject RW 0x672823 to every draw module's ObjectDrawInterface vslot 0x88 = setSubObject
+// RW 0x4C3B25, with the permanent flag ALWAYS 1; then Drawable::updateSubObjects RW 0x672713). The night window list (NightWindowName) is shown at the first update on a
+// night map (and again when a burning building's fire goes out at night); the glow window list (GlowWindowName) is shown while the building is on fire (status AFLAME, 0xA).
+// The FireWindowName (+0x14) and FireName (+0x2C) lists are lane Port 29 (issue #101)'s, not read here.
 class BuildingBehavior : public UpdateModule
 {
 public:
-	OBFME_MODULE_XFER(BuildingBehavior) // lane SAVE-4b: UpdateModule's (no state of its own)
+	OBFME_MODULE_XFER(BuildingBehavior) // lane PORT-83: UpdateModule's plus the two RW latches (module +0x20/+0x21, RW 0x859324, xferBool RW slot 0x90)
 	BuildingBehavior(Thing *thing, const BuildingBehaviorModuleData *data);
-	UpdateSleepTime update() override { return UPDATE_SLEEP_FOREVER; } // the windows are the client's (night glow, fire)
+	UpdateSleepTime update() override;
 	const BuildingBehaviorModuleData *data() const { return m_data; }
 
 private:
+	// RW 0x8592F0: for every name of the list, Drawable::showSubObject with the permanent flag (RW always pushes 1); an empty name is a no-op (RW 0x401e64)
+	void applySubObjectList(const std::vector<std::string> &list, Object &obj, bool visible);
+
 	const BuildingBehaviorModuleData *m_data;
+	bool m_aflame = false;     // module +0x20 (RW m_field20): the latch that tracks the AFLAME status across frames
+	bool m_firstUpdate = true; // module +0x21 (RW m_field21): the first update applies the hide-everything baseline (and the night windows)
 };
 
 namespace ConstructionModules

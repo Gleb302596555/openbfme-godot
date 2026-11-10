@@ -974,11 +974,110 @@ void GettingBuiltBehavior::crc(StateHasher &h) const
 }
 
 // ---- BuildingBehavior ---------------------------------------------------------------------------------------------------------------
+// lane PORT-83 (issue #231): RotWK's BuildingBehavior (ctor RW 0x85927B, update RW 0x85935C, the latches RW +0x20/+0x21, xfer RW 0x859324). Every name of the four
+// lists is applied with RW 0x8592F0: one call per name to Drawable::showSubObject RW 0x672823 (the object's drawable; every draw module's ObjectDrawInterface vslot 0x88,
+// setSubObject RW 0x4C3B25) with the permanent flag ALWAYS 1 - RW pushes a literal 1 at RW 0x85930B, so the draw-side record outlives model switches. An empty name is a
+// no-op (RW 0x401e64). RW ends both passes with Drawable::updateSubObjects RW 0x672713; the port's setSubObjectHidden already applies (or records) the change at the
+// call, so there is no counterpart for that call here.
+//
+// PORT-83 SCOPE (issue #231 vs lane Port 29, issue #101): the NightWindowName (data +0x8) and GlowWindowName (data +0x20) lists are read here. RW applies the
+// FireWindowName (data +0x14; the AFLAME 0->1 pass, the shared tail's list 1, the first pass's hide) and the FireName (data +0x2C; shown on AFLAME 0->1 only at night,
+// hidden on the first pass and on AFLAME 1->0) in the same function; those two lists stay UNAPPLIED in this port on purpose - they are Port 29's, not this lane's.
+//
+// RW's night source is TheWritableGlobalData (RW 0xDE4364) +0x134 == 4 (NIGHT); the port's GameLogicSettings::night is that row (LiveGame sets it from the map's GlobalLighting).
 BuildingBehavior::BuildingBehavior(Thing *thing, const BuildingBehaviorModuleData *data)
 	: UpdateModule(thing, data)
 	, m_data(data)
 {
-	friend_setNextCallFrame((UnsignedInt)UPDATE_SLEEP_FOREVER);
+	// RW 0x85927B: module +0x20 = 0, module +0x21 = 1, setWakeFrame(UPDATE_SLEEP_NONE) (RW 0x850C32): the module runs every frame
+	setWakeFrame(getObject(), UPDATE_SLEEP_NONE);
+}
+
+void BuildingBehavior::applySubObjectList(const std::vector<std::string> &list, Object &obj, bool visible)
+{
+	ObjectClientHooks *hooks = obj.clientHooks();
+	if (!hooks)
+	{
+		return;
+	}
+	for (const std::string &name : list)
+	{
+		if (name.empty())
+		{
+			continue; // RW 0x8592F0 passes every entry to vslot 0x88, whose empty-AsciiString test (RW 0x401e64) makes it a no-op
+		}
+		hooks->showSubObject(obj, name, visible, true /* RW 0x85930B pushes a literal 1: the permanent record (drawn across model state switches) */);
+	}
+}
+
+UpdateSleepTime BuildingBehavior::update()
+{
+	Object *obj = getObject();
+	// RW 0x859366..0x859398 (ebx/edi = module +8/+4): no object -> sleep forever
+	if (!obj)
+	{
+		return UPDATE_SLEEP_FOREVER;
+	}
+	// RW 0x44DDEC(0x58): an effectively dead object (+0x458 bit 0) sleeps forever, unless status 0x58 is set (PHANTOM_STRUCTURE, TheObjectStatusNames[88])
+	if (obj->isEffectivelyDead() && !obj->testStatus(88))
+	{
+		return UPDATE_SLEEP_FOREVER;
+	}
+	// RW 0x70E013 (Object::getDrawable) -> SLEEP_FOREVER without one; every object has one in the port, a missing client (no client hooks bound) is the
+	// port's missing drawable - same verdict as RW
+	if (!obj->clientHooks())
+	{
+		return UPDATE_SLEEP_FOREVER;
+	}
+	// RW 0x8593A2: [obj+0x114] = ModelConditionFlags.m_bits[2]; bit 67 (AWAITING_CONSTRUCTION) / bit 69 (ACTIVELY_BEING_CONSTRUCTED) (RW 0xD9FAD8)
+	static const int kAwaitingConstruction = 67;
+	static const int kActivelyBeingConstructed = 69;
+	if (obj->testModelCondition(kAwaitingConstruction) || obj->testModelCondition(kActivelyBeingConstructed))
+	{
+		return UPDATE_SLEEP_NONE; // RW 0x8594E5: no sub object work while the construction model conditions hold
+	}
+	const bool night = obj->logic().settings().night; // RW 0x8593EF: TheWritableGlobalData + 0x134 == 4 (NIGHT)
+	// lane PORT-83 scope split (above): the FireWindowName and FireName lists are not applied here
+	if (m_firstUpdate) // RW 0x8593C1 (module +0x21, m_field21)
+	{
+		// RW 0x8593D7: the first update hides every list (0x8593D0: 4 iterations from data + 8), then, on a night map, shows the night window list
+		applySubObjectList(m_data->m_nightWindowName, *obj, false);
+		applySubObjectList(m_data->m_glowWindowName, *obj, false);
+		if (night)
+		{
+			applySubObjectList(m_data->m_nightWindowName, *obj, true);
+		}
+		m_firstUpdate = false;
+		// RW 0x672713 (Drawable::updateSubObjects): no port counterpart, the sub object calls are applied at the call
+	}
+	if (!m_aflame) // RW 0x85941C (module +0x20, m_field20)
+	{
+		// RW 0x44DDEC(0xA): the AFLAME status (TheObjectStatusNames[10] AFLAME); a steady building whose fire did not start/stop does nothing - the time of day is NOT re-checked here
+		if (!obj->testStatus(10))
+		{
+			return UPDATE_SLEEP_NONE; // RW 0x85942B -> 0x8594E5
+		}
+		m_aflame = true; // RW 0x85942F
+		// RW 0x859438..0x859481: for i in 0..3 - (night && i == 3) shows list 3 (FireName, Port 29), i in {1, 2} shows the fire window and glow lists, else hides;
+		// Port 83 applies list 0 (hide) and list 2 (glow, show) only
+		applySubObjectList(m_data->m_nightWindowName, *obj, false);
+		applySubObjectList(m_data->m_glowWindowName, *obj, true);
+		// RW 0x8594D0: show list 1 (FireWindowName) - lane Port 29 (issue #101)'s, not applied here
+	}
+	else if (!obj->testStatus(10)) // RW 0x85948E: the AFLAME status clears while the latch holds
+	{
+		m_aflame = false; // RW 0x85949B (al = 0)
+		// RW 0x8594AD..0x8594C0: every list is hidden (0x8594A1: list 0 is data + 8)
+		applySubObjectList(m_data->m_nightWindowName, *obj, false);
+		applySubObjectList(m_data->m_glowWindowName, *obj, false);
+		// RW 0x8594C2: on a night map the night window list is shown again (the shared tail at 0x8594D0 with edi = list 0)
+		if (night)
+		{
+			applySubObjectList(m_data->m_nightWindowName, *obj, true);
+		}
+	}
+	// RW 0x8594E0 (Drawable::updateSubObjects) when something changed: no port counterpart, the sub object calls are applied at the call
+	return UPDATE_SLEEP_NONE; // RW 0x8594E5
 }
 
 void ConstructionModules::registerAll(ModuleFactory &modules)
@@ -1021,6 +1120,18 @@ void GettingBuiltBehavior::xfer(Xfer &x)
 
 void BuildingBehavior::xfer(Xfer &x)
 {
-	SnapshotXfer::version(x, 1, 1);
+	// lane PORT-83: version 2 adds the two RW latches (module +0x20/+0x21, RW 0x859324: xferBool, RW slot 0x90); version 1 had no state of its own
+	XferVersion version{ 1, 2 };
+	x.xferVersion(version);
 	xferUpdateModule(x);
+	if (version.current >= 2)
+	{
+		x.xferBool(&m_aflame);
+		x.xferBool(&m_firstUpdate);
+	}
+	else if (x.isLoading())
+	{
+		m_aflame = false;
+		m_firstUpdate = true;
+	}
 }
