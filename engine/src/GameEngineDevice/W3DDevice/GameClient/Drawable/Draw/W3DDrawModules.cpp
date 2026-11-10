@@ -101,6 +101,11 @@ std::vector<std::string> W3DDrawModules::notDrawnClasses()
 				out.push_back("W3DTornadoDraw: effect draw, tornado decals/particles not fully drawn (S-113)");
 				continue;
 			}
+			if (std::string(c.name) == "W3DLightDraw")
+			{
+				out.push_back("W3DLightDraw: no model, light source drawn through viewport dynamic lights (S-113)");
+				continue;
+			}
 			out.push_back(std::string(c.name) + ": effect draw, not drawn (S-113)");
 		}
 		else if (c.kind == W3D_DRAWKIND_NOTHING)

@@ -508,6 +508,9 @@ void SkirmishAIManager::xferState(Xfer &x, bool hooksInstalled)
 	// version 8 (lane PORT-33; it was the fork's version 7 before the merge of upstream efbdfad9): AIWoTRForfeitTactic's state (+ 0x58 / + 0x5C / + 0x64, RW 0x9B72A4), written only when such a tactic is live: a game that has
 	// none keeps the lower version's bytes (the WotR battle's surrender is the only creator)
 	bool forfeitTactic = x.isLoading();
+	// version 9 (lane PORT-39; the arena branch wrote it as version 7 before RAI-SMALL and PORT-33 took 7 and 8): each AI's gatherer bookkeeping
+	// (AIPlayer + 0x46 / + 0x78 / + 0x7C), written only when some AI's side has a SideInfo entry: a game without one keeps the lower version's bytes
+	bool gatherers = x.isLoading();
 	for (const std::unique_ptr<AISkirmishGroup> &g : m_groups)
 	{
 		for (const auto &kv : g->players)
@@ -533,10 +536,14 @@ void SkirmishAIManager::xferState(Xfer &x, bool hooksInstalled)
 			{
 				enemyCache = true;
 			}
+			if (kv.second->needsResourceGatherers || kv.second->resourceGatherersWanted != 0 || kv.second->resourceGatherersHave != -1)
+			{
+				gatherers = true;
+			}
 		}
 	}
 	// a task list needs the enemy-cache fields too: version 7 always carries version 6's bytes
-	const int written = forfeitTactic ? 8 : (hasTasks ? 7 : (enemyCache ? 6 : 5));
+	const int written = gatherers ? 9 : (forfeitTactic ? 8 : (hasTasks ? 7 : (enemyCache ? 6 : 5)));
 	XferVersion v{ 3, (std::uint8_t)written };
 	x.xferVersion(v);
 	const bool loading = x.isLoading();
@@ -733,6 +740,17 @@ void SkirmishAIManager::xferState(Xfer &x, bool hooksInstalled)
 				if (x.isLoading())
 				{
 					AIXfer::inRange(ai->enemyIndex, -1, m_logic.players().getPlayerCount() - 1, "skirmish ai: the cached enemy player of an AI");
+				}
+			}
+			if (v.current >= 9)
+			{
+				// lane PORT-39: the gatherer bookkeeping of RW 0x8F736E / 0x8F858E (AIPlayer + 0x46 / + 0x78 / + 0x7C)
+				x.xferBool(&ai->needsResourceGatherers);
+				x.xferInt(&ai->resourceGatherersWanted);
+				x.xferInt(&ai->resourceGatherersHave);
+				if (x.isLoading())
+				{
+					ai->hasSideInfo = ai->needsResourceGatherers;
 				}
 			}
 			AIXfer::inRange(ai->playerIndex, 0, m_logic.players().getPlayerCount() - 1, "skirmish ai: the player of an AI");

@@ -36,6 +36,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawServices.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLuaDrawScriptHost.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DSupplyDraw.h"
 #include "Libraries/WWVegas/WW3D2/assetmgr.h"
 #include "Libraries/WWVegas/WWMath/matrix3d.h"
 
@@ -53,6 +54,8 @@ typedef std::uint32_t DrawableID;
 class ModuleFactory;
 class AnimationSoundModuleManager;
 class ModelConditionAudioLoopClientBehavior;
+class LightPulsePool;
+class W3DLightDraw;
 
 // LOCAL-3: TintEnvelope (ZH Include/GameClient/TintEnvelope.h, RW 0x671B20 .. 0x674AD7 / BFME2 0x671800 .. 0x6747B1, both editions identical).
 // Steps a drawable's additive tint or selection flash through attack, sustain and decay at the client frame rate, with optional sine modulation by the
@@ -134,6 +137,7 @@ struct DrawServices
 	std::function<int()> effectsLOD;
 	bool selectionFlashHouseColor = true; ///< lane LOCAL-3: GameData SelectionFlashHouseColor (RW 0xC005E0, GlobalData +0xB58)
 	float selectionFlashSaturationFactor = 0.6f; ///< lane LOCAL-3: GameData SelectionFlashSaturationFactor (RW 0xC005D0, GlobalData +0xB54)
+	LightPulsePool *lightPulses = nullptr; ///< lane FEAT-BLDFX-1 / LOCAL-28: dynamic light pulse pool for FX and object lights
 	// LOCAL-25: terrain height and normal sampler for presentation physics (calcPitchRoll / suspension)
 	std::function<float(float x, float y, Coord3D *normal)> groundHeight;
 	// LOCAL-25: TheGameClient's frame (30 a second, RW vslot 0x7C of 0xDE4388), the gate of the presentation physics step (RW 0x67BDF6 .. 0x67BE17).
@@ -144,6 +148,13 @@ struct DrawServices
 // One draw module of a drawable.
 struct DrawEntry
 {
+	DrawEntry();
+	~DrawEntry();
+	DrawEntry(DrawEntry &&) noexcept;
+	DrawEntry &operator=(DrawEntry &&) noexcept;
+	DrawEntry(const DrawEntry &) = delete;
+	DrawEntry &operator=(const DrawEntry &) = delete;
+
 	std::string className;
 	std::string tag;
 	W3DDrawKind kind = W3D_DRAWKIND_NOT_DRAWN;
@@ -151,6 +162,8 @@ struct DrawEntry
 	std::string staticModel;          ///< tree / prop / floor kinds: the model the module shows ("" when none)
 	std::string notDrawnReason;       ///< why a non-model entry draws nothing
 	std::unique_ptr<W3DScriptedModelDraw> draw; ///< MODEL kind
+	std::unique_ptr<W3DLightDraw> lightDraw;    ///< lane LOCAL-28: W3DLightDraw dynamic light module
+	std::unique_ptr<W3DSupplyDraw> supply;     ///< PORT-77: supply-pile variant status alongside the shared model runtime
 	bool animated = false;            ///< advance() would change the draw (W3DScriptedModelDraw::needsAdvance, set at creation and on every flag change, never lowered by an advance: the pose after a blend's promotion is still pushed): advance() each render frame
 	bool missingModel = false;        ///< the model is not in the mounted archives (a retail data defect): not drawn
 	std::string lastModel;            ///< the model last handed to the device layer (the device layer keeps its own handle)
@@ -317,10 +330,15 @@ public:
 	// RW 0x672823 Drawable::showSubObject: every model draw module hides / shows the sub object `name` (permanent: the script's permanent form).
 	// Both bump the change count so the device layer re-reads the draws.
 	bool showModule(const std::string &name, bool visible, bool permanent);
+
+	// lane LOCAL-28: queries bone world position across draw module models (RW 0x672B5B)
+	bool boneWorldPosition(const std::string &boneName, Coord3D &outPos) const;
 	// lane BUILD-4: a draw module's state script asked for a module's visibility (RW 0x734EF4 -> 0x6789B4); while the constructor still makes the modules the
 	// request waits until all exist
 	void scriptModuleVisible(const std::string &name, bool visible);
 	void showSubObject(const std::string &name, bool visible, bool permanent);
+	// PORT-77: Drawable dispatcher RW 0x671948's supply-specific path; applied only to W3DSupplyDraw entries.
+	void setSupplyStatus(int currentBoxes, int startingBoxes);
 	// RW 0x8B911E: every model draw module takes `swaps` as its upgrade textures (draw module vslot 0x84)
 	void setUpgradeTextures(const std::vector<std::pair<std::string, std::string>> &swaps);
 	// RW 0x4B8701 -> slot +0x1F8 (RW 0x54BDE0): recolours current render object meshes except those matching excludeSubobject
@@ -444,6 +462,10 @@ public:
 	// repeated request tells no module anything twice.
 	void setAudible(bool audible);
 	bool audible() const { return m_audible; }
+	// PORT-68 (RW 0x44C465 / 0x4B1CB0): Drawable + 0x360 FXTrigger index (TheFXTriggerNames: 0 NONE, 1 CATAPULT_ROCK, 2 TREBUCHET_ROCK),
+	// set by ObjectKnockback::shockWave (RW 0x6968D7 / 0x696E3E) and ObjectKnockback::apply (RW 0x692307) through RW 0x68B56A.
+	void setFXTrigger(int fxTrigger) { m_fxTrigger = fxTrigger; }
+	int getFXTrigger() const { return m_fxTrigger; }
 	const ObjectSnapshot *syncedRecord(const LogicSnapshot &snapshot, bool &found) const
 	{
 		found = m_syncSnapshot == &snapshot && m_syncFrame == snapshot.frame;
@@ -573,6 +595,7 @@ private:
 	mutable std::string m_lastShadowModelName;                     ///< RW 0x4B42F5 (model name 0)
 	mutable bool m_lastShadowStateHasShadow = false;               ///< RW 0x4C4EE8 (state shadow override)
 	bool m_audible = true;          ///< lane PORT-21: Drawable + 0x44A, 1 until the object becomes INAUDIBLE (RW 0x674727 / 0x67896F)
+	int m_fxTrigger = 0;            ///< PORT-68: Drawable + 0x360 FXTrigger index (RW 0x44C465 / 0x4B1CB0)
 	bool m_clientHidden = false; ///< lane CHAT-1
 	bool m_phantomLook = false;  ///< lane FBSIM-1: drawn as a dozer's phantom structure (0.4 opacity)
 	Fade m_fade; ///< lane PROJ-2

@@ -458,9 +458,11 @@ TEST_CASE("save4c retail T5: each block's version window (RW 0xA1F5B9's two mess
 		// (3, 6) since lane RAI-POW-2 (community #233: the AIPlayer's enemy cache, written only once an AI has asked for an enemy: this scene's AIs never do,
 		// so the block stays version 5), (3, 7) since lane RAI-SMALL (the groups' task vectors, written only when a group holds a task: this scene has none,
 		// so the block stays version 5, while the loader accepts version 7), (3, 8) since PORT-33 (345378fd; version 7 before the merge of upstream efbdfad9:
-		// AIWoTRForfeitTactic's own fields, written only while such a tactic is live; pin: the window's top moved with that version, P-68)
+		// AIWoTRForfeitTactic's own fields, written only while such a tactic is live; pin: the window's top moved with that version, P-68), (3, 9) since PORT-39
+		// (PR #201: each AI's gatherer bookkeeping, written when some AI's side has an AIData SideInfo entry; retail's data\ini\default\aidata.ini has five,
+		// so this scene's block is written as version 9; pin: both the written version and the window's top moved with it)
 		const bool skirmish = t == "obfme:SkirmishAI";
-		const std::uint8_t version = skirmish ? 5 : 1, latest = skirmish ? 8 : 1, earliest = skirmish ? 3 : 1;
+		const std::uint8_t version = skirmish ? 9 : 1, latest = skirmish ? 9 : 1, earliest = skirmish ? 3 : 1;
 		REQUIRE(one[at] == version);
 		std::vector<std::uint8_t> above = one, below = one;
 		above[at] = (std::uint8_t)(latest + 1);

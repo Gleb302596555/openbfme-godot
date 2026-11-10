@@ -182,10 +182,14 @@ include(cmake/Structure.cmake)  # OPENBFME_STRUCTURE_SOURCES / OPENBFME_STRUCTUR
 include(cmake/Spell.cmake)      # OPENBFME_SPELL_SOURCES / OPENBFME_SPELL_TESTS (lane SPELL-1)
 include(cmake/Port43.cmake)     # PORT-43: GameData/PowerLimit -> GameLogic + 0x118 (issue #128; OPENBFME_PORT43_TESTS)
 include(cmake/Port51.cmake)     # PORT-51: Object/InstanceScaleFuzziness, parsed and never read by RotWK (issue #155; OPENBFME_PORT51_TESTS)
+include(cmake/Port99.cmake)     # PORT-99: PlayerTemplate/LightPointsUpSound, its only reader is the light-point (WOTR) action (issue #259; OPENBFME_PORT99_TESTS)
 include(cmake/Port81.cmake)     # PORT-81: HordeContain/RanksToJustFreeWhenAttacking, parsed and never read by RotWK (issue #213; OPENBFME_PORT81_TESTS)
+include(cmake/Port93.cmake)     # PORT-93: SpecialAbilityUpdate/ActiveLoopSound, the active ability loop (issue #241; OPENBFME_PORT93_TESTS)
 include(cmake/Port73.cmake)     # PORT-73: W3DTreeDraw DoTopple / the shrub push aside (issue #205; OPENBFME_PORT73_TESTS)
+include(cmake/Port87.cmake)     # PORT-87: unit voice VoiceStartCharging / VoiceNoBuild (issue #235; OPENBFME_PORT87_TESTS)
 include(cmake/Port50.cmake)     # PORT-50: W3DModelDraw/ParticlesAttachedToAnimatedBones, particles on the animated bones (issue #154; OPENBFME_PORT50_TESTS)
 include(cmake/Port74.cmake)     # PORT-74: W3DLaserDraw, the lightning and beam draws (issue #206; OPENBFME_PORT74_SOURCES / _TESTS)
+include(cmake/Port97.cmake)     # PORT-97: TransportContain FadePassengerOnEnter / OnExit, the passengers' fade (issue #245; OPENBFME_PORT97_TESTS)
 include(cmake/Render.cmake)     # OPENBFME_RENDER_SOURCES / OPENBFME_RENDER_TESTS (lane RENDER-1, client / draw only)
 include(cmake/SkirmishAI.cmake) # OPENBFME_SKIRMISH_AI_SOURCES / OPENBFME_SKIRMISH_AI_TESTS (lane AI-1)
 include(cmake/Vis.cmake)        # OPENBFME_VIS_SOURCES / OPENBFME_VIS_TESTS (lane VIS-1)
@@ -211,9 +215,11 @@ include(cmake/Port2.cmake) # PORT-2: ActiveBody/RecoveryTime (issue #54; OPENBFM
 include(cmake/Port6.cmake) # PORT-6: StealthDetectorUpdate/CanDetectWhileGarrisoned (issue #59; OPENBFME_PORT6_TESTS)
 include(cmake/Port8.cmake) # PORT-8: PhysicsBehavior/OrientToFlightPath (issue #61; OPENBFME_PORT8_TESTS)
 include(cmake/Port7.cmake) # PORT-7: AnimalAIUpdate/UpdateTimer (issue #60; OPENBFME_PORT7_TESTS)
+include(cmake/Port77.cmake) # PORT-77: W3DSupplyDraw/SupplyBonePrefix (issue #209; OPENBFME_PORT77_TESTS)
 include(cmake/Port11.cmake) # PORT-11: SlavedUpdate/StayOnSameLayerAsMaster (issue #66; OPENBFME_PORT11_TESTS)
 include(cmake/Port13.cmake) # PORT-13: AIData/AttackMoveUsesFormations (issue #68; OPENBFME_PORT13_TESTS)
 include(cmake/Port30.cmake) # PORT-30: OneRingPenaltyUpdate/TimeFrozenFromPenalty (issue #102; OPENBFME_PORT30_TESTS)
+include(cmake/Port28.cmake) # PORT-28: Weapon/RotatingTurret, the turret aim vector (issue #100; OPENBFME_PORT28_TESTS)
 include(cmake/Port48.cmake) # PORT-48: W3DModelDraw/WadingParticleSys (issue #152)
 include(cmake/Port24.cmake) # PORT-24: Object/ForceLuaRegistration (issue #96; OPENBFME_PORT24_TESTS)
 include(cmake/Port21.cmake) # PORT-21: INAUDIBLE when an object leaves the world (issue #77; OPENBFME_PORT21_TESTS)
@@ -241,6 +247,12 @@ include(cmake/Port67.cmake) # PORT-67: Weapon/CanSwoop and the Locomotor Swoop r
 include(cmake/Port40.cmake) # PORT-40: AIData/MaxRecruitRadius (issue #125; OPENBFME_PORT40_TESTS)
 include(cmake/Port65.cmake) # PORT-65: SpellRechargeModifierUpgrade (issue #177; OPENBFME_PORT65_TESTS)
 include(cmake/Port49.cmake) # PORT-49: W3DModelDraw/AlphaCameraFadeInnerRadius (issue #153; OPENBFME_PORT49_TESTS)
+include(cmake/Port88.cmake) # PORT-88: Unit voice VoiceMoveOverWalls (RW 0x8DE628, issue #236; OPENBFME_PORT88_TESTS)
+include(cmake/Port68.cmake) # PORT-68: Weapon/FXTrigger + OverrideVoiceAttackSound/OverrideVoiceEnterStateAttackSound (issue #182; OPENBFME_PORT68_TESTS)
+include(cmake/Port85.cmake) # PORT-85: UnitSpecificSounds VoicePrimaryWeaponMode / VoiceSecondaryWeaponMode verdict (issue #233; OPENBFME_PORT85_TESTS)
+include(cmake/Port76.cmake) # PORT-76: SpawnBehavior/FadeInTime, spawned units fade in (issue #208; OPENBFME_PORT76_TESTS)
+include(cmake/Port86.cmake) # PORT-86: Unit voice VoiceDesperateAttack / VoiceRapidFire / VoiceCaptureBuildingComplete (issue #234; OPENBFME_PORT86_TESTS)
+include(cmake/Port39.cmake) # PORT-39: AIData SideInfo ResourceGatherers (issue #124; OPENBFME_PORT39_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
@@ -376,6 +388,7 @@ include(cmake/Castlearea1.cmake) # CASTLEAREA-1: the castle area triggers (OPENB
 include(cmake/Weather1.cmake)   # WEATHER-1: snow, rain, darkness, lightning, the weather sound (client sources; OPENBFME_WEATHER1_TESTS)
 include(cmake/Port33.cmake)     # PORT-33: the AIWoTRForfeitTactic port of FarmingThreshold / LogicFramesTillAISelfDestructs (OPENBFME_PORT33_TESTS)
 include(cmake/Port64.cmake)     # PORT-64: RubbleRiseUpdate, the rubble rise of a destroyed camp or castle piece (OPENBFME_PORT64_TESTS)
+include(cmake/Port82.cmake)     # PORT-82: AttributeModifierNugget/DamageFXType is parsed but unread in RotWK 2.01 (issue #214; OPENBFME_PORT82_TESTS)
 include(cmake/Bldfx1.cmake)     # FEAT-BLDFX-1: the FXList nugget sinks, scorches, decals, light pulses, camera shakers (OPENBFME_BLDFX1_SOURCES / _TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
@@ -449,6 +462,7 @@ add_library(openbfme_core STATIC
     src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawServices.cpp
     src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawBones.cpp
     src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.cpp
+    src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DSupplyDraw.cpp
     src/Libraries/file/TextFile.cpp
     src/Libraries/file/Win32Path.cpp
     src/Common/System/ArchiveFile.cpp
@@ -795,11 +809,13 @@ add_executable(openbfme_tests
     ${OPENBFME_XP_TESTS}
     ${OPENBFME_FACTB_TESTS}
     ${OPENBFME_PLAY2_TESTS}
+    ${OPENBFME_PORT99_TESTS}
     ${OPENBFME_PORT75_TESTS}
     ${OPENBFME_PORT79_TESTS}
     ${OPENBFME_PORT54_TESTS}
     ${OPENBFME_PORT33_TESTS}
     ${OPENBFME_PORT64_TESTS}
+    ${OPENBFME_PORT82_TESTS}
     ${OPENBFME_PORT5_TESTS}
     ${OPENBFME_PORT18_TESTS}
     ${OPENBFME_PORT1_TESTS}
@@ -807,6 +823,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT6_TESTS}
     ${OPENBFME_PORT8_TESTS}
     ${OPENBFME_PORT7_TESTS}
+    ${OPENBFME_PORT77_TESTS}
     ${OPENBFME_PORT11_TESTS}
     ${OPENBFME_PORT4_TESTS}
     ${OPENBFME_PORT19_TESTS}
@@ -818,6 +835,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT13_TESTS}
     ${OPENBFME_PORT45_TESTS}
     ${OPENBFME_PORT30_TESTS}
+    ${OPENBFME_PORT28_TESTS}
     ${OPENBFME_PORT48_TESTS}
     ${OPENBFME_PORT24_TESTS}
     ${OPENBFME_PORT21_TESTS}
@@ -844,6 +862,12 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT40_TESTS}
     ${OPENBFME_PORT65_TESTS}
     ${OPENBFME_PORT49_TESTS}
+    ${OPENBFME_PORT88_TESTS}
+    ${OPENBFME_PORT68_TESTS}
+    ${OPENBFME_PORT85_TESTS}
+    ${OPENBFME_PORT76_TESTS}
+    ${OPENBFME_PORT86_TESTS}
+    ${OPENBFME_PORT39_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}
@@ -862,9 +886,12 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT43_TESTS}
     ${OPENBFME_PORT51_TESTS}
     ${OPENBFME_PORT81_TESTS}
+    ${OPENBFME_PORT93_TESTS}
     ${OPENBFME_PORT73_TESTS}
     ${OPENBFME_PORT50_TESTS}
     ${OPENBFME_PORT74_TESTS}
+    ${OPENBFME_PORT97_TESTS}
+    ${OPENBFME_PORT87_TESTS}
     ${OPENBFME_RENDER_TESTS}
     ${OPENBFME_SKIRMISH_AI_TESTS}
     ${OPENBFME_VIS_TESTS}
@@ -1130,6 +1157,8 @@ add_executable(openbfme_tests
     tests/test_local_26.cpp
     # lane LOCAL-24 (DetachableRiderUpdate, DetachableRiderBody, issue #179)
     tests/test_local_24.cpp
+    # lane LOCAL-28 (W3DLightDraw as retail: object lights, issue #190)
+    tests/test_local_28.cpp
     # lane LOCAL-25 (locomotor ground motion presentation and unread simulation stops S-7221, issue #187)
     tests/test_local_25.cpp
     # lane LOCAL-27 (bridges as retail: Bridge block, damage models, towers, scaffold, radar color, issue #189)

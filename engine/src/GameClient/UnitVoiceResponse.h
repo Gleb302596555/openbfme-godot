@@ -83,7 +83,10 @@ public:
 	// RotWK's client voice events: message types above the network range that only the voice picker switches on (RW 0x8DEDBB's switch)
 	enum VoiceEvent
 	{
-		VOICE_EVENT_CREATED = 0x7DA,        ///< VoiceCreatedFrom<producer template>, else VoiceCreated
+		VOICE_EVENT_CREATED = 0x7DA,                   ///< VoiceCreatedFrom<producer template>, else VoiceCreated
+		VOICE_EVENT_DESPERATE_ATTACK = 0x7DB,          ///< RW 0x8DF9D2: VoiceDesperateAttack
+		VOICE_EVENT_RAPID_FIRE = 0x7DC,                ///< RW 0x8DF9AD: VoiceRapidFire
+		VOICE_EVENT_CAPTURE_BUILDING_COMPLETE = 0x7DD, ///< RW 0x8DF97F: VoiceCaptureBuildingComplete
 		VOICE_EVENT_TASK_COMPLETE = 0x7DE,
 		VOICE_EVENT_DEFECT = 0x7DF,
 		VOICE_EVENT_FEAR = 0x7E0,
@@ -94,6 +97,8 @@ public:
 		VOICE_EVENT_ENTER_STATE_MOVE = 0x7E7,
 		VOICE_EVENT_ENTER_STATE_ATTACKMOVE = 0x7E8,
 		VOICE_EVENT_BLOODTHIRSTY = 0x7E9,
+		VOICE_EVENT_START_CHARGING = 0x7EA, ///< RW 0x8DFD0D .. 0x8DFD2B: UnitSpecificSounds/VoiceStartCharging (literal RW 0xC77A74)
+		VOICE_EVENT_NO_BUILD = 0x7EB,       ///< RW 0x8DFE7B: UnitSpecificSounds/VoiceNoBuild (literal RW 0xC77A64); posted by a refused placement click, RW 0x83EAA0
 		VOICE_EVENT_ENTER_STATE_SPECIAL_POWER = 0x7EC, ///< RW 0x8DFCE1: UnitSpecificSoundToUseAsEnterStateInitiateIntendToDoVoice
 	};
 
@@ -246,6 +251,8 @@ private:
 	void moveVoices(Object &obj, int msgType, const Info *info, Choice &c, Rank &rank) const;
 	void attackVoices(Object &obj, int msgType, const Info *info, Choice &c) const;
 	bool inBattle(const Object &obj) const;
+	// RW 0x8DE628: true when `obj` scales walls and its horde (or `obj` itself) has a quick path to `destPos` only with ScalesWalls enabled
+	bool moveRequiresClimbingWalls(const Object &obj, const Coord3D &destPos) const;
 	bool recentlySaid(ObjectID id, const std::string &key) const;
 	void rememberSaid(ObjectID id, const std::string &key);
 

@@ -77,6 +77,8 @@ struct ClientEvent
 		DIED,              ///< RW 0x699077 -> RW 0x67561E: notifyDead on object death
 		REMOVE_SELECTION_FEEDBACK, ///< lane LOCAL-16, RW 0x672F0D: removeSelectionFeedback on drawable
 		CREATE_SELECTION_FEEDBACK, ///< lane LOCAL-16, RW 0x672ED1: createSelectionFeedback on drawable with indicatorColor
+		FX_TRIGGER,                ///< PORT-68, RW 0x68B56A -> RW 0x44C465: Drawable + 0x360 FXTrigger index (TheFXTriggerNames)
+		SUPPLY_STATUS,   ///< PORT-77: RW 0x8AB623..0x8AB63A dispatches the supply look through RW 0x671948; event delivery is INFERENCE
 	};
 	std::string heroUniqueID;
 	std::vector<std::string> heroStatistics;
@@ -117,12 +119,15 @@ struct ClientEvent
 	UnsignedInt fadeFrames = 0;
 	bool shadowsOn = true; ///< SET_SHADOWS
 	bool audible = true;   ///< AUDIBLE (lane PORT-21): the drawable's audible flag
+	int fxTrigger = 0;     ///< FX_TRIGGER (PORT-68): Drawable + 0x360 index in TheFXTriggerNames
 	int flashFrames = 0;
 	int customKind = 0;                             ///< CUSTOM_COLORS (lane CAH-2)
 	std::uint32_t customColors[3] = { 0u, 0u, 0u }; ///< CUSTOM_COLORS: ARGB
 	EvaDamageNotice eva;                            ///< EVA_DAMAGED (lane EVADAMAGE-1)
 	bool hasFlashColor = false;                     ///< FLASH_AS_SELECTED
 	RGBColor flashColor{};                          ///< FLASH_AS_SELECTED
+	int supplyCurrentBoxes = 0;                     ///< SUPPLY_STATUS (PORT-77)
+	int supplyStartingBoxes = 0;                    ///< SUPPLY_STATUS (PORT-77)
 };
 
 class ClientEventRecorder : public ObjectClientHooks
@@ -143,6 +148,7 @@ public:
 	void flushModelConditions(Object &obj, bool immediate = false) override;
 	bool showModule(Object &obj, const std::string &tag, bool visible, bool permanent) override;
 	void showSubObject(Object &obj, const std::string &name, bool visible, bool permanent) override;
+	void supplyStatusChanged(Object &obj, int currentBoxes, int startingBoxes) override;
 	void upgradeTextures(Object &obj, const std::vector<std::pair<std::string, std::string>> &swaps) override;
 	void replaceDrawable(Object &obj, const ThingTemplate *tmpl, bool hasColor, std::uint32_t color) override;
 	void fadeIn(Object &obj, UnsignedInt frames) override;
@@ -150,6 +156,7 @@ public:
 	void setShadowsEnabled(Object &obj, bool enabled) override;
 	void setDrawableOpacity(Object &obj, float opacity) override;
 	void setDrawableAudible(Object &obj, bool audible) override; // lane PORT-21
+	void setDrawableFXTrigger(Object &obj, int fxTrigger) override; // PORT-68 (RW 0x68B56A)
 	void setCustomColors(Object &obj, int kind, std::uint32_t c0, std::uint32_t c1, std::uint32_t c2) override; // lane CAH-2
 	void createAHeroKill(Object &killer, Object &victim) override;
 	void heroAttacked(Object &obj) override;
@@ -184,6 +191,7 @@ public:
 private:
 	ClientEvent &push(ClientEvent::Kind kind, const Object &obj);
 	ClientEvent &pushFlush(Object &obj);
+	void recordSupplyStatus(Object &obj);
 	// S-090: last flushed capture-flag conditions, separate from the AI snapshot.
 	std::map<ObjectID, std::array<std::uint32_t, 19>> m_animationConditions;
 

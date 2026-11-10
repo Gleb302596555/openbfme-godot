@@ -354,7 +354,9 @@ void WeaponTemplate::parseFireSound(INI *ini, void *instance, void *store, const
 	*static_cast<std::string *>(store) = name;
 }
 
-// RW 0x73ACEF -> 0x73AB45
+// RW 0x73ACEF -> 0x73AB45. The store is retail's `{EVA event id at +0, audio event at +4}` pair, so the three token kinds differ in WHICH half they
+// touch: `EVA:` writes +0 alone (RW 0x73ABEE) and keeps an earlier sound, `+SOUND:` writes +4 alone (RW 0x73AC79 jumps over the +0 clear at 0x73AC7F) and
+// keeps an earlier EVA, and a plain name writes +4 after clearing +0. `NoSound` clears both (RW 0x73AB6F / 0x73AB74).
 void WeaponTemplate::parseOverrideVoice(INI *ini, void *instance, void *store, const void *)
 {
 	WeaponTemplate *self = templateOf<WeaponTemplate>(instance);
@@ -377,21 +379,23 @@ void WeaponTemplate::parseOverrideVoice(INI *ini, void *instance, void *store, c
 		{
 			throw INIException(3, "Unknown EVA event in EVA:%s", event.c_str()); // RW 0xC25028
 		}
-		*voice = VoiceOverride();
 		voice->name = event;
+		voice->eva = event; // the audio half (+4) an earlier line set stays: RW 0x73ABC5 .. 0x73ABFE writes +0 only
 		voice->isEva = true;
+		voice->plusSound = false;
 		return;
 	}
-	VoiceOverride v;
-	std::string name = token;
-	if (token.size() >= 7 && AsciiStringUtil::compareNoCase(token.substr(0, 7), "+SOUND:") == 0) // RW 0x73AC0A: _strnicmp(token, "+SOUND:", 7)
+	const bool plusSound = token.size() >= 7 && AsciiStringUtil::compareNoCase(token.substr(0, 7), "+SOUND:") == 0; // RW 0x73AC0A: _strnicmp(token, "+SOUND:", 7)
+	const std::string name = plusSound ? token.substr(7) : token;
+	WeaponCheckAudioEvent(self->m_references, name); // RW 0x73AC24 .. 0x73AC6D: TheAudio->isValidAudioEvent, else RW 0xC2500C
+	if (!plusSound)
 	{
-		v.plusSound = true;
-		name = token.substr(7);
+		voice->eva.clear(); // RW 0x73AC7F: `or dword ptr [edi], -1`; a `+SOUND:` line skips it (RW 0x73AC79)
 	}
-	WeaponCheckAudioEvent(self->m_references, name);
-	v.name = name;
-	*voice = v;
+	voice->name = name;
+	voice->sound = name;
+	voice->isEva = false;
+	voice->plusSound = plusSound;
 }
 
 // RW 0x76392F into +0x120

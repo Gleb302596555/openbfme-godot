@@ -147,6 +147,8 @@ public:
 	virtual bool showModule(Object &obj, const std::string &tag, bool visible, bool permanent) { (void)obj; (void)tag; (void)visible; (void)permanent; return false; }
 	// RW 0x672823 Drawable::showSubObject
 	virtual void showSubObject(Object &obj, const std::string &name, bool visible, bool permanent) { (void)obj; (void)name; (void)visible; (void)permanent; }
+	// RW 0x8AB623..0x8AB63A -> drawable dispatcher RW 0x671948. This port records the same status on the existing ordered client-event path (INFERENCE).
+	virtual void supplyStatusChanged(Object &obj, int currentBoxes, int startingBoxes) { (void)obj; (void)currentBoxes; (void)startingBoxes; }
 	// RW 0x8B911E (SubObjectsUpgrade's UpgradeTexture): every draw module of the drawable takes this list of (original, drawn instead) as its upgrade
 	// textures (draw module vslot 0x84), replacing the one it had; the removal hands an empty list
 	virtual void upgradeTextures(Object &obj, const std::vector<std::pair<std::string, std::string>> &swaps) { (void)obj; (void)swaps; }
@@ -168,6 +170,8 @@ public:
 	// drawable's RW 0x674727 and RW 0x690786 its RW 0x67896F, which clear / set the drawable's audible flag (+ 0x44A) and tell every client behaviour
 	// module's second interface (slot 1 RW 0x8CE25E / 0x8D04EB, slot 0 RW 0x8CE249 / 0x8D04D9)
 	virtual void setDrawableAudible(Object &obj, bool audible) { (void)obj; (void)audible; }
+	// PORT-68: Object::setDrawableFXTrigger (RW 0x68B56A -> Drawable::setFXTrigger RW 0x44C465, Drawable + 0x360)
+	virtual void setDrawableFXTrigger(Object &obj, int fxTrigger) { (void)obj; (void)fxTrigger; }
 	// RW 0x67B78C -> 0x6D4789: a qualifying hit on a local hero, independently of the EVA gate.
 	// RW 0x69560B: profile statistics are recorded before the normal kill-score gates.
 	virtual void createAHeroKill(Object &, Object &) {}
@@ -298,6 +302,15 @@ struct GameLogicSettings
 		std::vector<std::pair<std::string, int>> targets;
 	};
 	std::vector<AttackPriorityDef> attackPriorityDefs; ///< the AIData list (+ 0xFC) head first
+	// lane PORT-39: an `SideInfo <side>` block of AIData (0x1C0 bytes, ctor RW 0x6FFF8C, vtable RW 0xC1D734; the list is AIData + 0xF4, each entry's
+	// + 0x1BC the next). The only fields the port reads are the three gatherer counts; the block's other rows (BaseDefenseStructure1 + 0x1B8 and the five
+	// SkillSet lists + 0x14 / + 0x68 / + 0xBC / + 0x110 / + 0x164) are not ported (stop S-4194). A later block of the same side re-parses the entry.
+	struct AISideInfo
+	{
+		std::string side;                ///< + 0x4 the block's name
+		int resourceGatherers[3] = { 0, 1, 2 }; ///< + 0x8 Easy, + 0xC Normal, + 0x10 Hard (RW 0x6FFFB2 .. 0x6FFFBC: 0, 1, 2)
+	};
+	std::vector<AISideInfo> sideInfos; ///< the AIData list, the newest block first (each new SideInfo is pushed at the head, RW 0x70011F)
 	bool forceModelsToFollowTimeOfDay = false;       ///< GameData ForceModelsToFollowTimeOfDay (a new drawable gets NIGHT)
 	bool forceModelsToFollowWeather = false;         ///< GameData ForceModelsToFollowWeather (SNOW)
 	// GameData EnableHouseColor (+ 0xDDC, row RW 0xC00A30; copied to TheGameLogic + 0x11C at a new game, RW 0x62A13A): off, a drawable shows its
