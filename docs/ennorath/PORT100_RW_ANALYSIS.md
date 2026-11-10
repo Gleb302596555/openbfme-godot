@@ -3,7 +3,7 @@
 Field: `LargeGroupAudioMap/HandOffModeDuration`, table RW 0xC4C610 (field name RW 0xC4C59C), offset 228 (0xE4) in LargeGroupAudioAudioMap.
 
 ## Parse (RW)
-- Parser RW 0x73B071: scans unsigned ms, converts with float32 0.005 (RW 0xD9F610) via ftol (truncation), stores ONE byte at map+0xE4 (`mov byte ptr [ecx], al` RW 0x73B0E3). Above 255 frames it formats "Duration %u must be less than %d frames" (RW 0xC25100) and throws (RW 0x73B0B4..0x73B0DB). So 3000 ms = 15 frames; the port's generic `parseDurationUnsignedInt` (ceil) differs for non-multiples of 200 ms and for >255.
+- Parser RW 0x73B071: scans unsigned ms, converts with float32 0.005 (RW 0xD9F610) and ceil (call through RW 0xBD0588, RW 0x73B09C..0x73B0A7), stores ONE byte at map+0xE4 (`mov byte ptr [ecx], al` RW 0x73B0E3). Above 255 frames it formats "Duration %u must be less than %d frames" (RW 0xC25100) and throws (RW 0x73B0B4..0x73B0DB). So 3000 ms = 15 frames; the port's generic `parseDurationUnsignedInt` already does this ceiling; only the byte range / error was missing.
 - Map copy copies the byte (RW 0x7EF5AF); equality compares it (RW 0x7EEE09); a getter exists (RW 0x970186, `mov al,[ecx+0xE4]`) with no direct callers found — the runtime reads the byte through the grid overlay (below), not through the getter.
 
 ## Class chain
