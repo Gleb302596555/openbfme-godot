@@ -1713,29 +1713,31 @@ void HudDevice::drawSelectionDecals()
 			if (const Drawable *d = dm.find((DrawableID)id))
 			{
 				SelectionDecal sd;
+				// lane PORT-91 (issue #239; RW 0x4C7848): the contained object's decal shadow waits for the contain's slot 0x2C
+				const ::Object *shadowLogicObject = world->hud_game()->logic().findObjectByID((::ObjectID)d->getObjectID());
 				auto fallbackSize = [d](float &sx, float &sy) {
-					for (const DrawEntry &e : d->entries())
+				for (const DrawEntry &e : d->entries())
+				{
+					if (e.kind == W3D_DRAWKIND_MODEL && e.draw && !e.moduleHidden && !e.conditionHidden)
 					{
-						if (e.kind == W3D_DRAWKIND_MODEL && e.draw && !e.moduleHidden && !e.conditionHidden)
+						if (const RenderObjPrototype *proto = e.draw->currentModel())
 						{
-							if (const RenderObjPrototype *proto = e.draw->currentModel())
+							float ex = 0.0f, ey = 0.0f;
+							if (ObjectShadow::getModelBoundingBox(proto, ex, ey))
 							{
-								float ex = 0.0f, ey = 0.0f;
-								if (ObjectShadow::getModelBoundingBox(proto, ex, ey))
-								{
-									if (sx == 0.0f) sx = ex * 2.0f;
-									if (sy == 0.0f) sy = ey * -2.0f;
-									return;
-								}
+								if (sx == 0.0f) sx = ex * 2.0f;
+								if (sy == 0.0f) sy = ey * -2.0f;
+								return;
 							}
 						}
 					}
-				};
-				const unsigned curFrame = world && world->hud_game() ? world->hud_game()->logic().getFrame() : 0u;
-				if (ObjectShadow::buildDrawableDecalShadow(*d, sd, useShadowDecals, fallbackSize, curFrame))
-				{
-					selExtras.push_back(std::move(sd));
 				}
+			};
+			const unsigned curFrame = world && world->hud_game() ? world->hud_game()->logic().getFrame() : 0u;
+			if (ObjectShadow::buildDrawableDecalShadow(*d, sd, useShadowDecals, fallbackSize, curFrame, shadowLogicObject))
+			{
+				selExtras.push_back(std::move(sd));
+			}
 			}
 		}
 	}
