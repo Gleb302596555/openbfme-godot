@@ -105,6 +105,12 @@ struct Counters
 // RW 0x4C7795: `cmp byte [edi + 0x108], 0` - does the module data ask for the follow?
 bool wantsFollow(const W3DModelDrawModuleData &data);
 
+// PORT-121 (issue #305): the draw's CURRENT pose pivot `pivot` in the model's space, every element multiplied by `scale` - the value the
+// creation of a ParticleSysBone system reads from the render object (RW 0x4C6514: slot +0xCC Get_Bone_Transform at RW 0x4C678F for a
+// FollowBone record and at RW 0x4C69BE for the position-only branch; the render object holds the pose the draw shows). False when the
+// pose or the pivot is not there (a state without an animation - the render object then shows the bind pose -, S-003 / S-004).
+bool poseBone(const W3DScriptedModelDraw &draw, float scale, int pivot, Matrix3D &out);
+
 // RW 0x4B6D5F. With the per-frame argument (0, the call RW 0x4C779E makes) every record's system takes its bone's transform,
 // and the by-index branch also starts or stops the system with the bone's visibility; one pose is evaluated per draw entry
 // that has records. With the end-of-draw argument (1, RW 0x4C6D78) the walk returns at the first record whose FollowBone is

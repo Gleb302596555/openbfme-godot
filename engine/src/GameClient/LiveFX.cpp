@@ -1416,23 +1416,41 @@ void LiveFX::createSystems(Drawable &d, Attached &a)
 				// RW 0x4C671A .. 0x4C6728: the render object's slot +0xC8 (Get_Bone_Index) gives the bone index the record
 				// stores at +4, and 0 means "no such bone" (the by-index follow skips such a record, RW 0x4B6E57)
 				const int boneIndex = f.model && f.model->Tree && !info.boneName.empty() ? f.model->Tree->Get_Bone_Index(info.boneName) : 0;
-				Coord3D pos{ 0.0f, 0.0f, 0.0f };
-				float rotation = 0.0f;
+				// PORT-121 (issue #305): the bone comes from the RENDER OBJECT, slot +0xCC Get_Bone_Transform by index - RW 0x4C678F on the
+				// FollowBone branch (RW 0x5F2F55 setLocalTransform at 0x4C67B6) and RW 0x4C69BE on the position-only branch (its translation and
+				// Get_Z_Rotation through RW 0x5F2F2D / 0x5F31B0 at 0x4C6A31 / 0x4C6A4B) - that is the pose the draw shows NOW, not the bind pose.
+				// It matters because RW 0x5F4C6B rotates the particle velocity by the system's transform: a water jet whose
+				// OrthoEmissionVelocity runs along the emitter's local +Z leaves the bucket the way the builder faces only when the bucket's
+				// animated matrix is the local frame (with the bind pose - the hand at the model's origin, no arm rotation - the jet follows
+				// the model's own axis, i.e. straight up when the builder stands upright). A bone index of 0 (no such bone; IBUrukPit_A's
+				// CONSTDUSTBONE01, a retail data defect) leaves the position at (0, 0, 0) and the rotation at 0 (0x4C6644 .. 0x4C665B, the
+				// index-0 exits 0x4C671A / 0x4C6A1F), and the system is still created and attached: it plays at the drawable's origin
 				Matrix3D bone;
-				// RW 0x4C6514: a bone index of 0 (no such bone; IBUrukPit_A's CONSTDUSTBONE01, a retail data defect) leaves the position at (0, 0, 0)
-				// and the rotation at 0 (0x4C6644 .. 0x4C665B), and the system is still created and attached: it plays at the drawable's origin
-				if (modelBone(f.model, info.boneName, scale, bone, false))
+				const bool havePose = boneIndex > 0 && ParticleBoneFollow::poseBone(*e.draw, scale, boneIndex, bone);
+				if (havePose)
 				{
-					const Vector3 v = bone.Get_Translation();
-					pos = Coord3D{ v.X, v.Y, v.Z };
-					rotation = std::atan2(bone.Row[1][0], bone.Row[0][0]); // Matrix3D::Get_Z_Rotation
+					++m_stats.bonesCreatedOnPose;
+				}
+				else if (modelBone(f.model, info.boneName, scale, bone, false))
+				{
+					// no pose this frame (S-003 / S-004, or a state without an animation): the bind pose is what the draw shows then (RW 0x4BDC2D)
+					++m_stats.bonesCreatedOnBindPose;
 				}
 				else if (!info.boneName.empty() && info.boneName != kNoneBone)
 				{
 					++m_stats.boneMisses;
 				}
-				sys->setPosition(pos);
-				sys->rotateLocalTransformZ(rotation);
+				if (info.followBone && havePose)
+				{
+					// RW 0x4C67B3: the whole bone matrix is the system's local transform
+					sys->setLocalTransform(bone);
+				}
+				else
+				{
+					const Vector3 v = bone.Get_Translation();
+					sys->setPosition(Coord3D{ v.X, v.Y, v.Z });
+					sys->rotateLocalTransformZ(std::atan2(bone.Row[1][0], bone.Row[0][0])); // Matrix3D::Get_Z_Rotation, RW 0xB261F0
+				}
 				sys->attachToDrawable(d.getID());
 				a.systems.push_back(id);
 				++m_stats.attachedCreated;
