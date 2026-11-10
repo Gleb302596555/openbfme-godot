@@ -77,6 +77,7 @@ struct ClientEvent
 		DIED,              ///< RW 0x699077 -> RW 0x67561E: notifyDead on object death
 		REMOVE_SELECTION_FEEDBACK, ///< lane LOCAL-16, RW 0x672F0D: removeSelectionFeedback on drawable
 		CREATE_SELECTION_FEEDBACK, ///< lane LOCAL-16, RW 0x672ED1: createSelectionFeedback on drawable with indicatorColor
+		SUPPLY_STATUS,   ///< PORT-77: RW 0x8AB623..0x8AB63A dispatches the supply look through RW 0x671948; event delivery is INFERENCE
 	};
 	std::string heroUniqueID;
 	std::vector<std::string> heroStatistics;
@@ -122,6 +123,8 @@ struct ClientEvent
 	EvaDamageNotice eva;                            ///< EVA_DAMAGED (lane EVADAMAGE-1)
 	bool hasFlashColor = false;                     ///< FLASH_AS_SELECTED
 	RGBColor flashColor{};                          ///< FLASH_AS_SELECTED
+	int supplyCurrentBoxes = 0;                     ///< SUPPLY_STATUS (PORT-77)
+	int supplyStartingBoxes = 0;                    ///< SUPPLY_STATUS (PORT-77)
 };
 
 class ClientEventRecorder : public ObjectClientHooks
@@ -142,6 +145,7 @@ public:
 	void flushModelConditions(Object &obj) override;
 	bool showModule(Object &obj, const std::string &tag, bool visible, bool permanent) override;
 	void showSubObject(Object &obj, const std::string &name, bool visible, bool permanent) override;
+	void supplyStatusChanged(Object &obj, int currentBoxes, int startingBoxes) override;
 	void upgradeTextures(Object &obj, const std::vector<std::pair<std::string, std::string>> &swaps) override;
 	void replaceDrawable(Object &obj, const ThingTemplate *tmpl, bool hasColor, std::uint32_t color) override;
 	void fadeIn(Object &obj, UnsignedInt frames) override;
@@ -183,6 +187,7 @@ public:
 private:
 	ClientEvent &push(ClientEvent::Kind kind, const Object &obj);
 	void pushFlush(Object &obj);
+	void recordSupplyStatus(Object &obj);
 	// S-090: last flushed capture-flag conditions, separate from the AI snapshot.
 	std::map<ObjectID, std::array<std::uint32_t, 19>> m_animationConditions;
 

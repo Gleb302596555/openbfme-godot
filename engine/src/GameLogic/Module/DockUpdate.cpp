@@ -728,7 +728,12 @@ bool SupplyWarehouseDockUpdate::action(Object &docker, Object *)
 		dock->logic().destroyObject(dock);
 		return false;
 	}
-	// RW 0x8AB623 .. 0x8AB63A: the drawable's supply status (StartingBoxes, boxes left: the pile's look) is the client's; not drawn here
+	// RW 0x8AB623 .. 0x8AB63A: the source drawable dispatcher RW 0x671948 receives StartingBoxes and m_boxesStored after each successful transfer.
+	// INFERENCE: the port records this synchronous retail notification as an ordered SUPPLY_STATUS event on the existing client event stream.
+	if (ObjectClientHooks *client = dock->clientHooks())
+	{
+		client->supplyStatusChanged(*dock, m_boxesStored, m_data->m_startingBoxes);
+	}
 	return true;
 }
 
