@@ -42,12 +42,18 @@ T *moduleOf(Object *o)
 	return nullptr;
 }
 
-// an ExperienceLevel chain for SalvPicker, so gainExpForLevel (RW 0x79DA0A) has a next level to grant (RW 0x68A274);
-// the world loads no ExperienceLevels itself
+// an ExperienceLevel chain for SalvPicker, so gainExpForLevel (RW 0x79DA0A) has a next level to grant (RW 0x68A274) and a fresh object is at rank 0:
+// the first level of the chain is applied unconditionally at spawn (RW 0x693F1B .. 0x693F2F), the tracker's reset grants the same (RW 0x79DA66 -> gainLevel)
 const char kSalvLevels[] =
-	"ExperienceLevel SalvPickerLevel1\n"
+	"ExperienceLevel SalvPickerLevel0\n"
 	"  TargetNames = SalvPicker\n"
 	"  RequiredExperience = 1\n"
+	"  ExperienceAward = 0\n"
+	"  Rank = 0\n"
+	"End\n"
+	"ExperienceLevel SalvPickerLevel1\n"
+	"  TargetNames = SalvPicker\n"
+	"  RequiredExperience = 2\n"
 	"  ExperienceAward = 10\n"
 	"  Rank = 1\n"
 	"End\n";
@@ -204,7 +210,7 @@ const char kSalvageObjects[] =
 	"    AllowAIPickup = Yes\n"
 	"  End\n"
 	"End\n"
-	// nothing set but Min/Max: the RW constructor defaults (RW 0x65592C)
+	// nothing set at all: the RW constructor defaults (RW 0x65592C); Min/Max of the INI are absent so the 100 / 5000 defaults are what is checked
 	"Object SalvChestDefault\n"
 	"  KindOf = CRATE\n"
 	"  Geometry = CYLINDER\n"
@@ -213,8 +219,6 @@ const char kSalvageObjects[] =
 	"  GeometryHeight = 10\n"
 	"  Behavior = SalvageCrateCollide ModuleTag_Salvage\n"
 	"    ForbiddenKindOf = PROJECTILE\n"
-	"    MinResource = 250\n"
-	"    MaxResource = 250\n"
 	"    AllowAIPickup = Yes\n"
 	"  End\n"
 	"End\n";
