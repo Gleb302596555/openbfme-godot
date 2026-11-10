@@ -27,6 +27,7 @@ list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/HordeWorkerAIUpdate.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/RainOfFireUpdate.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/WallUpgradeUpdate.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/RunOffMapBehavior.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/DetachableRiderUpdate.cpp)
 set(OPENBFME_MODGAP2_TESTS
     tests/test_modgap2_bored.cpp
     tests/test_modgap2_aod_crush.cpp

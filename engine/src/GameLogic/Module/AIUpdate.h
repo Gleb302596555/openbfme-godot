@@ -156,6 +156,8 @@ public:
 	bool isAttacking() const;
 	// ZH AIAttackMoveToState (stop S-328): the unit marches to `goal` and attacks what it meets, then resumes; any other order ends it
 	// lane MODULES-3 r2: the attack-move order passes aiDoCommand's gate (RW 0x667174) before anything changes: a refused order arms nothing (false)
+	// RW 0x696266: direct command 0xF, with the unlimited shot count used by targetless tactics.
+	bool aiAttackMoveToPosition(const Coord3D &goal, CommandSourceType source);
 	bool armAttackMove(const Coord3D &goal, CommandSourceType source = CMD_FROM_PLAYER);
 	bool attackMoveActive() const { return m_attackMoveActive; }
 	// the march ends without an order: in RotWK the attack-move is the machine's state 0x21, which a cleared machine leaves (S-328: the port keeps it as
@@ -323,6 +325,10 @@ public:
 	TurretAI *turretForCurWeapon() const;
 	// RW 0x662411 getTurretTurnRate
 	float turretTurnRate() const;
+	// RW 0x66246B getWhichTurretForWeaponSlot(slot, &angle, &pitch): the index of the turret (AI + 0x20C, one slot) whose
+	// ControlledWeaponSlots (TurretAIData + 0x4C, RW 0x8DC4ED) hold `slot`, with the turret's current angle and pitch (TurretAI +
+	// 0x18 / + 0x1C); TURRET_INVALID (-1) for a slot that is on no turret (RW 0x662494)
+	int whichTurretForWeaponSlot(int slot, float *angle, float *pitch) const;
 
 	// ---- lane GARRISON-1 (GameLogic/AI/AIGarrisonStates.h): the enter / exit commands of RotWK's aiDoCommand (RW 0x66A7EC) ----
 	// AI command 0x42 -> RW 0x66D85F privateEnter: a mobile unit goes to AIMoveToPositionAndEnterState (56) with the container as the goal (MSG_ENTER's group,

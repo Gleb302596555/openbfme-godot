@@ -1891,8 +1891,10 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 		remove_view((uint32_t)id);
 		return;
 	}
-	const Coord3D shownAt = *d->getPosition();
-	const Transform3D xf = toTransform(d->getBasis(), shownAt, d->getInstanceScale());
+	float presentationBasis[9];
+	Coord3D shownAt;
+	d->getPresentationPose(presentationBasis, shownAt);
+	const Transform3D xf = toTransform(presentationBasis, shownAt, d->getInstanceScale());
 	const bool xfChanged = !v.haveXf || !(xf == v.lastXf);
 	// VIS-1 / STEALTH-1 / GARRISON-1 / lane VISUAL-2: what the presented snapshot leaves undrawn and the fogged ghost's light (Drawable::presentedLook,
 	// shared with the attached particle systems, the buffs and the streaks)
@@ -3765,7 +3767,7 @@ void GameWorld::refresh_streaks(bool record)
 	toSage(-cb.get_column(2), streakCamera.forward);
 	if (!m_streakTextures && m_fs.is_valid() && m_fs->archive_fs())
 	{
-		m_streakTextures.reset(new W3DMaterialFactory(*m_fs->archive_fs()));
+		m_streakTextures.reset(new W3DMaterialFactory(*m_fs->archive_fs(), m_fs->w3dTextureCache()));
 		m_streakTextures->Set_Asset_Packs(m_fs->assetPacks().empty() ? nullptr : &m_fs->assetPacks()); // lane SDK-0
 	}
 	// group the strips by material (lane PROJ-2: the texture of the map's weather, RW 0x4CFA9A: WeatherType NORMAL 0 / SNOWY 1)

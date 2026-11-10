@@ -245,9 +245,11 @@ public:
 	unsigned m_fireSoundLoopTime = 0;      // 0xCC (frames)
 	struct VoiceOverride
 	{
-		std::string name;                  ///< "" = none; the event name without a prefix
-		bool isEva = false;                ///< the token was `EVA:<event>` (an EVA event id in retail)
-		bool plusSound = false;            ///< the name had the "+SOUND:" prefix
+		std::string name;                  ///< the last token's event name without a prefix ("" = none); the sound name unless isEva
+		std::string sound;                 ///< RW 0x73AB45 slot +4: the audio event; an `EVA:` line keeps it (RW 0x73ABEE writes +0 only)
+		std::string eva;                   ///< RW 0x73AB45 slot +0: the EVA event; a plain sound line clears it (RW 0x73AC7F), `+SOUND:` keeps it (RW 0x73AC79)
+		bool isEva = false;                ///< the last token was `EVA:<event>` (the EVA id in retail)
+		bool plusSound = false;            ///< the last token had the "+SOUND:" prefix (a parse-local flag in retail, RW 0x73AC1D)
 	};
 	VoiceOverride m_overrideVoiceAttackSound;           // 0xD0
 	VoiceOverride m_overrideVoiceEnterStateAttackSound; // 0xD8
@@ -300,6 +302,9 @@ public:
 	bool m_shareTimers = false;            // 0x16A
 	bool m_noVictimNeeded = false;         // 0x16B
 	bool m_rotatingTurret = false;         // 0x16C
+	// RW 0x6C9C50 (`mov al,[ecx+0x16c]`, its address in the field-getter table RW 0xC7B568) and RW 0x6C9C6B through the weapon:
+	// with the flag the launch transform of a projectile is turned by the turret's angle and pitch (RW 0x6CAD58 -> RW 0x6CAD6E .. 0x6CB43B)
+	bool rotatingTurret() const { return m_rotatingTurret; }
 	bool m_shouldPlayUnderAttackEvaEvent = true; // 0x16D
 	bool m_instantLoadClipOnActivate = false; // 0x16E
 	bool m_lockWhenUsing = false;          // 0x16F

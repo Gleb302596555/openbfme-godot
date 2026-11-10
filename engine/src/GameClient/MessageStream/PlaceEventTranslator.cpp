@@ -3,6 +3,8 @@
 
 #include "GameClient/MessageStream/PlaceEventTranslator.h"
 
+#include "GameClient/UnitVoiceResponse.h"
+
 #include "Common/BuildAssistant.h"
 #include "Common/Player.h"
 #include "Common/Thing/ThingFactory.h"
@@ -268,6 +270,17 @@ MessageDisposition PlaceEventTranslator::leftClick(const ClientMessage &msg)
 		++m_stats.refused;
 		m_ctx.ui.setPlaceLegalCode((int)code);
 		m_ctx.ui.message(cantBuildLabel((int)code));
+		// RW 0x83EAA0: the refused click asks the unit voice for message 0x7EB with the builder ALONE (a one-element drawable list, not the selection) and the
+		// click's world position as the pick info (RW 0x8DD5FF); it sits between the label (RW 0x83EA4E) and the beep (RW 0x83EAC5). The reply is
+		// UnitSpecificSounds/VoiceNoBuild (RW 0x8DFE7B). The position is the anchor start's terrain point, which this release already reads (RW 0x83E745)
+		if (m_ctx.playObjectVoice)
+		{
+			m_ctx.playObjectVoice(UnitVoiceResponse::VOICE_EVENT_NO_BUILD, builder->getID(), location);
+		}
+		else
+		{
+			++m_stats.voicesUnheard; // no HUD on this stream (a test rig): counted, never silently dropped
+		}
 		m_ctx.ui.requestMiscSound("BadBuildingPlacementSound");
 		m_ctx.ui.setPlacementStart(nullptr);
 		return MessageDisposition::Destroy;
