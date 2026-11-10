@@ -28,6 +28,10 @@ list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/RainOfFireUpdate.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/WallUpgradeUpdate.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/RunOffMapBehavior.cpp)
 list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/DetachableRiderUpdate.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/BaseUpgrade.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/DamageFieldUpdate.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/CivilianSpawnUpdate.cpp)
+list(APPEND OPENBFME_SIM_SOURCES src/GameLogic/Module/CivilianSpawnCollide.cpp)
 set(OPENBFME_MODGAP2_TESTS
     tests/test_modgap2_bored.cpp
     tests/test_modgap2_aod_crush.cpp
