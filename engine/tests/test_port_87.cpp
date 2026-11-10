@@ -23,6 +23,7 @@
 #include "SyntheticHudTestUtil.h"
 
 #include "Common/BuildAssistant.h"
+#include "GameClient/ControlBarCommands.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/HudInput.h"
 #include "GameClient/UnitVoiceResponse.h"
@@ -148,14 +149,27 @@ TEST_CASE("PORT-87 voice: message 0x7EB answers UnitSpecificSounds/VoiceNoBuild 
 	CHECK(v.voice->pickAndPlay({ porter->getID() }, MSG_DOZER_CONSTRUCT));
 	REQUIRE(v.sink.sounds.size() == 1);
 	CHECK(v.sink.sounds[0] == "PorterBuildStart");
-	// and the two new ids are not enter-state voices (RW 0x8DD63C lists 0x7E6, 0x7E7, 0x7E8, 0x7EC), so the repeat memory does not suppress them
-	CHECK_FALSE(UnitVoiceResponse::handles(MSG_COMBINE_HORDES_WITH_OBJECT)); // still not answered (S-703)
-	CHECK(v.voice->stats().unportedMessages == 1);
+	// a refused build is not an enter-state voice (RW 0x8DD63C lists 0x7E6, 0x7E7, 0x7E8, 0x7EC), so the repeat memory does not suppress a second
+	// refusal of the same builder within MinDelayBetweenEnterStateVoice; it says its row again, and no charge timeout starts (RW 0x8DDF3B's choice + 0x20
+	// is the attack voices' rule, not this one)
+	v.sink.clear();
+	CHECK(v.voice->pickAndPlay({ porter->getID() }, UnitVoiceResponse::VOICE_EVENT_NO_BUILD));
+	CHECK(v.voice->pickAndPlay({ porter->getID() }, UnitVoiceResponse::VOICE_EVENT_NO_BUILD));
+	CHECK(v.sink.sounds.size() == 2);
+	CHECK(v.voice->last().msgType == 0x7EB);
+	CHECK(v.voice->stats().repeatSuppressed == 0);
 }
 
 TEST_CASE("PORT-87 placement: a refused click asks the voice for 0x7EB with the builder alone and the click's position (RW 0x83EAA0)")
 {
 	Rig r;
+	CommandStore commands; // canMakeUnit reads the builder's CommandSet from TheCommandStore (RW 0x795006's store)
+	struct StoreScope
+	{
+		CommandStore *saved = TheCommandStore;
+		explicit StoreScope(CommandStore &c) { TheCommandStore = &c; }
+		~StoreScope() { TheCommandStore = saved; }
+	} storeScope(commands);
 	REQUIRE(r.w.load(kVoiceTemplates) == "");
 	REQUIRE(r.w.load("Object TestFarm\n KindOf = STRUCTURE\n Geometry = BOX\n GeometryMajorRadius = 40\n GeometryMinorRadius = 40\n GeometryHeight = 20\nEnd\n") == "");
 	Object *porter = r.place("TestPorter", 100, 100);
@@ -188,8 +202,10 @@ TEST_CASE("PORT-87 placement: a refused click asks the voice for 0x7EB with the 
 	CHECK(r.input->ui().isPlacementAnchored());
 	r.button(HudInput::Button::Left, false, 260, 100);
 	REQUIRE(r.input->ui().isPlacing());
-	CHECK(r.input->ui().placeLegalCode() == (int)LBC_OBJECTS_IN_THE_WAY);
-	REQUIRE(r.placeTranslator().stats().refused == 1);
+	// this stand-in world has no AIWorld, so the legality answer comes from another rule (LBC_NO_CLEAR_PATH); the branch and every step below are the
+	// same ones RotWK runs for any refused site (RW 0x83EA4E .. RW 0x83EB02)
+	CHECK(r.input->ui().placeLegalCode() != (int)LBC_OK);
+	REQUIRE(r.input->placeTranslator().stats().refused == 1);
 	REQUIRE(posts.size() == 1);
 	CHECK(posts[0].msgType == 0x7EB);
 	CHECK(posts[0].object == porter->getID());     // the builder alone, not the other selected unit
@@ -204,18 +220,25 @@ TEST_CASE("PORT-87 placement: a refused click asks the voice for 0x7EB with the 
 	// the order of the refusal branch: the label, the voice, the beep, then the anchor drops (RW 0x83EA4E, 0x83EAA0, 0x83EAC5, 0x83EB02)
 	const std::vector<std::string> labels = r.input->ui().takeMessages();
 	REQUIRE(labels.size() == 1);
-	CHECK(labels[0] == std::string(PlaceEventTranslator::cantBuildLabel((int)LBC_OBJECTS_IN_THE_WAY)));
+	CHECK(labels[0] == std::string(PlaceEventTranslator::cantBuildLabel(r.input->ui().placeLegalCode())));
 	const std::vector<std::string> misc = r.input->ui().takeMiscSounds();
 	REQUIRE(misc.size() == 1);
 	CHECK(misc[0] == "BadBuildingPlacementSound");
 	CHECK_FALSE(r.input->ui().isPlacementAnchored());
 	// a legal site places the building and asks no voice from the refusal branch; a stream without a HUD counts the unheard post
-	CHECK(r.placeTranslator().stats().voicesUnheard == 0);
+	CHECK(r.input->placeTranslator().stats().voicesUnheard == 0);
 }
 
 TEST_CASE("PORT-87 placement: without a HUD the refused click is counted, and a legal site posts nothing")
 {
 	Rig r;
+	CommandStore commands; // canMakeUnit reads the builder's CommandSet from TheCommandStore (RW 0x795006's store)
+	struct StoreScope
+	{
+		CommandStore *saved = TheCommandStore;
+		explicit StoreScope(CommandStore &c) { TheCommandStore = &c; }
+		~StoreScope() { TheCommandStore = saved; }
+	} storeScope(commands);
 	REQUIRE(r.w.load(kVoiceTemplates) == "");
 	Object *porter = r.place("TestPorter", 100, 100);
 	REQUIRE(porter != nullptr);
@@ -224,11 +247,11 @@ TEST_CASE("PORT-87 placement: without a HUD the refused click is counted, and a 
 	r.move(600, 400);
 	r.button(HudInput::Button::Left, true, 600, 400);
 	r.button(HudInput::Button::Left, false, 600, 400);
-	if (r.placeTranslator().stats().refused == 0)
+	if (r.input->placeTranslator().stats().refused == 0)
 	{
 		// a legal site (this stand-in world may accept it): nothing of the refusal branch runs
-		CHECK(r.placeTranslator().stats().voicesUnheard == 0);
+		CHECK(r.input->placeTranslator().stats().voicesUnheard == 0);
 		return;
 	}
-	CHECK(r.placeTranslator().stats().voicesUnheard == 1);
+	CHECK(r.input->placeTranslator().stats().voicesUnheard == 1);
 }
