@@ -26,7 +26,7 @@ I read the ground/position path at RW `0x5F4C6B`, including its calls to `0x5F4C
 
 DONOR BFME2 1.06 `git grep` finds `m_useMaximumHeight` only in the `ParticleSystemTemplate` member layout and parse table (`ParticleSystemTemplate.cpp:116,169`) and in `ParticleSystemTemplateWriteINI.cpp:100,128`. The donor has no gameplay reader for it. This corroborates, but does not replace, the RotWK disassembly above.
 
-On the port's current `main`, `engine/src/GameClient/FXParticleSystem.cpp:683` parses the field and `FXParticleSystem.h:450` stores it at `+0x83`; the repository references show no renderer or simulation consumer. The Ennorath Balrog definitions therefore cannot supply a retail expected height for this flag.
+On the port's current `main`, `engine/src/GameClient/FXParticleSystem.cpp:683` parses the field and `FXParticleSystem.h:450` stores it at `+0x83`; executable code references show no renderer or simulation consumer. Two comments conflict: `ParticleSys.h:16` says the renderer consumes `UseMaximumHeight`, while `ParticleDraw.h:14` says it never reaches a draw module. Neither comment is an executable reader or overrides the RotWK disassembly. The Ennorath Balrog definitions therefore cannot supply a retail expected height for this flag.
 
 ## Tests and remaining question
 
