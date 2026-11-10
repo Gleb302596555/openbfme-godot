@@ -246,6 +246,8 @@ private:
 	void moveVoices(Object &obj, int msgType, const Info *info, Choice &c, Rank &rank) const;
 	void attackVoices(Object &obj, int msgType, const Info *info, Choice &c) const;
 	bool inBattle(const Object &obj) const;
+	// RW 0x8DE628: true when `obj` scales walls and its horde (or `obj` itself) has a quick path to `destPos` only with ScalesWalls enabled
+	bool moveRequiresClimbingWalls(const Object &obj, const Coord3D &destPos) const;
 	bool recentlySaid(ObjectID id, const std::string &key) const;
 	void rememberSaid(ObjectID id, const std::string &key);
 
