@@ -57,3 +57,29 @@ table entry 0xCB resolves to RW 0x6A4055 (push 0x35), and entry 0xCC to RW
 0x6A4059 (push 0x36). The RW cursor-name table at 0xD9E108 maps index 0x35
 to `SendToDeath` (string RW 0xBF5D9C). This establishes the P-70 cursor
 selection difference, not the cause of the reported red cross in the image.
+
+### Further entry checks (not yet a P-54 diagnosis)
+
+`test_port_55.cpp` also contains `PORT-55 enter command sends a whole horde
+through the shared member callback`: it submits MSG_ENTER, advances the
+synthetic world, and checks removal and two payouts. It does not exercise the
+interactive context evaluation or Isengard's data. The Ennorath object
+`IsengardCitadelNew` has the contain; `IsengardFighterHorde` is an infantry
+horde with transport slots. Some other Isengard hordes have COMBO_HORDE,
+which RW 0x86609C–0x8660BB rejects unless the target has GARRISON or
+FS_CASH_PRODUCER; this is a retail restriction, not proof of the owner's case.
+
+DONOR BFME2 `InGameUICanSelectedObjectsDoAction.cpp` action 8 calls
+canEnterObject with path checking and rejects the occupied-special result.
+RW 0x81EEBF–0x81EECA asks action 8 with additionalChecking=1; RW
+0x69D401–0x69D432 passes mode 0 and checkPath=1 and rejects the occupied
+result. The port's `CommandTranslator::evaluateContextCommand` currently
+passes checkPath=false. This can permit a context action that retail refuses,
+not by itself explain the reported failure to enter. The subsequent
+`GarrisonObjectGroupOrder` and AI states perform their own path/admission
+checks. Do not claim this discrepancy as the P-54 cause without a reproducer.
+
+Cursor-name table 0xD9E108: RW index 0x0E is EnterFriendly, 0x0F is
+EnterAggressive, 0x35 is SendToDeath and 0x36 is DeliverRing. The 0xB9,
+0xBA, 0xCB and 0xCC dispatch entries at 0x6A4099 lead respectively to RW
+0x6A4031, 0x6A4035, 0x6A4055 and 0x6A4059.
