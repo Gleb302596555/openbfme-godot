@@ -88,6 +88,7 @@ class ThingFactory;
 class ThingTemplate;
 class UpdateModule;
 class ObjectWeapons; // lane PERF-WS
+class WeaponBonusSet; // PORT-114: GameData WeaponBonus (GameLogic/Weapon.h; forward only, the settings are copied around everywhere)
 struct RGBColor;
 class TerrainLogic;
 class UpgradeTypeTable;
@@ -458,6 +459,12 @@ struct GameLogicSettings
 	// ctor RW 0x642C51 / 0x642C07: false / 0; read by TerrainTracksSystem and W3DModelDraw track bind RW 0x4C4E51 / 0x47A7C6 / 0x48389F / 0x484673). Presentation only: not in the settings hash
 	bool makeTrackMarks = false;
 	int maxTerrainTracks = 0;
+	// PORT-114 (issue #298): GameData's global WeaponBonus set (row RW 0xC004D0 = 0xBFF580 + 16 * 245, parser RW 0x6CB559 = WeaponBonusSet::parseWeaponBonusSetPtr,
+	// GlobalData + 0xAD0, one `<CONDITION> <FIELD> <percent>` entry per line through RW 0x6CA45B). Every object's Weapon::computeBonus adds it for the object's weapon
+	// bonus conditions (RW 0x6CA7CF loads the pointer off [0xDE4364]; RW 0x6CA4B5 / 0x6CA434 add each set entry as value - 1). Null while no GameData line was read:
+	// RW tests the pointer before the add, so a game whose data has no WeaponBonus row keeps every bonus at 1.0 exactly as before.
+	std::shared_ptr<WeaponBonusSet> globalWeaponBonusSet;
+	bool weaponBonusLoaded = false; ///< a GameData block named WeaponBonus (diagnostic, like builderMoveLoaded; the set's presence is the pointer)
 	unsigned initialCredits[5] = { 0, 0, 0, 0, 0 };  ///< MultiplayerSettings InitialCreditsVeryLow .. VeryHigh: the lobby's money choices
 	// lane CHAT-1: MultiplayerSettings MaxBeaconsPerPlayer (+ 0x18): a player's beacons at most (retail multiplayer.ini: 3). INFERENCE: the default is ZH's
 	// MultiplayerSettings constructor value (RotWK's constructor was not read). Not hashed (crc below): data every peer of a game reads alike (the profile)

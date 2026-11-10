@@ -224,6 +224,7 @@ include(cmake/Port48.cmake) # PORT-48: W3DModelDraw/WadingParticleSys (issue #15
 include(cmake/Port24.cmake) # PORT-24: Object/ForceLuaRegistration (issue #96; OPENBFME_PORT24_TESTS)
 include(cmake/Port21.cmake) # PORT-21: INAUDIBLE when an object leaves the world (issue #77; OPENBFME_PORT21_TESTS)
 include(cmake/Port34.cmake) # PORT-34: GameData/DefaultStructureRubbleHeight + Object/StructureRubbleHeight (issue #119; OPENBFME_PORT34_TESTS)
+include(cmake/Port114.cmake) # PORT-114: GameData WeaponBonus, the global weapon bonus set (issue #298; OPENBFME_PORT114_TESTS)
 include(cmake/Port26.cmake) # PORT-26: AODHordeContain member jitter and scatter (issue #98; appends to OPENBFME_SIM_SOURCES; OPENBFME_PORT26_TESTS)
 include(cmake/Port35.cmake) # PORT-35: HordeContain/ComboHorde, two hordes combining into one (issue #120; OPENBFME_PORT35_TESTS)
 include(cmake/Port22.cmake) # PORT-22: SiegeDeploy/adjustMeleeOffset (issue #78; OPENBFME_PORT22_TESTS)
@@ -840,6 +841,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT24_TESTS}
     ${OPENBFME_PORT21_TESTS}
     ${OPENBFME_PORT34_TESTS}
+    ${OPENBFME_PORT114_TESTS}
     ${OPENBFME_PORT26_TESTS}
     ${OPENBFME_PORT35_TESTS}
     ${OPENBFME_PORT22_TESTS}

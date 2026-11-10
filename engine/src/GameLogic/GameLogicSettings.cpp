@@ -16,6 +16,7 @@
 #include "GameLogic/ObjectFilter.h"
 #include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/SimMath.h"
+#include "GameLogic/Weapon.h" // PORT-114: the GameData WeaponBonus row builds the global WeaponBonusSet (RW 0x6CB559)
 
 #include "Common/ArchiveFileSystem.h"
 #include "Common/AsciiString.h"
@@ -71,6 +72,7 @@ struct BlockState
 	unsigned seen = 0;
 	unsigned blocks = 0; ///< bit 0 GameData, 1 AIData, 2 MultiplayerSettings: which blocks were read
 	bool minDistFromEdgeOfMapForBuildSeen = false; // PORT-12: the seen mask already uses all 32 bits
+	bool weaponBonusSeen = false;                  // PORT-114: the same reason
 	std::set<std::string> unapplied; ///< "Block.Field" of the fields no row of this lane reads
 };
 
@@ -94,6 +96,23 @@ void parseMinDistFromEdgeOfMapForBuild(INI *ini, void *instance, void *store, co
 {
 	INI::parseReal(ini, instance, store, nullptr);
 	static_cast<BlockState *>(instance)->minDistFromEdgeOfMapForBuildSeen = true;
+}
+
+// PORT-114 (issue #298): the GameData row WeaponBonus (RW 0xC004D0, parser RW 0x6CB559 = WeaponBonusSet::parseWeaponBonusSetPtr, GlobalData +0xAD0).
+// RotWK's parser dereferences the pointer the GlobalData constructor already made (BFME2 ctor 0x002369CB stores the object built by 0x00235A21, every
+// entry 1.0) and parses one `<CONDITION> <FIELD> <percent>` entry into it (RW 0x6CA45B). The port's settings have no constructor to hang that allocation
+// on, so the set is made on the first line exactly as WeaponTemplate::parseWeaponBonus does it (RW 0x6CB5AB, the same class): with no line the pointer
+// stays null, which RW's only reader treats as "no global bonus" (it tests the pointer at RW 0x6CA7CF and skips the add), and an empty set would add
+// value - 1.0 = 0.0 to every field anyway (RW 0x6CA434), so the two forms answer alike.
+void parseWeaponBonus(INI *ini, void *instance, void *store, const void *)
+{
+	auto *slot = static_cast<std::shared_ptr<WeaponBonusSet> *>(store);
+	if (!*slot)
+	{
+		*slot = std::make_shared<WeaponBonusSet>();
+	}
+	(*slot)->parseWeaponBonusSet(ini);
+	static_cast<BlockState *>(instance)->weaponBonusSeen = true;
 }
 
 // the line without its ; or // comment
@@ -413,6 +432,9 @@ const FieldParse kGameDataFields[] = {
 	{ "AutoAflameParticlePrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoAflame.prefix) },
 	{ "AutoAflameParticleSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoAflame.system) },
 	{ "AutoAflameParticleMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoAflame.maxSystems) },
+	// PORT-114 (issue #298): GameData WeaponBonus, row RW 0xC004D0 (parser RW 0x6CB559, GlobalData +0xAD0), the global weapon bonus set the object's
+	// computeBonus adds (RW 0x6CA7AC -> 0x6CA7CF load, 0x6CA4B5 / 0x6CA434 add)
+	{ "WeaponBonus", parseWeaponBonus, nullptr, (int)offsetof(BlockState, values.globalWeaponBonusSet) },
 	// lane PORT-69 (issue #183): terrain track marks (rows RW 0xBFFAA0 / 0xBFFA70, GlobalData +0x13C / +0x10C; client-only, not hashed)
 	{ "MakeTrackMarks", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.makeTrackMarks) },
 	{ "MaxTerrainTracks", parseNoting<INI::parseInt>, 0, (int)offsetof(BlockState, values.maxTerrainTracks) },
@@ -661,6 +683,7 @@ bool finish(Load &l, unsigned blockBit, const char *blockName, const std::vector
 	out.builderMoveLoaded = (l.state().seen & SEEN_BUILDERMOVE) != 0; // lane BUILD-3
 	out.builderFadeLoaded = (l.state().seen & (SEEN_BUILDERFADE_OUT | SEEN_BUILDERFADE_IN)) == (SEEN_BUILDERFADE_OUT | SEEN_BUILDERFADE_IN); // lane PORTERFOG-1
 	out.repairDamageDelayLoaded = (l.state().seen & SEEN_REPAIR_DELAY) != 0;
+	out.weaponBonusLoaded = l.state().weaponBonusSeen; // PORT-114
 	out.guardRulesLoaded = (l.state().seen & (SEEN_GUARD_CHASE | SEEN_GUARD_SCAN | SEEN_GUARD_RETURN)) == (SEEN_GUARD_CHASE | SEEN_GUARD_SCAN | SEEN_GUARD_RETURN); // lane PLAY-4
 	out.sellPercentageLoaded = (l.state().seen & SEEN_SELL) != 0; // lane FACT-A
 	if ((l.state().seen & (SEEN_VSTRUCT | SEEN_VUNIT)) == (SEEN_VSTRUCT | SEEN_VUNIT))
@@ -949,6 +972,19 @@ void GameLogicSettings::crc(StateHasher &h) const
 	for (const std::string &b : standardPublicBones)
 	{
 		h.addString(b);
+	}
+	// PORT-114 (issue #298): the global WeaponBonus set changes every weapon's delay, range and damage (RW 0x6CA7AC), so it is a simulation input. Hashed
+	// only when data sets it: a game whose GameData has no WeaponBonus line (retail 2.01 gamedata.ini) keeps its old hash exactly
+	h.addBool(globalWeaponBonusSet != nullptr);
+	if (globalWeaponBonusSet)
+	{
+		for (int c = 0; c < WEAPONBONUS_CONDITION_COUNT; ++c)
+		{
+			for (int f = 0; f < WEAPONBONUS_FIELD_COUNT; ++f)
+			{
+				h.addFloat(globalWeaponBonusSet->get(c, f));
+			}
+		}
 	}
 	h.addString(specialPowerViewObject); // lane SPELL-2
 	for (unsigned c : initialCredits)
