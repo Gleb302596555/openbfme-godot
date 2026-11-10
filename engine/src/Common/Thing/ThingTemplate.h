@@ -293,6 +293,9 @@ public:
 	std::string displayNameStrategic() const;
 	// RW 0x9F989F, 0xA07D76, 0xA082C8: Strategic tooltips read [tt + 0x40], falling back to Description (+0x38) at RW 0x73CECE
 	std::string descriptionStrategic() const;
+	// Local 31 (issue #281), RW 0x68AF80: ThingTemplate + 0x4DC (EmotionRange, row RW 0xDA3F98, INI::parseReal RW 0x42ED00,
+	// constructor RW 0x740211 initializes +0x4DC to 0.0f, copied at RW 0x6D2193; donor BFME2 0x0033E1B8 +0x4CC)
+	float emotionRange() const;
 
 private:
 	friend class ThingFactory;

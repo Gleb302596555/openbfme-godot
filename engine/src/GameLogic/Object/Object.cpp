@@ -108,6 +108,7 @@ Object::Object(GameLogic &logic, const ThingTemplate *tt, const ObjectStatusMask
 	}
 	m_status = status;
 	m_creationFrame = logic.getFrame(); // RW 0x699D4B .. 0x699D65
+	m_emotionRange = m_template->emotionRange(); // Local 31 (issue #281), RW 0x699DFD: movss xmm0, dword ptr [edx + 0x4dc]; movss dword ptr [esi + 0x1bc], xmm0
 	if (const FieldValue *v = m_template->findField("Scale"))
 	{
 		if (const float *f = std::get_if<float>(v))

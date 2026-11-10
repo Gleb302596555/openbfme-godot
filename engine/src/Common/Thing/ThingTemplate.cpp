@@ -665,3 +665,22 @@ std::string ThingTemplate::descriptionStrategic() const
 	}
 	return description();
 }
+
+float ThingTemplate::emotionRange() const
+{
+	// Local 31 (issue #281), RW 0x68AF80: fld dword ptr [ecx + 0x4dc]; ret (ThingTemplate::getEmotionRange(), row RW 0xDA3F98,
+	// INI::parseReal RW 0x42ED00, constructor RW 0x740211 initializes +0x4dc to 0.0f, copied by
+	// ThingTemplate::copyFrom RW 0x6D2193; donor BFME2 0x0033E1B8 +0x4CC, ThingTemplateConstructor.cpp:475)
+	if (const FieldValue *v = getFinalOverride()->findField("EmotionRange"))
+	{
+		if (const float *f = std::get_if<float>(v))
+		{
+			return *f;
+		}
+		if (const long long *n = std::get_if<long long>(v))
+		{
+			return static_cast<float>(*n);
+		}
+	}
+	return 0.0f;
+}
