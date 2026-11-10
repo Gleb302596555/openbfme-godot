@@ -1,14 +1,21 @@
 // OpenBFME. GPL-3.0. Owner's rw.py proofs in issue #269; no game files.
 #include "doctest.h"
 #include "SyntheticHudTestUtil.h"
+#include "CombatTestUtil.h"
 #include "Common/SpecialPower.h"
 #include "GameClient/CursorFile.h"
 #include "GameLogic/ActionManager.h"
 #include "GameLogic/Module/GiveUpgradeUpdate.h"
 
 namespace {
-struct Rig : synthetichud::Rig
+// CombatWorld registers the real LogicModules and attaches AIWorld. The light
+// synthetic HUD fixture intentionally leaves these as raw modules, so it cannot
+// exercise RW 0x82D79F's AI pointer or the GiveUpgradeUpdate target predicate.
+struct Rig : combattest::CombatWorld
 {
+    synthetichud::PixelView view;
+    MetaMap map;
+    std::unique_ptr<HudInput> input;
     SpecialPowerStore powers;
     SpecialPowerStore *previous = TheSpecialPowerStore;
     Rig()
@@ -32,6 +39,17 @@ struct Rig : synthetichud::Rig
             "ChildObject Port109Immobile Port109Recipient\n KindOf = SELECTABLE INFANTRY IMMOBILE\nEnd\n"
             "Object Port109NoAI\n KindOf = SELECTABLE INFANTRY\nEnd\n");
         REQUIRE_MESSAGE(error.empty(), error);
+        players.setLocalPlayer(players.findPlayerWithName("Alice"));
+        input = std::make_unique<HudInput>(*logic, ai.get(), view, commands, MouseSettings{15, 5, 150}, map);
+    }
+    Object *place(const char *name, int x, int y, const char *owner = "Alice")
+    {
+        Object *o = make(name, teamOf(owner), INVALID_ID, false);
+        REQUIRE(o != nullptr);
+        const Coord3D p{(float)x, (float)y, 0};
+        o->setPosition(&p);
+        completeHorde(o);
+        return o;
     }
     ~Rig() { TheSpecialPowerStore = previous; }
     const UpgradeTemplate *upgrade(const char *name)
@@ -44,6 +62,8 @@ struct Rig : synthetichud::Rig
     {
         Object *o = place("Port109Carrier", 100, 100);
         REQUIRE(o != nullptr);
+        REQUIRE(o->getAIUpdateInterface() != nullptr);
+        REQUIRE(dynamic_cast<GiveUpgradeUpdate *>(o->findModule("GiveUpgradeUpdate")) != nullptr);
         if (name) o->giveUpgrade(upgrade(name));
         return o;
     }
