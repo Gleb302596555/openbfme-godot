@@ -216,6 +216,7 @@ include(cmake/Port7.cmake) # PORT-7: AnimalAIUpdate/UpdateTimer (issue #60; OPEN
 include(cmake/Port11.cmake) # PORT-11: SlavedUpdate/StayOnSameLayerAsMaster (issue #66; OPENBFME_PORT11_TESTS)
 include(cmake/Port13.cmake) # PORT-13: AIData/AttackMoveUsesFormations (issue #68; OPENBFME_PORT13_TESTS)
 include(cmake/Port30.cmake) # PORT-30: OneRingPenaltyUpdate/TimeFrozenFromPenalty (issue #102; OPENBFME_PORT30_TESTS)
+include(cmake/Port28.cmake) # PORT-28: Weapon/RotatingTurret, the turret aim vector (issue #100; OPENBFME_PORT28_TESTS)
 include(cmake/Port48.cmake) # PORT-48: W3DModelDraw/WadingParticleSys (issue #152)
 include(cmake/Port24.cmake) # PORT-24: Object/ForceLuaRegistration (issue #96; OPENBFME_PORT24_TESTS)
 include(cmake/Port21.cmake) # PORT-21: INAUDIBLE when an object leaves the world (issue #77; OPENBFME_PORT21_TESTS)
@@ -826,6 +827,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT13_TESTS}
     ${OPENBFME_PORT45_TESTS}
     ${OPENBFME_PORT30_TESTS}
+    ${OPENBFME_PORT28_TESTS}
     ${OPENBFME_PORT48_TESTS}
     ${OPENBFME_PORT24_TESTS}
     ${OPENBFME_PORT21_TESTS}
