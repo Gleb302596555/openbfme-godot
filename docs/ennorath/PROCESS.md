@@ -27,7 +27,7 @@ Ennorath 1.9.8.2 (база с 2026-11-04, до этого 1.9.8.1 с 2026-11-03;
 | Правила сборки, проверки, нагрузки | [../ENNORATH_FACTION_PLAN.md](../ENNORATH_FACTION_PLAN.md) |
 | Промт для второго агента | `workspace/ennorath-audit/PROMPT-agent-B.md` (в Git не входит) |
 | Инструменты аудита (дизассемблер RW, выписка INI, охват) | `workspace/ennorath-audit/tools/` (в Git не входят), `tools/mod/` (входят) |
-| Аудит полей мода, последний (v6, 2026-11-09: used 3567, parsed-unused 536, not-read 262) | `workspace/ennorath-audit/field-audit-v6/`; копия для облачных агентов — `workspace/for-arena/ennorath-audit.zip` (владелец кладёт её на Google Drive) |
+| Аудит полей мода, последний (v7, 2026-11-10: used 3662, parsed-unused 503, not-read 237; колонка tool — статус инструмента, ручные вердикты частью устарели) | `workspace/ennorath-audit/field-audit-v7/`; копия для облачных агентов — `workspace/for-arena/ennorath-audit.zip` (владелец кладёт её на Google Drive) |
 | Декомпиляции-доноры | BFME1 `workspace/reference/open-bfme-1`, BFME2 `workspace/reference/open-bfme-2` (github.com/Open-BFME/Open-BFME-2; RotWK стоит на коде BFME2, раздел 5, шаг 4) |
 | Промты локальных агентов (issue «Local N») | `workspace/for-local/` (`PROMPT-local-template.md`, `PROMPT-local-N.md`, README с очередями станций), раздел 7в |
 | Промты облачных агентов (issue «Port N») | `workspace/for-arena/port/` (`PROMPT-port-template.md` — копия `prompts/port.md` дашборда), раздел 7б |
