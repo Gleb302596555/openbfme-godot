@@ -35,7 +35,7 @@ const FieldParse kFields[] = {
 
 void Data::buildFieldParse(MultiIniFieldParse &p) { SpecialAbilityUpdateModuleData::buildFieldParse(p); p.add(kFields); }
 GiveUpgradeUpdate::GiveUpgradeUpdate(Thing *thing, const Data *data) : SpecialAbilityUpdate(thing, data), m_giveData(data) {}
-const char *GiveUpgradeUpdate::stopLine() { return "[S-6011] GiveUpgradeUpdate: automatic search scheduling is unverified; contained-target providers, paired reservations, selection and delivery FX are not ported (RW 0x89FE64 / 0x8A01B2; BFME2 Rva 0x49C6E1 / 0x49CA2F)"; }
+const char *GiveUpgradeUpdate::stopLine() { return "[S-6011] GiveUpgradeUpdate: automatic search scheduling is unverified; contained-target providers, paired reservations and the deselect/flash of the recipient are not ported (RW 0x89FE64 / 0x8A01B2; BFME2 Rva 0x49C6E1 / 0x49CA2F); SpawnOutFX plays at the porter (RW 0x89FE01 / 0x89FE1C, FX call RW 0x494615; BFME2 Rva 0x49C67E)"; }
 const UpgradeTemplate *GiveUpgradeUpdate::upgrade() const
 {
 	if (!TheUpgradeCenter) return nullptr;
@@ -106,8 +106,18 @@ void GiveUpgradeUpdate::triggerAbilityEffect()
 	if (!recipient->affectedByUpgrade(u)) return;
 	recipient->giveUpgrade(u); // ordinary object RW 0x8A0287; horde slot 0xB8 RW 0x8A0255 / BFME2 Rva 0x46E7E3 (S-486)
 	owner->logic().noteStop(stopLine()); // the original also deselects and flashes the recipient
+	// RW 0x8A02BB calls RW 0x89FE01(owner): the delivery's closing part. Inside it, RW 0x89FE1C reads
+	// ModuleData +0xE0 (SpawnOutFX, field table RW 0xC67AE8: parse 0x73A302, default 0) and, when set,
+	// RW 0x89FE26..RW 0x89FE35 push (fx, &owner->m_pos, 0, 0.0f, 0) and call RW 0x494615
+	// (FXList::doFXPos at the porter's position, no matrix). DONOR BFME2 0x0049C67E (GiveUpgradeUpdate.cpp Rva0049C67E).
 	releaseTarget();
 	m_searching = false;
+	if (FXEventLog::isFXName(m_giveData->m_spawnFX))
+	{
+		FXEvent fx = FXEventLog::objectEvent(FXEvent::POSITION_FX, "GiveUpgradeUpdate SpawnOutFX", owner->logic().getFrame(), m_giveData->m_spawnFX, *owner);
+		fx.hasTransform = false; // RW 0x89FE2E: the matrix argument is 0 (RW 0x494615 arg 3)
+		owner->logic().fxEvents().emit(fx);
+	}
 	owner->setStatus(3, true);
 	m_fading = true;
 	m_opacity = 1.0f;

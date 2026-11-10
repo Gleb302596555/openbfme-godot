@@ -249,6 +249,7 @@ include(cmake/Port72.cmake) # PORT-72: FactionVictoryData, stop verdict S-7216 (
 include(cmake/Port67.cmake) # PORT-67: Weapon/CanSwoop and the Locomotor Swoop rows (issue #181; OPENBFME_PORT67_TESTS)
 include(cmake/Port40.cmake) # PORT-40: AIData/MaxRecruitRadius (issue #125; OPENBFME_PORT40_TESTS)
 include(cmake/Port65.cmake) # PORT-65: SpellRechargeModifierUpgrade (issue #177; OPENBFME_PORT65_TESTS)
+include(cmake/Port92.cmake) # PORT-92: GiveUpgradeUpdate/SpawnOutFX, the porter delivery effect (issue #240; OPENBFME_PORT92_TESTS)
 include(cmake/Port49.cmake) # PORT-49: W3DModelDraw/AlphaCameraFadeInnerRadius (issue #153; OPENBFME_PORT49_TESTS)
 include(cmake/Port88.cmake) # PORT-88: Unit voice VoiceMoveOverWalls (RW 0x8DE628, issue #236; OPENBFME_PORT88_TESTS)
 include(cmake/Port68.cmake) # PORT-68: Weapon/FXTrigger + OverrideVoiceAttackSound/OverrideVoiceEnterStateAttackSound (issue #182; OPENBFME_PORT68_TESTS)
@@ -867,6 +868,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT67_TESTS}
     ${OPENBFME_PORT40_TESTS}
     ${OPENBFME_PORT65_TESTS}
+    ${OPENBFME_PORT92_TESTS}
     ${OPENBFME_PORT49_TESTS}
     ${OPENBFME_PORT88_TESTS}
     ${OPENBFME_PORT68_TESTS}
