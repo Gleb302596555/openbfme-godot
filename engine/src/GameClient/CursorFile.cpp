@@ -3,6 +3,7 @@
 
 #include "GameClient/CursorFile.h"
 #include "Common/PathIO.h"
+#include "Common/AsciiString.h"
 
 #include <algorithm>
 #include <cmath>
@@ -401,4 +402,79 @@ std::vector<std::string> CursorAcceptanceStops()
 		"scroll amount (RW 0x498B1A); a cursor without a Mouse.ini block (Build, InvalidBuild) shows no pointer, as SetCursor(null) does; a block whose file "
 		"the install does not ship shows the engine's own pointer (reported, not hidden); not ported: the hotspot scaling, the 3D W3D cursors, the animation timing",
 	};
+}
+
+namespace {
+// RW 0xD9E108: 0x38 cursor names, used by RW 0x5EE9CA (owner-confirmed #269).
+// DONOR BFME2 0xDB9058 (Input/Mouse.cpp): the matching table's symbolic names.
+const char *const kMouseCursorNames[] = {
+    "None",
+    "Normal",
+    "Arrow",
+    "Scroll",
+    "Target",
+    "Move",
+    "AttackMove",
+    "AttackObj",
+    "ForceAttackObj",
+    "ForceAttackGround",
+    "Build",
+    "InvalidBuild",
+    "GenericInvalid",
+    "Select",
+    "EnterFriendly",
+    "EnterAggressive",
+    "SetRallyPoint",
+    "GetRepaired",
+    "GetHealed",
+    "DoRepair",
+    "ResumeConstruction",
+    "CaptureBuilding",
+    "SnipeVehicle",
+    "LaserGuidedMissiles",
+    "TankHunterTNTAttack",
+    "StabAttack",
+    "PlaceRemoteCharge",
+    "PlaceTimedCharge",
+    "Defector",
+    "Dock",
+    "FireFlame",
+    "FireBomb",
+    "PlaceBeacon",
+    "DisguiseAsVehicle",
+    "Waypoint",
+    "OutRange",
+    "StabAttackInvalid",
+    "PlaceChargeInvalid",
+    "Hack",
+    "ParticleUplinkCannon",
+    "LivingWorldZoom",
+    "JoinHorde",
+    "WeaponUpgrade",
+    "ArmorUpgrade",
+    "Beam",
+    "Bombard",
+    "Axe",
+    "EvilAbilityObj",
+    "PickUp",
+    "WallInsufficientFunds",
+    "WallInvalidTerrain",
+    "WallExceedsDistance",
+    "WallBlockedByObstacle",
+    "SendToDeath",
+    "DeliverRing",
+    "Patrol"
+};
+}
+int MouseCursorIndex(const std::string &name)
+{
+    // RW 0x5EE9CE / 0x5EE9D7: empty is -1, not Normal or Target.
+    if (name.empty()) return -1;
+    for (int i = 0; i < 56; ++i)
+        if (AsciiStringUtil::compareNoCase(name, kMouseCursorNames[i]) == 0) return i;
+    return -1; // RW 0x5EE9CA: exhausted the table
+}
+std::string MouseCursorNameForIndex(int index)
+{
+    return index >= 0 && index < 56 ? kMouseCursorNames[index] : std::string();
 }

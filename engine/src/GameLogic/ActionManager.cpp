@@ -49,7 +49,7 @@ const char *const kStopTypeTest =
 
 const char *const kStopObjectTypeTest =
 	"[S-7140] ActionManager::canDoSpecialPowerAtObject (RW 0x82D925, lane MODCOMPAT-MOD1): the per-power-type object tests of the capture types (0x1D "
-	"and the capture branch of 0x1A / 0x1D: RW 0x82D0A1), 0x33 (RW 0x82D780), 0x8A (a STRUCTURE's canRepairObject RW 0x82D7F2) and the grab types' fake "
+	"and the capture branch of 0x1A / 0x1D: RW 0x82D0A1), 0x8A (a STRUCTURE's canRepairObject RW 0x82D7F2) and the grab types' fake "
 	"tree target (an object id 0x5F5E0FC .. 0x5F5E0FF: the GrabPassengerSpecialPower's AllowTree and the template's byte + 0x5FB, RW 0x82DB01 .. 0x82DB5D) are "
 	"not ported: they answer no (counted per type); the grab types' object test (RW 0x82DB6A .. 0x82DC80) is ported";
 
