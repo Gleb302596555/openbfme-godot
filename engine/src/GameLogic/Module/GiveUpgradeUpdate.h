@@ -1,6 +1,6 @@
 // OpenBFME. GPL-3.0. GiveUpgradeUpdate, both editions.
 // Target search RW 0x89FEBD / BFME2 Rva 0x49C73A; update RW 0x8A00C2 /
-// BFME2 Rva 0x49C93F; delivery RW 0x8A01B2 / BFME2 Rva 0x49CA2F.
+// BFME2 Rva 0x49C93F; delivery RW 0x8A01B2 / BFME2 Rva 0x49CA2F; SpawnOutFX RW 0x89FE01 / BFME2 Rva 0x49C67E.
 #pragma once
 #include "GameLogic/Module/SpecialAbilityModules.h"
 class UpgradeTemplate;

@@ -7,6 +7,7 @@
 // ceil / fabs / sqrt without libm. Frame arithmetic is unsigned 32 bit with defined wrapping.
 
 #include "GameLogic/WeaponState.h"
+#include "Common/Audio/AudioRequests.h"
 #include "Common/StateHash.h"
 #include "GameLogic/SnapshotXfer.h"
 
@@ -705,19 +706,19 @@ bool WeaponIsWithinAttackRange(const WeaponTemplate &t, const WeaponBonus &bonus
 				}
 			}
 			const bool ok = host.meleeReach(source, sourcePos, *victim);
-			if (!ok || host.victimFlag11A_40())
+			if (!ok || host.victimFlag11A_40(*victim))
 			{
 				return ok;
 			}
-			const int sourceLayer = host.layerOf(false);
-			const int victimLayer = host.layerOf(true);
+			const int sourceLayer = host.layerOf(source, false);
+			const int victimLayer = host.layerOf(*victim, true);
 			if (sourceLayer == 1 && victimLayer >= 0x11)
 			{
 				return false;
 			}
 			if (victimLayer == 1 && sourceLayer >= 0x11)
 			{
-				return host.victimLayerException() ? ok : false;
+				return host.victimLayerException(*victim) ? ok : false;
 			}
 			return ok;
 		}
@@ -811,11 +812,21 @@ void FiringTracker::speedUp(FiringTrackerHost &host)
 	const std::uint32_t mean = 1u << CONDITION_CONTINUOUS_FIRE_MEAN;
 	const std::uint32_t fast = 1u << CONDITION_CONTINUOUS_FIRE_FAST;
 	const std::uint32_t mask = host.weaponBonusConditionMask();
+	if (mask & fast)
+	{
+		// RW 0x8E31AD .. 0x8E31B8: already in CONTINUOUS_FIRE_FAST
+		return;
+	}
 	if (mask & mean)
 	{
+		// RW 0x8E31C8 .. 0x8E3205: transition MEAN -> FAST posts 0x7DC (VoiceRapidFire) for { self->getDrawable() }
+		if (const std::uint32_t ownerId = host.ownerObjectID())
+		{
+			AudioApi::postUnitVoice(0x7DC, ownerId);
+		}
 		host.setWeaponBonusConditionMask((mask & ~mean) | fast);
 	}
-	else if (!(mask & fast))
+	else
 	{
 		host.setWeaponBonusConditionMask(mask | mean);
 	}

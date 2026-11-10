@@ -14,6 +14,7 @@
 #include "GameClient/MapObjectDrawables.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/Module/OathbreakersFadeAwayBehavior.h"
+#include "GameLogic/Module/DockUpdate.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 
@@ -95,6 +96,7 @@ void ClientEventRecorder::objectCreated(Object &obj)
 	e.kindOf = obj.getKindOf();
 	e.angle = obj.getOrientation();
 	obj.friend_bindToClient(this);
+	recordSupplyStatus(obj); // CREATED is queued first; a new pile begins at StartingBoxes (RW 0x4CA784).
 }
 
 // RW 0x68D27A: the drawable's create interfaces receive build-complete.
@@ -164,6 +166,12 @@ void ClientEventRecorder::setDrawableAudible(Object &obj, bool audible)
 {
 	ClientEvent &e = push(ClientEvent::AUDIBLE, obj);
 	e.audible = audible;
+}
+
+void ClientEventRecorder::setDrawableFXTrigger(Object &obj, int fxTrigger)
+{
+	ClientEvent &e = push(ClientEvent::FX_TRIGGER, obj);
+	e.fxTrigger = fxTrigger;
 }
 
 void ClientEventRecorder::setCustomColors(Object &obj, int kind, std::uint32_t c0, std::uint32_t c1, std::uint32_t c2)
@@ -315,14 +323,16 @@ bool ClientEventRecorder::undirty(ObjectID id)
 	return true;
 }
 
-// lane ANIM-1: the flush of one drawable (RW 0x67449C with force 0: nothing when it is not dirty)
-void ClientEventRecorder::flushModelConditions(Object &obj)
+// lane ANIM-1: the flush of one drawable (RW 0x67449C: with force 0 nothing when the drawable is not dirty; force 1 — the OCL's CreateObject with
+// InheritAttributesFromSource, RW 0x5F13C8 — always reaches the draw modules)
+void ClientEventRecorder::flushModelConditions(Object &obj, bool immediate)
 {
-	if (!undirty(obj.getID()))
+	const bool dirty = undirty(obj.getID());
+	if (!dirty && !immediate)
 	{
 		return;
 	}
-	pushFlush(obj);
+	pushFlush(obj).immediate = immediate;
 }
 
 void ClientEventRecorder::loadedObject(Object &obj)
@@ -344,9 +354,10 @@ void ClientEventRecorder::loadedObject(Object &obj)
 	// Modules have no loadPostProcess (S-4190); restore the saved client value.
 	if (auto *fade = dynamic_cast<OathbreakersFadeAwayBehavior *>(obj.findModule("OathbreakersFadeAwayBehavior")))
 		if (fade->fadingStarted()) setDrawableOpacity(obj, fade->opacity());
+	recordSupplyStatus(obj); // restored DockUpdate state is present; the draw-side value is not separately saved.
 }
 
-void ClientEventRecorder::pushFlush(Object &obj)
+ClientEvent &ClientEventRecorder::pushFlush(Object &obj)
 {
 	static const int captureFlagKind = ObjectTemplateInfoBuilder::kindOfIndex("CAPTUREFLAG");
 	const bool captureFlag = captureFlagKind >= 0 && obj.isKindOf((unsigned)captureFlagKind);
@@ -377,6 +388,7 @@ void ClientEventRecorder::pushFlush(Object &obj)
 	{
 		e.hasWeaponTiming = w->drawWeaponTimingFrames(e.weaponTimingFrames); // lane ANIM-1: read when the draw applies the flags (RW 0x4BEE31)
 	}
+	return e;
 }
 
 bool ClientEventRecorder::templateHasDrawModuleTag(const ThingTemplate &tt, const std::string &tag)
@@ -410,6 +422,24 @@ void ClientEventRecorder::showSubObject(Object &obj, const std::string &name, bo
 	e.name = name;
 	e.visible = visible;
 	e.permanent = permanent;
+}
+
+// RW 0x8AB623..0x8AB63A calls the drawable's supply dispatcher RW 0x671948, which walks draw modules and reaches W3DSupplyDraw vslot 8 / RW 0x4CA784.
+// INFERENCE: this client is split across logic/render threads, so encode that same ordered call on the existing ClientEvents stream.
+void ClientEventRecorder::supplyStatusChanged(Object &obj, int currentBoxes, int startingBoxes)
+{
+	ClientEvent &e = push(ClientEvent::SUPPLY_STATUS, obj);
+	e.supplyCurrentBoxes = currentBoxes;
+	e.supplyStartingBoxes = startingBoxes;
+}
+
+void ClientEventRecorder::recordSupplyStatus(Object &obj)
+{
+	auto *supply = dynamic_cast<SupplyWarehouseDockUpdate *>(obj.findModule("SupplyWarehouseDockUpdate"));
+	if (supply)
+	{
+		supplyStatusChanged(obj, supply->boxesStored(), supply->startingBoxes());
+	}
 }
 
 void ClientEventRecorder::upgradeTextures(Object &obj, const std::vector<std::pair<std::string, std::string>> &swaps)

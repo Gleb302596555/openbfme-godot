@@ -41,8 +41,9 @@
 //          default; the initial client seed; the horde draw level global at RW 0xDE3B84+0x1788.
 //   S-095  FXEvent / ParticleSysBone playback, EnteringStateFX (logged), the distance sync for objects whose speed comes from a
 //          container (RW 0x693A1A), the weapon timing source (a callback in the options).
-//   S-096  the camera distance fade (AlphaCameraFade*), BirthFadeTime and StaticSortLevelWhileFading are not applied; the per
-//          animation FadeBeginFrame/FadeEndFrame opacity is.
+//   S-096  BirthFadeTime and StaticSortLevelWhileFading are not applied; the camera distance fade (AlphaCameraFade*, PORT-49,
+//          RW 0x4B52C8) and the per animation FadeBeginFrame/FadeEndFrame opacity are. A camera fade without a device camera
+//          source (Options::cameraFadeAvailable false) is still reported.
 //   S-097  the pose that supplies the pristine bone positions (see W3DModelDrawBones.h).
 //   S-098  how hidden sub objects carry over when the render object is recreated (RetainSubObjects), and the sub object name match.
 
@@ -51,10 +52,12 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawServices.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawBones.h"
+#include "GameEngineDevice/W3DDevice/GameClient/HouseColor.h"
 #include "Libraries/WWVegas/WW3D2/w3dstops.h"
 
 #include <functional>
 #include <limits>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -95,8 +98,8 @@ struct W3DDrawFrame
 	float frame1 = 0.0f;
 	float blendPercentage = 0.0f;
 	bool blending = false;
-	float opacity = 1.0f;                     ///< from FadeBeginFrame / FadeEndFrame (S-096: no camera fade)
-	bool hidden = false;                      ///< FadeBegin/End ramp reached 0
+	float opacity = 1.0f;                     ///< PORT-49 camera fade (RW 0x4B52C8) or FadeBeginFrame / FadeEndFrame
+	bool hidden = false;                      ///< the camera fade or FadeBegin/End ramp reached 0 (PORT-49, RW 0x4B544F)
 	std::vector<std::string> hiddenSubObjects; ///< names hidden by scripts (and the sub objects under them), proto order
 };
 
@@ -119,6 +122,9 @@ struct W3DDrawPoseView
 	const std::vector<std::pair<std::string, std::string>> *textureSwaps = nullptr; ///< the state's `Texture = A B` pairs (stop S-5015); never null after poseView
 	std::uint32_t textureSwapsGeneration = 0; ///< changes whenever *textureSwaps may have changed (a new state, an upgrade texture list)
 	int glow = 0;                                    ///< lane GLOW-1: the module's GlowEnabled / GlowEmissive (module data + 0x128 / + 0x129): 0 none, 1 glows, 2 glows emissive only
+	std::uint32_t renderObjectGeneration = 0;       ///< LOCAL-21: incremented on every render object teardown/recreate (RW 0x4B2C18)
+	const std::map<std::string, HouseColorParams> *meshHouseColors = nullptr; ///< LOCAL-21: per-mesh house colour overrides (RW 0x54BDE0)
+	std::uint32_t materialStateGeneration = 0;     ///< LOCAL-21: incremented on per-mesh material changes or render object recreation
 };
 
 struct W3DScriptedModelDrawOptions
@@ -153,6 +159,9 @@ struct W3DScriptedModelDrawOptions
 	// The drawable's model variation (drawable + 0x364, RW 0x679FEA): an object's drawable gets its creation draw GetGameLogicRandomValue(1, 999)
 	// (RW 0x6288A5 -> 0x6288D3), the other drawables -1 (placement ghosts RW 0x69C6A6). It picks the RandomTexture swaps (RW 0x4C238A).
 	int variation = -1;
+	// PORT-49: true when the device layer installed DrawServices::cameraPosition before this draw was made. The camera distance
+	// fade (RW 0x4B52C8) needs that source; without it the core reports S-096 instead of silently leaving the fields unused.
+	bool cameraFadeAvailable = false;
 };
 
 class W3DScriptedModelDraw : public W3DDrawScriptApi
@@ -169,6 +178,8 @@ public:
 	// Drawable::setModelConditionState: the object's current model condition flags (RW 0x4BF2D8). Both lists are re-matched; see the
 	// header comment for the pending state rule.
 	void setModelConditionFlags(const ModelConditionFlags &flags);
+	// RW 0x4C451D (slot 0x100; BFME2 0x4C4E23): select model state; force bypasses render object reuse (force = 1)
+	bool setModelState(const ModelConditionInfo *state, bool force = false);
 	// RW 0x8B911E -> draw module vslot 0x84: SubObjectsUpgrade's UpgradeTexture list replaces the module's upgrade textures (empty: none)
 	void setUpgradeTextureSwaps(const std::vector<std::pair<std::string, std::string>> &swaps);
 	// lane COMBAT-4: the module data's DependencySharedModelFlags (+ 0xBC, RW table row 0xBE1420): the flags the module's dependents share (RW 0x4BF2D8)
@@ -177,6 +188,13 @@ public:
 	// Advances the animations by `elapsedMs` of render time (RW 0x4BF560). Call it once per render frame; logic frames (5 per second)
 	// only change the flags.
 	void advance(double elapsedMs);
+	// PORT-49: the camera distance fade of the draw path (RW 0x4B52C8..0x4B5494, called by RW 0x4BF586 before the tracks step).
+	// `camera` is the tactical view eye (RW 0xDE447C vslot 0x11C -> 0x487668 -> 0x53B370), `drawable` the drawn position
+	// (RW 0x676711); only XY is read. `effectsLOD` is TheGameLODManager +0x1778 (RW 0xDE3B84, consumer 0x4B5405..0x4B5433);
+	// -1 models the global-null branch. Writes the same opacity / hidden state frame() reports; the animation fade may overwrite it.
+	void updateCameraFade(const Coord3D &camera, const Coord3D &drawable, int effectsLOD);
+	float opacity() const { return m_opacity; }
+	bool hiddenByFade() const { return m_hiddenByFade; }
 	// lane PERF-HD: advance() will only step this draw's own tracks, fade and speed (no state selection, no script): a looping track 0 alone, nothing
 	// pending. Such a draw may advance on the client job pool
 	// lane PERF-HD: how far (in frames) this draw's pose may stray from its horde group's to be drawn with it (W3DHordeModelDraw: its LodOptions
@@ -267,6 +285,10 @@ public:
 	float cachedConstructionPercent() const { return m_constructionPercent; }
 	bool adjustsHeightByConstruction() const { return m_curAnimState && m_curAnimState->testFlag(W3D_ACF_ADJUST_HEIGHT_BY_CONSTRUCTION_PERCENT); }
 
+	// lane LOCAL-29: vtable slot +0x104, called at RW 0x4B6B26 only after the AttachToBoneInAnotherModule bone was found, with the placed transform.
+	// Base RW 0x9F3A3C (`ret 4`): no-op. W3DSailModelDraw RW 0x4D00CD turns the sail with the wind: Port 63 (#173) overrides this, not ported here (S-7232).
+	virtual void adjustAttachedTransform(Matrix3D &) {}
+
 	// Speed multiplier of every track (RW +0x9C: the movement speed sync, recomputed at the end of every advance). Exposed for tests.
 	void setSpeedMultiplier(float m) { m_speedSync = m; }
 	float speedMultiplier() const { return m_speedSync; } // lane SMOOTH-3: the Distance sync (RW +0x9C)
@@ -281,6 +303,13 @@ public:
 	bool pendingStatePending() const { return m_pending; }
 	const AnimationStateInfo *pendingTarget() const { return m_pendingTarget; }
 	int renderObjectsCreated() const { return m_renderObjectsCreated; }
+	std::uint32_t renderObjectGeneration() const { return m_renderObjectGeneration; }
+	std::uint32_t materialStateGeneration() const { return m_materialStateGeneration; }
+	const HouseColorParams &baseHouseColor() const { return m_baseHouseColor; }
+	void setBaseHouseColor(const HouseColorParams &params);
+	const std::map<std::string, HouseColorParams> &meshHouseColors() const { return m_meshHouseColors; }
+	// RW 0x4B8701 -> slot +0x1F8 (RW 0x54BDE0): recolours current render object meshes except those matching excludeSubobject
+	void recolorRenderObject(const std::string &excludeSubobject, const HouseColorParams &params);
 	const W3DModelBones &bones() const { return m_bones; }
 	const std::vector<W3DStopHit> &stops() const { return m_stops; }
 	const std::vector<std::string> &errors() const { return m_errors; }
@@ -395,6 +424,10 @@ private:
 	std::string m_modelName; // lower case, the render object identity
 	std::string m_resolvedModelName; // resolved model name (with LOD and standard suffixes)
 	int m_renderObjectsCreated = 0;
+	std::uint32_t m_renderObjectGeneration = 0;
+	HouseColorParams m_baseHouseColor;
+	std::map<std::string, HouseColorParams> m_meshHouseColors;
+	std::uint32_t m_materialStateGeneration = 0;
 	W3DModelBones m_bones;
 	std::set<int> m_hiddenSubObjects;
 	std::uint32_t m_hiddenGeneration = 0; ///< lane PERF-3: incremented by every change of m_hiddenSubObjects (W3DDrawPoseView::hiddenGeneration)

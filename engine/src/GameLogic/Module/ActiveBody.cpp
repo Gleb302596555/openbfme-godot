@@ -46,6 +46,7 @@
 #include "GameLogic/Weapon.h"
 
 #include <cstddef>
+#include <cstdio>
 #include <stdexcept>
 
 namespace
@@ -232,6 +233,10 @@ void ActiveBody::crc(StateHasher &h) const
 	if (m_lastDamageType != DAMAGE_UNDEFINED)
 	{
 		h.addU32((std::uint32_t)m_lastDamageType ^ 0xFA40u); // lane FX-4: hashed only when a hit set it (a game without hits keeps its hash)
+	}
+	if (m_lastDamageNoEffect)
+	{
+		h.addU32(0xD178u); // Local 30, RW 0x744203: record +0x78; false leaves hash unchanged
 	}
 }
 
@@ -581,19 +586,40 @@ void ActiveBody::attemptDamage(DamageInfo &info)
 		m_currentInfo = &info;
 		internalChangeHealth(SimMath::subf32(0.0f, amount));
 		m_currentInfo = nullptr;
+		scheduleRecovery(); // RW 0x8C425D .. 0x8C4276: recovery runs before output amounts and record selection
 		// (15)
 		info.m_output.m_actualDamageDealt = amount;
 		info.m_output.m_actualDamageClipped = SimMath::subf32(m_previousHealth, m_currentHealth);
 		// (16)
-		scheduleRecovery();
-		m_lastDamageFrame = logic.getFrame();
-		m_lastDamager = info.m_input.m_sourceID;
-		m_lastDamagerPlayerMask = info.m_input.m_sourcePlayerMask; // lane CAMP-1
-		m_lastDamageType = info.m_input.m_damageType;               // lane FX-4: the record's + 0x10 (RW 0x7441E0 copies the whole input)
-		m_lastAttackerTaken = false; // lane PLAY-4: RW 0x8C42FA (+ 0xB6 cleared with the record)
+		// Local 30, RW 0x8C4294 .. 0x8C42F5: a record from this or the previous frame is retained unless the incoming source exists and either the
+		// previous source is gone or the incoming source is INFANTRY, CAVALRY, or one of RW 0x68DAE6's five significant-building kinds
+		// (Object::isFactionStructure: FS_POWER, FS_FACTORY, FS_BASE_DEFENSE, FS_TECHNOLOGY, FS_CASH_PRODUCER).
+		// The subtraction is unsigned, including frame zero (0 - 1 == 0xFFFFFFFF == initial frame). All parts of the record are replaced together.
+		const UnsignedInt now = logic.getFrame();
+		bool replaceRecord = m_lastDamageFrame != now && m_lastDamageFrame != now - 1u;
+		if (!replaceRecord)
+		{
+			const Object *previousSource = logic.findObjectByID(m_lastDamager);
+			const Object *incomingSource = logic.findObjectByID(info.m_input.m_sourceID);
+			if (incomingSource)
+			{
+				replaceRecord = !previousSource || incomingSource->isKindOfName("INFANTRY") || incomingSource->isKindOfName("CAVALRY") ||
+				                incomingSource->isKindOfName("FS_POWER") || incomingSource->isKindOfName("FS_FACTORY") ||
+				                incomingSource->isKindOfName("FS_BASE_DEFENSE") || incomingSource->isKindOfName("FS_TECHNOLOGY") ||
+				                incomingSource->isKindOfName("FS_CASH_PRODUCER");
+			}
+		}
+		if (replaceRecord)
+		{
+			m_lastDamageFrame = now;
+			m_lastDamager = info.m_input.m_sourceID;
+			m_lastDamagerPlayerMask = info.m_input.m_sourcePlayerMask; // lane CAMP-1: record + 0xC
+			m_lastDamageType = info.m_input.m_damageType;               // lane FX-4: record + 0x10
+			m_lastDamageNoEffect = info.m_output.m_noEffect;           // RW 0x744203: record + 0x78
+			m_lastAttackerTaken = false;                               // RW 0x8C42FA: record + 0xB6 cleared with the record
+		}
 		// lane CAMP-1, RW 0x8C430F .. 0x8C4341: the last damage record's source object, when it exists, marks its controlling player as an attacker of the
-		// victim's controlling player (RW 0x6AAC05). INFERENCE: retail runs this after the record block whether or not the record changed this hit; here only
-		// when it did
+		// victim's controlling player (RW 0x6AAC05). Runs after the record block whether or not the record changed this hit (reads m_lastDamager).
 		if (const Object *source = logic.findObjectByID(m_lastDamager))
 		{
 			Player *victimPlayer = obj.getControllingPlayer();
@@ -807,6 +833,73 @@ void ActiveBody::cheer()
 	}
 }
 
+// PORT-66 (issue #180): RW 0x8C1E4E, the body interface's slot 0x2C. The branches of RW 0x8C1E4E, read linearly:
+//   * the seven templates are looked up once (static guards 0xDE9B04 bits 1, 2, 4, 8, 0x10, 0x20, 0x40; RW 0x5F889B findTemplate with the GlobalData
+//     pointers +0x9F4 fire small, +0xA00 fire medium, +0xA0C fire large, +0xA18 smoke small, +0xA24 smoke medium, +0xA30 smoke large, +0xA3C aflame;
+//     the cached pointers 0xDE9B00, 0xDE9AFC, 0xDE9AF8, 0xDE9AF4, 0xDE9AF0, 0xDE9AEC, 0xDE9AE8);
+//   * RW 0x8C1FD3: the object's status 0xA (RW 0x44DDEC, `OBJECT_STATUS_AFLAME`) picks the entry templates: aflame -> fire small = fire medium,
+//     fire medium = fire large, fire large = fire large, smoke small / medium / large = fire small, count modifier 2 (RW 0x8C1FEF .. 0x8C2000);
+//     else the plain templates and the modifier 1 (RW 0x8C2002 .. 0x8C202A);
+//   * RW 0x8C2036: deleteAllParticleSystems, the body's primary vslot 0x50 (RW 0x8C258F);
+//   * then, in this order, createParticleSystems (primary vslot 0x4C, RW 0x8C23EA) for the Prefix +0x9F0 / +0x9FC / +0xA08 / +0xA14 / +0xA20 / +0xA2C with
+//     the swapped template and the cap Auto*Max * the modifier (RW 0x8C203D .. 0x8C20F2, the imul at each);
+//   * RW 0x8C20F5: the status test again; aflame -> one more call for the Prefix +0xA38, the aflame template and AutoAflameParticleMax * 2 (RW 0x8C2107
+//     .. 0x8C2126).
+// createParticleSystems (RW 0x8C23EA) asks the object for the numbered bones of the prefix (RW 0x68C650 getMultiLogicalBonePosition with start index 1,
+// at most 16; a NULL template answers nothing at RW 0x8C2401), caps the count at the bones found, then per system draws a CLIENT random bone (RW 0x6D32E4,
+// an unused bone index each) and makes createParticleSystem (RW 0x5F526A), setPosition at the bone (RW 0x5F2F2D), attachToObject (RW 0x5F32D7) and keeps
+// the ID on the body's list (+0xC8). The bones and the systems are the client's, as FX-4's TransitionDamageFX systems are (S-340/S-345 called them the
+// client's): the logic reads the bones (template data and logic state, the launch bone provider) and emits one event the client plays.
+void ActiveBody::updateBodyParticleSystems()
+{
+	Object *obj = getObject();
+	const GameLogicSettings &set = obj->logic().settings();
+	// RW 0x8C1FD6: status 0xA of the object (TheObjectStatusNames[10] AFLAME, the same status FlammableUpdate sets on ignition)
+	const bool aflame = obj->testStatus(10);
+	const GameLogicSettings::AutoBodyParticles *fire[3] = { &set.autoFireSmall, &set.autoFireMedium, &set.autoFireLarge };
+	const GameLogicSettings::AutoBodyParticles *smoke[3] = { &set.autoSmokeSmall, &set.autoSmokeMedium, &set.autoSmokeLarge };
+	// the swapped template of each entry (RW 0x8C1FDD .. 0x8C202F), the aflame mapping above
+	const std::string *systems[7];
+	systems[0] = &(aflame ? set.autoFireMedium.system : set.autoFireSmall.system);
+	systems[1] = &(aflame ? set.autoFireLarge.system : set.autoFireMedium.system);
+	systems[2] = &set.autoFireLarge.system;
+	systems[3] = &(aflame ? set.autoFireSmall.system : set.autoSmokeSmall.system);
+	systems[4] = &(aflame ? set.autoFireSmall.system : set.autoSmokeMedium.system);
+	systems[5] = &(aflame ? set.autoFireSmall.system : set.autoSmokeLarge.system);
+	systems[6] = &set.autoAflame.system;
+	const GameLogicSettings::AutoBodyParticles *entries[7] = { fire[0], fire[1], fire[2], smoke[0], smoke[1], smoke[2], &set.autoAflame };
+	const int countModifier = aflame ? 2 : 1; // RW 0x8C1FF7 / 0x8C202F
+	static const std::string kNoName; // the event carries its template names in particleSystems, not an FXList name
+	FXEvent e = FXEventLog::objectEvent(FXEvent::BODY_PARTICLE_SYSTEMS, "BodyParticles", obj->logic().getFrame(), kNoName, *obj);
+	// the count of the calls: six, then the seventh only while aflame (RW 0x8C20F5)
+	const int calls = aflame ? 7 : 6;
+	ProjectileLaunchOffsets *provider = obj->logic().combat().launchOffsets();
+	e.particleSystems.clear();
+	for (int i = 0; i < calls; ++i)
+	{
+		FXEvent::BodyParticleEntry entry;
+		entry.system = *systems[i];
+		entry.maxSystems = entries[i]->maxSystems * countModifier;
+		// RW 0x8C23EA: no template (NULL in retail) -> nothing at all, not even the bone query
+		if (!entry.system.empty() && entry.maxSystems > 0)
+		{
+			float bones[16][12];
+			const int n = provider ? provider->multiLogicalBones(*obj, entries[i]->prefix, obj->getModelConditionBits(), 16, bones) : 0;
+			for (int b = 0; b < n; ++b)
+			{
+				FXEvent::BodyParticleBone bone;
+				char name[300];
+				std::snprintf(name, sizeof(name), "%s%02d", entries[i]->prefix.c_str(), b + 1); // RW 0x672A73: prefix + 01, 02, ...
+				bone.name = name;
+				bone.position = Coord3D{ bones[b][3], bones[b][7], bones[b][11] }; // the 3x4 bone matrix's translation, model space
+				entry.bones.push_back(std::move(bone));
+			}
+		}
+		e.particleSystems.push_back(std::move(entry));
+	}
+	obj->logic().fxEvents().emit(e);
+}
+
 // TOP20 #20, RW 0x8C1E18 (ActiveBody primary vslot 8, onDelete): an object deleted while not effectively dead (+ 0x458 bit 0) and neither PROJECTILE nor
 // INERT cheers its enemies (vslot 0x58), then the body's particle systems go (vslot 0x50; the port keeps none on the body)
 void ActiveBody::onDelete()
@@ -1010,7 +1103,7 @@ void ActiveBody::attemptHealing(DamageInfo &info)
 // current DamageInfo pointer is null outside a hit (a snapshot is taken between frames); the armour report flag is the report's.
 void ActiveBody::xfer(Xfer &x)
 {
-	XferVersion v{ 1, 2 }; // 2: lane FX-4's last damage type
+	XferVersion v{ 1, 3 }; // 2: lane FX-4's last damage type, 3: Local 30's last damage no-effect
 	x.xferVersion(v);
 	xferBehaviorModule(x);
 	x.xferReal(&m_currentHealth);
@@ -1033,6 +1126,18 @@ void ActiveBody::xfer(Xfer &x)
 	if (v.current >= 2)
 	{
 		SnapshotXfer::enumIn(x, m_lastDamageType, 0, SnapshotXfer::nameCount(TheDamageNames) - 1, "a body's last damage type");
+	}
+	else
+	{
+		m_lastDamageType = DAMAGE_UNDEFINED;
+	}
+	if (v.current >= 3)
+	{
+		x.xferBool(&m_lastDamageNoEffect); // RW 0x744203: DamageInfo + 0x78
+	}
+	else
+	{
+		m_lastDamageNoEffect = false;
 	}
 }
 

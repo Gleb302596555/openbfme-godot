@@ -3,6 +3,7 @@
 #include "CombatTestUtil.h"
 #include "Horde2TestUtil.h"
 
+#include "Common/ModelState.h"
 #include "GameLogic/Module/BannerCarrierUpdate.h"
 #include "GameLogic/Module/ActiveBody.h"
 #include "GameLogic/Module/HeroModules.h"
@@ -94,8 +95,11 @@ TEST_CASE("horde2 banner: no carrier at rank 0; at rank 1 the carrier joins, sta
 	CHECK(b->membersSpawned() == 1);
 	CHECK(hc(h)->getContainCount() == 4);
 	CHECK(hc(h)->freeSlotIndices().empty());
+	// lane PORT-75: MorphCondition is no longer a raw line (RW 0x89A90F): the fixture's `UnitType:Swordsman ModelState:"USER_2"` is one entry
 	REQUIRE(b->data().m_morphConditions.size() == 1);
-	CHECK(b->data().m_morphConditions[0] == "UnitType:Swordsman ModelState:\"USER_2\"");
+	CHECK(b->data().m_morphConditions[0].unitType == "Swordsman");
+	CHECK(b->data().m_morphConditions[0].modelState.test(ModelCondition::indexOf("USER_2")));
+	CHECK(b->data().m_morphConditions[0].locomotor.empty());
 }
 
 TEST_CASE("horde2 banner: nearby replenishment waits for its pulse, skips construction and fills one or all in distance order")

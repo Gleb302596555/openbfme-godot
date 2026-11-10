@@ -484,6 +484,9 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // pin: the landing of Local 1 (issue #88) with Port 5 (#93) re-measured the battle and skirmish files (OPENBFME_PERF1_REGEN=1 on the merged station-3 tree): Local 1
 // hashes GameData AttributeModifierArmorMaxBonus and DamageRadiusMinimumForSplash in GameLogicSettings::crc, which moves both vectors from frame 0 (a hash
 // difference at frame 0 is the hash's content, not play); Local 1's own tree re-measured only the blob file
+// pin: the arena batch of 2026-11-10 (2) re-measured all three files (OPENBFME_PERF1_REGEN=1 on station-0, merged tree): Port 83 (#274: BuildingBehavior
+// is awake every frame, RW 0x8592BE, and hashes its two latches) moves every file from frame 0; Port 95 (#279: a defeated player's KeepObjectDie object is
+// destroyed, RW 0x889FC3 .. 0x889FD3) moves the skirmish from frame 1099. Attributed by bisect and switch-off builds (both off: the old files pass)
 // pin: Port 5 (PR #93, issue #57) re-measured the skirmish file only (OPENBFME_PERF1_REGEN=1 on station-3 3c6eb328): units with a charge ability chase and approach
 // as RotWK (Object + 0x251, RW 0x662E88, RW 0x745A18) and the object hash carries the byte; the 4-player skirmish differs from frame 357. The battle and
 // blob files are unchanged; the station-3 build without #93 (2f27180f) matches the previous skirmish file
@@ -636,6 +639,18 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // longer counts it in b.targetlessUnported, which AITacticalAI::crc hashes; with that count restored the skirmish matched to frame 3893, and the later
 // changes of this merge move it from frame 3894 (not bisected; PORT-37's area damage is the likely one, PROCESS 7 rule 3). Switching off PORT-10's crc
 // field, PORT-17's module binding or PORT-33's ready rule changed nothing.
+// pin: merge queue q46 re-measured the skirmish once on the merged tree (OPENBFME_PERF1_REGEN=1), compared at each merge point: #262 keeps it (the group
+// task adder has no caller); #270 (the team threat orders, Team + 0x13C) moves it from frame 774; #267, #269 and #271 each port a targetless tactic, so the
+// hashed unported-tactic counter moves it from frame 8; the review fix (the threat walk newest first, RW 0x66362D; a horde soldier counts nothing, RW 0x693A1A)
+// moves it from frame 868. The big battle and the allied blob do not move.
+// pin: the fork's merge of upstream efbdfad9 (2026-11-10) re-measured all three once on the merged tree (OPENBFME_PERF1_REGEN=1, Windows MSVC, station-0);
+// they differ from both parents (upstream's AI tactics and threat orders under the fork's ports)
+// pin: PORT-39 (PR #201, AIData SideInfo ResourceGatherers*) re-measured all three once on the arena batch tree of 2026-11-10 (OPENBFME_PERF1_REGEN=1,
+// Windows MSVC, station-3); bisected over the batch's 13 merges: every merge before #201 keeps the old vectors. Retail data\ini\default\aidata.ini has five
+// SideInfo blocks, which now enter GameLogicSettings::crc, so all three differ from frame 0
+// pin: Local 30 (issue #246) re-measured the big battle once (OPENBFME_PERF1_REGEN=1, Windows MSVC, station-3): a hit in the record's own or the next frame
+// replaces the last damage record only as RW 0x8C4294 .. 0x8C42F5 says (a living source; the old one gone, or INFANTRY / CAVALRY / RW 0x68DAE6's five
+// structure kinds), so who-hit-me-last, the attacker marks and the retaliation it feeds change from frame 54; the skirmish and the allied blob do not move
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,

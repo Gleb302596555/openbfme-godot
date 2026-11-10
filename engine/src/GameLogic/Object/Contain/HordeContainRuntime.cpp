@@ -384,6 +384,14 @@ bool HordeContain::isPassengerAllowedToFire() const
 	return c && c->isPassengerAllowedToFire();
 }
 
+// RW 0x86C737 (lane PORT-91): the horde's container (+ 0x27C) with a contain (+ 0x258) answers through its slot 0x2C, else true
+bool HordeContain::shadowWhileContainedAllowed() const
+{
+	const Object *outer = getObject()->getContainedBy();
+	const ContainModuleInterface *c = outer ? outer->getContain() : nullptr;
+	return c ? c->shadowWhileContainedAllowed() : true;
+}
+
 bool HordeContain::addToContain(Object *obj)
 {
 	if (std::find(m_members.begin(), m_members.end(), obj) != m_members.end())
@@ -423,6 +431,7 @@ bool HordeContain::addToContain(Object *obj)
 			}
 		}
 	}
+	bannerCarrierMorph(*obj); // lane PORT-75: RW 0x89A5C5, last so the morph's LocomotorSet stands (DONOR 0x00473212 returns right after)
 	return true;
 }
 
@@ -455,6 +464,7 @@ bool HordeContain::acceptCreatedMember(Object *obj)
 	// lane AI-2: a produced horde has its members now (createPayload made none for it): the "dies with its last member" rule of removeFromContain applies to it
 	// too. Before, a produced horde whose members all died stayed alive with ImmortalBody's 1 hp, and every enemy kept it as its victim forever (AI vs AI stall)
 	m_payloadCreated = true;
+	bannerCarrierMorph(*obj); // lane PORT-75: RW 0x89A5C5
 	return true;
 }
 

@@ -9,17 +9,25 @@
 #include "Common/SpecialPower.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/ActionManager.h"
+#include "GameLogic/AI/AIPathfind.h"
+#include "GameLogic/AI/AIWorld.h"
+#include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/GameMessage.h"
+#include "GameLogic/Locomotor.h"
+#include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/BloodthirstyUpdate.h"
+#include "GameLogic/Module/HordeContain.h"
 #include "GameLogic/Module/InvisibilityModules.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/System/InvisibilityManager.h"
 #include "GameLogic/System/ShroudManager.h"
 #include "GameLogic/UnitSpecificSound.h"
+#include "GameLogic/Weapon.h"
 
 #include <cctype>
 #include <cstdlib>
@@ -255,6 +263,7 @@ int UnitVoiceResponse::voiceTargetArgument(int msgType)
 		case MSG_DOZER_CONSTRUCT:
 		case MSG_RESUME_CONSTRUCTION:
 		case MSG_COMBATDROP_AT_OBJECT:
+		case MSG_COMBINE_HORDES_WITH_OBJECT: // RW 0x81F4B2 writes the target alone (argument 0); the handler at RW 0x8DF2EB reads it from the pick info (+ 4)
 		case MSG_DO_REPAIR:
 		case MSG_HARVEST:
 			return 0;
@@ -297,11 +306,15 @@ bool UnitVoiceResponse::handles(int msgType)
 		case MSG_EVACUATE_CONTESTERS:
 		case MSG_COMBATDROP_AT_LOCATION:
 		case MSG_COMBATDROP_AT_OBJECT:
+		case MSG_COMBINE_HORDES_WITH_OBJECT: // RW 0x81F4B2: the context command order; RW 0x8DEDBB index 0x3A
 		case MSG_DO_REPAIR:
 		case MSG_ENTER:
 		case MSG_DOCK:
 		case MSG_HARVEST:
 		case VOICE_EVENT_CREATED:
+		case VOICE_EVENT_DESPERATE_ATTACK:
+		case VOICE_EVENT_RAPID_FIRE:
+		case VOICE_EVENT_CAPTURE_BUILDING_COMPLETE:
 		case VOICE_EVENT_TASK_COMPLETE:
 		case VOICE_EVENT_DEFECT:
 		case VOICE_EVENT_FEAR:
@@ -312,6 +325,8 @@ bool UnitVoiceResponse::handles(int msgType)
 		case VOICE_EVENT_ENTER_STATE_MOVE:
 		case VOICE_EVENT_ENTER_STATE_ATTACKMOVE:
 		case VOICE_EVENT_BLOODTHIRSTY:
+		case VOICE_EVENT_START_CHARGING:
+		case VOICE_EVENT_NO_BUILD:
 		case VOICE_EVENT_ENTER_STATE_SPECIAL_POWER:
 			return true;
 		default:
@@ -633,7 +648,7 @@ void UnitVoiceResponse::moveVoices(Object &obj, int msgType, const Info *info, C
 	const int whileAttacking = enterState ? 32 : VOICE_MOVE_WHILE_ATTACKING;
 	const int higherGround = enterState ? 28 : VOICE_MOVE_TO_HIGHER_GROUND;
 	// the planning mode branch (player + 0x770 == 2: MiscAudio PlanningModeOrderGiven), VoiceCrush (GameData + 0x8B9 and a crushable target), the busy gate
-	// (GameData + 0x8B0), VoiceMoveOverWalls (RW 0x8DE628) and the weapon's voice (RW 0x68B58C, weapon template + 0xD0 / + 0xD8) are not ported: stop S-704
+	// (GameData + 0x8B0) are not ported: stop S-704
 	if (!enterState && msgType == MSG_DO_SALVAGE)
 	{
 		if (fillName(c, obj, "VoiceSalvage"))
@@ -690,10 +705,59 @@ void UnitVoiceResponse::moveVoices(Object &obj, int msgType, const Info *info, C
 			fillRow(c, obj, whileAttacking);
 		}
 	}
+	// VoiceMoveOverWalls (RW 0x8DECBB .. 0x8DED2D -> RW 0x8DE628): after VoiceMoveWhileAttacking, before VoiceMove
+	if (!done(c) && hasPosition)
+	{
+		const int overWalls = enterState ? 29 : VOICE_MOVE_OVER_WALLS;
+		if ((objectVoice(obj, overWalls).any() || crowdVoice(c.crowdEntry, rowName(overWalls)).any()) && moveRequiresClimbingWalls(obj, info->position))
+		{
+			fillRow(c, obj, overWalls);
+		}
+	}
 	if (!done(c))
 	{
 		fillRow(c, obj, base);
 	}
+}
+
+bool UnitVoiceResponse::moveRequiresClimbingWalls(const Object &obj, const Coord3D &destPos) const
+{
+	// RW 0x8DE628 (docs/re/rotwk/RW_0x8DE628.md):
+	//   1. the candidate's current locomotor (RW 0x68B31D) must exist and set ScalesWalls (+ 0x150, RW 0x8DE654);
+	//   2. test the candidate's horde (RW 0x693A1A(1) -> getHordeObject(true), RW 0x8DE662) when present, else the candidate itself (RW 0x8DE674),
+	//      requiring a current locomotor and AI (RW 0x8DE67B, 0x8DE6A7);
+	//   3. Pathfinder::quickDoesPathExist(horde, horde->getPosition(), &destPos, nullptr) (RW 0x8DE69A -> 0x6F5BB0) must hold;
+	//   4. rebuild the horde's current locomotor set with m_scalesWalls forced false (RW 0x5E6027 -> 0x5E80B0) and test quickDoesPathExist again
+	//      (RW 0x8DE7FC); return true iff that non-scaling query fails (RW 0x8DE801 .. 0x8DE809).
+	const AIUpdateInterface *objAi = obj.getAIUpdateInterface();
+	const Locomotor *objLoco = objAi ? objAi->curLocomotor() : nullptr;
+	if (!objLoco || !objLoco->getTemplate().m_scalesWalls)
+	{
+		return false;
+	}
+	const Object *horde = obj.getHordeObject(true);
+	if (!horde)
+	{
+		horde = &obj;
+	}
+	const AIUpdateInterface *hordeAi = horde->getAIUpdateInterface();
+	if (!hordeAi || !hordeAi->curLocomotor())
+	{
+		return false;
+	}
+	AIWorld *world = m_logic.aiWorld();
+	if (!world || !world->mapReady())
+	{
+		return false;
+	}
+	Pathfinder &pf = world->pathfinder();
+	if (!pf.quickDoesPathExist(hordeAi->adapter(), horde->getPosition(), &destPos, nullptr))
+	{
+		return false;
+	}
+	PathfindLocomotorInfo noScale = hordeAi->locomotorInfo();
+	noScale.crusher = false; // RW 0x5E6027 / 0x5E80F9: PathfindLocomotorInfo::crusher carries ScalesWalls (+0x15 in LocomotorSet)
+	return !pf.quickDoesPathExist(hordeAi->adapter(), horde->getPosition(), &destPos, &noScale);
 }
 
 void UnitVoiceResponse::stealthyAreaMoveVoice(Object &obj, int msgType, const Coord3D &position, Choice &c) const
@@ -801,7 +865,28 @@ void UnitVoiceResponse::attackVoices(Object &obj, int msgType, const Info *info,
 			}
 		}
 	}
-	// the current weapon's VoiceFire (weapon template + 0xD0 / + 0xD8, RW 0x68B58C) is not ported: stop S-704
+	// PORT-68, RW 0x8DE0F4 .. 0x8DE150: the current weapon's OverrideVoiceAttackSound (+0xD0) or OverrideVoiceEnterStateAttackSound (+0xD8),
+	// resolved through Object::getCurrentWeapon (RW 0x68B58C: no weapon set (+0x374) or no weapon in the slot -> nothing). The template's slot
+	// IS retail's {EVA event, audio event} pair, so it fills both halves at once (RW 0x8DE122 / 0x8DE132 add 0xD8 / 0xD0 and RW 0x8DE13C hands it
+	// to RW 0x8DDA33). The second argument of that call is the empty crowd slot built by RW 0x8DE114, so `done()` still wants the crowd's sound.
+	if (!done(c))
+	{
+		const ObjectWeapons *weapons = obj.getWeapons();
+		const Weapon *cur = weapons ? weapons->currentWeapon() : nullptr;
+		const WeaponTemplate *wt = cur ? cur->getTemplate() : nullptr;
+		if (wt)
+		{
+			const WeaponTemplate::VoiceOverride &ov = enterState ? wt->m_overrideVoiceEnterStateAttackSound : wt->m_overrideVoiceAttackSound;
+			Voice v;
+			v.eva = ov.eva;
+			v.sound = ov.sound;
+			// RW 0x8DDA33 tests slot 0 alone (audio +4 null AND EVA +0 unset), not the crowd slot: a rule that set a sound earlier keeps it
+			if (!c.voice.any() && v.any())
+			{
+				c.voice = std::move(v);
+			}
+		}
+	}
 	if (!done(c))
 	{
 		// RW 0x671ED8: the charge voice is allowed when neither the unit nor its horde is ATTACKING (RW 0x694154(0x25): the model condition bit 37 through
@@ -1059,6 +1144,50 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 			case MSG_COMBATDROP_AT_OBJECT:
 				fillName(c, obj, "VoiceCombatDrop");
 				break;
+			case MSG_COMBINE_HORDES_WITH_OBJECT:
+			{
+				// RW 0x8DF2EB: the combine-with-horde order (RW 0x81F4B2 posts it, the context command branch for a single selection and a combineable
+				// target). Without the picked target (info + 4) retail says nothing at all: the branch at RW 0x8DF2F2 jumps past the row fill to the no-voice tail
+				const Object *target = info && info->target != INVALID_ID ? m_logic.findObjectByID(info->target) : nullptr;
+				if (target)
+				{
+					// RW 0x871F29 (the interface's slot + 0x224, here on the horde's contain): the candidate's horde (RW 0x694bf8: itself when HORDE-kind, else
+					// the horde that contains it) carries the ComboHorde list; the entry whose Target (RW 0x87043B, the compare RW 0x4065AA) names the
+					// TARGET-side horde's template (0x693a1a on the victim, else the victim itself) supplies the InitiateVoice
+					Object *selfHorde = obj.getHordeObject(false);
+					Object *moduleOwner = selfHorde ? selfHorde : &obj;
+					const Object *victimHorde = target->getHordeObject(false);
+					const Object *ref = victimHorde ? victimHorde : target;
+					const HordeContain *hci = nullptr;
+					if (ContainModuleInterface *contain = moduleOwner->getContain())
+					{
+						hci = dynamic_cast<const HordeContain *>(contain->getHordeContainInterface());
+					}
+					const ThingTemplate *refTemplate = ref->getTemplate();
+					if (hci && refTemplate)
+					{
+						if (const ComboHordeEntry *entry = hci->comboHordeEntryFor(*refTemplate))
+						{
+							// the entry's InitiateVoice: NoSound -> nothing (RW 0x73AB45), EVA: -> the Eva event, +SOUND: / a plain name -> the sound
+							Voice v;
+							if (entry->initiateVoiceIsEva)
+							{
+								v.eva = entry->initiateVoice.name;
+							}
+							else
+							{
+								v.sound = entry->initiateVoice.name;
+							}
+							fill(c, v); // RW 0x8DDA33: only while the slot is empty
+						}
+					}
+					if (!done(c))
+					{
+						fillRow(c, obj, VOICE_COMBINE_WITH_HORDE); // RW 0x8DF5EB: row 0x15 = VoiceCombineWithHorde
+					}
+				}
+				break;
+			}
 			case MSG_DO_REPAIR:
 				fillName(c, obj, "VoiceRepair");
 				break;
@@ -1151,6 +1280,18 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 					fill(c, v);
 				}
 				break;
+			case VOICE_EVENT_DESPERATE_ATTACK:
+				// RW 0x8DF9D2 -> 0x8DDB2A: UnitSpecificSounds "VoiceDesperateAttack" (RW 0xC77AB4)
+				fillName(c, obj, "VoiceDesperateAttack");
+				break;
+			case VOICE_EVENT_RAPID_FIRE:
+				// RW 0x8DF9AD -> 0x8DDB2A: UnitSpecificSounds "VoiceRapidFire" (RW 0xC77ACC)
+				fillName(c, obj, "VoiceRapidFire");
+				break;
+			case VOICE_EVENT_CAPTURE_BUILDING_COMPLETE:
+				// RW 0x8DF97F -> 0x8DDB2A: UnitSpecificSounds "VoiceCaptureBuildingComplete" (RW 0xC77ADC)
+				fillName(c, obj, "VoiceCaptureBuildingComplete");
+				break;
 			case VOICE_EVENT_TASK_COMPLETE:
 				fillRow(c, obj, VOICE_TASK_COMPLETE);
 				break;
@@ -1159,6 +1300,15 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 				break;
 			case VOICE_EVENT_FEAR:
 				fillRow(c, obj, VOICE_FEAR);
+				break;
+			case VOICE_EVENT_START_CHARGING:
+				// RW 0x8DFD0D .. 0x8DFD2B: the literal VoiceStartCharging through the name lookup RW 0x8DDB2A (UnitSpecificSounds, tt + 0x388).
+				// The post of 0x7EA is not ported: stop S-7226 (docs/ennorath/PORT87_RW_ANALYSIS.md)
+				fillName(c, obj, "VoiceStartCharging");
+				break;
+			case VOICE_EVENT_NO_BUILD:
+				// RW 0x8DFE7B: the literal VoiceNoBuild through the same lookup; posted by the refused placement click, RW 0x83EAA0 (PlaceEventTranslator)
+				fillName(c, obj, "VoiceNoBuild");
 				break;
 			case VOICE_EVENT_ALERT:
 				fillRow(c, obj, VOICE_ALERT);
@@ -1352,12 +1502,11 @@ std::vector<std::string> UnitVoiceResponse::acceptanceStops()
 		"rerolls per logic frame (retail: per client frame); the move and ambient sounds of the logic and the audio side do not ask the selectors (S-712)",
 		"[S-702] unit voice: the enemy-near query of the battle voices (RW 0x701443 -> 0x7006D7 with filter 0x6E and the object's vision range RW 0x68E43B, which "
 		"scales obj + 0x1B0 by a module bonus) is approximated by `a living object of an ENEMIES relationship within the template's VisionRange (2D)`",
-		"[S-703] unit voice: message types of RW 0x8DEDBB not answered here: combine hordes (0x423), weapon modes (0x43A), "
-		"the planned action queue (0x46A), VoiceDesperateAttack / RapidFire / CaptureBuildingComplete / StartCharging / NoBuild (0x7DB .. 0x7DD, 0x7EA .. 0x7EB), "
-		"the Ring voices (0x7E4, 0x7E5)",
+		"[S-703] unit voice: message types of RW 0x8DEDBB not answered here: weapon modes (0x43A), "
+		"the planned action queue (0x46A), the Ring voices (0x7E4, 0x7E5); combine hordes (0x423, RW 0x8DF2EB) is answered (PORT-84); 0x7DB .. 0x7DD are answered (PORT-86); "
+		"0x7EA (RW 0x8DFD0D) and 0x7EB (RW 0x8DFE7B) are answered (PORT-87), the post of 0x7EA is stop S-7226",
 		"[S-704] unit voice: rules of the move / attack / enter helpers not ported: the planning order mode (player + 0x770 == 2 -> MiscAudio PlanningModeOrderGiven), "
-		"VoiceCrush (GameData + 0x8B9, crushable target), the busy gate (GameData + 0x8B0), VoiceMoveOverWalls (RW 0x8DE628), the weapon's voice (RW 0x68B58C weapon "
-		"template + 0xD0 / + 0xD8), the charge voice's drawable gate (RW 0x671EE4: no drawable, no charge)",
+		"VoiceCrush (GameData + 0x8B9, crushable target), the busy gate (GameData + 0x8B0), the charge voice's drawable gate (RW 0x671EE4: no drawable, no charge)",
 		"[S-705] unit voice: the candidate order is selection then member order (retail iterates a hash map keyed by Object pointers), a count tie between "
 		"two sounds goes to the lower-case name order (retail: the lower audio info POINTER, RW 0x8DE522's unsigned compare), and a hero's level is the "
 		"minimum (the experience tracker RW 0x79D12A is lane XP-1's): which sound wins a tie and which object of a bucket speaks may differ from retail",

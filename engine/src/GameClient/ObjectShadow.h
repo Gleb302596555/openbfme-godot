@@ -37,6 +37,8 @@
 #include <string>
 
 class Drawable;
+class Object;     // lane PORT-91 (issue #239): the logic object behind a drawable, named by its id
+struct ObjectSnapshot; // lane PORT-91: GameClient/LogicSnapshot.h; the record the client reads per frame
 struct RenderObjPrototype;
 
 namespace ObjectShadow
@@ -69,6 +71,14 @@ struct DecalShadowDescriptor
 	unsigned opacityEnd = 0;
 };
 
+// lane PORT-91 (issue #239; RW 0x4C7848, W3DModelDraw::doDrawModule): RW 0x4C7848 keeps a contained object's shadow only while the contain of its container
+// answers true for vslot 0x2C (RW 0x86C737: the HordeContain family; RW 0x9188EB false in every other contain table of 2.01). The module data's
+// ShowShadowWhileContained wins over the contain's answer. `object` is the logic object behind the drawable (null: unknown, nothing is suppressed)
+bool containedShadowSuppressed(const ::Object *object, const W3DModelDrawModuleData *module);
+// the same question from the presented snapshot's record (lane COMBAT-4: the record carries containedBy and the contain's slot 0x2C answer); the client per
+// frame reads the snapshot, not the logic. null record: nothing is suppressed
+bool containedShadowSuppressed(const ObjectSnapshot *record, const W3DModelDrawModuleData *module);
+
 // Returns whether the object/state casts a volume shadow map (or directional shadow map when useShadowMapping is true, RW 0x46FE84..0x47009F)
 inline bool castsMap(const ThingTemplate *object, const W3DModelDrawModuleData *module, const ModelConditionInfo *state, bool useShadowMapping = false)
 {
@@ -91,9 +101,11 @@ bool resolveDecalShadow(const ThingTemplate *tt, const W3DModelDrawModuleData *m
 unsigned evaluateDecalOpacity(const DecalShadowDescriptor &desc, unsigned currentFrame, unsigned startFrame = 0, unsigned fadeOutStartFrame = ~0u);
 
 // Builds SelectionDecal for a live Drawable (respecting TOP20 #24 shadowsEnabled, shroud/stealth, rotation, house color). useShadowDecals is
-// TheGlobalData + 0x61 (UseShadowDecals after the static LOD apply, RW 0x601C62: cleared when UseShadowMapping is set): addShadow's gate RW 0x50BF7B
+// TheGlobalData + 0x61 (UseShadowDecals after the static LOD apply, RW 0x601C62: cleared when UseShadowMapping is set): addShadow's gate RW 0x50BF7B.
+// logicObject (lane PORT-91, issue #239): the logic object behind the drawable; a contained object's decal shadow is suppressed unless its module data
+// says ShowShadowWhileContained (RW 0x4C7848, the same gate the volume-map call sites apply). null: not resolved, nothing is suppressed
 bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, bool useShadowDecals,
 	const std::function<void(float &, float &)> &fallbackSize = nullptr,
-	unsigned currentFrame = 0);
+	unsigned currentFrame = 0, const ::Object *logicObject = nullptr);
 
 } // namespace ObjectShadow

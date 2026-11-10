@@ -150,7 +150,7 @@ public:
 	float bodyDamageScalar() const { return m_damageScalar; }
 	void setBodyDamageScalar(float s) { m_damageScalar = s; }
 	// the last frame the body took a damaging hit and from whom (RW + 0xAC, the last damage record); 0xFFFFFFFF / INVALID_ID when never
-	UnsignedInt lastDamageFrame() const { return m_lastDamageFrame; }
+	UnsignedInt lastDamageFrame() const override { return m_lastDamageFrame; }
 	ObjectID lastDamager() const { return m_lastDamager; }
 	// lane PLAY-4: body interface vslot 0x4C (RW 0x8C3A33): the last damage record's source once per record (+ 0xB6 set by the first call, cleared by the
 	// next damaging hit, RW 0x8C42FA); INVALID_ID when already taken (ZH getClearableLastAttacker + clearLastAttacker in one call). The guard machine's
@@ -173,6 +173,12 @@ public:
 		type = m_lastDamageType;
 		return true;
 	}
+	bool lastDamageRecordNoEffect(bool &noEffect) const override
+	{
+		noEffect = m_lastDamageNoEffect;
+		return true;
+	}
+	bool lastDamageNoEffect() const { return m_lastDamageNoEffect; }
 	// lane COMBAT-2: the damage state the body last applied (RW + 0x30, written by setCorrectDamageState RW 0x8C2A5D)
 	BodyDamageType appliedDamageState() const { return m_curDamageState; }
 	void crc(StateHasher &hasher) const override;
@@ -182,6 +188,11 @@ public:
 	// TOP20 #20: RW 0x8C3B89, primary vslot 0x58: the enemies within CheerRadius are asked to cheer (see ActiveBody.cpp)
 	void cheer();
 	static bool isCheerExempt(const Object &obj);
+	// PORT-66 (issue #180): RW 0x8C1E4E, the body interface's slot 0x2C (table RW 0xC71ED0). The auto particle systems of a damaged or burning object: the
+	// seven GameData entries (RW 0xC00150 .. 0xC00290 -> GlobalData +0x9F0 .. +0xA40) name a bone prefix and a template each; an AFLAME object (status 0xA)
+	// swaps the templates the way RW 0x8C1FDD .. 0x8C202F does and doubles the cap. The bones are the template's (RW 0x68C650, model space); the client
+	// makes and deletes the systems (FXEvent BODY_PARTICLE_SYSTEMS), as FX-4's TransitionDamageFX systems are the client's
+	void updateBodyParticleSystems() override;
 
 protected:
 	// the DamageInfo attemptDamage is processing (RW passes it down to internalChangeHealth, RW 0x8C553F / 0x8C5828 read and change it); null outside a hit
@@ -215,6 +226,7 @@ private:
 	bool m_lastAttackerTaken = false; // RW + 0xB6 of the body interface (lane PLAY-4)
 	std::uint32_t m_lastDamagerPlayerMask = 0; // lane CAMP-1: the record's + 0xC
 	int m_lastDamageType = DAMAGE_UNDEFINED;   // lane FX-4: the record's + 0x10
+	bool m_lastDamageNoEffect = false;         // RW 0x744203: DamageInfo + 0x78
 	mutable bool m_armorReported = false;
 	// lane FX-2: the damage FX throttle of RW 0x8C2F02 (+0x3C the last DamageFX type played, +0x38 the frame until which that type stays throttled). Only the
 	// client output depends on them; not hashed (the event queue boundary of FXEvents.h)

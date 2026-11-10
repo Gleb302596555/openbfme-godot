@@ -79,12 +79,20 @@ public:
 	// TOP20 rampage: RW vt[0x98], called by Lua ObjectEnterRampageState (RW 0x738A7A, with 1) and ObjectSetDelayedDeath: ActiveBody and every body of 2.01 but
 	// DelayedDeathBody answer `ret 4` (RW 0x9F3A3C); DelayedDeathBody (vtable RW 0xC72678) sets its `checked` byte + 0xF1 (RW 0x8C57A1)
 	virtual void setDelayedDeathChecked(bool on) { (void)on; }
-	// lane FX-4: RW vt[0x40], the last damage record (ActiveBody RW 0x715914: + 0x40); false = null (a body without one). `type` = the record's damage type
+	// RW body vslot 0x40: a null record answers false; ActiveBody's record is never null (RW 0x715914), SymbioticStructuresBody forwards it (RW 0x8C4FD7).
 	virtual bool lastDamageRecordType(int &type) const
 	{
 		(void)type;
 		return false;
 	}
+	// RW 0x744203 / 0x8F5B80: record +0x78 (noEffect); false when the body returns a null record.
+	virtual bool lastDamageRecordNoEffect(bool &noEffect) const
+	{
+		(void)noEffect;
+		return false;
+	}
+	// RW body vslot 0x44; a body without a damage frame answers -1 (RW 0x8C511E).
+	virtual UnsignedInt lastDamageFrame() const { return 0xFFFFFFFFu; }
 	// lane BACKLOG-1: RW vt[0x74], the body's GrabObject template name (ActiveBody RW 0x8C281E: the data's + 0x2C; InactiveBody RW 0x8C1B14: the empty string
 	// RW 0xBD0C3F). OpenContain's CHUNK_VENDOR / ROCK_VENDOR entry test reads it (RW 0x8660FC)
 	virtual std::string getGrabObjectName() const { return std::string(); }
@@ -106,6 +114,15 @@ public:
 	// lane SUMMON-1: RW vt[0x58] with its second argument 0 (ActiveBody RW 0x8C47DE; InactiveBody's slot is the empty RW 0x8851E4), the ObjectCreationList's
 	// initial health (RW 0x5F1E98): `percent` of the revive reference, a percent above 100 scaling the max health first
 	virtual void setInitialHealthPercent(float percent) { (void)percent; }
+	// PORT-66 (issue #180), RW vt[0x2C] (ActiveBody RW 0x8C1E4E, interface table RW 0xC71ED0): the body's "auto" particle systems, the fires and smoke of a
+	// damaged or burning object, put on the template's bones from GlobalData +0x9F0 .. +0xA40 (RW 0x8C1E4E). A body class without the override (the tables
+	// whose slot 0x2C is the empty RW 0x9F3A3C, as InactiveBody's RW 0xC6660C) counts the call and does nothing, like retail's stub
+	virtual void updateBodyParticleSystems() { ++bodyParticleCallsIgnored(); }
+	static unsigned long long &bodyParticleCallsIgnored()
+	{
+		static unsigned long long n = 0;
+		return n;
+	}
 };
 
 // ZH ContainModuleInterface (the membership part). The members are Objects; the list keeps insertion order.
@@ -204,6 +221,11 @@ public:
 	// returns false if !m_showPips (RW 0x86642E) or on Slaughter/Citadel/ProductionQueue contains (RW 0x883613).
 	// When true: outContainMax = slot 0x70 (contain max / slot capacity), outOccupantCount = slot 0x114 + slot 0xCC (occupants + crew),
 	// outHeroCount = count of contained items with KindOf HERO.
+	// lane PORT-91 (issue #239): vslot 0x2C, asked by the shadow gate (RW 0x4C7848, W3DModelDraw::doDrawModule): a contained object keeps its shadow only while
+	// its container's contain answers true. RW 0x9188EB (`xor al, al; ret`, false) in every contain table of 2.01 but three: HordeContain's RW 0xC5B480, its
+	// RotWK subclass's RW 0xC5C110 and AODHordeContain's RW 0xC5D268 carry RW 0x86C737 (the answer of the contain of the horde's container, true while the
+	// horde is not contained)
+	virtual bool shadowWhileContainedAllowed() const { return false; }
 	virtual bool getContainerPipCounts(int &outContainMax, int &outOccupantCount, int &outHeroCount) const
 	{
 		(void)outContainMax;

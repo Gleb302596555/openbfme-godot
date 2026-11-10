@@ -538,6 +538,23 @@ public:
 		events.push_back({ "volume_sample", field, std::to_string((unsigned)handle) });
 		return handle >= AHSV_FirstHandle ? (std::uint32_t)handle : 0;
 	}
+	// PORT-98: the loading screen's faction music (RotWK AptLoadScreen::init RW 0x81CB08, 0x81D1B8 .. 0x81D2B1) in the installed audio manager: the
+	// event must exist (findAudioEventInfo vslot 0x12C, RW 0x81D225: otherwise nothing is stopped or played), the music that plays stops with a fade
+	// (vslot 0x8C(2, 1, 1), RW 0x81D242), the event is added with view type 2 and no fade-in (RW 0x6DA95E / 0x6DA774, vslot 0x64 at RW 0x81D278) and the
+	// manager takes one step (vslot 0x28 = SubsystemInterface::update, RW 0x81D283) so the track starts behind the screen instead of after the load
+	void playLoadScreenMusic(const std::string &eventName) override
+	{
+		AudioManager *audio = AudioApi::current();
+		if (!audio || !audio->isValidAudioEvent(eventName))
+		{
+			return;
+		}
+		AudioLog::Scope tag("load screen music " + eventName);
+		audio->stopMusic(true);
+		audio->addAudioEvent(AudioEventRTS(eventName, 2));
+		audio->update(audio->nowMs() + AudioManager::tickIntervalMs());
+		events.push_back({ "load_music", eventName, "" });
+	}
 	void removeAudioEvent(std::uint32_t handle) override
 	{
 		AudioManager *audio = AudioApi::current();
@@ -2930,6 +2947,8 @@ Dictionary AptMenuPlayer::get_detail_state() const
 	d["high_water"] = s.highWater;
 	d["show_soft_water_edge"] = s.showSoftWaterEdge;
 	d["max_tank_track_edges"] = s.maxTankTrackEdges;
+	d["max_tank_track_opaque_edges"] = s.maxTankTrackOpaqueEdges;
+	d["max_tank_track_fade_delay"] = s.maxTankTrackFadeDelay;
 	d["lowest_model_lod"] = s.lowestModelLOD;
 	d["show_props"] = s.showProps;
 	// RW 0x641E8B: the display gamma of Brightness; RW 0x6E59A9: the scroll factor (missing: the caller's GameData default, so only the text here)

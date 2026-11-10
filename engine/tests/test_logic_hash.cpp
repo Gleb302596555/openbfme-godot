@@ -303,3 +303,23 @@ TEST_CASE("state hash: the player colour of a faction is the retail RGBColor::ge
 	CHECK(((c >> 16) & 0xff) == 255);
 	CHECK(((c >> 8) & 0xff) == 0);
 }
+
+TEST_CASE("PORT-69: presentation track settings do not change simulation hashes")
+{
+	Fx a, b;
+	a.activateUpgrades();
+	a.make("Fighter");
+	b.activateUpgrades();
+	b.make("Fighter");
+	b.logic->settings().makeTrackMarks = true;
+	b.logic->settings().maxTerrainTracks = 100;
+	CHECK(a.hash() == b.hash());
+	for (int frame = 0; frame < 3; ++frame)
+	{
+		a.activateUpgrades();
+		a.logic->runLogicFrame();
+		b.activateUpgrades();
+		b.logic->runLogicFrame();
+		CHECK(a.hash() == b.hash());
+	}
+}

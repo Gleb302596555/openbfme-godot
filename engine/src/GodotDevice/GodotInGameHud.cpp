@@ -1271,6 +1271,12 @@ void HudDevice::applyCamera(const Vector2 &window, double alpha)
 		camera->set_fov((real_t)(animFov * 180.0f / 3.14159265f));
 	}
 	camera->set_global_transform(t);
+	if (world)
+	{
+		// PORT-49: the fade reads the eye actually displayed, including the CAMANIM-1 mode-4 override above. RW 0x4B5301 reads the view transform
+		// through vslot 0x11C -> 0x487668 -> 0x53B370; convert the final Godot origin back to SAGE (x east, y north, z up).
+		world->setCameraFadeEye(Coord3D{ t.origin.x, -t.origin.z, t.origin.y });
+	}
 }
 
 static void waitLogic(const HudDevice *d, const char *file, int line)
@@ -1707,29 +1713,31 @@ void HudDevice::drawSelectionDecals()
 			if (const Drawable *d = dm.find((DrawableID)id))
 			{
 				SelectionDecal sd;
+				// lane PORT-91 (issue #239; RW 0x4C7848): the contained object's decal shadow waits for the contain's slot 0x2C
+				const ::Object *shadowLogicObject = world->hud_game()->logic().findObjectByID((::ObjectID)d->getObjectID());
 				auto fallbackSize = [d](float &sx, float &sy) {
-					for (const DrawEntry &e : d->entries())
+				for (const DrawEntry &e : d->entries())
+				{
+					if (e.kind == W3D_DRAWKIND_MODEL && e.draw && !e.moduleHidden && !e.conditionHidden)
 					{
-						if (e.kind == W3D_DRAWKIND_MODEL && e.draw && !e.moduleHidden && !e.conditionHidden)
+						if (const RenderObjPrototype *proto = e.draw->currentModel())
 						{
-							if (const RenderObjPrototype *proto = e.draw->currentModel())
+							float ex = 0.0f, ey = 0.0f;
+							if (ObjectShadow::getModelBoundingBox(proto, ex, ey))
 							{
-								float ex = 0.0f, ey = 0.0f;
-								if (ObjectShadow::getModelBoundingBox(proto, ex, ey))
-								{
-									if (sx == 0.0f) sx = ex * 2.0f;
-									if (sy == 0.0f) sy = ey * -2.0f;
-									return;
-								}
+								if (sx == 0.0f) sx = ex * 2.0f;
+								if (sy == 0.0f) sy = ey * -2.0f;
+								return;
 							}
 						}
 					}
-				};
-				const unsigned curFrame = world && world->hud_game() ? world->hud_game()->logic().getFrame() : 0u;
-				if (ObjectShadow::buildDrawableDecalShadow(*d, sd, useShadowDecals, fallbackSize, curFrame))
-				{
-					selExtras.push_back(std::move(sd));
 				}
+			};
+			const unsigned curFrame = world && world->hud_game() ? world->hud_game()->logic().getFrame() : 0u;
+			if (ObjectShadow::buildDrawableDecalShadow(*d, sd, useShadowDecals, fallbackSize, curFrame, shadowLogicObject))
+			{
+				selExtras.push_back(std::move(sd));
+			}
 			}
 		}
 	}

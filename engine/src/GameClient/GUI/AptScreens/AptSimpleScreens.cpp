@@ -992,6 +992,25 @@ void AptLoadScreen::populate()
 			m_pending.push_back({ c, 0 });
 		}
 	}
+	// PORT-98: the local player's faction music, as RotWK's init does it after the cards (RW 0x81CB08, 0x81D1B8 .. 0x81D2B1): only the local slot's
+	// template (a slot without one already took "FactionObserver", LoadScreenInfo.cpp). The host plays it through ShellServices (TheAudio's lookup, stop
+	// with a fade, the new event and one update are the device's, RW 0x81D225 .. 0x81D283); without services the screen says so and plays nothing.
+	const int localCard = m_env.loadScreen->localCard;
+	if (localCard >= 0 && localCard < MAX_LOAD_SLOTS && m_env.loadScreen->cards[localCard].occupied)
+	{
+		const std::string &music = m_env.loadScreen->cards[localCard].loadMusic;
+		if (!music.empty())
+		{
+			if (m_env.services)
+			{
+				m_env.services->playLoadScreenMusic(music);
+			}
+			else
+			{
+				windows().note("loadscreen-music", "no shell services: the local card's LoadScreenMusic " + music + " was not requested [PORT-98]");
+			}
+		}
+	}
 }
 
 bool AptLoadScreen::callBar(int card, int percent)

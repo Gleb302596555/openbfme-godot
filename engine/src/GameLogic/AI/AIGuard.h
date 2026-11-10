@@ -34,8 +34,8 @@
 //
 // INFERENCE / NOT PORTED (stop S-3802, guardStopLine()): the LOCATION and (lane BFME2CAMP1) AREA and TEAM target types (the object guard is the script
 // commands' and is reported where met); a guarded team without members: retail divides by zero (RW 0x7A0ECD), the port guards the position to guard; (lane TARGET-1: TheAI's closest enemy is RotWK's search AI::findClosestEnemy with RW's qualifier word); the turret target, the
-// AI + 0x3CD layer flag, the crate state (the port has no AI crates: it succeeds at once), the inner state's +0x40 restart flag (no writer known), the
-// outer state's layer test (RW 0x68BBE0 / 0x6FF7FA: every port object is on the ground layer, so it passes); the vision range is RW 0x6FF412's (lane
+// AI + 0x3CD layer flag, the crate state (the port has no AI crates: it succeeds at once), the inner state's +0x40 restart flag (no writer known); the
+// outer state's layer test (RW 0x68BBE0 / 0x6FF7FA) is ported (lane WALLMELEE-1); the vision range is RW 0x6FF412's (lane
 // TARGET-1: the vision range plus the bounding circle, AI::adjustedVisionRange).
 
 #pragma once
@@ -105,6 +105,7 @@ public:
 	bool lookForInnerTarget();           // RW 0x949CA7
 	Coord3D guardPosition() const;        // RW 0x949BD3
 	static float getStdGuardRange(const Object &obj); // RW 0x949567 -> RW 0x6FF412
+	static float getRetaliateRange(const Object &obj); // Local 20: RW 0x94BA8C (MaxRetaliateDistance, scaled 1.15 if melee)
 	static float getAdjustedVisionRange(const Object &obj); // RW 0x6FF412 with OWNERTYPE | MOOD
 	void setPositionToGuard(const Coord3D &p, float angle) { m_positionToGuard = p; m_guardAngle = angle; }
 	const Coord3D &positionToGuard() const { return m_positionToGuard; }

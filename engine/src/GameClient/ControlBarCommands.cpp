@@ -265,6 +265,7 @@ const FieldParse kCommandButtonFieldParse[] = {
 	{ "UnitSpecificSound", parseSoundRefList, nullptr, CB_OFF(m_unitSpecificSound) },
 	{ "SetAutoAbilityUnitSound", parseSoundRefList, nullptr, CB_OFF(m_setAutoAbilityUnitSound) },
 	{ "UnsetAutoAbilityUnitSound", parseSoundRefList, nullptr, CB_OFF(m_unsetAutoAbilityUnitSound) },
+	// S-7292: RW parses +0x100 but has no identified button reader; see docs/ennorath/PORT108_RW_ANALYSIS.md.
 	{ "DoubleClick", INI::parseBool, nullptr, CB_OFF(m_doubleClick) },
 	{ "Radial", INI::parseBool, nullptr, CB_OFF(m_radial) },
 	{ "ShowProductionCount", INI::parseBool, nullptr, CB_OFF(m_showProductionCount) },

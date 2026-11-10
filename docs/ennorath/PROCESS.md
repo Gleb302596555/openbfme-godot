@@ -27,7 +27,7 @@ Ennorath 1.9.8.2 (база с 2026-11-04, до этого 1.9.8.1 с 2026-11-03;
 | Правила сборки, проверки, нагрузки | [../ENNORATH_FACTION_PLAN.md](../ENNORATH_FACTION_PLAN.md) |
 | Промт для второго агента | `workspace/ennorath-audit/PROMPT-agent-B.md` (в Git не входит) |
 | Инструменты аудита (дизассемблер RW, выписка INI, охват) | `workspace/ennorath-audit/tools/` (в Git не входят), `tools/mod/` (входят) |
-| Аудит полей мода, последний (v6, 2026-11-09: used 3567, parsed-unused 536, not-read 262) | `workspace/ennorath-audit/field-audit-v6/`; копия для облачных агентов — `workspace/for-arena/ennorath-audit.zip` (владелец кладёт её на Google Drive) |
+| Аудит полей мода, последний (v7, 2026-11-10: used 3662, parsed-unused 503, not-read 237; колонка tool — статус инструмента, ручные вердикты частью устарели) | `workspace/ennorath-audit/field-audit-v7/`; копия для облачных агентов — `workspace/for-arena/ennorath-audit.zip` (владелец кладёт её на Google Drive) |
 | Декомпиляции-доноры | BFME1 `workspace/reference/open-bfme-1`, BFME2 `workspace/reference/open-bfme-2` (github.com/Open-BFME/Open-BFME-2; RotWK стоит на коде BFME2, раздел 5, шаг 4) |
 | Промты локальных агентов (issue «Local N») | `workspace/for-local/` (`PROMPT-local-template.md`, `PROMPT-local-N.md`, README с очередями станций), раздел 7в |
 | Промты облачных агентов (issue «Port N») | `workspace/for-arena/port/` (`PROMPT-port-template.md` — копия `prompts/port.md` дашборда), раздел 7б |
@@ -253,6 +253,8 @@ $env:RW_GAME_DAT = (Resolve-Path 'RotWK\game.dat').Path
    3. **Вывод для владельца по Эннорату**: проверки в игре, ожидаемое поведение, список затронутых объектов. Ваниль в отчёте — отдельной строкой («в ванили иначе: …»), не вместо мода. Тест на ванильных данных (`ROTWK_INSTALL`) не подтверждает поведение в моде: нужен сценарий на данных мода (`ENNORATH scenario*`) или явная сверка объекта в архивах мода.
 
    Описание PR для основного репозитория (ваниль 2.01) — единственное исключение: там данные ванили, но и там мод упоминается, только если отличается. *Было (2026-11-05, буйство):* проверку «Mordor Attack Troll бесится при ранении» составили по ванильному `attacktroll.ini`. В Эннорате у тролля `AILuaEventsList = MountainTrollFunctions` (без `GoIntoRampage`), `RampageTime` закомментирован, тело `ActiveBody`: буйство в моде отключено.
+
+12. **Видимое, что может тихо сломаться, записывается** (решение владельца 2026-11-09). Тесты не видят, что дошло до экрана (P-72: Лурц перестал краснеть под Fury, все тесты зелёные). Подтверждённое владельцем видимое или слышимое поведение — строка в `docs/ennorath/VISUAL_REGRESSIONS.md`; её добавляет тот, кто переносит правку в `main`. После партии, которая трогает отрисовку, материалы, тени, FX, звук или интерфейс, в список «проверить в игре» входят и строки этого файла по затронутым разделам.
 
 ## 16. Границы форка (решение владельца 2026-11-03)
 

@@ -139,13 +139,16 @@ public:
 	// a model condition bit of the object changed (ZH Object::setModelConditionFlags -> Drawable::setModelConditionFlags)
 	virtual void modelConditionChanged(Object &obj, int bit, bool on) { (void)obj; (void)bit; (void)on; }
 	// lane ANIM-1, RW 0x67449C(0): the drawable's changed flags reach its draw modules now (see Object::flushDrawableModelConditions); without this call they
-	// reach them once at the end of the logic frame (RW 0x6759C4)
-	virtual void flushModelConditions(Object &obj) { (void)obj; }
+	// reach them once at the end of the logic frame (RW 0x6759C4). `immediate` is RW 0x67449C's argument: true flushes a drawable that is not dirty too
+	// (the OCL's CreateObject with InheritAttributesFromSource, RW 0x5F13C8, lane PORT-79)
+	virtual void flushModelConditions(Object &obj, bool immediate = false) { (void)obj; (void)immediate; }
 	// RW 0x6789B4 Drawable::showModule: true when one of the template's draw modules has the tag (the drawable makes every draw module of its
 	// template, S-114, so the template answers exactly what the drawable would); the visibility change goes to the client
 	virtual bool showModule(Object &obj, const std::string &tag, bool visible, bool permanent) { (void)obj; (void)tag; (void)visible; (void)permanent; return false; }
 	// RW 0x672823 Drawable::showSubObject
 	virtual void showSubObject(Object &obj, const std::string &name, bool visible, bool permanent) { (void)obj; (void)name; (void)visible; (void)permanent; }
+	// RW 0x8AB623..0x8AB63A -> drawable dispatcher RW 0x671948. This port records the same status on the existing ordered client-event path (INFERENCE).
+	virtual void supplyStatusChanged(Object &obj, int currentBoxes, int startingBoxes) { (void)obj; (void)currentBoxes; (void)startingBoxes; }
 	// RW 0x8B911E (SubObjectsUpgrade's UpgradeTexture): every draw module of the drawable takes this list of (original, drawn instead) as its upgrade
 	// textures (draw module vslot 0x84), replacing the one it had; the removal hands an empty list
 	virtual void upgradeTextures(Object &obj, const std::vector<std::pair<std::string, std::string>> &swaps) { (void)obj; (void)swaps; }
@@ -167,6 +170,8 @@ public:
 	// drawable's RW 0x674727 and RW 0x690786 its RW 0x67896F, which clear / set the drawable's audible flag (+ 0x44A) and tell every client behaviour
 	// module's second interface (slot 1 RW 0x8CE25E / 0x8D04EB, slot 0 RW 0x8CE249 / 0x8D04D9)
 	virtual void setDrawableAudible(Object &obj, bool audible) { (void)obj; (void)audible; }
+	// PORT-68: Object::setDrawableFXTrigger (RW 0x68B56A -> Drawable::setFXTrigger RW 0x44C465, Drawable + 0x360)
+	virtual void setDrawableFXTrigger(Object &obj, int fxTrigger) { (void)obj; (void)fxTrigger; }
 	// RW 0x67B78C -> 0x6D4789: a qualifying hit on a local hero, independently of the EVA gate.
 	// RW 0x69560B: profile statistics are recorded before the normal kill-score gates.
 	virtual void createAHeroKill(Object &, Object &) {}
@@ -250,8 +255,15 @@ struct GameLogicSettings
 	// RUNNING_DOWN_FROM_BEHIND (status 0x4B) is in range of its victim within this distance (isWithinAttackRange RW 0x6CC07C). SkirmishGroupFudgeDistance
 	// + 0x58 (row RW 0xC1CC30, parseReal, ctor 0.0): a skirmish AI team on a waypoint path counts a waypoint reached when the team centre is within members x this of the goal
 	// (AIFollowWaypointPathState::update RW 0x755A20, asm RW 0x755B77 .. 0x755C08)
+	// Local 20 (issue #147): AIData MaxRetaliateDistance (+ 0xC8, row RW 0xC1CED0 parseReal RW 0x42ED00; the constructor RW 0x6FFDC4 stores 200.0f;
+	// retail aidata.ini sets 450.0, Ennorath 250.0): leash radius for retaliating against attackers (AIGuardRetaliateMachine RW 0x94BA8C / RW 0x94C144)
+	float maxRetaliateDistance = 200.0f;
 	float chaseFromBehindLimit = 50.0f;
 	float skirmishGroupFudgeDistance = 0.0f;
+	// lane PORT-40: AIData MaxRecruitRadius + 0x5C (row RW 0xC1CCD0, parseReal RW 0x42ED00; the constructor's 0.0, RW 0x6FFD04 with xmm0 zeroed at
+	// RW 0x6FFC01): the radius a team recruits units within — the script action TEAM_RECRUIT_UNITS (RW 0x7C2BFB -> Team RW 0x7A491C); the AI player
+	// reads it for its own team building too (RW 0x8F8E2C / RW 0x8F9530 -> Team RW 0x7A41D4), which is not ported
+	float maxRecruitRadius = 0.0f;
 	// lane AIDATA-1: the pathfinder's AIData rows (before: PathfindConfigLoader's own text scan; now the shared table, so a map.ini / solo.ini AIData block
 	// reaches the pathfinder too: PathfindConfigLoader::applyAIData). Rows and constructor values (RW 0x6FFBEF): WadeWaterDepth + 0x98 (row RW 0xC1CDD0, 5.0 RW
 	// 0xBDAE58), DeepWaterDepth + 0x9C (RW 0xC1CDE0, 50.0 RW 0xBD88C4), MeleeApproachTolerance + 0x90 (RW 0xC1CDB0, 20.0 RW 0xBDBC6C), MeleeApproachDist + 0x94
@@ -290,6 +302,15 @@ struct GameLogicSettings
 		std::vector<std::pair<std::string, int>> targets;
 	};
 	std::vector<AttackPriorityDef> attackPriorityDefs; ///< the AIData list (+ 0xFC) head first
+	// lane PORT-39: an `SideInfo <side>` block of AIData (0x1C0 bytes, ctor RW 0x6FFF8C, vtable RW 0xC1D734; the list is AIData + 0xF4, each entry's
+	// + 0x1BC the next). The only fields the port reads are the three gatherer counts; the block's other rows (BaseDefenseStructure1 + 0x1B8 and the five
+	// SkillSet lists + 0x14 / + 0x68 / + 0xBC / + 0x110 / + 0x164) are not ported (stop S-4194). A later block of the same side re-parses the entry.
+	struct AISideInfo
+	{
+		std::string side;                ///< + 0x4 the block's name
+		int resourceGatherers[3] = { 0, 1, 2 }; ///< + 0x8 Easy, + 0xC Normal, + 0x10 Hard (RW 0x6FFFB2 .. 0x6FFFBC: 0, 1, 2)
+	};
+	std::vector<AISideInfo> sideInfos; ///< the AIData list, the newest block first (each new SideInfo is pushed at the head, RW 0x70011F)
 	bool forceModelsToFollowTimeOfDay = false;       ///< GameData ForceModelsToFollowTimeOfDay (a new drawable gets NIGHT)
 	bool forceModelsToFollowWeather = false;         ///< GameData ForceModelsToFollowWeather (SNOW)
 	// GameData EnableHouseColor (+ 0xDDC, row RW 0xC00A30; copied to TheGameLogic + 0x11C at a new game, RW 0x62A13A): off, a drawable shows its
@@ -371,6 +392,24 @@ struct GameLogicSettings
 	// lane RENDER-2 (GameData StandardPublicBone, row RW 0xC006D0, parser RW 0x42E59E = parseAsciiStringVectorAppend, GlobalData + 0xBA8): the bones every model's pristine bone
 	// set looks for first (RW 0x4BD9A7 walks [0xDE4364] + 0xBA8); an empty list when gamedata.ini names none
 	std::vector<std::string> standardPublicBones;
+	// PORT-66 (issue #180; GameData rows RW 0xC00150 .. 0xC00290, GlobalData +0x9F0 .. +0xA40): the fire and smoke a body puts on the bones of a
+	// damaged or burning object. Per size the Prefix names the bones (Prefix01, Prefix02, ... RW 0x68C650) and Max caps them; System is the
+	// FXParticleSystem template (RW 0x5F889B findTemplate). Read by ActiveBody::updateBodyParticleSystems (RW 0x8C1E4E). The GlobalData constructor
+	// zeroes both kinds of field (BFME2 decomp GlobalData.cpp:1558-1564: m_autoFireParticleSmallMax(0) .. m_autoAflameParticleMax(0),
+	// m_autoFireParticleSmallSystem("") ..), so an INI that leaves a row out gets no bones and no template
+	struct AutoBodyParticles
+	{
+		std::string prefix; ///< the bone prefix (RW +0x9F0 / +0x9FC / +0xA08 / +0xA14 / +0xA20 / +0xA2C / +0xA38)
+		std::string system; ///< the FXParticleSystem name (RW +0x9F4 / +0xA00 / +0xA0C / +0xA18 / +0xA24 / +0xA30 / +0xA3C)
+		int maxSystems = 0; ///< the cap (RW +0x9F8 / +0xA04 / +0xA10 / +0xA1C / +0xA28 / +0xA34 / +0xA40)
+	};
+	AutoBodyParticles autoFireSmall;    ///< RW +0x9F0
+	AutoBodyParticles autoFireMedium;   ///< RW +0x9FC
+	AutoBodyParticles autoFireLarge;    ///< RW +0xA08
+	AutoBodyParticles autoSmokeSmall;   ///< RW +0xA14
+	AutoBodyParticles autoSmokeMedium;  ///< RW +0xA20
+	AutoBodyParticles autoSmokeLarge;   ///< RW +0xA2C
+	AutoBodyParticles autoAflame;       ///< RW +0xA38
 	// lane SPELL-2 (GameData SpecialPowerViewObject, row RW 0xC006C0, parseAsciiString, GlobalData + 0xBA4): the object a special power with a ViewObjectDuration /
 	// ViewObjectRange leaves at its target (RW 0x896FD9); empty when gamedata.ini names none
 	std::string specialPowerViewObject;
@@ -415,6 +454,10 @@ struct GameLogicSettings
 	// GlobalData +0xB58 / +0xB54; defaults: constructor RW 0x642DC4 Yes / 0.6f; used by Drawable::flashAsSelected RW 0x678FA7). Presentation only: not in the settings hash
 	bool selectionFlashHouseColor = true;
 	float selectionFlashSaturationFactor = 0.6f;
+	// lane PORT-69 (issue #183): terrain track marks (rows RW 0xBFFAA0 MakeTrackMarks parseBool RW 0x42E558 +0x13C, RW 0xBFFA70 MaxTerrainTracks parseInt RW 0x42EC5E +0x10C;
+	// ctor RW 0x642C51 / 0x642C07: false / 0; read by TerrainTracksSystem and W3DModelDraw track bind RW 0x4C4E51 / 0x47A7C6 / 0x48389F / 0x484673). Presentation only: not in the settings hash
+	bool makeTrackMarks = false;
+	int maxTerrainTracks = 0;
 	unsigned initialCredits[5] = { 0, 0, 0, 0, 0 };  ///< MultiplayerSettings InitialCreditsVeryLow .. VeryHigh: the lobby's money choices
 	// lane CHAT-1: MultiplayerSettings MaxBeaconsPerPlayer (+ 0x18): a player's beacons at most (retail multiplayer.ini: 3). INFERENCE: the default is ZH's
 	// MultiplayerSettings constructor value (RotWK's constructor was not read). Not hashed (crc below): data every peer of a game reads alike (the profile)
@@ -670,6 +713,11 @@ public:
 	const std::vector<UpgradeCompleteNotice> &upgradeCompleteNotices() const { return m_upgradeCompleteNotices; }
 	void noteRadarEvent(int type, const Coord3D &position, RadarEventNotice::Source source, int playerIndex);
 	const std::vector<RadarEventNotice> &radarEventNotices() const { return m_radarEventNotices; }
+	// bumped when a logic-side radar input is written (an attack frame, a script or construction notice). The HUD reads those once per
+	// logic frame and again when this changes, so a write after that frame was already sampled is not dropped, and a render frame with no write does not
+	// walk every object.
+	void noteRadarLogicWrite() { ++m_radarLogicWrites; }
+	std::uint32_t radarLogicWrites() const { return m_radarLogicWrites; }
 
 	// lane CAMP-1H: TheGameLogic + 0xA4, the game's difficulty (0 easy, 1 normal, 2 hard, 3 brutal): reset to 1 (GameLogic::reset RW 0x62D3EB),
 	// prepareNewGame (RW 0x77948E) stores the new game message's difficulty here (the script engine's stays 1). Read by the difficulty bonus of a computer
@@ -1131,6 +1179,7 @@ private:
 	std::vector<UpgradeCompleteNotice> m_upgradeCompleteNotices;
 	std::uint32_t m_upgradeCompleteSeq = 0;
 	std::uint32_t m_radarEventSeq = 0;
+	std::uint32_t m_radarLogicWrites = 0; // see noteRadarLogicWrite
 	ObjectClientHooks *m_clientHooks = nullptr;
 	ObjectCreatedProc m_objectCreatedProc;
 	ScriptEventProc m_scriptEventProc;

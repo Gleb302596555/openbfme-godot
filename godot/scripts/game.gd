@@ -1303,6 +1303,9 @@ func _display_setup() -> void:
 	if not _display.load_file(_display_path):
 		for e in _display.errors:
 			printerr("GAME DISPLAY settings: ", e)
+	if _display.probe == "pending" and not _display.save_keys(_display_path, ["probe"]):
+		printerr("GAME DISPLAY ", _display.errors[-1])
+	print("GAME DISPLAY ", _display.preset_line())
 	var r: Dictionary = _display.apply(get_tree().root, null)
 	print("GAME DISPLAY settings %s: %s%s" % [_display_path.get_file(), ", ".join(r.applied), "" if r.problems.is_empty() else " PROBLEMS " + str(r.problems)])
 	_display_overlay = load("res://scripts/fps_overlay.gd").new()
@@ -1850,7 +1853,9 @@ func _on_shell_service(kind: String, a: String, b: String) -> void:
 		if shell_sounds_played.size() > 256:
 			shell_sounds_played.pop_front()
 	elif kind == "load_music":
-		_audio.play_music(a)
+		# PORT-98: the load screen's faction track is played by the device's ShellServices (the audio manager) at the request itself; the line is only
+		# reported here, never played a second time
+		pass
 	elif kind == "option":
 		_apply_option(a, b)
 	elif kind == "gamma":
@@ -2409,10 +2414,8 @@ func _begin_game(message: Dictionary) -> void:
 		return
 	_show_rules_summary(str(cards.get("rules_summary", "")))
 	var local_card: int = cards.get("local_card", -1)
-	if local_card >= 0 and local_card < cards.cards.size():
-		var music: String = cards.cards[local_card].get("load_music", "")
-		if not music.is_empty():
-			_audio.play_music(music) # the local player's faction LoadScreenMusic
+	# PORT-98: the local player's faction LoadScreenMusic is the screen's now (AptLoadScreen -> ShellServices::playLoadScreenMusic, RW 0x81CB08),
+	# never the host's: one action, one path
 	# lane MENU-1: a skirmish / LAN game (modes 2 / 1) from the lobby (GameLogic + 0x114 = 3) loads behind the players' screen LoadScreen.apt
 	# (GameLogic::getLoadScreen RW 0x626A87 -> AptLoadScreen RW 0x81D356)
 	var choice: Dictionary = _shell.choose_load_screen({"game_mode": 1 if _game_kind == "lan" else 2, "screen_kind": 3})
@@ -3139,9 +3142,16 @@ func _apply_lighting(rep: Dictionary) -> void:
 	add_child(_sun)
 
 
+func is_playing() -> bool:
+	return _state == State.PLAYING
+
+
 func set_shadow_lod(lod: int) -> void:
 	if _sun != null:
-		load("res://scripts/object_shadows.gd").configure(_sun, _shadow_lighting, lod)
+		var drawn := lod
+		if _display != null and _display.tier() == "low" and (_shell == null or not _shell.get_options().has("StaticGameLOD")):
+			drawn = mini(lod, 1)
+		load("res://scripts/object_shadows.gd").configure(_sun, _shadow_lighting, drawn)
 
 
 # ---- the scripted run (--auto) --------------------------------------------------------------------------------------------------------------

@@ -13,7 +13,10 @@
 //     the local slot's card gets updateLoadProgress(percent).
 //   * the rank icons: the image records `UIClip/Level/<c>` (rankIconFor below: the AI level 1 / 4 / 6 / 9, the player's from the profile's points, which
 //     are not ported: level 1, S-3506) and `UIClip/Fellowship/<c>` (cleared outside an online fellowship game); lane MENU-1.
-//   * the template's LoadScreenMusic is the host's to play (LoadScreenSlotInfo::loadMusic, the AUDIO-1 hook; S-273).
+//   * PORT-98: after the cards, the local slot's template gives the loading screen's music (RW 0x81CB08, 0x81D1B8 .. 0x81D2B1): a slot without a template
+//     takes the "FactionObserver" template (RW 0x81D1E7); the track is looked up in TheAudio (vslot 0x12C, RW 0x81D225) and, when it exists, the music that
+//     plays is stopped with a fade (vslot 0x8C(2, 1, 1), RW 0x81D242) and this one added (view type 2, RW 0x6DA95E / 0x6DA774, vslot 0x64 RW 0x81D278),
+//     then the manager updated once (vslot 0x28, RW 0x81D283). The screen asks for it (ShellServices::playLoadScreenMusic); the device plays it.
 // OpenBFME extended maps retain up to 16 cards; the retail eight-card path is unchanged.
 
 #pragma once
@@ -37,7 +40,7 @@ struct LoadScreenSlotInfo
 	int rank = 0;
 	int teamNumber = -1;     ///< 0-based team, -1 none
 	std::uint32_t color = 0; ///< 0xRRGGBB
-	std::string loadMusic;   ///< PlayerTemplate LoadScreenMusic of the card's faction (the AUDIO-1 hook; not played here)
+	std::string loadMusic;   ///< PORT-98: PlayerTemplate LoadScreenMusic (+ 0x14C) of the card's faction; the screen plays the local card's (RW 0x81D203)
 	std::string levelImage;  ///< lane MENU-1: the rank icon of the Level column (UIClip/Level/<card>, rankIconFor); "" none
 	bool human = false;      ///< lane MENU-1: the slot is a human player (its level is from the profile's points, S-3506)
 };

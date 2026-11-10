@@ -36,13 +36,17 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawServices.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLuaDrawScriptHost.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DSupplyDraw.h"
 #include "Libraries/WWVegas/WW3D2/assetmgr.h"
+#include "Libraries/WWVegas/WWMath/matrix3d.h"
 
+#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
 
 class Object;
+struct LocomotorTemplate;
 
 typedef std::uint32_t DrawableID;
 
@@ -50,6 +54,8 @@ typedef std::uint32_t DrawableID;
 class ModuleFactory;
 class AnimationSoundModuleManager;
 class ModelConditionAudioLoopClientBehavior;
+class LightPulsePool;
+class W3DLightDraw;
 
 // LOCAL-3: TintEnvelope (ZH Include/GameClient/TintEnvelope.h, RW 0x671B20 .. 0x674AD7 / BFME2 0x671800 .. 0x6747B1, both editions identical).
 // Steps a drawable's additive tint or selection flash through attack, sustain and decay at the client frame rate, with optional sine modulation by the
@@ -124,13 +130,31 @@ struct DrawServices
 	W3DLuaDrawScriptHost host; ///< the real Lua of the drawable state (lane LUA-1): BeginScript bodies of every draw module
 	DrawableFXHost *fx = nullptr; ///< lane FX-2 (null: EnteringStateFX and ParticleSysBone stay S-095)
 	AnimationSoundModuleManager *animationSounds = nullptr; ///< lane AUDIO-4: TheAnimationSoundModuleManager of the game's drawables
+	// PORT-49: the tactical view eye for the model draws' camera distance fade (RW 0xDE447C vslot 0x11C -> 0x487668 -> 0x53B370).
+	// The device layer installs it before the map's drawables are made; false / unset: no camera pose yet, the fade does not run.
+	std::function<bool(Coord3D &)> cameraPosition;
+	// PORT-49: TheGameLODManager's EffectsLOD (+0x1778, RW 0xDE3B84; consumer 0x4B5405..0x4B5433). Unset models the global-null branch.
+	std::function<int()> effectsLOD;
 	bool selectionFlashHouseColor = true; ///< lane LOCAL-3: GameData SelectionFlashHouseColor (RW 0xC005E0, GlobalData +0xB58)
 	float selectionFlashSaturationFactor = 0.6f; ///< lane LOCAL-3: GameData SelectionFlashSaturationFactor (RW 0xC005D0, GlobalData +0xB54)
+	LightPulsePool *lightPulses = nullptr; ///< lane FEAT-BLDFX-1 / LOCAL-28: dynamic light pulse pool for FX and object lights
+	// LOCAL-25: terrain height and normal sampler for presentation physics (calcPitchRoll / suspension)
+	std::function<float(float x, float y, Coord3D *normal)> groundHeight;
+	// LOCAL-25: TheGameClient's frame (30 a second, RW vslot 0x7C of 0xDE4388), the gate of the presentation physics step (RW 0x67BDF6 .. 0x67BE17).
+	// Null (a test without the manager): every call steps
+	const unsigned *clientFrame = nullptr;
 };
 
 // One draw module of a drawable.
 struct DrawEntry
 {
+	DrawEntry();
+	~DrawEntry();
+	DrawEntry(DrawEntry &&) noexcept;
+	DrawEntry &operator=(DrawEntry &&) noexcept;
+	DrawEntry(const DrawEntry &) = delete;
+	DrawEntry &operator=(const DrawEntry &) = delete;
+
 	std::string className;
 	std::string tag;
 	W3DDrawKind kind = W3D_DRAWKIND_NOT_DRAWN;
@@ -138,6 +162,8 @@ struct DrawEntry
 	std::string staticModel;          ///< tree / prop / floor kinds: the model the module shows ("" when none)
 	std::string notDrawnReason;       ///< why a non-model entry draws nothing
 	std::unique_ptr<W3DScriptedModelDraw> draw; ///< MODEL kind
+	std::unique_ptr<W3DLightDraw> lightDraw;    ///< lane LOCAL-28: W3DLightDraw dynamic light module
+	std::unique_ptr<W3DSupplyDraw> supply;     ///< PORT-77: supply-pile variant status alongside the shared model runtime
 	bool animated = false;            ///< advance() would change the draw (W3DScriptedModelDraw::needsAdvance, set at creation and on every flag change, never lowered by an advance: the pose after a blend's promotion is still pushed): advance() each render frame
 	bool missingModel = false;        ///< the model is not in the mounted archives (a retail data defect): not drawn
 	std::string lastModel;            ///< the model last handed to the device layer (the device layer keeps its own handle)
@@ -155,6 +181,54 @@ struct DrawEntry
 	const ModuleData *truckData = nullptr;
 	bool truckChecked = false;
 	bool isTruck = false;
+	// lane PORT-69 (issue #183): W3DModelDraw TrackMarks (RW W3DScriptedModelDraw + 0x60)
+	bool hasTrackMarks = false;
+	int trackId = -1;
+	// lane LOCAL-29 (issue #218): AttachToBoneInAnotherModule (RW 0x4B6A6F..0x4B6B26 / RW 0x672B5B)
+	std::string attachToBone;
+};
+
+// LOCAL-25 (issue #187): client presentation physics state (retail Drawable + 0x13C, RW 0x67BDC0 / donor 0x00270098)
+struct DrawableLocoInfo
+{
+	float m_pitch = 0.0f;
+	float m_pitchRate = 0.0f;
+	float m_roll = 0.0f;
+	float m_rollRate = 0.0f;
+	float m_yaw = 0.0f;
+	float m_accelerationPitch = 0.0f;
+	float m_accelerationPitchRate = 0.0f;
+	float m_accelerationRoll = 0.0f;
+	float m_accelerationRollRate = 0.0f;
+	float m_overlapZVel = 0.0f;
+	float m_overlapZ = 0.0f;
+	float m_wobble = 0.0f;
+	float m_yawModulator = 0.0f;
+	float m_pitchModulator = 0.0f;
+	// TWheelInfo (suspension wheel heights, donor 0x00276CFB):
+	float m_frontLeftHeightOffset = 0.0f;
+	float m_frontRightHeightOffset = 0.0f;
+	float m_rearLeftHeightOffset = 0.0f;
+	float m_rearRightHeightOffset = 0.0f;
+	float m_wheelAngle = 0.0f;
+	int m_framesAirborneCounter = 0;
+	int m_framesAirborne = 0;
+	// Giant bird roll (retail +0x140, RW 0x670E09 / donor 0x00270B0F):
+	float m_giantBirdRoll = 0.0f;
+
+	void springStep(float &rate, float position, float stiffness, float damping)
+	{
+		rate += (-stiffness * (position * (1.0f - damping))) + (-damping * rate);
+	}
+};
+
+// LOCAL-25: presentation physics transform angles and translation (retail Drawable::PhysicsXformInfo, RW 0x67BDC0)
+struct PhysicsXformInfo
+{
+	float m_totalPitch = 0.0f;
+	float m_totalRoll = 0.0f;
+	float m_totalYaw = 0.0f;
+	float m_totalZ = 0.0f;
 };
 
 class Drawable : public Thing
@@ -193,7 +267,9 @@ public:
 	// stored flags to the draw modules (setModelConditionFlags) when dirty, with the object's weapon cycle for UseWeaponTiming as the flush event carried it
 	void storeModelCondition(int bit, bool on);
 	void storeModelConditions(const ModelConditionFlags &flags); ///< lane SAVE-4e: the whole set (RW 0x679512's argument), dirty when it differs
-	void flushModelConditions(bool hasWeaponTiming, int weaponTimingFrames);
+	// `immediate` is RW 0x67449C's argument: true reaches the draw modules even when nothing changed since the last flush (the OCL's CreateObject with
+	// InheritAttributesFromSource, RW 0x5F13C8, lane PORT-79); false is the dirty-only flush of the end-of-frame path
+	void flushModelConditions(bool hasWeaponTiming, int weaponTimingFrames, bool immediate = false);
 	bool modelConditionsDirty() const { return m_flagsDirty; }
 	// the weapon cycle the last flush carried (-1: the object had no current weapon), what UseWeaponTiming animations divide by
 	int weaponTimingFrames() const { return m_hasWeaponTiming ? m_weaponTimingFrames : -1; }
@@ -204,7 +280,7 @@ public:
 	void setInstanceScale(float scale) { m_scale = scale; }
 	// 0xAARRGGBB of the owner's colour for model recolour (RW 0x6712A6: [drawable + 0x3AA] flag, 0 when showsHouseColor is false)
 	std::uint32_t getHouseColor() const { return m_houseColor; }
-	void setHouseColor(std::uint32_t argb) { m_houseColor = argb; }
+	void setHouseColor(std::uint32_t argb);
 	// 0xAARRGGBB of the owner's indicator colour (RW 0x674510: [drawable + 0x454] set always; read by flashAsSelected RW 0x679097)
 	std::uint32_t indicatorColor() const { return m_indicatorColor; }
 	void setIndicatorColor(std::uint32_t argb) { m_indicatorColor = argb; }
@@ -227,6 +303,7 @@ public:
 
 	std::vector<DrawEntry> &entries() { return m_entries; }
 	const std::vector<DrawEntry> &entries() const { return m_entries; }
+	bool hasTrackMarks() const { return m_hasTrackMarks; } ///< lane PORT-69 (issue #183): at least one entry specifies TrackMarks
 	// The ClientUpdate and ClientBehavior modules of the template, in list order (ZH Drawable.cpp:349-505: ClientUpdate modules follow the draw
 	// modules; RotWK's ClientBehavior list is the fourth module list). A class that is not ported is an UnportedDrawableModule (stop S-140).
 	const std::vector<std::unique_ptr<DrawableModule>> &clientModules() const { return m_clientModules; }
@@ -243,6 +320,8 @@ public:
 	bool hasAnimatedEntry() const;
 	// steps every model draw's animations by `elapsedMs` of render time
 	void advanceAnimation(double elapsedMs);
+	// PORT-49: RW 0x4BF586 runs the camera distance fade for every model draw of the drawable (animated or not) before the tracks step
+	void advanceCameraFade();
 	// lane PERF-HD: every animated draw's advance is advanceIsLocal (and the tires are this drawable's): advanceAnimation touches only this drawable
 	bool advanceIsLocal() const;
 	void advanceAnimationLocal(double elapsedMs); ///< advanceAnimation without the host's chunk name (nothing it runs reports through the host)
@@ -253,12 +332,22 @@ public:
 	// RW 0x672823 Drawable::showSubObject: every model draw module hides / shows the sub object `name` (permanent: the script's permanent form).
 	// Both bump the change count so the device layer re-reads the draws.
 	bool showModule(const std::string &name, bool visible, bool permanent);
+
+	// lane LOCAL-28 / LOCAL-29: queries bone world transform across draw module models (RW 0x00672B5B / DONOR BFME2 0x00272835)
+	bool boneTransform(const std::string &boneName, Matrix3D &outTransform) const;
+	bool boneWorldPosition(const std::string &boneName, Coord3D &outPos) const;
+	// lane LOCAL-29 (issue #218): computes world transform of entry e (RW 0x004B6A6F..0x004B6B26 / slot +0x104); returns true if attached
+	bool entryTransform(const DrawEntry &e, Matrix3D &outMatrix) const;
 	// lane BUILD-4: a draw module's state script asked for a module's visibility (RW 0x734EF4 -> 0x6789B4); while the constructor still makes the modules the
 	// request waits until all exist
 	void scriptModuleVisible(const std::string &name, bool visible);
 	void showSubObject(const std::string &name, bool visible, bool permanent);
+	// PORT-77: Drawable dispatcher RW 0x671948's supply-specific path; applied only to W3DSupplyDraw entries.
+	void setSupplyStatus(int currentBoxes, int startingBoxes);
 	// RW 0x8B911E: every model draw module takes `swaps` as its upgrade textures (draw module vslot 0x84)
 	void setUpgradeTextures(const std::vector<std::pair<std::string, std::string>> &swaps);
+	// RW 0x4B8701 -> slot +0x1F8 (RW 0x54BDE0): recolours current render object meshes except those matching excludeSubobject
+	void recolorRenderObject(const std::string &excludeSubobject, const HouseColorParams &params);
 
 	// The render transform from the object's record in a completed logic frame's snapshot (SMOOTH-1: RenderInterpolation::retailPose, RW 0x6765B9;
 	// `interpolate` false: the record's current transform, the stepped look). Then the construction look (updateConstruction).
@@ -279,6 +368,16 @@ public:
 	void setReactionMuted(bool muted) { m_reactionMuted = muted; }
 	void prepareSync(const ObjectSnapshot &rec, UnsignedInt snapshotFrame, double alpha, bool interpolate, SyncPrep &out);
 	void commitSync(const SyncPrep &prep);
+
+	// LOCAL-25: presentation physics (RW 0x67BDC0 calcPhysicsXform, RW 0x67BE90 applyPhysicsXform, RW 0x670570 calcPitchRoll)
+	bool calcPitchRoll(const Coord3D &pos, const Coord3D &dir, const LocomotorTemplate *loco, float &pitch, float &roll);
+	bool calcPhysicsXform(const ObjectSnapshot &rec, const RenderInterpolation::Pose &pose, PhysicsXformInfo &info);
+	void applyPhysicsXform(const ObjectSnapshot &rec, const RenderInterpolation::Pose &pose);
+	void getPresentationPose(float outBasis[9], Coord3D &outPos) const;
+	Coord3D getPresentationPosition() const;
+	bool hasPhysicsXform() const { return m_hasPhysicsXform; }
+	const PhysicsXformInfo &lastPhysicsInfo() const { return m_lastPhysicsInfo; }
+	const DrawableLocoInfo *locoInfo() const { return m_locoInfo.get(); }
 	// lane PERF-3: the record DrawableManager::syncTransforms found for this drawable in `snapshot` (null: none), so the render side asks the same snapshot
 	// again without a search. syncedRecord answers only for the snapshot (and frame) of the last sync; otherwise `found` is false
 	void setSyncedRecord(const LogicSnapshot *snapshot, const ObjectSnapshot *rec)
@@ -368,6 +467,10 @@ public:
 	// repeated request tells no module anything twice.
 	void setAudible(bool audible);
 	bool audible() const { return m_audible; }
+	// PORT-68 (RW 0x44C465 / 0x4B1CB0): Drawable + 0x360 FXTrigger index (TheFXTriggerNames: 0 NONE, 1 CATAPULT_ROCK, 2 TREBUCHET_ROCK),
+	// set by ObjectKnockback::shockWave (RW 0x6968D7 / 0x696E3E) and ObjectKnockback::apply (RW 0x692307) through RW 0x68B56A.
+	void setFXTrigger(int fxTrigger) { m_fxTrigger = fxTrigger; }
+	int getFXTrigger() const { return m_fxTrigger; }
 	const ObjectSnapshot *syncedRecord(const LogicSnapshot &snapshot, bool &found) const
 	{
 		found = m_syncSnapshot == &snapshot && m_syncFrame == snapshot.frame;
@@ -497,6 +600,7 @@ private:
 	mutable std::string m_lastShadowModelName;                     ///< RW 0x4B42F5 (model name 0)
 	mutable bool m_lastShadowStateHasShadow = false;               ///< RW 0x4C4EE8 (state shadow override)
 	bool m_audible = true;          ///< lane PORT-21: Drawable + 0x44A, 1 until the object becomes INAUDIBLE (RW 0x674727 / 0x67896F)
+	int m_fxTrigger = 0;            ///< PORT-68: Drawable + 0x360 FXTrigger index (RW 0x44C465 / 0x4B1CB0)
 	bool m_clientHidden = false; ///< lane CHAT-1
 	bool m_phantomLook = false;  ///< lane FBSIM-1: drawn as a dozer's phantom structure (0.4 opacity)
 	Fade m_fade; ///< lane PROJ-2
@@ -533,5 +637,22 @@ private:
 	float m_customTintFrequency = 0.0f;                ///< +0x88
 	UnsignedInt m_tintStatus = 0;                      ///< +0x118
 	UnsignedInt m_prevTintStatus = 0;                  ///< +0x11C
+	bool m_hasTrackMarks = false;                      ///< lane PORT-69: any entry has non-empty TrackMarks
+
+	// LOCAL-25: presentation physics helpers and state (RW 0x67BDC0 / RW 0x67BE90)
+	void calcPhysicsXformWheels(const LocomotorTemplate *loco, const ObjectSnapshot &rec, const RenderInterpolation::Pose &pose, PhysicsXformInfo &info);
+	void calcPhysicsXformTreads(const LocomotorTemplate *loco, const ObjectSnapshot &rec, const RenderInterpolation::Pose &pose, PhysicsXformInfo &info);
+	void calcPhysicsXformHugeFourLegs(const LocomotorTemplate *loco, const ObjectSnapshot &rec, const RenderInterpolation::Pose &pose, PhysicsXformInfo &info);
+	void calcPhysicsXformShip(const LocomotorTemplate *loco, const ObjectSnapshot &rec, const RenderInterpolation::Pose &pose, PhysicsXformInfo &info);
+	void calcPhysicsXformGiantBird(const LocomotorTemplate *loco, const ObjectSnapshot &rec, const RenderInterpolation::Pose &pose, PhysicsXformInfo &info);
+
+	std::unique_ptr<DrawableLocoInfo> m_locoInfo; ///< +0x13C
+	bool m_hasPhysicsXform = false;
+	bool m_physicsStepped = false;      ///< a step was made for m_physicsClientFrame
+	unsigned m_physicsClientFrame = 0;  ///< retail's stamp at the locomotor info + 0xAC (RW 0x67BE04 / 0x67BE17)
+	PhysicsXformInfo m_lastPhysicsInfo;
+	float m_presentationBasis[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
+	Coord3D m_presentationPosition;
+
 	void setFadeHidden(bool hidden); ///< RW 0x6718FB (bumps the change count when it changes)
 };

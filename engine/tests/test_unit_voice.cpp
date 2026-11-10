@@ -264,7 +264,7 @@ TEST_CASE("unit voice: the acceptance stops S-700 .. S-705 are reported, and key
 	CHECK(r.voice->pickAndPlay({ a, b }, MSG_CREATE_SELECTED_GROUP));
 	CHECK(r.voice->stats().crowdResponseSkipped == 2); // no CrowdResponse.ini loaded: the key names nothing
 	// a voice message type this port does not answer is counted, not guessed (S-703)
-	CHECK_FALSE(r.voice->pickAndPlay({ a }, MSG_COMBINE_HORDES_WITH_OBJECT));
+	CHECK_FALSE(r.voice->pickAndPlay({ a }, MSG_SWITCH_WEAPONS));
 	CHECK(r.voice->stats().unportedMessages == 1);
 }
 

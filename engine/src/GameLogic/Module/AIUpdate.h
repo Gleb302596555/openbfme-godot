@@ -156,6 +156,8 @@ public:
 	bool isAttacking() const;
 	// ZH AIAttackMoveToState (stop S-328): the unit marches to `goal` and attacks what it meets, then resumes; any other order ends it
 	// lane MODULES-3 r2: the attack-move order passes aiDoCommand's gate (RW 0x667174) before anything changes: a refused order arms nothing (false)
+	// RW 0x696266: direct command 0xF, with the unlimited shot count used by targetless tactics.
+	bool aiAttackMoveToPosition(const Coord3D &goal, CommandSourceType source);
 	bool armAttackMove(const Coord3D &goal, CommandSourceType source = CMD_FROM_PLAYER);
 	bool attackMoveActive() const { return m_attackMoveActive; }
 	// the march ends without an order: in RotWK the attack-move is the machine's state 0x21, which a cleared machine leaves (S-328: the port keeps it as
@@ -261,6 +263,8 @@ public:
 	ObjectID orderedMeleeTarget() const { return m_orderedMeleeTarget; }      ///< lane TARGET-1: AI + 0x1A4
 	bool isPortalFaded() const { return m_portalFaded; }                      ///< RW AI + 0x3CB
 	void updatePortalFade();                                                  ///< RW 0x66E726 -> RW 0x664F93
+	bool isStopRetaliationArmed() const { return m_stopRetaliationArmed; }    ///< Local 20: RW AI + 0x3CC
+	void setStopRetaliationArmed(bool armed) { m_stopRetaliationArmed = armed; }
 	// lane SCRIPT-3: AI commands 6 / 7 / 0x32 / 0x33 (RW 0x770FA8 / 0x771072 / 0x77100D / 0x7710D7): the waypoint path states from `waypointId`
 	// (AIWaypointPath.cpp); false when nothing changed
 	bool aiFollowWaypointPath(int waypointId, CommandSourceType source, bool asTeam, bool exact);
@@ -321,6 +325,10 @@ public:
 	TurretAI *turretForCurWeapon() const;
 	// RW 0x662411 getTurretTurnRate
 	float turretTurnRate() const;
+	// RW 0x66246B getWhichTurretForWeaponSlot(slot, &angle, &pitch): the index of the turret (AI + 0x20C, one slot) whose
+	// ControlledWeaponSlots (TurretAIData + 0x4C, RW 0x8DC4ED) hold `slot`, with the turret's current angle and pitch (TurretAI +
+	// 0x18 / + 0x1C); TURRET_INVALID (-1) for a slot that is on no turret (RW 0x662494)
+	int whichTurretForWeaponSlot(int slot, float *angle, float *pitch) const;
 
 	// ---- lane GARRISON-1 (GameLogic/AI/AIGarrisonStates.h): the enter / exit commands of RotWK's aiDoCommand (RW 0x66A7EC) ----
 	// AI command 0x42 -> RW 0x66D85F privateEnter: a mobile unit goes to AIMoveToPositionAndEnterState (56) with the container as the goal (MSG_ENTER's group,
@@ -715,6 +723,7 @@ private:
 	bool m_preventPlayerCommands = false; // RW + 0x3C5
 	bool m_scriptLock = false;            // RW + 0x3C6 (TOP20 rampage)
 	bool m_portalFaded = false;           // RW + 0x3CB (Local 16: FadeOnPortals, RW 0x66F03B, xfer RW 0x6679C8)
+	bool m_stopRetaliationArmed = false;  // Local 20: RW AI + 0x3CC (RW 0x771F97 aiStop, RW 0x668848 getNextMoodTarget)
 	bool m_fastCower = false;             // RW + 0x3C4
 	unsigned m_minCowerTime = 0, m_maxCowerTime = 0;
 	bool m_animalInterface = false, m_animalAfraidOfCastles = true; ///< lane CASTLEAREA-1 (see hasAnimalInterface)

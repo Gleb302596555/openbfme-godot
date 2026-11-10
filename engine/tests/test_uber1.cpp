@@ -148,6 +148,8 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // and the mover hash covers the path's node chain, from frame 0.
 // Merge queue q37 re-measured it once on the merged tree (OPENBFME_UBER1_REGEN=1), compared at each merge point: #187 on top of WARG-1 and #182 moves it,
 // and ATKRESET-1 (attack orders end the FiringDuration lock) moves it again.
+// pin: the arena batch of 2026-11-10 (2) re-measured the pin vector (OPENBFME_UBER1_REGEN=1 on station-0, merged tree): Port 83 (#274: BuildingBehavior is awake
+// every frame, RW 0x8592BE, and hashes its two latches). Attributed by a build with Port 83 reverted, where the previous vector passes
 // pin: the merge with upstream 7e98ac2f re-measured the pin vector once on the merged tree (OPENBFME_UBER1_REGEN=1, Windows MSVC); it differs from both parents.
 // pin: TOP20 #21 (the burning death), r2 and r3 (an attack ends when its victim turns UNATTACKABLE, RW 0x7417E4 / 0x6C9207) re-measured the pin vector once at
 // r3 (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-1): it moves from frame 16. The previous vector holds with the burning death's cap switched off at 13380105;
@@ -163,6 +165,13 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // Windows MSVC, station-0) on main with the open PRs #129 #130 #131 #132 #139 #140 #141 merged on top
 // pin: PORT-37 (#159, DamageNugget's area shape, RW 0x90DEF0) re-measured once (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-0, 2026-11-09) on main 29814b9d
 // with the arena PRs #159 #160 #142 #144 #145 #158 merged: with PORT-37's WeaponDelivery.cpp switched off the old vector passed
+// pin: merge queue q46 re-measured it once on the merged tree (OPENBFME_UBER1_REGEN=1), compared at each merge point: #270 (the team threat orders,
+// Team + 0x13C) moves it from frame 12, and the review fix (the threat walk newest first, RW 0x66362D; a horde soldier counts nothing, RW 0x693A1A) from frame 13.
+// pin: the fork's merge of upstream efbdfad9 (2026-11-10) re-measured it once on the merged tree (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-0)
+// pin: PORT-39 (PR #201) re-measured it once on the arena batch tree of 2026-11-10 (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-3): retail's five
+// AIData SideInfo blocks (data\ini\default\aidata.ini) enter GameLogicSettings::crc from frame 0 (bisected with perf1's vectors to the #201 merge)
+// pin: Local 30 (issue #246) re-measured it once (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-3): the last damage record is replaced only as RW
+// 0x8C4294 .. 0x8C42F5 says, which moves it from frame 23
 TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1, 4 and 16 logic threads and in a repeated run; the hash's own jobs run on "
 		  "workers; Faithful hashes differently and serially")
 {

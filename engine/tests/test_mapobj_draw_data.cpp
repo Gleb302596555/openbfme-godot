@@ -120,7 +120,8 @@ TEST_CASE("mapobj draw data: the registry's 20 draw classes are all classified, 
 		REQUIRE_MESSAGE(t != nullptr, c.name);
 		const bool typedKind = c.kind == W3D_DRAWKIND_MODEL || c.kind == W3D_DRAWKIND_TREE || c.kind == W3D_DRAWKIND_PROP || c.kind == W3D_DRAWKIND_FLOOR ||
 			std::string(c.name) == "W3DDefaultDraw" || std::string(c.name) == "W3DStreakDraw" ||
-			std::string(c.name) == "W3DBuffDraw" || std::string(c.name) == "W3DTornadoDraw" || std::string(c.name) == "W3DLightDraw" || std::string(c.name) == "W3DProjectileStreamDraw"; // RENDER-1 streak; SPELL-4 buff; MODGAP-2 tornado, light, stream
+			std::string(c.name) == "W3DBuffDraw" || std::string(c.name) == "W3DTornadoDraw" || std::string(c.name) == "W3DLightDraw" || std::string(c.name) == "W3DProjectileStreamDraw" ||
+			std::string(c.name) == "W3DLaserDraw"; // RENDER-1 streak; SPELL-4 buff; MODGAP-2 tornado, light, stream; PORT-74 laser (W3DLaserDrawModuleData, registered as a typed DRAW class: RW 0x464BC3 name in the factory table, RW 0x464159 module data, RW 0xBE1798 fields)
 		CHECK_MESSAGE(t->typed == typedKind, c.name);
 	}
 	size_t drawClasses = 0;
@@ -129,7 +130,8 @@ TEST_CASE("mapobj draw data: the registry's 20 draw classes are all classified, 
 		(void)n;
 		++drawClasses;
 	}
-	CHECK(w.modules.typedCount() == 16); // + W3DStreakDraw + W3DBuffDraw + W3DTornadoDraw + W3DLightDraw + W3DProjectileStreamDraw
+	CHECK(w.modules.typedCount() == 17); // + W3DStreakDraw + W3DBuffDraw + W3DTornadoDraw + W3DLightDraw + W3DProjectileStreamDraw + W3DLaserDraw (16 -> 17:
+	// the laser became a typed DRAW class in PORT-74, issue #206 — RW 0x464BC3 / 0x464159 / 0xBE1798; anything else is unchanged)
 	CHECK(W3DDrawModules::find("w3dtreedraw") == nullptr); // class names are case sensitive
 	REQUIRE(W3DDrawModules::find("W3DTreeDraw") != nullptr);
 	CHECK(W3DDrawModules::find("W3DTreeDraw")->kind == W3D_DRAWKIND_TREE);

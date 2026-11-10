@@ -13,6 +13,7 @@
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
+#include "GameLogic/Weapon.h"
 
 #include "Common/GameCommon.h"
 #include "Common/StateHash.h"
@@ -890,6 +891,41 @@ void AIUpdateInterface::aiMoveToPositionEvenIfSleeping(const Coord3D &pos, Comma
 	wakeUpNow();
 }
 
+// RW 0x696266 dispatches only command 0xF, never AIGroup's move/stealth path.
+// RW 0x66C0B9..0x66C145 clears the old machine and installs the goal/source/shot limit.
+// Execution still uses the existing march representation (S-328), but must replace a busy unit's march.
+bool AIUpdateInterface::aiAttackMoveToPosition(const Coord3D &pos, CommandSourceType source)
+{
+	if (!acceptCommand(source, 0xF)) return false;
+	RoutedCommand command;
+	command.type = 0xF;
+	command.position = pos;
+	command.source = source;
+	command.maxShots = 0x7fffffff;
+	if (routeCommand(command)) return true;
+	Object *obj = getObject();
+	static const int rampage = CombatNames::weaponSetBit("RAMPAGE");
+	if (m_mover->isAiDead() || !GarrisonRules::isMobile(*obj) || BitFlagsTest(obj->getWeaponSetFlags(), (size_t)rampage)) return false;
+	Coord3D goal;
+	goalPositionClipped(pos, source, goal);
+	m_machine->clear();
+	m_machine->setGoalPosition(goal);
+	m_machine->setGoalObject(INVALID_ID);
+	setLastCommandSource(source);
+	m_attackMoveActive = true;
+	m_attackMoveGoal = goal;
+	m_machine->setState(AI_MOVE_TO);
+	if (ObjectWeapons *weapons = obj->getWeapons())
+		if (Weapon *weapon = weapons->currentWeapon())
+		{
+			weapon->clearWhenFiringEnds(); // RW 0x66C121
+			weapon->setMaxShotCount(0x7fffffff);
+		}
+	resetNextMoodCheckTime();
+	wakeUpNow();
+	return true;
+}
+
 bool AIUpdateInterface::aiMoveToPositionFromAttackMove(const Coord3D &goal)
 {
 	if (!acceptCommand(CMD_FROM_PLAYER, 0))
@@ -1100,6 +1136,10 @@ void AIUpdateInterface::aiIdle(CommandSourceType source)
 	if (source != CMD_FROM_AI)
 	{
 		m_attackMoveActive = false;
+	}
+	if (source == CMD_FROM_PLAYER)
+	{
+		m_stopRetaliationArmed = true; // Local 20: RW 0x771F97 (AI + 0x3CC = 1)
 	}
 	setLastCommandSource(source);
 	m_machine->clear();
@@ -2165,6 +2205,26 @@ float AIUpdateInterface::turretTurnRate() const
 	return m_turret ? m_turret->data().m_turnRate : 0.0f;
 }
 
+// RW 0x66246B getWhichTurretForWeaponSlot: walks the AI's one turret (AI + 0x20C, step 4, bound 1 at RW 0x66248F); a slot the
+// turret controls (RW 0x8DC4ED at RW 0x662482) answers the turret's index (RW 0x6624C5) with its angle (+ 0x18, RW 0x6624A5)
+// and pitch (+ 0x1C, RW 0x6624B9); no turret, or a slot on none: -1 (RW 0x662494)
+int AIUpdateInterface::whichTurretForWeaponSlot(int slot, float *angle, float *pitch) const
+{
+	if (!m_turret || !m_turret->isWeaponSlotOnTurret(slot))
+	{
+		return TURRET_INVALID;
+	}
+	if (angle)
+	{
+		*angle = m_turret->getTurretAngle();
+	}
+	if (pitch)
+	{
+		*pitch = m_turret->getTurretPitch();
+	}
+	return m_turret->whichTurret();
+}
+
 // ---------------------------------------------------------------------------------------------------------------------------------
 // the OpenBFME state hash
 // ---------------------------------------------------------------------------------------------------------------------------------
@@ -2236,6 +2296,10 @@ void AIUpdateInterface::crc(StateHasher &h) const
 	if (m_scriptLock) // TOP20 rampage (+ 0x3C6): hashed while set, so the hashes of every AI that never rampages stay as they were
 	{
 		h.addI32(0x3C6);
+	}
+	if (m_stopRetaliationArmed) // Local 20: stop retaliation flag (+ 0x3CC)
+	{
+		h.addI32(0x3CC);
 	}
 	h.addBool(m_fastCower);
 	h.addU32(m_minCowerTime);

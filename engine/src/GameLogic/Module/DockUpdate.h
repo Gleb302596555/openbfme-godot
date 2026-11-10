@@ -193,6 +193,7 @@ public:
 	static void registerClass(ModuleFactory &modules);
 	bool action(Object &docker, Object *drone) override; // RW 0x8AB53D
 	int boxesStored() const { return m_boxesStored; }
+	int startingBoxes() const { return m_data->m_startingBoxes; }
 	void crc(StateHasher &hasher) const override;
 
 private:

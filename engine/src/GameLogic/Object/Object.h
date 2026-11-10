@@ -180,6 +180,9 @@ public:
 	// RW 0x698F06 (the part lane ECON-1 ports): every die module's onDie, then the object's command points leave the player's pool (RW 0x698FD9). The death pipeline
 	// of the combat lane calls this; GameLogic::destroyObject does not (retail's does not either)
 	void friend_onDie(const DieModuleInterface::Event &event);
+	// lane PORT-95: the remains of this object stay on the radar after its death (the port's form of RW + 0x268 written by RW 0x88A01A)
+	bool stayOnRadarAfterDeath() const { return m_stayOnRadarAfterDeath; }
+	void setStayOnRadarAfterDeath(bool on) { m_stayOnRadarAfterDeath = on; }
 
 	// ---- lane COMBAT-1: weapons, damage, death, the kill credit --------------------------------------------------------------------
 	// the live weapon set (null when the template cannot have any weapon, RW 0x73C191)
@@ -399,7 +402,9 @@ public:
 	// lane ANIM-1, RW 0x67449C(0) on the object's drawable: Drawable::replaceModelConditionFlags (RW 0x679512) only stores the flags and marks the drawable
 	// dirty (+0x443); the draw modules see them when the dirty flags are flushed: once per logic frame in updateDrawable (RW 0x6759C4, on the first client
 	// frame of the frame, RW 0x63252F), or at once where the logic calls this (the pre-fire of RW 0x69213E). Client-only: nothing in the logic changes.
-	void flushDrawableModelConditions();
+	// `immediate` is retail's RW 0x67449C argument: false is the dirty-only flush (nothing when no bit changed), true forces the draw modules to take
+	// the object's flags now even when the drawable is not dirty (RW 0x67449C inside the OCL's CreateObject RW 0x5F13C8, lane PORT-79)
+	void flushDrawableModelConditions(bool immediate = false);
 	void setModelConditionState(int bit, bool on);
 	// SMCHelper (RW 0x8E2C0F, GameLogic/Module/SMCHelper.h): the bit is on for `frames` logic frames (a later expiry of the same bit wins)
 	void setSpecialModelConditionState(int bit, UnsignedInt frames);
@@ -674,6 +679,12 @@ private:
 	struct PendingDamage;
 	std::vector<PendingDamage> m_pendingDamage;             ///< RW + 0x460
 	bool m_effectivelyDead = false;                         ///< RW + 0x458 bit 0
+	// lane PORT-95: RW Object + 0x268 is the object's radar record. Object::onDie RW 0x698F80 takes it off the radar there (the 0 test of RW 0x698F70 /
+	// RW 0x698F77 and TheRadar's removeObject RW 0x6D876A), and KeepObjectDie::onDie adds it back when StayOnRadar is on: RW 0x88A00A tests the record (already
+	// set: no second add) and RW 0x88A013 / 0x88A01A calls Radar::addObject RW 0x6D9042. The port's radar rebuilds its list from the objects every draw
+	// (Radar::captureObject, Radar.cpp), so the port keeps the decision only, not the record: this flag is "the object was on the radar when it died and stays
+	// there" (set by that KeepObjectDie, cleared by the next death's RW 0x698F80; a client never writes it).
+	bool m_stayOnRadarAfterDeath = false;
 	bool m_campaignCarryover = false;                       ///< RW + 0x458 bit 4 (lane BFME2CAMP1)
 	bool m_offMap = false; ///< lane CAMPUI-1: RW + 0x458 bit 3 (OFF_MAP; in the padding before m_armorSetFlags: sizeof(Object) unchanged)
 	int m_fireWatchCount = -1;   ///< +0x49C in RotWK decomp (RW 0x68B2A6: -1 not watching, >= 0 watching cells)

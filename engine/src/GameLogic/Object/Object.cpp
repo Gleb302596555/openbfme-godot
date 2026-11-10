@@ -231,11 +231,11 @@ void Object::clearAndSetModelConditionFlags(const ModelConditionBits &clear, con
 	}
 }
 
-void Object::flushDrawableModelConditions()
+void Object::flushDrawableModelConditions(bool immediate)
 {
 	if (m_client)
 	{
-		m_client->flushModelConditions(*this);
+		m_client->flushModelConditions(*this, immediate);
 	}
 }
 
@@ -933,6 +933,7 @@ Team *Object::getOriginalTeam() const
 
 void Object::setTeam(Team *team)
 {
+	m_logic.noteRadarLogicWrite(); // the owner the radar's attack scan filters by may change between logic steps
 	// lane BACKLOG4: RW 0x699554 .. 0x699570 (BFME2 decomp ObjectSetTeam.cpp Object::setTeam, tier B same-shape: "to prevent spawning useful units for a
 	// player after he dies"): the team of a player who is not active (RW 0x6AAC52: an observer, Player + 0x35A, or defeated, + 0x754) is replaced by the
 	// neutral player's default team (ThePlayerList + 0x18 -> + 0x30C). Retail reads the team's player without a test; a team without one is kept here
@@ -1343,6 +1344,9 @@ void Object::friend_onDie(const DieModuleInterface::Event &event)
 		m_client->observerEvent(*this, ObserverEvent::Death);
 		m_client->objectDied(*this);
 	}
+	// RW 0x698F70 .. 0x698F80: the radar record (+ 0x268) leaves the radar before the die modules run, so one that adds it back (KeepObjectDie with StayOnRadar,
+	// RW 0x88A01A) is the only thing that keeps the remains a blip
+	m_stayOnRadarAfterDeath = false;
 	for (size_t i = 0; i < m_modules.size(); ++i)
 	{
 		if (DieModuleInterface *d = m_modules[i]->getDie())
@@ -2282,6 +2286,7 @@ void Object::doAttemptDamage(DamageInfo &info)
 			if (info.m_input.m_shouldPlayUnderAttackEva)
 			{
 				m_radarAttackFrame = m_logic.getFrame();
+				m_logic.noteRadarLogicWrite(); // the HUD may already have sampled this logic frame
 				// lane EVADAMAGE-1: RW 0x67B580 .. 0x67B776, the Eva half for the local player's object (RW 0x6AA7B2): the logic's part of the choice and
 				// the scan (EvaDamageNotice.h; reads only), the rest is the client's (ClientEvent::EVA_DAMAGED)
 				if (notifyDrawable && m_client && owner == m_logic.players().getLocalPlayer())
@@ -2734,6 +2739,10 @@ void Object::crcOmittingModules(StateHasher &h, const std::function<bool(const B
 	h.addU32(m_originalTeamID); // lane HERO-2 / BACKLOG4: the team setTeam last recorded
 	h.addU32(m_speechLeader);                                 // lane HERO-2
 	h.addBool(m_receivingDifficultyBonus);                    // lane CAMP-1H
+	if (m_stayOnRadarAfterDeath)
+	{
+		h.addU32(0x5C950001u); // lane PORT-95: the remains stay on the radar (RW + 0x268 via RW 0x88A01A; hashed when set, like PORT-5's flag)
+	}
 	if (m_legendaryFactor != 1)
 	{
 		h.addI32(m_legendaryFactor); // lane RULES-1: only a legendary hero adds it (every other object keeps its hash)
@@ -3192,6 +3201,7 @@ void Object::xfer(Xfer &x)
 	x.xferBool(&m_inWorld);
 	x.xferUnsignedInt(&m_containedFrame);
 	x.xferBool(&m_drawableHidden);
+	x.xferBool(&m_stayOnRadarAfterDeath); // lane PORT-95: the remains stay on the radar (RW + 0x268 via RW 0x88A01A): a kept building's blip survives a save
 	x.xferObjectID(&m_producerID);
 	x.xferObjectID(&m_builderID);
 	x.xferObjectID(&m_soleHealingBenefactorID);

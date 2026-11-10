@@ -93,6 +93,9 @@ DEF_STRUCTS = {
     "stancetemplate": ["StanceTemplate"],
     "crate": ["CrateTemplate"],
     "objectcreationlist": ["ObjectCreationList"],
+    "waterset": ["WaterSetting"],
+    "bridge": ["RoadType"],
+    "road": ["RoadType"],
 }
 
 # The files of a definition type's parser beyond the ones registering its keyword (registerBlock): where its tables and nested blocks' tables live
@@ -121,6 +124,10 @@ DEF_FILES = {
     "strategichud": ["GameClient/GUI/AptScreens/StrategicHUDData.cpp"],
     "awardsystem": ["GameLogic/CreateAHeroSystem.cpp"],
     "rank": ["GameLogic/RankInfo.cpp"],
+    "crate": ["GameLogic/CrateTemplate.cpp"],
+    "waterset": ["GameClient/MapWeather.cpp"],
+    "bridge": ["GameClient/TerrainRoads.cpp"],
+    "road": ["GameClient/TerrainRoads.cpp"],
     # GameData is read in parts, each reader with its own table and the other rows skipped
     "gamedata": ["GameClient/CameraSettings.cpp", "GameClient/MapObjectDrawables.cpp", "GameClient/TutorialSettings.cpp", "GameLogic/AI/AIPathfindConfig.cpp",
                  "GameLogic/AI/AIWorld.cpp", "GameLogic/EconomySettings.cpp", "GameLogic/GameLogicSettings.cpp", "GameLogic/ProductionSettings.cpp",
