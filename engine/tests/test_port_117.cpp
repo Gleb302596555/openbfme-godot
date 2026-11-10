@@ -90,7 +90,7 @@ const char kThreeSoldiersAndBanner[] =
 	"    BannerCarrierPosition = UnitType:Swordsman Pos:X:10.0 Y:0.0\n"
 	"    BannerCarrierMinLevel = 1\n";
 
-// the Thrall Master's hordes' case: a banner carrier from BannerCarrierMinLevel 0. RotWK makes this horde's carrier at build complete when it has no producer
+// a horde whose banner carrier is due from the start: BannerCarrierMinLevel 0. RotWK makes this horde's carrier at build complete when it has no producer
 // (RW 0x8718F5 .. 0x87190E -> RW 0x870204), which the port does not do (S-7317): only the stop's test uses this fixture
 const char kThreeSoldiersAndBannerAtOnce[] =
 	"    RankInfo = RankNumber:1 UnitType:Swordsman Position:X:50 Y:0 Position:X:50 Y:20 Position:X:50 Y:-20\n"
@@ -419,7 +419,7 @@ TEST_CASE("PORT-117 replenish: a damaged summoned horde is refilled in the same 
 
 // What stays unported is reported, not hidden (docs/STOPS.md, S-7317). RotWK's HordeContain makes the banner carrier in the SAME call as the payload when the
 // horde has no producer and its BannerCarrierMinLevel is 0 (RW 0x8718F5 .. 0x87190E -> RW 0x870204); buildObjectNow clears the producer for that call
-// (RW 0x7979E8), so a summoned horde of the Thrall Master's kind has its carrier when the call returns. The port's carrier comes from the horde's update
+// (RW 0x7979E8), so a summoned horde with that level has its carrier when the call returns. The port's carrier comes from the horde's update
 // (HordeContain::bannerCheck, RW 0x8719E4, S-587), after the call. The stop must be in the game's live report and have its row; how many frames late the
 // port's carrier is, is printed for that row and not asserted (it is the port's gap, not RotWK's behaviour).
 TEST_CASE("PORT-117 stop S-7317: the banner carrier RotWK makes at build complete (RW 0x8718F5 -> 0x870204) is reported as not ported")
