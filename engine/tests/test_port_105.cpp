@@ -41,6 +41,8 @@
 #include <string>
 #include <vector>
 
+using namespace w3dsynth;
+
 namespace
 {
 // A carrier that does not enclose its riders (a fell beast, an eagle: the rider is drawn on the carrier and walks away on release) and one that
@@ -210,13 +212,13 @@ TEST_CASE("PORT-105: after the release the drawn pose runs from the release pose
 		const float weight = expectedWeight(0.05f, k);
 		// tolerance: the weight is a float sum of 1/30 steps and the position its float lerp; one float ulp at 300 units (3.1e-5)
 		CHECK_MESSAGE(d.getPresentationPosition().y == doctest::Approx(weight * 300.0f), "client frame step " << k);
-		CHECK(d.getPresentationPosition().z == doctest::RequireEquals(0.0f));
+		CHECK(d.getPresentationPosition().z == (0.0f));
 	}
 
 	// the step that clamps the weight to 1.0 (RW 0x4B6B86): the drawn pose is the object's own, exactly
 	++clientFrame;
 	d.syncFromSnapshot(rec, 2 + 29, 0.0, false);
-	CHECK(d.getPresentationPosition().y == doctest::RequireEquals(300.0f));
+	CHECK(d.getPresentationPosition().y == (300.0f));
 
 	// and it stays there: the blend is off from the weight 1.0 on (RW 0x4B6B34 .. 0x4B6B3B)
 	const Coord3D later{ 0.0f, 320.0f, 0.0f };
@@ -226,7 +228,7 @@ TEST_CASE("PORT-105: after the release the drawn pose runs from the release pose
 	rec.nextPos = later;
 	++clientFrame;
 	d.syncFromSnapshot(rec, 40, 0.0, false);
-	CHECK(d.getPresentationPosition().y == doctest::RequireEquals(320.0f));
+	CHECK(d.getPresentationPosition().y == (320.0f));
 }
 
 TEST_CASE("PORT-105: the module data's default ReleaseSnappyness 0.7 reaches the object's pose in 9 client frames (RW 0xBDE0A8, RW 0x4B6B63)")
@@ -283,7 +285,7 @@ TEST_CASE("PORT-105: the module data's default ReleaseSnappyness 0.7 reaches the
 	// 0.7 + 9/30 = 1.0: the pose is the object's own at the ninth step
 	++clientFrame;
 	d.syncFromSnapshot(rec, 11, 0.0, false);
-	CHECK(d.getPresentationPosition().y == doctest::RequireEquals(300.0f));
+	CHECK(d.getPresentationPosition().y == (300.0f));
 }
 
 TEST_CASE("PORT-105: a drawable that was never released draws the record's pose at once (the path RW 0x6765B9 leaves unchanged)")
@@ -326,5 +328,5 @@ TEST_CASE("PORT-105: a drawable that was never released draws the record's pose 
 	rec.nextPos = next;
 	++clientFrame;
 	d.syncFromSnapshot(rec, 2, 0.0, false);
-	CHECK(d.getPresentationPosition().y == doctest::RequireEquals(300.0f));
+	CHECK(d.getPresentationPosition().y == (300.0f));
 }
