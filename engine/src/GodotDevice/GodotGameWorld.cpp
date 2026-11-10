@@ -201,6 +201,30 @@ Transform3D toTransform(const float *basis, const Coord3D &pos, float scale)
 	return Transform3D(basisG, Vector3(pos.x, pos.z, -pos.y));
 }
 
+// LOCAL-29: Matrix3D (3x4 world transform, columns X, Y, Z, pos) -> Godot (x, z, -y)
+Transform3D toTransform(const Matrix3D &m)
+{
+	static const float P[3][3] = { { 1, 0, 0 }, { 0, 0, 1 }, { 0, -1, 0 } };
+	float b[3][3];
+	for (int i = 0; i < 3; ++i)
+	{
+		for (int j = 0; j < 3; ++j)
+		{
+			float v = 0.0f;
+			for (int a = 0; a < 3; ++a)
+			{
+				for (int c = 0; c < 3; ++c)
+				{
+					v += P[i][a] * m.Row[a][c] * P[j][c];
+				}
+			}
+			b[i][j] = v;
+		}
+	}
+	Basis basisG(Vector3(b[0][0], b[1][0], b[2][0]), Vector3(b[0][1], b[1][1], b[2][1]), Vector3(b[0][2], b[1][2], b[2][2]));
+	return Transform3D(basisG, Vector3(m.Row[0][3], m.Row[2][3], -m.Row[1][3]));
+}
+
 PackedStringArray toPacked(const std::vector<std::string> &v)
 {
 	PackedStringArray a;
@@ -1924,19 +1948,11 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 		DrawEntry &e = entries[k];
 		EntryView &ev = v.entries[k];
 		// RENDER-2: a structure being built moves along its own Z by the draw's construction offset (RW 0x4B686D)
-		Transform3D entryXf = xf;
-		if (e.constructionOffsetZ != 0.0f)
-		{
-			entryXf = toTransform(d->getBasis(), d->entryPosition(e), d->getInstanceScale());
-		}
-		if (e.noRotate)
-		{
-			// NoRotate (S-5204, INFERENCE): the model keeps the world's axes whatever the object faces (Ennorath's EyeOfPalantir: its slanted beam of light,
-			// ARPalaEye, stays put while the eye flies about)
-			static const float kIdentity[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
-			entryXf = toTransform(kIdentity, d->entryPosition(e), d->getInstanceScale());
-		}
-		const bool entryXfChanged = xfChanged || e.constructionOffsetZ != ev.offsetZ;
+		// LOCAL-29 (issue #218): entry transform resolves bone attachment (RW 0x4B6A6F..0x4B6B26 / RW 0x672B5B)
+		Matrix3D entryMatrix;
+		d->entryTransform(e, entryMatrix);
+		const Transform3D entryXf = toTransform(entryMatrix);
+		const bool entryXfChanged = xfChanged || e.constructionOffsetZ != ev.offsetZ || !ev.haveEntryXf || ev.lastEntryXf != entryXf;
 		ev.offsetZ = e.constructionOffsetZ;
 		if (e.kind == W3D_DRAWKIND_MODEL && e.draw)
 		{
@@ -2141,6 +2157,8 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 					if (mid >= 0)
 					{
 						ev.instance = dyn->add_instance(mid, entryXf, String(), 0.0, 1.0);
+						ev.lastEntryXf = entryXf;
+						ev.haveEntryXf = true;
 						if (ev.instance >= 0 && m_houseColors && d->getHouseColor() != 0 && coloredModel.empty() && drawTakesHouseColor(e, *d)) // RW 0x4B4A30
 						{
 							dyn->set_instance_house_color(ev.instance, houseColorOf(d->getHouseColor()));
@@ -2179,6 +2197,8 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 				if (entryXfChanged && ev.posed)
 				{
 					dyn->set_instance_transform(ev.instance, entryXf);
+					ev.lastEntryXf = entryXf;
+					ev.haveEntryXf = true;
 				}
 				const ModelConditionInfo *shadowState = e.draw->currentModelState();
 				const bool useShadowMapping = W3DInstancer::shadow_maps_enabled();
@@ -2331,6 +2351,8 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 				if (mid >= 0)
 				{
 					ev.instance = dyn->add_instance(mid, entryXf, String(), 0.0, 1.0);
+					ev.lastEntryXf = entryXf;
+					ev.haveEntryXf = true;
 					ev.model = model;
 					ev.opacity = 1.0f; // a new instance starts opaque
 					const bool useShadowMapping = W3DInstancer::shadow_maps_enabled();
@@ -2342,6 +2364,8 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			else if (entryXfChanged && ev.instance >= 0)
 			{
 				dyn->set_instance_transform(ev.instance, entryXf);
+				ev.lastEntryXf = entryXf;
+				ev.haveEntryXf = true;
 			}
 			if (ev.instance >= 0 && tinted && ev.tintModelId >= 0 &&
 				(ev.lastTint.red != renderTint.red || ev.lastTint.green != renderTint.green || ev.lastTint.blue != renderTint.blue))
