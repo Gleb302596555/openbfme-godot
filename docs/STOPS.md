@@ -27,6 +27,16 @@ Both identity readers/writers must use the shared `.install_id.lock` directory.
 Original WP-C game builds lack that lock and the pending-invite argument.
 No live-service or retail-game acceptance is claimed by S-D's local tests.
 
+## PORT-109 input-access stop (issue #269)
+
+Upgrade/Cursor remains parsed and unused. The BFME2 donor has a reader in
+CommandTranslator's action-18 hint branch, so this is **not** a verdict that
+RotWK has no reader. No accessible RotWK game.dat means the required rw.py
+instruction proof and class chain cannot be obtained. No engine change or
+PORT-109 test is claimed. See [research handoff](ennorath/PORT109_RESEARCH_STOP.md).
+Resolution: provide game.dat at workspace/RotWK/game.dat, then prove RW before
+porting the existing cursor path.
+
 ## Rebuild acceptance stops
 
 Open evidence gaps (see `docs/PLAN.md`, "Acceptance stops"). A stop blocks only
