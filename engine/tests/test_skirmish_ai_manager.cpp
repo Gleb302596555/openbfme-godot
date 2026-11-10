@@ -765,7 +765,7 @@ TEST_CASE("skirmish ai return the ring: a HOLDING_THE_RING unit's one-member tea
 	const int unportedBefore = ai->brain.targetlessUnported;
 	AITacticalAI::updateBrain(*fx.logic, *ai, ai);
 	CHECK(ai->brain.tacticsByKind.count("ReturnTheRing") == 0);
-	CHECK(ai->brain.targetlessUnported - unportedBefore == 6); // six remaining applicability checks, once per pick
+	CHECK(ai->brain.targetlessUnported - unportedBefore == 5); // five remaining applicability checks, once per pick (upstream counts 6: the fork ports AIWoTRForfeitTactic, PORT-33)
 	holder->setStatus((unsigned)CombatNames::status("HOLDING_THE_RING"), true);
 	AITacticalAI::updateBrain(*fx.logic, *ai, ai);
 	REQUIRE(ai->brain.tacticsByKind.count("ReturnTheRing") == 1);
@@ -930,7 +930,7 @@ TEST_CASE("skirmish ai roaming defense: EASY only, the 5 s scheduling, the zero-
 	CHECK(ai->brain.tactics.empty());
 	CHECK(ai->brain.namedCounters.at("AIRoamingDefenseTactic_NextLogicFrameRun") == (int)fx.logic->getFrame() + 25);
 	CHECK(ai->brain.namedCounters.at("AIRoamingDefenseTactic_IsRunning") == 0);
-	CHECK(ai->brain.targetlessUnported == 6); // Ring, WoTR and roaming are all ported (S-893)
+	CHECK(ai->brain.targetlessUnported == 5); // Ring, WoTR and roaming are all ported (S-893); upstream counts 6, the fork also ports AIWoTRForfeitTactic (PORT-33)
 	// Any difficulty but EASY answers false without scheduling (RW 0x6AA61B).
 	computer->setSkirmishDifficulty(1);
 	ai->brain.namedCounters["AIRoamingDefenseTactic_NextLogicFrameRun"] = 0;
@@ -1536,7 +1536,7 @@ TEST_CASE("skirmish ai WotR battle start: fixed base orders, exact RNG and save-
 		};
 		const int unportedBefore = ai->brain.targetlessUnported;
 		AITacticalAI::updateBrain(*fx.logic, *ai, ai);
-		CHECK(ai->brain.targetlessUnported - unportedBefore == 6);
+		CHECK(ai->brain.targetlessUnported - unportedBefore == 5); // upstream counts 6: the fork ports AIWoTRForfeitTactic (PORT-33)
 		checkLog(expected); // exactly the ordinary pool draw; no A4, BA or group draw
 		if (skirmish)
 		{
