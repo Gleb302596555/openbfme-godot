@@ -27,6 +27,24 @@ Both identity readers/writers must use the shared `.install_id.lock` directory.
 Original WP-C game builds lack that lock and the pending-invite argument.
 No live-service or retail-game acceptance is claimed by S-D's local tests.
 
+## LOCAL-35 system-object visuals (issue #285)
+
+Two client-side visuals of the ported system-object modules stay in the renderer, both
+named and reported, never silently dropped:
+
+- **S-7100** `DynamicShroudClearingRangeUpdate` grid decal: the module drives the shroud
+  clearing range (RW 0x88E9B0 -> `Object::setShroudClearingRange` RW 0x68C234), but the
+  30 `RadiusDecal` grid decals retail also creates / animates / clears (RW 0x88E87F /
+  0x88E8C7 / 0x88E6AF) are not drawn. The `m_decalsCreated` flag is kept so the logic and
+  the save format match retail. Reported by `ShroudManager::stopLines()` (S-564) and the
+  module header; pinned by `LOCAL-35*` (the range grow/sustain/shrink/sleep, no decal).
+- **S-7101** `W3DDebrisDraw` model: the debris animation state machine is ported
+  (RW 0x4B15E1), but the `RenderObj` model, its 3D-scene add, the shadow and the debris
+  object's destruction after the final animation are the renderer's / the drawable
+  lifecycle's. Reported by `W3DDrawModules::notDrawnClasses()`; pinned by `LOCAL-35*`
+  (the INITIAL -> FLYING -> FINAL machine and the landed-piece jump to FINAL).
+
+
 ## Rebuild acceptance stops
 
 Open evidence gaps (see `docs/PLAN.md`, "Acceptance stops"). A stop blocks only
