@@ -10,6 +10,7 @@
 #include "GameLogic/Object/PartitionManager.h"
 
 #include "Common/AsciiString.h"
+#include "Common/Audio/AudioRequests.h"
 #include "Common/INIException.h"
 #include "Common/StateHash.h"
 #include "Common/Thing/ThingTemplate.h"
@@ -220,6 +221,16 @@ FlammableUpdate::FlammableUpdate(Thing *thing, const FlammableUpdateModuleData *
 	, m_flameDamageLimit(data->m_flameDamageLimit)
 {
 	setWakeFrame(getObject(), UPDATE_SLEEP_FOREVER);
+}
+
+// RW 0x88FDDD: the destructor calls stopBurningSound (RW 0x88FBCA).
+// The handle lives only on the audio owner, never in the simulation/hash.
+FlammableUpdate::~FlammableUpdate()
+{
+	if (!m_data->m_burningSoundName.empty())
+	{
+		AudioApi::stopHeldSound(AudioApi::HELD_FLAMMABLE_LOOP, getObject()->getID());
+	}
 }
 
 // the object's position under water (TheTerrainLogic slot 0x4C, RW 0x8904F3); a SHIP is never asked (template + 0x11F bit 7)
@@ -433,12 +444,19 @@ void FlammableUpdate::tryToIgnite()
 	}
 	static const int kAflame = CombatNames::modelCondition("AFLAME"); // bit 78 (Object + 0x114 bit 14)
 	obj->setModelConditionState(kAflame, true);
+	// PORT-103: RW 0x890201 -> 0x88FE48: data +0x18 and object ID (+0x74)
+	// form an object-attached event; RW 0x88FE86 adds it, 0x88FE93 keeps its handle.
+	// No extra loop/restart policy: Control=loop belongs to the AudioEvent.
+	if (!m_data->m_burningSoundName.empty())
+	{
+		AudioApi::postHeldSound(AudioApi::HELD_FLAMMABLE_LOOP, m_data->m_burningSoundName, obj->getID(), obj->getID());
+	}
 	if (FireSpreadUpdate *spread = findModule<FireSpreadUpdate>(*obj)) // RW 0x89023B: the module named FireSpreadUpdate
 	{
 		spread->startFireSpreading(); // reads the object's AFLAME status, set above
 	}
 	m_status = FS_AFLAME; // RW 0x890251
-	noteStop(*obj, "FlammableUpdate: the ignition's client parts (burning sound) and the script event 10 are not run");
+	noteStop(*obj, "FlammableUpdate: the ignition's script event 10 is not run");
 	const unsigned now = logic.getFrame();
 	m_aflameEndFrame = m_data->m_aflameDuration > 0 ? now + m_data->m_aflameDuration : (unsigned)UPDATE_SLEEP_FOREVER;
 	m_burnedEndFrame = m_data->m_burnedDelay ? now + m_data->m_burnedDelay : 0;
@@ -520,6 +538,12 @@ void FlammableUpdate::stopBurning()
 		ent->setForced(false, false); // RW 0x89003B
 		ent->setSuppressed(false);    // RW 0x890044
 	}
+	// PORT-103: RW 0x8900C7 -> 0x88FBCA: remove a nonzero held handle
+	// (RW 0x88FBDD), then clear it (RW 0x88FBE0), before clearing AFLAME.
+	if (!m_data->m_burningSoundName.empty())
+	{
+		AudioApi::stopHeldSound(AudioApi::HELD_FLAMMABLE_LOOP, obj->getID());
+	}
 	obj->setStatus(kStatusAflame, false);
 	// PORT-66: RW 0x89011C .. 0x890124, the body interface (object + 0x25C) slot 0x2C right after the status is cleared: the quenched object's auto
 	// particle systems are made again (the plain templates, the aflame entry gone)
@@ -538,7 +562,7 @@ void FlammableUpdate::stopBurning()
 			m_panicLocomotorWhileAflameActive = false;   // RW 0x890119 (the AI + 0x3C9 byte is write-only in RotWK 2.01, not carried)
 		}
 	}
-	noteStop(*obj, "FlammableUpdate: the quench's RW 0x68F2F1(0), script event 11 and the sound stop are not run");
+	noteStop(*obj, "FlammableUpdate: the quench's RW 0x68F2F1(0), and script event 11 are not run");
 }
 
 // RW 0x88FB79
@@ -724,6 +748,21 @@ void FlammableUpdate::xfer(Xfer &x)
 	x.xferObjectID(&m_lastFlameDamager);
 	x.xferUnsignedInt(&m_aflameDamageTicks);
 	x.xferBool(&m_panicLocomotorWhileAflameActive); // appended (the 2026-11-06 save layouts are sealed by the engine id)
+	// PORT-103: RW 0x88FC76..0x88FC7B transfers the client audio handle at
+	// +0x34 through TheAudio slot 0x160. Native snapshots keep no device handle;
+	// reconstruct the existing AFLAME state on load using the held-sound queue.
+	// No new simulation field or snapshot layout/hash change is needed.
+	if (x.isLoading() && !m_data->m_burningSoundName.empty())
+	{
+		if (m_status == FS_AFLAME)
+		{
+			AudioApi::postHeldSound(AudioApi::HELD_FLAMMABLE_LOOP, m_data->m_burningSoundName, getObject()->getID(), getObject()->getID());
+		}
+		else
+		{
+			AudioApi::stopHeldSound(AudioApi::HELD_FLAMMABLE_LOOP, getObject()->getID());
+		}
+	}
 }
 
 void FireSpreadUpdate::xfer(Xfer &x)

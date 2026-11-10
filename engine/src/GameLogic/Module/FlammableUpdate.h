@@ -132,6 +132,7 @@ public:
 		FS_BURNED = 2
 	};
 	FlammableUpdate(Thing *thing, const FlammableUpdateModuleData *data);
+	~FlammableUpdate() override;
 	DamageModuleInterface *getDamage() override { return this; }
 	void onDamage(const DamageInfo &info) override;
 	void onHealing(const DamageInfo &info) override;
