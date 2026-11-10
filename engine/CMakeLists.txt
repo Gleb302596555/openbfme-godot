@@ -231,6 +231,7 @@ include(cmake/Port46.cmake) # PORT-46: ToggleMountedSpecialAbilityUpdate/Opacity
 include(cmake/Port58.cmake) # PORT-58: SpecialAbilityUpdate/ApproachUntilMembersInRange (issue #168; OPENBFME_PORT58_TESTS)
 include(cmake/Port45.cmake) # PORT-45: ActiveBody/DamageCreationList (issue #149; OPENBFME_PORT45_TESTS)
 include(cmake/Port44.cmake) # PORT-44: ExperienceLevel/ShowLevelUpTint (issue #148; OPENBFME_PORT44_TESTS)
+include(cmake/Port95.cmake) # PORT-95: KeepObjectDie/StayOnRadar, a destroyed structure's remains stay on the radar (issue #243; OPENBFME_PORT95_TESTS)
 include(cmake/Port70.cmake) # PORT-70: the GameData verdict table (issue #184; OPENBFME_PORT70_TESTS)
 include(cmake/Port25.cmake) # PORT-25: HordeContain/VisionRearOverride (issue #97; OPENBFME_PORT25_TESTS)
 include(cmake/Port60.cmake) # PORT-60: EvaAnnounceClientCreate/CreateFakeRadarEvent (issue #170; verdict, no engine change; OPENBFME_PORT60_TESTS)
@@ -834,6 +835,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT46_TESTS}
     ${OPENBFME_PORT58_TESTS}
     ${OPENBFME_PORT44_TESTS}
+    ${OPENBFME_PORT95_TESTS}
     ${OPENBFME_PORT70_TESTS}
     ${OPENBFME_PORT25_TESTS}
     ${OPENBFME_PORT60_TESTS}
