@@ -2,6 +2,7 @@
 // See GameClient/Drawable.h for the sources and the stops.
 
 #include "GameClient/Drawable.h"
+#include "GameClient/LaserUpdate.h"
 
 #include "Common/Audio/AudioRequests.h"
 
@@ -1317,6 +1318,30 @@ bool Drawable::boneWorldPosition(const std::string &boneName, Coord3D &outPos) c
 		return true;
 	}
 	return false;
+}
+
+// RW 0x6747C2 / BFME2 0x27449C: find LaserUpdate client update module on drawable
+LaserUpdate *Drawable::findLaserUpdate() const
+{
+	for (const auto &m : m_clientModules)
+	{
+		if (auto *lu = dynamic_cast<LaserUpdate *>(m.get()))
+		{
+			return lu;
+		}
+	}
+	return nullptr;
+}
+
+// RW 0xAD1920: maximum geometry height above position for the drawable's template
+float Drawable::geometryHeight() const
+{
+	if (m_geometryHeight < 0.0f)
+	{
+		const ThingTemplate *tt = getTemplate();
+		m_geometryHeight = tt ? ObjectGeometry::maxHeightAbovePosition(ObjectGeometry::shapesOf(*tt)) : 0.0f;
+	}
+	return m_geometryHeight;
 }
 
 // lane LOCAL-29 (issue #218): computes world transform of entry e (RW 0x004B6A6F..0x004B6B26 / slot +0x104); returns true if attached
