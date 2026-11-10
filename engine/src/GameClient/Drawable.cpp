@@ -1319,6 +1319,17 @@ bool Drawable::boneWorldPosition(const std::string &boneName, Coord3D &outPos) c
 	return false;
 }
 
+// RW 0xAD1920: maximum geometry height above position for the drawable's template
+float Drawable::geometryHeight() const
+{
+	if (m_geometryHeight < 0.0f)
+	{
+		const ThingTemplate *tt = getTemplate();
+		m_geometryHeight = tt ? ObjectGeometry::maxHeightAbovePosition(ObjectGeometry::shapesOf(*tt)) : 0.0f;
+	}
+	return m_geometryHeight;
+}
+
 // lane LOCAL-29 (issue #218): computes world transform of entry e (RW 0x004B6A6F..0x004B6B26 / slot +0x104); returns true if attached
 bool Drawable::entryTransform(const DrawEntry &e, Matrix3D &outMatrix) const
 {

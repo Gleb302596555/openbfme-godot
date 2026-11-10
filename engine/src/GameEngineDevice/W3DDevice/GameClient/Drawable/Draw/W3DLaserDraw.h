@@ -36,6 +36,8 @@
 #include <string>
 #include <vector>
 
+class LaserUpdate;
+
 // The OrnamentData envelope of the laser (RW module data +0x4C .. +0x73, 0x28 bytes), shared by the module data and the draw
 // module (the constructor copies the ten dwords at RW 0x4C94CB .. 0x4C94D1).
 class W3DLaserDrawEnvelope
@@ -144,6 +146,12 @@ public:
 	// arc branch only.
 	std::vector<W3DLaserBeam> build(const W3DLaserDrawModuleData &data, const W3DLaserEndpoints &endpoints, float widthScale,
 	                                bool updateDirty, bool firstTextureLoaded, float textureAspectRatio, unsigned textureCount,
+	                                const std::function<float(float, float)> &groundHeight);
+
+	// RW 0x4C8A6C overload with live LaserUpdate. Extracts endpoints, width scalar, updateDirty,
+	// and clears update's dirty flag at RW 0x4C8AE2.
+	std::vector<W3DLaserBeam> build(const W3DLaserDrawModuleData &data, LaserUpdate &update,
+	                                bool firstTextureLoaded, float textureAspectRatio, unsigned textureCount,
 	                                const std::function<float(float, float)> &groundHeight);
 
 	bool selfDirty() const { return m_selfDirty; }

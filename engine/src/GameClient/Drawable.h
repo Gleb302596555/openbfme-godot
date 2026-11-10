@@ -336,6 +336,8 @@ public:
 	// lane LOCAL-28 / LOCAL-29: queries bone world transform across draw module models (RW 0x00672B5B / DONOR BFME2 0x00272835)
 	bool boneTransform(const std::string &boneName, Matrix3D &outTransform) const;
 	bool boneWorldPosition(const std::string &boneName, Coord3D &outPos) const;
+	// Local 34 (issue #284): maximum geometry height above position for this drawable's template (RW 0xAD1920)
+	float geometryHeight() const;
 	// lane LOCAL-29 (issue #218): computes world transform of entry e (RW 0x004B6A6F..0x004B6B26 / slot +0x104); returns true if attached
 	bool entryTransform(const DrawEntry &e, Matrix3D &outMatrix) const;
 	// lane BUILD-4: a draw module's state script asked for a module's visibility (RW 0x734EF4 -> 0x6789B4); while the constructor still makes the modules the
@@ -582,7 +584,7 @@ private:
 	unsigned m_changeCount = 0;
 	bool m_drawsInMirror = false;
 	unsigned m_constructionLogicFrame = ~0u; ///< RENDER-2: the logic frame the cached construction percents were refreshed in
-	float m_geometryHeight = -1.0f;          ///< RENDER-2: RW 0xAD1920 of the template's shapes (computed on first use)
+	mutable float m_geometryHeight = -1.0f;          ///< RENDER-2: RW 0xAD1920 of the template's shapes (computed on first use)
 	std::vector<DrawEntry> m_entries;
 	std::vector<std::unique_ptr<DrawableModule>> m_clientModules;
 	std::vector<ModelConditionAudioLoopClientBehavior *> m_audioLoops; ///< those of m_clientModules the flush tells (RW 0x67449C)

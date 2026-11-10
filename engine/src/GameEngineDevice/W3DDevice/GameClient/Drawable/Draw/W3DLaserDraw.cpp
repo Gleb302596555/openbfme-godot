@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0. See W3DLaserDraw.h (RW 0x4C917B / 0xBE1798 / 0x4C8A6C / 0x740659, donor BFME2 W3DLaserDraw*).
 
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLaserDraw.h"
+#include "GameClient/LaserUpdate.h"
 
 #include "Common/INIException.h"
 
@@ -238,6 +239,29 @@ void W3DLaserDrawState::reset(const W3DLaserDrawModuleData &data) // RW 0x4C9483
 	m_opacity = kOne;            // RW 0x4C94AF
 	m_fanWidth = data.m_fanWidth;  // RW 0x4C94B4 / 0x4C94C0: the module data's FanWidth, copied at construction
 	m_envelope = data.m_envelope;  // RW 0x4C94CB .. 0x4C94D1
+}
+
+std::vector<W3DLaserBeam> W3DLaserDrawState::build(const W3DLaserDrawModuleData &data, LaserUpdate &update,
+                                                   bool firstTextureLoaded, float textureAspectRatio, unsigned textureCount,
+                                                   const std::function<float(float, float)> &groundHeight)
+{
+	W3DLaserEndpoints ep;
+	const Coord3D &s = update.startPos();
+	const Coord3D &e = update.endPos();
+	ep.start[0] = s.x;
+	ep.start[1] = s.y;
+	ep.start[2] = s.z;
+	ep.end[0] = e.x;
+	ep.end[1] = e.y;
+	ep.end[2] = e.z;
+
+	const float widthScale = update.currentWidthScalar();
+	const bool updateDirty = update.isDirty();
+
+	// RW 0x4C8AE2: mov byte ptr [esi+0x24], 0 (clears LaserUpdate's dirty byte)
+	update.setDirty(false);
+
+	return build(data, ep, widthScale, updateDirty, firstTextureLoaded, textureAspectRatio, textureCount, groundHeight);
 }
 
 std::vector<W3DLaserBeam> W3DLaserDrawState::build(const W3DLaserDrawModuleData &data, const W3DLaserEndpoints &endpoints,

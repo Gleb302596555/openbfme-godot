@@ -55,11 +55,7 @@ void Drawable::updateConstruction(const ObjectSnapshot &o, UnsignedInt snapshotF
 		float offset = 0.0f;
 		if (e.draw->adjustsHeightByConstruction())
 		{
-			if (m_geometryHeight < 0.0f)
-			{
-				m_geometryHeight = ObjectGeometry::maxHeightAbovePosition(ObjectGeometry::shapesOf(*o.tmpl)); // RW 0xAD1920
-			}
-			offset = e.draw->constructionHeightOffset(percent, refresh, rate, a, m_geometryHeight);
+			offset = e.draw->constructionHeightOffset(percent, refresh, rate, a, geometryHeight()); // RW 0xAD1920 (computed on first use)
 		}
 		if (offset != e.constructionOffsetZ)
 		{
