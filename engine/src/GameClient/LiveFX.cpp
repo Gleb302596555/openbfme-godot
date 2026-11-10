@@ -1362,6 +1362,52 @@ void LiveFX::destroySystems(Attached &a)
 	a.records.clear(); // lane PORT-50: the tracker nodes leave with the systems they name
 }
 
+// PORT-121 (issue #305), RW 0x4C6514: the bone of one ParticleSysBone entry. The creation asks the RENDER OBJECT by index - slot +0xCC
+// (Get_Bone_Transform), RW 0x4C678F on the FollowBone branch and RW 0x4C69BE on the position-only one - and the render object holds the pose
+// the draw shows, which is what `ParticleBoneFollow::poseBone` evaluates here (the per-frame walk's source, S-7194). A bone index of 0 leaves
+// the transform at zero (RW 0x4C6644 .. 0x4C665B), and only a pose the draw cannot build (a state without an in-use animation, S-003 / S-004)
+// falls back to the hierarchy's bind pose - the render object poses nothing then (RW 0x4BDC2D).
+LiveFX::BoneSource LiveFX::particleSysBoneSource(const RenderObjPrototype *model, const W3DScriptedModelDraw &draw, const ParticleSysBoneInfo &info,
+	float scale, Matrix3D &transform, int *boneIndexOut)
+{
+	transform = Matrix3D();
+	const int boneIndex = model && model->Tree && !info.boneName.empty() ? model->Tree->Get_Bone_Index(info.boneName) : 0;
+	if (boneIndexOut)
+	{
+		*boneIndexOut = boneIndex;
+	}
+	if (boneIndex > 0)
+	{
+		// RW 0x4BDC2D: a draw that shows no animation poses nothing - its render object is the hierarchy itself, which is exactly the bind
+		// pose the fallback below reads, so the two sources are told apart here and not by comparing matrices
+		W3DDrawPoseView view;
+		draw.poseView(view);
+		if (view.clipKey0 && ParticleBoneFollow::poseBone(draw, scale, boneIndex, transform))
+		{
+			return BoneSource::POSE;
+		}
+	}
+	if (model && model->Tree && boneIndex > 0 && !info.boneName.empty() && info.boneName != kNoneBone)
+	{
+		// the bind pose of that pivot, scaled like the pose would be (the creation applies the drawable scale to the whole matrix)
+		HTreePose base;
+		model->Tree->Base_Pose(Matrix3D(), base);
+		if ((std::size_t)boneIndex < base.Transform.size())
+		{
+			transform = base.Transform[(std::size_t)boneIndex];
+			for (int r = 0; r < 3; ++r)
+			{
+				for (int c = 0; c < 4; ++c)
+				{
+					transform.Row[r][c] *= scale;
+				}
+			}
+			return BoneSource::BIND_POSE;
+		}
+	}
+	return BoneSource::NONE;
+}
+
 void LiveFX::createSystems(Drawable &d, Attached &a)
 {
 	const float scale = d.getInstanceScale();
@@ -1415,34 +1461,29 @@ void LiveFX::createSystems(Drawable &d, Attached &a)
 				}
 				// RW 0x4C671A .. 0x4C6728: the render object's slot +0xC8 (Get_Bone_Index) gives the bone index the record
 				// stores at +4, and 0 means "no such bone" (the by-index follow skips such a record, RW 0x4B6E57)
-				const int boneIndex = f.model && f.model->Tree && !info.boneName.empty() ? f.model->Tree->Get_Bone_Index(info.boneName) : 0;
-				// PORT-121 (issue #305): the bone comes from the RENDER OBJECT, slot +0xCC Get_Bone_Transform by index - RW 0x4C678F on the
-				// FollowBone branch (RW 0x5F2F55 setLocalTransform at 0x4C67B6) and RW 0x4C69BE on the position-only branch (its translation and
-				// Get_Z_Rotation through RW 0x5F2F2D / 0x5F31B0 at 0x4C6A31 / 0x4C6A4B) - that is the pose the draw shows NOW, not the bind pose.
-				// It matters because RW 0x5F4C6B rotates the particle velocity by the system's transform: a water jet whose
-				// OrthoEmissionVelocity runs along the emitter's local +Z leaves the bucket the way the builder faces only when the bucket's
-				// animated matrix is the local frame (with the bind pose - the hand at the model's origin, no arm rotation - the jet follows
-				// the model's own axis, i.e. straight up when the builder stands upright). A bone index of 0 (no such bone; IBUrukPit_A's
-				// CONSTDUSTBONE01, a retail data defect) leaves the position at (0, 0, 0) and the rotation at 0 (0x4C6644 .. 0x4C665B, the
-				// index-0 exits 0x4C671A / 0x4C6A1F), and the system is still created and attached: it plays at the drawable's origin
 				Matrix3D bone;
-				const bool havePose = boneIndex > 0 && ParticleBoneFollow::poseBone(*e.draw, scale, boneIndex, bone);
-				if (havePose)
+				int boneIndex = 0;
+				const BoneSource source = particleSysBoneSource(f.model, *e.draw, info, scale, bone, &boneIndex);
+				// PORT-121 (issue #305): the creation asks the render object and takes the pose the draw shows NOW (RW 0x4C678F /
+				// RW 0x4C69BE) - RW 0x5F4C6B then turns the particle velocity by that matrix, so the water leaves the bucket the way the
+				// builder faces. The old path read the bind pose (`modelBone`): a bucket bone whose bind transform carries no arm rotation
+				// left the jet on the model's own axis, straight up for an upright builder (P-61). A bone index of 0 (no such bone: IBUrukPit_A's
+				// CONSTDUSTBONE01, a retail data defect) leaves the matrix at zero and the system plays at the drawable's origin
+				// (RW 0x4C6644 .. 0x4C665B, the index-0 exits 0x4C671A / 0x4C6A1F); the counters keep the two sources apart.
+				if (source == BoneSource::POSE)
 				{
 					++m_stats.bonesCreatedOnPose;
 				}
-				else if (modelBone(f.model, info.boneName, scale, bone, false))
+				else if (source == BoneSource::BIND_POSE)
 				{
-					// no pose this frame (S-003 / S-004, or a state without an animation): the bind pose is what the draw shows then (RW 0x4BDC2D)
 					++m_stats.bonesCreatedOnBindPose;
 				}
 				else if (!info.boneName.empty() && info.boneName != kNoneBone)
 				{
 					++m_stats.boneMisses;
 				}
-				if (info.followBone && havePose)
+				if (info.followBone && source != BoneSource::NONE)
 				{
-					// RW 0x4C67B3: the whole bone matrix is the system's local transform
 					sys->setLocalTransform(bone);
 				}
 				else

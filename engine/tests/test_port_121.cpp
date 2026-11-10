@@ -17,9 +17,9 @@
 //   * The port's old path read the bind pose (`LiveFX::modelBone`: HTreeClass::Base_Pose), so a bucket bone whose bind transform carries no arm
 //     rotation left the jet on the model's own +Z - straight up for an upright builder. That is P-61.
 //
-// Synthetic data only (W3dSynth): a skeleton whose HAND sits at (0, 0, 2) with an unrotated bind pose, and an animation that moves the hand to
-// (0, 3, -1) and pitches it 90 degrees about X, so the two poses cannot be confused: the bind pose's local +Z is world +Z (upward), the animated
-// one's is world -Y (forward).
+// Synthetic data only (W3dSynth): a skeleton whose HAND sits at (0, 0, 2) with an unrotated bind pose, and an animation whose channel moves it by
+// (0, 3, -1) - a W3D motion channel is a delta over the bind translation, so the hand lands at (0, 3, 1) - and pitches it 90 degrees about X, so
+// the two poses cannot be confused: the bind pose's local +Z is world +Z (upward), the animated one's is world -Y (forward).
 
 #include "doctest.h"
 
@@ -87,8 +87,8 @@ Coord3D rotateVelocity(const Matrix3D &M, const Coord3D &v)
 		(M.Row[2][2] * v.z + M.Row[2][1] * v.y) + M.Row[2][0] * v.x };
 }
 
-// the synthetic soldier: ROOTTRANSFORM (0) -> HAND (1). The bind pose leaves the hand unrotated at (0, 0, 2); HAND_ANIM moves it to (0, 3, -1)
-// and pitches it 90 degrees about X, so its local +Z turns from world +Z into world -Y.
+// the synthetic soldier: ROOTTRANSFORM (0) -> HAND (1). The bind pose leaves the hand unrotated at (0, 0, 2); HAND_ANIM adds (0, 3, -1) to that
+// translation (the hand lands at (0, 3, 1)) and pitches it 90 degrees about X, so its local +Z turns from world +Z into world -Y.
 struct Draw
 {
 	MemoryFileSource fs;
@@ -112,7 +112,7 @@ struct Draw
 		append(bytes, meshChunk(body));
 		append(bytes, hlodChunk("ABUNIT_SKN", "ABUNIT_SKL", { { "ABUNIT_SKN.BODY", 1 } }));
 		fs.Add("art\\w3d\\ab\\abunit_skn.w3d", bytes);
-		// HAND_ANIM, 11 frames at 30 fps: the hand's translation (0, 3, -1) and a 90 degree pitch about X (+X = sin 45, +W = cos 45)
+		// HAND_ANIM, 11 frames at 30 fps: the hand's translation delta (0, 3, -1) and a 90 degree pitch about X (+X = sin 45, +W = cos 45)
 		std::vector<SynthChannel> channels;
 		channels.push_back(SynthChannel{ ANIM_CHANNEL_Y, 1, 0, 1, std::vector<float>(11, 3.0f) });
 		channels.push_back(SynthChannel{ ANIM_CHANNEL_Z, 1, 0, 1, std::vector<float>(11, -1.0f) });
@@ -149,14 +149,18 @@ TEST_CASE("PORT-121 poseBone: the creation's bone is the draw's CURRENT pose, no
 	Draw d("ParticlesAttachedToAnimatedBones = Yes\n");
 	const Matrix3D animated = PoseOf(*d.draw).at(1);
 	const Matrix3D bind = bindPoseAt(*d.draw, 1);
+	// the creation's own answer for this bone (RW 0x4C6514): the render object's pose
+	ParticleSysBoneInfo info;
+	info.boneName = "hand";
 	Matrix3D got;
-	REQUIRE(ParticleBoneFollow::poseBone(*d.draw, 1.0f, 1, got));
+	REQUIRE(LiveFX::particleSysBoneSource(d.draw->currentModel(), *d.draw, info, 1.0f, got) == LiveFX::BoneSource::POSE);
 	// the translation is the animation's, not the hierarchy's
 	CHECK(got.Row[0][3] == doctest::Approx(animated.Row[0][3]).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
 	CHECK(got.Row[1][3] == doctest::Approx(animated.Row[1][3]).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
 	CHECK(got.Row[2][3] == doctest::Approx(animated.Row[2][3]).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
 	CHECK(got.Row[1][3] == doctest::Approx(3.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
-	CHECK(got.Row[2][3] == doctest::Approx(-1.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
+	// the channel's Z is a delta over the pivot's bind translation: (0, 0, 2) + (-1) = 1 - the hand the draw shows, not the hierarchy's 2
+	CHECK(got.Row[2][3] == doctest::Approx(1.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
 	CHECK(bind.Row[1][3] == doctest::Approx(0.0f).epsilon(1e-5)); // // tolerance: float32 engine value vs the test's own float32 re-derivation (the bind pose's hand, which the old path used)
 	CHECK(bind.Row[2][3] == doctest::Approx(2.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
 	// and the axes: the animated bone's local +Z (where the ortho jet runs) is world -Y; the bind pose's is world +Z
@@ -168,19 +172,23 @@ TEST_CASE("PORT-121 poseBone: the creation's bone is the draw's CURRENT pose, no
 	CHECK(bind.Row[2][2] == doctest::Approx(1.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
 	// the drawable scale multiplies the whole matrix (RW 0x478180, read by the creation at RW 0x4C68F7 .. 0x4C697E)
 	Matrix3D scaled;
-	REQUIRE(ParticleBoneFollow::poseBone(*d.draw, 2.0f, 1, scaled));
+	REQUIRE(LiveFX::particleSysBoneSource(d.draw->currentModel(), *d.draw, info, 2.0f, scaled) == LiveFX::BoneSource::POSE);
 	CHECK(scaled.Row[1][2] == doctest::Approx(-2.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
 	CHECK(scaled.Row[1][3] == doctest::Approx(6.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
 	// pivot 0 is the root, which the record never names (RW 0x4C671A treats index 0 as "no such bone")
 	Matrix3D root;
-	CHECK_FALSE(ParticleBoneFollow::poseBone(*d.draw, 1.0f, 0, root));
+	info.boneName = "none"; // not a pivot of the hierarchy
+	CHECK(LiveFX::particleSysBoneSource(d.draw->currentModel(), *d.draw, info, 1.0f, root) == LiveFX::BoneSource::NONE);
 }
 
 TEST_CASE("PORT-121 poseBone: a state without an animation answers the bind pose (RW 0x4BDC2D poses nothing)")
 {
 	Draw d("", false);
+	ParticleSysBoneInfo info;
+	info.boneName = "hand";
 	Matrix3D got;
-	REQUIRE(ParticleBoneFollow::poseBone(*d.draw, 1.0f, 1, got));
+	// the draw shows the hierarchy itself, so the creation's fallback answers, and the caller can tell it apart from the pose
+	REQUIRE(LiveFX::particleSysBoneSource(d.draw->currentModel(), *d.draw, info, 1.0f, got) == LiveFX::BoneSource::BIND_POSE);
 	CHECK(got.Row[2][3] == doctest::Approx(2.0f).epsilon(1e-5)); // // tolerance: float32 engine value vs the test's own float32 re-derivation (the hierarchy's own hand translation)
 	CHECK(got.Row[1][3] == doctest::Approx(0.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
 	CHECK(got.Row[2][2] == doctest::Approx(1.0f).epsilon(1e-5)); // // tolerance: float32 engine value vs the test's own float32 re-derivation (no pitch: local +Z is world +Z)
@@ -231,16 +239,61 @@ TEST_CASE("PORT-121 jet: a system created on the animated bone sends the water w
 
 }
 
+// ---- the creation's matrix reaches the particles: a FollowBone record's system is turned by the animated bone -----------------------
+// The system a FollowBone record asks for takes the whole bone matrix (RW 0x4C67B6 setLocalTransform) and RW 0x5F4C6B turns the emission
+// velocity by it. A single-valued OrthoEmissionVelocity (X 1, Y 2, Z 3) makes the turn exact: the animated hand's 90 degree pitch about X
+// (its local +Z is world -Y) sends the jet's 3 along -Y and the spread's 2 along +Z, while the bind pose - what the creation read before this
+// lane - leaves (1, 2, 3) as it is, the jet on world +Z: straight up for an upright builder. That is P-61, and with PorterFireWater's own
+// ranges (X -2..2, Y -2..5, Z 2..10) it is the same: the water leaves forward, never upward.
+TEST_CASE("PORT-121 jet: the creation's follow-bone matrix turns the jet forward, the bind pose sends it up (P-61)")
+{
+	const std::string ini = fxtest::systemText("PorterJet", "    Lifetime = 20 20\n    BurstCount = 1 1\n    BurstDelay = 0 0\n",
+		"  EmissionVolume = PointEmissionVolume\n  End\n"
+		"  EmissionVelocity = OrthoEmissionVelocity\n    X = 1 1\n    Y = 2 2\n    Z = 3 3\n  End\n");
+	fxtest::Sim sim(ini);
+	Draw d("ParticlesAttachedToAnimatedBones = Yes\n");
+	const Matrix3D animated = PoseOf(*d.draw).at(1);
+	const Matrix3D bind = bindPoseAt(*d.draw, 1);
+
+	const FXParticleSystem::ParticleSystemID animatedId = sim.spawn("PorterJet");
+	FXParticleSystem::ParticleSystem *animatedSys = sim.mgr->findParticleSystemByID(animatedId);
+	REQUIRE(animatedSys);
+	animatedSys->setLocalTransform(animated);
+	animatedSys->setSkipParentXfrm(true);
+	sim.step();
+	REQUIRE(!sim.particles(animatedId).empty());
+	const FXParticleSystem::Particle *p = sim.particles(animatedId)[0];
+	// the animated hand's matrix is a 90 degree pitch about X: (x, y, z) -> (x, -z, y), so (1, 2, 3) -> (1, -3, 2)
+	CHECK(p->vel.x == doctest::Approx(1.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
+	CHECK(p->vel.y == doctest::Approx(-3.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
+	CHECK(p->vel.z == doctest::Approx(2.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
+
+	// the bind pose's matrix - the creation before this lane - leaves the same emission untouched: the jet keeps +Z, straight up
+	const FXParticleSystem::ParticleSystemID bindId = sim.spawn("PorterJet");
+	FXParticleSystem::ParticleSystem *bindSys = sim.mgr->findParticleSystemByID(bindId);
+	REQUIRE(bindSys);
+	bindSys->setLocalTransform(bind);
+	bindSys->setSkipParentXfrm(true);
+	sim.step();
+	REQUIRE(!sim.particles(bindId).empty());
+	const FXParticleSystem::Particle *q = sim.particles(bindId)[0];
+	CHECK(q->vel.x == doctest::Approx(1.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
+	CHECK(q->vel.y == doctest::Approx(2.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
+	CHECK(q->vel.z == doctest::Approx(3.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
+}
+
 // ---- the neighbouring behaviour: a record without FollowBone, and the score of where the creation read the bone -------------------
 TEST_CASE("PORT-121 neighbour: the bind pose answers where the pose cannot, and a record without FollowBone keeps its position form")
 {
 	Draw d("ParticlesAttachedToAnimatedBones = Yes\n");
 	// a pivot the hierarchy does not have: the pose cannot answer, so the creation falls back to the bind pose read of the bone name
+	ParticleSysBoneInfo info;
+	info.boneName = "hand";
 	Matrix3D missing;
 	CHECK_FALSE(ParticleBoneFollow::poseBone(*d.draw, 1.0f, 7, missing));
 	// a null clip (a state without an animation) answers the bind pose, which is what the draw shows then
-	Matrix3D bind;
-	REQUIRE(ParticleBoneFollow::poseBone(*d.draw, 1.0f, 1, bind));
+	Matrix3D escaped;
+	REQUIRE(ParticleBoneFollow::poseBone(*d.draw, 1.0f, 1, escaped));
 
 	// the record's FollowBone is what picks the matrix form: the walk of RW 0x4B6D5F ends on the end-of-draw argument (1, RW 0x4C6D78) at the
 	// first record whose FollowBone is off (RW 0x4B6DD5), so a position-only system is left where the creation put it

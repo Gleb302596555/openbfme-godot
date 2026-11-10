@@ -65,6 +65,8 @@ class Object;
 class TerrainPathfindSource;
 struct FireSetting;
 struct ParticleSysBoneInfo; // GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.h (PORT-68)
+class W3DScriptedModelDraw; // GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.h (PORT-121)
+struct RenderObjPrototype;  // Libraries/WWVegas/WW3D2 (PORT-121)
 
 // PORT-48: the W3DModelDraw::doDrawModule reader (RW 0x4C72BE) for the base data's
 // WadingParticleSys field. Kept separate from ParticleSysBone's state/animation map.
@@ -258,6 +260,18 @@ public:
 	static bool framePassed(int prev, int cur, int frame, int mode, int direction);
 	// PORT-68, RW 0x4C662D .. 0x4C663E: whether a ParticleSysBone entry's FXTrigger gate allows spawning on `d` (0 = NONE always allows)
 	static bool allowsParticleSysBoneFXTrigger(const Drawable &d, const ParticleSysBoneInfo &info);
+	// PORT-121 (issue #305): what the creation of one ParticleSysBone entry (RW 0x4C6514) did with the bone, as the tests read it without a
+	// drawable: NONE - no bone name, or a bone the model does not have (the system plays at the drawable's origin); POSE - the render object's
+	// current pose answered (RW 0x4C678F / 0x4C69BE) and `transform` is the matrix the system took; BIND_POSE - the pose could not answer
+	// (a state without an animation, S-003 / S-004), so the hierarchy's bind pose gave the bone.
+	enum class BoneSource
+	{
+		NONE,
+		POSE,
+		BIND_POSE
+	};
+	static BoneSource particleSysBoneSource(const RenderObjPrototype *model, const W3DScriptedModelDraw &draw, const ParticleSysBoneInfo &info,
+		float scale, Matrix3D &transform, int *boneIndex = nullptr);
 	// the stop lines of the live effects (S-680 .. S-686: the logic side's FXEventLog::stops() and this player's), for the report
 	static std::vector<std::string> stops();
 
