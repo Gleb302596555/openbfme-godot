@@ -7,6 +7,7 @@
 #include "Common/Audio/SimulatedAudioDevice.h"
 #include "GameLogic/ContainParseHooks.h"
 #include "GameLogic/Module/BehaviorModule.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 
 #include <memory>
@@ -97,6 +98,33 @@ TEST_CASE("PORT-90 garrison: a horde entering and leaving requests one sound for
 	w.frames(1);
 	REQUIRE(c->addToContain(horde));
 	CHECK(audio.count("Port90Enter", tower->getID()) == 1u);
+}
+
+TEST_CASE("PORT-90 garrison members rejoin without replaying the module enter sound")
+{
+	AudioRig audio;
+	combattest::CombatWorld w;
+	loadObjects(w);
+	Object *tower = w.unit("Port90Garrison", 'A', 300, 300);
+	Object *horde = w.unit("SwordHorde", 'A', 400, 300);
+	ContainModuleInterface *hc = horde->getContain();
+	HordeContainInterface *hi = hc->getHordeContainInterface();
+	REQUIRE(hi);
+	const std::vector<Object *> members(hc->getContainedItemsList()->begin(), hc->getContainedItemsList()->end());
+	REQUIRE(members.size() == 6u);
+	w.frames(1);
+	audio.manager->takeEventLog();
+	REQUIRE(tower->getContain()->addToContain(horde));
+	CHECK(audio.count("Port90Enter", tower->getID()) == 1u);
+	w.frames(1);
+	audio.manager->takeEventLog();
+	for (Object *member : members)
+	{
+		hi->releaseMemberForGarrison(member);
+		REQUIRE(tower->getContain()->addToContain(member));
+	}
+	// RW 0x87CD96 invokes the member callback, not slot 0x54; only the horde's own base add played the module event.
+	CHECK(audio.count("Port90Enter", tower->getID()) == 0u);
 }
 
 TEST_CASE("PORT-90 missing fields do not request a sound")
