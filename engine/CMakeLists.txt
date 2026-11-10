@@ -1126,6 +1126,8 @@ add_executable(openbfme_tests
     tests/test_local_20.cpp
     # lane LOCAL-21 (model state lifecycle, forced model replacement, teardown, per-mesh material state, issue #161)
     tests/test_local_21.cpp
+    # lane LOCAL-26 (water and sky as retail: WaterSet, WaterTextureList, SkyboxTextureSet, issue #188)
+    tests/test_local_26.cpp
     # lane LOCAL-24 (DetachableRiderUpdate, DetachableRiderBody, issue #179)
     tests/test_local_24.cpp
     # shared numeric facade (WEAPON-1 e75dd8c, imported unchanged: wide PC24 results, SSE binary32 ops, retail integer conversions)
