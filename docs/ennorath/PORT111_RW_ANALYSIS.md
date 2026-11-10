@@ -2,7 +2,7 @@
 
 ## Verdict
 
-**STOP: no reachable RotWK runtime reader was found for this field.** No engine code or `PORT-111*` behavior test is added: deriving a maximum-height rule from the issue title or from a field name would invent behavior that the executable does not perform. Whether the intended scope is instead a new, non-retail feature needs the owner's decision.
+**STOP: no reachable RotWK runtime reader was found for this field.** No engine code or `PORT-111*` behavior test is added: deriving a maximum-height rule from the issue title or from a field name would invent behavior that the executable does not perform. The owner accepted this no-reader verdict; no new, non-retail feature is requested.
 
 The checked `game.dat` is the community-modified image recorded by project stop S-001; addresses below refer to that image.
 
@@ -30,6 +30,6 @@ On the port's current `main`, `engine/src/GameClient/FXParticleSystem.cpp:683` p
 
 ## Tests and remaining question
 
-No `PORT-111*` test is appropriate until a RotWK reader is demonstrated; a synthetic test that asserts terrain/water/bridge selection would encode an unsupported expectation. No existing code or test expectation was changed. See S-7287 in `docs/STOPS.md`.
+No `PORT-111*` test is appropriate until a RotWK reader is demonstrated; a synthetic test that asserts terrain/water/bridge selection would encode an unsupported expectation. No existing code or test expectation was changed. See S-7290 in `docs/STOPS.md`.
 
-**Осталось:** владелец должен решить, закрыть ли #271 как поле без runtime-эффекта в RotWK 2.01, или дать новый адрес/источник, подтверждающий отдельный runtime reader.
+**Осталось:** ничего; владелец принял вердикт об отсутствии runtime-читателя.
