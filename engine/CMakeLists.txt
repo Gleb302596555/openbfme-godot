@@ -212,6 +212,7 @@ include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
 include(cmake/Port94.cmake) # PORT-94: SalvageCrateCollide LevelUpRadius / ResourceChance / BannerChance verdict (issue #242; OPENBFME_PORT94_TESTS)
 include(cmake/Port75.cmake) # PORT-75: BannerCarrierUpdate MorphCondition / BannerMorphFX (issue #207; OPENBFME_PORT75_TESTS)
 include(cmake/Port79.cmake) # OPENBFME_PORT79_TESTS (lane PORT-79)
+include(cmake/Port89.cmake) # OPENBFME_PORT89_TESTS (lane PORT-89: Object/SoundCrushing)
 include(cmake/Port54.cmake) # OPENBFME_PORT54_TESTS (lane PORT-54)
 include(cmake/Port83.cmake) # OPENBFME_PORT83_TESTS (lane PORT-83: BuildingBehavior NightWindowName / GlowWindowName, issue #231)
 include(cmake/Port100.cmake) # PORT-100: LargeGroupAudio HandOffModeDuration (issue #260; OPENBFME_PORT100_TESTS)
@@ -825,6 +826,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT94_TESTS}
     ${OPENBFME_PORT75_TESTS}
     ${OPENBFME_PORT79_TESTS}
+    ${OPENBFME_PORT89_TESTS}
     ${OPENBFME_PORT54_TESTS}
     ${OPENBFME_PORT83_TESTS}
     ${OPENBFME_PORT100_TESTS}
