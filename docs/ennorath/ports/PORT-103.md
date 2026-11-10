@@ -72,7 +72,7 @@ held sounds do), not in simulation hashes/snapshots. Stop on both quench
 and module destruction. No change to ignition gates, damage, healing,
 burned timing, spreading, model conditions, or parser behaviour.
 
-Synthetic PORT-103 tests will exercise a real FlammableUpdate object and
+Synthetic PORT-103 tests exercise a real FlammableUpdate object and
 an installed synthetic AudioManager: one attached request per ignition,
 no repeated start, stop on aflame-end/healing/destruction, no sound for
 absent/NoSound; BURNED before aflame-end must not stop the sound.
@@ -107,9 +107,10 @@ FlammableUpdate.cpp restored to origin/main and an empty destructor
 4 cases fail / 6 assertions fail; absent/NoSound and hash/snapshot
 neighbours still pass. Restoring the fixed source and rebuilding the
 full target gives 6/6 cases and 93/93 assertions again. No separate runner.
-Final main synchronization to 79078403 requires a new full-target build;
-its final result is recorded in the PR and the issue (do not mistake the
-negative control's expected failures for an unresolved regression).
+Final main synchronization to 79078403 was followed by a new successful
+full-target Release build at d67f7177: 6/6 cases, 93/93 assertions, 6180
+out-of-filter skipped tests. All PORT-103 cases execute without game files.
+The negative control's expected failures are not an unresolved regression.
 
 ## Native audio snapshot boundary (S-983)
 
@@ -136,5 +137,5 @@ GenericNONInteractableOptimizedTree, TreeLothlorien01; sound definition in
 `soundeffects.ini`. The loaded event policy is retained unchanged.
 
 Осталось: owner listening check and shared native client-event audio
-snapshot limitation S-983; final post-rebase build/test result in PR/issue.
+snapshot limitation S-983. Post-rebase full build and PORT-103 are green.
 Existing unrelated S-983 branches are not modified by this task.
