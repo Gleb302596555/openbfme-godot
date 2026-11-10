@@ -21,6 +21,7 @@
 #include "Common/GameCommon.h"
 #include "GameClient/Radar.h"
 #include "GameLogic/Damage.h"
+#include "Common/Module.h"
 #include "GameLogic/Module/CombatModules.h"
 #include "GameLogic/Object/Object.h"
 
