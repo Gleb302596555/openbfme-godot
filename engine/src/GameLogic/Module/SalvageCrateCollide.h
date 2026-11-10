@@ -42,7 +42,9 @@
 //     findUpgrade(Upgrade) (RW 0x66F5E5); a PLAYER upgrade (+ 4 == 0) is given to the other's controlling player complete (addUpgrade(u, 2, 0), RW 0x6AEE22;
 //     retail calls it without a null test); an unknown or object upgrade does nothing. 3: the money RW 0x8C148B. Returns true for every outcome.
 //     The porter / banner branch (outcomes 0 and 1: every object of the other's player within LevelUpRadius gains a level, RW 0x8C168D .. 0x8C1718) is
-//     unreachable in 2.01 (RW 0x8C136C returns 2, 3 or 4 only); PorterChance, BannerChance and ResourceChance are parsed and never read.
+//     unreachable in 2.01 (RW 0x8C136C returns 2, 3 or 4 only — its only caller is RW 0x8C15CA; the jl/jle gates RW 0x8C15CF/0x8C15D7 are dead).
+//     PorterChance, BannerChance and ResourceChance are parsed and never read; LevelUpRadius's only reader is RW 0x8C16BF inside that dead branch
+//     (full proof: docs/ennorath/port94-salvage-crate-rw.md, stop S-7221).
 //   * the money RW 0x8C148B (other): amount = MinResource when it equals MaxResource, else GetGameLogicRandomValue(MinResource, MaxResource,
 //     SalvageCrateCollide.cpp, 0xDB) (RW 0x6D328E); nothing more when amount <= 0. In a multiplayer game (RW 0x625456) amount = _ftol(amount *
 //     MultiPlayMoneyMult[live playable players - 1]) (RW 0x6A8630(0), RW 0x642002: fild, fmul at the game's 24-bit precision, RW 0xA3CFA4). With a
