@@ -62,7 +62,8 @@
 //     RW 0xC627A0 (RW 0x88ED46: the object has a FlammableUpdate whose status is NORMAL) is ignited (its FlammableUpdate's tryToIgnite); when none, with
 //     TheGlobalData + 0x18 -> + 0xBC set, a burnable terrain object (RW 0x67F52B / 0x68449B) is tried; then sleep calcNextSpreadDelay.
 // WHAT IS INFERENCE / NOT PORTED (stop S-983, reported per use):
-//   * the client parts (burning sound, the drawable flushes) and the body's slot 0x2C, RW 0x68F2F1(0), the script events 10 / 11 and the
+//   * PORT-103: burning sound start/stop now use AudioApi (RW 0x890201, 0x8900C7, 0x88FDDD).
+//     Remaining client parts (the drawable flushes) and the body's slot 0x2C, RW 0x68F2F1(0), the script events 10 / 11 and the
 //     EntEnragedUpdate notification are not run;
 //   * BurnContained's passenger damage and the contain's slot 0x88(2) are not ported (reported);
 //   * the search runs only with a map (TerrainLogic through the pathfinder): without one there is nothing to search and the object takes RW 0x890A15's
