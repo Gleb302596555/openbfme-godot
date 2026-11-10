@@ -376,6 +376,7 @@ include(cmake/Castlearea1.cmake) # CASTLEAREA-1: the castle area triggers (OPENB
 include(cmake/Weather1.cmake)   # WEATHER-1: snow, rain, darkness, lightning, the weather sound (client sources; OPENBFME_WEATHER1_TESTS)
 include(cmake/Port33.cmake)     # PORT-33: the AIWoTRForfeitTactic port of FarmingThreshold / LogicFramesTillAISelfDestructs (OPENBFME_PORT33_TESTS)
 include(cmake/Port64.cmake)     # PORT-64: RubbleRiseUpdate, the rubble rise of a destroyed camp or castle piece (OPENBFME_PORT64_TESTS)
+include(cmake/Port82.cmake)     # PORT-82: AttributeModifierNugget/DamageFXType is parsed but unread in RotWK 2.01 (issue #214; OPENBFME_PORT82_TESTS)
 include(cmake/Bldfx1.cmake)     # FEAT-BLDFX-1: the FXList nugget sinks, scorches, decals, light pulses, camera shakers (OPENBFME_BLDFX1_SOURCES / _TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
@@ -800,6 +801,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT54_TESTS}
     ${OPENBFME_PORT33_TESTS}
     ${OPENBFME_PORT64_TESTS}
+    ${OPENBFME_PORT82_TESTS}
     ${OPENBFME_PORT5_TESTS}
     ${OPENBFME_PORT18_TESTS}
     ${OPENBFME_PORT1_TESTS}
