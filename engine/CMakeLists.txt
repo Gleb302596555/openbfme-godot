@@ -1129,6 +1129,8 @@ add_executable(openbfme_tests
     tests/test_local_26.cpp
     # lane LOCAL-24 (DetachableRiderUpdate, DetachableRiderBody, issue #179)
     tests/test_local_24.cpp
+    # lane LOCAL-28 (W3DLightDraw as retail: object lights, issue #190)
+    tests/test_local_28.cpp
     # shared numeric facade (WEAPON-1 e75dd8c, imported unchanged: wide PC24 results, SSE binary32 ops, retail integer conversions)
     tests/test_numeric_facade.cpp
     # lane ECON-1: the economy

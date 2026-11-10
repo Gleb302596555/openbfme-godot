@@ -51,6 +51,8 @@ typedef std::uint32_t DrawableID;
 class ModuleFactory;
 class AnimationSoundModuleManager;
 class ModelConditionAudioLoopClientBehavior;
+class LightPulsePool;
+class W3DLightDraw;
 
 // LOCAL-3: TintEnvelope (ZH Include/GameClient/TintEnvelope.h, RW 0x671B20 .. 0x674AD7 / BFME2 0x671800 .. 0x6747B1, both editions identical).
 // Steps a drawable's additive tint or selection flash through attack, sustain and decay at the client frame rate, with optional sine modulation by the
@@ -132,11 +134,19 @@ struct DrawServices
 	std::function<int()> effectsLOD;
 	bool selectionFlashHouseColor = true; ///< lane LOCAL-3: GameData SelectionFlashHouseColor (RW 0xC005E0, GlobalData +0xB58)
 	float selectionFlashSaturationFactor = 0.6f; ///< lane LOCAL-3: GameData SelectionFlashSaturationFactor (RW 0xC005D0, GlobalData +0xB54)
+	LightPulsePool *lightPulses = nullptr; ///< lane FEAT-BLDFX-1 / LOCAL-28: dynamic light pulse pool for FX and object lights
 };
 
 // One draw module of a drawable.
 struct DrawEntry
 {
+	DrawEntry();
+	~DrawEntry();
+	DrawEntry(DrawEntry &&) noexcept;
+	DrawEntry &operator=(DrawEntry &&) noexcept;
+	DrawEntry(const DrawEntry &) = delete;
+	DrawEntry &operator=(const DrawEntry &) = delete;
+
 	std::string className;
 	std::string tag;
 	W3DDrawKind kind = W3D_DRAWKIND_NOT_DRAWN;
@@ -144,6 +154,7 @@ struct DrawEntry
 	std::string staticModel;          ///< tree / prop / floor kinds: the model the module shows ("" when none)
 	std::string notDrawnReason;       ///< why a non-model entry draws nothing
 	std::unique_ptr<W3DScriptedModelDraw> draw; ///< MODEL kind
+	std::unique_ptr<W3DLightDraw> lightDraw;    ///< lane LOCAL-28: W3DLightDraw dynamic light module
 	bool animated = false;            ///< advance() would change the draw (W3DScriptedModelDraw::needsAdvance, set at creation and on every flag change, never lowered by an advance: the pose after a blend's promotion is still pushed): advance() each render frame
 	bool missingModel = false;        ///< the model is not in the mounted archives (a retail data defect): not drawn
 	std::string lastModel;            ///< the model last handed to the device layer (the device layer keeps its own handle)
@@ -267,6 +278,9 @@ public:
 	// RW 0x672823 Drawable::showSubObject: every model draw module hides / shows the sub object `name` (permanent: the script's permanent form).
 	// Both bump the change count so the device layer re-reads the draws.
 	bool showModule(const std::string &name, bool visible, bool permanent);
+
+	// lane LOCAL-28: queries bone world position across draw module models (RW 0x672B5B)
+	bool boneWorldPosition(const std::string &boneName, Coord3D &outPos) const;
 	// lane BUILD-4: a draw module's state script asked for a module's visibility (RW 0x734EF4 -> 0x6789B4); while the constructor still makes the modules the
 	// request waits until all exist
 	void scriptModuleVisible(const std::string &name, bool visible);

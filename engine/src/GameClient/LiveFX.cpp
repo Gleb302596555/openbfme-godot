@@ -318,6 +318,7 @@ LiveFX::LiveFX(LiveGame &game, FXPlayback &playback, int effectsLod)
 	m_playback.setWorld(this);
 	m_game.logic().fxEvents().setSink(this);
 	m_game.drawables().setFXHost(this);
+	m_game.drawables().services().lightPulses = &m_playback.lightPulsesMutable();
 
 	ensureSystems();
 
@@ -379,6 +380,7 @@ LiveFX::~LiveFX()
 		m_playback.particles().destroyParticleSystemByID(m_terrainSmokeSystem);
 		m_terrainSmokeSystem = FXParticleSystem::INVALID_PARTICLE_SYSTEM_ID;
 	}
+	m_game.drawables().services().lightPulses = nullptr;
 	m_game.drawables().setFXHost(nullptr);
 	if (m_game.logic().fxEvents().sink() == this)
 	{

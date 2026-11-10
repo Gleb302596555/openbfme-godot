@@ -29,9 +29,10 @@
 #include "Common/INI.h"
 #include "Common/INIDataTypes.h"
 #include "Common/Module.h"
-#include "GameLogic/SnapshotXfer.h"
 
 #include <string>
+
+class Xfer;
 
 class W3DLightDrawModuleData : public ModuleData
 {
@@ -57,6 +58,7 @@ const FieldParse *light(); ///< RW 0x00BDBB08 / BFME2 0x00BCD918
 }
 
 class ModuleFactory;
+class LightPulsePool;
 
 class W3DLightDraw : public DrawableModule
 {
@@ -64,11 +66,11 @@ public:
 	OBFME_MODULE_XFER(W3DLightDraw)
 
 	W3DLightDraw(Thing *thing, const ModuleData *moduleData);
-	~W3DLightDraw() override = default;
+	~W3DLightDraw() override;
 
 	void reactToTransformChange(const Coord3D *oldPos, float oldAngle) override;
 
-	void setEnabled(bool enabled) { m_enabled = enabled; }
+	void setEnabled(bool enabled);
 	bool isEnabled() const { return m_enabled; }
 
 	float phase() const { return m_phase; }
@@ -76,15 +78,26 @@ public:
 	float currentRadius() const { return m_radius; }
 	float currentAngle() const { return m_angle; }
 
+	float lightRadius() const;
+	RGBColor lightColor() const;
+	Coord3D lightPosition() const;
+
 	void stepFlicker(float dt);
+	void updateLight();
 
 	const W3DLightDrawModuleData *getData() const { return m_data; }
+	void setLightPool(LightPulsePool *pool);
+	int lightHandle() const { return m_lightHandle; }
 
 	static void registerClass(ModuleFactory &modules);
 
 private:
+	LightPulsePool *getPool() const;
+
 	Thing *m_thing = nullptr;
 	const W3DLightDrawModuleData *m_data = nullptr;
+	LightPulsePool *m_pool = nullptr;
+	int m_lightHandle = -1;
 	float m_phase = 0.0f;                     ///< +0x10
 	float m_radius = 0.0f;                    ///< +0x14
 	float m_angle = 0.0f;                     ///< +0x18

@@ -656,18 +656,64 @@ void FXPlayer::updateLightPulseUniforms()
 			haveView = true;
 		}
 	}
-	size_t used = 0;
+	struct CandidateLight
+	{
+		const LightPulseFx *light = nullptr;
+		Vector3 viewPos;
+		float score = 0.0f;
+	};
+	std::vector<CandidateLight> candidates;
 	for (const LightPulseFx &l : m_playback->lightPulses().lights())
 	{
-		if (!l.enabled || used >= 4)
+		if (!l.enabled)
 		{
 			continue;
 		}
 		const Vector3 world = toGodotSpace(l.position);
 		const Vector3 pos = haveView ? view.xform(world) : world;
 		const RGBColor c = l.colorNow();
+		const float intensity = std::max({ c.red, c.green, c.blue });
+		const float range = l.range();
+		if (intensity <= 0.0001f || range <= 0.0001f)
+		{
+			continue;
+		}
+		float score = 1.0f;
+		if (haveView)
+		{
+			// in view space, camera is at origin; lights in front of camera (-Z in Godot) contribute more
+			const float dist = pos.length();
+			score = (intensity * range) / std::max(1.0f, dist);
+			if (pos.z > range) // behind camera
+			{
+				score *= 0.01f;
+			}
+		}
+		else
+		{
+			score = intensity * range;
+		}
+		candidates.push_back({ &l, pos, score });
+	}
+
+	if (candidates.size() > 4)
+	{
+		std::stable_sort(candidates.begin(), candidates.end(), [](const CandidateLight &a, const CandidateLight &b) {
+			return a.score > b.score;
+		});
+	}
+
+	size_t used = 0;
+	for (const CandidateLight &cand : candidates)
+	{
+		if (used >= 4)
+		{
+			break;
+		}
+		const LightPulseFx &l = *cand.light;
+		const RGBColor c = l.colorNow();
 		const String base = String("w3d_pulse") + String::num_int64((int64_t)used);
-		rs->global_shader_parameter_set(StringName(base), Vector4(pos.x, pos.y, pos.z, l.range()));
+		rs->global_shader_parameter_set(StringName(base), Vector4(cand.viewPos.x, cand.viewPos.y, cand.viewPos.z, l.range()));
 		rs->global_shader_parameter_set(StringName(base + String("_col")), Vector4(c.red, c.green, c.blue, 0.0f));
 		++used;
 	}

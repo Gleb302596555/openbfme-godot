@@ -14,12 +14,19 @@
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawVariants.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLightDraw.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawBones.h"
 #include "Common/ModelState.h"
 #include "GameLogic/SimMath.h"
 
 #include <cmath>
 #include <cstring>
 #include <variant>
+
+DrawEntry::DrawEntry() = default;
+DrawEntry::~DrawEntry() = default;
+DrawEntry::DrawEntry(DrawEntry &&) noexcept = default;
+DrawEntry &DrawEntry::operator=(DrawEntry &&) noexcept = default;
 
 Drawable::Drawable(DrawServices &services, const ThingTemplate *tt, DrawableID id, ObjectID objectId, const std::vector<ClientEvent::ClientModule> &clientModules,
 	std::vector<std::string> &problems, int variation)
@@ -92,6 +99,13 @@ void Drawable::reactToTransformChange(const Coord3D *oldPos, float oldAngle)
 	for (std::unique_ptr<DrawableModule> &m : m_clientModules)
 	{
 		m->reactToTransformChange(oldPos, oldAngle); // lane AUDIO-4
+	}
+	for (DrawEntry &e : m_entries)
+	{
+		if (e.lightDraw)
+		{
+			e.lightDraw->reactToTransformChange(oldPos, oldAngle);
+		}
 	}
 }
 
@@ -219,6 +233,16 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 		{
 			e.hideIf = fl->m_hideIfModelConditions;
 		}
+		// lane LOCAL-28: W3DLightDraw (RW 0x004CE750 / DONOR BFME2 0x004CEF80)
+		if (ci->kind == W3D_DRAWKIND_NOT_DRAWN && (nugget.name == "W3DLightDraw" || dynamic_cast<const W3DLightDrawModuleData *>(nugget.data.get()) != nullptr))
+		{
+			const auto *ld = dynamic_cast<const W3DLightDrawModuleData *>(nugget.data.get());
+			if (ld)
+			{
+				e.lightDraw = std::make_unique<W3DLightDraw>(this, ld);
+				e.animated = true;
+			}
+		}
 	}
 	m_entries.push_back(std::move(e));
 }
@@ -227,7 +251,7 @@ bool Drawable::hasAnimatedEntry() const
 {
 	for (const DrawEntry &e : m_entries)
 	{
-		if (e.animated && e.draw)
+		if (e.animated && (e.draw || e.lightDraw))
 		{
 			return true;
 		}
@@ -316,6 +340,10 @@ bool Drawable::showModule(const std::string &name, bool visible, bool permanent)
 		if (e.tag == name)
 		{
 			e.moduleHidden = !visible;
+			if (e.lightDraw)
+			{
+				e.lightDraw->setEnabled(visible);
+			}
 			++m_changeCount;
 			return true;
 		}
@@ -512,6 +540,10 @@ void Drawable::advanceAnimationLocal(double elapsedMs)
 		{
 			advanceTires(e, elapsedMs);
 		}
+		if (e.lightDraw)
+		{
+			e.lightDraw->stepFlicker((float)(elapsedMs * 0.001));
+		}
 	}
 }
 
@@ -528,6 +560,10 @@ void Drawable::advanceAnimation(double elapsedMs)
 		if (e.isTruck || !e.truckChecked || e.truckData != e.data) // lane PERF-HD: the call only for a truck (or an entry not looked at yet)
 		{
 			advanceTires(e, elapsedMs);
+		}
+		if (e.lightDraw)
+		{
+			e.lightDraw->stepFlicker((float)(elapsedMs * 0.001));
 		}
 	}
 }
@@ -1156,4 +1192,65 @@ void Drawable::updateTint()
 		}
 	}
 	m_prevTintStatus = m_tintStatus;
+}
+
+// RW 0x672B5B: bone world position query across draw module models
+bool Drawable::boneWorldPosition(const std::string &boneName, Coord3D &outPos) const
+{
+	if (boneName.empty() || AsciiStringUtil::compareNoCase(boneName, "None") == 0)
+	{
+		return false;
+	}
+	std::string lower = boneName;
+	AsciiStringUtil::toLower(lower);
+
+	for (const DrawEntry &e : m_entries)
+	{
+		if (!e.draw)
+		{
+			continue;
+		}
+		Vector3 pos;
+		if (e.draw->bones().findPristineBonePos(lower, pos))
+		{
+			const float c = SimMath::cosDet(getOrientation());
+			const float s = SimMath::sinDet(getOrientation());
+			const float wx = SimMath::sseSub(SimMath::sseMul(pos.X, c), SimMath::sseMul(pos.Y, s));
+			const float wy = SimMath::sseAdd(SimMath::sseMul(pos.Y, c), SimMath::sseMul(pos.X, s));
+			outPos = Coord3D{ getPosition()->x + wx, getPosition()->y + wy, getPosition()->z + pos.Z };
+			return true;
+		}
+		if (const RenderObjPrototype *proto = e.draw->frame().model)
+		{
+			if (proto->Tree)
+			{
+				int boneIdx = proto->Tree->Get_Bone_Index(lower);
+				if (boneIdx <= 0)
+				{
+					const int sub = W3DFindSubObjectByName(*proto, lower);
+					boneIdx = sub >= 0 ? proto->SubObjects[(size_t)sub].BoneIndex : -1;
+				}
+				if (boneIdx > 0)
+				{
+					HTreePose pose;
+					proto->Tree->Base_Pose(Matrix3D(), pose);
+					if ((size_t)boneIdx < pose.Transform.size())
+					{
+						const Matrix3D &m = pose.Transform[(size_t)boneIdx];
+						const float scale = getInstanceScale();
+						const float px = m.Row[0][3] * scale;
+						const float py = m.Row[1][3] * scale;
+						const float pz = m.Row[2][3] * scale;
+						const float c = SimMath::cosDet(getOrientation());
+						const float s = SimMath::sinDet(getOrientation());
+						const float wx = SimMath::sseSub(SimMath::sseMul(px, c), SimMath::sseMul(py, s));
+						const float wy = SimMath::sseAdd(SimMath::sseMul(py, c), SimMath::sseMul(px, s));
+						outPos = Coord3D{ getPosition()->x + wx, getPosition()->y + wy, getPosition()->z + pz };
+						return true;
+					}
+				}
+			}
+		}
+	}
+	return false;
 }
