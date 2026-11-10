@@ -135,6 +135,7 @@ public:
 	Radar &radar() { return *m_radar; }
 	// AUDIO-2: the unit voices of the local player's selection and commands (through the installed audio manager and Eva)
 	UnitVoiceResponse &voice() { return *m_voice; }
+
 	// ---- lane CHAT-1: the InGameUI message lines (GameClient/InGameUIMessages.h) and the chat window's model (GameClient/InGameChat.h) ----
 	InGameUIMessages &messageLines() { return m_messageLines; }
 	const InGameUIMessages &messageLines() const { return m_messageLines; }

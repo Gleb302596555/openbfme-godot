@@ -97,6 +97,8 @@ public:
 		VOICE_EVENT_ENTER_STATE_MOVE = 0x7E7,
 		VOICE_EVENT_ENTER_STATE_ATTACKMOVE = 0x7E8,
 		VOICE_EVENT_BLOODTHIRSTY = 0x7E9,
+		VOICE_EVENT_START_CHARGING = 0x7EA, ///< RW 0x8DFD0D .. 0x8DFD2B: UnitSpecificSounds/VoiceStartCharging (literal RW 0xC77A74)
+		VOICE_EVENT_NO_BUILD = 0x7EB,       ///< RW 0x8DFE7B: UnitSpecificSounds/VoiceNoBuild (literal RW 0xC77A64); posted by a refused placement click, RW 0x83EAA0
 		VOICE_EVENT_ENTER_STATE_SPECIAL_POWER = 0x7EC, ///< RW 0x8DFCE1: UnitSpecificSoundToUseAsEnterStateInitiateIntendToDoVoice
 	};
 
