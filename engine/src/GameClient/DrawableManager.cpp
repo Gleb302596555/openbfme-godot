@@ -376,6 +376,12 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 				d->fadeOut((double)ev.fadeFrames);
 			}
 			break;
+		case ClientEvent::RELEASED_FROM_BONE: // lane PORT-105 (RW 0x86AD93 -> 0x67476B)
+			if (Drawable *d = findByObject(ev.object))
+			{
+				d->releaseFromBone(ev.snappyness);
+			}
+			break;
 		case ClientEvent::SET_SHADOWS: // TOP20 #24 (RW 0x672D28)
 			if (Drawable *d = findByObject(ev.object))
 			{

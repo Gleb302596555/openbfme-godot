@@ -342,7 +342,21 @@ void TransportContain::onRemoving(Object *obj)
 		ai->wakeUpNow(); // RW 0x86AD2D: RW 0x662DB3 (the mood check now)
 	}
 	m_frameExitNotBusy = m_transport->m_exitDelay + logic.getFrame(); // RW 0x86AD3F: data + 0xAC
-	// RW 0x86AD48 .. 0x86AD8A: the drawables' bone release with ReleaseSnappyness (client side)
+	// RW 0x86AD62 .. 0x86ADAE: the rider's drawable takes the release blend with ReleaseSnappyness (RW 0x67476B, the value read at RW 0x86ADA1
+	// from the data + 0x17C), unless the container's riders get the ENCLOSED status (contain slot 0xB0 = ObjectStatusOfContained for this rider,
+	// bit 61 = ENCLOSED, the name table RW 0xD8AFF0): an enclosed rider is never drawn at a bone, so it does not glide. RW first asks both objects
+	// for a drawable (RW 0x70E013 at RW 0x86AD64 and RW 0x86AD8C) and tells the container's drawable that the rider's drawable left it (RW 0x86AD93
+	// -> RW 0x6719CD, ObjectDrawInterface slot 0x4C); this port attaches no drawable to a bone (S-1104), so the hook is the whole client call and a
+	// rider without a drawable drops the request at the client.
+	static const int enclosedStatus = CombatNames::status("ENCLOSED");
+	const ObjectStatusMaskType *riderStatus = getObjectStatusOfContainedFor(obj);
+	if (!riderStatus || !maskTest(*riderStatus, enclosedStatus))
+	{
+		if (ObjectClientHooks *client = logic.clientHooks())
+		{
+			client->releaseRiderFromBone(*obj, m_transport->m_releaseSnappyness);
+		}
+	}
 	clearWeaponStates(); // contain slot 0xF0 (RW 0x86A4E4)
 	// RW 0x86AD95 .. 0x86AEA1: FadePassengerOnExit (client side)
 	fadePassengerOnExit(obj);
