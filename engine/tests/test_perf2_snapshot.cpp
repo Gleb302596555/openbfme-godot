@@ -11,6 +11,7 @@
 #include "Common/JobSystem.h"
 #include "GameClient/LogicSnapshot.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Locomotor.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -231,8 +232,9 @@ FirstBuild buildFirst(int threads)
 	{
 		ObjectSnapshot c = s;
 		c.tmpl = nullptr;
+		c.locomotorTemplate = nullptr; // LOCAL-25: each fresh world loads its own templates: compared by name, as tmpl
 		out.records.push_back(bytesOf(c));
-		out.templates.push_back(s.tmpl ? s.tmpl->getName() : std::string());
+		out.templates.push_back((s.tmpl ? s.tmpl->getName() : std::string()) + "|" + (s.locomotorTemplate ? s.locomotorTemplate->m_name : std::string()));
 	}
 	return out;
 }
