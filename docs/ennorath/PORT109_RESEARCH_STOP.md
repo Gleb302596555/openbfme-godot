@@ -63,3 +63,48 @@ completed. No PR or completion claim is appropriate.
 Осталось: obtain an accessible RotWK binary, prove the RW chain, implement,
 add synthetic regression and neighbour tests, build the full test target,
 run `-tc="PORT-109*"`, and open the requested implementation PR.
+
+## Owner-confirmed RW evidence supersedes input-access stop
+
+The owner supplied `rw.py dis` results in issue #269 on 2026-11-10 and
+explicitly authorized using them without a local binary. The previous
+input-access stop is resolved for the cursor path, not for target validation.
+
+- RW 0x81F1E0..0x81F1F8: action 0xC takes priority.
+- RW 0x81F29D..0x81F2A9: action 0x12 gates the upgrade branch; failure
+  continues to action 0x11 at RW 0x81F33B.
+- RW 0x81F2AF..0x81F2CD: DoCommand finds command type 0x33; absent button
+  ends evaluation, present button uses shared issue path RW 0x81F426.
+- RW 0x81F2D2..0x81F332: other evaluation types append 0x7D6, target ID,
+  and resolve the first selected object's +0x28C mask via RW 0x66F468.
+  Lookup walks the template list and returns the first matching bit.
+- RW 0x5EE9CA: cursor lookup is case-insensitive; empty (RW 0x5EE9D7)
+  and unknown names return -1. A missing upgrade instead uses 1
+  (RW 0x81F337).
+- RW 0x6A405D..0x6A4081 consumes argument 1 through RW 0x69BD53;
+  selecting/scrolling suppress changes, otherwise RW 0x69B06D sets it.
+- RW 0xB5577B is unrelated APT/Lua string concatenation, not an upgrade reader.
+
+### Remaining shared-mechanism blocker (not an input-access blocker)
+
+The owner's comment explicitly leaves action 0x12 validation to port-side
+inspection. That inspection found `ActionManager.cpp`,
+`canDoSpecialPowerAtObject`, switch case 0x33 (RW 0x82D780): it calls
+`unportedObjectTypeTest`, returning false and reporting S-7140.
+`GiveUpgradeUpdate.h` exposes no equivalent of target validation RW 0x89FE64;
+`GiveUpgradeUpdate.cpp` documents missing contained-target providers and
+paired reservations as S-6011. Its automatic search is not an equivalent
+of the context action's predicate.
+
+This is a shared mechanism, also used by CommandButtonHuntUpdate and
+special-power object validation. A cursor-only condition based on module
+presence, relationship or affectedByUpgrade would bypass it. Calling the
+existing type-0x33 validator would always reject and make the cursor branch
+dead. Neither is a correct implementation.
+
+Needed: disassembly/branch semantics of RW 0x82D780 and RW 0x89FE64,
+including provider/contained-target decisions and the action-0x12 dispatch
+in RW 0x69D27E. With those, implement one shared predicate and reuse it
+in the existing ActionManager and context paths; no HUD-only approximation.
+No code or tests changed, and PORT-109* has not run. The three requested
+cursor tests plus priority/selection suppression remain to be implemented.

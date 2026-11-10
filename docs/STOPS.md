@@ -27,15 +27,18 @@ Both identity readers/writers must use the shared `.install_id.lock` directory.
 Original WP-C game builds lack that lock and the pending-invite argument.
 No live-service or retail-game acceptance is claimed by S-D's local tests.
 
-## PORT-109 input-access stop (issue #269)
+## PORT-109 shared target-validation stop (issue #269)
 
-Upgrade/Cursor remains parsed and unused. The BFME2 donor has a reader in
-CommandTranslator's action-18 hint branch, so this is **not** a verdict that
-RotWK has no reader. No accessible RotWK game.dat means the required rw.py
-instruction proof and class chain cannot be obtained. No engine change or
-PORT-109 test is claimed. See [research handoff](ennorath/PORT109_RESEARCH_STOP.md).
-Resolution: provide game.dat at workspace/RotWK/game.dat, then prove RW before
-porting the existing cursor path.
+The owner confirmed the cursor writer RW 0x81F2D2..0x81F337, mask lookup
+RW 0x66F468, name lookup RW 0x5EE9CA and consumer RW 0x6A405D..0x6A4081.
+The local-binary requirement is waived for these facts. Remaining blocker:
+action 0x12 target validity depends on the shared check RW 0x82D780 and
+GiveUpgradeUpdate RW 0x89FE64. The port's ActionManager type 0x33 explicitly
+returns false (S-7140); GiveUpgradeUpdate lacks the equivalent target query
+(S-6011). Do not bypass this with a cursor-only predicate. Cursor remains
+parsed-unused; no PORT-109 tests added or run. Resolution: owner supplies
+these predicates' RW branches, then port the shared mechanism and context
+branch together. See [research handoff](ennorath/PORT109_RESEARCH_STOP.md).
 
 ## Rebuild acceptance stops
 
