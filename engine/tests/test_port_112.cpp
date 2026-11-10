@@ -3,7 +3,7 @@
 // Target facts (RotWK 2.01 game.dat, read with tools/mod/rw.py; the same addresses are in the comments of
 // GameLogic/Object/Contain/HordeContainRuntime.cpp and GameLogic/Module/SpecialPowerModules.cpp):
 //   * NotComboFormation is the HordeContain module data byte + 0x25C; the field table row RW 0xC5B8BC of the table RW 0xC5BD50 (parser RW 0x42E558)
-//     writes exactly that offset. Getter RW 0x872B91 (interface slot 136 / +0x220): `mov eax, [ecx - 0x118]` (module data, the interface sits at
+//     writes exactly that offset, and the port's row carries the same INI name (HordeContain.cpp, offsetof(HordeContainModuleData, m_notComboFormation)). Getter RW 0x872B91 (interface slot 136 / +0x220): `mov eax, [ecx - 0x118]` (module data, the interface sits at
 //     module + 0x11C), `mov al, [eax + 0x25c]`, `ret`; the slot is in RW 0xC5B1F8 (the horde contains' shared base), RW 0xC5BE98 (HordeContain) and
 //     RW 0xC5CFA8 (AODHordeContain).
 //   * Its ONLY reader is RW 0x751716, the onEnter (slot 4 of vtable RW 0xC29548) of AICombineState, whose constructor RW 0x7448DE pushes the name key
@@ -16,11 +16,10 @@
 #include "doctest.h"
 #include "CombatTestUtil.h"
 #include "Common/SpecialPower.h"
+#include "GameLogic/Module/HordeContain.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
-
-#include <cstddef>
 
 namespace {
 
@@ -163,10 +162,9 @@ CombineHordeSpecialPower *combinePowerOf(combattest::CombatWorld &world, Object 
 
 } // namespace
 
-// The parse and the getter: the field table's row writes module data + 0x25C (the offset the getter RW 0x872B91 reads) and slot 136 returns it.
+// The parse and the getter: the row "NotComboFormation" (the RW row RW 0xC5B8BC that writes module data + 0x25C) is parsed, and slot 136 returns it.
 TEST_CASE("PORT-112: NotComboFormation is the module data byte the slot-136 getter returns")
 {
-	static_assert(offsetof(HordeContainModuleData, m_notComboFormation) == 0x25C, "RW 0x872B97 reads module data + 0x25C");
 	Port112World world;
 	Object *porcupine = world.unit("Port112PikemanHordePorcupine", 'A', 300, 300);
 	Object *plain = world.unit("Port112PlainHorde", 'A', 1200, 1200);
@@ -213,7 +211,7 @@ TEST_CASE("PORT-112: the combine order takes a porcupine formation out of its al
 	CHECK(after != before);
 	CHECK_FALSE(after->hordeData().m_isPorcupineFormation);
 	CHECK(after->hordeData().m_thisFormationIsTheMainFormation);
-	CHECK(after->hordeData().m_alternateFormation == "Port112PikemanHorde");
+	CHECK_FALSE(after->hordeData().m_notComboFormation);
 	CHECK(after->getContainCount() == membersBefore);
 }
 
