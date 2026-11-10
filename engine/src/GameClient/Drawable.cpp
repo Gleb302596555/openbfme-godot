@@ -1327,7 +1327,7 @@ bool Drawable::entryTransform(const DrawEntry &e, Matrix3D &outMatrix) const
 		// RW 0x004B6B26: slot +0x104 virtual callback to adjust attached transform
 		if (e.draw)
 		{
-			e.draw->adjustModelMatrix(outMatrix);
+			e.draw->adjustAttachedTransform(outMatrix);
 		}
 		return true;
 	}

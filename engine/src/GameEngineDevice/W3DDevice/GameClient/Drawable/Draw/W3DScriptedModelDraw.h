@@ -285,9 +285,9 @@ public:
 	float cachedConstructionPercent() const { return m_constructionPercent; }
 	bool adjustsHeightByConstruction() const { return m_curAnimState && m_curAnimState->testFlag(W3D_ACF_ADJUST_HEIGHT_BY_CONSTRUCTION_PERCENT); }
 
-	// vtable slot +0x104 (RW 0x9F3A3C -> ret 4; W3DSailModelDraw RW 0x4D00CD overrides it to adjust sail rotation to wind; called by RW 0x4B6B26 when placed on another module's bone)
+	// lane LOCAL-29: vtable slot +0x104, called at RW 0x4B6B26 only after the AttachToBoneInAnotherModule bone was found, with the placed transform.
+	// Base RW 0x9F3A3C (`ret 4`): no-op. W3DSailModelDraw RW 0x4D00CD turns the sail with the wind: Port 63 (#173) overrides this, not ported here (S-7232).
 	virtual void adjustAttachedTransform(Matrix3D &) {}
-	virtual void adjustModelMatrix(Matrix3D &m) { adjustAttachedTransform(m); }
 
 	// Speed multiplier of every track (RW +0x9C: the movement speed sync, recomputed at the end of every advance). Exposed for tests.
 	void setSpeedMultiplier(float m) { m_speedSync = m; }

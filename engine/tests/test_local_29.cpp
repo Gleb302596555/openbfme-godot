@@ -59,6 +59,7 @@ struct SyntheticMultiModuleBearer
 	std::unique_ptr<WW3DAssetManager> assets;
 	std::unique_ptr<WW3DDrawAssets> drawAssets;
 	Harness harness;
+	Harness childHarness; // own harness: Harness::parse replaces its data, which would free the parent's module data
 	FixedRandom random;
 	std::unique_ptr<W3DScriptedModelDraw> parentDraw;
 	std::unique_ptr<W3DScriptedModelDraw> childDraw;
@@ -113,7 +114,7 @@ struct SyntheticMultiModuleBearer
 			"DefaultModelConditionState\n  Model = TBUNIT_SKN\n  Skeleton = TBUNIT_SKL\nEnd\n"
 			"IdleAnimationState\n  StateName = STATE_Idle\nEnd\n"
 			"End\n";
-		W3DModelDrawModuleData *cdata = harness.parse(childIni);
+		W3DModelDrawModuleData *cdata = childHarness.parse(childIni);
 		REQUIRE(cdata != nullptr);
 		childDraw.reset(new W3DScriptedModelDraw(*cdata, *drawAssets, random, nullptr, o));
 		REQUIRE(childDraw->errors().empty());
@@ -243,6 +244,7 @@ TEST_CASE("LOCAL-29: unattached module or non-existent bone retains object trans
 TEST_CASE("LOCAL-29: slot +0x104 callback is dispatched only on successful bone lookup (RW 0x4B6B26)")
 {
 	SyntheticMultiModuleBearer syn;
+	Harness slotHarness; // own harness (outlives the drawable): parsing through syn.harness would free the parent's module data
 
 	objtest::World w;
 	DrawServices services(*syn.assets, w.modules, W3DLuaDrawScriptHost::Options{});
@@ -263,7 +265,7 @@ TEST_CASE("LOCAL-29: slot +0x104 callback is dispatched only on successful bone 
 		"DefaultModelConditionState\n  Model = TBUNIT_SKN\n  Skeleton = TBUNIT_SKL\nEnd\n"
 		"IdleAnimationState\n  StateName = STATE_Idle\nEnd\n"
 		"End\n";
-	W3DModelDrawModuleData *cdata = syn.harness.parse(childIni);
+	W3DModelDrawModuleData *cdata = slotHarness.parse(childIni);
 	REQUIRE(cdata != nullptr);
 	W3DScriptedModelDraw::Options o;
 	o.buildBones = false;
