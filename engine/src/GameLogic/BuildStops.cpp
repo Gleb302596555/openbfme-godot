@@ -29,7 +29,7 @@ std::vector<std::string> BuildStops::lines()
 		"and passed on (right-drag scrolls), a right click cancels unless it was a drag held DragToleranceMS, the left press anchors, a 5 pixel drag turns the ghost, "
 		"the left click places with the options 0x49F or shows the code's label and BadBuildingPlacementSound, no shift to keep placing, the ghost's legality "
 		"on odd client frames with 0x48F; r2: a PORT's site and angle snap to the shore (getPortTransform RW 0x794C63) and a PORT's footprint must straddle water "
-		"and land, ratio 6 at most (RW 0x796C0B)); not ported: the options' bits 0x80 and 0x400, the message 0x7EB of a refused click and the one RW 0x83EA10 appends "
+		"and land, ratio 6 at most (RW 0x796C0B)); not ported: the options' bits 0x80 and 0x400 and the one RW 0x83EA10 appends (the 0x7EB of a refused click is ported: RW 0x83EAA0, PORT-87) "
 		"after the construct, the PlacementProjection start point of getPlacementPoints, Escape (kept from BUILD-1: RotWK's translator has no key case); FINDING "
 		"(BFME2 decomp BuildAssistant.cpp:1961, tier B for RW 0x796810): RotWK numbers the options 0x01 terrain restrictions, 0x02 clear path, 0x04 object "
 		"overlap, 0x08 quick path, 0x20 enemy overlap, where LocationLegalFlags keeps ZH's order (0x01 clear path, 0x02 terrain): the castle unpack's options 5 "

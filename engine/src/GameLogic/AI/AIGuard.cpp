@@ -14,10 +14,12 @@
 #include "GameLogic/Combat/CombatState.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/AI/AIClosestEnemy.h"
+#include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/ActiveBody.h"
 #include "GameLogic/Module/StancesBehavior.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SimMath.h"
 #include "GameLogic/WeaponState.h"
@@ -428,7 +430,11 @@ public:
 		{
 			return STATE_SUCCESS;
 		}
-		// RW 0x68BBE0 / 0x6FF7FA: the owner's layer (Object + 0x428) is the ground or the nemesis can be reached across layers: S-3802, always the ground here
+		// lane WALLMELEE-1, RW 0x94A29F: off the ground layer (RW 0x68BBE0) the owner pursues only a nemesis it can hit from where it stands (RW 0x6FF7FA)
+		if (AIWorld::objectLayer(obj) != LAYER_GROUND && !AI::canAttackFromHere(obj, *nemesis))
+		{
+			return STATE_SUCCESS; // -1
+		}
 		const float range = AIGuardMachine::getAdjustedVisionRange(obj); // OWNERTYPE | MOOD
 		m_exit.center = g.guardedSpot(); // RW 0x94A2B5 ..: the guarded object, else the team's centre, else + 0x48 (as the inner state; lane BFME2CAMP1 review)
 		if (const TriggerArea *area = g.areaToGuard())
@@ -444,7 +450,23 @@ public:
 		return r == STATE_CONTINUE ? STATE_CONTINUE : STATE_SUCCESS;
 	}
 	// RW 0x94A407
-	StateReturnType update() override { return m_attack ? m_attack->update() : STATE_SUCCESS; }
+	StateReturnType update() override
+	{
+		if (!m_attack)
+		{
+			return STATE_SUCCESS;
+		}
+		const StateReturnType r = m_attack->update();
+		// lane WALLMELEE-1, RW 0x94A407 after the inner update: off the ground layer the attack ends once the victim (the machine's goal, RW 0x8DBACE) is out of
+		// reach from where the owner stands (RW 0x6FF7FA)
+		Object &obj = owner();
+		Object *victim = machine().goalObject();
+		if (victim && AIWorld::objectLayer(obj) != LAYER_GROUND && !AI::canAttackFromHere(obj, *victim))
+		{
+			return STATE_SUCCESS; // -1
+		}
+		return r;
+	}
 	// RW 0x9495C4
 	void onExit(StateExitType status) override { stopAttack(status); }
 	void crc(StateHasher &h) const override { crcAttack(h); }
@@ -466,7 +488,39 @@ public:
 	void xfer(Xfer &x) override { xferNoFields(x); }
 };
 
-// AIGuardAttackAggressorState (RW 0x94A805 onEnter, 0x94A8E8 update)
+// RW 0x94C0F4: selects member of enemy horde closest to self (called by GuardAttackAggressorState)
+static Object *lookForHordeMember(AIGuardMachine &machine, Object &self)
+{
+	ObjectID nemesisId = machine.nemesis(); // +0x40
+	if (nemesisId == INVALID_ID || nemesisId == 0)
+	{
+		return nullptr;
+	}
+	Object *victim = self.logic().findObjectByID(nemesisId); // call 0x449681
+	if (!victim)
+	{
+		return nullptr;
+	}
+	ContainModuleInterface *contain = victim->getContain(); // victim + 0x258
+	if (!contain)
+	{
+		return nullptr;
+	}
+	HordeContainInterface *hordeContain = contain->getHordeContainInterface(); // contain vslot 0x7C
+	if (!hordeContain)
+	{
+		return nullptr;
+	}
+	HordeContain *hc = dynamic_cast<HordeContain *>(hordeContain);
+	if (!hc)
+	{
+		return nullptr;
+	}
+	// HordeContainInterface vslot 0x48 (RW 0x86FA87): pickMemberNear(false, *self.getPosition(), 0.0f, nullptr)
+	return hc->pickMemberNear(false, *self.getPosition(), 0.0f, nullptr);
+}
+
+// AIGuardAttackAggressorState (RW 0x94C144 onEnter, 0x94A8E8 update)
 class GuardAttackAggressorState : public AIState, private GuardAttackHolder
 {
 public:
@@ -476,20 +530,57 @@ public:
 		Object &obj = owner();
 		GameLogic &logic = obj.logic();
 		AIGuardMachine &g = guardOf(*this);
-		if (const ActiveBody *body = dynamic_cast<const ActiveBody *>(obj.getBodyModule()))
+		ObjectID nemesisId = g.nemesis();
+		if (nemesisId == INVALID_ID)
 		{
-			if (body->lastDamager() != INVALID_ID) // the body's last damage record's source (vslot 15 + 8)
+			if (const ActiveBody *body = dynamic_cast<const ActiveBody *>(obj.getBodyModule()))
 			{
-				g.setNemesis(body->lastDamager());
+				if (body->lastDamager() != INVALID_ID) // the body's last damage record's source (vslot 15 + 8)
+				{
+					nemesisId = body->lastDamager();
+					g.setNemesis(nemesisId);
+				}
 			}
 		}
 		Object *nemesis = logic.findObjectByID(g.nemesis());
-		if (!nemesis)
+		if (!nemesis || obj.getRelationship(*nemesis) != ENEMIES || nemesis->isEffectivelyDead())
 		{
 			return STATE_SUCCESS;
 		}
-		m_exit.attackGiveUpFrame = logic.getFrame() + settingsOf(obj).guardChaseUnitsFrames;
-		m_exit.conditions = GuardExitConditions::ATTACK_ExitIfExpiredDuration | GuardExitConditions::ATTACK_ExitIfNoUnitFound;
+		// RW 0x94C1D6 .. 0x94C21B: a lone unit's HORDE target becomes one of its members via RW 0x94C0F4
+		// Condition RW 0x94C1D9 .. 0x94C1EF: test [template + 0x114], 0x2000 (KINDOF_HORDE).
+		// Enemy must be HORDE, and self (obj) must NOT be HORDE.
+		static const int kHorde = CombatNames::kindOf("HORDE");
+		if (!obj.isKindOf((unsigned)kHorde) && nemesis->isKindOf((unsigned)kHorde))
+		{
+			g.setNemesis(nemesis->getID()); // RW 0x94C1F6
+			Object *member = lookForHordeMember(g, obj); // RW 0x94C0F4
+			if (member)
+			{
+				nemesis = member; // RW 0x94C200
+				g.setNemesis(member->getID()); // RW 0x94C215 .. 0x94C21B
+			}
+			else
+			{
+				return STATE_FAILURE; // RW 0x94C205: push -2; pop eax; ret (STATE_FAILURE)
+			}
+		}
+		// RW 0x94C21E .. 0x94C2B5: exit conditions
+		const Coord3D center = g.guardPosition();
+		const float visionRange = AIGuardMachine::getAdjustedVisionRange(obj); // RW 0x6FF412(obj, 3)
+		const float retaliateRange = AIGuardMachine::getRetaliateRange(obj);    // RW 0x94BA8C
+		m_exit.center = center;
+		const float totalRadius = visionRange + retaliateRange;
+		m_exit.radiusSqr = SimMath::mulf32(totalRadius, totalRadius); // (visionRange + retaliateRange)^2
+		unsigned chaseFrames = settingsOf(obj).guardChaseUnitsFrames; // AIData + 0x3C
+		const ObjectWeapons *w = obj.getWeapons();
+		const Weapon *cur = w ? w->currentWeapon() : nullptr;
+		if (cur && cur->getTemplate() && cur->getTemplate()->m_meleeWeapon)
+		{
+			chaseFrames += chaseFrames / 2; // RW 0x94C27C .. 0x94C281: +50% chase duration for melee weapon (shr 1; add)
+		}
+		m_exit.attackGiveUpFrame = logic.getFrame() + chaseFrames;
+		m_exit.conditions = GuardExitConditions::ATTACK_ExitIfOutsideRadius | GuardExitConditions::ATTACK_ExitIfExpiredDuration | GuardExitConditions::ATTACK_ExitIfNoUnitFound; // 7 (RW 0x94C2AA)
 		startAttack(machine(), true, *nemesis);
 		const StateReturnType r = m_attack->onEnter();
 		return r == STATE_CONTINUE ? STATE_CONTINUE : STATE_SUCCESS;
@@ -516,8 +607,8 @@ public:
 const char *guardStopLine()
 {
 	return "[S-3802] AI guard (RW 0x662A21 -> state 16, the guard machine RW 0x949A10): ported for the LOCATION guard of the stances and (lane BFME2CAMP1) the AREA "
-		   "and TEAM guards of the scripts; not ported: the object guard, the turret's target in lookForInnerTarget, the AI + 0x3CD layer flag and the outer state's layer test (RW 0x68BBE0 / 0x6FF7FA: "
-		   "every object is on the ground layer), AI crates, the inner state's restart flag (lane TARGET-1: TheAI's closest enemy is RotWK's search, AIClosestEnemy.h)";
+		   "and TEAM guards of the scripts; not ported: the object guard, the turret's target in lookForInnerTarget, the AI + 0x3CD layer flag, AI crates (lane WALLMELEE-1: the outer state's layer test, "
+		   "RW 0x68BBE0 / 0x6FF7FA, is ported), the inner state's restart flag (lane TARGET-1: TheAI's closest enemy is RotWK's search, AIClosestEnemy.h)";
 }
 
 // RW 0x9497F0
@@ -546,6 +637,15 @@ bool GuardExitConditions::shouldExit(const AIStateMachine &machine) const
 		{
 			return true;
 		}
+		// RW 0x94BD19 .. 0x94BD71: defender strayed further than retaliateRange from center
+		if (const Object *owner = machine.owner().getObject())
+		{
+			const float retaliateRange = AIGuardMachine::getRetaliateRange(*owner);
+			if (owner->getPosition() && distSqr2D(*owner->getPosition(), center) > retaliateRange * retaliateRange)
+			{
+				return true;
+			}
+		}
 	}
 	return false;
 }
@@ -572,6 +672,19 @@ float AIGuardMachine::getAdjustedVisionRange(const Object &obj)
 float AIGuardMachine::getStdGuardRange(const Object &obj)
 {
 	return getAdjustedVisionRange(obj); // RW 0x949567: OWNERTYPE | MOOD | GUARDINNER (the inner factor is not read by RW 0x6FF412)
+}
+
+// Local 20: RW 0x94BA8C (AIGuardRetaliateMachine::getStdGuardRange)
+float AIGuardMachine::getRetaliateRange(const Object &obj)
+{
+	float range = settingsOf(obj).maxRetaliateDistance;
+	const ObjectWeapons *w = obj.getWeapons();
+	const Weapon *cur = w ? w->currentWeapon() : nullptr;
+	if (cur && cur->getTemplate() && cur->getTemplate()->m_meleeWeapon)
+	{
+		range = SimMath::mulf32(range, 1.15f); // RW 0xC12234 at RW 0x94BACE
+	}
+	return range;
 }
 
 const TriggerArea *AIGuardMachine::areaToGuard() const

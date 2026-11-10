@@ -32,7 +32,7 @@ W3DSailModelDraw::W3DSailModelDraw(const W3DSailModelDrawModuleData &data, W3DDr
 {
 }
 
-void W3DSailModelDraw::adjustModelMatrix(Matrix3D &matrix)
+void W3DSailModelDraw::adjustAttachedTransform(Matrix3D &matrix)
 {
 	// RW 0x4D00DF..0x4D0119: (0.5, 0.5, 0), normalized on each call;
 	// no weather/wind global is read. X and Y are *columns* of the incoming matrix.

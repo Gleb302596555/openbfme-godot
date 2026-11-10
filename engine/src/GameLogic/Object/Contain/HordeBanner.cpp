@@ -19,6 +19,7 @@
 #include "GameLogic/Module/BannerCarrierUpdate.h"
 #include "GameLogic/SnapshotXfer.h"
 
+#include "Common/AsciiString.h"
 #include "Common/GameCommon.h"
 #include "Common/Player.h"
 #include "Common/ScoreKeeper.h"
@@ -30,6 +31,7 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/FXEvents.h"
 #include "GameLogic/Module/ActiveBody.h"
+#include "GameLogic/Locomotor.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/Module/UpgradeModule.h"
@@ -45,6 +47,8 @@
 #include "GameLogic/SimMath.h"
 
 #include <algorithm>
+#include <cctype>
+#include <cstring>
 #include <stdexcept>
 
 namespace
@@ -57,8 +61,8 @@ const char *const kStop =
 	"the template's experience pool, the attribute modifiers, the lifetime and the formation modifiers), the DISABLED_HELD update (RW 0x855830) and the carrier's "
 	"removal RW 0x871915 (DiedRespawnTime; not on a garrison release) are ported, as is nearby replenishment (RW 0x89AB8F: allied "
 	"hordes in distance order, capacity, one/all, shroud/UnitSpawnFX, expedited banner countdown); NOT ported: RW 0x8719E4's RW 0x8B50A5, the carrier's copied "
-	"upgrades / experience, the producer's exit, RW 0x871915's H+0x264 branch (BannerCarrierDestroyHordeOnDeath is ported), RW 0x873AE3's defection hand-over, RW 0x625E0A, interface slots 0x174 / 0x10 and behavior links, MorphCondition / "
-	"ExpLevelDraw grammars (raw tokens); INFERENCE: the carrier stands at its BannerCarrierPosition, a carrier lost on its way into a garrison is cleared as by RW 0x871915";
+	"upgrades / experience, the producer's exit, RW 0x871915's H+0x264 branch (BannerCarrierDestroyHordeOnDeath is ported), RW 0x873AE3's defection hand-over, RW 0x625E0A, interface slots 0x174 / 0x10 and behavior links, the ExpLevelDraw grammar (raw token; the "
+	"morph side is lane PORT-75: MorphCondition RW 0x89A90F parsed and applied by RW 0x89A5C5, BannerMorphFX + 0x30 played from the contain's accept path); INFERENCE: the carrier stands at its BannerCarrierPosition, a carrier lost on its way into a garrison is cleared as by RW 0x871915";
 
 HordeContain *hordeContainOf(Object *o)
 {
@@ -75,7 +79,7 @@ const FieldParse kBannerParse[] = {
 	{ "MeleeFreeUnitSpawnTime", INI::parseDurationUnsignedInt, nullptr, (int)offsetof(BannerCarrierUpdateModuleData, m_meleeFreeUnitSpawnTime) },
 	{ "DiedRespawnTime", INI::parseDurationUnsignedInt, nullptr, (int)offsetof(BannerCarrierUpdateModuleData, m_diedRespawnTime) },
 	{ "MeleeFreeBannerReSpawnTime", INI::parseDurationUnsignedInt, nullptr, (int)offsetof(BannerCarrierUpdateModuleData, m_meleeFreeBannerReSpawnTime) },
-	{ "MorphCondition", BannerCarrierUpdateModuleData::parseRawLine, nullptr, (int)offsetof(BannerCarrierUpdateModuleData, m_morphConditions) },
+	{ "MorphCondition", BannerCarrierUpdateModuleData::parseMorphCondition, nullptr, (int)offsetof(BannerCarrierUpdateModuleData, m_morphConditions) }, // RW 0x89A90F
 	{ "ExpLevelDraw", BannerCarrierUpdateModuleData::parseRawLine, nullptr, (int)offsetof(BannerCarrierUpdateModuleData, m_expLevelDraws) },
 	{ "BannerMorphFX", INI::parseAsciiString, nullptr, (int)offsetof(BannerCarrierUpdateModuleData, m_bannerMorphFX) },
 	{ "UnitSpawnFX", INI::parseAsciiString, nullptr, (int)offsetof(BannerCarrierUpdateModuleData, m_unitSpawnFX) },
@@ -95,6 +99,106 @@ void BannerCarrierUpdateModuleData::parseRawLine(INI *ini, void *, void *store, 
 		line += (line.empty() ? "" : " ") + std::string(tok);
 	}
 	static_cast<std::vector<std::string> *>(store)->push_back(line);
+}
+
+namespace
+{
+// The quoted ModelState token of a MorphCondition line as a model-condition bit set: RW 0x4B5E05's BitFlags::parse over the names of RW 0xD9FAD8
+// (port ModelCondition::indexOf), the three forms of Common/ModelState.h — NONE, a plain list (the first plain name clears what came before) and
+// +NAME / -NAME adjusting the set. DONOR: BFME2 0x0049714F hands the quoted token to the rowed 0x0033394D, a 19-word set (Rva000B664E).
+ModelConditionFlags parseModelStateList(const char *text)
+{
+	ModelConditionFlags flags;
+	bool plain = false;
+	bool adjusted = false;
+	const std::string s(text ? text : "");
+	size_t i = 0;
+	while (i < s.size())
+	{
+		while (i < s.size() && std::isspace((unsigned char)s[i]))
+		{
+			++i;
+		}
+		if (i >= s.size())
+		{
+			break;
+		}
+		const size_t start = i;
+		while (i < s.size() && !std::isspace((unsigned char)s[i]))
+		{
+			++i;
+		}
+		std::string word = s.substr(start, i - start);
+		if (word.size() == 4 && AsciiStringUtil::compareNoCase(word, "NONE") == 0)
+		{
+			if (plain || adjusted)
+			{
+				throw INIException(3, "you may not mix normal and +- ops in bitstring lists");
+			}
+			flags.clear();
+			continue;
+		}
+		bool set = true;
+		if (!word.empty() && (word[0] == '+' || word[0] == '-'))
+		{
+			set = word[0] == '+';
+			word.erase(0, 1);
+			if (plain)
+			{
+				throw INIException(3, "you may not mix normal and +- ops in bitstring lists");
+			}
+			adjusted = true;
+		}
+		else
+		{
+			if (adjusted)
+			{
+				throw INIException(3, "you may not mix normal and +- ops in bitstring lists");
+			}
+			if (!plain)
+			{
+				flags.clear();
+				plain = true;
+			}
+		}
+		const int bit = ModelCondition::indexOf(word);
+		if (bit < 0)
+		{
+			throw INIException(3, "Unknown model condition name '%s'", word.c_str());
+		}
+		flags.set(bit, set);
+	}
+	return flags;
+}
+} // namespace
+
+// RW 0x89A90F (table row RW 0xC66090 + 0x18), DONOR BFME2 0x0049714F (345 B): `UnitType:<ThingTemplate> [Locomotor:<LocomotorSet>] ModelState:"<names>"`.
+// UnitType and ModelState are mandatory and in that order; Locomotor is optional and sits between them (DONOR 0x00496ADE's record: name +0x00, set +0x08,
+// locomotor +0x54). The error texts are the donor's.
+void BannerCarrierUpdateModuleData::parseMorphCondition(INI *ini, void *, void *store, const void *)
+{
+	BannerCarrierUpdateModuleData::BannerMorphCondition entry;
+	const char *token = ini->getNextTokenOrNull(ini->getSepsColon());
+	if (!token || std::strcmp(token, "UnitType") != 0)
+	{
+		throw INIException(3, "UnitType expected");
+	}
+	entry.unitType = ini->getNextToken(ini->getSepsColon());
+	token = ini->getNextTokenOrNull(ini->getSepsColon());
+	if (token && std::strcmp(token, "Locomotor") == 0)
+	{
+		if (const char *name = ini->getNextToken(ini->getSepsColon()))
+		{
+			entry.locomotor = name;
+		}
+		token = ini->getNextTokenOrNull(ini->getSepsColon());
+	}
+	if (!token || std::strcmp(token, "ModelState") != 0)
+	{
+		throw INIException(3, "'ModelState' expected");
+	}
+	entry.modelState = parseModelStateList(ini->getNextToken(ini->getSepsQuote()));
+	static_cast<std::vector<BannerCarrierUpdateModuleData::BannerMorphCondition> *>(store)->push_back(entry);
 }
 
 void BannerCarrierUpdateModuleData::buildFieldParse(MultiIniFieldParse &p)
@@ -363,7 +467,131 @@ void BannerCarrierUpdate::crc(StateHasher &h) const
 	h.addU64(m_spawned);
 }
 
+
+namespace
+{
+// DONOR BFME2 .rdata 0x00C4F6E0: the 81 model conditions RW 0x89A5C5 clears before it sets an entry's (the function-static mask the donor builds once).
+// In RW's name table (RW 0xD9FAD8) these bits are MOUNTED, PASSENGER_VARIATION_1 .. 5 and USER_1 .. USER_75, i.e. exactly the look bits a banner
+// carrier takes over from the horde it leads (test) - a banner carrier that morphs from type A to type B must lose A's bits.
+const unsigned kBannerMorphConditionBits[] = {
+	214, 194, 195, 196, 197, 198, 184, 185, 186, 187, 188, 458,
+	459, 460, 461, 462, 463, 464, 465, 466, 467, 468, 469, 470,
+	471, 472, 473, 474, 475, 476, 477, 478, 479, 480, 481, 482,
+	483, 484, 485, 486, 487, 488, 489, 490, 491, 492, 493, 494,
+	495, 496, 497, 498, 499, 500, 501, 502, 503, 504, 505, 506,
+	507, 508, 509, 510, 511, 512, 513, 514, 515, 516, 517, 518,
+	519, 520, 521, 522, 523, 524, 525, 526, 527,
+};
+
+const Object::ModelConditionBits &morphClearMask()
+{
+	static const Object::ModelConditionBits mask = [] {
+		Object::ModelConditionBits bits{};
+		for (const unsigned bit : kBannerMorphConditionBits)
+		{
+			bits[bit >> 5] |= 1u << (bit & 31u);
+		}
+		return bits;
+	}();
+	return mask;
+}
+} // namespace
+
+// RW 0x89A5C5 (DONOR BFME2 0x00496E05, 299 B, ret 8): the morph step of one banner carrier.
+void BannerCarrierUpdate::morphForTemplate(const std::string &unitType, bool playFX)
+{
+	Object *obj = getObject();
+	// DONOR 0x00496D43: the MorphCondition vector is searched by the template name (compareNoCase); a miss fills the output with an all-zero set
+	// (Rva0028F59A(0, 0xb8)), so a type with no line clears the morph bits instead of keeping the previous look.
+	const BannerCarrierUpdateModuleData::BannerMorphCondition *entry = nullptr;
+	for (const BannerCarrierUpdateModuleData::BannerMorphCondition &candidate : m_data->m_morphConditions)
+	{
+		if (AsciiStringUtil::compareNoCase(candidate.unitType, unitType) == 0)
+		{
+			entry = &candidate;
+			break;
+		}
+	}
+	Object::ModelConditionBits set{};
+	if (entry)
+	{
+		for (int bit = 0; bit < MODELCONDITION_COUNT; ++bit)
+		{
+			if (entry->modelState.test(bit))
+			{
+				set[(size_t)bit >> 5] |= 1u << (bit & 31);
+			}
+		}
+	}
+	obj->clearAndSetModelConditionFlags(morphClearMask(), set); // RW 0x68D607
+	// DONOR 0x00496E7C: Coord3D::Length() > 0, i.e. an object that stands anywhere but the origin (the port's Coord3D has no Length(), the
+	// comparison is the same for a finite position)
+	const Coord3D *pos = obj->getPosition();
+	if (pos && (pos->x != 0.0f || pos->y != 0.0f || pos->z != 0.0f))
+	{
+		obj->updateShroudNow(); // RW 0x68C7E9
+	}
+	// DONOR 0x00496EA1: the FX comes before the locomotor lookup and plays whether or not a line matched (FXList::doFXObj, RW 0x4B1B5A)
+	if (playFX && FXEventLog::isFXName(m_data->m_bannerMorphFX))
+	{
+		GameLogic &logic = obj->logic();
+		logic.fxEvents().emit(FXEventLog::objectEvent(FXEvent::OBJECT_FX, "BannerCarrierUpdate BannerMorphFX", logic.getFrame(), m_data->m_bannerMorphFX, *obj));
+	}
+	// DONOR 0x00496DA3 / 0x00496F00: the entry's LocomotorSet through the AI's slot 0x238; no name, no call
+	if (entry && !entry->locomotor.empty())
+	{
+		int set = -1;
+		for (int i = 0; TheLocomotorSetNames[i]; ++i)
+		{
+			if (AsciiStringUtil::compareNoCase(entry->locomotor, TheLocomotorSetNames[i]) == 0)
+			{
+				set = i;
+				break;
+			}
+		}
+		if (set < 0)
+		{
+			throw std::logic_error("BannerCarrierUpdate: MorphCondition Locomotor '" + entry->locomotor + "' is not a LocomotorSet name");
+		}
+		if (AIUpdateInterface *ai = obj->getAIUpdateInterface())
+		{
+			ai->chooseLocomotorSet(set);
+		}
+		else
+		{
+			obj->logic().reportError("BannerCarrierUpdate of " + obj->getTemplate()->getName() + ": MorphCondition Locomotor names a set but the carrier has no AI");
+		}
+	}
+}
+
 // ---- HordeContain's side ------------------------------------------------------------------------------------------------------------------------------------------------
+// lane PORT-75: RW 0x89A5C5 (DONOR BFME2 0x00496E05) from the contain's accept path (DONOR BFME2 0x00473212: the object being taken in is one of
+// BannerCarriersAllowed -> 0x00473197): a banner carrier that joins a horde takes the look of the horde it leads. The key is the horde's member
+// template (DONOR 0x0046A521 getBannerCarrierIndexToUse reports the template the carrier joins for) and the FX is asked for (the accept's
+// !suppress). Both of the port's accept implementations call this one reaction.
+void HordeContain::bannerCarrierMorph(Object &member)
+{
+	bool allowed = false;
+	for (const std::string &name : m_data->horde.m_bannerCarriersAllowed)
+	{
+		if (AsciiStringUtil::compareNoCase(name, member.getTemplate()->getName()) == 0)
+		{
+			allowed = true;
+			break;
+		}
+	}
+	if (!allowed)
+	{
+		return;
+	}
+	BannerCarrierUpdate *update = dynamic_cast<BannerCarrierUpdate *>(member.findModule("BannerCarrierUpdate"));
+	if (!update)
+	{
+		return;
+	}
+	update->morphForTemplate(getPayloadMemberTemplateName(), true);
+}
+
 // RW 0x8719E4
 void HordeContain::bannerCheck(bool force)
 {

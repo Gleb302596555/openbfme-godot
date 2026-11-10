@@ -5,7 +5,7 @@
 // (DONOR BFME2 0x000D08C3, W3DSailModelDrawCtor.cpp). BlowingThresholdDegrees is parsed but
 // no function of the 68-slot sail vtable reads it (docs/ennorath/port63-sail-rw.md).
 // The RW client xfer (0x4D0009) saves the angle and valid flag; the port does not yet
-// snapshot *client draw runtimes* (S-112), so this visual-only state is not simulation state.
+// snapshot *client draw runtimes* (S-7232), so this visual-only state is not simulation state.
 #pragma once
 
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawVariants.h"
@@ -18,7 +18,7 @@ class W3DSailModelDraw final : public W3DScriptedModelDraw
 public:
 	W3DSailModelDraw(const W3DSailModelDrawModuleData &data, W3DDrawAssets &assets, W3DDrawRandom &random,
 		W3DDrawScriptHost *scripts = nullptr, const Options &options = Options());
-	void adjustModelMatrix(Matrix3D &matrix) override;
+	void adjustAttachedTransform(Matrix3D &matrix) override;
 
 private:
 	const W3DSailModelDrawModuleData &m_sailData;

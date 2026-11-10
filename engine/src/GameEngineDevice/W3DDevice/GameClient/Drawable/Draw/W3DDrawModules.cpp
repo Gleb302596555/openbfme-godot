@@ -11,6 +11,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTornadoDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DProjectileStreamDraw.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLaserDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLightDraw.h"
 
 namespace
@@ -75,6 +76,7 @@ void W3DDrawModules::registerTypedDrawModuleData(ModuleFactory &modules)
 	modules.bindTypedData<W3DTornadoDrawModuleData>("W3DTornadoDraw", MODULETYPE_DRAW); // both editions: RW 0x464968 / 0xBE4130, BFME2 0x465171 / 0xBCE150
 	modules.bindTypedData<W3DProjectileStreamDrawModuleData>("W3DProjectileStreamDraw", MODULETYPE_DRAW); // both editions: RW 0x4648DF / 0x00BDBAA8, BFME2 0x46509A / 0x00BCDFB0
 	modules.bindTypedData<W3DLightDrawModuleData>("W3DLightDraw", MODULETYPE_DRAW); // both editions: RW 0x464626 / 0x00BDBB08, BFME2 0x464E2F / 0x00BCD918
+	modules.bindTypedData<W3DLaserDrawModuleData>("W3DLaserDraw", MODULETYPE_DRAW); // RW 0x464BC3 (name in the factory table) / RW 0x464159 module data / RW 0xBE1798 fields
 }
 
 std::vector<std::string> W3DDrawModules::notDrawnClasses()
@@ -97,6 +99,11 @@ std::vector<std::string> W3DDrawModules::notDrawnClasses()
 			if (std::string(c.name) == "W3DTornadoDraw")
 			{
 				out.push_back("W3DTornadoDraw: effect draw, tornado decals/particles not fully drawn (S-113)");
+				continue;
+			}
+			if (std::string(c.name) == "W3DLightDraw")
+			{
+				out.push_back("W3DLightDraw: no model, light source drawn through viewport dynamic lights (S-113)");
 				continue;
 			}
 			out.push_back(std::string(c.name) + ": effect draw, not drawn (S-113)");

@@ -17,8 +17,6 @@
 #include "GodotDevice/GodotW3DInstancer.h"
 #include "GodotDevice/GodotW3DMaterial.h"
 #include "GameEngineDevice/W3DDevice/GameClient/W3DObjectLighting.h"
-#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawMatrix.h"
-#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DSailModelDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/TerrainLightScale.h"
 
 #include <godot_cpp/classes/engine.hpp>
@@ -70,20 +68,8 @@ int64_t optInt(const Dictionary &o, const char *key, int64_t def)
 
 // SAGE (x east, y north, z up) -> Godot (x, z, -y): the basis of the drawable (columns X, Y, Z of the SAGE orientation, stored row major)
 // conjugated by the axis permutation, times the instance scale; the origin through the same map.
-Transform3D drawableTransform(const MapObjectDrawable &d, W3DScriptedModelDraw *draw = nullptr)
+Transform3D drawableTransform(const MapObjectDrawable &d)
 {
-	// A draw's matrix is adjusted in SAGE space, before the P * matrix * P^-1 conversion.
-	// The default vtable slot leaves it unchanged; the sail turns its local basis.
-	std::array<float, 9> adjusted;
-	const float *sageBasis = d.basis;
-	float scale = d.scale;
-	if (draw)
-	{
-		const Matrix3D modelMatrix = W3DModelDrawMatrix(*draw, sageBasis, d.position, scale);
-		adjusted = W3DModelDrawBasis(modelMatrix);
-		sageBasis = adjusted.data();
-		scale = 1.0f; // already applied before the vtable call (RW 0x4B6B26)
-	}
 	// P rows: g.x = s.x, g.y = s.z, g.z = -s.y
 	static const float P[3][3] = { { 1, 0, 0 }, { 0, 0, 1 }, { 0, -1, 0 } };
 	float b[3][3];
@@ -96,10 +82,10 @@ Transform3D drawableTransform(const MapObjectDrawable &d, W3DScriptedModelDraw *
 			{
 				for (int c = 0; c < 3; ++c)
 				{
-					v += P[i][a] * sageBasis[a * 3 + c] * P[j][c];
+					v += P[i][a] * d.basis[a * 3 + c] * P[j][c];
 				}
 			}
-			b[i][j] = v * scale;
+			b[i][j] = v * d.scale;
 		}
 	}
 	Basis basis(Vector3(b[0][0], b[1][0], b[2][0]), Vector3(b[0][1], b[1][1], b[2][1]), Vector3(b[0][2], b[1][2], b[2][2])); // columns
@@ -376,7 +362,7 @@ Node3D *MapObjectBuilder::build_objects(const Ref<RetailFileSystem> &fsRef, cons
 		}
 		drawablesSeen.insert(p.drawable);
 		const MapObjectDrawable &d = m_drawables->drawables[p.drawable];
-		const Transform3D xf = drawableTransform(d, p.draw.get());
+		const Transform3D xf = drawableTransform(d);
 		const bool animatedPlay = p.animated && m_animationsOn && p.draw;
 		W3DInstancer *target = animatedPlay ? dynamicInst : staticInst;
 		std::map<std::string, int64_t> &cache = animatedPlay ? dynamicModels : staticModels;
@@ -431,8 +417,9 @@ Node3D *MapObjectBuilder::build_objects(const Ref<RetailFileSystem> &fsRef, cons
 		if (p.kind != W3D_DRAWKIND_FLOOR)
 		{
 			const auto *module = p.module < d.draws.size() ? dynamic_cast<const W3DModelDrawModuleData *>(d.draws[p.module].data) : nullptr;
+			const bool useShadowMapping = W3DInstancer::shadow_maps_enabled();
 			target->set_instance_cast_shadow(instance, ObjectShadow::castsMap(d.info ? d.info->tmpl : nullptr, module,
-				p.draw ? p.draw->currentModelState() : nullptr));
+				p.draw ? p.draw->currentModelState() : nullptr, useShadowMapping));
 		}
 		if (infantryLightBit >= 0 && d.info && d.info->kindOf_test(infantryLightBit))
 		{
@@ -455,8 +442,6 @@ Node3D *MapObjectBuilder::build_objects(const Ref<RetailFileSystem> &fsRef, cons
 			{
 				Animated a;
 				a.draw = p.draw.get();
-				a.drawable = &d;
-				a.movingMatrix = dynamic_cast<W3DSailModelDraw *>(p.draw.get()) != nullptr;
 				a.instance = instance;
 				a.hidden = std::move(hidden);
 				m_animated.push_back(std::move(a));
@@ -753,10 +738,6 @@ void MapObjectBuilder::advance(double delta)
 	{
 		W3DScriptedModelDraw *draw = static_cast<W3DScriptedModelDraw *>(a.draw);
 		draw->advance(ms);
-		if (a.movingMatrix)
-		{
-			inst->set_instance_transform(a.instance, drawableTransform(*a.drawable, draw)); // PORT-63: AboutDamping is per drawn frame
-		}
 		const W3DDrawFrame f = draw->frame();
 		applyFrame(inst, a.instance, f);
 		if (f.hiddenSubObjects != a.hidden)

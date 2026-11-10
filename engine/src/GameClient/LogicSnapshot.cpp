@@ -18,6 +18,7 @@
 #include "GameClient/Radar.h"
 #include "GameClient/RTS3DSceneOcclusion.h"
 #include "GameLogic/Locomotor.h"
+#include "GameLogic/SimMath.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/Object/Object.h"
@@ -116,6 +117,20 @@ bool sameTransform(const ObjectSnapshot &a, const ObjectSnapshot &b)
 {
 	return std::memcmp(a.basis, b.basis, sizeof(a.basis)) == 0 && a.position.x == b.position.x && a.position.y == b.position.y &&
 		a.position.z == b.position.z;
+}
+
+// RW 0x70C55D -> RW 0x70C50C(0.0f) for non-AI objects without an ObjectPathfindAdapter (same predicate as ObjectPathfindAdapter::isSignificantlyAboveTerrain)
+bool objectAboveTerrainFallback(const GameLogic &logic, const Object &o)
+{
+	static const int kClimb = ObjectTemplateInfoBuilder::kindOfIndex("CAN_CLIMB_WALLS");
+	static const int kShip = ObjectTemplateInfoBuilder::kindOfIndex("SHIP");
+	if ((kClimb >= 0 && o.isKindOf((unsigned)kClimb)) || (kShip >= 0 && o.isKindOf((unsigned)kShip)))
+	{
+		return false;
+	}
+	const Coord3D &p = *o.getPosition();
+	const float above = SimMath::pc24Add(SimMath::pc24Sub(p.z, logic.getGroundHeight(p.x, p.y)), 0.0f);
+	return above > SimMath::pc24Mul(logic.settings().gravity, -9.0f);
 }
 } // namespace
 
@@ -344,9 +359,13 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 		if (const AIUpdateInterface *ai = o->getAIUpdateInterface())
 		{
 			s.hasNext = ai->pendingPositionOfFrame(snap->frame, s.nextPos);
+			s.layer = (std::uint8_t)ai->adapter().getLayer();
+			s.aboveTerrain = ai->adapter().isSignificantlyAboveTerrain();
 		}
 		else
 		{
+			s.layer = 1; // LAYER_GROUND
+			s.aboveTerrain = objectAboveTerrainFallback(logic, *o);
 			// lane PROJ-2: a projectile's look-ahead point (RW 0x85F6E7 .. 0x85F71E) and its launch (an object without AI; ZH getProjectileUpdateInterface)
 			for (const std::unique_ptr<BehaviorModule> &m : o->modules())
 			{
@@ -365,6 +384,13 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 		}
 		s.instanceScale = o->getInstanceScale();
 		s.moveSpeed = drawSpeedOf(*o); // lane SMOOTH-3
+		if (const AIUpdateInterface *ai = o->getAIUpdateInterface())
+		{
+			if (const Locomotor *l = ai->curLocomotor())
+			{
+				s.locomotorTemplate = &l->getTemplate();
+			}
+		}
 		s.scriptTarget = DrawableScriptTarget::capture(logic, *o); // lane FX-3
 		// the radar's inputs (Radar::blips: retail's live test of the same conditions)
 		if (const Player *owner = o->getControllingPlayer())

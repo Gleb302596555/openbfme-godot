@@ -1125,7 +1125,7 @@ TEST_CASE("skirmish ai targetless: the generator's FarmKillSquad draw at creatio
 			CHECK(started("FlagCaptureSquad") == 1);
 			CHECK(started("FarmKillSquad") == 0);
 			CHECK(counter("AIFlagCaptureSquad_IsRunning") == 1);
-			CHECK(ai->brain.targetlessUnported == 9); // the other 9 prototypes' applicability, once per pick frame (S-893)
+			CHECK(ai->brain.targetlessUnported == 5 /* upstream 6: the fork ports AIWoTRForfeitTactic, PORT-33 */); // Ring, WoTR and roaming are all ported (S-893)
 		}
 		if (started("FarmKillSquad") > 0)
 		{
@@ -1143,7 +1143,7 @@ TEST_CASE("skirmish ai targetless: the generator's FarmKillSquad draw at creatio
 	CHECK(started("FlagCaptureSquad") == 1);
 	CHECK(started("FarmKillSquad") == 1);
 	CHECK(counter("FarmKillSquad::IsRunning") == 1);
-	CHECK(ai->brain.targetlessUnported == 18);
+	CHECK(ai->brain.targetlessUnported == 10 /* upstream 12: PORT-33 */); // two pick frames, six remaining prototypes
 	// RW 0x90C0EE constructs the prototype (its draw); each pick draws among the pool (AITacticsGenerator.cpp 0x1BC: 0 .. pool size - 1); a FlagCaptureSquad
 	// team draws its maximum (AIFlagCaptureSquad.cpp 0xEF, RW 0x9BC1A0) and its end its next run (0xD5, RW 0x9BBFDC); RW 0x9BB43D constructs the FarmKillSquad
 	// clone before copying its prototype flag, and RW 0x9BB479 sets it up (0x267)

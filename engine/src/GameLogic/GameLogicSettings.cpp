@@ -66,6 +66,8 @@ enum Seen : unsigned
 struct BlockState
 {
 	GameLogicSettings values;
+	// lane PORT-39: the entry an `SideInfo` block is parsed into before the settings take it (see parseSideInfoBlock)
+	GameLogicSettings::AISideInfo sideInfoScratch;
 	unsigned seen = 0;
 	unsigned blocks = 0; ///< bit 0 GameData, 1 AIData, 2 MultiplayerSettings: which blocks were read
 	bool minDistFromEdgeOfMapForBuildSeen = false; // PORT-12: the seen mask already uses all 32 bits
@@ -151,9 +153,9 @@ bool firstTokenIsEnd(const std::string &line)
 // the indentation means nothing (lane MODCOMPAT-1: Ennorath writes `SkirmishBuildList Rohan` at column 0 with deeper Ends, which the old
 // indentation rule read past the AIData block's own End). So the skip counts them: a line whose first token opens one of those sub blocks goes a
 // level deeper, an End goes a level up, and the block ends at the End of its own level.
-void noteUnapplied(INI *ini, void *instance, void *, const void *userData)
+// The skip itself, shared by the catch-all row and by the SideInfo block's own leftover rows (a `Row = value` line is consumed and never opens a level).
+void skipNestedBlock(INI *ini, const void *userData)
 {
-	static_cast<BlockState *>(instance)->unapplied.insert(std::string(ini->getCurBlockStart()) + "." + static_cast<const char *>(userData));
 	const std::string header = ini->currentLineText();
 	if (withoutComment(header).find('=') != std::string::npos)
 	{
@@ -182,6 +184,12 @@ void noteUnapplied(INI *ini, void *instance, void *, const void *userData)
 			++depth;
 		}
 	}
+}
+
+void noteUnapplied(INI *ini, void *instance, void *, const void *userData)
+{
+	static_cast<BlockState *>(instance)->unapplied.insert(std::string(ini->getCurBlockStart()) + "." + static_cast<const char *>(userData));
+	skipNestedBlock(ini, userData);
 }
 
 #define SEEN_DATA(bit) ((const void *)(std::uintptr_t)(bit))
@@ -227,6 +235,69 @@ void parseAttackPriorityBlock(INI *ini, void *instance, void *, const void *)
 	}
 	def->targets.clear(); // RW 0x75E707
 	ini->initFromINI(def, kAttackPriorityFields);
+}
+
+// lane PORT-39, RW 0x70011F (the AIData row SideInfo, RW 0xC1CCF0): `SideInfo <side>`. A list entry the name matches is parsed into (the `strcmp` walk of
+// RW 0x4065AA over `[AIData + 0x18] + 0xF4`, each entry's + 0x1BC next: the name is exact), else a new entry (0x1C0 bytes, ctor RW 0x6FFF8C: Easy 0, Normal 1,
+// Hard 2) is pushed at the list head. Then the block's own lines are read against RW 0xC1D7D8 .. 0xC1D7F8: `ResourceGatherersEasy` + 0x8,
+// `ResourceGatherersNormal` + 0xC, `ResourceGatherersHard` + 0x10, all parseInt RW 0x42EC5E.
+// The block's other rows (RW 0xC1D808 BaseDefenseStructure1, RW 0xC1D818 .. 0xC1D858 SkillSet1 .. 5) are consumed and recorded by name, like the AIData
+// catch-all's: retail and Ennorath data may set them, and a block this lane reads must not turn a game's data into a load error. The block itself stays listed
+// as `AIData.SideInfo` in the unapplied fields for the same reason (what it carries beyond the three counts is not applied, S-4194).
+// The block is parsed into BlockState::sideInfoScratch (a copy of the entry, its three ints at a fixed place in the state, the way RW's table addresses its
+// entry's fields) and the entry takes the result: a table row's store is a byte offset from the object the block parser was given, and the entry itself lives
+// in the settings' vector, not in that object.
+int sideInfoScratchOffset()
+{
+	static const int offset = [] {
+		BlockState probe;
+		return (int)((const char *)probe.sideInfoScratch.resourceGatherers - (const char *)&probe);
+	}();
+	return offset;
+}
+
+// The SideInfo block's own leftover rows (BaseDefenseStructure1, SkillSet1 .. 5, a mod's extras): recorded by the block's name too, so the report says
+// where in the file they were, and a nested row (`SkillSet1` with `Science = ..` lines and its own End) is skipped to its End like the catch-all's.
+void noteSideInfoUnapplied(INI *ini, void *instance, void *, const void *userData)
+{
+	static_cast<BlockState *>(instance)->unapplied.insert(std::string(ini->getCurBlockStart()) + ".SideInfo." + static_cast<const char *>(userData));
+	skipNestedBlock(ini, userData);
+}
+
+void parseSideInfoBlock(INI *ini, void *instance, void *, const void *)
+{
+	BlockState *state = static_cast<BlockState *>(instance);
+	state->unapplied.insert(std::string(ini->getCurBlockStart()) + ".SideInfo");
+	std::vector<GameLogicSettings::AISideInfo> &list = state->values.sideInfos;
+	const std::string name = ini->getNextToken();
+	GameLogicSettings::AISideInfo *info = nullptr;
+	for (GameLogicSettings::AISideInfo &i : list)
+	{
+		if (i.side == name)
+		{
+			info = &i;
+			break;
+		}
+	}
+	if (!info)
+	{
+		list.insert(list.begin(), GameLogicSettings::AISideInfo());
+		info = &list.front();
+		info->side = name;
+	}
+	// a re-parsed block keeps the rows the earlier one set (RW parses into the entry it found)
+	state->sideInfoScratch = *info;
+	const int base = sideInfoScratchOffset();
+	FieldParse rows[] = {
+		{ "ResourceGatherersEasy", INI::parseInt, nullptr, base },                          // row RW 0xC1D7D8, entry + 0x8
+		{ "ResourceGatherersNormal", INI::parseInt, nullptr, base + (int)sizeof(int) },      // row RW 0xC1D7E8, entry + 0xC
+		{ "ResourceGatherersHard", INI::parseInt, nullptr, base + (int)(2 * sizeof(int)) },  // row RW 0xC1D7F8, entry + 0x10
+		{ nullptr, noteSideInfoUnapplied, nullptr, 0 }
+	};
+	ini->initFromINI(state, rows);
+	info->resourceGatherers[0] = state->sideInfoScratch.resourceGatherers[0];
+	info->resourceGatherers[1] = state->sideInfoScratch.resourceGatherers[1];
+	info->resourceGatherers[2] = state->sideInfoScratch.resourceGatherers[2];
 }
 
 const FieldParse kGameDataFields[] = {
@@ -317,6 +388,34 @@ const FieldParse kGameDataFields[] = {
 	// lane LOCAL-3: selection flash (rows RW 0xC005E0 / 0xC005D0, GlobalData +0xB58 / +0xB54)
 	{ "SelectionFlashHouseColor", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.selectionFlashHouseColor) },
 	{ "SelectionFlashSaturationFactor", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.selectionFlashSaturationFactor) },
+	// PORT-66 (issue #180): the seven AutoFire / AutoSmoke / AutoAflame particle rows, RW 0xC00150 .. 0xC00290 in the table's own order: per size the
+	// Prefix (parseAsciiString RW 0x42EE5E, GlobalData +0x9F0 / +0x9FC / +0x9F0+0x18 / +0x9F0+0x24 / +0x9F0+0x30 / +0x9F0+0x3C / +0x9F0+0x48), the System
+	// (the same parser, +4 from the Prefix) and the Max (parseInt RW 0x42EC5E, +8). Optional rows like every other GlobalData row of this table: the
+	// constructor zeroes them (BFME2 decomp GlobalData.cpp:1558-1564)
+	{ "AutoFireParticleSmallPrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireSmall.prefix) },
+	{ "AutoFireParticleSmallSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireSmall.system) },
+	{ "AutoFireParticleSmallMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoFireSmall.maxSystems) },
+	{ "AutoFireParticleMediumPrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireMedium.prefix) },
+	{ "AutoFireParticleMediumSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireMedium.system) },
+	{ "AutoFireParticleMediumMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoFireMedium.maxSystems) },
+	{ "AutoFireParticleLargePrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireLarge.prefix) },
+	{ "AutoFireParticleLargeSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoFireLarge.system) },
+	{ "AutoFireParticleLargeMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoFireLarge.maxSystems) },
+	{ "AutoSmokeParticleSmallPrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeSmall.prefix) },
+	{ "AutoSmokeParticleSmallSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeSmall.system) },
+	{ "AutoSmokeParticleSmallMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoSmokeSmall.maxSystems) },
+	{ "AutoSmokeParticleMediumPrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeMedium.prefix) },
+	{ "AutoSmokeParticleMediumSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeMedium.system) },
+	{ "AutoSmokeParticleMediumMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoSmokeMedium.maxSystems) },
+	{ "AutoSmokeParticleLargePrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeLarge.prefix) },
+	{ "AutoSmokeParticleLargeSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoSmokeLarge.system) },
+	{ "AutoSmokeParticleLargeMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoSmokeLarge.maxSystems) },
+	{ "AutoAflameParticlePrefix", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoAflame.prefix) },
+	{ "AutoAflameParticleSystem", INI::parseAsciiString, nullptr, (int)offsetof(BlockState, values.autoAflame.system) },
+	{ "AutoAflameParticleMax", INI::parseInt, nullptr, (int)offsetof(BlockState, values.autoAflame.maxSystems) },
+	// lane PORT-69 (issue #183): terrain track marks (rows RW 0xBFFAA0 / 0xBFFA70, GlobalData +0x13C / +0x10C; client-only, not hashed)
+	{ "MakeTrackMarks", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.makeTrackMarks) },
+	{ "MaxTerrainTracks", parseNoting<INI::parseInt>, 0, (int)offsetof(BlockState, values.maxTerrainTracks) },
 	{ nullptr, noteUnapplied, nullptr, 0 }
 };
 const FieldParse kAIDataFields[] = {
@@ -353,9 +452,16 @@ const FieldParse kAIDataFields[] = {
 	{ "AttackIgnoreInsignificantBuildings", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.attackIgnoreInsignificantBuildings) },
 	{ "ArtilleryMaxFriendlyFire", parseNoting<INI::parsePercentToReal>, 0, (int)offsetof(BlockState, values.artilleryMaxFriendlyFire) },
 	{ "AttackPriority", parseAttackPriorityBlock, nullptr, 0 },
+	// Local 20 (issue #147): MaxRetaliateDistance (row RW 0xC1CED0, parseReal RW 0x42ED00, AIData + 0xC8): leash radius for retaliating against attackers (RW 0x94BA8C / RW 0x94C144)
+	{ "MaxRetaliateDistance", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.maxRetaliateDistance) },
+	// lane PORT-39: the side info block (row RW 0xC1CCF0, parser RW 0x70011F): before the catch-all, so `AIData.SideInfo` is no longer merely skipped
+	{ "SideInfo", parseSideInfoBlock, nullptr, 0 },
 	// lane AIDATA-1: ChaseFromBehindLimit (row RW 0xC1CEF0, + 0xD0) and SkirmishGroupFudgeDistance (row RW 0xC1CC30, + 0x58), parseReal RW 0x42ED00
 	{ "ChaseFromBehindLimit", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.chaseFromBehindLimit) },
 	{ "SkirmishGroupFudgeDistance", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.skirmishGroupFudgeDistance) },
+	// lane PORT-40: MaxRecruitRadius (row RW 0xC1CCD0, parseReal RW 0x42ED00, AIData + 0x5C): the recruit radius of TEAM_RECRUIT_UNITS (RW 0x7C2BFB
+	// -> RW 0x7A491C) and of the AI player's own team building (RW 0x8F8E2C -> RW 0x7A41D4)
+	{ "MaxRecruitRadius", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.maxRecruitRadius) },
 	// lane AIDATA-1: the pathfinder's rows (were PathfindConfigLoader's text scan): RW 0xC1CDD0 WadeWaterDepth + 0x98, 0xC1CDE0 DeepWaterDepth + 0x9C,
 	// 0xC1CDB0 MeleeApproachTolerance + 0x90, 0xC1CDC0 MeleeApproachDist + 0x94, 0xC1CF00 CastleSiegeStandBackDistance + 0xD4 (parseReal RW 0x42ED00);
 	// 0xC1CE40 HordesWaitForHordes + 0xB9 (parseBool RW 0x42E558)
@@ -727,6 +833,10 @@ void GameLogicSettings::crc(StateHasher &h) const
 	{
 		h.addBool(attackMoveUsesFormations); // lane PORT-13: retail default\aidata.ini sets No (false), so every retail game's hash is unchanged
 	}
+	if (maxRetaliateDistance != 450.0f)
+	{
+		h.addFloat(maxRetaliateDistance); // Local 20 (issue #147): retail default\aidata.ini sets 450.0, so retail games keep their hash
+	}
 	h.addBool(useFormations);
 	if (minFlightHeight != FLT_MAX)
 	{
@@ -738,6 +848,11 @@ void GameLogicSettings::crc(StateHasher &h) const
 	h.addBool(attackUsesLineOfSight);
 	h.addBool(attackIgnoreInsignificantBuildings);
 	h.addFloat(artilleryMaxFriendlyFire);
+	if (maxRecruitRadius != 400.0f)
+	{
+		h.addFloat(maxRecruitRadius); // lane PORT-40: retail 2.01 and Ennorath set 400.0 (default\aidata.ini:32, the mod keeps it), so a game with
+		                            // that data is unchanged; a map.ini / mod AIData block with another value is hashed (as lane LOS-1 above)
+	}
 	h.addU32((std::uint32_t)attackPriorityDefs.size());
 	for (const AttackPriorityDef &d : attackPriorityDefs)
 	{
@@ -748,6 +863,19 @@ void GameLogicSettings::crc(StateHasher &h) const
 		{
 			h.addString(t.first);
 			h.addI32(t.second);
+		}
+	}
+	// lane PORT-39: the paths the AI reads (AIData SideInfo, the gatherer counts by difficulty). Only a game whose data has such a block is hashed, so
+	// every existing game's hash is unchanged
+	if (!sideInfos.empty())
+	{
+		h.addU32((std::uint32_t)sideInfos.size());
+		for (const AISideInfo &s : sideInfos)
+		{
+			h.addString(s.side);
+			h.addI32(s.resourceGatherers[0]);
+			h.addI32(s.resourceGatherers[1]);
+			h.addI32(s.resourceGatherers[2]);
 		}
 	}
 	h.addBool(forceModelsToFollowTimeOfDay);
@@ -797,6 +925,26 @@ void GameLogicSettings::crc(StateHasher &h) const
 	h.addU32(maxNumMembersToForceToImmediatelyEnter);
 	h.addU32(waitToForceMemberToEnterDelay);
 	h.addI32(maxTunnelCapacity); // lane GARRISON-2
+	// PORT-66: the auto particle systems' seven entries are a simulation input (the bodies name their bones and templates by them, RW 0x8C1E4E); hashed as
+	// one block so a game with retail data keeps its hash while data that names them (Ennorath's gamedata.ini) does not
+	{
+		bool anyAutoParticle = false;
+		const AutoBodyParticles *autoParticles[7] = { &autoFireSmall, &autoFireMedium, &autoFireLarge, &autoSmokeSmall, &autoSmokeMedium, &autoSmokeLarge, &autoAflame };
+		for (const AutoBodyParticles *a : autoParticles)
+		{
+			anyAutoParticle = anyAutoParticle || !a->prefix.empty() || !a->system.empty() || a->maxSystems != 0;
+		}
+		h.addBool(anyAutoParticle);
+		if (anyAutoParticle)
+		{
+			for (const AutoBodyParticles *a : autoParticles)
+			{
+				h.addString(a->prefix);
+				h.addString(a->system);
+				h.addI32(a->maxSystems);
+			}
+		}
+	}
 	h.addU32((std::uint32_t)standardPublicBones.size()); // RENDER-2: the bones feed the launch bone answer (RW 0x4BD9A7)
 	for (const std::string &b : standardPublicBones)
 	{

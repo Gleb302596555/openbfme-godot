@@ -33,6 +33,7 @@
 
 class GameLogic;
 class ThingTemplate;
+struct LocomotorTemplate;
 struct EndGameView;
 
 // every field is pinned by test_perf2_snapshot.cpp's bytesOf (the pool's build against the serial one): a field added here goes there too
@@ -60,6 +61,7 @@ struct ObjectSnapshot
 	// locomotor's speed (AI +0x260 -> +0x1F0 -> +0x40, world units per logic frame; 0 without AI or locomotor, or when not positive), else when that is 0
 	// the same of the object's horde (RW 0x693A1A(0): the object itself when HORDE, else its container when that is a HORDE)
 	float moveSpeed = 0.0f;
+	const LocomotorTemplate *locomotorTemplate = nullptr; ///< LOCAL-25: current locomotor template for client presentation physics
 	// lane FX-3: the object's target record for the draw scripts (CurDrawableIsCurrentTargetKindof RW 0x73667D, CurDrawableGetCurrentTargetBearing RW 0x734A75)
 	DrawableScriptTarget scriptTarget;
 	// the construction look (Drawable::updateConstruction, RW 0x4B51B5 / 0x4B686D)
@@ -115,6 +117,9 @@ struct ObjectSnapshot
 	ObjectID projectileLauncher = INVALID_ID;
 	Coord3D projectileEnd;
 	int projectileSegments = 0;
+	// lane PORT-69 (issue #183): W3DScriptedModelDraw::doDrawModule track emission gates (RW 0x4B79C9 .. 0x4B7A02: Object::getLayer RW 0x68BBE0, Object::isAboveTerrain RW 0x70C55D)
+	std::uint8_t layer = 1;
+	bool aboveTerrain = false;
 };
 
 // The local player's shroud as the client reads it (VIS-1's ShroudManager; merge with SMOOTH-1): the statuses of the local player's cells, the GameData

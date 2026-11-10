@@ -22,7 +22,6 @@
 #include "GameClient/LiveGame.h"
 #include "GameClient/PlacementGhost.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.h"
-#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawMatrix.h"
 #include "GameLogic/Map/CastleTemplates.h"
 #include "GodotDevice/GodotRetailFileSystem.h"
 #include "GodotDevice/GodotW3DInstancer.h"
@@ -66,6 +65,30 @@ Transform3D toTransform(const float *basis, const Coord3D &pos, float scale)
 	}
 	Basis basisG(Vector3(b[0][0], b[1][0], b[2][0]), Vector3(b[0][1], b[1][1], b[2][1]), Vector3(b[0][2], b[1][2], b[2][2]));
 	return Transform3D(basisG, Vector3(pos.x, pos.z, -pos.y));
+}
+
+// LOCAL-29: Matrix3D (3x4 world transform, columns X, Y, Z, pos) -> Godot (x, z, -y)
+Transform3D toTransform(const Matrix3D &m)
+{
+	static const float P[3][3] = { { 1, 0, 0 }, { 0, 0, 1 }, { 0, -1, 0 } };
+	float b[3][3];
+	for (int i = 0; i < 3; ++i)
+	{
+		for (int j = 0; j < 3; ++j)
+		{
+			float v = 0.0f;
+			for (int a = 0; a < 3; ++a)
+			{
+				for (int c = 0; c < 3; ++c)
+				{
+					v += P[i][a] * m.Row[a][c] * P[j][c];
+				}
+			}
+			b[i][j] = v;
+		}
+	}
+	Basis basisG(Vector3(b[0][0], b[1][0], b[2][0]), Vector3(b[0][1], b[1][1], b[2][1]), Vector3(b[0][2], b[1][2], b[2][2]));
+	return Transform3D(basisG, Vector3(m.Row[0][3], m.Row[2][3], -m.Row[1][3]));
 }
 
 // a node the renderer made, by the id taken when it was made: freed only while it still exists (the world that holds it may have gone first)
@@ -257,9 +280,9 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 		{
 			continue;
 		}
-		const Matrix3D modelMatrix = W3DModelDrawMatrix(*e.draw, d.getBasis(), *d.getPosition(), d.getInstanceScale());
-		const auto modelBasis = W3DModelDrawBasis(modelMatrix);
-		const Transform3D xf = toTransform(modelBasis.data(), *d.getPosition(), 1.0f); // RW 0x4B6B26: per-model, not a shared object rotation
+		Matrix3D entryMatrix;
+		d.entryTransform(e, entryMatrix); // LOCAL-29: attachment and sail's +0x104 callback only if its bone resolves
+		const Transform3D entryXf = toTransform(entryMatrix);
 		W3DDrawPoseView f;
 		e.draw->poseView(f);
 		if (!f.model && f.modelName && !f.modelName->empty() && AsciiStringUtil::compareNoCase(*f.modelName, "None") != 0)
@@ -289,7 +312,7 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 				}
 				else
 				{
-					ev.instance = view.inst->add_instance(mid, xf, String(), 0.0, 1.0);
+					ev.instance = view.inst->add_instance(mid, entryXf, String(), 0.0, 1.0);
 					if (ev.instance >= 0 && d.getHouseColor() != 0)
 					{
 						view.inst->set_instance_house_color(ev.instance, houseColorOf(d.getHouseColor())); // RW 0x674504 (slot 0 only)
@@ -302,7 +325,7 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 			continue;
 		}
 		++instances;
-		view.inst->set_instance_transform(ev.instance, xf);
+		view.inst->set_instance_transform(ev.instance, entryXf);
 		view.inst->set_instance_pose_keyed(ev.instance, *f.clip0, f.clipKey0, f.frame0, *f.clip1, f.clipKey1, f.frame1, f.blendPercentage);
 		if (f.model != ev.hiddenModel || f.hiddenGeneration != ev.hiddenGeneration)
 		{

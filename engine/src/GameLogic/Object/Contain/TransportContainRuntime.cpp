@@ -27,6 +27,7 @@
 #include "GameLogic/Object/Contain/SiegeEngineContainRuntime.h"
 #include "GameLogic/Object/Contain/TunnelContainRuntime.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/SimMath.h"
 
 #include <algorithm>
@@ -41,7 +42,7 @@ const char *const kStopTransport =
 	"HealthRegen%PerSec, UpgradeCreationTrigger RW 0x86B169, TRANSPORT_MOVING, the PASSENGER_TYPE weapon sets), 0x86A1FA / 0x86A104 (InitialPayload), the horde "
 	"transport's 0x87A677 / 0x87A6D3 / 0x87A7B4 (a horde rides: the horde object out of the world, its members on the bones), its death 0x87AE0A (the members thrown "
 	"off, GameLogicRandomValue(5, 10)), the exits RW 0x8682D9 / 0x87A89E and GoAggressiveOnExit's attitude (RW 0x86AD06, lane GATEPUSH-1). Inference: the payload is made when the object is created (RW's caller of main slot 0x70 "
-	"is not located). Not ported: the fades and the drawable bone attachment (client), GrabWeapon / CanGrabStructure (the trolls' grab), ShouldThrowOutPassengers' "
+	"is not located). Not ported: the drawable bone attachment (client), CanGrabStructure (the trolls' GrabObject body path; the entry test RW 0x86A07D and the GrabWeapon fire RW 0x86AA4B .. 0x86AAA2 are ported, lane PORT-62), ShouldThrowOutPassengers' "
 	"throw (RW 0x86A530), the AI slot 0x1A8 of the exit test, the SHIP boarding AI (S-4160; lane SHIP-1 ported the shore spot RW 0x6EFBB8 of the entries and exits), an indestructible container's payload, "
 	"PassengersInTurret";
 
@@ -62,6 +63,25 @@ HordeContainInterface *hordeOf(const Object &obj)
 {
 	ContainModuleInterface *c = obj.getContain();
 	return c ? c->getHordeContainInterface() : nullptr;
+}
+
+// RW 0x86AB63 .. 0x86AB6F / RW 0x86AE59 .. 0x86AE65 (lane PORT-97, issue #245): ftol(DAT 0xD9F624 * time) - the fade time is
+// milliseconds, DAT 0xD9F624 = 0.03 turns them into 30 Hz client frames (DrawableFade.cpp); ftol truncates (RW 0xA3CFA4)
+UnsignedInt passengerFadeFrames(float milliseconds)
+{
+	return (UnsignedInt)((float)milliseconds * 0.03f);
+}
+
+// RW 0x86AB08 .. 0x86AB21 / RW 0x86AE03 .. 0x86AE18: a rider that is KindOf HORDE (template + 0x115 bit 5) and has a contain
+// (RW 0x68C866, Object + 0x258) fades the objects of that contain's list (vslot 0x10C) instead of itself
+const ContainModuleInterface::ContainedItemsList *hordeMembersToFade(const Object &rider)
+{
+	if (!rider.isKindOf((unsigned)CombatNames::kinds().horde))
+	{
+		return nullptr; // RW 0x86AB12: anything else fades itself
+	}
+	ContainModuleInterface *contain = rider.getContain();
+	return contain ? contain->getContainedItemsList() : nullptr; // RW 0x86AB21
 }
 
 // RW 0x70C4FE / 0x70B8C7 testSetAndClear(mustBeSet, none): every bit of the mask (an empty mask: true)
@@ -244,15 +264,38 @@ void TransportContain::onContaining(Object *obj, bool wasSelected)
 	setCondition(*obj, riderCondition, true);
 	setWeaponStateOfRider(*obj);                           // contain slot 0xEC (RW 0x86A43E)
 	onRiderPlaced(obj, ridersFireFromContainer());          // contain slot 0x6C (rider, the ENCLOSED bit)
+	// RW 0x86AA4B .. 0x86AAA2 (lane PORT-62, issue #172): GrabWeapon (data + 0x144, a WeaponTemplate pointer, null when the INI names none or a name the
+	// store does not know) fires when the rider is not an ALLIES of the container (RW 0x86AA54 .. 0x86AA60: Object::getRelationship RW 0x68D7AB, 2 = ALLIES).
+	// TheWeaponStore (RW 0xDE4A1C) makes the temporary weapon and fires it (RW 0x86AA76 .. 0x86AA8A -> RW 0x6CF530) from the container at the container's own
+	// position (Object + 0x38, RW 0x86AA79). FireGrabWeaponOnVictim (data + 0x148) is read twice, at RW 0x86AA62 and RW 0x86AA8F: when it is false the rider
+	// is UNATTACKABLE (status 0x3C, Object::setStatus RW 0x62684D) for the duration of that one fire (RW 0x86AA6B .. 0x86AA71) and the status comes off again
+	// right after it (RW 0x86AA98 .. 0x86AA9E). Both branches reach the fire: the flag brackets it, it does not skip it. The bracket is not inert either — the
+	// body's damage acceptance refuses an UNATTACKABLE victim (RW 0x8C3FFB .. 0x8C400C: only damage type 8, UNRESISTABLE, gets through), so with the flag off
+	// everything in the grab's area takes the damage except the rider the transport just grabbed (docs/re/rotwk/RW_0x86AA4B.md).
 	if (!m_transport->m_grabWeapon.name.empty())
 	{
-		++m_stats.unported; // RW 0x86AA48 .. 0x86AA8E: GrabWeapon (the troll's grab) fired at the rider (S-1103)
+		const WeaponTemplate *grab = TheWeaponStore ? TheWeaponStore->findWeaponTemplate(m_transport->m_grabWeapon.name) : nullptr;
+		if (grab && container->getRelationship(*obj) != ALLIES) // RW 0x86AA4B (the template) and RW 0x86AA5D (ALLIES = 2)
+		{
+			static const int unattackable = statusBit("UNATTACKABLE"); // 0x3C
+			const bool shieldVictim = !m_transport->m_fireGrabWeaponOnVictim;
+			if (shieldVictim)
+			{
+				obj->setStatus((unsigned)unattackable, true); // RW 0x86AA6B .. 0x86AA71
+			}
+			ObjectWeapons::createAndFireTempWeapon(grab, container, *container->getPosition()); // RW 0x86AA8A -> RW 0x6CF530
+			if (shieldVictim)
+			{
+				obj->setStatus((unsigned)unattackable, false); // RW 0x86AA98 .. 0x86AA9E
+			}
+		}
 	}
 	if (m_transport->m_shouldThrowOutPassengers)
 	{
 		m_throwOutFrame = m_transport->m_throwOutPassengersDelay + container->logic().getFrame(); // RW 0x86AA97: data + 0x154
 	}
 	// RW 0x86AAAE .. 0x86ABCB: FadePassengerOnEnter (client side)
+	fadePassengerOnEnter(obj);
 }
 
 // RW 0x86ABDC TransportContain::onRemoving
@@ -302,6 +345,99 @@ void TransportContain::onRemoving(Object *obj)
 	// RW 0x86AD48 .. 0x86AD8A: the drawables' bone release with ReleaseSnappyness (client side)
 	clearWeaponStates(); // contain slot 0xF0 (RW 0x86A4E4)
 	// RW 0x86AD95 .. 0x86AEA1: FadePassengerOnExit (client side)
+	fadePassengerOnExit(obj);
+}
+
+// RW 0x86AAAE .. 0x86ABCB (lane PORT-97, issue #245): the client fade of a rider that enters, the last thing onContaining does. The
+// drawable RW fades is the rider's (Object + 0x84, RW 0x70E013, read into a local at RW 0x86A9C9 .. 0x86A9D0); the port's simulation holds
+// no Drawable pointer, the object's client hooks are its stand-in (lane SMOOTH-1, Object + 0x84's binding). Order: the rider has already been
+// hidden by the contain slot 0x6C above (RW 0x86B77B), as in RotWK - the fade's own update shows the drawable again (RW 0x675AB7).
+void TransportContain::fadePassengerOnEnter(Object *rider)
+{
+	const TransportContainModuleData *d = m_transport;
+	if (!d->m_fadePassengerOnEnter)                                   // RW 0x86AAC2: data + 0x16C
+	{
+		return;
+	}
+	ObjectClientHooks *client = rider->clientHooks();                  // RW 0x86AACF: the rider's drawable
+	if (!client || d->m_enterFadeTime == 0.0f)                         // RW 0x86AAD9 .. 0x86AAEC: data + 0x170
+	{
+		return;
+	}
+	if (!ObjectFilterMatch::allows(getObject()->logic(), d->m_fadeFilter, *rider, nullptr)) // RW 0x86AAF2 -> RW 0x7640C1
+	{
+		return;
+	}
+	const UnsignedInt frames = passengerFadeFrames(d->m_enterFadeTime); // RW 0x86AB63 .. 0x86AB6F
+	if (const ContainModuleInterface::ContainedItemsList *members = hordeMembersToFade(*rider))
+	{
+		for (Object *member : *members)                                 // RW 0x86AB48 .. 0x86AB91
+		{
+			if (!member)                                                // RW 0x86AB54
+			{
+				continue;
+			}
+			if (ObjectClientHooks *memberClient = member->clientHooks()) // RW 0x86AB58 -> RW 0x70E013
+			{
+				if (d->m_fadeReverse)                                    // RW 0x86AB74: data + 0x178
+				{
+					memberClient->fadeOut(*member, frames);               // RW 0x86AB80
+				}
+				else
+				{
+					memberClient->fadeIn(*member, frames);                // RW 0x86AB87
+				}
+			}
+		}
+		return;
+	}
+	if (d->m_fadeReverse)                                              // RW 0x86ABB2
+	{
+		client->fadeOut(*rider, frames);                                // RW 0x86ABBF
+	}
+	else
+	{
+		client->fadeIn(*rider, frames);                                 // RW 0x86ABC6
+	}
+}
+
+// RW 0x86ADBD .. 0x86AEA1: the same fade for a rider that leaves, with FadePassengerOnExit (data + 0x16D) and ExitFadeTime (data + 0x174),
+// both read in the same order after clearWeaponStates (contain slot 0xF0, RW 0x86ADB7). One difference to the enter block, and it is in the
+// binary, not an inference: the exit reads no FadeReverse, every exit fade is RW 0x670AA2 fadeIn (RW 0x86AE6D for a member, RW 0x86AE9C for
+// the rider itself).
+void TransportContain::fadePassengerOnExit(Object *rider)
+{
+	const TransportContainModuleData *d = m_transport;
+	if (!d->m_fadePassengerOnExit)                                     // RW 0x86ADBD: data + 0x16D
+	{
+		return;
+	}
+	ObjectClientHooks *client = rider->clientHooks();                  // RW 0x86ADCC: the rider's drawable
+	if (!client || d->m_exitFadeTime == 0.0f)                          // RW 0x86ADD5 .. 0x86ADE8: data + 0x174
+	{
+		return;
+	}
+	if (!ObjectFilterMatch::allows(getObject()->logic(), d->m_fadeFilter, *rider, nullptr)) // RW 0x86ADEE -> RW 0x7640C1
+	{
+		return;
+	}
+	const UnsignedInt frames = passengerFadeFrames(d->m_exitFadeTime); // RW 0x86AE59 .. 0x86AE65
+	if (const ContainModuleInterface::ContainedItemsList *members = hordeMembersToFade(*rider))
+	{
+		for (Object *member : *members)                                 // RW 0x86AE3E .. 0x86AE79
+		{
+			if (!member)                                                // RW 0x86AE4A
+			{
+				continue;
+			}
+			if (ObjectClientHooks *memberClient = member->clientHooks()) // RW 0x86AE4E -> RW 0x70E013
+			{
+				memberClient->fadeIn(*member, frames);                   // RW 0x86AE6D
+			}
+		}
+		return;
+	}
+	client->fadeIn(*rider, frames);                                    // RW 0x86AE9C
 }
 
 // RW 0x86B77B (contain slot 0x6C): the rider's drawable hidden as asked (its bone attachment is the client's)

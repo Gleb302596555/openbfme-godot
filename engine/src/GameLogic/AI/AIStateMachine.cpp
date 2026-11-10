@@ -414,7 +414,16 @@ StateReturnType AIStateMachine::checkForSleepTransitions(AIState &state, StateRe
 {
 	bool matched = false;
 	const StateReturnType r = testConditions(state, matched);
-	return matched ? r : status;
+	if (matched)
+	{
+		return r;
+	}
+	const unsigned to = state.conditionTransition();
+	if (to != INVALID_STATE_ID)
+	{
+		return internalSetState(to);
+	}
+	return status;
 }
 
 // ZH StateMachine::updateStateMachine

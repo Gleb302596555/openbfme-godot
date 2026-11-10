@@ -11,6 +11,7 @@
 #include "Common/JobSystem.h"
 #include "GameClient/LogicSnapshot.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Locomotor.h"
 
 #include <algorithm>
 #include <cstdint>
@@ -63,6 +64,7 @@ std::vector<std::uint8_t> bytesOf(const ObjectSnapshot &s)
 	put(b, s.lastMovedFrame);
 	put(b, s.instanceScale);
 	put(b, s.moveSpeed);
+	put(b, s.locomotorTemplate);
 	put(b, s.scriptTarget.hasObject);
 	put(b, s.scriptTarget.ownPosition.x);
 	put(b, s.scriptTarget.ownPosition.y);
@@ -106,6 +108,8 @@ std::vector<std::uint8_t> bytesOf(const ObjectSnapshot &s)
 	put(b, s.projectileEnd.y);
 	put(b, s.projectileEnd.z);
 	put(b, s.projectileSegments);
+	put(b, s.layer);
+	put(b, s.aboveTerrain);
 	return b;
 }
 } // namespace
@@ -228,8 +232,9 @@ FirstBuild buildFirst(int threads)
 	{
 		ObjectSnapshot c = s;
 		c.tmpl = nullptr;
+		c.locomotorTemplate = nullptr; // LOCAL-25: each fresh world loads its own templates: compared by name, as tmpl
 		out.records.push_back(bytesOf(c));
-		out.templates.push_back(s.tmpl ? s.tmpl->getName() : std::string());
+		out.templates.push_back((s.tmpl ? s.tmpl->getName() : std::string()) + "|" + (s.locomotorTemplate ? s.locomotorTemplate->m_name : std::string()));
 	}
 	return out;
 }

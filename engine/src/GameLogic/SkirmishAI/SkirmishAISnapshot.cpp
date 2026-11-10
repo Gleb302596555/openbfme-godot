@@ -406,9 +406,9 @@ void xferBrain(Xfer &x, AIBrainState &b, RequestTable &table, int version)
 		AIXfer::coord(x, tac.aimPos);
 		x.xferBool(&tac.mainLaunched);
 		x.xferUnsignedInt(&tac.launchFrame);
-		if (version >= 7 && tac.targetless && tac.kindIndex == 108) // AIWoTRForfeitTactic: 100 + the targetless prototype 8 (AITacticalAI.cpp)
+		if (version >= 8 && tac.targetless && tac.kindIndex == 108) // AIWoTRForfeitTactic: 100 + the targetless prototype 8 (AITacticalAI.cpp)
 		{
-			// version 7 (lane PORT-33): AIWoTRForfeitTactic's own fields — RW 0x9B72A4 saves + 0x58 (bool), + 0x5C (int) and, from its version 2, + 0x64
+			// version 8 (lane PORT-33): AIWoTRForfeitTactic's own fields — RW 0x9B72A4 saves + 0x58 (bool), + 0x5C (int) and, from its version 2, + 0x64
 			// (int); + 0x60 (the message flag) is not saved either here or there. Only this prototype has them, and the version is written only when one is
 			// live, so a snapshot without a surrender keeps the bytes it had
 			x.xferBool(&tac.forfeit.triggered);
@@ -501,10 +501,16 @@ void SkirmishAIManager::xferState(Xfer &x, bool hooksInstalled)
 	// it: the fields load at 0 / none
 	// version 6 (lane RAI-POW-2, community #233): each AI's cached enemy player and its refresh frame, written only when some AI's cache holds a value, so
 	// a game that never asked for an enemy keeps version 5's bytes
-	// version 7 (lane PORT-33): AIWoTRForfeitTactic's state (+ 0x58 / + 0x5C / + 0x64, RW 0x9B72A4), written only when such a tactic is live: a game that has
-	// none keeps version 6's bytes (the WotR battle's surrender is the only creator)
+	// version 7 (lane RAI-SMALL): the groups' task vectors (RW 0x8EDB2C), written only when some group holds a task. Retail's group task list is never
+	// filled by the AI code, so a live game keeps version 5 or 6; a version 5 / 6 snapshot has no tasks
 	bool enemyCache = x.isLoading();
+	bool hasTasks = x.isLoading();
+	// version 8 (lane PORT-33; it was the fork's version 7 before the merge of upstream efbdfad9): AIWoTRForfeitTactic's state (+ 0x58 / + 0x5C / + 0x64, RW 0x9B72A4), written only when such a tactic is live: a game that has
+	// none keeps the lower version's bytes (the WotR battle's surrender is the only creator)
 	bool forfeitTactic = x.isLoading();
+	// version 9 (lane PORT-39; the arena branch wrote it as version 7 before RAI-SMALL and PORT-33 took 7 and 8): each AI's gatherer bookkeeping
+	// (AIPlayer + 0x46 / + 0x78 / + 0x7C), written only when some AI's side has a SideInfo entry: a game without one keeps the lower version's bytes
+	bool gatherers = x.isLoading();
 	for (const std::unique_ptr<AISkirmishGroup> &g : m_groups)
 	{
 		for (const auto &kv : g->players)
@@ -520,15 +526,25 @@ void SkirmishAIManager::xferState(Xfer &x, bool hooksInstalled)
 	}
 	for (const std::unique_ptr<AISkirmishGroup> &g : m_groups)
 	{
+		if (!g->tasks.empty())
+		{
+			hasTasks = true;
+		}
 		for (const auto &kv : g->players)
 		{
 			if (kv.second->enemyIndex != -1 || kv.second->enemyRefreshFrame != 0)
 			{
 				enemyCache = true;
 			}
+			if (kv.second->needsResourceGatherers || kv.second->resourceGatherersWanted != 0 || kv.second->resourceGatherersHave != -1)
+			{
+				gatherers = true;
+			}
 		}
 	}
-	XferVersion v{ 3, (std::uint8_t)(forfeitTactic ? 7 : enemyCache ? 6 : 5) };
+	// a task list needs the enemy-cache fields too: version 7 always carries version 6's bytes
+	const int written = gatherers ? 9 : (forfeitTactic ? 8 : (hasTasks ? 7 : (enemyCache ? 6 : 5)));
+	XferVersion v{ 3, (std::uint8_t)written };
 	x.xferVersion(v);
 	const bool loading = x.isLoading();
 	bool started = loading ? false : m_started;
@@ -726,6 +742,17 @@ void SkirmishAIManager::xferState(Xfer &x, bool hooksInstalled)
 					AIXfer::inRange(ai->enemyIndex, -1, m_logic.players().getPlayerCount() - 1, "skirmish ai: the cached enemy player of an AI");
 				}
 			}
+			if (v.current >= 9)
+			{
+				// lane PORT-39: the gatherer bookkeeping of RW 0x8F736E / 0x8F858E (AIPlayer + 0x46 / + 0x78 / + 0x7C)
+				x.xferBool(&ai->needsResourceGatherers);
+				x.xferInt(&ai->resourceGatherersWanted);
+				x.xferInt(&ai->resourceGatherersHave);
+				if (x.isLoading())
+				{
+					ai->hasSideInfo = ai->needsResourceGatherers;
+				}
+			}
 			AIXfer::inRange(ai->playerIndex, 0, m_logic.players().getPlayerCount() - 1, "skirmish ai: the player of an AI");
 			const Player *player = m_logic.players().getNthPlayer(ai->playerIndex);
 			if (!player)
@@ -745,6 +772,34 @@ void SkirmishAIManager::xferState(Xfer &x, bool hooksInstalled)
 			for (AISkirmishPlayer *ai : order)
 			{
 				ai->groupFirst = first;
+			}
+		}
+		// version 7 (lane RAI-SMALL): the group's tasks (+ 0x18), RW 0x8EDB2C. Versions 5 and 6 are main's DEFENSIVE fields and enemy cache.
+		if (v.current >= 7)
+		{
+			std::uint32_t tasks = (std::uint32_t)g->tasks.size();
+			x.xferCount(&tasks, 20, sizeof(AIGroupTask)); // five 4-byte fields (state, two players, remaining, per-update)
+			std::vector<AIGroupTask> loaded;
+			for (std::uint32_t i = 0; i < tasks; ++i)
+			{
+				AIGroupTask task = loading ? AIGroupTask{} : g->tasks[i];
+				x.xferInt(&task.state);
+				x.xferInt(&task.fromPlayer);
+				x.xferInt(&task.toPlayer);
+				x.xferUnsignedInt(&task.remaining);
+				x.xferUnsignedInt(&task.perUpdate);
+				if (loading)
+				{
+					AIXfer::inRange(task.state, AIGroupTask::TASK_ACTIVE, AIGroupTask::TASK_FAILED, "skirmish ai: a group task's state");
+					// the money transfer's players (RW 0x99EEF4 fails the task on a missing one; the unset -1 is the constructor's)
+					AIXfer::inRange(task.fromPlayer, -1, m_logic.players().getPlayerCount() - 1, "skirmish ai: a group task's paying player");
+					AIXfer::inRange(task.toPlayer, -1, m_logic.players().getPlayerCount() - 1, "skirmish ai: a group task's paid player");
+					loaded.push_back(task);
+				}
+			}
+			if (loading)
+			{
+				g->tasks = std::move(loaded);
 			}
 		}
 	}
@@ -820,6 +875,11 @@ void SkirmishAIManager::checkLoaded() const
 		if (!g->players.empty() && firsts != 1)
 		{
 			throw XferException("skirmish ai: a group has " + std::to_string(firsts) + " first AIs");
+		}
+		for (const AIGroupTask &t : g->tasks)
+		{
+			player(t.fromPlayer, "skirmish ai: a group task's payer");
+			player(t.toPlayer, "skirmish ai: a group task's payee");
 		}
 	}
 	for (const auto &kv : ais)
@@ -1054,6 +1114,25 @@ void SkirmishAIManager::checkLoaded() const
 				{
 					throw XferException("skirmish ai: a SimpleExpansion whose request is not a plain structure request");
 				}
+				break;
+			case 105:
+				// RW 0x9B869B..0x9B86D3: created/entry flags and the issued fortress ID survive death.
+				AIXfer::inRange(tac.step, 0, 2, what.c_str());
+				if (tac.step == 0)
+					AIXfer::inRange(tac.step2, 0, 0, what.c_str());
+				else
+				{
+					AIXfer::inRange(tac.step2, -1, 0x7fffffff, what.c_str());
+					if (tac.step2 != -1)
+						AIXfer::issued((ObjectID)tac.step2, "skirmish ai: ReturnTheRing fortress");
+					if (tac.step == 2 && tac.step2 == -1)
+						throw XferException(what + " entered without a fortress");
+				}
+				break;
+			case 107:
+				// RW 0x9B7EC6..0x9B7EE4 transfers the roaming flag, including the ended frame.
+				AIXfer::inRange(tac.step, 0, 1, what.c_str());
+				AIXfer::inRange(tac.step2, 0, 0, what.c_str());
 				break;
 			default:
 				AIXfer::inRange(tac.step, 0, 0, what.c_str());

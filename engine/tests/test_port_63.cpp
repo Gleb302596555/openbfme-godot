@@ -1,21 +1,22 @@
-// OpenBFME unit tests. GPL-3.0. PORT-63 / issue #173: W3DSailModelDraw's shared matrix slot.
-// Synthetic object INI and W3D chunks only; no retail game or mod data. Expectations come from
-// RW 0x4B6B26 (one matrix hook), RW 0x4D00CD..0x4D033B (wind, clamp, first/next calls,
-// Matrix3D::Rotate_Z) and RW 0x9F3A3C (base no-op), NOT from the implementation under test.
-// These call the post-attachment callback directly; RW 0x4B6A77/0x4B6AA2 only reaches
-// that callback when the separate cross-module bone lookup succeeds (remaining S-112).
+// OpenBFME unit tests. GPL-3.0. PORT-63 / issue #173: W3DSailModelDraw on Local 29's attached-bone slot.
+// Synthetic INI and W3D only; no retail files. RW 0x4B6A77/0x4B6AA2/0x4B6B26 dispatches +0x104
+// ONLY after another module's bone is found. RW 0x4D00CD..0x4D033B supplies the fixed wind,
+// angle limit, first-call flag, damping and Z turn; RW 0x9F3A3C is the non-sail no-op.
 
 #include "doctest.h"
 
 #include "ObjectTestUtil.h"
+#include "W3DDrawTestUtil.h"
 #include "W3dSynth.h"
+#include "Common/AsciiString.h"
 
 #include "GameClient/Drawable.h"
 #include "GameClient/MapObjectDrawables.h"
 #include "GameClient/MapObjectRuntime.h"
-#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawMatrix.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DSailModelDraw.h"
+#include "Libraries/WWVegas/WWMath/matrix3d.h"
 
+#include <algorithm>
 #include <cmath>
 #include <memory>
 #include <string>
@@ -26,13 +27,47 @@ using namespace w3dsynth;
 namespace
 {
 constexpr double kPi = 3.14159265358979323846;
-constexpr float kIdentity[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
-// A model facing +Y instead of +X (columns X=(0,1,0), Y=(-1,0,0)).
-constexpr float kNorth[9] = { 0, -1, 0, 1, 0, 0, 0, 0, 1 };
 
 struct World : objtest::World
 {
 	World() { W3DDrawModules::registerTypedDrawModuleData(modules); }
+};
+
+// The common drawtest::Harness parses scripted-model bodies. The sail variant
+// uses the same INI multi-table parser as its typed ModuleFactory binding; it
+// needs its own harness so parsing it cannot release the hull's module data.
+struct SailHarness
+{
+	INIEnvironment env;
+	std::unique_ptr<W3DSailModelDrawModuleData> data;
+	std::string error;
+
+	SailHarness()
+	{
+		env.blocks.registerBlock("TestSail", [this](INI *ini) {
+			data = std::make_unique<W3DSailModelDrawModuleData>();
+			ini->initFromINIMultiProc(data.get(), &W3DSailModelDrawModuleData::buildFieldParse);
+			while (!ini->isEOF()) ini->readLine();
+		});
+	}
+
+	W3DSailModelDrawModuleData *parse(const std::string &body)
+	{
+		data.reset();
+		error.clear();
+		const std::string text = "TestSail\n" + body;
+		INI ini(env);
+		try
+		{
+			ini.loadMemory("sail.ini", std::vector<std::uint8_t>(text.begin(), text.end()), INI_LOAD_OVERWRITE);
+		}
+		catch (const INIException &e)
+		{
+			error = e.message();
+			data.reset();
+		}
+		return data.get();
+	}
 };
 
 struct Rig
@@ -45,129 +80,245 @@ struct Rig
 
 	Rig() : assets(files), services(assets, world.modules, W3DLuaDrawScriptHost::Options{})
 	{
+		// Two independently owned modules per object: the parent hull has a sail bone at
+		// (3,0,2); the sail's own skeleton has no such bone. ThingTemplate owns a distinct
+		// Nugget/module-data object for EACH draw (no shared, reparsed Harness/dangling data).
+		files.Add("art\\w3d\\po\\port63_hull_skl.w3d",
+			hierarchyChunk("PORT63_HULL_SKL", { pivot("ROOTTRANSFORM", 0xFFFFFFFFu, 0, 0, 0), pivot("SAIL_BONE01", 0, 3, 0, 2) }));
 		files.Add("art\\w3d\\po\\port63_skl.w3d", hierarchyChunk("PORT63_SKL", { pivot("ROOTTRANSFORM", 0xFFFFFFFFu, 0, 0, 0) }));
-		SynthMesh mesh;
-		mesh.Name = "BODY";
-		mesh.Container = "PORT63_SKN";
-		mesh.Vertices = { { 0, 0, 0 }, { 1, 0, 0 }, { 0, 1, 0 } };
-		mesh.Triangles = { 0, 1, 2 };
-		std::vector<std::uint8_t> model;
-		append(model, meshChunk(mesh));
-		append(model, hlodChunk("PORT63_SKN", "PORT63_SKL", { { "PORT63_SKN.BODY", 0 } }));
-		files.Add("art\\w3d\\po\\port63_skn.w3d", model);
-		const std::string ini =
-			"Object SailNarrow\n"
-			"  Draw = W3DSailModelDraw ModuleTag_Sail\n"
-			"    MaxRotationDegrees = 30\n    AboutDamping = 0.1\n"
-			"    DefaultModelConditionState\n      Model = PORT63_SKN\n    End\n"
-			"  End\nEnd\n"
-			"Object SailWide\n"
-			"  Draw = W3DSailModelDraw ModuleTag_Sail\n"
-			"    MaxRotationDegrees = 90\n    AboutDamping = 0.1\n"
-			"    DefaultModelConditionState\n      Model = PORT63_SKN\n    End\n"
-			"  End\nEnd\n"
-			"Object Plain\n"
-			"  Draw = W3DScriptedModelDraw ModuleTag_Plain\n"
-			"    DefaultModelConditionState\n      Model = PORT63_SKN\n    End\n"
-			"  End\nEnd\n"
-			"Object Truck\n"
-			"  Draw = W3DTruckDraw ModuleTag_Truck\n"
-			"    DefaultModelConditionState\n      Model = PORT63_SKN\n    End\n"
-			"  End\nEnd\n";
-		REQUIRE(world.load(ini).empty());
+		for (const char *name : { "PORT63_HULL", "PORT63_SKN" })
+		{
+			SynthMesh mesh;
+			mesh.Name = "BODY";
+			mesh.Container = name;
+			mesh.Vertices = { { 0, 0, 0 }, { 1, 0, 0 }, { 0, 1, 0 } };
+			mesh.Triangles = { 0, 1, 2 };
+			std::vector<std::uint8_t> model;
+			append(model, meshChunk(mesh));
+			const char *skeleton = std::string(name) == "PORT63_HULL" ? "PORT63_HULL_SKL" : "PORT63_SKL";
+			append(model, hlodChunk(name, skeleton, { { std::string(name) + ".BODY", 0 } }));
+			files.Add(std::string("art\\w3d\\po\\") + AsciiStringUtil::lowered(name) + ".w3d", model);
+		}
+		std::string ini;
+		auto appendObject = [&](const char *name, const char *drawClass, const char *bone, const char *maxDegrees) {
+			ini += std::string("Object ") + name + "\n"
+				"  Draw = W3DScriptedModelDraw ModuleTag_Hull\n"
+				"    DefaultModelConditionState\n      Model = PORT63_HULL\n      Skeleton = PORT63_HULL_SKL\n    End\n"
+				"  End\n";
+			ini += std::string("  Draw = ") + drawClass + " ModuleTag_Test\n";
+			if (bone)
+			{
+				ini += std::string("    AttachToBoneInAnotherModule = ") + bone + "\n";
+			}
+			if (maxDegrees)
+			{
+				ini += std::string("    MaxRotationDegrees = ") + maxDegrees + "\n"
+					"    AboutDamping = 0.1\n    BlowingThresholdDegrees = 179\n"; // parsed-unused in RW 2.01, not a wind gate
+			}
+			ini += "    DefaultModelConditionState\n      Model = PORT63_SKN\n      Skeleton = PORT63_SKL\n    End\n"
+				"  End\nEnd\n";
+		};
+		appendObject("SailNarrow", "W3DSailModelDraw", "SAIL_BONE01", "30");
+		appendObject("SailWide", "W3DSailModelDraw", "SAIL_BONE01", "90");
+		appendObject("SailFree", "W3DSailModelDraw", nullptr, "90");
+		appendObject("SailMissing", "W3DSailModelDraw", "NO_SUCH_BONE", "90");
+		appendObject("Plain", "W3DScriptedModelDraw", "SAIL_BONE01", nullptr);
+		appendObject("Truck", "W3DTruckDraw", "SAIL_BONE01", nullptr);
+		const std::string error = world.load(ini);
+		REQUIRE_MESSAGE(error.empty(), error);
 	}
 
 	std::unique_ptr<Drawable> make(const char *name, DrawableID id)
 	{
-		auto drawable = std::make_unique<Drawable>(services, world.get(name), id, 1, std::vector<ClientEvent::ClientModule>{}, problems);
+		const ThingTemplate *tt = world.get(name);
+		REQUIRE(tt != nullptr);
+		REQUIRE(tt->drawModules().nuggets().size() == 2);
+		REQUIRE(tt->drawModules().nuggets()[0].data.get() != tt->drawModules().nuggets()[1].data.get());
+		auto drawable = std::make_unique<Drawable>(services, tt, id, 1, std::vector<ClientEvent::ClientModule>{}, problems);
 		const std::string error = problems.empty() ? "" : problems.front();
 		REQUIRE_MESSAGE(problems.empty(), error);
-		REQUIRE(drawable->entries().size() == 1);
-		REQUIRE(drawable->entries()[0].draw != nullptr);
-		REQUIRE(drawable->entries()[0].draw->errors().empty());
+		REQUIRE(drawable->entries().size() == 2);
+		for (const DrawEntry &e : drawable->entries())
+		{
+			REQUIRE(e.draw != nullptr);
+			REQUIRE(e.draw->errors().empty());
+		}
 		return drawable;
 	}
 };
 
-void checkBasisTurn(const Matrix3D &matrix, double theta, float x = 0.0f, float y = 0.0f, float z = 0.0f)
+void checkBasisTurn(const Matrix3D &matrix, double theta, float x, float y, float z)
 {
-	// Identity * Rotate_Z(theta) is a clockwise local Z turn in the matrix rows:
-	// [cos(theta), -sin(theta); sin(theta), cos(theta)] (RW 0x4D028D..0x4D02C5).
-	CHECK(matrix.Row[0][0] == doctest::Approx(std::cos(theta)).epsilon(1e-5)); // tolerance: expected trigonometric values are real angles; float radians and libm sine/cosine round on different precisions.
-	CHECK(matrix.Row[0][1] == doctest::Approx(-std::sin(theta)).epsilon(1e-5)); // tolerance: expected trigonometric values are real angles; float radians and libm sine/cosine round on different precisions.
-	CHECK(matrix.Row[1][0] == doctest::Approx(std::sin(theta)).epsilon(1e-5)); // tolerance: expected trigonometric values are real angles; float radians and libm sine/cosine round on different precisions.
-	CHECK(matrix.Row[1][1] == doctest::Approx(std::cos(theta)).epsilon(1e-5)); // tolerance: expected trigonometric values are real angles; float radians and libm sine/cosine round on different precisions.
-	CHECK(matrix.Row[2][2] == 1.0f); // Z axis is exactly unchanged by a Z turn
+	// Identity * Rotate_Z(theta) is [cos, -sin; sin, cos] (RW 0x4D028D..0x4D02C5).
+	CHECK(matrix.Row[0][0] == doctest::Approx(std::cos(theta)).epsilon(1e-5)); // tolerance: float radians and trigonometric functions round differently from the reference double angle.
+	CHECK(matrix.Row[0][1] == doctest::Approx(-std::sin(theta)).epsilon(1e-5)); // tolerance: float radians and trigonometric functions round differently from the reference double angle.
+	CHECK(matrix.Row[1][0] == doctest::Approx(std::sin(theta)).epsilon(1e-5)); // tolerance: float radians and trigonometric functions round differently from the reference double angle.
+	CHECK(matrix.Row[1][1] == doctest::Approx(std::cos(theta)).epsilon(1e-5)); // tolerance: float radians and trigonometric functions round differently from the reference double angle.
+	CHECK(matrix.Row[2][2] == 1.0f);
 	CHECK(matrix.Row[0][3] == x);
 	CHECK(matrix.Row[1][3] == y);
 	CHECK(matrix.Row[2][3] == z);
 }
 } // namespace
 
-TEST_CASE("PORT-63 sail: the factory selects its matrix callback, fixed wind and MaxRotationDegrees on the first call")
+TEST_CASE("PORT-63 two-module Harness: independently parsed hull and sail survive through bone lookup")
+{
+	Rig rig;
+	drawtest::Harness hullHarness;
+	SailHarness sailHarness; // a separate INI/Harness for the second module: no reparsing/freed hull data
+	const W3DModelDrawModuleData *hull = hullHarness.parse(
+		"DefaultModelConditionState\n  Model = PORT63_HULL\n  Skeleton = PORT63_HULL_SKL\nEnd\nEnd\n");
+	REQUIRE_MESSAGE(hull != nullptr, hullHarness.error);
+	const W3DSailModelDrawModuleData *sail = sailHarness.parse(
+		"AttachToBoneInAnotherModule = SAIL_BONE01\n"
+		"MaxRotationDegrees = 30\nAboutDamping = 0.1\n"
+		"DefaultModelConditionState\n  Model = PORT63_SKN\n  Skeleton = PORT63_SKL\nEnd\nEnd\n");
+	REQUIRE_MESSAGE(sail != nullptr, sailHarness.error);
+	CHECK(static_cast<const void *>(hull) != static_cast<const void *>(sail));
+	CHECK(AsciiStringUtil::compareNoCase(sail->m_attachToDrawableBone, "SAIL_BONE01") == 0);
+
+	ThingTemplate tmpl;
+	tmpl.friend_setTemplateName("Port63HarnessShip");
+	std::vector<std::string> problems;
+	auto d = std::make_unique<Drawable>(rig.services, &tmpl, 9, 1, std::vector<ClientEvent::ClientModule>{}, problems);
+	REQUIRE(problems.empty());
+	DrawEntry parent;
+	parent.className = "W3DScriptedModelDraw";
+	parent.kind = W3D_DRAWKIND_MODEL;
+	parent.draw = std::make_unique<W3DScriptedModelDraw>(*hull, rig.services.drawAssets, rig.services.random);
+	REQUIRE(parent.draw->errors().empty());
+	d->entries().push_back(std::move(parent));
+	DrawEntry child;
+	child.className = "W3DSailModelDraw";
+	child.kind = W3D_DRAWKIND_MODEL;
+	child.attachToBone = sail->m_attachToDrawableBone;
+	child.draw = std::make_unique<W3DSailModelDraw>(*sail, rig.services.drawAssets, rig.services.random);
+	REQUIRE(child.draw->errors().empty());
+	d->entries().push_back(std::move(child));
+	CHECK(d->entries()[0].draw->frame().modelName == "PORT63_HULL");
+	CHECK(d->entries()[1].draw->frame().modelName == "PORT63_SKN");
+	const Coord3D at{ 12, -8, 3 };
+	d->setPosition(&at);
+	Matrix3D placed;
+	REQUIRE(d->entryTransform(d->entries()[1], placed));
+	checkBasisTurn(placed, kPi / 6.0, 15, -8, 5); // parent bone at (3,0,2); +45 wind capped at +30
+}
+
+TEST_CASE("PORT-63 sail on SAIL_BONE01: the attached slot turns from fixed wind, limited by MaxRotationDegrees")
 {
 	Rig rig;
 	auto narrow = rig.make("SailNarrow", 1);
 	auto wide = rig.make("SailWide", 2);
-	DrawEntry &n = narrow->entries()[0];
-	DrawEntry &w = wide->entries()[0];
+	const Coord3D at{ 12, -8, 3 };
+	narrow->setPosition(&at);
+	wide->setPosition(&at);
+	DrawEntry &n = narrow->entries()[1];
+	DrawEntry &w = wide->entries()[1];
 	REQUIRE(dynamic_cast<W3DSailModelDraw *>(n.draw.get()) != nullptr);
 	REQUIRE(dynamic_cast<W3DSailModelDraw *>(w.draw.get()) != nullptr);
-	CHECK(n.matrixChangesEachFrame); // a stationary drawable must still push its next matrix to the instancer
-	CHECK(w.matrixChangesEachFrame);
-	CHECK(n.draw->frame().modelName == "PORT63_SKN"); // unchanged scripted-model resolution
-	const Coord3D at{ 12, -8, 3 };
-	checkBasisTurn(W3DModelDrawMatrix(*n.draw, kIdentity, at, 1.0f), kPi / 6.0, 12, -8, 3); // +45 wind, capped at +30
-	checkBasisTurn(W3DModelDrawMatrix(*w.draw, kIdentity, at, 1.0f), kPi / 4.0, 12, -8, 3); // +45, not +0.1: +0x2EC initially clear
+	CHECK(AsciiStringUtil::compareNoCase(n.attachToBone, "SAIL_BONE01") == 0);
+	CHECK(AsciiStringUtil::compareNoCase(w.attachToBone, "SAIL_BONE01") == 0);
+	CHECK(n.draw->frame().modelName == "PORT63_SKN");
+	Matrix3D nMatrix, wMatrix;
+	REQUIRE(narrow->entryTransform(n, nMatrix));
+	REQUIRE(wide->entryTransform(w, wMatrix));
+	checkBasisTurn(nMatrix, kPi / 6.0, 15, -8, 5); // +45 fixed wind capped at 30, bone's nonzero offset retained
+	checkBasisTurn(wMatrix, kPi / 4.0, 15, -8, 5); // first call takes +45, not a +0.1 damping step
 }
 
-TEST_CASE("PORT-63 sail: a stationary ship advances AboutDamping once per matrix and preserves each instance's own last angle")
+TEST_CASE("PORT-63 sail on bone: first angle is immediate; subsequent attached frames step AboutDamping, even while stationary")
 {
 	Rig rig;
 	auto ship = rig.make("SailWide", 3);
 	auto other = rig.make("SailWide", 4);
-	W3DScriptedModelDraw &draw = *ship->entries()[0].draw;
 	const Coord3D at{ 4, 9, 2 };
-	// Facing +Y: dot(fixed wind, X)=+sqrt(1/2); dot(wind,Y)=-sqrt(1/2),
-	// so the first angle is -pi/4. The second/third input is always the SAME
-	// stationary identity transform: target +pi/4 but steps only +0.1 per draw.
-	const Matrix3D first = W3DModelDrawMatrix(draw, kNorth, at, 1.0f);
-	CHECK(first.Row[0][0] == doctest::Approx(-std::sin(-kPi / 4.0)).epsilon(1e-5)); // world X faces +45 after +Y facing and -45 local turn // tolerance: expected trigonometric values are real angles; float radians and libm sine/cosine round on different precisions.
-	CHECK(first.Row[1][0] == doctest::Approx(std::cos(-kPi / 4.0)).epsilon(1e-5)); // tolerance: expected trigonometric values are real angles; float radians and libm sine/cosine round on different precisions.
-	checkBasisTurn(W3DModelDrawMatrix(draw, kIdentity, at, 1.0f), -kPi / 4.0 + 0.1, 4, 9, 2);
-	checkBasisTurn(W3DModelDrawMatrix(draw, kIdentity, at, 1.0f), -kPi / 4.0 + 0.2, 4, 9, 2);
-	// RW +0x2E8/+0x2EC belong to EACH runtime, not a shared wind/static angle.
-	checkBasisTurn(W3DModelDrawMatrix(*other->entries()[0].draw, kIdentity, at, 1.0f), kPi / 4.0, 4, 9, 2);
+	ship->setPosition(&at);
+	other->setPosition(&at);
+	DrawEntry &sail = ship->entries()[1];
+	ship->setOrientation(static_cast<float>(kPi / 2.0));
+	// Facing +Y: dot(wind,X)=+sqrt(1/2), dot(wind,Y)=-sqrt(1/2).
+	// First angle -pi/4. Turn the hull back to +X, then keep it STATIONARY:
+	// the attached matrix still changes once per draw by AboutDamping = 0.1.
+	Matrix3D first;
+	REQUIRE(ship->entryTransform(sail, first));
+	CHECK(first.Row[0][0] == doctest::Approx(-std::sin(-kPi / 4.0)).epsilon(1e-5)); // tolerance: orientation and trigonometric values are rounded to floats.
+	CHECK(first.Row[1][0] == doctest::Approx(std::cos(-kPi / 4.0)).epsilon(1e-5)); // tolerance: orientation and trigonometric values are rounded to floats.
+	CHECK(first.Row[1][3] == doctest::Approx(12.0).epsilon(1e-5)); // tolerance: float pi/2 produces a small nonzero cosine in the bone offset.
+	ship->setOrientation(0.0f);
+	Matrix3D second, third;
+	REQUIRE(ship->entryTransform(sail, second));
+	REQUIRE(ship->entryTransform(sail, third));
+	checkBasisTurn(second, -kPi / 4.0 + 0.1, 7, 9, 4);
+	checkBasisTurn(third, -kPi / 4.0 + 0.2, 7, 9, 4);
+	// Angle/valid are properties of EACH runtime, not a shared static wind state.
+	Matrix3D independent;
+	REQUIRE(other->entryTransform(other->entries()[1], independent));
+	checkBasisTurn(independent, kPi / 4.0, 7, 9, 4);
 }
 
-TEST_CASE("PORT-63 neighbor: the base slot leaves a scaled non-sail model and its pose untouched")
+TEST_CASE("PORT-63 sail without a resolvable bone: no slot call; attachment later still starts undamped")
 {
 	Rig rig;
-	auto plain = rig.make("Plain", 5);
-	auto truck = rig.make("Truck", 6);
-	for (Drawable *d : { plain.get(), truck.get() })
+	const Coord3D at{ -3, 8, 6 };
+	for (const char *name : { "SailFree", "SailMissing" })
 	{
-		DrawEntry &e = d->entries()[0];
-		CHECK(dynamic_cast<W3DSailModelDraw *>(e.draw.get()) == nullptr);
-		CHECK_FALSE(e.matrixChangesEachFrame);
-		const Coord3D at{ -1, 4, 11 };
-		const Matrix3D matrix = W3DModelDrawMatrix(*e.draw, kNorth, at, 2.0f);
+		auto d = rig.make(name, name[4] == 'F' ? 5 : 6);
+		d->setPosition(&at);
+		d->setOrientation(static_cast<float>(kPi / 2.0));
+		DrawEntry &e = d->entries()[1];
+		REQUIRE(dynamic_cast<W3DSailModelDraw *>(e.draw.get()) != nullptr);
+		Matrix3D unplaced;
+		CHECK_FALSE(d->entryTransform(e, unplaced));
 		for (int r = 0; r < 3; ++r)
 		{
 			for (int c = 0; c < 3; ++c)
 			{
-				CHECK(matrix.Row[r][c] == 2.0f * kNorth[r * 3 + c]); // RW 0x9F3A3C ret 4
+				CHECK(unplaced.Row[r][c] == d->getBasis()[r * 3 + c]); // the default object basis, not a turned sail
 			}
 		}
-		CHECK(matrix.Row[0][3] == -1);
+		CHECK(unplaced.Row[0][3] == -3);
+		CHECK(unplaced.Row[1][3] == 8);
+		CHECK(unplaced.Row[2][3] == 6);
+		// If the missing-bone/unattached branch had called +0x104 above, its saved
+		// target would be -45. A subsequent first successful +45 call would damp.
+		d->setOrientation(0.0f);
+		e.attachToBone = "SAIL_BONE01";
+		Matrix3D nowAttached;
+		REQUIRE(d->entryTransform(e, nowAttached));
+		checkBasisTurn(nowAttached, kPi / 4.0, 0, 8, 8);
+	}
+}
+
+TEST_CASE("PORT-63 neighbor: attached plain and truck draws keep the bone matrix and their model pose")
+{
+	Rig rig;
+	for (const char *name : { "Plain", "Truck" })
+	{
+		auto d = rig.make(name, name[0] == 'P' ? 7 : 8);
+		const Coord3D at{ -1, 4, 11 };
+		d->setPosition(&at);
+		d->setInstanceScale(2.0f);
+		DrawEntry &e = d->entries()[1];
+		CHECK(dynamic_cast<W3DSailModelDraw *>(e.draw.get()) == nullptr);
+		CHECK(AsciiStringUtil::compareNoCase(e.attachToBone, "SAIL_BONE01") == 0);
+		Matrix3D matrix;
+		REQUIRE(d->entryTransform(e, matrix));
+		for (int r = 0; r < 3; ++r)
+		{
+			for (int c = 0; c < 3; ++c)
+			{
+				CHECK(matrix.Row[r][c] == (r == c ? 2.0f : 0.0f)); // base RW 0x9F3A3C: no matrix mutation
+			}
+		}
+		CHECK(matrix.Row[0][3] == 5); // bone at x=3, scaled by 2
 		CHECK(matrix.Row[1][3] == 4);
-		CHECK(matrix.Row[2][3] == 11);
+		CHECK(matrix.Row[2][3] == 15); // bone z=2, scaled by 2
 		CHECK(e.draw->frame().modelName == "PORT63_SKN");
 		CHECK(e.draw->frame().model != nullptr);
 	}
 }
 
-TEST_CASE("PORT-63 map objects: their factory selects the sail runtime, without converting a neighboring draw")
+TEST_CASE("PORT-63 map objects: sail runtime parses but the map path cannot invoke the attached slot (S-7232)")
 {
 	Rig rig;
 	MapObjectDrawables objects;
@@ -178,26 +329,32 @@ TEST_CASE("PORT-63 map objects: their factory selects the sail runtime, without 
 		MapTemplateInfo &info = objects.templates[tt];
 		info.tmpl = tt;
 		info.name = name;
-		const ThingTemplate::Nugget &n = tt->drawModules().nuggets()[0];
 		MapObjectDrawable d;
 		d.info = &info;
-		d.fate = MAPOBJ_CLIENT_PROP; // use the map's direct drawable path, without a simulation Object
-		MapDrawModule m;
-		m.className = n.name;
-		m.tag = n.tag;
-		m.kind = W3D_DRAWKIND_MODEL;
-		m.data = n.data.get();
-		m.model = "PORT63_SKN";
-		d.draws.push_back(m);
+		d.fate = MAPOBJ_CLIENT_PROP; // map path, without a simulation Object/Drawable::entryTransform
+		for (const ThingTemplate::Nugget &n : tt->drawModules().nuggets())
+		{
+			MapDrawModule m;
+			m.className = n.name;
+			m.tag = n.tag;
+			m.kind = W3D_DRAWKIND_MODEL;
+			m.data = n.data.get();
+			m.model = n.tag == "ModuleTag_Hull" ? "PORT63_HULL" : "PORT63_SKN";
+			d.draws.push_back(m);
+		}
 		objects.drawables.push_back(d);
 	}
 	MapObjectRuntime runtime(rig.assets);
 	runtime.build(objects);
-	REQUIRE(runtime.models().size() == 2);
-	REQUIRE(runtime.models()[0].draw != nullptr);
-	REQUIRE(runtime.models()[1].draw != nullptr);
-	CHECK(dynamic_cast<W3DSailModelDraw *>(runtime.models()[0].draw.get()) != nullptr);
-	CHECK(dynamic_cast<W3DSailModelDraw *>(runtime.models()[1].draw.get()) == nullptr);
-	checkBasisTurn(W3DModelDrawMatrix(*runtime.models()[0].draw, kIdentity, { 0, 0, 0 }, 1.0f), kPi / 4.0);
-	checkBasisTurn(W3DModelDrawMatrix(*runtime.models()[1].draw, kIdentity, { 0, 0, 0 }, 1.0f), 0);
+	REQUIRE(runtime.models().size() == 4);
+	for (const MapPlacedModel &p : runtime.models())
+	{
+		REQUIRE(p.draw != nullptr);
+		CHECK(p.draw->errors().empty());
+	}
+	CHECK(dynamic_cast<W3DSailModelDraw *>(runtime.models()[1].draw.get()) != nullptr);
+	CHECK(dynamic_cast<W3DSailModelDraw *>(runtime.models()[3].draw.get()) == nullptr);
+	CHECK(runtime.models()[1].draw->frame().modelName == "PORT63_SKN");
+	const auto stops = MapObjectCreation::stopLines();
+	CHECK(std::any_of(stops.begin(), stops.end(), [](const std::string &s) { return s.find("[S-7232] map-placed objects") == 0; }));
 }

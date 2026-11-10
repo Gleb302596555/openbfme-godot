@@ -30,7 +30,6 @@ class WW3DAssetManager;
 class RetailObjectWorld;
 struct LoadedMap;
 struct MapObjectDrawables;
-struct MapObjectDrawable;
 class MapObjectRuntime;
 struct MapObjectOptions;
 
@@ -77,8 +76,6 @@ private:
 	struct Animated
 	{
 		void *draw = nullptr;        ///< W3DScriptedModelDraw*, owned by m_runtime
-		const MapObjectDrawable *drawable = nullptr; ///< m_drawables owns the basis used for matrix updates
-		bool movingMatrix = false; ///< sail hook (PORT-63): revisit the per-draw matrix even when the pose is unchanged
 		int64_t instance = -1;
 		std::vector<std::string> hidden; ///< the hidden sub object list last handed to the instancer
 	};

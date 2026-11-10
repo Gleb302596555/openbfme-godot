@@ -30,7 +30,9 @@
 #include "GameEngineDevice/W3DDevice/GameClient/W3DLookupTablePostEffect.h"
 #include "GodotDevice/GodotPostEffects.h"
 #include "GodotDevice/GodotTerrainScorches.h"
+#include "GodotDevice/GodotTerrainTracks.h"
 #include "GodotDevice/GodotW3DMaterial.h"
+#include "GodotDevice/GodotW3DModelBuilder.h"
 
 #include <godot_cpp/classes/array_mesh.hpp>
 #include <godot_cpp/classes/box_mesh.hpp>
@@ -194,6 +196,7 @@ const int TERRAIN_RENDER_PRIORITY = 0;
 const int WATER_RENDER_PRIORITY = 1;
 const int RIVER_RENDER_PRIORITY = 2;
 const int ROAD_RENDER_PRIORITY = 3;
+const int TRACK_RENDER_PRIORITY = 5; // RW 0x4E3108: tracks after scorches
 const int SCORCH_RENDER_PRIORITY = 4; // the terrain render's pass order (RW 0x4E2ECD RenderRoads, then RW 0x4E2FD0 RenderScorches)
 
 Ref<ImageTexture> makeRecordsTexture(const TerrainComposite::Records &records)
@@ -955,6 +958,18 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 				errors.push_back(toGodot(e));
 			}
 			root->add_child(scorchLayer);
+			// PORT-69: same alpha/fog shader as scorches, but retail does not apply their depth bias.
+			Ref<ShaderMaterial> trackMat;
+			if (scorchMat.is_valid())
+			{
+				trackMat = scorchMat->duplicate();
+				trackMat->set_render_priority(TRACK_RENDER_PRIORITY);
+				trackMat->set_shader_parameter("depth_bias_scale", 1.0f);
+			}
+			TerrainTrackLayer *trackLayer = memnew(TerrainTrackLayer);
+			trackLayer->set_name("Tracks");
+			trackLayer->setup(*arch, rfs.assetPacks().empty() ? nullptr : &rfs.assetPacks(), TerrainTracksSystem::shadeFrom(tod), trackMat);
+			root->add_child(trackLayer);
 			Dictionary sd;
 			sd["map_scorches"] = mapScorches;
 			sd["texture"] = scorchTex.is_valid();
@@ -1440,6 +1455,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 		Dictionary rd;
 		RoadBuildReport rrep;
 		std::vector<RoadStrip> strips;
+		std::vector<BridgeSegment> bridges;
 		RoadTypeIndex roadTypes;
 		const float lift = 0.15f; // presentation-only: ZH raises roads by MAP_HEIGHT_SCALE/8, which z-fights here
 		int64_t withNormalMap = 0, withFallbackNormal = 0; // road types with their _nrm texture / with the 1x1 fallback (RoadShading)
@@ -1453,6 +1469,7 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 			else
 			{
 				TerrainRoads::buildStrips(map.chunks.objects, roadTypes, hm, lift, strips, rrep);
+				TerrainRoads::buildBridges(map.chunks.objects, roadTypes, hm, bridges, rrep);
 			}
 		}
 		if (!strips.empty())
@@ -1563,6 +1580,37 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 				roadRoot->add_child(mi);
 			}
 		}
+		if (!bridges.empty())
+		{
+			Node3D *bridgeRoot = memnew(Node3D);
+			bridgeRoot->set_name("Bridges");
+			root->add_child(bridgeRoot);
+			Ref<W3DModelBuilder> mb;
+			mb.instantiate();
+			for (const BridgeSegment &seg : bridges)
+			{
+				if (!seg.roadType)
+				{
+					continue;
+				}
+				// Retail W3DBridge::load (RW 0x004DDEBD / BFME2 0x000DE648): draws bridge model for BODY_PRISTINE at map load
+				const std::string modelName = seg.roadType->modelForDamage(BODY_PRISTINE);
+				if (modelName.empty())
+				{
+					continue;
+				}
+				Node3D *node = mb->build_model(fsRef, toGodot(modelName));
+				if (!node)
+				{
+					continue;
+				}
+				node->set_name(toGodot("Bridge_" + seg.bridgeName));
+				Transform3D xf(Basis(Vector3(0, 1, 0), seg.angle) * Basis::from_scale(Vector3(seg.scale, seg.scale, seg.scale)),
+					toG(seg.center.x, seg.center.y, seg.center.z));
+				node->set_transform(xf);
+				bridgeRoot->add_child(node);
+			}
+		}
 		rd["shading"] = "terrain.fxo Default, RenderingMode 2: PSDefault_Array element " + String::num_int64(RoadShading::pixelShaderElement(RoadShading::RENDERING_MODE, 0, false));
 		rd["normal_maps"] = withNormalMap;
 		rd["fallback_normals"] = withFallbackNormal;
@@ -1573,6 +1621,10 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 			rd["sample_texture"] = toGodot(strips[0].texture);
 		}
 		rd["pairs"] = rrep.pairs;
+		rd["bridges"] = (int64_t)bridges.size();
+		rd["bridge_pairs"] = rrep.bridgePairs;
+		rd["unknown_bridge_types"] = rrep.unknownBridgeTypes;
+		rd["invalid_bridge_width"] = rrep.invalidBridgeWidth;
 		rd["orphan_points"] = rrep.orphanPoints;
 		rd["duplicate_segments"] = rrep.duplicateSegments;
 		rd["unknown_road_types"] = rrep.unknownRoadTypes;
@@ -1614,10 +1666,10 @@ Node3D *MapTerrainBuilder::build_map(const Ref<RetailFileSystem> &fsRef, const S
 		const std::string mapIni = mapDir + "\\map.ini";
 		for (const MapObject &o : map.chunks.objects)
 		{
-			if (o.getFlag(FLAG_ROAD_FLAGS))
+			if (o.getFlag(FLAG_ROAD_FLAGS | FLAG_BRIDGE_FLAGS))
 			{
 				++roadPts;
-				continue; // road points are drawn by the road strips
+				continue; // road and bridge points are drawn by the terrain side (RW 0x62DCE4 / MapObjectDrawables.cpp:729)
 			}
 			if (haveNames && !o.m_objectName.empty() && names.resolveObject(o, mapIni) == ObjectNameIndex::Unresolved)
 			{

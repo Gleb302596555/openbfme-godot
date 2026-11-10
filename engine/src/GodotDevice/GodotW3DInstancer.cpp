@@ -388,6 +388,7 @@ void W3DInstancer::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_instance_cast_shadow", "instance", "enabled"), &W3DInstancer::set_instance_cast_shadow);
 	ClassDB::bind_method(D_METHOD("set_shadow_receiving", "enabled"), &W3DInstancer::set_shadow_receiving);
 	ClassDB::bind_static_method("W3DInstancer", D_METHOD("set_shadow_maps_enabled", "enabled"), &W3DInstancer::set_shadow_maps_enabled);
+	ClassDB::bind_static_method("W3DInstancer", D_METHOD("shadow_maps_enabled"), &W3DInstancer::shadow_maps_enabled);
 	ClassDB::bind_method(D_METHOD("set_instance_transform", "instance", "transform"), &W3DInstancer::set_instance_transform);
 	ClassDB::bind_method(D_METHOD("remove_instance", "instance"), &W3DInstancer::remove_instance);
 	ClassDB::bind_method(D_METHOD("set_instance_clip", "instance", "clip", "start_time", "speed"), &W3DInstancer::set_instance_clip, DEFVAL(0.0), DEFVAL(1.0));
@@ -751,7 +752,7 @@ Dictionary W3DInstancer::setup(const Ref<RetailFileSystem> &fs)
 		FsRef = fs;
 		Source = fs->renderW3DSource(); // lane SDK-0: the asset packs in front (render side only)
 		Assets.reset(new WW3DAssetManager(*Source));
-		Materials.reset(new W3DMaterialFactory(*fs->archive_fs()));
+		Materials.reset(new W3DMaterialFactory(*fs->archive_fs(), fs->w3dTextureCache()));
 		Materials->Set_Asset_Packs(fs->assetPacks().empty() ? nullptr : &fs->assetPacks());
 		Materials->Set_Alpha_Override(AlphaOverride); // lane BUILD-5 r3
 		Materials->Set_Particle_Color(ParticleColor);
@@ -781,7 +782,58 @@ Dictionary W3DInstancer::setup(const Ref<RetailFileSystem> &fs)
 
 std::shared_ptr<W3DInstancer::MeshGpu> W3DInstancer::build_mesh(const MeshModelClass &mesh, std::vector<std::string> &errors)
 {
-	const std::string key = AsciiStringUtil::lowered(mesh.Get_Name()) + BuildSuffix; // lane CAH-2: a colour set's meshes have their own materials
+	std::string meshKey = AsciiStringUtil::lowered(mesh.Get_Name());
+	if (PendingMeshColors)
+	{
+		HouseColorParams p;
+		bool found = false;
+		auto it = PendingMeshColors->find(mesh.Get_Name());
+		if (it != PendingMeshColors->end())
+		{
+			p = it->second;
+			found = true;
+		}
+		else
+		{
+			for (const auto &pair : *PendingMeshColors)
+			{
+				if (AsciiStringUtil::compareNoCase(pair.first, mesh.Get_Name()) == 0)
+				{
+					p = pair.second;
+					found = true;
+					break;
+				}
+			}
+		}
+		if (found)
+		{
+			char opt[96];
+			std::snprintf(opt, sizeof(opt), "#%d&%d&%d&%d", p.kind, (int)p.colors[0], (int)p.colors[1], (int)p.colors[2]);
+			std::string extra;
+			if (!BuildSuffix.empty())
+			{
+				size_t pos = 0;
+				if (BuildSuffix[0] == '#' && BuildSuffix.find('&') != std::string::npos)
+				{
+					pos = BuildSuffix.find('#', 1);
+				}
+				if (pos != std::string::npos)
+				{
+					extra = BuildSuffix.substr(pos);
+				}
+			}
+			meshKey += opt + extra;
+		}
+		else
+		{
+			meshKey += BuildSuffix;
+		}
+	}
+	else
+	{
+		meshKey += BuildSuffix;
+	}
+	const std::string key = meshKey; // lane CAH-2: a colour set's meshes have their own materials
 	auto cached = MeshCache.find(key);
 	if (cached != MeshCache.end())
 	{
@@ -1056,6 +1108,10 @@ int64_t W3DInstancer::build_model(const String &model_name)
 		UtilityFunctions::push_error("W3DInstancer: ", toGodot(error));
 		return -1;
 	}
+	if (Materials && PendingMeshColors)
+	{
+		Materials->Set_Per_Mesh_House_Params(PendingMeshColors);
+	}
 	std::unique_ptr<Model> model(new Model());
 	model->Name = name;
 	model->Proto = proto;
@@ -1187,6 +1243,10 @@ int64_t W3DInstancer::build_model(const String &model_name)
 	}
 	model->Report = report;
 	Models.push_back(std::move(model));
+	if (Materials)
+	{
+		Materials->Set_Per_Mesh_House_Params(nullptr);
+	}
 	LayoutDirty = true;
 	return (int64_t)Models.size() - 1;
 }

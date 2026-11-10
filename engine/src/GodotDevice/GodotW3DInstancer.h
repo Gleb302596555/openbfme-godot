@@ -128,6 +128,8 @@ public:
 	// 1 .. 3 and up to three ARGB colours; a Create-a-Hero is kind 3 with its record's three colours) texel by texel BEFORE filtering (RW 0x531C77), as
 	// retail builds the render object "#<model>#<options>" with its own recoloured textures (RW 0x54BDE0). Its instances take no team colour.
 	int64_t add_model_colored(const String &model_name, int64_t kind, const PackedInt64Array &colors);
+	// LOCAL-21: per-mesh house colour overrides (RW 0x54BDE0)
+	void Set_Build_Mesh_House_Colors(const std::map<std::string, HouseColorParams> *colors) { PendingMeshColors = colors; }
 	// stop S-5015 (C++ only): the next add_model / add_model_colored builds the model with a ModelConditionState's `Texture = A B` swaps (a building's SNOW
 	// state: KBHall.tga -> KBHall_snow.tga): its meshes are built again, under a name that carries Texture_Swap_Suffix, with every texture A loaded as B.
 	// The add clears them.
@@ -173,6 +175,7 @@ public:
 	void set_shadow_receiving(bool enabled) { ShadowReceiving = enabled; }
 	// Engine-wide, set with the w3d_shadow global (object_shadows.gd): while no shadow map is drawn, casters are pose-culled like any instance.
 	static void set_shadow_maps_enabled(bool enabled) { ShadowMapsEnabled = enabled; }
+	static bool shadow_maps_enabled() { return ShadowMapsEnabled; }
 	// lane PROJ-2: the drawable's opacity (RW Drawable +0xB0, the fade of DrawableFade): multiplies every pivot's fade of the instance; 0 draws nothing
 	void set_instance_opacity(int64_t instance, double opacity);
 	// A scene that needs no per-frame work (every instance static) turns the automatic update off and calls update_now() itself after
@@ -391,6 +394,7 @@ private:
 	bool AlphaOverride = false; // lane BUILD-5 r3
 	std::map<std::string, std::shared_ptr<MeshGpu>> MeshCache;
 	std::string BuildSuffix; // lane CAH-2: the colour set of the model being built (add_model_colored), part of the mesh cache key
+	const std::map<std::string, HouseColorParams> *PendingMeshColors = nullptr; // LOCAL-21
 	std::vector<std::pair<std::string, std::string>> PendingSwaps; // stop S-5015: Set_Build_Texture_Swaps, taken by the next add_model
 	bool PendingFloor = false; // stop S-4974: Set_Build_Floor, taken by the next add_model
 	bool PendingSelectionDecals = false; // lane SELWALL-1: Set_Build_Selection_Decals, taken by the next add_model

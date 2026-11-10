@@ -106,6 +106,15 @@ public:
 	// lane SUMMON-1: RW vt[0x58] with its second argument 0 (ActiveBody RW 0x8C47DE; InactiveBody's slot is the empty RW 0x8851E4), the ObjectCreationList's
 	// initial health (RW 0x5F1E98): `percent` of the revive reference, a percent above 100 scaling the max health first
 	virtual void setInitialHealthPercent(float percent) { (void)percent; }
+	// PORT-66 (issue #180), RW vt[0x2C] (ActiveBody RW 0x8C1E4E, interface table RW 0xC71ED0): the body's "auto" particle systems, the fires and smoke of a
+	// damaged or burning object, put on the template's bones from GlobalData +0x9F0 .. +0xA40 (RW 0x8C1E4E). A body class without the override (the tables
+	// whose slot 0x2C is the empty RW 0x9F3A3C, as InactiveBody's RW 0xC6660C) counts the call and does nothing, like retail's stub
+	virtual void updateBodyParticleSystems() { ++bodyParticleCallsIgnored(); }
+	static unsigned long long &bodyParticleCallsIgnored()
+	{
+		static unsigned long long n = 0;
+		return n;
+	}
 };
 
 // ZH ContainModuleInterface (the membership part). The members are Objects; the list keeps insertion order.

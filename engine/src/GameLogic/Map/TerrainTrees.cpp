@@ -18,6 +18,8 @@
 #include "GameLogic/Module/SquishCollide.h"
 #include "GameLogic/SimMath.h"
 
+#include <cmath>
+
 #include <stdexcept>
 #include <variant>
 
@@ -371,7 +373,21 @@ int TerrainTrees::harvestTree(Record &tree, int amount)
 // RW 0x6858BE (lane TREES1)
 int TerrainTrees::unitMoved(const Object &obj)
 {
-	// TheTerrainVisual slot 0x6C (RW 0x4E70F5: the shrubs' push aside) is the client's and not sent (S-5260)
+	// PORT-73, RW 0x6858D0: TheTerrainVisual slot 0x6C with the object, before any of the tests below (the client's shrub push aside, RW 0x4E70F5;
+	// the direction is the unit's (cos, sin) (RW 0x70B9E0 getUnitDirectionVector2D) and the radius the object's bounding circle (RW reads + 0xB8)
+	const std::vector<ObjectGeometry::Shape> &pushShapes = obj.geometryShapes();
+	PathfindGeometry pushGeometry;
+	ObjectGeometry::fillPathfindGeometry(pushShapes, pushGeometry);
+	{
+		Event e;
+		e.kind = Event::PUSH_ASIDE;
+		e.position = *obj.getPosition();
+		e.direction = Coord3D{ std::cos(obj.getOrientation()), std::sin(obj.getOrientation()), 0.0f };
+		e.radius = pushGeometry.boundingCircleRadius();
+		e.clientId = (std::uint32_t)obj.getID();
+		e.frame = m_logic.getFrame();
+		m_events.push_back(e);
+	}
 	static const int immobile = ObjectTemplateInfoBuilder::kindOfIndex("IMMOBILE");      // template + 0x108 bit 2
 	static const int machine = ObjectTemplateInfoBuilder::kindOfIndex("MACHINE");        // + 0x109 bit 3
 	static const int armyOfDead = ObjectTemplateInfoBuilder::kindOfIndex("ARMY_OF_DEAD"); // + 0x11A bit 7

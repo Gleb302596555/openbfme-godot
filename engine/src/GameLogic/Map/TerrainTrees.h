@@ -43,8 +43,8 @@
 // RW 0x4E9E4E, refuses a tree that is not upright, which the toppled flag already filters, or one that morphs, which the port's trees never do); the client
 // id is the map object's index + 1 (the classified drawable both sides share); the slot 0x4C / 0x48 / 0x58 / 0x7C calls are client events only
 // (TerrainTrees::events), not simulation; the CRITTER_EMITTER objects use the partition's centre distance in 2D (FROM_CENTER_2D). Lane TREES1 (stop S-5260):
-// slot 0x6C's shrub push aside is not sent (the client's shrubs do not bend), and the fire grid (TheFireLogicSystem: burning cells take a tree's lumber,
-// RW 0x6886E0 -> 0x67F4C2) is not ported.
+// slot 0x6C's shrub push aside is sent as PUSH_ASIDE (PORT-73: RW 0x6858D0, the client's TreeTopple bends the shrubs; the client's own two GlobalData
+// gates are the stop there), and the fire grid (TheFireLogicSystem: burning cells take a tree's lumber, RW 0x6886E0 -> 0x67F4C2) is not ported.
 //
 // The Taint / Elven Wood tree morph (stop S-921), TARGET FACTS (RotWK game.dat, caveat S-001):
 //   * the spells (RW 0x8C8E67 Taint, type 1, TaintRadius + 0x80; RW 0x8C7DBA Elven Wood, type 2, ElvenWoodRadius + 0x90), before their FX and OCL: TheTerrainLogic
@@ -119,7 +119,9 @@ public:
 			HIDE_SCORCHES, ///< slot 0x5C (the radius clear RW 0x683393 -> RW 0x46947C): the scorch marks within `radius` of `position` are hidden
 			MORPH,     ///< slot 0x74 (S-921): the tree starts to morph (`morphType`, `from` the model drawn now, `to` the target's or null, `morphTime`)
 			MORPH_END, ///< the morph ended (TheTerrainVisual slot 0x44): the tree is drawn as `to` (a REMOVE_NOW follows when it had no target)
-			MORPH_AREA ///< slot 0x40: the shrubs within `radius` of `position` morph (`morphType`), the props within it go
+			MORPH_AREA, ///< slot 0x40: the shrubs within `radius` of `position` morph (`morphType`), the props within it go
+			PUSH_ASIDE ///< PORT-73: slot 0x6C (RW 0x6858D0 -> RW 0x4E70F5): the unit `clientId` at `position` walks along `direction` with its major `radius`;
+			            ///< the client bends the shrubs within radius + 7.0 (a draw only event, nothing of the simulation changes)
 		};
 		Kind kind = TOPPLE;
 		std::uint32_t clientId = 0;
