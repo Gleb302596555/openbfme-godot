@@ -293,6 +293,12 @@ public:
 	std::string displayNameStrategic() const;
 	// RW 0x9F989F, 0xA07D76, 0xA082C8: Strategic tooltips read [tt + 0x40], falling back to Description (+0x38) at RW 0x73CECE
 	std::string descriptionStrategic() const;
+	// Local 32 (issue #282): ThingTemplate + 0x4F4 (InstanceScaleFuzziness, row RW 0xDA4678, INI::parseReal RW 0x42ED00,
+	// initialized to 0.0 at RW 0x740190, copied at RW 0x6D21DB; not read in RotWK 2.01, stop S-7192)
+	float instanceScaleFuzziness() const;
+	// Local 32 (issue #282): ThingTemplate + 0x641 (ShowHealthInSelectionDecal, row RW 0xDA4848, INI::parseBool RW 0x42E558,
+	// initialized to false (0) at RW 0x73FFBD, copied at RW 0x6D26D6; not read in RotWK 2.01, stop S-7286)
+	bool showHealthInSelectionDecal() const;
 
 private:
 	friend class ThingFactory;

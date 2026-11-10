@@ -665,3 +665,32 @@ std::string ThingTemplate::descriptionStrategic() const
 	}
 	return description();
 }
+
+float ThingTemplate::instanceScaleFuzziness() const
+{
+	// Local 32 (issue #282): ThingTemplate + 0x4F4 (InstanceScaleFuzziness, row RW 0xDA4678, INI::parseReal RW 0x42ED00,
+	// initialized to 0.0 at RW 0x740190, copied at RW 0x6D21DB; not read in RotWK 2.01, stop S-7192)
+	if (const FieldValue *v = getFinalOverride()->findField("InstanceScaleFuzziness"))
+	{
+		if (const float *f = std::get_if<float>(v))
+		{
+			return *f;
+		}
+	}
+	return 0.0f;
+}
+
+bool ThingTemplate::showHealthInSelectionDecal() const
+{
+	// Local 32 (issue #282): ThingTemplate + 0x641 (ShowHealthInSelectionDecal, row RW 0xDA4848, INI::parseBool RW 0x42E558,
+	// initialized to false (0) at RW 0x73FFBD, copied at RW 0x6D26D6; not read in RotWK 2.01, stop S-7286)
+	if (const FieldValue *v = getFinalOverride()->findField("ShowHealthInSelectionDecal"))
+	{
+		if (const bool *b = std::get_if<bool>(v))
+		{
+			return *b;
+		}
+	}
+	return false;
+}
+
