@@ -14,7 +14,7 @@
 // decal shadow builder), not in castsMap: the module data is at the call site there. The per-frame client paths read the presented snapshot (lane
 // COMBAT-4's record carries containedBy; the record's shadowWhileContainedAllowed carries the contain's slot 0x2C answer as the logic computed it).
 //
-// Not ported here (STOPS.md S-7286): the map-build static layer (GameWorld::build_static_layer) and the map viewer build client-only static instances
+// Not ported here (STOPS.md S-7287): the map-build static layer (GameWorld::build_static_layer) and the map viewer build client-only static instances
 // with no logic object to ask, so the gate cannot bind there (a map placement is never contained); W3DTreeDraw / W3DPropDraw / floor draw shadows are not
 // model draws and are untouched.
 //
