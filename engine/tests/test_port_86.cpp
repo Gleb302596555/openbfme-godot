@@ -772,11 +772,11 @@ TEST_CASE("PORT-86 neighbors: non-capture packing, scarer-death BACK_AWAY exit, 
 		CHECK(f.sink.eva.empty());
 	}
 
-	// 4. The remaining unported S-703 message type 0x423 still increments unportedMessages, whereas 0x7DB .. 0x7DD do not (0x7EA / 0x7EB: PORT-87).
+	// 4. The remaining unported S-703 message type 0x43A (weapon modes) still increments unportedMessages, whereas 0x7DB .. 0x7DD do not (0x423: PORT-84; 0x7EA / 0x7EB: PORT-87).
 	{
 		Object *soldier = f.unit("DesperateSoldier", 'A', 200.0f, 300.0f);
 		const std::uint64_t before = f.voice->stats().unportedMessages;
-		CHECK_FALSE(f.voice->pickAndPlay({ soldier->getID() }, MSG_COMBINE_HORDES_WITH_OBJECT));
+		CHECK_FALSE(f.voice->pickAndPlay({ soldier->getID() }, MSG_SWITCH_WEAPONS));
 		CHECK(f.voice->stats().unportedMessages == before + 1u);
 
 		const std::vector<std::string> stops = UnitVoiceResponse::acceptanceStops();
@@ -784,6 +784,6 @@ TEST_CASE("PORT-86 neighbors: non-capture packing, scarer-death BACK_AWAY exit, 
 		CHECK(stops[3].find("VoiceDesperateAttack") == std::string::npos);
 		CHECK(stops[3].find("RapidFire") == std::string::npos);
 		CHECK(stops[3].find("CaptureBuildingComplete") == std::string::npos);
-		CHECK(stops[3].find("combine hordes (0x423)") != std::string::npos);
+		CHECK(stops[3].find("weapon modes (0x43A)") != std::string::npos);
 	}
 }

@@ -148,6 +148,8 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // and the mover hash covers the path's node chain, from frame 0.
 // Merge queue q37 re-measured it once on the merged tree (OPENBFME_UBER1_REGEN=1), compared at each merge point: #187 on top of WARG-1 and #182 moves it,
 // and ATKRESET-1 (attack orders end the FiringDuration lock) moves it again.
+// pin: the arena batch of 2026-11-10 (2) re-measured the pin vector (OPENBFME_UBER1_REGEN=1 on station-0, merged tree): Port 83 (#274: BuildingBehavior is awake
+// every frame, RW 0x8592BE, and hashes its two latches). Attributed by a build with Port 83 reverted, where the previous vector passes
 // pin: the merge with upstream 7e98ac2f re-measured the pin vector once on the merged tree (OPENBFME_UBER1_REGEN=1, Windows MSVC); it differs from both parents.
 // pin: TOP20 #21 (the burning death), r2 and r3 (an attack ends when its victim turns UNATTACKABLE, RW 0x7417E4 / 0x6C9207) re-measured the pin vector once at
 // r3 (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-1): it moves from frame 16. The previous vector holds with the burning death's cap switched off at 13380105;

@@ -87,6 +87,23 @@ LoadScreenInfo makeLoadScreenInfo(const SkirmishGameInfo &game, const SkirmishSe
 		{
 			c.armyName = fetchOrMissing(text, "GUI:Observer");
 		}
+		// PORT-98: the card's faction music (RW 0x81CB08, 0x81D1D2 .. 0x81D203): the slot's template gives LoadScreenMusic (+ 0x14C). A slot without a
+		// template takes the template named "FactionObserver" (RW 0x81D1E7 .. 0x81D1FE: nameToKey("FactionObserver", RW 0xBFD484), findPlayerTemplate)
+		if (slot.playerTemplate >= 0 && slot.playerTemplate < (int)setup.factions().size())
+		{
+			c.loadMusic = setup.factions()[(size_t)slot.playerTemplate].loadScreenMusic;
+		}
+		else
+		{
+			for (const SkirmishFaction &f : setup.factions())
+			{
+				if (f.templateName == "FactionObserver")
+				{
+					c.loadMusic = f.loadScreenMusic;
+					break;
+				}
+			}
+		}
 		if (slot.color >= 0 && slot.color < (int)setup.colors().size())
 		{
 			c.color = setup.colors()[(size_t)slot.color].rgb;

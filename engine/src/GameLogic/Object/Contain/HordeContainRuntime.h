@@ -213,6 +213,9 @@ public:
 	// lane DECOMP-3: slot 0xB4 of the contain table RW 0xC5B480 is RW 0x86C713: the horde's container's slot 0xB4, false when the horde is not contained (its
 	// slots 0xB0 / 0xC0 / 0x114 are OpenContain's RW 0x865C15 / 0x865B33 / 0x865CE3; Object::isAbleToAttack skips a HORDE container, so they are not ported)
 	bool isPassengerAllowedToFire() const override;
+	// lane PORT-91 (issue #239): slot 0x2C of the contain tables RW 0xC5B480 / 0xC5C110 / 0xC5D268 is RW 0x86C737: the horde's container's slot 0x2C, true while the
+	// horde is not contained (RW 0x9188EB false in every other contain table of 2.01)
+	bool shadowWhileContainedAllowed() const override;
 	bool addToContain(Object *obj) override;
 	void removeFromContain(Object *obj) override;
 	void removeDyingMember(Object *obj) override;

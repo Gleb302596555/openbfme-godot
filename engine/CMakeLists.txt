@@ -184,10 +184,14 @@ include(cmake/Port43.cmake)     # PORT-43: GameData/PowerLimit -> GameLogic + 0x
 include(cmake/Port51.cmake)     # PORT-51: Object/InstanceScaleFuzziness, parsed and never read by RotWK (issue #155; OPENBFME_PORT51_TESTS)
 include(cmake/Port99.cmake)     # PORT-99: PlayerTemplate/LightPointsUpSound, its only reader is the light-point (WOTR) action (issue #259; OPENBFME_PORT99_TESTS)
 include(cmake/Port81.cmake)     # PORT-81: HordeContain/RanksToJustFreeWhenAttacking, parsed and never read by RotWK (issue #213; OPENBFME_PORT81_TESTS)
+include(cmake/Port84.cmake)     # PORT-84: unit voice of the combine-with-horde order (issue #232; OPENBFME_PORT84_TESTS)
 include(cmake/Port93.cmake)     # PORT-93: SpecialAbilityUpdate/ActiveLoopSound, the active ability loop (issue #241; OPENBFME_PORT93_TESTS)
+include(cmake/Port104.cmake)    # PORT-104: CreateObjectDie/DebrisPortionOfSelf, parsed and never read by RotWK (issue #264; OPENBFME_PORT104_TESTS)
 include(cmake/Port73.cmake)     # PORT-73: W3DTreeDraw DoTopple / the shrub push aside (issue #205; OPENBFME_PORT73_TESTS)
+include(cmake/Port91.cmake)     # PORT-91: W3DModelDraw ShowShadowWhileContained — a contained unit keeps its shadow (issue #239; OPENBFME_PORT91_TESTS)
 include(cmake/Port87.cmake)     # PORT-87: unit voice VoiceStartCharging / VoiceNoBuild (issue #235; OPENBFME_PORT87_TESTS)
 include(cmake/Port50.cmake)     # PORT-50: W3DModelDraw/ParticlesAttachedToAnimatedBones, particles on the animated bones (issue #154; OPENBFME_PORT50_TESTS)
+include(cmake/Port98.cmake)    # PORT-98: PlayerTemplate LoadScreenMusic, the loading screen's faction track (issue #258; OPENBFME_PORT98_TESTS)
 include(cmake/Port74.cmake)     # PORT-74: W3DLaserDraw, the lightning and beam draws (issue #206; OPENBFME_PORT74_SOURCES / _TESTS)
 include(cmake/Port97.cmake)     # PORT-97: TransportContain FadePassengerOnEnter / OnExit, the passengers' fade (issue #245; OPENBFME_PORT97_TESTS)
 include(cmake/Render.cmake)     # OPENBFME_RENDER_SOURCES / OPENBFME_RENDER_TESTS (lane RENDER-1, client / draw only)
@@ -205,9 +209,12 @@ include(cmake/Experience.cmake) # OPENBFME_XP_SOURCES / OPENBFME_XP_TESTS (lane 
 include(cmake/FactB.cmake)      # OPENBFME_FACTB_TESTS (lane FACT-B: Isengard and Mordor)
 include(cmake/Port4.cmake) # OPENBFME_PORT4_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
+include(cmake/Port94.cmake) # PORT-94: SalvageCrateCollide LevelUpRadius / ResourceChance / BannerChance verdict (issue #242; OPENBFME_PORT94_TESTS)
 include(cmake/Port75.cmake) # PORT-75: BannerCarrierUpdate MorphCondition / BannerMorphFX (issue #207; OPENBFME_PORT75_TESTS)
 include(cmake/Port79.cmake) # OPENBFME_PORT79_TESTS (lane PORT-79)
 include(cmake/Port54.cmake) # OPENBFME_PORT54_TESTS (lane PORT-54)
+include(cmake/Port83.cmake) # OPENBFME_PORT83_TESTS (lane PORT-83: BuildingBehavior NightWindowName / GlowWindowName, issue #231)
+include(cmake/Port100.cmake) # PORT-100: LargeGroupAudio HandOffModeDuration (issue #260; OPENBFME_PORT100_TESTS)
 include(cmake/Port5.cmake) # OPENBFME_PORT5_TESTS (lane PORT-5)
 include(cmake/Port18.cmake) # PORT-18: hold fire (issue #74)
 include(cmake/Port1.cmake) # PORT-1: Weapon/FinishAttackOnceStarted (issue #53; OPENBFME_PORT1_TESTS)
@@ -237,6 +244,7 @@ include(cmake/Port46.cmake) # PORT-46: ToggleMountedSpecialAbilityUpdate/Opacity
 include(cmake/Port58.cmake) # PORT-58: SpecialAbilityUpdate/ApproachUntilMembersInRange (issue #168; OPENBFME_PORT58_TESTS)
 include(cmake/Port45.cmake) # PORT-45: ActiveBody/DamageCreationList (issue #149; OPENBFME_PORT45_TESTS)
 include(cmake/Port44.cmake) # PORT-44: ExperienceLevel/ShowLevelUpTint (issue #148; OPENBFME_PORT44_TESTS)
+include(cmake/Port95.cmake) # PORT-95: KeepObjectDie/StayOnRadar, a destroyed structure's remains stay on the radar (issue #243; OPENBFME_PORT95_TESTS)
 include(cmake/Port70.cmake) # PORT-70: the GameData verdict table (issue #184; OPENBFME_PORT70_TESTS)
 include(cmake/Port25.cmake) # PORT-25: HordeContain/VisionRearOverride (issue #97; OPENBFME_PORT25_TESTS)
 include(cmake/Port60.cmake) # PORT-60: EvaAnnounceClientCreate/CreateFakeRadarEvent (issue #170; verdict, no engine change; OPENBFME_PORT60_TESTS)
@@ -246,6 +254,7 @@ include(cmake/Port72.cmake) # PORT-72: FactionVictoryData, stop verdict S-7216 (
 include(cmake/Port67.cmake) # PORT-67: Weapon/CanSwoop and the Locomotor Swoop rows (issue #181; OPENBFME_PORT67_TESTS)
 include(cmake/Port40.cmake) # PORT-40: AIData/MaxRecruitRadius (issue #125; OPENBFME_PORT40_TESTS)
 include(cmake/Port65.cmake) # PORT-65: SpellRechargeModifierUpgrade (issue #177; OPENBFME_PORT65_TESTS)
+include(cmake/Port92.cmake) # PORT-92: GiveUpgradeUpdate/SpawnOutFX, the porter delivery effect (issue #240; OPENBFME_PORT92_TESTS)
 include(cmake/Port49.cmake) # PORT-49: W3DModelDraw/AlphaCameraFadeInnerRadius (issue #153; OPENBFME_PORT49_TESTS)
 include(cmake/Port88.cmake) # PORT-88: Unit voice VoiceMoveOverWalls (RW 0x8DE628, issue #236; OPENBFME_PORT88_TESTS)
 include(cmake/Port68.cmake) # PORT-68: Weapon/FXTrigger + OverrideVoiceAttackSound/OverrideVoiceEnterStateAttackSound (issue #182; OPENBFME_PORT68_TESTS)
@@ -253,6 +262,7 @@ include(cmake/Port85.cmake) # PORT-85: UnitSpecificSounds VoicePrimaryWeaponMode
 include(cmake/Port76.cmake) # PORT-76: SpawnBehavior/FadeInTime, spawned units fade in (issue #208; OPENBFME_PORT76_TESTS)
 include(cmake/Port86.cmake) # PORT-86: Unit voice VoiceDesperateAttack / VoiceRapidFire / VoiceCaptureBuildingComplete (issue #234; OPENBFME_PORT86_TESTS)
 include(cmake/Port39.cmake) # PORT-39: AIData SideInfo ResourceGatherers (issue #124; OPENBFME_PORT39_TESTS)
+include(cmake/Port101.cmake) # PORT-101: Object/SelectionPriority (issue #261; OPENBFME_PORT101_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
@@ -810,9 +820,12 @@ add_executable(openbfme_tests
     ${OPENBFME_FACTB_TESTS}
     ${OPENBFME_PLAY2_TESTS}
     ${OPENBFME_PORT99_TESTS}
+    ${OPENBFME_PORT94_TESTS}
     ${OPENBFME_PORT75_TESTS}
     ${OPENBFME_PORT79_TESTS}
     ${OPENBFME_PORT54_TESTS}
+    ${OPENBFME_PORT83_TESTS}
+    ${OPENBFME_PORT100_TESTS}
     ${OPENBFME_PORT33_TESTS}
     ${OPENBFME_PORT64_TESTS}
     ${OPENBFME_PORT82_TESTS}
@@ -852,6 +865,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT46_TESTS}
     ${OPENBFME_PORT58_TESTS}
     ${OPENBFME_PORT44_TESTS}
+    ${OPENBFME_PORT95_TESTS}
     ${OPENBFME_PORT70_TESTS}
     ${OPENBFME_PORT25_TESTS}
     ${OPENBFME_PORT60_TESTS}
@@ -861,6 +875,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT67_TESTS}
     ${OPENBFME_PORT40_TESTS}
     ${OPENBFME_PORT65_TESTS}
+    ${OPENBFME_PORT92_TESTS}
     ${OPENBFME_PORT49_TESTS}
     ${OPENBFME_PORT88_TESTS}
     ${OPENBFME_PORT68_TESTS}
@@ -868,6 +883,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT76_TESTS}
     ${OPENBFME_PORT86_TESTS}
     ${OPENBFME_PORT39_TESTS}
+    ${OPENBFME_PORT101_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}
@@ -886,8 +902,12 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT43_TESTS}
     ${OPENBFME_PORT51_TESTS}
     ${OPENBFME_PORT81_TESTS}
+    ${OPENBFME_PORT84_TESTS}
     ${OPENBFME_PORT93_TESTS}
+    ${OPENBFME_PORT104_TESTS}
     ${OPENBFME_PORT73_TESTS}
+    ${OPENBFME_PORT98_TESTS}
+    ${OPENBFME_PORT91_TESTS}
     ${OPENBFME_PORT50_TESTS}
     ${OPENBFME_PORT74_TESTS}
     ${OPENBFME_PORT97_TESTS}

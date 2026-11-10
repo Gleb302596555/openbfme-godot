@@ -24,6 +24,7 @@ bool WorldSkirmishSetupSource::load(RetailObjectWorld &world, const GameLogicSet
 		f.templateName = pt->getName();
 		f.side = pt->m_side;
 		f.displayLabel = pt->m_displayName;
+		f.loadScreenMusic = pt->m_loadScreenMusic; // PORT-98: PlayerTemplate LoadScreenMusic (+ 0x14C, read by the loading screen RW 0x81D203)
 		f.startingBuilding = pt->hasStartingBuilding() ? pt->m_startingBuilding : std::string();
 		f.buildableHeroesMP = pt->m_buildableHeroesMP;
 		f.playableSide = pt->m_playableSide;

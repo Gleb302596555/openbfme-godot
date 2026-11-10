@@ -239,6 +239,11 @@ bool IniSkirmishSetupSource::scanPlayerTemplates(const std::string &text, std::v
 		{
 			cur.displayLabel = value;
 		}
+		else if (k == "loadscreenmusic")
+		{
+			// PORT-98: PlayerTemplate LoadScreenMusic (the parser RotWK binds to + 0x14C, RW 0x42EE5E; the loading screen reads it at RW 0x81D203)
+			cur.loadScreenMusic = value;
+		}
 		else if (k == "preferredcolor")
 		{
 			if (!parseRGB(value, cur.preferredColor))

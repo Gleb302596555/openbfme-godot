@@ -285,6 +285,9 @@ public:
 	// Port 34, RW 0x8C1B42 / RW 0x8C2DE0: ThingTemplate + 0x607 (StructureRubbleHeight, row RW 0xDA4688, INI::parseUnsignedByte RW 0x42EB75,
 	// initialized to 0 at RW 0x74018A, copied at RW 0x6D25EF, read with movsx byte [tt + 0x607])
 	std::int8_t structureRubbleHeight() const;
+	// Port 101 (issue #261), RW 0x710A41: ThingTemplate + 0x64C (SelectionPriority, row RW 0xDA49D8, INI::parseInt RW 0x42EC5E,
+	// initialized to 0x7fffffff at RW 0x740069..0x740074, copied by ThingTemplate::copyFrom RW 0x6D271E)
+	int selectionPriority() const;
 	// Local 15 (issue #136): ThingTemplate label rows (RW 0xDA3DF8, parser RW 0x73D3E0)
 	// DisplayName (+0x2C label, +0x30 text) and Description (+0x34 label, +0x38 text)
 	std::string displayName() const;
