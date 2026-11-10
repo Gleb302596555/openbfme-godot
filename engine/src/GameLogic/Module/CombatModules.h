@@ -66,7 +66,7 @@ class KeepObjectDieModuleData : public ModuleData
 {
 public:
 	DieMuxData m_dieMux;
-	unsigned m_collapsingTime = 0; ///< frames (RW +0x38)
+	unsigned m_collapsingTime = 0x19; ///< frames (RW +0x38; the data ctor RW 0x6538DB writes 0x19 at RW 0x6538E9)
 	bool m_stayOnRadar = false;    ///< RW +0x3C
 	static void buildFieldParse(MultiIniFieldParse &p);
 };
