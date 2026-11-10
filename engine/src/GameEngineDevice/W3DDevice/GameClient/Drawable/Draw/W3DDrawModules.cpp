@@ -101,6 +101,11 @@ std::vector<std::string> W3DDrawModules::notDrawnClasses()
 				out.push_back("W3DTornadoDraw: effect draw, tornado decals/particles not fully drawn (S-113)");
 				continue;
 			}
+			if (std::string(c.name) == "W3DDebrisDraw")
+			{
+				out.push_back("W3DDebrisDraw: the debris animation state machine is ported (LOCAL-35); the RenderObj model set by the debris maker is the renderer's (S-7101)");
+				continue;
+			}
 			if (std::string(c.name) == "W3DLightDraw")
 			{
 				out.push_back("W3DLightDraw: no model, light source drawn through viewport dynamic lights (S-113)");

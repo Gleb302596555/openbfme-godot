@@ -16,6 +16,7 @@
 #include "GameLogic/Module/DelayedLuaEventUpdate.h"
 #include "GameLogic/Module/DynamicShroudClearingRangeUpdate.h"
 #include "GameLogic/Object/Object.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDebrisDraw.h"
 
 namespace
 {
@@ -114,4 +115,73 @@ TEST_CASE("LOCAL-35 DelayedLuaEventUpdate: fires the configured event once on th
 	// The warning object was destroyed after the dispatch; the event reached the script engine once (for the target).
 	CHECK(w.logic->findObjectByID(warningId) == nullptr);
 	CHECK(w.logic->scriptEventsWithoutDispatch() == before + 1);
+}
+
+TEST_CASE("LOCAL-35 W3DDebrisDraw: the debris animation state machine advances INITIAL -> FLYING -> FINAL and STOP freezes the final animation (RW 0x4B15E1)")
+{
+	W3DDebrisDraw draw(nullptr, nullptr);
+
+	// No model name yet: nothing is drawn and the machine does not advance.
+	W3DDebrisDrawStep step = draw.advance(true, false);
+	CHECK_FALSE(step.hasModel);
+	CHECK(draw.frames() == 0);
+	CHECK(draw.state() == 0);
+
+	draw.setModelName("DebrisRock", 0xFFFFFFFF, 0);
+	draw.setAnimNames("DebrisInitial", "DebrisFlying", "STOP");
+	CHECK(draw.finalStop());
+	CHECK(draw.state() == 0);
+	CHECK(draw.frames() == 0);
+
+	// INITIAL plays once; the first frame (re)starts the animation.
+	step = draw.advance(true, false);
+	CHECK(step.hasModel);
+	CHECK(step.anim == W3DDebrisDrawStep::ANIM_INITIAL);
+	CHECK(step.animChanged);
+	CHECK(step.mode == W3DDebrisDrawStep::MODE_ONCE);
+	CHECK_FALSE(step.finalFX);
+	CHECK(draw.frames() == 1);
+
+	// The INITIAL animation completes -> FLYING (loops).
+	step = draw.advance(true, true);
+	CHECK(step.anim == W3DDebrisDrawStep::ANIM_FLYING);
+	CHECK(step.mode == W3DDebrisDrawStep::MODE_LOOP);
+	CHECK(draw.state() == 1);
+	CHECK(draw.frames() == 2);
+
+	// FLYING completes -> FINAL; the final FX fires once, and STOP freezes the final animation (manual).
+	step = draw.advance(true, true);
+	CHECK(step.anim == W3DDebrisDrawStep::ANIM_FINAL);
+	CHECK(step.finalFX);
+	CHECK(step.mode == W3DDebrisDrawStep::MODE_MANUAL);
+	CHECK(draw.state() == 2);
+	CHECK(draw.frames() == 3);
+
+	// FINAL does not advance further and the FX does not fire again.
+	step = draw.advance(true, true);
+	CHECK(step.anim == W3DDebrisDrawStep::ANIM_FINAL);
+	CHECK_FALSE(step.finalFX);
+	CHECK(draw.frames() == 4);
+}
+
+TEST_CASE("LOCAL-35 W3DDebrisDraw: a landed piece goes FINAL once past 3 frames (RW 0x4B15E1)")
+{
+	W3DDebrisDraw draw(nullptr, nullptr);
+	draw.setModelName("DebrisRock", 0, 0);
+	draw.setAnimNames("DebrisInitial", "DebrisFlying", "DebrisFinal");
+
+	// Above terrain with the animation never completing: the state stays INITIAL through 4 frames.
+	for (int i = 0; i < 4; ++i)
+	{
+		W3DDebrisDrawStep s = draw.advance(true, false);
+		CHECK(s.anim == W3DDebrisDrawStep::ANIM_INITIAL);
+	}
+	CHECK(draw.frames() == 4);
+	CHECK(draw.state() == 0);
+
+	// Landed (not above terrain) with m_frames > 3: straight to FINAL.
+	W3DDebrisDrawStep s = draw.advance(false, false);
+	CHECK(s.anim == W3DDebrisDrawStep::ANIM_FINAL);
+	CHECK(s.finalFX);
+	CHECK(draw.state() == 2);
 }

@@ -15,6 +15,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTornadoDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DProjectileStreamDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLightDraw.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDebrisDraw.h"
 #include "GameClient/TerrainResourceFeedback.h"
 
 #include "Common/AsciiString.h"
@@ -709,4 +710,5 @@ void ClientBehaviorModules::registerAll(ModuleFactory &modules)
 	W3DTornadoDraw::registerClass(modules);                 // both editions: RW 0x00464930, BFME2 0x0046513A
 	W3DProjectileStreamDraw::registerClass(modules);        // both editions: RW 0x004648A7, BFME2 0x00465063
 	W3DLightDraw::registerClass(modules);                   // both editions: RW 0x004645EE, BFME2 0x00464DF8
+	W3DDebrisDraw::registerClass(modules);                  // LOCAL-35 (#285): the flying debris pieces (RW 0x464B15)
 }
