@@ -11,3 +11,9 @@ DONOR BFME2 0x0046279C / 0x0046282B (`Code/GameEngine/Source/GameLogic/Object/Co
 * In the port, `OpenContainRuntime.cpp` currently routes both main slots 0x54 and 0x58 to `recalcApparentControllingPlayer`, conflating these with GarrisonContain's separate slot 0x50. The parsed sounds are not played there. `TransportContainRuntime.cpp` and `SiegeEngineContainRuntime.cpp` already identify RW enable/disable calls but currently omit them; these need confirmation before implementation.
 
 The unrelated callbacks RW 0x865F9A / 0x8680F4 use object-specific audio getters RW 0x865C98 / 0x865CB1, not module data +0x38 / +0x3C. The current comments identifying those callbacks as the module-data sounds need correction in the implementation step.
+
+Additional caller evidence:
+
+* DONOR BFME2 `HordeSiegeEngineContainCreatePayload.cpp`, function 0x0047CB89, identifies slot 0x14C as `enableLoadSounds`. RW 0x880016 sends false, RW 0x880112 calls the base add for each accepted crew object, and RW 0x88012F sends true. RW 0x87EEC0 / 0x87EFDB similarly bracket SiegeEngineContain crew creation; RW 0x86A264 / 0x86A2B1 bracket each TransportContain initial-payload entry. These are not calls in the separate transport grab path.
+* The port's crew and initial-payload loops exist in `SiegeEngineContainRuntime.cpp` and `TransportContainRuntime.cpp` but omit the toggle. A correct implementation must wire the contain interface's slot rather than only the two base add/remove sites.
+* DONOR BFME2 `CaveContain.cpp` has a separate unload-sound caller. CaveContain is not found in the port's containment runtime; whether its RotWK counterpart and other direct callers require a stop remains to be verified. A scan of all RW indirect calls through slot 0x14C finds the six calls above alongside unrelated interfaces; it is not by itself proof that all callers have been classified.
