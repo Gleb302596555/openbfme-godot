@@ -1158,7 +1158,13 @@ TEST_CASE("save4c coverage (review r2): units attacking, moving, guarding, hunti
 	// computed one has its new request deferred (AIMover::requestPath's 2-frame rule, 5 frames later) and its old path's end can finish the order at once,
 	// and a blocked unit patches its old path instead of searching (RW 0x6662FD .. 0x6665B5). Lane ATTACKPATH-1: the second player's first unit at frame
 	// 2700 is a porter walking a path, so these rules apply to the first choice too
+	// Port 83 (BuildingBehavior awake every frame, RW 0x8592BE) moved the game's state at frame 2700: the second player's first fit became a
+	// MordorArcherBarricade_Slaved, which has an AI and a reachable spot but never walks (the move order ended at once): the mover must be mobile, as the hunter
 	auto reachableMover = [&](Object *o) {
+		if (!GarrisonRules::isMobile(*o))
+		{
+			return false;
+		}
 		AIUpdateInterface *ai = o->getAIUpdateInterface();
 		if (ai->mover().blockedFrames() > 0 || ai->mover().path() != nullptr)
 		{

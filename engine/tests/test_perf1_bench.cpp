@@ -484,6 +484,9 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // pin: the landing of Local 1 (issue #88) with Port 5 (#93) re-measured the battle and skirmish files (OPENBFME_PERF1_REGEN=1 on the merged station-3 tree): Local 1
 // hashes GameData AttributeModifierArmorMaxBonus and DamageRadiusMinimumForSplash in GameLogicSettings::crc, which moves both vectors from frame 0 (a hash
 // difference at frame 0 is the hash's content, not play); Local 1's own tree re-measured only the blob file
+// pin: the arena batch of 2026-11-10 (2) re-measured all three files (OPENBFME_PERF1_REGEN=1 on station-0, merged tree): Port 83 (#274: BuildingBehavior
+// is awake every frame, RW 0x8592BE, and hashes its two latches) moves every file from frame 0; Port 95 (#279: a defeated player's KeepObjectDie object is
+// destroyed, RW 0x889FC3 .. 0x889FD3) moves the skirmish from frame 1099. Attributed by bisect and switch-off builds (both off: the old files pass)
 // pin: Port 5 (PR #93, issue #57) re-measured the skirmish file only (OPENBFME_PERF1_REGEN=1 on station-3 3c6eb328): units with a charge ability chase and approach
 // as RotWK (Object + 0x251, RW 0x662E88, RW 0x745A18) and the object hash carries the byte; the 4-player skirmish differs from frame 357. The battle and
 // blob files are unchanged; the station-3 build without #93 (2f27180f) matches the previous skirmish file
