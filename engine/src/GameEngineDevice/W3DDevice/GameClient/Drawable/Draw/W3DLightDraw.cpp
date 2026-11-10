@@ -71,7 +71,10 @@ W3DLightDraw::W3DLightDraw(Thing *thing, const ModuleData *moduleData)
 	m_height = m_data ? m_data->m_intensity : 1.0f;
 	m_phase = 0.0f;
 	m_enabled = true;
-	updateLight();
+	if (m_data)
+	{
+		updateLight();
+	}
 }
 
 W3DLightDraw::~W3DLightDraw()
@@ -116,17 +119,28 @@ void W3DLightDraw::setLightPool(LightPulsePool *pool)
 
 float W3DLightDraw::lightRadius() const
 {
-	return m_data ? m_data->m_radius : 20.0f;
+	return m_data ? m_data->m_radius : 0.0f;
 }
 
 RGBColor W3DLightDraw::lightColor() const
 {
-	RGBColor base = m_data ? m_data->m_diffuse : RGBColor{ 0.0f, 0.0f, 0.0f };
-	if (base.red <= 0.001f && base.green <= 0.001f && base.blue <= 0.001f && m_data)
+	// RW 0x004CF18E sets m_ambient (+0xD4) and m_diffuse (+0xE0) separately.
+	// The dynamic point light diffuse is Diffuse * Intensity (no fallback to Ambient).
+	if (!m_data)
 	{
-		base = m_data->m_ambient;
+		return RGBColor{ 0.0f, 0.0f, 0.0f };
 	}
+	const RGBColor &base = m_data->m_diffuse;
 	return RGBColor{ base.red * m_height, base.green * m_height, base.blue * m_height };
+}
+
+RGBColor W3DLightDraw::lightAmbientColor() const
+{
+	if (!m_data)
+	{
+		return RGBColor{ 0.0f, 0.0f, 0.0f };
+	}
+	return m_data->m_ambient;
 }
 
 Coord3D W3DLightDraw::lightPosition() const
@@ -147,6 +161,10 @@ Coord3D W3DLightDraw::lightPosition() const
 
 void W3DLightDraw::updateLight()
 {
+	if (!m_data)
+	{
+		return;
+	}
 	LightPulsePool *pool = getPool();
 	if (!pool)
 	{

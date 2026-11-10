@@ -80,6 +80,7 @@ public:
 
 	float lightRadius() const;
 	RGBColor lightColor() const;
+	RGBColor lightAmbientColor() const;
 	Coord3D lightPosition() const;
 
 	void stepFlicker(float dt);

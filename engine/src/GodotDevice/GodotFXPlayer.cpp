@@ -648,19 +648,23 @@ void FXPlayer::updateLightPulseUniforms()
 	// the shader's lights are view-space (the object shaders light in view space); the camera is the one the next frame draws
 	Transform3D view;
 	bool haveView = false;
+	Vector3 cameraWorldPos;
 	if (Viewport *vp = get_viewport())
 	{
 		if (Camera3D *c = vp->get_camera_3d())
 		{
 			view = c->get_global_transform().affine_inverse();
+			cameraWorldPos = c->get_global_position();
 			haveView = true;
 		}
 	}
+	const std::vector<Plane> planes = cullPlanes();
+
 	struct CandidateLight
 	{
 		const LightPulseFx *light = nullptr;
 		Vector3 viewPos;
-		float score = 0.0f;
+		float contribution = 0.0f; // RW 0x005403ED (Diffuse.Length2)
 	};
 	std::vector<CandidateLight> candidates;
 	for (const LightPulseFx &l : m_playback->lightPulses().lights())
@@ -669,37 +673,60 @@ void FXPlayer::updateLightPulseUniforms()
 		{
 			continue;
 		}
-		const Vector3 world = toGodotSpace(l.position);
-		const Vector3 pos = haveView ? view.xform(world) : world;
 		const RGBColor c = l.colorNow();
-		const float intensity = std::max({ c.red, c.green, c.blue });
-		const float range = l.range();
-		if (intensity <= 0.0001f || range <= 0.0001f)
+		// RW 0x00540261 (LightEnvironmentClass::Add_Light): black light cull (< 0.05f on all RGB channels, 0x00BDD760)
+		if (c.red < 0.05f && c.green < 0.05f && c.blue < 0.05f)
 		{
 			continue;
 		}
-		float score = 1.0f;
+		const float range = l.range();
+		if (range <= 0.0001f)
+		{
+			continue;
+		}
+		const Vector3 world = toGodotSpace(l.position);
+
+		// RW 0x0046FCF9 (RTS3DScene::renderOneObject): cull against view frustum (Spheres_Intersect)
+		bool culled = false;
+		for (const Plane &pl : planes)
+		{
+			if (pl.distance_to(world) < -range)
+			{
+				culled = true;
+				break;
+			}
+		}
+		if (culled)
+		{
+			continue;
+		}
+
+		// RW 0x0053F640: linear attenuation over range: clamp(1.0 - (dist - attenStart)/(attenEnd - attenStart))
+		// RW 0x005403ED: Contribution = effectiveDiffuse.Length2()
+		float contribution = 0.0f;
 		if (haveView)
 		{
-			// in view space, camera is at origin; lights in front of camera (-Z in Godot) contribute more
-			const float dist = pos.length();
-			score = (intensity * range) / std::max(1.0f, dist);
-			if (pos.z > range) // behind camera
-			{
-				score *= 0.01f;
-			}
+			const float dist = (world - cameraWorldPos).length();
+			const float atten = std::clamp(1.0f - (dist - 1.0f) / std::max(0.001f, range - 1.0f), 0.0f, 1.0f);
+			const float effR = c.red * atten;
+			const float effG = c.green * atten;
+			const float effB = c.blue * atten;
+			contribution = effR * effR + effG * effG + effB * effB;
 		}
 		else
 		{
-			score = intensity * range;
+			contribution = c.red * c.red + c.green * c.green + c.blue * c.blue;
 		}
-		candidates.push_back({ &l, pos, score });
+
+		const Vector3 pos = haveView ? view.xform(world) : world;
+		candidates.push_back({ &l, pos, contribution });
 	}
 
+	// RW 0x0054044B: sorted by Contribution descending, top 4 chosen (MAX_LIGHTS = 4)
 	if (candidates.size() > 4)
 	{
 		std::stable_sort(candidates.begin(), candidates.end(), [](const CandidateLight &a, const CandidateLight &b) {
-			return a.score > b.score;
+			return a.contribution > b.contribution;
 		});
 	}
 

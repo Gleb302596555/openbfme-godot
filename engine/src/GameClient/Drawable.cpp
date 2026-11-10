@@ -1194,7 +1194,9 @@ void Drawable::updateTint()
 	m_prevTintStatus = m_tintStatus;
 }
 
-// RW 0x672B5B: bone world position query across draw module models
+// RW 0x672B5B: bone world position query across draw module models (DONOR BFME2 0x00272835)
+// Retail iterates m_modules, calls slotA4() on each module, and if non-null calls slot14(boneName, &matrix)
+// (RW 0x004B2F19), which queries the current animated pose of m_renderObj via Get_Bone_Index and Get_Bone_Transform.
 bool Drawable::boneWorldPosition(const std::string &boneName, Coord3D &outPos) const
 {
 	if (boneName.empty() || AsciiStringUtil::compareNoCase(boneName, "None") == 0)
@@ -1210,45 +1212,45 @@ bool Drawable::boneWorldPosition(const std::string &boneName, Coord3D &outPos) c
 		{
 			continue;
 		}
-		Vector3 pos;
-		if (e.draw->bones().findPristineBonePos(lower, pos))
+		const W3DDrawFrame f = e.draw->frame();
+		if (!f.model || !f.model->Tree)
 		{
-			const float c = SimMath::cosDet(getOrientation());
-			const float s = SimMath::sinDet(getOrientation());
-			const float wx = SimMath::sseSub(SimMath::sseMul(pos.X, c), SimMath::sseMul(pos.Y, s));
-			const float wy = SimMath::sseAdd(SimMath::sseMul(pos.Y, c), SimMath::sseMul(pos.X, s));
-			outPos = Coord3D{ getPosition()->x + wx, getPosition()->y + wy, getPosition()->z + pos.Z };
-			return true;
+			continue;
 		}
-		if (const RenderObjPrototype *proto = e.draw->frame().model)
+		int boneIdx = f.model->Tree->Get_Bone_Index(lower);
+		if (boneIdx <= 0)
 		{
-			if (proto->Tree)
+			const int sub = W3DFindSubObjectByName(*f.model, lower);
+			boneIdx = sub >= 0 ? f.model->SubObjects[(size_t)sub].BoneIndex : -1;
+		}
+		if (boneIdx > 0)
+		{
+			HTreePose pose;
+			if (f.blending && f.motion1 != nullptr)
 			{
-				int boneIdx = proto->Tree->Get_Bone_Index(lower);
-				if (boneIdx <= 0)
-				{
-					const int sub = W3DFindSubObjectByName(*proto, lower);
-					boneIdx = sub >= 0 ? proto->SubObjects[(size_t)sub].BoneIndex : -1;
-				}
-				if (boneIdx > 0)
-				{
-					HTreePose pose;
-					proto->Tree->Base_Pose(Matrix3D(), pose);
-					if ((size_t)boneIdx < pose.Transform.size())
-					{
-						const Matrix3D &m = pose.Transform[(size_t)boneIdx];
-						const float scale = getInstanceScale();
-						const float px = m.Row[0][3] * scale;
-						const float py = m.Row[1][3] * scale;
-						const float pz = m.Row[2][3] * scale;
-						const float c = SimMath::cosDet(getOrientation());
-						const float s = SimMath::sinDet(getOrientation());
-						const float wx = SimMath::sseSub(SimMath::sseMul(px, c), SimMath::sseMul(py, s));
-						const float wy = SimMath::sseAdd(SimMath::sseMul(py, c), SimMath::sseMul(px, s));
-						outPos = Coord3D{ getPosition()->x + wx, getPosition()->y + wy, getPosition()->z + pz };
-						return true;
-					}
-				}
+				f.model->Tree->Blend_Pose(Matrix3D(), f.motion0, f.frame0, f.motion1, f.frame1, f.blendPercentage, pose);
+			}
+			else if (f.motion0 != nullptr)
+			{
+				f.model->Tree->Anim_Pose(Matrix3D(), f.motion0, f.frame0, pose);
+			}
+			else
+			{
+				f.model->Tree->Base_Pose(Matrix3D(), pose);
+			}
+			if ((size_t)boneIdx < pose.Transform.size())
+			{
+				const Matrix3D &m = pose.Transform[(size_t)boneIdx];
+				const float scale = getInstanceScale();
+				const float px = m.Row[0][3] * scale;
+				const float py = m.Row[1][3] * scale;
+				const float pz = m.Row[2][3] * scale;
+				const float c = SimMath::cosDet(getOrientation());
+				const float s = SimMath::sinDet(getOrientation());
+				const float wx = SimMath::sseSub(SimMath::sseMul(px, c), SimMath::sseMul(py, s));
+				const float wy = SimMath::sseAdd(SimMath::sseMul(py, c), SimMath::sseMul(px, s));
+				outPos = Coord3D{ getPosition()->x + wx, getPosition()->y + wy, getPosition()->z + pz };
+				return true;
 			}
 		}
 	}
