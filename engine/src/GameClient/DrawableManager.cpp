@@ -48,6 +48,8 @@ DrawableManager::DrawableManager(WW3DAssetManager &assets, GameLogic &logic)
 	};
 	m_services.groundHeight = m_trackSampler.groundHeight; // LOCAL-25
 	m_services.clientFrame = &m_clientFrame;              // LOCAL-25: the step's gate (RW 0x67BE04)
+	// PORT-106 (issue #266): the draw entries' MultiPlayerOnly gate reads isInMultiplayerGame (RW 0x441B7C) through this
+	m_services.inMultiplayerGame = [&logic] { return logic.isInMultiplayerGame(); };
 }
 
 DrawableManager::~DrawableManager() = default;

@@ -187,6 +187,7 @@ include(cmake/Port81.cmake)     # PORT-81: HordeContain/RanksToJustFreeWhenAttac
 include(cmake/Port93.cmake)     # PORT-93: SpecialAbilityUpdate/ActiveLoopSound, the active ability loop (issue #241; OPENBFME_PORT93_TESTS)
 include(cmake/Port73.cmake)     # PORT-73: W3DTreeDraw DoTopple / the shrub push aside (issue #205; OPENBFME_PORT73_TESTS)
 include(cmake/Port87.cmake)     # PORT-87: unit voice VoiceStartCharging / VoiceNoBuild (issue #235; OPENBFME_PORT87_TESTS)
+include(cmake/Port106.cmake)    # PORT-106: W3DScriptedModelDraw MultiPlayerOnly gate (issue #266; OPENBFME_PORT106_TESTS)
 include(cmake/Port50.cmake)     # PORT-50: W3DModelDraw/ParticlesAttachedToAnimatedBones, particles on the animated bones (issue #154; OPENBFME_PORT50_TESTS)
 include(cmake/Port74.cmake)     # PORT-74: W3DLaserDraw, the lightning and beam draws (issue #206; OPENBFME_PORT74_SOURCES / _TESTS)
 include(cmake/Port97.cmake)     # PORT-97: TransportContain FadePassengerOnEnter / OnExit, the passengers' fade (issue #245; OPENBFME_PORT97_TESTS)
@@ -885,6 +886,7 @@ add_executable(openbfme_tests
     ${OPENBFME_SPELL_TESTS}
     ${OPENBFME_PORT43_TESTS}
     ${OPENBFME_PORT51_TESTS}
+    ${OPENBFME_PORT106_TESTS}
     ${OPENBFME_PORT81_TESTS}
     ${OPENBFME_PORT93_TESTS}
     ${OPENBFME_PORT73_TESTS}

@@ -162,6 +162,11 @@ struct W3DScriptedModelDrawOptions
 	// PORT-49: true when the device layer installed DrawServices::cameraPosition before this draw was made. The camera distance
 	// fade (RW 0x4B52C8) needs that source; without it the core reports S-096 instead of silently leaving the fields unused.
 	bool cameraFadeAvailable = false;
+	// PORT-106 (issue #266): the MultiPlayerOnly gate (RW 0x4C72E1..0x4C730C of doDrawModule RW 0x4C72BE): when set, this draw's
+	// per-frame body never runs — advance (RW 0x4BF560, called from RW 0x4C73C7 inside the body) and the camera fade (RW 0x4B52C8,
+	// called from RW 0x4BF586 inside it) return at once. Set by Drawable::addEntry from W3DModelDrawModuleData::multiPlayerOnlySkipsBody;
+	// unset (no logic, e.g. the map-object runtime): the body runs, as before.
+	bool multiPlayerOnlySkipped = false;
 };
 
 class W3DScriptedModelDraw : public W3DDrawScriptApi
@@ -195,6 +200,7 @@ public:
 	void updateCameraFade(const Coord3D &camera, const Coord3D &drawable, int effectsLOD);
 	float opacity() const { return m_opacity; }
 	bool hiddenByFade() const { return m_hiddenByFade; }
+	bool multiPlayerOnlySkipped() const { return m_options.multiPlayerOnlySkipped; } ///< PORT-106 (issue #266): the gate of RW 0x4C72E1
 	// lane PERF-HD: advance() will only step this draw's own tracks, fade and speed (no state selection, no script): a looping track 0 alone, nothing
 	// pending. Such a draw may advance on the client job pool
 	// lane PERF-HD: how far (in frames) this draw's pose may stray from its horde group's to be drawn with it (W3DHordeModelDraw: its LodOptions
