@@ -47,6 +47,7 @@ DrawableManager::DrawableManager(WW3DAssetManager &assets, GameLogic &logic)
 		return 0.0f;
 	};
 	m_services.groundHeight = m_trackSampler.groundHeight; // LOCAL-25
+	m_services.clientFrame = &m_clientFrame;              // LOCAL-25: the step's gate (RW 0x67BE04)
 }
 
 DrawableManager::~DrawableManager() = default;
@@ -791,10 +792,12 @@ void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha
 				{
 					d->reactToTransformChange(d->getPosition(), d->getOrientation()); // the modules ignore the old transform (AnimationSoundClientBehavior)
 				}
+				d->applyPhysicsXform(*prep.rec, prep.pose); // LOCAL-25: the ordered pass (the step draws the shared client random), once per client frame
 				continue;
 			}
 			d->startProjectileFade(*prep.rec, snapshot); // lane PROJ-2: RW 0x85EE00 for a launch the drawable has not seen (DrawableFade.cpp)
 			d->commitSync(prep);
+			d->applyPhysicsXform(*prep.rec, prep.pose); // LOCAL-25
 		}
 	}
 	// lane AUDIO-4: TheAnimationSoundModuleManager's client update (RW 0x83F321), after the animations advanced and the drawables moved

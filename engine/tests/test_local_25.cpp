@@ -3,7 +3,7 @@
 // GPL-3.0.
 //
 // Retail RotWK 2.01 (and BFME2 1.06):
-//   1. Dead fields in simulation (Stop S-7220):
+//   1. Dead fields in simulation (Stop S-7221):
 //      MinTurnSpeed (+0x54), StickToGround (+0xD4), AllowAirborneMotiveForce (+0xD1),
 //      Apply2DFrictionWhenAirborne (+0xD2), FrontWheelTurnAngle (+0xE8), MaximumWheelCompression (+0xE4),
 //      LateralVelocityRollFactor (+0xAC), PitchInDirectionOfZVelFactor (+0xA0), MaxOverlappedHeight (+0xA4),
@@ -29,6 +29,7 @@
 #include "Libraries/WWVegas/WW3D2/assetmgr.h"
 #include "Libraries/WWVegas/WWMath/matrix3d.h"
 
+#include <cstring>
 #include <cfloat>
 #include <cmath>
 #include <vector>
@@ -64,7 +65,7 @@ struct LocomotorFixture
 };
 } // namespace
 
-TEST_CASE("LOCAL-25: stop S-7220 - 11 dead simulation locomotor fields stay parsed into LocomotorTemplate")
+TEST_CASE("LOCAL-25: stop S-7221 - 11 dead simulation locomotor fields stay parsed into LocomotorTemplate")
 {
 	LocomotorFixture fix;
 	const std::string ini =
@@ -290,8 +291,26 @@ TEST_CASE("LOCAL-25: calcPhysicsXform and applyPhysicsXform - wheels and suspens
 	Drawable::SyncPrep prep;
 	d.prepareSync(snap, 1, 0.0, false, prep);
 	d.commitSync(prep);
-
+	CHECK_FALSE(d.hasPhysicsXform()); // the parallel half makes no step (it would draw the shared client random)
+	d.applyPhysicsXform(snap, prep.pose); // the ordered pass of DrawableManager
 	CHECK(d.hasPhysicsXform());
+
+	// RW 0x67BE04: one step per client frame. With the manager's frame bound, further pictures of the same client frame keep the step's state
+	unsigned clientFrame = 7;
+	services.clientFrame = &clientFrame;
+	d.applyPhysicsXform(snap, prep.pose); // a new client frame: a step
+	const DrawableLocoInfo afterStep = *d.locoInfo();
+	for (int i = 0; i < 5; ++i)
+	{
+		d.applyPhysicsXform(snap, prep.pose); // the same client frame: no step
+	}
+	CHECK(std::memcmp(&afterStep, d.locoInfo(), sizeof(DrawableLocoInfo)) == 0);
+	CHECK(d.hasPhysicsXform());
+	clientFrame = 8;
+	d.applyPhysicsXform(snap, prep.pose);
+	const bool unchangedAfterNextFrame = std::memcmp(&afterStep, d.locoInfo(), sizeof(DrawableLocoInfo)) == 0;
+	CHECK_FALSE(unchangedAfterNextFrame); // the next client frame steps again
+	services.clientFrame = nullptr;
 
 	// Separation of simulation pose and presentation pose:
 	// Simulation position is untouched

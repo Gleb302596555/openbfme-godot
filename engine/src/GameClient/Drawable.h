@@ -136,6 +136,9 @@ struct DrawServices
 	float selectionFlashSaturationFactor = 0.6f; ///< lane LOCAL-3: GameData SelectionFlashSaturationFactor (RW 0xC005D0, GlobalData +0xB54)
 	// LOCAL-25: terrain height and normal sampler for presentation physics (calcPitchRoll / suspension)
 	std::function<float(float x, float y, Coord3D *normal)> groundHeight;
+	// LOCAL-25: TheGameClient's frame (30 a second, RW vslot 0x7C of 0xDE4388), the gate of the presentation physics step (RW 0x67BDF6 .. 0x67BE17).
+	// Null (a test without the manager): every call steps
+	const unsigned *clientFrame = nullptr;
 };
 
 // One draw module of a drawable.
@@ -617,6 +620,8 @@ private:
 
 	std::unique_ptr<DrawableLocoInfo> m_locoInfo; ///< +0x13C
 	bool m_hasPhysicsXform = false;
+	bool m_physicsStepped = false;      ///< a step was made for m_physicsClientFrame
+	unsigned m_physicsClientFrame = 0;  ///< retail's stamp at the locomotor info + 0xAC (RW 0x67BE04 / 0x67BE17)
 	PhysicsXformInfo m_lastPhysicsInfo;
 	float m_presentationBasis[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
 	Coord3D m_presentationPosition;

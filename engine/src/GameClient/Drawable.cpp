@@ -679,7 +679,8 @@ void Drawable::prepareSync(const ObjectSnapshot &rec, UnsignedInt snapshotFrame,
 	updatePhantomLook(rec);                        // lane FBSIM-1
 	m_moveSpeed = rec.moveSpeed;                   // lane SMOOTH-3: the walk / run cycle's speed source (RW 0x4B67D4)
 	m_scriptTarget = rec.scriptTarget;             // lane FX-3
-	applyPhysicsXform(rec, out.pose);              // LOCAL-25: presentation physics
+	// LOCAL-25: no presentation physics here: this runs on the job pool, and the step draws the shared client random (the ordered pass of
+	// DrawableManager makes it)
 }
 
 void Drawable::updatePhantomLook(const ObjectSnapshot &rec)
@@ -1793,14 +1794,27 @@ void Drawable::applyPhysicsXform(const ObjectSnapshot &rec, const RenderInterpol
 	if (!rec.locomotorTemplate)
 	{
 		m_hasPhysicsXform = false;
+		m_physicsStepped = false;
 		return;
 	}
-
-	PhysicsXformInfo info;
-	if (calcPhysicsXform(rec, pose, info))
+	// RW 0x67BDF6 .. 0x67BE17: the step is made once per client frame (`call [TheGameClient + 0x7C]`, compared with the stamp at the locomotor info
+	// + 0xAC, RW 0x67BE04 `cmp` / `je`; stamped at RW 0x67BE17). Retail draws one picture per client frame, so it has nothing between two steps;
+	// INFERENCE: the port, drawing more often, keeps the last step's angles and height on the pictures between two client frames
+	const bool step = !m_services.clientFrame || !m_physicsStepped || *m_services.clientFrame != m_physicsClientFrame;
+	if (step)
 	{
-		m_hasPhysicsXform = true;
-		m_lastPhysicsInfo = info;
+		PhysicsXformInfo info;
+		m_hasPhysicsXform = calcPhysicsXform(rec, pose, info);
+		if (m_hasPhysicsXform)
+		{
+			m_lastPhysicsInfo = info;
+		}
+		m_physicsStepped = true;
+		m_physicsClientFrame = m_services.clientFrame ? *m_services.clientFrame : 0;
+	}
+	if (m_hasPhysicsXform)
+	{
+		const PhysicsXformInfo &info = m_lastPhysicsInfo;
 
 		Matrix3D mtx;
 		for (int r = 0; r < 3; ++r)
@@ -1831,10 +1845,6 @@ void Drawable::applyPhysicsXform(const ObjectSnapshot &rec, const RenderInterpol
 		m_presentationPosition.x = mtx.Row[0][3];
 		m_presentationPosition.y = mtx.Row[1][3];
 		m_presentationPosition.z = mtx.Row[2][3];
-	}
-	else
-	{
-		m_hasPhysicsXform = false;
 	}
 }
 
