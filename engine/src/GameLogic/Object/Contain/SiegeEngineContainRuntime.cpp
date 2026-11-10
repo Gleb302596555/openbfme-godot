@@ -289,7 +289,7 @@ void SiegeEngineContainT<Base, Horde>::createPayload()
 	Player *owner = container->getControllingPlayer();
 	if (t && owner)
 	{
-		// RW 0x87EEB2 / 0x87FFF5: enableLoadSounds off and on around the crew (client side)
+		this->enableLoadSounds(false); // RW 0x87EEC0 / 0x880016
 		for (int i = 0; i < m_siege->m_initialCrewCount; ++i)
 		{
 			Object *o = logic.newObject(t, owner->getDefaultTeam(), ObjectStatusMaskType{}); // RW 0x6D165E(t, player + 0x30C)
@@ -325,6 +325,7 @@ void SiegeEngineContainT<Base, Horde>::createPayload()
 				this->addToContain(o); // RW 0x87EFC9: contain slot 0x9C
 			}
 		}
+		this->enableLoadSounds(true); // RW 0x87EFDB / 0x88012F
 	}
 	TransportContain::createPayload(); // RW 0x86A1FA
 }

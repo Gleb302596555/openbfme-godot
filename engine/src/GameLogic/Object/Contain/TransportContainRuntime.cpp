@@ -688,11 +688,12 @@ void TransportContain::createPayload()
 		{
 			return;
 		}
-		// RW 0x86A23B / 0x86A2B1: enableLoadSounds off and on (client side)
+		contain->enableLoadSounds(false); // RW 0x86A264
 		for (int i = 0; i < e.count; ++i)
 		{
 			createPayloadObject(*t, *contain, true); // the creator at + 0xFC: RW 0x86A104(t, contain, container, name, 1)
 		}
+		contain->enableLoadSounds(true); // RW 0x86A2B1
 	}
 }
 

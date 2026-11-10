@@ -286,7 +286,8 @@ void TunnelContain::onRemoving(Object *obj)
 	// RW 0x881006 .. 0x88101C (lane OCCLUDE-1; inside the drawable test RW 0x881002, every object here has one): + 0x444 = the frame + the template's
 	// OcclusionDelay, then the drawable shown
 	obj->setSafeOcclusionFrame(obj->logic().getFrame() + Object::occlusionDelayOf(*obj->getTemplate(), obj->logic()));
-	obj->setDrawableHidden(false);                // RW 0x6718FB(0); the unload sound is the client's (S-1107)
+	obj->setDrawableHidden(false);                // RW 0x6718FB(0)
+	playContainSound(*getObject(), openData(), m_soundState, false); // RW 0x881033: main slot 0x58
 }
 
 UpdateSleepTime TunnelContain::update()
