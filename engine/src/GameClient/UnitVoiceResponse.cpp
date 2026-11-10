@@ -18,7 +18,9 @@
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/BloodthirstyUpdate.h"
+#include "GameLogic/Module/HordeContain.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/System/ShroudManager.h"
@@ -259,6 +261,7 @@ int UnitVoiceResponse::voiceTargetArgument(int msgType)
 		case MSG_DOZER_CONSTRUCT:
 		case MSG_RESUME_CONSTRUCTION:
 		case MSG_COMBATDROP_AT_OBJECT:
+		case MSG_COMBINE_HORDES_WITH_OBJECT: // RW 0x81F4B2 writes the target alone (argument 0); the handler at RW 0x8DF2EB reads it from the pick info (+ 4)
 		case MSG_DO_REPAIR:
 		case MSG_HARVEST:
 			return 0;
@@ -301,6 +304,7 @@ bool UnitVoiceResponse::handles(int msgType)
 		case MSG_EVACUATE_CONTESTERS:
 		case MSG_COMBATDROP_AT_LOCATION:
 		case MSG_COMBATDROP_AT_OBJECT:
+		case MSG_COMBINE_HORDES_WITH_OBJECT: // RW 0x81F4B2: the context command order; RW 0x8DEDBB index 0x3A
 		case MSG_DO_REPAIR:
 		case MSG_ENTER:
 		case MSG_DOCK:
@@ -1078,6 +1082,50 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 			case MSG_COMBATDROP_AT_OBJECT:
 				fillName(c, obj, "VoiceCombatDrop");
 				break;
+			case MSG_COMBINE_HORDES_WITH_OBJECT:
+			{
+				// RW 0x8DF2EB: the combine-with-horde order (RW 0x81F4B2 posts it, the context command branch for a single selection and a combineable
+				// target). Without the picked target (info + 4) retail says nothing at all: the branch at RW 0x8DF2F2 jumps past the row fill to the no-voice tail
+				const Object *target = info && info->target != INVALID_ID ? m_logic.findObjectByID(info->target) : nullptr;
+				if (target)
+				{
+					// RW 0x871F29 (the interface's slot + 0x224, here on the horde's contain): the candidate's horde (RW 0x694bf8: itself when HORDE-kind, else
+					// the horde that contains it) carries the ComboHorde list; the entry whose Target (RW 0x87043B, the compare RW 0x4065AA) names the
+					// TARGET-side horde's template (0x693a1a on the victim, else the victim itself) supplies the InitiateVoice
+					Object *selfHorde = obj.getHordeObject(false);
+					Object *moduleOwner = selfHorde ? selfHorde : &obj;
+					const Object *victimHorde = target->getHordeObject(false);
+					const Object *ref = victimHorde ? victimHorde : target;
+					const HordeContain *hci = nullptr;
+					if (ContainModuleInterface *contain = moduleOwner->getContain())
+					{
+						hci = dynamic_cast<const HordeContain *>(contain->getHordeContainInterface());
+					}
+					const ThingTemplate *refTemplate = ref->getTemplate();
+					if (hci && refTemplate)
+					{
+						if (const ComboHordeEntry *entry = hci->comboHordeEntryFor(*refTemplate))
+						{
+							// the entry's InitiateVoice: NoSound -> nothing (RW 0x73AB45), EVA: -> the Eva event, +SOUND: / a plain name -> the sound
+							Voice v;
+							if (entry->initiateVoiceIsEva)
+							{
+								v.eva = entry->initiateVoice.name;
+							}
+							else
+							{
+								v.sound = entry->initiateVoice.name;
+							}
+							fill(c, v); // RW 0x8DDA33: only while the slot is empty
+						}
+					}
+					if (!done(c))
+					{
+						fillRow(c, obj, VOICE_COMBINE_WITH_HORDE); // RW 0x8DF5EB: row 0x15 = VoiceCombineWithHorde
+					}
+				}
+				break;
+			}
 			case MSG_DO_REPAIR:
 				fillName(c, obj, "VoiceRepair");
 				break;
@@ -1392,8 +1440,8 @@ std::vector<std::string> UnitVoiceResponse::acceptanceStops()
 		"rerolls per logic frame (retail: per client frame); the move and ambient sounds of the logic and the audio side do not ask the selectors (S-712)",
 		"[S-702] unit voice: the enemy-near query of the battle voices (RW 0x701443 -> 0x7006D7 with filter 0x6E and the object's vision range RW 0x68E43B, which "
 		"scales obj + 0x1B0 by a module bonus) is approximated by `a living object of an ENEMIES relationship within the template's VisionRange (2D)`",
-		"[S-703] unit voice: message types of RW 0x8DEDBB not answered here: combine hordes (0x423), weapon modes (0x43A), "
-		"the planned action queue (0x46A), the Ring voices (0x7E4, 0x7E5); 0x7DB .. 0x7DD are answered (PORT-86); "
+		"[S-703] unit voice: message types of RW 0x8DEDBB not answered here: weapon modes (0x43A), "
+		"the planned action queue (0x46A), the Ring voices (0x7E4, 0x7E5); combine hordes (0x423, RW 0x8DF2EB) is answered (PORT-84); 0x7DB .. 0x7DD are answered (PORT-86); "
 		"0x7EA (RW 0x8DFD0D) and 0x7EB (RW 0x8DFE7B) are answered (PORT-87), the post of 0x7EA is stop S-7226",
 		"[S-704] unit voice: rules of the move / attack / enter helpers not ported: the planning order mode (player + 0x770 == 2 -> MiscAudio PlanningModeOrderGiven), "
 		"VoiceCrush (GameData + 0x8B9, crushable target), the busy gate (GameData + 0x8B0), the castle rule (RW 0x8DDBC4), "
