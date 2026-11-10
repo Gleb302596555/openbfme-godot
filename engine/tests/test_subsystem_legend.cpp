@@ -58,12 +58,12 @@ std::set<std::string> lowerSet(const Strs &v)
 
 } // namespace
 
-TEST_CASE("block keyword table: 131 RotWK keywords, none of the Zero Hour-only ones (spec 3.2)")
+TEST_CASE("block keyword table: 130 RotWK keywords, none of the Zero Hour-only ones (spec 3.2)")
 {
 	const Strs &k = RotwkBlockKeywords();
-	CHECK(k.size() == 131);
+	CHECK(k.size() == 130);
 	const std::set<std::string> unique(k.begin(), k.end());
-	CHECK(unique.size() == 131);
+	CHECK(unique.size() == 130);
 	for (const char *absent : { "Animation", "Campaign", "ChallengeGenerals", "Credits", "EvaEvent", "InGameUI", "MapCache", "MapData",
 			 "MultiplayerStartingMoneyChoice", "ParticleSystem", "Video", "WebpageURL", "OverrideableByLikeKind" })
 	{
@@ -80,7 +80,7 @@ TEST_CASE("recording stubs: keywords are case sensitive, an unknown first line i
 	Fixture fx;
 	INIBlockRecorder rec;
 	RegisterRecordingBlockStubs(fx.env.blocks, rec, {});
-	CHECK(fx.env.blocks.size() == 131);
+	CHECK(fx.env.blocks.size() == 130);
 
 	const std::string text =
 		"; header\n"

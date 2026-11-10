@@ -23,7 +23,7 @@ const std::vector<std::string> &RotwkBlockKeywords()
 		"ArmySummaryDescription", "AudioEvent", "AudioLOD", "AudioLowMHz", "AudioSettings", "AutoResolveArmor",
 		"AutoResolveBody", "AutoResolveCombatChain", "AutoResolveHandicapLevel", "AutoResolveLeadership",
 		"AutoResolveReinforcementSchedule", "AutoResolveWeapon", "AwardSystem", "BannerType", "BenchProfile",
-		"Bridge", "ChildObject", "CloudBreakEffect", "CloudEffect", "CommandButton", "CommandMap", "CommandSet",
+		"ChildObject", "CloudBreakEffect", "CloudEffect", "CommandButton", "CommandMap", "CommandSet",
 		"ControlBarResizer", "ControlBarScheme", "CrateData", "CreateAHeroSystem", "CrowdResponse", "DamageFX",
 		"DebugCommandMap", "DialogEvent", "DrawGroupInfo", "DynamicGameLOD", "EmotionNugget",
 		"EvaEventForwardReference", "ExperienceLevel", "ExperienceScalarTable", "FXList", "FXParticleSystem",

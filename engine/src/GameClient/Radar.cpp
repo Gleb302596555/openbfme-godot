@@ -185,7 +185,7 @@ const std::vector<std::uint8_t> &Radar::terrainImage(int size)
 		{
 			float wx, wy;
 			radarToWorld((float)x + 0.5f, (float)y + 0.5f, size, wx, wy);
-			const float v = m_ctx->logic.getGroundHeight(wx, wy);
+			const float v = m_ctx ? m_ctx->logic.getGroundHeight(wx, wy) : 0.0f;
 			h[(size_t)y * (size_t)size + (size_t)x] = v;
 			lo = std::min(lo, v);
 			hi = std::max(hi, v);
@@ -207,6 +207,42 @@ const std::vector<std::uint8_t> &Radar::terrainImage(int size)
 			p[1] = (std::uint8_t)std::clamp((int)(g * 255.0f), 0, 255);
 			p[2] = (std::uint8_t)std::clamp((int)(b * 255.0f), 0, 255);
 			p[3] = 255;
+		}
+	}
+	// Retail W3DRadar::buildTerrainTexture / W3DRadarTerrainTexture::addBridge (RW 0x0044F781):
+	// Bridges are drawn on the radar terrain with RadarColor (+0x28)
+	for (const RadarBridge &b : m_radarBridges)
+	{
+		const float dx = b.to.x - b.from.x;
+		const float dy = b.to.y - b.from.y;
+		const float lenSq = dx * dx + dy * dy;
+		const float len = std::sqrt(lenSq);
+		if (len <= 0.0f)
+		{
+			continue;
+		}
+		const float halfWidth = b.width * 0.5f;
+		for (int y = 0; y < size; ++y)
+		{
+			for (int x = 0; x < size; ++x)
+			{
+				float wx, wy;
+				radarToWorld((float)x + 0.5f, (float)y + 0.5f, size, wx, wy);
+				const float u = ((wx - b.from.x) * dx + (wy - b.from.y) * dy) / lenSq;
+				if (u < 0.0f || u > 1.0f)
+				{
+					continue;
+				}
+				const float perpDist = std::abs((wx - b.from.x) * (-dy) + (wy - b.from.y) * dx) / len;
+				if (perpDist <= halfWidth)
+				{
+					std::uint8_t *p = &m_image[((size_t)y * (size_t)size + (size_t)x) * 4];
+					p[0] = (std::uint8_t)std::clamp((int)(b.color[0] * 255.0f), 0, 255);
+					p[1] = (std::uint8_t)std::clamp((int)(b.color[1] * 255.0f), 0, 255);
+					p[2] = (std::uint8_t)std::clamp((int)(b.color[2] * 255.0f), 0, 255);
+					p[3] = 255;
+				}
+			}
 		}
 	}
 	return m_image;
