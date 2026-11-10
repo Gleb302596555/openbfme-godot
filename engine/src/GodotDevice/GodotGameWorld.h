@@ -763,6 +763,8 @@ private:
 		bool streakKnown = false;
 		bool posed = false;
 		float offsetZ = 0.0f;           ///< RENDER-2: the construction offset the instance's transform carries (DrawEntry::constructionOffsetZ)
+		bool haveEntryXf = false;       ///< LOCAL-29: last instance transform handed to instancer
+		Transform3D lastEntryXf;
 		float opacity = 1.0f;           ///< PROJ-2: the drawable's fade times the model draw's fade the instance shows
 		bool fadeHidden = false;        ///< PORT-49: the model draw's hidden-by-fade state the instance was made with; leaving it rebuilds the instance
 		unsigned tireChanges = 0xFFFFFFFFu; ///< lane COMBAT-4: DrawEntry::tireChanges the instance's bone spins show
