@@ -511,5 +511,9 @@ std::vector<std::string> Construction::stopLines()
 		"filter row blocks nothing (RW's default filter at data + 0x40 was not read: inference); what keeps a dead structure in the world is its own die modules (KeepObjectDie)",
 		"[S-656] repair: MSG_DO_REPAIR sends the selected dozers to repair (DozerAIUpdate::repair, the heal of RW 0x88DC46, free); the dispatcher case of MSG_DO_REPAIR was not read, and the "
 		"caller that makes the owner pay a structure's own repair (GettingBuiltBehavior slot 4 without force: ceil(calcCostToBuild * PercentOfBuildCostToRebuild<state>), RW 0x856227) was not found",
+		// lane PORT-117 (issue #301): what buildObjectNow's HORDE step leaves open
+		"[S-7317] buildObjectNow (lane PORT-117): a KindOf HORDE object is completed without its producer (RW 0x7979D4 .. 0x797A02: ported, the horde's InitialPayload is made in the call, "
+		"RW 0x871BAB / 0x86A1FA); not ported: the banner carrier RotWK's HordeContain makes in that same call when the horde has no producer and its BannerCarrierMinLevel is 0 "
+		"(RW 0x8718F5 .. 0x87190E -> RW 0x870204): the port's carrier comes from HordeContain::bannerCheck on the horde's update (RW 0x8719E4, S-587), after the call",
 	};
 }
