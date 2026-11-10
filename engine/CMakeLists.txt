@@ -258,6 +258,7 @@ include(cmake/Port85.cmake) # PORT-85: UnitSpecificSounds VoicePrimaryWeaponMode
 include(cmake/Port76.cmake) # PORT-76: SpawnBehavior/FadeInTime, spawned units fade in (issue #208; OPENBFME_PORT76_TESTS)
 include(cmake/Port86.cmake) # PORT-86: Unit voice VoiceDesperateAttack / VoiceRapidFire / VoiceCaptureBuildingComplete (issue #234; OPENBFME_PORT86_TESTS)
 include(cmake/Port39.cmake) # PORT-39: AIData SideInfo ResourceGatherers (issue #124; OPENBFME_PORT39_TESTS)
+include(cmake/Port101.cmake) # PORT-101: Object/SelectionPriority (issue #261; OPENBFME_PORT101_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
@@ -878,6 +879,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT76_TESTS}
     ${OPENBFME_PORT86_TESTS}
     ${OPENBFME_PORT39_TESTS}
+    ${OPENBFME_PORT101_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}
