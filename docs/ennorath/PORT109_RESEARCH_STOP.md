@@ -115,14 +115,31 @@ All tests live in test_port_109.cpp, Port109.cmake, full openbfme_tests.
 
 ## Validation status and remaining work
 
-Eight tests added, changed translation units syntax-checked. Full Release
-openbfme_tests build and PORT-109* execution are still in progress; no green
-or red/green result is claimed yet. No game/mod files or hash pins committed.
-No new simulation state: template lookup order derives from INI loading;
-xfer/CRC stay unchanged. This IS an engine change: special-power type 0x33
-now admits ordinary valid targets and multiple upgrades choose list order.
-Watch cbhunt*, AIPOW-1*, modgap2 give upgrade*, hud*, save4*, state hash*.
+Full Release openbfme_tests (not an auxiliary runner), before the last rebase:
+PORT-109*: 8/8 tests, 198/198 assertions PASS. Red/green: temporarily disabling
+only the new context cursor branch produces 6 failed tests / 15 failed
+assertions; restoring and rebuilding produces 8/8, 198/198 PASS. The fixture
+uses CombatWorld to register real LogicModules and attach AIWorld.
+Neighbours modgap2 give upgrade* + PORT-92*: 8/8, 255/255 PASS.
 
-Осталось: full test binary and PORT-109* run, red/green check, owner-visible
-Ennorath verification, rebase against main, PR. Contained providers remain
-explicitly deferred as authorized, not claimed ported.
+After the final rebase onto main 9377dba3 the full target is rebuilding;
+its new run is pending. PR #326 stays draft until that run passes.
+No game/mod files or hash pins committed. No new simulation state: template
+lookup order derives from INI loading; xfer/CRC stay unchanged. This IS an
+engine change: special-power type 0x33 now admits ordinary valid targets and
+multiple upgrades choose list order.
+
+Known nightly shift, executed and confirmed: test_cbhunt.cpp:307,
+`cbhunt: ActionManager::canDoSpecialPowerAtObject (RW 0x82D925): the generic tests, the yes types, and the unported per-type tests counted as S-7140`.
+Exactly three old assertions at lines 329-331 fail: unported flag and two
+unported 0x33 counters. The target still fails validation, but type 0x33 is
+now implemented and must not report S-7140. This other port's test is NOT
+modified. Watch cbhunt*, AIPOW-1*, modgap2 give upgrade*, PORT-92*, hud*,
+save4*, state hash*.
+
+Owner-visible Ennorath verification is not claimed: existing PORT-92 notes
+place delivery carriers in missions/cinematics, not an ordinary skirmish
+OBJECT_UPGRADE button. A carrier must actually hold a source upgrade mask;
+spawning it alone is insufficient. See PR #326 for the conditional check.
+Contained providers remain explicitly deferred as authorized, not claimed
+ported. Remaining: finish latest-base full run and mark PR ready.
