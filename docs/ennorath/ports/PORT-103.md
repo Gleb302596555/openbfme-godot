@@ -80,3 +80,22 @@ absent/NoSound; BURNED before aflame-end must not stop the sound.
 INFERENCE: none used to change behaviour yet.
 Осталось: реализация, PORT-103 tests on the full openbfme_tests target,
 NIGHT_WATCH, final rebase, PR and owner listening check.
+
+## Implementation checkpoint
+
+- `c12d31e`: dedicated HELD_FLAMMABLE_LOOP in the existing AudioApi;
+  ignition, quench, destructor wired. No new simulation member/hash/layout.
+- `7e90cab`: six synthetic test cases in `engine/tests/test_port_103.cpp`,
+  via `engine/cmake/Port103.cmake` in the full openbfme_tests target.
+- RW xfer slot 3 at 0xC62C10 = 0x88FBEE; RW 0x88FC76..0x88FC7B
+  passes handle +0x34 to TheAudio slot 0x160. Native load currently
+  reconstructs from FS_AFLAME; this mapping still needs verification against
+  the audio handle xfer implementation before review (do not claim parity
+  from the caller alone).
+- Full build running; a follow-up process reconfigures and builds the same
+  full target, then runs exactly `-tc="PORT-103*"`, logging to
+  `/tmp/port103-build.log` and `/tmp/port103-tests.log`.
+
+Осталось: full build/test results, fix any compile/assertion failures,
+verify native audio xfer semantics (or remove unsupported inference),
+red/green run on full target, mod data check, final rebase and PR.
