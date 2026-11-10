@@ -353,8 +353,8 @@ TEST_CASE("LOCAL-28: W3DLightDraw Diffuse and Ambient colors (RW 0x004CF18E sets
 	CHECK(c.green == 0.0f);
 	CHECK(c.blue == 0.0f);
 
-	// Ambient is stored separately (+0xD4)
-	const RGBColor amb = light.lightAmbientColor();
+	// Ambient is parsed and stored separately (+0xD4); the port does not present it (S-687)
+	const RGBColor amb = data->m_ambient;
 	CHECK(amb.red == doctest::Approx(50.0f / 255.0f)); // tolerance: floating-point evaluation
 	CHECK(amb.green == doctest::Approx(100.0f / 255.0f)); // tolerance: floating-point evaluation
 	CHECK(amb.blue == doctest::Approx(200.0f / 255.0f)); // tolerance: floating-point evaluation
