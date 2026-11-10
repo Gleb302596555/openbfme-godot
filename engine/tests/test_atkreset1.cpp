@@ -238,3 +238,24 @@ TEST_CASE("TOP20 burning death r3: an attack on a victim that turns UNATTACKABLE
 		CHECK_FALSE(foe->isEffectivelyDead());
 	}
 }
+
+TEST_CASE("atkreset1 direct attack move clears the lock and sets unlimited shots (RW 0x696266 / 0x66C121)")
+{
+	LockWorld w;
+	Object *archer = w.unit("LockArcher", 'A', 300, 300);
+	Object *first = w.unit("Dummy", 'B', 400, 300);
+	w.frames(2);
+	w.firstShot(archer, first);
+	Weapon *bow = w.bow(archer);
+	REQUIRE(bow->whenFiringEnds() == 35);
+	bow->setMaxShotCount(2);
+	const Coord3D goal{ 400, 500, 17 };
+	w.logic->random().enableCallLog(true);
+	w.logic->random().clearCallLog();
+	REQUIRE(archer->getAIUpdateInterface()->aiAttackMoveToPosition(goal, CMD_FROM_PLAYER));
+	CHECK(bow->whenFiringEnds() == 0);
+	CHECK(bow->maxShotCount() == 0x7fffffff);
+	CHECK(archer->getAIUpdateInterface()->attackMoveActive());
+	CHECK(archer->getAIUpdateInterface()->stateMachine().goalPosition().z == 17);
+	CHECK(w.logic->random().callLog().size() == 0);
+}
