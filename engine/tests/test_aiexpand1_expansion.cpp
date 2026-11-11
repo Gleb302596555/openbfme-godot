@@ -454,6 +454,15 @@ TEST_CASE("aiexpand1 expansion in a game: the Medium Men computer kept above 300
 	ExpansionGame g;
 	loadUdun(*s, g);
 	GameLogic &logic = g.game->logic();
+	// merge queue q47: since #263 (the group speed matching) the Men computer beats the idle human by about frame 2250; with no enemy left its target
+	// chooser stops before the expansion draw. The human's starting objects are kept alive so the computer keeps an enemy, as before.
+	for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
+	{
+		if (o->getControllingPlayer() == g.human && o->getBodyModule())
+		{
+			o->getBodyModule()->setIndestructible(true);
+		}
+	}
 	AISkirmishPlayer *aiPtr = g.ai;
 	REQUIRE(aiPtr->build.bases.size() == 1u);
 	bool roundTrip = false, roundTripDone = false;

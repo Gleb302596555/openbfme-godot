@@ -225,6 +225,8 @@ include(cmake/Port8.cmake) # PORT-8: PhysicsBehavior/OrientToFlightPath (issue #
 include(cmake/Port7.cmake) # PORT-7: AnimalAIUpdate/UpdateTimer (issue #60; OPENBFME_PORT7_TESTS)
 include(cmake/Port77.cmake) # PORT-77: W3DSupplyDraw/SupplyBonePrefix (issue #209; OPENBFME_PORT77_TESTS)
 include(cmake/Port11.cmake) # PORT-11: SlavedUpdate/StayOnSameLayerAsMaster (issue #66; OPENBFME_PORT11_TESTS)
+include(cmake/Port15.cmake) # PORT-15: LockWeaponCreate/Object::setWeaponLock (issue #71; OPENBFME_PORT15_TESTS)
+include(cmake/Port20.cmake) # PORT-20: GarrisonContain/onSelling (issue #76; OPENBFME_PORT20_TESTS)
 include(cmake/Port13.cmake) # PORT-13: AIData/AttackMoveUsesFormations (issue #68; OPENBFME_PORT13_TESTS)
 include(cmake/Port30.cmake) # PORT-30: OneRingPenaltyUpdate/TimeFrozenFromPenalty (issue #102; OPENBFME_PORT30_TESTS)
 include(cmake/Port28.cmake) # PORT-28: Weapon/RotatingTurret, the turret aim vector (issue #100; OPENBFME_PORT28_TESTS)
@@ -393,6 +395,7 @@ include(cmake/Campui1.cmake)    # CAMPUI-1: the campaign presentation, the missi
 include(cmake/Camanim1.cmake)   # CAMANIM-1: MOVE_CAMERA_BY_ANIMATION, the map's camera animations (OPENBFME_CAMANIM1_SOURCES / _TESTS)
 include(cmake/Offmap1.cmake)    # OFFMAP-1: off-map map objects and horde members (OPENBFME_OFFMAP1_TESTS)
 include(cmake/Wall1.cmake)      # WALL-1: walkable wall tops and ramps (appends to OPENBFME_SIM_SOURCES; OPENBFME_WALL1_TESTS)
+include(cmake/MechD.cmake)      # MECH-D: wall climbing (OPENBFME_MECHD_TESTS)
 include(cmake/Wall2.cmake)      # WALL-2: portals, portal modules, raised walkways (appends to OPENBFME_SIM_SOURCES; OPENBFME_WALL2_TESTS)
 include(cmake/Bridge1.cmake)    # BRIDGE-1: retail bridges crossed and destroyed (OPENBFME_BRIDGE1_TESTS)
 include(cmake/Siege1.cmake)     # SIEGE-1: the siege units (appends to OPENBFME_SIM_SOURCES; OPENBFME_SIEGE1_TESTS)
@@ -1037,6 +1040,7 @@ add_executable(openbfme_tests
     ${OPENBFME_HUDREDRAW1_TESTS}
     ${OPENBFME_CHAT1_TESTS}
     ${OPENBFME_WALL1_TESTS}
+    ${OPENBFME_MECHD_TESTS}
     ${OPENBFME_WALL2_TESTS}
     ${OPENBFME_BRIDGE1_TESTS}
     ${OPENBFME_SIEGE1_TESTS}
