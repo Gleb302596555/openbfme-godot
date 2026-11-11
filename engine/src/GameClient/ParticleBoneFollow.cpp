@@ -96,6 +96,35 @@ void worldBone(const Pose &pose, const std::vector<Matrix3D> &poseTransforms, in
 
 } // namespace
 
+// PORT-121 (issue #305), RW 0x4C6514: the bone transform the CREATION reads. Retail asks the render object - slot +0xCC (Get_Bone_Transform
+// by index) - at RW 0x4C678F (the FollowBone branch) and at RW 0x4C69BE (the branch a record without FollowBone takes); the render object holds
+// the pose the draw currently shows, so a system is born on the ANIMATED bone, not on the bind pose's. Without an animation in use the render
+// object shows the bind pose (RW 0x4BDC2D poses nothing), which is what a null clip gives here.
+bool poseBone(const W3DScriptedModelDraw &draw, float scale, int pivot, Matrix3D &out)
+{
+	const RenderObjPrototype *model = draw.currentModel();
+	if (!model || !model->Tree || pivot <= 0)
+	{
+		return false;
+	}
+	std::vector<Matrix3D> transforms;
+	W3DDrawPoseView view;
+	draw.poseView(view);
+	const HAnimClass *anim = static_cast<const HAnimClass *>(view.clipKey0);
+	std::string error;
+	// The frame is the integer the draw shows (RW 0x4B33FB's request is evaluated the same way, htree.h ROUND): the same pose the instancer draws
+	if (!PristinePose::evaluate(*model->Tree, anim, anim ? (int)std::lrint(view.frame0) : 0, scale, transforms, &error))
+	{
+		return false;
+	}
+	if ((std::size_t)pivot >= transforms.size())
+	{
+		return false;
+	}
+	out = transforms[(std::size_t)pivot];
+	return true;
+}
+
 void followFrame(std::vector<Record> &records, FXParticleSystem::ParticleSystemManager &systems, const Pose *poses, std::size_t poseCount, Counters *counters,
 	int callArg)
 {
