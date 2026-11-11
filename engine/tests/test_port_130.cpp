@@ -31,6 +31,11 @@ const char *const kObjects =
 	"  Behavior = CastleBehavior ModuleTag_castle\n"
 	"  End\n"
 	"End\n"
+	"Object P130_Flag\n"
+	"  KindOf = IMMOBILE BASE_FOUNDATION\n"
+	"  Behavior = CastleBehavior ModuleTag_castle\n"
+	"  End\n"
+	"End\n"
 	"Object P130_StructureMember\n"
 	"  KindOf = STRUCTURE\n"
 	"  Behavior = CastleMemberBehavior ModuleTag_cm\n"
@@ -101,9 +106,9 @@ struct CastleFixture
 		return b;
 	}
 	// A fresh castle owning the named pieces; `selected` is its first member (it carries CastleMemberBehavior).
-	void castleWith(const std::vector<const char *> &pieces, Object **selected)
+	void castleWith(const std::vector<const char *> &pieces, Object **selected, const char *castleTemplate = "P130_Castle")
 	{
-		Object *castle = make("P130_Castle");
+		Object *castle = make(castleTemplate);
 		REQUIRE(castle != nullptr);
 		CastleBehavior *behaviour = CastleBehavior::of(*castle);
 		REQUIRE(behaviour != nullptr);
@@ -122,24 +127,29 @@ struct CastleFixture
 };
 } // namespace
 
-TEST_CASE("PORT-130 AffectsKindOf STRUCTURE: a castle owning a STRUCTURE piece accepts the button, an INFANTRY-only castle hides it")
+TEST_CASE("PORT-130 AffectsKindOf STRUCTURE: the castle object itself is scanned; a castle with no STRUCTURE object hides the button")
 {
 	CastleFixture fx;
-	Object *structure = nullptr;
-	fx.castleWith({ "P130_StructureMember" }, &structure);
-	REQUIRE(structure != nullptr);
+	Object *infantry = nullptr;
+	fx.castleWith({ "P130_Infantry" }, &infantry);
+	REQUIRE(infantry != nullptr);
 	const CommandButton *b = fx.button("P130_Structure");
 	// RW 0x942996 `test ah,8`: the option really is bit 11 (0x800) of the button's Options.
 	CHECK(b->hasOption(COMMAND_OPTION_NEEDS_CASTLE_KINDOF));
 	CHECK(b->m_affectsKindOf != KindOfMaskType{}); // the INI mask parsed at all
-	// RW 0x94235B sets matched, RW 0x942A17 falls through to the command's own rule.
-	CHECK(ControlBar::castleKindOfAllows(*b, *structure));
-
-	Object *infantry = nullptr;
-	fx.castleWith({ "P130_Infantry" }, &infantry);
-	REQUIRE(infantry != nullptr);
-	// RW 0x942A1B -> RW 0x942C5D (availability 3, HIDDEN).
-	CHECK_FALSE(ControlBar::castleKindOfAllows(*b, *infantry));
+	// RW 0x7999EC `mov eax,[esi+8]`: the first object the callback sees is the CastleBehavior's owner,
+	// i.e. the STRUCTURE castle itself. An INFANTRY-only castle therefore still has a STRUCTURE object.
+	CHECK(ControlBar::castleKindOfAllows(*b, *infantry));
+	// A castle flag with no STRUCTURE KindOf and only an INFANTRY piece has none: RW 0x942A1B -> 0x942C5D (3).
+	Object *flagInfantry = nullptr;
+	fx.castleWith({ "P130_Infantry" }, &flagInfantry, "P130_Flag");
+	REQUIRE(flagInfantry != nullptr);
+	CHECK_FALSE(ControlBar::castleKindOfAllows(*b, *flagInfantry));
+	// Add a STRUCTURE piece to that same castle and the button is accepted again (ANY over the whole set).
+	Object *flagStructure = nullptr;
+	fx.castleWith({ "P130_StructureMember" }, &flagStructure, "P130_Flag");
+	REQUIRE(flagStructure != nullptr);
+	CHECK(ControlBar::castleKindOfAllows(*b, *flagStructure));
 }
 
 TEST_CASE("PORT-130 adjacent behaviour: no NEEDS_CASTLE_KINDOF option, no member module, no CastleBehavior and a missing castle object")
@@ -175,26 +185,37 @@ TEST_CASE("PORT-130 adjacent behaviour: no NEEDS_CASTLE_KINDOF option, no member
 TEST_CASE("PORT-130 Ennorath's multi-name masks are ANY intersections over every castle object")
 {
 	CastleFixture fx;
-	Object *wall = nullptr;
-	fx.castleWith({ "P130_Wall" }, &wall);
-	REQUIRE(wall != nullptr);
 	const CommandButton *stone = fx.button("P130_StoneMaker");
 	const CommandButton *balrog = fx.button("P130_Balrog");
 	const CommandButton *empty = fx.button("P130_Empty");
-	// Command_ConstructGondorStoneMaker / _ArnorStoneMaker / _PorterConstructMenStoneMaker.
+	// Command_ConstructGondorStoneMaker / _ArnorStoneMaker / _PorterConstructMenStoneMaker:
+	// WALK_ON_TOP_OF_WALL DEFENSIVE_WALL is satisfied by a wall piece, not by the STRUCTURE castle itself.
+	Object *wall = nullptr;
+	fx.castleWith({ "P130_Wall" }, &wall);
+	REQUIRE(wall != nullptr);
 	CHECK(ControlBar::castleKindOfAllows(*stone, *wall));
-	CHECK_FALSE(ControlBar::castleKindOfAllows(*balrog, *wall));
-	// Command_SpecialAbilityMordorBalrogWhipAI's mask: HERO MONSTER PORTER is enough, no STRUCTURE needed.
+	Object *noWall = nullptr;
+	fx.castleWith({ "P130_Infantry" }, &noWall);
+	REQUIRE(noWall != nullptr);
+	CHECK_FALSE(ControlBar::castleKindOfAllows(*stone, *noWall));
+	// The castle object is a STRUCTURE, so a mask containing STRUCTURE (Command_SpecialAbilityMordorBalrogWhipAI's
+	// STRUCTURE HERO MONSTER PORTER) matches even without a matching piece.
+	CHECK(ControlBar::castleKindOfAllows(*balrog, *noWall));
+	// On a castle flag that is not a STRUCTURE, the same mask needs one of its four named bits (ANY, not ALL).
 	Object *hero = nullptr;
-	fx.castleWith({ "P130_Hero" }, &hero);
+	fx.castleWith({ "P130_Hero" }, &hero, "P130_Flag");
 	REQUIRE(hero != nullptr);
 	CHECK(ControlBar::castleKindOfAllows(*balrog, *hero));
 	CHECK_FALSE(ControlBar::castleKindOfAllows(*stone, *hero));
+	Object *flagWall = nullptr;
+	fx.castleWith({ "P130_Wall" }, &flagWall, "P130_Flag");
+	REQUIRE(flagWall != nullptr);
+	CHECK_FALSE(ControlBar::castleKindOfAllows(*balrog, *flagWall));
 	// An unset mask (CommandButton's constructor RW 0x75D723 zeroes 0x1C bytes) matches nothing.
 	CHECK_FALSE(ControlBar::castleKindOfAllows(*empty, *hero));
 	// RW 0x7999E2 keeps walking after a non-matching piece: the wall is the second member here.
 	Object *first = nullptr;
-	fx.castleWith({ "P130_Infantry", "P130_Wall" }, &first);
+	fx.castleWith({ "P130_Infantry", "P130_Wall" }, &first, "P130_Flag");
 	REQUIRE(first != nullptr);
 	CHECK(ControlBar::castleKindOfAllows(*stone, *first));
 	CHECK_FALSE(ControlBar::castleKindOfAllows(*balrog, *first));
