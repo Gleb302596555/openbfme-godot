@@ -83,8 +83,13 @@ GameLogic::GameLogic(ThingFactory &things, ModuleFactory &modules, PlayerList &p
 	buildPhaseWorkTable();
 	// lane SPELLFIX-1: the economy's attribute modifier product is the object's own pool query, RW 0x68C82D(type, &out, name 0, innate 1) as the income
 	// sites call it (TerrainResourceBehavior RW 0x88558D, SupplyCenterDockUpdate RW 0x8A4614): Industry, Dwarven Riches, Blight and the levelled farms'
-	// PRODUCTION lists now scale income. BFME2 1.06 the same. The sum seam (COMMAND_POINT_BONUS, BOUNTY_PERCENTAGE) stays uninstalled: S-253
+	// PRODUCTION lists now scale income. BFME2 1.06 the same.
 	m_economy->setAttributeModifierProvider([](const Object &obj, int type, float &product) { return obj.attributeModifierProduct(type, nullptr, true, product); });
+	// P-86: the sum seam answers COMMAND_POINT_BONUS (0x18) from the object's pool, RW 0x68C818(0x18, &out, name 0) as RW 0x6A7C21 calls it; the recount
+	// of a sum that changes is Object::addAttributeModifier / removeAttributeModifier (RW 0x68F207 / 0x68F2AE). BOUNTY_PERCENTAGE (0x11) stays off: S-253
+	m_economy->setAttributeModifierSumProvider([](const Object &obj, int type, float &sum) {
+		return type == Economy::ATTRIBUTE_MODIFIER_COMMAND_POINT_BONUS && obj.attributeModifierSum(type, nullptr, sum);
+	});
 	m_partition = std::make_unique<PartitionManager>(*this);
 	m_emotions = std::make_unique<EmotionWorld>(*this);
 	m_inertBit = ObjectTemplateInfoBuilder::kindOfIndex("INERT");

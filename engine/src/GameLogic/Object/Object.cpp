@@ -2654,10 +2654,12 @@ bool Object::addAttributeModifier(const std::string &listName, int duration)
 	{
 		return false;
 	}
-	// RW 0x68F207 .. 0x68F243: an owned object with CommandPoints (template + 0x62C) > 0 leaves its player's command point count for the add and rejoins it
-	// only when the add succeeded (a failed add leaves it out, like RW)
+	// RW 0x68F207 .. 0x68F243 (P-86): an owned object whose template has a CommandPointBonus (template + 0x62C, `cmp [eax + 0x62C], 0; jle`) > 0 takes
+	// its bonus off its player (Player::onObjectLost RW 0x6AA590 -> RW 0x6A7C51, the bonus WITH the old COMMAND_POINT_BONUS sum) before the add and puts
+	// it back (RW 0x6AA56D -> RW 0x6A7C3E, with the new sum) only when the add succeeded (a failed add leaves it out, like RW). This is the retail
+	// recount of a bonus whose modifier sum changes. + 0x628 is CommandPoints, which this path does not read
 	Player *player = getControllingPlayer();
-	const bool counted = player && Economy::templateInt(*static_cast<const ThingTemplate *>(getTemplate()), "CommandPoints") > 0;
+	const bool counted = player && Economy::templateInt(*static_cast<const ThingTemplate *>(getTemplate()), "CommandPointBonus") > 0;
 	if (counted)
 	{
 		m_logic.economy().objectLost(*player, *this);
@@ -2692,9 +2694,10 @@ void Object::removeAttributeModifier(const std::string &listName)
 	{
 		return;
 	}
-	// RW 0x68F2AE .. 0x68F2E5: an owned object with CommandPoints > 0 leaves its player's command point count around the removal (as the add)
+	// RW 0x68F2AE .. 0x68F2E5 (P-86): an owned object with a CommandPointBonus (template + 0x62C) > 0 takes its bonus off its player before the removal
+	// (RW 0x6AA590) and puts it back after it (RW 0x6AA56D), as the add
 	Player *player = getControllingPlayer();
-	const bool counted = player && Economy::templateInt(*static_cast<const ThingTemplate *>(getTemplate()), "CommandPoints") > 0;
+	const bool counted = player && Economy::templateInt(*static_cast<const ThingTemplate *>(getTemplate()), "CommandPointBonus") > 0;
 	if (counted)
 	{
 		m_logic.economy().objectLost(*player, *this);

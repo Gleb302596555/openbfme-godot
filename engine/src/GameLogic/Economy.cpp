@@ -727,7 +727,7 @@ std::vector<std::string> Economy::report() const
 	}
 	if (!m_attributeSums)
 	{
-		lines.push_back("[S-253] no AttributeModifier sum provider is installed: no COMMAND_POINT_BONUS / BOUNTY_PERCENTAGE modifier can be active");
+		lines.push_back("[S-253] no AttributeModifier sum provider is installed: no COMMAND_POINT_BONUS modifier can be active");
 	}
 	if (m_droppedExperience != 0)
 	{

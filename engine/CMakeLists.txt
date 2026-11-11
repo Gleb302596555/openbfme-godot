@@ -1230,6 +1230,7 @@ add_executable(openbfme_tests
     tests/test_numeric_facade.cpp
     # lane ECON-1: the economy
     tests/test_econ_core.cpp
+    tests/test_p86.cpp
     tests/test_econ_resources.cpp
     tests/test_econ_hash.cpp
     tests/test_econ_retail.cpp

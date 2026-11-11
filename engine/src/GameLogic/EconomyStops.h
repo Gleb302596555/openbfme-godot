@@ -19,8 +19,8 @@ inline std::vector<std::string> lines()
 		"[S-251] ScoreKeeper keeps only the money counters of RW + 4 / + 8 / + 0x114; the keep-score switch (GameLogic + 0x98) defaults to on (the game kinds that switch it off were not recovered)",
 		"[S-252] the UpgradeCenter is not ported (UPGRADE-1): an Upgrade field of an economy module keeps the upgrade's name, a player's completed upgrades are a set of names, and the "
 		"upgrade modules (CommandPointsUpgrade, CostModifierUpgrade) act when the upgrade system calls their upgradeIt / removeIt; the TriggeredBy / ConflictsWith lists are kept as names",
-		"[S-253] the COMMAND_POINT_BONUS (0x18) and BOUNTY_PERCENTAGE (0x11) attribute modifier sums are not installed (Economy::setAttributeModifierSumProvider: the "
-		"command points are taken once at gain / loss, so a sum that changes in between needs the retail recount read first); PRODUCTION (RW type 0xD) is the object's pool "
+		"[S-253] the BOUNTY_PERCENTAGE (0x11) attribute modifier sum is not installed (Economy::setAttributeModifierSumProvider answers only COMMAND_POINT_BONUS 0x18, P-86: the "
+		"bonus is recounted around every add / remove of a modifier list, RW 0x68F207 / 0x68F2AE); PRODUCTION (RW type 0xD) is the object's pool "
 		"(GameLogic installs Economy::setAttributeModifierProvider, lane SPELLFIX-1); the object's model conditions are not on Object, so `completed` (RW 0x7A075A tests AWAITING_CONSTRUCTION / PARTIALLY_CONSTRUCTED) and "
 		"CostModifierUpgrade's PARTIALLY_CONSTRUCTED test use the construction statuses, and AutoDepositUpdate's RUBBLE / POST_RUBBLE / POST_COLLAPSE / GARRISONED tests use a hook "
 		"(AutoDepositUpdate::setObjectConditionSource)",

@@ -14,7 +14,8 @@
 //     KindOf has bit 151 (ARMY_OF_DEAD, tt + 0x11A & 0x80) is always affordable.
 //   * the usage of one object (RW 0x6A7FAA): 0 unless its template is SELECTABLE (KindOf bit 1), not STRUCTURE (bit 7) and not HORDE (bit 109), else the
 //     template's CommandPoints; added / subtracted by RW 0x6A7FDA / 0x6A7FEB. The bonus of one object (RW 0x6A7C01) = the template's CommandPointBonus
-//     (tt + 0x62C) + the object's COMMAND_POINT_BONUS attribute modifier (type 0x18, a float sum, not ported: stop S-253), converted with cvttss2si;
+//     (tt + 0x62C) + the object's COMMAND_POINT_BONUS attribute modifier (type 0x18, a float sum, RW 0x68C818), converted with cvttss2si; Object::addAttributeModifier / removeAttributeModifier
+//     (RW 0x68F207 / 0x68F2AE) take the bonus off before a list is added / removed and put it back after it (P-86);
 //     added / subtracted by RW 0x6A7C3E / 0x6A7C51.
 //   * Player::onObjectGained (RW 0x6AA56D) / onObjectLost (RW 0x6AA590): a template with CommandPointBonus > 0 adds / removes its bonus, any other adds /
 //     removes its usage. The Object layer drives them (Object::addToPlayerCommandPoints RW 0x68E0C2 / remove RW 0x68E114, the owner change RW 0x6914B7).
