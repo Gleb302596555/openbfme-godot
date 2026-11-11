@@ -1965,7 +1965,9 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 		const auto *modelData = dynamic_cast<const W3DModelDrawModuleData *>(e.data);
 		// fork (merge of upstream 6b178a66, 2026-11-11): the fork already draws every decal shadow style, the additive 0x40 / 0x800 included, in the selection
 		// decal grid (Local 14 / Local 19, ObjectShadow::buildDrawableDecalShadow, kDecalMask). Upstream's Godot Decal for the same two styles would draw the
-		// shadow a second time, so it stays off here until the owner compares the two in game (one path per style)
+		// shadow a second time. The fork's path is the one kept (owner 2026-11-11: keep what is closer to retail): the grid adds texel x colour x opacity as retail's
+		// ONE / ONE (RW 0x73228B / RW 0x509A1F), sizes a decal without ShadowSizeX / Y from the model box (RW 0x50BFF3) and runs the _DYNAMIC opacity curves (RW
+		// 0x4B1BC6); upstream's Decal needs an explicit size, mixes instead of adding and has no opacity curve (its own note under S-6102)
 		static const bool kUpstreamAdditiveShadowDecal = false;
 		const bool additive = kUpstreamAdditiveShadowDecal && info && (info->type == 0x40 || info->type == 0x800) && !info->texture.empty() &&
 			info->sizeX > 0.0f && info->sizeY > 0.0f && (!modelData || !modelData->m_shadowForceDisable);
