@@ -17,6 +17,7 @@
 #include "Common/Upgrade.h"
 #include "GameLogic/Module/PhysicsBehavior.h"
 #include "GameLogic/Module/SpecialAbilityModules.h"
+#include "GameLogic/Module/GiveUpgradeUpdate.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/PartitionManager.h"
@@ -48,7 +49,7 @@ const char *const kStopTypeTest =
 
 const char *const kStopObjectTypeTest =
 	"[S-7140] ActionManager::canDoSpecialPowerAtObject (RW 0x82D925, lane MODCOMPAT-MOD1): the per-power-type object tests of the capture types (0x1D "
-	"and the capture branch of 0x1A / 0x1D: RW 0x82D0A1), 0x33 (RW 0x82D780), 0x8A (a STRUCTURE's canRepairObject RW 0x82D7F2) and the grab types' fake "
+	"and the capture branch of 0x1A / 0x1D: RW 0x82D0A1), 0x8A (a STRUCTURE's canRepairObject RW 0x82D7F2) and the grab types' fake "
 	"tree target (an object id 0x5F5E0FC .. 0x5F5E0FF: the GrabPassengerSpecialPower's AllowTree and the template's byte + 0x5FB, RW 0x82DB01 .. 0x82DB5D) are "
 	"not ported: they answer no (counted per type); the grab types' object test (RW 0x82DB6A .. 0x82DC80) is ported";
 
@@ -861,6 +862,30 @@ bool canDoSpecialPowerAtLocation(Object &obj, const Coord3D &loc, const SpecialP
 	}
 }
 
+// RW 0x82D780..0x82D7EB, instructions confirmed by owner in issue #269.
+bool canGiveUpgrade(Object *source, Object *target)
+{
+    if (!source || !target) return false; // RW 0x82D783 / 0x82D78D
+    if (source->getRelationship(*target) != ALLIES) return false; // RW 0x82D79A
+    if (!target->getAIUpdateInterface()) return false; // RW 0x82D79F: Object +0x260
+    if (target->isKindOfName("IMMOBILE")) return false; // RW 0x82D7AB
+    if (!TheSpecialPowerStore || !TheSpecialPowerStore->findSpecialPowerTemplate("SpecialAbilityGiveUpgrade")) return false;
+    // RW 0x82D7D4 -> 0x68C461: first special ability update of TYPE 0x33,
+    // not a lookup by the named template's identity.
+    for (const auto &m : source->modules())
+    {
+        const auto *ability = dynamic_cast<const SpecialAbilityUpdate *>(m.get());
+        const SpecialPowerTemplate *t = ability ? ability->abilityData()->m_specialPowerTemplate : nullptr;
+        if (t && t->getFinalOverride()->getSpecialPowerType() == 0x33)
+        {
+            const auto *give = dynamic_cast<const GiveUpgradeUpdate *>(ability);
+            if (!give) throw std::logic_error("PORT-109: type 0x33 update is not GiveUpgradeUpdate");
+            return give->canGiveUpgradeTo(*target); // RW 0x82D7E4
+        }
+    }
+    return false;
+}
+
 bool canDoSpecialPowerAtObject(Object &obj, Object *target, CommandSourceType source, const SpecialPowerTemplate *power, unsigned options,
                                bool checkSourceRequirements, bool *unported)
 {
@@ -946,8 +971,9 @@ bool canDoSpecialPowerAtObject(Object &obj, Object *target, CommandSourceType so
 	case 0x28:
 		return grabObjectTest(obj, *target, type, options, unported);
 	case 0x1D: // RW 0x82D0A1
-	case 0x33: // RW 0x82D780
 		return unportedObjectTypeTest(logic, type, unported);
+	case 0x33: // RW 0x82D780 (same predicate as context action 0x12)
+		return canGiveUpgrade(&obj, target);
 	case 0x8A:
 	{
 		static const int kStructure = kindBit("STRUCTURE"); // template + 0x108 bit 7

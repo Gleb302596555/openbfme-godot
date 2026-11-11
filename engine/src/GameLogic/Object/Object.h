@@ -670,7 +670,7 @@ private:
 	size_t m_helperCount = 0;
 	BodyModuleInterface *m_body = nullptr;
 	ContainModuleInterface *m_contain = nullptr;
-	AIUpdateInterface *m_ai = nullptr;
+	AIUpdateInterface *m_ai = nullptr; ///< RW +0x260 (PORT-109, RW 0x82D79F)
 
 	std::unique_ptr<ObjectWeapons> m_weapons;               ///< COMBAT-1
 	std::unique_ptr<ExperienceTracker> m_experienceTracker; ///< XP-1: RW + 0x26C
@@ -710,7 +710,7 @@ private:
 	bool m_outOfCollisionManager = false; ///< lane MODCOMPAT-MOD1 (in the padding after m_inWorld: sizeof(Object) unchanged)
 	UnsignedInt m_containedFrame = 0;  ///< RW + 0x284 (lane GARRISON-1)
 	bool m_drawableHidden = false;     ///< the drawable's hidden flag the contains set (lane GARRISON-1)
-	ObjectID m_producerID = INVALID_ID;
+	ObjectID m_producerID = INVALID_ID; ///< RW +0x78 (PORT-109 provider lookup RW 0x89FD77)
 	ObjectID m_builderID = INVALID_ID;                ///< RW + 0x7C (BUILD-2)
 	ObjectID m_soleHealingBenefactorID = INVALID_ID;  ///< RW + 0x3D4 (BUILD-2)
 	UnsignedInt m_soleHealingBenefactorExpiry = 0;    ///< RW + 0x3D8 (BUILD-2)

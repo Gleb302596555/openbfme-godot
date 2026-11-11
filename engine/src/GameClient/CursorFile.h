@@ -52,3 +52,8 @@ int ScrollCursorDirection(float amountX, float amountY, int directions, bool scr
 
 // Stops [S-295] of the cursor path (registered in docs/STOPS.md).
 std::vector<std::string> CursorAcceptanceStops();
+
+// PORT-109: RW 0x5EE9CA / 0xD9E108 (owner proof in issue #269).
+// Empty or unknown names resolve to -1; -1 has no pointer name in the client.
+int MouseCursorIndex(const std::string &name);
+std::string MouseCursorNameForIndex(int index);
