@@ -16,6 +16,8 @@ const char kObjects[] =
     " Body = ActiveBody Body\n MaxHealth = 100\n End\n"
     " Behavior = AIUpdateInterface AI\n End\n"
     " LocomotorSet\n Locomotor = WalkerLoco\n Condition = SET_NORMAL\n Speed = 55\n End\nEnd\n"
+    "Object P116Hero\n KindOf = INFANTRY HERO SELECTABLE\n TransportSlotCount = 1\n"
+    " Body = ActiveBody Body\n MaxHealth = 100\n End\nEnd\n"
     "Object P116Horde\n KindOf = HORDE INFANTRY SELECTABLE\n TransportSlotCount = 1\n"
     " Body = ActiveBody Body\n MaxHealth = 1000\n End\n"
     " Behavior = HordeAIUpdate AI\n End\n Behavior = HordeContain Horde\n"
@@ -64,6 +66,14 @@ TEST_CASE("PORT-116 citadel accepts same-player horde and context enter emits on
     // RW 0x8660E2, 0x8661A1..0x8661BA, 0x87D16F: filter, owner and capacity.
     CHECK(GarrisonRules::canEnterObject(*horde, citadel, CMD_FROM_PLAYER, 0, false));
     CHECK_FALSE(GarrisonRules::canEnterObject(*enemy, citadel, CMD_FROM_PLAYER, 0, false));
+    // RW 0x8661A1..0x8661C0: the same-player override does not admit an ally.
+    r.world.playerOf('B')->setPlayerRelationship(r.world.playerOf('A'), ALLIES);
+    CHECK_FALSE(GarrisonRules::canEnterObject(*enemy, citadel, CMD_FROM_PLAYER, 0, false));
+    r.world.playerOf('B')->setPlayerRelationship(r.world.playerOf('A'), NEUTRAL);
+    CHECK_FALSE(GarrisonRules::canEnterObject(*enemy, citadel, CMD_FROM_PLAYER, 0, false));
+    r.world.playerOf('B')->setPlayerRelationship(r.world.playerOf('A'), ENEMIES);
+    Object *hero = r.world.unit("P116Hero", 'A', 250, 400);
+    CHECK_FALSE(GarrisonRules::canEnterObject(*hero, citadel, CMD_FROM_PLAYER, 0, false)); // RW 0x8660E2: passenger filter
     r.select(horde);
     CHECK(r.translator.evaluateContextCommand(citadel, citadel->getPosition(), EvaluateType::DoHint) == MSG_ENTER);
     CHECK(r.ui.cursor() == "SendToDeath"); // RW 0x82CFB5 -> 0xCB -> 0x6A4055 -> 0x35
