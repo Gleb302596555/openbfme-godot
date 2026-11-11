@@ -50,7 +50,7 @@ bool GiveUpgradeUpdate::canGiveUpgradeTo(Object &target) const
         // RW 0x89FD77: Object +0x78 is producer ID, then producer's contain
         // slot 0x7C -> provider slot 0xAC(upgrade). That provider query is not
         // exposed by the port's HordeContainInterface; do not substitute a member test.
-        getObject()->logic().noteStop("[S-6011] PORT-109 contained upgrade target: RW 0x89FD77 / 0x89FEA0 producer contain slot 0x7C and provider slot 0xAC are not ported");
+        getObject()->logic().noteStop("[S-7318] PORT-109 contained upgrade target: RW 0x89FD77 / 0x89FEA0 producer contain slot 0x7C and provider slot 0xAC are not ported");
         return false;
     }
     return target.affectedByUpgrade(u); // RW 0x89FEA6 -> 0x694914

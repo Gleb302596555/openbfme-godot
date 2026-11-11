@@ -75,7 +75,7 @@ otherwise provider slot 0xAC(upgrade), RW 0x89FEA0, decides.
 The port has getHordeContainInterface, but no equivalent provider upgrade
 query for the final slot 0xAC. The owner explicitly authorized implementing
 non-contained targets and refusing this branch. It returns false and reports
-`[S-6011] PORT-109 contained upgrade target...`; the test pins that report.
+`[S-7318] PORT-109 contained upgrade target...`; the test pins that report.
 It does NOT use affectedByUpgrade on a contained member as a substitute.
 Other pre-existing S-6011 delivery/scheduling/effect gaps are not closed.
 
