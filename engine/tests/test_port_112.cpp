@@ -11,7 +11,7 @@
 //     (RW 0x86C7F6, the formation swap to the AlternateFormation template, lane HORDE-2). A porcupine formation is therefore NOT refused a combine: the
 //     horde leaves the formation first and the combine then runs.
 //   * The port's order (LOCAL-18 CombineHordeSpecialPower::doSpecialPower, unit path RW 0x8CCCB4) has no AI state: the scan and the combine run there,
-//     so the swap sits at the order's start (stop S-7287).
+//     so the swap sits at the order's start (stop S-7293).
 
 #include "doctest.h"
 #include "CombatTestUtil.h"

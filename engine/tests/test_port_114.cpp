@@ -14,7 +14,7 @@
 // shell (PLAYER_UPGRADE), the FiringTracker (CONTINUOUS_FIRE_MEAN / FAST, RW 0x8E3174) and the veterancy path; nothing sets HORDE (bit 1), NATIONALISM (4),
 // ENTHUSIASTIC (8), SUBLIMINAL (15) or BATTLEPLAN_* (12..14), and `TheWeaponBonusUpgrade` has no runtime here. The image is not reachable from this sandbox
 // (Google Drive is blocked, no game files), so the setter chain of those bits was NOT read in RW and is not invented here: the tests drive the mask the game
-// itself would set. Stop S-7287 holds that half.
+// itself would set. Stop S-7295 holds that half.
 // GPL-3.0.
 
 #include "doctest.h"

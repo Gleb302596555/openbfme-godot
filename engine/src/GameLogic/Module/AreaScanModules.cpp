@@ -76,7 +76,7 @@ const FieldParse kLargeGroupParse[] = {
 	{ "Count", INI::parseInt, nullptr, LG_OFF(m_count) },
 	{ "Radius", INI::parseReal, nullptr, LG_OFF(m_radius) },
 	{ "RubOffRadius", INI::parseReal, nullptr, LG_OFF(m_rubOffRadius) },
-	// S-7287: parsed; the inspected RW update and interface paths do not read this field (external readers are not fully excluded).
+	// S-7291: parsed; the inspected RW update and interface paths do not read this field (external readers are not fully excluded).
 	{ "AlliesOnly", INI::parseBool, nullptr, LG_OFF(m_alliesOnly) },
 	{ "FlagSubObjectNames", INI::parseAsciiStringVector, nullptr, LG_OFF(m_flagSubObjectNames) },
 	{ "AttributeModifier", INI::parseAsciiString, nullptr, LG_OFF(m_attributeModifier) },

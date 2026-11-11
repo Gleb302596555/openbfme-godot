@@ -16,7 +16,7 @@
 // These tests pin: the five fields parse from a synthetic INI; the completed-upgrade decision marks the
 // bar dirty exactly as RW 0x8A22D5 .. 0x8A2328; upgrades outside the list (and no selection) do not;
 // the refresh consumes the mark (RW 0x71EBED). No engine behaviour beyond the ported reader changed.
-// See docs/ennorath/port107-upgradecameo-rw.md; docs/STOPS.md S-7287. GPL-3.0.
+// See docs/ennorath/port107-upgradecameo-rw.md; docs/STOPS.md S-7294. GPL-3.0.
 
 #include "doctest.h"
 
