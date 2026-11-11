@@ -4,7 +4,9 @@
 # from the simulation audit by tools/sim/sim_policy.json) and never touches simulation state.
 
 set(OPENBFME_PORT74_SOURCES
-    src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLaserDraw.cpp)
+    src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLaserDraw.cpp
+    src/GameClient/LaserUpdate.cpp)
 
 set(OPENBFME_PORT74_TESTS
-    tests/test_port_74.cpp)
+    tests/test_port_74.cpp
+    tests/test_local_34.cpp)

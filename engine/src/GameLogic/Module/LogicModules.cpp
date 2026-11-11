@@ -100,6 +100,8 @@
 #include "GameLogic/Module/WallUpgradeUpdate.h"
 #include "GameLogic/Module/RunOffMapBehavior.h"
 #include "GameLogic/Module/DetachableRiderUpdate.h"
+#include "GameLogic/Module/DynamicShroudClearingRangeUpdate.h"
+#include "GameLogic/Module/DelayedLuaEventUpdate.h"
 
 #include <stdexcept>
 
@@ -215,6 +217,8 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	DamageFieldUpdate::registerClass(modules);             // LOCAL-36 (issue #286): both editions (RW 0x659082 / BFME2 0x6577D5)
 	CivilianSpawnUpdate::registerClass(modules);           // LOCAL-36 (issue #286): both editions (RW 0x6593F7 / BFME2 0x65824C)
 	CivilianSpawnCollide::registerClass(modules);          // LOCAL-36 (issue #286): both editions (RW 0x65B091 / BFME2 0x659C97)
+	DynamicShroudClearingRangeUpdate::registerClass(modules); // LOCAL-35 (#285): the map ping's growing/shrinking shroud reveal (RW 0x88E6D8 / 0x88E9B0)
+	DelayedLuaEventUpdate::registerClass(modules); // LOCAL-35 (#285): the damage warning's delayed Lua event (RW 0x8AC560 / 0x8AC628)
 	ClientBehaviorModules::registerAll(modules); // lane AUDIO-4: the footsteps (a ClientBehavior: the drawables make it, GameClient/)
 	SiegeModules::registerAll(modules); // lane SIEGE-1: SiegeDockingBehavior, SiegeDeploySpecialPower, StopSpecialPower, SiegeAIUpdate (after the AI classes)
 }

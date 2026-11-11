@@ -9,12 +9,14 @@
 #include "GameClient/BeaconClientUpdate.h"
 #include "GameClient/EvaAnnounceClientCreate.h"
 #include "GameClient/RadarMarkerClientUpdate.h"
+#include "GameClient/LaserUpdate.h"
 #include "GameClient/ClientBehaviorModules.h"
 #include "GameClient/ModelConditionAudioLoopClientBehavior.h"
 #include "GameClient/SoundSelectorClientBehavior.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTornadoDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DProjectileStreamDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLightDraw.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDebrisDraw.h"
 #include "GameClient/TerrainResourceFeedback.h"
 
 #include "Common/AsciiString.h"
@@ -706,7 +708,9 @@ void ClientBehaviorModules::registerAll(ModuleFactory &modules)
 	BeaconClientUpdate::registerClass(modules);                    // lane CHAT-1: the multiplayer beacon's minimap pulse
 	TerrainResourceClientBehavior::registerClass(modules);         // both editions: RW 0x6549B1 / BFME2 0x654C56, the resource building's selection feedback (S-5030)
 	RadarMarkerClientUpdate::registerClass(modules);               // both editions: RW 0x65287A / BFME2 0x652B1F, radar ping/marker (S-2451)
+	LaserUpdate::registerClass(modules);                           // both editions: RW 0x64D1FB / BFME2 0x64D56A, laser beam update (issue #284, S-7218)
 	W3DTornadoDraw::registerClass(modules);                 // both editions: RW 0x00464930, BFME2 0x0046513A
 	W3DProjectileStreamDraw::registerClass(modules);        // both editions: RW 0x004648A7, BFME2 0x00465063
 	W3DLightDraw::registerClass(modules);                   // both editions: RW 0x004645EE, BFME2 0x00464DF8
+	W3DDebrisDraw::registerClass(modules);                  // LOCAL-35 (#285): the flying debris pieces (RW 0x464B15)
 }

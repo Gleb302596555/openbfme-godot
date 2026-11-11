@@ -171,7 +171,7 @@
 
 ### Отсутствуют, но ни фракции, ни карты на них не выходят
 
-Не работать нечему до тех пор, пока мод не получит эти объекты в игре (кампания, отладочные и неиспользуемые определения): `BaseUpgrade` (1), `BridgeBehavior` (1), `CivilianSpawnCollide` (2), `CivilianSpawnUpdate` (1), `DamageFieldUpdate` (1), `DelayedLuaEventUpdate` (1), `DetachableRiderBody` (2), `DetachableRiderUpdate` (2), `DynamicShroudClearingRangeUpdate` (1), `FadeAndDieOrnamentUpdate` (1), `GateProxyBehavior` (3), `LaserUpdate` (3), `ManTheWallsSpecialPower` (2), `PoisonedBehavior` (2), `ProductionQueueHordeContain` (2), `VeterancyCrateCollide` (2), `W3DDebrisDraw` (1), `W3DLaserDraw` (3).
+Не работать нечему до тех пор, пока мод не получит эти объекты в игре (кампания, отладочные и неиспользуемые определения): `BaseUpgrade` (1), `BridgeBehavior` (1), `CivilianSpawnCollide` (2), `CivilianSpawnUpdate` (1), `DamageFieldUpdate` (1), `DelayedLuaEventUpdate` (1), `DetachableRiderBody` (2), `DetachableRiderUpdate` (2), `DynamicShroudClearingRangeUpdate` (1), `FadeAndDieOrnamentUpdate` (1), `GateProxyBehavior` (3), `ManTheWallsSpecialPower` (2), `PoisonedBehavior` (2), `ProductionQueueHordeContain` (2), `VeterancyCrateCollide` (2), `W3DDebrisDraw` (1), `W3DLaserDraw` (3).
 
 ## Не вошедшее в список по классам
 

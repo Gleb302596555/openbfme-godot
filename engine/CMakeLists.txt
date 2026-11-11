@@ -183,6 +183,7 @@ include(cmake/Spell.cmake)      # OPENBFME_SPELL_SOURCES / OPENBFME_SPELL_TESTS 
 include(cmake/Port43.cmake)     # PORT-43: GameData/PowerLimit -> GameLogic + 0x118 (issue #128; OPENBFME_PORT43_TESTS)
 include(cmake/Port51.cmake)     # PORT-51: Object/InstanceScaleFuzziness, parsed and never read by RotWK (issue #155; OPENBFME_PORT51_TESTS)
 include(cmake/Port99.cmake)     # PORT-99: PlayerTemplate/LightPointsUpSound, its only reader is the light-point (WOTR) action (issue #259; OPENBFME_PORT99_TESTS)
+include(cmake/Port119.cmake)   # PORT-119: AttachToBoneInAnotherModule, the two figures of a two-in-one hero (issue #303; OPENBFME_PORT119_TESTS)
 include(cmake/Port81.cmake)     # PORT-81: HordeContain/RanksToJustFreeWhenAttacking, parsed and never read by RotWK (issue #213; OPENBFME_PORT81_TESTS)
 include(cmake/Port84.cmake)     # PORT-84: unit voice of the combine-with-horde order (issue #232; OPENBFME_PORT84_TESTS)
 include(cmake/Port93.cmake)     # PORT-93: SpecialAbilityUpdate/ActiveLoopSound, the active ability loop (issue #241; OPENBFME_PORT93_TESTS)
@@ -292,6 +293,7 @@ include(cmake/Audio3.cmake)     # AUDIO-3: the sound request log, building sound
 include(cmake/Audio4.cmake)     # AUDIO-4: QA-1's sound follow-ups (OPENBFME_AUDIO4_TESTS)
 include(cmake/EvaDamage1.cmake) # EVADAMAGE-1: the Eva half of the drawable damage notice (appends to OPENBFME_SIM_SOURCES; OPENBFME_EVADAMAGE1_CLIENT_SOURCES / _TESTS)
 include(cmake/Local13.cmake)      # LOCAL-13: Eva sighting announcements (RW 0x678C69)
+include(cmake/Local35.cmake)      # LOCAL-35: debris / map ping / damage warning system objects (issue #285)
 include(cmake/End1.cmake)       # END-1: the score keeper, the end sequence and the score screen (appends to OPENBFME_SIM_SOURCES; OPENBFME_END1_SOURCES / _TESTS)
 include(cmake/Qa1.cmake)       # OPENBFME_QA1_SOURCES / OPENBFME_QA1_TESTS (lane QA-1: the drawn-model pick)
 include(cmake/Mp2.cmake)        # MP-2: the disconnect path, a dropped player's assets (appends to OPENBFME_SIM_SOURCES; OPENBFME_MP2_TESTS)
@@ -420,6 +422,7 @@ add_library(openbfme_core STATIC
     ${OPENBFME_STRUCTURE_SOURCES}
     ${OPENBFME_RENDER_SOURCES}
     ${OPENBFME_PORT74_SOURCES}
+    ${OPENBFME_LOCAL35_CLIENT_SOURCES}
     ${OPENBFME_RENDER4_SOURCES}
     ${OPENBFME_GLOW1_SOURCES}
     ${OPENBFME_RENDER2_SOURCES}
@@ -821,6 +824,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PLAY2_TESTS}
     ${OPENBFME_PORT99_TESTS}
     ${OPENBFME_PORT94_TESTS}
+    ${OPENBFME_PORT119_TESTS}
     ${OPENBFME_PORT75_TESTS}
     ${OPENBFME_PORT79_TESTS}
     ${OPENBFME_PORT54_TESTS}
@@ -941,6 +945,7 @@ add_executable(openbfme_tests
     ${OPENBFME_AUDIO4_TESTS}
     ${OPENBFME_EVADAMAGE1_TESTS}
     ${OPENBFME_LOCAL13_TESTS}
+    ${OPENBFME_LOCAL35_TESTS}
     ${OPENBFME_PROJ2_TESTS}
     ${OPENBFME_STEALTH_TESTS}
     ${OPENBFME_OCCLUDE1_TESTS}
