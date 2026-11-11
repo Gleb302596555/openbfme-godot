@@ -943,7 +943,9 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 	// stays open at 9000, seed 2 stays open with a new table from the 4000 window on. Engine pins, not retail values; seed 7's early end is for the night run
 	// pin: the fork's merge of upstream 69dcd7ff (2026-11-06, measured once on the merged tree, Windows MSVC: the skirmish AI's tactics and powers, AIRBORNE-1 and the Brutal discount on top of the fork):
 	// seed 7 ends with Mordor's defeat at 2647 (3655; upstream q43: 2671), seed 1234 and seed 2 stay open, seed 2 with a new table from the first window
-	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 2647 }, Game{ "FactionMordor", "FactionMen", 1234u, -1, -1 } })
+	// pin: Port 39 (#201, retail SideInfo AI gatherers from data/ini/default/aidata.ini, P-73):
+	// seed 7 ends with Mordor's defeat at 3049 (was 2647; SideInfo gatherers shift the battle trajectory), seed 1234 ends with Mordor's defeat (start position 0) at 7701 (was open at 9000), seed 2 stays open
+	for (const Game &g : { Game{ "FactionMordor", "FactionMen", 2u, -1, -1 }, Game{ "FactionMen", "FactionMordor", 7u, 1, 3049 }, Game{ "FactionMordor", "FactionMen", 1234u, 0, 7701 } })
 	{
 		INFO(g.a << " vs " << g.b << " seed " << g.seed);
 		VersusRun run;
@@ -994,17 +996,17 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 			// window on; the game stays open at 9000
 			// the merge with upstream 7e98ac2f (measured once on the merged tree): a new table from the first window on; the game stays open at 9000
 			// TOP20 #21 / r3 (station-1): a new table from frame 4000 on; the game stays open at 9000
-			// pin: the fork's merge of upstream 3e363ff9 (2026-11-06, the pin above the games list): a new table from frame 4000 on; open at 9000
+			// pin: Port 39 (#201, retail SideInfo AI gatherers from data/ini/default/aidata.ini, P-73): a new table from frame 1000 on; open at 9000
 			CHECK(run.progress ==
-			"frame 1000: [0 attacks 0 built 91u/6s destroyed 20u/1s] [1 attacks 1 built 76u/8s destroyed 35u/2s]\n"
-			"frame 2000: [0 attacks 2 built 234u/10s destroyed 133u/1s] [1 attacks 2 built 216u/10s destroyed 189u/4s]\n"
-			"frame 3000: [0 attacks 4 built 342u/13s destroyed 212u/1s] [1 attacks 3 built 310u/13s destroyed 275u/7s]\n"
-			"frame 4000: [0 attacks 5 built 517u/15s destroyed 272u/2s] [1 attacks 5 built 412u/16s destroyed 412u/7s]\n"
-			"frame 5000: [0 attacks 8 built 603u/19s destroyed 358u/6s] [1 attacks 5 built 453u/20s destroyed 545u/7s]\n"
-			"frame 6000: [0 attacks 10 built 649u/22s destroyed 426u/6s] [1 attacks 6 built 518u/22s destroyed 577u/9s]\n"
-			"frame 7000: [0 attacks 13 built 699u/27s destroyed 558u/6s] [1 attacks 6 built 591u/24s destroyed 612u/9s]\n"
-			"frame 8000: [0 attacks 18 built 777u/27s destroyed 649u/7s] [1 attacks 9 built 723u/25s destroyed 691u/10s]\n"
-			"frame 9000: [0 attacks 19 built 825u/29s destroyed 808u/10s] [1 attacks 10 built 849u/25s destroyed 759u/10s]\n");
+			"frame 1000: [0 attacks 1 built 71u/7s destroyed 34u/0s] [1 attacks 0 built 75u/7s destroyed 19u/1s]\n"
+			"frame 2000: [0 attacks 2 built 258u/10s destroyed 144u/1s] [1 attacks 1 built 182u/10s destroyed 133u/3s]\n"
+			"frame 3000: [0 attacks 4 built 439u/13s destroyed 247u/2s] [1 attacks 2 built 318u/12s destroyed 377u/4s]\n"
+			"frame 4000: [0 attacks 7 built 601u/15s destroyed 309u/3s] [1 attacks 3 built 411u/16s destroyed 511u/8s]\n"
+			"frame 5000: [0 attacks 9 built 881u/15s destroyed 426u/3s] [1 attacks 4 built 520u/19s destroyed 721u/8s]\n"
+			"frame 6000: [0 attacks 10 built 925u/20s destroyed 501u/4s] [1 attacks 6 built 605u/22s destroyed 781u/9s]\n"
+			"frame 7000: [0 attacks 10 built 985u/22s destroyed 551u/5s] [1 attacks 6 built 667u/24s destroyed 866u/9s]\n"
+			"frame 8000: [0 attacks 11 built 1032u/27s destroyed 582u/6s] [1 attacks 6 built 685u/28s destroyed 892u/9s]\n"
+			"frame 9000: [0 attacks 13 built 1058u/29s destroyed 607u/10s] [1 attacks 6 built 698u/31s destroyed 937u/10s]\n");
 		}
 	}
 }
