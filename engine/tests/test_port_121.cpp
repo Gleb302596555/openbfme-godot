@@ -325,3 +325,81 @@ TEST_CASE("PORT-121 neighbour: the bind pose answers where the pose cannot, and 
 	CHECK(stats.bonesCreatedOnPose == 0);
 	CHECK(stats.bonesCreatedOnBindPose == 0);
 }
+
+// ---- P-61: the end-of-draw walk follows the bone for EVERY module data ----------------------------------------------------------------
+// The porter's bucket (Ennorath and RotWK porter.ini: `ParticleSysBone = BUCKET PorterFireWater FollowBone:YES`, a W3DTruckDraw WITHOUT
+// ParticlesAttachedToAnimatedBones) points up through frames 0..15 of GUPorter_FIRA and tips forward only around frame 29, when
+// PorterFireWater's InitialDelay (29) lets the water out. The creation (RW 0x4C6514's dirty path) reads the bucket while it still points up.
+// What turns the system afterwards is RW 0x4C6514's clean path: every draw without a state change it goes to RW 0x4C6D73 and calls the
+// walk with argument 1 (RW 0x4C6D78 `push 1; call [eax + 0x6C]`) - no test of the module data's +0x108 on that path. The gate RW 0x4C7795
+// covers only doDrawModule's own per-frame call (argument 0). Before P-61 the port made only the gated call, so the bucket's water kept the
+// creation's upward matrix.
+TEST_CASE("P-61: the end-of-draw walk (argument 1, RW 0x4C6D78) moves a FollowBone system on a module WITHOUT ParticlesAttachedToAnimatedBones; "
+		  "the per-frame walk (argument 0) stays gated (RW 0x4C7795)")
+{
+	const std::string ini = fxtest::systemText("PorterJet", "    Lifetime = 20 20\n    BurstCount = 1 1\n    BurstDelay = 0 0\n",
+		"  EmissionVolume = PointEmissionVolume\n  End\n"
+		"  EmissionVelocity = OrthoEmissionVelocity\n    X = 1 1\n    Y = 2 2\n    Z = 3 3\n  End\n");
+	fxtest::Sim sim(ini);
+	Draw d(""); // the porter's module: no ParticlesAttachedToAnimatedBones
+	REQUIRE(d.data);
+	CHECK_FALSE(ParticleBoneFollow::wantsFollow(*d.data));
+	const Matrix3D bind = bindPoseAt(*d.draw, 1);
+
+	// argument 0: the gate holds, the system keeps the creation's upright matrix and the jet stays on +Z
+	{
+		const FXParticleSystem::ParticleSystemID id = sim.spawn("PorterJet");
+		FXParticleSystem::ParticleSystem *sys = sim.mgr->findParticleSystemByID(id);
+		REQUIRE(sys);
+		sys->setLocalTransform(bind); // the creation's matrix: the bucket still upright
+		std::vector<ParticleBoneFollow::Record> records(1);
+		records[0].system = id;
+		records[0].entry = 0;
+		records[0].boneName = "hand";
+		records[0].boneIndex = 1;
+		records[0].followBone = true;
+		records[0].checkDrawable = false;
+		ParticleBoneFollow::Pose pose;
+		pose.draw = d.draw.get();
+		pose.scale = 1.0f;
+		pose.follow = false;
+		ParticleBoneFollow::Counters c;
+		ParticleBoneFollow::followFrame(records, *sim.mgr, &pose, 1, &c, 0);
+		CHECK(c.gated == 1);
+		CHECK(c.followed == 0);
+		sim.step();
+		REQUIRE(!sim.particles(id).empty());
+		const FXParticleSystem::Particle *p = sim.particles(id)[0];
+		CHECK(p->vel.x == doctest::Approx(1.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
+		CHECK(p->vel.y == doctest::Approx(2.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
+		CHECK(p->vel.z == doctest::Approx(3.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
+	}
+	// argument 1: no gate, the system takes the animated bone (the 90 degree pitch about X): (1, 2, 3) -> (1, -3, 2), the jet leaves forward
+	{
+		const FXParticleSystem::ParticleSystemID id = sim.spawn("PorterJet");
+		FXParticleSystem::ParticleSystem *sys = sim.mgr->findParticleSystemByID(id);
+		REQUIRE(sys);
+		sys->setLocalTransform(bind);
+		std::vector<ParticleBoneFollow::Record> records(1);
+		records[0].system = id;
+		records[0].entry = 0;
+		records[0].boneName = "hand";
+		records[0].boneIndex = 1;
+		records[0].followBone = true;
+		records[0].checkDrawable = false;
+		ParticleBoneFollow::Pose pose;
+		pose.draw = d.draw.get();
+		pose.scale = 1.0f;
+		pose.follow = false;
+		ParticleBoneFollow::Counters c;
+		ParticleBoneFollow::followFrame(records, *sim.mgr, &pose, 1, &c, 1);
+		CHECK(c.gated == 0);
+		CHECK(c.followed == 1);
+		sim.step();
+		REQUIRE(!sim.particles(id).empty());
+		const FXParticleSystem::Particle *p = sim.particles(id)[0];
+		CHECK(p->vel.x == doctest::Approx(1.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
+		CHECK(p->vel.y == doctest::Approx(-3.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
+		CHECK(p->vel.z == doctest::Approx(2.0f).epsilon(1e-5)); // tolerance: float32 engine value vs the test's own float32 re-derivation
+	}
+}
