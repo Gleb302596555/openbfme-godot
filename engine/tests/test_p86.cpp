@@ -24,78 +24,43 @@ using namespace econtest;
 namespace
 {
 const char kP86Objects[] =
-	"Object P86Citadel
-"
-	"  KindOf = SELECTABLE STRUCTURE
-"
-	"  CommandPointBonus = 100
-"
-	"  Behavior = AttributeModifierPoolUpdate ModuleTag_Pool
-"
-	"  End
-"
-	"End
-"
-	"Object P86Farm
-"
-	"  KindOf = SELECTABLE STRUCTURE
-"
-	"  CommandPointBonus = 10
-"
-	"  Behavior = AttributeModifierPoolUpdate ModuleTag_Pool
-"
-	"  End
-"
-	"End
-"
-	"Object P86Hut
-"
-	"  KindOf = SELECTABLE STRUCTURE
-"
-	"  Behavior = AttributeModifierPoolUpdate ModuleTag_Pool
-"
-	"  End
-"
-	"End
-"
-	"Object P86Soldier
-"
-	"  KindOf = SELECTABLE INFANTRY
-"
-	"  CommandPoints = 6
-"
-	"  Behavior = AttributeModifierPoolUpdate ModuleTag_Pool
-"
-	"  End
-"
-	"End
-";
+	"Object P86Citadel\n"
+	"  KindOf = SELECTABLE STRUCTURE\n"
+	"  CommandPointBonus = 100\n"
+	"  Behavior = AttributeModifierPoolUpdate ModuleTag_Pool\n"
+	"  End\n"
+	"End\n"
+	"Object P86Farm\n"
+	"  KindOf = SELECTABLE STRUCTURE\n"
+	"  CommandPointBonus = 10\n"
+	"  Behavior = AttributeModifierPoolUpdate ModuleTag_Pool\n"
+	"  End\n"
+	"End\n"
+	"Object P86Hut\n"
+	"  KindOf = SELECTABLE STRUCTURE\n"
+	"  Behavior = AttributeModifierPoolUpdate ModuleTag_Pool\n"
+	"  End\n"
+	"End\n"
+	"Object P86Soldier\n"
+	"  KindOf = SELECTABLE INFANTRY\n"
+	"  CommandPoints = 6\n"
+	"  Behavior = AttributeModifierPoolUpdate ModuleTag_Pool\n"
+	"  End\n"
+	"End\n";
 
 const char kP86Lists[] =
-	"ModifierList P86Bonus50
-"
-	"  Category = SPELL
-"
-	"  Modifier = COMMAND_POINT_BONUS 50
-"
-	"End
-"
-	"ModifierList P86Bonus20
-"
-	"  Category = SPELL
-"
-	"  Modifier = COMMAND_POINT_BONUS 20
-"
-	"End
-"
-	"ModifierList P86ArmorOnly
-"
-	"  Category = SPELL
-"
-	"  Modifier = ARMOR 50%
-"
-	"End
-";
+	"ModifierList P86Bonus50\n"
+	"  Category = SPELL\n"
+	"  Modifier = COMMAND_POINT_BONUS 50\n"
+	"End\n"
+	"ModifierList P86Bonus20\n"
+	"  Category = SPELL\n"
+	"  Modifier = COMMAND_POINT_BONUS 20\n"
+	"End\n"
+	"ModifierList P86ArmorOnly\n"
+	"  Category = SPELL\n"
+	"  Modifier = ARMOR 50%\n"
+	"End\n";
 
 struct P86World : Fx
 {
