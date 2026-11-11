@@ -1515,7 +1515,7 @@ void LiveFX::createSystems(Drawable &d, Attached &a)
 // Retail makes this call from W3DModelDraw::doDrawModule; the port makes it here, once per client frame for every drawable with
 // live systems, which is the same point of the frame (the drawables' poses were just synced). The gate
 // (ParticlesAttachedToAnimatedBones, +0x108) is read per draw entry inside ParticleBoneFollow::followFrame.
-void LiveFX::followAnimatedBones(Drawable &d, Attached &a)
+void LiveFX::followAnimatedBones(Drawable &d, Attached &a, int callArg)
 {
 	if (a.records.empty() || d.entries().empty())
 	{
@@ -1540,7 +1540,7 @@ void LiveFX::followAnimatedBones(Drawable &d, Attached &a)
 		poses[i].follow = data && ParticleBoneFollow::wantsFollow(*data);
 	}
 	m_boneCounters = ParticleBoneFollow::Counters();
-	ParticleBoneFollow::followFrame(a.records, m_playback.particles(), poses.data(), poses.size(), &m_boneCounters, 0);
+	ParticleBoneFollow::followFrame(a.records, m_playback.particles(), poses.data(), poses.size(), &m_boneCounters, callArg);
 	m_stats.bonesFollowed += m_boneCounters.followed;
 	m_stats.bonesMissed += m_boneCounters.missed;
 	m_stats.bonesStarted += m_boneCounters.started;
@@ -1799,8 +1799,13 @@ void LiveFX::updateAttachedSystems()
 		auto it = attached;
 		if (it != m_attached.end() && it->first == id && it->second.states == states)
 		{
-			// lane PORT-50: the same states, so the systems stay; their bones still move (RW 0x4C7795 per draw)
-			followAnimatedBones(*d, it->second);
+			// lane PORT-50: the same states, so the systems stay; their bones still move. P-61: doDrawModule calls RW 0x4C6514 every draw
+			// (RW 0x4C7790); without a state change (+0x48 clear) it goes straight to its clean end RW 0x4C6D73, the walk with argument 1 for
+			// EVERY module data (RW 0x4C6D78: the FollowBone systems up to the first record without it), then RW 0x4C5CC5 (bone-attached render
+			// objects, not particles). Only then RW 0x4C7795 makes the gated per-frame walk (argument 0). A porter's bucket (no
+			// ParticlesAttachedToAnimatedBones) is followed by the first call: its water leaves the bucket where the extinguish animation tips it.
+			followAnimatedBones(*d, it->second, 1);
+			followAnimatedBones(*d, it->second, 0);
 			continue;
 		}
 		if (it == m_attached.end() || it->first != id)
@@ -1810,7 +1815,9 @@ void LiveFX::updateAttachedSystems()
 		destroySystems(it->second);
 		it->second.states = states;
 		createSystems(*d, it->second);
-		followAnimatedBones(*d, it->second); // lane PORT-50: the frame's pose right away, not one frame late
+		// lane PORT-50: the frame's pose right away, not one frame late. P-61: the dirty path of RW 0x4C6514 returns through RW 0x4C6D6D without
+		// the argument-1 walk; only the gated per-frame walk (RW 0x4C7795) follows the creation in that draw
+		followAnimatedBones(*d, it->second, 0);
 	}
 	unsigned long long live = 0;
 	for (const auto &kv : m_attached)

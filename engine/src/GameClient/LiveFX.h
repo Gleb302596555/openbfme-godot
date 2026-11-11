@@ -305,7 +305,7 @@ private:
 	void createSystems(Drawable &d, Attached &a);
 	// lane PORT-50: RW 0x4C7795's gated call (RW 0x4B6D5F with 0) for one drawable: every ParticleSysBone system it created
 	// follows the animated bone of the pose it was created for
-	void followAnimatedBones(Drawable &d, Attached &a);
+	void followAnimatedBones(Drawable &d, Attached &a, int callArg); // callArg: 1 = RW 0x4C6D78 (no gate), 0 = RW 0x4C77A3 (gated, P-61)
 	struct FrameEventState
 	{
 		const void *animState = nullptr; ///< the animation state the frames belong to

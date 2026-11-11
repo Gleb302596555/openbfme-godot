@@ -165,9 +165,11 @@ void followFrame(std::vector<Record> &records, FXParticleSystem::ParticleSystemM
 			continue;
 		}
 		const Pose &pose = poses[record.entry];
-		if (!pose.follow)
+		if (!pose.follow && callArg == 0)
 		{
-			// RW 0x4C7795: doDrawModule never calls the walk for a module data whose ParticlesAttachedToAnimatedBones is off
+			// RW 0x4C7795: doDrawModule never makes the per-frame call (argument 0) for a module data whose ParticlesAttachedToAnimatedBones is off.
+			// P-61: the end-of-draw call (argument 1) has no such gate - RW 0x4C6514 makes it on every frame without a state change
+			// (`cmp byte [ebx + 0x48], 0; je 0x4C6D73`, then RW 0x4C6D78 `push 1; call [eax + 0x6C]`), whatever the module data says
 			if (counters)
 			{
 				++counters->gated;
