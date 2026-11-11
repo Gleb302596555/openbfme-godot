@@ -166,6 +166,8 @@
 {"TransportSlotCount", S_Raw},
 {"UnitSpecificFX", S_Raw},
 {"UnitSpecificSounds", S_Raw},
+// PORT-107 (issue #267): UpgradeCameo1..5 are parsed and read only by the completeUpgrade dirty mark
+// (ControlBar::noteUpgradeCompleted, RW 0x8A22D5 .. 0x8A2328); the retail panel never shows the slots.
 {"UpgradeCameo1", S_AsciiString},
 {"UpgradeCameo2", S_AsciiString},
 {"UpgradeCameo3", S_AsciiString},

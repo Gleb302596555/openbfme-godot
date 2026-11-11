@@ -51,7 +51,9 @@ enum HeldSoundSlot
 	HELD_MOVE_LOOP = 1,
 	HELD_UPGRADE_LOOP = 2,
 	HELD_ABILITY_LOOP = 3,
-	HELD_SOUND_SLOTS = 4
+	// PORT-103: FlammableUpdate data +0x18, handle +0x34; RW 0x88FE86 / 0x88FBDD.
+	HELD_FLAMMABLE_LOOP = 4,
+	HELD_SOUND_SLOTS = 5
 };
 void postHeldSound(int slot, const std::string &eventName, std::uint32_t holderId, std::uint32_t objectId);
 // lane PORT-93: RW 0x854008 .. 0x85405B (the trigger of every special ability): when the data's ActiveLoopSound (data + 0x34) is set and the manager says the

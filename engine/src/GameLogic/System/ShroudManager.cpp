@@ -1104,9 +1104,13 @@ ShroudManager::TemplateVision ShroudManager::templateVision(const ThingTemplate 
 	v.visionSide = real(F_SIDE, 1.0f);
 	v.visionRear = real(F_REAR, 1.0f);
 	v.bonusPerFoot = real(F_PERFOOT, 0.0f);
-	v.bonusTestRadius = real(F_RADIUS, 0.0f);
-	v.maxBonus = real(F_MAX, 0.0f);
-	v.minBonus = real(F_MIN, 0.0f);
+	// the ThingTemplate ctor's defaults for the rows a template does not write (RW 0x73FF17: +0x4D0 MaxVisionBonusPercent 0.5, RW 0x73FF57: +0x4D4
+	// MinVisionBonusPercent -0.5, RW 0x740027: +0x4D8 VisionBonusTestRadius 100, RW 0x74002F: +0x554 VisionBonusTestSegments 8). Ennorath writes
+	// VisionBonusPercentPerFoot on 529 objects and VisionBonusTestSegments on none: with 0 segments the ground reference was 0 and the bonus grew with the
+	// absolute height of the map (owner 2026-11-11, P-69: a horde saw and attacked up to four times too far)
+	v.bonusTestRadius = real(F_RADIUS, 100.0f);
+	v.maxBonus = real(F_MAX, 0.5f);
+	v.minBonus = real(F_MIN, -0.5f);
 	auto integer = [&](int k) -> long long {
 		if (const FieldValue *f = field(k))
 		{
@@ -1117,7 +1121,7 @@ ShroudManager::TemplateVision ShroudManager::templateVision(const ThingTemplate 
 		}
 		return 0;
 	};
-	v.bonusTestSegments = (int)integer(F_SEGMENTS);
+	v.bonusTestSegments = field(F_SEGMENTS) ? (int)integer(F_SEGMENTS) : 8;
 	// the channel rows (RW 0x68EC3B): BuildCost and ThreatValue are u16 (RW parser 0x42EC11), CampnessValue a dword (RW 0x42ECB2)
 	v.visionRange = real(F_VISION, 0.0f);
 	v.buildCost = (unsigned)(integer(F_BUILDCOST) & 0xFFFF);

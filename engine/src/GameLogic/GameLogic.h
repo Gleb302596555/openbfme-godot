@@ -88,6 +88,7 @@ class ThingFactory;
 class ThingTemplate;
 class UpdateModule;
 class ObjectWeapons; // lane PERF-WS
+class WeaponBonusSet; // PORT-114: GameData WeaponBonus (GameLogic/Weapon.h; forward only, the settings are copied around everywhere)
 struct RGBColor;
 class TerrainLogic;
 class UpgradeTypeTable;
@@ -161,6 +162,12 @@ public:
 	// lane PORTERFOG-1, RW 0x670A50 Drawable::fadeOut(frames) called by the simulation (a porter starting its work, RW 0x88DDC1): the drawable fades out over
 	// `frames` client frames (0: at once) and is hidden once its opacity * 255 is below 1 (RW 0x675B7E)
 	virtual void fadeOut(Object &obj, UnsignedInt frames) { (void)obj; (void)frames; }
+	// lane PORT-105, RW 0x86AD93 .. 0x86ADAE (TransportContain::onRemoving) calls the rider's drawable RW 0x67476B with the module data's
+	// ReleaseSnappyness (+0x17C): every draw module keeps the transform it is drawn at and the weight (RW 0x4B516C: the matrix at module +0x290,
+	// the weight at +0x2C0, the client frame at +0x2C4), and the drawable's drawn transform then runs from that snapshot toward the object's own
+	// over the following client frames (RW 0x4B6B21 .. 0x4B6BB2, the matrix lerp RW 0xB27C80). Client only. The simulation skips it when the
+	// container's riders get the ENCLOSED status (the contain's slot 0xB0 mask, bit 61 = ENCLOSED, RW 0xD8AFF0).
+	virtual void releaseRiderFromBone(Object &rider, float snappyness) { (void)rider; (void)snappyness; }
 	// TOP20 #24, RW 0x672D28 Drawable::setShadowsEnabled called by the simulation (SlowDeathBehavior's beginSlowDeath with ShadowWhenDead No, RW 0x860F44 ..
 	// 0x860F58): the drawable's status bit 2 (+ 0x114) and every draw module's vslot 0x30; client only
 	virtual void setShadowsEnabled(Object &obj, bool enabled) { (void)obj; (void)enabled; }
@@ -458,6 +465,12 @@ struct GameLogicSettings
 	// ctor RW 0x642C51 / 0x642C07: false / 0; read by TerrainTracksSystem and W3DModelDraw track bind RW 0x4C4E51 / 0x47A7C6 / 0x48389F / 0x484673). Presentation only: not in the settings hash
 	bool makeTrackMarks = false;
 	int maxTerrainTracks = 0;
+	// PORT-114 (issue #298): GameData's global WeaponBonus set (row RW 0xC004D0 = 0xBFF580 + 16 * 245, parser RW 0x6CB559 = WeaponBonusSet::parseWeaponBonusSetPtr,
+	// GlobalData + 0xAD0, one `<CONDITION> <FIELD> <percent>` entry per line through RW 0x6CA45B). Every object's Weapon::computeBonus adds it for the object's weapon
+	// bonus conditions (RW 0x6CA7CF loads the pointer off [0xDE4364]; RW 0x6CA4B5 / 0x6CA434 add each set entry as value - 1). Null while no GameData line was read:
+	// RW tests the pointer before the add, so a game whose data has no WeaponBonus row keeps every bonus at 1.0 exactly as before.
+	std::shared_ptr<WeaponBonusSet> globalWeaponBonusSet;
+	bool weaponBonusLoaded = false; ///< a GameData block named WeaponBonus (diagnostic, like builderMoveLoaded; the set's presence is the pointer)
 	unsigned initialCredits[5] = { 0, 0, 0, 0, 0 };  ///< MultiplayerSettings InitialCreditsVeryLow .. VeryHigh: the lobby's money choices
 	// lane CHAT-1: MultiplayerSettings MaxBeaconsPerPlayer (+ 0x18): a player's beacons at most (retail multiplayer.ini: 3). INFERENCE: the default is ZH's
 	// MultiplayerSettings constructor value (RotWK's constructor was not read). Not hashed (crc below): data every peer of a game reads alike (the profile)
@@ -520,6 +533,10 @@ public:
 	// lane ECON-1: the world-level economy (GameData values, the game context, the TerrainResourceManager, the PlayerEconomyHost)
 	Economy &economy() { return *m_economy; }
 	const Economy &economy() const { return *m_economy; }
+	// PORT-106 (issue #266): RW 0x441B7C reads [this + 0x110] (the game mode) and answers true only for 1 MODE_LAN and 5
+	// MODE_INTERNET; 2 MODE_SKIRMISH and every other mode answer false. NOT Economy::isMultiplayerGame (RW 0x625456, {1,2,5}):
+	// the MultiPlayerOnly gate (W3DModelDraw.cpp) and other "really online" tests need this one.
+	bool isInMultiplayerGame() const;
 	// lane COMBAT-1: the in-flight shots, the counters and the projectile seam of this game
 	CombatState &combat() { return *m_combat; }
 	// lane COMBAT-2: the skirmish win / lose rules (init() after the players and their bases exist; update() runs in the logic frame's first phase)

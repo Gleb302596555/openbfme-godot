@@ -170,6 +170,11 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 				o.variation = m_variation; // RandomTexture (RW 0x4C238A)
 				o.buildBones = false; // turrets, barrels and particle bones are not drawn (S-095 / S-097)
 				o.cameraFadeAvailable = static_cast<bool>(services.cameraPosition); // PORT-49: the device camera source is installed before the load
+				// PORT-106 (issue #266): the MultiPlayerOnly gate (RW 0x4C72E1..0x4C730C). The inputs: isInMultiplayerGame (RW 0x441B7C)
+				// from the logic through DrawServices, and GlobalData +0xD45 — always 0 in RotWK 2.01 (ctor RW 0x6435AF; the only other
+				// writer RW 0x919FB6 restores a snapshot, so the byte never turns on: full .text scan). Without the logic source (a test
+				// rig, the map-object runtime) the gate is not applied — RW always has TheGameLogic (RW 0xDE412C).
+				o.multiPlayerOnlySkipped = services.inMultiplayerGame && data->multiPlayerOnlySkipsBody(services.inMultiplayerGame(), false);
 				// AUDIO-2: Lua CurDrawablePlaySound (RW 0x73529F) plays for this drawable through the installed audio manager
 				const DrawableID drawableId = m_id;
 				o.playSound = [drawableId](const std::string &name) { AudioApi::playSoundForDrawable(name, (std::uint32_t)drawableId); };
@@ -691,6 +696,7 @@ void Drawable::syncFromSnapshot(const ObjectSnapshot &rec, UnsignedInt snapshotF
 		std::memcpy(p.basis, rec.basis, sizeof(p.basis));
 		p.zRotation = RenderInterpolation::isZRotation(rec.basis);
 	}
+	applyReleaseBlend(p); // lane PORT-105: RW 0xB27C80(snapshot, current, weight), the drawn transform after a release
 	if (p.zRotation)
 	{
 		setOrientation(p.angle);
@@ -725,6 +731,7 @@ void Drawable::prepareSync(const ObjectSnapshot &rec, UnsignedInt snapshotFrame,
 		std::memcpy(p.basis, rec.basis, sizeof(p.basis));
 		p.zRotation = RenderInterpolation::isZRotation(rec.basis);
 	}
+	applyReleaseBlend(p); // lane PORT-105: RW 0xB27C80(snapshot, current, weight), the drawn transform after a release
 	out.sameBasis = false;
 	if (p.zRotation)
 	{
@@ -2068,6 +2075,47 @@ void Drawable::applyPhysicsXform(const ObjectSnapshot &rec, const RenderInterpol
 		m_presentationPosition.y = mtx.Row[1][3];
 		m_presentationPosition.z = mtx.Row[2][3];
 	}
+}
+
+// lane PORT-105: RW 0x4B516C (ObjectDrawInterface slot 0x50, reached from Drawable RW 0x67476B) keeps the transform the module is drawn at
+// (module +0x290), the weight (+0x2C0) and the client frame of the last step (+0x2C4); the weight starts at the argument
+void Drawable::releaseFromBone(float snappyness)
+{
+	getPresentationPose(m_releaseBasis, m_releasePosition);
+	m_releaseAngle = getOrientation();
+	m_releaseWeight = snappyness;
+	m_releaseClientFrame = m_services.clientFrame ? *m_services.clientFrame : 0;
+	m_releaseActive = true;
+	// RW 0x67476B after the module loop drops the drawable's pending model condition sets (memset +0x2A4 and +0x2F0, 0x4C bytes each). This port keeps
+	// no pending sets: a changed bit is the drawable's flags until the flush applies them (lane ANIM-1), so there is nothing to drop.
+}
+
+// lane PORT-105: RW 0x4B6B21 .. 0x4B6BB2. While the weight is below 1.0 the drawn transform is RW 0xB27C80(snapshot, current, weight): the
+// translation lerped, the rotation slerped. The weight grows by 1/30 per client frame (RW 0xBDFC6C, the frame stamp +0x2C4 gates the step) and is
+// clamped to 1.0 (RW 0xBD1908); from 1.0 on the blend is off and the module draws the object's own transform (RW 0x4B6B34 .. 0x4B6B3B).
+void Drawable::applyReleaseBlend(RenderInterpolation::Pose &p)
+{
+	if (!m_releaseActive)
+	{
+		return;
+	}
+	if (!(m_releaseWeight < 1.0f))
+	{
+		m_releaseActive = false; // RW 0x4B6BAB .. 0x4B6BB2: the finish branch (+0x2C4 = -1, the weight = 1.0)
+		return;
+	}
+	// without a client clock every sync is one client frame (the same reading lane LOCAL-25 takes at RW 0x67BDF6 .. 0x67BE17)
+	const unsigned frame = m_services.clientFrame ? *m_services.clientFrame : m_releaseClientFrame + 1u;
+	if (!m_services.clientFrame || frame != m_releaseClientFrame)
+	{
+		m_releaseWeight += 1.0f / 30.0f; // RW 0xBDFC6C (0.033333335)
+		if (m_releaseWeight > 1.0f)
+		{
+			m_releaseWeight = 1.0f; // RW 0x4B6B86 (RW 0xBD1908)
+		}
+		m_releaseClientFrame = frame;
+	}
+	p = RenderInterpolation::interpolate(true, m_releasePosition, m_releaseAngle, m_releaseBasis, p.position, p.angle, p.basis, m_releaseWeight);
 }
 
 void Drawable::getPresentationPose(float outBasis[9], Coord3D &outPos) const

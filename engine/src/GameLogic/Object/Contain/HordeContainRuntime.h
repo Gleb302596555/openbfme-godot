@@ -181,6 +181,11 @@ public:
 	virtual void attackPositionNow(const Coord3D &pos) = 0;
 	// slot 0x238 (RW 0x86BD54, lane MECH-D): the horde's current locomotor has ScalesWalls and it keeps a wall to scale
 	virtual bool isScalingWall() const = 0;
+	// ---- lane PORT-112 (issue #272): HordeContain/NotComboFormation (module data + 0x25C) ----
+	// slot 136 / +0x220 (RW 0x872B91: `mov eax, [ecx - 0x118]; mov al, [eax + 0x25c]; ret`; the interface sits at module + 0x11C, so [ecx - 0x118] is the
+	// module data; the table is RW 0xC5B1F8, the horde contains' shared base, and the same slot sits in RW 0xC5BE98 HordeContain / RW 0xC5CFA8
+	// AODHordeContain). The one reader in RotWK 2.01 is AICombineState::onEnter (RW 0x751738): with the byte set, the ordered horde leaves the formation.
+	virtual bool notComboFormation() const = 0;
 };
 
 class HordeContain : public UpdateModule, public ContainModuleInterface, public CreateModuleInterface, public HordeContainInterface
@@ -446,6 +451,9 @@ public:
 	// RW 0x87043B: the ComboHorde entry of the module data's vector (+0x198) whose Target (entry + 0) names `tmpl`, walked in list order (RW 0x870451 ..
 	// 0x870469, the compare RW 0x4065AA); null when the list has none
 	const ComboHordeEntry *comboHordeEntryFor(const ThingTemplate &tmpl) const;
+	// lane PORT-112 (issue #272): RW 0x872B91 (interface slot 136 / +0x220) returns the module data's NotComboFormation byte (+0x25C); its one reader
+	// RW 0x751738 (AICombineState::onEnter) makes the ordered horde leave the formation (slot 0x60, RW 0x86C7F6) before the combine
+	bool notComboFormation() const override;
 	bool canCombineWith(const Object &other) const override;
 	Object *combineWith(Object *target) override;
 	static const char *combineStopLine();

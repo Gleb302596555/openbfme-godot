@@ -29,7 +29,9 @@
 //     list (FXList byte +8, the second loop of RW 0x4BCE68).
 //
 // INFERENCE / not ported (stop S-682, reported by stops()):
-//   * bone positions come from the model's bind pose (ZH asks the live render object's current pose; FollowBone systems are not moved with the animation);
+//   * a ParticleSysBone system's bone is read from the draw's own pose (PORT-121, issue #305: RW 0x4C6514 asks the render object at slot +0xCC, so the
+//     creation reads the pose the draw shows - the bind pose only answers when that pose cannot, S-003 / S-004); the per-frame FOLLOW still rebuilds a
+//     pose from W3DDrawPoseView rather than reading a live render object (S-7194);
 //   * ParticleSysBone FXTrigger / Persist / PersistID / HouseColor are ignored; ParticleSysBone OnlyIfOnWater systems are still not created (that path has no water
 //     query), OnlyIfOnLand ones are; WadingParticleSys has its own terrain query (PORT-48);
 //   * the shooter's stealth (RW 0x694C0D with a NULL viewer, RW 0x6CCB91; lane STEALTH-1) is read when the effect plays, not at the shot;
@@ -63,6 +65,8 @@ class Object;
 class TerrainPathfindSource;
 struct FireSetting;
 struct ParticleSysBoneInfo; // GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDraw.h (PORT-68)
+class W3DScriptedModelDraw; // GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.h (PORT-121)
+struct RenderObjPrototype;  // Libraries/WWVegas/WW3D2 (PORT-121)
 
 // PORT-48: the W3DModelDraw::doDrawModule reader (RW 0x4C72BE) for the base data's
 // WadingParticleSys field. Kept separate from ParticleSysBone's state/animation map.
@@ -236,6 +240,9 @@ public:
 		// system or bone was gone, and the by-index branch's starts / stops (RW 0x5F2EE6 / 0x5F2EDE)
 		unsigned long long bonesFollowed = 0, bonesMissed = 0, bonesStarted = 0, bonesStopped = 0;
 		unsigned long long boneMisses = 0;                  ///< ParticleSysBone bones the model lacks (RW 0x4C6514: the system plays at the drawable's origin)
+		// PORT-121 (issue #305): where a created ParticleSysBone system's local transform came from - the render object's current pose
+		// (RW 0x4C678F / 0x4C69BE, the follow's parents) or, when the pose cannot answer, the model's bind pose
+		unsigned long long bonesCreatedOnPose = 0, bonesCreatedOnBindPose = 0;
 		std::set<std::string> missingBones;                 ///< "MODEL:bone" of the bone misses of every path (at most 200): retail data, played as retail does
 		unsigned long long sounds = 0;
 		unsigned long long frameEventsFired = 0;           ///< animation state FXEvent entries fired (RW 0x4BCE68)
@@ -253,6 +260,18 @@ public:
 	static bool framePassed(int prev, int cur, int frame, int mode, int direction);
 	// PORT-68, RW 0x4C662D .. 0x4C663E: whether a ParticleSysBone entry's FXTrigger gate allows spawning on `d` (0 = NONE always allows)
 	static bool allowsParticleSysBoneFXTrigger(const Drawable &d, const ParticleSysBoneInfo &info);
+	// PORT-121 (issue #305): what the creation of one ParticleSysBone entry (RW 0x4C6514) did with the bone, as the tests read it without a
+	// drawable: NONE - no bone name, or a bone the model does not have (the system plays at the drawable's origin); POSE - the render object's
+	// current pose answered (RW 0x4C678F / 0x4C69BE) and `transform` is the matrix the system took; BIND_POSE - the pose could not answer
+	// (a state without an animation, S-003 / S-004), so the hierarchy's bind pose gave the bone.
+	enum class BoneSource
+	{
+		NONE,
+		POSE,
+		BIND_POSE
+	};
+	static BoneSource particleSysBoneSource(const RenderObjPrototype *model, const W3DScriptedModelDraw &draw, const ParticleSysBoneInfo &info,
+		float scale, Matrix3D &transform, int *boneIndex = nullptr);
 	// the stop lines of the live effects (S-680 .. S-686: the logic side's FXEventLog::stops() and this player's), for the report
 	static std::vector<std::string> stops();
 

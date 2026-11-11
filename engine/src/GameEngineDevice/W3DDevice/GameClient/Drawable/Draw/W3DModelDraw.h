@@ -310,7 +310,7 @@ public:
 	std::uint32_t m_birthFadeTime = 0; ///< logic frames (parseDurationUnsignedInt, RW 0x73A429)
 	bool m_birthFadeAdditive = false;
 	bool m_zWriteDisableOverride = false;
-	bool m_multiPlayerOnly = false;
+	bool m_multiPlayerOnly = false;           ///< row RW 0xBE1680 (+0x15D), constructor default false (RW 0x4C8736); read by multiPlayerOnlySkipsBody
 	bool m_affectedByStealth = true;          ///< constructor default 1 (RW 0x4C873C, +0x15E)
 	bool m_highDetailOnly = false;
 	std::string m_rampMesh1, m_rampMesh2, m_wallBoundsMesh, m_raisedWallMesh;
@@ -328,6 +328,12 @@ public:
 	// conditions. Non-empty query: the first state (in order) with conditions that are all in the query; else the default state;
 	// else the last state with no conditions seen; else nullptr.
 	const ModelConditionInfo *findBestInfo(const ModelConditionFlags &c) const;
+	// PORT-106 (issue #266): the MultiPlayerOnly gate of RW 0x4C72E1 .. 0x4C730C (the top of W3DModelDraw::doDrawModule RW 0x4C72BE;
+	// W3DScriptedModelDraw reaches it through slot +0x2C of its vtable RW 0xBDFFE8, ctor RW 0x4C04A3). True: the module's per-frame
+	// body never runs — inRW isInMultiplayerGame (RW 0x441B7C: TheGameLogic +0x110 is 1 MODE_LAN or 5 MODE_INTERNET; skirmish 2 does
+	// NOT count) is false, or GlobalData +0xD45 != 0 (always 0 in RotWK 2.01: ctor RW 0x6435AF; the only other writer RW 0x919FB6
+	// restores the picture screen's snapshot, ctor RW 0x91A6C9 — a full .text scan of +0xD45 stores found no other).
+	bool multiPlayerOnlySkipsBody(bool inMultiplayerGame, bool globalDataFieldD45) const;
 	// RW 0x4C238A: the RandomTexture swaps (original, drawn instead) of a drawable whose model variation (drawable + 0x364) is `variation`.
 	// `maxTextures` is the caller's limit on the pick (RW 0x4C48A1 passes 0xFF; the horde draw its LOD row's MaxRandomTextures, RW 0x47A38B).
 	// For record i of n textures: index = (v / 3 + v / 5 + i + (v & 0xF) * (i + 1) + v) mod n (unsigned), at most maxTextures - 1;

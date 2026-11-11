@@ -614,7 +614,7 @@ void postHeldSound(int slot, const std::string &n, std::uint32_t holderId, std::
 		mgr->removeAudioEvent(it->second);
 		held.erase(it);
 	}
-	static const char *const kTag[HELD_SOUND_SLOTS] = { "building loop", "move loop", "upgrade loop", "ability loop" };
+	static const char *const kTag[HELD_SOUND_SLOTS] = { "building loop", "move loop", "upgrade loop", "ability loop", "flammable loop" };
 	AudioLog::Scope scope(kTag[slot]);
 	const AudioHandle h = mgr->playSoundForObject(n, objectId);
 	if (h >= AHSV_FirstHandle)
@@ -653,7 +653,7 @@ void resumeHeldSound(int slot, const std::string &n, std::uint32_t holderId, std
 	{
 		held.erase(it); // the kept handle outlived its sound: dropped, then the event is added below
 	}
-	static const char *const kTag[HELD_SOUND_SLOTS] = { "building loop", "move loop", "upgrade loop", "ability loop" };
+	static const char *const kTag[HELD_SOUND_SLOTS] = { "building loop", "move loop", "upgrade loop", "ability loop", "flammable loop" };
 	AudioLog::Scope scope(kTag[slot]);
 	const AudioHandle h = mgr->playSoundForObject(n, objectId);
 	if (h >= AHSV_FirstHandle)

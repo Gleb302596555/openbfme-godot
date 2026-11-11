@@ -914,6 +914,14 @@ void W3DDefaultDrawModuleData::buildFieldParse(MultiIniFieldParse &)
 }
 
 // RW 0x4C238A (see the header): the records in order, i counting every record (an empty one too, RW 0x4C24EF)
+// PORT-106 (issue #266): RW 0x4C72E1 cmp byte [edi+0x15D] (edi = [ebx+4], the module data) -> je 0x4C7312; else isInMultiplayerGame
+// RW 0x441B7C -> je 0x4C78D3 (return); TheWritableGlobalData +0xD45 RW 0x4C7305..0x4C730C -> jne 0x4C78D3 (return). Only the reads of
+// these two inputs are ported here; the caller (Drawable::addEntry) supplies them from the logic (GameLogic::isInMultiplayerGame).
+bool W3DModelDrawModuleData::multiPlayerOnlySkipsBody(bool inMultiplayerGame, bool globalDataFieldD45) const
+{
+	return m_multiPlayerOnly && (!inMultiplayerGame || globalDataFieldD45);
+}
+
 std::vector<std::pair<std::string, std::string>> W3DModelDrawModuleData::pickRandomTextures(int variation, int maxTextures) const
 {
 	std::vector<std::pair<std::string, std::string>> swaps;
