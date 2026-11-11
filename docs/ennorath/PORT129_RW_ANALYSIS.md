@@ -1,9 +1,12 @@
-# Port 129 (issue #331): `RespawnUpdate` / `DeathAnimationTime`
+# Port 129 (issue #331): `RespawnUpdate` / `DeathAnimationTime` has no reader in RotWK 2.01
 
-Question: what does RotWK 2.01 do with `RespawnUpdate/DeathAnimationTime` (how long a dead hero's death animation holds before he leaves the map)?
+Verdict: RotWK 2.01 parses the field into the module data at `+0xFC` and never reads it. Nothing waits for it: not the body, not the respawn clock,
+not the revive button. The port already behaves the same (it parses the field and reads it nowhere), so nothing is ported: stop S-7319.
 
-Every RW address below was read with `tools/mod/rw.py ... dis` or with a linear capstone sweep of the
-whole `.text` section (RW 0x401000..0xBD0000, 2 701 800 instructions) of `game.dat` (md5 `daed3668...`). DONOR = Open-BFME-2 (BFME2 1.06 decompile).
+Method. Every RW address below was read with `tools/mod/rw.py <game.dat> dis` or taken from a linear capstone sweep of the whole `.text` section
+(RW 0x401000..0xBD0000, 2 701 800 instructions) of `game.dat` (md5 `daed3668...`): every instruction with a `[reg + 0xFC]` operand (753, stack
+frames excluded), every rel32 caller of each function, every data reference to a function (vtable slots), every reference to the name string and to
+the name-key globals. DONOR = Open-BFME-2 (the BFME2 1.06 decompile), read for the mechanism only.
 
 ## 1. The field
 
@@ -11,61 +14,89 @@ whole `.text` section (RW 0x401000..0xBD0000, 2 701 800 instructions) of `game.d
 |---|---|
 | parse table of `RespawnUpdateModuleData` | RW 0xC6CE80 (14 rows) |
 | row `DeathAnimationTime` | RW 0xC6CEA0: parser RW 0x73A429 (`parseDurationUnsignedInt`), offset `+0xFC` |
-| neighbours | `DeathFX` `+0xF0`, `RespawnFX` `+0xF4`, `InitialSpawnFX` `+0xF8`, `RespawnAnimationTime` `+0x100`, `InitialSpawnAnimationTime` `+0x104` |
+| neighbour rows | `DeathFX` `+0xF0`, `RespawnFX` `+0xF4`, `InitialSpawnFX` `+0xF8`, `RespawnAnimationTime` `+0x100`, `InitialSpawnAnimationTime` `+0x104` |
 | DONOR | `Code/GameEngine/Source/Common/ConstIntGettersAddr.cpp:690` (`{ "DeathAnimationTime", parseDurationUnsignedInt, 0, 0xFC }`), member `m_fieldFC` |
 
 ## 2. The class chain
 
-* module factory row: RW 0x65A002 pushes the name `"RespawnUpdate"` (RW 0xC0B098) with the two create procedures RW 0x64F68C / RW 0x64F6C4
-  (`addModule` RW 0x6570FE);
+* module factory row: RW 0x65A002 pushes the name `"RespawnUpdate"` (RW 0xC0B098), RW 0x65A014 / RW 0x65A019 the two create procedures
+  RW 0x64F6C4 / RW 0x64F68C, RW 0x65A027 calls the registration RW 0x6570FE;
 * RW 0x64F68C calls the module constructor RW 0x8B3244 (call at RW 0x64F6B3); RW 0x64F6C4 calls the module data constructor RW 0x8B3C54 (call at
   RW 0x64F6E8);
-* the module data constructor RW 0x8B3C54 writes `+0xFC` once: RW 0x8B3CC4 `mov [esi+0xFC], ebx` (zero);
-* the module's functions (the translation unit RW 0x8B307E..0x8B4271; virtual slots found through the data references RW 0xC6C354..0xC6C3A8, direct
-  callers through a rel32 call scan): RW 0x8B307E, 0x8B310D, 0x8B316B, 0x8B319D, 0x8B3244, 0x8B32C4, 0x8B3309, 0x8B330F, 0x8B3313, 0x8B332D,
-  0x8B3349, 0x8B3395, 0x8B33C2, 0x8B33E4, 0x8B34C3, 0x8B34EC, 0x8B3574, 0x8B35AC, 0x8B3637, 0x8B36B2, 0x8B3744, 0x8B38A2, 0x8B3A35, 0x8B3C07,
-  0x8B3C1C, 0x8B3C31, 0x8B3C54, 0x8B3CE9, 0x8B3D05, 0x8B3D65, 0x8B3F72.
+* module constructor RW 0x8B3244: primary vtable RW 0xC6C360 (RW 0x8B3286), the inherited behaviour interface RW 0xC67300 at `+0xC`, the update
+  interface RW 0xC6C354 at `+0x10`; it reads nothing of the data and sleeps forever (RW 0x8B32AE);
+* primary vtable RW 0xC6C360, 16 slots: 0 RW 0x8B332D, 1 RW 0x8B88B0, 2 RW 0x8B3309 (the name), 3 RW 0x8B319D, 4 RW 0x8B32C4, 5..8 RW 0x63F3BF,
+  9 RW 0x8851E4, 10 / 11 RW 0x851E97, 12 RW 0x64DFDA, 13 RW 0x8B310D, 14 RW 0x8B33E4 (the dead image), 15 RW 0x8B330F; update interface
+  RW 0xC6C354: RW 0x8B3A35 (update), RW 0x8B3313, RW 0x850C4E. The slots outside the unit (RW 0x8B88B0, 0x63F3BF, 0x8851E4, 0x851E97, 0x64DFDA,
+  0x850C4E) are base-class bodies shared with other classes; none holds a `[reg + 0xFC]` instruction;
+* module data constructor RW 0x8B3C54: vtable RW 0xC6C3A8 (RW 0x8B3C6E); it zeroes `+0xF0` (RW 0x8B3CB2), `+0xF4` (RW 0x8B3CB8), `+0xF8`
+  (RW 0x8B3CBE), **`+0xFC` (RW 0x8B3CC4)**, `+0x100` (RW 0x8B3CCA), `+0x104` (RW 0x8B3CD0);
+* module data vtable RW 0xC6C3A8, 31 slots: 0 RW 0x8B3CE9 (destructor), 13 (`+0x34`) and 30 RW 0x8BD372 (`mov al, 1; ret`), 14 RW 0x4B612F,
+  28 (`+0x70`) RW 0x8CEF91 (`mov eax, ecx; ret`); the others are the shared stubs RW 0x63F3BF (`ret`), RW 0x464A09, RW 0x9F3A3C (`ret 4`),
+  RW 0x9188EB (`xor al, al; ret`) and RW 0x851E97 (`xor eax, eax; ret`).
 
-## 3. Who can reach the module data
+## 3. The access set of data `+0xFC`
 
-The whole `.text` has 753 instructions with a `[reg + 0xFC]` operand (stack frames excluded). In the RespawnUpdate translation unit there is exactly
-one: the constructor's zero write RW 0x8B3CC4. No other form of the offset (`add` / `lea` with 0xFC, a `lea` of a neighbour) exists in that unit.
+### 3.1 Inside the RespawnUpdate unit (RW 0x8B307E..0x8B4271)
 
-Outside the unit the module is reached only by its name key. The string RW 0xC0B098 has ten references:
+Functions (virtual slots by data reference, the rest by their callers): RW 0x8B307E, 0x8B310D, 0x8B316B, 0x8B319D, 0x8B3244, 0x8B32C4, 0x8B3309,
+0x8B330F, 0x8B3313, 0x8B332D, 0x8B3349, 0x8B3395, 0x8B33C2, 0x8B33E4, 0x8B34C3, 0x8B34EC, 0x8B3574, 0x8B35AC, 0x8B3637, 0x8B36B2, 0x8B3744, 0x8B38A2,
+0x8B3A35, 0x8B3C07, 0x8B3C1C, 0x8B3C31, 0x8B3C54, 0x8B3CE9, 0x8B3D05, 0x8B3D65, 0x8B3F72.
+
+The unit holds exactly one instruction that addresses `+0xFC`: the constructor's zero write RW 0x8B3CC4. No `add` / `lea` with 0xFC and no `lea` of
+a neighbour offset (0xF0..0x104) exists in it. Control: the same listing shows the readers of every neighbour row: `+0xF0` RW 0x8B3806; `+0xF4`
+RW 0x8B393C and RW 0x8B3B84; `+0xF8` RW 0x8B3907; `+0x100` RW 0x8B3933, RW 0x8B3B97 and RW 0x8B3BFC; `+0x104` RW 0x8B38FE.
+
+### 3.2 Outside the unit, the module by its name key
+
+The module is found by `Object` RW 0x68BDA5 with a name key made from the string RW 0xC0B098. The string has ten references:
 
 | reference | function | what it does with the module | `+0xFC` |
 |---|---|---|---|
 | RW 0x65A002 | module factory registration | registers the create procedures | no |
-| RW 0x691806 | Object, RW 0x6917BB..0x69192F (key RW 0xDE477C) | calls RW 0x8B316B | no hit in the function |
-| RW 0x780ED1 | hero list, RW 0x780EB6.. (key RW 0xDE7CE4) | calls RW 0x8B3C07 / 0x8B3C1C / 0x8B316B | no hit |
-| RW 0x7815E7 | hero list (key RW 0xDE7CFC) | writes the module's `+0x41` (RW 0x781614) | no hit |
-| RW 0x8A16B9 | ProductionUpdate slot RW 0x8A1666 (key RW 0xDE9594) | null test only (RW 0x8A16D9) | no hit |
-| RW 0x8A1BCE | ProductionUpdate update RW 0x8A1B9F (key RW 0xDE95A8, used at RW 0x8A2BEB and RW 0x8A2DC6) | RW 0x8A2C07 calls revived RW 0x8B38A2; RW 0x8A2DDA null test | one hit, RW 0x8A22E7, on another object (below) |
-| RW 0x8B32E9 | the module itself (RW 0x8B32C4, key RW 0xDE97BC) | own slot | no hit |
+| RW 0x691806 | `Object`, RW 0x6917BB (key RW 0xDE477C) | RW 0x691830 calls RW 0x8B316B (the respawn template), copies that template's `+0x64` (RW 0x691844) | none in the function |
+| RW 0x780ED1 | hero record of a dying object, RW 0x780DD4 (key RW 0xDE7CE4) | slot 14 (RW 0x780F00), RW 0x8B3C07 cost (RW 0x780F08), RW 0x8B3C1C time (RW 0x780F16), RW 0x8B316B (RW 0x780F67) | none |
+| RW 0x7815E7 | hero list (key RW 0xDE7CFC) | writes the module's `+0x41` (RW 0x781614) | none |
+| RW 0x8A16B9 | ProductionUpdate, RW 0x8A1666 (key RW 0xDE9594) | null test only (RW 0x8A16D9): an object without the module leaves through the exit interface | none |
+| RW 0x8A1BCE | ProductionUpdate update, RW 0x8A1B9F (key RW 0xDE95A8, used at RW 0x8A2BEB and RW 0x8A2DC6) | RW 0x8A2C07 calls RW 0x8B38A2 (revived); RW 0x8A2DDA null test | RW 0x8A22E7, on another object (below) |
+| RW 0x8B32E9 | the module itself, RW 0x8B32C4 (key RW 0xDE97BC) | own slot 4 | none |
 | RW 0x8B330A | the module's name getter RW 0x8B3309 | returns the string | no |
-| RW 0x8C45DC | ActiveBody RW 0x8C3FA3..0x8C47DE (key RW 0xDE9B10) | null test only (RW 0x8C4604): an object without the module gets `Object::onDie` RW 0x698F06 here | no hit |
-| RW 0x8C55FA | RespawnBody RW 0x8C553F..0x8C5689 (key RW 0xDE9BA8) | calls RW 0x8B3349 / RW 0x8B3744, writes the module's `+0x2C` | no hit |
+| RW 0x8C45DC | ActiveBody, RW 0x8C3FA3 (key RW 0xDE9B10) | null test only (RW 0x8C4604): an object without the module gets `Object::onDie` RW 0x698F06 here (RW 0x8C4645) | none |
+| RW 0x8C55FA | RespawnBody, RW 0x8C553F (key RW 0xDE9BA8) | calls RW 0x8B3349 / RW 0x8B3744, writes the module's `+0x2C` (section 4) | none |
 
-Every key global is a function-local static: its references are only the initialisation and the lookups listed (byte scan of `.text` for each global).
+Each key global is a function-local static: a byte scan of `.text` finds it only at its initialisation and at the lookups listed.
 
-RW 0x8A22E7 (`mov eax, [eax+0xFC]`): `eax` is the result of the virtual call RW 0x8A22DD (`[0xDE4830]` vtable + 0x12C), not the module data of
-RespawnUpdate. It is another class with a member at the same offset.
+RW 0x8A22E7 (`mov eax, [eax+0xFC]`): `eax` is the result of the virtual call RW 0x8A22DD (the object at `[0xDE4830]`, vtable `+0x12C`), not the
+module data of RespawnUpdate: another class with a member at the same offset.
 
-The module data pointer is also passed as `this` to RW 0x8B3637 / RW 0x8B36B2 (the cost and the time of a level) from RW 0x6E2DF9 / 0x6E2E09 and
-RW 0x6E2FB9 / 0x6E2FCA; those two functions (RW 0x6E2D92..0x6E2E18, RW 0x6E2E18..0x6E3000) contain no `[reg + 0xFC]` instruction.
+### 3.3 Outside the unit, the module data by its typed accessor
 
-## 4. What RotWK does when the hero dies (the path the field would have to be on)
+`ModuleData` has a typed accessor at vtable slot 28 (`+0x70`). Of the 380 vtables of the family in the image (slot 1 RW 0x63F3BF, slot 3
+RW 0x9F3A3C), RW 0xC6C3A8 is the only one whose slot 28 returns `this`; the base body returns null (RW 0x851E97). Two functions use it, both for
+the dead hero records of the Living World:
 
-RespawnBody RW 0x8C553F (a health change of `amount`, damage info):
+* RW 0x6E2D92: the module data of each template entry (RW 0x73C667 at RW 0x6E2DC3), slot 13 (RW 0x6E2DD2), slot 28 (RW 0x6E2DEF); the result goes
+  to RW 0x8B3637 (the cost of a level, RW 0x6E2DF9) and RW 0x8B36B2 (its time, RW 0x6E2E09) and nowhere else;
+* RW 0x6E2E18: the same lookup (RW 0x6E2F34 / 0x6E2F47 / 0x6E2F56), kept in the frame (RW 0x6E2F62); it reads `+0x118` (`ButtonImage`,
+  RW 0x6E2F82) and calls RW 0x8B3637 (RW 0x6E2FB9) and RW 0x8B36B2 (RW 0x6E2FCA).
+
+Cross-checks over the whole image: of the 33 functions that take a template entry's module data (44 calls of RW 0x73C667) only these two call slot
+28 on it; a backward register trace of all 753 `[reg + 0xFC]` instructions finds none whose base comes from a `call [reg+0x70]`; the 57 of them
+that sit within 0x800 bytes after such a call are members of other classes (`this`, an object pointer, another module's data), virtual calls
+through slot 0xFC, or `lea`.
+
+## 4. What RotWK does when the hero dies
+
+RespawnBody RW 0x8C553F (a health change `amount`, the damage info):
 
 * RW 0x8C5578..0x8C5586: lethal when `amount <= -health`;
 * RW 0x8C5588: module data `+0x68` zero: the death is permanent; else RW 0x8C5598..0x8C55CA: permanent when the dealer passes the object filter at
   `+0x64` (RW 0x7640C1);
 * RW 0x8C55DB: the base health change RW 0x8C31A5;
-* RW 0x8C5618: the RespawnUpdate of the object (RW 0x68BDA5 by key);
+* RW 0x8C5618: the RespawnUpdate of the object;
 * permanent (RW 0x8C566E): RW 0x8B3349 and return;
 * lethal and not permanent (RW 0x8C562F..0x8C5667): status 0x3E set: RW 0x69ABA7; status 0x50 set: RW 0x8B3349 and the module's `+0x2C = 0`,
-  else RW 0x8B3744 (below); then `Object::onDie` RW 0x698F06(damage info), which runs the object's die modules.
+  else RW 0x8B3744 (below); then `Object::onDie` RW 0x698F06 (the damage info), which runs the object's die modules.
 
 RespawnUpdate RW 0x8B3744 (the death before a respawn), only in state 0 or 4 (RW 0x8B374E..0x8B3761):
 
@@ -74,17 +105,18 @@ RespawnUpdate RW 0x8B3744 (the death before a respawn), only in state 0 or 4 (RW
 * RW 0x8B37F2: the `DeathAnim` conditions (`+0x0C`) set on the object (RW 0x5E3BA5);
 * RW 0x8B3800: `DeathFX` (`+0xF0`) played on the object (RW 0x4B1B5A);
 * RW 0x8B3811: the in-game UI notified (RW 0x6A1CE2);
-* RW 0x8B3824: disabled type 4 with no end frame (RW 0x692432); RW 0x8B382D: effectively dead (RW 0x68D950); RW 0x8B3836: status 3 set (RW 0x62684D);
+* RW 0x8B3824: disabled type 4 with no end frame (RW 0x692432); RW 0x8B382D: effectively dead (RW 0x68D950); RW 0x8B3836: status 3 set
+  (RW 0x62684D);
 * RW 0x8B3841..0x8B385C: `+0x40` = the rule is not AutoSpawn, `+0x38` = its time, `+0x3C` = its cost, `+0x20` = its health;
 * RW 0x8B385F..0x8B3897: with a controlling player the hero list (player `+0x758`) gets the dead hero (RW 0x781792) and the record its level cap
   (`+0xD8`).
 
-Neither function reads `+0xFC`, sets a wake frame from it or stores it: the revive record joins the hero list in the same call, and the object then
-dies through `Object::onDie` (RW 0x698F06), so the time the body stays is the time of the object's own die modules.
+Neither function reads `+0xFC`, sets a wake frame from it or stores it. The revive record joins the hero list in the frame of death; the object then
+dies through `Object::onDie`, so the body stays as long as the object's own die modules keep it.
 
 ## 5. RespawnUpdate update RW 0x8B3A35 (update interface RW 0xC6C354 slot 0), every branch
 
-`this` is the update interface (module + 0x10): the state is `[ebx+0x1C]` (module `+0x2C`), the object `[ebx-8]`, the module data `[ebx-0xC]`.
+`this` is the update interface (module `+0x10`): the state is `[ebx+0x1C]` (module `+0x2C`), the object `[ebx-8]`, the module data `[ebx-0xC]`.
 
 * state 2, and every state other than 3 and 4 (RW 0x8B3A51 / RW 0x8B3A5F): return 0x3FFFFFFF (sleep forever, RW 0x8B3AFE);
 * state 4 (RW 0x8B3A65..0x8B3AF9): the `RespawnAnim` (`+0x58`) and `InitialSpawnAnim` (`+0xA4`) conditions cleared (RW 0x5E3B79), status 3 cleared
@@ -102,19 +134,17 @@ module asleep and the state unchanged.
 
 `git grep m_fieldFC -- Code`: `RespawnUpdate.cpp:206` (the member, `+0xFC`) and `RespawnUpdate.cpp:830` (the module data constructor 0x004AFB4E:
 `m_fieldFC = 0`); the two other hits are another class (`LivingWorldLogicPlayerObserver`). `git grep DeathAnimationTime -- Code`: the parse row only
-(`ConstIntGettersAddr.cpp:690`). `triggerDeathBeforeRespawn` (0x004AF63E) is RW 0x8B3744 line for line and `triggerRevival` (0x004AF79C) is RW 0x8B38A2;
-neither reads the member. DONOR agrees: parse row and constructor are the whole access set.
+(`ConstIntGettersAddr.cpp:690`). `triggerDeathBeforeRespawn` (0x004AF63E) is RW 0x8B3744 step for step and `triggerRevival` (0x004AF79C) is
+RW 0x8B38A2; neither reads the member. DONOR agrees: parse row and constructor are the whole access set.
 
-## 7. Verdict
+## 7. The port
 
-RotWK 2.01 parses `RespawnUpdate/DeathAnimationTime` into module data `+0xFC` and never reads it:
+`HeroModules.cpp` parses the field into `RespawnUpdateModuleData::m_deathAnimationTime` and no code reads it. `RespawnUpdate::onDeath` (RW 0x8B3744)
+takes the same steps and sets no wake frame; RespawnBody (RW 0x8C553F, `StructureModules.cpp`) then calls `Object::onDie`. Nothing to port: no getter,
+no member and no test are added (issue #331: no test for a field nobody reads). The death and revive path the field would sit on is held by
+`LOCAL-8*` (`test_local_8.cpp`, its synthetic hero carries a `DeathAnimationTime`) and `hero death and revive*` (`test_hero_core.cpp`).
 
-* the module data constructor zeroes it (RW 0x8B3CC4), the parser RW 0x73A429 writes it, nothing else in the image addresses it;
-* the RespawnUpdate unit (RW 0x8B307E..0x8B4271) has no other access to `+0xFC`, in any addressing form;
-* every function outside the unit that reaches the module (ten references to the name key, section 3) or its data (RW 0x6E2D92 / RW 0x6E2E18) was
-  read; none reads `+0xFC` of it; the one `[reg+0xFC]` among them (RW 0x8A22E7) is on another object;
-* the death path RespawnBody RW 0x8C553F -> RW 0x8B3744 -> `Object::onDie` RW 0x698F06 and the update RW 0x8B3A35 wait for nothing: the revive
-  record joins the hero list in the frame of death, and the body stays as long as the object's die modules keep it.
+## 8. Limits
 
-The port agrees already: `HeroModules.cpp` parses the field into `m_deathAnimationTime` and no code reads it. Nothing to port; no getter, no member and
-no test are added.
+INFERENCE: a static read cannot exclude an access whose address is computed at run time (an indexed read with a computed offset) or code outside
+the image. Nothing in the image suggests one: the field table is used by the INI parser only.
