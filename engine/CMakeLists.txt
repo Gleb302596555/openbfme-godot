@@ -263,6 +263,7 @@ include(cmake/Port76.cmake) # PORT-76: SpawnBehavior/FadeInTime, spawned units f
 include(cmake/Port86.cmake) # PORT-86: Unit voice VoiceDesperateAttack / VoiceRapidFire / VoiceCaptureBuildingComplete (issue #234; OPENBFME_PORT86_TESTS)
 include(cmake/Port39.cmake) # PORT-39: AIData SideInfo ResourceGatherers (issue #124; OPENBFME_PORT39_TESTS)
 include(cmake/Port101.cmake) # PORT-101: Object/SelectionPriority (issue #261; OPENBFME_PORT101_TESTS)
+include(cmake/Port123.cmake) # PORT-123: Arnor palantir blue ground decal EyeOfPalantir arpalaeye 400 (issue #307; OPENBFME_PORT123_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
@@ -900,6 +901,7 @@ add_executable(openbfme_tests
     ${OPENBFME_STRUCTURE_TESTS}
     ${OPENBFME_SPELL_TESTS}
     ${OPENBFME_PORT43_TESTS}
+    ${OPENBFME_PORT123_TESTS}
     ${OPENBFME_PORT51_TESTS}
     ${OPENBFME_PORT81_TESTS}
     ${OPENBFME_PORT84_TESTS}
