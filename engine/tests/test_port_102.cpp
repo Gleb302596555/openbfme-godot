@@ -10,9 +10,7 @@
 #include <string>
 #include <vector>
 
-#define private public
 #include "GameClient/DrawableIconUI.h"
-#undef private
 
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/Object/ObjectGeometry.h"
@@ -35,9 +33,19 @@ ThingTemplate building(const char *healthFlag)
 	return tt;
 }
 
-const DrawableIconUI::TemplateBox &box(DrawableIconUI &ui, const ThingTemplate &tt)
+}
+
+struct DrawableIconUITestAccess
 {
-	return ui.boxOf(tt);
+	using Box = DrawableIconUI::TemplateBox;
+	static const Box &boxOf(DrawableIconUI &ui, const ThingTemplate &tt) { return ui.boxOf(tt); }
+};
+
+namespace
+{
+const DrawableIconUITestAccess::Box &box(DrawableIconUI &ui, const ThingTemplate &tt)
+{
+	return DrawableIconUITestAccess::boxOf(ui, tt);
 }
 }
 
