@@ -2,6 +2,8 @@
 // See GameLogic/Combat/ObjectWeapons.h.
 
 #include "GameLogic/Combat/ObjectWeapons.h"
+
+#include "Common/Thing/ThingFactory.h"
 #include "GameLogic/Module/SquishCollide.h"
 
 #include "Common/Audio/AudioRequests.h"
@@ -160,6 +162,35 @@ public:
 		p.z = m_w.owner().logic().getGroundHeight(p.x, p.y);
 		return p;
 	}
+
+	// ---- ProjectileStreamName (see WeaponState.h; RW 0x6CD1FD and its fire path RW 0x90FB7A .. 0x90FC5A) ----
+	Object *streamObjectByID(ObjectID id)
+	{
+		// RW 0x6CD23D -> RW 0x449681, and RW 0x6CD244 `jne`: retail tests the POINTER only. A stream that is dying but still in the object list is
+		// therefore reused by the very next shot, exactly as the binary does. id 0 is the "the weapon holds none" case, and the port's object 0 does
+		// not exist, but the guard keeps the answer explicit rather than depending on that.
+		return id == INVALID_ID ? nullptr : m_w.owner().logic().findObjectByID(id);
+	}
+	Object *createProjectileStream(const std::string &streamName, Object &owner) override
+	{
+		// RW 0x6CD252: TheThingFactory->findTemplate(name); a name that is not a template answers null and nothing is made.
+		const ThingTemplate *tt = m_w.owner().logic().things().findTemplate(streamName);
+		if (!tt)
+		{
+			return nullptr;
+		}
+		Player *player = owner.getControllingPlayer(); // RW 0x6CD26C -> RW 0x68B678
+		Team *team = player ? player->getDefaultTeam() : nullptr; // [player + 0x30C] (RW 0x79FD6F reads team + 0x30 upwards)
+		Object *stream = m_w.owner().logic().newObject(tt, team, ObjectStatusMaskType{}); // RW 0x6CD285
+		if (!stream)
+		{
+			return nullptr;
+		}
+		// RW 0x6CD25B .. RW 0x6CD271: the creation position RW 0xA3CF28 leaves zero and newObject is not told otherwise, so the stream object is made
+		// at (0, 0, 0) and stands there until a shot positions it (RW 0x74094C) or its ProjectileStreamUpdate collects it.
+		return stream;
+	}
+	Object *weaponOwner() override { return &m_w.owner(); }
 
 private:
 	ObjectWeapons &m_w;
@@ -482,8 +513,6 @@ int ObjectWeapons::extraWeaponStatus(Weapon &w)
 	return w.getStatusWriteBack(host());
 }
 
-ObjectWeapons::~ObjectWeapons() = default;
-
 WeaponHost &ObjectWeapons::host()
 {
 	return *m_host;
@@ -590,6 +619,12 @@ void ObjectWeapons::rebuildWeapons(const WeaponTemplateSet *set)
 	clearSlotConditions();
 	for (std::unique_ptr<Weapon> &w : m_weapons)
 	{
+		// RW 0x6CA178 frees each old Weapon through its deleting pointer (vtable slot 0, RW 0x6CDB57): the Weapon destructor destroys the
+		// ProjectileStreamName object the weapon made (issue #99 / PORT-27, RW 0x6CD0BE -> RW 0x6CD0F4)
+		if (w)
+		{
+			w->destroyProjectileStream(m_owner->logic());
+		}
 		w.reset();
 	}
 	m_set = set;
@@ -636,6 +671,29 @@ void ObjectWeapons::rebuildWeapons(const WeaponTemplateSet *set)
 			}
 		}
 		m_weapons[(size_t)i] = std::move(w);
+	}
+}
+
+// RW 0x6CD0BE: every Weapon this set owns is destroyed with the set, and a Weapon destroys the ProjectileStreamName object it made (issue #99 / PORT-27,
+// RW 0x6CD0F4). Retail does exactly this: the DeletingObjectPointer in ObjectWeapons (Object + 0x320) frees each Weapon through its vtable slot 0
+// (RW 0x6CDB57 -> RW 0x6CD0BE), and the Weapon destructor destroys the stream it holds. m_set's template weapons have no stream of their own (the id
+// lives in the instance), so the two extra weapons are covered too.
+ObjectWeapons::~ObjectWeapons()
+{
+	GameLogic &logic = m_owner->logic();
+	for (std::unique_ptr<Weapon> &w : m_weapons)
+	{
+		if (w)
+		{
+			w->destroyProjectileStream(logic);
+		}
+	}
+	for (std::unique_ptr<Weapon> *w : { &m_crushWeapon, &m_crushRevengeWeapon })
+	{
+		if (*w)
+		{
+			(*w)->destroyProjectileStream(logic);
+		}
 	}
 }
 

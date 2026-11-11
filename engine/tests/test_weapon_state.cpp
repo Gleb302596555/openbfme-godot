@@ -79,6 +79,11 @@ struct TestHost : WeaponHost
 	void setOwnerDisabledUntil(std::uint32_t f) override { disabledUntil.push_back(f); }
 	float groundHeightAt(float, float) override { return 5.0f; }
 	Coord3D linearTargetPosition(float x, float y) override { return Coord3D{ x + 100.0f, y + 200.0f, 7.0f }; }
+	// issue #99 / PORT-27: this host owns no world, so it has no stream object and makes none (ProjectileStreamName's tests are PORT-27* in
+	// test_port_27.cpp, which run on a real logic world)
+	Object *streamObjectByID(ObjectID) override { return nullptr; }
+	Object *createProjectileStream(const std::string &, Object &) override { return nullptr; }
+	Object *weaponOwner() override { return nullptr; }
 };
 
 struct Shots : WeaponDeliverer

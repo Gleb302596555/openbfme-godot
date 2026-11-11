@@ -10,8 +10,9 @@
 // nugget's WeaponLaunchBoneSlotOverride when it is 0 .. 5 (RW 0x90FC05..0x90FC17). ProjectileSelf selects the source object before testing ProjectileTemplateName
 // (RW 0x90FACB / 0x90FDAA). For position targets its launch transform is the source's transform (RW 0x90FDB6 .. 0x90FE2E); for object targets it uses the launch bone.
 // Without ProjectileSelf, a nugget without a ProjectileTemplateName (the resolved template at RW + 0x14C is null) launches nothing.
-// INFERENCE (S-360): the garrison variant (ProjectileFilterInContainer: the container creates the projectile, RW 0x90FA81..0x90FAC9)
-// and ProjectileStreamName are not ported.
+// STREAM (issue #99 / PORT-27): after the projectile is flying, the deliver records it in the firing weapon's ProjectileStreamName object
+// (RW 0x90FB7A .. 0x90FC5A, the stream half of the same object-target deliver; see ProjectileLauncher.cpp).
+// INFERENCE (S-360): the garrison variant (ProjectileFilterInContainer: the container creates the projectile, RW 0x90FA81..0x90FAC9) is not ported.
 
 #pragma once
 

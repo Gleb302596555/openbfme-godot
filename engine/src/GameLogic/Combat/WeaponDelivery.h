@@ -47,6 +47,8 @@ struct ProjectileShot
 	WeaponBonus bonus;
 	int barrel = 0;
 	int slot = 0;                                   ///< the firing weapon slot (RW ctx + 0xC)
+	std::uint32_t streamID = 0;                     ///< the firing Weapon's ProjectileStreamName object (Weapon + 0x5C, RW 0x90FB80 pushes [esi + 0x5C]);
+	                                                ///< 0 = the weapon holds none, which is the whole of RW 0x6CD1FD's "empty name" / "no object yet" case
 	const ProjectileNugget *nugget = nullptr;       ///< the nugget that fired (the projectile template, the launch bone slot override)
 };
 

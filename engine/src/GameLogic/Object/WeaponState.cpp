@@ -12,6 +12,8 @@
 #include "GameLogic/SnapshotXfer.h"
 
 #include "Common/NumericState.h"
+#include "GameLogic/GameLogic.h"
+#include "GameLogic/Object/Object.h"
 
 #include <cstdlib>
 #include <cstring>
@@ -52,6 +54,8 @@ Weapon::Weapon(const WeaponTemplate *tmpl, int slot, std::uint32_t currentFrame)
 	m_pitchLimited = tmpl && (tmpl->m_minTargetPitch > -kPi || tmpl->m_maxTargetPitch < kPi);
 }
 
+// RW 0x6CD01C: template, owner, slot and the suspend-FX frame are copied; + 0x5C is stored 0 at RW 0x6CD03A, so a copy holds no stream object (the
+// stream stays with the weapon that made it, RW 0x6CD291).
 Weapon::Weapon(const Weapon &that)
 	: m_template(that.m_template)
 	, m_ownerID(that.m_ownerID)
@@ -392,6 +396,70 @@ void Weapon::setClipPercentFull(WeaponHost &host, float percent, bool allowReduc
 	}
 }
 
+// RW 0x6CD1FD: the weapon's projectile stream object (ProjectileStreamName, template + 0x178). Read branch by branch off the binary:
+//   RW 0x6CD206  mov eax, [esi + 4]          the template
+//   RW 0x6CD209  lea ecx, [eax + 0x178]      m_projectileStreamName
+//   RW 0x6CD212  call RW 0x401E64            GameAsciiString::isEmpty: an empty name ends the function here (RW 0x6CD219 jne 0x6CD295)
+//   RW 0x6CD227  call RW 0x449681            TheGameLogic->findObjectByID(weapon + 8), the owner; null -> the stream is dropped (0x6CD233) and done
+//   RW 0x6CD238  push [esi + 0x5C]           the stream id the weapon keeps
+//   RW 0x6CD23D  call RW 0x449681            findObjectByID of it; found -> nothing to do (0x6CD244 jne 0x6CD294): one stream per weapon, reused
+//   RW 0x6CD246  and [esi + 0x5C], eax       stale (the object is gone): the weapon forgets it (eax is 0)
+//   RW 0x6CD249  push &name / RW 0x6CD24C mov ecx, [RW 0xDE4A40] (TheThingFactory) / RW 0x6CD252 call RW 0x6D1305: the template; null -> done
+//   RW 0x6CD25B  lea eax, [ebp - 0x18] / push 0 / push eax / RW 0x6CD261 call RW 0xA3CF28: an EMPTY Coord3D, zeroed
+//   RW 0x6CD26C  call RW 0x68B678            the owner's player, then [eax + 0x30C] is its default team
+//   RW 0x6CD285  call RW 0x6D165E            ThingFactory::newObject(template, team, status 0, the zero position)
+//   RW 0x6CD28A  test eax, eax / je           a failed creation keeps the weapon without a stream
+//   RW 0x6CD28E  mov eax, [eax + 0x74]       the new object's id (Thing + 0x74)
+//   RW 0x6CD291  mov [esi + 0x5C], eax       kept in the weapon
+// privateFireWeapon returns at its step 2 on a null template, so the template read below is safe. It runs BEFORE the ammo tests (RW 0x6CF012,
+// step 6; the ammo test is later in the fire), so a shot that then finds no ammo still makes the stream: the object follows the weapon, not the shot.
+void Weapon::registerProjectileStream(WeaponHost &host)
+{
+	if (m_template->m_projectileStreamName.empty()) // RW 0x6CD212
+	{
+		return;
+	}
+	Object *owner = host.weaponOwner(); // RW 0x6CD227
+	if (!owner)
+	{
+		m_projectileStreamID = 0; // RW 0x6CD233
+		return;
+	}
+	if (m_projectileStreamID != 0 && host.streamObjectByID(m_projectileStreamID) != nullptr) // RW 0x6CD23D / RW 0x6CD244
+	{
+		return; // the stream is still there: later shots reuse it
+	}
+	m_projectileStreamID = 0; // RW 0x6CD246 `and [esi + 0x5C], eax` (eax 0): a stream that is gone is dropped
+	Object *stream = host.createProjectileStream(m_template->m_projectileStreamName, *owner); // RW 0x6CD252 .. 0x6CD285
+	if (!stream)
+	{
+		return; // RW 0x6CD28A: no object, no id (retail leaves + 0x5C at 0; RW 0x6CD23E)
+	}
+	m_projectileStreamID = stream->getID(); // RW 0x6CD28E / RW 0x6CD291
+}
+
+// RW 0x6CD0BE (the SEH prologue; the body the port copies is RW 0x6CD0C8), the Weapon destructor's stream half (see WeaponState.h). Read off the
+// binary:
+//   RW 0x6CD0C8  ...                         the destructor body's entry (vtable RW 0xC18404 slot 0 = RW 0x6CDB57, which calls RW 0x6CD0BE)
+//   RW 0x6CD0DC  push [esi + 0x5C]           the stream id
+//   RW 0x6CD0E8  call RW 0x449681            GameLogic::findObjectByID; null -> nothing to destroy (RW 0x6CD0EF `je 0x6CD0F9`)
+//   RW 0x6CD0F4  call RW 0x62BBAB            GameLogic::destroyObject of it
+//   RW 0x6CD0F9  ...                         the rest of the destructor (the scatter list at + 0x40, RW 0x6CD0FC .. 0x6CD10A)
+// The id is not cleared here: the weapon is going. Releasing twice would be harmless in retail as well (the second lookup finds nothing).
+void Weapon::destroyProjectileStream(GameLogic &logic)
+{
+	if (m_projectileStreamID == 0)
+	{
+		return;
+	}
+	Object *stream = logic.findObjectByID(m_projectileStreamID); // RW 0x6CD0E8
+	if (stream)
+	{
+		logic.destroyObject(stream); // RW 0x6CD0F4
+	}
+	m_projectileStreamID = 0;
+}
+
 // RW 0x6CEF6D
 bool Weapon::privateFireWeapon(WeaponHost &host, WeaponDeliverer &out, const FireArgs &args)
 {
@@ -416,7 +484,7 @@ bool Weapon::privateFireWeapon(WeaponHost &host, WeaponDeliverer &out, const Fir
 	{
 		return false;
 	}
-	// 6: the projectile stream object is the host's
+	registerProjectileStream(host); // 6 (RW 0x6CD1FD from RW 0x6CF012)
 	const std::uint32_t now = host.currentFrame();
 	const float rof = host.rateOfFireAttributeProduct(); // 7
 	const unsigned delay = getDelayBetweenShots(t, bonus, rof, host.logicRandom()); // 8: drawn BEFORE the ammo test
@@ -1046,6 +1114,9 @@ void Weapon::crc(StateHasher &h) const
 	h.addU32(m_leechRangeDeadline);
 	h.addU32(m_linearTargetCursor);
 	h.addI32(m_preAttackJitter);
+	// issue #99 / PORT-27: which stream object the weapon holds (Weapon + 0x5C). It decides whether the next shot makes a new object or reuses one,
+	// so two peers that disagree about it diverge on the objects in the world.
+	h.addU32(m_projectileStreamID);
 }
 
 void FiringTracker::crc(StateHasher &h) const
@@ -1106,6 +1177,10 @@ void Weapon::xfer(Xfer &x)
 	x.xferUnsignedInt(&m_leechRangeDeadline);
 	x.xferUnsignedInt(&m_linearTargetCursor);
 	x.xferInt(&m_preAttackJitter);
+	// issue #99 / PORT-27: the ProjectileStreamName object the weapon made (Weapon + 0x5C, RW 0x6CD291). The object is not a field of the weapon in
+	// retail either: it lives in the Objects block like every other object, and this id is the reference, so a loaded weapon finds its stream again
+	// (the other object is restored before the reference is used: a stale id is dropped at the next fire, RW 0x6CD244).
+	x.xferObjectID(&m_projectileStreamID);
 }
 
 // retail FiringTracker is a helper module (FiringTrackerHelper, RW 0x8E2EB2); this one is ObjectWeapons' member: native layout, the crc's fields
