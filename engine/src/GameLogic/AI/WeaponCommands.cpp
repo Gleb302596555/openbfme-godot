@@ -114,6 +114,26 @@ bool atPosition(GameLogic &logic, const GameMessage &m, bool withLocation)
 	group.clearTemporarySpeedCaps(); // RW 0x77A342 -> RW 0x76FD04
 	return true;
 }
+// RW 0x77B6EF .. 0x77B7C7: the status NO_AUTO_ACQUIRE (0x17) of an object; on a HORDE (template KindOf byte + 0x115 bit 5) through RW 0x748650 -> RW 0x293D3B,
+// which sets it on the horde and every member (BFME2 decomp ObjectConditionAndPassengerWeaponSet.cpp, INFERENCE: the top object is the containing horde)
+void setNoAutoAcquire(Object &o, bool on)
+{
+	static const int noAuto = CombatNames::status("NO_AUTO_ACQUIRE");
+	Object *top = &o;
+	if (o.getContainedBy() && o.getContainedBy()->isKindOf((unsigned)CombatNames::kinds().horde))
+	{
+		top = o.getContainedBy();
+	}
+	if (top->isKindOf((unsigned)CombatNames::kinds().horde) && top->getContain() && top->getContain()->getContainedItemsList())
+	{
+		for (Object *m : *top->getContain()->getContainedItemsList())
+		{
+			m->setStatus((unsigned)noAuto, on);
+		}
+	}
+	top->setStatus((unsigned)noAuto, on);
+}
+
 // RW 0x693C53..0x693C7B: inspect each live weapon of the member; RW 0x6CBABB..0x6CBAC9 asks each nugget's slot 0x34.
 bool hasSlaveAttackWeapon(const Object &o)
 {
