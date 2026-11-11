@@ -28,7 +28,7 @@ the name-key globals. DONOR = Open-BFME-2 (the BFME2 1.06 decompile), read for t
 * primary vtable RW 0xC6C360, 16 slots: 0 RW 0x8B332D, 1 RW 0x8B88B0, 2 RW 0x8B3309 (the name), 3 RW 0x8B319D, 4 RW 0x8B32C4, 5..8 RW 0x63F3BF,
   9 RW 0x8851E4, 10 / 11 RW 0x851E97, 12 RW 0x64DFDA, 13 RW 0x8B310D, 14 RW 0x8B33E4 (the dead image), 15 RW 0x8B330F; update interface
   RW 0xC6C354: RW 0x8B3A35 (update), RW 0x8B3313, RW 0x850C4E. The slots outside the unit are shared bodies: RW 0x8B88B0 (a jump to
-  RW 0x4D0EAF), RW 0x63F3BF (`ret`), RW 0x8851E4 (`ret 8`), RW 0x851E97 (returns null), RW 0x64DFDA (returns 2), RW 0x850C4E (the interface's thunk
+  RW 0x4D0EAF, itself a jump to RW 0x63F3BF), RW 0x63F3BF (`ret`), RW 0x8851E4 (`ret 8`), RW 0x851E97 (returns null), RW 0x64DFDA (returns 2), RW 0x850C4E (the interface's thunk
   to the wake-frame setter RW 0x850C32); none addresses `+0xFC`;
 * module data constructor RW 0x8B3C54: vtable RW 0xC6C3A8 (RW 0x8B3C6E); it zeroes `+0xF0` (RW 0x8B3CB2), `+0xF4` (RW 0x8B3CB8), `+0xF8`
   (RW 0x8B3CBE), **`+0xFC` (RW 0x8B3CC4)**, `+0x100` (RW 0x8B3CCA), `+0x104` (RW 0x8B3CD0);
