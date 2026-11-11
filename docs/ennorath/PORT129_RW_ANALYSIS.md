@@ -129,8 +129,9 @@ RespawnUpdate RW 0x8B3744 (the death before a respawn), only in state 0 or 4 (RW
 * RW 0x8B385F..0x8B3897: with a controlling player the hero list (player `+0x758`) gets the dead hero (RW 0x781792) and the record its level cap
   (`+0xD8`).
 
-Neither function reads `+0xFC`, sets a wake frame from it or stores it. The revive record joins the hero list in the frame of death; the object then
-dies through `Object::onDie`, so the body stays as long as the object's own die modules keep it.
+Neither function reads `+0xFC`, sets a wake frame from it or stores it. The revive record joins the hero list in the frame of death, and the object
+goes to `Object::onDie` in the same call. What holds the body after that is `Object::onDie` and the object's die modules; they were not read
+here, and they cannot reach this field (section 3).
 
 ## 5. RespawnUpdate update RW 0x8B3A35 (update interface RW 0xC6C354 slot 0), every branch
 
