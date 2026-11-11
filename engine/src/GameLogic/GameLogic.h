@@ -520,6 +520,10 @@ public:
 	// lane ECON-1: the world-level economy (GameData values, the game context, the TerrainResourceManager, the PlayerEconomyHost)
 	Economy &economy() { return *m_economy; }
 	const Economy &economy() const { return *m_economy; }
+	// PORT-106 (issue #266): RW 0x441B7C reads [this + 0x110] (the game mode) and answers true only for 1 MODE_LAN and 5
+	// MODE_INTERNET; 2 MODE_SKIRMISH and every other mode answer false. NOT Economy::isMultiplayerGame (RW 0x625456, {1,2,5}):
+	// the MultiPlayerOnly gate (W3DModelDraw.cpp) and other "really online" tests need this one.
+	bool isInMultiplayerGame() const;
 	// lane COMBAT-1: the in-flight shots, the counters and the projectile seam of this game
 	CombatState &combat() { return *m_combat; }
 	// lane COMBAT-2: the skirmish win / lose rules (init() after the players and their bases exist; update() runs in the logic frame's first phase)

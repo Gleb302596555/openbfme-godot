@@ -170,6 +170,11 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 				o.variation = m_variation; // RandomTexture (RW 0x4C238A)
 				o.buildBones = false; // turrets, barrels and particle bones are not drawn (S-095 / S-097)
 				o.cameraFadeAvailable = static_cast<bool>(services.cameraPosition); // PORT-49: the device camera source is installed before the load
+				// PORT-106 (issue #266): the MultiPlayerOnly gate (RW 0x4C72E1..0x4C730C). The inputs: isInMultiplayerGame (RW 0x441B7C)
+				// from the logic through DrawServices, and GlobalData +0xD45 — always 0 in RotWK 2.01 (ctor RW 0x6435AF; the only other
+				// writer RW 0x919FB6 restores a snapshot, so the byte never turns on: full .text scan). Without the logic source (a test
+				// rig, the map-object runtime) the gate is not applied — RW always has TheGameLogic (RW 0xDE412C).
+				o.multiPlayerOnlySkipped = services.inMultiplayerGame && data->multiPlayerOnlySkipsBody(services.inMultiplayerGame(), false);
 				// AUDIO-2: Lua CurDrawablePlaySound (RW 0x73529F) plays for this drawable through the installed audio manager
 				const DrawableID drawableId = m_id;
 				o.playSound = [drawableId](const std::string &name) { AudioApi::playSoundForDrawable(name, (std::uint32_t)drawableId); };

@@ -143,6 +143,9 @@ struct DrawServices
 	// LOCAL-25: TheGameClient's frame (30 a second, RW vslot 0x7C of 0xDE4388), the gate of the presentation physics step (RW 0x67BDF6 .. 0x67BE17).
 	// Null (a test without the manager): every call steps
 	const unsigned *clientFrame = nullptr;
+	// PORT-106 (issue #266): GameLogic::isInMultiplayerGame (RW 0x441B7C) for the draw entries' MultiPlayerOnly gate. Installed by
+	// DrawableManager (it holds the logic); unset (a test rig, the map-object runtime): the gate is not applied.
+	std::function<bool()> inMultiplayerGame;
 };
 
 // One draw module of a drawable.
