@@ -14,7 +14,8 @@ namespace UnitSpecificSound
 {
 // the value token of `name` (the first word after '='), "" when the map has none
 std::string rawValue(const ThingTemplate &tt, const std::string &name);
-// the event of one of the template's audio rows (SoundMoveStart, SoundMoveLoopDamaged, ...: RW 0x73AD07 -> 0x73ACAF; "" when unset or NoSound). The draw
-// module overrides RW 0x676A8A asks first (vtable + 0x34) are not ported (S-701)
+// the event of one of the template's audio rows (SoundMoveStart, SoundMoveLoopDamaged, ..., SoundCrushing: RW 0x73AD07 -> 0x73ACAF -> 0x73AB45; "" when unset,
+// NoSound, or EVA:, with #define macros resolved, +SOUND: stripped, and map.ini overrides followed via getFinalOverride). The draw module overrides RW 0x676A8A
+// asks first (vtable + 0x34) are not ported (S-701)
 std::string templateSound(const ThingTemplate &tt, const char *field);
 } // namespace UnitSpecificSound
