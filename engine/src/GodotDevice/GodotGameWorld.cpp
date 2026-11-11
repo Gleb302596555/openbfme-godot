@@ -2293,6 +2293,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 				// the names frame() gives (the model's sub objects at the hidden indices, in index order), made when the draw's hidden set or the model changed
 				if (f.model != ev.hiddenModel || f.hiddenGeneration != ev.hiddenGeneration)
 				{
+					const bool firstSet = f.model != ev.hiddenModel; // P-88: a new instance starts with the meshes' HIDDEN flags, not with ev.hidden
 					ev.hiddenModel = f.model;
 					ev.hiddenGeneration = f.hiddenGeneration;
 					std::vector<std::string> names;
@@ -2303,9 +2304,9 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 							names.push_back(f.model->SubObjects[(size_t)i].Name);
 						}
 					}
-					if (names != ev.hidden)
+					if (firstSet || names != ev.hidden)
 					{
-						dyn->set_instance_hidden_subobjects(ev.instance, toPacked(names));
+						dyn->set_instance_hidden_subobjects_exact(ev.instance, toPacked(names));
 						ev.hidden = std::move(names);
 					}
 				}

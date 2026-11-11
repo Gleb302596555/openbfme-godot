@@ -419,6 +419,7 @@ void W3DInstancer::_bind_methods()
 	ClassDB::bind_method(D_METHOD("set_sort_camera", "transform"), &W3DInstancer::set_sort_camera);
 	ClassDB::bind_method(D_METHOD("get_draw_order", "model", "draw"), &W3DInstancer::get_draw_order);
 	ClassDB::bind_method(D_METHOD("set_instance_hidden_subobjects", "instance", "names"), &W3DInstancer::set_instance_hidden_subobjects);
+	ClassDB::bind_method(D_METHOD("set_instance_hidden_subobjects_exact", "instance", "names"), &W3DInstancer::set_instance_hidden_subobjects_exact);
 	ClassDB::bind_method(D_METHOD("set_auto_update", "enabled"), &W3DInstancer::set_auto_update);
 	ClassDB::bind_method(D_METHOD("set_house_colors_enabled", "enabled"), &W3DInstancer::set_house_colors_enabled);
 	ClassDB::bind_method(D_METHOD("get_house_colors_enabled"), &W3DInstancer::get_house_colors_enabled);
@@ -1140,10 +1141,13 @@ int64_t W3DInstancer::build_model(const String &model_name)
 		{
 			if (sub.Mesh->Is_Hidden())
 			{
+				// P-88: W3D_MESH_FLAG_HIDDEN is the mesh's starting state, not "never drawn": a draw module's ShowSubObject (SubObjectsUpgrade, a state
+				// script) shows it. The mesh is built as any other; an instance starts with it hidden (Model::DefaultHiddenSubs) until a draw module
+				// gives its own complete hidden set (set_instance_hidden_subobjects_exact).
 				s["hidden"] = true;
-				notes.push_back(toGodot("mesh " + sub.Name + " has the HIDDEN flag and is not drawn"));
-				subs.push_back(s);
-				continue;
+				notes.push_back(toGodot("mesh " + sub.Name + " has the HIDDEN flag: hidden until an instance shows it"));
+				if (model->DefaultHiddenSubs.empty()) model->DefaultHiddenSubs.assign(proto->SubObjects.size(), 0);
+				model->DefaultHiddenSubs[(size_t)(&sub - proto->SubObjects.data())] = 1;
 			}
 			std::vector<std::string> meshErrors;
 			std::shared_ptr<MeshGpu> gpu = build_mesh(*sub.Mesh, meshErrors);
@@ -1311,6 +1315,7 @@ int64_t W3DInstancer::add_instance(int64_t model, const Transform3D &transform, 
 	inst.Pose.Resize(Models[(size_t)model]->Proto->Tree->Num_Pivots());
 	inst.PaletteAnimated = !clip.is_empty();
 	inst.DrawPoseState.resize(Models[(size_t)model]->Draws.size());
+	inst.HiddenSubs = Models[(size_t)model]->DefaultHiddenSubs; // P-88: the meshes' own HIDDEN flags
 	allocate_palette(inst);
 	Instances.push_back(std::move(inst));
 	const int id = (int)Instances.size() - 1;
@@ -1937,11 +1942,24 @@ bool W3DInstancer::set_instance_pose(int64_t instance, const String &clip0, doub
 
 bool W3DInstancer::set_instance_hidden_subobjects(int64_t instance, const PackedStringArray &names)
 {
+	return set_hidden_subobjects(instance, names, false);
+}
+
+bool W3DInstancer::set_instance_hidden_subobjects_exact(int64_t instance, const PackedStringArray &names)
+{
+	return set_hidden_subobjects(instance, names, true);
+}
+
+// P-88: exact = the names are a draw module's complete hidden set (it starts from the meshes' HIDDEN flags and its ShowSubObject clears them);
+// otherwise the names are hidden on top of the meshes' HIDDEN flags (a caller that knows nothing of the flags must not reveal such a mesh).
+bool W3DInstancer::set_hidden_subobjects(int64_t instance, const PackedStringArray &names, bool exact)
+{
 	if (instance < 0 || instance >= (int64_t)Instances.size()) return false;
 	Instance &inst = Instances[(size_t)instance];
 	const Model &m = *Models[(size_t)inst.Model];
 	std::vector<std::uint8_t> hidden;
-	if (!names.is_empty()) hidden.assign(m.Proto->SubObjects.size(), 0);
+	if (!exact) hidden = m.DefaultHiddenSubs;
+	if (!names.is_empty() && hidden.empty()) hidden.assign(m.Proto->SubObjects.size(), 0);
 	for (int64_t i = 0; i < names.size(); ++i)
 	{
 		const std::string want = AsciiStringUtil::lowered(toNative(names[i]));

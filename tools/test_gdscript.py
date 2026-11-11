@@ -156,6 +156,7 @@ DENYLIST = {
     "windows_crash_test.gd": "manual: destructive Windows debug crash/minidump probe; explicit opt-in required",
     "edainfactions1_test.gd": "manual: needs the Edain 4.8.5.3 install (OPENBFME_EDAIN_INSTALL); without it the script only parses",
     "ennorath_run_pose_test.gd": "manual: needs the Ennorath install (OPENBFME_ENNORATH_INSTALL) and retail assets (P-30)",
+    "p88_hidden_mesh_test.gd": "manual: needs the Ennorath install (OPENBFME_ENNORATH_INSTALL) and retail assets (P-88)",
 }
 ENGINE_ERRORS = re.compile(r"(?m)^\s*(?:SCRIPT ERROR|ERROR):")
 

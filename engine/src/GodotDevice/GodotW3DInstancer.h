@@ -110,6 +110,8 @@ public:
 	// i.e. what the retail BeginScript bodies hide): a hidden sub object is not written to its MultiMesh for that instance. An empty list shows
 	// everything again. Unknown names are an error (returns false, recorded). (Added by lane MAPOBJ-1.)
 	bool set_instance_hidden_subobjects(int64_t instance, const PackedStringArray &names);
+	// P-88: a draw module's complete hidden set (W3DScriptedModelDraw::hiddenSubObjects): a mesh with W3D_MESH_FLAG_HIDDEN that is not named is drawn
+	bool set_instance_hidden_subobjects_exact(int64_t instance, const PackedStringArray &names);
 	int64_t get_instance_count() const { return (int64_t)Instances.size(); }
 	// Stop S-119 (lane MAPOBJ-1): team colours. After setup() and BEFORE the first add_model, enable them and every classic surface whose stage
 	// 0 texture has a housecolor.ini texture gets the HouseColor shader permutation (W3DShaderKey::HouseColor: the texture recoloured with the instance's
@@ -255,6 +257,7 @@ protected:
 	static void _bind_methods();
 
 private:
+	bool set_hidden_subobjects(int64_t instance, const PackedStringArray &names, bool exact); // P-88
 	struct MeshGpu
 	{
 		MeshRenderData Data;
@@ -298,6 +301,7 @@ private:
 		std::string Name;
 		const RenderObjPrototype *Proto = nullptr;
 		std::vector<DrawItem> Draws;
+		std::vector<std::uint8_t> DefaultHiddenSubs; // P-88: by sub object index, 1 = the mesh carries W3D_MESH_FLAG_HIDDEN; empty = no such mesh
 		std::vector<int> InstanceIds;    // the LIVE instances in creation order (SMOOTH-1: a removed instance leaves the list)
 		Dictionary Report;
 		// lane SMOOTH-1: per-frame work only where something changed

@@ -433,9 +433,10 @@ Node3D *MapObjectBuilder::build_objects(const Ref<RetailFileSystem> &fsRef, cons
 				++poseFailures;
 			}
 			std::vector<std::string> hidden = frame.hiddenSubObjects;
+			// P-88: the draw module's set is complete (it starts from the meshes' HIDDEN flags): an empty set shows a flagged mesh too
+			target->set_instance_hidden_subobjects_exact(instance, toPacked(hidden));
 			if (!hidden.empty())
 			{
-				target->set_instance_hidden_subobjects(instance, toPacked(hidden));
 				++hiddenSets;
 			}
 			if (animatedPlay)
@@ -742,7 +743,7 @@ void MapObjectBuilder::advance(double delta)
 		applyFrame(inst, a.instance, f);
 		if (f.hiddenSubObjects != a.hidden)
 		{
-			inst->set_instance_hidden_subobjects(a.instance, toPacked(f.hiddenSubObjects));
+			inst->set_instance_hidden_subobjects_exact(a.instance, toPacked(f.hiddenSubObjects));
 			a.hidden = f.hiddenSubObjects;
 		}
 		++m_poseUpdates;

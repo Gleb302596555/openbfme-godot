@@ -330,6 +330,7 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 		view.inst->set_instance_pose_keyed(ev.instance, *f.clip0, f.clipKey0, f.frame0, *f.clip1, f.clipKey1, f.frame1, f.blendPercentage);
 		if (f.model != ev.hiddenModel || f.hiddenGeneration != ev.hiddenGeneration)
 		{
+			const bool firstSet = f.model != ev.hiddenModel; // P-88: a new instance starts with the meshes' HIDDEN flags, not with ev.hidden
 			ev.hiddenModel = f.model;
 			ev.hiddenGeneration = f.hiddenGeneration;
 			std::vector<std::string> names;
@@ -340,14 +341,14 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 					names.push_back(f.model->SubObjects[(size_t)h].Name);
 				}
 			}
-			if (names != ev.hidden)
+			if (firstSet || names != ev.hidden)
 			{
 				PackedStringArray packed;
 				for (const std::string &n : names)
 				{
 					packed.push_back(toGodotString(n));
 				}
-				if (!view.inst->set_instance_hidden_subobjects(ev.instance, packed))
+				if (!view.inst->set_instance_hidden_subobjects_exact(ev.instance, packed))
 				{
 					error(icon.tt->getName() + ": the draw script hides a sub object the model lacks");
 				}
