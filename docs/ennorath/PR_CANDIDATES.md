@@ -140,6 +140,7 @@
 | PORT-92: `GiveUpgradeUpdate` `SpawnOutFX` у носильщика (RW 0x89FE1C .. 0x89FE35) | 2026-11-10 | арена (issue #240) | PR #278 | `PORT-92*` | не предложено |
 | PORT-101: `SelectionPriority` при выделении рамкой | 2026-11-10 | арена (issue #261) | PR #287 | `PORT-101*` | не предложено |
 | PORT-84 / 100 / 98 / 91: голос `VoiceCombineWithHorde`, `LargeGroupAudio` `HandOffModeDuration`, `LoadScreenMusic`, `ShowShadowWhileContained` | 2026-11-10 | арена (issues #232, #260, #258, #239) | PR #288, #276, #290, #291 | `PORT-84*`, `PORT-100*`, `PORT-98*`, `PORT-91*` | не предложено |
+| P-69: строки бонуса обзора, которых нет в шаблоне, берут значения конструктора `ThingTemplate` (8 точек, радиус 100, максимум 0.5, минимум −0.5; RW 0x73FF17 .. 0x74002F), а не нули — обзор и поиск цели не растут с абсолютной высотой карты | 2026-11-11 | Claude (station-0) | `agent/claude/station-0`, с перемером `perf1` / `uber1` / `save4b retail T4` | `shroud objects: the vision bonus rows*`; владелец: ждёт | не предложено |
 
 Правки до 2026-11-05 ещё не разобраны. Классы, которые есть только у нас, показывает `python tools/mod/upstream_sync.py candidates`.
 

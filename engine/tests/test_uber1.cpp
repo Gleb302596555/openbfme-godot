@@ -172,6 +172,9 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // AIData SideInfo blocks (data\ini\default\aidata.ini) enter GameLogicSettings::crc from frame 0 (bisected with perf1's vectors to the #201 merge)
 // pin: Local 30 (issue #246) re-measured it once (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-3): the last damage record is replaced only as RW
 // 0x8C4294 .. 0x8C42F5 says, which moves it from frame 23
+// pin: owner 2026-11-11 (P-69) re-measured it once (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-0; perf1 x3 with OPENBFME_PERF1_REGEN=1): the vision
+// bonus rows a template leaves out take the ThingTemplate ctor's defaults (8 segments, radius 100, max 0.5, min -0.5: RW 0x73FF17 .. 0x74002F) instead of
+// zeros, so the bonus is measured against the ground around the object; every template with VisionBonusPercentPerFoot looks differently from frame 0
 TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1, 4 and 16 logic threads and in a repeated run; the hash's own jobs run on "
 		  "workers; Faithful hashes differently and serially")
 {

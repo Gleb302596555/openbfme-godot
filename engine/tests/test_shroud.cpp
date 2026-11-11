@@ -963,6 +963,33 @@ TEST_CASE("shroud objects: an omitted clearing range defaults to VisionRange in 
 	CHECK(ShroudManager::templateVision(*bfme1.get("BlindKeep")).shroudClearingRange == 0.0f);
 }
 
+// owner 2026-11-11 (P-69): Ennorath writes VisionBonusPercentPerFoot on 529 objects and never VisionBonusTestSegments, so the rows it leaves out must be
+// the ThingTemplate ctor's (RW 0x73FF17 / 0x73FF57 / 0x740027 / 0x74002F), not zero: with 0 segments the ground reference was 0 and the bonus followed the
+// absolute height of the map
+TEST_CASE("shroud objects: the vision bonus rows a template leaves out are the ctor's: 8 segments, radius 100, max 50%, min -50% (RW 0x73FF17 .. 0x74002F)")
+{
+	const char *objects = "Object Wildman\n KindOf = INFANTRY\n ShroudClearingRange = 300\n VisionRange = 200\n MaxVisionBonusPercent = 300%\n"
+		" VisionBonusTestRadius = 200\n VisionBonusPercentPerFoot = 2.0%\n Geometry = CYLINDER\n GeometryMajorRadius = 5\nEnd\n"
+		"Object Bare\n KindOf = INFANTRY\n VisionRange = 200\n VisionBonusPercentPerFoot = 1%\n Geometry = CYLINDER\n GeometryMajorRadius = 5\nEnd\n"
+		"Object Written\n KindOf = INFANTRY\n VisionRange = 200\n VisionBonusPercentPerFoot = 1%\n VisionBonusTestSegments = 4\n MinVisionBonusPercent = -25%\n"
+		" Geometry = CYLINDER\n GeometryMajorRadius = 5\nEnd\n";
+	objtest::World w;
+	REQUIRE(w.load(objects).empty());
+	const ShroudManager::TemplateVision wild = ShroudManager::templateVision(*w.get("Wildman"));
+	CHECK(wild.bonusTestSegments == 8);
+	CHECK(wild.bonusTestRadius == 200.0f);
+	CHECK(wild.maxBonus == 3.0f);
+	CHECK(wild.minBonus == -0.5f);
+	const ShroudManager::TemplateVision bare = ShroudManager::templateVision(*w.get("Bare"));
+	CHECK(bare.bonusTestSegments == 8);
+	CHECK(bare.bonusTestRadius == 100.0f);
+	CHECK(bare.maxBonus == 0.5f);
+	CHECK(bare.minBonus == -0.5f);
+	const ShroudManager::TemplateVision written = ShroudManager::templateVision(*w.get("Written"));
+	CHECK(written.bonusTestSegments == 4);
+	CHECK(written.minBonus == -0.25f);
+}
+
 TEST_CASE("shroud objects: a GeometryOffset with a blank after the colon parses like retail's colon sub-tokens (RotWK mumakilpen.ini `X: -10.0`)")
 {
 	Fx f;
