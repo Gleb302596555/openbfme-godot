@@ -19,7 +19,7 @@ base. RW 0x8838C3–0x883932 confirms the same branches: filter validity at
 0x883900–0x883916, success 0x883918, base call 0x88391C–0x88392A.
 The port already has this in `SlaughterHordeContain::isValidContainerFor`.
 
-DONOR BFME2 `OpenContainIsValidContainerFor.cpp` (BFME2 named method):
+DONOR BFME2 0x00462977 (`OpenContainIsValidContainerFor.cpp`) (BFME2 named method):
 common gates, passenger filter and relationship. RW 0x86603B–0x86620B
 confirms dead/defected/ring/enabled gates, combo-horde restriction, filter,
 mounted cavalry exclusion, CAN_ENTER_ANYTHING bypass and enemy/neutral/ally
@@ -38,9 +38,9 @@ object selection, path checks and group-order path still require tracing.
 
 ## Cursor
 
-DONOR BFME2 `CommandXlat.cpp` (evaluateContextCommand): enter action tests
-selected objects, then uses getEnterMessage for the hint; DONOR BFME2
-`ActionManagerSpecialPowerChecks.cpp` (getEnterMessage) branches on contest,
+DONOR BFME2 0x00429E11 (`CommandXlat.cpp`, evaluateContextCommand): enter action tests
+selected objects, then uses getEnterMessage for the hint; DONOR BFME2 0x0041C5F6
+(`ActionManagerSpecialPowerChecks.cpp`, getEnterMessage) branches on contest,
 ring and slaughter. RW 0x81EEBC–0x81EEF1 confirms the action-8 test and hint
 call via 0x82D75F to 0x82CEFB. RW 0x82CF04–0x82CF22 defaults when selection
 or contain is absent; RW 0x82CF2A–0x82CF77 yields contest for an occupied
@@ -69,7 +69,7 @@ horde with transport slots. Some other Isengard hordes have COMBO_HORDE,
 which RW 0x86609C–0x8660BB rejects unless the target has GARRISON or
 FS_CASH_PRODUCER; this is a retail restriction, not proof of the owner's case.
 
-DONOR BFME2 `InGameUICanSelectedObjectsDoAction.cpp` action 8 calls
+DONOR BFME2 0x0029C823 (`InGameUICanSelectedObjectsDoAction.cpp`) action 8 calls
 canEnterObject with path checking and rejects the occupied-special result.
 RW 0x81EEBF–0x81EECA asks action 8 with additionalChecking=1; RW
 0x69D401–0x69D432 passes mode 0 and checkPath=1 and rejects the occupied

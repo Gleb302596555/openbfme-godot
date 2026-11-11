@@ -490,8 +490,8 @@ int CommandTranslator::evaluateContextCommand(Object *obj, const Coord3D *pos, E
 		}
 	}
 	// lane GARRISON-1 (ZH evaluateContextCommand's ACTIONTYPE_ENTER_OBJECT): a click on a container some selected object may enter (ActionManager::canEnterObject,
-	// RW 0x82CBD5, mode 0) is MSG_ENTER (argument 0 the first selected object, argument 1 the container: the logic case RW 0x77AC26 reads argument 1); the cursor
-	// is EnterFriendly. INFERENCE (S-286): RotWK's order of the context checks is not read; the enter check comes before the attack check here (an enemy
+	// RW 0x82CBD5, mode 0) is MSG_ENTER (argument 0 the first selected object, argument 1 the container: the logic case RW 0x77AC26 reads argument 1).
+	// INFERENCE (S-286): RotWK's order of the context checks is not fully read; the enter check comes before the attack check here (an enemy
 	// container is not enterable by the garrison rules)
 	if (obj && !m_ctx.ui.isInForceAttackMode() && obj->getContain())
 	{
