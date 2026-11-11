@@ -102,6 +102,7 @@ struct LoadState
 	std::map<std::string, RadiusDecalTemplate> *out = nullptr;
 	TerrainResourceUiSettings *resourceUi = nullptr; // lane OWNERFIX-2
 	PlayerMessageSettings *messages = nullptr;
+	std::string *useWeaponScatterRadius = nullptr; // P-60
 	bool inGameUi = false;
 };
 
@@ -126,6 +127,12 @@ void parseResourcePlaceFont(INI *ini, void *instance, void *, const void *)
 void parseResourcePlaceFontColor(INI *ini, void *instance, void *, const void *)
 {
 	INI::parseColorInt(ini, nullptr, &static_cast<LoadState *>(instance)->resourceUi->fontColor, nullptr); // RW 0x42F13E
+}
+
+// P-60: RadiusCursorUseWeaponScatterRadius, a RadiusCursorType name kept as a name key at InGameUI + 0x89C (compared with the type at RW 0x6A0849)
+void parseUseWeaponScatterRadius(INI *ini, void *instance, void *, const void *)
+{
+	*static_cast<LoadState *>(instance)->useWeaponScatterRadius = lower(ini->getNextToken());
 }
 
 // RW 0x6A4E27 (InGameUI::parseNamedRadiusDecalTemplate): the name, a default template (RW 0x732888) parsed with RW 0xC24278; a duplicate replaces the earlier
@@ -155,6 +162,7 @@ const FieldParse kInGameUiFields[] = {
 	MESSAGE_FIELD("MessageBold", parseBool, bold),
 	MESSAGE_FIELD("MessageDelayMS", parseInt, delayMs),
 	{ "RadiusCursorTemplate", parseNamedRadiusDecalTemplate, nullptr, 0 },
+	{ "RadiusCursorUseWeaponScatterRadius", parseUseWeaponScatterRadius, nullptr, 0 },
 	{ "TerrainResourceClaimDecal", parseResourceClaimDecal, nullptr, 0 },
 	{ "PlaceTerrainResourceClaimantDecal", parseResourcePlaceDecal, nullptr, 0 },
 	{ "PlaceTerrainResourceClaimantFont", parseResourcePlaceFont, nullptr, 0 },
@@ -164,7 +172,7 @@ const FieldParse kInGameUiFields[] = {
 #undef MESSAGE_FIELD
 
 bool run(ArchiveFileSystem *fs, const std::string &path, const std::string *memory, std::map<std::string, RadiusDecalTemplate> &out, TerrainResourceUiSettings &ui, PlayerMessageSettings &messages,
-	std::string *error)
+	std::string &useWeaponScatterRadius, std::string *error)
 {
 	INIEnvironment env;
 	env.fileSystem = fs;
@@ -175,6 +183,8 @@ bool run(ArchiveFileSystem *fs, const std::string &path, const std::string *memo
 	state.resourceUi = &ui;
 	messages = PlayerMessageSettings();
 	state.messages = &messages;
+	useWeaponScatterRadius.clear();
+	state.useWeaponScatterRadius = &useWeaponScatterRadius;
 	RegisterRecordingBlockStubs(env.blocks, recorder, { "InGameUI" }, StubExtent::LenientAfterEnd);
 	env.blocks.registerBlock("InGameUI", [&state](INI *ini) {
 		state.inGameUi = true;
@@ -224,19 +234,24 @@ bool RadiusCursorTemplates::load(ArchiveFileSystem &fs, std::string *error)
 		return false;
 	}
 	m_templates.clear();
-	return run(&fs, file, nullptr, m_templates, m_resourceUi, m_messageUi, error);
+	return run(&fs, file, nullptr, m_templates, m_resourceUi, m_messageUi, m_useWeaponScatterRadius, error);
 }
 
 bool RadiusCursorTemplates::scan(const std::string &inGameUiIni, std::string *error)
 {
 	m_templates.clear();
-	return run(nullptr, "ingameui.ini", &inGameUiIni, m_templates, m_resourceUi, m_messageUi, error);
+	return run(nullptr, "ingameui.ini", &inGameUiIni, m_templates, m_resourceUi, m_messageUi, m_useWeaponScatterRadius, error);
 }
 
 const RadiusDecalTemplate *RadiusCursorTemplates::find(const std::string &name) const
 {
 	auto it = m_templates.find(lower(name));
 	return it == m_templates.end() ? nullptr : &it->second;
+}
+
+bool RadiusCursorTemplates::usesWeaponScatterRadius(const std::string &type) const
+{
+	return !m_useWeaponScatterRadius.empty() && lower(type) == m_useWeaponScatterRadius;
 }
 
 int RadiusCursor::throbOpacity(const RadiusDecalTemplate &t, unsigned clientFrame, bool drawIconUI)

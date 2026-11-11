@@ -6,4 +6,5 @@
 
 set(OPENBFME_PORT115_TESTS
     tests/test_port_115.cpp
+    tests/test_p60_barrage_input.cpp # P-60: the same button through the input path (press, pointer, click), retail data
 )

@@ -86,6 +86,11 @@ class RadiusCursorTemplates
 public:
 	const PlayerMessageSettings &messageUi() const { return m_messageUi; }
 	const TerrainResourceUiSettings &resourceUi() const { return m_resourceUi; } // lane OWNERFIX-2
+	// P-60: InGameUI.ini's RadiusCursorUseWeaponScatterRadius (the InGameUI block's name key at + 0x89C, read by setRadiusCursor RW 0x6A0846 .. 0x6A084F):
+	// the RadiusCursorType whose radius is not a special power's RadiusCursorRadius but the weapon's ScatterRadius + ScatterTargetScalar (the weapon of
+	// the button's WeaponSlot on the object the radius belongs to). Empty when the file does not set it (INFERENCE: the constructor's default key was not read)
+	const std::string &useWeaponScatterRadius() const { return m_useWeaponScatterRadius; }
+	bool usesWeaponScatterRadius(const std::string &type) const; // the name compare ignores case (NameKeys)
 	// Data\INI\InGameUI.ini from the mount; false with `error` when it is missing or does not parse
 	bool load(ArchiveFileSystem &fs, std::string *error);
 	// the same from text (tests)
@@ -99,6 +104,7 @@ private:
 	std::map<std::string, RadiusDecalTemplate> m_templates;
 	TerrainResourceUiSettings m_resourceUi;
 	PlayerMessageSettings m_messageUi;
+	std::string m_useWeaponScatterRadius; // P-60, lower-cased
 };
 
 // the decal the device draws this frame
