@@ -2,7 +2,7 @@
 
 Question: what does RotWK 2.01 do with `RespawnUpdate/DeathAnimationTime` (how long a dead hero's death animation holds before he leaves the map)?
 
-Working state of the analysis (step 1 of the task). Every RW address below was read with `tools/mod/rw.py ... dis` or with a linear capstone sweep of the
+Every RW address below was read with `tools/mod/rw.py ... dis` or with a linear capstone sweep of the
 whole `.text` section (RW 0x401000..0xBD0000, 2 701 800 instructions) of `game.dat` (md5 `daed3668...`). DONOR = Open-BFME-2 (BFME2 1.06 decompile).
 
 ## 1. The field
@@ -82,8 +82,39 @@ RespawnUpdate RW 0x8B3744 (the death before a respawn), only in state 0 or 4 (RW
 Neither function reads `+0xFC`, sets a wake frame from it or stores it: the revive record joins the hero list in the same call, and the object then
 dies through `Object::onDie` (RW 0x698F06), so the time the body stays is the time of the object's own die modules.
 
-## 5. Still to read before the verdict (next step)
+## 5. RespawnUpdate update RW 0x8B3A35 (update interface RW 0xC6C354 slot 0), every branch
 
-* RespawnUpdate update RW 0x8B3A35..0x8B3C07 and the small helpers, line by line (the offset scan already shows no `+0xFC` access there);
-* RW 0x6E2D92 / RW 0x6E2E18 and the Object / hero list functions that receive the module pointer: where they pass it on;
-* DONOR: every use of `m_fieldFC` in `Code/`.
+`this` is the update interface (module + 0x10): the state is `[ebx+0x1C]` (module `+0x2C`), the object `[ebx-8]`, the module data `[ebx-0xC]`.
+
+* state 2, and every state other than 3 and 4 (RW 0x8B3A51 / RW 0x8B3A5F): return 0x3FFFFFFF (sleep forever, RW 0x8B3AFE);
+* state 4 (RW 0x8B3A65..0x8B3AF9): the `RespawnAnim` (`+0x58`) and `InitialSpawnAnim` (`+0xA4`) conditions cleared (RW 0x5E3B79), status 3 cleared
+  (RW 0x62684D), disabled type 4 cleared (RW 0x692443), state 0, the producer's exit interface (RW 0x68BB14) gets the object (slot `+8`,
+  RW 0x8B3AEA) when its AI is idle (slot 0x1B8) or in state 16 (RW 0x660AC1); sleep forever;
+* state 3 (RW 0x8B3B08..0x8B3C02): the respawn object (`+0x30`, else RW 0x8B307E), its rally point (exit interface slot 0x24), the object moved
+  there (RW 0x697F0F), `RespawnAnim` set (RW 0x5E3BA5), `RespawnFX` (`+0xF4`, RW 0x4B1B5A), disabled type 4 until frame + `RespawnAnimationTime`
+  (`+0x100`, RW 0x8B3B97 / RW 0x6907F1), state 4, the body's health (slot 0x58), `+0x34 = +0x38 = -1`, the local player's control bar marked
+  (RW 0x8B3BEC); returns `RespawnAnimationTime` (RW 0x8B3BFC).
+
+The update reads `+0x58`, `+0xA4`, `+0xF4` and `+0x100` of the data; never `+0xFC`. No state waits for a death time: the death (section 4) leaves the
+module asleep and the state unchanged.
+
+## 6. DONOR (BFME2 1.06, Open-BFME-2)
+
+`git grep m_fieldFC -- Code`: `RespawnUpdate.cpp:206` (the member, `+0xFC`) and `RespawnUpdate.cpp:830` (the module data constructor 0x004AFB4E:
+`m_fieldFC = 0`); the two other hits are another class (`LivingWorldLogicPlayerObserver`). `git grep DeathAnimationTime -- Code`: the parse row only
+(`ConstIntGettersAddr.cpp:690`). `triggerDeathBeforeRespawn` (0x004AF63E) is RW 0x8B3744 line for line and `triggerRevival` (0x004AF79C) is RW 0x8B38A2;
+neither reads the member. DONOR agrees: parse row and constructor are the whole access set.
+
+## 7. Verdict
+
+RotWK 2.01 parses `RespawnUpdate/DeathAnimationTime` into module data `+0xFC` and never reads it:
+
+* the module data constructor zeroes it (RW 0x8B3CC4), the parser RW 0x73A429 writes it, nothing else in the image addresses it;
+* the RespawnUpdate unit (RW 0x8B307E..0x8B4271) has no other access to `+0xFC`, in any addressing form;
+* every function outside the unit that reaches the module (ten references to the name key, section 3) or its data (RW 0x6E2D92 / RW 0x6E2E18) was
+  read; none reads `+0xFC` of it; the one `[reg+0xFC]` among them (RW 0x8A22E7) is on another object;
+* the death path RespawnBody RW 0x8C553F -> RW 0x8B3744 -> `Object::onDie` RW 0x698F06 and the update RW 0x8B3A35 wait for nothing: the revive
+  record joins the hero list in the frame of death, and the body stays as long as the object's die modules keep it.
+
+The port agrees already: `HeroModules.cpp` parses the field into `m_deathAnimationTime` and no code reads it. Nothing to port; no getter, no member and
+no test are added.
