@@ -140,6 +140,7 @@
 | PORT-92: `GiveUpgradeUpdate` `SpawnOutFX` у носильщика (RW 0x89FE1C .. 0x89FE35) | 2026-11-10 | арена (issue #240) | PR #278 | `PORT-92*` | не предложено |
 | PORT-101: `SelectionPriority` при выделении рамкой | 2026-11-10 | арена (issue #261) | PR #287 | `PORT-101*` | не предложено |
 | PORT-84 / 100 / 98 / 91: голос `VoiceCombineWithHorde`, `LargeGroupAudio` `HandOffModeDuration`, `LoadScreenMusic`, `ShowShadowWhileContained` | 2026-11-10 | арена (issues #232, #260, #258, #239) | PR #288, #276, #290, #291 | `PORT-84*`, `PORT-100*`, `PORT-98*`, `PORT-91*` | не предложено |
+| PORT-114 / 115 / 117 / 121 / 109 / 102 / 103 / 89 / 80 / 105 / 106 / 78: `GameData WeaponBonus`, Barrage по точке, пополнение призванного отряда, вода строителя, курсор улучшения, `GeometryUsedForHealthBox`, `BurningSoundName`, `SoundCrushing`, голос скрытной области, `ReleaseSnappyness`, `MultiPlayerOnly`, поля захвата `ActiveBody` | 2026-11-11 | арена (issues #298, #299, #301, #305, #269, #262, #263, #237, #212, #265, #266, #210) | PR #323, #324, #322, #328, #326, #313, #314, #329, #320, #297, #292, #327 | `PORT-N*`, перемер `perf1` / `uber1` (Port 114) | не предложено |
 
 Правки до 2026-11-05 ещё не разобраны. Классы, которые есть только у нас, показывает `python tools/mod/upstream_sync.py candidates`.
 

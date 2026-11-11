@@ -172,6 +172,10 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // AIData SideInfo blocks (data\ini\default\aidata.ini) enter GameLogicSettings::crc from frame 0 (bisected with perf1's vectors to the #201 merge)
 // pin: Local 30 (issue #246) re-measured it once (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-3): the last damage record is replaced only as RW
 // 0x8C4294 .. 0x8C42F5 says, which moves it from frame 23
+// pin: the arena batch of 2026-11-11 (PRs #292 #297 #313-#317 #319 #320 #322-#324 #326-#329 and Local 36 on station-1, Windows MSVC, measured once
+// on the merged tree with OPENBFME_UBER1_REGEN=1; perf1 x3 with OPENBFME_PERF1_REGEN=1): the vector moves from frame 0. Expected of PORT-114 (PR #323:
+// GameData WeaponBonus builds the global WeaponBonusSet every weapon reads, RW 0x6CA7CA); Local 36's four building modules are in the same tree and were
+// not separated
 TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1, 4 and 16 logic threads and in a repeated run; the hash's own jobs run on "
 		  "workers; Faithful hashes differently and serially")
 {
