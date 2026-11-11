@@ -176,6 +176,11 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // on the merged tree with OPENBFME_UBER1_REGEN=1; perf1 x3 with OPENBFME_PERF1_REGEN=1): the vector moves from frame 0. Expected of PORT-114 (PR #323:
 // GameData WeaponBonus builds the global WeaponBonusSet every weapon reads, RW 0x6CA7CA); Local 36's four building modules are in the same tree and were
 // not separated
+// pin: owner 2026-11-11 (P-69) re-measured it once (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-0; perf1 x3 with OPENBFME_PERF1_REGEN=1): the vision
+// bonus rows a template leaves out take the ThingTemplate ctor's defaults (8 segments, radius 100, max 0.5, min -0.5: RW 0x73FF17 .. 0x74002F) instead of
+// zeros, so the bonus is measured against the ground around the object; every template with VisionBonusPercentPerFoot looks differently from frame 0
+// pin: main with P-69 (the vision bonus defaults) merged into the arena batch of 2026-11-11 (station-1, Windows MSVC): re-measured once on the
+// combined tree (OPENBFME_UBER1_REGEN=1; perf1 x3 with OPENBFME_PERF1_REGEN=1), both causes above in one vector
 TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1, 4 and 16 logic threads and in a repeated run; the hash's own jobs run on "
 		  "workers; Faithful hashes differently and serially")
 {
