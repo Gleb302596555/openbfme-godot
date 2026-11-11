@@ -53,6 +53,12 @@ struct BarrageRig
 	{
 		hud->input().ui().deselectAll(false);
 		hud->input().ui().selectObject(o.getID());
+		// the player's click on the unit also sends the selected group to the logic (MSG_CREATE_SELECTED_GROUP, InGameUI's click path): the
+		// logic's weapon commands act on that group (AICommands::selection), not on the HUD's list
+		GameMessage group(MSG_CREATE_SELECTED_GROUP, rig.index());
+		group.appendBooleanArgument(true);
+		group.appendObjectIDArgument(o.getID());
+		rig.game->dispatch().dispatch(group);
 		update();
 		for (const auto *buttons : { &hud->controlBar().palantirButtons(), &hud->controlBar().sideButtons() })
 			for (const auto &b : *buttons)
