@@ -62,6 +62,7 @@ struct ClientEvent
 		MODEL_FLUSH,     ///< lane ANIM-1 (RW 0x67449C / 0x6759C4): the drawable's changed flags reach its draw modules; scriptTarget, weapon timing
 		FADE_IN,         ///< lane BUILD-4 (RW 0x670AA2): fadeFrames client frames
 		FADE_OUT,        ///< lane PORTERFOG-1 (RW 0x670A50): fadeFrames client frames
+		RELEASED_FROM_BONE, ///< lane PORT-105 (RW 0x67476B): snappyness, the rider's drawn transform glides from its release pose to its own
 		SET_SHADOWS,     ///< TOP20 #24 (RW 0x672D28): shadowsOn
 		SET_OPACITY,     ///< RW 0x8BCD38: the simulation's exact opacity for this frame
 		AUDIBLE,         ///< lane PORT-21 (RW 0x674727 / 0x67896F): the drawable's audible flag, `on` = audible again
@@ -117,6 +118,7 @@ struct ClientEvent
 	float scale = 1.0f;
 	float opacity = 1.0f;
 	UnsignedInt fadeFrames = 0;
+	float snappyness = 0.0f; ///< RELEASED_FROM_BONE (lane PORT-105): ReleaseSnappyness, TransportContain data + 0x17C
 	bool shadowsOn = true; ///< SET_SHADOWS
 	bool audible = true;   ///< AUDIBLE (lane PORT-21): the drawable's audible flag
 	int fxTrigger = 0;     ///< FX_TRIGGER (PORT-68): Drawable + 0x360 index in TheFXTriggerNames
@@ -153,6 +155,7 @@ public:
 	void replaceDrawable(Object &obj, const ThingTemplate *tmpl, bool hasColor, std::uint32_t color) override;
 	void fadeIn(Object &obj, UnsignedInt frames) override;
 	void fadeOut(Object &obj, UnsignedInt frames) override;
+	void releaseRiderFromBone(Object &rider, float snappyness) override;
 	void setShadowsEnabled(Object &obj, bool enabled) override;
 	void setDrawableOpacity(Object &obj, float opacity) override;
 	void setDrawableAudible(Object &obj, bool audible) override; // lane PORT-21

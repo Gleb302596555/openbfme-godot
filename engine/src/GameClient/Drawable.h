@@ -513,6 +513,10 @@ public:
 	// simulation's FADE_IN request for a wall span's tile)
 	void fadeIn(double frames);
 	void fadeOut(double frames); ///< RW 0x670A50 (lane PORTERFOG-1: public, the simulation's FADE_OUT request for a porter at work)
+	// lane PORT-105: RW 0x67476B, called from TransportContain::onRemoving (RW 0x86AD93) with the data's ReleaseSnappyness. The drawn transform
+	// starts at the pose the drawable is drawn at now and runs toward the object's own over the following client frames: the weight starts at
+	// `snappyness` (RW 0x4B516C stores it at module +0x2C0) and grows by 1/30 per client frame to 1.0 (RW 0x4B6B2C .. 0x4B6BB2, the lerp RW 0xB27C80)
+	void releaseFromBone(float snappyness);
 	// what the device layer draws: 0 while hidden, else the fade's opacity (1 without a fade)
 	float drawOpacity() const { return m_fade.hidden ? 0.0f : m_fade.opacity; }
 	// lane BUILD-5: ZH Drawable::setDrawableOpacity, the opacity at Drawable + 0xB0 (the field the fade steps): the placement ghost's 0.45 (RW 0x69C714)
@@ -658,6 +662,14 @@ private:
 	PhysicsXformInfo m_lastPhysicsInfo;
 	float m_presentationBasis[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
 	Coord3D m_presentationPosition;
+	// lane PORT-105: the release blend of RW 0x4B516C / 0x4B6B2C (the module's snapshot matrix +0x290, weight +0x2C0, client frame +0x2C4)
+	bool m_releaseActive = false;
+	float m_releaseBasis[9] = { 1, 0, 0, 0, 1, 0, 0, 0, 1 };
+	float m_releaseAngle = 0.0f;
+	Coord3D m_releasePosition;
+	float m_releaseWeight = 1.0f;
+	unsigned m_releaseClientFrame = 0;
+	void applyReleaseBlend(RenderInterpolation::Pose &p);
 
 	void setFadeHidden(bool hidden); ///< RW 0x6718FB (bumps the change count when it changes)
 };

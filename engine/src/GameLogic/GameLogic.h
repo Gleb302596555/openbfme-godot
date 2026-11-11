@@ -161,6 +161,12 @@ public:
 	// lane PORTERFOG-1, RW 0x670A50 Drawable::fadeOut(frames) called by the simulation (a porter starting its work, RW 0x88DDC1): the drawable fades out over
 	// `frames` client frames (0: at once) and is hidden once its opacity * 255 is below 1 (RW 0x675B7E)
 	virtual void fadeOut(Object &obj, UnsignedInt frames) { (void)obj; (void)frames; }
+	// lane PORT-105, RW 0x86AD93 .. 0x86ADAE (TransportContain::onRemoving) calls the rider's drawable RW 0x67476B with the module data's
+	// ReleaseSnappyness (+0x17C): every draw module keeps the transform it is drawn at and the weight (RW 0x4B516C: the matrix at module +0x290,
+	// the weight at +0x2C0, the client frame at +0x2C4), and the drawable's drawn transform then runs from that snapshot toward the object's own
+	// over the following client frames (RW 0x4B6B21 .. 0x4B6BB2, the matrix lerp RW 0xB27C80). Client only. The simulation skips it when the
+	// container's riders get the ENCLOSED status (the contain's slot 0xB0 mask, bit 61 = ENCLOSED, RW 0xD8AFF0).
+	virtual void releaseRiderFromBone(Object &rider, float snappyness) { (void)rider; (void)snappyness; }
 	// TOP20 #24, RW 0x672D28 Drawable::setShadowsEnabled called by the simulation (SlowDeathBehavior's beginSlowDeath with ShadowWhenDead No, RW 0x860F44 ..
 	// 0x860F58): the drawable's status bit 2 (+ 0x114) and every draw module's vslot 0x30; client only
 	virtual void setShadowsEnabled(Object &obj, bool enabled) { (void)obj; (void)enabled; }

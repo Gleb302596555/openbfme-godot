@@ -192,6 +192,7 @@ include(cmake/Port73.cmake)     # PORT-73: W3DTreeDraw DoTopple / the shrub push
 include(cmake/Port91.cmake)     # PORT-91: W3DModelDraw ShowShadowWhileContained — a contained unit keeps its shadow (issue #239; OPENBFME_PORT91_TESTS)
 include(cmake/Port87.cmake)     # PORT-87: unit voice VoiceStartCharging / VoiceNoBuild (issue #235; OPENBFME_PORT87_TESTS)
 include(cmake/Port106.cmake)    # PORT-106: W3DScriptedModelDraw MultiPlayerOnly gate (issue #266; OPENBFME_PORT106_TESTS)
+include(cmake/Port105.cmake)    # PORT-105: TransportContain/ReleaseSnappyness, the rider's release blend (issue #265; OPENBFME_PORT105_TESTS)
 include(cmake/Port50.cmake)     # PORT-50: W3DModelDraw/ParticlesAttachedToAnimatedBones, particles on the animated bones (issue #154; OPENBFME_PORT50_TESTS)
 include(cmake/Port98.cmake)    # PORT-98: PlayerTemplate LoadScreenMusic, the loading screen's faction track (issue #258; OPENBFME_PORT98_TESTS)
 include(cmake/Port74.cmake)     # PORT-74: W3DLaserDraw, the lightning and beam draws (issue #206; OPENBFME_PORT74_SOURCES / _TESTS)
@@ -932,6 +933,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT73_TESTS}
     ${OPENBFME_PORT98_TESTS}
     ${OPENBFME_PORT91_TESTS}
+    ${OPENBFME_PORT105_TESTS}
     ${OPENBFME_PORT50_TESTS}
     ${OPENBFME_PORT74_TESTS}
     ${OPENBFME_PORT97_TESTS}

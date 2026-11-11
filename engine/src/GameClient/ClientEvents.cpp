@@ -148,6 +148,14 @@ void ClientEventRecorder::fadeOut(Object &obj, UnsignedInt frames)
 	e.fadeFrames = frames;
 }
 
+// lane PORT-105 (RW 0x86AD93 -> Drawable RW 0x67476B, the value RW 0x86ADA1 `fld dword ptr [edi + 0x17c]`): the drawable of a rider that left a
+// carrier takes the release blend with the TransportContain data's ReleaseSnappyness
+void ClientEventRecorder::releaseRiderFromBone(Object &rider, float snappyness)
+{
+	ClientEvent &e = push(ClientEvent::RELEASED_FROM_BONE, rider);
+	e.snappyness = snappyness;
+}
+
 void ClientEventRecorder::setShadowsEnabled(Object &obj, bool enabled)
 {
 	ClientEvent &e = push(ClientEvent::SET_SHADOWS, obj);
