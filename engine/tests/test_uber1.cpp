@@ -188,6 +188,9 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // Team + 0x13C) moves it from frame 12, and the review fix (the threat walk newest first, RW 0x66362D; a horde soldier counts nothing, RW 0x693A1A) from frame 13.
 // pin: merge queue q47 re-measured it once on the merged tree with q46 (OPENBFME_UBER1_REGEN=1), compared at each merge point: #261 (the approach state
 // hashes the wait of an owner that cannot move) moves it from frame 0; #254's, #263's and q46's changes are in the same vector.
+// pin: the fork's merge of upstream 6b178a66 (2026-11-11) re-measured it once on the merged tree with main 167bf1ee (OPENBFME_UBER1_REGEN=1, Windows
+// MSVC, station-3; perf1 x3 with OPENBFME_PERF1_REGEN=1): upstream's q47 (#261 the wait of an owner that cannot move, #263 the group's speed matching, #254) on
+// top of the fork's P-69 and PORT-114 vectors
 TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1, 4 and 16 logic threads and in a repeated run; the hash's own jobs run on "
 		  "workers; Faithful hashes differently and serially")
 {

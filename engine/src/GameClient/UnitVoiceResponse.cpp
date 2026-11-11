@@ -263,6 +263,7 @@ int UnitVoiceResponse::voiceTargetArgument(int msgType)
 		case MSG_DOZER_CONSTRUCT:
 		case MSG_RESUME_CONSTRUCTION:
 		case MSG_COMBATDROP_AT_OBJECT:
+		case MSG_COMBINE_HORDES_WITH_OBJECT: // RW 0x81F4B2 writes the target alone (argument 0); the handler at RW 0x8DF2EB reads it from the pick info (+ 4)
 		case MSG_DO_REPAIR:
 		case MSG_HARVEST:
 			return 0;
