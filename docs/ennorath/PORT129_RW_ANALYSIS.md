@@ -28,8 +28,8 @@ the name-key globals. DONOR = Open-BFME-2 (the BFME2 1.06 decompile), read for t
 * primary vtable RW 0xC6C360, 16 slots: 0 RW 0x8B332D, 1 RW 0x8B88B0, 2 RW 0x8B3309 (the name), 3 RW 0x8B319D, 4 RW 0x8B32C4, 5..8 RW 0x63F3BF,
   9 RW 0x8851E4, 10 / 11 RW 0x851E97, 12 RW 0x64DFDA, 13 RW 0x8B310D, 14 RW 0x8B33E4 (the dead image), 15 RW 0x8B330F; update interface
   RW 0xC6C354: RW 0x8B3A35 (update), RW 0x8B3313, RW 0x850C4E. The slots outside the unit are shared bodies: RW 0x8B88B0 (a jump to
-  RW 0x4D0EAF, itself a jump to RW 0x63F3BF), RW 0x63F3BF (`ret`), RW 0x8851E4 (`ret 8`), RW 0x851E97 (returns null), RW 0x64DFDA (returns 2), RW 0x850C4E (the interface's thunk
-  to the wake-frame setter RW 0x850C32); none addresses `+0xFC`;
+  RW 0x4D0EAF, itself a jump to RW 0x63F3BF), RW 0x63F3BF (`ret`), RW 0x8851E4 (`ret 8`), RW 0x851E97 (returns null), RW 0x64DFDA (returns 2),
+  RW 0x850C4E (the interface's thunk to the wake-frame setter RW 0x850C32); none addresses `+0xFC`;
 * module data constructor RW 0x8B3C54: vtable RW 0xC6C3A8 (RW 0x8B3C6E); it zeroes `+0xF0` (RW 0x8B3CB2), `+0xF4` (RW 0x8B3CB8), `+0xF8`
   (RW 0x8B3CBE), **`+0xFC` (RW 0x8B3CC4)**, `+0x100` (RW 0x8B3CCA), `+0x104` (RW 0x8B3CD0);
 * module data vtable RW 0xC6C3A8, 31 slots: 0 RW 0x8B3CE9 (destructor), 13 (`+0x34`) and 30 RW 0x8BD372 (`mov al, 1; ret`), 14 RW 0x4B612F,
@@ -74,7 +74,7 @@ module data of RespawnUpdate: another class with a member at the same offset.
 
 The module data vtable has a typed accessor at slot 28 (`+0x70`): RW 0x8CEF91 returns `this`. Among the 380 vtables of the image that share the
 bodies of slots 1 and 3 (RW 0x63F3BF, RW 0x9F3A3C), RW 0xC6C3A8 is the only one with RW 0x8CEF91 in slot 28; 215 of them have the null body
-RW 0x851E97 there. Two functions call it, both for the dead hero records of the Living World:
+RW 0x851E97 there. Two functions call it; both fill a hero record from a template (in the port: the Living World's dead hero records, `HeroSystem.cpp`):
 
 * RW 0x6E2D92: the module data of each template entry (RW 0x73C667 at RW 0x6E2DC3), slot 13 (RW 0x6E2DD2), slot 28 (RW 0x6E2DEF); the result goes
   to RW 0x8B3637 (the cost of a level, RW 0x6E2DF9) and RW 0x8B36B2 (its time, RW 0x6E2E09) and nowhere else;
@@ -100,8 +100,8 @@ Cross-checks over the whole image (mechanical, by script):
 Twenty instructions outside the unit read `[reg + 0xFC]` from a register loaded by `mov reg, [x+4]`: RW 0x470208, 0x47031B, 0x4A0640, 0x50803E,
 0x5BB9F9, 0x69C3D4, 0x741270, 0x74844B, 0x75CD01, 0x75CDFC, 0x75D251, 0x75D285, 0x81DC08, 0x88416A, 0x8DD75D, 0x8DE9A4, 0x8DF319, 0x8E2D80,
 0x8E33CC, 0x8F3D5E. `[x+4]` is the module data of every module class and the template of every object (RW 0x780F21 `mov eax, [edi+4]`, then the
-template's `+0x11F`), so the shape names no class. None of the twenty lies in a function of 3.2 or 3.3, the only functions outside the unit that
-hold a pointer typed as this module (name key) or as its data (slot 28): they read other classes.
+template's `+0x11F`), so the shape names no class. None of the twenty lies in a function of 3.2 or 3.3, the functions outside the unit that this
+analysis found to hold a pointer typed as this module (name key) or as its data (slot 28): they read other classes.
 
 ## 4. What RotWK does when the hero dies
 
@@ -139,15 +139,17 @@ here, and they cannot reach this field (section 3).
 
 * state 2, and every state other than 3 and 4 (RW 0x8B3A51 / RW 0x8B3A5F): return 0x3FFFFFFF (sleep forever, RW 0x8B3AFE);
 * state 4 (RW 0x8B3A65..0x8B3AF9): the `RespawnAnim` (`+0x58`) and `InitialSpawnAnim` (`+0xA4`) conditions cleared (RW 0x5E3B79), status 3 cleared
-  (RW 0x62684D), disabled type 4 cleared (RW 0x692443), state 0, the producer's exit interface (RW 0x68BB14) gets the object (slot `+8`,
-  RW 0x8B3AEA) when its AI is idle (slot 0x1B8) or in state 16 (RW 0x660AC1); sleep forever;
-* state 3 (RW 0x8B3B08..0x8B3C02): the respawn object (`+0x30`, else RW 0x8B307E), its rally point (exit interface slot 0x24), the object moved
-  there (RW 0x697F0F), `RespawnAnim` set (RW 0x5E3BA5), `RespawnFX` (`+0xF4`, RW 0x4B1B5A), disabled type 4 until frame + `RespawnAnimationTime`
-  (`+0x100`, RW 0x8B3B97 / RW 0x6907F1), state 4, the body's health (slot 0x58), `+0x34 = +0x38 = -1`, the local player's control bar marked
-  (RW 0x8B3BEC); returns `RespawnAnimationTime` (RW 0x8B3BFC).
+  (RW 0x62684D), disabled type 4 cleared (RW 0x692443), state 0; then, for the object found by the id at this object's `+0x78` (RW 0x449681), when
+  this object's AI (`+0x260`) answers true through slot 0x1B8 or RW 0x660AC1 returns 16, the interface RW 0x68BB14 of the found object gets this
+  object (slot `+8`, RW 0x8B3AEA) and, with this object's `+0x47C` set, RW 0x625E0A runs (RW 0x8B3AF9); sleep forever;
+* state 3 (RW 0x8B3B08..0x8B3C02): the object with the id at the module's `+0x30` (RW 0x449681), else the one RW 0x8B307E finds; with one, its
+  position and the point its interface RW 0x68BB14 gives through slot 0x24 (RW 0x8B3B62); this object moved there (RW 0x697F0F), `RespawnAnim` set
+  (RW 0x5E3BA5), `RespawnFX` (`+0xF4`, RW 0x4B1B5A), disabled type 4 until frame + `RespawnAnimationTime` (`+0x100`, RW 0x8B3B97 / RW 0x6907F1),
+  state 4, the body's slot 0x58 with the module's `+0x20` times the constant RW 0xBD88D8 (RW 0x8B3BCE), `+0x34 = +0x38 = -1`, for the local
+  player's object the flag `+0x28` of the global RW 0xDE7744 (RW 0x8B3BEC); returns `RespawnAnimationTime` (RW 0x8B3BFC).
 
-The update reads `+0x58`, `+0xA4`, `+0xF4` and `+0x100` of the data; never `+0xFC`. No state waits for a death time: the death (section 4) leaves the
-module asleep and the state unchanged.
+The update reads `+0x58`, `+0xA4`, `+0xF4` and `+0x100` of the data; never `+0xFC`. No state waits for a death time, and RW 0x8B3744 (section 4)
+sets no wake frame from the field.
 
 ## 6. DONOR (BFME2 1.06, Open-BFME-2)
 
