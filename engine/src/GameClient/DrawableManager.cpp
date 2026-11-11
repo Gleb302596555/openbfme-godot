@@ -466,6 +466,15 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 		case ClientEvent::FLASH_AS_SELECTED: // RW 0x852BE1 / 0x678FA7
 			flashAsSelected(ev.object, ev.hasFlashColor ? &ev.flashColor : nullptr);
 			break;
+		case ClientEvent::ENSLAVED: // P-87, RW 0x6713A8 (the UseSlaverAsControl gate RW 0x6713AF .. 0x6713B6 is the simulation's, SlavedUpdate::onEnslave)
+			if (Drawable *d = findByObject(ev.object))
+			{
+				if (const Drawable *slaverD = findByObject(ev.slaver)) // RW 0x6713B8 .. 0x6713C3: the slaver's drawable, nothing without one
+				{
+					d->copyEvaSightedFrom(*slaverD);
+				}
+			}
+			break;
 		case ClientEvent::DIED: // RW 0x699077 -> RW 0x67561E
 			if (Drawable *d = findByObject(ev.object))
 			{

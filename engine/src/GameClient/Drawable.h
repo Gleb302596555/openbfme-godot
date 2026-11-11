@@ -438,6 +438,13 @@ public:
 		m_shroudRevealed = false;
 		return r;
 	}
+	// P-87, RW 0x6713C5 .. 0x6713D7: a slave made after its slaver was announced takes the slaver drawable's + 0x445 and + 0x446, so one lair
+	// is announced once and a lair that died and came back is announced with the AfterRespawn event
+	void copyEvaSightedFrom(const Drawable &slaver)
+	{
+		m_evaEnemySighted = slaver.m_evaEnemySighted;
+		m_evaEnemySightedAfterRespawn = slaver.m_evaEnemySightedAfterRespawn;
+	}
 	// RW 0x67561E Drawable::notifyDead (called on Object death at RW 0x699077):
 	// if m_evaEnemySighted (+0x445) is set, clears it to 0 and sets m_evaEnemySightedAfterRespawn = 1 (+0x446)
 	void notifyDead()
