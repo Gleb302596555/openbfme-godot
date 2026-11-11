@@ -30,7 +30,7 @@ public:
 	const std::vector<int> &getLevels() const { return m_levels; }
 	// Player::init (RW 0x6B0355, 0x6B0362): no levels, no points
 	void reset();
-	// true until a script gives points or a level: such a player adds nothing to the state hash and saves the earlier Player layout
+	// true while it holds no points and no level (Player::init's state): such a player adds nothing to the state hash and saves the earlier Player layout
 	bool isUntouched() const { return m_points == 0 && m_levels.empty(); }
 	void crc(StateHasher &h) const;
 	// OpenBFME's snapshot (S-4190): the points and the levels. Retail's xfer (RW 0x830D3F) saves the levels and NOT the points (RW 0x830D83 .. 0x830DB9;

@@ -215,7 +215,7 @@ void Player::crc(StateHasher &h) const
 	if (!m_lightPoints.isUntouched())
 	{
 		h.addU32(0x338);
-		m_lightPoints.crc(h); // PORT-113: hashed only once a script gave points or a level (a game without light points keeps its hash)
+		m_lightPoints.crc(h); // PORT-113: hashed only while the player holds points or a level (a game without light points keeps its hash)
 	}
 	h.addU32((std::uint32_t)m_upgradeRecords.size()); // UPGRADE-1: the records in list order, then both masks
 	for (const UpgradeRecord &r : m_upgradeRecords)
@@ -723,7 +723,8 @@ void Player::checkLoadedIndices(int playerCount) const
 void Player::xfer(Xfer &x, TeamFactory &teams)
 {
 	// lane LUMBER1: version 2 adds the ResourceGatheringManager (RW + 0x304) at the end. PORT-113: version 3 adds the light points (RW + 0x338) after it;
-	// a player that never had any saves version 2, so the streams of games without light points stay as they were (the obfme:GameLogic pattern)
+	// a player that holds none (no points, no level) saves version 2, so the streams of games without light points stay as they were (the
+	// obfme:GameLogic pattern)
 	XferVersion v{ 1, (std::uint8_t)(x.isLoading() || !m_lightPoints.isUntouched() ? 3 : 2) };
 	x.xferVersion(v);
 	// the identity the START made: checked, never overwritten
