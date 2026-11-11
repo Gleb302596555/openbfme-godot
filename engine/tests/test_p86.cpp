@@ -95,6 +95,9 @@ TEST_CASE("P-86 command point bonus: a COMMAND_POINT_BONUS list added to a build
 	CHECK(alice->commandPointLimit() == base + 100);
 
 	// the upgrade's list: the bonus is taken off with the old sum (100 + 0) and put back with the new one (cvttss2si(100.0 + 50.0) = 150)
+	// a list is suppressed while frame <= the category's disabled frame (AttributeModifierPool::suppressed, the counters start at 0): an upgrade is never
+	// bought on frame 0, so the lists go on from frame 1
+	fx.frames(1);
 	REQUIRE(citadel->addAttributeModifier("P86Bonus50", -1));
 	CHECK(alice->commandPoints().getBonus() == 150);
 	CHECK(alice->commandPointLimit() == base + 150);
@@ -126,6 +129,9 @@ TEST_CASE("P-86 command point bonus: any building with a CommandPointBonus recou
 	Object *farm = fx.make("P86Farm", fx.teamOf("Alice"));
 	Object *citadel = fx.make("P86Citadel", fx.teamOf("Alice"));
 	CHECK(alice->commandPoints().getBonus() == 110);
+	// a list is suppressed while frame <= the category's disabled frame (AttributeModifierPool::suppressed, the counters start at 0): an upgrade is never
+	// bought on frame 0, so the lists go on from frame 1
+	fx.frames(1);
 	REQUIRE(farm->addAttributeModifier("P86Bonus20", -1));
 	REQUIRE(citadel->addAttributeModifier("P86Bonus50", -1));
 	CHECK(alice->commandPoints().getBonus() == 180); // (10 + 20) + (100 + 50)
@@ -148,6 +154,9 @@ TEST_CASE("P-86 command point bonus: a template without a CommandPointBonus is n
 
 	// RW 0x6AA56D: a template whose CommandPointBonus is 0 adds usage, never a bonus, whatever its modifier sum
 	Object *hut = fx.make("P86Hut", fx.teamOf("Alice"));
+	// a list is suppressed while frame <= the category's disabled frame (AttributeModifierPool::suppressed, the counters start at 0): an upgrade is never
+	// bought on frame 0, so the lists go on from frame 1
+	fx.frames(1);
 	REQUIRE(hut->addAttributeModifier("P86Bonus50", -1));
 	CHECK(alice->commandPoints().getBonus() == 0);
 	CHECK(alice->commandPoints().getUsage() == 0);
