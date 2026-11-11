@@ -84,7 +84,8 @@ struct ShipRig
 		};
 
 		std::vector<std::string> problems;
-		d = std::make_unique<Drawable>(*services, tt, (DrawableID)132, (ObjectID)1320, {}, problems);
+		const std::vector<ClientEvent::ClientModule> clientModules; // no client modules: the rig drives the physics body directly
+		d = std::make_unique<Drawable>(*services, tt, (DrawableID)132, (ObjectID)1320, clientModules, problems);
 		REQUIRE(problems.empty());
 
 		pose.position = Coord3D{ 10.0f, 20.0f, 0.0f };
