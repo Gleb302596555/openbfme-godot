@@ -20,6 +20,8 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/ActionManager.h"
+#include "GameLogic/Combat/ObjectWeapons.h" // P-60: the weapon of a FIRE_WEAPON button's slot (the scatter radius cursor)
+#include "GameLogic/Weapon.h"
 
 #include "Common/Audio/AudioEntryPoints.h"
 
@@ -1075,7 +1077,22 @@ void InGameHud::updateRadiusCursor()
 	// RW 0x6A3B77 handles the pending command's RadiusCursorType for both
 	// spell-book and selected-object powers. Hero powers enter GUI command
 	// mode through ControlBar::processCommandUI, rather than m_spellBar.
-	if (!spell && command && (command->m_command != GUI_COMMAND_SPECIAL_POWER || !command->hasOption(COMMAND_OPTION_NEED_TARGET_POS)))
+	// P-60: createCommandHint's GUI command mode (RW 0x6A3CEC .. 0x6A3DDF) has two branches. A context command (RW 0x75CD15) or a SPECIAL_POWER (0x18) /
+	// SPELL_BOOK (0x26) / SPECIAL_POWER_FROM_COMMAND_CENTER (0x20) / PLACE_BEACON (0x1F) button goes to RW 0x6A3D7D (its hint decides valid / invalid). Every
+	// other waiting command (FIRE_WEAPON: the archers' and siege engines' Bombard, Command_ArcherBombard) is the branch RW 0x6A3D2A: with a target option
+	// (Options & 0x227) and a RadiusCursorType InGameUI.ini holds (button + 0x4C) the pointer becomes cursor 0 (RW 0x6A3D65 -> RW 0x69BD53) and
+	// setRadiusCursor(type, the button's power + 0x44, its WeaponSlot + 0x80, valid = 1) runs (RW 0x6A3D6C .. 0x6A3DD9): always valid, no location test
+	const bool nonContext = !spell && command && !command->hasOption(COMMAND_OPTION_CONTEXTMODE_COMMAND) && command->m_command != GUI_COMMAND_SPECIAL_POWER
+		&& command->m_command != GUI_COMMAND_SPELL_BOOK && command->m_command != GUI_COMMAND_SPECIAL_POWER_FROM_COMMAND_CENTER
+		&& command->m_command != GUI_COMMAND_PLACE_BEACON;
+	if (nonContext)
+	{
+		if (!(command->m_options & 0x227u) || command->m_radiusCursor.empty() || !m_radiusTemplates.find(command->m_radiusCursor))
+		{
+			command = nullptr; // RW 0x6A3D3B / 0x6A3D70: setRadiusCursorNone; the CursorName is CommandTranslator's (createCommandHint, CommandXlat.cpp)
+		}
+	}
+	else if (!spell && command && (command->m_command != GUI_COMMAND_SPECIAL_POWER || !command->hasOption(COMMAND_OPTION_NEED_TARGET_POS)))
 	{
 		command = nullptr;
 	}
@@ -1085,7 +1102,11 @@ void InGameHud::updateRadiusCursor()
 	Player *local = m_config.game.players().getLocalPlayer();
 	// OWNERFIX-1: disabling input clears the decal immediately; a pending
 	// command can show it again when input is enabled.
-	if (!command || !power || !source || !local || !m_input->ui().getInputEnabled())
+	// P-60: setRadiusCursor's radius (RW 0x6A0846 .. 0x6A0896). A type that is InGameUI.ini's RadiusCursorUseWeaponScatterRadius (InGameUI + 0x89C) takes the
+	// weapon of the button's WeaponSlot on the object the radius belongs to (RW 0x6C81B0 on Object + 0x34C): ScatterRadius (+ 0x34) + ScatterTargetScalar
+	// (+ 0x38) of its template, 0 without a weapon; any other type takes the power's RadiusCursorRadius and does nothing without a power (RW 0x6A087F)
+	const bool scatterRadius = command && m_radiusTemplates.usesWeaponScatterRadius(command->m_radiusCursor);
+	if (!command || (!power && !(nonContext && scatterRadius)) || !source || !local || !m_input->ui().getInputEnabled())
 	{
 		if (m_radiusCursor.active() || m_targetingCursor)
 		{
@@ -1098,6 +1119,10 @@ void InGameHud::updateRadiusCursor()
 	auto verdictAt = [&](const Coord3D &where) {
 		if (spell) return m_spellBar.targetVerdict(logic, where);
 		bool unported = false;
+		if (nonContext)
+		{
+			return InGameSpellBookModel::Target::VALID; // RW 0x6A3D6C: push 1
+		}
 		if (ActionManager::canDoSpecialPowerAtLocation(*source, where, power, command->m_options, &unported))
 		{
 			return InGameSpellBookModel::Target::VALID;
@@ -1152,7 +1177,21 @@ void InGameHud::updateRadiusCursor()
 	// RW 0x6A077A: the radius belongs to the command's source object: the
 	// spell book or the selected unit, and uses that object's controller.
 	Player *controller = source->getControllingPlayer();
-	m_radiusCursor.set(command->m_radiusCursor, m_radiusTemplates.find(command->m_radiusCursor), power->getFinalOverride()->getRadiusCursorRadius(), controller != nullptr,
+	float radius = 0.0f;
+	if (scatterRadius)
+	{
+		const ObjectWeapons *weapons = source->getWeapons();
+		const Weapon *weapon = weapons ? weapons->weaponInSlot(command->m_weaponSlot) : nullptr;
+		if (const WeaponTemplate *wt = weapon ? weapon->getTemplate() : nullptr)
+		{
+			radius = wt->m_scatterTargetScalar + wt->m_scatterRadius; // RW 0x6A0869 .. 0x6A086E
+		}
+	}
+	else
+	{
+		radius = power->getFinalOverride()->getRadiusCursorRadius();
+	}
+	m_radiusCursor.set(command->m_radiusCursor, m_radiusTemplates.find(command->m_radiusCursor), radius, controller != nullptr,
 		controller == local, controller ? controller->getPlayerColor() : 0u, valid);
 	if (hinted)
 	{
