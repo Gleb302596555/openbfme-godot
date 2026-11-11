@@ -27,8 +27,9 @@ the name-key globals. DONOR = Open-BFME-2 (the BFME2 1.06 decompile), read for t
   interface RW 0xC6C354 at `+0x10`; it reads nothing of the data and sleeps forever (RW 0x8B32AE);
 * primary vtable RW 0xC6C360, 16 slots: 0 RW 0x8B332D, 1 RW 0x8B88B0, 2 RW 0x8B3309 (the name), 3 RW 0x8B319D, 4 RW 0x8B32C4, 5..8 RW 0x63F3BF,
   9 RW 0x8851E4, 10 / 11 RW 0x851E97, 12 RW 0x64DFDA, 13 RW 0x8B310D, 14 RW 0x8B33E4 (the dead image), 15 RW 0x8B330F; update interface
-  RW 0xC6C354: RW 0x8B3A35 (update), RW 0x8B3313, RW 0x850C4E. The slots outside the unit (RW 0x8B88B0, 0x63F3BF, 0x8851E4, 0x851E97, 0x64DFDA,
-  0x850C4E) are base-class bodies shared with other classes; none holds a `[reg + 0xFC]` instruction;
+  RW 0xC6C354: RW 0x8B3A35 (update), RW 0x8B3313, RW 0x850C4E. The slots outside the unit are shared bodies: RW 0x8B88B0 (a jump to
+  RW 0x4D0EAF), RW 0x63F3BF (`ret`), RW 0x8851E4 (`ret 8`), RW 0x851E97 (returns null), RW 0x64DFDA (returns 2), RW 0x850C4E (the interface's thunk
+  to the wake-frame setter RW 0x850C32); none addresses `+0xFC`;
 * module data constructor RW 0x8B3C54: vtable RW 0xC6C3A8 (RW 0x8B3C6E); it zeroes `+0xF0` (RW 0x8B3CB2), `+0xF4` (RW 0x8B3CB8), `+0xF8`
   (RW 0x8B3CBE), **`+0xFC` (RW 0x8B3CC4)**, `+0x100` (RW 0x8B3CCA), `+0x104` (RW 0x8B3CD0);
 * module data vtable RW 0xC6C3A8, 31 slots: 0 RW 0x8B3CE9 (destructor), 13 (`+0x34`) and 30 RW 0x8BD372 (`mov al, 1; ret`), 14 RW 0x4B612F,
@@ -57,10 +58,10 @@ The module is found by `Object` RW 0x68BDA5 with a name key made from the string
 | RW 0x691806 | `Object`, RW 0x6917BB (key RW 0xDE477C) | RW 0x691830 calls RW 0x8B316B (the respawn template), copies that template's `+0x64` (RW 0x691844) | none in the function |
 | RW 0x780ED1 | hero record of a dying object, RW 0x780DD4 (key RW 0xDE7CE4) | slot 14 (RW 0x780F00), RW 0x8B3C07 cost (RW 0x780F08), RW 0x8B3C1C time (RW 0x780F16), RW 0x8B316B (RW 0x780F67) | none |
 | RW 0x7815E7 | hero list (key RW 0xDE7CFC) | writes the module's `+0x41` (RW 0x781614) | none |
-| RW 0x8A16B9 | ProductionUpdate, RW 0x8A1666 (key RW 0xDE9594) | null test only (RW 0x8A16D9): an object without the module leaves through the exit interface | none |
+| RW 0x8A16B9 | ProductionUpdate, RW 0x8A1666 (key RW 0xDE9594) | null test only (RW 0x8A16D9): without the module, slot `+8` of the interface in `edi` gets the object (RW 0x8A16E4) | none |
 | RW 0x8A1BCE | ProductionUpdate update, RW 0x8A1B9F (key RW 0xDE95A8, used at RW 0x8A2BEB and RW 0x8A2DC6) | RW 0x8A2C07 calls RW 0x8B38A2 (revived); RW 0x8A2DDA null test | RW 0x8A22E7, on another object (below) |
 | RW 0x8B32E9 | the module itself, RW 0x8B32C4 (key RW 0xDE97BC) | own slot 4 | none |
-| RW 0x8B330A | the module's name getter RW 0x8B3309 | returns the string | no |
+| RW 0x8B3309 | the module's name getter (primary slot 2) | returns the string | no |
 | RW 0x8C45DC | ActiveBody, RW 0x8C3FA3 (key RW 0xDE9B10) | null test only (RW 0x8C4604): an object without the module gets `Object::onDie` RW 0x698F06 here (RW 0x8C4645) | none |
 | RW 0x8C55FA | RespawnBody, RW 0x8C553F (key RW 0xDE9BA8) | calls RW 0x8B3349 / RW 0x8B3744, writes the module's `+0x2C` (section 4) | none |
 
@@ -71,19 +72,36 @@ module data of RespawnUpdate: another class with a member at the same offset.
 
 ### 3.3 Outside the unit, the module data by its typed accessor
 
-`ModuleData` has a typed accessor at vtable slot 28 (`+0x70`). Of the 380 vtables of the family in the image (slot 1 RW 0x63F3BF, slot 3
-RW 0x9F3A3C), RW 0xC6C3A8 is the only one whose slot 28 returns `this`; the base body returns null (RW 0x851E97). Two functions use it, both for
-the dead hero records of the Living World:
+The module data vtable has a typed accessor at slot 28 (`+0x70`): RW 0x8CEF91 returns `this`. Among the 380 vtables of the image that share the
+bodies of slots 1 and 3 (RW 0x63F3BF, RW 0x9F3A3C), RW 0xC6C3A8 is the only one with RW 0x8CEF91 in slot 28; 215 of them have the null body
+RW 0x851E97 there. Two functions call it, both for the dead hero records of the Living World:
 
 * RW 0x6E2D92: the module data of each template entry (RW 0x73C667 at RW 0x6E2DC3), slot 13 (RW 0x6E2DD2), slot 28 (RW 0x6E2DEF); the result goes
   to RW 0x8B3637 (the cost of a level, RW 0x6E2DF9) and RW 0x8B36B2 (its time, RW 0x6E2E09) and nowhere else;
 * RW 0x6E2E18: the same lookup (RW 0x6E2F34 / 0x6E2F47 / 0x6E2F56), kept in the frame (RW 0x6E2F62); it reads `+0x118` (`ButtonImage`,
   RW 0x6E2F82) and calls RW 0x8B3637 (RW 0x6E2FB9) and RW 0x8B36B2 (RW 0x6E2FCA).
 
-Cross-checks over the whole image: of the 33 functions that take a template entry's module data (44 calls of RW 0x73C667) only these two call slot
-28 on it; a backward register trace of all 753 `[reg + 0xFC]` instructions finds none whose base comes from a `call [reg+0x70]`; the 57 of them
-that sit within 0x800 bytes after such a call are members of other classes (`this`, an object pointer, another module's data), virtual calls
-through slot 0xFC, or `lea`.
+In both functions the pointer has no other use: RW 0x6E2D92 keeps it in `esi` for the two calls and returns (RW 0x6E2E17); RW 0x6E2E18 keeps it
+in the frame (`[ebp+0x10]`) for the two calls and does not use it after the loop (RW 0x6E2FE9..0x6E301E).
+
+Cross-checks over the whole image (mechanical, by script):
+
+* of the 44 calls of RW 0x73C667 only these two are followed by a `call [reg+0x70]`;
+* the sweep's trace of the base register of each of the 753 `[reg + 0xFC]` instructions back to the instruction that defines it finds none defined
+  by the result of a `call [reg+0x70]`;
+* seven functions hold both a `call [reg+0x70]` and a `[reg + 0xFC]` instruction (RW 0x647ABF, 0x65ED04, 0x66A7EC, 0x71EBDA, 0x79EF96, 0x94397F,
+  0x9B6D01; eight instructions). None of the eight takes its base from that call: RW 0x65ED56 and RW 0x66AE56 are virtual calls through `+0xFC`,
+  RW 0x79EFB5 and RW 0x9B6ED0 are `lea` of a member of `edi`, RW 0x647BB2 uses the result of a `call [reg+0x8C]`, RW 0x9439A0 the member
+  `[edi+0x6C]`, RW 0x71EC71 and RW 0x71EDB0 the `+8` member of a list entry or `+0x10` of the global RW 0xDE4928 (in RW 0x71EBDA the slot `+0x70`
+  call RW 0x71ED16 returns a count that is compared with zero).
+
+### 3.4 The other `[reg + 0xFC]` instructions of the shape `[x+4]`, then `+0xFC`
+
+Twenty instructions outside the unit read `[reg + 0xFC]` from a register loaded by `mov reg, [x+4]`: RW 0x470208, 0x47031B, 0x4A0640, 0x50803E,
+0x5BB9F9, 0x69C3D4, 0x741270, 0x74844B, 0x75CD01, 0x75CDFC, 0x75D251, 0x75D285, 0x81DC08, 0x88416A, 0x8DD75D, 0x8DE9A4, 0x8DF319, 0x8E2D80,
+0x8E33CC, 0x8F3D5E. `[x+4]` is the module data of every module class and the template of every object (RW 0x780F21 `mov eax, [edi+4]`, then the
+template's `+0x11F`), so the shape names no class. None of the twenty lies in a function of 3.2 or 3.3, the only functions outside the unit that
+hold a pointer typed as this module (name key) or as its data (slot 28): they read other classes.
 
 ## 4. What RotWK does when the hero dies
 
@@ -147,4 +165,5 @@ no member and no test are added (issue #331: no test for a field nobody reads). 
 ## 8. Limits
 
 INFERENCE: a static read cannot exclude an access whose address is computed at run time (an indexed read with a computed offset) or code outside
-the image. Nothing in the image suggests one: the field table is used by the INI parser only.
+the image. The mechanical cross-checks of 3.3 rest on the function starts of the call-target scan and on a register trace inside one function; the
+699 `call [reg+0x70]` sites of the image were not typed one by one.
