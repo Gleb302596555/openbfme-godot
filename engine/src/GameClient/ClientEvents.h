@@ -80,6 +80,7 @@ struct ClientEvent
 		CREATE_SELECTION_FEEDBACK, ///< lane LOCAL-16, RW 0x672ED1: createSelectionFeedback on drawable with indicatorColor
 		FX_TRIGGER,                ///< PORT-68, RW 0x68B56A -> RW 0x44C465: Drawable + 0x360 FXTrigger index (TheFXTriggerNames)
 		SUPPLY_STATUS,   ///< PORT-77: RW 0x8AB623..0x8AB63A dispatches the supply look through RW 0x671948; event delivery is INFERENCE
+		ENSLAVED,        ///< P-87 (RW 0x8A51AE -> RW 0x6713A8): slaver; the slave's drawable copies the slaver drawable's Eva sighting flags
 	};
 	std::string heroUniqueID;
 	std::vector<std::string> heroStatistics;
@@ -130,6 +131,7 @@ struct ClientEvent
 	RGBColor flashColor{};                          ///< FLASH_AS_SELECTED
 	int supplyCurrentBoxes = 0;                     ///< SUPPLY_STATUS (PORT-77)
 	int supplyStartingBoxes = 0;                    ///< SUPPLY_STATUS (PORT-77)
+	ObjectID slaver = INVALID_ID;                   ///< ENSLAVED (P-87): the object whose drawable gives its flags
 };
 
 class ClientEventRecorder : public ObjectClientHooks
@@ -174,6 +176,7 @@ public:
 	void evaDamaged(Object &obj, const EvaDamageNotice &notice) override; // lane EVADAMAGE-1
 	void flashHeroButton(const std::string &templateName, int frames) override;
 	void objectDied(Object &obj) override;
+	void objectEnslaved(Object &slave, const Object &slaver) override; // P-87, RW 0x6713A8
 	// MapObjectLoop's afterCreate for a map object (DrawableManager::applyPlacement): the client part of the placement
 	void placement(Object &obj, const MapObjectDrawable &placement);
 	// lane SAVE-4e: a snapshot load set the object's model conditions without the hooks (Object::xfer): its whole set goes to the drawable

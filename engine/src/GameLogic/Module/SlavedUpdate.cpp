@@ -204,7 +204,15 @@ void SlavedUpdate::onEnslave(const Object *slaver)
 		static const int kUnselectable = statusBit("UNSELECTABLE"); // status 3 (RW 0x62684D(3, 1))
 		getObject()->setStatus((unsigned)kUnselectable, true);
 	}
-	// the drawable's slaver link (RW 0x6713A8): client
+	// P-87, RW 0x8A519B .. 0x8A51AE -> RW 0x6713A8: the slave's drawable takes the slaver drawable's Eva sighting flags when this module's
+	// UseSlaverAsControlForEvaObjectSightedEvents (slot 5, RW 0x6713AF .. 0x6713B6) is set; the copy itself is the client's (ENSLAVED)
+	if (m_data->m_useSlaverAsControlForEvaObjectSightedEvents)
+	{
+		if (ObjectClientHooks *client = getObject()->logic().clientHooks())
+		{
+			client->objectEnslaved(*getObject(), *slaver);
+		}
+	}
 }
 
 void SlavedUpdate::onSlaverDie(const DieModuleInterface::Event *)

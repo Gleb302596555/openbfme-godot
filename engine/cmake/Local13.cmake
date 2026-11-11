@@ -7,4 +7,5 @@ set(OPENBFME_LOCAL13_CLIENT_SOURCES
 )
 set(OPENBFME_LOCAL13_TESTS
     tests/test_local_13.cpp
+    tests/test_p87.cpp # P-87: a new slave takes its slaver drawable's Eva sighting marks (RW 0x6713A8); synthetic
 )

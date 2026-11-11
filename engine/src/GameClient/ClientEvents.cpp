@@ -524,3 +524,10 @@ void ClientEventRecorder::objectDied(Object &obj)
 {
 	push(ClientEvent::DIED, obj);
 }
+
+// P-87, RW 0x8A519B .. 0x8A51AE: the end of SlavedUpdate::onEnslave calls the slave drawable's RW 0x6713A8 with the slaver
+void ClientEventRecorder::objectEnslaved(Object &slave, const Object &slaver)
+{
+	ClientEvent &e = push(ClientEvent::ENSLAVED, slave);
+	e.slaver = slaver.getID();
+}
