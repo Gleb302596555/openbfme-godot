@@ -34,7 +34,12 @@ const char kObjects[] =
     "Object P116Tower\n KindOf = STRUCTURE IMMOBILE SELECTABLE\n"
     " Body = ActiveBody Body\n MaxHealth = 1000\n End\n"
     " Behavior = HordeGarrisonContain Contain\n PassengerFilter = ANY +INFANTRY\n"
-    " ContainMax = 20\n AllowOwnPlayerInsideOverride = Yes\n End\nEnd\n";
+    " ContainMax = 20\n AllowOwnPlayerInsideOverride = Yes\n AllowAlliesInside = Yes\n End\nEnd\n"
+    "Object P116Fortress\n KindOf = STRUCTURE IMMOBILE SELECTABLE COMMANDCENTER\n"
+    " Body = ActiveBody Body\n MaxHealth = 1000\n End\n"
+    " Behavior = CitadelSlaughterHordeContain Contain\n PassengerFilter = ANY +INFANTRY\n"
+    " StatusForRingEntry = HOLDING_THE_RING\n ContainMax = 20\n"
+    " AllowOwnPlayerInsideOverride = Yes\n End\nEnd\n";
 
 struct Rig
 {
@@ -82,5 +87,34 @@ TEST_CASE("PORT-116 ordinary garrison keeps its friendly enter cursor")
     r.select(soldier);
     CHECK(r.translator.evaluateContextCommand(tower, tower->getPosition(), EvaluateType::DoHint) == MSG_ENTER);
     CHECK(r.ui.cursor() == "EnterFriendly"); // RW 0x82CFC1 -> 0xB9 -> 0x6A4031
+    CHECK(r.stream.pending() == 0);
+}
+
+TEST_CASE("PORT-116 command center ring carrier retains ring cursor")
+{
+    Rig r;
+    Object *fortress = r.world.unit("P116Fortress", 'A', 400, 400);
+    Object *soldier = r.world.unit("P116Soldier", 'A', 300, 400);
+    Object *carrier = r.world.unit("P116Soldier", 'A', 300, 420);
+    carrier->setStatus((unsigned)CombatNames::status("HOLDING_THE_RING"), true);
+    // RW 0x82CF81..0x82CFAF checks all selected objects, not only the entrant.
+    r.select(carrier);
+    r.select(soldier);
+    CHECK(r.translator.evaluateContextCommand(fortress, fortress->getPosition(), EvaluateType::DoHint) == MSG_ENTER);
+    CHECK(r.ui.cursor() == "DeliverRing"); // RW 0x82CFCD -> 0xCC -> 0x6A4059
+    CHECK(r.stream.pending() == 0);
+}
+
+TEST_CASE("PORT-116 contested occupied garrison uses aggressive cursor")
+{
+    Rig r;
+    Object *tower = r.world.unit("P116Tower", 'B', 400, 400);
+    Object *occupant = r.world.unit("P116Soldier", 'B', 380, 400);
+    Object *attacker = r.world.unit("P116Soldier", 'A', 300, 400);
+    REQUIRE(tower->getContain()->addToContain(occupant));
+    attacker->setStatus((unsigned)CombatNames::status("CAN_ENTER_ANYTHING"), true);
+    r.select(attacker);
+    CHECK(r.translator.evaluateContextCommand(tower, tower->getPosition(), EvaluateType::DoHint) == MSG_ENTER);
+    CHECK(r.ui.cursor() == "EnterAggressive"); // RW 0x82CF2A..0x82CF77 -> 0xBA -> 0x6A4035
     CHECK(r.stream.pending() == 0);
 }
