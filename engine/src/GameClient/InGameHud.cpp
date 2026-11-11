@@ -1846,6 +1846,10 @@ void InGameHud::presentUpgradeComplete()
 			continue;
 		}
 		m_upgradeCompleteNoticeSeen = n.seq;
+		// PORT-107 (issue #267): RW 0x8A22D5 .. 0x8A2328 marks TheControlBar dirty for every completion whose
+		// upgrade the selected object's template lists in UpgradeCameo1..5 — before the local-player gate below
+		// (RW's dirty block has no player check; the feedback block RW 0x8A2080 .. 0x8A223B does).
+		m_bar->noteUpgradeCompleted(n.upgrade);
 		if (!local || local->getPlayerIndex() != n.playerIndex || !n.upgrade)
 		{
 			continue;
