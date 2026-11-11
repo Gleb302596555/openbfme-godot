@@ -19,6 +19,8 @@
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/SimMath.h"
 #include "Common/JobSystem.h"
+#include "GameClient/MapChunks.h"
+#include "GameLogic/ScriptEngine/ScriptConditions.h"
 
 #include <algorithm>
 #include <stdexcept>
@@ -635,6 +637,45 @@ void ShroudManager::shape(int cx, int cy, const Radii &r, float facing, std::uin
 	polygon(xs, ys, 16, mask, add);
 }
 
+// RW 0xB4DBE0 (look) / 0xB4DD90 (unlook): ceil(radius * inverse), floor((p - lo) * inverse), then the circle shape RW 0xB50C90 (BFME2 donor
+// Rva00739BE0.cpp, 0x739A30 / 0x739BE0, the same shape)
+void ShroudManager::revealCircle(float x, float y, float radius, std::uint32_t mask, bool add)
+{
+	int cx, cy;
+	worldToCell(x, y, cx, cy); // an off-map centre may still have an on-map radius
+	const int r = SimMath::ceilToInt(SimMath::pc24Mul(radius, m_cellSizeInv));
+	shape(cx, cy, Radii{r, r, r}, 0.0f, mask, add);
+}
+
+void ShroudManager::revealTrigger(const TriggerArea &area, std::uint32_t mask, bool add)
+{
+	// RW 0xB4DCA0 (look) / 0xB4DE50 (unlook): the trigger's bounds (RW 0x70CE4A) to cells, floor((p - lo) * inverse), then every row of that
+	// rectangle (RW 0xB50510) with a per-cell test (BFME2 donor ScriptEngineNamedMapReveal.cpp, Rva00739AF0Siblings.cpp).
+	// INFERENCE (S-6102): the test is taken as pointInTrigger; the polygon object at trigger + 0x38 that retail asks was not read.
+	if (area.points.empty()) return;
+	float minX = area.points[0].x, maxX = minX, minY = area.points[0].y, maxY = minY;
+	for (const Point2F &p : area.points)
+	{
+		minX = std::min(minX, p.x); maxX = std::max(maxX, p.x);
+		minY = std::min(minY, p.y); maxY = std::max(maxY, p.y);
+	}
+	int x1, y1, x2, y2;
+	worldToCell(minX, minY, x1, y1);
+	worldToCell(maxX, maxY, x2, y2);
+	for (int y = std::max(0, y1); y <= std::min(m_countY - 1, y2); ++y)
+	{
+		for (int x = std::max(0, x1); x <= std::min(m_countX - 1, x2); ++x)
+		{
+			// RW 0xB4FFF0 (the cell test of RW 0xB4DCA0 -> 0xB50E00 -> 0xB50510): fild; fmul cell; fadd lo; + cell * 0.5 (RW 0xBD86A0); _ftol2, so
+			// the polygon sees the centre in whole world units
+			const float half = SimMath::pc24Mul(m_cellSize, 0.5f);
+			const float wx = (float)ftolLow(SimMath::pc24Add(SimMath::pc24Add(SimMath::pc24MulD((double)x, m_cellSize), m_loX), half));
+			const float wy = (float)ftolLow(SimMath::pc24Add(SimMath::pc24Add(SimMath::pc24MulD((double)y, m_cellSize), m_loY), half));
+			if (ScriptConditions::pointInTrigger(area, wx, wy)) hline(x, x, y, mask & kPlayerBits, add);
+		}
+	}
+}
+
 void ShroudManager::lookAt(int cellX, int cellY, const Radii &r, float facing, std::uint32_t mask)
 {
 	++m_stats.looks;
@@ -1063,9 +1104,13 @@ ShroudManager::TemplateVision ShroudManager::templateVision(const ThingTemplate 
 	v.visionSide = real(F_SIDE, 1.0f);
 	v.visionRear = real(F_REAR, 1.0f);
 	v.bonusPerFoot = real(F_PERFOOT, 0.0f);
-	v.bonusTestRadius = real(F_RADIUS, 0.0f);
-	v.maxBonus = real(F_MAX, 0.0f);
-	v.minBonus = real(F_MIN, 0.0f);
+	// the ThingTemplate ctor's defaults for the rows a template does not write (RW 0x73FF17: +0x4D0 MaxVisionBonusPercent 0.5, RW 0x73FF57: +0x4D4
+	// MinVisionBonusPercent -0.5, RW 0x740027: +0x4D8 VisionBonusTestRadius 100, RW 0x74002F: +0x554 VisionBonusTestSegments 8). Ennorath writes
+	// VisionBonusPercentPerFoot on 529 objects and VisionBonusTestSegments on none: with 0 segments the ground reference was 0 and the bonus grew with the
+	// absolute height of the map (owner 2026-11-11, P-69: a horde saw and attacked up to four times too far)
+	v.bonusTestRadius = real(F_RADIUS, 100.0f);
+	v.maxBonus = real(F_MAX, 0.5f);
+	v.minBonus = real(F_MIN, -0.5f);
 	auto integer = [&](int k) -> long long {
 		if (const FieldValue *f = field(k))
 		{
@@ -1076,7 +1121,7 @@ ShroudManager::TemplateVision ShroudManager::templateVision(const ThingTemplate 
 		}
 		return 0;
 	};
-	v.bonusTestSegments = (int)integer(F_SEGMENTS);
+	v.bonusTestSegments = field(F_SEGMENTS) ? (int)integer(F_SEGMENTS) : 8;
 	// the channel rows (RW 0x68EC3B): BuildCost and ThreatValue are u16 (RW parser 0x42EC11), CampnessValue a dword (RW 0x42ECB2)
 	v.visionRange = real(F_VISION, 0.0f);
 	v.buildCost = (unsigned)(integer(F_BUILDCOST) & 0xFFFF);

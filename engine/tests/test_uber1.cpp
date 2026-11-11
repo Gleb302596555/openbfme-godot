@@ -172,6 +172,25 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // AIData SideInfo blocks (data\ini\default\aidata.ini) enter GameLogicSettings::crc from frame 0 (bisected with perf1's vectors to the #201 merge)
 // pin: Local 30 (issue #246) re-measured it once (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-3): the last damage record is replaced only as RW
 // 0x8C4294 .. 0x8C42F5 says, which moves it from frame 23
+// pin: the arena batch of 2026-11-11 (PRs #292 #297 #313-#317 #319 #320 #322-#324 #326-#329 and Local 36 on station-1, Windows MSVC, measured once
+// on the merged tree with OPENBFME_UBER1_REGEN=1; perf1 x3 with OPENBFME_PERF1_REGEN=1): the vector moves from frame 0. Expected of PORT-114 (PR #323:
+// GameData WeaponBonus builds the global WeaponBonusSet every weapon reads, RW 0x6CA7CA); Local 36's four building modules are in the same tree and were
+// not separated
+// pin: owner 2026-11-11 (P-69) re-measured it once (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-0; perf1 x3 with OPENBFME_PERF1_REGEN=1): the vision
+// bonus rows a template leaves out take the ThingTemplate ctor's defaults (8 segments, radius 100, max 0.5, min -0.5: RW 0x73FF17 .. 0x74002F) instead of
+// zeros, so the bonus is measured against the ground around the object; every template with VisionBonusPercentPerFoot looks differently from frame 0
+// pin: main with P-69 (the vision bonus defaults) merged into the arena batch of 2026-11-11 (station-1, Windows MSVC): re-measured once on the
+// combined tree (OPENBFME_UBER1_REGEN=1; perf1 x3 with OPENBFME_PERF1_REGEN=1), both causes above in one vector
+// pin: lane UBER-3P (third step) re-measured the pin vector (OPENBFME_UBER1_REGEN=1, 1 thread, Windows MSVC): the stall no longer ends a search whose
+// goal footprint alone fails (no unit blocks the goal, the same terrain and strict zone, a valid goal position), which now runs until its goal cell is
+// reached or closed, from frame 21.
+// pin: merge queue q46 re-measured it once on the merged tree (OPENBFME_UBER1_REGEN=1), compared at each merge point: #270 (the team threat orders,
+// Team + 0x13C) moves it from frame 12, and the review fix (the threat walk newest first, RW 0x66362D; a horde soldier counts nothing, RW 0x693A1A) from frame 13.
+// pin: merge queue q47 re-measured it once on the merged tree with q46 (OPENBFME_UBER1_REGEN=1), compared at each merge point: #261 (the approach state
+// hashes the wait of an owner that cannot move) moves it from frame 0; #254's, #263's and q46's changes are in the same vector.
+// pin: the fork's merge of upstream 6b178a66 (2026-11-11) re-measured it once on the merged tree with main 167bf1ee (OPENBFME_UBER1_REGEN=1, Windows
+// MSVC, station-3; perf1 x3 with OPENBFME_PERF1_REGEN=1): upstream's q47 (#261 the wait of an owner that cannot move, #263 the group's speed matching, #254) on
+// top of the fork's P-69 and PORT-114 vectors
 TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1, 4 and 16 logic threads and in a repeated run; the hash's own jobs run on "
 		  "workers; Faithful hashes differently and serially")
 {

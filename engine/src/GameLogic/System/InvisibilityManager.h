@@ -159,6 +159,10 @@ public:
 	void wakeEnemiesThatSee(Object *obj);
 	// RW 0x81ABDF's tree part at a position (a TREE object, then the terrain trees); StealthUpdate's AWAY_FROM_TREES asks it too (RW 0x7764D4 ..)
 	bool treesNear(const Coord3D &pos, const Object *self) const;
+	// RW 0x81ACAA (the movement-sensitive module scan, RW 0x8DDBC4 / donor BFME2 0x004D990E): whether `pos` counts as stealthy for `obj` under the
+	// nugget. Only a nugget that forces the tree test (AWAY_FROM_TREES, +0x00 bit 0) or relaxes it (ALLOW_NEAR_TREES, +0xAC bit 0) asks it; anything
+	// else answers false (the InvisibilityUpdate voices of a camouflage-without-trees nugget never swap).
+	bool stealthyAt(const Object &obj, const Coord3D &pos, const InvisibilityNugget &nugget) const;
 
 	// the terrain tree list (RW TheTerrainLogic + 0x578, filled by the map's object loop, RW 0x683D89)
 	void clearTrees() { m_trees.clear(); }
@@ -223,7 +227,8 @@ private:
 	int computeType(Object *obj, Entry &e, Outcome &out);                     ///< RW 0x81BB8A
 	bool allowed(Object *obj, const InvisibilityNugget &n, const Entry &e, ObjectID *found); ///< RW 0x81B948
 	bool firingForbidden(const Object &obj, unsigned forbidden) const;       ///< RW 0x81A926
-	bool nearTrees(const Object &obj, const InvisibilityNugget &n) const;    ///< RW 0x81ABDF
+	bool nearTrees(const Object &obj, const InvisibilityNugget &n) const;    ///< RW 0x81ABDF at the object's position
+	bool nearTreesAt(const Object &obj, const Coord3D &pos, const InvisibilityNugget &n) const; ///< RW 0x81ABDF at a position
 	bool camouflageDetected(const Object &obj, const InvisibilityNugget &n, ObjectID *found) const; ///< RW 0x81B64F
 	bool applyType(Object *obj, int type, Entry &e, const Outcome &out, unsigned delay); ///< RW 0x81B376
 	void reveal(Object *obj, Entry &e, unsigned delay, bool byFriend);       ///< RW 0x81AF68

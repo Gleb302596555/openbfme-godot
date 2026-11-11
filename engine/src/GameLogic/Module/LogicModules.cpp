@@ -57,6 +57,10 @@
 #include "GameLogic/Module/HitReactionBehavior.h"
 #include "GameLogic/Module/InvisibilityModules.h"
 #include "GameLogic/Module/PortalModules.h"
+#include "GameLogic/Module/BaseUpgrade.h"
+#include "GameLogic/Module/DamageFieldUpdate.h"
+#include "GameLogic/Module/CivilianSpawnUpdate.h"
+#include "GameLogic/Module/CivilianSpawnCollide.h"
 
 #include "Common/Thing/ModuleFactory.h"
 #include "GameClient/MapHordeSpawn.h"
@@ -209,6 +213,10 @@ void LogicModules::registerAll(ModuleFactory &modules)
 	TooltipUpgrade::registerClass(modules);                // MODGAP-2: both editions (RW 0x65B257 / BFME2 0x659E2F), stop S-6013
 	ProjectileStreamUpdate::registerClass(modules);        // MODGAP-2: both editions (RW 0x00890AE0 / BFME2 0x0088D370)
 	StrafeAreaUpdate::registerClass(modules);              // MODGAP-2: both editions (RW 0x008A3950 / BFME2 0x0089F9F0)
+	BaseUpgrade::registerClass(modules);                   // LOCAL-36 (issue #286): both editions (RW 0x65A28A / BFME2 0x659074)
+	DamageFieldUpdate::registerClass(modules);             // LOCAL-36 (issue #286): both editions (RW 0x659082 / BFME2 0x6577D5)
+	CivilianSpawnUpdate::registerClass(modules);           // LOCAL-36 (issue #286): both editions (RW 0x6593F7 / BFME2 0x65824C)
+	CivilianSpawnCollide::registerClass(modules);          // LOCAL-36 (issue #286): both editions (RW 0x65B091 / BFME2 0x659C97)
 	DynamicShroudClearingRangeUpdate::registerClass(modules); // LOCAL-35 (#285): the map ping's growing/shrinking shroud reveal (RW 0x88E6D8 / 0x88E9B0)
 	DelayedLuaEventUpdate::registerClass(modules); // LOCAL-35 (#285): the damage warning's delayed Lua event (RW 0x8AC560 / 0x8AC628)
 	ClientBehaviorModules::registerAll(modules); // lane AUDIO-4: the footsteps (a ClientBehavior: the drawables make it, GameClient/)

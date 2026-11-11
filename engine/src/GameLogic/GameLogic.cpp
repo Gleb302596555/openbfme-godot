@@ -222,6 +222,15 @@ void GameLogic::friend_containLeaveWorld(Object &obj)
 	++m_containWorldTransitions;
 }
 
+// PORT-106 (issue #266): RW 0x441B7C (the GameLogic method; [ecx + 0x110] with ecx = TheGameLogic RW 0xDE412C): true for
+// 1 MODE_LAN / 5 MODE_INTERNET only — the port's game mode lives in the EconomyContext (EconomySettings.h: MODE_LAN = 1,
+// MODE_INTERNET = 5, MODE_SKIRMISH = 2), the same values the instruction compares against.
+bool GameLogic::isInMultiplayerGame() const
+{
+	const int mode = economy().context().gameMode;
+	return mode == EconomyContext::MODE_LAN || mode == EconomyContext::MODE_INTERNET;
+}
+
 GameLogic::~GameLogic()
 {
 	reset();

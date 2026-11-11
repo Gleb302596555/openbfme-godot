@@ -1250,6 +1250,11 @@ void W3DScriptedModelDraw::syncSpeedToMovement()
 // port's m_hiddenByFade / m_opacity; StaticSortLevelWhileFading's render +0x98 write stays S-096.
 void W3DScriptedModelDraw::updateCameraFade(const Coord3D &camera, const Coord3D &drawable, int effectsLOD)
 {
+	if (m_options.multiPlayerOnlySkipped)
+	{
+		return; // PORT-106 (issue #266): the fade progress is part of the same doDrawModule body (RW 0x4B52C8 is called from RW 0x4BF586
+				 // inside the body that RW 0x4C72E1 gates away)
+	}
 	if (!m_model || !m_curAnimState)
 	{
 		return; // RW 0x4BF56C / 0x4BF575
@@ -1296,6 +1301,11 @@ void W3DScriptedModelDraw::updateCameraFade(const Coord3D &camera, const Coord3D
 
 void W3DScriptedModelDraw::advance(double elapsedMsD)
 {
+	if (m_options.multiPlayerOnlySkipped)
+	{
+		return; // PORT-106 (issue #266): RW 0x4C72E1..0x4C730C — MultiPlayerOnly leaves doDrawModule's body unrun; the animation
+				 // advance (RW 0x4BF560, entered from RW 0x4C73C7) is part of that body
+	}
 	const float elapsedMs = (float)elapsedMsD;
 	if (!m_model || !m_curAnimState)
 	{

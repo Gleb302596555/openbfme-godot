@@ -806,6 +806,16 @@ const ComboHordeEntry *HordeContain::comboHordeEntryFor(const ThingTemplate &tmp
 	return nullptr;
 }
 
+// RW 0x872B91 (RW 0x872B97 reads the byte, RW 0x872B9D returns): `mov eax, [ecx - 0x118]` is the module data (the interface sits at module + 0x11C, so the
+// data is at interface - 0x118, the same negative displacement the vision getters RW 0x872B9E / 0x872BAB use) and `[eax + 0x25c]` its NotComboFormation byte:
+// the HordeContain field table's row RW 0xC5B8BC (its entry RW 0xC5BD50, parser INI::parseBool RW 0x42E558) writes exactly that offset. The slot is 136 (+0x220) of the interface tables RW 0xC5B1F8 (the horde contains' shared base, written by RW 0x872C1E at [esi + 0x11C]),
+// RW 0xC5BE98 (HordeContain, RW 0x8798A1) and RW 0xC5CFA8 (AODHordeContain, RW 0x87E828). Its ONLY reader, RW 0x751738 in AICombineState::onEnter, calls
+// slot 0x60 (RW 0x86C7F6, the formation swap) when the byte is set.
+bool HordeContain::notComboFormation() const
+{
+	return m_data->horde.m_notComboFormation;
+}
+
 // Interface slot 0x70 (RW 0x871D41): its prologue's status tests and then its combine arm (RW 0x871E89 .. 0x871F12, the function's return).
 //   RW 0x871E89 / 0x871E92: a null object and this horde's own object are refused (RW 0x871F16 returns false);
 //   RW 0x871EC1: the entry lookup RW 0x87043B with the object's template, no entry -> false (RW 0x871ECA);

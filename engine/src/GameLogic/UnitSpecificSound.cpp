@@ -60,11 +60,29 @@ std::string UnitSpecificSound::rawValue(const ThingTemplate &tt, const std::stri
 
 std::string UnitSpecificSound::templateSound(const ThingTemplate &tt, const char *field)
 {
-	const FieldValue *f = tt.findField(field);
-	const RawTokens *raw = f ? std::get_if<RawTokens>(f) : nullptr;
-	if (!raw || raw->tokens.empty() || AsciiStringUtil::compareNoCase(raw->tokens.front(), "NoSound") == 0)
+	if (!field)
 	{
 		return std::string();
 	}
-	return raw->tokens.front();
+	const FieldValue *f = tt.getFinalOverride()->findField(field);
+	const RawTokens *raw = f ? std::get_if<RawTokens>(f) : nullptr;
+	if (!raw || raw->tokens.empty())
+	{
+		return std::string();
+	}
+	const std::string tok = (!raw->macros.empty() && raw->macros[0].isMacro) ? raw->macros[0].value : raw->tokens.front();
+	// RW 0x73AD07 -> 0x73ACAF (allowEva = 0) -> 0x73AB45: NoSound clears, EVA: is invalid on sound rows, +SOUND: strips its prefix
+	if (tok.empty() || AsciiStringUtil::compareNoCase(tok, "NoSound") == 0)
+	{
+		return std::string();
+	}
+	if (tok.size() >= 4 && AsciiStringUtil::compareNoCase(tok.substr(0, 4), "EVA:") == 0)
+	{
+		return std::string();
+	}
+	if (tok.size() >= 7 && AsciiStringUtil::compareNoCase(tok.substr(0, 7), "+SOUND:") == 0)
+	{
+		return tok.substr(7);
+	}
+	return tok;
 }

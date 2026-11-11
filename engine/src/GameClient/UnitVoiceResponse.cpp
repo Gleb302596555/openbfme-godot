@@ -19,10 +19,12 @@
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/BloodthirstyUpdate.h"
 #include "GameLogic/Module/HordeContain.h"
+#include "GameLogic/Module/InvisibilityModules.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectTemplateInfo.h"
+#include "GameLogic/System/InvisibilityManager.h"
 #include "GameLogic/System/ShroudManager.h"
 #include "GameLogic/UnitSpecificSound.h"
 #include "GameLogic/Weapon.h"
@@ -241,7 +243,7 @@ UnitVoiceResponse::Voice UnitVoiceResponse::unitSpecificVoice(const ThingTemplat
 
 int UnitVoiceResponse::voiceTargetArgument(int msgType)
 {
-	// TOP20 #9 (the owner's check, 2026-11-04: a horde entering a building said nothing): the target is the object RW 0x8DD74F takes from the pick info (+ 4,
+	// PR 284 (a horde entering a building said nothing): the target is the object RW 0x8DD74F takes from the pick info (+ 4,
 	// the drawable under the cursor), i.e. the message argument the logic case reads as the target. The layouts are the producers' (this port's message
 	// writers); guessing "the first object id" made MSG_ENTER's entering object its own target
 	switch (msgType)
@@ -646,7 +648,7 @@ void UnitVoiceResponse::moveVoices(Object &obj, int msgType, const Info *info, C
 	const int whileAttacking = enterState ? 32 : VOICE_MOVE_WHILE_ATTACKING;
 	const int higherGround = enterState ? 28 : VOICE_MOVE_TO_HIGHER_GROUND;
 	// the planning mode branch (player + 0x770 == 2: MiscAudio PlanningModeOrderGiven), VoiceCrush (GameData + 0x8B9 and a crushable target), the busy gate
-	// (GameData + 0x8B0) and the castle rule (RW 0x8DDBC4) are not ported: stop S-704
+	// (GameData + 0x8B0) are not ported: stop S-704
 	if (!enterState && msgType == MSG_DO_SALVAGE)
 	{
 		if (fillName(c, obj, "VoiceSalvage"))
@@ -659,6 +661,11 @@ void UnitVoiceResponse::moveVoices(Object &obj, int msgType, const Info *info, C
 		return; // RW 0x8DEA60: a special voice ends the rule list
 	}
 	const bool hasPosition = info && info->hasPosition;
+	// RW 0x8DDBC4 (donor BFME2 0x004D990E): the movement-sensitive module scan, before the camp rule (RW 0x8DEA6E .. 0x8DEAAB)
+	if (!done(c) && hasPosition)
+	{
+		stealthyAreaMoveVoice(obj, msgType, info->position, c);
+	}
 	// TOP20 S-560, RW 0x8DEABD .. 0x8DEBC6: the camp rule. The object (its drawable's row, RW 0x676B30) or its crowd entry (RW 0x8DDA06) has VoiceMoveToCamp
 	// (0x11; enter state 0x1F) or VoiceRetreatToCastle (0x10; 0x1E), it has a controlling player and the order moves it into a camp (RW 0x8DD6F3 for the
 	// owner's bit): in battle (RW 0x8DD7DC) with the castle row VoiceRetreatToCastle, else VoiceMoveToCamp
@@ -751,6 +758,61 @@ bool UnitVoiceResponse::moveRequiresClimbingWalls(const Object &obj, const Coord
 	PathfindLocomotorInfo noScale = hordeAi->locomotorInfo();
 	noScale.crusher = false; // RW 0x5E6027 / 0x5E80F9: PathfindLocomotorInfo::crusher carries ScalesWalls (+0x15 in LocomotorSet)
 	return !pf.quickDoesPathExist(hordeAi->adapter(), horde->getPosition(), &destPos, &noScale);
+}
+
+void UnitVoiceResponse::stealthyAreaMoveVoice(Object &obj, int msgType, const Coord3D &position, Choice &c) const
+{
+	// RW 0x8DDBC4 (donor BFME2 0x004D990E, Code/GameEngine/Source/Common/Rva004D97B0Record.cpp): TheGameLogic + 0x178 must exist (the
+	// InvisibilityManager, RW 0x81ACAA), then the null-terminated module array at obj + 0x24C is scanned one module per step; the scan stops as soon as the
+	// record is carried (RW 0x8DDC0C's `while (!record->isFilled())`). A module answers the call with its movement-sensitive interface (module vtable slot
+	// 11, +0x2C); in RotWK 2.01 only InvisibilityUpdate implements it (RW 0x8A6EF0, one folded body in slots 10 and 11: the module's +0x20 trailing
+	// interface, whose slot 3 (RW 0x8A6F7D) returns the nugget at data + 0x08, whose slot 1 (RW 0x8A7037) returns the name at data + 0x204 and whose slot 2
+	// (RW 0x8A7040) returns the name at data + 0x208). Every other module class answers null there (RW 0x851E97); StealthUpdate included.
+	// The order of the two checks (and of the voice slots) is the binary's: the start not stealthy first (RW 0x8DDC53), the destination stealthy (RW
+	// 0x8DDC66); the voice owner of the fill is the object the picker called us with (the RW record's owner), also for the horde's modules
+	const bool enterState = isEnterState(msgType);
+	InvisibilityManager &manager = m_logic.invisibility();
+	auto scan = [this, &c, enterState, &position, &manager](Object &voiceOwner, Object &scanned) {
+		const Object *horde = scanned.getHordeObject(false); // RW 0x693A1A(0): the object itself when HORDE, else its container when that is HORDE
+		const Coord3D &from = horde ? *horde->getPosition() : *scanned.getPosition();
+		for (const std::unique_ptr<BehaviorModule> &module : scanned.modules())
+		{
+			if (done(c))
+			{
+				return;
+			}
+			const InvisibilityUpdate *iu = dynamic_cast<const InvisibilityUpdate *>(module.get());
+			if (!iu) // RW: the module's slot 11 answers non-null only for InvisibilityUpdate
+			{
+				continue;
+			}
+			const InvisibilityUpdateModuleData *data = iu->data(); // RW module + 0x04 (the nugget and the two names live in it)
+			if (!data)
+			{
+				continue;
+			}
+			if (manager.stealthyAt(scanned, from, data->m_nugget)) // RW 0x8DDC53: already stealthy at the start: no redirect
+			{
+				continue;
+			}
+			if (!manager.stealthyAt(scanned, position, data->m_nugget)) // RW 0x8DDC66: the destination must count as stealthy
+			{
+				continue;
+			}
+			// empty names fill nothing and the scan continues (RW 0x8DDB2A: an empty name returns without filling)
+			fillName(c, voiceOwner, enterState ? data->m_voiceEnterStateMoveToStealthyArea : data->m_voiceMoveToStealthyArea);
+		}
+	};
+	scan(obj, obj);
+	if (!done(c))
+	{
+		// RW 0x8DEA88 .. 0x8DEAAB: the horde's modules when the object's did not carry the record
+		Object *horde = obj.getHordeObject(false); // RW 0x693A1A(0)
+		if (horde && horde != &obj)
+		{
+			scan(obj, *horde);
+		}
+	}
 }
 
 bool UnitVoiceResponse::movesIntoCamp(std::uint32_t mask, const Coord3D &from, const Coord3D &to) const
@@ -956,7 +1018,7 @@ bool UnitVoiceResponse::pickAndPlay(const std::vector<ObjectID> &selection, int 
 		candidates.emplace_back(obj, ordinal);
 	}
 
-	// TOP20 #9, RW 0x8DEE06 -> RW 0x8DD74F: for MSG_ENTER (0x42C) with a target object, the kind of enter the selection makes (RW [ebp-0x84] =
+	// PR 284, RW 0x8DEE06 -> RW 0x8DD74F: for MSG_ENTER (0x42C) with a target object, the kind of enter the selection makes (RW [ebp-0x84] =
 	// ActionManager::getEnterMessage RW 0x82CEFB over the selected drawables); -1 otherwise
 	int enterKind = -1;
 	const Object *enterTarget = msgType == MSG_ENTER && info && info->target != INVALID_ID ? m_logic.findObjectByID(info->target) : nullptr;
@@ -1444,8 +1506,7 @@ std::vector<std::string> UnitVoiceResponse::acceptanceStops()
 		"the planned action queue (0x46A), the Ring voices (0x7E4, 0x7E5); combine hordes (0x423, RW 0x8DF2EB) is answered (PORT-84); 0x7DB .. 0x7DD are answered (PORT-86); "
 		"0x7EA (RW 0x8DFD0D) and 0x7EB (RW 0x8DFE7B) are answered (PORT-87), the post of 0x7EA is stop S-7226",
 		"[S-704] unit voice: rules of the move / attack / enter helpers not ported: the planning order mode (player + 0x770 == 2 -> MiscAudio PlanningModeOrderGiven), "
-		"VoiceCrush (GameData + 0x8B9, crushable target), the busy gate (GameData + 0x8B0), the castle rule (RW 0x8DDBC4), "
-		"the charge voice's drawable gate (RW 0x671EE4: no drawable, no charge)",
+		"VoiceCrush (GameData + 0x8B9, crushable target), the busy gate (GameData + 0x8B0), the charge voice's drawable gate (RW 0x671EE4: no drawable, no charge)",
 		"[S-705] unit voice: the candidate order is selection then member order (retail iterates a hash map keyed by Object pointers), a count tie between "
 		"two sounds goes to the lower-case name order (retail: the lower audio info POINTER, RW 0x8DE522's unsigned compare), and a hero's level is the "
 		"minimum (the experience tracker RW 0x79D12A is lane XP-1's): which sound wins a tie and which object of a bucket speaks may differ from retail",

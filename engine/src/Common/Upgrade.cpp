@@ -17,6 +17,7 @@
 #include "GameLogic/SimMath.h"
 #include "GameLogic/ObjectFilter.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <optional>
 
@@ -267,6 +268,9 @@ UpgradeTemplate *UpgradeCenter::newUpgrade(const std::string &name, bool assignB
 		t->m_maskBit = m_nextBit++;
 	}
 	UpgradeTemplate *raw = t.get();
+	// RW 0x66F248: link the new template at the head (reload unlinks its predecessor).
+	m_listOrder.erase(std::remove_if(m_listOrder.begin(), m_listOrder.end(), [&](const UpgradeTemplate *u) { return u->getUpgradeName() == name; }), m_listOrder.end());
+	m_listOrder.insert(m_listOrder.begin(), raw);
 	auto it = m_byName.find(name);
 	if (it != m_byName.end())
 	{
@@ -478,4 +482,13 @@ void checkLoadedUpgradeMask(const UpgradeMaskType &mask, const std::string &what
 			throw XferException(what + " hold the upgrade bit " + std::to_string(b) + ", beyond this game's " + std::to_string(bits) + " upgrades");
 		}
 	}
+}
+
+// RW 0x66F468 (owner-confirmed, issue #269): walk head +0xC / next +0x64,
+// testing the template's +0x38 bit against the supplied mask.
+const UpgradeTemplate *UpgradeCenter::findUpgrade(const UpgradeMaskType &mask) const
+{
+    for (const UpgradeTemplate *u : m_listOrder)
+        if (u->getMaskBit() >= 0 && mask.test((unsigned)u->getMaskBit())) return u;
+    return nullptr;
 }

@@ -33,6 +33,7 @@
 class Player;
 class ProductionUpdateInterface;
 class SpecialPowerTemplate;
+class UpgradeTemplate;
 struct HeroRecord;
 #include <string>
 #include <vector>
@@ -122,6 +123,12 @@ public:
 	const std::string &displayNameLabel() const { return m_displayName; }
 	// a counter bumped whenever the visible buttons or their states change (the Palantir redraws on a change)
 	unsigned version() const { return m_version; }
+	// PORT-107 (issue #267): a completed upgrade that the selected object's template lists in UpgradeCameo1..5
+	// marks the bar dirty (RW 0x8A22D5 .. 0x8A2328 -> TheControlBar RW 0xDE7744 + 0x28 = 1); update() consumes
+	// the mark (RW 0x71FD81 gates evaluateContextUI on +0x28, which clears it at RW 0x71EBED). The port's
+	// update() refreshes unconditionally, so the flag records that RW's refresh was requested, nothing more.
+	void noteUpgradeCompleted(const UpgradeTemplate *upgrade); // RW 0x8A22D5 .. 0x8A2328
+	bool dirty() const { return m_dirty; }
 	// lane PLAY-4: the selection is in RotWK's under-construction context (evaluateContextUI RW 0x71EBDA -> switchToContext(6) -> populateUnderConstruction
 	// RW 0x944EFB): the command set is not shown, only the cancel construction button
 	bool underConstruction() const { return m_underConstruction; }
@@ -250,6 +257,7 @@ private:
 	bool m_underConstruction = false;
 	AttackFlash m_flash;
 	bool m_foreignView = false;
+	bool m_dirty = false; ///< PORT-107: RW TheControlBar + 0x28 (set RW 0x8A2328, cleared by the refresh RW 0x71EBED)
 	Color m_borderBuildColor = 0x00FFFFFF;
 	Color m_borderActionColor = 0x00FFFFFF;
 	Color m_borderUpgradeColor = 0x00FFFFFF;

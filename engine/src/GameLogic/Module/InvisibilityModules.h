@@ -121,6 +121,7 @@ public:
 	void setActive(bool on);               ///< RW 0x8A7049
 	bool isActive() const { return m_active; }
 	unsigned applications() const { return m_applications; }
+	const InvisibilityUpdateModuleData *data() const { return m_data; } ///< the module's data (module + 0x04); RW 0x8DDBC4 reads it for the nugget and the two voice names
 	void crc(StateHasher &hasher) const override;
 
 private:

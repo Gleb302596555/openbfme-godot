@@ -6,6 +6,8 @@
 #include "GameLogic/SnapshotXfer.h"
 
 #include "Common/AsciiString.h"
+#include "Common/Audio/AudioLog.h"
+#include "Common/Audio/AudioRequests.h"
 #include "Common/GameCommon.h"
 #include "Common/Thing/ModuleFactory.h"
 #include "Common/Thing/ThingTemplate.h"
@@ -27,6 +29,7 @@
 #include "GameLogic/Object/ObjectGeometry.h"
 #include "GameLogic/Object/Contain/HordeFlank.h"
 #include "GameLogic/SimMath.h"
+#include "GameLogic/UnitSpecificSound.h"
 #include "Common/INI/HostRealText.h"
 
 #include <cstdlib>
@@ -42,10 +45,11 @@ const int kCrushableLevelModifier = 0x19;      // CRUSHABLE_LEVEL
 const int kCrushedDecelerateModifier = 0x1A;   // CRUSHED_DECELERATE
 
 const char *const kStop =
-	"[S-580] crush: SquishCollide (RW 0x8BFBAE), the crush levels with CRUSHABLE_LEVEL / CRUSHER_LEVEL (RW 0x68D4D0 / 0x695070), canCrush (RW 0x68D524), onCrush (RW 0x69320D: the "
+	"[S-580] crush: SquishCollide (RW 0x8BFBAE), the crush levels with CRUSHABLE_LEVEL / CRUSHER_LEVEL (RW 0x68D4D0 / 0x695070), canCrush (RW 0x68D524), onCrush (RW 0x69320D: "
+	"SoundCrushing at the crusher's id before the HORDE recursion RW 0x693231 .. 0x69329C (lane PORT-89: drawable assumed present, template row only S-701), the "
 	"CrushKnockback fling through Object::doKnockback RW 0x692223, the deceleration with CRUSH_DECELERATE / CRUSHED_DECELERATE / MINIMUM_CRUSH_VELOCITY) and the bump (RW 0x696800: "
 	"the speed hold) and RamPower's shockwave hit (lane COMBAT-4) are ported; NOT ported: the bump's contact attack (S-1600), RotWK's AI-goal exemption (AI vslot 0x188) and ZH's hijacker / TNT "
-	"exemptions, SoundCrushing (client); INFERENCE: the contact pairs are MOVE-1's overlap pass of the AI units in id order (S-220, not RW's partition contacts), the shape test is "
+	"exemptions; INFERENCE: the contact pairs are MOVE-1's overlap pass of the AI units in id order (S-220, not RW's partition contacts), the shape test is "
 	"planar (circles and oriented rectangles; RW 0xAD2CE0's height test is not read), the crush / revenge weapons fire through the object's ObjectWeapons";
 
 const char *const kCombat3Stop =
@@ -315,7 +319,19 @@ void ObjectCrush::onCrush(Object &crusherIn, Object &victim)
 	{
 		return;
 	}
-	// RW 0x693231 .. 0x69329C: the crusher's SoundCrushing (TheAudio, client)
+	// RW 0x693231 .. 0x69329C (lane PORT-89): before the HORDE recursion and before CrushKnockback / deceleration, play SoundCrushing (row 0x37, RW 0x68FFEF)
+	// through an AudioEventRTS for crusherIn->getID() (RW 0x6DA95E / 0x6DA6A7 -> TheAudio vslot 0x64).
+	// INFERENCE: the drawable check ([esi + 0x84]) is taken as true (every retail logic object has a drawable); the sound comes from the template's row
+	// (following map.ini overrides), not through the draw module's sound selectors (RW 0x676A8A asks them first; S-701, as SoundMoveStart / SoundOnDamaged / SoundImpact).
+	if (const ThingTemplate *tt = static_cast<const ThingTemplate *>(crusherIn.getTemplate()))
+	{
+		const std::string sound = UnitSpecificSound::templateSound(*tt->getFinalOverride(), "SoundCrushing");
+		if (!sound.empty())
+		{
+			AudioLog::Scope scope("SoundCrushing");
+			AudioApi::playSoundForObject(sound, crusherIn.getID());
+		}
+	}
 	if (crusherIn.getContainedBy() && isHorde(*crusherIn.getContainedBy()))
 	{
 		onCrush(*crusherIn.getContainedBy(), victim); // a member's crush is its horde's

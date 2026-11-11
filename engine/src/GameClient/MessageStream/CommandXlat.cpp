@@ -6,6 +6,8 @@
 
 #include "Common/Team.h"
 #include "GameClient/Radar.h"
+#include "GameClient/CursorFile.h"
+#include "Common/Upgrade.h"
 #include "GameLogic/AI/AIGarrisonStates.h"
 #include "GameLogic/ActionManager.h"
 #include "GameLogic/Combat/CombatNames.h"
@@ -553,6 +555,42 @@ int CommandTranslator::evaluateContextCommand(Object *obj, const Coord3D *pos, E
 		if (const int captureType = evaluateCapture(obj, pos, type))
 		{
 			return captureType;
+		}
+	}
+	// PORT-109, owner-confirmed RW 0x81F29D..0x81F337: action 0x12,
+	// after action 0xC above. RW 0x69D4E1 / 0x69D572: ANY selected source.
+	if (obj)
+	{
+		bool any = false;
+		for (ObjectID id : m_ctx.ui.selected())
+		{
+			if (ActionManager::canGiveUpgrade(m_ctx.logic.findObjectByID(id), obj)) { any = true; break; }
+		}
+		if (any)
+		{
+			Object *first = m_ctx.logic.findObjectByID(m_ctx.ui.firstSelected());
+			if (type == EvaluateType::DoCommand)
+			{
+				// RW 0x81F2B4 -> 0x81DF04: first selection's first SPECIAL_POWER
+				// button of power type 0x33; no button ends evaluation.
+				const CommandSet *set = first && TheCommandStore ? TheCommandStore->findCommandSet(first->getCommandSetName()) : nullptr;
+				if (set) for (int i = 0; i < CommandSet::MAX_BUTTONS; ++i)
+				{
+					const CommandButton *b = set->getCommandButton(i);
+					const SpecialPowerTemplate *t = b && b->m_command == GUI_COMMAND_SPECIAL_POWER && TheSpecialPowerStore
+						? TheSpecialPowerStore->findSpecialPowerTemplate(b->m_specialPowerName) : nullptr;
+					if (t && t->getFinalOverride()->getSpecialPowerType() == 0x33) return issueSpecialPower(*b, obj, pos, type);
+				}
+				return 0;
+			}
+			// RW 0x81F2D2..0x81F337: 0x7D6 argument 1 is resolved from
+			// the FIRST source's mask, not the source which passed ANY.
+			const UpgradeTemplate *u = first && TheUpgradeCenter ? TheUpgradeCenter->findUpgrade(first->getUpgradeMask()) : nullptr;
+			const int cursor = u ? MouseCursorIndex(u->m_cursor) : 1;
+			// Existing direct hint adaptation: RW 0x6A405D..0x6A4081 consumes
+			// that argument through RW 0x69BD53 (hintCursor); no second handler.
+			hint(MouseCursorNameForIndex(cursor).c_str());
+			return 0x7D6;
 		}
 	}
 	// lane QA-1 (stop S-1201): ZH evaluateContextCommand's ACTIONTYPE_RESUME_CONSTRUCTION and ACTIONTYPE_REPAIR_OBJECT (CommandXlat.cpp:1712 / 1785, SELECTION_ANY): a
