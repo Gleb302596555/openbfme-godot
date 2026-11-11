@@ -37,10 +37,7 @@
 //         RepairWhenBelowHealth% -> repair 0x8A5B75. 0x8A5EEB AttackRange + victim -> endRepair (0x8A5EFC) and doAttackLogic (0x8A5F06).
 //         0x8A5F2C ScoutRange + a master path -> scout 0x8A54DD when its end is farther than (GuardMaxRange / 2)^2 (RW 0x6CA525).
 //         0x8A5F8B health < 100 -> repair. 0x8A5FA5 builds the guard point from the master's transform and GuardPositionOffset (SSE).
-//       - 0x8A5FFB FadeOutRange: when in range && !m_faded, calls logic.clientHooks()->fadeOut(*obj, m_fadeTime) and sets m_faded;
-//         when out of range && m_faded, calls logic.clientHooks()->fadeIn(*obj, m_fadeTime) and clears m_faded (RW 0x8A6024 .. 0x8A6097,
-//         client; m_fadeTime is in logic frames, passed straight through since logic and client share the 5 fps rate). 0x8A6024 GuardMaxRange:
-//         a guard target -> moveTo(target, false) at 0x8A605F; otherwise
+//       - 0x8A5FFB FadeOutRange: drawable fade (client). 0x8A6024 GuardMaxRange: a guard target -> moveTo(target, false) at 0x8A605F; otherwise
 //         0x8A607A an idle AI farther than 225.0 (RW 0xDB0CB0) from the guard point, or 0x8A60Bc within it but farther than GuardMaxRange^2 from
 //         the master -> moveTo(guard point, false) at 0x8A60EF. 0x8A610A a busy AI with a victim beyond GuardMaxRange^2 -> moveTo(guard point, true).
 //         0x8A616B LeashRange: busy within LeashRange^2 stays (0x8A61A0); otherwise 0x8A61B2 sets LEASHED_RETURNING on a busy AI (status 30,
@@ -70,7 +67,7 @@
 // INFERENCE / NOT PORTED (stop S-1426, stopLines()): the repair path (RW 0x8A5B75 / 0x8A58FA: no retail object repairs), the scout path's slaver path end
 // (the AI's path is not kept as RotWK's + 0x140), AI command 15's second argument (RW 0x68B58C(0) + 0x34) and its state (ported as the attack-move of COMBAT-1,
 // S-328), the onSlaverDamage AI command 0x1D (ZH go prone: no RotWK object reacts), the AI's vslot 0x238 and the locomotor bits of endRepair, the player's
-// RW 0x79F486 and the drawable links (client), RW 0x6CA525's sphere variant (the bounding circle distance of ApproachMath).
+// RW 0x79F486, the fade and the drawable links (client), RW 0x6CA525's sphere variant (the bounding circle distance of ApproachMath).
 
 #pragma once
 
