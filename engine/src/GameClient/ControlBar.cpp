@@ -315,6 +315,7 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 			return StancesBehavior::of(obj) ? ButtonState::Enabled : ButtonState::Restricted;
 		case GUI_COMMAND_SET_STANCE:
 			return ButtonState::Enabled; // RW 0x942733: type 0x3A is in the default (available) arm
+		case GUI_COMMAND_WAKE_AUTO_PICKUP: // PORT-137: RW 0x942A5C table shares the contain gate with TOGGLE_WEAPONSET
 		case GUI_COMMAND_TOGGLE_WEAPONSET:
 			// lane HUD-4: RW 0x942FC6: restricted while a non-horde contain of the object holds someone, else available
 			return WeaponSetToggle::isRestrictedByContain(obj) ? ButtonState::Restricted : ButtonState::Enabled;
@@ -554,7 +555,6 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 		case GUI_COMMAND_TOGGLE_WEAPON:          // RW 0x9437E7
 		case GUI_COMMAND_ONE_RING:               // RW 0x94387B
 		case GUI_COMMAND_CREW_EVACUATE:          // RW 0x94331B
-		case GUI_COMMAND_WAKE_AUTO_PICKUP:       // RW 0x942FC6
 		case GUI_COMMAND_START_SELF_REPAIR:      // RW 0x942D83
 		case GUI_COMMAND_HORDE_SET_FORMATION:    // RW 0x9438A0
 		case GUI_COMMAND_START_NEIGHBORHOOD_REPAIR: // RW 0x942DED

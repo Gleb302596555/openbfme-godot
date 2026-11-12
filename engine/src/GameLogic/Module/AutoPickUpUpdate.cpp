@@ -37,7 +37,7 @@ namespace
 typedef AutoPickUpUpdateModuleData Data;
 
 const char *const kStop =
-	"[S-7160] AutoPickUpUpdate (lane MODCOMPAT-MOD1, ported: RW 0x89958F / 0x899562, the WAKE_AUTO_PICKUP button RW 0x68C8DE, the grab / eat through "
+	"[S-7160] AutoPickUpUpdate (lane MODCOMPAT-MOD1, ported: RW 0x89958F / 0x899562, the WAKE_AUTO_PICKUP button and message RW 0x9412F8 / 0x77B51F / 0x68C8DE, the grab / eat through "
 	"the object's SPECIAL_GRAB_PASSENGER power, GrabPassengerSpecialPower): NOT ported: AutoThrowObject's throw at the closest enemy (RW 0x8995FB .. "
 	"0x89978F; no 2.01 template sets it); the tree pick-up runs the power at the map tree's point since lane LOCAL-42 (RW 0x89994B); an unported "
 	"special power module met before the power (it may be the power) is reported and the step goes on without it";
