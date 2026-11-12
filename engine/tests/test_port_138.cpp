@@ -21,6 +21,7 @@
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Module/RebuildHoleModules.h"
 #include "GameLogic/Module/WorkerAIUpdate.h"
+#include "GameLogic/ProductionSettings.h"
 
 #include <string>
 #include <vector>
@@ -51,7 +52,7 @@ const char kObjects[] =
 	"  ArmorSet\n    Conditions = None\n    Armor = NoArmor\n  End\n"
 	"  Body = StructureBody B\n    MaxHealth = 1000\n    InitialHealth = 1000\n  End\n"
 	"  Behavior = RebuildHoleBehavior R\n"
-	"    WorkerObjectName = Port138Worker\n    WorkerRespawnDelay = 1000\n    HoleHealthRegen%PerSecond = 0.5%\n  End\n"
+	"    WorkerObjectName = Port138Worker\n    WorkerRespawnDelay = 120000\n    HoleHealthRegen%PerSecond = 0.5%\n  End\n"
 	"  Behavior = DestroyDie D\n  End\n"
 	"End\n"
 	"Object Port138DirectHole\n"
@@ -85,12 +86,29 @@ const char kObjects[] =
 	"  Behavior = RubbleRiseUpdate R\n"
 	"    MinRubbleRiseDelay = 0\n    MaxRubbleRiseDelay = 0\n    RubbleRiseDamping = 0.5\n"
 	"    RubbleHeight = 4\n    MaxShudder = 0\n    MinBurstDelay = 1\n    MaxBurstDelay = 1\n    BigBurstFrequency = 1\n  End\n"
-	"  Behavior = DestroyDie D\n  End\n"
 	"End\n";
+
+// Neutral synthetic GameData build-time settings: every multiplier is 1, so BuildTime 2.0 gives RW's 10 logic frames.
+const char kProductionGameData[] =
+	"GameData\n"
+	"  MinLowEnergyProductionSpeed = 1\n  MaxLowEnergyProductionSpeed = 1\n  LowEnergyPenaltyModifier = 1\n  MultipleFactory = 1\n"
+	"  MultiPlayUnitSpeedMult = MP1:1 MP2:1 MP3:1 MP4:1 MP5:1 MP6:1 MP7:1 MP8:1\n"
+	"  MultiPlayBuildingSpeedMult = MP1:1 MP2:1 MP3:1 MP4:1 MP5:1 MP6:1 MP7:1 MP8:1\n"
+	"End\n";
+
+struct Port138Drawable : ObjectClientHooks
+{
+	void objectCreated(Object &) override {}
+	void objectDestroyed(Object &) override {}
+};
 
 struct Port138World : CombatWorld
 {
-	Port138World() : CombatWorld(kObjects) {}
+	Port138World() : CombatWorld(kObjects)
+	{
+		std::string error;
+		REQUIRE_MESSAGE(ProductionSettings::scan(kProductionGameData, logic->productionSettings(), &error), error);
+	}
 	std::vector<Object *> alive(const char *name)
 	{
 		std::vector<Object *> out;
@@ -248,21 +266,45 @@ TEST_CASE("PORT-138 neighboring hole: no WorkerObjectName keeps the direct, comp
 	CHECK(rebuilt->getConstructionPercent() == -1.0f);
 	GameTextTableSource text;
 	text.table.setOverride("CONTROLBAR:UnderConstructionDesc", "Building: %.0f%%");
-	CHECK(DrawableIconUI::constructionText(&text, rebuilt->getConstructionPercent()).empty());
+	Win32BIGFileSystem empty;
+	ArchiveW3DFileSource source(empty);
+	WW3DAssetManager assets(source);
+	DrawableManager drawables(assets, *w.logic);
+	ClientEventRecorder recorder(*w.logic);
+	recorder.objectCreated(*rebuilt);
+	drawables.applyEvents(recorder.take());
+	REQUIRE(drawables.findByObject(rebuilt->getID()) != nullptr);
+	PinholeView view({ 440.0f, 140.0f, 400.0f }, { 440.0f, 440.0f, 0.0f }, 1024, 768, 0.7f);
+	IconUISettings settings;
+	settings.text = &text;
+	DrawableIconUI ui;
+	std::vector<IconUIOp> ops;
+	ui.build(*w.logic, drawables, view, settings, {}, 0, ops);
+	for (const IconUIOp &op : ops)
+	{
+		if (op.object == rebuilt->getID())
+			CHECK(op.kind != IconUIOp::TEXT); // RW 0x677CF9: percent -1 has no caption
+	}
 	w.frames(1);
 	CHECK(w.alive("Port138DirectHole").empty());
 }
 
 TEST_CASE("PORT-138 neighboring camp: RubbleRiseUpdate keeps its POST_RUBBLE to POST_COLLAPSE sequence, not a hole countdown")
 {
+	Port138Drawable drawable;
 	Port138World w;
 	Object *camp = w.unit("Port138Camp", 'A', 460.0f, 460.0f);
 	REQUIRE(camp != nullptr);
+	camp->friend_bindToClient(&drawable); // RW 0x8A85EE / 0x8A87D1: the rise needs a drawable
+	Coord3D sunk{ 460.0f, 460.0f, -100.0f };
+	camp->setPosition(&sunk);
 	camp->kill(DAMAGE_UNRESISTABLE, DEATH_NORMAL);
 	w.frames(1);
 	CHECK(condition(*camp, "POST_RUBBLE"));
 	CHECK_FALSE(condition(*camp, "POST_COLLAPSE"));
-	w.frames(1);
+	// RW 0x8A8764: (-gravity)*(1-damping)*20 = 25.6 per frame; 100 below the terrain completes on the fourth rise frame.
+	const int risen = w.runUntil([&] { return condition(*camp, "POST_COLLAPSE"); }, 10);
+	CHECK(risen == 3);
 	CHECK_FALSE(condition(*camp, "POST_RUBBLE"));
 	CHECK(condition(*camp, "POST_COLLAPSE"));
 	CHECK_FALSE(camp->isUnderConstruction());

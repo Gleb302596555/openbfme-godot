@@ -153,3 +153,41 @@ notes above remain the evidence already obtained; new disassembly and a fresh
 merged-INI audit require the owner to reconnect Drive or supply the ignored
 `workspace/RotWK/game.dat` and the INI archive again. No game or mod data was
 added to Git.
+
+## Checkpoint 4: executable result and the acceptance boundary
+
+The synthetic PORT-138 route now runs without game files:
+
+- `engine/build/openbfme_tests -tc="PORT-138*"`: **4 test cases / 109 assertions,
+  all pass** on the unchanged runtime code.
+- The named-worker hole keeps Ennorath's full `WorkerRespawnDelay = 120000` ms
+  (600 logic frames at RW 0xD9F608), then the inherited dozer machine builds in
+  10-percent / 20-health steps for the synthetic 2-second build. The actual
+  `DrawableIconUI::build` pass emits exactly one `Building: 10%` caption while
+  the object is under construction and none after completion. The direct hole
+  and camp-rise neighbours keep their own sequences.
+- Sensitivity check: temporarily removing the RW wait gate in
+  `RebuildHoleBehavior::update` (the `--m_workerWaitCounter == 0` transition,
+  RW 0x88692A..0x886943) made **3 of 4** PORT-138 cases fail (13 assertions);
+  restoring the gate returned the filter to 4/4. The mutation was not committed.
+
+No runtime difference was found in the hole -> worker -> staged-construction
+route already present in the port. The earlier red run was a fixture error
+(the delay replacement had not matched the one-line INI string, and the
+ CombatWorld fixture lacked ProductionSettings), not a reproduced engine bug.
+Accordingly this branch changes tests, CMake wiring and analysis only; it does
+not invent a second rebuild controller or a new delay.
+
+A full `openbfme_tests` run on this branch was **not green**: 6391 cases,
+6381 passed, 10 failed, 29 skipped. Five failures are the documented missing
+`lame`/`mpg123` MP3-fixture environment failures. The other five are in
+`bfme1 fields`, `cbhunt`, `heroring1`, `move SPEED` and `shroud objects`; the
+branch has no `engine/src` diff, so they are not introduced by Port 138's
+changes. They are reported for the night run rather than silently baselined.
+
+The visible Ennorath check still needs the mod assets and the owner's game:
+start an Ennorath skirmish with Cheat Mode, spawn a Wild economic building
+(for example GoblinCave), destroy it to its hole, observe the 120-second wait,
+then the staged rise with the construction percentage and without the rubble
+model. The cloud test proves the logic/model-condition/icon-op route, not the
+mod's W3D asset swap.
