@@ -1396,6 +1396,31 @@ VoiceParams AudioManager::voiceParamsFor(AudioEventRTS &event, VoiceKind kind)
 	}
 	p.gainLeft = g.left;
 	p.gainRight = g.right;
+	// RW 0x5DD9EE: RotWK hands the voice ReverbEffectLevel, DryLevel and ZoomedInOffscreenOcclusionPercent read from the event info
+	// (game.dat reader chain: table rows 0xBEFF40/0xBEFF50/0xBEFF60, parser 0x42EEFA, storage +0xA4/+0xA8/+0xAC, all pushed into
+	// call 0x5DD9EE). Reverb send and dry level come straight from the info; the offscreen occlusion is applied only while zoomed
+	// in and the source is offscreen, using the same zoom/offscreen query as the volume fade (getEffectiveVolume above).
+	const AudioEventInfo *info = event.getAudioEventInfo();
+	p.reverbSend = info ? info->reverbEffectLevel : 0.0f;
+	p.dryLevel = info ? info->dryLevel : 1.0f;
+	float occlusion = 0.0f;
+	if (info && info->zoomedInOffscreenOcclusionPercent > 0.0f)
+	{
+		const bool haveZoomFade = m_queries.zoomFadeFactor && m_queries.isOnScreen && m_queries.offscreenDistanceSq;
+		if (haveZoomFade)
+		{
+			const float zoom = m_queries.zoomFadeFactor();
+			Coord3D pos;
+			if (zoom > 0.0f && event.getCurrentPosition(m_env, &pos) && !m_queries.isOnScreen(pos))
+			{
+				const MicrophoneSettings &mic = m_ini.settings.microphone[m_currentView == VIEW_LIVING_WORLD ? 1 : 0];
+				const float dsq = m_queries.offscreenDistanceSq(pos);
+				const float f = (dsq >= mic.zoomFadeDistanceForMaxEffectSq ? 1.0f : std::sqrt(dsq) / mic.zoomFadeDistanceForMaxEffect) * zoom;
+				occlusion = info->zoomedInOffscreenOcclusionPercent * f;
+			}
+		}
+	}
+	p.occlusion = occlusion;
 	return p;
 }
 

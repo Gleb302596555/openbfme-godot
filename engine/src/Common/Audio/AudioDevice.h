@@ -27,6 +27,12 @@ struct VoiceParams
 	float gainLeft = 1.0f;  ///< the linear channel gains Miles mixes the voice at (MilesMix: its volume law, its pan / 3D provider)
 	float gainRight = 1.0f;
 	float pitch = 1.0f;  ///< playback rate multiplier
+	// RW 0x5DD9EE: RotWK hands the voice ReverbEffectLevel, DryLevel and ZoomedInOffscreenOcclusionPercent read from the
+	// AudioEventInfo (game.dat RW reader chain: table rows 0xBEFF40/0xBEFF50/0xBEFF60, parser 0x42EEFA, storage +0xA4/+0xA8/+0xAC,
+	// pushed into call 0x5DD9EE). voiceParamsFor fills these from the event info; the device layer renders them.
+	float reverbSend = 0.0f;  ///< RotWK ReverbEffectLevel 0..1: how much of the voice is sent to reverb (0.0 = none)
+	float dryLevel = 1.0f;    ///< RotWK DryLevel 0..1: the dry (direct) level of the voice (1.0 = full dry)
+	float occlusion = 0.0f;   ///< RotWK ZoomedInOffscreenOcclusionPercent 0..1 applied when zoomed in and offscreen (0.0 = none)
 };
 
 struct VoiceStart

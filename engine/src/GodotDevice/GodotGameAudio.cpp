@@ -289,8 +289,11 @@ void GodotAudioDevice::applyParams(Slot &slot, const VoiceParams &p, double nowM
 	// lane AUDIO-5: the core's Miles channel gains (gL, gR). Godot's panner at pan x >= 0 plays a mono source (both channels s) at
 	// L = (1 - x) s, R = (1 + x) s (mirrored for x < 0), so the bus volume (gL + gR) / 2 with x = (gR - gL) / (gR + gL) gives exactly
 	// (gL, gR); a stereo source is exact at the centre (2D voices, Miles' default pan) and mixes its left into its right when panned
+	// RW 0x5DD9EE: RotWK's DryLevel scales the dry (direct) path of the voice, so it is applied to the bus volume here.
+	// reverbSend (reverb send) and occlusion (offscreen low-pass) are effect-layer parameters carried on VoiceParams for the device
+	// to render; this backend applies the dry level into the voice volume.
 	const float sum = p.gainLeft + p.gainRight;
-	float volume = 0.5f * sum;
+	float volume = 0.5f * sum * p.dryLevel;
 	slot.volume = volume;
 	if (slot.fadeInMs > 0.0)
 	{
