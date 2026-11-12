@@ -136,6 +136,9 @@ public:
 	// disabled, and presses are refused
 	bool foreignView() const { return m_foreignView; }
 	static bool localPlayerActive(const Player *local);
+	// PORT-130 (issue #332): RW 0x942993..0x942A1B, the NEEDS_CASTLE_KINDOF button filter. Public so the
+	// synthetic tests can drive the very predicate evaluate() uses; no second path is added.
+	static bool castleKindOfAllows(const CommandButton &b, Object &obj);
 	// RW 0x729D9A: the production count of a command window showing `b` for an object with the production interface `pu` (0: none shown)
 	static int productionCountOf(const CommandButton &b, const ProductionUpdateInterface *pu);
 	// RW 0x71EE67 .. 0x71EF1E: the object's GettingBuiltBehavior (behavior slot 0x80, RW 0x68C3E6) rebuilds it (+ 0x35, slot 14 RW 0x71C2EA) or has + 0x36 set
