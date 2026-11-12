@@ -32,7 +32,7 @@ const char *const kStop =
 	"[S-1426] SlavedUpdate (lane MOD-4): onEnslave / onSlaverDie (RW 0x8A510B / 0x8A51B9), DieOnMastersDeath, the team follow, AttackRange (RW 0x8A5319), "
 	"GuardMaxRange, GuardWanderRange and LeashRange (RW 0x8A5D00 / 0x8A567E) run; INFERENCE / not ported: the repair path (RW 0x8A5B75 / 0x8A58FA, no retail "
 	"object repairs), the scout path (the slaver's path end, AI + 0x140), AI command 15 as COMBAT-1's attack-move (its second argument RW 0x68B58C(0) + 0x34 "
-	"unread, S-328), onSlaverDamage's AI command 0x1D (ZH go prone), endRepair's AI vslot 0x238 and locomotor bits, the player's RW 0x79F486, the fade "
+	"unread, S-328), onSlaverDamage's AI command 0x1D (ZH go prone), endRepair's AI vslot 0x238 and locomotor bits, the player's RW 0x79F486 "
 	"and the drawable links (client)";
 
 const int kSlavedUpdateRate = LOGICFRAMES_PER_SECOND / 4; // RW 0xDE95FC (RW 0xBC6E11: [0xD9F608] / 4)
@@ -451,9 +451,28 @@ UpdateSleepTime SlavedUpdate::update()
 	guard.y = SimMath::addf32(SimMath::addf32(SimMath::addf32(SimMath::mulf32(b[5], o.z), SimMath::mulf32(b[4], o.y)), SimMath::mulf32(b[3], o.x)), sp->y);
 	guard.z = SimMath::addf32(SimMath::addf32(SimMath::addf32(SimMath::mulf32(b[8], o.z), SimMath::mulf32(b[7], o.y)), SimMath::mulf32(b[6], o.x)), sp->z);
 	// FadeOutRange: the drawable's fade (RW 0x670A50 / 0x670AA2): client; + 0x45 keeps whether it faded
+	// RW 0x8A6024 .. 0x8A6097: in range && !faded -> fadeOut, set faded; out of range && faded -> fadeIn, clear faded.
+	// m_fadeTime is in logic frames (parseDurationUnsignedInt); logic and client run at the same 5 fps, so it is passed
+	// straight through as the client-frame count.
 	if (m_data->m_fadeOutRange != 0)
 	{
-		m_faded = !(distSqTo(*obj, guard) > intSquare(m_data->m_fadeOutRange));
+		const bool inRange = distSqTo(*obj, guard) <= intSquare(m_data->m_fadeOutRange);
+		if (inRange && !m_faded)
+		{
+			if (ObjectClientHooks *client = logic.clientHooks())
+			{
+				client->fadeOut(*obj, m_data->m_fadeTime);
+			}
+			m_faded = true;
+		}
+		else if (!inRange && m_faded)
+		{
+			if (ObjectClientHooks *client = logic.clientHooks())
+			{
+				client->fadeIn(*obj, m_data->m_fadeTime);
+			}
+			m_faded = false;
+		}
 	}
 	if (m_data->m_guardMaxRange != 0)
 	{
