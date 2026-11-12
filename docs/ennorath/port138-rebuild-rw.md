@@ -124,3 +124,32 @@ object's worker-driven construction are three consecutive parts of one route,
 not a self-repair triggered by the end of incoming damage. The next checkpoint
 exercises that whole route synthetically, including the caption inputs, before
 choosing the first differing runtime step. No runtime change is claimed yet.
+
+## Checkpoint 3: the WorkerAI/DozerAI inheritance and the remaining comparison
+
+The earlier working note treated `WorkerAIUpdate` and `DozerAIUpdate` as
+alternative, unrelated worker classes. That was wrong: the port declares
+`WorkerAIUpdate : public DozerAIUpdate, ...` (`WorkerAIUpdate.h:60`), and its
+update calls the inherited `dozerMachineStep()` (`WorkerAIUpdate.cpp:541`).
+Consequently the `dynamic_cast<DozerAIUpdate *>` in
+`GettingBuiltBehavior::spawnWorkerOrStart` also accepts a WorkerAIUpdate;
+S-650 is not evidence that Ennorath's named workers cannot build. The hole's
+named-worker branch already calls `constructForRebuild` (RW 0x8AD6A4), whose
+BUILD task is processed by the inherited dozer action machine and
+`workOnBuild` (RW 0x88DE43). This removes a false stop candidate, not a
+confirmed root cause.
+
+The first executable comparison is now the committed synthetic route in
+`engine/tests/test_port_138.cpp`: death -> hole -> wait -> worker -> staged
+construction -> existing caption helper -> completion and hole removal, with
+the direct-build and camp-rise neighbours. Its translation unit passes a
+standalone GCC syntax check using the actual Ninja compile flags. The full
+test-target build and the PORT-138 run are still in progress; no red/green or
+runtime-fix claim is made here.
+
+The Drive connector lists as enabled but both attempted downloads returned
+`auth_error` (the app is not connected). The previously read RW instruction
+notes above remain the evidence already obtained; new disassembly and a fresh
+merged-INI audit require the owner to reconnect Drive or supply the ignored
+`workspace/RotWK/game.dat` and the INI archive again. No game or mod data was
+added to Git.
