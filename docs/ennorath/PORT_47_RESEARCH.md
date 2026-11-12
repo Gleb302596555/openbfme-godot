@@ -207,8 +207,8 @@ not changed. New client events are transient, not simulation state.
 | Texture then explicit recolour, once | 0x8B9265/69, 0x8B926B/72, 0x8B927D | upgrade recolours after texture replacement |
 | Controller day colour, kind 1; not night or custom | 0x4B8727/2C, 0x4B8759 | same case, different custom/base/night and explicit colours |
 | First exclusion only; empty means no exclusion | 0x4B873C..0x4B874F | same case and empty exclusion case |
-| Excluded mesh retains base colour; match after first dot, case-insensitive | 0x54BE24..0x54BE43 | same case, Blade / Armor / Extra.Blade |
-| House-enabled and campaign KindOf gates | 0x67274A, 0x672760/81 | no recolour case, nine input scenarios |
+| Excluded mesh retains base colour; match after first dot, case-insensitive | 0x54BE24..0x54BE43 | same case, Blade / Armor / Extra.Blade and a dotless mesh |
+| House-enabled and campaign KindOf gates | 0x67274A, 0x672760/81 | no recolour case, ten input scenarios, including no controller |
 | Subsequent texture removal resets overrides through existing lifecycle | 0x4C107F, 0x4C4648/4B, 0x4B2C18 | same case, removal assertion |
 
 Campaign-helper instructions were re-read at 0x5FF924, 0x626355 and 0x6253FD.

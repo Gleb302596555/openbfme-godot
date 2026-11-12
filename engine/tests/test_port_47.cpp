@@ -34,6 +34,7 @@ void model(w3dsynth::MemoryFileSource &fs)
         subs.push_back({std::string("P47.") + name, 0});
     }
     SynthMesh bare;
+    bare.Container.clear();
     bare.Name = "Blade"; // no container prefix/dot: RW 0x54BE32 must NOT skip it
     bare.Vertices = { {0,0,0}, {1,0,0}, {0,1,0} };
     bare.Triangles = {0,1,2};
