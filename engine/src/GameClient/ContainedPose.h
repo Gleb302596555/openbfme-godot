@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0.
 //
-// PORT-146 (issue #363): the drawn pose of an object that stands on a bone of its container.
+// PORT-146 (issue #363): the drawn pose of an object that stands on a bone of its container. INFERENCE, stop S-7325: RotWK's client takes that
+// drawable's transform from its container's drawable, and the address was not read from the dump (no game.dat in this workspace).
 //
 // The logic puts a passenger or a crew member on the container's bones (OpenContain::putRidersAtBones, RW 0x868A70): its position is the container's
 // LOGIC transform times the bone's offset, and the logic transform has no tilt and no bounce. The client draws the container with a presentation pose on
