@@ -2,6 +2,7 @@
 #include "doctest.h"
 #include "CombatTestUtil.h"
 #include "GameLogic/Module/AttachUpdate.h"
+#include "GameLogic/Object/PartitionManager.h"
 
 using namespace combattest;
 
@@ -60,6 +61,7 @@ TEST_CASE("PORT-135 marker: filtered parent is followed and parent death kills t
     REQUIRE(marker != nullptr);
     AttachUpdate *attach = dynamic_cast<AttachUpdate *>(marker->findModule("AttachUpdate"));
     REQUIRE(attach != nullptr);
+    w.logic->partition().update(); // publish the spawned objects' positions before the query
     CHECK(attach->update() == UPDATE_SLEEP_NONE);
     REQUIRE(attach->parentID() == hero->getID()); // RW 0x8951D1: nearest matching object within default range
     CHECK(marker->getPosition()->x == hero->getPosition()->x);
@@ -89,10 +91,12 @@ TEST_CASE("PORT-135 explicit scan range overrides default")
     REQUIRE(marker != nullptr);
     AttachUpdate *attach = dynamic_cast<AttachUpdate *>(marker->findModule("AttachUpdate"));
     REQUIRE(attach != nullptr);
+    w.logic->partition().update(); // publish the spawned objects' positions before the query
     CHECK(attach->update() == UPDATE_SLEEP_NONE);
     CHECK(attach->parentID() == 0);
     Coord3D close{201.0f, 200.0f, 0.0f};
     hero->setPosition(&close);
+    w.logic->partition().update();
     CHECK(attach->update() == UPDATE_SLEEP_NONE);
     CHECK(attach->parentID() == hero->getID());
     CHECK_FALSE(marker->wasTeleportGatheredAt(w.logic->getFrame())); // explicit No: RW 0x89542E
