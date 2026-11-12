@@ -678,13 +678,13 @@
 - Владелец 2026-11-11 (в игре, `main` `9377dba3` / станция 0 `cacebef2`, Эннорат): работает, всё доступно.
 
 ### P-63. Арнор: у эффекта палантира нет синего пятна на земле
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ВЫПОЛНЕНО — Port 123 #307, 2026-11-11**
 - Добавлено: 2026-11-08, владелец (свободный текст, разнесён Claude)
 - Описание: эффекту палантира Арнора не хватает синего эффекта на земле, как в ванили.
 - Подсистема: эффекты сил палантира
-- Взял: —
-- Причина и исправление: —
-- Проверка: —
+- Взял: Arena, 2026-11-11 (Port 123)
+- Причина и исправление: цепочка палантира Арнора — `SpecialAbilityArnorFortressIvoryTowerVision` (R75 Reload200000 `specialpower.ini:511`) → OCL `OCL_SpawnEyeOfPalantir` (`objectcreationlist.inc:13273` CREATE_AT_LOCATION FadeIn2000) → объект `EyeOfPalantir` (`arnorfortress.ini:1978`) с `SHADOW_ADDITIVE_DECAL_DYNAMIC 0x800 400 arpalaeye 0/1000/255/1000/0 ShadowOverrideLODVisibility Yes` (аналог `EyeOfSauron` 1809 `135 EXSpotLight` с тем же 0x800, проверено распаковкой `ennorath-ini-1.9.8.2.zip` `grep Shadow` и `sed od -c` CRLF). Движок уже переносил путь декальных теней (TOP20 #5 Local 14/19: `ObjectShadow::resolveDecalShadow` Branch A/B `0x4C4EE0/0x4C4FD6`, `kDecalMask 0x1|0x20|0x40|0x400|0x800`, `buildDrawableDecalShadow` gate `!useShadowDecals && !overrideLODVisibility` RW 0x50BF7B, `evaluateDecalOpacity` `*0.03` ceil RW 0x50B960, `SelectionDecals` `kAdditiveStyles 0x40|0x800 → -2/-3 ONE/ONE` `selection_decals.gdshaderinc:157`). Синее пятно — аддитивная декаль `arpalaeye` поверх земли и стен в пределах `kSelectionDecalMaxHeight 20` (terrain `rec3.w -2`, wall `-3`, `RW 0x50CDE4`). Порт закрепил цепочку 8 тестами `PORT-123*` (`engine/tests/test_port_123.cpp`, 102 проверки: парсинг ThingTemplate 400/MSauronEye, Branch A/B и ForceDisable, buildDrawable с `arpalaeye.tga` `terrainOnly false` через `overrideLODVisibility`, кривая 0/1000/255/1000/0, аддитивный грид ONE/ONE, OCL CREATE_AT_LOCATION, различие `SCCPalentirVis 0x20` курсора `ingameui.ini:774`, wall/terrain маршрутизация).
+- Проверка: `PORT-123*` 8/8 102 проверки в `engine/build` (`gold` линковка, `OPENBFME_BUILD_GODOT=OFF`), `LOCAL-14*/LOCAL-19*/selperf1*/wall2*` 73/73 11376 проверок; ручная проверка палантира Арнора (R75, синее пятно 400 на земле/стенах, затухание 60с) ждёт владельца.
 
 ### P-64. Герои Рохана: способности сломаны
 - Статус: [ ] **НЕ НАЧАТО**
