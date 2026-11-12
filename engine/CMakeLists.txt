@@ -223,6 +223,7 @@ include(cmake/Port6.cmake) # PORT-6: StealthDetectorUpdate/CanDetectWhileGarriso
 include(cmake/Port8.cmake) # PORT-8: PhysicsBehavior/OrientToFlightPath (issue #61; OPENBFME_PORT8_TESTS)
 include(cmake/Port7.cmake) # PORT-7: AnimalAIUpdate/UpdateTimer (issue #60; OPENBFME_PORT7_TESTS)
 include(cmake/Port77.cmake) # PORT-77: W3DSupplyDraw/SupplyBonePrefix (issue #209; OPENBFME_PORT77_TESTS)
+include(cmake/Port126.cmake) # PORT-126: W3DQuadrupedDraw::getFootLocations (issue #310; OPENBFME_PORT126_TESTS)
 include(cmake/Port11.cmake) # PORT-11: SlavedUpdate/StayOnSameLayerAsMaster (issue #66; OPENBFME_PORT11_TESTS)
 include(cmake/Port13.cmake) # PORT-13: AIData/AttackMoveUsesFormations (issue #68; OPENBFME_PORT13_TESTS)
 include(cmake/Port30.cmake) # PORT-30: OneRingPenaltyUpdate/TimeFrozenFromPenalty (issue #102; OPENBFME_PORT30_TESTS)
@@ -474,6 +475,7 @@ add_library(openbfme_core STATIC
     src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawServices.cpp
     src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawBones.cpp
     src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.cpp
+    src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DQuadrupedDraw.cpp
     src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DSupplyDraw.cpp
     src/Libraries/file/TextFile.cpp
     src/Libraries/file/Win32Path.cpp
@@ -839,6 +841,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT8_TESTS}
     ${OPENBFME_PORT7_TESTS}
     ${OPENBFME_PORT77_TESTS}
+    ${OPENBFME_PORT126_TESTS}
     ${OPENBFME_PORT11_TESTS}
     ${OPENBFME_PORT4_TESTS}
     ${OPENBFME_PORT19_TESTS}
