@@ -286,11 +286,20 @@ TEST_CASE("PORT-151 attack-move: the attack-move of command 0xF asks 0x7E8 (RW 0
 	CHECK(call->hasPosition);
 	CHECK(call->position.x == goal.x);
 	CHECK(call->position.y == goal.y);
+	// command 0xF has one voice: RW 0x66C0B9 posts 0x7E8 only and never reaches the move body's 0x7E7 (RW 0x66B4D2)
+	CHECK(voices.count(UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_MOVE) == 0);
 
 	// the AI's own attack-move is silent
 	voices.calls.clear();
 	REQUIRE(ai->aiAttackMoveToPosition(Coord3D{ 460.0f, 460.0f, 0.0f }, CMD_FROM_AI));
 	CHECK(voices.count(UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_ATTACKMOVE) == 0);
+
+	// the 3-argument command 0xF body (RW 0x696266 -> RW 0x66C0B9) is the one the GUI button calls: 0x7E8 with its goal, no move voice
+	voices.calls.clear();
+	ai->aiAttackMoveToPosition(Coord3D{ 470.0f, 470.0f, 0.0f }, 3, CMD_FROM_PLAYER);
+	REQUIRE(voices.last(UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_ATTACKMOVE));
+	CHECK(voices.count(UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_MOVE) == 0);
+	CHECK(voices.count(UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_ATTACKMOVE) == 1);
 
 	// the attack on the ground: the same picker message 0x7E6 with the spot and no target (RW 0x66B271)
 	voices.calls.clear();

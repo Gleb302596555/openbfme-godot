@@ -1010,7 +1010,9 @@ Object *AIUpdateInterface::getNextMoodTarget(bool calledByAI, bool calledDuringI
 // lane LOGIC-BUTTONS: RW 0x696266 (BFME2 decomp Object.cpp:2261, AIUpdate.cpp:1511): attack-move to position (AICMD 0xF)
 void AIUpdateInterface::aiAttackMoveToPosition(const Coord3D &pos, int maxShots, CommandSourceType source)
 {
-	aiMoveToPosition(pos, source);
+	// PORT-151: the inner move is silent: RW 0x696266 lands in the attack-move body (RW 0x66C0B9) only, which posts 0x7E8 (armAttackMove below) and never
+	// the move body's 0x7E7 (RW 0x66B4D2)
+	aiMoveToPosition(pos, source, false);
 	armAttackMove(pos, source);
 	if (ObjectWeapons *w = getObject()->getWeapons())
 	{
@@ -1043,7 +1045,21 @@ bool AIUpdateInterface::armAttackMove(const Coord3D &goal, CommandSourceType sou
 	// lane TARGET-1: the attack-move machine starts in its idle state (ZH AIAttackMoveToState::onEnter setState(AI_IDLE); RotWK's state 0x21 runs its sub
 	// machine at + 0x54, RW 0x755798), whose entry pushes the mood check back (RW 0x7489B6 -> 0x662DD9); the earlier stand-in zeroed its own clock here
 	resetNextMoodCheckTime();
+	// PORT-151, RW 0x66C128 .. 0x66C136 (helper RW 0x66B2F5): the attack-move body asks the unit voice for the enter-state attack-move message 0x7E8 with
+	// its goal, for a PLAYER or SCRIPT order only
+	postEnterStateAttackMoveVoice(*getObject(), goal, source);
 	return true;
+}
+
+// PORT-151: the command-0xF body's voice (RW 0x66B2F5, message 0x7E8): the owner speaks, the goal is the position the picker fills in
+void AIUpdateInterface::postEnterStateAttackMoveVoice(Object &obj, const Coord3D &pos, CommandSourceType source)
+{
+	// RW 0x66C128 .. 0x66C12F: the source test (`== 0 || == 1`), then the helper at RW 0x66C136; the AI's own attack-move is silent
+	if (source != CMD_FROM_PLAYER && source != CMD_FROM_SCRIPT)
+	{
+		return;
+	}
+	AudioApi::postUnitVoice(UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_ATTACKMOVE, obj.getID(), 0, INVALID_ID, &pos);
 }
 
 // the attack-move's scan: RotWK's AIAttackMoveToState (RW 0x755798) asks getNextMoodTarget(calledByAI unless its attack just ended, not during idle) while its

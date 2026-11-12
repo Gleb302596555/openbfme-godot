@@ -103,6 +103,9 @@ public:
 
 	// ---- the command interface (ZH AICommandInterface) ----
 	void aiMoveToPosition(const Coord3D &pos, CommandSourceType source);
+	// PORT-151: the same order without the enter-state move voice (0x7E7): the attack-move stand-in of the port calls its inner move with it, because
+	// RW's attack-move body (RW 0x66C0B9) never goes through the move body (RW 0x66B3FD) and a player's attack-move says only 0x7E8
+	void aiMoveToPosition(const Coord3D &pos, CommandSourceType source, bool postMoveVoice);
 	// lane LOGIC-BUTTONS: RW 0x696266 (BFME2 decomp Object.cpp:2261): attack-move to position (AICMD 0xF)
 	void aiAttackMoveToPosition(const Coord3D &pos, int maxShots, CommandSourceType source);
 	// lane BACKLOG2: RW 0x79664F AICommandInterface::aiMoveToPositionEvenIfSleeping (BFME2 decomp AICommandInterface_aiMoveToPositionEvenIfSleeping.cpp, tier A): AI command 0x36 with the position; the
@@ -159,6 +162,8 @@ public:
 	// RW 0x696266: direct command 0xF, with the unlimited shot count used by targetless tactics.
 	bool aiAttackMoveToPosition(const Coord3D &goal, CommandSourceType source);
 	bool armAttackMove(const Coord3D &goal, CommandSourceType source = CMD_FROM_PLAYER);
+	// PORT-151: the enter-state attack-move voice of the command-0xF body (RW 0x66C0B9 -> RW 0x66B2F5 at RW 0x66C136, message 0x7E8)
+	static void postEnterStateAttackMoveVoice(Object &obj, const Coord3D &pos, CommandSourceType source);
 	bool attackMoveActive() const { return m_attackMoveActive; }
 	// the march ends without an order: in RotWK the attack-move is the machine's state 0x21, which a cleared machine leaves (S-328: the port keeps it as
 	// this flag, which an idle by the AI keeps for the resume)
@@ -651,7 +656,10 @@ protected:
 
 private:
 	class ObjectLocomotorHost;
-	void privateMoveToPosition(const Coord3D &pos, CommandSourceType source);
+	// PORT-151: the move body (RW 0x66B3FD) asks the unit voice for the enter-state move (0x7E7) at RW 0x66B4C4 .. 0x66B4D2; the attack-move
+	// body (RW 0x66C0B9, command 0xF) never goes through it and asks for the enter-state attack-move (0x7E8) instead (RW 0x66C136), so the port's
+	// attack-move stand-in calls this with `postMoveVoice` false and posts its own message
+	void privateMoveToPosition(const Coord3D &pos, CommandSourceType source, bool postMoveVoice);
 	// PORT-151: the enter-state attack voice of aiAttackObject / aiForceAttackObject (RW 0x66B1D0, message 0x7E6) with the victim's airborne locomotor
 	static void postEnterStateAttackVoice(Object &obj, const Object &victim);
 	void goalPositionClipped(const Coord3D &pos, CommandSourceType source, Coord3D &out) const;
