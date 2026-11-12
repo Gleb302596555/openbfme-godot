@@ -5,6 +5,10 @@
 
 #include "Libraries/WWVegas/WW3D2/lightenvironment.h"
 
+#include "Libraries/WWVegas/WW3D2/assetmgr.h"
+
+#include <cctype>
+
 #include <cmath>
 
 namespace
@@ -331,4 +335,111 @@ W3DObjectLightSet W3D_Collect_Object_Lights(const Vector3 &center, float radius,
 		out.pointId = in.Id - sunCount;
 	}
 	return out;
+}
+
+namespace
+{
+Vector3 xformPoint(const Matrix3D &m, float x, float y, float z)
+{
+	return Vector3(m.Row[0][0] * x + m.Row[0][1] * y + m.Row[0][2] * z + m.Row[0][3], m.Row[1][0] * x + m.Row[1][1] * y + m.Row[1][2] * z + m.Row[1][3],
+		m.Row[2][0] * x + m.Row[2][1] * y + m.Row[2][2] * z + m.Row[2][3]);
+}
+
+bool isBoundingBoxName(const std::string &name)
+{
+	// DONOR BFME2 HLodUpdateObjSpaceBoundingVolumes.cpp: the part after the first '.', compared case-insensitively with "BOUNDINGBOX"
+	const size_t dot = name.find('.');
+	const std::string seg = dot == std::string::npos ? name : name.substr(dot + 1);
+	static const char kName[] = "BOUNDINGBOX";
+	if (seg.size() != sizeof(kName) - 1)
+	{
+		return false;
+	}
+	for (size_t i = 0; i < seg.size(); ++i)
+	{
+		if (std::toupper((unsigned char)seg[i]) != kName[i])
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+// ZH sphere.h SphereClass::Add_Sphere
+void addSphere(Vector3 &c, float &r, const Vector3 &sc, float sr)
+{
+	if (sr == 0.0f)
+	{
+		return;
+	}
+	const float dx = sc.X - c.X, dy = sc.Y - c.Y, dz = sc.Z - c.Z;
+	const float dist = std::sqrt(dx * dx + dy * dy + dz * dz);
+	if (dist == 0.0f)
+	{
+		r = r > sr ? r : sr;
+		return;
+	}
+	const float rnew = (dist + r + sr) / 2.0f;
+	if (rnew < r)
+	{
+		return; // the new sphere is inside
+	}
+	if (rnew < sr)
+	{
+		c = sc;
+		r = sr;
+		return;
+	}
+	const float lerp = (rnew - r) / dist;
+	c = Vector3(dx * lerp + c.X, dy * lerp + c.Y, dz * lerp + c.Z);
+	r = rnew;
+}
+} // namespace
+
+bool W3D_Render_Object_Bounding_Sphere(const RenderObjPrototype &proto, const std::vector<Matrix3D> &pivots, Vector3 &center, float &radius)
+{
+	auto pivot = [&](int i) -> Matrix3D {
+		return i >= 0 && (size_t)i < pivots.size() ? pivots[(size_t)i] : Matrix3D();
+	};
+	// the highest LOD's sub objects come first, the aggregates after (RenderObjPrototype::SubObjects): the box is searched among the former, from the end
+	for (size_t k = proto.SubObjects.size(); k-- > 0;)
+	{
+		const RenderSubObject &sub = proto.SubObjects[k];
+		if (sub.Aggregate || sub.Type != RenderSubObject::SUB_BOX || !sub.Box || !isBoundingBoxName(sub.Name))
+		{
+			continue;
+		}
+		const Matrix3D m = pivot(sub.BoneIndex);
+		const W3dVectorStruct &c = sub.Box->Center;
+		const W3dVectorStruct &e = sub.Box->Extent;
+		center = xformPoint(m, c.X, c.Y, c.Z);
+		float ext[3];
+		for (int i = 0; i < 3; ++i)
+		{
+			ext[i] = std::fabs(m.Row[i][0] * e.X) + std::fabs(m.Row[i][1] * e.Y) + std::fabs(m.Row[i][2] * e.Z);
+		}
+		radius = std::sqrt(ext[0] * ext[0] + ext[1] * ext[1] + ext[2] * ext[2]);
+		return true;
+	}
+	bool any = false;
+	for (const RenderSubObject &sub : proto.SubObjects)
+	{
+		if (sub.Type != RenderSubObject::SUB_MESH || !sub.Mesh)
+		{
+			continue;
+		}
+		const W3dVectorStruct &sc = sub.Mesh->Header.SphCenter;
+		const Vector3 c = xformPoint(pivot(sub.BoneIndex), sc.X, sc.Y, sc.Z);
+		if (!any)
+		{
+			center = c;
+			radius = sub.Mesh->Header.SphRadius;
+			any = true;
+		}
+		else
+		{
+			addSphere(center, radius, c, sub.Mesh->Header.SphRadius);
+		}
+	}
+	return any;
 }

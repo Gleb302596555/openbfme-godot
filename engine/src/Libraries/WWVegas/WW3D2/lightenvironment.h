@@ -41,6 +41,10 @@
 
 #include "Libraries/WWVegas/WWMath/matrix3d.h"
 
+#include <vector>
+
+struct RenderObjPrototype;
+
 // What Add_Light reads from a LightClass (W3DDynamicLight / the scene's global lights).
 struct LightEnvSourceLight
 {
@@ -136,3 +140,12 @@ W3DObjectLightSet W3D_Collect_Object_Lights(const Vector3 &center, float radius,
 
 // Spheres_Intersect RW 0x46E93D: (r1 + r2)^2 > |c1 - c2|^2
 bool W3D_Spheres_Intersect(const Vector3 &c1, float r1, const Vector3 &c2, float r2);
+
+// The render object's bounding sphere in its own (HLOD) space for the current pose, the centre the light environment is Reset with
+// (vslot +0x104, RW 0x46F4D8). DONOR BFME2 HLodUpdateObjSpaceBoundingVolumes.cpp (0x0019DB50) / hlod.cpp (Get_Obj_Space_Bounding_Box /
+// _Sphere, 0x0019E... rows): an HLOD whose highest LOD has an OBBox sub object named "BOUNDINGBOX" (after the '.') takes that box, searched from
+// the last sub object, moved by its bone's current transform as an axis-aligned box (Transform_Center_Extent_AABox): centre = M * Center,
+// extent[i] = sum |M[i][j] * Extent[j]|, radius = |extent|. INFERENCE (not read in RW: the HLOD class's vslot +0x104 was not resolved): the
+// box path is the donor's; without a box the meshes' header spheres, moved by their bones, are merged as SphereClass::Add_Sphere (ZH sphere.h).
+// False when the prototype has neither.
+bool W3D_Render_Object_Bounding_Sphere(const RenderObjPrototype &proto, const std::vector<Matrix3D> &pivots, Vector3 &center, float &radius);

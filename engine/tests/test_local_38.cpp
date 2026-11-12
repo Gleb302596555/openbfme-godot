@@ -18,9 +18,12 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/ClientEffects.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLightDraw.h"
+#include "Libraries/WWVegas/WW3D2/assetmgr.h"
 #include "Libraries/WWVegas/WW3D2/lightenvironment.h"
+#include "Libraries/WWVegas/WW3D2/w3dshadergen.h"
 
 #include <cmath>
+#include <string>
 #include <vector>
 
 namespace
@@ -274,4 +277,67 @@ TEST_CASE("LOCAL-38: W3DLightDraw hands Ambient * Intensity and the raw Diffuse 
 	CHECK(s.useFilterDiffuse);
 	CHECK(s.farAttenStart == 1.0f);
 	CHECK(s.farAttenEnd == 200.0f);
+}
+
+TEST_CASE("LOCAL-38: the object shaders take one point light and the light set from the instance's palette block, no viewport-global pulses")
+{
+	// defaultw3d.fxo blob 151 (classic) and normalmapped.fxo blob 22 (FX): Color * max(1 - d / Range, 0)^2 * max(N.L, 0) per vertex
+	W3DShaderKey k;
+	k.Texturing = true;
+	k.Tex[0] = true;
+	k.PriGradient = W3D_GRADIENT_MODULATE;
+	const std::string classic = Generate_W3D_Shader_Code(k);
+	CHECK(classic.find("w3d_pulse") == std::string::npos);
+	CHECK(classic.find("float att = max(1.0 - dl / pl.w, 0.0);") != std::string::npos);
+	CHECK(classic.find("return col * (att * att) * max(dot(wn, d / max(dl, 1e-4)), 0.0);") != std::string::npos);
+	CHECK(classic.find("int idx = base - " + std::to_string(W3D_PALETTE_LIGHT_TEXELS) + " + k;") != std::string::npos);
+	CHECK(classic.find("dsum += w3d_pt;") != std::string::npos);
+	CHECK(classic.find("amb += w3d_ol2.rgb;") != std::string::npos);
+	CHECK(classic.find("if ((w3d_drop & 2) != 0) lc[1] = vec3(0.0);") != std::string::npos);
+
+	W3DShaderKey f;
+	f.Fx = true;
+	f.Texturing = true;
+	f.Tex[0] = true;
+	f.NormalMap = true;
+	f.Tangents = true;
+	f.PriGradient = W3D_GRADIENT_MODULATE;
+	const std::string fx = Generate_W3D_Shader_Code(f);
+	CHECK(fx.find("w3d_pulse") == std::string::npos);
+	// the point term and the dynamic ambient saturate together with the scene ambient (oD0)
+	CHECK(fx.find("col += t0.rgb * (clamp((amb * w3d_ambient_mat + w3d_pex) * 0.5, 0.0, 1.0) - clamp(amb * w3d_ambient_mat * 0.5, 0.0, 1.0)) * 2.0;") !=
+		std::string::npos);
+	CHECK(fx.find("v_vnrm4.w = w3d_pex.x; v_wnrm4.w = w3d_pex.y; v_wview4.w = w3d_pex.z;") != std::string::npos);
+	CHECK(fx.find("int w3d_drop = int(v_instance.y * 0.5);") != std::string::npos);
+	// no extra varying: the three normals were vec3 and are vec4 now
+	CHECK(fx.find("varying vec3 v_vnrm;") == std::string::npos);
+	CHECK(fx.find("varying vec4 v_vnrm4;") != std::string::npos);
+}
+
+TEST_CASE("LOCAL-38: the render object's sphere is its BOUNDINGBOX moved by its bone (DONOR BFME2 0x0019DB50), else the meshes' spheres merged")
+{
+	W3dBoxStruct box = {};
+	box.Attributes = 1;
+	box.Center = { 0.0f, 0.0f, 9.0f };
+	box.Extent = { 3.0f, 4.0f, 12.0f };
+	RenderObjPrototype proto;
+	proto.Type = RenderObjPrototype::PROTO_HLOD;
+	RenderSubObject b;
+	b.Name = "GUSOLDIER_SKN.BOUNDINGBOX";
+	b.Type = RenderSubObject::SUB_BOX;
+	b.Box = &box;
+	b.BoneIndex = 1;
+	proto.SubObjects.push_back(b);
+	std::vector<Matrix3D> pivots(2);
+	pivots[1].Row[0][3] = 5.0f; // the box's bone is moved 5 along X
+	::Vector3 c;
+	float r = 0.0f;
+	REQUIRE(W3D_Render_Object_Bounding_Sphere(proto, pivots, c, r));
+	CHECK(c.X == 5.0f);
+	CHECK(c.Z == 9.0f);
+	CHECK(r == 13.0f); // |(3, 4, 12)|
+
+	// another name is not the bounding box: without meshes there is no sphere
+	proto.SubObjects[0].Name = "GUSOLDIER_SKN.BOX01";
+	CHECK_FALSE(W3D_Render_Object_Bounding_Sphere(proto, pivots, c, r));
 }

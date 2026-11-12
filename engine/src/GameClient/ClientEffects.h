@@ -30,9 +30,9 @@
 //     only; retail's WWMath::Random_Float is the client's own generator (not TheGameClient's stream).
 //
 // INFERENCE (stop S-687): the random fudge of Compute_Rotations uses a private deterministic generator here (retail's WWMath
-// generator state is not reproduced); the light pulse's contribution to the object shading is a point light with the retail range and a
-// linear far attenuation (the D3D light attenuation is linear in the range but its exact scale is not decoded); the decal texture filter is
-// the asset loader's.
+// generator state is not reproduced); the decal texture filter is the asset loader's. The light pulse's contribution to the object shading
+// (lane LOCAL-38) is the retail one: each render object's LightEnvironmentClass (Libraries/WWVegas/WW3D2/lightenvironment.h) and the effects'
+// PointLight[0] term (normalmapped / defaultw3d .fxo: Color * max(1 - d / Range, 0)^2 * N.L).
 
 #pragma once
 
