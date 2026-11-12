@@ -8,9 +8,9 @@
 //     points + 0x33C) — the War of the Ring light points (spent by SpecialPower/LightPointCost, RW 0x6AA91D, stop S-531), not the skirmish spell book's
 //     power points, which live in PlayerScience + 0x1C (RW 0x782764): the path RW 0x6AA980 (the Player override of the science slot 2) never reads
 //     + 0x1A4, and neither does the cheat.
-//   * the script action family that would reach it (RW 0x7BD2D0 / 0x7BD311 / 0x7BD34F / 0x7BD390 with TheLightPointSystem RW 0xDE8C04) is not
-//     ported (S-531), so the port keeps the field parsed and unused, exactly as rotWK's skirmish paths do. These tests pin that, and they fail if
-//     someone wires the field into the skirmish power-point path without a reader in RW.
+//   * the script action family that reaches it (RW 0x7BD2D0 / 0x7BD311 / 0x7BD34F / 0x7BD390 with TheLightPointSystem RW 0xDE8C04) is ported by
+//     PORT-113 (issue #280): test_port_113.cpp holds the sound that action asks for. The skirmish paths still do not read the field, exactly as
+//     RotWK's do not. These tests pin that half, and they fail if someone wires the field into the skirmish power-point path without a reader in RW.
 //
 // No game files are needed: the templates and the scores are synthetic.
 
