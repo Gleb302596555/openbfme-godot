@@ -6,14 +6,14 @@
 
 [![Upstream Fork](https://img.shields.io/badge/Fork%20of-Gleb302596555%2Fopenbfme--godot-blue?logo=github)](https://github.com/Gleb302596555/openbfme-godot)
 [![Target Mod](https://img.shields.io/badge/Target%20Mod-Ennorath%201.9.8.2-darkred)](https://ennorathmod.ru/)
-[![Latest alpha build](https://img.shields.io/github/v/release/Open-BFME/openbfme-godot?include_prereleases&label=alpha)](https://github.com/Open-BFME/openbfme-godot/releases)
+[![Latest Ennorath build](https://img.shields.io/github/v/release/Gleb302596555/openbfme-godot?include_prereleases&label=Ennorath%20build)](https://github.com/Gleb302596555/openbfme-godot/releases)
 [![Licence: GPL-3.0](https://img.shields.io/github/license/Open-BFME/openbfme-godot)](LICENSE)
 [![Godot 4.7](https://img.shields.io/badge/Godot-4.7-478cbf?logo=godotengine&logoColor=white)](https://godotengine.org)
 [![Platforms](https://img.shields.io/badge/platforms-Windows%20%7C%20Linux-555)](#play-it)
 
-<a href="https://github.com/Open-BFME/openbfme-godot/releases"><img alt="Download the alpha build (Windows / Linux)" src="https://img.shields.io/badge/Download-the%20alpha%20build%20for%20Windows%20%2F%20Linux-2ea44f?style=for-the-badge&logo=github"></a>
+<a href="https://github.com/Gleb302596555/openbfme-godot/releases"><img alt="Download the Ennorath build (Windows)" src="https://img.shields.io/badge/Download-the%20Ennorath%20build%20for%20Windows-2ea44f?style=for-the-badge&logo=github"></a>
 
-<sub>The newest alpha build is at the top of the releases page: one file per system, <code>openbfme-…-windows-x64.zip</code> or <code>openbfme-…-linux-x64.tar.gz</code>, with the game and the launcher in it.</sub>[cite: 2]
+<sub>The newest Ennorath build is at the top of this fork's releases page: <code>OpenBFME-Ennorath-…-windows-x64.zip</code>. It holds no game or mod files: you need your own Rise of the Witch-king with Ennorath 1.9.8.2 (All In One BFME Launcher) and BFME2 1.06; unpack the zip and start <code>OpenBFME.exe</code>. The upstream vanilla builds are on <a href="https://github.com/Open-BFME/openbfme-godot/releases">Open-BFME's releases page</a>.</sub>
 
 [About this fork](#about-this-fork) · [Ennorath port specification](#ennorath-port-specification) · [What it is](#what-it-is) · [Play it](#play-it) · [Status](#status) · [Where it's going](#where-its-going) · [Build from source](#build-from-source) · [Player guide](docs/PLAYING.md) · [Roadmap](docs/ROADMAP.md)
 
