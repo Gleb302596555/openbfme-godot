@@ -19,3 +19,27 @@ Status: analysis in progress; no engine behaviour changed yet.
 ## Not yet established
 
 The first differing port step is not yet proven. The port's bird attack gate already matches the RW speed/contact-point shape above; the remaining comparison is weapon choice / applicability against a structure, contact-point and path arrival, and the synthetic reproduction. No INFERENCE is being ported.
+
+
+## Update (synthetic reproduction attempt)
+
+Three `PORT-148*` tests were added (`engine/tests/test_port_148.cpp`, wired via
+`engine/cmake/Port148.cmake`): a no-PRIMARY / `ReadyStatusSharedWithinSet=Yes`
+GIANT_BIRD flier with a SECONDARY plow (`PreferredAgainst STRUCTURE ...`) and a
+TERTIARY monster-only claw, ordered to attack (a) an enemy STRUCTURE and (b) an
+enemy INFANTRY unit, plus a direct `chooseBestWeaponForTarget` check.
+
+Result on unmodified `main` (`8b8af54`): **all three pass** once the fixture is
+given ~20 logic frames for the weapons to leave their initial reload state.
+`chooseBestWeaponForTarget` selects SECONDARY for both victims; the ordered
+attack fires the plow (slot 1) and reduces health in both cases. A sweep over
+fortress-like victims (CASTLE_KEEP / COMMANDCENTER / BASE_FOUNDATION, Swoop
+contact points at Z:75 and Z:180, StructureBody, distances 100/300, preferred
+heights 120/200) also attacks in every case.
+
+Consequence: the "empty PRIMARY slot + shared-ready" hypothesis is **disproven**
+for the port's ordered-attack path. The first differing step vs RW is still not
+proven. No engine behavior was changed. Next: model the real Ennorath fortress
+(`CastleBehavior` unpacked castle, multiple plot geometries) and the
+auto-acquire (`ATTACK_BUILDINGS`) path, and re-check the in-game command path,
+before any fix.
