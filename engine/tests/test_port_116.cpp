@@ -33,6 +33,10 @@ const char kObjects[] =
     " AllowEnemiesInside = No\n AllowAlliesInside = No\n AllowNeutralInside = No\n"
     " EntryOffset = X:-30 Y:0 Z:0\n EntryPosition = X:-20 Y:0 Z:0\n"
     " CashBackPercent = 50%\n End\nEnd\n"
+    "Object P116Slaughter\n KindOf = STRUCTURE IMMOBILE SELECTABLE\n"
+    " Body = ActiveBody Body\n MaxHealth = 1000\n End\n"
+    " Behavior = SlaughterHordeContain Contain\n PassengerFilter = ANY +INFANTRY\n"
+    " ContainMax = 20\n AllowOwnPlayerInsideOverride = Yes\n End\nEnd\n"
     "Object P116Tower\n KindOf = STRUCTURE IMMOBILE SELECTABLE\n"
     " Body = ActiveBody Body\n MaxHealth = 1000\n End\n"
     " Behavior = HordeGarrisonContain Contain\n PassengerFilter = ANY +INFANTRY\n"
@@ -87,6 +91,17 @@ TEST_CASE("PORT-116 citadel accepts same-player horde and context enter emits on
     r.world.frames(150);
     CHECK(r.world.byId(id) == nullptr);
     CHECK(r.world.cash('A') - before == 12);
+}
+
+TEST_CASE("PORT-116 slaughter building uses the sell cursor")
+{
+    Rig r;
+    Object *slaughter = r.world.unit("P116Slaughter", 'A', 400, 400);
+    Object *soldier = r.world.unit("P116Soldier", 'A', 300, 400);
+    r.select(soldier);
+    CHECK(r.translator.evaluateContextCommand(slaughter, slaughter->getPosition(), EvaluateType::DoHint) == MSG_ENTER);
+    CHECK(r.ui.cursor() == "SendToDeath"); // RW 0x82CFB5 -> 0xCB -> 0x6A4055
+    CHECK(r.stream.pending() == 0);
 }
 
 TEST_CASE("PORT-116 ordinary garrison keeps its friendly enter cursor")
