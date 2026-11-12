@@ -68,6 +68,7 @@ TEST_CASE("PORT-47 upgrade recolours after texture replacement using day colour 
     REQUIRE(draw);
     const std::uint32_t custom[] = {0xFF111111, 0xFF222222, 0xFF333333};
     drawable->setCustomColors(2, custom);
+    drawable->setHouseColor(0xFF8090A0); // establish the ordinary custom/night palette before the distinct upgrade operation
     obj->giveUpgrade(w.upgrade());
     auto events = w.recorder.take();
     int texture = -1, recolor = -1, count = 0;
@@ -99,18 +100,23 @@ TEST_CASE("PORT-47 upgrade recolours after texture replacement using day colour 
 
 TEST_CASE("PORT-47 no recolour without texture or RecolorHouse and campaign house-colour gates")
 {
-    for (int scenario = 0; scenario < 6; ++scenario) {
+    for (int scenario = 0; scenario < 9; ++scenario) {
         CAPTURE(scenario);
-        World w(scenario != 0, scenario != 1, "Blade", scenario == 5 ? "BASE_SITE" : "INFANTRY");
+        World w(scenario != 0, scenario != 1, "Blade", scenario == 5 ? "BASE_SITE" : scenario == 6 ? "ALWAYS_SHOW_HOUSE_COLOR" : "INFANTRY");
         if (scenario == 2) w.f.logic->settings().enableHouseColor = false;
         if (scenario >= 3) w.f.economy().context().livingWorld = true;
         if (scenario == 4) w.f.economy().context().gameKind = 2;
+        if (scenario == 7 || scenario == 8) {
+            w.f.economy().context().livingWorld = false;
+            w.f.logic->setCampaignCarryover(CampaignCarryover::State{});
+        }
+        if (scenario == 8) w.f.logic->setCampaignCarryover(std::nullopt);
         Object *obj = w.make();
         w.recorder.take();
         obj->giveUpgrade(w.upgrade());
         int count = 0;
         for (const auto &e : w.recorder.take()) count += e.kind == ClientEvent::HOUSE_RECOLOR;
-        const int expected[] = {0, 0, 0, 0, 1, 1};
+        const int expected[] = {0, 0, 0, 0, 1, 1, 1, 0, 1};
         CHECK(count == expected[scenario]);
     }
 }
@@ -125,5 +131,11 @@ TEST_CASE("PORT-47 empty exclusion reaches every mesh without changing ordinary 
     auto *d = w.manager.findByObject(obj->getID());
     REQUIRE(d);
     REQUIRE(d->entries().size() == 1);
-    CHECK(d->entries()[0].draw->meshHouseColors().size() == 3);
+    const auto &colors = d->entries()[0].draw->meshHouseColors();
+    REQUIRE(colors.size() == 3);
+    for (const auto &entry : colors) {
+        CHECK(entry.second.kind == 1);
+        CHECK(entry.second.colors[0] == 0xFF102030);
+    }
+    CHECK(d->getHouseColor() == 0xFF102030); // explicit recolour never overwrites the ordinary drawable palette
 }
