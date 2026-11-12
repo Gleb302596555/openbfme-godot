@@ -89,3 +89,38 @@ No simulation state, xfer format, hashes, existing tests, or other tasks' files
 have been changed. The Linux test-only build was started; its final result is
 not yet available. The cloud environment has no installed game, so the visual
 check remains for the owner.
+
+## Checkpoint 2: the shared-builder stop and the remaining hole branches
+
+The tail mention of S-5305 was checked against its actual row: S-5305 is the
+unported `Object::doCommandButton` cases, not a missing `buildObjectNow` helper.
+`Construction::buildObjectNow` is already ported (RW 0x797796; the direct hole
+branch calls it at RW 0x886994). It is therefore not a reason to stop this task.
+
+The rest of the hole update was read linearly from `/tmp` disassembly of RW
+0x8868C2:
+
+- RW 0x886AAD calls the worker AI's slot +0x1F8 with rebuild=1, build=0.
+  `WorkerAIUpdate::construct` at RW 0x8AD6A4 writes construction percent 0 at
+  RW 0x8AD86F, sets health to 1 at RW 0x8AD881..0x8AD88E, clears condition
+  0x43 and sets 0x44/0x45 at RW 0x8AD894..0x8AD8B5, then queues the BUILD task
+  at RW 0x8AD8C6. The port's `constructForRebuild` has these steps.
+- RW 0x886B1E..0x886B72 records the replacement, transfers the paid price,
+  stops spawning when the spawner was inactive, and hides/masks the hole.
+- RW 0x886B77..0x886BD5 heals only the hole while below max health, by
+  `(HoleHealthRegen / logicFPS) * maxHealth`; this is independent of the
+  worker-respawn counter. It is not a second trigger for reconstruction.
+- RW 0x886BDC..0x886C40 removes the hole when the replacement is canceled or
+  finished, with the GettingBuiltBehavior/effectively-dead exception.
+- The worker's actual progress is `DozerAIUpdate::workOnBuild`, RW 0x88DE43:
+  RW 0x88DE89..0x88DE99 adds `100 / calcTimeToBuild` to Object+0x288;
+  RW 0x88DEA8..0x88DEB5 adds maxHealth/frames to the body. Completion at
+  RW 0x88DEE0 ff clears the construction statuses/conditions and writes -1.
+
+The merged Wild economic definitions use a named worker in GettingBuiltBehavior
+and DestroyObjectWhenDone in their collapse blocks; RebuildWhenDead is not set
+there. Thus the old corpse's collapse/removal, the hole countdown, and the new
+object's worker-driven construction are three consecutive parts of one route,
+not a self-repair triggered by the end of incoming damage. The next checkpoint
+exercises that whole route synthetically, including the caption inputs, before
+choosing the first differing runtime step. No runtime change is claimed yet.
