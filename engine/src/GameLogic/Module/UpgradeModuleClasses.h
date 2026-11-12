@@ -33,7 +33,8 @@
 //     takes it, to Drawable::showSubObject(name, hide, permanent) (RW 0x672823); every ShowSubObjects name goes to both; the UpgradeTexture swap
 //     (RW 0x8B911E) and, with RecolorHouse, the house recolour of the excluded names (RW 0x67273A); the custom anim. Removal RW 0x8B928E: with
 //     HideSubObjectsOnRemove the shown names hide again (and the texture swap), with UnHideSubObjectsOnRemove the hidden names show; the custom anim clears.
-//     NOT PORTED (stop S-484, reported per object): the fade (the times of RW 0x8B8F40), the texture swap, the house recolour.
+//     PORT-47: RW 0x4B873C..0x4B874F uses only the first exclusion name; RW 0x4B872C recolours with the controlling player day colour.
+//     NOT PORTED (stop S-484, reported per object): the fade (the times of RW 0x8B8F40).
 
 #pragma once
 
@@ -337,7 +338,7 @@ struct Stats
 {
 	unsigned subObjectFadesNotPorted = 0;
 	unsigned textureSwapsNotPorted = 0;
-	unsigned houseRecolorsNotPorted = 0;
+	unsigned houseRecolorsNotPorted = 0; // legacy diagnostic API, remains zero since PORT-47
 	unsigned doCommandsNotPorted = 0; // lane SUMMON-1: DoCommandUpgrade buttons of a command type RW 0x696FD2 runs but the port does not (S-5145)
 };
 Stats &stats();

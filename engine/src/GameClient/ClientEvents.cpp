@@ -458,6 +458,23 @@ void ClientEventRecorder::upgradeTextures(Object &obj, const std::vector<std::pa
 	e.textureSwaps = swaps;
 }
 
+void ClientEventRecorder::recolorHouse(Object &obj, const std::vector<std::string> &excludeSubobjects)
+{
+	// PORT-47: RW 0x67274A gates drawable house colour; 0x672760 / 0x672781 restrict the campaign branch to these KindOfs.
+	const auto &context = m_logic.economy().context();
+	const bool campaign = m_logic.campaignCarryover() != nullptr || (context.gameKind == 3 && context.livingWorld);
+	if (!m_logic.settings().showsHouseColor(obj) ||
+		(campaign && !obj.isKindOfName("BASE_SITE") && !obj.isKindOfName("ALWAYS_SHOW_HOUSE_COLOR")))
+	{
+		return;
+	}
+	const Player *player = obj.getControllingPlayer();
+	if (!player) return; // RW 0x4B8727: no controlling player, no recolour (no fallback colour).
+	ClientEvent &e = push(ClientEvent::HOUSE_RECOLOR, obj);
+	e.name = excludeSubobjects.empty() ? std::string() : excludeSubobjects.front(); // RW 0x4B873C..0x4B874F: first only, never a loop.
+	e.houseColor = player->getPlayerColor(); // RW 0x4B872C: player +0x2A0, even at night or with a custom palette.
+}
+
 void ClientEventRecorder::placement(Object &obj, const MapObjectDrawable &placement)
 {
 	ClientEvent &e = push(ClientEvent::PLACEMENT, obj);

@@ -426,6 +426,15 @@ void DrawableManager::applyEvents(const std::vector<ClientEvent> &events)
 				d->setUpgradeTextures(ev.textureSwaps);
 			}
 			break;
+		case ClientEvent::HOUSE_RECOLOR: // PORT-47: RW 0x4B8759 / 0x4B8771: kind 1, render slot +0x1F8, after texture slot +0x84.
+			if (Drawable *d = findByObject(ev.object))
+			{
+				HouseColorParams params;
+				params.kind = 1;
+				params.colors[0] = ev.houseColor;
+				d->recolorRenderObject(ev.name, params);
+			}
+			break;
 		case ClientEvent::PLACEMENT:
 			if (Drawable *d = findByObject(ev.object))
 			{

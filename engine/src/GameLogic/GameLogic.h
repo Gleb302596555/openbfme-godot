@@ -153,6 +153,8 @@ public:
 	// RW 0x8B911E (SubObjectsUpgrade's UpgradeTexture): every draw module of the drawable takes this list of (original, drawn instead) as its upgrade
 	// textures (draw module vslot 0x84), replacing the one it had; the removal hands an empty list
 	virtual void upgradeTextures(Object &obj, const std::vector<std::pair<std::string, std::string>> &swaps) { (void)obj; (void)swaps; }
+	// PORT-47: RW 0x67273A -> model draw slot +0x78 (0x4B8701), after upgradeTextures, not another texture-change path.
+	virtual void recolorHouse(Object &obj, const std::vector<std::string> &excludeSubobjects) { (void)obj; (void)excludeSubobjects; }
 	// lane STEALTH-2, RW 0x776F03 (StealthUpdate's disguise): the object's drawable is destroyed (TheGameClient vslot 0x74) and a new one of `tmpl` made
 	// (RW 0x6CFE8C) and bound (RW 0x625AA4) at the object's position and orientation with its model conditions, in `color` when `hasColor`
 	virtual void replaceDrawable(Object &obj, const ThingTemplate *tmpl, bool hasColor, std::uint32_t color) { (void)obj; (void)tmpl; (void)hasColor; (void)color; }

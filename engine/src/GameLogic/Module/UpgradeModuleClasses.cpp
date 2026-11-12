@@ -692,7 +692,8 @@ void SubObjectsUpgrade::upgradeImplementation()
 			draw->upgradeTextures(*obj, upgradeTexturePairs());
 			if (m_data->m_recolorHouse)
 			{
-				++s.houseRecolorsNotPorted;
+				// PORT-47: RW 0x8B9269 / 0x8B9272 gate this after the texture operation; 0x8B927D dispatches the exclusion vector.
+				draw->recolorHouse(*obj, m_data->m_excludeSubobjects);
 			}
 		}
 	}
@@ -936,9 +937,8 @@ std::vector<std::string> UpgradeModuleClasses::stopLines()
 		"(the order an upgrade reaches the objects in is inferred)",
 		"[S-483] closed (lane DECOMP-2): Object::hasUpgrade asks a horde's members first (RW 0x68E040 -> contain slot 0x7C -> RW 0x86EC2D) and "
 		"Object::updateUpgradeModules adds the upgrades of a castle member's keep (RW 0x797BEF, member + 0x14 written at the unpack by RW 0x7990D9)",
-		"[S-484] SubObjectsUpgrade: the fade (FadeTimeInSeconds / WaitBeforeFadeInSeconds, RW 0x8B8F40) and the house recolour (RW 0x67273A) are not drawn "
-		"(the UpgradeTexture list reaches every draw module, RW 0x8B911E; the order it takes against RandomTexture and the state's Texture pairs is inferred): " +
-		std::to_string(s.subObjectFadesNotPorted) + " fades shown instantly, " + std::to_string(s.houseRecolorsNotPorted) + " recolours not applied",
+		"[S-484] SubObjectsUpgrade: the fade (FadeTimeInSeconds / WaitBeforeFadeInSeconds, RW 0x8B8F40) is not drawn: " +
+		std::to_string(s.subObjectFadesNotPorted) + " fades shown instantly; texture replacement is Local 21, house recolour with first-name exclusion is PORT-47",
 		"[S-486] upgrade research details not ported: the sub upgrade cost skip of UpgradeTemplate::calcCostToBuild (RW 0x694BF8 / slot 0xAC), the castle cost "
 		"record of queueUpgrade (RW 0x8A10A0) (the completion's RW 0x79D322 / 0x79D833 are the producer's experience: PRODUCTION1, S-203), the first and third clauses of Object::affectedByUpgrade (RW 0x6939DF / "
 		"0x693A1A, RW 0x6ABDC2), HordeContain's second member list (+0x150) in the upgrade hand-down (RW 0x87566B) and in Object::hasUpgrade (RW 0x86EC2D: module + 0x170) (completion UI messages, radar event and sounds are ported: LOCAL-10)",

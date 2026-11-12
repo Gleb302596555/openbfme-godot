@@ -81,6 +81,7 @@ struct ClientEvent
 		FX_TRIGGER,                ///< PORT-68, RW 0x68B56A -> RW 0x44C465: Drawable + 0x360 FXTrigger index (TheFXTriggerNames)
 		SUPPLY_STATUS,   ///< PORT-77: RW 0x8AB623..0x8AB63A dispatches the supply look through RW 0x671948; event delivery is INFERENCE
 		ENSLAVED,        ///< P-87 (RW 0x8A51AE -> RW 0x6713A8): slaver; the slave's drawable copies the slaver drawable's Eva sighting flags
+		HOUSE_RECOLOR,   ///< PORT-47: name = first exclusion (or empty), houseColor = controlling player day colour, kind 1 (RW 0x4B873C / 0x4B872C)
 	};
 	std::string heroUniqueID;
 	std::vector<std::string> heroStatistics;
@@ -154,6 +155,7 @@ public:
 	void showSubObject(Object &obj, const std::string &name, bool visible, bool permanent) override;
 	void supplyStatusChanged(Object &obj, int currentBoxes, int startingBoxes) override;
 	void upgradeTextures(Object &obj, const std::vector<std::pair<std::string, std::string>> &swaps) override;
+	void recolorHouse(Object &obj, const std::vector<std::string> &excludeSubobjects) override;
 	void replaceDrawable(Object &obj, const ThingTemplate *tmpl, bool hasColor, std::uint32_t color) override;
 	void fadeIn(Object &obj, UnsignedInt frames) override;
 	void fadeOut(Object &obj, UnsignedInt frames) override;
