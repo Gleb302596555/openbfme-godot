@@ -15,6 +15,7 @@ set(OPENBFME_FX_SOURCES
 set(OPENBFME_FX_TESTS
     tests/test_fx_particle_ini.cpp
     tests/test_fx_particles.cpp
+    tests/test_local39_terrain_fire.cpp
     tests/test_fx_draw.cpp
     tests/test_fx_retail.cpp
     tests/test_w3d_emitter_sim.cpp

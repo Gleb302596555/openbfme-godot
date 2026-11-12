@@ -482,9 +482,10 @@ TEST_CASE("GPU_TERRAINFIRE (RW 0x7b13a5 / BFME2 0x007b0869): particles emitted a
 	const ParticleSystemID id = sim.spawn("GpuTerrainFire");
 	sim.step();
 
-	// 1. Particle creation: unverified is clean, particle created at cell with ground + Z offset
+	// 1. Particle creation: unverified is clean, particle created at cell with ground + Z offset. BurstCount 2: the first update's burst walks the
+	// cell twice (Local 39: RW 0x5F3DC1 -> storage slot +0x24 RW 0x7B13A5, rounds RW 0x7B1458 .. 0x7B17AF; was 1 while the port walked once per update)
 	CHECK(sim.mgr->unverified().empty());
-	REQUIRE(sim.mgr->particleCount() == 1u);
+	REQUIRE(sim.mgr->particleCount() == 2u);
 	const Particle &p = sim.mgr->particle(sim.mgr->findParticleSystemByID(id)->firstParticle());
 	CHECK(p.pos.x == 100.0f);
 	CHECK(p.pos.y == 200.0f);
@@ -498,7 +499,7 @@ TEST_CASE("GPU_TERRAINFIRE (RW 0x7b13a5 / BFME2 0x007b0869): particles emitted a
 	const std::vector<DrawBatch> batches = builder.build(*sim.mgr, cam);
 	REQUIRE(batches.size() == 1u);
 	CHECK(batches[0].kind == DrawBatch::GPU);
-	REQUIRE(batches[0].gpu.size() == 1u);
+	REQUIRE(batches[0].gpu.size() == 2u); // Local 39: the burst's two rounds (see 1.)
 	CHECK(batches[0].gpu[0].x == 100.0f);
 	CHECK(batches[0].gpu[0].y == 200.0f);
 	CHECK(batches[0].gpu[0].z == 13.0f);
@@ -508,6 +509,9 @@ TEST_CASE("GPU_TERRAINFIRE (RW 0x7b13a5 / BFME2 0x007b0869): particles emitted a
 	// 3. Shroud check (RW 0x7b156a..0x7b1578): shrouded cell emits nothing
 	sim.env.shroudStatus = 2;
 	const std::uint32_t countBefore = sim.mgr->particleCount();
+	// Local 39: BurstDelay 2 leaves updates 2 and 3 without a walk; update 4 bursts, so three steps cover a walk over the shrouded cell
+	sim.step();
+	sim.step();
 	sim.step();
 	// No new particles emitted while shrouded
 	CHECK(sim.mgr->particleCount() == countBefore);

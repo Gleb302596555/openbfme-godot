@@ -60,7 +60,8 @@
 //     update RW 0x88EE6E: not AFLAME: sleep forever. The OCLEmbers list runs (RW 0x5F0126, the object as primary); with a SpreadTryRange: the closest object
 //     within it (ThePartitionManager->getClosestObject RW 0xA39090, from the object's position, distance type 2 = bounding sphere 2D) through the filter
 //     RW 0xC627A0 (RW 0x88ED46: the object has a FlammableUpdate whose status is NORMAL) is ignited (its FlammableUpdate's tryToIgnite); when none, with
-//     TheGlobalData + 0x18 -> + 0xBC set, a burnable terrain object (RW 0x67F52B / 0x68449B) is tried; then sleep calcNextSpreadDelay.
+//     TheAI data (RW 0xDE4B40 + 0x18) + 0xBC, AIData AllowForestFires, set, the standing map tree within the range is made an object and ignited (RW 0x67F52B /
+//     0x68449B, lane LOCAL-42); then sleep calcNextSpreadDelay.
 // WHAT IS INFERENCE / NOT PORTED (stop S-983, reported per use):
 //   * PORT-103: burning sound start/stop now use AudioApi (RW 0x890201, 0x8900C7, 0x88FDDD).
 //     Remaining client parts (the drawable flushes) and the body's slot 0x2C, RW 0x68F2F1(0), the script events 10 / 11 and the

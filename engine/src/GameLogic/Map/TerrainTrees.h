@@ -171,6 +171,13 @@ public:
 	// pos - tree in SSE, then the x87 root of y * y + x * x) is not above `radius` leaves the fire grid, is cleared, goes from the client at once (slot
 	// 0x58) and stamps TerrainLogic + 0x1910; the number removed
 	int removeTreesInRadius(const Coord3D &position, float radius);
+	// RW 0x68449B (TerrainLogic, lane LOCAL-42): the map tree closest to `position` (RW 0x67E078: radius 10.0 at RW 0xBD83D8, every record, no mode) made an
+	// object: with a template (+ 0x14) ThingFactory::newObject (RW 0x6D165E) for the neutral player's default team (ThePlayerList + 0x18 = player 0,
+	// + 0x30C), no status, teleported onto the record (RW 0x696E63(record, 0)); the record cleared (RW 0x67D3C2) and removed (RW 0x684412 with its id).
+	// A record without a template is only cleared and removed (null). No record: ThePartitionManager's closest object (RW 0xA39090, distance type 1, 3D
+	// centres) within 10.0 of `position` whose KindOf has SUPPLY_SOURCE (RW 0x684560: RW 0x444D39(0, 0x56) / RW 0x445139) and that is alive (filter
+	// RW 0xC10E20), or null
+	Object *makeTreeObject(const Coord3D &position);
 	// TheTerrainVisual slot 0x5C from the radius clear (RW 0x683498): a client event (HIDE_SCORCHES)
 	void hideScorches(const Coord3D &position, float radius);
 	// S-921: RW 0x67F6F0 (the trees within `radius` start to morph, `type` 1 Taint / 2 Elven Wood); the number that started

@@ -13,6 +13,8 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/PartitionManager.h"
+#include "Common/Player.h"
+#include "Common/PlayerList.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/Module/NotifyCrushModules.h"
 #include "GameLogic/Module/SquishCollide.h"
@@ -754,6 +756,36 @@ void TerrainTrees::endMorph(Record &tree)
 }
 
 // RW 0x684412
+// RW 0x68449B (see the header)
+Object *TerrainTrees::makeTreeObject(const Coord3D &position)
+{
+	static const float kRadius = 10.0f; // RW 0xBD83D8
+	Record *tree = findClosestTree(position, kRadius, false, 0); // RW 0x6844E7: RW 0x67E078(position, 10.0, collector, 0, 0)
+	if (tree)
+	{
+		Object *made = nullptr;
+		if (tree->tmpl)
+		{
+			Player *neutral = m_logic.players().getNeutralPlayer(); // RW 0x68450A .. 0x684512
+			made = m_logic.newObject(tree->tmpl, neutral ? neutral->getDefaultTeam() : nullptr, ObjectStatusMaskType{}); // RW 0x684528
+			if (made)
+			{
+				made->teleportTo(&tree->position, false); // RW 0x684534
+			}
+		}
+		const std::uint32_t id = tree->clientId; // RW 0x684539 (read before the clear)
+		clearRecord(*tree);                      // RW 0x68453E
+		removeTreeNow(id);                       // RW 0x68454A
+		return made;
+	}
+	static const int kSupplySource = ObjectTemplateInfoBuilder::kindOfIndex("SUPPLY_SOURCE"); // bit 0x56 (the KindOf name table RW 0xDA0E68)
+	// the filter chain (RW 0xA394C0 links them): KindOf SUPPLY_SOURCE (vtable RW 0xBD88B0, allow RW 0x660DB2 -> RW 0x70C4FE), then alive (vtable RW 0xC10E20,
+	// allow RW 0x660E71: Object + 0x458 bit 0, the effectively-dead bit, clear)
+	PartitionFilterFn supply([](Object &o) { return kSupplySource >= 0 && o.isKindOf((unsigned)kSupplySource); });
+	PartitionFilterFn alive([](Object &o) { return !o.isEffectivelyDead(); });
+	return m_logic.partition().getClosestObject(position, kRadius, FROM_CENTER_3D, { &supply, &alive }); // RW 0x6845AD
+}
+
 void TerrainTrees::removeTreeNow(std::uint32_t treeId)
 {
 	m_changedFrame = m_logic.getFrame(); // RW 0x684429
@@ -1028,8 +1060,8 @@ std::string TerrainTrees::trees1StopLine()
 {
 	return "[S-5260] terrain trees (lane TREES1): units crush trees (RW 0x6858BE / 0x6854FD: crusher level 2 or more, or MACHINE) and a dozer's structure "
 		   "removes the trees, shrubs and props under it (RW 0x684BCA). Not ported: "
-		   "the shrubs' push aside (slot 0x6C), the fire grid (TheFireLogicSystem: burning cells take a tree's lumber, RW 0x6886E0), a tree made an object "
-		   "(RW 0x68449B: attacked, grabbed, set alight by FireSpreadUpdate), the grab powers, "
+		   "the shrubs' push aside (slot 0x6C), the fire grid (TheFireLogicSystem: burning cells take a tree's lumber, RW 0x6886E0), the attack on a tree's "
+		   "stand-in object (S-2480; a tree made an object, RW 0x68449B, runs since lane LOCAL-42), the grab powers, "
 		   "ClearRemovables (RW 0x5F0EE6) and trees an ObjectCreationList adds (the radius clear RW 0x683393 runs: TerrainTaintClear.h); INFERENCE: TheTerrainVisual's "
 		   "harvest check (slot 0x80, RW 0x4EA005: the tree toppled, not sinking, not morphing) is answered by the logic. Taint / ElvenWood's tree morph "
 		   "runs (S-921: RW 0x67F6F0 -> 0x4EC40E, the frame RW 0x4EACB0 from TerrainLogic's update, kept in the records)";

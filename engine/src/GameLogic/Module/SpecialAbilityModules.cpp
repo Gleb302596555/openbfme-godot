@@ -26,6 +26,7 @@
 #include "Common/Thing/ModuleFactory.h"
 #include "Common/Thing/ThingFactory.h"
 #include "Common/Thing/KindOfTokens.h"
+#include "GameLogic/Map/TerrainTrees.h"
 #include "GameClient/FXList.h"
 #include <atomic>
 #include "GameLogic/BitFlags.h"
@@ -1544,7 +1545,7 @@ void SpecialAbilityUpdate::triggerAbilityEffect()
 
 // lane MODCOMPAT-MOD1: RW 0x8540A1 .. 0x8544C8, the grab enums of the trigger (SPECIAL_GRAB_PASSENGER 0x27, SPECIAL_GRAB_CHUNK 0x28; the trigger count was
 // raised before). The first trigger, with the object's contain (+ 0x258; none: nothing): without a target object the tree at the target location within
-// 5.0 (RW 0xBDAE58, TheTerrainLogic RW 0x67F52B(loc, 5, 1, 1)) becomes a tree object (RW 0x68449B) that is the target: not ported (S-860, counted). A
+// 5.0 (RW 0xBDAE58, TheTerrainLogic RW 0x67F52B(loc, 5, 1, 1)) becomes a tree object (RW 0x68449B) that is the target (lane LOCAL-42). A
 // CHUNK_VENDOR target of 0x28 or a ROCK_VENDOR target of 0x27 hands out its GrabObject (the body's slot 0x74, made by RW 0x6D165E, produced by the object
 // and contained) and is hurt (RW 0x697E50): ported in PORT-78. Any other target the contain accepts (slot 0x98(target, 1, 0)) leaves the horde
 // that holds it (the holder's horde interface slot 0x38) and is contained (slot 0x9C); a GRAB_AND_KILL target (template + 0x114 bit 3) shows PREPARING
@@ -1569,9 +1570,20 @@ void SpecialAbilityUpdate::grabTrigger(int type)
 		}
 		if (!t)
 		{
-			++m_unported; // RW 0x8540D4 .. 0x854112: the tree object at the location (S-860)
-			obj->logic().noteStop("[S-860] SpecialAbilityUpdate: the grab of a tree (RW 0x68449B makes the tree an object) is not ported");
-			return;
+			// RW 0x8540D4 .. 0x854112 (lane LOCAL-42): a standing grabbable tree within 5.0 of the target location (RW 0xBDAE58, TheTerrainLogic
+			// RW 0x67F52B(loc, 5.0, 1, 1)); none: the trigger ends. It is made an object (RW 0x68449B at RW 0x854100); none made: the trigger ends; else the
+			// object's id (+ 0x74) is the ability's target (+ 0x40) and the object is the target below
+			TerrainTrees &trees = obj->logic().trees();
+			if (!trees.findClosestTree(m_targetPos, 5.0f, true, 1))
+			{
+				return;
+			}
+			t = trees.makeTreeObject(m_targetPos);
+			if (!t)
+			{
+				return;
+			}
+			m_targetID = t->getID();
 		}
 		const bool vendor = (kind(*t, kChunkVendor) && type == 0x28) || (kind(*t, kRockVendor) && type == 0x27);
 		if (vendor)
@@ -3041,7 +3053,7 @@ std::vector<std::string> SpecialAbilityModules::stopLines()
 		"(0x1A; SPECIAL_INFANTRY_CAPTURE_BUILDING 0x1D runs: lane HERO-2, S-1225), "
 		"(SPECIAL_CHARGE_ATTACK 0x2A trigger / packing runs since PORT-5; the 0x20 disguise trigger RW 0x8544CD runs: lane STEALTH-2; SPECIAL_SCREECH 0x89, the "
 		"disguise cancels 0x84 / 0x85: lane HERO-2; the grab enums SPECIAL_GRAB_PASSENGER / SPECIAL_GRAB_CHUNK 0x27 / 0x28 run since lane MODCOMPAT-MOD1: the "
-		"object grab, its hold, release and eat; ROCK_VENDOR / CHUNK_VENDOR runs since PORT-78, RW 0x85415C), the grab of a tree (RW 0x68449B makes it an object), "
+		"object grab, its hold, release and eat; ROCK_VENDOR / CHUNK_VENDOR runs since PORT-78, RW 0x85415C), "
 		"the 0x28 unpack model condition (RW 0x85384C), the special objects (SpecialObject: no retail use), ContactPointOverride: counted (the "
 		"unit cost + 0x80 is paid since lane NECRODIE-1, RW 0x85521F; ApproachUntilMembersInRange + 0xC5 runs since PORT-58, RW 0x85213E .. 0x852171)",
 		"[S-861] ToggleMountedSpecialAbilityUpdate: the toggle, CancelDisguiseWhenDismounting and MountedTemplate (the replacement RW 0x8B140D: Construction::"

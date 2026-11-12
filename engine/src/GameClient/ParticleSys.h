@@ -284,7 +284,7 @@ private:
 	float gpuNowFrames() const;
 	void updateWindSystemState();
 	void updateSystemEvents();
-	void updateTerrainFire();
+	void emitTerrainFire(int count);
 
 	ParticleSystemManager &m_manager;
 	const ParticleSystemTemplate *m_template;

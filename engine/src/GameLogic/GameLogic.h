@@ -285,6 +285,10 @@ struct GameLogicSettings
 	float meleeApproachDist = 60.0f;
 	float castleSiegeStandBackDistance = 100.0f;
 	bool hordesWaitForHordes = true;
+	// lane LOCAL-42: AllowForestFires + 0xBC (row RW 0xC1CE80, parseBool RW 0x42E558; the constructor RW 0x6FFDDF stores 0). Read through TheAI's data
+	// (RW 0xDE4B40 + 0x18): FireSpreadUpdate's tree branch (RW 0x88EF0F) and the attack on a map tree (RW 0x77AF3B / 0x77C1E5) make a tree an object
+	// (TerrainTrees::makeTreeObject, RW 0x68449B) only with it set. Retail 2.01 and Ennorath set No (defaultidata.ini)
+	bool allowForestFires = false;
 	// lane PORT-38 (issue #123): the AI player's team build tempo — six AIData rows of the table that starts at RW 0xC1CB20, and the constructor
 	// RW 0x6FFBEF stores 0.0f / 0 to all of them (so a data set that leaves them out divides by a zero rate, exactly as the image does; the rules
 	// and their callers are GameLogic/SkirmishAI/AITeamTempo.h, stop S-5620 for the team build that would consume them):
