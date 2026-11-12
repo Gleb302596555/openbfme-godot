@@ -556,8 +556,8 @@ void ParticleSystem::updateStorage()
 			}
 			p = next;
 		}
-		// RW 0x007B13A5 / BFME2 0x007B0869: emit particles at burning terrain cells
-		updateTerrainFire();
+		// Local 39 (P-38): the storage update (RW 0x7B12F4, storage vslot +0x28 from RW 0x5F333D) only expires; the cells are walked by the
+		// storage's create slot (+0x24, RW 0x7B13A5) from emit's burst (RW 0x5F3DC1), see createParticles
 		return;
 	}
 	// CPU storage: oldest first; particles created earlier in this system update are included
@@ -575,10 +575,8 @@ void ParticleSystem::updateStorage()
 // ---- emit (RW 0x5f3ccf) -----------------------------------------------------------------------------------------------
 void ParticleSystem::emit(const Coord3D &posIn, int priority, bool isIdentity, const Matrix3D &xf)
 {
-	if (m_info.m_particleType == PARTICLE_TYPE_GPU_TERRAINFIRE)
-	{
-		return; // RW 0x7B13A5: emission handled per burning cell in updateTerrainFire
-	}
+	// Local 39 (P-38): RW emit has no type test, a GPU_TERRAINFIRE system takes the same BurstDelay / BurstCount gate (and its two client draws) as
+	// every other system; the burst's count reaches the storage's create slot RW 0x7B13A5 (createParticles below)
 	ParticleEnvironment &env = m_manager.environment();
 	W3DDrawRandom &rng = env.clientRandom();
 	ParticleSystem *sys = this;
@@ -633,16 +631,19 @@ void ParticleSystem::createParticles(int priority, int count)
 		attached = m_manager.templates().findTemplate(m_info.m_attachedSystemName);
 	}
 	ParticleEnvironment &env = m_manager.environment();
+	if (m_info.m_particleType == PARTICLE_TYPE_GPU_TERRAINFIRE)
+	{
+		// RW 0x5F3DC1: emit calls the storage's slot +0x24 (priority, burst count * coefficient); the terrain fire storage's slot (vtable RW 0xC33BA8
+		// + 0x24 = RW 0x7B13A5) walks the burning cells `count` times (RW 0x7B1458 / 0x7B17A6 .. 0x7B17AF)
+		emitTerrainFire(count);
+		return;
+	}
 	const bool gpu = m_info.m_particleType == PARTICLE_TYPE_GPU_PARTICLE;
 	for (int i = 0; i < count; ++i)
 	{
 		if (gpu && m_particleCount >= (std::uint32_t)GPU_SLOT_COUNT)
 		{
 			break; // canCreate: a free slot (RW 0x7b0f2f)
-		}
-		if (m_info.m_particleType == PARTICLE_TYPE_GPU_TERRAINFIRE)
-		{
-			break; // RW 0x7b13a5 walks the terrain fire cells (stop S-191)
 		}
 		ParticleInfo info;
 		generateParticleInfo(info, i, count);
@@ -1876,8 +1877,10 @@ int ParticleSystemManager::removeOldestParticles(std::uint32_t count, int priori
 
 } // namespace FXParticleSystem
 
-// RW 0x007B13A5: TerrainFireSystemStorageModule::update
-void FXParticleSystem::ParticleSystem::updateTerrainFire()
+// RW 0x007B13A5: the terrain fire storage's create slot (vtable RW 0xC33BA8 + 0x24), called by emit's burst (RW 0x5F3DC1) with the burst's
+// count: `count` rounds over the burning cells (RW 0x7B1458 .. 0x7B17AF). A full slot store ends the walk (RW 0x7B146C exits, RW 0x7B1490 ends the
+// round and the next round's RW 0x7B146C exits).
+void FXParticleSystem::ParticleSystem::emitTerrainFire(int count)
 {
 	ParticleEnvironment &env = m_manager.environment();
 	const std::set<std::pair<int, int>> *cells = env.burningCells();
@@ -1897,50 +1900,53 @@ void FXParticleSystem::ParticleSystem::updateTerrainFire()
 		emissionChance = static_cast<const TerrainFireEmissionModuleData *>(m_volume)->m_cellEmissionChance; // RW 0x005F4B16: vslot +0x18
 	}
 
-	for (const auto &cell : *cells)
+	for (int round = 0; round < count; ++round)
 	{
-		// RW 0x007B146C / 0x007B1490: stop if cap reached
-		if ((int)m_particleCount >= cap)
+		for (const auto &cell : *cells)
 		{
-			break;
+			// RW 0x007B146C / 0x007B1490: stop if cap reached
+			if ((int)m_particleCount >= cap)
+			{
+				return;
+			}
+
+			// RW 0x007B14BB..0x007B14D4: cell emission chance check
+			const float r = realDraw(rng, 0.0f, 1.0f);
+			if (r > emissionChance)
+			{
+				continue;
+			}
+
+			// RW 0x007B14FB: sample ground height at cell center
+			const float cellX = (float)cell.first;
+			const float cellY = (float)cell.second;
+			const float groundZ = env.groundHeight(cellX, cellY);
+
+			// RW 0x007B152B: sample emission volume offset
+			const Coord3D offset = computeParticlePosition(0, 1);
+			const Coord3D pos{ cellX + offset.x, cellY + offset.y, groundZ + offset.z };
+
+			// RW 0x007B156A..0x007B1578: shroud check (TheShroud->test != 0 means obscured)
+			if (env.shroudStatusAt(pos) != 0)
+			{
+				continue;
+			}
+
+			// RW 0x007B1594: sample emission velocity
+			const Coord3D vel = computeParticleVelocity(pos);
+
+			// RW 0x007B15A8..0x007B15B2: sample lifetime and ftol (no life == 0 clamp in retail)
+			const float lifeVal = m_info.m_lifetime.getValue(rng);
+			std::uint32_t life = (std::uint32_t)ftol(lifeVal);
+
+			ParticleInfo pinfo;
+			pinfo.pos = pos;
+			pinfo.vel = vel;
+			pinfo.emitterPos = pos;
+			pinfo.lifetime = life;
+			pinfo.particleUpTowardsEmitter = false;
+
+			createParticle(pinfo, m_info.m_priority, nullptr, false);
 		}
-
-		// RW 0x007B14BB..0x007B14D4: cell emission chance check
-		const float r = realDraw(rng, 0.0f, 1.0f);
-		if (r > emissionChance)
-		{
-			continue;
-		}
-
-		// RW 0x007B14FB: sample ground height at cell center
-		const float cellX = (float)cell.first;
-		const float cellY = (float)cell.second;
-		const float groundZ = env.groundHeight(cellX, cellY);
-
-		// RW 0x007B152B: sample emission volume offset
-		const Coord3D offset = computeParticlePosition(0, 1);
-		const Coord3D pos{ cellX + offset.x, cellY + offset.y, groundZ + offset.z };
-
-		// RW 0x007B156A..0x007B1578: shroud check (TheShroud->test != 0 means obscured)
-		if (env.shroudStatusAt(pos) != 0)
-		{
-			continue;
-		}
-
-		// RW 0x007B1594: sample emission velocity
-		const Coord3D vel = computeParticleVelocity(pos);
-
-		// RW 0x007B15A8..0x007B15B2: sample lifetime and ftol (no life == 0 clamp in retail)
-		const float lifeVal = m_info.m_lifetime.getValue(rng);
-		std::uint32_t life = (std::uint32_t)ftol(lifeVal);
-
-		ParticleInfo pinfo;
-		pinfo.pos = pos;
-		pinfo.vel = vel;
-		pinfo.emitterPos = pos;
-		pinfo.lifetime = life;
-		pinfo.particleUpTowardsEmitter = false;
-
-		createParticle(pinfo, m_info.m_priority, nullptr, false);
 	}
 }
