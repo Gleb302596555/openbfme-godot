@@ -16,6 +16,7 @@
 //     CONTROLBAR:UnderConstructionDesc RW 0xC11144; the rebuild status is not read).
 #include "doctest.h"
 #include "CombatTestUtil.h"
+#include "ProdTestUtil.h"
 
 #include "GameLogic/Damage.h"
 #include "GameLogic/Module/RebuildHoleModules.h"
@@ -31,6 +32,14 @@ namespace
 const char *kPort144Objects =
 	"Object Port144Worker\n"
 	"  KindOf = INFANTRY DOZER UNATTACKABLE NOT_AUTOACQUIRABLE\n"
+	"  LocomotorSet\n"
+	"    Locomotor = WalkerLoco\n"
+	"    Condition = SET_NORMAL\n"
+	"    Speed = 30\n"
+	"  End\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 4\n"
+	"  GeometryHeight = 10\n"
 	"  Body = ActiveBody ModuleTag_Body\n"
 	"    MaxHealth = 100\n"
 	"  End\n"
@@ -109,6 +118,7 @@ struct Port144World : CombatWorld
 	Port144World()
 		: CombatWorld(kPort144Objects)
 	{
+		logic->productionSettings() = prodtest::defaultSettings(); // the GameData build time settings calcTimeToBuild reads (the multipliers 1.0)
 	}
 	// every object of the template that is still in the logic's list, dead or not
 	std::vector<Object *> all(const char *templateName)
