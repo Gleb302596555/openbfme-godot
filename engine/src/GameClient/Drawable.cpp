@@ -1993,11 +1993,24 @@ void Drawable::calcPhysicsXformShip(const LocomotorTemplate *loco, const ObjectS
 	else if (m_locoInfo->m_accelerationRoll < -ACCEL_PITCH_LIMIT)
 		m_locoInfo->m_accelerationRoll = -ACCEL_PITCH_LIMIT;
 
-	// Bobbing modulators (donor 0x00272FB6: pitch and roll sinusoidal bobbing)
-	m_locoInfo->m_yawModulator += 0.05f;
-	info.m_totalRoll += std::sin(m_locoInfo->m_yawModulator) * 0.02f;
-	m_locoInfo->m_pitchModulator += 0.03f;
-	info.m_totalPitch += std::cos(m_locoInfo->m_pitchModulator) * 0.02f;
+	// PORT-132 (issue #334): the bobbing amplitudes and rates are the locomotor template's four correction fields, not constants. A ship rights
+	// its roll and pitch with them: the mod's 13 ship locomotors set them (LargeShipLocomotor, VeryLargeShipLocomotor, TransportShipLocomotor,
+	// SmallShipLocomotor ...: 0.073 / 0.021 / 0.163 / 0.016 and others), and a template that leaves them 0 neither bobs nor is corrected.
+	// The reads are in this ship body (RW 0x6732DC; the parse rows RW 0xBF48E8 / 0xBF48F8 / 0xBF4908 / 0xBF4918, parser RW 0x42ED00):
+	//   RW 0x67386C movss xmm0,[eax+0x120] (AeleronCorrectionRate)  -> RW 0x673874 addss xmm0,[ecx+0x34] -> RW 0x673879 store: the roll
+	//   accumulator DrawableLocoInfo +0x34 (m_yawModulator) steps by the rate, then RW 0x67388C call 0xA3CF90 (sin) ->
+	//   RW 0x673891 fmul dword ptr [ebp+8] (the AeleronCorrectionDegree read at RW 0x673847 mov ecx,[eax+0x11C], kept at RW 0x673855) ->
+	//   RW 0x673894 fadd dword ptr [esi+4] -> RW 0x673897: PhysicsXformInfo::m_totalRoll takes the amplitude times the sine.
+	//   RW 0x67384D movss xmm0,[eax+0x118] (ElevatorCorrectionRate) -> RW 0x6738A5 addss xmm0,[ebp+0xc] -> RW 0x6738AA store into
+	//   DrawableLocoInfo +0x38 (m_pitchModulator), then RW 0x6738BB call 0xA3CF84 (cos) -> RW 0x6738C0 fmul dword ptr [ebp-0x40] (the
+	//   ElevatorCorrectionDegree read at RW 0x673858 mov ecx,[eax+0x114], kept at RW 0x67385E) -> RW 0x6738C5 fadd dword ptr [esi] ->
+	//   RW 0x6738CD: PhysicsXformInfo::m_totalPitch takes the amplitude times the cosine.
+	// The two accumulators sit at +0x34 / +0x38 of the 0x58-byte DrawableLocoInfo, whose order this struct keeps; the donor agrees
+	// (DONOR BFME2 0x00272FB6, DrawablePhysicsXformShip.cpp:298-305: the same four offsets, sin for the roll and cos for the pitch).
+	m_locoInfo->m_yawModulator += loco->m_aeleronCorrectionRate;
+	info.m_totalRoll += std::sin(m_locoInfo->m_yawModulator) * loco->m_aeleronCorrectionDegree;
+	m_locoInfo->m_pitchModulator += loco->m_elevatorCorrectionRate;
+	info.m_totalPitch += std::cos(m_locoInfo->m_pitchModulator) * loco->m_elevatorCorrectionDegree;
 
 	float pitchHeight = std::sin(info.m_totalPitch) * length;
 	float rollHeight = std::sin(info.m_totalRoll) * width;
