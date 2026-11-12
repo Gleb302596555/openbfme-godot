@@ -652,6 +652,8 @@ protected:
 private:
 	class ObjectLocomotorHost;
 	void privateMoveToPosition(const Coord3D &pos, CommandSourceType source);
+	// PORT-151: the enter-state attack voice of aiAttackObject / aiForceAttackObject (RW 0x66B1D0, message 0x7E6) with the victim's airborne locomotor
+	static void postEnterStateAttackVoice(Object &obj, const Object &victim);
 	void goalPositionClipped(const Coord3D &pos, CommandSourceType source, Coord3D &out) const;
 	void doMovementCompleteBookkeeping();
 	void readCombatSettings(const ModuleData *data);

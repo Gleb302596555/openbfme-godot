@@ -45,6 +45,7 @@
 #include "GameLogic/SimMath.h"
 #include "GameLogic/UnitSpecificSound.h"
 #include "Common/Audio/AudioRequests.h"
+#include "GameClient/UnitVoiceResponse.h"
 
 #include <cmath>
 #include <cstring>
@@ -1140,6 +1141,12 @@ bool AIUpdateInterface::aiAttackMoveToPosition(const Coord3D &pos, CommandSource
 			weapon->setMaxShotCount(0x7fffffff);
 		}
 	resetNextMoodCheckTime();
+	// PORT-151, RW 0x66C128 .. 0x66C136 (helper RW 0x66B2F5): the attack-move of command 0xF asks the unit voice for the enter-state attack-move message
+	// 0x7E8 with the goal, for a PLAYER or SCRIPT order only
+	if (source == CMD_FROM_PLAYER || source == CMD_FROM_SCRIPT)
+	{
+		AudioApi::postUnitVoice(UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_ATTACKMOVE, obj->getID(), 0, INVALID_ID, &pos);
+	}
 	wakeUpNow();
 	return true;
 }
@@ -1205,6 +1212,13 @@ void AIUpdateInterface::privateMoveToPosition(const Coord3D &pos, CommandSourceT
 		m_machine->setGoalObject(INVALID_ID);
 		setLastCommandSource(source);
 		m_machine->setState(AI_MOVE_TO);
+		// PORT-151, RW 0x66B4C4 .. 0x66B4D2 (helper RW 0x66B379): an ordinary move of a PLAYER or SCRIPT order asks the unit voice for the enter-state
+		// move message 0x7E7 with the goal; the temporary-state branch above jumps to RW 0x66B4D7 and says nothing. The route (AudioApi) is the one the
+		// other logic voice events use; the client's picker answers 0x7E7 with the enter-state rows (RW 0x8DE838, rows 0x1B .. 0x20)
+		if (source == CMD_FROM_PLAYER || source == CMD_FROM_SCRIPT)
+		{
+			AudioApi::postUnitVoice(UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_MOVE, obj->getID(), 0, INVALID_ID, &pos);
+		}
 	}
 }
 

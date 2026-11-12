@@ -509,6 +509,17 @@ void postUnitVoice(int voiceEvent, std::uint32_t objectId, std::uint32_t produce
 	dispatchUnitVoice(p);
 }
 
+void postUnitVoice(int voiceEvent, std::uint32_t objectId, std::uint32_t producerId, std::uint32_t targetId, const bool *air)
+{
+	UnitVoiceParams p; // PORT-151: the attack helper's pick info: no power, the victim, the air flag
+	p.voiceEvent = voiceEvent;
+	p.objectId = objectId;
+	p.producerId = producerId;
+	p.targetId = targetId;
+	p.air = air ? *air : false;
+	dispatchUnitVoice(p);
+}
+
 void postUnitVoice(int voiceEvent, std::uint32_t objectId, const SpecialPowerTemplate *powerTemplate, std::uint32_t targetId, const Coord3D *pos)
 {
 	UnitVoiceParams p;

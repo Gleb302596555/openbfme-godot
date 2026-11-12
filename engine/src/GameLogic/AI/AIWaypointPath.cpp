@@ -4,7 +4,9 @@
 
 #include "GameLogic/AI/AIWaypointPath.h"
 
+#include "Common/Audio/AudioRequests.h"
 #include "Common/StateHash.h"
+#include "GameClient/UnitVoiceResponse.h"
 #include "Common/Team.h"
 #include "GameLogic/AI/AIAttack.h"
 #include "GameLogic/AI/AIGroupFormations.h"
@@ -497,7 +499,15 @@ bool AIUpdateInterface::aiAttackFollowWaypointPath(int waypointId, int maxShotsT
 			cur->setMaxShotCount(maxShotsToFire); // + 0x34
 		}
 	}
-	// a player or script source: the client's notification (RW 0x66B2F5)
+	// a player or script source: the client's notification (RW 0x66B2F5), the enter-state attack-move message 0x7E8 with the start waypoint's location
+	// (RW 0x66C1B6 adds + 0x38 to the waypoint and RW 0x66C1BC posts; the waypoint is the path's first one, the same the state's goal is set from)
+	if (source == CMD_FROM_PLAYER || source == CMD_FROM_SCRIPT)
+	{
+		if (const Waypoint *start = obj.logic().terrain() ? obj.logic().terrain()->findWaypointById(waypointId) : nullptr)
+		{
+			AudioApi::postUnitVoice(UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_ATTACKMOVE, obj.getID(), 0, INVALID_ID, &start->location);
+		}
+	}
 	wakeUpNow();
 	return true;
 }

@@ -4,7 +4,9 @@
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Object/ObjectGeometry.h"
 
+#include "Common/Audio/AudioRequests.h"
 #include "Common/GameCommon.h"
+#include "GameClient/UnitVoiceResponse.h"
 #include "Common/Player.h"
 #include "GameLogic/Module/ActiveBody.h"
 #include "Common/NumericState.h"
@@ -308,6 +310,16 @@ Object *AIUpdateInterface::replacementVictim()
 	return nearestMemberOf(*horde, *obj);
 }
 
+// PORT-151: the enter-state attack voice of an attack on an object (RW 0x66B1D0, the message 0x7E6): the owner is the speaker, the victim is the target and
+// its airborne locomotor (RW 0x68BEED) is the voice's air flag
+void AIUpdateInterface::postEnterStateAttackVoice(Object &obj, const Object &victim)
+{
+	const AIUpdateInterface *victimAi = victim.getAIUpdateInterface();
+	const Locomotor *victimLoco = victimAi ? victimAi->curLocomotor() : nullptr;
+	const bool air = victimLoco && (victimLoco->getTemplate().m_surfaces & LOCOMOTORSURFACE_AIR) != 0; // RW 0x68BEED: surfaces + 0x14 bit 8
+	AudioApi::postUnitVoice(UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_ATTACK, obj.getID(), 0, victim.getID(), &air);
+}
+
 // B1 AIUpdate.cpp privateAttackObject: the unit must be able to attack, then the machine restarts in the attack state
 bool AIUpdateInterface::aiAttackObject(Object *victim, CommandSourceType source, int maxShotsToFire)
 {
@@ -362,6 +374,12 @@ bool AIUpdateInterface::aiAttackObject(Object *victim, CommandSourceType source,
 			m_orderedMeleeTarget = victim->getID();
 		}
 	}
+	// PORT-151, RW 0x66BE9F .. 0x66BEB0 (helper RW 0x66B1D0, message 0x7E6): a PLAYER or SCRIPT attack order asks the unit voice for the enter-state
+	// attack with the victim; the voice's air flag is the victim's airborne locomotor (RW 0x68BEED: AI + 0x260, current locomotor + 0x1F0, surfaces + 0x14 bit 8)
+	if (source == CMD_FROM_PLAYER || source == CMD_FROM_SCRIPT)
+	{
+		postEnterStateAttackVoice(*obj, *victim);
+	}
 	wakeUpNow();
 	return true;
 }
@@ -411,6 +429,11 @@ bool AIUpdateInterface::aiForceAttackObject(Object *victim, CommandSourceType so
 	{
 		cur->clearWhenFiringEnds();
 		cur->setMaxShotCount(maxShotsToFire);
+	}
+	// PORT-151, RW 0x66C021 .. 0x66C02F (helper RW 0x66B1D0, message 0x7E6): the force-attack order answers the unit voice for a PLAYER or SCRIPT order
+	if (source == CMD_FROM_PLAYER || source == CMD_FROM_SCRIPT)
+	{
+		postEnterStateAttackVoice(*obj, *victim);
 	}
 	wakeUpNow();
 	return true;
@@ -495,7 +518,12 @@ bool AIUpdateInterface::aiAttackPosition(const Coord3D &pos, int maxShotsToFire,
 		cur->setMaxShotCount(maxShotsToFire);
 		cur->clearWhenFiringEnds();
 	}
-	// RW 0x66E051 .. 0x66E060: the attack voice for a PLAYER or SCRIPT order (RW 0x66B271) is the client's (UnitVoiceResponse on the message)
+	// PORT-151, RW 0x66E051 .. 0x66E060 (helper RW 0x66B271, message 0x7E6): the attack on the ground answers the unit voice with the spot, for a PLAYER
+	// or SCRIPT order. The position variant carries no target, so the air flag stays clear (RW 0x66B271's info holds the position alone)
+	if (source == CMD_FROM_PLAYER || source == CMD_FROM_SCRIPT)
+	{
+		AudioApi::postUnitVoice(UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_ATTACK, obj->getID(), 0, INVALID_ID, &pos);
+	}
 	wakeUpNow();
 	return true;
 }
