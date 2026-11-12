@@ -153,7 +153,7 @@ TEST_CASE("PORT-137 press sends one numbered wake to selected matching modules")
  CHECK(r.sent[0].getType() == MSG_WAKE_AUTO_PICKUP);
  REQUIRE(r.sent[0].getArgumentCount() == 1);
  CHECK(r.sent[0].getArgument(0)->integer == 2); // RW 0x941318
- r.world.dispatcher.dispatch(r.sent[0]); // RW 0x77B51F / 0x76FB3F
+ r.world.logic->update(1); // commandList phase dispatches the message queued by HudInput; RW 0x77B51F / 0x76FB3F
  CHECK(a2->buttonWake()); CHECK(a2->buttonWoken());
  CHECK(b2->buttonWake()); CHECK(b2->buttonWoken());
  CHECK_FALSE(a3->buttonWake()); CHECK_FALSE(outside2->buttonWake()); // RW 0x68C900
