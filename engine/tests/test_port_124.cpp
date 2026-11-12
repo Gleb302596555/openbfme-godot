@@ -10,6 +10,14 @@
 // callback's donor-only equivalence remains S-6010, so end-state expectations
 // below are the owner's explicit Ennorath acceptance, not a claim that its
 // callback has been read in RotWK.
+//
+// The third case pins stop S-7319. The donor's HUD offers no way around it: both
+// entry actions take the same mode argument (action 8's DONT_CHECK_CAPACITY
+// branch is unreachable from the screen, and action 9 is the "special" variant,
+// not a cheaper check), and the ring case is that special flag — which is this
+// citadel branch here (RW 0x88399E..): the inherited check first, then the ring
+// status. What still gates entry for a carrier is the capacity mode's
+// TransportSlotCount test, which runs before the contain is consulted.
 #include "doctest.h"
 #include "CombatTestUtil.h"
 #include "GameClient/FXList.h"
