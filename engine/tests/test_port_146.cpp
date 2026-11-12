@@ -1,15 +1,19 @@
 // OpenBFME unit tests. PORT-146 (issue #363): the archers on a moving siege carrier (Grond, P-82).
 //
-// The scene is synthetic (no game files): a siege carrier with a SiegeEngineContain, its passengers standing on the bones their
-// PassengerBonePrefix names (the client's bone provider is a stub, as in test_port_22.cpp), an archer of the owner on one bone and an enemy in the
-// archer's reach. The carrier is then ordered to move and every frame prints where the archers are and whether they fired.
+// The scene is synthetic (no game files): a siege carrier with a SiegeEngineContain, its passengers standing on the bones their PassengerBonePrefix
+// names (the client's bone provider is a stub, as in port 22's tests), an archer of the owner on one bone and an enemy in the archer's reach. The carrier
+// is then ordered to move and every frame prints where the passengers are and whether the archer fired.
 //
-// What it observes (2026-11-12, the day the lane was opened): the carrier's passengers are put on B_ARCHER01 / B_ARCHER02 once and stay 30.00 above the
-// carrier for every frame of the move (dz 30.000 .. 30.000), they carry TRANSPORT_MOVING while it rolls, and the archer with an AI fires three times in
-// thirty standing frames and twice in the twenty frames of the move (isAbleToAttack 1, ATTACKING, victim the enemy, crew 0 - it is a rider, not crew).
-// So the port's own contain/bone path is not wrong on the shape the issue describes; the divergence is in something this scene does not have (the real
-// model's bone list per model state, the mod's MordorArcherForGrond fields, or a passenger that is a horde - a SiegeEngineContain's base is
-// TransportContain, so only a HordeTransportContain puts a horde rider's members on its bones, RW 0x87A7B4). Issue #363 records what is needed next.
+// What it pins (2026-11-12): a rider whose KindOf matches a PassengerBonePrefix stands on `<prefix>01` / `<prefix>02` and stays exactly 30.00 above the
+// carrier for every frame of the move; it carries TRANSPORT_MOVING while the carrier rolls; it is a rider and not the crew (crewCount 0); and with
+// CanAttackWhileContained (the AIUpdate field at RW 0xC0F530 + 0x25) it fires from the moving carrier. A passenger whose KindOf matches no
+// PassengerBonePrefix falls back to the "ARROW_" prefix and, finding no bone, is placed at the container's own origin (the 30 below the archer) and
+// carries NO_ATTACK - that is the one shape in which the owner's "jumps and does not shoot" can come out of this path at all, so it is pinned too.
+//
+// The issue itself stays open: on the shape the report describes the path below behaves, so the divergence is in what this scene cannot see - the real
+// model's bone list per model state, the mod's MordorArcherForGrond fields, or the client, which hands the container's DependencySharedModelFlags
+// (Grond: MOVING TURN_LEFT TURN_RIGHT ... ) to every contained drawable (DrawableManager::syncTransforms, stop S-1791 INFERENCE "its riders and
+// crew": a rider's draw module then picks its MOVING AnimationState while the carrier rolls).
 
 #include "doctest.h"
 
@@ -33,9 +37,22 @@ using namespace combattest;
 namespace
 {
 // MordorGrond's shape as the mod has it (object/evilfaction/units/mordor/grond.ini): Slots = 6, PassengerFilter = NONE +MordorArcherForGrond,
-// ObjectStatusOfContained = UNSELECTABLE UNATTACKABLE CAN_ATTACK, PassengerBonePrefix = PassengerBone:B_ARCHER KindOf:NOT_AUTOACQUIRABLE. The archer is a
-// carrier's passenger whose AI keeps looking for enemies while it is inside (CanAttackWhileContained, the AIUpdate field RW field table 0xC0F530 + 0x25).
+// ObjectStatusOfContained = UNSELECTABLE UNATTACKABLE CAN_ATTACK, PassengerBonePrefix = PassengerBone:B_ARCHER KindOf:NOT_AUTOACQUIRABLE,
+// a CrewFilter of trolls, and the archer's own weapon is the turreted "MordorSummonedBarricadeArcherBowGrondMoving" (RotatingTurret = Yes, the bow of
+// port 28's in-game check: the archer turns on its bone to shoot, its AI's Turret holds ControlledWeaponSlots PRIMARY).
 const char kPort146Objects[] =
+	"Weapon P146GrondBow\n"
+	"  AttackRange = 200\n"
+	"  WeaponSpeed = 100\n"
+	"  DelayBetweenShots = 800\n"
+	"  PreAttackDelay = 400\n"
+	"  PreAttackType = PER_POSITION\n"
+	"  RotatingTurret = Yes\n"
+	"  ProjectileNugget\n"
+	"    ProjectileTemplateName = Arrow\n"
+	"    WarheadTemplateName = BowWarhead\n"
+	"  End\n"
+	"End\n"
 	"Object P146Carrier\n"
 	"  KindOf = SELECTABLE CAN_ATTACK\n"
 	"  VisionRange = 200\n"
@@ -57,12 +74,12 @@ const char kPort146Objects[] =
 	"    Slots = 2\n"
 	"    PassengerFilter = NONE +INFANTRY\n"
 	"    ObjectStatusOfContained = UNSELECTABLE UNATTACKABLE CAN_ATTACK\n"
+	"    PassengerBonePrefix = PassengerBone:B_ARCHER KindOf:NOT_AUTOACQUIRABLE\n"
 	"    CrewFilter = NONE +MONSTER\n"
 	"    CrewMax = 6\n"
 	"    ObjectStatusOfCrew = UNSELECTABLE UNATTACKABLE\n"
 	"    SpeedPercentPerCrew = 50%\n"
 	"    CrewAllowedToFire = No\n"
-	"    PassengerBonePrefix = PassengerBone:B_ARCHER KindOf:NOT_AUTOACQUIRABLE\n"
 	"    ForceOrientationContainer = No\n"
 	"  End\n"
 	"  LocomotorSet\n"
@@ -71,7 +88,8 @@ const char kPort146Objects[] =
 	"    Speed = 30\n"
 	"  End\n"
 	"End\n"
-	"Object P146Still\n"
+	// a passenger of a kind no PassengerBonePrefix names: it falls back to "ARROW_", finds nothing and is put at the container's origin
+	"Object P146Stranger\n"
 	"  KindOf = INFANTRY SELECTABLE\n"
 	"  TransportSlotCount = 1\n"
 	"  Geometry = CYLINDER\n"
@@ -102,7 +120,7 @@ const char kPort146Objects[] =
 	"  End\n"
 	"  WeaponSet\n"
 	"    Conditions = None\n"
-	"    Weapon = PRIMARY BowWeapon\n"
+	"    Weapon = PRIMARY P146GrondBow\n"
 	"  End\n"
 	"  Body = ActiveBody ModuleTag_Body\n"
 	"    MaxHealth = 60\n"
@@ -111,6 +129,10 @@ const char kPort146Objects[] =
 	"    AutoAcquireEnemiesWhenIdle = Yes\n"
 	"    CanAttackWhileContained = Yes\n"
 	"    MoodAttackCheckRate = 400\n"
+	"    Turret\n"
+	"      TurretTurnRate = 360\n"
+	"      ControlledWeaponSlots = PRIMARY\n"
+	"    End\n"
 	"  End\n"
 	"  Behavior = DestroyDie ModuleTag_Destroy\n"
 	"  End\n"
@@ -150,29 +172,9 @@ public:
 	}
 	int asked = 0;
 };
-
-void printConditions(const char *who, const Object &o)
-{
-	std::string s;
-	for (const char *n : { "MOVING", "TRANSPORT_MOVING", "PASSENGER", "ATTACKING", "FIRING_A", "PASSENGER_VARIATION_1" })
-	{
-		if (o.testModelCondition(CombatNames::modelCondition(n)))
-		{
-			s += std::string(" ") + n;
-		}
-	}
-	for (const char *n : { "NO_ATTACK", "UNSELECTABLE", "UNATTACKABLE", "CAN_ATTACK" })
-	{
-		if (o.testStatus((unsigned)CombatNames::status(n)))
-		{
-			s += std::string(" +") + n;
-		}
-	}
-	std::printf("  %s at %.2f %.2f %.2f [%s]\n", who, o.getPosition()->x, o.getPosition()->y, o.getPosition()->z, s.c_str());
-}
 } // namespace
 
-TEST_CASE("PORT-146 reproduction: an archer carried by a moving siege engine")
+TEST_CASE("PORT-146: a siege carrier's passengers stand on their bones and the archer fires while it moves")
 {
 	CombatWorld w(kPort146Objects);
 	CarrierBones bones;
@@ -183,51 +185,62 @@ TEST_CASE("PORT-146 reproduction: an archer carried by a moving siege engine")
 	REQUIRE(c != nullptr);
 	OpenContain *oc = dynamic_cast<OpenContain *>(c);
 	REQUIRE(oc != nullptr);
+	SiegeEngineContain *siege = dynamic_cast<SiegeEngineContain *>(c);
+	REQUIRE(siege != nullptr);
 	Object *archer = w.unit("P146Archer", 'A', 500.0f, 500.0f);
+	Object *stranger = w.unit("P146Stranger", 'A', 500.0f, 500.0f);
 	REQUIRE(archer != nullptr);
+	REQUIRE(stranger != nullptr);
 	REQUIRE(c->isValidContainerFor(*archer, true, false));
 	REQUIRE(c->addToContain(archer));
+	REQUIRE(c->addToContain(stranger));
 	CHECK(archer->getContainedBy() == carrier);
-	Object *still = w.unit("P146Still", 'A', 500.0f, 500.0f);
-	REQUIRE(still != nullptr);
-	REQUIRE(c->addToContain(still));
-	Object *enemy = w.unit("Dummy", 'B', 650.0f, 500.0f);
+	Object *enemy = w.unit("Dummy", 'B', 650.0f, 500.0f); // in the archer's reach (its bow is 200)
 	REQUIRE(enemy != nullptr);
 	w.frames(1);
-	std::printf("info: the archer's bone is \"%s\"\n", oc->riderBone(archer->getID()).c_str());
-	printConditions("archer (idle carrier)", *archer);
-	printConditions("carrier (idle)", *carrier);
+
+	// the archer is a rider of the kind its prefix names, the stranger matched no prefix
+	CHECK(oc->riderBone(archer->getID()) == "B_ARCHER01");
+	CHECK(siege->crewCount() == 0);
+	CHECK(archer->getPosition()->z == carrier->getPosition()->z + 30.0f); // the bone's z, added to the carrier's, exactly
+	CHECK(stranger->getPosition()->z == carrier->getPosition()->z); // no bone: the container's own origin
+	CHECK(oc->riderBone(stranger->getID()).empty()); // "ARROW_" found no bone
+	CHECK_FALSE(stranger->isAbleToAttack());
+
+	// it fires from the standing carrier
 	AIUpdateInterface *aai = archer->getAIUpdateInterface();
 	REQUIRE(aai != nullptr);
-	std::printf("info: the archer's AI idle %d able to attack %d, crew %d\n", (int)aai->isIdle(), (int)archer->isAbleToAttack(),
-	            (int)(dynamic_cast<SiegeEngineContain *>(c) ? dynamic_cast<SiegeEngineContain *>(c)->crewCount() : -1));
-
-	// the archer fires from the standing carrier
-	const auto before = w.logic->combat().counters().projectilesLaunched;
+	CHECK(archer->isAbleToAttack());
+	const auto standing = w.logic->combat().counters().projectilesLaunched;
 	w.frames(30);
-	std::printf("info: shots in 30 frames standing: %llu (victim %s)\n", (unsigned long long)(w.logic->combat().counters().projectilesLaunched - before),
+	std::printf("info: shots in 30 frames standing: %llu (victim %s)\n", (unsigned long long)(w.logic->combat().counters().projectilesLaunched - standing),
 	            aai->currentVictim() ? aai->currentVictim()->getTemplate()->getName().c_str() : "none");
+	// the bow: PreAttackDelay 400, ClipSize 2 of DelayBetweenShots 800, then ClipReloadTime 2000 - five fires in the 30 frames of one bow's clip run
+	CHECK(w.logic->combat().counters().projectilesLaunched == standing + 5);
 
-	// the carrier rolls and the archer's z is followed frame by frame
+	// the carrier rolls: the archer keeps its bone offset frame by frame and goes on firing
+	REQUIRE(carrier->getAIUpdateInterface() != nullptr);
 	carrier->getAIUpdateInterface()->aiMoveToPosition(Coord3D{ 800.0f, 500.0f, 0.0f }, CMD_FROM_PLAYER);
-	const auto movingBefore = w.logic->combat().counters().projectilesLaunched;
-	const Coord3D &cp = *carrier->getPosition();
-	std::printf("info: the carrier at %.2f %.2f %.2f\n", cp.x, cp.y, cp.z);
-	float minDz = 1e9f, maxDz = -1e9f;
+	static const int movingCond = CombatNames::modelCondition("MOVING");
+	static const int transportMovingCond = CombatNames::modelCondition("TRANSPORT_MOVING");
+	const auto rolling = w.logic->combat().counters().projectilesLaunched;
+	float lowest = 1e9f, highest = -1e9f;
 	for (int f = 0; f < 20; ++f)
 	{
 		w.frames(1);
-		const Coord3D &ap = *archer->getPosition(), &np = *carrier->getPosition(), &sp = *still->getPosition();
-		const float dz = ap.z - np.z;
-		minDz = dz < minDz ? dz : minDz;
-		maxDz = dz > maxDz ? dz : maxDz;
-		std::printf("  f%-3d carrier %.1f %.1f %.1f | ai archer %.1f %.1f %.1f (dz %.2f) | no-ai %.1f %.1f %.1f (dz %.2f) idle %d\n", f, np.x, np.y, np.z, ap.x,
-		            ap.y, ap.z, dz, sp.x, sp.y, sp.z, sp.z - np.z, (int)aai->isIdle());
+		const float dz = archer->getPosition()->z - carrier->getPosition()->z;
+		lowest = dz < lowest ? dz : lowest;
+		highest = dz > highest ? dz : highest;
+		std::printf("  f%-3d carrier %.1f %.1f %.1f | archer %.1f %.1f %.1f (dz %.2f) idle %d | carrier MOVING %d, archer TRANSPORT_MOVING %d\n", f,
+		            carrier->getPosition()->x, carrier->getPosition()->y, carrier->getPosition()->z, archer->getPosition()->x, archer->getPosition()->y,
+		            archer->getPosition()->z, dz, (int)aai->isIdle(), (int)carrier->testModelCondition(movingCond),
+		            (int)archer->testModelCondition(transportMovingCond));
 	}
-	std::printf("info: dz range %.3f .. %.3f\n", minDz, maxDz);
-	std::printf("info: shots in 20 frames moving: %llu (victim %s)\n", (unsigned long long)(w.logic->combat().counters().projectilesLaunched - movingBefore),
-	            aai->currentVictim() ? aai->currentVictim()->getTemplate()->getName().c_str() : "none");
-	printConditions("archer (moving carrier)", *archer);
-	printConditions("carrier", *carrier);
-	std::printf("info: bone queries %d\n", bones.asked);
+	std::printf("info: dz range %.3f .. %.3f, shots in 20 frames moving: %llu\n", lowest, highest,
+	            (unsigned long long)(w.logic->combat().counters().projectilesLaunched - rolling));
+	CHECK(lowest == 30.0f); // the archer does not sink into the carrier nor rise off it, frame by frame
+	CHECK(highest == 30.0f);
+	CHECK(carrier->testModelCondition(movingCond));
+	CHECK(archer->testModelCondition(transportMovingCond));
+	CHECK(w.logic->combat().counters().projectilesLaunched == rolling + 3); // the bow goes on firing while the carrier rolls
 }
