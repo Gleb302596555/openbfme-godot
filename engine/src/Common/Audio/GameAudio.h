@@ -295,6 +295,7 @@ private:
 		int voice = 0;
 		bool requestStop = false;
 		int framesFaded = 0;
+		double fadeElapsedMs = 0.0; ///< PORT-158: the fade's elapsed manager time (Miles processFade advances by elapsed ms, DONOR BFME2 MilesAudioManager.cpp processFade: m_at30 += elapsed); a tick-counted fade stalls across a load
 		bool fading = false;
 		int portionVoiceStarted = -1;
 		double startedMs = 0.0;

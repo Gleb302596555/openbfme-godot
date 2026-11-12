@@ -1211,6 +1211,10 @@ void AudioManager::update(double nowMs)
 			// a stall longer than the catch-up cap: skip ahead, count the dropped steps
 			const double behind = nowMs - m_clockMs;
 			m_report.droppedTicks += (std::uint64_t)(behind / step);
+			// PORT-158: a fade is elapsed time, not tick count (Miles processFade advances by elapsed ms, DONOR BFME2
+			// MilesAudioManager.cpp: m_at30 += elapsed, compared with timeToFadeAudio): the dropped span still fades, so a
+			// track stopped at the loading screen (RW 0x81D242) is silent after a synchronous load instead of frozen audible
+			processFadingList(behind);
 			m_clockMs = nowMs;
 			break;
 		}
@@ -1750,13 +1754,17 @@ void AudioManager::processPlayingList()
 	}
 }
 
-void AudioManager::processFadingList()
+void AudioManager::processFadingList(double elapsedMs)
 {
-	const int fadeTicks = std::max(1, (int)std::ceil((double)m_ini.settings.timeToFadeAudio / tickIntervalMs()));
+	// PORT-158: the fade runs on elapsed manager time (Miles processFade: m_at30 += elapsed against timeToFadeAudio, DONOR
+	// BFME2 MilesAudioManager.cpp), not on a count of ticks: ticks dropped across a stall (the synchronous skirmish load)
+	// must not leave a stopped track audible at near-full volume
+	const double fadeMs = (double)m_ini.settings.timeToFadeAudio;
 	for (auto it = m_fading.begin(); it != m_fading.end();)
 	{
 		PlayingAudio &p = **it;
-		if (p.framesFaded >= fadeTicks || !p.voice)
+		p.fadeElapsedMs += elapsedMs;
+		if (p.fadeElapsedMs >= fadeMs || !p.voice)
 		{
 			releasePlaying(p);
 			it = m_fading.erase(it);
@@ -1764,7 +1772,7 @@ void AudioManager::processFadingList()
 		}
 		++p.framesFaded;
 		VoiceParams params = voiceParamsFor(*p.event, p.kind);
-		params.volume *= 1.0f - (float)p.framesFaded / (float)fadeTicks;
+		params.volume *= fadeMs > 0.0 ? 1.0f - (float)(p.fadeElapsedMs / fadeMs) : 0.0f;
 		m_device.updateVoice(p.voice, params);
 		++it;
 	}
