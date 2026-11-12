@@ -189,15 +189,17 @@ String optStr(const Dictionary &o, const char *key, const char *def)
 	return o.has(key) ? (String)o[key] : String(def);
 }
 
-// Draw order, as retail: the terrain (base layer + blend layers, composited in ONE opaque pass at priority 0)
-// first, then standing water, rivers and roads, which are alpha-blended over it and never write depth. The
-// former three-draw terrain gave its blend layers priorities above the water, so they painted over it.
-const int TERRAIN_RENDER_PRIORITY = 0;
-const int WATER_RENDER_PRIORITY = 1;
-const int RIVER_RENDER_PRIORITY = 2;
-const int ROAD_RENDER_PRIORITY = 3;
-const int TRACK_RENDER_PRIORITY = 5; // RW 0x4E3108: tracks after scorches
-const int SCORCH_RENDER_PRIORITY = 4; // the terrain render's pass order (RW 0x4E2ECD RenderRoads, then RW 0x4E2FD0 RenderScorches)
+// Draw order, as retail (RW 0x4E2E00 render): Terrain → Roads (0x4E2ECD) → Scorches (0x4E2FD0) → Tracks (0x4E3003)
+// → Particles (0x4E302F) → Water/Bridges (0x4E3070). In Godot the transparent pass draws lower render_priority
+// first (behind) and higher priority last (in front). Particle priorities are -128 .. -9 (ParticleDraw.cpp
+// OrderForBatch), so the terrain decals must sit below that range to draw before the particles: the smoke
+// covers the roads and scorches as in RotWK (P-52, Port 125, issue #309).
+const int TERRAIN_RENDER_PRIORITY = -150;
+const int WATER_RENDER_PRIORITY = -149;
+const int RIVER_RENDER_PRIORITY = -148;
+const int ROAD_RENDER_PRIORITY = -147;
+const int SCORCH_RENDER_PRIORITY = -146; // RW 0x4E2FD0 RenderScorches after RenderRoads
+const int TRACK_RENDER_PRIORITY = -145; // RW 0x4E3108 tracks after scorches, particles (0x4E302F) after tracks
 
 Ref<ImageTexture> makeRecordsTexture(const TerrainComposite::Records &records)
 {
