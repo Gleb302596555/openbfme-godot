@@ -92,7 +92,7 @@ buttons also carry `Options = NEEDS_CASTLE_KINDOF`.
 for it RotWK skips the filter (RW 0x942999), so this button is not affected by
 this port. The other 15 `STRUCTURE` buttons are the castle-kindof ones.
 
-## 4. Not ported (stop S-7319), and INFERENCE
+## 4. Not ported (stop S-7320), and INFERENCE
 
 The other instructions that touch a +0x110 dword in the ControlBar code region
 (RW 0x7490B6/0x7490BE, RW 0x74D189..0x74D216, RW 0x74DF09/0x74DF11,

@@ -1,7 +1,7 @@
 # Port 129 (issue #331): `RespawnUpdate` / `DeathAnimationTime` has no reader in RotWK 2.01
 
 Verdict: RotWK 2.01 parses the field into the module data at `+0xFC` and never reads it. Nothing waits for it: not the body, not the respawn clock,
-not the revive button. The port already behaves the same (it parses the field and reads it nowhere), so nothing is ported: stop S-7319.
+not the revive button. The port already behaves the same (it parses the field and reads it nowhere), so nothing is ported: stop S-7323.
 
 Method. Every RW address below was read with `tools/mod/rw.py <game.dat> dis` or taken from a linear capstone sweep of the whole `.text` section
 (RW 0x401000..0xBD0000, 2 701 800 instructions) of `game.dat` (md5 `daed3668...`): every instruction with a `[reg + 0xFC]` operand (753, stack

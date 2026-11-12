@@ -11,7 +11,7 @@
 // below are the owner's explicit Ennorath acceptance, not a claim that its
 // callback has been read in RotWK.
 //
-// The third case pins stop S-7319. The donor's HUD offers no way around it: both
+// The third case pins stop S-7321. The donor's HUD offers no way around it: both
 // entry actions take the same mode argument (action 8's DONT_CHECK_CAPACITY
 // branch is unreachable from the screen, and action 9 is the "special" variant,
 // not a cheaper check), and the ring case is that special flag — which is this
