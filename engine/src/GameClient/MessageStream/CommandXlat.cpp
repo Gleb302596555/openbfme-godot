@@ -32,6 +32,7 @@
 #include "GameLogic/AI/AIPathfind.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Module/GiantBirdAIUpdate.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SimMath.h"
 
@@ -681,6 +682,22 @@ int CommandTranslator::evaluateContextCommand(Object *obj, const Coord3D *pos, E
 		if (type == EvaluateType::DoHint)
 		{
 			msgType = m_teamExists ? (m_ctx.ui.isInAttackMoveToMode() ? MSG_DO_ATTACKMOVETO : MSG_DO_MOVETO) : 0;
+			// lane LOCAL-43: RW 0x81F65A .. 0x81F743, the move hint's reach test: a point the selection cannot reach (RW 0x69E8D0,
+			// HudObjects::canSelectionReachHint: e.g. inside a building's footprint, own, allied or neutral) is hint 0xC9, the GenericInvalid cursor (12:
+			// jump table RW 0x6A4099 entry 0x18 -> RW 0x6A3F87), unless the single selected object (RW 0x81E6D7: InGameUI vslot 0x118 == 1) is MOVE_ONLY
+			// (RW 0x81F696, template + 0x118 & 0x40) or its AI answers vslot 0x168 (RW 0x81F679: true only for GiantBirdAIUpdate, RW 0x8BD372). Not ported
+			// here (S-1920): the single SHIP + KindOf 217 transport's unload hint 0xBB (RW 0x81F6C1 .. 0x81F72A). INFERENCE: the attack-move hint keeps its
+			// cursor (RW's branch produces 0xBD / 0xC9 / 0xBB / 0xBF only)
+			if (msgType == MSG_DO_MOVETO && !HudObjects::canSelectionReachHint(m_ctx, *pos))
+			{
+				const Object *single = m_ctx.ui.getSelectCount() == 1 ? m_ctx.logic.findObjectByID(m_ctx.ui.firstSelected()) : nullptr;
+				const bool bird = single && dynamic_cast<const GiantBirdAIUpdate *>(const_cast<Object *>(single)->getAIUpdateInterface()) != nullptr;
+				if (!(single && (single->isKindOfName("MOVE_ONLY") || bird)))
+				{
+					hint(MouseCursorName::GenericInvalid);
+					return 0;
+				}
+			}
 			if (msgType != 0)
 			{
 				hint(msgType == MSG_DO_ATTACKMOVETO ? MouseCursorName::AttackMove : MouseCursorName::Move, true);

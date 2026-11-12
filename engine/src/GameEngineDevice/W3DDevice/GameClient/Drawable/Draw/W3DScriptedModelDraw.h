@@ -130,6 +130,9 @@ struct W3DDrawPoseView
 struct W3DScriptedModelDrawOptions
 {
 	float scale = 1.0f;
+	// PORT-126: live instance scale callback (set by Drawable::addEntry so post-construction Drawable::setInstanceScale updates
+	// apply to W3DQuadrupedDraw::getFootLocations worldSpace = true queries). Unset: falls back to `scale`.
+	std::function<float()> instanceScale;
 	std::vector<std::string> standardPublicBones; ///< GameData StandardPublicBone, supplied by the caller
 	bool buildBones = true;                        ///< compute pristine bones / barrels / turrets on every model change
 	// What the object's current attack target looks like, for the scripts that ask (CurDrawableIsCurrentTargetKindof,
@@ -183,6 +186,7 @@ public:
 	// Drawable::setModelConditionState: the object's current model condition flags (RW 0x4BF2D8). Both lists are re-matched; see the
 	// header comment for the pending state rule.
 	void setModelConditionFlags(const ModelConditionFlags &flags);
+	const ModelConditionFlags &pendingFlags() const { return m_pendingFlags; } // RW +0x17C (getModelConditionFlags)
 	// RW 0x4C451D (slot 0x100; BFME2 0x4C4E23): select model state; force bypasses render object reuse (force = 1)
 	bool setModelState(const ModelConditionInfo *state, bool force = false);
 	// RW 0x8B911E -> draw module vslot 0x84: SubObjectsUpgrade's UpgradeTexture list replaces the module's upgrade textures (empty: none)
@@ -294,6 +298,21 @@ public:
 	// lane LOCAL-29: vtable slot +0x104, called at RW 0x4B6B26 only after the AttachToBoneInAnotherModule bone was found, with the placed transform.
 	// Base RW 0x9F3A3C (`ret 4`): no-op. W3DSailModelDraw RW 0x4D00CD turns the sail with the wind: Port 63 (#173) overrides this, not ported here (S-7232).
 	virtual void adjustAttachedTransform(Matrix3D &) {}
+
+	// PORT-126 (issue #310): ObjectDrawInterface slot 47 (+0xBC; RW 0x8F8014 returns false in base W3DScriptedModelDraw).
+	// Overridden by W3DQuadrupedDraw (RW 0x4C9A39). When worldSpace is false (called from Drawable::calcPhysicsXformHugeFourLegs
+	// RW 0x67B7AA -> RW 0x67B8AE), evaluates the current animated client foot bone positions transformed by renderTransform (RW 0x4B2F19).
+	// When worldSpace is true, evaluates pristine foot bone positions for conditionFlags transformed by *objectTransform (RW 0x4C3731).
+	virtual bool getFootLocations(std::vector<Coord3D> &feet, bool worldSpace, const Matrix3D &renderTransform,
+		const Matrix3D *objectTransform = nullptr, const ModelConditionFlags *conditionFlags = nullptr) const
+	{
+		(void)feet;
+		(void)worldSpace;
+		(void)renderTransform;
+		(void)objectTransform;
+		(void)conditionFlags;
+		return false;
+	}
 
 	// Speed multiplier of every track (RW +0x9C: the movement speed sync, recomputed at the end of every advance). Exposed for tests.
 	void setSpeedMultiplier(float m) { m_speedSync = m; }

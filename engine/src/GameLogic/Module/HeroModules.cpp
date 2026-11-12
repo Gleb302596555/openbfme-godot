@@ -88,6 +88,7 @@ void parseFilter(INI *ini, void *instance, void *store, const void *)
 const FieldParse kRespawnUpdate[] = { // RW 0xC6CE80, in the binary's order
 	{ "DeathAnim", parseFlags, nullptr, RU_OFF(m_deathAnim) },
 	{ "DeathFX", parseFX, nullptr, RU_OFF(m_deathFX) },
+	// parsed only: RotWK 2.01 never reads data + 0xFC (PORT-129, S-7323: docs/ennorath/PORT129_RW_ANALYSIS.md; constructor zero RW 0x8B3CC4)
 	{ "DeathAnimationTime", INI::parseDurationUnsignedInt, nullptr, RU_OFF(m_deathAnimationTime) },
 	{ "InitialSpawnAnim", parseFlags, nullptr, RU_OFF(m_initialSpawnAnim) },
 	{ "InitialSpawnFX", parseFX, nullptr, RU_OFF(m_initialSpawnFX) },
