@@ -33,6 +33,12 @@ void model(w3dsynth::MemoryFileSource &fs)
         append(bytes, meshChunk(mesh));
         subs.push_back({std::string("P47.") + name, 0});
     }
+    SynthMesh bare;
+    bare.Name = "Blade"; // no container prefix/dot: RW 0x54BE32 must NOT skip it
+    bare.Vertices = { {0,0,0}, {1,0,0}, {0,1,0} };
+    bare.Triangles = {0,1,2};
+    append(bytes, meshChunk(bare));
+    subs.push_back({"Blade", 0});
     append(bytes, hlodChunk("P47", "UnusedSkeleton", subs));
     fs.Add("art\\w3d\\p4\\p47.w3d", bytes);
 }
@@ -96,7 +102,10 @@ TEST_CASE("PORT-47 upgrade recolours after texture replacement using day colour 
     REQUIRE(colors.count("P47.Armor") == 1); // second exclusion is NOT read
     CHECK(colors.at("P47.Armor").kind == 1);
     CHECK(colors.at("P47.Armor").colors[0] == 0xFF102030);
-    CHECK(colors.count("P47.Extra.Blade") == 1); // first dot, not last dot
+    REQUIRE(colors.count("P47.Extra.Blade") == 1); // first dot, not last dot
+    CHECK(colors.at("P47.Extra.Blade").colors[0] == 0xFF102030);
+    REQUIRE(colors.count("Blade") == 1); // no dot: no exclusion match
+    CHECK(colors.at("Blade").colors[0] == 0xFF102030);
     obj->removeUpgrade(w.upgrade());
     w.manager.applyEvents(w.recorder.take());
     CHECK(draw->meshHouseColors().empty()); // existing Local21 lifecycle, no permanent exclusion filter
@@ -104,7 +113,7 @@ TEST_CASE("PORT-47 upgrade recolours after texture replacement using day colour 
 
 TEST_CASE("PORT-47 no recolour without texture or RecolorHouse and campaign house-colour gates")
 {
-    for (int scenario = 0; scenario < 9; ++scenario) {
+    for (int scenario = 0; scenario < 10; ++scenario) {
         CAPTURE(scenario);
         World w(scenario != 0, scenario != 1, "Blade", scenario == 5 ? "BASE_SITE" : scenario == 6 ? "ALWAYS_SHOW_HOUSE_COLOR" : "INFANTRY");
         if (scenario == 2) w.f.logic->settings().enableHouseColor = false;
@@ -115,12 +124,12 @@ TEST_CASE("PORT-47 no recolour without texture or RecolorHouse and campaign hous
             w.f.logic->setCampaignCarryover(CampaignCarryover::State{});
         }
         if (scenario == 8) w.f.logic->setCampaignCarryover(std::nullopt);
-        Object *obj = w.make();
+        Object *obj = scenario == 9 ? w.f.make("Port47Unit", nullptr) : w.make();
         w.recorder.take();
         obj->giveUpgrade(w.upgrade());
         int count = 0;
         for (const auto &e : w.recorder.take()) count += e.kind == ClientEvent::HOUSE_RECOLOR;
-        const int expected[] = {0, 0, 0, 0, 1, 1, 1, 0, 1};
+        const int expected[] = {0, 0, 0, 0, 1, 1, 1, 0, 1, 0};
         CHECK(count == expected[scenario]);
     }
 }
@@ -136,7 +145,7 @@ TEST_CASE("PORT-47 empty exclusion reaches every mesh without changing ordinary 
     REQUIRE(d);
     REQUIRE(d->entries().size() == 1);
     const auto &colors = d->entries()[0].draw->meshHouseColors();
-    REQUIRE(colors.size() == 3);
+    REQUIRE(colors.size() == 4);
     for (const auto &entry : colors) {
         CHECK(entry.second.kind == 1);
         CHECK(entry.second.colors[0] == 0xFF102030);
