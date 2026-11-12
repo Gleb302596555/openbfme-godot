@@ -252,7 +252,7 @@ TEST_CASE("PORT-96 SlavedUpdate: the frames passed to fadeOut equal m_fadeTime (
     {
         if (fr.id == slave->getID() && fr.fadeOut)
         {
-            CHECK(fr.frames == 123);
+            CHECK(fr.frames == 1); // FadeTime = 123 ms parsed by RW 0x73A429 (parseDurationUnsignedInt): ceil(123 * 0.005) = 1 logic frame
             found = true;
         }
     }

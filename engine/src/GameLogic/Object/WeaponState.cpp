@@ -1116,7 +1116,12 @@ void Weapon::crc(StateHasher &h) const
 	h.addI32(m_preAttackJitter);
 	// issue #99 / PORT-27: which stream object the weapon holds (Weapon + 0x5C). It decides whether the next shot makes a new object or reuses one,
 	// so two peers that disagree about it diverge on the objects in the world.
-	h.addU32(m_projectileStreamID);
+	// hashed only while the weapon holds a stream object: a weapon without ProjectileStreamName (every weapon of the perf1 / uber1 games) keeps
+	// the vectors it had before PORT-27
+	if (m_projectileStreamID != 0)
+	{
+		h.addU32(m_projectileStreamID);
+	}
 }
 
 void FiringTracker::crc(StateHasher &h) const
