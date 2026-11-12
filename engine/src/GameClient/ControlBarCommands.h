@@ -185,6 +185,13 @@ public:
 	std::vector<std::string> m_unitSpecificSound, m_setAutoAbilityUnitSound, m_unsetAutoAbilityUnitSound; ///< +0xC8 / +0xD4 / +0xE0 (S-200)
 	bool m_doubleClick = false, m_radial = false, m_inPalantir = false; ///< +0x100 .. +0x102
 	bool m_altered = false;                   ///< RW +0x103 runtime altered state (ctor RW 0x75D662)
+	// lane PORT-143 (RW +0xFC, the ctor RW 0x75D64A inits it to 0): which entry of the button's lists the widget shows. The Palantir's stance toggle owns it:
+	// InGameToggleStanceCommandButton::Impl::SetStance (RW 0x96F53C) and its stance listener (RW 0x96F5D8) and the widget's ctor (RW 0x96FDFD) write it through
+	// setCurrentIndex (RW 0x75D082), and getButtonImage (RW 0x75CDFC) / getTextLabel (RW 0x75CE47) / getDescriptLabel (RW 0x75CECD) and the voice getter
+	// (RW 0x75D0B9) read it. It is the parsed button's own state, shared by every selection and never reset by a new one, which is why the gray stance button of
+	// an object without a StancesBehavior keeps showing the tactic that was last ordered for it. Mutable because the CommandStore hands out const buttons (as
+	// m_altered: client runtime state, not INI data)
+	mutable int m_currentIndex = 0;
 	bool m_showProductionCount = false;       ///< +0x104
 	bool m_isClickable = true, m_showButton = true, m_requiresValidContainer = false; ///< +0x105 .. +0x107
 	int m_requireLevel = 0;                   ///< +0x108
@@ -211,6 +218,42 @@ public:
 	void setAltered(bool altered) { m_altered = altered; }
 	bool isAltered() const { return m_altered; }
 	int commandButtonBorder() const { return m_commandButtonBorder; }
+	// RW 0x75D082 CommandButton::setCurrentIndex: only an index inside the ButtonImage list (+0xEC in retail, the list resolved from ButtonImage; the port keeps
+	// the names) lands, any other leaves the old one. StanceToButtonSlot (RW 0x96F2DA) answers -1 for a stance the button's Stances list does not have: the
+	// widget's ctor tests that at RW 0x96FF55 (jl) and skips the call, SetStance (RW 0x96F556) hands the -1 over and relies on the guard here
+	void setCurrentIndex(int idx) const
+	{
+		if (idx >= 0 && (size_t)idx < m_buttonImageName.size())
+		{
+			m_currentIndex = idx;
+		}
+	}
+	int currentIndex() const { return m_currentIndex; }
+	// RW 0x75CDFC CommandButton::getButtonImage: the image at +0xFC, null when the index is out of the list (RW 0x75CE1E: xor eax, eax)
+	const std::string *getButtonImage() const
+	{
+		return (m_currentIndex >= 0 && (size_t)m_currentIndex < m_buttonImageName.size()) ? &m_buttonImageName[(size_t)m_currentIndex] : nullptr;
+	}
+	// RW 0x75CE47 CommandButton::getTextLabel: TextLabel (+0x58) at +0xFC, its LAST entry when the index is past the list (the unsigned jb of RW 0x75CE74;
+	// "" when there is none, RW 0x75CE88). Retail first answers the text override at +0x7C (S-7319: the port has no writer of it)
+	std::string getTextLabel() const { return labelAt(m_textLabel); }
+	// RW 0x75CECD CommandButton::getDescriptLabel: DescriptLabel (+0x64) at +0xFC, the same past-the-end fallback and the same "" of an empty list
+	std::string getDescriptLabel() const { return labelAt(m_descriptLabel); }
+
+private:
+	// the entry of `v` at +0xFC: RW 0x75CE71 .. 0x75CE87 (the labels) and RW 0x75CEDB .. 0x75CEF2 (the descriptions) compare the index with the size
+	// UNSIGNED and take the last entry when it is not below it; an empty list is the empty string
+	const std::string &labelAt(const std::vector<std::string> &v) const
+	{
+		if (v.empty())
+		{
+			static const std::string kEmpty; // RW 0xDC62B8: TheEmptyAsciiString
+			return kEmpty;
+		}
+		return v[(size_t)m_currentIndex < v.size() ? (size_t)m_currentIndex : v.size() - 1];
+	}
+
+public:
 	// RW 0x75D1DC: the template of the final override
 	const ThingTemplate *getThingTemplate() const;
 	const CommandButton *getFinalOverride() const;

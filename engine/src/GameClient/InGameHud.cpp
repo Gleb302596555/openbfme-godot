@@ -194,6 +194,9 @@ InGameHud::InGameHud(Config config)
 		if (msg.getType() == MSG_CHANGE_STANCE && msg.getArgumentCount() > 0)
 		{
 			const int stance = msg.getArgument(0)->integer;
+			// lane PORT-143: the D / F / G meta route (RW 0x8201F5, CommandTranslator::changeStance) has no InGameToggleStanceCommandButton's SetStance in
+			// front of it (its hotkey action RW 0x96F880 is the radial's, S-280), so the button's picture moves here with the voice, as SetStance moves both
+			m_bar->applyToggleStance(stance);
 			m_bar->playStanceVoice(stance);
 			if (m_palantirRef)
 			{

@@ -263,6 +263,7 @@ include(cmake/Port25.cmake) # PORT-25: HordeContain/VisionRearOverride (issue #9
 include(cmake/Port60.cmake) # PORT-60: EvaAnnounceClientCreate/CreateFakeRadarEvent (issue #170; verdict, no engine change; OPENBFME_PORT60_TESTS)
 include(cmake/Port103.cmake) # PORT-103: FlammableUpdate/BurningSoundName
 include(cmake/Port107.cmake) # PORT-107: Object UpgradeCameo1..5, the completeUpgrade dirty mark (issue #267; OPENBFME_PORT107_TESTS)
+include(cmake/Port143.cmake) # PORT-143: CommandButton::m_currentIndex (RW +0xFC), the tactic picture of a gray stance button (issue #345; OPENBFME_PORT143_TESTS)
 include(cmake/Port61.cmake) # PORT-61: FlammableUpdate/FireFXList, the effects at ignition (issue #171; OPENBFME_PORT61_TESTS)
 include(cmake/Port62.cmake) # PORT-62: TransportContain/FireGrabWeaponOnVictim, the GrabWeapon fire (issue #172; OPENBFME_PORT62_TESTS)
 include(cmake/Port80.cmake) # PORT-80: InvisibilityUpdate/UnitSpecificSoundNameToUseAsVoiceMoveToStealthyArea, the stealthy-area move voice (issue #212; OPENBFME_PORT80_TESTS)
@@ -898,6 +899,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT60_TESTS}
     ${OPENBFME_PORT103_TESTS}
     ${OPENBFME_PORT107_TESTS}
+    ${OPENBFME_PORT143_TESTS}
     ${OPENBFME_PORT61_TESTS}
     ${OPENBFME_PORT62_TESTS}
     ${OPENBFME_PORT80_TESTS}

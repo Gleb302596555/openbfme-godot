@@ -29,6 +29,8 @@
 // integer (RW 0x7111E5); the logic applies it to the sender's selection (RW 0x77BC59)
 bool ControlBar::sendChangeStance(int stance, const char *site)
 {
+	// RW 0x96F54B .. 0x96F567 comes first: the button's own picture moves, then the message goes out
+	applyToggleStance(stance);
 	for (ObjectID id : m_ctx.ui.selected())
 	{
 		Object *obj = m_ctx.logic.findObjectByID(id);
@@ -40,6 +42,36 @@ bool ControlBar::sendChangeStance(int stance, const char *site)
 	ClientMessage &m = m_ctx.stream.append(MSG_CHANGE_STANCE);
 	m.appendInteger(stance);
 	return true;
+}
+
+// lane PORT-143 (the owner's P-25): RW 0x96F53C .. 0x96F567 (InGameToggleStanceCommandButton::Impl::SetStance). Before the message the order also moves the
+// stance toggle's own picture: StanceToButtonSlot (RW 0x96F2DA) over the raw stance, CommandButton::setCurrentIndex (RW 0x75D082, whose own bounds test keeps
+// the old index for a slot outside the ButtonImage list) and GadgetButtonSetEnabledImage (RW 0x6C106C) with getButtonImage (RW 0x75CDFC); the help text
+// follows the same index (getTextLabel RW 0x75CE47, getDescriptLabel RW 0x75CECD). The retail widget does this whatever the window's state (its hotkey action
+// RW 0x96F880 and its radial item RW 0x96F863 both call SetStance on a disabled window), so an object without a StancesBehavior — Ennorath's RohanBatteringRam
+// — shows the tactic it was told even though the logic drops the order (AIGroup::setStance RW 0x76FF27 and ChangeStanceGroupOrder RW 0x949DF0 both return when
+// findModule("StancesBehavior") gives 0). The voice and the logic's stance are untouched (the owner's option 2: S-7319).
+void ControlBar::applyToggleStance(int stance)
+{
+	for (std::vector<ControlBarButton> *list : { &m_palantir, &m_side, &m_offBar })
+	{
+		for (ControlBarButton &cb : *list)
+		{
+			const CommandButton *b = cb.button;
+			if (!b || b->m_command != GUI_COMMAND_TOGGLE_STANCE)
+			{
+				continue;
+			}
+			b->setCurrentIndex(stanceSlotOf(*b, stance)); // RW 0x96F54C .. 0x96F556
+			if (const std::string *img = b->getButtonImage())
+			{
+				cb.image = *img; // RW 0x96F55B .. 0x96F567
+			}
+			cb.textLabel = b->getTextLabel();
+			cb.descriptLabel = b->getDescriptLabel();
+		}
+	}
+	emitStateKey(); // the Palantir redraws the arc on the bar's version (AptPalantir keeps drawing the gray of a button that is not enabled)
 }
 
 void ControlBar::playStanceVoice(int stance)
