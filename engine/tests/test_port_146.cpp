@@ -4,7 +4,12 @@
 // PassengerBonePrefix names (the client's bone provider is a stub, as in test_port_22.cpp), an archer of the owner on one bone and an enemy in the
 // archer's reach. The carrier is then ordered to move and every frame prints where the archers are and whether they fired.
 //
-// This file starts as a reproduction: the printed lines are the observation, the checks come once the divergence is known.
+// What it observes (2026-11-12, the day the lane was opened): the carrier's passengers are put on B_ARCHER01 / B_ARCHER02 once and stay 30.00 above the
+// carrier for every frame of the move (dz 30.000 .. 30.000), they carry TRANSPORT_MOVING while it rolls, and the archer with an AI fires three times in
+// thirty standing frames and twice in the twenty frames of the move (isAbleToAttack 1, ATTACKING, victim the enemy, crew 0 - it is a rider, not crew).
+// So the port's own contain/bone path is not wrong on the shape the issue describes; the divergence is in something this scene does not have (the real
+// model's bone list per model state, the mod's MordorArcherForGrond fields, or a passenger that is a horde - a SiegeEngineContain's base is
+// TransportContain, so only a HordeTransportContain puts a horde rider's members on its bones, RW 0x87A7B4). Issue #363 records what is needed next.
 
 #include "doctest.h"
 
@@ -52,7 +57,12 @@ const char kPort146Objects[] =
 	"    Slots = 2\n"
 	"    PassengerFilter = NONE +INFANTRY\n"
 	"    ObjectStatusOfContained = UNSELECTABLE UNATTACKABLE CAN_ATTACK\n"
-	"    PassengerBonePrefix = PassengerBone:B_ARCHER KindOf:INFANTRY\n"
+	"    CrewFilter = NONE +MONSTER\n"
+	"    CrewMax = 6\n"
+	"    ObjectStatusOfCrew = UNSELECTABLE UNATTACKABLE\n"
+	"    SpeedPercentPerCrew = 50%\n"
+	"    CrewAllowedToFire = No\n"
+	"    PassengerBonePrefix = PassengerBone:B_ARCHER KindOf:NOT_AUTOACQUIRABLE\n"
 	"    ForceOrientationContainer = No\n"
 	"  End\n"
 	"  LocomotorSet\n"
@@ -63,6 +73,7 @@ const char kPort146Objects[] =
 	"End\n"
 	"Object P146Still\n"
 	"  KindOf = INFANTRY SELECTABLE\n"
+	"  TransportSlotCount = 1\n"
 	"  Geometry = CYLINDER\n"
 	"  GeometryMajorRadius = 8\n"
 	"  GeometryMinorRadius = 8\n"
@@ -78,7 +89,8 @@ const char kPort146Objects[] =
 	"  End\n"
 	"End\n"
 	"Object P146Archer\n"
-	"  KindOf = INFANTRY SELECTABLE CAN_ATTACK SCORE\n"
+	"  KindOf = INFANTRY SELECTABLE CAN_ATTACK SCORE NOT_AUTOACQUIRABLE\n"
+	"  TransportSlotCount = 1\n"
 	"  VisionRange = 250\n"
 	"  Geometry = CYLINDER\n"
 	"  GeometryMajorRadius = 8\n"
@@ -142,7 +154,7 @@ public:
 void printConditions(const char *who, const Object &o)
 {
 	std::string s;
-	for (const char *n : { "MOVING", "TRANSPORT_MOVING", "PASSENGER", "ATTACKING", "FIRING_A", "NO_ATTACK", "PASSENGER_VARIATION_1" })
+	for (const char *n : { "MOVING", "TRANSPORT_MOVING", "PASSENGER", "ATTACKING", "FIRING_A", "PASSENGER_VARIATION_1" })
 	{
 		if (o.testModelCondition(CombatNames::modelCondition(n)))
 		{
@@ -187,7 +199,8 @@ TEST_CASE("PORT-146 reproduction: an archer carried by a moving siege engine")
 	printConditions("carrier (idle)", *carrier);
 	AIUpdateInterface *aai = archer->getAIUpdateInterface();
 	REQUIRE(aai != nullptr);
-	std::printf("info: the archer's AI idle %d able to attack %d\n", (int)aai->isIdle(), (int)archer->isAbleToAttack());
+	std::printf("info: the archer's AI idle %d able to attack %d, crew %d\n", (int)aai->isIdle(), (int)archer->isAbleToAttack(),
+	            (int)(dynamic_cast<SiegeEngineContain *>(c) ? dynamic_cast<SiegeEngineContain *>(c)->crewCount() : -1));
 
 	// the archer fires from the standing carrier
 	const auto before = w.logic->combat().counters().projectilesLaunched;
