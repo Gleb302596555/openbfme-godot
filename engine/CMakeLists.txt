@@ -237,6 +237,7 @@ include(cmake/Port8.cmake) # PORT-8: PhysicsBehavior/OrientToFlightPath (issue #
 include(cmake/Port7.cmake) # PORT-7: AnimalAIUpdate/UpdateTimer (issue #60; OPENBFME_PORT7_TESTS)
 include(cmake/Port77.cmake) # PORT-77: W3DSupplyDraw/SupplyBonePrefix (issue #209; OPENBFME_PORT77_TESTS)
 include(cmake/Port11.cmake) # PORT-11: SlavedUpdate/StayOnSameLayerAsMaster (issue #66; OPENBFME_PORT11_TESTS)
+include(cmake/Port27.cmake) # PORT-27: Weapon/ProjectileStreamName (issue #99; OPENBFME_PORT27_TESTS)
 include(cmake/Port15.cmake) # PORT-15: LockWeaponCreate/Object::setWeaponLock (issue #71; OPENBFME_PORT15_TESTS)
 include(cmake/Port20.cmake) # PORT-20: GarrisonContain/onSelling (issue #76; OPENBFME_PORT20_TESTS)
 include(cmake/Port13.cmake) # PORT-13: AIData/AttackMoveUsesFormations (issue #68; OPENBFME_PORT13_TESTS)
@@ -874,6 +875,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT7_TESTS}
     ${OPENBFME_PORT77_TESTS}
     ${OPENBFME_PORT11_TESTS}
+    ${OPENBFME_PORT27_TESTS}
     ${OPENBFME_PORT4_TESTS}
     ${OPENBFME_PORT19_TESTS}
     ${OPENBFME_PORT15_TESTS}

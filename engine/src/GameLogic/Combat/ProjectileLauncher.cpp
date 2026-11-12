@@ -8,6 +8,7 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/ProjectileModules.h"
+#include "GameLogic/Module/ProjectileStreamUpdate.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Weapon.h"
 #include "GameLogic/WeaponNugget.h"
@@ -77,4 +78,41 @@ void ObjectProjectileLauncher::launch(GameLogic &logic, const ProjectileShot &sh
 		Coord3D pos = shot.targetPosition;
 		iface->projectileLaunchAtObjectOrPosition(nullptr, &pos, source, slot, shot.barrel, shot.weapon, shot.warhead);
 	}
+	// ---- the firing weapon's projectile stream (ProjectileStreamName, RW 0x90FB7A .. 0x90FC5A) ----
+	// Read off the object-target deliver, which is the one RW 0x6CD1FD arms (RW 0x6CF012 is privateFireWeapon's step 6):
+	//   RW 0x90FB7A  mov edi, [RW 0xDE412C] / RW 0x90FB80 push [esi + 0x5C] / RW 0x90FB85 call RW 0x449681   the stream object of the SHOOTING weapon
+	//                (esi is the weapon the warhead block was given, RW 0x90F9F5); missing -> the record ends (RW 0x90FB8E jz 0x90FC5F, the outer return)
+	//   RW 0x90FB94  push [esi + 8] / RW 0x90FB99 call RW 0x449681   the owner; missing -> the record ends (RW 0x90FBA2)
+	//   RW 0x90FBE8  lea eax, [esi + 0x38] / RW 0x90FBEE call RW 0x74094C   setPosition of the STREAM object (Thing::setPosition, RW 0x70C201) to the
+	//                OWNER's geometry centre: the stream follows the shooter, not the target
+	//   RW 0x90FBDD  call RW 0x68BDA5 with the key `[RW 0xDE9FCC]` (the string `ProjectileStreamUpdate` at RW 0xBE40E8, cached once): the stream
+	//                object's update interface; null -> the record ends (RW 0x90FBE6)
+	//   RW 0x90FBF3  the victim argument (RW 0x90FBF8: null keeps ecx 0), then [eax + 0x74] is its id
+	//   RW 0x90FC5A  call RW 0x7408A8(streamUpdate, owner id, victim | null, victim id | 0, projectile id, &owner geometry centre)
+	//                ([0x90FC4A] = add eax, 0x38 on the owner) -> ProjectileStreamUpdate::addProjectile
+	// Both positions are the OWNER's geometry centre (+ 0x38), not the target's: the segment the stream draws runs from the shooter to the projectile.
+	// The position-target deliver (RW 0x90FC70) has no such block: a shot with no victim is never recorded in a stream, and neither is a shot whose
+	// nugget is not there to reach this code.
+	if (!victim)
+	{
+		return; // RW 0x90FC70, the position-target deliver, has no stream block: only an object target is recorded
+	}
+	const ObjectID streamID = (ObjectID)shot.streamID; // RW 0x90FB80: the firing weapon's + 0x5C
+	if (streamID == INVALID_ID)
+	{
+		return; // the weapon holds no stream object (no ProjectileStreamName, or RW 0x6CD1FD never made one)
+	}
+	Object *stream = logic.findObjectByID(streamID); // RW 0x90FB85, RW 0x90FB8E `je` on the pointer alone
+	if (!stream)
+	{
+		return;
+	}
+	const Coord3D &ownerCentre = *source->getPosition(); // RW 0x90FBEE / 0x90FC4A: esi + 0x38
+	stream->setPosition(&ownerCentre);                   // RW 0x74094C
+	auto *streamUpdate = dynamic_cast<ProjectileStreamUpdate *>(stream->findModule("ProjectileStreamUpdate")); // RW 0x68BDA5
+	if (!streamUpdate)
+	{
+		return; // RW 0x90FBE6
+	}
+	streamUpdate->addProjectile(source->getID(), projectile->getID(), victim->getID(), &ownerCentre); // RW 0x7408A8
 }
