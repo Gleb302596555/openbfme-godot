@@ -121,3 +121,5 @@ launcher/scripts/crash_client_key.gd
 /services/online/.build/
 /services/online/.state/
 google_drive/
+# cached web image-search results (research only, never a source or asset)
+image-search/
