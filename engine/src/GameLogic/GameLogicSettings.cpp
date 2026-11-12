@@ -493,6 +493,8 @@ const FieldParse kAIDataFields[] = {
 	{ "MeleeApproachDist", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.meleeApproachDist) },
 	{ "CastleSiegeStandBackDistance", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.castleSiegeStandBackDistance) },
 	{ "HordesWaitForHordes", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.hordesWaitForHordes) },
+	// lane LOCAL-42: AllowForestFires (row RW 0xC1CE80, parseBool RW 0x42E558, AIData + 0xBC)
+	{ "AllowForestFires", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.allowForestFires) },
 	// lane PORT-38 (issue #123): the AI player's team build tempo (rows RW 0xC1CB30 TeamSeconds parseReal RW 0x42ED00 + 0x8, RW 0xC1CB40 Wealthy
 	// parseInt RW 0x42EC5E + 0xC, RW 0xC1CB50 Poor parseInt + 0x10, RW 0xC1CB80 TeamsWealthyRate parseReal + 0x1C, RW 0xC1CBA0 TeamsPoorRate
 	// parseReal + 0x24, RW 0xC1CBB0 TeamResourcesToStart parseReal + 0x28; optional, the constructor RW 0x6FFBEF stores 0 to each). The rules they
@@ -875,6 +877,10 @@ void GameLogicSettings::crc(StateHasher &h) const
 	{
 		h.addFloat(maxRecruitRadius); // lane PORT-40: retail 2.01 and Ennorath set 400.0 (default\aidata.ini:32, the mod keeps it), so a game with
 		                            // that data is unchanged; a map.ini / mod AIData block with another value is hashed (as lane LOS-1 above)
+	}
+	if (allowForestFires)
+	{
+		h.addBool(allowForestFires); // lane LOCAL-42: retail 2.01 and Ennorath set No, so their games keep their hash (as maxRecruitRadius above)
 	}
 	h.addU32((std::uint32_t)attackPriorityDefs.size());
 	for (const AttackPriorityDef &d : attackPriorityDefs)

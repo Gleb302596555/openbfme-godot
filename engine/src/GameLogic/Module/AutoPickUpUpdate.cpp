@@ -17,6 +17,7 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "Common/Xfer.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/Map/TerrainTrees.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Module/UnportedModule.h"
@@ -38,7 +39,7 @@ typedef AutoPickUpUpdateModuleData Data;
 const char *const kStop =
 	"[S-7160] AutoPickUpUpdate (lane MODCOMPAT-MOD1, ported: RW 0x89958F / 0x899562, the WAKE_AUTO_PICKUP button RW 0x68C8DE, the grab / eat through "
 	"the object's SPECIAL_GRAB_PASSENGER power, GrabPassengerSpecialPower): NOT ported: AutoThrowObject's throw at the closest enemy (RW 0x8995FB .. "
-	"0x89978F; no 2.01 template sets it) and the terrain tree point of a tree pick-up (RW 0x67F52B: the step goes on as without a point); an unported "
+	"0x89978F; no 2.01 template sets it); the tree pick-up runs the power at the map tree's point since lane LOCAL-42 (RW 0x89994B); an unported "
 	"special power module met before the power (it may be the power) is reported and the step goes on without it";
 
 const int kMcAttacking = 0x25;      // RW 0x8995C6 (TheModelConditionNames ATTACKING)
@@ -377,7 +378,18 @@ UpdateSleepTime AutoPickUpUpdate::update()
 	MaskSet(tree, kKindOfTree, true); // RW 0x444D39(0, 0x5E)
 	if (ObjectFilterMatch::allowsKindOf(m_data->m_pickUpFilter, tree)) // RW 0x76379C
 	{
-		logic.noteStop(kStop); // the terrain tree point RW 0x67F52B is not ported: as without a point
+		// RW 0x899933 .. 0x899995 (lane LOCAL-42): the standing grabbable map tree closest to the object within ScanDistance (TheTerrainLogic RW 0x67F52B
+		// (position, ScanDistance, 1, 1) at RW 0x89994B); with it and the object's SPECIAL_GRAB_PASSENGER power (RW 0x691526(0x27)) the power runs at the
+		// tree's position (slot 0x30, options 0x2000, RW 0x899992) and the step ends; either missing: the object scan below
+		if (const TerrainTrees::Record *t = logic.trees().findClosestTree(*obj->getPosition(), m_data->m_scanDistance, true, 1))
+		{
+			const Coord3D at = t->position;
+			if (SpecialPowerModuleInterface *power = grabPower())
+			{
+				power->doSpecialPowerAtLocation(at, 0x2000);
+				return UPDATE_SLEEP_NONE;
+			}
+		}
 	}
 	PartitionFilterFn pick([&](Object &o) { return ObjectFilterMatch::allows(logic, m_data->m_pickUpFilter, o, owner); }); // RW 0xBE4CC8 (flag 1)
 	if (Object *found = partition.getClosestObject(*obj->getPosition(), m_data->m_scanDistance, FROM_CENTER_2D, { &pick }))

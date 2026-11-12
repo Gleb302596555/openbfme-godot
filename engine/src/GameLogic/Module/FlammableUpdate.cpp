@@ -8,6 +8,7 @@
 #include "GameLogic/Module/FlammableUpdate.h"
 #include "GameLogic/SnapshotXfer.h"
 #include "GameLogic/Object/PartitionManager.h"
+#include "GameLogic/Map/TerrainTrees.h"
 
 #include "Common/AsciiString.h"
 #include "Common/Audio/AudioRequests.h"
@@ -712,15 +713,22 @@ UpdateSleepTime FireSpreadUpdate::update()
 			return f && f->wouldIgnite();
 		});
 		Object *closest = logic.partition().getClosestObject(*obj->getPosition(), m_data->m_spreadTryRange, FROM_BOUNDINGSPHERE_2D, { &wouldIgnite });
-		FlammableUpdate *best = closest ? findModule<FlammableUpdate>(*closest) : nullptr; // RW 0x88EF7F
+		if (!closest && logic.settings().allowForestFires)
+		{
+			// RW 0x88EF07 .. 0x88EF47 (lane LOCAL-42): nothing found and AIData AllowForestFires (TheAI's data + 0xBC): the standing map tree closest to
+			// the burning object within SpreadTryRange (RW 0x88EF2E: TheTerrainLogic RW 0x67F52B(position, range, 1, 0)) is made an object (RW 0x88EF3E
+			// -> RW 0x68449B with the record, whose first field is its position); that object is the one set alight below
+			if (const TerrainTrees::Record *tree = logic.trees().findClosestTree(*obj->getPosition(), m_data->m_spreadTryRange, true, 0))
+			{
+				const Coord3D at = tree->position;
+				closest = logic.trees().makeTreeObject(at);
+			}
+		}
+		FlammableUpdate *best = closest ? findModule<FlammableUpdate>(*closest) : nullptr; // RW 0x88EF7F: the module named "FlammableUpdate" (RW 0xC0B648)
 		if (best)
 		{
 			best->tryToIgnite(); // RW 0x88EF8A
 			++m_spreads;
-		}
-		else
-		{
-			noteStop(*obj, "FireSpreadUpdate: the burnable terrain object branch (TheGlobalData + 0xBC, RW 0x67F52B / 0x68449B) is not ported");
 		}
 	}
 	return calcNextSpreadDelay();

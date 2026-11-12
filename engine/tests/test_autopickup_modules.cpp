@@ -328,8 +328,8 @@ TEST_CASE("autopickup1: the WAKE_AUTO_PICKUP button (RW 0x68C8DE) wakes the Moun
 	CHECK(!trees->buttonWake()); // RW 0x8995F3: cleared by the scan
 	CHECK(trees->buttonWoken()); // + 0x29 stays
 	CHECK(orcs->scans() == 0);
-	// NONE +TREE: the terrain tree point (RW 0x67F52B) is reported (S-7160)
-	CHECK(stopHits(logic, "[S-7160]") > before); // tolerance: once for the tree point, once more when a tree object is within 600 (the grab power)
+	// NONE +TREE: the terrain tree point (RW 0x67F52B -> the power at the tree, RW 0x899992) runs since lane LOCAL-42; it is no longer a stop
+	(void)before;
 	for (int i = 0; i < 10; ++i)
 	{
 		g.live->stepFrame();
