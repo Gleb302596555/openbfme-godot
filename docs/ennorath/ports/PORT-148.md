@@ -43,3 +43,32 @@ proven. No engine behavior was changed. Next: model the real Ennorath fortress
 (`CastleBehavior` unpacked castle, multiple plot geometries) and the
 auto-acquire (`ATTACK_BUILDINGS`) path, and re-check the in-game command path,
 before any fix.
+
+
+## Update (exact locomotor / fortress geometry scratch)
+
+A scratch rig (not committed as a test) replaced the synthetic locomotor with the
+active Ennorath `FellBeastLocomotor` rows (`TurnTime=3500`,
+`SlowTurnRadius=32`, `FastTurnRadius=48`, `Acceleration=400`,
+`MinTurnSpeed=30%`, `PreferredHeight=121`, `PreferredAttackHeight=5`,
+`CloseEnoughDist=2`, `AirborneTargetingHeight=25`), added the Drogoth
+`FollowThrough*` rows, made the claw `MeleeWeapon=Yes` / `AutoReloadsClip=Yes`,
+and gave the plow the real `DelayTime=1` and `DamageScalar=70% NONE +STRUCTURE`.
+The victim was a keep-like STRUCTURE with four corner tower geometries and a
+`Swoop` contact point at Z:180.
+
+Result on unmodified `c9304cd`: the ordered attack still chooses SECONDARY,
+reaches the attack state and fires; after the delayed damage frame the keep goes
+1000 -> 993. Adding a manual ring of 12 WALL_SEGMENT boxes (radius 70, height 40)
+and 8 BASE_FOUNDATION plots (radius 45, height 1) around the keep does not stop
+the strike either (1000 -> 993 at distances 100/180/300/500). The lockstep
+`MSG_DO_ATTACK_OBJECT` path with a selected bird behaves the same.
+
+RW reads added: `canAttackFromHere` RW 0x6FF7FA matches the port's range / melee
+layer shape (no GIANT_BIRD exemption); aerial separation RW 0x777F9F builds a
+geometry filter and calls the partition range query, while the port's
+`AerialPathfinder::separation` still uses 2D footprints (S-4041 / S-1020). The
+3D overlap helper RW 0xAD2CE0 is already ported as
+`NotifyCrushModules::geometriesOverlap`. This is a candidate first divergence for
+a real unpacked castle, but the scratch `CastleBehavior::unpack` rig crashed
+before an attack and is not yet evidence. No engine behavior was changed.
