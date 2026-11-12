@@ -1,4 +1,4 @@
-// OpenBFME. GPL-3.0. PORT-152 (fork issue #370): the three CommandButton fields the command bar reads in RotWK 2.01 —
+// OpenBFME. GPL-3.0. The three CommandButton fields the command bar reads in RotWK 2.01 —
 // ToggleButtonName (+0x48) at RW 0x943E67 .. 0x943E91, RequiresValidContainer (+0x107) at RW 0x943F75 .. 0x943F91,
 // and the WeaponSlotToggle1/2/3 (+0x84/+0x88/+0x8C) image of the 0x800000 Options bit, the image index RW 0x75D22E writes at RW 0x943E91.
 // Everything comes from a synthetic INI: no game or mod files.
