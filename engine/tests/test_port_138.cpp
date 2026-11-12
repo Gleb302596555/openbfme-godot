@@ -6,13 +6,18 @@
 // 0x8AD88E, conditions at 0x8AD8B5), RW 0x88DE43 (work: percent += 100/frames at
 // 0x88DE99, health += max/frames at 0x88DEB5), and the existing caption path
 // DrawableIconUI RW 0x677CF9. Ennorath's named-worker holes wait 120000 ms =
-// 600 logic frames (RW 0xD9F608 = 5 fps); this fixture shortens that to 1000 ms
-// = 5 frames and the build to 2 s = 10 frames so the whole route runs quickly.
+// 600 logic frames (RW 0xD9F608 = 5 fps); the named-worker hole below keeps
+// that full mod delay, while the synthetic build is 2 s = 10 frames.
 #include "doctest.h"
 #include "CombatTestUtil.h"
 
+#include "GameClient/ClientEvents.h"
 #include "GameClient/DrawableIconUI.h"
+#include "GameClient/DrawableManager.h"
 #include "GameClient/GameTextTableSource.h"
+#include "GameClient/TacticalView.h"
+#include "GameEngineDevice/Win32Device/Common/Win32BIGFileSystem.h"
+#include "Libraries/WWVegas/WW3D2/assetmgr.h"
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Module/RebuildHoleModules.h"
 #include "GameLogic/Module/WorkerAIUpdate.h"
@@ -114,11 +119,11 @@ TEST_CASE("PORT-138 Wild hole: waits, then its worker constructs in stages with 
 	Object *hole = holes[0];
 	RebuildHoleBehavior *rh = RebuildHoleBehavior::of(*hole);
 	REQUIRE(rh != nullptr);
-	// 1000 ms at RW's 5 logic fps = 5 frames; one hole update already ran.
-	CHECK(rh->workerWaitCounter() == 4);
+	// Ennorath's 120000 ms at RW's 5 logic fps = 600 frames; one hole update already ran.
+	CHECK(rh->workerWaitCounter() == 599);
 	CHECK(rh->getWorkerID() == INVALID_ID);
 	CHECK(rh->getReconstructedBuildingID() == INVALID_ID);
-	w.frames(3);
+	w.frames(598);
 	CHECK(rh->workerWaitCounter() == 1);
 	CHECK(w.alive("Port138Worker").empty());
 	CHECK(rh->getReconstructedBuildingID() == INVALID_ID);
@@ -151,6 +156,31 @@ TEST_CASE("PORT-138 Wild hole: waits, then its worker constructs in stages with 
 	CHECK(rebuilt->getBodyModule()->getHealth() == 21.0f);
 	CHECK(rebuilt->isUnderConstruction());
 	CHECK(DrawableIconUI::constructionText(&text, rebuilt->getConstructionPercent()) == "Building: 10%");
+	// The actual icon pass, not only its formatting helper: a drawable bound to the rebuilt object emits one caption (RW 0x677CF9).
+	Win32BIGFileSystem empty;
+	ArchiveW3DFileSource source(empty);
+	WW3DAssetManager assets(source);
+	DrawableManager drawables(assets, *w.logic);
+	ClientEventRecorder recorder(*w.logic);
+	recorder.objectCreated(*rebuilt);
+	drawables.applyEvents(recorder.take());
+	REQUIRE(drawables.findByObject(rebuilt->getID()) != nullptr);
+	PinholeView view({ 400.0f, 100.0f, 400.0f }, { 400.0f, 400.0f, 0.0f }, 1024, 768, 0.7f);
+	IconUISettings settings;
+	settings.text = &text;
+	DrawableIconUI ui;
+	std::vector<IconUIOp> ops;
+	ui.build(*w.logic, drawables, view, settings, {}, 0, ops);
+	int captions = 0;
+	for (const IconUIOp &op : ops)
+	{
+		if (op.object == rebuilt->getID() && op.kind == IconUIOp::TEXT)
+		{
+			++captions;
+			CHECK(op.text == "Building: 10%");
+		}
+	}
+	CHECK(captions == 1);
 	CHECK(condition(*rebuilt, "PARTIALLY_CONSTRUCTED"));
 	CHECK(condition(*rebuilt, "ACTIVELY_BEING_CONSTRUCTED"));
 	CHECK_FALSE(condition(*rebuilt, "RUBBLE"));
@@ -158,6 +188,13 @@ TEST_CASE("PORT-138 Wild hole: waits, then its worker constructs in stages with 
 	const int finished = w.runUntil([&] { return !rebuilt->isUnderConstruction(); }, 100);
 	REQUIRE(finished < 100); // tolerance: travel/turn frames precede the asserted 10-frame build
 	CHECK(rebuilt->getConstructionPercent() == -1.0f); // RW 0x88DF61
+	ops.clear();
+	ui.build(*w.logic, drawables, view, settings, {}, 0, ops);
+	for (const IconUIOp &op : ops)
+	{
+		if (op.object == rebuilt->getID())
+			CHECK(op.kind != IconUIOp::TEXT);
+	}
 	CHECK_FALSE(condition(*rebuilt, "PARTIALLY_CONSTRUCTED"));
 	CHECK_FALSE(condition(*rebuilt, "ACTIVELY_BEING_CONSTRUCTED"));
 	CHECK(w.alive("Port138Hole").empty());
@@ -181,13 +218,13 @@ TEST_CASE("PORT-138 Wild hole: healing the hole during the wait neither starts t
 	body->internalChangeHealth(-10.0f);
 	const float before = body->getHealth();
 	w.frames(1);
-	CHECK(rh->workerWaitCounter() == 3);
+	CHECK(rh->workerWaitCounter() == 598);
 	CHECK(rh->getReconstructedBuildingID() == INVALID_ID);
 	CHECK(w.alive("Port138Worker").empty());
 	// RW 0x886BB4/0x886BD0: (0.005 / 5) * 50 = 0.05 health per logic frame.
 	CHECK(body->getHealth() == doctest::Approx(before + 0.05f)); // tolerance: x87 PC24 rounding of (0.005 / 5) * 50, RW 0x886BD0
 	w.frames(2);
-	CHECK(rh->workerWaitCounter() == 1);
+	CHECK(rh->workerWaitCounter() == 596);
 	CHECK(rh->getReconstructedBuildingID() == INVALID_ID);
 }
 
