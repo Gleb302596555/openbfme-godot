@@ -61,6 +61,22 @@ const char kPort146Objects[] =
 	"    Speed = 30\n"
 	"  End\n"
 	"End\n"
+	"Object P146Still\n"
+	"  KindOf = INFANTRY SELECTABLE\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 8\n"
+	"  GeometryMinorRadius = 8\n"
+	"  GeometryHeight = 20\n"
+	"  ArmorSet\n"
+	"    Conditions = None\n"
+	"    Armor = PlainArmor\n"
+	"  End\n"
+	"  Body = ActiveBody ModuleTag_Body\n"
+	"    MaxHealth = 60\n"
+	"  End\n"
+	"  Behavior = DestroyDie ModuleTag_Destroy\n"
+	"  End\n"
+	"End\n"
 	"Object P146Archer\n"
 	"  KindOf = INFANTRY SELECTABLE CAN_ATTACK SCORE\n"
 	"  VisionRange = 250\n"
@@ -160,6 +176,9 @@ TEST_CASE("PORT-146 reproduction: an archer carried by a moving siege engine")
 	REQUIRE(c->isValidContainerFor(*archer, true, false));
 	REQUIRE(c->addToContain(archer));
 	CHECK(archer->getContainedBy() == carrier);
+	Object *still = w.unit("P146Still", 'A', 500.0f, 500.0f);
+	REQUIRE(still != nullptr);
+	REQUIRE(c->addToContain(still));
 	Object *enemy = w.unit("Dummy", 'B', 650.0f, 500.0f);
 	REQUIRE(enemy != nullptr);
 	w.frames(1);
@@ -185,12 +204,12 @@ TEST_CASE("PORT-146 reproduction: an archer carried by a moving siege engine")
 	for (int f = 0; f < 20; ++f)
 	{
 		w.frames(1);
-		const Coord3D &ap = *archer->getPosition(), &np = *carrier->getPosition();
+		const Coord3D &ap = *archer->getPosition(), &np = *carrier->getPosition(), &sp = *still->getPosition();
 		const float dz = ap.z - np.z;
 		minDz = dz < minDz ? dz : minDz;
 		maxDz = dz > maxDz ? dz : maxDz;
-		std::printf("  f%-3d carrier %.2f %.2f %.2f | archer %.2f %.2f %.2f (dz %.3f) idle %d\n", f, np.x, np.y, np.z, ap.x, ap.y, ap.z, dz,
-		            (int)aai->isIdle());
+		std::printf("  f%-3d carrier %.1f %.1f %.1f | ai archer %.1f %.1f %.1f (dz %.2f) | no-ai %.1f %.1f %.1f (dz %.2f) idle %d\n", f, np.x, np.y, np.z, ap.x,
+		            ap.y, ap.z, dz, sp.x, sp.y, sp.z, sp.z - np.z, (int)aai->isIdle());
 	}
 	std::printf("info: dz range %.3f .. %.3f\n", minDz, maxDz);
 	std::printf("info: shots in 20 frames moving: %llu (victim %s)\n", (unsigned long long)(w.logic->combat().counters().projectilesLaunched - movingBefore),
