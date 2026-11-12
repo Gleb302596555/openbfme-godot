@@ -28,6 +28,7 @@
 #include "Common/Thing/Thing.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/ClientEvents.h"
+#include "GameClient/ContainedPose.h"
 #include "GameClient/DrawableShroud.h"
 #include "GameClient/LogicSnapshot.h"
 #include "GameClient/RenderInterpolation.h"
@@ -379,6 +380,16 @@ public:
 	bool calcPhysicsXform(const ObjectSnapshot &rec, const RenderInterpolation::Pose &pose, PhysicsXformInfo &info);
 	void applyPhysicsXform(const ObjectSnapshot &rec, const RenderInterpolation::Pose &pose);
 	void getPresentationPose(float outBasis[9], Coord3D &outPos) const;
+	// PORT-146 (issue #363): an object that stands on a bone of its container (ObjectSnapshot::containedOnBone) is drawn with the pose the
+	// container's presentation gives it (ContainedPose.h): DrawableManager::syncTransforms works it out after every drawable has its own pose.
+	// `clear` puts the drawable back on its own pose (the object left the bone, or it never was on one)
+	void setContainedPose(const containedpose::Pose &pose)
+	{
+		m_containedPose = pose;
+		m_containedPoseValid = true;
+	}
+	void clearContainedPose() { m_containedPoseValid = false; }
+	bool hasContainedPose() const { return m_containedPoseValid; }
 	Coord3D getPresentationPosition() const;
 	bool hasPhysicsXform() const { return m_hasPhysicsXform; }
 	const PhysicsXformInfo &lastPhysicsInfo() const { return m_lastPhysicsInfo; }
@@ -664,6 +675,9 @@ private:
 
 	std::unique_ptr<DrawableLocoInfo> m_locoInfo; ///< +0x13C
 	bool m_hasPhysicsXform = false;
+	// PORT-146 (issue #363): the drawn pose of an object on a bone of its container (see setContainedPose)
+	containedpose::Pose m_containedPose;
+	bool m_containedPoseValid = false;
 	bool m_physicsStepped = false;      ///< a step was made for m_physicsClientFrame
 	unsigned m_physicsClientFrame = 0;  ///< retail's stamp at the locomotor info + 0xAC (RW 0x67BE04 / 0x67BE17)
 	PhysicsXformInfo m_lastPhysicsInfo;

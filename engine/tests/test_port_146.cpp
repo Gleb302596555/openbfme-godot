@@ -19,6 +19,9 @@
 
 #include "CombatTestUtil.h"
 
+#include "GameClient/ContainedPose.h"
+#include "GameClient/LogicSnapshot.h"
+
 #include "GameLogic/Combat/CombatNames.h"
 #include "GameLogic/Combat/CombatState.h"
 #include "GameLogic/Combat/WeaponDelivery.h"
@@ -29,6 +32,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstring>
 #include <cstdio>
 #include <string>
 
@@ -243,4 +247,87 @@ TEST_CASE("PORT-146: a siege carrier's passengers stand on their bones and the a
 	CHECK(carrier->testModelCondition(movingCond));
 	CHECK(archer->testModelCondition(transportMovingCond));
 	CHECK(w.logic->combat().counters().projectilesLaunched == rolling + 3); // the bow goes on firing while the carrier rolls
+}
+
+TEST_CASE("PORT-146: an object on a bone is drawn with the container's presentation pose, tilt and suspension height alike")
+{
+	using containedpose::Pose;
+	// the carrier stands at (-100, 50, 0) facing +x: identity basis
+	Pose containerLogic;
+	containerLogic.pos = Coord3D{ -100.0f, 50.0f, 0.0f };
+	// what the client's presentation physics adds to it (Drawable::applyPhysicsXform, RW 0x67BE90): a quarter turn of pitch about X - exact, cos 0 and
+	// sin 1 - and 1.5 of suspension height (PhysicsXformInfo::m_totalZ)
+	Pose containerPresentation;
+	const float pitchQuarter[9] = { 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, -1.0f, 0.0f, 1.0f, 0.0f };
+	std::memcpy(containerPresentation.basis, pitchQuarter, sizeof(pitchQuarter));
+	containerPresentation.pos = Coord3D{ -100.0f, 50.0f, 1.5f };
+	// the archer on its bone: 8 to the carrier's -y and 30 above it, facing +x
+	Pose riderLogic;
+	riderLogic.pos = Coord3D{ -100.0f, 42.0f, 30.0f };
+
+	// a carrier with no extra pose draws its riders exactly where the logic put them: the lane changes nothing there
+	const Pose unchanged = containedpose::compose(containerLogic, containerLogic, riderLogic);
+	CHECK(unchanged.pos.x == -100.0f);
+	CHECK(unchanged.pos.y == 42.0f);
+	CHECK(unchanged.pos.z == 30.0f);
+
+	// the extra pose carries the rider: its place in the carrier's frame is (0, -8, 30); a quarter pitch about X sends 30 to y -30 and -8 to z -8, and
+	// the suspension lifts it by 1.5. Without the composition the rider would stay at (-100, 42, 30) - the owner's floating and passing through.
+	const Pose drawn = containedpose::compose(containerPresentation, containerLogic, riderLogic);
+	CHECK(drawn.pos.x == -100.0f);
+	CHECK(drawn.pos.y == 20.0f);
+	CHECK(drawn.pos.z == -6.5f);
+
+	// the rider's own turn stays in the carrier's frame: a quarter yaw of its own is that yaw of the drawn basis, after the carrier's pitch
+	Pose turned = riderLogic;
+	const float yawQuarter[9] = { 0.0f, 1.0f, 0.0f, -1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f };
+	std::memcpy(turned.basis, yawQuarter, sizeof(yawQuarter));
+	const Pose drawnTurned = containedpose::compose(containerPresentation, containerLogic, turned);
+	const float expected[9] = { 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, -1.0f, -1.0f, 0.0f, 0.0f };
+	for (int i = 0; i < 9; ++i)
+	{
+		CHECK(drawnTurned.basis[i] == expected[i]);
+	}
+}
+
+TEST_CASE("PORT-146: only an object its contain puts on a bone is marked for the container's pose (a horde's member is not)")
+{
+	CombatWorld w(kPort146Objects);
+	CarrierBones bones; // the carrier's bone provider: B_ARCHER01 / B_ARCHER02
+	w.logic->combat().setLaunchOffsets(&bones);
+	Object *carrier = w.unit("P146Carrier", 'A', 500.0f, 500.0f);
+	REQUIRE(carrier != nullptr);
+	ContainModuleInterface *c = carrier->getContain();
+	REQUIRE(c != nullptr);
+	Object *archer = w.unit("P146Archer", 'A', 500.0f, 500.0f);
+	REQUIRE(archer != nullptr);
+	REQUIRE(c->addToContain(archer));
+	Object *stranger = w.unit("P146Stranger", 'A', 500.0f, 500.0f); // a kind no PassengerBonePrefix names: it gets no bone
+	REQUIRE(stranger != nullptr);
+	REQUIRE(c->addToContain(stranger));
+	Object *horde = w.unit("ArcherHorde", 'A', 500.0f, 700.0f); // HordeContain with InitialPayload = Archer 6
+	REQUIRE(horde != nullptr);
+	ContainModuleInterface *hc = horde->getContain();
+	REQUIRE(hc != nullptr);
+	const ContainModuleInterface::ContainedItemsList *members = hc->getContainedItemsList();
+	REQUIRE(members != nullptr);
+	REQUIRE(!members->empty());
+	Object *member = members->front();
+	w.frames(1);
+
+	const std::shared_ptr<const LogicSnapshot> built = LogicSnapshot::build(*w.logic, nullptr, false, 0);
+	const LogicSnapshot *snap = built.get();
+	REQUIRE(snap != nullptr);
+	const ObjectSnapshot *r = snap->find(archer->getID());
+	REQUIRE(r != nullptr);
+	CHECK(r->containedBy == carrier->getID());
+	CHECK(r->containedOnBone); // B_ARCHER01, so the drawable rides the carrier's presentation pose
+	const ObjectSnapshot *m = snap->find(member->getID());
+	REQUIRE(m != nullptr);
+	CHECK(m->containedBy == horde->getID());
+	CHECK_FALSE(m->containedOnBone); // a horde's member keeps its own pose
+	const ObjectSnapshot *srec = snap->find(stranger->getID());
+	REQUIRE(srec != nullptr);
+	CHECK(srec->containedBy == carrier->getID());
+	CHECK_FALSE(srec->containedOnBone); // the contain found no bone for it: it keeps its own pose too
 }

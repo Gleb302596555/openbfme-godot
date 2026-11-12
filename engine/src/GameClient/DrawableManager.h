@@ -145,6 +145,8 @@ private:
 	void created(const ClientEvent &ev);
 	void destroyed(const ClientEvent &ev);
 	void unbindTracks(Drawable &d);
+	// PORT-146 (issue #363): the drawn pose of an object on a bone of its container (ContainedPose.h)
+	void syncContainedPoses(const LogicSnapshot &snapshot);
 	void syncTracks(const LogicSnapshot &snapshot);
 
 	std::uint32_t m_scriptFrame = 0; ///< the frame the drawable Lua state reports (before m_services: its options point here)
