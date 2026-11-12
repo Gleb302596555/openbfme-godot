@@ -544,15 +544,13 @@ public:
 	// manager takes one step (vslot 0x28 = SubsystemInterface::update, RW 0x81D283) so the track starts behind the screen instead of after the load
 	void playLoadScreenMusic(const std::string &eventName) override
 	{
-		AudioManager *audio = AudioApi::current();
-		if (!audio || !audio->isValidAudioEvent(eventName))
+		// PORT-158: the switch itself is AudioApi::playLoadScreenMusic (RW 0x81D225 .. 0x81D283): it also stops the menu
+		// track in the registered shell music manager, which this device path alone could not reach (issue #376)
+		AudioLog::Scope tag("load screen music " + eventName);
+		if (AudioApi::playLoadScreenMusic(eventName) == AHSV_NoSound)
 		{
 			return;
 		}
-		AudioLog::Scope tag("load screen music " + eventName);
-		audio->stopMusic(true);
-		audio->addAudioEvent(AudioEventRTS(eventName, 2));
-		audio->update(audio->nowMs() + AudioManager::tickIntervalMs());
 		events.push_back({ "load_music", eventName, "" });
 	}
 	void removeAudioEvent(std::uint32_t handle) override

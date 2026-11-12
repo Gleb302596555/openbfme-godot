@@ -1228,7 +1228,7 @@ void AudioManager::update(double nowMs)
 		processRequestList();
 		refreshDucking();
 		processPlayingList();
-		processFadingList();
+		processFadingList(step);
 		processAmbientMarkers();
 		processMusicChain();
 	}
@@ -1515,6 +1515,7 @@ void AudioManager::playAudioEvent(std::unique_ptr<AudioEventRTS> evp)
 					{
 						(*it)->fading = true;
 						(*it)->framesFaded = 0;
+						(*it)->fadeElapsedMs = 0.0;
 						m_fading.push_back(std::move(*it));
 					}
 					else
@@ -1920,6 +1921,7 @@ void AudioManager::stopAudioEvent(AudioHandle handle)
 			{
 				p.fading = true;
 				p.framesFaded = 0;
+				p.fadeElapsedMs = 0.0;
 				m_fading.push_back(std::move(*it));
 				list.erase(it);
 				return;
@@ -2100,6 +2102,7 @@ void AudioManager::stopMusic(bool fade)
 			{
 				(*it)->fading = true;
 				(*it)->framesFaded = 0;
+				(*it)->fadeElapsedMs = 0.0;
 				m_fading.push_back(std::move(*it));
 			}
 			else

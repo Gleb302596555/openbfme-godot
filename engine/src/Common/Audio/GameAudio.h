@@ -336,7 +336,7 @@ private:
 	void playAudioEvent(std::unique_ptr<AudioEventRTS> event);
 	// playing
 	void processPlayingList();
-	void processFadingList();
+	void processFadingList(double elapsedMs);
 	void processAmbientMarkers();
 	void processMusicChain();
 	void stopAudioEvent(AudioHandle handle);
