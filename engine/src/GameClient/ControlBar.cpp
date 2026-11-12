@@ -87,6 +87,84 @@ ButtonState buildAvailability(CanMakeType make, bool &commandPointsShort)
 }
 } // namespace
 
+// PORT-130 (issue #332): CommandButton::AffectsKindOf (RW +0x110, parse row RW 0xC2BD28). The reader is the
+// NEEDS_CASTLE_KINDOF branch of RotWK's ControlBar::getCommandAvailability (RW 0x942733), read with rw.py dis:
+//   RW 0x942993 `mov eax,[edi+0x1c]`, RW 0x942996 `test ah,8` -> Options bit 11 (0x800);
+//   RW 0x9429A0 `call 0x797bef` -> CastleMemberBehavior, RW 0x9429AA `push [eax+0x18]` its castle id,
+//   RW 0x9429B3 `call 0x449681` findObjectByID, RW 0x9429C2/0x9429CA the CastleBehavior module on that castle;
+//   RW 0x9429E9 `add eax,0x110` + RW 0x9429F6 `call 0x444d65` + RW 0x942A08 `rep movsd` copy the button's
+//   28-byte KindOf mask into a filter; RW 0x942A12 `call 0x7999e2` walks the castle's objects;
+//   callback RW 0x942348 calls RW 0x70C548 -> RW 0x661359 (7-dword ANY intersection), RW 0x94235B sets matched;
+//   RW 0x942A17 `cmp [ebp-0x4c],0`, RW 0x942A1B -> RW 0x942C5D `push 3; pop eax` = COMMAND_HIDDEN.
+// DONOR BFME2 0x53B946 (ControlBarCommand.cpp:446) and ControlBarRappellerCount.cpp:525/536 are the same branch;
+// the RW addresses above are the source of truth. This is the button's availability, not a cursor target test.
+namespace
+{
+// RW 0x661359: `test [ecx],esi` over seven 32-bit words; any bit common to the two masks.
+bool kindOfMasksIntersect(const KindOfMaskType &objectMask, const KindOfMaskType &buttonMask)
+{
+	for (size_t word = 0; word < objectMask.size(); ++word)
+	{
+		if (objectMask[word] & buttonMask[word])
+		{
+			return true;
+		}
+	}
+	return false;
+}
+} // namespace
+
+bool ControlBar::castleKindOfAllows(const CommandButton &b, Object &obj)
+{
+	// RW 0x942999 `je 0x942a24`: without Options = NEEDS_CASTLE_KINDOF the mask is not read at all.
+	if (!b.hasOption(COMMAND_OPTION_NEEDS_CASTLE_KINDOF))
+	{
+		return true;
+	}
+	// RW 0x9429A8 `je 0x942a24`: an object with no CastleMemberBehavior keeps its normal availability.
+	const CastleMemberBehavior *member = nullptr;
+	for (const std::unique_ptr<BehaviorModule> &m : obj.modules())
+	{
+		member = dynamic_cast<const CastleMemberBehavior *>(m.get());
+		if (member)
+		{
+			break;
+		}
+	}
+	if (!member)
+	{
+		return true;
+	}
+	// RW 0x9429BC `je 0x942c5d`: a member whose castle object no longer exists hides the button (3).
+	Object *castle = obj.logic().findObjectByID(member->castleId());
+	if (!castle)
+	{
+		return false;
+	}
+	// RW 0x9429D4 `je 0x942a24`: no CastleBehavior on the castle object -> the filter is skipped.
+	const CastleBehavior *behaviour = CastleBehavior::of(*castle);
+	if (!behaviour)
+	{
+		return true;
+	}
+	// RW 0x7999E2 walks the castle itself, its keep, foundations, members, crew and defence foundations;
+	// CastleBehavior::forEachMemberId is the port's walk over exactly that set. RW 0x942348 stops at the
+	// first match (returns 0); the callback here only records it. A null object is skipped (RW 0x799A2D).
+	bool matched = false;
+	behaviour->forEachMemberId([&](ObjectID id)
+	{
+		if (matched)
+		{
+			return;
+		}
+		if (const Object *o = obj.logic().findObjectByID(id))
+		{
+			matched = kindOfMasksIntersect(o->getKindOf(), b.m_affectsKindOf);
+		}
+	});
+	return matched; // RW 0x942A1B -> RW 0x942C5D: no object of the castle has any of the button's KindOf bits
+}
+
 ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &commandPointsShort, bool ignoreDisabled)
 {
 	// ZH ControlBar::getCommandAvailability (ControlBarCommand.cpp:1017), the subset whose logic is ported (stop S-290)
@@ -174,6 +252,12 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 		{
 			return ButtonState::Restricted;
 		}
+	}
+	// PORT-130: RW 0x942993..0x942A1B, before every command's own rule (as in RW, after NEED_UPGRADE).
+	// A NEEDS_CASTLE_KINDOF button whose castle owns no object of AffectsKindOf is HIDDEN, not restricted.
+	if (!castleKindOfAllows(b, obj))
+	{
+		return ButtonState::Hidden; // RW 0x942A1B -> RW 0x942C5D (availability 3)
 	}
 	ProductionUpdateInterface *pu = obj.getProductionUpdate();
 	if (pu && pu->firstProduction() && b.hasOption(COMMAND_OPTION_NOT_QUEUEABLE))

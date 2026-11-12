@@ -2110,6 +2110,7 @@ void ObjectWeaponDelivery::fireWeaponTemplate(const WeaponBonus &bonus, int curB
 			shot.bonus = bonus;
 			shot.barrel = curBarrel;
 			shot.slot = m_firing->getSlot(); // the firing weapon's slot (lane DECOMP-1 r3); the nugget's WeaponLaunchBoneSlotOverride still wins in the launcher
+			shot.streamID = m_firing->projectileStreamID(); // issue #99 / PORT-27: the stream the firing weapon holds (Weapon + 0x5C, RW 0x90FB80)
 			shot.nugget = &pn;
 			if (pn.m_useAlwaysAttackOffset)
 			{

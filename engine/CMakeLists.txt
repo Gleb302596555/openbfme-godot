@@ -184,6 +184,7 @@ include(cmake/Port43.cmake)     # PORT-43: GameData/PowerLimit -> GameLogic + 0x
 include(cmake/Port51.cmake)     # PORT-51: Object/InstanceScaleFuzziness, parsed and never read by RotWK (issue #155; OPENBFME_PORT51_TESTS)
 include(cmake/Port99.cmake)     # PORT-99: PlayerTemplate/LightPointsUpSound, its only reader is the light-point (WOTR) action (issue #259; OPENBFME_PORT99_TESTS)
 include(cmake/Port119.cmake)   # PORT-119: AttachToBoneInAnotherModule, the two figures of a two-in-one hero (issue #303; OPENBFME_PORT119_TESTS)
+include(cmake/Port113.cmake)    # PORT-113: the light points of the War of the Ring (issue #280; appends to OPENBFME_SIM_SOURCES; OPENBFME_PORT113_TESTS)
 include(cmake/Port81.cmake)     # PORT-81: HordeContain/RanksToJustFreeWhenAttacking, parsed and never read by RotWK (issue #213; OPENBFME_PORT81_TESTS)
 include(cmake/Port84.cmake)     # PORT-84: unit voice of the combine-with-horde order (issue #232; OPENBFME_PORT84_TESTS)
 include(cmake/Port93.cmake)     # PORT-93: SpecialAbilityUpdate/ActiveLoopSound, the active ability loop (issue #241; OPENBFME_PORT93_TESTS)
@@ -199,6 +200,7 @@ include(cmake/Port74.cmake)     # PORT-74: W3DLaserDraw, the lightning and beam 
 include(cmake/Port97.cmake)     # PORT-97: TransportContain FadePassengerOnEnter / OnExit, the passengers' fade (issue #245; OPENBFME_PORT97_TESTS)
 include(cmake/Port112.cmake)    # PORT-112: HordeContain/NotComboFormation, the porcupine formation leaves the formation before a combine (issue #272; OPENBFME_PORT112_TESTS)
 include(cmake/Port117.cmake)    # PORT-117: buildObjectNow completes a HORDE without its producer, the summoned horde is whole (issue #301; OPENBFME_PORT117_TESTS)
+include(cmake/Port141.cmake)    # PORT-141: Isengard defiled-ground ambient sound (SoundAmbient) plays at game start (issue #343; OPENBFME_PORT141_TESTS)
 include(cmake/Render.cmake)     # OPENBFME_RENDER_SOURCES / OPENBFME_RENDER_TESTS (lane RENDER-1, client / draw only)
 include(cmake/SkirmishAI.cmake) # OPENBFME_SKIRMISH_AI_SOURCES / OPENBFME_SKIRMISH_AI_TESTS (lane AI-1)
 include(cmake/Vis.cmake)        # OPENBFME_VIS_SOURCES / OPENBFME_VIS_TESTS (lane VIS-1)
@@ -215,7 +217,10 @@ include(cmake/FactB.cmake)      # OPENBFME_FACTB_TESTS (lane FACT-B: Isengard an
 include(cmake/Port4.cmake) # OPENBFME_PORT4_TESTS
 include(cmake/Port109.cmake) # OPENBFME_PORT109_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
+include(cmake/Port133.cmake) # PORT-133: the charge attack machine of a CanFireWhileCharging weapon (issue #335; OPENBFME_PORT133_TESTS)
 include(cmake/Port121.cmake) # PORT-121: the ParticleSysBone creation reads the draw's pose (OPENBFME_PORT121_TESTS)
+include(cmake/Port132.cmake) # PORT-132: Locomotor AeleronCorrection* / ElevatorCorrection*, the ship's roll and pitch (issue #334; OPENBFME_PORT132_TESTS)
+include(cmake/Port124.cmake) # PORT-124: ring transfer through CitadelSlaughterHordeContain (issue #308)
 include(cmake/Port94.cmake) # PORT-94: SalvageCrateCollide LevelUpRadius / ResourceChance / BannerChance verdict (issue #242; OPENBFME_PORT94_TESTS)
 include(cmake/Port102.cmake) # OPENBFME_PORT102_TESTS (Object GeometryUsedForHealthBox)
 include(cmake/Port115.cmake) # PORT-115: the archers' Barrage, a horde's FIRE_WEAPON at a position (issue #299; OPENBFME_PORT115_TESTS)
@@ -233,7 +238,9 @@ include(cmake/Port6.cmake) # PORT-6: StealthDetectorUpdate/CanDetectWhileGarriso
 include(cmake/Port8.cmake) # PORT-8: PhysicsBehavior/OrientToFlightPath (issue #61; OPENBFME_PORT8_TESTS)
 include(cmake/Port7.cmake) # PORT-7: AnimalAIUpdate/UpdateTimer (issue #60; OPENBFME_PORT7_TESTS)
 include(cmake/Port77.cmake) # PORT-77: W3DSupplyDraw/SupplyBonePrefix (issue #209; OPENBFME_PORT77_TESTS)
+include(cmake/Port126.cmake) # PORT-126: W3DQuadrupedDraw::getFootLocations (issue #310; OPENBFME_PORT126_TESTS)
 include(cmake/Port11.cmake) # PORT-11: SlavedUpdate/StayOnSameLayerAsMaster (issue #66; OPENBFME_PORT11_TESTS)
+include(cmake/Port27.cmake) # PORT-27: Weapon/ProjectileStreamName (issue #99; OPENBFME_PORT27_TESTS)
 include(cmake/Port15.cmake) # PORT-15: LockWeaponCreate/Object::setWeaponLock (issue #71; OPENBFME_PORT15_TESTS)
 include(cmake/Port20.cmake) # PORT-20: GarrisonContain/onSelling (issue #76; OPENBFME_PORT20_TESTS)
 include(cmake/Port13.cmake) # PORT-13: AIData/AttackMoveUsesFormations (issue #68; OPENBFME_PORT13_TESTS)
@@ -267,6 +274,7 @@ include(cmake/Port61.cmake) # PORT-61: FlammableUpdate/FireFXList, the effects a
 include(cmake/Port62.cmake) # PORT-62: TransportContain/FireGrabWeaponOnVictim, the GrabWeapon fire (issue #172; OPENBFME_PORT62_TESTS)
 include(cmake/Port80.cmake) # PORT-80: InvisibilityUpdate/UnitSpecificSoundNameToUseAsVoiceMoveToStealthyArea, the stealthy-area move voice (issue #212; OPENBFME_PORT80_TESTS)
 include(cmake/Port72.cmake) # PORT-72: FactionVictoryData, stop verdict S-7216 (issue #186; OPENBFME_PORT72_TESTS)
+include(cmake/Port96.cmake) # PORT-96: SlavedUpdate client fade on the master's guard point (issue #244; OPENBFME_PORT96_TESTS)
 include(cmake/Port67.cmake) # PORT-67: Weapon/CanSwoop and the Locomotor Swoop rows (issue #181; OPENBFME_PORT67_TESTS)
 include(cmake/Port40.cmake) # PORT-40: AIData/MaxRecruitRadius (issue #125; OPENBFME_PORT40_TESTS)
 include(cmake/Port65.cmake) # PORT-65: SpellRechargeModifierUpgrade (issue #177; OPENBFME_PORT65_TESTS)
@@ -280,6 +288,8 @@ include(cmake/Port86.cmake) # PORT-86: Unit voice VoiceDesperateAttack / VoiceRa
 include(cmake/Port39.cmake) # PORT-39: AIData SideInfo ResourceGatherers (issue #124; OPENBFME_PORT39_TESTS)
 include(cmake/Port101.cmake) # PORT-101: Object/SelectionPriority (issue #261; OPENBFME_PORT101_TESTS)
 include(cmake/Port78.cmake) # PORT-78: vendor grab (issue #210)
+include(cmake/Port125.cmake) # PORT-125: terrain decals below particles — smoke covers roads and scorches (P-52, issue #309; OPENBFME_PORT125_TESTS)
+include(cmake/Port123.cmake) # PORT-123: Arnor palantir blue ground decal EyeOfPalantir arpalaeye 400 (issue #307; OPENBFME_PORT123_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
@@ -418,6 +428,7 @@ include(cmake/Weather1.cmake)   # WEATHER-1: snow, rain, darkness, lightning, th
 include(cmake/Port33.cmake)     # PORT-33: the AIWoTRForfeitTactic port of FarmingThreshold / LogicFramesTillAISelfDestructs (OPENBFME_PORT33_TESTS)
 include(cmake/Port64.cmake)     # PORT-64: RubbleRiseUpdate, the rubble rise of a destroyed camp or castle piece (OPENBFME_PORT64_TESTS)
 include(cmake/Port82.cmake)     # PORT-82: AttributeModifierNugget/DamageFXType is parsed but unread in RotWK 2.01 (issue #214; OPENBFME_PORT82_TESTS)
+include(cmake/Port130.cmake)   # PORT-130: CommandButton AffectsKindOf, the NEEDS_CASTLE_KINDOF button filter (OPENBFME_PORT130_TESTS)
 include(cmake/Bldfx1.cmake)     # FEAT-BLDFX-1: the FXList nugget sinks, scorches, decals, light pulses, camera shakers (OPENBFME_BLDFX1_SOURCES / _TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
@@ -492,6 +503,7 @@ add_library(openbfme_core STATIC
     src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawServices.cpp
     src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawBones.cpp
     src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.cpp
+    src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DQuadrupedDraw.cpp
     src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DSupplyDraw.cpp
     src/Libraries/file/TextFile.cpp
     src/Libraries/file/Win32Path.cpp
@@ -840,12 +852,15 @@ add_executable(openbfme_tests
     ${OPENBFME_FACTB_TESTS}
     ${OPENBFME_PORT109_TESTS}
     ${OPENBFME_PLAY2_TESTS}
+    ${OPENBFME_PORT133_TESTS}
     ${OPENBFME_PORT121_TESTS}
+    ${OPENBFME_PORT132_TESTS}
     ${OPENBFME_PORT115_TESTS}
     ${OPENBFME_PORT99_TESTS}
     ${OPENBFME_PORT94_TESTS}
     ${OPENBFME_PORT119_TESTS}
     ${OPENBFME_PORT102_TESTS}
+    ${OPENBFME_PORT113_TESTS}
     ${OPENBFME_PORT75_TESTS}
     ${OPENBFME_PORT79_TESTS}
     ${OPENBFME_PORT89_TESTS}
@@ -855,6 +870,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT33_TESTS}
     ${OPENBFME_PORT64_TESTS}
     ${OPENBFME_PORT82_TESTS}
+    ${OPENBFME_PORT130_TESTS}
     ${OPENBFME_PORT5_TESTS}
     ${OPENBFME_PORT18_TESTS}
     ${OPENBFME_PORT1_TESTS}
@@ -863,7 +879,9 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT8_TESTS}
     ${OPENBFME_PORT7_TESTS}
     ${OPENBFME_PORT77_TESTS}
+    ${OPENBFME_PORT126_TESTS}
     ${OPENBFME_PORT11_TESTS}
+    ${OPENBFME_PORT27_TESTS}
     ${OPENBFME_PORT4_TESTS}
     ${OPENBFME_PORT19_TESTS}
     ${OPENBFME_PORT15_TESTS}
@@ -886,6 +904,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT37_TESTS}
     ${OPENBFME_PORT10_TESTS}
     ${OPENBFME_PORT55_TESTS}
+    ${OPENBFME_PORT124_TESTS}
     ${OPENBFME_PORT38_TESTS}
     ${OPENBFME_PORT57_TESTS}
     ${OPENBFME_PORT17_TESTS}
@@ -902,6 +921,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT62_TESTS}
     ${OPENBFME_PORT80_TESTS}
     ${OPENBFME_PORT72_TESTS}
+    ${OPENBFME_PORT96_TESTS}
     ${OPENBFME_PORT67_TESTS}
     ${OPENBFME_PORT40_TESTS}
     ${OPENBFME_PORT65_TESTS}
@@ -915,6 +935,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT39_TESTS}
     ${OPENBFME_PORT101_TESTS}
     ${OPENBFME_PORT78_TESTS}
+    ${OPENBFME_PORT125_TESTS}
     ${OPENBFME_PLAY4_TESTS}
     ${OPENBFME_MAPRESET1_TESTS}
     ${OPENBFME_APT_TESTS}
@@ -931,6 +952,7 @@ add_executable(openbfme_tests
     ${OPENBFME_STRUCTURE_TESTS}
     ${OPENBFME_SPELL_TESTS}
     ${OPENBFME_PORT43_TESTS}
+    ${OPENBFME_PORT123_TESTS}
     ${OPENBFME_PORT51_TESTS}
     ${OPENBFME_PORT106_TESTS}
     ${OPENBFME_PORT81_TESTS}
@@ -946,6 +968,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT97_TESTS}
     ${OPENBFME_PORT112_TESTS}
     ${OPENBFME_PORT117_TESTS}
+    ${OPENBFME_PORT141_TESTS}
     ${OPENBFME_PORT87_TESTS}
     ${OPENBFME_RENDER_TESTS}
     ${OPENBFME_SKIRMISH_AI_TESTS}
@@ -1203,6 +1226,8 @@ add_executable(openbfme_tests
     # lane LOCAL-17 (tree and shrub textures: W3DTreeDraw/TextureName, TOP20 #22)
     tests/test_local_17.cpp
     tests/test_local_42.cpp
+    # lane LOCAL-43 (the context move hint's reach test, RW 0x81F65A .. 0x81F743, fork issue 360)
+    tests/test_local_43.cpp
     # lane LOCAL-18 (CombineHordeSpecialPower, SPECIAL_GIVE_UPGRADE_NEAREST, issue #143)
     tests/test_local_18.cpp
     # lane LOCAL-19 (object shadows parity: decal box fallback, opacity curve, shadow map casters, issue #146, TOP20 #5)

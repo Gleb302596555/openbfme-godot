@@ -7,6 +7,7 @@
 #include "Common/Player.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/AI/AIWorld.h"
+#include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/PlayerCommands.h"
 #include "GameClient/ControlBarCommands.h"
@@ -602,6 +603,48 @@ bool cameraMovedBeyond(const Coord3D &before, const Coord3D &after, int toleranc
 {
 	const float dx = after.x - before.x, dy = after.y - before.y, dz = after.z - before.z;
 	return std::sqrt(dx * dx + dy * dy + dz * dz) > (float)tolerance;
+}
+
+// lane LOCAL-43: RW 0x69E8D0 (see the header)
+bool canSelectionReachHint(const HudContext &ctx, const Coord3D &pos)
+{
+	const Player *local = ctx.localPlayer();
+	const ShroudManager *shroud = ctx.logic.shroud();
+	int cx = 0, cy = 0;
+	// RW 0x69E8D4 .. 0x69E8F7: RW 0xB4D9A0(local player + 0x54, pos) non-zero (not seen now, never seen or off the grid): true
+	if (!local || !shroud || !shroud->worldToCell(pos.x, pos.y, cx, cy) || shroud->lookerCount(local->getPlayerIndex(), cx, cy) <= 0)
+	{
+		return true;
+	}
+	AIWorld *world = ctx.logic.aiWorld();
+	for (ObjectID id : ctx.ui.selected()) // RW 0x69E8FF: InGameUI vslot 0x124, every selected drawable's object (Drawable + 0xFC)
+	{
+		const Object *o = ctx.logic.findObjectByID(id);
+		if (!o || o->isKindOfName("IMMOBILE")) // RW 0x69E937: RW 0x690E97 (IMMOBILE only, S-1920)
+		{
+			continue;
+		}
+		if (o->isKindOfName("ARMY_OF_DEAD")) // RW 0x69E943
+		{
+			return true;
+		}
+		AIUpdateInterface *ai = const_cast<Object *>(o)->getAIUpdateInterface(); // Object + 0x260
+		if (!ai)
+		{
+			continue;
+		}
+		if (o->isKindOfName("SHIP") && o->isKindOfName("GARRISON") && o->getContain()) // RW 0x66405C .. 0x664083: the transport branch (S-1920)
+		{
+			return true;
+		}
+		// RW 0x664104 .. 0x664112: Pathfinder::quickDoesPathExist(obj, its position, pos, no set). A logic without a pathfinder map (unit tests without a
+		// map) has nothing to test against: reached, as ResourceGatheringManager's collector does
+		if (!world || !world->mapReady() || world->pathfinder().quickDoesPathExist(ai->adapter(), o->getPosition(), &pos, nullptr))
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 } // namespace HudObjects

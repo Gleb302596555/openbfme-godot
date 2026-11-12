@@ -26,12 +26,15 @@
 //   * Range: template range (RW 0x6C9F5B), min range (RW 0x6CA03E), Weapon::getAttackRange (RW 0x6CA8BD / 0x6CA935 with the attribute scale applied
 //     twice), isTooClose (RW 0x6CA83B), isWithinAttackRange (RW 0x6CC07C), isWithinTargetPitch (RW 0x6CA9BF). The BOX geometry distance (RW 0x68F430)
 //     and calcPitches (RW 0xAD2620) are decoded structurally only: the host supplies them (stop S-183).
+//   * ProjectileStreamName (template + 0x178, field row RW 0xC173F8, ascii parser RW 0x42EE5E): RW 0x6CD1FD, called by privateFireWeapon's step 6
+//     (RW 0x6CF012) right after the status write-back. Weapon + 0x5C holds the id of the stream object the weapon made (0 = none).
 
 #pragma once
 
 #include "Common/INIDataTypes.h"
 #include "Common/RandomValue.h"
 #include "GameLogic/StateReturnType.h"
+#include "GameLogic/ObjectTypes.h"
 #include "GameLogic/Weapon.h"
 
 #include <cstdint>
@@ -78,6 +81,25 @@ public:
 	virtual float groundHeightAt(float x, float y) = 0;
 	// a LinearTarget offset rotated by the owner's orientation, z = ground height (RW 0x6CC2B4)
 	virtual Coord3D linearTargetPosition(float offsetX, float offsetY) = 0;
+
+	// ---- ProjectileStreamName (RW 0x6CD1FD, privateFireWeapon step 6 at RW 0x6CF012) ------------------------------------------------------
+	// The stream object the weapon keeps in Weapon + 0x5C. A weapon without the field, or with an empty one, makes none (RW 0x6CD212: an empty
+	// GameAsciiString skips the whole block). Once made it is reused: the id is replaced only when RW 0x6CD23D -> RW 0x449681 no longer finds the
+	// object (RW 0x6CD244 `jne`), which is `streamObjectByID`.
+	// RW 0x6CD238 push [weapon + 0x5C] / RW 0x6CD23D call RW 0x449681: GameLogic::findObjectByID of the weapon's stream object — one lookup for the
+	// three places retail makes it (the fire RW 0x6CD227 / 0x6CD23D, the destruction RW 0x6CD0E8). Retail tests the POINTER, so a dying object that is
+	// still in the list is reused.
+	virtual class Object *streamObjectByID(ObjectID id) = 0;
+	// Make the object of template `streamName` the way RW 0x6CD249 .. 0x6CD28E does: the template (RW 0x6D1305), the owner's player default team
+	// (RW 0x68B678 -> RW 0x79FD6F, team + 0x30, retrieved from `owner`), the empty status mask (RW 0xA3CF28) and the zero position RW 0x6CD25B ..
+	// 0x6CD261 builds (RW 0xA3CF28 zeroes it and nothing moves it before RW 0x6CD285), so the object is made at (0, 0, 0) and the first shot then puts
+	// it on the shooter (RW 0x90FBEE). Null when the name is not an object template (RW 0x6CD252 -> null: retail's newObject answers nothing, the
+	// weapon stays without a stream and reports nothing).
+	virtual class Object *createProjectileStream(const std::string &streamName, class Object &owner) = 0;
+	// The object whose weapon this is; null when the weapon has no live owner (RW 0x6CD227: the owner lookup fails and the weapon drops its stream).
+	virtual Object *weaponOwner() = 0;
+	// The recording side of the same object (RW 0x90FB7A .. 0x90FC5A, the object-target deliver) is the projectile launcher's:
+	// Combat/ProjectileLauncher.cpp, where the port knows the projectile object it made.
 };
 
 // A shot at a target: the owner position, the victim (if any) and the position (a position target, a scattered position or the linear target).
@@ -136,6 +158,15 @@ public:
 	unsigned getRemainingAmmo(WeaponHost &host, bool countReloadingAsEmpty) const;
 	// RW 0x6CDB73
 	float getPercentReadyToFire(WeaponHost &host) const;
+
+	// RW 0x6CD1FD (privateFireWeapon step 6, RW 0x6CF012): the weapon's projectile stream object, Weapon + 0x5C. Empty name: nothing happens.
+	void registerProjectileStream(WeaponHost &host);
+	// RW 0x6CD0BE, the Weapon destructor (entry RW 0x6CD0BE is the SEH prologue, the body follows at RW 0x6CD0C8; vtable RW 0xC18404 slot 0 = the
+	// deleting wrapper RW 0x6CDB57): the stream object the weapon holds is destroyed with the weapon (RW 0x6CD0DC push [esi + 0x5C] / RW 0x6CD0E8
+	// call RW 0x449681 GameLogic::findObjectByID / RW 0x6CD0F4 call RW 0x62BBAB GameLogic::destroyObject). A weapon that holds none does nothing
+	// (RW 0x6CD0EF `je 0x6CD0F9`).
+	void destroyProjectileStream(class GameLogic &logic);
+	std::uint32_t projectileStreamID() const { return m_projectileStreamID; } // +0x5C
 
 	// ---- bonus ----
 	// RW 0x6CA7AC
@@ -230,6 +261,7 @@ private:
 	std::uint32_t m_leechRangeDeadline = 0;
 	unsigned m_linearTargetCursor = 0;
 	int m_preAttackJitter = 0;
+	std::uint32_t m_projectileStreamID = 0; ///< +0x5C: the stream object this weapon made (0 = none; RW ctor 0x6CCF5D `mov [esi+0x5C], eax`, eax 0)
 };
 
 // =============================================================================================================================
