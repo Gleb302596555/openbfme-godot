@@ -6,7 +6,7 @@ authorized continuing #151 on `Drawable::recolorRenderObject`.
 All instruction addresses below were read with `tools/mod/rw.py ... dis` against
 the supplied RotWK 2.01 executable. No retail bytes or mod INI are included.
 
-## Current port
+## Historical port before Local 21 / reader fix
 
 `SubObjectsUpgradeModuleData::m_excludeSubobjects` is parsed by
 `UpgradeModuleClasses.cpp` but has no runtime consumer.
@@ -101,7 +101,7 @@ It is installed as vslot +0x1F8 in table `0xBEC7F0`; the inspected
 constructor body writes that table at `0x59F025`. The exact hierarchy
 composition selected by every model/LOD is not claimed here.
 
-## Blocking common mechanism: render-object replacement (S-090 / S-5015)
+## Historical blocker, resolved by Local 21: render-object replacement (S-090 / S-5015)
 
 The requested reader is an operation on the **current render object**, not a
 persistent negative house-colour flag. An excluded mesh returns before changing
@@ -151,7 +151,7 @@ must not be silently patched only for SubObjectsUpgrade or guessed from the
 current port. INFERENCE: the complete set of visual regressions is not yet
 measured; no new runtime behaviour is proposed or implemented.
 
-## Remaining
+## Historical remaining work at the scope stop
 
 Owner decision on the scope above; then finish the lifecycle analysis, implement
 one existing end-to-end path, obtain a mod reproduction scenario, add synthetic
@@ -159,7 +159,7 @@ PORT-47 tests/lane with red/green evidence and neighbouring behaviour, and open
 the requested PR. No PORT-47 test exists, no test expectation was changed, and
 no acceptance or visual verification is claimed. Game/mod data were not committed.
 
-## Build checkpoint
+## Historical build checkpoint at the scope stop
 
 The sandbox initially lacked CMake/Ninja; installed them inside ignored `.venv`
 from PyPI along with capstone/pefile. Tests-only Release CMake configuration
@@ -194,3 +194,44 @@ ClientEventRecorder and DrawableManager, assert exactly one ordered recolour,
 first-name-only/case-insensitive matching and retained base palette, plus no
 recolour for the negative gates and reset on texture removal. No other module
 fields or Local 21's implementation are to be changed.
+
+## Current verification checkpoint
+
+The reader is implemented in `SubObjectsUpgrade::upgradeImplementation` →
+`ObjectClientHooks::recolorHouse` → the existing ordered recorder/manager path
+→ `Drawable::recolorRenderObject`. The renderer and Local 21 lifecycle were
+not changed. New client events are transient, not simulation state.
+
+| Changed behaviour | RW evidence | Synthetic test in `test_port_47.cpp` |
+|---|---|---|
+| Texture then explicit recolour, once | 0x8B9265/69, 0x8B926B/72, 0x8B927D | upgrade recolours after texture replacement |
+| Controller day colour, kind 1; not night or custom | 0x4B8727/2C, 0x4B8759 | same case, different custom/base/night and explicit colours |
+| First exclusion only; empty means no exclusion | 0x4B873C..0x4B874F | same case and empty exclusion case |
+| Excluded mesh retains base colour; match after first dot, case-insensitive | 0x54BE24..0x54BE43 | same case, Blade / Armor / Extra.Blade |
+| House-enabled and campaign KindOf gates | 0x67274A, 0x672760/81 | no recolour case, nine input scenarios |
+| Subsequent texture removal resets overrides through existing lifecycle | 0x4C107F, 0x4C4648/4B, 0x4B2C18 | same case, removal assertion |
+
+Campaign-helper instructions were re-read at 0x5FF924, 0x626355 and 0x6253FD.
+INFERENCE (port representation, not RW branch semantics): the port's optional
+`campaignCarryover()` represents the current linear campaign pointer. Living
+World uses the existing gameKind/livingWorld fields. No new campaign-state
+plumbing was introduced; campaign startup/load outside these existing fields
+has not been verified here.
+
+All changed translation units, including the synthetic test, compile in the
+sandbox. Runtime assertions, red/green evidence and regression are pending the
+full tests-only Release single-job build; no passing test run is claimed yet.
+`tools/test_select.py --base origin/main` selects FULL (no test map; CMake
+registration cannot be traced). Game-dependent skips will not count as passes.
+
+Visible verification must be done by the owner, not claimed from these tests.
+The supplied Ennorath archive was checked: `LAGondorFighter` in
+`object/cinematic/lastallianceunits.ini`, `Armor_Upgrade`, heavy-armour trigger,
+RecolorHouse and the blade exclusion. Spawn it for a brightly coloured player
+with Cheat Mode (`docs/CHEAT_MODE.md`, spawn command), grant resources and
+research/purchase forged blades before heavy armour through its normal upgrade
+commands. Compare the already-visible blade to the recoloured armour, in day
+and night; the blade must retain its pre-upgrade material colour. The archive
+is extracted only under /tmp, and no INI or binary is committed. This is a
+proposed check, not an assertion that the cinematic unit is available in every
+faction's filtered cheat-panel list; the spawn API accepts template names.
