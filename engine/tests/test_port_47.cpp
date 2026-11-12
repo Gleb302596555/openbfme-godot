@@ -5,6 +5,7 @@
 #include "W3dSynth.h"
 #include "GameClient/ClientEvents.h"
 #include "GameClient/DrawableManager.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DDrawModules.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.h"
 
 namespace {
@@ -42,8 +43,11 @@ struct World {
     DrawableManager manager;
     ClientEventRecorder recorder;
     explicit World(bool texture = true, bool recolor = true, const std::string &exclude = "bLaDe Armor", const std::string &kind = "INFANTRY")
-        : f(objects(texture, recolor, exclude, kind).c_str()), assets(fs), manager(assets, *f.logic), recorder(*f.logic)
+        : f(""), assets(fs), manager(assets, *f.logic), recorder(*f.logic)
     {
+        W3DDrawModules::registerTypedDrawModuleData(f.w.modules);
+        const auto error = f.w.load(objects(texture, recolor, exclude, kind));
+        REQUIRE_MESSAGE(error.empty(), error);
         model(fs);
         f.logic->setClientHooks(&recorder);
         f.player("Alice")->setPlayerColor(0xFF102030);
