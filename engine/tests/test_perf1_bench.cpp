@@ -651,6 +651,8 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // pin: Local 30 (issue #246) re-measured the big battle once (OPENBFME_PERF1_REGEN=1, Windows MSVC, station-3): a hit in the record's own or the next frame
 // replaces the last damage record only as RW 0x8C4294 .. 0x8C42F5 says (a living source; the old one gone, or INFANTRY / CAVALRY / RW 0x68DAE6's five
 // structure kinds), so who-hit-me-last, the attacker marks and the retaliation it feeds change from frame 54; the skirmish and the allied blob do not move
+// pin: P-86 (command point bonus from upgrades, CommandPoints / Economy) re-measured the skirmish once on main 6042959f (OPENBFME_PERF1_REGEN=1,
+// Windows MSVC, station-2): the switch-off run with P-86 disabled keeps the old vector; the big battle and the allied blob do not move
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,
