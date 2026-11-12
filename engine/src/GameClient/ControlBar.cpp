@@ -671,10 +671,12 @@ void ControlBar::update()
 			for (int slot = start; slot < start + shown && slot < end; ++slot)
 			{
 				const CommandButton *b = set->getCommandButton(slot);
-				// lane PORT-152: RW 0x943E67 .. 0x943E85 (populateCommand's first pass): a button whose ToggleButtonName (+0x48) is not empty is
-				// replaced by the button of that name (TheControlBar->findButtonByName RW 0x71D6EA, the override chain RW 0x465AF4), when one is
-				// found; the bar slot then shows the toggle button (its image index is updated on it by RW 0x75D22E at RW 0x943E91)
-				if (b && !b->m_toggleButtonName.empty() && store)
+				// lane PORT-152: RW 0x943E59 first asks the object for status 0x64 COMMAND_BUTTON_TOGGLED (RW 0x44DDEC; TheObjectStatusNames
+				// RW 0xD8AFF0), and only while it is set: RW 0x943E67 .. 0x943E85 replaces a button whose ToggleButtonName (+0x48) is not empty by the
+				// button of that name (TheControlBar->findButtonByName RW 0x71D6EA, the override chain RW 0x465AF4), when one is found; the bar slot
+				// then shows the toggle button, whose image index RW 0x75D22E updates at RW 0x943E91 (value 0)
+				static const unsigned kCommandButtonToggled = (unsigned)ObjectTemplateInfoBuilder::objectStatusIndex("COMMAND_BUTTON_TOGGLED");
+				if (b && obj->testStatus(kCommandButtonToggled) && !b->m_toggleButtonName.empty() && store)
 				{
 					if (const CommandButton *toggle = store->findCommandButton(b->m_toggleButtonName))
 					{

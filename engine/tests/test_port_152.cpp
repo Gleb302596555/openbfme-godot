@@ -1,6 +1,6 @@
 // OpenBFME. GPL-3.0. PORT-152 (fork issue #370): the three CommandButton fields the command bar reads in RotWK 2.01 —
 // ToggleButtonName (+0x48) at RW 0x943E67 .. 0x943E91, RequiresValidContainer (+0x107) at RW 0x943F75 .. 0x943F91,
-// and the WeaponSlotToggle1/2/3 (+0x84/+0x88/+0x8C) image choice of the 0x800000 Options bit at RW 0x75D22E.
+// and the WeaponSlotToggle1/2/3 (+0x84/+0x88/+0x8C) image of the 0x800000 Options bit, the image index RW 0x75D22E writes at RW 0x943E91.
 // Everything comes from a synthetic INI: no game or mod files.
 #include "doctest.h"
 #include "MoveTestUtil.h"
@@ -110,10 +110,12 @@ struct ToggleRig
 		return nullptr;
 	}
 	const CommandButton *button(const char *name) const { return commands.findCommandButton(name); }
+	// the status RW 0x943E59 asks for before the ToggleButtonName lookup (index in TheObjectStatusNames, RW 0xD8AFF0 = 0x64)
+	void toggled(bool on) { unit->setStatus((unsigned)ObjectTemplateInfoBuilder::objectStatusIndex("COMMAND_BUTTON_TOGGLED"), on); bar.update(); }
 };
 } // namespace
 
-TEST_CASE("PORT-152 weapon toggle image: WeaponSlotToggle1/2/3 by KindOf (RW 0x75D22E 0x800000 arm, RW 0x75D2BB .. 0x75D319)")
+TEST_CASE("PORT-152 weapon toggle image: the KindOf picks WeaponSlotToggle1/2/3 (RW 0x75D22E 0x800000 arm, RW 0x75D2BB .. 0x75D319, read at RW 0x943E91)")
 {
 	SUBCASE("no special KindOf: WeaponSlotToggle1")
 	{
@@ -161,7 +163,7 @@ TEST_CASE("PORT-152 weapon toggle image: WeaponSlotToggle1/2/3 by KindOf (RW 0x7
 	}
 }
 
-TEST_CASE("PORT-152 weapon toggle image: without the 0x800000 Options bit or without Command TOGGLE_WEAPON the first image stays (RW 0x75D22E)")
+TEST_CASE("PORT-152 weapon toggle image: without the 0x800000 Options bit or without Command TOGGLE_WEAPON RW 0x75D22E writes nothing and the first image stays")
 {
 	SUBCASE("no 0x800000 option")
 	{
@@ -171,7 +173,7 @@ TEST_CASE("PORT-152 weapon toggle image: without the 0x800000 Options bit or wit
 		const ControlBarButton *c = r.shown(0);
 		REQUIRE(c);
 		CHECK(c->image == "SlotZero");
-		CHECK(c->textLabel == "Zero");
+		CHECK(c->textLabel == "Zero"); // the first labels too (the bar takes ButtonImage[0] / TextLabel[0], RW 0x71CF3E)
 	}
 	SUBCASE("another Command")
 	{
@@ -191,15 +193,27 @@ TEST_CASE("PORT-152 ToggleButtonName: the bar shows the button of that name in t
 		Buttons b;
 		b.weaponToggleName = "Port152Named";
 		ToggleRig r("", "", b, "  1 = Port152Weapon\n");
+		r.toggled(true); // RW 0x943E59: the toggle is on
 		const ControlBarButton *c = r.shown(0);
 		REQUIRE(c);
 		CHECK(c->button == r.button("Port152Named"));
 		CHECK(c->image == "PickedOne"); // the named button's own WeaponSlotToggle1 = SECONDARY
 		CHECK(c->textLabel == "Picked");
 	}
+	SUBCASE("with the status off the lookup does not happen: the button itself (RW 0x943E65 skips the whole block)")
+	{
+		Buttons b;
+		b.weaponToggleName = "Port152Named";
+		ToggleRig r("", "", b, "  1 = Port152Weapon\n");
+		const ControlBarButton *c = r.shown(0);
+		REQUIRE(c);
+		CHECK(c->button == r.button("Port152Weapon"));
+		CHECK(c->image == "SlotOne");
+	}
 	SUBCASE("an empty ToggleButtonName keeps the button itself (RW 0x943E6C: the empty string skips the lookup)")
 	{
 		ToggleRig r("", "", Buttons{}, "  1 = Port152Weapon\n");
+		r.toggled(true);
 		const ControlBarButton *c = r.shown(0);
 		REQUIRE(c);
 		CHECK(c->button == r.button("Port152Weapon"));
@@ -210,6 +224,7 @@ TEST_CASE("PORT-152 ToggleButtonName: the bar shows the button of that name in t
 		Buttons b;
 		b.weaponToggleName = "Port152Missing";
 		ToggleRig r("", "", b, "  1 = Port152Weapon\n");
+		r.toggled(true);
 		const ControlBarButton *c = r.shown(0);
 		REQUIRE(c);
 		CHECK(c->button == r.button("Port152Weapon"));
