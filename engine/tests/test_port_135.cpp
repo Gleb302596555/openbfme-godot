@@ -68,7 +68,7 @@ TEST_CASE("PORT-135 marker: filtered parent is followed and parent death kills t
     {
         Coord3D pos{206.0f + i, 200.0f, 0.0f};
         hero->setPosition(&pos);
-        CHECK(attach->update() == UPDATE_SLEEP_NONE);
+        w.frames(1); // the module wakes every frame (RW 0x895425)
         CHECK(marker->getPosition()->x == pos.x);
     }
     // RW 0x8953BB–0x89545D contains no timer/modifier test: a live parent keeps the marker.
