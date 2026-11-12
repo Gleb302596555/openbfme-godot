@@ -174,16 +174,19 @@ The synthetic PORT-138 route now runs without game files:
 No runtime difference was found in the hole -> worker -> staged-construction
 route already present in the port. The earlier red run was a fixture error
 (the delay replacement had not matched the one-line INI string, and the
- CombatWorld fixture lacked ProductionSettings), not a reproduced engine bug.
+CombatWorld fixture lacked ProductionSettings), not a reproduced engine bug.
 Accordingly this branch changes tests, CMake wiring and analysis only; it does
 not invent a second rebuild controller or a new delay.
 
-A full `openbfme_tests` run on this branch was **not green**: 6391 cases,
-6381 passed, 10 failed, 29 skipped. Five failures are the documented missing
-`lame`/`mpg123` MP3-fixture environment failures. The other five are in
-`bfme1 fields`, `cbhunt`, `heroring1`, `move SPEED` and `shroud objects`; the
-branch has no `engine/src` diff, so they are not introduced by Port 138's
-changes. They are reported for the night run rather than silently baselined.
+A full `openbfme_tests` run on this branch was **not green**. Before the
+final rebase it was 6391 cases, 6381 passed, 10 failed, 29 skipped; after
+rebasing onto origin/main 8b12b926 it was 6398 cases, 6385 passed, 13 failed,
+29 skipped. Five failures are the documented missing
+`lame`/`mpg123` MP3-fixture environment failures. The other eight after the
+rebase are in `bfme1 fields`, `cbhunt`, `heroring1`, `move SPEED`,
+`shroud objects`, `shader text` and two `shader budget` cases; the branch has
+no `engine/src` diff, so they are not introduced by Port 138's changes. They
+are reported for the night run rather than silently baselined.
 
 The visible Ennorath check still needs the mod assets and the owner's game:
 start an Ennorath skirmish with Cheat Mode, spawn a Wild economic building
