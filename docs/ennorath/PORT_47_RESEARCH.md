@@ -1,8 +1,8 @@
 # PORT-47 / issue #151 — research checkpoint (2026-11-08)
 
-Status: **stopped for owner scope decision; no engine change, no acceptance claim**.
-The reachable reader is proven, but the common render-object lifecycle needed
-to preserve its result is not ported (existing S-090 / S-5015).
+Status: **reader implementation in progress, unblocked by Local 21 (#161)**.
+The historical scope stop below was resolved by main b03e82c8. The owner
+authorized continuing #151 on `Drawable::recolorRenderObject`.
 All instruction addresses below were read with `tools/mod/rw.py ... dis` against
 the supplied RotWK 2.01 executable. No retail bytes or mod INI are included.
 
@@ -168,3 +168,29 @@ to the planned PORT-47 filter. The single-job build was restarted after rebasing
 (29814b9d); it is not a completed build or passing test run. Build stopped when
 the scope dependency was identified, rather than spending the full initial
 build on a documentation-only stop.
+
+## Reader integration after Local 21
+
+Re-read with rw.py dis: 0x8B9265..0x8B9284, 0x67273A..0x6727AD,
+0x4B8701..0x4B8771 and 0x54BE08..0x54BE43. Implement only their live reader:
+
+- Keep the existing texture event first. Only a nonempty UpgradeTexture with
+  RecolorHouse emits the subsequent recolour operation (0x8B9269 / 0x8B9272).
+- Preserve drawable enabled/campaign gates (0x67274A / 0x672781). The existing
+  campaign carryover pointer represents the linear-campaign context; Living
+  World uses gameKind == 3 and livingWorld (0x6253FD).
+- Require a controlling player (0x4B8727); snapshot kind 1 and its day colour,
+  independently of night/custom palettes (0x4B872C / 0x4B8759).
+- Snapshot only the first name, or empty for no exclusion (0x4B873C..0x4B874F).
+  Deliver once to Drawable::recolorRenderObject after upgradeTextures. Its
+  Local 21 implementation already owns all per-mesh and replacement state.
+- No simulation state, new parser, renderer path or saved-state layout is
+  introduced. Events are presentation-only, following ClientEventRecorder's
+  existing ordered owner-thread transport. Existing client reload limitations
+  (S-4190: no module loadPostProcess) are not expanded into a new save system.
+
+The synthetic tests must exercise an actual parsed SubObjectsUpgrade through
+ClientEventRecorder and DrawableManager, assert exactly one ordered recolour,
+first-name-only/case-insensitive matching and retained base palette, plus no
+recolour for the negative gates and reset on texture removal. No other module
+fields or Local 21's implementation are to be changed.
