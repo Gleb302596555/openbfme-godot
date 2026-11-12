@@ -1392,7 +1392,10 @@ def test_definition_fields(result):
     scorch = result[0][("fxthing", "/Scorch", "Type")]
     assert (scorch["status"], scorch["member"], scorch["how"]) == ("used", "m_scorchType", "block-parser")
     assert (status(result, "fxthing", "/Scorch", "Weather"), result[0][("fxthing", "/Scorch", "Weather")]["member"]) == ("used", "m_weather")
-    assert status(result, "bridge", "", "Width") == "stub-block"
+    # its own reader (BridgeReader.cpp names Bridge.ini) does not ask for Width: not a stub, the reader leaves it
+    width = result[0][("bridge", "", "Width")]
+    assert (width["status"], width["how"]) == ("parsed-unused", "own-reader-unasked")
+    assert width["where"] == "its own reader (GameClient/BridgeReader.cpp) does not ask for it"
     # its own reader stores Height and Depth into members (TerrainRoads.cpp): followed
     assert (status(result, "bridge", "", "Height"), result[0][("bridge", "", "Height")]["where"]) == ("used", "GameClient/BridgeReader.cpp:14")
     assert status(result, "bridge", "", "Depth") == "parsed-unused"
@@ -1503,3 +1506,26 @@ def test_object_nested_readers(result):
     assert status(result, "object", "/Award", "Shade") == "parsed-unused"  # the parser's own check that throws is no use
     assert status(result, "object", "/Threat", "Kind") == "used"
     assert status(result, "object", "/Threat", "Other") == "parsed-unused"
+
+
+def test_parsed_only_read_outside(result, tmp_path):
+    """a parsed-only class (typed data, no runtime class) whose member another file reads: an unambiguous read is used-outside (never used); an
+    AMBIGUOUS or INFERENCE read and an unread member stay parsed-only-module, the lead kept in where"""
+    _, _, mod, source = result
+    rw = tmp_path / "rw"
+    rw.mkdir()
+    rw_tables(rw)
+    cov = tmp_path / "coverage.tsv"
+    cov.write_text(COVERAGE.replace("TypedThing	Behavior	ported	1", "TypedThing	Behavior	parsed-only	1"), encoding="utf-8")
+    _, real = source.block_keywords()
+    rw_cls, rw_obj = fa.rotwk_tables(rw)
+    rows = {(r["block"], r["owner"], r["field"]): r for r in fa.audit(mod, rw_cls, rw_obj, fa.load_coverage(cov), source, real)}
+    used = rows[("object", "TypedThing", "Used")]
+    assert (used["status"], used["tool"]) == ("used-outside", "used-outside")
+    assert used["where"].startswith("GameLogic/Module/TypedThing.cpp:")
+    assert rows[("object", "TypedThing", "Unused")]["status"] == "parsed-only-module"
+    shared = rows[("object", "TypedThing", "Shared")]
+    assert shared["status"] == "parsed-only-module" and "AMBIGUOUS" in shared["where"]
+    level = rows[("object", "TypedThing", "Level")]
+    assert level["status"] == "parsed-only-module" and "INFERENCE" in level["where"]
+    assert not any(r["status"] == "used" for k, r in rows.items() if k[1] == "TypedThing")  # never folded into used
