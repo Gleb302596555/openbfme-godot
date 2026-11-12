@@ -100,11 +100,13 @@ TEST_CASE("PORT-153: the chance table and the scavanged resource list keep their
 	l.load(kPort153Army);
 	const ArmyDefinition *army = l.store.findArmy("Port153Side");
 	REQUIRE(army != nullptr);
-	// the percent parser (RW 0x42EEFA -> INI::scanPercentToReal, INI/INIMacro.cpp:249: pc24Mul(scanReal, 0.01f)) stores the
-	// exact float product: 30% is 0.3f * 0.01f, not the decimal 0.30, so the expected values are written as that product.
-	CHECK(army->chanceToUseAllUnitsForDefenseTarget[0] == 0.3f * 0.01f);
-	CHECK(army->chanceToUseAllUnitsForDefenseTarget[1] == 0.6f * 0.01f);
-	CHECK(army->chanceToUseAllUnitsForDefenseTarget[2] == 0.9f * 0.01f);
+	// the percent parser (RW 0x42EEFA -> INI::scanPercentToReal, INI/INIMacro.cpp:249) is
+	// `NumericState::pc24Mul(scanReal(token), 0.01f)`: the token "30%" scans as 30.0f and is multiplied by 0.01f in a
+	// 24-bit x87 register, so the stored value is that float product (0x3E999999), not the decimal 0.3 (0x3E99999A) —
+	// the chance is a 0..1 fraction, the range of the draw at RW 0x9EFB40.
+	CHECK(army->chanceToUseAllUnitsForDefenseTarget[0] == 30.0f * 0.01f);
+	CHECK(army->chanceToUseAllUnitsForDefenseTarget[1] == 60.0f * 0.01f);
+	CHECK(army->chanceToUseAllUnitsForDefenseTarget[2] == 90.0f * 0.01f);
 	// a block that does not write the rows keeps the constructor's values (RW 0x82FF49)
 	CHECK(army->scavangedResourceBuildings.empty());
 
@@ -128,7 +130,7 @@ TEST_CASE("PORT-153: the chance table and the scavanged resource list keep their
 	};
 	ArmyDefinition &mutableArmy = const_cast<ArmyDefinition &>(*l.store.findArmy("Port153Side"));
 	const std::uint32_t h0 = hash();
-	mutableArmy.chanceToUseAllUnitsForDefenseTarget[0] = 0.32f; // a different stored value (not the parse of 31%)
+	mutableArmy.chanceToUseAllUnitsForDefenseTarget[0] = 0.31f; // a different stored value
 	CHECK(hash() != h0);
 	const std::uint32_t h1 = hash();
 	mutableArmy.scavangedResourceBuildings.push_back("Port153LumberMill");
@@ -179,8 +181,8 @@ TEST_CASE("PORT-153: RW_GAME_DAT binary fact: only ScavangedResourceBuildings is
 		return;
 	}
 	// the picker RW 0x9B8D81: [record + 0x160] -> the army definition, then the vector's begin (+ 0xA4) and end (+ 0xA8)
-	CHECK(pe->u32At(0x9B8DA5) == 0x00016087);  // mov eax, dword ptr [edi + 0x160]  (8B 87 60 01 00 00)
-	CHECK(pe->u32At(0x9B8DAB) == 0x0000A888);  // mov ecx, dword ptr [eax + 0xA8]   (8B 88 A8 00 00 00)
+	CHECK(pe->u32At(0x9B8DA5) == 0x0160878B); // mov eax, dword ptr [edi + 0x160]  (8B 87 60 01 00 00)
+	CHECK(pe->u32At(0x9B8DAB) == 0x00A8888B); // mov ecx, dword ptr [eax + 0xA8]   (8B 88 A8 00 00 00)
 	// the element read RW 0x9B8E03: mov eax, dword ptr [eax + 0xA4] (8B 80 A4 00 00 00), the vector's begin
-	CHECK(pe->u32At(0x9B8E03) == 0x0000A480);
+	CHECK(pe->u32At(0x9B8E03) == 0x00A4808B);
 }

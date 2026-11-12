@@ -37,7 +37,7 @@ the trap the port's own history records for `SecondsTillTargetsCanExpire` / `Cha
 
 ## 3. Readers found
 
-### 3.1 `ChanceToUseAllUnitsForDefenseTarget_Small / _Med / _Large` (+0x7C, +0x80, +0x84) — READ
+### 3.1 `ChanceToUseAllUnitsForDefenseTarget_Small / _Med / _Large` (+0x7C, +0x80, +0x84) — a read exists, but it is unreachable (section 4)
 
 RW **0x9EFAF0** (the base `AITactic::initializeTeamTemplate`, slot 3 of the base tactic vtable):
 
@@ -71,7 +71,7 @@ SimpleDefense overrides slot 3 (RW 0x9B4EF0) and therefore never reads the table
 one tactic the port already had (STOPS S-417); every other tactic's team setup goes through this
 base slot, so the field matters for those.
 
-### 3.2 `ScavangedResourceBuildings` (+0xA4) — READ
+### 3.2 `ScavangedResourceBuildings` (+0xA4) — a reader exists, but its owner cannot be closed (section 5)
 
 RW **0x9B8D81** (a method, called from RW 0x9B9C01):
 
@@ -136,11 +136,53 @@ donor behaviour is not ported and the fields get a verdict with the addresses ab
 likewise absent from the donor's tactics/team builder code (only the field table and the ctor), so
 there is no donor reader whose loss in RotWK could be tracked; the RW scan above is the evidence.
 
-## 4. What follows for the port
+## 4. The vtable chain for the chance table (why 3.1 is a verdict, not a port)
 
-Ported (this issue): the base tactic team setup's chance table (3.1) and the round-robin
-`ScavangedResourceBuildings` picker (3.2), each where the port already has its equivalent
-(`AITacticalAI::setupTeam` / its tactic-team init, `AIStatCollector`'s army-list lookups).
+`0x9EFAFB` is slot 3 of the base `AITactic` vtable at `0xC8EE24` (dump: slots 0..5 =
+`0x9EFB74, 0x43B160, 0x43B160, 0x9EFAFB, 0x490AC4, 0x8F2466`). The chain
+create → constructor → vtable → slot fails:
 
-Stopped, with the addresses above: the nine fields of 3.3 — parsed, kept in `xfer`/hash as the
-rest of the block, never read by RotWK 2.01's AI.
+- the base constructor `RW 0x9EFAD6` (`mov esi, ecx; … call 0x8F1AA9; mov [esi], 0xC8EE24`)
+  and the destructor's twin `RW 0x9EFAF0` (`mov [ecx], 0xC8EE24; jmp 0x8F26C3`) are the **only**
+  two places in the whole image where the value `0xC8EE24` occurs (searched as a 4-byte literal);
+- all eight `AITactic`-derived vtable tables in `.rdata` replace slot 3:
+
+  | table | class | slot 3 |
+  |---|---|---|
+  | `0xC79664` | the AITactic clone with the base init | `0x8F121F` |
+  | `0xC894F4` | AIBasePenetrationTroopsTactic | `0x9B3684` |
+  | `0xC89848` | SimpleAttack | `0x8F121F` |
+  | `0xC89890` | SimpleDefense | `0x9B4EF0` |
+  | `0xC8EDEC` | targetless tactic | `0x8F121F` |
+  | `0xC8EEDC` | targetless tactic | `0x8F121F` |
+  | `0xC8EF10` | targetless tactic | `0x8F121F` |
+  | `0xC8EE24` | the base table itself | `0x9EFAFB` |
+
+So no object in the shipped game keeps the base table long enough for slot 3 to be called, and the
+chance-table read at `RW 0x9EFB45` never executes. The base constructor is still called (SimpleDefense's
+constructor `RW 0x9B4F8F` calls it at `RW 0x9B4FB8`) — the vtable store is simply overwritten by the
+derived constructor two instructions later (`RW 0x9B4FCC: mov [esi], 0xC89890`).
+
+## 5. The scavanged list's owner (why 3.2 is a verdict, not a port)
+
+`RW 0x9B8D81` is reached from `RW 0x9B9C01`, but that caller's function start is not derivable in this
+linked build: no `55 8B EC` prologue and no call target exists in the 4 KB before `RW 0x9B9C01`; the
+neighbouring bodies that *are* call targets (`0x9B8F84`, `0x9B90D6`, `0x9B92F6`) have no xref either,
+i.e. this region is entered by addresses not visible as rel32 call targets. The picker's own file literal
+`RW 0xC89F60` is `…\TargetlessTactics\AILumberMillBuildTactic.cpp`, but no instruction references that
+address (0 refs), and no vtable slot in the image points at `0x9B8D81` or at the surrounding bodies. With
+neither a constructor nor a vtable slot, create → constructor → vtable → slot cannot be closed, so what
+the picked name is used for (and when) is not established.
+
+## 6. What follows for the port
+
+**Nothing is ported: all thirteen fields get a verdict.** The issue's rule is explicit — a field with no
+reachable reader gets no code, no member and no test; the port keeps parsing the block and carrying it in
+`xfer`/the hash (`SkirmishAIData.cpp:282..304`, `:793..812`), which is what RotWK itself does with these
+bytes. The tests `PORT-153*` pin the parse, the hash contribution and the reader/vtable facts
+(`engine/tests/test_port_153.cpp`); the stop is `S-7325` in `docs/STOPS.md`.
+
+If another lane ever finds a caller of the function containing `RW 0x9B9C01`, or a store of `0xC8EE24`
+into an object, the verdict reopens and the reader goes into the path the port already has (the base
+tactic team setup for the chance table, the tactic that owns the picker for the list) — no second
+mechanism.
