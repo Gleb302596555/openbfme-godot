@@ -29,6 +29,7 @@
 #include "Common/Audio/GameAudio.h"
 #include "Common/Audio/SimulatedAudioDevice.h"
 #include "Common/Player.h"
+#include "Common/SpecialPower.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameClient/Eva.h"
 #include "GameLogic/Module/CastleModules.h"
