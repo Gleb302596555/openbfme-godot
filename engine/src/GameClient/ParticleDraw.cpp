@@ -115,17 +115,19 @@ const char *FogOmissionText()
 
 BatchOrder OrderForBatch(size_t rank, size_t count)
 {
-	const size_t levels = 120; // material priorities -128 .. -9
+	// P-101: material priorities kParticleRenderPriorityMin (-122) .. -9; the six below belong to the terrain decals (ParticleDraw.h). Before, the
+	// particles began at -128 and the decals' -150 .. -145 were refused by Godot (left at 0, drawn over every particle)
+	const size_t levels = (size_t)(kParticleRenderPriorityMax - kParticleRenderPriorityMin + 1);
 	BatchOrder o;
 	if (count <= levels)
 	{
-		o.priority = (int)rank - 128;
+		o.priority = (int)rank + kParticleRenderPriorityMin;
 		o.sortOffset = 0.0f;
 		return o;
 	}
 	// more batches than distinct priorities: the priority buckets stay monotone and the rank breaks ties inside a bucket through the transparent
 	// sort offset (the camera distance of the batch is tiny against the 1e5 step)
-	o.priority = (int)((rank * levels) / count) - 128;
+	o.priority = (int)((rank * levels) / count) + kParticleRenderPriorityMin;
 	o.sortOffset = (float)rank * 100000.0f;
 	return o;
 }

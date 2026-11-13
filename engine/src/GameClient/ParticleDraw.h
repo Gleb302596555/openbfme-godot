@@ -193,6 +193,20 @@ struct BatchOrder
 };
 BatchOrder OrderForBatch(size_t rank, size_t count);
 
+// P-101 / P-52: the transparent pass's render priorities. Godot accepts only RENDER_PRIORITY_MIN (-128) .. RENDER_PRIORITY_MAX (127): Material::
+// set_render_priority refuses anything else with an error and keeps the old value (checked with Godot 4.7.2: -150 stays 0). The terrain decals take the
+// six lowest values, in RotWK's order (RW 0x4E2E00: roads 0x4E2ECD, scorches 0x4E2FD0, tracks 0x4E3003, then the particles 0x4E302F); the particle
+// batches take the rest up to -9 (OrderForBatch).
+constexpr int kRenderPriorityMin = -128;
+constexpr int kTerrainRenderPriority = -128;
+constexpr int kWaterRenderPriority = -127;
+constexpr int kRiverRenderPriority = -126;
+constexpr int kRoadRenderPriority = -125;
+constexpr int kScorchRenderPriority = -124;
+constexpr int kTrackRenderPriority = -123;
+constexpr int kParticleRenderPriorityMin = -122;
+constexpr int kParticleRenderPriorityMax = -9;
+
 // Whether a merged sprite batch may be reordered back to front: only non-deferred ALPHA batches. Deferred (SortLevel 1) systems bypass the sorting
 // renderer in retail (RW 0x44cbed) and keep their list order.
 bool SpriteBatchDepthSorted(int shader, bool deferred);

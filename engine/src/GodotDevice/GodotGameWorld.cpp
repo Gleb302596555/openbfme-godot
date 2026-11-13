@@ -1321,6 +1321,10 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 	m_audio.reset(); // AUDIO-2: the audio side reads the game
 	m_cahCameraOffsetValid = false;
 	m_game.reset(new LiveGame(*m_world, *m_fs->archive_fs(), *m_assets, *m_options));
+	// Pause and playback speed belong to this node and can survive a failed Watch or an abandoned game.
+	// Start the new game independently; replay and pause controls may override these after loading.
+	m_paused = false;
+	m_timeScale = 1.0;
 	// lane WORKERFAIL-1: game.gd stops the game with this text (logic_failure); printed at once, on the worker, so the session log has it whatever happens next
 	m_game->setLogicFailureHandler([](const std::string &text) { UtilityFunctions::printerr(toGodot("GAME logic worker stopped " + text)); });
 	m_game->setRenderInterpolation(m_renderInterpolation);
@@ -1496,6 +1500,15 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 	dyn->set_playing(false); // time only enters through set_instance_pose
 	dyn->set_pose_culling(m_perf3Client); // PiP supplies an additional frustum when a second camera sees the live objects.
 	dyn->set_draw_culling(m_drawCulling); // lane GPUPERF-2: the same frusta decide what is drawn
+	if (m_fxPlayer && m_fxPlayer->playback())
+	{
+		// lane LOCAL-38: the map's objects see the scene's dynamic lights (W3DLightDraw lights, light pulses), each through its own light environment
+		dyn->set_scene_dynamic_lights(&m_fxPlayer->playback()->lightPulses());
+		if (W3DInstancer *st = instancerOf(m_staticId))
+		{
+			st->set_scene_dynamic_lights(&m_fxPlayer->playback()->lightPulses());
+		}
+	}
 	timings["static_layer_ms"] = timing::elapsedMs(t0);
 
 	t0 = nowMs();
@@ -2997,6 +3010,10 @@ void GameWorld::heldClientWork()
 		m_liveFX->updateAttachedSystems();
 		m_fxPlayer->advance(m_fxPendingDt);
 		syncBuffs(m_fxPendingDt); // lane SPELL-4
+		if (W3DInstancer *st = instancerOf(m_staticId))
+		{
+			st->refresh_object_lights(); // lane LOCAL-38: the static layer updates by hand; its objects' light environments follow the lights every frame
+		}
 	}
 	m_fxPendingDt = 0.0;
 	{

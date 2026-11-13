@@ -2,6 +2,7 @@
 // See GameLogic/AI/AIAttack.h for the target facts and the donors.
 
 #include "GameLogic/AI/AIAttack.h"
+#include "GameLogic/AI/AIAttackCharge.h"
 #include "GameLogic/AI/AIAttackMelee.h"
 #include "GameLogic/AI/AIEmotionStates.h"
 #include "GameLogic/AI/TurretAI.h"
@@ -234,6 +235,14 @@ std::unique_ptr<AIStateMachine> AIAttackState::createAttackMachine()
 			m_machineMade = melee ? MADE_HORDE_MELEE : MADE_HORDE_RANGED;
 			return m;
 		}
+	}
+	// PORT-133: attack kind 8 of RW 0x74CED6 (RW 0x74D01B .. 0x74D02A: the current weapon's CanFireWhileCharging, tested before the melee / ranged kinds) makes
+	// the charge machine RW 0x74523F (AIAttackCharge.cpp)
+	if (AttackUsesChargeMachine(owner()))
+	{
+		m_meleeMachine = false;
+		m_machineMade = MADE_CHARGE;
+		return makeChargeAttackMachine(a);
 	}
 	// lane PHYS-1: attack kind 2 of RW 0x74CED6 makes the melee machine RW 0x744B71 (AIAttackMelee.cpp); the weapon is already chosen
 	m_meleeMachine = AttackUsesMeleeMachine(owner(), m_isAttackingObject ? machine().goalObject() : nullptr, m_isAttackingObject);
@@ -630,8 +639,11 @@ StateReturnType AIAttackApproachState::startMove(const Coord3D &goal, Object *vi
 	// weapon reach, reserved, instead of a move to the victim's centre (the destination is not adjusted). A HORDE object attacks through its horde machine (the approach
 	// state 0xC9, computePath RW 0x74A594, S-590); a HORDE that reaches this generic approach keeps the move to the victim (RW 0x749A3E's branch distinctions and the
 	// melee machine 0xE1 / 0xE9 of RW 0x744B71 are not ported: S-784 / S-786)
+	// P-60: a POSITION target takes the attack path for every owner, a HORDE too: RW 0x749AC4 .. 0x749ACB (no goal object) -> RW 0x749D0D .. 0x749D31, the goal is
+	// the machine's goal position (+ 0x24) and requestAttackPath(0, &goal) (RW 0x663802) runs with no HORDE test. The horde kept a plain move onto the spot and,
+	// inside its rangefinder's MinimumAttackRange (Ennorath GoodArcherMissileHordeRangefinderBombard: 200), walked onto the Barrage point without shooting
 	static const int kHorde = ObjectTemplateInfoBuilder::kindOfIndex("HORDE");
-	if (source.isKindOf((unsigned)kHorde))
+	if (source.isKindOf((unsigned)kHorde) && victim)
 	{
 		m_move = std::make_unique<AIMoveToState>(a.mover(), goal, true);
 		return m_move->onEnter();
@@ -858,7 +870,7 @@ StateReturnType AIAttackAimState::aim(bool firstCall)
 		bool contact = false;
 		if (wt && (victim->isKindOf((unsigned)kWallTop) || victim->isKindOf((unsigned)kBlockingGate)) && wt->m_meleeWeapon)
 		{
-			contact = ObjectGeometry::worldspaceBestContactPoint(*victim, *self.getPosition(), "Ram", false, target);
+			contact = ObjectGeometry::worldspaceBestContactPoint(*victim, *self.getPosition(), "Ram", 0, 0, false, target);
 		}
 		if (!victim->isKindOf((unsigned)kWallUpgrade) && !contact)
 		{

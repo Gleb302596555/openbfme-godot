@@ -87,6 +87,84 @@ ButtonState buildAvailability(CanMakeType make, bool &commandPointsShort)
 }
 } // namespace
 
+// PORT-130 (issue #332): CommandButton::AffectsKindOf (RW +0x110, parse row RW 0xC2BD28). The reader is the
+// NEEDS_CASTLE_KINDOF branch of RotWK's ControlBar::getCommandAvailability (RW 0x942733), read with rw.py dis:
+//   RW 0x942993 `mov eax,[edi+0x1c]`, RW 0x942996 `test ah,8` -> Options bit 11 (0x800);
+//   RW 0x9429A0 `call 0x797bef` -> CastleMemberBehavior, RW 0x9429AA `push [eax+0x18]` its castle id,
+//   RW 0x9429B3 `call 0x449681` findObjectByID, RW 0x9429C2/0x9429CA the CastleBehavior module on that castle;
+//   RW 0x9429E9 `add eax,0x110` + RW 0x9429F6 `call 0x444d65` + RW 0x942A08 `rep movsd` copy the button's
+//   28-byte KindOf mask into a filter; RW 0x942A12 `call 0x7999e2` walks the castle's objects;
+//   callback RW 0x942348 calls RW 0x70C548 -> RW 0x661359 (7-dword ANY intersection), RW 0x94235B sets matched;
+//   RW 0x942A17 `cmp [ebp-0x4c],0`, RW 0x942A1B -> RW 0x942C5D `push 3; pop eax` = COMMAND_HIDDEN.
+// DONOR BFME2 0x53B946 (ControlBarCommand.cpp:446) and ControlBarRappellerCount.cpp:525/536 are the same branch;
+// the RW addresses above are the source of truth. This is the button's availability, not a cursor target test.
+namespace
+{
+// RW 0x661359: `test [ecx],esi` over seven 32-bit words; any bit common to the two masks.
+bool kindOfMasksIntersect(const KindOfMaskType &objectMask, const KindOfMaskType &buttonMask)
+{
+	for (size_t word = 0; word < objectMask.size(); ++word)
+	{
+		if (objectMask[word] & buttonMask[word])
+		{
+			return true;
+		}
+	}
+	return false;
+}
+} // namespace
+
+bool ControlBar::castleKindOfAllows(const CommandButton &b, Object &obj)
+{
+	// RW 0x942999 `je 0x942a24`: without Options = NEEDS_CASTLE_KINDOF the mask is not read at all.
+	if (!b.hasOption(COMMAND_OPTION_NEEDS_CASTLE_KINDOF))
+	{
+		return true;
+	}
+	// RW 0x9429A8 `je 0x942a24`: an object with no CastleMemberBehavior keeps its normal availability.
+	const CastleMemberBehavior *member = nullptr;
+	for (const std::unique_ptr<BehaviorModule> &m : obj.modules())
+	{
+		member = dynamic_cast<const CastleMemberBehavior *>(m.get());
+		if (member)
+		{
+			break;
+		}
+	}
+	if (!member)
+	{
+		return true;
+	}
+	// RW 0x9429BC `je 0x942c5d`: a member whose castle object no longer exists hides the button (3).
+	Object *castle = obj.logic().findObjectByID(member->castleId());
+	if (!castle)
+	{
+		return false;
+	}
+	// RW 0x9429D4 `je 0x942a24`: no CastleBehavior on the castle object -> the filter is skipped.
+	const CastleBehavior *behaviour = CastleBehavior::of(*castle);
+	if (!behaviour)
+	{
+		return true;
+	}
+	// RW 0x7999E2 walks the castle itself, its keep, foundations, members, crew and defence foundations;
+	// CastleBehavior::forEachMemberId is the port's walk over exactly that set. RW 0x942348 stops at the
+	// first match (returns 0); the callback here only records it. A null object is skipped (RW 0x799A2D).
+	bool matched = false;
+	behaviour->forEachMemberId([&](ObjectID id)
+	{
+		if (matched)
+		{
+			return;
+		}
+		if (const Object *o = obj.logic().findObjectByID(id))
+		{
+			matched = kindOfMasksIntersect(o->getKindOf(), b.m_affectsKindOf);
+		}
+	});
+	return matched; // RW 0x942A1B -> RW 0x942C5D: no object of the castle has any of the button's KindOf bits
+}
+
 ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &commandPointsShort, bool ignoreDisabled)
 {
 	// ZH ControlBar::getCommandAvailability (ControlBarCommand.cpp:1017), the subset whose logic is ported (stop S-290)
@@ -175,6 +253,12 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 			return ButtonState::Restricted;
 		}
 	}
+	// PORT-130: RW 0x942993..0x942A1B, before every command's own rule (as in RW, after NEED_UPGRADE).
+	// A NEEDS_CASTLE_KINDOF button whose castle owns no object of AffectsKindOf is HIDDEN, not restricted.
+	if (!castleKindOfAllows(b, obj))
+	{
+		return ButtonState::Hidden; // RW 0x942A1B -> RW 0x942C5D (availability 3)
+	}
 	ProductionUpdateInterface *pu = obj.getProductionUpdate();
 	if (pu && pu->firstProduction() && b.hasOption(COMMAND_OPTION_NOT_QUEUEABLE))
 	{
@@ -231,6 +315,7 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 			return StancesBehavior::of(obj) ? ButtonState::Enabled : ButtonState::Restricted;
 		case GUI_COMMAND_SET_STANCE:
 			return ButtonState::Enabled; // RW 0x942733: type 0x3A is in the default (available) arm
+		case GUI_COMMAND_WAKE_AUTO_PICKUP: // PORT-137: RW 0x942A5C table shares the contain gate with TOGGLE_WEAPONSET
 		case GUI_COMMAND_TOGGLE_WEAPONSET:
 			// lane HUD-4: RW 0x942FC6: restricted while a non-horde contain of the object holds someone, else available
 			return WeaponSetToggle::isRestrictedByContain(obj) ? ButtonState::Restricted : ButtonState::Enabled;
@@ -470,7 +555,6 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 		case GUI_COMMAND_TOGGLE_WEAPON:          // RW 0x9437E7
 		case GUI_COMMAND_ONE_RING:               // RW 0x94387B
 		case GUI_COMMAND_CREW_EVACUATE:          // RW 0x94331B
-		case GUI_COMMAND_WAKE_AUTO_PICKUP:       // RW 0x942FC6
 		case GUI_COMMAND_START_SELF_REPAIR:      // RW 0x942D83
 		case GUI_COMMAND_HORDE_SET_FORMATION:    // RW 0x9438A0
 		case GUI_COMMAND_START_NEIGHBORHOOD_REPAIR: // RW 0x942DED
@@ -1010,6 +1094,22 @@ void ControlBar::update()
 					}
 				}
 				cb.hotkey = hotkeyOf(cb.textLabel);
+				if (cb.state == ButtonState::NotReady && b->m_command == GUI_COMMAND_FIRE_WEAPON)
+				{
+					// P-64 (Erkenbrand's Time to Strike showed no recharge): the availability RW 0x942733 writes the clock's percent (its out parameter + 0x14,
+					// 1.0 at entry RW 0x942752) in the not-ready branch of case 0x17 (RW 0x943215 .. 0x943243): a weapon RELOADING_CLIP (3) or whose template
+					// can fire while charging or always shows its readiness (RW 0x6CA415) gets Weapon::getPercentReadyToFire (RW 0x6CDB73), any other 0;
+					// updateContextCommand draws it as the button's clock (RW 0x943C9C .. 0x943CB0, percent * 100)
+					ObjectWeapons *weapons = obj->getWeapons();
+					const Weapon *weapon = weapons ? weapons->weaponInSlot(b->m_weaponSlot) : nullptr;
+					const WeaponTemplate *wt = weapon ? weapon->getTemplate() : nullptr;
+					if (weapon && wt)
+					{
+						const int status = weapons->slotStatus(b->m_weaponSlot);
+						cb.timer = status == WEAPON_RELOADING_CLIP || wt->m_canFireWhileCharging || wt->m_forceDisplayPercentReady
+							? weapon->percentReadyToFire(status, m_ctx.logic.getFrame()) : 0.0f;
+					}
+				}
 				if (cb.state == ButtonState::NotReady && b->m_command == GUI_COMMAND_SPECIAL_POWER)
 				{
 					if (SpecialPowerModuleInterface *sp = SpecialPowerModules::findModule(*obj, specialPowerOf(*b)))

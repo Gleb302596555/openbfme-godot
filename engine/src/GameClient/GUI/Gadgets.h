@@ -88,6 +88,11 @@ void GadgetListBoxSetBottomVisibleEntry(GameWindow *window, int newPos);
 int GadgetListBoxGetTopVisibleEntry(GameWindow *window);
 void GadgetListBoxSetTopVisibleEntry(GameWindow *window, int newPos);
 void GadgetListBoxSetAudioFeedback(GameWindow *listbox, bool enable);
+// P-93: TheAudio's MiscAudio ComboBoxClick (MiscAudio + 0xC0, field table RW 0xBF5750; Ennorath / RotWK miscaudio.ini: GUIComboBoxClick) as a 2D
+// interface sound. GadgetPlayComboBoxClick plays it always (the drop-down toggles RW 0x724619 .. 0x72465D, RW 0x725338 .. 0x72537D);
+// GadgetListBoxPlayFeedback only for a list with audioFeedback (ListboxData + 0xE, RW 0x725868 .. 0x7258D5). An empty or NoSound slot plays nothing.
+void GadgetPlayComboBoxClick();
+void GadgetListBoxPlayFeedback(GameWindow *listbox);
 inline GameWindow *GadgetListBoxGetSlider(GameWindow *g)
 {
 	ListboxData *listData = static_cast<ListboxData *>(g->winGetUserData());

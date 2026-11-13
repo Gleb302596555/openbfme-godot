@@ -145,6 +145,13 @@ TEST_CASE("PORT-12: parse MinDistFromEdgeOfMapForBuild and require it with the o
 	REQUIRE_MESSAGE(GameLogicSettingsLoader::scanGameData(withoutMargin, missing, &error), error);
 	CHECK_FALSE(missing.buildRulesLoaded); // do not silently assume a missing edge margin is zero
 
+	// review lane PRTRLW (Sol note): GameData rows are additive, so a later scan without the margin row keeps an earlier complete scan's readiness
+	GameLogicSettings twice;
+	REQUIRE_MESSAGE(GameLogicSettingsLoader::scanGameData(kBuildRules, twice, &error), error);
+	REQUIRE_MESSAGE(GameLogicSettingsLoader::scanGameData(withoutMargin, twice, &error), error);
+	CHECK(twice.buildRulesLoaded);
+	CHECK(twice.minDistFromEdgeOfMapForBuild == 30.0f);
+
 	GameLogicSettings laterAIData;
 	laterAIData.buildRulesLoaded = true;
 	REQUIRE_MESSAGE(GameLogicSettingsLoader::scanAIData("AIData\nEnd\n", laterAIData, &error), error);

@@ -763,6 +763,7 @@ void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha
 				}
 			}
 		}
+		syncContainedPoses(snapshot); // PORT-146: the objects on a bone of their container ride its presentation pose
 		m_animationSounds.update();
 		updateEvaAnnounces(snapshot);
 		EvaSighting::update(*this, snapshot, m_logic, m_evaSighting);
@@ -826,11 +827,50 @@ void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha
 			d->applyPhysicsXform(*prep.rec, prep.pose); // LOCAL-25
 		}
 	}
+	syncContainedPoses(snapshot); // PORT-146: the objects on a bone of their container ride its presentation pose
 	// lane AUDIO-4: TheAnimationSoundModuleManager's client update (RW 0x83F321), after the animations advanced and the drawables moved
 	m_animationSounds.update();
 	updateEvaAnnounces(snapshot);
 	EvaSighting::update(*this, snapshot, m_logic, m_evaSighting);
 	syncTracks(snapshot);
+}
+
+// PORT-146 (issue #363): an object that stands on a bone of its container takes the container's presentation pose times its own place in the
+// container's frame (ContainedPose.h) - the client part S-1104 records as the drawable bone attachment. Every drawable's own pose is final by now (the
+// LOCAL-25 presentation physics ran for all of them), so the pass runs after the loops, in slot order; a rider of a rider finds its container's already
+// composed pose when the container's slot comes first (its drawable was created first, as a container always is) and one frame behind otherwise.
+void DrawableManager::syncContainedPoses(const LogicSnapshot &snapshot)
+{
+	const size_t slots = m_slots.size();
+	for (size_t i = 1; i < slots; ++i)
+	{
+		Drawable *d = m_slots[i].get();
+		if (!d)
+		{
+			continue;
+		}
+		const ObjectSnapshot *rec = snapshot.find(d->getObjectID());
+		if (!rec || !rec->containedOnBone) // a horde's member, a hidden garrison rider, a rider whose container found no bone for it
+		{
+			d->clearContainedPose();
+			continue;
+		}
+		const Drawable *container = findByObject(rec->containedBy);
+		if (!container || container == d)
+		{
+			d->clearContainedPose();
+			continue;
+		}
+		containedpose::Pose presentation;
+		container->getPresentationPose(presentation.basis, presentation.pos);
+		containedpose::Pose containerLogic;
+		std::memcpy(containerLogic.basis, container->getBasis(), sizeof(containerLogic.basis));
+		containerLogic.pos = *container->getPosition();
+		containedpose::Pose riderLogic;
+		std::memcpy(riderLogic.basis, d->getBasis(), sizeof(riderLogic.basis));
+		riderLogic.pos = *d->getPosition();
+		d->setContainedPose(containedpose::compose(presentation, containerLogic, riderLogic));
+	}
 }
 
 void DrawableManager::syncTracks(const LogicSnapshot &snapshot)

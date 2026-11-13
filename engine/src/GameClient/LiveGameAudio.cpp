@@ -930,7 +930,10 @@ void LiveGameAudio::update()
 		if (!info)
 		{
 			++m_stats.ambientUnknownEvent;
-			a.tried = true;
+			// RW 0x45CEA7 .. 0x45CEB4: RotWK's addAudioEvent refuses an event without info but does not permanently
+			// silence the object. The port's update scan retries unresolved ambients every frame, so an ambient whose
+			// audio event is not yet loaded at the first game-start scan (Isengard's AmbientIsengartBoden) still
+			// starts once the event is available instead of being silently dropped forever.
 			return;
 		}
 		// ZH Drawable.cpp:4518: global or critical sounds always start; others only inside MaxRange of the listener (retried here every frame until they

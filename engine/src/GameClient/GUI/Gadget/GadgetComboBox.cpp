@@ -138,6 +138,7 @@ WindowMsgHandledType GadgetComboBoxInput(GameWindow *window, std::uint32_t msg, 
 				{
 					HideListBox(window);
 				}
+				GadgetPlayComboBoxClick(); // P-93: the toggle RW 0x724495 ends with MiscAudio ComboBoxClick (RW 0x724619 .. 0x72465D), open or close
 			}
 			break;
 		}
@@ -381,6 +382,7 @@ WindowMsgHandledType GadgetComboBoxSystem(GameWindow *window, std::uint32_t msg,
 					{
 						HideListBox(window);
 					}
+					GadgetPlayComboBoxClick(); // P-93: the toggle RW 0x724495 ends with MiscAudio ComboBoxClick (RW 0x724619 .. 0x72465D), open or close
 				}
 			}
 			break;

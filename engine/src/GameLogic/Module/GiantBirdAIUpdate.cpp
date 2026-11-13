@@ -1778,8 +1778,8 @@ bool GiantBirdAIUpdate::routeCommand(const RoutedCommand &c)
 		}
 		return true;
 	case 0x48:
-		// RW 0x76DAF4: RW не проверяет null и падает; порт отменяет команду (решение владельца 2026-11-06, #57).
-		// INFERENCE: достижимость разыменования после удаления цели не доказана; соседняя ветвь 0x76A139 возвращается без изменения машины.
+		// RW 0x76DAF4: retail reads the ID without a null test and faults; the port cancels the command (owner decision 2026-11-06, #57).
+		// INFERENCE: reachability of that read after the target's removal is not proved; the adjacent branch RW 0x76A139 returns without touching the machine.
 		if (!c.target)
 		{
 			o.logic().noteStop("[PORT-5] missing GiantBird ability target: command cancelled (INFERENCE, RW 0x76DAF4; owner decision #57)");

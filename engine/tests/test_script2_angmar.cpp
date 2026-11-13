@@ -136,8 +136,10 @@ static void runFoundation(SimulationProfile profile, bool defend, const SaveGame
 		// pin: the fork's merge of upstream 3e363ff9 (2026-11-06, measured once on the merged tree, Windows MSVC): the merged tree gives upstream's q42 table
 		// (CASTLEATK-1 and #216's banner rule; the fork's TOP20 #21 r3, P-48's cause, adds nothing on top): wolf rider hits 829 -> 401, banner carrier 43 -> 48,
 		// four full sling hits, five 50s, the last sling hit taking 1318
-		const std::map<std::string, int> expected = { { "AngmarThrallMasterWolfBanner dealt 2 taken 2", 48 }, { "AngmarTrollSling dealt 1350 taken 1318", 1 },
-			{ "AngmarTrollSling dealt 1350 taken 1350", 4 }, { "AngmarTrollSling dealt 50 taken 50", 5 }, { "AngmarWolfRider dealt 5 taken 5", 401 } };
+		// pin: the fork's merge of upstream 1d505ac3 (2026-11-13, measured once on the merged tree, Windows MSVC; REQTHROTTLE-1's path request throttle and
+		// ENTERADJUST-1 move the game): wolf rider hits 401 -> 421, banner carrier 48 -> 51, the last sling hit taking 1073 (1318); the sling counts stay
+		const std::map<std::string, int> expected = { { "AngmarThrallMasterWolfBanner dealt 2 taken 2", 51 }, { "AngmarTrollSling dealt 1350 taken 1073", 1 },
+			{ "AngmarTrollSling dealt 1350 taken 1350", 4 }, { "AngmarTrollSling dealt 50 taken 50", 5 }, { "AngmarWolfRider dealt 5 taken 5", 421 } };
 		CHECK(kinds == expected);
 	};
 	if (!saved)

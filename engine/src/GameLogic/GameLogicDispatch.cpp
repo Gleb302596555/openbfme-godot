@@ -8,6 +8,8 @@
 #include "Common/Thing/ThingFactory.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/GameLogic.h"
+#include "GameLogic/AI/AICommands.h"
+#include "GameLogic/Module/AutoPickUpUpdate.h"
 #include "GameLogic/Module/ClickReactionBehavior.h"
 #include "GameLogic/Module/ExitInterface.h"
 #include "GameLogic/Module/ProductionUpdate.h"
@@ -46,6 +48,7 @@ bool GameLogicDispatch::executedHere(int type)
 		case MSG_QUEUE_UNIT_CREATE:
 		case MSG_CANCEL_UNIT_CREATE:
 		case MSG_SET_RALLY_POINT:
+		case MSG_WAKE_AUTO_PICKUP:
 			return true;
 		default:
 			return false;
@@ -202,6 +205,22 @@ void GameLogicDispatch::dispatch(const GameMessage &m)
 				error(m, "no such player");
 			}
 			break;
+		case MSG_WAKE_AUTO_PICKUP:
+		{
+			const GameMessageArgument *a = m.getArgument(0);
+			if (!a || a->type != ARGUMENTDATATYPE_INTEGER)
+			{
+				error(m, "expected pickup button number");
+				break;
+			}
+			// RW 0x77B51F -> 0x76FB3F: every object in the selected group receives the number;
+			// RW 0x68C8DE wakes only matching AutoPickUpUpdate modules, the same path as ObjectDoCommandButton.
+			for (ObjectID id : AICommands::selection(m_logic, m.getPlayerIndex()))
+			{
+				if (Object *obj = m_logic.findObjectByID(id)) AutoPickUpUpdate::wakeAutoPickUp(*obj, a->integer);
+			}
+			break;
+		}
 		case MSG_QUEUE_UNIT_CREATE:
 			queueUnitCreate(m);
 			break;

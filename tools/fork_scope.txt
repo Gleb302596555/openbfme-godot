@@ -2,4 +2,4 @@
 # (BFME1, the BFME2 campaigns, Edain, Edain Unchained, Patch 2.02): the code stays as upstream ships it, the fork does not run or fix them.
 # tools/test_select.py adds these doctest options to every run; the nightly full run takes them too. One option per line.
 -sfe=*test_bfme1_isolation.cpp,*test_bfme2camp1.cpp,*test_bfme2camp1_m3.cpp,*test_bfme2camp1_m4.cpp,*test_mods3_engine.cpp
--tce=*bfme1*,*edain*,*unchained*,*patch 2.02*
+-tce=*bfme1*,*edain*,*unchained*,*patch 2.02*,bridgeclick1 retail*

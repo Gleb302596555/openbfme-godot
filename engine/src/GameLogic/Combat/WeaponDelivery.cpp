@@ -2110,6 +2110,7 @@ void ObjectWeaponDelivery::fireWeaponTemplate(const WeaponBonus &bonus, int curB
 			shot.bonus = bonus;
 			shot.barrel = curBarrel;
 			shot.slot = m_firing->getSlot(); // the firing weapon's slot (lane DECOMP-1 r3); the nugget's WeaponLaunchBoneSlotOverride still wins in the launcher
+			shot.streamID = m_firing->projectileStreamID(); // issue #99 / PORT-27: the stream the firing weapon holds (Weapon + 0x5C, RW 0x90FB80)
 			shot.nugget = &pn;
 			if (pn.m_useAlwaysAttackOffset)
 			{
@@ -2292,9 +2293,9 @@ Coord3D ObjectWeaponDelivery::scatterTargetPos(Object *victim, Coord3D pos)
 // RW 0x6CB85A(out, source, victim, flag 1), the aim query of the fire FX block (lane FX-2 review). TARGET FACTS: RW 0x6CB81A first asks the victim for the
 // weapon's PreferredTargetBone (+0x90): a non-empty name found exactly once among the victim drawable's pristine bones (RW 0x68C5AF -> 0x672A73, then
 // 0x70BCE7 to world) is the answer with no draw; otherwise GameLogicRandomValue(0, 0xBC614E = 12345678) is drawn (Weapon.cpp:1749, RW 0x6CB8C2..0x6CB8D3)
-// and handed as the seed to RW 0x690BD2, the victim geometry's contact point. The contact point is stop S-362's approximation (the geometry centre, the seed
-// unused) exactly as BezierProjectileBehavior::aimPosition has it. The bone answer comes from the launch bone provider (template data and logic state);
-// without one (a GameLogic without the W3D assets) no bone is found.
+// and handed as the seed to RW 0x690BD2, the victim geometry's contact point with preference 3. S-362's geometry-centre approximation is replaced by this
+// contact-point aim. The bone answer comes from the launch bone provider (template data and logic state); without one (a GameLogic without the W3D assets)
+// no bone is found.
 Coord3D ObjectWeaponDelivery::fireFXAimPosition(const Object &victim)
 {
 	GameLogic &logic = m_source->logic();
@@ -2304,10 +2305,13 @@ Coord3D ObjectWeaponDelivery::fireFXAimPosition(const Object &victim)
 		return bone;
 	}
 	const int seed = logic.random().getValue(0, 12345678, kWeaponCpp, 1749);
-	(void)seed; // RW 0x690BD2's aim point choice (S-362)
-	Coord3D aim = *victim.getPosition();
-	aim.z = SimMath::addf32(aim.z, SimMath::mulf32(CombatQueries::geometry(victim).height, 0.5f));
-	return aim;
+	Coord3D aim;
+	if (ObjectGeometry::worldspaceBestContactPoint(victim, *m_source->getPosition(), "", 3, seed, false, aim))
+	{
+		return aim;
+	}
+	// RW 0x6CB8F8..0x6CB963: no contact point answered -> the victim's position
+	return *victim.getPosition();
 }
 
 // RW 0x6CC915, the fire FX block (0x6CCAA7..0x6CCBF6; lane FX-2). It runs when the source has a drawable (RW 0x70E013): every object has one in retail

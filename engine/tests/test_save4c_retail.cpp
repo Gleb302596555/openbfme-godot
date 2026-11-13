@@ -1177,7 +1177,9 @@ TEST_CASE("save4c coverage (review r2): units attacking, moving, guarding, hunti
 		return ai->world().pathfinder().clientSafeQuickDoesPathExist(ai->locomotorInfo(), &from, &to);
 	};
 	Object *mover = firstOf(playerIds[1], [&](Object *o) { return takes(o, 0) && reachableMover(o); });
-	Object *guard = firstOf(playerIds[2], [&](Object *o) { return takes(o, 0); });
+	// the guard is an idle unit: after the merge of upstream 1d505ac3 the first fit at frame 3000 was an ElvenLorienArcherHorde busy in its own state 50, which
+	// carried on with it (AI_MOVE_TO) after guardHere; before it, the first fit was an idle ElvenPorter. An idle unit keeps the guard order the test saves
+	Object *guard = firstOf(playerIds[2], [&](Object *o) { return takes(o, 0) && o->getAIUpdateInterface()->currentStateId() == AI_IDLE; });
 	auto huntable = [&](Object *o) { return armed(o) && takes(o, 0x12) && GarrisonRules::isMobile(*o) && hasPrey(o) && keepsHunt.count(o->getID()) == 1; }; // RW 0x66450F's test
 	Object *hunter = firstOf(playerIds[3], [&](Object *o) { return huntable(o) && !inAITeam(o); });
 	hunter = hunter ? hunter : firstOf(playerIds[3], huntable);

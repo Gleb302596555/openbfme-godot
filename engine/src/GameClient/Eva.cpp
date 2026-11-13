@@ -27,9 +27,7 @@ void Eva::reset()
 	m_lastPlayed.assign(m_ini.eva.recordCount(false), -1.0);
 	m_lastReported.assign(m_ini.eva.recordCount(false), -1.0);
 	m_speech = 0;
-	m_jumpTo.clear();
-	m_jumpIndex = 0;
-	m_lastJumpMs = -1.0;
+	m_playedJumps.clear();
 	m_enabled = true;
 }
 
@@ -90,28 +88,9 @@ bool Eva::reportEvent(int index, const Coord3D *position, double nowMs, const Co
 	p.reportedMs = nowMs;
 	p.hasPosition = position != nullptr;
 	p.position = position ? *position : Coord3D();
+	p.hasJump = jumpPosition != nullptr;
+	p.jump = jumpPosition ? *jumpPosition : Coord3D();
 	m_pending.push_back(p);
-	const Coord3D *jumpLoc = jumpPosition ? jumpPosition : position;
-	if (r->countAsJumpToLocation && jumpLoc)
-	{
-		const MiscEvaData &misc = m_ini.eva.miscEvaData();
-		bool merged = false;
-		for (JumpTo &j : m_jumpTo)
-		{
-			const float dx = j.position.x - jumpLoc->x, dy = j.position.y - jumpLoc->y;
-			if (std::sqrt(dx * dx + dy * dy) < misc.minDistanceBetweenJumpToEvents)
-			{
-				j.position = *jumpLoc;
-				j.atMs = nowMs;
-				merged = true;
-				break;
-			}
-		}
-		if (!merged)
-		{
-			m_jumpTo.push_back({ *jumpLoc, nowMs });
-		}
-	}
 	return true;
 }
 
@@ -155,16 +134,6 @@ void Eva::blockOthers(const EvaEventRecord &record, double nowMs)
 
 void Eva::update(double nowMs)
 {
-	// jump-to events past their keep time are forgotten
-	const double keep = frameMs(m_ini.eva.miscEvaData().maxMillisecondsToKeepJumpToEventsFrames);
-	if (keep > 0.0)
-	{
-		m_jumpTo.erase(std::remove_if(m_jumpTo.begin(), m_jumpTo.end(), [&](const JumpTo &j) { return nowMs - j.atMs > keep; }), m_jumpTo.end());
-		if (m_jumpIndex >= m_jumpTo.size())
-		{
-			m_jumpIndex = 0;
-		}
-	}
 	// expiry
 	for (auto it = m_pending.begin(); it != m_pending.end();)
 	{
@@ -244,6 +213,11 @@ void Eva::update(double nowMs)
 	if (m_speech >= AHSV_FirstHandle)
 	{
 		++m_counters.played;
+		// RW 0x5DD802 .. 0x5DD826: the sound started (handle >= 5) and the record counts as a jump-to location: its jump position, else its position
+		if (rec.countAsJumpToLocation && (chosen.hasJump || chosen.hasPosition))
+		{
+			m_playedJumps.push_back(chosen.hasJump ? chosen.jump : chosen.position);
+		}
 	}
 	else
 	{
@@ -266,23 +240,9 @@ bool Eva::playedRecently(int index, double withinMs, double nowMs) const
 	return index >= 0 && (size_t)index < m_lastPlayed.size() && m_lastPlayed[(size_t)index] >= 0.0 && nowMs - m_lastPlayed[(size_t)index] <= withinMs;
 }
 
-bool Eva::nextJumpToLocation(double nowMs, Coord3D *position)
+std::vector<Coord3D> Eva::takePlayedJumpPositions()
 {
-	if (m_jumpTo.empty())
-	{
-		return false;
-	}
-	const double reset = (double)m_ini.eva.miscEvaData().maxMillisecondsBeforeResettingLastJumpTo;
-	if (m_lastJumpMs >= 0.0 && reset > 0.0 && nowMs - m_lastJumpMs > reset)
-	{
-		m_jumpIndex = 0;
-	}
-	if (m_jumpIndex >= m_jumpTo.size())
-	{
-		m_jumpIndex = 0;
-	}
-	*position = m_jumpTo[m_jumpIndex].position;
-	++m_jumpIndex;
-	m_lastJumpMs = nowMs;
-	return true;
+	std::vector<Coord3D> out;
+	out.swap(m_playedJumps);
+	return out;
 }

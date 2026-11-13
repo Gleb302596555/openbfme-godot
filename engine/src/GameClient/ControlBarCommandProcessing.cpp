@@ -262,6 +262,14 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 			m.appendObjectID(m_source);
 			return true;
 		}
+		case GUI_COMMAND_WAKE_AUTO_PICKUP:
+		{
+			// RW 0x9412F8..0x941330: ONE takes precedence over TWO and THREE; absent options use zero.
+			const int number = b.hasOption(COMMAND_OPTION_ONE) ? 1 : b.hasOption(COMMAND_OPTION_TWO) ? 2 : b.hasOption(COMMAND_OPTION_THREE) ? 3 : 0;
+			ClientMessage &m = m_ctx.stream.append(MSG_WAKE_AUTO_PICKUP);
+			m.appendInteger(number);
+			return true;
+		}
 		case GUI_COMMAND_TOGGLE_WEAPONSET:
 		{
 			// lane HUD-4: RW 0x9412C8: MSG_WEAPONSET_TOGGLE with the context object's id (the logic case RW 0x77B529, GameLogic/WeaponSetToggle.cpp); the

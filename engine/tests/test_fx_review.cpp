@@ -20,7 +20,7 @@ std::string withDraw2(const std::string &name, const std::string &system, const 
 
 TEST_CASE("review: batch order is strictly monotone for every batch count, including more batches than material priorities")
 {
-	for (size_t count : { (size_t)1, (size_t)2, (size_t)120, (size_t)121, (size_t)122, (size_t)255, (size_t)256, (size_t)257, (size_t)1000, (size_t)5000 })
+	for (size_t count : { (size_t)1, (size_t)2, (size_t)114, (size_t)115, (size_t)120, (size_t)121, (size_t)122, (size_t)255, (size_t)256, (size_t)257, (size_t)1000, (size_t)5000 })
 	{
 		BatchOrder prev = OrderForBatch(0, count);
 		for (size_t rank = 1; rank < count; ++rank)
@@ -28,14 +28,16 @@ TEST_CASE("review: batch order is strictly monotone for every batch count, inclu
 			const BatchOrder o = OrderForBatch(rank, count);
 			const bool later = o.priority > prev.priority || (o.priority == prev.priority && o.sortOffset > prev.sortOffset);
 			REQUIRE_MESSAGE(later, "rank " << rank << " of " << count << " is not after rank " << rank - 1);
-			REQUIRE(o.priority >= -128);
+			REQUIRE(o.priority >= kParticleRenderPriorityMin); // tolerance: any bucket of the particle range; P-101: the six values below are the terrain decals'
+
 			REQUIRE(o.priority <= 127);
 			prev = o;
 		}
 	}
-	// up to 120 batches every rank has its own priority (no saturation): rank 119 differs from rank 118 and no offset is needed
-	CHECK(OrderForBatch(118, 120).priority + 1 == OrderForBatch(119, 120).priority);
-	CHECK(OrderForBatch(119, 120).sortOffset == 0.0f);
+	// up to 114 batches (P-101: -122 .. -9, was 120 from -128) every rank has its own priority (no saturation): no offset is needed
+	CHECK(OrderForBatch(112, 114).priority + 1 == OrderForBatch(113, 114).priority);
+	CHECK(OrderForBatch(113, 114).sortOffset == 0.0f);
+	CHECK(OrderForBatch(113, 114).priority == kParticleRenderPriorityMax);
 }
 
 TEST_CASE("review: only non-deferred ALPHA sprite batches are reordered back to front (deferred systems bypass the sorting renderer, RW 0x44cbed)")

@@ -336,9 +336,9 @@ std::vector<ObjectGeometry::ContactPoint> ObjectGeometry::contactPointsOf(const 
 }
 
 bool ObjectGeometry::getBestContactPoint(const std::vector<Shape> &shapes, const std::vector<ContactPoint> &points, const Coord3D &callerPos, const std::string &label,
-                                         bool preferred, Coord3D &out)
+                                         int preference, int seed, bool ignoreCollision, Coord3D &out)
 {
-	// lane AIMAIM-1: without `preferred` a point counts only when the geometry, at the origin unturned (the zeroed static RW 0xDF1E98), overlaps the static
+	// lane AIMAIM-1: without `ignoreCollision` a point counts only when the geometry, at the origin unturned (the zeroed static RW 0xDF1E98), overlaps the static
 	// sphere RW 0xDF1EA8 (built at RW 0xBCBED0: GeometryInfo(SPHERE, small, height / major / minor 2.0), RW 0x450429) at the point, unturned: RW 0xAD3415 ..
 	// 0xAD3431 -> RW 0xAD2CE0
 	static const std::vector<Shape> kProbe = [] {
@@ -350,6 +350,61 @@ bool ObjectGeometry::getBestContactPoint(const std::vector<Shape> &shapes, const
 		return std::vector<Shape>{ probe };
 	}();
 	const float height = maxHeightAbovePosition(shapes);
+
+	if (preference == 3) // RW 0xAD30E0 preference 3 (CONTACT_POINT_PREFERENCE_WEAPON): seed-blended contact point
+	{
+		// RW 0xAD25B0: the innermost / default contact point precomputed at geometry parse = (0, 0, height * 0.67f)
+		out.x = 0.0f;
+		out.y = 0.0f;
+		out.z = SimMath::pc24Mul(height, 0.67f); // RW 0xBDD984 (fmul 0.67f)
+		const size_t count = points.size();
+		if (count >= 2)
+		{
+			// RW 0xAD31BD..0xAD31C8: idx = seed % (count - 1); blend = ((seed >> 8) & 0xFF) / 255.0f (RW 0xBD1920 = 1/255)
+			const size_t idx = static_cast<size_t>(seed % static_cast<int>(count - 1));
+			const float blend = static_cast<float>((seed >> 8) & 0xFF) / 255.0f;
+			const float inv = 1.0f - blend;
+			const ContactPoint &a = points[idx];
+			const ContactPoint &b = points[idx + 1];
+			out.x = SimMath::pc24AddW(SimMath::pc24MulW(a.x, blend), SimMath::pc24MulW(b.x, inv));
+			out.y = SimMath::pc24AddW(SimMath::pc24MulW(a.y, blend), SimMath::pc24MulW(b.y, inv));
+			out.z = SimMath::pc24AddW(SimMath::pc24MulW(a.z, blend), SimMath::pc24MulW(b.z, inv));
+		}
+		// RW 0xAD3283..0xAD3295: clamp z <= height
+		if (out.z > height)
+		{
+			out.z = height;
+		}
+		// RW 0xAD329E..0xAD32EB: if the point does not collide with the geometry, fall back to the first enabled shape's centre
+		if (!ignoreCollision && !NotifyCrushModules::geometriesOverlap(shapes, Coord3D{ 0.0f, 0.0f, 0.0f }, 0.0f, kProbe, Coord3D{ out.x, out.y, out.z }, 0.0f))
+		{
+			for (const Shape &s : shapes)
+			{
+				if (!s.active)
+				{
+					continue;
+				}
+				// RW 0xAD32D4..0xAD32EB: shape centre = (offset.x, offset.y, offset.z + height * 0.5)
+				out.x = s.offsetX;
+				out.y = s.offsetY;
+				out.z = SimMath::pc24AddW(SimMath::pc24MulW(s.height, 0.5f), s.offsetZ);
+				break;
+			}
+		}
+		// RW 0xAD330F..0xAD332F: clamp z to [height * 0.1f, height] (RW 0xBD83D4 = 0.1f)
+		if (out.z > height)
+		{
+			out.z = height;
+		}
+		const float floorZ = SimMath::pc24Mul(height, 0.1f); // RW 0xAD34DD: fmul RW 0xBD83D4
+		if (floorZ > out.z)
+		{
+			out.z = floorZ;
+		}
+		return true;
+	}
+
+	// preference 0: nearest contact point whose label == `label`, distance to callerPos (RW 0xAD30E0 case 0)
 	float best = 3.4028235e38f; // RW 0x7F7FFFFF
 	size_t winner = points.size();
 	for (size_t i = 0; i < points.size(); ++i)
@@ -364,7 +419,7 @@ bool ObjectGeometry::getBestContactPoint(const std::vector<Shape> &shapes, const
 		{
 			z = height;
 		}
-		if (!preferred && !NotifyCrushModules::geometriesOverlap(shapes, Coord3D{ 0.0f, 0.0f, 0.0f }, 0.0f, kProbe, Coord3D{ p.x, p.y, z }, 0.0f))
+		if (!ignoreCollision && !NotifyCrushModules::geometriesOverlap(shapes, Coord3D{ 0.0f, 0.0f, 0.0f }, 0.0f, kProbe, Coord3D{ p.x, p.y, z }, 0.0f))
 		{
 			continue;
 		}
@@ -399,7 +454,8 @@ bool ObjectGeometry::getBestContactPoint(const std::vector<Shape> &shapes, const
 	return true;
 }
 
-bool ObjectGeometry::worldspaceBestContactPoint(const Object &obj, const Coord3D &callerPos, const std::string &label, bool preferred, Coord3D &out)
+bool ObjectGeometry::worldspaceBestContactPoint(const Object &obj, const Coord3D &callerPos, const std::string &label, int preference, int seed,
+                                                bool ignoreCollision, Coord3D &out)
 {
 	using SimMath::addf32;
 	using SimMath::mulf32;
@@ -418,7 +474,7 @@ bool ObjectGeometry::worldspaceBestContactPoint(const Object &obj, const Coord3D
 	local.z = addf32(addf32(addf32(mulf32(m[8], callerPos.z), mulf32(m[5], callerPos.y)), mulf32(m[2], callerPos.x)), itz);
 	const std::vector<Shape> &shapes = obj.geometryShapes(); // the object's own GeometryInfo (lane MODCOMPAT-MOD1; the points are the template's)
 	Coord3D p;
-	if (!getBestContactPoint(shapes, contactPointsOf(*tt), local, label, preferred, p))
+	if (!getBestContactPoint(shapes, contactPointsOf(*tt), local, label, preference, seed, ignoreCollision, p))
 	{
 		return false;
 	}

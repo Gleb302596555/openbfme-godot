@@ -105,6 +105,10 @@ struct ObjectSnapshot
 	// lane COMBAT-4: the object this one is contained in (Object + 0x27C; INVALID_ID when none): the drawable of a rider / crew member takes its container's
 	// DependencySharedModelFlags (RW 0x4BF2D8, DrawableManager::syncTransforms)
 	ObjectID containedBy = INVALID_ID;
+	// PORT-146 (issue #363): the object stands on a bone of that container (OpenContain::putRidersAtBones, RW 0x868A70; the port's record of the bone
+	// is OpenContain::riderBone). Its drawable rides the container's presentation pose (Drawable::getPresentationPose, ContainedPose.h). A horde's member
+	// and a hidden garrison rider are not put on a bone, so their drawables keep their own pose
+	bool containedOnBone = false;
 	// lane PORT-91 (issue #239): the answer of vslot 0x2C of the contain of that container (RW 0x4C7848 asks it for the shadow): false for a plain contain
 	// (RW 0x9188EB), the horde's container's answer for the HordeContain family (RW 0x86C737: true while the horde is not contained). Meaningful only while
 	// containedBy != INVALID_ID
