@@ -59,6 +59,7 @@ const char kEva[] =
 	"NewEvaEvent HelpMe\n  Priority = 3\n  ExpirationTimeMS = 1000\n  SideSound\n    Side = Elves\n    Sound = Help\n  End\nEnd\n"
 	"NewEvaEvent Slow\n  Priority = 4\n  MillisecondsToWaitBeforePlaying = 600\n  ExpirationTimeMS = 3000\n  SideSound\n    Side = Elves\n    Sound = Help\n  End\nEnd\n"
 	"NewEvaEvent Quiet\n  Priority = 4\n  QuietTimeMS = 2000\n  TimeBetweenEventsMS = 100\n  SideSound\n    Side = Elves\n    Sound = Help\n  End\nEnd\n"
+	"NewEvaEvent NoJump\n  Priority = 1\n  CountAsJumpToLocation = No\n  SideSound\n    Side = Elves\n    Sound = Help\n  End\nEnd\n"
 	"NewEvaEvent Ring\n  Priority = 1\n  SideSound\n    Side = Elves\n    Sound = Help\n  End\nEnd\n"
 	"NewEvaEvent HeroDie\n  Priority = 9\n  AlwaysPlayFromHomeBase = Yes\n  OtherEvaEventsToBlock = Ring\n  SideSound\n    Side = Elves\n    Sound = Die\n  End\nEnd\n";
 
@@ -190,29 +191,49 @@ TEST_CASE("eva: OtherEvaEventsToBlock drops the listed events; AlwaysPlayFromHom
 	CHECK(r.eva->playedRecently(r.ini.eva.findIndex("Ring", false), 5000.0, r.t)); // blocked events count as just played
 }
 
-TEST_CASE("eva: jump-to locations merge by distance, expire, and cycle; disabling Eva drops what waits")
+// P-94: RotWK adds an event's jump-to position when its sound STARTS (RW 0x5DD7FF .. 0x5DD826: handle >= 5, the record's CountAsJumpToLocation + 0x2D,
+// default 1 RW 0x5DDE2E; the position RW 0x5DC455: the jump position when given, else the event's position, else none), not at the report. Merging,
+// cycling and the keep time belong to the list (Radar::noteEvaPosition / tryJumpToNextEvent / expireEvaPositions, test_p94_space_jump.cpp).
+TEST_CASE("eva: a CountAsJumpToLocation event's jump position is handed over when its sound starts, not when it is reported (P-94, RW 0x5DD826)")
 {
 	EvaRig r;
-	Coord3D a{ 100, 100, 0 }, b{ 130, 100, 0 }, c{ 900, 900, 0 };
-	r.eva->reportEventByName("HelpMe", &a, r.t);
+	Coord3D a{ 100, 100, 0 }, j{ 500, 600, 0 }, c{ 900, 900, 0 };
+	REQUIRE(r.eva->reportEventByName("HelpMe", &a, r.t));
+	CHECK(r.eva->takePlayedJumpPositions().empty()); // reported, not played yet
 	r.run(30.0);
-	r.eva->reportEventByName("Ring", &b, r.t); // within MinDistanceBetweenJumpToEvents of a: merges
+	std::vector<Coord3D> got = r.eva->takePlayedJumpPositions();
+	REQUIRE(got.size() == 1);
+	CHECK(got[0].x == 100.0f);
+	CHECK(r.eva->takePlayedJumpPositions().empty()); // taken once
+	r.run(2000.0);
+	REQUIRE(r.eva->reportEventByName("BuildingLost", &a, r.t, &j)); // the jump position wins over the event's position (RW 0x5DC455)
 	r.run(30.0);
-	r.eva->reportEventByName("Slow", &c, r.t);
-	Coord3D got;
-	REQUIRE(r.eva->nextJumpToLocation(r.t, &got));
-	CHECK(got.x == 130.0f); // the merged entry holds the newest position
-	REQUIRE(r.eva->nextJumpToLocation(r.t, &got));
-	CHECK(got.x == 900.0f);
-	REQUIRE(r.eva->nextJumpToLocation(r.t, &got));
-	CHECK(got.x == 130.0f); // cycles
-	r.run(6000.0);          // MaxMillisecondsBeforeResettingLastJumpTo = 5000 resets the cycle
-	REQUIRE(r.eva->nextJumpToLocation(r.t, &got));
-	CHECK(got.x == 130.0f);
-	r.run(61000.0); // MaxMillisecondsToKeepJumpToEvents = 60000
-	CHECK_FALSE(r.eva->nextJumpToLocation(r.t, &got));
+	got = r.eva->takePlayedJumpPositions();
+	REQUIRE(got.size() == 1);
+	CHECK(got[0].x == 500.0f);
+	CHECK(got[0].y == 600.0f);
+	r.run(2000.0);
+	REQUIRE(r.eva->reportEventByName("Ring", nullptr, r.t)); // no position: nothing to jump to
+	r.run(30.0);
+	CHECK(r.eva->takePlayedJumpPositions().empty());
+	// an event that never plays (no sound for the side) adds nothing
+	r.eva->setLocalSide("Mordor");
+	REQUIRE(r.eva->reportEventByName("Slow", &c, r.t));
+	r.run(700.0); // MillisecondsToWaitBeforePlaying = 600
+	CHECK(r.eva->counters().noSideSound == 1);
+	CHECK(r.eva->takePlayedJumpPositions().empty());
 	r.eva->setEnabled(false);
 	CHECK_FALSE(r.eva->reportEventByName("BuildingLost", nullptr, r.t));
+}
+
+TEST_CASE("eva: CountAsJumpToLocation = No adds no jump position (P-94, RW 0x5DD80D)")
+{
+	EvaRig r;
+	Coord3D a{ 100, 100, 0 };
+	REQUIRE(r.eva->reportEventByName("NoJump", &a, r.t));
+	r.run(30.0);
+	CHECK(r.eva->counters().played == 1);
+	CHECK(r.eva->takePlayedJumpPositions().empty());
 }
 
 TEST_CASE("eva retail: BuildingStolen for the Elves plays CampElfBuildingLost through the real audio INI and archives, for every side of the event")

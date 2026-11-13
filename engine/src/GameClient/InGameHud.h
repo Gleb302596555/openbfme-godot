@@ -133,6 +133,8 @@ public:
 	ControlBar &controlBar() { return *m_bar; }
 	std::uint32_t rallyPointDrawableId() const { return m_rallyPointDrawable; }
 	Radar &radar() { return *m_radar; }
+	// RW 0x5DD1F3: a jump-to position for Space (VIEW_LAST_RADAR_EVENT), noted at the current logic frame (the ping wheel's QA path)
+	void noteJumpPosition(const Coord3D &position);
 	// AUDIO-2: the unit voices of the local player's selection and commands (through the installed audio manager and Eva)
 	UnitVoiceResponse &voice() { return *m_voice; }
 

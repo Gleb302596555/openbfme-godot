@@ -16,4 +16,5 @@
 # event is not yet loaded must not be permanently silenced (retry instead of giving up).
 set(OPENBFME_PORT141_TESTS
     tests/test_port_141.cpp
+    tests/test_p76_isengard_ambient.cpp # P-76: the same sound on Ennorath data (the fortress of a skirmish start)
 )

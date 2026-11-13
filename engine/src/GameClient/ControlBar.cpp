@@ -1094,6 +1094,22 @@ void ControlBar::update()
 					}
 				}
 				cb.hotkey = hotkeyOf(cb.textLabel);
+				if (cb.state == ButtonState::NotReady && b->m_command == GUI_COMMAND_FIRE_WEAPON)
+				{
+					// P-64 (Erkenbrand's Time to Strike showed no recharge): the availability RW 0x942733 writes the clock's percent (its out parameter + 0x14,
+					// 1.0 at entry RW 0x942752) in the not-ready branch of case 0x17 (RW 0x943215 .. 0x943243): a weapon RELOADING_CLIP (3) or whose template
+					// can fire while charging or always shows its readiness (RW 0x6CA415) gets Weapon::getPercentReadyToFire (RW 0x6CDB73), any other 0;
+					// updateContextCommand draws it as the button's clock (RW 0x943C9C .. 0x943CB0, percent * 100)
+					ObjectWeapons *weapons = obj->getWeapons();
+					const Weapon *weapon = weapons ? weapons->weaponInSlot(b->m_weaponSlot) : nullptr;
+					const WeaponTemplate *wt = weapon ? weapon->getTemplate() : nullptr;
+					if (weapon && wt)
+					{
+						const int status = weapons->slotStatus(b->m_weaponSlot);
+						cb.timer = status == WEAPON_RELOADING_CLIP || wt->m_canFireWhileCharging || wt->m_forceDisplayPercentReady
+							? weapon->percentReadyToFire(status, m_ctx.logic.getFrame()) : 0.0f;
+					}
+				}
 				if (cb.state == ButtonState::NotReady && b->m_command == GUI_COMMAND_SPECIAL_POWER)
 				{
 					if (SpecialPowerModuleInterface *sp = SpecialPowerModules::findModule(*obj, specialPowerOf(*b)))

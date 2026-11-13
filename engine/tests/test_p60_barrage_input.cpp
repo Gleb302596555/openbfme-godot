@@ -13,6 +13,7 @@
 // that is InGameUI.ini's RadiusCursorUseWeaponScatterRadius (InGameUI + 0x89C) takes its radius from the weapon of that slot on the
 // first selected object (RW 0x6C81B0): ScatterRadius (+ 0x34) + ScatterTargetScalar (+ 0x38) (RW 0x6A0851 .. 0x6A086E).
 #include "HudTestUtil.h"
+#include "EnnorathScenario.h"
 #include "GameClient/GUI/ShellServices.h"
 #include "GameClient/InGameHud.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
@@ -104,11 +105,11 @@ std::vector<Object *> membersOf(Object &horde)
 }
 } // namespace
 
-TEST_CASE("P-60: the Barrage button of a retail Gondor archer horde waits for its target with the weapon scatter radius cursor "
-		  "(RW 0x6A3D65 .. 0x6A3DD9, RW 0x6A0851 .. 0x6A086E) and the left click on the ground sends MSG_DO_WEAPON_AT_LOCATION, not a move")
+namespace
 {
-	if (!haveWorld("P-60 barrage input")) return;
-	BarrageRig h(shared());
+void barrageInput(SharedWorld &world)
+{
+	BarrageRig h(world);
 	auto context = h.hud->enterContext();
 	const Coord3D home = h.rig.freeSpot(1800, 1400, 300.0f);
 	Object *horde = h.rig.make("GondorArcherHorde", home.x, home.y);
@@ -175,11 +176,9 @@ TEST_CASE("P-60: the Barrage button of a retail Gondor archer horde waits for it
 	CHECK(h.hud->input().ui().firstSelected() == horde->getID());
 }
 
-TEST_CASE("P-60: after the Barrage click the retail Gondor archers shoot the spot from where they stand (the spot is inside the "
-		  "bombard range): they do not walk onto it")
+void barrageVolley(SharedWorld &world)
 {
-	if (!haveWorld("P-60 barrage volley")) return;
-	BarrageRig h(shared());
+	BarrageRig h(world);
 	auto context = h.hud->enterContext();
 	const Coord3D home = h.rig.freeSpot(1800, 1400, 300.0f);
 	Object *horde = h.rig.make("GondorArcherHorde", home.x, home.y);
@@ -190,7 +189,8 @@ TEST_CASE("P-60: after the Barrage click the retail Gondor archers shoot the spo
 	const auto b = h.select(*horde, "Command_ArcherBombard");
 	REQUIRE(b.button);
 	REQUIRE(b.state == ButtonState::Enabled);
-	const Coord3D target{ home.x + 220, home.y, h.rig.logic().getGroundHeight(home.x + 220, home.y) };
+	const float distance = 220.0f; // inside the bombard's AttackRange 350, past its MinimumAttackRange 75
+	const Coord3D target{ home.x + distance, home.y, h.rig.logic().getGroundHeight(home.x + distance, home.y) };
 	const auto pixel = h.aim(target);
 	REQUIRE(h.hud->controlBar().pressButton(b.slot, b.inPalantir));
 	h.update();
@@ -213,4 +213,36 @@ TEST_CASE("P-60: after the Barrage click the retail Gondor archers shoot the spo
 	const float sx = start.x - target.x, sy = start.y - target.y;
 	// tolerance: the horde may shuffle to face the spot, but it stays nearer its start than the spot (it walked onto the spot before)
 	CHECK(std::sqrt(dx * dx + dy * dy) > 0.5f * std::sqrt(sx * sx + sy * sy));
+}
+} // namespace
+
+TEST_CASE("P-60: the Barrage button of a retail Gondor archer horde waits for its target with the weapon scatter radius cursor "
+		  "(RW 0x6A3D65 .. 0x6A3DD9, RW 0x6A0851 .. 0x6A086E) and the left click on the ground sends MSG_DO_WEAPON_AT_LOCATION, not a move")
+{
+	if (!haveWorld("P-60 barrage input")) return;
+	barrageInput(shared());
+}
+
+TEST_CASE("P-60: after the Barrage click the retail Gondor archers shoot the spot from where they stand (the spot is inside the "
+		  "bombard range): they do not walk onto it")
+{
+	if (!haveWorld("P-60 barrage volley")) return;
+	barrageVolley(shared());
+}
+
+// The owner's check 2026-11-12 (Ennorath 1.9.8.2): the circle shows, but the click sends the archers to the spot. Ennorath's own data:
+// commandbutton.ini Command_ArcherBombard (FIRE_WEAPON, TERTIARY, NEED_TARGET_POS OK_FOR_MULTI_SELECT, ScatterAreaRadiusCursor);
+// weapon.ini GondorArcherBowBombard (AttackRange 350, MinimumAttackRange 75, ScatterRadius 45, _gamedata.inc).
+TEST_CASE("P-60 ennorath: the Barrage click of an Ennorath Gondor archer horde sends MSG_DO_WEAPON_AT_LOCATION, not a move")
+{
+	ennorathscenario::World world;
+	if (!world.load("P-60 ennorath barrage input")) return;
+	barrageInput(world.shared);
+}
+
+TEST_CASE("P-60 ennorath: after the Barrage click the Ennorath Gondor archers shoot the spot from where they stand")
+{
+	ennorathscenario::World world;
+	if (!world.load("P-60 ennorath barrage volley")) return;
+	barrageVolley(world.shared);
 }

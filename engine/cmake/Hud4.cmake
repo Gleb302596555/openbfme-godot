@@ -8,6 +8,7 @@ list(APPEND OPENBFME_SIM_SOURCES
 set(OPENBFME_HUD4_TESTS
     tests/test_hud_hud4_toggle.cpp
     tests/test_hud_hud4_commands.cpp
+    tests/test_p94_space_jump.cpp # P-94: Space jumps to the Eva events (RW 0x5DD826 -> RW 0x5DD1F3)
 )
 # the device side (GDExtension): the packed texture loader the Apt player and the HUD share
 set(OPENBFME_HUD4_GODOT_SOURCES
