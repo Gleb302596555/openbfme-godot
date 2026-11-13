@@ -36,7 +36,8 @@ Their call sites (each behind the command source test `[ebp+0x10] == 0 || == 1`,
 | `privateForceAttackObject` `RW 0x66BF4C` | `RW 0x66C021 .. 0x66C02F` (and `RW 0x66C0A1 .. 0x66C0AD`) call `RW 0x66B1D0` | `0x7E6` |
 | `privateAttackPosition` `RW 0x66DA5F` | `RW 0x66E051 .. 0x66E060` call `RW 0x66B271` with the spot | `0x7E6` |
 | attack-move to position, command 0xF (body `RW 0x66C0B9`; vtable slots at `RW 0xC105C8`) | `RW 0x66C128 .. 0x66C136` call `RW 0x66B2F5` | `0x7E8` |
-| attack-follow-waypoint, body `RW 0x66C1C9` (slots `RW 0xC10638`) | `RW 0x66C1BC` / `RW 0x66C23C` call `RW 0x66B2F5` | `0x7E8` |
+| attack-move to object, body `RW 0x66C148` (slot `RW 0xC10634`; its gate's failure target `RW 0x66C160` jumps to the waypoint body's tail `RW 0x66C1C5`) | `RW 0x66C1BC` call `RW 0x66B2F5` with `Object + 0x38` / the position at `[esp+0x10]` | `0x7E8` |
+| attack-follow-waypoint, body `RW 0x66C1C9` (slot `RW 0xC10638`; commands 0x10 / 0x11 -> `RW 0x66AC9E` / `0x66ACA3` -> vslot 0xA8) | `RW 0x66C23C` calls `RW 0x66B2F5` with `[ebp+8]+0xC` (never reached by the port's path) | `0x7E8` |
 
 The temporary branch of `privateMoveToPosition` (a busy unit under a `CMD_FROM_AI` move, `RW 0x66B44D .. 0x66B48D`) jumps to `RW 0x66B4D7` and posts nothing: only the ordinary
 path speaks. `0x7E6` of `RW 0x66BD33` is skipped when the order is refused (`RW 0x66BD5E`) and when the target is gone (`RW 0x66BF91`).
@@ -54,6 +55,10 @@ to post where RW calls its helpers:
 
 * `AIUpdateInterface::privateMoveToPosition` (`engine/src/GameLogic/Module/AIUpdate.cpp`) — `0x7E7` after the state is set, in the ordinary branch only (`RW 0x66B4D2`);
 * `AIUpdateInterface::aiAttackObject` / `aiForceAttackObject` / `aiAttackPosition` (`AIUpdateCombat.cpp`) — `0x7E6` (`RW 0x66BEB0` / `0x66C02F` / `0x66E060`);
-* `AIUpdateInterface::aiAttackMoveToPosition` and `aiAttackFollowWaypointPath` — `0x7E8` (`RW 0x66C136` / `0x66C1BC`).
+* the command-0xF attack-move body — `0x7E8` (`RW 0x66C136`), posted from `armAttackMove` (the 3-argument GUI path `RW 0x696266` -> `RW 0x66C0B9`) and from the
+  2-argument port stand-in; the move body's `0x7E7` is not repeated there (RW's `0x66C0B9` never goes through `RW 0x66B3FD`);
+* `aiAttackFollowWaypointPath` posts **nothing**: `RW 0x66C1C9` never calls `RW 0x66B2F5`. The second call site `RW 0x66C1BC` belongs to `RW 0x66C148`, a
+  separate body (vtable slot `RW 0xC10634`) that takes its position from `Object + 0x38` and jumps to the waypoint body's tail; its AI command is not identified
+  (stop S-7329). The march resume of the port's attack-move stand-in (S-328) stays silent (stop S-7330).
 
 `CommandSourceType`'s `CMD_FROM_PLAYER = 0` / `CMD_FROM_SCRIPT = 1` are the same values the binary compares.
