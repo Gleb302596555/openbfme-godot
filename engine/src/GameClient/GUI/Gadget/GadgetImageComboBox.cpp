@@ -91,6 +91,7 @@ void hideList(GameWindow *window, ImageComboData *d)
 
 void showList(GameWindow *window, ImageComboData *d)
 {
+	GadgetPlayComboBoxClick(); // P-93: RW 0x725338 .. 0x72537D (GWM_LEFT_UP) and RW 0x72560E (the drop-down button): the click comes first, open or close
 	GameWindowManager &mgr = window->manager();
 	mgr.winSetLoneWindow(window);
 	if (!d->list->winIsHidden())
