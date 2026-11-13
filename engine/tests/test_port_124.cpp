@@ -46,8 +46,11 @@ const std::string kPort124Data =
 	" Behavior = AIUpdateInterface AI\n End\n"
 	" LocomotorSet\n Locomotor = WalkerLoco\n Condition = SET_NORMAL\n Speed = 55\n End\n"
 	"End\n"
+	// The ring-delivery cursor is RotWK's getEnterMessage (RW 0x82CEFB, ported by Port 116): ENTER_MESSAGE_DELIVER_RING only for a
+	// COMMANDCENTER target (RW 0x82CF84). Ennorath's ringbearer heroes that take the ring (GondorIsildur_Mod, GondorArvedui,
+	// MordorNekromantSauron) carry COMMANDCENTER; a hero without it shows SendToDeath (its CitadelSlaughterHordeContain, RW 0x82CFB1)
 	"Object P124RingBearer\n"
-	" KindOf = INFANTRY HERO SELECTABLE SCORE\n"
+	" KindOf = INFANTRY HERO SELECTABLE SCORE COMMANDCENTER\n"
 	" TransportSlotCount = 1\n"
 	" Geometry = CYLINDER\n GeometryMajorRadius = 8\n GeometryHeight = 20\n"
 	" Body = ActiveBody Body\n MaxHealth = 1000\n End\n"

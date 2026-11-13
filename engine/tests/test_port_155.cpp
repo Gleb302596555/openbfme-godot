@@ -36,41 +36,41 @@ struct Port155Audio
 
     Port155Audio()
     {
-        fx.mount({ { "data\\\\audio\\\\sounds\\\\click.wav", "x" } });
+        fx.mount({ { "data\\audio\\sounds\\click.wav", "x" } });
         ini.registerBlocks(fx.env.blocks);
         const std::string err = initest::loadError(fx.env, "audio.ini",
-            "AudioSettings\\n"
-            "  AudioRoot = Data\\\\Audio\\n"
-            "  SoundsFolder = Sounds\\n"
-            "  SoundsExtension = wav\\n"
-            "  SampleCount2D = 2\\n"
-            "  SampleCount3D = 4\\n"
-            "  StreamCount = 2\\n"
-            "  MinSampleVolume = 10\\n"
-            "End\\n"
+            "AudioSettings\n"
+            "  AudioRoot = Data\\Audio\n"
+            "  SoundsFolder = Sounds\n"
+            "  SoundsExtension = wav\n"
+            "  SampleCount2D = 2\n"
+            "  SampleCount3D = 4\n"
+            "  StreamCount = 2\n"
+            "  MinSampleVolume = 10\n"
+            "End\n"
             // DryLevel = 50%, ReverbEffectLevel = 75%, ZoomedInOffscreenOcclusionPercent = 30%
-            "AudioEvent Port155Full\\n"
-            "  Sounds = click\\n"
-            "  Type = ui everyone\\n"
-            "  DryLevel = 50\\n"
-            "  ReverbEffectLevel = 75\\n"
-            "  ZoomedInOffscreenOcclusionPercent = 30\\n"
-            "End\\n"
+            "AudioEvent Port155Full\n"
+            "  Sounds = click\n"
+            "  Type = ui everyone\n"
+            "  DryLevel = 50\n"
+            "  ReverbEffectLevel = 75\n"
+            "  ZoomedInOffscreenOcclusionPercent = 30\n"
+            "End\n"
             // no per-event fields: the AudioEventInfo defaults apply (DryLevel 100%, ReverbEffectLevel 100%, occlusion 0%)
-            "AudioEvent Port155Defaults\\n"
-            "  Sounds = click\\n"
-            "  Type = ui everyone\\n"
-            "End\\n"
+            "AudioEvent Port155Defaults\n"
+            "  Sounds = click\n"
+            "  Type = ui everyone\n"
+            "End\n"
             // occlusion is applied only while zoomed in and offscreen
-            "AudioEvent Port155Occl\\n"
-            "  Sounds = click\\n"
-            "  Type = world everyone\\n"
-            "  ZoomedInOffscreenOcclusionPercent = 30\\n"
-            "End\\n");
+            "AudioEvent Port155Occl\n"
+            "  Sounds = click\n"
+            "  Type = world everyone\n"
+            "  ZoomedInOffscreenOcclusionPercent = 30\n"
+            "End\n");
         REQUIRE_MESSAGE(err.empty(), err);
         cache = std::make_unique<AudioAssetCache>(&fx.fsys, 1024u * 1024u);
         device = std::make_unique<SimulatedAudioDevice>(cache.get());
-        device->setFileLength("Data\\\\Audio\\\\Sounds\\\\click.wav", 250.0);
+        device->setFileLength("Data\\Audio\\Sounds\\click.wav", 250.0);
         mgr = std::make_unique<AudioManager>(ini, *cache, *device, RandomAlgorithm::ZH_CarryChain, 1u);
         mgr->setListenerPosition(Coord3D{ 0.0f, 0.0f, 0.0f }, Coord3D{ 0.0f, 1.0f, 0.0f });
         mgr->update(0.0);
@@ -78,13 +78,26 @@ struct Port155Audio
     }
     ~Port155Audio() { AudioApi::install(nullptr); }
 
+    double t = 0.0;
+    // as test_audio_manager.cpp Rig::run: the device clock moves with the manager in 10 ms steps (a queued RQ_Play starts on a step)
+    void run(double ms)
+    {
+        const double end = t + ms;
+        while (t < end)
+        {
+            t += 10.0;
+            device->setTime(t);
+            mgr->update(t);
+        }
+    }
+
     // plays one 2D sound and returns the params of the voice the manager started
     const VoiceParams &play2d(const std::string &event)
     {
         const AudioHandle h = mgr->playSound(event);
         // tolerance: the manager allocates the handle; only that it is a real handle is stable
         REQUIRE(h >= AHSV_FirstHandle);
-        mgr->update(10.0); // addAudioEvent queues RQ_Play; the voice starts when the manager steps
+        run(100.0); // addAudioEvent queues RQ_Play; the voice starts when the manager steps (click lasts 250 ms: still playing)
         REQUIRE(device->voices().size() == 1);
         return device->voices().begin()->second.params;
     }
@@ -121,7 +134,7 @@ TEST_CASE("PORT-155: offscreen occlusion is applied only while zoomed in and off
     const AudioHandle h = a.mgr->playSoundAt("Port155Occl", Coord3D{ 100.0f, 0.0f, 0.0f });
     // tolerance: the manager allocates the handle; only that it is a real handle is stable
     REQUIRE(h >= AHSV_FirstHandle);
-    a.mgr->update(10.0);
+    a.run(100.0);
     REQUIRE(a.device->voices().size() == 1);
     const VoiceParams &p = a.device->voices().begin()->second.params;
     CHECK(p.occlusion == doctest::Approx(0.3f)); // tolerance: 30% * 1.0 (zoom) * 1.0 (max offscreen distance) = 0.3, an exact float
