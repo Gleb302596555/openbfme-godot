@@ -197,6 +197,9 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // ENTERADJUST-1 and upstream's shipped ports of PRs #289-#298 on top of the fork
 // pin: P-77 (2026-11-13) re-measured it once on station-0 (OPENBFME_UBER1_REGEN=1, Windows MSVC): a BASE_SITE castle's unpack no longer refuses its own
 // members, the castle or a DOZER (thunk RW 0x797A96 bit 8, RW 0x796E9A .. 0x796EE3), so the battle's fortresses place members the port used to drop
+// pin: the fork's merge of upstream 234f5742 (2026-11-13) re-measured it once on the merged tree (OPENBFME_UBER1_REGEN=1, Linux GCC on Colab, whose hashes
+// match the MSVC pins on main df5f0b41): PORT-13's GameLogicSettings::crc hashes AttackMoveUsesFormations only when it is false, so every frame's settings hash
+// moves; with the old condition put back the old pins pass
 TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1, 4 and 16 logic threads and in a repeated run; the hash's own jobs run on "
 		  "workers; Faithful hashes differently and serially")
 {

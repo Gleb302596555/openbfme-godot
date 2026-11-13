@@ -667,6 +667,9 @@ TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after a
 	// pin: P-77 (2026-11-13) re-measured the battle and the skirmish once on station-0 (OPENBFME_PERF1_REGEN=1, Windows MSVC): a BASE_SITE castle's unpack no longer
 	// refuses its own members, the castle or a DOZER (thunk RW 0x797A96 bit 8, RW 0x796E9A .. 0x796EE3), so the starting fortresses place members the port
 	// used to drop; the allied blob keeps its file
+	// pin: the fork's merge of upstream 234f5742 (2026-11-13) re-measured the battle and the skirmish once on the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab, whose hashes
+	// match the MSVC pins frame for frame on main df5f0b41): PORT-13's GameLogicSettings::crc hashes AttackMoveUsesFormations only when it is false (both editions'
+	// aidata.ini set Yes), so every frame's settings hash moves; with the old condition put back the old pins pass, so nothing else moved
 	const std::vector<std::uint32_t> battleRef = perf1::readHashes("big_battle_400.hashes");
 	const std::vector<std::uint32_t> skirmishRef = perf1::readHashes("skirmish4_6000.hashes");
 	// OPENBFME_PERF1_REGEN=1 rewrites the two reference vectors from this build instead of comparing: run it only when a merged change is MEANT to
@@ -726,6 +729,9 @@ TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after a
 // pin: issue #88 (S-322, S-321): unconditional GameLogicSettings::crc of attributeModifierArmorMaxBonus and damageRadiusMinimumForSplash moves the vector from frame 0 (with the two fields unhashed it matches the previous vector).
 TEST_CASE("perf1: the allied blob (300 frames) hashes as the build before the collision module caches did in every frame")
 {
+	// pin: the fork's merge of upstream 234f5742 (2026-11-13) re-measured the allied blob once on the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab, whose hashes
+	// match the MSVC pins frame for frame on main df5f0b41): PORT-13's GameLogicSettings::crc hashes AttackMoveUsesFormations only when it is false (both editions'
+	// aidata.ini set Yes), so every frame's settings hash moves; with the old condition put back the old pins pass, so nothing else moved
 	const std::vector<std::uint32_t> blobRef = perf1::readHashes("allied_blob_300.hashes");
 	const char *regenEnv = std::getenv("OPENBFME_PERF1_REGEN");
 	const bool regen = regenEnv && *regenEnv == '1';
