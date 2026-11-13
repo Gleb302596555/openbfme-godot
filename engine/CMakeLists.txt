@@ -202,6 +202,7 @@ include(cmake/Port97.cmake)     # PORT-97: TransportContain FadePassengerOnEnter
 include(cmake/Port112.cmake)    # PORT-112: HordeContain/NotComboFormation, the porcupine formation leaves the formation before a combine (issue #272; OPENBFME_PORT112_TESTS)
 include(cmake/Port117.cmake)    # PORT-117: buildObjectNow completes a HORDE without its producer, the summoned horde is whole (issue #301; OPENBFME_PORT117_TESTS)
 include(cmake/Port141.cmake)    # PORT-141: Isengard defiled-ground ambient sound (SoundAmbient) plays at game start (issue #343; OPENBFME_PORT141_TESTS)
+include(cmake/Port159.cmake)    # PORT-159: SHADOW_VOLUME_NON_SELF_1/2/3 cast a shadow (the mumak, the dwarven battle wagon; issue #377; OPENBFME_PORT159_TESTS)
 include(cmake/Render.cmake)     # OPENBFME_RENDER_SOURCES / OPENBFME_RENDER_TESTS (lane RENDER-1, client / draw only)
 include(cmake/SkirmishAI.cmake) # OPENBFME_SKIRMISH_AI_SOURCES / OPENBFME_SKIRMISH_AI_TESTS (lane AI-1)
 include(cmake/Vis.cmake)        # OPENBFME_VIS_SOURCES / OPENBFME_VIS_TESTS (lane VIS-1)
