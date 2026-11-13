@@ -426,9 +426,20 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 		{
 			const ContainModuleInterface *c = outer->getContain();
 			s.shadowWhileContainedAllowed = c && c->shadowWhileContainedAllowed();
-			// PORT-146 (issue #363): on a bone of the container (RW 0x868A70 writes the rider's bone; `riderBone` is the port's record of it)
-			const OpenContain *oc = dynamic_cast<const OpenContain *>(c);
-			s.containedOnBone = oc && !oc->riderBone(o->getID()).empty();
+			// PORT-146 (issue #363): on a bone of the container (RW 0x868A70 writes the rider's bone; `riderBone` is the port's record of it).
+			// Walk up the containment chain: a rider inside a horde inside a transport (a mumak's archer on B_CARGO001) is not directly held by an
+			// OpenContain - its contain interface is HordeContain. The OpenContain that placed it on a bone is the transport's (HordeTransportContain),
+			// found by walking outer->getContainedBy() until an OpenContain answers riderBone for this object (RW 0x868A70).
+			s.containedOnBone = false;
+			for (const Object *walker = outer; walker && !s.containedOnBone; walker = walker->getContainedBy())
+			{
+				const ContainModuleInterface *wc = walker->getContain();
+				const OpenContain *woc = dynamic_cast<const OpenContain *>(wc);
+				if (woc && !woc->riderBone(o->getID()).empty())
+				{
+					s.containedOnBone = true;
+				}
+			}
 		}
 		s.stealthLook = InvisibilityManager::clientLook(*o, local); // lane STEALTH-1
 		if (teamVision && s.stealthLook == 5)

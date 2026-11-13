@@ -690,13 +690,25 @@ void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha
 			std::uint8_t mark = 0;
 			if (rec && rec->containedBy != INVALID_ID)
 			{
-				// a container's shared set changes during the walk below only when its own flags do, which needs it to be contained itself (a horde
-				// member's horde is not): such a container, or one sharing flags now, keeps the slot for the walk
-				const Drawable *container = findByObject(rec->containedBy);
-				if (container)
+				// Walk up the containment chain to the top-level physical container:
+				// a mumak's archer is contained by its horde, which is contained by
+				// the mumak. The shared flags (MOVING, TURN_*, ...) must come from the
+				// mumak, not the invisible horde placeholder (RW 0x4BF2D8).
+				ObjectID sharedContainerId = rec->containedBy;
+				while (sharedContainerId != INVALID_ID)
 				{
-					const ObjectSnapshot *crec = snapshot.find(container->getObjectID());
-					if (crec && crec->containedBy != INVALID_ID)
+					const ObjectSnapshot *scr = snapshot.find(sharedContainerId);
+					if (!scr || scr->containedBy == INVALID_ID)
+					{
+						break;
+					}
+					sharedContainerId = scr->containedBy;
+				}
+				const Drawable *sharedContainer = findByObject(sharedContainerId);
+				if (sharedContainer)
+				{
+					const ObjectSnapshot *scr = snapshot.find(sharedContainer->getObjectID());
+					if (scr && scr->containedBy != INVALID_ID)
 					{
 						mark = 1; // a container that is contained itself: its flags may change in the walk
 					}
@@ -704,11 +716,11 @@ void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha
 					{
 						// the container's flags hold through the walk, so the change applyDependencyFlags would make is known now: only a real change
 						// is walked (most horde members already carry their horde's shared bits)
-						const ModelConditionFlags shared = container->dependencySharedModelFlags();
+						const ModelConditionFlags shared = sharedContainer->dependencySharedModelFlags();
 						if (shared.any())
 						{
 							const std::uint32_t *own = d->getModelConditionFlags().words(), *sh = shared.words(),
-												*cf = container->getModelConditionFlags().words();
+												*cf = sharedContainer->getModelConditionFlags().words();
 							for (int w = 0; w < ModelConditionFlags::NUM_WORDS && !mark; ++w)
 							{
 								mark = ((own[w] & ~sh[w]) | (cf[w] & sh[w])) != own[w] ? 1 : 0;
@@ -732,7 +744,19 @@ void DrawableManager::syncTransforms(const LogicSnapshot &snapshot, double alpha
 		{
 			continue;
 		}
-		Drawable *container = findByObject(rec->containedBy);
+		// Walk up to the top-level physical container for shared flags (see the
+		// parallel pass above).
+		ObjectID sharedContainerId = rec->containedBy;
+		while (sharedContainerId != INVALID_ID)
+		{
+			const ObjectSnapshot *scr = snapshot.find(sharedContainerId);
+			if (!scr || scr->containedBy == INVALID_ID)
+			{
+				break;
+			}
+			sharedContainerId = scr->containedBy;
+		}
+		Drawable *container = findByObject(sharedContainerId);
 		if (!container)
 		{
 			continue;
@@ -855,7 +879,22 @@ void DrawableManager::syncContainedPoses(const LogicSnapshot &snapshot)
 			d->clearContainedPose();
 			continue;
 		}
-		const Drawable *container = findByObject(rec->containedBy);
+		// Walk up the containment chain: a rider on a bone of a horde inside a
+		// transport (a mumak's archer on B_CARGO001) must ride the transport's
+		// presentation pose, not the horde's. The horde is an invisible placeholder
+		// at the transport's position; only the top-level physical container has a
+		// presentation pose (tilt, suspension) worth riding (RW 0x67BE90).
+		ObjectID containerId = rec->containedBy;
+		while (containerId != INVALID_ID)
+		{
+			const ObjectSnapshot *crec = snapshot.find(containerId);
+			if (!crec || crec->containedBy == INVALID_ID)
+			{
+				break;
+			}
+			containerId = crec->containedBy;
+		}
+		const Drawable *container = findByObject(containerId);
 		if (!container || container == d)
 		{
 			d->clearContainedPose();
