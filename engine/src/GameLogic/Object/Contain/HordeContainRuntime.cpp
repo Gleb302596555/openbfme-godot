@@ -819,6 +819,11 @@ bool HordeContain::notComboFormation() const
 	return m_data->horde.m_notComboFormation;
 }
 
+bool HordeContain::isMainFormation() const
+{
+	return m_data->horde.m_thisFormationIsTheMainFormation;
+}
+
 // Interface slot 0x70 (RW 0x871D41): its prologue's status tests and then its combine arm (RW 0x871E89 .. 0x871F12, the function's return).
 //   RW 0x871E89 / 0x871E92: a null object and this horde's own object are refused (RW 0x871F16 returns false);
 //   RW 0x871EC1: the entry lookup RW 0x87043B with the object's template, no entry -> false (RW 0x871ECA);

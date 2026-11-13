@@ -187,6 +187,8 @@ public:
 	// module data; the table is RW 0xC5B1F8, the horde contains' shared base, and the same slot sits in RW 0xC5BE98 HordeContain / RW 0xC5CFA8
 	// AODHordeContain). The one reader in RotWK 2.01 is AICombineState::onEnter (RW 0x751738): with the byte set, the ordered horde leaves the formation.
 	virtual bool notComboFormation() const = 0;
+	// ---- lane PORT-169 (issue #398, RW HordeContainInterface slot 0xEC, RW 0x872B69): true when this horde formation is its main formation
+	virtual bool isMainFormation() const = 0;
 };
 
 class HordeContain : public UpdateModule, public ContainModuleInterface, public CreateModuleInterface, public HordeContainInterface
@@ -456,6 +458,7 @@ public:
 	// lane PORT-112 (issue #272): RW 0x872B91 (interface slot 136 / +0x220) returns the module data's NotComboFormation byte (+0x25C); its one reader
 	// RW 0x751738 (AICombineState::onEnter) makes the ordered horde leave the formation (slot 0x60, RW 0x86C7F6) before the combine
 	bool notComboFormation() const override;
+	bool isMainFormation() const override;
 	bool canCombineWith(const Object &other) const override;
 	Object *combineWith(Object *target) override;
 	static const char *combineStopLine();
