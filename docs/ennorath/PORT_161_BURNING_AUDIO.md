@@ -52,7 +52,7 @@ The follow-up reads establish that this is not just an absent sound name.
 The exact retail consumer is a shared, incompletely ported mechanism already
 tracked by S-248. No engine patch is submitted at this checkpoint.
 
-DONOR BFME2 0x005697F7 / 0x0056979A / 0x005698xx
+DONOR BFME2 0x005697F7 / 0x0056979A
 (`Code/GameEngine/Source/Common/LargeGroupAudioSoundKeyPair.cpp`,
 `rva005697F7`, `rva0056979A`, `unregisterSubject`): add/remove consume a
 position and weight, not an ObjectID. They update four grids, or retain/remove
@@ -128,3 +128,5 @@ No PORT-161 test has been added and no successful test run is claimed. The
 full test-target build was started before this scope blocker was established;
 this report is a stop, not a review submission. Existing S-248 already tracks
 the unported shared runtime; no unrelated stop row or hash pin was changed.
+
+After establishing the scope stop, the background full-target build was deliberately stopped (204/1717); no test executable or doctest result was produced.
