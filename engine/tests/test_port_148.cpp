@@ -11,9 +11,12 @@
 #include "CombatTestUtil.h"
 
 #include "GameLogic/Combat/ObjectWeapons.h"
+#include "GameLogic/AI/AerialPathfinder.h"
 #include "GameLogic/Module/GiantBirdAIUpdate.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Weapon.h"
+#include "GameLogic/Map/CastleTemplates.h"
+#include "GameLogic/Module/CastleModules.h"
 
 namespace
 {
@@ -62,7 +65,7 @@ Weapon Port148Claw
  End
 End
 Object Port148Bird
- KindOf = HERO MONSTER SELECTABLE CAN_ATTACK GIANT_BIRD CANNOT_RETALIATE
+ KindOf = HERO PRELOAD SELECTABLE CAN_CAST_REFLECTIONS SCORE NO_FREEWILL_ENTER SCARY MONSTER CANNOT_RETALIATE ARMY_SUMMARY GIANT_BIRD
  Geometry = CYLINDER
  GeometryMajorRadius = 10
  GeometryHeight = 30
@@ -204,4 +207,148 @@ TEST_CASE("PORT-148 giant bird: the neighbouring ordered attack on an enemy unit
 	MESSAGE("unit strike slot " << slot << ", state " << a.ai->currentStateId() << ", health " << a.w.health(unit) << ", strikes " << a.ai->strikes());
 	CHECK(slot == SECONDARY_WEAPON);
 	CHECK(a.w.health(unit) == 90.0f);
+}
+
+// A castle keep is made by CastleBehavior::unpack: the shell and its keep occupy the same place. RW 0x777F9F
+// separates a flyer with the 3D geometry filter RW 0x67C5F3 / 0x66139C and the KindOf gates at RW 0x778053 ..
+// 0x778075, then RW 0x76DB18 swoops to the keep's labelled contact point. A 2D footprint filter that ignores
+// the sampled Z holds the bird in the swoop 0x3F2 above the keep instead (P-59).
+const char kPort148CastleFixture[] = R"ini(
+Object Port148CastleKeep
+ KindOf = STRUCTURE SELECTABLE IMMOBILE CASTLE_KEEP COMMANDCENTER VITAL_FOR_BASE_SURVIVAL
+ Geometry = BOX
+ GeometryMajorRadius = 64
+ GeometryMinorRadius = 64
+ GeometryHeight = 50
+ AdditionalGeometry = BOX
+ GeometryMajorRadius = 12.0
+ GeometryMinorRadius = 12.0
+ GeometryHeight = 100.0
+ GeometryOffset = X:-40 Y:-40 Z:0
+ AdditionalGeometry = BOX
+ GeometryMajorRadius = 12.0
+ GeometryMinorRadius = 12.0
+ GeometryHeight = 100.0
+ GeometryOffset = X:-40 Y:40 Z:0
+ AdditionalGeometry = BOX
+ GeometryMajorRadius = 12.0
+ GeometryMinorRadius = 12.0
+ GeometryHeight = 100.0
+ GeometryOffset = X:40 Y:-40 Z:0
+ AdditionalGeometry = BOX
+ GeometryMajorRadius = 12.0
+ GeometryMinorRadius = 12.0
+ GeometryHeight = 100.0
+ GeometryOffset = X:40 Y:40 Z:0
+ GeometryContactPoint = X:0 Y:0 Z:180 Swoop
+ Body = ActiveBody ModuleTag_Body
+  MaxHealth = 1000
+ End
+ Behavior = CastleMemberBehavior ModuleTag_CM
+ End
+End
+Object Port148CastleShell
+ KindOf = STRUCTURE IMMOBILE BASE_FOUNDATION CASTLE_CENTER
+ Geometry = BOX
+ GeometryMajorRadius = 64
+ GeometryMinorRadius = 64
+ GeometryHeight = 50
+ Behavior = CastleBehavior ModuleTag_Castle
+  CastleToUnpackForFaction = Alpha Base_P148
+  CastleToUnpackForFaction = Beta Base_P148
+  InstantUnpack = Yes
+  MaxCastleRadius = 130.0
+ End
+End
+)ini";
+
+struct Port148CastleArena
+{
+	combattest::CombatWorld w;
+	Object *bird = nullptr;
+	Object *keep = nullptr;
+	GiantBirdAIUpdate *ai = nullptr;
+	ObjectWeapons *weapons = nullptr;
+
+	Port148CastleArena()
+	{
+		const std::string error = w.w.load(kPort148Fixture, INI_LOAD_OVERWRITE, "port148.ini");
+		REQUIRE_MESSAGE(error.empty(), error);
+		const std::string castleError = w.w.load(kPort148CastleFixture, INI_LOAD_OVERWRITE, "port148_castle.ini");
+		REQUIRE_MESSAGE(castleError.empty(), castleError);
+		w.combat().setAutoAcquireEnabled(false);
+		bird = w.unit("Port148Bird", 'A', 200.0f, 200.0f);
+		REQUIRE(bird != nullptr);
+		CastleTemplate layout;
+		layout.name = "Base_P148";
+		layout.version = 5;
+		layout.entries.push_back({ "", "Port148CastleKeep", 0.0f, 0.0f, 0.0f, 0.0f, 40, 1 });
+		w.logic->castleTemplates().add(layout);
+		Object *shell = w.unit("Port148CastleShell", 'B', 300.0f, 200.0f);
+		REQUIRE(shell != nullptr);
+		CastleBehavior *cb = dynamic_cast<CastleBehavior *>(shell->findModule("CastleBehavior"));
+		REQUIRE(cb != nullptr);
+		REQUIRE(cb->unpack(true));
+		for (ObjectID id : cb->ownedObjects())
+		{
+			Object *o = w.logic->findObjectByID(id);
+			if (o && o->getTemplate()->getName() == "Port148CastleKeep")
+			{
+				keep = o;
+			}
+		}
+		REQUIRE(keep != nullptr);
+		ai = dynamic_cast<GiantBirdAIUpdate *>(bird->getAIUpdateInterface());
+		REQUIRE(ai != nullptr);
+		weapons = bird->getWeapons();
+		REQUIRE(weapons != nullptr);
+		w.frames(20);
+		Coord3D air{ 200.0f, 200.0f, 120.0f };
+		bird->setPosition(&air);
+	}
+};
+
+TEST_CASE("PORT-148 giant bird: an ordered attack on an unpacked castle keep fires the plow from the air (RW 0x777F9F / 0x67C5F3 / 0x66139C)")
+{
+	Port148CastleArena a;
+	const unsigned long long before = a.ai->strikes();
+	REQUIRE(a.ai->aiAttackObject(a.keep, CMD_FROM_PLAYER));
+	int strikes = 0;
+	for (int frame = 0; frame < 600; ++frame)
+	{
+		a.w.frames(1);
+		if (a.ai->strikes() > before)
+		{
+			strikes = 1;
+			break;
+		}
+	}
+	MESSAGE("castle keep strike=" << strikes << " state=" << a.ai->currentStateId() << " hp=" << a.w.health(a.keep));
+	CHECK(strikes == 1);
+	CHECK(a.weapons->curSlot() == SECONDARY_WEAPON);
+	CHECK(a.w.health(a.keep) == 990.0f);
+}
+
+// RW 0x777F9F / 0x67C5F3 / 0x66139C: the same two 3D shape lists, sampled above the castle's 50-high shell.
+// The 2D footprints collide here (their X/Y boxes share the centre), so the old filter reported an overlap and
+// pushed the sampled path point down; the 3D shapes are disjoint (Z:80 cylinder above a Z:0..50 box).
+TEST_CASE("PORT-148 aerial separation: the sampled Z above overlapping castle geometry does not push the flyer (RW 0x777F9F / 0xAD2CE0)")
+{
+	Port148CastleArena a;
+	a.w.frames(1);
+	AerialPathfinder::Flyer flyer;
+	flyer.object = a.bird;
+	flyer.hasAI = true;
+	flyer.preferredHeight = 121.0f;
+	flyer.partner = INVALID_ID;
+	const Coord3D sample{ 300.0f, 200.0f, 80.0f };
+	float worst = 0.0f;
+	Coord3D push{ 0.0f, 0.0f, 0.0f };
+	const bool clear = AerialPathfinder::separation(flyer, sample, worst, push);
+	MESSAGE("separation clear=" << clear << " worst=" << worst << " push=" << push.x << "," << push.y << "," << push.z);
+	CHECK(clear);
+	CHECK(worst == 0.0f);
+	CHECK(push.x == 0.0f);
+	CHECK(push.y == 0.0f);
+	CHECK(push.z == 0.0f);
 }
