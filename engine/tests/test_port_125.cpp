@@ -1,79 +1,37 @@
-// OpenBFME. GPL-3.0. Port 125 (P-52, issue #309): roads and burn scars are drawn over smoke.
-// The render priorities of the terrain decals (roads, scorches, tracks) must be below the particle
-// priority range (-128 .. -9, ParticleDraw.cpp OrderForBatch) so that smoke draws on top of them as
-// in RotWK (RW 0x4E2E00 render: roads 0x4E2ECD → scorches 0x4E2FD0 → tracks 0x4E3003 → particles 0x4E302F).
+// OpenBFME. GPL-3.0. Port 125 (P-52, issue #309) and P-101: the terrain decals (terrain, water, rivers, roads, scorches, tracks) draw below every particle,
+// as RotWK's render (RW 0x4E2E00: roads 0x4E2ECD -> scorches 0x4E2FD0 -> tracks 0x4E3003 -> particles 0x4E302F). In Godot's transparent pass a lower
+// render_priority draws first. Godot accepts only -128 .. 127 (Material::set_render_priority, scene/resources/material.cpp:71: anything else is refused and
+// the priority stays 0; checked with Godot 4.7.2). Port 125 set -150 .. -145: Godot kept 0, so roads and scorches drew over smoke and explosions (P-101).
+// The test reads the engine's own constants (ParticleDraw.h), which GodotMapTerrain.cpp and OrderForBatch use.
 
 #include "doctest.h"
 
+#include "GameClient/ParticleDraw.h"
+
+using namespace FXParticleSystem;
+
 TEST_SUITE_BEGIN("PORT-125");
 
-// The terrain decal render priorities. These are the values the Godot terrain builder uses for the
-// road, scorch and track materials (GodotMapTerrain.cpp TERRAIN/ROAD/SCORCH/TRACK_RENDER_PRIORITY).
-// The test reads them through a helper to keep the constants in one place.
-namespace
+TEST_CASE("PORT-125 / P-101: the terrain decal priorities are the six lowest Godot accepts, in RotWK's order, and the particles start right above them")
 {
-// Mirror the GodotMapTerrain.cpp constants. If the builder changes them the test must be updated.
-constexpr int TERRAIN_PRIORITY = -150;
-constexpr int WATER_PRIORITY = -149;
-constexpr int RIVER_PRIORITY = -148;
-constexpr int ROAD_PRIORITY = -147;
-constexpr int SCORCH_PRIORITY = -146;
-constexpr int TRACK_PRIORITY = -145;
-
-// Particle priority range from ParticleDraw.cpp OrderForBatch.
-constexpr int PARTICLE_MIN_PRIORITY = -128; // rank=0
-constexpr int PARTICLE_MAX_PRIORITY = -9; // rank=levels-1 with levels=120
-} // namespace
-
-TEST_CASE("PORT-125 scorch priority exact value (smoke covers burns)")
-{
-	// RW 0x4E2FD0 drawScorches is called before the particle systems render at RW 0x4E302F. In Godot
-	// the transparent pass draws lower priority first (behind), higher last (in front). The scorch
-	// priority must be exactly -146 to sit below the particle minimum (-128).
-	CHECK(SCORCH_PRIORITY == -146);
+	CHECK(kRenderPriorityMin == -128); // Godot's RENDER_PRIORITY_MIN (scene/resources/material.h)
+	CHECK(kTerrainRenderPriority == -128); // the symptom: Port 125's -150 is refused by Godot and stays 0
+	CHECK(kWaterRenderPriority == -127);
+	CHECK(kRiverRenderPriority == -126);
+	CHECK(kRoadRenderPriority == -125);   // RW 0x4E2ECD
+	CHECK(kScorchRenderPriority == -124); // RW 0x4E2FD0
+	CHECK(kTrackRenderPriority == -123);  // RW 0x4E3003
+	CHECK(kParticleRenderPriorityMin == -122); // RW 0x4E302F: the particles after the tracks
+	CHECK(kParticleRenderPriorityMax == -9);
 }
 
-TEST_CASE("PORT-125 road priority exact value (smoke covers roads)")
+TEST_CASE("PORT-125 / P-101: the first particle batch takes -122 and the last of 114 takes -9; more batches share the top bucket (OrderForBatch)")
 {
-	// RW 0x4E2ECD RenderRoads before RW 0x4E302F particle render: roads behind particles.
-	// Road priority must be exactly -147.
-	CHECK(ROAD_PRIORITY == -147);
-}
-
-TEST_CASE("PORT-125 track priority exact value (smoke covers tracks)")
-{
-	// RW 0x4E3003 tracks before RW 0x4E302F particles.
-	// Track priority must be exactly -145.
-	CHECK(TRACK_PRIORITY == -145);
-}
-
-TEST_CASE("PORT-125 terrain decal internal order matches RW render order")
-{
-	// RW 0x4E2E00 render: RenderRoads (0x4E2ECD) → RenderScorches (0x4E2FD0) → tracks (0x4E3003).
-	// In Godot higher priority draws later (in front), so the order must be road < scorch < track.
-	// Exact values: road=-147, scorch=-146, track=-145.
-	CHECK(ROAD_PRIORITY == -147);
-	CHECK(SCORCH_PRIORITY == -146);
-	CHECK(TRACK_PRIORITY == -145);
-}
-
-TEST_CASE("PORT-125 particle priority range spans 120 levels")
-{
-	// The particle batch priority spans exactly 120 distinct levels (-128 .. -9, ParticleDraw.cpp
-	// OrderForBatch: levels = 120). All terrain decal priorities must sit below the lowest particle.
-	CHECK(PARTICLE_MIN_PRIORITY == -128);
-	CHECK(PARTICLE_MAX_PRIORITY == -9);
-	CHECK(TRACK_PRIORITY == -145);
-}
-
-TEST_CASE("PORT-125 opaque model priority above particles (models in front of smoke)")
-{
-	// Opaque W3D model surfaces use priority = Pass - SortLevel * 4 (W3DMaterial.cpp line 1051).
-	// A typical opaque surface: Pass=1, SortLevel=0 → priority=1. That's above the particle max (-9),
-	// so opaque models draw after particles — correct (a unit stands in front of the smoke behind it).
-	const int opaqueModelPriority = 1 - 0 * 4;
-	CHECK(opaqueModelPriority == 1);
-	CHECK(TRACK_PRIORITY == -145);
+	CHECK(OrderForBatch(0, 1).priority == -122);
+	CHECK(OrderForBatch(0, 114).priority == -122);
+	CHECK(OrderForBatch(113, 114).priority == -9);
+	CHECK(OrderForBatch(0, 1000).priority == -122);
+	CHECK(OrderForBatch(999, 1000).priority == -9);
 }
 
 TEST_SUITE_END();

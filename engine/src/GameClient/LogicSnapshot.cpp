@@ -21,6 +21,7 @@
 #include "GameLogic/SimMath.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/ObjectTemplateInfo.h"
+#include "GameLogic/Object/Contain/OpenContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/System/InvisibilityManager.h"
 #include "GameLogic/System/TaintManager.h"
@@ -425,6 +426,9 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 		{
 			const ContainModuleInterface *c = outer->getContain();
 			s.shadowWhileContainedAllowed = c && c->shadowWhileContainedAllowed();
+			// PORT-146 (issue #363): on a bone of the container (RW 0x868A70 writes the rider's bone; `riderBone` is the port's record of it)
+			const OpenContain *oc = dynamic_cast<const OpenContain *>(c);
+			s.containedOnBone = oc && !oc->riderBone(o->getID()).empty();
 		}
 		s.stealthLook = InvisibilityManager::clientLook(*o, local); // lane STEALTH-1
 		if (teamVision && s.stealthLook == 5)

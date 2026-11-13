@@ -2246,6 +2246,14 @@ void Drawable::applyReleaseBlend(RenderInterpolation::Pose &p)
 
 void Drawable::getPresentationPose(float outBasis[9], Coord3D &outPos) const
 {
+	// PORT-146 (issue #363): an object on a bone of its container is drawn with the pose the container's presentation gives it (the client part S-1104
+	// records as the drawable bone attachment); DrawableManager::syncTransforms works it out once every drawable has its own pose
+	if (m_containedPoseValid)
+	{
+		std::memcpy(outBasis, m_containedPose.basis, sizeof(m_containedPose.basis));
+		outPos = m_containedPose.pos;
+		return;
+	}
 	if (m_hasPhysicsXform)
 	{
 		std::memcpy(outBasis, m_presentationBasis, sizeof(m_presentationBasis));
@@ -2260,6 +2268,10 @@ void Drawable::getPresentationPose(float outBasis[9], Coord3D &outPos) const
 
 Coord3D Drawable::getPresentationPosition() const
 {
+	if (m_containedPoseValid)
+	{
+		return m_containedPose.pos;
+	}
 	if (m_hasPhysicsXform)
 	{
 		return m_presentationPosition;
