@@ -221,9 +221,18 @@ TEST_CASE("RefPack: malformed streams are errors, not out-of-range access")
 	CHECK_FALSE(decode(cat(cat(header10(3), bytes({ 0xE0 })), cat(text("ABCD"), bytes({ 0xFC }))), out, &err));
 	CHECK(err.find("output overrun") != std::string::npos);
 
-	// back reference before the start of the output
-	CHECK_FALSE(decode(cat(header10(5), bytes({ 0x00, 0x05, 0xFC })), out, &err));
-	CHECK(err.find("back reference before start") != std::string::npos);
+	// back reference before the start of the output: RW REF_decode (0xAA17E0) has no bounds check
+	// and reads the zeroed memory before the destination (the caller zeroes the declared output range).
+	// Emulate: the run is filled with zeros.
+	// 0x00 0x05: short form, literal count 0, copy length ((0x00&0x1C)>>2)+3 = 3,
+	// distance ((0x00&0x60)<<3)+5+1 = 6 > 0 (nothing written yet) -> three zeros.
+	{
+		Bytes out2;
+		std::string err;
+		REQUIRE(decode(cat(header10(3), bytes({ 0x00, 0x05, 0xFC })), out2, &err));
+		CHECK(out2 == bytes({ 0, 0, 0 }));
+		CHECK(err.empty());
+	}
 
 	// source truncated mid-command
 	CHECK_FALSE(decode(cat(header10(4), bytes({ 0xE0, 'A', 'B' })), out, &err));

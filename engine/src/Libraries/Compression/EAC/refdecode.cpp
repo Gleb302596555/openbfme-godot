@@ -155,13 +155,28 @@ bool REF_decode(const std::uint8_t *compressed, size_t compressedLen, std::vecto
 			}
 			size_t dist = (((first & 0x60) << 3) + second) + 1;
 			run = ((first & 0x1c) >> 2) + 3;
-			if ((size_t)(d - dBegin) < dist)
-			{
-				REF_FAIL("back reference before start of output");
-			}
 			if ((size_t)(dEnd - d) < run)
 			{
 				REF_FAIL("output overrun (copy)");
+			}
+			if ((size_t)(d - dBegin) < dist)
+			{
+				// RW REF_decode (0xAA17E0) reads from d - dist, which may be before dBegin.
+				// The caller (0xA9E220) allocates and zeroes the declared output range, so
+				// bytes before the buffer read as zeros; bytes inside the buffer read as
+				// whatever was already written there.
+				size_t missing = dist - (d - dBegin);
+				if (missing > run)
+					missing = run;
+				while (missing-- && run--)
+					*d++ = 0;
+				if (run > 0)
+				{
+					ref = dBegin;
+					while (run--)
+						*d++ = *ref++;
+				}
+				continue;
 			}
 			ref = d - dist;
 			while (run--)
@@ -187,13 +202,28 @@ bool REF_decode(const std::uint8_t *compressed, size_t compressedLen, std::vecto
 			}
 			size_t dist = (((second & 0x3f) << 8) + third) + 1;
 			run = (first & 0x3f) + 4;
-			if ((size_t)(d - dBegin) < dist)
-			{
-				REF_FAIL("back reference before start of output");
-			}
 			if ((size_t)(dEnd - d) < run)
 			{
 				REF_FAIL("output overrun (copy)");
+			}
+			if ((size_t)(d - dBegin) < dist)
+			{
+				// RW REF_decode (0xAA17E0) reads from d - dist, which may be before dBegin.
+				// The caller (0xA9E220) allocates and zeroes the declared output range, so
+				// bytes before the buffer read as zeros; bytes inside the buffer read as
+				// whatever was already written there.
+				size_t missing = dist - (d - dBegin);
+				if (missing > run)
+					missing = run;
+				while (missing-- && run--)
+					*d++ = 0;
+				if (run > 0)
+				{
+					ref = dBegin;
+					while (run--)
+						*d++ = *ref++;
+				}
+				continue;
 			}
 			ref = d - dist;
 			while (run--)
@@ -220,13 +250,28 @@ bool REF_decode(const std::uint8_t *compressed, size_t compressedLen, std::vecto
 			}
 			size_t dist = ((((first & 0x10) >> 4) << 16) + (second << 8) + third) + 1;
 			run = (((first & 0x0c) >> 2) << 8) + forth + 5;
-			if ((size_t)(d - dBegin) < dist)
-			{
-				REF_FAIL("back reference before start of output");
-			}
 			if ((size_t)(dEnd - d) < run)
 			{
 				REF_FAIL("output overrun (copy)");
+			}
+			if ((size_t)(d - dBegin) < dist)
+			{
+				// RW REF_decode (0xAA17E0) reads from d - dist, which may be before dBegin.
+				// The caller (0xA9E220) allocates and zeroes the declared output range, so
+				// bytes before the buffer read as zeros; bytes inside the buffer read as
+				// whatever was already written there.
+				size_t missing = dist - (d - dBegin);
+				if (missing > run)
+					missing = run;
+				while (missing-- && run--)
+					*d++ = 0;
+				if (run > 0)
+				{
+					ref = dBegin;
+					while (run--)
+						*d++ = *ref++;
+				}
+				continue;
 			}
 			ref = d - dist;
 			while (run--)

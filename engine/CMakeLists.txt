@@ -1252,6 +1252,8 @@ add_executable(openbfme_tests
     tests/test_local_42.cpp
     # lane LOCAL-43 (the context move hint's reach test, RW 0x81F65A .. 0x81F743, fork issue 360)
     tests/test_local_43.cpp
+    # lane LOCAL-44 (issue #383: Uruk pit castle layout RefPack back-reference before output, RW 0xAA17E0; tryInstantUnpack on failed layout, RW 0x79C265)
+    tests/test_local_44.cpp
     # lane LOCAL-18 (CombineHordeSpecialPower, SPECIAL_GIVE_UPGRADE_NEAREST, issue #143)
     tests/test_local_18.cpp
     # lane LOCAL-19 (object shadows parity: decal box fallback, opacity curve, shadow map casters, issue #146, TOP20 #5)
