@@ -36,6 +36,7 @@ list(APPEND OPENBFME_SIM_SOURCES
 list(APPEND OPENBFME_APT_TESTS
     tests/test_apt_shell.cpp
     tests/test_apt_gadgets.cpp
+    tests/test_p93_gadget_sounds.cpp # P-93: the list and drop-down clicks (MiscAudio ComboBoxClick)
     tests/test_apt_skirmish.cpp
     tests/test_p16_ui.cpp
     tests/test_p16_ui_preview.cpp

@@ -9,6 +9,8 @@
 // audio feedback.
 
 #include "GameClient/GUI/Gadgets.h"
+#include "Common/Audio/AudioEntryPoints.h"
+#include "Common/Audio/GameAudio.h"
 
 #include <algorithm>
 
@@ -403,6 +405,7 @@ WindowMsgHandledType GadgetListBoxInput(GameWindow *window, std::uint32_t msg, W
 				case KEY_SPACE:
 					if (BitTest((std::uint32_t)mData2, KEY_STATE_UP))
 					{
+						GadgetListBoxPlayFeedback(window); // P-93: RW 0x72734C .. 0x72734E, before GLM_DOUBLE_CLICKED (0x4015)
 						mgr.winSendSystemMsg(window->winGetOwner(), GLM_DOUBLE_CLICKED, msgData(window), (WindowMsgData)list->selectPos);
 					}
 					break;
@@ -562,6 +565,7 @@ WindowMsgHandledType GadgetListBoxInput(GameWindow *window, std::uint32_t msg, W
 			break;
 		}
 		case GWM_RIGHT_DOWN:
+			GadgetListBoxPlayFeedback(window); // P-93: RW 0x7270D0 (message 13) -> RW 0x7271BA -> RW 0x725868
 			break;
 		case GWM_RIGHT_UP:
 		{
@@ -596,6 +600,7 @@ WindowMsgHandledType GadgetListBoxInput(GameWindow *window, std::uint32_t msg, W
 			}
 			break;
 		case GWM_LEFT_DOWN:
+			GadgetListBoxPlayFeedback(window); // P-93: RW 0x7270B8 (message 5) -> RW 0x7271BA -> RW 0x725868
 			return MSG_HANDLED;
 		case GWM_MOUSE_POS:
 		{
@@ -1499,6 +1504,30 @@ void GadgetListBoxSetTopVisibleEntry(GameWindow *window, int newPos)
 	}
 	const int prevPos = GadgetListBoxGetTopVisibleEntry(window);
 	adjustDisplay(window, newPos - prevPos, true);
+}
+
+void GadgetPlayComboBoxClick()
+{
+	AudioManager *audio = AudioApi::current();
+	if (!audio)
+	{
+		return;
+	}
+	const std::string &sound = audio->ini().miscAudio.get("ComboBoxClick");
+	if (!sound.empty())
+	{
+		AudioApi::playUiSound(sound);
+	}
+}
+
+void GadgetListBoxPlayFeedback(GameWindow *listbox)
+{
+	// RW 0x725868: a window (RW 0x725878), its user data (RW 0x72587C) and the data's audioFeedback (+ 0xE, RW 0x725885)
+	ListboxData *list = listbox ? listOf(listbox) : nullptr;
+	if (list && list->audioFeedback)
+	{
+		GadgetPlayComboBoxClick();
+	}
 }
 
 void GadgetListBoxSetAudioFeedback(GameWindow *listbox, bool enable)
