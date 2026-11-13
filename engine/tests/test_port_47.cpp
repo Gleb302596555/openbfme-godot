@@ -38,7 +38,9 @@ void model(w3dsynth::MemoryFileSource &fs)
     bare.Name = "Blade"; // no container prefix/dot: RW 0x54BE32 must NOT skip it
     bare.Vertices = { {0,0,0}, {1,0,0}, {0,1,0} };
     bare.Triangles = {0,1,2};
-    append(bytes, meshChunk(bare));
+    std::vector<std::uint8_t> bareBytes;
+    append(bareBytes, meshChunk(bare));
+    fs.Add("art\\w3d\\bl\\blade.w3d", bareBytes);
     subs.push_back({"Blade", 0});
     append(bytes, hlodChunk("P47", "UnusedSkeleton", subs));
     fs.Add("art\\w3d\\p4\\p47.w3d", bytes);
@@ -126,7 +128,13 @@ TEST_CASE("PORT-47 no recolour without texture or RecolorHouse and campaign hous
         }
         if (scenario == 8) w.f.logic->setCampaignCarryover(std::nullopt);
         if (scenario == 9) w.f.economy().context().livingWorld = false; // reach the null-controller test, not the campaign early return
-        Object *obj = scenario == 9 ? w.f.make("Port47Unit", nullptr) : w.make();
+        Team *team = w.f.teamOf("Alice");
+        if (scenario == 9) {
+            auto &teams = w.f.players.teams();
+            team = teams.createTeam(teams.initTeam("Port47Uncontrolled", nullptr, true));
+        }
+        Object *obj = w.f.make("Port47Unit", team);
+        if (scenario == 9) REQUIRE(obj->getControllingPlayer() == nullptr);
         w.recorder.take();
         obj->giveUpgrade(w.upgrade());
         int count = 0;
