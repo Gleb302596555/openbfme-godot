@@ -747,7 +747,9 @@ TEST_CASE("BACKLOG2 r1 determinism: three units on a build site: the draw assign
 	// #267's merge point -> 0x658900C4 at #269's -> 0x5B377D5A at #271's (each ports a targetless tactic: the hashed unported-tactic counter) -> 0x162264F8 with the
 	// review fix (the team threat walk and the horde soldier's threat, RW 0x66362D / 0x693A1A)
 	// pin: the fork's merge of upstream efbdfad9 (2026-11-10, measured once on the merged tree, Windows MSVC, station-0: upstream's 0x162264F8 with the fork's ports on top): -> 0x1C71DDCD
-	CHECK(a.hashes.back() == 0x1C71DDCDU);   // q19: BACKLOG-8 hashes the formation and march rows of AIData / GameData in GameLogicSettings::crc (unconditionally) and moves the march;
+	// pin: the fork's merge of upstream 1d505ac3 (2026-11-13, measured once on the merged tree, Windows MSVC, station-2; upstream's 0xB240D889 with the
+	// fork's ports on top): 0x1C71DDCD -> 0x1C269611, goals and positions unchanged
+	CHECK(a.hashes.back() == 0x1C269611U);   // q19: BACKLOG-8 hashes the formation and march rows of AIData / GameData in GameLogicSettings::crc (unconditionally) and moves the march;
 	                                         // re-measured on the merged tree (a CI host); was 0x78A9CB12 (q18: DEVPORT-3C castle keep gate / Horde removal record, before 0x2BD4804B); goals and positions unchanged
 	// every unit left the spot it stood on
 	CHECK(a.positions[0] != a.goals[0]);

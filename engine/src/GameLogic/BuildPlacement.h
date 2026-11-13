@@ -8,7 +8,10 @@
 //
 // TARGET FACTS (RotWK game.dat, S-001 caveat): the call RW 0x7987EE -> 0x797A96(pos, options 5, builder, tmpl, angle, owner) exists. GameData's
 // AllowedHeightVariationForBuilding / SupplyBuildBorder / MaxLineBuildObjects exist in gamedata.ini (10 / 20 / 50); RotWK also parses
-// MinDistFromEdgeOfMapForBuild (GlobalData +0xA68) and checks every footprint sample against the active playable boundary (RW 0x794BF2..0x794C5A; equality allowed).
+// MinDistFromEdgeOfMapForBuild (GlobalData +0xA68) and checks every footprint sample against the active playable boundary (RW 0x794BF2..0x794C5A;
+// equality allowed). Clean BFME2 1.06 keeps the same rows: its data/ini/gamedata.ini (ini.big) reads MinDistFromEdgeOfMapForBuild = 30.0,
+// SupplyBuildBorder = 20.0, AllowedHeightVariationForBuilding = 10.0, MaxLineBuildObjects = 50, so both editions load all four and neither loses
+// buildRulesLoaded to this port (BFME1 data is not on the measuring host: a file without the row is a named error, never a silent zero).
 // DONOR (ZH, followed): the order of the checks (extent, shroud, object overlap, enemy overlap, supply border, clear path, terrain restrictions); object overlap
 // ignores removable-for-construction objects, mines and inert objects, an IMMOBILE object blocks, a mobile enemy of the builder blocks (friends move away);
 // terrain restrictions sample the footprint at 3 * cell and at 1 * cell size, refuse cliff cells and water and a ground height spread above the GameData value.
@@ -16,7 +19,7 @@
 // LBC_TOO_CLOSE_TO_SUPPLIES on overlap before the DOZER clear-path gate (RW 0x796942..0x796A3C); sample type-4 obstacles also reject a missing object or
 // an INERT template (+0x113 & 2, KindOf 89; RW 0x794AE2..0x794B21); HERO is +0x113 & 4 and does not trigger that branch, contrary to the issue prose.
 // INFERENCE / stop S-301: template Geometry (BOX with its radii, CYLINDER / SPHERE a disc) is tested in 2D; shroud (VIS-1), the clear-path query, factory
-// exit width / extra bib checks, cleared-by-build objects and exact non-ground sample-layer selection remain unported. The preview's PortSnapView carries only
+// exit width / extra bib checks, cleared-by-build objects and the WALL_SEGMENT sample layer (RW 0x680B70, taken as the ground: S-161) remain unported. The preview's PortSnapView carries only
 // immutable settings/boundary data; it deliberately does not read live pathfinder cells or objects while the logic worker runs.
 //
 // Simulation maths goes through SimMath.

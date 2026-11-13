@@ -292,6 +292,15 @@ include(cmake/Port101.cmake) # PORT-101: Object/SelectionPriority (issue #261; O
 include(cmake/Port78.cmake) # PORT-78: vendor grab (issue #210)
 include(cmake/Port125.cmake) # PORT-125: terrain decals below particles — smoke covers roads and scorches (P-52, issue #309; OPENBFME_PORT125_TESTS)
 include(cmake/Port123.cmake) # PORT-123: Arnor palantir blue ground decal EyeOfPalantir arpalaeye 400 (issue #307; OPENBFME_PORT123_TESTS)
+include(cmake/Port8.cmake) # PORT-8: PhysicsBehavior/OrientToFlightPath (OPENBFME_PORT8_TESTS)
+include(cmake/Port11.cmake) # PORT-11: SlavedUpdate/StayOnSameLayerAsMaster (OPENBFME_PORT11_TESTS)
+include(cmake/Port12.cmake) # PORT-12: BuildAssistant edge margin / SupplyBuildBorder (issue #67; OPENBFME_PORT12_TESTS)
+include(cmake/Port15.cmake) # PORT-15: LockWeaponCreate/Object::setWeaponLock (OPENBFME_PORT15_TESTS)
+include(cmake/Port18.cmake) # PORT-18: hold fire
+include(cmake/Port20.cmake) # PORT-20: GarrisonContain/onSelling (OPENBFME_PORT20_TESTS)
+include(cmake/Port24.cmake) # PORT-24: Object/ForceLuaRegistration (OPENBFME_PORT24_TESTS)
+include(cmake/Port6.cmake) # PORT-6: StealthDetectorUpdate/CanDetectWhileGarrisoned (OPENBFME_PORT6_TESTS)
+include(cmake/Port55.cmake) # PORT-55: SlaughterHordeContain, the citadel's cashback and CanAlwaysEnter (issue #165; OPENBFME_PORT55_TESTS)
 include(cmake/Horde2.cmake)     # OPENBFME_HORDE2_SOURCES / OPENBFME_HORDE2_TESTS (lane HORDE-2)
 include(cmake/Integ1.cmake)     # INTEG-1: StancesBehavior (appends to OPENBFME_SIM_SOURCES; OPENBFME_INTEG1_TESTS)
 include(cmake/Fx2.cmake)        # FX-2: effects in the live game (appends to OPENBFME_SIM_SOURCES; OPENBFME_FX2_SOURCES / OPENBFME_FX2_TESTS)
@@ -432,6 +441,8 @@ include(cmake/Port64.cmake)     # PORT-64: RubbleRiseUpdate, the rubble rise of 
 include(cmake/Port82.cmake)     # PORT-82: AttributeModifierNugget/DamageFXType is parsed but unread in RotWK 2.01 (issue #214; OPENBFME_PORT82_TESTS)
 include(cmake/Port130.cmake)   # PORT-130: CommandButton AffectsKindOf, the NEEDS_CASTLE_KINDOF button filter (OPENBFME_PORT130_TESTS)
 include(cmake/Bldfx1.cmake)     # FEAT-BLDFX-1: the FXList nugget sinks, scorches, decals, light pulses, camera shakers (OPENBFME_BLDFX1_SOURCES / _TESTS)
+include(cmake/Decompfix1109.cmake) # DECOMPFIX-1109: FLEECHASE-1, ENTERADJUST-1, REQTHROTTLE-1 (OPENBFME_DECOMPFIX1109_TESTS)
+include(cmake/Port5.cmake)      # PORT-5: the bird's deferred ability target (OPENBFME_PORT5_TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
     ${OPENBFME_APT_SOURCES}
@@ -877,6 +888,11 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT82_TESTS}
     ${OPENBFME_PORT130_TESTS}
     ${OPENBFME_PORT5_TESTS}
+    ${OPENBFME_PORT4_TESTS}
+    ${OPENBFME_PORT8_TESTS}
+    ${OPENBFME_PORT11_TESTS}
+    ${OPENBFME_PORT12_TESTS}
+    ${OPENBFME_PORT15_TESTS}
     ${OPENBFME_PORT18_TESTS}
     ${OPENBFME_PORT1_TESTS}
     ${OPENBFME_PORT2_TESTS}
@@ -1103,6 +1119,8 @@ add_executable(openbfme_tests
     ${OPENBFME_SIEGE1_TESTS}
     ${OPENBFME_CASTLEAREA1_TESTS}
     ${OPENBFME_WEATHER1_TESTS}
+    ${OPENBFME_DECOMPFIX1109_TESTS}
+    ${OPENBFME_PORT5_TESTS}
     tests/test_main.cpp
     tests/test_big_archive.cpp
     tests/test_parser_fuzz_regressions.cpp

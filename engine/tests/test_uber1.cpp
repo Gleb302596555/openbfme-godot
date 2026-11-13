@@ -193,6 +193,8 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // top of the fork's P-69 and PORT-114 vectors
 // pin: Port 27 (fork PR 355, ProjectileStreamName: a weapon with a stream creates its stream object) re-measured it once on station-2 (OPENBFME_UBER1_REGEN=1,
 // Windows MSVC) after the 13 fork PRs landed on main 70a363e3; it moves from frame 15; the switch-off run without PR 355 keeps the old vector (7/7)
+// pin: the fork's merge of upstream 1d505ac3 (2026-11-13) re-measured it once on the merged tree (OPENBFME_UBER1_REGEN=1, Windows MSVC, station-2): REQTHROTTLE-1,
+// ENTERADJUST-1 and upstream's shipped ports of PRs #289-#298 on top of the fork
 TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1, 4 and 16 logic threads and in a repeated run; the hash's own jobs run on "
 		  "workers; Faithful hashes differently and serially")
 {

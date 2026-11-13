@@ -1001,16 +1001,17 @@ TEST_CASE("skirmish ai vs ai: Evendim, 30 game-minutes: every pairing ends - Mor
 			// the merge with upstream 7e98ac2f (measured once on the merged tree): a new table from the first window on; the game stays open at 9000
 			// TOP20 #21 / r3 (station-1): a new table from frame 4000 on; the game stays open at 9000
 			// pin: Port 39 (#201, retail SideInfo AI gatherers from data/ini/default/aidata.ini, P-73): a new table from frame 1000 on; open at 9000
+			// pin: the fork's merge of upstream 1d505ac3 (2026-11-13, measured once on the merged tree, Windows MSVC): a new table from the first window on; the three games stay open at 9000
 			CHECK(run.progress ==
-			"frame 1000: [0 attacks 0 built 71u/7s destroyed 22u/1s] [1 attacks 0 built 79u/7s destroyed 9u/1s]\n"
-			"frame 2000: [0 attacks 1 built 245u/11s destroyed 136u/3s] [1 attacks 2 built 196u/10s destroyed 105u/1s]\n"
-			"frame 3000: [0 attacks 3 built 391u/12s destroyed 269u/3s] [1 attacks 3 built 332u/11s destroyed 294u/2s]\n"
-			"frame 4000: [0 attacks 5 built 594u/15s destroyed 373u/5s] [1 attacks 4 built 468u/14s destroyed 482u/3s]\n"
-			"frame 5000: [0 attacks 9 built 777u/18s destroyed 528u/6s] [1 attacks 6 built 597u/15s destroyed 665u/5s]\n"
-			"frame 6000: [0 attacks 10 built 884u/22s destroyed 638u/7s] [1 attacks 8 built 746u/18s destroyed 768u/6s]\n"
-			"frame 7000: [0 attacks 12 built 1020u/26s destroyed 717u/7s] [1 attacks 10 built 826u/20s destroyed 901u/6s]\n"
-			"frame 8000: [0 attacks 13 built 1095u/28s destroyed 887u/7s] [1 attacks 12 built 980u/23s destroyed 985u/6s]\n"
-			"frame 9000: [0 attacks 14 built 1289u/29s destroyed 1060u/8s] [1 attacks 13 built 1124u/26s destroyed 1192u/6s]\n");
+			"frame 1000: [0 attacks 0 built 90u/8s destroyed 23u/1s] [1 attacks 1 built 90u/7s destroyed 17u/1s]\n"
+			"frame 2000: [0 attacks 3 built 268u/11s destroyed 179u/3s] [1 attacks 3 built 231u/10s destroyed 131u/1s]\n"
+			"frame 3000: [0 attacks 4 built 404u/13s destroyed 310u/4s] [1 attacks 6 built 383u/12s destroyed 292u/1s]\n"
+			"frame 4000: [0 attacks 6 built 694u/14s destroyed 435u/5s] [1 attacks 8 built 529u/14s destroyed 559u/3s]\n"
+			"frame 5000: [0 attacks 7 built 946u/15s destroyed 560u/7s] [1 attacks 11 built 681u/17s destroyed 782u/3s]\n"
+			"frame 6000: [0 attacks 10 built 1136u/20s destroyed 658u/9s] [1 attacks 13 built 773u/19s destroyed 1037u/4s]\n"
+			"frame 7000: [0 attacks 12 built 1404u/23s destroyed 776u/10s] [1 attacks 13 built 875u/22s destroyed 1272u/5s]\n"
+			"frame 8000: [0 attacks 15 built 1644u/25s destroyed 889u/10s] [1 attacks 13 built 988u/26s destroyed 1505u/5s]\n"
+			"frame 9000: [0 attacks 15 built 1841u/26s destroyed 1048u/10s] [1 attacks 13 built 1149u/27s destroyed 1686u/5s]\n");
 		}
 	}
 }
