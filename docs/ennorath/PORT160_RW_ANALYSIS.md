@@ -74,6 +74,19 @@ record's `TimeBetweenEventsMS` (RW 0x5DDDF5, default 20000), which the port's `E
 2. `SpecialAbilityUpdate::startPreparation()` reports `BuildingBeingStolen` when the preparation starts on a locally controlled target
    (both capture enums, 0x1D and 0x1A) and `captureTarget()` reports `BuildingStolen` when the capture lands on one.
 
+## 3a. How the tests see it (`PORT-160*`)
+
+The tests read the result out of TheEva's own records — the index of RW 0xBF2168 the report resolved to and the position the report carried
+(`Eva::lastPlayedPosition`), plus `Eva::counters().reported` for "was anything reported at all" — so a passing test means the port reported
+*that* record *at that object*, not merely that some sound was requested. The audio manager and a simulated device are installed because
+TheEva belongs to the audio owner (RW 0x5DD9EE is the audio thread's), the camp flag unpacks its castle so `abandon()` runs on a real castle,
+and the capture half drives `SpecialAbilityUpdate` through `initiateIntentToDoSpecialPower` on a combat world (the locomotor store, the map and
+the AI its approach needs).
+
+Evidence that the tests hold the fix (revert check in this session): with `CastleModules.cpp` / `CastleModules.h` / `SpecialAbilityModules.cpp`
+taken back to `dcea2b2` the same run fails — `3 test cases: 1 passed, 2 failed; 129 assertions: 10 failed` (the camp's three events and both
+capture reports, one assertion each) — and with the fix `3 passed / 129 passed`.
+
 ## 4. Open (needs the owner or a session with `game.dat`)
 
 * the instruction addresses of the two capture reports inside RW 0x853D31 .. 0x853ED0 and RW 0x8544F2 .. 0x854772 — `rw.py xref` of
