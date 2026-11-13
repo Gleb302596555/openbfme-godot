@@ -644,6 +644,7 @@ std::string wallObjects(const char *stagger)
 		"  Behavior = GettingBuiltBehavior ModuleTag_GB\n  End\n  Body = ActiveBody ModuleTag_Body\n    MaxHealth = 100\n    MaxHealthDamaged = 50\n    MaxHealthReallyDamaged = 10\n  End\n"
 		"  Behavior = WallHubBehavior ModuleTag_WH\n    Options = OPTION_ONE\n    SegmentTemplateName = WallSeg\n    HubCapTemplateName = WallHubT\n    DefaultSegmentTemplateName = WallSeg\n"
 		"    BuilderRadius = 20\n    StaggeredBuildFactor = ") + stagger + "\n  End\nEnd\n"
+		"Object WallCentre\n  KindOf = STRUCTURE IMMOBILE COMMANDCENTER\n  Geometry = BOX\n  GeometryMajorRadius = 20\n  GeometryMinorRadius = 20\n  GeometryHeight = 10\nEnd\n"
 		"Object ImmDozer\n  KindOf = STRUCTURE IMMOBILE DOZER\nEnd\nObject Walker\n  KindOf = INFANTRY\nEnd\n";
 }
 
@@ -653,6 +654,12 @@ struct WallFx : BuildFx
 	{
 		load(wallObjects(stagger));
 		logic->settings().maxLineBuildObjects = 50;
+		// P-106: a hub cap is a WALL_HUB template, and isLocationLegalToBuild (RW 0x796C66 .. 0x796D24) measures its WallHubBehavior range (+ 0x30, the unset
+		// default 54321.0) against the owner's command centres (the collector RW 0x6B00F3 -> 0x6B00CE): with none in the world the span is refused with the code
+		// 9 before the plan's own checks. The base stands away from the tested line so only the range is satisfied here.
+		Object *centre = make("WallCentre", teamOf("Alice"));
+		Coord3D c{ 1000.0f, 1500.0f, 0.0f };
+		centre->setPosition(&c);
 	}
 	Object *hubAt(float x, float y)
 	{
