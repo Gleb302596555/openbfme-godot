@@ -142,7 +142,33 @@ mod is commented out.
 objects above only `GondorHseHeal` (in the mod's `obsolete/` folder) can carry a building through the
 AFLAME 0 → 1 transition that shows `FireName`.
 
-## 5. State of the port before this lane
+## 5. The parse row: `RW 0x42EED6` clears the list first
+
+Every row of the table uses the parser `RW 0x42EED6`:
+
+```
+0042EED6  push  esi
+0042EED7  mov   esi, [esp + 0x10]     ; the list (the row's offset)
+0042EEDB  push  dword [esi + 4]       ; end
+0042EEE0  push  dword [esi]           ; begin
+0042EEE2  call  0x42ca04              ; erase(begin, end): destroys the range and stores the new end (RW 0x42BC15 / 0x42C86C, [esi+4] = result)
+0042EEE7  push  0
+0042EEE9  push  esi                   ; the list
+0042EEEA  push  0
+0042EEEC  push  [esp + 0x14]          ; the ini
+0042EEF0  call  0x42e59e              ; append every token of the line (macro expanded, split on whitespace; the loop head is RW 0x42E626)
+0042EEF9  ret
+```
+
+So the row's parser is `INI::parseAsciiStringVector` (**clear, then append all tokens of the line**), not the appending
+`INI::parseAsciiStringVectorAppend` (`RW 0x42E59E` alone). The port already maps `RW 0x42EED6` to
+`parseAsciiStringVector` for the other rows of the same parser (`FlagSubObjectNames`, `RequiredUpgradeNames`,
+`LeadersAllowed`, `BannerCarriersAllowed`; `PlayerTemplate.h` names the two addresses outright).
+
+In Ennorath only `FireName` is written twice on the same object (`FIRE01`, then `FIRE02`), so this changes exactly one
+thing in the mod's data: RotWK's `FireName` list is `[FIRE02]`, not `[FIRE01, FIRE02]`.
+
+## 6. State of the port before this lane
 
 - `BuildingBehaviorModuleData::m_fireName` is parsed (`ConstructionModules.cpp:91`,
   `INI::parseAsciiStringVectorAppend`) and never read — the field audit's `parsed-unused`.
