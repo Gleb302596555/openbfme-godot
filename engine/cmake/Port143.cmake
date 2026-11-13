@@ -9,7 +9,7 @@
 # currentIndex / getButtonImage / getTextLabel / getDescriptLabel,
 # ControlBar::stanceSlotOf(button, stance) (RW 0x96F2DA) and ControlBar::applyToggleStance.
 # The voice and GameLogic's stance are untouched (the owner's option 2); the mod's
-# missing StancesBehavior on RohanBatteringRam stays a mod-data bug (stop S-7319).
+# missing StancesBehavior on RohanBatteringRam stays a mod-data bug (stop S-7335).
 # Tests pin the field, the raw compare, the gray button's picture and the class
 # follow of a stanced unit. No game files needed.
 set(OPENBFME_PORT143_TESTS

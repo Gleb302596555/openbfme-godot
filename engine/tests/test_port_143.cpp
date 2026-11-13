@@ -21,7 +21,7 @@
 //
 // These tests pin the field and its four readers, StanceToButtonSlot's raw compare, the picture of a gray toggle after an order that the logic drops and
 // the picture of a stanced unit following its stance class. The voice and the logic's stance are untouched (the owner's option 2).
-// See docs/ennorath/NIGHT_WATCH.md (lane PORT-143); docs/STOPS.md S-7319. GPL-3.0.
+// See docs/ennorath/NIGHT_WATCH.md (lane PORT-143); docs/STOPS.md S-7335. GPL-3.0.
 
 #include "doctest.h"
 

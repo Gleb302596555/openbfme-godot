@@ -703,7 +703,7 @@ bool computeAerialPath(const Flyer &flyer, const Coord3D &goalIn, AerialSpline &
 
 std::vector<std::string> stopLines()
 {
-	return { "S-4041: the aerial path (RW 0x778413) is ported without the no-fly zones (S-7326: the map block AerialPathfindNoFlyZone is a recording stub: "
+	return { "S-4041: the aerial path (RW 0x778413) is ported without the no-fly zones (S-7338: the map block AerialPathfindNoFlyZone is a recording stub: "
 		     "RW 0x777E54 answers 0) and the x87 / CRT parity of its terminal search (S-081)" };
 }
 } // namespace AerialPathfinder

@@ -59,6 +59,6 @@ to post where RW calls its helpers:
   2-argument port stand-in; the move body's `0x7E7` is not repeated there (RW's `0x66C0B9` never goes through `RW 0x66B3FD`);
 * `aiAttackFollowWaypointPath` posts **nothing**: `RW 0x66C1C9` never calls `RW 0x66B2F5`. The second call site `RW 0x66C1BC` belongs to `RW 0x66C148`, a
   separate body (vtable slot `RW 0xC10634`) that takes its position from `Object + 0x38` and jumps to the waypoint body's tail; its AI command is not identified
-  (stop S-7329). The march resume of the port's attack-move stand-in (S-328) stays silent (stop S-7330).
+  (stop S-7329). The march resume of the port's attack-move stand-in (S-328) stays silent (stop S-7341).
 
 `CommandSourceType`'s `CMD_FROM_PLAYER = 0` / `CMD_FROM_SCRIPT = 1` are the same values the binary compares.

@@ -1101,7 +1101,7 @@ void ControlBar::update()
 					{
 						cb.image = *img;
 					}
-					cb.textLabel = b->getTextLabel(); // the text override of RW 0x75CE4B (CommandButton +0x7C) is not ported (S-7319): the list is the entry
+					cb.textLabel = b->getTextLabel(); // the text override of RW 0x75CE4B (CommandButton +0x7C) is not ported (S-7335): the list is the entry
 					cb.descriptLabel = b->getDescriptLabel();
 				}
 				else

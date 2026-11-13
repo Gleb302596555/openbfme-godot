@@ -26,7 +26,7 @@
 //   * computeAerialPath (RW 0x778413, "computeAerialPath"): the control points (a point behind the flyer, the flyer, the goal, a terminal point beyond the
 //     goal, see the .cpp), then up to five corrective points where the sampled path hits something.
 //
-// NOT PORTED / INFERENCE (stops S-4041 and S-7326, AerialPathfinder::stopLines): the no-fly zones (S-7326: the map INI block AerialPathfindNoFlyZone is a
+// NOT PORTED / INFERENCE (stops S-4041 and S-7338, AerialPathfinder::stopLines): the no-fly zones (S-7338: the map INI block AerialPathfindNoFlyZone is a
 // recording stub, the list is empty, RW 0x777E54 answers 0; no retail map defines one) and the x87 / CRT parity of the terminal search (S-081). The separation's
 // would-collide filter is RW 0x67C5F3 / 0x66139C: the two 3D shape lists through RW 0xAD2CE0 (NotifyCrushModules::geometriesOverlap), not the 2D footprints.
 //

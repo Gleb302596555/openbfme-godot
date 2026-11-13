@@ -112,8 +112,8 @@ cbhunt, heroring1, move SPEED, shroud objects); `fly1 retail*` stop-text pins
 still pass.
 
 Stops: S-4041 is narrowed to the x87 / CRT parity and now points at the new
-project row S-7326 for the unported `AerialPathfindNoFlyZone` map block. The next
-free stop id in `origin/main` at the time of the PR is S-7326 (the highest present
+project row S-7338 for the unported `AerialPathfindNoFlyZone` map block. The next
+free stop id in `origin/main` at the time of the PR is S-7338 (the highest present
 id there is S-7325); the 3D shape overlap is no longer an unported part. S-1020
 already records RW 0xAD2CE0 as ported. No INFERENCE was added.
 

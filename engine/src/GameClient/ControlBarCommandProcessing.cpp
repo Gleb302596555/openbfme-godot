@@ -50,7 +50,7 @@ bool ControlBar::sendChangeStance(int stance, const char *site)
 // follows the same index (getTextLabel RW 0x75CE47, getDescriptLabel RW 0x75CECD). The retail widget does this whatever the window's state (its hotkey action
 // RW 0x96F880 and its radial item RW 0x96F863 both call SetStance on a disabled window), so an object without a StancesBehavior — Ennorath's RohanBatteringRam
 // — shows the tactic it was told even though the logic drops the order (AIGroup::setStance RW 0x76FF27 and ChangeStanceGroupOrder RW 0x949DF0 both return when
-// findModule("StancesBehavior") gives 0). The voice and the logic's stance are untouched (the owner's option 2: S-7319).
+// findModule("StancesBehavior") gives 0). The voice and the logic's stance are untouched (the owner's option 2: S-7335).
 void ControlBar::applyToggleStance(int stance)
 {
 	for (std::vector<ControlBarButton> *list : { &m_palantir, &m_side, &m_offBar })

@@ -180,7 +180,7 @@ the picked name is used for (and when) is not established.
 reachable reader gets no code, no member and no test; the port keeps parsing the block and carrying it in
 `xfer`/the hash (`SkirmishAIData.cpp:282..304`, `:793..812`), which is what RotWK itself does with these
 bytes. The tests `PORT-153*` pin the parse, the hash contribution and the reader/vtable facts
-(`engine/tests/test_port_153.cpp`); the stop is `S-7325` in `docs/STOPS.md`.
+(`engine/tests/test_port_153.cpp`); the stop is `S-7336` in `docs/STOPS.md`.
 
 If another lane ever finds a caller of the function containing `RW 0x9B9C01`, or a store of `0xC8EE24`
 into an object, the verdict reopens and the reader goes into the path the port already has (the base
