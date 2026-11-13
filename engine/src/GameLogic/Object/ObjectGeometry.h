@@ -77,9 +77,12 @@ struct ContactPoint
 std::vector<ContactPoint> contactPointsOf(const ThingTemplate &tt);
 // RW 0xAD30E0, all preferences with a caller position (object space):
 //   pref 0: nearest contact point whose label == `label`, distance to callerPos, overlap test unless `ignoreCollision` (lane AIMAIM-1 / BUILD-3).
+//   pref 1: the GeometryInfo member +0x44 — the highest GeometryContactPoint row in the object's own space (row parser RW 0xAD3DD5 .. 0xAD3DEB), z clamped to
+//     getMaxHeightAbovePosition, always true (RW 0xAD3340; the GiantBird swoop / attack fallback). A template without rows answers (0, 0, 0) — INFERENCE on the
+//     constructor's initial value, which the owner's reading did not isolate.
 //   pref 3: seed-blended pair of neighbouring contact points (idx = seed % (count-1), blend = ((seed >> 8) & 0xFF) / 255.0f); count < 2 falls back to
 //     (0, 0, height * 0.67f); a point outside every active shape falls back to the first active shape's centre; z clamped to [height * 0.1f, height].
-// false when no point matches (pref 0, no label match). `label` is unused for pref 3. The port does not keep RW's precomputed innermost contact point (RW + 0x50);
+// Mode 1 (RW 0xAD3340) answers true always. false when no point matches (pref 0, no label match). `label` is unused for pref 1 and pref 3. The port does not keep RW's precomputed innermost contact point (RW + 0x50);
 // for pref 3 count < 2 the default (0, 0, height * 0.67f) is computed here from `height`.
 bool getBestContactPoint(const std::vector<Shape> &shapes, const std::vector<ContactPoint> &points, const Coord3D &callerPos, const std::string &label,
                          int preference, int seed, bool ignoreCollision, Coord3D &out);
