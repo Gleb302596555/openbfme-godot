@@ -225,13 +225,31 @@ full tests-only Release single-job build; no passing test run is claimed yet.
 registration cannot be traced). Game-dependent skips will not count as passes.
 
 Visible verification must be done by the owner, not claimed from these tests.
-The supplied Ennorath archive was checked: `LAGondorFighter` in
-`object/cinematic/lastallianceunits.ini`, `Armor_Upgrade`, heavy-armour trigger,
-RecolorHouse and the blade exclusion. Spawn it for a brightly coloured player
-with Cheat Mode (`docs/CHEAT_MODE.md`, spawn command), grant resources and
-research/purchase forged blades before heavy armour through its normal upgrade
-commands. Compare the already-visible blade to the recoloured armour, in day
-and night; the blade must retain its pre-upgrade material colour. The archive
-is extracted only under /tmp, and no INI or binary is committed. This is a
-proposed check, not an assertion that the cinematic unit is available in every
-faction's filtered cheat-panel list; the spawn API accepts template names.
+The supplied Ennorath archive was checked beyond the field occurrence:
+`LAGondorFighter` has the field, but its `GondorFighterCommandSet` has no active
+purchase buttons in this mod. It is NOT a valid normal-click reproduction.
+
+Use the verified playable route instead:
+
+1. Start an Ennorath Angmar skirmish with Cheat Mode and a bright player colour;
+   pause the opponent's AI, give resources, keep instant building enabled.
+2. Spawn `AngmarDarkDunedainHorde` and `AngmarForgeWorks` through Cheat Mode
+   (named spawn API if not in the filtered UI list; see `docs/CHEAT_MODE.md`).
+3. Level the forge through its normal building-upgrade buttons. Research
+   `Command_PurchaseTechnologyAngmarDarkIronBlades` (level-2 prerequisite) and
+   `Command_PurchaseTechnologyAngmarDarkIronArmor` (level-3 prerequisite).
+4. Select the horde and purchase `Command_PurchaseUpgradeAngmarDarkIronBlades`
+   first, then `Command_PurchaseUpgradeAngmarDarkIronArmor`. Its active command
+   set includes both. Compare the visible blade before/after the armour upgrade:
+   armour is recoloured with the player's day colour, the excluded blade keeps
+   its preceding material colour. Repeat on a night map to distinguish the
+   explicit day recolour from the ordinary night palette.
+5. Include related house/custom-palette entries of `VISUAL_REGRESSIONS.md` in
+   the owner's next visual check batch; this branch does not claim them passed.
+
+Sources checked in the extracted archive: `object/evilfaction/units/angmar/
+angmardarkdunedain.ini` (`Armor_Upgrade` and the blade exclusion),
+`object/evilfaction/hordes/angmar/angmarhordes.ini` (horde command sets),
+`commandset.ini` and `commandbutton.ini` (active purchases and prerequisites).
+This verifies a data path, not a completed visual test. Game assets/INI were
+not committed; the extracted archive remains under /tmp only.
