@@ -197,7 +197,8 @@ include(cmake/Port106.cmake)    # PORT-106: W3DScriptedModelDraw MultiPlayerOnly
 include(cmake/Port105.cmake)    # PORT-105: TransportContain/ReleaseSnappyness, the rider's release blend (issue #265; OPENBFME_PORT105_TESTS)
 include(cmake/Port146.cmake)    # PORT-146: the archers on a moving siege carrier (issue #363; OPENBFME_PORT146_TESTS)
 include(cmake/Port50.cmake)     # PORT-50: W3DModelDraw/ParticlesAttachedToAnimatedBones, particles on the animated bones (issue #154; OPENBFME_PORT50_TESTS)
-include(cmake/Port98.cmake)    # PORT-98: PlayerTemplate LoadScreenMusic, the loading screen's faction track (issue #258; OPENBFME_PORT98_TESTS)
+include(cmake/Port98.cmake)     # PORT-98: PlayerTemplate LoadScreenMusic, the loading screen's faction track (issue #258; OPENBFME_PORT98_TESTS)
+include(cmake/Port158.cmake)    # PORT-158: the loading screen's music stop reaches the menu track (issue #376; OPENBFME_PORT158_TESTS)
 include(cmake/Port74.cmake)     # PORT-74: W3DLaserDraw, the lightning and beam draws (issue #206; OPENBFME_PORT74_SOURCES / _TESTS)
 include(cmake/Port97.cmake)     # PORT-97: TransportContain FadePassengerOnEnter / OnExit, the passengers' fade (issue #245; OPENBFME_PORT97_TESTS)
 include(cmake/Port112.cmake)    # PORT-112: HordeContain/NotComboFormation, the porcupine formation leaves the formation before a combine (issue #272; OPENBFME_PORT112_TESTS)
@@ -1005,6 +1006,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT104_TESTS}
     ${OPENBFME_PORT73_TESTS}
     ${OPENBFME_PORT98_TESTS}
+    ${OPENBFME_PORT158_TESTS}
     ${OPENBFME_PORT91_TESTS}
     ${OPENBFME_PORT105_TESTS}
     ${OPENBFME_PORT146_TESTS}

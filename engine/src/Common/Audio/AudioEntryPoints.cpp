@@ -157,6 +157,20 @@ AudioManager *current()
 	return g_manager;
 }
 
+// PORT-158: the shell's music manager (see AudioEntryPoints.h); a plain registration, set and cleared by its owner on the
+// manager's thread, read by playLoadScreenMusic on that same thread
+AudioManager *g_shellMusic = nullptr;
+
+void installShellMusic(AudioManager *manager)
+{
+	g_shellMusic = manager;
+}
+
+AudioManager *currentShellMusic()
+{
+	return g_shellMusic;
+}
+
 std::uint64_t callsWithoutAudio()
 {
 	return g_without.load(std::memory_order_relaxed);
@@ -297,6 +311,28 @@ void stopMusic(bool fade)
 {
 	REQUIRE_AUDIO()
 	mgr->stopMusic(fade);
+}
+
+AudioHandle playLoadScreenMusic(const std::string &eventName)
+{
+	AudioManager *mgr = current();
+	if (!mgr || !mgr->isValidAudioEvent(eventName))
+	{
+		return AHSV_NoSound; // RW 0x81D22B -> 0x81D295: an unknown event stops and plays nothing
+	}
+	// RW 0x81D242: the music that plays stops with a fade. RotWK has the one TheAudio (RW 0xDE42FC); the port's menu music
+	// may sit in the registered shell manager, so the same faded stop reaches it there (exactly one track during the load)
+	if (AudioManager *shell = currentShellMusic(); shell && shell != mgr)
+	{
+		shell->stopMusic(true);
+	}
+	mgr->stopMusic(true);
+	// RW 0x81D254 / 0x81D264: AudioEventRTS(info, view type 2), shouldFade off; RW 0x81D278: added; RW 0x81D283: one update
+	AudioEventRTS event(eventName, VIEW_ANY);
+	event.setShouldFade(false);
+	const AudioHandle handle = mgr->addAudioEvent(event);
+	mgr->update(mgr->nowMs() + AudioManager::tickIntervalMs());
+	return handle;
 }
 
 void stopSound(AudioHandle h)

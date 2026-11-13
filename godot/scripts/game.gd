@@ -2642,6 +2642,10 @@ func _shell_load_screen_push() -> void:
 ## Called by the load with the retail percentage (RotWK updateLoadProgress): the load screen's bar and a frame, synchronously, like retail's loading loop.
 func _on_load_progress(percent: int) -> void:
 	_load_log.append(percent)
+	# PORT-158: pump the audio while the synchronous load blocks the frame loop, so the menu track's faded stop
+	# (RW 0x81D242) finishes during the load instead of hanging audible next to the loading music (issue #376)
+	if _audio != null and _audio.has_method("tick_audio"):
+		_audio.tick_audio()
 	_shell.set_load_progress(percent)
 	_shell.tick(0.033)
 	_shell.render(true)
