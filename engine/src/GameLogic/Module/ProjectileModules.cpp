@@ -414,8 +414,9 @@ void BezierProjectileBehavior::positionForLaunch(Object *launcher, int wslot, in
 // first the weapon's PreferredTargetBone (RW 0x6CB81A, as ObjectWeaponDelivery::fireFXAimPosition asks it: the module's m_weapon,
 // +0x3C, is the firing weapon's template — RW 0x85EBEE reads it for the speeds the same way); a bone that answers is returned with
 // no random draw. Otherwise GameLogicRandomValue(0, 12345678) at Weapon.cpp:1749 (RW 0x6CB8C2..0x6CB8D3) is drawn and the victim's
-// worldspace best contact point answers; the contact point of the victim's geometry (RW 0xAD30E0, the aim points chosen by the
-// seed) is INFERENCE S-362: the geometry centre
+// worldspace best contact point answers with preference 3 (RW 0x6CB8EC -> 0x690BD2 -> 0xAD30E0): the seed blends two neighbouring
+// contact points, or (0, 0, height * 0.67f) when the victim has fewer than two contact points, with the same fallbacks and the
+// [height * 0.1f, height] clamp. S-362's geometry-centre approximation is replaced by this contact-point aim.
 Coord3D BezierProjectileBehavior::aimPosition(const Object &victim)
 {
 	Object *obj = getObject();
@@ -424,10 +425,14 @@ Coord3D BezierProjectileBehavior::aimPosition(const Object &victim)
 	{
 		return bone;
 	}
-	obj->logic().random().getValue(0, 12345678, kWeaponCpp, 1749);
-	Coord3D p = *victim.getPosition();
-	p.z = SimMath::addf32(p.z, SimMath::mulf32(CombatQueries::geometry(victim).height, 0.5f));
-	return p;
+	const int seed = obj->logic().random().getValue(0, 12345678, kWeaponCpp, 1749);
+	Coord3D p;
+	if (ObjectGeometry::worldspaceBestContactPoint(victim, *obj->getPosition(), "", 3, seed, false, p))
+	{
+		return p;
+	}
+	// RW 0x6CB8F8..0x6CB963: no contact point answered (victim has no geometry at all) -> the victim's position
+	return *victim.getPosition();
 }
 
 // RW 0x85EBEE
