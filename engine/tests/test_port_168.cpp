@@ -17,9 +17,13 @@
 
 #include "doctest.h"
 
+#include <cstdio>
+
 #include "CombatTestUtil.h"
 
 #include "Common/Player.h"
+#include "GameLogic/System/ShroudManager.h"
+#include "GameLogic/ActionManager.h"
 #include "Common/SpecialPower.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/Combat/CombatNames.h"
@@ -33,6 +37,7 @@
 #include "GameLogic/Weapon.h"
 #include "GameLogic/WeaponState.h"
 
+#include <cstdio>
 #include <string>
 
 using namespace combattest;
@@ -40,7 +45,7 @@ using namespace combattest;
 namespace
 {
 const char kPowers[] = R"ini(
-SpecialPower Port168GrabPower
+SpecialPower SpecialAbilityGrabPassenger
  Enum = SPECIAL_GRAB_PASSENGER
  ReloadTime = 0
 End
@@ -100,6 +105,7 @@ std::string eaterObjects(const std::string &healLines)
 	         "End\n"
 	         "Object Port168Orc\n"
 	         "  KindOf = INFANTRY ORC SELECTABLE\n"
+	         "  TransportSlotCount = 1\n"
 	         "  Geometry = CYLINDER\n"
 	         "  GeometryMajorRadius = 8\n"
 	         "  GeometryMinorRadius = 8\n"
@@ -111,7 +117,7 @@ std::string eaterObjects(const std::string &healLines)
 	         "  Body = ActiveBody ModuleTag_Body\n"
 	         "    MaxHealth = 100\n"
 	         "  End\n"
-	         "End\n");
+	         "End\n";
 }
 
 template <class T>
@@ -142,8 +148,7 @@ SpecialAbilityUpdate *grabAbilityOf(Object &o)
 }
 
 // the troll eats `victim` through its SPECIAL_GRAB_PASSENGER power with the eat option 0x4000 (what AutoPickUpUpdate's EatObjectEntry passes, RW
-// 0x8998D8) and the logic runs to the end of the ability; the returns are the frame the victim left the world (-1: never), the health before the order
-// and the health the frame after the ability finished
+// 0x8998D8) and the logic runs until the victim is gone; the result carries the health before the order and the frame after the ability finished
 struct Eaten
 {
 	float before = 0.0f;
@@ -153,11 +158,13 @@ struct Eaten
 };
 Eaten eat(const std::string &healLines)
 {
-	CombatWorld w(eaterObjects(healLines).c_str());
-	const PowerStore store(w);
+	CombatWorld w;
+	const PowerStore store(w); // the objects name SPECIAL_GRAB_PASSENGER, so the store must answer before they load (RW 0x8C94D7)
+	const std::string err = w.w.load(eaterObjects(healLines), INI_LOAD_OVERWRITE, "port168eater.ini");
+	REQUIRE_MESSAGE(err.empty(), err);
 	w.combat().setAutoAcquireEnabled(false);
 	Object *eater = w.unit("Port168Eater", 'A', 200.0f, 200.0f);
-	Object *orc = w.unit("Port168Orc", 'A', 260.0f, 200.0f);
+	Object *orc = w.unit("Port168Orc", 'B', 205.0f, 200.0f); // within StartAbilityRange 8.0: the grab needs no walk
 	REQUIRE(eater != nullptr);
 	REQUIRE(orc != nullptr);
 	w.frames(3);
@@ -179,7 +186,7 @@ Eaten eat(const std::string &healLines)
 	for (int i = 0; i < 120 && !e.gone; ++i)
 	{
 		w.frames(1);
-		e.gone = w.logic.findObjectByID(orcId) == nullptr;
+		e.gone = w.logic->findObjectByID(orcId) == nullptr;
 	}
 	w.frames(1);
 	e.after = w.health(eater);
@@ -212,209 +219,155 @@ TEST_CASE("PORT-168 heal: the data's default and a smaller percentage (module da
 	CHECK(smaller.after == 1680.0f); // 50 + 20 = 70% of 2400
 }
 
+
 namespace
 {
-// Port168Thrower: the cave troll's shape cut down to the throw — a one-slot TransportContain, the held unit as the weapon's ammo
-// (ProjectileFilterInContainer) and a ProjectileNugget with no ProjectileTemplateName. `filter` is the ammo filter, `clipSize` the weapon's clip.
-std::string throwerObjects(const std::string &filter, const std::string &nuggetLines)
+// the riders the filter's kind mask decides about: one ORC, one INFANTRY that is not an ORC
+const char kAmmoVictims[] =
+	"Object Port168AmmoOrc\n"
+	"  KindOf = INFANTRY ORC SELECTABLE\n"
+	"  TransportSlotCount = 1\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 8\n"
+	"  GeometryMinorRadius = 8\n"
+	"  GeometryHeight = 20\n"
+	"  Body = ActiveBody ModuleTag_Body\n"
+	"    MaxHealth = 100\n"
+	"  End\n"
+	"End\n"
+	"Object Port168AmmoGoblin\n"
+	"  KindOf = INFANTRY SELECTABLE\n"
+	"  TransportSlotCount = 1\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 8\n"
+	"  GeometryMinorRadius = 8\n"
+	"  GeometryHeight = 20\n"
+	"  Body = ActiveBody ModuleTag_Body\n"
+	"    MaxHealth = 100\n"
+	"  End\n"
+	"End\n";
+
+// The container-ammo shape cut down to the two readers: a bow whose clip is ProjectileFilterInContainer (the cave troll's CaveTrollGoblinThrow, whose
+// clip is 1 and which never reloads, AutoReloadsClip = No) and the same bow without the field. Three objects share the weapons: one with a container,
+// one without (the reader must fall back to the clip, RW 0x6CD2C9), and one holding the filter-less bow.
+const char kAmmoWeapons[] =
+	"Weapon Port168ContainerBow\n"
+	"  AttackRange = 200\n"
+	"  WeaponSpeed = 100\n"
+	"  DelayBetweenShots = 2000\n"
+	"  PreAttackDelay = 400\n"
+	"  PreAttackType = PER_SHOT\n"
+	"  FiringDuration = 200\n"
+	"  AutoReloadsClip = No\n"
+	"  ClipSize = 1\n"
+	"  ProjectileFilterInContainer = %FILTER%\n"
+	"  ProjectileNugget\n"
+	"    WarheadTemplateName = Port168AmmoWarhead\n"
+	"  End\n"
+	"End\n"
+	"Weapon Port168ClipBow\n"
+	"  AttackRange = 200\n"
+	"  WeaponSpeed = 100\n"
+	"  DelayBetweenShots = 2000\n"
+	"  ClipSize = 1\n"
+	"  ProjectileNugget\n"
+	"    ProjectileTemplateName = Arrow\n"
+	"    WarheadTemplateName = Port168AmmoWarhead\n"
+	"  End\n"
+	"End\n"
+	"Weapon Port168AmmoWarhead\n"
+	"  DamageNugget\n"
+	"    Damage = 0\n"
+	"    Radius = 0.0\n"
+	"    DamageType = PIERCE\n"
+	"    DeathType = NORMAL\n"
+	"  End\n"
+	"End\n";
+
+std::string archerObject(const char *name, const char *weapon, bool withContain)
 {
-	return std::string("Weapon Port168Throw\n"
-	                   "  AttackRange = 200\n"
-	                   "  WeaponSpeed = 100\n"
-	                   "  HoldDuringReload = Yes\n"
-	                   "  DelayBetweenShots = 6100\n"
-	                   "  PreAttackDelay = 1400\n"
-	                   "  PreAttackType = PER_SHOT\n"
-	                   "  FiringDuration = 2000\n"
-	                   "  AutoReloadsClip = No\n")
-	       + (filter.empty() ? std::string() : "  ProjectileFilterInContainer = " + filter + "\n")
-	       + "  ClipSize = 1\n"
-	       + "  ProjectileNugget\n"
-	       + nuggetLines
-	       + "    WarheadTemplateName = Port168ThrowWarhead\n"
-	         "  End\n"
-	         "End\n"
-	         "Weapon Port168ThrowWarhead\n"
-	         "  DamageNugget\n"
-	         "    Damage = 300\n"
-	         "    Radius = 12.0\n"
-	         "    DamageType = SIEGE\n"
-	         "    DeathType = NORMAL\n"
-	         "  End\n"
-	         "End\n"
-	         "Object Port168Thrower\n"
-	         "  KindOf = INFANTRY SELECTABLE\n"
-	         "  TransportSlotCount = 2\n"
-	         "  Geometry = CYLINDER\n"
-	         "  GeometryMajorRadius = 20\n"
-	         "  GeometryMinorRadius = 20\n"
-	         "  GeometryHeight = 40\n"
-	         "  Body = ActiveBody ModuleTag_Body\n"
-	         "    MaxHealth = 2400\n"
-	         "  End\n"
-	         "  WeaponSet\n"
-	         "    Conditions = None\n"
-	         "    Weapon = PRIMARY SwordWeapon\n"
-	         "  End\n"
-	         "  WeaponSet\n"
-	         "    Conditions = PASSENGER_TYPE_TWO\n"
-	         "    Weapon = PRIMARY Port168Throw\n"
-	         "  End\n"
-	         "  Behavior = TransportContain ModuleTag_Contain\n"
-	         "    Slots = 1\n"
-	         "    AllowEnemiesInside = Yes\n"
-	         "    AllowAlliesInside = Yes\n"
-	         "    ObjectStatusOfContained = UNSELECTABLE\n"
-	         "    TypeTwoForWeaponSet = INFANTRY\n"
-	         "  End\n"
-	         "End\n"
-	         "Object Port168Goblin\n"
-	         "  KindOf = INFANTRY SELECTABLE\n"
-	         "  TransportSlotCount = 1\n"
-	         "  Geometry = CYLINDER\n"
-	         "  GeometryMajorRadius = 8\n"
-	         "  GeometryMinorRadius = 8\n"
-	         "  GeometryHeight = 20\n"
-	         "  ArmorSet\n"
-	         "    Conditions = None\n"
-	         "    Armor = NoArmor\n"
-	         "  End\n"
-	         "  Body = ActiveBody ModuleTag_Body\n"
-	         "    MaxHealth = 100\n"
-	         "  End\n"
-	         "  Behavior = DestroyDie ModuleTag_Die\n"
-	         "  End\n"
-	         "  Behavior = BezierProjectileBehavior ModuleTag_Projectile\n"
-	         "    FirstHeight = 24\n"
-	         "    SecondHeight = 24\n"
-	         "    FirstPercentIndent = 30%\n"
-	         "    SecondPercentIndent = 70%\n"
-	         "    DieOnImpact = Yes\n"
-	         "  End\n"
-	         "End\n"
-	         "Object Port168Target\n"
-	         "  KindOf = INFANTRY SELECTABLE\n"
-	         "  Geometry = CYLINDER\n"
-	         "  GeometryMajorRadius = 8\n"
-	         "  GeometryMinorRadius = 8\n"
-	         "  GeometryHeight = 20\n"
-	         "  ArmorSet\n"
-	         "    Conditions = None\n"
-	         "    Armor = NoArmor\n"
-	         "  End\n"
-	         "  Body = ActiveBody ModuleTag_Body\n"
-	         "    MaxHealth = 400\n"
-	         "  End\n"
-	         "End\n";
+	return std::string("Object ") + name + "\n" +
+	       "  KindOf = INFANTRY SELECTABLE\n"
+	       "  Geometry = CYLINDER\n"
+	       "  GeometryMajorRadius = 8\n"
+	       "  GeometryMinorRadius = 8\n"
+	       "  GeometryHeight = 20\n"
+	       "  Body = ActiveBody ModuleTag_Body\n"
+	       "    MaxHealth = 100\n"
+	       "  End\n"
+	       "  WeaponSet\n"
+	       "    Conditions = None\n"
+	       "    Weapon = PRIMARY " + weapon + "\n"
+	       "  End\n" +
+	       (withContain ? std::string("  Behavior = TransportContain ModuleTag_Contain\n"
+	                                 "    Slots = 2\n"
+	                                 "    AllowEnemiesInside = Yes\n"
+	                                 "    AllowAlliesInside = Yes\n"
+	                                 "    ObjectStatusOfContained = UNSELECTABLE\n"
+	                                 "    PassengerFilter = ANY +INFANTRY\n"
+	                                 "  End\n")
+	                    : std::string()) +
+	       "End\n";
 }
 
-// the nugget with no ProjectileTemplateName is the cave troll's own (the held unit IS the projectile); the second one names its object, the shape a
-// projectile-firing weapon of any other unit uses
-const char *const kOwnNugget = "";
-const char *const kNamedNugget = "    ProjectileTemplateName = Port168Goblin\n";
-
-struct ThrowResult
+std::string ammoObjects(const std::string &filter)
 {
-	bool held = false;
-	int weaponStatus = -1;
-	bool thrown = false;  // the goblin left the container: RW 0x90FAC3 took it out
-	bool stillInContainer = true;
-	float goblinHealth = 0.0f;
-	float targetHealth = 400.0f;
-};
+	std::string weapons = kAmmoWeapons;
+	const std::string at = weapons.find("%FILTER%");
+	weapons.replace(at, 8, filter);
+	return weapons + archerObject("Port168Archer", "Port168ContainerBow", true) + archerObject("Port168NoContain", "Port168ContainerBow", false) +
+	       archerObject("Port168ClipArcher", "Port168ClipBow", true) + kAmmoVictims;
+}
 
-// the goblin enters the troll's container, the troll attacks the target, and the logic runs `framesToRun` frames. `takeContainer` may REMOVE the
-// container from the troll between the order and the first frame (a thrower that loses its contain, or a second thrower sharing the world).
-ThrowResult throwGoblin(const std::string &filter, const char *nuggetLine, bool takeContainerAway, int framesToRun)
+// the status of the archer's PRIMARY weapon; `held` (may be empty) enters the archer's container first
+int ammoStatus(const char *archerName, const std::string &filter, const char *held)
 {
-	ThrowResult r;
-	CombatWorld w(throwerObjects(filter, nuggetLine).c_str());
+	CombatWorld w;
+	const PowerStore store(w);
+	const std::string err = w.w.load(ammoObjects(filter), INI_LOAD_OVERWRITE, "port168ammo.ini");
+	REQUIRE_MESSAGE(err.empty(), err);
+	w.combat().setAutoAcquireEnabled(false);
+	Object *archer = w.unit(archerName, 'A', 200.0f, 200.0f);
+	REQUIRE(archer != nullptr);
+	w.frames(3);
+	if (held && *held)
 	{
-		const PowerStore store(w);
-		w.combat().setAutoAcquireEnabled(false);
-		Object *thrower = w.unit("Port168Thrower", 'A', 200.0f, 200.0f);
-		Object *goblin = w.unit("Port168Goblin", 'A', 230.0f, 200.0f);
-		Object *target = w.unit("Port168Target", 'B', 320.0f, 200.0f);
-		REQUIRE(thrower != nullptr);
-		REQUIRE(goblin != nullptr);
-		REQUIRE(target != nullptr);
-		w.frames(3);
-		TransportContain *contain = dynamic_cast<TransportContain *>(thrower->getContain());
+		Object *rider = w.unit(held, 'A', 230.0f, 200.0f);
+		REQUIRE(rider != nullptr);
+		TransportContain *contain = dynamic_cast<TransportContain *>(archer->getContain());
 		REQUIRE(contain != nullptr);
-		r.held = contain->addToContain(goblin);
-		REQUIRE(r.held);
-		// the container's weapon set: PASSENGER_TYPE_TWO from a held INFANTRY (TransportContain::letRidersUpgradeWeaponSet RW 0x86A731) selects the
-		// throw weapon's WeaponSet
-		w.frames(2);
-		ObjectWeapons *weapons = thrower->getWeapons();
-		REQUIRE(weapons != nullptr);
-		Weapon *throwWeapon = weapons->weaponInSlot(PRIMARY_WEAPON);
-		REQUIRE(throwWeapon != nullptr);
-		REQUIRE(throwWeapon->getTemplate() != nullptr);
-		REQUIRE(std::string(throwWeapon->getTemplate()->getName()) == "Port168Throw");
-		r.weaponStatus = weapons->weaponStatus(*throwWeapon);
-		if (takeContainerAway)
-		{
-			// the ammo is the container's count: with no container the reader answers nothing (RW 0x6CD2C9 -> RW 0x6CD2E1, the clip's own status)
-			contain->removeFromContain(goblin);
-			REQUIRE(goblin->getContainedBy() == nullptr);
-			r.weaponStatus = weapons->weaponStatus(*throwWeapon);
-			r.stillInContainer = false;
-			r.goblinHealth = w.health(goblin);
-			r.targetHealth = w.health(target);
-			return r;
-		}
-		REQUIRE(thrower->getAIUpdateInterface() != nullptr);
-		REQUIRE(thrower->getAIUpdateInterface()->aiAttackObject(target, CMD_FROM_PLAYER));
-		const ObjectID goblinId = goblin->getID();
-		for (int i = 0; i < framesToRun; ++i)
-		{
-			w.frames(1);
-			r.thrown = r.thrown || !w.logic.findObjectByID(goblinId) || goblin->getContainedBy() != thrower;
-		}
-		r.stillInContainer = goblin->getContainedBy() == thrower;
-		r.goblinHealth = w.health(goblin);
-		r.targetHealth = w.health(target);
+		REQUIRE(contain->addToContain(rider));
+		w.frames(1);
 	}
-	return r;
+	ObjectWeapons *weapons = archer->getWeapons();
+	REQUIRE(weapons != nullptr);
+	Weapon *bow = weapons->weaponInSlot(PRIMARY_WEAPON);
+	REQUIRE(bow != nullptr);
+	return weapons->weaponStatus(*bow);
 }
 } // namespace
 
-// The held goblin is the weapon's ammo (RW 0x6CD298: the clip reads the contain's count through ProjectileFilterInContainer, contain slot 0x114
-// RW 0x865CE3) and the shot's projectile (RW 0x90FA81 .. 0x90FAC9: contain slot 0x13C RW 0x866367 takes the first matching rider out and returns it, then
-// it flies with its own BezierProjectileBehavior, so the cave troll's nugget carries no ProjectileTemplateName). Without the two readers the weapon is
-// permanently out of ammo (a stub that answers false) and the throw never happens: the troll only swings.
-TEST_CASE("PORT-168 throw: the container's INFANTRY passenger is the projectile (RW 0x90FA81 .. 0x90FAC9, RW 0x866367)")
+// RW 0x6CD298 Weapon::getRemainingAmmo: with ProjectileFilterInContainer set (template + 0x120, RW 0x762977) the ammo is NOT the clip but the owner's
+// container ([object + 0x258], RW 0x6CD2BF) asked with the filter (contain slot 0x114, RW 0x6CD2D9 -> RW 0x865CE3: ObjectFilterMatch RW 0x7640C1 with
+// the rider and the container's player RW 0x68B678); RW 0x6CD11F then lets RW 0x6CD142 report READY for an owner whose weapon in a slot carries that
+// filter. The port's host answered `false` to both, so such a weapon was permanently OUT_OF_AMMO — the cave troll's CaveTrollGoblinThrow, clip 1 and
+// AutoReloadsClip = No, could never fire at all and the troll only swung its arm.
+TEST_CASE("PORT-168 ammo: ProjectileFilterInContainer counts the container's passengers, not the clip (RW 0x6CD298, RW 0x6CD11F)")
 {
-	const ThrowResult r = throwGoblin("NONE +INFANTRY", kOwnNugget, false, 60);
-	CHECK(r.weaponStatus != WEAPON_OUT_OF_AMMO); // RW 0x6CD142's third gate: container ammo counts as ammo
-	CHECK(r.thrown);                             // the goblin left the container on the fire
-	CHECK_FALSE(r.stillInContainer);
-	CHECK(r.goblinHealth == 100.0f);             // it flies whole; its own DieOnImpact decides the landing
-	CHECK(r.targetHealth == 100.0f);             // the 300 SIEGE warhead through NoArmor's DEFAULT 100%: 400 - 300
+	CHECK(ammoStatus("Port168Archer", "NONE +INFANTRY", nullptr) == WEAPON_OUT_OF_AMMO); // an empty container: nothing to throw
+	CHECK(ammoStatus("Port168Archer", "NONE +INFANTRY", "Port168AmmoGoblin") == WEAPON_READY_TO_FIRE);
+	// the filter's kind mask (RW 0x7640C1): an ORC-only filter leaves the non-ORC goblin out of the count
+	CHECK(ammoStatus("Port168Archer", "NONE +ORC", "Port168AmmoGoblin") == WEAPON_OUT_OF_AMMO);
+	CHECK(ammoStatus("Port168Archer", "NONE +ORC", "Port168AmmoOrc") == WEAPON_READY_TO_FIRE);
 }
 
-// Neighbouring behaviours the container branch must not disturb:
-//   * a filter that does not allow the held unit (NONE +ORC against a non-ORC goblin) leaves the weapon out of ammo: contain slot 0x114 counts nothing
-//     (RW 0x865CE3 -> RW 0x7640C1), and nothing leaves the hand;
-//   * with the container gone the reader answers like retail's own no-container branch (RW 0x6CD2C9 -> RW 0x6CD2E1): the weapon reads its clip, not a
-//     passenger;
-//   * a nugget that names its projectile is untouched by the branch (RW 0x90FA8E `je` skips to RW 0x90FACB): the held unit stays held and the named
-//     object is what flies.
-TEST_CASE("PORT-168 neighbours: a filter that allows nothing, no container, and a nugget with its own projectile (RW 0x6CD298, RW 0x90FACB)")
+// The neighbouring behaviours of the reader:
+//   * an owner with no container falls back to its own clip (RW 0x6CD2C9 -> RW 0x6CD2E1), the same answer retail gives before the contain branch of the
+//     deliver (RW 0x90FA90);
+//   * a weapon without ProjectileFilterInContainer never asks a container: its clip answers, even with a passenger inside.
+TEST_CASE("PORT-168 neighbours: no container and no filter keep the clip's own status (RW 0x6CD2C9, RW 0x6CD298)")
 {
-	const ThrowResult refuses = throwGoblin("NONE +ORC", kOwnNugget, false, 30);
-	CHECK(refuses.weaponStatus == WEAPON_OUT_OF_AMMO); // no contained rider the filter allows
-	CHECK(refuses.stillInContainer);                   // the goblin stays held
-	CHECK(refuses.goblinHealth == 100.0f);
-	CHECK(refuses.targetHealth == 400.0f);             // nothing was thrown
-
-	const ThrowResult noContainer = throwGoblin("NONE +INFANTRY", kOwnNugget, true, 0);
-	CHECK(noContainer.weaponStatus != WEAPON_OUT_OF_AMMO); // the container is gone: the clip's own ammo answers, not a passenger
-	CHECK_FALSE(noContainer.stillInContainer);
-
-	const ThrowResult named = throwGoblin("NONE +INFANTRY", kNamedNugget, false, 60);
-	CHECK(named.weaponStatus != WEAPON_OUT_OF_AMMO);
-	CHECK(named.stillInContainer);    // the passenger is NOT the ammo of a nugget that names its projectile
-	CHECK(named.goblinHealth == 100.0f);
+	CHECK(ammoStatus("Port168NoContain", "NONE +INFANTRY", "Port168AmmoGoblin") == WEAPON_READY_TO_FIRE); // clip 1, the reader answers nothing
+	CHECK(ammoStatus("Port168ClipArcher", "NONE +INFANTRY", nullptr) == WEAPON_READY_TO_FIRE);             // clip 1
+	CHECK(ammoStatus("Port168ClipArcher", "NONE +INFANTRY", "Port168AmmoGoblin") == WEAPON_READY_TO_FIRE); // its clip, not the passenger
 }
