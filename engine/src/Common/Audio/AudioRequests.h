@@ -35,6 +35,9 @@ bool isValidEvent(const std::string &eventName);
 // the logic's unit voice events (see AudioEntryPoints.h installUnitVoiceHandler)
 void postUnitVoice(int voiceEvent, std::uint32_t objectId, std::uint32_t producerId = 0);
 void postUnitVoice(int voiceEvent, std::uint32_t objectId, const SpecialPowerTemplate *powerTemplate, std::uint32_t targetId = 0, const Coord3D *pos = nullptr);
+// PORT-151: the same event with the pick info's air flag (RW PickAndPlayInfo + 0x0, RW 0x66B240 from the victim's airborne locomotor).
+// The three face an attack helper posts: UnitVoiceResponse::Info::air then fills the air row (RW 0x8DDF3B's air row 0x0C / 0x18).
+void postUnitVoice(int voiceEvent, std::uint32_t objectId, std::uint32_t producerId, std::uint32_t targetId, const bool *air);
 // a weapon's FireSound for the shooter (RW FiringTracker::shotFired 0x8E3411): loopFrames 0 = one shot; else the sound loops (re-added when it stopped)
 // until `frame + loopFrames` passes without another shot (stopped by updateWeaponFireSounds, which the client calls once per logic frame)
 void postWeaponFireSound(const std::string &eventName, std::uint32_t objectId, std::uint32_t loopFrames, std::uint32_t frame);

@@ -83,6 +83,7 @@ struct UnitVoiceParams
 	float posX = 0.0f;
 	float posY = 0.0f;
 	float posZ = 0.0f;
+	bool air = false; ///< PORT-151: PickAndPlayInfo + 0x0 (the victim's airborne locomotor, RW 0x68BEED)
 };
 typedef std::function<void(const UnitVoiceParams &params)> UnitVoiceHandler;
 typedef std::function<void(int voiceEvent, std::uint32_t objectId, std::uint32_t producerId)> LegacyUnitVoiceHandler;

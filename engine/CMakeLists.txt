@@ -221,6 +221,7 @@ include(cmake/Path2.cmake)      # OPENBFME_PATH2_SOURCES / OPENBFME_PATH2_TESTS 
 include(cmake/Net.cmake)        # OPENBFME_NET_SOURCES / OPENBFME_NET_TESTS, openbfme_peer (lane MP-1)
 include(cmake/Experience.cmake) # OPENBFME_XP_SOURCES / OPENBFME_XP_TESTS (lane XP-1)
 include(cmake/FactB.cmake)      # OPENBFME_FACTB_TESTS (lane FACT-B: Isengard and Mordor)
+include(cmake/Port151.cmake) # PORT-151: the enter-state unit voices of the AI orders (issue #369; OPENBFME_PORT151_TESTS)
 include(cmake/Port4.cmake) # OPENBFME_PORT4_TESTS
 include(cmake/Port109.cmake) # OPENBFME_PORT109_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
@@ -933,6 +934,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT11_TESTS}
     ${OPENBFME_PORT27_TESTS}
     ${OPENBFME_PORT4_TESTS}
+    ${OPENBFME_PORT151_TESTS}
     ${OPENBFME_PORT19_TESTS}
     ${OPENBFME_PORT15_TESTS}
     ${OPENBFME_PORT9_TESTS}

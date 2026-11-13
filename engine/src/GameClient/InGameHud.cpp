@@ -217,6 +217,7 @@ InGameHud::InGameHud(Config config)
 		info.target = (ObjectID)p.targetId;
 		info.hasPosition = p.hasPosition;
 		info.position = Coord3D{ p.posX, p.posY, p.posZ };
+		info.air = p.air; // PORT-151: the attack helper's air flag (RW 0x66B240)
 		m_voice->pickAndPlay({ (ObjectID)p.objectId }, p.voiceEvent, &info);
 	}, this);
 }
