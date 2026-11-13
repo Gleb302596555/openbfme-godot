@@ -1233,6 +1233,7 @@ add_executable(openbfme_tests
     tests/test_local_7.cpp
     # lane LOCAL-41 (weapon aim at the victim's contact point, S-362)
     tests/test_local_41.cpp
+    tests/test_p77_uruk_pit.cpp
     # lane LOCAL-5 (capture flash and audio tick)
     tests/test_local_5.cpp
     # lane LOCAL-8 (RespawnUpdate ButtonImage, AutoRespawnAtObjectFilter, DeathAnimationTime)

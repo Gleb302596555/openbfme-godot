@@ -8,6 +8,7 @@
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Map/TerrainLogic.h"
+#include "GameLogic/Module/CastleModules.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/SimMath.h"
@@ -298,11 +299,16 @@ bool BuildPlacement::isLocationClearOfObjects(GameLogic &logic, const Coord3D &p
 	{
 		return true; // no geometry known: nothing to collide with (stop S-301 counts it)
 	}
-	const bool onlyCheckEnemies = options == LLF_NO_ENEMY_OBJECT_OVERLAP;
+	const bool onlyCheckEnemies = (options & ~(unsigned)LLF_CASTLE_MEMBERS_CLEAR) == LLF_NO_ENEMY_OBJECT_OVERLAP;
 	static const int immobile = ObjectTemplateInfoBuilder::kindOfIndex("IMMOBILE");
 	static const int mine_ = ObjectTemplateInfoBuilder::kindOfIndex("MINE");
 	static const int inert = ObjectTemplateInfoBuilder::kindOfIndex("INERT");
 	static const int clearedByBuild = ObjectTemplateInfoBuilder::kindOfIndex("CLEARED_BY_BUILD");
+	static const int baseSite = ObjectTemplateInfoBuilder::kindOfIndex("BASE_SITE");
+	static const int dozerKind = ObjectTemplateInfoBuilder::kindOfIndex("DOZER");
+	// P-77, RW 0x796D63 .. 0x796D68 (options bit 8) and RW 0x796E9A .. 0x796EB1: the castle's members clear only for a BASE_SITE builder (template KindOf 120,
+	// + 0x117 & 1)
+	const bool castleMembersClear = (options & LLF_CASTLE_MEMBERS_CLEAR) && builder && baseSite >= 0 && builder->isKindOf((unsigned)baseSite);
 	for (Object *them = logic.getFirstObject(); them; them = them->getNextObject())
 	{
 		if (them == builder || them->isDestroyed() || !them->getTemplate() || !them->isInWorld())
@@ -313,6 +319,16 @@ bool BuildPlacement::isLocationClearOfObjects(GameLogic &logic, const Coord3D &p
 			(inert >= 0 && them->isKindOf((unsigned)inert)))
 		{
 			continue;
+		}
+		if (castleMembersClear)
+		{
+			// RW 0x796EB3 .. 0x796EC7: a member of this castle (its CastleMemberBehavior, found by RW 0x797BEF, holds the castle's ID at + 0x18, written by
+			// registerOwnedObject RW 0x79AC87) does not block; RW 0x796ECD .. 0x796ED3 the builder itself; RW 0x796ED9 .. 0x796EE3 a DOZER (template + 0x109 & 0x40)
+			const CastleMemberBehavior *member = dynamic_cast<const CastleMemberBehavior *>(them->findModule("CastleMemberBehavior"));
+			if ((member && member->castleId() == builder->getID()) || (dozerKind >= 0 && them->isKindOf((unsigned)dozerKind)))
+			{
+				continue;
+			}
 		}
 		if (!footprintsOf(logic, *them, other))
 		{
@@ -366,7 +382,7 @@ LegalBuildCode BuildPlacement::isLocationLegalToBuild(GameLogic &logic, const Co
 	{
 		// no shroud exists yet (VIS-1): every cell is revealed (stop S-301)
 	}
-	if ((options & LLF_NO_OBJECT_OVERLAP) && !isLocationClearOfObjects(logic, pos, build, angle, builder, LLF_NO_OBJECT_OVERLAP))
+	if ((options & LLF_NO_OBJECT_OVERLAP) && !isLocationClearOfObjects(logic, pos, build, angle, builder, LLF_NO_OBJECT_OVERLAP | (options & LLF_CASTLE_MEMBERS_CLEAR))) // P-77: RW 0x7968C5 .. 0x7968CE
 	{
 		return LBC_OBJECTS_IN_THE_WAY;
 	}

@@ -59,7 +59,11 @@ enum LocationLegalFlags
 	LLF_USE_QUICK_PATHFIND = 0x00000008,
 	LLF_SHROUD_REVEALED = 0x00000010,
 	LLF_NO_ENEMY_OBJECT_OVERLAP = 0x00000020,
-	LLF_FORCE_CHECK = 0x00000040
+	LLF_FORCE_CHECK = 0x00000040,
+	// P-77, RotWK only (the name is the port's): the castle's legality thunk RW 0x797A96 always adds it (`or dh, 1` at RW 0x797AAC); isLocationLegalToBuild
+	// hands it to the object-overlap pass only (RW 0x7968C5 .. 0x7968CE; the enemy pass RW 0x79690B .. 0x796921 does not get it). There, with a BASE_SITE
+	// builder, the builder castle's own members, the builder and a DOZER do not block (RW 0x796D63, 0x796E9A .. 0x796EE3; see isLocationClearOfObjects)
+	LLF_CASTLE_MEMBERS_CLEAR = 0x00000100
 };
 
 namespace BuildPlacement

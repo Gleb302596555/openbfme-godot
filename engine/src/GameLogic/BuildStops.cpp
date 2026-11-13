@@ -15,7 +15,7 @@ std::vector<std::string> BuildStops::lines()
 	std::vector<std::string> out = {
 		"[S-300] castle layouts: a CastleBehavior asks the CastleTemplateStore for the file Bases/<name>/<name>.bse when it unpacks (retail fills the store from a name list at start, RW 0x7311FB: same files, "
 		"same parser RW 0x731010); a missing or unparsable file is an error. The maps-and-terrain spec's claim that no CastleTemplates chunk exists in the corpus is wrong: all 207 retail .bse files have one",
-		"[S-303] castle: the instant unpack of RW 0x79C265 (the starting fortress, the camps and castles of the maps) is ported; the options 5 of the legality call RW 0x797A96 are taken as NO_OBJECT_OVERLAP "
+		"[S-303] castle: the instant unpack of RW 0x79C265 (the starting fortress, the camps and castles of the maps) is ported; the options 5 of the legality call RW 0x797A96 are taken as NO_OBJECT_OVERLAP, with the thunk's bit 8 (the castle's own members, the castle and a DOZER do not block a BASE_SITE castle: P-77) "
 		"(its clear-path half needs an AI the castle does not have); ported since: PreBuiltList and the castle after its unpack (CASTLE-1, S-951 / S-952), CastleUpgrade "
 		"(FACT-B), the creation interface's site clearing RW 0x858C41 and push out RW 0x858CFC around every member (BACKLOG2); not ported: the creation interface "
 		"RW 0x859198's own construct for a member (slot 7, RW 0x858701 with the castle as the plot: the port places the member itself), FactionDecal, the damage "

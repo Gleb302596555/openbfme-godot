@@ -704,7 +704,7 @@ Object *CastleBehavior::createOwnedObject(const CastleTemplateEntry &entry, Play
 	// single predefined layout, not independent player building placements.
 	// Keep the RotWK placement check for its castle system.
 	if (!m_data->m_useNewCastleSystem && !templateKindOf(logic, *tt, "COMMANDCENTER") &&
-		BuildPlacement::isLocationLegalToBuild(logic, pos, *tt, angle, LLF_NO_OBJECT_OVERLAP, castle, &owner) != LBC_OK)
+		BuildPlacement::isLocationLegalToBuild(logic, pos, *tt, angle, LLF_NO_OBJECT_OVERLAP | LLF_CASTLE_MEMBERS_CLEAR, castle, &owner) != LBC_OK) // P-77: the thunk RW 0x797A96 adds bit 8
 	{
 		return nullptr;
 	}

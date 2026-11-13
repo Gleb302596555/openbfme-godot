@@ -664,6 +664,9 @@ TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after a
 	// previous vector); the big battle has no fire and keeps its vector.
 	// pin: the fork's merge of upstream 1d505ac3 (2026-11-13) re-measured the battle and the skirmish once on the merged tree (OPENBFME_PERF1_REGEN=1, Windows MSVC,
 	// station-2): upstream's REQTHROTTLE-1 (path requests within 2 frames, RW 0x663887), ENTERADJUST-1 and the shipped ports of PRs #289-#298 on top of the fork; the allied blob keeps its file
+	// pin: P-77 (2026-11-13) re-measured the battle and the skirmish once on station-0 (OPENBFME_PERF1_REGEN=1, Windows MSVC): a BASE_SITE castle's unpack no longer
+	// refuses its own members, the castle or a DOZER (thunk RW 0x797A96 bit 8, RW 0x796E9A .. 0x796EE3), so the starting fortresses place members the port
+	// used to drop; the allied blob keeps its file
 	const std::vector<std::uint32_t> battleRef = perf1::readHashes("big_battle_400.hashes");
 	const std::vector<std::uint32_t> skirmishRef = perf1::readHashes("skirmish4_6000.hashes");
 	// OPENBFME_PERF1_REGEN=1 rewrites the two reference vectors from this build instead of comparing: run it only when a merged change is MEANT to

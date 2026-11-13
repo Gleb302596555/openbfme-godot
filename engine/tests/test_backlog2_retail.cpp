@@ -462,7 +462,9 @@ TEST_CASE("BACKLOG2 S-951: a captured camp flag's unpack (MSG_CASTLE_UNPACK) cos
 		++wait;
 	}
 	CHECK(cb->state() == CastleBehavior::STATE_UNPACKING);
-	// Camp_Men: the camp's floor, keep, five walls, five defence nodes and six building foundations (the rock goes to the neutral player)
+	// Camp_Men: the camp's floor, keep, eleven walls, five defence nodes and six building foundations (the rock goes to the neutral player). P-77: the walls
+	// overlap at their joints; CampFlag is a BASE_SITE (civilianbuildings.ini), so the legality thunk's bit 8 (RW 0x797A96 -> 0x796E9A .. 0x796EC7) lets the
+	// camp's own members through and every wall stands (the port made 5 of the 11 before)
 	std::map<std::string, int> made;
 	Object *keep = nullptr;
 	for (ObjectID id : cb->ownedObjects())
@@ -473,7 +475,7 @@ TEST_CASE("BACKLOG2 S-951: a captured camp flag's unpack (MSG_CASTLE_UNPACK) cos
 		keep = o->getTemplate()->getName() == "GondorCampKeep" ? o : keep;
 	}
 	CHECK(made["GondorCampKeep"] == 1);
-	CHECK(made["GBCampWall"] == 5);
+	CHECK(made["GBCampWall"] == 11);
 	CHECK(made["GondorBuildingFoundation"] == 6);
 	REQUIRE(keep);
 	CHECK(keep->getControllingPlayer() == c.men);
