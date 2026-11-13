@@ -13,6 +13,7 @@
 #include "Common/ModEngineFeatures.h"
 #include "Common/ModelState.h"
 #include "Common/Thing/ThingFactory.h"
+#include "GameClient/GUI/Image.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -388,6 +389,115 @@ const CommandButton *CommandButton::getFinalOverride() const
 const ThingTemplate *CommandButton::getThingTemplate() const
 {
 	return getFinalOverride()->m_thingTemplate;
+}
+
+std::size_t CommandButton::resolvedButtonImageCount(const MappedImageCollection *images) const
+{
+	// RW 0x75D3E9 (cacheButtonImage): resolves ButtonImage names against TheMappedImageCollection;
+	// headless callers without a MappedImageCollection treat non-empty INI names as present.
+	std::size_t count = 0;
+	for (const std::string &name : m_buttonImageName)
+	{
+		if (!name.empty() && (!images || images->findImageByName(name) != nullptr))
+		{
+			++count;
+		}
+	}
+	return count;
+}
+
+void CommandButton::setToggleIndex(int index, const MappedImageCollection *images) const
+{
+	// RW 0x75D082: updates +0xFC only when 0 <= index < resolved image count.
+	if (index >= 0 && static_cast<std::size_t>(index) < resolvedButtonImageCount(images))
+	{
+		m_toggleIndex = index;
+	}
+}
+
+std::string CommandButton::getToggleImageName(const MappedImageCollection *images) const
+{
+	// RW 0x75CDFC: returns resolved image at +0xFC, or "" when out of range.
+	if (m_toggleIndex < 0)
+	{
+		return std::string();
+	}
+	std::size_t idx = 0;
+	for (const std::string &name : m_buttonImageName)
+	{
+		if (!name.empty() && (!images || images->findImageByName(name) != nullptr))
+		{
+			if (idx == static_cast<std::size_t>(m_toggleIndex))
+			{
+				return name;
+			}
+			++idx;
+		}
+	}
+	return std::string();
+}
+
+const std::string &CommandButton::getToggleTextLabel() const
+{
+	// RW 0x75CE47 (list lookup): returns m_textLabel[+0xFC], or back() when +0xFC >= size(), or "" when empty.
+	static const std::string kEmpty;
+	if (m_textLabel.empty())
+	{
+		return kEmpty;
+	}
+	if (m_toggleIndex >= 0 && static_cast<std::size_t>(m_toggleIndex) < m_textLabel.size())
+	{
+		return m_textLabel[static_cast<std::size_t>(m_toggleIndex)];
+	}
+	return m_textLabel.back();
+}
+
+const std::string &CommandButton::getToggleDescriptLabel() const
+{
+	// RW 0x75CECD: returns m_descriptLabel[+0xFC], or back() when +0xFC >= size(), or "" when empty.
+	static const std::string kEmpty;
+	if (m_descriptLabel.empty())
+	{
+		return kEmpty;
+	}
+	if (m_toggleIndex >= 0 && static_cast<std::size_t>(m_toggleIndex) < m_descriptLabel.size())
+	{
+		return m_descriptLabel[static_cast<std::size_t>(m_toggleIndex)];
+	}
+	return m_descriptLabel.back();
+}
+
+const std::string &CommandButton::getUnitSpecificSound() const
+{
+	// RW 0x75D0B9: returns m_unitSpecificSound[+0xFC], or "" when out of range (never clamps to front/back).
+	static const std::string kEmpty;
+	if (m_toggleIndex >= 0 && static_cast<std::size_t>(m_toggleIndex) < m_unitSpecificSound.size())
+	{
+		return m_unitSpecificSound[static_cast<std::size_t>(m_toggleIndex)];
+	}
+	return kEmpty;
+}
+
+const std::string &CommandButton::getSetAutoAbilityUnitSound() const
+{
+	// RW 0x75D0F8: returns m_setAutoAbilityUnitSound[+0xFC], or "" when out of range.
+	static const std::string kEmpty;
+	if (m_toggleIndex >= 0 && static_cast<std::size_t>(m_toggleIndex) < m_setAutoAbilityUnitSound.size())
+	{
+		return m_setAutoAbilityUnitSound[static_cast<std::size_t>(m_toggleIndex)];
+	}
+	return kEmpty;
+}
+
+const std::string &CommandButton::getUnsetAutoAbilityUnitSound() const
+{
+	// RW 0x75D137: returns m_unsetAutoAbilityUnitSound[+0xFC], or "" when out of range.
+	static const std::string kEmpty;
+	if (m_toggleIndex >= 0 && static_cast<std::size_t>(m_toggleIndex) < m_unsetAutoAbilityUnitSound.size())
+	{
+		return m_unsetAutoAbilityUnitSound[static_cast<std::size_t>(m_toggleIndex)];
+	}
+	return kEmpty;
 }
 
 CommandButton *CommandStore::findNonConstCommandButton(const std::string &name) const

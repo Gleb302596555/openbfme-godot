@@ -128,20 +128,11 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 		m_ctx.ui.message("GUI:NotEnoughMoneyToBuild"); // processCommandUI: CANMAKE_NO_MONEY
 		return false;
 	}
-	// RW 0x9407D9, BFME2 0x00539DCB: unit voice response for the pressed command button (pickAndPlayUnitVoiceResponse 0x7E3)
-	if (m_commandVoice && !b.m_unitSpecificSound.empty() && b.m_command != GUI_COMMAND_SET_STANCE)
+	// RW 0x9407D9 -> 0x8DEDBB(0x7E3) -> CommandButton::getUnitSpecificSound (RW 0x75D0B9):
+	// play UnitSpecificSound[m_toggleIndex] BEFORE the command switch updates +0xFC; out-of-range stays silent ("").
+	if (m_commandVoice && b.m_command != GUI_COMMAND_SET_STANCE)
 	{
-		size_t soundIndex = 0;
-		if (b.m_command == GUI_COMMAND_HORDE_TOGGLE_FORMATION)
-		{
-			const ContainModuleInterface *c = obj->getContain();
-			const ContainModuleInterface::ContainedItemsList *members = c ? c->getContainedItemsList() : nullptr;
-			if (members && !members->empty() && (*members->begin())->testModelCondition(CombatNames::modelCondition("ALTERNATE_FORMATION")))
-			{
-				soundIndex = 1;
-			}
-		}
-		const std::string &sound = soundIndex < b.m_unitSpecificSound.size() ? b.m_unitSpecificSound[soundIndex] : b.m_unitSpecificSound.front();
+		const std::string &sound = b.getUnitSpecificSound();
 		if (!sound.empty())
 		{
 			m_commandVoice(sound);
@@ -272,10 +263,11 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 		}
 		case GUI_COMMAND_TOGGLE_WEAPONSET:
 		{
-			// lane HUD-4: RW 0x9412C8: MSG_WEAPONSET_TOGGLE with the context object's id (the logic case RW 0x77B529, GameLogic/WeaponSetToggle.cpp); the
-			// button's client side (RW 0x75D22E: the image index update) is not ported (S-1672)
+			// lane HUD-4 / PORT-169: RW 0x9412C8 sends MSG_WEAPONSET_TOGGLE with the context object's id (logic case RW 0x77B529, GameLogic/WeaponSetToggle.cpp),
+			// then RW 0x9412F3 -> 0x941A22 calls updateToggleImage(obj, true) (RW 0x75D22E).
 			ClientMessage &m = m_ctx.stream.append(MSG_WEAPONSET_TOGGLE);
 			m.appendObjectID(m_source);
+			updateToggleIndex(b, obj, true);
 			return true;
 		}
 		case GUI_COMMAND_TOGGLE_GATE:
@@ -337,11 +329,13 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 						m.appendInteger(target);
 					}
 				}
+				updateToggleIndex(b, obj, true); // RW 0x941A22 -> 0x75D22E(obj, 1)
 				return true;
 			}
 			// lane HORDE-2: the logic case (RW 0x77BE83) reads argument 0 as the horde's object id: the control bar's source object
 			ClientMessage &m = m_ctx.stream.append(MSG_HORDE_TOGGLE_FORMATION);
 			m.appendObjectID(m_source);
+			updateToggleIndex(b, obj, true); // RW 0x941A22 -> 0x75D22E(obj, 1)
 			return true;
 		}
 		case GUI_COMMAND_ATTACK_MOVE:
@@ -437,9 +431,10 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 		}
 		case GUI_COMMAND_TOGGLE_NO_AUTO_ACQUIRE:
 		{
-			// lane FACT-A: RW 0x940435 case 0x30: MSG_TOGGLE_NO_AUTO_ACQUIRE { objectID the context object } (the button's image toggle RW 0x75D366 is the client's)
+			// lane FACT-A / PORT-169: RW 0x940435 case 0x30: MSG_TOGGLE_NO_AUTO_ACQUIRE { objectID the context object }, then RW 0x941367 -> 0x75D366(id, 1)
 			ClientMessage &m = m_ctx.stream.append(MSG_TOGGLE_NO_AUTO_ACQUIRE);
 			m.appendObjectID(obj->getID());
+			updateToggleIndex(b, obj, true);
 			return true;
 		}
 		case GUI_COMMAND_FIRE_WEAPON:
@@ -498,6 +493,7 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 					tm.appendObjectID(obj->getID());
 				}
 			}
+			updateToggleIndex(b, obj, true); // RW 0x9414E7 -> 0x75D22E(obj, 1)
 			return true;
 		}
 		case GUI_COMMAND_CASTLE_UNPACK:
@@ -628,13 +624,13 @@ bool ControlBar::rightPressButton(int slot, bool inPalantir, bool shift)
 		}
 		return false;
 	}
-	// RW 0x940848 .. 0x940857, BFME2 0x00539DEC: AutoAbility toggle voice (0x7E4 / 0x7E5)
+	// RW 0x940848 .. 0x940857 -> 0x8DEDBB(0x7E4 / 0x7E5) -> CommandButton::getSetAutoAbilityUnitSound (RW 0x75D0F8) / getUnsetAutoAbilityUnitSound (RW 0x75D137)
 	if (m_commandVoice && b.m_autoAbility)
 	{
-		const std::vector<std::string> &list = !cb->autoAbility ? b.m_setAutoAbilityUnitSound : b.m_unsetAutoAbilityUnitSound;
-		if (!list.empty() && !list.front().empty())
+		const std::string &sound = !cb->autoAbility ? b.getSetAutoAbilityUnitSound() : b.getUnsetAutoAbilityUnitSound();
+		if (!sound.empty())
 		{
-			m_commandVoice(list.front());
+			m_commandVoice(sound);
 		}
 	}
 	switch (b.m_command)

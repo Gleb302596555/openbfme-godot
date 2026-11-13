@@ -241,6 +241,9 @@ private:
 	// object's controller
 	void populateUnderConstruction(Object &obj, bool mine);
 	void foreignDisable(ControlBarButton &cb) const;
+	// PORT-169 (issue #398, RW 0x75D22E / 0x944603): sync CommandButton::m_toggleIndex (+0xFC) with object or multi-select state
+	void updateToggleIndex(const CommandButton &b, const Object *obj, bool invert) const;
+	void updateMultiSelectToggleIndex(const CommandButton &b, const Object *fallback) const;
 
 	HudContext &m_ctx;
 	ObjectID m_source = INVALID_ID;
