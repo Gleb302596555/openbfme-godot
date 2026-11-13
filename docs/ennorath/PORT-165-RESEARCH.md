@@ -27,8 +27,18 @@ The kind-7 constructor RW 0x74548D defines these rows (also BFME2
 The two 0x740E16 states are the *same class*: onEnter 0x747999 and update
 0x742CEA. They are not the generic weapon-finish wait state. On entry,
 0x747999 returns -2 or 0 according to the template bit at +0x114, mask
-0x2000; update delegates to 0x742C8C. Both outcomes and the update require
-porting, rather than an unconditional failure approximation.
+0x2000; this is KindOf HORDE (bit 109, also +0x115 mask 0x20).
+Hordes return 0 (continue) on entry; non-hordes return -2 (failure).
+
+Update delegates to RW 0x742C8C. With no goal object it calls the horde
+interface slot 0x14C (RW 0x86D562): all living members with an AI must be
+attacking; members without an AI or marked dead are skipped and an empty
+list passes. A true result keeps the state running, while false returns
+failure. With a live goal object, slot 0x148 (RW 0x86D438) additionally
+checks the members' current victims; a destroyed goal returns failure.
+This matters for both rows: a successful position shot returns to approach
+only after the members no longer all attack. An unconditional failure or
+`AIWaitUntilFinishedFiringState` substitution is not equivalent.
 
 ## Approach and position fire
 
