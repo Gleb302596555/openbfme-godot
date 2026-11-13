@@ -1,0 +1,23 @@
+# PORT-154 / issue 372: AIData reader audit (in progress)
+
+Source: supplied RotWK 2.01 `game.dat`, MD5 `daed3668006cd90f01c34e5a7da1901f` (S-001 provenance caveat). All instruction addresses below were reread with `tools/mod/rw.py ... dis`; the BFME2 1.06 decompile is a donor, **not** evidence for RotWK. No retail/mod bytes or values are copied here.
+
+## Ownership and parser
+
+`AI` constructs 0x114 bytes at RW 0x7002AC, calls `TAiData` ctor RW 0x6FFBEF, stores it at `AI + 0x18` (RW 0x7002DA); override allocation follows the same chain at RW 0x701610..0x70163E and calls copy RW 0x6FEEF7. RW 0x6FFC55 installs vtable 0xC1D6D8 (slot 0 = destructor RW 0x6FFAB8 -> 0x6FF9E9; slot 3 = xfer RW 0x6FF49C). RW 0x7017AA..0x7017D9 sends `AI + 0x18` and the field table at 0xC1CB20 to INI's RW 0x42DB80.
+
+| Field | Table row / parser | Offset of `TAiData` | Firsthand instruction facts |
+|---|---|---|---|
+| GuardInnerModifierAI | 0xC1CBC0 / 0x42ED00 | +0x2C | ctor RW 0x6FFC41 zeroes; xfer RW 0x6FF523; guard range RW 0x949567 calls 0x6FF412 with flags 7; 0x6FF412 reads only AIData +0x4C / +0x50 (RW 0x6FF48D / 0x6FF470), **not +0x2C**. |
+| GuardOuterModifierAI | 0xC1CBD0 / 0x42ED00 | +0x30 | ctor RW 0x6FFC46; xfer RW 0x6FF52E. GuardOuterState RW 0x94A346..0x94A351 calls 0x6FF412 with flags 3 (not +0x30). |
+| GuardInnerModifierHuman | 0xC1CBE0 / 0x42ED00 | +0x34 | ctor RW 0x6FFC4B; xfer RW 0x6FF539. |
+| GuardOuterModifierHuman | 0xC1CBF0 / 0x42ED00 | +0x38 | ctor RW 0x6FFC50; xfer RW 0x6FF544. |
+| RebuildDelayTimeSeconds | 0xC1CD70 / 0x42EC5E | +0x80 | ctor RW 0x6FFD66 writes 10; copy RW 0x6FEFCB..0x6FEFD1; not in xfer RW 0x6FF49C. Existing builder delay in the port cites RW 0x97DDF4 (30 seconds), not this field; rebuild-hole mechanism belongs to Port 144. |
+| AIDozerBoredRadiusModifier | 0xC1CD90 / 0x42ED00 | +0x88 | copy RW 0x6FEFE3..0x6FEFE9. The older triage's claimed reader RW 0x688845 is **not** proven: RW 0x6886E0 starts with `mov edi,ecx` (0x6886F3) and RW 0x688845 reads `[edi+0x88]`; there is no `TheAI` / `AI+0x18` in that function's opening path. Comparing `[edi+0x88]` to `[edi+0x90]` is therefore insufficient to identify this as AIData. Need to locate and prove a genuine reader, if any. |
+| AICrushesInfantry | 0xC1CDA0 / 0x42E558 | +0x8C | ctor RW 0x6FFD70 writes 1; copy RW 0x6FEFEF..0x6FEFF5. RW 0x745945..0x745954 **does** read `[[TheAI+0x18]+0x8C]` inside condition predicate RW 0x745901. Its gates RW 0x74591C..0x745943, 0x745956..0x745986 include `UseCrushAttack`, victim not contained, AI state != -1, the locomotor's +0x5C == 1, RW 0x69519A(victim,2) and a template bit. This predicate is in the condition records at RW 0xC29DE0 and 0xC29E1C (file offsets 0x829DE0 / 0x829E1C; **not** code addresses). RW 0x7486FD..0x748804 constructs the generic attack machine, selects the records at 0xC29DD4 / 0xC29E04 depending on the attack mode and gives them to the common state-transition machinery RW 0x8DBE1D (states 0x66 / 0x67). Caller RW 0x74CD78 constructs it for AIAttackState. Thus the field has a reachable reader **inside the existing generic attack-machine conditions**; the port currently omits these generic object conditions (S-325), not an independent policy. |
+
+Donor check: `DONOR BFME2 0xC06650 (Code/GameEngine/Source/GameLogic/AI/AIConstructor_Unresolved.cpp)`: all these names appear in the parse table with the corresponding offsets. A code search in `Code/` for each exact field name finds **only** that table; absence of a name alone does not prove absence of an offset reader. The previous `rotwk-triage/batch-12.md` additionally traced all 670 accesses to `[0xDE4B40]` and recorded no reader of the guard four or RebuildDelay. This analysis must validate the remaining dozer/crush reachability and check the adjacent MinClumpDensity, RotateSkirmishBases and WallHeight before a verdict/stop row.
+
+## Conflict with requested tests
+
+The proposed test that scales the guard's inner/outer ranges by the four modifiers would encode behaviour not present in the inspected RW guard path (RW 0x949567 -> 0x6FF412). No such test/code has been added. AICrushesInfantry **is** reachable through RW 0x7486FD's generic attack machine, but making only that predicate run in the port would patch around the missing generic object-condition transition family (S-325, `AIAttackState::makeGenericAttackMachine` and `AIAttackAimState::update`). The old audit calls the dozer reader RW 0x688845, but its register owner is not `TAiData`. These are research stops, not reasons to guess a fallback formula or add a competing attack policy. The owner needs to decide whether the shared generic attack-condition mechanism (which also affects other issues) may be assigned to this task.
