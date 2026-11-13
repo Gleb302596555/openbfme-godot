@@ -502,11 +502,13 @@ MessageDisposition SelectionTranslator::translate(const ClientMessage &msg)
 				{
 					m_ctx.ui.setCursor(m_ctx.ui.mouseModeCursor());
 				}
-				else if (m_ctx.ui.getSelectCount() == 0)
+				else
 				{
-					// P-15: RW 0x69FCFC .. 0x69FD73: only without a selection (InGameUI vslot 0x118 == 0; with one the command hint sets the cursor, RW 0x69FD0C
-					// -> 0x69FD7E); the drawable under the pointer that can be selected (RW 0x83BCB1) AND is locally controlled (RW 0x68B749) gives Select
-					// (13), anything else Arrow (2). The port gave Select over any selectable object, an enemy's too
+					// P-15: RW 0x69FCFC .. 0x69FD73 (without a selection, InGameUI vslot 0x118 == 0): the drawable under the pointer that can be selected
+					// (RW 0x83BCB1) AND is locally controlled (RW 0x68B749) gives Select (13), anything else Arrow (2); the port gave Select over any
+					// selectable object, an enemy's too. With a selection RotWK's command hint sets the cursor (RW 0x69FD0C -> 0x69FD7E), Select over an own
+					// selectable object included (RW 0x6A3F8E); the port's command hint has no Select path, so this one keeps giving it for every
+					// selection and the command hint replaces it over enemies and allies (attack, move)
 					m_ctx.ui.setCursor(MouseCursorName::Arrow);
 					if (under && m_ctx.ui.getGUICommand() == nullptr && HudObjects::canSelect(m_ctx, *under, false) && !under->isKindOfName("SHRUBBERY")
 						&& HudObjects::isLocallyControlled(m_ctx, *under))
