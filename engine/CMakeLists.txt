@@ -192,6 +192,7 @@ include(cmake/Port104.cmake)    # PORT-104: CreateObjectDie/DebrisPortionOfSelf,
 include(cmake/Port73.cmake)     # PORT-73: W3DTreeDraw DoTopple / the shrub push aside (issue #205; OPENBFME_PORT73_TESTS)
 include(cmake/Port91.cmake)     # PORT-91: W3DModelDraw ShowShadowWhileContained — a contained unit keeps its shadow (issue #239; OPENBFME_PORT91_TESTS)
 include(cmake/Port87.cmake)     # PORT-87: unit voice VoiceStartCharging / VoiceNoBuild (issue #235; OPENBFME_PORT87_TESTS)
+include(cmake/Port152.cmake)   # PORT-152: CommandButton WeaponSlotToggle1/2, ToggleButtonName, RequiresValidContainer (fork issue #370)
 include(cmake/Port106.cmake)    # PORT-106: W3DScriptedModelDraw MultiPlayerOnly gate (issue #266; OPENBFME_PORT106_TESTS)
 include(cmake/Port105.cmake)    # PORT-105: TransportContain/ReleaseSnappyness, the rider's release blend (issue #265; OPENBFME_PORT105_TESTS)
 include(cmake/Port146.cmake)    # PORT-146: the archers on a moving siege carrier (issue #363; OPENBFME_PORT146_TESTS)
@@ -991,6 +992,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT43_TESTS}
     ${OPENBFME_PORT123_TESTS}
     ${OPENBFME_PORT51_TESTS}
+    ${OPENBFME_PORT152_TESTS}
     ${OPENBFME_PORT106_TESTS}
     ${OPENBFME_PORT81_TESTS}
     ${OPENBFME_PORT84_TESTS}
