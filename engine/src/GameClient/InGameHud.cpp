@@ -5,6 +5,7 @@
 #include "GameClient/InGameHud.h"
 #include "GameClient/BeaconClientUpdate.h"
 #include "Common/Audio/AudioEntryPoints.h"
+#include "GameClient/Eva.h"
 #include "GameLogic/BeaconCommands.h"
 #include "GameLogic/Economy.h"
 #include "GameLogic/EconomySettings.h"
@@ -877,8 +878,26 @@ bool InGameHud::selectionRegionOp(const InGameUI &ui, IconUIOp &out)
 // lane RADAR-1: the radar's events (Radar.h): the local player's attacked objects (RW 0x67B4B7), the events' end (RW 0x6D8E2B), then
 // W3DRadar::drawEvents (RW 0x44DE58) for the picture the device drew last (the events end in the radar's update, Radar::advanceClock) and the Palantir's pings; the window pixels go to the movie's stage units
 // (RW 0x6D5AD9: the Apt player's scale)
+void InGameHud::noteJumpPosition(const Coord3D &position)
+{
+	m_radar->noteEvaPosition(position, m_config.game.logic().getFrame());
+}
+
 void InGameHud::updateRadarEvents()
 {
+	// P-94: TheEva's jump-to positions (RW 0x5DD826 -> RW 0x5DD1F3) and its keep time (RW 0x5DD8ED). The list lives in the radar here; MiscEvaData gives
+	// the window (+ 0x90), the merge radius (+ 0x94) and the keep time (+ 0x8C)
+	if (Eva *eva = AudioApi::currentEva())
+	{
+		const MiscEvaData &misc = eva->miscEvaData();
+		m_radar->setEvaJumpData(misc.maxMillisecondsBeforeResettingLastJumpTo, misc.minDistanceBetweenJumpToEvents, misc.maxMillisecondsToKeepJumpToEventsFrames);
+		const unsigned logicFrame = m_config.game.logic().getFrame();
+		for (const Coord3D &p : eva->takePlayedJumpPositions())
+		{
+			m_radar->noteEvaPosition(p, logicFrame);
+		}
+		m_radar->expireEvaPositions(logicFrame);
+	}
 	// What a logic frame writes (an object's radar attack frame, the scripts' event notices) is read once per logic frame.
 	// noteAttacks walks every live object; that walk does not change while one logic frame stands. The client-frame ping work below stays every render frame.
 	// A write can land after this logic frame was already sampled (a hit or a script notice between the present and the next logic step, which is how

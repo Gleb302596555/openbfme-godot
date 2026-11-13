@@ -4734,7 +4734,7 @@ bool InGameHudNode::create_radar_event(const Vector2 &world_xy, int type, bool j
 	d->hud->radar().createEvent(at, type, 4.0f);
 	if (jump_to)
 	{
-		d->hud->radar().noteEvaPosition(at);
+		d->hud->noteJumpPosition(at);
 	}
 	return true;
 }

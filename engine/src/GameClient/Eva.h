@@ -13,8 +13,10 @@
 //   * OtherEvaEventsToBlock: while this event plays, the listed events are dropped and counted as just played (INFERENCE of the exact moment).
 //   * SideSound: the sound the player's SIDE hears (Side compared without case; no entry for the side: nothing plays and the event is consumed).
 //   * AlwaysPlayFromHomeBase: the sound comes from the home base, otherwise from the event's position (a 2D sound when there is none).
-//   * CountAsJumpToLocation: the event's position joins the list the space bar jumps through (kept MaxMillisecondsToKeepJumpToEvents, positions closer than
-//     MinDistanceBetweenJumpToEvents merge, the cycle restarts after MaxMillisecondsBeforeResettingLastJumpTo without a jump).
+//   * CountAsJumpToLocation: when the event's sound starts, its jump position (or else its position) joins the list the space bar jumps through. RotWK
+//     does it at play time, not at the report: RW 0x5DD7FF .. 0x5DD826 (the audio handle >= 5, the record's + 0x2D = CountAsJumpToLocation, field
+//     table RW 0xBF2270; the position RW 0x5DC455: the jump position + 0x14 when set (+ 0x21), else the position + 0x8 (+ 0x20)) calls
+//     RW 0x5DD1F3. The list lives in the radar here (Radar::noteEvaPosition); the HUD hands it what takePlayedJumpPositions() returns.
 //   * Eva never overlaps itself: one Eva sound at a time, played through the audio manager as an ordinary event of the local player.
 // Time is the caller's client clock in milliseconds (never the logic clock: Eva is presentation and must not affect simulation state).
 
@@ -59,8 +61,9 @@ public:
 	bool isEventBlockedByTimeout(int index, double nowMs) const;
 	// RW 0x5DCCEB (Eva::isEventAboutToPlay, Eva.cpp:534): false for an unknown event; INFERENCE (S-247): the event waits in the queue
 	bool isEventAboutToPlay(int index) const;
-	// the space bar: the next jump-to-location (false: none)
-	bool nextJumpToLocation(double nowMs, Coord3D *position);
+	// the jump positions of the CountAsJumpToLocation events whose sound started since the last call (RW 0x5DD826 -> RW 0x5DD1F3), oldest first
+	std::vector<Coord3D> takePlayedJumpPositions();
+	const MiscEvaData &miscEvaData() const { return m_ini.eva.miscEvaData(); }
 	float enemySightedMaxVoicePositionScanRange() const { return m_ini.eva.miscEvaData().enemySightedMaxVoicePositionScanRange; }
 
 	struct Counters
@@ -77,11 +80,8 @@ private:
 		double reportedMs;
 		Coord3D position;
 		bool hasPosition;
-	};
-	struct JumpTo
-	{
-		Coord3D position;
-		double atMs;
+		Coord3D jump;  ///< + 0x14 (RW 0x5DC455)
+		bool hasJump;  ///< + 0x21
 	};
 	void blockOthers(const EvaEventRecord &record, double nowMs);
 
@@ -97,8 +97,6 @@ private:
 	std::vector<double> m_lastReported; ///< per event index; negative = never
 	std::vector<std::pair<bool, Coord3D>> m_lastPlayedPos; ///< per event index: the position it last played at
 	AudioHandle m_speech = 0;
-	std::vector<JumpTo> m_jumpTo;
-	size_t m_jumpIndex = 0;
-	double m_lastJumpMs = -1.0;
+	std::vector<Coord3D> m_playedJumps;
 	Counters m_counters;
 };

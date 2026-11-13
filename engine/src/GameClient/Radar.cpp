@@ -522,8 +522,9 @@ std::vector<std::string> Radar::acceptanceStops()
 {
 	return {
 		"[S-1674] radar events (HUD-4): Space visits the radar's events as RW 0x5DCB28 (the next one while the window lasts, else the first; the view looks at it); "
-		"lane BACKLOG3: the list is TheEva's (RW 0xDE3670 + 0x68) and the scripts' radar event actions put their position at its front (RW 0x5DD1F3); not ported: "
-		"RW 0x5DD1F3's other callers (EVA events) and the sources of the window (+ 0x90) and of the merge radius (+ 0x94): both 0 here (no writer found); "
+		"lane BACKLOG3: the list is TheEva's (RW 0xDE3670 + 0x68) and the scripts' radar event actions put their position at its front (RW 0x5DD1F3); P-94: "
+		"TheEva's CountAsJumpToLocation events put theirs when their sound starts (RW 0x5DD826), the window (+ 0x90), merge radius (+ 0x94) and keep time "
+		"(+ 0x8C, RW 0x5DD8ED) are MiscEvaData's; not ported: the jump's game modes 8 / 9 test (RW 0x5DC46C); "
 		"OpenBFME keeps the 64 newest positions (retail's list has no bound)",
 		"[S-291] radar (narrowed, RADAR-1): a map with a <map>_art.tga shows it (W3DRadar RW 0x44F3AB) under the ScrollShroud shroud (RW 0x44E3B6); a map without art "
 		"shows a shaded height field, not W3DRadar's terrain texture (RW 0x44F4AD loop not ported); the +0x1494 image is not ported; the objects (RW 0x44F9DA) and the "
@@ -573,8 +574,9 @@ void Radar::tryJumpToNextEvent(TacticalView &view)
 		return;
 	}
 	const unsigned now = m_clientFrame;
-	// RW 0x5DCB59 .. 0x5DCB7F: fild the unsigned window, fmul 0.03f, ftol, + the last time, compared unsigned with now
-	const unsigned windowFrames = (unsigned)((m_eventWindow * 3u) / 100u); // INFERENCE: the integer form of ftol(window * 0.03f); exact for the window 0 used here
+	// RW 0x5DCB59 .. 0x5DCB7F: fild the unsigned window (+ 2^32 when its sign bit is set), fmul the float 0.03 (RW 0xD9F624), ftol (truncation), + the
+	// last time, compared unsigned with now. x87: the product of the exact window and the float constant, e.g. 2000 * 0.0299999993 = 59.99... -> 59
+	const unsigned windowFrames = (unsigned)(long long)((double)m_eventWindow * (double)0.03f);
 	bool next = false;
 	if (m_eventCursor >= 0 && now <= windowFrames + m_lastJump)
 	{
@@ -1332,7 +1334,20 @@ const char *Radar::underAttackSound(const Object &object)
 	return "RadarNotifyStructureUnderAttackSound";
 }
 
-void Radar::noteEvaPosition(const Coord3D &position)
+void Radar::expireEvaPositions(unsigned logicFrame)
+{
+	// RW 0x5DD8ED .. 0x5DD930: the list's last node is the oldest; unsigned compare, jae stops
+	while (!m_events.empty() && m_events.back().frame + m_evaKeepFrames < logicFrame)
+	{
+		if (m_eventCursor == (int)m_events.size() - 1)
+		{
+			m_eventCursor = -1; // RW 0x5DD90B .. 0x5DD912: a cursor on the erased node becomes the list's head
+		}
+		m_events.pop_back();
+	}
+}
+
+void Radar::noteEvaPosition(const Coord3D &position, unsigned logicFrame)
 {
 	// RW 0x5DD1F3 (see Radar.h)
 	if (!m_events.empty())
@@ -1352,7 +1367,7 @@ void Radar::noteEvaPosition(const Coord3D &position)
 			m_events.erase(m_events.begin());
 		}
 	}
-	m_events.insert(m_events.begin(), Event{ position }); // RW 0x75991F: before the first node
+	m_events.insert(m_events.begin(), Event{ position, logicFrame }); // RW 0x5DD27D .. 0x5DD294 -> RW 0x75991F: { logic frame, position } before the first node
 	if (m_eventCursor >= 0)
 	{
 		++m_eventCursor; // the cursor is a node in retail: it stays on its event
@@ -1389,7 +1404,7 @@ void Radar::noteLogicEvents(GameLogic &logic)
 		{
 			// RW 0x7BC221 / 0x7BC250 / 0x7C0B61: createEvent(position, type, 4.0f), then TheEva's position (RW 0x5DD1F3)
 			createEvent(n.position, n.type, 4.0f);
-			noteEvaPosition(n.position);
+			noteEvaPosition(n.position, logic.getFrame());
 		}
 		else if (local && n.playerIndex == local->getPlayerIndex())
 		{

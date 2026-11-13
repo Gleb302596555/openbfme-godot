@@ -217,6 +217,31 @@ public:
 	void clearWhenFiringEnds() { m_whenFiringEnds = 0; }
 	std::uint32_t followThruEnd() const { return m_followThruEnd; }      // +0x24
 	std::uint32_t timerStart() const { return m_timerStart; }            // +0x28
+	// P-64 (RW 0x6CDB73, Weapon::getPercentReadyToFire): `status` is getStatus(0) (RW 0x6CDB7A), `now` TheGameLogic + 0x40. READY_TO_FIRE 1; BETWEEN_FIRING_SHOTS,
+	// RELOADING_CLIP and FIRING: 1 once now >= +0x18 or +0x18 == +0x28, else (now - +0x28) / (+0x18 - +0x28) (unsigned, fild + 2^32 for the high bit, x87
+	// fdivp) and 1 when that reaches 1; OUT_OF_AMMO, PRE_ATTACK and anything else 0 (RW 0xC1B594)
+	float percentReadyToFire(int status, std::uint32_t now) const
+	{
+		if (status == 0)
+		{
+			return 1.0f;
+		}
+		if (status != 2 && status != 3 && status != 5)
+		{
+			return 0.0f;
+		}
+		const std::uint32_t next = m_whenWeCanFireAgain, start = m_timerStart;
+		if (now >= next || next == start)
+		{
+			return 1.0f;
+		}
+		const std::uint32_t total = next - start, elapsed = now - start; // RW 0x6CDBA8 .. 0x6CDBB3: total - next + now
+		if (elapsed >= total)
+		{
+			return 1.0f;
+		}
+		return (float)((long double)elapsed / (long double)total);
+	}
 	std::uint32_t lastFireFrame() const { return m_lastFireFrame; }      // +0x2C
 	std::uint32_t suspendFXFrame() const { return m_suspendFXFrame; }    // +0x30
 	// lane PLAY-2: +0x34, written by AIAttackState::onEnter (RW 0x74D0FC: 0x7FFFFFFF) and the attack commands (RW 0x66BE7B / 0x66C01E / 0x66E04B), read by AIAttackState::update

@@ -3,4 +3,5 @@
 list(APPEND OPENBFME_SIM_SOURCES
     src/GameLogic/AI/AIAttackCharge.cpp)
 set(OPENBFME_PORT133_TESTS
-    tests/test_port_133.cpp)
+    tests/test_port_133.cpp
+    tests/test_p64_erkenbrand.cpp) # P-64: the same weapon on Ennorath data through the button

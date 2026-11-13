@@ -186,19 +186,32 @@ public:
 	// the last jump (+ 0x70). The jump (RW 0x5DCB28): nothing without events, nor in the game modes 8 / 9 (RW 0x5DC46C); now = the client clock (global 0xDE4388
 	// vslot 0x7C); while the cursor is on an event and now <= ftol(window (+ 0x90, unsigned) * 0.03f) + the last time, the cursor moves to the next event; at the
 	// end of the list, or when the window passed, it goes back to the first; the view looks at the cursor's event and the time is stored.
-	// NOT PORTED (stop S-1674): the events themselves (who creates them: attacks, EVA, scripts, the radar pings of the movie) and the window's source (+ 0x90:
-	// no writer found in the binary but a copy): the window is 0 here, so a press within the same client frame goes on, later presses start from the first event.
+	// The list's sources: TheEva's CountAsJumpToLocation events when their sound starts (RW 0x5DD826) and the scripts' radar event actions (RW 0x7BC248 /
+	// 0x7BC28C / 0x7C0BC5), all through RW 0x5DD1F3 (noteEvaPosition). The window + 0x90 is MiscEvaData's MaxMillisecondsBeforeResettingLastJumpTo
+	// (MiscEvaData is parsed into TheEva + 0x80: EnemySightedMaxVoicePositionScanRange + 0x0, field table RW 0xBF2620 + 0x10), the merge radius + 0x94
+	// its MinDistanceBetweenJumpToEvents (RW 0xBF2630, + 0x14), the keep time + 0x8C its MaxMillisecondsToKeepJumpToEvents in logic frames (RW 0xBF2610,
+	// + 0xC); setEvaJumpData sets them from Eva.ini.
 	struct Event
 	{
 		Coord3D position{ 0.0f, 0.0f, 0.0f };
+		unsigned frame = 0; ///< node + 0x8: the logic frame it was noted at (TheGameLogic + 0x40, RW 0x5DD27D)
 	};
-	void addEvent(const Coord3D &position) { m_events.push_back(Event{ position }); }
+	void addEvent(const Coord3D &position) { m_events.push_back(Event{ position, 0u }); }
+	// MiscEvaData's jump-to fields (see above): the window in milliseconds (+ 0x90), the merge radius (+ 0x94), the keep time in logic frames (+ 0x8C)
+	void setEvaJumpData(unsigned windowMs, float mergeRadius, unsigned keepFrames)
+	{
+		m_eventWindow = windowMs;
+		m_evaMergeRadius = mergeRadius;
+		m_evaKeepFrames = keepFrames;
+	}
+	// RW 0x5DD8ED .. 0x5DD930 (TheEva's update): from the oldest position, while noted frame + keep < the logic frame, the node is erased (a cursor on it
+	// goes back to the list's head)
+	void expireEvaPositions(unsigned logicFrame);
 	// lane BACKLOG3: TheEva's event position (RW 0x5DD1F3, the object RW 0xDE3670 whose list + 0x68 the jump RW 0x5DCB28 walks; the scripts' radar event
 	// actions call it after createEvent). A new position goes to the FRONT of the list (RW 0x75991F inserts before the first node), with the logic frame
 	// (TheGameLogic + 0x40); when the list's first position is within the merge radius (+ 0x94: squared distance below its square, three axes) that node
-	// is erased first (a cursor on it goes back to the list's head). INFERENCE (stop S-1674): no writer of + 0x94 was found, as for the window + 0x90: the
-	// radius is 0 here, so nothing merges (0 > d * d is never true)
-	void noteEvaPosition(const Coord3D &position);
+	// is erased first (a cursor on it goes back to the list's head)
+	void noteEvaPosition(const Coord3D &position, unsigned logicFrame);
 	static constexpr size_t kMaxEvaPositions = 64; ///< OpenBFME's bound of the list (not retail's, S-1674)
 	const std::vector<Event> &events() const { return m_events; }
 	// RW 0x5DCB28; `now` in client frames (30 a second)
@@ -368,13 +381,14 @@ private:
 	std::vector<Ping> m_pings;
 	unsigned m_attackStats[3] = { 0, 0, 0 }; ///< noteAttacks: calls, objects with an attack frame, of the local player
 	std::uint32_t m_noticeSeq = 0;     ///< lane BACKLOG3: the last GameLogic::RadarEventNotice applied
-	float m_evaMergeRadius = 0.0f;     ///< TheEva + 0x94 (S-1674)
+	float m_evaMergeRadius = 0.0f;     ///< TheEva + 0x94: MinDistanceBetweenJumpToEvents
 	std::map<ObjectID, UnsignedInt> m_attackSeen;
 	mutable std::map<const ThingTemplate *, std::vector<ObjectGeometry::Shape>> m_wallShapes; ///< renderOverlay's cache (templates outlive the HUD's game) ///< the attack frame each object last reported (looked up only)
 	int m_picture[4] = { 0, 0, 0, 0 };
 	int m_eventCursor = -1;      ///< + 0x6C: -1 is the list's head (no event)
 	unsigned m_lastJump = 0;     ///< + 0x70
-	unsigned m_eventWindow = 0;  ///< + 0x90 (S-1674)
+	unsigned m_eventWindow = 0;  ///< + 0x90: MaxMillisecondsBeforeResettingLastJumpTo
+	unsigned m_evaKeepFrames = 0; ///< + 0x8C: MaxMillisecondsToKeepJumpToEvents (logic frames)
 	unsigned m_clientFrame = 0;
 	double m_clockSeconds = 0.0;       ///< lane RADAR-1: render time not yet a whole client frame
 	bool m_forced = false;             ///< Radar + 0x11 (cleared by the reset RW 0x6D8E25, set by every update RW 0x6D8E41)

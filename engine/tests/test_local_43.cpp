@@ -68,3 +68,39 @@ TEST_CASE("LOCAL-43 move hint: with own troops selected, an allied or own buildi
 	r.move(pg.x, pg.y);
 	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Move)); // open ground
 }
+
+// P-15 (owner's check 2026-11-12: the yellow blinking square showed over enemy troops with nothing selected). createMouseoverHint (RW 0x69FCFC .. 0x69FD73,
+// BFME2 decomp InGameUICreateMouseoverHint.cpp:538): with no selection, a selectable drawable that the local player controls (RW 0x68B749) shows Select
+// (13), any other drawable and the ground show Arrow (2); with a selection the mouseover sets no cursor (RW 0x69FD0C -> 0x69FD7E), the command hint does.
+TEST_CASE("P-15 mouseover cursor: nothing selected, own unit is Select, an enemy or allied unit is Arrow (RW 0x69FD53 .. 0x69FD73)")
+{
+	if (!haveWorld("P-15 mouseover cursor"))
+	{
+		return;
+	}
+	SharedWorld &s = shared();
+	Rig r(s, "map mp fall back 4p", "FactionMen", "FactionMen");
+	Player *ally = r.game->players().findPlayerWithName("Player_3");
+	Player *enemy = r.game->players().findPlayerWithName("Player_2");
+	REQUIRE(ally != nullptr);
+	REQUIRE(enemy != nullptr);
+	REQUIRE(r.local->getRelationship(enemy->getDefaultTeam()) == ENEMIES);
+	const Coord3D c0 = r.freeSpot(mapCentre(r).x, mapCentre(r).y, 420.0f);
+	Object *own = r.make("GondorBoromir", c0.x, c0.y);
+	Object *foe = r.make("GondorBoromir", c0.x + 160.0f, c0.y, enemy);
+	Object *friendHero = r.make("GondorBoromir", c0.x - 160.0f, c0.y, ally);
+	r.lookAt({ c0.x, c0.y, 0.0f }, 460.0f, 560.0f);
+	r.frame(3);
+	r.input->ui().deselectAll(false);
+	auto px = [&](const Object *o) { return r.screenOf({ o->getPosition()->x, o->getPosition()->y, o->getPosition()->z + 10.0f }); };
+	const ICoord2D po = px(own), pe = px(foe), pa = px(friendHero);
+	REQUIRE(HudObjects::pickObject(r.input->context(), po) == own);
+	REQUIRE(HudObjects::pickObject(r.input->context(), pe) == foe);
+	REQUIRE(HudObjects::pickObject(r.input->context(), pa) == friendHero);
+	r.move(po.x, po.y);
+	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Select));
+	r.move(pe.x, pe.y);
+	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Arrow)); // the symptom: Select over the enemy
+	r.move(pa.x, pa.y);
+	CHECK(r.input->ui().cursor() == std::string(MouseCursorName::Arrow));
+}
