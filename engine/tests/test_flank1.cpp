@@ -585,7 +585,8 @@ TEST_CASE("flank1 scatter: a miss on a structure draws its aim point and keeps t
 		b = b ? b : dynamic_cast<const BezierProjectileBehavior *>(m.get());
 	}
 	REQUIRE(b != nullptr);
-	CHECK(b->flightEnd().z == 30.0f); // the aim point: the wall's z + GeometryHeight 60 * 0.5 (S-362's centre); no AI: the z is kept
+	// tolerance: height * 0.67f = 60 * 0.67f = 40.2f, exact float from RW 0xBDD984
+	CHECK(b->flightEnd().z == doctest::Approx(40.2f));
 }
 
 // RW 0x6CC915, ScatterIndependently (+ 0x3C): every nugget goes through the position path and a miss scatters before each: the first with the victim (radius from its

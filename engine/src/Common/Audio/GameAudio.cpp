@@ -1738,7 +1738,34 @@ void AudioManager::processPlayingList()
 				const bool playAnyway = (info.type & ST_GLOBAL) || info.priority == AP_CRITICAL;
 				if (consider < m_ini.settings.minSampleVolume && !playAnyway)
 				{
-					releasePlaying(p); // inaudible: the voice is released (the world adds it again when it becomes audible)
+					// P-76, RW 0x45BC6D .. 0x45BCA8: below MinSampleVolume the sample is stopped (RW [0xBD0AE0]) and leaves the list, but a sound with
+					// loops left (RW 0x6DAD59) first goes back to the requests through RW 0x45A188: its delay and file are rolled again (RW 0x6DAC64)
+					// and, still looping, it skips its attack (RW 0x6DB1DE), waits at least one audio step + 1 ms (RW 0x6DAD2E), is marked for the
+					// sample check (RW + 0x4B = 1) and is queued (RW 0x4593EA). So an object's looping ambient comes back when the listener returns;
+					// the port released it for good (the drawable only starts its ambient once, RW 0x67866C).
+					const bool loops = ev.hasMoreLoops();
+					if (loops)
+					{
+						ev.rollDelayAndPerFile(m_env);
+					}
+					if (loops && ev.hasMoreLoops())
+					{
+						ev.advanceNextPlayPortion();
+						const float tick = (float)tickIntervalMs();
+						ev.setDelay(ev.getDelay() < tick + 1.0f ? tick + 1.0f : ev.getDelay());
+						logLine(ev, ev.getPlayingHandle(), true, "culled: inaudible (loop requeued)");
+						Request again;
+						again.type = RQ_Play;
+						again.pending = std::move(p.event);
+						again.requiresCheckForSample = true;
+						pushRequest(std::move(again));
+						++m_report.requeuedLoops;
+					}
+					else
+					{
+						logLine(ev, ev.getPlayingHandle(), true, "culled: inaudible");
+					}
+					releasePlaying(p);
 					it = list.erase(it);
 					continue;
 				}
