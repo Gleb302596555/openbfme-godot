@@ -230,6 +230,16 @@ public:
 	const std::string &getUnitSpecificSound() const;
 	const std::string &getSetAutoAbilityUnitSound() const;
 	const std::string &getUnsetAutoAbilityUnitSound() const;
+	// lane PORT-143 over the same +0xFC (one field: m_toggleIndex): RW 0x75D082 setCurrentIndex, RW 0x75CDFC getButtonImage (null past the list),
+	// RW 0x75CE47 getTextLabel / RW 0x75CECD getDescriptLabel (the last entry past the list, "" for an empty one; the +0x7C text override is S-7319)
+	void setCurrentIndex(int idx) const { setToggleIndex(idx); }
+	int currentIndex() const { return m_toggleIndex; }
+	const std::string *getButtonImage() const
+	{
+		return (m_toggleIndex >= 0 && (size_t)m_toggleIndex < m_buttonImageName.size()) ? &m_buttonImageName[(size_t)m_toggleIndex] : nullptr;
+	}
+	std::string getTextLabel() const { return getToggleTextLabel(); }
+	std::string getDescriptLabel() const { return getToggleDescriptLabel(); }
 	// RW 0x75D1DC: the template of the final override
 	const ThingTemplate *getThingTemplate() const;
 	const CommandButton *getFinalOverride() const;

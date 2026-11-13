@@ -1087,18 +1087,22 @@ void ControlBar::update()
 				cb.inPalantir = b->m_inPalantir;
 				if (b->m_command == GUI_COMMAND_TOGGLE_STANCE)
 				{
-					cb.image = b->m_buttonImageName.empty() ? std::string() : b->m_buttonImageName.front();
-					cb.textLabel = b->m_textLabel.empty() ? std::string() : b->m_textLabel.front();
-					cb.descriptLabel = b->m_descriptLabel.empty() ? std::string() : b->m_descriptLabel.front();
-					// lane PLAY-4: the toggle shows the image and labels of the current stance (RW onStancesBehaviorStanceChanged / SetStance: the button's
-					// image slot StanceToButtonSlot(stance), BFME2 0x567B10)
+					// lane PLAY-4 / PORT-143: the button's picture is the entry at its own index (getButtonImage RW 0x75CDFC, getTextLabel RW 0x75CE47 and
+					// getDescriptLabel RW 0x75CECD all read CommandButton +0xFC). The InGameToggleStanceCommandButton's ctor (RW 0x96FF43 .. 0x96FF68) and its
+					// StancesBehavior listener (RW 0x96F5D8 .. 0x96F608) put the object's stance CLASS (RW 0x96FF2F -> RW 0x861D8E) through StanceToButtonSlot
+					// (RW 0x96F2DA) into that index, and with no StancesBehavior the slot is -1, whose jl at RW 0x96FF55 leaves the index where it was: the
+					// picture an order put there (ControlBar::applyToggleStance, the SetStance of RW 0x96F53C) stays on the gray button (the owner's P-25)
 					const int k = stanceSlotOf(*b, *obj);
 					if (k >= 0)
 					{
-						cb.image = (size_t)k < b->m_buttonImageName.size() ? b->m_buttonImageName[(size_t)k] : cb.image;
-						cb.textLabel = (size_t)k < b->m_textLabel.size() ? b->m_textLabel[(size_t)k] : cb.textLabel;
-						cb.descriptLabel = (size_t)k < b->m_descriptLabel.size() ? b->m_descriptLabel[(size_t)k] : cb.descriptLabel;
+						b->setCurrentIndex(k); // RW 0x75D082 takes it (its own bounds test is the same ButtonImage list)
 					}
+					if (const std::string *img = b->getButtonImage())
+					{
+						cb.image = *img;
+					}
+					cb.textLabel = b->getTextLabel(); // the text override of RW 0x75CE4B (CommandButton +0x7C) is not ported (S-7319): the list is the entry
+					cb.descriptLabel = b->getDescriptLabel();
 				}
 				else
 				{
@@ -1483,6 +1487,21 @@ bool ControlBar::isUnderConstructionContext(const Object &obj)
 	return gb->forceComplete();
 }
 
+// RW 0x96F2DA (InGameToggleStanceCommandButton's StanceToButtonSlot): walk the button's Stances list (CommandButton +0x234, the entry getter RW 0x75D324)
+// for a value equal to the argument, -1 when the list has none. SetStance (RW 0x96F54C) hands it the stance the player ordered as it is; the widget's ctor
+// (RW 0x96FF49) and its stance listener (RW 0x96F5E4) hand it the stance's class
+int ControlBar::stanceSlotOf(const CommandButton &b, int stance)
+{
+	for (size_t i = 0; i < b.m_stances.size(); ++i)
+	{
+		if (b.m_stances[i] == stance)
+		{
+			return (int)i;
+		}
+	}
+	return -1;
+}
+
 int ControlBar::stanceSlotOf(const CommandButton &b, Object &obj)
 {
 	const StancesBehavior *sb = StancesBehavior::of(obj);
@@ -1492,15 +1511,7 @@ int ControlBar::stanceSlotOf(const CommandButton &b, Object &obj)
 	}
 	// RW 0x96FF2F -> 0x861D8E: the toggle looks up the stance's class, not the stance (Uninitialized shows Battle, Porcupine / HoldGroundMoving show
 	// HoldGround), in the button's Stances (RW 0x96F2DA); the change listener RW 0x96F5DE gets the class too
-	const int stanceClass = StancesBehavior::stanceClass(sb->getStance());
-	for (size_t i = 0; i < b.m_stances.size(); ++i)
-	{
-		if (b.m_stances[i] == stanceClass)
-		{
-			return (int)i;
-		}
-	}
-	return -1;
+	return stanceSlotOf(b, StancesBehavior::stanceClass(sb->getStance()));
 }
 
 void ControlBar::populateUnderConstruction(Object &obj, bool mine)
