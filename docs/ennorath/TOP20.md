@@ -8,6 +8,10 @@
 Источник: `field-audit-v2/field-audit.tsv` с ручными вердиктами из `manual-check.tsv`. Порядок: по числу определений мода, использующих поле.
 Для решения позже: по каждой строке нужно выбрать одно — портировать, записать стоп или признать, что RotWK тоже не использует.
 
+## PORT-162 / issue #380 — `SkirmishBuildList`: no reachable reader (S-7343)
+
+**SkirmishBuildList Location/Angle/InitiallyBuilt/Rebuilds/AutomaticallyBuild: parsed, no reachable reader в RotWK 2.01 (единственное тело RW 0x8F42BD..0x8F4556 без ссылок: ноль rel32 и ноль абсолютных указателей в образе).** The only body touching `Location` / `InitiallyBuilt` is unreachable; the other three fields are not accessed by it, and no other reader was found. The no-reader resolution is approved: docs only, with no runtime code, PORT-162 tests, or Ennorath in-game check. Details: [PORT162_RW_ANALYSIS.md](PORT162_RW_ANALYSIS.md); stop S-7343.
+
 ## Важно: ответ разработчика мода (2026-11-04)
 
 - `game.dat` у Эннората от патча **2.02**. По словам владельца, 2.01 и 2.02 отличаются только фиксом задержки офхоста, поэтому таблицы полей (`engine/data/rotwk-201`) и адреса RW 2.01 для Эннората верны.
