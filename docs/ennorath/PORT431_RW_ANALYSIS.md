@@ -25,3 +25,46 @@ Mod data (event, template, AudioSettings rows) is not quoted here: see fork issu
 - `getVolume` tail (RW 0x6DB271 ..) and the two shift factors (event + 0x5C / + 0x60) for `Volume` above 100 and the per file shift;
 - the owner gates of `getVolume` (object + 0x44A, drawable + 0x98 bit 20) for a structure's ambient (RW 0x67866C start);
 - the 3D sample path (RW 0x45BC6D cull, 0x45C047 sample preparation) and the microphone (RW 0x45235B) against the live inputs (`godot/scripts/game.gd` -> `update_microphone`).
+
+## 3. The 3D pass of the playing list (RW 0x45BBB3–0x45BD52)
+
+One playing 3D sample per iteration: `esi` is the playing record, `[esi+0x1C]` its event, `[ebp-0x18]` the Miles 3D sample.
+
+| RW | what the branch does |
+|---|---|
+| 0x45BBB3–0x45BBE1 | the sample has ended and playing+0x48 is set: loops left (0x6DAD59) → requeue 0x45A188; the record leaves the list |
+| 0x45BBE6–0x45BBF4 | playing+0x18 == 1, or ended without +0x48: the record is released (0x45BD83) |
+| 0x45BBFA | no sample: next record |
+| 0x45BC07–0x45BC1E | current position 0x450EAC(event, &valid); not valid → 0x45BD57: loops left → requeue 0x45A188, the sample is ended, the record leaves |
+| 0x45BC24–0x45BC4A | shroud test, manager vslot 0x1B0 on the event: true → playing+0x46 = 1 and +0x47 = 0; false with +0x46 set → +0x46 = 0 and +0x47 = 1 |
+| 0x45BC4E–0x45BC79 | volume 0x45A10E(playing, 0, 0) against settings+0xB8 (MinSampleVolume) and the "audible anyway" test 0x452726(event) |
+| 0x45BC7B–0x45BCA8 | below the cutoff and not audible anyway: loops left → requeue 0x45A188; the sample is ended ([0xBD0AE0]); the record leaves |
+| 0x45BCAD–0x45BD04 | still audible: 0x453E1D(playing, position); with manager+0x6A9 set and info+0xA8 above [0xC1B594] → 0x455447; with manager+0x6A8 set or that call's out flag → 0x4527A8 (not read) |
+| 0x45BD09–0x45BD4C | volume 0x45A10E(playing, 1, 1); position call [0xBD0B08](sample, x, y, −z); volume call [0xBD0B48](sample, volume) |
+
+Donor guide only: `processPlayingList` (DONOR BFME2 0x5C23C, MilesAudioManager.cpp) has the same shape. Its volume helper (DONOR BFME2 0x5A9F8) is the effective volume of the event, times the fade factor of playing+0x30 when the last argument is 1, then the 0.01 floor. Its fade step (`processFade`) grows playing+0x30 by the frame time while +0x44 or +0x46 is set and shrinks it while the opposite flags are set. The RW twins of the helper (0x45A10E) and of the fade step are not read yet, so this paragraph is INFERENCE until they are.
+
+## 4. Slider volume table (RW 0x4516DE)
+
+0x4516DE(slider, which) fills four floats at manager + 0xC8 + (which + slider·2)·16:
+
+- slider 5: all four are 1.0;
+- byte [0xD9902C] clear: all four are 0;
+- otherwise [0] = manager[4 + (which + slider·2)·4] × [0xD99014 + slider·4] × manager+0x98, times manager+0x94 when which == 1; [1] = [0] × manager+0x9C; [2] = [0] × manager[0x34 + slider·4] (the product 0x451850 builds from the playing sounds' multipliers); [3] = [2] × manager+0x9C; each is clamped to [0, 1];
+- a value that changed marks its dirty byte with 2.
+
+What manager+0x94, +0x98 and +0x9C hold is not read yet.
+
+## 5. Event side (RW 0x6DB221 tail, 0x6DAC64, 0x6DAD59, field table 0xBEFDF0)
+
+- 0x6DB221, owner mute: owner type event+0x38 == 1 → lookup through [0xDE4388] vslot 0x40, byte +0x44A == 0 → 0.0; owner type 2 → lookup 0x449681, dword +0x98 bit 20 set → 0.0; otherwise (override event+0x24, or info+0x10) × event+0x2C. Correction to the row in section 1: owner type 1 is the drawable and 2 the object (the order of the donor's owner enum, INFERENCE; the port's note at `AudioEventRTS.h:26` says the same). The port leaves this mute out (stop S-243).
+- 0x6DAC64: delay event+0x64 = random(info+0x34, info+0x38); per-file pitch event+0x58; per-file volume event+0x60 = random(info+0x18 + 1, 1). The port's `rollDelayAndPerFile` matches.
+- 0x6DAD59 (loops left): event+0x4C set → no; no info, sound type 0 or 3, or info+0x4C bit 0 → yes.
+- Field table 0xBEFDF0: Volume +0x10, VolumeShift +0x14, PerFileVolumeShift +0x18, MinVolume +0x1C (parser 0x42EEFA for all four), Limit +0x3C, Priority +0x44, Type +0x48, Control +0x4C, MinRange +0x94, MaxRange +0x98, ZoomedInOffscreenVolumePercent +0x9C, SubmixSlider +0xB4, VolumeSliderMultiplier +0xB8.
+
+## 6. Port live path (read; the comparison with sections 3 and 4 is the next step)
+
+- `godot/scripts/game.gd` `_update_listener` hands the camera eye and target to `update_microphone` every frame (`GodotGameAudio.cpp` → `AudioManager::updateMicrophone`).
+- `LiveGameAudio::update` scans the ambients. `tryStart` defers a non-global, non-critical event while the listener is at or beyond MaxRange, and marks the ambient as tried once it has asked the manager. A tried ambient is not asked again while the wanted event stays the same; its handle is not checked.
+- The manager restarts a 3D loop through `completeVoice` and requeues a culled one in `processPlayingList`.
+- The event log has a line for a request, a start, a failure, a drop and a cull. It has none for the gain a playing voice gets each frame, for a voice that ends, or for the request a requeue makes.
