@@ -118,7 +118,10 @@ void AIPositionSampler::add(ObjectID id, float padding, const Position &position
 	insert(id, position);    // RW 0x8E42C8
 }
 
-// RW 0x8E4475: the caller already erased the id from the registration list
+// RW 0x8E4475: the caller already erased the id from the registration list. RW's find + erase (0x6B4E3C / 0x5FF944) drops one copy, but a capture
+// registers the object twice with the new owner (the team change's own pair and the capture module's, RW 0x854712 / 0x85474D; the add is RW's plain
+// push_back 0x5F1B20) and RW never drops the second copy - it reads a stale position instead of failing. PORT-425: every copy is dropped here, so a
+// capture followed by a destroy leaves the sampler clean and the rebuild below only asks living objects for their position.
 void AIPositionSampler::remove(ObjectID id, const Position &position)
 {
 	auto it = std::find(m_members.begin(), m_members.end(), id);
@@ -126,7 +129,7 @@ void AIPositionSampler::remove(ObjectID id, const Position &position)
 	{
 		return; // RW 0x8E46A5 only calls when its own erase found the object
 	}
-	m_members.erase(it);
+	m_members.erase(std::remove(m_members.begin(), m_members.end(), id), m_members.end());
 	m_groups.clear();
 	for (ObjectID member : m_members)
 	{

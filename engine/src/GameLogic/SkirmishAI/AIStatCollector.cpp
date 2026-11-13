@@ -142,34 +142,55 @@ Coord3D positionOf(GameLogic &logic, ObjectID id)
 unsigned AIStatCollector::registerObject(const Object &obj)
 {
 	// RW 0x8E4591; each add that took the object calls the listeners of its mask (RW 0x8E3D4C): the caller does (lane AI5, SkirmishAIManager::objectAdded)
+	// PORT-425: an object can be registered twice for the same owner - a capture fires the manager's events twice for the new owner (the team
+	// change's own pair and the capture module's, RW 0x854712 / 0x85474D) and RW's add is a plain push_back (RW 0x5F1B20), so RW holds the id twice in
+	// every list and its one-copy erase (RW 0x6B4E3C / 0x5FF944) leaves a stale copy behind when the object is removed. The port registers an id at
+	// most once per list, so a remove clears it completely.
 	const ObjectID id = obj.getID();
 	unsigned listeners = 0;
 	if (economyFilter(obj))
 	{
-		m_economy.push_back(id); // RW 0x99E84E -> RW 0x65BD58
-		listeners |= LISTEN_ECONOMY;
+		if (std::find(m_economy.begin(), m_economy.end(), id) == m_economy.end())
+		{
+			m_economy.push_back(id); // RW 0x99E84E -> RW 0x65BD58
+			listeners |= LISTEN_ECONOMY;
+		}
 	}
 	if (structureFilter(obj))
 	{
 		// RW 0x99EA19: EXPANSION_PAD (template + 0x123 bit 0) -> + 0x10, else + 4
-		(is(obj, statKinds().expansionPad) ? m_pads : m_structures).push_back(id);
-		listeners |= LISTEN_STRUCTURES;
+		auto &structures = is(obj, statKinds().expansionPad) ? m_pads : m_structures;
+		if (std::find(structures.begin(), structures.end(), id) == structures.end())
+		{
+			structures.push_back(id);
+			listeners |= LISTEN_STRUCTURES;
+		}
 	}
 	// RW 0x8E45DC .. 0x8E45F0: when a structure or economy list took the object and RW 0x8E3EF8 is false, the position sampler takes it. The port
 	// defers the add to update(): its object is placed after the world entry (see the header's inference), so only then is its position final
 	if ((listeners & (LISTEN_ECONOMY | LISTEN_STRUCTURES)) != 0 && !offensiveBuilding(obj, m_playerIndex))
 	{
-		m_pendingPositions.push_back(id);
+		if (std::find(m_pendingPositions.begin(), m_pendingPositions.end(), id) == m_pendingPositions.end())
+		{
+			m_pendingPositions.push_back(id);
+		}
 	}
 	if (armyFilter(obj))
 	{
-		(armyMain(obj) ? m_army : m_dozers).push_back(id); // RW 0x99E6C9
-		listeners |= LISTEN_ARMY;
+		auto &army = armyMain(obj) ? m_army : m_dozers; // RW 0x99E6C9
+		if (std::find(army.begin(), army.end(), id) == army.end())
+		{
+			army.push_back(id);
+			listeners |= LISTEN_ARMY;
+		}
 	}
 	else if (shipFilter(obj))
 	{
-		m_ships.push_back(id); // RW 0x99E493
-		listeners |= LISTEN_ARMY;
+		if (std::find(m_ships.begin(), m_ships.end(), id) == m_ships.end())
+		{
+			m_ships.push_back(id); // RW 0x99E493
+			listeners |= LISTEN_ARMY;
+		}
 	}
 	const bool any = listeners != 0;
 	const ThingTemplate *t = obj.getTemplate();
@@ -182,7 +203,10 @@ unsigned AIStatCollector::registerObject(const Object &obj)
 	}
 	else if (is(obj, statKinds().hero))
 	{
-		m_heroes.push_back(id); // RW 0x8E4661 .. 0x8E467A
+		if (std::find(m_heroes.begin(), m_heroes.end(), id) == m_heroes.end())
+		{
+			m_heroes.push_back(id); // RW 0x8E4661 .. 0x8E467A
+		}
 	}
 	return listeners;
 }
@@ -201,19 +225,15 @@ unsigned AIStatCollector::unRegisterObject(const Object &obj)
 		listeners |= LISTEN_STRUCTURES; // RW 0x99E924
 	}
 	// RW 0x8E4871 / 0x8E46A5: a removed structure / economy entry leaves the position sampler; its groups are rebuilt from the survivors. A
-	// registration still waiting for update() is simply cancelled
+	// registration still waiting for update() is simply cancelled. PORT-425: every copy of the registration is cancelled and the sampler copy is
+	// dropped even when one is still pending - a capture fires the manager's events twice for the new owner (the team change's own pair and the
+	// capture module's, RW 0x854712 / 0x85474D) and RW's add is a plain push_back (RW 0x5F1B20), so a registration can be waiting more than once and a
+	// single-copy cancel would leave the sampler holding the id
 	if ((listeners & (LISTEN_ECONOMY | LISTEN_STRUCTURES)) != 0)
 	{
-		auto pending = std::find(m_pendingPositions.begin(), m_pendingPositions.end(), id);
-		if (pending != m_pendingPositions.end())
-		{
-			m_pendingPositions.erase(pending);
-		}
-		else
-		{
-			GameLogic &logic = obj.logic();
-			m_positions.remove(id, [&logic](ObjectID key) { return positionOf(logic, key); });
-		}
+		m_pendingPositions.erase(std::remove(m_pendingPositions.begin(), m_pendingPositions.end(), id), m_pendingPositions.end());
+		GameLogic &logic = obj.logic();
+		m_positions.remove(id, [&logic](ObjectID key) { return positionOf(logic, key); });
 	}
 	if (armyFilter(obj) ? eraseFirst(armyMain(obj) ? m_army : m_dozers, id) : (shipFilter(obj) && eraseFirst(m_ships, id)))
 	{
