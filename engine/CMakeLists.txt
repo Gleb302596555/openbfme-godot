@@ -454,6 +454,7 @@ include(cmake/Port138.cmake)    # PORT-138: destroyed Wild structures rebuild th
 include(cmake/Port82.cmake)     # PORT-82: AttributeModifierNugget/DamageFXType is parsed but unread in RotWK 2.01 (issue #214; OPENBFME_PORT82_TESTS)
 include(cmake/Port130.cmake)   # PORT-130: CommandButton AffectsKindOf, the NEEDS_CASTLE_KINDOF button filter (OPENBFME_PORT130_TESTS)
 include(cmake/Port134.cmake)    # PORT-134: the pick casts a model's aligned box (issue #336; OPENBFME_PORT134_TESTS)
+include(cmake/Port153.cmake)  # PORT-153: SkirmishAI ArmyDefinition economy / defence / opportunity-target settings (OPENBFME_PORT153_TESTS)
 include(cmake/Bldfx1.cmake)     # FEAT-BLDFX-1: the FXList nugget sinks, scorches, decals, light pulses, camera shakers (OPENBFME_BLDFX1_SOURCES / _TESTS)
 include(cmake/Decompfix1109.cmake) # DECOMPFIX-1109: FLEECHASE-1, ENTERADJUST-1, REQTHROTTLE-1 (OPENBFME_DECOMPFIX1109_TESTS)
 include(cmake/Port5.cmake)      # PORT-5: the bird's deferred ability target (OPENBFME_PORT5_TESTS)
@@ -905,6 +906,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT82_TESTS}
     ${OPENBFME_PORT130_TESTS}
     ${OPENBFME_PORT134_TESTS}
+    ${OPENBFME_PORT153_TESTS}
     ${OPENBFME_PORT5_TESTS}
     ${OPENBFME_PORT4_TESTS}
     ${OPENBFME_PORT8_TESTS}
