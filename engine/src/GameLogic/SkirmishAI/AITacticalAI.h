@@ -96,8 +96,10 @@
 #include "Common/INIDataTypes.h"
 #include "GameLogic/ObjectTypes.h"
 #include "GameLogic/SkirmishAI/AIThreatFinder.h"
+#include "GameLogic/SkirmishAI/SkirmishAIData.h"
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <set>
 #include <memory>
@@ -155,6 +157,28 @@ struct AITacticTeam
 	Coord3D recruitOrigin{};         ///< + 0x328: recruits are taken nearest this point first
 };
 
+// lane PORT-33: the state AIWoTRForfeitTactic keeps in its own object (RW 0x9B7316's constructor, RW 0x9B7353 .. 0x9B736F; the field types are the widths the
+// update reads: `cmp byte ptr [ebx+0x58], 0` RW 0x9B7491, `dec dword ptr [ebx+0x5C]` RW 0x9B7DAC, `cmp byte ptr [ebx+0x60], 0` RW 0x9B7DB9,
+// `inc dword ptr [edi+0x64]` RW 0x9B7D7C). docs/ennorath/ports/port33-forfeit.md
+struct ForfeitState
+{
+	bool triggered = false; ///< + 0x58: the surrender was decided, the counter runs (set RW 0x9B7D8B)
+	int counter = 0;        ///< + 0x5C: the frames left before MSG_SELF_DESTRUCT; the constructor puts LogicFramesTillAISelfDestructs here (RW 0x9B7D95)
+	bool warned = false;    ///< + 0x60: the client message fired (set RW 0x9B7DCB; not saved by RW 0x9B72A4)
+	int badChecks = 0;      ///< + 0x64: the score checks in a row below FarmingThreshold (RW 0x9B7D7C / cleared RW 0x9B7DA3)
+};
+
+// lane PORT-33: the six accumulators of the score RW 0x9B7458 computes (RW 0x9B7C20 .. 0x9B7C3C load them for the bias terms), one set per side
+struct ForfeitTerms
+{
+	float armyQuality = 0.0f;    ///< sum over the army of ((rank - 1) * 0.25 + 1) * (cost + upgrades) (RW 0x9B7843 .. 0x9B7870)
+	float armyQuantity = 0.0f;   ///< the player's command points in use (RW 0x9B74E2 / 0x9B7B21)
+	float heroQuality = 0.0f;    ///< the best hero's rank (RW 0x9B7B26 .. 0x9B7B36 keep the maximum)
+	float mapControl = 0.0f;     ///< the economy structures the player has plus the capture flags it holds (RW 0x9B788B .. 0x9B78F9, added RW 0x9B7B36)
+	float baseStrength = 0.0f;   ///< the structures' cost + upgrades, FS_FACTORY doubled (RW 0x9B7B4A / 0x9B7B95)
+	float fortressBonus = 0.0f;  ///< RW 0x9B7578 starts it at 0; RW 0x9B7A96 .. 0x9B7AC7 sets 2 / 1 for a non-citadel DOZER_FACTORY
+};
+
 // an active tactic (RW AITactic, the SimpleAttack clone)
 struct AITactic
 {
@@ -184,6 +208,8 @@ struct AITactic
 	std::uint32_t launchFrame = 0;   ///< FeintAttack + 0x5C: the launch frame
 	// lane AIEXPAND-1: SimpleExpansion (ctor RW 0x9B5190): + 0x58 its plain structure request (also in the AI's queues while unfinished); its + 0x5C stage is `step`
 	std::shared_ptr<AIBuildRequest> request;
+	// lane PORT-33: AIWoTRForfeitTactic's own fields (+ 0x58 / + 0x5C / + 0x60 / + 0x64 of the 0x68 byte object, RW 0x9B7316); the tactic has no teams
+	ForfeitState forfeit;
 };
 
 // lane AI-3: an attacked-at record of the brain's list + 0x20 (0xAC bytes, ctor RW 0x6C6F01): where the AI's team members fight
@@ -267,4 +293,18 @@ void launchTacticForTest(GameLogic &logic, AISkirmishPlayer &ai, AIBrainState &b
 void updateTacticForTest(GameLogic &logic, AISkirmishPlayer &ai, AIBrainState &b, AITactic &tac, AIBrainState &owner);
 // test hook (lane RAI-SIEGE): RW 0x9B3453's stand-back point, wall position + normalise(team 0's first member - wall) * 500 (RW 0xC894AC)
 Coord3D siegeStandBackPointForTest(const Coord3D &leader, const Coord3D &wall);
+// lane PORT-33: the state transitions of RW 0x9B7458 (AIWoTRForfeitTactic's update) over one frame, without the score itself: `next` is the record's named
+// counter AIWoTRForfeitTactic_FrameNextRun (RW 0xDEBEAC, read RW 0x9B748C, written RW 0x9B74BD), `score` is called only when the throttle lets the check
+// through (RW 0x9B74A4 .. 0x9B74C2), `data` is the SkirmishAIData block the thresholds come from. The returns are the two reactions of that frame: the client
+// message RW 0x9B7DCB (not ported, docs/STOPS.md) and the self-destruct tail RW 0x9B7E5F .. 0x9B7E9E
+struct ForfeitFrame
+{
+	bool checked = false; ///< the frame ran the score check (it reached RW 0x9B74C2)
+	bool warned = false;  ///< RW 0x9B7DCB fired: the counter fell below 70 (RW 0x9B7DAF) and had not warned yet
+	bool forfeit = false; ///< the tail fired: the counter is 0 or less (RW 0x9B7E64)
+};
+ForfeitFrame forfeitFrame(ForfeitState &s, int &next, unsigned frame, const std::function<int()> &score, const SkirmishAIData &data);
+// lane PORT-33: the bias sum of RW 0x9B7C41 .. 0x9B7D70 from the two sides' accumulators (the fortress bonus is own.fortressBonus) and the ring check's
+// answer (RW 0x9B737F); the value the threshold RW 0x9B7D74 compares is this one
+int forfeitScoreFrom(const ForfeitTerms &own, const ForfeitTerms &enemy, bool ringHeld, const SkirmishAIData &data);
 } // namespace AITacticalAI

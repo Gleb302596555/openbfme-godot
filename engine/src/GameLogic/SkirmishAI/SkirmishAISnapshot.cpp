@@ -406,6 +406,19 @@ void xferBrain(Xfer &x, AIBrainState &b, RequestTable &table, int version)
 		AIXfer::coord(x, tac.aimPos);
 		x.xferBool(&tac.mainLaunched);
 		x.xferUnsignedInt(&tac.launchFrame);
+		if (version >= 8 && tac.targetless && tac.kindIndex == 108) // AIWoTRForfeitTactic: 100 + the targetless prototype 8 (AITacticalAI.cpp)
+		{
+			// version 8 (PORT-33): AIWoTRForfeitTactic's own fields — RW 0x9B72A4 saves + 0x58 (bool), + 0x5C (int) and, from its version 2, + 0x64
+			// (int); + 0x60 (the message flag) is not saved either here or there. Only this prototype has them, and the version is written only when one is
+			// live, so a snapshot without a surrender keeps the bytes it had
+			x.xferBool(&tac.forfeit.triggered);
+			x.xferInt(&tac.forfeit.counter);
+			x.xferInt(&tac.forfeit.badChecks);
+			if (x.isLoading() && tac.kind != "AIWoTRForfeitTactic")
+			{
+				throw XferException("skirmish ai: the forfeit fields of a tactic '" + tac.kind + "' of the prototype " + std::to_string(tac.kindIndex));
+			}
+		}
 		if (version >= 4)
 		{
 			xferRef(x, tac.request, table); // version 4 (lane AIEXPAND-1): SimpleExpansion's request (+ 0x58)
@@ -492,6 +505,22 @@ void SkirmishAIManager::xferState(Xfer &x, bool hooksInstalled)
 	// filled by the AI code, so a live game keeps version 5 or 6; a version 5 / 6 snapshot has no tasks
 	bool enemyCache = x.isLoading();
 	bool hasTasks = x.isLoading();
+	// version 8 (lane PORT-33): AIWoTRForfeitTactic's state (+ 0x58 / + 0x5C / + 0x64, RW 0x9B72A4), written only when such a tactic is live: a game that has
+	// none keeps version 7's bytes (the WotR battle's surrender is the only creator)
+	bool forfeitTactic = x.isLoading();
+	for (const std::unique_ptr<AISkirmishGroup> &g : m_groups)
+	{
+		for (const auto &kv : g->players)
+		{
+			for (const AITactic &t : kv.second->brain.tactics)
+			{
+				if (t.targetless && t.kindIndex == 108) // 100 + the targetless prototype 8, AIWoTRForfeitTactic (AITacticalAI.cpp)
+				{
+					forfeitTactic = true;
+				}
+			}
+		}
+	}
 	for (const std::unique_ptr<AISkirmishGroup> &g : m_groups)
 	{
 		if (!g->tasks.empty())
@@ -506,8 +535,8 @@ void SkirmishAIManager::xferState(Xfer &x, bool hooksInstalled)
 			}
 		}
 	}
-	// a task list needs the enemy-cache fields too: version 7 always carries version 6's bytes
-	const int written = hasTasks ? 7 : (enemyCache ? 6 : 5);
+	// a task list needs the enemy-cache fields too: version 7 always carries version 6's bytes; version 8 adds a live forfeit tactic's own fields
+	const int written = forfeitTactic ? 8 : hasTasks ? 7 : (enemyCache ? 6 : 5);
 	XferVersion v{ 3, (std::uint8_t)written };
 	x.xferVersion(v);
 	const bool loading = x.isLoading();
