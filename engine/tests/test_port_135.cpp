@@ -52,6 +52,7 @@ TEST_CASE("PORT-135 defaults: range and teleport match the RW constructor")
 TEST_CASE("PORT-135 marker: filtered parent is followed and parent death kills the marker")
 {
     CombatWorld w(kObjects);
+    w.logic->partition().setRegion(0.0f, 0.0f, 1000.0f, 1000.0f);
     w.combat().setAutoAcquireEnabled(false);
     Object *other = w.unit("Port135Other", 'B', 201, 200);
     Object *hero = w.unit("Port135Hero", 'B', 206, 200);
@@ -84,6 +85,7 @@ TEST_CASE("PORT-135 marker: filtered parent is followed and parent death kills t
 TEST_CASE("PORT-135 explicit scan range overrides default")
 {
     CombatWorld w(kObjects);
+    w.logic->partition().setRegion(0.0f, 0.0f, 1000.0f, 1000.0f);
     w.combat().setAutoAcquireEnabled(false);
     Object *hero = w.unit("Port135Hero", 'B', 206, 200);
     Object *marker = w.unit("Port135Explicit", 'A', 200, 200);
