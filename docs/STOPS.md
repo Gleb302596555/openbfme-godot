@@ -1099,3 +1099,20 @@ automatic sizing and rotated offsets remain unverified. Nodes expose S-3304.
 The dozer slice of position-targeted construction is now implemented; non-dozer
 buildObjectNow remains S-5305. Existing S-1182 regional presentation-only wording
 is superseded for the six implemented reveal/undo actions described above.
+
+## PORT-29 fire sub objects: reachability and draw-side limits (issue #101)
+
+`FireName` is read and applied. Two limits stay:
+
+1. **No draw-side counterpart for `Drawable::updateSubObjects` (RW 0x672713).** `BuildingBehavior::update`
+   (RW 0x85935C) ends both passes with that call; the port applies (or records) every sub-object change at the
+   `showSubObject` call itself, so there is nothing to port there (carried over from PORT-83, issue #231).
+2. **No reachable Ennorath object for the fire lists in ordinary play.** In Ennorath 1.9.8.2 `FireName` is set
+   on two objects only: `ElvenBarracksBFME1` and `GondorHseHeal` (`data/ini/object/obsolete/hseheal.ini`).
+   `FireWindowName` is set on `ElvenBarracksBFME1`, `ArnorStable`, `GondorStable`, `ImladrisCitadel` and
+   `GondorHseHeal`. `AFLAME` (status 0xA) is set in RotWK only by `FlammableUpdate` (the port:
+   `FlammableUpdate.cpp:439`), and of those objects only `GondorHseHeal` has one, and it lives in the mod's
+   `obsolete/` folder. Every other `FireName` / `FireWindowName` line of the mod is commented out. So a
+   buildable Arnor / Gondor / Imladris stable or the Imladris citadel never burns, and the fire lists never
+   run for them; only a Cheat Mode spawn plus an ignition reaches them. The lane's behaviour is therefore
+   held by the narrow tests `PORT-29*`, not by ordinary play.
