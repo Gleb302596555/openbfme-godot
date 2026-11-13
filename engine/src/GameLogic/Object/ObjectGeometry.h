@@ -75,15 +75,21 @@ struct ContactPoint
 };
 // the template's contact points in row order; throws std::logic_error on a row that does not parse
 std::vector<ContactPoint> contactPointsOf(const ThingTemplate &tt);
-// RW 0xAD30E0, mode 0 with a caller position (object space); without `preferred` a point must touch the geometry (lane AIMAIM-1).
-// false when no point carries the label (the result is then the geometry's first-shape-free default, RW + 0x50, which this port does not keep: left unchanged)
-bool getBestContactPoint(const std::vector<Shape> &shapes, const std::vector<ContactPoint> &points, const Coord3D &callerPos, const std::string &label, bool preferred,
-                         Coord3D &out);
-// RW 0x690BD2 Object::getWorldspaceBestContactPoint(out, callerPos, label, 0, 0, preferred): the caller's position into the object's space (the orthogonal inverse of its
-// transform, RW 0xB26C00, SSE in the binary's order), getBestContactPoint there, a RUBBLE body (body vslot 0x24 == 3) takes the geometry's height as the point's z,
-// and the point back to the world (SSE). The transform is the object's basis and position (Thing); the shapes are its own GeometryInfo's (Object::geometryShapes,
-// lane MODCOMPAT-MOD1), the points its template's (S-1281)
-bool worldspaceBestContactPoint(const Object &obj, const Coord3D &callerPos, const std::string &label, bool preferred, Coord3D &out);
+// RW 0xAD30E0, all preferences with a caller position (object space):
+//   pref 0: nearest contact point whose label == `label`, distance to callerPos, overlap test unless `ignoreCollision` (lane AIMAIM-1 / BUILD-3).
+//   pref 3: seed-blended pair of neighbouring contact points (idx = seed % (count-1), blend = ((seed >> 8) & 0xFF) / 255.0f); count < 2 falls back to
+//     (0, 0, height * 0.67f); a point outside every active shape falls back to the first active shape's centre; z clamped to [height * 0.1f, height].
+// false when no point matches (pref 0, no label match). `label` is unused for pref 3. The port does not keep RW's precomputed innermost contact point (RW + 0x50);
+// for pref 3 count < 2 the default (0, 0, height * 0.67f) is computed here from `height`.
+bool getBestContactPoint(const std::vector<Shape> &shapes, const std::vector<ContactPoint> &points, const Coord3D &callerPos, const std::string &label,
+                         int preference, int seed, bool ignoreCollision, Coord3D &out);
+// RW 0x690BD2 Object::getWorldspaceBestContactPoint(out, callerPos, label, preference, seed, ignoreCollision): the caller's position into the object's space (the
+// orthogonal inverse of its transform, RW 0xB26C00, SSE in the binary's order), getBestContactPoint there, a RUBBLE body (body vslot 0x24 == 3) takes the geometry's
+// height as the point's z, and the point back to the world (SSE). The transform is the object's basis and position (Thing); the shapes are its own GeometryInfo's
+// (Object::geometryShapes, lane MODCOMPAT-MOD1), the points its template's (S-1281). Preference 0 keeps the label-based nearest-point behaviour used by the AI's
+// findNearestLabeledContactPointOnTarget and the radial-menu "Menu" label; preference 3 is the weapon-aim contact point used by aimPosition and fireFXAimPosition.
+bool worldspaceBestContactPoint(const Object &obj, const Coord3D &callerPos, const std::string &label, int preference, int seed, bool ignoreCollision,
+                                Coord3D &out);
 // lane PATH-2 (S-341): the template's shape list into the pathfinder's geometry (every shape, and shape 0's values as the single-shape fields); nothing changes
 // when the template has no shape. Throws std::logic_error like shapesOf.
 void fillPathfindGeometry(const ThingTemplate &tt, PathfindGeometry &out);
