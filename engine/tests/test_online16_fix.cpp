@@ -345,7 +345,6 @@ struct RealRelay
 				"--status", (dir / "status.json").string(), "--stats-s", "0" },
 			(dir / "relay.out").string());
 		REQUIRE(child->started());
-		dir.holdsProcess("openbfme_relay", *child);
 	}
 	NetAddress address() const { return NetAddress{ 0x7F000001u, port }; }
 	std::string stopAndStatus()
@@ -357,7 +356,12 @@ struct RealRelay
 	~RealRelay()
 	{
 		// PORT-171: the relay stops (and stops writing its log) before its directory goes; one that does not exit, or a file left open, fails the
-		// test by its name (the removal's error is no longer swallowed)
+		// test by its name (the removal's error is no longer swallowed). Registered here, not at the start: a test may have restarted the relay,
+		// and the process to wait for is the one running now.
+		if (child)
+		{
+			dir.holdsProcess("openbfme_relay", *child);
+		}
 		dir.removeOrFail();
 	}
 };

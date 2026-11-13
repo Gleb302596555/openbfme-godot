@@ -73,11 +73,13 @@ std::string removalFailure(onlinetest::TempDir &dir)
 	}
 	return std::string();
 }
+#ifndef _WIN32
 std::string fileText(const std::filesystem::path &p)
 {
 	std::ifstream f(p);
 	return std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
 }
+#endif
 } // namespace
 
 TEST_CASE("PORT-171 online temp folder: a live RelayCore keeps its game log open in the test process itself; removing the folder under it fails by the "
