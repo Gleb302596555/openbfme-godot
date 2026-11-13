@@ -29,6 +29,7 @@
 
 #include "Common/INIDataTypes.h"
 #include "GameLogic/Module/UpdateModule.h"
+#include "GameLogic/Object/Contain/OpenContainRuntime.h"
 
 #include <array>
 #include <cstdint>
@@ -224,6 +225,7 @@ public:
 	// horde is not contained (RW 0x9188EB false in every other contain table of 2.01)
 	bool shadowWhileContainedAllowed() const override;
 	bool addToContain(Object *obj) override;
+	void enableLoadSounds(bool enabled) override { m_soundState.loadEnabled = enabled; } // RW 0x867AA5
 	void removeFromContain(Object *obj) override;
 	void removeDyingMember(Object *obj) override;
 	void containReactToTransformChange() override;
@@ -505,6 +507,7 @@ private:
 	// pass stops)
 	int emotionMemberOrder(Object &member, Object *scarer, Coord3D &pos, float &angle);
 
+	OpenContain::SoundState m_soundState;
 	const HordeContainBehaviorData *m_data;
 	std::unique_ptr<HordeContainCore> m_core;
 	friend struct XpTestAccess; // lane XP-1 tests: isolated state hash mutations

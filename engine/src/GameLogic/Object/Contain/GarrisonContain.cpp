@@ -432,7 +432,7 @@ bool GarrisonContain::addToContain(Object *obj)
 // RW 0x87BEC8 GarrisonContain::onContaining
 void GarrisonContain::onContaining(Object *obj, bool wasSelected)
 {
-	(void)wasSelected; // RW 0x865F9A OpenContain::onContaining: the EnterSound (client side)
+	(void)wasSelected; // RW 0x865F9A OpenContain::onContaining: object SoundEnter (client side)
 	static const CombatNames::Status &st = CombatNames::statuses();
 	Object *container = getObject();
 	obj->setDisabled(3, (UnsignedInt)UPDATE_SLEEP_FOREVER);       // RW 0x87BEE6: DISABLED_HELD (RW 0x692432)
@@ -539,7 +539,7 @@ void GarrisonContain::onRemoving(Object *obj)
 {
 	static const CombatNames::Status &st = CombatNames::statuses();
 	Object *container = getObject();
-	// RW 0x8680F4 OpenContain::onRemoving: the ExitSound, the door conditions, ModifierToGiveOnExit (S-1100)
+	// RW 0x8680F4 OpenContain::onRemoving: object SoundExit, the door conditions, ModifierToGiveOnExit (S-1100)
 	removeObjectFromGarrisonPoint(obj, -1);                  // RW 0x87BFCC
 	obj->setWeaponBonusCondition(0, false);                  // RW 0x87BFD1
 	obj->clearDisabled(3);                                   // RW 0x87BFDE: DISABLED_HELD

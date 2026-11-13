@@ -19,7 +19,7 @@
 //   * the exit interface (module + 0x30, RW 0xC59ABC): isExitBusy RW 0x9188EB (never), reserveDoorForExit RW 0x88B20C (DOOR_1), exitObjectViaDoor RW 0x8682D9.
 // The derived classes' hooks (virtual, RW slot in the comment): onContaining (contain 0x58), onRemoving (0x5C), redeployOccupants (main 0x48), the apparent
 // controller (main 0x50 / 0x54), isEnclosingContainerFor (the ENCLOSED status of the data), addToContainList (contain 0xA0), removeAllContained (0xA8).
-// NOT PORTED (stop S-1100): the enter / exit sounds and the door model conditions of RW 0x865F9A / 0x8680F4 (client side), ModifierToGiveOnExit, the radar,
+// NOT PORTED (stop S-1100): the object SoundEnter / SoundExit and the door model conditions of RW 0x865F9A / 0x8680F4 (client side), ModifierToGiveOnExit, the radar,
 // DamagePercentToUnits' passenger damage (contain slot 0x148), the exposed stealth units' detection (RW 0x865EE7). Determinism: the list keeps insertion order.
 
 #pragma once
@@ -109,6 +109,15 @@ public:
 	void onDie(const DieModuleInterface::Event &event) override;
 
 	const OpenContainModuleData &openData() const { return *m_open; }
+	struct SoundState
+	{
+		unsigned lastUnloadFrame = 0; // RW 0x86804E: module +0x7C
+		unsigned lastLoadFrame = 0;   // RW 0x868051: module +0x80
+		bool loadEnabled = true;     // RW 0x868098: module +0xDD
+	};
+	// RW 0x8658A3 / 0x865932: common module-data sound paths, independent per container.
+	static void playContainSound(Object &container, const OpenContainModuleData &data, SoundState &state, bool entering);
+	void enableLoadSounds(bool enabled) override { m_soundState.loadEnabled = enabled; } // RW 0x867AA5
 	// RW module + 0xDE (interface + 0xBE): the data's Enabled, read by the control bar's transport inventory (RW 0x94251F, lane UI-1)
 	bool isEnabled() const { return m_enabled; }
 	// contain slot 0x150 getContainerPipCounts (RW 0x866411)
@@ -170,8 +179,8 @@ public:
 
 protected:
 	// ---- the hooks of the derived classes ----
-	virtual void onContaining(Object *obj, bool wasSelected); // contain slot 0x58 (OpenContain RW 0x865F9A: the EnterSound, client side)
-	virtual void onRemoving(Object *obj);                     // contain slot 0x5C (OpenContain RW 0x8680F4: the ExitSound, ModifierToGiveOnExit, client / S-1100)
+	virtual void onContaining(Object *obj, bool wasSelected); // contain slot 0x58 (OpenContain RW 0x865F9A: object SoundEnter, client side)
+	virtual void onRemoving(Object *obj);                     // contain slot 0x5C (OpenContain RW 0x8680F4: object SoundExit, ModifierToGiveOnExit, client / S-1100)
 	virtual void redeployOccupants();                         // main slot 0x48 (OpenContain RW 0x8671F5: the riders on their bones, RW 0x868A70)
 	virtual bool forceOrientationContainer() const { return true; } // main slot 0x38 (OpenContain RW 0x9B501B; TransportContain RW 0x869F97: the data's)
 	// contain slot 0x6C: a rider was placed (RW 0x868A70), `hidden` its drawable's state (OpenContain RW 0x8851E4: nothing)
@@ -187,7 +196,7 @@ protected:
 	// RW 0x68C5AF Object::getSingleLogicalBonePosition through the launch bone provider, then RW 0x70BCE7 (the object's transform); false without a provider or
 	// without exactly one such bone
 	static bool boneWorldPosition(Object &obj, const std::string &bone, Coord3D &out);
-	virtual void recalcApparentControllingPlayer() {}         // main slots 0x50 / 0x54 / 0x58 (the apparent controller is the owner, S-1100)
+	virtual void recalcApparentControllingPlayer() {}         // main slot 0x50 (the apparent controller is the owner, S-1100)
 	virtual void addToContainList(Object *obj);               // contain slot 0xA0 (RW 0x866987)
 	virtual void removeFromContainList(Object *obj);          // main slot 0x34 (RW 0x865E78: the list erase)
 public:
@@ -208,6 +217,7 @@ protected:
 	const DieMuxData &dieMux() const { return *m_dieMux; }
 	OpenStats &openStatsMutable() { return m_openStats; }
 
+	SoundState m_soundState;
 	const OpenContainModuleData *m_open;
 	const DieMuxData *m_dieMux;
 	ContainedItemsList m_contained;           // RW interface + 0x34 (insertion order)

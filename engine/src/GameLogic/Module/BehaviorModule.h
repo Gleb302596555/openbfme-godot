@@ -143,6 +143,8 @@ public:
 	virtual void removeFromContain(Object *obj) = 0;
 	// ZH ContainModuleInterface::containReactToTransformChange: the container moved or turned (Object::reactToTransformChange)
 	virtual void containReactToTransformChange() {}
+	// RW 0x867AA1, contain slot 0x14C: suppress entry sounds during initial payload creation.
+	virtual void enableLoadSounds(bool enabled) { (void)enabled; }
 	// contain slot 0x64 onSelling: the contain hears of its container's sale (BuildAssistant::sellObject RW 0x796806: `mov ecx, [object + 0x258]`, `mov eax,
 	// [ecx]`, `call [eax + 0x64]`, no argument — the only `call [reg + 0x64]` of 2.01 whose receiver is the contain interface). Every contain table answers the
 	// same body, RW 0x86561F: the kill-on-death byte (module + 0xE1) is cleared, then vslot 0x80 orderAllPassengersToExit(CMD_FROM_AI). No class overrides it

@@ -39,6 +39,17 @@ provider upgrade query. This is the owner's explicitly permitted S-6011
 partial scope, not an approximation with affectedByUpgrade on a member.
 See [RW map and validation status](ennorath/PORT109_RESEARCH_STOP.md).
 
+## PORT-90 remaining object sounds and CaveContain (issue #238)
+
+The module fields `EnterSound` / `ExitSound` are distinct from object
+`SoundEnter` / `SoundExit`. The object sounds remain unported under S-707:
+RW 0x865F9A / 0x8680F4 use drawable rows 0x2F / 0x30; HordeContain and
+GarrisonContain call those callbacks (RW 0x872D29 / 0x86CF35 and 0x87BEDA /
+0x87BFD8). They require the shared object-sound/client path, not the module
+fields' audio-event helper. CaveContain is not implemented in the port; RW
+0x869A10 separately calls its unload-sound slot. Synthetic PORT-90 tests do not
+cover either stop.
+
 ## Rebuild acceptance stops
 
 Open evidence gaps (see `docs/PLAN.md`, "Acceptance stops"). A stop blocks only

@@ -227,6 +227,7 @@ include(cmake/Port124.cmake) # PORT-124: ring transfer through CitadelSlaughterH
 include(cmake/Port94.cmake) # PORT-94: SalvageCrateCollide LevelUpRadius / ResourceChance / BannerChance verdict (issue #242; OPENBFME_PORT94_TESTS)
 include(cmake/Port102.cmake) # OPENBFME_PORT102_TESTS (Object GeometryUsedForHealthBox)
 include(cmake/Port115.cmake) # PORT-115: the archers' Barrage, a horde's FIRE_WEAPON at a position (issue #299; OPENBFME_PORT115_TESTS)
+include(cmake/Port90.cmake) # OPENBFME_PORT90_TESTS
 include(cmake/Port75.cmake) # PORT-75: BannerCarrierUpdate MorphCondition / BannerMorphFX (issue #207; OPENBFME_PORT75_TESTS)
 include(cmake/Port79.cmake) # OPENBFME_PORT79_TESTS (lane PORT-79)
 include(cmake/Port89.cmake) # OPENBFME_PORT89_TESTS (lane PORT-89: Object/SoundCrushing)
@@ -882,6 +883,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT121_TESTS}
     ${OPENBFME_PORT132_TESTS}
     ${OPENBFME_PORT115_TESTS}
+    ${OPENBFME_PORT90_TESTS}
     ${OPENBFME_PORT99_TESTS}
     ${OPENBFME_PORT94_TESTS}
     ${OPENBFME_PORT119_TESTS}
