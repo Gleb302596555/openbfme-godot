@@ -188,15 +188,15 @@ TEST_CASE("PORT-159 caster test: SHADOW_VOLUME_NON_SELF_1/2/3 are volume shadows
 		CHECK(ObjectShadow::castsMap(t, nullptr, nullptr, true));
 	}
 
-	// The types RW 0x49A3DA answers NULL for make no shadow object at any LOD: 0x8, 0x10, 0x2000. (0x1000 goes to the
-	// projected manager RW 0x49A3CA, so it draws a decal on Medium and nothing on Ultra, like the other decal types.)
+	// The types RW 0x49A3DA answers NULL for make no shadow object at any LOD: 0x8 (dynamic projection), 0x10 (directional
+	// projection), 0x2000 (terrain claim). They stay out of the caster mask.
 	CHECK_FALSE(ObjectShadow::castsMap(dynamicProjection, nullptr, nullptr, false));
 	CHECK_FALSE(ObjectShadow::castsMap(dynamicProjection, nullptr, nullptr, true));
 	CHECK_FALSE(ObjectShadow::castsMap(directionalProjection, nullptr, nullptr, false));
 	CHECK_FALSE(ObjectShadow::castsMap(directionalProjection, nullptr, nullptr, true));
 	CHECK_FALSE(ObjectShadow::castsMap(terrainClaim, nullptr, nullptr, false));
 	CHECK_FALSE(ObjectShadow::castsMap(terrainClaim, nullptr, nullptr, true));
-	CHECK(ObjectShadow::castsMap(mergeDecal, nullptr, nullptr, false));
+	REQUIRE(mergeDecal != nullptr); // 0x1000 goes to the projected manager RW 0x49A3CA; its drawing is SelectionDecals' business, not this mask's
 
 	// ShadowForceDisable still wins over a non-self volume (RW 0x4C4EF8 / RW 0x4C5013).
 	W3DModelDrawModuleData disabled;
@@ -291,4 +291,14 @@ TEST_CASE("PORT-159 neighbouring behaviour holds: the volume and decal casters o
 	// No template, no shadow; a template without the row, no shadow.
 	CHECK_FALSE(ObjectShadow::castsMap(nullptr, nullptr, nullptr, true));
 	CHECK_FALSE(ObjectShadow::castsMap(w.get("Port159None"), nullptr, nullptr, true));
+
+	// The decal path is a different manager in RW (RW 0x49A3B2..0x49A3F6) and stays one here: a volume type, the non-self
+	// ones included, makes no decal descriptor (RW 0x50BF6A is not reached for 0x80 / 0x100 / 0x200), a decal type does.
+	ObjectShadow::DecalShadowDescriptor desc;
+	CHECK_FALSE(ObjectShadow::resolveDecalShadow(w.get("Port159Mumak"), nullptr, nullptr, desc));
+	CHECK_FALSE(ObjectShadow::resolveDecalShadow(w.get("Port159Rocks"), nullptr, nullptr, desc));
+	CHECK_FALSE(ObjectShadow::resolveDecalShadow(volume, nullptr, nullptr, desc));
+	CHECK(ObjectShadow::resolveDecalShadow(decal, nullptr, nullptr, desc));
+	CHECK(desc.enabled);
+	CHECK(desc.style == 0x1u); // SHADOW_DECAL, RW 0x49A3EC
 }
