@@ -62,6 +62,8 @@
 #include <string>
 #include <vector>
 
+class Matrix3D;
+
 // One of the three animation tracks (RW 0x4B349F fills one: slot, anim, mustCompleteBlend (+0x19), mode (+0x10), blendTime (+0xC),
 // frame (+4), prevFrame (+8), completed (+0x18), direction (+0x14); stride 0x1C from the draw object's +0x110).
 struct W3DDrawTrack
@@ -296,7 +298,7 @@ public:
 	bool adjustsHeightByConstruction() const { return m_curAnimState && m_curAnimState->testFlag(W3D_ACF_ADJUST_HEIGHT_BY_CONSTRUCTION_PERCENT); }
 
 	// lane LOCAL-29: vtable slot +0x104, called at RW 0x4B6B26 only after the AttachToBoneInAnotherModule bone was found, with the placed transform.
-	// Base RW 0x9F3A3C (`ret 4`): no-op. W3DSailModelDraw RW 0x4D00CD turns the sail with the wind: Port 63 (#173) overrides this, not ported here (S-7232).
+	// Base RW 0x9F3A3C (`ret 4`): no-op. W3DSailModelDraw RW 0x4D00CD overrides this slot to turn the attached sail (Port 63, #173).
 	virtual void adjustAttachedTransform(Matrix3D &) {}
 
 	// PORT-126 (issue #310): ObjectDrawInterface slot 47 (+0xBC; RW 0x8F8014 returns false in base W3DScriptedModelDraw).

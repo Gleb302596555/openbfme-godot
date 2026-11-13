@@ -201,6 +201,7 @@ include(cmake/Port146.cmake)    # PORT-146: the archers on a moving siege carrie
 include(cmake/Port50.cmake)     # PORT-50: W3DModelDraw/ParticlesAttachedToAnimatedBones, particles on the animated bones (issue #154; OPENBFME_PORT50_TESTS)
 include(cmake/Port98.cmake)     # PORT-98: PlayerTemplate LoadScreenMusic, the loading screen's faction track (issue #258; OPENBFME_PORT98_TESTS)
 include(cmake/Port158.cmake)    # PORT-158: the loading screen's music stop reaches the menu track (issue #376; OPENBFME_PORT158_TESTS)
+include(cmake/Port63.cmake)     # PORT-63: W3DSailModelDraw attached-bone turn (issue #173)
 include(cmake/Port74.cmake)     # PORT-74: W3DLaserDraw, the lightning and beam draws (issue #206; OPENBFME_PORT74_SOURCES / _TESTS)
 include(cmake/Port97.cmake)     # PORT-97: TransportContain FadePassengerOnEnter / OnExit, the passengers' fade (issue #245; OPENBFME_PORT97_TESTS)
 include(cmake/Port112.cmake)    # PORT-112: HordeContain/NotComboFormation, the porcupine formation leaves the formation before a combine (issue #272; OPENBFME_PORT112_TESTS)
@@ -544,6 +545,7 @@ add_library(openbfme_core STATIC
     src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DScriptedModelDraw.cpp
     src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DQuadrupedDraw.cpp
     src/GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DSupplyDraw.cpp
+    ${OPENBFME_PORT63_SOURCES}
     src/Libraries/file/TextFile.cpp
     src/Libraries/file/Win32Path.cpp
     src/Common/System/ArchiveFile.cpp
@@ -1026,6 +1028,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT105_TESTS}
     ${OPENBFME_PORT146_TESTS}
     ${OPENBFME_PORT50_TESTS}
+    ${OPENBFME_PORT63_TESTS}
     ${OPENBFME_PORT74_TESTS}
     ${OPENBFME_PORT97_TESTS}
     ${OPENBFME_PORT112_TESTS}

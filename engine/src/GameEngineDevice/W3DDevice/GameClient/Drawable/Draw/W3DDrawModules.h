@@ -3,9 +3,10 @@
 // The W3D draw module classes of the RotWK registry (module type DRAW, 20 classes, golden module-registry.json) and what this
 // engine does with each of them at map start (lane MAPOBJ-1):
 //
-//   * ModelDraw  - drawn through the merged W3DScriptedModelDraw runtime (the model of the state matching the object's model
+//   * ModelDraw  - drawn through the shared W3DScriptedModelDraw runtime (the model of the state matching the object's model
 //                  condition flags and its idle animation): W3DScriptedModelDraw, W3DHordeModelDraw, W3DTruckDraw, W3DSailModelDraw,
-//                  W3DQuadrupedDraw, W3DTankDraw, W3DSupplyDraw. The variants' own motion (tires, treads, sail, feet) is S-112.
+//                  W3DQuadrupedDraw, W3DTankDraw, W3DSupplyDraw. Truck tires and live attached sails have their own motion;
+//                  the other variant motion is S-112, while map-placed sails cannot attach to bones (S-7232).
 //   * TreeDraw / PropDraw / FloorDraw - static models (W3DTreeDraw.h). Dynamic tree behaviour is S-111.
 //   * W3DDefaultDraw - a retail release build draws nothing (ZH W3DDefaultDraw.cpp: its render object exists only under
 //                  LOAD_TEST_ASSETS, and the retail INI bodies are empty).

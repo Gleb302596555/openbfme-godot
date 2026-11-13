@@ -2028,7 +2028,8 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 		}
 		else if (shadow) shadow->set_visible(false);
 		// RENDER-2: a structure being built moves along its own Z by the draw's construction offset (RW 0x4B686D)
-		// LOCAL-29 (issue #218): entry transform resolves bone attachment (RW 0x4B6A6F..0x4B6B26 / RW 0x672B5B)
+		// LOCAL-29 (issue #218): entry transform resolves bone attachment and calls +0x104 only on success;
+		// for a sail that callback also advances AboutDamping, so lastEntryXf detects a stationary ship's changed sail matrix.
 		Matrix3D entryMatrix;
 		d->entryTransform(e, entryMatrix);
 		const Transform3D entryXf = toTransform(entryMatrix);

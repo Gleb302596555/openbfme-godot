@@ -271,7 +271,6 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 	}
 	std::vector<DrawEntry> &entries = d.entries();
 	view.entries.resize(entries.size());
-	const Transform3D xf = toTransform(d.getBasis(), *d.getPosition(), d.getInstanceScale());
 	int instances = 0;
 	for (size_t k = 0; k < entries.size(); ++k)
 	{
@@ -282,7 +281,7 @@ void PlacementGhostRenderer::drawIcon(size_t i, PlacementIcons::Icon &icon, Icon
 			continue;
 		}
 		Matrix3D entryMatrix;
-		d.entryTransform(e, entryMatrix);
+		d.entryTransform(e, entryMatrix); // LOCAL-29: attachment and sail's +0x104 callback only if its bone resolves
 		const Transform3D entryXf = toTransform(entryMatrix);
 		W3DDrawPoseView f;
 		e.draw->poseView(f);
