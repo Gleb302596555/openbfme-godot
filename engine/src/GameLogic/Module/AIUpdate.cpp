@@ -1171,7 +1171,7 @@ bool AIUpdateInterface::aiMoveToPositionFromAttackMove(const Coord3D &goal)
 		}
 	}
 	// PORT-151: the march resume of the port's attack-move stand-in (S-328) is not a command of RW's table: it must not repeat the move voice of a
-	// player order, and whether RW's re-issue of the attack-move (0x66C0B9) speaks again is not proven (S-7326) -> silent
+	// player order, and whether RW's re-issue of the attack-move (0x66C0B9) speaks again is not proven (S-7330) -> silent
 	privateMoveToPosition(goal, CMD_FROM_PLAYER, false);
 	wakeUpNow();
 	return true;
