@@ -204,6 +204,7 @@ include(cmake/Port112.cmake)    # PORT-112: HordeContain/NotComboFormation, the 
 include(cmake/Port117.cmake)    # PORT-117: buildObjectNow completes a HORDE without its producer, the summoned horde is whole (issue #301; OPENBFME_PORT117_TESTS)
 include(cmake/Port141.cmake)    # PORT-141: Isengard defiled-ground ambient sound (SoundAmbient) plays at game start (issue #343; OPENBFME_PORT141_TESTS)
 include(cmake/Port157.cmake)    # PORT-157: boot splash <Language>Splash.jpg/.bmp before the main menu (issue #375; OPENBFME_PORT157_TESTS)
+include(cmake/Port155.cmake)    # PORT-155: RotWK reverb send, dry level and offscreen occlusion from AudioEventInfo (issue #373; OPENBFME_PORT155_TESTS)
 include(cmake/Render.cmake)     # OPENBFME_RENDER_SOURCES / OPENBFME_RENDER_TESTS (lane RENDER-1, client / draw only)
 include(cmake/SkirmishAI.cmake) # OPENBFME_SKIRMISH_AI_SOURCES / OPENBFME_SKIRMISH_AI_TESTS (lane AI-1)
 include(cmake/Vis.cmake)        # OPENBFME_VIS_SOURCES / OPENBFME_VIS_TESTS (lane VIS-1)
@@ -1009,6 +1010,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT112_TESTS}
     ${OPENBFME_PORT117_TESTS}
     ${OPENBFME_PORT141_TESTS}
+    ${OPENBFME_PORT155_TESTS}
     ${OPENBFME_PORT87_TESTS}
     ${OPENBFME_RENDER_TESTS}
     ${OPENBFME_SKIRMISH_AI_TESTS}
