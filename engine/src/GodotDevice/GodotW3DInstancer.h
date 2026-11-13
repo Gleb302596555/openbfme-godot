@@ -406,6 +406,8 @@ private:
 	void bind_palette_gpu();
 	void upload_palette();
 	void release_palette_rd();
+	void note_instance_param_node(PackedStringArray &errors); ///< P-99: counts a draw node with instance uniforms, reports a full buffer once
+	static int64_t instance_param_capacity();                ///< P-99: draw nodes the global shader buffer holds
 	Ref<Texture2D> palette_sampler() const;
 	void mark_model(int64_t instance);       // SMOOTH-1: the instance's model rewrites its buffers
 	void run_parallel(size_t count, const std::function<void(size_t, size_t)> &fn);

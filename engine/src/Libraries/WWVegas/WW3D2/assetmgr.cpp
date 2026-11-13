@@ -453,6 +453,7 @@ void WW3DAssetManager::Resolve_Sub_Object(const std::string &name, int bone, boo
 		}
 	}
 	out.Reason = "no prototype of that name is registered (ZH skips such a sub object silently)";
+	out.AbsentFromData = true;
 }
 
 const RenderObjPrototype *WW3DAssetManager::Create_Render_Obj(const std::string &name, std::string *error)

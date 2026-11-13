@@ -1088,7 +1088,7 @@
 - Проверка: —
 
 ### P-99. Долгая партия: поток ошибок `global_shader_parameters_instance_allocate`
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [ ] **ПРОВЕРИТЬ В ИГРЕ** — поток ошибок и лаг исправлены (станция 0, 2026-11-13); `CAH_skull` (текстура `None`) открыт
 - Добавлено: 2026-11-12, владелец (в игре, `main` `8b12b926`, Эннорат; разнесено Claude)
 - Описание: долгая партия Мордор против Гондора с включённым чит-меню: в консоль без конца идёт `ERROR: Condition "global_shader_uniforms.instance_buffer_pos.has(p_instance)" is true. Returning: -1 at: global_shader_parameters_instance_allocate (servers/rendering/renderer_rd/storage_rd/material_storage.cpp:2028)`. От фракции и времени, по мнению владельца, не зависит; прекращается после выхода из партии. Признак: экземплярные шейдерные параметры выделяются повторно для того же экземпляра (утечка или двойной вызов при пересоздании инстанса).
 - Разовые ошибки при запуске новой партии: `W3DInstancer: CAH_skull: CAH_skull: texture not found: None` (`_begin_game`, `game.gd:2443`); `W3DInstancer: MUSauronEye: sub object MUSAURONEYE.BOX01 unresolved: no prototype of that name is registered`.
@@ -1096,6 +1096,9 @@
 - Взял: Local 54 (fork issue 410, 2026-11-13)
 - Причина и исправление: —
 - Проверка: —
+- Claude 2026-11-13 (станция 0): причина потока ошибок и лага — переполнение глобального буфера шейдерных параметров Godot. Каждый узел отрисовки W3D (по узлу на подобъект каждой загруженной модели) объявляет `instance uniform` (`w3d_tint`, `w3d_receive_shadows`) и занимает 16 ячеек; по умолчанию буфер 65536 = 4096 узлов. Модели за партию только добавляются, и в долгой партии (особенно с чит-меню) узлов становится больше. Godot 4.7.2 (`instance_uniforms.cpp` `materials_finish` -> `MaterialStorage::global_shader_parameters_instance_allocate`): при полном буфере экземпляр запоминается, но слот -1, и при каждом следующем обновлении этого экземпляра выделение повторяется с ошибкой `instance_buffer_pos.has(p_instance)` — поток и лаг. Воспроизведено на чистом Godot: 5000 узлов — 904 отказа «Too many instances» при буфере по умолчанию, ноль при 1048576. Исправлено: `project.godot` `rendering/limits/global_shader_variables/buffer_size=1048576` (максимум Godot, 65536 узлов, около 16 МБ); `W3DInstancer::get_stats` показывает `instance_param_nodes` / `instance_param_capacity`, переполнение даёт одну ошибку с числами. Тест `godot/tests/p99_instance_param_test.gd` (ручной, нужны файлы игры): без правки красный (ёмкость 4096), с правкой зелёный.
+- `MUSauronEye`: в ванильном `musauroneye.w3d` (BFME2 `w3d.big`) HLOD называет `MUSAURONEYE.BOX01`, а чанка `W3D_CHUNK_BOX` в файле нет — изъян данных оригинала. Розничный `HLodClass` пропускает такой подобъект (BFME2 `hlod.cpp:1108 .. 1112`, `if (robj != NULL)`), модель целая. Порт теперь пишет это заметкой, а не ошибкой (`RenderSubObject::AbsentFromData`); прочие причины (кость вне иерархии, вложенный HLOD) остаются ошибками. В RW не перепроверено (декомпиляция BFME2 сопоставлена побайтно).
+- `CAH_skull`: FX-материал `NormalMapped.fx` с текстурным параметром `None` (рядом `AWSkull01.tga`). Как RotWK разрешает имя `None` у FX-текстуры, не прочитано — не исправлено, следующий шаг: загрузчик констант FX-шейдера в RW.
 
 ### P-100. Лагерь следопытов Гондора: пламя костра уходит под текстуры здания
 - Статус: [ ] **НЕ НАЧАТО**

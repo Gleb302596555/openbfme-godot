@@ -32,6 +32,9 @@ window/size/viewport_height=720
 [rendering]
 
 textures/vram_compression/import_etc2_astc=true
+; P-99: every W3D draw node holds 16 slots for its instance uniforms (w3d_tint, w3d_receive_shadows); the default 65536 held 4096 nodes,
+; a long game outgrew it. The maximum: 65536 nodes, about 16 MB (W3DInstancer::get_stats instance_param_nodes / instance_param_capacity)
+limits/global_shader_variables/buffer_size=1048576
 
 [openbfme]
 

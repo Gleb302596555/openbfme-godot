@@ -27,6 +27,7 @@
 #include <godot_cpp/classes/array_mesh.hpp>
 #include <godot_cpp/classes/camera3d.hpp>
 #include <godot_cpp/classes/geometry_instance3d.hpp>
+#include <godot_cpp/classes/project_settings.hpp>
 #include <godot_cpp/classes/viewport.hpp>
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/aabb.hpp>
@@ -54,6 +55,10 @@ namespace godot
 
 namespace
 {
+
+// P-99: the draw nodes of every instancer (each holds 16 global shader slots for its instance uniforms) and whether the overflow was reported
+std::atomic<int64_t> g_instanceParamNodes{ 0 };
+std::atomic<bool> g_instanceParamOverflowReported{ false };
 
 // lane PERF-HD: every MultiMesh's custom AABB, a box beyond any map. Without one Godot recomputes the AABB over every instance at each set_buffer,
 // and an animated model's buffers are rewritten every frame; one MultiMesh holds a model's instances across the whole battlefield, so its own
@@ -380,6 +385,36 @@ W3DInstancer::W3DInstancer()
 W3DInstancer::~W3DInstancer()
 {
 	release_palette_rd();
+	// P-99: the draw nodes are this instancer's children and go with it (their instance shader slots are freed by the server)
+	int64_t mine = 0;
+	for (const std::unique_ptr<Model> &m : Models) mine += (int64_t)m->Draws.size();
+	g_instanceParamNodes.fetch_sub(mine);
+}
+
+// P-99: every draw node's material declares instance uniforms (w3dshadergen: w3d_tint, w3d_receive_shadows), so the rendering server gives
+// each node ShaderLanguage::MAX_INSTANCE_UNIFORM_INDICES (16) slots of the global shader buffer (Godot 4.7.2 instance_uniforms.cpp
+// materials_finish -> MaterialStorage::global_shader_parameters_instance_allocate). A model's nodes stay until the instancer goes, so a long
+// game keeps adding them. When the buffer is full the server keeps the instance's key but returns -1, and every later update of that
+// instance allocates again and prints "instance_buffer_pos.has(p_instance)" (the owner's endless error, and the lag that came with it).
+// project.godot raises the buffer to its maximum; this count says once, with the numbers, if the game still outgrows it.
+int64_t W3DInstancer::instance_param_capacity()
+{
+	ProjectSettings *ps = ProjectSettings::get_singleton();
+	const int64_t setting = ps ? (int64_t)ps->get_setting("rendering/limits/global_shader_variables/buffer_size", 65536) : 65536;
+	return std::max<int64_t>(4096, setting) / 16; // MaterialStorage: MAX(4096, setting) values, 16 per instance
+}
+
+void W3DInstancer::note_instance_param_node(PackedStringArray &errors)
+{
+	const int64_t nodes = g_instanceParamNodes.fetch_add(1) + 1;
+	const int64_t capacity = instance_param_capacity();
+	if (nodes > capacity && !g_instanceParamOverflowReported.exchange(true))
+	{
+		const std::string msg = "P-99: " + std::to_string(nodes) + " W3D draw nodes use instance shader parameters, the global shader buffer holds "
+		                        + std::to_string(capacity) + " (rendering/limits/global_shader_variables/buffer_size / 16): the new nodes get no slot";
+		UtilityFunctions::push_error(toGodot(msg));
+		errors.push_back(toGodot(msg));
+	}
 }
 
 void W3DInstancer::_bind_methods()
@@ -1134,7 +1169,16 @@ int64_t W3DInstancer::build_model(const String &model_name)
 		if (sub.Type == RenderSubObject::SUB_UNRESOLVED)
 		{
 			s["reason"] = toGodot(sub.Reason);
-			errors.push_back(toGodot("sub object " + sub.Name + " unresolved: " + sub.Reason));
+			if (sub.AbsentFromData)
+			{
+				// P-99: the model's own data names a sub object no file has (vanilla MUSauronEye's HLOD lists MUSAURONEYE.BOX01, musauroneye.w3d has
+				// no W3D_CHUNK_BOX): retail's HLodClass creates nothing for it and goes on (BFME2 hlod.cpp:1108 .. 1112), so the model is complete
+				notes.push_back(toGodot("sub object " + sub.Name + " is in no file: skipped as retail's HLodClass does (" + sub.Reason + ")"));
+			}
+			else
+			{
+				errors.push_back(toGodot("sub object " + sub.Name + " unresolved: " + sub.Reason));
+			}
 		}
 		else if (sub.Type == RenderSubObject::SUB_EMITTER)
 		{
@@ -1196,6 +1240,7 @@ int64_t W3DInstancer::build_model(const String &model_name)
 			item.Node->set_cast_shadows_setting(GeometryInstance3D::SHADOW_CASTING_SETTING_OFF);
 			item.Node->set_instance_shader_parameter("w3d_receive_shadows", ShadowReceiving);
 			add_child(item.Node);
+			note_instance_param_node(errors);
 			model->Draws.push_back(std::move(item));
 		}
 		subs.push_back(s);
@@ -3155,6 +3200,8 @@ Dictionary W3DInstancer::get_stats() const
 	int64_t draws = 0;
 	for (const std::unique_ptr<Model> &m : Models) draws += (int64_t)m->Draws.size();
 	s["draw_items"] = draws;
+	s["instance_param_nodes"] = g_instanceParamNodes.load();      // P-99: every instancer's draw nodes (each takes 16 global shader slots)
+	s["instance_param_capacity"] = instance_param_capacity();    // P-99: how many the global shader buffer holds
 	s["palette_texels"] = PaletteTexels;
 	s["palette_rows"] = PaletteHeight;
 	s["palette_rows_uploaded"] = PaletteRowsUploaded;

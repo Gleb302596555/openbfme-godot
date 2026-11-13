@@ -106,6 +106,7 @@ struct RenderSubObject
 	const W3dBoxStruct *Box = nullptr;
 	const ParticleEmitterDefClass *Emitter = nullptr;
 	std::string Reason;     // why a sub object is unresolved (ZH skips a null render object silently; here it is reported)
+	bool AbsentFromData = false; // P-99: the name is in no loaded file: retail's HLodClass skips it (BFME2 hlod.cpp:1108 .. 1112, if (robj != NULL)); a note, not an error
 };
 
 // Create_Render_Obj's result: a bare mesh (one default pivot) or an HLOD with its hierarchy and sub objects.
