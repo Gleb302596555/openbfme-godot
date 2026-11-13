@@ -314,6 +314,8 @@ public:
 	static void parseAsciiStringVector(INI *ini, void *instance, void *store, const void *userData);
 	static void parseAsciiStringVectorAppend(INI *ini, void *instance, void *store, const void *userData);
 	static void parsePercentToReal(INI *ini, void *instance, void *store, const void *userData);
+	// RW 0x42ED6F: a real stored as written and refused below 0 (no 0.01 scale: SpecialAbilityUpdate's GrabPassengerHealGainPercent is parsed here)
+	static void parseNonNegativeReal(INI *ini, void *instance, void *store, const void *userData);
 	static void parseAngleReal(INI *ini, void *instance, void *store, const void *userData);
 	static void parseDurationReal(INI *ini, void *instance, void *store, const void *userData);
 	static void parseDurationUnsignedInt(INI *ini, void *instance, void *store, const void *userData);

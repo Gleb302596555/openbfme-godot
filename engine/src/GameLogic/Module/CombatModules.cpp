@@ -219,15 +219,11 @@ void parseClearanceGeometry(INI *ini, void *, void *store, const void *)
 void parseClearanceMajorRadius(INI *ini, void *, void *store, const void *) { lastClearanceShape(ini, store).majorRadius = ini->scanReal(ini->getNextToken()); } // RW 0xAD2BC0
 void parseClearanceMinorRadius(INI *ini, void *, void *store, const void *) { lastClearanceShape(ini, store).minorRadius = ini->scanReal(ini->getNextToken()); } // RW 0xAD2C10
 void parseClearanceHeight(INI *ini, void *, void *store, const void *) { lastClearanceShape(ini, store).height = ini->scanReal(ini->getNextToken()); }          // RW 0xAD2B60
-// RW 0x42ED6F (BFME2 0x42F02F): a real, stored, then refused below 0
-void parseNonNegativeReal(INI *ini, void *, void *store, const void *)
+// RW 0x42ED6F (BFME2 0x42F02F): a real, stored, then refused below 0 -- INI::parseNonNegativeReal, the shared parser SPELL-2 needs for
+// SpecialAbilityUpdate's GrabPassengerHealGainPercent (that row is RW 0x42ED6F too, RW 0xC561C0)
+void parseNonNegativeReal(INI *ini, void *instance, void *store, const void *userData)
 {
-	const float v = ini->scanReal(ini->getNextToken());
-	*(float *)store = v;
-	if (0.0f > v)
-	{
-		throw INIException(3, "invalid Real value %1.7f -- expected >= 0", (double)v);
-	}
+	INI::parseNonNegativeReal(ini, instance, store, userData);
 }
 // RW 0x42EDC2 (BFME2 0x42F082): a real, stored, then refused above 0
 void parseNonPositiveReal(INI *ini, void *, void *store, const void *)

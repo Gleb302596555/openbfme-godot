@@ -350,6 +350,39 @@ bool OpenContain::openContainAllows(const Object &obj) const
 	return true;
 }
 
+// RW 0x865CE3 (contain slot 0x114): without a filter the contained count (+ 0x38); with one, the contained objects whose rider ObjectFilterMatch
+// (RW 0x7640C1) allows for the container's controlling player (RW 0x68B678) are counted over the list (+ 0x34)
+unsigned OpenContain::countContainedMatching(const ObjectFilter &filter) const
+{
+	unsigned count = 0;
+	const Player *owner = getObject()->getControllingPlayer(); // RW 0x865D15
+	for (const Object *rider : m_contained)
+	{
+		if (ObjectFilterMatch::allows(getObject()->logic(), filter, *rider, owner)) // RW 0x865D21
+		{
+			++count; // RW 0x865D2A
+		}
+	}
+	return count;
+}
+
+// RW 0x866367 (contain slot 0x13C): the first contained object (list order, + 0x34) whose rider ObjectFilterMatch (RW 0x7640C1) allows for the
+// container's controlling player (RW 0x68B678) leaves the container through slot 0xA4 (RW 0x8663AC, removeFromContain with the false flag) and is the
+// answer; none matched: null
+Object *OpenContain::takeContainedMatching(const ObjectFilter &filter)
+{
+	const Player *owner = getObject()->getControllingPlayer(); // RW 0x865D12
+	for (Object *rider : m_contained)
+	{
+		if (ObjectFilterMatch::allows(getObject()->logic(), filter, *rider, owner)) // RW 0x865D21
+		{
+			removeFromContain(rider); // RW 0x8663AC
+			return rider;
+		}
+	}
+	return nullptr; // RW 0x86639B
+}
+
 bool OpenContain::isValidContainerFor(const Object &obj, bool checkCapacity, bool checkPath) const
 {
 	(void)checkCapacity;

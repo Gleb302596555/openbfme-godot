@@ -24,6 +24,7 @@
 #include <vector>
 
 class Object;
+class ObjectFilter;
 struct Coord3D;
 struct DamageInfo;
 struct DamageInfoInput;
@@ -138,6 +139,21 @@ public:
 	typedef std::list<Object *> ContainedItemsList;
 	virtual const ContainedItemsList *getContainedItemsList() const = 0;
 	virtual unsigned getContainCount() const = 0;
+	// slot 0x114 getContainCount(filter) (OpenContain RW 0x865CE3, in every contain table read: with an argument, the contained objects the filter allows
+	// -- ObjectFilterMatch RW 0x7640C1 with the rider and the container's controlling player, RW 0x68B678 -- are counted; without one, + 0x38). The
+	// ProjectileFilterInContainer ammo of a weapon (RW 0x6CD298) and its getStatus gate (RW 0x6CD11F) ask it
+	virtual unsigned countContainedMatching(const ObjectFilter &filter) const
+	{
+		(void)filter;
+		return getContainCount();
+	}
+	// slot 0x13C (OpenContain RW 0x866367): the first contained object the filter allows is TAKEN OUT of the container (slot 0xA4) and returned -- the
+	// projectile of a ProjectileFilterInContainer nugget (RW 0x90FAC3). No match: null. A contain that does not answer leaves the container untouched
+	virtual Object *takeContainedMatching(const ObjectFilter &filter)
+	{
+		(void)filter;
+		return nullptr;
+	}
 	// true when the object was added
 	virtual bool addToContain(Object *obj) = 0;
 	virtual void removeFromContain(Object *obj) = 0;

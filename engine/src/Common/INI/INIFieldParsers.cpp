@@ -137,6 +137,19 @@ void INI::parsePercentToReal(INI *ini, void *, void *store, const void *)
 	*(float *)store = ini->scanPercentToReal(token);
 }
 
+// RW 0x42ED6F (BFME2 0x42F02F): a real, stored as written, then refused below 0 (the message RW 0xBD4330 "invalid Real value %1.7f -- expected >= 0").
+// The binary's row for SpecialAbilityUpdate's GrabPassengerHealGainPercent (RW 0xC561C0, module data + 0x30) is THIS parser, not the percent one: the
+// value the grab finish adds to the health percentage is the INI number itself (Ennorath's trolls write 50.0 / the watcher 10.0), as
+// Module/CombatModules.h's ClearanceMaxHeight rows use here.
+void INI::parseNonNegativeReal(INI *ini, void *, void *store, const void *userData)
+{
+	parseReal(ini, nullptr, store, userData);
+	if (0.0f > *(const float *)store)
+	{
+		throw INIException(3, "invalid Real value %1.7f -- expected >= 0", (double)*(const float *)store);
+	}
+}
+
 // B2src INI.cpp.
 void INI::parseAngleReal(INI *ini, void *, void *store, const void *)
 {

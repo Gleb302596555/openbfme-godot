@@ -25,6 +25,7 @@
 #include "GameLogic/Module/InvisibilityModules.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/System/InvisibilityManager.h"
 #include "GameLogic/SimMath.h"
 #include "GameLogic/System/ShroudManager.h"
@@ -133,12 +134,43 @@ public:
 	float rateOfFireAttributeProduct() override { return 1.0f; }              // the attribute modifiers (S-320)
 	// lane PERF-WS: the two reads below run on the logic job pool (computeWeaponStatusConditions through Weapon::getStatus): keep them reads when
 	// S-320 is ported
-	bool containedAmmo(const ObjectFilter &, unsigned &count) override
+	// ProjectileFilterInContainer (Weapon template + 0x120), RW 0x6CD298: the owner (RW 0x449681 of [weapon + 8]) whose template's filter is set
+	// (RW 0x762977) is asked its contain ([object + 0x258]) with the filter through contain slot 0x114 (OpenContain RW 0x865CE3: the contained count
+	// whose rider the filter allows, ObjectFilterMatch RW 0x7640C1 with the container's player). Without a container, or with an unset filter, the
+	// weapon's clip answers instead, at the caller
+	bool containedAmmo(const ObjectFilter &filter, unsigned &count) override
 	{
 		count = 0;
+		if (!ObjectFilterMatch::isValid(&filter)) // RW 0x762977
+		{
+			return false;
+		}
+		ContainModuleInterface *contain = m_w.owner().getContain(); // RW 0x6CD2BF
+		if (!contain)
+		{
+			return false; // RW 0x6CD2C9 -> RW 0x6CD2E1: no container, the clip's status
+		}
+		count = contain->countContainedMatching(filter); // RW 0x6CD2D9, slot 0x114
+		return true;
+	}
+	// RW 0x6CD11F: the owner's weapon in a slot (WeaponSet + 0x34C, RW 0x8F1149 of the slot record's + 0x24) whose template's filter is set; its
+	// caller RW 0x6CD1BF is the third gate of Weapon::getStatus (an owner that holds container ammo is ready to fire)
+	bool ownerHasContainAmmo(const ObjectFilter &filter) override
+	{
+		if (!m_w.owner().getWeapons() || !ObjectFilterMatch::isValid(&filter))
+		{
+			return false;
+		}
+		for (int slot = 0; slot < WEAPONSLOT_COUNT; ++slot)
+		{
+			const Weapon *w = m_w.owner().getWeapons()->weaponInSlot(slot);
+			if (w && w->getTemplate() && w->getTemplate()->m_projectileFilterInContainer.flag)
+			{
+				return true;
+			}
+		}
 		return false;
 	}
-	bool ownerHasContainAmmo(const ObjectFilter &) override { return false; }
 	int barrelCount(int) override { return 1; } // the drawable's barrel count (S-320)
 	int firingTrackerShotsAtTarget(bool hasVictim, unsigned victimID, const Coord3D &pos) override { return m_w.m_tracker.getShotsAtTarget(hasVictim, victimID, pos); }
 	bool ownerPositionMatchesLastShot() override

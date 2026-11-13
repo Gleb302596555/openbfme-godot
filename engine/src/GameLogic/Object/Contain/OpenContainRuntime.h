@@ -64,6 +64,8 @@ public:
 	// ---- ContainModuleInterface ----
 	const ContainedItemsList *getContainedItemsList() const override { return &m_contained; }
 	unsigned getContainCount() const override { return (unsigned)m_contained.size(); }
+	unsigned countContainedMatching(const ObjectFilter &filter) const override; // RW 0x865CE3 (slot 0x114 with a filter)
+	Object *takeContainedMatching(const ObjectFilter &filter) override; // RW 0x866367 (slot 0x13C: the projectile of a container-ammo weapon)
 	bool addToContain(Object *obj) override;    // RW 0x8674C2
 	void removeFromContain(Object *obj) override; // RW 0x8665BE
 	bool isValidContainerFor(const Object &obj, bool checkCapacity, bool checkPath) const override; // RW 0x86603B

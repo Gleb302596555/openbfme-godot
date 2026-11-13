@@ -243,7 +243,8 @@ const FieldParse kSpecialAbility[] = { // RW 0xC55F40
 	{ "ChargeAttackSpeedBoost", INI::parseBool, nullptr, SA_OFF(m_chargeAttackSpeedBoost) },
 	{ "CustomAnimAndDuration", parseAnimAndDuration<0>, nullptr, 0 },
 	{ "GrabPassengerAnimAndDuration", parseAnimAndDuration<1>, nullptr, 0 },
-	{ "GrabPassengerHealGainPercent", INI::parsePercentToReal, nullptr, SA_OFF(m_grabPassengerHealGainPercent) },
+	// RW 0xC561C0: parser RW 0x42ED6F (no 0.01 scale: the INI number is the percentage added to the health ratio), offset + 0x30
+	{ "GrabPassengerHealGainPercent", INI::parseNonNegativeReal, nullptr, SA_OFF(m_grabPassengerHealGainPercent) },
 	{ "UnpackingVariation", INI::parseInt, nullptr, SA_OFF(m_unpackingVariation) },
 	{ "MustFinishAbility", INI::parseBool, nullptr, SA_OFF(m_mustFinishAbility) },
 	{ "FreezeAfterTriggerDuration", INI::parseDurationUnsignedInt, nullptr, SA_OFF(m_freezeAfterTriggerFrames) },

@@ -24,8 +24,25 @@ void ObjectProjectileLauncher::launch(GameLogic &logic, const ProjectileShot &sh
 	// TARGET RW 0x90FACB (object target) / 0x90FDAA (position target):
 	// ProjectileSelf selects the firing object BEFORE testing ProjectileTemplateName.
 	// Leap weapons deliberately omit that name; they wake the hero's own projectile module.
-	Object *projectile = source;
-	if (!shot.weapon || !shot.weapon->m_projectileSelf)
+	Object *projectile = nullptr;
+	// RW 0x90FA81 .. 0x90FAC9 (lane SPELL-2): ProjectileFilterInContainer (the fired weapon's template + 0x120; RW 0x762977 the empty test) on a source
+	// that has a contain ([object + 0x258], RW 0x90FA90) -> the source's launch transform (Weapon RW 0x6CAB85, RW 0x90FAAA) and then contain slot 0x13C
+	// with the filter (RW 0x90FAC3, OpenContain RW 0x866367): the projectile is the first matching CONTained object, taken out of the container (contain
+	// slot 0xA4 at RW 0x8663AC) -- the cave troll's held goblin. No match: null, and the launch has no object to fly (RW 0x90FB3D reads the template of a
+	// null projectile only after the branch, so the shot ends there in retail's own dereference; the port stops before it).
+	if (shot.weapon && shot.weapon->m_projectileFilterInContainer.flag && source->getContain())
+	{
+		projectile = source->getContain()->takeContainedMatching(shot.weapon->m_projectileFilterInContainer); // RW 0x90FAC3
+		if (!projectile)
+		{
+			return;
+		}
+	}
+	else if (shot.weapon && shot.weapon->m_projectileSelf)
+	{
+		projectile = source; // RW 0x90FACB / 0x90FACE: ProjectileSelf selects the firing object, the projectile template is not read
+	}
+	else
 	{
 		if (name.empty() || name == "None" || name == "NONE")
 		{

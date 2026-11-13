@@ -12,7 +12,11 @@
 // Without ProjectileSelf, a nugget without a ProjectileTemplateName (the resolved template at RW + 0x14C is null) launches nothing.
 // STREAM (issue #99 / PORT-27): after the projectile is flying, the deliver records it in the firing weapon's ProjectileStreamName object
 // (RW 0x90FB7A .. 0x90FC5A, the stream half of the same object-target deliver; see ProjectileLauncher.cpp).
-// INFERENCE (S-360): the garrison variant (ProjectileFilterInContainer: the container creates the projectile, RW 0x90FA81..0x90FAC9) is not ported.
+// CONTAINER AMMO (RW 0x90FA81 .. 0x90FAC9, lane SPELL-2): a fired weapon whose template sets ProjectileFilterInContainer (Weapon + 0x120, RW 0x762977)
+// on a source that has a contain takes the first contained object the filter allows OUT of the container (contain slot 0x13C RW 0x866367, which removes
+// it at RW 0x8663AC) and that object is the projectile -- the cave troll's held goblin, thrown by ProjectileFilterInContainer = NONE +INFANTRY. The
+// launch transform is still the source's (Weapon RW 0x6CAB85 at RW 0x90FAAA), and the object flies with its own BezierProjectileBehavior. The test
+// runs before ProjectileSelf and before ProjectileTemplateName (RW 0x90FA8E `je` to RW 0x90FACB).
 
 #pragma once
 
