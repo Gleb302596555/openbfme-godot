@@ -27,9 +27,10 @@
 //     goal, see the .cpp), then up to five corrective points where the sampled path hits something.
 //
 // NOT PORTED / INFERENCE (stop S-4041, AerialPathfinder::stopLines): the no-fly zones (the map INI block AerialPathfindNoFlyZone is a recording stub: the list is
-// empty, RW 0x777E54 then answers 0; no retail map defines one); the would-collide
-// filter of the separation tests the 2D footprints (BuildPlacement::footprintsCollide) because the shape overlap test RW 0xAD2CE0 is not ported (S-1020);
+// empty, RW 0x777E54 then answers 0; no retail map defines one);
 // the x87 parts (the probe's products, the terminal radius) run through the NumericState PC24 operations (S-081).
+// PORT-428: the separation's would-collide filter is no longer the 2D footprint approximation (S-1020): it is RW 0x66139C's
+// 3D shape overlap (RW 0xAD2CE0), through NotifyCrushModules::geometriesOverlap, with both objects' own GeometryInfo, positions and angles.
 //
 // Determinism: binary32 SSE operations through SimMath in the retail order, the PC24 sqrt where retail uses fsqrt, no allocation per evaluation.
 
