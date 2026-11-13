@@ -125,6 +125,7 @@ TEST_CASE("PORT-47 no recolour without texture or RecolorHouse and campaign hous
             w.f.logic->setCampaignCarryover(CampaignCarryover::State{});
         }
         if (scenario == 8) w.f.logic->setCampaignCarryover(std::nullopt);
+        if (scenario == 9) w.f.economy().context().livingWorld = false; // reach the null-controller test, not the campaign early return
         Object *obj = scenario == 9 ? w.f.make("Port47Unit", nullptr) : w.make();
         w.recorder.take();
         obj->giveUpgrade(w.upgrade());
