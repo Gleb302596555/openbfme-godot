@@ -144,6 +144,8 @@
 | PORT-152: панель команд читает `ToggleButtonName` под статусом `COMMAND_BUTTON_TOGGLED` (RW 0x943E59, 0x943E67 .. 0x943E85), `RequiresValidContainer` при выключенном `Enabled` контейнера (RW 0x943F75 .. 0x943F91) и берёт образец кнопки `TOGGLE_WEAPON` из `WeaponSlotToggle1/2/3` (RW 0x75D22E, 0x800000, по KindOf 0x91/0x92) | 2026-11-12 | арена (fork issue 370) | PR #384 | `PORT-152*` | предложено, PR не открылся (у интеграции нет прав на `createPullRequest` в Open-BFME): ветка `up/port-152` запушена и собрана, тест `PORT-152*` 4/4 зелёный, откат кода роняет 3 из 4 |
 | P-69: строки бонуса обзора, которых нет в шаблоне, берут значения конструктора `ThingTemplate` (8 точек, радиус 100, максимум 0.5, минимум −0.5; RW 0x73FF17 .. 0x74002F), а не нули — обзор и поиск цели не растут с абсолютной высотой карты | 2026-11-11 | Claude (station-0) | `agent/claude/station-0`, с перемером `perf1` / `uber1` / `save4b retail T4` | `shroud objects: the vision bonus rows*`; владелец: ждёт | не предложено |
 
+| PORT-148: `AerialPathfinder::separation` uses the RW 0x67C5F3 / 0x66139C 3D filter through RW 0xAD2CE0 (P-59, issue #365); the 2D footprints ignore Z over an unpacked castle | 2026-11-12 | арена (issue #365) | `arena/8c7681de-openbfme-godot` | `PORT-148*` 5/5 (104 проверки; без правки 2 красных теста), `fly1 retail*`, `stealthfly1 retail*`; in-game check pending | не предложено: ванильный RotWK-механизм, но PR в upstream открывает владелец по прямому выбору правки (PROCESS.md §12) |
+
 Правки до 2026-11-05 ещё не разобраны. Классы, которые есть только у нас, показывает `python tools/mod/upstream_sync.py candidates`.
 
 ## Готовые PR арены для передачи в upstream (сверено 2026-11-06 с `upstream/main` 69dcd7ff)
