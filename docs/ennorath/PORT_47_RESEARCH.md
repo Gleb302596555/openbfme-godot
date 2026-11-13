@@ -219,8 +219,9 @@ plumbing was introduced; campaign startup/load outside these existing fields
 has not been verified here.
 
 All changed translation units, including the synthetic test, compile in the
-sandbox. Runtime assertions, red/green evidence and regression are pending the
-full tests-only Release single-job build; no passing test run is claimed yet.
+sandbox. Runtime assertions now have focused red/green evidence on the pre-rebase
+base (see below). The standard full executable and rebased-base verification
+remain pending the tests-only Release single-job build.
 `tools/test_select.py --base origin/main` selects FULL (no test map; CMake
 registration cannot be traced). Game-dependent skips will not count as passes.
 
@@ -253,3 +254,35 @@ angmardarkdunedain.ini` (`Armor_Upgrade` and the blade exclusion),
 `commandset.ini` and `commandbutton.ini` (active purchases and prerequisites).
 This verifies a data path, not a completed visual test. Game assets/INI were
 not committed; the extracted archive remains under /tmp only.
+
+## Focused runtime evidence before final rebase
+
+Base `8b8af54f`, reader/test commit `aa9351ec`: linked the existing
+`test_port_47.cpp` object with the original `test_main.cpp` and built engine
+libraries into a temporary focused runner, without other test objects. No
+retail files or installation environment are required.
+
+```
+[doctest] test cases:   3 |   3 passed | 0 failed | 0 skipped
+[doctest] assertions: 114 | 114 passed | 0 failed |
+[doctest] Status: SUCCESS!
+```
+
+Red control: copied the core archive under /tmp and replaced only the
+`UpgradeModuleClasses.cpp` object, changing the one `recolorHouse` call back to
+its former diagnostic increment. The identical test object then reports
+3 failed cases, 8 failed assertions (exit 1). Tracked sources, the main archive
+and the normal executable were not modified by this control.
+
+The first focused attempt exposed fixture errors, not accepted engine changes:
+(1) a dotless child mesh is resolved from its own asset file, not the HLOD's
+container file; (2) passing a null team to object construction gives the neutral
+player's default team. The fixture now supplies the separate synthetic mesh
+file and an explicit ownerless team, with a null-controller assertion. Both
+expectations remain as required by RW 0x54BE32 and 0x4B8727.
+
+After this evidence, fetched `origin/main` (`bc66c72f`) and rebased successfully;
+only appended NIGHT_WATCH rows conflicted, both sides retained. A new single-job
+build and repeat focused/standard checks are queued on that base. The result
+above is NOT claimed as a completed test of the rebased branch. Standard
+`openbfme_tests -tc="PORT-47*"`, neighbours and FULL are still pending.
