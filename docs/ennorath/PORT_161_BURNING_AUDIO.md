@@ -45,3 +45,86 @@ The client currently indexes LargeGroupAudio members by ObjectID (`LiveGameAudio
 Tests to add in `test_port_161.cpp` / `Port161.cmake`: synthetic INI and real audio consumer; burning terrain registered by tree fuel, audible loop start and stop, duplicate-request count, neighbouring nonburning/object member preserved, clear/extinguish/load lifecycle. Expectations must follow the remaining RW consumer analysis, not this proposed outline.
 
 Build: full `openbfme_tests` target configured Release, Godot OFF, Ninja -j1. Initial attempt lacked cmake; cmake and ninja installed in .venv, build restarted. No completed run yet.
+
+## Consumer investigation: scope stop
+
+The follow-up reads establish that this is not just an absent sound name.
+The exact retail consumer is a shared, incompletely ported mechanism already
+tracked by S-248. No engine patch is submitted at this checkpoint.
+
+DONOR BFME2 0x005697F7 / 0x0056979A / 0x005698xx
+(`Code/GameEngine/Source/Common/LargeGroupAudioSoundKeyPair.cpp`,
+`rva005697F7`, `rva0056979A`, `unregisterSubject`): add/remove consume a
+position and weight, not an ObjectID. They update four grids, or retain/remove
+a pending position/weight record before grids exist. The remove function's
+exact donor address is not established here; its name/body, not an inferred
+address, was used to locate the RW remove implementation.
+
+Confirmed against RW instructions, read with rw.py:
+
+- RW 0x7EF032..0x7EF09B: map add checks current model/status masks and,
+  when configured, stealth; each qualifying Sound block receives 0x971326.
+- RW 0x7EF0A1..0x7EF11E: remove checks stored model/status/stealth and
+  requires the member's stored frame to be strictly greater than the global
+  gate before invoking 0x971392.
+- RW 0x7EEF0D..0x7EF006: update checks both states; both qualify and equal
+  positions means no call; otherwise selects move/add/remove. In particular,
+  a stored frame at/before the gate means that the old state was not counted.
+- RW 0x971326..0x97138F: test member keys (slot 7), get position (slot 1),
+  get weight (slot 6), add weight to +0x64, then either 0x9712C9 (existing
+  grids) or construct/insert a position/weight record through 0x970326 and
+  0x970E81.
+- RW 0x9712D7..0x97131A: walk FOUR grid pointers starting at +0x2C;
+  find the grid cell with 0x9D76E3, add its weight with 0x9D7DCD and process
+  the affected cell with 0x971121. This is not a single floor(x / Size) map.
+- RW 0x971392..0x97142E: matching keys, stored position (slot 0), weight
+  (slot 6), subtract total weight; when grids exist, visit the same four
+  grids, subtract cell weight (0x9D7D5B), process affected cells.
+- RW 0x971430..0x971466: without grids, look up the position/weight record
+  at +0x20 with 0x9704EA and erase a found record with 0x47E273. RW
+  0x970326..0x97033F stores two coordinates and a word weight. The temporary
+  BurningCell registrations therefore have real value-based consumers; one
+  cannot model them as objects with INVALID_ID.
+- RW 0x9D7DF6..0x9D7EBD reads neighbouring grid-cell weights; RW
+  0x9D7F98..0x9D7FDB adjusts the preferred audio x/y using their sums.
+  DONOR BFME2 0x005C8876
+  (`Code/GameEngine/Source/GameLogic/LargeGroupAudio/LargeGroupAudioGridCell.cpp`,
+  `getPreferredAudioPosition`) was read first for this function. Only the
+  instruction ranges above have been confirmed here; the rest is not claimed
+  as a complete RW port.
+- RW 0x9188EB returns false for burning-cell stealth. RW
+  0x686412..0x686449 is its xfer (secondary base): transfer version, coordinate
+  pair and registration-frame field. The registration frame is not safe to
+  dismiss as unsaved client bookkeeping in a future implementation.
+
+Port comparison:
+
+- `FireLogicSystem.cpp` inserts/erases coordinate pairs in the update,
+  extinguish/fuel operations and snapshot load, and clears them on reset.
+  None of those entries implements the RW LargeGroupAudio subject interface.
+- `LargeGroupAudioEvent` / `LiveGameAudio::LgaRuntime` identify members only
+  by ObjectID; two non-object cells sent as INVALID_ID would overwrite each
+  other. Fabricating object IDs is not the retail mechanism either.
+- `LiveGameAudio::largeGroupUpdate` expressly labels its grid/threshold
+  rules INFERENCE (S-248). It builds one floor-based grid from members and
+  positions sounds at weighted member centres, rather than using the four
+  retail grids and neighbouring-cell position calculation read above.
+
+The affected shared consumers include object LargeGroupAudioUpdate members
+as well as burning ground: all Sound blocks passed through these functions,
+including the mod's army and water-wading loop maps, use the same runtime.
+The explicit forbidden-area files (FX player, voice responses, other ports)
+have not been changed.
+
+Owner decision needed: authorize a separate shared LargeGroupAudio/S-248
+runtime task (four grids, position/weight subjects, thresholds/positions and
+persistence), followed by BurningCell wiring here, or explicitly expand
+Port 161 to cover that shared mechanism. Adding a direct sound per tree,
+an INVALID_ID member, or a render-frame scan would be a substitute, not the
+requested port. No verdict that RW lacks a reader is being made: the reader
+chain is positively identified above.
+
+No PORT-161 test has been added and no successful test run is claimed. The
+full test-target build was started before this scope blocker was established;
+this report is a stop, not a review submission. Existing S-248 already tracks
+the unported shared runtime; no unrelated stop row or hash pin was changed.
