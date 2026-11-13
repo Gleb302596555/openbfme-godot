@@ -1,4 +1,4 @@
-// OpenBFME unit tests: PORT-40 (issue #125) — AIData MaxRecruitRadius: how far the AI and scripts recruit units into teams. GPL-3.0.
+﻿// OpenBFME unit tests: PORT-40 (issue #125) — AIData MaxRecruitRadius: how far the AI and scripts recruit units into teams. GPL-3.0.
 //
 // Expected values follow the RotWK functions cited at each check (GameLogicSettings.cpp, ScriptActionsOrders.cpp, Common/Team.cpp), never the
 // engine's own output:
@@ -19,6 +19,8 @@
 #include "Common/Player.h"
 #include "Common/PlayerList.h"
 #include "Common/Team.h"
+#include "Common/XferLoad.h"
+#include "Common/XferSave.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ScriptEngine/ScriptActions.h"
@@ -48,7 +50,8 @@ void run(ScriptEngine &e, const ScriptActionRec &a)
 
 std::string qual(Team *t)
 {
-	return t->getControllingPlayer()->getPlayerName() + "/" + t->getName();
+	// RW 0x604043's qualified team name: the owner's name and the PROTOTYPE's name (ScriptConditions::team -> TeamFactory::findTeamPrototype)
+	return t->getControllingPlayer()->getPlayerName() + "/" + t->getPrototype()->getName();
 }
 
 // the fixture's recruit world: Alice's destination prototype outranks the candidates' teams (teamProductionPriority, TeamTemplateInfo + 0xF0
@@ -150,6 +153,41 @@ TEST_CASE("PORT-40 TEAM_RECRUIT_UNITS gates (RW 0x7A491C): the other player's un
 	run(e, act("TEAM_RECRUIT_UNITS", { sp(3, qual(f.dst)), ip(0, 9), sp(61, "Dummy") }));
 	CHECK(held->getTeam() == src); // still src's, the override clear
 	CHECK(e.stats().unportedActions.empty());
+}
+
+TEST_CASE("PORT-40: the AI-recruitable override (+ 0x110 / + 0x111) round-trips through a version 4 team block, and an older block loads with none")
+{
+	TeamFactory f;
+	TeamPrototype *proto = f.initTeam("PORT-40 override", nullptr, false, nullptr); // RW 0x7A2C47's prototype of a team dict
+	REQUIRE(proto);
+	Team *saved = f.createTeam(proto);
+	REQUIRE(saved);
+	saved->setAIRecruitableOverride(true);
+	XferSave save;
+	saved->xfer(save);
+	REQUIRE(!save.data().empty());
+	CHECK(save.data()[0] == 4); // the block's version: 2 is the special-power registry, 3 the threat-order list, 4 this override
+	Team *loaded = f.createTeam(proto);
+	REQUIRE(loaded);
+	CHECK_FALSE(loaded->hasAIRecruitableOverride());
+	XferLoad load(save.data());
+	loaded->xfer(load);
+	CHECK(loaded->hasAIRecruitableOverride());
+	CHECK(loaded->aiRecruitableOverride());
+	// a team without an override writes version 1, and a version 1 load clears the override the target team already had
+	Team *plain = f.createTeam(proto);
+	REQUIRE(plain);
+	XferSave save1;
+	plain->xfer(save1);
+	REQUIRE(!save1.data().empty());
+	CHECK(save1.data()[0] == 1);
+	Team *loaded1 = f.createTeam(proto);
+	REQUIRE(loaded1);
+	loaded1->setAIRecruitableOverride(true);
+	XferLoad load1(save1.data());
+	loaded1->xfer(load1);
+	CHECK_FALSE(loaded1->hasAIRecruitableOverride());
+	CHECK_FALSE(loaded1->aiRecruitableOverride());
 }
 
 } // namespace

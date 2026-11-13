@@ -46,15 +46,15 @@ public:
 	~AIGroup();
 	// ZH AIGroup::groupMoveToPosition. `addWaypoint` appends the destination to the path the units follow. `finalAngle` (when `haveFinalAngle`) is the facing every unit
 	// takes on arrival (the BFME formation move's drag direction, S-223). lane BACKLOG-8 r2: RW 0x774897's head first offers a player's group of more than one
-	// unit to the formation march (gatherAndMoveInFormation); `attackMove` (the fallback of groupAttackMoveToPosition) does not march here (the attack march,
-	// mode 1, runs through groupAttackMoveToPosition RW 0x774E2F, lane PORT-13)
+	// unit to the formation march (gatherAndMoveInFormation); `attackMove` (the port's plain group attack-move) never marches (a formation attack-move is
+	// AIGroup::groupAttackMoveToPosition's, lane PORT-13)
 	// `goalObject`: the group command's goal object (RW command + 8, e.g. the container HordeContain slot 0x7C RW 0x875D85 passes): every member of the generic
 	// path ignores it as an obstacle (RW 0x774D0E .. 0x774D18), so a path may end inside its footprint
 	void groupMoveToPosition(const Coord3D &pos, bool addWaypoint, CommandSourceType source, bool haveFinalAngle = false, float finalAngle = 0.0f,
 		bool attackMove = false, const Object *goalObject = nullptr);
-	// lane PORT-13: RW 0x774E2F (AIGroup::groupAttackMoveToPosition): when m_members.size() > 1, AIData AttackMoveUsesFormations (+ 0xBA), source == CMD_FROM_PLAYER
-	// and AIData UseFormations (+ 0xBD), offers the group to gatherAndMoveInFormation(pos, CMD_FROM_PLAYER, /*mode=*/1, /*ground=*/true) (no tighten rectangle check);
-	// otherwise falls back to the individual attack-move
+	// lane PORT-13: RW 0x774E2F (AIGroup::groupAttackMoveToPosition): with more than one member, AIData AttackMoveUsesFormations (+ 0xBA), a player's order and
+	// AIData UseFormations (+ 0xBD), the group is offered to gatherAndMoveInFormation(pos, CMD_FROM_PLAYER, /*mode=*/1, /*ground=*/true) (no tighten rectangle
+	// check); else, and when that refuses, every unit takes the plain attack-move (groupMoveToPosition + armAttackMove, `maxShots` on the current weapon)
 	void groupAttackMoveToPosition(const Coord3D &pos, int maxShots, CommandSourceType source);
 	// ---- lane BACKLOG-8 r2: the formation march (AIGroupMarch.cpp) ----
 	// RW 0x7747DE (privateGatherAndMoveInFormationToPosition): true when the group took the order (it marched, or every member was invalid)

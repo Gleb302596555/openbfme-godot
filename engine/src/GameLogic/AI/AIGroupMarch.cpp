@@ -618,7 +618,7 @@ void AIGroup::moveFormationToPos(const Coord3D &pos, CommandSourceType source, i
 		pf.updateGoal(adapter, &dest, pf.getLayerAt(dest.x, dest.y)); // RW 0x68B3BD (lane WALL-1: the destination's layer, as AIMoveToState::onEnter)
 		path.push_back(dest);
 		// lane PORT-13: RW 0x773D4D .. 0x773DD1: mode 1 + Object::isAbleToAttack (RW 0x691269) -> command 0x25 (RW 0x77122F -> RW 0x66BC68, state 61) when
-		// canFollowTeamPath accepts, else aiAttackMoveToPosition (RW 0x696266); mode 0 or non-attacking units keep command 0x24 / aiMoveToPosition
+		// canFollowTeamPath accepts, else aiAttackMoveToPosition (RW 0x696266); mode 0, or a unit that cannot attack, keeps command 0x24 / aiMoveToPosition
 		if (mode == 1 && unit->isAbleToAttack())
 		{
 			if (ai->canFollowTeamPath())

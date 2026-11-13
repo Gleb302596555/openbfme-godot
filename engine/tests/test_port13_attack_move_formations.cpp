@@ -157,32 +157,33 @@ TEST_CASE("PORT-13-binary-facts: RotWK 2.01 game.dat pins for AttackMoveUsesForm
 	CHECK(callTarget(*pe, 0x753B6B) == 0x8DBE1Du);
 }
 
-TEST_CASE("PORT-13-ini-and-crc: AIData AttackMoveUsesFormations defaults to true (RW 0x6FFD9E), parses Yes/No (RW 0xC1CE50), and keeps retail false crc")
+TEST_CASE("PORT-13-ini-and-crc: AIData AttackMoveUsesFormations defaults to true (RW 0x6FFD9E), parses Yes/No (RW 0xC1CE50), and keeps the hash of retail data")
 {
 	GameLogicSettings defaults;
 	CHECK(defaults.attackMoveUsesFormations); // RW 0x6FFD9E: mov byte ptr [esi+0xBA], 1
 
-	GameLogicSettings retailNo;
+	// both retail editions' default\aidata.ini set AttackMoveUsesFormations = Yes (line 83 of both mounts), so only a mod that turns it off
+	// reaches the extra hashed byte; the retail value hashes as the pre-PORT-13 sequence did
 	std::string error;
-	REQUIRE_MESSAGE(GameLogicSettingsLoader::scanAIData("AIData\n  AttackMoveUsesFormations = No\nEnd\n", retailNo, &error), error);
-	CHECK_FALSE(retailNo.attackMoveUsesFormations);
+	GameLogicSettings modNo;
+	REQUIRE_MESSAGE(GameLogicSettingsLoader::scanAIData("AIData\n  AttackMoveUsesFormations = No\nEnd\n", modNo, &error), error);
+	CHECK_FALSE(modNo.attackMoveUsesFormations);
 
-	GameLogicSettings ennorathYes;
-	ennorathYes.attackMoveUsesFormations = false;
-	REQUIRE_MESSAGE(GameLogicSettingsLoader::scanAIData("AIData\n  AttackMoveUsesFormations = Yes\nEnd\n", ennorathYes, &error), error);
-	CHECK(ennorathYes.attackMoveUsesFormations);
+	GameLogicSettings retailYes;
+	retailYes.attackMoveUsesFormations = false;
+	REQUIRE_MESSAGE(GameLogicSettingsLoader::scanAIData("AIData\n  AttackMoveUsesFormations = Yes\nEnd\n", retailYes, &error), error);
+	CHECK(retailYes.attackMoveUsesFormations);
 
 	StateHasher hNo, hYes;
-	retailNo.crc(hNo);
-	ennorathYes.crc(hYes);
+	modNo.crc(hNo);
+	retailYes.crc(hYes);
 	CHECK(hNo.value() != hYes.value());
 
-	// Verify that an otherwise identical GameLogicSettings with attackMoveUsesFormations = false hashes identically to the pre-PORT-13 sequence (no extra byte hashed when false).
 	GameLogicSettings baselineCheck;
-	baselineCheck.attackMoveUsesFormations = false;
+	baselineCheck.attackMoveUsesFormations = true;
 	StateHasher hBaseline;
 	baselineCheck.crc(hBaseline);
-	CHECK(hBaseline.value() == hNo.value());
+	CHECK(hBaseline.value() == hYes.value());
 }
 
 TEST_CASE("PORT-13-group-attack-move-gates: RW 0x774E2F formation march vs fallback across count, AIData flags, source, tighten cluster and nearby enemy")

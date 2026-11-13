@@ -1497,7 +1497,7 @@ void AIUpdateInterface::aiFollowPathAsTeam(const std::vector<Coord3D> &path, Obj
 
 void AIUpdateInterface::aiFollowPathAsTeamAttack(const std::vector<Coord3D> &path, Object *ignoreObject, float angle, CommandSourceType source)
 {
-	// RW 0x66BC68 (AI command 0x25, RW 0x66ABAF -> AI vslot 0x80): identical to RW 0x66BB9D except it enters state 61 (0x3D)
+	// RW 0x66BC68 (AI command 0x25, RW 0x66ABAF -> AI vslot 0x80): identical to RW 0x66BB9D except it enters state 61 (0x3D), the attack march
 	if (!acceptCommand(source, 0x25))
 	{
 		return;
@@ -2156,6 +2156,8 @@ PathfindObjectID AIUpdateInterface::enterTargetOf(const PathfindObject &o) const
 	return target ? (PathfindObjectID)target->getID() : PATHFIND_INVALID_ID;
 }
 
+// lane PORT-9: RW 0x664D12 itself, without the PathfindObject wrapper the pathfinder's two queries take. OpenContain::onCollide (RW 0x865A00) calls the
+// slot with the object it touched and compares the answer with the container
 const Object *AIUpdateInterface::enterTarget() const
 {
 	// RW 0x664D16 the state type (RW 0x662D70), RW 0x664D20 the machine's goal object (RW 0x8DBACE); RW 0x664D29 .. 0x664D45 the entering states;

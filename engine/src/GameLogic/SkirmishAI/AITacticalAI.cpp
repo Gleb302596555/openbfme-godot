@@ -1205,7 +1205,8 @@ void defensiveTactic(GameLogic &logic, AISkirmishPlayer &ai, AIBrainState &b, AI
 	++b.tacticsStarted;
 }
 
-// RW 0x8F17EE: the team attack-moves to the target (AIGroup::groupAttackMoveToPosition(pos, 0x7FFFFFFF, CMD_FROM_PLAYER), lane PORT-13)
+// RW 0x8F17EE: the team attack-moves to the target (AIGroup::groupAttackMoveToPosition(pos, 0x7FFFFFFF, CMD_FROM_PLAYER), lane PORT-13: a formation
+// attack-move for a player's group of more than one unit when AIData AttackMoveUsesFormations and UseFormations allow it)
 void attackMove(GameLogic &logic, const std::vector<ObjectID> &members, const Coord3D &pos, CommandSourceType source = CMD_FROM_PLAYER)
 {
 	AIGroup group(logic, members);

@@ -957,8 +957,8 @@ Coord3D SiegeDeploySpecialPower::computeApproachPoint(Object &dock, Coord3D &dir
 	if (!m_data->m_skipAdjustPosition)
 	{
 		// RW 0x8C9E6A .. 0x8C9E7F (after the test of data + 0x22 at RW 0x8C9E64): Pathfinder::adjustMeleeOffset (RW 0x6EA0EC) with the deploying object
-		// (module + 0x08, RW 0x8C9E77), the dock (the first argument, EDI) and the offset scaled by 0.1 (EBP - 0x2C); the approach point restarts from the wall
-		// with the bent offset (RW 0x8C9E7F .. 0x8C9EAD)
+		// (module + 0x08, RW 0x8C9E77), the dock (the first argument, EDI) and the offset scaled by 0.1 (EBP - 0x2C); the approach point restarts from the
+		// dock's position with the bent offset (RW 0x8C9E7F .. 0x8C9EAD)
 		if (world)
 		{
 			world->pathfinder().adjustMeleeOffset(world->adapterFor(*obj), world->adapterFor(dock), offset);

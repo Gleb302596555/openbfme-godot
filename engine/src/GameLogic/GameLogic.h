@@ -245,8 +245,8 @@ struct GameLogicSettings
 	float formationEnemyDistance = 600.0f;
 	float narrowPassageScale = 1.0f;
 	bool waitForOthers = false;
-	// lane PORT-13: AIData AttackMoveUsesFormations (+ 0xBA, row RW 0xC1CE50 parseBool RW 0x42E558; the constructor RW 0x6FFD9E stores 1; retail default\aidata.ini
-	// sets No, Ennorath Yes): AIGroup::groupAttackMoveToPosition's formation gate (RW 0x774E55)
+	// lane PORT-13: AIData AttackMoveUsesFormations (+ 0xBA, row RW 0xC1CE50, parseBool RW 0x42E558; the constructor RW 0x6FFD9E stores 1 and both editions'
+	// default\aidata.ini set Yes): the gate of AIGroup::groupAttackMoveToPosition's formation march (RW 0x774E6B). Hashed only when a mod turns it off
 	bool attackMoveUsesFormations = true;
 	// lane STEALTHFLY1: AIData MinFlightHeight (+ 0xB0, row RW 0xC1CE60 parseReal RW 0x42ED00; the constructor's FLT_MAX RW 0xBD1910 = none): the flight ground
 	// height's floor (RW 0x777ED7). No retail aidata.ini sets it; a map's map.ini AIData block does (map wor dol guldur 76, map evil rivendell 300)
@@ -272,7 +272,7 @@ struct GameLogicSettings
 	float skirmishGroupFudgeDistance = 0.0f;
 	// lane PORT-40: AIData MaxRecruitRadius + 0x5C (row RW 0xC1CCD0, parseReal RW 0x42ED00; the constructor's 0.0, RW 0x6FFD04 with xmm0 zeroed at
 	// RW 0x6FFC01): the radius a team recruits units within — the script action TEAM_RECRUIT_UNITS (RW 0x7C2BFB -> Team RW 0x7A491C); the AI player
-	// reads it for its own team building too (RW 0x8F8E2C / RW 0x8F9530 -> Team RW 0x7A41D4), which is not ported
+	// reads it for its own team building too (RW 0x8F8E2C / RW 0x8F9530 -> Team RW 0x7A41D4), which is not ported (S-412)
 	float maxRecruitRadius = 0.0f;
 	// lane AIDATA-1: the pathfinder's AIData rows (before: PathfindConfigLoader's own text scan; now the shared table, so a map.ini / solo.ini AIData block
 	// reaches the pathfinder too: PathfindConfigLoader::applyAIData). Rows and constructor values (RW 0x6FFBEF): WadeWaterDepth + 0x98 (row RW 0xC1CDD0, 5.0 RW

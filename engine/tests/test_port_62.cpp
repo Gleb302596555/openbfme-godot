@@ -1,10 +1,10 @@
-// OpenBFME. PORT-62 (issue #172) tests: a TransportContain's GrabWeapon fire and FireGrabWeaponOnVictim, RotWK 2.01 RW 0x86AA4B .. 0x86AAA2 inside
+// OpenBFME. PORT-62 tests: a TransportContain's GrabWeapon fire and FireGrabWeaponOnVictim, RotWK 2.01 RW 0x86AA4B .. 0x86AAA2 inside
 // TransportContain::onContaining (RW 0x86A943, reached from OpenContain::addToContain RW 0x8674C2 at RW 0x867530).
 //
-// Synthetic data only (combattest::CombatWorld's engine INI reader and field tables, no retail / Ennorath / mod file, value or byte). Every test name begins
+// Synthetic data only (combattest::CombatWorld's engine INI reader and field tables, no retail or mod file, value or byte). Every test name begins
 // PORT-62 so the lane's narrow filter is -tc="PORT-62*".
 //
-// What RW does (docs/re/rotwk/RW_0x86AA4B.md for the addresses and the negative evidence):
+// What RW does:
 //   * RW 0x86AA4B .. 0x86AA51: GrabWeapon (data + 0x144, a WeaponTemplate pointer, null when the INI names none or a name the store does not know) absent ->
 //     the whole block is skipped.
 //   * RW 0x86AA54 .. 0x86AA60: Object::getRelationship (RW 0x68D7AB) of the container and the rider; ALLIES (2) -> skipped.
@@ -20,7 +20,7 @@
 // with it on (the default) the grabbed victim takes its own grab's splash like any other enemy. No new simulation state is needed for any of it.
 //
 // Fixture: the grabber is a STRUCTURE IMMOBILE container (no BIG_MONSTER and no TRANSPORT KindOf, so RW 0x90DF5A .. 0x90DF73's exception does not apply and
-// the nugget's area stays the 3D bounding sphere of RW 0x90DF3C at Radius 60, docs/re/rotwk/RW_0x90DEF0.md); the rider and the bystander are INFANTRY with
+// the nugget's area stays the 3D bounding sphere of RW 0x90DF3C at Radius 60); the rider and the bystander are INFANTRY with
 // NoArmor (DEFAULT 100%), so the 40 SLASH of the nugget is exactly 40 off their 100 health. ObjectStatusOfContained is UNSELECTABLE only, so the rider stays
 // in the world (RW 0x865D3D takes an object out of the world only for an ENCLOSED container) and is a candidate of the area query like any other object.
 
@@ -62,19 +62,24 @@ struct WeaponLookup
 const char *const kGrab = "    GrabWeapon = Port62Grab\n";
 const char *const kFireNo = "    FireGrabWeaponOnVictim = No\n";
 const char *const kFireYes = "    FireGrabWeaponOnVictim = Yes\n";
-std::string objects(const std::string &grabLines)
+const char *const kGrabWeaponBlock = "Weapon Port62Grab\n"
+                                     "  RadiusDamageAffects = ENEMIES NOT_SIMILAR\n"
+                                     "  DamageNugget\n"
+                                     "    Damage = 40\n"
+                                     "    Radius = 60\n"
+                                     "    DelayTime = 0\n"
+                                     "    DamageType = SLASH\n"
+                                     "    DeathType = NORMAL\n"
+                                     "  End\n"
+                                     "End\n";
+// `weaponAfterObjects` emits the Weapon block after every object block: the grabber's module data is parsed while TheWeaponStore does not know the name yet, so
+// INI::parseWeaponTemplate (RW 0x6CBADE) leaves data + 0x144 null even though the name exists by the time a rider enters. Retail does not rescue that pointer, and
+// neither does the port (`StoreReference::resolved`), which is what the late-definition test below pins.
+std::string objects(const std::string &grabLines, bool weaponAfterObjects = false)
 {
-	return std::string("Weapon Port62Grab\n"
-	                   "  RadiusDamageAffects = ENEMIES NOT_SIMILAR\n"
-	                   "  DamageNugget\n"
-	                   "    Damage = 40\n"
-	                   "    Radius = 60\n"
-	                   "    DelayTime = 0\n"
-	                   "    DamageType = SLASH\n"
-	                   "    DeathType = NORMAL\n"
-	                   "  End\n"
-	                   "End\n"
-	                   "Object Port62Grabber\n"
+	const std::string weapon = kGrabWeaponBlock;
+	return (weaponAfterObjects ? std::string() : weapon)
+	       + "Object Port62Grabber\n"
 	                   "  KindOf = STRUCTURE IMMOBILE\n"
 	                   "  Geometry = CYLINDER\n"
 	                   "  GeometryMajorRadius = 20\n"
@@ -86,7 +91,7 @@ std::string objects(const std::string &grabLines)
 	                   "  Behavior = TransportContain ModuleTag_Contain\n"
 	                   "    Slots = 1\n"
 	                   "    AllowEnemiesInside = Yes\n"
-	                   "    ObjectStatusOfContained = UNSELECTABLE\n")
+	                   "    ObjectStatusOfContained = UNSELECTABLE\n"
 	       + grabLines + "  End\n"
 	       + "End\n"
 	       + "Object Port62Rider\n"
@@ -117,7 +122,8 @@ std::string objects(const std::string &grabLines)
 	       + "  Body = ActiveBody ModuleTag_Body\n"
 	       + "    MaxHealth = 100\n"
 	       + "  End\n"
-	       + "End\n";
+	       + "End\n"
+	       + (weaponAfterObjects ? weapon : std::string());
 }
 
 struct Grabbed
@@ -213,6 +219,67 @@ TEST_CASE("PORT-62 no grab weapon: without a GrabWeapon template nothing fires (
 		CHECK(w.health(bystander) == 100.0f);
 		CHECK(w.health(rider) == 100.0f);
 	}
+}
+
+// A Weapon block that comes AFTER the transport that names it (review on PR #287): TheWeaponStore knows "Port62Grab" by the time a rider enters, because the
+// store is filled by the same INI load, but retail's data + 0x144 is the pointer INI::parseWeaponTemplate (RW 0x6CBADE) produced while the object's module data
+// was parsed — and that pointer was null. Nothing resurrects it later, so the grab block at RW 0x86AA4B is skipped. A lookup made at fire time instead would
+// find the late definition and fire a weapon retail never fires; this case pins the parse-time answer (StoreReference::resolved) against that.
+TEST_CASE("PORT-62 late weapon definition: a GrabWeapon defined after its transport does not fire (RW 0x86AA4B .. 0x86AA51)")
+{
+	const WeaponLookup lookup;
+	CombatWorld w(objects(kGrab, /*weaponAfterObjects=*/true).c_str()); // the Weapon block follows every object block
+	w.combat().setAutoAcquireEnabled(false);
+	REQUIRE(TheWeaponStore != nullptr);
+	REQUIRE(TheWeaponStore->findWeaponTemplate("Port62Grab") != nullptr); // the name the container holds IS in the store now
+	Object *container = w.unit("Port62Grabber", 'A', 200.0f, 200.0f);
+	Object *rider = w.unit("Port62Rider", 'B', 210.0f, 200.0f);
+	Object *bystander = w.unit("Port62Bystander", 'B', 230.0f, 200.0f);
+	REQUIRE(container != nullptr);
+	REQUIRE(rider != nullptr);
+	REQUIRE(bystander != nullptr);
+	TransportContain *transport = dynamic_cast<TransportContain *>(container->getContain());
+	REQUIRE(transport != nullptr);
+	REQUIRE(transport->addToContain(rider));
+	CHECK(w.health(bystander) == 100.0f); // RW 0x86AA4B reads the null pointer: no fire
+	CHECK(w.health(rider) == 100.0f);
+	CHECK_FALSE(rider->testStatus((unsigned)CombatNames::status("UNATTACKABLE"))); // and RW 0x86AA6B was never reached
+}
+
+// An unknown GrabWeapon name (review on PR #287): retail's +0x144 is null and the block is skipped silently, which the port keeps — but the port also reports
+// the name once per world (GameLogic::reportError dedupes its text), like an unknown warhead (WeaponDelivery.cpp) or an unknown armour (ActiveBody.cpp), so a
+// misspelt or forward-named GrabWeapon reaches the report instead of looking like "this transport has no grab at all".
+TEST_CASE("PORT-62 unknown grab weapon: nothing fires and the name reaches the report once (RW 0x86AA4B .. 0x86AA51)")
+{
+	const WeaponLookup lookup;
+	CombatWorld w(objects(std::string("    GrabWeapon = Port62NoSuchWeapon\n") + kFireNo).c_str());
+	w.combat().setAutoAcquireEnabled(false);
+	for (int i = 0; i < 2; ++i) // two grabbers of the same template, one rider each: the report text dedupes to one line per name
+	{
+		CAPTURE(i);
+		Object *container = w.unit("Port62Grabber", 'A', 200.0f + 40.0f * i, 200.0f);
+		Object *rider = w.unit("Port62Rider", 'B', 210.0f + 40.0f * i, 200.0f);
+		Object *bystander = w.unit("Port62Bystander", 'B', 230.0f + 40.0f * i, 200.0f);
+		REQUIRE(container != nullptr);
+		REQUIRE(rider != nullptr);
+		REQUIRE(bystander != nullptr);
+		TransportContain *transport = dynamic_cast<TransportContain *>(container->getContain());
+		REQUIRE(transport != nullptr);
+		REQUIRE(transport->addToContain(rider));
+		CHECK(w.health(bystander) == 100.0f);
+		CHECK(w.health(rider) == 100.0f);
+	}
+	int reported = 0;
+	for (const std::string &e : w.logic->report().errors)
+	{
+		if (e.find("Port62NoSuchWeapon") == std::string::npos)
+		{
+			continue;
+		}
+		++reported;
+		CHECK(e.find("GrabWeapon") != std::string::npos);
+	}
+	CHECK(reported == 1); // once per name, not once per rider or per container
 }
 
 namespace

@@ -14,6 +14,7 @@
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/ObjectGeometry.h"
 // lane PORT-25: the HordeContainInterface of the object's contain (the side / rear vision overrides, RW 0x872B9E / 0x872BAB)
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
@@ -1861,23 +1862,19 @@ ShroudManager::ObjectSource ShroudManager::retailObjectSource()
 			}
 		}
 		in.mask = obj.isKindOf((unsigned)revealToAll) ? kPlayerBits : ownerAndAllies(obj.logic().players(), *owner);
-		// lane PORT-25 (issue #97): the horde's overrides REPLACE the template's side / rear factors when they are above 0. RW 0x694B6A is the
-		// horde interface of the object's own contain (RW 0x68C866: Object + 0x258, contain vslot 0x7C -> HordeContainInterface), asked only when
-		// there is one (RW 0x694B71); no contain -> 0x694BB4 / the template's factors.
-		//   side: RW 0x694B79 `call [eax+0x25c]` (RW 0x872BAB, module data + 0x278), RW 0x694B82 `fldz; fcompi` over RW 0x694B8B `jbe` (ST0 > 0
-		//         takes RW 0x694B8D `movss [ebp+0x10], xmm0`), else template + 0x4C4 (0x694B4E);
-		//   rear: RW 0x694B9B `call [eax+0x258]` (RW 0x872B9E, module data + 0x274), RW 0x694BB2 `ja` (ST0 > 0 keeps RW 0x694BA4's xmm0), else
-		//         RW 0x694BB4 `movss xmm0, [ebp+0xc]` = template + 0x4C8 (0x694B5D).
-		// The factors then multiply the range at RW 0x694BBD / 0x694BCA (`mulss` with the range, stored into the out radii).
+		// RW 0x694B6A `call 0x68C866` and RW 0x694B71 `test esi, esi; je 0x694BB4`: the object's own contain, asked for its horde interface; no contain (or a
+		// contain that is not a horde) keeps the template's factors. The horde's two factors are the interface vslots 0x25C / 0x258 (RW 0x872BAB / 0x872B9E,
+		// module data + 0x278 / + 0x274) and replace the template's VisionSide / VisionRear only when they are strictly above 0: RW 0x694B82 `fldz;
+		// fcompi; jbe` keeps RW 0x694B65's template side, RW 0x694BB2 `ja` keeps RW 0x694BA4's override and RW 0x694BB4 falls back to the template rear.
+		// 0.0 is what an omitted INI row leaves (HordeContainModuleData::HordeContainModuleData).
 		float sideFactor = tv.visionSide;
 		float rearFactor = tv.visionRear;
-		// getHordeContainInterface is not const in this port's interface either (the null test is the whole read); the object is only read
-		if (ContainModuleInterface *contain = const_cast<Object &>(obj).getContain())
+		if (ContainModuleInterface *contain = obj.getContain())
 		{
-			if (HordeContainInterface *horde = contain->getHordeContainInterface())
+			if (HordeContainInterface *asHorde = contain->getHordeContainInterface())
 			{
-				const float sideOverride = horde->getVisionSideOverride();
-				const float rearOverride = horde->getVisionRearOverride();
+				const float sideOverride = asHorde->getVisionSideOverride();
+				const float rearOverride = asHorde->getVisionRearOverride();
 				if (sideOverride > 0.0f)
 				{
 					sideFactor = sideOverride;

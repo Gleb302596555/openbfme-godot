@@ -462,7 +462,8 @@ const FieldParse kAIDataFields[] = {
 	{ "FormationEnemyDistance", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.formationEnemyDistance) },
 	{ "NarrowPassageScale", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.narrowPassageScale) },
 	{ "WaitForOthers", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.waitForOthers) },
-	// lane PORT-13: AttackMoveUsesFormations (row RW 0xC1CE50 parseBool RW 0x42E558, AIData + 0xBA): AIGroup::groupAttackMoveToPosition's formation gate (RW 0x774E55)
+	// lane PORT-13: AttackMoveUsesFormations (row RW 0xC1CE50, parseBool RW 0x42E558, AIData + 0xBA): the formation gate of the group's attack-move
+	// (AIGroup::groupAttackMoveToPosition, RW 0x774E6B)
 	{ "AttackMoveUsesFormations", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.attackMoveUsesFormations) },
 	{ "UseFormations", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.useFormations) },
 	// lane STEALTHFLY1: MinFlightHeight (row RW 0xC1CE60 parseReal RW 0x42ED00, AIData + 0xB0): the aerial path's ground floor (RW 0x777ED7)
@@ -484,7 +485,7 @@ const FieldParse kAIDataFields[] = {
 	{ "ChaseFromBehindLimit", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.chaseFromBehindLimit) },
 	{ "SkirmishGroupFudgeDistance", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.skirmishGroupFudgeDistance) },
 	// lane PORT-40: MaxRecruitRadius (row RW 0xC1CCD0, parseReal RW 0x42ED00, AIData + 0x5C): the recruit radius of TEAM_RECRUIT_UNITS (RW 0x7C2BFB
-	// -> RW 0x7A491C) and of the AI player's own team building (RW 0x8F8E2C -> RW 0x7A41D4)
+	// -> RW 0x7A491C) and of the AI player's own team building (RW 0x8F8E2C -> RW 0x7A41D4, not ported)
 	{ "MaxRecruitRadius", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.maxRecruitRadius) },
 	// lane AIDATA-1: the pathfinder's rows (were PathfindConfigLoader's text scan): RW 0xC1CDD0 WadeWaterDepth + 0x98, 0xC1CDE0 DeepWaterDepth + 0x9C,
 	// 0xC1CDB0 MeleeApproachTolerance + 0x90, 0xC1CDC0 MeleeApproachDist + 0x94, 0xC1CF00 CastleSiegeStandBackDistance + 0xD4 (parseReal RW 0x42ED00);
@@ -859,9 +860,10 @@ void GameLogicSettings::crc(StateHasher &h) const
 	h.addFloat(formationEnemyDistance);
 	h.addFloat(narrowPassageScale);
 	h.addBool(waitForOthers);
-	if (attackMoveUsesFormations)
+	if (!attackMoveUsesFormations)
 	{
-		h.addBool(attackMoveUsesFormations); // lane PORT-13: retail default\aidata.ini sets No (false), so every retail game's hash is unchanged
+		h.addBool(attackMoveUsesFormations); // lane PORT-13: both retail editions' default\aidata.ini set AttackMoveUsesFormations = Yes and the constructor stores 1,
+		                                     // so only a mod that turns the formation attack-move off is hashed and retail games keep their pre-port settings hash
 	}
 	if (maxRetaliateDistance != 450.0f)
 	{

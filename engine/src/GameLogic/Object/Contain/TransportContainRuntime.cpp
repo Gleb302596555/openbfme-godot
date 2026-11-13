@@ -264,17 +264,33 @@ void TransportContain::onContaining(Object *obj, bool wasSelected)
 	setCondition(*obj, riderCondition, true);
 	setWeaponStateOfRider(*obj);                           // contain slot 0xEC (RW 0x86A43E)
 	onRiderPlaced(obj, ridersFireFromContainer());          // contain slot 0x6C (rider, the ENCLOSED bit)
-	// RW 0x86AA4B .. 0x86AAA2 (lane PORT-62, issue #172): GrabWeapon (data + 0x144, a WeaponTemplate pointer, null when the INI names none or a name the
-	// store does not know) fires when the rider is not an ALLIES of the container (RW 0x86AA54 .. 0x86AA60: Object::getRelationship RW 0x68D7AB, 2 = ALLIES).
+	// RW 0x86AA4B .. 0x86AAA2 (lane PORT-62): GrabWeapon (data + 0x144, a WeaponTemplate POINTER that INI::parseWeaponTemplate RW 0x6CBADE resolved
+	// while the INI was read, null when the INI names none or a name the store did not know THEN) fires when the rider is not an ALLIES of the container
+	// (RW 0x86AA54 .. 0x86AA60: Object::getRelationship RW 0x68D7AB, 2 = ALLIES).
+	// The pointer is the parse-time answer, so this reads StoreReference::resolved and not a fresh lookup: a GrabWeapon whose weapon block comes after
+	// the transport's own block leaves retail's +0x144 null for the life of the module data, and the grab never fires — the store knows the name only
+	// later, and a late definition must not resurrect the pointer. SlowDeathBehavior's Weapon parse (0x861672 -> 0x6CC5DF) is the same rule in this
+	// port: only a resolved name sets the mask bit.
 	// TheWeaponStore (RW 0xDE4A1C) makes the temporary weapon and fires it (RW 0x86AA76 .. 0x86AA8A -> RW 0x6CF530) from the container at the container's own
 	// position (Object + 0x38, RW 0x86AA79). FireGrabWeaponOnVictim (data + 0x148) is read twice, at RW 0x86AA62 and RW 0x86AA8F: when it is false the rider
 	// is UNATTACKABLE (status 0x3C, Object::setStatus RW 0x62684D) for the duration of that one fire (RW 0x86AA6B .. 0x86AA71) and the status comes off again
 	// right after it (RW 0x86AA98 .. 0x86AA9E). Both branches reach the fire: the flag brackets it, it does not skip it. The bracket is not inert either — the
 	// body's damage acceptance refuses an UNATTACKABLE victim (RW 0x8C3FFB .. 0x8C400C: only damage type 8, UNRESISTABLE, gets through), so with the flag off
-	// everything in the grab's area takes the damage except the rider the transport just grabbed (docs/re/rotwk/RW_0x86AA4B.md).
-	if (!m_transport->m_grabWeapon.name.empty())
+	// everything in the grab's area takes the damage except the rider the transport just grabbed.
+	const StoreReference &grabRef = m_transport->m_grabWeapon;
+	if (!grabRef.name.empty() && !grabRef.resolved)
 	{
-		const WeaponTemplate *grab = TheWeaponStore ? TheWeaponStore->findWeaponTemplate(m_transport->m_grabWeapon.name) : nullptr;
+		// retail is silent here (the null pointer simply fails the RW 0x86AA4B test); the port reports the name once per world, like an unknown warhead
+		// (WeaponDelivery.cpp) or an unknown armour (ActiveBody.cpp), because a misspelt or forward-named GrabWeapon is a data error that must reach the
+		// report rather than look like "this transport has no grab". GameLogic::reportError dedupes the text, so this is one line per name, not one per rider
+		container->logic().reportError("TransportContain of '" + container->getTemplate()->getName() + "': the GrabWeapon '" + grabRef.name +
+		                               "' was not in the WeaponStore when the object was parsed (a later definition or a misspelling); retail's +0x144 stays null "
+		                               "and the grab never fires (RW 0x86AA4B)");
+	}
+	else if (grabRef.resolved)
+	{
+		// resolved at parse: retail's pointer is the template the store held then, and the store cannot lose a template after the load
+		const WeaponTemplate *grab = TheWeaponStore ? TheWeaponStore->findWeaponTemplate(grabRef.name) : nullptr;
 		if (grab && container->getRelationship(*obj) != ALLIES) // RW 0x86AA4B (the template) and RW 0x86AA5D (ALLIES = 2)
 		{
 			static const int unattackable = statusBit("UNATTACKABLE"); // 0x3C

@@ -50,11 +50,17 @@ public:
 	DieModuleInterface *getDie() override { return this; }
 	CollideModuleInterface *getCollide() override { return this; }
 	void onDelete() override; // main slot 0x20 RW 0x86708F
-	// ---- CollideModuleInterface (RW 0xC5D650, module + 0x24, slot +0x04 getCollide RW 0x64F3EA) ----
-	void onCollide(Object *other, const Coord3D *loc, const Coord3D *normal) override; // RW 0x8659D8
+	// ---- CollideModuleInterface (the subobject at module + 0x24, vtable RW 0xC5D650, getCollide RW 0x64F3EA) ----
+	// lane PORT-9, RW 0x8659D8: an object that touches this container while its AI is entering it (AI vslot 0x1FC) is picked up when CollidePickup is set,
+	// after the enemy STEALTH_GARRISON occupants it collides with are revealed (RW 0x867C40). Retail installs this slot in OpenContain (RW 0x867FC1),
+	// TransportContain (RW 0x86B6CF), HordeTransportContain (RW 0x87A2CF), SiegeEngineContain (RW 0x87F525), HordeSiegeEngineContain (RW 0x88051C),
+	// GarrisonContain (RW 0x87B1FA), HordeGarrisonContain (RW 0x87D30F) and TunnelContain (RW 0x880EBB); every class that derives from this one inherits it
+	// here, and HordeContain - not an OpenContain in this port - keeps the empty RW 0x46E918 slot it installs at RW 0x872800
+	void onCollide(Object *other, const Coord3D *loc, const Coord3D *normal) override;
 	bool wouldLikeToCollideWith(const Object &other) const override { (void)other; return false; } // RW 0x7FEAC1
-	// RW 0x867C40 (module vslot 0x4C, INFERENCE on C++ name): the entering units collision reveals and evacuates enemy STEALTH_GARRISON riders
-	bool tryToEvacuate(Object *entering); // RW keeps it in module vslot 0x4C; no RotWK contain class replaces it, so it is not virtual here
+	// RW 0x867C40, module vslot 0x4C (the C++ name is INFERENCE): the STEALTH_GARRISON occupants an entering object collides with are revealed and ordered out.
+	// No RotWK contain class replaces the slot, so it is not virtual here
+	bool tryToEvacuate(Object *entering);
 	Object *passengerToHit(const Coord3D &pos) const override; // slot 0xF4 RW 0x8663B6 (TOP20 S-321)
 	// RW 0x990D14: the member nearest to `pos` (2D, strictly nearer than FLT_MAX) of the hordes in `contained` whose drawable is not hidden (RW 0x67055A)
 	static Object *nearestShownHordeMember(const ContainedItemsList &contained, const Coord3D &pos);

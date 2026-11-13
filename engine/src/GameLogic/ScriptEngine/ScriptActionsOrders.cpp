@@ -635,22 +635,24 @@ bool ScriptActions::executeOrderAction(ScriptEngine &engine, const ScriptActionR
 					continue;
 				}
 				Team *cur = o->getTeam(); // RW 0x7A49CC: the object + 0x31C
-				if (cur == dst || !cur->isActive() || cur->getPrototype() == nullptr) // RW 0x7A49DE (the team itself) / RW 0x7A49E7 (+ 0x5D, the retail fields read without a null test)
+				// RW 0x7A49DE (the team itself) / RW 0x7A49E7 (+ 0x5D, active). Retail reads those fields without a null test; this Object's team may be
+				// null (an object created without one), so the null case skips here where retail would not have one at all
+				if (cur == nullptr || cur == dst || !cur->isActive() || cur->getPrototype() == nullptr)
 				{
 					continue;
 				}
-				bool recruitable = cur == owner->getDefaultTeam(); // RW 0x7A49D4: player + 0x30C
 				// RW 0x7A49F1 .. 0x7A4A06: recruited only into a strictly higher teamProductionPriority (TeamTemplateInfo + 0xF0 <-> prototype + 0x21C)
 				if (cur->getPrototype()->teamProductionPriority() >= dst->getPrototype()->teamProductionPriority())
 				{
 					continue;
 				}
+				bool recruitable = cur == owner->getDefaultTeam(); // RW 0x7A49D4: player + 0x30C
 				recruitable = recruitable || cur->getPrototype()->teamIsAIRecruitable(); // RW 0x7A4A08: prototype + 0x210
 				if (cur->hasAIRecruitableOverride()) // RW 0x7A4A13 .. 0x7A4A22: team + 0x110 / + 0x111
 				{
 					recruitable = cur->aiRecruitableOverride();
 				}
-				if (!recruitable || (o->getDisabledMask() & (1u << 3)) != 0) // the override / DISABLED_HELD (+ 0x1C8 bit 3); the AI's recruitable flag (+ 0x3BE) is read as true, S-1186
+				if (!recruitable || (o->getDisabledMask() & (1u << 3)) != 0) // the override / DISABLED_HELD (+ 0x1C8 bit 3); the AI's flag (+ 0x3BE) is read as true, S-1186
 				{
 					continue;
 				}
