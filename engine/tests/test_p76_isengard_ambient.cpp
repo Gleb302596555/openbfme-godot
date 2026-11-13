@@ -99,6 +99,60 @@ TEST_CASE("P-76 ennorath: the Isengard fortress's citadel plays AmbientIsengartB
 	CHECK(starts >= 1); // tolerance: a loop may restart its file within the 90 frames; 0 is the symptom (no sound)
 }
 
+// The owner's audio log (2026-11-13): AmbientIsengartBoden started once and was never heard again. RotWK stops a looping sample that falls below
+// MinSampleVolume but queues the event again for a later check (RW 0x45BC6D .. 0x45BC90 -> RW 0x45A188), so the loop comes back when the camera
+// returns; the drawable starts its ambient only once (RW 0x67866C), so nothing else restarts it.
+TEST_CASE("P-76 ennorath: the citadel's AmbientIsengartBoden comes back after the camera leaves the base and returns")
+{
+	ennorathscenario::World world;
+	if (!world.load("P-76 isengard ambient return"))
+	{
+		return;
+	}
+	hudtest::Rig game(world.shared);
+	game.game->shroud().revealMapForPlayerPermanently(game.index());
+	hudaudio::RetailAudio audio(*world.merged.fs);
+	std::string err;
+	std::unique_ptr<LiveGameAudio> live = LiveGameAudio::attachToInstalled(*game.game, nullptr, &err, nullptr);
+	REQUIRE_MESSAGE(live != nullptr, err);
+	const Coord3D at = game.freeSpot(1800, 1800, 400.0f);
+	REQUIRE_MESSAGE(game.game->createObject("IsengardFortressCitadel", game.index(), at, 0.0f, &err) != nullptr, err);
+	double t = 1000.0;
+	auto run = [&](const Coord3D &camera, const Coord3D &lookAt, int frames) {
+		for (int i = 0; i < frames; ++i)
+		{
+			audio.manager->updateMicrophone(camera, lookAt);
+			game.game->advance(0.033);
+			live->update();
+			t += 33.0;
+			audio.device->setTime(t);
+			audio.manager->update(t);
+		}
+	};
+	auto count = [&](SimulatedAudioDevice::LogEntry::Kind kind) {
+		int n = 0;
+		for (const auto &d : audio.device->log())
+		{
+			n += (d.kind == kind && d.file.find("Isengard_ambient") != std::string::npos) ? 1 : 0;
+		}
+		return n;
+	};
+	const Coord3D nearCam{ at.x, at.y - 300.0f, at.z + 450.0f };
+	const Coord3D farLook{ at.x + 3000.0f, at.y, at.z };
+	const Coord3D farCam{ farLook.x, farLook.y - 300.0f, farLook.z + 450.0f };
+	run(nearCam, at, 60);
+	const int startsNear = count(SimulatedAudioDevice::LogEntry::Start);
+	REQUIRE(startsNear >= 1); // tolerance: a loop may restart its file; 0 = the first start already failed (the other cases)
+	run(farCam, farLook, 60);
+	const int stopsFar = count(SimulatedAudioDevice::LogEntry::Stop);
+	const int startsFar = count(SimulatedAudioDevice::LogEntry::Start);
+	CHECK(stopsFar >= 1); // tolerance: the cull stops the playing voice once; a restart in between may add one; 0 = the cull did not run
+	run(nearCam, at, 60);
+	const int startsBack = count(SimulatedAudioDevice::LogEntry::Start) - startsFar;
+	std::printf("P-76 return: starts near %d, stops far %d, starts far %d, starts after return %d\n", startsNear, stopsFar, startsFar, startsBack);
+	CHECK(startsBack >= 1); // tolerance: the requeued loop may restart its file; 0 is the symptom (the loop is gone for good)
+}
+
 // The skirmish start itself: FactionIsengard's StartingBuilding IsengardFortress unpacks Fortress_Isengard (BFME2 bases.big: the layout places
 // IsengardFortressCitadel), the camera looks at the base from the start camera's distance (the retail tactical camera's default: about 420 back, 520 up).
 TEST_CASE("P-76 ennorath: an Isengard skirmish start plays AmbientIsengartBoden from the unpacked fortress citadel")
