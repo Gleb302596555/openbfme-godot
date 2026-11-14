@@ -32,6 +32,7 @@
 #include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/FXEvents.h"
 #include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/AI/AIClosestEnemy.h"
 #include "GameLogic/AI/AIEmotionStates.h"
 #include "GameLogic/AI/AIPathfind.h"
 #include "GameLogic/AI/AIWorld.h"
@@ -610,16 +611,9 @@ bool anySet(const std::array<std::uint32_t, 19> &b) // RW 0x4B3783
 	return false;
 }
 
-float visionRangeOf(const Object &o) // RW 0x68E43B: Object + 0x1B0 (the template's VisionRange; the VISION modifier and height terms as STEALTH-1, S-1227)
+float visionRangeOf(Object &o) // RW 0x68E43B: Object::getVisionRange (VisionRange * (1 + attributeModifierSum(16)) * heightBonus)
 {
-	if (const FieldValue *v = o.getTemplate()->getFinalOverride()->findField("VisionRange"))
-	{
-		if (const float *f = std::get_if<float>(v))
-		{
-			return *f;
-		}
-	}
-	return 0.0f;
+	return AIUpdateInterface::objectVisionRangeOf(o);
 }
 
 void AutoAbilityBehaviorModuleData::buildFieldParse(MultiIniFieldParse &p)
@@ -804,7 +798,14 @@ bool AutoAbilityBehavior::canAct(const CommandButton &b) const
 	{
 		return false;
 	}
-	return true; // the AI's + 0x34 (INFERENCE: 0)
+	if (const AIUpdateInterface *ai = obj->getAIUpdateInterface())
+	{
+		if (ai->hasTemporaryStateMachine()) // RW 0x85D693 .. 0x85D6A1: AI + 0x34 (m_temporaryKeptMachine)
+		{
+			return false;
+		}
+	}
+	return true;
 }
 
 Object *AutoAbilityBehavior::pickTarget(const std::vector<Object *> &hits, const CommandButton &b) const
@@ -990,20 +991,18 @@ UpdateSleepTime AutoAbilityBehavior::update()
 	}
 	if (!anyQuery)
 	{
-		// RW 0x701443(object, range, 0x4A, 0, 0, 0) -> RW 0x7006D7: the AI's closest enemy (INFERENCE, S-1227: the closest alive ENEMIES object it can see)
+		// RW 0x85DD3A -> RW 0x701443(object, range, 0x4A, 0, 0, 0) -> RW 0x7006D7: CAN_ATTACK (0x2) | ATTACK_BUILDINGS (0x8) | AUTO_ACQUIRE (0x40)
 		++stats().closestEnemyQueries;
-		PartitionFilterFn chain([&](Object &o) { return !o.isEffectivelyDead() && obj->getRelationship(o) == ENEMIES && EmotionModules::canSeeObject(*obj, o, range); });
-		for (const PartitionHit &h : logic.partition().iterateObjectsInRange(*obj->getPosition(), range, FROM_CENTER_2D, { &chain }, ITER_SORTED_NEAR_TO_FAR))
-		{
-			target = h.object;
-			break;
-		}
+		target = AI::findClosestEnemy(*obj, range, 0x4Au, nullptr, nullptr, 0);
 	}
 	if (!target)
 	{
 		return (UpdateSleepTime)(framesPerSecond + 1);
 	}
-	// RW 0x85DD6B: the AI's + 0x48 := 2 (the field is not identified: S-1227)
+	if (ai)
+	{
+		ai->setLastCommandSource(CMD_FROM_AI); // RW 0x85DD69 .. 0x85DD70: AI + 0x48 := 2
+	}
 	// RW 0x85D930: the auto ability sound (client) unless NO_PLAY_UNIT_SPECIFIC_SOUND_FOR_AUTO_ABILITY
 	Coord3D pos = *target->getPosition();
 	// RW 0x85DDA4 .. 0x85DDCC (lane BACKLOG-8): with an AI, AdjustAttackMeleePosition (data + 0x5E) and a target whose geometry is not small (Object + 0xAC, the
@@ -2480,11 +2479,10 @@ std::vector<std::string> HeroAbilityModules::stopLines()
 		"[S-1223] FellBeastSwoopPower (lane HERO-2): the module runs (RW 0x8CB2CE / 0x8CB28B / 0x8CB194); the level attack itself is GiantBirdAIUpdate's swoop "
 		"(AI commands 0x3F / 0x40, AI vslots 0x90 / 0x94: GiantBirdAIUpdate runs as the base AI, S-222): the command is counted by the AI (aiUnported) and the "
 		"ability ends when the AI idles; AI vslot 0x1D0 is not identified",
-		"[S-1227] AutoAbilityBehavior (lane HERO-2): the auto cast runs (RW 0x85D9D1 with RW 0x85D5EA / 0x85D4B5, MSG_DO_AUTO_ABILITY RW 0x77B9BA, StartsActive); "
-		"INFERENCE / not ported: the closest enemy of a module without Query (RW 0x701443 flags 0x4A read as the closest alive enemy it can see), the AI + 0x34 / "
-		"+ 0x48 fields (+ 0x34 read as 0, + 0x48 := 2 not written), the command types other than "
-		"SPECIAL_POWER / SPELL_BOOK (a FIRE_WEAPON auto button is toggled by MSG_DO_AUTO_ABILITY_WEAPON, RW 0x77B8EE, lane AUTOCAST-1, but not fired), the vision "
-		"range modifiers (RW 0x68E43B), the auto sound (client), a disabled object's auto cast exception (RW 0x68E5A3 with 0x20000000); the control bar's "
+		"[S-1227] AutoAbilityBehavior (lane HERO-2, PORT-191): the auto cast runs (RW 0x85D9D1 with RW 0x85D5EA / 0x85D4B5, RW 0x855830 DISABLED_HELD, "
+		"RW 0x68E43B vision range, RW 0x701443 flags 0x4A without Query, AI + 0x34 / + 0x48 := 2, RW 0x68E5A3 / 0x68E67A disabled exception with 0x20000000, "
+		"MSG_DO_AUTO_ABILITY RW 0x77B9BA, StartsActive); not ported: the command types other than SPECIAL_POWER / SPELL_BOOK (a FIRE_WEAPON auto button is "
+		"toggled by MSG_DO_AUTO_ABILITY_WEAPON, RW 0x77B8EE, lane AUTOCAST-1, but not fired) and the auto sound (client, RW 0x85D930); the control bar's "
 		"right press toggle and glow are lane AUTOCAST-1's (ControlBar::rightPressButton, S-3460)",
 		"[S-1228] WeaponModeSpecialPowerUpdate and DualWeaponBehavior (lane HERO-2): the mode runs (RW 0x89841E / 0x8983B5 over the base timer RW 0x991660 / "
 		"0x991500 / 0x9913BC) and the close range switch runs (RW 0x85DF88); not ported: the firing tracker reset at the start (RW 0x8E302A, COMBAT-1's), the "

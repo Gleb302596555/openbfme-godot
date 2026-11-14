@@ -217,14 +217,14 @@ private:
 //     RW 0xC10E20 (alive), RW 0xC0F374, RW 0xC1D66C (Object::canSee(candidate, range), RW 0x68FA3D), not UNATTACKABLE / INSIDE_GARRISON (status 60 / 58,
 //     RW 0x794311 -> 0x76A28D), not KindOf UNATTACKABLE (54, RW 0x445139), the query's ObjectFilter for the controlling player; at least `count` hits: the
 //     target is the first hit (RW 0x85D4B5) that is not the object (unless AllowSelf), not above 0.8 of its health for a NeedDamagedTarget (+ 0x138) button
-//     and at least MinScanRange away (Coord3D::length, when MinScanRange > 0); no slot used: RW 0x701443(object, range, 0x4A) (stop S-1227: the AI's closest
-//     enemy, INFERENCE); no target: sleep 6. A target: the AI's + 0x48 := 2 (not identified, not written: S-1227), the auto sound event (RW
-//     0x85D930, client unless NO_PLAY_UNIT_SPECIFIC_SOUND_FOR_AUTO_ABILITY), then NEED_TARGET_POS: RW 0x6979D9(button, target position, 2, 1); any NEED_TARGET_*
-//     _OBJECT: RW 0x697890(button, target, 2, 1); else RW 0x696FD2(button, 2, 1); sleep the delay;
+//     and at least MinScanRange away (Coord3D::length, when MinScanRange > 0); no slot used: RW 0x701443(object, range, 0x4A, 0, 0, 0) -> RW 0x7006D7
+//     (AI::findClosestEnemy: CAN_ATTACK | ATTACK_BUILDINGS | AUTO_ACQUIRE); no target: sleep 6. A target: the AI's + 0x48 := 2 (CMD_FROM_AI, RW 0x85DD70), the
+//     auto sound event (RW 0x85D930, client unless NO_PLAY_UNIT_SPECIFIC_SOUND_FOR_AUTO_ABILITY), then NEED_TARGET_POS: RW 0x6979D9(button, target position, 2, 1);
+//     any NEED_TARGET_*_OBJECT: RW 0x697890(button, target, 2, 1); else RW 0x696FD2(button, 2, 1); sleep the delay;
 //   * able to act (RW 0x85D5EA): a ForbiddenStatus bit the object has: no; the button is valid (RW 0x75CC3E: its power's module fully ready, or a NEED_UPGRADE
 //     upgrade the object can take and does not have), in the object's command set with its power's module (RW 0x692A75), not STUNNED (128), STUNNED_FLAILING
 //     (127), STUNNED_STANDING_UP (163), INVISIBLE_STEALTH (546, RW 0x68FC06), none of AutoAbilityDisallowedOnModelCondition (+ 0x13C), not IGNORE_AI_COMMAND
-//     (status 74), the AI's + 0x34 zero (INFERENCE: read as 0);
+//     (status 74), the AI's + 0x34 zero (RW 0x85D69B: m_temporaryKeptMachine == nullptr);
 //   * the command (RW 0x696FD2 / 0x697890 / 0x6979D9 for the SPECIAL_POWER (24) and SPELL_BOOK (38) buttons): Object::doSpecialPower* of the button's power with
 //     the button's options | 0x40000 (| AUTO_ABILITY_TRIGGERED 0x20000000 from this module). The other command types are counted (S-1227).
 class AutoAbilityBehaviorModuleData : public ModuleData
@@ -255,6 +255,7 @@ public:
 	OBFME_MODULE_XFER(AutoAbilityBehavior) // lane SAVE-4b
 	AutoAbilityBehavior(Thing *thing, const AutoAbilityBehaviorModuleData *data); // RW 0x85D7FD
 	UpdateSleepTime update() override;                                           // RW 0x85D9D1
+	DisabledMaskType getDisabledTypesToProcess() const override { return (DisabledMaskType)(1u << 3); } // RW 0x855830 (vtable RW 0xC57F80 slot 1): DISABLED_HELD
 	void onObjectCreated() override;                                              // the StartsActive part of the constructor (needs the command set)
 	void crc(StateHasher &h) const override;
 	void setAutoButton(const CommandButton *button);                             // RW 0x85D76C
