@@ -330,6 +330,7 @@ include(cmake/Weather1.cmake)   # WEATHER-1: snow, rain, darkness, lightning, th
 include(cmake/Bldfx1.cmake)     # FEAT-BLDFX-1: the FXList nugget sinks, scorches, decals, light pulses, camera shakers (OPENBFME_BLDFX1_SOURCES / _TESTS)
 include(cmake/Decompfix1109.cmake) # DECOMPFIX-1109: FLEECHASE-1, ENTERADJUST-1, REQTHROTTLE-1 (OPENBFME_DECOMPFIX1109_TESTS)
 include(cmake/Port5.cmake)      # PORT-5: the bird's deferred ability target (OPENBFME_PORT5_TESTS)
+include(cmake/Port194.cmake)    # PORT-194: the crowd response of the unit voice and RotWK's CrowdResponse parser and threshold rule (fork issue 461; OPENBFME_PORT194_TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
     ${OPENBFME_APT_SOURCES}
@@ -741,6 +742,7 @@ add_executable(openbfme_tests
     ${OPENBFME_XP_TESTS}
     ${OPENBFME_FACTB_TESTS}
     ${OPENBFME_PLAY2_TESTS}
+    ${OPENBFME_PORT194_TESTS}
     ${OPENBFME_PORT54_TESTS}
     ${OPENBFME_PORT4_TESTS}
     ${OPENBFME_PORT8_TESTS}
