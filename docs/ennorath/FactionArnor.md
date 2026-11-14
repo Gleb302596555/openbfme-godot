@@ -170,7 +170,7 @@
 Запущен `engine/build/openbfme_peer.exe` с `--mod-install workspace/mods/Ennorath/install`, чистой базой из `workspace/games/Vanilla_(2.01)/install` и BFME2 из `C:/Program Files (x86)/BFME2`. Использован готовый бинарник; без свежей сборки вывод относится только к нему. Отчёт фиксирует 300 кадров, профиль `49ce66422516f6556e611e1c97da5378`, 0 desync и отсутствие команд игрока. Назначение наблюдённых проблем конкретно Арнору ещё не установлено: отчёт общий по карте и обоим игрокам.
 
 - Неперенесённые модули на живых объектах: `AudioLoopUpgrade`, `AutoPickUpUpdate`, `ClickReactionBehavior`, `CritterEmitterUpdate`, `GeometryUpgrade`, `GrabPassengerSpecialPower`, `RebuildHoleExposeDie`, `SlaveWatcherBehavior`, `SpellRechargeModifierUpgrade`.
-- Неперенесённые действие `FOCAL_LENGTH_CAMERA` и условия `PLAYER_BUILT_UPGRADE`, `PLAYER_HAS_NUM_UNITS_WITH_UPGRADE`. Нужно установить, какие из них затрагивают достижимые объекты/сценарии Арнора и когда исполняются; для этого недостаточно одного пассивного прогона.
+- Неперенесённые условия `PLAYER_BUILT_UPGRADE`, `PLAYER_HAS_NUM_UNITS_WITH_UPGRADE` (действие `FOCAL_LENGTH_CAMERA` перенесено 2026-11-14, PORT-439 / issue #439). Нужно установить, какие из них затрагивают достижимые объекты/сценарии Арнора и когда исполняются; для этого недостаточно одного пассивного прогона.
 
 ### Длинный прогон ИИ Арнора
 
