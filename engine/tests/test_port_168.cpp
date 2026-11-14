@@ -27,6 +27,8 @@
 #include "Common/SpecialPower.h"
 #include "Common/Thing/ThingTemplate.h"
 #include "GameLogic/Combat/CombatNames.h"
+#include "GameLogic/Combat/ProjectileLauncher.h"
+#include "GameLogic/WeaponNugget.h"
 #include "GameLogic/Module/ActiveBody.h"
 #include "GameLogic/Module/GrabPassengerSpecialPower.h"
 #include "GameLogic/Module/ProjectileModules.h"
@@ -278,9 +280,9 @@ const char kAmmoWeapons[] =
 	"End\n"
 	"Weapon Port168AmmoWarhead\n"
 	"  DamageNugget\n"
-	"    Damage = 0\n"
-	"    Radius = 0.0\n"
-	"    DamageType = PIERCE\n"
+	"    Damage = 300\n"
+	"    Radius = 12.0\n"
+	"    DamageType = SIEGE\n"
 	"    DeathType = NORMAL\n"
 	"  End\n"
 	"End\n";
@@ -371,4 +373,125 @@ TEST_CASE("PORT-168 neighbours: no container and no filter keep the clip's own s
 	CHECK(ammoStatus("Port168NoContain", "NONE +INFANTRY", nullptr) == WEAPON_READY_TO_FIRE); // no contain: the reader answers nothing, clip 1
 	CHECK(ammoStatus("Port168ClipArcher", "NONE +INFANTRY", nullptr) == WEAPON_READY_TO_FIRE);             // clip 1
 	CHECK(ammoStatus("Port168ClipArcher", "NONE +INFANTRY", "Port168AmmoGoblin") == WEAPON_READY_TO_FIRE); // its clip, not the passenger
+}
+
+namespace
+{
+// the container's passenger as the projectile itself: the object that flies carries its own BezierProjectileBehavior (the cave troll's held goblin flies
+// with its own module once RW 0x90FAC9 hands the taken rider over) and a victim of 400 health with NoArmor (DEFAULT 100%: the 300 SIEGE warhead leaves
+// it at 100).
+const char kThrownObjects[] =
+	"Object Port168Thrown\n"
+	"  KindOf = INFANTRY SELECTABLE\n"
+	"  TransportSlotCount = 1\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 8\n"
+	"  GeometryMinorRadius = 8\n"
+	"  GeometryHeight = 20\n"
+	"  ArmorSet\n"
+	"    Conditions = None\n"
+	"    Armor = NoArmor\n"
+	"  End\n"
+	"  Body = ActiveBody ModuleTag_Body\n"
+	"    MaxHealth = 100\n"
+	"  End\n"
+	"  Behavior = DestroyDie ModuleTag_Die\n"
+	"  End\n"
+	"  Behavior = BezierProjectileBehavior ModuleTag_Projectile\n"
+	"    FirstHeight = 24\n"
+	"    SecondHeight = 24\n"
+	"    FirstPercentIndent = 30%\n"
+	"    SecondPercentIndent = 70%\n"
+	"    DieOnImpact = Yes\n"
+	"  End\n"
+	"End\n"
+	"Object Port168AmmoVictim\n"
+	"  KindOf = INFANTRY SELECTABLE\n"
+	"  Geometry = CYLINDER\n"
+	"  GeometryMajorRadius = 8\n"
+	"  GeometryMinorRadius = 8\n"
+	"  GeometryHeight = 20\n"
+	"  ArmorSet\n"
+	"    Conditions = None\n"
+	"    Armor = NoArmor\n"
+	"  End\n"
+	"  Body = ActiveBody ModuleTag_Body\n"
+	"    MaxHealth = 400\n"
+	"  End\n"
+	"End\n";
+
+// the deliver branch without a weapon that fires: the shot record names the weapon template, its nugget (no ProjectileTemplateName: the held unit IS the
+// projectile) and the source, exactly the arguments RW 0x90FA48 works from
+struct DeliverResult
+{
+	bool taken = false;                 // the passenger left the container at the launch (RW 0x90FAC3 -> contain slot 0x13C)
+	bool containedAfter = true;
+	bool passengerIsProjectile = false; // the object that flew is the passenger itself, produced by the thrower
+	float passengerHealth = 100.0f;
+	float targetHealth = 400.0f;
+};
+
+DeliverResult deliverPassenger(const char *filter)
+{
+	DeliverResult r;
+	CombatWorld w;
+	const PowerStore store(w);
+	const std::string err = w.w.load(ammoObjects(filter) + kThrownObjects + archerObject("Port168Bystander", "Port168ClipBow", false),
+	                                 INI_LOAD_OVERWRITE, "port168deliver.ini");
+	REQUIRE_MESSAGE(err.empty(), err);
+	w.combat().setAutoAcquireEnabled(false);
+	Object *thrower = w.unit("Port168Archer", 'A', 200.0f, 200.0f);
+	Object *goblin = w.unit("Port168Thrown", 'A', 205.0f, 200.0f);
+	Object *victim = w.unit("Port168AmmoVictim", 'B', 245.0f, 200.0f);
+	REQUIRE(thrower != nullptr);
+	REQUIRE(goblin != nullptr);
+	REQUIRE(victim != nullptr);
+	w.frames(3);
+	TransportContain *contain = dynamic_cast<TransportContain *>(thrower->getContain());
+	REQUIRE(contain != nullptr);
+	REQUIRE(contain->addToContain(goblin));
+	w.frames(1);
+	ObjectWeapons *weapons = thrower->getWeapons();
+	REQUIRE(weapons != nullptr);
+	Weapon *bow = weapons->weaponInSlot(PRIMARY_WEAPON);
+	REQUIRE(bow != nullptr);
+	const WeaponTemplate *tmpl = bow->getTemplate();
+	REQUIRE(tmpl != nullptr);
+	REQUIRE(tmpl->m_nuggets.size() == 1);
+	const ProjectileNugget *nugget = dynamic_cast<const ProjectileNugget *>(tmpl->m_nuggets.front().get());
+	REQUIRE(nugget != nullptr);
+	REQUIRE(nugget->m_projectileTemplateName.empty()); // the cave troll's own nugget shape
+	const ObjectID goblinId = goblin->getID();
+	ProjectileShot shot;
+	shot.source = thrower->getID();
+	shot.victim = victim->getID();
+	shot.weapon = tmpl;
+	shot.nugget = nugget;
+	shot.slot = PRIMARY_WEAPON;
+	shot.warhead = TheWeaponStore ? TheWeaponStore->findWeaponTemplate(nugget->m_warheadTemplateName) : nullptr; // RW 0x90FA48's warhead argument
+	REQUIRE(shot.warhead != nullptr);
+	w.combat().launcher().launch(*w.logic, shot); // the real ObjectProjectileLauncher (RW 0x90FA48)
+	r.containedAfter = goblin->getContainedBy() == thrower;
+	r.taken = !r.containedAfter;
+	r.passengerIsProjectile = w.logic->findObjectByID(goblinId) != nullptr && goblin->getProducerID() == thrower->getID();
+	w.frames(40); // the flight and the impact
+	r.passengerHealth = w.logic->findObjectByID(goblinId) ? w.health(goblin) : 0.0f; // DieOnImpact removed it on the hit
+	r.targetHealth = w.health(victim);
+	return r;
+}
+} // namespace
+
+// RW 0x90FA81 .. 0x90FAC9 (the object-target deliver): a fired weapon with ProjectileFilterInContainer on a source that HAS a container skips both the
+// ProjectileSelf test (RW 0x90FA8E) and the template test (RW 0x90FAF7): contain slot 0x13C (RW 0x866367) takes the first rider the filter allows out of
+// the container (RW 0x8663AC) and that object IS the projectile (RW 0x90FAC9 jumps over the creation), produced by the source and launched from the
+// source's transform (Weapon RW 0x6CAB85 at RW 0x90FAAA). The port's launcher had only ProjectileSelf and the named template, so a nugget with no
+// ProjectileTemplateName — the cave troll's CaveTrollGoblinThrow — threw nothing and the troll only swung its arm.
+TEST_CASE("PORT-168 throw: the contained passenger becomes the projectile and leaves the container (RW 0x90FA81 .. 0x90FAC9, RW 0x866367)")
+{
+	const DeliverResult r = deliverPassenger("NONE +INFANTRY");
+	CHECK(r.taken);                   // contain slot 0x13C: out of the hand on the launch
+	CHECK_FALSE(r.containedAfter);
+	CHECK(r.passengerIsProjectile);   // the same object flew, its producer the thrower
+	CHECK(r.passengerHealth == 0.0f); // it hit the victim and its own DieOnImpact removed it
+	CHECK(r.targetHealth == 100.0f);  // 400 - 300 SIEGE through NoArmor's DEFAULT 100%
 }
