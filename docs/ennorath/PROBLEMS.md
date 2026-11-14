@@ -1188,13 +1188,13 @@
 - Проверка: —
 
 ### P-109. Ошибка `EUSKLADN_A.GBFARM_BIB: texture not found: None`
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [x] **ИСПРАВЛЕНО**, ждёт ночного прогона (PORT-430, issue #430)
 - Добавлено: 2026-11-13, владелец (в игре, `main` `df5f0b41`, Эннорат)
 - Описание: время от времени в консоли `ERROR: W3DInstancer: euskladN_a: EUSKLADN_A.GBFARM_BIB: texture not found: None`. Подложка (bib) модели называет текстуру `None` — тот же случай, что `CAH_skull` в P-99.
 - Подсистема: отрисовка: подложки зданий (W3DFloorDraw, #406 / P-103) и текстура `None`
 - Взял: Port 177 (fork issue 430, 2026-11-13)
-- Причина и исправление: —
-- Проверка: —
+- Причина и исправление: имя текстуры без расширения (`None`) RotWK не ищет на диске вообще: загрузчик `RW 0x530D29` подставляет `.dds` / `.tga` / `.jpg` / `.png` после последней точки (`RW 0x530D45`) и без точки выходит с нулевыми указателями файла (`RW 0x530D59`), а создание текстуры `RW 0x53193E` строит на этом 1 x 1 текстуру `0xFFFF00FF` (`RW 0x531B07 .. 0x531B44`) и ничего не пишет в лог (строки «texture not found» в `game.dat` 2.01 нет). Порт же искал файл для любого имени и печатал ошибку. Правка: `TextureResolution::Probed` / `W3D_Texture_Name_Is_Probed` в `Libraries/WWVegas/WW3D2/textureloader.{h,cpp}`; `GodotW3DModelBuilder::loadTexture` и `GodotW3DMaterial::Load_Texture` не отчитываются о таком имени, магента `W3D_MISSING_TEXTURE_COLOR` остаётся. Разбор: `docs/ennorath/PORT430_RW_ANALYSIS.md`.
+- Проверка: `PORT-430*` (`engine/tests/test_port_430.cpp`, 5 тестов); в игре — в Эннорате на ферме истерлингов (`EUSKLADN_A.GBFARM_BIB`) и у ангмарского портера (`ANGPORTER.BUCKET`) консоль без `texture not found: None`, подложка рисуется как в RotWK.
 - Владелец 2026-11-13 поздно вечером (`main` `8c4f1d60`, Ангмар): то же у `ERROR: W3DInstancer: angPorter: ANGPORTER.BUCKET: texture not found: None`. Общий механизм с `CAH_skull` (P-99): как RotWK разрешает имя текстуры `None` в модели.
 
 ### P-110. Построение «ёж»: все копейщики смотрят в одну сторону
