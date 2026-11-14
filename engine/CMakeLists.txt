@@ -218,6 +218,7 @@ include(cmake/FactB.cmake)      # OPENBFME_FACTB_TESTS (lane FACT-B: Isengard an
 include(cmake/Port4.cmake) # OPENBFME_PORT4_TESTS
 include(cmake/Port109.cmake) # OPENBFME_PORT109_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
+include(cmake/Port427.cmake) # PORT-427: the porcupine formation's members face outward, each its radial bearing (issue #427; OPENBFME_PORT427_TESTS)
 include(cmake/Port133.cmake) # PORT-133: the charge attack machine of a CanFireWhileCharging weapon (issue #335; OPENBFME_PORT133_TESTS)
 include(cmake/Port137.cmake) # PORT-137: auto-pickup button and selected group
 include(cmake/Port121.cmake) # PORT-121: the ParticleSysBone creation reads the draw's pose (OPENBFME_PORT121_TESTS)
@@ -874,6 +875,7 @@ add_executable(openbfme_tests
     ${OPENBFME_FACTB_TESTS}
     ${OPENBFME_PORT109_TESTS}
     ${OPENBFME_PLAY2_TESTS}
+    ${OPENBFME_PORT427_TESTS}
     ${OPENBFME_PORT133_TESTS}
     ${OPENBFME_PORT137_TESTS}
     ${OPENBFME_PORT121_TESTS}
