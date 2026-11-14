@@ -62,6 +62,8 @@ struct ObjectSnapshot
 	// the same of the object's horde (RW 0x693A1A(0): the object itself when HORDE, else its container when that is a HORDE)
 	float moveSpeed = 0.0f;
 	const LocomotorTemplate *locomotorTemplate = nullptr; ///< LOCAL-25: current locomotor template for client presentation physics
+	bool giantBirdAI = false;                             ///< LOCAL-47 (RW 0x670E29 / 0x8BD372): AI answers vslot 0x168 (GiantBirdAIUpdate)
+	float giantBirdTurnRate = 0.0f;                       ///< LOCAL-47 (RW 0x670E3D / 0x8CEF91): GiantBirdFlight::turnRate (AI + 0x600)
 	// lane FX-3: the object's target record for the draw scripts (CurDrawableIsCurrentTargetKindof RW 0x73667D, CurDrawableGetCurrentTargetBearing RW 0x734A75)
 	DrawableScriptTarget scriptTarget;
 	// the construction look (Drawable::updateConstruction, RW 0x4B51B5 / 0x4B686D)
