@@ -236,6 +236,7 @@ include(cmake/Port133.cmake) # PORT-133: the charge attack machine of a CanFireW
 include(cmake/Port166.cmake) # PORT-166: the FIRE_WEAPON charge end to end - reload at the strike, charge speed, speed restored (issue #395; OPENBFME_PORT166_TESTS)
 include(cmake/Port137.cmake) # PORT-137: auto-pickup button and selected group
 include(cmake/Port135.cmake) # OPENBFME_PORT135_TESTS
+include(cmake/Port426.cmake) # PORT-426: Shift on a production button queues five units (issue 426; OPENBFME_PORT426_TESTS)
 include(cmake/Port121.cmake) # PORT-121: the ParticleSysBone creation reads the draw's pose (OPENBFME_PORT121_TESTS)
 include(cmake/Port132.cmake) # PORT-132: Locomotor AeleronCorrection* / ElevatorCorrection*, the ship's roll and pitch (issue #334; OPENBFME_PORT132_TESTS)
 include(cmake/Port124.cmake) # PORT-124: ring transfer through CitadelSlaughterHordeContain (issue #308)
@@ -909,6 +910,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT166_TESTS}
     ${OPENBFME_PORT137_TESTS}
     ${OPENBFME_PORT135_TESTS}
+    ${OPENBFME_PORT426_TESTS}
     ${OPENBFME_PORT121_TESTS}
     ${OPENBFME_PORT132_TESTS}
     ${OPENBFME_PORT140_TESTS}
