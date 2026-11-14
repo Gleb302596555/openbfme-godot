@@ -3851,6 +3851,7 @@ bool InGameHudNode::press_command_button(const String &template_name)
 	{
 		if (const ControlBarButton *b = find())
 		{
+			// PORT-426: press_command_button is a script-facing plain click (no modifier argument), so shift=false.
 			return cb.pressButton(b->slot, b->inPalantir);
 		}
 		const ControlBarButton *push = nullptr;
@@ -3868,6 +3869,7 @@ bool InGameHudNode::press_command_button(const String &template_name)
 		{
 			return false;
 		}
+		// PORT-426: the page-push helper is a plain click too; real Shift input arrives through InGameHud.
 		cb.pressButton(push->slot, push->inPalantir);
 		cb.update();
 	}
