@@ -458,10 +458,10 @@
 - Статус: [ ] **НЕ НАЧАТО**
 - Добавлено: 2026-11-04, Claude (по правилу PROCESS.md, раздел 7)
 - Описание: `test_online3_rejoin.cpp:2398`: `test case THREW exception: remove_all: The process cannot access the file because it is being used by another process`. Та же ошибка, что у записанных в `TEST_BASELINE.md` `online16-fix`, `online3 spectators` и `onlineux1 r2`, но `online3 rejoin` там не записан. Найдено длинным прогоном `test_select` ветки `agent/claude/object-sounds` (сборка `0003a25c`, база `b00f2609`; движок на `main` `fa6f77d0` тот же).
-- Подсистема: — (онлайн, тестовое окружение; заполнить при разборе)
+- Подсистема: онлайн, тестовое окружение (временные папки тестов, `engine/tests/OnlineTestTemp.h`)
 - Взял: Port 171 (fork issue 400, 2026-11-13)
-- Причина и исправление: —
-- Проверка: —
+- Причина и исправление: «другой процесс» — сам тест. Тесты вызывали `std::filesystem::remove_all(dir)`, пока жив их `RelayCore`, а он держит открытым журнал каждой открытой игры: `<game>.obfmerlog.part` на запись (`RelayCore.cpp`, `hello()`, `fopen(.. "wb")`) и второй дескриптор на чтение после `LOG_REQUEST` (`logRequest()`, `fopen(.. "rb")`); журнал закрывается только в `close()` / `shutdown()` / деструкторе. Windows не удаляет файл с таким дескриптором (ERROR_SHARING_VIOLATION, текст «used by another process»), Linux и macOS удаляют, поэтому там тесты зелёные. В части тестов уже стояла местная заплатка `relay.shutdown(0); // Windows cannot delete an open file`, в остальных (в том числе `onlineux1 r2`, `online3 rejoin`, `online3 spectators`, `online16-fix`) её не было. Исправление одно, в общем помощнике `onlinetest::TempDir` (Port 171): папка удаляется при выходе из области видимости, то есть после реле, объявленного после неё, и после упавшего `REQUIRE` тоже; вспомогательный процесс (`TestChild`) останавливается с пределом ожидания и при отказе называется по имени; файл, оставшийся открытым, называется по имени и валит тест на любой платформе; повторов и проглоченных ошибок нет. Не переведены (не Windows, POSIX `fork`): `NodeLobby` в `test_online4_screens.cpp` / `test_onlinehub1_screens.cpp` (`remove_all(dir, ec)` после `waitpid`).
+- Проверка: `PORT-171*` (`engine/tests/test_port_171.cpp`, без файлов игры); на Windows — перечисленные онлайн-тесты зелёные, строки 23 и 58 `TEST_BASELINE.md` уходят (перемеряет сторона владельца).
 
 ### P-38. Огонь на земле бледный
 - Статус: [x] **ВЫПОЛНЕНО — проверено владельцем в игре 2026-11-12** (`main` `8b12b926`, Эннорат)

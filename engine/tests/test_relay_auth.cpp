@@ -6,6 +6,8 @@
 
 #include "doctest.h"
 
+#include "OnlineTestTemp.h"
+
 #include "Common/Crc32.h"
 #include "Common/Sha256.h"
 #include "GameNetwork/NetPacket.h"
@@ -621,8 +623,7 @@ TEST_CASE("auth: the per-packet MAC cost — keyed BLAKE2b-16 (chosen) vs HMAC-S
 TEST_CASE("auth: a 16-slot authenticated game through the real openbfme_relay binary")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = std::filesystem::temp_directory_path() / ("openbfme_auth_" + std::to_string(NetMilliseconds()));
-	std::filesystem::create_directories(dir);
+	onlinetest::TempDir dir("openbfme_auth"); // PORT-171
 	{
 		std::ofstream f(dir / "keys.txt");
 		f << "1:";
@@ -644,6 +645,7 @@ TEST_CASE("auth: a 16-slot authenticated game through the real openbfme_relay bi
 	const std::string bind = "127.0.0.1:" + std::to_string(port), keys = (dir / "keys.txt").string(), logs = dir.string(),
 					  status = (dir / "status.json").string();
 	TestChild relay(OPENBFME_RELAY_EXE, { "--bind", bind, "--keys", keys, "--log-dir", logs, "--status", status, "--stats-s", "0" }, (dir / "relay.out").string());
+	dir.holdsProcess("openbfme_relay", relay); // PORT-171: a relay that does not exit fails the removal below by its name
 	REQUIRE(relay.started());
 	// sixteen clients, each on its own socket, each with its slot's k
 	std::vector<std::unique_ptr<UDP>> sockets;
@@ -738,7 +740,7 @@ TEST_CASE("auth: a 16-slot authenticated game through the real openbfme_relay bi
 	CHECK(text.find("\"health\":{\"v\":1,\"event\":\"relay_health\",") != std::string::npos);
 	CHECK(text.find("\"dataDrops\":1,\"resends\":") != std::string::npos);
 	CHECK(text.find("\"games\":[]},\"authDropped\":3}") != std::string::npos);
-	std::filesystem::remove_all(dir);
+	dir.remove();
 }
 #endif
 
@@ -749,9 +751,7 @@ TEST_CASE("auth: a 16-slot authenticated game through the real openbfme_relay bi
 TEST_CASE("auth: the relay log's INPUT records count each slot's verified, plain, tampered, replayed and downgraded datagrams (D7)")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = std::filesystem::temp_directory_path() / ("openbfme_auth_input_" + std::to_string(std::chrono::steady_clock::now()
-		.time_since_epoch().count()));
-	std::filesystem::create_directories(dir);
+	const onlinetest::TempDir dir("openbfme_auth_input"); // PORT-171: before the relay, whose game log is closed when the folder goes
 	RelayCore::Options o;
 	o.keys = testRing();
 	o.logDir = dir.string();
@@ -805,5 +805,4 @@ TEST_CASE("auth: the relay log's INPUT records count each slot's verified, plain
 	CHECK_FALSE(i2.hadKey);
 	CHECK(i2.signedIn == 0);
 	CHECK(i2.plainIn == 1);
-	std::filesystem::remove_all(dir);
 }
