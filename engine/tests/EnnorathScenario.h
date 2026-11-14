@@ -35,6 +35,7 @@ struct World
 	Win32BIGFileSystem &pure = loadedWorld().pure;
 	retailtest::Mount &merged = loadedWorld().merged;
 	hudtest::SharedWorld &shared = loadedWorld().shared;
+	std::unique_ptr<RetailObjectWorld::ContextScope> context;
 
 	static std::string env(const char *name)
 	{
@@ -63,6 +64,7 @@ struct World
 		}
 		if (loadedWorld().loaded)
 		{
+			context = shared.world->enterContext();
 			return true;
 		}
 		std::string err;
@@ -85,9 +87,13 @@ struct World
 		REQUIRE_MESSAGE(mounted.ok, "Ennorath overlay mount failed");
 		shared.mount = &merged;
 		shared.world = std::make_unique<RetailObjectWorld>(*merged.fs);
-		REQUIRE_MESSAGE(shared.world->load(&err), err);
+		{
+			const auto loadContext = shared.world->enterContext();
+			REQUIRE_MESSAGE(shared.world->load(&err), err);
+		}
 		REQUIRE(shared.world->report().errors.empty());
 		loadedWorld().loaded = true;
+		context = shared.world->enterContext();
 		return true;
 	}
 };

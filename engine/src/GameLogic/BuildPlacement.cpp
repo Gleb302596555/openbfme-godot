@@ -12,6 +12,7 @@
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/SimMath.h"
+#include "GameLogic/WallSpan.h"
 
 namespace
 {
@@ -75,6 +76,26 @@ bool templateKindOf(GameLogic &logic, const ThingTemplate &tt, const char *name)
 		return false;
 	}
 	return MaskTest(logic.templateInfo(tt.getFinalOverride()).kindOf, (unsigned)bit);
+}
+
+// P-106: RW 0x6B00F3 -> 0x6B00CE (the decomp's Player::rva002AF614, Common/RTS/PlayerRva002AF614.cpp: iterateObjects with the collector that appends the position
+// of every object whose template byte + 0x10A carries bit 2, the KindOf COMMANDCENTER at index 17): the points the hub's buildout range is measured from, in the
+// object list's order. WallSpan.cpp's command centres for the wall plan are the same list (its own copy, read at the same addresses).
+std::vector<Coord3D> commandCentrePoints(GameLogic &logic, const Player *player)
+{
+	std::vector<Coord3D> out;
+	if (!player)
+	{
+		return out;
+	}
+	for (Object *o = logic.getFirstObject(); o; o = o->getNextObject())
+	{
+		if (o->getControllingPlayer() == player && !o->isDestroyed() && o->isKindOfName("COMMANDCENTER"))
+		{
+			out.push_back(*o->getPosition());
+		}
+	}
+	return out;
 }
 
 // ZH BuildAssistant::iterateFootprint as BuildPlacement samples it: every active shape's footprint (lane PATH-2, S-341) on a regular grid of `res` that always
@@ -541,6 +562,46 @@ LegalBuildCode BuildPlacement::isLocationLegalToBuild(GameLogic &logic, const Co
 				{
 					return LBC_RESTRICTED_TERRAIN;
 				}
+			}
+		}
+	}
+	// P-106, RW 0x796C66 .. 0x796D24 (BFME2 decomp BuildAssistant.cpp:2156 .. 2175): a WALL_HUB build (template KindOf 156, + 0x118 & 0x10000000 - the same bit
+	// BuildAssistant::isLineBuildTemplate tests) is legal only inside the range its own WallHubBehavior record carries at + 0x30 (MaxBuildoutDistance; RW 0xC565A4's
+	// unset default 54321.0) of one of its owner's command centres (the collector RW 0x6B00F3 -> 0x6B00CE above). No point in range - a player with no command centre
+	// included - is the raw 9 refusal (the decomp's LBC_9), which the ghost's tint loop of RW 0x6A3A0B .. 0x6A3A26 paints blue (0, 0, 0.5, the 1.7 blue on frame & 4)
+	// with the plain bib, not the illegal red; the release path refuses it the same way (RW 0x83E80D, code != 0). The finder is the decomp's ThingTemplate::rva0033B427
+	// (Common/Thing/ModuleInfoGetNthData.cpp:63: the first behavior module data of the template that answers its slot + 0x18, the WallHubBehavior's here), so a
+	// WALL_HUB template without a WallHubBehavior row is legal everywhere. The owner is the builder's player (the decomp reads builderObject->getControllingPlayer()),
+	// and the port skips the test with no builder at all: a castle layout entry hands the castle's own object and can have none (INFERENCE: RW would crash there).
+	// The port had this test only in the wall-span planner (WallSpan.cpp's `legal`, the tiles' 9), so a WALL_HUB *building* was legal at any distance from its base;
+	// both paths ask this function now. Nothing here reads TheTaintManager: the defiled ground takes no part in RotWK's placement legality (see the issue).
+	if (builder && templateKindOf(logic, build, "WALL_HUB"))
+	{
+		const WallHubBehaviorModuleData *hub = nullptr;
+		for (const auto &n : build.behaviorModules().nuggets())
+		{
+			hub = dynamic_cast<const WallHubBehaviorModuleData *>(n.data.get());
+			if (hub)
+			{
+				break;
+			}
+		}
+		if (hub)
+		{
+			const float range = hub->m_maxBuildoutDistance;
+			bool inRange = false;
+			for (const Coord3D &c : commandCentrePoints(logic, builder->getControllingPlayer()))
+			{
+				const float dx = SimMath::subf32(pos.x, c.x), dy = SimMath::subf32(pos.y, c.y), dz = SimMath::subf32(pos.z, c.z);
+				if ((float)SimMath::length3d(dx, dy, dz) <= range)
+				{
+					inRange = true;
+					break;
+				}
+			}
+			if (!inRange)
+			{
+				return LBC_BEYOND_BUILDOUT;
 			}
 		}
 	}

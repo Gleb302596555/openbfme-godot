@@ -6,6 +6,7 @@
 // observe-next-player (RW 0x6A8D2B) steps the view through the human players and back to "all".
 
 #include "doctest.h"
+#include "OnlineTestTemp.h"
 #include "OnlineTestWait.h"
 
 #include "StartTestUtil.h"
@@ -144,11 +145,11 @@ std::vector<std::uint8_t> frameInfo(std::uint8_t slot, std::uint32_t frame)
 	c.executionFrame = frame;
 	return NetPacket::encodeCommand(c, nullptr);
 }
-std::filesystem::path tempDir(const std::string &name)
+// PORT-171: the folder is removed when it goes out of scope (OnlineTestTemp.h). Declare it before the relay that logs into it: the relay is then
+// destroyed first and its game logs are closed (Windows cannot delete an open file).
+onlinetest::TempDir tempDir(const std::string &name)
 {
-	const std::filesystem::path p = std::filesystem::temp_directory_path() / ("openbfme_spectate_" + name + "_" + std::to_string(NetMilliseconds()));
-	std::filesystem::create_directories(p);
-	return p;
+	return onlinetest::TempDir("openbfme_spectate_" + name);
 }
 // everything a client at `from` may read of the log now (LOG_REQUEST / LOG_CHUNK until an empty chunk)
 std::vector<std::uint8_t> readLog(RelayCore &relay, const RelayAddress &from, std::uint64_t now)
@@ -246,7 +247,7 @@ TEST_CASE("online3 spectators: the relay binds a spectator, refuses its commands
 		  "back by its delay, keeps a finished game readable for it, and drops it when idle")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = tempDir("relay");
+	const onlinetest::TempDir dir = tempDir("relay");
 	RelayCore::Options o;
 	o.keys = ring();
 	o.logDir = dir.string();
@@ -329,13 +330,12 @@ TEST_CASE("online3 spectators: the relay binds a spectator, refuses its commands
 	CHECK(relay.stats().spectatorsDropped == 2);
 	CHECK(relay.openGames() == 0);
 	CHECK(relay.openLogHandles() == 0);
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online3 spectators (DEVPORT-1, Sol): a finished log whose rename fails stays readable from its .part")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = tempDir("renamefail");
+	const onlinetest::TempDir dir = tempDir("renamefail");
 	RelayCore::Options o;
 	o.keys = ring();
 	o.logDir = dir.string();
@@ -382,7 +382,6 @@ TEST_CASE("online3 spectators (DEVPORT-1, Sol): a finished log whose rename fail
 	REQUIRE_MESSAGE(RelayLogFile::parse(after, f, &error), error);
 	CHECK(f.complete);
 	relay.shutdown(now); // Windows cannot delete an open file: this closes the game logs
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online3 spectators: a real Transport takes the spectator WELCOME (0x80 + its index) and keeps its binding when the relay refuses its data")
@@ -545,7 +544,7 @@ TEST_CASE("online3 r1 (Sol: relay metadata): the per-frame command counts and th
 		  "bounded and a delayed spectator's cut-off after its thinning is never later than the exact one")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = tempDir("r1meta");
+	const onlinetest::TempDir dir = tempDir("r1meta");
 	{
 		// Sol's probe: 128-byte caps, 5,000 distinct commands of one frame: round 1 logged all 5,000 and held 10,000 count nodes with 0 bytes counted
 		RelayCore::Options o;
@@ -600,14 +599,13 @@ TEST_CASE("online3 r1 (Sol: relay metadata): the per-frame command counts and th
 		CHECK(maxFrameIn(readLog(relay, at(3), now)) == 10000 - 300);
 		relay.shutdown(2000);
 	}
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online3 r2 (Sol r2: caps before growth): every cap holds before the relay accepts work and after a stream stops, across several games; a "
 		  "stopped stream's sender releases its counts")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = tempDir("r2caps");
+	const onlinetest::TempDir dir = tempDir("r2caps");
 	const size_t frontier = 16 * sizeof(std::pair<std::uint64_t, std::uint32_t>); // a game's first frontier allocation
 	const size_t perCommand = 4 * RelayCore::kMetaNodeBytes;                       // a new frame's counts: the stream's and the sender's, 2 nodes each
 	auto play = [&](RelayCore &relay, std::uint64_t game, std::uint16_t portBase, size_t cap) {
@@ -657,14 +655,13 @@ TEST_CASE("online3 r2 (Sol r2: caps before growth): every cap holds before the r
 		CHECK(relay.heldBytes() == 0); // the games' ends release the rest
 		CHECK(relay.retainedBytes() == 0);
 	}
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online3 r3 (Sol r3: held bytes): a frontier expansion stays under the caps at sizes around the real ones; a stopped log releases exactly "
 		  "what it held (no counter wraps) and another game logs as before; one game's limits never touch another's")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = tempDir("r3held");
+	const onlinetest::TempDir dir = tempDir("r3held");
 	const size_t entry = sizeof(std::pair<std::uint64_t, std::uint32_t>);
 	const size_t counts = 4 * RelayCore::kMetaNodeBytes; // a new frame's command counts: the stream's and the sender's, 2 nodes each
 	const size_t frontier = 16 * entry;                    // a game's first frontier allocation; its first expansion (16 -> 32 entries) is as much again
@@ -791,14 +788,13 @@ TEST_CASE("online3 r3 (Sol r3: held bytes): a frontier expansion stays under the
 			exact(relay);
 		}
 	}
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online3 r1 (Sol: log reads): a LOG_REQUEST over its budget is refused before the disk is read; the game's and the relay's read budgets bound "
 		  "every client together; a game's log stops at its size cap")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = tempDir("r1reads");
+	const onlinetest::TempDir dir = tempDir("r1reads");
 	{
 		// The client's budget is below one chunk: refuse before opening a reader, on every platform.
 		RelayCore::Options o;
@@ -894,14 +890,13 @@ TEST_CASE("online3 r1 (Sol: log reads): a LOG_REQUEST over its budget is refused
 		CHECK(a.reply[3] == REFUSED);
 		relay.shutdown(2000);
 	}
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online3 r1: a delayed spectator during a pause: the log stops growing, so the spectator's cut-off stands still however long the pause; it "
 		  "moves on with the frames after the resume")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = tempDir("r1pause");
+	const onlinetest::TempDir dir = tempDir("r1pause");
 	RelayCore::Options o;
 	o.keys = ring();
 	o.logDir = dir.string();
@@ -937,7 +932,6 @@ TEST_CASE("online3 r1: a delayed spectator during a pause: the log stops growing
 	play(401, 500);
 	CHECK(maxFrameIn(readLog(relay, at(3), now)) == 200);
 	relay.shutdown(now);
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online3 spectators: a frame that ran before its CRC was in the log is compared when a newer log has it (a spectator at the log's edge)")
@@ -1283,7 +1277,7 @@ TEST_CASE("ADMINFIX-1 (Sol adminfix1-watch): an admin's silent watch never chang
 	// delay plus the grace, never at the admin's; and the admin still reads on to its own end.
 	using namespace RelayProtocol;
 	auto run = [](bool admin, std::vector<std::vector<std::uint8_t>> &publicAnswers, std::vector<std::uint8_t> &adminAnswer) {
-		const std::filesystem::path dir = tempDir(admin ? "relay-watch-admin" : "relay-watch-plain");
+		const onlinetest::TempDir dir = tempDir(admin ? "relay-watch-admin" : "relay-watch-plain");
 		RelayCore::Options o;
 		o.keys = ring();
 		o.logDir = dir.string();
@@ -1332,7 +1326,6 @@ TEST_CASE("ADMINFIX-1 (Sol adminfix1-watch): an admin's silent watch never chang
 		{
 			CHECK(relay.openGames() == 0);
 		}
-		std::filesystem::remove_all(dir);
 	};
 	std::vector<std::vector<std::uint8_t>> plain, watched;
 	std::vector<std::uint8_t> none, adminAnswer;

@@ -6,6 +6,7 @@
 
 #include "doctest.h"
 #include "TestChild.h"
+#include "OnlineTestTemp.h"
 #include "OnlineTestWait.h"
 
 #include "Common/Crc32.h"
@@ -22,6 +23,7 @@
 #include "RelayCore.h"
 #include "RelayLogProbe.h"
 
+#include <optional>
 #include <algorithm>
 #include <chrono>
 #include <cstdio>
@@ -156,11 +158,11 @@ std::string hex(const std::array<std::uint8_t, 32> &h)
 {
 	return HexBytes(h.data(), h.size());
 }
-std::filesystem::path tempDir(const std::string &name)
+// PORT-171: the folder is removed when it goes out of scope (OnlineTestTemp.h). Declare it before the relay that logs into it: the relay is then
+// destroyed first and its game logs are closed (Windows cannot delete an open file).
+onlinetest::TempDir tempDir(const std::string &name)
 {
-	const std::filesystem::path p = std::filesystem::temp_directory_path() / ("openbfme_online2_" + name + "_" + std::to_string(NetMilliseconds()));
-	std::filesystem::create_directories(p);
-	return p;
+	return onlinetest::TempDir("openbfme_online2_" + name);
 }
 RelayAddress addr(std::uint16_t port)
 {
@@ -807,20 +809,20 @@ TEST_CASE("online health: passive game metrics have exact counts, bounded sample
 	using namespace RelayProtocol;
 	RelayCore::Options options;
 	options.keys = testRing();
-	std::filesystem::path dir;
+	std::optional<onlinetest::TempDir> dir; // PORT-171: before the relay, so the relay's logs are closed when the folder goes
 	std::uint8_t mode = 0, caps = 0;
 	SUBCASE("without command logging") {}
 	SUBCASE("with command logging")
 	{
-		dir = tempDir("health");
-		options.logDir = dir.string();
+		dir.emplace("openbfme_online2_health");
+		options.logDir = dir->string();
 	}
 	SUBCASE("canonical game: direct commands")
 	{
 		mode = TICKET_MODE_CANONICAL;
 		caps = CAP_CANONICAL;
-		dir = tempDir("health_canonical"); // a canonical game needs its log (RelayCore::hello)
-		options.logDir = dir.string();
+		dir.emplace("openbfme_online2_health_canonical"); // a canonical game needs its log (RelayCore::hello)
+		options.logDir = dir->string();
 	}
 	RelayCore relay(options);
 	auto ticket = [&](std::uint8_t slot) {
@@ -912,10 +914,6 @@ TEST_CASE("online health: passive game metrics have exact counts, bounded sample
 	CHECK(health.get("metricsBytes")->number == 0);
 	CHECK(health.get("resends")->number == 1);
 	CHECK(health.get("games")->array.empty());
-	if (!dir.empty())
-	{
-		std::filesystem::remove_all(dir);
-	}
 }
 
 TEST_CASE("online health: collection can be disabled without changing relay forwarding")
@@ -1622,7 +1620,7 @@ TEST_CASE("online2: the relay binds by ticket, forwards in place, enforces the s
 TEST_CASE("online2: the relay logs every sender's frame commands once, in order, across its streams to every target; BYE closes the log")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = tempDir("log");
+	const onlinetest::TempDir dir = tempDir("log");
 	RelayCore::Options o;
 	o.keys = testRing();
 	o.logDir = dir.string();
@@ -1667,7 +1665,6 @@ TEST_CASE("online2: the relay logs every sender's frame commands once, in order,
 	CHECK(log.commands[2].msg.executionFrame == 6);
 	CHECK(log.events.size() == 6); // three bound, three bye
 	CHECK(log.datagramsIn[0] == 8);
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online2 r2 (Sol: player takeover): a leaked ticket from another address cannot take a bound slot; only the slot's session token rebinds it")
@@ -1741,7 +1738,7 @@ TEST_CASE("online2 r2 (Sol: relay DoS): rebinding does not refill the burst budg
 TEST_CASE("online2 r2 (Sol: log integrity): packets the receiving Transport refuses are neither logged nor forwarded")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = tempDir("r2valid");
+	const onlinetest::TempDir dir = tempDir("r2valid");
 	RelayCore::Options o;
 	o.keys = testRing();
 	o.logDir = dir.string();
@@ -1784,13 +1781,12 @@ TEST_CASE("online2 r2 (Sol: log integrity): packets the receiving Transport refu
 	CHECK(send(addr(1), encodeData(1, goodAck)).kind == RelayCore::Action::FORWARD);
 	CHECK(relay.stats().commandsLogged == 5);
 	relay.shutdown(2000);
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online2 r2 (Sol: relay memory): a command being joined from fragments counts against the stream, the sender, the game and the relay")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = tempDir("r2frag");
+	const onlinetest::TempDir dir = tempDir("r2frag");
 	RelayCore::Options o;
 	o.keys = testRing();
 	o.logDir = dir.string();
@@ -1833,13 +1829,12 @@ TEST_CASE("online2 r2 (Sol: relay memory): a command being joined from fragments
 	// (1,000), target 1's stream having stopped at its second fragment (3,064 > the 3,000-byte sender cap), plus the game's frontier (16 entries)
 	CHECK(relay2.stats().peakBuffered == 1000 + 1000 + 64 + 16 * sizeof(std::pair<std::uint64_t, std::uint32_t>));
 	relay2.shutdown(2000);
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online2 r3 (Sol r2): a finished or discarded partial command releases its allocation; what the streams keep is what the caps count")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = tempDir("r3mem");
+	const onlinetest::TempDir dir = tempDir("r3mem");
 	RelayCore::Options o;
 	o.keys = testRing();
 	o.logDir = dir.string();
@@ -1905,7 +1900,6 @@ TEST_CASE("online2 r3 (Sol r2): a finished or discarded partial command releases
 	CHECK(relay2.retainedBytes() == relay2.heldBytes());
 	relay.shutdown(2000);
 	relay2.shutdown(2000);
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online2 r3 (Sol r2): a relay rate of 0 never refills a spent bucket")
@@ -1977,7 +1971,7 @@ TEST_CASE("online2 r2: the Transport keeps the WELCOME's session token and prove
 
 TEST_CASE("online2: three real Transports play through the relay with 20 % loss: every command arrives once and in order, the log holds each once")
 {
-	const std::filesystem::path dir = tempDir("transport");
+	const onlinetest::TempDir dir = tempDir("transport");
 	RelayCore::Options ro;
 	ro.keys = testRing();
 	ro.logDir = dir.string();
@@ -2126,7 +2120,6 @@ TEST_CASE("online2: three real Transports play through the relay with 20 % loss:
 	{
 		CHECK(perSender[i] == kFrames + 1); // each command once, though it went to two targets and was resent
 	}
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online2: the relay log assembles into the frames the Network runs: slot order, the sender's player, CRCs as hashes, a leave")
@@ -2207,7 +2200,7 @@ TEST_CASE("online2: the relay log assembles into the frames the Network runs: sl
 	CHECK(a.crcDisagreements == 1);
 	CHECK_FALSE(a.hashes.count(2));
 	// the replay file carries the frames and the hashes
-	const std::filesystem::path dir = tempDir("replay");
+	const onlinetest::TempDir dir = tempDir("replay");
 	ReplayHeader h;
 	h.profile = ProfileIdentity::fromText("openbfme-profile 1\ntest\n");
 	h.network = config;
@@ -2219,7 +2212,6 @@ TEST_CASE("online2: the relay log assembles into the frames the Network runs: sl
 	CHECK(rf.frames.size() == a.frames.size());
 	CHECK(rf.hashes.size() == 2);
 	CHECK(rf.finalFrame == 4); // an interrupted recording plays to its last hashed frame
-	std::filesystem::remove_all(dir);
 	// a truncated log is an error
 	std::vector<std::uint8_t> cut(b.begin(), b.end() - 3);
 	CHECK_FALSE(RelayLogFile::parse(cut, log, &error));
@@ -2356,7 +2348,7 @@ TEST_CASE("online2: the lane's acceptance stops are reported (S-3710, S-3711)")
 #ifdef OPENBFME_RELAY_EXE
 TEST_CASE("online2: the openbfme_relay process welcomes a ticket over UDP, writes its status file and stops cleanly on SIGTERM")
 {
-	const std::filesystem::path dir = tempDir("exe");
+	const onlinetest::TempDir dir = tempDir("exe");
 	{
 		std::ofstream k(dir / "keys.txt");
 		k << "# test key\n1:" << HexBytes(testKey().data(), testKey().size()) << "\n";
@@ -2399,7 +2391,6 @@ TEST_CASE("online2: the openbfme_relay process welcomes a ticket over UDP, write
 	CHECK(text.find("\"gamesClosed\":1") != std::string::npos);
 	CHECK(text.find("\"takeoversRefused\":0") != std::string::npos); // ONLINE-2 r2: the security counters are in the health check
 	CHECK(text.find("\"invalidPackets\":0") != std::string::npos);
-	std::filesystem::remove_all(dir);
 }
 #endif
 
@@ -2422,7 +2413,7 @@ TEST_CASE("anticheat1 views: a VIEW on the log-only stream is logged by the rela
 	CHECK(back.view[1] == 200.25f);
 	CHECK(back.viewFlags == 1);
 	// through the relay: slot 0's log-only stream (DATA to its own slot) carries a frame command, then the VIEW
-	const std::filesystem::path dir = tempDir("views");
+	const onlinetest::TempDir dir = tempDir("views");
 	RelayCore::Options o;
 	o.keys = testRing();
 	o.logDir = dir.string();
@@ -2464,7 +2455,6 @@ TEST_CASE("anticheat1 views: a VIEW on the log-only stream is logged by the rela
 	CHECK(rf.views[0].cameraX == 100.5f);
 	CHECK(rf.views[0].cursorY == 480.0f);
 	CHECK(rf.views[0].flags == 1);
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("onlinemenu1: the online START carries each slot's handicap (0, -5 .. -95; absent from an older lobby: 0); anything else refuses the START")

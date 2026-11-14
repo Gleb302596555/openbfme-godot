@@ -204,6 +204,9 @@ void storeUberHashes(const char *name, const std::vector<std::uint32_t> &hashes)
 // whose hashes match the MSVC pins): with the batch only perf1 and uber1 move against main bc66c72f on the same machine (every other suite of the
 // batch run fails or passes as on main); the batch's logic changes are Port 138 (a rubble rebuild), Port 145 (SHIP enter legs), Port 148 (GIANT_BIRD
 // separation), Port 164 (the giant bird's contact point, mode 1) and Port 29 (BuildingBehavior's fire lists); not bisected between them
+// pin: the arena PR batch of 2026-11-14 (2) (fork PRs 440 .. 476) re-measured it once on the merged tree (OPENBFME_UBER1_REGEN=1, Linux GCC on Colab, whose
+// hashes match the MSVC pins): PORT-437 (#476, the generic attack machine's object conditions RW 0x7457DF / RW 0x745901) moves it from frame 0; the
+// merged tree with #476 reverted passes the previous vector
 TEST_CASE("uber1: the Uber battle hashes as its pin vector in every frame with 1, 4 and 16 logic threads and in a repeated run; the hash's own jobs run on "
 		  "workers; Faithful hashes differently and serially")
 {

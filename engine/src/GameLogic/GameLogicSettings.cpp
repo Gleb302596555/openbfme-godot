@@ -474,6 +474,9 @@ const FieldParse kAIDataFields[] = {
 	{ "ForceIdleMSEC", parseNoting<INI::parseDurationUnsignedInt>, 0, (int)offsetof(BlockState, values.forceIdleFrames) },
 	{ "AttackPriorityDistanceModifier", parseNoting<INI::parseReal>, 0, (int)offsetof(BlockState, values.attackPriorityDistanceModifier) },
 	{ "AttackUsesLineOfSight", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.attackUsesLineOfSight) },
+	// PORT-437: AICrushesInfantry (row RW 0xC1CDA0, parseBool RW 0x42E558, AIData + 0x8C): the crush condition RW 0x745945 of the generic attack
+	// machine. Retail aidata.ini leaves it to the constructor's 1, so only a mod that turns it off is hashed
+	{ "AICrushesInfantry", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.aiCrushesInfantry) },
 	{ "AttackIgnoreInsignificantBuildings", parseNoting<INI::parseBool>, 0, (int)offsetof(BlockState, values.attackIgnoreInsignificantBuildings) },
 	{ "ArtilleryMaxFriendlyFire", parseNoting<INI::parsePercentToReal>, 0, (int)offsetof(BlockState, values.artilleryMaxFriendlyFire) },
 	{ "AttackPriority", parseAttackPriorityBlock, nullptr, 0 },
@@ -878,6 +881,10 @@ void GameLogicSettings::crc(StateHasher &h) const
 	h.addU32(forceIdleFrames); // lane TARGET-1
 	h.addFloat(attackPriorityDistanceModifier);
 	h.addBool(attackUsesLineOfSight);
+	if (!aiCrushesInfantry)
+	{
+		h.addBool(aiCrushesInfantry); // PORT-437: the constructor's default is 1, so retail games keep their settings hash
+	}
 	h.addBool(attackIgnoreInsignificantBuildings);
 	h.addFloat(artilleryMaxFriendlyFire);
 	if (maxRecruitRadius != 400.0f)

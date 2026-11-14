@@ -8,11 +8,14 @@
 #pragma once
 
 #ifndef _WIN32
+#include <cerrno>
+#include <chrono>
 #include <csignal>
 #include <cstdlib>
 #include <fcntl.h>
 #include <string>
 #include <sys/wait.h>
+#include <thread>
 #include <unistd.h>
 #include <vector>
 #ifdef __linux__
@@ -100,6 +103,47 @@ public:
 		waitpid(m_pid, &st, 0);
 		m_pid = -1;
 		return st;
+	}
+	// PORT-171 (fork issue 400): SIGTERM and a bounded wait, for a caller that must name a helper that does not stop (OnlineTestTemp.h
+	// TempDir::holdsProcess) instead of waiting for it for ever. false = the child was still running at `limit`: it is then killed (SIGKILL) and
+	// reaped, so it holds nothing after this call either way. `status` receives the wait status.
+	bool stopWithin(std::chrono::milliseconds limit, int *status = nullptr)
+	{
+		if (m_pid <= 0)
+		{
+			return true;
+		}
+		kill(m_pid, SIGTERM);
+		const auto deadline = std::chrono::steady_clock::now() + limit;
+		int st = 0;
+		bool exited = false;
+		for (;;)
+		{
+			const pid_t waited = waitpid(m_pid, &st, WNOHANG);
+			if (waited == m_pid || (waited == -1 && errno != EINTR))
+			{
+				exited = true;
+				break;
+			}
+			if (std::chrono::steady_clock::now() >= deadline)
+			{
+				break;
+			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(1));
+		}
+		if (!exited)
+		{
+			kill(m_pid, SIGKILL);
+			while (waitpid(m_pid, &st, 0) == -1 && errno == EINTR)
+			{
+			}
+		}
+		m_pid = -1;
+		if (status)
+		{
+			*status = st;
+		}
+		return exited;
 	}
 
 private:

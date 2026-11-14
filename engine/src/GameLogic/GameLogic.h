@@ -259,6 +259,10 @@ struct GameLogicSettings
 	unsigned forceIdleFrames = 1; // lane AIDATA-1: the constructor's 1 (RW 0x6FFBEF: + 0x14)
 	float attackPriorityDistanceModifier = 0.0f;
 	bool attackUsesLineOfSight = true;
+	// PORT-437: AIData AICrushesInfantry (+ 0x8C, row RW 0xC1CDA0, parseBool RW 0x42E558; the constructor RW 0x6FFD70 stores 1, copy RW 0x6FEFEF): the
+	// generic attack machine's crush condition RW 0x745945 reads TheAI + 0x18 -> + 0x8C. With it on, a unit whose crush policy accepts the victim (RW 0x69519A)
+	// walks into it instead of shooting (table RW 0xC29DD4 record 2 -> Chase 0x64)
+	bool aiCrushesInfantry = true;
 	bool attackIgnoreInsignificantBuildings = false;
 	float artilleryMaxFriendlyFire = 1.0f;
 	// lane AIDATA-1: ChaseFromBehindLimit + 0xD0 (row RW 0xC1CEF0, parseReal RW 0x42ED00; ctor 50.0 = RW 0xBD88C4): a melee unit that is

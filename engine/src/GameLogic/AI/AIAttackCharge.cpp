@@ -158,6 +158,7 @@ StateReturnType AIChargeTargetState::onEnter()
 		return STATE_FAILURE;
 	}
 	m_goal = *victim->getPosition();
+	m_setBeforeCharge = a.curLocomotorSet(); // fork issue 395 Q3: the set the strike's LOCOMOTORSET_PANIC (RW 0x7519FE) displaces
 	ObjectWeapons::setObjectWeaponLock(obj, PRIMARY_WEAPON, LOCKED_TEMPORARILY); // RW 0x69121A(0, 1)
 	// RW 0x754969 .. 0x7549A8: { owner->getDrawable() } -> RW 0x8DEDBB(list, 0x7EA, 0) (VoiceStartCharging; the port's voice request, as AIEmotionStates.cpp)
 	AudioApi::postUnitVoice(kVoiceStartCharging, obj.getID());
@@ -207,7 +208,11 @@ void AIChargeTargetState::onExit(StateExitType)
 	{
 		a.setModelCondition("CHARGING", false);
 	}
-	a.chooseLocomotorSet(LOCOMOTORSET_NORMAL);                            // RW 0x74D8C8: AI vslot 0x238(0)
+	// RW 0x74D8C8: AI vslot 0x238(0) — the exit pushes literal 0 (SET_NORMAL). Vanilla charges from SET_NORMAL (Khamul's NazgulPlowAttackKhamulNew),
+	// where 0 IS the set the charge displaced; the fork's mounted chargers (fork issue 395 Q3, Erkenbrand from SET_MOUNTED) would land on SET_NORMAL
+	// and drop from the mounted speed to the human one ("afterwards Erkenbrand moves slowly"). The fork restores the recorded entry set instead,
+	// which is the literal 0 for every charger that entered from SET_NORMAL and the fork's check (the speed after == the speed before) otherwise.
+	a.chooseLocomotorSet(m_setBeforeCharge);
 	ObjectWeapons::releaseObjectWeaponLock(obj, LOCKED_TEMPORARILY);      // RW 0x68DF11(1)
 	if (m_move)
 	{
@@ -231,6 +236,7 @@ void AIChargeTargetState::crc(StateHasher &h) const
 	h.addFloat(m_goal.z);
 	h.addBool(m_done);
 	h.addI32(m_count);
+	h.addI32(m_setBeforeCharge);
 	h.addBool(m_move != nullptr);
 	if (m_move)
 	{
@@ -240,10 +246,11 @@ void AIChargeTargetState::crc(StateHasher &h) const
 
 void AIChargeTargetState::xfer(Xfer &x)
 {
-	XferVersion v{ 1, 1 };
+	XferVersion v{ 1, 2 };
 	x.xferVersion(v);
 	AIXfer::coord(x, m_goal);
 	x.xferBool(&m_done);
 	x.xferInt(&m_count);
+	x.xferInt(&m_setBeforeCharge);
 	xferMove(x, ai().mover(), m_move);
 }

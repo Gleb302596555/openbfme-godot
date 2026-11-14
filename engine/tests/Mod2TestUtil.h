@@ -19,6 +19,7 @@ namespace mod2test
 // a retail game on a flat synthetic terrain with TheAI (the move tests' setup): Men (P0) and Mordor (P1)
 struct RetailGame
 {
+	std::unique_ptr<RetailObjectWorld::ContextScope> context;
 	TeamFactory teams;
 	PlayerList players;
 	GameLogic logic;
@@ -27,7 +28,8 @@ struct RetailGame
 	std::unique_ptr<AIWorld> ai;
 
 	explicit RetailGame(hudtest::SharedWorld &s, unsigned seed = 3)
-		: players(s.world->nameKeys(), s.world->playerTemplates(), teams)
+		: context(s.world->enterContext())
+		, players(s.world->nameKeys(), s.world->playerTemplates(), teams)
 		, logic(s.world->things(), s.world->modules(), players, RandomAlgorithm::ZH_CarryChain)
 		, terrain(100, 100)
 	{

@@ -135,12 +135,15 @@ inline bool loadShared(starttest::Shared &s)
 		return false;
 	}
 	s.world = std::make_unique<RetailObjectWorld>(*s.mount->fs);
-	if (!s.world->load(&s.error))
+	bool ok = false;
 	{
-		s.world.reset();
+		const auto loadContext = s.world->enterContext();
+		ok = s.world->load(&s.error) && MapObjectGameData::load(*s.mount->fs, s.options, &s.error) &&
+			MapObjectGameData::loadPlayerTemplates(*s.mount->fs, s.options, &s.error) &&
+			MapCreationHooks::load(*s.mount->fs, s.options.creationScripts, &s.error) &&
+			GameLogicSettingsLoader::load(*s.mount->fs, s.settings, &s.error);
 	}
-	else if (!MapObjectGameData::load(*s.mount->fs, s.options, &s.error) || !MapObjectGameData::loadPlayerTemplates(*s.mount->fs, s.options, &s.error) ||
-		!MapCreationHooks::load(*s.mount->fs, s.options.creationScripts, &s.error) || !GameLogicSettingsLoader::load(*s.mount->fs, s.settings, &s.error))
+	if (!ok)
 	{
 		s.world.reset();
 	}

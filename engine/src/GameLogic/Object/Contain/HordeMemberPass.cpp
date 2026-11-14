@@ -696,6 +696,32 @@ bool HordeContain::runMemberPass()
 		// lane BACKLOG-8 r2: the slot keeps the horde's height (RW 0x877D89 -> RW 0x875847: x / y the horde's position plus the turned offset, z the horde's
 		// position + 0x40); the port put it on the ground, so the near arm's FLOATING_Z rule (RW 0x874F30: the slot as it is) never showed
 		Coord3D slot = m_core->getSlotWorldPos(m->getID(), owner, &slotAngle);
+		float angle = SimMath::addf32(owner.angle, slotAngle);
+		if (m_data->horde.m_isPorcupineFormation)
+		{
+			// RotWK 2.01 RW 0x8740C1 .. 0x874117: the goal facing a porcupine horde gives a member is the radial bearing from the horde's position
+			// (Object + 0x38 / + 0x3C) to the member's slot position (the slot7 call RW 0x8740AC, the port's getSlotWorldPos), not the horde's angle
+			// plus the slot's angle. dx / dy = slot - owner, exactly zero -> the horde's own orientation (RW 0x87410D: [owner + 0x44]); otherwise the
+			// x87 ACos path of RW 0x87411C .. 0x874153: normalize in place (RW 0x405595), ACos(dx) (RW 0x42F4F0, the CRT's; the port's deterministic
+			// "Det" spelling, parity stop S-167), and dy < 0 negates the wrap (angle = 2*pi - a, RW 0xBDD38C).
+			const float dx = SimMath::subf32(slot.x, owner.position.x);
+			const float dy = SimMath::subf32(slot.y, owner.position.y);
+			if (SimMath::sumSquares2(dx, dy) == 0.0f)
+			{
+				angle = owner.angle; // RW 0x8740FA .. 0x874117 (jp skips to the [owner + 0x44] read on an exactly zero or unordered sum)
+			}
+			else
+			{
+				const float len = SimMath::length2d(dx, dy);
+				float c = SimMath::divf32(dx, len);
+				c = c > 1.0f ? 1.0f : (c < -1.0f ? -1.0f : c); // acos's domain (CRT ACos would return an indefinite NaN otherwise)
+				angle = (float)SimMath::acosDet((double)c);
+				if (dy < 0.0f)
+				{
+					angle = SimMath::subf32(kTwoPi, angle); // RW 0x87413A .. 0x874153
+				}
+			}
+		}
 		// lane MOVE-2 r3: the pass's slot is the contain's slot 0x1C (RW 0x874080 -> 0x877D89): in a melee the member's melee destination (RW 0x98F819)
 		if (meleeHai)
 		{
@@ -705,10 +731,9 @@ bool HordeContain::runMemberPass()
 				slot = dest;
 			}
 		}
-		float angle = SimMath::addf32(owner.angle, slotAngle);
 		if (!m_data->horde.m_isPorcupineFormation)
 		{
-			// lane MODULES-3: the emotion branches (RW 0x874155 .. 0x874671, HordeEmotion.cpp)
+		// lane MODULES-3: the emotion branches (RW 0x874155 .. 0x874671, HordeEmotion.cpp)
 			const int r = emotionMemberOrder(*m, scarer, slot, angle);
 			if (r == 1)
 			{

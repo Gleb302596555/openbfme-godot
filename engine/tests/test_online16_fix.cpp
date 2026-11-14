@@ -5,6 +5,8 @@
 
 #include "doctest.h"
 
+#include "OnlineTestTemp.h"
+
 #include "Common/Crc32.h"
 #include "GameNetwork/NetPacket.h"
 #include "GameNetwork/Network.h"
@@ -18,6 +20,7 @@
 #include "GameClient/GUI/Skirmish/RealTimeStats.h"
 #include "RelayCore.h"
 
+#include <optional>
 #include <algorithm>
 #include <cstring>
 #include <deque>
@@ -207,8 +210,7 @@ RelayAddress routeOf(RelayCore &relay, Party &sender, int target, std::uint32_t 
 TEST_CASE("online16-fix: a previous-release client (v3 HELLO, v1 ticket) plays a legacy game beside a current one; every answer is in its envelope")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = std::filesystem::temp_directory_path() / ("openbfme_o16fix_v3_" + std::to_string(NetMilliseconds()));
-	std::filesystem::create_directories(dir);
+	const onlinetest::TempDir dir("openbfme_o16fix_v3"); // PORT-171: before the relay, whose game logs are closed when the folder goes
 	RelayCore::Options o;
 	o.keys = testRing();
 	o.logDir = dir.string();
@@ -283,7 +285,6 @@ TEST_CASE("online16-fix: a previous-release client (v3 HELLO, v1 ticket) plays a
 	CHECK(a[0].reply == v3(encodeRefused(REFUSE_CAPABILITY)));
 	CHECK(relay.stats().badDatagrams == 1);
 	relay.shutdown(0); // Windows cannot delete an open file: this closes the game logs
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online16-fix: a version-3 DATA or HELLO from an authenticated binding is a downgrade: dropped, never refused (AUTH-1 review 4)")
@@ -317,13 +318,11 @@ namespace
 {
 struct RealRelay
 {
-	std::filesystem::path dir;
+	onlinetest::TempDir dir; // PORT-171
 	std::uint16_t port = 0;
 	std::unique_ptr<TestChild> child;
-	explicit RealRelay(const std::string &name)
+	explicit RealRelay(const std::string &name) : dir("openbfme_o16fix_" + name)
 	{
-		dir = std::filesystem::temp_directory_path() / ("openbfme_o16fix_" + name + "_" + std::to_string(NetMilliseconds()));
-		std::filesystem::create_directories(dir);
 		{
 			std::ofstream f(dir / "keys.txt");
 			f << "1:";
@@ -356,9 +355,14 @@ struct RealRelay
 	}
 	~RealRelay()
 	{
-		child.reset(); // the relay stops (and stops writing its log) before its directory goes
-		std::error_code ec;
-		std::filesystem::remove_all(dir, ec);
+		// PORT-171: the relay stops (and stops writing its log) before its directory goes; one that does not exit, or a file left open, fails the
+		// test by its name (the removal's error is no longer swallowed). Registered here, not at the start: a test may have restarted the relay,
+		// and the process to wait for is the one running now.
+		if (child)
+		{
+			dir.holdsProcess("openbfme_relay", *child);
+		}
+		dir.removeOrFail();
 	}
 };
 } // namespace
@@ -619,8 +623,8 @@ TEST_CASE("online16-fix auth: a spectator bound with its own key cannot take a p
 	using namespace RelayProtocol;
 	RelayCore::Options o;
 	o.keys = testRing();
-	o.logDir = (std::filesystem::temp_directory_path() / ("openbfme_o16fix_spec_" + std::to_string(NetMilliseconds()))).string();
-	std::filesystem::create_directories(o.logDir);
+	const onlinetest::TempDir logFolder("openbfme_o16fix_spec"); // PORT-171: before the relay, whose game logs are closed when the folder goes
+	o.logDir = logFolder.string();
 	RelayCore relay(o);
 	Party p0 = party(playerTicket(0), 7000), p1 = party(playerTicket(1), 7001), spec = party(spectatorTicket(0), 7100);
 	bind(relay, p0);
@@ -640,7 +644,6 @@ TEST_CASE("online16-fix auth: a spectator bound with its own key cannot take a p
 	CHECK(relay.stats().authDropped == dropped + 2);
 	CHECK(routeOf(relay, p0, 1, 1) == p1.from);
 	relay.shutdown(0); // Windows cannot delete an open file: this closes the game logs
-	std::filesystem::remove_all(o.logDir);
 }
 
 TEST_CASE("online16-fix auth: a captured token HELLO replayed from another address is dropped by the slot's window (review 2)")
@@ -698,8 +701,8 @@ TEST_CASE("online16-fix auth: authenticated rebind, rejoin and spectator flows; 
 	using namespace RelayProtocol;
 	RelayCore::Options o;
 	o.keys = testRing();
-	o.logDir = (std::filesystem::temp_directory_path() / ("openbfme_o16fix_flows_" + std::to_string(NetMilliseconds()))).string();
-	std::filesystem::create_directories(o.logDir);
+	const onlinetest::TempDir logFolder("openbfme_o16fix_flows"); // PORT-171: before the relay, whose game logs are closed when the folder goes
+	o.logDir = logFolder.string();
 	RelayCore relay(o);
 	Party p0 = party(playerTicket(0), 7400), p1 = party(playerTicket(1), 7401);
 	bind(relay, p0);
@@ -738,7 +741,6 @@ TEST_CASE("online16-fix auth: authenticated rebind, rejoin and spectator flows; 
 		CHECK(d[3] == STATUS);
 	}
 	relay.shutdown(0); // Windows cannot delete an open file: this closes the game logs
-	std::filesystem::remove_all(o.logDir);
 }
 
 TEST_CASE("online16-fix auth: a restarted relay's answers pass the client's window; refusals are never sealed with a fixed counter (review 5)")
@@ -1292,8 +1294,8 @@ TEST_CASE("online16-fix auth: a sealed BYE (no payload) is read and closes the g
 	using namespace RelayProtocol;
 	RelayCore::Options o;
 	o.keys = testRing();
-	o.logDir = (std::filesystem::temp_directory_path() / ("openbfme_o16fix_bye_" + std::to_string(NetMilliseconds()))).string();
-	std::filesystem::create_directories(o.logDir);
+	const onlinetest::TempDir logFolder("openbfme_o16fix_bye"); // PORT-171: before the relay, whose game logs are closed when the folder goes
+	o.logDir = logFolder.string();
 	RelayCore relay(o);
 	Party p0 = party(playerTicket(0), 7700), p1 = party(playerTicket(1), 7701);
 	bind(relay, p0);
@@ -1306,7 +1308,6 @@ TEST_CASE("online16-fix auth: a sealed BYE (no payload) is read and closes the g
 	CHECK(relay.stats().authDropped == 0);
 	CHECK(relay.openGames() == 0); // every bound slot said BYE: the log closed
 	CHECK(relay.closedLogs().size() == 1);
-	std::filesystem::remove_all(o.logDir);
 }
 
 // ---- online batch (Sol, blocking 2): a previous-release game's relay log is one the previous release reads (live rejoin and spectating) ---------
@@ -1363,8 +1364,8 @@ std::vector<std::uint8_t> playedLog(bool previousRelease, std::vector<std::uint8
 	using namespace RelayProtocol;
 	RelayCore::Options o;
 	o.keys = testRing();
-	o.logDir = (std::filesystem::temp_directory_path() / ("openbfme_batch_log_" + std::to_string(previousRelease) + "_" + std::to_string(NetMilliseconds()))).string();
-	std::filesystem::create_directories(o.logDir);
+	const onlinetest::TempDir logFolder("openbfme_batch_log_" + std::to_string(previousRelease)); // PORT-171: before the relay
+	o.logDir = logFolder.string();
 	RelayCore relay(o);
 	auto wire = [&](std::vector<std::uint8_t> d) { return previousRelease ? v3(std::move(d)) : d; };
 	auto hello = [&](const std::vector<std::uint8_t> &ticket) { return previousRelease ? hello3(ticket) : encodeHello(ticket, {}, CAP_CANONICAL); };
@@ -1395,7 +1396,6 @@ std::vector<std::uint8_t> playedLog(bool previousRelease, std::vector<std::uint8
 	send(relay, addr(8101), wire(encodeEmpty(BYE)));
 	REQUIRE(relay.closedLogs().size() == 1);
 	const std::vector<std::uint8_t> log = readAll(relay.closedLogs()[0]);
-	std::filesystem::remove_all(o.logDir);
 	return log;
 }
 } // namespace
@@ -1436,8 +1436,7 @@ namespace
 std::vector<std::uint8_t> spectatorFirstLog(bool previousRelease, std::uint8_t spectatorEnvelope, bool restart)
 {
 	using namespace RelayProtocol;
-	const std::string base = (std::filesystem::temp_directory_path() / ("openbfme_batch_specfirst_" + std::to_string(previousRelease) + "_"
-		+ std::to_string(spectatorEnvelope) + "_" + std::to_string(restart) + "_" + std::to_string(NetMilliseconds()))).string();
+	const std::string base = "openbfme_batch_specfirst_" + std::to_string(previousRelease) + "_" + std::to_string(spectatorEnvelope) + "_" + std::to_string(restart);
 	Party p[2] = { party(playerTicket(0, 0x03), 8300), party(playerTicket(1, 0x03), 8301) };
 	std::vector<std::uint8_t> log;
 	const int runs = restart ? 2 : 1;
@@ -1446,8 +1445,8 @@ std::vector<std::uint8_t> spectatorFirstLog(bool previousRelease, std::uint8_t s
 	{
 		RelayCore::Options o;
 		o.keys = testRing();
-		o.logDir = base + "_" + std::to_string(run);
-		std::filesystem::create_directories(o.logDir);
+		const onlinetest::TempDir logFolder(base + "_" + std::to_string(run)); // PORT-171: one folder a run, gone with the run's relay
+		o.logDir = logFolder.string();
 		RelayCore relay(o);
 		const RelayAddress spec = addr((std::uint16_t)(8310 + run));
 		const std::vector<std::uint8_t> sticket = spectatorTicket(0, 0x03);
@@ -1493,10 +1492,6 @@ std::vector<std::uint8_t> spectatorFirstLog(bool previousRelease, std::uint8_t s
 		}
 		REQUIRE(relay.closedLogs().size() == 1);
 		log = readAll(relay.closedLogs()[0]);
-	}
-	for (int run = 0; run < runs; ++run)
-	{
-		std::filesystem::remove_all(base + "_" + std::to_string(run));
 	}
 	return log;
 }
@@ -1547,15 +1542,11 @@ namespace
 enum class R4 { Current, AllOld, PinnedByV3Hello };
 struct R4Game
 {
+	std::optional<onlinetest::TempDir> folder; // PORT-171: removed with the game; playR4's relay is gone by then (a failure is not swallowed)
 	std::string dir, logPath;
 	std::vector<std::uint8_t> log;
 	bool sidecar = false;
 	unsigned long long legacyLogAuthenticated = 0;
-	~R4Game()
-	{
-		std::error_code ec;
-		std::filesystem::remove_all(dir, ec);
-	}
 };
 // two players (slots 0 and 1) play one frame each and say BYE. PinnedByV3Hello: slot 0, a current participant, first sends its own ticket in a
 // version-3 HELLO (the game opens with a version-2 log), then both authenticate as usual (slot 0 rebinds with the session token it got)
@@ -1564,9 +1555,9 @@ void playR4(R4 kind, R4Game &out)
 	using namespace RelayProtocol;
 	RelayCore::Options o;
 	o.keys = testRing();
-	out.dir = (std::filesystem::temp_directory_path() / ("openbfme_batch_r4_" + std::to_string((int)kind) + "_" + std::to_string(NetMilliseconds()))).string();
+	out.folder.emplace("openbfme_batch_r4_" + std::to_string((int)kind));
+	out.dir = out.folder->string();
 	o.logDir = out.dir;
-	std::filesystem::create_directories(o.logDir);
 	RelayCore relay(o);
 	Party p[2] = { party(playerTicket(0, 0x03), 8500), party(playerTicket(1, 0x03), 8501) };
 	const bool old = kind == R4::AllOld;

@@ -234,6 +234,9 @@ public:
 	void initiateUnpack(bool instant, const ThingTemplate *explicitTemplate);
 	// RW 0x79CB47 (abandon): what a player's pack starts (MSG_CASTLE_PACK, RW 0x77C2B7)
 	void abandonByPlayer() { abandon(); }
+	// RW 0x799440 (the camp-destroyed EVA, called by RW 0x79CB5C at the start of the abandon): the owner / ally / attacker event of the
+	// castle's CastleMemberBehavior data, chosen against the local player and reported at the castle (RW 0x79951F / 0x799560 / 0x7995C2 -> RW 0x7995DB)
+	void reportCampDestroyedEva();
 	// RW + 0x4C: the price the last player's unpack paid (0 for the starting fortress and a summoned castle)
 	float storedPrice() const { return m_storedPrice; }
 	const std::string &evaEnemyCastleSightedEvent() const { return m_data->m_evaEnemyCastleSightedEvent; }

@@ -656,6 +656,10 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // pin: Port 27 (fork PR 355, ProjectileStreamName: a weapon with a stream creates its stream object, WeaponState hashes the stream id only while
 // it holds one) re-measured the skirmish once on station-2 (OPENBFME_PERF1_REGEN=1, Windows MSVC), moving from frame 1662; the switch-off run without
 // PR 355 keeps the old vector (PRs 349 and 358 off: still moved); the big battle and the allied blob do not move
+// pin: the arena PR batch of 2026-11-14 (2) (fork PRs 440 .. 476, 15 merged, on top of Port 140 and Local 45 / 47 / 48) re-measured the battle and the skirmish
+// once on the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab, whose hashes match the MSVC pins): PORT-437 (#476), the generic attack machine's
+// object conditions RW 0x7457DF (out of reach -> chase) and RW 0x745901 (crush the victim instead), moves the battle from frame 45 and the skirmish from
+// frame 540. Attributed by a switch-off run: the merged tree with #476 reverted passes the previous vectors; the allied blob keeps its file
 TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after another AI game (6000 frames) hash as the build before PERF-1 did in every frame")
 {
 	// Ambient movement: target idle wandering adds RNG draws and origin state,

@@ -20,6 +20,7 @@
 #include "GameLogic/Locomotor.h"
 #include "GameLogic/SimMath.h"
 #include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Module/GiantBirdAIUpdate.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/Object/Contain/OpenContainRuntime.h"
 #include "GameLogic/Object/Object.h"
@@ -391,6 +392,14 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 			{
 				s.locomotorTemplate = &l->getTemplate();
 			}
+			// LOCAL-47 (RW 0x670E29 .. 0x670E3D): Drawable::calcPhysicsXformGiantBird asks AI vslot 0x168
+			// (true only for GiantBirdAIUpdate, RW 0x8BD372) and reads AI + 0x600 (GiantBirdFlight::turnRate)
+			// via vslot 0x188 (RW 0x8CEF91).
+			if (const GiantBirdAIUpdate *birdAi = dynamic_cast<const GiantBirdAIUpdate *>(ai))
+			{
+				s.giantBirdAI = true;
+				s.giantBirdTurnRate = birdAi->flight().turnRate;
+			}
 		}
 		s.scriptTarget = DrawableScriptTarget::capture(logic, *o); // lane FX-3
 		// the radar's inputs (Radar::blips: retail's live test of the same conditions)
@@ -431,13 +440,23 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 			// OpenContain - its contain interface is HordeContain. The OpenContain that placed it on a bone is the transport's (HordeTransportContain),
 			// found by walking outer->getContainedBy() until an OpenContain answers riderBone for this object (RW 0x868A70).
 			s.containedOnBone = false;
+			s.containedBoneOwner = INVALID_ID;
+			s.containedBone.clear();
+			s.containedRidersCanAttack = false;
 			for (const Object *walker = outer; walker && !s.containedOnBone; walker = walker->getContainedBy())
 			{
 				const ContainModuleInterface *wc = walker->getContain();
 				const OpenContain *woc = dynamic_cast<const OpenContain *>(wc);
-				if (woc && !woc->riderBone(o->getID()).empty())
+				if (woc)
 				{
-					s.containedOnBone = true;
+					const std::string &bone = woc->riderBone(o->getID());
+					if (!bone.empty())
+					{
+						s.containedOnBone = true;
+						s.containedBoneOwner = walker->getID();
+						s.containedBone = bone;
+						s.containedRidersCanAttack = woc->isPassengerAllowedToFire(); // RW 0x865A7E, checked at RW 0x4B6952
+					}
 				}
 			}
 		}
