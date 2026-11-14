@@ -254,3 +254,54 @@ TEST_CASE("PORT-187 P-117 giant bird: every swoop that reaches the barracks fire
 	// the 10-damage SIEGE nugget of the fixture, once per strike
 	CHECK(a.w.health(barracks) == 2000.0f - 10.0f * (float)strikes);
 }
+
+TEST_CASE("PORT-187 diagnostic: what RW 0x5E91E2 averages, frame by frame")
+{
+	Port187Arena a;
+	Object *barracks = a.w.unit("Port187Barracks", 'B', 400.0f, 200.0f);
+	REQUIRE(barracks != nullptr);
+	a.bird->setOrientation(0.0f);
+	REQUIRE(a.ai->aiAttackObject(barracks, CMD_FROM_PLAYER));
+	std::string trace;
+	for (int f = 0; f < 100; ++f)
+	{
+		a.w.frames(1);
+		GiantBirdAIUpdate &ai = *a.ai;
+		const AerialSpline &sp = ai.spline();
+		const float d = ai.pathDistance();
+		const float half = CombatQueries::boundingSphereRadius(*ai.getObject()) * 0.5f;
+		AerialSpline &ms = const_cast<AerialSpline &>(sp);
+		Coord3D behind{}, ahead{};
+		const bool hb = AerialPathfinder::query(ms, d - half, behind);
+		const bool ha = AerialPathfinder::query(ms, d + half, ahead);
+		const Coord3D p = *a.bird->getPosition();
+		const Coord3D g = *barracks->getPosition();
+		trace += "#" + std::to_string(f) + " st" + std::to_string((int)ai.currentStateId()) + " cp" + std::to_string(sp.controlPointCount()) +
+			" d" + std::to_string((int)d) + " yaw" + std::to_string((int)(a.bird->getOrientation() * 57.2958f)) +
+			" p" + std::to_string((int)p.x) + "," + std::to_string((int)p.y) +
+			" toGoal" + std::to_string((int)(std::atan2(g.y - p.y, g.x - p.x) * 57.2958f));
+		if (hb)
+		{
+			trace += " B" + std::to_string((int)behind.x) + "," + std::to_string((int)behind.y);
+		}
+		else
+		{
+			trace += " B-";
+		}
+		if (ha)
+		{
+			trace += " A" + std::to_string((int)ahead.x) + "," + std::to_string((int)ahead.y);
+		}
+		else
+		{
+			trace += " A-";
+		}
+		if (sp.controlPointCount() >= 2)
+		{
+			trace += " c0" + std::to_string((int)sp.controlPoint(0).x) + "," + std::to_string((int)sp.controlPoint(0).y) +
+				" c1" + std::to_string((int)sp.controlPoint(1).x) + "," + std::to_string((int)sp.controlPoint(1).y);
+		}
+		trace += " sp" + std::to_string((int)ai.flight().speed) + "\n";
+	}
+	MESSAGE(trace);
+}
