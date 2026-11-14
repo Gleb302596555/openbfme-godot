@@ -11,6 +11,7 @@
 #include "GameLogic/Map/TerrainTaintClear.h"
 #include "GameLogic/Object/PartitionManager.h"
 
+#include "Common/Audio/AudioRequests.h"
 #include "Common/BuildAssistant.h"
 #include "Common/CommandPoints.h"
 #include "Common/NumericState.h"
@@ -1191,12 +1192,47 @@ void CastleBehavior::pushUnitsOut()
 	}
 }
 
+// RW 0x799440 (BFME2 donor CastleBehavior abandonment, tier B: the RW instruction was not read in this session's sandbox; the
+// chain is batch-10's, rows 5-7): the camp-destroyed EVA. The castle's own CastleMemberBehavior data names three events
+// (+ 0x08 / + 0x0C / + 0x10, parser RW 0x797F69); the one the local player hears depends on its relationship to the castle's
+// player: RW 0x79951F reads + 0x08 for the owner, RW 0x799560 + 0x0C for an ally, RW 0x7995C2 + 0x10 otherwise, and RW 0x7995DB
+// reports it at the castle through RW 0x5DD9EE. Presentation only: the choice reads the local player, never writes simulation state.
+void CastleBehavior::reportCampDestroyedEva()
+{
+	Object *castle = getObject();
+	const Player *owner = castle->getControllingPlayer();
+	if (!owner)
+	{
+		return; // a neutral camp has no player to be related to
+	}
+	const CastleMemberBehavior *member = CastleMemberBehavior::of(*castle); // the castle's own member module: its data names the events
+	const CastleMemberBehaviorModuleData *data = member ? member->data() : nullptr;
+	const std::string *event = nullptr;
+	const Player *local = castle->logic().players().getLocalPlayer();
+	if (local && local == owner)
+	{
+		event = data && !data->m_campDestroyedOwnerEvaEvent.empty() ? &data->m_campDestroyedOwnerEvaEvent : nullptr; // RW 0x79951F
+	}
+	else if (local && local->getRelationship(owner) == ALLIES)
+	{
+		event = data && !data->m_campDestroyedAllyEvaEvent.empty() ? &data->m_campDestroyedAllyEvaEvent : nullptr; // RW 0x799560
+	}
+	else
+	{
+		event = data && !data->m_campDestroyedAttackerEvaEvent.empty() ? &data->m_campDestroyedAttackerEvaEvent : nullptr; // RW 0x7995C2
+	}
+	if (event)
+	{
+		AudioApi::reportEva(*event, castle->getPosition()); // RW 0x7995DB -> RW 0x5DD9EE
+	}
+}
+
 // RW 0x79CB47
 void CastleBehavior::abandon()
 {
 	const CastleNames &n = castleNames();
 	Object *castle = getObject();
-	// RW 0x799440: the camp-destroyed EVA of the local player (client)
+	reportCampDestroyedEva(); // RW 0x79CB5C calls RW 0x799440 here, before the state changes
 	m_state = STATE_ABANDONED;
 	pushUnitsOut();
 	// RW 0x79CC12 ..: the castle's model conditions and selectability
@@ -1513,7 +1549,8 @@ std::vector<std::string> CastleBehavior::stopLines()
 		"cost and limit columns RW 0x79BD2F, the template's RW 0x797B6D, initiateUnpack RW 0x79C17D with the payments RW 0x799039 / 0x797B06, the explicit object RW 0x79B98B), the "
 		"buttons' availability (RW 0x942733 cases 33 / 34 / 50) and messages (RW 0x940AAC .. 0x940AE9); not ported: the wall straggler teleport RW 0x79ADE9 (FindPositionAround's "
 		"FPF_USE_HIGHEST_LAYER is not), the members' RW 0x798057, the crew (RW 0x79B0F1, 0x798397, 0x798344), the castle's alert map (+ 0xA0, RW 0x79B374, its reset RW 0x7985AA), "
-		"RW 0x625E0A, the camp EVA (RW 0x799440), the button's readiness clock and the client fades / decals; reached at runtime they are noted",
+		"RW 0x625E0A, the button's readiness clock and the client fades / decals; reached at runtime they are noted; the camp EVA (RW 0x799440) is "
+		"ported (reportCampDestroyedEva: the owner / ally / attacker event of the castle's CastleMemberBehavior data against the local player)",
 		"[S-952] castle: inference in the ported states: the capture scan and the push out run on ThePartitionManager (types 0 and 3, S-1020), the "
 		"push out's geometry overlap filter (RW 0x67C5F3 -> RW 0xAD2CE0) and the horde's slot 0x1C8 test (RW 0x79C88F) are not ported, a plot's occupant counts while the object exists (retail clears the "
 		"plot's + 0x28 in the plot's own update RW 0x8584DB), a packed castle's upgrades are not reset (RW 0x68E083); FilterValidOwnedEntries unset is taken as accepting everything; RW 0x683955 of the "
