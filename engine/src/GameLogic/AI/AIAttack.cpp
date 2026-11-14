@@ -190,13 +190,17 @@ bool outOfWeaponRange(const AIState &state, std::uintptr_t)
 			viewBlocked = ai.world().pathfinder().isAttackViewBlockedByObstacle(adapter, *owner.getPosition(), victimAdapter, *victim->getPosition());
 		}
 	}
-	// RW 0x6CA32D: Weapon + 0x50 (the leech-range deadline) is still ahead of the logic clock -> the ranges are ignored
-	const bool ignoringRanges = cur->leechRangeDeadline() > owner.logic().getFrame();
-	if (ignoringRanges || viewBlocked)
+	// RW 0x6CA32D (RW 0x7458B4): Weapon + 0x50, the leech-range deadline, is still ahead of the logic clock -> the shot ignores the ranges, and
+	// RW 0x7458C5 .. 0x7458CE answers FALSE (no chase)
+	if (cur->leechRangeDeadline() > owner.logic().getFrame())
 	{
-		return true; // RW 0x7458B9 .. 0x7458C3
+		return false;
 	}
-	return !w->isWithinAttackRange(*victim, 0.0f, true); // RW 0x7458D8 .. 0x7458E7
+	if (viewBlocked)
+	{
+		return true; // RW 0x7458C1
+	}
+	return !w->isWithinAttackRange(*victim, 0.0f, true); // RW 0x7458DC .. 0x7458E7: out of reach -> true
 }
 
 // RW 0x745901 (donor BFME2 0x00343EFA, wantToSquishTarget): the machine may crush the victim instead of shooting it. All of: the owner's template
