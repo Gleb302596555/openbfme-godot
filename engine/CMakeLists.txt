@@ -240,6 +240,7 @@ include(cmake/Port137.cmake) # PORT-137: auto-pickup button and selected group
 include(cmake/Port135.cmake) # OPENBFME_PORT135_TESTS
 include(cmake/Port426.cmake) # PORT-426: Shift on a production button queues five units (issue 426; OPENBFME_PORT426_TESTS)
 include(cmake/Port121.cmake) # PORT-121: the ParticleSysBone creation reads the draw's pose (OPENBFME_PORT121_TESTS)
+include(cmake/Port435.cmake) # PORT-435: a gate's contact-point aim follows its ACTIVE geometry (OPENBFME_PORT435_TESTS)
 include(cmake/Port132.cmake) # PORT-132: Locomotor AeleronCorrection* / ElevatorCorrection*, the ship's roll and pitch (issue #334; OPENBFME_PORT132_TESTS)
 include(cmake/Port124.cmake) # PORT-124: ring transfer through CitadelSlaughterHordeContain (issue #308)
 include(cmake/Port140.cmake) # PORT-140: a weapon that throws what its owner carries is ready only while the container holds it (issue #342; OPENBFME_PORT140_TESTS)
@@ -915,6 +916,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT135_TESTS}
     ${OPENBFME_PORT426_TESTS}
     ${OPENBFME_PORT121_TESTS}
+    ${OPENBFME_PORT435_TESTS}
     ${OPENBFME_PORT132_TESTS}
     ${OPENBFME_PORT140_TESTS}
     ${OPENBFME_PORT115_TESTS}
