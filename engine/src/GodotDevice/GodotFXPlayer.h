@@ -11,6 +11,7 @@
 
 #pragma once
 
+#include "GameClient/DynamicDecalMesh.h"
 #include "GameClient/FXPlayback.h"
 #include "GameClient/ParticleDraw.h"
 
@@ -82,9 +83,11 @@ public:
 	// lane GPUPERF-3: the culling of systems out of view before they are built (default on; off: every system is built, as before)
 	void set_frustum_culling(bool enabled) { m_frustumCulling = enabled; m_buildDirty = true; }
 	bool get_frustum_culling() const { return m_frustumCulling; }
-	// lane FEAT-BLDFX-1: rebuilds the terrain decal meshes (scorches, RW 0x5E0045 / DONOR BFME2 0x67EA3; DynamicDecal, RW 0x5E05AB / DONOR BFME2 0x10C785) from the playback's client
-	// effect state. Called by step_once; a viewer that plays a list without stepping calls it itself.
+	// lane FEAT-BLDFX-1 / PORT-176 (#429): rebuilds the terrain decal meshes (scorches, RW 0x5E0045 / DONOR BFME2 0x67EA3; DynamicDecal, RW 0x5E05AB ->
+	// RW 0x50C24B / RW 0x50983D) from the playback's client effect state. Called by step_once and advance when decals change; a viewer that plays a list
+	// without stepping calls it itself.
 	void updateClientEffects();
+	void setDecalTerrain(TerrainScorchBuffer::Terrain terrain);
 	const ScorchBuffer &scorches() const;
 	int64_t decalCount() const; // int64_t: godot-cpp has no size_t binding on macOS (unsigned long)
 	int64_t scorchCount() const { return (int64_t)scorches().entries().size(); }
@@ -187,7 +190,10 @@ private:
 	Ref<ShaderMaterial> m_scorchMaterial;
 	std::uint64_t m_scorchVersion = 0;
 	std::map<DecalKey, MeshInstance3D *> m_decalNodes;
-	Ref<Shader> m_decalShaders[2]; // alpha, additive
+	Ref<Shader> m_decalShaders[DYNAMIC_DECAL_SHADER_COUNT]; // alpha, additive, subtract (RW 0x5E05EA / RW 0x5098F6)
+	TerrainScorchBuffer::Terrain m_decalTerrain;
+	std::uint64_t m_decalSignature = 0;
+	bool m_decalTerrainDirty = false;
 	bool m_hadDecals = false;
 	std::map<std::string, Ref<Texture2D>> m_textures;
 	std::map<std::string, Ref<Shader>> m_shaders;

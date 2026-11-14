@@ -30,6 +30,7 @@ class TerrainScorchLayer : public MeshInstance3D
 
 public:
 	void setup(TerrainScorchBuffer::Terrain terrain, const TerrainScorchBuffer::Shade &shade, const Ref<ShaderMaterial> &material);
+	const TerrainScorchBuffer::Terrain &terrain() const { return m_terrain; }
 	// the map viewer's own buffer (the map's Scorch objects)
 	TerrainScorchBuffer &ownBuffer() { return m_own; }
 	// a live game presents its buffer from here on (the own buffer is no longer drawn)

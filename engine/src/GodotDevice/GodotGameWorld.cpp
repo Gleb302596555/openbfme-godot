@@ -861,6 +861,10 @@ void GameWorld::clear_scene()
 	m_buffInstances.clear(); // lane SPELL-4: the buffs' instances went with the instancer
 	m_trackLayer = ObjectID();
 	m_scorchLayer = ObjectID();
+	if (m_fxPlayer)
+	{
+		m_fxPlayer->setDecalTerrain(TerrainScorchBuffer::Terrain{});
+	}
 	m_staticId = m_dynamicId = 0;
 	m_textureClock = 0.0;
 	m_animatedDrawables = 0;
@@ -1442,6 +1446,10 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 		// are drawn by the terrain's layer from here on (presentScorches)
 		if (TerrainScorchLayer *scorches = Object::cast_to<TerrainScorchLayer>(terrain->get_node_or_null(NodePath("Scorches"))))
 		{
+			if (m_fxPlayer)
+			{
+				m_fxPlayer->setDecalTerrain(scorches->terrain());
+			}
 			if (m_liveFX)
 			{
 				scorches->setLive(true);

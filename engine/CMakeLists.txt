@@ -199,6 +199,7 @@ include(cmake/Port152.cmake)   # PORT-152: CommandButton WeaponSlotToggle1/2, To
 include(cmake/Port106.cmake)    # PORT-106: W3DScriptedModelDraw MultiPlayerOnly gate (issue #266; OPENBFME_PORT106_TESTS)
 include(cmake/Port105.cmake)    # PORT-105: TransportContain/ReleaseSnappyness, the rider's release blend (issue #265; OPENBFME_PORT105_TESTS)
 include(cmake/Port146.cmake)    # PORT-146: the archers on a moving siege carrier (issue #363; OPENBFME_PORT146_TESTS)
+include(cmake/Port176.cmake)    # PORT-176: DynamicDecal terrain mesh & packed JPG+PNG alpha (issue #429, P-107; OPENBFME_PORT176_SOURCES / _TESTS)
 include(cmake/Port50.cmake)     # PORT-50: W3DModelDraw/ParticlesAttachedToAnimatedBones, particles on the animated bones (issue #154; OPENBFME_PORT50_TESTS)
 include(cmake/Port98.cmake)     # PORT-98: PlayerTemplate LoadScreenMusic, the loading screen's faction track (issue #258; OPENBFME_PORT98_TESTS)
 include(cmake/Port158.cmake)    # PORT-158: the loading screen's music stop reaches the menu track (issue #376; OPENBFME_PORT158_TESTS)
@@ -505,6 +506,7 @@ add_library(openbfme_core STATIC
     ${OPENBFME_GLOW1_SOURCES}
     ${OPENBFME_RENDER2_SOURCES}
     ${OPENBFME_PORT146_SOURCES}
+    ${OPENBFME_PORT176_SOURCES}
     ${OPENBFME_FX2_SOURCES}
     ${OPENBFME_FX3_SOURCES}
     ${OPENBFME_FOGFX1_SOURCES}
@@ -1044,6 +1046,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT91_TESTS}
     ${OPENBFME_PORT105_TESTS}
     ${OPENBFME_PORT146_TESTS}
+    ${OPENBFME_PORT176_TESTS}
     ${OPENBFME_PORT50_TESTS}
     ${OPENBFME_PORT63_TESTS}
     ${OPENBFME_PORT74_TESTS}

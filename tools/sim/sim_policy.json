@@ -383,6 +383,10 @@
    "reason": "lane FEAT-BLDFX-1: the client state the FXList nugget sinks leave (terrain scorches, dynamic decals, light pulses): presentation only, never read by the logic, not in the state hash"
   },
   {
+   "glob": "src/GameClient/DynamicDecalMesh.cpp",
+   "reason": "PORT-176: builds the terrain-conforming vertex/index mesh for client DynamicDecal effects (DecalFx): rendering only, never read by the logic, not in the state hash"
+  },
+  {
    "glob": "src/GameClient/CameraShaker.cpp",
    "reason": "lane FEAT-BLDFX-1: CameraShakerVolume's camera rotations (the view's own fixed-seed generator, not the logic stream): presentation only, never read by the logic"
   },

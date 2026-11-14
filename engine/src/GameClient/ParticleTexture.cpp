@@ -52,3 +52,40 @@ ParticleTextureResolution ResolveParticleTexture(const std::string &name, const 
 	}
 	return out;
 }
+
+bool MergeParticleJpgAlpha(std::uint8_t *rgba, int width, int height, const std::uint8_t *auxPixels, size_t auxSize, ParticleAuxAlphaFormat format)
+{
+	if (!rgba || !auxPixels || width <= 0 || height <= 0)
+	{
+		return false;
+	}
+	size_t stride = 0;
+	size_t offset = 0;
+	switch (format)
+	{
+	case ParticleAuxAlphaFormat::L8_OR_A8:
+		stride = 1;
+		offset = 0;
+		break;
+	case ParticleAuxAlphaFormat::LA8:
+		stride = 2;
+		offset = 1;
+		break;
+	case ParticleAuxAlphaFormat::RGBA8:
+		stride = 4;
+		offset = 3;
+		break;
+	default:
+		return false;
+	}
+	const size_t texels = (size_t)width * (size_t)height;
+	if (auxSize != texels * stride)
+	{
+		return false;
+	}
+	for (size_t i = 0; i < texels; ++i)
+	{
+		rgba[i * 4u + 3u] = auxPixels[i * stride + offset];
+	}
+	return true;
+}
