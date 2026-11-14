@@ -44,8 +44,8 @@ class AttachUpdateModuleData : public ModuleData
 public:
 	ObjectFilter m_objectFilter;            ///< + 8
 	ObjectStatusMaskType m_parentStatus{};  ///< + 0xC
-	float m_scanRange = 0.0f;               ///< + 0x1C
-	bool m_alwaysTeleport = false;          ///< + 0x20
+	float m_scanRange = 10.0f;              ///< + 0x1C: RW 0x89502A / 0x89503E, constant at 0xBD83D8
+	bool m_alwaysTeleport = true;           ///< + 0x20: RW 0x895043 stores 1
 	bool m_anchorToTopOfGeometry = false;   ///< + 0x21
 	std::string m_ownerAttachEva, m_allyAttachEva, m_enemyAttachEva; ///< + 0x24 / + 0x28 / + 0x2C
 	std::string m_attachFX;                 ///< + 0x30

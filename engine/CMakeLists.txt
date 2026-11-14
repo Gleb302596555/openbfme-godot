@@ -220,6 +220,7 @@ include(cmake/Port109.cmake) # OPENBFME_PORT109_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
 include(cmake/Port133.cmake) # PORT-133: the charge attack machine of a CanFireWhileCharging weapon (issue #335; OPENBFME_PORT133_TESTS)
 include(cmake/Port137.cmake) # PORT-137: auto-pickup button and selected group
+include(cmake/Port135.cmake) # OPENBFME_PORT135_TESTS
 include(cmake/Port121.cmake) # PORT-121: the ParticleSysBone creation reads the draw's pose (OPENBFME_PORT121_TESTS)
 include(cmake/Port132.cmake) # PORT-132: Locomotor AeleronCorrection* / ElevatorCorrection*, the ship's roll and pitch (issue #334; OPENBFME_PORT132_TESTS)
 include(cmake/Port124.cmake) # PORT-124: ring transfer through CitadelSlaughterHordeContain (issue #308)
@@ -876,6 +877,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PLAY2_TESTS}
     ${OPENBFME_PORT133_TESTS}
     ${OPENBFME_PORT137_TESTS}
+    ${OPENBFME_PORT135_TESTS}
     ${OPENBFME_PORT121_TESTS}
     ${OPENBFME_PORT132_TESTS}
     ${OPENBFME_PORT115_TESTS}
