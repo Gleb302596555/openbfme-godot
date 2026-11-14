@@ -251,8 +251,18 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 		{
 			problems.push_back(err);
 		}
-		e.staticModel = m.model;
-		e.notDrawnReason = m.notDrawnReason;
+		if (e.kind == W3D_DRAWKIND_TREE)
+		{
+			// RW 0xBE3010 (W3DTreeDraw vtable, slot 11 RW 0x9F3A3C ret 4; DONOR BFME2 W3DTreeDraw.cpp): W3DTreeDraw never draws on a
+			// live Drawable — map static trees render in W3DTreeBuffer via MapObjectDrawables, while a live interactable tree's
+			// Drawable renders only through its W3DScriptedModelDraw (which hides via PASSENGER CLUB Model = None, P-81 / issue #404).
+			e.notDrawnReason = "W3DTreeDraw draws in W3DTreeBuffer (RW 0xBE3010)";
+		}
+		else
+		{
+			e.staticModel = m.model;
+			e.notDrawnReason = m.notDrawnReason;
+		}
 		// RENDER-2: a floor draw hidden by its HideIfModelConditions at creation (resolveDrawModel with no flags) is still the floor the structure shows
 		// once the flags change: keep its model and its conditions, and let setModelConditionFlags decide (the foundation floor while being built)
 		if (const W3DFloorDrawModuleData *fl = dynamic_cast<const W3DFloorDrawModuleData *>(nugget.data.get()))

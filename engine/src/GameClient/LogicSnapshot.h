@@ -29,6 +29,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 class GameLogic;
@@ -109,6 +110,12 @@ struct ObjectSnapshot
 	// is OpenContain::riderBone). Its drawable rides the container's presentation pose (Drawable::getPresentationPose, ContainedPose.h). A horde's member
 	// and a hidden garrison rider are not put on a bone, so their drawables keep their own pose
 	bool containedOnBone = false;
+	// LOCAL-48 (issue #404, P-81): physical container that owns `containedBone` (the outer TransportContain / HordeTransportContain
+	// discovered in the walk above), the bone name recorded by putRidersAtBones (RW 0x868A70), and whether passengers may fire
+	// (RW 0x865A7E, vslot +0xB4 checked by W3DScriptedModelDraw::adjustTransformMtx at RW 0x4B6952)
+	ObjectID containedBoneOwner = INVALID_ID;
+	std::string containedBone;
+	bool containedRidersCanAttack = false;
 	// lane PORT-91 (issue #239): the answer of vslot 0x2C of the contain of that container (RW 0x4C7848 asks it for the shadow): false for a plain contain
 	// (RW 0x9188EB), the horde's container's answer for the HordeContain family (RW 0x86C737: true while the horde is not contained). Meaningful only while
 	// containedBy != INVALID_ID
