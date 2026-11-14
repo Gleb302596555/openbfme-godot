@@ -1,6 +1,6 @@
-# Port 431: RW analysis (fork issue 431, P-76: Isengard's tainted-ground ambient is not heard)
+# Port 178: RW analysis (fork issue 431, P-76: Isengard's tainted-ground ambient is not heard)
 
-Status: in progress. Every address below was read with `tools/mod/rw.py workspace/RotWK/game.dat dis` (RotWK 2.01 `game.dat`, md5 `daed3668...`).
+Status: read. The fixes of section 11 are in the same branch (tests `PORT-178*`, `engine/tests/test_port_178.cpp`); what stays unported is stop S-7326. Every address below was read with `tools/mod/rw.py workspace/RotWK/game.dat dis` (RotWK 2.01 `game.dat`, md5 `daed3668...`).
 Mod data (event, template, AudioSettings rows) is not quoted here: see fork issue 431 and P-76 in `PROBLEMS.md`.
 
 ## 1. The volume of an event: RW 0x4591D4 (`getEffectiveVolume`: `this` = the audio manager, arguments = event, applySliders)
@@ -122,7 +122,7 @@ The order RW uses, 0x450E81(a, b) on two (priority, volume) pairs: a is lower th
 |---|---|---|
 | 0x45B4E8 | new = (info+0x44, 0x4591D4(event, 1)); true when any playing record of the event's list (positional: manager+0xA44, else +0xA40) has (its priority, 0x45A10E(playing, 1, 1)) lower than new. No test for the lowest priority | ZH rule: priority only, and a request of the lowest priority never takes a channel |
 | 0x45B446 | the same walk; keeps the lowest record seen (each candidate must be lower than the best so far, which starts as the new event's pair); returns its event or null | ZH rule: the lowest priority below the new one |
-| 0x45FF7F | positional: 0x45E98F (not read), then a non-empty list at manager+0xA3C returns true at once; victim = 0x45B446; none → false; the victim's playing record: **loops left (0x6DAD59) → requeue 0x45A188**; release (0x45F4E0), unlink (0x4542FD); true | the victim was released for good, with no log line |
+| 0x45FF7F | positional: 0x45E98F (it walks the 0x48 byte records at manager+0xBD4, count +0xBD8, and calls 0x45E1A5 on each one 0x450907 accepts; those two are not read), then a non-empty list at manager+0xA3C returns true at once; victim = 0x45B446; none → false; the victim's playing record: **loops left (0x6DAD59) → requeue 0x45A188**; release (0x45F4E0), unlink (0x4542FD); true | the victim was released for good, with no log line |
 | 0x4616B0–0x4616D1 | play, 3D: sample = 0x453DF2; none → 0x45FF7F(event), then 0x453DF2 again | same shape |
 | 0x461786–0x46179F | no sample after all: loops left → requeue 0x45A188 | same |
 
@@ -149,13 +149,13 @@ So the two owner mutes of `getVolume` (section 1: drawable+0x44A == 0, object+0x
 
 | # | RW | port before | effect | this change |
 |---|---|---|---|---|
-| 1 | 0x45FF7F: a looping sound that loses its channel is requeued | released for good, no log line | an object's looping ambient is requested once (the drawable starts it once), so one steal silenced it for the rest of the game; a sound of the lowest priority is always the first victim | fixed |
+| 1 | 0x45FF7F: a looping sound that loses its channel is requeued | released for good, no log line; the victim was the first sound of the lowest priority in the list (the ZH search returns at once on it), that is the oldest one | an object's looping ambient is requested once (the drawable starts it once), so one steal silenced it for the rest of the game; an ambient of the lowest priority started on the first frame is the first victim | fixed |
 | 2 | 0x45B4E8 / 0x45B446 / 0x450E81: (priority, volume) order, no exception for the lowest priority | priority only; the lowest priority never takes a channel | with the samples all taken, a looping ambient of the lowest priority waited for ever | fixed |
 | 3 | 0x45BC4E: the cull uses the volume without sliders; 0x452726 has three tests | with sliders; two tests | a low sound slider culled sounds RW keeps | fixed |
-| 4 | 0x45BD57: a playing 3D sound without a position is requeued when loops are left | released, no log line | the port then drops a loop whose owner is gone at its next check (lane AUDIO-3) | log line only |
-| 5 | 0x45BC24 with 0x452C50 and 0x45BBB3: a playing sound that becomes shrouded fades out and is requeued | not ported | the port keeps playing it (louder than RW, not a silence) | open |
+| 4 | 0x45BD57: a playing 3D sound without a position is requeued when loops are left | released, no log line | the port then drops a loop whose owner is gone at its next check (lane AUDIO-3) | log line only, S-7326 |
+| 5 | 0x45BC24 with 0x452C50 and 0x45BBB3: a playing sound that becomes shrouded fades out and is requeued | not ported | the port keeps playing it (louder than RW, not a silence) | open, S-7326 |
 | 6 | 0x6DB221 owner mute (section 10) | not ported (stop S-243) | the port plays what RW mutes | open |
 | 7 | 0x67866C: no distance test at the drawable | `LiveGameAudio` waits until the listener is inside MaxRange, then requests once | same result once requested | open |
-| 8 | 0x45FF96: 0x45E98F before the steal | not ported | not read | open |
+| 8 | 0x45FF96: 0x45E98F before the steal (a walk over the records at manager+0xBD4) | not ported | its two callees are not read; by its place it can free a sample so that no victim is needed (INFERENCE) | open, S-7326 |
 
 Not measured here: the live voice of the owner's game (this checkout has no Godot build and no game audio). The audio log now writes the steal, the end of a voice and the level of every looping 3D voice, so the next owner log shows which of these paths the citadel's ambient takes.

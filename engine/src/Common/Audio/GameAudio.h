@@ -256,8 +256,9 @@ public:
 	const AudioEventEnv &env() const { return m_env; }
 	GameLogicRandom &audioRandom() { return m_random; }
 	AudioIniState &ini() { return m_ini; }
-	// The effective volume the manager would give `event` now (RW getEffectiveVolume), for tests and the viewer.
-	float getEffectiveVolume(AudioEventRTS &event);
+	// The effective volume the manager would give `event` now (RW getEffectiveVolume 0x4591D4), for tests and the viewer. `applySliders` is RW's second
+	// argument: the inaudible cull asks without the sliders (RW 0x45BC4E).
+	float getEffectiveVolume(AudioEventRTS &event, bool applySliders = true);
 	double nowMs() const { return m_clockMs; }
 	// the acceptance stops that apply to this core (docs/STOPS.md); every consumer must surface them
 	static std::vector<std::string> unverified();
@@ -325,11 +326,13 @@ private:
 	bool violatesVoice(const AudioEventRTS &event) const;
 	bool isInterrupting(const AudioEventRTS &event) const;
 	bool doesViolateLimit(AudioEventRTS &event) const;
-	bool isPlayingLowerPriority(const AudioEventRTS &event) const;
+	bool isPlayingLowerPriority(AudioEventRTS &event);
 	bool isPlayingAlready(const AudioEventRTS &event) const;
 	bool isObjectPlayingVoice(std::uint32_t objectId) const;
-	AudioEventRTS *findLowestPrioritySound(const AudioEventRTS &event);
-	bool killLowestPrioritySoundImmediately(const AudioEventRTS &event);
+	AudioEventRTS *findLowestPrioritySound(AudioEventRTS &event);
+	bool killLowestPrioritySoundImmediately(AudioEventRTS &event);
+	bool requeueLoop(PlayingAudio &p, const char *why, const char *detail = nullptr); ///< RW 0x45A188
+	enum { kLevelLogTicks = 150 }; ///< Port 178: the audio steps between two "level" log lines of a looping 3D voice
 	void processRequestList();
 	void processRequest(Request &req);
 	bool shouldProcessRequestThisFrame(const Request &req) const;
