@@ -10,6 +10,7 @@
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/BuildPlacement.h"
 #include "GameLogic/Combat/CombatQueries.h"
+#include "GameLogic/Module/NotifyCrushModules.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/PartitionManager.h"
@@ -388,26 +389,17 @@ bool separation(const Flyer &flyer, const Coord3D &pos, float &worst, Coord3D &p
 	static const int kCavalry = ObjectTemplateInfoBuilder::kindOfIndex("CAVALRY");
 	static const int kHorde = ObjectTemplateInfoBuilder::kindOfIndex("HORDE");
 	const float radius = CombatQueries::boundingSphereRadius(obj);
-	// PartitionFilterWouldCollide(pos, the flyer's geometry, its angle, true): the 2D footprints (S-4041: RW 0xAD2CE0 is not ported)
-	std::vector<BuildPlacement::Footprint> mine;
-	BuildPlacement::footprintsOf(logic, *obj.getTemplate(), pos, obj.getOrientation(), mine);
-	auto wouldCollide = [&](Object &other) {
-		std::vector<BuildPlacement::Footprint> theirs;
-		if (!BuildPlacement::footprintsOf(logic, *other.getTemplate(), *other.getPosition(), other.getOrientation(), theirs))
-		{
-			return false;
-		}
-		for (const BuildPlacement::Footprint &a : mine)
-		{
-			for (const BuildPlacement::Footprint &b : theirs)
-			{
-				if (BuildPlacement::footprintsCollide(a, b))
-				{
-					return true;
-				}
-			}
-		}
-		return false;
+	// RW 0x777FF7 -> the filter's ctor RW 0x67C5F3: PartitionFilterWouldCollide holds the flyer's OWN GeometryInfo (Object + 0xA8), the probed
+	// position and its angle + 0x44, with the desired flag 1. Its allow (RW 0x66139C, the shape-overlap call RW 0x6613C2 -> RW 0xAD2CE0)
+	// compares BOTH objects' active shapes with their positions and angles IN 3D: a low box (Ennorath's SupplyRocksPile*: BOX, height 15,
+	// NO_COLLIDE) does not overlap a flyer above its top, whatever their 2D footprints do. PORT-428: the old 2D footprint test reported
+	// that pile at every altitude, so probe (RW 0x77824E) / pathClear (RW 0x778176) / checkAhead (RW 0x76A80A) stayed blocked for the whole
+	// swoop, steer (RW 0x76A933) rebuilt the path every frame and the bird circled instead of reaching the strike's distance gate
+	// (RW 0x76B79E). DONOR BFME2 0x00375C28 (Code/GameEngine/Source/GameLogic/AI/AerialPathfinder.cpp) and its Rva00261603Filter::allow
+	// (Code/GameEngine/Source/Common/GapBodiesGE07.cpp:146, GeometryInfo::CollidesWith) show the same 3D filter.
+	const std::vector<ObjectGeometry::Shape> &mine = obj.geometryShapes();
+	auto wouldCollide = [&mine, &pos, &obj](Object &other) {
+		return NotifyCrushModules::geometriesOverlap(mine, pos, obj.getOrientation(), other.geometryShapes(), *other.getPosition(), other.getOrientation());
 	};
 	PartitionFilterFn<decltype(wouldCollide)> filter(wouldCollide);
 	const PartitionHits hits = logic.partition().iterateObjectsInRange(pos, radius, FROM_BOUNDINGSPHERE_3D, { &filter }, ITER_FASTEST);
@@ -714,8 +706,9 @@ bool computeAerialPath(const Flyer &flyer, const Coord3D &goalIn, AerialSpline &
 
 std::vector<std::string> stopLines()
 {
+	// PORT-428: the separation's would-collide filter is now RW 0x66139C -> RW 0xAD2CE0 (3D), not the 2D footprints of S-1020.
 	return { "S-4041: the aerial path (RW 0x778413) is ported without the no-fly zones (the map block AerialPathfindNoFlyZone is a recording stub: RW 0x777E54 "
-		     "answers 0), the 3D shape overlap of the separation's would-collide filter (2D footprints: "
-		     "RW 0xAD2CE0 is not ported, S-1020) and the x87 / CRT parity of its terminal search (S-081)" };
+		     "answers 0); PORT-428 ports the separation's would-collide filter as the 3D shape overlap (RW 0x66139C -> RW 0xAD2CE0), "
+		     "and the x87 / CRT parity of its terminal search is still not ported (S-081)" };
 }
 } // namespace AerialPathfinder
