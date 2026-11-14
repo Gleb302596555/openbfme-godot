@@ -77,3 +77,18 @@ without a deterministic reproduction and RW comparison.
 
 The prescribed full one-job test build was still running (187/1721 objects at
 last check); no `PORT-432*` tests, fix, green/red result or PR are available yet.
+
+## Synthetic fixture (work in progress)
+
+`engine/tests/test_port_432.cpp` now sketches a no-archive CombatWorld fixture
+with synthetic sciences, command set, book, allied/enemy structures and Cloud
+Break sunbeams. It sends commands through the logic command list, repeats both
+casts after recharge, and separately checks a cast during recharge. Reloads are
+shortened and the fixture uses `AvailableAtStart = Yes` after granting sciences;
+these are controlled fixture simplifications, not claims about the mod's actual
+INI. The source passed a C++17 **syntax-only** check. The full executable has
+not yet been built with these tests and their runtime outcomes are unknown;
+they are not a demonstrated red/green regression test. The running build was
+started before these files were added, so it must be reconfigured/rebuilt after
+it finishes. No port behaviour has been changed and the Apt click hypothesis
+has not been reproduced.
