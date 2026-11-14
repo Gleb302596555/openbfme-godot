@@ -264,13 +264,13 @@ TEST_CASE("PORT-178: with every channel taken a louder sound takes the channel o
 	CHECK(r.play("Tone", 450.0f) == AHSV_NoSound); // volume 0.125: nothing lower is playing
 	CHECK(r.play("Tone", 400.0f) == AHSV_NoSound); // volume 0.25: as loud as the quietest is not louder
 	CHECK(r.mgr->report().stolenChannels == 0);
-	const AudioHandle close = r.play("Tone", 150.0f); // volume 0.875
-	CHECK(close >= AHSV_FirstHandle); // tolerance: any real handle; a refused request answers a special value below AHSV_FirstHandle
+	const AudioHandle nearby = r.play("Tone", 150.0f); // volume 0.875
+	CHECK(nearby >= AHSV_FirstHandle); // tolerance: any real handle; a refused request answers a special value below AHSV_FirstHandle
 	r.run(70.0);
 	CHECK(r.mgr->report().stolenChannels == 1);
 	CHECK_FALSE(r.mgr->isCurrentlyPlaying(distant)); // the quietest gave its channel
 	CHECK(r.mgr->isCurrentlyPlaying(middle));
-	CHECK(r.mgr->isCurrentlyPlaying(close));
+	CHECK(r.mgr->isCurrentlyPlaying(nearby));
 }
 
 TEST_CASE("PORT-178: a request of the lowest priority takes the channel of a quieter sound of the lowest priority (RW 0x45B4E8 has no exception for it)")
@@ -280,20 +280,20 @@ TEST_CASE("PORT-178: a request of the lowest priority takes the channel of a qui
 	const AudioHandle middle = r.play("Murmur", 300.0f);  // volume 0.5
 	r.run(70.0);
 	REQUIRE(r.mgr->playingCount(VoiceKind::Sample3D) == 2);
-	const AudioHandle close = r.play("Murmur", 150.0f); // volume 0.875
-	CHECK(close >= AHSV_FirstHandle); // tolerance: any real handle; a refused request answers a special value below AHSV_FirstHandle
+	const AudioHandle nearby = r.play("Murmur", 150.0f); // volume 0.875
+	CHECK(nearby >= AHSV_FirstHandle); // tolerance: any real handle; a refused request answers a special value below AHSV_FirstHandle
 	r.run(70.0);
 	CHECK(r.mgr->report().stolenChannels == 1);
 	CHECK_FALSE(r.mgr->isCurrentlyPlaying(distant));
 	CHECK(r.mgr->isCurrentlyPlaying(middle));
-	CHECK(r.mgr->isCurrentlyPlaying(close));
+	CHECK(r.mgr->isCurrentlyPlaying(nearby));
 	// the priority decides first: a quiet sound of a higher priority takes the quietest Murmur, and no Murmur takes that channel back
 	const AudioHandle tone = r.play("Tone", 450.0f); // normal, volume 0.125
 	r.run(70.0);
 	CHECK(r.mgr->report().stolenChannels == 2);
 	CHECK(r.mgr->isCurrentlyPlaying(tone));
 	CHECK_FALSE(r.mgr->isCurrentlyPlaying(middle));
-	CHECK(r.mgr->isCurrentlyPlaying(close));
+	CHECK(r.mgr->isCurrentlyPlaying(nearby));
 	CHECK(r.play("Murmur", 200.0f) == AHSV_NoSound); // lowest, volume 0.75: Tone is above it, the playing Murmur (0.875) is louder
 	CHECK(r.mgr->report().stolenChannels == 2);
 }
@@ -332,10 +332,10 @@ TEST_CASE("PORT-178: a sound whose MinVolume is at or above MinSampleVolume is n
 	q.isOnScreen = [](const Coord3D &) { return false; };
 	q.offscreenDistanceSq = [](const Coord3D &) { return 1.0e9f; };
 	r.mgr->bindWorldQueries(q, &r);
-	const AudioHandle floor = r.play("Floor", 600.0f); // beyond MaxRange: only its MinVolume is left
-	REQUIRE(floor >= AHSV_FirstHandle); // tolerance: any real handle; a refused request answers a special value below AHSV_FirstHandle
+	const AudioHandle quiet = r.play("Floor", 600.0f); // beyond MaxRange: only its MinVolume is left
+	REQUIRE(quiet >= AHSV_FirstHandle); // tolerance: any real handle; a refused request answers a special value below AHSV_FirstHandle
 	r.run(200.0);
-	CHECK(r.mgr->isCurrentlyPlaying(floor));
+	CHECK(r.mgr->isCurrentlyPlaying(quiet));
 	CHECK(r.volumeOf("tone") == doctest::Approx(0.005f)); // tolerance: float arithmetic of MinVolume times the zoom fade
 	r.mgr->clearWorldQueries(&r);
 }
