@@ -7,6 +7,7 @@
 #include "doctest.h"
 
 #include "StartTestUtil.h"
+#include "OnlineTestTemp.h"
 #include "OnlineTestWait.h"
 
 #include "Common/Crc32.h"
@@ -83,11 +84,11 @@ RelayAddress addr(std::uint16_t port)
 {
 	return RelayAddress{ 0x0A000001u, port };
 }
-std::filesystem::path tempDir(const std::string &name)
+// PORT-171: the folder is removed when it goes out of scope (OnlineTestTemp.h). Declare it before the relay that logs into it: the relay is then
+// destroyed first and its game logs are closed (Windows cannot delete an open file).
+onlinetest::TempDir tempDir(const std::string &name)
 {
-	const std::filesystem::path p = std::filesystem::temp_directory_path() / ("openbfme_online3_" + name + "_" + std::to_string(NetMilliseconds()));
-	std::filesystem::create_directories(p);
-	return p;
+	return onlinetest::TempDir("openbfme_online3_" + name);
 }
 // a transport packet (Transport.h version 2) from `sender` with one record and a cumulative ack of 0
 std::vector<std::uint8_t> transportPacket(std::uint8_t sender, std::uint32_t seq, const std::vector<std::uint8_t> &record)
@@ -602,7 +603,7 @@ TEST_CASE("online3: the relay reports silent slots (STATUS), binds a newer rejoi
 		  "takeover, and logs REJOINED")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = tempDir("status");
+	const onlinetest::TempDir dir = tempDir("status");
 	RelayCore::Options o;
 	o.keys = testRing();
 	o.logDir = dir.string();
@@ -668,13 +669,12 @@ TEST_CASE("online3: the relay reports silent slots (STATUS), binds a newer rejoi
 	REQUIRE(log.rejoins.size() == 1);
 	CHECK(log.rejoins[0].slot == 2);
 	CHECK(log.rejoins[0].generation == 1);
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online3: rejoin before first bind is refused without claiming the slot or losing a later valid rejoin")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = tempDir("before_bind");
+	const onlinetest::TempDir dir = tempDir("before_bind");
 	RelayCore::Options o;
 	o.keys = testRing();
 	o.logDir = dir.string();
@@ -702,14 +702,13 @@ TEST_CASE("online3: rejoin before first bind is refused without claiming the slo
 	auto bye = encodeEmpty(BYE);
 	relay.handle(addr(10), bye.data(), bye.size(), 3000, 1700000000u);
 	relay.handle(addr(20), bye.data(), bye.size(), 3000, 1700000000u);
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online3: the relay serves its log in LOG_CHUNKs to a bound client of the game only, refuses without a log, logs the decider's "
 		  "DISCONNECTPLAYER once, and logs and acknowledges a log-only stream")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = tempDir("chunks");
+	const onlinetest::TempDir dir = tempDir("chunks");
 	RelayCore::Options o;
 	o.keys = testRing();
 	o.logDir = dir.string();
@@ -793,7 +792,6 @@ TEST_CASE("online3: the relay serves its log in LOG_CHUNKs to a bound client of 
 	CHECK(relay.openLogHandles() == 2);
 	relay.shutdown(2000);
 	CHECK(relay.openLogHandles() == 0);
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online3: a real Transport keeps the relay's STATUS, its ping test follows the relay, resetPeer restarts both streams, its log-only stream "
@@ -1162,7 +1160,7 @@ void runRejoinGame(int n, bool oldAlive = false, std::vector<int> restarts = {})
 			g_game->hub.tick(100);
 		}
 	};
-	const std::filesystem::path dir = tempDir("rejoin");
+	const onlinetest::TempDir dir = tempDir("rejoin");
 	RelayCore::Options ro;
 	ro.keys = testRing();
 	ro.logDir = dir.string();
@@ -1535,7 +1533,6 @@ void runRejoinGame(int n, bool oldAlive = false, std::vector<int> restarts = {})
 	CHECK(lateHashes > 3);
 	relay.shutdown(0);
 	CHECK(relay.openLogHandles() == 0);
-	std::filesystem::remove_all(dir);
 	g_game = nullptr;
 }
 } // namespace
@@ -1784,7 +1781,7 @@ TEST_CASE("online3 r1 (Sol: log order): a peer that finds itself alone sends its
 	issue(4, 7); // alone again: 3 (never on the log-only stream) first, then 4; 1 and 2 not again
 	CHECK(commandsIn(sink.logStream) == std::vector<int>{ 1, 2, 3, 4 });
 	// the real relay's log of that stream
-	const std::filesystem::path dir = tempDir("r1order");
+	const onlinetest::TempDir dir = tempDir("r1order");
 	RelayCore::Options ro;
 	ro.keys = testRing();
 	ro.logDir = dir.string();
@@ -1811,7 +1808,6 @@ TEST_CASE("online3 r1 (Sol: log order): a peer that finds itself alone sends its
 		}
 	}
 	CHECK(logged == std::vector<int>{ 1, 2, 3, 4 });
-	std::filesystem::remove_all(dir);
 }
 
 namespace
@@ -1824,7 +1820,7 @@ void runRealRejoins(const std::vector<int> &restarts, bool crashWithPendingCrc)
 {
 	const int n = 3, kCrc = 10;
 	const std::uint8_t mask = 0x07;
-	const std::filesystem::path dir = tempDir("realrejoin");
+	const onlinetest::TempDir dir = tempDir("realrejoin");
 	RelayCore::Options ro;
 	ro.keys = testRing();
 	ro.logDir = dir.string();
@@ -2132,7 +2128,6 @@ void runRealRejoins(const std::vector<int> &restarts, bool crashWithPendingCrc)
 	dead.clear();
 	relay.shutdown(0);
 	CHECK(relay.openLogHandles() == 0);
-	std::filesystem::remove_all(dir);
 }
 } // namespace
 
@@ -2272,7 +2267,7 @@ void moveCommands(LiveGame &game, CommandList &out)
 TEST_CASE("online3: a rejoin ticket of an unknown game is refused before a game or a log is allocated (maxGames 1 stays free)")
 {
 	using namespace RelayProtocol;
-	const std::filesystem::path dir = tempDir("unknown_game_rejoin");
+	const onlinetest::TempDir dir = tempDir("unknown_game_rejoin");
 	RelayCore::Options o;
 	o.keys = testRing();
 	o.logDir = dir.string();
@@ -2306,7 +2301,6 @@ TEST_CASE("online3: a rejoin ticket of an unknown game is refused before a game 
 	CHECK(helloOf(kGame + 2, 11, 0) == encodeRefused(REFUSE_FULL));
 	auto bye = encodeEmpty(BYE);
 	relay.handle(addr(10), bye.data(), bye.size(), 3000, 1700000000u);
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online3 retail: rejoin before first bind fails explicitly with a refusal or a legacy log missing REJOINED")
@@ -2391,7 +2385,6 @@ TEST_CASE("online3 retail: rejoin before first bind fails explicitly with a refu
 	CHECK(session.rejoinReport().failure == (legacy ? "cannot rejoin: the relay log has no REJOINED record for this player"
 		: "the relay refused the rejoin ticket: cannot rejoin: the original player never connected to the relay"));
 	CHECK(session.rejoinStep(*g.game, 0) == NetGameSession::RejoinState::Failed);
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("onlineux1 r2 (Sol 1) retail: a rejoin that fails before it is live leaves nothing behind: its finish sends the relay no frame counts and no "
@@ -2525,7 +2518,6 @@ TEST_CASE("onlineux1 r2 (Sol 1) retail: a rejoin that fails before it is live le
 	// before r2: Network::leave announced frames 0 .. the catch-up's execution frame and a PLAYERLEAVE, all as DATA to the relay
 	CHECK_MESSAGE(dataAfterFinish == 0, "frame counts / PLAYERLEAVE sent by the failed rejoin's finish: " << dataAfterFinish << " (during the rejoin: " << dataDuringRejoin << ")");
 	CHECK(dataDuringRejoin == 0); // a rejoining incarnation announces no frames
-	std::filesystem::remove_all(dir);
 }
 
 TEST_CASE("online3 retail: the catch-up runs a game's frames from its command log and reaches the same state, the CRCs compared on the way; a wrong "
