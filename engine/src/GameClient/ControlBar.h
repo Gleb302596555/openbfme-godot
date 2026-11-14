@@ -251,11 +251,25 @@ private:
 	// PORT-169 (issue #398, RW 0x75D22E / 0x944603): sync CommandButton::m_toggleIndex (+0xFC) with object or multi-select state
 	void updateToggleIndex(const CommandButton &b, const Object *obj, bool invert) const;
 	void updateMultiSelectToggleIndex(const CommandButton &b, const Object *fallback) const;
+	// PORT-189 (issue #455): processCommandUI (RW 0x941367 / 0x941A22 / 0x9414E7 -> RW 0x75D22E(obj, 1))
+	// flips +0xFC immediately on click, processContextSensitiveButtonClick (RW 0x941C14..0x941C1D) updates the
+	// button image from +0xFC, and ControlBar::update (RW 0x71FD81) skips populateCommand (RW 0x943E91 / 0x9446A5)
+	// while m_UIDirty (+0x28) is 0. Keep the click-predicted index across HUD frames until the object state leaves
+	// preClickIndex or the bar's context/dirty state changes.
+	static bool usesToggleIndex(const CommandButton &b);
+	void applyPredictedToggle(const CommandButton &b, const Object *obj);
+	struct PendingToggle
+	{
+		int preClickIndex = 0;
+		int predictedIndex = 0;
+	};
 
 	HudContext &m_ctx;
 	ObjectID m_source = INVALID_ID;
 	std::string m_setName;
 	std::vector<ControlBarButton> m_palantir, m_side, m_offBar;
+	std::map<const CommandButton *, PendingToggle> m_pendingToggles;
+	std::vector<ObjectID> m_pendingSelection;
 	std::function<void(const std::string &)> m_stanceVoice;
 	std::function<void(const std::string &)> m_commandVoice;
 	std::vector<ControlBarQueueEntry> m_queue;

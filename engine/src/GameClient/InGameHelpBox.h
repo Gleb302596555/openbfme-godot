@@ -80,9 +80,11 @@ public:
 	void setDisconnectMenuPresent(bool present) { m_disconnectMenuPresent = present; } // RW 0xDEA328: TheDisconnectMenu
 	// RW 0x807848 for the provider under the pointer; `compose` makes the help when it is time to show it
 	void showHelp(const Provider &p, std::uint32_t nowMs, int tooltipDelayMs, const std::function<std::shared_ptr<CommandButtonHelp>()> &compose);
-	// lane OWNERFIX-1: RW 0x8076CD (called by DISABLE_INPUT, RW 0x7BC586; the control bar's byte + 0x21C, its provider + 0x2AC released through RW 0xA0CB16, then the
-	// help box's hideSoon RW 0x6D473D): the frame's mark and the kept provider go, a shown help hides soon. Not ported: the call on the radar window override's
-	// inner object (+ 0xC8), whose effect was not traced (S-4964)
+	// lane OWNERFIX-1 / PORT-189: RW 0x8076CD (thunk RW 0x8079BB; called by DISABLE_INPUT RW 0x7BC5D9 and
+	// ParasiticInGameCommandButton::Impl left/right click RW 0x9D282D / 0x9D28A3 -> RW 0x8079BB; the control bar's
+	// byte + 0x21C, its provider + 0x2AC released through RW 0xA0CB16, then the help box's hideSoon RW 0x6D473D):
+	// the frame's mark and the kept provider go, a shown help hides soon. Not ported: the call on the radar window
+	// override's inner object (+ 0xC8), whose effect was not traced (S-4964)
 	void dropProvider();
 	bool hasProvider() const { return m_haveProvider; }
 	const Provider &provider() const { return m_provider; }

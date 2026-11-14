@@ -295,11 +295,11 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 		}
 		case GUI_COMMAND_TOGGLE_WEAPONSET:
 		{
-			// lane HUD-4 / PORT-169: RW 0x9412C8 sends MSG_WEAPONSET_TOGGLE with the context object's id (logic case RW 0x77B529, GameLogic/WeaponSetToggle.cpp),
-			// then RW 0x9412F3 -> 0x941A22 calls updateToggleImage(obj, true) (RW 0x75D22E).
+			// lane HUD-4 / PORT-169 / PORT-189: RW 0x9412C8 sends MSG_WEAPONSET_TOGGLE with the context object's id (logic case RW 0x77B529, GameLogic/WeaponSetToggle.cpp),
+			// then RW 0x9412F3 -> 0x941A22 calls updateToggleImage(obj, true) (RW 0x75D22E) and RW 0x941C16 refreshes the button image.
 			ClientMessage &m = m_ctx.stream.append(MSG_WEAPONSET_TOGGLE);
 			m.appendObjectID(m_source);
-			updateToggleIndex(b, obj, true);
+			applyPredictedToggle(b, obj);
 			return true;
 		}
 		case GUI_COMMAND_TOGGLE_GATE:
@@ -361,13 +361,13 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 						m.appendInteger(target);
 					}
 				}
-				updateToggleIndex(b, obj, true); // RW 0x941A22 -> 0x75D22E(obj, 1)
+				applyPredictedToggle(b, obj); // PORT-189: RW 0x941A22 -> 0x75D22E(obj, 1), RW 0x941C16 image refresh
 				return true;
 			}
 			// lane HORDE-2: the logic case (RW 0x77BE83) reads argument 0 as the horde's object id: the control bar's source object
 			ClientMessage &m = m_ctx.stream.append(MSG_HORDE_TOGGLE_FORMATION);
 			m.appendObjectID(m_source);
-			updateToggleIndex(b, obj, true); // RW 0x941A22 -> 0x75D22E(obj, 1)
+			applyPredictedToggle(b, obj); // PORT-189: RW 0x941A22 -> 0x75D22E(obj, 1), RW 0x941C16 image refresh
 			return true;
 		}
 		case GUI_COMMAND_ATTACK_MOVE:
@@ -463,10 +463,11 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 		}
 		case GUI_COMMAND_TOGGLE_NO_AUTO_ACQUIRE:
 		{
-			// lane FACT-A / PORT-169: RW 0x940435 case 0x30: MSG_TOGGLE_NO_AUTO_ACQUIRE { objectID the context object }, then RW 0x941367 -> 0x75D366(id, 1)
+			// lane FACT-A / PORT-169 / PORT-189: RW 0x940435 case 0x30: MSG_TOGGLE_NO_AUTO_ACQUIRE { objectID the context object },
+			// then RW 0x941367 -> 0x75D366(id, 1) -> RW 0x75D22E(obj, 1) and RW 0x941C16 refreshes the button image.
 			ClientMessage &m = m_ctx.stream.append(MSG_TOGGLE_NO_AUTO_ACQUIRE);
 			m.appendObjectID(obj->getID());
-			updateToggleIndex(b, obj, true);
+			applyPredictedToggle(b, obj);
 			return true;
 		}
 		case GUI_COMMAND_FIRE_WEAPON:
@@ -525,7 +526,7 @@ bool ControlBar::pressButton(int slot, bool inPalantir)
 					tm.appendObjectID(obj->getID());
 				}
 			}
-			updateToggleIndex(b, obj, true); // RW 0x9414E7 -> 0x75D22E(obj, 1)
+			applyPredictedToggle(b, obj); // PORT-189: RW 0x9414E7 -> 0x75D22E(obj, 1), RW 0x941C16 image refresh
 			return true;
 		}
 		case GUI_COMMAND_CASTLE_UNPACK:

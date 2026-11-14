@@ -914,6 +914,7 @@ void ControlBar::noteUpgradeCompleted(const UpgradeTemplate *upgrade)
 void ControlBar::update()
 {
 	(void)kPaletteSize;
+	const bool wasDirty = m_dirty;
 	m_dirty = false; // RW 0x71EBED: the refresh RW 0x71FD81 gates on +0x28 consumes the mark (evaluateContextUI clears it)
 	Player *local = m_ctx.localPlayer();
 	if (local)
@@ -933,6 +934,15 @@ void ControlBar::update()
 		obj = nullptr;
 	}
 	const ObjectID id = obj ? obj->getID() : (ObjectID)INVALID_ID;
+	// PORT-189 (issue #455): clear click-predicted toggle indices whenever ControlBar would re-populate
+	// (selection, command set, under-construction context, or m_UIDirty RW 0x71FD81).
+	const bool contextChanged = wasDirty || id != m_source || m_ctx.ui.selected() != m_pendingSelection
+		|| !obj || isUnderConstructionContext(*obj) || obj->getCommandSetName() != m_setName;
+	if (contextChanged)
+	{
+		m_pendingToggles.clear();
+		m_pendingSelection = m_ctx.ui.selected();
+	}
 	if (id != m_source)
 	{
 		m_source = id;
@@ -1115,10 +1125,24 @@ void ControlBar::update()
 					{
 						updateToggleIndex(*b, obj, false);
 					}
-					const bool usesToggleIndex = b->hasOption(COMMAND_OPTION_TOGGLE_IMAGE_ON_WEAPONSET | COMMAND_OPTION_TOGGLE_IMAGE_ON_FORMATION)
-						|| ((b->m_options & 0x800000u) != 0 && b->m_command == GUI_COMMAND_TOGGLE_NO_AUTO_ACQUIRE);
-					if (usesToggleIndex)
+					if (usesToggleIndex(*b))
 					{
+						// PORT-189 (issue #455): preserve click-predicted +0xFC (RW 0x941367 / 0x941A22 / 0x9414E7) until the
+						// authoritative object state leaves preClickIndex or context/dirty refreshes (RW 0x71FD81 skips
+						// populateCommand while m_UIDirty is 0, so 60+ FPS HUD updates between 30 Hz logic ticks or during
+						// SPECIAL_POWER unpack do not revert +0xFC and freeze the re-composed help box on the old labels).
+						const auto pit = m_pendingToggles.find(b);
+						if (pit != m_pendingToggles.end())
+						{
+							if (b->getToggleIndex() == pit->second.preClickIndex)
+							{
+								b->setToggleIndex(pit->second.predictedIndex, m_ctx.images);
+							}
+							else
+							{
+								m_pendingToggles.erase(pit);
+							}
+						}
 						cb.image = b->getToggleImageName(m_ctx.images);
 						cb.textLabel = b->getToggleTextLabel();
 						cb.descriptLabel = b->getToggleDescriptLabel();
@@ -1658,6 +1682,52 @@ void ControlBar::updateMultiSelectToggleIndex(const CommandButton &b, const Obje
 		}
 	}
 	updateToggleIndex(b, firstNonIgnored ? firstNonIgnored : fallback, false);
+}
+
+bool ControlBar::usesToggleIndex(const CommandButton &b)
+{
+	return b.hasOption(COMMAND_OPTION_TOGGLE_IMAGE_ON_WEAPONSET | COMMAND_OPTION_TOGGLE_IMAGE_ON_FORMATION)
+		|| ((b.m_options & 0x800000u) != 0 && b.m_command == GUI_COMMAND_TOGGLE_NO_AUTO_ACQUIRE);
+}
+
+void ControlBar::applyPredictedToggle(const CommandButton &b, const Object *obj)
+{
+	// PORT-189 (issue #455): processCommandUI (RW 0x941367 / 0x941A22 / 0x9414E7 -> RW 0x75D22E(obj, 1))
+	// flips +0xFC immediately, processContextSensitiveButtonClick (RW 0x941C14..0x941C1D) refreshes the
+	// button image from +0xFC, and OldSchoolHelpBoxContentSource::createContent (RW 0x807D9C / 0x807EB3 ->
+	// RW 0x75CECD / 0x75CE47) reads labels live from +0xFC.
+	const auto existing = m_pendingToggles.find(&b);
+	const int preClickIndex = existing != m_pendingToggles.end() ? existing->second.preClickIndex : b.getToggleIndex();
+	updateToggleIndex(b, obj, true);
+	if (!usesToggleIndex(b))
+	{
+		return;
+	}
+	const int predictedIndex = b.getToggleIndex();
+	if (predictedIndex != preClickIndex)
+	{
+		m_pendingToggles[&b] = PendingToggle{ preClickIndex, predictedIndex };
+	}
+	else
+	{
+		m_pendingToggles.erase(&b);
+	}
+	const std::string img = b.getToggleImageName(m_ctx.images);
+	const std::string &txt = b.getToggleTextLabel();
+	const std::string &desc = b.getToggleDescriptLabel();
+	for (std::vector<ControlBarButton> *list : { &m_palantir, &m_side, &m_offBar })
+	{
+		for (ControlBarButton &cb : *list)
+		{
+			if (cb.button == &b)
+			{
+				cb.image = img;
+				cb.textLabel = txt;
+				cb.descriptLabel = desc;
+			}
+		}
+	}
+	emitStateKey();
 }
 
 ControlBar::Placement ControlBar::placementOf(const CommandButton &b, int slot, int rangeStart)

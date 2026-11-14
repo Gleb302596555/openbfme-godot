@@ -144,11 +144,12 @@ void InGameHelpBox::beginFrame()
 	m_marked = false;
 }
 
-// lane OWNERFIX-1: RW 0x8076CD (InGameHelpBox.h)
+// lane OWNERFIX-1 / PORT-189: RW 0x8076CD (thunk RW 0x8079BB; InGameHelpBox.h)
 void InGameHelpBox::dropProvider()
 {
 	m_marked = false;
 	m_haveProvider = false;
+	m_provider = Provider();
 	m_shownForProvider = false;
 	if (m_loaded && isShown())
 	{
