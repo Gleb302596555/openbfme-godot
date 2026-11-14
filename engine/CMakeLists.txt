@@ -211,6 +211,7 @@ include(cmake/Port157.cmake)    # PORT-157: boot splash <Language>Splash.jpg/.bm
 include(cmake/Port155.cmake)    # PORT-155: RotWK reverb send, dry level and offscreen occlusion from AudioEventInfo (issue #373; OPENBFME_PORT155_TESTS)
 include(cmake/Port169.cmake)    # PORT-169: CommandButton toggle index (+0xFC) for UnitSpecificSound and toggle images/labels (issue #398; OPENBFME_PORT169_TESTS)
 include(cmake/Port159.cmake)    # PORT-159: SHADOW_VOLUME_NON_SELF_1/2/3 cast a shadow (the mumak, the dwarven battle wagon; issue #377; OPENBFME_PORT159_TESTS)
+include(cmake/Port178.cmake)    # PORT-178: a looping sound that loses its channel comes back (fork issue 431, P-76; OPENBFME_PORT178_TESTS)
 include(cmake/Render.cmake)     # OPENBFME_RENDER_SOURCES / OPENBFME_RENDER_TESTS (lane RENDER-1, client / draw only)
 include(cmake/SkirmishAI.cmake) # OPENBFME_SKIRMISH_AI_SOURCES / OPENBFME_SKIRMISH_AI_TESTS (lane AI-1)
 include(cmake/Vis.cmake)        # OPENBFME_VIS_SOURCES / OPENBFME_VIS_TESTS (lane VIS-1)
@@ -1037,6 +1038,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT141_TESTS}
     ${OPENBFME_PORT155_TESTS}
     ${OPENBFME_PORT159_TESTS}
+    ${OPENBFME_PORT178_TESTS}
     ${OPENBFME_PORT87_TESTS}
     ${OPENBFME_PORT169_TESTS}
     ${OPENBFME_RENDER_TESTS}
