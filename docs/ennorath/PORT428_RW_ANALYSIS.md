@@ -126,3 +126,47 @@ the existing `separation` filter is changed to ask the 3D overlap.
 - RW 0xA39340's exact partition iteration order and the `GeometryInfo::CollidesWith` shape-height
   asymmetry are ported through `NotifyCrushModules::geometriesOverlap`; their remaining parity
   limits are S-081 / S-1020 and are named in `docs/STOPS.md`.
+
+## 4. Linear instruction reads behind every branch quoted above (PROCESS 15)
+
+All reads are `python3 tools/mod/rw.py workspace/RotWK/game.dat dis <addr> <n>` on the same
+`game.dat` (md5 `daed3668…`, caveat S-001); the donor is used only where section 2.4 says so.
+
+- `RW 0x77824E` (`probe`, 0x77824E..0x778410): `[ecx+0x260] == 0` → `push 2; pop eax; jmp 0x77840e`
+  (return 2, no AI). The five `call 0x777ED7` (RW 0x777ED7 = the flight ground height) are at
+  RW 0x7782CD / 0x778324 / 0x778358 / 0x77838E / 0x7783BF; the centre uses `[eax+0x48]` of
+  `[AI+0x1F0]` (the locomotor's PreferredHeight) and `RW 0xC2ECBC` (0.5). The last sample's
+  excess is added to the push at RW 0x7783E1, then `call 0x777F9F` at **RW 0x7783F6** adds the
+  object overlaps. `xor eax,eax; comiss xmm0,[0xC1B594]; jbe 0x77840E; inc eax` at
+  RW 0x778401..0x77840D: return 1 iff the accumulated `worst > 0`, else 0. No give-up/retarget
+  branch exists here.
+- `RW 0x778176` (`pathClear`, 0x778176..0x77824B): `[esi+0x260] == 0` or spline `[eax+0x24] == 0`
+  → RW 0x778243 → `mov al,1` (clear). `call 0x777DAE` (query) at RW 0x7781A6, the z is lowered by
+  `clearance * 0.5` (`mulss xmm0,[0xC2ECBC]`, RW 0x7781C6), the terrain height is obtained through
+  `[ecx+0x18]` of `TheTerrainLogic` at RW 0x7781ED, and **`call 0x777F9F` at RW 0x77822A** followed
+  by `test al,al` is the object test. So the same separation filter decides both `probe` and
+  `pathClear`.
+- `RW 0x76A933` (`steer`, 0x76A933..0x76A9C8): `call 0x76A80A` (checkAhead) at RW 0x76A945,
+  `test eax,eax; je 0x76A9C6` (0 = do nothing). `cmp eax,1; jne 0x76A991` at RW 0x76A960: the
+  `1` branch adds `RW 0xBDAE58` to the object's z (RW 0x76A972, `call 0x70C0AD` setPosition) and
+  then `call 0x769EA5` at **RW 0x76A9C1** rebuilds the path; the `2` branch subtracts
+  `RW 0xBD1908` (RW 0x76A99E) and also rebuilds (RW 0x76A9C1 via 0x76A9BB). This is the
+  frame-by-frame rebuild that turns a permanently blocked run into the circle.
+- `RW 0x76DF1D` (swoop update): `call 0x76E154` (refreshTarget) at RW 0x76DFC4,
+  `call 0x76A80A` at RW 0x76DFDD for the level swoop whose non-zero result jumps to RW 0x76E046
+  (invalid spline / end), and `call 0x76A933` at RW 0x76E041. There is no "retarget / give up /
+  hover" state between them: the only exits are the invalid spline, the arrival test at
+  RW 0x76E0C0.. and the attack state's distance gate (RW 0x76B796).
+- `RW 0x76DB0E` (swoop enter): `AI+0x260` zero or `Object+0x458` bit 0 (dead) → RW 0x76DF0B
+  (`STATE_FAILURE`); `[AI+0x57C] &= ~0x38`, `m_victim`/`+0x584` set from the argument,
+  `RW 0xBE0DE4` into the state's +0x38. `RW 0x76E154` (refreshTarget): the victim is resolved
+  through `0x449681` from `[AI+0x584]` at RW 0x76E18D..0x76E19E; null → RW 0x76E3A9.
+- `RW 0x76ABC1` and `RW 0x76B14A` (the two follow states) both start with the dead/AI guards
+  (`[ebx+0x458]` bit 0 → −2, `[ebx+0x260] == 0` → −2) and both `call 0x76A933` (RW 0x76AC0B /
+  RW 0x76B194) with the anchor at `AI+0x608`. They use the very same `steer` → `checkAhead` →
+  `separation` chain, i.e. the 3D filter fixes every bird state, not only the swoop.
+- `RW 0x66139C` → `call 0xAD2CE0` at RW 0x6613C2 and `sub al,[esi+0x1c]; neg al; sbb eax,eax;
+  inc eax`: the filter's stored desired flag is 1 (`RW 0x67C5F3` ctor, the `push 1` seen at
+  RW 0x777FF7), so `allow` is true exactly when the two 3D shapes overlap. The port's
+  `NotifyCrushModules::geometriesOverlap` (RW 0xAD2CE0) returns that boolean directly; no new
+  state, no second path, no silent fallback.

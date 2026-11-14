@@ -450,6 +450,7 @@ include(cmake/Port130.cmake)   # PORT-130: CommandButton AffectsKindOf, the NEED
 include(cmake/Bldfx1.cmake)     # FEAT-BLDFX-1: the FXList nugget sinks, scorches, decals, light pulses, camera shakers (OPENBFME_BLDFX1_SOURCES / _TESTS)
 include(cmake/Decompfix1109.cmake) # DECOMPFIX-1109: FLEECHASE-1, ENTERADJUST-1, REQTHROTTLE-1 (OPENBFME_DECOMPFIX1109_TESTS)
 include(cmake/Port5.cmake)      # PORT-5: the bird's deferred ability target (OPENBFME_PORT5_TESTS)
+include(cmake/Port428.cmake)    # PORT-428: the aerial path's 3D would-collide filter (OPENBFME_PORT428_TESTS)
 add_library(openbfme_core STATIC
     ${OPENBFME_PLAY2_SOURCES}
     ${OPENBFME_APT_SOURCES}
@@ -895,6 +896,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT82_TESTS}
     ${OPENBFME_PORT130_TESTS}
     ${OPENBFME_PORT5_TESTS}
+    ${OPENBFME_PORT428_TESTS}
     ${OPENBFME_PORT4_TESTS}
     ${OPENBFME_PORT8_TESTS}
     ${OPENBFME_PORT11_TESTS}
