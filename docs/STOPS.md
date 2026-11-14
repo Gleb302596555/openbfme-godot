@@ -1158,3 +1158,20 @@ S-412 without the owner.
    buildable Arnor / Gondor / Imladris stable or the Imladris citadel never burns, and the fire lists never
    run for them; only a Cheat Mode spawn plus an ignition reaches them. The lane's behaviour is therefore
    held by the narrow tests `PORT-29*`, not by ordinary play.
+## PORT-172: RW's duplicate registration on a capture is not replicated (issue #425, S-1226)
+
+A capture fires the skirmish AI manager's object events twice for the new owner: the team change's
+own pair from `Object::joinTeam` (RW 0x697C9A .. 0x697CBC, called through `setTeam` RW 0x69954A ->
+0x698E6F -> 0x697C09) and the capture module's pair (RW 0x854712 objectRemoved, RW 0x85474D
+objectAdded, with the building's `setCapturedTeam` RW 0x854725 in between). RW registers the object
+twice in every `AIStatCollector` list - its add is a plain push_back (RW 0x5F1B20, called from
+RW 0x8E4456) - and its position-sampler remove erases one copy (search RW 0x6B4E3C, erase RW 0x5FF944,
+rebuild RW 0x8E4475), so after a capture + destroy RW itself keeps a stale copy of the id and reads a
+stale position through the lookup (the port's `AIStatCollector::positionOf` throws, the Ennorath
+census crash of issue #425).
+
+The port deliberately does NOT replicate the duplicate registration: `registerObject` registers an id
+at most once per list and `unRegisterObject` / `AIPositionSampler::remove` drop every copy. Nothing
+of RW's capture path stays unported; this stop records the deliberate divergence so the night agent
+does not "restore" RW's plain push_back and reintroduce the stale-id crash.
+

@@ -64,7 +64,9 @@ public:
 		LISTEN_ECONOMY = 2,
 		LISTEN_ARMY = 4
 	};
-	// RW 0x8E4591 / RW 0x8E480C; the masks of the lists that took / lost the object (lane AI5: the caller calls the listeners)
+	// RW 0x8E4591 / RW 0x8E480C; the masks of the lists that took / lost the object (lane AI5: the caller calls the listeners).
+	// PORT-425: an id is registered at most once per list (a capture fires the manager's events twice for the new owner, RW 0x854712 / 0x85474D), and
+	// a remove drops every copy of it, so no list and no position-sampler registration outlives the object
 	unsigned registerObject(const Object &obj);
 	unsigned unRegisterObject(const Object &obj);
 	// RW 0x8E3CF3 without the idle army record (AITacticalAI::updateIdleArmy reads army() right after)
