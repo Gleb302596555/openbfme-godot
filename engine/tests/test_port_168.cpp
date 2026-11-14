@@ -17,7 +17,6 @@
 
 #include "doctest.h"
 
-#include <cstdio>
 
 #include "CombatTestUtil.h"
 
