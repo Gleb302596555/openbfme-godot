@@ -1170,13 +1170,13 @@
 - Проверка: —
 
 ### P-107. Мордор: осквернённая земля (Desecrated earth) ложится квадратными клетками
-- Статус: [ ] **НЕ НАЧАТО**
+- Статус: [ ] **ИСПРАВЛЕНО, ЖДЁТ ПРОВЕРКИ В ИГРЕ — Arena (Port 176), 2026-11-13**
 - Добавлено: 2026-11-13, владелец (в игре, `main` `df5f0b41`, Эннорат, Хельмова Падь; снимок `docs/ennorath/photo of bugs/mordorDesecratedEarthOnMapHelmsdeep.png`)
 - Описание: сила Мордора первого уровня «Desecrated earth» (выжженная земля): часть земли под силой выглядит как прямоугольные клетки другого цвета с резкими краями, частью прозрачными; круглого пятна с мягким краем нет.
-- Подсистема: отрисовка земли: скверна / выжженная земля (Taint, маска по клеткам)
+- Подсистема: отрисовка земли: декали эффектов (`DynamicDecal`) и альфа-маска компилированных текстур `.jpg + .png` (НЕ `TaintManager`: `TaintSpecialPower ModuleTag_MordorTaintNew` в Эннорате закомментирован)
 - Взял: Port 176 (fork issue 429, 2026-11-13)
-- Причина и исправление: —
-- Проверка: —
+- Причина и исправление: в Эннорате кнопка `Command_SpellBookMordorTaintNoTime` вызывает `OCLSpecialPower ModuleTag_MordorWasteland` (`system.ini:127..143`) с `OCL_MordorWasteLand` (`MordorWasteland`, `Model = NONE`, только аура и пинг) и `TriggerFX = FX_TaintSpellFX1` (`fxlist.ini:10981..11127`), где пятно на земле рисует `DynamicDecal` `DecalName = exmordorquake02`, `Size = 420`, `OpacityPeak = 200`, `Lifetime = 90000`. В порте совпали две ошибки общего механизма (поведение ванильного RotWK 2.01): 1) `FXPlayer::decodeTexture` загружал только `art\compiledtextures\ex\exmordorquake02.jpg` и игнорировал парную маску прозрачности `exmordorquake02.png` (`ParticleTextureResolution::AuxPngPath`), тогда как RotWK (`RW 0x530D29`, `RW 0x530E48..0x530FB8`) переносит альфу `.png` в альфа-канал `A8R8G8B8` без изменения RGB — из-за этого вместо круглого пятна с мягким краем рисовался непрозрачный квадрат `420x420`; 2) `GodotFXPlayer::updateClientEffects` строил `DynamicDecal` как один плоский четырёхугольник из 4 углов на `groundHeight + 1.0f` без projection depth bias, тогда как `W3DProjectedShadowManager::queueDecal` / `flushDecals` (`RW 0x50C050..0x50D414`, `0x509800..0x50A115`, `0x5E05EA`, `0x4E2F85`) делит декаль по 10-единичной сетке `WorldHeightMap` с учётом диагоналей `flip`, смещает проекцию камеры на `9.0f` (`RW 0x509FCF`), рисует на приоритете `-123` (над скорчами `-124` и ниже частиц `-122..-9`) с туманом `W3DHardwareFog` и шейдерами `ALPHA` / `ADDITIVE` / `SUBTRACT` (`D3DBLENDOP_REVSUBTRACT`), из-за чего на неровном рельефе Хельмовой Пади плоский квадрат уходил под грани 10-единичных клеток террейна и резался по их рёбрам прямоугольными клетками. Исправлено в `DynamicDecalMesh.{h,cpp}`, `ParticleTexture.{h,cpp}`, `GodotFXPlayer.{h,cpp}`, `GodotTerrainScorches.h`, `GodotGameWorld.cpp` для всех 231 `FXList` Эннората с `DynamicDecal` и всех компилированных `.jpg + .png` текстур частиц/декалей (`S-1482` для UI не затронут; остаток проекции на модели мостов — `S-7344`).
+- Проверка: `PORT-176*` (`engine/tests/test_port_176.cpp`, `engine/tests/test_ennorath_scenarios_client.cpp`), соседние `*fx*`, `bldfx1*`, `*scorch*`, `PORT-125*`, `UI-2*`, `perf1*`, `uber1*`, `module coverage*`. Ждёт проверки владельцем в игре на Хельмовой Пади.
 
 ### P-108. Shift в казарме не заказывает сразу 5 юнитов
 - Статус: [ ] **НЕ НАЧАТО**

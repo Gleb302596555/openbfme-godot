@@ -6,9 +6,11 @@
 #include "EnnorathScenario.h"
 
 #include "Common/GameEdition.h"
+#include "GameClient/DynamicDecalMesh.h"
 #include "GameClient/FXPlayback.h"
 #include "GameClient/LiveFX.h"
 #include "GameClient/ParticleDraw.h"
+#include "GameClient/ParticleTexture.h"
 #include "Libraries/WWVegas/WW3D2/assetmgr.h"
 #include "Common/Audio/AudioEntryPoints.h"
 #include "Common/NameKeyGenerator.h"
@@ -840,3 +842,72 @@ TEST_CASE("LOCAL-3: Selection flash wires through InGameUI with player house col
 	}
 	CHECK(memberFlashCount == hordeMembers->size());
 }
+
+TEST_CASE("ENNORATH scenario PORT-176: Mordor SpellBookMordorTaintNoTime triggers FX_TaintSpellFX1 DynamicDecal exmordorquake02 with AuxPngPath and 43x43 terrain-conforming mesh (P-107, RW 0x50C050 / 0x530D29)")
+{
+	World world;
+	if (!world.load("Ennorath scenario PORT-176 (Mordor Desecrated earth / FX_TaintSpellFX1)"))
+	{
+		return;
+	}
+
+	// Retail + Ennorath archive has both compiled JPG RGB and PNG alpha mask for exmordorquake02 (RW 0x50B73E / 0x530D29)
+	const ParticleTextureResolution texRes = ResolveParticleTexture(
+		"exmordorquake02",
+		[&](const std::string &path) { return world.merged.fs->doesFileExist(path); });
+	REQUIRE(texRes.Found == true);
+	CHECK(texRes.Kind == ParticleTextureResolution::JPG);
+	CHECK(texRes.Path == "art\\compiledtextures\\ex\\exmordorquake02.jpg");
+	CHECK(texRes.AuxPngPath == "art\\compiledtextures\\ex\\exmordorquake02.png");
+
+	std::vector<std::uint8_t> jpgBytes, pngBytes;
+	std::string readErr;
+	REQUIRE_MESSAGE(world.merged.fs->readFile(texRes.Path, jpgBytes, &readErr), readErr);
+	REQUIRE_MESSAGE(world.merged.fs->readFile(texRes.AuxPngPath, pngBytes, &readErr), readErr);
+	CHECK(jpgBytes.empty() == false);
+	CHECK(pngBytes.empty() == false);
+
+	// Load Ennorath FXLists (data/ini/fxlist.ini:10981..11127) and play FX_TaintSpellFX1
+	FXPlayback playback(*world.merged.fs, RandomAlgorithm::RotWK_GameDat_LCG);
+	const std::vector<std::string> fxErrors = playback.loadRetailData(world.shared.world->report().macrosBeforeFX);
+	CHECK(fxErrors.empty());
+	REQUIRE(playback.playFXList("FX_TaintSpellFX1", Coord3D{ 500.0f, 500.0f, 0.0f }, false));
+	REQUIRE(playback.decals().size() == 1u);
+
+	const DecalFx &decal = playback.decals()[0];
+	CHECK(decal.desc.name == "exmordorquake02");
+	CHECK(decal.desc.size == 420.0f);
+	CHECK(decal.desc.shader == DYNAMIC_DECAL_SHADER_ALPHA);
+	CHECK(decal.desc.opacityPeak == 200);
+	CHECK(decal.desc.fadeOneFrames == 150);
+	CHECK(decal.desc.lifetimeFrames == 2700);
+
+	for (int s = 0; s < 150; ++s)
+	{
+		playback.step();
+	}
+	REQUIRE(playback.decals().size() == 1u);
+	CHECK(playback.decals()[0].opacityAt(playback.clientFrame()) == 200);
+
+	TerrainScorchBuffer::Terrain terrain;
+	terrain.xExtent = 128;
+	terrain.yExtent = 128;
+	terrain.border = 4;
+	terrain.heights.resize(128u * 128u, 512);
+	terrain.flip.resize(128u * 128u, 0);
+	for (int j = 0; j < 128; ++j)
+	{
+		for (int i = 0; i < 128; ++i)
+		{
+			terrain.heights[(size_t)j * 128u + (size_t)i] = (std::uint16_t)(256 + ((i % 7) * 48) + ((j % 5) * 32));
+			terrain.flip[(size_t)j * 128u + (size_t)i] = (std::uint8_t)((i + j) & 1);
+		}
+	}
+
+	DynamicDecalMesh built;
+	BuildDynamicDecalMesh({ &playback.decals()[0] }, playback.clientFrame(), &terrain, nullptr, built);
+	CHECK(built.decalsBuilt == 1);
+	CHECK(built.vertices.size() == 43u * 43u);
+	CHECK(built.indices.size() == 42u * 42u * 6u);
+}
+

@@ -8,6 +8,7 @@
 #include "GodotDevice/GodotRetailFileSystem.h"
 #include "GodotDevice/GodotW3DInstancer.h"
 #include "Common/AsciiString.h"
+#include "GameEngineDevice/W3DDevice/GameClient/W3DHardwareFog.h"
 #include "GodotDevice/GodotW3DMaterial.h"
 #include "GameClient/ParticleTexture.h"
 #include "Libraries/WWVegas/WW3D2/fxshadergen.h"
@@ -417,6 +418,52 @@ int64_t FXPlayer::decalCount() const
 	return m_playback ? (int64_t)m_playback->decals().size() : 0;
 }
 
+void FXPlayer::setDecalTerrain(TerrainScorchBuffer::Terrain terrain)
+{
+	m_decalTerrain = std::move(terrain);
+	m_decalTerrainDirty = true;
+}
+
+namespace
+{
+
+std::uint64_t decalStateSignature(const FXPlayback &playback)
+{
+	const std::vector<DecalFx> &decals = playback.decals();
+	if (decals.empty())
+	{
+		return 0;
+	}
+	auto mixU64 = [](std::uint64_t h, std::uint64_t v) {
+		return (h ^ v) * 1099511628211ull;
+	};
+	auto mixF32 = [&](std::uint64_t h, float f) {
+		std::uint32_t bits = 0;
+		std::memcpy(&bits, &f, sizeof(bits));
+		return mixU64(h, bits);
+	};
+	std::uint64_t h = 14695981039346656037ull;
+	h = mixU64(h, playback.clientFrame());
+	h = mixU64(h, (std::uint64_t)decals.size());
+	for (const DecalFx &d : decals)
+	{
+		h = mixU64(h, d.startFrame);
+		h = mixU64(h, (std::uint32_t)d.desc.shader);
+		h = mixU64(h, d.desc.color);
+		h = mixF32(h, d.desc.size);
+		h = mixF32(h, d.desc.position.x);
+		h = mixF32(h, d.desc.position.y);
+		h = mixF32(h, d.desc.yaw);
+		for (unsigned char ch : d.desc.name)
+		{
+			h = mixU64(h, ch);
+		}
+	}
+	return h == 0 ? 1ull : h;
+}
+
+} // namespace
+
 // lane FEAT-BLDFX-1: the terrain decals. Retail draws the scorches as one terrain-conforming grid per scorch in a 3 x 3 atlas cell
 // (DONOR BFME2 0x678BB) and the dynamic decals as projected quads with the opacity envelope of DONOR BFME2 0x10C785. Both are client-only presentation;
 // this renderer batches each texture into one ArrayMesh and never feeds anything back into the simulation.
@@ -516,90 +563,121 @@ void FXPlayer::updateClientEffects()
 		m_scorchMesh = mesh;
 		m_scorchNode->set_mesh(m_scorchMesh);
 	}
-	// ---- dynamic decals (TARGET RW 0x5E05AB; DONOR BFME2 0x1E0E43 / 0x10C785) ----
+	// ---- dynamic decals (TARGET RW 0x5E05AB -> RW 0x50BA57 / RW 0x50C24B / RW 0x50983D; DONOR BFME2 0x10C841 / 0x10C785) ----
 	const std::vector<DecalFx> &decals = m_playback->decals();
+	const std::uint64_t decalSig = decalStateSignature(*m_playback);
 	if (decals.empty() && !m_hadDecals)
+	{
+		m_decalSignature = decalSig;
+		m_decalTerrainDirty = false;
+		return;
+	}
+	if (!m_decalTerrainDirty && decalSig == m_decalSignature && (!decals.empty() || !m_hadDecals))
 	{
 		return;
 	}
+	m_decalSignature = decalSig;
+	m_decalTerrainDirty = false;
 	m_hadDecals = !decals.empty();
-	// two materials: the DynamicDecal Shader field ADDITIVE (1) makes an additive decal (type 0x800), every other value an alpha decal (type 0x400):
-	// DONOR BFME2 0x1E0E43 `m_type = m_shader == 1 ? 0x800 : 0x400` (SUBTRACT draws as ALPHA; no retail FXList sets the field)
-	for (int shader = 0; shader < 2; ++shader)
+
+	W3D_Ensure_Light_Globals();
+	for (int shader = 0; shader < DYNAMIC_DECAL_SHADER_COUNT; ++shader)
 	{
 		if (m_decalShaders[shader].is_valid())
 		{
 			continue;
 		}
-		const char *mode = shader == 1 ? "blend_add" : "blend_mix";
+		// RW 0x5E05EA .. 0x5E0607 + RW 0x5098F6 .. 0x509A59 + RW 0x537BF0:
+		//   ALPHA (0, 0x400) -> _PresetAlphaShader (0x1198B3, SRCALPHA/INVSRCALPHA, FOG_ENABLE)
+		//   ADDITIVE (1, 0x800) -> _PresetAdditiveShader (0x115833, ONE/ONE with vertex opacity scale, FOG_SCALE_FRAGMENT)
+		//   SUBTRACT (2, 0x10000) -> REVSUBTRACT + _PresetAdditiveSpriteShader (FOG_SCALE_FRAGMENT)
+		const char *mode = shader == DYNAMIC_DECAL_SHADER_ADDITIVE ? "blend_add"
+						 : shader == DYNAMIC_DECAL_SHADER_SUBTRACT ? "blend_sub"
+																   : "blend_mix";
+		const W3DHardwareFog::FogMode fogMode = shader == DYNAMIC_DECAL_SHADER_ALPHA
+			? W3DHardwareFog::ModeForShaderWord(0x1198B3u)
+			: W3DHardwareFog::ModeForShaderWord(0x115833u);
+		const char *alphaExpr = shader == DYNAMIC_DECAL_SHADER_ALPHA ? "t.a * COLOR.a" : "COLOR.a";
 		Ref<Shader> s;
 		s.instantiate();
 		const std::string code = std::string("shader_type spatial;\nrender_mode ") + mode
-			+ ", depth_draw_never, cull_disabled, unshaded, shadows_disabled;\n"
+			+ ", depth_draw_never, cull_disabled, unshaded, fog_disabled, shadows_disabled;\n"
 			  "uniform sampler2D decal_tex : filter_linear_mipmap, repeat_disable;\n"
+			  "uniform float depth_bias_scale = 0.99440646;\n"
+			+ W3DHardwareFog::GlslFor(fogMode)
+			+ "varying float fog_range;\n"
+			  "void vertex() {\n"
+			  "\tvec4 eye = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);\n"
+			  "\tfog_range = length(eye.xyz);\n"
+			  "\tPOSITION = PROJECTION_MATRIX * vec4(eye.xyz * depth_bias_scale, 1.0);\n"
+			  "}\n"
 			  "void fragment() {\n"
 			  "\tvec4 t = texture(decal_tex, UV);\n"
-			  "\tALBEDO = t.rgb * COLOR.rgb;\n"
-			  "\tALPHA = t.a * COLOR.a;\n"
+			  "\tALBEDO = w3d_apply_fog(t.rgb * COLOR.rgb, fog_range);\n"
+			  "\tALPHA = " + alphaExpr + ";\n"
 			  "}\n";
-		s->set_code(toGodot(code));
+		SetShaderCode(s.ptr(), toGodot(code), String("DynamicDecal ") + toGodot(mode));
 		m_decalShaders[shader] = s;
 	}
 	std::map<DecalKey, std::vector<const DecalFx *>> groups;
 	for (const DecalFx &d : decals)
 	{
-		const int shader = d.desc.shader == 1 ? 1 : 0;
+		const int shader = (int)NormalizeDynamicDecalShader(d.desc.shader);
 		groups[DecalKey{ d.desc.name, shader }].push_back(&d);
 	}
+	const TerrainScorchBuffer::Terrain *terrainPtr = m_decalTerrain.valid() ? &m_decalTerrain : nullptr;
+	const auto fallbackHeight = [this](float x, float y) { return m_playback->groundHeight(x, y); };
+	const float depthBiasScale = DynamicDecalMesh::depthBiasViewScale();
+	DynamicDecalMesh built;
 	for (auto &kv : groups)
 	{
 		MeshInstance3D *node = nullptr;
+		Ref<ShaderMaterial> mat;
 		auto it = m_decalNodes.find(kv.first);
 		if (it != m_decalNodes.end())
 		{
 			node = it->second;
+			mat = node->get_material_override();
 		}
 		else
 		{
 			node = memnew(MeshInstance3D);
 			node->set_name(toGodot(kv.first.name));
-			Ref<ShaderMaterial> mat;
 			mat.instantiate();
 			mat->set_shader(m_decalShaders[kv.first.shader]);
-			mat->set_shader_parameter("decal_tex", particleTexture(kv.first.name));
+			mat->set_render_priority(DynamicDecalMesh::kRenderPriority);
+			mat->set_shader_parameter("depth_bias_scale", depthBiasScale);
 			node->set_material_override(mat);
 			node->set_cast_shadows_setting(GeometryInstance3D::SHADOW_CASTING_SETTING_OFF);
 			m_decalRoot->add_child(node);
 			m_decalNodes[kv.first] = node;
 		}
+		if (mat.is_valid())
+		{
+			mat->set_shader_parameter("decal_tex", particleTexture(kv.first.name));
+		}
+		BuildDynamicDecalMesh(kv.second, m_playback->clientFrame(), terrainPtr, fallbackHeight, built);
 		PackedVector3Array verts;
 		PackedVector2Array uvs;
 		PackedColorArray colors;
 		PackedInt32Array indices;
-		for (const DecalFx *d : kv.second)
+		if (!built.vertices.empty() && !built.indices.empty())
 		{
-			const float opacity = (float)d->opacityAt(m_playback->clientFrame()) / 255.0f;
-			const float r = (float)((d->desc.color >> 16) & 0xff) / 255.0f;
-			const float g = (float)((d->desc.color >> 8) & 0xff) / 255.0f;
-			const float b = (float)(d->desc.color & 0xff) / 255.0f;
-			// ShadowTypeInfo's sizeX / sizeY are the decal's full width / height (ZH W3DProjectedShadowManager::addDecal: m_decalSizeX = sizeX,
-			// the quad's corners at objPos -+ size * 0.5)
-			const float h = d->desc.size * 0.5f;
-			const float c = std::cos(d->desc.yaw), s = std::sin(d->desc.yaw);
-			const int32_t base = (int32_t)verts.size();
-			const float corner[4][2] = { { -h, -h }, { h, -h }, { h, h }, { -h, h } };
-			for (int k = 0; k < 4; ++k)
+			verts.resize((int64_t)built.vertices.size());
+			uvs.resize((int64_t)built.vertices.size());
+			colors.resize((int64_t)built.vertices.size());
+			Vector3 *vw = verts.ptrw();
+			Vector2 *uw = uvs.ptrw();
+			Color *cw = colors.ptrw();
+			for (size_t i = 0; i < built.vertices.size(); ++i)
 			{
-				const float lx = corner[k][0], ly = corner[k][1];
-				const float x = d->desc.position.x + lx * c - ly * s;
-				const float y = d->desc.position.y + lx * s + ly * c;
-				const float z = m_playback->groundHeight(x, y) + 1.0f;
-				verts.push_back(toGodotSpace(Coord3D{ x, y, z }));
-				colors.push_back(Color(r, g, b, opacity));
-				uvs.push_back(k == 0 ? Vector2(0, 0) : k == 1 ? Vector2(1, 0) : k == 2 ? Vector2(1, 1) : Vector2(0, 1));
+				const DynamicDecalVertex &v = built.vertices[i];
+				vw[i] = toGodotSpace(v.position);
+				uw[i] = Vector2(v.u, v.v);
+				cw[i] = Color(v.r, v.g, v.b, v.a);
 			}
-			indices.push_back(base); indices.push_back(base + 1); indices.push_back(base + 2);
-			indices.push_back(base); indices.push_back(base + 2); indices.push_back(base + 3);
+			indices.resize((int64_t)built.indices.size());
+			std::memcpy(indices.ptrw(), built.indices.data(), built.indices.size() * sizeof(std::int32_t));
 		}
 		Ref<ArrayMesh> mesh;
 		mesh.instantiate();
@@ -655,6 +733,10 @@ void FXPlayer::advance(double delta)
 			m_accumulator = 0.0; // never spiral
 		}
 		stepped = steps > 0;
+	}
+	if (!stepped && (m_decalTerrainDirty || decalStateSignature(*m_playback) != m_decalSignature || m_playback->scorches().version() != m_scorchVersion))
+	{
+		updateClientEffects();
 	}
 	// lane GPUPERF-3 (presentation only): the batches are a function of the particles (changed by a step, or by the live game's effect calls between
 	// steps: the playback signature), the cameras (the billboards' sides, the sort, the culling) and the draw settings; a render frame with none of
@@ -862,11 +944,76 @@ Ref<Texture2D> FXPlayer::decodeTexture(const std::string &name, std::string &mis
 			}
 			else
 			{
-				if (!image->has_mipmaps() && !image->is_compressed())
+				bool auxOk = true;
+				if (res.Kind == ParticleTextureResolution::JPG && !res.AuxPngPath.empty())
 				{
-					image->generate_mipmaps();
+					// RW 0x530E48 .. 0x530FB8: merge the companion .png mask channel into the decoded .jpg's alpha byte, keeping .jpg RGB untouched
+					std::vector<std::uint8_t> pngBytes;
+					std::string pngError;
+					if (!fs.readFile(res.AuxPngPath, pngBytes, &pngError))
+					{
+						missing = name + " (" + pngError + ")";
+						auxOk = false;
+					}
+					else
+					{
+						PackedByteArray pngBuffer;
+						pngBuffer.resize((int64_t)pngBytes.size());
+						if (!pngBytes.empty())
+						{
+							std::memcpy(pngBuffer.ptrw(), pngBytes.data(), pngBytes.size());
+						}
+						Ref<Image> png;
+						png.instantiate();
+						if (png->load_png_from_buffer(pngBuffer) != OK || png->is_empty())
+						{
+							missing = name + " (could not decode " + res.AuxPngPath + ")";
+							auxOk = false;
+						}
+						else
+						{
+							image->convert(Image::FORMAT_RGBA8);
+							const int w = image->get_width();
+							const int h = image->get_height();
+							if (png->get_width() != w || png->get_height() != h)
+							{
+								png->resize(w, h, Image::INTERPOLATE_NEAREST); // RW 0x530EE1 .. 0x530EE4
+							}
+							ParticleAuxAlphaFormat auxFmt = ParticleAuxAlphaFormat::RGBA8;
+							if (png->get_format() == Image::FORMAT_L8)
+							{
+								auxFmt = ParticleAuxAlphaFormat::L8_OR_A8;
+							}
+							else if (png->get_format() == Image::FORMAT_LA8)
+							{
+								auxFmt = ParticleAuxAlphaFormat::LA8;
+							}
+							else
+							{
+								png->convert(Image::FORMAT_RGBA8);
+							}
+							PackedByteArray rgbaBytes = image->get_data();
+							const PackedByteArray auxBytes = png->get_data();
+							if (!MergeParticleJpgAlpha(rgbaBytes.ptrw(), w, h, auxBytes.ptr(), (size_t)auxBytes.size(), auxFmt))
+							{
+								missing = name + " (could not merge " + res.AuxPngPath + ")";
+								auxOk = false;
+							}
+							else
+							{
+								image->set_data(w, h, false, Image::FORMAT_RGBA8, rgbaBytes);
+							}
+						}
+					}
 				}
-				out = ImageTexture::create_from_image(image);
+				if (auxOk)
+				{
+					if (!image->has_mipmaps() && !image->is_compressed())
+					{
+						image->generate_mipmaps();
+					}
+					out = ImageTexture::create_from_image(image);
+				}
 			}
 		}
 	}
@@ -1668,6 +1815,7 @@ Array FXPlayer::get_events() const
 void FXPlayer::clearTextureCache()
 {
 	m_buildDirty = true;
+	m_decalTerrainDirty = true;
 	m_textures.clear();
 	m_preloaded.clear();
 	m_preloadQueue.clear();
