@@ -297,8 +297,17 @@ TEST_CASE("LOCAL-20 ennorath: Ennorath scenario retaliation with real GondorFigh
 	Object *gondorHorde = world.place(arena, "GondorFighterHorde", 0, 500.0f, 500.0f);
 	REQUIRE(gondorHorde != nullptr);
 
-	// Real GondorFighterHorde has no weapon on container -> returns unscaled settings range (250.0f)
-	CHECK(AIGuardMachine::getRetaliateRange(*gondorHorde) == 250.0f);
+	// RW 0x94BA8C (AIGuardRetaliateMachine::getStdGuardRange, DONOR BFME2 0x945239): calls Object::getCurrentWeapon(nullptr)
+	// (RW 0x68B58C) and WeaponTemplate::isMeleeWeapon (RW 0x441B59, offset +0x125), multiplying MaxRetaliateDistance by 1.15f
+	// (RW 0x94BACE, float at 0xC12234) when the current weapon is melee. In Ennorath data\ini\object\goodfaction\hordes\men\menhordes.ini,
+	// GondorFighterHorde defines WeaponSet { Conditions = None; Weapon = PRIMARY NormalMeleeHordeRangefinder; }, and in data\ini\weapon.ini
+	// Weapon NormalMeleeHordeRangefinder has MeleeWeapon = Yes -> 250.0f * 1.15f = 287.5f.
+	CHECK(AIGuardMachine::getRetaliateRange(*gondorHorde) == 287.5f);
+
+	// Neighbour: GondorArcherHorde defines Weapon = PRIMARY GoodArcherMissileHordeRangefinder (no MeleeWeapon = Yes in weapon.ini) -> unscaled 250.0f
+	Object *archerHorde = world.place(arena, "GondorArcherHorde", 0, 500.0f, 500.0f);
+	REQUIRE(archerHorde != nullptr);
+	CHECK(AIGuardMachine::getRetaliateRange(*archerHorde) == 250.0f);
 
 	// Real GondorFighter unit has melee weapon (GondorSword) -> scales by 1.15 in AIGuardMachine::getRetaliateRange (287.5f)
 	Object *gondorFighter = world.place(arena, "GondorFighter", 0, 500.0f, 500.0f);

@@ -53,7 +53,6 @@
 | `factc spell book: every Goblin and Angmar spell bought in the store and cast through th...` | `test_hud_factb_units.cpp:129`, `CHECK( false ) is NOT correct!` |
 | `ring delivery retail: a pending carrier exit survives a whole-game save loaded into a f...` | `test_hud_garrison_retail.cpp:783`, `REQUIRE( b.logic.loadSnapshot(snapshot, &error) ) is NOT correct!` |
 | `backlog8 retail: the FLOATING_Z horde members of the retail data: the Mumakil's Haradri...` | `test_hud_horde2_retail.cpp:991`, `REQUIRE( a.memberIds(archers).size() == 6 ) is NOT correct!` |
-| `LOCAL-20 ennorath: Ennorath scenario retaliation with real GondorFighterHorde (MaxRetal...` | `test_local_20.cpp:301`, `CHECK( AIGuardMachine::getRetaliateRange(*gondorHorde) == 250.0f ) is NOT correct!` |
 | `move SPEED: a formation move caps every member's locomotor at the slowest member's max ...` | `test_move_speed.cpp:425`, `CHECK( w.aiOf(fast)->curLocomotor()->temporarySpeedCap() == 6.0f ) is NOT correct!` |
 | `onlineux1 r2 (Sol 1) retail: a rejoin that fails before it is live leaves nothing behin...` | `test_online3_rejoin.cpp:2398`, `test case THREW exception: remove_all: The process cannot access the file because it is being used by another ` |
 | `pickup1: a computer player's horde walks to a treasure chest in a temporary AI machine,...` | `test_pickup_modules.cpp:297`, `CHECK( p.ai->currentStateId() == (unsigned)AI_MOVE_TO ) is NOT correct!` |
@@ -81,5 +80,4 @@
 |---|---|
 | `fbsim1 retail: a right press on a CANCELABLE...` | падает в наборе (`test_hud6.cpp:787`), отдельно проходит |
 | `net retail hud5` | падает время от времени (и в прогоне `f7255b2f`) |
-| `cheat1 mode: every command's effect and limits in a Cheat Mode game` | упал в полном прогоне `f7255b2f`, отдельно проходит |
 | `LOCAL-5 capture flash timing` | упал в полном прогоне `f7255b2f`, отдельно проходит |

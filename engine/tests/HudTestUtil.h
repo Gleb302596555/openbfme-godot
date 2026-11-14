@@ -110,6 +110,7 @@ inline bool haveWorld(const char *what)
 struct Rig
 {
 	SharedWorld &sh;
+	std::unique_ptr<RetailObjectWorld::ContextScope> context;
 	ArchiveW3DFileSource source;
 	WW3DAssetManager assets;
 	std::unique_ptr<LiveGame> game;
@@ -122,6 +123,7 @@ struct Rig
 	// lane VISUAL-2 r2: `allyFaction` adds a computer Player_3 on the local player's team (start 2)
 	explicit Rig(SharedWorld &s, const char *mapName = "map mp fall back 4p", const char *faction = "FactionMen", const char *allyFaction = nullptr) // lane SPELL-2: the local faction
 		: sh(s)
+		, context(s.world->enterContext())
 		, source(*s.mount->fs)
 		, assets(source)
 	{
