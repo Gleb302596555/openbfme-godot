@@ -21,7 +21,9 @@
 #include <windows.h>
 #elif defined(__APPLE__)
 #include <fcntl.h>
+#include <libproc.h>
 #include <sys/param.h>
+#include <sys/proc_info.h>
 #include <unistd.h>
 #endif
 
@@ -106,11 +108,25 @@ std::vector<std::string> openFilesUnder(const std::filesystem::path &dir)
 	{
 		return open;
 	}
-	const int limit = getdtablesize();
-	for (int fd = 0; fd < limit; ++fd)
+	// the descriptors of this process (proc_pidinfo PROC_PIDLISTFDS: only the open ones, whatever the descriptor limit is); of those, the files
+	// (vnodes), whose path F_GETPATH gives
+	const int self = getpid();
+	const int bytes = proc_pidinfo(self, PROC_PIDLISTFDS, 0, nullptr, 0);
+	if (bytes <= 0)
 	{
+		return open;
+	}
+	std::vector<proc_fdinfo> fds((size_t)bytes / sizeof(proc_fdinfo) + 32); // room for descriptors opened since the size was asked
+	const int got = proc_pidinfo(self, PROC_PIDLISTFDS, 0, fds.data(), (int)(fds.size() * sizeof(proc_fdinfo)));
+	const size_t count = got > 0 ? (size_t)got / sizeof(proc_fdinfo) : 0;
+	for (size_t i = 0; i < count; ++i)
+	{
+		if (fds[i].proc_fdtype != PROX_FDTYPE_VNODE)
+		{
+			continue;
+		}
 		char file[MAXPATHLEN];
-		if (fcntl(fd, F_GETPATH, file) == -1)
+		if (fcntl(fds[i].proc_fd, F_GETPATH, file) == -1)
 		{
 			continue;
 		}
