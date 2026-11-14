@@ -1099,3 +1099,26 @@ automatic sizing and rotated offsets remain unverified. Nodes expose S-3304.
 The dozer slice of position-targeted construction is now implemented; non-dozer
 buildObjectNow remains S-5305. Existing S-1182 regional presentation-only wording
 is superseded for the six implemented reveal/undo actions described above.
+
+----
+
+## PORT-166 charge residuals (issue #395, S-7326)
+
+1. **The exit's locomotor set is a fork-side restore, not RW's literal.** RW 0x74D8C8 pushes
+   literal `0` (SET_NORMAL) at `AIChargeTargetState::onExit`; the port restores the set recorded
+   at onEnter (`m_setBeforeCharge`, `AIAttackCharge.cpp`). For every charger that entered from
+   SET_NORMAL (the vanilla user, Khamul's plow) the two are identical; for a SET_MOUNTED charger
+   (the fork's Erkenbrand) RW's literal would leave the hero at the human speed after the charge,
+   which the fork's acceptance (speed after == speed before, issue #395) forbids. Do not "restore"
+   the literal 0 without the owner.
+2. **RW's GondorTrebuchet exception is unported.** RW 0x751470 .. 0x751482: when the current
+   weapon's name differs from the one recorded at state + 0x3C, the attack fails — except for an
+   object whose template name is `GondorTrebuchet` (string `RW 0xC2B138`), which keeps attacking
+   (its weapon switches between the deployed and normal modes). The port's gate
+   (`AIAttack.cpp`, `m_lockedSlotOnEnter`) has no template exception, so a trebuchet whose weapon
+   changes mid-attack leaves attack mode where RW keeps it. Nothing in Ennorath exercises it.
+3. **A mid-attack world teardown can segfault in the harness.** Destroying a `CombatWorld` while
+   `AI_ATTACK_OBJECT` with a live charge/attack state crashes (SIGSEGV) in teardown; `PORT-166`'s
+   T2 hit it and now runs the attack out before the world dies. The crash is in the teardown
+   ordering, not the charge mechanism (T1/T3 with a finished attack tear down cleanly); no
+   game path destroys a world mid-attack.
