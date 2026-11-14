@@ -599,6 +599,7 @@ GameWorld::~GameWorld()
 	releaseLocalDrivers(); // lane MP-2: the recording / replay driver too
 	m_audio.reset(); // AUDIO-2: the audio side reads the game
 	// the game before the world and the assets it points into; the effect player before the game
+	W3D_Set_Floor_Height_Map(nullptr);
 	m_weather.reset(); // lane WEATHER-1: before the effect player and the game
 	m_liveFX.reset();
 	m_spellStore.reset(); // lane SPELL-2 (review r1): the spell book screens hold the game's player and templates: they go before it
@@ -624,6 +625,7 @@ void GameWorld::_notification(int what)
 		// the effect player (m_fxPlayer) is a child node: Node's own PREDELETE (after this class's, the notification runs reversed) deletes the children
 		// before ~GameWorld, so LiveFX and the weather, which reach into its playback (LiveFX::~LiveFX destroys its terrain fire / smoke systems), go now.
 		// Without this, closing the program with a game loaded crashed in ParticleSystemManager::findParticleSystemByID (2026-11-08).
+		W3D_Set_Floor_Height_Map(nullptr);
 		m_weather.reset();
 		m_liveFX.reset();
 	}
@@ -1438,6 +1440,7 @@ Dictionary GameWorld::load_internal(const LiveGame::Options &loIn, const String 
 		}
 		terrain->set_name("Terrain");
 		add_child(terrain);
+		W3D_Set_Floor_Height_Map(m_game->map().hasHeightMap ? &m_game->map().heightMap : nullptr);
 		// TOP20 "Fire, scorches": the live game's scorch marks (LiveFX::scorches: the map's Scorch objects, the FXList nugget, the burning terrain)
 		// are drawn by the terrain's layer from here on (presentScorches)
 		if (TerrainScorchLayer *scorches = Object::cast_to<TerrainScorchLayer>(terrain->get_node_or_null(NodePath("Scorches"))))

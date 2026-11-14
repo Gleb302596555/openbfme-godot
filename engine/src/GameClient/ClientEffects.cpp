@@ -1,6 +1,7 @@
 // OpenBFME. GPL-3.0. See ClientEffects.h.
 
 #include "GameClient/ClientEffects.h"
+#include "GameClient/ParticleDraw.h"
 
 #include "Libraries/WWVegas/WW3D2/lightenvironment.h"
 
@@ -88,6 +89,20 @@ int DecalFx::opacityAt(std::uint32_t frame) const
 	v = std::ceil(v);
 	const int out = (int)std::lround(v);
 	return std::max(0, std::min(255, out));
+}
+
+DynamicDecalBatchOrder DynamicDecalOrder(int shader)
+{
+	// P-97 / P-52: retail W3DProjectedShadowManager::flushDecals (RW 0x509D80 / 0x50C0B6; DONOR BFME2 0x00109E11) draws decals before particles
+	// with projection depth bias 9.0f (RW 0x509FCF -> 0x51EB60, ZBIAS_SCALE 0.000625). Positive sorting_offset draws later (in front) in Godot,
+	// so ALPHA decals (shader != 1, 0x400) strictly precede ADDITIVE decals (shader == 1, 0x800) after Tracks (-123, offset 0) and before Particles (-122).
+	constexpr float kDecalDepthBias = 9.0f;
+	constexpr float kZBiasScale = 0.000625f;
+	DynamicDecalBatchOrder order;
+	order.priority = FXParticleSystem::kTrackRenderPriority;
+	order.sortOffset = (shader == 1) ? 200000.0f : 100000.0f;
+	order.depthBias = 1.0f / (1.0f + kDecalDepthBias * kZBiasScale);
+	return order;
 }
 
 // ---- dynamic light pulses (TARGET call RW 0x5DFAA3; DONOR BFME2 0x6DF81 / 0x6DE3D) ---------------------------------------------------------------------

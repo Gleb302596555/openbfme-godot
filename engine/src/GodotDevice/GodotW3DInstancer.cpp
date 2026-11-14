@@ -886,6 +886,10 @@ std::shared_ptr<W3DInstancer::MeshGpu> W3DInstancer::build_mesh(const MeshModelC
 		MeshCache[key] = nullptr;
 		return nullptr;
 	}
+	if (BuildingFloor)
+	{
+		Subdivide_Floor_Mesh_Data(gpu->Data);
+	}
 	const MeshRenderData &d = gpu->Data;
 	const int64_t nv = (int64_t)d.NumVertices;
 	gpu->Mesh.instantiate();
@@ -1116,12 +1120,15 @@ int64_t W3DInstancer::add_model(const String &model_name)
 	PendingFloor = false;
 	const std::string savedSuffix = BuildSuffix;
 	BuildSuffix += Texture_Swap_Suffix(swaps) + (floor ? "#floor" : "");
+	const bool savedBuildingFloor = BuildingFloor;
+	BuildingFloor = floor;
 	if (Materials)
 	{
 		Materials->Set_Texture_Swaps(swaps);
 		Materials->Set_Floor_Blend(floor);
 	}
 	const int64_t id = build_model(model_name);
+	BuildingFloor = savedBuildingFloor;
 	if (Materials)
 	{
 		Materials->Set_Texture_Swaps({});
@@ -1239,6 +1246,10 @@ int64_t W3DInstancer::build_model(const String &model_name)
 			item.Node->set_multimesh(item.MM);
 			item.Node->set_cast_shadows_setting(GeometryInstance3D::SHADOW_CASTING_SETTING_OFF);
 			item.Node->set_instance_shader_parameter("w3d_receive_shadows", ShadowReceiving);
+			if (BuildingFloor)
+			{
+				item.Node->set_sorting_offset(100000.0f);
+			}
 			add_child(item.Node);
 			note_instance_param_node(errors);
 			model->Draws.push_back(std::move(item));

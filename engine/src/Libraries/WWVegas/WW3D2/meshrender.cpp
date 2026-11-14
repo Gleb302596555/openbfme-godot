@@ -509,3 +509,164 @@ Vector3 Deform_Normal(const MeshRenderData &mesh, size_t v, const HTreePose &pos
 	const Vector3 b = rotate(pose.Transform[checkedBone(mesh.Bone1[v], pose)], n1);
 	return Vector3(a.X * w0 + b.X * w1, a.Y * w0 + b.Y * w1, a.Z * w0 + b.Z * w1);
 }
+
+namespace
+{
+void normalizeVec3(float v[3])
+{
+	const float len = std::sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
+	if (len > 1e-6f)
+	{
+		const float inv = 1.0f / len;
+		v[0] *= inv; v[1] *= inv; v[2] *= inv;
+	}
+}
+
+void appendBaryVertex(MeshRenderData &m, size_t i0, size_t i1, size_t i2, float w0, float w1, float w2)
+{
+	auto lerp3 = [&](const std::vector<float> &src, std::vector<float> &dst, bool norm) {
+		if (src.empty()) return;
+		float v[3] = {
+			src[i0 * 3] * w0 + src[i1 * 3] * w1 + src[i2 * 3] * w2,
+			src[i0 * 3 + 1] * w0 + src[i1 * 3 + 1] * w1 + src[i2 * 3 + 1] * w2,
+			src[i0 * 3 + 2] * w0 + src[i1 * 3 + 2] * w1 + src[i2 * 3 + 2] * w2
+		};
+		if (norm) normalizeVec3(v);
+		dst.push_back(v[0]); dst.push_back(v[1]); dst.push_back(v[2]);
+	};
+	lerp3(m.Position, m.Position, false);
+	lerp3(m.Normal, m.Normal, true);
+	lerp3(m.Position1, m.Position1, false);
+	lerp3(m.Normal1, m.Normal1, true);
+	lerp3(m.Tangent, m.Tangent, true);
+	lerp3(m.Bitangent, m.Bitangent, true);
+	for (MeshUVStream &u : m.PassUV)
+	{
+		if (u.UV.size() >= m.NumVertices * 2)
+		{
+			u.UV.push_back(u.UV[i0 * 2] * w0 + u.UV[i1 * 2] * w1 + u.UV[i2 * 2] * w2);
+			u.UV.push_back(u.UV[i0 * 2 + 1] * w0 + u.UV[i1 * 2 + 1] * w1 + u.UV[i2 * 2 + 1] * w2);
+		}
+	}
+	for (std::vector<std::uint8_t> &dcg : m.PassDCG)
+	{
+		if (dcg.size() >= m.NumVertices * 4)
+		{
+			for (int c = 0; c < 4; ++c)
+			{
+				const float val = dcg[i0 * 4 + c] * w0 + dcg[i1 * 4 + c] * w1 + dcg[i2 * 4 + c] * w2;
+				dcg.push_back((std::uint8_t)std::clamp((int)std::lround(val), 0, 255));
+			}
+		}
+	}
+	++m.NumVertices;
+}
+} // namespace
+
+bool Subdivide_Floor_Mesh_Data(MeshRenderData &mesh, float maxEdgeXY)
+{
+	if (mesh.Skin || maxEdgeXY <= 0.0f || mesh.NumVertices == 0 || mesh.Surfaces.empty())
+	{
+		return false;
+	}
+	auto edgeLenXY = [&](std::uint32_t a, std::uint32_t b) {
+		const float dx = mesh.Position[a * 3] - mesh.Position[b * 3];
+		const float dy = mesh.Position[a * 3 + 1] - mesh.Position[b * 3 + 1];
+		return std::sqrt(dx * dx + dy * dy);
+	};
+	constexpr int kMaxSubdiv = 24;
+	constexpr size_t kMaxVertices = 65535;
+	bool changed = false;
+	size_t totalTriangles = 0;
+	// Cache shared boundary edge points (minVert, maxVert, stepFromMin, N) -> vertex index to prevent T-junctions when adjacent triangles match N
+	struct EdgeKey {
+		std::uint32_t lo, hi;
+		int step, n;
+		bool operator<(const EdgeKey &o) const { return std::tie(lo, hi, step, n) < std::tie(o.lo, o.hi, o.step, o.n); }
+	};
+	std::map<EdgeKey, std::uint32_t> edgeCache;
+	for (MeshDrawSurface &surf : mesh.Surfaces)
+	{
+		if (surf.Indices.size() % 3 != 0)
+		{
+			totalTriangles += surf.Indices.size() / 3;
+			continue;
+		}
+		const size_t triCount = surf.Indices.size() / 3;
+		std::vector<std::uint32_t> newIndices;
+		std::vector<std::uint32_t> newTriangles;
+		newIndices.reserve(surf.Indices.size());
+		for (size_t t = 0; t < triCount; ++t)
+		{
+			const std::uint32_t i0 = surf.Indices[t * 3];
+			const std::uint32_t i1 = surf.Indices[t * 3 + 1];
+			const std::uint32_t i2 = surf.Indices[t * 3 + 2];
+			const std::uint32_t triId = (t < surf.Triangles.size()) ? surf.Triangles[t] : (std::uint32_t)t;
+			const float maxE = std::max({ edgeLenXY(i0, i1), edgeLenXY(i1, i2), edgeLenXY(i2, i0) });
+			int n = (maxE > maxEdgeXY) ? std::clamp((int)std::ceil(maxE / maxEdgeXY), 1, kMaxSubdiv) : 1;
+			const size_t neededVerts = (size_t)(n + 1) * (n + 2) / 2;
+			if (n <= 1 || mesh.NumVertices + neededVerts > kMaxVertices)
+			{
+				newIndices.push_back(i0); newIndices.push_back(i1); newIndices.push_back(i2);
+				newTriangles.push_back(triId);
+				continue;
+			}
+			changed = true;
+			std::vector<std::uint32_t> grid((size_t)(n + 1) * (n + 1), 0);
+			auto at = [&](int a, int b) -> std::uint32_t & { return grid[(size_t)b * (n + 1) + a]; };
+			auto edgeVertex = [&](std::uint32_t u, std::uint32_t v, int k) -> std::uint32_t {
+				const std::uint32_t lo = std::min(u, v), hi = std::max(u, v);
+				const int step = (u == lo) ? k : (n - k);
+				const EdgeKey key{ lo, hi, step, n };
+				auto it = edgeCache.find(key);
+				if (it != edgeCache.end()) return it->second;
+				const std::uint32_t idx = (std::uint32_t)mesh.NumVertices;
+				const float f = (float)step / (float)n;
+				appendBaryVertex(mesh, lo, hi, hi, 1.0f - f, f, 0.0f);
+				edgeCache[key] = idx;
+				return idx;
+			};
+			for (int b = 0; b <= n; ++b)
+			{
+				for (int a = 0; a <= n - b; ++a)
+				{
+					const int c = n - a - b;
+					if (a == 0 && b == 0) { at(a, b) = i0; continue; }
+					if (a == n && b == 0) { at(a, b) = i1; continue; }
+					if (a == 0 && b == n) { at(a, b) = i2; continue; }
+					if (b == 0) { at(a, b) = edgeVertex(i0, i1, a); continue; }
+					if (a == 0) { at(a, b) = edgeVertex(i0, i2, b); continue; }
+					if (c == 0) { at(a, b) = edgeVertex(i1, i2, b); continue; }
+					const std::uint32_t idx = (std::uint32_t)mesh.NumVertices;
+					appendBaryVertex(mesh, i0, i1, i2, (float)c / (float)n, (float)a / (float)n, (float)b / (float)n);
+					at(a, b) = idx;
+				}
+			}
+			for (int b = 0; b < n; ++b)
+			{
+				for (int a = 0; a < n - b; ++a)
+				{
+					newIndices.push_back(at(a, b));
+					newIndices.push_back(at(a + 1, b));
+					newIndices.push_back(at(a, b + 1));
+					newTriangles.push_back(triId);
+					if (a + b + 1 < n)
+					{
+						newIndices.push_back(at(a + 1, b));
+						newIndices.push_back(at(a + 1, b + 1));
+						newIndices.push_back(at(a, b + 1));
+						newTriangles.push_back(triId);
+					}
+				}
+			}
+		}
+		surf.Indices = std::move(newIndices);
+		surf.Triangles = std::move(newTriangles);
+		totalTriangles += surf.Indices.size() / 3;
+	}
+	if (changed)
+	{
+		mesh.NumTriangles = totalTriangles;
+	}
+	return changed;
+}

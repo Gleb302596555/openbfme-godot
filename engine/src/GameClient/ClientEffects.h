@@ -77,6 +77,17 @@ struct DecalFx
 	int opacityAt(std::uint32_t frame) const; // 0 .. 255
 };
 
+// P-97: retail W3DProjectedShadowManager::flushDecals (RW 0x509D80 / 0x50C0B6; DONOR BFME2 0x00109E11) draws terrain decals before particles
+// with projection depth bias 9.0f (RW 0x509FCF -> 0x51EB60). Alpha decals (0x400, e.g. EXmagmapuddle01) must precede Additive decals (0x800,
+// e.g. EXmagmapuddle02) so opaque-alpha dark puddles never draw over or Z-fight with the additive magma glow.
+struct DynamicDecalBatchOrder
+{
+	int priority = 0;
+	float sortOffset = 0.0f;
+	float depthBias = 0.0f;
+};
+DynamicDecalBatchOrder DynamicDecalOrder(int shader);
+
 // One active dynamic light (createLightPulse / W3DLightDraw's light; DONOR BFME2 0x6DF81 / 0x6DE3D).
 struct LightPulseFx
 {

@@ -91,6 +91,8 @@ struct W3DShaderKey
 	// GameClient/SelectionDecals.h). Set by the material factory for an opaque surface of a wall model (W3DMaterialFactory::Set_Selection_Decals); the
 	// generator ignores it for any other surface. The decal is laid over the lit colour as on the terrain, kept above the object shadows
 	bool SelectionDecals = false;
+	// P-103: W3DFloorDraw conforms subdivided floor meshes to the height map and applies terrain decal projection depth bias.
+	bool Floor = false;
 
 	std::string Id() const;
 };

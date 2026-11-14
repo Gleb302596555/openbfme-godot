@@ -126,6 +126,10 @@ struct MeshRenderData
 // the triangle / vertex count, a stage texture without texture coordinates, or a mapper whose arguments are rejected.
 bool Build_Mesh_Render_Data(const MeshModelClass &mesh, MeshRenderData &out, std::string *error);
 
+// P-103: subdivide W3DFloorDraw triangles whose XY span exceeds `maxEdgeXY` (10.0 = MAP_XY_FACTOR) so large sparse quads conform smoothly to
+// undulating terrain when drawn with vertex-shader heightmap conformation. Non-skinned meshes only; returns true when any triangle was split.
+bool Subdivide_Floor_Mesh_Data(MeshRenderData &mesh, float maxEdgeXY = 10.0f);
+
 // The TANGENT.w of a Godot mesh vertex whose BINORMAL (Godot: cross(NORMAL, TANGENT.xyz) * TANGENT.w, measured on Godot 4.7.2 in
 // godot/tests/tangent_convention_test.gd, vertex and fragment stage, with and without ARRAY_FLAG_COMPRESS_ATTRIBUTES) is the file's
 // bitangent. Retail reads the file's tangent and bitangent raw into the vertex buffer (FXShaderGeometry.cpp:557-558, Rva0016AFD0Finish.cpp:74-80,

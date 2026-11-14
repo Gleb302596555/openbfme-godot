@@ -128,6 +128,7 @@ std::string W3DShaderKey::Id() const
 	if (OcclusionPass) id += "_occl" + std::to_string(OcclusionPass); // lane OCCLUDE-1
 	if (ParticleColor) id += "_pcol";
 	if (SelectionDecals) id += "_sel"; // lane SELWALL-1
+	if (Floor) id += "_flr"; // P-103
 	return id;
 }
 
@@ -272,6 +273,11 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 	if (k.HouseColor)
 	{
 		line("uniform sampler2D w3d_hc_tex : " + repeatMipFilter + ", repeat_enable; // housecolor.ini texture: the team colour mask is its alpha");
+	}
+	if (k.Floor && !k.OcclusionPass)
+	{
+		line("global uniform sampler2D w3d_floor_hm : filter_linear, repeat_disable;");
+		line("global uniform vec4 w3d_floor_hm_rect; // xy: origin (-border*10), zw: extent in cells; z <= 0 disables");
 	}
 	// Varyings each take a location; Intel Arc (Mesa ANV) offers Forward+ 29 for normal-mapped buildings, Metal 31. The two UV sets
 	// share one vec4 (the same interpolation), and the world position stays a vertex() local: only the vertex lighting reads it.
@@ -433,6 +439,16 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 		}
 	}
 	line("\tVERTEX = w3d_to_godot(p);");
+	if (k.Floor && !k.OcclusionPass)
+	{
+		line("\tif (w3d_floor_hm_rect.z > 0.0) {");
+		line("\t\tvec3 fw = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;");
+		line("\t\tvec2 fgrid = (vec2(fw.x, -fw.z) - w3d_floor_hm_rect.xy) / 10.0;");
+		line("\t\tfloat fhm = texture(w3d_floor_hm, (fgrid + 0.5) / w3d_floor_hm_rect.zw).r;");
+		line("\t\tfloat flift = max(VERTEX.y, 0.0) + 0.15;");
+		line("\t\tVERTEX += inverse(mat3(MODEL_MATRIX)) * vec3(0.0, (fhm + flift) - fw.y, 0.0);");
+		line("\t}");
+	}
 	if (!k.Skin && k.Camera == 0)
 	{
 		// lane VISUAL-2: vegetation.fxo's vertex shader (blob 5): position += (position.z - the tree's base z) * SwayOffsets[type], in world space (W3D Z up
@@ -581,6 +597,10 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 			line("\tif (slot == 0 || w3d_occl_on < 0.5) { VERTEX = vec3(0.0); }");
 			line("\tv_instance.z = float(slot);");
 		}
+	}
+	if (k.Floor && !k.OcclusionPass)
+	{
+		line("\tPOSITION = PROJECTION_MATRIX * vec4((MODELVIEW_MATRIX * vec4(VERTEX, 1.0)).xyz * 0.999375, 1.0);");
 	}
 	line("}");
 

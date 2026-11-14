@@ -405,7 +405,7 @@ bool ClientEventRecorder::templateHasDrawModuleTag(const ThingTemplate &tt, cons
 {
 	for (const ThingTemplate::Nugget &n : tt.drawModules().nuggets())
 	{
-		if (n.tag == tag)
+		if (AsciiStringUtil::compareNoCase(n.tag, tag) == 0)
 		{
 			return true;
 		}

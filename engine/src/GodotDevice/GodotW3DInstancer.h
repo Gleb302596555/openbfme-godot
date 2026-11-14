@@ -422,6 +422,7 @@ private:
 	const std::map<std::string, HouseColorParams> *PendingMeshColors = nullptr; // LOCAL-21
 	std::vector<std::pair<std::string, std::string>> PendingSwaps; // stop S-5015: Set_Build_Texture_Swaps, taken by the next add_model
 	bool PendingFloor = false; // stop S-4974: Set_Build_Floor, taken by the next add_model
+	bool BuildingFloor = false; // P-103: active while building a #floor model
 	bool PendingSelectionDecals = false; // lane SELWALL-1: Set_Build_Selection_Decals, taken by the next add_model
 	std::vector<std::unique_ptr<Model>> Models;
 	std::vector<Instance> Instances;

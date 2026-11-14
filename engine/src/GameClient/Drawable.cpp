@@ -258,6 +258,13 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 		if (const W3DFloorDrawModuleData *fl = dynamic_cast<const W3DFloorDrawModuleData *>(nugget.data.get()))
 		{
 			e.hideIf = fl->m_hideIfModelConditions;
+			// RW 0x4CE91B / 0x6789B4: StartHidden floor draws (e.g. Level 2/3 bibs) keep their model on the drawable and start moduleHidden so SubObjectsUpgrade / showModule can reveal them
+			if (fl->m_startHidden && !fl->m_modelName.empty())
+			{
+				e.staticModel = fl->m_modelName;
+				e.notDrawnReason.clear();
+				e.moduleHidden = true;
+			}
 		}
 		// lane LOCAL-28: W3DLightDraw (RW 0x004CE750 / DONOR BFME2 0x004CEF80)
 		if (ci->kind == W3D_DRAWKIND_NOT_DRAWN && (nugget.name == "W3DLightDraw" || dynamic_cast<const W3DLightDrawModuleData *>(nugget.data.get()) != nullptr))
@@ -368,7 +375,8 @@ bool Drawable::showModule(const std::string &name, bool visible, bool permanent)
 	(void)permanent; // RW 0x736412 passes permanent = 1; nothing here changes a drawable's modules afterwards, so permanent and temporary hides coincide
 	for (DrawEntry &e : m_entries)
 	{
-		if (e.tag == name)
+		// RW 0x6789B4 compares module tags through TheNameKeyGenerator->nameToKey (RW 0x49F474), which is case-insensitive
+		if (AsciiStringUtil::compareNoCase(e.tag, name) == 0)
 		{
 			e.moduleHidden = !visible;
 			if (e.lightDraw)

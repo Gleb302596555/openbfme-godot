@@ -10,6 +10,7 @@
 #include "Common/AsciiString.h"
 #include "GodotDevice/GodotW3DMaterial.h"
 #include "GameClient/ParticleTexture.h"
+#include "GameClient/ParticleDraw.h"
 #include "Libraries/WWVegas/WW3D2/fxshadergen.h"
 
 #include <godot_cpp/classes/camera3d.hpp>
@@ -451,6 +452,7 @@ void FXPlayer::updateClientEffects()
 							 "\tALPHA = t.a * COLOR.a;\n"
 							 "}\n");
 			m_scorchMaterial->set_shader(shader);
+			m_scorchMaterial->set_render_priority(FXParticleSystem::kScorchRenderPriority);
 			m_scorchNode = memnew(MeshInstance3D);
 			m_scorchNode->set_name("Scorches");
 			m_scorchNode->set_material_override(m_scorchMaterial);
@@ -537,6 +539,11 @@ void FXPlayer::updateClientEffects()
 		const std::string code = std::string("shader_type spatial;\nrender_mode ") + mode
 			+ ", depth_draw_never, cull_disabled, unshaded, shadows_disabled;\n"
 			  "uniform sampler2D decal_tex : filter_linear_mipmap, repeat_disable;\n"
+			  "uniform float depth_bias_scale = 1.0;\n"
+			  "void vertex() {\n"
+			  "\tvec4 eye = MODELVIEW_MATRIX * vec4(VERTEX, 1.0);\n"
+			  "\tPOSITION = PROJECTION_MATRIX * vec4(eye.xyz * depth_bias_scale, 1.0);\n"
+			  "}\n"
 			  "void fragment() {\n"
 			  "\tvec4 t = texture(decal_tex, UV);\n"
 			  "\tALBEDO = t.rgb * COLOR.rgb;\n"
@@ -561,12 +568,16 @@ void FXPlayer::updateClientEffects()
 		}
 		else
 		{
+			const DynamicDecalBatchOrder order = DynamicDecalOrder(kv.first.shader);
 			node = memnew(MeshInstance3D);
 			node->set_name(toGodot(kv.first.name));
 			Ref<ShaderMaterial> mat;
 			mat.instantiate();
 			mat->set_shader(m_decalShaders[kv.first.shader]);
 			mat->set_shader_parameter("decal_tex", particleTexture(kv.first.name));
+			mat->set_shader_parameter("depth_bias_scale", order.depthBias);
+			mat->set_render_priority(order.priority);
+			node->set_sorting_offset(order.sortOffset);
 			node->set_material_override(mat);
 			node->set_cast_shadows_setting(GeometryInstance3D::SHADOW_CASTING_SETTING_OFF);
 			m_decalRoot->add_child(node);
@@ -586,20 +597,38 @@ void FXPlayer::updateClientEffects()
 			// the quad's corners at objPos -+ size * 0.5)
 			const float h = d->desc.size * 0.5f;
 			const float c = std::cos(d->desc.yaw), s = std::sin(d->desc.yaw);
+			// Subdivide decal quad (matching scorches' 4x4 terrain conformation) so large decals (e.g. Size=40 magma puddles) hug terrain cells.
+			constexpr int kDecalCells = 4;
 			const int32_t base = (int32_t)verts.size();
-			const float corner[4][2] = { { -h, -h }, { h, -h }, { h, h }, { -h, h } };
-			for (int k = 0; k < 4; ++k)
+			for (int iy = 0; iy <= kDecalCells; ++iy)
 			{
-				const float lx = corner[k][0], ly = corner[k][1];
-				const float x = d->desc.position.x + lx * c - ly * s;
-				const float y = d->desc.position.y + lx * s + ly * c;
-				const float z = m_playback->groundHeight(x, y) + 1.0f;
-				verts.push_back(toGodotSpace(Coord3D{ x, y, z }));
-				colors.push_back(Color(r, g, b, opacity));
-				uvs.push_back(k == 0 ? Vector2(0, 0) : k == 1 ? Vector2(1, 0) : k == 2 ? Vector2(1, 1) : Vector2(0, 1));
+				const float v = (float)iy / (float)kDecalCells;
+				const float ly = -h + 2.0f * h * v;
+				for (int ix = 0; ix <= kDecalCells; ++ix)
+				{
+					const float u = (float)ix / (float)kDecalCells;
+					const float lx = -h + 2.0f * h * u;
+					const float x = d->desc.position.x + lx * c - ly * s;
+					const float y = d->desc.position.y + lx * s + ly * c;
+					const float z = m_playback->groundHeight(x, y) + 1.0f;
+					verts.push_back(toGodotSpace(Coord3D{ x, y, z }));
+					colors.push_back(Color(r, g, b, opacity));
+					uvs.push_back(Vector2(u, v));
+				}
 			}
-			indices.push_back(base); indices.push_back(base + 1); indices.push_back(base + 2);
-			indices.push_back(base); indices.push_back(base + 2); indices.push_back(base + 3);
+			const int32_t stride = kDecalCells + 1;
+			for (int iy = 0; iy < kDecalCells; ++iy)
+			{
+				for (int ix = 0; ix < kDecalCells; ++ix)
+				{
+					const int32_t i00 = base + iy * stride + ix;
+					const int32_t i10 = i00 + 1;
+					const int32_t i01 = i00 + stride;
+					const int32_t i11 = i01 + 1;
+					indices.push_back(i00); indices.push_back(i10); indices.push_back(i11);
+					indices.push_back(i00); indices.push_back(i11); indices.push_back(i01);
+				}
+			}
 		}
 		Ref<ArrayMesh> mesh;
 		mesh.instantiate();
