@@ -81,6 +81,8 @@ std::string eaterObjects(const std::string &healLines)
 	                   "  Body = ActiveBody ModuleTag_Body\n"
 	                   "    MaxHealth = 2400\n"
 	                   "  End\n"
+	                   "  Behavior = AIUpdateInterface ModuleTag_AI\n"
+	                   "  End\n"
 	                   "  Behavior = GrabPassengerSpecialPower ModuleTag_Grab\n"
 	                   "    SpecialPowerTemplate = SpecialAbilityGrabPassenger\n"
 	                   "    UpdateModuleStartsAttack = Yes\n"
@@ -153,8 +155,8 @@ struct Eaten
 {
 	float before = 0.0f;
 	float after = 0.0f;
+	bool held = false; // the orc entered the eater's container (the grab's own reaction, RW 0x8C94D7 -> the contain's addToContain)
 	bool gone = false; // the orc is no longer in the world: the contain's eat countdown (RW 0x865A5C) destroyed it
-	bool ate = false;
 };
 Eaten eat(const std::string &healLines)
 {
@@ -174,18 +176,17 @@ Eaten eat(const std::string &healLines)
 	body->setInitialHealthPercent(50.0f);
 	REQUIRE(w.health(eater) == 1200.0f);
 	GrabPassengerSpecialPower *grab = moduleOf<GrabPassengerSpecialPower>(eater);
-	SpecialAbilityUpdate *ability = grabAbilityOf(*eater);
 	REQUIRE(grab != nullptr);
-	REQUIRE(ability != nullptr);
+	REQUIRE(grabAbilityOf(*eater) != nullptr); // the 0x27 SpecialAbilityUpdate the grab hands the target to
 	Eaten e;
 	e.before = w.health(eater);
 	const ObjectID orcId = orc->getID();
 	grab->doSpecialPowerAtObject(orc, 0x4000u); // RW 0x8C94D7
 	REQUIRE(grab->grabsStarted() == 1);
-	e.ate = ability->isActive();
 	for (int i = 0; i < 120 && !e.gone; ++i)
 	{
 		w.frames(1);
+		e.held = e.held || orc->getContainedBy() == eater;
 		e.gone = w.logic->findObjectByID(orcId) == nullptr;
 	}
 	w.frames(1);
@@ -200,7 +201,7 @@ Eaten eat(const std::string &healLines)
 TEST_CASE("PORT-168 heal: GrabPassengerHealGainPercent is the INI number itself, not a fraction (RW 0xC561C0 / RW 0x42ED6F, RW 0x8532F9)")
 {
 	const Eaten e = eat("    GrabPassengerHealGainPercent = 50.0\n");
-	REQUIRE(e.ate);
+	REQUIRE(e.held);
 	REQUIRE(e.gone);                        // the orc was taken out of the world (OpenContain's eat countdown RW 0x865A5C)
 	CHECK(e.before == 1200.0f);             // 50% of 2400
 	CHECK(e.after == 2400.0f);              // 50 + 50 = 100%: min(100, ...) at RW 0x853317
@@ -211,11 +212,11 @@ TEST_CASE("PORT-168 heal: GrabPassengerHealGainPercent is the INI number itself,
 TEST_CASE("PORT-168 heal: the data's default and a smaller percentage (module data + 0x30, RW 0x853302)")
 {
 	const Eaten byDefault = eat("");
-	REQUIRE(byDefault.ate);
+	REQUIRE(byDefault.held);
 	CHECK(byDefault.after == 2400.0f); // 50 + the default 100, clamped to 100
 
 	const Eaten smaller = eat("    GrabPassengerHealGainPercent = 20.0\n");
-	REQUIRE(smaller.ate);
+	REQUIRE(smaller.held);
 	CHECK(smaller.after == 1680.0f); // 50 + 20 = 70% of 2400
 }
 
@@ -313,7 +314,7 @@ std::string archerObject(const char *name, const char *weapon, bool withContain)
 std::string ammoObjects(const std::string &filter)
 {
 	std::string weapons = kAmmoWeapons;
-	const std::string at = weapons.find("%FILTER%");
+	const std::size_t at = weapons.find("%FILTER%");
 	weapons.replace(at, 8, filter);
 	return weapons + archerObject("Port168Archer", "Port168ContainerBow", true) + archerObject("Port168NoContain", "Port168ContainerBow", false) +
 	       archerObject("Port168ClipArcher", "Port168ClipBow", true) + kAmmoVictims;
@@ -367,7 +368,7 @@ TEST_CASE("PORT-168 ammo: ProjectileFilterInContainer counts the container's pas
 //   * a weapon without ProjectileFilterInContainer never asks a container: its clip answers, even with a passenger inside.
 TEST_CASE("PORT-168 neighbours: no container and no filter keep the clip's own status (RW 0x6CD2C9, RW 0x6CD298)")
 {
-	CHECK(ammoStatus("Port168NoContain", "NONE +INFANTRY", "Port168AmmoGoblin") == WEAPON_READY_TO_FIRE); // clip 1, the reader answers nothing
+	CHECK(ammoStatus("Port168NoContain", "NONE +INFANTRY", nullptr) == WEAPON_READY_TO_FIRE); // no contain: the reader answers nothing, clip 1
 	CHECK(ammoStatus("Port168ClipArcher", "NONE +INFANTRY", nullptr) == WEAPON_READY_TO_FIRE);             // clip 1
 	CHECK(ammoStatus("Port168ClipArcher", "NONE +INFANTRY", "Port168AmmoGoblin") == WEAPON_READY_TO_FIRE); // its clip, not the passenger
 }
