@@ -27,3 +27,53 @@ button: follow the actual book command set, not the similarly named button.
   explain Cloud Break or the intermittent runs is justified yet.
 * Baseline full `openbfme_tests` build is in progress; no `PORT-432*` tests have
   been added. The cause, fix, NIGHT_WATCH entry and PR remain outstanding.
+
+## Follow-up trace: distinguish routing from the observed failure
+
+* The mod's `SpellBookRebuild` has enum `SPECIAL_AT_VISIBLE_OBJECT` (0x81),
+  not the commented-out `SPECIAL_SPELL_BOOK_REBUILD` (0x57). Its object
+  filter and the actual button's ally-object option are both relevant.
+  For an outside-GUI left press, `InGameHud::mouseButton` picks a drawable;
+  failure to pick it, a failed `objectValid` relationship/filter test, or
+  disabled script input sends no message and leaves targeting pending.
+  `objectValid` is explicitly an inference (S-2000), not a complete RW
+  object-target comparison. A test must distinguish these cases rather than
+  attributing all of them to `SpellCommands`.
+* The no-target Gondor Cloud Break button in the mod names neither an option
+  nor a `CommandTrigger`. Therefore the missing chained-message behaviour
+  cannot by itself explain this particular button. RW 0x77B886..0x77B8D6
+  resolves the issuing player's spell book and calls the same group function
+  0x76F5DB as RW 0x77A4A8 for an explicit source. The port's two message kinds
+  also converge on `castWithGroup`; a controlled comparison is still needed
+  before treating the message-kind difference as causal.
+* RW 0x82D5DA..0x82D6B1 gates targetless actions by module, unit cost, moving
+  on an upper layer, readiness/requirements and power type. RW 0x68E620..
+  0x68E666 adds disabled and `canUseSpecialPower` checks. The port's
+  `SpellCommands::castWithGroup` checks module/readiness/requirements then
+  delegates to `SpecialPowerModules`, but does not call the full ActionManager
+  action test there (S-531 in `SpellCommands.h`). This is a shared-path
+  discrepancy, **not** a demonstrated cause of a cast that should succeed:
+  the missing tests generally refuse more inputs. The task requires a stop,
+  not a local workaround, if a shared unported mechanism is shown to be the
+  cause.
+* For Rebuild, RW 0x8CC594..0x8CC5B1 calls the base object cast and then heals
+  at the object's position; RW 0x8CC4B4 checks disabled/owner before the
+  radius scan. The port uses `PlayerHealSpecialPower`; check the cast counter,
+  recharge and health independently, since absence of a heal alone does not
+  show that the message was lost.
+
+## Reproduction plan
+
+Use synthetic INI without installed archives: a spell-book object with the
+mod's two power *types*, module classes and target options, a damaged allied
+structure and an enemy/invalid neighbour. Drive `refresh` and `press`, inspect
+messages and `SpellCommands` counters, dispatch them, then inspect health and
+recharge. Repeat after readiness is restored; compare both targetless message
+kinds under identical state. Separately exercise the actual HUD/Apt mouse path
+at deliberately varied movie-frame boundaries: model-only tests cannot
+establish whether the intermittent click reached the callback. This last test
+needs an appropriate movie fixture; do not claim the queued-input hypothesis
+without a deterministic reproduction and RW comparison.
+
+The prescribed full one-job test build was still running (187/1721 objects at
+last check); no `PORT-432*` tests, fix, green/red result or PR are available yet.
