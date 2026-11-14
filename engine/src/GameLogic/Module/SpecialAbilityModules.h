@@ -249,6 +249,8 @@ public:
 	std::uint32_t activeLoopKey() const { return m_activeLoopKey; }
 	bool activeLoopHeld() const { return m_activeLoopHeld; }
 	bool withinAbortRangeForTest() const { return withinAbortRange(); }
+	// test hook (upstream lane APPROACH-859): the fork's approach point RW 0x851607 (abilityApproachPoint) for this object and its AI
+	bool approachPointForTest(Coord3D &pos, float range);
 
 	// RW 0x8530BA (slot 0x34): the ability ends (aborted: the abort paralysis; ownerDying: the special objects die with the owner)
 	virtual void finishAbility(bool ownerDying, bool aborted);

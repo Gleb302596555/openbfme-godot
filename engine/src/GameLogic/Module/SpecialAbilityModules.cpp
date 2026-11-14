@@ -1182,6 +1182,13 @@ static bool abilityApproachPoint(Object &caster, AIUpdateInterface &ai, Coord3D 
 	return false;
 }
 
+bool SpecialAbilityUpdate::approachPointForTest(Coord3D &pos, float range)
+{
+	Object *obj = getObject();
+	AIUpdateInterface *ai = obj->getAIUpdateInterface();
+	return ai && abilityApproachPoint(*obj, *ai, pos, range);
+}
+
 // RW 0x85393B
 void SpecialAbilityUpdate::approachTarget()
 {
