@@ -173,48 +173,44 @@ int stateOf(GiantBirdAIUpdate &ai)
 } // namespace
 
 // -----------------------------------------------------------------------------------------------------------------
-// P-114: the path the repeat pass flies does not start behind the bird
+// P-114: the repeat pass flies at the goal (the measured cycle of RW 0x7695C2 under the ported path builder)
 // -----------------------------------------------------------------------------------------------------------------
 
-TEST_CASE("PORT-187 P-114 giant bird: the repeat pass after a strike builds its path from the bird's own heading, not from a point behind it (RW 0x76975F / RW 0x778413 / RW 0x5E91E2)")
+TEST_CASE("PORT-187 P-114 giant bird: after a strike the machine swoops again and the new path walks toward the goal, not away from it (RW 0x76975F / RW 0x778413 / RW 0x5E91E2)")
 {
 	Port187Arena a;
 	Object *barracks = a.w.unit("Port187Barracks", 'B', 400.0f, 200.0f);
 	REQUIRE(barracks != nullptr);
-	// the bird faces +X (the barracks is east of it)
-	a.bird->setOrientation(0.0f);
+	a.bird->setOrientation(0.0f); // the bird faces +X, the barracks is east of it
 	REQUIRE(a.ai->aiAttackObject(barracks, CMD_FROM_PLAYER));
 
-	// run the whole first pass: Swoop 0x3F2, Attack 0x3F4, FollowThru 0x3F5 and then the repeat swoop 0x3F2
-	// (RW 0x76971F: FollowThru's failure enters the swoop again)
-	int swoops = 0, attacks = 0, followThrus = 0;
-	for (int frame = 0; frame < 600 && swoops < 2; ++frame)
+	// One pass is Swoop 0x3F2 -> Attack 0x3F4 -> FollowThru 0x3F5, then the follow-through's failure swoops again
+	// (RW 0x76975F). The machine runs every state it can within a frame, so the attack is never the state at a frame
+	// boundary: the visible trace of a pass is 0x3F2 .. 0x3F5 and back.
+	int swoopEntries = 0;
+	std::string hist;
+	int prevState = stateOf(*a.ai);
+	for (int frame = 0; frame < 900 && swoopEntries < 2; ++frame)
 	{
 		a.w.frames(1);
 		const int st = stateOf(*a.ai);
-		if (st == (int)GiantBirdAIUpdate::STATE_SWOOP)
+		if (st != prevState)
 		{
-			++swoops;
-		}
-		else if (st == (int)GiantBirdAIUpdate::STATE_ATTACK)
-		{
-			++attacks;
-		}
-		else if (st == (int)GiantBirdAIUpdate::STATE_FOLLOW_THRU)
-		{
-			++followThrus;
+			hist += std::to_string(prevState) + ">" + std::to_string(st) + " ";
+			if (st == (int)GiantBirdAIUpdate::STATE_SWOOP)
+			{
+				++swoopEntries;
+			}
+			prevState = st;
 		}
 	}
-	MESSAGE("swoop frames " << swoops << ", attack frames " << attacks << ", follow-through frames " << followThrus << ", strikes " << a.ai->strikes());
-	REQUIRE(a.ai->strikes() >= 1); // tolerance: a precondition (each pass is reported above; the heading is asserted below)
-	REQUIRE(followThrus >= 1); // tolerance: a precondition (the machine reached the follow-through state)
-	REQUIRE(swoops >= 1); // tolerance: a precondition (the machine came back for another pass)
+	MESSAGE("state changes " << hist << "; swoops started " << a.ai->swoopsStarted() << ", strikes " << a.ai->strikes());
+	REQUIRE(swoopEntries == 2); // the follow-through's failure swoops again (RW 0x76975F: 0x3F5 -> 0x3F2)
+	REQUIRE(a.ai->strikes() == 2); // one strike per swoop entry (RW 0x76B668 fires in the attack state's onEnter)
 
-	// On the first frame of the repeat swoop the machine has already rebuilt its path (RW 0x76DEF5 -> RW 0x769EA5).
-	// RW 0x778413's first control points are `behind` (the position minus min(3 * distance, 1500) along the
-	// transform's X axis) and the position, so the spline's first section points BACK along the object's facing.
-	// With the bird east of where it struck (its target to the west) the old control point put the first section
-	// almost a full circle away; the goal direction is what the bird must fly.
+	// The path the repeat swoop flies (built at its onEnter, RW 0x76DEF5 -> RW 0x769EA5 -> RW 0x778413) leaves toward
+	// the goal: the path mover averages the heading of the point half a bounding sphere behind the walk and the point
+	// the same distance ahead (RW 0x5E91E2), so the heading of the first frames is the goal's direction.
 	const Coord3D p = *a.bird->getPosition();
 	const Coord3D goal = *barracks->getPosition();
 	const float toGoal = (float)(std::atan2(goal.y - p.y, goal.x - p.x) * 180.0 / 3.14159265358979);
@@ -225,14 +221,14 @@ TEST_CASE("PORT-187 P-114 giant bird: the repeat pass after a strike builds its 
 		diff = 360.0f - diff;
 	}
 	MESSAGE("bird " << p.x << "," << p.y << " goal " << goal.x << "," << goal.y << " toGoal " << toGoal << " path heading " << heading);
-	CHECK(diff <= 90.0f); // tolerance: half a turn (the exact heading is printed above)
+	CHECK(diff < 1.0f); // tolerance: the two samples are a bounding sphere apart, so the heading is not exactly the bearing
 }
 
 // -----------------------------------------------------------------------------------------------------------------
-// P-117: every pass that reaches the building lands its strike
+// P-117: every swoop that reaches the building lands its strike
 // -----------------------------------------------------------------------------------------------------------------
 
-TEST_CASE("PORT-187 P-117 giant bird: every swoop that reaches the barracks fires the plow once (RW 0x76B668 threshold max(speed*3, 8.5) / RW 0x76BA8B ready-status fire)")
+TEST_CASE("PORT-187 P-117 giant bird: every swoop that reaches the barracks fires the plow once (RW 0x76B668 gate max(speed*3, 8.5) / RW 0x69200A)")
 {
 	Port187Arena a;
 	Object *barracks = a.w.unit("Port187Barracks", 'B', 400.0f, 200.0f);
@@ -240,31 +236,21 @@ TEST_CASE("PORT-187 P-117 giant bird: every swoop that reaches the barracks fire
 	a.bird->setOrientation(0.0f);
 	REQUIRE(a.ai->aiAttackObject(barracks, CMD_FROM_PLAYER));
 
-	// the frames the machine spent in the attack state 0x3F4, and the strikes it made: a pass that enters the
-	// attack and leaves it without a strike is the "fell beast flew past the building" report (P-117)
-	int attackEntries = 0, attackFrames = 0;
-	const unsigned long long before = a.ai->strikes();
-	int prev = stateOf(*a.ai);
-	for (int frame = 0; frame < 900; ++frame)
+	// The fell beast's report (P-117) is a swoop that reaches the building and leaves the attack state without a
+	// strike. RW 0x76B668 fires once in the attack's onEnter behind the distance gate (RW 0x76B796 refuses with
+	// STATE_FAILURE, which ends the pass without a strike), so the two counts have to move together: every swoop
+	// that the machine entered must have taken exactly one strike at its attack.
+	const unsigned long long startSwoops = a.ai->swoopsStarted();
+	const unsigned long long startStrikes = a.ai->strikes();
+	for (int frame = 0; frame < 2000 && a.ai->swoopsStarted() - startSwoops < 6; ++frame)
 	{
 		a.w.frames(1);
-		const int st = stateOf(*a.ai);
-		if (st != prev && st == (int)GiantBirdAIUpdate::STATE_ATTACK)
-		{
-			++attackEntries;
-		}
-		if (st == (int)GiantBirdAIUpdate::STATE_ATTACK)
-		{
-			++attackFrames;
-		}
-		prev = st;
 	}
-	const unsigned long long strikes = a.ai->strikes() - before;
-	MESSAGE("attack entries " << attackEntries << ", attack frames " << attackFrames << ", strikes " << strikes << ", health " << a.w.health(barracks));
-	CHECK(attackEntries >= 1); // tolerance: a precondition (the counts are printed above)
-	CHECK(strikes >= 1); // tolerance: a precondition (any strike at all on the barracks)
-	// RW 0x76B668 fires in the attack state's onEnter after the distance gate and RW 0x76BA8B fires again while the
-	// weapon is ready; a pass that spent frames in the attack state must have taken at least one strike
-	CHECK(strikes >= (unsigned long long)attackEntries); // tolerance: a relation between the two counts, both printed above
-	CHECK(a.w.health(barracks) < 2000.0f); // tolerance: the 10-damage SIEGE nugget; the exact health is not pinned yet
+	const unsigned long long swoops = a.ai->swoopsStarted() - startSwoops;
+	const unsigned long long strikes = a.ai->strikes() - startStrikes;
+	MESSAGE("swoops " << swoops << ", strikes " << strikes << ", health " << a.w.health(barracks));
+	REQUIRE(swoops == 6);
+	CHECK(strikes == swoops); // one strike per swoop: RW 0x76B668 fires in the attack's onEnter
+	// the 10-damage SIEGE nugget of the fixture, once per strike
+	CHECK(a.w.health(barracks) == 2000.0f - 10.0f * (float)strikes);
 }
