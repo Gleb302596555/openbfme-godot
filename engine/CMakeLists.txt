@@ -233,6 +233,7 @@ include(cmake/Port137.cmake) # PORT-137: auto-pickup button and selected group
 include(cmake/Port121.cmake) # PORT-121: the ParticleSysBone creation reads the draw's pose (OPENBFME_PORT121_TESTS)
 include(cmake/Port132.cmake) # PORT-132: Locomotor AeleronCorrection* / ElevatorCorrection*, the ship's roll and pitch (issue #334; OPENBFME_PORT132_TESTS)
 include(cmake/Port124.cmake) # PORT-124: ring transfer through CitadelSlaughterHordeContain (issue #308)
+include(cmake/Port140.cmake) # PORT-140: a weapon that throws what its owner carries is ready only while the container holds it (issue #342; OPENBFME_PORT140_TESTS)
 include(cmake/Port94.cmake) # PORT-94: SalvageCrateCollide LevelUpRadius / ResourceChance / BannerChance verdict (issue #242; OPENBFME_PORT94_TESTS)
 include(cmake/Port102.cmake) # OPENBFME_PORT102_TESTS (Object GeometryUsedForHealthBox)
 include(cmake/Port115.cmake) # PORT-115: the archers' Barrage, a horde's FIRE_WEAPON at a position (issue #299; OPENBFME_PORT115_TESTS)
@@ -900,6 +901,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT137_TESTS}
     ${OPENBFME_PORT121_TESTS}
     ${OPENBFME_PORT132_TESTS}
+    ${OPENBFME_PORT140_TESTS}
     ${OPENBFME_PORT115_TESTS}
     ${OPENBFME_PORT90_TESTS}
     ${OPENBFME_PORT99_TESTS}
