@@ -18,8 +18,10 @@
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
+#include "Libraries/WWVegas/WWMath/matrix3d.h"
 
 #include <algorithm>
+#include <cmath>
 
 DrawableManager::DrawableManager(WW3DAssetManager &assets, GameLogic &logic)
 	: m_logic(logic)
@@ -884,20 +886,66 @@ void DrawableManager::syncContainedPoses(const LogicSnapshot &snapshot)
 		// presentation pose, not the horde's. The horde is an invisible placeholder
 		// at the transport's position; only the top-level physical container has a
 		// presentation pose (tilt, suspension) worth riding (RW 0x67BE90).
-		ObjectID containerId = rec->containedBy;
-		while (containerId != INVALID_ID)
+		ObjectID containerId = rec->containedBoneOwner;
+		if (containerId == INVALID_ID)
 		{
-			const ObjectSnapshot *crec = snapshot.find(containerId);
-			if (!crec || crec->containedBy == INVALID_ID)
+			containerId = rec->containedBy;
+			while (containerId != INVALID_ID)
 			{
-				break;
+				const ObjectSnapshot *crec = snapshot.find(containerId);
+				if (!crec || crec->containedBy == INVALID_ID)
+				{
+					break;
+				}
+				containerId = crec->containedBy;
 			}
-			containerId = crec->containedBy;
 		}
 		const Drawable *container = findByObject(containerId);
 		if (!container || container == d)
 		{
 			d->clearContainedPose();
+			continue;
+		}
+		Matrix3D boneMtx;
+		if (!rec->containedBone.empty() && container->boneTransform(rec->containedBone, boneMtx))
+		{
+			// LOCAL-48 (issue #404, P-81): W3DScriptedModelDraw::adjustTransformMtx (RW 0x4B686D) queries
+			// Drawable::getCurrentWorldspaceClientBonePositions (RW 0x672B5B) for the container bone recorded
+			// by putRidersAtBones (RW 0x868A70). Normalize columns to strip container instance scale
+			// (the child's Drawable::entryTransform applies its own m_scale).
+			for (int col = 0; col < 3; ++col)
+			{
+				const float x = boneMtx.Row[0][col];
+				const float y = boneMtx.Row[1][col];
+				const float z = boneMtx.Row[2][col];
+				const float lenSq = x * x + y * y + z * z;
+				if (lenSq > 1e-12f)
+				{
+					const float invLen = 1.0f / std::sqrt(lenSq);
+					boneMtx.Row[0][col] = x * invLen;
+					boneMtx.Row[1][col] = y * invLen;
+					boneMtx.Row[2][col] = z * invLen;
+				}
+			}
+			if (rec->containedRidersCanAttack)
+			{
+				// RW 0x4B6952 (slot 0xB4 isPassengerAllowedToFire, RW 0x865A7E) -> RW 0x4B6960 .. 0x4B6A40:
+				// preserve bone position and tilt, and Rotate_Z around local Z so world yaw matches rider yaw.
+				const float *rb = d->getBasis();
+				const float boneYaw = std::atan2(boneMtx.Row[1][0], boneMtx.Row[0][0]);
+				const float riderYaw = std::atan2(rb[3], rb[0]);
+				boneMtx.Rotate_Z(riderYaw - boneYaw);
+			}
+			containedpose::Pose pose;
+			for (int r = 0; r < 3; ++r)
+			{
+				for (int c = 0; c < 3; ++c)
+				{
+					pose.basis[r * 3 + c] = boneMtx.Row[r][c];
+				}
+			}
+			pose.pos = Coord3D{ boneMtx.Row[0][3], boneMtx.Row[1][3], boneMtx.Row[2][3] };
+			d->setContainedPose(pose);
 			continue;
 		}
 		containedpose::Pose presentation;

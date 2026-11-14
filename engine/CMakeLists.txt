@@ -1326,6 +1326,8 @@ add_executable(openbfme_tests
     tests/test_local_46.cpp
     # lane LOCAL-47 (giant bird banking in turns: eagle and fell beast roll from turnRate, issue #403 / P-80)
     tests/test_local_47.cpp
+    # lane LOCAL-48 (held objects: grabbed orc follows troll hand bone, torn-off tree W3DTreeDraw staticModel, issue #404 / P-81)
+    tests/test_local_48.cpp
     # lane LOCAL-27 (bridges as retail: Bridge block, damage models, towers, scaffold, radar color, issue #189)
     tests/test_local_27.cpp
     # lane LOCAL-33 (castle gates and 'man the walls' as retail: GateProxyBehavior, ManTheWallsSpecialPower, issue #283)

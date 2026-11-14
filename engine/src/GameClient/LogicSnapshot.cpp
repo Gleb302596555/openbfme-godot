@@ -440,13 +440,23 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 			// OpenContain - its contain interface is HordeContain. The OpenContain that placed it on a bone is the transport's (HordeTransportContain),
 			// found by walking outer->getContainedBy() until an OpenContain answers riderBone for this object (RW 0x868A70).
 			s.containedOnBone = false;
+			s.containedBoneOwner = INVALID_ID;
+			s.containedBone.clear();
+			s.containedRidersCanAttack = false;
 			for (const Object *walker = outer; walker && !s.containedOnBone; walker = walker->getContainedBy())
 			{
 				const ContainModuleInterface *wc = walker->getContain();
 				const OpenContain *woc = dynamic_cast<const OpenContain *>(wc);
-				if (woc && !woc->riderBone(o->getID()).empty())
+				if (woc)
 				{
-					s.containedOnBone = true;
+					const std::string &bone = woc->riderBone(o->getID());
+					if (!bone.empty())
+					{
+						s.containedOnBone = true;
+						s.containedBoneOwner = walker->getID();
+						s.containedBone = bone;
+						s.containedRidersCanAttack = woc->isPassengerAllowedToFire(); // RW 0x865A7E, checked at RW 0x4B6952
+					}
 				}
 			}
 		}
