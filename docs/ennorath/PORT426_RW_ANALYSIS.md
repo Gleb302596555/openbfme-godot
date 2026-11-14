@@ -29,7 +29,7 @@ RW 0x941AC3 / 0x941B63, ветка `UNIT_BUILD` / `HORDE` / `REVIVE` — RW 0x94
 | 0x940BC2 `cmp [ebp+8],0` | REVIVE: пакетный найм запрещён |
 | 0x940BC8..0x940BD7 `test ebx,ebx; cmp word [ebx+0x5F0],0` | шаблон не нулевой и `MaxSimultaneousOfType == 0` (`ThingTemplate +0x5F0` = 1520, строка таблицы полей `engine/data/rotwk-201/field-tables.json`, парсер RW 0x42EC11). DONOR BFME2 0x00539DCB (`ControlBarCommandProcessing.cpp:514`) пишет то же условие как `!revival && what && what->hero==0` — имя поля донора не переносим, RW читает именно +0x5F0 |
 | 0x940BD9 `mov byte [ebp+0xC],1` | `multiple = isShift && !revival && tmpl && MaxSimultaneousOfType==0`; иначе 0x940BDF обнуляет |
-| 0x940BE6..0x940BF0 | `repeated && !multiple` → `0x940485` (возврат без сообщения). DONOR BFME2 0x00539DCB (`ControlBarCommandProcessing.cpp:515`, `if (repeated && !multiple) return CBC_COMMAND_NOT_USED`). Порт `repeated` не моделирует — стоп S-7326 |
+| 0x940BE6..0x940BF0 | `repeated && !multiple` → `0x940485` (возврат без сообщения). DONOR BFME2 0x00539DCB (`ControlBarCommandProcessing.cpp:515`, `if (repeated && !multiple) return CBC_COMMAND_NOT_USED`). Порт `repeated` не моделирует — стоп S-7343 |
 | 0x940BF6 `cmp [esi+0x14],4; sete al` | пятый аргумент сообщения = (команда == 4): в RotWK это выбор второй очереди производства (RW 0x77A7F9..0x77A818) |
 | 0x940C06 `push 0x417; call [eax+0x48]` | `MSG_QUEUE_UNIT_CREATE` |
 | 0x940C10 / 0x940C24 / 0x940C36 / **0x940C3E** / 0x940C48 | аргументы: bool revival, int templateID\|buildIndex, int upgradeID, **bool multiple**, bool command==4 |
@@ -91,4 +91,4 @@ RW 0x940BB3..0x940BE2 вычисляет `multiple` и отдаёт его че�
 
 - `repeated` (RW 0x940BE6..0x940BF0): порт не различает автоповтор зажатой
   клавиши, поэтому ветка «повтор без Shift не шлёт сообщение» не смоделирована —
-  стоп S-7326.
+  стоп S-7343.

@@ -6,7 +6,7 @@
 //   * RW 0x940BB3 -> RW 0x63F122 Keyboard::isShift (word +0xC, bits 0x30 / 0x400);
 //   * RW 0x940BC2 excludes REVIVE, RW 0x940BCF reads ThingTemplate + 0x5F0
 //     (MaxSimultaneousOfType, field table offset 1520), RW 0x940BD9 sets `multiple`,
-//     RW 0x940BE6..0x940BF0 is the repeated-press gate (not ported);
+//     RW 0x940BE6..0x940BF0 is the repeated-press gate (fork stop S-7343, not ported);
 //   * RW 0x940C06 message 0x417 (MSG_QUEUE_UNIT_CREATE), its fourth argument
 //     `multiple` is appended at RW 0x940C3E;
 //   * RW 0x77A764 dispatcher reads that argument at 0x77A7D1 and hands it to

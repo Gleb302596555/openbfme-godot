@@ -146,6 +146,7 @@
 
 | PORT-148: `AerialPathfinder::separation` uses the RW 0x67C5F3 / 0x66139C 3D filter through RW 0xAD2CE0 (P-59, issue #365); the 2D footprints ignore Z over an unpacked castle | 2026-11-12 | арена (issue #365) | `arena/8c7681de-openbfme-godot` | `PORT-148*` 5/5 (104 проверки; без правки 2 красных теста), `fly1 retail*`, `stealthfly1 retail*`; in-game check pending | не предложено: ванильный RotWK-механизм, но PR в upstream открывает владелец по прямому выбору правки (PROCESS.md §12) |
 
+| P-108 / Port 426: Shift-клик по `UNIT_BUILD` шлёт `multiple` (RW 0x940BB3..0x940C3E), `queueCreateUnit` ставит пять и обрывает пакет по очереди / деньгам (RW 0x8A1260 / 0x8A1284 / 0x8A13C0); стоп S-7343 (`repeated`) | 2026-11-14 | арена (issue 426) | PR #450 (`5c3b29e1`, `151ac3e8`, `844cb5e8`); upstream-ветка `up/port-426` (`e9b6fc5f`, `aaefb9e8`) | `PORT-426*` 3/3, 64/64; без правки 1/3 (8 падений); на `upstream/main` те же 3/3 и 1/3; в игре ждёт | не открыт: GitHub App получил 403 `Resource not accessible by integration (createPullRequest)`; compare `https://github.com/Open-BFME/openbfme-godot/compare/main...Gleb302596555:up/port-426?expand=1` |
 Правки до 2026-11-05 ещё не разобраны. Классы, которые есть только у нас, показывает `python tools/mod/upstream_sync.py candidates`.
 
 ## Готовые PR арены для передачи в upstream (сверено 2026-11-06 с `upstream/main` 69dcd7ff)
