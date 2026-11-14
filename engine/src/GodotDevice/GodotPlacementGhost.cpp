@@ -3,6 +3,7 @@
 
 #include "GodotDevice/GodotPlacementGhost.h"
 #include "GameClient/CommandButtonHelp.h"
+#include "GameClient/ControlBarCommands.h"
 #include "GameClient/FormationAssistant.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
@@ -225,6 +226,79 @@ void PlacementGhostRenderer::parkViews(const std::string &templateName)
 		}
 	}
 	m_views.clear();
+}
+
+void PlacementGhostRenderer::prewarm(LiveGame &game)
+{
+	// P-113 (the owner 2026-11-14: "a lag the moment a building is chosen"; measured with --perf: the first choice of each structure spent 26 - 175 ms
+	// in the ghost's instancer, the W3D model built on the main thread; a second choice took the parked views, FB-0055). RotWK draws the place icon from
+	// the asset manager's prototypes, loaded with the map (the PRELOAD templates on the load screen), so its first choice costs no load. INFERENCE: the
+	// templates here are what the local player's objects offer as DOZER_CONSTRUCT buttons when the game starts (a builder made later offers the same
+	// faction's set); each one's main icon is built once and parked, as parkViews keeps a placed template's.
+	const uint64_t t0 = Time::get_singleton()->get_ticks_usec();
+	GameLogic &logic = game.logic();
+	const Player *local = logic.players().getLocalPlayer();
+	if (!local || !m_icons)
+	{
+		return;
+	}
+	if (!TheCommandStore)
+	{
+		error("the ghost prewarm (P-113) has no command store on the render thread");
+		return;
+	}
+	std::vector<std::pair<const ThingTemplate *, ::ObjectID>> wanted;
+	std::map<std::string, bool> seen;
+	for (::Object *o = logic.getFirstObject(); o; o = o->getNextObject())
+	{
+		if (o->getControllingPlayer() != local || o->isEffectivelyDead())
+		{
+			continue;
+		}
+		const CommandSet *set = TheCommandStore->findCommandSet(o->getCommandSetName());
+		for (int i = 0; set && i < CommandSet::slotCapacity(); ++i)
+		{
+			const CommandButton *b = set->getCommandButton(i);
+			b = b ? b->getFinalOverride() : nullptr;
+			const ThingTemplate *tt = b && b->m_command == GUI_COMMAND_DOZER_CONSTRUCT ? b->getThingTemplate() : nullptr;
+			if (!tt || seen[tt->getName()])
+			{
+				continue;
+			}
+			seen[tt->getName()] = true;
+			wanted.emplace_back(tt, o->getID());
+		}
+	}
+	const Coord3D origin = {};
+	for (const auto &w : wanted)
+	{
+		if (m_parked.size() >= kMaxParked || m_parked.count(w.first->getName()))
+		{
+			continue;
+		}
+		PlacementIcons::Icon icon = m_icons->makeMainIcon(*w.first, w.second);
+		icon.drawable->setPosition(&origin);
+		icon.drawable->advanceAnimation(0.0);
+		std::vector<IconView> views(1);
+		drawIcon(0, icon, views[0]);
+		if (views[0].inst)
+		{
+			views[0].inst->set_visible(false);
+		}
+		if (views[0].bib)
+		{
+			views[0].bib->set_visible(false);
+		}
+		views[0].shadowTexture.clear();
+		m_parked[w.first->getName()] = std::move(views);
+		++m_prewarmed;
+	}
+	for (const std::string &e : m_icons->errors())
+	{
+		error(e);
+	}
+	m_prewarmMs = (double)(Time::get_singleton()->get_ticks_usec() - t0) / 1000.0;
+	UtilityFunctions::print("GAME placement ghost prewarm (P-113): ", (int64_t)m_prewarmed, " structures in ", m_prewarmMs, " ms");
 }
 
 W3DInstancer *PlacementGhostRenderer::newInstancer(const char *name)
@@ -648,6 +722,7 @@ void PlacementGhostRenderer::sync(LiveGame &game, const InGameUI &ui, double del
 				warm->queue_free();
 			}
 		}
+		prewarm(game); // P-113
 	}
 	const std::string before = m_icons->templateName();
 	const uint64_t t0 = Time::get_singleton()->get_ticks_usec();
@@ -737,6 +812,8 @@ Dictionary PlacementGhostRenderer::state() const
 	s["castle"] = m_icons && m_icons->castle();
 	s["parked"] = (int64_t)m_parked.size();       // lane FOGFX-1: templates whose instancers are kept
 	s["models_built"] = (int64_t)m_modelsBuilt;   // lane FOGFX-1: add_model calls so far (a placement of a kept template adds none)
+	s["prewarmed"] = (int64_t)m_prewarmed;   // P-113: structures whose ghost was built when the game started
+	s["prewarm_ms"] = m_prewarmMs;
 	s["instancers_made"] = (int64_t)m_instancersMade;
 	s["bib_materials"] = (int64_t)m_bibMaterials.size(); // lane FOGFX-1: shared per bib texture (2: TBBib, TBRedBib)
 	s["anchored"] = m_anchored;

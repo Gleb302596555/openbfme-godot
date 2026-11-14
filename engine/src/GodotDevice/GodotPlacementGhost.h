@@ -101,6 +101,9 @@ private:
 	void error(const std::string &e);
 	void clearTransient(); // the formation preview, the resource decal and label
 	void parkViews(const std::string &templateName); // lane FOGFX-1: m_views hidden and kept under the template's name
+	void prewarm(LiveGame &game);                     // P-113: the local builders' structures' ghosts built and parked when the game starts
+	size_t m_prewarmed = 0;
+	double m_prewarmMs = 0.0;
 	static constexpr size_t kMaxParked = 48;         ///< lane FOGFX-1: more parked templates than this and the parked ones are freed
 	std::map<std::string, std::vector<IconView>> m_parked;
 	W3DInstancer *newInstancer(const char *name);

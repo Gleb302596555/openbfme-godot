@@ -87,6 +87,9 @@ public:
 	// live logic); their draw modules' problems are forwarded to errors() every frame (DrawableManager::collect's rule for the game's drawables)
 	void update(const InGameUI &ui, double elapsedMs, unsigned ghostOptions, bool judge = true);
 	void clear();
+	// P-113: the main icon a placement of `tt` by `builder` starts with (rebuild's slot 0: the drawable, its angle and colours), made ahead of the
+	// placement so the renderer can build its model while the game starts (RotWK loads the models of PRELOAD templates on the load screen)
+	Icon makeMainIcon(const ThingTemplate &tt, ObjectID builder);
 
 	const std::vector<Icon> &icons() const { return m_icons; }
 	std::vector<Icon> &icons() { return m_icons; }

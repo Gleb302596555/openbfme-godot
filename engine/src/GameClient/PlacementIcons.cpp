@@ -125,6 +125,18 @@ std::unique_ptr<Drawable> PlacementIcons::make(const ThingTemplate &tt, size_t s
 	return d;
 }
 
+PlacementIcons::Icon PlacementIcons::makeMainIcon(const ThingTemplate &tt, ObjectID builder)
+{
+	Icon main;
+	main.tt = tt.getFinalOverride();
+	main.drawable = make(tt, 0);
+	main.angle = placementViewAngle(*main.tt);
+	main.drawable->setOrientation(main.angle);
+	main.drawable->setIndicatorColor(indicatorColor(m_logic, builder));
+	main.drawable->setHouseColor(indicatorColor(m_logic, builder));
+	return main;
+}
+
 void PlacementIcons::rebuild(const InGameUI &ui)
 {
 	clear();
