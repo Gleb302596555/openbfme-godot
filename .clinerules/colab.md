@@ -1,6 +1,9 @@
 # Эта машина: Google Colab (Linux), рабочая область colab-sandbox
 - Сначала прочитай CLAUDE.md, AGENTS.md и docs/ennorath/PROCESS.md (разделы 5, 7, 14): они обязательны.
-- Сборка только `/content/sandbox/build_tests.sh` (CMake + Ninja + GCC, без GDExtension). build.bat и MSVC здесь нет.
+- Сборка только `bash tools/colab/build_tests.sh` из своего дерева (CMake + Ninja + GCC, движок, тесты и GDExtension). build.bat и MSVC здесь нет.
+  Ошибка в engine/src/GodotDevice/ ломает игру владельца на Windows: собирай с GDExtension всегда.
+- `/content/sandbox` стирается при перезапуске Colab (это не Google Drive): всё, что не запушено, пропадает.
+  Работай только в своей ветке (не в дереве без ветки), коммит и push после каждого шага.
 - Эталоны хешей (pins) и перепись стопов не перемерять: их перемеряет Claude. Красный pin-тест - сообщить, не менять.
 - x87_oracle / retail_oracle (Windows) здесь не работают: такие тесты не считать ни зелёными, ни красными.
 - Файлы игры в /content/game_assets, game.dat RotWK 2.01 - в $OPENBFME_GAME_DAT. Код RotWK читать по нему (pefile + capstone,
