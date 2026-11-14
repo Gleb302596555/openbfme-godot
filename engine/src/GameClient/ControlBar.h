@@ -147,12 +147,19 @@ public:
 	// lane PLAY-4: StanceToButtonSlot (RW InGameToggleStanceCommandButton, BFME2 0x567807): the index of the object's StancesBehavior stance in the button's
 	// Stances list, -1 when it is not there (or the object has no stances)
 	static int stanceSlotOf(const CommandButton &b, Object &obj);
+	// lane PORT-143: the same StanceToButtonSlot (RW 0x96F2DA) over a stance the client ordered: SetStance (RW 0x96F54C) compares the value as it is, with no
+	// stance class in between (Uninitialized and HoldGroundMoving find no slot, and the button keeps its picture)
+	static int stanceSlotOf(const CommandButton &b, int stance);
 
 	// ---- input ----
 	// ZH ControlBar::processCommandUI: the press of the button in `slot`. Returns false when the slot has no usable button (counted, reported through ui messages).
 	bool pressButton(int slot, bool inPalantir);
 	// lane CAMPUI-1: the stance toggle's SetStance (RW 0x96F53C): MSG_CHANGE_STANCE with `stance` (a stance item of the Palantir's radial, a SET_STANCE button)
 	bool sendChangeStance(int stance, const char *site = "ControlBar:SET_STANCE");
+	// lane PORT-143 (the owner's P-25): RW 0x96F53C .. 0x96F567, the first half of the same SetStance: the ordered stance becomes the toggle button's own
+	// picture (CommandButton::setCurrentIndex RW 0x75D082, then the image and the labels read at that index). It happens whatever the button's state, so the
+	// gray button of an object without a StancesBehavior shows the tactic too; the voice (playStanceVoice below) and the logic's stance are untouched
+	void applyToggleStance(int stance);
 	// RW 0x96F5A8 .. 0x96F5D0: SetStance's voice, the HUD plays it (VOICE_EVENT_STANCE on the selection); the argument is the button's sound of that stance.
 	// Called from the HUD's message observer for every MSG_CHANGE_STANCE. INFERENCE: the D / F / G hotkeys too: RW's meta case RW 0x8201F5 has no voice, but RW 0x96F890
 	// registers the same keys on the radial's items, whose press is SetStance; that route is not ported (S-280)
@@ -241,6 +248,9 @@ private:
 	// object's controller
 	void populateUnderConstruction(Object &obj, bool mine);
 	void foreignDisable(ControlBarButton &cb) const;
+	// PORT-169 (issue #398, RW 0x75D22E / 0x944603): sync CommandButton::m_toggleIndex (+0xFC) with object or multi-select state
+	void updateToggleIndex(const CommandButton &b, const Object *obj, bool invert) const;
+	void updateMultiSelectToggleIndex(const CommandButton &b, const Object *fallback) const;
 
 	HudContext &m_ctx;
 	ObjectID m_source = INVALID_ID;

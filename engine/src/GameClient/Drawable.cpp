@@ -14,6 +14,7 @@
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawVariants.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DSailModelDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLightDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawBones.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DQuadrupedDraw.h"
@@ -205,6 +206,10 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 				else if (const W3DQuadrupedDrawModuleData *qd = dynamic_cast<const W3DQuadrupedDrawModuleData *>(nugget.data.get()))
 				{
 					e.draw.reset(new W3DQuadrupedDraw(*qd, services.drawAssets, services.random, &services.host, o));
+				}
+				else if (const W3DSailModelDrawModuleData *sail = dynamic_cast<const W3DSailModelDrawModuleData *>(data))
+				{
+					e.draw.reset(new W3DSailModelDraw(*sail, services.drawAssets, services.random, &services.host, o)); // RW 0x46478F
 				}
 				else
 				{

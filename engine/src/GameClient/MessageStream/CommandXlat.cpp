@@ -490,8 +490,8 @@ int CommandTranslator::evaluateContextCommand(Object *obj, const Coord3D *pos, E
 		}
 	}
 	// lane GARRISON-1 (ZH evaluateContextCommand's ACTIONTYPE_ENTER_OBJECT): a click on a container some selected object may enter (ActionManager::canEnterObject,
-	// RW 0x82CBD5, mode 0) is MSG_ENTER (argument 0 the first selected object, argument 1 the container: the logic case RW 0x77AC26 reads argument 1); the cursor
-	// is EnterFriendly. INFERENCE (S-286): RotWK's order of the context checks is not read; the enter check comes before the attack check here (an enemy
+	// RW 0x82CBD5, mode 0) is MSG_ENTER (argument 0 the first selected object, argument 1 the container: the logic case RW 0x77AC26 reads argument 1).
+	// INFERENCE (S-286): RotWK's order of the context checks is not fully read; the enter check comes before the attack check here (an enemy
 	// container is not enterable by the garrison rules)
 	if (obj && !m_ctx.ui.isInForceAttackMode() && obj->getContain())
 	{
@@ -516,10 +516,21 @@ int CommandTranslator::evaluateContextCommand(Object *obj, const Coord3D *pos, E
 			}
 			else if (type == EvaluateType::DoHint)
 			{
-				// Retail Mouse.ini supplies the animated OneRing asset for this action.
-				hint(dynamic_cast<CitadelSlaughterHordeContain *>(obj->getContain()) &&
-					enterer->testStatus((unsigned)CombatNames::status("HOLDING_THE_RING"))
-					? MouseCursorName::DeliverRing : MouseCursorName::EnterFriendly);
+				// RW 0x81EEEC -> 0x82CEFB uses the entire selection to choose the
+				// enter hint; RW 0x6A4099 dispatches B9/BA/CB/CC to the cursor
+				// indices pushed at 0x6A4031/35/55/59, respectively.
+				std::vector<const Object *> selection;
+				for (ObjectID id : m_ctx.ui.selected())
+				{
+					if (const Object *selected = m_ctx.logic.findObjectByID(id)) selection.push_back(selected);
+				}
+				switch (ActionManager::getEnterMessage(*obj, selection))
+				{
+					case ActionManager::ENTER_MESSAGE_CONTEST: hint(MouseCursorName::EnterAggressive); break;
+					case ActionManager::ENTER_MESSAGE_SLAUGHTER: hint(MouseCursorName::SendToDeath); break;
+					case ActionManager::ENTER_MESSAGE_DELIVER_RING: hint(MouseCursorName::DeliverRing); break;
+					case ActionManager::ENTER_MESSAGE_ENTER: hint(MouseCursorName::EnterFriendly); break;
+				}
 			}
 			return msgType;
 		}

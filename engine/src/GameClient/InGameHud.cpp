@@ -195,6 +195,9 @@ InGameHud::InGameHud(Config config)
 		if (msg.getType() == MSG_CHANGE_STANCE && msg.getArgumentCount() > 0)
 		{
 			const int stance = msg.getArgument(0)->integer;
+			// lane PORT-143: the D / F / G meta route (RW 0x8201F5, CommandTranslator::changeStance) has no InGameToggleStanceCommandButton's SetStance in
+			// front of it (its hotkey action RW 0x96F880 is the radial's, S-280), so the button's picture moves here with the voice, as SetStance moves both
+			m_bar->applyToggleStance(stance);
 			m_bar->playStanceVoice(stance);
 			if (m_palantirRef)
 			{
@@ -214,6 +217,7 @@ InGameHud::InGameHud(Config config)
 		info.target = (ObjectID)p.targetId;
 		info.hasPosition = p.hasPosition;
 		info.position = Coord3D{ p.posX, p.posY, p.posZ };
+		info.air = p.air; // PORT-151: the attack helper's air flag (RW 0x66B240)
 		m_voice->pickAndPlay({ (ObjectID)p.objectId }, p.voiceEvent, &info);
 	}, this);
 }

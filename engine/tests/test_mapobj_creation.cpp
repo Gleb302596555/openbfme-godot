@@ -678,7 +678,7 @@ TEST_CASE("mapobj creation: every stop line is registered in docs/STOPS.md and c
 	{
 		CHECK_MESSAGE(ids.count("S-" + std::to_string(n)) == (n == 117 ? 0u : 1u), "report S-" << n);
 	}
-	CHECK(MapObjectCreation::stopLines().size() == 9);
+	CHECK(MapObjectCreation::stopLines().size() == 10); // PORT-63: map-placed sail attachment remains [S-7232]
 }
 
 TEST_CASE("mapobj creation: side colours come from playerColor, else from the PreferredColor of a faction PlayerTemplate (S-119)")

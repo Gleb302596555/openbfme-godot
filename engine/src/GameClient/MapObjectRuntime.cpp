@@ -5,6 +5,7 @@
 
 #include "Common/AsciiString.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTreeDraw.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DSailModelDraw.h"
 
 #include <chrono>
 #include <set>
@@ -216,6 +217,10 @@ void MapObjectRuntime::createDrawModules(const MapObjectDrawables &drawables, si
 				if (const W3DHordeModelDrawModuleData *hd = dynamic_cast<const W3DHordeModelDrawModuleData *>(m.data))
 				{
 					p.draw.reset(new W3DHordeModelDraw(*hd, 2, m_drawAssets, m_random, &m_host, o)); // LOD HIGH
+				}
+				else if (const W3DSailModelDrawModuleData *sail = dynamic_cast<const W3DSailModelDrawModuleData *>(data))
+				{
+					p.draw.reset(new W3DSailModelDraw(*sail, m_drawAssets, m_random, &m_host, o)); // RW 0x46478F
 				}
 				else
 				{

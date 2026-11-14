@@ -1287,11 +1287,12 @@ TEST_CASE("hud audio feedback: hotkey sounds and unit voice response on command 
 	std::vector<AudioLogEntry> clickLog = audio.manager->takeEventLog();
 	CHECK(hasAudioEvent(clickLog, "GondorSoldierVoiceBlockFormationOn"));
 
-	// 5. Hotkey 'B' toggle back -> triggers EnabledHotKeyPressed and GondorSoldierVoiceLineFormation
+	// 5. Hotkey 'L' toggle back -> CONTROLBAR:ToggleLineFormation ("&Line Formation") after TOGGLE_IMAGE_ON_FORMATION updated +0xFC
+	// triggers EnabledHotKeyPressed and GondorSoldierVoiceLineFormation
 	audio.manager->takeEventLog();
-	h.hud->key(KEY_B, KEY_STATE_DOWN, U'b');
+	h.hud->key(KEY_L, KEY_STATE_DOWN, U'l');
 	h.frames(2);
-	h.hud->key(KEY_B, KEY_STATE_UP, U'b');
+	h.hud->key(KEY_L, KEY_STATE_UP, U'l');
 	h.frames(10);
 	std::vector<AudioLogEntry> hotkeyLog = audio.manager->takeEventLog();
 	CHECK(hasAudioEvent(hotkeyLog, "Gui_EnabledHotkeyPressed"));

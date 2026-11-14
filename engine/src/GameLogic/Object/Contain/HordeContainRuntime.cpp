@@ -361,6 +361,7 @@ void HordeContain::createPayload()
 			logic.reportError("HordeContain of " + horde->getTemplate()->getName() + ": InitialPayload template '" + e.name + "' does not exist");
 			continue;
 		}
+		enableLoadSounds(false); // RW 0x871BBB -> 0x86A264
 		for (int i = 0; i < e.count; ++i)
 		{
 			Object *member = things.newObject(logic, tt, horde->getTeam(), status);
@@ -369,6 +370,7 @@ void HordeContain::createPayload()
 				addToContain(member);
 			}
 		}
+		enableLoadSounds(true); // RW 0x86A2B1
 	}
 	// RW 0x871C10 .. 0x871CB4 (lane DECOMP-1; BFME2 decomp HordeContain_createPayload.cpp, tier B same-shape): an unproduced horde destroys (int)((100 - H) * 0.01 *
 	// count) of its members that have a body, H being HordeContain + 0x2A8. Its only writer is the constructor (RW 0x872972: 100; a scan of every
@@ -432,6 +434,7 @@ bool HordeContain::addToContain(Object *obj)
 		}
 	}
 	bannerCarrierMorph(*obj); // lane PORT-75: RW 0x89A5C5, last so the morph's LocomotorSet stands (DONOR 0x00473212 returns right after)
+	OpenContain::playContainSound(*getObject(), m_data->horde.m_transport.m_open, m_soundState, true); // RW 0x86754C
 	return true;
 }
 
@@ -816,6 +819,11 @@ bool HordeContain::notComboFormation() const
 	return m_data->horde.m_notComboFormation;
 }
 
+bool HordeContain::isMainFormation() const
+{
+	return m_data->horde.m_thisFormationIsTheMainFormation;
+}
+
 // Interface slot 0x70 (RW 0x871D41): its prologue's status tests and then its combine arm (RW 0x871E89 .. 0x871F12, the function's return).
 //   RW 0x871E89 / 0x871E92: a null object and this horde's own object are refused (RW 0x871F16 returns false);
 //   RW 0x871EC1: the entry lookup RW 0x87043B with the object's template, no entry -> false (RW 0x871ECA);
@@ -1013,6 +1021,7 @@ void HordeContain::removeMember(Object *obj, bool keepSlot, bool templateIsSpeci
 	{
 		return;
 	}
+	OpenContain::playContainSound(*getObject(), m_data->horde.m_transport.m_open, m_soundState, false); // RW 0x865F73
 	m_members.erase(it);
 	m_producedMembers.erase(std::remove(m_producedMembers.begin(), m_producedMembers.end(), obj->getID()), m_producedMembers.end());
 	if (keepSlot)
@@ -1201,6 +1210,9 @@ void HordeContain::containReactToTransformChange()
 void HordeContain::crc(StateHasher &h) const
 {
 	UpdateModule::crc(h);
+	h.addU32(m_soundState.lastUnloadFrame);
+	h.addU32(m_soundState.lastLoadFrame);
+	h.addBool(m_soundState.loadEnabled);
 	h.addBool(m_dirty);
 	h.addBool(m_workDone);
 	h.addBool(m_propagatedMoving);
@@ -1317,8 +1329,16 @@ void HordeContain::crc(StateHasher &h) const
 // the AI's melee runtime is the AI update's, SAVE-4c). The pass, exit and attack statistics are the report's.
 void HordeContain::xfer(Xfer &x)
 {
-	SnapshotXfer::version(x, 1, 1);
+	XferVersion v{ 1, 2 }; // PORT-90: the inherited OpenContain sound state
+	x.xferVersion(v);
 	xferUpdateModule(x);
+	if (v.current >= 2)
+	{
+		x.xferUnsignedInt(&m_soundState.lastUnloadFrame); // RW 0x869265
+		x.xferUnsignedInt(&m_soundState.lastLoadFrame);   // RW 0x869270
+		x.xferBool(&m_soundState.loadEnabled);             // RW 0x869476
+	}
+	else if (x.isLoading()) m_soundState = OpenContain::SoundState{};
 	GameLogic &logic = getObject()->logic();
 	SnapshotXfer::objectPointers(x, logic, m_members, "a horde's member", getObject()->getID());
 	m_core->xfer(x);

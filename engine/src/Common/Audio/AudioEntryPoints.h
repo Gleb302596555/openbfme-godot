@@ -41,6 +41,18 @@ AudioHandle playUiSound(const std::string &eventName);
 AudioHandle playSoundAtPosition(const std::string &eventName, const Coord3D &position);
 AudioHandle playMusic(const std::string &eventName);
 void stopMusic(bool fade);
+// PORT-158: the shell's own music manager (the Godot host keeps the menu music in a second manager the shell booted for the
+// BFME2 shell source; RotWK has the one TheAudio, RW 0xDE42FC). Registered by that host so a music stop that must reach the
+// menu track reaches it too; nullptr unregisters. Not the installed manager: game sounds never route through it.
+void installShellMusic(AudioManager *manager);
+AudioManager *currentShellMusic();
+// PORT-158: the loading screen's music switch, as RotWK's AptLoadScreen::init does it (RW 0x81CB08): TheAudio finds the
+// event (vslot 0x12C, RW 0x81D225; unknown: nothing is stopped or played, RW 0x81D22B -> 0x81D295), the music that plays
+// stops with a fade (vslot 0x8C(2, 1, 1), RW 0x81D242), the event is added with view type 2 and no fade-in (RW 0x6DA95E /
+// 0x6DA774, vslot 0x64, RW 0x81D278) and the manager is updated once (vslot 0x28, RW 0x81D283). The port's menu music may
+// sit in the registered shell manager: it takes the same faded stop, so exactly one music track plays during the load.
+// Returns the new track's handle, or AHSV_NoSound when the event is unknown (nothing was stopped).
+AudioHandle playLoadScreenMusic(const std::string &eventName);
 void stopSound(AudioHandle handle);
 
 // AUDIO-2: TheEva (RW 0xDE3670), installed by the owner of the audio manager. reportEva is RW 0x5DD9EE by name (the event at a position, or none); false when the
@@ -71,6 +83,7 @@ struct UnitVoiceParams
 	float posX = 0.0f;
 	float posY = 0.0f;
 	float posZ = 0.0f;
+	bool air = false; ///< PORT-151: PickAndPlayInfo + 0x0 (the victim's airborne locomotor, RW 0x68BEED)
 };
 typedef std::function<void(const UnitVoiceParams &params)> UnitVoiceHandler;
 typedef std::function<void(int voiceEvent, std::uint32_t objectId, std::uint32_t producerId)> LegacyUnitVoiceHandler;

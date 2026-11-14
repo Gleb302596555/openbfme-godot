@@ -109,7 +109,7 @@ std::vector<std::string> AudioManager::unverified()
 		"S-249: the decoded sound cache budget (a multiple of AudioFootprintInBytes) is inferred; retail caches compressed bytes",
 		"S-1930: the stereo image is Miles' Fast 2D provider (a stereo Windows speaker setup); RotWK's Dolby Surround provider (headphone / surround speaker setups on High audio LOD) and its FB pan filter are not modelled",
 		"S-1931: a panned stereo voice mixes its left channel into the right in the Godot device",
-		"S-7326: a playing sound is not asked about the shroud again (RW 0x45BC24: fade out RW 0x452C50, requeue when faded RW 0x45BBB3, the fade factor RW 0x450A18 in the sample volume, event + 0x4F); the 0.01 volume "
+		"S-7343: a playing sound is not asked about the shroud again (RW 0x45BC24: fade out RW 0x452C50, requeue when faded RW 0x45BBB3, the fade factor RW 0x450A18 in the sample volume, event + 0x4F); the 0.01 volume "
 		"floor (RW 0x4593AE), the first step of the channel steal for a positional event (RW 0x45FF9F -> 0x45E98F) and the requeue of a playing loop without a position (RW 0x45BD57) are not ported",
 	};
 }
@@ -1264,6 +1264,10 @@ void AudioManager::update(double nowMs)
 			// a stall longer than the catch-up cap: skip ahead, count the dropped steps
 			const double behind = nowMs - m_clockMs;
 			m_report.droppedTicks += (std::uint64_t)(behind / step);
+			// PORT-158: a fade is elapsed time, not tick count (Miles processFade advances by elapsed ms, DONOR BFME2
+			// MilesAudioManager.cpp: m_at30 += elapsed, compared with timeToFadeAudio): the dropped span still fades, so a
+			// track stopped at the loading screen (RW 0x81D242) is silent after a synchronous load instead of frozen audible
+			processFadingList(behind);
 			m_clockMs = nowMs;
 			break;
 		}
@@ -1281,7 +1285,7 @@ void AudioManager::update(double nowMs)
 		processRequestList();
 		refreshDucking();
 		processPlayingList();
-		processFadingList();
+		processFadingList(step);
 		processAmbientMarkers();
 		processMusicChain();
 	}
@@ -1449,6 +1453,31 @@ VoiceParams AudioManager::voiceParamsFor(AudioEventRTS &event, VoiceKind kind)
 	}
 	p.gainLeft = g.left;
 	p.gainRight = g.right;
+	// RW 0x5DD9EE: RotWK hands the voice ReverbEffectLevel, DryLevel and ZoomedInOffscreenOcclusionPercent read from the event info
+	// (game.dat reader chain: table rows 0xBEFF40/0xBEFF50/0xBEFF60, parser 0x42EEFA, storage +0xA4/+0xA8/+0xAC, all pushed into
+	// call 0x5DD9EE). Reverb send and dry level come straight from the info; the offscreen occlusion is applied only while zoomed
+	// in and the source is offscreen, using the same zoom/offscreen query as the volume fade (getEffectiveVolume above).
+	const AudioEventInfo *info = event.getAudioEventInfo();
+	p.reverbSend = info ? info->reverbEffectLevel : 0.0f;
+	p.dryLevel = info ? info->dryLevel : 1.0f;
+	float occlusion = 0.0f;
+	if (info && info->zoomedInOffscreenOcclusionPercent > 0.0f)
+	{
+		const bool haveZoomFade = m_queries.zoomFadeFactor && m_queries.isOnScreen && m_queries.offscreenDistanceSq;
+		if (haveZoomFade)
+		{
+			const float zoom = m_queries.zoomFadeFactor();
+			Coord3D pos;
+			if (zoom > 0.0f && event.getCurrentPosition(m_env, &pos) && !m_queries.isOnScreen(pos))
+			{
+				const MicrophoneSettings &mic = m_ini.settings.microphone[m_currentView == VIEW_LIVING_WORLD ? 1 : 0];
+				const float dsq = m_queries.offscreenDistanceSq(pos);
+				const float f = (dsq >= mic.zoomFadeDistanceForMaxEffectSq ? 1.0f : std::sqrt(dsq) / mic.zoomFadeDistanceForMaxEffect) * zoom;
+				occlusion = info->zoomedInOffscreenOcclusionPercent * f;
+			}
+		}
+	}
+	p.occlusion = occlusion;
 	return p;
 }
 
@@ -1568,6 +1597,7 @@ void AudioManager::playAudioEvent(std::unique_ptr<AudioEventRTS> evp)
 					{
 						(*it)->fading = true;
 						(*it)->framesFaded = 0;
+						(*it)->fadeElapsedMs = 0.0;
 						m_fading.push_back(std::move(*it));
 					}
 					else
@@ -1826,13 +1856,17 @@ void AudioManager::processPlayingList()
 	}
 }
 
-void AudioManager::processFadingList()
+void AudioManager::processFadingList(double elapsedMs)
 {
-	const int fadeTicks = std::max(1, (int)std::ceil((double)m_ini.settings.timeToFadeAudio / tickIntervalMs()));
+	// PORT-158: the fade runs on elapsed manager time (Miles processFade: m_at30 += elapsed against timeToFadeAudio, DONOR
+	// BFME2 MilesAudioManager.cpp), not on a count of ticks: ticks dropped across a stall (the synchronous skirmish load)
+	// must not leave a stopped track audible at near-full volume
+	const double fadeMs = (double)m_ini.settings.timeToFadeAudio;
 	for (auto it = m_fading.begin(); it != m_fading.end();)
 	{
 		PlayingAudio &p = **it;
-		if (p.framesFaded >= fadeTicks || !p.voice)
+		p.fadeElapsedMs += elapsedMs;
+		if (p.fadeElapsedMs >= fadeMs || !p.voice)
 		{
 			releasePlaying(p);
 			it = m_fading.erase(it);
@@ -1840,7 +1874,7 @@ void AudioManager::processFadingList()
 		}
 		++p.framesFaded;
 		VoiceParams params = voiceParamsFor(*p.event, p.kind);
-		params.volume *= 1.0f - (float)p.framesFaded / (float)fadeTicks;
+		params.volume *= fadeMs > 0.0 ? 1.0f - (float)(p.fadeElapsedMs / fadeMs) : 0.0f;
 		m_device.updateVoice(p.voice, params);
 		++it;
 	}
@@ -1997,6 +2031,7 @@ void AudioManager::stopAudioEvent(AudioHandle handle)
 			{
 				p.fading = true;
 				p.framesFaded = 0;
+				p.fadeElapsedMs = 0.0;
 				m_fading.push_back(std::move(*it));
 				list.erase(it);
 				return;
@@ -2181,6 +2216,7 @@ void AudioManager::stopMusic(bool fade)
 			{
 				(*it)->fading = true;
 				(*it)->framesFaded = 0;
+				(*it)->fadeElapsedMs = 0.0;
 				m_fading.push_back(std::move(*it));
 			}
 			else

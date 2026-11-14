@@ -497,7 +497,9 @@ bool AIUpdateInterface::aiAttackFollowWaypointPath(int waypointId, int maxShotsT
 			cur->setMaxShotCount(maxShotsToFire); // + 0x34
 		}
 	}
-	// a player or script source: the client's notification (RW 0x66B2F5)
+	// PORT-151: no voice here. RW 0x66B2F5 is called only at RW 0x66C136 (the attack-move-to-position body RW 0x66C0B9) and at RW 0x66C1BC /
+	// 0x66C23C (the attack-move-to-OBJECT body RW 0x66C148, whose failed gate jumps to the waypoint body's tail and which takes the position at Object
+	// + 0x38). The waypoint body RW 0x66C1C9 never speaks; the command that runs the object body is not identified (S-7329)
 	wakeUpNow();
 	return true;
 }

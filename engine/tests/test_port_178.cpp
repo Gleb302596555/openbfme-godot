@@ -419,12 +419,12 @@ TEST_CASE("PORT-178: the audio log has the channel steal, the stop of a looping 
 	r.mgr->enableEventLog(false);
 }
 
-TEST_CASE("PORT-178: what stays unported of RW's playing list and channel steal is reported (S-7326) and registered in docs/STOPS.md")
+TEST_CASE("PORT-178: what stays unported of RW's playing list and channel steal is reported (S-7343) and registered in docs/STOPS.md")
 {
 	int lines = 0;
 	for (const std::string &line : AudioManager::unverified())
 	{
-		if (line.rfind("S-7326:", 0) == 0)
+		if (line.rfind("S-7343:", 0) == 0)
 		{
 			++lines;
 			CHECK(line.find("0x45BC24") != std::string::npos); // the shroud test of a playing sound
@@ -437,5 +437,5 @@ TEST_CASE("PORT-178: what stays unported of RW's playing list and channel steal 
 	REQUIRE_MESSAGE(static_cast<bool>(in), "cannot read docs/STOPS.md");
 	std::stringstream ss;
 	ss << in.rdbuf();
-	CHECK(ss.str().find("| S-7326 | code |") != std::string::npos);
+	CHECK(ss.str().find("| S-7343 | code |") != std::string::npos);
 }

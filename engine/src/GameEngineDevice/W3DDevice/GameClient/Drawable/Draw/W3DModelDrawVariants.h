@@ -2,8 +2,8 @@
 //
 // Module data of the ModelDraw variants W3DTruckDraw, W3DSailModelDraw, W3DQuadrupedDraw, W3DTankDraw and W3DSupplyDraw (lane
 // MAPOBJ-1): the model draw table (RW 0xBE1320, W3DModelDraw.h) plus the variant's own table. They draw their base model through the
-// merged W3DScriptedModelDraw runtime; what the variant adds (tire / tread / sail / foot motion, dust, cab and trailer rotation) is
-// stored and not run (stop S-112).
+// merged W3DScriptedModelDraw runtime. W3DSailModelDraw's separate runtime now turns the model matrix (PORT-63),
+// and truck tires spin (COMBAT-4); treads, feet, dust, cab and trailer rotation remain in stop S-112.
 //
 // Sources, in PLAN rule 1 priority order (TARGET = RotWK game.dat, caveat S-001):
 //   TARGET registry entries (module-registry.json, createData / table adds), object sizes and constructors:

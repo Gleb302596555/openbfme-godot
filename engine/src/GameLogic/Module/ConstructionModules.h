@@ -15,7 +15,7 @@
 //   BuildingBehavior (create RW 0x64A864, data RW 0x64A89C, mask 1; ctor RW 0x85927B, update RW 0x85935C, xfer RW 0x859324): NightWindowName (+8), FireWindowName
 //     (+0x14), GlowWindowName (+0x20), FireName (+0x2C) (lists of strings; table RW 0xC56F70; the window sub objects are drawn by the client). Lane PORT-83 (#231):
 //     the NightWindowName and GlowWindowName lists are read by update (the night window list on a night map, the glow list while AFLAME); FireWindowName and
-//     FireName are lane Port 29 (issue #101)'s.
+//     FireName are read by the same loop and were added by lane Port 29 (issue #101).
 // Lane BUILD-2 ported RotWK's GettingBuiltBehavior runtime (see the class comment and ConstructionModules.cpp); the audio loops are the client's.
 
 #pragma once
@@ -183,7 +183,8 @@ public:
 // hidden on the object's drawable (RW 0x8592F0: each name goes through Drawable::showSubObject RW 0x672823 to every draw module's ObjectDrawInterface vslot 0x88 = setSubObject
 // RW 0x4C3B25, with the permanent flag ALWAYS 1; then Drawable::updateSubObjects RW 0x672713). The night window list (NightWindowName) is shown at the first update on a
 // night map (and again when a burning building's fire goes out at night); the glow window list (GlowWindowName) is shown while the building is on fire (status AFLAME, 0xA).
-// The FireWindowName (+0x14) and FireName (+0x2C) lists are lane Port 29 (issue #101)'s, not read here.
+// Lane Port 29 (issue #101) added the other two lists of the same loop: FireWindowName (+0x14) is shown while the building burns, and FireName (+0x2C - the field's only
+// reader in RotWK is RW 0x85944B in this update) is shown while it burns at night only.
 class BuildingBehavior : public UpdateModule
 {
 public:

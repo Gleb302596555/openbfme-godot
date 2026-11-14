@@ -351,6 +351,31 @@ bool ObjectGeometry::getBestContactPoint(const std::vector<Shape> &shapes, const
 	}();
 	const float height = maxHeightAbovePosition(shapes);
 
+	if (preference == 1) // RW 0xAD3340 (the mode switch RW 0xAD3187 jumps here for mode 1)
+	{
+		// the GeometryInfo member at +0x44: the highest GeometryContactPoint row in the object's own space, kept by the row parser (RW 0xAD3DD5 .. 0xAD3DEB copies
+		// any point whose z is above +0x4C, the stored highest), in row order so the first row wins a tie. A template without rows keeps the constructor's value,
+		// which the owner's reading did not isolate (0 is the expected initial value; INFERENCE). The port's only input to +0x44 is the row list.
+		out.x = 0.0f;
+		out.y = 0.0f;
+		out.z = 0.0f;
+		for (const ContactPoint &p : points)
+		{
+			if (out.z < p.z) // RW 0xAD3DC9 / 0xAD3DCC: fcomp, only a strictly higher z replaces the stored point
+			{
+				out.x = p.x;
+				out.y = p.y;
+				out.z = p.z;
+			}
+		}
+		// RW 0xAD3357 .. 0xAD336D: getMaxHeightAbovePosition (RW 0xAD1920) and, when the height is below z, z = the height (fcomp / test ah, 5 / fstp dword)
+		if (height < out.z)
+		{
+			out.z = height;
+		}
+		return true;
+	}
+
 	if (preference == 3) // RW 0xAD30E0 preference 3 (CONTACT_POINT_PREFERENCE_WEAPON): seed-blended contact point
 	{
 		// RW 0xAD25B0: the innermost / default contact point precomputed at geometry parse = (0, 0, height * 0.67f)

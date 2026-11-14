@@ -167,7 +167,7 @@
 
 ### Только читаются (рисуются другим кодом)
 
-Классы `W3D*Draw` со статусом «только читаются»: рисуются устройством, а не модулем. Кроме `W3DStreakDraw` (в таблице), логики в них нет: `W3DDefaultDraw`, `W3DFloorDraw`, `W3DHordeModelDraw`, `W3DPropDraw`, `W3DQuadrupedDraw`, `W3DSailModelDraw`, `W3DScriptedModelDraw`, `W3DSupplyDraw`, `W3DTankDraw`, `W3DTreeDraw`, `W3DTruckDraw`. Не пробел логики; регрессия рисования — в тестах `mapobj`.
+Классы `W3D*Draw` со статусом «только читаются»: рисуются устройством, а не модулем. Кроме `W3DStreakDraw` (в таблице), логики в них нет: `W3DDefaultDraw`, `W3DFloorDraw`, `W3DHordeModelDraw`, `W3DPropDraw`, `W3DQuadrupedDraw`, `W3DScriptedModelDraw`, `W3DSupplyDraw`, `W3DTankDraw`, `W3DTreeDraw`, `W3DTruckDraw`. Исключение: `W3DSailModelDraw` теперь имеет клиентский runtime матричного поворота (PORT-63, RW 0x4D00CD; тесты `PORT-63*`), но его клиентский xfer (RW 0x4D0009), привязка модулей к костям на поставленных на карту объектах и случай родительского `NoRotate` остаются S-7232. Для live/ghost привязка к кости и вызов слота после её нахождения — Local 29 (S-112 закрыт). Не пробел логики симуляции; регрессия рисования — в тестах `mapobj`, `LOCAL-29*` и `PORT-63*`.
 
 ### Отсутствуют, но ни фракции, ни карты на них не выходят
 

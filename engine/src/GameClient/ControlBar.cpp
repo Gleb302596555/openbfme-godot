@@ -27,6 +27,7 @@
 #include "GameLogic/Module/SpecialPowerModules.h"
 #include "GameLogic/Object/Contain/OpenContainRuntime.h"
 #include "GameLogic/Object/Contain/TransportContainRuntime.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "Common/Team.h"
 #include "GameLogic/WeaponSetToggle.h"
 #include "GameLogic/Module/CastleModules.h"
@@ -981,9 +982,31 @@ void ControlBar::update()
 			for (int slot = start; slot < start + shown && slot < end; ++slot)
 			{
 				const CommandButton *b = set->getCommandButton(slot);
+				// lane PORT-152: RW 0x943E59 first asks the object for status 0x64 COMMAND_BUTTON_TOGGLED (RW 0x44DDEC; TheObjectStatusNames
+				// RW 0xD8AFF0), and only while it is set: RW 0x943E67 .. 0x943E85 replaces a button whose ToggleButtonName (+0x48) is not empty by the
+				// button of that name (TheControlBar->findButtonByName RW 0x71D6EA, the override chain RW 0x465AF4), when one is found; the bar slot
+				// then shows the toggle button, whose image index RW 0x75D22E updates at RW 0x943E91 (value 0)
+				static const unsigned kCommandButtonToggled = (unsigned)ObjectTemplateInfoBuilder::objectStatusIndex("COMMAND_BUTTON_TOGGLED");
+				if (b && obj->testStatus(kCommandButtonToggled) && !b->m_toggleButtonName.empty() && store)
+				{
+					if (const CommandButton *toggle = store->findCommandButton(b->m_toggleButtonName))
+					{
+						b = toggle;
+					}
+				}
 				if (!b || !b->m_showButton)
 				{
 					continue;
+				}
+				// lane PORT-152: RW 0x943F75 .. 0x943F91 (updateContextCommand's button loop): a RequiresValidContainer button (+0x107) is skipped
+				// when the object's contain (Object +0x258) is an OpenContain whose Enabled byte (module +0xDE, slot 4 asOpenContain) is off
+				if (b->m_requiresValidContainer)
+				{
+					const OpenContain *open = dynamic_cast<const OpenContain *>(obj->getContain());
+					if (open && !open->isEnabled())
+					{
+						continue;
+					}
 				}
 				ControlBarButton cb;
 				cb.slot = slot;
@@ -1062,35 +1085,65 @@ void ControlBar::update()
 					continue;
 				}
 				cb.inPalantir = b->m_inPalantir;
-				cb.image = b->m_buttonImageName.empty() ? std::string() : b->m_buttonImageName.front();
-				cb.textLabel = b->m_textLabel.empty() ? std::string() : b->m_textLabel.front();
-				cb.descriptLabel = b->m_descriptLabel.empty() ? std::string() : b->m_descriptLabel.front();
-				if (b->hasOption(COMMAND_OPTION_TOGGLE_IMAGE_ON_WEAPONSET) && b->m_buttonImageName.size() > 1)
-				{
-					// lane HUD-4 (INFERENCE, S-1672): the second image and labels while the object has one of the button's FlagsUsedForToggle
-					const WeaponConditionFlags &f = obj->getWeaponSetFlags();
-					bool on = false;
-					for (size_t w = 0; w < f.size() && w < b->m_flagsUsedForToggle.size(); ++w)
-					{
-						on = on || (f[w] & b->m_flagsUsedForToggle[w]) != 0;
-					}
-					if (on)
-					{
-						cb.image = b->m_buttonImageName[1];
-						cb.textLabel = b->m_textLabel.size() > 1 ? b->m_textLabel[1] : cb.textLabel;
-						cb.descriptLabel = b->m_descriptLabel.size() > 1 ? b->m_descriptLabel[1] : cb.descriptLabel;
-					}
-				}
 				if (b->m_command == GUI_COMMAND_TOGGLE_STANCE)
 				{
-					// lane PLAY-4: the toggle shows the image and labels of the current stance (RW onStancesBehaviorStanceChanged / SetStance: the button's
-					// image slot StanceToButtonSlot(stance), BFME2 0x567B10)
+					// lane PLAY-4 / PORT-143: the button's picture is the entry at its own index (getButtonImage RW 0x75CDFC, getTextLabel RW 0x75CE47 and
+					// getDescriptLabel RW 0x75CECD all read CommandButton +0xFC). The InGameToggleStanceCommandButton's ctor (RW 0x96FF43 .. 0x96FF68) and its
+					// StancesBehavior listener (RW 0x96F5D8 .. 0x96F608) put the object's stance CLASS (RW 0x96FF2F -> RW 0x861D8E) through StanceToButtonSlot
+					// (RW 0x96F2DA) into that index, and with no StancesBehavior the slot is -1, whose jl at RW 0x96FF55 leaves the index where it was: the
+					// picture an order put there (ControlBar::applyToggleStance, the SetStance of RW 0x96F53C) stays on the gray button (the owner's P-25)
 					const int k = stanceSlotOf(*b, *obj);
 					if (k >= 0)
 					{
-						cb.image = (size_t)k < b->m_buttonImageName.size() ? b->m_buttonImageName[(size_t)k] : cb.image;
-						cb.textLabel = (size_t)k < b->m_textLabel.size() ? b->m_textLabel[(size_t)k] : cb.textLabel;
-						cb.descriptLabel = (size_t)k < b->m_descriptLabel.size() ? b->m_descriptLabel[(size_t)k] : cb.descriptLabel;
+						b->setCurrentIndex(k); // RW 0x75D082 takes it (its own bounds test is the same ButtonImage list)
+					}
+					if (const std::string *img = b->getButtonImage())
+					{
+						cb.image = *img;
+					}
+					cb.textLabel = b->getTextLabel(); // the text override of RW 0x75CE4B (CommandButton +0x7C) is not ported (S-7335): the list is the entry
+					cb.descriptLabel = b->getDescriptLabel();
+				}
+				else
+				{
+					// PORT-169 (issue #398, RW 0x943E91 / 0x944603 / 0x9446A5): keep CommandButton +0xFC synchronized with object/multi-select state
+					if (m_ctx.ui.selected().size() > 1)
+					{
+						updateMultiSelectToggleIndex(*b, obj);
+					}
+					else
+					{
+						updateToggleIndex(*b, obj, false);
+					}
+					const bool usesToggleIndex = b->hasOption(COMMAND_OPTION_TOGGLE_IMAGE_ON_WEAPONSET | COMMAND_OPTION_TOGGLE_IMAGE_ON_FORMATION)
+						|| ((b->m_options & 0x800000u) != 0 && b->m_command == GUI_COMMAND_TOGGLE_NO_AUTO_ACQUIRE);
+					if (usesToggleIndex)
+					{
+						cb.image = b->getToggleImageName(m_ctx.images);
+						cb.textLabel = b->getToggleTextLabel();
+						cb.descriptLabel = b->getToggleDescriptLabel();
+					}
+					else
+					{
+						cb.image = b->m_buttonImageName.empty() ? std::string() : b->m_buttonImageName.front();
+						cb.textLabel = b->m_textLabel.empty() ? std::string() : b->m_textLabel.front();
+						cb.descriptLabel = b->m_descriptLabel.empty() ? std::string() : b->m_descriptLabel.front();
+					}
+				}
+				if (b->hasOption(COMMAND_OPTION_TOGGLE_IMAGE_ON_WEAPON) && b->m_command == GUI_COMMAND_TOGGLE_WEAPON)
+				{
+					// lane PORT-152: RW 0x75D22E's 0x800000 arm (RW 0x75D2BB .. 0x75D319, DONOR BFME2 0x35B5C2): the image index (+0xFC) is the
+					// button's WeaponSlotToggle2 (+0x88) for KindOf 0x91, WeaponSlotToggle3 (+0x8C) for KindOf 0x92, else WeaponSlotToggle1 (+0x84);
+					// the image is that index of the ButtonImage list (RW 0x75D19E: null past the end), the labels the same index clamped to the last
+					const int index = obj->isKindOf(0x91) ? b->m_weaponSlotToggle2 : obj->isKindOf(0x92) ? b->m_weaponSlotToggle3 : b->m_weaponSlotToggle1;
+					cb.image = index >= 0 && (size_t)index < b->m_buttonImageName.size() ? b->m_buttonImageName[(size_t)index] : std::string();
+					if (!b->m_textLabel.empty())
+					{
+						cb.textLabel = b->m_textLabel[std::min<size_t>((size_t)std::max(index, 0), b->m_textLabel.size() - 1)];
+					}
+					if (!b->m_descriptLabel.empty())
+					{
+						cb.descriptLabel = b->m_descriptLabel[std::min<size_t>((size_t)std::max(index, 0), b->m_descriptLabel.size() - 1)];
 					}
 				}
 				cb.hotkey = hotkeyOf(cb.textLabel);
@@ -1434,6 +1487,21 @@ bool ControlBar::isUnderConstructionContext(const Object &obj)
 	return gb->forceComplete();
 }
 
+// RW 0x96F2DA (InGameToggleStanceCommandButton's StanceToButtonSlot): walk the button's Stances list (CommandButton +0x234, the entry getter RW 0x75D324)
+// for a value equal to the argument, -1 when the list has none. SetStance (RW 0x96F54C) hands it the stance the player ordered as it is; the widget's ctor
+// (RW 0x96FF49) and its stance listener (RW 0x96F5E4) hand it the stance's class
+int ControlBar::stanceSlotOf(const CommandButton &b, int stance)
+{
+	for (size_t i = 0; i < b.m_stances.size(); ++i)
+	{
+		if (b.m_stances[i] == stance)
+		{
+			return (int)i;
+		}
+	}
+	return -1;
+}
+
 int ControlBar::stanceSlotOf(const CommandButton &b, Object &obj)
 {
 	const StancesBehavior *sb = StancesBehavior::of(obj);
@@ -1443,15 +1511,7 @@ int ControlBar::stanceSlotOf(const CommandButton &b, Object &obj)
 	}
 	// RW 0x96FF2F -> 0x861D8E: the toggle looks up the stance's class, not the stance (Uninitialized shows Battle, Porcupine / HoldGroundMoving show
 	// HoldGround), in the button's Stances (RW 0x96F2DA); the change listener RW 0x96F5DE gets the class too
-	const int stanceClass = StancesBehavior::stanceClass(sb->getStance());
-	for (size_t i = 0; i < b.m_stances.size(); ++i)
-	{
-		if (b.m_stances[i] == stanceClass)
-		{
-			return (int)i;
-		}
-	}
-	return -1;
+	return stanceSlotOf(b, StancesBehavior::stanceClass(sb->getStance()));
 }
 
 void ControlBar::populateUnderConstruction(Object &obj, bool mine)
@@ -1488,7 +1548,7 @@ void ControlBar::emitStateKey()
 		for (const ControlBarButton &b : *v)
 		{
 			key += std::string(v == &m_palantir ? "a" : (v == &m_side ? "s" : "o")) + std::to_string(b.position) + "|" + std::to_string(b.slot) + ":" + std::to_string((int)b.state) + ":" + std::to_string(b.queued) + ":" + std::to_string((int)(b.timer * 100.0f)) + ":" +
-				std::to_string(b.rider) + ":" + b.image + (b.autoAbility ? ":auto" : "");
+				std::to_string(b.rider) + ":" + b.image + ":" + b.textLabel + ":" + b.descriptLabel + (b.autoAbility ? ":auto" : "");
 		}
 	}
 	if (key != m_lastKey)
@@ -1496,6 +1556,108 @@ void ControlBar::emitStateKey()
 		m_lastKey = key;
 		++m_version;
 	}
+}
+
+void ControlBar::updateToggleIndex(const CommandButton &b, const Object *obj, bool invert) const
+{
+	// RW 0x75D22E (CommandButton::updateToggleImage)
+	if (!obj)
+	{
+		return;
+	}
+	if (b.resolvedButtonImageCount(m_ctx.images) < 2)
+	{
+		b.resetToggleIndex();
+		return;
+	}
+	if (b.hasOption(COMMAND_OPTION_TOGGLE_IMAGE_ON_WEAPONSET))
+	{
+		const WeaponConditionFlags &f = obj->getWeaponSetFlags();
+		bool has = false;
+		for (size_t w = 0; w < f.size() && w < b.m_flagsUsedForToggle.size(); ++w)
+		{
+			if ((f[w] & b.m_flagsUsedForToggle[w]) != 0)
+			{
+				has = true;
+				break;
+			}
+		}
+		b.setToggleIndex((has != invert) ? 1 : 0, m_ctx.images);
+	}
+	else if (b.hasOption(COMMAND_OPTION_TOGGLE_IMAGE_ON_FORMATION))
+	{
+		const Object *horde = obj->getHordeObject(false); // RW 0x693A1A(0)
+		const ContainModuleInterface *contain = horde ? horde->getContain() : nullptr;
+		const HordeContainInterface *hc = contain ? const_cast<ContainModuleInterface *>(contain)->getHordeContainInterface() : nullptr;
+		if (!hc)
+		{
+			return; // RW 0x75D29B..0x75D2AD: leaves +0xFC unchanged
+		}
+		b.setToggleIndex((hc->isMainFormation() == invert) ? 1 : 0, m_ctx.images);
+	}
+	else if ((b.m_options & 0x800000u) != 0 && b.m_command == GUI_COMMAND_TOGGLE_NO_AUTO_ACQUIRE)
+	{
+		static const int kNoAutoAcquire = ObjectTemplateInfoBuilder::objectStatusIndex("NO_AUTO_ACQUIRE");
+		const bool has = kNoAutoAcquire >= 0 && obj->testStatus(static_cast<unsigned>(kNoAutoAcquire));
+		b.setToggleIndex((has == invert) ? 1 : 0, m_ctx.images);
+	}
+	else if (b.m_command != GUI_COMMAND_TOGGLE_STANCE && b.m_command != GUI_COMMAND_TOGGLE_WEAPON)
+	{
+		b.resetToggleIndex();
+	}
+}
+
+void ControlBar::updateMultiSelectToggleIndex(const CommandButton &b, const Object *fallback) const
+{
+	// RW 0x944603..0x9446A5 (populateMultiSelect)
+	static const int kIgnoredInGui = ObjectTemplateInfoBuilder::kindOfIndex("IGNORED_IN_GUI");
+	static const int kSold = ObjectTemplateInfoBuilder::objectStatusIndex("SOLD");
+	if (b.m_command == GUI_COMMAND_HORDE_TOGGLE_FORMATION)
+	{
+		if (b.resolvedButtonImageCount(m_ctx.images) < 2)
+		{
+			b.resetToggleIndex();
+			return;
+		}
+		int vote = 0;
+		for (ObjectID selId : m_ctx.ui.selected())
+		{
+			Object *sel = m_ctx.logic.findObjectByID(selId);
+			if (!sel || (kIgnoredInGui >= 0 && sel->isKindOf(static_cast<unsigned>(kIgnoredInGui)))
+				|| (kSold >= 0 && sel->testStatus(static_cast<unsigned>(kSold))))
+			{
+				continue;
+			}
+			const Object *horde = sel->getHordeObject(false);
+			const ContainModuleInterface *contain = horde ? horde->getContain() : nullptr;
+			const HordeContainInterface *hc = contain ? const_cast<ContainModuleInterface *>(contain)->getHordeContainInterface() : nullptr;
+			if (!hc)
+			{
+				continue;
+			}
+			if (hc->isMainFormation())
+			{
+				--vote;
+			}
+			else
+			{
+				++vote;
+			}
+		}
+		b.setToggleIndex(vote >= 0 ? 1 : 0, m_ctx.images);
+		return;
+	}
+	const Object *firstNonIgnored = nullptr;
+	for (ObjectID selId : m_ctx.ui.selected())
+	{
+		Object *sel = m_ctx.logic.findObjectByID(selId);
+		if (sel && (kIgnoredInGui < 0 || !sel->isKindOf(static_cast<unsigned>(kIgnoredInGui))))
+		{
+			firstNonIgnored = sel;
+			break;
+		}
+	}
+	updateToggleIndex(b, firstNonIgnored ? firstNonIgnored : fallback, false);
 }
 
 ControlBar::Placement ControlBar::placementOf(const CommandButton &b, int slot, int rangeStart)

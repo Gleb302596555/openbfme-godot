@@ -43,8 +43,12 @@ struct RenderObjPrototype;
 
 namespace ObjectShadow
 {
-// Volume shadow map mask (casts Godot directional shadow map)
-constexpr int MapMask = (1 << 1) | (1 << 2) | (1 << 14) | (1 << 15);
+// Volume shadow map mask (casts Godot directional shadow map). lane PORT-159 (issue #377): SHADOW_VOLUME_NON_SELF_1 / _2 / _3
+// (0x80 / 0x100 / 0x200, entries 7..9 of RW 0xD99EB0) are volume shadows too — W3DShadowManager::addShadow RW 0x49A358..0x49A37E
+// sends them to W3DVolumetricShadowManager::addShadow RW 0x4F24A8 in the same arm as type 2, and only the stencil group they write
+// differs (RW 0x4F25A7 stores the type word at shadow + 0x34; the occluded pass groups it). The mumak / the dwarven battle wagon
+// (`Shadow = SHADOW_VOLUME_NON_SELF_2`) and the other large creatures of the game use them.
+constexpr int MapMask = (1 << 1) | (1 << 2) | (0x80) | (0x100) | (0x200) | (1 << 14) | (1 << 15);
 
 // Decal shadow styles mask: SHADOW_DECAL (0x1), SHADOW_ALPHA_DECAL (0x20), SHADOW_ADDITIVE_DECAL (0x40),
 // SHADOW_ALPHA_DECAL_DYNAMIC (0x400), SHADOW_ADDITIVE_DECAL_DYNAMIC (0x800)

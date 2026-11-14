@@ -286,14 +286,18 @@ public:
 		static const int kShip = CombatNames::kindOf("SHIP");
 		if (container->isKindOf((unsigned)kShip))
 		{
-			ai().world().noteStop(OpenContain::shipStop()); // lane SHIP-1: the boarding legs of RW 0x751A8A / 0x756452 are not ported (S-4160)
+			// PORT-145 (issue #362, docs/ennorath/PROBLEMS.md P-90), RW 0x751A8A: the machine's adjust flag is cleared (RW 0x751AB6: machine + 0x48 = 0,
+			// BFME2 setAdjustsDestination(false)) and the goal — the ship's contain enter position (slot 0x15C) — is pulled toward land by
+			// Pathfinder::adjustDestination(owner, ai->getLocomotorSet(), &m_goalPosition, 0) (RW 0x751B11, call 0x6FE456; the 4th argument is the group
+			// destination, null here). The internal move state keeps adjusts off (below), so this is the only adjustment, as in RotWK.
+			ai().world().pathfinder().adjustDestination(ai().pathfindObject(), ai().locomotorInfo(), &m_goal, nullptr);
 		}
 		// NOT PORTED (S-1101, lane ENTERADJUST-1): RW 0x751AB6 clears adjustsDestination (+ 0x48) and only a SHIP's entry point is adjusted (RW 0x751AF0 .. 0x751B11),
 		// but retail's state is an AIMoveToState whose update (RW 0x755572, BFME2 decomp AIStatesDerivedOnExit.cpp:702) moves the goal to the container's position
 		// every frame (and leads a moving one) before the internal move (RW 0x748E46). The port's state keeps a fixed goal: unadjusted, an entry offset inside the
 		// footprint (WildMineShaft: EntryOffset Y:-10, radius 36) is never reached and the horde never enters (test_hud_tunnel_retail.cpp), so the port keeps the
-		// adjustment until RW 0x755572 is ported
-		m_move = std::make_unique<AIMoveToState>(ai().mover(), m_goal, true);
+		// adjustment until RW 0x755572 is ported. PORT-145: a SHIP goal is already adjusted once above (RW 0x751B11), so its internal move does not adjust again
+		m_move = std::make_unique<AIMoveToState>(ai().mover(), m_goal, !container->isKindOf((unsigned)kShip));
 		return m_move->onEnter();
 	}
 
@@ -325,6 +329,28 @@ public:
 			return STATE_FAILURE;
 		}
 		const StateReturnType r = m_move->update();
+		static const int kShipUpdate = CombatNames::kindOf("SHIP");
+		if (container->isKindOf((unsigned)kShipUpdate))
+		{
+			// PORT-145 (issue #362, docs/ennorath/PROBLEMS.md P-90), RW 0x756452: a SHIP goal is boarded only while the ship sits idle at the shore.
+			// The ship's AI state is read through its AI (RW 0x75655C: call 0x660AC1; without an AI the state is 0xF423F, AI_NO_STATE); RotWK's ship
+			// docking states 0x46 / 0x47 (RW 0x756563 .. 0x75656B) mean the ship is busy and the unit keeps waiting (STATE_CONTINUE). The port's state
+			// numbering is BFME1's (S-221), so those ids never occur here; every other non-idle state is a sailing / fighting ship. Then the ship's
+			// position is tested for land (RW 0x75657E: call 0x6EFBB8, Pathfinder::getClosestPointOnLand): a ship that is not idle, or that is not at
+			// the shore (no land point), fails the state — the unit goes idle and never boards (the P-90 symptom: a ship far from shore or sailed away).
+			AIUpdateInterface *shipAi = container->getAIUpdateInterface();
+			const unsigned shipState = shipAi ? shipAi->currentStateId() : (unsigned)AI_NO_STATE; // RW 0x660AC1
+			if (shipState == 0x46 || shipState == 0x47)
+			{
+				return STATE_CONTINUE; // RW 0x756563 .. 0x75656B
+			}
+			Coord3D landPos;
+			const bool onLand = shipAi ? OpenContain::shipShoreSpot(*container, *container->getPosition(), landPos) : false; // RW 0x6EFBB8
+			if (shipState != 0 || !onLand)
+			{
+				return STATE_FAILURE; // RW 0x756583 .. 0x756589
+			}
+		}
 		if (otherPlayer && count > 0)
 		{
 			return STATE_CONTINUE;

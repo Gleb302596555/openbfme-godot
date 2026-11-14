@@ -1,4 +1,7 @@
 // OpenBFME. GPL-3.0.
+// Port 29 (#421, docs/ennorath/port29-firename-rw.md) applies the other two lists of the same RW 0x85935C loop, so every pass here also
+// carries FireWindowName (WINDOW_F01) and FireName (FIRE_ONE): the four-list hide (RW 0x8593D0), on AFLAME 0->1 lists 1 and 2 shown and
+// list 3 shown only at night (RW 0x859438..0x859481), then list 1 shown again (RW 0x8594D0). The expectations below were widened to that.
 // PORT-83 tests: BuildingBehavior NightWindowName / GlowWindowName (issue #231): on a night map the sub objects named in NightWindowName are shown at the
 // first update (permanent records), on a day map they stay hidden; GlowWindowName is shown while the building is on fire (status AFLAME, 0xA), as RW 0x85935C
 // decides. Synthetic data (logictest::LogicWorld), no retail files.
@@ -25,6 +28,23 @@
 
 #include <string>
 #include <vector>
+
+// prints a call list in a failed CHECK (doctest shows {?} for a vector otherwise)
+namespace doctest
+{
+template <> struct StringMaker<std::vector<std::string>>
+{
+	static String convert(const std::vector<std::string> &v)
+	{
+		std::string out = "{";
+		for (const std::string &x : v)
+		{
+			out += std::string(out.size() > 1 ? ", " : "") + '\"' + x + '\"';
+		}
+		return (out + "}").c_str();
+	}
+};
+} // namespace doctest
 
 using namespace logictest;
 using namespace std::string_literals;
@@ -117,8 +137,8 @@ TEST_CASE("PORT-83 night map: the night windows are shown at the first update; o
 		SubObjectHooks hooks;
 		o->friend_bindToClient(&hooks);
 		frame(*f.logic);
-		CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_G01 hide permanent",
-			"WINDOW_N01 show permanent", "WINDOW_N02 show permanent" });
+		CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_F01 hide permanent",
+			"WINDOW_G01 hide permanent", "FIRE_ONE hide permanent", "WINDOW_N01 show permanent", "WINDOW_N02 show permanent" });
 	}
 	SUBCASE("day map")
 	{
@@ -127,7 +147,7 @@ TEST_CASE("PORT-83 night map: the night windows are shown at the first update; o
 		SubObjectHooks hooks;
 		o->friend_bindToClient(&hooks);
 		frame(*f.logic);
-		CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_G01 hide permanent" });
+		CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_F01 hide permanent", "WINDOW_G01 hide permanent", "FIRE_ONE hide permanent" });
 	}
 	SUBCASE("glow-only list: one hide, no show; the fire lists are not read by this port")
 	{
@@ -164,15 +184,15 @@ TEST_CASE("PORT-83 fire: the glow windows are shown while AFLAME and hidden when
 		hooks.clear();
 		o->setStatus(10, true); // AFLAME (TheObjectStatusNames[10])
 		frame(*f.logic);
-		CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_G01 show permanent" });
+		CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_F01 show permanent", "WINDOW_G01 show permanent", "FIRE_ONE show permanent", "WINDOW_F01 show permanent" });
 		hooks.clear();
 		frame(*f.logic); // still aflame: nothing changes
 		CHECK(hooks.calls.empty());
 		hooks.clear();
 		o->setStatus(10, false); // the fire goes out
 		frame(*f.logic);
-		CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_G01 hide permanent",
-			"WINDOW_N01 show permanent", "WINDOW_N02 show permanent" });
+		CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_F01 hide permanent",
+			"WINDOW_G01 hide permanent", "FIRE_ONE hide permanent", "WINDOW_N01 show permanent", "WINDOW_N02 show permanent" });
 	}
 	SUBCASE("day map")
 	{
@@ -184,11 +204,11 @@ TEST_CASE("PORT-83 fire: the glow windows are shown while AFLAME and hidden when
 		hooks.clear();
 		o->setStatus(10, true);
 		frame(*f.logic);
-		CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_G01 show permanent" });
+		CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_F01 show permanent", "WINDOW_G01 show permanent", "FIRE_ONE hide permanent", "WINDOW_F01 show permanent" });
 		hooks.clear();
 		o->setStatus(10, false);
 		frame(*f.logic); // day: no night window show
-		CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_G01 hide permanent" });
+		CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_F01 hide permanent", "WINDOW_G01 hide permanent", "FIRE_ONE hide permanent" });
 	}
 }
 
@@ -207,12 +227,12 @@ TEST_CASE("PORT-83 steady state: the time of day is not re-checked outside a fir
 	hooks.clear();
 	o->setStatus(10, true); // the fire starts
 	frame(*f.logic);
-	CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_G01 show permanent" });
+	CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_F01 show permanent", "WINDOW_G01 show permanent", "FIRE_ONE show permanent", "WINDOW_F01 show permanent" });
 	hooks.clear();
 	o->setStatus(10, false); // the fire goes out at night: the night windows are shown now
 	frame(*f.logic);
-	CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_G01 hide permanent",
-		"WINDOW_N01 show permanent", "WINDOW_N02 show permanent" });
+	CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_F01 hide permanent",
+		"WINDOW_G01 hide permanent", "FIRE_ONE hide permanent", "WINDOW_N01 show permanent", "WINDOW_N02 show permanent" });
 }
 
 TEST_CASE("PORT-83 construction: no sub object work while AWAITING_CONSTRUCTION / ACTIVELY_BEING_CONSTRUCTED (RW 0x8593A2)")
@@ -231,8 +251,8 @@ TEST_CASE("PORT-83 construction: no sub object work while AWAITING_CONSTRUCTION 
 	CHECK(hooks.calls.empty());
 	o->setModelConditionState(69, false);
 	frame(*f.logic); // the construction state ends: the normal rules apply from now on
-	CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_G01 hide permanent",
-		"WINDOW_N01 show permanent", "WINDOW_N02 show permanent" });
+	CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_F01 hide permanent",
+		"WINDOW_G01 hide permanent", "FIRE_ONE hide permanent", "WINDOW_N01 show permanent", "WINDOW_N02 show permanent" });
 }
 
 TEST_CASE("PORT-83 effectively dead: the module sleeps forever, unless PHANTOM_STRUCTURE (status 0x58) is set (RW 0x44DDEC(0x58))")
@@ -262,8 +282,8 @@ TEST_CASE("PORT-83 effectively dead: the module sleeps forever, unless PHANTOM_S
 		o->friend_setEffectivelyDead(true);
 		o->setStatus(88, true); // PHANTOM_STRUCTURE
 		frame(*f.logic);
-		CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_G01 hide permanent",
-			"WINDOW_N01 show permanent", "WINDOW_N02 show permanent" });
+		CHECK(hooks.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_F01 hide permanent",
+			"WINDOW_G01 hide permanent", "FIRE_ONE hide permanent", "WINDOW_N01 show permanent", "WINDOW_N02 show permanent" });
 	}
 }
 
@@ -298,8 +318,8 @@ TEST_CASE("PORT-83 save/load: the two RW latches (module +0x20/+0x21) round trip
 	frame(*b.logic); // frame 1: not due (the saved wake frame is 2)
 	CHECK(hooksB.calls.empty());
 	frame(*b.logic); // frame 2: the saved state runs; the object is not aflame here, so the exit pass runs with the latch still true
-	CHECK(hooksB.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_G01 hide permanent",
-		"WINDOW_N01 show permanent", "WINDOW_N02 show permanent" });
+	CHECK(hooksB.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_F01 hide permanent",
+		"WINDOW_G01 hide permanent", "FIRE_ONE hide permanent", "WINDOW_N01 show permanent", "WINDOW_N02 show permanent" });
 
 	// world C: the same, but with a version 1 buffer (the version byte flipped): the latches default (not aflame, first update pending)
 	ProbeWorld c;
@@ -315,6 +335,6 @@ TEST_CASE("PORT-83 save/load: the two RW latches (module +0x20/+0x21) round trip
 	buildingC->friend_bindToClient(&hooksC);
 	frame(*c.logic); // frame 1: not due (the saved wake frame is 2)
 	frame(*c.logic); // frame 2: the first update runs with the version-1 defaults (firstUpdate default true)
-	CHECK(hooksC.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_G01 hide permanent",
-		"WINDOW_N01 show permanent", "WINDOW_N02 show permanent" });
+	CHECK(hooksC.calls == std::vector<std::string>{ "WINDOW_N01 hide permanent", "WINDOW_N02 hide permanent", "WINDOW_F01 hide permanent",
+		"WINDOW_G01 hide permanent", "FIRE_ONE hide permanent", "WINDOW_N01 show permanent", "WINDOW_N02 show permanent" });
 }

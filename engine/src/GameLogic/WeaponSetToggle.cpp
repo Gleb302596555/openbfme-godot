@@ -208,8 +208,9 @@ std::vector<std::string> acceptanceStops()
 		"[S-1672] weapon set toggle (HUD-4): MSG_WEAPONSET_TOGGLE (RW 0x77B529), the button's message (RW 0x9412C8) and availability (RW 0x942FC6) and "
 		"Object::setWeaponSetFlag / clearWeaponSetFlag (RW 0x691059 / 0x691106: the model condition of RW 0xC16958, SWAPPING_TO_WEAPONSET_n) are ported; "
 		"INFERENCE: the group is the player's selection minus the objects that are gone or not his (AICommands::selection); BINARY FACT: the toggle button shows "
-		"its second ButtonImage while the object has a FlagsUsedForToggle flag (RW 0x75D22E updates the image index); not ported: the immediate image update "
-		"on the press itself (client), the other callers of the weapon set flag setters still skip the model condition",
+		"its second ButtonImage while the object has a FlagsUsedForToggle flag (RW 0x75D22E updates the toggle index, ported for TOGGLE_IMAGE_ON_WEAPONSET / "
+		"TOGGLE_IMAGE_ON_FORMATION / TOGGLE_NO_AUTO_ACQUIRE in ControlBar::update and ControlBar::pressButton since PORT-169); not ported: "
+		"the other callers of the weapon set flag setters still skip the model condition",
 	};
 }
 } // namespace WeaponSetToggle

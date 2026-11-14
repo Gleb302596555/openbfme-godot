@@ -670,6 +670,10 @@ TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after a
 	// pin: the fork's merge of upstream 234f5742 (2026-11-13) re-measured the battle and the skirmish once on the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab, whose hashes
 	// match the MSVC pins frame for frame on main df5f0b41): PORT-13's GameLogicSettings::crc hashes AttackMoveUsesFormations only when it is false (both editions'
 	// aidata.ini set Yes), so every frame's settings hash moves; with the old condition put back the old pins pass, so nothing else moved
+	// pin: the arena PR batch of 2026-11-14 (fork PRs 217, 359 .. 424: 20 ports) re-measured the battle and the skirmish once on the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab,
+	// whose hashes match the MSVC pins): with the batch only perf1 and uber1 move against main bc66c72f on the same machine (every other suite of the
+	// batch run fails or passes as on main); the batch's logic changes are Port 138 (a rubble rebuild), Port 145 (SHIP enter legs), Port 148 (GIANT_BIRD
+	// separation), Port 164 (the giant bird's contact point, mode 1) and Port 29 (BuildingBehavior's fire lists); not bisected between them
 	const std::vector<std::uint32_t> battleRef = perf1::readHashes("big_battle_400.hashes");
 	const std::vector<std::uint32_t> skirmishRef = perf1::readHashes("skirmish4_6000.hashes");
 	// OPENBFME_PERF1_REGEN=1 rewrites the two reference vectors from this build instead of comparing: run it only when a merged change is MEANT to
@@ -732,6 +736,10 @@ TEST_CASE("perf1: the allied blob (300 frames) hashes as the build before the co
 	// pin: the fork's merge of upstream 234f5742 (2026-11-13) re-measured the allied blob once on the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab, whose hashes
 	// match the MSVC pins frame for frame on main df5f0b41): PORT-13's GameLogicSettings::crc hashes AttackMoveUsesFormations only when it is false (both editions'
 	// aidata.ini set Yes), so every frame's settings hash moves; with the old condition put back the old pins pass, so nothing else moved
+	// pin: the arena PR batch of 2026-11-14 (fork PRs 217, 359 .. 424: 20 ports) re-measured the allied blob once on the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab,
+	// whose hashes match the MSVC pins): with the batch only perf1 and uber1 move against main bc66c72f on the same machine (every other suite of the
+	// batch run fails or passes as on main); the batch's logic changes are Port 138 (a rubble rebuild), Port 145 (SHIP enter legs), Port 148 (GIANT_BIRD
+	// separation), Port 164 (the giant bird's contact point, mode 1) and Port 29 (BuildingBehavior's fire lists); not bisected between them
 	const std::vector<std::uint32_t> blobRef = perf1::readHashes("allied_blob_300.hashes");
 	const char *regenEnv = std::getenv("OPENBFME_PERF1_REGEN");
 	const bool regen = regenEnv && *regenEnv == '1';

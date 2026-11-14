@@ -289,8 +289,11 @@ void GodotAudioDevice::applyParams(Slot &slot, const VoiceParams &p, double nowM
 	// lane AUDIO-5: the core's Miles channel gains (gL, gR). Godot's panner at pan x >= 0 plays a mono source (both channels s) at
 	// L = (1 - x) s, R = (1 + x) s (mirrored for x < 0), so the bus volume (gL + gR) / 2 with x = (gR - gL) / (gR + gL) gives exactly
 	// (gL, gR); a stereo source is exact at the centre (2D voices, Miles' default pan) and mixes its left into its right when panned
+	// RW 0x5DD9EE: RotWK's DryLevel scales the dry (direct) path of the voice, so it is applied to the bus volume here.
+	// reverbSend (reverb send) and occlusion (offscreen low-pass) are effect-layer parameters carried on VoiceParams for the device
+	// to render; this backend applies the dry level into the voice volume.
 	const float sum = p.gainLeft + p.gainRight;
-	float volume = 0.5f * sum;
+	float volume = 0.5f * sum * p.dryLevel;
 	slot.volume = volume;
 	if (slot.fadeInMs > 0.0)
 	{
@@ -460,6 +463,7 @@ void GameAudio::_bind_methods()
 	ClassDB::bind_method(D_METHOD("get_audio_length_ms", "event_name"), &GameAudio::get_audio_length_ms);
 	ClassDB::bind_method(D_METHOD("set_listener", "position", "forward"), &GameAudio::set_listener);
 	ClassDB::bind_method(D_METHOD("update_microphone", "camera_position", "look_at", "look_at_valid"), &GameAudio::update_microphone, DEFVAL(true));
+	ClassDB::bind_method(D_METHOD("tick_audio"), &GameAudio::tick_audio); // PORT-158: the load progress pump
 	ClassDB::bind_method(D_METHOD("get_listener"), &GameAudio::get_listener);
 	ClassDB::bind_method(D_METHOD("set_volume", "slider", "volume"), &GameAudio::set_volume);
 	ClassDB::bind_method(D_METHOD("get_volume", "slider"), &GameAudio::get_volume);
@@ -609,6 +613,9 @@ Dictionary GameAudio::set_shell_source(const Ref<RetailFileSystem> &fs)
 	m_shellAudio = child;
 	m_shellFs = fs;
 	add_child(child);
+	// PORT-158: the menu music lives in this child manager; register it so the loading screen's music stop
+	// (AudioApi::playLoadScreenMusic, RW 0x81D242 on the one TheAudio) reaches it too
+	AudioApi::installShellMusic(m_shellAudio->m_manager.get());
 	for (int slider : { SLIDER_SOUNDFX, SLIDER_VOICE, SLIDER_MUSIC, SLIDER_AMBIENT, SLIDER_MOVIE })
 	{
 		m_shellAudio->m_manager->setSliderVolume(slider, m_manager->getSliderVolume(slider));
@@ -634,11 +641,15 @@ int64_t GameAudio::engine_api_play_ui_sound(const String &n) const
 
 void GameAudio::_process(double)
 {
+	pumpAudio((double)Time::get_singleton()->get_ticks_usec() / 1000.0);
+}
+
+void GameAudio::pumpAudio(double nowMs)
+{
 	if (!m_manager || !m_processing)
 	{
 		return;
 	}
-	const double nowMs = (double)Time::get_singleton()->get_ticks_usec() / 1000.0;
 	m_device->process(nowMs);
 	m_manager->update(nowMs);
 	if (m_eva)
@@ -646,6 +657,16 @@ void GameAudio::_process(double)
 		m_eva->update(m_manager->nowMs());
 	}
 	flushLog();
+}
+
+void GameAudio::tick_audio()
+{
+	const double nowMs = (double)Time::get_singleton()->get_ticks_usec() / 1000.0;
+	pumpAudio(nowMs);
+	if (m_shellAudio)
+	{
+		m_shellAudio->pumpAudio(nowMs); // PORT-158: the shell music manager takes the same load-time pumps
+	}
 }
 
 // lane OPTS-4: the lines since the last flush, unless a game's LiveGameAudio drains the log (it resolves the objects' templates and writes the same file)

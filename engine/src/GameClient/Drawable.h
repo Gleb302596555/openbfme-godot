@@ -19,7 +19,8 @@
 // (syncFromSnapshot). The drawable knows its object by id only and never reads or writes logic state; it consumes no simulation randomness (the draw
 // modules use their own client random, W3DClientRandom).
 // What the draw modules do not do yet: bones (turrets, barrels, particle bones are not built: S-095 / S-097), the Lua BeginScript bodies run
-// on LUA-1's real Lua (W3DLuaDrawScriptHost; what its api cannot answer is S-126), the draw variants' own motion (S-112), effect draws (S-113).
+// on LUA-1's real Lua (W3DLuaDrawScriptHost; what its api cannot answer is S-126), most variant motion (S-112: sail matrix and truck tires
+// are supported), effect draws (S-113).
 
 #pragma once
 

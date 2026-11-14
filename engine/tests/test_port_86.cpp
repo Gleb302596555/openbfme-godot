@@ -554,6 +554,9 @@ TEST_CASE("PORT-86 VoiceRapidFire: FiringTracker MEAN -> FAST posts 0x7DC once a
 		Object *shooter = f.unit("RapidShooter", 'A', 500.0f, 500.0f);
 		f.clearAudio();
 		shooter->getAIUpdateInterface()->aiAttackObject(dummy, CMD_FROM_PLAYER);
+		// PORT-151: this recorder sees every postUnitVoice; RW 0x66BE9F .. 0x66BEB0 makes the player's attack order ask for the enter-state attack
+		// (0x7E6) too, so the order itself is cleared here: the case counts the FiringTracker's 0x7DC below
+		f.clearAudio();
 
 		// Advance until the first shot lands (ContinuousFireOne = 1 -> MEAN).
 		for (int i = 0; i < 15 && (shooter->weaponBonusConditionMask() & kMeanMask) == 0u; ++i)
@@ -596,6 +599,7 @@ TEST_CASE("PORT-86 VoiceRapidFire: FiringTracker MEAN -> FAST posts 0x7DC once a
 		f.clearAudio();
 		const std::uint64_t unportedBefore = f.voice->stats().unportedMessages;
 		silent->getAIUpdateInterface()->aiAttackObject(dummy, CMD_FROM_PLAYER);
+		f.clearAudio(); // PORT-151: the attack order's own 0x7E6 (RW 0x66BE9F .. 0x66BEB0), as above
 
 		for (int i = 0; i < 20 && (silent->weaponBonusConditionMask() & kFastMask) == 0u; ++i)
 		{

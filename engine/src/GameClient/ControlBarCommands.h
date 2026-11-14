@@ -36,9 +36,10 @@
 #include <string>
 #include <vector>
 
+class ArchiveFileSystem;
+class MappedImageCollection;
 class ThingFactory;
 class ThingTemplate;
-class ArchiveFileSystem;
 
 // RW 0xDA4D10 (TheGuiCommandNames, 61 names, value = index)
 enum GUICommandType
@@ -138,7 +139,9 @@ enum CommandOption : std::uint32_t
 	COMMAND_OPTION_NOT_QUEUEABLE = 0x10000,
 	COMMAND_OPTION_OK_FOR_MULTI_EXECUTE = 0x100000,      ///< lane HEROCAST-1: index 20 (RW 0xDA4C88); AIGroup's groupDoSpecialPower / _AT_OBJECT: every member
 	COMMAND_OPTION_ALLOW_ROCK_TARGET = 0x200000,         ///< lane HUD-5: index 21 (RW 0xDA4C88)
+	COMMAND_OPTION_TOGGLE_IMAGE_ON_WEAPON = 0x800000,    ///< lane PORT-152: index 23 (RW 0xDA4C88)
 	COMMAND_OPTION_TOGGLE_IMAGE_ON_WEAPONSET = 0x1000000, ///< lane HUD-4: index 24
+	COMMAND_OPTION_TOGGLE_IMAGE_ON_FORMATION = 0x2000000, ///< lane PORT-169: index 25 (RW 0xDA4C88)
 	COMMAND_OPTION_MOUNTED_ONLY = 0x4000000,              ///< lane FACT-A: index 26
 	COMMAND_OPTION_UNMOUNTED_ONLY = 0x8000000,            ///< lane FACT-A: index 27
 	COMMAND_OPTION_NONPRESSABLE = 0x10000000,            ///< lane HUD-5: index 28 (RW 0xDA4C88)
@@ -187,6 +190,7 @@ public:
 	bool m_affectsAllies = false;
 	std::vector<std::string> m_unitSpecificSound2; // BFME1 secondary command voice
 	std::vector<std::string> m_unitSpecificSound, m_setAutoAbilityUnitSound, m_unsetAutoAbilityUnitSound; ///< +0xC8 / +0xD4 / +0xE0 (S-200)
+	mutable int m_toggleIndex = 0;            ///< RW +0xFC: active toggle frame/label/sound index (ctor 0)
 	bool m_doubleClick = false, m_radial = false, m_inPalantir = false; ///< +0x100 .. +0x102
 	bool m_altered = false;                   ///< RW +0x103 runtime altered state (ctor RW 0x75D662)
 	bool m_showProductionCount = false;       ///< +0x104
@@ -215,6 +219,27 @@ public:
 	void setAltered(bool altered) { m_altered = altered; }
 	bool isAltered() const { return m_altered; }
 	int commandButtonBorder() const { return m_commandButtonBorder; }
+	// RW +0xFC toggle-index helpers (PORT-169, issue #398)
+	int getToggleIndex() const { return m_toggleIndex; }
+	void resetToggleIndex() const { m_toggleIndex = 0; }
+	std::size_t resolvedButtonImageCount(const MappedImageCollection *images = nullptr) const;
+	void setToggleIndex(int index, const MappedImageCollection *images = nullptr) const;
+	std::string getToggleImageName(const MappedImageCollection *images = nullptr) const;
+	const std::string &getToggleTextLabel() const;
+	const std::string &getToggleDescriptLabel() const;
+	const std::string &getUnitSpecificSound() const;
+	const std::string &getSetAutoAbilityUnitSound() const;
+	const std::string &getUnsetAutoAbilityUnitSound() const;
+	// lane PORT-143 over the same +0xFC (one field: m_toggleIndex): RW 0x75D082 setCurrentIndex, RW 0x75CDFC getButtonImage (null past the list),
+	// RW 0x75CE47 getTextLabel / RW 0x75CECD getDescriptLabel (the last entry past the list, "" for an empty one; the +0x7C text override is S-7335)
+	void setCurrentIndex(int idx) const { setToggleIndex(idx); }
+	int currentIndex() const { return m_toggleIndex; }
+	const std::string *getButtonImage() const
+	{
+		return (m_toggleIndex >= 0 && (size_t)m_toggleIndex < m_buttonImageName.size()) ? &m_buttonImageName[(size_t)m_toggleIndex] : nullptr;
+	}
+	std::string getTextLabel() const { return getToggleTextLabel(); }
+	std::string getDescriptLabel() const { return getToggleDescriptLabel(); }
 	// RW 0x75D1DC: the template of the final override
 	const ThingTemplate *getThingTemplate() const;
 	const CommandButton *getFinalOverride() const;

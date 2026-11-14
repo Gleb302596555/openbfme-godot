@@ -84,11 +84,14 @@ const FieldParse kGettingBuiltFieldParse[] = {
 #undef GB_OFF
 
 #define BB_OFF(member) (int)offsetof(BuildingBehaviorModuleData, member)
+// lane Port 29 (issue #101): every row of this table uses the parser RW 0x42EED6, which erases the list first (RW 0x42CA04: erase(begin, end)) and then
+// appends every token of the line (RW 0x42E59E) - the port's INI::parseAsciiStringVector, not the appending one. In the mod only FireName is written twice
+// (ElvenBarracksBFME1: FIRE01, then FIRE02), so RotWK keeps the last line; the appending parser kept both.
 const FieldParse kBuildingFieldParse[] = {
-	{ "NightWindowName", INI::parseAsciiStringVectorAppend, nullptr, BB_OFF(m_nightWindowName) },
-	{ "FireWindowName", INI::parseAsciiStringVectorAppend, nullptr, BB_OFF(m_fireWindowName) },
-	{ "GlowWindowName", INI::parseAsciiStringVectorAppend, nullptr, BB_OFF(m_glowWindowName) },
-	{ "FireName", INI::parseAsciiStringVectorAppend, nullptr, BB_OFF(m_fireName) },
+	{ "NightWindowName", INI::parseAsciiStringVector, nullptr, BB_OFF(m_nightWindowName) },
+	{ "FireWindowName", INI::parseAsciiStringVector, nullptr, BB_OFF(m_fireWindowName) },
+	{ "GlowWindowName", INI::parseAsciiStringVector, nullptr, BB_OFF(m_glowWindowName) },
+	{ "FireName", INI::parseAsciiStringVector, nullptr, BB_OFF(m_fireName) },
 	{ nullptr, nullptr, nullptr, 0 }
 };
 #undef BB_OFF
@@ -980,9 +983,10 @@ void GettingBuiltBehavior::crc(StateHasher &h) const
 // no-op (RW 0x401e64). RW ends both passes with Drawable::updateSubObjects RW 0x672713; the port's setSubObjectHidden already applies (or records) the change at the
 // call, so there is no counterpart for that call here.
 //
-// PORT-83 SCOPE (issue #231 vs lane Port 29, issue #101): the NightWindowName (data +0x8) and GlowWindowName (data +0x20) lists are read here. RW applies the
-// FireWindowName (data +0x14; the AFLAME 0->1 pass, the shared tail's list 1, the first pass's hide) and the FireName (data +0x2C; shown on AFLAME 0->1 only at night,
-// hidden on the first pass and on AFLAME 1->0) in the same function; those two lists stay UNAPPLIED in this port on purpose - they are Port 29's, not this lane's.
+// PORT-83 SCOPE (issue #231 vs lane Port 29, issue #101): PORT-83 ported the module and the NightWindowName (data +0x8) / GlowWindowName (data +0x20) lists. Lane
+// Port 29 (issue #101) completed the same loop with the FireWindowName (data +0x14) and FireName (data +0x2C) lists: RW's update walks all four lists by index
+// (data + 8 + i * 0xC), so from Port 29 on every list is applied exactly where RW applies it - the first update hides all four, the AFLAME 0->1 pass shows the fire
+// window, the glow and (at night only) the fire lists and hides the night list, and the AFLAME 1->0 pass hides all four and shows the night list again at night.
 //
 // RW's night source is TheWritableGlobalData (RW 0xDE4364) +0x134 == 4 (NIGHT); the port's GameLogicSettings::night is that row (LiveGame sets it from the map's GlobalLighting).
 BuildingBehavior::BuildingBehavior(Thing *thing, const BuildingBehaviorModuleData *data)
@@ -1037,15 +1041,20 @@ UpdateSleepTime BuildingBehavior::update()
 		return UPDATE_SLEEP_NONE; // RW 0x8594E5: no sub object work while the construction model conditions hold
 	}
 	const bool night = obj->logic().settings().night; // RW 0x8593EF: TheWritableGlobalData + 0x134 == 4 (NIGHT)
-	// lane PORT-83 scope split (above): the FireWindowName and FireName lists are not applied here
+	// lane Port 29 (issue #101): RW's four lists of the module data, in RW's order (the list pointer is data + 8 + i * 0xC, RW 0x8593C7 / 0x85945A / 0x859467):
+	//   i = 0 NightWindowName (+8), i = 1 FireWindowName (+0x14), i = 2 GlowWindowName (+0x20), i = 3 FireName (+0x2C)
+	const std::vector<std::string> *const lists[4] = { &m_data->m_nightWindowName, &m_data->m_fireWindowName, &m_data->m_glowWindowName,
+		&m_data->m_fireName };
 	if (m_firstUpdate) // RW 0x8593C1 (module +0x21, m_field21)
 	{
 		// RW 0x8593D7: the first update hides every list (0x8593D0: 4 iterations from data + 8), then, on a night map, shows the night window list
-		applySubObjectList(m_data->m_nightWindowName, *obj, false);
-		applySubObjectList(m_data->m_glowWindowName, *obj, false);
-		if (night)
+		for (int i = 0; i < 4; ++i)
 		{
-			applySubObjectList(m_data->m_nightWindowName, *obj, true);
+			applySubObjectList(*lists[i], *obj, false);
+		}
+		if (night) // RW 0x8593FD: the night window list (data + 8)
+		{
+			applySubObjectList(*lists[0], *obj, true);
 		}
 		m_firstUpdate = false;
 		// RW 0x672713 (Drawable::updateSubObjects): no port counterpart, the sub object calls are applied at the call
@@ -1055,25 +1064,31 @@ UpdateSleepTime BuildingBehavior::update()
 		// RW 0x44DDEC(0xA): the AFLAME status (TheObjectStatusNames[10] AFLAME); a steady building whose fire did not start/stop does nothing - the time of day is NOT re-checked here
 		if (!obj->testStatus(10))
 		{
-			return UPDATE_SLEEP_NONE; // RW 0x85942B -> 0x8594E5
+			return UPDATE_SLEEP_NONE; // RW 0x85942B -> 0x859488 -> 0x8594E5 (no Drawable::updateSubObjects either)
 		}
 		m_aflame = true; // RW 0x85942F
-		// RW 0x859438..0x859481: for i in 0..3 - (night && i == 3) shows list 3 (FireName, Port 29), i in {1, 2} shows the fire window and glow lists, else hides;
-		// Port 83 applies list 0 (hide) and list 2 (glow, show) only
-		applySubObjectList(m_data->m_nightWindowName, *obj, false);
-		applySubObjectList(m_data->m_glowWindowName, *obj, true);
-		// RW 0x8594D0: show list 1 (FireWindowName) - lane Port 29 (issue #101)'s, not applied here
+		// RW 0x859438..0x859481, one list per iteration: (night && i == 3) shows list 3 (FireName, RW 0x85944B: lea eax, [edi + 0x2c] - the only reader of the
+		// field in RotWK), i in { 1, 2 } shows the fire window and the glow lists (RW 0x859450 / 0x859455 -> 0x859467), every other case hides the list
+		for (int i = 0; i < 4; ++i)
+		{
+			const bool visible = (night && i == 3) || i == 1 || i == 2;
+			applySubObjectList(*lists[i], *obj, visible);
+		}
+		// RW 0x859483 + 0x859486 -> 0x8594D0: the shared tail shows list 1 (FireWindowName, data + 0x14) a second time before Drawable::updateSubObjects
+		applySubObjectList(*lists[1], *obj, true);
 	}
 	else if (!obj->testStatus(10)) // RW 0x85948E: the AFLAME status clears while the latch holds
 	{
 		m_aflame = false; // RW 0x85949B (al = 0)
 		// RW 0x8594AD..0x8594C0: every list is hidden (0x8594A1: list 0 is data + 8)
-		applySubObjectList(m_data->m_nightWindowName, *obj, false);
-		applySubObjectList(m_data->m_glowWindowName, *obj, false);
+		for (int i = 0; i < 4; ++i)
+		{
+			applySubObjectList(*lists[i], *obj, false);
+		}
 		// RW 0x8594C2: on a night map the night window list is shown again (the shared tail at 0x8594D0 with edi = list 0)
 		if (night)
 		{
-			applySubObjectList(m_data->m_nightWindowName, *obj, true);
+			applySubObjectList(*lists[0], *obj, true);
 		}
 	}
 	// RW 0x8594E0 (Drawable::updateSubObjects) when something changed: no port counterpart, the sub object calls are applied at the call

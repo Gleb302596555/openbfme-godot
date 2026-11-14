@@ -45,6 +45,7 @@
 #include "GameLogic/SimMath.h"
 #include "GameLogic/UnitSpecificSound.h"
 #include "Common/Audio/AudioRequests.h"
+#include "GameClient/UnitVoiceResponse.h"
 
 #include <cmath>
 #include <cstring>
@@ -1059,6 +1060,11 @@ void AIUpdateInterface::goalPositionClipped(const Coord3D &pos, CommandSourceTyp
 
 void AIUpdateInterface::aiMoveToPosition(const Coord3D &pos, CommandSourceType source)
 {
+	aiMoveToPosition(pos, source, true);
+}
+
+void AIUpdateInterface::aiMoveToPosition(const Coord3D &pos, CommandSourceType source, bool postMoveVoice)
+{
 	if (!acceptCommand(source, 0))
 	{
 		return; // lane MODULES-3: RW 0x667174
@@ -1078,7 +1084,7 @@ void AIUpdateInterface::aiMoveToPosition(const Coord3D &pos, CommandSourceType s
 	{
 		m_attackMoveActive = false; // a move order ends an attack-move (COMBAT-1)
 	}
-	privateMoveToPosition(pos, source);
+	privateMoveToPosition(pos, source, postMoveVoice);
 	wakeUpNow();
 }
 
@@ -1105,7 +1111,7 @@ void AIUpdateInterface::aiMoveToPositionEvenIfSleeping(const Coord3D &pos, Comma
 	{
 		m_attackMoveActive = false;
 	}
-	privateMoveToPosition(pos, source);
+	privateMoveToPosition(pos, source, true);
 	wakeUpNow();
 }
 
@@ -1140,6 +1146,10 @@ bool AIUpdateInterface::aiAttackMoveToPosition(const Coord3D &pos, CommandSource
 			weapon->setMaxShotCount(0x7fffffff);
 		}
 	resetNextMoodCheckTime();
+	// PORT-151, RW 0x66C128 .. 0x66C136 (helper RW 0x66B2F5): the attack-move body asks the unit voice for the enter-state attack-move message 0x7E8
+	// with the goal, for a PLAYER or SCRIPT order only (the source test is inside the helper); it asks for nothing else (the move body's 0x7E7 at
+	// RW 0x66B4D2 is a different command)
+	postEnterStateAttackMoveVoice(*obj, pos, source);
 	wakeUpNow();
 	return true;
 }
@@ -1160,7 +1170,9 @@ bool AIUpdateInterface::aiMoveToPositionFromAttackMove(const Coord3D &goal)
 			return true;
 		}
 	}
-	privateMoveToPosition(goal, CMD_FROM_PLAYER);
+	// PORT-151: the march resume of the port's attack-move stand-in (S-328) is not a command of RW's table: it must not repeat the move voice of a
+	// player order, and whether RW's re-issue of the attack-move (0x66C0B9) speaks again is not proven (S-7341) -> silent
+	privateMoveToPosition(goal, CMD_FROM_PLAYER, false);
 	wakeUpNow();
 	return true;
 }
@@ -1171,7 +1183,7 @@ const char *AIUpdateInterface::preferredPointStopLine()
 		   "and nine other callers do not set it, so a CanMoveBackwards unit's backing-up test (RW 0x5E83FD) reads the point of its last enter / move-away";
 }
 
-void AIUpdateInterface::privateMoveToPosition(const Coord3D &pos, CommandSourceType source)
+void AIUpdateInterface::privateMoveToPosition(const Coord3D &pos, CommandSourceType source, bool postMoveVoice)
 {
 	Object *obj = getObject();
 	// lane BUGS-1: RW 0x66B3FD .. 0x66B425 (BFME2 decomp AIUpdateInterfacePrivateCommands.cpp:privateMoveToPosition, tier B for RW 0x66B3FD): nothing when
@@ -1205,6 +1217,13 @@ void AIUpdateInterface::privateMoveToPosition(const Coord3D &pos, CommandSourceT
 		m_machine->setGoalObject(INVALID_ID);
 		setLastCommandSource(source);
 		m_machine->setState(AI_MOVE_TO);
+		// PORT-151, RW 0x66B4C4 .. 0x66B4D2 (helper RW 0x66B379): an ordinary move of a PLAYER or SCRIPT order asks the unit voice for the enter-state
+		// move message 0x7E7 with the goal; the temporary-state branch above jumps to RW 0x66B4D7 and says nothing. The route (AudioApi) is the one the
+		// other logic voice events use; the client's picker answers 0x7E7 with the enter-state rows (RW 0x8DE838, rows 0x1B .. 0x20)
+		if (postMoveVoice && (source == CMD_FROM_PLAYER || source == CMD_FROM_SCRIPT))
+		{
+			AudioApi::postUnitVoice(UnitVoiceResponse::VOICE_EVENT_ENTER_STATE_MOVE, obj->getID(), 0, INVALID_ID, &pos);
+		}
 	}
 }
 

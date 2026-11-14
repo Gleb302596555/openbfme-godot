@@ -29,6 +29,7 @@
 
 #include "Common/INIDataTypes.h"
 #include "GameLogic/Module/UpdateModule.h"
+#include "GameLogic/Object/Contain/OpenContainRuntime.h"
 
 #include <array>
 #include <cstdint>
@@ -186,6 +187,8 @@ public:
 	// module data; the table is RW 0xC5B1F8, the horde contains' shared base, and the same slot sits in RW 0xC5BE98 HordeContain / RW 0xC5CFA8
 	// AODHordeContain). The one reader in RotWK 2.01 is AICombineState::onEnter (RW 0x751738): with the byte set, the ordered horde leaves the formation.
 	virtual bool notComboFormation() const = 0;
+	// ---- lane PORT-169 (issue #398, RW HordeContainInterface slot 0xEC, RW 0x872B69): true when this horde formation is its main formation
+	virtual bool isMainFormation() const = 0;
 };
 
 class HordeContain : public UpdateModule, public ContainModuleInterface, public CreateModuleInterface, public HordeContainInterface
@@ -224,6 +227,7 @@ public:
 	// horde is not contained (RW 0x9188EB false in every other contain table of 2.01)
 	bool shadowWhileContainedAllowed() const override;
 	bool addToContain(Object *obj) override;
+	void enableLoadSounds(bool enabled) override { m_soundState.loadEnabled = enabled; } // RW 0x867AA5
 	void removeFromContain(Object *obj) override;
 	void removeDyingMember(Object *obj) override;
 	void containReactToTransformChange() override;
@@ -454,6 +458,7 @@ public:
 	// lane PORT-112 (issue #272): RW 0x872B91 (interface slot 136 / +0x220) returns the module data's NotComboFormation byte (+0x25C); its one reader
 	// RW 0x751738 (AICombineState::onEnter) makes the ordered horde leave the formation (slot 0x60, RW 0x86C7F6) before the combine
 	bool notComboFormation() const override;
+	bool isMainFormation() const override;
 	bool canCombineWith(const Object &other) const override;
 	Object *combineWith(Object *target) override;
 	static const char *combineStopLine();
@@ -505,6 +510,7 @@ private:
 	// pass stops)
 	int emotionMemberOrder(Object &member, Object *scarer, Coord3D &pos, float &angle);
 
+	OpenContain::SoundState m_soundState;
 	const HordeContainBehaviorData *m_data;
 	std::unique_ptr<HordeContainCore> m_core;
 	friend struct XpTestAccess; // lane XP-1 tests: isolated state hash mutations

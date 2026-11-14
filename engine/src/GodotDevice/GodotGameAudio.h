@@ -155,6 +155,10 @@ public:
 	void set_listener(const Vector3 &position, const Vector3 &forward);
 	// lane AUDIO-5: retail's microphone (RW 0x45235B) from the tactical camera's eye and the terrain point it looks at, SAGE space
 	void update_microphone(const Vector3 &camera_position, const Vector3 &look_at, bool look_at_valid);
+	// PORT-158: one audio pump with the current time, for hosts whose frame loop is blocked (the synchronous skirmish
+	// load's progress callback): the loading screen's faded menu stop (RW 0x81D242) only advances while the manager is
+	// pumped, and RotWK's Miles fade runs on elapsed time. Pumps this manager and the shell music child.
+	void tick_audio();
 	Dictionary get_listener() const; // {position, forward}: where the core hears from (SAGE space)
 	void set_volume(const String &slider, double volume); // "sound" | "voice" | "music" | "ambient" | "movie" (the options sliders, 0..1)
 	// lane OPTS-4: a volume the host applies outside the manager (the OpenBFME Master volume: Godot's Master bus), as a "volume" line of the request log

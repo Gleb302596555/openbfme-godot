@@ -7,6 +7,7 @@
 #include "GameLogic/Object/Contain/OpenContainRuntime.h"
 #include "GameLogic/SnapshotXfer.h"
 
+#include "Common/Audio/AudioRequests.h"
 #include "Common/NumericState.h"
 #include "Common/Player.h"
 #include "Common/StateHash.h"
@@ -96,6 +97,19 @@ OpenContain::OpenContain(Thing *thing, const ModuleData *data, const OpenContain
 }
 
 OpenContain::~OpenContain() = default;
+
+void OpenContain::playContainSound(Object &container, const OpenContainModuleData &data, SoundState &state, bool entering)
+{
+	// RW 0x8658B6 / 0x8658C8 / 0x86594E: the enabled gate and independent frame comparisons.
+	if (entering && !state.loadEnabled) return;
+	const unsigned frame = container.logic().getFrame();
+	unsigned &last = entering ? state.lastLoadFrame : state.lastUnloadFrame;
+	if (frame == last) return;
+	const std::string &event = entering ? data.m_enterSound.name : data.m_exitSound.name;
+	// RW 0x8658D9 / 0x86595C: module data, then 0x8658EB / 0x86596E: container ID.
+	if (!event.empty()) AudioApi::playSoundForObject(event, container.getID());
+	last = frame; // RW 0x86591E / 0x8659A1, even when no sound is configured
+}
 
 const ObjectStatusMaskType *OpenContain::getObjectStatusOfContained() const
 {
@@ -305,7 +319,7 @@ bool OpenContain::openContainAdd(Object *obj)
 	}
 	redeployOccupants();      // main slot 0x48
 	objectOnContainedBy(obj); // RW 0x6901AE
-	recalcApparentControllingPlayer(); // main slot 0x54 (OpenContain RW 0x8658A3: the sound once per frame, client side)
+	playContainSound(*getObject(), openData(), m_soundState, true); // RW 0x86754C: main slot 0x54
 	// RW 0x86753D: with ModifierToGiveOnExit the {id, frame} pair the exit reads is recorded: not ported (S-1100)
 	if (isEnclosingContainerFor(*obj))
 	{
@@ -354,12 +368,12 @@ void OpenContain::objectOnRemovedFrom(Object *rider)
 void OpenContain::onContaining(Object *obj, bool wasSelected)
 {
 	(void)obj;
-	(void)wasSelected; // RW 0x865F9A: the EnterSound (client side)
+	(void)wasSelected; // RW 0x865F9A: object SoundEnter (client side)
 }
 
 void OpenContain::onRemoving(Object *obj)
 {
-	// RW 0x8680F4: the ExitSound (client side), the rider's bone records leave (RW 0x867663 / 0x866E08), ModifierToGiveOnExit (S-1100)
+	// RW 0x8680F4: object SoundExit (client side), the rider's bone records leave (RW 0x867663 / 0x866E08), ModifierToGiveOnExit (S-1100)
 	m_riderBoneIndex.erase(obj->getID());
 	m_riderBoneName.erase(obj->getID());
 }
@@ -693,7 +707,7 @@ void OpenContain::openContainRemove(Object *obj)
 		addOrRemoveObjFromWorld(obj, true); // RW 0x865F23
 	}
 	// RW 0x865F28 .. 0x865F37: an object that is not effectively dead gets its owner's team again (RW 0x68BBE0 / 0x68BB9D: its own team, unchanged in the port)
-	recalcApparentControllingPlayer(); // main slot 0x58 (OpenContain RW 0x865932: the exit sound once per frame, client side)
+	playContainSound(*getObject(), openData(), m_soundState, false); // RW 0x865F73: main slot 0x58
 	onRemoving(obj);                   // the container's contain slot 0x5C
 	objectOnRemovedFrom(obj);          // RW 0x69024C
 	++m_openStats.left;
@@ -1116,6 +1130,9 @@ void OpenContain::exitObjectViaDoor(Object *obj, int door)
 void OpenContain::crc(StateHasher &h) const
 {
 	UpdateModule::crc(h);
+	h.addU32(m_soundState.lastUnloadFrame);
+	h.addU32(m_soundState.lastLoadFrame);
+	h.addBool(m_soundState.loadEnabled);
 	h.addU32((std::uint32_t)m_contained.size());
 	for (const Object *o : m_contained)
 	{
@@ -1329,9 +1346,16 @@ bool OpenContain::getExitOffset(Coord3D &out) const
 // The riders in insertion order as ids (the Objects block has made them), then the crc's fields with the maps in key order, then the statistics.
 void OpenContain::xfer(Xfer &x)
 {
-	XferVersion v{ 1, 2 }; // 2: lane MODCOMPAT-MOD1's eat (RW interface + 0xC4 / 0xC8 / 0xCC); a version 1 snapshot loads as not eating
+	XferVersion v{ 1, 3 }; // 3: PORT-90 sound frames and enable flag
 	x.xferVersion(v);
 	xferUpdateModule(x);
+	if (v.current >= 3)
+	{
+		x.xferUnsignedInt(&m_soundState.lastUnloadFrame); // RW 0x869265
+		x.xferUnsignedInt(&m_soundState.lastLoadFrame);   // RW 0x869270
+		x.xferBool(&m_soundState.loadEnabled);             // RW 0x869476
+	}
+	else if (x.isLoading()) m_soundState = SoundState{};
 	GameLogic &logic = getObject()->logic();
 	SnapshotXfer::objectPointers(x, logic, m_contained, "a contain's rider", getObject()->getID());
 	x.xferUnsignedInt(&m_stealthUnitsContained);
