@@ -191,6 +191,8 @@ protected:
 private:
 	void tearDown();
 	void destroyShellAudio();
+	// PORT-158: the one audio step (device, manager, EVA, log) at `nowMs`; _process and tick_audio both run it
+	void pumpAudio(double nowMs);
 
 	std::unique_ptr<INIEnvironment> m_env;
 	std::unique_ptr<AudioIniState> m_ini;
