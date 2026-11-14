@@ -185,7 +185,7 @@ TEST_CASE("siege1 gate: #64's catapult 500 from Helm's Deep's gate toward Player
 // testing every pair, the arch caught the stones meant for the gate, e.g. 17 contacts in 17 shots); the non-zero ones are the side towers'
 // (HelmsDeepGatehouseLeft, MinisGate1) but for the Dwarven catapult's two short stones at the arch's front (see there).
 
-TEST_CASE("siege1 gate: #64's catapult made inside its MinimumAttackRange of Helm's Deep's gate backs off and breaks it (the stones clear the arch)")
+TEST_CASE("siege1 gate: #64's catapult made inside its MinimumAttackRange of Helm's Deep's open gate backs off and its stones meet the gatehouse (the aim is the gate's open panel)")
 {
 	// SIEGEFIX-1: made 120 in front of the gate along its facing. #64's spot (100 toward Player_2_Start) now backs off up the causeway's raised walkway
 	// (lanes WALL-1 / WALL-2: z ~184 instead of the ground's ~138) and every stone from there meets the arch (HelmsDeepGatehouseCenter): the gate does not
@@ -201,18 +201,31 @@ TEST_CASE("siege1 gate: #64's catapult made inside its MinimumAttackRange of Hel
 	// gate stands, both the gatehouse in the line of fire (HelmsDeepGatehouseLeft at frame 259, HelmsDeepGatehouseCenter at 294), first hit 48, death 319
 	// lane PATH-REBUILD (the found paths rebuilt from their optimised nodes, RW 0x767B0E; the throwers' drives, the AI defender and the random stream move; measured twice on the lane's tree): no contact while the gate stands (two), first hit 53 (48), death 393 (319)
 	// merge queue q38 (LOCODIST-1's retail locomotor distance to the goal, RW 0x664127, moves the throwers' drives, the AI defender and the random stream; measured once on the merged tree and at each merge point, #172 keeps them): one contact while the gate stands (0), death 427 (223)
-	// pin: merge queue q41 (DECOMPFIX-1104B: AIMAIM-1's aim, RW 0x75232F, with BUMP-1's give-way rules and STARTRANGE-1's start range; measured once on the merged tree and at its merge point, NECRODIE-1 keeps it): contacts while it stood 1 -> 0
-	CHECK(r.contactsWhileStanding == 0);
+	// fork issue #435 (the gate stands OPEN here: the mod's gate has GateOpenAndCloseBehavior OpenByDefault, and nothing closes it in this world because
+	// AIGateUpdate needs a skirmish AI for the gate's owner, RW 0x8B4D3A .. RW 0x8B4D55, and this run has none): the weapon aim of a projectile is the
+	// victim's contact point - RW 0x6CB85A flag 1 (pushed by the launch aim RW 0x85EC51) -> Object::getWorldspaceBestContactPoint RW 0x690BD2 (the
+	// object's own GeometryInfo, +0xA8) -> GeometryInfo::getBestContactPoint RW 0xAD30E0 preference 3. The gate's OPEN geometry is the active one
+	// (GeometryInfo::setActive RW 0xAD3520 for GeometryForOpen {"OpenLeft","OpenRight"}, GeometryForClosed {"Closed"} inactive, RW 0xC07D08 field table),
+	// so a blend of two contact point rows lands on a stood-aside panel or, outside every active shape, on the first active shape's centre
+	// (RW 0xAD32BA .. RW 0xAD32EB): the stones are aimed at the arch's side, where the gatehouse stands, not at the middle of the doorway. Measured on
+	// main for this issue (contact log): 17 shots, 16 in-flight contacts with the gatehouse while the gate stands, first damage 77, the gate never dies
+	// in 600 frames - the S-362 geometry centre these pins were taken with aimed at the doorway's middle in both states (9 shots, no contact, death 316).
+	CHECK(r.contactsWhileStanding == 16);
 	// lane MODCOMPAT-MOD1 (GeometryUpgrade: every object reads its own GeometryInfo, RW Object + 0xA8, for its combat circle and sphere (+ 0xB8 / + 0xBC), partition cells and pathfinder footprint, and the gate's open / closed switch runs the full refresh RW 0x68B244; measured at its commit, a CI host):
 	// first hit 49 -> 48, the gate's death 287 -> 252
 	// pin: merge queue q41 (DECOMPFIX-1104B: AIMAIM-1's aim, RW 0x75232F, with BUMP-1's give-way rules and STARTRANGE-1's start range; measured once on the merged tree and at its merge point, NECRODIE-1 keeps it): first hit 53 -> 52
 	// pin: merge queue q49 (DECOMPFIX-1109's FLEECHASE-1: a horde's melee wait state and a lone unit's melee approach give up on a fleeing target, RW 0x7469FD / 0x746F51, so the chase goes on; measured once on the merged tree, the only item): first hit 52 -> 43
-	CHECK(r.firstHit == 43);
+	// pin: fork issue #435 (the contact-point aim of RW 0x6CB85A flag 1 at the OPEN gate's panels, above; measured once on main for the issue): the gate's
+	// first damage 43 -> 77, the splash of the first stone that met the gatehouse beside it (17 shots, 16 of them into the gatehouse)
+	CHECK(r.firstHit == 77);
 	// pin: #207 (ClassifyWall's edge pass RW 0x936686 .. 0x936811: the wall tops' rims refuse every locomotor, the closest height layer RW 0x9362A3, every ramp stamped again newest first RW 0x935BFF; routes and the random stream move at Helm's Deep), measured once on the merged tree and at each merge point (#211, QPATH-1, SIEGEFALL-1 and TOPPLE-1 keep it): the Mordor catapult from 120: death 427 -> 393
 	// pin: merge queue q41 (DECOMPFIX-1104B: AIMAIM-1's aim, RW 0x75232F, with BUMP-1's give-way rules and STARTRANGE-1's start range; measured once on the merged tree and at its merge point, NECRODIE-1 keeps it): death 393 -> 222
 	// pin: merge queue q42 (#220: a goal in a ramp or wall-top cell is searched on its own layer, RW 0x6FD2B2 / 0x6EA52E; measured once on the merged tree and at each merge point, #216, CASTLEATK-1 and #225 keep it): death 222 -> 324
 	// pin: merge queue q49 (DECOMPFIX-1109's FLEECHASE-1: a horde's melee wait state and a lone unit's melee approach give up on a fleeing target, RW 0x7469FD / 0x746F51, so the chase goes on; measured once on the merged tree, the only item): death 324 -> 316
-	CHECK(r.deathFrame == 316); // with the arc's segment count at x87 precision control 24 (RW 0x765E00; measured twice on the lane's tree): 393 -> 223
+	// pin: fork issue #435 (the contact-point aim of RW 0x6CB85A flag 1 at the OPEN gate's panels, above; measured once on main for the issue): death 316 -> never
+	// (the stones no longer reach the gate: the aim of every shot is the arch's side). This placement is the OPEN gate's run; the closed gate's run is the
+	// `the stone and bolt throwers ... break it` case above, where the closed panel is the active shape (RW 0xAD32BA answers its centre, the doorway's middle)
+	CHECK(r.deathFrame == -1);
 }
 
 TEST_CASE("siege1 gate: the stone and bolt throwers in front of Helm's Deep's gate break it; the arch takes no stone meant for the gate")
