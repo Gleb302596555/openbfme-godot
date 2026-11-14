@@ -43,7 +43,7 @@ Ennorath 1.9.8.2 (база с 2026-11-04, до этого 1.9.8.1 с 2026-11-03;
 
 ## 4. Ветка и дерево на агента
 
-**Где работают агенты (решение владельца 2026-11-13 / 2026-11-14).** Сборки, тесты, замеры эталонов и разборы `game.dat` идут в Google Colab владельца (`colab-sandbox`, правила `.clinerules/colab.md`); компьютер владельца — только сборка игры под Windows (`build.bat`) и запуск игры, это делает Claude. Агент, запущенный на компьютере владельца (задачи «Local N», раздел 7в), выполняет всё через `ssh colab-sandbox`. Для работы на Colab в этом и следующих разделах вместо `build.bat` — `bash tools/colab/build_tests.sh`, вместо `engineuild\openbfme_tests.exe` — `engine/build/openbfme_tests`, деревья — `/content/sandbox/openbfme-godot/workspace/wt`; полный прогон тестов — только по слову владельца.
+**Где работают агенты (решение владельца 2026-11-13 / 2026-11-14).** Сборки, тесты, замеры эталонов и разборы `game.dat` идут в Google Colab владельца (`colab-sandbox`, правила `.clinerules/colab.md`); компьютер владельца — только сборка игры под Windows (`build.bat`) и запуск игры, это делает Claude. Агент, запущенный на компьютере владельца (задачи «Local N», раздел 7в), выполняет всё через `ssh colab-sandbox`. Для работы на Colab в этом и следующих разделах вместо `build.bat` — `bash tools/colab/build_tests.sh`, вместо `engine\build\openbfme_tests.exe` — `engine/build/openbfme_tests`, деревья — `/content/sandbox/openbfme-godot/workspace/wt`; полный прогон тестов — только по слову владельца.
 
 Решение владельца 2026-10-31. В основном дереве никто не работает и не оставляет незакоммиченных правок: там лежит только `main`, в него владелец играет.
 
