@@ -47,7 +47,11 @@ enum LegalBuildCode
 	LBC_OBJECTS_IN_THE_WAY,
 	LBC_NO_CLEAR_PATH,
 	LBC_SHROUD,
-	LBC_TOO_CLOSE_TO_SUPPLIES
+	LBC_TOO_CLOSE_TO_SUPPLIES,
+	// P-106: RotWK's raw 9 (the decomp's `LBC_9`, BuildAssistant.cpp:2181), which ZH does not have: a WALL_HUB build outside the MaxBuildoutDistance of its
+	// hub's data from every command centre of its owner. It keeps RW's number because the ghost's colour path asks it (PlacementIcons' `code == 9`: the blue
+	// tint of RW 0x6A3A0B .. 0x6A3A26, the bib of RW 0x6A3B0B, neither the illegal red)
+	LBC_BEYOND_BUILDOUT = 9
 };
 
 // ZH BuildAssistant.h LocationLegalFlags
