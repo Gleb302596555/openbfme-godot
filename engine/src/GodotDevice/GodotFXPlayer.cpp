@@ -650,11 +650,13 @@ void FXPlayer::updateLightPulseUniforms()
 
 		// RW 0x0053F640: linear attenuation over range: clamp(1.0 - (dist - attenStart)/(attenEnd - attenStart))
 		// RW 0x005403ED: Contribution = effectiveDiffuse.Length2()
+		// INFERENCE (S-687): retail ranks per render object at the object's centre; the Godot uniforms are viewport-global, so the
+		// distance here is measured from the camera
 		float contribution = 0.0f;
 		if (haveView)
 		{
 			const float dist = (world - cameraWorldPos).length();
-			const float atten = std::clamp(1.0f - (dist - 1.0f) / std::max(0.001f, range - 1.0f), 0.0f, 1.0f);
+			const float atten = std::clamp(1.0f - (dist - l.farAttenStart) / std::max(0.001f, range - l.farAttenStart), 0.0f, 1.0f);
 			const float effR = c.red * atten;
 			const float effG = c.green * atten;
 			const float effB = c.blue * atten;

@@ -134,15 +134,6 @@ RGBColor W3DLightDraw::lightColor() const
 	return RGBColor{ base.red * m_height, base.green * m_height, base.blue * m_height };
 }
 
-RGBColor W3DLightDraw::lightAmbientColor() const
-{
-	if (!m_data)
-	{
-		return RGBColor{ 0.0f, 0.0f, 0.0f };
-	}
-	return m_data->m_ambient;
-}
-
 Coord3D W3DLightDraw::lightPosition() const
 {
 	if (m_data && !m_data->m_attachToBone.empty() && m_thing)
