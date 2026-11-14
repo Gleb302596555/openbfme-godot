@@ -211,12 +211,14 @@ TEST_CASE("PORT-439 focal length: the director keeps the viewers' angle (the sam
 {
 	ScriptCameraDirector d;
 	const Coord3D origin{ 0.0f, 0.0f, 0.0f };
-	CHECK(d.focalDegrees() == 0.0f);
+	CHECK(d.focalDegrees() == 50.0f); // the view's default angle (RW 0x48CB99 -> RW 0xBDD410 0.8726646 rad = 50 degrees)
+	CHECK_FALSE(d.focalStarted()); // the viewers keep their own framing until a FOCAL_LENGTH_CAMERA arrives
 	d.apply(focalRequest(35.0f, 1.0f, 0.0f, 0.0f), origin, 0.0f);
 	REQUIRE(d.focalAnimating());
+	CHECK(d.focalStarted());
 	// the target angle is the focal length's (RW 0x8DAF6C), reached over the action's second without ease
 	d.update(500.0);
-	CHECK(d.focalDegrees() == doctest::Approx(degrees(TacticalCamera::focalLengthToFov(35.0f)) * 0.5f).epsilon(1e-3)); // tolerance: the director's float32 degree lerp, half of two rounded angles
+	CHECK(d.focalDegrees() == doctest::Approx((50.0f + degrees(TacticalCamera::focalLengthToFov(35.0f))) * 0.5f).epsilon(1e-3)); // tolerance: the director's float32 degree lerp, half of two rounded angles
 	d.update(500.0);
 	CHECK_FALSE(d.focalAnimating());
 	CHECK(d.focalDegrees() == doctest::Approx(degrees(TacticalCamera::focalLengthToFov(35.0f))).epsilon(1e-4)); // tolerance: float32 angles over the ease, the value is the exact target at the end

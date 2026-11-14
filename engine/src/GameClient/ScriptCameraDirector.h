@@ -54,6 +54,9 @@ private:
 class ScriptCameraDirector
 {
 public:
+	// lane PORT-439: the focal-length animation starts from the view's default angle (RW 0x48CB99 stores the pooled 0.8726646 rad, RW 0xBDD410); the
+	// game's camera reads its own + 0x6C instead
+	ScriptCameraDirector() { m_focal.value = 50.0f; }
 	// retail ScriptEngine::TFade (+0x1A138): FADE_NONE draws nothing (lane CAMP-1's rule kept)
 	enum FadeType
 	{
@@ -90,6 +93,8 @@ public:
 	// millimetres, and whether one is running (RW 0x48885E / 0x4866A7 on the TacticalCamera; the viewers' camera reads this)
 	float focalDegrees() const { return m_focal.value; }
 	bool focalAnimating() const { return m_focal.active; }
+	// whether a FOCAL_LENGTH_CAMERA ever ran for this director: false means the viewers keep their own framing (no action in the map's scripts)
+	bool focalStarted() const { return m_focalStarted; }
 	// lane SCRIPT-2: CAMERA_FOLLOW_NAMED / CAMERA_STOP_FOLLOW (the object the camera follows, 0 none), ZOOM_CAMERA / PITCH_CAMERA (factors of the default
 	// distance / pitch over time, 1 = the default), the notification box (DISPLAY_NOTIFICATION_BOX: its label for its seconds), the objectives shown
 	std::uint32_t followId() const { return m_followId; }
@@ -140,6 +145,7 @@ private:
 	};
 	Scalar m_zoom, m_pitch;
 	Scalar m_focal; ///< lane PORT-439: the view angle in degrees (RW 0x4866A7's + 0x23C / + 0x240 pair)
+	bool m_focalStarted = false; ///< lane PORT-439: the first FOCAL_LENGTH_CAMERA arrived (the viewers apply the angle from then on)
 	std::uint32_t m_followId = 0;
 	std::string m_notificationLabel;
 	double m_notificationMs = 0.0;

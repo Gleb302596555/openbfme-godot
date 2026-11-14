@@ -272,6 +272,7 @@ void ScriptCameraDirector::apply(const ScriptClientRequest &r, const Coord3D &ca
 		// for the viewers, whose camera it drives itself and which have no TacticalCamera: the angle the focal length means
 		// (RW 0x8DAF6C: focalLengthToFov * 57.295776 degrees) from the one it is at now, over the action's seconds and eases
 		m_focal.start(m_focal.value, realParam(r, 1), realParam(r, 2), realParam(r, 3), r.focalMm);
+		m_focalStarted = true;
 		return;
 	}
 	if (a == "SET_CAMERA_CLIP_DEPTH_MULTIPLIER")

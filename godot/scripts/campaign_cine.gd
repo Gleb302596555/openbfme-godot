@@ -219,11 +219,11 @@ func _process(delta: float) -> void:
 		pitch = _base_pitch * float(st.get("pitch", 1.0))
 		_place_camera()
 		# lane PORT-439: FOCAL_LENGTH_CAMERA's horizontal angle (RW 0x48885E / 0x4866A7 write View + 0x6C, which the display draws with); the viewer's
-		# camera is a perspective one whose keeper is the width (as the HUD's applyCamera sets the drawn W3D view)
-		var focal_degrees := float(st.get("focal_degrees", 50.0))
-		if bool(st.get("focal_animating", false)) or not is_equal_approx(camera.fov, focal_degrees):
+		# camera is a perspective one whose keeper is the width (as the HUD's applyCamera sets the drawn W3D view). Only a map whose scripts ran the
+		# action takes the angle: before it the viewer's own framing stands (the game's camera reads its own + 0x6C the same way)
+		if bool(st.get("focal_started", false)):
 			camera.keep_aspect = Camera3D.KEEP_WIDTH
-			camera.fov = focal_degrees
+			camera.fov = float(st.get("focal_degrees", 50.0))
 	if _audio != null and not hud_mode: # lane CAMPUI-1: in the game the listener is the game's (it follows the HUD camera); here only the caption's click
 		_audio.set_listener(Vector3(target.x, target.y, target.z), Vector3(sin(angle), cos(angle), 0.0))
 	var size := get_viewport().get_visible_rect().size

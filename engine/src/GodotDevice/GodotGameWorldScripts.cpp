@@ -337,6 +337,7 @@ Dictionary GameWorld::update_script_view(double delta_ms, const Dictionary &came
 	d["pitch"] = v.pitch();
 	d["focal_degrees"] = (double)v.focalDegrees(); // lane PORT-439: the view angle in degrees the focal length means (RW 0x8DAF6C)
 	d["focal_animating"] = v.focalAnimating();
+	d["focal_started"] = v.focalStarted(); // lane PORT-439: whether any focal-length action ran (before that the viewers keep their framing)
 	{
 		std::string note;
 		if (!v.notificationLabel().empty())
