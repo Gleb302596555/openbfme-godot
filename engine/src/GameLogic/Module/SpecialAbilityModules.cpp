@@ -607,11 +607,12 @@ void SpecialAbilityUpdate::initiateIntentToDoSpecialPower(const SpecialPowerTemp
 	}
 	m_active = true;
 	m_approachCounter = 0;
-	// RW 0x852FF9: every other active special power update of the object is finished
+	// PORT-188 (issue #454): RW 0x853062 .. 0x8530A4 (BFME2 1.06 0x004500A3, SpecialAbilityUpdateInitiateIntent.cpp): every other special ability update of
+	// the object whose isPowerCurrentlyInUse(nullptr) (vslot +0x18, RW 0x851C92) answers yes is finished
 	for (const std::unique_ptr<BehaviorModule> &m : obj->modules())
 	{
 		SpecialAbilityUpdate *other = dynamic_cast<SpecialAbilityUpdate *>(m.get());
-		if (other && other != this && other->isActive())
+		if (other && other != this && other->isPowerCurrentlyInUse())
 		{
 			other->finishAbility(false, true);
 		}
