@@ -214,6 +214,7 @@ include(cmake/Port169.cmake)    # PORT-169: CommandButton toggle index (+0xFC) f
 include(cmake/Port159.cmake)    # PORT-159: SHADOW_VOLUME_NON_SELF_1/2/3 cast a shadow (the mumak, the dwarven battle wagon; issue #377; OPENBFME_PORT159_TESTS)
 include(cmake/Port170.cmake)    # PORT-170: the placement seal flickers red/white with a stationary cursor (issue #399; OPENBFME_PORT170_TESTS)
 include(cmake/Port171.cmake)    # PORT-171: the online tests' temporary folder, removed after what writes into it (fork issue 400, P-37; OPENBFME_PORT171_TESTS)
+include(cmake/Port178.cmake)    # PORT-178: a looping sound that loses its channel comes back (fork issue 431, P-76; OPENBFME_PORT178_TESTS)
 include(cmake/Render.cmake)     # OPENBFME_RENDER_SOURCES / OPENBFME_RENDER_TESTS (lane RENDER-1, client / draw only)
 include(cmake/SkirmishAI.cmake) # OPENBFME_SKIRMISH_AI_SOURCES / OPENBFME_SKIRMISH_AI_TESTS (lane AI-1)
 include(cmake/Vis.cmake)        # OPENBFME_VIS_SOURCES / OPENBFME_VIS_TESTS (lane VIS-1)
@@ -1054,6 +1055,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT159_TESTS}
     ${OPENBFME_PORT170_TESTS}
     ${OPENBFME_PORT171_TESTS}
+    ${OPENBFME_PORT178_TESTS}
     ${OPENBFME_PORT87_TESTS}
     ${OPENBFME_PORT169_TESTS}
     ${OPENBFME_RENDER_TESTS}

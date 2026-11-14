@@ -9,6 +9,7 @@
 #include <atomic>
 #include <iterator>
 #include <cmath>
+#include <cstdio>
 
 namespace
 {
@@ -95,7 +96,8 @@ std::vector<std::string> AudioManager::unverified()
 {
 	return {
 		"S-240: AudioManager request / limit / priority / interrupt / loop logic is ported from ZH MilesAudioManager.cpp with the RotWK differences read so far (PlayPercent at play time, looping events re-queued, "
-		"linear distance falloff, submix sliders); the RW routines for killLowestPriority / limits / stream pools and the first special handle value are not individually verified",
+		"linear distance falloff, submix sliders, the channel steal RW 0x45FF7F with RW 0x45B4E8 / 0x45B446 / 0x450E81: lane PORT-178); the RW routines for limits / stream pools and the first special handle value are "
+		"not individually verified",
 		"S-241: AudioSettings constructor defaults of fields an INI omits are not read from the binary",
 		"S-242: the processing step is 33.33 ms off a caller clock; the exact rate retail calls the manager update at is not decoded",
 		"S-243: volume model: view state defaults, VolumeSliderMultiplier ducking ramp, owner dependent mute (RW 0x6DB221) are inferred from the INI documentation",
@@ -107,6 +109,8 @@ std::vector<std::string> AudioManager::unverified()
 		"S-249: the decoded sound cache budget (a multiple of AudioFootprintInBytes) is inferred; retail caches compressed bytes",
 		"S-1930: the stereo image is Miles' Fast 2D provider (a stereo Windows speaker setup); RotWK's Dolby Surround provider (headphone / surround speaker setups on High audio LOD) and its FB pan filter are not modelled",
 		"S-1931: a panned stereo voice mixes its left channel into the right in the Godot device",
+		"S-7343: a playing sound is not asked about the shroud again (RW 0x45BC24: fade out RW 0x452C50, requeue when faded RW 0x45BBB3, the fade factor RW 0x450A18 in the sample volume, event + 0x4F); the 0.01 volume "
+		"floor (RW 0x4593AE), the first step of the channel steal for a positional event (RW 0x45FF9F -> 0x45E98F) and the requeue of a playing loop without a position (RW 0x45BD57) are not ported",
 	};
 }
 
@@ -1102,17 +1106,30 @@ bool AudioManager::doesViolateLimit(AudioEventRTS &event) const
 	return true;
 }
 
-bool AudioManager::isPlayingLowerPriority(const AudioEventRTS &event) const
+namespace
+{
+// RW 0x450E81: of two (priority, volume) pairs the first is the lower sound when its priority is lower, or the priorities are equal and its volume is lower
+bool isLowerSound(int priority, float volume, int thanPriority, float thanVolume)
+{
+	if (priority != thanPriority)
+	{
+		return priority < thanPriority;
+	}
+	return thanVolume > volume;
+}
+} // namespace
+
+// Port 178, RW 0x45B4E8: a sound lower than `event` holds a channel of its list. Lower is RW 0x450E81 on (priority, the volume with the sliders), so a
+// louder sound takes the channel of a quieter one of its own priority and the lowest priority has no exception (ZH compared the priorities only and
+// never let the lowest priority in). The playing side's volume is RW 0x45A10E(playing, 1, 1); its fade factor is not ported.
+bool AudioManager::isPlayingLowerPriority(AudioEventRTS &event)
 {
 	const int priority = event.getAudioEventInfo()->priority;
-	if (priority == AP_LOWEST)
-	{
-		return false;
-	}
-	const auto &list = listFor(event.isPositionalAudio() ? VoiceKind::Sample3D : VoiceKind::Sample2D);
+	const float volume = getEffectiveVolume(event);
+	auto &list = listFor(event.isPositionalAudio() ? VoiceKind::Sample3D : VoiceKind::Sample2D);
 	for (const auto &p : list)
 	{
-		if (p->event->getAudioEventInfo()->priority < priority)
+		if (p->event && isLowerSound(p->event->getAudioEventInfo()->priority, getEffectiveVolume(*p->event), priority, volume))
 		{
 			return true;
 		}
@@ -1133,34 +1150,36 @@ bool AudioManager::isPlayingAlready(const AudioEventRTS &event) const
 	return false;
 }
 
-AudioEventRTS *AudioManager::findLowestPrioritySound(const AudioEventRTS &event)
+// Port 178, RW 0x45B446: the lowest sound below `event` (RW 0x450E81, as above), or none
+AudioEventRTS *AudioManager::findLowestPrioritySound(AudioEventRTS &event)
 {
-	const int priority = event.getAudioEventInfo()->priority;
-	if (priority == AP_LOWEST)
-	{
-		return nullptr;
-	}
+	int bestPriority = event.getAudioEventInfo()->priority;
+	float bestVolume = getEffectiveVolume(event);
 	AudioEventRTS *lowest = nullptr;
-	int lowestPriority = AP_CRITICAL + 1;
 	auto &list = listFor(event.isPositionalAudio() ? VoiceKind::Sample3D : VoiceKind::Sample2D);
 	for (auto &p : list)
 	{
-		const int pr = p->event->getAudioEventInfo()->priority;
-		if (pr < priority && (!lowest || lowestPriority > pr))
+		if (!p->event)
+		{
+			continue;
+		}
+		const int priority = p->event->getAudioEventInfo()->priority;
+		const float volume = getEffectiveVolume(*p->event);
+		if (isLowerSound(priority, volume, bestPriority, bestVolume))
 		{
 			lowest = p->event.get();
-			lowestPriority = pr;
-			if (pr == AP_LOWEST)
-			{
-				return lowest;
-			}
+			bestPriority = priority;
+			bestVolume = volume;
 		}
 	}
 	return lowest;
 }
 
-// ZH MilesAudioManager::killLowestPrioritySoundImmediately (its 2D branch erases from the 3D list: a ZH bug; here the right list)
-bool AudioManager::killLowestPrioritySoundImmediately(const AudioEventRTS &event)
+// Port 178, RW 0x45FF7F: the lowest sound below `event` gives up its channel. A victim with loops left goes back to the requests first (RW 0x460071 ->
+// 0x45A188), so a looping sound its object started once (a building's ambient) returns when a channel is free; ZH, and the port before, released it for
+// good and wrote no log line. Not ported: RW's first step for a positional event (RW 0x45FF9F: 0x45E98F, then a free entry in the list at + 0xA3C
+// answers true without a victim).
+bool AudioManager::killLowestPrioritySoundImmediately(AudioEventRTS &event)
 {
 	AudioEventRTS *lowest = findLowestPrioritySound(event);
 	if (!lowest)
@@ -1172,7 +1191,12 @@ bool AudioManager::killLowestPrioritySoundImmediately(const AudioEventRTS &event
 	{
 		if ((*it)->event.get() == lowest)
 		{
-			releasePlaying(**it);
+			PlayingAudio &p = **it;
+			if (!requeueLoop(p, "channel taken by ", event.getEventName().c_str()))
+			{
+				logLine(*p.event, p.event->getPlayingHandle(), true, "channel taken by ", event.getEventName().c_str());
+			}
+			releasePlaying(p);
 			list.erase(it);
 			++m_report.stolenChannels;
 			return true;
@@ -1189,6 +1213,35 @@ void AudioManager::releasePlaying(PlayingAudio &p)
 		p.voice = 0;
 	}
 	p.status = PS_Stopped;
+}
+
+// RW 0x45A188: a playing sound with loops left goes back to the requests. Its delay and file are rolled again (RW 0x6DAC64); still looping, it skips its
+// attack (RW 0x6DB1DE), waits at least one audio step + 1 ms (RW 0x6DAD2E), is marked for the sample check (RW + 0x4B = 1) and is queued (RW 0x4593EA).
+// True when the event went to the requests: it has left `p`, and the caller releases the voice and unlinks the record. The log line is `why` + `detail`
+// + " (loop requeued)". RW's callers: the inaudible cull (0x45BC90), the channel steal (0x460084), no channel at play (0x46179F).
+bool AudioManager::requeueLoop(PlayingAudio &p, const char *why, const char *detail)
+{
+	AudioEventRTS &ev = *p.event;
+	if (!ev.hasMoreLoops())
+	{
+		return false;
+	}
+	ev.rollDelayAndPerFile(m_env);
+	if (!ev.hasMoreLoops())
+	{
+		return false;
+	}
+	ev.advanceNextPlayPortion();
+	const float tick = (float)tickIntervalMs();
+	ev.setDelay(ev.getDelay() < tick + 1.0f ? tick + 1.0f : ev.getDelay());
+	logLine(ev, ev.getPlayingHandle(), true, why, detail, " (loop requeued)");
+	Request again;
+	again.type = RQ_Play;
+	again.pending = std::move(p.event);
+	again.requiresCheckForSample = true;
+	pushRequest(std::move(again));
+	++m_report.requeuedLoops;
+	return true;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
@@ -1707,6 +1760,7 @@ void AudioManager::completeVoice(PlayingAudio &p)
 			{
 				return;
 			}
+			logLine(ev, ev.getPlayingHandle(), true, "ended: the next loop did not start"); // Port 178: this end had no line
 			p.status = PS_Stopped;
 			return;
 		}
@@ -1751,12 +1805,15 @@ void AudioManager::processPlayingList()
 				Coord3D pos;
 				if (!ev.getCurrentPosition(m_env, &pos))
 				{
+					// Port 178: RW requeues a loop here (RW 0x45BD57); the port drops a loop whose owner is gone at its next check (lane AUDIO-3), so it ends, with a line
+					logLine(ev, ev.getPlayingHandle(), true, "ended: no position");
 					releasePlaying(p);
 					it = list.erase(it);
 					continue;
 				}
 				if (ev.isDead(m_env))
 				{
+					logLine(ev, ev.getPlayingHandle(), true, "ended: owner gone");
 					// stopAudioEvent may erase this node (or keep it playing its Decay): step first
 					auto next = std::next(it);
 					stopAudioEvent(ev.getPlayingHandle());
@@ -1764,34 +1821,16 @@ void AudioManager::processPlayingList()
 					continue;
 				}
 				const AudioEventInfo &info = *ev.getAudioEventInfo();
-				const float consider = getEffectiveVolume(ev);
-				const bool playAnyway = (info.type & ST_GLOBAL) || info.priority == AP_CRITICAL;
+				// Port 178, RW 0x45BC4E: the cull asks the volume without the sliders (RW 0x45A10E(playing, 0, 0)), so a low sound slider culls nothing. The
+				// "audible anyway" test is RW 0x452726: type GLOBAL, priority CRITICAL, or a MinVolume at or above MinSampleVolume
+				const float consider = getEffectiveVolume(ev, false);
+				const bool playAnyway = (info.type & ST_GLOBAL) || info.priority == AP_CRITICAL || info.minVolume >= m_ini.settings.minSampleVolume;
 				if (consider < m_ini.settings.minSampleVolume && !playAnyway)
 				{
 					// P-76, RW 0x45BC6D .. 0x45BCA8: below MinSampleVolume the sample is stopped (RW [0xBD0AE0]) and leaves the list, but a sound with
-					// loops left (RW 0x6DAD59) first goes back to the requests through RW 0x45A188: its delay and file are rolled again (RW 0x6DAC64)
-					// and, still looping, it skips its attack (RW 0x6DB1DE), waits at least one audio step + 1 ms (RW 0x6DAD2E), is marked for the
-					// sample check (RW + 0x4B = 1) and is queued (RW 0x4593EA). So an object's looping ambient comes back when the listener returns;
-					// the port released it for good (the drawable only starts its ambient once, RW 0x67866C).
-					const bool loops = ev.hasMoreLoops();
-					if (loops)
-					{
-						ev.rollDelayAndPerFile(m_env);
-					}
-					if (loops && ev.hasMoreLoops())
-					{
-						ev.advanceNextPlayPortion();
-						const float tick = (float)tickIntervalMs();
-						ev.setDelay(ev.getDelay() < tick + 1.0f ? tick + 1.0f : ev.getDelay());
-						logLine(ev, ev.getPlayingHandle(), true, "culled: inaudible (loop requeued)");
-						Request again;
-						again.type = RQ_Play;
-						again.pending = std::move(p.event);
-						again.requiresCheckForSample = true;
-						pushRequest(std::move(again));
-						++m_report.requeuedLoops;
-					}
-					else
+					// loops left (RW 0x6DAD59) first goes back to the requests (requeueLoop, RW 0x45A188). So an object's looping ambient comes back when
+					// the listener returns (the drawable only starts its ambient once, RW 0x67866C).
+					if (!requeueLoop(p, "culled: inaudible"))
 					{
 						logLine(ev, ev.getPlayingHandle(), true, "culled: inaudible");
 					}
@@ -1800,7 +1839,18 @@ void AudioManager::processPlayingList()
 					continue;
 				}
 			}
-			m_device.updateVoice(p.voice, voiceParamsFor(ev, kind));
+			const VoiceParams params = voiceParamsFor(ev, kind);
+			m_device.updateVoice(p.voice, params);
+			if (m_logOn && kind == VoiceKind::Sample3D && (m_report.ticks % kLevelLogTicks) == 0 && ev.hasMoreLoops())
+			{
+				// Port 178 (P-76): what the device was given for every looping 3D voice, once per kLevelLogTicks audio steps
+				Coord3D at;
+				const float distance = ev.getCurrentPosition(m_env, &at) ? length3(m_listenerPosition, at) : -1.0f;
+				char text[160];
+				std::snprintf(text, sizeof text, "level: volume %.3f, left %.4f, right %.4f, distance %.0f", (double)params.volume, (double)params.gainLeft,
+					(double)params.gainRight, (double)distance);
+				logLine(ev, ev.getPlayingHandle(), true, text);
+			}
 			++it;
 		}
 	}
@@ -1985,6 +2035,10 @@ void AudioManager::stopAudioEvent(AudioHandle handle)
 				m_fading.push_back(std::move(*it));
 				list.erase(it);
 				return;
+			}
+			if (p.event->hasMoreLoops())
+			{
+				logLine(*p.event, handle, true, "stopped"); // Port 178: the end of a looping voice is in the log
 			}
 			p.event->stopLooping();
 			// a stopped sound plays its Decay (INI: "a list of wavs to play when killing the sound")
@@ -2268,7 +2322,7 @@ float AudioManager::sliderFactor(const AudioEventInfo &info, bool positionalOrAm
 	return clamp01(v);
 }
 
-float AudioManager::getEffectiveVolume(AudioEventRTS &event)
+float AudioManager::getEffectiveVolume(AudioEventRTS &event, bool applySliders)
 {
 	const AudioEventInfo *info = event.getAudioEventInfo();
 	if (!info)
@@ -2337,7 +2391,10 @@ float AudioManager::getEffectiveVolume(AudioEventRTS &event)
 			volume = minVolume;
 		}
 	}
-	volume *= sliderFactor(*info, positional || info->soundType == AT_AmbientStream);
+	if (applySliders) // RW 0x45938D: the second argument of RW 0x4591D4
+	{
+		volume *= sliderFactor(*info, positional || info->soundType == AT_AmbientStream);
+	}
 	return volume;
 }
 

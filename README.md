@@ -211,6 +211,7 @@ stop* in [docs/STOPS.md](docs/STOPS.md), reported by the game at runtime and
 pinned by a test. There are **941 open stops** today. Some are big
 pinned by a test. There are **928 open stops** today. Some are big
 pinned by a test. There are **929 open stops** today. Some are big
+pinned by a test. There are **942 open stops** today. Some are big
 (retail save files), most are small details waiting for better evidence. The plan to
 get to a 1:1 game is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
