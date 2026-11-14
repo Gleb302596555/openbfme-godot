@@ -1,6 +1,7 @@
 # Несколько агентов в одной рабочей области
 В colab-sandbox одновременно работают Claude и два агента Cline: один на DeepSeek, другой на Qwen
 (модель Qwen стоит на другом аккаунте Colab и приходит через туннель, `tools/colab/ollama_qwen_tunnel.ipynb`).
+- Задача «Local N» (промт с дашборда): работай в станции из промта, `agent/local/station-N`, дерево `workspace/wt/local-station-N` (как его создать, если его нет, — в промте).
 - У каждого агента своё дерево и своя ветка: `python3 tools/agent_worktree.py new <агент> station-1` (станция: дерево остаётся и берёт задачу за задачей)
   (агент `cline-ds` для DeepSeek, `cline-qwen` для Qwen). VS Code открывать на этом дереве, не на общем checkout.
 - Чужие деревья (`workspace/wt/claude-*`, дерево другого Cline) и общий checkout `/content/sandbox/openbfme-godot` не трогать:
