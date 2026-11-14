@@ -238,6 +238,12 @@ public:
 	// the device draws the help box's content clip (its `_type` is helpBox().renderName()) at (x, y, w, h) window pixels: RW 0x92E2AC
 	void helpBoxRender(float x, float y, float w, float h, std::vector<HelpDrawOp> &out);
 	int tooltipDelayMs() const { return m_tooltipDelayMs; }
+	// lane PORT-189 (issue #455): ParasiticInGameCommandButton::Impl left/right click notifications
+	// (RW 0x9D2814 -> 0x9D282D / RW 0x9D288A -> 0x9D28A3; DONOR BFME2 Rva005C33DDWindowNotification.cpp):
+	// drop the control bar's help provider (RW 0x8079BB -> 0x8076CD) before sending GBM_SELECTED (0x4008)
+	// or GBM_SELECTED_RIGHT (0x4009) to ControlBar.
+	static bool dispatchPalantirButtonPress(InGameHelpBox &helpBox, ControlBar &bar, int slot, bool inPalantir);
+	static bool dispatchPalantirRightButtonPress(InGameHelpBox &helpBox, ControlBar &bar, int slot, bool inPalantir, bool shift = false);
 	// lane DEVPORT-8 (FALSEDEF-1): ControlBar.wnd:WinUAttack, the window of the control bar's under-attack blink (ControlBar::AttackFlash; RW 0x71E1E7 keeps
 	// it at ControlBar + 0x2A0), read from window\controlbar.wnd at boot: its SCREENRECT, STATUS and the first image of its enabled / disabled draw data
 	// ("NoImage" = none, as the WND loader reads it). Its look is the default draw's image branch (W3DGameWinDefaultDraw, ZH): the enabled or the
