@@ -84,4 +84,5 @@ private:
 	Coord3D m_goal{ 0.0f, 0.0f, 0.0f }; ///< + 0x20
 	bool m_done = false;                ///< + 0x4C (RW 0x744A5C: 0, no other writer)
 	int m_count = 1;                    ///< + 0x50 (RW 0x744A6B: 1, no other writer)
+	int m_setBeforeCharge = 0;          ///< the set the strike displaced (fork issue 395 Q3; see onExit)
 };
