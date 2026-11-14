@@ -234,6 +234,7 @@ Array GameWorld::take_script_requests()
 			params.push_back(pd);
 		}
 		d["params"] = params;
+		d["focal_mm"] = (double)r.focalMm; // lane PORT-439: FOCAL_LENGTH_CAMERA's focal length (millimetres)
 		d["has_position"] = r.hasPosition;
 		d["x"] = r.position.x;
 		d["y"] = r.position.y;
@@ -334,6 +335,8 @@ Dictionary GameWorld::update_script_view(double delta_ms, const Dictionary &came
 	d["following"] = (int64_t)v.followId();
 	d["zoom"] = v.zoom();
 	d["pitch"] = v.pitch();
+	d["focal_degrees"] = (double)v.focalDegrees(); // lane PORT-439: the view angle in degrees the focal length means (RW 0x8DAF6C)
+	d["focal_animating"] = v.focalAnimating();
 	{
 		std::string note;
 		if (!v.notificationLabel().empty())
