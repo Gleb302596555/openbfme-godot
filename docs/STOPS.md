@@ -1,5 +1,14 @@
 # Acceptance stops
 
+## PORT-135 remaining mechanisms (issue #337)
+
+The shared AttachUpdate defaults are addressed separately. S-2000 remains:
+GUI object targeting omits the special power object filter (RW
+0x82D996–0x82D9D1; `CommandXlat::evaluateGUISpecialPower`). S-1221 remains
+for the unported parts of Disguise (RW 0x8B4760, including the client-side
+perspective); neither mechanism is changed by PORT-135. See
+`docs/ennorath/PORT_135_ATTACH.md`.
+
 ## PORT-5 research stop (issue #57)
 
 PORT-5 implements the charge trigger, speed predicate, reset and associated AI
