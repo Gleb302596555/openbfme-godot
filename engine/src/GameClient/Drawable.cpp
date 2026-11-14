@@ -2025,12 +2025,33 @@ void Drawable::calcPhysicsXformHugeFourLegs(const LocomotorTemplate *loco, const
 
 void Drawable::calcPhysicsXformGiantBird(const LocomotorTemplate *loco, const ObjectSnapshot &rec, const RenderInterpolation::Pose &pose, PhysicsXformInfo &info)
 {
-	// RW 0x670E09 / donor 0x00270B0F: roll ease towards banked angle, clamped to +-0.8
-	m_locoInfo->m_giantBirdRoll *= 0.8f;
-	info.m_totalRoll = m_locoInfo->m_giantBirdRoll;
+	(void)loco;
+	(void)pose;
+	info.m_totalRoll = 0.0f;
 	info.m_totalPitch = 0.0f;
 	info.m_totalYaw = 0.0f;
 	info.m_totalZ = 0.0f;
+	// RW 0x670E09 .. 0x670E9F / DONOR BFME2 0x00270B0F (DrawablePhysicsXformTreads.cpp):
+	// checks AI vslot 0x168 (true only for GiantBirdAIUpdate, RW 0x8BD372; false returns early
+	// without updating m_giantBirdRoll or info.m_totalRoll), reads AI + 0x600 (turnRate) via
+	// vslot 0x188 (RW 0x8CEF91), eases m_giantBirdRoll * 0.8f + (turnRate * 4.0f) * 0.2f and
+	// clamps to [-0.8f, 0.8f] (constants 0xbd88c0=4.0, 0xbde8d8=0.8, 0xbdad78=0.2, 0xc10ea0=-0.8).
+	if (!rec.giantBirdAI)
+	{
+		return;
+	}
+	const float targetRoll = rec.giantBirdTurnRate * 4.0f;
+	float roll = m_locoInfo->m_giantBirdRoll * 0.8f + targetRoll * 0.2f;
+	if (roll < -0.8f)
+	{
+		roll = -0.8f;
+	}
+	else if (roll > 0.8f)
+	{
+		roll = 0.8f;
+	}
+	m_locoInfo->m_giantBirdRoll = roll;
+	info.m_totalRoll = roll;
 }
 
 void Drawable::calcPhysicsXformShip(const LocomotorTemplate *loco, const ObjectSnapshot &rec, const RenderInterpolation::Pose &pose, PhysicsXformInfo &info)

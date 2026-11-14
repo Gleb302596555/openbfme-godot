@@ -1324,6 +1324,8 @@ add_executable(openbfme_tests
     tests/test_local_29.cpp
     # lane LOCAL-46 (passengers on Grond and the mumak: frozen animation, scale pulsing, mumak archers not attached, issue #402 / P-82)
     tests/test_local_46.cpp
+    # lane LOCAL-47 (giant bird banking in turns: eagle and fell beast roll from turnRate, issue #403 / P-80)
+    tests/test_local_47.cpp
     # lane LOCAL-27 (bridges as retail: Bridge block, damage models, towers, scaffold, radar color, issue #189)
     tests/test_local_27.cpp
     # lane LOCAL-33 (castle gates and 'man the walls' as retail: GateProxyBehavior, ManTheWallsSpecialPower, issue #283)

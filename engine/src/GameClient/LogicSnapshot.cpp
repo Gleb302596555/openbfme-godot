@@ -20,6 +20,7 @@
 #include "GameLogic/Locomotor.h"
 #include "GameLogic/SimMath.h"
 #include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Module/GiantBirdAIUpdate.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/Object/Contain/OpenContainRuntime.h"
 #include "GameLogic/Object/Object.h"
@@ -390,6 +391,14 @@ std::shared_ptr<const LogicSnapshot> LogicSnapshot::build(GameLogic &logic, cons
 			if (const Locomotor *l = ai->curLocomotor())
 			{
 				s.locomotorTemplate = &l->getTemplate();
+			}
+			// LOCAL-47 (RW 0x670E29 .. 0x670E3D): Drawable::calcPhysicsXformGiantBird asks AI vslot 0x168
+			// (true only for GiantBirdAIUpdate, RW 0x8BD372) and reads AI + 0x600 (GiantBirdFlight::turnRate)
+			// via vslot 0x188 (RW 0x8CEF91).
+			if (const GiantBirdAIUpdate *birdAi = dynamic_cast<const GiantBirdAIUpdate *>(ai))
+			{
+				s.giantBirdAI = true;
+				s.giantBirdTurnRate = birdAi->flight().turnRate;
 			}
 		}
 		s.scriptTarget = DrawableScriptTarget::capture(logic, *o); // lane FX-3
