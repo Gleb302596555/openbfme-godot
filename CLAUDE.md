@@ -15,6 +15,16 @@ for reference, never extend it.
 - Agents work on their own branch and tree (`tools/agent_worktree.py new <agent> <topic>`), never with
   uncommitted work in the main checkout. The Ennorath workflow is `docs/ennorath/PROCESS.md`.
 
+## Local agents work in Colab (owner, 2026-11-14)
+
+An agent given a "Local N" issue (dashboard prompt) runs on the owner's PC but
+does everything in the owner's Google Colab sandbox over `ssh colab-sandbox`:
+edits, `bash tools/colab/build_tests.sh`, tests, commits and pushes. It never
+builds, tests or runs the game on the PC (no `build.bat`, cmake, ninja,
+`openbfme_tests`, Godot, trees under `workspace/wt` there). Rules: the prompt,
+`.clinerules/colab.md`, `docs/ennorath/PROCESS.md` 7в. The `build.bat` section
+below is for Claude's Windows game build only.
+
 ## Build and test (rebuild scaffold)
 
 - `build.bat` - configures `engine/` with CMake+Ninja under MSVC (vcvars64 via
