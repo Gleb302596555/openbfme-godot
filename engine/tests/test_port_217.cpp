@@ -24,6 +24,7 @@
 #include "doctest.h"
 
 #include "CombatTestUtil.h"
+#include "ProdTestUtil.h"
 
 #include "GameLogic/AI/AIEmotionStates.h"
 #include "GameLogic/Module/ActiveBody.h"
@@ -120,6 +121,13 @@ struct Port217World : combattest::CombatWorld
 		REQUIRE_MESSAGE(err.empty(), err);
 		err = w.load(kPort217Objects, INI_LOAD_OVERWRITE, "port217.ini");
 		REQUIRE_MESSAGE(err.empty(), err);
+		// GameData's build time settings (prodtest::defaultSettings: loaded, no low-energy or multiple-factory penalty) and the
+		// build rules the site legality's terrain pass needs; the port's own fixtures do the same
+		logic->productionSettings() = prodtest::defaultSettings();
+		logic->settings().buildRulesLoaded = true;
+		// a task ordered on frame 0 has no "most recent" order frame yet (RW 0x88BE47 compares the order frame strictly), so the
+		// world runs three frames first, as the combat fixture's `unit` does for every object
+		frames(3);
 	}
 
 	Object *porter(float x, float y, float facing)
@@ -267,9 +275,10 @@ TEST_CASE("PORT-217 an immobile structure as the target is faced too: the turn d
 	w.frames(1);
 	// state 36 turns the builder in place: the locomotor goal angle, not a move (RW 0x75638B)
 	CHECK(w.until(200, [&] { return w.angleTo(*porter, *building) < kFacedEnough; }));
-	// and the turn is what the work waits for: the structure was never damaged, so the repair ends as soon as it reaches
+	// and the turn is what the work waits for: the structure was never damaged, so the repair task ends as soon as it reaches
 	// sub task 3 (RW 0x88DB8F: the health is full), which means the sub task 3 gate itself was reached
-	CHECK(d->getBuildSubTask() == DozerAIUpdate::DOZER_DO_BUILD_AT_DOCK);
+	CHECK(w.until(60, [&] { return !d->repairing(); }));
+	CHECK(w.angleTo(*porter, *building) < kFacedEnough);
 }
 
 TEST_CASE("PORT-217 the work does not start before the turn ends: a builder at the dock still turning keeps the work waiting (RW 0x88DD5F)")
