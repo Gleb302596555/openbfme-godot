@@ -23,6 +23,7 @@
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/InvisibilityModules.h"
+#include "GameLogic/Module/SpawnBehavior.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectFilterMatch.h"
@@ -35,6 +36,7 @@
 #include "GameLogic/WeaponSet.h"
 #include "GameLogic/Module/SiegeModules.h"
 
+#include <cmath>
 #include <cstring>
 #include <stdexcept>
 
@@ -1299,10 +1301,10 @@ bool ObjectWeapons::canAttackObject(const Object &victim, CommandSourceType sour
 	return !(source != CMD_FROM_SCRIPT && ShroudManager::isShroudedForAction(*m_owner, victim));
 }
 
-bool ObjectWeapons::canAttackObjectNoShroud(const Object &victim, CommandSourceType source, bool forced) const
+bool ObjectWeapons::canAttackObjectGates(const Object &sourceObj, const Object &victim, CommandSourceType source, bool forced)
 {
 	const CombatNames::Status &st = CombatNames::statuses();
-	if (&victim == m_owner || !CombatQueries::isAlive(*m_owner) || !CombatQueries::isAlive(victim))
+	if (&victim == &sourceObj || !CombatQueries::isAlive(sourceObj) || !CombatQueries::isAlive(victim))
 	{
 		return false;
 	}
@@ -1314,7 +1316,7 @@ bool ObjectWeapons::canAttackObjectNoShroud(const Object &victim, CommandSourceT
 		return false;
 	}
 	// RW 0x6C9147: the non-forced relationship veto applies only to player commands (source 0).
-	if (!forced && source == CMD_FROM_PLAYER && m_owner->getRelationship(victim) != ENEMIES)
+	if (!forced && source == CMD_FROM_PLAYER && sourceObj.getRelationship(victim) != ENEMIES)
 	{
 		return false;
 	}
@@ -1330,9 +1332,9 @@ bool ObjectWeapons::canAttackObjectNoShroud(const Object &victim, CommandSourceT
 	{
 		disguise = nullptr;
 	}
-	const bool ignoreStealth = m_owner->testStatus((unsigned)kIgnoringStealth) || (forced && m_owner->getControllingPlayer() == victim.getControllingPlayer()) ||
+	const bool ignoreStealth = sourceObj.testStatus((unsigned)kIgnoringStealth) || (forced && sourceObj.getControllingPlayer() == victim.getControllingPlayer()) ||
 	                           (forced && disguise);
-	if (!ignoreStealth && InvisibilityManager::isStealthedAndUndetected(victim, m_owner->getControllingPlayer()))
+	if (!ignoreStealth && InvisibilityManager::isStealthedAndUndetected(victim, sourceObj.getControllingPlayer()))
 	{
 		if (!victim.isKindOf((unsigned)kDisguiser))
 		{
@@ -1340,13 +1342,22 @@ bool ObjectWeapons::canAttackObjectNoShroud(const Object &victim, CommandSourceT
 		}
 		if (disguise)
 		{
-			const Player *attacker = m_owner->getControllingPlayer();
+			const Player *attacker = sourceObj.getControllingPlayer();
 			const Player *as = victim.logic().players().getNthPlayer(disguise->disguisePlayerIndex());
 			if (attacker && as && attacker->getRelationship(as->getDefaultTeam()) != ENEMIES)
 			{
 				return false;
 			}
 		}
+	}
+	return true;
+}
+
+bool ObjectWeapons::canAttackObjectNoShroud(const Object &victim, CommandSourceType source, bool forced) const
+{
+	if (!canAttackObjectGates(*m_owner, victim, source, forced))
+	{
+		return false;
 	}
 	const unsigned mask = victimAntiMask(victim);
 	for (const std::unique_ptr<Weapon> &w : m_weapons)
@@ -1357,6 +1368,177 @@ bool ObjectWeapons::canAttackObjectNoShroud(const Object &victim, CommandSourceT
 		}
 	}
 	return false;
+}
+
+// PORT-198 (RW 0x6C8652): WeaponSet::getAbleToUseWeaponAgainstTarget
+CanAttackResult ObjectWeapons::getAbleToUseWeaponAgainstTarget(AbleToAttackType attackType, const Object *victim, const Coord3D *pos, CommandSourceType source) const
+{
+	if (!victim && !pos)
+	{
+		return ATTACKRESULT_NOT_POSSIBLE;
+	}
+	const Coord3D targetPos = victim ? *victim->getPosition() : *pos;
+	const unsigned antiMask = victim ? victimAntiMask(*victim) : WEAPON_ANTI_GROUND;
+	const CombatNames::Kind &k = CombatNames::kinds();
+	static const int kContesting = CombatNames::status("CONTESTING_BUILDING");
+	if (m_owner->testStatus((unsigned)kContesting) && (static_cast<unsigned>(attackType) & 8u) == 0u)
+	{
+		if (!victim)
+		{
+			return ATTACKRESULT_INVALID_SHOT;
+		}
+	}
+	bool hasAWeapon = false;
+	bool withinAttackRange = false;
+	unsigned totalAnti = 0;
+	ObjectWeapons *self = const_cast<ObjectWeapons *>(this);
+	const RangeSubject src = subjectOf(*m_owner);
+	for (int slot = 0; slot < WEAPONSLOT_COUNT; ++slot)
+	{
+		const Weapon *w = m_weapons[(size_t)slot].get();
+		if (!w || !w->getTemplate())
+		{
+			continue;
+		}
+		hasAWeapon = true;
+		totalAnti |= w->getTemplate()->m_antiMask;
+		if (victim && w->getTemplate()->m_bombardType)
+		{
+			continue;
+		}
+		bool inRange = false;
+		if (victim)
+		{
+			inRange = isSlotWithinAttackRange(slot, *victim, 0.0f, true);
+		}
+		else
+		{
+			WeaponBonus bonus;
+			w->computeBonus(*self->m_host, 0, bonus);
+			inRange = WeaponIsWithinAttackRange(*w->getTemplate(), bonus, *self->m_rangeHost, src, src.position, nullptr, targetPos, 0.0f, true);
+		}
+		if (inRange)
+		{
+			bool aimOk = true;
+			if (m_owner->isKindOf((unsigned)k.immobile))
+			{
+				const AIUpdateInterface *ai = m_owner->getAIUpdateInterface();
+				if (!ai || !ai->turret())
+				{
+					const float aimDelta = w->getTemplate()->m_aimDelta;
+					const float dx = SimMath::subf32(targetPos.x, m_owner->getPosition()->x);
+					const float dy = SimMath::subf32(targetPos.y, m_owner->getPosition()->y);
+					if (aimDelta > 0.0f && (dx != 0.0f || dy != 0.0f))
+					{
+						double diff = SimMath::subD(SimMath::atan2d(dy, dx), (double)m_owner->getOrientation());
+						const double kPi = 3.14159265358979323846;
+						const double kTwoPi = 6.28318530717958647692;
+						while (diff > kPi)
+						{
+							diff = SimMath::subD(diff, kTwoPi);
+						}
+						while (diff < -kPi)
+						{
+							diff = SimMath::addD(diff, kTwoPi);
+						}
+						if (SimMath::fstpDword(SimMath::absD(diff)) > aimDelta)
+						{
+							aimOk = false;
+						}
+					}
+				}
+			}
+			if (aimOk)
+			{
+				withinAttackRange = true;
+			}
+		}
+	}
+	const Object *containedBy = m_owner->getContainedBy();
+	const AIUpdateInterface *ai = m_owner->getAIUpdateInterface();
+	const bool immobileOrHeld = m_owner->isKindOf((unsigned)k.immobile) ||
+	                            m_owner->isKindOf((unsigned)k.spawnsAreTheWeapons) ||
+	                            (containedBy && !containedBy->isKindOf((unsigned)k.horde)) ||
+	                            (ai && ai->curLocomotor() && ai->curLocomotorSpeed() <= 0.0f);
+	if (hasAWeapon && !withinAttackRange && attackType != ATTACK_TUNNEL_NETWORK_GUARD && immobileOrHeld)
+	{
+		return ATTACKRESULT_INVALID_SHOT;
+	}
+	const CanAttackResult okResult = withinAttackRange ? ATTACKRESULT_POSSIBLE : ATTACKRESULT_POSSIBLE_AFTER_MOVING;
+	if ((totalAnti & antiMask) == 0u)
+	{
+		return ATTACKRESULT_INVALID_SHOT;
+	}
+	if (!victim)
+	{
+		return okResult;
+	}
+	const int first = isCurWeaponLocked() ? curSlot() : WEAPONSLOT_COUNT - 1;
+	const int last = isCurWeaponLocked() ? curSlot() : PRIMARY_WEAPON;
+	for (int slot = first; slot >= last; --slot)
+	{
+		const Weapon *w = weaponInSlot(slot);
+		if (!w || !canDamage(*w, *const_cast<Object *>(victim)))
+		{
+			continue;
+		}
+		bool onlyAgainst = false, matches = false;
+		for (size_t word = 0; m_set && word < m_set->m_onlyAgainst[slot].size(); ++word)
+		{
+			onlyAgainst = onlyAgainst || m_set->m_onlyAgainst[slot][word] != 0;
+			matches = matches || (m_set->m_onlyAgainst[slot][word] & victim->getKindOf()[word]) != 0;
+		}
+		if (!onlyAgainst || matches)
+		{
+			return okResult;
+		}
+	}
+	if (const ContainModuleInterface *contain = m_owner->getContain(); contain && contain->isPassengerAllowedToFire())
+	{
+		if (const ContainModuleInterface::ContainedItemsList *items = contain->getContainedItemsList())
+		{
+			for (const Object *passenger : *items)
+			{
+				if (passenger && passenger->isAbleToAttack())
+				{
+					const CanAttackResult pr = passenger->getAbleToUseWeaponAgainstTarget(attackType, victim, pos, source);
+					if (pr == ATTACKRESULT_POSSIBLE || pr == ATTACKRESULT_POSSIBLE_AFTER_MOVING)
+					{
+						return pr;
+					}
+				}
+			}
+		}
+	}
+	if (const SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(*m_owner))
+	{
+		// RW 0x6C8A01: SpawnBehaviorInterface slot 6 (getCanAnySlavesUseWeaponAgainstTarget)
+		if (spawn->getCanAnySlavesUseWeaponAgainstTarget(attackType, victim, pos, source) == ATTACKRESULT_POSSIBLE)
+		{
+			if (m_owner->isKindOf((unsigned)k.immobile) && m_owner->isKindOf((unsigned)k.spawnsAreTheWeapons) &&
+			    okResult == ATTACKRESULT_POSSIBLE_AFTER_MOVING)
+			{
+				return ATTACKRESULT_POSSIBLE; // RW 0x6C8A3C: mov [ebp - 8], ebx (ATTACKRESULT_POSSIBLE)
+			}
+			return okResult;
+		}
+	}
+	return ATTACKRESULT_INVALID_SHOT;
+}
+
+// PORT-198 (RW 0x6C9147): WeaponSet::getAbleToAttackSpecificObject
+CanAttackResult ObjectWeapons::getAbleToAttackSpecificObject(AbleToAttackType attackType, const Object *victim, CommandSourceType source) const
+{
+	if (!victim)
+	{
+		return ATTACKRESULT_NOT_POSSIBLE;
+	}
+	const bool forced = (static_cast<unsigned>(attackType) & 1u) != 0u;
+	if (!canAttackObjectGates(*m_owner, *victim, source, forced))
+	{
+		return ATTACKRESULT_NOT_POSSIBLE;
+	}
+	return getAbleToUseWeaponAgainstTarget(attackType, victim, victim->getPosition(), source);
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------

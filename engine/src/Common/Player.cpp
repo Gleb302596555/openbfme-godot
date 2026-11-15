@@ -356,6 +356,15 @@ int Player::applyHandicapMoney(int amount) const
 	return host().applyHandicapMoney(*this, amount);
 }
 
+void Player::onUnitCreated(Object *factory, Object *unit)
+{
+	if (!unit || !m_host)
+	{
+		return;
+	}
+	m_host->onUnitCreated(*this, factory, *unit); // PORT-198 (RW 0x6AA688 -> 0x6C77C9)
+}
+
 void Player::addCostModifier(std::shared_ptr<const ObjectFilter> filter, const std::vector<float> &percents, ObjectID source, bool slaughter)
 {
 	CostModifier c; // RW 0x6AD845: a new entry at the end of the list

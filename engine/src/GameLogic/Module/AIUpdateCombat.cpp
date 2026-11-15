@@ -29,8 +29,10 @@
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/ObjectTemplateInfo.h"
+#include "GameLogic/Module/SpawnBehavior.h"
 #include "GameLogic/Module/StancesBehavior.h"
 #include "GameLogic/System/InvisibilityManager.h"
+#include "GameLogic/System/ShroudManager.h"
 #include "GameLogic/SimMath.h"
 #include "Common/INI/HostRealText.h"
 
@@ -350,9 +352,23 @@ bool AIUpdateInterface::aiAttackObject(Object *victim, CommandSourceType source,
 	{
 		return false;
 	}
+	const bool spawnsAreTheWeapons = obj->isKindOf((unsigned)CombatNames::kinds().spawnsAreTheWeapons);
 	ObjectWeapons *w = obj->getWeapons();
 	if (!w || !w->canAttackObject(*victim, source, false))
 	{
+		// PORT-198 (RW 0x66BD33 -> 0x66BEC3): a SPAWNS_ARE_THE_WEAPONS spawner (e.g. Mallorn Tree, Mordor Barricade) delegates via slot 3 even without its own weapon
+		if (spawnsAreTheWeapons && (source == CMD_FROM_SCRIPT || !ShroudManager::isShroudedForAction(*obj, *victim)))
+		{
+			if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(*obj))
+			{
+				const CanAttackResult res = spawn->getCanAnySlavesAttackSpecificTarget(ATTACK_NEW_TARGET, victim, source);
+				if (res == ATTACKRESULT_POSSIBLE || res == ATTACKRESULT_POSSIBLE_AFTER_MOVING)
+				{
+					spawn->orderSlavesToAttackTarget(victim, maxShotsToFire, source);
+					return true;
+				}
+			}
+		}
 		return false;
 	}
 	m_machine->clear();
@@ -379,6 +395,13 @@ bool AIUpdateInterface::aiAttackObject(Object *victim, CommandSourceType source,
 	if (source == CMD_FROM_PLAYER || source == CMD_FROM_SCRIPT)
 	{
 		postEnterStateAttackVoice(*obj, *victim);
+	}
+	if (spawnsAreTheWeapons)
+	{
+		if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(*obj))
+		{
+			spawn->orderSlavesToAttackTarget(victim, maxShotsToFire, source); // RW 0x66BEC3 -> slot 3 (0xC)
+		}
 	}
 	wakeUpNow();
 	return true;

@@ -76,6 +76,10 @@ Object *placeObjectAtPosition(GameLogic &logic, Player &player, const std::strin
 		Construction::onStructureCreated(player, nullptr, *obj);
 		Construction::onStructureConstructionComplete(player, nullptr, *obj, false);
 	}
+	else
+	{
+		player.onUnitCreated(nullptr, obj); // PORT-198 (RW 0x62B147 -> 0x6AA688)
+	}
 	return obj;
 }
 } // namespace
@@ -505,8 +509,8 @@ void StartingBase::registerLivingWorldHandlers(GameLogicDispatch &dispatcher)
 std::vector<std::string> StartingBase::stopLines()
 {
 	return {
-		"[S-272] starting base: ported from the RotWK 2.01 disassembly (RW 0x62AC17; S-001 caveat). Not ported: Player::onStructureCreated / onStructureConstructionComplete / "
-		"onUnitCreated, the team activation, the pathfinder registration and the adjusted destination of mobile units, the partition search of a "
+		"[S-272] starting base: ported from the RotWK 2.01 disassembly (RW 0x62AC17; S-001 caveat). Player::onUnitCreated (RW 0x6AA688) runs (PORT-198). Not ported: Player::onStructureCreated / onStructureConstructionComplete, "
+		"the team activation, the pathfinder registration and the adjusted destination of mobile units, the partition search of a "
 		"zero-offset starting unit (an error), and the CRT acos / sin / cos parity (S-081 / S-167)",
 	};
 }

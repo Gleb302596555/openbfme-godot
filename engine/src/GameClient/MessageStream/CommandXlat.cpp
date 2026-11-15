@@ -29,12 +29,14 @@
 #include "GameLogic/Module/BehaviorModule.h"
 #include "GameLogic/Module/BloodthirstyUpdate.h"
 #include "GameLogic/Module/SiegeModules.h"
+#include "GameLogic/Module/SpawnBehavior.h"
 #include "GameLogic/AI/AIPathfind.h"
 #include "GameLogic/AI/AIWorld.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/GiantBirdAIUpdate.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/SimMath.h"
+#include "GameLogic/System/ShroudManager.h"
 
 #include <cstdlib>
 
@@ -148,6 +150,10 @@ bool CommandTranslator::objectCanAttack(Object &obj)
 			}
 		}
 	}
+	if (const SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(obj); spawn && spawn->canAnySlavesAttack())
+	{
+		return true;
+	}
 	return false;
 }
 
@@ -180,6 +186,12 @@ bool CommandTranslator::objectCanDamage(Object &obj, Object &victim)
 				return true;
 			}
 		}
+		// PORT-198 (RW 0x6C8A01): WeaponSet slot 6 fallback if the object had matching anti-mask weapons that didn't directly apply
+		const CanAttackResult res = obj.getAbleToUseWeaponAgainstTarget(ATTACK_NEW_TARGET, &victim, victim.getPosition(), CMD_FROM_PLAYER);
+		if (res == ATTACKRESULT_POSSIBLE || res == ATTACKRESULT_POSSIBLE_AFTER_MOVING)
+		{
+			return true;
+		}
 	}
 	if (ContainModuleInterface *contain = obj.getContain())
 	{
@@ -188,6 +200,20 @@ bool CommandTranslator::objectCanDamage(Object &obj, Object &victim)
 			for (Object *member : *items)
 			{
 				if (member && member != &obj && objectCanDamage(*member, victim))
+				{
+					return true;
+				}
+			}
+		}
+	}
+	if (obj.isKindOf((unsigned)CombatNames::kinds().spawnsAreTheWeapons) && !ShroudManager::isShroudedForAction(obj, victim))
+	{
+		if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(obj))
+		{
+			if (Object *slave = spawn->getClosestSlave(victim.getPosition()))
+			{
+				const CanAttackResult res = slave->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET, &victim, CMD_FROM_PLAYER);
+				if (res == ATTACKRESULT_POSSIBLE || res == ATTACKRESULT_POSSIBLE_AFTER_MOVING)
 				{
 					return true;
 				}
@@ -387,6 +413,20 @@ int CommandTranslator::evaluateForceAttack(Object *target, const Coord3D *pos, E
 		// RW 0x81E594 .. 0x81E5A3: the invalid hint (0xB2, GenericInvalid) is only for the eligibility result 1; result 0 (no attacker) gives no hint.
 		// The boolean test here stands for result 0 (S-286), so no hint (lane INPUT-1 r4)
 		return 0;
+	}
+	if (target && first->isKindOf((unsigned)CombatNames::kinds().spawnsAreTheWeapons) && !first->hasAnyWeapon())
+	{
+		SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(*first);
+		Object *slave = spawn ? spawn->getClosestSlave(target->getPosition()) : nullptr;
+		const CanAttackResult res = slave ? slave->getAbleToAttackSpecificObject(ATTACK_NEW_TARGET_FORCED, target, CMD_FROM_PLAYER) : ATTACKRESULT_NOT_POSSIBLE;
+		if (res != ATTACKRESULT_POSSIBLE && res != ATTACKRESULT_POSSIBLE_AFTER_MOVING)
+		{
+			if (res == ATTACKRESULT_INVALID_SHOT && type == EvaluateType::DoHint)
+			{
+				hint(MouseCursorName::GenericInvalid);
+			}
+			return 0;
+		}
 	}
 	const int msgType = target ? MSG_DO_FORCE_ATTACK_OBJECT : MSG_DO_FORCE_ATTACK_GROUND;
 	if (type == EvaluateType::DoCommand)

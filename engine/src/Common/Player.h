@@ -250,6 +250,8 @@ public:
 	// lane BRUTALAI-1: the Brutal skirmish AI's cost (`time` false) or time reduction m = min(1.0, r) when it applies (PlayerEconomyHost::brutalReduction)
 	std::optional<float> getBrutalBuildReduction(bool time) const;
 	int applyHandicapMoney(int amount) const;                        // RW 0x6AA858
+	// PORT-198 (RW 0x6AA688): notifies SkirmishAIManager::unitCreated (TheScriptEngine / AIPlayer remain unported per S-412)
+	void onUnitCreated(Object *factory, Object *unit);
 
 	// ---- lane UPGRADE-1: the player's upgrades -------------------------------------------------------------------------------------
 	// RW Player + 0x9C: the Upgrade records (status IN_PRODUCTION 1 / COMPLETE 2, newest first), + 0xBC the in-production mask, + 0x14C the completed mask.

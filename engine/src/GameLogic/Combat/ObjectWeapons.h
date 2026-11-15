@@ -130,6 +130,10 @@ public:
 	// TOP20 #21 r3: canAttackObject without the order's shroud gate (VIS-1, RW 0x82C167: the action helper's, not RW 0x6C9147's): the attack machine's
 	// continue test RW 0x7417E4 .. 0x741807 calls RW 0x68D6A6 -> RW 0x6C9147, which has no shroud test
 	bool canAttackObjectNoShroud(const Object &victim, CommandSourceType source, bool forced) const;
+	// PORT-198 (RW 0x6C9147 pre-weapon eligibility gates + RW 0x6C8652 / 0x6C9147 CanAttackResult):
+	static bool canAttackObjectGates(const Object &sourceObj, const Object &victim, CommandSourceType source, bool forced);
+	CanAttackResult getAbleToUseWeaponAgainstTarget(AbleToAttackType attackType, const Object *victim, const Coord3D *pos, CommandSourceType source) const;
+	CanAttackResult getAbleToAttackSpecificObject(AbleToAttackType attackType, const Object *victim, CommandSourceType source) const;
 
 	// ---- range ---------------------------------------------------------------------------------------------------------------------
 	// RW 0x6CC653: Weapon::isWithinAttackRange(source, victim, extra, checkMinRange) for the current weapon; the AI passes extra 0 and checkMin true
