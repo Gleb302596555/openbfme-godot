@@ -23,7 +23,8 @@ namespace
 {
 // Ennorath's Rebuild is enum 0x81 and an ally-object button, not the similarly
 // named position button. Timings are shortened for repeated deterministic casts;
-// the module types, heal parameters and Cloud Break spacing follow the mod.
+// the module types, heal parameters and Cloud Break spacing follow the mod. The
+// MP command-center filter is simplified to the kinds relevant to these objects.
 const char kData[] = R"(
 Science TestRebuildScience
 End
@@ -59,6 +60,7 @@ Object TestSpellBook
  Behavior = PlayerHealSpecialPower HealTag
   SpecialPowerTemplate = TestRebuild
   AvailableAtStart = Yes
+  RequirementsFilterMPSkirmish = ANY +COMMANDCENTER -HERO
   HealAmount = 4000
   HealAsPercent = No
   HealRadius = 200
@@ -67,6 +69,7 @@ Object TestSpellBook
  Behavior = CloudBreakSpecialPower CloudTag
   SpecialPowerTemplate = TestCloudBreak
   AvailableAtStart = Yes
+  RequirementsFilterMPSkirmish = ANY +COMMANDCENTER -HERO
   SunbeamObject = TestSunbeam
   ObjectSpacing = 300
  End
@@ -77,6 +80,12 @@ Object TestBuilding
  GeometryMajorRadius = 10
  GeometryMinorRadius = 10
  GeometryHeight = 20
+ Body = ActiveBody BodyTag
+  MaxHealth = 5000
+ End
+End
+Object TestCenter
+ KindOf = STRUCTURE COMMANDCENTER IMMOBILE
  Body = ActiveBody BodyTag
   MaxHealth = 5000
  End
@@ -99,7 +108,7 @@ struct SpellRig
  Object *enemy = nullptr;
  InGameSpellBookModel bar;
 
- explicit SpellRig(bool grant = true)
+ explicit SpellRig(bool grant = true, bool center = true)
  {
   stores.install();
   SpellStores::registerBlocks(world.w.fx.env.blocks);
@@ -114,6 +123,7 @@ struct SpellRig
   player = world.playerOf('A');
   REQUIRE(player);
   world.players.setLocalPlayer(player);
+  player->initScience(SpellGameMode{true, false});
   if (grant)
   {
    REQUIRE(player->science().grantScience(stores.sciences().getScienceFromInternalName("TestRebuildScience")));
@@ -123,6 +133,12 @@ struct SpellRig
   book = world.unit("TestSpellBook", 'A', 100, 100);
   own = world.unit("TestBuilding", 'A', 500, 500);
   enemy = world.unit("TestBuilding", 'B', 550, 500);
+  if (center)
+  {
+   Object *citadel = world.unit("TestCenter", 'A', 200, 200);
+   REQUIRE(citadel);
+   citadel->friend_onBuildComplete();
+  }
   REQUIRE(book); REQUIRE(own); REQUIRE(enemy);
   own->friend_onBuildComplete();
   enemy->friend_onBuildComplete();
@@ -236,6 +252,42 @@ TEST_CASE("PORT-432 science gating: unowned powers do not send messages")
  CHECK(r.bar.press(0, r.player->getPlayerIndex(), messages));
  CHECK(r.bar.targeting());
  CHECK(messages.empty());
+}
+
+TEST_CASE("PORT-432 skirmish requirement: only an owned command center enables the powers")
+{
+ // The mod's filter is ANY +COMMANDCENTER with additional exclusions; this
+ // fixture uses the same relevant kind predicate. RW 0x8969E5 -> 0x6ABD0B.
+ SpellRig r(true, false);
+ auto *heal = r.module("TestRebuild");
+ auto *cloud = r.module("TestCloudBreak");
+ REQUIRE(r.player->science().mode().skirmishOrMultiplayer);
+ CHECK_FALSE(heal->requirementsMet());
+ CHECK_FALSE(cloud->requirementsMet());
+ REQUIRE(r.bar.refresh(r.commandStore, *r.world.logic, *r.player));
+ std::vector<GameMessage> messages;
+ CHECK_FALSE(r.bar.press(0, r.player->getPlayerIndex(), messages));
+ CHECK_FALSE(r.bar.press(1, r.player->getPlayerIndex(), messages));
+ Object *otherCenter = r.world.unit("TestCenter", 'B', 200, 200);
+ REQUIRE(otherCenter);
+ otherCenter->friend_onBuildComplete();
+ CHECK_FALSE(heal->requirementsMet());
+ Object *ownCenter = r.world.unit("TestCenter", 'A', 300, 300);
+ REQUIRE(ownCenter);
+ // The port approximates RW's construction model conditions with statuses (S-253).
+ ownCenter->setStatus(OBJECT_STATUS_UNDER_CONSTRUCTION, true);
+ CHECK_FALSE(heal->requirementsMet());
+ CHECK_FALSE(cloud->requirementsMet());
+ ownCenter->setStatus(OBJECT_STATUS_UNDER_CONSTRUCTION, false);
+ ownCenter->friend_onBuildComplete();
+ CHECK(heal->requirementsMet());
+ CHECK(cloud->requirementsMet());
+ REQUIRE(r.bar.refresh(r.commandStore, *r.world.logic, *r.player));
+ CHECK(r.bar.press(1, r.player->getPlayerIndex(), messages));
+ REQUIRE(messages.size() == 1u);
+ r.send(messages);
+ CHECK(r.spells.casts() == 1u);
+ CHECK_FALSE(cloud->isReady());
 }
 
 TEST_CASE("PORT-432 synthetic Apt button: a stable click releases with batched or split events")

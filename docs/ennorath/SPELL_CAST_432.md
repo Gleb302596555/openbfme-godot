@@ -123,3 +123,16 @@ has not been reproduced.
   scheduling point to measure, not a diagnosis. Compare callback arrival,
   cached button state, input-enabled flag and emitted message in a synthetic
   HUD fixture; do not infer an intermittent failure merely from the ordering.
+
+## Skirmish spell-book requirement control
+
+Ennorath's `SPELL_BOOK_REQUIREMENTS_FILTER` in `data/ini/object/system/system.ini`
+selects a command center and excludes several object names and kinds. RW
+0x8969E5..0x896A2F chooses the skirmish filter and calls 0x6ABD0B to find a
+completed match belonging to the player. The synthetic fixture now uses an
+explicit skirmish mode and a simplified `ANY +COMMANDCENTER -HERO` filter; it
+checks missing, enemy-owned, under-construction and completed own centers.
+The construction-status approximation in the port is already recorded as
+S-253. This control is not yet runtime-tested, and an absent center is not an
+established cause of the reported intermittent failure. No production
+behavior was changed.
