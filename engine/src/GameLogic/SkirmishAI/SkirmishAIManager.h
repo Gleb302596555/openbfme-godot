@@ -163,6 +163,8 @@ public:
 	// RW 0x8F06FF(builder, structure, 1)
 	void dozerIdle(Object &dozer);
 	void structureBuilt(Object &builder, Object &structure);
+	// PORT-198 (RW 0x6AA688 -> RW 0x6C77C9): Player::onUnitCreated forwards to the controlling player's active AI (disabled AIs skip)
+	void unitCreated(const Player &player, Object *factory, const Object &unit);
 
 	const std::vector<std::unique_ptr<AISkirmishGroup>> &groups() const { return m_groups; }
 	const AISkirmishPlayer *findAI(int playerIndex) const;

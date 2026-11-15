@@ -1310,7 +1310,11 @@ void ProductionUpdate::completeUnit(ProductionEntry *entry, Player *player, Unsi
 				}
 			}
 			newObj->updateUpgradeModules();
-			// RW 0x8A294D .. 0x8A29EC: voice / EVA events (audio), the player's unit created hook, then CreateModule::onBuildComplete on every create module
+			// RW 0x8A294D .. 0x8A29EC: voice / EVA events (audio), the player's unit created hook (RW 0x8A29E5 -> 0x6AA688, PORT-198), then CreateModule::onBuildComplete
+			if (player)
+			{
+				player->onUnitCreated(us, newObj);
+			}
 			for (const std::unique_ptr<BehaviorModule> &m : newObj->modules())
 			{
 				if (CreateModuleInterface *create = m->getCreate())

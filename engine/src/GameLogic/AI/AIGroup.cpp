@@ -13,6 +13,7 @@
 #include "GameLogic/Module/PhysicsBehavior.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/InvisibilityModules.h"
+#include "GameLogic/Module/SpawnBehavior.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/SimMath.h"
@@ -564,6 +565,11 @@ void AIGroup::groupIdle(CommandSourceType source)
 		{
 			ai->aiIdle(source);
 		}
+		// PORT-198 (RW 0x77205F -> 0x68C3A3 slot 8 / 0x20: SpawnBehaviorInterface::orderSlavesToGoIdle)
+		if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(*o))
+		{
+			spawn->orderSlavesToGoIdle(source);
+		}
 	}
 }
 
@@ -572,8 +578,8 @@ void AIGroup::groupIdle(CommandSourceType source)
 const char *AIGroup::forceAttackStopLine()
 {
 	return "[S-2480] force attack (lane PLAY-2): MSG_DO_FORCE_ATTACK_GROUND (RW 0x77AF93) and MSG_DO_FORCE_ATTACK_OBJECT (RW 0x77AED3) run with the group's "
-		"weapon locks, groupAttackPosition and aiAttackPosition (state 9); not ported: the passengers of a container that lets them fire and the slaves of a "
-		"spawner in groupAttackPosition (RW 0x77229A: the container's allowed-to-fire test, its passenger list and SpawnBehaviorInterface slot 4 have no port), "
+		"weapon locks, groupAttackPosition (including SpawnBehaviorInterface slot 4 orderSlavesToAttackPosition RW 0x772369, PORT-198) and aiAttackPosition (state 9); not ported: the passengers of a container that lets them fire "
+		"in groupAttackPosition (RW 0x77229A: the container's allowed-to-fire test and its passenger list have no port), "
 		"the object form's "
 		"reserved-id branch (victim id 99999999, the tree stand-in object of RW 0x62F508, with AIData AllowForestFires: the map tree at the click made an "
 		"object, RW 0x68449B, ported as TerrainTrees::makeTreeObject; the stand-in and the client's tree pick are not; retail and Ennorath set No), the outside-the-playable-area refusal (Object + 0x458 bit 3 is never set); the group's weapon lock and its release are Object::setWeaponLock "
@@ -639,6 +645,10 @@ void AIGroup::groupAttackPosition(const Coord3D &pos, int maxShotsToFire, Comman
 	m_logic.noteStop(forceAttackStopLine());
 	for (Object *o : m_members)
 	{
+		if (SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(*o))
+		{
+			spawn->orderSlavesToAttackPosition(&pos, maxShotsToFire, source); // RW 0x772369 -> 0x68C3A3 slot 4 (0x10), PORT-198
+		}
 		if (AIUpdateInterface *ai = o->getAIUpdateInterface())
 		{
 			ai->aiAttackPosition(pos, maxShotsToFire, source);

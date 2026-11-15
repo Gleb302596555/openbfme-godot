@@ -43,6 +43,26 @@ class WeaponTemplate;
 // RW 0xDA1328 (104 names, 128-bit mask). Bit i is TheWeaponConditionNames[i].
 typedef WeaponConditionFlags WeaponSetFlags;
 
+// RW 0x6C9147 / 0x6C8652 / 0x862990 / 0x82CFD4 (CanAttackResult)
+enum CanAttackResult
+{
+	ATTACKRESULT_NOT_POSSIBLE = 0,
+	ATTACKRESULT_INVALID_SHOT = 1,
+	ATTACKRESULT_POSSIBLE_AFTER_MOVING = 2,
+	ATTACKRESULT_POSSIBLE = 3,
+};
+
+// RW 0x68D6A6 / 0x68B5FA / 0x6C8652 / 0x6C9147 (AbleToAttackType)
+enum AbleToAttackType
+{
+	ATTACK_NEW_TARGET = 0,
+	ATTACK_NEW_TARGET_FORCED = 1,
+	ATTACK_CONTINUED_TARGET = 2,
+	ATTACK_CONTINUED_TARGET_FORCED = 3,
+	ATTACK_TUNNEL_NETWORK_GUARD = 4,
+	ATTACK_CONTINUED_TARGET_NO_CONTAIN = 0x10,
+};
+
 // RW 0xDA12E4: five names; the arrays are six long (RW 0x6C827A loops six times).
 enum WeaponSlotType
 {

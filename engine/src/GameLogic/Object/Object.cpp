@@ -51,6 +51,7 @@
 #include "Common/Thing/ThingTemplate.h"
 #include "Common/NumericState.h"
 #include "GameLogic/Combat/CombatNames.h"
+#include "GameLogic/Combat/CombatQueries.h"
 #include "GameLogic/Combat/CombatState.h"
 #include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/Damage.h"
@@ -1482,6 +1483,68 @@ bool Object::isAbleToAttack() const
 	}
 	const SpawnBehaviorInterface *spawn = SpawnBehaviorInterface::of(const_cast<Object &>(*this));
 	return spawn && spawn->canAnySlavesAttack();
+}
+
+// PORT-198 (RW 0x68B5FA): Object::getAbleToUseWeaponAgainstTarget
+CanAttackResult Object::getAbleToUseWeaponAgainstTarget(AbleToAttackType attackType, const Object *victim, const Coord3D *pos, CommandSourceType source) const
+{
+	if (!victim && !pos)
+	{
+		return ATTACKRESULT_NOT_POSSIBLE;
+	}
+	if (m_weapons)
+	{
+		return m_weapons->getAbleToUseWeaponAgainstTarget(attackType, victim, pos, source);
+	}
+	static const int kContesting = CombatNames::status("CONTESTING_BUILDING");
+	if (testStatus((unsigned)kContesting) && (static_cast<unsigned>(attackType) & 8u) == 0u && !victim)
+	{
+		return ATTACKRESULT_INVALID_SHOT;
+	}
+	return ATTACKRESULT_INVALID_SHOT;
+}
+
+// PORT-198 (RW 0x68D6A6): Object::getAbleToAttackSpecificObject
+CanAttackResult Object::getAbleToAttackSpecificObject(AbleToAttackType attackType, const Object *victim, CommandSourceType source) const
+{
+	if (!victim)
+	{
+		return ATTACKRESULT_NOT_POSSIBLE;
+	}
+	if ((static_cast<unsigned>(attackType) & static_cast<unsigned>(ATTACK_CONTINUED_TARGET_NO_CONTAIN)) == 0u &&
+	    isKindOf((unsigned)CombatNames::kinds().horde) && m_contain && m_contain->getHordeContainInterface())
+	{
+		const ContainModuleInterface::ContainedItemsList *items = m_contain->getContainedItemsList();
+		if (!items)
+		{
+			return ATTACKRESULT_NOT_POSSIBLE;
+		}
+		const Object *member = nullptr;
+		for (const Object *m : *items)
+		{
+			if (m && m != this && CombatQueries::isAlive(*m))
+			{
+				member = m;
+				break;
+			}
+		}
+		if (!member)
+		{
+			return ATTACKRESULT_NOT_POSSIBLE;
+		}
+		return member->getAbleToAttackSpecificObject(
+		    static_cast<AbleToAttackType>(static_cast<unsigned>(attackType) | static_cast<unsigned>(ATTACK_CONTINUED_TARGET_NO_CONTAIN)), victim, source);
+	}
+	if (m_weapons)
+	{
+		return m_weapons->getAbleToAttackSpecificObject(attackType, victim, source);
+	}
+	const bool forced = (static_cast<unsigned>(attackType) & 1u) != 0u;
+	if (!ObjectWeapons::canAttackObjectGates(*this, *victim, source, forced))
+	{
+		return ATTACKRESULT_NOT_POSSIBLE;
+	}
+	return getAbleToUseWeaponAgainstTarget(attackType, victim, victim->getPosition(), source);
 }
 
 Player *Object::getControllingPlayer() const
