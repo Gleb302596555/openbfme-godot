@@ -29,6 +29,7 @@
 
 #include "Common/INIDataTypes.h"
 #include "GameLogic/Module/UpdateModule.h"
+#include "GameLogic/Module/CollideModule.h"
 #include "GameLogic/Object/Contain/OpenContainRuntime.h"
 
 #include <array>
@@ -191,7 +192,7 @@ public:
 	virtual bool isMainFormation() const = 0;
 };
 
-class HordeContain : public UpdateModule, public ContainModuleInterface, public CreateModuleInterface, public HordeContainInterface
+class HordeContain : public UpdateModule, public ContainModuleInterface, public CreateModuleInterface, public HordeContainInterface, public CollideModuleInterface
 {
 public:
 	OBFME_MODULE_XFER(HordeContain) // lane SAVE-4b
@@ -204,6 +205,10 @@ public:
 
 	// BehaviorModule
 	ContainModuleInterface *getContain() override { return this; }
+	// RW 0x872846 installs collide vtable 0xC5D250; slot 0 is RW 0x86C61E.
+	CollideModuleInterface *getCollide() override { return this; }
+	void onCollide(Object *other, const Coord3D *, const Coord3D *) override { collideWithWall(other); }
+	bool wouldLikeToCollideWith(const Object &) const override { return false; } // RW 0x7FEAC1
 	CreateModuleInterface *getCreate() override { return this; }
 	void onObjectCreated() override;
 	void onDelete() override;
