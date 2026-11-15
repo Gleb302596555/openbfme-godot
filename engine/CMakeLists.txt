@@ -278,6 +278,7 @@ include(cmake/Port305.cmake) # PORT-305: ClearanceTestingSlowDeathBehavior room 
 include(cmake/Port207.cmake) # OPENBFME_PORT207_TESTS (lane PORT-207)
 include(cmake/Port196.cmake) # PORT-196: the AI spell book's ARMY_BREAKER decision (issue 463; OPENBFME_PORT196_TESTS)
 include(cmake/Port256.cmake) # PORT-256: the weapon-switching powers (fork issue 604; OPENBFME_PORT256_TESTS)
+include(cmake/Port210.cmake) # OPENBFME_PORT210_TESTS
 include(cmake/Port427.cmake) # PORT-427: the porcupine formation's members face outward, each its radial bearing (issue #427; OPENBFME_PORT427_TESTS)
 include(cmake/Port437.cmake) # PORT-437: the generic attack machine's object conditions (issue #437; OPENBFME_PORT437_TESTS)
 include(cmake/Port436.cmake) # PORT-436: the weapon aim at the victim's contact point (issue #436; OPENBFME_PORT436_TESTS)
@@ -1087,6 +1088,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT305_TESTS}
     ${OPENBFME_PORT196_TESTS}
     ${OPENBFME_PORT256_TESTS}
+    ${OPENBFME_PORT210_TESTS}
     ${OPENBFME_PORT427_TESTS}
     ${OPENBFME_PORT437_TESTS}
     ${OPENBFME_PORT436_TESTS}
