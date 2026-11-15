@@ -1733,6 +1733,7 @@ GameWindow *GameWindowManager::gogoGadgetTextEntry(GameWindow *parent, std::uint
 		entry->winSetDrawFunc(W3DGadgetTextEntryDraw);
 	}
 	entryData->charPos = (short)entryData->text.size();
+	entryData->selectPos = entryData->charPos; // P-128: no selection
 	entryData->conCharPos = 0;
 	entryData->receivedUnichar = false;
 	if (entryData->maxTextLen >= ENTRY_TEXT_LEN)

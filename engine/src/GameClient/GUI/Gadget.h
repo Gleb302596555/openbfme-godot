@@ -193,10 +193,24 @@ struct EntryData
 	bool aSCIIOnly = false;
 	bool drawTextFromStart = false;
 	bool receivedUnichar = false;
-	short charPos = 0;
-	short conCharPos = 0;
+	short charPos = 0;    // RW EntryData + 0x1C: the cursor (a character index)
+	short selectPos = 0;  // RW + 0x1E: the other end of the selection (P-128; BFME2 decomp W3DTextEntry.cpp names it selectPos)
+	short conCharPos = 0; // RW + 0x20: the pending IME composition, which locks the editing keys while non-zero (never set here: stop S-177)
+	int scrollPos = 0;    // RW + 0x24: the first character in view (GadgetTextEntrySetCursorPosition RW 0x7220D3 keeps the cursor visible)
 	GameWindow *constructList = nullptr; // only for the Korean / Japanese IME of ZH: never created
 };
+
+// P-128 (Ennorath 1.9.8.3's pySAGE patch `text-entry-clipboard`, section .txtclip): Ctrl+A / C / X / V in every text entry use the system clipboard.
+// The engine has none of its own: the host installs one (the Godot device: DisplayServer's clipboard). With none installed, copy / cut / paste do
+// nothing, as the patch does when a Win32 export is missing.
+struct TextEntryClipboard
+{
+	virtual ~TextEntryClipboard() = default;
+	virtual bool read(UnicodeString &out) = 0;           // CF_UNICODETEXT of the clipboard; false when it has none
+	virtual bool write(const UnicodeString &text) = 0;   // false when the clipboard refused it (then cut deletes nothing)
+};
+void GadgetTextEntrySetClipboard(TextEntryClipboard *clipboard);
+TextEntryClipboard *GadgetTextEntryGetClipboard();
 
 // ---- list box (Gadget.h ListboxData) -----------------------------------------------------------------------------------------------
 struct ListEntryCell

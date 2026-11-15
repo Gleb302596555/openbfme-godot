@@ -1261,7 +1261,53 @@ struct AptMenuPlayer::Impl
 	}
 };
 
-AptMenuPlayer::AptMenuPlayer() : m(std::make_unique<Impl>()) {}
+namespace
+{
+// P-128: the text entries' clipboard (Ctrl+A / C / X / V) is the system's, through Godot's DisplayServer
+struct GodotTextEntryClipboard final : TextEntryClipboard
+{
+	bool read(UnicodeString &out) override
+	{
+		DisplayServer *ds = DisplayServer::get_singleton();
+		if (!ds || !ds->clipboard_has())
+		{
+			return false;
+		}
+		const String text = ds->clipboard_get();
+		out.clear();
+		for (int i = 0; i < text.length(); ++i)
+		{
+			const char32_t c = text[i];
+			if (c > 0xFFFF)
+			{
+				out.push_back((char16_t)(0xD800 + ((c - 0x10000) >> 10)));
+				out.push_back((char16_t)(0xDC00 + ((c - 0x10000) & 0x3FF)));
+			}
+			else
+			{
+				out.push_back((char16_t)c);
+			}
+		}
+		return true;
+	}
+	bool write(const UnicodeString &text) override
+	{
+		DisplayServer *ds = DisplayServer::get_singleton();
+		if (!ds)
+		{
+			return false;
+		}
+		ds->clipboard_set(String::utf16(text.data(), (int)text.size()));
+		return true;
+	}
+};
+GodotTextEntryClipboard g_textEntryClipboard;
+} // namespace
+
+AptMenuPlayer::AptMenuPlayer() : m(std::make_unique<Impl>())
+{
+	GadgetTextEntrySetClipboard(&g_textEntryClipboard);
+}
 
 AptMenuPlayer::~AptMenuPlayer()
 {
@@ -6641,7 +6687,21 @@ bool AptMenuPlayer::menuKey(const InputEventKey *key)
 			{
 				if (dik != ::KEY_ENTER && dik != ::KEY_KPENTER)
 				{
-					m->shell->wm->postGadgetKey(dik, key->is_pressed());
+					// P-128: the modifiers go with the key (RW's GWM_CHAR state word): Shift selects, Ctrl jumps words and is the clipboard keys' gate
+					int modifiers = 0;
+					if (key->is_ctrl_pressed())
+					{
+						modifiers |= KEY_STATE_LCONTROL;
+					}
+					if (key->is_shift_pressed())
+					{
+						modifiers |= KEY_STATE_LSHIFT;
+					}
+					if (key->is_alt_pressed())
+					{
+						modifiers |= KEY_STATE_LALT;
+					}
+					m->shell->wm->postGadgetKey(dik, key->is_pressed(), modifiers);
 				}
 			}
 			if (key->is_pressed())

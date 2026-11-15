@@ -156,6 +156,9 @@ UnicodeString GadgetTextEntryGetText(GameWindow *textentry);
 bool GadgetTextEntryValidateCharacter(char16_t character, std::uint32_t flags);
 std::uint32_t GadgetTextEntryValidationFlags(const EntryData &entry);
 bool GadgetTextEntryInsertCharacter(GameWindow *textentry, char16_t character);
+// P-128: RotWK's cursor and selection (RW 0x7220D3 places the cursor and scrolls; RW 0x7224D8 deletes the selection, true when it deleted any)
+void GadgetTextEntrySetCursorPosition(GameWindow *textentry, int position);
+bool GadgetTextEntryUpdateComposition(GameWindow *textentry);
 void GadgetTextEntrySetText(GameWindow *textentry, const UnicodeString &text);
 void GadgetTextEntrySetTextColor(GameWindow *textentry, Color color);
 
