@@ -44,6 +44,7 @@
 #include "GameLogic/WeaponStores.h"
 #include "Common/PlayerHeroList.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
@@ -60,13 +61,36 @@ struct Results
 {
 	std::map<std::string, std::vector<std::string>> problems;
 	std::map<std::string, std::string> passed;
-	void fail(const std::string &item, const std::string &what) { problems[item].push_back(what); }
+	// the button matrix: every verdict is appended to the report at once, so a crash later in the run keeps what came before
+	std::FILE *stream = nullptr;
+	std::string streamFaction;
+	void fail(const std::string &item, const std::string &what)
+	{
+		problems[item].push_back(what);
+		tsvLine(item, "FAIL", what);
+	}
 	void pass(const std::string &item, const std::string &what)
 	{
 		if (!problems.count(item))
 		{
 			passed[item] = what;
+			tsvLine(item, "PASS", what);
 		}
+	}
+	void tsvLine(const std::string &item, const char *verdict, std::string what)
+	{
+		if (!stream)
+		{
+			return;
+		}
+		for (char &ch : what)
+		{
+			ch = ch == '\t' || ch == '\n' || ch == '\r' ? ' ' : ch;
+		}
+		const size_t sp = item.find(' ');
+		const std::string object = item.substr(0, sp), button = sp == std::string::npos ? std::string() : item.substr(sp + 1);
+		std::fprintf(stream, "%s\t%s\t%s\t%s\t%s\n", streamFaction.c_str(), object.c_str(), button.c_str(), verdict, what.c_str());
+		std::fflush(stream);
 	}
 	void print(const char *title)
 	{
@@ -153,6 +177,36 @@ void trace(const std::string &item)
 		std::fprintf(stderr, "factb trace: %s\n", item.c_str());
 		std::fflush(stderr);
 	}
+}
+
+// the button matrix's rerun after a crash (tools/matrix_run.py): OPENBFME_SWEEP_SKIP=<file>, one "object button" item per line, not pressed again
+const std::set<std::string> &sweepSkips()
+{
+	static const std::set<std::string> skips = [] {
+		std::set<std::string> out;
+		if (const char *path = std::getenv("OPENBFME_SWEEP_SKIP"))
+		{
+			if (std::FILE *f = std::fopen(path, "rb"))
+			{
+				char buf[1024];
+				while (std::fgets(buf, sizeof(buf), f))
+				{
+					std::string s = buf;
+					while (!s.empty() && (s.back() == '\n' || s.back() == '\r'))
+					{
+						s.pop_back();
+					}
+					if (!s.empty())
+					{
+						out.insert(s);
+					}
+				}
+				std::fclose(f);
+			}
+		}
+		return out;
+	}();
+	return skips;
 }
 
 // the faction's own soldier horde, the friendly target of a power on own units (lane FACT-C: the Goblins' and Angmar's too: their powers' filters take
@@ -979,7 +1033,9 @@ void toughen(GameLogic &logic, ObjectID id)
 	}
 }
 
-void unitsOf(const std::string &faction, Results &res)
+// `sweep` (the button matrix on a mod's data, docs/ennorath/BUTTON_SWEEP.md): the structures' buttons are pressed too, and every command set the
+// inventory found for an object (its own, then the ones a CommandSetUpgrade switches to) gets its round, the unit wearing that set
+void unitsSweep(const std::string &faction, Results &res, bool sweep)
 {
 	const factb::Inventory &inv = factb::inventory(faction);
 	SharedWorld &s = shared();
@@ -995,6 +1051,10 @@ void unitsOf(const std::string &faction, Results &res)
 		int k = 0;
 		for (const factb::Entry *e : inv.of(factb::Kind::Structure))
 		{
+			if (std::all_of(e->via.begin(), e->via.end(), [](const std::string &v) { return v.rfind("graph:", 0) == 0; }))
+			{
+				continue; // the matrix's graph seeds: a structure only the data graph reaches is not a technology seller of the base
+			}
 			const ThingTemplate *btt = s.world->things().findTemplate(e->name);
 			const CommandSet *cs = s.world->commands().findCommandSet(factb::stringFieldOf(*btt, "CommandSet"));
 			bool sells = false;
@@ -1014,8 +1074,12 @@ void unitsOf(const std::string &faction, Results &res)
 	}
 	int n = 0;
 	std::vector<const factb::Entry *> items;
-	for (factb::Kind k : { factb::Kind::Horde, factb::Kind::Unit, factb::Kind::Hero })
+	for (factb::Kind k : { factb::Kind::Horde, factb::Kind::Unit, factb::Kind::Hero, factb::Kind::Structure })
 	{
+		if (k == factb::Kind::Structure && !sweep)
+		{
+			continue;
+		}
 		for (const factb::Entry *e : inv.of(k))
 		{
 			items.push_back(e);
@@ -1027,6 +1091,14 @@ void unitsOf(const std::string &faction, Results &res)
 		if (!factb::hasKindOf(*tt, "SELECTABLE") || e->via.size() == 1 && e->via.begin()->find(":InitialPayload") != std::string::npos)
 		{
 			continue; // a horde member is tested inside its horde; the spell book is not a unit
+		}
+		if (sweep && sweepSkips().count(e->name))
+		{
+			continue; // tools/matrix_run.py: the object crashed outside a press (its spawn), skipped whole
+		}
+		if (sweep)
+		{
+			trace(e->name); // an object-level trace line: a crash before its first press names the object
 		}
 		if (const char *only = std::getenv("FACTB_ONLY")) // a debugging run of some units: comma-separated parts of their names
 		{
@@ -1046,6 +1118,7 @@ void unitsOf(const std::string &faction, Results &res)
 		// another ability, RejectedConditions)
 		Coord3D c{};
 		Object *u = nullptr;
+		std::string wearSet; // the matrix's round: the command set the fresh unit wears ("" = its own)
 		Targets tg;
 		std::string enemyName = "GondorFighterHorde";
 		ObjectID uid = INVALID_ID, enemyUnitId = INVALID_ID, enemyBuildingId = INVALID_ID, allyId = INVALID_ID, ownHordeId = INVALID_ID;
@@ -1092,6 +1165,10 @@ void unitsOf(const std::string &faction, Results &res)
 			++n;
 			u = g.rig.make(e->name, c.x, c.y);
 			uid = u->getID();
+			if (!wearSet.empty())
+			{
+				u->setCommandSetOverride(wearSet); // what the CommandSetUpgrade does once its upgrade is in (RW: Object's command set override string)
+			}
 			refreshTargets();
 			g.step(20); // a horde's members are made, the objects settle
 			toughen(g.logic(), enemyUnitId);
@@ -1114,12 +1191,33 @@ void unitsOf(const std::string &faction, Results &res)
 			continue;
 		}
 		std::set<const CommandButton *> seen;
-		for (int round = 0; round < 1; ++round)
+		// the matrix: one round per command set the inventory found for the object (round 0 is the set the fresh object wears)
+		std::vector<std::string> rounds{ std::string() };
+		if (sweep)
 		{
+			const auto sets = inv.setsOfTemplate.find(e->name);
+			for (size_t k = 1; sets != inv.setsOfTemplate.end() && k < sets->second.size(); ++k)
+			{
+				rounds.push_back(sets->second[k]);
+			}
+		}
+		for (size_t round = 0; round < rounds.size(); ++round)
+		{
+			wearSet = rounds[round];
+			if (round > 0 && !spawn())
+			{
+				res.fail(e->name, "wearing " + wearSet + ": left the world in its first 20 frames");
+				continue;
+			}
 			u = g.logic().findObjectByID(uid);
 			const CommandSet *cs = u ? s.world->commands().findCommandSet(u->getCommandSetName()) : nullptr;
 			if (!cs)
 			{
+				if (round > 0)
+				{
+					res.fail(e->name, "wearing " + wearSet + ": the command set does not exist");
+					continue;
+				}
 				break;
 			}
 			for (int i = 0; i < CommandSet::MAX_BUTTONS; ++i)
@@ -1141,6 +1239,10 @@ void unitsOf(const std::string &faction, Results &res)
 					continue;
 				}
 				const std::string item = e->name + " " + cb->m_name;
+				if (sweep && sweepSkips().count(item))
+				{
+					continue; // tools/matrix_run.py's rerun after a crash: reported already, or the press that crashed
+				}
 				trace(item);
 				if (cb->m_options & 0x10000000u)
 				{
@@ -1850,6 +1952,12 @@ void unitsOf(const std::string &faction, Results &res)
 		g.step(3);
 	}
 }
+
+// the factb / factc cases (a function pointer of two arguments): the sweep's own scope, no matrix extras
+void unitsOf(const std::string &faction, Results &res)
+{
+	unitsSweep(faction, res, false);
+}
 } // namespace
 
 TEST_CASE("factb units: every Isengard unit, horde and hero ability and upgrade button")
@@ -1896,8 +2004,23 @@ TEST_CASE("ENNORATH sweep units: every unit, horde and hero ability and upgrade 
 		return;
 	}
 	Results r;
-	unitsOf(faction, r);
+	// tools/matrix_run.py: the report is appended to (a rerun after a crash goes on in the same file), one line per verdict
+	if (const char *tsv = std::getenv("OPENBFME_SWEEP_REPORT"))
+	{
+		r.stream = std::fopen(tsv, "ab");
+		REQUIRE_MESSAGE(r.stream, "cannot write " << tsv);
+		r.streamFaction = faction;
+	}
+	for (const std::string &p : factb::inventory(faction).problems)
+	{
+		r.fail("(inventory)", p); // a name the data or the graph's seeds give that the engine does not know
+	}
+	unitsSweep(faction, r, true);
 	r.print((std::string("units ") + faction).c_str());
+	if (r.stream)
+	{
+		std::fclose(r.stream);
+	}
 }
 
 // Two buttons the owner saw disabled (docs/ennorath/BUTTON_SWEEP.md), on the mod's data:

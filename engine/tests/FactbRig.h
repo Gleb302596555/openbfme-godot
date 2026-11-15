@@ -15,6 +15,7 @@
 
 #include <algorithm>
 #include <cstdlib>
+#include <fstream>
 #include <functional>
 #include <memory>
 #include <string>
@@ -445,6 +446,27 @@ inline const Inventory &inventory(const std::string &faction)
 				}
 			}
 		});
+		// the button matrix (docs/ennorath/BUTTON_SWEEP.md, tools/matrix_run.py): OPENBFME_SWEEP_SEEDS=<file> adds the objects the data graph
+		// (tools/mod/ennorath_graph.py walk) reaches past the command sets: forms, summons, objects an upgrade or a power creates. One `name<TAB>via`
+		// per line; the via starts with "graph:" so the callers can tell them from the walked ones
+		if (const char *file = std::getenv("OPENBFME_SWEEP_SEEDS"))
+		{
+			std::ifstream in(file);
+			REQUIRE_MESSAGE(in.good(), "OPENBFME_SWEEP_SEEDS: cannot read " << file);
+			for (std::string line; std::getline(in, line);)
+			{
+				if (!line.empty() && line.back() == '\r')
+				{
+					line.pop_back();
+				}
+				const size_t tab = line.find('\t');
+				const std::string name = line.substr(0, tab);
+				if (!name.empty() && name[0] != '#')
+				{
+					seeds.push_back({ name, "graph:" + (tab == std::string::npos ? std::string() : line.substr(tab + 1)) });
+				}
+			}
+		}
 		auto scope = hudtest::shared().world->enterContext();
 		it = cache.emplace(faction, build(*hudtest::shared().world, faction, seeds)).first;
 	}
