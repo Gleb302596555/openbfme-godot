@@ -136,3 +136,12 @@ The construction-status approximation in the port is already recorded as
 S-253. This control is not yet runtime-tested, and an absent center is not an
 established cause of the reported intermittent failure. No production
 behavior was changed.
+
+## Targetless message-route control
+
+For the explicit-source and issuing-player spell-book messages, RW 0x77A4CC
+and 0x77B8D6 call the same group action at 0x76F5DB after selecting the source.
+A synthetic `PORT-432*` control now exercises both routes in separate equivalent
+worlds and checks cast/refusal counters, recharge, weather and sunbeams. It is
+not yet runtime-tested and does not establish that routing caused the reported
+failure; the actual Cloud Break button has no chained command or options.

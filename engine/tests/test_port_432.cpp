@@ -238,6 +238,34 @@ TEST_CASE("PORT-432 synthetic cooling spell is refused without consuming another
  CHECK(messages.empty());
 }
 
+TEST_CASE("PORT-432 targetless message routes cast the same ready spell book power")
+{
+ // RW 0x77A4CC and 0x77B8D6 both invoke groupDoSpecialPower 0x76F5DB;
+ // use separate identical worlds to compare the explicit-source and book routes.
+ bool bookRoute = false;
+ SUBCASE("explicit source") { bookRoute = false; }
+ SUBCASE("issuer spell book") { bookRoute = true; }
+ SpellRig r;
+ auto *cloud = dynamic_cast<CloudBreakSpecialPower *>(r.module("TestCloudBreak"));
+ REQUIRE(cloud);
+ REQUIRE(cloud->isReady());
+ const auto *power = r.stores.specialPowers().findSpecialPowerTemplate("TestCloudBreak");
+ REQUIRE(power);
+ GameMessage message(bookRoute ? MSG_DO_SPELLBOOK_SPECIAL_POWER : MSG_DO_SPECIAL_POWER, r.player->getPlayerIndex());
+ message.appendIntegerArgument((int)power->getID());
+ message.appendIntegerArgument(0);
+ message.appendObjectIDArgument(bookRoute ? INVALID_ID : r.book->getID());
+ r.world.logic->weather().setBurnDecay(10);
+ const auto beams = cloud->sunbeamsMade();
+ r.send({message});
+ CHECK(r.spells.casts() == 1u);
+ CHECK(r.spells.refused() == 0u);
+ CHECK(r.spells.malformed() == 0u);
+ CHECK_FALSE(cloud->isReady());
+ CHECK(r.world.logic->weather().burnDecay() == 0u);
+ CHECK(cloud->sunbeamsMade() == beams + 4);
+}
+
 TEST_CASE("PORT-432 science gating: unowned powers do not send messages")
 {
  SpellRig r(false);
