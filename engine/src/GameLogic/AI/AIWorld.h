@@ -258,6 +258,8 @@ public:
 	// port's, S-780). INFERENCE: the objects with an AI only. The gate list is derived (the modules register themselves), not saved. BFME2 1.06 twins:
 	// 0x68DCC4 / 0xB59490 / 0xABEB80 / 0xB58DE0, the gate's collide interface 0x898F46
 	void processGateContacts();
+	// S-780 wall-only contact stand-in for HordeContain collide, RW 0xB6D060.
+	void processHordeWallContacts();
 	unsigned long long gateContacts() const { return m_gateContacts; } ///< the overlapping gate pairs met so far (statistics)
 	// lane PHYS-1: RW moveAllies 0x6F503B (AIUpdateAllies.cpp): every stationary ally on the cells along `path` is asked to step away; false when not done
 	bool moveAllies(AIUpdateInterface &mover, Path &path, bool force);

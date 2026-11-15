@@ -870,6 +870,7 @@ void AIWorld::attach()
 		processCollisions();
 		processCrateContacts(); // lane MODCOMPAT-MOD1: the crates' contacts, after the AI units' pass (S-780)
 		processGateContacts();  // lane GATECOLLIDE-1: the gates' contacts, after the crates' (S-1940)
+		processHordeWallContacts(); // wall-only stand-in until the collision manager (S-780) is ported
 	});
 	// PROD-1's hand-off: what production asks the AI of a produced object (move to the rally point, follow the exit path, idle, regroup) runs here, at the call sites
 	// production already has (GameLogic/AI/AICommandSink.h)
@@ -1726,6 +1727,68 @@ void AIWorld::processCrateContacts()
 			++m_crateContacts;
 			ObjectCollide::onCollide(first, second);
 			ObjectCollide::onCollide(second, first);
+		}
+	}
+}
+
+// RW 0x68E31F registers the two objects, RW 0xB6D730 rejects equal nonzero
+// groups, and RW 0xB6D060 dispatches an overlapping contact. S-780: this
+// stand-in delivers only the horde wall entry for static walls absent from the
+// existing AI and gate passes; it is not the retail contact manager or order.
+void AIWorld::processHordeWallContacts()
+{
+	if (!m_mapReady || !m_logic.settings().hordesWaitForHordes)
+	{
+		return;
+	}
+	static const int kWall = CombatNames::kindOf("SCALEABLE_WALL");
+	static const int kHorde = CombatNames::kindOf("HORDE");
+	static const int kInert = CombatNames::kindOf("INERT");
+	static const int kNoCollide = CombatNames::kindOf("NO_COLLIDE");
+	static const int kImmobile = CombatNames::kindOf("IMMOBILE");
+	static const unsigned kNoCollisions = (unsigned)CombatNames::statuses().noCollisions;
+	const auto registered = [&](const Object &o) {
+		return o.isInWorld() && !o.isDestroyed() && !o.isKindOf((unsigned)kInert) &&
+			!o.isKindOf((unsigned)kNoCollide) && !o.testStatus(kNoCollisions) && !o.isOutOfCollisionManager() &&
+			(m_logic.settings().hordesWaitForHordes || !o.isKindOf((unsigned)kHorde));
+	};
+	const auto &gates = m_logic.skirmishAI().gates();
+	for (Object *horde = m_logic.getFirstObject(); horde; horde = horde->getNextObject())
+	{
+		if (!horde->isKindOf((unsigned)kHorde) || !registered(*horde) || !horde->getAIUpdateInterface() ||
+			horde->getAIUpdateInterface()->isImmobile() || horde->geometryShapes().empty())
+		{
+			continue;
+		}
+		HordeContain *contain = dynamic_cast<HordeContain *>(horde->getContain());
+		if (!contain)
+		{
+			continue;
+		}
+		PartitionFilterFn candidate([&](Object &o) {
+			if (&o == horde || !o.isKindOf((unsigned)kWall) || !registered(o)) return false;
+			// Mobile AI pairs and registered gates already have their own contact passes.
+			if (o.getAIUpdateInterface() && !o.getAIUpdateInterface()->isImmobile()) return false;
+			for (const GateOpenAndCloseBehavior *g : gates) if (g && g->getObject() == &o) return false;
+			return !(horde->isKindOf((unsigned)kImmobile) && o.isKindOf((unsigned)kImmobile));
+		});
+		const PartitionHits hits = m_logic.partition().iterateObjectsInRange(
+			*horde->getPosition(), CombatQueries::boundingSphereRadius(*horde), FROM_BOUNDINGSPHERE_3D, { &candidate }, ITER_FASTEST);
+		std::vector<ObjectID> ids;
+		for (const PartitionHit &hit : hits) ids.push_back(hit.object->getID());
+		std::sort(ids.begin(), ids.end());
+		for (ObjectID id : ids)
+		{
+			Object *wall = m_logic.findObjectByID(id);
+			if (!wall || !registered(*wall) || !registered(*horde)) continue;
+			const bool hordeFirst = horde->getID() < wall->getID();
+			const Object &first = hordeFirst ? *horde : *wall;
+			const Object &second = hordeFirst ? *wall : *horde;
+			if (NotifyCrushModules::geometriesOverlap(first.geometryShapes(), *first.getPosition(), first.getOrientation(),
+				second.geometryShapes(), *second.getPosition(), second.getOrientation()))
+			{
+				contain->onCollide(wall, nullptr, nullptr);
+			}
 		}
 	}
 }
