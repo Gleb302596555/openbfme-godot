@@ -1,6 +1,7 @@
 // PORT-432: isolated, synthetic spell-book cast investigation; no game archives.
 // RW 0x930DE5 / 0x940435, 0x77A5D7 / 0x77B886, 0x8CC594 / 0x8CC4B4 and 0x8C8CE4.
 #include "doctest.h"
+#include "AptPlayerTestUtil.h"
 #include "CombatTestUtil.h"
 #include "Common/Player.h"
 #include "Common/PlayerScience.h"
@@ -98,7 +99,7 @@ struct SpellRig
  Object *enemy = nullptr;
  InGameSpellBookModel bar;
 
- SpellRig()
+ explicit SpellRig(bool grant = true)
  {
   stores.install();
   SpellStores::registerBlocks(world.w.fx.env.blocks);
@@ -113,8 +114,11 @@ struct SpellRig
   player = world.playerOf('A');
   REQUIRE(player);
   world.players.setLocalPlayer(player);
-  REQUIRE(player->science().grantScience(stores.sciences().getScienceFromInternalName("TestRebuildScience")));
-  REQUIRE(player->science().grantScience(stores.sciences().getScienceFromInternalName("TestCloudScience")));
+  if (grant)
+  {
+   REQUIRE(player->science().grantScience(stores.sciences().getScienceFromInternalName("TestRebuildScience")));
+   REQUIRE(player->science().grantScience(stores.sciences().getScienceFromInternalName("TestCloudScience")));
+  }
   world.logic->partition().setRegion(0, 0, 1000, 1000);
   book = world.unit("TestSpellBook", 'A', 100, 100);
   own = world.unit("TestBuilding", 'A', 500, 500);
@@ -216,4 +220,61 @@ TEST_CASE("PORT-432 synthetic cooling spell is refused without consuming another
  messages.clear();
  CHECK_FALSE(r.bar.press(1, r.player->getPlayerIndex(), messages));
  CHECK(messages.empty());
+}
+
+TEST_CASE("PORT-432 science gating: unowned powers do not send messages")
+{
+ SpellRig r(false);
+ REQUIRE(r.bar.refresh(r.commandStore, *r.world.logic, *r.player));
+ std::vector<GameMessage> messages;
+ CHECK_FALSE(r.bar.press(0, r.player->getPlayerIndex(), messages));
+ CHECK_FALSE(r.bar.press(1, r.player->getPlayerIndex(), messages));
+ CHECK(messages.empty());
+ CHECK_FALSE(r.bar.targeting());
+ REQUIRE(r.player->science().grantScience(r.stores.sciences().getScienceFromInternalName("TestRebuildScience")));
+ REQUIRE(r.bar.refresh(r.commandStore, *r.world.logic, *r.player));
+ CHECK(r.bar.press(0, r.player->getPlayerIndex(), messages));
+ CHECK(r.bar.targeting());
+ CHECK(messages.empty());
+}
+
+TEST_CASE("PORT-432 synthetic Apt button: a stable click releases with batched or split events")
+{
+ using namespace apttest;
+ // RW 0xB0FB30..0xB0FB4A drains all queued events in order; RW
+ // 0xB0F256..0xB0F2E8 applies the down/up button transitions. This is an
+ // input control, not the actual Ennorath movie or a proof of its failure.
+ TestMovie movie;
+ const auto shape = movie.addShape(0, 0, 10, 10, 1);
+ movie.addCharacter(0);
+ const auto shapeId = movie.addCharacter(shape);
+ const auto pressCode = program(movie, [&](Asm &a) { fscmd(a, "press"); });
+ const auto releaseCode = program(movie, [&](Asm &a) { fscmd(a, "release"); });
+ const auto button = movie.addButton({ { 1, shapeId }, { 2, shapeId }, { 4, shapeId }, { 8, shapeId } },
+                                     { { 0x04, 0, pressCode }, { 0x08, 0, releaseCode } });
+ const auto buttonId = movie.addCharacter(button);
+ TestMovie::Place place = placeChar(buttonId, 1, "button");
+ place.flags |= APT_PLACE_HASMATRIX;
+ place.translation[0] = 100;
+ place.translation[1] = 100;
+ movie.setRootFrames({ { movie.addPlaceItem(place) } });
+ PlayerFx fx;
+ REQUIRE(fx.load(0, "PORT432", movie));
+ fx.step();
+ fx.apt->input().postMouseMove(105, 105);
+ fx.step();
+ fx.commands();
+ bool split = false;
+ SUBCASE("down and up in one movie frame") { split = false; }
+ SUBCASE("down and up in different movie frames") { split = true; }
+ for (int trial = 0; trial < 20; ++trial)
+ {
+  fx.apt->input().postMouseButton(true);
+  if (split) fx.step();
+  fx.apt->input().postMouseButton(false);
+  fx.step();
+  CHECK(fx.commandsText() == "press release");
+  CHECK_FALSE(fx.apt->input().mouseDown());
+ }
+ CHECK(fx.errorsText().empty());
 }

@@ -25,8 +25,9 @@ button: follow the actual book command set, not the similarly named button.
   special-power requirements and subclass behavior; no deterministic reproduction
   or failing synthetic test exists yet. No claim that the observed divergences
   explain Cloud Break or the intermittent runs is justified yet.
-* Baseline full `openbfme_tests` build is in progress; no `PORT-432*` tests have
-  been added. The cause, fix, NIGHT_WATCH entry and PR remain outstanding.
+* Baseline full `openbfme_tests` build is in progress. The draft `PORT-432*`
+  tests described below have not run. The cause, fix, NIGHT_WATCH entry and PR
+  remain outstanding.
 
 ## Follow-up trace: distinguish routing from the observed failure
 
@@ -92,3 +93,33 @@ they are not a demonstrated red/green regression test. The running build was
 started before these files were added, so it must be reconfigured/rebuilt after
 it finishes. No port behaviour has been changed and the Apt click hypothesis
 has not been reproduced.
+
+## Object validation and input batch follow-up
+
+* Correct instruction boundaries matter: for the `SPELL_BOOK` branch RW
+  0x81EA6D..0x81EA7A calls `getSpellBookObject` 0x6AD0F8; the instruction at
+  0x81EA88 is instead the command-centre branch's call 0x6AD0D9. The common
+  call 0x81EA91..0x81EAA2 passes the button and source to 0x6A4260. For an
+  object-target option, RW 0x6A435C..0x6A437A calls the shared object action
+  test 0x82D925 with source checking enabled; RW 0x770B40..0x770B6E calls
+  it again on message dispatch. The port's `objectValid` checks relationship,
+  filter and display readiness but does not call the shared object action
+  test, and `SpellCommands::castWithGroup` also skips it. In particular RW
+  0x82D9A0..0x82D9D1 checks ObjectFilter and 0x82DA8C..0x82DAC3 checks module
+  readiness/requirements and shroud. This difference can admit targets RW
+  refuses; it does **not** yet establish why a valid cast fails, and changing
+  the shared system without a causal reproduction would violate this issue's
+  scope boundary.
+* RW 0xB0FB30..0xB0FB4A drains the input batch in order and marks its first
+  event; RW 0xB0F256..0xB0F2E8 handles the button's down/up transitions. A
+  synthetic Apt button control was added to `PORT-432*` for repeated clicks
+  with down/up in one batch versus separate frames, plus an unowned-science
+  refusal control. These tests are still unexecuted. The input control is not
+  the actual spell-book movie, and a normal batched click alone is not evidence
+  of a loss: the script's `move_to` waits two render frames and at least 33 ms
+  before pressing (except its recording mode).
+* `InGameHud` defers movie presses if the logic is not held; deferred presses
+  run before `syncSpellBook` refreshes its cached model. This is another
+  scheduling point to measure, not a diagnosis. Compare callback arrival,
+  cached button state, input-enabled flag and emitted message in a synthetic
+  HUD fixture; do not infer an intermittent failure merely from the ordering.
