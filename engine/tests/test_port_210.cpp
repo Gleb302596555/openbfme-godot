@@ -6,6 +6,7 @@
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
+#include "GameLogic/Object/PartitionManager.h"
 
 using namespace combattest;
 namespace
@@ -76,6 +77,7 @@ TEST_CASE("PORT-210 static wall contact starts horde scaling")
     REQUIRE(horde->getAIUpdateInterface()->curLocomotor() != nullptr);
     REQUIRE(f.membersOf(horde).size() == 1);
     CHECK(contain->wallToScale() == 0);
+    f.logic->partition().update(); // RW 0x62E93B: partition update precedes collision
     f.ai->processHordeWallContacts();
     // RW 0x86C633..0x86C6DF: valid wall, ScalesWalls, |dot| >= 0.5.
     CHECK(contain->wallToScale() == wall->getID());
@@ -93,9 +95,11 @@ TEST_CASE("PORT-210 static wall contact rejects sideways facing and disabled sca
     auto *contain = dynamic_cast<HordeContain *>(horde->getContain());
     REQUIRE(contain != nullptr);
     wall->setOrientation(1.57079632679f);
+    f.logic->partition().update();
     f.ai->processHordeWallContacts();
     CHECK(contain->wallToScale() == 0); // RW 0x86C6C1..0x86C6D2
     wall->setOrientation(0.0f);
+    f.logic->partition().update();
     f.store.findLocomotorTemplate("Port210Loco")->m_scalesWalls = false;
     f.ai->processHordeWallContacts();
     CHECK(contain->wallToScale() == 0); // RW 0x86C676..0x86C680
