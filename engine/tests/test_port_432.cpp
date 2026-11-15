@@ -318,6 +318,33 @@ TEST_CASE("PORT-432 skirmish requirement: only an owned command center enables t
  CHECK_FALSE(cloud->isReady());
 }
 
+TEST_CASE("PORT-432 queued cast rechecks the skirmish requirement")
+{
+ // RW 0x76F6DA -> 0x82D68E rechecks readiness and module requirements on
+ // dispatch. Construction statuses approximate RW's model conditions (S-253).
+ SpellRig r(true, false);
+ Object *center = r.world.unit("TestCenter", 'A', 300, 300);
+ REQUIRE(center);
+ center->friend_onBuildComplete();
+ auto *cloud = r.module("TestCloudBreak");
+ REQUIRE(cloud->requirementsMet());
+ REQUIRE(r.bar.refresh(r.commandStore, *r.world.logic, *r.player));
+ std::vector<GameMessage> messages;
+ REQUIRE(r.bar.press(1, r.player->getPlayerIndex(), messages));
+ REQUIRE(messages.size() == 1u);
+ center->setStatus(OBJECT_STATUS_UNDER_CONSTRUCTION, true);
+ REQUIRE_FALSE(cloud->requirementsMet());
+ r.send(messages);
+ CHECK(r.spells.casts() == 0u);
+ CHECK(r.spells.refused() == 1u);
+ CHECK(cloud->isReady());
+ center->setStatus(OBJECT_STATUS_UNDER_CONSTRUCTION, false);
+ REQUIRE(cloud->requirementsMet());
+ r.send(messages);
+ CHECK(r.spells.casts() == 1u);
+ CHECK_FALSE(cloud->isReady());
+}
+
 TEST_CASE("PORT-432 synthetic Apt button: a stable click releases with batched or split events")
 {
  using namespace apttest;

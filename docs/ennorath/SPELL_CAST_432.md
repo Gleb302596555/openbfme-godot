@@ -145,3 +145,15 @@ A synthetic `PORT-432*` control now exercises both routes in separate equivalent
 worlds and checks cast/refusal counters, recharge, weather and sunbeams. It is
 not yet runtime-tested and does not establish that routing caused the reported
 failure; the actual Cloud Break button has no chained command or options.
+
+## State change between press and dispatch
+
+The targetless group action checks the source again at execution: RW 0x76F6DA
+calls 0x82D5DA, which checks percent ready at 0x82D67D and the module's slot
+0x48 at 0x82D68E; RW 0x897E0A checks the requirements at 0x8969E5. A new
+synthetic test queues Cloud Break while an owned center exists, removes the
+port's completed-center condition before dispatch, then restores it. It checks
+that the first message is refused without recharge and the next succeeds. This
+is a controlled refusal, not evidence that the reported game run changed its
+center state. The port uses construction status as an approximation of RW model
+conditions (S-253); the test has not yet run.
