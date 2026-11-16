@@ -8,19 +8,18 @@
 #include "Common/StateHash.h"
 #include "Common/Thing/ModuleFactory.h"
 #include "Common/Thing/ThingTemplate.h"
+#include "GameLogic/AI/AIAttackMelee.h"
 #include "GameLogic/AI/AIPathfindHost.h"
-#include "GameLogic/Combat/CombatNames.h"
-#include "GameLogic/Combat/ObjectWeapons.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Locomotor.h"
 #include "GameLogic/Module/AIUpdate.h"
 #include "GameLogic/Module/EmotionModules.h"
 #include "GameLogic/Module/SquishCollide.h"
+#include "GameLogic/Object/Contain/HordeContainRuntime.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/SimMath.h"
 #include "GameLogic/System/EmotionSystem.h"
-#include "GameLogic/Weapon.h"
 
 #include <algorithm>
 #include <cstddef>
@@ -29,13 +28,6 @@
 namespace
 {
 const char *const kMuxFile = "NotifyTargetsOfImminentProbableCrushingMux.cpp"; // RW 0xC76CE8 (the path ends with this name)
-
-const char *const kStop =
-	"[S-1029] crush warning: NotifyTargetsOfImminentProbableCrushingUpdate / HordeNotifyTargetsOfImminentProbableCrushingUpdate (RW 0x8D3225 / 0x8D3167 -> mux RW "
-	"0x8D2B21: the draw, the velocity box, the region query with crushPolicy, the shape overlap RW 0xAD2CE0 and alive, BRACE / CHEER requests) are ported; "
-	"INFERENCE: crushPolicy is PHYS-1's reading of RW 0x69519A (its quick path test RW 0x695159 -> 0x6F5BB0 is not asked: taken as passing; the gate before it, "
-	"RW 0x664485 / 0x5E2DF4, is not read), the x87 sin / cos are SimMath::sinCosDet, the horde's member map "
-	"+ 0x170 is not ported";
 
 #if defined(__GNUC__)
 #pragma GCC diagnostic push
@@ -66,27 +58,6 @@ float lengthEstimate2D(float x, float y)
 	const float ax = absF(x), ay = absF(y);
 	const float big = ax <= ay ? ay : ax, small = ax <= ay ? ax : ay;
 	return SimMath::pc24Add(SimMath::pc24Mul(small, 0.25f), big);
-}
-
-// RW 0x69519A(other, 2): PHYS-1's reading (HordeAIUpdateCombat.cpp crushPolicy)
-bool crushPolicy(const Object &self, const Object &victim)
-{
-	if (!(ObjectCrush::crusherLevel(self) > 0 && ObjectCrush::crusherLevel(self) > ObjectCrush::crushableLevel(victim)))
-	{
-		return false;
-	}
-	if (self.testStatus((unsigned)CombatNames::status("RAMPAGING")) || self.testStatus((unsigned)CombatNames::status("FLEE_OFF_MAP")) ||
-	    self.testModelCondition(CombatNames::modelCondition("CHARGING")))
-	{
-		return true;
-	}
-	if (self.getRelationship(victim) != ENEMIES)
-	{
-		return false;
-	}
-	ObjectWeapons *w = const_cast<Object &>(self).getWeapons();
-	Weapon *weapon = w ? w->currentWeapon() : nullptr;
-	return !weapon || (weapon->getTemplate() && weapon->getTemplate()->m_meleeWeapon);
 }
 
 // RW 0x68EF58: the object's velocity per frame
@@ -317,7 +288,7 @@ NotifyCrushUpdate::NotifyCrushUpdate(Thing *thing, const NotifyCrushModuleData *
 
 std::vector<std::string> NotifyCrushUpdate::stopLines()
 {
-	return { kStop };
+	return {};
 }
 
 bool NotifyCrushUpdate::mux(Object &obj, unsigned &sleep)
@@ -341,7 +312,6 @@ bool NotifyCrushUpdate::mux(Object &obj, unsigned &sleep)
 	{
 		return false;
 	}
-	logic.noteStop(kStop);
 	Coord3D v = velocityOf(obj);
 	const float k = (float)(int)ahead; // cvtsi2ss
 	v.x = SimMath::mulf32(k, v.x);
@@ -396,7 +366,7 @@ bool NotifyCrushUpdate::mux(Object &obj, unsigned &sleep)
 	region.loY = b[1];
 	region.hiX = b[2];
 	region.hiY = b[3];
-	PartitionFilterFn policy([&obj](Object &o) { return crushPolicy(obj, o); }); // RW 0xC76CD8
+	PartitionFilterFn policy([&obj](Object &o) { return AttackCrushPolicy(obj, o); }); // RW 0xC76CD8 -> 0x661305 -> 0x69519A(o, 2)
 	PartitionFilterFn overlap([&](Object &o) {                                  // RW 0xC112C8
 		return NotifyCrushModules::geometriesOverlap(boxShapes, mid, angle, o.geometryShapes(), *o.getPosition(), o.getOrientation());
 	});
@@ -430,23 +400,38 @@ UpdateSleepTime NotifyCrushUpdate::update()
 	}
 	else
 	{
-		// RW 0x8D3167
+		// RW 0x8D3167 -> slot 0x10C (RW 0x8704DA): m_containList followed by live H+0x170 members in ascending ObjectID order
 		ContainModuleInterface *c = obj->getContain();
-		if (!c || !c->getHordeContainInterface())
+		HordeContainInterface *horde = c ? c->getHordeContainInterface() : nullptr;
+		if (!horde)
 		{
 			return UPDATE_SLEEP_FOREVER;
 		}
 		std::vector<Object *> members;
 		if (const ContainModuleInterface::ContainedItemsList *l = c->getContainedItemsList())
 		{
-			members.assign(l->begin(), l->end());
+			for (Object *m : *l)
+			{
+				if (m)
+				{
+					members.push_back(m);
+				}
+			}
+		}
+		GameLogic &logic = obj->logic();
+		for (ObjectID id : horde->membersEntering())
+		{
+			if (Object *m = logic.findObjectByID(id))
+			{
+				members.push_back(m);
+			}
 		}
 		const Coord3D hp = *obj->getPosition();
 		std::stable_sort(members.begin(), members.end(), [&hp](const Object *a, const Object *b) {
-			// RW 0x8D2EC6
-			const float ay = SimMath::pc24Sub(hp.y, a->getPosition()->y), ax = SimMath::pc24Sub(hp.x, a->getPosition()->x);
-			const float bx = SimMath::pc24Sub(hp.x, b->getPosition()->x), by = SimMath::pc24Sub(hp.y, b->getPosition()->y);
-			return SimMath::pc24Add(SimMath::pc24Mul(ay, ay), SimMath::pc24Mul(ax, ax)) < SimMath::pc24Add(SimMath::pc24Mul(by, by), SimMath::pc24Mul(bx, bx));
+			// RW 0x8D2EC6 (SSE subss / mulss / addss / comiss)
+			const float ay = SimMath::subf32(hp.y, a->getPosition()->y), ax = SimMath::subf32(hp.x, a->getPosition()->x);
+			const float bx = SimMath::subf32(hp.x, b->getPosition()->x), by = SimMath::subf32(hp.y, b->getPosition()->y);
+			return SimMath::addf32(SimMath::mulf32(ay, ay), SimMath::mulf32(ax, ax)) < SimMath::addf32(SimMath::mulf32(by, by), SimMath::mulf32(bx, bx));
 		});
 		for (Object *m : members)
 		{

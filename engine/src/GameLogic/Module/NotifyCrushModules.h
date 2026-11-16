@@ -18,16 +18,15 @@
 //     overlap with the other's (RW 0xC112C8 -> RW 0xAD2CE0) and "alive" (RW 0xC10E20: Object + 0x458 bit 0 clear). Any hit: the object requests
 //     CHEER_FOR_ABOUT_TO_CRUSH (11, no source, delay 1: RW 0x68F37F); every hit requests BRACE_FOR_BEING_CRUSHED (10) from the object (RW 0x69035C).
 //   * NotifyTargetsOfImminentProbableCrushingUpdate::update RW 0x8D3225: the mux on the object, the sleep it drew.
-//   * HordeNotifyTargetsOfImminentProbableCrushingUpdate::update RW 0x8D3167: without a horde contain interface sleep 0x3FFFFFFF; else the members (contain slot 0x10C)
-//     sorted nearest to the horde first (std::list::sort, stable, RW 0x8D2F92 with RW 0x8D2EC6), the mux on each until one builds its box; the sleep is the last draw
-//     (TimeBetweenUpdates when there is no member).
+//   * HordeNotifyTargetsOfImminentProbableCrushingUpdate::update RW 0x8D3167: without a horde contain interface sleep 0x3FFFFFFF; else the members (contain slot 0x10C,
+//     RW 0x8704DA: m_containList followed by live H+0x170 members in ascending ObjectID order) sorted nearest to the horde first (std::list::sort, stable, RW 0x8D2F92
+//     with SSE comparator RW 0x8D2EC6), the mux on each until one builds its box; the sleep is the last draw (TimeBetweenUpdates when there is no member).
 //   * RW 0xAD2CE0 (the shape overlap): every active shape pair (the shape's world position RW 0xAD22F0: position + the offset turned by the angle, z + offset z) whose
 //     heights meet (other.z - (a sphere's radius + offset z) <= this shape's z + (sphere radius / cylinder or box height) + offset z, and this shape's z <= the other's z +
 //     its height + offset z); then circle / circle (RW 0xAD48F0: centre distance^2 <= (r1 + r2)^2), box / circle (RW 0xAD4870 -> 0xAD45A0: the circle's centre's
 //     squared distance from the box, axes (cos, sin) / (-sin, cos) stored as floats), box / box (RW 0xAD4790 -> 0xAD4660: the four axes' separation test).
-// INFERENCE (stop S-1029): crushPolicy is PHYS-1's reading of RW 0x69519A (RW 0x6950F3's quick path test RW 0x695159 -> 0x6F5BB0 is not asked: taken as
-// passing; Pathfinder::quickDoesPathExist is ported by lane QPATH-1, the gate before it, RW 0x664485 / 0x5E2DF4, is not read); the x87 sin / cos are SimMath::sinCosDet;
-// the members of the horde's map + 0x170 are not ported (the horde's contained list only).
+// Stop S-1029 closed (Port 204): crushPolicy delegates to AttackCrushPolicy (RW 0x69519A -> 0x6950F3 with RW 0x664485 / 0x5E2DF4 bypass and RW 0x6F5BB0 quickDoesPathExist),
+// HordeNotifyCrushUpdate includes H+0x170 members in RW 0x8704DA order; x87 sin / cos use SimMath::sinCosDet (global stop S-167).
 
 #pragma once
 

@@ -329,9 +329,9 @@ bool AODHordeContain::addToContain(Object *obj)
 	return added;
 }
 
-void AODHordeContain::removeFromContain(Object *obj)
+void AODHordeContain::removeFromContain(Object *obj, bool exposeStealthUnits)
 {
-	HordeContain::removeFromContain(obj);
+	HordeContain::removeFromContain(obj, exposeStealthUnits);
 	m_aodDirty = true;
 }
 

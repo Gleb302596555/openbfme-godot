@@ -679,7 +679,11 @@ bool HordeContain::runMemberPass()
 	const HordeAIUpdate *meleeHai = m_meleeEngaged ? dynamic_cast<const HordeAIUpdate *>(hordeAi) : nullptr;
 	for (Object *m : passMembers)
 	{
-		if (m && !m->isDestroyed() && m_core->slotOf(m->getID()) < 0)
+		if (!m || m_garrisonEntering.count(m->getID()) != 0)
+		{
+			continue; // RW 0x874078 .. 0x87408B: members present in H+0x170 are skipped by the member pass
+		}
+		if (!m->isDestroyed() && m_core->slotOf(m->getID()) < 0)
 		{
 			Coord3D bannerPos;
 			if (bannerMemberSlot(*m, bannerPos)) // HORDE-2: the banner carrier walks to its BannerCarrierPosition (S-587)

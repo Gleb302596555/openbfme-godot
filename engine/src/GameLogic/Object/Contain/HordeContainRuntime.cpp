@@ -1000,8 +1000,9 @@ const char *HordeContain::combineStopLine()
 		   "carrier's own hand-over RW 0x876406";
 }
 
-void HordeContain::removeFromContain(Object *obj)
+void HordeContain::removeFromContain(Object *obj, bool exposeStealthUnits)
 {
+	(void)exposeStealthUnits;
 	removeMember(obj, false);
 }
 

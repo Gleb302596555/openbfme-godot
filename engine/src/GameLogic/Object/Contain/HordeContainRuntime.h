@@ -228,7 +228,7 @@ public:
 	bool shadowWhileContainedAllowed() const override;
 	bool addToContain(Object *obj) override;
 	void enableLoadSounds(bool enabled) override { m_soundState.loadEnabled = enabled; } // RW 0x867AA5
-	void removeFromContain(Object *obj) override;
+	void removeFromContain(Object *obj, bool exposeStealthUnits = false) override;
 	void removeDyingMember(Object *obj) override;
 	void containReactToTransformChange() override;
 	HordeContainInterface *getHordeContainInterface() override { return this; }
@@ -607,7 +607,7 @@ public:
 	void crc(StateHasher &hasher) const override;
 	UpdateSleepTime update() override; // RW 0x872EFC + 0x87D9F6 + 0x873FE8 + 0x87DB01
 	bool addToContain(Object *obj) override; // RW 0x87D650 -> 0x872D0A
-	void removeFromContain(Object *obj) override;
+	void removeFromContain(Object *obj, bool exposeStealthUnits = false) override;
 	void removeDyingMember(Object *obj) override;
 	void markDirty() override;
 	void updateFormation() override;

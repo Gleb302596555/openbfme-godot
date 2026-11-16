@@ -130,13 +130,14 @@ public:
 	// the income / deposit factor: the PRODUCTION product (RW 0x68C82D(0xD)); lane MODS-3: times PRODUCTION_MONEY's under
 	// edain-unchained.production-split (its 0xED90D8 at RW 0x88559F / 0x89DC45 / 0x883C4E / 0x8A4623)
 	float productionMoneyProduct(const Object &obj) const;
-	// RW 0x68C818 style: the sum form for COMMAND_POINT_BONUS (RW 0x6A7C01 starts it at 0.0)
+	// RW 0x68C818 style: the sum form. RW 0x6A7C01 starts it at 0.0 for COMMAND_POINT_BONUS (0x18) and RW 0x6AC0B5 for BOUNTY_PERCENTAGE (0x11);
+	// the walk answers any type, so the installed provider does too (GameLogic installs it, S-253)
 	typedef std::function<bool(const Object &obj, int type, float &sum)> AttributeModifierSumProvider;
 	void setAttributeModifierSumProvider(AttributeModifierSumProvider p) { m_attributeSums = std::move(p); }
 	float attributeModifierSum(const Object &obj, int type) const;
 
 	// whether the object has a model condition (by the binary's name, RW 0xD9FAD8): AutoDepositUpdate asks RUBBLE, POST_RUBBLE, POST_COLLAPSE, GARRISONED.
-	// Object has no model conditions in this tree (PROD-1 adds them); without a provider none is set
+	// GameLogic installs the provider over the object's own flags (RW 0x46E918, Object + 0x10C); without one none is set
 	typedef std::function<bool(const Object &obj, const char *modelCondition)> ModelConditionProvider;
 	void setModelConditionProvider(ModelConditionProvider p) { m_modelConditions = std::move(p); }
 	bool objectHasModelCondition(const Object &obj, const char *modelCondition) const;
