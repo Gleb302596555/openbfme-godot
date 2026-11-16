@@ -245,16 +245,19 @@ void W3D_Set_Floor_Height_Map(const ::WorldHeightMap *hm)
 		return;
 	}
 	PackedByteArray heightBytes;
-	heightBytes.resize((int64_t)hm->m_width * hm->m_height * sizeof(float));
+	heightBytes.resize((int64_t)hm->m_width * hm->m_height * 2 * (int64_t)sizeof(float));
 	for (int y = 0; y < hm->m_height; ++y)
 	{
 		for (int x = 0; x < hm->m_width; ++x)
 		{
-			const float z = hm->getHeight(x, y) * MAP_HEIGHT_SCALE;
-			std::memcpy(heightBytes.ptrw() + ((int64_t)y * hm->m_width + x) * sizeof(float), &z, sizeof(float));
+			const float rg[2] = {
+				(float)hm->getHeight(x, y) * MAP_HEIGHT_SCALE,
+				hm->isCellFlipped(x, y) ? 1.0f : 0.0f
+			};
+			std::memcpy(heightBytes.ptrw() + ((int64_t)y * hm->m_width + x) * 2 * (int64_t)sizeof(float), rg, sizeof(rg));
 		}
 	}
-	Ref<Image> img = Image::create_from_data(hm->m_width, hm->m_height, false, Image::FORMAT_RF, heightBytes);
+	Ref<Image> img = Image::create_from_data(hm->m_width, hm->m_height, false, Image::FORMAT_RGF, heightBytes);
 	g_floorHeightTexture = ImageTexture::create_from_image(img);
 	if (rs)
 	{

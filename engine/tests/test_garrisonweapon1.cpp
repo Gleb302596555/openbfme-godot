@@ -110,14 +110,20 @@ TEST_CASE("garrisonweapon1: a rider with a CONTAINED weapon set fights with it i
 	CHECK(primary(wild) == "SlowSword");
 }
 
-TEST_CASE("garrisonweapon1: a unit without a CONTAINED weapon set keeps its weapons (RW 0x691014(20) false)")
+TEST_CASE("garrisonweapon1: a unit with only default weapons gets CONTAINED flag but keeps its weapons; weaponless unit keeps flag false (RW 0x691014 -> 0x73F6B9 -> 0x73D89F)")
 {
 	CombatWorld w(kGarrisonWeaponObjects);
 	Object *tower = w.unit("WatchTower", 'A', 300, 300);
 	Object *slasher = w.unit("Slasher", 'A', 330, 300);
+	Object *dummy = w.unit("Dummy", 'A', 340, 300);
+	CHECK(dummy->getWeapons() == nullptr);
 	ContainModuleInterface *c = tower->getContain();
+	REQUIRE(c->addToContain(dummy));
+	CHECK(dummy->getWeapons() == nullptr);
+	c->removeFromContain(dummy);
+	// pin: RW 0x691014(20) calls ThingTemplate::findWeaponTemplateSet({CONTAINED}) (RW 0x73D89F), which returns Slasher's None set; SlowSword still wins updateWeaponSet
 	REQUIRE(c->addToContain(slasher));
-	CHECK_FALSE(containedFlag(slasher));
+	CHECK(containedFlag(slasher));
 	CHECK(primary(slasher) == "SlowSword");
 	c->removeFromContain(slasher);
 	CHECK_FALSE(containedFlag(slasher));

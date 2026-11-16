@@ -30,8 +30,8 @@ namespace
 const char *kView3DShader = R"(shader_type canvas_item;
 render_mode blend_disabled;
 uniform sampler2D screen_tex : hint_screen_texture, filter_nearest;
-uniform sampler2D over_black : filter_linear;
-uniform sampler2D over_white : filter_linear;
+uniform sampler2D over_black : filter_linear, repeat_disable;
+uniform sampler2D over_white : filter_linear, repeat_disable;
 void fragment() {
 	vec3 d = texture(screen_tex, SCREEN_UV).rgb;
 	vec3 a = texture(over_black, UV).rgb;
@@ -274,7 +274,10 @@ void AptView3DViewers::draw(RID item, const Rect2 &rect, const AptCanvasOp &op, 
 		slot.white->set_size(size);
 	}
 	RenderingServer *rs = RenderingServer::get_singleton();
-	rs->canvas_item_set_copy_to_backbuffer(item, true, rect);
+	// Local 53 (P-98): the back buffer copy covers the clip's whole pixels (AptView3DCopyRect); the fractional rectangle left the last column out
+	float copy[4];
+	AptView3DCopyRect(rect.position.x, rect.position.y, rect.size.x, rect.size.y, copy);
+	rs->canvas_item_set_copy_to_backbuffer(item, true, Rect2(copy[0], copy[1], copy[2], copy[3]));
 	rs->canvas_item_set_material(item, slot.material->get_rid());
 	rs->canvas_item_add_texture_rect(item, rect, slot.black->get_texture()->get_rid());
 	pose(slot, now);

@@ -16,6 +16,7 @@
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawVariants.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DSailModelDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DLightDraw.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTornadoDraw.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DModelDrawBones.h"
 #include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DQuadrupedDraw.h"
 #include "Common/ModelState.h"
@@ -24,6 +25,7 @@
 #include "GameLogic/Object/ObjectGeometry.h"
 
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <variant>
 
@@ -110,6 +112,10 @@ void Drawable::reactToTransformChange(const Coord3D *oldPos, float oldAngle)
 		{
 			e.lightDraw->reactToTransformChange(oldPos, oldAngle);
 		}
+		if (e.tornadoDraw)
+		{
+			e.tornadoDraw->reactToTransformChange(oldPos, oldAngle);
+		}
 	}
 }
 
@@ -118,6 +124,13 @@ void Drawable::friend_boundToObject()
 	for (std::unique_ptr<DrawableModule> &m : m_clientModules)
 	{
 		m->onDrawableBoundToObject();
+	}
+	for (DrawEntry &e : m_entries)
+	{
+		if (e.tornadoDraw)
+		{
+			e.tornadoDraw->onDrawableBoundToObject();
+		}
 	}
 }
 
@@ -287,6 +300,16 @@ void Drawable::addEntry(DrawServices &services, const ThingTemplate::Nugget &nug
 				e.animated = true;
 			}
 		}
+		// Local 73 (P-146): W3DTornadoDraw (RW 0x004D102E / DONOR BFME2 0x004D181D)
+		if (ci->kind == W3D_DRAWKIND_NOT_DRAWN && (nugget.name == "W3DTornadoDraw" || dynamic_cast<const W3DTornadoDrawModuleData *>(nugget.data.get()) != nullptr))
+		{
+			const auto *td = dynamic_cast<const W3DTornadoDrawModuleData *>(nugget.data.get());
+			if (td)
+			{
+				e.tornadoDraw = std::make_unique<W3DTornadoDraw>(this, td);
+				e.animated = true;
+			}
+		}
 	}
 	m_entries.push_back(std::move(e));
 }
@@ -295,7 +318,7 @@ bool Drawable::hasAnimatedEntry() const
 {
 	for (const DrawEntry &e : m_entries)
 	{
-		if (e.animated && (e.draw || e.lightDraw))
+		if (e.animated && (e.draw || e.lightDraw || e.tornadoDraw))
 		{
 			return true;
 		}
@@ -1353,6 +1376,186 @@ bool Drawable::boneWorldPosition(const std::string &boneName, Coord3D &outPos) c
 		return true;
 	}
 	return false;
+}
+
+int Drawable::currentClientBonePositions(const std::string &boneNamePrefix, int startIndex, std::vector<Matrix3D> &outTransforms, int maxBones) const
+{
+	// P-149 (RW 0x672AEE; DONOR BFME2 Drawable::getCurrentClientBonePositions / W3DModelDraw::getCurrentBonePositions)
+	if (boneNamePrefix.empty() || maxBones <= 0)
+	{
+		return 0;
+	}
+	int remaining = maxBones > 64 ? 64 : maxBones;
+	int count = 0;
+	std::string lowerPrefix = boneNamePrefix;
+	AsciiStringUtil::toLower(lowerPrefix);
+	const int endIndex = (startIndex == 0) ? 0 : 99;
+
+	for (const DrawEntry &e : m_entries)
+	{
+		if (remaining <= 0)
+		{
+			break;
+		}
+		if (!e.draw)
+		{
+			continue;
+		}
+		const W3DDrawFrame f = e.draw->frame();
+		if (!f.model || !f.model->Tree)
+		{
+			continue;
+		}
+		bool poseComputed = false;
+		HTreePose pose;
+		for (int i = startIndex; i <= endIndex && remaining > 0; ++i)
+		{
+			char buffer[128];
+			if (i == 0)
+			{
+				std::snprintf(buffer, sizeof(buffer), "%s", lowerPrefix.c_str());
+			}
+			else
+			{
+				std::snprintf(buffer, sizeof(buffer), "%s%02d", lowerPrefix.c_str(), i);
+			}
+			const int boneIdx = f.model->Tree->Get_Bone_Index(buffer);
+			if (boneIdx <= 0)
+			{
+				break;
+			}
+			if (!poseComputed)
+			{
+				if (f.blending && f.motion1 != nullptr)
+				{
+					f.model->Tree->Blend_Pose(Matrix3D(), f.motion0, f.frame0, f.motion1, f.frame1, f.blendPercentage, pose);
+				}
+				else if (f.motion0 != nullptr)
+				{
+					f.model->Tree->Anim_Pose(Matrix3D(), f.motion0, f.frame0, pose);
+				}
+				else
+				{
+					f.model->Tree->Base_Pose(Matrix3D(), pose);
+				}
+				poseComputed = true;
+			}
+			if ((size_t)boneIdx >= pose.Transform.size())
+			{
+				break;
+			}
+			Matrix3D m = pose.Transform[(size_t)boneIdx];
+			m.Row[0][3] *= m_scale;
+			m.Row[1][3] *= m_scale;
+			m.Row[2][3] *= m_scale;
+			outTransforms.push_back(m);
+			++count;
+			--remaining;
+		}
+	}
+	return count;
+}
+
+bool Drawable::swirlInfluence(const Coord3D &worldPos, UnsignedInt clientFrame, Coord3D &outTangent) const
+{
+	// P-149 (RW 0x678BF2 -> 0x676BD7 -> 0x676C7D; DONOR BFME2 0x002768AC / 0x00276952; both editions)
+	if (m_swirlMoveOnly < 0)
+	{
+		const int kMoveOnly = ObjectTemplateInfoBuilder::kindOfIndex("MOVE_ONLY");
+		bool moveOnly = isKindOfIndex(kMoveOnly);
+		if (!moveOnly && kMoveOnly >= 0)
+		{
+			if (const ThingTemplate *tt = getTemplate())
+			{
+				moveOnly = MaskTest(ObjectTemplateInfoBuilder::build(*tt).kindOf, (unsigned)kMoveOnly);
+			}
+		}
+		m_swirlMoveOnly = moveOnly ? 1 : 0;
+	}
+	if (m_swirlMoveOnly == 0)
+	{
+		return false;
+	}
+
+	if (!m_swirlCacheValid || m_swirlCacheFrame < clientFrame)
+	{
+		m_swirlCacheFrame = clientFrame;
+		m_swirlCacheValid = true;
+		m_swirlCacheMats.clear();
+		if (currentClientBonePositions("B_TORNADO", 1, m_swirlCacheMats, 16) == 0)
+		{
+			// RW 0x676C25 -> 0x6765B9: fallback to Thing::getTransformMatrix()
+			float basis[9];
+			Coord3D dpos;
+			getPresentationPose(basis, dpos);
+			Matrix3D tm;
+			for (int r = 0; r < 3; ++r)
+			{
+				for (int c = 0; c < 3; ++c)
+				{
+					tm.Row[r][c] = basis[r * 3 + c];
+				}
+			}
+			tm.Row[0][3] = dpos.x;
+			tm.Row[1][3] = dpos.y;
+			tm.Row[2][3] = dpos.z;
+			m_swirlCacheMats.push_back(tm);
+		}
+	}
+	if (m_swirlCacheMats.empty())
+	{
+		return false;
+	}
+
+	const Coord3D *dpos = getPosition();
+	if (!dpos)
+	{
+		return false;
+	}
+	const Coord3D rel{ worldPos.x - dpos->x, worldPos.y - dpos->y, worldPos.z - dpos->z };
+
+	float best = 2000.0f;
+	int which = -1;
+	for (size_t i = 0; i < m_swirlCacheMats.size(); ++i)
+	{
+		const Matrix3D &m = m_swirlCacheMats[i];
+		const float ax = std::fabs(rel.x - m.Row[0][3]);
+		const float ay = std::fabs(rel.y - m.Row[1][3]);
+		const float az = std::fabs(rel.z - m.Row[2][3]);
+		float hi = ax;
+		float mid = ay;
+		float lo = az;
+		if (hi < mid) { float t = hi; hi = mid; mid = t; }
+		if (hi < lo) { float t = hi; hi = lo; lo = t; }
+		if (mid < lo) { mid = lo; }
+		const float distance = hi + 0.34375f * mid + 0.25f * lo;
+		if (distance < best)
+		{
+			best = distance;
+			which = (int)i;
+		}
+		else if (distance > best + 100.0f)
+		{
+			break;
+		}
+	}
+	if (which < 0)
+	{
+		return false;
+	}
+	const Matrix3D &chosen = m_swirlCacheMats[(size_t)which];
+	const float dx = chosen.Row[0][3] - rel.x;
+	const float dy = chosen.Row[1][3] - rel.y;
+	const float lenSq = dx * dx + dy * dy;
+	if (lenSq <= 0.0f)
+	{
+		return false;
+	}
+	const float invLen = 1.0f / std::sqrt(lenSq);
+	const float nx = dx * invLen;
+	const float ny = dy * invLen;
+	outTangent = Coord3D{ ny, -nx, 0.0f };
+	return true;
 }
 
 // RW 0xAD1920: maximum geometry height above position for the drawable's template

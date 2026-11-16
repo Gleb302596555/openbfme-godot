@@ -190,6 +190,8 @@ include(cmake/Port156.cmake)  # PORT-156: PlayerTemplate spell-book labels and s
 include(cmake/Port164.cmake)   # PORT-164: the GiantBird contact point through getBestContactPoint mode 1 (fork issue 387; OPENBFME_PORT164_TESTS)
 include(cmake/Port160.cmake)   # PORT-160: the capture / loss EVA and the camp-destroyed EVA (issue #378; OPENBFME_PORT160_TESTS)
 include(cmake/Port201.cmake)   # PORT-201: a captured building's upgrades reset and production cancel (fork issue 468; OPENBFME_PORT201_TESTS)
+include(cmake/Port205.cmake)   # PORT-205: a HordeAttackNugget's member pick and the contain slot 0x1C (fork issue 472; OPENBFME_PORT205_TESTS)
+include(cmake/Port217.cmake)   # PORT-217: a builder turns to face the structure it builds or repairs (fork issue 507; OPENBFME_PORT217_TESTS)
 include(cmake/Port113.cmake)    # PORT-113: the light points of the War of the Ring (issue #280; appends to OPENBFME_SIM_SOURCES; OPENBFME_PORT113_TESTS)
 include(cmake/Port81.cmake)     # PORT-81: HordeContain/RanksToJustFreeWhenAttacking, parsed and never read by RotWK (issue #213; OPENBFME_PORT81_TESTS)
 include(cmake/Port84.cmake)     # PORT-84: unit voice of the combine-with-horde order (issue #232; OPENBFME_PORT84_TESTS)
@@ -216,6 +218,7 @@ include(cmake/Port155.cmake)    # PORT-155: RotWK reverb send, dry level and off
 include(cmake/Port169.cmake)    # PORT-169: CommandButton toggle index (+0xFC) for UnitSpecificSound and toggle images/labels (issue #398; OPENBFME_PORT169_TESTS)
 include(cmake/Port188.cmake)    # PORT-188: SpecialAbilityUpdate::initiateIntentToDoSpecialPower checks isPowerCurrentlyInUse() before aborting sibling (issue #454; OPENBFME_PORT188_TESTS)
 include(cmake/Port189.cmake)    # PORT-189: Palantir button click drops help provider so hovered toggle buttons refresh tooltip (issue #455; OPENBFME_PORT189_TESTS)
+include(cmake/Port221.cmake)    # PORT-221: multi-selected horde abilities, weapon toggles, and mixed-selection HUD/dispatch (issue #531, P-140; OPENBFME_PORT221_TESTS)
 include(cmake/Port159.cmake)    # PORT-159: SHADOW_VOLUME_NON_SELF_1/2/3 cast a shadow (the mumak, the dwarven battle wagon; issue #377; OPENBFME_PORT159_TESTS)
 include(cmake/Port170.cmake)    # PORT-170: the placement seal flickers red/white with a stationary cursor (issue #399; OPENBFME_PORT170_TESTS)
 include(cmake/Port171.cmake)    # PORT-171: the online tests' temporary folder, removed after what writes into it (fork issue 400, P-37; OPENBFME_PORT171_TESTS)
@@ -497,6 +500,7 @@ include(cmake/Port433.cmake)    # PORT-433: Ithilien grove (ElvenWood) area bonu
 include(cmake/Port428.cmake)    # PORT-428: the aerial path's 3D would-collide filter (OPENBFME_PORT428_TESTS)
 include(cmake/Port439.cmake)    # PORT-439: the script action FOCAL_LENGTH_CAMERA (the view's focal length, issue #439; OPENBFME_PORT439_TESTS)
 include(cmake/Port194.cmake)    # PORT-194: the crowd response of the unit voice, RotWK's CrowdResponse parser and threshold rule (issue #461; OPENBFME_PORT194_TESTS)
+include(cmake/Port209.cmake)    # PORT-209: the horde's banner carrier at build complete and the combine's banner tie-break (issue #491; OPENBFME_PORT209_TESTS)
 include(cmake/Port202.cmake)    # PORT-202: the locomotor's wading updater and the disguised climber's reveal (issue #469; OPENBFME_PORT202_TESTS)
 include(cmake/Port204.cmake)    # PORT-204: crush warning path gate and horde +0x170 member list (issue #471; OPENBFME_PORT204_TESTS)
 include(cmake/Port464.cmake)    # PORT-464: the per-frame steering of a summoned helper (issue #464; OPENBFME_PORT464_TESTS)
@@ -935,6 +939,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT436_TESTS}
     ${OPENBFME_PORT194_TESTS}
     ${OPENBFME_PORT198_TESTS}
+    ${OPENBFME_PORT209_TESTS}
     ${OPENBFME_PORT133_TESTS}
     ${OPENBFME_PORT166_TESTS}
     ${OPENBFME_PORT137_TESTS}
@@ -952,6 +957,8 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT164_TESTS}
     ${OPENBFME_PORT160_TESTS}
     ${OPENBFME_PORT201_TESTS}
+    ${OPENBFME_PORT205_TESTS}
+    ${OPENBFME_PORT217_TESTS}
     ${OPENBFME_PORT102_TESTS}
     ${OPENBFME_PORT113_TESTS}
     ${OPENBFME_PORT214_TESTS}
@@ -1095,6 +1102,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT191_TESTS}
     ${OPENBFME_PORT188_TESTS}
     ${OPENBFME_PORT189_TESTS}
+    ${OPENBFME_PORT221_TESTS}
     ${OPENBFME_RENDER_TESTS}
     ${OPENBFME_SKIRMISH_AI_TESTS}
     ${OPENBFME_VIS_TESTS}
@@ -1399,12 +1407,21 @@ add_executable(openbfme_tests
     tests/test_local_51.cpp
     # lane LOCAL-52 (W3D transparent/floor render priority order below particles, issue #408 / P-100)
     tests/test_local_52.cpp
+    tests/test_local_53.cpp
+    # lane LOCAL-65 (Isengard building foundations under black ground and multi-faction terrain fitting, issue #510 / P-130)
+    tests/test_local_65.cpp
     # lane LOCAL-62 (capturing a production building cancels its production queue, issue #483 / P-122)
     tests/test_local_62.cpp
+    # lane LOCAL-63 (Isengard unpack buildings stay visible at 100% completion, issue #508 / P-129)
+    tests/test_local_63.cpp
+    # lane LOCAL-73 (ability visuals: P-139/P-141/P-144/P-146/P-147/P-149, issue #535)
+    tests/test_local_73.cpp
     # lane LOCAL-59 (WeaponFireSpecialAbilityUpdate makes and loads weapon in ctor, fork issue #418)
     tests/test_local_59.cpp
     # lane LOCAL-61 (P-121: stunned unit does not act/attack/move in AIUpdateInterface::update, RW 0x669652 / BFME2 0x0026A05D, issue #482)
     tests/test_local_61.cpp
+    # lane LOCAL-75 (issue #537, P-142 & P-145: Imladris library mages & Heldenkiller* ObjectFilter)
+    tests/test_local_75.cpp
     # lane LOCAL-27 (bridges as retail: Bridge block, damage models, towers, scaffold, radar color, issue #189)
     tests/test_local_27.cpp
     # lane LOCAL-33 (castle gates and 'man the walls' as retail: GateProxyBehavior, ManTheWallsSpecialPower, issue #283)

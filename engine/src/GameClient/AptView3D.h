@@ -59,6 +59,12 @@ void AptView3DImageSize(float rectW, float rectH, float scaleX, float scaleY, bo
 // stretched over the clip. More pixels than `budget` (1920x1080's count for the menus) cost an integrated GPU a large share of the frame and show no
 // more: the size is scaled down to at most `budget` pixels with its aspect kept (both sides at least 1).
 void AptView3DPixelBudget(int &width, int &height, int budget);
+// Local 53 (P-98, not retail: RotWK renders the model straight into the clip's viewport, RW 0xB5470F, and samples no copy of the screen): the
+// port's View3D composite reads the screen behind the clip from a back buffer copy of the clip's rectangle. That rectangle is in floats (the stage
+// mapping of the clip's bounds: 239.9999 .. 1679.9999 for the Powers screen's SFE_MenuSpells at 1920 x 1080), and a copy of a fractional
+// rectangle leaves its last column out: the composite then read a stale back buffer there, the thin light line on the right of the Powers
+// screen. The copy covers every pixel the clip touches: x0 / y0 rounded down, x1 / y1 rounded up (`out` = x, y, w, h in whole pixels).
+void AptView3DCopyRect(float x, float y, float w, float h, float out[4]);
 // Sol r1 (ONLINE-5): does the View3D clip at `path` ("_level<N>.<...>", its target path) belong to one of `menuLevels` (the levels of the shell's menu
 // screens)? Those clips stretch with the stage (AptView3DImageSize); any other level's (GuiFX's end screen, an in-game movie) keeps retail's aspect
 bool AptView3DOnMenuLevel(const std::string &path, const std::vector<int> &menuLevels);

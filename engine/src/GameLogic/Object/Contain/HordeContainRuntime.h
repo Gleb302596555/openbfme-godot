@@ -189,6 +189,15 @@ public:
 	virtual bool notComboFormation() const = 0;
 	// ---- lane PORT-169 (issue #398, RW HordeContainInterface slot 0xEC, RW 0x872B69): true when this horde formation is its main formation
 	virtual bool isMainFormation() const = 0;
+	// ---- lane PORT-205 (fork issue 472): the two member picks the HordeAttackNugget's isApplicable asks (RW 0x9119CB, RW 0x911A09 .. 0x911A27) ----
+	// slot 0x114(0xA4) (RW 0x8705A6): the first contained member whose template is not KindOf BANNER (bit 0xA4), else the first contained member; with the
+	// contain list empty the same pick over the members on their way into a garrison (interface + 0x54, by id); null when there is none. A dead member is
+	// picked like a living one (the body is never asked).
+	virtual Object *firstMemberNotKindOf(unsigned kindOfBit) const = 0;
+	// slot 0x50 (RW 0x86FEEC): the member (the contain list, then the members on their way) whose current weapon reaches furthest -- RW 0x6CA8BD with a
+	// dz of 0 -- the smallest range drawn when the first candidate is scored (a zero range is a candidate: 0.0 < the -1.0 start); null when no member
+	// has a weapon. `closestMemberOnly` is not an input: the pick is always the longest-reaching one.
+	virtual Object *memberWithLongestAttackRange() const = 0;
 };
 
 class HordeContain : public UpdateModule, public ContainModuleInterface, public CreateModuleInterface, public HordeContainInterface
@@ -461,17 +470,35 @@ public:
 	bool isMainFormation() const override;
 	bool canCombineWith(const Object &other) const override;
 	Object *combineWith(Object *target) override;
-	static const char *combineStopLine();
-	// RW 0x876481's banner tie-break (0x8768A0 .. 0x8768FC) is S-6028: the members of `from` leave it without its "last member gone" destruction
-	// (the formation swap's rule) and are handed to `to` (interface slot 0x2C, RW 0x873F30) unplaced, erased from `to`'s produced list so the member
-	// pass walks them to their slots
-	void takeMembersFrom(HordeContain &from, HordeContain &to);
+	// lane PORT-209 (fork issue 491): the combine's member hand-over in RW 0x876481's order. detachMembers is interface slot 0x44 (RW 0x87317A at
+	// RW 0x876653 on this horde, RW 0x87670D on the target): the members, the banner carrier among them, leave `from` in list order without its "last
+	// member gone" destruction (the formation swap's rule); adoptMembers is slot 0x78 (RW 0x876A08 at RW 0x876990): each joins `to` (slot 0x2C, RW
+	// 0x873F30) unplaced, erased from `to`'s produced list so the member pass walks it to its slot
+	static std::vector<Object *> detachMembers(HordeContain &from);
+	static void adoptMembers(HordeContain &to, const std::vector<Object *> &members);
 	// the stop line S-589
 	static const char *formationStopLine();
 	// ---- lane HORDE-2: the banner carrier (HordeBanner.cpp; RW 0x8719E4 / 0x870204) ----
 	// RW 0x8719E4: the countdown H+0x27C runs down; with no carrier, BannerCarrierMinLevel below the horde object's ExperienceTracker rank, the horde not firing in the last
 	// 4 * LOGICFRAMES_PER_SECOND frames (unless `force`) a carrier of BannerCarriersAllowed[0] is made and joins the horde
 	void bannerCheck(bool force);
+	// RW 0x870204 (lane PORT-209): the carrier spawn bannerCheck calls (RW 0x871A65) and onBuildComplete tail-jumps to (RW 0x87190E). With no carrier (H + 0x26C,
+	// RW 0x870217) and BannerCarriersAllowed (data + 0x218) not empty (RW 0x870226), the first name's template (RW 0x870239) is made on the horde's team (RW
+	// 0x8702EA), takes the horde's weapon set flags 0x18 .. 0x1A (RW 0x8702FB .. 0x870338), stands where the horde stands (RW 0x8703E0 .. 0x8703F5), joins
+	// through interface slot 0x74 (RW 0x870409 -> RW 0x876406, handOverBannerCarrier) and the countdown H + 0x27C becomes its MeleeFreeBannerReSpawnTime
+	// (RW 0x870414 .. 0x870426)
+	void spawnBannerCarrier();
+	// RW 0x876406 (lane PORT-209): the banner arm of interface slot 0x74 (RW 0x876529 .. 0x876578), reached by the spawn (RW 0x870409) and by the combine's
+	// hand-over of the surviving carrier (RW 0x876962), both with flag = true. The carrier's id is the horde's (RW 0x8763A9) and it joins the contain (RW
+	// 0x876431 -> RW 0x876394); its BannerCarrierUpdate morphs for the horde (RW 0x86BF96 -> RW 0x89A5C5; the FX only while H + 0x2B4 is 0, RW 0x876560); its
+	// ExperienceTracker gains the horde's level minus its own (RW 0x87645E .. 0x876476 -> RW 0x79D7E5(levels, 0)). `walksIn`: the combine's carrier joins
+	// unplaced like the other members (adoptMembers), the spawn's is put on its slot (addToContain). The arm's gate is interface slot 0x6C (RW 0x876541 ->
+	// RW 0x86C81E): false when the horde has a carrier (H + 0x26C, RW 0x86C81E), when the carrier's template is not one of BannerCarriersAllowed (RW
+	// 0x86C86D .. 0x86C89E, by template) or when one of the two is TEMPORARILY_DEFECTED and they differ in team or in that status (RW 0x86C832 .. 0x86C86B
+	// with flag = true); then RotWK goes on to the slot's machine arm RW 0x87657F .. 0x8765D7 (MachineAllowed / MachineType: not ported, S-7375; no mod
+	// object sets MachineAllowed) and the carrier stays where it is. Not ported: the flag = false arm (RW 0x876444 .. 0x876459, the horde gains a level,
+	// RW 0x79DA0A(1, 1, 0)): no caller of the port reaches it
+	bool handOverBannerCarrier(Object &carrier, bool walksIn);
 	ObjectID bannerCarrier() const { return m_bannerCarrier; }
 	unsigned bannerCountdown() const { return m_bannerCountdown; }
 	// RW 0x871915 (lane BANNER-1): the removed member was the banner carrier: the id goes and the countdown becomes its BannerCarrierUpdate's DiedRespawnTime. Only the
@@ -484,7 +511,9 @@ public:
 	unsigned payloadCount() const; ///< RW interface slot 0x188: members, including those entering a garrison, without the banner.
 	// lane NECRODIE-1: RW 0x8705A6 (interface slot 0x114): the first contained member whose template lacks KindOf `kindOfBit`, else the first contained member;
 	// with nothing contained, the same pick over the members on their way into a garrison (interface + 0x54, by id); null when there is none
-	Object *firstMemberNotKindOf(unsigned kindOfBit) const;
+	Object *firstMemberNotKindOf(unsigned kindOfBit) const override;
+	// RW 0x86FEEC (interface slot 0x50): the member with the longest current attack range (a member without a current weapon is passed over)
+	Object *memberWithLongestAttackRange() const override;
 	unsigned lastMemberDamageFrame() const; ///< RW 0x86EB60, interface slot 0x26C.
 	// RW HordeContainInterface slot 0x18C (RW 0x873AE3): a new member of the payload template joins at `pos` facing `orientation` (the matrix), with the horde's
 	// weapon set flags, experience pool, attribute modifiers and lifetime (null when the horde is full or has no single payload template)
@@ -543,6 +572,9 @@ private:
 	// HORDE-2 banner state: RW H+0x26C carrier id, H+0x27C countdown
 	ObjectID m_bannerCarrier = 0;
 	unsigned m_bannerCountdown = 0;
+	// lane PORT-209: RW H + 0x2B4, the combine's latch around its hand-over of the surviving carrier (set RW 0x876948, restored RW 0x876968): while it is set the
+	// carrier's morph plays no FX (RW 0x876560's `sete`). Never set across frames: not hashed, not saved
+	bool m_bannerMorphFXSuppressed = false;
 	unsigned m_lastMemberRemovedFrame = 0xFFFFFFFFu; ///< RW H+0x298, written by 0x87370B
 	ObjectID m_removedMemberAttacker = INVALID_ID; ///< RW H+0x29C
 	// lane GARRISON-1: RW interface + 0x54 (the members on their way into a garrison, a map keyed by id), + 0x1EC (the frame the last of them entered), + 0x188 (garrisoned)

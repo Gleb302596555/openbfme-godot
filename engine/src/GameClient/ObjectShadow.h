@@ -35,6 +35,7 @@
 #include <cstdint>
 #include <functional>
 #include <string>
+#include <vector>
 
 class Drawable;
 class Object;     // lane PORT-91 (issue #239): the logic object behind a drawable, named by its id
@@ -108,6 +109,12 @@ unsigned evaluateDecalOpacity(const DecalShadowDescriptor &desc, unsigned curren
 // TheGlobalData + 0x61 (UseShadowDecals after the static LOD apply, RW 0x601C62: cleared when UseShadowMapping is set): addShadow's gate RW 0x50BF7B.
 // logicObject (lane PORT-91, issue #239): the logic object behind the drawable; a contained object's decal shadow is suppressed unless its module data
 // says ShowShadowWhileContained (RW 0x4C7848, the same gate the volume-map call sites apply). null: not resolved, nothing is suppressed
+// Both editions (RW 0x4C4EE0..0x4C5175): collects all active decal shadows across visible W3DModelDraw entries
+// (each W3DScriptedModelDraw owns its own decal shadow; Branch A emits condition shadow even with Invisible model, Branch B requires proto != nullptr).
+void buildDrawableDecalShadows(const Drawable &drawable, std::vector<SelectionDecal> &out, bool useShadowDecals,
+	const std::function<void(float &, float &)> &fallbackSize = nullptr,
+	unsigned currentFrame = 0, const ::Object *logicObject = nullptr);
+
 bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, bool useShadowDecals,
 	const std::function<void(float &, float &)> &fallbackSize = nullptr,
 	unsigned currentFrame = 0, const ::Object *logicObject = nullptr);

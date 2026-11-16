@@ -205,7 +205,8 @@ public:
 	// lane MODS-3: RW 0x6CF3AE (source, victim): privateFireWeapon RW 0x6CEF6D at the victim with argument 6 (ignore the ranges) = 1 and argument 7 (a projectile
 	// detonation, RW 0x6CB7BD: the nuggets delivered at the victim at once) = 1; no lock, no tracker (Edain Unchained's FireAtAttacker shot)
 	void fireExtraWeaponDetonationAt(Weapon &w, Object &victim);
-	// lane HERO-1: RW 0x691014 Object::hasWeaponSetFor(bit): the template has a weapon set naming the condition (RW 0x73F6B9; INFERENCE: any set with the bit)
+	// Both editions: RW 0x691014 (DONOR BFME2 0x0029091E ObjectRva0029091E.cpp) builds a single-bit WeaponSetFlags and calls
+	// ThingTemplate::findWeaponTemplateSet (RW 0x73F6B9 -> 0x73EE52 -> 0x73D89F), returning true whenever any template weapon set exists
 	bool hasWeaponSetFor(int bit) const;
 	// the status of the current weapon (RW 0x6CD142), WEAPON_OUT_OF_AMMO when there is none
 	int currentStatus() const;

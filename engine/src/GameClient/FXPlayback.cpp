@@ -31,6 +31,10 @@ public:
 	{
 		return m_owner.m_world ? m_owner.m_world->attachedObject(id, bone, player) : FXParticleSystem::ParticleAttachInfo();
 	}
+	FXParticleSystem::ParticleAttachInfo swirlInfluence(std::uint32_t id, const Coord3D &pos) override
+	{
+		return m_owner.m_world ? m_owner.m_world->swirlInfluence(id, pos) : FXParticleSystem::ParticleAttachInfo();
+	}
 	void playFXList(const std::string &name, const Coord3D &pos, const Matrix3D *mtx) override;
 	bool hasFXList(const std::string &name) override { return m_owner.m_lists.findFXList(name) != nullptr; }
 

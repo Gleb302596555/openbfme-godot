@@ -24,6 +24,88 @@ namespace
 {
 const std::uint8_t INVERTED_MASK = 0x1; // ZH TileData.h:51
 const std::uint8_t FLIPPED_MASK = 0x2;  // ZH TileData.h:52
+
+void resolveBlendFlipAndAlphas(const TBlendTileInfo &b, std::uint8_t alpha[4], bool &needFlip)
+{
+	alpha[0] = alpha[1] = alpha[2] = alpha[3] = 0;
+	if (b.horiz)
+	{
+		// Horizontals don't need flipping unless forced because of 3way blend.
+		needFlip = (b.inverted & FLIPPED_MASK) != 0;
+		if (b.inverted & INVERTED_MASK)
+		{
+			alpha[0] = alpha[3] = 255;
+		}
+		else
+		{
+			alpha[1] = alpha[2] = 255;
+		}
+	}
+	if (b.vert)
+	{
+		needFlip = (b.inverted & FLIPPED_MASK) != 0;
+		if (b.inverted & INVERTED_MASK)
+		{
+			alpha[0] = alpha[1] = 255;
+		}
+		else
+		{
+			alpha[2] = alpha[3] = 255;
+		}
+	}
+	if (b.rightDiagonal)
+	{
+		if (b.inverted & INVERTED_MASK)
+		{
+			alpha[1] = 255;
+			if (b.longDiagonal)
+			{
+				alpha[0] = 255;
+				alpha[2] = 255;
+			}
+		}
+		else
+		{
+			// Uninverted right diagonals need flipping.
+			needFlip = true;
+			alpha[2] = 255;
+			if (b.longDiagonal)
+			{
+				alpha[1] = 255;
+				alpha[3] = 255;
+			}
+		}
+	}
+	if (b.leftDiagonal)
+	{
+		if (b.inverted & INVERTED_MASK)
+		{
+			// Inverted left diagonals need flipping.
+			needFlip = true;
+			alpha[0] = 255;
+			if (b.longDiagonal)
+			{
+				alpha[1] = 255;
+				alpha[3] = 255;
+			}
+		}
+		else
+		{
+			alpha[3] = 255;
+			if (b.longDiagonal)
+			{
+				alpha[0] = 255;
+				alpha[2] = 255;
+			}
+		}
+	}
+	if (b.customBlendEdgeClass >= 0)
+	{
+		alpha[0] = alpha[1] = alpha[2] = alpha[3] = 0;
+		// No alpha blend, so never need to flip.
+		needFlip = false;
+	}
+}
 } // namespace
 
 // ZH getUVForNdx (:1613-1660)
@@ -246,84 +328,7 @@ void WorldHeightMap::getAlphaUVData(int xIndex, int yIndex, float U[4], float V[
 		{
 			const TBlendTileInfo &b = m_blendedTiles[(size_t)blendNdx];
 			stretchedForCliff = getUVForTileIndex(ndx, b.blendNdx, U, V, options, false, wrap);
-			alpha[0] = alpha[1] = alpha[2] = alpha[3] = 0;
-			if (b.horiz)
-			{
-				// Horizontals don't need flipping unless forced because of 3way blend.
-				needFlip = (b.inverted & FLIPPED_MASK) != 0;
-				if (b.inverted & INVERTED_MASK)
-				{
-					alpha[0] = alpha[3] = 255;
-				}
-				else
-				{
-					alpha[1] = alpha[2] = 255;
-				}
-			}
-			if (b.vert)
-			{
-				needFlip = (b.inverted & FLIPPED_MASK) != 0;
-				if (b.inverted & INVERTED_MASK)
-				{
-					alpha[0] = alpha[1] = 255;
-				}
-				else
-				{
-					alpha[2] = alpha[3] = 255;
-				}
-			}
-			if (b.rightDiagonal)
-			{
-				if (b.inverted & INVERTED_MASK)
-				{
-					alpha[1] = 255;
-					if (b.longDiagonal)
-					{
-						alpha[0] = 255;
-						alpha[2] = 255;
-					}
-				}
-				else
-				{
-					// Uninverted right diagonals need flipping.
-					needFlip = true;
-					alpha[2] = 255;
-					if (b.longDiagonal)
-					{
-						alpha[1] = 255;
-						alpha[3] = 255;
-					}
-				}
-			}
-			if (b.leftDiagonal)
-			{
-				if (b.inverted & INVERTED_MASK)
-				{
-					// Inverted left diagonals need flipping.
-					needFlip = true;
-					alpha[0] = 255;
-					if (b.longDiagonal)
-					{
-						alpha[1] = 255;
-						alpha[3] = 255;
-					}
-				}
-				else
-				{
-					alpha[3] = 255;
-					if (b.longDiagonal)
-					{
-						alpha[0] = 255;
-						alpha[2] = 255;
-					}
-				}
-			}
-			if (b.customBlendEdgeClass >= 0)
-			{
-				alpha[0] = alpha[1] = alpha[2] = alpha[3] = 0;
-				// No alpha blend, so never need to flip.
-				needFlip = false;
-			}
+			resolveBlendFlipAndAlphas(b, alpha, needFlip);
 		}
 	}
 	if (stretchedForCliff)
@@ -437,4 +442,72 @@ bool WorldHeightMap::getExtraAlphaUVData(int xIndex, int yIndex, float U[4], flo
 		}
 	}
 	return true;
+}
+
+bool WorldHeightMap::isCellFlipped(int xIndex, int yIndex, const TerrainUvOptions &options) const
+{
+	(void)options;
+	if (xIndex < 0 || yIndex < 0 || xIndex >= m_width - 1 || yIndex >= m_height - 1)
+	{
+		return false;
+	}
+	const int ndx = yIndex * m_width + xIndex;
+	bool stretchedForCliff = false;
+	bool needFlip = false;
+	if (ndx < m_dataSize && !m_tileNdxes.empty())
+	{
+		const int blendNdx = (size_t)ndx < m_blendTileNdxes.size() ? m_blendTileNdxes[(size_t)ndx] : 0;
+		const int tileNdx = (blendNdx == 0) ? m_tileNdxes[(size_t)ndx] : m_blendedTiles[(size_t)blendNdx].blendNdx;
+		if (cliffUvApplies(ndx, tileNdx))
+		{
+			stretchedForCliff = m_cliffInfo[(size_t)m_cliffInfoNdxes[(size_t)ndx]].flip;
+		}
+		if (blendNdx != 0)
+		{
+			std::uint8_t alpha[4] = {};
+			resolveBlendFlipAndAlphas(m_blendedTiles[(size_t)blendNdx], alpha, needFlip);
+		}
+	}
+	if (stretchedForCliff)
+	{
+		const int p0 = getHeight(xIndex, yIndex);
+		const int p1 = getHeight(xIndex + 1, yIndex);
+		const int p2 = getHeight(xIndex + 1, yIndex + 1);
+		const int p3 = getHeight(xIndex, yIndex + 1);
+		const int dz1 = std::abs(p0 - p2);
+		const int dz2 = std::abs(p1 - p3);
+		needFlip = dz1 > dz2;
+	}
+	return needFlip;
+}
+
+float WorldHeightMap::getTriangleHeightAt(float worldX, float worldY, const TerrainUvOptions &options) const
+{
+	if (m_width < 2 || m_height < 2 || m_data.empty())
+	{
+		return 0.0f;
+	}
+	const float gx = worldX / MAP_XY_FACTOR + (float)m_borderSize;
+	const float gy = worldY / MAP_XY_FACTOR + (float)m_borderSize;
+	const int cx = std::clamp((int)std::floor(gx), 0, m_width - 2);
+	const int cy = std::clamp((int)std::floor(gy), 0, m_height - 2);
+	const float fx = std::clamp(gx - (float)cx, 0.0f, 1.0f);
+	const float fy = std::clamp(gy - (float)cy, 0.0f, 1.0f);
+	const float h00 = (float)getHeight(cx, cy) * MAP_HEIGHT_SCALE;
+	const float h10 = (float)getHeight(cx + 1, cy) * MAP_HEIGHT_SCALE;
+	const float h01 = (float)getHeight(cx, cy + 1) * MAP_HEIGHT_SCALE;
+	const float h11 = (float)getHeight(cx + 1, cy + 1) * MAP_HEIGHT_SCALE;
+	if (isCellFlipped(cx, cy, options))
+	{
+		if (fx + fy <= 1.0f)
+		{
+			return h00 + fx * (h10 - h00) + fy * (h01 - h00);
+		}
+		return h11 + (1.0f - fx) * (h01 - h11) + (1.0f - fy) * (h10 - h11);
+	}
+	if (fx <= fy)
+	{
+		return h00 + fx * (h11 - h01) + fy * (h01 - h00);
+	}
+	return h00 + fx * (h10 - h00) + fy * (h11 - h10);
 }

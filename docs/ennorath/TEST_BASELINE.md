@@ -40,7 +40,6 @@
 | `camp1 bonus: MAP ANG Bonus (ANGMAR_BONUS_CAMPAIGN) plays from its intro to the victory ...` | `test_camp1_missions.cpp:118`, `CHECK( st.genericScriptsFired == generic ) is NOT correct!` |
 | `cbhunt: ActionManager::canDoSpecialPowerAtObject (RW 0x82D925): the generic tests, the ...` | `test_cbhunt.cpp:329`, `CHECK( unported ) is NOT correct!` |
 | `exit1 retail: a Udun 2v2 Hard computer game: produced members leave their exit path and...` | `test_exit1_motion.cpp:332`, `CHECK( probe.seen.size() >= 400 ) is NOT correct!` |
-| `factc abilities: every SPECIAL_POWER button of the Goblins' and Angmar's units and hero...` | `test_factc_sweep.cpp:694`, `CHECK( r.outcome.compare(0, 2, "ok") == 0 ) is NOT correct!` |
 | `fx3 retail: an orc warrior's MOVING InfantryDustTrails plays nothing (RW 0x73AECB: NULL...` | `test_fx3_particles.cpp:135`, `CHECK( pitBoneMiss ) is NOT correct!` |
 | `hero abilities retail: FactionIsengard` | `test_hero_retail.cpp:1461`, `CHECK( unexplained == 0u ) is NOT correct!` |
 | `capture flag presentation: authored capture events select one faction and snapshot the ...` | `test_hero_retail.cpp:2399`, `CHECK( drawables.findByObject(flag->getID())->getHouseColor() == g.players.getNeutralPlayer()->getPlayerColor(` |

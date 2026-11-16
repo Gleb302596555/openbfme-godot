@@ -1388,25 +1388,62 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 						res.fail(item, "the press sent nothing");
 						continue;
 					}
+					const bool playerUpgrade = up->getUpgradeType() == UPGRADE_TYPE_PLAYER;
+					const int cost = up->calcCostToBuild(g.rig.local, u);
 					const int expect = (int)std::ceil(up->getBuildTimeSeconds() * 5.0f);
-					bool got = false;
-					for (int f = 0; f < expect + 60 && !got; ++f)
+					bool got = false, gone = false;
+					for (int f = 0; f < expect + 60 && !got && !gone; ++f)
 					{
 						g.step(1);
-						got = u->hasUpgrade(up);
+						u = g.logic().findObjectByID(uid);
+						gone = !playerUpgrade && !u;
+						// UPGRADE_TYPE_PLAYER (e.g. ImladrisLoremaster Tome upgrades) lands on Player (RW 0x6AEE22), not the Object
+						got = playerUpgrade ? g.rig.local->hasUpgradeComplete(up) : (u && u->hasUpgrade(up));
 					}
-					const int cost = up->calcCostToBuild(g.rig.local, u);
+					if (gone)
+					{
+						// the unit left the world once the upgrade landed: ReplaceObjectUpgrade (a wall segment's gate / tower / hub, MordorBattleTower ->
+						// Ungol) makes a new object of the player at the spot, as the special powers' replacement above (2026-11-16: the by-id lookup of
+						// Local 75 no longer sees the destroyed unit's upgrade)
+						Object *after = nullptr;
+						for (Object *o = g.logic().getFirstObject(); o; o = o->getNextObject())
+						{
+							if (o->getID() > uid && o->getControllingPlayer() == g.rig.local && o->getTemplate() && o->getTemplate()->getName() != e->name
+								&& dist2d(*o->getPosition(), c) < 600.0f
+								&& (factb::hasKindOf(*o->getTemplate(), "SELECTABLE") || factb::hasKindOf(*o->getTemplate(), "STRUCTURE")))
+							{
+								after = o;
+							}
+						}
+						if (after)
+						{
+							res.pass(item, str("%s replaced the unit with %s after %u frames, cost %d", cb->m_upgradeName.c_str(),
+											   after->getTemplate()->getName().c_str(), g.frame() - pressFrame, cost));
+						}
+						else
+						{
+							res.fail(item, str("%s: the unit left the world %u frames after the press, nothing replaced it", cb->m_upgradeName.c_str(),
+											   g.frame() - pressFrame));
+						}
+						continue;
+					}
 					if (!got)
 					{
-						res.fail(item, str("%s not on the unit after %d frames", cb->m_upgradeName.c_str(), expect + 60));
+						if (playerUpgrade)
+						{
+							g.rig.local->removeUpgrade(up, true);
+						}
+						res.fail(item, str("%s not %s after %d frames", cb->m_upgradeName.c_str(), playerUpgrade ? "on the player" : "on the unit", expect + 60));
 						continue;
 					}
 					std::string members;
 					size_t without = 0, count = 0, carriers = 0;
-					if (u->getContain() && u->isKindOfName("HORDE")) // a horde passes its upgrades on (a transport's riders are not its members)
+					u = g.logic().findObjectByID(uid);
+					if (!playerUpgrade && u && u->getContain() && u->isKindOfName("HORDE")) // a horde passes its upgrades on (a transport's riders are not its members)
 					{
 						g.step(3);
-						for (Object *m : *u->getContain()->getContainedItemsList())
+						u = g.logic().findObjectByID(uid);
+						if (u && u->getContain()) for (Object *m : *u->getContain()->getContainedItemsList())
 						{
 							// the members the horde passes it to: those affected by it (RW 0x87566B -> RW 0x694914); a level of the horde
 							// (LevelUpUpgrade) stays on the horde
@@ -1424,6 +1461,11 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 							}
 						}
 					}
+					if (playerUpgrade)
+					{
+						// Remove the player upgrade before the next spawn so DoCommandUpgrade on ImladrisLoremaster doesn't fire at creation (RW 0x6AE60C).
+						g.rig.local->removeUpgrade(up, true);
+					}
 					if (count == 0 && carriers > 0)
 					{
 						res.fail(item, str("no member has %s, though %zu member modules are triggered by it", cb->m_upgradeName.c_str(), carriers));
@@ -1437,7 +1479,8 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 						// RW 0x87566B (HordeContain slot 0x174): the horde passes its upgrades to every member that is affected by them
 						res.fail(item, str("%zu of the %zu members lack %s", without, count, cb->m_upgradeName.c_str()));
 					}
-					res.pass(item, str("%s in %u frames, cost %d, on all %zu members it affects", cb->m_upgradeName.c_str(), g.frame() - pressFrame, cost, count));
+					res.pass(item, str("%s in %u frames, cost %d%s", cb->m_upgradeName.c_str(), g.frame() - pressFrame, cost,
+						playerUpgrade ? " (player upgrade)" : str(", on all %zu members it affects", count).c_str()));
 					continue;
 				}
 				if (other)

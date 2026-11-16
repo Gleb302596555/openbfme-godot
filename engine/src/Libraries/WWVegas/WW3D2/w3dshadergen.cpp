@@ -180,6 +180,13 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 	const bool shadowReceiver = !k.OcclusionPass && k.Blend == W3D_GODOT_BLEND_OPAQUE && !alphaOverride;
 	// lane SELWALL-1: only an opaque surface of its own (an occlusion pass or a translucent drawable's surface draws no decal)
 	const bool selectionDecals = k.SelectionDecals && shadowReceiver;
+	// LOCAL-65 (#510): RotWK RTS3DScene::Flush (RW 0x470F44) renders W3DFloorBuffer::RenderFloors (RW 0x4E2F3A -> 0x4E53D3,
+	// donor BFME2 W3DFloorBuffer::drawFloors) inside SceneClass::Render BEFORE W3DProjectedShadowManager::Render_Shadows
+	// (RW 0x471025 -> 0x50D92C), so decal shadows (IsenFloorEffect / IsenFloorEffectBig SHADOW_ALPHA_DECAL_DYNAMIC)
+	// draw OVER building foundations. Mirror that order by compositing projected ground decals onto non-additive/mul Floor shaders.
+	const bool floorDecals = k.Floor && !k.OcclusionPass && !selectionDecals
+		&& k.Blend != W3D_GODOT_BLEND_ADD && k.Blend != W3D_GODOT_BLEND_APPROX_ADD
+		&& k.Blend != W3D_GODOT_BLEND_ADD_ALPHA && k.Blend != W3D_GODOT_BLEND_MUL;
 	if (k.OcclusionPass)
 	{
 		// lane OCCLUDE-1: drawn in the transparent pass after the opaque scene; writes no depth
@@ -211,7 +218,7 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 	}
 	if (shadowReceiver) line("#include \"res://shaders/object_shadow.gdshaderinc\"");
 	if (shadowReceiver) line("instance uniform bool w3d_receive_shadows : instance_index(1) = false;");
-	if (selectionDecals) line("#include \"res://shaders/selection_decals.gdshaderinc\""); // lane SELWALL-1
+	if (selectionDecals || floorDecals) line("#include \"res://shaders/selection_decals.gdshaderinc\""); // lane SELWALL-1 / LOCAL-65
 	if (selectionDecals && shadowReceiver) line("varying vec3 v_shadow_over;"); // lane HERORING-1: the alpha decals over the shadowed surface (light())
 
 	// ---- uniforms ----
@@ -448,8 +455,20 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 		line("\tif (w3d_floor_hm_rect.z > 0.0) {");
 		line("\t\tvec3 fw = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;");
 		line("\t\tvec2 fgrid = (vec2(fw.x, -fw.z) - w3d_floor_hm_rect.xy) / 10.0;");
-		line("\t\tfloat fhm = texture(w3d_floor_hm, (fgrid + 0.5) / w3d_floor_hm_rect.zw).r;");
-		line("\t\tfloat flift = max(VERTEX.y, 0.0) + 0.15;");
+		line("\t\tivec2 fm = ivec2(w3d_floor_hm_rect.zw);");
+		line("\t\tivec2 fc = clamp(ivec2(floor(fgrid)), ivec2(0), fm - ivec2(2));");
+		line("\t\tvec2 ff = clamp(fgrid - vec2(fc), vec2(0.0), vec2(1.0));");
+		line("\t\tvec2 fc00 = texelFetch(w3d_floor_hm, fc, 0).rg;");
+		line("\t\tfloat fh10 = texelFetch(w3d_floor_hm, fc + ivec2(1, 0), 0).r;");
+		line("\t\tfloat fh01 = texelFetch(w3d_floor_hm, fc + ivec2(0, 1), 0).r;");
+		line("\t\tfloat fh11 = texelFetch(w3d_floor_hm, fc + ivec2(1, 1), 0).r;");
+		line("\t\tfloat fhm;");
+		line("\t\tif (fc00.g > 0.5) {");
+		line("\t\t\tfhm = (ff.x + ff.y <= 1.0) ? (fc00.r + ff.x * (fh10 - fc00.r) + ff.y * (fh01 - fc00.r)) : (fh11 + (1.0 - ff.x) * (fh01 - fh11) + (1.0 - ff.y) * (fh10 - fh11));");
+		line("\t\t} else {");
+		line("\t\t\tfhm = (ff.x <= ff.y) ? (fc00.r + ff.x * (fh11 - fh01) + ff.y * (fh01 - fc00.r)) : (fc00.r + ff.x * (fh10 - fc00.r) + ff.y * (fh11 - fh10));");
+		line("\t\t}");
+		line("\t\tfloat flift = max(fw.y - MODEL_MATRIX[3].y, 0.0) + 0.15;");
 		line("\t\tVERTEX += inverse(mat3(MODEL_MATRIX)) * vec3(0.0, (fhm + flift) - fw.y, 0.0);");
 		line("\t}");
 	}
@@ -898,6 +917,27 @@ std::string Generate_W3D_Shader_Code(const W3DShaderKey &k, W3DSamplerPolicy sam
 	else
 	{
 		line("\tALBEDO = clamp(cur.rgb, 0.0, 1.0);");
+	}
+	if (floorDecals)
+	{
+		line("\tvec3 sel_world = (INV_VIEW_MATRIX * vec4(v_vpos, 1.0)).xyz;");
+		line("\tvec3 sel_at = vec3(sel_world.x, -sel_world.z, sel_world.y);");
+		if (shadowReceiver)
+		{
+			line("\tvec3 floor_gamma = clamp(cur.rgb, 0.0, 1.0);");
+			line("\tvec4 sela = sel_alpha_at(sel_at, false, floor_gamma);");
+			line("\tvec4 sel = sel_merge_at(sel_at, false);");
+			line("\tif (sela.a > 0.0 || any(greaterThan(sela.rgb, vec3(0.0)))) { floor_gamma = clamp(floor_gamma * (1.0 - sela.a) + sela.rgb, 0.0, 1.0); }");
+			line("\tfloor_gamma = mix(floor_gamma, clamp(sel.rgb, 0.0, 1.0), sel.a);");
+			line("\tALBEDO = w3d_to_linear(floor_gamma);");
+		}
+		else
+		{
+			line("\tvec4 sela = sel_alpha_at(sel_at, false, ALBEDO);");
+			line("\tvec4 sel = sel_merge_at(sel_at, false);");
+			line("\tif (sela.a > 0.0 || any(greaterThan(sela.rgb, vec3(0.0)))) { ALBEDO = clamp(ALBEDO * (1.0 - sela.a) + sela.rgb, 0.0, 1.0); }");
+			line("\tALBEDO = mix(ALBEDO, clamp(sel.rgb, 0.0, 1.0), sel.a);");
+		}
 	}
 	if (selectionDecals)
 	{

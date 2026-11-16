@@ -497,8 +497,11 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 			return true;
 		case GUI_COMMAND_SPECIAL_POWER:
 		{
-			// lane HERO-1 (S-850): a hero ability. A button that needs a target waits for it (GUICommandTranslator), the others go out at once:
-			// MSG_DO_SPECIAL_POWER { int id, int options, objectID source }
+			// lane HERO-1 (S-850) / PORT-221 (issue #531, P-140): RW 0x9414E7..0x941618. A button that needs a target waits for it
+			// (GUICommandTranslator -> CommandTranslator::issueSpecialPowerCommand RW 0x81E147); targetless buttons append
+			// MSG_DO_SPECIAL_POWER (0x410) { int id, int options, ObjectID 0 (RW 0x94156B), ObjectID 0 (RW 0x941574) } so
+			// SpellCommands::doSpecialPower (RW 0x77A42C..0x77A4F7 -> AIGroup::groupDoSpecialPower RW 0x76F5DB) casts across the
+			// issuer's selection rather than a single source object.
 			const SpecialPowerTemplate *t = specialPowerOf(b);
 			if (!t)
 			{
@@ -516,8 +519,9 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 			ClientMessage &m = m_ctx.stream.append(MSG_DO_SPECIAL_POWER);
 			m.appendInteger((int)t->getID());
 			m.appendInteger((int)b.m_options);
-			m.appendObjectID(obj->getID());
-			// RW 0x94157D..0x9415FF: chained CommandTrigger buttons
+			m.appendObjectID(INVALID_ID);
+			m.appendObjectID(INVALID_ID);
+			// RW 0x94157D..0x94160F: chained CommandTrigger buttons (+0x188) with m_command == GUI_COMMAND_SPECIAL_POWER
 			for (const std::string &triggerName : b.m_commandTrigger)
 			{
 				const CommandButton *tb = TheCommandStore ? TheCommandStore->findCommandButton(triggerName) : nullptr;
@@ -528,7 +532,8 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 					ClientMessage &tm = m_ctx.stream.append(MSG_DO_SPECIAL_POWER);
 					tm.appendInteger((int)tt->getID());
 					tm.appendInteger((int)tb->m_options);
-					tm.appendObjectID(obj->getID());
+					tm.appendObjectID(INVALID_ID);
+					tm.appendObjectID(INVALID_ID);
 				}
 			}
 			applyPredictedToggle(b, obj); // PORT-189: RW 0x9414E7 -> 0x75D22E(obj, 1), RW 0x941C16 image refresh

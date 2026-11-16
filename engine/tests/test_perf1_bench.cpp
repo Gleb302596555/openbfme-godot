@@ -660,6 +660,7 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // once on the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab, whose hashes match the MSVC pins): PORT-437 (#476), the generic attack machine's
 // object conditions RW 0x7457DF (out of reach -> chase) and RW 0x745901 (crush the victim instead), moves the battle from frame 45 and the skirmish from
 // frame 540. Attributed by a switch-off run: the merged tree with #476 reverted passes the previous vectors; the allied blob keeps its file
+// pin: Local 73 P-144 (RW 0x691014 -> 0x73F6B9 -> 0x73D89F): ObjectWeapons::hasWeaponSetFor matches default None WeaponTemplateSet, moving 4-player skirmish from frame 5389 (big_battle_400 and allied_blob_300 unchanged; switch-off run without P-144 passed 12676/12676)
 // pin: batch 3 of 2026-11-15 (fork PRs 484 .. 501, 10 merged) re-measured it once on the merged tree (REGEN=1, Linux GCC on Colab, whose hashes
 // match the MSVC pins). The per-PR checks (each PR alone on main 157b917f) name the movers: Local 59 (#500, WeaponFireSpecialAbilityUpdate makes and
 // loads its weapon in the constructor and crc() hashes it, RW 0x895DE1: from frame 0), Local 61 (#501, stunned units skip the AI update, RW 0x669652),

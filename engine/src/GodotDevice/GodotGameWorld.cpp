@@ -9,6 +9,7 @@
 #include <godot_cpp/classes/file_access.hpp>
 #include <godot_cpp/variant/packed_byte_array.hpp>
 #include "GodotDevice/GodotGameWorld.h"
+#include "Libraries/WWVegas/WW3D2/meshrender.h"
 #include "GodotDevice/GodotW3DModelBuilder.h"
 #include <godot_cpp/classes/decal.hpp>
 #include "GodotDevice/GodotShaderBudget.h"
@@ -890,6 +891,66 @@ static bool selectionDecalReceiver(const Drawable *d)
 {
 	static const int bit = ObjectTemplateInfoBuilder::kindOfIndex("WALK_ON_TOP_OF_WALL");
 	return d && d->isKindOfIndex(bit);
+}
+
+// LOCAL-65 / P-130: identify expansion pads / foundations and non-W3DFloorDraw flat slabs (*WallFoundation GBFoundationL,
+// GondorGBCastleFloorEdain GBCastFloor) that sit flush on terrain across all 11 Ennorath factions.
+static bool isFoundationDrawable(const Drawable *d)
+{
+	static const int bit = ObjectTemplateInfoBuilder::kindOfIndex("BASE_FOUNDATION");
+	return d && d->isKindOfIndex(bit);
+}
+
+static bool isFlatFloorCandidateDrawable(const Drawable *d)
+{
+	if (!d)
+	{
+		return false;
+	}
+	if (isFoundationDrawable(d))
+	{
+		return true;
+	}
+	static const int bitStructure = ObjectTemplateInfoBuilder::kindOfIndex("STRUCTURE");
+	static const int bitImmobile = ObjectTemplateInfoBuilder::kindOfIndex("IMMOBILE");
+	static const int bitNoCollide = ObjectTemplateInfoBuilder::kindOfIndex("NO_COLLIDE");
+	static const int bitUnattackable = ObjectTemplateInfoBuilder::kindOfIndex("UNATTACKABLE");
+	return d->isKindOfIndex(bitStructure) && d->isKindOfIndex(bitImmobile)
+		&& d->isKindOfIndex(bitNoCollide) && d->isKindOfIndex(bitUnattackable);
+}
+
+static bool isFlatFloorPrototype(const RenderObjPrototype *proto)
+{
+	if (!proto)
+	{
+		return false;
+	}
+	bool hasVisibleMesh = false;
+	for (const RenderSubObject &sub : proto->SubObjects)
+	{
+		if (sub.Type != RenderSubObject::SUB_MESH || !sub.Mesh || sub.Mesh->Is_Hidden())
+		{
+			continue;
+		}
+		if (!Is_Flat_Ground_Floor_Model(*sub.Mesh))
+		{
+			return false;
+		}
+		hasVisibleMesh = true;
+	}
+	return hasVisibleMesh;
+}
+
+static bool drawableHasFloorDraw(const std::vector<DrawEntry> &entries)
+{
+	for (const DrawEntry &de : entries)
+	{
+		if (de.kind == W3D_DRAWKIND_FLOOR)
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 static int staticGlowOf(const ModuleData *data)
@@ -1856,6 +1917,8 @@ bool GameWorld::view_is_local(size_t id, const W3DInstancer &dyn, const LogicSna
 	const bool fogHidden = d->presentedLook(presented, m_shroudDrawn).hidden;
 	const bool flagsChanged = d->getChangeCount() != v.seenChange || fogHidden != v.fogHidden;
 	const std::vector<DrawEntry> &entries = d->entries();
+	const bool hasFloorDraw = drawableHasFloorDraw(entries);
+	const bool flatFloorCandidate = !hasFloorDraw && !selectionDecalReceiver(d) && isFlatFloorCandidateDrawable(d);
 	for (size_t k = 0; k < entries.size() && k < v.entries.size(); ++k)
 	{
 		const DrawEntry &e = entries[k];
@@ -1879,7 +1942,8 @@ bool GameWorld::view_is_local(size_t id, const W3DInstancer &dyn, const LogicSna
 			e.draw->poseView(f);
 			const bool shown = f.model && !e.moduleHidden && !fogHidden && !e.draw->hiddenByFade(); // PORT-49: RW 0x4B544F / 0x4B542D hide the model
 			const auto palette = drawTakesHouseColor(e, *d) ? Render_House_Color_Params(d->getHouseColor(), d->customColorKind(), d->customColors()) : HouseColorParams(); // RW 0x4B4A30
-			const bool keySame = ev.animKeyValid && ev.animKeyShown == shown && ev.animKeyHouse == m_houseColors && ev.animKeyName == f.modelName
+			const bool floorNow = shown && flatFloorCandidate && isFlatFloorPrototype(f.model);
+			const bool keySame = ev.animKeyValid && ev.animKeyShown == shown && ev.animKeyFloor == floorNow && ev.animKeyHouse == m_houseColors && ev.animKeyName == f.modelName
 				&& ev.animKeySwaps == (const void *)f.textureSwaps && ev.animKeySwapsGeneration == f.textureSwapsGeneration && ev.animKeyKind == palette.kind && ev.animKeyGlow == f.glow
 				&& ev.animKeyColors[0] == (std::uint32_t)palette.colors[0] && ev.animKeyColors[1] == (std::uint32_t)palette.colors[1]
 				&& ev.animKeyColors[2] == (std::uint32_t)palette.colors[2];
@@ -1970,6 +2034,9 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 	RGBColor renderTint{};
 	const bool tinted = d->evaluateRenderTint(presented ? presented->frame : 0u, renderTint);
 	std::vector<DrawEntry> &entries = d->entries();
+	const bool hasFloorDraw = drawableHasFloorDraw(entries);
+	const bool foundationWithFloor = hasFloorDraw && isFoundationDrawable(d);
+	const bool flatFloorCandidate = !hasFloorDraw && !selectionDecalReceiver(d) && isFlatFloorCandidateDrawable(d);
 	for (size_t k = 0; k < entries.size() && k < v.entries.size(); ++k)
 	{
 		DrawEntry &e = entries[k];
@@ -2038,7 +2105,11 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 		// for a sail that callback also advances AboutDamping, so lastEntryXf detects a stationary ship's changed sail matrix.
 		Matrix3D entryMatrix;
 		d->entryTransform(e, entryMatrix);
-		const Transform3D entryXf = toTransform(entryMatrix);
+		Transform3D entryXf = toTransform(entryMatrix);
+		if (foundationWithFloor && e.kind == W3D_DRAWKIND_MODEL && m_game && m_game->map().hasHeightMap)
+		{
+			entryXf.origin.y = m_game->map().heightMap.getTriangleHeightAt(entryXf.origin.x, -entryXf.origin.z) + 0.15f;
+		}
 		const bool entryXfChanged = xfChanged || e.constructionOffsetZ != ev.offsetZ || !ev.haveEntryXf || ev.lastEntryXf != entryXf;
 		ev.offsetZ = e.constructionOffsetZ;
 		if (e.kind == W3D_DRAWKIND_MODEL && e.draw)
@@ -2112,7 +2183,8 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			ev.colorsRevision = d->customColorRevision();
 			// lane PERF-HD: the model key below (the lowered name, the house colour's "#..." suffix, the swap suffix) depends only on these inputs;
 			// while they hold the key is `ev.model` already, so the strings are not made and compared again (every animated troop, every frame)
-			const bool keySame = ev.animKeyValid && ev.animKeyShown == shown && ev.animKeyHouse == m_houseColors && ev.animKeyName == f.modelName
+			const bool floorNow = shown && flatFloorCandidate && isFlatFloorPrototype(f.model);
+			const bool keySame = ev.animKeyValid && ev.animKeyShown == shown && ev.animKeyFloor == floorNow && ev.animKeyHouse == m_houseColors && ev.animKeyName == f.modelName
 				&& ev.animKeySwaps == (const void *)f.textureSwaps && ev.animKeySwapsGeneration == f.textureSwapsGeneration && ev.animKeyKind == palette.kind && ev.animKeyGlow == f.glow
 				&& ev.animKeyTinted == tinted
 				&& ev.animKeyMaterialGen == f.materialStateGeneration && ev.animKeyRenderGen == f.renderObjectGeneration
@@ -2172,7 +2244,12 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			{
 				selModel = (glowModel.empty() ? plainModel : glowModel) + "|sel";
 			}
-			const std::string &baseModel = !selModel.empty() ? selModel : glowModel.empty() ? plainModel : glowModel;
+			std::string floorModel;
+			if (floorNow)
+			{
+				floorModel = (!selModel.empty() ? selModel : glowModel.empty() ? plainModel : glowModel) + "#floor";
+			}
+			const std::string &baseModel = !floorModel.empty() ? floorModel : !selModel.empty() ? selModel : glowModel.empty() ? plainModel : glowModel;
 			// LOCAL-3 (RW 0x46F4E7 .. 0x46F5A0): a drawable with an active tint or selection flash envelope gets its own model key so w3d_tint is applied
 			// to its DrawItems without tinting other drawables of the same W3D model
 			std::string tintModel;
@@ -2210,6 +2287,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 						{
 							dyn->Set_Build_Selection_Decals(true); // lane SELWALL-1: taken by the add below
 						}
+						dyn->Set_Build_Floor(floorNow);
 						if (f.meshHouseColors && !f.meshHouseColors->empty())
 						{
 							dyn->Set_Build_Mesh_House_Colors(f.meshHouseColors);
@@ -2259,6 +2337,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 			}
 			ev.animKeyValid = true;
 			ev.animKeyShown = shown;
+			ev.animKeyFloor = floorNow;
 			ev.animKeyHouse = m_houseColors;
 			ev.animKeyName = f.modelName;
 			ev.animKeySwaps = f.textureSwaps;
@@ -2294,7 +2373,7 @@ void GameWorld::refresh_view(size_t id, W3DInstancer *dyn, const LogicSnapshot *
 				if (ev.shadowInstance != ev.instance || ev.shadowState != shadowState || ev.shadowData != e.data || ev.shadowOn != d->shadowsEnabled() || ev.shadowUseMapping != useShadowMapping || ev.shadowSuppress != shadowSuppress) // S-3304: not every frame, updates when settings change
 				{
 					// TOP20 #24: a drawable whose shadows were switched off (RW 0x672D28, ShadowWhenDead No) casts none
-					dyn->set_instance_cast_shadow(ev.instance, e.kind != W3D_DRAWKIND_FLOOR && d->shadowsEnabled() && !shadowSuppress &&
+					dyn->set_instance_cast_shadow(ev.instance, e.kind != W3D_DRAWKIND_FLOOR && !floorNow && d->shadowsEnabled() && !shadowSuppress &&
 						ObjectShadow::castsMap(d->getTemplate(), dynamic_cast<const W3DModelDrawModuleData *>(e.data), shadowState, useShadowMapping));
 					ev.shadowOn = d->shadowsEnabled();
 					ev.shadowState = shadowState;

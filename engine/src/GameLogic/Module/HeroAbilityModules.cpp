@@ -1252,9 +1252,10 @@ void WeaponModeSpecialPowerUpdate::initiate()
 			}
 		}
 	}
-	else if (weapons)
+	else
 	{
-		weapons->setWeaponLock(m_data->m_lockWeaponSlot, LOCKED_PERMANENTLY); // RW 0x69121A(slot, 2)
+		// P-141 (RW 0x898432 -> 0x69121A, Both editions): propagate lock through Contain/HordeContain even when a horde container itself has no weapons
+		ObjectWeapons::setObjectWeaponLock(*obj, m_data->m_lockWeaponSlot, LOCKED_PERMANENTLY);
 	}
 	if (!m_data->m_attributeModifier.empty())
 	{
@@ -1269,9 +1270,10 @@ void WeaponModeSpecialPowerUpdate::initiate()
 UpdateSleepTime WeaponModeSpecialPowerUpdate::update()
 {
 	Object *obj = getObject();
+	// P-141 (RW 0x8983C1 -> 0x68DF11, Both editions): release lock through Contain/HordeContain even when a horde container itself has no weapons
+	ObjectWeapons::releaseObjectWeaponLock(*obj, LOCKED_PERMANENTLY);
 	if (ObjectWeapons *weapons = obj->getWeapons())
 	{
-		weapons->releaseWeaponLock(LOCKED_PERMANENTLY); // RW 0x68DF11(2)
 		for (int bit = 0; bit < 0x68; ++bit)
 		{
 			if ((m_data->m_weaponSetFlags[(size_t)bit >> 5] >> (bit & 31)) & 1u)
