@@ -30,7 +30,8 @@
 // cleared first (RW 0x8730F7 .. 0x873107).
 //
 // RW 0x87370B records ordinary member removal at +0x298 and its last attacker at +0x29C; garrison release does not write them.
-// INFERENCE / NOT PORTED (stop S-1028): +0x170's member-pass/nearest-neighbour handling and RW 0x686D65's quarrel distance-map clear.
+// Stop S-1028 closed (Port 204): +0x170 (m_garrisonEntering) is handled in memberPass (RW 0x874078..0x87408B), quarrel spectator nearest-neighbour
+// (RW 0x8743A9 -> closestMemberTo RW 0x870C29) and attackedWithin (RW 0x86EE52 -> 0x86EECE); RW 0x686D65 is confirmed to be _Rb_tree::clear() on m_quarrelDistance (H+0x24C).
 
 #include "Common/GameCommon.h"
 #include "Common/StateHash.h"
@@ -53,12 +54,6 @@ const float kNeighbourNear = 55.0f; // RW 0xC5B694
 const float kFighterGap = 20.0f;    // RW 0xBDBC6C
 const float kBackUpScale = 10.0f;   // RW 0xBD83D8
 const float kCowerStep = 5.0f;      // RW 0xBDAE58
-
-const char *const kStopHordeEmotion =
-	"[S-1028] horde emotions: the back-up records (RW 0x878905), cowering, the quarrel (RW 0x876DA5 / 0x870B91), the face point and the member pass branches (RW 0x873FE8) "
-	"are ported (the records end when the horde moves or melees, RW 0x873155); recent damage uses the own cache (+ 0x298 / + 0x29C, RW 0x87370B) "
-	"and registered-member set (+ 0x170, RW 0x86EE52); INFERENCE / NOT PORTED: the separate + 0x170 member-pass / nearest-neighbour handling, "
-	"RW 0x686D65 at the quarrel's begin is the distance map's clear";
 
 void normalize3(float &x, float &y, float &z)
 {
@@ -104,7 +99,7 @@ void clearFlags(Object &o, const HordeContainInterface::ConditionFlags &f)
 
 std::vector<std::string> HordeContain::emotionStops()
 {
-	return { kStopHordeEmotion };
+	return {};
 }
 
 void HordeContain::setMembersBusy()
@@ -133,7 +128,6 @@ void HordeContain::recordBackUp(Object *scarer)
 	}
 	Object *horde = getObject();
 	GameLogic &logic = horde->logic();
-	logic.noteStop(kStopHordeEmotion);
 	const HordeContainModuleData &d = m_data->horde;
 	static const int kScared = statusBit("UNCONTROLLABLY_SCARED");
 	const bool hordeScared = kScared >= 0 && horde->testStatus((unsigned)kScared);
@@ -182,7 +176,7 @@ void HordeContain::setFacePoint(const Coord3D &p)
 void HordeContain::beginQuarrel(float minDistance, float maxDistance, const ConditionFlags &spectators, const ConditionFlags &fighters)
 {
 	// RW 0x876DA5
-	m_quarrelDistance.clear(); // RW 0x686D65 (inference)
+	m_quarrelDistance.clear(); // RW 0x686D65 (_Rb_tree::clear() on H+0x24C)
 	const std::vector<Object *> members(m_members.begin(), m_members.end());
 	const int count = (int)members.size();
 	if (count < 2)
@@ -219,7 +213,6 @@ void HordeContain::beginQuarrel(float minDistance, float maxDistance, const Cond
 		centre = 1;
 	}
 	GameLogic &logic = getObject()->logic();
-	logic.noteStop(kStopHordeEmotion);
 	int fighterA = logic.random().getValue(1, count - 1, kHordeFile, 0x204F) + centre;
 	if (count < fighterA)
 	{
@@ -293,8 +286,8 @@ bool HordeContain::attackedWithin(unsigned frames, ObjectID &attacker) const
 			return true;
 		}
 	}
-	// RW H+0x170: also visits registered members released toward a garrison, in object-ID order.
-	for (ObjectID id : m_core->registeredMembers())
+	// RW H+0x170 (interface + 0x54, RW 0x86EECE): visits detached/entering members in ascending ObjectID order.
+	for (ObjectID id : m_garrisonEntering)
 	{
 		Object *member = logic.findObjectByID(id);
 		if (member && emotionAttackedWithin(*member, 4, attacker))
@@ -303,28 +296,6 @@ bool HordeContain::attackedWithin(unsigned frames, ObjectID &attacker) const
 		}
 	}
 	return false;
-}
-
-// RW 0x870C29: the member (or a member of the map + 0x170, not ported) nearest to `member` within 1000 (squared 1e6)
-static Object *nearestOtherMember(const HordeContain::ContainedItemsList &members, const Object &member)
-{
-	Object *best = nullptr;
-	float bestD = 1000000.0f; // RW 0xBDCDC0
-	for (Object *o : members)
-	{
-		if (!o || o == &member)
-		{
-			continue;
-		}
-		const float dx = SimMath::subf32(o->getPosition()->x, member.getPosition()->x), dy = SimMath::subf32(o->getPosition()->y, member.getPosition()->y);
-		const float d = SimMath::addf32(SimMath::mulf32(dy, dy), SimMath::mulf32(dx, dx));
-		if (d < bestD)
-		{
-			best = o;
-			bestD = d;
-		}
-	}
-	return best;
 }
 
 int HordeContain::emotionMemberOrder(Object &member, Object *scarer, Coord3D &pos, float &angle)
@@ -382,7 +353,7 @@ int HordeContain::emotionMemberOrder(Object &member, Object *scarer, Coord3D &po
 		pos.x = SimMath::addf32(bp.x, SimMath::mulf32(k, dx));
 		pos.y = SimMath::addf32(bp.y, SimMath::mulf32(dy, k));
 		pos.z = SimMath::addf32(bp.z, SimMath::mulf32(dz, k));
-		Object *n = nearestOtherMember(m_members, member);
+		Object *n = closestMemberTo(member); // RW 0x8743A9 -> RW 0x870C29 (m_containList then H+0x170)
 		if (n && kNeighbourNear > distSq2DPC24(mp, *n->getPosition()))
 		{
 			// RW 0x8743D2: v = normalize((0, 0, 1) x (member - B)) with the zero products kept, the side away from the neighbour

@@ -14,27 +14,21 @@ inline std::vector<std::string> lines()
 	return {
 		"[S-250] TerrainResourceManager: the extent comes from TerrainLogic::getExtent (lo (0, 0), hi = the active boundary * 10) as W3DTerrainLogic does in ZH; retail's body behind TerrainLogic vslot 0x180 "
 		"was not read. The blocked cells (cell types 1, 2, 5, 7 of the pathfinder's ground layer) need a Pathfinder: the live game has none yet, so a map's grid is built from a private "
-		"Pathfinder (PathfinderResourceTerrain). The client half of the class (decal alpha RW 0x75C1A9, the placement preview observers, the dead-owner erase that RW 0x75C02D does when a client asks "
-		"with a player filter) is not ported",
-		"[S-251] ScoreKeeper keeps only the money counters of RW + 4 / + 8 / + 0x114; the keep-score switch (GameLogic + 0x98) defaults to on (the game kinds that switch it off were not recovered)",
-		"[S-252] the UpgradeCenter is not ported (UPGRADE-1): an Upgrade field of an economy module keeps the upgrade's name, a player's completed upgrades are a set of names, and the "
-		"upgrade modules (CommandPointsUpgrade, CostModifierUpgrade) act when the upgrade system calls their upgradeIt / removeIt; the TriggeredBy / ConflictsWith lists are kept as names",
-		"[S-253] the BOUNTY_PERCENTAGE (0x11) attribute modifier sum is not installed (Economy::setAttributeModifierSumProvider answers only COMMAND_POINT_BONUS 0x18, P-86: the "
-		"bonus is recounted around every add / remove of a modifier list, RW 0x68F207 / 0x68F2AE); PRODUCTION (RW type 0xD) is the object's pool "
-		"(GameLogic installs Economy::setAttributeModifierProvider, lane SPELLFIX-1); the object's model conditions are not on Object, so `completed` (RW 0x7A075A tests AWAITING_CONSTRUCTION / PARTIALLY_CONSTRUCTED) and "
-		"CostModifierUpgrade's PARTIALLY_CONSTRUCTED test use the construction statuses, and AutoDepositUpdate's RUBBLE / POST_RUBBLE / POST_COLLAPSE / GARRISONED tests use a hook "
-		"(AutoDepositUpdate::setObjectConditionSource)",
+		"Pathfinder (PathfinderResourceTerrain). The client half is ported since lane S-5030 (the claimable share of RW 0x75C02D with RW 0x75C1A9's vertex alphas, the selected resource building's "
+		"claim decals, the placement's arcs over RW 0x75B8CC's claimants); the dead-owner erase that RW 0x75C02D does when a client asks with a player filter still never runs",
+		"[S-251] ScoreKeeper is ported (lane END-1 / END-2 / SPELL-1: the money counters of RW + 4 / + 8 / + 0x114 and the rest of the class, calculateScore RW 0x79DFFA, the per-frame "
+		"statistics RW 0x79F704, the favourite unit RW 0x79E3A8); the keep-score switch (GameLogic + 0x98) defaults to on and is cleared when one alliance is left (RW 0x80902C, unless the game is "
+		"a sandbox), and the game kinds that switch it off were not recovered",
+		"[S-253] the BOUNTY_PERCENTAGE (0x11) attribute modifier sum is installed (the seam answers any type as RW 0x68C818 does, so RW 0x6AC0B5 .. 0x6AC0DB's killer sum is active) and "
+		"AutoDepositUpdate's RUBBLE / POST_RUBBLE / POST_COLLAPSE / GARRISONED tests read the object's own model condition flags (RW 0x89DBA9 bit 10 and RW 0x89DBF0 .. 0x89DC25 the bits "
+		"5 / 59 / 60, both through RW 0x46E918). Left: the two construction tests are approximated by the construction statuses — `completedOnly` (RW 0x7A075A tests AWAITING_CONSTRUCTION / "
+		"PARTIALLY_CONSTRUCTED) and CostModifierUpgrade's cost gate (RW 0x6AD8F3, model condition 0x44)",
 		"[S-254] game context: that GameLogic + 0x114 is 3 in a skirmish (RW 0x6A7C86 and 0x602E64 branch on it) is inference, the new-game message handler (RW 0x779CB4) writes it from "
 		"message argument 1 and the sender was not located; the Living World / campaign branches of the command point initialisation (RW 0x6A7CEB, 0x6A7ED1 bonuses) and the "
 		"campaign money handicap (RW 0x6AA858 .. 0x6E1F2F) are not ported; the replay clause of the multiplayer test (RW 0x625456) is not ported",
 		"[S-255] MultiPlayMoneyMult is parsed for MP1 .. MP8; the retail lookup reads 20 slots (RW 0x642002), the slots past MP8 keep GlobalData's constructor value, assumed 1.0",
 		"[S-256] the experience a resource building earns from its income (ExperienceTracker, RW 0x79D833) is dropped unless Economy::setExperienceHook is installed (counted); the "
 		"original owner of a TEMPORARILY_DEFECTED object (RW + 0x320, the DefectionHelper's) is not tracked, so its command points leave the CURRENT owner",
-		"[S-257] the death pipeline is not here: Object::friend_onDie is the seam (command points leave, every die module runs; TerrainResourceBehavior releases its ground there) and "
-		"GameLogic::destroyObject does not call it, exactly like retail, so a resource building removed without dying keeps its claim; the kill credit (Object::scoreTheKill RW 0x6955BC) "
-		"that awards a bounty (Player::awardBounty RW 0x6AC06F) belongs to the combat lane, Economy::awardBounty is the function it calls",
-		"[S-258] the CreateObject nugget's IgnoreCommandPointLimit (RW 0xBF75A8 + 0x91) is parsed by the OCL lane's table, not by this lane; a unit made by an OCL counts against the limit "
-		"like any other object",
 		"[S-259] the live playable player count (the MPn command point tier and the MultiPlayMoneyMult index, RW 0x6A8630) counts every player of the map whose template has "
 		"PlayableSide and that is not an observer or defeated: the map's placeholder skirmish sides (SkirmishElves .. SkirmishAngmar) count unless a map script defeated or "
 		"re-templated them first; map scripts do not run in this build and the lobby's slot count is not consulted, so the tier follows the map's own player list (RotWK 2.01 "

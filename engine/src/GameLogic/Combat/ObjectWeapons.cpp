@@ -524,16 +524,19 @@ std::unique_ptr<Weapon> ObjectWeapons::makeExtraWeapon(const WeaponTemplate *t)
 	return w;
 }
 
+// Both editions: RW 0x691014 (DONOR BFME2 0x0029091E Object::rva0029091E) builds a WeaponSetFlags with `bit` and queries
+// ThingTemplate::findWeaponTemplateSet (RW 0x73F6B9 -> 0x73EE52 -> 0x73D89F). Because FindWeaponTemplateSet returns the
+// default Conditions = None set (bestUnmatched < 0x3E7) whenever any WeaponSet is defined on the template, templates such as
+// ImladrisZwillingeEdain and ImladrisGwaihir still receive WEAPONSET_HERO_MODE (0x1B) in HeroModeSpecialAbilityUpdate.
 bool ObjectWeapons::hasWeaponSetFor(int bit) const
 {
-	for (const WeaponTemplateSet &s : m_owner->getTemplate()->weaponTemplateSets())
+	if (bit < 0 || bit >= 128)
 	{
-		if (s.testWeaponSetFlag(bit))
-		{
-			return true;
-		}
+		return false;
 	}
-	return false;
+	WeaponSetFlags flags{};
+	flags[(size_t)bit >> 5] |= 1u << (bit & 31);
+	return FindWeaponTemplateSet(m_owner->getTemplate()->weaponTemplateSets(), flags) != nullptr;
 }
 
 int ObjectWeapons::extraWeaponStatus(Weapon &w)
@@ -1321,7 +1324,7 @@ CanAttackResult ObjectWeapons::getAbleToAttackSpecificObject(AbleToAttackType ty
 	const bool forcedSameOwner = forced && source.getControllingPlayer() == victim.getControllingPlayer();
 	// RW 0x6C91D7 .. 0x6C91F1: an attack immunity byte (Object + 0x459, RW 0x6C91EB) refuses; the source's CONTESTING_BUILDING (0x25,
 	// RW 0x6C91D7) tolerates one bit (RW 0x6C91E7 `not eax` = all but bit 0, which is the port's `m_masked`, RW + 0x459 bit 1).
-	// INFERENCE: the port has no attack immunity field (no 2.01 / Ennorath INI writes one); only a masked victim is refused here (S-7386).
+	// INFERENCE: the port has no attack immunity field (no 2.01 / Ennorath INI writes one); only a masked victim is refused here (S-7426).
 	if (victim.isMasked())
 	{
 		return ATTACKRESULT_NOT_POSSIBLE;
@@ -1378,7 +1381,7 @@ CanAttackResult ObjectWeapons::getAbleToAttackSpecificObject(AbleToAttackType ty
 		if (cur)
 		{
 			const WeaponTemplate *wt = cur->getTemplate();
-			// INFERENCE (S-7386): the template's + 0x119 bit 0x10 (a KindOf word 4 bit 0x10 with no confirmed name) is not read; the weapon test
+			// INFERENCE (S-7426): the template's + 0x119 bit 0x10 (a KindOf word 4 bit 0x10 with no confirmed name) is not read; the weapon test
 			// is the port's BombardType (RW 0x6CB6EA(weapon, 6) reaches the template's + 0x170).
 			if (wt && wt->m_bombardType)
 			{
@@ -1423,7 +1426,7 @@ CanAttackResult ObjectWeapons::getAbleToAttackSpecificObject(AbleToAttackType ty
 	{
 		if (victimContainer)
 		{
-			// RW 0x6C944F asks the victim's contain for its apparent controlling player (slot 0x4C). INFERENCE (S-7386): no ported contain overrides
+			// RW 0x6C944F asks the victim's contain for its apparent controlling player (slot 0x4C). INFERENCE (S-7426): no ported contain overrides
 			// that slot, so it is the container's own controlling player (RW 0x68B678 on the container).
 			if (const Player *apparent = victimContainer->getControllingPlayer())
 			{
@@ -1463,7 +1466,7 @@ CanAttackResult ObjectWeapons::getAbleToUseWeaponAgainstTarget(AbleToAttackType 
 		}
 		if (contain)
 		{
-			// INFERENCE (S-7386): the contain's slot 0xDC (getFiringOwner) is not ported, so no owner is known and the branch stops here.
+			// INFERENCE (S-7426): the contain's slot 0xDC (getFiringOwner) is not ported, so no owner is known and the branch stops here.
 			const Object *firingOwner = nullptr;
 			if (!firingOwner)
 			{
@@ -1499,7 +1502,7 @@ CanAttackResult ObjectWeapons::getAbleToUseWeaponAgainstTarget(AbleToAttackType 
 		else if (contain && contain->isGarrisonable())
 		{
 			// RW 0x6C8764 .. 0x6C87C3: the contain's slot 0x130 (the best garrison position) unless the source is SPAWNS_ARE_THE_WEAPONS;
-			// INFERENCE (S-7386): that slot is not ported, so the plain range test runs as in the else branch
+			// INFERENCE (S-7426): that slot is not ported, so the plain range test runs as in the else branch
 			inRange = victim ? isWithinAttackRangeWithWeapon(*weapon, *victim) : false;
 		}
 		else
@@ -1523,7 +1526,7 @@ CanAttackResult ObjectWeapons::getAbleToUseWeaponAgainstTarget(AbleToAttackType 
 	}
 	// RW 0x6C8880 .. 0x6C88DC: a source that cannot walk into reach — IMMOBILE (word 0 bit 2), or IMMUNE_TO_CAPTURE (kind 81, word 2 bit 0x10), or carried by a
 	// container that is not SPAWNS_ARE_THE_WEAPONS (RW 0x6C889F), or with a locomotor that answers 0 to its own move test (RW 0x6C88BC) — that has a
-	// weapon but none in reach: INVALID_SHOT, except for the tunnel network guard (type 4, RW 0x6C88D8). INFERENCE (S-7386): the locomotor's test
+	// weapon but none in reach: INVALID_SHOT, except for the tunnel network guard (type 4, RW 0x6C88D8). INFERENCE (S-7426): the locomotor's test
 	// RW 0x5E40AD is its per-frame speed (ObjectWeapons::curLocomotorSpeed, the port's only "this locomotor can move the object" answer).
 	const bool containerIsSpawns = containedBy && containedBy->isKindOf((unsigned)k.spawnsAreTheWeapons);
 	const bool cannotWalk = immobile || source.isKindOf((unsigned)k.immuneToCapture) || (containedBy && !containerIsSpawns) ||
@@ -1613,7 +1616,7 @@ bool ObjectWeapons::someWeaponCanDamage(const Object &source, const Object &vict
 }
 
 // PORT-218: RW 0x6CC653 Weapon::isWithinAttackRange(victim) for the weapon in `slot` (the range loop of RW 0x6C8652 walks the six slots; the port's
-// isWithinAttackRange uses the current one). INFERENCE (S-7386): the garrison branch (RW 0x6CBFF1 from the contain's slot 0x130) is not ported, so
+// isWithinAttackRange uses the current one). INFERENCE (S-7426): the garrison branch (RW 0x6CBFF1 from the contain's slot 0x130) is not ported, so
 // the plain range test runs.
 bool ObjectWeapons::isWithinAttackRangeWithWeapon(const Weapon &weapon, const Object &victim) const
 {
@@ -1650,7 +1653,7 @@ bool ObjectWeapons::isWithinAttackRangeWithWeapon(const Weapon &weapon, const Co
 }
 
 // PORT-218: RW 0x6C80A9 (WeaponSet::isAnyWithinTargetPitch, called by RW 0x6C8908): false only when the set has a pitch-limited weapon (weapon
-// state + 0x4C) and NO weapon passes RW 0x6CA9BF. INFERENCE (S-7386): calcPitches (RW 0xAD2620) is not ported, so a pitch-limited weapon is
+// state + 0x4C) and NO weapon passes RW 0x6CA9BF. INFERENCE (S-7426): calcPitches (RW 0xAD2620) is not ported, so a pitch-limited weapon is
 // asked with WeaponIsWithinTargetPitch's own scope rules and zeros for the pitches, as the port's weapon choice already does.
 bool ObjectWeapons::isAnyWithinTargetPitch(const Object &source, const Object &victim) const
 {

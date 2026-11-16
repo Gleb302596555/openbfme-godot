@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Colab Reconnect (OpenBFME)",
+  "version": "1.0",
+  "description": "Presses Colab's \"Reconnect\" / \"Подключиться повторно\" as soon as the idle-disconnect dialog shows, so the sandbox session goes on.",
+  "permissions": ["storage"],
+  "content_scripts": [
+    {
+      "matches": ["https://colab.research.google.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": false
+    }
+  ],
+  "action": {
+    "default_title": "Colab Reconnect",
+    "default_popup": "popup.html"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "colab-reconnect@openbfme",
+      "strict_min_version": "115.0"
+    }
+  }
+}

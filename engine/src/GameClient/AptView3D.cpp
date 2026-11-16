@@ -66,6 +66,16 @@ void AptView3DPixelBudget(int &width, int &height, int budget)
 	height = std::max(1, (int)std::floor(height * k));
 }
 
+void AptView3DCopyRect(float x, float y, float w, float h, float out[4])
+{
+	const float x0 = std::floor(x), y0 = std::floor(y);
+	const float x1 = std::ceil(x + w), y1 = std::ceil(y + h);
+	out[0] = x0;
+	out[1] = y0;
+	out[2] = std::max(0.0f, x1 - x0);
+	out[3] = std::max(0.0f, y1 - y0);
+}
+
 bool AptView3DOnMenuLevel(const std::string &path, const std::vector<int> &menuLevels)
 {
 	static const char kPrefix[] = "_level";

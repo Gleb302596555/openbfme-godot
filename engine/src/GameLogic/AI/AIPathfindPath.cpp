@@ -674,13 +674,12 @@ bool Path::isNearPathEnd() const
 
 bool Path::hasExplicitZ() const
 {
-	// RW 0x5E2DF4: (current.nextOpti ?: current).waypointID != none
-	const PathNode *c = m_closest ? m_closest : nullptr;
-	if (!c)
+	// RW 0x5E2DF4: m_path && m_closest && (m_closest->m_nextOpti ?: m_closest)->m_waypointID != NO_WAYPOINT
+	if (!m_path || !m_closest)
 	{
 		return false;
 	}
-	const PathNode *n = c->m_nextOpti ? c->m_nextOpti : c;
+	const PathNode *n = m_closest->m_nextOpti ? m_closest->m_nextOpti : m_closest;
 	return n->m_waypointID != PathNode::NO_WAYPOINT;
 }
 

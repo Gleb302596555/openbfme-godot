@@ -358,7 +358,8 @@ TEST_CASE("econ retail: the same game twice has the same state hash at every fra
 	{
 		stops += s.substr(0, 7) + " ";
 	}
-	for (const char *id : { "[S-250]", "[S-252]", "[S-253]", "[S-254]" })
+	// Port 211 (fork issue 493) closed S-252 and S-253's gaps, so their rows are gone from the report; the live game keeps the group's other lines
+	for (const char *id : { "[S-250]", "[S-254]" })
 	{
 		INFO(id << " in: " << stops);
 		CHECK(stops.find(id) != std::string::npos);

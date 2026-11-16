@@ -62,6 +62,12 @@ public:
 	virtual bool objectShroudedForLocalPlayer(const FXObject &obj) = 0;
 	virtual FXParticleSystem::ParticleAttachInfo attachedDrawable(std::uint32_t drawableId, const std::string &boneName) = 0;
 	virtual FXParticleSystem::ParticleAttachInfo attachedObject(std::uint32_t objectId, const std::string &boneName, int localPlayerIndex) = 0;
+	virtual FXParticleSystem::ParticleAttachInfo swirlInfluence(std::uint32_t drawableId, const Coord3D &pos)
+	{
+		(void)drawableId;
+		(void)pos;
+		return FXParticleSystem::ParticleAttachInfo();
+	}
 	virtual bool boneWorldMatrix(const FXObject &obj, const std::string &boneName, Matrix3D &out) = 0;
 	virtual std::vector<FXBoneTransform> boneWorldTransforms(const FXObject &obj, const std::string &boneName, int startIndex, int maxBones) = 0;
 	// a Sound nugget (RW 0x5DF7F3 / 0x5DF85E): true when the world played it (else it is noted as an event)

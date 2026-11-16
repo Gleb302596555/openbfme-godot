@@ -98,7 +98,7 @@ std::vector<std::string> W3DDrawModules::notDrawnClasses()
 			}
 			if (std::string(c.name) == "W3DTornadoDraw")
 			{
-				out.push_back("W3DTornadoDraw: effect draw, tornado decals/particles not fully drawn (S-113)");
+				out.push_back("W3DTornadoDraw: tornado ground decals and custom tint drawn through RadiusDecal / Drawable (S-113)");
 				continue;
 			}
 			if (std::string(c.name) == "W3DDebrisDraw")

@@ -1307,16 +1307,19 @@ void ParticleSystem::updatePhysics(Particle &p)
 		p.pos.x = (drift.x + p.vel.x) + p.pos.x;
 		p.pos.y = (drift.y + p.vel.y) + p.pos.y;
 		p.pos.z = (drift.z + p.vel.z) + p.pos.z;
-		if (p.physics.swirly && m_attachedObjectID != 0)
+		// Both editions (RW 0x5F2EBC / 0x96AC03): Swirly queries m_attachedDrawableID (+0xB0) via Drawable::swirl (RW 0x678BF2).
+		// When only m_attachedObjectID is set (no attached drawable, e.g. synthetic object attachment), note S-193.
+		if (p.physics.swirly && (m_attachedDrawableID != 0 || m_attachedObjectID != 0))
 		{
-			const ParticleAttachInfo inf = env.swirlInfluence(m_attachedObjectID, p.pos);
-			if (!inf.hasInfluence)
+			const bool byDrawable = (m_attachedDrawableID != 0);
+			const ParticleAttachInfo inf = env.swirlInfluence(byDrawable ? m_attachedDrawableID : m_attachedObjectID, p.pos);
+			if (!byDrawable && !inf.hasInfluence)
 			{
 				m_manager.noteUnverified("S-193", "Swirly physics needs the attached object's influence control points (RW 0x5f2ebc, obj +0x45c); the environment returned none");
 			}
 			if (inf.hasInfluence)
 			{
-				const float s = approxLength3D(p.vel) * 4.0f;
+				const float s = approxLength3D(p.vel) * 4.0f; // RW 0x96AC0E..0x96AC35: approxLength3D(vel) * 4.0f
 				p.pos.x = p.pos.x + inf.swirlTangent.x * s;
 				p.pos.y = p.pos.y + inf.swirlTangent.y * s;
 				p.pos.z = p.pos.z + inf.swirlTangent.z * s;

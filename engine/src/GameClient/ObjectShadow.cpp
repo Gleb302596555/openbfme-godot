@@ -305,38 +305,24 @@ unsigned evaluateDecalOpacity(const DecalShadowDescriptor &desc, unsigned curren
 	return (unsigned)std::ceil(val); // RW 0x50B964 call msvcr71 ceil
 }
 
-bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, bool useShadowDecals,
-	const std::function<void(float &, float &)> &fallbackSize, unsigned currentFrame, const ::Object *logicObject)
+namespace
 {
-	// TOP20 #24, RW 0x672D28: shadowsEnabled false when dead with SlowDeathBehavior/ShadowWhenDead = No
-	if (!drawable.shadowsEnabled())
-	{
-		return false;
-	}
+struct ShadowCurveRef
+{
+	bool &initialized;
+	UnsignedInt &startFrame;
+	UnsignedInt &fadeOutStartFrame;
+	const ModelConditionInfo *&lastState;
+	const RenderObjPrototype *&lastModel;
+	std::string &lastModelName;
+	bool &lastStateHasShadow;
+};
 
-	// Shroud & client visibility gates (RW 0x4B66CD, RW 0x4B675E)
-	if (drawable.clientHidden() || drawable.shroudLook().hidden || drawable.stealthHidden())
-	{
-		return false;
-	}
-
-	const W3DModelDrawModuleData *moduleData = nullptr;
-	const ModelConditionInfo *state = nullptr;
-	const RenderObjPrototype *proto = nullptr;
-	for (const DrawEntry &e : drawable.entries())
-	{
-		if (e.kind == W3D_DRAWKIND_MODEL && e.draw && !e.moduleHidden)
-		{
-			moduleData = dynamic_cast<const W3DModelDrawModuleData *>(e.data);
-			state = e.draw->currentModelState();
-			proto = e.draw->currentModel();
-			break;
-		}
-	}
-	if (!state && drawable.testModelState())
-	{
-		state = drawable.testModelState();
-	}
+bool buildOneDecalShadow(const Drawable &drawable, const W3DModelDrawModuleData *moduleData, const ModelConditionInfo *state,
+	const RenderObjPrototype *proto, const Coord3D &basePos, float baseAngle, ShadowCurveRef &curve,
+	const std::function<void(float &, float &)> &fallbackSize, bool useShadowDecals, unsigned currentFrame,
+	const ::Object *logicObject, SelectionDecal &out)
+{
 	// lane PORT-91 (issue #239; RW 0x4C7848): a contained object's decal shadow waits for the contain's slot 0x2C (or ShowShadowWhileContained)
 	if (containedShadowSuppressed(logicObject, moduleData))
 	{
@@ -355,10 +341,19 @@ bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, boo
 		return false;
 	}
 
-	// Size resolution: if sizeX or sizeY is 0, query fallback from model box (RW 0x50BFF3..0x50C066)
+	// Size resolution: if sizeX or sizeY is 0, query model box for this draw module first, then fallback (RW 0x50BFF3..0x50C066)
 	if (desc.sizeX == 0.0f || desc.sizeY == 0.0f)
 	{
-		if (fallbackSize)
+		if (proto)
+		{
+			float ex = 0.0f, ey = 0.0f;
+			if (getModelBoundingBox(proto, ex, ey))
+			{
+				if (desc.sizeX == 0.0f) desc.sizeX = ex * 2.0f;
+				if (desc.sizeY == 0.0f) desc.sizeY = ey * -2.0f;
+			}
+		}
+		if ((desc.sizeX == 0.0f || desc.sizeY == 0.0f) && fallbackSize)
 		{
 			fallbackSize(desc.sizeX, desc.sizeY);
 		}
@@ -372,9 +367,8 @@ bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, boo
 	const std::string file = desc.texture.find('.') == std::string::npos ? desc.texture + ".tga" : desc.texture;
 
 	// Orientation: rotating with object vs fixed top-down (RW 0x4C4F50, RW 0x4C50CE)
-	const float angle = desc.isRotatingWithObject ? drawable.getOrientation() : 0.0f;
-	const Coord3D &p = *drawable.getPosition();
-	const Coord3D center = DecalShadowCentre(p, desc.offsetX, desc.offsetY, angle);
+	const float angle = desc.isRotatingWithObject ? baseAngle : 0.0f;
+	const Coord3D center = DecalShadowCentre(basePos, desc.offsetX, desc.offsetY, angle);
 
 	// Color resolution: house color (RW 0x4C50D2, RW 0x73232B) vs white
 	std::uint32_t rgb = 0xFFFFFFu;
@@ -393,34 +387,34 @@ bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, boo
 	const bool stateHasShadow = state != nullptr && state->hasShadow;
 
 	// Model change or state shadow override change resets shadow curve (RW 0x4C4610..0x4C4679, RW 0x4C4EE0..0x4C4FBC)
-	if (!drawable.shadowStateInitialized())
+	if (!curve.initialized)
 	{
-		drawable.setShadowStateInitialized(true);
-		drawable.setLastShadowState(state);
-		drawable.setLastShadowModel(proto);
-		drawable.setLastShadowModelName(modelName);
-		drawable.setLastShadowStateHasShadow(stateHasShadow);
+		curve.initialized = true;
+		curve.lastState = state;
+		curve.lastModel = proto;
+		curve.lastModelName = modelName;
+		curve.lastStateHasShadow = stateHasShadow;
 	}
 	else
 	{
-		const bool modelChanged = (proto != nullptr && drawable.lastShadowModel() != nullptr)
-			? (proto != drawable.lastShadowModel())
-			: (modelName != drawable.lastShadowModelName());
-		const bool shadowOverrideChanged = (stateHasShadow != drawable.lastShadowStateHasShadow()) ||
-			(stateHasShadow && state != drawable.lastShadowState());
+		const bool modelChanged = (proto != nullptr && curve.lastModel != nullptr)
+			? (proto != curve.lastModel)
+			: (modelName != curve.lastModelName);
+		const bool shadowOverrideChanged = (stateHasShadow != curve.lastStateHasShadow) ||
+			(stateHasShadow && state != curve.lastState);
 
 		if (modelChanged || shadowOverrideChanged)
 		{
-			drawable.setShadowStartFrame(frame);
-			drawable.setLastShadowState(state);
-			drawable.setLastShadowModel(proto);
-			drawable.setLastShadowModelName(modelName);
-			drawable.setLastShadowStateHasShadow(stateHasShadow);
-			drawable.setShadowFadeOutStartFrame(~0u);
+			curve.startFrame = frame;
+			curve.lastState = state;
+			curve.lastModel = proto;
+			curve.lastModelName = modelName;
+			curve.lastStateHasShadow = stateHasShadow;
+			curve.fadeOutStartFrame = ~0u;
 		}
-		else if (state != drawable.lastShadowState())
+		else if (state != curve.lastState)
 		{
-			drawable.setLastShadowState(state);
+			curve.lastState = state;
 		}
 	}
 
@@ -428,14 +422,14 @@ bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, boo
 	unsigned opacity = desc.opacityPeak;
 	if (desc.style == 0x0400u || desc.style == 0x0800u || desc.style == 0x10000u)
 	{
-		opacity = evaluateDecalOpacity(desc, frame, drawable.shadowStartFrame(), drawable.shadowFadeOutStartFrame());
+		opacity = evaluateDecalOpacity(desc, frame, curve.startFrame, curve.fadeOutStartFrame);
 	}
 
 	out = SelectionDecal();
 	out.object = drawable.getObjectID();
 	out.drawable = (unsigned)drawable.getID();
 	out.position = center;
-	out.drawZ = p.z;
+	out.drawZ = basePos.z;
 	out.size = desc.sizeX;
 	out.sizeY = desc.sizeY;
 	out.angle = angle;
@@ -443,6 +437,123 @@ bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, boo
 	out.style = desc.style;
 	out.color = ((std::uint32_t)opacity << 24) | (rgb & 0xFFFFFFu);
 	out.terrainOnly = false; // RW 0x50CDE4: projects on terrain and wall/bridge geometry
+	return true;
+}
+} // namespace
+
+void buildDrawableDecalShadows(const Drawable &drawable, std::vector<SelectionDecal> &out, bool useShadowDecals,
+	const std::function<void(float &, float &)> &fallbackSize, unsigned currentFrame, const ::Object *logicObject)
+{
+	out.clear();
+	// TOP20 #24, RW 0x672D28: shadowsEnabled false when dead with SlowDeathBehavior/ShadowWhenDead = No
+	if (!drawable.shadowsEnabled())
+	{
+		return;
+	}
+
+	// Shroud & client visibility gates (RW 0x4B66CD, RW 0x4B675E)
+	if (drawable.clientHidden() || drawable.shroudLook().hidden || drawable.stealthHidden())
+	{
+		return;
+	}
+
+	if (drawable.entries().empty())
+	{
+		const ModelConditionInfo *state = drawable.testModelState();
+		bool init = drawable.shadowStateInitialized();
+		UnsignedInt startFrame = drawable.shadowStartFrame();
+		UnsignedInt fadeOutFrame = drawable.shadowFadeOutStartFrame();
+		const ModelConditionInfo *lastState = drawable.lastShadowState();
+		const RenderObjPrototype *lastModel = drawable.lastShadowModel();
+		std::string lastModelName = drawable.lastShadowModelName();
+		bool lastHasShadow = drawable.lastShadowStateHasShadow();
+		ShadowCurveRef curve{ init, startFrame, fadeOutFrame, lastState, lastModel, lastModelName, lastHasShadow };
+		SelectionDecal sd;
+		if (buildOneDecalShadow(drawable, nullptr, state, nullptr, *drawable.getPosition(), drawable.getOrientation(),
+				curve, fallbackSize, useShadowDecals, currentFrame, logicObject, sd))
+		{
+			out.push_back(std::move(sd));
+		}
+		drawable.setShadowStateInitialized(init);
+		drawable.setShadowStartFrame(startFrame);
+		drawable.setShadowFadeOutStartFrame(fadeOutFrame);
+		drawable.setLastShadowState(lastState);
+		drawable.setLastShadowModel(lastModel);
+		drawable.setLastShadowModelName(lastModelName);
+		drawable.setLastShadowStateHasShadow(lastHasShadow);
+		return;
+	}
+
+	// Both editions (RW 0x4C4EE0..0x4C5175): each visible W3DModelDraw entry owns its decal shadow.
+	// Branch A (state->hasShadow) creates a shadow even when Model = Invisible; Branch B (ThingTemplate shadow) requires m_renderObject != NULL.
+	for (const DrawEntry &e : drawable.entries())
+	{
+		if (e.kind != W3D_DRAWKIND_MODEL || !e.draw || e.moduleHidden || e.conditionHidden)
+		{
+			continue;
+		}
+		const W3DModelDrawModuleData *moduleData = dynamic_cast<const W3DModelDrawModuleData *>(e.data);
+		const ModelConditionInfo *state = e.draw->currentModelState();
+		if (!state && drawable.testModelState())
+		{
+			state = drawable.testModelState();
+		}
+		const RenderObjPrototype *proto = e.draw->currentModel();
+		const bool hasStateShadow = (state != nullptr && state->hasShadow && (state->shadow.type & kDecalMask) != 0);
+		if (!hasStateShadow && proto == nullptr)
+		{
+			continue; // RW 0x4C4FD6: Branch B skips when m_renderObject == NULL (e.g. Model = None)
+		}
+		Coord3D basePos = *drawable.getPosition();
+		float baseAngle = drawable.getOrientation();
+		if (!e.attachToBone.empty())
+		{
+			Matrix3D entryWorld;
+			if (drawable.entryTransform(e, entryWorld))
+			{
+				basePos = Coord3D{ entryWorld.Row[0][3], entryWorld.Row[1][3], entryWorld.Row[2][3] };
+				baseAngle = std::atan2(entryWorld.Row[1][0], entryWorld.Row[0][0]);
+			}
+		}
+		if (!e.shadowStateInitialized && drawable.shadowStartFrame() != 0)
+		{
+			e.shadowStartFrame = drawable.shadowStartFrame();
+		}
+		if (drawable.shadowFadeOutStartFrame() != ~0u && e.shadowFadeOutStartFrame == ~0u)
+		{
+			e.shadowFadeOutStartFrame = drawable.shadowFadeOutStartFrame();
+		}
+		ShadowCurveRef curve{ e.shadowStateInitialized, e.shadowStartFrame, e.shadowFadeOutStartFrame,
+			e.lastShadowState, e.lastShadowModel, e.lastShadowModelName, e.lastShadowStateHasShadow };
+		SelectionDecal sd;
+		if (buildOneDecalShadow(drawable, moduleData, state, proto, basePos, baseAngle,
+				curve, fallbackSize, useShadowDecals, currentFrame, logicObject, sd))
+		{
+			if (out.empty())
+			{
+				drawable.setShadowStateInitialized(e.shadowStateInitialized);
+				drawable.setShadowStartFrame(e.shadowStartFrame);
+				drawable.setShadowFadeOutStartFrame(e.shadowFadeOutStartFrame);
+				drawable.setLastShadowState(e.lastShadowState);
+				drawable.setLastShadowModel(e.lastShadowModel);
+				drawable.setLastShadowModelName(e.lastShadowModelName);
+				drawable.setLastShadowStateHasShadow(e.lastShadowStateHasShadow);
+			}
+			out.push_back(std::move(sd));
+		}
+	}
+}
+
+bool buildDrawableDecalShadow(const Drawable &drawable, SelectionDecal &out, bool useShadowDecals,
+	const std::function<void(float &, float &)> &fallbackSize, unsigned currentFrame, const ::Object *logicObject)
+{
+	std::vector<SelectionDecal> decals;
+	buildDrawableDecalShadows(drawable, decals, useShadowDecals, fallbackSize, currentFrame, logicObject);
+	if (decals.empty())
+	{
+		return false;
+	}
+	out = std::move(decals.front());
 	return true;
 }
 

@@ -147,9 +147,10 @@ float absF(float a)
 // next victim; one that passes crushPolicy becomes the machine's goal (vslot 0x38), computePath (false: FAILURE) and the byte is set again. A goal id of 0 fails the update
 // with IS_MELEE_ATTACKING = canCrush. computePath is refused while the AI is blocked (+ 0x16C > 0), forces a re-path when the AI has no path and none pending (+ 0x140,
 // + 0x3B1), keeps the goal point's z (no ground snap) and normalises with RW 0x405553 (1 / len, then products).
-// INFERENCE (stop S-583): the AI byte +0x3CC (its only writer clears it: taken as 0), the state's own pending byte + 0x49 (the port's internal move keeps its own wait), the
-// line test of crushPolicy (RW 0x6F5BB0) is not ported (taken as passing); RW 0x701443 is lane TARGET-1's AI::findClosestEnemy (merge queue q23; FLANK-1 had the
-// TargetFinder stand-in) and a zero-length direction keeps the victim's point (retail's normalise gives NaN); the stealth test of the goal is RW 0x694C0D (lane STEALTH-1).
+// INFERENCE (stop S-583): the AI byte +0x3CC (its only writer clears it: taken as 0), the state's own pending byte + 0x49 (the port's internal move keeps its own wait);
+// crushPolicy's quick path test (RW 0x69511D .. 0x695160 -> RW 0x6F5BB0 with RW 0x664485 / 0x5E2DF4 bypass) is ported (Port 204); RW 0x701443 is lane TARGET-1's
+// AI::findClosestEnemy (merge queue q23; FLANK-1 had the TargetFinder stand-in) and a zero-length direction keeps the victim's point (retail's normalise gives NaN); the
+// stealth test of the goal is RW 0x694C0D (lane STEALTH-1).
 // NOT REACHED YET (S-583): RotWK's AIAttackState::update (RW 0x7510EC) keeps running this inner machine when the outer victim is dead (non-ARMY_OF_DEAD), the port's
 // AIAttackState (AIAttack.cpp, ZH donor) ends the attack first, so the re-acquisition only runs in a machine of its own (test_flank1.cpp).
 struct HordeSquishState : AIState
@@ -178,12 +179,26 @@ struct HordeSquishState : AIState
 		Object *c = v.getContainedBy();
 		return c && c->getContain() && c->getContain()->getHordeContainInterface() ? c : &v;
 	}
-	// RW 0x69519A(victim, 2)
+	// RW 0x69519A(victim, 2) -> RW 0x6950F3(victim, 2)
 	static bool crushPolicy(Object &self, Object &victim)
 	{
 		if (!(ObjectCrush::crusherLevel(self) > 0 && ObjectCrush::crusherLevel(self) > ObjectCrush::crushableLevel(victim)))
 		{
 			return false;
+		}
+		// RW 0x69511D .. 0x695160 (Port 204): quick path test unless moving along an explicit-Z / waypoint path (RW 0x664485 / 0x5E2DF4)
+		AIWorld *world = self.logic().aiWorld();
+		if (world && world->mapReady())
+		{
+			AIUpdateInterface *ai = self.getAIUpdateInterface();
+			const Path *path = (ai && ai->isMoving()) ? ai->mover().path() : nullptr;
+			if (!(path && path->hasExplicitZ()))
+			{
+				if (!ai || !world->pathfinder().quickDoesPathExist(ai->adapter(), self.getPosition(), victim.getPosition(), nullptr))
+				{
+					return false;
+				}
+			}
 		}
 		if (self.testStatus((unsigned)CombatNames::status("RAMPAGING")) || self.testStatus((unsigned)CombatNames::status("FLEE_OFF_MAP")) ||
 			self.testModelCondition(CombatNames::modelCondition("CHARGING")))
@@ -1879,11 +1894,11 @@ void HordeAIUpdate::crc(StateHasher &h) const
 
 const char *HordeAIUpdate::squishStopLine()
 {
-	return "[S-583] horde crush attack: AIAttackMeleeSquishState is the RotWK body (onEnter RW 0x74F21A, update RW 0x74F31F, computePath RW 0x742271, crushPolicy RW 0x69519A, onExit "
-	       "RW 0x74B1B7; lane FLANK-1: the destroyed-goal test RW 0x8DBDFF, the flung-goal test RW 0x792973, the re-acquisition of the next victim when the goal dies, the blocked / "
-	       "no-path rules of computePath); NOT ported: the AI byte +0x3CC (taken as 0), crushPolicy's line test RW 0x6F5BB0 (taken as passing), the state's pending byte + 0x49, "
-	       "and RW 0x701443 is lane TARGET-1's AI::findClosestEnemy (merge queue q23); the re-acquisition is not reached in a game until AIAttackState::update follows RW 0x7510EC "
-	       "(retail keeps running the inner machine on a dead victim, the port's ZH-donor state ends the attack first)";
+	return "[S-583] horde crush attack: AIAttackMeleeSquishState is the RotWK body (onEnter RW 0x74F21A, update RW 0x74F31F, computePath RW 0x742271, crushPolicy RW 0x69519A / "
+	       "0x6950F3 with quickDoesPathExist RW 0x6F5BB0 and explicit-Z bypass RW 0x664485 / 0x5E2DF4, onExit RW 0x74B1B7; lane FLANK-1: the destroyed-goal test RW 0x8DBDFF, "
+	       "the flung-goal test RW 0x792973, the re-acquisition of the next victim when the goal dies, the blocked / no-path rules of computePath); NOT ported: the AI byte "
+	       "+0x3CC (taken as 0), the state's pending byte + 0x49, and RW 0x701443 is lane TARGET-1's AI::findClosestEnemy (merge queue q23); the re-acquisition is not reached "
+	       "in a game until AIAttackState::update follows RW 0x7510EC (retail keeps running the inner machine on a dead victim, the port's ZH-donor state ends the attack first)";
 }
 
 const char *HordeAIUpdate::approachStopLine()
