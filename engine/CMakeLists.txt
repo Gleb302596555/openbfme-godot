@@ -1395,6 +1395,8 @@ add_executable(openbfme_tests
     tests/test_local_59.cpp
     # lane LOCAL-61 (P-121: stunned unit does not act/attack/move in AIUpdateInterface::update, RW 0x669652 / BFME2 0x0026A05D, issue #482)
     tests/test_local_61.cpp
+    # lane LOCAL-75 (issue #537, P-142 & P-145: Imladris library mages & Heldenkiller* ObjectFilter)
+    tests/test_local_75.cpp
     # lane LOCAL-27 (bridges as retail: Bridge block, damage models, towers, scaffold, radar color, issue #189)
     tests/test_local_27.cpp
     # lane LOCAL-33 (castle gates and 'man the walls' as retail: GateProxyBehavior, ManTheWallsSpecialPower, issue #283)
