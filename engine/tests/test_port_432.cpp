@@ -8,6 +8,10 @@
 #include "Common/Science.h"
 #include "Common/SpecialPower.h"
 #include "GameClient/ControlBarCommands.h"
+#include "GameClient/GUI/AptScreens/AptPalantir.h"
+#include "GameClient/GUI/Shell/Shell.h"
+#include "GameClient/GUI/ShellEnvironment.h"
+#include "GameClient/GUI/ShellServices.h"
 #include "GameClient/SpellBookUI.h"
 #include "GameLogic/GlobalWeatherSystem.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
@@ -16,6 +20,7 @@
 #include "GameLogic/SpellCommands.h"
 #include "GameLogic/SpellStores.h"
 
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -352,6 +357,109 @@ TEST_CASE("PORT-432 queued cast rechecks the skirmish requirement")
  r.send(messages);
  CHECK(r.spells.casts() == 1u);
  CHECK_FALSE(cloud->isReady());
+}
+
+TEST_CASE("PORT-432 synthetic movie callback reaches the spell model and message dispatch")
+{
+ // RW 0x930DE5 routes the movie's slot callback to the corresponding command.
+ // This invented movie connects the port's components; it is not Ennorath's movie
+ // and does not exercise InGameHud's deferred callback or drawable picking.
+ using namespace apttest;
+ bool split = false;
+ SUBCASE("batched mouse events") { split = false; }
+ SUBCASE("split mouse events") { split = true; }
+ SpellRig r;
+ MemorySource source;
+ RecordingShellServices services;
+ ShellEnvironment environment;
+ AptScreenFactoryTable factories;
+ TestMovie level0;
+ level0.setRootFrames({ {} });
+ source.add("AptLevel0", level0);
+ TestMovie movie;
+ const auto shape = movie.addShape(0, 0, 10, 10, 1);
+ movie.addCharacter(0);
+ const auto shapeId = movie.addCharacter(shape);
+ const auto script = program(movie, [](Asm &a) {
+  a.defineFunction("SetButtonState", { "slot", "state" }, [](Asm &) {});
+  a.defineFunction("FlashButton", { "slot" }, [](Asm &) {});
+ });
+ const auto sprite = movie.addSprite({ { movie.addActionItem(script) } });
+ const auto spriteId = movie.addCharacter(sprite);
+ const auto rebuildAction = program(movie, [](Asm &a) { a.getURL("FSCommand:OnAptInGameSpellBookButtonPressed", "0"); });
+ const auto cloudAction = program(movie, [](Asm &a) { a.getURL("FSCommand:OnAptInGameSpellBookButtonPressed", "1"); });
+ const auto rebuildButton = movie.addButton({ {1, shapeId}, {2, shapeId}, {4, shapeId}, {8, shapeId} }, { {0x08, 0, rebuildAction} });
+ const auto cloudButton = movie.addButton({ {1, shapeId}, {2, shapeId}, {4, shapeId}, {8, shapeId} }, { {0x08, 0, cloudAction} });
+ const auto rebuildId = movie.addCharacter(rebuildButton);
+ const auto cloudId = movie.addCharacter(cloudButton);
+ TestMovie::Place rebuild = placeChar(rebuildId, 2, "Rebuild");
+ TestMovie::Place cloud = placeChar(cloudId, 3, "Cloud");
+ rebuild.flags |= APT_PLACE_HASMATRIX;
+ cloud.flags |= APT_PLACE_HASMATRIX;
+ rebuild.translation[0] = 100; rebuild.translation[1] = 100;
+ cloud.translation[0] = 120; cloud.translation[1] = 100;
+ movie.setRootFrames({ { movie.addPlaceItem(placeChar(spriteId, 1, "SpellBookUI")), movie.addPlaceItem(rebuild), movie.addPlaceItem(cloud) } });
+ source.add("Palantir", movie);
+ std::vector<GameMessage> messages;
+ int callbacks = 0;
+ bool pressed = false;
+ auto windows = std::make_unique<WindowManager>(source, services);
+ auto shell = std::make_unique<Shell>(*windows, factories, services, environment);
+ windows->init();
+ auto palantir = std::make_unique<AptPalantir>(*windows, *shell);
+ palantir->setSpellPressHandler([&](int index) {
+  ++callbacks;
+  pressed = r.bar.press(index, r.player->getPlayerIndex(), messages);
+ });
+ windows->update(33);
+ windows->update(33);
+ REQUIRE(windows->invokeCallback("OnAptInGameSpellBookLoaded", "SpellBookUI"));
+ REQUIRE(windows->invokeCallback("OnAptInGameSpellBookShown", ""));
+ AptPalantir::SpellSlot rebuildSlot;
+ rebuildSlot.buttonIndex = 0;
+ rebuildSlot.state = AptPalantir::SPELL_UP;
+ AptPalantir::SpellSlot cloudSlot;
+ cloudSlot.buttonIndex = 1;
+ cloudSlot.state = AptPalantir::SPELL_UP;
+ palantir->syncSpellBook({rebuildSlot, cloudSlot});
+ REQUIRE(palantir->callErrors().empty());
+ auto *heal = r.module("TestRebuild");
+ auto *cloudPower = r.module("TestCloudBreak");
+ auto *body = dynamic_cast<ActiveBody *>(r.own->getBodyModule());
+ REQUIRE(body);
+ for (int trial = 0; trial < 5; ++trial)
+ {
+  for (int slot = 0; slot < 2; ++slot)
+  {
+   r.ready(slot == 0 ? *heal : *cloudPower);
+   if (slot == 0) body->internalChangeHealth(-1000);
+   REQUIRE(r.bar.refresh(r.commandStore, *r.world.logic, *r.player));
+   messages.clear();
+   pressed = false;
+   const int before = callbacks;
+   windows->postMouseMove(slot == 0 ? 105 : 125, 105);
+   windows->update(33);
+   windows->postMouseButton(true);
+   if (split) windows->update(33);
+   windows->postMouseButton(false);
+   windows->update(33);
+   CHECK(callbacks == before + 1);
+   REQUIRE(pressed);
+   if (slot == 0)
+   {
+    REQUIRE(r.bar.targeting());
+    REQUIRE(r.bar.objectValid(*r.world.logic, *r.own));
+    REQUIRE(r.bar.clickObject(*r.own, r.player->getPlayerIndex(), messages));
+   }
+   REQUIRE(messages.size() == 1u);
+   const auto beforeCasts = r.spells.casts();
+   r.send(messages);
+   CHECK(r.spells.casts() == beforeCasts + 1);
+   CHECK_FALSE((slot == 0 ? heal : cloudPower)->isReady());
+   if (slot == 0) CHECK(body->getHealth() == body->getMaxHealth());
+  }
+ }
+ CHECK(r.spells.malformed() == 0u);
 }
 
 TEST_CASE("PORT-432 synthetic Apt button: a stable click releases with batched or split events")

@@ -187,3 +187,16 @@ entries. It is a later update, not a substitute for the task's 1.9.8.2 merged
 INI or proof of the movie used by the failing run. No archive contents were
 added to the repository. The earlier search by filename alone did not establish
 that Drive lacked game archives.
+
+## Synthetic callback-to-message path
+
+An additional no-archive test now connects an invented two-button Apt movie to
+`AptPalantir`'s `OnAptInGameSpellBookButtonPressed` callback, the compact-slot
+mapping, `InGameSpellBookModel`, and the logic message queue. It repeats
+Rebuild and Cloud Break under both batched and split mouse events, observing the
+callback, targeting, message, cast counter, health and recharge separately.
+This is not the Ennorath movie, `InGameHud`'s deferred callback path, or
+rendered-object picking; a failure here would need its own RW comparison, and a
+pass would not rule out the real movie or HUD path. The source passed syntax
+checking but has not run. Since the build already compiled the test object
+before this change, rebuild the full test target again before using its result.
