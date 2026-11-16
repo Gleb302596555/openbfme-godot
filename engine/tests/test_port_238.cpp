@@ -38,6 +38,7 @@ const char *const kData =
     " Behavior = AIUpdateInterface AI\n End\n"
     " Behavior = CitadelSlaughterHordeContain RingEntry\n"
     "  PassengerFilter = NONE +P238Ring\n"
+    "  ObjectStatusOfContained = UNSELECTABLE ENCLOSED\n"
     "  ContainMax = 1\n"
     "  StatusForRingEntry = HOLDING_THE_RING\n"
     "  UpgradeForRingEntry = Upgrade_P238Ring\n"
@@ -167,6 +168,14 @@ const char *const kButtonData =
     "  OneRingDelayOn = 200\n OneRingDelayOff = 200\n RingDelayAfterRemoving = 1000\n"
     " End\n"
     " LocomotorSet\n Locomotor = WalkerLoco\n Condition = SET_NORMAL\n Speed = 55\n End\n"
+    "End\n"
+    "Object P238WithoutStealth\n"
+    " KindOf = INFANTRY HERO SELECTABLE SCORE\n"
+    " CommandSet = P238Commands\n"
+    " Geometry = CYLINDER\n GeometryMajorRadius = 5\n GeometryHeight = 10\n"
+    " Body = ActiveBody Body\n MaxHealth = 100\n End\n"
+    " Behavior = AIUpdateInterface AI\n End\n"
+    " LocomotorSet\n Locomotor = WalkerLoco\n Condition = SET_NORMAL\n Speed = 55\n End\n"
     "End\n";
 
 struct ButtonWorld : World
@@ -282,4 +291,21 @@ TEST_CASE("PORT-238 ring status gate does not restrict the adjacent stop command
     CHECK(w.input->flush() == 1);
     REQUIRE(sent.size() == 1);
     CHECK(sent[0].getType() == MSG_DO_STOP);
+}
+
+TEST_CASE("PORT-238 ring button is available with CAN_STEALTH even without a stealth module")
+{
+    ButtonWorld w;
+    Object *unit = w.unit("P238WithoutStealth", 'A', 150, 150);
+    w.frames(3);
+    REQUIRE(StealthUpdate::of(*unit) == nullptr);
+    unit->setStatus((unsigned)CombatNames::status("CAN_STEALTH"), true);
+    w.select(*unit);
+    const auto *ring = w.button("P238OneRing");
+    REQUIRE(ring != nullptr);
+    CHECK(ring->state == ButtonState::Enabled); // RW 0x942733: null lookup -> 0x942FF1
+    REQUIRE(w.bar->pressButton(ring->slot, true));
+    CHECK(w.input->flush() == 1);
+    w.frames(1);
+    CHECK_FALSE(unit->testModelCondition(CombatNames::modelCondition("ONE_RING"))); // RW 0x7729A6 skips a null module
 }
