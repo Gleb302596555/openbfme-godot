@@ -34,6 +34,11 @@ struct Status
 	int noAttack = status("NO_ATTACK");
 	int noCollisions = status("NO_COLLISIONS");
 	int insideGarrison = status("INSIDE_GARRISON"); // bit 0x3A (RW 0x6CAC0F)
+	// PORT-218: the statuses RW 0x6C9147 reads
+	int destroyed = status("DESTROYED");               // 0, RW 0x6C9182 (+ 0x94 bit 0)
+	int notInWorld = status("NOT_IN_WORLD");           // 0x33, RW 0x6C91A4
+	int contesting = status("CONTESTING_BUILDING");    // 0x25, RW 0x6C91D7 / 0x6C93E0 / 0x6C869E
+	int ignoringStealth = status("IGNORING_STEALTH");  // 0x1B, RW 0x6C922F
 };
 const Status &statuses();
 
@@ -54,6 +59,13 @@ struct Kind
 	int hero = kindOf("HERO");
 	int tree = kindOf("TREE");                 // PORT-14: RW 0x7512E0 victim template + 0x113 bit 0x40
 	int armyOfDead = kindOf("ARMY_OF_DEAD");   // PORT-14: RW 0x751449 owner template + 0x11A bit 0x80
+	// PORT-218: the KindOf bits RW 0x6C9147 and RW 0x6C8652 read
+	int spawnsAreTheWeapons = kindOf("SPAWNS_ARE_THE_WEAPONS"); // 84, RW 0x68D722 / 0x6C8731 / 0x6C88A6
+	int disguiser = kindOf("DISGUISER");                        // 88, RW 0x6C9259 / 0x6C9295
+	int wallUpgrade = kindOf("WALL_UPGRADE");                   // 150, RW 0x68D6FA
+	int passExperienceToContainer = kindOf("PASS_EXPERIENCE_TO_CONTAINER"); // 206 (0xCE), RW 0x6C9422
+	int drawableOnly = kindOf("DRAWABLE_ONLY");                 // 36, RW 0x6C937E (word 1 bit 4)
+	int immuneToCapture = kindOf("IMMUNE_TO_CAPTURE"); // 81, RW 0x6C888C (KindOf word 2 bit 0x10): with a weapon out of reach it is INVALID_SHOT
 };
 const Kind &kinds();
 } // namespace CombatNames

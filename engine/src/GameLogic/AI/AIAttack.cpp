@@ -116,8 +116,8 @@ const char *const kStopAim =
 // effectively dead (+ 0x458 bit 0) while the owner's current weapon (RW 0x68B58C(0)) needs no victim (template + 0x16B) keeps the attack (false); without
 // an owner or a victim: false; an owner Object::isAbleToAttack (RW 0x691269) refuses: true (NO_ATTACK: the Citadel's members while they build, an
 // ordered attack included). TOP20 #21 r3: RW 0x7417E4 .. 0x741807: else getAbleToAttackSpecificObject(userData, victim, the AI's last command source (AI vslot
-// 0x23C)) (RW 0x68D6A6) answering neither POSSIBLE (3) nor POSSIBLE_AFTER_MOVING (2): true. ObjectWeapons::canAttackObjectNoShroud stands in for RW 0x68D6A6
-// (S-325; RW 0x6C9147 has no shroud test, so the order's shroud gate is left out), forced for userData bit 0 (RW 0x6C91C9: ATTACK_CONTINUED_TARGET_FORCED 3);
+// 0x23C)) (RW 0x68D6A6) answering neither POSSIBLE (3) nor POSSIBLE_AFTER_MOVING (2): true. ObjectWeapons::canAttackObject is RW 0x68D6A6 -> 0x6C9147 now
+// (PORT-218; RW 0x6C9147 has no shroud test, so the order's shroud gate is left out), forced for userData bit 0 (RW 0x6C91C9: ATTACK_CONTINUED_TARGET_FORCED 3);
 // a victim that turns UNATTACKABLE (0x3C, RW 0x6C9207), as a soldier in its burning death, ends the attack
 bool cannotPossiblyAttackObject(const AIState &state, std::uintptr_t userData)
 {
@@ -143,7 +143,7 @@ bool cannotPossiblyAttackObject(const AIState &state, std::uintptr_t userData)
 	const ObjectWeapons *w = obj.getWeapons();
 	const AIUpdateInterface *ai = obj.getAIUpdateInterface();
 	const CommandSourceType source = ai ? ai->lastCommandSource() : CMD_FROM_AI; // AI vslot 0x23C (RW 0x7417EC)
-	return !(w && w->canAttackObjectNoShroud(*victim, source, (userData & 1u) != 0)); // RW 0x7417FA .. 0x741807
+	return !(w && w->canAttackObject(*victim, source, (userData & 1u) != 0)); // RW 0x7417FA .. 0x741807
 }
 
 // PORT-437 (issue 437, stop S-325): the generic machine's object conditions RW 0x7457DF (out of reach -> Chase 0x64) and RW 0x745901 (crush the

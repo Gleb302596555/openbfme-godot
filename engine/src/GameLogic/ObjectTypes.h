@@ -112,3 +112,22 @@ inline void MaskSet(std::array<std::uint32_t, N> &m, unsigned bit, bool value)
 		}
 	}
 }
+
+// PORT-218: RotWK's attack query types (AbleToAttackType) and its answer (CanAttackResult), RW 0x6C91C9 / 0x6C88E2 .. 0x6C88F5. Declared here so
+// Object.h can name them; GameLogic/Combat/ObjectWeapons.h includes this header. Only the values matter: 0 + (in range) + 2.
+enum AbleToAttackType
+{
+	ATTACK_NEW_TARGET = 0,               ///< a freshly chosen target
+	ATTACK_CONTINUED_TARGET = 2,         ///< the target the machine already holds
+	ATTACK_CONTINUED_TARGET_FORCED = 3,  ///< ... held by a forced attack (RW 0x6C91C9 bit 0)
+	ATTACK_TUNNEL_NETWORK_GUARD = 4,     ///< the tunnel network's guard (RW 0x6C88D8: a shot out of range is not INVALID_SHOT)
+	ATTACK_TYPE_FLAG_0x10 = 0x10         ///< RW 0x68D719: bypasses the container / rider branch
+};
+
+enum CanAttackResult
+{
+	ATTACKRESULT_NOT_POSSIBLE = 0,
+	ATTACKRESULT_INVALID_SHOT = 1,
+	ATTACKRESULT_POSSIBLE_AFTER_MOVING = 2,
+	ATTACKRESULT_POSSIBLE = 3
+};

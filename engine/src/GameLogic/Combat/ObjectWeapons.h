@@ -46,6 +46,8 @@ enum WeaponChoiceCriteria
 	PREFER_TEMPLATE_DEFAULT = 5
 };
 
+// PORT-218: AbleToAttackType / CanAttackResult live in GameLogic/ObjectTypes.h (RW 0x6C91C9 / 0x6C88E2 .. 0x6C88F5), so Object.h can name the answer.
+
 // ZH WeaponLockType
 enum WeaponLockType
 {
@@ -125,11 +127,23 @@ public:
 	static const char *choiceStopLine(); // S-1582
 	// ZH WeaponSet::getVictimAntiMask: the WEAPON_ANTI_* class of a target (ground infantry / vehicle, structure, airborne, ...)
 	static unsigned victimAntiMask(const Object &victim);
-	// ZH Object::getAbleToAttackSpecificObject, the part that does not depend on the AI: the victim can be shot at by SOME weapon of this set
+	// PORT-218: the old bool stand-in, now only a view on the RW answer: getAbleToAttackSpecificObject(forced ? ATTACK_CONTINUED_TARGET_FORCED :
+	// ATTACK_NEW_TARGET, ...) answering POSSIBLE or POSSIBLE_AFTER_MOVING. RotWK's order path is the only place with a shroud gate and it keeps it at
+	// the caller (VIS-1, RW 0x82C167), so the stand-in's "NoShroud" twin is gone.
 	bool canAttackObject(const Object &victim, CommandSourceType source, bool forced) const;
-	// TOP20 #21 r3: canAttackObject without the order's shroud gate (VIS-1, RW 0x82C167: the action helper's, not RW 0x6C9147's): the attack machine's
-	// continue test RW 0x7417E4 .. 0x741807 calls RW 0x68D6A6 -> RW 0x6C9147, which has no shroud test
-	bool canAttackObjectNoShroud(const Object &victim, CommandSourceType source, bool forced) const;
+	// PORT-218: kept as the name the attack machine's callers used (there is no shroud gate either way: RW 0x6C9147 has none); it is the same call
+	bool canAttackObjectNoShroud(const Object &victim, CommandSourceType source, bool forced) const { return canAttackObject(victim, source, forced); }
+	// PORT-218: RotWK WeaponSet::getAbleToAttackSpecificObject RW 0x6C9147 (see docs/re/rotwk/RW_0x68D6A6.md for every branch
+	// and its address). `source` is the object whose set this is. Answer: CanAttackResult.
+	CanAttackResult getAbleToAttackSpecificObject(AbleToAttackType type, const Object &source, const Object &victim, CommandSourceType commandSource) const;
+	// PORT-218: RotWK WeaponSet::getAbleToUseWeaponAgainstTarget RW 0x6C8652, the tail RW 0x6C9147 always reaches: the anti mask and range
+	// loop over the six slots, the aim delta, the garrison / firing owner branch, the canDamage / OnlyAgainst loop, a passenger's own
+	// answer, a spawner's slaves. `position` is the victim's position (or an empty ground target).
+	CanAttackResult getAbleToUseWeaponAgainstTarget(AbleToAttackType type, const Object &source, const Object *victim, const Coord3D &position,
+	                                                CommandSourceType commandSource) const;
+	// PORT-218: the slot loop of RW 0x6C891B .. 0x6C8993 alone: true when a weapon that canDamage the victim has an empty OnlyAgainst or one
+	// naming a KindOf of the victim (called back by a passenger's own query, so it must not recurse into the containers again)
+	bool someWeaponCanDamage(const Object &source, const Object &victim) const;
 
 	// ---- range ---------------------------------------------------------------------------------------------------------------------
 	// RW 0x6CC653: Weapon::isWithinAttackRange(source, victim, extra, checkMinRange) for the current weapon; the AI passes extra 0 and checkMin true
@@ -268,6 +282,11 @@ private:
 	WeaponRangeHost &rangeHost();
 	static void fireTempWeapon(const WeaponTemplate *t, Object *source, const WeaponShotTarget &target); // lane DECOMP-1
 	RangeSubject subjectOf(const Object &obj) const;
+	// PORT-218: RW 0x6CC653 / RW 0x6CC622 for the weapon in `slot` (the anti / range loop of RW 0x6C8652 walks the slots, not the current one)
+	bool isWithinAttackRangeWithWeapon(const Weapon &weapon, const Object &victim) const;
+	bool isWithinAttackRangeWithWeapon(const Weapon &weapon, const Coord3D &pos) const;
+	// PORT-218: RW 0x6C80A9 isAnyWithinTargetPitch: no pitch-limited weapon of the set: true; otherwise one weapon that passes RW 0x6CA9BF
+	bool isAnyWithinTargetPitch(const Object &source, const Object &victim) const;
 
 	Object *m_owner;
 	WeaponSetFlags m_flags{};
