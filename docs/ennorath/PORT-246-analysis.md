@@ -1,0 +1,26 @@
+# PORT-246 — исследование клиентского fade (не завершено)
+
+Рабочая заметка: данные игры и мода сюда не копируются. Ниже только проверенные инструкции RotWK 2.01; это пока не основание считать какой-либо пункт перенесённым или нечитанным.
+
+## Деревья
+
+* Таблица W3DTreeDraw — RW 0xBE2E80; create данных RW 0x464402 вызывает конструктор RW 0x4CE3A8, который устанавливает vtable 0xBE2C88. FadeTarget разбирается в +0x5C, FadeDistance в +0x60.
+* DONOR BFME2 0x000EDB47 (`GameEngineDevice/Source/W3DDevice/GameClient/W3DTreeBufferUpdate.cpp`): обновление буфера ищет подходящие объекты вокруг видимого дерева, не расстояние до камеры. Проверено RW 0x4ED508: глобальные/пауза-условия в начале; RW 0x4ED6F1 берёт радиус +0x60 данных типа и передаёт его в запрос объектов RW 0xA39340; RW 0x4ED70A–0x4ED76F фильтруют найденные объекты; RW 0x4ED780 выбирает 255 при отсутствии, RW 0x4ED7DD–0x4ED7F2 — +0x5C при наличии. RW 0x4ED796–0x4ED7AF помечает изменившуюся прозрачность.
+* DONOR BFME2 0x000EBFD1 (`GameEngineDevice/Source/W3DDevice/GameClient/W3DTreeBuffer.cpp`): обновление вершин сдвигает прозрачность к цели. RW 0x4EB992, инструкции 0x4EBA54–0x4EBA94, при включённом глобальном переключателе приближает текущую прозрачность дерева к цели на FadeRate (+0x58), ограничивая её целью.
+* Зависимость: RW 0x4ED578–0x4ED5B2 строит фильтр из GlobalData +0xEB0, RW 0x4ED689–0x4ED6B2 проверяет глобальный переключатель и доступность служб. В порте `TreeTopple` и `MapObjectRuntime` нет соответствующего чтения `AllowTreeFading` / `TreeFadeObjectFilter`; данные об этих полях есть в `engine/tests/data/port70/gamedata-rows.txt`. Нужно изучить общий GameData/filter и рендер экземпляров, не заменяя фильтр догадкой.
+
+## Пол
+
+* Таблица RW 0xBE3548, строка FloorFadeRateOnObjectDeath RW 0xBE3578 разбирает +0x20; create данных RW 0x46459D вызывает конструктор RW 0x4CEE74, vtable данных 0xBE3470. Деструктор экземпляра RW 0x4CE9B6 устанавливает vtable 0xBE3378; привязку слота doDrawModule ещё нужно отдельно проверить.
+* DONOR BFME2 0x000CF3BA (`GameEngineDevice/Source/W3DDevice/GameClient/Drawable/Draw/W3DFloorDraw_doDrawModule.cpp`): проверка данных, drawable, ненулевой скорости и effectively-dead. RW 0x4CEBCA выполняет те же проверки (0x4CEBDA читает +0x20, 0x4CEBEC–0x4CEBFD проверяет объект и статус), 0x4CEC1E передаёт имя модели и скорость в RW 0x46AFCA; RW 0x46AFCA передаёт в буфер пола RW 0x4E5A5B. Последний проверяет вход и доступность буфера, проходит записи, сверяет drawable и имя и записывает скорость в запись +0x88 (0x4E5A98).
+* DONOR BFME2 `W3DFloorBuffer.cpp` (0x000E6135 и 0x000E5406): общий буфер пола хранит отдельно прозрачность и скорость и рисует пол. В порте пол — статическая запись `Drawable` / `MapObjectRuntime` и экземпляр Godot, а не этот буфер. Нужно разобрать жизненный цикл записи после смерти drawable и её общий update; точечное изменение opacity живого объекта может удалить пол слишком рано.
+
+## Субобъекты upgrade
+
+* Таблица RW 0xC6E928: FadeTimeInSeconds +0x168, WaitBeforeFadeInSeconds +0x16C и SkipFadeOnCreate +0x171. Create RW 0x64FE80 вызывает конструктор RW 0x8B8EE4.
+* DONOR BFME2 0x004B4DBF (`GameEngine/Source/GameLogic/Object/Upgrade/SubObjectsUpgrade.cpp`): получение двух скоростей. RW 0x8B8F40 проверяет SkipFadeOnCreate и начальные три логических кадра; 0x8B8F6A–0x8B8FA5 рассчитывает скорость fade для ненулевого времени, 0x8B8FA9–0x8B8FD0 аналогично рассчитывает скорость ожидания при ненулевом WaitBeforeFadeInSeconds. Вызывающие RW 0x8B91AD и RW 0x8B928E инициализируют обе скорости нулём и передают их в обработчики show/hide RW 0x8B9050 / 0x8B909E; второй инвертирует скорость fade для скрытия. RW 0x672823 рассылает обе скорости во все draw-модули через слот 0x88; RW 0x4C3B25 записывает их вместе с именем и состоянием permanent-запроса.
+* Порт `UpgradeModuleClasses.cpp` вызывает существующий `ObjectClientHooks::showSubObject`, далее `ClientEventRecorder`, `DrawableManager::SHOW_SUB_OBJECT`, `Drawable::showSubObject`, `W3DScriptedModelDraw::setSubObjectHidden`; этот путь в настоящее время несёт только флаги, а не две скорости и промежуточную непрозрачность. Продолжению нужно разобрать обновление записи RW и общий вывод непрозрачности отдельных субобъектов, включая скриптовые запросы и сохранение client state; отдельный путь только для upgrade был бы заплаткой.
+
+## Осталось
+
+Прочитать оставшиеся ветви трёх механизмов, подтвердить связь floor vtable/slot и потребители полевой скорости, проверить общий GameData filter и отрисовку, затем определить независимую часть для реализации. Тесты и код пока не добавлены.
