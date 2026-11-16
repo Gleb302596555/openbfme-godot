@@ -1,7 +1,10 @@
-# PORT-216 — mumak projectile contact: investigation and scope stop
+# PORT-216 — stored projectile contact points on compound geometry
 
-Scope: fork issue 506, dashboard task 192. This is not a completed port or a
-claim that the owner's in-game report is fixed. No simulation code changed.
+Scope: fork issue 506, dashboard task 192. The stored weapon-contact-point
+correction and eight synthetic tests are implemented; full-runner validation
+is still pending. This is **not** a completed port or a claim that the
+owner's near-side visual report is fixed. The owner has already confirmed
+the original-game near-side stop; that question is resolved.
 
 ## Reference and method
 
@@ -51,7 +54,7 @@ provided the factory, layout and branch-reading guide, not RW authority.
 | Preference 3, at least two contact rows | RW 0xAD31A4..0xAD3276 | Blend adjacent rows selected by the seed. The existing `ObjectGeometry::getBestContactPoint` has this branch. |
 | Preference 3, fewer rows | RW 0xAD3172..0xAD3184, 0xAD31AF..0xAD31B2 | Keep the stored innermost point. RW 0xAD25B0..0xAD260F initializes it at local x/y zero and 0.67 times geometry height. |
 | Preference 3, collision and clamps | RW 0xAD3278..0xAD333D | Clamp to maximum height; unless collision is skipped, test the point and fall back to the first active shape's centre; apply the lower height clamp. |
-| Neighbour preference 1 | RW 0xAD3340..0xAD3379 | Stored preferred point, clamped to maximum geometry height. Its initializer also updates it at RW 0xAD25E6..0xAD2607; its full initialization history is not yet traced. |
+| Neighbour preference 1 | RW 0xAD3340..0xAD3379 | Stored preferred point, clamped to maximum geometry height. The constructor RW 0x4504A4..0x4504AE and initializer RW 0xAD25E6..0xAD2607 also initialize/raise it; this independent preferred-point gap remains S-7387. |
 | Neighbour preference 0 / unknown preference | RW 0xAD337C..0xAD3517 | Nearest matching label passing the optional collision test, then height clamps; no match or unknown preference returns false. |
 
 ## What this rules out
@@ -94,11 +97,11 @@ The checked mod's ordinary GondorArcher projectile inherits the
 collision-manager opt-out from its reskin parent. Therefore simply enabling
 surface collisions for these arrows would change their configured behaviour.
 
-**Not established:** that the reported near-side impact should be obtained
-by changing the clean RotWK weapon-aim or collision branches. The owner must
-compare the stated scenario in original Ennorath before a visible departure
-from these branches is proposed (PROCESS 15.13). This is not a verdict that
-some field has no reader, nor a claim that P-127 is already fixed.
+**Not established:** a new nearest-surface aim or collision rule. The owner
+has confirmed the near-side stop in original Ennorath. The correction below
+restores the existing RW point's parse-time history; it does not depart from
+those branches. Whether this accounts for the complete visible complaint
+remains an in-game acceptance check, not a no-reader verdict.
 
 ## Adjacent verified gap: stored GeometryInfo contact state (S-7387)
 
@@ -122,45 +125,57 @@ identified by its caller in `GeometryParseDimensions.cpp`) and
 `GeometryParseDimensions.cpp` were read as the guide before the RW parser
 bodies were inspected.
 
-In the port, `ObjectGeometry::shapesOf` replays geometry rows into final
-shapes, while `getBestContactPoint` mode 3 recomputes the innermost point
-from their current height. `worldspaceBestContactPoint` combines the
-object's own shapes with its original template's contact rows.
+Before the correction, `ObjectGeometry::shapesOf` replayed geometry rows
+into final shapes, while `getBestContactPoint` mode 3 recomputed the
+innermost point from their current height. `worldspaceBestContactPoint`
+combined the object's own shapes with its original template's contact rows.
 `Object::geometryTemplate`, `setGeometryInfoFrom`, active-shape/height
 changes and their existing snapshot representation are additional consumers
 that a faithful stored-state solution must cover.
 
-A synthetic follow-up discriminator (not mod data): a box of height 40
+The synthetic INI-order regression (not mod data): a box of height 40
 with a later vertical offset 12 keeps the earlier innermost z, approximately
 26.8; moving that offset before the height refresh yields approximately
-34.84. The port currently reconstructs both from final height 52. A large
+34.84. The old port reconstructed both from final height 52. A large
 enough box keeps both probe points inside, so the collision fallback does
-not conceal this difference. These are prospective RW-based expectations,
-**not results of an executed test**.
+not conceal this difference. These are the added test's RW-based expectations,
+**not yet results of an executed test**.
 
 This gap is recorded separately, not declared the proven cause of the
 near-side/centre complaint. It needs the shared geometry state and its
 copy/update/snapshot contract, rather than a replacement formula in one
 weapon. The nearby mode-1 initializer also conflicts with the existing
 `PORT-164 giant bird: a victim without contact points answers its own origin`
-expectation; that foreign test is unchanged. The adjacent-work exception
-fails its shared-mechanism condition (b); completing both point caches would
-also conflict with the protected neighbour expectation (c).
+expectation; that foreign test is unchanged. The original scope stop treated this as new shared state (condition b).
+The subsequent copy/xfer and template-event inspection below found that the
+weapon point can be derived from existing state. The independent preferred
+point still fails condition (c), the protected neighbour expectation.
 
 ## Validation and remaining work
 
-No engine code, foreign test, pin or workflow changed. No `PORT-216` tests
-have been added; no red/green claim or completed full-binary run is made.
-The full Release / Godot-OFF `openbfme_tests` build was started with `-j1`;
-its completion is not yet established. The current branch was rebased onto
-origin/main `467bc033` before this report update. No review PR is offered.
-
-Remaining: owner comparison of the actual ordinary-arrow impact in original
-Ennorath (GondorArcher against HaradMumakil, side-on, no passengers), then
-confirm the P-127 correction's scope. S-7387 records the separate shared
-GeometryInfo work and the synthetic regression needed for it. Once a
-RW-proven correction is identified, add the `PORT-216` lane and run its
-red/green check on the full binary plus `PORT-436*` before submitting review.
+- Engine correction: `cbd852fb`, `ObjectGeometry.cpp/.h`; existing parsed
+  geometry cache extended, existing solver retained. No collision-manager,
+  projectile KindOf, mod data, foreign tests or pins changed.
+- Full-target lane and eight test cases: `8315c159`, `Port216.cmake`,
+  `test_port_216.cpp`, the two PORT-216 list entries in `CMakeLists.txt`.
+  GCC syntax checks passed for both implementation and tests; the mandatory
+  pre-commit hook passed. A syntax check is not a doctest result.
+- The earlier full build was explicitly stopped at 988/1782, then the full
+  Release/Godot-OFF target was reconfigured with the new lane and resumed
+  using `cmake --build engine/build -j1 --target openbfme_tests`.
+  Current process: `port-216-full-tests-58ef34e2`. The latest wait returned
+  running at 139/1082; no PORT-216/PORT-436 doctest result exists yet.
+- The queued commands run the required `-tc="PORT-216*"` then `-tc="PORT-436*"`
+  on **engine/build/openbfme_tests**, not a standalone test executable.
+  The full-target red/green experiment (temporarily undo only the engine
+  correction, retain the tests, rebuild, restore and rebuild) remains to do.
+- Current validation is of shared RotWK behavior. The engine applies it to
+  all editions under its existing edition policy; separate BFME2/RotWK
+  installed-data and visual acceptance have not been performed here.
+- No fork or upstream PR yet. Fetch/rebase latest main, full runner results,
+  affected-neighbour selection, red/green, upstream dependency audit and
+  the visible-result check remain before a review claim. No pins will be
+  remeasured in this branch.
 
 ## Continuation after the owner's original-game check
 
@@ -197,9 +212,9 @@ Additional RW instructions read for this decision:
   world-origin test in Bezier update; that branch will not be rewritten as
   an unproven projectile-to-target distance test.
 
-Implementation plan: extend the existing parsed-geometry cache with the
-contact rows and the parse-time innermost point, replay the existing event
-stream once, and feed the same contact-query implementation from it.
+Implemented: the existing parsed-geometry cache now carries the contact
+rows and parse-time innermost point, replays the existing event stream once,
+and feeds the same contact-query implementation from it.
 Worldspace queries use the object's geometry source, not a mixture of that
 source's shapes and the original object's contact rows. The public
 value-only shape/point query keeps its existing stateless contract for its
@@ -207,7 +222,46 @@ existing callers; production worldspace queries retain INI history.
 
 The independent preferred-point initialization of mode 1 remains outside
 this change: the existing PORT-164 no-row expectation would have to change.
-S-7387 will be narrowed to that remaining issue, not silently closed.
+S-7387 is narrowed to that remaining issue, not silently closed.
 The near-side visual result remains an owner acceptance check; the code and
 synthetic tests must establish the exact RW point first, not assert that an
 internal aim point is a new nearest-surface algorithm.
+
+## Added regression coverage (execution pending)
+
+| Behavior | RW instructions | PORT-216 test coverage |
+|---|---|---|
+| Equal final shapes, different height/offset order | 0xAD2BA7, 0xAD1770, 0xAD3172 | INI-order case, with MONSTER, INFANTRY and STRUCTURE subcases; no KindOf-specific repair |
+| Compound body point reaches an actual arrow and its FX/homing | 0x6CCAC7, 0x85EC51, 0x85F46A | NO_COLLIDE projectile, independently specified body/elevated shapes, ordinary-infantry neighbour and unchanged four aim-seed calls |
+| A single contact row refreshes the cached default, not a two-point segment | 0xAD3DEF, 0xAD31AF | GeometryContactPoint, AttackContactPoint, SwoopContactPoint subcases |
+| Inherited geometry preserves history; another height row refreshes it | 0x463E5A, 0xAD2BA7 | Parent, offset-only child, height-refresh grandchild |
+| Runtime height/active changes do not refresh the cached point | 0xAD2C96, 0xAD35A5, 0xAD3283 | Growth, disable/re-enable, shrink with live-height clamp |
+| Type/radius changes do not refresh the constructor/previous point | 0x4504B3, 0xAD4040, 0xAD330F | No-height sphere with lower clamp; type replacement after a height/offset sequence |
+| Point outside current geometry still takes existing fallback | 0xAD329E..0xAD32EB | Late offset outside the probe, plus ignoreCollision neighbour |
+| Copy uses one source for shapes, rows and point | 0x463E45..0x463E62 | Copies both with/without rows, runtime heights, hash and byte-identical save/load |
+
+Production callers inspected: WeaponDelivery (mode 3), BezierProjectileBehavior
+(mode 3), GiantBirdAIUpdate (mode 1), AIUpdateCombat/AIAttack (mode 0) and
+ControlBarRadialMenu (mode 0). The value-only getBestContactPoint API is not
+called by production code outside its implementation; its existing test
+callers keep their stateless inputs. Changing copied contact rows can affect
+all modes and belongs in neighbour/nightly validation. Mode 1's separate
+constructor/high-water-point mismatch is explicitly retained in S-7387.
+
+## Additional collision trace
+
+The saved linear disassemblies of RW 0x85EA5F..0x85EBAC (back-off) and
+0x85FDB7..0x85FE92 (handler) have now been read. A non-null collision object
+at 0x85FDDF takes the back-off call 0x85FDEA; back-off repeatedly tests the
+projectile's geometry against that object's geometry at 0x85EB67, moving
+backwards along the prior path delta. The null-object branch at 0x85FE1B
+handles ground FX/bounce/expiry instead. Neither is a hidden replacement of
+the weapon aim by a nearest-surface point. These branches are unchanged.
+The collision-manager NO_COLLIDE opt-out remains intact.
+
+**Visible yes/no:** yes, the intended effect is visible in arrow flight and
+impact placement, but the changed build has not been observed in-game.
+Original Ennorath's near-side stop is confirmed by the owner. The exact
+contribution of the corrected body-height aim to that visual stop remains
+**INFERENCE**, not an assertion that the geometry query computes a surface
+intersection. No user-facing review/finished status is claimed yet.
