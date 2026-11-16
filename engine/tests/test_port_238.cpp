@@ -17,6 +17,7 @@
 #include "GameLogic/Module/HeroAbilityModules.h"
 #include "GameLogic/Module/SpecialAbilityModules.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
+#include "GameLogic/SpellCommands.h"
 
 #include <memory>
 #include <vector>
@@ -435,4 +436,104 @@ TEST_CASE("PORT-238 ring hero activated module heals a nearby friendly hero at o
     CHECK(enemy->getBodyModule()->getHealth() == 40.0f);
     CHECK(nonhero->getBodyModule()->getHealth() == 40.0f);
     CHECK(farHero->getBodyModule()->getHealth() == 40.0f);
+}
+
+namespace
+{
+struct HealHudWorld : HealWorld
+{
+    CommandStore store;
+    CommandStore *savedCommands = TheCommandStore;
+    SpellCommands spellCommands;
+    MouseSettings mouse;
+    MetaMap meta;
+    PinholeView view{{0, -300, 400}, {100, 100, 0}, 1024, 768, 0.7f};
+    std::unique_ptr<HudInput> input;
+    std::unique_ptr<ControlBar> bar;
+    HealHudWorld()
+    {
+        TheCommandStore = &store;
+        store.setThingFactory(&w.things);
+        w.fx.env.blocks.registerBlock("CommandButton", [](INI *ini) { CommandStore::parseCommandButtonDefinitionGlobal(ini); });
+        w.fx.env.blocks.registerBlock("CommandSet", [](INI *ini) { CommandStore::parseCommandSetDefinitionGlobal(ini); });
+        spellCommands.registerHandlers(dispatcher);
+        const char *data =
+            "Upgrade Upgrade_P238Rank\n Type = OBJECT\n End\n"
+            "CommandButton P238HealButton\n Command = SPECIAL_POWER\n SpecialPower = SpecialAbilityP238Heal\n InPalantir = Yes\n End\n"
+            "CommandSet P238HealCommands\n 1 = P238HealButton\n End\n"
+            "Object P238HudHealHero\n"
+            " KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK SCORE\n CommandSet = P238HealCommands\n"
+            " Geometry = CYLINDER\n GeometryMajorRadius = 5\n GeometryHeight = 10\n"
+            " Body = ActiveBody Body\n MaxHealth = 100\n InitialHealth = 40\n End\n"
+            " Behavior = AIUpdateInterface AI\n End\n"
+            " Behavior = UnpauseSpecialPowerUpgrade Unlock\n SpecialPowerTemplate = SpecialAbilityP238Heal\n TriggeredBy = Upgrade_P238Rank\n End\n"
+            " Behavior = SpecialPowerModule Power\n SpecialPowerTemplate = SpecialAbilityP238Heal\n UpdateModuleStartsAttack = Yes\n StartsPaused = Yes\n End\n"
+            " Behavior = ActivateModuleSpecialPower Mover\n"
+            "  SpecialPowerTemplate = SpecialAbilityP238Heal\n UnpackTime = 1\n PreparationTime = 3\n PackTime = 2096\n IgnoreFacingCheck = Yes\n"
+            "  TriggerSpecialPower = Heal OBJECTPOS\n End\n"
+            " Behavior = PlayerHealSpecialPower Heal\n"
+            "  SpecialPowerTemplate = SpecialAbilityP238Dummy\n HealAmount = 0.5\n HealAsPercent = Yes\n HealAffects = HERO\n HealRadius = 1\n End\n"
+            "End\n";
+        const std::string error = w.load(data, INI_LOAD_OVERWRITE, "port238_heal_hud.ini");
+        REQUIRE_MESSAGE(error.empty(), error);
+        players.setLocalPlayer(playerOf('A'));
+        input = std::make_unique<HudInput>(*logic, ai.get(), view, commands, mouse, meta);
+        input->context().commands = &store;
+        bar = std::make_unique<ControlBar>(input->context());
+    }
+    ~HealHudWorld()
+    {
+        bar.reset();
+        input.reset();
+        logic->reset();
+        TheCommandStore = savedCommands;
+    }
+    const ControlBarButton *button()
+    {
+        for (const auto &b : bar->palantirButtons())
+            if (b.button && b.button->m_name == "P238HealButton") return &b;
+        return nullptr;
+    }
+};
+}
+
+TEST_CASE("PORT-238 ring heal HUD requires unlock and starts recharge after casting")
+{
+    HealHudWorld w;
+    Object *hero = w.unit("P238HudHealHero", 'A', 300, 300);
+    auto *ability = dynamic_cast<ActivateModuleSpecialPower *>(hero->findModule("ActivateModuleSpecialPower"));
+    auto *power = dynamic_cast<SpecialPowerModule *>(hero->findModule("SpecialPowerModule"));
+    REQUIRE(ability != nullptr);
+    REQUIRE(power != nullptr);
+    w.frames(3);
+    w.playerOf('A')->selection() = {hero->getID()};
+    w.input->ui().mirrorSelection({hero->getID()});
+    w.bar->update();
+    const auto *button = w.button();
+    REQUIRE(button != nullptr);
+    CHECK(button->state == ButtonState::Restricted);
+    CHECK(power->pauseCount() == 1);
+    // RW 0x8B9676: the upgrade unpauses the matching power and sets its ready frame.
+    hero->giveUpgrade("Upgrade_P238Rank");
+    w.frames(1);
+    w.bar->update();
+    button = w.button();
+    REQUIRE(button != nullptr);
+    REQUIRE(power->pauseCount() == 0);
+    REQUIRE(button->state == ButtonState::Enabled);
+    std::vector<GameMessage> sent;
+    w.input->setLogicMessageObserver([&](const GameMessage &m) { sent.push_back(m); });
+    REQUIRE(w.bar->pressButton(button->slot, true));
+    CHECK(w.input->flush() == 1);
+    REQUIRE(sent.size() == 1);
+    CHECK(sent[0].getType() == MSG_DO_SPECIAL_POWER); // RW 0x94156B, targetless case
+    for (int i = 0; i < 40 && ability->abilitiesTriggered() == 0; ++i) w.frames(1);
+    REQUIRE(ability->abilitiesTriggered() == 1);
+    CHECK(hero->getBodyModule()->getHealth() == 90.0f);
+    CHECK_FALSE(power->isReady());
+    CHECK(power->getReadyFrame() == w.logic->getFrame() + 1300u); // 260 seconds at 5 logic frames/second
+    w.bar->update();
+    button = w.button();
+    REQUIRE(button != nullptr);
+    CHECK(button->state == ButtonState::NotReady);
 }

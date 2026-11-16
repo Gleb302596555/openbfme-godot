@@ -131,8 +131,8 @@ The source and build-tree core archive contained the fixes. `-tc="PORT-238*"`
 reported:
 
 ```
-[doctest] test cases:   8 |   8 passed | 0 failed | 0 skipped
-[doctest] assertions: 174 | 174 passed | 0 failed |
+[doctest] test cases:   9 |   9 passed | 0 failed | 0 skipped
+[doctest] assertions: 204 | 204 passed | 0 failed |
 [doctest] Status: SUCCESS!
 ```
 
