@@ -40,6 +40,27 @@ callers, not a ring-only workaround. The path and action-9 differences remain
 open in S-7321; this investigation does not establish that they cause a failed
 hand-over in a particular game situation.
 
+## Ring callback and the queued order
+
+* CitadelSlaughterHordeContain's factory `RW 0x64BDAE` calls constructor
+  `RW 0x883801`, which installs primary vtable `0xC5F470`. Its slot `+0x80`
+  points to `RW 0x8840FC`, invoked from the non-slaughter branch of the shared
+  entry function `RW 0x883B4A` at `0x883F73`.
+* `RW 0x8840FC` idles the carrier, then at `0x88413C` calls
+  `RW 0x756CD7` with its object ID. That function finds its queue and calls
+  `RW 0x94EF1A`: a completed current order is removed and its successor can be
+  activated; an incomplete or planned current order remains. Only afterward does
+  the ring callback clear the configured status, destroy the nearest filtered
+  object, apply the configured player/object upgrades, emit FX and store the
+  exiting carrier ID. DONOR BFME2 `CitadelSlaughterHordeContainRva00480E9A.cpp`
+  provides the corresponding source; the observations above are also confirmed
+  by the RotWK instructions.
+* The port already had the rest of this callback. `deliverRing` now calls the
+  existing `AIOrdersManager::process`, without creating new saved state. The
+  synthetic `PORT-238*` cases exercise a complete order and its successor as well
+  as an incomplete order and another member's queue. Their full-executable
+  run and a run with the change reverted are still pending.
+
 ## Other checked pieces
 
 * `RW 0x8842AF` constructs SlaughterHordeContain data, loading the float at
@@ -62,5 +83,5 @@ Enumerate all affected mod objects and powers, verify inheritance and every
 relevant RW path, locate any independent ring-specific gap and add a failing
 synthetic test plus its neighbor test. Read the remaining HUD dispatch and
 special-result callers. Build and run the full `openbfme_tests` target with
-`-tc="PORT-238*"`; no PORT-238 test exists yet. No retail-absence verdict or
+`-tc="PORT-238*"` and verify failure without the change. No retail-absence verdict or
 complete in-game acceptance is claimed here.
