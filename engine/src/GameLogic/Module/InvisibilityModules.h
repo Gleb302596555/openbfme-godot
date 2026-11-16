@@ -241,6 +241,7 @@ public:
 	// RingDelayAfterRemoving is set (no retail StealthUpdate sets either)
 	void toggleRing();
 	bool ringWorn() const { return m_ring; }
+	bool ringReady() const; // RW 0x7761DD: current frame >= ring ready frame
 	// RW 0x776117: disguise as `target` (its own disguise when it is disguised: RW 0x68FBD3 + 0x3C), null: the disguise ends (the reveal transition)
 	void disguiseAsObject(Object *target);
 	const ThingTemplate *disguiseTemplate() const { return m_disguiseTemplate; } ///< + 0x3C: what the object looks like (null: itself)

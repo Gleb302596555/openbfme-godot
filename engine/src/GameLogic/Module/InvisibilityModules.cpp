@@ -616,6 +616,12 @@ void StealthUpdate::playFX(const std::string &fx)
 	logic.fxEvents().emit(FXEventLog::objectEvent(FXEvent::OBJECT_FX, "StealthUpdate", logic.getFrame(), fx, *getObject())); // RW 0x4B1B5A
 }
 
+// RW 0x7761DD: the ring may be used on or after its ready frame.
+bool StealthUpdate::ringReady() const
+{
+	return getObject()->logic().getFrame() >= m_ringReadyFrame;
+}
+
 // RW 0x776B50 (lane STEALTH-2): MSG_ONE_RING's group toggle (RW 0x7729A6), the detector's CancelOneRingEffect (RW 0x8A66D4) and RW 0x89D41B call it
 void StealthUpdate::toggleRing()
 {

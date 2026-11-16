@@ -34,6 +34,7 @@
 #include "GameLogic/Module/GateModules.h"
 #include "GameLogic/Module/HeroAbilityModules.h"
 #include "GameLogic/Module/ConstructionModules.h"
+#include "GameLogic/Module/InvisibilityModules.h"
 #include "GameLogic/Module/StancesBehavior.h"
 #include "GameLogic/ObjectTemplateInfo.h"
 #include "GameLogic/Module/CastleModules.h"
@@ -317,6 +318,21 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 			return StancesBehavior::of(obj) ? ButtonState::Enabled : ButtonState::Restricted;
 		case GUI_COMMAND_SET_STANCE:
 			return ButtonState::Enabled; // RW 0x942733: type 0x3A is in the default (available) arm
+		case GUI_COMMAND_ONE_RING:
+		{
+			// RW 0x942733, case 39 at 0x94387B: status CAN_STEALTH is
+			// required. RW 0x68FBD3 selects the first StealthUpdate whose
+			// upgrade masks allow it; no matching module is still available.
+			static const int canStealth = ObjectTemplateInfoBuilder::objectStatusIndex("CAN_STEALTH");
+			if (!obj.testStatus((unsigned)canStealth)) return ButtonState::Restricted;
+			for (const auto &module : obj.modules())
+			{
+				const auto *stealth = dynamic_cast<const StealthUpdate *>(module.get());
+				if (stealth && stealth->upgradesAllowStealth())
+					return stealth->ringReady() ? ButtonState::Enabled : ButtonState::Restricted; // RW 0x7761DD
+			}
+			return ButtonState::Enabled;
+		}
 		case GUI_COMMAND_WAKE_AUTO_PICKUP: // PORT-137: RW 0x942A5C table shares the contain gate with TOGGLE_WEAPONSET
 		case GUI_COMMAND_TOGGLE_WEAPONSET:
 			// lane HUD-4: RW 0x942FC6: restricted while a non-horde contain of the object holds someone, else available
@@ -555,7 +571,6 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 		case GUI_COMMAND_COMBATDROP:             // RW 0x94324C
 		case GUI_COMMAND_SWITCH_WEAPON:          // RW 0x94375C
 		case GUI_COMMAND_TOGGLE_WEAPON:          // RW 0x9437E7
-		case GUI_COMMAND_ONE_RING:               // RW 0x94387B
 		case GUI_COMMAND_CREW_EVACUATE:          // RW 0x94331B
 		case GUI_COMMAND_START_SELF_REPAIR:      // RW 0x942D83
 		case GUI_COMMAND_HORDE_SET_FORMATION:    // RW 0x9438A0

@@ -258,6 +258,10 @@ bool ControlBar::pressButton(int slot, bool inPalantir, bool shift)
 			}
 			m_ctx.stream.append(MSG_DOZER_CANCEL_CONSTRUCT);
 			return true;
+		case GUI_COMMAND_ONE_RING:
+			// RW 0x940435, command 39 -> 0x941A6B: one selection-based MSG_ONE_RING.
+			m_ctx.stream.append(MSG_ONE_RING);
+			return true;
 		case GUI_COMMAND_STOP:
 			m_ctx.stream.append(MSG_DO_STOP);
 			return true;
