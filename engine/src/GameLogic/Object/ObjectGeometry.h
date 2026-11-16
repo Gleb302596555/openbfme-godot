@@ -86,14 +86,17 @@ std::vector<ContactPoint> contactPointsOf(const ThingTemplate &tt);
 //     constructor's initial value, which the owner's reading did not isolate.
 //   pref 3: seed-blended pair of neighbouring contact points (idx = seed % (count-1), blend = ((seed >> 8) & 0xFF) / 255.0f); count < 2 falls back to
 //     (0, 0, height * 0.67f); a point outside every active shape falls back to the first active shape's centre; z clamped to [height * 0.1f, height].
-// Mode 1 (RW 0xAD3340) answers true always. false when no point matches (pref 0, no label match). `label` is unused for pref 1 and pref 3. The port does not keep RW's precomputed innermost contact point (RW + 0x50);
-// for pref 3 count < 2 the default (0, 0, height * 0.67f) is computed here from `height`.
+// Mode 1 (RW 0xAD3340) answers true always. false when no point matches (pref 0, no label match). `label` is unused for pref 1 and pref 3.
+// This value-only query treats the supplied shapes as the point-refresh instant (RW 0xAD25B0). Production object queries use worldspaceBestContactPoint,
+// which retains the INI-order-dependent stored point from the template cache (PORT-216, RW 0xAD3172), rather than refreshing it at query time.
 bool getBestContactPoint(const std::vector<Shape> &shapes, const std::vector<ContactPoint> &points, const Coord3D &callerPos, const std::string &label,
                          int preference, int seed, bool ignoreCollision, Coord3D &out);
 // RW 0x690BD2 Object::getWorldspaceBestContactPoint(out, callerPos, label, preference, seed, ignoreCollision): the caller's position into the object's space (the
 // orthogonal inverse of its transform, RW 0xB26C00, SSE in the binary's order), getBestContactPoint there, a RUBBLE body (body vslot 0x24 == 3) takes the geometry's
 // height as the point's z, and the point back to the world (SSE). The transform is the object's basis and position (Thing); the shapes are its own GeometryInfo's
-// (Object::geometryShapes, lane MODCOMPAT-MOD1), the points its template's (S-1281). Preference 0 keeps the label-based nearest-point behaviour used by the AI's
+// (Object::geometryShapes). Contact rows and the stored innermost point come from Object::geometryTemplate, including copied geometry (RW 0x463E45..0x463E62).
+// The innermost point refreshes on height/contact INI rows (RW 0xAD2BA7 / 0xAD3DEF), not later offsets or runtime shape changes. It is derived from the existing
+// template events/source, not new simulation state. Preference 0 keeps the label-based nearest-point behaviour used by the AI's
 // findNearestLabeledContactPointOnTarget and the radial-menu "Menu" label; preference 3 is the weapon-aim contact point used by aimPosition and fireFXAimPosition.
 bool worldspaceBestContactPoint(const Object &obj, const Coord3D &callerPos, const std::string &label, int preference, int seed, bool ignoreCollision,
                                 Coord3D &out);

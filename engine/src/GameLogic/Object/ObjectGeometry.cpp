@@ -131,24 +131,64 @@ std::string asciiStringOf(const std::vector<std::string> &tokens)
 	}
 	return buff;
 }
-} // namespace
+using ObjectGeometry::Shape;
+using ObjectGeometry::ContactPoint;
 
-const std::vector<ObjectGeometry::Shape> &ObjectGeometry::cachedShapesOf(const ThingTemplate &tt)
+ContactPoint contactPointOf(const ThingTemplate &tt, const ThingTemplate::GeometryEvent &e)
 {
-	std::shared_ptr<const void> &cache = tt.friend_geometryCache();
-	if (!cache)
+	// RW 0xAD3D30: getNextSubToken("X") / ("Y") / ("Z") with the colon separators, then getNextTokenOrNull for the label
+	float c[3];
+	coordOf(tt, e.tokens, c);
+	ContactPoint p;
+	p.x = c[0];
+	p.y = c[1];
+	p.z = c[2];
+	std::vector<std::string> sub;
+	for (const std::string &t : e.tokens)
 	{
-		cache = std::make_shared<const std::vector<Shape>>(shapesOf(tt));
+		size_t start = 0;
+		for (size_t i = 0; i <= t.size(); ++i)
+		{
+			if (i == t.size() || t[i] == ':')
+			{
+				if (i > start)
+				{
+					sub.push_back(t.substr(start, i - start));
+				}
+				start = i + 1;
+			}
+		}
 	}
-	return *static_cast<const std::vector<Shape> *>(cache.get());
+	if (sub.size() > 6)
+	{
+		p.label = sub[6];
+	}
+	return p;
 }
 
-std::vector<ObjectGeometry::Shape> ObjectGeometry::shapesOf(const ThingTemplate &tt)
+// PORT-216: RW 0x4504B3..0x4504BD initializes GeometryInfo +0x50 to zero. RW 0xAD2BA7 (height row)
+// and 0xAD3DEF (contact row) refresh it through 0xAD25B0; later offsets/active flags do NOT refresh it.
+// Keep it with the existing immutable template geometry cache, reconstructed from the recorded INI events.
+// No new simulation state: inherited events and Object::geometryTemplate's source already survive copying/xfer.
+struct ParsedGeometry
 {
 	std::vector<Shape> shapes;
+	std::vector<ContactPoint> points;
+	Coord3D innermost{ 0.0f, 0.0f, 0.0f };
+};
+
+ParsedGeometry replayGeometry(const ThingTemplate &tt)
+{
+	ParsedGeometry parsed;
+	std::vector<Shape> &shapes = parsed.shapes;
 	for (const ThingTemplate::GeometryEvent &e : tt.geometryEvents())
 	{
-		if (e.row == "Geometry")
+		const bool contactRow = e.row == "GeometryContactPoint" || e.row == "AttackContactPoint" || e.row == "SwoopContactPoint";
+		if (contactRow)
+		{
+			parsed.points.push_back(contactPointOf(tt, e)); // RW 0xAD3DC4, the same parser for all three spellings
+		}
+		else if (e.row == "Geometry")
 		{
 			const int type = typeOf(tt, e.tokens, "Geometry");
 			if (shapes.empty())
@@ -164,13 +204,16 @@ std::vector<ObjectGeometry::Shape> ObjectGeometry::shapesOf(const ThingTemplate 
 			s.type = typeOf(tt, e.tokens, "AdditionalGeometry");
 			shapes.push_back(s);
 		}
-		else if (shapes.empty())
-		{
-			continue; // retail's rows do nothing without a shape (the list is empty)
-		}
 		else if (e.row == "GeometryHeight")
 		{
-			shapes.back().height = realOf(tt, e.tokens, "GeometryHeight");
+			if (!shapes.empty()) // RW 0xAD2B7E: the point refresh still runs when there is no shape
+			{
+				shapes.back().height = realOf(tt, e.tokens, "GeometryHeight");
+			}
+		}
+		else if (shapes.empty())
+		{
+			continue; // the remaining rows do nothing without a shape
 		}
 		else if (e.row == "GeometryMajorRadius")
 		{
@@ -213,8 +256,34 @@ std::vector<ObjectGeometry::Shape> ObjectGeometry::shapesOf(const ThingTemplate 
 			}
 			shapes.back().active = sameNoCase(e.tokens[0], "Yes") || sameNoCase(e.tokens[0], "True") || sameNoCase(e.tokens[0], "1");
 		}
+		if (e.row == "GeometryHeight" || contactRow)
+		{
+			// RW 0xAD25CB..0xAD25F5: use the height at THIS parse event, not the final geometry height.
+			parsed.innermost.z = SimMath::pc24Mul(ObjectGeometry::maxHeightAbovePosition(shapes), 0.67f);
+		}
 	}
-	return shapes;
+	return parsed;
+}
+
+const ParsedGeometry &cachedGeometryOf(const ThingTemplate &tt)
+{
+	std::shared_ptr<const void> &cache = tt.friend_geometryCache();
+	if (!cache)
+	{
+		cache = std::make_shared<const ParsedGeometry>(replayGeometry(tt));
+	}
+	return *static_cast<const ParsedGeometry *>(cache.get());
+}
+} // namespace
+
+const std::vector<ObjectGeometry::Shape> &ObjectGeometry::cachedShapesOf(const ThingTemplate &tt)
+{
+	return cachedGeometryOf(tt).shapes;
+}
+
+std::vector<ObjectGeometry::Shape> ObjectGeometry::shapesOf(const ThingTemplate &tt)
+{
+	return replayGeometry(tt).shapes;
 }
 
 float ObjectGeometry::maxHeightForHealthBox(const std::vector<Shape> &shapes)
@@ -295,48 +364,16 @@ Coord3D ObjectGeometry::boxCentre(const std::vector<Shape> &shapes)
 
 std::vector<ObjectGeometry::ContactPoint> ObjectGeometry::contactPointsOf(const ThingTemplate &tt)
 {
-	std::vector<ContactPoint> points;
-	for (const ThingTemplate::GeometryEvent &e : tt.geometryEvents())
-	{
-		// RW 0xAD3D30: GeometryContactPoint (RW 0xDA4498), AttackContactPoint (RW 0xDA44C8) and SwoopContactPoint (RW 0xDA44D8) share the same parser (+0xA0)
-		if (e.row != "GeometryContactPoint" && e.row != "AttackContactPoint" && e.row != "SwoopContactPoint")
-		{
-			continue;
-		}
-		// RW 0xAD3D30: getNextSubToken("X") / ("Y") / ("Z") with the colon separators, then getNextTokenOrNull for the label
-		float c[3];
-		coordOf(tt, e.tokens, c);
-		ContactPoint p;
-		p.x = c[0];
-		p.y = c[1];
-		p.z = c[2];
-		std::vector<std::string> sub;
-		for (const std::string &t : e.tokens)
-		{
-			size_t start = 0;
-			for (size_t i = 0; i <= t.size(); ++i)
-			{
-				if (i == t.size() || t[i] == ':')
-				{
-					if (i > start)
-					{
-						sub.push_back(t.substr(start, i - start));
-					}
-					start = i + 1;
-				}
-			}
-		}
-		if (sub.size() > 6)
-		{
-			p.label = sub[6];
-		}
-		points.push_back(p);
-	}
-	return points;
+	return cachedGeometryOf(tt).points;
 }
 
-bool ObjectGeometry::getBestContactPoint(const std::vector<Shape> &shapes, const std::vector<ContactPoint> &points, const Coord3D &callerPos, const std::string &label,
-                                         int preference, int seed, bool ignoreCollision, Coord3D &out)
+namespace
+{
+using ObjectGeometry::maxHeightAbovePosition;
+using ObjectGeometry::SHAPE_SPHERE;
+
+bool bestContactPoint(const std::vector<Shape> &shapes, const std::vector<ContactPoint> &points, const Coord3D &innermost,
+                      const Coord3D &callerPos, const std::string &label, int preference, int seed, bool ignoreCollision, Coord3D &out)
 {
 	// lane AIMAIM-1: without `ignoreCollision` a point counts only when the geometry, at the origin unturned (the zeroed static RW 0xDF1E98), overlaps the static
 	// sphere RW 0xDF1EA8 (built at RW 0xBCBED0: GeometryInfo(SPHERE, small, height / major / minor 2.0), RW 0x450429) at the point, unturned: RW 0xAD3415 ..
@@ -378,10 +415,9 @@ bool ObjectGeometry::getBestContactPoint(const std::vector<Shape> &shapes, const
 
 	if (preference == 3) // RW 0xAD30E0 preference 3 (CONTACT_POINT_PREFERENCE_WEAPON): seed-blended contact point
 	{
-		// RW 0xAD25B0: the innermost / default contact point precomputed at geometry parse = (0, 0, height * 0.67f)
-		out.x = 0.0f;
-		out.y = 0.0f;
-		out.z = SimMath::pc24Mul(height, 0.67f); // RW 0xBDD984 (fmul 0.67f)
+		// PORT-216: RW 0xAD3172..0xAD3184 copies the STORED point (+0x50). With fewer than two rows
+		// RW 0xAD31AF..0xAD31B2 leaves it intact; only the collision fallback and live-height clamps below apply.
+		out = innermost;
 		const size_t count = points.size();
 		if (count >= 2)
 		{
@@ -479,13 +515,26 @@ bool ObjectGeometry::getBestContactPoint(const std::vector<Shape> &shapes, const
 	return true;
 }
 
+} // namespace
+
+bool ObjectGeometry::getBestContactPoint(const std::vector<Shape> &shapes, const std::vector<ContactPoint> &points, const Coord3D &callerPos, const std::string &label,
+                                         int preference, int seed, bool ignoreCollision, Coord3D &out)
+{
+	// Existing value-only query: its supplied shape values describe the point-refresh instant (RW 0xAD25B0).
+	// Object queries below instead carry the template's recorded parse-time point, through this SAME solver.
+	const Coord3D innermost{ 0.0f, 0.0f, SimMath::pc24Mul(maxHeightAbovePosition(shapes), 0.67f) };
+	return bestContactPoint(shapes, points, innermost, callerPos, label, preference, seed, ignoreCollision, out);
+}
+
 bool ObjectGeometry::worldspaceBestContactPoint(const Object &obj, const Coord3D &callerPos, const std::string &label, int preference, int seed,
                                                 bool ignoreCollision, Coord3D &out)
 {
 	using SimMath::addf32;
 	using SimMath::mulf32;
 	using SimMath::subf32;
-	const ThingTemplate *tt = static_cast<const ThingTemplate *>(obj.getTemplate())->getFinalOverride();
+	// RW 0x690D08..0x690D20 reads the object's GeometryInfo. RW 0x463E45..0x463E62 copies its contact
+	// records and stored points along with the shapes: a replacement geometry must not use the original template's points.
+	const ParsedGeometry &parsed = cachedGeometryOf(obj.geometryTemplate());
 	const float *m = obj.getBasis(); // row major: m[r * 3 + c]
 	const Coord3D &t = *obj.getPosition();
 	// RW 0xB26C00: the orthogonal inverse (the transposed rotation, the translation -(R^T t) in this order)
@@ -497,9 +546,10 @@ bool ObjectGeometry::worldspaceBestContactPoint(const Object &obj, const Coord3D
 	local.x = addf32(addf32(addf32(mulf32(m[6], callerPos.z), mulf32(m[3], callerPos.y)), mulf32(m[0], callerPos.x)), itx);
 	local.y = addf32(addf32(addf32(mulf32(m[7], callerPos.z), mulf32(m[4], callerPos.y)), mulf32(m[1], callerPos.x)), ity);
 	local.z = addf32(addf32(addf32(mulf32(m[8], callerPos.z), mulf32(m[5], callerPos.y)), mulf32(m[2], callerPos.x)), itz);
-	const std::vector<Shape> &shapes = obj.geometryShapes(); // the object's own GeometryInfo (lane MODCOMPAT-MOD1; the points are the template's)
+	const std::vector<Shape> &shapes = obj.geometryShapes(); // current active flags/heights, with the source's stored point
+	// RW 0xAD2C96 / 0xAD35A5: runtime height/active changes refresh bounds, not +0x50. The solver clamps to the live shapes.
 	Coord3D p;
-	if (!getBestContactPoint(shapes, contactPointsOf(*tt), local, label, preference, seed, ignoreCollision, p))
+	if (!bestContactPoint(shapes, parsed.points, parsed.innermost, local, label, preference, seed, ignoreCollision, p))
 	{
 		return false;
 	}
