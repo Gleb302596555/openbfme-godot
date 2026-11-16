@@ -161,3 +161,53 @@ confirm the P-127 correction's scope. S-7387 records the separate shared
 GeometryInfo work and the synthetic regression needed for it. Once a
 RW-proven correction is identified, add the `PORT-216` lane and run its
 red/green check on the full binary plus `PORT-436*` before submitting review.
+
+## Continuation after the owner's original-game check
+
+The owner confirmed in this conversation that the ordinary arrow stops at
+the near side in original Ennorath. This resolves the outstanding request
+for a visual baseline; the previous sections are investigation checkpoints,
+not the final acceptance report.
+
+A further source check narrows the implementation boundary. The complete
+INI geometry event stream already exists in `ThingTemplate::geometryEvents`
+(including all three contact-row spellings). The immutable template cache
+is invalidated on each added event, copied with inherited templates, and
+`Object::geometryTemplate()` already identifies the geometry source through
+geometry copies and save/load. Thus the weapon-mode stored point can be
+reconstructed faithfully from existing data, without introducing runtime
+simulation state or changing the collision manager, geometry-upgrade module,
+or snapshot schema.
+
+Additional RW instructions read for this decision:
+
+- RW 0x4504B3..0x4504BD: the GeometryInfo constructor initializes all three
+  innermost coordinates to zero. This is the state before a height/contact
+  parser refresh, not an invented missing-data default.
+- RW 0xAD4040..0xAD40A4: a Geometry type row resizes the shape list and
+  refreshes bounds; it does not reset the contact records or refresh the
+  innermost point.
+- RW 0x463E45..0x463E62 (assignment entry RW 0x463DFC): contact records,
+  preferred point and innermost point are copied with the shapes.
+- RW 0xAD2C60..0xAD2C96 and RW 0xAD3520..0xAD35A5: runtime shape-height /
+  active changes refresh bounds, not the stored innermost point. The mode-3
+  reader subsequently performs its existing live-height clamps and probe
+  fallback against the modified shapes.
+- RW 0x403111..0x403155 is indeed the vector length used by the unusual
+  world-origin test in Bezier update; that branch will not be rewritten as
+  an unproven projectile-to-target distance test.
+
+Implementation plan: extend the existing parsed-geometry cache with the
+contact rows and the parse-time innermost point, replay the existing event
+stream once, and feed the same contact-query implementation from it.
+Worldspace queries use the object's geometry source, not a mixture of that
+source's shapes and the original object's contact rows. The public
+value-only shape/point query keeps its existing stateless contract for its
+existing callers; production worldspace queries retain INI history.
+
+The independent preferred-point initialization of mode 1 remains outside
+this change: the existing PORT-164 no-row expectation would have to change.
+S-7387 will be narrowed to that remaining issue, not silently closed.
+The near-side visual result remains an owner acceptance check; the code and
+synthetic tests must establish the exact RW point first, not assert that an
+internal aim point is a new nearest-surface algorithm.
