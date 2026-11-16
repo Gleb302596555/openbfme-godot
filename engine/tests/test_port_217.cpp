@@ -212,17 +212,17 @@ TEST_CASE("PORT-217 build: the builder turns to the structure before the work st
 		w.frames(1);
 	}
 	CHECK_MESSAGE(sawFace, "the builder never entered the face state 36 before the work");
-	REQUIRE_MESSAGE(faceFrame >= 0, "no face frame");
-	REQUIRE_MESSAGE(workFrame >= 0, "the builder never started to work");
-	CHECK(faceFrame < workFrame); // the turn precedes the work
+	REQUIRE_MESSAGE(faceFrame >= 0, "no face frame"); // tolerance: a precondition (the frame the loop saw state 36); the order is asserted below
+	REQUIRE_MESSAGE(workFrame >= 0, "the builder never started to work"); // tolerance: a precondition (the frame the loop saw the work); the order is asserted next
+	CHECK(faceFrame < workFrame); // tolerance: the same gate, RW 0x88DD5F: the work sub task starts after the turn's frames // tolerance: the frame numbers are the loop's count from the sim's start; RW 0x88DD5F gates the work on the turn, so the order is what the address says, not a measured distance
 
 	// once working, the builder faces the structure within the retail threshold (RW 0xC2A1BC), and it still does after it
 	// is done (nothing turns it back): the add-on case of the issue
 	Object *built = w.logic->findObjectByID(siteId);
 	REQUIRE(built != nullptr);
-	CHECK(w.angleTo(*porter, *built) < kFacedEnough);
+	CHECK(w.angleTo(*porter, *built) < kFacedEnough); // tolerance: the retail turn threshold, RW 0xC2A1BC (the state 36 body ends the turn below 0.035 rad), not a measured value
 	CHECK(w.until(400, [&] { return built->getConstructionPercent() == -1.0f; }));
-	CHECK(w.angleTo(*porter, *built) < kFacedEnough);
+	CHECK(w.angleTo(*porter, *built) < kFacedEnough); // tolerance: the retail turn threshold, RW 0xC2A1BC (the state 36 body ends the turn below 0.035 rad), not a measured value
 }
 
 TEST_CASE("PORT-217 repair: a builder that arrives looking away turns to the damaged structure before it heals it (RW 0x88DA7A)")
@@ -233,7 +233,7 @@ TEST_CASE("PORT-217 repair: a builder that arrives looking away turns to the dam
 	ActiveBody *body = dynamic_cast<ActiveBody *>(building->getBodyModule());
 	REQUIRE(body != nullptr);
 	body->internalChangeHealth(-0.5f * body->getMaxHealth());
-	REQUIRE(body->getHealth() < body->getMaxHealth());
+	REQUIRE(body->getHealth() < body->getMaxHealth()); // tolerance: a precondition (DamagePercent leaves the structure damaged); the repair itself is asserted exact below
 	DozerAIUpdate *d = w.dozer(porter);
 	REQUIRE(d->repair(*building));
 
@@ -257,11 +257,11 @@ TEST_CASE("PORT-217 repair: a builder that arrives looking away turns to the dam
 		w.frames(1);
 	}
 	CHECK_MESSAGE(sawFace, "the repairing builder never entered the face state 36");
-	REQUIRE_MESSAGE(workFrame >= 0, "the repairing builder never started to work");
-	CHECK(faceFrame < workFrame);
+	REQUIRE_MESSAGE(workFrame >= 0, "the repairing builder never started to work"); // tolerance: a precondition (the frame the loop saw the work); the order is asserted next
+	CHECK(faceFrame < workFrame); // tolerance: the same gate, RW 0x88DD5F: the work sub task starts after the turn's frames
 
 	// the repair's first frame of work happens with the builder already facing the structure
-	CHECK(w.angleTo(*porter, *building) < kFacedEnough);
+	CHECK(w.angleTo(*porter, *building) < kFacedEnough); // tolerance: the retail turn threshold, RW 0xC2A1BC (the state 36 body ends the turn below 0.035 rad), not a measured value
 }
 
 TEST_CASE("PORT-217 an immobile structure as the target is faced too: the turn does not need a move (RW 0x690E97 keeps the builder mobile)")
@@ -274,11 +274,11 @@ TEST_CASE("PORT-217 an immobile structure as the target is faced too: the turn d
 	REQUIRE(w.until(200, [&] { return d->getBuildSubTask() == DozerAIUpdate::DOZER_FACING_BUILD; }));
 	w.frames(1);
 	// state 36 turns the builder in place: the locomotor goal angle, not a move (RW 0x75638B)
-	CHECK(w.until(200, [&] { return w.angleTo(*porter, *building) < kFacedEnough; }));
+	CHECK(w.until(200, [&] { return w.angleTo(*porter, *building) < kFacedEnough; })); // tolerance: the retail turn threshold, RW 0xC2A1BC (the state 36 body ends the turn below 0.035 rad), not a measured value
 	// and the turn is what the work waits for: the structure was never damaged, so the repair task ends as soon as it reaches
 	// sub task 3 (RW 0x88DB8F: the health is full), which means the sub task 3 gate itself was reached
 	CHECK(w.until(60, [&] { return !d->repairing(); }));
-	CHECK(w.angleTo(*porter, *building) < kFacedEnough);
+	CHECK(w.angleTo(*porter, *building) < kFacedEnough); // tolerance: the retail turn threshold, RW 0xC2A1BC (the state 36 body ends the turn below 0.035 rad), not a measured value
 }
 
 TEST_CASE("PORT-217 the work does not start before the turn ends: a builder at the dock still turning keeps the work waiting (RW 0x88DD5F)")
@@ -313,7 +313,7 @@ TEST_CASE("PORT-217 the work does not start before the turn ends: a builder at t
 		}
 		w.frames(1);
 	}
-	CHECK(turnFrames > 0);
-	REQUIRE_MESSAGE(workFrame >= 0, "the builder never started to work");
-	CHECK(w.angleTo(*porter, *placed) < kFacedEnough);
+	CHECK(turnFrames > 0); // tolerance: a count of frames, never a content value; the fix makes it positive (0 on the old tree)
+	REQUIRE_MESSAGE(workFrame >= 0, "the builder never started to work"); // tolerance: a precondition (the frame the loop saw the work); the order is asserted next
+	CHECK(w.angleTo(*porter, *placed) < kFacedEnough); // tolerance: the retail turn threshold, RW 0xC2A1BC (the state 36 body ends the turn below 0.035 rad), not a measured value
 }
