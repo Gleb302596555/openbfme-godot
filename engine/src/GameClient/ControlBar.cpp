@@ -321,17 +321,14 @@ ButtonState ControlBar::evaluate(const CommandButton &b, Object &obj, bool &comm
 		case GUI_COMMAND_ONE_RING:
 		{
 			// RW 0x942733, case 39 at 0x94387B: status CAN_STEALTH is
-			// required. RW 0x68FBD3 selects the first StealthUpdate whose
-			// upgrade masks allow it; no matching module is still available.
+			// required; an eligible StealthUpdate must also be ready. The
+			// shared StealthUpdate::of lookup is incomplete for multiple modules
+			// (S-7426); do not add a second, ring-only lookup here.
 			static const int canStealth = ObjectTemplateInfoBuilder::objectStatusIndex("CAN_STEALTH");
 			if (!obj.testStatus((unsigned)canStealth)) return ButtonState::Restricted;
-			for (const auto &module : obj.modules())
-			{
-				const auto *stealth = dynamic_cast<const StealthUpdate *>(module.get());
-				if (stealth && stealth->upgradesAllowStealth())
-					return stealth->ringReady() ? ButtonState::Enabled : ButtonState::Restricted; // RW 0x7761DD
-			}
-			return ButtonState::Enabled;
+			const StealthUpdate *stealth = StealthUpdate::of(obj);
+			return !stealth || !stealth->upgradesAllowStealth() || stealth->ringReady()
+				? ButtonState::Enabled : ButtonState::Restricted; // RW 0x68FBD3 / 0x7761DD
 		}
 		case GUI_COMMAND_WAKE_AUTO_PICKUP: // PORT-137: RW 0x942A5C table shares the contain gate with TOGGLE_WEAPONSET
 		case GUI_COMMAND_TOGGLE_WEAPONSET:
