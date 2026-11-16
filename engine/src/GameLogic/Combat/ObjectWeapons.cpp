@@ -1306,6 +1306,8 @@ CanAttackResult ObjectWeapons::getAbleToAttackSpecificObject(AbleToAttackType ty
 {
 	const CombatNames::Status &st = CombatNames::statuses();
 	const CombatNames::Kind &k = CombatNames::kinds();
+	// RW 0x68D6BC .. 0x68D717 are the Object half (Object.cpp): a CAN_ATTACK object that cannot path through gates needs a quick path to a
+	// STRUCTURE victim, and a WALL_UPGRADE victim's wall module must agree. This function is the WeaponSet half only.
 	// RW 0x6C9168 .. 0x6C919E: not in the world (effectively dead, RW 0x6C9168 / 0x6C9175 at Object + 0x458 bit 0; DESTROYED, RW 0x6C9182 /
 	// 0x6C918F at + 0x94 bit 0), NOT_IN_WORLD (0x33, RW 0x6C91A4), the source itself
 	if (source.isEffectivelyDead() || victim.isEffectivelyDead() || source.testStatus((unsigned)st.destroyed) ||

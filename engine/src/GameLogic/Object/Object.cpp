@@ -1394,6 +1394,36 @@ void Object::friend_onDie(const DieModuleInterface::Event &event)
 	++m_logic.combat().counters().kills;
 }
 
+// PORT-218 (issue 515, docs/re/rotwk/RW_0x68D6A6.md): RotWK Object::getAbleToAttackSpecificObject RW 0x68D6A6, the object level of "can I attack that
+// object now". Ported: the null victim (RW 0x68D6B3), the model condition 0x1BA with a WALL_SEGMENT victim (RW 0x68D740 .. 0x68D75A), the type bit 0x10
+// (RW 0x68D719) and every object that is not SPAWNS_ARE_THE_WEAPONS answer through their own weapon set (+ 0x34C, RW 0x68D791). NOT PORTED (stop
+// S-7386): the gate path test RW 0x68D6BC .. 0x68D6F1 (CAN_ATTACK + no CanPathThroughGates against a STRUCTURE), the wall module's veto
+// RW 0x68D6FA .. 0x68D717 (RW 0x8AE8F0 slot 0) and the container / rider branch RW 0x68D722 .. 0x68D78B (a SPAWNS_ARE_THE_WEAPONS object asks its
+// contain's slots 0x7C / 0x50 / 0x114 for a rider's weapon set; the port has none of the three queries), so such an object answers through its own set,
+// as it did before this port.
+CanAttackResult Object::getAbleToAttackSpecificObject(AbleToAttackType type, const Object &victim, CommandSourceType commandSource) const
+{
+	static const int kScalingWall = CombatNames::modelCondition("SCALING_WALL"); // RW 0x46E918(0x1BA)
+	static const int kWallSegment = CombatNames::kindOf("WALL_SEGMENT");          // RW 0x68D753 (kind 189)
+	if (testModelCondition(kScalingWall) && victim.isKindOf((unsigned)kWallSegment))
+	{
+		return ATTACKRESULT_NOT_POSSIBLE; // RW 0x68D75A
+	}
+	ObjectWeapons *weapons = m_weapons.get();
+	if (!weapons)
+	{
+		// a SPAWNS_ARE_THE_WEAPONS object would ask its riders here (RW 0x68D722 .. 0x68D78B): not ported
+		if (isKindOf((unsigned)CombatNames::kinds().spawnsAreTheWeapons))
+		{
+			m_logic.noteStop("[S-7386] Object::getAbleToAttackSpecificObject RW 0x68D6A6: the container / rider branch of a SPAWNS_ARE_THE_WEAPONS "
+			                 "object (contain slots 0x7C, 0x50, 0x114) is not ported");
+		}
+		return ATTACKRESULT_NOT_POSSIBLE; // no weapon set: RW's set is empty, so nothing can be shot
+	}
+	// RW 0x68D719: the 0x10 type and every object but a SPAWNS_ARE_THE_WEAPONS one take their own set (RW 0x68D791)
+	return weapons->getAbleToAttackSpecificObject(type, *this, victim, commandSource);
+}
+
 // lane DECOMP-3: RW 0x691269 (BFME2 decomp Object_isAbleToAttack.cpp:Object::isAbleToAttack, tier B same-shape for RW 0x691269; RotWK's offsets read here):
 //   1. NO_ATTACK (status 5) or the model condition 0x81 (RW 0x46E918 on + 0x10C): false;
 //   2. the container (+ 0x27C; a HORDE container, template + 0x115 bit 5, is skipped for its own container) with a contain (+ 0x258), unless this object is
