@@ -153,18 +153,27 @@ point still fails condition (c), the protected neighbour expectation.
 
 ## Validation and remaining work
 
-- Engine correction: `cbd852fb`, `ObjectGeometry.cpp/.h`; existing parsed
+- Engine correction: `8b6a2a89`, `ObjectGeometry.cpp/.h`; existing parsed
   geometry cache extended, existing solver retained. No collision-manager,
   projectile KindOf, mod data, foreign tests or pins changed.
-- Full-target lane and eight test cases: `8315c159`, strengthened in `3def889a`; `Port216.cmake`,
+- Full-target lane and eight test cases: `e7b4c8a9`, strengthened in `bcb5322c`; `Port216.cmake`,
   `test_port_216.cpp`, the two PORT-216 list entries in `CMakeLists.txt`.
   GCC syntax checks passed for both implementation and tests; the mandatory
   pre-commit hook passed. A syntax check is not a doctest result.
-- The earlier full build was explicitly stopped at 988/1782, then the full
-  Release/Godot-OFF target was reconfigured with the new lane and resumed
-  using `cmake --build engine/build -j1 --target openbfme_tests`.
-  Current process: `port-216-full-tests-58ef34e2`. The latest wait returned
-  running at 649/1082; no PORT-216/PORT-436 doctest result exists yet.
+- Required pre-PR rebase completed on fetched fork main `a3a2e87a`.
+  All nine task commits rebased cleanly; the branch was force-pushed with
+  lease. The current main has no duplicate ObjectGeometry implementation
+  fix, and its additional header comments are preserved.
+- The pre-rebase build was explicitly stopped at 792/1082, before any
+  doctest execution. The build directory and object files were retained.
+  The full Release/Godot-OFF target has now been reconfigured on the rebased
+  tree, still with `cmake --build engine/build -j1 --target openbfme_tests`.
+  Ninja scheduled 1347 remaining/revalidated build steps against that base;
+  this is not a claim that the earlier incomplete build passed.
+- Current build process: `port-216-rebased-full-tests-35f70820`, configured
+  at `d10aa041`. Baseline results will be in ignored
+  `workspace/port216/baseline/port216.log` and `port436.log`, with the source
+  revision in `commit.txt`. No doctest result exists yet.
 - The queued commands run the required `-tc="PORT-216*"` then `-tc="PORT-436*"`
   on **engine/build/openbfme_tests**, not a standalone test executable.
   The full-target red/green experiment (temporarily undo only the engine
@@ -172,10 +181,11 @@ point still fails condition (c), the protected neighbour expectation.
 - Current validation is of shared RotWK behavior. The engine applies it to
   all editions under its existing edition policy; separate BFME2/RotWK
   installed-data and visual acceptance have not been performed here.
-- No fork or upstream PR yet. Fetch/rebase latest main, full runner results,
-  affected-neighbour selection, red/green, upstream dependency audit and
-  the visible-result check remain before a review claim. No pins will be
-  remeasured in this branch.
+- No fork or upstream PR yet. Rebase and the upstream dependency audit are
+  complete; full-runner results, affected-neighbour validation, red/green,
+  and the visible-result check remain. No pins will be remeasured here.
+  Upstream was re-fetched and remains `942fd79e`, still missing the height
+  API and two contact-row aliases described below.
 
 ## Continuation after the owner's original-game check
 
@@ -308,7 +318,7 @@ pin expectation has been changed to hide that limitation.
 
 ## Queued full-target validation
 
-`port-216-red-green-validation-95d532ed` is waiting for the existing full
+`port-216-red-green-validation-75aaa47e` is waiting for the existing full
 build process to exit, using a process-descriptor event wait. It is **not**
 a second concurrent Ninja build. The workspace-only validation script:
 
@@ -316,7 +326,7 @@ a second concurrent Ninja build. The workspace-only validation script:
    PORT-216/PORT-436 summaries. On an initial failure it stops for inspection.
 2. Refuses a concurrent Ninja, requires this arena branch and a clean tree,
    and checks the reverse application of the implementation in engine commit
-   `cbd852fb` (`ObjectGeometry.cpp` only).
+   `8b6a2a89` (`ObjectGeometry.cpp` only).
 3. Backs up both engine files, retains the test/CMake lane, rebuilds the
    **full openbfme_tests target with -j1**, and records the PORT-216 red run.
 4. Restores the engine sources before interpreting that result (also on
@@ -328,8 +338,9 @@ a second concurrent Ninja build. The workspace-only validation script:
    fabricated doctest transcript is involved.
 
 Only the waiting process has started. None of its red/green or neighbour
-results is claimed yet. Rebase/revalidation on the latest fork main and the
-selected FULL suite remain later gates, not replaced by this automation.
+results is claimed yet. The rebase has now been completed; validation on
+that rebased tree and the selected FULL suite are not replaced by syntax
+checks or by the incomplete pre-rebase build.
 
 The precise fresh-spawn Cheat Mode sequence is below; it is not a claim of
 completed visual acceptance.
@@ -343,7 +354,7 @@ silently equate a fresh spawn with that empty baseline or modify mod data.
 
 The first waiting validator was stopped before any red patch or build.
 The replacement above reverses only `ObjectGeometry.cpp`: the entire header
-diff in `cbd852fb` was read and checked to contain **comments only**, with
+diff in `8b6a2a89` was read and checked to contain **comments only**, with
 identical declarations after stripping line comments. Reversing/touching
 that header would unnecessarily invalidate hundreds of translation units.
 The behavioral correction is still removed in full, the tests are retained,
