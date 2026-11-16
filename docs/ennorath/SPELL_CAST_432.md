@@ -228,3 +228,18 @@ Test case prefix was corrected from `PORT-432` to `PORT-179`, matching the
 issue requirement. The initial runtime results above used the old prefix; the
 renamed cases were rebuilt and rerun under `PORT-179*`: 8/8 cases and
 620/620 assertions passed.
+
+## Synthetic movie through a live HUD
+
+The `PORT-179` fixture now additionally creates a `LiveGame` and `InGameHud`
+with a tiny synthetic map, in-memory INI, and an invented two-button Apt movie.
+Unlike the previous isolated callback fixture, it posts input to the actual
+HUD, advances the externally owned WindowManager, and uses the HUD's installed
+Palantir callbacks and normal message stream. In both batched and split mouse
+schedules, three repeated Cloud Break presses each reached a new logic cast and
+recharge, and a Rebuild press entered targeting. The full filtered suite
+passed 9/9 cases and 690/690 assertions. The initial draft failed because the
+fixture forgot to step its **externally owned** WindowManager; after matching
+its host's responsibility, the test passed. This fixture does not test the
+actual Ennorath movie, deferred worker scheduling, or drawable target picking;
+it cannot reproduce or exonerate the reported intermittent real-game failure.
