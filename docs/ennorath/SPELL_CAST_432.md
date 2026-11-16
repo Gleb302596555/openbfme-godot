@@ -200,3 +200,16 @@ rendered-object picking; a failure here would need its own RW comparison, and a
 pass would not rule out the real movie or HUD path. The source passed syntax
 checking but has not run. Since the build already compiled the test object
 before this change, rebuild the full test target again before using its result.
+
+## Recheck of current main
+
+`origin/main` was fetched again at `10bdabc1`. A tree comparison against this
+branch found no changes in `SpellBookUI.cpp`, `SpellCommands.cpp`,
+`SpellBookPowers.cpp`, `AptPalantir.cpp` or `spell3_player.gd`. Changes in
+`InGameHud.cpp` concern ordinary Palantir command buttons (tooltip and Shift),
+not its separate spell-book press callback. `SpecialPowerModules.cpp` adds a
+disabled-object exception for the `AUTO_ABILITY_TRIGGERED` option; the two
+Gondor buttons investigated here do not supply that option. These changes do
+not establish that #432 is fixed; the reported failure still needs reproduction.
+The branch has not been rebased yet; do that before a PR as required, and rerun
+the tests against the rebased tree.
