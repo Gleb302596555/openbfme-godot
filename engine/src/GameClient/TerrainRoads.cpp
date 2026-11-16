@@ -286,14 +286,13 @@ bool TerrainRoads::scanText(const std::string &text, RoadTypeIndex &out, std::st
 	auto fail = [&](const std::string &what) {
 		if (error)
 		{
-			*error = "data\ini\roads.ini: Bridge " + cur.name + ": " + what;
+			*error = "data\\ini\\roads.ini: Bridge " + cur.name + ": " + what;
 		}
 		return false;
 	};
 	while (pos <= text.size())
 	{
-		size_t nl = text.find('
-', pos);
+		size_t nl = text.find('\n', pos);
 		if (nl == std::string::npos)
 		{
 			nl = text.size();
@@ -317,7 +316,7 @@ bool TerrainRoads::scanText(const std::string &text, RoadTypeIndex &out, std::st
 			if (road || bridge)
 			{
 				std::string name = trim(line.substr(road ? 4 : 6));
-				size_t sp = name.find_first_of(" 	");
+				size_t sp = name.find_first_of(" \t");
 				if (sp != std::string::npos)
 				{
 					name.erase(sp);
