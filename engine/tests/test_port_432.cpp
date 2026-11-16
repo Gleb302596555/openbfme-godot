@@ -59,7 +59,7 @@ Object TestSpellBook
  CommandSet = TestSpellSet
  Behavior = PlayerHealSpecialPower HealTag
   SpecialPowerTemplate = TestRebuild
-  AvailableAtStart = Yes
+  AvailableAtStart = No
   RequirementsFilterMPSkirmish = ANY +COMMANDCENTER -HERO
   HealAmount = 4000
   HealAsPercent = No
@@ -68,7 +68,7 @@ Object TestSpellBook
  End
  Behavior = CloudBreakSpecialPower CloudTag
   SpecialPowerTemplate = TestCloudBreak
-  AvailableAtStart = Yes
+  AvailableAtStart = No
   RequirementsFilterMPSkirmish = ANY +COMMANDCENTER -HERO
   SunbeamObject = TestSunbeam
   ObjectSpacing = 300
@@ -124,11 +124,6 @@ struct SpellRig
   REQUIRE(player);
   world.players.setLocalPlayer(player);
   player->initScience(SpellGameMode{true, false});
-  if (grant)
-  {
-   REQUIRE(player->science().grantScience(stores.sciences().getScienceFromInternalName("TestRebuildScience")));
-   REQUIRE(player->science().grantScience(stores.sciences().getScienceFromInternalName("TestCloudScience")));
-  }
   world.logic->partition().setRegion(0, 0, 1000, 1000);
   book = world.unit("TestSpellBook", 'A', 100, 100);
   own = world.unit("TestBuilding", 'A', 500, 500);
@@ -143,6 +138,14 @@ struct SpellRig
   own->friend_onBuildComplete();
   enemy->friend_onBuildComplete();
   player->science().setSpellBookId(book->getID());
+  // RW 0x6AE268 / 0x6AE29F: acquire sciences after the book exists;
+  // skirmish sets the matching power ready rather than waiting its reload.
+  SpecialPowerModules::installScienceHooks(*world.logic);
+  if (grant)
+  {
+   REQUIRE(player->science().grantScience(stores.sciences().getScienceFromInternalName("TestRebuildScience")));
+   REQUIRE(player->science().grantScience(stores.sciences().getScienceFromInternalName("TestCloudScience")));
+  }
   world.logic->partition().update();
  }
  ~SpellRig()
@@ -269,6 +272,10 @@ TEST_CASE("PORT-432 targetless message routes cast the same ready spell book pow
 TEST_CASE("PORT-432 science gating: unowned powers do not send messages")
 {
  SpellRig r(false);
+ auto *heal = r.module("TestRebuild");
+ auto *cloud = r.module("TestCloudBreak");
+ CHECK_FALSE(heal->isReady());
+ CHECK_FALSE(cloud->isReady());
  REQUIRE(r.bar.refresh(r.commandStore, *r.world.logic, *r.player));
  std::vector<GameMessage> messages;
  CHECK_FALSE(r.bar.press(0, r.player->getPlayerIndex(), messages));
@@ -276,6 +283,8 @@ TEST_CASE("PORT-432 science gating: unowned powers do not send messages")
  CHECK(messages.empty());
  CHECK_FALSE(r.bar.targeting());
  REQUIRE(r.player->science().grantScience(r.stores.sciences().getScienceFromInternalName("TestRebuildScience")));
+ CHECK(heal->isReady());
+ CHECK_FALSE(cloud->isReady());
  REQUIRE(r.bar.refresh(r.commandStore, *r.world.logic, *r.player));
  CHECK(r.bar.press(0, r.player->getPlayerIndex(), messages));
  CHECK(r.bar.targeting());

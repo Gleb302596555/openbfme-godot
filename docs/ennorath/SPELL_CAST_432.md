@@ -85,14 +85,14 @@ last check); no `PORT-432*` tests, fix, green/red result or PR are available yet
 with synthetic sciences, command set, book, allied/enemy structures and Cloud
 Break sunbeams. It sends commands through the logic command list, repeats both
 casts after recharge, and separately checks a cast during recharge. Reloads are
-shortened and the fixture uses `AvailableAtStart = Yes` after granting sciences;
-these are controlled fixture simplifications, not claims about the mod's actual
-INI. The source passed a C++17 **syntax-only** check. The full executable has
-not yet been built with these tests and their runtime outcomes are unknown;
-they are not a demonstrated red/green regression test. The running build was
-started before these files were added, so it must be reconfigured/rebuilt after
-it finishes. No port behaviour has been changed and the Apt click hypothesis
-has not been reproduced.
+shortened as a controlled fixture simplification. Both modules now use the
+mod's `AvailableAtStart = No`; their book is created before the sciences are
+granted and the science hooks are installed. RW 0x6AE268 notifies each matching
+power; RW 0x6AE271..0x6AE29F sets its ready frame to now in skirmish. The
+fixture exercises this acquisition path; its runtime outcome is still unknown.
+The full executable has not yet finished building with these tests; they are
+not a demonstrated red/green regression test. No port behaviour has been
+changed and the Apt click hypothesis has not been reproduced.
 
 ## Object validation and input batch follow-up
 
