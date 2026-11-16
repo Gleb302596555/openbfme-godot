@@ -164,7 +164,7 @@ point still fails condition (c), the protected neighbour expectation.
   Release/Godot-OFF target was reconfigured with the new lane and resumed
   using `cmake --build engine/build -j1 --target openbfme_tests`.
   Current process: `port-216-full-tests-58ef34e2`. The latest wait returned
-  running at 411/1082; no PORT-216/PORT-436 doctest result exists yet.
+  running at 649/1082; no PORT-216/PORT-436 doctest result exists yet.
 - The queued commands run the required `-tc="PORT-216*"` then `-tc="PORT-436*"`
   on **engine/build/openbfme_tests**, not a standalone test executable.
   The full-target red/green experiment (temporarily undo only the engine
@@ -308,14 +308,15 @@ pin expectation has been changed to hide that limitation.
 
 ## Queued full-target validation
 
-`port-216-red-green-validation-8bb2db2c` is waiting for the existing full
+`port-216-red-green-validation-95d532ed` is waiting for the existing full
 build process to exit, using a process-descriptor event wait. It is **not**
 a second concurrent Ninja build. The workspace-only validation script:
 
 1. Requires real, nonzero selected test counts and passing initial
    PORT-216/PORT-436 summaries. On an initial failure it stops for inspection.
 2. Refuses a concurrent Ninja, requires this arena branch and a clean tree,
-   and checks the reverse application of only engine commit `cbd852fb`.
+   and checks the reverse application of the implementation in engine commit
+   `cbd852fb` (`ObjectGeometry.cpp` only).
 3. Backs up both engine files, retains the test/CMake lane, rebuilds the
    **full openbfme_tests target with -j1**, and records the PORT-216 red run.
 4. Restores the engine sources before interpreting that result (also on
@@ -330,9 +331,80 @@ Only the waiting process has started. None of its red/green or neighbour
 results is claimed yet. Rebase/revalidation on the latest fork main and the
 selected FULL suite remain later gates, not replaced by this automation.
 
-Visual reproduction still needs the final precise Cheat Mode sequence.
+The precise fresh-spawn Cheat Mode sequence is below; it is not a claim of
+completed visual acceptance.
 The original no-passenger side-on observation is already confirmed by the
 owner, but a freshly spawned HaradMumakil is not automatically empty: it
 inherits its parent's initial passenger payload. The reproduction must not
 silently equate a fresh spawn with that empty baseline or modify mod data.
 `docs/CHEAT_MODE.md` and the actual mod command set are the setup references.
+
+### Validation queue refinement
+
+The first waiting validator was stopped before any red patch or build.
+The replacement above reverses only `ObjectGeometry.cpp`: the entire header
+diff in `cbd852fb` was read and checked to contain **comments only**, with
+identical declarations after stripping line comments. Reversing/touching
+that header would unnecessarily invalidate hundreds of translation units.
+The behavioral correction is still removed in full, the tests are retained,
+and both red and green still build the complete `openbfme_tests` target.
+The fixed header is backed up and compared, but never rewritten by this
+experiment. This is incremental rebuilding, not an auxiliary runner or a
+weakened red test. The main build was not restarted.
+
+### Additional inspected RW caller
+
+DONOR BFME2 RVA 0x0023D3AF (`ObjectRva0023D3AF.cpp`) describes transform
+history. Its actual RW caller at 0x85EF50 and callee 0x6260E1..0x626196
+were then read: it copies the transform/previous position and records the
+frame and flags, not a projectile collision registration or surface query.
+The fire tail 0x85EF34..0x85EF67 is update, partition refresh, transform
+record, update, partition refresh, return. The remaining update epilogue
+0x85F84C..0x85F85A restores registers/exception state and returns.
+This closes those previously undisplayed tails; it is not a global
+no-reader conclusion about the collision manager. No collision behavior
+was changed on the strength of this check.
+
+## Cheat Mode reproduction for the changed build (not yet executed)
+
+Visible change: **yes**, the intended effect is the ordinary arrow's path
+and impact placement on a compound body. The corrected numerical aim is
+RW-backed; the exact near-side visual outcome is still **INFERENCE** until
+the changed game is observed. The original-game near-side observation has
+already been supplied by the owner and is not being requested again.
+
+1. Load Ennorath **1.9.8.3**, start a skirmish with one computer opponent,
+   and enable **Rules → Cheat Mode (OpenBFME rule)** before starting.
+2. **Esc → CHEAT MODE → Game**: pause the computer player's AI. Use flat,
+   open terrain away from buildings. The command names/panel operations
+   below are from `docs/CHEAT_MODE.md`, not invented retail cheats.
+3. **Units**, faction **Evilmen**: spawn one **HaradMumakil** for yourself.
+   Select it, then **Selected → Freeze**, **Hold fire**, and **Give to** the
+   opposing player. Freeze holds the carrier still; it is not a command to
+   empty its contain or suppress every passenger.
+4. **Units**, faction **Men**: spawn **GondorArcherHorde** for yourself.
+   Leave the archers unupgraded (no fire arrows), place them within bow range
+   alongside the mumak rather than in front of it, then issue an ordinary
+   attack-object order on **HaradMumakil**. Do not use bombard/force-fire.
+   Optionally freeze the positioned archer horde; the documented freeze
+   command permits firing while holding position.
+5. View from the flank at body height, record a few volleys, then repeat
+   from the opposite flank. Inspect body-directed shots: the changed common
+   aim should use the parse-time body-level point, not the point reconstructed
+   from the elevated shape's final offset. If arrows still visibly traverse
+   the body to its centre, the visible P-127 acceptance has **not** passed,
+   even if the synthetic tests are green.
+6. Neighbours: repeat an ordinary shot at an opposing **GondorArcherHorde**,
+   and at an opposing **GondorBarracks** spawned from **Buildings**. Normal
+   infantry and the already-ported structure-contact path must not regress;
+   the full-runner PORT-216/PORT-436 checks remain the numerical guards.
+
+**Fresh-spawn caveat:** the actual HaradMumakil inherits an initial passenger
+payload. The inspected `HaradMumakilCommandSetMod` has no evacuation command;
+therefore this procedure does not invent an "Unload" button or silently
+call a fresh spawn empty. Both actual GondorArcher bow variants permit
+passenger retargeting (`weapon.ini` and `includes/weapon.inc`), so passenger-
+directed arrows must not be conflated with body-directed ones. Those rules
+and mod data are unchanged. This default-payload smoke test is distinct
+from the owner's already-confirmed empty-mumak baseline; the synthetic
+projectile test isolates the body without installing or modifying mod data.
