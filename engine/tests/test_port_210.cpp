@@ -182,3 +182,16 @@ TEST_CASE("PORT-210 moving scaling horde enters wall contact")
     CHECK(contacted);
     CHECK(horde->getPosition()->x > 230.0f); // tolerance: this checks movement, not a prescribed frame position
 }
+
+TEST_CASE("PORT-210 horde excluded from collision registration does not keep wall")
+{
+    Fixture f;
+    // RW 0x68E36E: a HORDE is registered only if AIData HordesWaitForHordes is set.
+    f.w.logic->settings().hordesWaitForHordes = false;
+    Object *horde = f.unit("Port210Horde", 'A', 300, 300);
+    f.unit("Port210Wall", 'B', 310, 300);
+    auto *contain = dynamic_cast<HordeContain *>(horde->getContain());
+    REQUIRE(contain != nullptr);
+    f.frames(1);
+    CHECK(contain->wallToScale() == 0);
+}
