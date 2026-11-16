@@ -157,3 +157,21 @@ that the first message is refused without recharge and the next succeeds. This
 is a controlled refusal, not evidence that the reported game run changed its
 center state. The port uses construction status as an approximation of RW model
 conditions (S-253); the test has not yet run.
+
+## What the scripted slot-state log does and does not measure
+
+`InGameHudNode::get_spellbook_state().slots` reads
+`AptPalantir::spellSlotState`, the C++ `m_spellState` cache. It is not a read
+of the movie button's actual frame, hit target or callback history. Therefore a
+`SPELL5 press` report showing `_up` before and after a click does not alone
+show whether the movie was clickable or whether its callback reached the HUD.
+`AptPalantir::syncSpellBook` sends `SetButtonState` only on a changed cached
+state, then updates the cache even when its `call` reports an error; errors are
+recorded in `callErrors`. RW 0x931273..0x9312B0 likewise compares the cached
+state, invokes 0x92BD5A and writes the cache without testing the call's return;
+DONOR BFME2 0x0052A804..0x0052A85D
+(`AptInGameSpellBookInterface.cpp`) has the same ordering. This alone is not a
+proven port divergence or an explanation for the observed failures. A useful
+reproduction must separately observe the movie's actual button/hit path,
+`OnAptInGameSpellBookButtonPressed`, the deferred HUD press and any message;
+a synthetic button without the real movie cannot establish those observations.
