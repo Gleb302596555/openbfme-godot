@@ -165,7 +165,7 @@ const char kPort218[] =
 	"  WeaponSet\n"
 	"    Conditions = None\n"
 	"    Weapon = PRIMARY PORT218Sword\n"
-	"    OnlyAgainst = STRUCTURE\n"
+	"    OnlyAgainst = PRIMARY STRUCTURE\n"
 	"  End\n"
 	"  Body = ActiveBody ModuleTag_Body\n"
 	"    MaxHealth = 500\n"
