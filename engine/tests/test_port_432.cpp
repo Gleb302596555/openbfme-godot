@@ -180,7 +180,7 @@ struct SpellRig
 };
 }
 
-TEST_CASE("PORT-432 synthetic repeated object Rebuild and targetless Cloud Break through messages")
+TEST_CASE("PORT-179 synthetic repeated object Rebuild and targetless Cloud Break through messages")
 {
  SpellRig r;
  auto *heal = r.module("TestRebuild");
@@ -226,7 +226,7 @@ TEST_CASE("PORT-432 synthetic repeated object Rebuild and targetless Cloud Break
  CHECK(r.spells.foreignSources() == 0u);
 }
 
-TEST_CASE("PORT-432 synthetic cooling spell is refused without consuming another cast")
+TEST_CASE("PORT-179 synthetic cooling spell is refused without consuming another cast")
 {
  SpellRig r;
  auto *cloud = r.module("TestCloudBreak");
@@ -246,7 +246,7 @@ TEST_CASE("PORT-432 synthetic cooling spell is refused without consuming another
  CHECK(messages.empty());
 }
 
-TEST_CASE("PORT-432 targetless message routes cast the same ready spell book power")
+TEST_CASE("PORT-179 targetless message routes cast the same ready spell book power")
 {
  // RW 0x77A4CC and 0x77B8D6 both invoke groupDoSpecialPower 0x76F5DB;
  // use separate identical worlds to compare the explicit-source and book routes.
@@ -274,7 +274,7 @@ TEST_CASE("PORT-432 targetless message routes cast the same ready spell book pow
  CHECK(cloud->sunbeamsMade() == beams + 4);
 }
 
-TEST_CASE("PORT-432 science gating: unowned powers do not send messages")
+TEST_CASE("PORT-179 science gating: unowned powers do not send messages")
 {
  SpellRig r(false);
  auto *heal = r.module("TestRebuild");
@@ -296,7 +296,7 @@ TEST_CASE("PORT-432 science gating: unowned powers do not send messages")
  CHECK(messages.empty());
 }
 
-TEST_CASE("PORT-432 skirmish requirement: only an owned command center enables the powers")
+TEST_CASE("PORT-179 skirmish requirement: only an owned command center enables the powers")
 {
  // The mod's filter is ANY +COMMANDCENTER with additional exclusions; this
  // fixture uses the same relevant kind predicate. RW 0x8969E5 -> 0x6ABD0B.
@@ -332,7 +332,7 @@ TEST_CASE("PORT-432 skirmish requirement: only an owned command center enables t
  CHECK_FALSE(cloud->isReady());
 }
 
-TEST_CASE("PORT-432 queued cast rechecks the skirmish requirement")
+TEST_CASE("PORT-179 queued cast rechecks the skirmish requirement")
 {
  // RW 0x76F6DA -> 0x82D68E rechecks readiness and module requirements on
  // dispatch. Construction statuses approximate RW's model conditions (S-253).
@@ -359,7 +359,7 @@ TEST_CASE("PORT-432 queued cast rechecks the skirmish requirement")
  CHECK_FALSE(cloud->isReady());
 }
 
-TEST_CASE("PORT-432 synthetic movie callback reaches the spell model and message dispatch")
+TEST_CASE("PORT-179 synthetic movie callback reaches the spell model and message dispatch")
 {
  // RW 0x930DE5 routes the movie's slot callback to the corresponding command.
  // This invented movie connects the port's components; it is not Ennorath's movie
@@ -462,7 +462,7 @@ TEST_CASE("PORT-432 synthetic movie callback reaches the spell model and message
  CHECK(r.spells.malformed() == 0u);
 }
 
-TEST_CASE("PORT-432 synthetic Apt button: a stable click releases with batched or split events")
+TEST_CASE("PORT-179 synthetic Apt button: a stable click releases with batched or split events")
 {
  using namespace apttest;
  // RW 0xB0FB30..0xB0FB4A drains all queued events in order; RW

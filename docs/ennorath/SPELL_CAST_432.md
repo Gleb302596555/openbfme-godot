@@ -25,7 +25,7 @@ button: follow the actual book command set, not the similarly named button.
   special-power requirements and subclass behavior; no deterministic reproduction
   or failing synthetic test exists yet. No claim that the observed divergences
   explain Cloud Break or the intermittent runs is justified yet.
-* The full `openbfme_tests` target was built and the `PORT-432*` controls below
+* The full `openbfme_tests` target was built and the `PORT-179*` controls below
   passed (8 cases, 620 assertions). No test yet reproduces the reported bug or
   demonstrates red/green; the cause, fix, NIGHT_WATCH entry and PR remain open.
 
@@ -112,7 +112,7 @@ changed and the Apt click hypothesis has not been reproduced.
   scope boundary.
 * RW 0xB0FB30..0xB0FB4A drains the input batch in order and marks its first
   event; RW 0xB0F256..0xB0F2E8 handles the button's down/up transitions. A
-  synthetic Apt button control was added to `PORT-432*` for repeated clicks
+  synthetic Apt button control was added to `PORT-179*` for repeated clicks
   with down/up in one batch versus separate frames, plus an unowned-science
   refusal control. These controls passed. The input control is not
   the actual spell-book movie, and a normal batched click alone is not evidence
@@ -141,7 +141,7 @@ behavior was changed.
 
 For the explicit-source and issuing-player spell-book messages, RW 0x77A4CC
 and 0x77B8D6 call the same group action at 0x76F5DB after selecting the source.
-A synthetic `PORT-432*` control now exercises both routes in separate equivalent
+A synthetic `PORT-179*` control now exercises both routes in separate equivalent
 worlds and checks cast/refusal counters, recharge, weather and sunbeams. It
 passed, but does not establish that routing caused the reported
 failure; the actual Cloud Break button has no chained command or options.
@@ -223,3 +223,8 @@ openbfme_tests`, and `engine/build/openbfme_tests -tc="PORT-432*"` passed:
 fixture tools were unavailable, but the filtered tests did not use them. No
 production fix or red/green comparison exists. The branch still needs a rebase
 onto current main and another filtered run before any PR.
+
+Test case prefix was corrected from `PORT-432` to `PORT-179`, matching the
+issue requirement. The initial runtime results above used the old prefix; the
+renamed cases were rebuilt and rerun under `PORT-179*`: 8/8 cases and
+620/620 assertions passed.
