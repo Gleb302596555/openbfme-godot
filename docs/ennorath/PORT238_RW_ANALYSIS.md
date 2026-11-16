@@ -61,6 +61,26 @@ hand-over in a particular game situation.
   as an incomplete order and another member's queue. Their full-executable
   run and a run with the change reverted are still pending.
 
+## The ONE_RING button
+
+`Command_OneRing` is present in the Frodo ring command sets of the mod. In
+`RW 0x942733`, case 39 at `0x94387B` first tests status `CAN_STEALTH`; without
+it the result is restricted. With it, `RW 0x68FBD3` finds an eligible
+StealthUpdate; no match is enabled, and a match is enabled only when
+`RW 0x7761DD` reports the current frame is at least its `+0x28` ready frame.
+The button dispatcher `RW 0x940435` uses jump tables at `0x941B63` / `0x941AC3`
+to reach `0x941A6B` for command 39, which appends `MSG_ONE_RING` (0x454).
+`RW 0x7729A6` idles each selected object's AI and invokes `RW 0x776B50` for
+its eligible StealthUpdate. DONOR BFME2 `ControlBarCommandProcessing.cpp`
+case 0x27 also appends that message. The port now handles this button rather
+than always restricting it; synthetic tests exist, but their full run is pending.
+
+The shared port lookup `StealthUpdate::of` returns only the first module by name,
+whereas RW 0x68FBD3 iterates the cached modules and applies upgrade masks. This
+affects multiple non-ring systems too; the remaining common-mechanism work is
+S-7426, not a ring-only workaround. Consequently multi-module readiness and
+activation are not yet claimed equivalent.
+
 ## Other checked pieces
 
 * `RW 0x8842AF` constructs SlaughterHordeContain data, loading the float at

@@ -124,7 +124,9 @@ TEST_CASE("PORT-238 delivery processes the completed carrier order before cleari
     CHECK(observation.activations == std::vector<unsigned>{1, 1, 2});
     CHECK_FALSE(carrier->testStatus((unsigned)CombatNames::status("HOLDING_THE_RING")));
     CHECK(bearer->hasUpgrade("Upgrade_P238Ring"));
-    CHECK(w.byId(ringId) == nullptr);
+    // destroyObject marks immediately and the logic frame removes the ID later.
+    REQUIRE(w.byId(ringId) != nullptr);
+    CHECK(w.byId(ringId)->isDestroyed());
 }
 
 TEST_CASE("PORT-238 delivery preserves an incomplete carrier order")
