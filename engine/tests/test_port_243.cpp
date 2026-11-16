@@ -21,6 +21,14 @@ const char kData[] =
     " Body = RespawnBody BodyTag\n MaxHealth = 100\n MaxHealthDamaged = 70\n MaxHealthReallyDamaged = 30\n"
     " UseDefaultDamageSettings = No\n EnteringDamagedTransitionTime = 1000\n EnteringReallyDamagedTransitionTime = 2000\n"
     " DamagedAttributeModifier = Port243Damaged\n ReallyDamagedAttributeModifier = Port243Really\n End\n"
+    " Behavior = AttributeModifierPoolUpdate PoolTag\n End\nEnd\n"
+    "Object Port243PoolFirst\n KindOf = SELECTABLE INFANTRY\n"
+    " Behavior = AttributeModifierPoolUpdate PoolTag\n End\n"
+    " Body = ActiveBody BodyTag\n MaxHealth = 100\n InitialHealth = 60\n MaxHealthDamaged = 70\n MaxHealthReallyDamaged = 30\n"
+    " UseDefaultDamageSettings = No\n DamagedAttributeModifier = Port243Damaged\n End\nEnd\n"
+    "Object Port243BodyFirst\n KindOf = SELECTABLE INFANTRY\n"
+    " Body = ActiveBody BodyTag\n MaxHealth = 100\n InitialHealth = 60\n MaxHealthDamaged = 70\n MaxHealthReallyDamaged = 30\n"
+    " UseDefaultDamageSettings = No\n DamagedAttributeModifier = Port243Damaged\n End\n"
     " Behavior = AttributeModifierPoolUpdate PoolTag\n End\nEnd\n";
 
 struct Port243World : CombatWorld
@@ -110,4 +118,24 @@ TEST_CASE("PORT-243: direct health changes switch the modifier without starting 
     CHECK_FALSE(pool->hasList("Port243Damaged"));
     CHECK_FALSE(pool->hasList("Port243Really"));
     CHECK_FALSE(o->isDisabledByType(DISABLED_TEMPORARILY_BUSY));
+}
+
+TEST_CASE("PORT-243: initial state sees only a pool constructed before the body")
+{
+    // RW 0x69990F: module factory call RW 0x69A3AA precedes insertion RW 0x69A3B9.
+    // RW 0x8C3841 invokes the state switch at RW 0x8C39D0 while the body is constructed;
+    // RW 0x68BDA5 finds only earlier modules in the zero-terminated array.
+    Port243World w;
+    Object *first = w.unit("Port243PoolFirst", 'A', 200, 200);
+    Object *last = w.unit("Port243BodyFirst", 'A', 250, 250);
+    REQUIRE(first);
+    REQUIRE(last);
+    auto *firstPool = dynamic_cast<AttributeModifierPool *>(first->findModule("AttributeModifierPoolUpdate"));
+    auto *lastPool = dynamic_cast<AttributeModifierPool *>(last->findModule("AttributeModifierPoolUpdate"));
+    REQUIRE(firstPool);
+    REQUIRE(lastPool);
+    CHECK(firstPool->hasList("Port243Damaged"));
+    CHECK_FALSE(lastPool->hasList("Port243Damaged"));
+    CHECK_FALSE(first->isDisabledByType(DISABLED_TEMPORARILY_BUSY));
+    CHECK_FALSE(last->isDisabledByType(DISABLED_TEMPORARILY_BUSY));
 }
