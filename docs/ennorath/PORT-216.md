@@ -238,7 +238,7 @@ internal aim point is a new nearest-surface algorithm.
 | Runtime height/active changes do not refresh the cached point | 0xAD2C96, 0xAD35A5, 0xAD3283 | Growth, disable/re-enable, shrink with live-height clamp |
 | Type/radius changes do not refresh the constructor/previous point | 0x4504B3, 0xAD4040, 0xAD330F | No-height sphere with lower clamp; type replacement after a height/offset sequence |
 | Point outside current geometry still takes existing fallback | 0xAD329E..0xAD32EB | Late offset outside the probe, plus ignoreCollision neighbour |
-| Copy uses one source for shapes, rows and point | 0x463E45..0x463E62 | Copies both with/without rows, runtime heights, hash and byte-identical save/load |
+| Copy uses one source for shapes, rows and point | 0x463E45..0x463E62 | Copies both with/without rows, mode 0 labels and mode 1 high row, runtime heights, hash and byte-identical save/load |
 
 Production callers inspected: WeaponDelivery (mode 3), BezierProjectileBehavior
 (mode 3), GiantBirdAIUpdate (mode 1), AIUpdateCombat/AIAttack (mode 0) and
@@ -265,3 +265,43 @@ Original Ennorath's near-side stop is confirmed by the owner. The exact
 contribution of the corrected body-height aim to that visual stop remains
 **INFERENCE**, not an assertion that the geometry query computes a surface
 intersection. No user-facing review/finished status is claimed yet.
+
+## Continuation: main, upstream and neighbour audit
+
+Fetched fork main `1dfe2996`. Since the branch's base `467bc033`, the
+ObjectGeometry/ThingTemplate/Object/projectile implementations used here
+have no main changes. WeaponDelivery has unrelated contain/horde nugget
+changes, not a second fix for this contact-point gap. No duplicate path
+was introduced. Rebase remains required before PR submission.
+
+Upstream `Open-BFME/openbfme-godot` main `942fd79e` was fetched and the
+required files inspected with `git show upstream/main:<file>`:
+
+- The shape cache, ordered GeometryEvent stream, geometry source and its
+  snapshot transfer, CombatWorld, Bezier flightEnd and GameLogic snapshot
+  APIs exist.
+- `Object::setGeometryMaxHeight` does **not** exist anywhere in upstream
+  engine/src. PORT-216's runtime-height and copied-height tests call it;
+  that is a real missing dependency, not a test output or a no-reader RW
+  conclusion. Upstream's ThingFactory also does not yet record the two
+  AttackContactPoint/SwoopContactPoint aliases used by these tests.
+- Therefore this complete code/test bundle is not eligible for immediate
+  upstream submission under the task's dependency rule. Do not pull other
+  ports into PORT-216 or drop their regression coverage just to make a PR.
+
+The copy/snapshot regression additionally checks the mode-0 labelled query
+and mode-1 high-row neighbour before and after load. The latter deliberately
+uses a row above the initializer's point; it does not mask or change S-7387's
+independent no-row mismatch or the protected PORT-164 test.
+
+Actual `tools/test_select.py --base 467bc033` first line (no execution yet):
+
+```text
+8 changed files, no test map, the #include rule; FULL suite: engine/CMakeLists.txt: no test can be traced from this file
+```
+
+This is not waived or shortened to a filter. The mandatory narrow filters
+and full-binary red/green come first; the selected full suite is still a
+pre-landing/nightly requirement. The full-build configuration warns that
+five MP3 tests lack the lame/mpg123 fixtures in this sandbox; no fixture or
+pin expectation has been changed to hide that limitation.

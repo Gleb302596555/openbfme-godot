@@ -278,8 +278,8 @@ TEST_CASE("PORT-216 collision fallback remains active when a late offset leaves 
 TEST_CASE("PORT-216 geometry copies carry both rows and stored point through a byte-identical snapshot")
 {
     const std::string rows = std::string(kLateOffset) +
-        "  GeometryContactPoint = X:-12 Y:8 Z:30\n"
-        "  GeometryContactPoint = X:14 Y:6 Z:38\n";
+        "  GeometryContactPoint = X:-12 Y:8 Z:30 Ram\n"
+        "  GeometryContactPoint = X:14 Y:6 Z:38 Menu\n";
     CombatWorld w((target("Port216Plain", kLateOffset) + target("Port216Rows", rows)).c_str());
     Object *plain = w.unit("Port216Plain", 'B', 100.0f, 200.0f);
     Object *withRows = w.unit("Port216Rows", 'B', 300.0f, 200.0f);
@@ -293,8 +293,21 @@ TEST_CASE("PORT-216 geometry copies carry both rows and stored point through a b
     copyPlain->setGeometryInfoFrom(*plain);
     copyRows->setGeometryInfoFrom(*withRows);
     // RW 0x463E45..0x463E62: rows AND point belong to the copied GeometryInfo, not the recipient's original template.
-    checkLocal(*copyPlain, contact(*copyPlain), 0.0f, 0.0f, 26.8f);
-    checkLocal(*copyRows, contact(*copyRows), 14.0f, 6.0f, 38.0f); // RW 0xAD31BD: seed 0 chooses the second row.
+    const auto checkCopiedContacts = [](const Object &noRows, const Object &rowsObject) {
+        checkLocal(noRows, contact(noRows), 0.0f, 0.0f, 26.8f);
+        checkLocal(rowsObject, contact(rowsObject), 14.0f, 6.0f, 38.0f); // RW 0xAD31BD: seed 0 chooses the second row.
+        Coord3D point{};
+        const Coord3D caller{ 25.0f, 75.0f, 0.0f };
+        // RW 0xAD337C..0xAD3517 (mode 0): labelled contacts must follow the same geometry copy.
+        REQUIRE_FALSE(ObjectGeometry::worldspaceBestContactPoint(noRows, caller, "Ram", 0, 0, false, point));
+        REQUIRE(ObjectGeometry::worldspaceBestContactPoint(rowsObject, caller, "Ram", 0, 0, false, point));
+        checkLocal(rowsObject, point, -12.0f, 8.0f, 30.0f);
+        // RW 0xAD3340 (mode 1): this row is above the initializer's point, so it is unambiguous in both paths.
+        // This does NOT change the independent no-row/preferred-initializer behavior retained in S-7387.
+        REQUIRE(ObjectGeometry::worldspaceBestContactPoint(rowsObject, caller, "", 1, 0, false, point));
+        checkLocal(rowsObject, point, 14.0f, 6.0f, 38.0f);
+    };
+    checkCopiedContacts(*copyPlain, *copyRows);
     const ObjectID plainID = copyPlain->getID();
     const ObjectID rowsID = copyRows->getID();
     const std::uint32_t hash = w.logic->computeStateHash();
@@ -310,8 +323,7 @@ TEST_CASE("PORT-216 geometry copies carry both rows and stored point through a b
     REQUIRE(copyPlain != nullptr);
     REQUIRE(copyRows != nullptr);
     CHECK(copyPlain->hasGeometryHeights());
-    checkLocal(*copyPlain, contact(*copyPlain), 0.0f, 0.0f, 26.8f);
-    checkLocal(*copyRows, contact(*copyRows), 14.0f, 6.0f, 38.0f);
+    checkCopiedContacts(*copyPlain, *copyRows);
     std::vector<std::uint8_t> resaved;
     REQUIRE_MESSAGE(w.logic->saveSnapshot(resaved, &error), error);
     CHECK(resaved == saved); // cache is derived; the existing geometry source/heights xfer is sufficient.
