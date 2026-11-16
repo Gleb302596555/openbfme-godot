@@ -133,7 +133,7 @@ ActiveBody::ActiveBody(Thing *thing, const ActiveBodyModuleData *data)
 	m_currentHealth = data->m_initialHealth == -1.0f ? data->m_maxHealth : data->m_initialHealth;
 	m_previousHealth = m_currentHealth;
 	m_reviveReference = m_currentHealth; // lane HERO-1: module + 0x2C starts at the actual initial health
-	m_curDamageState = BODY_PRISTINE; // RW 0x8C3841 ends with setCorrectDamageState: its effects need the finished object, so applyInitialDamageState runs after Object::buildModules
+	m_curDamageState = BODY_PRISTINE; // the constructor applies modifiers below; the existing initial visual/rubble pass follows Object::buildModules
 	if (data->m_useDefaultDamageSettings)
 	{
 		const GameLogicSettings &settings = getObject()->logic().settings();
