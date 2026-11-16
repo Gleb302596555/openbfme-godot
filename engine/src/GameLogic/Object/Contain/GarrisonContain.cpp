@@ -1715,15 +1715,18 @@ bool CitadelSlaughterHordeContain::shouldSlaughter(const Object &obj) const
 void CitadelSlaughterHordeContain::deliverRing(Object &rider)
 {
 	Object *obj = &rider;
-	// BFME2 CitadelSlaughterHordeContain 0x480E9A: idle, clear the configured
-	// status, destroy (not kill) the closest filtered object, apply upgrades by
-	// type, emit FX, and remember the carrier for next update's exit.
+	GameLogic &logic = getObject()->logic();
+	// RW 0x8840FC: idle the carrier, then process its current group order
+	// (RW 0x88413C -> RW 0x756CD7 -> RW 0x94EF1A) before clearing its ring
+	// status and destroying the filtered object. This advances a completed
+	// order; it is not a request to clear the carrier's entire queue.
 	if (auto *ai = obj->getAIUpdateInterface())
 		ai->aiIdle(ai->lastCommandSource());
+	if (AIWorld *world = logic.aiWorld())
+		world->ordersManager().process(obj->getID());
 	for (unsigned bit = 0; bit < 128; ++bit)
 		if (m_citadel->ringStatus[bit / 32] & (1u << (bit % 32)))
 			obj->setStatus(bit, false);
-	GameLogic &logic = getObject()->logic();
 	PartitionFilterFn filter([&](Object &candidate) { return ObjectFilterMatch::allows(logic, m_citadel->objectToDestroy, candidate, obj->getControllingPlayer()); });
 	if (Object *ring = logic.partition().getClosestObject(*getObject()->getPosition(), 9999.0f, FROM_BOUNDINGSPHERE_3D, {&filter}))
 		logic.destroyObject(ring);
