@@ -175,3 +175,15 @@ proven port divergence or an explanation for the observed failures. A useful
 reproduction must separately observe the movie's actual button/hit path,
 `OnAptInGameSpellBookButtonPressed`, the deferred HUD press and any message;
 a synthetic button without the real movie cannot establish those observations.
+
+## Archive availability follow-up
+
+A Drive listing by size found `bfme_assets_v2.zip` (12,967,304,510 bytes),
+which may contain the missing game assets; the connector's `download_file`
+limit is 100 MiB, so its contents have not been inspected. The smaller
+`ennorath_1.9.8.3_update.zip` (12,919,858 bytes) was inspected in `/tmp`: its
+`____enrth_data.big` lists INI and other data but no `.apt`, `.const` or `.swf`
+entries. It is a later update, not a substitute for the task's 1.9.8.2 merged
+INI or proof of the movie used by the failing run. No archive contents were
+added to the repository. The earlier search by filename alone did not establish
+that Drive lacked game archives.
