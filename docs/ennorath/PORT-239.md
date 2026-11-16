@@ -116,3 +116,44 @@ and neighbour tests and a demonstrated failure without the fix. Run the full
 `engine/build/openbfme_tests -tc="PORT-239*"` binary. Only then narrow/close stops,
 add night-watch and any justified shared-mechanism stop fragments, and open PR.
 No upstream PR is eligible at this investigation-only stage.
+
+## Follow-up: S-3803 owner notifications are no-ops on tactical Palantir
+
+Rebased onto `origin/main` at `dbea96b5` before continuing; no input code from
+other tasks was replaced. The following establishes the previously missing
+class chain (not an inference from nearby addresses):
+
+1. RW 0x93023D (`OnSubMenuLoaded`) allocates **8** bytes at 0x93029B and calls
+   RW 0x9D353B at 0x9302FA with level and clip path. It does not construct a
+   derived strategic-HUD listener.
+2. RW 0x9D353B writes vtable **0xC8C46C** at 0x9D354B, allocates its 0x48-byte
+   implementation and passes `this` as the owner at 0x9D356B to RW 0x9D3380.
+3. RW 0x9D3380 stores that owner at impl +0 (0x9D3398). Reading the verified
+   executable's vtable yields `{0x9D3364, 0x63F3BF, 0x63F3BF}`.
+4. RW 0x63F3BF is one instruction, `ret`. Thus owner vslots +4 and +8 have
+   **no effects** on this concrete Palantir owner.
+5. RW 0x9D32F9 sets open and tail-calls owner +4 at 0x9D3331. RW 0x9D3235
+   (_OnClosed), only when fading and open, drops the items, clears open and
+   calls owner +8 at 0x9D327D. RW 0x9D2F21 (Hide), only when open, drops the
+   items and clears fading/open before tail-calling owner +8 at 0x9D2F8D.
+
+DONOR BFME2 0x005C40E7 (`Code/GameEngine/Source/Common/Rva005C40E7Ctor.cpp`)
+confirms the wrapper has empty slot1/slot2; the tactical factory uses that base
+wrapper (`PalantirCommandInterface.cpp::OnSubMenuLoaded`, BFME2 0x005297DD).
+The strategic HUD donor has a **different, derived** `ButtonSubMenu` listener
+that keeps a current submenu and closes another when shown. That behaviour is
+not evidence for adding exclusivity to the tactical Palantir.
+
+Outcome: **S-3803 narrowed**, not closed. No callback with invented effects is
+needed. The context-object press checks and other explicitly listed inferences
+remain unresolved. PORT-239 tests will pin the existing independently opened
+menus and their fade/hide lifecycle without retail assets; they are neighbour /
+verdict coverage, not the required failing-before-fix test for a future real gap.
+
+## Follow-up: CommandMap direct call site
+
+The prior inventory entry was too quick to describe 0x63C4F6 as a subsystem
+entry: it is an argument to a **direct INI load**, RW 0x42D97D at 0x63C506,
+following a separate subsystem registration call at 0x63C4E5. The actual
+subsystem name at that registration and its legend paths need tracing. Do not
+base a new CommandMap resolver on the old stop's wording alone.
