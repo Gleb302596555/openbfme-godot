@@ -1753,14 +1753,18 @@ void AIWorld::processHordeWallContacts()
 			(m_logic.settings().hordesWaitForHordes || !o.isKindOf((unsigned)kHorde));
 	};
 	const auto &gates = m_logic.skirmishAI().gates();
-	for (Object *horde = m_logic.getFirstObject(); horde; horde = horde->getNextObject())
+	for (const auto &entry : m_ais)
 	{
-		if (!registered(*horde) || !horde->getAIUpdateInterface() || horde->geometryShapes().empty())
+		Object *horde = entry.second ? entry.second->getObject() : nullptr;
+		if (!horde || !registered(*horde) || horde->geometryShapes().empty())
 		{
 			continue;
 		}
-		HordeContain *contain = dynamic_cast<HordeContain *>(horde->getContain());
-		if (!contain)
+		const auto &collides = horde->collideModules();
+		const bool hasHordeContain = std::any_of(collides.begin(), collides.end(), [](CollideModuleInterface *c) {
+			return dynamic_cast<HordeContain *>(c) != nullptr;
+		});
+		if (!hasHordeContain)
 		{
 			continue;
 		}
@@ -1794,7 +1798,10 @@ void AIWorld::processHordeWallContacts()
 			if (NotifyCrushModules::geometriesOverlap(first.geometryShapes(), *first.getPosition(), first.getOrientation(),
 				second.geometryShapes(), *second.getPosition(), second.getOrientation()))
 			{
-				contain->onCollide(wall, nullptr, nullptr);
+				for (CollideModuleInterface *collide : collides)
+				{
+					if (dynamic_cast<HordeContain *>(collide)) collide->onCollide(wall, nullptr, nullptr);
+				}
 			}
 		}
 	}
