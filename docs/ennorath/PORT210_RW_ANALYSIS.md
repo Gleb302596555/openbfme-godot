@@ -27,10 +27,11 @@ RW disassembly from `game.dat` (MD5 daed3668006cd90f01c34e5a7da1901f):
   interface, and calls that interface slot 0. It checks self-destruction before
   each callback (0x68EF00..0x68EF1E).
 
-Next: trace adapter vtable and dispatch to the contain interface, establish
-eligibility, grouping, shape, order and interactions with existing gate passes;
-then implement and test without duplicating contacts. No conclusion that this
-contact manager is the horde caller is claimed yet.
+The subsequent class and dispatch trace below establishes the collision manager
+as a caller. The current port includes a narrow static-wall stand-in; it is not
+a full collision manager and its gameplay and synthetic tests still need to be
+run. Pair shape, ordering and interactions with existing passes remain subject
+to that limitation.
 
 ## Class and dispatch chain
 
@@ -50,11 +51,12 @@ contact manager is the horde caller is claimed yet.
   increments an inactivity count while no member has those climb conditions,
   and clears on the fifth such pass.
 
-Port departure: `HordeContain` does not expose `getCollide`, so even the
-existing moving-object and gate passes cannot dispatch its retail entry. A
-separate static wall contact gap remains in `AIWorld::processCollisions`
-(S-780); any wall-only stand-in must not duplicate gate contacts, and must
-respect collision registration and geometry.
+Starting-tree departure: `HordeContain` did not expose `getCollide`, so even
+the existing moving-object and gate passes could not dispatch its retail
+entry. The branch exposes it and adds a wall-only stand-in for the separate
+static wall contact gap in `AIWorld::processCollisions` (S-780). The stand-in
+excludes pairs already covered by mobile and gate passes and checks collision
+registration and geometry, but its equivalence to retail has not been shown.
 
 ## Related existing stop S-1751: horde member AI update
 
