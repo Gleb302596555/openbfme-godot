@@ -1737,7 +1737,7 @@ void AIWorld::processCrateContacts()
 // existing AI and gate passes; it is not the retail contact manager or order.
 void AIWorld::processHordeWallContacts()
 {
-	if (!m_mapReady || !m_logic.settings().hordesWaitForHordes)
+	if (!m_mapReady)
 	{
 		return;
 	}
@@ -1755,8 +1755,7 @@ void AIWorld::processHordeWallContacts()
 	const auto &gates = m_logic.skirmishAI().gates();
 	for (Object *horde = m_logic.getFirstObject(); horde; horde = horde->getNextObject())
 	{
-		if (!horde->isKindOf((unsigned)kHorde) || !registered(*horde) || !horde->getAIUpdateInterface() ||
-			horde->getAIUpdateInterface()->isImmobile() || horde->geometryShapes().empty())
+		if (!registered(*horde) || !horde->getAIUpdateInterface() || horde->geometryShapes().empty())
 		{
 			continue;
 		}
@@ -1768,9 +1767,17 @@ void AIWorld::processHordeWallContacts()
 		PartitionFilterFn candidate([&](Object &o) {
 			if (&o == horde || !o.isKindOf((unsigned)kWall) || !registered(o)) return false;
 			// Mobile AI pairs and registered gates already have their own contact passes.
-			if (o.getAIUpdateInterface() && !o.getAIUpdateInterface()->isImmobile()) return false;
-			for (const GateOpenAndCloseBehavior *g : gates) if (g && g->getObject() == &o) return false;
-			return !(horde->isKindOf((unsigned)kImmobile) && o.isKindOf((unsigned)kImmobile));
+			const bool hordeImmobile = horde->isKindOf((unsigned)kImmobile);
+			const bool wallImmobile = o.isKindOf((unsigned)kImmobile);
+			if (!hordeImmobile && o.getAIUpdateInterface() && !o.getAIUpdateInterface()->isImmobile()) return false;
+			if (!hordeImmobile && wallImmobile)
+			{
+				for (const GateOpenAndCloseBehavior *g : gates) if (g && g->getObject() == &o) return false;
+			}
+			// RW 0x68EEA5: IMMOBILE uses group 1, others use their container or own identity.
+			if (hordeImmobile && wallImmobile) return false;
+			if (!hordeImmobile && !wallImmobile && horde->getContainedBy() && horde->getContainedBy() == o.getContainedBy()) return false;
+			return true;
 		});
 		const PartitionHits hits = m_logic.partition().iterateObjectsInRange(
 			*horde->getPosition(), CombatQueries::boundingSphereRadius(*horde), FROM_BOUNDINGSPHERE_3D, { &candidate }, ITER_FASTEST);
