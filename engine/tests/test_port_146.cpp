@@ -246,7 +246,7 @@ TEST_CASE("PORT-146: a siege carrier's passengers stand on their bones and the a
 	CHECK(highest == 30.0f);
 	CHECK(carrier->testModelCondition(movingCond));
 	CHECK(archer->testModelCondition(transportMovingCond));
-	CHECK(w.logic->combat().counters().projectilesLaunched == rolling + 3); // the bow goes on firing while the carrier rolls
+	CHECK(w.logic->combat().counters().projectilesLaunched == rolling + 4); // the bow goes on firing while the carrier rolls (PORT-223: no PursueStub 1-frame delay)
 }
 
 TEST_CASE("PORT-146: an object on a bone is drawn with the container's presentation pose, tilt and suspension height alike")

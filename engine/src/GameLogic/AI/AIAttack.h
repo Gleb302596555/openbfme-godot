@@ -155,6 +155,31 @@ public:
 	void xfer(class Xfer &x) override { xferNoFields(x); }
 };
 
+// RW 0x744401 / 0x74ECD9 / 0x74AD8E / 0x74AF91 / 0x746C69 / 0x74AFED (vtable 0xC28D90): Pursue 0x64
+class AIAttackPursueState : public AIState
+{
+public:
+	AIAttackPursueState(AIStateMachine &m, AIAttackState *parent, bool follow, bool forceAttack);
+	StateReturnType onEnter() override;
+	StateReturnType update() override;
+	void onExit(StateExitType status) override;
+	void crc(class StateHasher &hasher) const override;
+	void xfer(class Xfer &x) override;
+	bool computePath(); // RW 0x746C69
+
+private:
+	std::unique_ptr<class AIMoveToState> m_move;
+	AIAttackState *m_att;
+	bool m_follow;
+	bool m_forceAttack;
+	Coord3D m_prevVictimPos{ 0.0f, 0.0f, 0.0f };
+	Coord3D m_dest{ 0.0f, 0.0f, 0.0f };
+	unsigned m_pathFrame = 0;
+	bool m_pending = false;
+	bool m_moveEntered = false;
+	bool m_isInitialApproach = true;
+};
+
 // the sub machine's states (ZH AIStates.cpp; ids above)
 class AIAttackApproachState : public AIState
 {

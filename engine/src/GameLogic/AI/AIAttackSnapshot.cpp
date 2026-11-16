@@ -77,6 +77,21 @@ void AIAttackState::xfer(Xfer &x)
 	m_machineMade = made;
 }
 
+void AIAttackPursueState::xfer(Xfer &x)
+{
+	XferVersion v{ 1, 1 };
+	x.xferVersion(v);
+	xferMove(x, ai().mover(), m_move);
+	x.xferBool(&m_follow);
+	x.xferBool(&m_forceAttack);
+	AIXfer::coord(x, m_prevVictimPos);
+	AIXfer::coord(x, m_dest);
+	x.xferUnsignedInt(&m_pathFrame);
+	x.xferBool(&m_pending);
+	x.xferBool(&m_moveEntered);
+	x.xferBool(&m_isInitialApproach);
+}
+
 void AIAttackApproachState::xfer(Xfer &x)
 {
 	XferVersion v{ 1, 2 }; // 2: the wait of an owner that cannot move
@@ -121,7 +136,7 @@ void AIAttackMeleeApproachState::xfer(Xfer &x)
 
 void AIAttackMeleeEngageState::xfer(Xfer &x)
 {
-	XferVersion v{ 1, 1 };
+	XferVersion v{ 1, 2 }; // 2: PORT-223's m_fireState (+ 0x4C) and m_fireStatus (+ 0x50)
 	x.xferVersion(v);
 	xferMove(x, ai().mover(), m_move);
 	AIXfer::coord(x, m_dest);
@@ -132,6 +147,25 @@ void AIAttackMeleeEngageState::xfer(Xfer &x)
 	x.xferBool(&m_noDest);
 	x.xferBool(&m_pending);
 	x.xferBool(&m_moveEntered);
+	if (v.current >= 2)
+	{
+		x.xferInt(&m_fireStatus);
+		bool hasFire = m_fireState != nullptr;
+		x.xferBool(&hasFire);
+		if (x.isLoading())
+		{
+			m_fireState = hasFire ? std::make_unique<AIAttackFireState>(machine(), m_att) : nullptr;
+		}
+		if (m_fireState)
+		{
+			m_fireState->xfer(x);
+		}
+	}
+	else if (x.isLoading())
+	{
+		m_fireStatus = STATE_SUCCESS;
+		m_fireState.reset();
+	}
 }
 
 void AIMeleeReAcquireState::xfer(Xfer &x)

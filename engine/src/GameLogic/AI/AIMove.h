@@ -372,6 +372,7 @@ public:
 	void setAdjustsDestination(bool on) { m_adjustsDestination = on; }
 	// lane PHYS-1: the attack approach's computePath (RW 0x749A3E) asks for an attack path (RW 0x663802) to `victim` (invalid: the goal position) instead of a move path
 	void setAttackTarget(PathfindObjectID victim) { m_attack = true; m_attackVictim = victim; }
+	void clearAttackTarget() { m_attack = false; m_attackVictim = PATHFIND_INVALID_ID; }
 	// lane PHYS-1: a melee approach path (RW 0x6639CF) to the goal; `false` back to an ordinary move (the tests drive it; AIAttackMeleeApproachState calls the request
 	// from its own computePath RW 0x746DB6)
 	void setMeleeApproach(bool on, bool bypassOffset = false) { m_meleeApproach = on; m_meleeBypass = bypassOffset; }

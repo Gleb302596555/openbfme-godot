@@ -10,6 +10,7 @@
 
 #include "Common/StateHash.h"
 #include "Common/GameCommon.h"
+#include "Common/Player.h"
 #include "Common/Team.h"
 #include "GameLogic/AI/AIGarrisonStates.h"
 #include "Common/Thing/ThingTemplate.h"
@@ -24,6 +25,7 @@
 #include "GameLogic/System/InvisibilityManager.h"
 #include "GameLogic/GameLogic.h"
 #include "GameLogic/Module/AIUpdate.h"
+#include "GameLogic/Module/PhysicsBehavior.h"
 #include "GameLogic/Module/SquishCollide.h"
 #include "GameLogic/Locomotor.h"
 #include "GameLogic/Object/Object.h"
@@ -34,7 +36,6 @@
 namespace
 {
 const float kRelativeAngleThreshold = 0.035f; // ZH AIAttackAimAtTargetState: about 2 degrees
-const unsigned kMinRecomputeFrames = 10;      // ZH MIN_RECOMPUTE_TIME
 
 Object *victimOf(const AIStateMachine &m)
 {
@@ -266,6 +267,66 @@ bool aimTurret(AIUpdateInterface &a, const AIAttackState &att, Object *victim, c
 	}
 	return true;
 }
+
+// RW 0x741450: the victim moved more than 1/10 of its distance from the unit (moved^2 > 0.01 * dist^2, RW 0xBE5600)
+bool victimMoved(const Object &self, const Coord3D &now, const Coord3D &stored)
+{
+	const float mx = SimMath::subf32(now.x, stored.x), my = SimMath::subf32(now.y, stored.y);
+	const float ox = SimMath::subf32(now.x, self.getPosition()->x), oy = SimMath::subf32(now.y, self.getPosition()->y);
+	return SimMath::addf32(SimMath::mulf32(my, my), SimMath::mulf32(mx, mx)) > SimMath::mulf32(SimMath::addf32(SimMath::mulf32(oy, oy), SimMath::mulf32(ox, ox)), 0.01f);
+}
+
+// RW 0x68B34C: the victim's current locomotor speed (> 0, else 0)
+float victimCurSpeed(const Object &victim)
+{
+	const AIUpdateInterface *vai = victim.getAIUpdateInterface();
+	const Locomotor *loco = vai ? vai->curLocomotor() : nullptr;
+	return loco && loco->speed() > 0.0f ? loco->speed() : 0.0f;
+}
+
+// RW 0x746058: AIAttackPursueTargetState / AIAttackApproachTargetState pursue eligibility
+bool canPursue(Object &source, const ObjectWeapons &weapons, Object &victim)
+{
+	if (!PhysicsBehavior::find(victim))
+	{
+		return false; // RW 0x74605D: victim has PhysicsBehavior (+ 0x264)
+	}
+	if (source.testStatus((unsigned)CombatNames::statuses().hordeMember) && source.getContainedBy() != nullptr)
+	{
+		return false; // RW 0x74606A .. 0x74607E: contained HORDE_MEMBER
+	}
+	AIUpdateInterface *ai = source.getAIUpdateInterface();
+	if (!ai || ai->turretForCurWeapon() == nullptr)
+	{
+		return false; // RW 0x746084 .. 0x74609A: turret for current weapon (!= TURRET_INVALID)
+	}
+	if (source.logic().settings().aiCrushesInfantry)
+	{
+		const Player *player = source.getControllingPlayer();
+		if (player && player->getPlayerType() == PLAYER_COMPUTER && AttackCrushPolicy(source, victim))
+		{
+			return true; // RW 0x7460A0 .. 0x7460D5
+		}
+	}
+	if (weapons.isTooClose(victim))
+	{
+		return false; // RW 0x7460DF -> 0x6CA83B
+	}
+	const float ourMaxSpeed = ai->curLocomotorSpeed(); // RW 0x6624C9
+	const float vicSpeed = victimCurSpeed(victim);     // RW 0x68B34C
+	if (vicSpeed >= ourMaxSpeed)
+	{
+		return false; // RW 0x746101 .. 0x74610B
+	}
+	if (SimMath::mulf32(ourMaxSpeed, 0.1f) > vicSpeed)
+	{
+		return false; // RW 0x74610D .. 0x74611E (RW 0xBD83D4 = 0.1f)
+	}
+	const Coord3D *sp = source.getPosition(), *vp = victim.getPosition();
+	const float dx = SimMath::subf32(vp->x, sp->x), dy = SimMath::subf32(vp->y, sp->y);
+	const float dot = SimMath::addf32(SimMath::mulf32(SimMath::cosDet(victim.getOrientation()), dx), SimMath::mulf32(SimMath::sinDet(victim.getOrientation()), dy));
+	return !(0.0f > dot); // RW 0x746120 .. 0x746168: dot >= 0
+}
 } // namespace
 
 bool AttackVictimInRange(const AIStateMachine &machine)
@@ -358,44 +419,34 @@ std::unique_ptr<AIStateMachine> AIAttackState::createAttackMachine()
 	return makeGenericAttackMachine();
 }
 
-// B1 AttackStateMachineCtor.cpp:253-297 (the portable structure / continue-state variants are S-325)
+// RW 0x7486FD (the portable structure / continue-state variants are S-325)
 std::unique_ptr<AIStateMachine> AIAttackState::makeGenericAttackMachine()
 {
 	std::unique_ptr<AIStateMachine> m = std::make_unique<AIStateMachine>(ai(), "AIAttackMachine");
-	// the default state is the first defined: Pursue 0x64 (here a pass through to Approach, see AIAttack.h)
-	struct PursueStub : AIState
-	{
-		explicit PursueStub(AIStateMachine &mm) : AIState(mm, "AIAttackPursueTargetState") {}
-		StateReturnType update() override { return STATE_SUCCESS; }
-		void xfer(Xfer &x) override { xferNoFields(x); } // lane SAVE-4c
-	};
 	// lane SPELL-3 (review r3): the Aim and Fire states of an attack on an object leave the machine with failure when the owner cannot possibly attack it
 	// (B1 AttackStateMachineCtor.cpp: d_0016af70 with ATTACK_CONTINUED_TARGET 2 / _FORCED 3 in both the normal and the immobile condition lists; RotWK RW
 	// 0x741798, see cannotPossiblyAttackObject).
-	// PORT-437 (stop S-325): the two records RW's own tables put before it, RW 0x7457DF (out of reach -> Chase) and RW 0x745901 (crush instead -> Chase).
-	// RW 0x7486FD chooses the table at RW 0x74872C / 0x748735 and gives it to Aim (RW 0x74879D) and Fire (RW 0x7487F5); the port's chase is the Approach
-	// state (0x65 in RW, a pursuer/approach pair there: RW 0x744401 for follow, RW 0x744310 twice otherwise, RW 0x748887), which walks the attack path
-	// and re-paths, so both records go to ATTACK_APPROACH. The order is the table's own (RW 0xC29DD4: range, crush, cannot-attack; RW 0xC29E04: range,
-	// cannot-attack, crush) and the tests are evaluated in order (AIStateMachine::testConditions).
+	// PORT-437 + PORT-223: RW 0x7486FD chooses the object condition table RW 0xC29DD4 (normal) / RW 0xC29E04 (forced) and gives it to Aim (RW 0x74879D) and
+	// Fire (RW 0x7487F5); RW 0x7457DF (out of reach) and RW 0x745901 (crush instead) both target ATTACK_PURSUE (0x64).
 	std::vector<AIStateCondition> conditions;
 	if (m_isAttackingObject)
 	{
-		conditions.push_back({ &outOfWeaponRange, ATTACK_APPROACH, 0 }); // RW 0xC29DD4 / 0xC29E04 record 1: 0x7457DF -> 0x64
+		conditions.push_back({ &outOfWeaponRange, ATTACK_PURSUE, 0 }); // RW 0xC29DD4 / 0xC29E04 record 1: 0x7457DF -> 0x64
 		if (!m_isForceAttacking)
 		{
-			conditions.push_back({ &wantToCrushVictim, ATTACK_APPROACH, 0 }); // RW 0xC29DD4 record 2: 0x745901 -> 0x64
+			conditions.push_back({ &wantToCrushVictim, ATTACK_PURSUE, 0 }); // RW 0xC29DD4 record 2: 0x745901 -> 0x64
 			conditions.push_back({ &cannotPossiblyAttackObject, MACHINE_DONE_FAILURE, 2 });
 		}
 		else
 		{
 			conditions.push_back({ &cannotPossiblyAttackObject, MACHINE_DONE_FAILURE, 3 }); // RW 0xC29E04 record 2
-			conditions.push_back({ &wantToCrushVictim, ATTACK_APPROACH, 0 }); // RW 0xC29E04 record 3
+			conditions.push_back({ &wantToCrushVictim, ATTACK_PURSUE, 0 }); // RW 0xC29E04 record 3: 0x745901 -> 0x64
 		}
 	}
-	m->defineState(ATTACK_PURSUE, std::make_unique<PursueStub>(*m), ATTACK_APPROACH, ATTACK_APPROACH);
+	m->defineState(ATTACK_PURSUE, std::make_unique<AIAttackPursueState>(*m, this, m_follow, m_isForceAttacking), ATTACK_APPROACH, ATTACK_APPROACH);
 	m->defineState(ATTACK_APPROACH, std::make_unique<AIAttackApproachState>(*m, this, m_follow), ATTACK_AIM, MACHINE_DONE_FAILURE);
 	m->defineState(ATTACK_AIM, std::make_unique<AIAttackAimState>(*m, this), ATTACK_FIRE, MACHINE_DONE_FAILURE, conditions);
-	m->defineState(ATTACK_FIRE, std::make_unique<AIAttackFireState>(*m, this), ATTACK_WAIT, ATTACK_APPROACH, conditions);
+	m->defineState(ATTACK_FIRE, std::make_unique<AIAttackFireState>(*m, this), ATTACK_WAIT, ATTACK_PURSUE, conditions); // RW 0x7487FA: failure -> 0x64
 	m->defineState(ATTACK_WAIT, std::make_unique<AIWaitUntilFinishedFiringState>(*m), ATTACK_AIM, MACHINE_DONE_FAILURE);
 	return m;
 }
@@ -693,7 +744,225 @@ void AIAttackState::crc(StateHasher &h) const
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------
-// Approach (ZH AIAttackApproachTargetState, AIStates.cpp:2555-2790)
+// Pursue (RW 0x744401 / 0x74ECD9 / 0x74AD8E / 0x74AF91 / 0x746C69 / 0x74AFED, state 0x64)
+// ---------------------------------------------------------------------------------------------------------------------------------
+AIAttackPursueState::AIAttackPursueState(AIStateMachine &m, AIAttackState *parent, bool follow, bool forceAttack)
+	: AIState(m, "AIAttackPursueTargetState")
+	, m_att(parent)
+	, m_follow(follow)
+	, m_forceAttack(forceAttack)
+{
+}
+
+bool AIAttackPursueState::computePath()
+{
+	AIUpdateInterface &a = ai();
+	AIMover &mv = a.mover();
+	Object &source = owner();
+	if (!GarrisonRules::isMobile(source) || mv.blockedFrames() > 0)
+	{
+		return false; // RW 0x746C93 .. 0x746CBB
+	}
+	if (m_pending)
+	{
+		if (mv.path() != nullptr || mv.isWaitingForPath())
+		{
+			return true; // RW 0x746CC1
+		}
+		m_pending = false;
+	}
+	const bool noPath = mv.path() == nullptr && !mv.isWaitingForPath();
+	if (!noPath && a.frame() - m_pathFrame < (unsigned)LOGICFRAMES_PER_SECOND)
+	{
+		return true; // RW 0x746CE8 .. 0x746CF4
+	}
+	m_pathFrame = a.frame();
+	Object *victim = victimOf(machine());
+	if (!victim)
+	{
+		return false;
+	}
+	if (!noPath && !victimMoved(source, *victim->getPosition(), m_prevVictimPos))
+	{
+		return true; // RW 0x746D1A .. 0x746D2F
+	}
+	ObjectWeapons *w = source.getWeapons();
+	if (!w || !w->currentWeapon() || !canPursue(source, *w, *victim))
+	{
+		return false; // RW 0x746D31 .. 0x746D52
+	}
+	m_prevVictimPos = *victim->getPosition();
+	m_dest = m_prevVictimPos;
+	mv.requestPath(m_dest, false); // RW 0x746D98 -> 0x667ED1(dest, 0)
+	m_pending = mv.isWaitingForPath();
+	return true;
+}
+
+StateReturnType AIAttackPursueState::onEnter()
+{
+	Object &source = owner();
+	AIUpdateInterface &a = ai();
+	m_moveEntered = false;
+	m_pending = false;
+	m_isInitialApproach = true;
+	if (source.isKindOf((unsigned)CombatNames::kinds().projectile))
+	{
+		return STATE_SUCCESS; // RW 0x74ECE9 -> 0x65 Approach
+	}
+	if (!m_att || !m_att->isAttackingObject()) // RW 0x74ED08: tests + 0x5D (m_attackingObject), not + 0x5C (m_follow)
+	{
+		return STATE_SUCCESS; // RW 0x74ED08 -> 0x65 Approach
+	}
+	Object *victim = victimOf(machine());
+	ObjectWeapons *w = source.getWeapons();
+	if (source.testStatus((unsigned)CombatNames::status("STAND_GROUND")))
+	{
+		if (victim && w && w->currentWeapon() && w->isWithinAttackRange(*victim))
+		{
+			return STATE_SUCCESS; // RW 0x74ED11 .. 0x74EE22
+		}
+		machine().setGoalObject(INVALID_ID);
+		return STATE_FAILURE;
+	}
+	m_prevVictimPos = Coord3D{ 0.0f, 0.0f, 0.0f };
+	m_pathFrame = a.frame() >= (unsigned)LOGICFRAMES_PER_SECOND ? a.frame() - (unsigned)LOGICFRAMES_PER_SECOND : 0u;
+	if (!victim || victimGone(victim))
+	{
+		return STATE_SUCCESS; // RW 0x74ED98 .. 0x74EDA1
+	}
+	if (!w || !w->currentWeapon())
+	{
+		return STATE_FAILURE; // RW 0x74EDA3 .. 0x74EDAE
+	}
+	if (!canPursue(source, *w, *victim))
+	{
+		return STATE_SUCCESS; // RW 0x74EDB0 .. 0x74EDB9 -> 0x65 Approach
+	}
+	TurretAI *t = a.turretForCurWeapon();
+	if (!t)
+	{
+		return STATE_SUCCESS; // RW 0x74EDBB .. 0x74EDC5
+	}
+	t->setTurretTargetObject(victim, m_forceAttack); // RW 0x74EDCD -> 0x6622C7
+	if (!computePath())
+	{
+		return STATE_SUCCESS; // RW 0x74EDF3 .. 0x74EDFF
+	}
+	m_move = std::make_unique<AIMoveToState>(a.mover(), m_dest, false);
+	m_move->setExternalRequest(true);
+	m_moveEntered = true;
+	return m_move->onEnter();
+}
+
+StateReturnType AIAttackPursueState::update()
+{
+	Object &source = owner();
+	AIUpdateInterface &a = ai();
+	Object *victim = victimOf(machine());
+	static const int kNotInWorld = CombatNames::status("NOT_IN_WORLD");
+	if (victimGone(victim) || source.testStatus((unsigned)kNotInWorld))
+	{
+		return STATE_FAILURE; // RW 0x74ADDD .. 0x74ADFC
+	}
+	static const int kIgnoringStealth = CombatNames::status("IGNORING_STEALTH");
+	if (!source.testStatus((unsigned)kIgnoringStealth) && InvisibilityManager::isStealthedAndUndetected(*victim, source.getControllingPlayer()))
+	{
+		return STATE_FAILURE; // RW 0x74AE01 .. 0x74AE12
+	}
+	a.setCurrentVictim(victim);
+	if (!computePath())
+	{
+		return STATE_FAILURE; // RW 0x74AE3C .. 0x74AE45 -> 0x65 Approach
+	}
+	if (!m_move)
+	{
+		m_move = std::make_unique<AIMoveToState>(a.mover(), m_dest, false);
+		m_move->setExternalRequest(true);
+		m_move->onEnter();
+		m_moveEntered = true;
+	}
+	m_move->setGoal(m_dest);
+	if (m_pending && !a.mover().isWaitingForPath())
+	{
+		m_pending = false;
+	}
+	if (m_move->update() != STATE_CONTINUE)
+	{
+		return STATE_SUCCESS; // RW 0x74AE49 .. 0x74AE58 -> 0x65 Approach
+	}
+	ObjectWeapons *w = source.getWeapons();
+	const Weapon *cur = w ? w->currentWeapon() : nullptr;
+	if (!w || !cur)
+	{
+		return STATE_FAILURE; // RW 0x74AE5D .. 0x74AE6B
+	}
+	TurretAI *t = a.turretForCurWeapon();
+	if (!t)
+	{
+		return STATE_SUCCESS; // RW 0x74AE6D .. 0x74AE7B
+	}
+	const bool melee = cur->getTemplate() && cur->getTemplate()->m_meleeWeapon;
+	bool viewBlocked = false;
+	if (!melee)
+	{
+		const ObjectPathfindAdapter *victimAdapter = victim->getAIUpdateInterface() ? &victim->getAIUpdateInterface()->adapter() : nullptr;
+		if (!victimAdapter || !victimAdapter->isSignificantlyAboveTerrain())
+		{
+			viewBlocked = a.world().pathfinder().isAttackViewBlockedByObstacle(a.adapter(), *source.getPosition(), victimAdapter, *victim->getPosition());
+		}
+	}
+	if (!viewBlocked && PhysicsBehavior::find(*victim) && w->isWithinAttackRange(*victim, 0.0f, true))
+	{
+		t->setTurretTargetObject(victim, m_forceAttack);
+		m_isInitialApproach = false;
+		const float vicSpeed = victimCurSpeed(*victim);
+		const float desired = AttackCrushPolicy(source, *victim) ? AI_FAST_SPEED : SimMath::mulf32(vicSpeed, 0.95f); // RW 0xBDAD74 = 0.95f
+		a.setDesiredSpeed(desired);
+		if (a.curLocomotor() && desired == 0.0f)
+		{
+			return STATE_SUCCESS; // RW 0x74AF57 .. 0x74AF72
+		}
+	}
+	else
+	{
+		a.setDesiredSpeed(AI_FAST_SPEED); // RW 0xC27440
+	}
+	return STATE_CONTINUE;
+}
+
+void AIAttackPursueState::onExit(StateExitType)
+{
+	if (!owner().isDestroyed())
+	{
+		ai().setDesiredSpeed(AI_FAST_SPEED); // RW 0x74AFED -> 0x6625DA(999999)
+	}
+	exitMove(ai().mover(), m_move, m_dest);
+	m_pending = false;
+}
+
+void AIAttackPursueState::crc(StateHasher &h) const
+{
+	h.addBool(m_move != nullptr);
+	if (m_move)
+	{
+		m_move->crc(h);
+	}
+	h.addBool(m_follow);
+	h.addBool(m_forceAttack);
+	h.addFloat(m_prevVictimPos.x);
+	h.addFloat(m_prevVictimPos.y);
+	h.addFloat(m_prevVictimPos.z);
+	h.addFloat(m_dest.x);
+	h.addFloat(m_dest.y);
+	h.addFloat(m_dest.z);
+	h.addU32(m_pathFrame);
+	h.addBool(m_pending);
+	h.addBool(m_moveEntered);
+	h.addBool(m_isInitialApproach);
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------
+// Approach (ZH AIAttackApproachTargetState, AIStates.cpp:2555-2790; RW 0x744310 / 0x74E6CE / 0x749D46 / 0x749A3E)
 // ---------------------------------------------------------------------------------------------------------------------------------
 AIAttackApproachState::AIAttackApproachState(AIStateMachine &m, AIAttackState *parent, bool follow)
 	: AIState(m, "AIAttackApproachTargetState")
@@ -718,7 +987,7 @@ StateReturnType AIAttackApproachState::onEnter()
 		return STATE_SUCCESS; // already killed the victim
 	}
 	m_prevVictimPos = Coord3D{ 0.0f, 0.0f, 0.0f };
-	m_approachFrame = a.frame() >= kMinRecomputeFrames ? a.frame() - kMinRecomputeFrames : 0u;
+	m_approachFrame = a.frame() >= (unsigned)LOGICFRAMES_PER_SECOND ? a.frame() - (unsigned)LOGICFRAMES_PER_SECOND : 0u;
 	ObjectWeapons *w = source.getWeapons();
 	if (!w || !w->currentWeapon())
 	{
@@ -767,13 +1036,17 @@ StateReturnType AIAttackApproachState::startMove(const Coord3D &goal, Object *vi
 		return m_move->onEnter();
 	}
 	m_move = std::make_unique<AIMoveToState>(a.mover(), goal, false);
-	m_move->setAttackTarget(victim ? victim->getID() : PATHFIND_INVALID_ID);
+	if (victim && !AttackTargetFleeing(source, *victim))
+	{
+		m_move->setAttackTarget(victim->getID()); // RW 0x749C8D -> 0x663802; fleeing uses plain requestPath (RW 0x749C7F -> 0x667ED1)
+	}
 	return m_move->onEnter();
 }
 
 StateReturnType AIAttackApproachState::update()
 {
 	AIUpdateInterface &a = ai();
+	Object &source = owner();
 	Object *victim = victimOf(machine());
 	if (m_att->isAttackingObject() && victimGone(victim))
 	{
@@ -785,8 +1058,25 @@ StateReturnType AIAttackApproachState::update()
 	{
 		a.setCurrentVictim(victim);
 	}
-	// stop as soon as the weapon reaches (ZH m_stopIfInRange)
-	if (inRange())
+	// RW 0x749E09 .. 0x749ECA: when the victim is fleeing (RW 0x7468D5), test range against the 4-frame predicted position (RW 0xBD88C0 = 4.0f)
+	bool inRangeNow = false;
+	ObjectWeapons *w = source.getWeapons();
+	if (m_att->isAttackingObject() && victim && w && w->currentWeapon() && AttackTargetFleeing(source, *victim))
+	{
+		const float lead = SimMath::mulf32(victimCurSpeed(*victim), 4.0f);
+		const Coord3D *vp = victim->getPosition();
+		const Coord3D pred{
+			SimMath::addf32(vp->x, SimMath::mulf32(lead, SimMath::cosDet(victim->getOrientation()))),
+			SimMath::addf32(vp->y, SimMath::mulf32(SimMath::sinDet(victim->getOrientation()), lead)),
+			vp->z
+		};
+		inRangeNow = w->isWithinAttackRangeFromTo(*source.getPosition(), *victim, pred, 0.0f, true);
+	}
+	else
+	{
+		inRangeNow = inRange();
+	}
+	if (inRangeNow)
 	{
 		return STATE_SUCCESS;
 	}
@@ -800,7 +1090,7 @@ StateReturnType AIAttackApproachState::update()
 		// a position target (attack-ground) runs computePath RW 0x749A3E on every update instead: it fails at once for an owner that is not mobile
 		// (RW 0x749A7A); a mobile owner gets the path its onEnter skipped and holds the attack while the move runs (a speedless one: until the
 		// target comes into range or a new command)
-		if (!GarrisonRules::isMobile(owner()))
+		if (!GarrisonRules::isMobile(source))
 		{
 			return STATE_FAILURE;
 		}
@@ -817,15 +1107,31 @@ StateReturnType AIAttackApproachState::update()
 	{
 		return STATE_FAILURE;
 	}
-	const Coord3D goal = victim ? *victim->getPosition() : machine().goalPosition();
-	if (victim && a.frame() - m_approachFrame >= kMinRecomputeFrames)
+	if (m_att->isAttackingObject() && victim && w && w->currentWeapon() && canPursue(source, *w, *victim))
 	{
-		// ZH computePath: a victim that moved gets a new path at most every MIN_RECOMPUTE_TIME frames
-		m_approachFrame = a.frame();
-		if (CombatQueries::centerDistanceSquared2D(goal, m_prevVictimPos) > 1.0f)
+		return STATE_SUCCESS; // RW 0x749B97 -> 0x74A0EE -> 0x749F12: hand over via Aim -> Pursue 0x64
+	}
+	const Coord3D goal = victim ? *victim->getPosition() : machine().goalPosition();
+	if (victim)
+	{
+		// RW 0x749AE0 .. 0x749AF5 / RW 0x749BB1: re-path at most every LOGICFRAMES_PER_SECOND when the victim moved > 10% of its distance (RW 0x741450)
+		const bool noPath = a.mover().path() == nullptr && !a.mover().isWaitingForPath();
+		if (noPath || a.frame() - m_approachFrame >= (unsigned)LOGICFRAMES_PER_SECOND)
 		{
-			m_prevVictimPos = goal;
-			m_move->setGoal(goal);
+			m_approachFrame = a.frame();
+			if (noPath || victimMoved(source, goal, m_prevVictimPos))
+			{
+				m_prevVictimPos = goal;
+				if (AttackTargetFleeing(source, *victim))
+				{
+					m_move->clearAttackTarget();
+				}
+				else
+				{
+					m_move->setAttackTarget(victim->getID());
+				}
+				m_move->setGoal(goal);
+			}
 		}
 	}
 	const StateReturnType code = m_move->update();
@@ -1133,7 +1439,7 @@ StateReturnType AIAttackFireState::update()
 	// falls into RW 0x74C530, and that flag later sends the shot to the position fire RW 0x74C88B. Those shots never read the field; the port fires them at the
 	// machine's goal position (a null victim), which is the same call.
 	const bool positionShot = tmpl->m_noVictimNeeded && (!victim || !victim->isKindOf((unsigned)CombatNames::kinds().immobile));
-	if (!positionShot && m_att->isAttackingObject() && (victimGone(victim) || victim->testStatus((unsigned)kFleeOffMap)))
+	if (!positionShot && (!m_att || m_att->isAttackingObject()) && (victimGone(victim) || victim->testStatus((unsigned)kFleeOffMap)))
 	{
 		if (!tmpl->m_finishAttackOnceStarted)
 		{
@@ -1156,7 +1462,7 @@ StateReturnType AIAttackFireState::update()
 		return STATE_FAILURE;
 	}
 	// lane GARRISON-2: RW 0x74C4A7 asks the owner (notify slot 8) whether the current slot may fire: a turret fires only its own slots (ZH AIStates.cpp:5229)
-	if (!m_att->isWeaponSlotOkToFire(w->curSlot()))
+	if (m_att && !m_att->isWeaponSlotOkToFire(w->curSlot()))
 	{
 		return STATE_FAILURE;
 	}
@@ -1165,7 +1471,10 @@ StateReturnType AIAttackFireState::update()
 	// unless the weapon is a LeechRangeWeapon inside its leech window (Weapon + 0x50), as the Angmar Dunedain's sword
 	w->setFiringConditionForCurrentWeapon(); // RW 0x74C4A7 -> 0x69036C (lane PROJ-2): FIRING_x before the shot, so the launch bone is the attack pose
 	w->fireCurrentWeapon(victim, victim ? nullptr : &machine().goalPosition());
-	m_att->notifyFired();
+	if (m_att)
+	{
+		m_att->notifyFired();
+	}
 	return STATE_SUCCESS;
 }
 
