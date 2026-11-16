@@ -59,7 +59,7 @@ hand-over in a particular game situation.
   existing `AIOrdersManager::process`, without creating new saved state. The
   synthetic `PORT-238*` cases exercise a complete order and its successor as well
   as an incomplete order and another member's queue. Their full-executable
-  run and a run with the change reverted are still pending.
+  run is pending; an isolated negative-control run is recorded below.
 
 ## Queue callback reentrancy (not resolved)
 
@@ -91,8 +91,9 @@ The button dispatcher `RW 0x940435` uses jump tables at `0x941B63` / `0x941AC3`
 to reach `0x941A6B` for command 39, which appends `MSG_ONE_RING` (0x454).
 `RW 0x7729A6` idles each selected object's AI and invokes `RW 0x776B50` for
 its eligible StealthUpdate. DONOR BFME2 `ControlBarCommandProcessing.cpp`
-case 0x27 also appends that message. The port now handles this button rather
-than always restricting it; synthetic tests exist, but their full run is pending.
+case 0x27 also appends that message. Before this change the port fell through to its default enabled availability
+and did not dispatch this command; it now checks availability and dispatches
+it. Synthetic tests exist; the full-executable run is pending.
 
 The shared port lookup `StealthUpdate::of` returns only the first module by name,
 whereas RW 0x68FBD3 iterates the cached modules and applies upgrade masks. This
@@ -115,6 +116,52 @@ activation are not yet claimed equivalent.
   `AITacticalAI.cpp`; this observation alone is not a full RW comparison.
   `ChildObject`, `ModelConditionUpgrade`, ring ownership and command-set paths
   exist in the port, but existence is not proof of complete hero behavior.
+
+## Isolated synthetic test run (not the full executable)
+
+A temporary doctest runner linked `test_port_238.cpp` and the built
+`libopenbfme_core.a` plus its required libraries, without the full suite.
+The source and build-tree core archive contained the fixes. `-tc="PORT-238*"`
+reported:
+
+```
+[doctest] test cases:   6 |   6 passed | 0 failed | 0 skipped
+[doctest] assertions: 131 | 131 passed | 0 failed |
+[doctest] Status: SUCCESS!
+```
+
+For negative controls, temporary source copies (outside the checkout) were
+compiled and linked ahead of that same archive: one omitted only the queue
+`process` call; the other omitted both ONE_RING cases in ControlBar availability
+and dispatch. With the former, `-tc="PORT-238 delivery*"` exited 1:
+
+```
+[doctest] test cases:  2 |  0 passed | 2 failed | 4 skipped
+[doctest] assertions: 45 | 39 passed | 6 failed |
+[doctest] Status: FAILURE!
+```
+
+With the latter, `-tc="PORT-238 One Ring button*"` exited 1:
+
+```
+[doctest] test cases:  1 |  0 passed | 1 failed | 5 skipped
+[doctest] assertions: 15 | 14 passed | 1 failed |
+[doctest] Status: FAILURE!
+```
+
+The independently scoped `-tc="PORT-238 adjacent stop*"` passed in both
+negative-control executables:
+
+```
+[doctest] test cases:  1 |  1 passed | 0 failed | 5 skipped
+[doctest] assertions: 17 | 17 passed | 0 failed |
+[doctest] Status: SUCCESS!
+```
+
+These are isolated tests, **not** the required full `openbfme_tests` run and
+not an in-game test. The separate status-gate test is intentionally a regression
+test for ONE_RING, not the independent STOP control: without the availability
+fix it fails because the old default was enabled.
 
 ## Remaining work
 

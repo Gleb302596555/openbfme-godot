@@ -309,3 +309,21 @@ TEST_CASE("PORT-238 ring button is available with CAN_STEALTH even without a ste
     w.frames(1);
     CHECK_FALSE(unit->testModelCondition(CombatNames::modelCondition("ONE_RING"))); // RW 0x7729A6 skips a null module
 }
+
+TEST_CASE("PORT-238 adjacent stop still sends its message without CAN_STEALTH")
+{
+    ButtonWorld w;
+    Object *wearer = w.unit("P238Wearer", 'A', 150, 150);
+    w.frames(3);
+    wearer->setStatus((unsigned)CombatNames::status("CAN_STEALTH"), false);
+    w.select(*wearer);
+    const auto *stop = w.button("P238Stop");
+    REQUIRE(stop != nullptr);
+    REQUIRE(stop->state == ButtonState::Enabled);
+    std::vector<GameMessage> sent;
+    w.input->setLogicMessageObserver([&](const GameMessage &m) { sent.push_back(m); });
+    REQUIRE(w.bar->pressButton(stop->slot, true));
+    CHECK(w.input->flush() == 1);
+    REQUIRE(sent.size() == 1);
+    CHECK(sent[0].getType() == MSG_DO_STOP);
+}
