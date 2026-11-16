@@ -327,3 +327,40 @@ TEST_CASE("PORT-238 adjacent stop still sends its message without CAN_STEALTH")
     REQUIRE(sent.size() == 1);
     CHECK(sent[0].getType() == MSG_DO_STOP);
 }
+
+TEST_CASE("PORT-238 ring upgrade create consumes one name and respects the exempt-status gate")
+{
+    World w;
+    const char *data =
+        "Upgrade Upgrade_P238First\n Type = OBJECT\n End\n"
+        "Upgrade Upgrade_P238Second\n Type = OBJECT\n End\n"
+        "Object P238DefaultGrant\n"
+        " KindOf = INFANTRY SELECTABLE\n"
+        " Body = ActiveBody Body\n MaxHealth = 100\n End\n"
+        " Behavior = GrantUpgradeCreate Grant\n"
+        "  UpgradeToGrant = Upgrade_P238First Upgrade_P238Second\n"
+        " End\n"
+        "End\n"
+        "Object P238ExemptGrant\n"
+        " KindOf = INFANTRY SELECTABLE\n"
+        " Body = ActiveBody Body\n MaxHealth = 100\n End\n"
+        " Behavior = GrantUpgradeCreate Grant\n"
+        "  UpgradeToGrant = Upgrade_P238First Upgrade_P238Second\n"
+        "  ExemptStatus = UNDER_CONSTRUCTION\n"
+        " End\n"
+        "End\n";
+    const std::string error = w.w.load(data, INI_LOAD_OVERWRITE, "port238_grant.ini");
+    REQUIRE_MESSAGE(error.empty(), error);
+    Object *defaultGrant = w.unit("P238DefaultGrant", 'A', 300, 300);
+    Object *exemptGrant = w.unit("P238ExemptGrant", 'A', 350, 300);
+    // RW 0xC70158: UpgradeToGrant uses 0x42EE5E (one unquoted token);
+    // RW 0x8BD15E: creation requires the exempt UNDER_CONSTRUCTION bit.
+    CHECK_FALSE(defaultGrant->hasUpgrade("Upgrade_P238First"));
+    CHECK_FALSE(defaultGrant->hasUpgrade("Upgrade_P238Second"));
+    CHECK(exemptGrant->hasUpgrade("Upgrade_P238First"));
+    CHECK_FALSE(exemptGrant->hasUpgrade("Upgrade_P238Second"));
+    // RW 0x8BD1D4: build completion grants the one configured name once.
+    defaultGrant->friend_onBuildComplete();
+    CHECK(defaultGrant->hasUpgrade("Upgrade_P238First"));
+    CHECK_FALSE(defaultGrant->hasUpgrade("Upgrade_P238Second"));
+}

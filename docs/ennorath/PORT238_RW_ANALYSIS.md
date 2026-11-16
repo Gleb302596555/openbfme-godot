@@ -106,6 +106,12 @@ activation are not yet claimed equivalent.
 * `RW 0x8842AF` constructs SlaughterHordeContain data, loading the float at
   `0xBD869C` (0.5) into `+0xD4` at `0x8842E2`. The port's default is 0.5 in
   `GarrisonContain.h`. `0xC5EFE8` is the field table, not the constructor.
+* `RW 0xC70158` has `UpgradeToGrant` at `+0x08` with parser `0x42EE5E`;
+  that calls `0x42E757`, which takes one unquoted token. DONOR BFME2's
+  `GrantUpgradeCreate.cpp` also lists `parseAsciiString` for that field. The
+  isolated synthetic `PORT-238*` test confirms that with two unquoted upgrade
+  names the port grants only the first when the other conditions permit it.
+  This is not an end-to-end verdict on the mod's object lifecycle.
 * `RW 0x8BD15E` grants the one configured upgrade during creation only when
   `GiveOnBuildComplete` is false, the exempt mask contains bit 2 and the object
   does not have bit 2. `UpgradeModuleClasses.cpp` implements these checks.
@@ -125,8 +131,8 @@ The source and build-tree core archive contained the fixes. `-tc="PORT-238*"`
 reported:
 
 ```
-[doctest] test cases:   6 |   6 passed | 0 failed | 0 skipped
-[doctest] assertions: 131 | 131 passed | 0 failed |
+[doctest] test cases:   7 |   7 passed | 0 failed | 0 skipped
+[doctest] assertions: 149 | 149 passed | 0 failed |
 [doctest] Status: SUCCESS!
 ```
 
@@ -136,7 +142,7 @@ compiled and linked ahead of that same archive: one omitted only the queue
 and dispatch. With the former, `-tc="PORT-238 delivery*"` exited 1:
 
 ```
-[doctest] test cases:  2 |  0 passed | 2 failed | 4 skipped
+[doctest] test cases:  2 |  0 passed | 2 failed | 5 skipped
 [doctest] assertions: 45 | 39 passed | 6 failed |
 [doctest] Status: FAILURE!
 ```
@@ -144,7 +150,7 @@ and dispatch. With the former, `-tc="PORT-238 delivery*"` exited 1:
 With the latter, `-tc="PORT-238 One Ring button*"` exited 1:
 
 ```
-[doctest] test cases:  1 |  0 passed | 1 failed | 5 skipped
+[doctest] test cases:  1 |  0 passed | 1 failed | 6 skipped
 [doctest] assertions: 15 | 14 passed | 1 failed |
 [doctest] Status: FAILURE!
 ```
@@ -153,7 +159,7 @@ The independently scoped `-tc="PORT-238 adjacent stop*"` passed in both
 negative-control executables:
 
 ```
-[doctest] test cases:  1 |  1 passed | 0 failed | 5 skipped
+[doctest] test cases:  1 |  1 passed | 0 failed | 6 skipped
 [doctest] assertions: 17 | 17 passed | 0 failed |
 [doctest] Status: SUCCESS!
 ```
