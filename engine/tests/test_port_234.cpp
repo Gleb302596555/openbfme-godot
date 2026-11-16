@@ -26,6 +26,7 @@
 #include "Common/Audio/AudioEntryPoints.h"
 #include "Common/Audio/MiscAudio.h"
 #include "Common/Audio/GameAudio.h"
+#include "Common/Money.h"
 
 #include <string>
 #include <vector>
@@ -246,6 +247,97 @@ TEST_CASE("PORT-234: unit-voice and object-sound stops are reported by acceptanc
     CHECK(std::count_if(stops.begin(), stops.end(), [](const std::string &s) { return s.find("S-707") != std::string::npos; }) == 1);
 }
 } // namespace
+
+
+// ---- Money sounds (RW 0x7B18B8 deposit, RW 0x7B17EF withdraw) ----
+
+namespace
+{
+const char kMoneyBaseAudioSettings[] =
+    "AudioSettings\n"
+    "  AudioRoot = Data\\Audio\n"
+    "  SoundsFolder = Sounds\n"
+    "  MusicFolder = Tracks\n"
+    "  StreamingFolder = Speech\n"
+    "  AmbientStreamFolder = AmbientStreams\n"
+    "  SoundsExtension = wav\n"
+    "  SampleCount2D = 2\n"
+    "  SampleCount3D = 3\n"
+    "  StreamCount = 3\n"
+    "  MinSampleVolume = 2%\n"
+    "  GlobalMinRange = 5000\n"
+    "  GlobalMaxRange = 5000000\n"
+    "  TimeToFadeAudio = 300\n"
+    "  AmbientStreamHysteresisVolume = 10\n"
+    "  DefaultSoundVolume = 100%\n"
+    "  DefaultVoiceVolume = 100%\n"
+    "  DefaultMusicVolume = 100%\n"
+    "  DefaultAmbientVolume = 100%\n"
+    "  DefaultMovieVolume = 100%\n"
+    "End\n";
+
+struct MoneyAudioRig
+{
+    initest::Fixture fx;
+    AudioIniState ini;
+    std::unique_ptr<AudioManager> mgr;
+
+    MoneyAudioRig()
+    {
+        initest::FileList list;
+        list.push_back({"Data\\Audio\\Sounds\\MoneyClick.wav", "x"});
+        fx.mount(list);
+
+        ini.registerBlocks(fx.env.blocks);
+        const std::string miscAudio =
+            "MiscAudio\n"
+            "  MoneyDepositSound = MoneyClick\n"
+            "  MoneyWithdrawSound = MoneyClick\n"
+            "End\n";
+        const std::string combined = std::string(kMoneyBaseAudioSettings) + miscAudio;
+        const std::string err = initest::loadError(fx.env, "audio.ini", combined);
+        REQUIRE_MESSAGE(err.empty(), err);
+
+        auto cache = std::make_unique<AudioAssetCache>(&fx.fsys, 64u * 1024u * 1024u);
+        auto device = std::make_unique<SimulatedAudioDevice>(cache.get());
+        mgr = std::make_unique<AudioManager>(ini, *cache, *device, RandomAlgorithm::ZH_CarryChain, 1234);
+        mgr->update(0.0);
+    }
+};
+} // namespace
+
+TEST_CASE("PORT-234: Money::deposit plays MoneyDepositSound when playSound is true (RW 0x7B18B8)")
+{
+    MoneyAudioRig rig;
+    AudioApi::install(rig.mgr.get());
+    Money money;
+    money.setPlayerIndex(0);
+    money.deposit(100, true);
+    CHECK(rig.mgr->report().played == 1); // падает без правки (played == 0), проходит с правкой (played == 1)
+    AudioApi::install(nullptr);
+}
+
+TEST_CASE("PORT-234: Money::withdraw plays MoneyWithdrawSound when playSound is true (RW 0x7B17EF)")
+{
+    MoneyAudioRig rig;
+    AudioApi::install(rig.mgr.get());
+    Money money(1000);
+    money.setPlayerIndex(0);
+    money.withdraw(100, true);
+    CHECK(rig.mgr->report().played == 1); // падает без правки (played == 0), проходит с правкой (played == 1)
+    AudioApi::install(nullptr);
+}
+
+TEST_CASE("PORT-234: Money::deposit with playSound=false does not play MoneyDepositSound (RW 0x7B18B8)")
+{
+    MoneyAudioRig rig;
+    AudioApi::install(rig.mgr.get());
+    Money money;
+    money.setPlayerIndex(0);
+    money.deposit(100, false);
+    CHECK(rig.mgr->report().played == 0); // без звука при playSound=false
+    AudioApi::install(nullptr);
+}
 
 TEST_SUITE("PORT-234")
 {
