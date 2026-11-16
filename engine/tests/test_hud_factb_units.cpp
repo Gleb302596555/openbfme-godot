@@ -29,6 +29,8 @@
 #include "GameLogic/Module/SpecialAbilityModules.h"
 #include "GameLogic/Module/HeroAbilityModules.h"
 #include "GameLogic/Module/HordeDispatchSpecialPower.h"
+#include "Common/Thing/ThingTemplate.h"
+#include "GameLogic/Module/HeroModules.h"
 #include "GameLogic/Module/SpellBookPowers.h"
 #include "GameLogic/Module/StealthAbilityModules.h"
 #include "GameLogic/Module/WeaponChangeSpecialPower.h"
@@ -432,6 +434,25 @@ struct EffectProbe
 	unsigned weaponModeActive = 0;
 	float bounty = 0.0f; ///< lane FACT-C: the caster's player's bounty percent
 
+	// lane TAINTAREA-1: Taint / Elven Wood paint TheTaintManager's grid under their area object, whose AttributeModifierAuraUpdate (RequiredConditions
+	// TAINT / ELVEN_WOOD) gives its BonusName to the caster's allies standing on the painted ground: that list is the power's effect
+	static void areaAura(Object &holder, const std::string &cls, const std::string &areaName, EffectProbe &p)
+	{
+		const ThingTemplate *area = holder.logic().things().findTemplate(areaName);
+		std::string bonus;
+		for (const ThingTemplate::Nugget &n : area ? area->behaviorModules().nuggets() : std::vector<ThingTemplate::Nugget>{})
+		{
+			const AttributeModifierAuraUpdateModuleData *ad = dynamic_cast<const AttributeModifierAuraUpdateModuleData *>(n.data.get());
+			bonus = ad && bonus.empty() ? ad->m_bonusName : bonus;
+		}
+		if (bonus.empty())
+		{
+			p.unasserted.push_back(cls);
+			return;
+		}
+		p.expects.push_back({ MODIFIER, cls + " area " + areaName + " aura " + bonus, bonus });
+	}
+
 	static void expectFrom(BehaviorModule *m, Object &holder, const SpecialPowerTemplate *t, EffectProbe &p, int depth)
 	{
 		const std::string cls = m->getModuleClassName();
@@ -598,6 +619,14 @@ struct EffectProbe
 		else if (dynamic_cast<const HordeDispatchSpecialPower *>(m))
 		{
 			// lane FACT-C: the horde passes the power on to its members (S-2001): their modules carry the results
+		}
+		else if (const TaintSpecialPower *tp = dynamic_cast<const TaintSpecialPower *>(m))
+		{
+			areaAura(holder, cls, tp->data()->m_taintObject, p); // lane TAINTAREA-1
+		}
+		else if (const ElvenWoodSpecialPower *ep = dynamic_cast<const ElvenWoodSpecialPower *>(m))
+		{
+			areaAura(holder, cls, ep->data()->m_elvenGroveObject, p); // lane TAINTAREA-1
 		}
 		else if (cls != "SpecialPowerModule" && !(spm && !spm->spData()->m_attributeModifier.empty()))
 		{
@@ -1388,25 +1417,62 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 						res.fail(item, "the press sent nothing");
 						continue;
 					}
+					const bool playerUpgrade = up->getUpgradeType() == UPGRADE_TYPE_PLAYER;
+					const int cost = up->calcCostToBuild(g.rig.local, u);
 					const int expect = (int)std::ceil(up->getBuildTimeSeconds() * 5.0f);
-					bool got = false;
-					for (int f = 0; f < expect + 60 && !got; ++f)
+					bool got = false, gone = false;
+					for (int f = 0; f < expect + 60 && !got && !gone; ++f)
 					{
 						g.step(1);
-						got = u->hasUpgrade(up);
+						u = g.logic().findObjectByID(uid);
+						gone = !playerUpgrade && !u;
+						// UPGRADE_TYPE_PLAYER (e.g. ImladrisLoremaster Tome upgrades) lands on Player (RW 0x6AEE22), not the Object
+						got = playerUpgrade ? g.rig.local->hasUpgradeComplete(up) : (u && u->hasUpgrade(up));
 					}
-					const int cost = up->calcCostToBuild(g.rig.local, u);
+					if (gone)
+					{
+						// the unit left the world once the upgrade landed: ReplaceObjectUpgrade (a wall segment's gate / tower / hub, MordorBattleTower ->
+						// Ungol) makes a new object of the player at the spot, as the special powers' replacement above (2026-11-16: the by-id lookup of
+						// Local 75 no longer sees the destroyed unit's upgrade)
+						Object *after = nullptr;
+						for (Object *o = g.logic().getFirstObject(); o; o = o->getNextObject())
+						{
+							if (o->getID() > uid && o->getControllingPlayer() == g.rig.local && o->getTemplate() && o->getTemplate()->getName() != e->name
+								&& dist2d(*o->getPosition(), c) < 600.0f
+								&& (factb::hasKindOf(*o->getTemplate(), "SELECTABLE") || factb::hasKindOf(*o->getTemplate(), "STRUCTURE")))
+							{
+								after = o;
+							}
+						}
+						if (after)
+						{
+							res.pass(item, str("%s replaced the unit with %s after %u frames, cost %d", cb->m_upgradeName.c_str(),
+											   after->getTemplate()->getName().c_str(), g.frame() - pressFrame, cost));
+						}
+						else
+						{
+							res.fail(item, str("%s: the unit left the world %u frames after the press, nothing replaced it", cb->m_upgradeName.c_str(),
+											   g.frame() - pressFrame));
+						}
+						continue;
+					}
 					if (!got)
 					{
-						res.fail(item, str("%s not on the unit after %d frames", cb->m_upgradeName.c_str(), expect + 60));
+						if (playerUpgrade)
+						{
+							g.rig.local->removeUpgrade(up, true);
+						}
+						res.fail(item, str("%s not %s after %d frames", cb->m_upgradeName.c_str(), playerUpgrade ? "on the player" : "on the unit", expect + 60));
 						continue;
 					}
 					std::string members;
 					size_t without = 0, count = 0, carriers = 0;
-					if (u->getContain() && u->isKindOfName("HORDE")) // a horde passes its upgrades on (a transport's riders are not its members)
+					u = g.logic().findObjectByID(uid);
+					if (!playerUpgrade && u && u->getContain() && u->isKindOfName("HORDE")) // a horde passes its upgrades on (a transport's riders are not its members)
 					{
 						g.step(3);
-						for (Object *m : *u->getContain()->getContainedItemsList())
+						u = g.logic().findObjectByID(uid);
+						if (u && u->getContain()) for (Object *m : *u->getContain()->getContainedItemsList())
 						{
 							// the members the horde passes it to: those affected by it (RW 0x87566B -> RW 0x694914); a level of the horde
 							// (LevelUpUpgrade) stays on the horde
@@ -1424,6 +1490,11 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 							}
 						}
 					}
+					if (playerUpgrade)
+					{
+						// Remove the player upgrade before the next spawn so DoCommandUpgrade on ImladrisLoremaster doesn't fire at creation (RW 0x6AE60C).
+						g.rig.local->removeUpgrade(up, true);
+					}
 					if (count == 0 && carriers > 0)
 					{
 						res.fail(item, str("no member has %s, though %zu member modules are triggered by it", cb->m_upgradeName.c_str(), carriers));
@@ -1437,7 +1508,8 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 						// RW 0x87566B (HordeContain slot 0x174): the horde passes its upgrades to every member that is affected by them
 						res.fail(item, str("%zu of the %zu members lack %s", without, count, cb->m_upgradeName.c_str()));
 					}
-					res.pass(item, str("%s in %u frames, cost %d, on all %zu members it affects", cb->m_upgradeName.c_str(), g.frame() - pressFrame, cost, count));
+					res.pass(item, str("%s in %u frames, cost %d%s", cb->m_upgradeName.c_str(), g.frame() - pressFrame, cost,
+						playerUpgrade ? " (player upgrade)" : str(", on all %zu members it affects", count).c_str()));
 					continue;
 				}
 				if (other)
@@ -3240,8 +3312,10 @@ TEST_CASE("factb spell book: every Isengard spell book power cast through the HU
 	// again (664 more lost with the cast), so its line passes; S-921 keeps the explanation (no effect of its own is asserted). Dragon Strike stays KNOWN (S-1997)
 	// pin: P-45 (2026-11-06, PROCESS 7 rule 2): on the fork the upstream merge 5361552b's fight misses the 500 heuristic again (1868 lost with the cast, 1936
 	// without; 55aa2e22, its first parent, passes): a KNOWN line once more (S-921), as after q38
+	// the fork's merge of upstream 942fd79e (2026-11-16): Isengard's Taint passes by its own effect (the TaintLand aura's GenericBuff on the caster's
+	// units), as Mordor's does since TAINTAREA-1, so its S-1997 entry goes
 	r.check({ { "spell SpellBookDevastation", "S-921" }, { "spell SpellBookIndustry", "S-1997" },
-		{ "spell SpellBookFueltheFires", "S-1997" }, { "spell SpellBookDragonStrike", "S-1997" }, { "spell SpellBookIsengardTaint", "S-1997" } });
+		{ "spell SpellBookFueltheFires", "S-1997" }, { "spell SpellBookDragonStrike", "S-1997" } });
 }
 
 TEST_CASE("factb spell book: every Mordor spell book power cast through the HUD's spell bar shows its effect")
@@ -3253,7 +3327,8 @@ TEST_CASE("factb spell book: every Mordor spell book power cast through the HUD'
 	Results r;
 	spellBookOf("FactionMordor", r);
 	r.print("spell book FactionMordor");
-	r.check({ { "spell SpellBookIndustry", "S-1997" }, { "spell SpellBookTaint", "S-1997" }, { "spell SpellBookUntamedAllegiance", "S-1997" } });
+	// lane TAINTAREA-1: Taint's line passes by its own effect (the TaintLand aura's GenericBuff on the caster's units), its pin goes
+	r.check({ { "spell SpellBookIndustry", "S-1997" }, { "spell SpellBookUntamedAllegiance", "S-1997" } });
 }
 
 namespace
@@ -4213,7 +4288,7 @@ TEST_CASE("factc spell book: every Goblin and Angmar spell bought in the store a
 		return;
 	}
 	factcCase("spell book", "FactionWild", spellsViaStore,
-			  { { "spell SpellBookTaint", "S-1997|no effect of TaintSpecialPower" }, { "spell SpellBookUntamedAllegiance", "S-1997|the HUD refused the scene's spot" } });
+			  { { "spell SpellBookUntamedAllegiance", "S-1997|the HUD refused the scene's spot" } }); // lane TAINTAREA-1: Taint passes by its own effect
 	factcCase("spell book", "FactionAngmar", spellsViaStore, { { "spell SpellBookUntamedAllegiance", "S-1997|the HUD refused the scene's spot" } });
 }
 

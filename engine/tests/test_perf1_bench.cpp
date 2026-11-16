@@ -660,6 +660,7 @@ TEST_CASE("perf1 bench: 4-player skirmish (medium computer players, 20 game minu
 // once on the merged tree (OPENBFME_PERF1_REGEN=1, Linux GCC on Colab, whose hashes match the MSVC pins): PORT-437 (#476), the generic attack machine's
 // object conditions RW 0x7457DF (out of reach -> chase) and RW 0x745901 (crush the victim instead), moves the battle from frame 45 and the skirmish from
 // frame 540. Attributed by a switch-off run: the merged tree with #476 reverted passes the previous vectors; the allied blob keeps its file
+// pin: Local 73 P-144 (RW 0x691014 -> 0x73F6B9 -> 0x73D89F): ObjectWeapons::hasWeaponSetFor matches default None WeaponTemplateSet, moving 4-player skirmish from frame 5389 (big_battle_400 and allied_blob_300 unchanged; switch-off run without P-144 passed 12676/12676)
 // pin: batch 3 of 2026-11-15 (fork PRs 484 .. 501, 10 merged) re-measured it once on the merged tree (REGEN=1, Linux GCC on Colab, whose hashes
 // match the MSVC pins). The per-PR checks (each PR alone on main 157b917f) name the movers: Local 59 (#500, WeaponFireSpecialAbilityUpdate makes and
 // loads its weapon in the constructor and crc() hashes it, RW 0x895DE1: from frame 0), Local 61 (#501, stunned units skip the AI update, RW 0x669652),
@@ -682,6 +683,9 @@ TEST_CASE("perf1: the big battle (400 frames) and a 4-player AI skirmish after a
 	// whose hashes match the MSVC pins): with the batch only perf1 and uber1 move against main bc66c72f on the same machine (every other suite of the
 	// batch run fails or passes as on main); the batch's logic changes are Port 138 (a rubble rebuild), Port 145 (SHIP enter legs), Port 148 (GIANT_BIRD
 	// separation), Port 164 (the giant bird's contact point, mode 1) and Port 29 (BuildingBehavior's fire lists); not bisected between them
+	// pin: the fork's merge of upstream 942fd79e (2026-11-16) re-measured the battle and the skirmish once on the merged tree (OPENBFME_PERF1_REGEN=1,
+	// Linux GCC on Colab, whose hashes match the MSVC pins): the merge's AIAttack and ThreatFinderUpdate changes move the battle from frame 48 and
+	// the skirmish from frame 24 (allied_blob_300 unchanged); not bisected between them
 	const std::vector<std::uint32_t> battleRef = perf1::readHashes("big_battle_400.hashes");
 	const std::vector<std::uint32_t> skirmishRef = perf1::readHashes("skirmish4_6000.hashes");
 	// OPENBFME_PERF1_REGEN=1 rewrites the two reference vectors from this build instead of comparing: run it only when a merged change is MEANT to

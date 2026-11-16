@@ -523,16 +523,19 @@ std::unique_ptr<Weapon> ObjectWeapons::makeExtraWeapon(const WeaponTemplate *t)
 	return w;
 }
 
+// Both editions: RW 0x691014 (DONOR BFME2 0x0029091E Object::rva0029091E) builds a WeaponSetFlags with `bit` and queries
+// ThingTemplate::findWeaponTemplateSet (RW 0x73F6B9 -> 0x73EE52 -> 0x73D89F). Because FindWeaponTemplateSet returns the
+// default Conditions = None set (bestUnmatched < 0x3E7) whenever any WeaponSet is defined on the template, templates such as
+// ImladrisZwillingeEdain and ImladrisGwaihir still receive WEAPONSET_HERO_MODE (0x1B) in HeroModeSpecialAbilityUpdate.
 bool ObjectWeapons::hasWeaponSetFor(int bit) const
 {
-	for (const WeaponTemplateSet &s : m_owner->getTemplate()->weaponTemplateSets())
+	if (bit < 0 || bit >= 128)
 	{
-		if (s.testWeaponSetFlag(bit))
-		{
-			return true;
-		}
+		return false;
 	}
-	return false;
+	WeaponSetFlags flags{};
+	flags[(size_t)bit >> 5] |= 1u << (bit & 31);
+	return FindWeaponTemplateSet(m_owner->getTemplate()->weaponTemplateSets(), flags) != nullptr;
 }
 
 int ObjectWeapons::extraWeaponStatus(Weapon &w)
@@ -1013,7 +1016,7 @@ const char *ObjectWeapons::choiceStopLine()
 	return "[S-1582] weapon choice: RW 0x6C8A4E is ported (lane DECOMP-1: criteria 0 .. 5, ReadyStatusSharedWithinSet, the victimless pick, the 1 / 0 score of canDamage RW 0x6CDBF3 "
 	       "through each nugget's isApplicable, the range error, OnlyAgainst / PreferredAgainst / OnlyInCondition, the turret aim gate RW 0x662398 on GARRISON-2's TurretAI); "
 	       "NOT ported: calcPitches RW 0xAD2620 for a pitch-limited weapon (taken as within; no retail weapon limits its pitch), CannotTargetCastleVictims' test (no retail weapon "
-	       "sets it), DamageContainedNugget's contain slot 0x1C (taken as false); INFERENCE: HordeAttackNugget's member (RW 0x9119CB, horde slots 0x50 / 0x114) is the first living one";
+	       "sets it)";
 }
 
 // RW 0x6CDBF3 Weapon::canDamage (lane DECOMP-1, tier A): no template, or OUT_OF_AMMO with AutoReloadsClip set: false; CannotTargetCastleVictims (+ 0x168: a victim

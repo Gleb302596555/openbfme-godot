@@ -93,7 +93,7 @@ const char kFiveSoldiers[] =
 	"    InitialPayload = Swordsman 5\n";
 
 // three soldiers and a banner carrier from rank 2 on. BannerCarrierMinLevel 1 keeps this fixture off the carrier RotWK makes at build complete for a
-// level of 0 (RW 0x871901 -> RW 0x870204, not ported: S-7317): here the carrier comes from the level test alone (RW 0x871A1B), in RotWK and in the port
+// level of 0 (RW 0x871901 -> RW 0x870204, lane PORT-209): here the carrier comes from the level test alone (RW 0x871A1B), in RotWK and in the port
 const char kThreeSoldiersAndBanner[] =
 	"    RankInfo = RankNumber:1 UnitType:Swordsman Position:X:50 Y:0 Position:X:50 Y:20 Position:X:50 Y:-20\n"
 	"    Slots = 3\n"
@@ -103,7 +103,7 @@ const char kThreeSoldiersAndBanner[] =
 	"    BannerCarrierMinLevel = 1\n";
 
 // a horde whose banner carrier is due from the start: BannerCarrierMinLevel 0. RotWK makes this horde's carrier at build complete when it has no producer
-// (RW 0x8718F5 .. 0x87190E -> RW 0x870204), which the port does not do (S-7317): only the stop's test uses this fixture
+// (RW 0x8718F5 .. 0x87190E -> RW 0x870204, lane PORT-209): the buildObjectNow test below uses this fixture
 const char kThreeSoldiersAndBannerAtOnce[] =
 	"    RankInfo = RankNumber:1 UnitType:Swordsman Position:X:50 Y:0 Position:X:50 Y:20 Position:X:50 Y:-20\n"
 	"    Slots = 3\n"
@@ -480,44 +480,27 @@ TEST_CASE("PORT-117 replenish: a damaged summoned horde is refilled in the same 
 	CHECK(f.soldiers(plain).size() == 3u);
 }
 
-// What stays unported is reported, not hidden (docs/STOPS.md, S-7317). RotWK's HordeContain makes the banner carrier in the SAME call as the payload when the
-// horde has no producer and its BannerCarrierMinLevel is 0 (RW 0x8718F5 .. 0x87190E -> RW 0x870204); buildObjectNow clears the producer for that call
-// (RW 0x7979E8), so a summoned horde with that level has its carrier when the call returns. The port's carrier comes from the horde's update
-// (HordeContain::bannerCheck, RW 0x8719E4, S-587), after the call. The stop must be in the game's live report and have its row; how many frames late the
-// port's carrier is, is printed for that row and not asserted (it is the port's gap, not RotWK's behaviour).
-TEST_CASE("PORT-117 stop S-7317: the banner carrier RotWK makes at build complete (RW 0x8718F5 -> 0x870204) is reported as not ported")
+// RotWK's HordeContain makes the banner carrier in the SAME call as the payload when the horde has no producer and its BannerCarrierMinLevel is 0
+// (RW 0x8718F5 .. 0x87190E -> RW 0x870204); buildObjectNow clears the producer for that call (RW 0x7979E8), so a summoned horde with that level has its
+// carrier when the call returns (lane PORT-209 ported the tail; S-7317 closed). The horde's rank is not asked (the level test RW 0x871A14 is
+// bannerCheck's): this fixture's horde stays at its starting rank 0
+TEST_CASE("PORT-117 buildObjectNow: the banner carrier RotWK makes at build complete (RW 0x8718F5 -> 0x870204) is there when the call returns")
 {
 	Port117World f;
-	bool reported = false;
-	for (const std::string &line : f.logic->report().stops)
-	{
-		reported = reported || line.rfind("[S-7317]", 0) == 0;
-	}
-	CHECK(reported);
-	std::ifstream in(std::string(OPENBFME_DOCS_DIR) + "/STOPS.md");
-	REQUIRE_MESSAGE(static_cast<bool>(in), "cannot read docs/STOPS.md (OPENBFME_DOCS_DIR = " << OPENBFME_DOCS_DIR << ")");
-	std::stringstream doc;
-	doc << in.rdbuf();
-	CHECK(doc.str().find("| S-7317 | code |") != std::string::npos);
-
 	Object *builder = f.unit("Swordsman", 'A', 200, 200);
 	REQUIRE(builder);
 	Player *owner = f.playerOf('A');
 	REQUIRE(owner);
 	Object *horde = Construction::buildObjectNow(*f.logic, builder, f.tmpl("Port117BannerAtOnceHorde"), Coord3D{ 500.0f, 500.0f, 0.0f }, 0.0f, *owner);
 	REQUIRE(horde);
-	CHECK(f.soldiers(horde).size() == 3u); // the ported half: the payload is made in the call (RW 0x7979E8, RW 0x86A1FA)
-	// a horde of the game starts at rank 1 (its ExperienceLevel data; this fixture has none: Horde2TestUtil.h), which BannerCarrierMinLevel 0 is below
-	REQUIRE(horde->getExperienceTracker());
-	ExperienceTrackerTestAccess::setRank(*horde->getExperienceTracker(), 1);
+	CHECK(f.soldiers(horde).size() == 3u); // the payload is made in the call (RW 0x7979E8, RW 0x86A1FA)
 	HordeContain *contain = f.hordeOf(horde);
 	REQUIRE(contain);
-	int late = 0;
-	while (late != 20 && contain->bannerCarrier() == 0)
-	{
-		f.frames(1);
-		++late;
-	}
-	MESSAGE("PORT-117 / S-7317: the port's banner carrier of a BannerCarrierMinLevel 0 horde exists " << late
-	        << " logic frame(s) after buildObjectNow (20 = never in 20; RotWK: in the call itself, RW 0x87190E)");
+	// RW 0x87190E -> RW 0x870204, in the call itself: the one Port117Bannerman of the world is the horde's carrier
+	const std::vector<Object *> carriers = f.allOf("Port117Bannerman");
+	REQUIRE(carriers.size() == 1u);
+	CHECK(contain->bannerCarrier() == carriers.front()->getID());
+	CHECK(carriers.front()->getContainedBy() == horde);
+	REQUIRE(horde->getExperienceTracker());
+	CHECK(horde->getExperienceTracker()->getRank() == 0);
 }

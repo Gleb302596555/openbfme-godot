@@ -803,6 +803,7 @@ private:
 		int animKeyGlow = 0;                      ///< lane GLOW-1: the poseView's glow flags (part of the key since the glow pass)
 		std::uint32_t animKeyMaterialGen = 0;     ///< LOCAL-21: poseView's materialStateGeneration
 		std::uint32_t animKeyRenderGen = 0;       ///< LOCAL-21: poseView's renderObjectGeneration
+		bool animKeyFloor = false;                ///< LOCAL-65: whether this posed slab entry was built as #floor
 		bool animKeyTinted = false;               ///< LOCAL-3: whether the posed model key carries "|tint:<id>" for this drawable's active tint envelope
 		bool staticKeyTinted = false;             ///< LOCAL-3: whether the static model key carries "|tint:<id>"
 		int64_t tintModelId = -1;                 ///< LOCAL-3: the instancer model id for set_model_tint

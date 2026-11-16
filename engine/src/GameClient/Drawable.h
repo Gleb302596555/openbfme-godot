@@ -58,6 +58,7 @@ class AnimationSoundModuleManager;
 class ModelConditionAudioLoopClientBehavior;
 class LightPulsePool;
 class W3DLightDraw;
+class W3DTornadoDraw;
 
 // LOCAL-3: TintEnvelope (ZH Include/GameClient/TintEnvelope.h, RW 0x671B20 .. 0x674AD7 / BFME2 0x671800 .. 0x6747B1, both editions identical).
 // Steps a drawable's additive tint or selection flash through attack, sustain and decay at the client frame rate, with optional sine modulation by the
@@ -168,6 +169,7 @@ struct DrawEntry
 	std::string notDrawnReason;       ///< why a non-model entry draws nothing
 	std::unique_ptr<W3DScriptedModelDraw> draw; ///< MODEL kind
 	std::unique_ptr<W3DLightDraw> lightDraw;    ///< lane LOCAL-28: W3DLightDraw dynamic light module
+	std::unique_ptr<W3DTornadoDraw> tornadoDraw; ///< Local 73 (P-146): W3DTornadoDraw spiral ground decals (RW 0x4D102E)
 	std::unique_ptr<W3DSupplyDraw> supply;     ///< PORT-77: supply-pile variant status alongside the shared model runtime
 	bool animated = false;            ///< advance() would change the draw (W3DScriptedModelDraw::needsAdvance, set at creation and on every flag change, never lowered by an advance: the pose after a blend's promotion is still pushed): advance() each render frame
 	bool missingModel = false;        ///< the model is not in the mounted archives (a retail data defect): not drawn
@@ -191,6 +193,14 @@ struct DrawEntry
 	int trackId = -1;
 	// lane LOCAL-29 (issue #218): AttachToBoneInAnotherModule (RW 0x4B6A6F..0x4B6B26 / RW 0x672B5B)
 	std::string attachToBone;
+	// Both editions (RW 0x4C4EE0..0x4C5175): per-draw-module shadow state & fade curve tracking (m_shadow on each W3DScriptedModelDraw).
+	mutable bool shadowStateInitialized = false;
+	mutable UnsignedInt shadowStartFrame = 0;
+	mutable UnsignedInt shadowFadeOutStartFrame = ~0u;
+	mutable const ModelConditionInfo *lastShadowState = nullptr;
+	mutable const RenderObjPrototype *lastShadowModel = nullptr;
+	mutable std::string lastShadowModelName;
+	mutable bool lastShadowStateHasShadow = false;
 };
 
 // LOCAL-25 (issue #187): client presentation physics state (retail Drawable + 0x13C, RW 0x67BDC0 / donor 0x00270098)
@@ -251,7 +261,7 @@ public:
 	DrawableID getID() const { return m_id; }
 	ObjectID getObjectID() const { return m_objectId; }
 	// SMOOTH-1: the object's KindOf bits as the creation event carried them (Object::isKindOfName for the render side)
-	void setKindOf(const KindOfMaskType &kindOf) { m_kindOf = kindOf; }
+	void setKindOf(const KindOfMaskType &kindOf) { m_kindOf = kindOf; m_swirlMoveOnly = -1; }
 	bool isKindOfName(const char *name) const;
 	// lane SELWALL-1: the same by the bit's index (ObjectTemplateInfoBuilder::kindOfIndex; -1: false), for a per-frame test without the name lookup
 	bool isKindOfIndex(int bit) const;
@@ -341,6 +351,10 @@ public:
 	// lane LOCAL-28 / LOCAL-29: queries bone world transform across draw module models (RW 0x00672B5B / DONOR BFME2 0x00272835)
 	bool boneTransform(const std::string &boneName, Matrix3D &outTransform) const;
 	bool boneWorldPosition(const std::string &boneName, Coord3D &outPos) const;
+	// P-149 (RW 0x676BD7 -> 0x672AEE; DONOR BFME2 0x002768AC): current posed bone transforms relative to drawable
+	int currentClientBonePositions(const std::string &boneNamePrefix, int startIndex, std::vector<Matrix3D> &outTransforms, int maxBones) const;
+	// P-149 (RW 0x678BF2 -> 0x676C7D; DONOR BFME2 0x00276952): tangent vector around B_TORNADO bone/transform for Swirly particles (both editions)
+	bool swirlInfluence(const Coord3D &worldPos, UnsignedInt clientFrame, Coord3D &outTangent) const;
 	// Local 34 (issue #284): maximum geometry height above position for this drawable's template (RW 0xAD1920)
 	float geometryHeight() const;
 	// lane LOCAL-29 (issue #218): computes world transform of entry e (RW 0x004B6A6F..0x004B6B26 / slot +0x104); returns true if attached
@@ -666,6 +680,11 @@ private:
 	UnsignedInt m_tintStatus = 0;                      ///< +0x118
 	UnsignedInt m_prevTintStatus = 0;                  ///< +0x11C
 	bool m_hasTrackMarks = false;                      ///< lane PORT-69: any entry has non-empty TrackMarks
+	// P-149 (RW 0x676BD7): cached B_TORNADO bone/transform list refreshed at most once per client frame
+	mutable UnsignedInt m_swirlCacheFrame = 0;
+	mutable bool m_swirlCacheValid = false;
+	mutable std::vector<Matrix3D> m_swirlCacheMats;
+	mutable int m_swirlMoveOnly = -1;
 
 	// LOCAL-25: presentation physics helpers and state (RW 0x67BDC0 / RW 0x67BE90)
 	void calcPhysicsXformWheels(const LocomotorTemplate *loco, const ObjectSnapshot &rec, const RenderInterpolation::Pose &pose, PhysicsXformInfo &info);

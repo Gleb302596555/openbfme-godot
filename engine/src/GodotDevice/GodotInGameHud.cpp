@@ -47,6 +47,7 @@
 #include "GameClient/LiveFX.h"
 #include "GameClient/ProjectedShadowManager.h"
 #include "GameClient/ObjectShadow.h"
+#include "GameEngineDevice/W3DDevice/GameClient/Drawable/Draw/W3DTornadoDraw.h"
 #include "GameClient/TacticalView.h"
 #include "GameLogic/Object/Object.h"
 #include "GameLogic/Object/RetailObjectWorld.h"
@@ -1714,7 +1715,6 @@ void HudDevice::drawSelectionDecals()
 		{
 			if (const Drawable *d = dm.find((DrawableID)id))
 			{
-				SelectionDecal sd;
 				// lane PORT-91 (issue #239; RW 0x4C7848): the contained object's decal shadow waits for the contain's slot 0x2C
 				const ::Object *shadowLogicObject = world->hud_game()->logic().findObjectByID((::ObjectID)d->getObjectID());
 				auto fallbackSize = [d](float &sx, float &sy) {
@@ -1736,9 +1736,26 @@ void HudDevice::drawSelectionDecals()
 				}
 			};
 			const unsigned curFrame = world && world->hud_game() ? world->hud_game()->logic().getFrame() : 0u;
-			if (ObjectShadow::buildDrawableDecalShadow(*d, sd, useShadowDecals, fallbackSize, curFrame, shadowLogicObject))
+			std::vector<SelectionDecal> dShadows;
+			ObjectShadow::buildDrawableDecalShadows(*d, dShadows, useShadowDecals, fallbackSize, curFrame, shadowLogicObject);
+			for (SelectionDecal &item : dShadows)
 			{
-				selExtras.push_back(std::move(sd));
+				selExtras.push_back(std::move(item));
+			}
+			if (!d->clientHidden() && !d->shroudLook().hidden && !d->stealthHidden())
+			{
+				const bool playerIsLocal = (localPlayerIndex < 0 || !shadowLogicObject || !shadowLogicObject->getControllingPlayer() ||
+					shadowLogicObject->getControllingPlayer()->getPlayerIndex() == localPlayerIndex);
+				const std::uint32_t ownerColor = d->indicatorColor() != 0 ? d->indicatorColor() : d->getHouseColor();
+				const unsigned clientFrame = hud->input().ui().clientFrame();
+				for (const DrawEntry &e : d->entries())
+				{
+					if (e.tornadoDraw && !e.moduleHidden && !e.conditionHidden)
+					{
+						e.tornadoDraw->appendSelectionDecals(d->getObjectID(), (unsigned)d->getID(), playerIsLocal,
+							ownerColor, clientFrame, true, selExtras);
+					}
+				}
 			}
 			}
 		}

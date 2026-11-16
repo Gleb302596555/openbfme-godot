@@ -224,4 +224,8 @@ public:
 	void getAlphaUVData(int xIndex, int yIndex, float U[4], float V[4], std::uint8_t alpha[4], bool *flip, const TerrainUvOptions &options, ClassWrapRect *wrap = nullptr) const;
 	// Second ("3-way") blend layer (ZH getExtraAlphaUVData). Returns false when the cell has none.
 	bool getExtraAlphaUVData(int xIndex, int yIndex, float U[4], float V[4], std::uint8_t alpha[4], bool *needFlip, bool *cliff, const TerrainUvOptions &options, ClassWrapRect *wrap = nullptr) const;
+	// LOCAL-65 / P-130: base terrain cell diagonal flip matching getAlphaUVData / HeightMapMesh::kUnflipped vs kFlipped.
+	bool isCellFlipped(int xIndex, int yIndex, const TerrainUvOptions &options = TerrainUvOptions()) const;
+	// LOCAL-65 / P-130: rendered terrain triangle plane height at SAGE (worldX, worldY), matching HeightMapMesh.cpp cell triangulation.
+	float getTriangleHeightAt(float worldX, float worldY, const TerrainUvOptions &options = TerrainUvOptions()) const;
 };

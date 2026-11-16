@@ -283,7 +283,8 @@ std::vector<std::string> HeroSystem::stopLines()
 		"never set), the pool's AntiCategory disable (XP-1's S-633: counted); the aura and AutoHeal scans run on ThePartitionManager (lane MODULES-2, S-1020: the "
 		"retail order of equal distances), the special power trigger and LevelGrant scans still sort the object list by distance (equal distances keep the "
 		"list's order: as an applied modifier can grant an upgrade at once (a CostModifierUpgrade appends to the player's ordered list), that order can change "
-		"shared player state)",
+		"shared player state); lane TAINTAREA-1 ported the TAINT / ELVEN_WOOD condition (RW 0x89F200, BFME2 0x49B98A) on TheTaintManager (RW 0xAD49B0) and the "
+		"destructor's radius clear of a TAINT object (RW 0x89EE67 -> 0x683393)",
 		"[S-858] AutoHealBehavior: not ported: NonStackable (the body's last heal frame, body vslot 0x48: the heal stacks), AffectsWholePlayer (no retail use), "
 		"Object + 0x458 bit 3 in the eligibility, the contain's FX flag; the combat and recent "
 		"damage tests of RW 0x855533 read the healer (verified)",

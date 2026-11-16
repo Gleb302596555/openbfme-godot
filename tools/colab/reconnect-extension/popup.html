@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<style>
+  body { font: 13px system-ui, sans-serif; width: 320px; margin: 10px; color: #222; background: #fff; }
+  h1 { font-size: 14px; margin: 0 0 6px; }
+  .muted { color: #666; }
+  ul { padding-left: 16px; margin: 6px 0 0; max-height: 260px; overflow-y: auto; }
+  li { margin-bottom: 3px; }
+  button { margin-top: 8px; font: inherit; }
+  @media (prefers-color-scheme: dark) {
+    body { color: #ddd; background: #222; }
+    .muted { color: #999; }
+  }
+</style>
+</head>
+<body>
+<h1>Colab Reconnect</h1>
+<div class="muted">Жмёт «Подключиться повторно» на вкладках Colab, как только Colab его показывает (и проверяет раз в минуту).</div>
+<div id="summary" style="margin-top:8px"></div>
+<ul id="list"></ul>
+<button id="clear" type="button">Очистить журнал</button>
+<script src="popup.js"></script>
+</body>
+</html>

@@ -433,6 +433,29 @@ def shader_problems(files: list[tuple[str, str]]) -> list[str]:
     return [f"godot/{line}" for line in check_shader_varyings.problems(shaders, load) + check_shader_varyings.inline_problems(loaded, load)]
 
 
+def citation_warnings() -> list[str]:
+    """Warnings, not failures (owner 2026-11-16): an added `RW 0x...` in engine/src inside a RotWK function whose start is cited nowhere keeps
+    that function `none` in the function map (tools/mod/citation_check.py). Needs the angr function inventory; without it, one note."""
+    diff = git("-c", "core.quotepath=false", "diff", "--cached", "-U0", "--no-color", "--diff-filter=ACMR", "--", "engine/src").stdout.decode(
+        "utf-8", "replace")
+    if not re.search(r"^\+.*\bRW\s+0x[0-9A-Fa-f]{5,8}", diff, re.M):
+        return []
+    sys.path.insert(0, str(REPO / "tools" / "mod"))
+    try:
+        import citation_check  # noqa: PLC0415 - only commits that add a citation need it
+    except ImportError:  # a copy of the gate without tools/mod (the gate's own tests)
+        return []
+
+    cites = citation_check.added_citations(diff)
+    if not cites:
+        return []
+    inv_path = citation_check.find_inventory(REPO)
+    if not inv_path:
+        return ["citation check skipped: no RotWK function inventory (workspace/rebuild/rw_function_blocks.json or $OPENBFME_RW_INVENTORY)"]
+    inv = citation_check.Inventory.load(inv_path)
+    return citation_check.interior_warnings(cites, inv, citation_check.cited(REPO / "engine" / "src"))
+
+
 def main() -> int:
     problems = []
     try:
@@ -458,6 +481,12 @@ def main() -> int:
             problems += fragments.check()
     except (subprocess.CalledProcessError, ValueError, OSError) as exc:
         problems.append(f"cannot check staged files: {exc}")
+    if any(rel.startswith("engine/src/") for rel, _ in (files if "files" in locals() else [])):
+        try:
+            for w in citation_warnings():
+                print("warning:", w)
+        except (OSError, ValueError, KeyError) as exc:
+            print(f"warning: citation check failed: {exc}")
     if problems:
         print("COMMIT GATE FAILED")
         for problem in problems:

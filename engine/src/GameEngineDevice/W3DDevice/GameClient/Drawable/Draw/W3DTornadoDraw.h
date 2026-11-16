@@ -30,8 +30,10 @@
 #include "Common/INIDataTypes.h"
 #include "Common/Module.h"
 #include "GameClient/RadiusCursor.h"
+#include "GameClient/SelectionDecals.h"
 #include "GameLogic/SnapshotXfer.h"
 
+#include <cstdint>
 #include <vector>
 
 class W3DTornadoDrawModuleData : public ModuleData
@@ -59,9 +61,15 @@ public:
 	W3DTornadoDraw(Thing *thing, const ModuleData *moduleData);
 	~W3DTornadoDraw() override;
 
+	// Both editions (RW 0x4D120A / BFME2): creates decals and triggers the 1.5x custom tint envelope on bound drawable
+	void onDrawableBoundToObject() override;
 	void reactToTransformChange(const Coord3D *oldPos, float oldAngle) override;
 	void createDecals();
 	void clearDecals();
+	// Both editions (RW 0x4D0FCB -> 0x732828 + 0x732926): advances spiral radius/angle/fade/opacity once per client frame
+	void stepDecals(unsigned clientFrame, bool drawIconUI = true, std::uint32_t playerColor = 0xFFFFFFu);
+	void appendSelectionDecals(std::uint32_t objectId, unsigned drawableId, bool playerIsLocal, std::uint32_t playerColor,
+		unsigned clientFrame, bool drawIconUI, std::vector<SelectionDecal> &out);
 
 	unsigned decalCount() const { return (unsigned)m_decals.size(); }
 	const W3DTornadoDrawModuleData *getData() const { return m_data; }
@@ -70,14 +78,22 @@ public:
 	{
 		Coord3D position{};
 		float radius = 0.0f;
+		float angle = 0.0f;
+		std::uint32_t color = 0xFFFFFFFFu;
+		int opacity = 255;
+		bool hasShadow = true;
 	};
 	const std::vector<DecalInstance> &decals() const { return m_decals; }
-
 
 	static void registerClass(ModuleFactory &modules);
 
 private:
+	void applyBoundTintEnvelope();
+
 	Thing *m_thing = nullptr;
 	const W3DTornadoDrawModuleData *m_data = nullptr;
 	std::vector<DecalInstance> m_decals;
+	bool m_hasLastStepFrame = false;
+	unsigned m_lastStepFrame = 0;
+	bool m_boundTintApplied = false;
 };

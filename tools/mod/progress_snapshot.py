@@ -11,6 +11,9 @@ Columns:
   problems_done    entries whose status line is checked ([x])
   stops_open       docs/STOPS.md rows not `closed` (tools/stops_count.py)
   audit            which field audit the two field columns come from ("-" = carried from the row before)
+  buttons_red      distinct failing buttons of the button matrix (docs/ennorath/MATRIX.tsv: any result but PASS, STANCE, DISABLED, INVENTORY)
+  gaps_specific    distinct RotWK functions the failing buttons' main classes lack (docs/ennorath/MATRIX_GAPS.tsv, `main class` rows,
+                   `specific none`): the work the matrix still points at. Both empty in rows before 2026-11-16 and when a file is missing
 
 Usage:
   python tools/mod/progress_snapshot.py [--audit <field-audit.tsv>] [--audit-name v12] [--date YYYY-MM-DD] [--rev <commit>] [--write]
@@ -33,7 +36,9 @@ sys.path.insert(0, str(REPO / "tools"))
 import stops_count  # noqa: E402
 
 OUT = REPO / "docs" / "ennorath" / "PROGRESS.tsv"
-COLUMNS = ["date", "rev", "fields_total", "fields_open", "modules_missing", "problems_total", "problems_done", "stops_open", "audit"]
+COLUMNS = ["date", "rev", "fields_total", "fields_open", "modules_missing", "problems_total", "problems_done", "stops_open", "audit",
+           "buttons_red", "gaps_specific"]
+GREEN = {"PASS", "STANCE", "DISABLED", "INVENTORY"}
 OPEN_STATUSES = {"parsed-unused", "not-read", "stub-block", "missing-module", "parsed-only-module", "no-table-row"}
 
 
@@ -66,11 +71,31 @@ def audit_counts(tsv: Path) -> tuple[int, int]:
     return len(rows), sum(1 for r in rows if r["status"] in OPEN_STATUSES)
 
 
+def matrix_counts(rev: str | None) -> tuple[str, str]:
+    """(buttons_red, gaps_specific) from the matrix and its join with the function map; "" where a file is missing at `rev`."""
+    try:
+        matrix = read("docs/ennorath/MATRIX.tsv", rev)
+    except (OSError, subprocess.CalledProcessError):
+        return "", ""
+    lines = [l for l in matrix.splitlines() if l and not l.startswith("#")]
+    red = {(r["object"], r["button"]) for r in csv.DictReader(lines, delimiter="\t") if r["result"] not in GREEN}
+    try:
+        gaps = read("docs/ennorath/MATRIX_GAPS.tsv", rev)
+    except (OSError, subprocess.CalledProcessError):
+        return str(len(red)), ""
+    rows = list(csv.DictReader(gaps.splitlines(), delimiter="\t"))
+    if not rows or "main class" not in rows[0]:
+        return str(len(red)), ""
+    fn_col = [k for k in rows[0] if k.startswith("specific none functions")][0]
+    funcs = {x.split("@")[0] for r in rows if r["main class"] == "yes" for x in r[fn_col].split() if x.startswith("0x")}
+    return str(len(red)), str(len(funcs))
+
+
 def load() -> list[dict[str, str]]:
     if not OUT.exists():
         return []
     with OUT.open(encoding="utf-8", newline="") as f:
-        return list(csv.DictReader(f, delimiter="\t"))
+        return [{c: r.get(c) or "" for c in COLUMNS} for r in csv.DictReader(f, delimiter="\t")]
 
 
 def main() -> int:
@@ -91,12 +116,16 @@ def main() -> int:
         ftotal, fopen = audit_counts(a.audit)
         audit = a.audit_name or a.audit.parent.name
     else:
-        before = [r for r in rows if r["date"] < a.date]
+        # the day's own row counts too: a landing after the day's audit must not carry yesterday's numbers over it (2026-11-16)
+        before = [r for r in rows if r["date"] <= a.date]
         if not before:
             raise SystemExit("no earlier row to carry the field columns from: give --audit")
-        ftotal, fopen, audit = int(before[-1]["fields_total"]), int(before[-1]["fields_open"]), "-"
+        last = before[-1]
+        ftotal, fopen = int(last["fields_total"]), int(last["fields_open"])
+        audit = last["audit"] if last["date"] == a.date else "-"
     row = {"date": a.date, "rev": rev[:8], "fields_total": str(ftotal), "fields_open": str(fopen), "modules_missing": str(missing),
            "problems_total": str(total), "problems_done": str(done), "stops_open": str(stops), "audit": audit}
+    row["buttons_red"], row["gaps_specific"] = matrix_counts(a.rev)
     if not a.write:
         print("\t".join(row[c] for c in COLUMNS))
         return 0

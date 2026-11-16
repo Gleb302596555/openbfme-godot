@@ -2574,7 +2574,7 @@ struct HeroCastGroup
 		a = g.make(tt, g.me, 1000.0f, 1000.0f);
 		b = g.make(tt, g.me, 1000.0f, 1040.0f);
 		REQUIRE(a->getID() < b->getID()); // tolerance: only the order of the two ids matters (the tie rule)
-		victim = g.make(victimT, g.enemy, 1012.0f, 1020.0f);
+		victim = g.make(victimT, g.enemy, 1200.0f, 1020.0f); // clear of melee during warmup so it stays alive (RW 0x82DA08 refuses dead targets)
 		for (int i = 0; i < 10; ++i)
 		{
 			g.logic->runLogicFrame();

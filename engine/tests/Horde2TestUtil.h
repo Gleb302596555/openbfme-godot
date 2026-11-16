@@ -182,7 +182,9 @@ const char kBannerObjects[] =
 	"    InitialPayload = Swordsman 3\n"
 	"    BannerCarriersAllowed = Bannerman\n"
 	"    BannerCarrierPosition = UnitType:Swordsman Pos:X:10.0 Y:0.0\n"
-	"    BannerCarrierMinLevel = 0\n"
+	// lane PORT-209: 1, not 0. RotWK makes a BannerCarrierMinLevel 0 horde's carrier at build complete when it has no producer (RW 0x8718F5 .. 0x87190E ->
+	// RW 0x870204); these fixtures' hordes get theirs from the level test of bannerCheck (RW 0x871A14: the level below the rank), at rank 2
+	"    BannerCarrierMinLevel = 1\n"
 	"  End\n"
 	"  LocomotorSet\n"
 	"    Locomotor = HordeLoco\n"

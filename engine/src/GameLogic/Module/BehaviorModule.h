@@ -180,6 +180,14 @@ public:
 	// RW 0xC5C9F0). The defaults are OpenContain's answers; a contain class that is not ported answers through UnportedBehaviorModule (no contain at all) ----
 	// slot 0x10 isGarrisonable: GarrisonContain RW 0x8BD372 true, OpenContain RW 0x9188EB false (TunnelContain RW 0xC5DCE0 + 0x10: RW 0x9188EB false, lane UI-1)
 	virtual bool isGarrisonable() const { return false; }
+	// slot 0x1C (RW 0x87B308 in the GarrisonContain, HordeGarrisonContain, SlaughterHordeContain and CitadelSlaughterHordeContain tables RW 0xC5C698 / 0xC5C9F0 /
+	// 0xC5F0D0 / 0xC5F2E8: `mov eax, [ecx - 0x1C]; mov al, [eax + 0xA1]; ret`, the module data's ImmuneToClearBuildingAttacks) -- GarrisonsClearBuildingAttacks'
+	// gate: RotWK clears the building attacked by a garrisoned unit only when the garrison is immune (RW 0x910E4 / 0x911F3 ask it and skip when it answers
+	// true). Every other contain table of 2.01 holds the true body RW 0x8BD372 at + 0x1C (OpenContain RW 0xC59AF0, HordeContain RW 0xC5B480, its RotWK
+	// subclass RW 0xC5C110, AODHordeContain RW 0xC5D268, TransportContain RW 0xC5A690, HordeTransportContain RW 0xC5C370, SiegeEngineContain RW 0xC5D668,
+	// HordeSiegeEngineContain RW 0xC5DA10, and TunnelContain RW 0xC5DCE0, whose own tunnel slot is another body, RW 0x881072), so OpenContain's answer
+	// stands for every contain the port keeps that overrides nothing.
+	virtual bool isImmuneToClearBuildingAttacks() const { return true; }
 	// PR 284: slot 0x30, asked by ActionManager::getEnterMessage (RW 0x82CFB5): SlaughterHordeContain RW 0xC5F0D0 and CitadelSlaughterHordeContain RW
 	// 0xC5F2E8 + 0x30 = RW 0x8BD372 true; every other contain table of RW 0xC59AF0 .. 0xC5F688 + 0x30 = RW 0x9188EB false
 	virtual bool isSlaughterContain() const { return false; }

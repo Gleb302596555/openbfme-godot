@@ -162,6 +162,7 @@ public:
 	int maxCellsBurning() const override;
 	FXParticleSystem::ParticleAttachInfo attachedDrawable(std::uint32_t drawableId, const std::string &boneName) override;
 	FXParticleSystem::ParticleAttachInfo attachedObject(std::uint32_t objectId, const std::string &boneName, int localPlayerIndex) override;
+	FXParticleSystem::ParticleAttachInfo swirlInfluence(std::uint32_t drawableId, const Coord3D &pos) override;
 	bool boneWorldMatrix(const FXObject &obj, const std::string &boneName, Matrix3D &out) override;
 	std::vector<FXBoneTransform> boneWorldTransforms(const FXObject &obj, const std::string &boneName, int startIndex, int maxBones) override;
 	bool playSound(const std::string &eventName, const Coord3D *pos, int playerIndex) override;

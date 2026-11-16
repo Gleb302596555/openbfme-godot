@@ -9,8 +9,10 @@
 
 #include "Common/BuildAssistant.h"
 #include "Common/PlayerHeroList.h"
+#include "Common/SpecialPower.h"
 #include "GameLogic/ActionManager.h"
 #include "GameLogic/Combat/CombatNames.h"
+#include "GameLogic/ObjectFilterMatch.h"
 #include "GameLogic/Damage.h"
 #include "GameClient/GUI/Skirmish/IniSkirmishSetupSource.h"
 #include "GameClient/HudObjects.h"
@@ -319,8 +321,55 @@ AbilityResult runAbility(HudRig &h, const Offer &offer, const Coord3D &spot)
 	}
 	const unsigned now0 = logic.getFrame();
 	// a target for a GUI command mode
-	// in front of the caster as the camera (south of it, looking north) sees them: a click on them hits them, not the caster
-	Object *enemy = h.rig.make("MordorMountainTroll", spot.x + 260.0f, spot.y - 200.0f, h.rig.game->players().findPlayerWithName("Player_2")); // sturdy: alive until the ability lands
+	// in front of the caster as the camera (south of it, looking north) sees them: a click on them hits them, not the caster.
+	// A player clicks an enemy he sees: RW 0x82D925 refuses a target fogged for a human owner (RW 0x82C167, S-565). The target stays 328 away (a charge
+	// needs its run-up; a nearer target makes the Charges and Shelob's sting fail for the distance, not the HUD) and the player sees it as through another
+	// of his units: a script reveal circle around it (ShroudManager::revealCircle, RW 0xB4DBE0) for this power only, taken back on every way out, and the
+	// shroud gets frames to show it before the press.
+	// and one the power may target: RW 0x82D925 tests the power's ObjectFilter on it (RW 0x762977 / 0x7640C1). A mountain troll is sturdy (alive until the
+	// ability lands); a filter without MONSTER (the Morgul Blades: ANY +HERO +INFANTRY +CAVALRY -MONSTER) takes an orc warrior; a STRUCTURE filter
+	// (Morgramir's Ruin) takes a building
+	const SpecialPowerTemplate *targetPower = TheSpecialPowerStore ? TheSpecialPowerStore->findSpecialPowerTemplate(offer.cb->m_specialPowerName) : nullptr;
+	const ObjectFilter *targetFilter = targetPower && ObjectFilterMatch::isValid(targetPower->getFinalOverride()->m_objectFilter.get())
+										   ? targetPower->getFinalOverride()->m_objectFilter.get()
+										   : nullptr;
+	Player *const foe = h.rig.game->players().findPlayerWithName("Player_2");
+	const float ex = spot.x + 260.0f, ey = spot.y - 200.0f;
+	struct RevealGuard
+	{
+		ShroudManager *shroud;
+		float x, y;
+		std::uint32_t mask;
+		~RevealGuard()
+		{
+			if (shroud)
+			{
+				shroud->revealCircle(x, y, 80.0f, mask, false);
+			}
+		}
+	};
+	const Player *viewer = o->getControllingPlayer();
+	RevealGuard reveal{ viewer ? logic.shroud() : nullptr, ex, ey, viewer ? 1u << viewer->getPlayerIndex() : 0u };
+	if (reveal.shroud)
+	{
+		reveal.shroud->revealCircle(ex, ey, 80.0f, reveal.mask, true);
+	}
+	Object *enemy = nullptr;
+	for (const char *candidate : { "MordorMountainTroll", "MordorFighter", "MordorLumberMill" })
+	{
+		Object *c = h.rig.make(candidate, ex, ey, foe);
+		if (!targetFilter || ObjectFilterMatch::allows(logic, *targetFilter, *c, o->getControllingPlayer()))
+		{
+			enemy = c;
+			break;
+		}
+		logic.destroyObject(c);
+		h.frames(1);
+	}
+	if (!enemy) // no candidate passes the filter: the troll as before, and the click is refused as retail refuses it
+	{
+		enemy = h.rig.make("MordorMountainTroll", ex, ey, foe);
+	}
 	made.push_back(enemy->getID());
 	if (enemy->getBodyModule())
 	{
@@ -332,7 +381,7 @@ AbilityResult runAbility(HudRig &h, const Offer &offer, const Coord3D &spot)
 		ally = h.rig.make(offer.object, spot.x - 160.0f, spot.y - 80.0f);
 		made.push_back(ally->getID());
 	}
-	h.frames(2);
+	h.frames(6); // the shroud shows the target to the player before the press (a fogged object is no special power target, RW 0x82C167)
 	const size_t log0 = h.hud->input().messageLog().size();
 	if (!h.hud->controlBar().pressButton(b.slot, b.inPalantir))
 	{
