@@ -92,3 +92,22 @@ TEST_CASE("PORT-243: only damaging state transitions set the temporary busy expi
     hit(*o, 40, DAMAGE_HEALING); // RW 0x8C2FC1: healing does not start the timer
     CHECK_FALSE(o->isDisabledByType(DISABLED_TEMPORARILY_BUSY));
 }
+
+TEST_CASE("PORT-243: direct health changes switch the modifier without starting a hit transition")
+{
+    Port243World w;
+    Object *o = w.unit("Port243Active", 'A', 300, 300);
+    REQUIRE(o);
+    auto *body = dynamic_cast<ActiveBody *>(o->getBodyModule());
+    auto *pool = dynamic_cast<AttributeModifierPool *>(o->findModule("AttributeModifierPoolUpdate"));
+    REQUIRE(body);
+    REQUIRE(pool);
+    body->internalChangeHealth(-80); // RW 0x8C31A5 -> 0x8C2A5D: direct pristine -> really damaged
+    CHECK_FALSE(pool->hasList("Port243Damaged"));
+    CHECK(pool->hasList("Port243Really"));
+    CHECK_FALSE(o->isDisabledByType(DISABLED_TEMPORARILY_BUSY)); // the timer is only in RW 0x8C3FA3's hit path
+    body->internalChangeHealth(-20); // RW 0x8C283C: rubble removes both modifiers
+    CHECK_FALSE(pool->hasList("Port243Damaged"));
+    CHECK_FALSE(pool->hasList("Port243Really"));
+    CHECK_FALSE(o->isDisabledByType(DISABLED_TEMPORARILY_BUSY));
+}
