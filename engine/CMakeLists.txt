@@ -240,6 +240,7 @@ include(cmake/Port4.cmake) # OPENBFME_PORT4_TESTS
 include(cmake/Port109.cmake) # OPENBFME_PORT109_TESTS
 include(cmake/Port47.cmake) # OPENBFME_PORT47_TESTS
 include(cmake/Play2.cmake) # OPENBFME_PLAY2_TESTS (lane PLAY-2)
+include(cmake/Port238.cmake) # OPENBFME_PORT238_TESTS
 include(cmake/Port211.cmake) # PORT-211: the economy group S-250 .. S-260 swept against main (fork issue 493; OPENBFME_PORT211_TESTS)
 include(cmake/Port427.cmake) # PORT-427: the porcupine formation's members face outward, each its radial bearing (issue #427; OPENBFME_PORT427_TESTS)
 include(cmake/Port437.cmake) # PORT-437: the generic attack machine's object conditions (issue #437; OPENBFME_PORT437_TESTS)
@@ -1018,6 +1019,7 @@ add_executable(openbfme_tests
     ${OPENBFME_PORT10_TESTS}
     ${OPENBFME_PORT55_TESTS}
     ${OPENBFME_PORT124_TESTS}
+    ${OPENBFME_PORT238_TESTS}
     ${OPENBFME_PORT116_TESTS}
     ${OPENBFME_PORT38_TESTS}
     ${OPENBFME_PORT57_TESTS}
