@@ -157,3 +157,28 @@ TEST_CASE("PORT-210 collision lets a climbing member rise on a wall")
     }
     CHECK(climbed); // RW 0x86E214 raises the member; RW 0x8747AE places it.
 }
+
+// The wall is not installed as a pathfinding obstacle here: this isolates the
+// collision entry while exercising a real move command rather than teleporting.
+// RW 0xB6D060 dispatches each overlapping pair; RW 0x86C61E keeps the wall.
+TEST_CASE("PORT-210 moving scaling horde enters wall contact")
+{
+    Fixture f;
+    f.combat().setAutoAcquireEnabled(false);
+    Object *horde = f.unit("Port210Horde", 'A', 230, 300);
+    Object *wall = f.unit("Port210Wall", 'B', 310, 300);
+    auto *contain = dynamic_cast<HordeContain *>(horde->getContain());
+    REQUIRE(contain != nullptr);
+    REQUIRE(contain->wallToScale() == 0);
+    const int player = f.playerIndex("Alice");
+    f.select(player, { horde });
+    f.moveTo(player, 400, 300);
+    bool contacted = false;
+    for (int frame = 0; frame < 160 && !contacted; ++frame)
+    {
+        f.frames(1);
+        contacted = contain->wallToScale() == wall->getID();
+    }
+    CHECK(contacted);
+    CHECK(horde->getPosition()->x > 230.0f); // tolerance: this checks movement, not a prescribed frame position
+}
