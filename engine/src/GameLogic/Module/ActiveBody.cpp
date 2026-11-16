@@ -150,6 +150,14 @@ ActiveBody::ActiveBody(Thing *thing, const ActiveBodyModuleData *data)
 			m_reallyDamagedFraction = settings.unitReallyDamagedThreshold;
 		}
 	}
+	// RW 0x8C3841 -> 0x8C39D0: the initial state runs during the body constructor.
+	// Object RW 0x69990F creates modules in order (RW 0x69A3AA..0x69A3B9): only
+	// an earlier pool/contain exists here. The later visual/rubble pass must not repeat it.
+	const BodyDamageType initialState = calcDamageState();
+	if (initialState != BODY_PRISTINE)
+	{
+		applyDamageStateModifiers(initialState);
+	}
 }
 
 // RW 0x8C1B79
@@ -259,6 +267,32 @@ void ActiveBody::evaluateVisualCondition()
 	obj.clearAndSetModelConditionFlags(clear, set);
 }
 
+// RW 0x8C283C (primary vtable slot +0x34).
+void ActiveBody::applyDamageStateModifiers(BodyDamageType state)
+{
+	Object &obj = *getObject();
+	// RW 0x8C283C, invoked by RW 0x8C2A81 on every state change (also for RespawnBody):
+	// damaged adds then removes; really damaged removes then adds; other states remove both.
+	if (state == BODY_DAMAGED)
+	{
+		if (!m_data->m_damagedAttributeModifier.empty())
+			obj.addAttributeModifier(m_data->m_damagedAttributeModifier, -1); // RW 0x8C2893..0x8C28A2
+	}
+	else if (!m_data->m_damagedAttributeModifier.empty())
+	{
+		obj.removeAttributeModifier(m_data->m_damagedAttributeModifier); // RW 0x8C2852..0x8C2873
+	}
+	if (state == BODY_REALLYDAMAGED)
+	{
+		if (!m_data->m_reallyDamagedAttributeModifier.empty())
+			obj.addAttributeModifier(m_data->m_reallyDamagedAttributeModifier, -1); // RW 0x8C2878..0x8C288C
+	}
+	else if (!m_data->m_reallyDamagedAttributeModifier.empty())
+	{
+		obj.removeAttributeModifier(m_data->m_reallyDamagedAttributeModifier); // RW 0x8C28A7..0x8C28B9
+	}
+}
+
 // RW 0x8C2A5D (setCorrectDamageState). TARGET FACTS read from the binary: the damage state field (+0x30) is rewritten from calcDamageState (RW 0x8C1B79); when it changed vslot 0x34 runs
 // (RW 0x8C283C: the Damaged / ReallyDamaged attribute modifiers). For a template that is KindOf STRUCTURE (tt KindOf mask byte 0x108 bit 0x80 = bit 7) the state RUBBLE does:
 //   entering (new > old, new == 3): the structure's footprint leaves the pathfinder and is entered again (RW 0x6E85FB remove, 0x6E85E9 add: the add sees the RUBBLE state), the object
@@ -292,25 +326,9 @@ void ActiveBody::updateDamageState(bool initial)
 		return;
 	}
 	Object &obj = *getObject();
-	// RW 0x8C283C, invoked by RW 0x8C2A81 on every state change (also for RespawnBody):
-	// add the matching modifier before removing the other, or remove both outside these states.
-	if (now == BODY_DAMAGED)
+	if (!initial)
 	{
-		if (!m_data->m_damagedAttributeModifier.empty())
-			obj.addAttributeModifier(m_data->m_damagedAttributeModifier, -1); // RW 0x8C2893..0x8C28A2
-	}
-	else if (!m_data->m_damagedAttributeModifier.empty())
-	{
-		obj.removeAttributeModifier(m_data->m_damagedAttributeModifier); // RW 0x8C2852..0x8C2873
-	}
-	if (now == BODY_REALLYDAMAGED)
-	{
-		if (!m_data->m_reallyDamagedAttributeModifier.empty())
-			obj.addAttributeModifier(m_data->m_reallyDamagedAttributeModifier, -1); // RW 0x8C2878..0x8C288C
-	}
-	else if (!m_data->m_reallyDamagedAttributeModifier.empty())
-	{
-		obj.removeAttributeModifier(m_data->m_reallyDamagedAttributeModifier); // RW 0x8C28A7..0x8C28B9
+		applyDamageStateModifiers(now); // the constructor already applied its own state at retail's point in module creation
 	}
 	// lane PLAY-4, RW 0x8C3290 .. 0x8C32A8 (internalChangeHealth after vslot 0x54; BFME2 decomp ActiveBody.cpp, ZH "we just don't have all the art states for
 	// that during buildup animation"): the visual change (vslot 0x94) is skipped while the object is UNDER_CONSTRUCTION, unless the health reached 0. A rising

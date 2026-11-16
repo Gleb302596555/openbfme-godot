@@ -212,6 +212,7 @@ protected:
 private:
 	class DamageHost;
 	BodyDamageType calcDamageState() const;
+	void applyDamageStateModifiers(BodyDamageType state); // RW 0x8C283C
 	void doDamageFX(const DamageInfo &info); // RW 0x8C2F02 (lane FX-2)
 
 	const ActiveBodyModuleData *m_data;
