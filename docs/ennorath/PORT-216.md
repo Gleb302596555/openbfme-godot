@@ -156,7 +156,7 @@ point still fails condition (c), the protected neighbour expectation.
 - Engine correction: `cbd852fb`, `ObjectGeometry.cpp/.h`; existing parsed
   geometry cache extended, existing solver retained. No collision-manager,
   projectile KindOf, mod data, foreign tests or pins changed.
-- Full-target lane and eight test cases: `8315c159`, `Port216.cmake`,
+- Full-target lane and eight test cases: `8315c159`, strengthened in `3def889a`; `Port216.cmake`,
   `test_port_216.cpp`, the two PORT-216 list entries in `CMakeLists.txt`.
   GCC syntax checks passed for both implementation and tests; the mandatory
   pre-commit hook passed. A syntax check is not a doctest result.
@@ -164,7 +164,7 @@ point still fails condition (c), the protected neighbour expectation.
   Release/Godot-OFF target was reconfigured with the new lane and resumed
   using `cmake --build engine/build -j1 --target openbfme_tests`.
   Current process: `port-216-full-tests-58ef34e2`. The latest wait returned
-  running at 139/1082; no PORT-216/PORT-436 doctest result exists yet.
+  running at 411/1082; no PORT-216/PORT-436 doctest result exists yet.
 - The queued commands run the required `-tc="PORT-216*"` then `-tc="PORT-436*"`
   on **engine/build/openbfme_tests**, not a standalone test executable.
   The full-target red/green experiment (temporarily undo only the engine
@@ -305,3 +305,34 @@ and full-binary red/green come first; the selected full suite is still a
 pre-landing/nightly requirement. The full-build configuration warns that
 five MP3 tests lack the lame/mpg123 fixtures in this sandbox; no fixture or
 pin expectation has been changed to hide that limitation.
+
+## Queued full-target validation
+
+`port-216-red-green-validation-8bb2db2c` is waiting for the existing full
+build process to exit, using a process-descriptor event wait. It is **not**
+a second concurrent Ninja build. The workspace-only validation script:
+
+1. Requires real, nonzero selected test counts and passing initial
+   PORT-216/PORT-436 summaries. On an initial failure it stops for inspection.
+2. Refuses a concurrent Ninja, requires this arena branch and a clean tree,
+   and checks the reverse application of only engine commit `cbd852fb`.
+3. Backs up both engine files, retains the test/CMake lane, rebuilds the
+   **full openbfme_tests target with -j1**, and records the PORT-216 red run.
+4. Restores the engine sources before interpreting that result (also on
+   errors/signals), rebuilds the full target, and records PORT-216,
+   PORT-436 and PORT-164/PORT-34/LOCAL-41/path2-geometry neighbour runs.
+5. Requires a real failed assertion in red, no crash, and passing nonempty
+   green summaries. Logs and a result manifest remain under ignored
+   `workspace/port216/red-green/` for review; no standalone runner or
+   fabricated doctest transcript is involved.
+
+Only the waiting process has started. None of its red/green or neighbour
+results is claimed yet. Rebase/revalidation on the latest fork main and the
+selected FULL suite remain later gates, not replaced by this automation.
+
+Visual reproduction still needs the final precise Cheat Mode sequence.
+The original no-passenger side-on observation is already confirmed by the
+owner, but a freshly spawned HaradMumakil is not automatically empty: it
+inherits its parent's initial passenger payload. The reproduction must not
+silently equate a fresh spawn with that empty baseline or modify mod data.
+`docs/CHEAT_MODE.md` and the actual mod command set are the setup references.
