@@ -1142,7 +1142,7 @@ void InvisibilityModules::registerAll(ModuleFactory &modules)
 }
 
 // lane STEALTH-2: MSG_ONE_RING (1108): the player's group (RW 0x76ED16, none: nothing) -> RW 0x7729A6: each member's AI idles (RW 0x5E821A(2)) and its
-// StealthUpdate (RW 0x68FBD3) toggles the One Ring (RW 0x776B50). No retail command button issues the message.
+// StealthUpdate (RW 0x68FBD3) toggles the One Ring (RW 0x776B50). The ONE_RING command button issues this message (RW 0x940435 -> 0x941A6B).
 void InvisibilityModules::registerHandlers(GameLogicDispatch &d)
 {
 	d.registerHandler(MSG_ONE_RING, "STEALTH-2", [](GameLogic &logic, const GameMessage &m) {

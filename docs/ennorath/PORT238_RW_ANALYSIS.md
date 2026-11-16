@@ -61,6 +61,25 @@ hand-over in a particular game situation.
   as an incomplete order and another member's queue. Their full-executable
   run and a run with the change reverted are still pending.
 
+## Queue callback reentrancy (not resolved)
+
+`RW 0x94EF1A` calls the current order's completion vslot `+0x14` at
+`0x94EF58`, then removes that order and activates the next via vslot `+0x10`
+at `0x94EFE0`. No generic reentrancy guard is visible in this function.
+The port similarly invokes `GroupOrder::complete` and `activate` from
+`ObjectOrderQueue::process`; it has no guard against an order callback
+recursively mutating the same queue. Such mutation could invalidate the
+outer operation, but a live supported route that does this has not been shown.
+
+The ordinary port garrison order's `complete` may call `aiEnter` while idle.
+That sets the move-to-enter state; `AIMoveToState::onEnter` returns continue or
+failure, while `AIEnterState::update` performs `addToContain` on an update,
+not directly in the ordinary garrison `aiEnter` path. This is not an exhaustive
+proof for all callbacks, horde paths, effects or nested state transitions. The
+existing probe tests check ordering, not reentrancy. The remaining shared queue
+and live callback audit is tracked by S-7427; do not add an unverified guard
+that might diverge from RW or alter other orders.
+
 ## The ONE_RING button
 
 `Command_OneRing` is present in the Frodo ring command sets of the mod. In
