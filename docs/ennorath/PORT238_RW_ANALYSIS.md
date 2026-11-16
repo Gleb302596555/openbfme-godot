@@ -131,8 +131,8 @@ The source and build-tree core archive contained the fixes. `-tc="PORT-238*"`
 reported:
 
 ```
-[doctest] test cases:   7 |   7 passed | 0 failed | 0 skipped
-[doctest] assertions: 149 | 149 passed | 0 failed |
+[doctest] test cases:   8 |   8 passed | 0 failed | 0 skipped
+[doctest] assertions: 174 | 174 passed | 0 failed |
 [doctest] Status: SUCCESS!
 ```
 
@@ -142,7 +142,7 @@ compiled and linked ahead of that same archive: one omitted only the queue
 and dispatch. With the former, `-tc="PORT-238 delivery*"` exited 1:
 
 ```
-[doctest] test cases:  2 |  0 passed | 2 failed | 5 skipped
+[doctest] test cases:  2 |  0 passed | 2 failed | 6 skipped
 [doctest] assertions: 45 | 39 passed | 6 failed |
 [doctest] Status: FAILURE!
 ```
@@ -150,7 +150,7 @@ and dispatch. With the former, `-tc="PORT-238 delivery*"` exited 1:
 With the latter, `-tc="PORT-238 One Ring button*"` exited 1:
 
 ```
-[doctest] test cases:  1 |  0 passed | 1 failed | 6 skipped
+[doctest] test cases:  1 |  0 passed | 1 failed | 7 skipped
 [doctest] assertions: 15 | 14 passed | 1 failed |
 [doctest] Status: FAILURE!
 ```
@@ -159,7 +159,7 @@ The independently scoped `-tc="PORT-238 adjacent stop*"` passed in both
 negative-control executables:
 
 ```
-[doctest] test cases:  1 |  1 passed | 0 failed | 6 skipped
+[doctest] test cases:  1 |  1 passed | 0 failed | 7 skipped
 [doctest] assertions: 17 | 17 passed | 0 failed |
 [doctest] Status: SUCCESS!
 ```

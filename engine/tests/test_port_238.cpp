@@ -4,6 +4,7 @@
 // Synthetic INI only; no game or mod files.
 #include "doctest.h"
 #include "CombatTestUtil.h"
+#include "Common/SpecialPower.h"
 #include "GameClient/ControlBar.h"
 #include "GameClient/ControlBarCommands.h"
 #include "GameClient/HudInput.h"
@@ -13,6 +14,9 @@
 #include "GameLogic/Object/Contain/GarrisonContainRuntime.h"
 #include "GameLogic/Object/PartitionManager.h"
 #include "GameLogic/Module/InvisibilityModules.h"
+#include "GameLogic/Module/HeroAbilityModules.h"
+#include "GameLogic/Module/SpecialAbilityModules.h"
+#include "GameLogic/Module/SpecialPowerModules.h"
 
 #include <memory>
 #include <vector>
@@ -363,4 +367,72 @@ TEST_CASE("PORT-238 ring upgrade create consumes one name and respects the exemp
     defaultGrant->friend_onBuildComplete();
     CHECK(defaultGrant->hasUpgrade("Upgrade_P238First"));
     CHECK_FALSE(defaultGrant->hasUpgrade("Upgrade_P238Second"));
+}
+
+namespace
+{
+struct HealWorld : World
+{
+    SpecialPowerStore powers;
+    SpecialPowerStore *saved = TheSpecialPowerStore;
+    HealWorld()
+    {
+        TheSpecialPowerStore = &powers;
+        w.fx.env.blocks.registerBlock("SpecialPower", [](INI *ini) { SpecialPowerStore::parseSpecialPowerDefinitionGlobal(ini); });
+        SpecialAbilityModules::registerAll(w.modules);
+        SpecialPowerModules::registerAll(w.modules);
+        const char *data =
+            "SpecialPower SpecialAbilityP238Heal\n Enum = SPECIAL_GENERAL_TARGETLESS_THREE\n ReloadTime = 260000\n End\n"
+            "SpecialPower SpecialAbilityP238Dummy\n Enum = SPECIAL_GENERAL_TARGETLESS\n ReloadTime = 1\n End\n"
+            "Object P238HealHero\n"
+            " KindOf = INFANTRY HERO SELECTABLE CAN_ATTACK\n"
+            " Geometry = CYLINDER\n GeometryMajorRadius = 5\n GeometryHeight = 10\n"
+            " Body = ActiveBody Body\n MaxHealth = 100\n InitialHealth = 40\n End\n"
+            " Behavior = AIUpdateInterface AI\n End\n"
+            " Behavior = SpecialPowerModule Power\n SpecialPowerTemplate = SpecialAbilityP238Heal\n UpdateModuleStartsAttack = Yes\n End\n"
+            " Behavior = ActivateModuleSpecialPower Mover\n"
+            "  SpecialPowerTemplate = SpecialAbilityP238Heal\n UnpackTime = 1\n PreparationTime = 3\n PackTime = 2096\n IgnoreFacingCheck = Yes\n"
+            "  TriggerSpecialPower = Heal OBJECTPOS\n End\n"
+            " Behavior = PlayerHealSpecialPower Heal\n"
+            "  SpecialPowerTemplate = SpecialAbilityP238Dummy\n HealAmount = 0.5\n HealAsPercent = Yes\n HealAffects = HERO\n HealRadius = 1\n End\n"
+            "End\n"
+            "Object P238HealNonHero\n"
+            " KindOf = INFANTRY SELECTABLE\n Geometry = CYLINDER\n GeometryMajorRadius = 5\n GeometryHeight = 10\n"
+            " Body = ActiveBody Body\n MaxHealth = 100\n InitialHealth = 40\n End\n"
+            "End\n";
+        const std::string error = w.load(data, INI_LOAD_OVERWRITE, "port238_heal.ini");
+        REQUIRE_MESSAGE(error.empty(), error);
+    }
+    ~HealWorld()
+    {
+        logic->reset();
+        TheSpecialPowerStore = saved;
+    }
+};
+} // namespace
+
+TEST_CASE("PORT-238 ring hero activated module heals a nearby friendly hero at object position")
+{
+    HealWorld w;
+    Object *hero = w.unit("P238HealHero", 'A', 300, 300);
+    Object *ally = w.unit("P238HealHero", 'A', 300, 300);
+    Object *enemy = w.unit("P238HealHero", 'B', 300, 300);
+    Object *nonhero = w.unit("P238HealNonHero", 'A', 300, 300);
+    Object *farHero = w.unit("P238HealHero", 'A', 310, 300);
+    auto *ability = dynamic_cast<ActivateModuleSpecialPower *>(hero->findModule("ActivateModuleSpecialPower"));
+    auto *heal = dynamic_cast<PlayerHealSpecialPower *>(hero->findModule("PlayerHealSpecialPower"));
+    REQUIRE(ability != nullptr);
+    REQUIRE(heal != nullptr);
+    REQUIRE(hero->getBodyModule()->getHealth() == 40.0f);
+    // RW 0x8D222A invokes the Heal tag's special-power vslot 0x30 at OBJECTPOS;
+    // RW 0x8CC574 -> 0x8CC4B4 / 0x8CC37B applies percent healing to eligible heroes.
+    ability->initiateIntentToDoSpecialPower(ability->abilityData()->m_specialPowerTemplate, nullptr, nullptr, 0, 0);
+    for (int i = 0; i < 40 && ability->abilitiesTriggered() == 0; ++i) w.frames(1);
+    REQUIRE(ability->abilitiesTriggered() == 1);
+    CHECK(ability->activations() == 1);
+    CHECK(hero->getBodyModule()->getHealth() == 90.0f);
+    CHECK(ally->getBodyModule()->getHealth() == 90.0f);
+    CHECK(enemy->getBodyModule()->getHealth() == 40.0f);
+    CHECK(nonhero->getBodyModule()->getHealth() == 40.0f);
+    CHECK(farHero->getBodyModule()->getHealth() == 40.0f);
 }
