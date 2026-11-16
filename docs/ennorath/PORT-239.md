@@ -4,8 +4,11 @@
 
 Baseline: `80803fe481c19a3e22d6d1b71fd6e93d12ea4742`.
 This is an **interim investigation**, not a completed port or acceptance report.
-No simulation or input behaviour has been changed. No stop is closed yet.
-The full `openbfme_tests` target is building; PORT-239 tests do not exist yet.
+No simulation or input behaviour has been changed. No stop is closed yet;
+S-3803 is narrowed by the owner-notification verdict below. Three asset-free
+PORT-239 neighbour/verdict tests are now registered in the full test target.
+They passed syntax validation only; the full `openbfme_tests` target is still
+building. No passing execution result or failing-before-fix result is claimed.
 
 The RotWK 2.01 executable was checked against the supplied MD5. Addresses below
 were read with `tools/mod/rw.py ... dis`; the donor is explanatory, not the
@@ -157,3 +160,14 @@ entry: it is an argument to a **direct INI load**, RW 0x42D97D at 0x63C506,
 following a separate subsystem registration call at 0x63C4E5. The actual
 subsystem name at that registration and its legend paths need tracing. Do not
 base a new CommandMap resolver on the old stop's wording alone.
+
+## Current handoff
+
+Commits `f80affc4`, `9fc8e396`, `ce2a9393` preserve the owner proof, narrow
+S-3803, and add three test cases in `engine/tests/test_port_239.cpp` through
+`engine/cmake/Port239.cmake`. No NIGHT_WATCH row is needed yet: gameplay has
+not changed. The missing regression that fails without an actual fix is still
+required before review. The full Release build is running with `-j1`; do not
+start a second Ninja on the same build directory. After it finishes, run the
+build command again so CMake picks up the newly added lane, then execute
+`engine/build/openbfme_tests -tc="PORT-239*"`. No auxiliary runner was used.
