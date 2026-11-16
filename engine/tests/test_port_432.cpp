@@ -724,3 +724,35 @@ TEST_CASE("PORT-179 synthetic HUD movie click reaches targeting and targetless d
  click(105, 200);
  CHECK(r.hud->spellBar().targeting());
 }
+
+TEST_CASE("PORT-179 synthetic HUD queues a movie press while the logic worker is busy")
+{
+ bool target = false;
+ SUBCASE("Cloud Break dispatches") { target = false; }
+ SUBCASE("Rebuild enters targeting") { target = true; }
+ HudSpellRig r;
+ auto context = r.hud->enterContext();
+ const int slot = target ? 0 : 1;
+ const int x = target ? 105 : 125;
+ REQUIRE(r.hud->palantir()->spellSlotState(slot) == AptPalantir::SPELL_UP);
+ REQUIRE(r.hud->isOverGui(x, 105));
+ r.hud->mouseMove(x, 105); r.windows.update(33); r.hud->update(0.033);
+ r.hud->mouseButton(HudInput::Button::Left, true, x, 105, 0, 100);
+ r.hud->mouseButton(HudInput::Button::Left, false, x, 105, 0, 101);
+ const auto deferred = r.hud->deferredPresses();
+ const auto casts = r.game.spellCommands().casts();
+ r.game.setWorkerFrameDelayMs(750);
+ r.game.setLogicThread(true);
+ r.game.advance(0.2);
+ REQUIRE_FALSE(r.game.logicHeld());
+ r.windows.update(33); // the host's movie update calls whenHeld while busy
+ CHECK(r.hud->deferredPresses() == deferred + 1);
+ r.hud->update(0.033); // skipped while busy, without touching live logic
+ r.game.waitIdle();
+ r.hud->update(0.033); // drains the saved press while held
+ CHECK(r.hud->spellBar().targeting() == target);
+ r.game.stepFrame();
+ r.game.waitIdle();
+ CHECK(r.game.spellCommands().casts() == casts + (target ? 0u : 1u));
+ r.game.setLogicThread(false);
+}

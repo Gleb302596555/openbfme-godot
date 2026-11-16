@@ -243,3 +243,11 @@ fixture forgot to step its **externally owned** WindowManager; after matching
 its host's responsibility, the test passed. This fixture does not test the
 actual Ennorath movie, deferred worker scheduling, or drawable target picking;
 it cannot reproduce or exonerate the reported intermittent real-game failure.
+
+A separate synthetic worker control queues each button's mouse events, starts
+one deliberately slow logic frame, and advances the host-owned movie while
+`logicHeld()` is false. Both callbacks increment the HUD's deferred-press
+counter; after `waitIdle` and a held HUD update, Cloud Break dispatches once
+and Rebuild enters targeting. The updated `PORT-179*` suite passed 10/10 cases
+and 726/726 assertions. It tests one artificial busy/idle schedule, not all
+render/logic interleavings or the actual movie.
