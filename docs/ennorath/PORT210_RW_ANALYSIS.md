@@ -55,3 +55,25 @@ existing moving-object and gate passes cannot dispatch its retail entry. A
 separate static wall contact gap remains in `AIWorld::processCollisions`
 (S-780); any wall-only stand-in must not duplicate gate contacts, and must
 respect collision registration and geometry.
+
+## Related existing stop S-1751: horde member AI update
+
+RW 0x66E6AC..0x66E6CA checks SCALING_WALL and the attacking/not-moving
+condition, sets the AI wall-scaling byte (AI +0x3CE; disassembly uses the
+secondary-interface pointer +0x3BE), and clears the local quick-update flag.
+RW 0x66E6DB..0x66E70C selects the normal AI update 0x6695EF when that byte
+is set instead of the horde-member quick update 0x66C748. When SCALING_WALL
+is absent, RW 0x66E711..0x66E720 clears the byte. The quick update at
+0x66C755..0x66C76B clears CLIMBING.
+
+DONOR BFME2 (`Code/GameEngine/Source/GameLogic/Object/Update/AIUpdate/AIUpdateInterfaceUpdate.cpp`,
+0x0026C4EB / 0x0026A05D are the two update bodies) corroborates the branch;
+RW is the source of the offsets and branch above. In the port,
+`AIUpdateInterface::update` / `runsHordeMemberUpdate` and
+`AIUpdateInterface::hordeMemberUpdate` in `AIUpdate.cpp` and
+`AIUpdateHordeMember.cpp` do not implement this exclusion (existing S-1751).
+This is a separate shared AI update mechanism, not the HordeContain collide
+caller, and adding a shortcut only for this task would violate the scope rule.
+Whether it prevents the full walking/climbing scenario must be tested; the
+collision-only tests cannot establish that it is harmless. Do not close S-1751
+or claim full in-game wall scaling based on the collision tests alone.
