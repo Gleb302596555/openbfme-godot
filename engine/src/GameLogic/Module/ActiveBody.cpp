@@ -260,7 +260,7 @@ void ActiveBody::evaluateVisualCondition()
 }
 
 // RW 0x8C2A5D (setCorrectDamageState). TARGET FACTS read from the binary: the damage state field (+0x30) is rewritten from calcDamageState (RW 0x8C1B79); when it changed vslot 0x34 runs
-// (RW 0x8C283C: the Damaged / ReallyDamaged attribute modifiers, UPGRADE-1's). For a template that is KindOf STRUCTURE (tt KindOf mask byte 0x108 bit 0x80 = bit 7) the state RUBBLE does:
+// (RW 0x8C283C: the Damaged / ReallyDamaged attribute modifiers). For a template that is KindOf STRUCTURE (tt KindOf mask byte 0x108 bit 0x80 = bit 7) the state RUBBLE does:
 //   entering (new > old, new == 3): the structure's footprint leaves the pathfinder and is entered again (RW 0x6E85FB remove, 0x6E85E9 add: the add sees the RUBBLE state), the object
 //   gets the status NO_COLLISIONS (RW 0x8C2E3B: 0x62684D(4, 1)), the geometry height becomes the template's StructureRubbleHeight (RW tt + 0x607, a byte; <= 0 takes GlobalData
 //   DefaultStructureRubbleHeight, RW + 0xAE4) through RW 0x68B2CB, and RW 0x8C1BB7 runs (BFME2 0x4BDA67, decomp ActiveBodyDamageState.cpp:54-59,
@@ -279,7 +279,7 @@ void ActiveBody::evaluateVisualCondition()
 // (RW 0x8C2D87..0x8C2DAE).
 // NOT PORTED (S-342): the Bookend machinery of walls — status BOOKENDING 0x53 and CAN_NOT_WALK_ON 0x4D with the body state forced to 0, the BookendUpdate
 // module search at RW 0x8C2CEF..0x8C2D82, the StatusFX / StatusDamageFX blocks RW 0x8C2B07 / 0x8C2B28 / 0x8C2C04, the client draw-module search
-// RW 0x8C2C8F..0x8C2CCA (S-142) and the attribute modifiers at RW 0x8C2C64..0x8C2EF1 — and the upgrade removal / attribute pool clear of RW 0x8C1BB7.
+// RW 0x8C2C8F..0x8C2CCA (S-142), the damage-stage machinery at RW 0x8C2C64..0x8C2EF1, and the upgrade removal / attribute pool clear of RW 0x8C1BB7.
 // The model conditions DAMAGED / REALLYDAMAGED / RUBBLE: internalChangeHealth calls the visual update (vslot 0x94, RW 0x8C32A8) after the state changed, not while the
 // object is UNDER_CONSTRUCTION (unless dead). RW 0x8C1D53 -> Object RW 0x6903B6 sets the state's flag and clears the other two.
 void ActiveBody::updateDamageState(bool initial)
@@ -292,6 +292,26 @@ void ActiveBody::updateDamageState(bool initial)
 		return;
 	}
 	Object &obj = *getObject();
+	// RW 0x8C283C, invoked by RW 0x8C2A81 on every state change (also for RespawnBody):
+	// add the matching modifier before removing the other, or remove both outside these states.
+	if (now == BODY_DAMAGED)
+	{
+		if (!m_data->m_damagedAttributeModifier.empty())
+			obj.addAttributeModifier(m_data->m_damagedAttributeModifier, -1); // RW 0x8C2893..0x8C28A2
+	}
+	else if (!m_data->m_damagedAttributeModifier.empty())
+	{
+		obj.removeAttributeModifier(m_data->m_damagedAttributeModifier); // RW 0x8C2852..0x8C2873
+	}
+	if (now == BODY_REALLYDAMAGED)
+	{
+		if (!m_data->m_reallyDamagedAttributeModifier.empty())
+			obj.addAttributeModifier(m_data->m_reallyDamagedAttributeModifier, -1); // RW 0x8C2878..0x8C288C
+	}
+	else if (!m_data->m_reallyDamagedAttributeModifier.empty())
+	{
+		obj.removeAttributeModifier(m_data->m_reallyDamagedAttributeModifier); // RW 0x8C28A7..0x8C28B9
+	}
 	// lane PLAY-4, RW 0x8C3290 .. 0x8C32A8 (internalChangeHealth after vslot 0x54; BFME2 decomp ActiveBody.cpp, ZH "we just don't have all the art states for
 	// that during buildup animation"): the visual change (vslot 0x94) is skipped while the object is UNDER_CONSTRUCTION, unless the health reached 0. A rising
 	// structure (1 hit point at the start, RW 0x85895D) keeps its construction states instead of REALLYDAMAGED / DAMAGED.
@@ -661,6 +681,14 @@ void ActiveBody::attemptDamage(DamageInfo &info)
 		if (m_curDamageState != stateBefore)
 		{
 			notifyDamageStateChange(&info, stateBefore, m_curDamageState);
+			// RW 0x8C3FA3, 0x8C43C3..0x8C441D: only damage (not healing) starts
+			// type 8 on entry to either damage state, if its duration is nonzero.
+			const unsigned transition = m_curDamageState == BODY_DAMAGED ? m_data->m_enteringDamagedTransitionTime
+				: m_curDamageState == BODY_REALLYDAMAGED ? m_data->m_enteringReallyDamagedTransitionTime : 0;
+			if (transition != 0)
+			{
+				obj.setDisabled(DISABLED_TEMPORARILY_BUSY, logic.getFrame() + transition);
+			}
 			playDamageStateSound(obj, m_curDamageState);
 		}
 		// (18) death: health <= 0 and the hit took health; TOP20 #21, RW 0x8C458A .. 0x8C45C0: a capped hit scores the kill too (RW 0x6955BC(obj, 1)) and
