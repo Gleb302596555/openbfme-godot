@@ -25,9 +25,9 @@ button: follow the actual book command set, not the similarly named button.
   special-power requirements and subclass behavior; no deterministic reproduction
   or failing synthetic test exists yet. No claim that the observed divergences
   explain Cloud Break or the intermittent runs is justified yet.
-* Baseline full `openbfme_tests` build is in progress. The draft `PORT-432*`
-  tests described below have not run. The cause, fix, NIGHT_WATCH entry and PR
-  remain outstanding.
+* The full `openbfme_tests` target was built and the `PORT-432*` controls below
+  passed (8 cases, 620 assertions). No test yet reproduces the reported bug or
+  demonstrates red/green; the cause, fix, NIGHT_WATCH entry and PR remain open.
 
 ## Follow-up trace: distinguish routing from the observed failure
 
@@ -76,8 +76,9 @@ establish whether the intermittent click reached the callback. This last test
 needs an appropriate movie fixture; do not claim the queued-input hypothesis
 without a deterministic reproduction and RW comparison.
 
-The prescribed full one-job test build was still running (187/1721 objects at
-last check); no `PORT-432*` tests, fix, green/red result or PR are available yet.
+The prescribed full one-job build and filtered run completed: 8/8 cases and
+620/620 assertions passed without installed game files. These are controls, not
+a red/green test or proof of a fix; no production behavior was changed.
 
 ## Synthetic fixture (work in progress)
 
@@ -89,9 +90,8 @@ shortened as a controlled fixture simplification. Both modules now use the
 mod's `AvailableAtStart = No`; their book is created before the sciences are
 granted and the science hooks are installed. RW 0x6AE268 notifies each matching
 power; RW 0x6AE271..0x6AE29F sets its ready frame to now in skirmish. The
-fixture exercises this acquisition path; its runtime outcome is still unknown.
-The full executable has not yet finished building with these tests; they are
-not a demonstrated red/green regression test. No port behaviour has been
+fixture exercises this acquisition path and passed in the full test executable.
+It is not a demonstrated red/green regression test. No port behaviour has been
 changed and the Apt click hypothesis has not been reproduced.
 
 ## Object validation and input batch follow-up
@@ -114,7 +114,7 @@ changed and the Apt click hypothesis has not been reproduced.
   event; RW 0xB0F256..0xB0F2E8 handles the button's down/up transitions. A
   synthetic Apt button control was added to `PORT-432*` for repeated clicks
   with down/up in one batch versus separate frames, plus an unowned-science
-  refusal control. These tests are still unexecuted. The input control is not
+  refusal control. These controls passed. The input control is not
   the actual spell-book movie, and a normal batched click alone is not evidence
   of a loss: the script's `move_to` waits two render frames and at least 33 ms
   before pressing (except its recording mode).
@@ -133,8 +133,8 @@ completed match belonging to the player. The synthetic fixture now uses an
 explicit skirmish mode and a simplified `ANY +COMMANDCENTER -HERO` filter; it
 checks missing, enemy-owned, under-construction and completed own centers.
 The construction-status approximation in the port is already recorded as
-S-253. This control is not yet runtime-tested, and an absent center is not an
-established cause of the reported intermittent failure. No production
+S-253. This control passed, but an absent center is not an established cause
+of the reported intermittent failure. No production
 behavior was changed.
 
 ## Targetless message-route control
@@ -142,8 +142,8 @@ behavior was changed.
 For the explicit-source and issuing-player spell-book messages, RW 0x77A4CC
 and 0x77B8D6 call the same group action at 0x76F5DB after selecting the source.
 A synthetic `PORT-432*` control now exercises both routes in separate equivalent
-worlds and checks cast/refusal counters, recharge, weather and sunbeams. It is
-not yet runtime-tested and does not establish that routing caused the reported
+worlds and checks cast/refusal counters, recharge, weather and sunbeams. It
+passed, but does not establish that routing caused the reported
 failure; the actual Cloud Break button has no chained command or options.
 
 ## State change between press and dispatch
@@ -156,7 +156,7 @@ port's completed-center condition before dispatch, then restores it. It checks
 that the first message is refused without recharge and the next succeeds. This
 is a controlled refusal, not evidence that the reported game run changed its
 center state. The port uses construction status as an approximation of RW model
-conditions (S-253); the test has not yet run.
+conditions (S-253); the test passed.
 
 ## What the scripted slot-state log does and does not measure
 
@@ -196,10 +196,8 @@ mapping, `InGameSpellBookModel`, and the logic message queue. It repeats
 Rebuild and Cloud Break under both batched and split mouse events, observing the
 callback, targeting, message, cast counter, health and recharge separately.
 This is not the Ennorath movie, `InGameHud`'s deferred callback path, or
-rendered-object picking; a failure here would need its own RW comparison, and a
-pass would not rule out the real movie or HUD path. The source passed syntax
-checking but has not run. Since the build already compiled the test object
-before this change, rebuild the full test target again before using its result.
+rendered-object picking. This test passed for both event schedules, but that
+does not rule out a failure in the real movie or HUD path.
 
 ## Recheck of current main
 
@@ -213,3 +211,15 @@ Gondor buttons investigated here do not supply that option. These changes do
 not establish that #432 is fixed; the reported failure still needs reproduction.
 The branch has not been rebased yet; do that before a PR as required, and rerun
 the tests against the rebased tree.
+
+## Filtered run on the investigation branch
+
+After the first full build, the test object was rebuilt because the fixture had
+changed during that build. On branch commit `539ef2f7`, the prescribed commands
+`cmake -S engine -B engine/build -G Ninja -DCMAKE_BUILD_TYPE=Release
+-DOPENBFME_BUILD_GODOT=OFF`, `cmake --build engine/build -j1 --target
+openbfme_tests`, and `engine/build/openbfme_tests -tc="PORT-432*"` passed:
+8 test cases / 620 assertions, no installed game files. The generated MP3
+fixture tools were unavailable, but the filtered tests did not use them. No
+production fix or red/green comparison exists. The branch still needs a rebase
+onto current main and another filtered run before any PR.
