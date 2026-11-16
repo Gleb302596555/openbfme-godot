@@ -22,8 +22,9 @@
 // The movie side (libingameui.apt sprite 26): Show(n) plays trays "_<n>" (n SubMenuButtonTray clips '0' .. n-1 whose MovieClipFrame reports
 // "<path>_OnButtonFrameLoaded" with index=<tray>) and goes to `_show`; Hide() goes to `_hide`; FadeOut() plays `_fadeOut`, whose last frame sends
 // "<path>_OnClosed" and goes to `_hide`.
-// NOT PORTED: the owner notifications (vslots 4 / 8 of + 0, the PalantirCommandUI listener: what they do was not read); the item content is the owner's
-// (createItemContent / dropItemContent callbacks), as the item's vslot 8 is in retail.
+// PORT-239: RW 0x93023D creates the base wrapper through RW 0x9D353B, vtable 0xC8C46C. Its owner slots +4 / +8 both point to
+// RW 0x63F3BF (ret), so tactical Palantir notifications have no effects. Do not import the strategic HUD derived listener here.
+// Item content uses createItemContent / dropItemContent callbacks, as the item's vslot 8 is in retail.
 #pragma once
 
 #include <functional>
