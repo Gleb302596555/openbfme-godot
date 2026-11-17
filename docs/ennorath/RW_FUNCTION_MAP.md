@@ -1,8 +1,8 @@
 # RotWK module function map
 
-Command: `python tools/mod/rw_function_map.py --game workspace/RotWK/game.dat --ini /tmp/ennorath-ini-1.9.8.3.zip --src engine/src --inventory workspace/rebuild/rw_function_blocks.json --threshold 200 --out docs/ennorath/RW_FUNCTION_MAP`
+Command: `python tools/mod/rw_function_map.py --game /content/game_assets/bfme_assets/RotWK/game.dat --ini /content/drive/MyDrive/for-arena/ennorath-ini-1.9.8.3.zip --inventory workspace/rebuild_inventory.json --out docs/ennorath/RW_FUNCTION_MAP`
 
-Rows: 52638; ported 26451, partial 831, none 25356.
+Rows: 52638; ported 26455, partial 833, none 25350.
 Counts are per module/function pair, not unique functions.
 
 ## Stop list
@@ -5278,7 +5278,6 @@ calls; their targets are not followed.
 | HordeContain | 644 | 0 | 0x00871184 | 53 | none |  |
 | HordeContain | 644 | 0 | 0x0086F93F | 52 | none |  |
 | HordeContain | 644 | 0 | 0x0086ECAB | 51 | none |  |
-| HordeContain | 644 | 0 | 0x0086C81E | 50 | none |  |
 | HordeContain | 644 | 0 | 0x0086DF44 | 49 | none |  |
 | HordeContain | 644 | 0 | 0x00871110 | 47 | none |  |
 | HordeContain | 644 | 0 | 0x00871F8B | 47 | none |  |
@@ -5295,7 +5294,6 @@ calls; their targets are not followed.
 | HordeContain | 644 | 0 | 0x0086BE64 | 22 | none |  |
 | HordeContain | 644 | 0 | 0x0086FFD2 | 19 | none |  |
 | HordeContain | 644 | 0 | 0x0086BD98 | 17 | none |  |
-| HordeContain | 644 | 0 | 0x0086FEEC | 15 | none |  |
 | HordeContain | 644 | 0 | 0x00872B24 | 15 | none |  |
 | HordeContain | 644 | 0 | 0x0086C192 | 14 | none |  |
 | HordeContain | 644 | 0 | 0x0086FEAD | 14 | none |  |
@@ -5362,7 +5360,7 @@ calls; their targets are not followed.
 | HordeContain | 644 | 1 | 0x00869E86 | 6 | none |  |
 | HordeContain | 644 | 1 | 0x0042F6E0 | 5 | none |  |
 | HordeContain | 644 | 1 | 0x00430170 | 4 | none |  |
-| HordeContain | 644 | 1 | 0x00869ED4 | 3 | none |  |
+| HordeContain | 644 | 1 | 0x00869ED4 | 3 | partial |  |
 | HordeContain | 644 | 1 | 0x0086C0CE | 1 | none |  |
 | HordeContain | 644 | 1 | 0x0086C77A | 1 | none |  |
 | HordeContain | 644 | 2 | 0x004813E1 | 79 | none |  |
@@ -11227,7 +11225,7 @@ calls; their targets are not followed.
 | PlayerHealSpecialPower | 91 | 0 | 0x008CC574 | 10 | partial |  |
 | TransportContain | 91 | 0 | 0x00869E86 | 6 | none |  |
 | PlayerHealSpecialPower | 91 | 0 | 0x008C6606 | 4 | none |  |
-| TransportContain | 91 | 0 | 0x00869ED4 | 3 | none |  |
+| TransportContain | 91 | 0 | 0x00869ED4 | 3 | partial |  |
 | ExperienceLevelCreate | 91 | 0 | 0x008BD2E6 | 2 | none |  |
 | PlayerHealSpecialPower | 91 | 0 | 0x008CC2C7 | 2 | none |  |
 | TransportContain | 91 | 0 | 0x0086B04A | 2 | none |  |
@@ -17533,7 +17531,6 @@ calls; their targets are not followed.
 | SpawnPointProductionExitUpdate | 23 | 0 | 0x008A7208 | 2 | none |  |
 | TunnelContain | 23 | 0 | 0x00880E18 | 2 | none |  |
 | TunnelContain | 23 | 0 | 0x00880E1E | 2 | none |  |
-| TunnelContain | 23 | 0 | 0x008812A8 | 2 | none |  |
 | CloudBreakSpecialPower | 23 | 0 | 0x008C6583 | 1 | none |  |
 | CurseSpecialPower | 23 | 0 | 0x008E38D8 | 1 | none |  |
 | TunnelContain | 23 | 0 | 0x00880E8B | 1 | none |  |
@@ -24289,7 +24286,6 @@ calls; their targets are not followed.
 | StopSpecialPower | 2 | 0 | 0x008C6606 | 4 | none |  |
 | DetachableRiderBody | 2 | 0 | 0x008C5DFD | 3 | none |  |
 | DetachableRiderBody | 2 | 0 | 0x008C5E0A | 3 | none |  |
-| GarrisonContain | 2 | 0 | 0x0087B308 | 3 | none |  |
 | CivilianSpawnCollide | 2 | 0 | 0x00464A09 | 2 | none |  |
 | CivilianSpawnCollide | 2 | 0 | 0x008C174F | 2 | none |  |
 | DetachableRiderBody | 2 | 0 | 0x008C5D78 | 2 | none |  |
@@ -26249,7 +26245,7 @@ calls; their targets are not followed.
 
 ## Provenance and limitations
 
-SHA256: `5481de75b63e22483660ea8097478faef594f90b9ade7de893e092256ba68a26`. Analyzer: angr 9.2.213 CFGFast(normalize,tail_calls,no_symbols,no_prologues,no_indirect,no_data_refs). Functions: 11861.
+SHA256: `5481de75b63e22483660ea8097478faef594f90b9ade7de893e092256ba68a26`. Analyzer: angr 9.2.213 angr CFGFast(normalize, tail-call detection, no symbols, no prologue scan, no indirect-jump resolution, no data references). Functions: 11861.
 
 INI replay: 8919 declarations; 8914 unique templates; 255 module classes.
 

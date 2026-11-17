@@ -58,7 +58,8 @@ CATEGORIES = [
     ("NO-SELECT", re.compile(r"could not be selected")),
     ("LEFT-WORLD", re.compile(r"left the world")),
     ("INVENTORY", re.compile(r"does not exist")),
-    ("DISABLED", re.compile(r"\(not enabled\)")),                     # the button stays greyed at the top level: a requirement the test or the port misses
+    ("GREY-BUG", re.compile(r"^GREY-BUG")),                          # still grey with every condition met (PORT-530): the port's availability rule differs from RotWK's
+    ("DISABLED", re.compile(r"\(not enabled\)|^DISABLED: needs")),    # the button stays greyed at the top level: a requirement the test or the port misses
     ("NOT-APPLIED", re.compile(r"not on the unit after")),            # an upgrade button whose upgrade never lands
     ("NO-MODULE", re.compile(r"no module of the unit")),              # the power has no module on the unit to run it
     ("NO-SEND", re.compile(r"sent nothing")),                         # the press or its target click sent no message
@@ -123,6 +124,7 @@ def run_one(a, faction: str) -> tuple[str, int, float]:
     env = dict(os.environ)
     env.update(OPENBFME_SWEEP_OVERLAY=str(env_path("OPENBFME_ENNORATH_INSTALL", a.overlay)), OPENBFME_SWEEP_FACTION=faction,
                OPENBFME_SWEEP_SEEDS=str(seeds), OPENBFME_SWEEP_REPORT=str(tsv), OPENBFME_SWEEP_MAP=a.map, OPENBFME_SWEEP_SKIP=str(skip),
+               OPENBFME_SWEEP_GREY=str(REPO / "docs" / "ennorath" / "MATRIX_GREY.tsv"),  # PORT-530: the grey buttons' conditions (Port 220); absent -> the sweep keeps its old verdicts
                FACTB_TRACE="1")
     tsv.unlink(missing_ok=True)
     skip.write_text("", encoding="utf-8")
@@ -206,7 +208,8 @@ def cmd_collect(a) -> None:
         cats = collections.Counter(d["buttons"].values())
         # the stance button (S-289: it opens the radial) is on every unit: a known stop, not counted as a button of the matrix
         total, ok = sum(cats.values()) - cats.get("STANCE", 0), cats.get("PASS", 0)
-        # a greyed button is mostly a requirement the test does not meet (a forge the faction's objects do not have here): counted apart
+        # a greyed button is mostly a requirement the test does not meet (a forge the faction's objects do not have here): counted apart.
+        # GREY-BUG (PORT-530) is a port bug, not an unmet requirement: it counts as red, and the per-faction line names it.
         grey = cats.get("DISABLED", 0)
         red = total - ok - grey
         cells[fac] = (f"[{total} кнопок: ✓{ok} ✗{red} серых {grey}](MATRIX.tsv) ({stamp})", str(ok))

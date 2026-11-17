@@ -160,11 +160,12 @@ TEST_CASE("module coverage: every registry class is ported, base AI, parsed only
 	// Local 34 (#284): LaserUpdate missing -> ported: 234 -> 235, missing 77 -> 76
 	// Local 35 (#285): DynamicShroudClearingRangeUpdate, DelayedLuaEventUpdate, W3DDebrisDraw missing -> ported: 235 -> 238, missing 76 -> 73
 	// Local 36 (#286): BaseUpgrade, DamageFieldUpdate, CivilianSpawnUpdate, CivilianSpawnCollide missing -> ported: 238 -> 242, missing 73 -> 69
-	CHECK(c.ported == 242);
+	// PORT-206 (fork issue 488): WeaponBonusUpgrade (RW 0x64FF7C; its PLAYER_UPGRADE writer RW 0x8B980D) missing -> ported: 242 -> 243, missing 69 -> 68.
+	CHECK(c.ported == 243);
 	CHECK(c.baseAi == 4);
 	// S-207: SpawnUnitBehavior data is parsed-only; its runtime remains unported (S-140).
 	CHECK(c.parsedOnly == 14); // W3DBuffDraw 13 -> 14 (drawn via ClientBuffs, S-4642). PORT-74 (#206): W3DLaserDraw missing -> parsed only (its data, no beam draw: S-7218): 13 -> 14, missing 83 -> 82.
-	CHECK(c.missing == 69);
+	CHECK(c.missing == 68); // PORT-206: WeaponBonusUpgrade missing -> ported.
 
 	if (const char *out = std::getenv("OPENBFME_MODULE_COVERAGE_OUT"))
 	{

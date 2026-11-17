@@ -10,7 +10,10 @@
 
 #include "doctest.h"
 #include "FactbRig.h"
+#include "GreyFixture.h"
 
+#include "Common/ModelState.h"
+#include "Common/Science.h"
 #include "Common/SpecialPower.h"
 #include "GameLogic/ActionManager.h"
 #include "GameLogic/Module/SpecialPowerModules.h"
@@ -52,6 +55,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <fstream>
+#include <iterator>
 #include <map>
 #include <set>
 
@@ -300,6 +305,18 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 			}
 		}
 	}
+	// lane PORT-530 (Local 72, fork issue 530): the matrix's grey-button fixtures (docs/ennorath/MATRIX_GREY.tsv, Port 220):
+	// a grey button's conditions are given before it is pressed again; without the table the sweep keeps its old verdicts
+	greyfix::Table greyTable;
+	if (sweep)
+	{
+		const char *greyPath = std::getenv("OPENBFME_SWEEP_GREY");
+		std::ifstream in(greyPath ? greyPath : "docs/ennorath/MATRIX_GREY.tsv");
+		if (in)
+		{
+			greyTable = greyfix::parseGreyTable(std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()));
+		}
+	}
 	int n = 0;
 	std::vector<const factb::Entry *> items;
 	for (factb::Kind k : { factb::Kind::Horde, factb::Kind::Unit, factb::Kind::Hero, factb::Kind::Structure })
@@ -350,6 +367,10 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 		Targets tg;
 		std::string enemyName = "GondorFighterHorde";
 		ObjectID uid = INVALID_ID, enemyUnitId = INVALID_ID, enemyBuildingId = INVALID_ID, allyId = INVALID_ID, ownHordeId = INVALID_ID;
+		// lane PORT-530: what one button's fixture made or granted: the required objects (destroyed with the unit) and the
+		// player upgrades (removed again, so one button's fixture does not leak into the next button's verdict)
+		std::vector<ObjectID> fixtureObjects;
+		std::vector<std::string> fixtureUpgrades;
 		auto clear = [&]() {
 			// Targeted commands (including Bloodthirsty, RW 0x940435) keep taking clicks until a target or a right-click cancellation.
 			// Destroying this fixture is not a player cancellation; do that through the HUD before trying to select the next unit.
@@ -359,6 +380,19 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				g.clickAt(c, HudInput::Button::Right);
 				REQUIRE(g.hud->input().ui().getGUICommand() == nullptr);
 			}
+			for (ObjectID id : fixtureObjects)
+			{
+				if (Object *o = g.logic().findObjectByID(id))
+				{
+					g.logic().destroyObject(o);
+				}
+			}
+			fixtureObjects.clear();
+			for (const std::string &nu : fixtureUpgrades)
+			{
+				g.rig.local->removeCompletedUpgrade(nu);
+			}
+			fixtureUpgrades.clear();
 			for (ObjectID id : { uid, enemyUnitId, enemyBuildingId, allyId, ownHordeId })
 			{
 				if (Object *o = id != INVALID_ID ? g.logic().findObjectByID(id) : nullptr)
@@ -600,9 +634,130 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 						continue;
 					}
 				}
+				// lane PORT-530 (Local 72, fork issue 530): the matrix meets a grey button's conditions (docs/ennorath/MATRIX_GREY.tsv,
+				// Port 220) and presses again: the required object is made near the unit, the upgrade / science / level is given, the
+				// model condition is set through the button that sets it (never by writing the bits). A button still grey with every
+				// condition met is GREY-BUG (the port's availability rule differs from RotWK's getCommandAvailability, RW 0x942733);
+				// a condition the sweep cannot give (option / other / none) keeps DISABLED: needs ... The player upgrades the fixture
+				// grants are removed with the unit (clear()), so one button's fixture does not leak into the next; sciences stay
+				// (PlayerScience has no per-science removal, and a science only ever unlocks).
+				const greyfix::Row *greyRow = sweep && b.state != ButtonState::Enabled && b.state != ButtonState::Active ? greyfix::findRow(greyTable, e->name, cb->m_name) : nullptr;
+				bool fixtureApplied = false;
+				std::string fixtureDetail;
+				if (greyRow)
+				{
+					if (!greyfix::fixable(*greyRow))
+					{
+						fixtureDetail = greyfix::needsDetail(*greyRow);
+					}
+					else
+					{
+						fixtureApplied = true;
+						for (const greyfix::Action &a : greyfix::fixturePlan(*greyRow))
+						{
+							if (a.kind == greyfix::Kind::Object)
+							{
+								if (!s.world->things().findTemplate(a.value))
+								{
+									fixtureDetail = greyfix::needsDetail(*greyRow);
+									fixtureApplied = false;
+									break;
+								}
+								fixtureObjects.push_back(g.rig.make(a.value, c.x + 60.0f, c.y - 140.0f)->getID());
+							}
+							else if (a.kind == greyfix::Kind::Upgrade)
+							{
+								const UpgradeTemplate *up = s.world->upgrades().findUpgrade(a.value);
+								if (!up)
+								{
+									fixtureDetail = greyfix::needsDetail(*greyRow);
+									fixtureApplied = false;
+									break;
+								}
+								if (up->getUpgradeType() == UPGRADE_TYPE_PLAYER)
+								{
+									g.rig.local->addCompletedUpgrade(a.value);
+									fixtureUpgrades.push_back(a.value);
+								}
+								else
+								{
+									u->giveUpgrade(a.value);
+								}
+							}
+							else if (a.kind == greyfix::Kind::Science)
+							{
+								const ScienceType st = TheScienceStore ? TheScienceStore->getScienceFromInternalName(a.value) : SCIENCE_INVALID;
+								if (st == SCIENCE_INVALID)
+								{
+									fixtureDetail = greyfix::needsDetail(*greyRow);
+									fixtureApplied = false;
+									break;
+								}
+								g.rig.local->science().grantScience(st);
+							}
+							else if (a.kind == greyfix::Kind::Level)
+							{
+								const int level = std::atoi(a.value.c_str());
+								if (ExperienceTracker *xp = u->getExperienceTracker())
+								{
+									if (level > xp->getRank())
+									{
+										xp->gainExpForLevel(level - xp->getRank(), false);
+									}
+								}
+							}
+							else if (a.kind == greyfix::Kind::Model)
+							{
+								// the button that sets the condition, pressed through the HUD: the satisfied-by column names it;
+								// the fallback is the weapon toggle, then the mount toggle (as the player does)
+								ControlBarButton setter;
+								const bool named = !a.satisfiedBy.empty() && a.satisfiedBy != "-" && g.select(u)
+									&& g.reveal(u, [&](const CommandButton &x) { return x.m_name == a.satisfiedBy; }, setter);
+								const bool weapon = !named && ((u->getWeaponSetFlags()[0] >> 24) & 1u) == 0 && g.select(u)
+									&& g.reveal(u, [](const CommandButton &x) { return x.m_command == GUI_COMMAND_TOGGLE_WEAPONSET; }, setter);
+								const bool mount = !named && !weapon && !u->testModelCondition(ModelCondition::indexOf("MOUNTED")) && g.select(u)
+									&& g.reveal(u, [](const CommandButton &x) { return x.m_specialPowerName == "SpecialAbilityToggleMounted"; }, setter);
+								if (named || weapon || mount)
+								{
+									g.press(setter);
+									g.step(15);
+								}
+							}
+						}
+						if (fixtureApplied)
+						{
+							g.step(2);
+							u = g.logic().findObjectByID(uid);
+							if (!u)
+							{
+								res.fail(item, "the unit left the world after the fixture");
+								continue;
+							}
+							g.select(u);
+							if (!g.reveal(u, [&](const CommandButton &x) { return &x == cb; }, b))
+							{
+								res.fail(item, "the button left the bar after the fixture");
+								continue;
+							}
+							// the fixture may have pressed a toggle: the model gate is read again
+							modelGated = false;
+							for (std::uint32_t w : cb->m_enableOnModelCondition)
+							{
+								modelGated = modelGated || w != 0;
+							}
+							for (size_t w = 0; w < cb->m_disableOnModelCondition.size(); ++w)
+							{
+								modelGated = modelGated || (u->getModelConditionBits()[w] & cb->m_disableOnModelCondition[w]) != 0;
+							}
+							modelGated = modelGated && !upgrade && b.state == ButtonState::Restricted;
+						}
+					}
+				}
 				if (b.state != ButtonState::Enabled && b.state != ButtonState::Active && !modelGated)
 				{
-					res.fail(item, str("state %d at level %d (not enabled)", (int)b.state, u->getExperienceTracker() ? u->getExperienceTracker()->getRank() : 0));
+					res.fail(item, !fixtureDetail.empty() ? fixtureDetail
+						: fixtureApplied && greyRow ? greyfix::bugDetail(*greyRow)
+						: str("state %d at level %d (not enabled)", (int)b.state, u->getExperienceTracker() ? u->getExperienceTracker()->getRank() : 0));
 					continue;
 				}
 				const auto unportedBefore = g.hud->controlBar().unportedPresses();
@@ -857,7 +1012,9 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 					const SpecialAbilityUpdate *a = dynamic_cast<const SpecialAbilityUpdate *>(m.get());
 					needsMount = needsMount || (a && a->abilityData()->m_specialPowerTemplateName == t->getName() && (a->abilityData()->m_requiredConditions & 1u) != 0);
 				}
-				if (needsMount)
+				// lane PORT-530: the fixture's model action may have mounted the unit already: pressing the mount toggle again would
+				// unmount it (in the old flow nothing mounts the unit before this block, so the guard changes nothing there)
+				if (needsMount && !u->testModelCondition(ModelCondition::indexOf("MOUNTED")))
 				{
 					ControlBarButton mount;
 					if (!g.select(u) || !g.reveal(u, [](const CommandButton &x) { return x.m_specialPowerName == "SpecialAbilityToggleMounted"; }, mount) || !g.press(mount))
@@ -875,7 +1032,9 @@ void unitsSweep(const std::string &faction, Results &res, bool sweep)
 				}
 				if (b.state != ButtonState::Enabled && b.state != ButtonState::Active)
 				{
-					res.fail(item, str("state %d at level 10%s (not enabled)", (int)b.state, modelGated ? " after the weapon toggle / mount" : ""));
+					res.fail(item, !fixtureDetail.empty() ? fixtureDetail
+						: fixtureApplied && greyRow ? greyfix::bugDetail(*greyRow)
+						: str("state %d at level 10%s (not enabled)", (int)b.state, modelGated ? " after the weapon toggle / mount" : ""));
 					continue;
 				}
 				struct TempTarget

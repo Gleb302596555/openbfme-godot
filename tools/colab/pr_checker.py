@@ -16,6 +16,9 @@ checked yet (state in /content/prcheck/state.json):
     only what the PR changes is reported; perf1 / uber1 red where main is green = the PR moves a pin;
  5. open PRs that change the same files;
  6. a comment on the PR (marker <!-- prcheck -->) and /content/prcheck/reports/<pr>-<sha>.md.
+ 7. (2026-11-17) the field audit of the PR's tree beside its tests, against main's (once per main commit): fields the PR makes read,
+    fields it stops reading, fields the task / PR names that stay unused; and the function map's view (map_section). Notes and
+    warnings only: the verdict stays the tests'.
 The GitHub token is the sandbox's git credential (~/.git-credentials), never printed.
 
 Order and skips (owner 2026-11-17: the checker ran hours behind, re-checking what Claude had already taken):
@@ -140,12 +143,12 @@ def run_set(patterns: list[str]) -> dict[str, tuple[str, str]]:
 
 def main_baseline(state: dict, main_sha: str) -> dict:
     """BASE on main itself, once per main commit."""
-    if state["main"].get("sha") == main_sha:
+    if state["main"].get("sha") == main_sha and "audit" in state["main"]:
         return state["main"]["results"]
     old = state["main"].get("sha")
-    if old:  # main moved by docs / tools only (a landing's own commits): the engine is the same, keep its results
+    if old and "audit" in state["main"]:  # main moved by docs / tools only (a landing's own commits): the engine is the same, keep its results
         moved = sh(["git", "diff", "--name-only", f"{old}..{main_sha}"]).stdout.split()
-        if moved and not any(f.startswith(("engine/", "godot/")) for f in moved):
+        if moved and not any(f.startswith(("engine/", "godot/")) or f == "tools/mod/field_audit.py" for f in moved):
             state["main"]["sha"] = main_sha
             save_state(state)
             return state["main"]["results"]
@@ -155,8 +158,68 @@ def main_baseline(state: dict, main_sha: str) -> dict:
         raise RuntimeError(f"main {main_sha[:8]} does not build:\n{err}")
     res = run_set(BASE)
     state["main"] = {"sha": main_sha, "results": {k: v[0] for k, v in res.items()}}
+    state["main"]["audit"] = str(run_audit(HOME / "audit-main") or "")  # the field audit of this main: the PRs' audits compare with it
     save_state(state)
     return state["main"]["results"]
+
+
+# The field audit (owner 2026-11-17: the checker sees the nightly maps' tools too): tools/mod/field_audit.py on the built tree, the engine's
+# module coverage from the test binary, the newest hand verdicts from the Drive. About 8 minutes; for a PR it runs beside the tests.
+AUDIT_DRIVE = Path("/content/drive/MyDrive/openbfme-audit")
+USED = {"used", "used-raw", "used-outside", "own-reader"}
+UNUSED = {"parsed-unused", "not-read"}
+
+
+def run_audit(out: Path) -> Path | None:
+    if not (WT / "tools/mod/field_audit.py").exists():
+        return None
+    out.mkdir(parents=True, exist_ok=True)
+    for old in out.glob("*"):
+        old.unlink()
+    env = agent_env()
+    cov = out / "module-coverage.tsv"
+    sh([str(WT / "engine/build/openbfme_tests"), "-tc=module coverage: every registry class*"], timeout=1200,
+       env=dict(env, OPENBFME_MODULE_COVERAGE_OUT=str(cov)))
+    manuals = sorted(AUDIT_DRIVE.glob("field-audit-v*/manual-check.tsv"), key=lambda p: int(re.sub(r"\D", "", p.parent.name) or 0))
+    cmd = [sys.executable, "tools/mod/field_audit.py", "--base", env.get("ROTWK_INSTALL", ""), "--overlay",
+           env.get("OPENBFME_ENNORATH_INSTALL", ""), "--coverage", str(cov), "--out", str(out)]
+    if manuals:
+        cmd += ["--manual", str(manuals[-1])]
+    done = sh(cmd, timeout=1800)
+    tsv = out / "field-audit.tsv"
+    return tsv if done.returncode == 0 and tsv.exists() else None
+
+
+def audit_rows(tsv: Path) -> dict[tuple[str, str, str], str]:
+    import csv
+    with tsv.open(encoding="utf-8", newline="") as s:
+        return {(r["block"], r["owner"], r["field"]): r["status"] for r in csv.DictReader(s, delimiter="\t", quoting=csv.QUOTE_NONE)}
+
+
+def audit_section(base_tsv: str, pr_tsv: Path | None, claim_text: str) -> list[str]:
+    """What the PR does to the mod's fields: unused -> used (the port's evidence), used -> unused (a reader lost?), and fields the task or
+    PR names that the audit still sees unused. Warnings and notes only: the verdict stays the tests' (a red line is never the audit's)."""
+    if not pr_tsv or not base_tsv or not Path(base_tsv).exists():
+        return ["ℹ️ Аудит полей не посчитан (нет аудита main или PR) — статусы полей не сверены."]
+    was, now = audit_rows(Path(base_tsv)), audit_rows(pr_tsv)
+    name = lambda k: f"`{k[0]}{'/' + k[1] if k[1] else ''} {k[2]}`"
+    gained = sorted(k for k, st in now.items() if st in USED and was.get(k) in UNUSED)
+    lost = sorted(k for k, st in now.items() if st in UNUSED and was.get(k) in USED)
+    out = []
+    if gained:
+        out.append(f"📋 Аудит полей: PR переводит в «используется» {len(gained)}: " + ", ".join(map(name, gained[:15]))
+                   + (" …" if len(gained) > 15 else ""))
+    else:
+        out.append("📋 Аудит полей: PR не переводит ни одно поле мода в «используется».")
+    if lost:
+        out.append(f"⚠️ Поля, которые на main читаются, а с PR — нет ({len(lost)}; потерян читатель?): " + ", ".join(map(name, lost[:15])))
+    text = claim_text.lower()
+    named = sorted(k for k, st in now.items() if st in UNUSED and len(k[2]) >= 6 and re.search(rf"\b{re.escape(k[2].lower())}\b", text)
+                   and ((k[1].lower() in text) if k[1] else (k[0].lower() in text)))  # a module field needs its class named, not just "object"
+    if named:
+        out.append(f"⚠️ Названы в задаче или PR, но аудит по-прежнему видит их неиспользуемыми ({len(named)}): " + ", ".join(map(name, named[:15]))
+                   + ". Если правка читает их — проверь, что аудит находит читателя; если задача не про них — всё в порядке.")
+    return out
 
 
 def own_tests(diff: str, title: str) -> list[str]:
@@ -231,7 +294,13 @@ def check_pr(pr: dict, state: dict, main_sha: str, open_prs: list[dict], comment
     own = own_tests(diff, pr["title"])
     base_needed = touches_engine(changed)
     t_tests = time.time()
-    res = run_set(own + (BASE if base_needed else []))
+    with cf.ThreadPoolExecutor(1) as side:  # the field audit of the PR's tree beside its tests (about 8 minutes, one core)
+        audit_job = side.submit(run_audit, HOME / "audit-pr") if base_needed else None
+        res = run_set(own + (BASE if base_needed else []))
+        try:
+            pr_audit = audit_job.result() if audit_job else None
+        except Exception:  # the audit never decides the verdict
+            pr_audit = None
     t_tests = time.time() - t_tests
     if not base_needed:
         res.update({tc: (base.get(tc, "none"), "") for tc in BASE})
@@ -283,6 +352,18 @@ def check_pr(pr: dict, state: dict, main_sha: str, open_prs: list[dict], comment
             overlap.append(f"- #{other['number']} {other['title'][:80]}: {', '.join(f'`{c}`' for c in common[:6])}")
     if overlap:
         lines += ["⚠️ Те же файлы правят открытые PR (при слиянии сверить функции):"] + overlap
+    if base_needed:
+        claim = (pr.get("title") or "") + "\n" + (pr.get("body") or "")
+        m = re.search(r"(?:closes|fixes|resolves|issue)\s+#(\d+)", pr.get("body") or "", re.I)
+        if m:
+            try:
+                claim += "\n" + json.loads(gh("issue", "view", m.group(1), "--json", "title,body")).get("body", "")
+            except Exception:
+                pass
+        try:
+            lines += audit_section(state["main"].get("audit", ""), pr_audit, claim)
+        except (OSError, ValueError, KeyError) as exc:
+            lines.append(f"ℹ️ Аудит полей не сверен: {exc}")
     try:
         lines += map_section(diff, main_sha)
     except (OSError, ValueError, KeyError) as exc:

@@ -11,7 +11,8 @@ pushed to origin/agent/claude/station-0, and after the landing's hand-written do
 3. refuse when README has other than one "open stops" line or STOPS.md repeats an id;
 4. write today's row of docs/ennorath/PROGRESS.tsv (tools/mod/progress_snapshot.py);
 5. commit what 2-4 changed, push station-0, fast-forward the main checkout and push main;
-6. build the game in the main checkout with build.bat (full path; the bare name is not found from Git Bash).
+6. refresh the arena's encrypted archive with the audit the maps run put on the Drive (../DashBoard/scripts/arena_refresh.py, if present);
+7. build the game in the main checkout with build.bat (full path; the bare name is not found from Git Bash).
 Every step prints what it did; any failure stops before main moves.
 """
 from __future__ import annotations
@@ -93,6 +94,13 @@ def main() -> int:
     run("git", "merge", "--ff-only", "-q", BRANCH, cwd=MAIN)
     run("git", "push", "-q", "origin", "main", cwd=MAIN)
     print("land: main =", run("git", "log", "--oneline", "-1", cwd=MAIN).strip())
+    # owner 2026-11-17: the arena's encrypted archive gets the audit the maps run last put on the Drive (the key stays in the private
+    # DashBoard repository on this PC); a failure only warns, main is already pushed
+    refresh = MAIN.parent / "DashBoard" / "scripts" / "arena_refresh.py"
+    if refresh.exists() and not a.no_push:
+        done = subprocess.run([sys.executable, str(refresh), "--fork", str(MAIN)])
+        if done.returncode:
+            print(f"land: warning: the arena archive was not refreshed ({done.returncode}); run {refresh} by hand")
     if not a.no_build:
         bat = MAIN / "build.bat"
         print("$ build.bat (full path)")

@@ -178,7 +178,7 @@ public:
 	// ---- the special power update interface (+ 0x20) ----
 	bool drivesSpecialPower(const SpecialPowerTemplate *t) const override { return t && t == m_baseData->m_specialPowerTemplate; } // RW 0x89827C
 	bool isActive() const override { return false; }               // slot 2: RW 0x9188EB (the subclasses override it)
-	bool allowsSpecialPowerUse() const override { return true; }   // slot 8: RW 0x9B501B
+	bool allowsSpecialPowerUse(const Coord3D *) const override { return true; } // slot 8: RW 0x9B501B
 	// ---- the special power interface (+ 0x24) ----
 	const SpecialPowerTemplate *getSpecialPowerTemplate() const override { return m_baseData->m_specialPowerTemplate; }
 	bool isReady() const override { return readyImpl(true); }                 // RW 0x99135D
